@@ -76,6 +76,8 @@ int main(int argc, char *argv[]) {
   pin.SetInteger("mesh", "nx1", 50);
   pin.SetReal("mesh", "x1min", -0.5);
   pin.SetReal("mesh", "x1max", 0.5);
+  pin.SetString("mesh", "ix1_bc", "reflecting");
+  pin.SetString("mesh", "ox1_bc", "reflecting");
 
   pin.SetInteger("mesh", "nx2", 1);
   pin.SetReal("mesh", "x2min", -0.5);
