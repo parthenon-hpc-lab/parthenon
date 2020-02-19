@@ -1,8 +1,4 @@
 #=========================================================================================
-# Athena++ astrophysical MHD code
-# Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
-# Licensed under the 3-clause BSD License, see LICENSE file for details
-#=========================================================================================
 # (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
@@ -18,9 +14,9 @@
 # TODO: Probably shouldn't be done at configure time - instead we should have a separate
 # build task that does this.
 
-file(GLOB_RECURSE COPYRIGHTABLE_SOURCES src/*.cpp)
-file(GLOB_RECURSE COPYRIGHTABLE_HEADERS src/*.hpp)
-file(GLOB_RECURSE COPYRIGHTABLE_CMAKE cmake/*)
+file(GLOB_RECURSE COPYRIGHTABLE_SOURCES src/*.cpp example/*.cpp)
+file(GLOB_RECURSE COPYRIGHTABLE_HEADERS src/*.hpp example/*.hpp)
+file(GLOB_RECURSE COPYRIGHTABLE_CMAKE cmake/* src/CMakeLists.txt example/CMakeLists.txt)
 
 set(COPYRIGHTABLE
     ${COPYRIGHTABLE_SOURCES}
