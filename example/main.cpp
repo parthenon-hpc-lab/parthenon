@@ -72,22 +72,42 @@ int main(int argc, char *argv[]) {
   Globals::nranks  = 1;
 #endif  // MPI_PARALLEL
 
+  if (argc < 2) {
+    if (Globals::my_rank == 0) {
+      std::cout << "\nUsage: " << argv[0] << " input_file\n"
+		<< "\tTry this input file:\n"
+		<< "\tparthenon/example/parthinput.example"
+		<< std::endl;
+    }
+    return 0;
+  }
+  std::string inputFileName = argv[1];
   ParameterInput pin;
-  pin.SetInteger("mesh", "nx1", 50);
-  pin.SetReal("mesh", "x1min", -0.5);
-  pin.SetReal("mesh", "x1max", 0.5);
-  pin.SetString("mesh", "ix1_bc", "reflecting");
-  pin.SetString("mesh", "ox1_bc", "reflecting");
+  IOWrapper inputFile;
+  inputFile.Open(inputFileName.c_str(), IOWrapper::FileMode::read);
+  pin.LoadFromFile(inputFile);
+  inputFile.Close();
 
-  pin.SetInteger("mesh", "nx2", 1);
-  pin.SetReal("mesh", "x2min", -0.5);
-  pin.SetReal("mesh", "x2max", 0.5);
-
-  pin.SetInteger("mesh", "nx3", 1);
-  pin.SetReal("mesh", "x3min", -0.5);
-  pin.SetReal("mesh", "x3max", 0.5);
-
-  pin.SetReal("time", "tlim", 1.0);
+  if (Globals::my_rank == 0) {
+    std::cout << "\ninput file = " << inputFileName << std::endl;
+    if (pin.DoesParameterExist("mesh","nx1")) {
+      std::cout << "nx1 = " << pin.GetInteger("mesh","nx1") << std::endl;
+    }
+    if (pin.DoesParameterExist("mesh","x1min")) {
+      std::cout << "x1min = " << pin.GetReal("mesh","x1min") << std::endl;
+    }
+    if (pin.DoesParameterExist("mesh","x1max")) {
+      std::cout << "x1max = " << pin.GetReal("mesh","x1max") << std::endl;
+    }
+    if (pin.DoesParameterExist("mesh", "ix1_bc")) {
+      std::cout << "x1 inner boundary condition = "
+		<< pin.GetString("mesh","ix1_bc") << std::endl;
+    }
+    if (pin.DoesParameterExist("mesh", "ox1_bc")) {
+      std::cout << "x1 outer boundary condition = "
+		<< pin.GetString("mesh","ox1_bc") << std::endl;
+    }
+  }
 
   std::vector<std::shared_ptr<MaterialPropertiesInterface>> mats;
   std::map<std::string, std::shared_ptr<StateDescriptor>> physics;
