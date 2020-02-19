@@ -72,7 +72,7 @@ int main(int argc, char *argv[]) {
   Globals::nranks  = 1;
 #endif  // MPI_PARALLEL
 
-  if (argc < 2) {
+  if (argc != 2) {
     if (Globals::my_rank == 0) {
       std::cout << "\nUsage: " << argv[0] << " input_file\n"
         << "\tTry this input file:\n"
