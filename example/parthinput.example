@@ -1,0 +1,31 @@
+<comment>
+problem = simple example
+
+<job>
+problem_id = example
+
+<mesh>
+nx1 = 50
+x1min = -0.5
+x1max = 0.5
+
+ix1_bc = reflecting
+ox1_bc = reflecting
+
+nx2 = 1
+x1min = -0.5
+x1max = 0.5
+
+nx3 = 1
+x3min = -0.5
+x3max = 0.5
+
+num_threads = 1
+
+<time>
+tlim = 1.0
+
+<meshblock>
+nx1 = 50
+nx2 = 1
+nx3 = 1
