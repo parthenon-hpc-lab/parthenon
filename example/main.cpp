@@ -75,9 +75,9 @@ int main(int argc, char *argv[]) {
   if (argc < 2) {
     if (Globals::my_rank == 0) {
       std::cout << "\nUsage: " << argv[0] << " input_file\n"
-		<< "\tTry this input file:\n"
-		<< "\tparthenon/example/parthinput.example"
-		<< std::endl;
+        << "\tTry this input file:\n"
+        << "\tparthenon/example/parthinput.example"
+        << std::endl;
     }
     return 0;
   }
@@ -101,11 +101,11 @@ int main(int argc, char *argv[]) {
     }
     if (pin.DoesParameterExist("mesh", "ix1_bc")) {
       std::cout << "x1 inner boundary condition = "
-		<< pin.GetString("mesh","ix1_bc") << std::endl;
+        << pin.GetString("mesh","ix1_bc") << std::endl;
     }
     if (pin.DoesParameterExist("mesh", "ox1_bc")) {
       std::cout << "x1 outer boundary condition = "
-		<< pin.GetString("mesh","ox1_bc") << std::endl;
+        << pin.GetString("mesh","ox1_bc") << std::endl;
     }
   }
 
