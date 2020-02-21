@@ -107,7 +107,7 @@ Mesh::Mesh(ParameterInput *pin,
         UniformMeshGeneratorX3},
   BoundaryFunction_{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
   AMRFlag_{}, UserSourceTerm_{}, UserTimeStep_{}, ViscosityCoeff_{},
-  ConductionCoeff_{}, FieldDiffusivity_{}, pre_fill_derived_(pre_fill_derived) {
+  ConductionCoeff_{}, FieldDiffusivity_{}, pre_fill_derived_(pre_fill_derived),pblock(nullptr) {
     std::stringstream msg;
     RegionSize block_size;
     MeshBlock *pfirst{};
@@ -551,7 +551,7 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper& resfile,
                    UniformMeshGeneratorX3},
     BoundaryFunction_{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
     AMRFlag_{}, UserSourceTerm_{}, UserTimeStep_{}, ViscosityCoeff_{},
-    ConductionCoeff_{}, FieldDiffusivity_{}, pre_fill_derived_(pre_fill_derived) {
+    ConductionCoeff_{}, FieldDiffusivity_{}, pre_fill_derived_(pre_fill_derived), pblock(nullptr) {
   std::stringstream msg;
   RegionSize block_size;
   BoundaryFlag block_bcs[6];
@@ -836,11 +836,13 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper& resfile,
 // destructor
 
 Mesh::~Mesh() {
-  while (pblock->prev != nullptr) // should not be true
-    delete pblock->prev;
-  while (pblock->next != nullptr)
-    delete pblock->next;
-  delete pblock;
+  if(pblock!=nullptr){
+    while (pblock->prev != nullptr) // should not be true
+      delete pblock->prev;
+    while (pblock->next != nullptr)
+      delete pblock->next;
+    delete pblock;
+  }
   delete [] nslist;
   delete [] nblist;
   delete [] ranklist;
