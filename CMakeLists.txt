@@ -60,7 +60,7 @@ if (${ENABLE_UNIT_TESTS} OR ${ENABLE_INTEGRATION_TESTS} OR ${ENABLE_REGRESSION_T
     # If Catch2 is not found, instead use the git submodule
     if (NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/external/Catch2/single_include)
       # Unable to find the header files for Catch2 or they don't exist
-      message("Downloading Catch2 submodule.")
+      message(STATUS "Downloading Catch2 submodule.")
 
       # Clone the submodule
       execute_process(COMMAND git submodule update --init --force -- external/Catch2 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
@@ -69,6 +69,7 @@ if (${ENABLE_UNIT_TESTS} OR ${ENABLE_INTEGRATION_TESTS} OR ${ENABLE_REGRESSION_T
     add_subdirectory(external/Catch2)
   endif()
 
+  include(ParseAndAddCatchTests)
   add_subdirectory(tst)
 endif()
 
