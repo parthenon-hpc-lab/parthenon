@@ -52,7 +52,7 @@
 static int id=0;
 MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
                      BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
-                     std::vector<std::shared_ptr<MaterialPropertiesInterface>>& mats,
+                     std::vector<std::shared_ptr<PropertiesInterface>>& mats,
                      std::map<std::string, std::shared_ptr<StateDescriptor>>& phys,
                      int igflag, bool ref_flag) :
     pmy_mesh(pm), loc(iloc), block_size(input_block),
@@ -189,7 +189,7 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
 // MeshBlock constructor for restarts
 
 MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
-                     std::vector<std::shared_ptr<MaterialPropertiesInterface>>& mats,
+                     std::vector<std::shared_ptr<PropertiesInterface>>& mats,
                      std::map<std::string, std::shared_ptr<StateDescriptor>>& phys,
                      LogicalLocation iloc, RegionSize input_block,
                      BoundaryFlag *input_bcs,

@@ -109,7 +109,7 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  std::vector<std::shared_ptr<MaterialPropertiesInterface>> mats;
+  std::vector<std::shared_ptr<PropertiesInterface>> mats;
   std::map<std::string, std::shared_ptr<StateDescriptor>> physics;
   Mesh m(&pin, mats, physics, [](Container<Real> &) {});
 

@@ -15,8 +15,9 @@
 
 #include "athena.hpp"
 #include "interface/Container.hpp"
+#include "mesh/mesh.hpp"
 
-using PreFillDerivedFunc = std::function<void(Container<Real> &)>;
+class MeshBlock;
 
 namespace Update {
 
@@ -26,10 +27,21 @@ void UpdateContainer(Container<Real> &in, Container<Real> &dudt_cont,
 void AverageContainers(Container<Real> &c1, Container<Real> &c2,
                        const Real wgt1);
 
-void FillDerived(PreFillDerivedFunc pre_fill_derived, Container<Real> &rc);
+void FillDerived(Container<Real> &rc);
 
 Real EstimateTimestep(Container<Real> &rc);
 
 } // namespace Update
+
+using FillDerivedFunc = void (Container<Real>&);
+class FillDerivedVariables {
+  public:
+    static void SetFillDerivedFunctions(FillDerivedFunc *pre, FillDerivedFunc *post) {pre_package_fill = pre; post_package_fill = post;}
+    static void FillDerived(Container<Real> &rc); 
+    static FillDerivedFunc *pre_package_fill;
+    static FillDerivedFunc *post_package_fill;
+  private:
+    FillDerivedVariables() {}; // private constructor means we'll never instantiate a FillDerivedVariables object
+};
 
 #endif

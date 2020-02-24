@@ -10,7 +10,7 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#include "MaterialPropertiesInterface.hpp"
+#include "PropertiesInterface.hpp"
 
 // Initialize the static map of ids
-std::map<std::string, int> MaterialPropertiesInterface::_label_to_id;
+std::map<std::string, int> PropertiesInterface::_label_to_id;

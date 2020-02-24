@@ -160,17 +160,6 @@ void AverageContainers(Container<Real> &c1, Container<Real> &c2,
   return;
 }
 
-void FillDerived(PreFillDerivedFunc pre_fill_derived, Container<Real> &rc) {
-  pre_fill_derived(rc);
-
-  for (auto &phys : rc.pmy_block->physics) {
-    auto &desc = phys.second;
-    if (desc->FillDerived != nullptr) {
-      desc->FillDerived(rc);
-    }
-  }
-}
-
 Real EstimateTimestep(Container<Real> &rc) {
   MeshBlock *pmb = rc.pmy_block;
   Real dt_min = std::numeric_limits<Real>::max();
@@ -185,3 +174,21 @@ Real EstimateTimestep(Container<Real> &rc) {
 }
 
 } // namespace Update
+
+FillDerivedFunc* FillDerivedVariables::pre_package_fill = nullptr;
+FillDerivedFunc* FillDerivedVariables::post_package_fill = nullptr;
+
+void FillDerivedVariables::FillDerived(Container<Real>& rc) {
+      if (pre_package_fill != nullptr) {
+        pre_package_fill(rc);
+      }
+      for (auto &phys : rc.pmy_block->physics) {
+        auto &desc = phys.second;
+        if (desc->FillDerived != nullptr) {
+          desc->FillDerived(rc);
+        }
+      }
+      if (post_package_fill != nullptr) {
+        post_package_fill(rc);
+      }
+    }

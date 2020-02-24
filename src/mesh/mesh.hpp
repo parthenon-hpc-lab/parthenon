@@ -36,10 +36,10 @@
 #include "bvals/bvals.hpp"
 #include "outputs/io_wrapper.hpp"
 #include "parameter_input.hpp"
-#include "task_list/task_list.hpp"
+#include "task_list/tasks.hpp"
 #include "utils/interp_table.hpp"
 #include "interface/Container.hpp"
-#include "interface/MaterialPropertiesInterface.hpp"
+#include "interface/PropertiesInterface.hpp"
 #include "interface/Update.hpp"
 #include "interface/StateDescriptor.hpp"
 #include "mesh_refinement.hpp"
@@ -53,8 +53,6 @@ class Mesh;
 class MeshRefinement;
 class MeshBlockTree;
 class BoundaryValues;
-class TaskList;
-struct TaskStates;
 class Coordinates;
 class Reconstruction;
 
@@ -86,11 +84,11 @@ class MeshBlock {
 public:
   MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_size,
             BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
-            std::vector<std::shared_ptr<MaterialPropertiesInterface>>& mats,
+            std::vector<std::shared_ptr<PropertiesInterface>>& mats,
             int igflag,
             bool ref_flag = false);
   MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
-            std::vector<std::shared_ptr<MaterialPropertiesInterface>> & mats,
+            std::vector<std::shared_ptr<PropertiesInterface>> & mats,
             std::map<std::string, std::shared_ptr<StateDescriptor>>& phys,
             LogicalLocation iloc,
             RegionSize input_block, BoundaryFlag *input_bcs, double icost,
@@ -100,7 +98,7 @@ public:
 	    LogicalLocation iloc,
 	    RegionSize input_block,
 	    BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
-	    std::vector<std::shared_ptr<MaterialPropertiesInterface>>& mats,
+	    std::vector<std::shared_ptr<PropertiesInterface>>& mats,
 	    std::map<std::string, std::shared_ptr<StateDescriptor>>& phys,
 	    int igflag, bool ref_flag=false);
   ~MeshBlock();
@@ -137,7 +135,7 @@ public:
   // The User defined containers
   Container<Real> real_container;
 
-  std::vector<std::shared_ptr<MaterialPropertiesInterface>> materials;
+  std::vector<std::shared_ptr<PropertiesInterface>> materials;
   std::map<std::string, std::shared_ptr<StateDescriptor>> physics;
   std::unique_ptr<MeshBlockApplicationData> app;
 
@@ -178,8 +176,6 @@ private:
   // data
   Real new_block_dt_, new_block_dt_hyperbolic_, new_block_dt_parabolic_,
     new_block_dt_user_;
-  // TODO(felker): make global TaskList a member of MeshBlock.
-  TaskStates tasks;
   int nreal_user_meshblock_data_, nint_user_meshblock_data_;
   std::vector<std::reference_wrapper<Variable<Real>>> vars_cc_;
   std::vector<std::reference_wrapper<FaceField>> vars_fc_;
@@ -224,13 +220,11 @@ class Mesh {
 public:
   // 2x function overloads of ctor: normal and restarted simulation
   Mesh(ParameterInput *pin,
-      std::vector<std::shared_ptr<MaterialPropertiesInterface>> &materials,
-      std::map<std::string, std::shared_ptr<StateDescriptor>>& physics,
-      PreFillDerivedFunc pre_fill_derived, int test_flag=0);
+      std::vector<std::shared_ptr<PropertiesInterface>> &materials,
+      std::map<std::string, std::shared_ptr<StateDescriptor>>& physics, int test_flag=0);
   Mesh(ParameterInput *pin, IOWrapper &resfile,
-      std::vector<std::shared_ptr<MaterialPropertiesInterface>> &materials,
-      std::map<std::string, std::shared_ptr<StateDescriptor>>& physics,
-      PreFillDerivedFunc pre_fill_derived, int test_flag=0);
+      std::vector<std::shared_ptr<PropertiesInterface>> &materials,
+      std::map<std::string, std::shared_ptr<StateDescriptor>>& physics, int test_flag=0);
   ~Mesh();
 
   // accessors
@@ -248,13 +242,14 @@ public:
   Real start_time, time, tlim, dt, dt_hyperbolic, dt_parabolic, dt_user;
   int nlim, ncycle, ncycle_out, dt_diagnostics;
   int nbtotal, nbnew, nbdel;
+  std::uint64_t mbcnt;
 
   int step_since_lb;
   int gflag;
 
   // ptr to first MeshBlock (node) in linked list of blocks belonging to this MPI rank:
   MeshBlock *pblock;
-  std::vector<std::shared_ptr<MaterialPropertiesInterface>> materials;
+  std::vector<std::shared_ptr<PropertiesInterface>> materials;
   std::map<std::string, std::shared_ptr<StateDescriptor>> physics;
 
   AthenaArray<Real> *ruser_mesh_data;
@@ -325,7 +320,6 @@ private:
   ViscosityCoeffFunc ViscosityCoeff_;
   ConductionCoeffFunc ConductionCoeff_;
   FieldDiffusionCoeffFunc FieldDiffusivity_;
-  PreFillDerivedFunc pre_fill_derived_;
 
   void AllocateRealUserMeshDataField(int n);
   void AllocateIntUserMeshDataField(int n);

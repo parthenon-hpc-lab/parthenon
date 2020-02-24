@@ -22,7 +22,7 @@
 #include <array>
 #include <memory>
 #include <vector>
-#include "interface/MaterialPropertiesInterface.hpp"
+#include "interface/PropertiesInterface.hpp"
 #include "Container.hpp"
 #include "Variable.hpp"
 
@@ -45,7 +45,7 @@ class ContainerIterator {
       for (auto& v : field.second) {
         if ( flagVector[0] == Metadata::graphics) {
           _allVars.push_back(std::make_shared<Variable<T>>(
-              v->label() + "_" + MaterialPropertiesInterface::GetLabelFromID(IM[idx]), *v));
+              v->label() + "_" + PropertiesInterface::GetLabelFromID(IM[idx]), *v));
           idx++;
         } else {
           _allVars.push_back(v);

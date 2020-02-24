@@ -50,7 +50,7 @@ add_library(parthenon
   coordinates/cartesian.cpp
 
   interface/Container.cpp
-  interface/MaterialPropertiesInterface.cpp
+  interface/PropertiesInterface.cpp
   interface/MaterialVariable.cpp
   interface/Stage.cpp
   interface/Update.cpp
