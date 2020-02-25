@@ -1,0 +1,24 @@
+
+language: cpp
+
+sudo: required
+
+git:
+  quiet: true
+
+stages:
+  - test
+
+before_script:
+  - git checkout -b current_commit
+  - git clone -q --recursive --init -- https://github.com/lanl/parthenon.git
+
+script:
+  - mkdir build
+  - cd build
+  - cmake ../
+  - make
+  - make test
+
+compiler:
+  - gcc
