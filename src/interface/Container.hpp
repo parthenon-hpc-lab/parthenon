@@ -20,7 +20,7 @@
 #include <vector>
 #include "globals.hpp"
 //#include "mesh/mesh.hpp"
-#include "MaterialVariable.hpp"
+#include "SparseVariable.hpp"
 #include "Stage.hpp"
 #include "Variable.hpp"
 
@@ -189,7 +189,7 @@ class Container {
 //  int Index(std::string label) {return Index(label);}
 
   // returns the material map from the Material Variables
-  MaterialMap<T>& GetMaterial(const std::string& label) {
+  SparseMap<T>& GetMaterial(const std::string& label) {
     return s->_matVars.Get(label);
   }
 
@@ -302,7 +302,7 @@ class Container {
     return s->_varArray;
   }
 
-  MaterialVariable<T>& matVars() {
+  SparseVariable<T>& matVars() {
     return s->_matVars;
   }
 

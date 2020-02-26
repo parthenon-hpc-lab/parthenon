@@ -24,7 +24,7 @@ struct FaceVariable;
 struct EdgeVariable;
 template <typename T> class Container;
 template <typename T> class Variable;
-template <typename T> class MaterialVariable;
+template <typename T> class SparseVariable;
 
 ///
 /// The stage class provides a single struct that can be replaced to
@@ -51,7 +51,7 @@ class Stage {
   std::vector<std::shared_ptr<Variable<T>>> _varArray = {}; ///< the saved variable array
   std::vector<std::shared_ptr<FaceVariable>> _faceArray = {};  ///< the saved face arrays
   ///  std::vector<EdgeVariable*> _edgeArray = {};  ///< the saved face arrays
-  MaterialVariable<T> _matVars;
+  SparseVariable<T> _matVars;
 
   // debug destructor
   //  ~Stage() {

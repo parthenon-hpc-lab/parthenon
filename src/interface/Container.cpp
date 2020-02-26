@@ -17,7 +17,7 @@
 #include "bvals/cc/bvals_cc.hpp"
 #include "Container.hpp"
 #include "globals.hpp" // my_rank
-#include "MaterialVariable.hpp"
+#include "SparseVariable.hpp"
 #include "mesh/mesh.hpp"
 
 namespace parthenon {
@@ -537,7 +537,7 @@ int Container<T>::GetVariables(const std::vector<std::string>& names,
     catch (const std::invalid_argument& x) {
       // Not a regular variable, so try a material variable
       try { // material variable
-        MaterialMap<T>& M = GetMaterial(label);
+        SparseMap<T>& M = GetMaterial(label);
         if ( M.size() > 0) {
           if ( matID.size() > 0) {
             for (auto& theMat : matID) {

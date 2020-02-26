@@ -11,12 +11,13 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 ///
-/// A Material Variable type for Placebo-K.
+/// A Sparse Variable type for Placebo-K.
 /// Builds on AthenaArrays
 /// Date: Sep 12, 2019
 ///
-#ifndef INTERFACE_MATERIALVARIABLE_HPP_
-#define INTERFACE_MATERIALVARIABLE_HPP_
+#ifndef INTERFACE_SPARSEVARIABLE_HPP_
+#define INTERFACE_SPARSEVARIABLE_HPP_
+
 #include <functional>
 #include <iostream>
 #include <map>
@@ -28,8 +29,9 @@
 #include "Variable.hpp"
 
 namespace parthenon {
+
 template <typename T>
-class MaterialMap : public std::map<int, std::shared_ptr<Variable<T>>> {
+class SparseMap : public std::map<int, std::shared_ptr<Variable<T>>> {
  public:
   Variable<T>& operator()(int m) {
     return *(*this)[m];
@@ -56,23 +58,19 @@ class MaterialMap : public std::map<int, std::shared_ptr<Variable<T>>> {
 };
 
 ///
-/// MaterialVariable builds on top of  the Variable class to include a map for
-/// material data.  This will be used for all multi-material
-/// variables.
+/// SparseVariable builds on top of  the Variable class to include a map
 template <typename T>
-class MaterialVariable {
+class SparseVariable {
  public:
   // Note only default constructor
 
-  /// create a new material variable alias from material variable
-  /// 'theLabel' in input material variable mv
-  void AddAlias(const std::string& theLabel, MaterialVariable<T>& mv);
+  /// create a new variable alias from variable 'theLabel' in input variable mv
+  void AddAlias(const std::string& theLabel, SparseVariable<T>& mv);
 
-  /// create a new material variable deep copy from material variable
-  /// 'theLabel' in input material variable mv
-  void AddCopy(const std::string& theLabel, MaterialVariable<T>& mv);
+  /// create a new variable deep copy from variable 'theLabel' in input variable mv
+  void AddCopy(const std::string& theLabel, SparseVariable<T>& mv);
 
-  ///create a new material variable
+  ///create a new variable
   void Add(MeshBlock &pmb,
            const std::string &label,
            const Metadata &metadata,
@@ -92,7 +90,7 @@ class MaterialVariable {
     std::string s = label;
     s.resize(20,'.');
 
-    s += std::string(" materials:");
+    s += std::string(" variables:");
     for (auto const& items : myMap) s += std::to_string(items.first) + ":";
 
     // now append flag
@@ -103,11 +101,11 @@ class MaterialVariable {
     return s;
   }
 
-  MaterialMap<T>& Get(const std::string& label) {
+  SparseMap<T>& Get(const std::string& label) {
     if (_cellVars.find(label) == _cellVars.end()) {
-      throw std::invalid_argument ("Unable to find material variable " +
+      throw std::invalid_argument ("Unable to find variable " +
                                    label +
-                                   " in MaterialMap<T> container::Get() ");
+                                   " in SparseMap<T> container::Get() ");
     }
     return _cellVars[label];
   }
@@ -122,32 +120,32 @@ class MaterialVariable {
       for (auto & v : _cellVars) {
         std::cerr << v.first << std::endl;
       }
-      throw std::invalid_argument ("Unable to find material variable in container");
+      throw std::invalid_argument ("Unable to find variable in container");
     }*/
     return _pcellVars[label];
   }
 
   std::vector<int>& GetIndexMap(const std::string& label) {
     if (_indexMap.find(label) == _indexMap.end()) {
-      throw std::invalid_argument ("Unable to find material variable in container");
+      throw std::invalid_argument ("Unable to find variable in container");
     }
     return _indexMap[label];
   }
 
-  std::map<std::string,MaterialMap<T>> CellVars() { return _cellVars;}
+  std::map<std::string,SparseMap<T>> CellVars() { return _cellVars;}
 
-  void DeleteMaterial(const int mat_id);
-  void DeleteMaterial(const int mat_id, const std::string label);
+  void DeleteVariable(const int mat_id);
+  void DeleteVariable(const int mat_id, const std::string label);
 
   Variable<T>& Get(const std::string& label, int matID) {
     auto myMap = this->Get(label);
     if (myMap.find(matID) == myMap.end()) {
-      throw std::invalid_argument ("Unable to find specific material in container");
+      throw std::invalid_argument ("Unable to find specific variable in container");
     }
     return *myMap[matID];
   }
 
-  std::map<std::string,MaterialMap<T>>& getAllCellVars() {
+  std::map<std::string,SparseMap<T>>& getAllCellVars() {
     return _cellVars;
   }
 
@@ -157,24 +155,26 @@ class MaterialVariable {
 
   void print() {
     for ( auto &m : _cellVars) {
-      std::cout << "    matvar:cell:" << m.second.begin()->second->info() << ":";
+      std::cout << "    var:cell:" << m.second.begin()->second->info() << ":";
       for (auto &v : m.second) {
         std::cout << v.first << ":";
       }
       std::cout << std::endl;
     }
     for ( auto &m : _pcellVars) {
-      std::cout << "    matvec: " << m.first
+      std::cout << "    varvec: " << m.first
                 << " has " << m.second.size() << " elements"
                 << std::endl;
     }
   }
 
  private:
-  std::map<std::string,MaterialMap<T>> _cellVars;
+  std::map<std::string,SparseMap<T>> _cellVars;
   std::map<std::string,VariableVector<T>> _pcellVars;
   std::map<std::string,std::vector<int>> _indexMap;
   VariableVector<T> _empty;
 };
-}
-#endif //INTERFACE_MATERIALVARIABLE_HPP_
+
+} // namespace parthenon
+
+#endif //INTERFACE_SPARSEVARIABLE_HPP_
