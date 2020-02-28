@@ -127,6 +127,8 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
   // floors depend on EOS, but EOS isn't needed in Reconstruction constructor-> this is ok
   precon = std::make_unique<Reconstruction>(this, pin);
 
+  if (pm->multilevel) pmr = std::make_unique<MeshRefinement>(this, pin);
+
   // physics-related, per-MeshBlock objects: may depend on Coordinates for diffusion
   // terms, and may enroll quantities in AMR and BoundaryVariable objs. in BoundaryValues
   //  if (Globals::my_rank == 0) { real_container.print(); }
