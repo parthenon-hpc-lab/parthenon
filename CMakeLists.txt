@@ -67,6 +67,7 @@ if (${ENABLE_UNIT_TESTS} OR ${ENABLE_INTEGRATION_TESTS} OR ${ENABLE_REGRESSION_T
     endif()
 
     add_subdirectory(external/Catch2)
+    list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/external/Catch2/contrib")
   endif()
 
   include(ParseAndAddCatchTests)
