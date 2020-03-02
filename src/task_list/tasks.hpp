@@ -8,15 +8,20 @@
 #include <memory>
 #include <iostream>
 #include "mesh/mesh.hpp"
+//#include "driver/multistage.hpp"
+
+class Integrator;
 
 #define MAX_TASKS 64
-
 
 enum class TaskStatus {fail, success, next};
 enum class TaskListStatus {running, stuck, complete, nothing_to_do};
 
 using BaseTaskFunc = TaskStatus ();
+using BlockTaskFunc = TaskStatus (MeshBlock*);
 using BlockStageTaskFunc = TaskStatus (MeshBlock*, int);
+using BlockStageNamesTaskFunc = TaskStatus (MeshBlock*, int, std::vector<std::string>&);
+using BlockStageNamesIntegratorTaskFunc = TaskStatus (MeshBlock*, int, std::vector<std::string>&, Integrator*);
 
 //----------------------------------------------------------------------------------------
 //! \class TaskID
@@ -59,6 +64,16 @@ class BaseTask {
     BaseTaskFunc* _func;
 };
 
+class BlockTask : public BaseTask {
+  public:
+    BlockTask(BlockTaskFunc* func, TaskID id, TaskID dep, MeshBlock *pmb) 
+        : _func(func), _pblock(pmb) { _myid=id; _dep=dep; }
+    TaskStatus operator () () { return _func(_pblock); }
+  private:
+    BlockTaskFunc* _func;
+    MeshBlock *_pblock;
+};
+
 class BlockStageTask : public BaseTask {
   public:
     BlockStageTask(BlockStageTaskFunc* func, TaskID id, TaskID dep, MeshBlock *pmb, int stage) 
@@ -70,14 +85,37 @@ class BlockStageTask : public BaseTask {
     int _stage;
 };
 
-class TaskFactory {
+class BlockStageNamesTask : public BaseTask {
   public:
-    static std::unique_ptr<BaseTask> NewTask(TaskID id, BaseTaskFunc* func, TaskID dep) { 
-      return std::unique_ptr<BaseTask>(new BaseTask(func, id, dep)); 
-    }
-    static std::unique_ptr<BaseTask> NewTask(TaskID id, BlockStageTaskFunc* func, TaskID dep, MeshBlock *pmb, int stage) {
-      return std::unique_ptr<BlockStageTask>(new BlockStageTask(func, id, dep, pmb, stage));
-    }
+    BlockStageNamesTask(BlockStageNamesTaskFunc* func, TaskID id, TaskID dep, MeshBlock *pmb, int stage, const std::vector<std::string>& sname) 
+        : _func(func), _pblock(pmb), _stage(stage), _sname(sname) { _myid=id; _dep=dep; }
+    TaskStatus operator () () { return _func(_pblock, _stage, _sname); }
+  private:
+    BlockStageNamesTaskFunc* _func;
+    MeshBlock *_pblock;
+    int _stage;
+    std::vector<std::string> _sname;
+};
+
+class BlockStageNamesIntegratorTask : public BaseTask {
+  public:
+    BlockStageNamesIntegratorTask(BlockStageNamesIntegratorTaskFunc* func, TaskID id, TaskID dep, MeshBlock *pmb, int stage, const std::vector<std::string>& sname, Integrator* integ) 
+        : _func(func), _pblock(pmb), _stage(stage), _sname(sname), _int(integ) { _myid=id; _dep=dep; }
+    TaskStatus operator () () { return _func(_pblock, _stage, _sname, _int); }
+  private:
+    BlockStageNamesIntegratorTaskFunc* _func;
+    MeshBlock *_pblock;
+    int _stage;
+    std::vector<std::string> _sname;
+    Integrator *_int;
+};
+
+namespace TaskFactory {
+  std::unique_ptr<BaseTask> NewTask(TaskID id, BaseTaskFunc* func, TaskID dep);
+  std::unique_ptr<BaseTask> NewTask(TaskID id, BlockTaskFunc* func, TaskID dep, MeshBlock *pmb);
+  std::unique_ptr<BaseTask> NewTask(TaskID id, BlockStageTaskFunc* func, TaskID dep, MeshBlock *pmb, int stage);
+  std::unique_ptr<BaseTask> NewTask(TaskID id, BlockStageNamesTaskFunc* func, TaskID dep, MeshBlock *pmb, int stage, const std::vector<std::string>& sname);
+  std::unique_ptr<BaseTask> NewTask(TaskID id, BlockStageNamesIntegratorTaskFunc* func, TaskID dep, MeshBlock *pmb, int stage, const std::vector<std::string>& sname, Integrator *integ);
 };
 
 class TaskList {
