@@ -182,6 +182,14 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
     RegisterMeshBlockData(*ci.vars[n]);
   }
 
+  if (pm->multilevel) {
+    pmr = std::make_unique<MeshRefinement>(this, pin);
+    // This is very redundant, I think, but necessary for now
+    for (int n=0; n<nindependent; n++) {
+      pmr->AddToRefinement(ci.vars[n].get(), ci.vars[n]->coarse_s);
+    }
+  }
+
   // Create user mesh data
   //InitUserMeshBlockData(pin);
   app = InitApplicationMeshBlockData(pin);
