@@ -7,6 +7,7 @@ Parthenon AMR infrastructure
 * CMake 3.13 or greater
 * gcc or intel compiler
 * mpi 
+* openMP
 * hdf5
 
 # Dependencies Other
