@@ -40,6 +40,9 @@ public:
   // Adds object based on type of the value
   // deletes any previous object
   template <typename T> void Add(const std::string &key, T value) {
+    if(hasKey(key)){
+      throw std::invalid_argument("Key value pair already exists, cannot add key.");
+    }
     myParams_[key] = std::unique_ptr<Params::base_t>(new object_t<T>(value));
     myTypes_[key] = std::string(typeid(value).name());
   }
