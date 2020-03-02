@@ -67,9 +67,11 @@ if (${ENABLE_UNIT_TESTS} OR ${ENABLE_INTEGRATION_TESTS} OR ${ENABLE_REGRESSION_T
     endif()
 
     add_subdirectory(external/Catch2)
+    include(external/Catch2/contrib/ParseAndAddCatchTests.cmake)
+  else()
+    include(ParseAndAddCatchTests)
   endif()
 
-  include(ParseAndAddCatchTests)
   add_subdirectory(tst)
 endif()
 
