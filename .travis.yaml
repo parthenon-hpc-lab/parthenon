@@ -9,13 +9,9 @@ sudo: required
 git:
   quiet: true
 
-addons:
-  apt:
-    packages:
-      - spack
-
-
 before_install:
+  - git clone --depth 1 https://github.com/spack/spack ${HOME}/spack
+  - source ${HOME}/spack/share/spack/setup-env.sh
   - spack install cmake@3.15.3
   - spack install openmpi@4.0.2
   - spack install hdf5@1.10.6%openmpi@4.0.2
