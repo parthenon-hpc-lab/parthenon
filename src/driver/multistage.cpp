@@ -1,9 +1,6 @@
 
 #include "multistage.hpp"
 
-Integrator MultiStageDriver::integrator;
-std::vector<std::string> MultiStageDriver::stage_name;
-
 MultiStageDriver::MultiStageDriver(ParameterInput *pin, Mesh *pm, Outputs *pout) : EvolutionDriver(pin,pm,pout) {
   pmesh = pm;
   std::string integrator_name = pin->GetOrAddString("time", "integrator", "rk2");
@@ -29,7 +26,7 @@ MultiStageDriver::MultiStageDriver(ParameterInput *pin, Mesh *pm, Outputs *pout)
     // this should be an error
   }
 
-  integrator = Integrator(nstages, beta);
+  integrator = new Integrator(nstages, beta);
   stage_name.resize(nstages+1);
   stage_name[0] = "base";
   for (int i=1; i<nstages; i++) {
@@ -44,7 +41,7 @@ TaskListStatus MultiStageBlockTaskDriver::Step() {
   std::vector<TaskList> task_lists;
   task_lists.resize(nmb);
 
-  for (int stage=1; stage<=integrator._nstages; stage++) {
+  for (int stage=1; stage<=integrator->_nstages; stage++) {
     int i=0;
     MeshBlock *pmb = pmesh->pblock;
     while (pmb != nullptr) {

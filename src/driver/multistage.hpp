@@ -18,8 +18,11 @@ struct Integrator {
 class MultiStageDriver : public EvolutionDriver {
   public:
     MultiStageDriver(ParameterInput *pin, Mesh *pm, Outputs *pout);
-    static std::vector<std::string> stage_name;
-    static Integrator integrator;
+    std::vector<std::string> stage_name;
+    Integrator *integrator;
+    ~MultiStageDriver() {
+      delete integrator;
+    }
   private:
 };
 

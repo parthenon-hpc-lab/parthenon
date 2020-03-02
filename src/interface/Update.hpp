@@ -17,8 +17,6 @@
 #include "interface/Container.hpp"
 #include "mesh/mesh.hpp"
 
-class MeshBlock;
-
 namespace Update {
 
 void FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont);
@@ -33,15 +31,10 @@ Real EstimateTimestep(Container<Real> &rc);
 
 } // namespace Update
 
-using FillDerivedFunc = void (Container<Real>&);
-class FillDerivedVariables {
-  public:
-    static void SetFillDerivedFunctions(FillDerivedFunc *pre, FillDerivedFunc *post) {pre_package_fill = pre; post_package_fill = post;}
-    static void FillDerived(Container<Real> &rc); 
-    static FillDerivedFunc *pre_package_fill;
-    static FillDerivedFunc *post_package_fill;
-  private:
-    FillDerivedVariables() {}; // private constructor means we'll never instantiate a FillDerivedVariables object
-};
+namespace FillDerivedVariables {
+  using FillDerivedFunc = void (Container<Real>&);
+  void SetFillDerivedFunctions(FillDerivedFunc *pre, FillDerivedFunc *post);
+  void FillDerived(Container<Real> &rc); 
+}
 
 #endif
