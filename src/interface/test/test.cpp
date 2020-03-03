@@ -38,7 +38,7 @@ void testContainer() {
 
   // set number of materials for simulation
   c.setNumMat(3);
-  
+
   m.reset();  // not needed here because m starts empty, but in case we relocate code
   m.setMultiple({m.face, m.intensive, m.oneCopy}); // at this point m flags are face,intensive,oneCopy
 
@@ -201,14 +201,14 @@ void testContainer() {
   std::cout << "  -- "<< c.size() << " is original size\n";
   c.Remove("Face_two");
   std::cout << "  -- "<< c.size() << " Remove Face_two gave success\n";
-  
+
 }
 void testVariable() {
   std::cout << "\n\n______________TESTING VARIABLE________________" << std::endl;
   Metadata m;
   m.reset();
   m.setMultiple({m.face, m.intensive, m.oneCopy});
-  
+
   std::array<int, 2> dims {100,300};
   std::cout << dims[0] << std::endl;
 
@@ -243,7 +243,7 @@ void testVariable() {
     std::cout <<"  Dims of " << slice1D.info() << std::endl;
 
     //----------------------------------------------------
-    // We expect 5-9 here because the slice1D gets us k(0,5:9) which  
+    // We expect 5-9 here because the slice1D gets us k(0,5:9) which
     //----------------------------------------------------
     int errCount = 0;
     for (int i=0; i<slice1D.GetDim1(); i++) {
@@ -256,7 +256,7 @@ void testVariable() {
     std::cout << "__________1D slice Found " << errCount << " errors" << std::endl;
   }
 
-  
+
   //----------------------------------------------------
   //get a 2D slice gets us k(5:9,0:9)
   //----------------------------------------------------
@@ -282,8 +282,8 @@ void testVariable() {
   }
   return;
 }
-    
-  
+
+
 void testMetadata() {
   std::cout << "\n\n______________TESTING METADATA________________" << std::endl;
   // tests metadata structure and returns a valid one
@@ -300,7 +300,7 @@ void testMetadata() {
     catch (const std::invalid_argument& e) {
       std::cout << "  --where: exception for m.intensive\n           " << e.what() << std::endl;
     }
-  
+
     // these should pass
     m.setWhere(m.none);std::cout << "  --where=" << m.flag_labels(m.where()) << std::endl;
     m.setWhere(m.cell);std::cout << "  --where=" << m.flag_labels(m.where()) << std::endl;

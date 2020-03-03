@@ -60,11 +60,11 @@ static void writeXdmfArrayRef(std::ofstream& fid, const std::string& prefix,
   for (int i=1; i<ndims; i++) fid << " " << dims[i];
   fid << "\"";
   fid << " Name=" << std::quoted(label)
-      << " NumberType=" << std::quoted(theType)      
+      << " NumberType=" << std::quoted(theType)
       << R"( Precision=")" << precision << R"(")"
       << " >" << std::endl;
   fid << prefix +"  " << hdfPath << label << "</DataItem>" << std::endl;
-}    
+}
 
 // XDMF subroutine to write a variable that reads from a HDF file
 static void writeXdmfVariableRef(std::ofstream& fid, const std::string& prefix,
@@ -74,7 +74,7 @@ static void writeXdmfVariableRef(std::ofstream& fid, const std::string& prefix,
   fid << prefix << "<Attribute Name=" << std::quoted(label) << R"( Center="Cell">)" << std::endl;
   writeXdmfArrayRef(fid, prefix+"  ", hdfPath, label, dims, ndims, theType, precision);
   fid << prefix << "</Attribute>" << std::endl;
-}    
+}
 
 
 //----------------------------------------------------------------------------------------
@@ -118,7 +118,7 @@ void ATHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
   // create dataspaces and types
   Attribute attribute;
   int dims_count[1] = {3};
-  
+
   // open HDF5 file
   // Define output filename
   filename = std::string(output_params.file_basename);
@@ -129,7 +129,7 @@ void ATHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
   file_number << std::setw(5) << std::setfill('0') << output_params.file_number;
   filename.append(file_number.str());
   filename.append(".hdf5");
-  
+
   H5::H5File file(filename, H5F_ACC_TRUNC);
 
   std::string filename_aux(filename+std::string(".xdmf"));
@@ -159,7 +159,7 @@ void ATHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
   xdmf << R"(    <Grid Name="Blocks" CollectionType="Spatial" GridType="Collection">)" << std::endl;
   xdmf << R"(      <Time Value=")" << pm->time << R"("/>)" << std::endl;
   xdmf << R"(      <Information Name="Cycle" Value=")" << pm->ncycle << R"("/>)" << std::endl;
-  
+
   // write number of dimensions
   WRITE_H5A("/Timestep/NumDims", &pm->ndim, file, myDSpace, myDSet, PREDINT32, PREDINT32);
 
@@ -190,13 +190,13 @@ void ATHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
     Real *theData;
     Real Origin_ZYX[3] = {0.,0.,0.};
     Real dZdYdX[3] = {1.,1.,1.};
-    
+
     // create group for this block
     char tmpName[64];
     snprintf(tmpName, 63, "/Blocks/%06d", idx);
     Group gMyBlock(file.createGroup(tmpName));
     int ilen = strlen(tmpName);
-    
+
     // write ID
     dims[0] = 1;
     dSpace = DataSpace(1,dims);
@@ -211,11 +211,11 @@ void ATHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
     theData = pmb->pcoord->x2f.data() + out_js;
     Origin_ZYX[1] = theData[0];
     dZdYdX[1] = (theData[nx2] - theData[0])/(Real)nx2;
-    
+
     theData = pmb->pcoord->x1f.data() + out_is;
     Origin_ZYX[2] = theData[0];
     dZdYdX[2] = (theData[nx1] - theData[0])/(Real)nx1;
-    
+
     // write origin to the HDF file
     dims[0] = 3;
     dSpace = DataSpace(1,dims);
@@ -239,7 +239,7 @@ void ATHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
 	 << " " << nx2+1
 	 << " " << nx1+1
 	 << R"(" Type="3DCoRectMesh"/>)" << std::endl;
-    
+
     // write graphics variables
     size_t baseSize = nx1*nx2*nx3;
     dims[0] = nx1;
@@ -247,10 +247,10 @@ void ATHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
     dims[2] = nx3;
     int ndims = 1;
     if ( nx3 > 1) { ndims = 3; }
-    else if (nx2 > 1) { ndims = 2; } 
+    else if (nx2 > 1) { ndims = 2; }
 
     auto ci = ContainerIterator<Real>(pmb->real_container,{Metadata::graphics});
-    
+
     int maxV = 1;
     for (auto &v : ci.vars) {
       const size_t vlen = v->GetDim4();

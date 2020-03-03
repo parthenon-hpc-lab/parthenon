@@ -94,7 +94,7 @@ void SparseVariable<T>::Add(MeshBlock &pmb,
     //auto& myVec = _pcellVars[label];
 
     // get field id from metadata
-    int varIndex = metadata.getMaterialID(); // FIXME
+    int varIndex = metadata.getSparseID(); // FIXME
 
     // check if variable index already exists
     if (myMap.find(varIndex) != myMap.end()) {

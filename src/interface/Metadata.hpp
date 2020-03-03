@@ -44,7 +44,7 @@ class Metadata {
  public:
   /// The flags refer to the different attributes that a variable can
   /// have.  These include the topology, IO, advection, conservation,
-  /// whether it contains materials / isotopes, etc.  This is designed
+  /// whether it is a sparse variable, contains isotopes, etc.  This is designed
   /// to be easily extensible.
   enum flags { // *** if you modify flags, be sure to modify flag_labels as well ***
               ignore,       ///<  0: bit 0 is ignored
@@ -60,7 +60,7 @@ class Metadata {
               intensive,    ///< 10: intensive variable
               restart,      ///< 11: added to restart dump
               graphics,     ///< 12: added to graphics dumps
-              materials,    ///< 13: is specified per-material
+              sparse,       ///< 13: is specified per sparse index
               isotopes,     ///< 14: includes isotopes
               independent,  ///< 15: is an independent, evolved variable
               derived,      ///< 16: is a derived quantity (ignored)
@@ -70,14 +70,14 @@ class Metadata {
   };
 
   /// Default constructor override
-  Metadata() : material_id_(-1),
+  Metadata() : sparse_id_(-1),
                shape_({1}) { }
 
 
   /// returns a new Metadata instance with set bits,
-  /// set material_id, and fourth dimension
+  /// set sparse_id, and fourth dimension
   explicit Metadata(const std::vector<flags>& bits) :
-    material_id_(-1),
+    sparse_id_(-1),
     shape_({1}) {
     setMultiple(bits);
   }
@@ -85,30 +85,30 @@ class Metadata {
   /// returns a metadata with bits and shape set
   explicit Metadata(const std::vector<flags>& bits,
                     std::vector<int> shape) :
-    material_id_(-1),
+    sparse_id_(-1),
     shape_(shape) {
     setMultiple(bits);
   }
 
-  /// returns a metadata with bits and material id set
+  /// returns a metadata with bits and sparse id set
   explicit Metadata(const std::vector<flags>& bits,
-                    const int material_id) :
-    material_id_(material_id),
+                    const int sparse_id) :
+    sparse_id_(sparse_id),
     shape_({1}) {
     setMultiple(bits);
   }
 
-  /// returns a metadata with bits, shape, and material ID set
+  /// returns a metadata with bits, shape, and sparse ID set
   explicit Metadata(const std::vector<flags>& bits,
-                    const int material_id,
+                    const int sparse_id,
                     std::vector<int> shape) :
-    material_id_(material_id),
+    sparse_id_(sparse_id),
     shape_(shape) {
     setMultiple(bits);
   }
 
   /// copy constructor
-  Metadata(const Metadata&m) : material_id_(m.material_id_),
+  Metadata(const Metadata&m) : sparse_id_(m.sparse_id_),
                                shape_(m.shape_),
                                theBits_(m.theBits_),
                                associated_(m.associated_) { }
@@ -127,7 +127,7 @@ class Metadata {
   void setIntensive(const bool a) {doBit(intensive, a);}  ///< Set intensive or extensive
   void setRestart(const bool a)   {doBit(restart, a);}    ///< Set IO / restart
   void setGraphics(const bool a)  {doBit(graphics, a);}   ///< Set IO / graphics
-  void setMaterials(const bool a) {doBit(materials, a);}  ///< Set includes materials
+  void setSparse(const bool a)    {doBit(sparse, a);}     ///< Set includes sparse variable
   void setIsotopes(const bool a)  {doBit(isotopes, a);}   ///< Set includes isotops
   void setDerived(const bool a)   {doBit(derived, a);}    ///< Set derived variable?
   void setOneCopy(const bool a)   {doBit(oneCopy, a);}    ///< Single copy across stages
@@ -158,13 +158,13 @@ class Metadata {
   bool isRestart()     const { return (isSet(restart)); }    ///< true if restart
   bool isGraphics()    const { return (isSet(graphics)); }   ///< true if graphics
   bool isOneCopy()     const { return (isSet(oneCopy)); }    ///< true if one copy
-  bool hasMaterials()  const { return (isSet(materials)); }  ///< true if per material
+  bool hasSparse()     const { return (isSet(sparse)); }     ///< true if it is a sparse variable
   bool hasIsotopes()   const { return (isSet(isotopes)); }   ///< true if has isotopes
   bool fillsGhost()    const { return (isSet(fillGhost)); }
   bool isVector()      const { return (isSet(vector)); }
   bool isIndependent() const { return (isSet(independent)); }
 
-  int  getMaterialID() const { return material_id_; }
+  int  getSparseID() const { return sparse_id_; }
 
   const std::vector<int>& Shape() const { return shape_; }
 
@@ -199,12 +199,12 @@ class Metadata {
 
   // Operators
   bool operator==(const Metadata &b) const {
-    return ((material_id_ == b.material_id_) && (shape_ == b.shape_) &&
+    return ((sparse_id_ == b.sparse_id_) && (shape_ == b.shape_) &&
             (theBits_ == b.theBits_));
   }
 
   bool operator!=(const Metadata &b) const {
-    return ((material_id_ != b.material_id_) || (shape_ != b.shape_) ||
+    return ((sparse_id_ != b.sparse_id_) || (shape_ != b.shape_) ||
             (theBits_ != b.theBits_)
 
     );
@@ -218,7 +218,7 @@ private:
   std::bitset<_MAXBITS_> theBits_;
   std::vector<int> shape_;
   std::string associated_;
-  int material_id_;
+  int sparse_id_;
 
   /*--------------------------------------------------------*/
   // Setters for the different attributes of metadata
@@ -246,7 +246,7 @@ private:
     /// Set multiple flags at the same time.
     /// Takes a comma separated set of flags from the enum above
     ///
-    /// e.g. set({face, advected, conserved, materials, isotopes})
+    /// e.g. set({face, advected, conserved, sparse, isotopes})
   void setMultiple(const std::vector<flags> &theAttributes) {
     int numTopo = 0;
     for (auto &a : theAttributes) {
@@ -265,7 +265,7 @@ private:
   /// Unset multiple flags at the same time.
   /// Takes a comma separated set of flags from the enum above
   ///
-  /// e.g. unset({face, advected, conserved, materials, isotopes})
+  /// e.g. unset({face, advected, conserved, sparse, isotopes})
   void unsetMultiple(const std::vector<flags> &theAttributes) {
     for (auto &a : theAttributes) {
       doBit(a, false);

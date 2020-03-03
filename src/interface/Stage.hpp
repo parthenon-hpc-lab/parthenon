@@ -51,7 +51,7 @@ class Stage {
   std::vector<std::shared_ptr<Variable<T>>> _varArray = {}; ///< the saved variable array
   std::vector<std::shared_ptr<FaceVariable>> _faceArray = {};  ///< the saved face arrays
   ///  std::vector<EdgeVariable*> _edgeArray = {};  ///< the saved face arrays
-  SparseVariable<T> _matVars;
+  SparseVariable<T> _sparseVars;
 
   // debug destructor
   //  ~Stage() {

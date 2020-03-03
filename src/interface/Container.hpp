@@ -83,10 +83,10 @@ class Container {
     }
 
     // Now copy in the material arrays
-    for (auto vars : stageSrc._matVars.getAllCellVars()) {
+    for (auto vars : stageSrc._sparseVars.getAllCellVars()) {
       auto& theLabel=vars.first;
       auto& theMap = vars.second;
-      this->s->_matVars.AddAlias(theLabel, stageSrc._matVars);
+      this->s->_sparseVars.AddAlias(theLabel, stageSrc._sparseVars);
     }
   }
 
@@ -188,9 +188,9 @@ class Container {
   }
 //  int Index(std::string label) {return Index(label);}
 
-  // returns the material map from the Material Variables
-  SparseMap<T>& GetMaterial(const std::string& label) {
-    return s->_matVars.Get(label);
+  // returns the sparse map from the Sparse Variables
+  SparseMap<T>& GetSparse(const std::string& label) {
+    return s->_sparseVars.Get(label);
   }
 
   ///
@@ -198,7 +198,7 @@ class Container {
   /// material variable from the Material Variables array
   Variable<T>& GetMaterial(const std::string& label, const int matID) {
     // returns the variable for the specific material from the Material Variables
-    return s->_matVars.Get(label,matID);
+    return s->_sparseVars.Get(label,matID);
   }
 
   Variable<T>& Get(const std::string& label, const int matID) {
@@ -207,11 +207,11 @@ class Container {
 
   // returns a flattened array of the material variables
   VariableVector<T>& GetMaterialVector(const std::string& label) {
-    return s->_matVars.GetVector(label);
+    return s->_sparseVars.GetVector(label);
   }
 
   std::vector<int>& GetMaterialIndexMap(const std::string& label) {
-    return s->_matVars.GetIndexMap(label);
+    return s->_sparseVars.GetIndexMap(label);
   }
   ///
   /// Get a face variable from the container
@@ -303,7 +303,7 @@ class Container {
   }
 
   SparseVariable<T>& matVars() {
-    return s->_matVars;
+    return s->_sparseVars;
   }
 
   std::vector<std::shared_ptr<FaceVariable>>& faceVars() {

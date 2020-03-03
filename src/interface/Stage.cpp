@@ -48,9 +48,9 @@ Stage<T>::Stage(std::string name, Stage<T>& src) :
   }
 
   // Now copy in the material arrays
-  for (auto vars : src._matVars.getAllCellVars()) {
+  for (auto vars : src._sparseVars.getAllCellVars()) {
     auto& theLabel=vars.first;
-    _matVars.AddCopy(theLabel, src._matVars);
+    _sparseVars.AddCopy(theLabel, src._sparseVars);
   }
 }
 
