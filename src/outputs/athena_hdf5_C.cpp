@@ -532,7 +532,7 @@ void ATHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
           // skip, not interested in this variable
           continue;
         }
-        hsize_t index = pmb->ssID*varSize*vlen;
+        hsize_t index = pmb->gid*varSize*vlen;
         if (vlen == 1) {
           for (int k = out_ks; k <= out_ke; k++) {
             for (int j = out_js; j <= out_je; j++) {
