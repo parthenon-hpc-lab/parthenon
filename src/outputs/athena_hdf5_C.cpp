@@ -333,7 +333,7 @@ void ATHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
   std::stringstream file_number;
   file_number << std::setw(5) << std::setfill('0') << output_params.file_number;
   filename.append(file_number.str());
-  filename.append(".hdf5");
+  filename.append(".athdf");
 
   hid_t file;
   hid_t acc_file = H5P_DEFAULT;
