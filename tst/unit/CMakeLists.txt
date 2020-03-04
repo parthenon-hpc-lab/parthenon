@@ -15,15 +15,11 @@
 ## the public, perform publicly and display publicly, and to permit others to do so.
 ##========================================================================================
 
-foreach ( TEST 
-    basic
-    test_unit_params
-    )
+list(APPEND unit_tests_SOURCES basic.cpp test_unit_params.cpp)
 
-  add_executable(${TEST} ${TEST}.cpp)
-  target_link_libraries(${TEST} PRIVATE parthenon catch2_define )
-  ParseAndAddCatchTests(${TEST})
+add_executable(unit_tests ${unit_tests_SOURCES})
+target_link_libraries(unit_tests PRIVATE parthenon catch2_define )
+ParseAndAddCatchTests(unit_tests)
 
-endforeach(TEST)
 
 
