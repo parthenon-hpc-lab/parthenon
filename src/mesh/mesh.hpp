@@ -47,6 +47,7 @@
 #include "bvals/bvals_interfaces.hpp"
 #include "reconstruct/reconstruction.hpp"
 
+namespace parthenon {
 // Forward declarations
 class ParameterInput;
 class Mesh;
@@ -478,5 +479,5 @@ inline Real UniformMeshGeneratorX2(Real x, RegionSize rs) {
 inline Real UniformMeshGeneratorX3(Real x, RegionSize rs) {
   return static_cast<Real>(0.5)*(rs.x3min+rs.x3max) + (x*rs.x3max - x*rs.x3min);
 }
-
+}
 #endif  // MESH_MESH_HPP_

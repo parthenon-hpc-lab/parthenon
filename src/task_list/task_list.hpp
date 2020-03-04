@@ -32,6 +32,7 @@
 
 #define MAX_TASKS 64
 
+namespace parthenon {
 // forward declarations
 class Mesh;
 class MeshBlock;
@@ -150,5 +151,5 @@ class TaskList {
   virtual TaskID AddTask(TaskStatus (*)(MeshBlock *pmb, int stage), const TaskID& dep, const bool load_balance_timer = false) = 0;
   virtual void StartupTaskList(MeshBlock *pmb, int stage) = 0;
 };
-
+}
 #endif  // TASK_LIST_TASK_LIST_HPP_

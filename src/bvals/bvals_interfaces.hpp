@@ -35,6 +35,7 @@
 #include <mpi.h>
 #endif
 
+namespace parthenon {
 // forward declarations
 class Mesh;
 class MeshBlock;
@@ -261,5 +262,5 @@ class BoundaryVariable : public BoundaryCommunication, public BoundaryBuffer {
 
   // private:
 };
-
+}
 #endif // BVALS_BVALS_INTERFACES_HPP_

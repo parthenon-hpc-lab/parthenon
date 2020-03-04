@@ -19,6 +19,7 @@
 
 #include "reconstruction.hpp"
 
+namespace parthenon {
 //----------------------------------------------------------------------------------------
 //! \fn Reconstruction::PiecewiseLinearX1()
 //  \brief
@@ -273,4 +274,5 @@ void Reconstruction::PiecewiseLinearX3(
   }
 
   return;
+}
 }

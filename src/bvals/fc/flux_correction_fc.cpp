@@ -49,6 +49,7 @@
 
 // TODO(felker): break-up the long functions in this file
 
+namespace parthenon {
 //----------------------------------------------------------------------------------------
 //! \fn void FaceCenteredBoundaryVariable::SendEMFCorrection()
 //  \brief Restrict, pack and send the flux correction to the coarse neighbor(s) if needed
@@ -65,4 +66,5 @@ void FaceCenteredBoundaryVariable::SendFluxCorrection() {
 bool FaceCenteredBoundaryVariable::ReceiveFluxCorrection() {
   throw std::runtime_error(
     "FaceCenteredBoundaryVariable::ReceiveFluxCorrection not implemented yet");
+}
 }

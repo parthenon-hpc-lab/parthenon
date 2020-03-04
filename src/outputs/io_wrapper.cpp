@@ -32,6 +32,7 @@
 #include "athena.hpp"
 #include "io_wrapper.hpp"
 
+namespace parthenon {
 //----------------------------------------------------------------------------------------
 //! \fn int IOWrapper::Open(const char* fname, FileMode rw)
 //  \brief wrapper for {MPI_File_open} versus {std::fopen} including error check
@@ -204,4 +205,5 @@ IOWrapperSizeT IOWrapper::GetPosition() {
 #else
   return ftell(fh_);
 #endif
+}
 }

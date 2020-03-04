@@ -30,6 +30,7 @@
 // Athena++ headers
 #include "athena.hpp"
 
+namespace parthenon {
 //----------------------------------------------------------------------------------------
 //! \fn void ChangeRunDir(const char *pdir)
 //  \brief change to input run directory; create if it does not exist yet
@@ -47,4 +48,5 @@ void ChangeRunDir(const char *pdir) {
   }
 
   return;
+}
 }

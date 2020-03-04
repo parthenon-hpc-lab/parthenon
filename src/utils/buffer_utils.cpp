@@ -26,6 +26,7 @@
 #include "athena_arrays.hpp"
 #include "buffer_utils.hpp"
 
+namespace parthenon {
 namespace BufferUtility {
 //----------------------------------------------------------------------------------------
 //! \fn template <typename T> void PackData(AthenaArray<T> &src, T *buf, int sn, int en,
@@ -122,3 +123,4 @@ template void PackData<Real>(AthenaArray<Real> &, Real *, int, int, int, int, in
                              int &);
 
 } // end namespace BufferUtility
+}

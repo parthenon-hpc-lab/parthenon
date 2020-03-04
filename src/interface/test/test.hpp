@@ -13,6 +13,7 @@
 #ifndef TEST_PK_H
 #define TEST_PK_H
 
+namespace parthenon {
 ///< a class that includes bare minimum to help compile test
 class mesh {
 public:
@@ -49,5 +50,5 @@ public:
 extern void testMetadata();
 extern void testVariable();
 extern void testContainer();
-
+}
 #endif

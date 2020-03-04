@@ -20,6 +20,8 @@
 #include <vector>
 
 #define _MAXBITS_ 32
+
+namespace parthenon {
 /// @brief
 ///
 /// The metadata class is a descriptor for variables in the
@@ -289,5 +291,5 @@ private:
             );
   }
 };
-
+}
 #endif // INTERFACE_METADATA_HPP_

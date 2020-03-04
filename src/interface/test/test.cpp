@@ -13,6 +13,8 @@
 // g++ -Wall --std=c++11 -I../src -I. test.cpp -o test && ./test
 
 #include "test.hpp"
+
+using namespace parthenon;
 int main() {
   //  testMetadata();
   //  testVariable();

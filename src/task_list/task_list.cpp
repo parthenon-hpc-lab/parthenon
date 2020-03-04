@@ -32,6 +32,7 @@
 #include <omp.h>
 #endif
 
+namespace parthenon {
 //----------------------------------------------------------------------------------------
 //! \fn TaskListStatus TaskList::DoAllAvailableTasks
 //  \brief do all tasks that can be done (are not waiting for a dependency to be
@@ -144,4 +145,5 @@ void TaskList::DoTaskListOneStage(Mesh *pmesh, int stage) {
   }
   delete [] pmb_array;
   return;
+}
 }

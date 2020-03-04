@@ -16,6 +16,7 @@
 #include "../interface/ContainerIterator.hpp"
 #include "../mesh/mesh.hpp"
 
+namespace parthenon {
 namespace Update {
 
 void FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
@@ -185,3 +186,4 @@ Real EstimateTimestep(Container<Real> &rc) {
 }
 
 } // namespace Update
+}

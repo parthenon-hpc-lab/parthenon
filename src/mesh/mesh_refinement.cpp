@@ -37,6 +37,7 @@
 #include "mesh.hpp"
 #include "mesh_refinement.hpp"
 
+namespace parthenon {
 //----------------------------------------------------------------------------------------
 //! \fn MeshRefinement::MeshRefinement(MeshBlock *pmb, ParameterInput *pin)
 //  \brief constructor
@@ -1025,4 +1026,5 @@ int MeshRefinement::AddToRefinement(AthenaArray<Real> *pvar_cc,
 int MeshRefinement::AddToRefinement(FaceField *pvar_fc, FaceField *pcoarse_fc) {
   pvars_fc_.push_back(std::make_tuple(pvar_fc, pcoarse_fc));
   return static_cast<int>(pvars_fc_.size() - 1);
+}
 }
