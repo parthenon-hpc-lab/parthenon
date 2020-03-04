@@ -76,7 +76,6 @@ inline MeshBlockApplicationData::~MeshBlockApplicationData() {}
 //  \brief data/functions associated with a single block
 class MeshBlock {
   friend class RestartOutput;
-  friend class BoundaryValues;
   friend class Mesh;
   friend class TaskList;
 #ifdef HDF5OUTPUT
