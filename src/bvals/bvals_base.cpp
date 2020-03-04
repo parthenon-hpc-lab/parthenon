@@ -89,10 +89,7 @@ BoundaryBase::BoundaryBase(Mesh *pm, LogicalLocation iloc, RegionSize isize,
   block_size_ = isize;
   pmy_mesh_ = pm;
   if (!called_) {
-    int dim = 1;
-    if (pmy_mesh_->f2) dim = 2;
-    if (pmy_mesh_->f3) dim = 3;
-    maxneighbor_ = BufferID(dim, pmy_mesh_->multilevel);
+    maxneighbor_ = BufferID(pmy_mesh_->ndim, pmy_mesh_->multilevel);
     called_ = true;
   }
   // copy/set in class the input 6x BoundaryFlag for this local MeshBlock boundaries
