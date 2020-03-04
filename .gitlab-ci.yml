@@ -5,8 +5,11 @@ before_script:
     - export OMP_PROC_BIND=close
     - export OMP_PLACES=cores
     - export OMP_NUM_THREADS=1
-    - apt-get update
-    - apt-get install -y cmake
+    - apt-get install -y curl
+# get a more recent version of cmake than avail in the distro repos
+    - git clone --depth 1 https://github.com/spack/spack
+    - source spack/share/spack/setup-env.sh
+    - spack install cmake@3.15.3
   
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
