@@ -23,6 +23,7 @@
 #include "athena_arrays.hpp"
 #include "Variable.hpp"
 
+namespace parthenon {
 /*template <typename T>
 Variable<T>::~Variable() {
   //  std::cout << "_________DELETING VAR: " << _label << ":" << this << std::endl;
@@ -220,3 +221,4 @@ std::string EdgeVariable::info() {
 }
 
 template class Variable<Real>;
+}

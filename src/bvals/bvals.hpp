@@ -35,6 +35,7 @@
 #include <mpi.h>
 #endif
 
+namespace parthenon {
 // forward declarations
 // TODO(felker): how many of these foward declarations are actually needed now?
 // Can #include "./bvals_interfaces.hpp" suffice?
@@ -161,4 +162,5 @@ class BoundaryValues : public BoundaryBase, //public BoundaryPhysics,
   // TODO(KGF): consider removing these friendship designations:
   friend class CellCenteredBoundaryVariable;
 };
+}
 #endif // BVALS_BVALS_HPP_

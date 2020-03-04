@@ -12,5 +12,7 @@
 //========================================================================================
 #include "MaterialPropertiesInterface.hpp"
 
+namespace parthenon {
 // Initialize the static map of ids
 std::map<std::string, int> MaterialPropertiesInterface::_label_to_id;
+}

@@ -18,6 +18,7 @@
 #include <string>
 #include <vector>
 
+namespace parthenon {
 // forward declaration of needed classes and structs
 struct FaceVariable;
 struct EdgeVariable;
@@ -64,5 +65,5 @@ class Stage {
   // we want container to be able to access our innards
   friend class Container<T>;
 };
-
+}
 #endif // INTERFACE_STAGE_HPP_

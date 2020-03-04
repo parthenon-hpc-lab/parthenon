@@ -27,6 +27,7 @@
 #include "athena.hpp"
 #include "athena_arrays.hpp"
 
+namespace parthenon {
 namespace BufferUtility {
 // 2x templated and overloaded functions
 // 4D
@@ -48,4 +49,5 @@ template <typename T> void UnpackData(T *buf, AthenaArray<T> &dst,
                                       int si, int ei, int sj, int ej, int sk, int ek,
                                       int &offset);
 } // namespace BufferUtility
+}
 #endif // UTILS_BUFFER_UTILS_HPP_

@@ -21,6 +21,7 @@
 // Athena++ headers
 #include "mesh/mesh.hpp"
 
+using namespace parthenon;
 //----------------------------------------------------------------------------------------
 //! \fn int main(int argc, char *argv[])
 //  \brief Parthenon Sample main program

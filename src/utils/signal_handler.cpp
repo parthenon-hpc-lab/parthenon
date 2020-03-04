@@ -35,6 +35,7 @@
 #include <mpi.h>
 #endif
 
+namespace parthenon {
 
 namespace SignalHandler {
 
@@ -149,3 +150,4 @@ void CancelWallTimeAlarm() {
 }
 
 } // namespace SignalHandler
+}

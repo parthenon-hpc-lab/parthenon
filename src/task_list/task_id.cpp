@@ -22,6 +22,7 @@
 
 #define DEBUG_TASKID 0
 
+namespace parthenon {
 // TaskID constructor. Default id = 0.
 
 TaskID::TaskID(unsigned int id) {
@@ -104,4 +105,5 @@ TaskID TaskID::operator| (const TaskID& rhs) const {
   TaskID ret;
   ret.bitfld_ = (bitfld_ | rhs.bitfld_);
   return ret;
+}
 }

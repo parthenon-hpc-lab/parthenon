@@ -25,6 +25,7 @@
 #include <csignal>   // sigset_t POSIX C extension
 #include <cstdint>   // std::int64_t
 
+namespace parthenon {
 // Athena++ headers
 
 void ChangeRunDir(const char *pdir);
@@ -47,5 +48,5 @@ void SetSignalFlag(int s);
 void SetWallTimeAlarm(int t);
 void CancelWallTimeAlarm();
 } // namespace SignalHandler
-
+}
 #endif // UTILS_UTILS_HPP_

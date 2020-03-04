@@ -27,6 +27,7 @@
 #include <stdexcept>  // runtime_error
 #include <string>     // c_str()
 
+namespace parthenon {
 namespace {
 // TODO(felker): replace these hand-rolled linear algebra routines with a real library
 constexpr Real lu_tol = 3e-16;
@@ -530,3 +531,4 @@ void DoolittleLUPSolve(Real **lu, int *pivot, Real *b, int n, Real *x) {
   return;
 }
 } // namespace
+}

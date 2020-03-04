@@ -39,6 +39,7 @@
 #include <omp.h>
 #endif
 
+namespace parthenon {
 //----------------------------------------------------------------------------------------
 //! \struct InputLine
 //  \brief  node in a singly linked list of parameters contained within 1x input block
@@ -127,4 +128,5 @@ class ParameterInput {
   void Lock();
   void Unlock();
 };
+}
 #endif // PARAMETER_INPUT_HPP_

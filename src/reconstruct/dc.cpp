@@ -19,6 +19,7 @@
 
 #include "reconstruction.hpp"
 
+namespace parthenon {
 //----------------------------------------------------------------------------------------
 //! \fn Reconstruction::DonorCellX1()
 //  \brief reconstruct L/R surfaces of the i-th cells
@@ -66,4 +67,5 @@ void Reconstruction::DonorCellX3(const int k, const int j, const int il, const i
       wl(n,i) = wr(n,i) = w(n,k,j,i);
     }
   }
+}
 }

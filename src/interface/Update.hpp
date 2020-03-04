@@ -16,6 +16,7 @@
 #include "athena.hpp"
 #include "interface/Container.hpp"
 
+namespace parthenon {
 using PreFillDerivedFunc = std::function<void(Container<Real> &)>;
 
 namespace Update {
@@ -31,5 +32,5 @@ void FillDerived(PreFillDerivedFunc pre_fill_derived, Container<Real> &rc);
 Real EstimateTimestep(Container<Real> &rc);
 
 } // namespace Update
-
+}
 #endif

@@ -43,6 +43,7 @@
 #include <mpi.h>
 #endif
 
+namespace parthenon {
 //----------------------------------------------------------------------------------------
 //! \fn void CellCenteredBoundaryVariable::SendFluxCorrection()
 //  \brief Restrict, pack and send the surface flux to the coarse neighbor(s)
@@ -234,4 +235,5 @@ bool CellCenteredBoundaryVariable::ReceiveFluxCorrection() {
     }
   }
   return bflag;
+}
 }

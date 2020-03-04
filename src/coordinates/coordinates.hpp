@@ -32,6 +32,7 @@
 #include "athena_arrays.hpp"
 #include "mesh/mesh.hpp"
 
+namespace parthenon {
 // forward declarations
 class MeshBlock;
 class ParameterInput;
@@ -292,5 +293,5 @@ class Cartesian : public Coordinates {
  public:
   Cartesian(MeshBlock *pmb, ParameterInput *pin, bool flag);
 };
-
+}
 #endif // COORDINATES_COORDINATES_HPP_

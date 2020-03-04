@@ -17,6 +17,8 @@
 #include "interface/ContainerIterator.hpp"
 #include "mesh/mesh.hpp"
 
+namespace parthenon {
+
 void ApplyBoundaryConditions(Container<Real>& rc) {
     MeshBlock *pmb = rc.pmy_block;
     const int is = pmb->is; const int js = pmb->js; const int ks = pmb->ks;
@@ -265,5 +267,7 @@ void ApplyBoundaryConditions(Container<Real>& rc) {
     };
 
     } // if f3
+
+}
 
 }

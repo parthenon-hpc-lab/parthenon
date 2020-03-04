@@ -58,6 +58,7 @@
 #include <mpi.h>
 #endif
 
+namespace parthenon {
 //----------------------------------------------------------------------------------------
 // Mesh constructor, builds mesh at start of calculation using parameters in input file
 
@@ -1597,4 +1598,5 @@ void Mesh::OutputCycleDiagnostics() {
     }
   }
   return;
+}
 }

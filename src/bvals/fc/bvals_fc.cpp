@@ -43,6 +43,7 @@
 #include <mpi.h>
 #endif
 
+namespace parthenon {
 // constructor
 
 FaceCenteredBoundaryVariable::FaceCenteredBoundaryVariable(
@@ -1014,4 +1015,5 @@ void FaceCenteredBoundaryVariable::ClearBoundary(BoundaryCommSubset phase) {
     }
 #endif
   }
+}
 }

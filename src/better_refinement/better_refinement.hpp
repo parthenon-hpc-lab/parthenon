@@ -19,6 +19,7 @@
 #include "interface/Variable.hpp"
 #include "interface/Container.hpp"
 
+namespace parthenon {
 using RefineFunction = int (Variable<Real>& , const Real , const Real);
 
 struct AMRCriteria {
@@ -35,4 +36,5 @@ namespace BetterRefinement {
   int FirstDerivative(Variable<Real>& q, const Real refine_criteria, const Real derefine_criteria);
 };
 
+}
 #endif

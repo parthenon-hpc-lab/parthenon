@@ -27,6 +27,7 @@
 #include "globals.hpp"
 #include "Variable.hpp"
 
+namespace parthenon {
 template <typename T>
 class MaterialMap : public std::map<int, std::shared_ptr<Variable<T>>> {
  public:
@@ -175,5 +176,5 @@ class MaterialVariable {
   std::map<std::string,std::vector<int>> _indexMap;
   VariableVector<T> _empty;
 };
-
+}
 #endif //INTERFACE_MATERIALVARIABLE_HPP_

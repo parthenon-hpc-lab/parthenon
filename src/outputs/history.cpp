@@ -44,6 +44,7 @@
 // "3" for 1-KE, 2-KE, 3-KE additional columns (come before tot-E)
 #define NHISTORY_VARS ((NHYDRO) + (NFIELD) + 3)
 
+namespace parthenon {
 //----------------------------------------------------------------------------------------
 //! \fn void OutputType::HistoryFile()
 //  \brief Writes a history file
@@ -202,4 +203,5 @@ void HistoryOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
   pin->SetInteger(output_params.block_name, "file_number", output_params.file_number);
   pin->SetReal(output_params.block_name, "next_time", output_params.next_time);
   return;
+}
 }
