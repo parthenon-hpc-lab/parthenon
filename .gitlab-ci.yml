@@ -5,8 +5,9 @@ before_script:
     - export OMP_PROC_BIND=close
     - export OMP_PLACES=cores
     - export OMP_NUM_THREADS=1
-    - apt-get update
-    - apt-get install -y cmake
+    - export CMAKE_VERSION=3.10.3
+    - wget -qO- http://www.cmake.org/files/v${CMAKE_VERSION:0:4}/cmake-${CMAKE_VERSION}-Linux-x86_64.tar.gz | tar -xvz
+    - export PATH=$(pwd)/cmake-${CMAKE_VERSION}-Linux-x86_64/bin:$PATH
   
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
