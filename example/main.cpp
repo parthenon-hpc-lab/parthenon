@@ -21,7 +21,14 @@
 // Athena++ headers
 #include "mesh/mesh.hpp"
 
-using namespace parthenon;
+using parthenon::Mesh;
+using parthenon::ParameterInput;
+using parthenon::IOWrapper;
+using parthenon::MaterialPropertiesInterface;
+using parthenon::StateDescriptor;
+using parthenon::Real;
+using parthenon::Container;
+
 //----------------------------------------------------------------------------------------
 //! \fn int main(int argc, char *argv[])
 //  \brief Parthenon Sample main program
@@ -54,7 +61,7 @@ int main(int argc, char *argv[]) {
   }
 #endif  // OPENMP_PARALLEL
   // Get process id (rank) in MPI_COMM_WORLD
-  if (MPI_SUCCESS != MPI_Comm_rank(MPI_COMM_WORLD, &(Globals::my_rank))) {
+  if (MPI_SUCCESS != MPI_Comm_rank(MPI_COMM_WORLD, &(parthenon::Globals::my_rank))) {
     std::cout << "### FATAL ERROR in main" << std::endl
               << "MPI_Comm_rank failed." << std::endl;
     MPI_Finalize();
@@ -62,19 +69,19 @@ int main(int argc, char *argv[]) {
   }
 
   // Get total number of MPI processes (ranks)
-  if (MPI_SUCCESS != MPI_Comm_size(MPI_COMM_WORLD, &Globals::nranks)) {
+  if (MPI_SUCCESS != MPI_Comm_size(MPI_COMM_WORLD, &parthenon::Globals::nranks)) {
     std::cout << "### FATAL ERROR in main" << std::endl
               << "MPI_Comm_size failed." << std::endl;
     MPI_Finalize();
     return 5;
   }
 #else  // no MPI
-  Globals::my_rank = 0;
-  Globals::nranks  = 1;
+  parthenon::Globals::my_rank = 0;
+  parthenon::Globals::nranks  = 1;
 #endif  // MPI_PARALLEL
 
   if (argc != 2) {
-    if (Globals::my_rank == 0) {
+    if (parthenon::Globals::my_rank == 0) {
       std::cout << "\nUsage: " << argv[0] << " input_file\n"
         << "\tTry this input file:\n"
         << "\tparthenon/example/parthinput.example"
@@ -89,7 +96,7 @@ int main(int argc, char *argv[]) {
   pin.LoadFromFile(inputFile);
   inputFile.Close();
 
-  if (Globals::my_rank == 0) {
+  if (parthenon::Globals::my_rank == 0) {
     std::cout << "\ninput file = " << inputFileName << std::endl;
     if (pin.DoesParameterExist("mesh","nx1")) {
       std::cout << "nx1 = " << pin.GetInteger("mesh","nx1") << std::endl;
