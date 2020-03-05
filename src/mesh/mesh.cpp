@@ -876,12 +876,10 @@ void Mesh::OutputMeshStructure(int ndim) {
   FILE *fp = nullptr;
 
   // open 'mesh_structure.dat' file
-  if (f2) {
-    if ((fp = std::fopen("mesh_structure.dat","wb")) == nullptr) {
-      std::cout << "### ERROR in function Mesh::OutputMeshStructure" << std::endl
-                << "Cannot open mesh_structure.dat" << std::endl;
-      return;
-    }
+  if ((fp = std::fopen("mesh_structure.dat","wb")) == nullptr) {
+    std::cout << "### ERROR in function Mesh::OutputMeshStructure" << std::endl
+      << "Cannot open mesh_structure.dat" << std::endl;
+    return;
   }
 
   // Write overall Mesh structure to stdout and file
@@ -998,7 +996,7 @@ void Mesh::OutputMeshStructure(int ndim) {
   }
 
   // close file, final outputs
-  if (f2) std::fclose(fp);
+  std::fclose(fp);
   std::cout << "Load Balancing:" << std::endl;
   std::cout << "  Minimum cost = " << mincost << ", Maximum cost = " << maxcost
             << ", Average cost = " << totalcost/nbtotal << std::endl << std::endl;
