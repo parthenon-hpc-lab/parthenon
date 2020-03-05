@@ -1,3 +1,16 @@
+//========================================================================================
+// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+//
+// This program was produced under U.S. Government contract 89233218CNA000001 for Los
+// Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
+// for the U.S. Department of Energy/National Nuclear Security Administration. All rights
+// in the program are reserved by Triad National Security, LLC, and the U.S. Department
+// of Energy/National Nuclear Security Administration. The Government is granted for
+// itself and others acting on its behalf a nonexclusive, paid-up, irrevocable worldwide
+// license in this material to reproduce, prepare derivative works, distribute copies to
+// the public, perform publicly and display publicly, and to permit others to do so.
+//========================================================================================
+
 #ifndef BETTER_TASK_HPP
 #define BETTER_TASK_HPP
 
@@ -66,7 +79,7 @@ class BaseTask {
 
 class BlockTask : public BaseTask {
   public:
-    BlockTask(BlockTaskFunc* func, TaskID id, TaskID dep, MeshBlock *pmb) 
+    BlockTask(BlockTaskFunc* func, TaskID id, TaskID dep, MeshBlock *pmb)
         : _func(func), _pblock(pmb) { _myid=id; _dep=dep; }
     TaskStatus operator () () { return _func(_pblock); }
   private:
@@ -76,7 +89,7 @@ class BlockTask : public BaseTask {
 
 class BlockStageTask : public BaseTask {
   public:
-    BlockStageTask(BlockStageTaskFunc* func, TaskID id, TaskID dep, MeshBlock *pmb, int stage) 
+    BlockStageTask(BlockStageTaskFunc* func, TaskID id, TaskID dep, MeshBlock *pmb, int stage)
         : _func(func), _pblock(pmb), _stage(stage) { _myid=id; _dep=dep; }
     TaskStatus operator () () { return _func(_pblock, _stage); }
   private:
@@ -87,7 +100,7 @@ class BlockStageTask : public BaseTask {
 
 class BlockStageNamesTask : public BaseTask {
   public:
-    BlockStageNamesTask(BlockStageNamesTaskFunc* func, TaskID id, TaskID dep, MeshBlock *pmb, int stage, const std::vector<std::string>& sname) 
+    BlockStageNamesTask(BlockStageNamesTaskFunc* func, TaskID id, TaskID dep, MeshBlock *pmb, int stage, const std::vector<std::string>& sname)
         : _func(func), _pblock(pmb), _stage(stage), _sname(sname) { _myid=id; _dep=dep; }
     TaskStatus operator () () { return _func(_pblock, _stage, _sname); }
   private:
@@ -99,7 +112,7 @@ class BlockStageNamesTask : public BaseTask {
 
 class BlockStageNamesIntegratorTask : public BaseTask {
   public:
-    BlockStageNamesIntegratorTask(BlockStageNamesIntegratorTaskFunc* func, TaskID id, TaskID dep, MeshBlock *pmb, int stage, const std::vector<std::string>& sname, Integrator* integ) 
+    BlockStageNamesIntegratorTask(BlockStageNamesIntegratorTaskFunc* func, TaskID id, TaskID dep, MeshBlock *pmb, int stage, const std::vector<std::string>& sname, Integrator* integ)
         : _func(func), _pblock(pmb), _stage(stage), _sname(sname), _int(integ) { _myid=id; _dep=dep; }
     TaskStatus operator () () { return _func(_pblock, _stage, _sname, _int); }
   private:
@@ -122,7 +135,7 @@ class TaskList {
   public:
     bool IsComplete() { return _task_list.empty(); }
     int Size() { return _task_list.size(); }
-    void Reset() { 
+    void Reset() {
       _tasks_added = 0;
       _task_list.clear();
       _dependencies.clear();
@@ -158,7 +171,7 @@ class TaskList {
           if (status == TaskStatus::success) {
             task->SetComplete();
             MarkTaskComplete(task->GetID());
-          } 
+          }
         }
       }
       int completed = ClearComplete();

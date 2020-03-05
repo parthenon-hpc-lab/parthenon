@@ -49,6 +49,9 @@ add_library(parthenon
   coordinates/coordinates.cpp
   coordinates/cartesian.cpp
 
+  driver/driver.cpp
+  driver/multistage.cpp
+
   interface/Container.cpp
   interface/PropertiesInterface.cpp
   interface/MaterialVariable.cpp
@@ -84,7 +87,7 @@ add_library(parthenon
   reconstruct/reconstruction.cpp
 
   task_list/task_id.cpp
-  task_list/task_list.cpp
+  task_list/tasks.cpp
 
   utils/buffer_utils.cpp
   utils/change_rundir.cpp
