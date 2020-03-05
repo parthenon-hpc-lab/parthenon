@@ -25,6 +25,9 @@
 #include <cmath>
 #include <cstdint>  // std::int64_t
 
+// Kokkos headers
+#include <Kokkos_Core.hpp>
+
 // Athena++ headers
 #include "athena_arrays.hpp"
 #include <defs.hpp>

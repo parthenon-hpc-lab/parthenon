@@ -88,6 +88,11 @@ if (NOT DISABLE_HDF5)
   target_include_directories(HDF5_C INTERFACE ${HDF5_C_INCLUDE_DIRS})
 endif()
 
+# Kokkos recommendatation resulting in not using default GNU extensions
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/external/kokkos kokkos)
+
 # Build Tests and download Catch2
 if (${ENABLE_UNIT_TESTS} OR ${ENABLE_INTEGRATION_TESTS} OR ${ENABLE_REGRESSION_TESTS})
   # Try finding an installed Catch2 first
