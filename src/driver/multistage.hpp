@@ -21,6 +21,8 @@
 #include "parameter_input.hpp"
 #include "mesh/mesh.hpp"
 
+namespace parthenon {
+
 struct Integrator {
     Integrator() = default;
     Integrator(int nstages, std::vector<Real> beta) : _nstages(nstages), _beta(beta) {}
@@ -45,5 +47,7 @@ class MultiStageBlockTaskDriver : public MultiStageDriver {
     TaskListStatus Step();
     virtual TaskList MakeTaskList(MeshBlock *pmb, int stage) = 0;
 };
+
+} // namespace parthenon
 
 #endif

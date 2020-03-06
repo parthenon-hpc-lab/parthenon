@@ -17,10 +17,13 @@
 
 #include <memory>
 
+#include "globals.hpp"
 #include "mesh/mesh.hpp"
 #include "driver/driver.hpp"
 #include "interface/StateDescriptor.hpp"
 #include "task_list/tasks.hpp"
+
+namespace parthenon {
 
 class CalculatePi : public Driver {
   public:
@@ -40,4 +43,5 @@ namespace PiCalculator {
   TaskStatus ComputeArea(MeshBlock *pmb);
 }
 
+} // namespace parthenon
 #endif

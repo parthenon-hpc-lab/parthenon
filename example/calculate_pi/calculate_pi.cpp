@@ -50,6 +50,8 @@
 #ifdef OPENMP_PARALLEL
 #include <omp.h>
 #endif
+  
+using namespace parthenon;
 
 int Parthenon_MPI_Init(int argc, char *argv[]);
 void Parthenon_MPI_Finalize();
@@ -59,7 +61,6 @@ void Parthenon_MPI_Finalize();
 //  \brief Athena++ main program
 
 int main(int argc, char *argv[]) {
-
   //--- Step 1. --------------------------------------------------------------------------
   // Initialize MPI environment, if necessary
   int status = Parthenon_MPI_Init(argc, argv);

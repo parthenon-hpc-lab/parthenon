@@ -14,6 +14,8 @@
 
 #include "tasks.hpp"
 
+namespace parthenon {
+
 namespace TaskFactory {
 
 std::unique_ptr<BaseTask> NewTask(TaskID id, BaseTaskFunc* func, TaskID dep) {
@@ -42,3 +44,4 @@ std::unique_ptr<BaseTask> NewTask(TaskID id, BlockStageNamesIntegratorTaskFunc* 
 }
 
 } // namespace TaskFactory
+} // namespace parthenon

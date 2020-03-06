@@ -15,6 +15,8 @@
 #include "driver.hpp"
 #include "utils/utils.hpp"
 
+namespace parthenon {
+
 DriverStatus EvolutionDriver::Execute() {
   pmesh->mbcnt = 0;
   while ((pmesh->time < pmesh->tlim) &&
@@ -65,3 +67,5 @@ DriverStatus EvolutionDriver::Execute() {
   } // END OF MAIN INTEGRATION LOOP ======================================================
   return DriverStatus::complete;
 }
+
+} // namespace parthenon

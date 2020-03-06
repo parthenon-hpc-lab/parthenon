@@ -18,6 +18,8 @@
 #endif
 #include "pi.hpp"
 
+namespace parthenon {
+
 // can be used to set global properties that all meshblocks want to know about
 void ProcessProperties(std::vector<std::shared_ptr<PropertiesInterface>>& properties, ParameterInput *pin) {}
 
@@ -176,5 +178,5 @@ namespace PiCalculator {
   }
 }
 
-
+} // namespace parthenon
 

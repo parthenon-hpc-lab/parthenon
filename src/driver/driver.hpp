@@ -23,6 +23,8 @@
 #include "outputs/outputs.hpp"
 #include "interface/Update.hpp"
 
+namespace parthenon {
+
 enum class DriverStatus {complete, failed};
 
 class Driver {
@@ -46,5 +48,5 @@ class EvolutionDriver : public Driver {
     DriverStatus Execute();
     virtual TaskListStatus Step() = 0;
 };
-
+} // namespace parthenon
 #endif

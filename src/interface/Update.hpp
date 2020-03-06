@@ -16,7 +16,7 @@
 #include "athena.hpp"
 #include "interface/Container.hpp"
 #include "mesh/mesh.hpp"
-
+namespace parthenon {
 namespace Update {
 
 void FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont);
@@ -36,5 +36,5 @@ namespace FillDerivedVariables {
   void SetFillDerivedFunctions(FillDerivedFunc *pre, FillDerivedFunc *post);
   void FillDerived(Container<Real> &rc); 
 }
-
+}
 #endif

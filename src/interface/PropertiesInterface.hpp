@@ -18,6 +18,7 @@
 
 #include "interface/StateDescriptor.hpp"
 
+namespace parthenon {
 class PropertiesInterface {
 public:
   virtual ~PropertiesInterface() {}
@@ -58,10 +59,7 @@ auto ConvertPropertiesToInterface(
 
   return res;
 }
-<<<<<<< HEAD:src/interface/PropertiesInterface.hpp
 */
-#endif // PARTHENON_INTERFACE_PropertiesInterface_HPP_
-=======
-}
-#endif // PARTHENON_INTERFACE_MATERIALPROPERTIESINTERFACE_HPP_
->>>>>>> master:src/interface/MaterialPropertiesInterface.hpp
+
+} // namespace parthenon
+#endif // PARTHENON_INTERFACE_PROPERTIESINTERFACE_HPP_

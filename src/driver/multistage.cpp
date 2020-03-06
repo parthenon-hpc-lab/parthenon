@@ -14,6 +14,8 @@
 
 #include "multistage.hpp"
 
+namespace parthenon {
+
 MultiStageDriver::MultiStageDriver(ParameterInput *pin, Mesh *pm, Outputs *pout) : EvolutionDriver(pin,pm,pout) {
   pmesh = pm;
   std::string integrator_name = pin->GetOrAddString("time", "integrator", "rk2");
@@ -76,3 +78,5 @@ TaskListStatus MultiStageBlockTaskDriver::Step() {
   }
   return TaskListStatus::complete;
 }
+
+} // namespace parthenon

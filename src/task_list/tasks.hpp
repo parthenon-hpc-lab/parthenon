@@ -27,6 +27,8 @@ class Integrator;
 
 #define MAX_TASKS 64
 
+namespace parthenon {
+
 enum class TaskStatus {fail, success, next};
 enum class TaskListStatus {running, stuck, complete, nothing_to_do};
 
@@ -206,4 +208,5 @@ class TaskList {
     TaskID _tasks_completed;
 };
 
+} // namespace parthenon
 #endif
