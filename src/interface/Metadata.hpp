@@ -44,8 +44,7 @@ class Metadata {
  public:
   /// The flags refer to the different attributes that a variable can
   /// have.  These include the topology, IO, advection, conservation,
-  /// whether it is a sparse variable, contains isotopes, etc.  This is designed
-  /// to be easily extensible.
+  /// whether it is a sparse variable, etc.  This is designed to be easily extensible.
   enum flags { // *** if you modify flags, be sure to modify flag_labels as well ***
               ignore,       ///<  0: bit 0 is ignored
               none,         ///<  1: no topology specified
@@ -61,12 +60,11 @@ class Metadata {
               restart,      ///< 11: added to restart dump
               graphics,     ///< 12: added to graphics dumps
               sparse,       ///< 13: is specified per sparse index
-              isotopes,     ///< 14: includes isotopes
-              independent,  ///< 15: is an independent, evolved variable
-              derived,      ///< 16: is a derived quantity (ignored)
-              oneCopy,      ///< 17: only one copy even if multiple stages
-              fillGhost,    ///< 18: Do boundary communication
-              sharedComms   ///< 19: Communication arrays are a copy: hint to destructor
+              independent,  ///< 14: is an independent, evolved variable
+              derived,      ///< 15: is a derived quantity (ignored)
+              oneCopy,      ///< 16: only one copy even if multiple stages
+              fillGhost,    ///< 17: Do boundary communication
+              sharedComms   ///< 18: Communication arrays are a copy: hint to destructor
   };
 
   /// Default constructor override
@@ -128,7 +126,6 @@ class Metadata {
   void setRestart(const bool a)   {doBit(restart, a);}    ///< Set IO / restart
   void setGraphics(const bool a)  {doBit(graphics, a);}   ///< Set IO / graphics
   void setSparse(const bool a)    {doBit(sparse, a);}     ///< Set includes sparse variable
-  void setIsotopes(const bool a)  {doBit(isotopes, a);}   ///< Set includes isotops
   void setDerived(const bool a)   {doBit(derived, a);}    ///< Set derived variable?
   void setOneCopy(const bool a)   {doBit(oneCopy, a);}    ///< Single copy across stages
   */
@@ -159,7 +156,6 @@ class Metadata {
   bool isGraphics()    const { return (isSet(graphics)); }   ///< true if graphics
   bool isOneCopy()     const { return (isSet(oneCopy)); }    ///< true if one copy
   bool hasSparse()     const { return (isSet(sparse)); }     ///< true if it is a sparse variable
-  bool hasIsotopes()   const { return (isSet(isotopes)); }   ///< true if has isotopes
   bool fillsGhost()    const { return (isSet(fillGhost)); }
   bool isVector()      const { return (isSet(vector)); }
   bool isIndependent() const { return (isSet(independent)); }
@@ -246,7 +242,7 @@ private:
     /// Set multiple flags at the same time.
     /// Takes a comma separated set of flags from the enum above
     ///
-    /// e.g. set({face, advected, conserved, sparse, isotopes})
+    /// e.g. set({face, advected, conserved, sparse})
   void setMultiple(const std::vector<flags> &theAttributes) {
     int numTopo = 0;
     for (auto &a : theAttributes) {
@@ -265,7 +261,7 @@ private:
   /// Unset multiple flags at the same time.
   /// Takes a comma separated set of flags from the enum above
   ///
-  /// e.g. unset({face, advected, conserved, sparse, isotopes})
+  /// e.g. unset({face, advected, conserved, sparse})
   void unsetMultiple(const std::vector<flags> &theAttributes) {
     for (auto &a : theAttributes) {
       doBit(a, false);
