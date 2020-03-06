@@ -34,6 +34,19 @@
 
 namespace parthenon {
 
+// primitive type alias that allows code to run with either floats or doubles
+#if SINGLE_PRECISION_ENABLED
+using Real = float;
+#ifdef MPI_PARALLEL
+#define MPI_ATHENA_REAL MPI_FLOAT
+#endif
+#else
+using Real = double;
+#ifdef MPI_PARALLEL
+#define MPI_ATHENA_REAL MPI_DOUBLE
+#endif
+#endif
+
 #ifdef KOKKOS_ENABLE_CUDA_UVM
 typedef Kokkos::CudaUVMSpace     DevSpace;
 typedef Kokkos::CudaUVMSpace     HostSpace;
@@ -41,6 +54,17 @@ typedef Kokkos::CudaUVMSpace     HostSpace;
 typedef Kokkos::DefaultExecutionSpace     DevSpace;
 typedef Kokkos::HostSpace                 HostSpace;
 #endif
+
+template<typename T = Real>
+using AthenaArray1D = Kokkos::View<T*    , Kokkos::LayoutRight, DevSpace>;
+template<typename T = Real>
+using AthenaArray2D = Kokkos::View<T**   , Kokkos::LayoutRight, DevSpace>;
+template<typename T = Real>
+using AthenaArray3D = Kokkos::View<T***  , Kokkos::LayoutRight, DevSpace>;
+template<typename T = Real>
+using AthenaArray4D = Kokkos::View<T**** , Kokkos::LayoutRight, DevSpace>;
+template<typename T = Real>
+using AthenaArray5D = Kokkos::View<T*****, Kokkos::LayoutRight, DevSpace>;
 
 typedef Kokkos::TeamPolicy<>               team_policy;
 typedef Kokkos::TeamPolicy<>::member_type  member_type;
@@ -315,19 +339,6 @@ inline void par_for(LoopPatternSimdFor, const std::string & NAME,
           function(n,k,j,i);
   Kokkos::Profiling::popRegion();
 }
-
-// primitive type alias that allows code to run with either floats or doubles
-#if SINGLE_PRECISION_ENABLED
-using Real = float;
-#ifdef MPI_PARALLEL
-#define MPI_ATHENA_REAL MPI_FLOAT
-#endif
-#else
-using Real = double;
-#ifdef MPI_PARALLEL
-#define MPI_ATHENA_REAL MPI_DOUBLE
-#endif
-#endif
 
 // for OpenMP 4.0 SIMD vectorization, control width of SIMD lanes
 #if defined(__AVX512F__)
