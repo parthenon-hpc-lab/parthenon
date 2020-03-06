@@ -29,6 +29,7 @@
 #include "bvals.hpp"
 #include "fc/bvals_fc.hpp"
 
+namespace parthenon {
 // -----------
 // NOTE ON SWITCHING BETWEEN PRIMITIVE VS. CONSERVED AND STANDARD VS. COARSE BUFFERS HERE:
 // -----------
@@ -373,4 +374,5 @@ void BoundaryValues::ProlongateGhostCells(const NeighborBlock& nb,
   //pmb->peos->PrimitiveToConserved(ph->w, pf->bcc, ph->u, pmb->pcoord,
   //                                fsi, fei, fsj, fej, fsk, fek);
   return;
+}
 }

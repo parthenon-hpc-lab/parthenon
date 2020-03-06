@@ -15,6 +15,7 @@
 #include "mesh/mesh.hpp"
 #include "Stage.hpp"
 
+namespace parthenon {
 /// The implementation file for class Stage
 template <typename T>
 Stage<T>::Stage(std::string name, Stage<T>& src) :
@@ -52,3 +53,5 @@ Stage<T>::Stage(std::string name, Stage<T>& src) :
 }
 
 template class Stage<Real>;
+
+}

@@ -47,6 +47,7 @@
 #define PREDINT32 H5T_NATIVE_INT32
 #define PREDFLOAT64 H5T_NATIVE_DOUBLE
 
+namespace parthenon {
 // XDMF subroutine to write a dataitem that refers to an HDF array
 static std::string stringXdmfArrayRef(const std::string& prefix,
                                       const std::string& hdfPath, const std::string& label,
@@ -587,6 +588,7 @@ void ATHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
   pin->SetInteger(output_params.block_name, "file_number", output_params.file_number);
   pin->SetReal(output_params.block_name, "next_time", output_params.next_time);
   return;
+}
 }
 #endif  // HDF5OUTPUT
 

@@ -36,6 +36,7 @@
 #include "mesh/mesh.hpp"
 #include "meshblock_tree.hpp"
 
+namespace parthenon {
 // Define static member variables
 Mesh* pmesh_;
 MeshBlockTree* MeshBlockTree::proot_;
@@ -460,4 +461,5 @@ MeshBlockTree* MeshBlockTree::FindMeshBlock(LogicalLocation tloc) {
   if (pleaf_[n] == nullptr)
     return nullptr;
   return pleaf_[n]->FindMeshBlock(tloc);
+}
 }

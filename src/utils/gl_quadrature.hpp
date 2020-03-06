@@ -31,6 +31,7 @@
 #include "athena.hpp"
 #include "athena_arrays.hpp"
 
+namespace parthenon {
 namespace GaussLegendre {
 // TODO(felker): for more complicate f(), use functors/lambdas/pass AthenaArray to both fn
 // 1D f(x1)
@@ -42,4 +43,5 @@ Real integrate(const int n, Real (*f)(Real, Real),
 Real integrate(const int n, Real (*f)(Real, Real, Real),
                Real x1l, Real x1u, Real x2l, Real x2u, Real x3l, Real x3u);
 } // namespace GaussLegendre
+}
 #endif // UTILS_GL_QUADRATURE_HPP_

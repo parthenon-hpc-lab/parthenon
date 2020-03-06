@@ -39,6 +39,7 @@
 #include "outputs.hpp"
 #include "interface/ContainerIterator.hpp"
 
+namespace parthenon {
 //----------------------------------------------------------------------------------------
 // Functions to detect big endian machine, and to byte-swap 32-bit words.  The vtk
 // legacy format requires data to be stored as big-endian.
@@ -388,4 +389,5 @@ void VTKOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
   pin->SetReal(output_params.block_name, "next_time", output_params.next_time);
 
   return;
+}
 }

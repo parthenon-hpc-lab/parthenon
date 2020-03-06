@@ -20,6 +20,7 @@
 #include "Container.hpp"
 #include "MaterialVariable.hpp"
 
+namespace parthenon {
 ///
 /// The new version of Add that takes the fourth dimension from
 /// the metadata structure
@@ -580,4 +581,4 @@ int Container<T>::GetVariables(const std::vector<std::string>& names,
 }
 
 template class Container<double>;
-
+}

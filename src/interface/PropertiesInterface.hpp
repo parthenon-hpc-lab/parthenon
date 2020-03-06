@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef PARTHENON_INTERFACE_PropertiesInterface_HPP_
-#define PARTHENON_INTERFACE_PropertiesInterface_HPP_
+#ifndef PARTHENON_INTERFACE_PROPERTIESINTERFACE_HPP_
+#define PARTHENON_INTERFACE_PROPERTIESINTERFACE_HPP_
 
 #include <map>
 #include <string>
@@ -58,5 +58,10 @@ auto ConvertPropertiesToInterface(
 
   return res;
 }
+<<<<<<< HEAD:src/interface/PropertiesInterface.hpp
 */
 #endif // PARTHENON_INTERFACE_PropertiesInterface_HPP_
+=======
+}
+#endif // PARTHENON_INTERFACE_MATERIALPROPERTIESINTERFACE_HPP_
+>>>>>>> master:src/interface/MaterialPropertiesInterface.hpp

@@ -36,6 +36,7 @@
 #include <mpi.h>
 #endif
 
+namespace parthenon {
 // constructor
 
 BoundaryVariable::BoundaryVariable(MeshBlock *pmb) : bvar_index(), pmy_block_(pmb),
@@ -255,4 +256,4 @@ void BoundaryVariable::ReceiveAndSetBoundariesWithWait() {
 
   return;
 }
-
+}

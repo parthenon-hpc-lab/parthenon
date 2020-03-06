@@ -43,6 +43,7 @@
 
 // 3x members of Mesh class:
 
+namespace parthenon {
 //========================================================================================
 //! \fn void Mesh::InitUserMeshData(ParameterInput *pin)
 //  \brief Function to initialize problem-specific data in Mesh class.  Can also be used
@@ -131,4 +132,5 @@ void __attribute__((weak)) MeshBlock::UserWorkInLoop() {
 void __attribute__((weak)) MeshBlock::UserWorkBeforeOutput(ParameterInput *pin) {
   // do nothing
   return;
+}
 }

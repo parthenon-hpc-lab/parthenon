@@ -32,6 +32,7 @@
 #include <mpi.h>
 #endif
 
+namespace parthenon {
 //----------------------------------------------------------------------------------------
 //! \class CellCenteredBoundaryVariable
 //  \brief
@@ -94,5 +95,5 @@ class CellCenteredBoundaryVariable : public BoundaryVariable {
                  const int i, const Real eps, const AthenaArray<Real> &var,
                  AthenaArray<Real> &flux);
 };
-
+}
 #endif // BVALS_CC_BVALS_CC_HPP_

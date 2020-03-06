@@ -11,6 +11,9 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 #include "Params.hpp"
+
+using namespace parthenon;
+
 int main() {
   Params p;
   p.Add("di",std::vector<int>{1,2,3});

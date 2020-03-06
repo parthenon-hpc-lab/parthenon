@@ -19,6 +19,7 @@
 #include <iostream>
 #include "interface/Metadata.hpp"
 
+namespace parthenon {
 class StateDictionary : public std::map<std::string, Metadata> {
   public:
     void AddState(const std::string& field_name, Metadata& m) {
@@ -47,4 +48,6 @@ class StateDictionary : public std::map<std::string, Metadata> {
   //std::set<std::string> _fields;
   //std::map<std::string, Metadata> _fields_metadata;
 };
+
+}
 #endif
