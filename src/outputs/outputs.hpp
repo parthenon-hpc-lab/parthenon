@@ -173,7 +173,7 @@ class ATHDF5Output : public OutputType {
   // Function declarations
   explicit ATHDF5Output(OutputParameters oparams) : OutputType(oparams) {}
   void WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) override;
-  void genXDMF(std::string hdfFile, Mesh *pm);
+  void genXDMF(std::string hdfFile, std::string dbfile, Mesh *pm);
 
  private:
   // Parameters

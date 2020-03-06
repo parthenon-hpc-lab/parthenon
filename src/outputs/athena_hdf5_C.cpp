@@ -143,7 +143,7 @@ static herr_t writeH5AF64(const char *name, const Real* pData,
   return status;
 }
 
-void ATHDF5Output::genXDMF(std::string hdfFile, Mesh *pm) {
+void ATHDF5Output::genXDMF(std::string hdfFile, std::string dbfile, Mesh *pm) {
   // using round robin generation.
   // must switch to MPIIO at some point
 
@@ -243,6 +243,13 @@ void ATHDF5Output::genXDMF(std::string hdfFile, Mesh *pm) {
   xdmf << "</Xdmf>" << std::endl;
   xdmf.close();
 
+  // little bit of a hack since we open the file and close it
+  // appends to the visit database file
+  auto visitdb = std::ofstream(dbfile.c_str(),
+			       std::ofstream::out | std::ofstream::app);
+  visitdb << filename_aux << std::endl;
+  visitdb.close();
+
   return;
 }
 
@@ -330,6 +337,7 @@ void ATHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
   filename = std::string(output_params.file_basename);
   filename.append(".");
   filename.append(output_params.file_id);
+  std::string visit_db_filename = filename + ".visit";
   filename.append(".");
   std::stringstream file_number;
   file_number << std::setw(5) << std::setfill('0') << output_params.file_number;
@@ -580,7 +588,7 @@ void ATHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
   H5Fclose(file);
 
   // generate XDMF companion file
-  (void) genXDMF(filename, pm);
+  (void) genXDMF(filename, visit_db_filename, pm);
 
   // advance output parameters
   output_params.file_number++;
@@ -591,17 +599,3 @@ void ATHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
 }
 }
 #endif  // HDF5OUTPUT
-
-
-
-
-
-
-
-
-
-
-
-
-
-
