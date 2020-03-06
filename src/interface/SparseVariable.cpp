@@ -33,10 +33,10 @@ void SparseVariable<T>::AddAlias(const std::string& theLabel, SparseVariable<T>&
   auto& theSrcMap = mv._cellVars[theLabel];
 
   // for every variable in the source map add an alias in current map
-  for (auto& matPairs : theSrcMap) {
-    auto matID = matPairs.first;
-    auto& matVar = *(matPairs.second);
-    myMap[matID] = std::make_shared<Variable<T>>(theLabel, matVar);
+  for (auto& pairs : theSrcMap) {
+    auto id = pairs.first;
+    auto& var = *(pairs.second);
+    myMap[id] = std::make_shared<Variable<T>>(theLabel, var);
   }
   _pcellVars[theLabel] = mv._pcellVars[theLabel];
   _indexMap[theLabel]  = mv._indexMap[theLabel];
@@ -55,17 +55,17 @@ void SparseVariable<T>::AddCopy(const std::string& theLabel, SparseVariable<T>& 
   auto& theSrcInd = mv._indexMap[theLabel];
 
   // for every variable in the source map add an alias in current map
-  for (auto& matPairs : theSrcMap) {
-    auto matID = matPairs.first;
-    auto& matVar = matPairs.second;
-    if (matVar->metadata().isSet(matVar->metadata().oneCopy)) {
+  for (auto& pairs : theSrcMap) {
+    auto id = pairs.first;
+    auto& var = pairs.second;
+    if (var->metadata().isSet(var->metadata().oneCopy)) {
       // push an alias
-      myMap[matID] = matVar;//std::make_shared<Variable<T>>(theLabel, matVar);
-      myPcell.push_back(matVar);
+      myMap[id] = var;//std::make_shared<Variable<T>>(theLabel, var);
+      myPcell.push_back(var);
     } else {
       // push a copy
-      myMap[matID] = std::make_shared<Variable<T>>(*matVar);
-      myPcell.push_back(myMap[matID]);
+      myMap[id] = std::make_shared<Variable<T>>(*var);
+      myPcell.push_back(myMap[id]);
     }
   }
   myIndex = theSrcInd;
@@ -144,7 +144,7 @@ void SparseVariable<T>::DeleteVariable(const int var_id, const std::string label
   try {
     auto& myMap = this->Get(label);
     Variable<T>& vNew = Get(label, var_id);
-    std::cout << "_______________________________________DELETING mat: "
+    std::cout << "_______________________________________DELETING sparse id: "
               << label
               << std::endl;
     vNew.~Variable();

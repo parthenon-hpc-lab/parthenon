@@ -117,9 +117,9 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  std::vector<std::shared_ptr<FieldPropertiesInterface>> mats;
+  std::vector<std::shared_ptr<FieldPropertiesInterface>> properties;
   std::map<std::string, std::shared_ptr<StateDescriptor>> physics;
-  Mesh m(&pin, mats, physics);
+  Mesh m(&pin, properties, physics);
 
 #ifdef MPI_PARALLEL
   MPI_Finalize();

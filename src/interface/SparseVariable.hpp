@@ -134,15 +134,15 @@ class SparseVariable {
 
   std::map<std::string,SparseMap<T>> CellVars() { return _cellVars;}
 
-  void DeleteVariable(const int mat_id);
-  void DeleteVariable(const int mat_id, const std::string label);
+  void DeleteVariable(const int var_id);
+  void DeleteVariable(const int var_id, const std::string label);
 
-  Variable<T>& Get(const std::string& label, int matID) {
+  Variable<T>& Get(const std::string& label, int sparse_id) {
     auto myMap = this->Get(label);
-    if (myMap.find(matID) == myMap.end()) {
+    if (myMap.find(sparse_id) == myMap.end()) {
       throw std::invalid_argument ("Unable to find specific variable in container");
     }
-    return *myMap[matID];
+    return *myMap[sparse_id];
   }
 
   std::map<std::string,SparseMap<T>>& getAllCellVars() {
