@@ -82,7 +82,7 @@ class Container {
       this->s->_faceArray.push_back(v);
     }
 
-    // Now copy in the material arrays
+    // Now copy in the sparse arrays
     for (auto vars : stageSrc._sparseVars.getAllCellVars()) {
       auto& theLabel=vars.first;
       auto& theMap = vars.second;
@@ -91,13 +91,13 @@ class Container {
   }
 
   /// We can initialize a container with slices from a different
-  /// container.  For variables that have the material tag, this will
-  /// return the material slice.  All other variables are added as
+  /// container.  For variables that have the sparse tag, this will
+  /// return the sparse slice.  All other variables are added as
   /// is. This call returns a new container.
   ///
-  /// @param mat_id The material id
+  /// @param sparse_id The sparse id
   /// @return New container with slices from all variables
-  Container<T> materialSlice(int mat_id);
+  Container<T> sparseSlice(int sparse_id);
 
   /// We can create a shallow copy of a container with a specific stage set as
   /// the base stage.
@@ -194,23 +194,23 @@ class Container {
   }
 
   ///
-  /// returns the variable array for a single material for a single
-  /// material variable from the Material Variables array
-  Variable<T>& GetMaterial(const std::string& label, const int matID) {
-    // returns the variable for the specific material from the Material Variables
-    return s->_sparseVars.Get(label,matID);
+  /// returns the variable array for a single sparse id for a single
+  /// sparse variable from the Sparse Variables array
+  Variable<T>& GetSparse(const std::string& label, const int sparse_id) {
+    // returns the variable for the specific sparse id from the Sparse Variables
+    return s->_sparseVars.Get(label, sparse_id);
   }
 
-  Variable<T>& Get(const std::string& label, const int matID) {
-    return GetMaterial(label, matID);
+  Variable<T>& Get(const std::string& label, const int sparse_id) {
+    return GetSparse(label, sparse_id);
   }
 
-  // returns a flattened array of the material variables
-  VariableVector<T>& GetMaterialVector(const std::string& label) {
+  // returns a flattened array of the sparse variables
+  VariableVector<T>& GetSparseVector(const std::string& label) {
     return s->_sparseVars.GetVector(label);
   }
 
-  std::vector<int>& GetMaterialIndexMap(const std::string& label) {
+  std::vector<int>& GetSparseIndexMap(const std::string& label) {
     return s->_sparseVars.GetIndexMap(label);
   }
   ///
@@ -259,12 +259,12 @@ class Container {
   /// Gets an array of real variables from container.
   /// @param names is the variables we want
   /// @param indexCount a map of names to std::pair<index,count> for each name
-  /// @param matID if specified is list of materials we are interested in.  Note
-  ///        that non-material variables specified are aliased in as is.
+  /// @param sparse_ids if specified is list of sparse ids we are interested in.  Note
+  ///        that non-sparse variables specified are aliased in as is.
   int GetVariables(const std::vector<std::string>& names,
                    std::vector<Variable<T>>& vRet,
                    std::map<std::string,std::pair<int,int>>& indexCount,
-                   const std::vector<int>& matID={});
+                   const std::vector<int>& sparse_ids = {});
 
   ///
   /// get raw data for a variable from the container
@@ -302,7 +302,7 @@ class Container {
     return s->_varArray;
   }
 
-  SparseVariable<T>& matVars() {
+  SparseVariable<T>& sparseVars() {
     return s->_sparseVars;
   }
 

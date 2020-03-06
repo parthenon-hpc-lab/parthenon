@@ -36,9 +36,6 @@ void testContainer() {
   // set the block size for the container
   c.setBlock(&mb);
 
-  // set number of materials for simulation
-  c.setNumMat(3);
-
   m.reset();  // not needed here because m starts empty, but in case we relocate code
   m.setMultiple({m.face, m.intensive, m.oneCopy}); // at this point m flags are face,intensive,oneCopy
 
@@ -66,11 +63,11 @@ void testContainer() {
   m.setMultiple({m.cell, m.intensive, m.oneCopy});  // at this point m flags are cell,intensive,oneCopy
   c.Add(std::string("Cell"), m, two);
   m.set(m.advected);
-  m.setMaterials(true);
+  m.setSparse(true);
   c.Add(std::string("Cell_Advected"), m, two);
   c.Add(std::string("Cell 0D"), m);
   c.Add(std::string("Cell 1D"), m, one);
-  m.setMaterials(false);
+  m.setSparse(false);
 
   // print out the container variables
   c.print();
@@ -86,18 +83,18 @@ void testContainer() {
     std::cout << "______________________ITER VAR="<<v.info()<<std::endl;
   }
 
-  ci.setMask({m.materials});
-  std::cout << "=================================\n";
-  std::cout << "      MATERIAL VARIABLES\n";
-  std::cout << "=================================\n";
+  ci.setMask({m.sparse});
+  std::cout << "===============================\n";
+  std::cout << "      SPARSE VARIABLES\n";
+  std::cout << "===============================\n";
   for (auto &v : ci.vars) {
     for (int i=0; i<3; i++) {
-      // set the first entry of the first three materials to 5
+      // set the first entry of the first three sparse indices to 5
       v(0,i,0,0,0) = 5;
       Real *data = v.data();
       std::cout << "______________________ITER VAR="<<v.info()<<std::endl;
       for (int i = 0; i< v.GetSize(); i++) data[i] = 7;
-      std::cout << "                           MATL:" <<i << " : " << v(0,i,0,0,0) << std::endl;
+      std::cout << "                           SP:" <<i << " : " << v(0,i,0,0,0) << std::endl;
     }
   }
   for (auto &v : ci.varsFace) {
@@ -106,23 +103,23 @@ void testContainer() {
 
   {
     // Testing container slice
-    std::cout << "_____Test Material slice_______" << std::endl;
-    Container<Real> cSlice = c.materialSlice(1);
+    std::cout << "_____Test Sparse slice_______" << std::endl;
+    Container<Real> cSlice = c.sparseSlice(1);
     cSlice.print();
-    ContainerIterator<double> ciSlice(cSlice,{m.materials});
+    ContainerIterator<double> ciSlice(cSlice,{m.sparse});
     for (auto &v : ciSlice.vars) {
       Real *data = v.data();
       std::cout << "______________________SLICE VAR="<<v.info() << std::endl;
       for (int i = 0; i< v.GetSize(); i++) data[i] = -1;
     }
-    std::cout << "=================================\n";
-    std::cout << "  POST SLICE MATERIAL VARIABLES\n";
-    std::cout << "=================================\n";
+    std::cout << "===============================\n";
+    std::cout << "  POST SLICE SPARSE VARIABLES  \n";
+    std::cout << "===============================\n";
     for (auto &v : ci.vars) {
       std::cout << "_______ITER VAR="<<v.info()<<"  size:"<<v.GetSize()<<std::endl;
       for (int i=0; i<3; i++) {
-	std::cout << "            MATL: " <<i << " : " ;
-	switch(v.matIndex()) {
+	std::cout << "            SP: " <<i << " : " ;
+	switch(v.sparseIndex()) {
 	  case 3:
 	    std::cout << v(i,0,0,0);
 	    std::cout << " " << v(i,1,0,0);

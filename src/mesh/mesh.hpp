@@ -137,6 +137,7 @@ class MeshBlock {
 
   Properties_t materials;
   Packages_t physics;
+
   std::unique_ptr<MeshBlockApplicationData> app;
 
   // mesh-related objects

@@ -518,12 +518,12 @@ static int AddVar(Variable<T>&V, std::vector<Variable<T>>& vRet) {
 /// Gets an array of real variables from container.
 /// @param index_ret is returned with starting index for each name
 /// @param count_ret is returned with number of arrays for each name
-/// @param sparseID if specified, only that ID is returned
+/// @param sparse_ids if specified, only those sparse IDs are returned
 template<typename T>
 int Container<T>::GetVariables(const std::vector<std::string>& names,
                                std::vector<Variable<T>>& vRet,
                                std::map<std::string,std::pair<int,int>>& indexCount,
-                               const std::vector<int>& sparseID) {
+                               const std::vector<int>& sparse_ids) {
   // First count how many entries we need and fill in index and count
   indexCount.clear();
 
@@ -537,25 +537,25 @@ int Container<T>::GetVariables(const std::vector<std::string>& names,
     catch (const std::invalid_argument& x) {
       // Not a regular variable, so try a sparse variable
       try { // sparse variable
-        SparseMap<T>& M = GetMaterial(label);
+        SparseMap<T>& M = GetSparse(label);
         if ( M.size() > 0) {
-          if ( sparseID.size() > 0) {
-            for (auto& id : sparseID) {
+          if ( sparse_ids.size() > 0) {
+            for (auto& id : sparse_ids) {
               // Want a specific index
               auto exists = M.find(id);
               if ( exists != M.end() ) {
                 auto&V = *(exists->second);
                 count += AddVar(V, vRet);
               }
-            }  // (auto& id : sparseID)
-          } else { // if (sparseID.size() > 0)
+            }  // (auto& id : sparse_ids)
+          } else { // if (sparse_ids.size() > 0)
             auto&V = *(M.begin()->second);
             count = count*V.GetDim6()*V.GetDim5()*V.GetDim4();
             for (auto& x : M) {
               auto&V = *x.second;
               count += AddVar(V, vRet);
             }
-          } // else (sparseID.size() > 0)
+          } // else (sparse_ids.size() > 0)
         } // if (M.size() > 0)
       } catch (const std::invalid_argument& x) {
         // rethrow exception because we want to die here

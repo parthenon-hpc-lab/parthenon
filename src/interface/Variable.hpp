@@ -173,8 +173,8 @@ struct FaceVariable : FaceField {
     FaceField(ncells[5], ncells[4], ncells[3], ncells[2], ncells[1], ncells[0], init),
     _label(label),
     _m(metadata) {
-    if ( metadata.hasMaterials() ) {
-      throw std::invalid_argument ("Materials not yet implemented for FaceVariable");
+    if ( metadata.hasSparse() ) {
+      throw std::invalid_argument ("Sparse not yet implemented for FaceVariable");
     }
   }
 
@@ -237,8 +237,8 @@ struct EdgeVariable : EdgeField {
     EdgeField(ncells3, ncells2, ncells1, init),
     _label(label),
     _m(metadata) {
-    if ( metadata.hasMaterials() ) {
-      throw std::invalid_argument ("Materials not yet implemented for FaceVariable");
+    if ( metadata.hasSparse() ) {
+      throw std::invalid_argument ("Sparse not yet implemented for FaceVariable");
     }
   }
 
