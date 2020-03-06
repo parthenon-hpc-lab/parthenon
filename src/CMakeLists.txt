@@ -34,6 +34,41 @@ else()
   set(HDF5_OPTION NO_HDF5OUTPUT)
 endif()
 
+if (${Kokkos_ENABLE_CUDA})
+  set(PAR_LOOP_LAYOUT "MANUAL1D_LOOP" CACHE STRING
+    "Default loop layout for parallel_for wrapper")
+
+  set(PAR_LOOP_LAYOUT_VALUES "MANUAL1D_LOOP;MDRANGE_LOOP;TP_INNERX_LOOP;TPTTRTVR_LOOP"
+    CACHE STRING "Possible loop layout options.")
+
+elseif(${Kokkos_ENABLE_HPX})
+  message( FATAL_ERROR "Need to add/fix/test default loop layouts for HPX backend.")
+
+else()
+  # use simd for loop when not using Nvidia GPUs
+  set(PAR_LOOP_LAYOUT "SIMDFOR_LOOP" CACHE STRING
+    "Default loop layout for parallel_for wrapper")
+  set(PAR_LOOP_LAYOUT_VALUES "SIMDFOR_LOOP;MANUAL1D_LOOP;MDRANGE_LOOP;TP_INNERX_LOOP;TPTTRTVR_LOOP"
+    CACHE STRING "Possible loop layout options.")
+
+endif()
+
+set_property(CACHE PAR_LOOP_LAYOUT PROPERTY STRINGS ${PAR_LOOP_LAYOUT_VALUES})
+
+message(STATUS "PAR_LOOP_LAYOUT='${PAR_LOOP_LAYOUT}' (default par_for wrapper layout)")
+
+set(PAR_VECTOR_LENGTH 1 CACHE STRING
+  "Vector length to be used for Kokkos::TeamPolicy based wrappers.")
+
+message(STATUS "PAR_VECTOR_LENGTH=${PAR_VECTOR_LENGTH} (vector length in Kokkos::TeamPolicy based wrappers.)")
+
+set(PAR_LOOP_LAYOUT_INNER INNER_TTR CACHE STRING
+  "Inner loop layout for Kokkos::TeamPolicy based wrappers.")
+set_property(CACHE PAR_LOOP_LAYOUT_INNER PROPERTY STRINGS "INNER_TTR;INNER_TVR")
+
+message(STATUS "PAR_LOOP_LAYOUT_INNER=${PAR_LOOP_LAYOUT_INNER} (Inner loop layout for Kokkos::TeamPolicy based wrappers.)")
+
+
 set(EXCEPTION_HANDLING_OPTION ENABLE_EXCEPTIONS) # TODO: Add option to disable exceptions
 set(COMPILED_WITH ${CMAKE_CXX_COMPILER})
 set(COMPILER_COMMAND "<not-implemented>") # TODO: Put something more descriptive here
