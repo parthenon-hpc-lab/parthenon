@@ -64,7 +64,8 @@ class Metadata {
               derived,      ///< 15: is a derived quantity (ignored)
               oneCopy,      ///< 16: only one copy even if multiple stages
               fillGhost,    ///< 17: Do boundary communication
-              sharedComms   ///< 18: Communication arrays are a copy: hint to destructor
+              sharedComms,  ///< 18: Communication arrays are a copy: hint to destructor
+              user,         ///< 19: user-specific metadata flag
   };
 
   /// Default constructor override
