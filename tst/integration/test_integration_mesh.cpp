@@ -22,13 +22,19 @@
 
 #include "mesh/mesh.hpp"
 
+using parthenon::Mesh;
+using parthenon::PreFillDerivedFunc;
+using parthenon::StateDescriptor;
+using parthenon::MaterialPropertiesInterface;
+using parthenon::ParameterInput;
+using parthenon::BoundaryFlag;
+
 int main(int argc, char * argv[]){
 
   Catch::Session session;
 
   int provided;
   MPI_Init_thread(&argc,&argv,MPI_THREAD_MULTIPLE, &provided);
-  //const int result = Catch::Session().run(argc,argv);
   session.run();
 
   MPI_Finalize();
@@ -39,7 +45,7 @@ int main(int argc, char * argv[]){
 TEST_CASE("Testing Mesh Constructor"){
 
   /// Used to set global rank
-  MPI_Comm_size(MPI_COMM_WORLD, &(Globals::nranks));
+  MPI_Comm_size(MPI_COMM_WORLD, &(parthenon::Globals::nranks));
 
   int rank;
   MPI_Comm_rank( MPI_COMM_WORLD, &rank);
@@ -116,7 +122,7 @@ TEST_CASE("Testing Mesh Constructor"){
   int total_cells_per_block = mesh_x1_cells*mesh_x2_cells*mesh_x3_cells; 
 
   int total_num_mesh_blocks = total_num_cells/total_cells_per_block;
-  int mesh_blocks_per_rank = total_num_mesh_blocks/Globals::nranks; 
+  int mesh_blocks_per_rank = total_num_mesh_blocks/parthenon::Globals::nranks; 
 
   REQUIRE( mesh.GetNumMeshBlocksThisRank(0) == mesh_blocks_per_rank );
   /// Total number of blocks 
