@@ -18,6 +18,8 @@
 #include <catch2/catch.hpp>
 #include "interface/Params.hpp"
 
+using parthenon::Params;
+
 TEST_CASE("Add and Get is called", "[Add,Get]"){
 
   GIVEN( "A key"){
