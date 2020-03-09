@@ -82,8 +82,7 @@ Mesh::Mesh(ParameterInput *pin,
         GetBoundaryFlag(pin->GetOrAddString("mesh", "ox2_bc", "none")),
         GetBoundaryFlag(pin->GetOrAddString("mesh", "ix3_bc", "none")),
         GetBoundaryFlag(pin->GetOrAddString("mesh", "ox3_bc", "none"))},
-  f2(mesh_size.nx2 > 1 ? true : false), f3(mesh_size.nx3 > 1 ? true : false),
-  ndim(f3 ? 3 : (f2 ? 2 : 1)),
+  ndim((mesh_size.nx3>1) ? 3 : ((mesh_size.nx2>1) ? 2 : 1)),
   adaptive(pin->GetOrAddString("mesh", "refinement", "none") == "adaptive"
            ? true : false),
   multilevel((adaptive || pin->GetOrAddString("mesh", "refinement", "none") == "static")
@@ -204,11 +203,11 @@ Mesh::Mesh(ParameterInput *pin,
     block_size.x2rat = mesh_size.x2rat;
     block_size.x3rat = mesh_size.x3rat;
     block_size.nx1 = pin->GetOrAddInteger("meshblock", "nx1", mesh_size.nx1);
-    if (f2)
+    if (ndim>=2)
       block_size.nx2 = pin->GetOrAddInteger("meshblock", "nx2", mesh_size.nx2);
     else
       block_size.nx2 = mesh_size.nx2;
-    if (f3)
+    if (ndim==3)
       block_size.nx3 = pin->GetOrAddInteger("meshblock", "nx3", mesh_size.nx3);
     else
       block_size.nx3 = mesh_size.nx3;
@@ -221,8 +220,8 @@ Mesh::Mesh(ParameterInput *pin,
           << "the Mesh must be evenly divisible by the MeshBlock" << std::endl;
       ATHENA_ERROR(msg);
     }
-    if (block_size.nx1 < 4 || (block_size.nx2 < 4 && f2)
-        || (block_size.nx3 < 4 && f3)) {
+    if (block_size.nx1 < 4 || (block_size.nx2 < 4 && (ndim>=2))
+        || (block_size.nx3 < 4 && (ndim>=3))) {
       msg << "### FATAL ERROR in Mesh constructor" << std::endl
 << "block_size must be larger than or equal to 4 cells." << std::endl;
     ATHENA_ERROR(msg);
@@ -281,8 +280,8 @@ Mesh::Mesh(ParameterInput *pin,
   InitUserMeshData(pin);
 
   if (multilevel) {
-    if (block_size.nx1 % 2 == 1 || (block_size.nx2 % 2 == 1 && f2)
-        || (block_size.nx3 % 2 == 1 && f3)) {
+    if (block_size.nx1 % 2 == 1 || (block_size.nx2 % 2 == 1 && (ndim>=2))
+        || (block_size.nx3 % 2 == 1 && (ndim==3))) {
       msg << "### FATAL ERROR in Mesh constructor" << std::endl
           << "The size of MeshBlock must be divisible by 2 in order to use SMR or AMR."
           << std::endl;
@@ -295,7 +294,7 @@ Mesh::Mesh(ParameterInput *pin,
         RegionSize ref_size;
         ref_size.x1min = pin->GetReal(pib->block_name, "x1min");
         ref_size.x1max = pin->GetReal(pib->block_name, "x1max");
-        if (f2) {
+        if (ndim>=2) {
           ref_size.x2min = pin->GetReal(pib->block_name, "x2min");
           ref_size.x2max = pin->GetReal(pib->block_name, "x2max");
         } else {
@@ -357,7 +356,7 @@ Mesh::Mesh(ParameterInput *pin,
         }
         if (lx1min % 2 == 1) lx1min--;
         if (lx1max % 2 == 0) lx1max++;
-        if (f2) { // 2D or 3D
+        if (ndim>=2) { // 2D or 3D
           lxmax = nrbx2*(1LL << ref_lev);
           for (lx2min=0; lx2min<lxmax; lx2min++) {
             Real rx = ComputeMeshGeneratorX(lx2min+1, lxmax,
@@ -526,8 +525,7 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper& resfile,
              GetBoundaryFlag(pin->GetOrAddString("mesh", "ox2_bc", "none")),
              GetBoundaryFlag(pin->GetOrAddString("mesh", "ix3_bc", "none")),
              GetBoundaryFlag(pin->GetOrAddString("mesh", "ox3_bc", "none"))},
-    f2(mesh_size.nx2 > 1 ? true : false), f3(mesh_size.nx3 > 1 ? true : false),
-    ndim(f3 ? 3 : (f2 ? 2 : 1)),
+    ndim((mesh_size.nx3 > 1) ? 3 : ((mesh_size.nx2 > 1) ? 2 : 1)),
     adaptive(pin->GetOrAddString("mesh", "refinement", "none") == "adaptive"
              ? true : false),
     multilevel((adaptive || pin->GetOrAddString("mesh", "refinement", "none") == "static")
