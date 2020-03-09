@@ -30,8 +30,8 @@ void FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
   int ke = pmb->ke;
 
   Metadata m;
-  ContainerIterator<Real> cin_iter(in, std::vector<parthenon::Metadata::flags> {m.independent});
-  ContainerIterator<Real> cout_iter(dudt_cont, std::vector<parthenon::Metadata::flags> {m.independent});
+  ContainerIterator<Real> cin_iter(in, std::vector<parthenon::Metadata::Flag> {m.independent});
+  ContainerIterator<Real> cout_iter(dudt_cont, std::vector<parthenon::Metadata::Flag> {m.independent});
   int nvars = cout_iter.vars.size();
 
   AthenaArray<Real> x1area(pmb->ncells1);
@@ -108,9 +108,9 @@ void UpdateContainer(Container<Real> &in, Container<Real> &dudt_cont,
   int ke = pmb->ke;
 
   Metadata m;
-  ContainerIterator<Real> cin_iter(in, std::vector<parthenon::Metadata::flags> {m.independent});
-  ContainerIterator<Real> cout_iter(out, std::vector<parthenon::Metadata::flags> {m.independent});
-  ContainerIterator<Real> du_iter(dudt_cont, std::vector<parthenon::Metadata::flags> {m.independent});
+  ContainerIterator<Real> cin_iter(in, std::vector<parthenon::Metadata::Flag> {m.independent});
+  ContainerIterator<Real> cout_iter(out, std::vector<parthenon::Metadata::Flag> {m.independent});
+  ContainerIterator<Real> du_iter(dudt_cont, std::vector<parthenon::Metadata::Flag> {m.independent});
   int nvars = cout_iter.vars.size();
 
   for (int n = 0; n < nvars; n++) {
@@ -141,8 +141,8 @@ void AverageContainers(Container<Real> &c1, Container<Real> &c2,
   int ke = pmb->ke;
 
   Metadata m;
-  ContainerIterator<Real> c1_iter(c1, std::vector<parthenon::Metadata::flags> {m.independent});
-  ContainerIterator<Real> c2_iter(c2, std::vector<parthenon::Metadata::flags> {m.independent});
+  ContainerIterator<Real> c1_iter(c1, std::vector<parthenon::Metadata::Flag> {m.independent});
+  ContainerIterator<Real> c2_iter(c2, std::vector<parthenon::Metadata::Flag> {m.independent});
   int nvars = c2_iter.vars.size();
 
   for (int n = 0; n < nvars; n++) {

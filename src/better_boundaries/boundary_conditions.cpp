@@ -26,7 +26,7 @@ void ApplyBoundaryConditions(Container<Real>& rc) {
     const int imax = pmb->ncells1; const int jmax = pmb->ncells2; const int kmax = pmb->ncells3;
 
     Metadata m;
-    ContainerIterator<Real> citer(rc, std::vector<parthenon::Metadata::flags> {m.independent});
+    ContainerIterator<Real> citer(rc, std::vector<parthenon::Metadata::Flag> {m.independent});
     const int nvars = citer.vars.size();
 
     switch (pmb->boundary_flag[BoundaryFace::inner_x1]) {
