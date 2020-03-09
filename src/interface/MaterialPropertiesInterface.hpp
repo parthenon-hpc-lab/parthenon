@@ -18,6 +18,7 @@
 
 #include "interface/StateDescriptor.hpp"
 
+namespace parthenon {
 class MaterialPropertiesInterface {
 public:
   virtual ~MaterialPropertiesInterface() {}
@@ -58,5 +59,5 @@ auto ConvertMaterialPropertiesToInterface(
 
   return res;
 }
-
+}
 #endif // PARTHENON_INTERFACE_MATERIALPROPERTIESINTERFACE_HPP_

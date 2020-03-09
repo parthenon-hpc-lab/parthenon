@@ -26,6 +26,7 @@
 #include "athena_arrays.hpp"
 #include "mesh.hpp"
 
+namespace parthenon {
 //----------------------------------------------------------------------------------------
 //! \fn  void WeightedAve::WeightedAve
 //  \brief Compute weighted average of AthenaArrays (including cell-averaged U in time
@@ -397,4 +398,5 @@ void MeshBlock::WeightedAve(FaceField &b_out, FaceField &b_in1, FaceField &b_in2
     }
   }
   return;
+}
 }

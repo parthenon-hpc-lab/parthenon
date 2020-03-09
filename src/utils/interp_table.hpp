@@ -28,6 +28,7 @@
 #include "athena.hpp"         // Real
 #include "athena_arrays.hpp"  // AthenaArray
 
+namespace parthenon {
 class InterpTable2D {
  public:
   InterpTable2D() = default;
@@ -54,5 +55,5 @@ class InterpTable2D {
   Real x2max_;
   Real x2norm_;
 };
-
+}
 #endif //UTILS_INTERP_TABLE_HPP_

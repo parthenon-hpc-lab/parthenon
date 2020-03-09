@@ -38,6 +38,7 @@
 
 #include "reconstruction.hpp"
 
+namespace parthenon {
 //----------------------------------------------------------------------------------------
 //! \fn Reconstruction::PiecewiseParabolicX1()
 //  \brief Returns L/R interface values in X1-dir constructed using fourth-order PPM and
@@ -822,4 +823,5 @@ void Reconstruction::PiecewiseParabolicX3(
     }
   }
   return;
+}
 }

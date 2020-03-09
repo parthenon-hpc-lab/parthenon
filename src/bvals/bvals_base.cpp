@@ -35,6 +35,7 @@
 #include "utils/buffer_utils.hpp"
 #include "bvals.hpp"
 
+namespace parthenon {
 // required definitions of static data members of BoundaryBase outside class definition
 // (zero-initialization is performed for all static storage duration variables)
 // scalar types: integral constant 0 is explicitly converted to type
@@ -554,4 +555,5 @@ void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist,
     }
   }
   return;
+}
 }

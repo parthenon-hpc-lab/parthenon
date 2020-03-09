@@ -29,6 +29,7 @@
 #include "athena.hpp"
 #include "io_wrapper.hpp"
 
+namespace parthenon {
 // forward declarations
 class Mesh;
 class ParameterInput;
@@ -207,4 +208,5 @@ class Outputs {
   OutputType *pfirst_type_; // ptr to head OutputType node in singly linked list
   // (not storing a reference to the tail node)
 };
+}
 #endif // OUTPUTS_OUTPUTS_HPP_

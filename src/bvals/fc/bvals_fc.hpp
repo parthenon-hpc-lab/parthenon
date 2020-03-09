@@ -32,6 +32,7 @@
 #include <mpi.h>
 #endif
 
+namespace parthenon {
 //----------------------------------------------------------------------------------------
 //! \class FaceCenteredBoundaryVariable
 //  \brief
@@ -92,5 +93,5 @@ class FaceCenteredBoundaryVariable : public BoundaryVariable {
                  const Real eps, const AthenaArray<Real> &var,
                  AthenaArray<Real> &flux);
 };
-
+}
 #endif // BVALS_FC_BVALS_FC_HPP_

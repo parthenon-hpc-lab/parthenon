@@ -22,6 +22,7 @@
 #include "interface/Container.hpp"
 #include "better_refinement/better_refinement.hpp"
 
+namespace parthenon {
 enum class DerivedOwnership {shared, unique};
 
 ///
@@ -105,5 +106,5 @@ class StateDescriptor {
     const std::string _label;
     std::map<std::string, Metadata> _metadataMap;
 };
-
+}
 #endif // STATE_DESCRIPTOR_HPP

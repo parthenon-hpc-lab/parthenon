@@ -19,8 +19,10 @@
 //! \file globals.hpp
 //  \brief namespace containing external global variables
 
+namespace parthenon {
 namespace Globals {
 extern int my_rank, nranks;
+}
 }
 
 #endif // GLOBALS_HPP_

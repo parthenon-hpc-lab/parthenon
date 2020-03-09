@@ -34,6 +34,7 @@
 #include <mpi.h>
 #endif
 
+namespace parthenon {
 class MeshBlock;
 class ParameterInput;
 class Coordinates;
@@ -98,5 +99,5 @@ class MeshRefinement {
   std::vector<std::tuple<AthenaArray<Real> *, AthenaArray<Real> *>> pvars_cc_;
   std::vector<std::tuple<FaceField *, FaceField *>> pvars_fc_;
 };
-
+}
 #endif // MESH_MESH_REFINEMENT_HPP_

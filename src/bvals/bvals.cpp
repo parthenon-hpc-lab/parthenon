@@ -48,6 +48,7 @@
 #include <mpi.h>
 #endif
 
+namespace parthenon {
 // BoundaryValues constructor (the first object constructed inside the MeshBlock()
 // constructor): sets functions for the appropriate boundary conditions at each of the 6
 // dirs of a MeshBlock
@@ -145,4 +146,5 @@ int BoundaryValues::AdvanceCounterPhysID(int num_phys) {
 #else
   return 0;
 #endif
+}
 }

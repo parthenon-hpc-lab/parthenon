@@ -21,6 +21,7 @@
 #include "MaterialVariable.hpp"
 #include "Metadata.hpp"
 
+namespace parthenon {
 /// create a new material variable alias from material variable
 /// 'theLabel' in input material variable mv
 template <typename T>
@@ -157,3 +158,4 @@ void MaterialVariable<T>::DeleteMaterial(const int mat_id, const std::string lab
 
 
 template class MaterialVariable<Real>;
+}

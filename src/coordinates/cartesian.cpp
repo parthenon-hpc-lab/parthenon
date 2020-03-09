@@ -29,6 +29,7 @@
 #include "parameter_input.hpp"
 #include "coordinates.hpp"
 
+namespace parthenon {
 //----------------------------------------------------------------------------------------
 // Cartesian coordinates constructor
 
@@ -111,4 +112,5 @@ Cartesian::Cartesian(MeshBlock *pmb, ParameterInput *pin, bool flag)
     }
   }
 
+}
 }

@@ -25,6 +25,7 @@
 // Athena++ headers
 #include "athena.hpp"
 
+namespace parthenon {
 //----------------------------------------------------------------------------------------
 //! \fn void ShowConfig()
 //  \brief prints diagnostic messages about the configuration of an Athena++ executable
@@ -72,4 +73,5 @@ void ShowConfig() {
            << COMPILED_WITH_OPTIONS << std::endl;
   // configure.py output: Doesnt append "Linker flags" in prev. output (excessive space!)
   return;
+}
 }

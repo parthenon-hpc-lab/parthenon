@@ -106,6 +106,7 @@
 #include "parameter_input.hpp"
 #include "outputs.hpp"
 
+namespace parthenon {
 //----------------------------------------------------------------------------------------
 // OutputType constructor
 
@@ -631,3 +632,4 @@ void OutputType::SumOutputData(MeshBlock* pmb, int dim) {
 
 void OutputType::CalculateCartesianVector(AthenaArray<Real> &src, AthenaArray<Real> &dst,
                                           Coordinates *pco) {}
+}

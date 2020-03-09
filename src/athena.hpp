@@ -29,6 +29,7 @@
 #include "athena_arrays.hpp"
 #include <defs.hpp>
 
+namespace parthenon {
 // primitive type alias that allows code to run with either floats or doubles
 #if SINGLE_PRECISION_ENABLED
 using Real = float;
@@ -186,4 +187,5 @@ using FieldDiffusionCoeffFunc = void (*)(
     const AthenaArray<Real> &bmag,
     int is, int ie, int js, int je, int ks, int ke);
 
+}
 #endif // ATHENA_HPP_

@@ -35,6 +35,7 @@
 #include <vector>
 
 // Athena++ headers
+namespace parthenon {
 
 template <typename T>
 class AthenaArray {
@@ -646,6 +647,8 @@ void AthenaArray<T>::AllocateData() {
       pdata_ = new T[nx1_*nx2_*nx3_*nx4_*nx5_*nx6_]();
       break;
   }
+}
+
 }
 
 #endif // ATHENA_ARRAYS_HPP_

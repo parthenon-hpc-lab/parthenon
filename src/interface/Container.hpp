@@ -24,6 +24,7 @@
 #include "Stage.hpp"
 #include "Variable.hpp"
 
+namespace parthenon {
 ///
 /// Interface to underlying infrastructure for data declaration and access.
 /// Date: August 22, 2019
@@ -355,5 +356,5 @@ class Container {
   std::shared_ptr<Stage<T>> s;
 };
 
-
+}
 #endif // INTERFACE_CONTAINER_HPP_
