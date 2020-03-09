@@ -44,51 +44,40 @@ TEST_CASE("Testing Mesh Constructor"){
   int rank;
   MPI_Comm_rank( MPI_COMM_WORLD, &rank);
 
-  if(rank==0){
-
-    std::fstream fl;
-    fl.open("test_file", std::fstream::out);
-    fl << "<time>" << std::endl;
-    fl << "nlim        = -1        # cycle limit" << std::endl;
-    fl << "tlim        = 0.25      # time limit" << std::endl;
-    fl << "ncycle_out  = 25        # interval for stdout summary info" << std::endl;
-    fl << "" << std::endl;
-    fl << "<mesh>" << std::endl;
-    fl << "nx1         = 16       # Number of zones in X1-direction" << std::endl;
-    fl << "x1min       = -0.5      # minimum value of X1" << std::endl;
-    fl << "x1max       = 0.5       # maximum value of X1" << std::endl;
-    fl << "ix1_bc      = outflow   # Inner-X1 boundary condition flag" << std::endl;
-    fl << "ox1_bc      = outflow   # Outer-X1 boundary condition flag" << std::endl;
-    fl << "" << std::endl;
-    fl << "nx2         = 24         # Number of zones in X2-direction" << std::endl;
-    fl << "x2min       = -0.6      # minimum value of X2" << std::endl;
-    fl << "x2max       = 0.6       # maximum value of X2" << std::endl;
-    fl << "ix2_bc      = periodic  # Inner-X2 boundary condition flag" << std::endl;
-    fl << "ox2_bc      = periodic  # Outer-X2 boundary condition flag" << std::endl;
-    fl << "" << std::endl;
-    fl << "nx3         = 12         # Number of zones in X3-direction" << std::endl;
-    fl << "x3min       = -0.7      # minimum value of X3" << std::endl;
-    fl << "x3max       = 0.7       # maximum value of X3" << std::endl;
-    fl << "ix3_bc      = periodic  # Inner-X3 boundary condition flag" << std::endl;
-    fl << "ox3_bc      = periodic  # Outer-X3 boundary condition flfgag" << std::endl;
-    fl << "" << std::endl;
-    fl << "num_threads = 2         # maximum number of OMP threads" << std::endl;
-    fl << "" << std::endl;
-    fl << "<meshblock>" << std::endl;
-    fl << "nx1 = 8" << std::endl;
-    fl << "nx2 = 4" << std::endl;
-    fl << "nx3 = 6" << std::endl;
-    fl.close();
-  }
-
-  MPI_Barrier(MPI_COMM_WORLD);
-
-  std::fstream fl_in;
-  fl_in.open("test_file", std::fstream::in);
+  std::stringstream str_stream;
+  str_stream << "<time>" << std::endl;
+  str_stream << "nlim        = -1        # cycle limit" << std::endl;
+  str_stream << "tlim        = 0.25      # time limit" << std::endl;
+  str_stream << "ncycle_out  = 25        # interval for stdout summary info" << std::endl;
+  str_stream << "" << std::endl;
+  str_stream << "<mesh>" << std::endl;
+  str_stream << "nx1         = 16       # Number of zones in X1-direction" << std::endl;
+  str_stream << "x1min       = -0.5      # minimum value of X1" << std::endl;
+  str_stream << "x1max       = 0.5       # maximum value of X1" << std::endl;
+  str_stream << "ix1_bc      = outstr_streamow   # Inner-X1 boundary condition str_streamag" << std::endl;
+  str_stream << "ox1_bc      = outstr_streamow   # Outer-X1 boundary condition str_streamag" << std::endl;
+  str_stream << "" << std::endl;
+  str_stream << "nx2         = 24         # Number of zones in X2-direction" << std::endl;
+  str_stream << "x2min       = -0.6      # minimum value of X2" << std::endl;
+  str_stream << "x2max       = 0.6       # maximum value of X2" << std::endl;
+  str_stream << "ix2_bc      = periodic  # Inner-X2 boundary condition str_streamag" << std::endl;
+  str_stream << "ox2_bc      = periodic  # Outer-X2 boundary condition str_streamag" << std::endl;
+  str_stream << "" << std::endl;
+  str_stream << "nx3         = 12         # Number of zones in X3-direction" << std::endl;
+  str_stream << "x3min       = -0.7      # minimum value of X3" << std::endl;
+  str_stream << "x3max       = 0.7       # maximum value of X3" << std::endl;
+  str_stream << "ix3_bc      = periodic  # Inner-X3 boundary condition str_streamag" << std::endl;
+  str_stream << "ox3_bc      = periodic  # Outer-X3 boundary condition str_streamfgag" << std::endl;
+  str_stream << "" << std::endl;
+  str_stream << "num_threads = 2         # maximum number of OMP threads" << std::endl;
+  str_stream << "" << std::endl;
+  str_stream << "<meshblock>" << std::endl;
+  str_stream << "nx1 = 8" << std::endl;
+  str_stream << "nx2 = 4" << std::endl;
+  str_stream << "nx3 = 6" << std::endl;
 
   ParameterInput pin;
-  pin.LoadFromStream(fl_in);
-  fl_in.close();
+  pin.LoadFromStream(str_stream);
 
   std::vector<std::shared_ptr<MaterialPropertiesInterface>> materials;
   std::map<std::string, std::shared_ptr<StateDescriptor>> physics;
