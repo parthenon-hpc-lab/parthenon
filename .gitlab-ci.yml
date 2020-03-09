@@ -45,5 +45,5 @@ parthenon-cpu-short:
   script:
     - mkdir build
     - cd build
-    - cmake -DCMAKE_BUILD_TYPE=Debug -DHDF5_ROOT=/usr/local/hdf5/parallel ../ && make && make test
+    - cmake -DCMAKE_BUILD_TYPE=Debug -DHDF5_ROOT=/usr/local/hdf5/parallel -DKokkos_ARCH_WSM=True -DKokkos_ENABLE_OPENMP=True ../ && make && make test
 

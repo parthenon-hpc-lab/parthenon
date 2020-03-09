@@ -51,7 +51,7 @@ set(NUMBER_GHOST_CELLS 2) # TODO: Make this a CMake option and check it
 
 configure_file(../../src/defs.hpp.in generated/defs.hpp @ONLY)
 
-target_include_directories(parthenon-unit PUBLIC
+target_include_directories(unit_tests PUBLIC
   ${CMAKE_CURRENT_BINARY_DIR}/generated
 )
 
