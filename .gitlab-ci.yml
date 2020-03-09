@@ -1,0 +1,47 @@
+image: cuda10.0-mpi-hdf5
+
+# Is performed before the scripts in the stages step
+before_script:
+    - export OMP_PROC_BIND=close
+    - export OMP_PLACES=cores
+    - export OMP_NUM_THREADS=1
+    - export CMAKE_VERSION=3.10.3
+    - wget -qO- http://www.cmake.org/files/v${CMAKE_VERSION:0:4}/cmake-${CMAKE_VERSION}-Linux-x86_64.tar.gz | tar -xvz
+    - export PATH=$(pwd)/cmake-${CMAKE_VERSION}-Linux-x86_64/bin:$PATH
+  
+variables:
+  GIT_SUBMODULE_STRATEGY: recursive
+
+stages:
+  - style
+  - short
+
+style-check:
+  tags:
+    - cpu
+  stage: style
+  script:
+    - echo "Placeholder. See https://github.com/lanl/parthenon/issues/16"
+
+# PLACEHOLDER run short suite on GPUs
+#parthenon-cuda-short:
+#  tags:
+#    - cuda
+#  stage: short
+#  script:
+#    - cd tst/regression/
+# mitigate UVM allocations on older multi-GPU systems    
+#    - export CUDA_LAUNCH_BLOCKING=1
+#    - export CUDA_VISIBLE_DEVICES=0
+#    - ...
+
+# run short suite on CPUs
+parthenon-cpu-short:
+  tags:
+    - cpu
+  stage: short
+  script:
+    - mkdir build
+    - cd build
+    - cmake -DCMAKE_BUILD_TYPE=Debug -DHDF5_ROOT=/usr/local/hdf5/parallel ../ && make && make test
+
