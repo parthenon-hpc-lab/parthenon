@@ -155,7 +155,7 @@ class SparseVariable {
 
   void print() {
     for ( auto &m : _cellVars) {
-      std::cout << "    var:cell:" << m.second.begin()->second->info() << ":";
+      std::cout << "    sparsevar:cell:" << m.second.begin()->second->info() << ":";
       for (auto &v : m.second) {
         std::cout << v.first << ":";
       }
