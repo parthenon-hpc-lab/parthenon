@@ -75,21 +75,22 @@ int FaceCenteredBoundaryVariable::ComputeVariableBufferSize(const NeighborIndexe
   int nx1 = pmb->block_size.nx1;
   int nx2 = pmb->block_size.nx2;
   int nx3 = pmb->block_size.nx3;
-  int f2 = pmy_mesh_->f2, f3 = pmy_mesh_->f3;
+  const bool isAtLeast2D = pmy_mesh_->ndim>=2;
+  const bool is3D = pmy_mesh_->ndim==3;
   int cng1, cng2, cng3;
   cng1 = cng;
-  cng2 = cng*f2;
-  cng3 = cng*f3;
+  cng2 = cng*isAtLeast2D;
+  cng3 = cng*is3D;
 
   int size1 = ((ni.ox1 == 0) ? (nx1 + 1) : NGHOST)
               *((ni.ox2 == 0) ? (nx2) : NGHOST)
               *((ni.ox3 == 0) ? (nx3) : NGHOST);
   int size2 = ((ni.ox1 == 0) ? (nx1) : NGHOST)
-              *((ni.ox2 == 0) ? (nx2 + f2) : NGHOST)
+              *((ni.ox2 == 0) ? (nx2 + isAtLeast2D) : NGHOST)
               *((ni.ox3 == 0) ? (nx3) : NGHOST);
   int size3 = ((ni.ox1 == 0) ? (nx1) : NGHOST)
               *((ni.ox2 == 0) ? (nx2) : NGHOST)
-              *((ni.ox3 == 0) ? (nx3 + f3) : NGHOST);
+              *((ni.ox3 == 0) ? (nx3 + is3D) : NGHOST);
   int size = size1 + size2 + size3;
   if (pmy_mesh_->multilevel) {
     if (ni.type != NeighborConnect::face) {
@@ -102,12 +103,12 @@ int FaceCenteredBoundaryVariable::ComputeVariableBufferSize(const NeighborIndexe
                *((ni.ox2 == 0) ? ((nx2 + 1)/2) : NGHOST)
                *((ni.ox3 == 0) ? ((nx3 + 1)/2) : NGHOST);
     int f2c2 = ((ni.ox1 == 0) ? ((nx1 + 1)/2) : NGHOST)
-               *((ni.ox2 == 0) ? ((nx2 + 1)/2 + f2)
+               *((ni.ox2 == 0) ? ((nx2 + 1)/2 + isAtLeast2D)
                  : NGHOST)
                *((ni.ox3 == 0) ? ((nx3 + 1)/2) : NGHOST);
     int f2c3 = ((ni.ox1 == 0) ? ((nx1 + 1)/2) : NGHOST)
                *((ni.ox2 == 0) ? ((nx2 + 1)/2) : NGHOST)
-               *((ni.ox3 == 0) ? ((nx3 + 1)/2 + f3)
+               *((ni.ox3 == 0) ? ((nx3 + 1)/2 + is3D)
                  : NGHOST);
     if (ni.type != NeighborConnect::face) {
       if (ni.ox1 != 0) f2c1 = f2c1/NGHOST*(NGHOST + 1);
@@ -121,13 +122,13 @@ int FaceCenteredBoundaryVariable::ComputeVariableBufferSize(const NeighborIndexe
         *((ni.ox3 == 0) ? ((nx3 + 1)/2 + cng3) : cng);
     int c2f2 =
         ((ni.ox1 == 0) ?((nx1 + 1)/2 + cng1) : cng)
-        *((ni.ox2 == 0) ? ((nx2 + 1)/2 + cng2 + f2) : cng + 1)
+        *((ni.ox2 == 0) ? ((nx2 + 1)/2 + cng2 + isAtLeast2D) : cng + 1)
         *((ni.ox3 == 0) ? ((nx3 + 1)/2 + cng3) : cng);
     int c2f3 =
         ((ni.ox1 == 0) ? ((nx1 + 1)/2 + cng1) : cng)
         *((ni.ox2 == 0) ? ((nx2 + 1)/2 + cng2) : cng)
         *((ni.ox3 == 0) ?
-          ((nx3 + 1)/2 + cng3 + f3) : cng + 1);
+          ((nx3 + 1)/2 + cng3 + is3D) : cng + 1);
     int csize = c2f1 + c2f2 + c2f3;
     size = std::max(size, std::max(csize, fsize));
   }
@@ -796,11 +797,12 @@ void FaceCenteredBoundaryVariable::SetupPersistentMPI() {
   int nx3 = pmb->block_size.nx3;
   int &mylevel = pmb->loc.level;
 
-  int f2 = pmy_mesh_->f2, f3 = pmy_mesh_->f3;
+  const bool isAtLeast2D = pmy_mesh_->ndim>=2;
+  const bool is3D = pmy_mesh_->ndim==3;
   int cng, cng1, cng2, cng3;
   cng  = cng1 = pmb->cnghost;
-  cng2 = cng*f2;
-  cng3 = cng*f3;
+  cng2 = cng*isAtLeast2D;
+  cng3 = cng*is3D;
   int ssize, rsize;
   int tag;
   // Initialize non-polar neighbor communications to other ranks
@@ -812,11 +814,11 @@ void FaceCenteredBoundaryVariable::SetupPersistentMPI() {
                   *((nb.ni.ox2 == 0) ? (nx2) : NGHOST)
                   *((nb.ni.ox3 == 0) ? (nx3) : NGHOST);
       int size2 = ((nb.ni.ox1 == 0) ? (nx1) : NGHOST)
-                  *((nb.ni.ox2 == 0) ? (nx2 + f2) : NGHOST)
+                  *((nb.ni.ox2 == 0) ? (nx2 + isAtLeast2D) : NGHOST)
                   *((nb.ni.ox3 == 0) ? (nx3) : NGHOST);
       int size3 = ((nb.ni.ox1 == 0) ? (nx1) : NGHOST)
                   *((nb.ni.ox2 == 0) ? (nx2) : NGHOST)
-                  *((nb.ni.ox3 == 0) ? (nx3 + f3) : NGHOST);
+                  *((nb.ni.ox3 == 0) ? (nx3 + is3D) : NGHOST);
       size = size1 + size2 + size3;
       if (pmy_mesh_->multilevel) {
         if (nb.ni.type != NeighborConnect::face) {
@@ -829,11 +831,11 @@ void FaceCenteredBoundaryVariable::SetupPersistentMPI() {
                    *((nb.ni.ox2 == 0) ? ((nx2 + 1)/2) : NGHOST)
                    *((nb.ni.ox3 == 0) ? ((nx3 + 1)/2) : NGHOST);
         int f2c2 = ((nb.ni.ox1 == 0) ? ((nx1 + 1)/2) : NGHOST)
-                   *((nb.ni.ox2 == 0) ? ((nx2 + 1)/2 + f2) : NGHOST)
+                   *((nb.ni.ox2 == 0) ? ((nx2 + 1)/2 + isAtLeast2D) : NGHOST)
                    *((nb.ni.ox3 == 0) ? ((nx3 + 1)/2) : NGHOST);
         int f2c3 = ((nb.ni.ox1 == 0) ? ((nx1 + 1)/2) : NGHOST)
                    *((nb.ni.ox2 == 0) ? ((nx2 + 1)/2) : NGHOST)
-                   *((nb.ni.ox3 == 0) ? ((nx3 + 1)/2 + f3) : NGHOST);
+                   *((nb.ni.ox3 == 0) ? ((nx3 + 1)/2 + is3D) : NGHOST);
         if (nb.ni.type != NeighborConnect::face) {
           if (nb.ni.ox1 != 0) f2c1 = f2c1/NGHOST*(NGHOST + 1);
           if (nb.ni.ox2 != 0) f2c2 = f2c2/NGHOST*(NGHOST + 1);
@@ -844,11 +846,11 @@ void FaceCenteredBoundaryVariable::SetupPersistentMPI() {
                    *((nb.ni.ox2 == 0) ? ((nx2 + 1)/2 + cng2) : cng)
                    *((nb.ni.ox3 == 0) ? ((nx3 + 1)/2 + cng3) : cng);
         int c2f2 = ((nb.ni.ox1 == 0) ? ((nx1 + 1)/2 + cng1) : cng)
-                   *((nb.ni.ox2 == 0) ? ((nx2 + 1)/2 + cng2 + f2) : cng + 1)
+                   *((nb.ni.ox2 == 0) ? ((nx2 + 1)/2 + cng2 + isAtLeast2D) : cng + 1)
                    *((nb.ni.ox3 == 0) ? ((nx3 + 1)/2 + cng3) : cng);
         int c2f3 = ((nb.ni.ox1 == 0) ? ((nx1 + 1)/2 + cng1) : cng)
                    *((nb.ni.ox2 == 0) ? ((nx2 + 1)/2 + cng2) : cng)
-                   *((nb.ni.ox3 == 0) ? ((nx3 + 1)/2 + cng3 + f3) : cng + 1);
+                   *((nb.ni.ox3 == 0) ? ((nx3 + 1)/2 + cng3 + is3D) : cng + 1);
         csize = c2f1 + c2f2 + c2f3;
       } // end of multilevel
       if (nb.snb.level == mylevel) // same refinement level

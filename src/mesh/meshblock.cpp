@@ -69,7 +69,7 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
 
   ncells1 = block_size.nx1 + 2*NGHOST;
   ncc1 = block_size.nx1/2 + 2*NGHOST;
-  if (pmy_mesh->f2) {
+  if (pmy_mesh->ndim>=2) {
     js = NGHOST;
     je = js + block_size.nx2 - 1;
     ncells2 = block_size.nx2 + 2*NGHOST;
@@ -80,7 +80,7 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
     ncc2 = 1;
   }
 
-  if (pmy_mesh->f3) {
+  if (pmy_mesh->ndim==3) {
     ks = NGHOST;
     ke = ks + block_size.nx3 - 1;
     ncells3 = block_size.nx3 + 2*NGHOST;
@@ -99,9 +99,9 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
     cnghost = (NGHOST + 1)/2 + 1;
     cis = NGHOST; cie = cis + block_size.nx1/2 - 1;
     cjs = cje = cks = cke = 0;
-    if (pmy_mesh->f2) // 2D or 3D
+    if (pmy_mesh->ndim>=2) // 2D or 3D
       cjs = NGHOST, cje = cjs + block_size.nx2/2 - 1;
-    if (pmy_mesh->f3) // 3D
+    if (pmy_mesh->ndim==3) // 3D
       cks = NGHOST, cke = cks + block_size.nx3/2 - 1;
   }
 
@@ -209,7 +209,7 @@ MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
 
   ncells1 = block_size.nx1 + 2*NGHOST;
   ncc1 = block_size.nx1/2 + 2*NGHOST;
-  if (pmy_mesh->f2) {
+  if (pmy_mesh->ndim>=2) {
     js = NGHOST;
     je = js + block_size.nx2 - 1;
     ncells2 = block_size.nx2 + 2*NGHOST;
@@ -220,7 +220,7 @@ MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
     ncc2 = 1;
   }
 
-  if (pmy_mesh->f3) {
+  if (pmy_mesh->ndim==3) {
     ks = NGHOST;
     ke = ks + block_size.nx3 - 1;
     ncells3 = block_size.nx3 + 2*NGHOST;
@@ -238,9 +238,9 @@ MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
     cnghost = (NGHOST + 1)/2 + 1;
     cis = NGHOST; cie = cis + block_size.nx1/2 - 1;
     cjs = cje = cks = cke = 0;
-    if (pmy_mesh->f2) // 2D or 3D
+    if (pmy_mesh->ndim>=2) // 2D or 3D
       cjs = NGHOST, cje = cjs + block_size.nx2/2 - 1;
-    if (pmy_mesh->f3) // 3D
+    if (pmy_mesh->ndim==3) // 3D
       cks = NGHOST, cke = cks + block_size.nx3/2 - 1;
   }
 

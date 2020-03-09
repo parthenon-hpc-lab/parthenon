@@ -465,8 +465,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
     nx4_tot += var_cc.GetDim4();
   }
 
-  bool isAtLeast2D = ndim>=2;
-  bool is3D = ndim==3;
+  const bool isAtLeast2D(ndim>=2);
+  const bool is3D(ndim==3);
   // cell-centered quantities enrolled in SMR/AMR
   int bssame = bnx1*bnx2*bnx3*nx4_tot;
   int bsf2c = (bnx1/2)*((bnx2 + 1)/2)*((bnx3 + 1)/2)*nx4_tot;
@@ -716,8 +716,8 @@ void Mesh::PrepareSendSameLevel(MeshBlock* pb, Real *sendbuf) {
   // pack
   int p = 0;
 
-  bool isAtLeast2D = ndim>=2;
-  bool is3D = ndim==3;
+  const bool isAtLeast2D(ndim>=2);
+  const bool is3D(ndim==3);
   // this helper fn is used for AMR and non-refinement load balancing of
   // MeshBlocks. Therefore, unlike PrepareSendCoarseToFineAMR(), etc., it loops over
   // MeshBlock::vars_cc/fc_ containers, not MeshRefinement::pvars_cc/fc_ containers
@@ -754,6 +754,9 @@ void Mesh::PrepareSendSameLevel(MeshBlock* pb, Real *sendbuf) {
 
 void Mesh::PrepareSendCoarseToFineAMR(MeshBlock* pb, Real *sendbuf,
                                       LogicalLocation &lloc) {
+
+  const bool isAtLeast2D(ndim>=2);
+  const bool is3D(ndim==3);
   int ox1 = ((lloc.lx1 & 1LL) == 1LL), ox2 = ((lloc.lx2 & 1LL) == 1LL),
       ox3 = ((lloc.lx3 & 1LL) == 1LL);
   // pack
@@ -787,6 +790,8 @@ void Mesh::PrepareSendCoarseToFineAMR(MeshBlock* pb, Real *sendbuf,
 
 void Mesh::PrepareSendFineToCoarseAMR(MeshBlock* pb, Real *sendbuf) {
   // restrict and pack
+  const bool isAtLeast2D(ndim>=2);
+  const bool is3D = ndim==3;
   auto &pmr = pb->pmr;
   int p = 0;
   for (auto cc_pair : pmr->pvars_cc_) {
@@ -871,8 +876,8 @@ void Mesh::FillSameRankFineToCoarseAMR(MeshBlock* pob, MeshBlock* pmb,
     pmb_cc_it++;
   }
 
-  bool isAtLeast2D = ndim>=2;
-  bool is3D = ndim==3;
+  const bool isAtLeast2D(ndim>=2);
+  const bool is3D(ndim==3);
 
   auto pmb_fc_it = pmb->pmr->pvars_fc_.begin();
   for (auto fc_pair : pmr->pvars_fc_) {
@@ -934,8 +939,8 @@ void Mesh::FillSameRankCoarseToFineAMR(MeshBlock* pob, MeshBlock* pmb,
                                        LogicalLocation &newloc) {
   auto &pmr = pmb->pmr;
 
-  bool isAtLeast2D = ndim >= 2;
-  bool is3D = ndim >= 3;
+  const bool isAtLeast2D(ndim >= 2);
+  const bool is3D(ndim >= 3);
 
   int il = pob->cis - 1, iu = pob->cie + 1, jl = pob->cjs - isAtLeast2D,
       ju = pob->cje + isAtLeast2D, kl = pob->cks - is3D, ku = pob->cke + is3D;
@@ -1012,8 +1017,8 @@ void Mesh::FillSameRankCoarseToFineAMR(MeshBlock* pob, MeshBlock* pmb,
 // step 8 (receive and load), branch 1 (same2same: unpack)
 void Mesh::FinishRecvSameLevel(MeshBlock *pb, Real *recvbuf) {
   int p = 0;
-  bool isAtLeast2D = ndim >= 2;
-  bool is3D = ndim == 3;
+  const bool isAtLeast2D(ndim >= 2);
+  const bool is3D(ndim == 3);
 
   for (AthenaArray<Real> &var_cc : pb->vars_cc_) {
     int nu = var_cc.GetDim4() - 1;
@@ -1051,8 +1056,8 @@ void Mesh::FinishRecvSameLevel(MeshBlock *pb, Real *recvbuf) {
 void Mesh::FinishRecvFineToCoarseAMR(MeshBlock *pb, Real *recvbuf,
                                      LogicalLocation &lloc) {
 
-  bool isAtLeast2D = ndim>=2;
-  bool is3D = ndim==3; 
+  const bool isAtLeast2D(ndim>=2);
+  const bool is3D(ndim==3); 
 
   int ox1 = ((lloc.lx1 & 1LL) == 1LL), ox2 = ((lloc.lx2 & 1LL) == 1LL),
       ox3 = ((lloc.lx3 & 1LL) == 1LL);
@@ -1096,8 +1101,8 @@ void Mesh::FinishRecvFineToCoarseAMR(MeshBlock *pb, Real *recvbuf,
 // step 8 (receive and load), branch 2 (c2f: unpack+prolongate)
 void Mesh::FinishRecvCoarseToFineAMR(MeshBlock *pb, Real *recvbuf) {
 
-  bool isAtLeast2D = ndim>=2;
-  bool is3D = ndim==3;
+  const bool isAtLeast2D(ndim>=2);
+  const bool is3D(ndim==3);
   auto &pmr = pb->pmr;
   int p = 0;
   int il = pb->cis - 1, iu = pb->cie+1, jl = pb->cjs - isAtLeast2D,
