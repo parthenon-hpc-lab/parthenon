@@ -1305,6 +1305,8 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
       for (int i=0; i<nmb; ++i) {
         pmb_array[i]->real_container.ReceiveAndSetBoundariesWithWait();
       }
+
+#pragma omp for
       for (int i=0; i<nmb; ++i) {
         pmb_array[i]->real_container.SetBoundaries();
         pmb_array[i]->real_container.ClearBoundary(BoundaryCommSubset::mesh_init);
