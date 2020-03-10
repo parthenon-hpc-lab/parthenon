@@ -94,15 +94,12 @@ void Container<T>::Add(const std::string label,
       throw std::invalid_argument ("_addArray() must have dims between [1,3]");
     }
 
-    int nc1 = pmy_block->ncells1;
-    int nc2 = pmy_block->ncells2;
-    int nc3 = pmy_block->ncells3;
+    arrDims[0] = pmy_block->num_cells.dim1;
+    arrDims[1] = pmy_block->num_cells.dim2;
+    arrDims[2] = pmy_block->num_cells.dim3;
     if ( metadata.where() == (Metadata::node) ) {
-      nc1++; nc2++; nc3++;
+      ++arrDims[0]; ++arrDims[1]; ++arrDims[2];
     }
-    arrDims[0] = nc1;
-    arrDims[1] = nc2;
-    arrDims[2] = nc3;
     for (int i=0; i<N; i++) {arrDims[i+3] = dims[i];}
 
     s->_varArray.push_back(std::make_shared<Variable<T>>(label, arrDims, metadata));

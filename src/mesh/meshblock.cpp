@@ -67,27 +67,27 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
 
   this->ssID = id++;
 
-  ncells1 = block_size.nx1 + 2*NGHOST;
+  num_cells.dim1 = block_size.nx1 + 2*NGHOST;
   ncc1 = block_size.nx1/2 + 2*NGHOST;
   if (pmy_mesh->f2) {
     js = NGHOST;
     je = js + block_size.nx2 - 1;
-    ncells2 = block_size.nx2 + 2*NGHOST;
+    num_cells.dim2 = block_size.nx2 + 2*NGHOST;
     ncc2 = block_size.nx2/2 + 2*NGHOST;
   } else {
     js = je = 0;
-    ncells2 = 1;
+    num_cells.dim2 = 1;
     ncc2 = 1;
   }
 
   if (pmy_mesh->f3) {
     ks = NGHOST;
     ke = ks + block_size.nx3 - 1;
-    ncells3 = block_size.nx3 + 2*NGHOST;
+    num_cells.dim3 = block_size.nx3 + 2*NGHOST;
     ncc3 = block_size.nx3/2 + 2*NGHOST;
   } else {
     ks = ke = 0;
-    ncells3 = 1;
+    num_cells.dim3 = 1;
     ncc3 = 1;
   }
 
@@ -207,27 +207,27 @@ MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
   is = NGHOST;
   ie = is + block_size.nx1 - 1;
 
-  ncells1 = block_size.nx1 + 2*NGHOST;
+  num_cells.dim1 = block_size.nx1 + 2*NGHOST;
   ncc1 = block_size.nx1/2 + 2*NGHOST;
   if (pmy_mesh->f2) {
     js = NGHOST;
     je = js + block_size.nx2 - 1;
-    ncells2 = block_size.nx2 + 2*NGHOST;
+    num_cells.dim2 = block_size.nx2 + 2*NGHOST;
     ncc2 = block_size.nx2/2 + 2*NGHOST;
   } else {
     js = je = 0;
-    ncells2 = 1;
+    num_cells.dim2 = 1;
     ncc2 = 1;
   }
 
   if (pmy_mesh->f3) {
     ks = NGHOST;
     ke = ks + block_size.nx3 - 1;
-    ncells3 = block_size.nx3 + 2*NGHOST;
+    num_cells.dim3 = block_size.nx3 + 2*NGHOST;
     ncc3 = block_size.nx3/2 + 2*NGHOST;
   } else {
     ks = ke = 0;
-    ncells3 = 1;
+    num_cells.dim3 = 1;
     ncc3 = 1;
   }
 
@@ -341,7 +341,7 @@ void MeshBlock::AllocateUserOutputVariables(int n) {
     return;
   }
   nuser_out_var = n;
-  user_out_var.NewAthenaArray(nuser_out_var, ncells3, ncells2, ncells1);
+  user_out_var.NewAthenaArray(nuser_out_var, num_cells.dim1, num_cells.dim2, num_cells.dim3);
   user_out_var_names_ = new std::string[n];
   return;
 }

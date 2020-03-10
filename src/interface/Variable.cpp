@@ -141,12 +141,12 @@ void Variable<T>::allocateComms(MeshBlock *pmb) {
   const int _dim4 = this->GetDim4();
   const int _dim5 = this->GetDim5();
   const int _dim6 = this->GetDim6();
-  flux[0].NewAthenaArray(_dim4, pmb->ncells3, pmb->ncells2, pmb->ncells1+1);
+  flux[0].NewAthenaArray(_dim4, pmb->num_cells.dim3, pmb->num_cells.dim2, pmb->num_cells.dim1+1);
   if (pmb->pmy_mesh->f2) {
-    flux[1].NewAthenaArray(_dim4, pmb->ncells3, pmb->ncells2+1, pmb->ncells1);
+    flux[1].NewAthenaArray(_dim4, pmb->num_cells.dim3, pmb->num_cells.dim2+1, pmb->num_cells.dim1);
   }
   if (pmb->pmy_mesh->f3) {
-    flux[2].NewAthenaArray(_dim4, pmb->ncells3+1, pmb->ncells2, pmb->ncells1);
+    flux[2].NewAthenaArray(_dim4, pmb->num_cells.dim3+1, pmb->num_cells.dim2, pmb->num_cells.dim1);
   }
   coarse_s = new AthenaArray<Real>(_dim4, pmb->ncc3, pmb->ncc2, pmb->ncc1,
                                 (pmb->pmy_mesh->multilevel ?

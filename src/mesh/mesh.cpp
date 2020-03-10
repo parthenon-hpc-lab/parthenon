@@ -1502,7 +1502,7 @@ void Mesh::CorrectMidpointInitialCondition(std::vector<MeshBlock*> &pmb_array, i
     int ncells4 = NHYDRO;
     int nl = 0;
     int nu = ncells4 - 1;
-    delta_cons_.NewAthenaArray(ncells4, pmb->ncells3, pmb->ncells2, pmb->ncells1);
+    delta_cons_.NewAthenaArray(ncells4, pmb->num_cells.dim1, pmb->num_cells.dim2, pmb->num_cells.dim3);
 
 
 

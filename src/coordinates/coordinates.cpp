@@ -46,7 +46,7 @@ Coordinates::Coordinates(MeshBlock *pmb, ParameterInput *pin, bool flag) :
     il = pmb->is; jl = pmb->js; kl = pmb->ks;
     iu = pmb->ie; ju = pmb->je; ku = pmb->ke;
     ng = NGHOST;
-    nc1 = pmy_block->ncells1, nc2 = pmy_block->ncells2, nc3 = pmy_block->ncells3;
+    nc1 = pmy_block->num_cells.dim1, nc2 = pmy_block->num_cells.dim2, nc3 = pmy_block->num_cells.dim3;
   }
 
   // allocate arrays for volume-centered coordinates and positions of cells

@@ -177,7 +177,7 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin) :
   // limiter formulations for Schwarzschild, Kerr metrics instead of Cartesian-like wghts
 
   // Allocate memory for scratch arrays used in PLM and PPM
-  int nc1 = pmb->ncells1;
+  int nc1 = pmb->num_cells.dim1;
   scr01_i_.NewAthenaArray(nc1);
   scr02_i_.NewAthenaArray(nc1);
 
@@ -280,7 +280,7 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin) :
 
     // Precompute PPM coefficients in x2-direction ---------------------------------------
     if (pmb->block_size.nx2 > 1) {
-      int nc2 = pmb->ncells2;
+      int nc2 = pmb->num_cells.dim2;
       c1j.NewAthenaArray(nc2);
       c2j.NewAthenaArray(nc2);
       c3j.NewAthenaArray(nc2);
@@ -338,7 +338,7 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin) :
 
     // Precompute PPM coefficients in x3-direction
     if (pmb->block_size.nx3 > 1) {
-      int nc3 = pmb->ncells3;
+      int nc3 = pmb->num_cells.dim3;
       c1k.NewAthenaArray(nc3);
       c2k.NewAthenaArray(nc3);
       c3k.NewAthenaArray(nc3);

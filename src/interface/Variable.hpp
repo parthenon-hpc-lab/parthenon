@@ -33,6 +33,7 @@
 #include "athena.hpp"
 #include "athena_arrays.hpp"
 #include "bvals/cc/bvals_cc.hpp"
+#include "mesh/domain.hpp"
 #include "Metadata.hpp"
 #define DATASTATUS AthenaArray<Real>::DataStatus
 
@@ -167,9 +168,9 @@ struct FaceVariable : FaceField {
  public:
   /// Initialize a face variable
   FaceVariable(const std::string label, const Metadata &metadata,
-               const int ncells3, const int ncells2, const int ncells1,
+               const IndexVolume num_cells,
                const DATASTATUS init=DATASTATUS::allocated) :
-    FaceField(ncells3, ncells2, ncells1, init),
+    FaceField(num_cells, init),
     _label(label),
     _m(metadata) {
     if ( metadata.hasMaterials() ) {
@@ -179,7 +180,7 @@ struct FaceVariable : FaceField {
 
   /// Create an alias for the variable by making a shallow slice with max dim
   FaceVariable(std::string label, FaceVariable &src) :
-    FaceField(0,0,0,DATASTATUS::allocated),
+    FaceField(IndexVolume(0,0,0),DATASTATUS::allocated),
     _label(label),
     _m(src.metadata()) {
     this->x1f.InitWithShallowSlice(src.x1f, 3, 0, src.x1f.GetDim3());
@@ -213,9 +214,9 @@ struct EdgeVariable : EdgeField {
 
   /// Initialize a edge variable
   EdgeVariable(const std::string label, const Metadata &metadata,
-               const int ncells3, const int ncells2, const int ncells1,
+               const IndexVolume num_cells,
                const DATASTATUS init=DATASTATUS::allocated) :
-    EdgeField(ncells3, ncells2, ncells1, init),
+    EdgeField(num_cells, init),
     _label(label),
     _m(metadata) {
     if ( metadata.hasMaterials() ) {
@@ -225,7 +226,7 @@ struct EdgeVariable : EdgeField {
 
   /// Create an alias for the variable by making a shallow slice with max dim
   EdgeVariable(const std::string label, const EdgeVariable &src) :
-    EdgeField(0,0,0,DATASTATUS::allocated),
+    EdgeField(IndexVolume(0,0,0),DATASTATUS::allocated),
     _label(label),
     _m(src.metadata()) {
     this->x1e.InitWithShallowSlice(src.x1e, 3, 0, src.x1e.GetDim3());

@@ -57,7 +57,7 @@ MeshRefinement::MeshRefinement(MeshBlock *pmb, ParameterInput *pin) :
     ATHENA_ERROR(msg);
   }
 
-  int nc1 = pmb->ncells1;
+  int nc1 = pmb->num_cells.dim1;
   fvol_[0][0].NewAthenaArray(nc1);
   fvol_[0][1].NewAthenaArray(nc1);
   fvol_[1][0].NewAthenaArray(nc1);

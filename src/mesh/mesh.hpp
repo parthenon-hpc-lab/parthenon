@@ -34,6 +34,7 @@
 #include "athena.hpp"
 #include "athena_arrays.hpp"
 #include "bvals/bvals.hpp"
+#include "domain.hpp"
 #include "outputs/io_wrapper.hpp"
 #include "parameter_input.hpp"
 #include "task_list/task_list.hpp"
@@ -112,7 +113,8 @@ public:
   RegionSize block_size;
   // for convenience: "max" # of real+ghost cells along each dir for allocating "standard"
   // sized MeshBlock arrays, depending on ndim (i.e. ncells2=nx2+2*NGHOST if nx2>1)
-  int ncells1, ncells2, ncells3;
+  IndexVolume num_cells;
+  
   // on 1x coarser level MeshBlock (i.e. ncc2=nx2/2 + 2*NGHOST, if nx2>1)
   int ncc1, ncc2, ncc3;
   int is, ie, js, je, ks, ke;

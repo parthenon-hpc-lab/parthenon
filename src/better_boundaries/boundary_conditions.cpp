@@ -23,7 +23,9 @@ void ApplyBoundaryConditions(Container<Real>& rc) {
     MeshBlock *pmb = rc.pmy_block;
     const int is = pmb->is; const int js = pmb->js; const int ks = pmb->ks;
     const int ie = pmb->ie; const int je = pmb->je; const int ke = pmb->ke;
-    const int imax = pmb->ncells1; const int jmax = pmb->ncells2; const int kmax = pmb->ncells3;
+    const int imax = pmb->num_cells.dim1; 
+    const int jmax = pmb->num_cells.dim2; 
+    const int kmax = pmb->num_cells.dim3;
 
     Metadata m;
     ContainerIterator<Real> citer(rc, {m.independent});
