@@ -188,7 +188,7 @@ void ApplyBoundaryConditions(Container<Real>& rc) {
     } // if ndim>=2
 
 
-    if (pmb->pmy_mesh->ndim == 3) {
+    if (pmb->pmy_mesh->ndim >= 3) {
 
    switch (pmb->boundary_flag[BoundaryFace::inner_x3]) {
         case BoundaryFlag::outflow: {
@@ -266,7 +266,7 @@ void ApplyBoundaryConditions(Container<Real>& rc) {
     }
     };
 
-    } // if ndim == 3
+    } // if ndim >= 3
 
 }
 

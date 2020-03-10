@@ -145,7 +145,7 @@ void Variable<T>::allocateComms(MeshBlock *pmb) {
   if (pmb->pmy_mesh->ndim>=2) {
     flux[1].NewAthenaArray(_dim4, pmb->ncells3, pmb->ncells2+1, pmb->ncells1);
   }
-  if (pmb->pmy_mesh->ndim==3) {
+  if (pmb->pmy_mesh->ndim>=3) {
     flux[2].NewAthenaArray(_dim4, pmb->ncells3+1, pmb->ncells2, pmb->ncells1);
   }
   coarse_s = new AthenaArray<Real>(_dim4, pmb->ncc3, pmb->ncc2, pmb->ncc1,

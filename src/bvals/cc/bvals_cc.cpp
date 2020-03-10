@@ -363,7 +363,7 @@ void CellCenteredBoundaryVariable::SetupPersistentMPI() {
   int cng, cng1, cng2, cng3;
   cng  = cng1 = pmb->cnghost;
   cng2 = cng*(pmy_mesh_->ndim>=2);
-  cng3 = cng*(pmy_mesh_->ndim==3);
+ cng3 = cng*(pmy_mesh_->ndim >= 3);
   int ssize, rsize;
   int tag;
   // Initialize non-polar neighbor communications to other ranks

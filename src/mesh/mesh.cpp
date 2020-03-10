@@ -207,7 +207,7 @@ Mesh::Mesh(ParameterInput *pin,
       block_size.nx2 = pin->GetOrAddInteger("meshblock", "nx2", mesh_size.nx2);
     else
       block_size.nx2 = mesh_size.nx2;
-    if (ndim==3)
+    if (ndim >= 3)
       block_size.nx3 = pin->GetOrAddInteger("meshblock", "nx3", mesh_size.nx3);
     else
       block_size.nx3 = mesh_size.nx3;
@@ -281,7 +281,7 @@ Mesh::Mesh(ParameterInput *pin,
 
   if (multilevel) {
     if (block_size.nx1 % 2 == 1 || (block_size.nx2 % 2 == 1 && (ndim>=2))
-        || (block_size.nx3 % 2 == 1 && (ndim==3))) {
+        || (block_size.nx3 % 2 == 1 && (ndim >= 3))) {
       msg << "### FATAL ERROR in Mesh constructor" << std::endl
           << "The size of MeshBlock must be divisible by 2 in order to use SMR or AMR."
           << std::endl;
