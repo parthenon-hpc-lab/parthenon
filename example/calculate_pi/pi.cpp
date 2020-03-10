@@ -24,7 +24,7 @@ namespace parthenon {
 void ProcessProperties(std::vector<std::shared_ptr<PropertiesInterface>>& properties, ParameterInput *pin) {}
 
 void InitializePhysics(std::map<std::string, std::shared_ptr<StateDescriptor>>& physics, ParameterInput *pin) {
-  // only have one package for this app, but will typically have more things added to 
+  // only have one package for this app, but will typically have more things added to
   physics["PiCalculator"] = PiCalculator::Initialize(pin);
 }
 
@@ -37,6 +37,7 @@ DriverStatus CalculatePi::Execute() {
   // No evolution in this driver.  Just calculates something once.
   // For evolution, look at the EvolutionDriver
 
+  int nthreads = pmesh->GetNumMeshThreads();
   int nmb = pmesh->GetNumMeshBlocksThisRank(Globals::my_rank);
   std::vector<TaskList> task_lists;
   task_lists.resize(nmb);
@@ -50,6 +51,7 @@ DriverStatus CalculatePi::Execute() {
   }
   int complete_cnt = 0;
   while (complete_cnt != nmb) {
+#pragma omp parallel for reduction(+ : complete_cnt) num_threads(nthreads) schedule(dynamic,1)
     for (auto & tl : task_lists) {
       if (!tl.IsComplete()) {
           auto status = tl.DoAvailable();
