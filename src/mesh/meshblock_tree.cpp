@@ -266,7 +266,7 @@ void MeshBlockTree::Derefine(int &ndel) {
             if (ox1==-1)       lis=lie=1;
             else if (ox1==1)   lis=lie=0;
             else              lis=0, lie=1;
-            if (pmesh_->ndim>=2) {
+            if (pmesh_->ndim >= 2) {
               if (ox2==-1)     ljs=lje=1;
               else if (ox2==1) ljs=lje=0;
               else            ljs=0, lje=1;
