@@ -23,11 +23,12 @@
 #include "mesh/mesh.hpp"
 //#include "driver/multistage.hpp"
 
-class Integrator;
 
 #define MAX_TASKS 64
 
 namespace parthenon {
+
+class Integrator;
 
 enum class TaskStatus {fail, success, next};
 enum class TaskListStatus {running, stuck, complete, nothing_to_do};
