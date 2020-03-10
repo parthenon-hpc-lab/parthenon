@@ -19,6 +19,9 @@ include(CTest)
 option(ENABLE_UNIT_TESTS "Enable unit tests" ${BUILD_TESTING})
 option(ENABLE_INTEGRATION_TESTS "Enable integration tests" ${BUILD_TESTING})
 option(ENABLE_REGRESSION_TESTS "Enable regression tests" ${BUILD_TESTING})
+option(DISABLE_MPI "MPI is enabled by default if found, set this to True to disable MPI" Off)
+option(DISABLE_OPENMP "OpenMP is enabled by default if found, set this to True to disable OpenMP" Off)
+option(DISABLE_HDF5 "HDF5 is enabled by default if found, set this to True to disable HDF5" Off)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS On)
 
@@ -41,15 +44,35 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif()
 
-#find_package(MPI REQUIRED)
-#find_package(OpenMP REQUIRED)
+set(ENABLE_MPI Off)
+if (NOT DISABLE_MPI)
+  find_package(MPI COMPONENTS CXX)
+  set(ENABLE_MPI ${MPI_FOUND})
+endif()
 
-#set(HDF5_PREFER_PARALLEL True)
-find_package(HDF5 REQUIRED)
+set(ENABLE_OPENMP Off)
+if (NOT DISABLE_OPENMP)
+  find_package(OpenMP COMPONENTS CXX)
+  set(ENABLE_OPENMP ${OpenMP_FOUND})
+endif()
 
-#if (NOT ${HDF5_IS_PARALLEL})
-#  message(FATAL_ERROR "Parallel HDF5 is required but only serial version was found")
-#endif()
+set(ENABLE_HDF5 Off)
+if (NOT DISABLE_HDF5)
+  set(HDF5_PREFER_PARALLEL ${ENABLE_MPI})
+  find_package(HDF5 COMPONENTS C)
+  set(ENABLE_HDF5 ${HDF5_FOUND})
+  if (ENABLE_HDF5 AND ENABLE_MPI AND (NOT HDF5_IS_PARALLEL))
+    message(FATAL_ERROR "Parallel HDF5 is required but only serial version was found")
+  endif()
+
+  if (ENABLE_HDF5)
+    # HDF5 Interface library
+    add_library(HDF5_C INTERFACE)
+    target_link_libraries(HDF5_C INTERFACE ${HDF5_C_LIBRARIES})
+    target_compile_definitions(HDF5_C INTERFACE ${HDF5_C_DEFINITIONS})
+    target_include_directories(HDF5_C INTERFACE ${HDF5_C_INCLUDE_DIRS})
+  endif()
+endif()
 
 # Build Tests and download Catch2
 if (${ENABLE_UNIT_TESTS} OR ${ENABLE_INTEGRATION_TESTS} OR ${ENABLE_REGRESSION_TESTS})
@@ -73,12 +96,6 @@ if (${ENABLE_UNIT_TESTS} OR ${ENABLE_INTEGRATION_TESTS} OR ${ENABLE_REGRESSION_T
   include(ParseAndAddCatchTests)
   add_subdirectory(tst)
 endif()
-
-# HDF5 Interface library
-add_library(HDF5_C INTERFACE)
-target_link_libraries(HDF5_C INTERFACE ${HDF5_C_LIBRARIES})
-target_compile_definitions(HDF5_C INTERFACE ${HDF5_C_DEFINITIONS})
-target_include_directories(HDF5_C INTERFACE ${HDF5_C_INCLUDE_DIRS})
 
 add_subdirectory(src)
 add_subdirectory(example/calculate_pi)

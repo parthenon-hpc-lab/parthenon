@@ -15,19 +15,36 @@
 # Configure defs.hpp
 set(PROBLEM_GENERATOR "<not-implemented>") # TODO: Figure out what to put here
 set(SINGLE_PRECISION_ENABLED 0) # TODO: Add CMake option for this
-set(MPI_OPTION NOT_MPI_PARALLEL) # TODO: Without MPI
-set(OPENMP_OPTION NOT_OPENMP_PARALLEL) # TODO: Without OPENMP
-set(HDF5_OPTION HDF5OUTPUT) # TODO: No HDF5
+
+if (ENABLE_MPI)
+  set(MPI_OPTION MPI_PARALLEL)
+else ()
+  set(MPI_OPTION NOT_MPI_PARALLEL)
+endif()
+
+if (ENABLE_OPENMP)
+  set(OPENMP_OPTION OPENMP_PARALLEL)
+else()
+  set(OPENMP_OPTION NOT_OPENMP_PARALLEL)
+endif()
+
+if (ENABLE_HDF5)
+  set(HDF5_OPTION HDF5OUTPUT)
+else()
+  set(HDF5_OPTION NO_HDF5OUTPUT)
+endif()
+
 set(EXCEPTION_HANDLING_OPTION ENABLE_EXCEPTIONS) # TODO: Add option to disable exceptions
 set(COMPILED_WITH ${CMAKE_CXX_COMPILER})
 set(COMPILER_COMMAND "<not-implemented>") # TODO: Put something more descriptive here
 set(COMPILER_FLAGS "<not-implemented>") # TODO: Put something more descriptive here
+
 set(NHYDRO_VARIABLES 0) # TODO: Remove
 set(NFIELD_VARIABLES 0) # TODO: Remove
 set(NWAVE_VALUE 5) # TODO: Remove
 set(NUMBER_GHOST_CELLS 2) # TODO: Make this a CMake option and check it
-configure_file(defs.hpp.in generated/defs.hpp @ONLY)
 
+configure_file(defs.hpp.in generated/defs.hpp @ONLY)
 
 add_library(parthenon
   better_boundaries/boundary_conditions.cpp
@@ -100,8 +117,19 @@ add_library(parthenon
   parameter_input.cpp
 )
 target_compile_features(parthenon PUBLIC cxx_std_14)
-#target_link_libraries(parthenon PUBLIC MPI::MPI_CXX OpenMP::OpenMP_CXX HDF5_C)
-target_link_libraries(parthenon PUBLIC HDF5_C)
+
+if (ENABLE_MPI)
+  target_link_libraries(parthenon PUBLIC MPI::MPI_CXX)
+endif()
+
+if (ENABLE_OPENMP)
+  target_link_libraries(parthenon PUBLIC OpenMP::OpenMP_CXX)
+endif()
+
+if (ENABLE_HDF5)
+  target_link_libraries(parthenon PUBLIC HDF5_C)
+endif()
+
 target_include_directories(parthenon PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}
   ${CMAKE_CURRENT_BINARY_DIR}/generated
