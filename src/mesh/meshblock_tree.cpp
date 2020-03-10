@@ -89,7 +89,7 @@ MeshBlockTree::~MeshBlockTree() {
 void MeshBlockTree::CreateRootGrid() {
   if (loc_.level == 0) {
     nleaf_ = 2;
-    if (pmesh_->ndim>=2) nleaf_ = 4;
+    if (pmesh_->ndim >= 2) nleaf_ = 4;
     if (pmesh_->ndim >= 3) nleaf_ = 8;
   }
   if (loc_.level == pmesh_->root_level) return;
@@ -183,7 +183,7 @@ void MeshBlockTree::Refine(int &nnew) {
   nloc.level=loc_.level;
 
   oxmin=-1, oxmax=1, nxmax=(pmesh_->nrbx1<<(loc_.level-pmesh_->root_level));
-  if (pmesh_->ndim>=2)
+  if (pmesh_->ndim >= 2)
     oymin=-1, oymax=1, nymax=(pmesh_->nrbx2<<(loc_.level-pmesh_->root_level));
   else
     oymin=0,  oymax=0, nymax=1;
@@ -254,7 +254,7 @@ void MeshBlockTree::Refine(int &nnew) {
 
 void MeshBlockTree::Derefine(int &ndel) {
   int s2=0, e2=0, s3=0, e3=0;
-  if (pmesh_->ndim>=2) s2=-1, e2=1;
+  if (pmesh_->ndim >= 2) s2=-1, e2=1;
   if (pmesh_->ndim >= 3) s3=-1, e3=1;
   for (int ox3=s3; ox3<=e3; ox3++) {
     for (int ox2=s2; ox2<=e2; ox2++) {
