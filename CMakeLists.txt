@@ -47,31 +47,45 @@ endif()
 set(ENABLE_MPI Off)
 if (NOT DISABLE_MPI)
   find_package(MPI COMPONENTS CXX)
-  set(ENABLE_MPI ${MPI_FOUND})
+  if (NOT MPI_FOUND)
+    message(FATAL_ERROR "\nERROR: MPI is required but couldn't be found. "
+    "If you want to build Parthenon without MPI, please rerun CMake with -DDISABLE_MPI=yes")
+  endif()
+  set(ENABLE_MPI On)
 endif()
 
 set(ENABLE_OPENMP Off)
 if (NOT DISABLE_OPENMP)
   find_package(OpenMP COMPONENTS CXX)
-  set(ENABLE_OPENMP ${OpenMP_FOUND})
+  if (NOT OpenMP_FOUND)
+    message(FATAL_ERROR "\nERROR: OpenMP is required but couldn't be found. "
+    "If you want to build Parthenon without OpenMP, please rerun CMake with -DDISABLE_OPENMP=yes")
+  endif()
+  set(ENABLE_OPENMP On)
 endif()
 
 set(ENABLE_HDF5 Off)
 if (NOT DISABLE_HDF5)
   set(HDF5_PREFER_PARALLEL ${ENABLE_MPI})
   find_package(HDF5 COMPONENTS C)
-  set(ENABLE_HDF5 ${HDF5_FOUND})
-  if (ENABLE_HDF5 AND ENABLE_MPI AND (NOT HDF5_IS_PARALLEL))
-    message(FATAL_ERROR "Parallel HDF5 is required but only serial version was found")
+  if (NOT HDF5_FOUND)
+    message(FATAL_ERROR "\nERROR: HDF5 is required but couldn't be found. "
+    "If you want to build Parthenon without HDF5, please rerun CMake with -DDISABLE_HDF5=yes")
+  endif()
+  set(ENABLE_HDF5 On)
+
+  if (ENABLE_MPI AND (NOT HDF5_IS_PARALLEL))
+    message(FATAL_ERROR "\nERROR: Both MPI and HDF5 are enabled but only a serial version of HDF5 "
+    "was found. Please install a parallel version of HDF5 (or point CMake to it by adding its path "
+    "to the CMAKE_PREFIX_PATH environment variable), or disable either MPI or HDF5 by rerunning "
+    "CMake with -DDISABLE_MPI=yes or -DDISABLE_HDF5=yes")
   endif()
 
-  if (ENABLE_HDF5)
-    # HDF5 Interface library
-    add_library(HDF5_C INTERFACE)
-    target_link_libraries(HDF5_C INTERFACE ${HDF5_C_LIBRARIES})
-    target_compile_definitions(HDF5_C INTERFACE ${HDF5_C_DEFINITIONS})
-    target_include_directories(HDF5_C INTERFACE ${HDF5_C_INCLUDE_DIRS})
-  endif()
+  # HDF5 Interface library
+  add_library(HDF5_C INTERFACE)
+  target_link_libraries(HDF5_C INTERFACE ${HDF5_C_LIBRARIES})
+  target_compile_definitions(HDF5_C INTERFACE ${HDF5_C_DEFINITIONS})
+  target_include_directories(HDF5_C INTERFACE ${HDF5_C_INCLUDE_DIRS})
 endif()
 
 # Build Tests and download Catch2
