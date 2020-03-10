@@ -21,11 +21,11 @@
 namespace parthenon {
 
 // can be used to set global properties that all meshblocks want to know about
-void ProcessProperties(std::vector<std::shared_ptr<PropertiesInterface>>& properties, ParameterInput *pin) {}
+void ParthenonManager::ProcessProperties(std::unique_ptr<ParameterInput>& pin, Properties_t& packages) {}
 
-void InitializePhysics(std::map<std::string, std::shared_ptr<StateDescriptor>>& physics, ParameterInput *pin) {
+void ParthenonManager::ProcessPackages(std::unique_ptr<ParameterInput>& pin, Packages_t& packages) {
   // only have one package for this app, but will typically have more things added to 
-  physics["PiCalculator"] = PiCalculator::Initialize(pin);
+  packages["PiCalculator"] = PiCalculator::Initialize(pin.get());
 }
 
 void MeshBlock::ProblemGenerator(ParameterInput *pin) {

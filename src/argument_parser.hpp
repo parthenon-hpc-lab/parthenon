@@ -20,9 +20,11 @@
 #include "utils/utils.hpp"
 
 namespace parthenon {
+enum class ArgStatus {ok, complete, error};
 class ArgParse {
   public:
-    ArgParse(int argc, char *argv[]) {
+    ArgParse() = default;
+    ArgStatus parse(int argc, char *argv[]) {
       for (int i=1; i<argc; i++) {
         // If argv[i] is a 2 character string of the form "-?" then:
         if (*argv[i] == '-'  && *(argv[i]+1) != '\0' && *(argv[i]+2) == '\0') {
@@ -41,7 +43,7 @@ class ArgParse {
                 if (Globals::my_rank == 0) {
                   std::cout << "### FATAL ERROR in main" << std::endl
                             << "-" << opt_letter << " must be followed by a valid argument\n";
-                  exit_flag = 1;
+                  return ArgStatus::error;
                 }
               }
           }
@@ -70,8 +72,7 @@ class ArgParse {
               break;
             case 'c':
               if (Globals::my_rank == 0) ShowConfig();
-              exit_flag = 1;
-              break;
+              return ArgStatus::error;
             case 'h':
             default:
               if (Globals::my_rank == 0) {
@@ -89,8 +90,7 @@ class ArgParse {
                 std::cout << "  -h              this help\n";
                 ShowConfig();
             }
-            exit_flag = 1;
-            break;
+            return ArgStatus::error;
           }
         } // else if argv[i] not of form "-?" ignore it here (tested in ModifyFromCmdline)
       }
@@ -99,8 +99,9 @@ class ArgParse {
         // no input file is given
         std::cout << "### FATAL ERROR in main" << std::endl
                   << "No input file or restart file is specified." << std::endl;
-        exit_flag = 1;
+        return ArgStatus::error;
       }
+      return ArgStatus::ok;
     }
 
     char *input_filename = nullptr;

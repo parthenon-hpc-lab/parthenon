@@ -11,38 +11,46 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-
-#ifndef CALCULATE_PI_HPP
-#define CALCULATE_PI_HPP
+#ifndef PARTHENON_MANAGER_HPP
+#define PARTHENON_MANAGER_HPP
 
 #include <memory>
 
-#include "globals.hpp"
+#include "argument_parser.hpp"
+#include "parameter_input.hpp"
 #include "mesh/mesh.hpp"
-#include "driver/driver.hpp"
+#include "outputs/outputs.hpp"
+#include "interface/PropertiesInterface.hpp"
 #include "interface/StateDescriptor.hpp"
-#include "task_list/tasks.hpp"
-#include "parthenon_manager.hpp"
 
 namespace parthenon {
 
-class CalculatePi : public Driver {
+enum class ParthenonStatus {ok, complete, error};
+
+class ParthenonManager {
   public:
-   CalculatePi(ParameterInput *pin, Mesh *pm, Outputs *pout) : Driver(pin, pm, pout) {}
-   TaskList MakeTaskList(MeshBlock *pmb);
-   DriverStatus Execute();
+    ParthenonManager() = default;
+    ParthenonStatus ParthenonInit(int argc, char *argv[]);
+    ParthenonStatus ParthenonFinalize();
+
+    bool Restart() { return (arg.restart_filename == nullptr ? false : true); }
+    void ProcessProperties(std::unique_ptr<ParameterInput>& pin, Properties_t& properties);
+    void ProcessPackages(std::unique_ptr<ParameterInput>& pin, Packages_t& packages);
+
+    // member data
+    std::unique_ptr<ParameterInput> pinput;
+    std::unique_ptr<Mesh> pmesh;
+    std::unique_ptr<Outputs> pouts;
+  private:
+    ArgParse arg;
 };
 
-void ProcessProperties(std::vector<std::shared_ptr<PropertiesInterface>>& properties, ParameterInput *pin);
-//void InitializePhysics(std::map<std::string, std::shared_ptr<StateDescriptor>>& physics, ParameterInput *pin); 
 
-// putting a "physics" package in a namespace
-namespace PiCalculator {
-  void SetInOrOut(Container<Real>& rc);
-  int CheckRefinement(Container<Real>& rc);
-  std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
-  TaskStatus ComputeArea(MeshBlock *pmb);
+
+
+
+
+
 }
 
-} // namespace parthenon
 #endif

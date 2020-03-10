@@ -82,6 +82,7 @@ class ParameterInput {
  public:
   // constructor/destructor
   ParameterInput();
+  ParameterInput(std::string input_filename);
   ~ParameterInput();
 
   // data
