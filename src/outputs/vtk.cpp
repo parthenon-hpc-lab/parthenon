@@ -184,7 +184,7 @@ void VTKOutput::WriteContainer(Mesh *pm, ParameterInput *pin, bool flag) {
     //  5. Data.  An arbitrary number of scalars and vectors can be written (every node
     //  in the OutputData doubly linked lists), all in binary floats format
 
-    std::fprintf(pfile, "\nCELL_DATA %d", num_cells.dim1*num_cells.dim2*num_cells.dim3);
+    std::fprintf(pfile, "\nCELL_DATA %d", num_cells.GetVolume());
     // reset container iterator to point to current block data
     auto ci = ContainerIterator<Real>(pmb->real_container,{Metadata::graphics});
     for ( auto &v : ci.vars) {
@@ -350,7 +350,7 @@ void VTKOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
 
     //  5. Data.  An arbitrary number of scalars and vectors can be written (every node
     //  in the OutputData doubly linked lists), all in binary floats format
-    std::fprintf(pfile, "\nCELL_DATA %d", num_cells.dim1*num_cells.dim2*num_cells.dim3);
+    std::fprintf(pfile, "\nCELL_DATA %d", num_cells.GetVolume());
 
     OutputData *pdata = pfirst_data_;
     while (pdata != nullptr) {
