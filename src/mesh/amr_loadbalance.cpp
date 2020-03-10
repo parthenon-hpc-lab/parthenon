@@ -756,8 +756,8 @@ void Mesh::PrepareSendSameLevel(MeshBlock* pb, Real *sendbuf) {
 void Mesh::PrepareSendCoarseToFineAMR(MeshBlock* pb, Real *sendbuf,
                                       LogicalLocation &lloc) {
 
-  const int f2 = static_cast<int>(ndim >= 2);
-  const int f3 = static_cast<int>(ndim >= 3)
+  const int f2 = static_cast<int>(ndim >= 2); // extra cells/faces from being 2d
+  const int f3 = static_cast<int>(ndim >= 3); // extra cells/faces from being 3d
   int ox1 = ((lloc.lx1 & 1LL) == 1LL), ox2 = ((lloc.lx2 & 1LL) == 1LL),
       ox3 = ((lloc.lx3 & 1LL) == 1LL);
   // pack
