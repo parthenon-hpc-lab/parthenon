@@ -249,8 +249,8 @@ void ATHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
     if ( nx3 > 1) { ndims = 3; }
     else if (nx2 > 1) { ndims = 2; }
 
-    auto ci = ContainerIterator<Real>(pmb->real_container,{Metadata::graphics});
-
+    auto ci = ContainerIterator<Real>(pmb->real_container,{Metadata::Graphics});
+    
     int maxV = 1;
     for (auto &v : ci.vars) {
       const size_t vlen = v->GetDim4();

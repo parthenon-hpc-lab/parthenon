@@ -63,10 +63,18 @@ void Container<T>::Add(const std::string label,
   std::array<int, 6> arrDims;
   calcArrDims_(arrDims, dims);
   // branch on kind of variable
-  if (metadata.hasSparse()) {
+  if (metadata.IsSet(Metadata::Sparse)) {
     // add a sparse variable
     s->_sparseVars.Add(*pmy_block, label, metadata, dims);
-  } else if ( metadata.where() == (Metadata::edge) ) {
+  } else if ( metadata.Where() == (Metadata::Face) ) {
+    std::cerr << "Accessing unliving face array in stage" << std::endl;
+    std::exit(1);
+    // // add a face variable
+    // s->_faceArray.push_back(
+    //     new FaceVariable(label, metadata,
+    //                      pmy_block->ncells3, pmy_block->ncells2, pmy_block->ncells1));
+    return;
+  } else if ( metadata.Where() == (Metadata::Edge) ) {
     // add an edge variable
     std::cerr << "Accessing unliving edge array in stage" << std::endl;
     std::exit(1);
@@ -74,13 +82,13 @@ void Container<T>::Add(const std::string label,
     //     new EdgeVariable(label, metadata,
     //                      pmy_block->ncells3, pmy_block->ncells2, pmy_block->ncells1));
     return;
-  } else if ( metadata.where() == (Metadata::face) ) {
-    if ( !(metadata.isOneCopy()) ) {
+  } else if ( metadata.Where() == (Metadata::Face) ) {
+    if ( !(metadata.IsSet(Metadata::OneCopy)) ) {
       std::cerr << "Currently one one-copy face fields are supported"
                 << std::endl;
       std::exit(1);
     }
-    if (metadata.fillsGhost()) {
+    if (metadata.IsSet(Metadata::FillGhost)) {
       std::cerr << "Ghost zones not yet supported for face fields" << std::endl;
       std::exit(1);
     }
@@ -88,14 +96,14 @@ void Container<T>::Add(const std::string label,
     auto pfv = std::make_shared<FaceVariable>(label, metadata, arrDims);
     s->_faceArray.push_back(pfv);
     return;
-  } else if ( (metadata.where() == (Metadata::cell) ) ||
-            (metadata.where() == (Metadata::node) )) {
-    if ( metadata.where() == (Metadata::node) ) {
+  } else if ( (metadata.Where() == (Metadata::Cell) ) ||
+            (metadata.Where() == (Metadata::Node) )) {
+    if ( metadata.Where() == (Metadata::Node) ) {
       arrDims[0]++; arrDims[1]++; arrDims[2]++;
     }
 
     s->_varArray.push_back(std::make_shared<Variable<T>>(label, arrDims, metadata));
-    if ( metadata.fillsGhost()) {
+    if ( metadata.IsSet(Metadata::FillGhost)) {
       s->_varArray.back()->allocateComms(pmy_block);
     }
   } else {
@@ -148,7 +156,7 @@ void Container<T>::StageSet(std::string name) {
   s = stages[name];
 
   for (auto &v : s->_varArray) {
-    if ( (v->metadata()).fillsGhost() ) {
+    if ( (v->metadata()).IsSet(Metadata::FillGhost) ) {
       v->resetBoundary();
       //v->vbvar->var_cc = v.get();
       //      v->mpiStatus=true;
@@ -158,7 +166,7 @@ void Container<T>::StageSet(std::string name) {
   for (auto &myMap : s->_sparseVars.getAllCellVars()) {
     // for every variable Map in the sparse variables array
     for (auto &v : myMap.second) {
-      if ( (v.second->metadata()).fillsGhost()) {
+      if ( (v.second->metadata()).IsSet(Metadata::FillGhost)) {  
         v.second->resetBoundary();
         //v.second->vbvar->var_cc = v.second.get();
         //v.second->mpiStatus=true;
@@ -265,14 +273,14 @@ void Container<T>::Remove(const std::string label) {
 template <typename T>
 void Container<T>::SendFluxCorrection() {
   for (auto &v : s->_varArray) {
-    if ( (v->metadata()).isIndependent() ) {
+    if ( (v->metadata()).IsSet(Metadata::Independent) ) {
       v->vbvar->SendFluxCorrection();
     }
   }
   for (auto &myMap : s->_sparseVars.getAllCellVars()) {
     for (auto &mv : myMap.second) {
       auto &v = mv.second;
-      if ( (v->metadata()).isIndependent() ) {
+      if ( (v->metadata()).IsSet(Metadata::Independent) ) {
         v->vbvar->SendFluxCorrection();
       }
     }
@@ -283,7 +291,7 @@ template <typename T>
 bool Container<T>::ReceiveFluxCorrection() {
   int success=0, total=0;
   for (auto &v : s->_varArray) {
-    if ( (v->metadata()).isIndependent() ) {
+    if ( (v->metadata()).IsSet(Metadata::Independent) ) {
       if(v->vbvar->ReceiveFluxCorrection()) success++;
       total++;
     }
@@ -291,7 +299,7 @@ bool Container<T>::ReceiveFluxCorrection() {
   for (auto &myMap : s->_sparseVars.getAllCellVars()) {
     for (auto &mv : myMap.second) {
       auto &v = mv.second;
-      if ( (v->metadata()).isIndependent() ) {
+      if ( (v->metadata()).IsSet(Metadata::Independent) ) {
         if(v->vbvar->ReceiveFluxCorrection()) success++;
         total++;
       }
@@ -306,7 +314,7 @@ void Container<T>::SendBoundaryBuffers() {
   debug=0;
   //  std::cout << "_________SEND from stage:"<<s->name()<<std::endl;
   for (auto &v : s->_varArray) {
-    if ( (v->metadata()).fillsGhost() ) {
+    if ( (v->metadata()).IsSet(Metadata::FillGhost) ) {
       if ( ! v->mpiStatus ) {
         std::cout << "        sending without the receive, something's up:"
                   << v->label()
@@ -320,7 +328,7 @@ void Container<T>::SendBoundaryBuffers() {
   for (auto &myMap : s->_sparseVars.getAllCellVars()) {
     // for every variable Map in the sparse variables array
     for (auto &v : myMap.second) {
-      if ( ! (v.second->metadata()).fillsGhost() ) continue; // doesn't fill ghost so skip
+      if ( ! (v.second->metadata()).IsSet(Metadata::FillGhost) ) continue; // doesn't fill ghost so skip
       if ( ! v.second->mpiStatus ) {
         std::cout << "        _________Err:"
                   << v.first
@@ -340,7 +348,7 @@ template <typename T>
 void Container<T>::SetupPersistentMPI() {
   // setup persistent MPI
   for (auto &v : s->_varArray) {
-    if ( (v->metadata()).fillsGhost() ) {
+    if ( (v->metadata()).IsSet(Metadata::FillGhost) ) {
         v->vbvar->SetupPersistentMPI();
       }
     }
@@ -349,7 +357,7 @@ void Container<T>::SetupPersistentMPI() {
   for (auto &myMap : s->_sparseVars.getAllCellVars()) {
     // for every variable Map in the sparse variables array
     for (auto &v : myMap.second) {
-      if ( ! (v.second->metadata()).fillsGhost() ) continue; // doesn't fill ghost so skip
+      if ( ! (v.second->metadata()).IsSet(Metadata::FillGhost) ) continue; // doesn't fill ghost so skip
       if ( ! v.second->mpiStatus ) {
         v.second->vbvar->SetupPersistentMPI();
       }
@@ -365,7 +373,7 @@ bool Container<T>::ReceiveBoundaryBuffers() {
   ret = true;
   // receives the boundary
   for (auto &v : s->_varArray) {
-    if ( (v->metadata()).fillsGhost() ) {
+    if ( (v->metadata()).IsSet(Metadata::FillGhost) ) {
       //ret = ret & v->vbvar->ReceiveBoundaryBuffers();
       // In case we have trouble with multiple arrays causing
       // problems with task status, we should comment one line
@@ -380,7 +388,7 @@ bool Container<T>::ReceiveBoundaryBuffers() {
   for (auto &myMap : s->_sparseVars.getAllCellVars()) {
     // for every variable Map in the sparse variables array
     for (auto &v : myMap.second) {
-      if ( ! (v.second->metadata()).fillsGhost() ) continue; // doesn't fill ghost so skip
+      if ( ! (v.second->metadata()).IsSet(Metadata::FillGhost) ) continue; // doesn't fill ghost so skip
       if ( ! v.second->mpiStatus ) {
         v.second->mpiStatus = v.second->vbvar->ReceiveBoundaryBuffers();
         ret = (ret & v.second->mpiStatus);
@@ -396,7 +404,7 @@ template <typename T>
 void Container<T>::ReceiveAndSetBoundariesWithWait() {
   //  std::cout << "_________RSET from stage:"<<s->name()<<std::endl;
   for (auto &v : s->_varArray) {
-    if ( (!v->mpiStatus) && ( (v->metadata()).fillsGhost()) ) {
+    if ( (!v->mpiStatus) && ( (v->metadata()).IsSet(Metadata::FillGhost)) ) {
       v->vbvar->ReceiveAndSetBoundariesWithWait();
       v->mpiStatus = true;
     }
@@ -404,7 +412,7 @@ void Container<T>::ReceiveAndSetBoundariesWithWait() {
   for (auto &myMap : s->_sparseVars.getAllCellVars()) {
     // for every variable Map in the sparse variables array
     for (auto &v : myMap.second) {
-      if ( ! (v.second->metadata()).fillsGhost() ) continue; // doesn't fill ghost so skip
+      if ( ! (v.second->metadata()).IsSet(Metadata::FillGhost) ) continue; // doesn't fill ghost so skip
       if ( ! v.second->mpiStatus ) {
         v.second->vbvar->ReceiveAndSetBoundariesWithWait();
         v.second->mpiStatus = true;
@@ -422,7 +430,7 @@ void Container<T>::SetBoundaries() {
   // sets the boundary
   //  std::cout << "_________BSET from stage:"<<s->name()<<std::endl;
   for (auto &v : s->_varArray) {
-    if ( (v->metadata()).fillsGhost() ) {
+    if ( (v->metadata()).IsSet(Metadata::FillGhost) ) {
       v->vbvar->SetBoundaries();
       //v->mpiStatus=true;
     }
@@ -431,7 +439,7 @@ void Container<T>::SetBoundaries() {
   for (auto &myMap : s->_sparseVars.getAllCellVars()) {
     // for every variable Map in the sparse variables array
     for (auto &v : myMap.second) {
-      if ( (v.second->metadata()).fillsGhost() ) {
+      if ( (v.second->metadata()).IsSet(Metadata::FillGhost) ) {
         v.second->vbvar->SetBoundaries();
         //v.second->mpiStatus=true;
       }
@@ -445,7 +453,7 @@ void Container<T>::StartReceiving(BoundaryCommSubset phase) {
   // sets the boundary
   //  std::cout << "________CLEAR from stage:"<<s->name()<<std::endl;
   for (auto &v : s->_varArray) {
-    if ( (v->metadata()).fillsGhost() ) {
+    if ( (v->metadata()).IsSet(Metadata::FillGhost) ) {
       v->vbvar->StartReceiving(phase);
       //      v->mpiStatus=true;
     }
@@ -454,7 +462,7 @@ void Container<T>::StartReceiving(BoundaryCommSubset phase) {
   for (auto &myMap : s->_sparseVars.getAllCellVars()) {
     // for every variable Map in the sparse variables array
     for (auto &v : myMap.second) {
-      if ( (v.second->metadata()).fillsGhost()) {
+      if ( (v.second->metadata()).IsSet(Metadata::FillGhost)) {
         v.second->vbvar->StartReceiving(phase);
         //v.second->mpiStatus=true;
       }
@@ -468,7 +476,7 @@ void Container<T>::ClearBoundary(BoundaryCommSubset phase) {
   // sets the boundary
   //  std::cout << "________CLEAR from stage:"<<s->name()<<std::endl;
   for (auto &v : s->_varArray) {
-    if ( (v->metadata()).fillsGhost() ) {
+    if ( (v->metadata()).IsSet(Metadata::FillGhost) ) {
       v->vbvar->ClearBoundary(phase);
       //      v->mpiStatus=true;
     }
@@ -477,7 +485,7 @@ void Container<T>::ClearBoundary(BoundaryCommSubset phase) {
   for (auto &myMap : s->_sparseVars.getAllCellVars()) {
     // for every variable Map in the sparse variables array
     for (auto &v : myMap.second) {
-      if ( (v.second->metadata()).fillsGhost()) {
+      if ( (v.second->metadata()).IsSet(Metadata::FillGhost)) {
         v.second->vbvar->ClearBoundary(phase);
         //v.second->mpiStatus=true;
       }

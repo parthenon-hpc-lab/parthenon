@@ -13,13 +13,13 @@
 #ifndef INTERFACE_METADATA_HPP_
 #define INTERFACE_METADATA_HPP_
 
+#include <algorithm>
 #include <bitset>
 #include <exception>
 #include <stdexcept>
 #include <string>
+#include <tuple>
 #include <vector>
-
-#define _MAXBITS_ 32
 
 namespace parthenon {
 
@@ -57,6 +57,11 @@ private:
 ///  Can set or query attributes specifed in flags.
 ///
 class Metadata {
+ private:
+  // must be forward declared
+  auto PackedTuple() const {
+    return std::tie(bits_, shape_, sparse_id_);
+  }
  public:
   // Apparently defining the class in-line results in the constructor being undefined at the time
   // time when the compiler is evaluating the constexpr definitions for the static flags.
@@ -65,31 +70,30 @@ class Metadata {
 
   /// The flags refer to the different attributes that a variable can
   /// have.  These include the topology, IO, advection, conservation,
-  /// whether it contains materials / isotopes, etc.  This is designed
-  /// to be easily extensible.
+  /// whether it is sparse, etc.  This is designed to be easily extensible.
   
-  constexpr static Flag ignore      = Flag( 0); ///<  0: bit 0 is ignored
-  constexpr static Flag none        = Flag( 1); ///<  1: no topology specified
-  constexpr static Flag cell        = Flag( 2); ///<  2: cell variable
-  constexpr static Flag face        = Flag( 3); ///<  3: face variable
-  constexpr static Flag edge        = Flag( 4); ///<  4: edge variable
-  constexpr static Flag node        = Flag( 5); ///<  5: node variable
-  constexpr static Flag vector      = Flag( 6); ///<  6: a vector quantity, i.e. a rank 1 contravariant tensor
-  constexpr static Flag tensor      = Flag( 7); ///<  7: a rank-2 tensor
-  constexpr static Flag advected    = Flag( 8); ///<  8: advected variable
-  constexpr static Flag conserved   = Flag( 9); ///<  9: conserved variable
-  constexpr static Flag intensive   = Flag(10); ///< 10: intensive variable
-  constexpr static Flag restart     = Flag(11); ///< 11: added to restart dump
-  constexpr static Flag graphics    = Flag(12); ///< 12: added to graphics dumps
-  constexpr static Flag sparse      = Flag(13); ///< 13: is specified per sparse index
-  constexpr static Flag independent = Flag(14); ///< 14: is an independent, evolved variable
-  constexpr static Flag derived     = Flag(15); ///< 15: is a derived quantity (ignored)
-  constexpr static Flag oneCopy     = Flag(16); ///< 16: only one copy even if multiple stages
-  constexpr static Flag fillGhost   = Flag(17); ///< 17: Do boundary communication
-  constexpr static Flag sharedComms = Flag(18); ///< 18: Communication arrays are a copy: hint to destructor
+  constexpr static Flag Ignore      = Flag( 0); ///<  0: bit 0 is ignored
+  constexpr static Flag None        = Flag( 1); ///<  1: no topology specified
+  constexpr static Flag Cell        = Flag( 2); ///<  2: cell variable
+  constexpr static Flag Face        = Flag( 3); ///<  3: face variable
+  constexpr static Flag Edge        = Flag( 4); ///<  4: edge variable
+  constexpr static Flag Node        = Flag( 5); ///<  5: node variable
+  constexpr static Flag Vector      = Flag( 6); ///<  6: a vector quantity, i.e. a rank 1 contravariant tensor
+  constexpr static Flag Tensor      = Flag( 7); ///<  7: a rank-2 tensor
+  constexpr static Flag Advected    = Flag( 8); ///<  8: advected variable
+  constexpr static Flag Conserved   = Flag( 9); ///<  9: conserved variable
+  constexpr static Flag Intensive   = Flag(10); ///< 10: intensive variable
+  constexpr static Flag Restart     = Flag(11); ///< 11: added to restart dump
+  constexpr static Flag Graphics    = Flag(12); ///< 12: added to graphics dumps
+  constexpr static Flag Sparse      = Flag(13); ///< 13: is specified per-sparse index
+  constexpr static Flag Independent = Flag(14); ///< 14: is an independent, evolved variable
+  constexpr static Flag Derived     = Flag(15); ///< 15: is a derived quantity (ignored)
+  constexpr static Flag OneCopy     = Flag(16); ///< 16: only one copy even if multiple stages
+  constexpr static Flag FillGhost   = Flag(17); ///< 17: Do boundary communication
+  constexpr static Flag SharedComms = Flag(18); ///< 18: Communication arrays are a copy: hint to destructor
 
   // `max` must always be the final flag - place all new flags prior to this flag
-  static constexpr Flag max = Flag(19);
+  static constexpr Flag Max = Flag(19);
 
   /// Default constructor override
   Metadata() : sparse_id_(-1),
@@ -101,7 +105,7 @@ class Metadata {
   explicit Metadata(const std::vector<Flag>& bits) :
     sparse_id_(-1),
     shape_({1}) {
-    setMultiple(bits);
+    SetMultiple(bits);
   }
 
   /// returns a metadata with bits and shape set
@@ -109,7 +113,7 @@ class Metadata {
                     std::vector<int> shape) :
     sparse_id_(-1),
     shape_(shape) {
-    setMultiple(bits);
+    SetMultiple(bits);
   }
 
   /// returns a metadata with bits and sparse id set
@@ -117,7 +121,7 @@ class Metadata {
                     const int sparse_id) :
     sparse_id_(sparse_id),
     shape_({1}) {
-    setMultiple(bits);
+    SetMultiple(bits);
   }
 
   /// returns a metadata with bits, shape, and sparse ID set
@@ -126,116 +130,79 @@ class Metadata {
                     std::vector<int> shape) :
     sparse_id_(sparse_id),
     shape_(shape) {
-    setMultiple(bits);
+    SetMultiple(bits);
   }
 
-  /// copy constructor
-  Metadata(const Metadata&m) : sparse_id_(m.sparse_id_),
-                               shape_(m.shape_),
-                               theBits_(m.theBits_),
-                               associated_(m.associated_) { }
-
-  void setFlags(std::bitset<_MAXBITS_> bitflags) { theBits_ = bitflags; }
+  // Static routines
+  static Flag AllocateNewFlag();
 
   // Individual flag setters
-  void set(const Flag f) { doBit(f, true); }             ///< Set specific bit
-  void unset(const Flag f) { doBit(f, false); }          ///< Unset specific bit
-
-
-  /*
-  // if flag is true set bit, clears otherwise
-  void setAdvected(const bool a)  {doBit(advected, a);}   ///< Set advected or not
-  void setConserved(const bool a) {doBit(conserved, a);}  ///< Set conserved or not
-  void setIntensive(const bool a) {doBit(intensive, a);}  ///< Set intensive or extensive
-  void setRestart(const bool a)   {doBit(restart, a);}    ///< Set IO / restart
-  void setGraphics(const bool a)  {doBit(graphics, a);}   ///< Set IO / graphics
-  void setSparse(const bool a)    {doBit(sparse, a);}     ///< Set includes sparse variable
-  void setDerived(const bool a)   {doBit(derived, a);}    ///< Set derived variable?
-  void setOneCopy(const bool a)   {doBit(oneCopy, a);}    ///< Single copy across stages
-  */
-  void setIndexHints(int);  ///< Set indexing hints
+  void Set(const Flag f) { DoBit(f, true); }             ///< Set specific bit
+  void Unset(const Flag f) { DoBit(f, false); }          ///< Unset specific bit
 
   /*--------------------------------------------------------*/
   // Getters for attributes
   /*--------------------------------------------------------*/
   /// returns the topological location of variable
-  Flag where() const {
-    if (isSet(cell)) {
-      return cell;
-    } else if (isSet(face)) {
-      return face;
-    } else if (isSet(edge)) {
-      return edge;
-    } else if (isSet(node)) {
-      return node;
+  Flag Where() const {
+    if (IsSet(Cell)) {
+      return Cell;
+    } else if (IsSet(Face)) {
+      return Face;
+    } else if (IsSet(Edge)) {
+      return Edge;
+    } else if (IsSet(Node)) {
+      return Node;
     }
-    /// by default return topology::none
-    return none;
+    /// by default return Metadata::None
+    return None;
   }
 
-  bool isAdvected()    const { return (isSet(advected)); }   ///< true if advected
-  bool isConserved()   const { return (isSet(conserved)); }  ///< true if conserved
-  bool isIntensive()   const { return (isSet(intensive)); }  ///< true if intensive
-  bool isRestart()     const { return (isSet(restart)); }    ///< true if restart
-  bool isGraphics()    const { return (isSet(graphics)); }   ///< true if graphics
-  bool isOneCopy()     const { return (isSet(oneCopy)); }    ///< true if one copy
-  bool hasSparse()     const { return (isSet(sparse)); }     ///< true if it is a sparse variable
-  bool fillsGhost()    const { return (isSet(fillGhost)); }
-  bool isVector()      const { return (isSet(vector)); }
-  bool isIndependent() const { return (isSet(independent)); }
-
-  int  getSparseID() const { return sparse_id_; }
+  int GetSparseId() const { return sparse_id_; }
 
   const std::vector<int>& Shape() const { return shape_; }
 
   /*--------------------------------------------------------*/
   // Utility functions
   /*--------------------------------------------------------*/
-  /// Returns the attribute flags as an unsigned long integer
-  uint64_t mask() const { return theBits_.to_ulong();}
-
   /// Returns the attribute flags as a string of 1/0
-  std::string maskAsString() const { return theBits_.to_string();}
-
-  /// Gets a mask from a std::vector of flags
-  /// This may disappear
-  /// @param theFlags a vector of type flags
-  /// @return unsigned long int mask of said vector
-  static uint64_t getMaskForVector(const std::vector<Flag> theFlags) {
-    std::bitset<_MAXBITS_> myBits;
-    myBits.reset();
-    for (auto &bit : theFlags) {
-      myBits.set(bit.flag_);
+  std::string MaskAsString() const {
+    std::string str;
+    for (auto const bit : bits_) {
+      str += bit ? '1' : '0';
     }
-    return myBits.to_ulong();
+    return str;
   }
 
-  std::bitset<_MAXBITS_> getFlags() { return theBits_; }
-
-  void upgradeFlags(Metadata& m) { setFlags(theBits_ | m.getFlags()); }
+  /**
+   * @brief Returns true if any flag is set
+   */
+  bool AnyFlagsSet(std::vector<Flag> const &flags) const {
+    return std::any_of(flags.begin(), flags.end(), [this](Flag const &f) {
+      return IsSet(f);
+    });
+  }
 
   /// returns true if bit is set, false otherwise
-  bool isSet(const Flag bit) const { return theBits_.test(bit.flag_); }
+  bool IsSet(const Flag bit) const { return bits_[bit.flag_]; }
 
   // Operators
   bool operator==(const Metadata &b) const {
-    return ((sparse_id_ == b.sparse_id_) && (shape_ == b.shape_) &&
-            (theBits_ == b.theBits_));
+    return PackedTuple() == b.PackedTuple();
   }
 
   bool operator!=(const Metadata &b) const {
-    return ((sparse_id_ != b.sparse_id_) || (shape_ != b.shape_) ||
-            (theBits_ != b.theBits_)
-
-    );
+    return PackedTuple() != b.PackedTuple();
   }
 
   void Associate(const std::string &name) { associated_ = name; }
   const std::string& getAssociated() const { return associated_; }
 
 private:
+  static int next_app_flag_;
+
   /// the attribute flags that are set for the class
-  std::bitset<_MAXBITS_> theBits_;
+  std::vector<bool> bits_;
   std::vector<int> shape_;
   std::string associated_;
   int sparse_id_;
@@ -243,42 +210,39 @@ private:
   /*--------------------------------------------------------*/
   // Setters for the different attributes of metadata
   /*--------------------------------------------------------*/
-  ///< zero out the metadata
-  void reset() {theBits_.reset(); shape_.clear();}
-
-  void setWhere(Flag x) {
-    unsetMultiple({cell, face, edge, node, none});
-    if ( x == cell )      {
-      doBit(cell, true);
-    } else if ( x == face ) {
-      doBit(face, true);
-    } else if ( x == edge ) {
-      doBit(edge, true);
-    } else if ( x == node ) {
-      doBit(node, true);
-    } else if ( x == none ) {
-      doBit(none, true);
+  void SetWhere(Flag x) {
+    UnsetMultiple({Cell, Face, Edge, Node, None});
+    if ( x == Cell )      {
+      DoBit(Cell, true);
+    } else if ( x == Face ) {
+      DoBit(Face, true);
+    } else if ( x == Edge ) {
+      DoBit(Edge, true);
+    } else if ( x == Node ) {
+      DoBit(Node, true);
+    } else if ( x == None ) {
+      DoBit(None, true);
     } else {
-      throw std::invalid_argument ("received invalid topology flag in setWhere()");
+      throw std::invalid_argument ("received invalid topology flag in SetWhere()");
     }
-  } ///< Set topological element where variable is defined (none/cell/face/edge/node)
+  } ///< Set topological element where variable is defined (None/Cell/Face/Edge/Node)
 
     /// Set multiple flags at the same time.
     /// Takes a comma separated set of flags from the enum above
     ///
     /// e.g. set({face, advected, conserved, sparse})
-  void setMultiple(const std::vector<Flag> &theAttributes) {
+  void SetMultiple(const std::vector<Flag> &theAttributes) {
     int numTopo = 0;
     for (auto &a : theAttributes) {
-      if ( _isTopology(a) ) { // topology flags are special
-        setWhere(a);
+      if ( IsTopology(a) ) { // topology flags are special
+        SetWhere(a);
         numTopo++;
       } else {
-        doBit(a, true);
+        DoBit(a, true);
       }
     }
     if (numTopo > 1) {
-      throw std::invalid_argument ("Multiple topologies sent to setMultiple()");
+      throw std::invalid_argument ("Multiple topologies sent to SetMultiple()");
     }
   }
 
@@ -286,28 +250,29 @@ private:
   /// Takes a comma separated set of flags from the enum above
   ///
   /// e.g. unset({face, advected, conserved, sparse})
-  void unsetMultiple(const std::vector<Flag> &theAttributes) {
+  void UnsetMultiple(const std::vector<Flag> &theAttributes) {
     for (auto &a : theAttributes) {
-      doBit(a, false);
+      DoBit(a, false);
     }
   }
 
   /// if flag is true set bit, clears otherwise
-  void doBit(Flag bit, const bool flag) {
-    if( bit.flag_ >0)  {
-      (flag? theBits_.set(bit.flag_):theBits_.reset(bit.flag_));
+  void DoBit(Flag bit, const bool flag) {
+    if (bit.flag_ >= bits_.size()) {
+      bits_.resize(bit.flag_ + 1);
     }
+    bits_[bit.flag_] = flag;
   }
 
 
   /// Checks if the bit is a topology bit
-  bool _isTopology(Flag bit) const {
+  bool IsTopology(Flag bit) const {
     return (
-            (bit == cell) ||
-            (bit == face) ||
-            (bit == edge) ||
-            (bit == node) ||
-            (bit == none)
+            (bit == Cell) ||
+            (bit == Face) ||
+            (bit == Edge) ||
+            (bit == Node) ||
+            (bit == None)
             );
   }
 };

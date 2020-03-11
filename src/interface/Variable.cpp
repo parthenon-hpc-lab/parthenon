@@ -28,7 +28,7 @@ namespace parthenon {
 Variable<T>::~Variable() {
   //  std::cout << "_________DELETING VAR: " << _label << ":" << this << std::endl;
   _label = "Deleted";
-  if (_m.isSet(_m.fillGhost)) {
+  if (_m.IsSet(Metadata::FillGhost)) {
 
     // not sure if destructor is called for flux, need to check --Sriram
 
@@ -37,7 +37,7 @@ Variable<T>::~Variable() {
     //    for (int i=0; i<3; i++) flux[i].DeleteAthenaArray();
 
     // Delete vbvar, coarse_r, and coarse_s only if not shared
-    if ( _m.isSet(_m.sharedComms) ) {
+    if ( _m.IsSet(Metadata::SharedComms) ) {
       // do not delete unallocated variables
       vbvar = nullptr;
       coarse_r = coarse_s = nullptr;
@@ -82,8 +82,7 @@ std::string Variable<T>::info() {
     }
     s += stmp;
     // now append flag
-    s += " : " + std::to_string(this->metadata().mask());
-    s += " : " + this->metadata().maskAsString();
+    s += " : " + this->metadata().MaskAsString();
 
     return s;
   }
@@ -95,14 +94,14 @@ Variable<T>::Variable(const Variable<T> &src,
                       MeshBlock *pmb) :
   AthenaArray<T>(src), _label(src.label()), _m(src.metadata()), mpiStatus(true) {
   //std::cout << "_____CREATED VAR COPY: " << _label << ":" << this << std::endl;
-  if (_m.isSet(Metadata::fillGhost)) {
+  if (_m.IsSet(Metadata::FillGhost)) {
     // Ghost cells are communicated, so make shallow copies
     // of communication arrays and swap out the boundary array
 
     if ( allocComms ) {
       this->allocateComms(pmb);
     } else {
-      _m.set(_m.sharedComms); // note that comms are shared
+      _m.Set(Metadata::SharedComms); // note that comms are shared
 
       // set data pointer for the boundary communication
       // Note that vbvar->var_cc will be set when stage is selected
@@ -190,8 +189,7 @@ std::string FaceVariable::info() {
   s += std::string(tmp);
 
   // now append flag
-  s += " : " + std::to_string(this->metadata().mask());
-  s += " : " + this->metadata().maskAsString();
+  s += " : " + this->metadata().MaskAsString();
 
   return s;
 }
@@ -214,8 +212,7 @@ std::string EdgeVariable::info() {
     s += std::string(tmp);
 
     // now append flag
-    s += " : " + std::to_string(this->metadata().mask());
-    s += " : " + this->metadata().maskAsString();
+    s += " : " + this->metadata().MaskAsString();
 
     return s;
 }

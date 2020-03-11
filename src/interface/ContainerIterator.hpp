@@ -44,7 +44,7 @@ class ContainerIterator {
       int idx=0;
       auto& IM = c.sparseVars().GetIndexMap(field.first);
       for (auto& v : field.second) {
-        if ( flagVector[0] == Metadata::graphics) {
+        if ( flagVector[0] == Metadata::Graphics) {
           _allVars.push_back(std::make_shared<Variable<T>>(
               v->label() + "_" + PropertiesInterface::GetLabelFromID(IM[idx]), *v));
           idx++;
@@ -64,36 +64,15 @@ class ContainerIterator {
   /// Changes the mask for the iterator and resets the iterator
   /// @param flagArray: a vector of Metadata::Flag that you want to match
   void setMask(const std::vector<Metadata::Flag> &flagVector) {
-    // 1: Set mask to vector entries
-    _mask = Metadata::getMaskForVector(flagVector);
-
-    // 2: clear out variables stored so far
+    // 1: clear out variables stored so far
     _emptyVars();
 
-    // 3: fill in the subset of variables that match mask
+    // 2: fill in the subset of variables that match mask
     for (auto pv : _allVars) {
-      const uint64_t vMask = (pv->metadata()).mask();
-      if (( vMask & _mask) == _mask) {
-        vars.push_back(pv);//Variable<T>(pv->label(), *pv));
+      if (pv->metadata().AnyFlagsSet(flagVector)) {
+        vars.push_back(pv);
       }
     }
-    /*if (couldBeFace(flagVector)) {
-      for (auto pv : _allFaceVars) {
-        const uint64_t vMask = (pv->metadata()).mask();
-        if (( vMask & _mask) == _mask) {
-          varsFace.push_back(pv);//FaceVariable(pv->label(), *pv));
-        }
-      }
-    }
-    if (couldBeEdge(flagVector)) {
-      for (auto pv : _allEdgeVars) {
-        const uint64_t vMask = (pv->metadata()).mask();
-        if (( vMask & _mask) == _mask) {
-          varsEdge.push_back(pv);//EdgeVariable(pv->label(), *pv));
-        }
-      }
-    }
-    */
   }
 
 
@@ -110,18 +89,18 @@ class ContainerIterator {
   static bool couldBeEdge(const std::vector<Metadata::Flag> &flagVector) {
     // returns true if face is set or if no topology set
     for (auto &f : flagVector) {
-      if ( f == Metadata::edge) return true;
-      else if ( f == Metadata::cell) return false;
-      else if ( f == Metadata::face) return false;
+      if ( f == Metadata::Edge) return true;
+      else if ( f == Metadata::Cell) return false;
+      else if ( f == Metadata::Face) return false;
     }
     return true;
   }
   static bool couldBeFace(const std::vector<Metadata::Flag> &flagVector) {
     // returns true if face is set or if no topology set
     for (auto &f : flagVector) {
-      if ( f == Metadata::face) return true;
-      else if ( f == Metadata::cell) return false;
-      else if ( f == Metadata::edge) return false;
+      if ( f == Metadata::Face) return true;
+      else if ( f == Metadata::Cell) return false;
+      else if ( f == Metadata::Edge) return false;
     }
     return true;
   }
