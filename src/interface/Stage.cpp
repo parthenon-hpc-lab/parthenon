@@ -40,10 +40,9 @@ Stage<T>::Stage(std::string name, Stage<T>& src) :
   //   EdgeVariable *vNew = new EdgeVariable(v->label(), *v);
   //   _edgeArray.push_back(vNew);
   // }
-  // for (auto v : src._faceArray) {
-  //   FaceVariable *vNew = new FaceVariable(v->label(), *v);
-  //   _faceArray.push_back(vNew);
-  // }
+  for (auto v : src._faceArray) {
+    _faceArray.push_back(v);
+  }
 
   // Now copy in the material arrays
   for (auto vars : src._matVars.getAllCellVars()) {

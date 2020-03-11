@@ -196,6 +196,15 @@ struct FaceVariable : FaceField {
   /// return information string
   std::string info();
 
+  // TODO: should this be 0,1,2?
+  // Should we return the reference? Or something else?
+  AthenaArray<Real>& Get(int i) {
+    if (i == 1) return (this->x1f);
+    if (i == 2) return (this->x2f);
+    if (i == 3) return (this->x3f);
+    throw std::invalid_argument("Face must be x1f, x2f, or x3f");
+  }
+
  private:
   Metadata _m;
   std::string _label;

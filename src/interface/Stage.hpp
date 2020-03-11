@@ -49,7 +49,7 @@ class Stage {
 
   // the variable vectors
   std::vector<std::shared_ptr<Variable<T>>> _varArray = {}; ///< the saved variable array
-  ///  std::vector<FaceVariable*> _faceArray = {};  ///< the saved face arrays
+  std::vector<std::shared_ptr<FaceVariable>> _faceArray = {};  ///< the saved face arrays
   ///  std::vector<EdgeVariable*> _edgeArray = {};  ///< the saved face arrays
   MaterialVariable<T> _matVars;
 

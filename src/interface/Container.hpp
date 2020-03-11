@@ -78,10 +78,9 @@ class Container {
     //   EdgeVariable *vNew = new EdgeVariable(v->label(), *v);
     //   this->s->_edgeArray.push_back(vNew);
     // }
-    // for (auto v : stageSrc._faceArray) {
-    //   FaceVariable *vNew = new FaceVariable(v->label(), *v);
-    //   this->s->_faceArray.push_back(vNew);
-    // }
+    for (auto v : stageSrc._faceArray) {
+      this->s->_faceArray.push_back(v);
+    }
 
     // Now copy in the material arrays
     for (auto vars : stageSrc._matVars.getAllCellVars()) {
@@ -215,12 +214,27 @@ class Container {
   ///
   /// Get a face variable from the container
   /// @param label the name of the variable
-  /// @return the Variable<T> if found or throw exception
+  /// @return the FaceVariable if found or throw exception
   ///
-  FaceVariable *GetFace(std::string label) {
-    // for (auto v : s->_faceArray) {
-    //   if (! v->label().compare(label)) return v;
-    // }
+  FaceVariable& GetFace(std::string label) {
+    for (auto v : s->_faceArray) {
+      if (! v->label().compare(label)) return *v;
+    }
+    throw std::invalid_argument (std::string("\n") +
+                                 std::string(label) +
+                                 std::string(" array not found in Get() Face\n") );
+  }
+
+    ///
+  /// Get a face variable from the container
+  /// @param label the name of the variable
+  /// @param dir, which direction the face is normal to
+  /// @return the AthenaArray in the face variable if found or throw exception
+  ///
+  AthenaArray<Real>& GetFace(std::string label, int dir) {
+    for (auto v : s->_faceArray) {
+      if (! v->label().compare(label)) return v->Get(dir);
+    }
     throw std::invalid_argument (std::string("\n") +
                                  std::string(label) +
                                  std::string(" array not found in Get() Face\n") );
@@ -290,9 +304,9 @@ class Container {
     return s->_matVars;
   }
 
-  // std::vector<FaceVariable*> faceVars() {
-  //   return s->_faceArray;
-  // }
+  std::vector<FaceVariable>& faceVars() {
+    return s->_faceArray;
+  }
 
   // std::vector<EdgeVariable*> edgeVars() {
   //   return s->_edgeArray;

@@ -72,12 +72,22 @@ void Container<T>::Add(const std::string label,
     // add a material map variable
     s->_matVars.Add(*pmy_block, label, metadata, dims);
   } else if ( metadata.where() == (Metadata::face) ) {
-    std::cerr << "Accessing unliving face array in stage" << std::endl;
-    std::exit(1);
+    // std::cerr << "Accessing unliving face array in stage" << std::endl;
+    // std::exit(1);
     // // add a face variable
-    // s->_faceArray.push_back(
-    //     new FaceVariable(label, metadata,
-    //                      pmy_block->ncells3, pmy_block->ncells2, pmy_block->ncells1));
+    s->_faceArray.push_back(std::make_shared<FaceVariable>(label, metadata,
+							   pmy_block->ncells3,
+							   pmy_block->ncells2,
+							   pmy_block->ncells1));
+    if ( !(metadata.isOneCopy()) ) {
+      std::cerr << "Currently one one-copy face fields are supported"
+		<< std::endl;
+      std::exit(1);
+    }
+    if (metadata.fillsGhost()) {
+      std::cerr << "Ghost zones not yet supported for face fields" << std::endl;
+      std::exit(1);
+    }
     return;
   } else if ( metadata.where() == (Metadata::edge) ) {
     // add an edge variable
@@ -141,10 +151,9 @@ Container<T>  Container<T>::StageContainer(std::string src) {
   //   EdgeVariable *vNew = new EdgeVariable(v->label(), *v);
   //   c.s->_edgeArray.push_back(vNew);
   // }
-  // for (auto v : stageSrc._faceArray) {
-  //   FaceVariable *vNew = new FaceVariable(v->label(), *v);
-  //   c.s->_faceArray.push_back(vNew);
-  // }
+  for (auto v : stageSrc._faceArray) {
+    c.s->_faceArray.push_back(v);
+  }
 
   // Now copy in the material arrays
   for (auto vars : stageSrc._matVars.getAllCellVars()) {
@@ -192,7 +201,7 @@ Container<T> Container<T>::materialSlice(int mat_id) {
   // Note that all standard arrays get added
   // add standard arrays
   for (auto v : s->_varArray) {
-    Metadata m = v->metadata();
+    // Metadata m = v->metadata();
 
     // add an alias
     //c.s->_varArray.push_back(std::make_shared<Variable<T>>(v->label(), *v));
@@ -202,10 +211,9 @@ Container<T> Container<T>::materialSlice(int mat_id) {
   //   EdgeVariable *vNew = new EdgeVariable(v->label(), *v);
   //   c.s->_edgeArray.push_back(vNew);
   // }
-  // for (auto v : s->_faceArray) {
-  //   FaceVariable *vNew = new FaceVariable(v->label(), *v);
-  //   c.s->_faceArray.push_back(vNew);
-  // }
+  for (auto v : s->_faceArray) {
+    c.s->_faceArray.push_back(v);
+  }
 
   // Now copy in the material specific arrays
   for (auto & index_map : s->_matVars.getIndexMap()) {
@@ -221,24 +229,32 @@ Container<T> Container<T>::materialSlice(int mat_id) {
   return c;
 }
 
+// TODO: this could be cleaned up, I think.
+// Maybe do only one loop, or do the cleanup at the end.
+// ~JMM
 template <typename T>
 void Container<T>::Remove(const std::string label) {
   // first find the index of our
-  int idx=0;
+  int idx, isize;
 
-  // // Check face variables
-  // idx = 0;
-  // for (auto v : s->_faceArray) {
-  //   if ( ! label.compare(v->label())) {
-  //     // found a match, remove it
-  //     s->_faceArray.erase(s->_faceArray.begin() + idx);
-  //     return;
-  //   }
-  // }
-
+  // Check face variables
+  idx = 0;
+  isize = s->_faceArray.size();
+  for (auto v : s->_faceArray) {
+    if ( ! label.compare(v->label()) ) break;
+    idx++;
+  }
+  if (idx < isize) {
+    s->_faceArray[idx].reset();
+    isize--;
+    if (isize >= 0) s->_faceArray[idx] = std::move(s->_faceArray.back());
+    s->_faceArray.pop_back();
+    return;
+  }
 
   // No face match so check edge variables
-  idx = 0;
+  // TODO: fixme
+  // idx = 0;
   // for (auto v : s->_edgeArray) {
   //   if ( ! label.compare(v->label())) {
   //     // found a match, remove it
@@ -247,9 +263,8 @@ void Container<T>::Remove(const std::string label) {
   //   }
   // }
 
-
   // no face or edge, so check sized variables
-  int isize = s->_varArray.size();
+  isize = s->_varArray.size();
   idx = 0;
   for (auto v : s->_varArray) {
     if ( ! label.compare(v->label())) {
@@ -257,7 +272,7 @@ void Container<T>::Remove(const std::string label) {
     }
     idx++;
   }
-  if ( idx == isize) {
+  if ( idx >= isize) {
     throw std::invalid_argument ("array not found in Remove()");
   }
 
@@ -498,7 +513,7 @@ template<typename T>
 void Container<T>::print() {
   std::cout << "Variables are:\n";
   for (auto v : s->_varArray)  { std::cout << " cell: "<<v->info() << std::endl; }
-  //  for (auto v : s->_faceArray) { std::cout << " face: "<<v->info() << std::endl; }
+  for (auto v : s->_faceArray) { std::cout << " face: "<<v->info() << std::endl; }
   //  for (auto v : s->_edgeArray) { std::cout << " edge: "<<v->info() << std::endl; }
   s->_matVars.print();
 }
