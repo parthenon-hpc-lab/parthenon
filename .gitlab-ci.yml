@@ -22,7 +22,8 @@ style-check:
     - cpu
   stage: style
   script:
-    - echo "Placeholder. See https://github.com/lanl/parthenon/issues/16"
+    - python ./tst/style/cpplint.py --counting=detailed --recursive src example tst
+  allow_failure: true
 
 # PLACEHOLDER run short suite on GPUs
 #parthenon-cuda-short:
