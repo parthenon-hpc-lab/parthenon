@@ -16,13 +16,15 @@
 #ifdef MPI_PARALLEL
 #include <mpi.h>
 #endif
-#include "pi.hpp"
+#include "face_fields_example.hpp"
 
 namespace parthenon {
 
 // can be used to set global properties that all meshblocks want to know about
 void ProcessProperties(properties_t& properties, ParameterInput *pin) {}
 
+// Usually you would call "initialize" functions from several physics packages here.
+// Since there's only one, we use only one.
 void InitializePhysics(physics_t& physics, ParameterInput *pin) {
   auto package = std::make_shared<StateDescriptor>("FaceFieldExample");
 
@@ -33,6 +35,9 @@ void InitializePhysics(physics_t& physics, ParameterInput *pin) {
   params.Add("py",
 	     pin->DoesParameterExist("FaceExample","py") ?
 	     pin->GetReal("FaceExample","py") : 1.0);
+  params.Add("pz",
+	     pin->DoesParameterExist("FaceExample","pz") ?
+	     pin->GetReal("FaceExample","pz") : 0);
   
 
   Metada m;
@@ -78,7 +83,7 @@ DriverStatus FaceFieldExample::Execute() {
       }
     }
   }
-  pmesh->mbcnt = pmesh->nbtotal; // this is how many blocks were processed
+  pmesh->mbcnt = pmesh->nbtotal;
   return DriverStatus::complete;
 }
 
@@ -87,105 +92,70 @@ TaskList FaceFieldExample::MakeTaskList(MeshBlock *pmb) {
   TaskList tl;
 
   TaskID none(0);
-  auto get_area = tl.AddTask([](MeshBlock* pmb)->TaskStatus {
-			       auto physics = pmb->physics["FaceFieldExample"];
-			       auto px = physics->Param<Real>("px");
-			       auto py = physics->Param<Real>("py");
-			       Container<Real>& rc = pmb->real_container;
-			       int is = pmb->is;
-			       int js = pmb->js;
-			       int ks = pmb->ks;
-			       int ie = pmb->ie;
-			       int je = pmb->je;
-			       int ke = pmb->ke;
-			       Coordinates *pcoord = pmb->pcoord.get();
-			       Variable<Real>& face = rc.Get("c.c.face_averaged_value");
-			       Variable<Real>& cell = rc.Get("f.f.interpolated_value");
-			       
-			     },
-			     none, pmb);
+  auto fill_faces = tl.AddTask([](MeshBlock* pmb)->TaskStatus {
+      auto physics = pmb->physics["FaceFieldExample"];
+      Real px = physics->Param<Real>("px");
+      Real py = physics->Param<Real>("py");
+      Real pz = physics->Param<Real>("pz");
+      Container<Real>& rc = pmb->real_container;
+      Coordinates *pcoord = pmb->pcoord.get();
+      int is = pmb->is; int js = pmb->js; int ks = pmb->ks;
+      int ie = pmb->ie; int je = pmb->je; int ke = pmb->ke;
+      auto& face = rc.GetFace("c.c.face_averaged_value");
+      // fill faces
+      for (int k=ks; k<=ke; k++) {
+	Real z = pcoord->x3v(k);
+	for (int j=js; j<=je; j++) {
+	  Real y = pcoord->x2v(j);
+	  for (int i=is; i<=ie+1; i++) {
+	    Real x = pcoord->x1f(i);
+	    face(1,k,j,i) = pow(x,px) + pow(y,py) + pow(z,pz);
+	  }
+	}
+      }
+      for (int k=ks; k<=ke; k++) {
+	Real z = pcoord->x3v(k);
+	for (int j=js; j<=je+1; j++) {
+	  Real y = pcoord->x2f(j);
+	  for (int i=is; i<=ie; i++) {
+	    Real x = pcoord->x1v(i);
+	    face(2,k,j,i) = pow(x,px) + pow(y,py) + pow(z,pz);
+	  }
+	}
+      }
+      for (int k=ks; k<=ke+1; k++) {
+	Real z= pcoord->x3f(k);
+	for (int j=js; j<=je; j++) {
+	  Real y = pcoord->x2v(j);
+	  for (int i=is; i<=ie; i++) {
+	    Real x = pcoord->x1v(i);
+	    face(3,k,j,i) = pow(x,px) + pow(y,py) + pow(z,pz);
+	  }
+	}
+      }
+    },
+    none, pmb);
+
+  auto interpolate = tl.AddTask([](MeshBlock* pmb)->TaskStatus {
+      Container<Real>& rc = pmb->real_container;
+      int is = pmb->is; int js = pmb->js; int ks = pmb->ks;
+      int ie = pmb->ie; int je = pmb->je; int ke = pmb->ke;
+      auto& face = rc.GetFace("c.c.face_averaged_value");
+      auto& cell = rc.Get("f.f.interpolated_value");
+      // perform interpolation
+      for (int k = ks; k <= ke; k++) {
+	for (int j = js; j <= je; j++) {
+	  for (int i = is; i <= ie; i++) {
+	    cell(k,j,i) = (1./6.)*(face(1,k,j,i) + face(1,k,j,i+1)
+				   + face(2,k,j,i) + face(2,k,j+1,i)
+				   + face(3,k,j,i) + face(3,k+1,j,i));
+	  }
+	}
+      }
+    },
+    fill_faces, pmb);
+  
   return std::move(tl);
-}
-
-// This defines a "physics" package
-namespace PiCalculator {
-
-  void SetInOrOut(Container<Real>& rc) {
-    MeshBlock *pmb = rc.pmy_block;
-    Coordinates *pcoord = pmb->pcoord.get();
-    Variable<Real>& v = rc.Get("in_or_out");
-    const auto& radius = pmb->physics["PiCalculator"]->Param<Real>("radius");
-    for (int k=0; k<pmb->ncells3; k++) {
-      for (int j=0; j<pmb->ncells2; j++) {
-        for (int i=0; i<pmb->ncells1; i++) {
-          Real rsq = std::pow(pcoord->x1v(i),2) + std::pow(pcoord->x2v(j),2);
-          if (rsq < radius*radius) {
-            v(k,j,i) = 1.0;
-          } else {
-            v(k,j,i) = 0.0;
-          }
-        }
-      }
-    }
-  }
-
-  int CheckRefinement(Container<Real>& rc) {
-    MeshBlock *pmb = rc.pmy_block;
-    Variable<Real>& v = rc.Get("in_or_out");
-    int delta_level = -1;
-    Real vmin = 1.0;
-    Real vmax = 0.0;
-    for (int k=0; k<pmb->ncells3; k++) {
-      for (int j=0; j<pmb->ncells2; j++) {
-        for (int i=0; i<pmb->ncells1; i++) {
-          vmin = (v(k,j,i) < vmin ? v(k,j,i) : vmin);
-          vmax = (v(k,j,i) > vmax ? v(k,j,i) : vmax);
-        }
-      }
-    }
-    if (vmax > 0.95 && vmin < 0.05) {
-      delta_level = 1;
-    }
-    return delta_level;
-  }
-
-  std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
-    auto package = std::make_shared<StateDescriptor>("PiCalculator");
-    Params& params = package->AllParams();
-
-    Real radius = pin->GetOrAddReal("Pi", "radius", 1.0);
-    params.Add("radius", radius);
-
-    std::string field_name("in_or_out");
-    Metadata m({Metadata::cell, Metadata::derived, Metadata::graphics});
-    package->AddField(field_name, m, DerivedOwnership::unique);
-
-    package->FillDerived = SetInOrOut;
-    package->CheckRefinement = CheckRefinement;
-    return package;
-  }
-
-  TaskStatus ComputeArea(MeshBlock *pmb) {
-    Container<Real>& rc = pmb->real_container;
-    int is = pmb->is; int js = pmb->js; int ks = pmb->ks;
-    int ie = pmb->ie; int je = pmb->je; int ke = pmb->ke;
-    Coordinates *pcoord = pmb->pcoord.get();
-    Variable<Real>& v = rc.Get("in_or_out");
-    const auto& radius = pmb->physics["PiCalculator"]->Param<Real>("radius");
-    Real area = 0.0;
-    for (int k=ks; k<=ke; k++) {
-      for (int j=js; j<=je; j++) {
-        for (int i=is; i<=ie; i++) {
-          area += v(k,j,i)*pcoord->dx1f(i)*pcoord->dx2f(j);
-        }
-      }
-    }
-    //std::cout << "area = " << area << std::endl;
-    area /= (radius*radius);
-    // just stash the area somewhere for later
-    v(0,0,0) = area;
-    return TaskStatus::success;
-  }
 }
 
 } // namespace parthenon
