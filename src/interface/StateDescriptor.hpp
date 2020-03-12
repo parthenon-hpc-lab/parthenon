@@ -106,5 +106,8 @@ class StateDescriptor {
     const std::string _label;
     std::map<std::string, Metadata> _metadataMap;
 };
+
+using physics_t = std::map<std::string, std::shared_ptr<StateDescriptor>>;
+
 }
 #endif // STATE_DESCRIPTOR_HPP

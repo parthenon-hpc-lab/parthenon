@@ -61,5 +61,7 @@ auto ConvertPropertiesToInterface(
 }
 */
 
+using properties_t = std::vector<std::shared_ptr<PropertiesInterface>>;
+
 } // namespace parthenon
 #endif // PARTHENON_INTERFACE_PROPERTIESINTERFACE_HPP_

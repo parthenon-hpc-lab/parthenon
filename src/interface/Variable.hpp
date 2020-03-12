@@ -205,6 +205,14 @@ struct FaceVariable : FaceField {
     throw std::invalid_argument("Face must be x1f, x2f, or x3f");
   }
 
+  template<typename...Args>
+  Real operator()(int dir, Args... args) {
+    if (dir == 1) return x1f(std::forward<Args>(args)...);
+    if (dir == 2) return x2f(std::forward<Args>(args)...);
+    if (dir == 3) return x3f(std::forward<Args>(args)...);
+    throw std::invalid_argument("Face must be x1f, x2f, or x3f");
+  }
+
  private:
   Metadata _m;
   std::string _label;
