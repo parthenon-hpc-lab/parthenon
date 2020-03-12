@@ -40,7 +40,7 @@
 #include "interface/Update.hpp"
 
 // Application headers
-#include "pi.hpp"
+#include "face_fields_example.hpp"
 
 // MPI/OpenMP headers
 #ifdef MPI_PARALLEL
@@ -86,34 +86,14 @@ int main(int argc, char *argv[]) {
 
   ParameterInput *pinput;
   IOWrapper infile, restartfile;
-#ifdef ENABLE_EXCEPTIONS
-  try {
-#endif
-    pinput = new ParameterInput;
-    if (arg.iarg_flag == 1) {
-      // if both -r and -i are specified, override the parameters using the input file
-      infile.Open(arg.input_filename, IOWrapper::FileMode::read);
-      pinput->LoadFromFile(infile);
-      infile.Close();
-    }
-    pinput->ModifyFromCmdline(argc ,argv);
-#ifdef ENABLE_EXCEPTIONS
+  pinput = new ParameterInput;
+  if (arg.iarg_flag == 1) {
+    // if both -r and -i are specified, override the parameters using the input file
+    infile.Open(arg.input_filename, IOWrapper::FileMode::read);
+    pinput->LoadFromFile(infile);
+    infile.Close();
   }
-  catch(std::bad_alloc& ba) {
-    std::cout << "### FATAL ERROR in main" << std::endl
-              << "memory allocation failed initializing class ParameterInput: "
-              << ba.what() << std::endl;
-    if (arg.res_flag == 1) restartfile.Close();
-    Parthenon_MPI_Finalize();
-    return(0);
-  }
-  catch(std::exception const& ex) {
-    std::cout << ex.what() << std::endl;  // prints diagnostic message
-    if (arg.res_flag == 1) restartfile.Close();
-    Parthenon_MPI_Finalize();
-    return(0);
-  }
-#endif // ENABLE_EXCEPTIONS
+  pinput->ModifyFromCmdline(argc ,argv);
 
   //--- Step 4. --------------------------------------------------------------------------
   // Construct and initialize Mesh
@@ -121,94 +101,42 @@ int main(int argc, char *argv[]) {
   FillDerivedVariables::SetFillDerivedFunctions(nullptr,nullptr);
 
   Mesh *pmesh;
-#ifdef ENABLE_EXCEPTIONS
-  try {
-#endif
-    // load properties and physics
-    std::vector<std::shared_ptr<PropertiesInterface>> properties;
-    ProcessProperties(properties, pinput);
-
-    std::map<std::string, std::shared_ptr<StateDescriptor>> physics;
-    InitializePhysics(physics, pinput);
-
-    if (arg.res_flag == 0) {
-      pmesh = new Mesh(pinput, properties, physics, arg.mesh_flag);
-    } else {
-      pmesh = new Mesh(pinput, restartfile, properties, physics, arg.mesh_flag);
-    }
-#ifdef ENABLE_EXCEPTIONS
+  // load properties and physics
+  properties_t properties;
+  ProcessProperties(properties, pinput);
+  
+  physics_t physics;
+  InitializePhysics(physics, pinput);
+  
+  if (arg.res_flag == 0) {
+    pmesh = new Mesh(pinput, properties, physics, arg.mesh_flag);
+  } else {
+    pmesh = new Mesh(pinput, restartfile, properties, physics, arg.mesh_flag);
   }
-  catch(std::bad_alloc& ba) {
-    std::cout << "### FATAL ERROR in main" << std::endl
-              << "memory allocation failed initializing class Mesh: "
-              << ba.what() << std::endl;
-    if (arg.res_flag == 1) restartfile.Close();
-    Parthenon_MPI_Finalize();
-    return(0);
-  }
-  catch(std::exception const& ex) {
-    std::cout << ex.what() << std::endl;  // prints diagnostic message
-    if (arg.res_flag == 1) restartfile.Close();
-    Parthenon_MPI_Finalize();
-    return(0);
-  }
-#endif // ENABLE_EXCEPTIONS
 
   //--- Step 5. --------------------------------------------------------------------------
   // Set initial conditions by calling problem generator, or reading restart file
 
-#ifdef ENABLE_EXCEPTIONS
-  try {
-#endif
-    pmesh->Initialize(arg.res_flag, pinput);
-#ifdef ENABLE_EXCEPTIONS
-  }
-  catch(std::bad_alloc& ba) {
-    std::cout << "### FATAL ERROR in main" << std::endl << "memory allocation failed "
-              << "in problem generator " << ba.what() << std::endl;
-    Parthenon_MPI_Finalize();
-    return(0);
-  }
-  catch(std::exception const& ex) {
-    std::cout << ex.what() << std::endl;  // prints diagnostic message
-    Parthenon_MPI_Finalize();
-    return(0);
-  }
-#endif // ENABLE_EXCEPTIONS
+  pmesh->Initialize(arg.res_flag, pinput);
 
   //--- Step 6. --------------------------------------------------------------------------
   // Change to run directory, initialize outputs object, and make output of ICs
 
   Outputs *pouts;
-#ifdef ENABLE_EXCEPTIONS
-  try {
-#endif
-    ChangeRunDir(arg.prundir);
-    pouts = new Outputs(pmesh, pinput);
-    if (arg.res_flag == 0) pouts->MakeOutputs(pmesh, pinput);
-#ifdef ENABLE_EXCEPTIONS
-  }
-  catch(std::bad_alloc& ba) {
-    std::cout << "### FATAL ERROR in main" << std::endl
-              << "memory allocation failed setting initial conditions: "
-              << ba.what() << std::endl;
-    Parthenon_MPI_Finalize();
-    return(0);
-  }
-  catch(std::exception const& ex) {
-    std::cout << ex.what() << std::endl;  // prints diagnostic message
-    Parthenon_MPI_Finalize();
-    return(0);
-  }
-#endif // ENABLE_EXCEPTIONS
+  ChangeRunDir(arg.prundir);
+  pouts = new Outputs(pmesh, pinput);
+  if (arg.res_flag == 0) pouts->MakeOutputs(pmesh, pinput);
 
   //=== Step 7. === START OF MAIN INTEGRATION LOOP =======================================
   // For performance, there is no error handler protecting this step (except outputs)
 
-  CalculatePi driver(pinput, pmesh, pouts);
+  FaceFieldExample driver(pinput, pmesh, pouts);
 
   if (Globals::my_rank == 0) {
-    std::cout << "\n"<<Globals::my_rank<<":Setup complete, entering main loop...\n" << std::endl;
+    std::cout << "\n"
+	      << Globals::my_rank
+	      << ":Setup complete, entering main loop...\n"
+	      << std::endl;
   }
 
   clock_t tstart = clock();
@@ -220,30 +148,14 @@ int main(int argc, char *argv[]) {
 
   // Make final outputs, print diagnostics, clean up and terminate
 
-  if (Globals::my_rank == 0 && arg.wtlim > 0)
+  if (Globals::my_rank == 0 && arg.wtlim > 0) {
     SignalHandler::CancelWallTimeAlarm();
+  }
 
   //--- Step 9. --------------------------------------------------------------------------
   // Make the final outputs
-#ifdef ENABLE_EXCEPTIONS
-  try {
-#endif
-    pouts->MakeOutputs(pmesh,pinput,true);
-#ifdef ENABLE_EXCEPTIONS
-  }
-  catch(std::bad_alloc& ba) {
-    std::cout << "### FATAL ERROR in main" << std::endl
-              << "memory allocation failed during output: " << ba.what() <<std::endl;
-    Parthenon_MPI_Finalize();
-    return(0);
-  }
-  catch(std::exception const& ex) {
-    std::cout << ex.what() << std::endl;  // prints diagnostic message
-    Parthenon_MPI_Finalize();
-    return(0);
-  }
-#endif // ENABLE_EXCEPTIONS
 
+  pouts->MakeOutputs(pmesh,pinput,true);
   pmesh->UserWorkAfterLoop(pinput);
 
   //--- Step 10. -------------------------------------------------------------------------
@@ -261,10 +173,10 @@ int main(int argc, char *argv[]) {
     } else {
       std::cout << std::endl << "Terminating on time limit" << std::endl;
     }
-
+    
     std::cout << "time=" << pmesh->time << " cycle=" << pmesh->ncycle << std::endl;
     std::cout << "tlim=" << pmesh->tlim << " nlim=" << pmesh->nlim << std::endl;
-
+    
     if (pmesh->adaptive) {
       std::cout << std::endl << "Number of MeshBlocks = " << pmesh->nbtotal
                 << "; " << pmesh->nbnew << "  created, " << pmesh->nbdel

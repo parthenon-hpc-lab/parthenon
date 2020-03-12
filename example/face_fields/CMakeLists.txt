@@ -12,8 +12,8 @@
 #=========================================================================================
 
 add_executable(
-    parthenon-example
-        calculate_pi.cpp
-        pi.cpp
+    face-fields-example
+        face_fields_main.cpp
+        face_fields_example.cpp
 )
-target_link_libraries(parthenon-example PRIVATE parthenon)
+target_link_libraries(face-fields-example PRIVATE parthenon)

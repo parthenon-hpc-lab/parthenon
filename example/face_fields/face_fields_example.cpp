@@ -55,34 +55,8 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
   // don't do anything here
 }
 
-// TODO: should this be a staged driver with one stage?
 DriverStatus FaceFieldExample::Execute() {
-  // this is where the main work is orchestrated
-  // No evolution in this driver.  Just calculates something once.
-  // For evolution, look at the EvolutionDriver
-
-  int nmb = pmesh->GetNumMeshBlocksThisRank(Globals::my_rank);
-  std::vector<TaskList> task_lists;
-  task_lists.resize(nmb);
-
-  int i=0;
-  MeshBlock *pmb = pmesh->pblock;
-  while (pmb != nullptr) {
-    task_lists[i] = MakeTaskList(pmb);
-    i++;
-    pmb = pmb->next;
-  }
-  int complete_cnt = 0;
-  while (complete_cnt != nmb) {
-    for (auto & tl : task_lists) {
-      if (!tl.IsComplete()) {
-          auto status = tl.DoAvailable();
-          if (status == TaskListStatus::complete) {
-            complete_cnt++;
-          }
-      }
-    }
-  }
+  DriverUtils::ConstructAndExecuteBlockTasks<>(this);
   pmesh->mbcnt = pmesh->nbtotal;
   return DriverStatus::complete;
 }
