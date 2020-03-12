@@ -67,8 +67,14 @@ TaskList CalculatePi::MakeTaskList(MeshBlock *pmb) {
   using namespace PiCalculator;
   TaskList tl;
 
+  // make some lambdas that over overkill here but clean things up for more realistic code
+  auto AddBlockTask = [pmb,&tl](BlockTaskFunc* func, TaskID dependencies)
+  { 
+    return tl.AddTask<BlockTask>(func, dependencies, pmb); 
+  };
+
   TaskID none(0);
-  auto get_area = tl.AddTask(ComputeArea, none, pmb);
+  auto get_area = AddBlockTask(ComputeArea, none);//tl.AddTask<BlockTask>(ComputeArea, none, pmb);
 
   // could add more tasks like:
   // auto next_task = tl.AddTask(FuncPtr, get_area, pmb);
