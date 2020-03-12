@@ -82,5 +82,6 @@ target_include_directories(HDF5_C INTERFACE ${HDF5_C_INCLUDE_DIRS})
 
 add_subdirectory(src)
 add_subdirectory(example/calculate_pi)
+add_subdirectory(example/face_fields)
 
 include(cmake/CheckCopyright.cmake)

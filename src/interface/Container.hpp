@@ -304,7 +304,7 @@ class Container {
     return s->_matVars;
   }
 
-  std::vector<FaceVariable>& faceVars() {
+  std::vector<std::shared_ptr<FaceVariable>>& faceVars() {
     return s->_faceArray;
   }
 

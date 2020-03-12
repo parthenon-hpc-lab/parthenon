@@ -40,7 +40,7 @@ void InitializePhysics(physics_t& physics, ParameterInput *pin) {
 	     pin->GetReal("FaceExample","pz") : 0);
   
 
-  Metada m;
+  Metadata m;
   m = Metadata({Metadata::cell, Metadata::derived,
 		Metadata::oneCopy, Metadata::graphics});
   package->AddField("c.c.interpolated_value", m, DerivedOwnership::unique);
@@ -107,6 +107,7 @@ TaskList FaceFieldExample::MakeTaskList(MeshBlock *pmb) {
 	  }
 	}
       }
+      return TaskStatus::success;
     },
     none, pmb);
 
@@ -126,6 +127,7 @@ TaskList FaceFieldExample::MakeTaskList(MeshBlock *pmb) {
 	  }
 	}
       }
+      return TaskStatus::success;
     },
     fill_faces, pmb);
   

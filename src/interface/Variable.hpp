@@ -204,12 +204,11 @@ struct FaceVariable : FaceField {
     if (i == 3) return (this->x3f);
     throw std::invalid_argument("Face must be x1f, x2f, or x3f");
   }
-
-  template<typename...Args>
-  Real operator()(int dir, Args... args) {
-    if (dir == 1) return x1f(std::forward<Args>(args)...);
-    if (dir == 2) return x2f(std::forward<Args>(args)...);
-    if (dir == 3) return x3f(std::forward<Args>(args)...);
+  // TODO: more than 3D?
+  Real& operator()(int dir, int k, int j, int i) {
+    if (dir == 1) return x1f(k,j,i);
+    if (dir == 2) return x2f(k,j,i);
+    if (dir == 3) return x3f(k,j,i);
     throw std::invalid_argument("Face must be x1f, x2f, or x3f");
   }
 
