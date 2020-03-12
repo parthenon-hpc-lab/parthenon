@@ -39,10 +39,6 @@ DriverStatus CalculatePi::Execute() {
 
   DriverUtils::ConstructAndExecuteBlockTasks<>(this);
 
-  int nmb = pmesh->GetNumMeshBlocksThisRank(Globals::my_rank);
-  std::vector<TaskList> task_lists;
-  task_lists.resize(nmb);
-
   // All the blocks are done, now do a global reduce and spit out the answer
   // first sum over blocks on this rank
   Real area = 0.0;
