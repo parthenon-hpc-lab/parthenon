@@ -18,12 +18,13 @@
 #include <string>
 #include "athena.hpp"
 #include "task_list/tasks.hpp"
-#include "parameter_input.hpp"
-#include "mesh/mesh.hpp"
-#include "outputs/outputs.hpp"
-#include "interface/Update.hpp"
 
 namespace parthenon {
+
+class Mesh;
+class MeshBlock;
+class ParameterInput;
+class Outputs;
 
 enum class DriverStatus {complete, failed};
 
@@ -48,5 +49,37 @@ class EvolutionDriver : public Driver {
     DriverStatus Execute();
     virtual TaskListStatus Step() = 0;
 };
+
+namespace DriverUtils {
+  template <typename T, class...Args>
+  TaskListStatus ConstructAndExecuteBlockTasks(T* driver, Args... args) {
+    int nthreads = driver->pmesh->GetNumMeshThreads();
+    int nmb = driver->pmesh->GetNumMeshBlocksThisRank(Globals::my_rank);
+    std::vector<TaskList> task_lists;
+    task_lists.resize(nmb);
+    int i=0;
+    MeshBlock *pmb = driver->pmesh->pblock;
+    while (pmb != nullptr) {
+      task_lists[i] = driver->MakeTaskList(pmb, std::forward<Args>(args)...);
+      i++;
+      pmb = pmb->next;
+    }
+    int complete_cnt = 0;
+    while (complete_cnt != nmb) {
+#pragma omp parallel for reduction(+ : complete_cnt) num_threads(nthreads) schedule(dynamic,1)
+      for (auto & tl : task_lists) {
+        if (!tl.IsComplete()) {
+          auto status = tl.DoAvailable();
+          if (status == TaskListStatus::complete) {
+            complete_cnt++;
+          }
+        }
+      }
+    }
+    return TaskListStatus::complete;
+  }
+} // namespace DriverUtils
+
+
 } // namespace parthenon
 #endif

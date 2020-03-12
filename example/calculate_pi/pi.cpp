@@ -37,33 +37,16 @@ DriverStatus CalculatePi::Execute() {
   // No evolution in this driver.  Just calculates something once.
   // For evolution, look at the EvolutionDriver
 
+  DriverUtils::ConstructAndExecuteBlockTasks<>(this);
+
   int nmb = pmesh->GetNumMeshBlocksThisRank(Globals::my_rank);
   std::vector<TaskList> task_lists;
   task_lists.resize(nmb);
 
-  int i=0;
-  MeshBlock *pmb = pmesh->pblock;
-  while (pmb != nullptr) {
-    task_lists[i] = MakeTaskList(pmb);
-    i++;
-    pmb = pmb->next;
-  }
-  int complete_cnt = 0;
-  while (complete_cnt != nmb) {
-    for (auto & tl : task_lists) {
-      if (!tl.IsComplete()) {
-          auto status = tl.DoAvailable();
-          if (status == TaskListStatus::complete) {
-            complete_cnt++;
-          }
-      }
-    }
-  }
-
   // All the blocks are done, now do a global reduce and spit out the answer
   // first sum over blocks on this rank
   Real area = 0.0;
-  pmb = pmesh->pblock;
+  MeshBlock* pmb = pmesh->pblock;
   while (pmb != nullptr) {
     Variable<Real>& v = pmb->real_container.Get("in_or_out");
     Real block_area = v(0,0,0);

@@ -52,33 +52,13 @@ MultiStageDriver::MultiStageDriver(ParameterInput *pin, Mesh *pm, Outputs *pout)
 }
 
 TaskListStatus MultiStageBlockTaskDriver::Step() {
-  int nthreads = pmesh->GetNumMeshThreads();
-  int nmb = pmesh->GetNumMeshBlocksThisRank(Globals::my_rank);
-  std::vector<TaskList> task_lists;
-  task_lists.resize(nmb);
-
+  using DriverUtils::ConstructAndExecuteBlockTasks;
+  TaskListStatus status;
   for (int stage=1; stage<=integrator->_nstages; stage++) {
-    int i=0;
-    MeshBlock *pmb = pmesh->pblock;
-    while (pmb != nullptr) {
-      task_lists[i] = MakeTaskList(pmb, stage);
-      i++;
-      pmb = pmb->next;
-    }
-    int complete_cnt = 0;
-    while (complete_cnt != nmb) {
-#pragma omp parallel for reduction(+ : complete_cnt) num_threads(nthreads) schedule(dynamic,1)
-      for (auto & tl : task_lists) {
-        if (!tl.IsComplete()) {
-            auto status = tl.DoAvailable();
-            if (status == TaskListStatus::complete) {
-              complete_cnt++;
-            }
-        }
-      }
-    }
+    status = ConstructAndExecuteBlockTasks<>(this, stage);
+    if (status != TaskListStatus::complete) break;
   }
-  return TaskListStatus::complete;
+  return status;
 }
 
 } // namespace parthenon
