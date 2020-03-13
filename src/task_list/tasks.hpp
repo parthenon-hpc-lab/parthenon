@@ -20,12 +20,12 @@
 #include <string>
 #include <memory>
 #include <iostream>
-#include "mesh/mesh.hpp"
 
 #define MAX_TASKS 64
 
 namespace parthenon {
 
+class MeshBlock;
 class Integrator;
 
 enum class TaskStatus {fail, success, next};
