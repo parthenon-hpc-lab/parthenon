@@ -15,8 +15,8 @@
 # Configure defs.hpp
 set(PROBLEM_GENERATOR "<not-implemented>") # TODO: Figure out what to put here
 set(SINGLE_PRECISION_ENABLED 0) # TODO: Add CMake option for this
-set(MPI_OPTION MPI_PARALLEL) # TODO: Without MPI
-set(OPENMP_OPTION OPENMP_PARALLEL) # TODO: Without OPENMP
+set(MPI_OPTION NOT_MPI_PARALLEL) # TODO: Without MPI
+set(OPENMP_OPTION NOT_OPENMP_PARALLEL) # TODO: Without OPENMP
 set(HDF5_OPTION HDF5OUTPUT) # TODO: No HDF5
 set(EXCEPTION_HANDLING_OPTION ENABLE_EXCEPTIONS) # TODO: Add option to disable exceptions
 set(COMPILED_WITH ${CMAKE_CXX_COMPILER})
@@ -100,7 +100,8 @@ add_library(parthenon
   parameter_input.cpp
 )
 target_compile_features(parthenon PUBLIC cxx_std_14)
-target_link_libraries(parthenon PUBLIC MPI::MPI_CXX OpenMP::OpenMP_CXX HDF5_C)
+#target_link_libraries(parthenon PUBLIC MPI::MPI_CXX OpenMP::OpenMP_CXX HDF5_C)
+target_link_libraries(parthenon PUBLIC HDF5_C)
 target_include_directories(parthenon PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}
   ${CMAKE_CURRENT_BINARY_DIR}/generated

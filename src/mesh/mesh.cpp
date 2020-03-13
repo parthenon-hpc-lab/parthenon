@@ -58,6 +58,7 @@
 #include <mpi.h>
 #endif
 
+namespace parthenon {
 //----------------------------------------------------------------------------------------
 // Mesh constructor, builds mesh at start of calculation using parameters in input file
 
@@ -1304,6 +1305,8 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
       for (int i=0; i<nmb; ++i) {
         pmb_array[i]->real_container.ReceiveAndSetBoundariesWithWait();
       }
+
+#pragma omp for
       for (int i=0; i<nmb; ++i) {
         pmb_array[i]->real_container.SetBoundaries();
         pmb_array[i]->real_container.ClearBoundary(BoundaryCommSubset::mesh_init);
@@ -1595,4 +1598,5 @@ void Mesh::OutputCycleDiagnostics() {
     }
   }
   return;
+}
 }

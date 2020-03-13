@@ -46,6 +46,7 @@
 #include "interface/Variable.hpp"
 #include "interface/ContainerIterator.hpp"
 
+namespace parthenon {
 //----------------------------------------------------------------------------------------
 // MeshBlock constructor: constructs coordinate, boundary condition, hydro, field
 //                        and mesh refinement objects.
@@ -446,4 +447,4 @@ void MeshBlock::RegisterMeshBlockData(FaceField &pvar_fc) {
   vars_fc_.push_back(pvar_fc);
   return;
 }
-
+}

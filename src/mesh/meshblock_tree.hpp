@@ -30,6 +30,7 @@
 #include "bvals/bvals.hpp"
 #include <defs.hpp>
 
+namespace parthenon {
 class Mesh;
 
 //--------------------------------------------------------------------------------------
@@ -70,5 +71,5 @@ class MeshBlockTree {
   static MeshBlockTree* proot_;
   static int nleaf_;
 };
-
+}
 #endif // MESH_MESHBLOCK_TREE_HPP_

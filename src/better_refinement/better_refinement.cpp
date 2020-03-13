@@ -16,6 +16,7 @@
 #include "mesh/mesh.hpp"
 #include "interface/StateDescriptor.hpp"
 
+namespace parthenon {
 namespace BetterRefinement {
 
 int CheckRefinement(Container<Real>& rc) {
@@ -46,4 +47,5 @@ int FirstDerivative(Variable<Real>& q, const Real refine_criteria, const Real de
     return -1;
 }
 
+}
 }

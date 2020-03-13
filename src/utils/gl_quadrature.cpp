@@ -27,6 +27,7 @@
 #include "athena_arrays.hpp"
 #include "gl_quadrature.hpp"
 
+namespace parthenon {
 // Not checking that input integration order "N" is correct: 1 < N <=64
 
 namespace GaussLegendre {
@@ -1306,3 +1307,4 @@ Real integrate(const int n, Real (*f)(Real, Real, Real),
   return m1*m2*m3*sum;
 }
 } // namespace GaussLegendre
+}

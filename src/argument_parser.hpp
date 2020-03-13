@@ -19,6 +19,7 @@
 #include "globals.hpp"
 #include "utils/utils.hpp"
 
+namespace parthenon {
 class ArgParse {
   public:
     ArgParse(int argc, char *argv[]) {
@@ -112,5 +113,5 @@ class ArgParse {
     int wtlim = 0;
     int exit_flag = 0;
 };
-
+} // namespace parthenon
 #endif

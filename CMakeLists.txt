@@ -41,15 +41,15 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif()
 
-find_package(MPI REQUIRED)
-find_package(OpenMP REQUIRED)
+#find_package(MPI REQUIRED)
+#find_package(OpenMP REQUIRED)
 
-set(HDF5_PREFER_PARALLEL True)
+#set(HDF5_PREFER_PARALLEL True)
 find_package(HDF5 REQUIRED)
 
-if (NOT ${HDF5_IS_PARALLEL})
-  message(FATAL_ERROR "Parallel HDF5 is required but only serial version was found")
-endif()
+#if (NOT ${HDF5_IS_PARALLEL})
+#  message(FATAL_ERROR "Parallel HDF5 is required but only serial version was found")
+#endif()
 
 # Build Tests and download Catch2
 if (${ENABLE_UNIT_TESTS} OR ${ENABLE_INTEGRATION_TESTS} OR ${ENABLE_REGRESSION_TESTS})
@@ -81,6 +81,6 @@ target_compile_definitions(HDF5_C INTERFACE ${HDF5_C_DEFINITIONS})
 target_include_directories(HDF5_C INTERFACE ${HDF5_C_INCLUDE_DIRS})
 
 add_subdirectory(src)
-add_subdirectory(example)
+add_subdirectory(example/calculate_pi)
 
 include(cmake/CheckCopyright.cmake)

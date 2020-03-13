@@ -50,6 +50,7 @@
 #define NDIV (1+IMM1/NTAB)
 #define RNMX (1.0-DBL_EPSILON)
 
+namespace parthenon {
 double ran2(std::int64_t *idum) {
   int j;
   std::int64_t k;
@@ -89,7 +90,7 @@ double ran2(std::int64_t *idum) {
   else
     return temp;
 }
-
+}
 #undef IMR1
 #undef IMR2
 #undef AM

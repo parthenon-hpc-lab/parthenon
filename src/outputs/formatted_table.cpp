@@ -36,6 +36,7 @@
 #include "mesh/mesh.hpp"
 #include "outputs.hpp"
 
+namespace parthenon {
 
 //----------------------------------------------------------------------------------------
 //! \fn void FormattedTableOutput:::WriteOutputFile(Mesh *pm)
@@ -161,4 +162,5 @@ void FormattedTableOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool f
   pin->SetReal(output_params.block_name, "next_time", output_params.next_time);
 
   return;
+}
 }

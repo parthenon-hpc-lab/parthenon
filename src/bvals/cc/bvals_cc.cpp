@@ -42,6 +42,7 @@
 #include <mpi.h>
 #endif
 
+namespace parthenon {
 // constructor
 
 CellCenteredBoundaryVariable::CellCenteredBoundaryVariable(
@@ -477,4 +478,5 @@ void CellCenteredBoundaryVariable::ClearBoundary(BoundaryCommSubset phase) {
     }
 #endif
   }
+}
 }

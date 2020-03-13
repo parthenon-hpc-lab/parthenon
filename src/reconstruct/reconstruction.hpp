@@ -28,6 +28,7 @@
 #include "athena_arrays.hpp"
 #include "coordinates/coordinates.hpp"
 
+namespace parthenon {
 // Forward declarations
 class ParameterInput;
 
@@ -152,4 +153,5 @@ class Reconstruction {
   AthenaArray<Real> scr1_ni_, scr2_ni_, scr3_ni_, scr4_ni_, scr5_ni_;
   AthenaArray<Real> scr6_ni_, scr7_ni_, scr8_ni_;
 };
+}
 #endif // RECONSTRUCT_RECONSTRUCTION_HPP_

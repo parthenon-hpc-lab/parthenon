@@ -26,6 +26,7 @@
 #include "Container.hpp"
 #include "Variable.hpp"
 
+namespace parthenon {
 template <typename T>
 class ContainerIterator {
  public:
@@ -125,5 +126,5 @@ class ContainerIterator {
     return true;
   }
 };
-
+}
 #endif // INTERFACE_CONTAINERITERATOR_HPP_

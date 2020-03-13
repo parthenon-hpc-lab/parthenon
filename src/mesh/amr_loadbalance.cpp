@@ -42,6 +42,7 @@
 #endif
 
 
+namespace parthenon {
 //----------------------------------------------------------------------------------------
 // \!fn void Mesh::LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin)
 // \brief Main function for adaptive mesh refinement
@@ -1127,4 +1128,5 @@ void Mesh::FinishRecvCoarseToFineAMR(MeshBlock *pb, Real *recvbuf) {
 int Mesh::CreateAMRMPITag(int lid, int ox1, int ox2, int ox3) {
   // former "AthenaTagMPI" AthenaTagMPI::amr=8 redefined to 0
   return (lid<<8) | (ox1<<7)| (ox2<<6) | (ox3<<5) | 0;
+}
 }

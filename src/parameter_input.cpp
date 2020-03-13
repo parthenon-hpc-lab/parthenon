@@ -69,6 +69,7 @@
 #include <omp.h>
 #endif
 
+namespace parthenon {
 //----------------------------------------------------------------------------------------
 // ParameterInput constructor
 
@@ -894,4 +895,5 @@ void ParameterInput::Unlock() {
   omp_unset_lock(&lock_);
 #endif
   return;
+}
 }

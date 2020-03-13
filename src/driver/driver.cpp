@@ -14,6 +14,11 @@
 
 #include "driver.hpp"
 #include "utils/utils.hpp"
+#include "parameter_input.hpp"
+#include "mesh/mesh.hpp"
+#include "outputs/outputs.hpp"
+
+namespace parthenon {
 
 DriverStatus EvolutionDriver::Execute() {
   pmesh->mbcnt = 0;
@@ -65,3 +70,5 @@ DriverStatus EvolutionDriver::Execute() {
   } // END OF MAIN INTEGRATION LOOP ======================================================
   return DriverStatus::complete;
 }
+
+} // namespace parthenon

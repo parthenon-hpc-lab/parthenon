@@ -1,8 +1,4 @@
 //========================================================================================
-// Athena++ astrophysical MHD code
-// Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
-// Licensed under the 3-clause BSD License, see LICENSE file for details
-//========================================================================================
 // (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
@@ -14,15 +10,38 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef GLOBALS_HPP_
-#define GLOBALS_HPP_
-//! \file globals.hpp
-//  \brief namespace containing external global variables
+
+
+#ifndef CALCULATE_PI_HPP
+#define CALCULATE_PI_HPP
+
+#include <memory>
+
+#include "globals.hpp"
+#include "mesh/mesh.hpp"
+#include "driver/driver.hpp"
+#include "interface/StateDescriptor.hpp"
+#include "task_list/tasks.hpp"
 
 namespace parthenon {
-namespace Globals {
-extern int my_rank, nranks;
-}
+
+class CalculatePi : public Driver {
+  public:
+   CalculatePi(ParameterInput *pin, Mesh *pm, Outputs *pout) : Driver(pin, pm, pout) {}
+   TaskList MakeTaskList(MeshBlock *pmb);
+   DriverStatus Execute();
+};
+
+void ProcessProperties(std::vector<std::shared_ptr<PropertiesInterface>>& properties, ParameterInput *pin);
+void InitializePhysics(std::map<std::string, std::shared_ptr<StateDescriptor>>& physics, ParameterInput *pin); 
+
+// putting a "physics" package in a namespace
+namespace PiCalculator {
+  void SetInOrOut(Container<Real>& rc);
+  int CheckRefinement(Container<Real>& rc);
+  std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
+  TaskStatus ComputeArea(MeshBlock *pmb);
 }
 
-#endif // GLOBALS_HPP_
+} // namespace parthenon
+#endif

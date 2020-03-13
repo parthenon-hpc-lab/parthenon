@@ -35,6 +35,8 @@
 #include "bvals/cc/bvals_cc.hpp"
 #include "Metadata.hpp"
 #define DATASTATUS AthenaArray<Real>::DataStatus
+
+namespace parthenon {
 class MeshBlock;
 
 template <typename T>
@@ -268,6 +270,6 @@ class VariableVector : public std::vector<std::shared_ptr<Variable<T>>> {
   }
   Metadata& metadata() const { return this->begin().second->metadata();}
 };
-
+}
 
 #endif // INTERFACE_VARIABLE_HPP_
