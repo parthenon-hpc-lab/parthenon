@@ -19,6 +19,7 @@
 #include <bitset>
 #include <string>
 #include <memory>
+#include <stdexcept>
 #include <iostream>
 
 #define MAX_TASKS 64
@@ -179,7 +180,7 @@ class TaskList {
     template<typename T, class...Args>
     TaskID AddTask(Args... args) {
       if (_tasks_added == MAX_TASKS) {
-        // Do error checking
+        throw std::out_of_range("\n\nTrying to add a task but this would exceed MAX_TASKS.  Increase MAX_TASKS in task_list/tasks.hpp\n\n");
       }
       TaskID id(_tasks_added+1);
       _task_list.push_back(
