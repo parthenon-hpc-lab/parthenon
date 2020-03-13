@@ -76,7 +76,7 @@ TaskList CalculatePi::MakeTaskList(MeshBlock *pmb) {
   };
 
   TaskID none(0);
-  auto get_area = AddBlockTask(ComputeArea, none);//tl.AddTask<BlockTask>(ComputeArea, none, pmb);
+  auto get_area = AddBlockTask(ComputeArea, none);
 
   // could add more tasks like:
   // auto next_task = tl.AddTask(FuncPtr, get_area, pmb);
@@ -101,7 +101,7 @@ namespace PiCalculator {
     // Set an indicator function that indicates whether the cell center
     // is inside or outside of the circle we're interating the area of.
     // see the CheckRefinement routine below for an explanation of the loop bounds
-    for (int k=ks-1; k<=ke+1; k++) {
+    for (int k=ks; k<=ke; k++) {
       for (int j=js-1; j<=je+1; j++) {
         for (int i=is-1; i<=ie+1; i++) {
           Real rsq = std::pow(pcoord->x1v(i),2) + std::pow(pcoord->x2v(j),2);
@@ -130,7 +130,7 @@ namespace PiCalculator {
     // if the edge of the circle is found.  The one layer of ghost cells 
     // catches the case where the edge is between the cell centers of
     // the first/last real cell and the first ghost cell
-    for (int k=ks-1; k<=ke+1; k++) {
+    for (int k=ks; k<=ke; k++) {
       for (int j=js-1; j<=je+1; j++) {
         for (int i=is-1; i<=ie+1; i++) {
           vmin = (v(k,j,i) < vmin ? v(k,j,i) : vmin);
