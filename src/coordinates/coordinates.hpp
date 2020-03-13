@@ -30,9 +30,9 @@
 // Athena++ headers
 #include "athena.hpp"
 #include "athena_arrays.hpp"
-#include "mesh/mesh.hpp"
 
 // forward declarations
+class Mesh;
 class MeshBlock;
 class ParameterInput;
 
