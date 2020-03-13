@@ -75,7 +75,7 @@ TaskList FaceFieldExample::MakeTaskList(MeshBlock *pmb) {
       Coordinates *pcoord = pmb->pcoord.get();
       int is = pmb->is; int js = pmb->js; int ks = pmb->ks;
       int ie = pmb->ie; int je = pmb->je; int ke = pmb->ke;
-      auto& face = rc.GetFace("c.c.face_averaged_value");
+      auto& face = rc.GetFace("f.f.face_averaged_value");
       // fill faces
       for (int k=ks; k<=ke; k++) {
 	Real z = pcoord->x3v(k);
@@ -115,8 +115,8 @@ TaskList FaceFieldExample::MakeTaskList(MeshBlock *pmb) {
       Container<Real>& rc = pmb->real_container;
       int is = pmb->is; int js = pmb->js; int ks = pmb->ks;
       int ie = pmb->ie; int je = pmb->je; int ke = pmb->ke;
-      auto& face = rc.GetFace("c.c.face_averaged_value");
-      auto& cell = rc.Get("f.f.interpolated_value");
+      auto& face = rc.GetFace("f.f.face_averaged_value");
+      auto& cell = rc.Get("c.c.interpolated_value");
       // perform interpolation
       for (int k = ks; k <= ke; k++) {
 	for (int j = js; j <= je; j++) {

@@ -16,35 +16,34 @@
 # ========================================================================================
 
 <comment>
-problem = Calculate PI with AMR!
+problem = Compute the average of face centered fields
 
 <job>
-problem_id = pi_calculator
+problem_id = facefields
 
 <mesh>
-refinement = adaptive
-numlevel = 5
-
-nx1 = 64
-x1min = -2.0
-x1max = 2.0
+nx1 = 32
+x1min = -1.0
+x1max = 1..0
 ix1_bc = outflow
 ox1_bc = outflow
 
-nx2 = 64
-x2min = -2.0
-x2max = 2.0
+nx2 = 32
+x2min = -1.0
+x2max = 1.0
 ix2_bc = outflow
 ox2_bc = outflow
 
-nx3 = 1
-x3min = -0.5
-x3max = 0.5
+nx3 = 32
+x3min = -1.0
+x3max = 1.0
+ix3_bc = outflow
+ox3_bc = outflow
 
 <meshblock>
 nx1 = 8
 nx2 = 8
-nx3 = 1
+nx3 = 8
 
 <output1>
 file_type = hdf5
@@ -54,5 +53,7 @@ variable = prim
 <time>
 tlim = 1.0
 
-<Pi>
-radius = 1.5
+<FaceExample>
+px = 1.0
+py = 1.0
+pz = 1.0
