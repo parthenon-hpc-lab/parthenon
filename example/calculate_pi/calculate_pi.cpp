@@ -28,7 +28,7 @@
 #include <string>     // string
 #include <vector>
 
-// Athena++ headers
+// Parthenon headers
 #include "athena.hpp"
 #include "globals.hpp"
 #include "argument_parser.hpp"

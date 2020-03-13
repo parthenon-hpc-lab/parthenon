@@ -14,6 +14,9 @@
 
 #include "driver.hpp"
 #include "utils/utils.hpp"
+#include "parameter_input.hpp"
+#include "mesh/mesh.hpp"
+#include "outputs/outputs.hpp"
 
 namespace parthenon {
 

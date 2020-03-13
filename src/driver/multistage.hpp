@@ -46,6 +46,7 @@ class MultiStageBlockTaskDriver : public MultiStageDriver {
     MultiStageBlockTaskDriver(ParameterInput *pin, Mesh *pm, Outputs *pout) : MultiStageDriver(pin,pm,pout) {}
     TaskListStatus Step();
     virtual TaskList MakeTaskList(MeshBlock *pmb, int stage) = 0;
+
 };
 
 } // namespace parthenon

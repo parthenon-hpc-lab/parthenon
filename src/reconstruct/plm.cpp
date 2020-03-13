@@ -18,6 +18,7 @@
 //  \brief  piecewise linear reconstruction for both uniform and non-uniform meshes
 
 #include "reconstruction.hpp"
+#include "mesh/mesh.hpp"
 
 namespace parthenon {
 //----------------------------------------------------------------------------------------
