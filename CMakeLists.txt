@@ -19,8 +19,11 @@ include(CTest)
 option(ENABLE_UNIT_TESTS "Enable unit tests" ${BUILD_TESTING})
 option(ENABLE_INTEGRATION_TESTS "Enable integration tests" ${BUILD_TESTING})
 option(ENABLE_REGRESSION_TESTS "Enable regression tests" ${BUILD_TESTING})
+option(DISABLE_MPI "MPI is enabled by default if found, set this to True to disable MPI" OFF)
+option(DISABLE_OPENMP "OpenMP is enabled by default if found, set this to True to disable OpenMP" OFF)
+option(DISABLE_HDF5 "HDF5 is enabled by default if found, set this to True to disable HDF5" OFF)
 
-set(CMAKE_EXPORT_COMPILE_COMMANDS On)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Don't allow in-source builds
 file(TO_CMAKE_PATH "${PROJECT_BINARY_DIR}/CMakeLists.txt" LOC_PATH)
@@ -41,15 +44,49 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif()
 
-#find_package(MPI REQUIRED)
-#find_package(OpenMP REQUIRED)
+set(ENABLE_MPI OFF)
+if (NOT DISABLE_MPI)
+  find_package(MPI COMPONENTS CXX)
+  if (NOT MPI_FOUND)
+    message(FATAL_ERROR "MPI is required but couldn't be found. "
+    "If you want to build Parthenon without MPI, please rerun CMake with -DDISABLE_MPI=ON")
+  endif()
+  set(ENABLE_MPI ON)
+endif()
 
-#set(HDF5_PREFER_PARALLEL True)
-find_package(HDF5 REQUIRED)
+set(ENABLE_OPENMP OFF)
+if (NOT DISABLE_OPENMP)
+  find_package(OpenMP COMPONENTS CXX)
+  if (NOT OpenMP_FOUND)
+    message(FATAL_ERROR "OpenMP is required but couldn't be found. "
+    "If you want to build Parthenon without OpenMP, please rerun CMake with -DDISABLE_OPENMP=ON")
+  endif()
+  set(ENABLE_OPENMP ON)
+endif()
 
-#if (NOT ${HDF5_IS_PARALLEL})
-#  message(FATAL_ERROR "Parallel HDF5 is required but only serial version was found")
-#endif()
+set(ENABLE_HDF5 OFF)
+if (NOT DISABLE_HDF5)
+  set(HDF5_PREFER_PARALLEL ${ENABLE_MPI})
+  find_package(HDF5 COMPONENTS C)
+  if (NOT HDF5_FOUND)
+    message(FATAL_ERROR "HDF5 is required but couldn't be found. "
+    "If you want to build Parthenon without HDF5, please rerun CMake with -DDISABLE_HDF5=ON")
+  endif()
+  set(ENABLE_HDF5 ON)
+
+  if (ENABLE_MPI AND (NOT HDF5_IS_PARALLEL))
+    message(FATAL_ERROR "Both MPI and HDF5 are enabled but only a serial version of HDF5 "
+    "was found. Please install a parallel version of HDF5 (or point CMake to it by adding its path "
+    "to the CMAKE_PREFIX_PATH environment variable), or disable either MPI or HDF5 by rerunning "
+    "CMake with -DDISABLE_MPI=ON or -DDISABLE_HDF5=ON")
+  endif()
+
+  # HDF5 Interface library
+  add_library(HDF5_C INTERFACE)
+  target_link_libraries(HDF5_C INTERFACE ${HDF5_C_LIBRARIES})
+  target_compile_definitions(HDF5_C INTERFACE ${HDF5_C_DEFINITIONS})
+  target_include_directories(HDF5_C INTERFACE ${HDF5_C_INCLUDE_DIRS})
+endif()
 
 # Build Tests and download Catch2
 if (${ENABLE_UNIT_TESTS} OR ${ENABLE_INTEGRATION_TESTS} OR ${ENABLE_REGRESSION_TESTS})
@@ -73,12 +110,6 @@ if (${ENABLE_UNIT_TESTS} OR ${ENABLE_INTEGRATION_TESTS} OR ${ENABLE_REGRESSION_T
   include(ParseAndAddCatchTests)
   add_subdirectory(tst)
 endif()
-
-# HDF5 Interface library
-add_library(HDF5_C INTERFACE)
-target_link_libraries(HDF5_C INTERFACE ${HDF5_C_LIBRARIES})
-target_compile_definitions(HDF5_C INTERFACE ${HDF5_C_DEFINITIONS})
-target_include_directories(HDF5_C INTERFACE ${HDF5_C_INCLUDE_DIRS})
 
 add_subdirectory(src)
 add_subdirectory(example/calculate_pi)

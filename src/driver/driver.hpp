@@ -16,13 +16,14 @@
 
 #include <vector>
 #include <string>
+#include "globals.hpp"
 #include "athena.hpp"
 #include "task_list/tasks.hpp"
+#include "mesh/mesh.hpp"
 
 namespace parthenon {
 
 class Mesh;
-class MeshBlock;
 class ParameterInput;
 class Outputs;
 
