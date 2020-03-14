@@ -115,9 +115,11 @@ TEST_CASE("TPX 3D", "[wrapper]") {
   REQUIRE(test_wrapper_3d(parthenon::loop_pattern_tpx_tag) == true);
 }
 
+#ifndef __CUDA_ARCH__
 TEST_CASE("SIMDFOR 3D", "[wrapper]") {
   REQUIRE(test_wrapper_3d(parthenon::loop_pattern_simdfor_tag) == true);
 }
+#endif
 
 TEST_CASE("1D Range 4D", "[wrapper]") {
   REQUIRE(test_wrapper_4d(parthenon::loop_pattern_range_tag) == true);
@@ -135,6 +137,8 @@ TEST_CASE("TPX 4D", "[wrapper]") {
   REQUIRE(test_wrapper_4d(parthenon::loop_pattern_tpx_tag) == true);
 }
 
+#ifndef __CUDA_ARCH__
 TEST_CASE("SIMDFOR 4D", "[wrapper]") {
   REQUIRE(test_wrapper_4d(parthenon::loop_pattern_simdfor_tag) == true);
 }
+#endif
