@@ -128,9 +128,9 @@ TEST_CASE("par_for loops", "[wrapper]") {
 
     REQUIRE(test_wrapper_3d(parthenon::loop_pattern_tpttr_tag) == true);
 
+#ifndef KOKKOS_ENABLE_CUDA
     REQUIRE(test_wrapper_3d(parthenon::loop_pattern_tptvr_tag) == true);
 
-#ifndef KOKKOS_ENABLE_CUDA
     REQUIRE(test_wrapper_3d(parthenon::loop_pattern_simdfor_tag) == true);
 #endif
   }
@@ -144,9 +144,9 @@ TEST_CASE("par_for loops", "[wrapper]") {
 
     REQUIRE(test_wrapper_4d(parthenon::loop_pattern_tpttr_tag) == true);
 
+#ifndef KOKKOS_ENABLE_CUDA
     REQUIRE(test_wrapper_4d(parthenon::loop_pattern_tptvr_tag) == true);
 
-#ifndef KOKKOS_ENABLE_CUDA
     REQUIRE(test_wrapper_4d(parthenon::loop_pattern_simdfor_tag) == true);
 #endif
   }

@@ -152,6 +152,7 @@ template <typename Function>
 inline void par_for(LoopPatternTPTVR, const std::string &NAME, const int &KL,
                     const int &KU, const int &JL, const int &JU, const int &IL,
                     const int &IU, const Function &function) {
+  // TODO(pgrete) if exec space is Cuda,throw error
   const int NK = KU - KL + 1;
   const int NJ = JU - JL + 1;
   const int NKNJ = NK * NJ;
@@ -268,6 +269,7 @@ inline void par_for(LoopPatternTPTVR, const std::string &NAME, const int NL,
                     const int NU, const int KL, const int KU, const int JL,
                     const int JU, const int IL, const int IU,
                     const Function &function) {
+  // TODO(pgrete) if exec space is Cuda,throw error
   const int NN = NU - NL + 1;
   const int NK = KU - KL + 1;
   const int NJ = JU - JL + 1;

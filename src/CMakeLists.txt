@@ -38,7 +38,7 @@ if (${Kokkos_ENABLE_CUDA})
   set(PAR_LOOP_LAYOUT "MANUAL1D_LOOP" CACHE STRING
     "Default loop layout for parallel_for wrapper")
 
-  set(PAR_LOOP_LAYOUT_VALUES "MANUAL1D_LOOP;MDRANGE_LOOP;TPTTR_LOOP;TPTVR_LOOP;TPTTRTVR_LOOP"
+  set(PAR_LOOP_LAYOUT_VALUES "MANUAL1D_LOOP;MDRANGE_LOOP;TPTTR_LOOP;TPTTRTVR_LOOP"
     CACHE STRING "Possible loop layout options.")
 
 elseif(${Kokkos_ENABLE_HPX})
@@ -153,7 +153,7 @@ if (ENABLE_HDF5)
   target_link_libraries(parthenon PUBLIC HDF5_C)
 endif()
 
-target_link_libraries(parthenon PUBLIC kokkos)
+target_link_libraries(parthenon PUBLIC Kokkos::kokkos)
 
 target_include_directories(parthenon PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}

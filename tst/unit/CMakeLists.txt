@@ -18,7 +18,7 @@
 list(APPEND unit_tests_SOURCES test_unit_params.cpp kokkos_abstraction.cpp)
 
 add_executable(unit_tests ${unit_tests_SOURCES})
-target_link_libraries(unit_tests PRIVATE parthenon catch2_define kokkos)
+target_link_libraries(unit_tests PRIVATE parthenon catch2_define Kokkos::kokkos)
 
 set(EXCEPTION_HANDLING_OPTION ENABLE_EXCEPTIONS) # TODO: Add option to disable exceptions
 set(COMPILED_WITH ${CMAKE_CXX_COMPILER})
