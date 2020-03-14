@@ -26,4 +26,11 @@ There are several weakly linked member functions that applications can (and ofte
 For features that require more detailed documentation a short paragraph or sentence here
 is sufficient with a link to a more detailed description in a separate [file](feature.md).
 
+## Kokkos/Wrapper related
 
+- `par_for` wrappers use inclusive bounds, i.e., the loop will include the last index given
+- `AthenaArrayND` arrays by default allocate on the *device* using default precision configured
+- To create an array on the hosti with identical layout to the device array either use
+  - `auto arr_host = Kokkos::create_mirror(arr_dev);` to always create a new array even if the device is associated with the host (e.g., OpenMP) or
+  - `auto arr_host = Kokkos::create_mirror_view(arr_dev);` to create an array on the host if the HostSpace != DeviceSpace or get another reference to arr_dev through arr_host if HostSpace == DeviceSpace
+- `par_for` and `Kokkos::deep_copy` by default use the standard stream (on Cuda devices) and are discouraged from use. Use `mb->par_for` and `mb->deep_copy` instead.
