@@ -11,6 +11,7 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+#include "Update.hpp"
 #include "../coordinates/coordinates.hpp"
 #include "../interface/Container.hpp"
 #include "../interface/ContainerIterator.hpp"
@@ -161,17 +162,6 @@ void AverageContainers(Container<Real> &c1, Container<Real> &c2,
   return;
 }
 
-void FillDerived(PreFillDerivedFunc pre_fill_derived, Container<Real> &rc) {
-  pre_fill_derived(rc);
-
-  for (auto &phys : rc.pmy_block->physics) {
-    auto &desc = phys.second;
-    if (desc->FillDerived != nullptr) {
-      desc->FillDerived(rc);
-    }
-  }
-}
-
 Real EstimateTimestep(Container<Real> &rc) {
   MeshBlock *pmb = rc.pmy_block;
   Real dt_min = std::numeric_limits<Real>::max();
@@ -186,4 +176,27 @@ Real EstimateTimestep(Container<Real> &rc) {
 }
 
 } // namespace Update
+
+static FillDerivedVariables::FillDerivedFunc* _pre_package_fill = nullptr;
+static FillDerivedVariables::FillDerivedFunc* _post_package_fill = nullptr;
+
+void FillDerivedVariables::SetFillDerivedFunctions(FillDerivedFunc *pre, FillDerivedFunc *post) {
+  _pre_package_fill = pre; _post_package_fill = post;
+}
+
+void FillDerivedVariables::FillDerived(Container<Real>& rc) {
+  if (_pre_package_fill != nullptr) {
+    _pre_package_fill(rc);
+  }
+  for (auto &phys : rc.pmy_block->physics) {
+    auto &desc = phys.second;
+    if (desc->FillDerived != nullptr) {
+      desc->FillDerived(rc);
+    }
+  }
+  if (_post_package_fill != nullptr) {
+    _post_package_fill(rc);
+  }
+}
+
 }

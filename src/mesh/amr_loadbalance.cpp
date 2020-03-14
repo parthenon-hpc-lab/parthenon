@@ -621,7 +621,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
         FillSameRankCoarseToFineAMR(pob, pmb, newloc[n]);
       }
       ApplyBoundaryConditions(pmb->real_container);
-      Update::FillDerived(pre_fill_derived_, pmb->real_container);
+      FillDerivedVariables::FillDerived(pmb->real_container);
     }
   }
 

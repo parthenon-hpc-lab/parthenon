@@ -10,31 +10,10 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef UPDATE_HPP_PK
-#define UPDATE_HPP_PK
+#include "PropertiesInterface.hpp"
 
-#include "athena.hpp"
-#include "interface/Container.hpp"
-#include "mesh/mesh.hpp"
 namespace parthenon {
-namespace Update {
+// Initialize the static map of ids
+std::map<std::string, int> PropertiesInterface::_label_to_id;
 
-void FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont);
-void UpdateContainer(Container<Real> &in, Container<Real> &dudt_cont,
-                     const Real dt, Container<Real> &out);
-void AverageContainers(Container<Real> &c1, Container<Real> &c2,
-                       const Real wgt1);
-
-void FillDerived(Container<Real> &rc);
-
-Real EstimateTimestep(Container<Real> &rc);
-
-} // namespace Update
-
-namespace FillDerivedVariables {
-  using FillDerivedFunc = void (Container<Real>&);
-  void SetFillDerivedFunctions(FillDerivedFunc *pre, FillDerivedFunc *post);
-  void FillDerived(Container<Real> &rc); 
-}
-}
-#endif
+} // namespace parthenon

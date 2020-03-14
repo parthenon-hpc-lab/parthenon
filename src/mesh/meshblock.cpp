@@ -53,7 +53,7 @@ namespace parthenon {
 static int id=0;
 MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
                      BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
-                     std::vector<std::shared_ptr<MaterialPropertiesInterface>>& mats,
+                     std::vector<std::shared_ptr<PropertiesInterface>>& mats,
                      std::map<std::string, std::shared_ptr<StateDescriptor>>& phys,
                      int igflag, bool ref_flag) :
     pmy_mesh(pm), loc(iloc), block_size(input_block),
@@ -128,6 +128,8 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
   // floors depend on EOS, but EOS isn't needed in Reconstruction constructor-> this is ok
   precon = std::make_unique<Reconstruction>(this, pin);
 
+  if (pm->multilevel) pmr = std::make_unique<MeshRefinement>(this, pin);
+
   // physics-related, per-MeshBlock objects: may depend on Coordinates for diffusion
   // terms, and may enroll quantities in AMR and BoundaryVariable objs. in BoundaryValues
   //  if (Globals::my_rank == 0) { real_container.print(); }
@@ -181,6 +183,14 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
     RegisterMeshBlockData(*ci.vars[n]);
   }
 
+  if (pm->multilevel) {
+    pmr = std::make_unique<MeshRefinement>(this, pin);
+    // This is very redundant, I think, but necessary for now
+    for (int n=0; n<nindependent; n++) {
+      pmr->AddToRefinement(ci.vars[n].get(), ci.vars[n]->coarse_s);
+    }
+  }
+
   // Create user mesh data
   //InitUserMeshBlockData(pin);
   app = InitApplicationMeshBlockData(pin);
@@ -190,7 +200,7 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
 // MeshBlock constructor for restarts
 
 MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
-                     std::vector<std::shared_ptr<MaterialPropertiesInterface>>& mats,
+                     std::vector<std::shared_ptr<PropertiesInterface>>& mats,
                      std::map<std::string, std::shared_ptr<StateDescriptor>>& phys,
                      LogicalLocation iloc, RegionSize input_block,
                      BoundaryFlag *input_bcs,

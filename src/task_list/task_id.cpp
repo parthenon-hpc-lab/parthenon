@@ -18,7 +18,7 @@
 //  \brief implementation of the TaskID class
 
 #include <iostream>
-#include "task_list.hpp"
+#include "tasks.hpp"
 
 #define DEBUG_TASKID 0
 
@@ -37,7 +37,7 @@ void TaskID::Print(const std::string label) {
 //! \fn void TaskID::Clear()
 //  \brief Clear all the bits in the TaskID
 
-void TaskID::Clear() {
+void TaskID::clear() {
   bitfld_.reset();
 }
 

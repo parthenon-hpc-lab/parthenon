@@ -63,9 +63,8 @@ namespace parthenon {
 // Mesh constructor, builds mesh at start of calculation using parameters in input file
 
 Mesh::Mesh(ParameterInput *pin,
-    std::vector<std::shared_ptr<MaterialPropertiesInterface>> &materials,
-    std::map<std::string, std::shared_ptr<StateDescriptor>>& physics,
-    PreFillDerivedFunc pre_fill_derived, int mesh_test) :
+    std::vector<std::shared_ptr<PropertiesInterface>> &materials,
+    std::map<std::string, std::shared_ptr<StateDescriptor>>& physics, int mesh_test) :
     // public members:
     // aggregate initialization of RegionSize struct:
     mesh_size{pin->GetReal("mesh", "x1min"), pin->GetReal("mesh", "x2min"),
@@ -108,7 +107,7 @@ Mesh::Mesh(ParameterInput *pin,
         UniformMeshGeneratorX3},
   BoundaryFunction_{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
   AMRFlag_{}, UserSourceTerm_{}, UserTimeStep_{}, ViscosityCoeff_{},
-  ConductionCoeff_{}, FieldDiffusivity_{}, pre_fill_derived_(pre_fill_derived),pblock(nullptr) {
+  ConductionCoeff_{}, FieldDiffusivity_{}, pblock(nullptr) {
     std::stringstream msg;
     RegionSize block_size;
     MeshBlock *pfirst{};
@@ -506,9 +505,8 @@ Mesh::Mesh(ParameterInput *pin,
 // Mesh constructor for restarts. Load the restart file
 
 Mesh::Mesh(ParameterInput *pin, IOWrapper& resfile,
-    std::vector<std::shared_ptr<MaterialPropertiesInterface>> &materials,
-    std::map<std::string, std::shared_ptr<StateDescriptor>>& physics,
-    PreFillDerivedFunc pre_fill_derived, int mesh_test) :
+    std::vector<std::shared_ptr<PropertiesInterface>> &materials,
+    std::map<std::string, std::shared_ptr<StateDescriptor>>& physics, int mesh_test) :
     // public members:
     // aggregate initialization of RegionSize struct:
     // (will be overwritten by memcpy from restart file, in this case)
@@ -552,7 +550,7 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper& resfile,
                    UniformMeshGeneratorX3},
     BoundaryFunction_{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
     AMRFlag_{}, UserSourceTerm_{}, UserTimeStep_{}, ViscosityCoeff_{},
-    ConductionCoeff_{}, FieldDiffusivity_{}, pre_fill_derived_(pre_fill_derived), pblock(nullptr) {
+    ConductionCoeff_{}, FieldDiffusivity_{}, pblock(nullptr) {
   std::stringstream msg;
   RegionSize block_size;
   BoundaryFlag block_bcs[6];
@@ -1307,6 +1305,8 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
       for (int i=0; i<nmb; ++i) {
         pmb_array[i]->real_container.ReceiveAndSetBoundariesWithWait();
       }
+
+#pragma omp for
       for (int i=0; i<nmb; ++i) {
         pmb_array[i]->real_container.SetBoundaries();
         pmb_array[i]->real_container.ClearBoundary(BoundaryCommSubset::mesh_init);
@@ -1335,7 +1335,7 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
         }
 
         ApplyBoundaryConditions(pmb->real_container);
-        Update::FillDerived(pre_fill_derived_, pmb->real_container);
+        FillDerivedVariables::FillDerived(pmb->real_container);
 
         //pbval->ApplyPhysicalBoundaries(time, 0.0);
       }

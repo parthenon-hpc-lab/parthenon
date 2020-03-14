@@ -186,7 +186,87 @@ void BoundaryValues::ProlongateBoundaries(const Real time, const Real dt) {
 
 void BoundaryValues::RestrictGhostCellsOnSameLevel(const NeighborBlock& nb, int nk,
                                                    int nj, int ni) {
-  throw std::runtime_error(std::string(__func__) + " is not implemented");
+  MeshBlock *pmb = pmy_block_;
+  MeshRefinement *pmr = pmb->pmr.get();
+
+  int ris, rie, rjs, rje, rks, rke;
+  if (ni == 0) {
+    ris = pmb->cis;
+    rie = pmb->cie;
+    if (nb.ni.ox1 == 1) {
+      ris = pmb->cie;
+    } else if (nb.ni.ox1 == -1) {
+      rie = pmb->cis;
+    }
+  } else if (ni == 1) {
+    ris = pmb->cie + 1, rie = pmb->cie + 1;
+  } else { //(ni ==  - 1)
+    ris = pmb->cis - 1, rie = pmb->cis - 1;
+  }
+  if (nj == 0) {
+    rjs = pmb->cjs, rje = pmb->cje;
+    if (nb.ni.ox2 == 1) rjs = pmb->cje;
+    else if (nb.ni.ox2 == -1) rje = pmb->cjs;
+  } else if (nj == 1) {
+    rjs = pmb->cje + 1, rje = pmb->cje + 1;
+  } else { //(nj == -1)
+    rjs = pmb->cjs - 1, rje = pmb->cjs - 1;
+  }
+  if (nk == 0) {
+    rks = pmb->cks, rke = pmb->cke;
+    if (nb.ni.ox3 == 1) rks = pmb->cke;
+    else if (nb.ni.ox3 == -1) rke = pmb->cks;
+  } else if (nk == 1) {
+    rks = pmb->cke + 1, rke = pmb->cke + 1;
+  } else { //(nk == -1)
+    rks = pmb->cks - 1, rke = pmb->cks - 1;
+  }
+
+  for (auto cc_pair : pmr->pvars_cc_) {
+    AthenaArray<Real> *var_cc = std::get<0>(cc_pair);
+    AthenaArray<Real> *coarse_cc = std::get<1>(cc_pair);
+    int nu = var_cc->GetDim4() - 1;
+    pmb->pmr->RestrictCellCenteredValues(*var_cc, *coarse_cc, 0, nu,
+                                         ris, rie, rjs, rje, rks, rke);
+  }
+
+  for (auto fc_pair : pmr->pvars_fc_) {
+    FaceField *var_fc = std::get<0>(fc_pair);
+    FaceField *coarse_fc = std::get<1>(fc_pair);
+    int &mylevel = pmb->loc.level;
+    int rs = ris, re = rie + 1;
+    if (rs == pmb->cis   && nblevel[nk+1][nj+1][ni  ] < mylevel) rs++;
+    if (re == pmb->cie+1 && nblevel[nk+1][nj+1][ni+2] < mylevel) re--;
+    pmr->RestrictFieldX1((*var_fc).x1f, (*coarse_fc).x1f, rs, re, rjs, rje, rks,
+                         rke);
+    if (pmb->block_size.nx2 > 1) {
+      rs = rjs, re = rje + 1;
+      if (rs == pmb->cjs   && nblevel[nk+1][nj  ][ni+1] < mylevel) rs++;
+      if (re == pmb->cje+1 && nblevel[nk+1][nj+2][ni+1] < mylevel) re--;
+      pmr->RestrictFieldX2((*var_fc).x2f, (*coarse_fc).x2f, ris, rie, rs, re, rks,
+                           rke);
+    } else { // 1D
+      pmr->RestrictFieldX2((*var_fc).x2f, (*coarse_fc).x2f, ris, rie, rjs, rje, rks,
+                           rke);
+      for (int i=ris; i<=rie; i++)
+        (*coarse_fc).x2f(rks,rjs+1,i) = (*coarse_fc).x2f(rks,rjs,i);
+    }
+    if (pmb->block_size.nx3 > 1) {
+      rs = rks, re =  rke + 1;
+      if (rs == pmb->cks   && nblevel[nk  ][nj+1][ni+1] < mylevel) rs++;
+      if (re == pmb->cke+1 && nblevel[nk+2][nj+1][ni+1] < mylevel) re--;
+      pmr->RestrictFieldX3((*var_fc).x3f, (*coarse_fc).x3f, ris, rie, rjs, rje, rs,
+                           re);
+    } else { // 1D or 2D
+      pmr->RestrictFieldX3((*var_fc).x3f, (*coarse_fc).x3f, ris, rie, rjs, rje, rks,
+                           rke);
+      for (int j=rjs; j<=rje; j++) {
+        for (int i=ris; i<=rie; i++)
+          (*coarse_fc).x3f(rks+1,j,i) = (*coarse_fc).x3f(rks,j,i);
+      }
+    }
+  } // end loop over pvars_fc_
+  return;
 }
 
 //----------------------------------------------------------------------------------------

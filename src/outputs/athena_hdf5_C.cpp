@@ -334,7 +334,7 @@ void ATHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
   std::stringstream file_number;
   file_number << std::setw(5) << std::setfill('0') << output_params.file_number;
   filename.append(file_number.str());
-  filename.append(".hdf5");
+  filename.append(".athdf");
 
   hid_t file;
   hid_t acc_file = H5P_DEFAULT;
@@ -533,7 +533,7 @@ void ATHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
           // skip, not interested in this variable
           continue;
         }
-        hsize_t index = pmb->ssID*varSize*vlen;
+        hsize_t index = pmb->lid*varSize*vlen;
         if (vlen == 1) {
           for (int k = out_ks; k <= out_ke; k++) {
             for (int j = out_js; j <= out_je; j++) {

@@ -18,6 +18,7 @@
 //  \brief
 
 #include "reconstruction.hpp"
+#include "mesh/mesh.hpp"
 
 #include <cmath>      // abs()
 #include <cstring>    // strcmp()

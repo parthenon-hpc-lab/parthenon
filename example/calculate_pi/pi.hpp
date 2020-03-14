@@ -10,31 +10,38 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef UPDATE_HPP_PK
-#define UPDATE_HPP_PK
 
-#include "athena.hpp"
-#include "interface/Container.hpp"
+
+#ifndef CALCULATE_PI_HPP
+#define CALCULATE_PI_HPP
+
+#include <memory>
+
+#include "globals.hpp"
 #include "mesh/mesh.hpp"
+#include "driver/driver.hpp"
+#include "interface/StateDescriptor.hpp"
+#include "task_list/tasks.hpp"
+
 namespace parthenon {
-namespace Update {
 
-void FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont);
-void UpdateContainer(Container<Real> &in, Container<Real> &dudt_cont,
-                     const Real dt, Container<Real> &out);
-void AverageContainers(Container<Real> &c1, Container<Real> &c2,
-                       const Real wgt1);
+class CalculatePi : public Driver {
+  public:
+   CalculatePi(ParameterInput *pin, Mesh *pm, Outputs *pout) : Driver(pin, pm, pout) {}
+   TaskList MakeTaskList(MeshBlock *pmb);
+   DriverStatus Execute();
+};
 
-void FillDerived(Container<Real> &rc);
+void ProcessProperties(std::vector<std::shared_ptr<PropertiesInterface>>& properties, ParameterInput *pin);
+void InitializePhysics(std::map<std::string, std::shared_ptr<StateDescriptor>>& physics, ParameterInput *pin); 
 
-Real EstimateTimestep(Container<Real> &rc);
-
-} // namespace Update
-
-namespace FillDerivedVariables {
-  using FillDerivedFunc = void (Container<Real>&);
-  void SetFillDerivedFunctions(FillDerivedFunc *pre, FillDerivedFunc *post);
-  void FillDerived(Container<Real> &rc); 
+// putting a "physics" package in a namespace
+namespace PiCalculator {
+  void SetInOrOut(Container<Real>& rc);
+  int CheckRefinement(Container<Real>& rc);
+  std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
+  TaskStatus ComputeArea(MeshBlock *pmb);
 }
-}
+
+} // namespace parthenon
 #endif

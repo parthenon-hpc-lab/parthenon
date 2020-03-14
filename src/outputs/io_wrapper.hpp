@@ -29,16 +29,15 @@
 
 #ifdef MPI_PARALLEL
 #include <mpi.h>
-namespace parthenon {
-using  IOWrapperFile = MPI_File;
-}
-#else
-namespace parthenon {
-using  IOWrapperFile = FILE*;
-}
 #endif
 
 namespace parthenon {
+#ifdef MPI_PARALLEL
+using  IOWrapperFile = MPI_File;
+#else
+using  IOWrapperFile = FILE*;
+#endif
+
 using IOWrapperSizeT = std::uint64_t;
 
 class IOWrapper {
@@ -72,5 +71,7 @@ class IOWrapper {
   MPI_Comm comm_;
 #endif
 };
-}
+
+} // namespace parthenon
+
 #endif // OUTPUTS_IO_WRAPPER_HPP_
