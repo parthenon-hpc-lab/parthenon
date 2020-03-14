@@ -19,22 +19,24 @@
 
 #include <iostream>
 #include <random>
-#include "../../src/athena.hpp"
+
+#include "../../src/kokkos_abstraction.hpp"
 #include <catch2/catch.hpp>
 #include "Kokkos_Macros.hpp"
 
-using parthenon::AthenaArray3D;
-using parthenon::AthenaArray4D;
+using parthenon::ParArray3D;
+using parthenon::ParArray4D;
+using Real = double;
 
 template <class T> bool test_wrapper_3d(T loop_pattern) {
   // https://en.cppreference.com/w/cpp/numeric/random/uniform_real_distribution
   std::random_device
       rd; // Will be used to obtain a seed for the random number engine
   std::mt19937 gen(rd()); // Standard mersenne_twister_engine seeded with rd()
-  std::uniform_real_distribution<parthenon::Real> dis(-1.0, 1.0);
+  std::uniform_real_distribution<Real> dis(-1.0, 1.0);
 
   const int N = 32;
-  AthenaArray3D<> arr_dev("device", N, N, N);
+  ParArray3D<Real> arr_dev("device", N, N, N);
   auto arr_host_orig = Kokkos::create_mirror(arr_dev);
   auto arr_host_mod = Kokkos::create_mirror(arr_dev);
 
@@ -75,10 +77,10 @@ template <class T> bool test_wrapper_4d(T loop_pattern) {
   std::random_device
       rd; // Will be used to obtain a seed for the random number engine
   std::mt19937 gen(rd()); // Standard mersenne_twister_engine seeded with rd()
-  std::uniform_real_distribution<parthenon::Real> dis(-1.0, 1.0);
+  std::uniform_real_distribution<Real> dis(-1.0, 1.0);
 
   const int N = 32;
-  AthenaArray4D<> arr_dev("device", N, N, N, N);
+  ParArray4D<Real> arr_dev("device", N, N, N, N);
   auto arr_host_orig = Kokkos::create_mirror(arr_dev);
   auto arr_host_mod = Kokkos::create_mirror(arr_dev);
 
@@ -124,7 +126,9 @@ TEST_CASE("par_for loops", "[wrapper]") {
 
     REQUIRE(test_wrapper_3d(parthenon::loop_pattern_tpttrtvr_tag) == true);
 
-    REQUIRE(test_wrapper_3d(parthenon::loop_pattern_tpx_tag) == true);
+    REQUIRE(test_wrapper_3d(parthenon::loop_pattern_tpttr_tag) == true);
+
+    REQUIRE(test_wrapper_3d(parthenon::loop_pattern_tptvr_tag) == true);
 
 #ifndef KOKKOS_ENABLE_CUDA
     REQUIRE(test_wrapper_3d(parthenon::loop_pattern_simdfor_tag) == true);
@@ -138,7 +142,9 @@ TEST_CASE("par_for loops", "[wrapper]") {
 
     REQUIRE(test_wrapper_4d(parthenon::loop_pattern_tpttrtvr_tag) == true);
 
-    REQUIRE(test_wrapper_4d(parthenon::loop_pattern_tpx_tag) == true);
+    REQUIRE(test_wrapper_4d(parthenon::loop_pattern_tpttr_tag) == true);
+
+    REQUIRE(test_wrapper_4d(parthenon::loop_pattern_tptvr_tag) == true);
 
 #ifndef KOKKOS_ENABLE_CUDA
     REQUIRE(test_wrapper_4d(parthenon::loop_pattern_simdfor_tag) == true);

@@ -46,12 +46,6 @@
 // Kokkos loop layout (outer loop)
 #define @PAR_LOOP_LAYOUT@
 
-// Kokkos loop layout (inner loop in TeamPolicy)
-#define @PAR_LOOP_LAYOUT_INNER@
-
-// Kokkos vector length of TeamPolicy
-#define PAR_VECTOR_LENGTH @PAR_VECTOR_LENGTH@
-
 // try/throw/catch C++ exception handling (ENABLE_EXCEPTIONS or DISABLE_EXCEPTIONS)
 // (enabled by default)
 #define @EXCEPTION_HANDLING_OPTION@
