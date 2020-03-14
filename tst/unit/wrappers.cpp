@@ -1,14 +1,32 @@
-#include "../../src/athena.hpp"
-#include "Kokkos_Macros.hpp"
-#include <catch2/catch.hpp>
+//========================================================================================
+// Parthenon performance portable AMR framework
+// Copyright(C) 2020 The Parthenon collaboration
+// Licensed under the 3-clause BSD License, see LICENSE file for details
+//========================================================================================
+// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+//
+// This program was produced under U.S. Government contract 89233218CNA000001
+// for Los Alamos National Laboratory (LANL), which is operated by Triad
+// National Security, LLC for the U.S. Department of Energy/National Nuclear
+// Security Administration. All rights in the program are reserved by Triad
+// National Security, LLC, and the U.S. Department of Energy/National Nuclear
+// Security Administration. The Government is granted for itself and others
+// acting on its behalf a nonexclusive, paid-up, irrevocable worldwide license
+// in this material to reproduce, prepare derivative works, distribute copies to
+// the public, perform publicly and display publicly, and to permit others to do
+// so.
+//========================================================================================
+
 #include <iostream>
 #include <random>
+#include "../../src/athena.hpp"
+#include <catch2/catch.hpp>
+#include "Kokkos_Macros.hpp"
 
 using parthenon::AthenaArray3D;
 using parthenon::AthenaArray4D;
 
 template <class T> bool test_wrapper_3d(T loop_pattern) {
-
   // https://en.cppreference.com/w/cpp/numeric/random/uniform_real_distribution
   std::random_device
       rd; // Will be used to obtain a seed for the random number engine
@@ -53,7 +71,6 @@ template <class T> bool test_wrapper_3d(T loop_pattern) {
 }
 
 template <class T> bool test_wrapper_4d(T loop_pattern) {
-
   // https://en.cppreference.com/w/cpp/numeric/random/uniform_real_distribution
   std::random_device
       rd; // Will be used to obtain a seed for the random number engine
@@ -99,46 +116,32 @@ template <class T> bool test_wrapper_4d(T loop_pattern) {
   return all_same;
 }
 
-TEST_CASE("1D Range 3D", "[wrapper]") {
-  REQUIRE(test_wrapper_3d(parthenon::loop_pattern_range_tag) == true);
-}
+TEST_CASE("par_for loops", "[wrapper]") {
+  SECTION("3D loops") {
+    REQUIRE(test_wrapper_3d(parthenon::loop_pattern_range_tag) == true);
 
-TEST_CASE("MDRange 3D", "[wrapper]") {
-  REQUIRE(test_wrapper_3d(parthenon::loop_pattern_mdrange_tag) == true);
-}
+    REQUIRE(test_wrapper_3d(parthenon::loop_pattern_mdrange_tag) == true);
 
-TEST_CASE("TPTTRTVR 3D", "[wrapper]") {
-  REQUIRE(test_wrapper_3d(parthenon::loop_pattern_tpttrtvr_tag) == true);
-}
+    REQUIRE(test_wrapper_3d(parthenon::loop_pattern_tpttrtvr_tag) == true);
 
-TEST_CASE("TPX 3D", "[wrapper]") {
-  REQUIRE(test_wrapper_3d(parthenon::loop_pattern_tpx_tag) == true);
-}
+    REQUIRE(test_wrapper_3d(parthenon::loop_pattern_tpx_tag) == true);
 
-#ifndef __CUDA_ARCH__
-TEST_CASE("SIMDFOR 3D", "[wrapper]") {
-  REQUIRE(test_wrapper_3d(parthenon::loop_pattern_simdfor_tag) == true);
-}
+#ifndef KOKKOS_ENABLE_CUDA
+    REQUIRE(test_wrapper_3d(parthenon::loop_pattern_simdfor_tag) == true);
 #endif
+  }
 
-TEST_CASE("1D Range 4D", "[wrapper]") {
-  REQUIRE(test_wrapper_4d(parthenon::loop_pattern_range_tag) == true);
-}
+  SECTION("4D loops") {
+    REQUIRE(test_wrapper_4d(parthenon::loop_pattern_range_tag) == true);
 
-TEST_CASE("MDRange 4D", "[wrapper]") {
-  REQUIRE(test_wrapper_4d(parthenon::loop_pattern_mdrange_tag) == true);
-}
+    REQUIRE(test_wrapper_4d(parthenon::loop_pattern_mdrange_tag) == true);
 
-TEST_CASE("TPTTRTVR 4D", "[wrapper]") {
-  REQUIRE(test_wrapper_4d(parthenon::loop_pattern_tpttrtvr_tag) == true);
-}
+    REQUIRE(test_wrapper_4d(parthenon::loop_pattern_tpttrtvr_tag) == true);
 
-TEST_CASE("TPX 4D", "[wrapper]") {
-  REQUIRE(test_wrapper_4d(parthenon::loop_pattern_tpx_tag) == true);
-}
+    REQUIRE(test_wrapper_4d(parthenon::loop_pattern_tpx_tag) == true);
 
-#ifndef __CUDA_ARCH__
-TEST_CASE("SIMDFOR 4D", "[wrapper]") {
-  REQUIRE(test_wrapper_4d(parthenon::loop_pattern_simdfor_tag) == true);
-}
+#ifndef KOKKOS_ENABLE_CUDA
+    REQUIRE(test_wrapper_4d(parthenon::loop_pattern_simdfor_tag) == true);
 #endif
+  }
+}
