@@ -10,7 +10,7 @@ test illustrating its usage.
 
 ### ParthenonManager
 
-This class provides a streamlined capability to write new applications by providing a simple interface to initialize and finalize a simulation.  It's usage is straightforward and demonstrated in the &pi; [example](example/calculate_pi/calculate_pi.cpp).
+This class provides a streamlined capability to write new applications by providing a simple interface to initialize and finalize a simulation.  It's usage is straightforward and demonstrated in the &pi; [example](../example/calculate_pi/calculate_pi.cpp).
 
 ## Long feature description
 
