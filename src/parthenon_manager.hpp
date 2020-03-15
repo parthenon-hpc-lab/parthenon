@@ -22,6 +22,7 @@
 #include "outputs/outputs.hpp"
 #include "interface/PropertiesInterface.hpp"
 #include "interface/StateDescriptor.hpp"
+#include "driver/driver.hpp"
 
 namespace parthenon {
 
@@ -37,6 +38,8 @@ class ParthenonManager {
     Properties_t ProcessProperties(std::unique_ptr<ParameterInput>& pin);
     Packages_t ProcessPackages(std::unique_ptr<ParameterInput>& pin);
     void SetFillDerivedFunctions();
+    void PreDriver();
+    void PostDriver(DriverStatus driver_status);
 
     // member data
     std::unique_ptr<ParameterInput> pinput;
@@ -44,6 +47,8 @@ class ParthenonManager {
     std::unique_ptr<Outputs> pouts;
   private:
     ArgParse arg;
+    clock_t tstart_;
+    double omp_start_time_;
 };
 
 

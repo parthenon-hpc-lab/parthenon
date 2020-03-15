@@ -13,6 +13,7 @@
 
 #include "parthenon_manager.hpp"
 #include "interface/Update.hpp"
+#include "driver/driver.hpp"
 
 namespace parthenon {
 
@@ -104,6 +105,67 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
   if (!Restart()) pouts->MakeOutputs(pmesh.get(), pinput.get());
 
   return ParthenonStatus::ok;
+}
+
+void ParthenonManager::PreDriver() {
+  if (Globals::my_rank == 0) {
+    std::cout << "\n"<<Globals::my_rank<<":Setup complete, entering main loop...\n" << std::endl;
+  }
+
+  tstart_ = clock();
+#ifdef OPENMP_PARALLEL
+  omp_start_time_ = omp_get_wtime();
+#endif
+}
+
+void ParthenonManager::PostDriver(DriverStatus driver_status) {
+
+  if (Globals::my_rank == 0)
+    SignalHandler::CancelWallTimeAlarm();
+
+  pouts->MakeOutputs(pmesh.get(), pinput.get());
+
+  // Print diagnostic messages related to the end of the simulation
+  if (Globals::my_rank == 0) {
+    pmesh->OutputCycleDiagnostics();
+    SignalHandler::Report();
+    if (driver_status == DriverStatus::complete) {
+      std::cout << std::endl << "Driver completed." << std::endl;
+    } else if (driver_status == DriverStatus::timeout) {
+      std::cout << std::endl << "Driver timed out.  Restart to continue." << std::endl;
+    } else if (driver_status == DriverStatus::failed) {
+      std::cout << std::endl << "Driver failed." << std::endl;
+    }
+
+    std::cout << "time=" << pmesh->time << " cycle=" << pmesh->ncycle << std::endl;
+    std::cout << "tlim=" << pmesh->tlim << " nlim=" << pmesh->nlim << std::endl;
+
+    if (pmesh->adaptive) {
+      std::cout << std::endl << "Number of MeshBlocks = " << pmesh->nbtotal
+                << "; " << pmesh->nbnew << "  created, " << pmesh->nbdel
+                << " destroyed during this simulation." << std::endl;
+    }
+
+    // Calculate and print the zone-cycles/cpu-second and wall-second
+#ifdef OPENMP_PARALLEL
+    double omp_time = omp_get_wtime() - omp_start_time;
+#endif
+    clock_t tstop = clock();
+    double cpu_time = (tstop>tstart_ ? static_cast<double> (tstop-tstart_) :
+                       1.0)/static_cast<double> (CLOCKS_PER_SEC);
+    std::uint64_t zonecycles =
+        pmesh->mbcnt*static_cast<std::uint64_t> (pmesh->pblock->GetNumberOfMeshBlockCells());
+    double zc_cpus = static_cast<double> (zonecycles) / cpu_time;
+
+    std::cout << std::endl << "zone-cycles = " << zonecycles << std::endl;
+    std::cout << "cpu time used  = " << cpu_time << std::endl;
+    std::cout << "zone-cycles/cpu_second = " << zc_cpus << std::endl;
+#ifdef OPENMP_PARALLEL
+    double zc_omps = static_cast<double> (zonecycles) / omp_time;
+    std::cout << std::endl << "omp wtime used = " << omp_time << std::endl;
+    std::cout << "zone-cycles/omp_wsecond = " << zc_omps << std::endl;
+#endif
+  }
 }
 
 ParthenonStatus ParthenonManager::ParthenonFinalize() {
