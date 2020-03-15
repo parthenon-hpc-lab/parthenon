@@ -12,6 +12,7 @@
 //========================================================================================
 
 #include "parthenon_manager.hpp"
+#include "interface/Update.hpp"
 
 namespace parthenon {
 
@@ -93,10 +94,14 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
   //  pmesh = std::make_unique<Mesh>(pinput.get(), )
   //}
 
-  //pmesh->Initialize()
+  SetFillDerivedFunctions();
+
+  pmesh->Initialize(Restart(), pinput.get());
 
   ChangeRunDir(arg.prundir);
   pouts = std::make_unique<Outputs>(pmesh.get(), pinput.get());
+
+  if (!Restart()) pouts->MakeOutputs(pmesh.get(), pinput.get());
 
   return ParthenonStatus::ok;
 }
@@ -106,6 +111,10 @@ ParthenonStatus ParthenonManager::ParthenonFinalize() {
     MPI_Finalize();
 #endif
   return ParthenonStatus::complete;
+}
+
+void __attribute__((weak)) ParthenonManager::SetFillDerivedFunctions() {
+  FillDerivedVariables::SetFillDerivedFunctions(nullptr,nullptr);
 }
 
 Properties_t __attribute__((weak)) ParthenonManager::ProcessProperties(std::unique_ptr<ParameterInput>& pin) {

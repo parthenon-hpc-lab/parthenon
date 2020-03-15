@@ -36,6 +36,7 @@ class ParthenonManager {
     bool Restart() { return (arg.restart_filename == nullptr ? false : true); }
     Properties_t ProcessProperties(std::unique_ptr<ParameterInput>& pin);
     Packages_t ProcessPackages(std::unique_ptr<ParameterInput>& pin);
+    void SetFillDerivedFunctions();
 
     // member data
     std::unique_ptr<ParameterInput> pinput;

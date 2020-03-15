@@ -72,12 +72,6 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  FillDerivedVariables::SetFillDerivedFunctions(nullptr,nullptr);
- 
-  pman.pmesh->Initialize(pman.Restart(), pman.pinput.get());
-
-  if (pman.Restart()) pman.pouts->MakeOutputs(pman.pmesh.get(), pman.pinput.get());
-
   CalculatePi driver(pman.pinput.get(), pman.pmesh.get(), pman.pouts.get());
 
   if (Globals::my_rank == 0) {
