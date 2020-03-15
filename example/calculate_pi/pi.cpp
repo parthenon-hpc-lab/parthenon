@@ -37,35 +37,16 @@ DriverStatus CalculatePi::Execute() {
   // No evolution in this driver.  Just calculates something once.
   // For evolution, look at the EvolutionDriver
 
-  int nmb = pmesh->GetNumMeshBlocksThisRank(Globals::my_rank);
-  std::vector<TaskList> task_lists;
-  task_lists.resize(nmb);
-
-  int i=0;
-  MeshBlock *pmb = pmesh->pblock;
-  while (pmb != nullptr) {
-    task_lists[i] = MakeTaskList(pmb);
-    i++;
-    pmb = pmb->next;
-  }
-  int complete_cnt = 0;
-  while (complete_cnt != nmb) {
-    for (auto & tl : task_lists) {
-      if (!tl.IsComplete()) {
-          auto status = tl.DoAvailable();
-          if (status == TaskListStatus::complete) {
-            complete_cnt++;
-          }
-      }
-    }
-  }
+  DriverUtils::ConstructAndExecuteBlockTasks<>(this);
 
   // All the blocks are done, now do a global reduce and spit out the answer
   // first sum over blocks on this rank
   Real area = 0.0;
-  pmb = pmesh->pblock;
+  MeshBlock* pmb = pmesh->pblock;
   while (pmb != nullptr) {
     Variable<Real>& v = pmb->real_container.Get("in_or_out");
+    // NOTE: the MeshBlock integrated indicator function, divided 
+    // by r0^2, was stashed in v(0,0,0) in ComputeArea.
     Real block_area = v(0,0,0);
     area += block_area;
     pmb = pmb->next;
@@ -88,8 +69,14 @@ TaskList CalculatePi::MakeTaskList(MeshBlock *pmb) {
   using namespace PiCalculator;
   TaskList tl;
 
+  // make some lambdas that over overkill here but clean things up for more realistic code
+  auto AddBlockTask = [pmb,&tl](BlockTaskFunc* func, TaskID dependencies)
+  { 
+    return tl.AddTask<BlockTask>(func, dependencies, pmb); 
+  };
+
   TaskID none(0);
-  auto get_area = tl.AddTask(ComputeArea, none, pmb);
+  auto get_area = AddBlockTask(ComputeArea, none);
 
   // could add more tasks like:
   // auto next_task = tl.AddTask(FuncPtr, get_area, pmb);
@@ -98,16 +85,25 @@ TaskList CalculatePi::MakeTaskList(MeshBlock *pmb) {
 }
 
 // This defines a "physics" package
+// In this case, PiCalculator provides the functions required to set up 
+// an indicator function in_or_out(x,y) = (r < r0 ? 1 : 0), and compute the area
+// of a circle of radius r0 as A = \int d^x in_or_out(x,y) over the domain. Then
+// pi \approx A/r0^2
 namespace PiCalculator {
 
   void SetInOrOut(Container<Real>& rc) {
     MeshBlock *pmb = rc.pmy_block;
+    int is = pmb->is; int js = pmb->js; int ks = pmb->ks;
+    int ie = pmb->ie; int je = pmb->je; int ke = pmb->ke;
     Coordinates *pcoord = pmb->pcoord.get();
     Variable<Real>& v = rc.Get("in_or_out");
     const auto& radius = pmb->physics["PiCalculator"]->Param<Real>("radius");
-    for (int k=0; k<pmb->ncells3; k++) {
-      for (int j=0; j<pmb->ncells2; j++) {
-        for (int i=0; i<pmb->ncells1; i++) {
+    // Set an indicator function that indicates whether the cell center
+    // is inside or outside of the circle we're interating the area of.
+    // see the CheckRefinement routine below for an explanation of the loop bounds
+    for (int k=ks; k<=ke; k++) {
+      for (int j=js-1; j<=je+1; j++) {
+        for (int i=is-1; i<=ie+1; i++) {
           Real rsq = std::pow(pcoord->x1v(i),2) + std::pow(pcoord->x2v(j),2);
           if (rsq < radius*radius) {
             v(k,j,i) = 1.0;
@@ -120,20 +116,30 @@ namespace PiCalculator {
   }
 
   int CheckRefinement(Container<Real>& rc) {
+    // tag cells for refinement or derefinement
+    // each package can define its own refinement tagging
+    // function and they are all called by parthenon
     MeshBlock *pmb = rc.pmy_block;
+    int is = pmb->is; int js = pmb->js; int ks = pmb->ks;
+    int ie = pmb->ie; int je = pmb->je; int ke = pmb->ke;
     Variable<Real>& v = rc.Get("in_or_out");
     int delta_level = -1;
     Real vmin = 1.0;
     Real vmax = 0.0;
-    for (int k=0; k<pmb->ncells3; k++) {
-      for (int j=0; j<pmb->ncells2; j++) {
-        for (int i=0; i<pmb->ncells1; i++) {
+    // loop over all real cells and one layer of ghost cells and refine
+    // if the edge of the circle is found.  The one layer of ghost cells 
+    // catches the case where the edge is between the cell centers of
+    // the first/last real cell and the first ghost cell
+    for (int k=ks; k<=ke; k++) {
+      for (int j=js-1; j<=je+1; j++) {
+        for (int i=is-1; i<=ie+1; i++) {
           vmin = (v(k,j,i) < vmin ? v(k,j,i) : vmin);
           vmax = (v(k,j,i) > vmax ? v(k,j,i) : vmax);
         }
       }
     }
-    if (vmax > 0.95 && vmin < 0.05) {
+    // was the edge of the circle found?
+    if (vmax > 0.95 && vmin < 0.05) { // then yes
       delta_level = 1;
     }
     return delta_level;
@@ -146,16 +152,19 @@ namespace PiCalculator {
     Real radius = pin->GetOrAddReal("Pi", "radius", 1.0);
     params.Add("radius", radius);
 
+    // add a variable called in_or_out that will hold the value of the indicator function
     std::string field_name("in_or_out");
     Metadata m({Metadata::cell, Metadata::derived, Metadata::graphics});
     package->AddField(field_name, m, DerivedOwnership::unique);
 
+    // All the package FillDerived and CheckRefinement functions are called by parthenon
     package->FillDerived = SetInOrOut;
     package->CheckRefinement = CheckRefinement;
     return package;
   }
 
   TaskStatus ComputeArea(MeshBlock *pmb) {
+    // compute 1/r0^2 \int d^2x in_or_out(x,y) over the block's domain
     Container<Real>& rc = pmb->real_container;
     int is = pmb->is; int js = pmb->js; int ks = pmb->ks;
     int ie = pmb->ie; int je = pmb->je; int ke = pmb->ke;

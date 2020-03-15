@@ -19,20 +19,20 @@
 #include <bitset>
 #include <string>
 #include <memory>
+#include <stdexcept>
 #include <iostream>
-#include "mesh/mesh.hpp"
-//#include "driver/multistage.hpp"
-
-class Integrator;
 
 #define MAX_TASKS 64
 
 namespace parthenon {
 
+class MeshBlock;
+class Integrator;
+
 enum class TaskStatus {fail, success, next};
 enum class TaskListStatus {running, stuck, complete, nothing_to_do};
 
-using BaseTaskFunc = TaskStatus ();
+using SimpleTaskFunc = TaskStatus ();
 using BlockTaskFunc = TaskStatus (MeshBlock*);
 using BlockStageTaskFunc = TaskStatus (MeshBlock*, int);
 using BlockStageNamesTaskFunc = TaskStatus (MeshBlock*, int, std::vector<std::string>&);
@@ -64,10 +64,9 @@ class TaskID {  // POD but not aggregate (there is a user-provided ctor)
 
 class BaseTask {
   public:
-    BaseTask() {}
-    BaseTask(BaseTaskFunc* func) : _func(func) {}
-    BaseTask(BaseTaskFunc* func, TaskID id, TaskID dep) : _func(func), _myid(id), _dep(dep) {}
-    virtual TaskStatus operator () () {return _func();}
+    BaseTask(TaskID id, TaskID dep) : _myid(id), _dep(dep) {}
+    virtual ~BaseTask() = default;
+    virtual TaskStatus operator () () = 0;
     TaskID GetID() { return _myid; }
     TaskID GetDependency() { return _dep; }
     void SetComplete() { _complete = true; }
@@ -75,14 +74,20 @@ class BaseTask {
   protected:
     TaskID _myid, _dep;
     bool lb_time, _complete=false;
+};
+
+class SimpleTask : public BaseTask {
+  public:
+    SimpleTask(TaskID id, SimpleTaskFunc* func, TaskID dep) : _func(func), BaseTask(id, dep) {}
+    TaskStatus operator () () { return _func(); }
   private:
-    BaseTaskFunc* _func;
+    SimpleTaskFunc* _func;
 };
 
 class BlockTask : public BaseTask {
   public:
-    BlockTask(BlockTaskFunc* func, TaskID id, TaskID dep, MeshBlock *pmb)
-        : _func(func), _pblock(pmb) { _myid=id; _dep=dep; }
+    BlockTask(TaskID id, BlockTaskFunc* func, TaskID dep, MeshBlock *pmb)
+        : _func(func), _pblock(pmb), BaseTask(id, dep) {}
     TaskStatus operator () () { return _func(_pblock); }
   private:
     BlockTaskFunc* _func;
@@ -91,8 +96,8 @@ class BlockTask : public BaseTask {
 
 class BlockStageTask : public BaseTask {
   public:
-    BlockStageTask(BlockStageTaskFunc* func, TaskID id, TaskID dep, MeshBlock *pmb, int stage)
-        : _func(func), _pblock(pmb), _stage(stage) { _myid=id; _dep=dep; }
+    BlockStageTask(TaskID id, BlockStageTaskFunc* func, TaskID dep, MeshBlock *pmb, int stage)
+        : _func(func), _pblock(pmb), _stage(stage), BaseTask(id,dep) { }
     TaskStatus operator () () { return _func(_pblock, _stage); }
   private:
     BlockStageTaskFunc* _func;
@@ -102,8 +107,8 @@ class BlockStageTask : public BaseTask {
 
 class BlockStageNamesTask : public BaseTask {
   public:
-    BlockStageNamesTask(BlockStageNamesTaskFunc* func, TaskID id, TaskID dep, MeshBlock *pmb, int stage, const std::vector<std::string>& sname)
-        : _func(func), _pblock(pmb), _stage(stage), _sname(sname) { _myid=id; _dep=dep; }
+    BlockStageNamesTask(TaskID id, BlockStageNamesTaskFunc* func, TaskID dep, MeshBlock *pmb, int stage, const std::vector<std::string>& sname)
+        : _func(func), _pblock(pmb), _stage(stage), _sname(sname), BaseTask(id,dep) { }
     TaskStatus operator () () { return _func(_pblock, _stage, _sname); }
   private:
     BlockStageNamesTaskFunc* _func;
@@ -114,8 +119,8 @@ class BlockStageNamesTask : public BaseTask {
 
 class BlockStageNamesIntegratorTask : public BaseTask {
   public:
-    BlockStageNamesIntegratorTask(BlockStageNamesIntegratorTaskFunc* func, TaskID id, TaskID dep, MeshBlock *pmb, int stage, const std::vector<std::string>& sname, Integrator* integ)
-        : _func(func), _pblock(pmb), _stage(stage), _sname(sname), _int(integ) { _myid=id; _dep=dep; }
+    BlockStageNamesIntegratorTask(TaskID id, BlockStageNamesIntegratorTaskFunc* func, TaskID dep, MeshBlock *pmb, int stage, const std::vector<std::string>& sname, Integrator* integ)
+        : _func(func), _pblock(pmb), _stage(stage), _sname(sname), _int(integ), BaseTask(id,dep) { }
     TaskStatus operator () () { return _func(_pblock, _stage, _sname, _int); }
   private:
     BlockStageNamesIntegratorTaskFunc* _func;
@@ -123,14 +128,6 @@ class BlockStageNamesIntegratorTask : public BaseTask {
     int _stage;
     std::vector<std::string> _sname;
     Integrator *_int;
-};
-
-namespace TaskFactory {
-  std::unique_ptr<BaseTask> NewTask(TaskID id, BaseTaskFunc* func, TaskID dep);
-  std::unique_ptr<BaseTask> NewTask(TaskID id, BlockTaskFunc* func, TaskID dep, MeshBlock *pmb);
-  std::unique_ptr<BaseTask> NewTask(TaskID id, BlockStageTaskFunc* func, TaskID dep, MeshBlock *pmb, int stage);
-  std::unique_ptr<BaseTask> NewTask(TaskID id, BlockStageNamesTaskFunc* func, TaskID dep, MeshBlock *pmb, int stage, const std::vector<std::string>& sname);
-  std::unique_ptr<BaseTask> NewTask(TaskID id, BlockStageNamesIntegratorTaskFunc* func, TaskID dep, MeshBlock *pmb, int stage, const std::vector<std::string>& sname, Integrator *integ);
 };
 
 class TaskList {
@@ -180,14 +177,14 @@ class TaskList {
       if (IsComplete()) return TaskListStatus::complete;
       return TaskListStatus::running;
     }
-    template<class...Args>
+    template<typename T, class...Args>
     TaskID AddTask(Args... args) {
       if (_tasks_added == MAX_TASKS) {
-        // Do error checking
+        throw std::out_of_range("\n\nTrying to add a task but this would exceed MAX_TASKS.  Increase MAX_TASKS in task_list/tasks.hpp\n\n");
       }
       TaskID id(_tasks_added+1);
       _task_list.push_back(
-        TaskFactory::NewTask(id, std::forward<Args>(args)...)
+        std::make_unique<T>(id , std::forward<Args>(args)...)
       );
       _tasks_added++;
       return id;

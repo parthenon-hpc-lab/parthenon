@@ -206,4 +206,5 @@ IOWrapperSizeT IOWrapper::GetPosition() {
   return ftell(fh_);
 #endif
 }
-}
+
+} // namespace parthenon
