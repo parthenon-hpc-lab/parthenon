@@ -81,11 +81,10 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
   } 
   pinput->ModifyFromCmdline(argc, argv);
 
-  Properties_t properties;
-  ProcessProperties(pinput, properties);
-
-  Packages_t packages;
-  ProcessPackages(pinput, packages);
+  // read in/set up application specific properties
+  auto properties = ProcessProperties(pinput);
+  // set up all the packages in the application
+  auto packages = ProcessPackages(pinput);
 
   // TODO: Deal with restarts
   //if (arg.res_flag == 0) {
@@ -109,16 +108,18 @@ ParthenonStatus ParthenonManager::ParthenonFinalize() {
   return ParthenonStatus::complete;
 }
 
-void __attribute__((weak)) ParthenonManager::ProcessProperties(std::unique_ptr<ParameterInput>& pin, Properties_t& properties) {
+Properties_t __attribute__((weak)) ParthenonManager::ProcessProperties(std::unique_ptr<ParameterInput>& pin) {
   // In practice, this function should almost always be replaced by a version
   // that sets relevant things for the application.
-  return;
+  Properties_t props; 
+  return std::move(props);
 }
 
-void __attribute__((weak)) ParthenonManager::ProcessPackages(std::unique_ptr<ParameterInput>& pin, Packages_t& packages) {
+Packages_t __attribute__((weak)) ParthenonManager::ProcessPackages(std::unique_ptr<ParameterInput>& pin) {
   // In practice, this function should almost always be replaced by a version
   // that sets relevant things for the application.
-  return;
+  Packages_t packages;
+  return std::move(packages);
 }
 
 } // namespace parthenon
