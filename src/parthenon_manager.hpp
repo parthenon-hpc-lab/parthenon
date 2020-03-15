@@ -11,25 +11,25 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef PARTHENON_MANAGER_HPP
-#define PARTHENON_MANAGER_HPP
+#ifndef PARTHENON_MANAGER_HPP_
+#define PARTHENON_MANAGER_HPP_
 
 #include <memory>
 
 #include "argument_parser.hpp"
-#include "parameter_input.hpp"
-#include "mesh/mesh.hpp"
-#include "outputs/outputs.hpp"
+#include "driver/driver.hpp"
 #include "interface/PropertiesInterface.hpp"
 #include "interface/StateDescriptor.hpp"
-#include "driver/driver.hpp"
+#include "mesh/mesh.hpp"
+#include "outputs/outputs.hpp"
+#include "parameter_input.hpp"
 
 namespace parthenon {
 
 enum class ParthenonStatus {ok, complete, error};
 
 class ParthenonManager {
-  public:
+ public:
     ParthenonManager() = default;
     ParthenonStatus ParthenonInit(int argc, char *argv[]);
     ParthenonStatus ParthenonFinalize();
@@ -45,18 +45,12 @@ class ParthenonManager {
     std::unique_ptr<ParameterInput> pinput;
     std::unique_ptr<Mesh> pmesh;
     std::unique_ptr<Outputs> pouts;
-  private:
+ private:
     ArgParse arg;
     clock_t tstart_;
     double omp_start_time_;
 };
 
+} // namespace parthenon
 
-
-
-
-
-
-}
-
-#endif
+#endif // PARTHENON_MANAGER_HPP_

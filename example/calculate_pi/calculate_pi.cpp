@@ -29,16 +29,16 @@
 #include <vector>
 
 // Parthenon headers
-#include "parthenon_manager.hpp"
+#include "argument_parser.hpp"
 #include "athena.hpp"
 #include "globals.hpp"
-#include "argument_parser.hpp"
+#include "interface/Update.hpp"
 #include "mesh/mesh.hpp"
 #include "outputs/io_wrapper.hpp"
 #include "outputs/outputs.hpp"
 #include "parameter_input.hpp"
+#include "parthenon_manager.hpp"
 #include "utils/utils.hpp"
-#include "interface/Update.hpp"
 
 // Application headers
 #include "pi.hpp"
@@ -51,15 +51,15 @@
 #ifdef OPENMP_PARALLEL
 #include <omp.h>
 #endif
-  
-using namespace parthenon;
+
 
 //----------------------------------------------------------------------------------------
 //! \fn int main(int argc, char *argv[])
 //  \brief Athena++ main program
 
 int main(int argc, char *argv[]) {
-
+  using parthenon::ParthenonManager;
+  using parthenon::ParthenonStatus;
   ParthenonManager pman;
 
   auto manager_status = pman.ParthenonInit(argc, argv);

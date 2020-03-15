@@ -10,31 +10,48 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-
-
-#ifndef CALCULATE_PI_HPP
-#define CALCULATE_PI_HPP
+#ifndef EXAMPLE_CALCULATE_PI_PI_HPP_
+#define EXAMPLE_CALCULATE_PI_PI_HPP_
 
 #include <memory>
 
-#include "globals.hpp"
-#include "mesh/mesh.hpp"
 #include "driver/driver.hpp"
+#include "globals.hpp"
 #include "interface/StateDescriptor.hpp"
-#include "task_list/tasks.hpp"
+#include "mesh/mesh.hpp"
 #include "parthenon_manager.hpp"
+#include "task_list/tasks.hpp"
 
-namespace parthenon {
+using parthenon::Driver;
+using parthenon::DriverStatus;
+using parthenon::MeshBlock;
+using parthenon::Real;
+using parthenon::Variable;
+using parthenon::DriverUtils::ConstructAndExecuteBlockTasks;
+using parthenon::Coordinates;
+using parthenon::StateDescriptor;
+using parthenon::DerivedOwnership;
+using parthenon::TaskStatus;
+using parthenon::TaskList;
+using parthenon::TaskListStatus;
+using parthenon::Metadata;
+using parthenon::Params;
+using parthenon::Container;
+using parthenon::TaskID;
+using parthenon::BlockTask;
+using parthenon::BlockTaskFunc;
+using parthenon::Globals::my_rank;
+using parthenon::Globals::nranks;
+using parthenon::ParameterInput;
+using parthenon::Outputs;
+using parthenon::Mesh;
 
 class CalculatePi : public Driver {
-  public:
-   CalculatePi(ParameterInput *pin, Mesh *pm, Outputs *pout) : Driver(pin, pm, pout) {}
-   TaskList MakeTaskList(MeshBlock *pmb);
-   DriverStatus Execute();
+ public:
+  CalculatePi(ParameterInput *pin, Mesh *pm, Outputs *pout) : Driver(pin, pm, pout) {}
+  TaskList MakeTaskList(MeshBlock *pmb);
+  DriverStatus Execute();
 };
-
-void ProcessProperties(std::vector<std::shared_ptr<PropertiesInterface>>& properties, ParameterInput *pin);
-//void InitializePhysics(std::map<std::string, std::shared_ptr<StateDescriptor>>& physics, ParameterInput *pin); 
 
 // putting a "physics" package in a namespace
 namespace PiCalculator {
@@ -44,5 +61,4 @@ namespace PiCalculator {
   TaskStatus ComputeArea(MeshBlock *pmb);
 }
 
-} // namespace parthenon
-#endif
+#endif // EXAMPLE_CALCULATE_PI_PI_HPP_

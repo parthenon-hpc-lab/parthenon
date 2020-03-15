@@ -11,9 +11,11 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#include "parthenon_manager.hpp"
-#include "interface/Update.hpp"
+#include <utility>
+
 #include "driver/driver.hpp"
+#include "interface/Update.hpp"
+#include "parthenon_manager.hpp"
 
 namespace parthenon {
 
@@ -80,7 +82,7 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
   // Populate the ParameterInput object
   if (arg.input_filename != nullptr) {
     pinput = std::make_unique<ParameterInput>(arg.input_filename);
-  } 
+  }
   pinput->ModifyFromCmdline(argc, argv);
 
   // read in/set up application specific properties
@@ -88,7 +90,7 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
   // set up all the packages in the application
   auto packages = ProcessPackages(pinput);
 
-  // TODO: Deal with restarts
+  // TODO(jdolence): Deal with restarts
   //if (arg.res_flag == 0) {
     pmesh = std::make_unique<Mesh>(pinput.get(), properties, packages, arg.mesh_flag);
   //} else {
@@ -109,7 +111,7 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
 
 void ParthenonManager::PreDriver() {
   if (Globals::my_rank == 0) {
-    std::cout << "\n"<<Globals::my_rank<<":Setup complete, entering main loop...\n" << std::endl;
+    std::cout << std::endl << "Setup complete, entering main loop...\n" << std::endl;
   }
 
   tstart_ = clock();
@@ -119,7 +121,6 @@ void ParthenonManager::PreDriver() {
 }
 
 void ParthenonManager::PostDriver(DriverStatus driver_status) {
-
   if (Globals::my_rank == 0)
     SignalHandler::CancelWallTimeAlarm();
 
@@ -153,8 +154,8 @@ void ParthenonManager::PostDriver(DriverStatus driver_status) {
     clock_t tstop = clock();
     double cpu_time = (tstop>tstart_ ? static_cast<double> (tstop-tstart_) :
                        1.0)/static_cast<double> (CLOCKS_PER_SEC);
-    std::uint64_t zonecycles =
-        pmesh->mbcnt*static_cast<std::uint64_t> (pmesh->pblock->GetNumberOfMeshBlockCells());
+    std::uint64_t zonecycles = pmesh->mbcnt *
+        static_cast<std::uint64_t> (pmesh->pblock->GetNumberOfMeshBlockCells());
     double zc_cpus = static_cast<double> (zonecycles) / cpu_time;
 
     std::cout << std::endl << "zone-cycles = " << zonecycles << std::endl;
@@ -179,14 +180,16 @@ void __attribute__((weak)) ParthenonManager::SetFillDerivedFunctions() {
   FillDerivedVariables::SetFillDerivedFunctions(nullptr,nullptr);
 }
 
-Properties_t __attribute__((weak)) ParthenonManager::ProcessProperties(std::unique_ptr<ParameterInput>& pin) {
+Properties_t __attribute__((weak))
+ParthenonManager::ProcessProperties(std::unique_ptr<ParameterInput>& pin) {
   // In practice, this function should almost always be replaced by a version
   // that sets relevant things for the application.
-  Properties_t props; 
+  Properties_t props;
   return std::move(props);
 }
 
-Packages_t __attribute__((weak)) ParthenonManager::ProcessPackages(std::unique_ptr<ParameterInput>& pin) {
+Packages_t __attribute__((weak))
+ParthenonManager::ProcessPackages(std::unique_ptr<ParameterInput>& pin) {
   // In practice, this function should almost always be replaced by a version
   // that sets relevant things for the application.
   Packages_t packages;
