@@ -83,7 +83,7 @@ int main(int argc, char *argv[]) {
   double omp_start_time = omp_get_wtime();
 #endif
 
-  driver.Execute();
+  auto driver_status = driver.Execute();
 
   // Make final outputs, print diagnostics, clean up and terminate
 
@@ -92,18 +92,16 @@ int main(int argc, char *argv[]) {
 
   pman.pouts->MakeOutputs(pman.pmesh.get(), pman.pinput.get());
 
-  // Does this still work?
-  //pmesh->UserWorkAfterLoop(pman.pinput);
-
-  //--- Step 10. -------------------------------------------------------------------------
   // Print diagnostic messages related to the end of the simulation
   if (Globals::my_rank == 0) {
     pman.pmesh->OutputCycleDiagnostics();
     SignalHandler::Report();
-    if (pman.pmesh->ncycle == pman.pmesh->nlim) {
-      std::cout << std::endl << "Terminating on cycle limit" << std::endl;
-    } else {
-      std::cout << std::endl << "Terminating on time limit" << std::endl;
+    if (driver_status == DriverStatus::complete) {
+      std::cout << std::endl << "Driver completed." << std::endl;
+    } else if (driver_status == DriverStatus::timeout) {
+      std::cout << std::endl << "Driver timed out.  Restart to continue." << std::endl;
+    } else if (driver_status == DriverStatus::failed) {
+      std::cout << std::endl << "Driver failed." << std::endl;
     }
 
     std::cout << "time=" << pman.pmesh->time << " cycle=" << pman.pmesh->ncycle << std::endl;
