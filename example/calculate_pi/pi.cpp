@@ -34,9 +34,12 @@ Packages_t ParthenonManager::ProcessPackages(std::unique_ptr<ParameterInput>& pi
   return std::move(packages);
 }
 
-void MeshBlock::ProblemGenerator(ParameterInput *pin) {
-  // nothing to do here for this app
-}
+// this should set up initial conditions of independent variables on the block
+// this app only has one variable of derived type, so nothing to do here.
+// in this case, just use the weak version
+//void MeshBlock::ProblemGenerator(ParameterInput *pin) {
+//  // nothing to do here for this app
+//}
 
 DriverStatus CalculatePi::Execute() {
   // this is where the main work is orchestrated
