@@ -37,8 +37,8 @@ class ContainerIterator {
 
   /// initializes the iterator with a container and a flag to match
   /// @param c the container on which you want the iterator
-  /// @param flagVector: a vector of Metadata::Flag that you want to match
-  ContainerIterator<T>(Container<T>& c, const std::vector<Metadata::Flag> &flagVector) {
+  /// @param flagVector: a vector of MetadataFlag that you want to match
+  ContainerIterator<T>(Container<T>& c, const std::vector<MetadataFlag> &flagVector) {
     _allVars = c.allVars();
     for (auto& field : c.sparseVars().getCellVarVectors()) {
       int idx=0;
@@ -62,8 +62,8 @@ class ContainerIterator {
   //  _emptyVars();
   //}
   /// Changes the mask for the iterator and resets the iterator
-  /// @param flagArray: a vector of Metadata::Flag that you want to match
-  void setMask(const std::vector<Metadata::Flag> &flagVector) {
+  /// @param flagArray: a vector of MetadataFlag that you want to match
+  void setMask(const std::vector<MetadataFlag> &flagVector) {
     // 1: clear out variables stored so far
     _emptyVars();
 
@@ -86,7 +86,7 @@ class ContainerIterator {
   //  varsFace.clear();
   //  varsEdge.clear();
   }
-  static bool couldBeEdge(const std::vector<Metadata::Flag> &flagVector) {
+  static bool couldBeEdge(const std::vector<MetadataFlag> &flagVector) {
     // returns true if face is set or if no topology set
     for (auto &f : flagVector) {
       if ( f == Metadata::Edge) return true;
@@ -95,7 +95,7 @@ class ContainerIterator {
     }
     return true;
   }
-  static bool couldBeFace(const std::vector<Metadata::Flag> &flagVector) {
+  static bool couldBeFace(const std::vector<MetadataFlag> &flagVector) {
     // returns true if face is set or if no topology set
     for (auto &f : flagVector) {
       if ( f == Metadata::Face) return true;

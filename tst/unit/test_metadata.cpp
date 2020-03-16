@@ -11,18 +11,21 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-// Self Include
-#include "Metadata.hpp"
+// Third Party Includes
+#include <catch2/catch.hpp>
 
-// STL Includes
-#include <sstream>
-#include <exception>
+// Parthenon includes
+#include <interface/Metadata.hpp>
 
-using parthenon::MetadataFlag;
 using parthenon::Metadata;
 
-int Metadata::next_app_flag_ = static_cast<int>(parthenon::internal::MetadataInternal::Max);
-
-MetadataFlag Metadata::AllocateNewFlag() {
-    return MetadataFlag(next_app_flag_++);
+TEST_CASE("A Metadata flag is allocated", "[Metadata]") {
+    GIVEN("Metadata") {
+        auto const f = Metadata::AllocateNewFlag();
+        // Note: `parthenon::internal` is subject to change, and so this test may rightfully break
+        // later - this test needn't be maintained if so.
+        //
+        // Checks that the first allocated flag is equal to `Max` - the final built-in flag + 1.
+        REQUIRE(f.FlagValue() == static_cast<int>(parthenon::internal::MetadataInternal::Max));
+    }
 }

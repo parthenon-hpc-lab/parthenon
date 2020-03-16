@@ -21,7 +21,58 @@
 #include <tuple>
 #include <vector>
 
+// Declare new built-in flags in this list so that other systems which use them stay up-to-date
+#define PARTHENON_INTERNAL_FOREACH_BUILTIN_FLAG \
+  /**  bit 0 is ignored */ \
+  PARTHENON_INTERNAL_FOR_FLAG(Ignore) \
+  /**  no topology specified */ \
+  PARTHENON_INTERNAL_FOR_FLAG(None) \
+  /**  cell variable */ \
+  PARTHENON_INTERNAL_FOR_FLAG(Cell) \
+  /**  face variable */ \
+  PARTHENON_INTERNAL_FOR_FLAG(Face) \
+  /**  edge variable */ \
+  PARTHENON_INTERNAL_FOR_FLAG(Edge) \
+  /**  node variable */ \
+  PARTHENON_INTERNAL_FOR_FLAG(Node) \
+  /**  a vector quantity, i.e. a rank 1 contravariant tenso */ \
+  PARTHENON_INTERNAL_FOR_FLAG(Vector) \
+  /**  a rank-2 tensor */ \
+  PARTHENON_INTERNAL_FOR_FLAG(Tensor) \
+  /**  advected variable */ \
+  PARTHENON_INTERNAL_FOR_FLAG(Advected) \
+  /**  conserved variable */ \
+  PARTHENON_INTERNAL_FOR_FLAG(Conserved) \
+  /** intensive variable */ \
+  PARTHENON_INTERNAL_FOR_FLAG(Intensive) \
+  /** added to restart dump */ \
+  PARTHENON_INTERNAL_FOR_FLAG(Restart) \
+  /** added to graphics dumps */ \
+  PARTHENON_INTERNAL_FOR_FLAG(Graphics) \
+  /** is specified per-sparse index */ \
+  PARTHENON_INTERNAL_FOR_FLAG(Sparse) \
+  /** is an independent, evolved variable */ \
+  PARTHENON_INTERNAL_FOR_FLAG(Independent) \
+  /** is a derived quantity (ignored) */ \
+  PARTHENON_INTERNAL_FOR_FLAG(Derived) \
+  /** only one copy even if multiple stages */ \
+  PARTHENON_INTERNAL_FOR_FLAG(OneCopy) \
+  /** Do boundary communication */ \
+  PARTHENON_INTERNAL_FOR_FLAG(FillGhost) \
+  /** Communication arrays are a copy: hint to destructor */ \
+  PARTHENON_INTERNAL_FOR_FLAG(SharedComms)
+
 namespace parthenon {
+
+namespace internal {
+  enum class MetadataInternal {
+    // declare all the internal flags in an enum so that their values are unique and kept up to date
+#define PARTHENON_INTERNAL_FOR_FLAG(name) name,
+    PARTHENON_INTERNAL_FOREACH_BUILTIN_FLAG
+    Max
+#undef PARTHENON_INTERNAL_FOR_FLAG
+  };
+}
 
 class Metadata;
 
@@ -35,16 +86,23 @@ class TensorShape {
   std::vector<int> shape_;
 };
 
-class Flag {
+class MetadataFlag {
   friend class Metadata;
 
 public:
-  constexpr bool operator==(Flag const &other) const {
+  constexpr bool operator==(MetadataFlag const &other) const {
     return flag_ == other.flag_;
   }
+
+#ifdef CATCH_VERSION_MAJOR
+  // Should never be used for application code - only exposed for testing.
+  constexpr int FlagValue() const {
+    return flag_;
+  }
+#endif
 private:
-  // Flag can only be instantiated by Metadata
-  constexpr explicit Flag(int flag) : flag_(flag) {}
+  // MetadataFlag can only be instantiated by Metadata
+  constexpr explicit MetadataFlag(int flag) : flag_(flag) {}
 
   int flag_;
 };
@@ -63,37 +121,20 @@ class Metadata {
     return std::tie(bits_, shape_, sparse_id_);
   }
  public:
-  // Apparently defining the class in-line results in the constructor being undefined at the time
-  // time when the compiler is evaluating the constexpr definitions for the static flags.
-  // Therefore, Flag is defined outside Metadata and then re-exported.
-  using Flag = Flag;
-
   /// The flags refer to the different attributes that a variable can
   /// have.  These include the topology, IO, advection, conservation,
-  /// whether it is sparse, etc.  This is designed to be easily extensible.
-  
-  constexpr static Flag Ignore      = Flag( 0); ///<  0: bit 0 is ignored
-  constexpr static Flag None        = Flag( 1); ///<  1: no topology specified
-  constexpr static Flag Cell        = Flag( 2); ///<  2: cell variable
-  constexpr static Flag Face        = Flag( 3); ///<  3: face variable
-  constexpr static Flag Edge        = Flag( 4); ///<  4: edge variable
-  constexpr static Flag Node        = Flag( 5); ///<  5: node variable
-  constexpr static Flag Vector      = Flag( 6); ///<  6: a vector quantity, i.e. a rank 1 contravariant tensor
-  constexpr static Flag Tensor      = Flag( 7); ///<  7: a rank-2 tensor
-  constexpr static Flag Advected    = Flag( 8); ///<  8: advected variable
-  constexpr static Flag Conserved   = Flag( 9); ///<  9: conserved variable
-  constexpr static Flag Intensive   = Flag(10); ///< 10: intensive variable
-  constexpr static Flag Restart     = Flag(11); ///< 11: added to restart dump
-  constexpr static Flag Graphics    = Flag(12); ///< 12: added to graphics dumps
-  constexpr static Flag Sparse      = Flag(13); ///< 13: is specified per-sparse index
-  constexpr static Flag Independent = Flag(14); ///< 14: is an independent, evolved variable
-  constexpr static Flag Derived     = Flag(15); ///< 15: is a derived quantity (ignored)
-  constexpr static Flag OneCopy     = Flag(16); ///< 16: only one copy even if multiple stages
-  constexpr static Flag FillGhost   = Flag(17); ///< 17: Do boundary communication
-  constexpr static Flag SharedComms = Flag(18); ///< 18: Communication arrays are a copy: hint to destructor
+  /// whether it sparse, etc.  This is designed to be easily extensible.
 
-  // `max` must always be the final flag - place all new flags prior to this flag
-  static constexpr Flag Max = Flag(19);
+
+  // this wraps all the built-in flags in the `MetadataFlag` type so that using these flags is
+  // type-safe.
+#define PARTHENON_INTERNAL_FOR_FLAG(name) \
+    constexpr static MetadataFlag name = \
+      MetadataFlag(static_cast<int>(::parthenon::internal::MetadataInternal::name));
+
+    PARTHENON_INTERNAL_FOREACH_BUILTIN_FLAG
+
+#undef PARTHENON_INTERNAL_FOR_FLAG
 
   /// Default constructor override
   Metadata() : sparse_id_(-1),
@@ -102,14 +143,14 @@ class Metadata {
 
   /// returns a new Metadata instance with set bits,
   /// set sparse_id, and fourth dimension
-  explicit Metadata(const std::vector<Flag>& bits) :
+  explicit Metadata(const std::vector<MetadataFlag>& bits) :
     sparse_id_(-1),
     shape_({1}) {
     SetMultiple(bits);
   }
 
   /// returns a metadata with bits and shape set
-  explicit Metadata(const std::vector<Flag>& bits,
+  explicit Metadata(const std::vector<MetadataFlag>& bits,
                     std::vector<int> shape) :
     sparse_id_(-1),
     shape_(shape) {
@@ -117,7 +158,7 @@ class Metadata {
   }
 
   /// returns a metadata with bits and sparse id set
-  explicit Metadata(const std::vector<Flag>& bits,
+  explicit Metadata(const std::vector<MetadataFlag>& bits,
                     const int sparse_id) :
     sparse_id_(sparse_id),
     shape_({1}) {
@@ -125,7 +166,7 @@ class Metadata {
   }
 
   /// returns a metadata with bits, shape, and sparse ID set
-  explicit Metadata(const std::vector<Flag>& bits,
+  explicit Metadata(const std::vector<MetadataFlag>& bits,
                     const int sparse_id,
                     std::vector<int> shape) :
     sparse_id_(sparse_id),
@@ -134,17 +175,17 @@ class Metadata {
   }
 
   // Static routines
-  static Flag AllocateNewFlag();
+  static MetadataFlag AllocateNewFlag();
 
   // Individual flag setters
-  void Set(const Flag f) { DoBit(f, true); }             ///< Set specific bit
-  void Unset(const Flag f) { DoBit(f, false); }          ///< Unset specific bit
+  void Set(const MetadataFlag f) { DoBit(f, true); }             ///< Set specific bit
+  void Unset(const MetadataFlag f) { DoBit(f, false); }          ///< Unset specific bit
 
   /*--------------------------------------------------------*/
   // Getters for attributes
   /*--------------------------------------------------------*/
   /// returns the topological location of variable
-  Flag Where() const {
+  MetadataFlag Where() const {
     if (IsSet(Cell)) {
       return Cell;
     } else if (IsSet(Face)) {
@@ -177,14 +218,14 @@ class Metadata {
   /**
    * @brief Returns true if any flag is set
    */
-  bool AnyFlagsSet(std::vector<Flag> const &flags) const {
-    return std::any_of(flags.begin(), flags.end(), [this](Flag const &f) {
+  bool AnyFlagsSet(std::vector<MetadataFlag> const &flags) const {
+    return std::any_of(flags.begin(), flags.end(), [this](MetadataFlag const &f) {
       return IsSet(f);
     });
   }
 
   /// returns true if bit is set, false otherwise
-  bool IsSet(const Flag bit) const { return bits_[bit.flag_]; }
+  bool IsSet(const MetadataFlag bit) const { return bits_[bit.flag_]; }
 
   // Operators
   bool operator==(const Metadata &b) const {
@@ -210,7 +251,7 @@ private:
   /*--------------------------------------------------------*/
   // Setters for the different attributes of metadata
   /*--------------------------------------------------------*/
-  void SetWhere(Flag x) {
+  void SetWhere(MetadataFlag x) {
     UnsetMultiple({Cell, Face, Edge, Node, None});
     if ( x == Cell )      {
       DoBit(Cell, true);
@@ -230,8 +271,8 @@ private:
     /// Set multiple flags at the same time.
     /// Takes a comma separated set of flags from the enum above
     ///
-    /// e.g. set({face, advected, conserved, sparse})
-  void SetMultiple(const std::vector<Flag> &theAttributes) {
+    /// e.g. set({Face, Advected, Conserved, Sparse})
+  void SetMultiple(const std::vector<MetadataFlag> &theAttributes) {
     int numTopo = 0;
     for (auto &a : theAttributes) {
       if ( IsTopology(a) ) { // topology flags are special
@@ -249,15 +290,15 @@ private:
   /// Unset multiple flags at the same time.
   /// Takes a comma separated set of flags from the enum above
   ///
-  /// e.g. unset({face, advected, conserved, sparse})
-  void UnsetMultiple(const std::vector<Flag> &theAttributes) {
+  /// e.g. unset({Face, Advected, Conserved, Sparse})
+  void UnsetMultiple(const std::vector<MetadataFlag> &theAttributes) {
     for (auto &a : theAttributes) {
       DoBit(a, false);
     }
   }
 
   /// if flag is true set bit, clears otherwise
-  void DoBit(Flag bit, const bool flag) {
+  void DoBit(MetadataFlag bit, const bool flag) {
     if (bit.flag_ >= bits_.size()) {
       bits_.resize(bit.flag_ + 1);
     }
@@ -266,7 +307,7 @@ private:
 
 
   /// Checks if the bit is a topology bit
-  bool IsTopology(Flag bit) const {
+  bool IsTopology(MetadataFlag bit) const {
     return (
             (bit == Cell) ||
             (bit == Face) ||
