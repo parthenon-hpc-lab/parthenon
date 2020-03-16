@@ -36,4 +36,5 @@ how to use them.
 | Name          | Handle                | Team              |
 |----------|--------------|------------|
 | Jonah Miller | @jonahm-LANL  | LANL Physics  |
+| Josh Dolence | @jdolence | LANL Physics |
 
