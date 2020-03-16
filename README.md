@@ -33,8 +33,7 @@ how to use them.
 
 # Contributors
 
-|----------|--------------|------------|
 | Name          | Handle                | Team              |
 |----------|--------------|------------|
 | Jonah Miller | @jonahm-LANL  | LANL Physics  |
-|----------|--------------|------------|
+
