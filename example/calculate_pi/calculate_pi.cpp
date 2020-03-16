@@ -14,48 +14,12 @@
 // C headers
 
 // C++ headers
-#include <cmath>      // sqrt()
-#include <csignal>    // ISO C/C++ signal() and sigset_t, sigemptyset() POSIX C extensions
-#include <cstdint>    // int64_t
-#include <cstdio>     // sscanf()
-#include <cstdlib>    // strtol
-#include <ctime>      // clock(), CLOCKS_PER_SEC, clock_t
-#include <exception>  // exception
-#include <iomanip>    // setprecision()
-#include <iostream>   // cout, endl
-#include <limits>     // max_digits10
-#include <new>        // bad_alloc
-#include <string>     // string
-#include <vector>
 
 // Parthenon headers
-#include "argument_parser.hpp"
-#include "athena.hpp"
-#include "globals.hpp"
-#include "interface/Update.hpp"
-#include "mesh/mesh.hpp"
-#include "outputs/io_wrapper.hpp"
-#include "outputs/outputs.hpp"
-#include "parameter_input.hpp"
 #include "parthenon_manager.hpp"
-#include "utils/utils.hpp"
 
 // Application headers
 #include "pi.hpp"
-
-// MPI/OpenMP headers
-#ifdef MPI_PARALLEL
-#include <mpi.h>
-#endif
-
-#ifdef OPENMP_PARALLEL
-#include <omp.h>
-#endif
-
-
-//----------------------------------------------------------------------------------------
-//! \fn int main(int argc, char *argv[])
-//  \brief Athena++ main program
 
 int main(int argc, char *argv[]) {
   using parthenon::ParthenonManager;
