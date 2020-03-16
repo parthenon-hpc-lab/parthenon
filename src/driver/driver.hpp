@@ -27,7 +27,7 @@ class Mesh;
 class ParameterInput;
 class Outputs;
 
-enum class DriverStatus {complete, failed};
+enum class DriverStatus {complete, timeout, failed};
 
 class Driver {
   public:
