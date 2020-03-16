@@ -30,3 +30,11 @@ Please see the [developer guidelines](CONTRIBUTING.md) for additional informatio
 
 Please see the [doc/](doc/README.md) folder for additional documentation on features and
 how to use them.
+
+# Contributors
+
+|----------|--------------|------------|
+| Name          | Handle                | Team              |
+|----------|--------------|------------|
+| Jonah Miller | @jonahm-LANL  | LANL Physics  |
+|----------|--------------|------------|
