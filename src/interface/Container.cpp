@@ -60,25 +60,21 @@ template <typename T>
 void Container<T>::Add(const std::string label,
                        const Metadata &metadata,
                        const std::vector<int> dims) {
-  std::array<int, 6> arrDims {1,1,1,1,1,1};
-  const int N = dims.size();
-  if ( N > 3 || N < 0 ) {
-    // too many dimensions
-    throw std::invalid_argument ("_addArray() must have dims between [1,5]");
-  }
-
+  std::array<int, 6> arrDims;
+  calcArrDims_(arrDims, dims);
   // branch on kind of variable
   if (metadata.hasMaterials()) {
     // add a material map variable
     s->_matVars.Add(*pmy_block, label, metadata, dims);
+  } else if ( metadata.where() == (Metadata::edge) ) {
+    // add an edge variable
+    std::cerr << "Accessing unliving edge array in stage" << std::endl;
+    std::exit(1);
+    // s->_edgeArray.push_back(
+    //     new EdgeVariable(label, metadata,
+    //                      pmy_block->ncells3, pmy_block->ncells2, pmy_block->ncells1));
+    return;
   } else if ( metadata.where() == (Metadata::face) ) {
-    // std::cerr << "Accessing unliving face array in stage" << std::endl;
-    // std::exit(1);
-    // // add a face variable
-    s->_faceArray.push_back(std::make_shared<FaceVariable>(label, metadata,
-							   pmy_block->ncells3,
-							   pmy_block->ncells2,
-							   pmy_block->ncells1));
     if ( !(metadata.isOneCopy()) ) {
       std::cerr << "Currently one one-copy face fields are supported"
 		<< std::endl;
@@ -88,32 +84,15 @@ void Container<T>::Add(const std::string label,
       std::cerr << "Ghost zones not yet supported for face fields" << std::endl;
       std::exit(1);
     }
-    return;
-  } else if ( metadata.where() == (Metadata::edge) ) {
-    // add an edge variable
-    std::cerr << "Accessing unliving edge array in stage" << std::endl;
-    std::exit(1);
-    // s->_edgeArray.push_back(
-    //     new EdgeVariable(label, metadata,
-    //                      pmy_block->ncells3, pmy_block->ncells2, pmy_block->ncells1));
+    // add a face variable
+    auto pfv = std::make_shared<FaceVariable>(label, metadata, arrDims);
+    s->_faceArray.push_back(pfv);
     return;
   } else if ( (metadata.where() == (Metadata::cell) ) ||
             (metadata.where() == (Metadata::node) )) {
-    if ( N > 3 ) {
-      // too many dimensions
-      throw std::invalid_argument ("_addArray() must have dims between [1,3]");
-    }
-
-    int nc1 = pmy_block->ncells1;
-    int nc2 = pmy_block->ncells2;
-    int nc3 = pmy_block->ncells3;
     if ( metadata.where() == (Metadata::node) ) {
-      nc1++; nc2++; nc3++;
+      arrDims[0]++; arrDims[1]++; arrDims[2]++;
     }
-    arrDims[0] = nc1;
-    arrDims[1] = nc2;
-    arrDims[2] = nc3;
-    for (int i=0; i<N; i++) {arrDims[i+3] = dims[i];}
 
     s->_varArray.push_back(std::make_shared<Variable<T>>(label, arrDims, metadata));
     if ( metadata.fillsGhost()) {
@@ -121,8 +100,7 @@ void Container<T>::Add(const std::string label,
     }
   } else {
     // plain old variable
-    if ( N > 6 || N < 1 ) {
-      // too many dimensions
+    if ( dims.size() > 6 || dims.size() < 1 ) {
       throw std::invalid_argument ("_addArray() must have dims between [1,5]");
     }
     for (int i=0; i<dims.size(); i++) {arrDims[5-i] = dims[i];}
@@ -593,6 +571,23 @@ int Container<T>::GetVariables(const std::vector<std::string>& names,
   } // (auto label : names)
 
   return index;
+}
+
+void Container::calcArrDims_(std::array<int, 6>& arrDims,
+			     const std::vector<int>& dims) {
+  const int N = dims.size();
+  if ( N > 3 || N < 0 ) {
+
+    
+    // too many dimensions
+    throw std::invalid_argument ("_addArray() must have dims between [1,5]");
+  }
+  for (int i = 0; i < 6; i++) arrDims[i] = 1;
+  arrDims[0] = pmy_block->ncells3;
+  arrDims[1] = pmy_block->ncells2;
+  arrDims[2] = pmy_block->ncells1;
+  for (int i=0; i<N; i++) {arrDims[i+3] = dims[i]; }
+  
 }
 
 template class Container<double>;

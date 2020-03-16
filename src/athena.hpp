@@ -109,15 +109,12 @@ struct FaceField {
             AthenaArray<Real>::DataStatus init=AthenaArray<Real>::DataStatus::allocated) :
       x1f(ncells3, ncells2, ncells1+1, init), x2f(ncells3, ncells2+1, ncells1, init),
       x3f(ncells3+1, ncells2, ncells1, init) {}
-  // TODO: is this a useful construct?
-  /*
-  FaceField(int ncells3, int ncells2, int ncells1, int vectorlength,
-            AthenaArray<Real>::DataStatus init=AthenaArray<Real>::DataStatus::allocated)
-    : x1f(ncells3, ncells2, ncells1+1, vectorlength, init)
-    , x2f(ncells3, ncells2+1, ncells1, vectorlength, init)
-    , x3f(ncells3+1, ncells2, ncells1, vectorlength, init)
+  FaceField(int ncells6, int ncells5, int ncells4, int ncells3, int ncells2, int ncells1,
+	    AthenaArray<Real>::DataStatus init=AthenaArray<Real>::DataStatus::allocated)
+    : x1f(ncells6, ncells5, ncells4, ncells3, ncells2, ncells1+1, init)
+    , x2f(ncells6, ncells5, ncells4, ncells3, ncells2+1, ncells1, init)
+    , x3f(ncells6, ncells5, ncells4, ncells3+1, ncells2, ncells1, init)
   {}
-  */
 };
 
 //----------------------------------------------------------------------------------------

@@ -167,9 +167,9 @@ struct FaceVariable : FaceField {
  public:
   /// Initialize a face variable
   FaceVariable(const std::string label, const Metadata &metadata,
-               const int ncells3, const int ncells2, const int ncells1,
+	       const std::array<int,6> ncells,
                const DATASTATUS init=DATASTATUS::allocated) :
-    FaceField(ncells3, ncells2, ncells1, init),
+    FaceField(ncells[5], ncells[4], ncells[3], ncells[2], ncells[1], ncells[0], init),
     _label(label),
     _m(metadata) {
     if ( metadata.hasMaterials() ) {
@@ -182,9 +182,11 @@ struct FaceVariable : FaceField {
     FaceField(0,0,0,DATASTATUS::allocated),
     _label(label),
     _m(src.metadata()) {
-    this->x1f.InitWithShallowSlice(src.x1f, 3, 0, src.x1f.GetDim3());
-    this->x2f.InitWithShallowSlice(src.x2f, 3, 0, src.x2f.GetDim3());
-    this->x3f.InitWithShallowSlice(src.x3f, 3, 0, src.x3f.GetDim3());
+    int dim = 6;
+    int start = 0;
+    this->x1f.InitWithShallowSlice(src.x1f, dim, start, src.x1f.GetDim6());
+    this->x2f.InitWithShallowSlice(src.x2f, dim, start, src.x2f.GetDim6());
+    this->x3f.InitWithShallowSlice(src.x3f, dim, start, src.x3f.GetDim6());
   }
 
   ///< retrieve label for variable
@@ -204,7 +206,28 @@ struct FaceVariable : FaceField {
     if (i == 3) return (this->x3f);
     throw std::invalid_argument("Face must be x1f, x2f, or x3f");
   }
-  // TODO: more than 3D?
+  Real& operator()(int dir,
+		   int nx6, int nx5, int nx4,
+		   int nx3, int nx2, int nx1) {
+    if (dir == 1) return x1f(nx6, nx5, nx4, nx3, nx2, nx1);
+    if (dir == 2) return x2f(nx6, nx5, nx4, nx3, nx2, nx1);
+    if (dir == 3) return x3f(nx6, nx5, nx4, nx3, nx2, nx1);
+    throw std::invalid_argument("Face must be x1f, x2f, or x3f");
+  }
+  Real& operator()(int dir,
+		   int nx5, int nx4, int nx3, int nx2, int nx1) {
+    if (dir == 1) return x1f(nx5, nx4, nx3, nx2, nx1);
+    if (dir == 2) return x2f(nx5, nx4, nx3, nx2, nx1);
+    if (dir == 3) return x3f(nx5, nx4, nx3, nx2, nx1);
+    throw std::invalid_argument("Face must be x1f, x2f, or x3f");
+  }
+  Real& operator()(int dir,
+		   int nx4, int nx3, int nx2, int nx1) {
+    if (dir == 1) return x1f(nx4, nx3, nx2, nx1);
+    if (dir == 2) return x2f(nx4, nx3, nx2, nx1);
+    if (dir == 3) return x3f(nx4, nx3, nx2, nx1);
+    throw std::invalid_argument("Face must be x1f, x2f, or x3f");
+  }
   Real& operator()(int dir, int k, int j, int i) {
     if (dir == 1) return x1f(k,j,i);
     if (dir == 2) return x2f(k,j,i);

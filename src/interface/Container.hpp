@@ -368,6 +368,9 @@ class Container {
   int debug=0;
   std::map< std::string,std::shared_ptr<Stage<T> >> stages;
   std::shared_ptr<Stage<T>> s;
+
+  void calcArrDims_(std::array<int, 6>& arrDims,
+		    const std::vector<int>& dims);
 };
 
 }
