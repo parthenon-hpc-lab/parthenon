@@ -91,7 +91,7 @@ TaskList CalculatePi::MakeTaskList(MeshBlock *pmb) {
   TaskList tl;
 
   // make some lambdas that over overkill here but clean things up for more realistic code
-  auto AddBlockTask = [pmb,&tl](BlockTaskFunc* func, TaskID dependencies) {
+  auto AddBlockTask = [pmb,&tl](BlockTaskFunc func, TaskID dependencies) {
     return tl.AddTask<BlockTask>(func, dependencies, pmb);
   };
 
