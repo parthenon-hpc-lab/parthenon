@@ -114,6 +114,7 @@ add_library(parthenon
 
   globals.cpp
   parameter_input.cpp
+  parthenon_manager.cpp
 )
 target_compile_features(parthenon PUBLIC cxx_std_14)
 

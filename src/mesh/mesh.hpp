@@ -82,12 +82,12 @@ class MeshBlock {
 public:
   MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_size,
             BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
-            properties_t& mats,
+            Properties_t& mats,
             int igflag,
             bool ref_flag = false);
   MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
-            properties_t & mats,
-            physics_t& phys,
+            Properties_t & mats,
+            Packages_t& phys,
             LogicalLocation iloc,
             RegionSize input_block, BoundaryFlag *input_bcs, double icost,
             char *mbdata, int igflag);
@@ -96,8 +96,8 @@ public:
 	    LogicalLocation iloc,
 	    RegionSize input_block,
 	    BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
-	    properties_t& mats,
-	    physics_t& phys,
+	    Properties_t& mats,
+	    Packages_t& phys,
 	    int igflag, bool ref_flag=false);
   ~MeshBlock();
 
@@ -133,8 +133,8 @@ public:
   // The User defined containers
   Container<Real> real_container;
 
-  properties_t materials;
-  physics_t physics;
+  Properties_t materials;
+  Packages_t physics;
   std::unique_ptr<MeshBlockApplicationData> app;
 
 	  // mesh-related objects
@@ -218,11 +218,11 @@ class Mesh {
 public:
   // 2x function overloads of ctor: normal and restarted simulation
   Mesh(ParameterInput *pin,
-      properties_t &materials,
-      physics_t& physics, int test_flag=0);
+      Properties_t &materials,
+      Packages_t& physics, int test_flag=0);
   Mesh(ParameterInput *pin, IOWrapper &resfile,
-      properties_t &materials,
-      physics_t& physics, int test_flag=0);
+      Properties_t &materials,
+      Packages_t& physics, int test_flag=0);
   ~Mesh();
 
   // accessors
@@ -247,8 +247,8 @@ public:
 
   // ptr to first MeshBlock (node) in linked list of blocks belonging to this MPI rank:
   MeshBlock *pblock;
-  properties_t materials;
-  physics_t physics;
+  Properties_t materials;
+  Packages_t physics;
 
   AthenaArray<Real> *ruser_mesh_data;
   AthenaArray<int> *iuser_mesh_data;
