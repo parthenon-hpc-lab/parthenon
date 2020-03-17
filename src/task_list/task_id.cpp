@@ -83,7 +83,7 @@ void TaskID::SetFinished(const TaskID& rhs) {
     for (int i=n_myblocks; i<n_srcblocks; i++) {
       bitblocks.push_back(rhs.bitblocks[i]);
     }
-  }  
+  }
 }
 
 bool TaskID::operator== (const TaskID& rhs) const {

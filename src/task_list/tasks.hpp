@@ -11,16 +11,17 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef BETTER_TASK_HPP
-#define BETTER_TASK_HPP
+#ifndef TASK_LIST_TASKS_HPP_
+#define TASK_LIST_TASKS_HPP_
 
-#include <list>
-#include <vector>
 #include <bitset>
-#include <string>
+#include <iostream>
+#include <list>
 #include <memory>
 #include <stdexcept>
-#include <iostream>
+#include <string>
+#include <utility>
+#include <vector>
 
 namespace parthenon {
 
@@ -34,7 +35,8 @@ using SimpleTaskFunc = TaskStatus ();
 using BlockTaskFunc = TaskStatus (MeshBlock*);
 using BlockStageTaskFunc = TaskStatus (MeshBlock*, int);
 using BlockStageNamesTaskFunc = TaskStatus (MeshBlock*, int, std::vector<std::string>&);
-using BlockStageNamesIntegratorTaskFunc = TaskStatus (MeshBlock*, int, std::vector<std::string>&, Integrator*);
+using BlockStageNamesIntegratorTaskFunc =
+        TaskStatus (MeshBlock*, int, std::vector<std::string>&, Integrator*);
 
 //----------------------------------------------------------------------------------------
 //! \class TaskID
@@ -43,159 +45,170 @@ using BlockStageNamesIntegratorTaskFunc = TaskStatus (MeshBlock*, int, std::vect
 #define BITBLOCK 64
 class TaskID {
  public:
-   TaskID() = default;
-   explicit TaskID(unsigned int id);
+  TaskID() = default;
+  explicit TaskID(unsigned int id);
 
-   void Set(unsigned int id);
-   void clear();
-   bool CheckDependencies(const TaskID& rhs) const;
-   void SetFinished(const TaskID& rhs);
-   bool operator== (const TaskID& rhs) const;
-   TaskID operator| (const TaskID& rhs) const;
-   std::string to_string();
+  void Set(unsigned int id);
+  void clear();
+  bool CheckDependencies(const TaskID& rhs) const;
+  void SetFinished(const TaskID& rhs);
+  bool operator== (const TaskID& rhs) const;
+  TaskID operator| (const TaskID& rhs) const;
+  std::string to_string();
  private:
-   std::vector<std::bitset<BITBLOCK>> bitblocks;
+  std::vector<std::bitset<BITBLOCK>> bitblocks;
 };
 
 class BaseTask {
-  public:
-    BaseTask(TaskID id, TaskID dep) : _myid(id), _dep(dep) {}
-    virtual ~BaseTask() = default;
-    virtual TaskStatus operator () () = 0;
-    TaskID GetID() { return _myid; }
-    TaskID GetDependency() { return _dep; }
-    void SetComplete() { _complete = true; }
-    bool IsComplete() { return _complete; }
-  protected:
-    TaskID _myid, _dep;
-    bool lb_time, _complete=false;
+ public:
+  BaseTask(TaskID id, TaskID dep) : _myid(id), _dep(dep) {}
+  virtual ~BaseTask() = default;
+  virtual TaskStatus operator () () = 0;
+  TaskID GetID() { return _myid; }
+  TaskID GetDependency() { return _dep; }
+  void SetComplete() { _complete = true; }
+  bool IsComplete() { return _complete; }
+ protected:
+  TaskID _myid, _dep;
+  bool lb_time, _complete=false;
 };
 
 class SimpleTask : public BaseTask {
-  public:
-    SimpleTask(TaskID id, SimpleTaskFunc* func, TaskID dep) : _func(func), BaseTask(id, dep) {}
-    TaskStatus operator () () { return _func(); }
-  private:
-    SimpleTaskFunc* _func;
+ public:
+  SimpleTask(TaskID id, SimpleTaskFunc* func, TaskID dep)
+    : _func(func), BaseTask(id, dep) {}
+  TaskStatus operator () () { return _func(); }
+ private:
+  SimpleTaskFunc* _func;
 };
 
 class BlockTask : public BaseTask {
-  public:
-    BlockTask(TaskID id, BlockTaskFunc* func, TaskID dep, MeshBlock *pmb)
-        : _func(func), _pblock(pmb), BaseTask(id, dep) {}
-    TaskStatus operator () () { return _func(_pblock); }
-  private:
-    BlockTaskFunc* _func;
-    MeshBlock *_pblock;
+ public:
+  BlockTask(TaskID id, BlockTaskFunc* func, TaskID dep, MeshBlock *pmb)
+      : _func(func), _pblock(pmb), BaseTask(id, dep) {}
+  TaskStatus operator () () { return _func(_pblock); }
+ private:
+  BlockTaskFunc* _func;
+  MeshBlock *_pblock;
 };
 
 class BlockStageTask : public BaseTask {
-  public:
-    BlockStageTask(TaskID id, BlockStageTaskFunc* func, TaskID dep, MeshBlock *pmb, int stage)
-        : _func(func), _pblock(pmb), _stage(stage), BaseTask(id,dep) { }
-    TaskStatus operator () () { return _func(_pblock, _stage); }
-  private:
-    BlockStageTaskFunc* _func;
-    MeshBlock *_pblock;
-    int _stage;
+ public:
+  BlockStageTask(
+    TaskID id, BlockStageTaskFunc* func, TaskID dep, MeshBlock *pmb, int stage
+  )
+      : _func(func), _pblock(pmb), _stage(stage), BaseTask(id,dep) { }
+  TaskStatus operator () () { return _func(_pblock, _stage); }
+ private:
+  BlockStageTaskFunc* _func;
+  MeshBlock *_pblock;
+  int _stage;
 };
 
 class BlockStageNamesTask : public BaseTask {
-  public:
-    BlockStageNamesTask(TaskID id, BlockStageNamesTaskFunc* func, TaskID dep, MeshBlock *pmb, int stage, const std::vector<std::string>& sname)
-        : _func(func), _pblock(pmb), _stage(stage), _sname(sname), BaseTask(id,dep) { }
-    TaskStatus operator () () { return _func(_pblock, _stage, _sname); }
-  private:
-    BlockStageNamesTaskFunc* _func;
-    MeshBlock *_pblock;
-    int _stage;
-    std::vector<std::string> _sname;
+ public:
+  BlockStageNamesTask(
+    TaskID id, BlockStageNamesTaskFunc* func, TaskID dep, MeshBlock *pmb, int stage,
+    const std::vector<std::string>& sname
+  )
+      : _func(func), _pblock(pmb), _stage(stage), _sname(sname), BaseTask(id,dep) { }
+  TaskStatus operator () () { return _func(_pblock, _stage, _sname); }
+ private:
+  BlockStageNamesTaskFunc* _func;
+  MeshBlock *_pblock;
+  int _stage;
+  std::vector<std::string> _sname;
 };
 
 class BlockStageNamesIntegratorTask : public BaseTask {
-  public:
-    BlockStageNamesIntegratorTask(TaskID id, BlockStageNamesIntegratorTaskFunc* func, TaskID dep, MeshBlock *pmb, int stage, const std::vector<std::string>& sname, Integrator* integ)
-        : _func(func), _pblock(pmb), _stage(stage), _sname(sname), _int(integ), BaseTask(id,dep) { }
-    TaskStatus operator () () { return _func(_pblock, _stage, _sname, _int); }
-  private:
-    BlockStageNamesIntegratorTaskFunc* _func;
-    MeshBlock *_pblock;
-    int _stage;
-    std::vector<std::string> _sname;
-    Integrator *_int;
+ public:
+  BlockStageNamesIntegratorTask(TaskID id, BlockStageNamesIntegratorTaskFunc* func,
+    TaskID dep, MeshBlock *pmb, int stage, const std::vector<std::string>& sname,
+    Integrator* integ
+  )
+      : _func(func), _pblock(pmb), _stage(stage), _sname(sname), _int(integ),
+        BaseTask(id,dep) { }
+  TaskStatus operator () () { return _func(_pblock, _stage, _sname, _int); }
+ private:
+  BlockStageNamesIntegratorTaskFunc* _func;
+  MeshBlock *_pblock;
+  int _stage;
+  std::vector<std::string> _sname;
+  Integrator *_int;
 };
 
 class TaskList {
-  public:
-    bool IsComplete() { return _task_list.empty(); }
-    int Size() { return _task_list.size(); }
-    void Reset() {
-      _tasks_added = 0;
-      _task_list.clear();
-      _dependencies.clear();
-      _tasks_completed.clear();
+ public:
+  bool IsComplete() { return _task_list.empty(); }
+  int Size() { return _task_list.size(); }
+  void Reset() {
+    _tasks_added = 0;
+    _task_list.clear();
+    _dependencies.clear();
+    _tasks_completed.clear();
+  }
+  bool IsReady() {
+    for (auto & l : _dependencies) {
+      if (!l->IsComplete()) {
+        return false;
+      }
     }
-    bool IsReady() {
-      for (auto & l : _dependencies) {
-        if (!l->IsComplete()) {
-          return false;
+    return true;
+  }
+  void MarkTaskComplete(TaskID id) { _tasks_completed.SetFinished(id); }
+  int ClearComplete() {
+    auto task = _task_list.begin();
+    int completed = 0;
+    while (task != _task_list.end()) {
+      if ((*task)->IsComplete()) {
+        task = _task_list.erase(task);
+        completed++;
+      } else {
+        ++task;
+      }
+    }
+    return completed;
+  }
+  TaskListStatus DoAvailable() {
+    for (auto & task : _task_list) {
+      auto dep = task->GetDependency();
+      if(_tasks_completed.CheckDependencies(dep)) {
+        TaskStatus status = (*task)();
+        if (status == TaskStatus::success) {
+          task->SetComplete();
+          MarkTaskComplete(task->GetID());
         }
       }
-      return true;
     }
-    void MarkTaskComplete(TaskID id) { _tasks_completed.SetFinished(id); }
-    int ClearComplete() {
-      auto task = _task_list.begin();
-      int completed = 0;
-      while (task != _task_list.end()) {
-        if ((*task)->IsComplete()) {
-          task = _task_list.erase(task);
-          completed++;
-        } else {
-          ++task;
-        }
-      }
-      return completed;
+    int completed = ClearComplete();
+    if (IsComplete()) return TaskListStatus::complete;
+    return TaskListStatus::running;
+  }
+  template<typename T, class...Args>
+  TaskID AddTask(Args... args) {
+    TaskID id(_tasks_added+1);
+    _task_list.push_back(
+      std::make_unique<T>(id , std::forward<Args>(args)...)
+    );
+    _tasks_added++;
+    return id;
+  }
+  void Print() {
+    int i = 0;
+    std::cout << "TaskList::Print():" << std::endl;
+    for (auto& t : _task_list) {
+      std::cout << "  " << i << "  " << t->GetID().to_string() << "  "
+                << t->GetDependency().to_string() << std::endl;
+      i++;
     }
-    TaskListStatus DoAvailable() {
-      for (auto & task : _task_list) {
-        auto dep = task->GetDependency();
-        if(_tasks_completed.CheckDependencies(dep)) {
-          TaskStatus status = (*task)();
-          if (status == TaskStatus::success) {
-            task->SetComplete();
-            MarkTaskComplete(task->GetID());
-          }
-        }
-      }
-      int completed = ClearComplete();
-      if (IsComplete()) return TaskListStatus::complete;
-      return TaskListStatus::running;
-    }
-    template<typename T, class...Args>
-    TaskID AddTask(Args... args) {
-      TaskID id(_tasks_added+1);
-      _task_list.push_back(
-        std::make_unique<T>(id , std::forward<Args>(args)...)
-      );
-      _tasks_added++;
-      return id;
-    }
-    void Print() {
-      int i = 0;
-      std::cout << "TaskList::Print():" << std::endl;
-      for (auto& t : _task_list) {
-        std::cout << "  " << i << "  " << t->GetID().to_string() << "  " << t->GetDependency().to_string() << std::endl;
-        i++;
-      }
-    }
+  }
 
-  protected:
-    std::list<std::unique_ptr<BaseTask>> _task_list;
-    int _tasks_added=0;
-    std::vector<TaskList*> _dependencies;
-    TaskID _tasks_completed;
+ protected:
+  std::list<std::unique_ptr<BaseTask>> _task_list;
+  int _tasks_added=0;
+  std::vector<TaskList*> _dependencies;
+  TaskID _tasks_completed;
 };
 
 } // namespace parthenon
-#endif
+#endif // TASK_LIST_TASKS_HPP_
