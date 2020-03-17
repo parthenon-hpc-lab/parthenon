@@ -1,5 +1,6 @@
 # Object and binary directories
 build/
+bin/
 
 # Visualization package files
 .smhist
@@ -26,4 +27,4 @@ build/
 
 # User editor files
 .vscode
-compile_commands.json
+compile_commands.jsonbin
