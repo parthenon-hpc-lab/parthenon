@@ -573,8 +573,9 @@ int Container<T>::GetVariables(const std::vector<std::string>& names,
   return index;
 }
 
-void Container::calcArrDims_(std::array<int, 6>& arrDims,
-			     const std::vector<int>& dims) {
+template<typename T>
+void Container<T>::calcArrDims_(std::array<int, 6>& arrDims,
+				const std::vector<int>& dims) {
   const int N = dims.size();
   if ( N > 3 || N < 0 ) {
 
