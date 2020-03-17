@@ -35,4 +35,8 @@ class FaceFieldExample : public Driver {
 };
 
 } // namespace parthenon
+
+namespace FaceFields {
+  parthenon::TaskStatus fill_faces(parthenon::MeshBlock* pmb);
+}
 #endif
