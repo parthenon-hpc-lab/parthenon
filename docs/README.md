@@ -47,3 +47,10 @@ A description of how to enable and extend the AMR capabilities of Parthenon is p
 ### Tasks
 
 The tasking capabilities in Parthenon are documented [here](tasks.md).
+
+### Anonymous Variables
+[Full Documentation](interface/Metadata.md)
+
+Parthenon supports anonymous field variables. These variables can be registered
+with Parthenon to have the framework automatically manage the field, including
+updating ghost cells, prolonging, and restricting.
