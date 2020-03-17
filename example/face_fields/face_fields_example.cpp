@@ -17,15 +17,12 @@
 #include <mpi.h>
 #endif
 #include "face_fields_example.hpp"
+#include "parthenon_manager.hpp"
 
 namespace parthenon {
 
-// can be used to set global properties that all meshblocks want to know about
-void ProcessProperties(properties_t& properties, ParameterInput *pin) {}
-
-// Usually you would call "initialize" functions from several physics packages here.
-// Since there's only one, we use only one.
-void InitializePhysics(physics_t& physics, ParameterInput *pin) {
+Packages_t ParthenonManager::ProcessPackages(std::unique_ptr<ParameterInput>& pin) {
+  Packages_t packages;
   auto package = std::make_shared<StateDescriptor>("FaceFieldExample");
 
   Params& params = package->AllParams();
@@ -48,7 +45,8 @@ void InitializePhysics(physics_t& physics, ParameterInput *pin) {
   m = Metadata({Metadata::face, Metadata::derived, Metadata::oneCopy});
   package->AddField("f.f.face_averaged_value", m, DerivedOwnership::unique);
   
-  physics["FaceFieldExample"] = package;
+  packages["FaceFieldExample"] = package;
+  return packages;
 }
 
 void MeshBlock::ProblemGenerator(ParameterInput *pin) {
@@ -64,9 +62,9 @@ DriverStatus FaceFieldExample::Execute() {
 TaskList FaceFieldExample::MakeTaskList(MeshBlock *pmb) {
   // make a task list for this mesh block
   TaskList tl;
-
   TaskID none(0);
-  auto fill_faces = tl.AddTask([](MeshBlock* pmb)->TaskStatus {
+
+  auto fill_faces = tl.AddTask<BlockTask>([](MeshBlock* pmb)->TaskStatus {
       auto physics = pmb->physics["FaceFieldExample"];
       Real px = physics->Param<Real>("px");
       Real py = physics->Param<Real>("py");
@@ -111,7 +109,7 @@ TaskList FaceFieldExample::MakeTaskList(MeshBlock *pmb) {
     },
     none, pmb);
 
-  auto interpolate = tl.AddTask([](MeshBlock* pmb)->TaskStatus {
+  auto interpolate = tl.AddTask<BlockTask>([](MeshBlock* pmb)->TaskStatus {
       Container<Real>& rc = pmb->real_container;
       int is = pmb->is; int js = pmb->js; int ks = pmb->ks;
       int ie = pmb->ie; int je = pmb->je; int ke = pmb->ke;

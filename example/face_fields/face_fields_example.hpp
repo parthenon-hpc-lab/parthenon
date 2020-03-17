@@ -34,8 +34,5 @@ class FaceFieldExample : public Driver {
    DriverStatus Execute();
 };
 
-void ProcessProperties(properties_t& properties, ParameterInput *pin);
-void InitializePhysics(physics_t& physics, ParameterInput *pin); 
-
 } // namespace parthenon
 #endif
