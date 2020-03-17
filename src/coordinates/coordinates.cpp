@@ -25,6 +25,7 @@
 // Athena++ headers
 #include "bvals/bvals.hpp"
 #include "parameter_input.hpp"
+#include "mesh/mesh.hpp"
 #include "coordinates.hpp"
 
 namespace parthenon {

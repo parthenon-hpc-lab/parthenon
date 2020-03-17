@@ -36,7 +36,6 @@
 #include "bvals/bvals.hpp"
 #include "outputs/io_wrapper.hpp"
 #include "parameter_input.hpp"
-#include "task_list/tasks.hpp"
 #include "utils/interp_table.hpp"
 #include "interface/Container.hpp"
 #include "interface/PropertiesInterface.hpp"
@@ -76,7 +75,6 @@ inline MeshBlockApplicationData::~MeshBlockApplicationData() {}
 class MeshBlock {
   friend class RestartOutput;
   friend class Mesh;
-  friend class TaskList;
 #ifdef HDF5OUTPUT
   friend class ATHDF5Output;
 #endif

@@ -38,9 +38,13 @@ public:
   // can't copy because we have a map of unique_ptr
   Params(const Params &p) = delete;
 
-  // Adds object based on type of the value
-  // deletes any previous object
+  /// Adds object based on type of the value
+  ///
+  /// Throws an error if the key is already in use
   template <typename T> void Add(const std::string &key, T value) {
+    if(hasKey(key)){
+      throw std::invalid_argument("Key value pair already exists, cannot add key.");
+    }
     myParams_[key] = std::unique_ptr<Params::base_t>(new object_t<T>(value));
     myTypes_[key] = std::string(typeid(value).name());
   }

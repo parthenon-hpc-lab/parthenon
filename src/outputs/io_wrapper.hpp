@@ -27,9 +27,12 @@
 // Athena++ headers
 #include "athena.hpp"
 
-namespace parthenon {
 #ifdef MPI_PARALLEL
 #include <mpi.h>
+#endif
+
+namespace parthenon {
+#ifdef MPI_PARALLEL
 using  IOWrapperFile = MPI_File;
 #else
 using  IOWrapperFile = FILE*;
@@ -68,5 +71,7 @@ class IOWrapper {
   MPI_Comm comm_;
 #endif
 };
-}
+
+} // namespace parthenon
+
 #endif // OUTPUTS_IO_WRAPPER_HPP_
