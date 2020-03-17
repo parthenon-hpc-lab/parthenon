@@ -46,9 +46,9 @@ using BlockStageNamesIntegratorTaskFunc =
 class TaskID {
  public:
   TaskID() = default;
-  explicit TaskID(unsigned int id);
+  explicit TaskID(int id);
 
-  void Set(unsigned int id);
+  void Set(int id);
   void clear();
   bool CheckDependencies(const TaskID& rhs) const;
   void SetFinished(const TaskID& rhs);

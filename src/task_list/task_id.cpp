@@ -25,11 +25,12 @@
 
 namespace parthenon {
 // TaskID constructor. Default id = 0.
-TaskID::TaskID(unsigned int id) {
+TaskID::TaskID(int id) {
   Set(id);
 }
 
-void TaskID::Set(unsigned int id) {
+void TaskID::Set(int id) {
+  if (id < 0) throw std::invalid_argument("TaskID requires integer arguments >= 0");
   if (id == 0) return;
   id--;
   const int n_myblocks = id/BITBLOCK + 1;
