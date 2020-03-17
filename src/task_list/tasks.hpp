@@ -22,8 +22,6 @@
 #include <stdexcept>
 #include <iostream>
 
-#define MAX_TASKS 64
-
 namespace parthenon {
 
 class MeshBlock;
@@ -42,24 +40,21 @@ using BlockStageNamesIntegratorTaskFunc = TaskStatus (MeshBlock*, int, std::vect
 //! \class TaskID
 //  \brief generalization of bit fields for Task IDs, status, and dependencies.
 
-class TaskID {  // POD but not aggregate (there is a user-provided ctor)
+#define BITBLOCK 64
+class TaskID {
  public:
-  TaskID() = default;
-  explicit TaskID(unsigned int id);
+   TaskID() = default;
+   explicit TaskID(unsigned int id);
 
-  void clear();
-  bool IsUnfinished(const TaskID& id) const;
-  bool CheckDependencies(const TaskID& dep) const;
-  void SetFinished(const TaskID& id);
-  std::bitset<MAX_TASKS> GetBitFld() const {return bitfld_;}
-
-  bool operator== (const TaskID& rhs) const;
-  TaskID operator| (const TaskID& rhs) const;
-
-  void Print(const std::string label = "");
-
+   void Set(unsigned int id);
+   void clear();
+   bool CheckDependencies(const TaskID& rhs) const;
+   void SetFinished(const TaskID& rhs);
+   bool operator== (const TaskID& rhs) const;
+   TaskID operator| (const TaskID& rhs) const;
+   std::string to_string();
  private:
-  std::bitset<MAX_TASKS> bitfld_;
+   std::vector<std::bitset<BITBLOCK>> bitblocks;
 };
 
 class BaseTask {
@@ -179,9 +174,6 @@ class TaskList {
     }
     template<typename T, class...Args>
     TaskID AddTask(Args... args) {
-      if (_tasks_added == MAX_TASKS) {
-        throw std::out_of_range("\n\nTrying to add a task but this would exceed MAX_TASKS.  Increase MAX_TASKS in task_list/tasks.hpp\n\n");
-      }
       TaskID id(_tasks_added+1);
       _task_list.push_back(
         std::make_unique<T>(id , std::forward<Args>(args)...)
@@ -193,7 +185,7 @@ class TaskList {
       int i = 0;
       std::cout << "TaskList::Print():" << std::endl;
       for (auto& t : _task_list) {
-        std::cout << "  " << i << "  " << t->GetID().GetBitFld().to_string() << "  " << t->GetDependency().GetBitFld().to_string() << std::endl;
+        std::cout << "  " << i << "  " << t->GetID().to_string() << "  " << t->GetDependency().to_string() << std::endl;
         i++;
       }
     }

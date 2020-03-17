@@ -17,93 +17,133 @@
 //! \file task_id.cpp
 //  \brief implementation of the TaskID class
 
-#include <iostream>
-#include "tasks.hpp"
+#include <bitset>
+#include <string>
+#include <utility>
 
-#define DEBUG_TASKID 0
+#include "tasks.hpp"
 
 namespace parthenon {
 // TaskID constructor. Default id = 0.
-
 TaskID::TaskID(unsigned int id) {
-  if (id > 0) bitfld_.set(id-1);
+  Set(id);
 }
 
-void TaskID::Print(const std::string label) {
-  std::cout << label << " " << bitfld_.to_string() << std::endl;
+void TaskID::Set(unsigned int id) {
+  if (id == 0) return;
+  id--;
+  const int n_myblocks = id/BITBLOCK + 1;
+  bitblocks.resize(n_myblocks);
+  bitblocks[n_myblocks-1].set(id%BITBLOCK);
 }
-
-//----------------------------------------------------------------------------------------
-//! \fn void TaskID::Clear()
-//  \brief Clear all the bits in the TaskID
 
 void TaskID::clear() {
-  bitfld_.reset();
+  for (auto & bset : bitblocks) {
+    bset.reset();
+  }
 }
 
-//----------------------------------------------------------------------------------------
-//! \fn bool TaskID::IsUnfinished(const TaskID& id)
-//  \brief Check if the task with the given ID is unfinished. This function is to be
-//  called on Task States and returns true if the task is unfinished.
-
-bool TaskID::IsUnfinished(const TaskID& id) const {
-#if DEBUG_TASKID
-  std::cout << "IsUnfinished " << bitfld_.to_string() << std::endl
-            << "             " << id.bitfld_.to_string() << std::endl
-            << "             " << (bitfld_ & id.bitfld_).to_string()
-            << "             " << (bitfld_ & id.bitfld_).none()
-            << std::endl << std::endl;
-#endif
-  return (bitfld_ & id.bitfld_).none();
+bool TaskID::CheckDependencies(const TaskID& rhs) const {
+  const int n_myblocks = bitblocks.size();
+  const int n_srcblocks = rhs.bitblocks.size();
+  if (n_myblocks == n_srcblocks) {
+    for (int i=0; i<n_myblocks; i++) {
+      if ((bitblocks[i] & rhs.bitblocks[i]) != rhs.bitblocks[i]) return false;
+    }
+  } else if (n_myblocks > n_srcblocks) {
+    for (int i=0; i<n_srcblocks; i++) {
+      if ((bitblocks[i] & rhs.bitblocks[i]) != rhs.bitblocks[i]) return false;
+    }
+  } else {
+    for (int i=0; i<n_myblocks; i++) {
+      if ((bitblocks[i] & rhs.bitblocks[i]) != rhs.bitblocks[i]) return false;
+    }
+    for (int i=n_myblocks; i<n_srcblocks; i++) {
+      if (rhs.bitblocks[i].any()) return false;
+    }
+  }
+  return true;
 }
 
-//----------------------------------------------------------------------------------------
-//! \fn bool TaskID::CheckDependencies(const TaskID& dep)
-//  \brief Check if the given dependencies are cleared. This function is to be
-//  called on Task States, and returns true if all the dependencies are clear.
-
-bool TaskID::CheckDependencies(const TaskID& dep) const {
-#if DEBUG_TASKID
-  std::cout << "CheckDepende " << bitfld_.to_string() << std::endl
-            << "        dep  " << dep.bitfld_.to_string() << std::endl
-            << "       dep2  " << (bitfld_ & dep.bitfld_).to_string() << std::endl
-	    << "     depAll  " << (bitfld_ & dep.bitfld_).all()       << std::endl
-            << std::endl << std::endl;
-#endif
-  return ((bitfld_ & dep.bitfld_) == dep.bitfld_);
+void TaskID::SetFinished(const TaskID& rhs) {
+  const int n_myblocks = bitblocks.size();
+  const int n_srcblocks = rhs.bitblocks.size();
+  if (n_myblocks == n_srcblocks) {
+    for (int i=0; i<n_myblocks; i++) {
+      bitblocks[i] ^= rhs.bitblocks[i];
+    }
+  } else if (n_myblocks > n_srcblocks) {
+    for (int i=0; i<n_srcblocks; i++) {
+      bitblocks[i] ^= rhs.bitblocks[i];
+    }
+  } else {
+    for (int i=0; i<n_myblocks; i++) {
+      bitblocks[i] ^= rhs.bitblocks[i];
+    }
+    for (int i=n_myblocks; i<n_srcblocks; i++) {
+      bitblocks.push_back(rhs.bitblocks[i]);
+    }
+  }  
 }
-
-
-//----------------------------------------------------------------------------------------
-//! \fn void TaskID::SetFinished(const TaskID& id)
-//  \brief Mark the task with the given ID finished.
-//  This function is to be called on Task States.
-
-void TaskID::SetFinished(const TaskID& id) {
-  #if DEBUG_TASKID
-  std::cout << "SetFinished  " << bitfld_.to_string() << std::endl
-            << "             " << id.bitfld_.to_string() << std::endl
-            << "             " << (bitfld_ ^ id.bitfld_).to_string() << std::endl << std::endl;
-  #endif
-  bitfld_ ^= id.bitfld_;
-}
-
-
-//----------------------------------------------------------------------------------------
-//! \fn bool TaskID::operator== (const TaskID& rhs)
-//  \brief overloading operator == for TaskID
 
 bool TaskID::operator== (const TaskID& rhs) const {
-  return (bitfld_ == rhs.bitfld_);
+  const int n_myblocks = bitblocks.size();
+  const int n_srcblocks = rhs.bitblocks.size();
+  if (n_myblocks == n_srcblocks) {
+    for (int i=0; i<n_myblocks; i++) {
+      if (bitblocks[i] != rhs.bitblocks[i]) return false;
+    }
+  } else if (n_myblocks > n_srcblocks) {
+    for (int i=0; i<n_srcblocks; i++) {
+      if (bitblocks[i] != rhs.bitblocks[i]) return false;
+    }
+    for (int i=n_srcblocks; i<n_myblocks; i++) {
+      if (bitblocks[i].any()) return false;
+    }
+  } else {
+    for (int i=0; i<n_myblocks; i++) {
+      if (bitblocks[i] != rhs.bitblocks[i]) return false;
+    }
+    for (int i=n_myblocks; i<n_srcblocks; i++) {
+      if (rhs.bitblocks[i].any()) return false;
+    }
+  }
+  return true;
 }
-
-//----------------------------------------------------------------------------------------
-//! \fn TaskID TaskID::operator| (const TaskID& rhs)
-//  \brief overloading operator | for TaskID
 
 TaskID TaskID::operator| (const TaskID& rhs) const {
-  TaskID ret;
-  ret.bitfld_ = (bitfld_ | rhs.bitfld_);
-  return ret;
+  TaskID res;
+  const int n_myblocks = bitblocks.size();
+  const int n_srcblocks = rhs.bitblocks.size();
+  res.bitblocks.resize(std::max(n_myblocks,n_srcblocks));
+  if (n_myblocks == n_srcblocks) {
+    for (int i=0; i<n_myblocks; i++) {
+      res.bitblocks[i] = bitblocks[i] | rhs.bitblocks[i];
+    }
+  } else if (n_myblocks > n_srcblocks) {
+    for (int i=0; i<n_srcblocks; i++) {
+      res.bitblocks[i] = bitblocks[i] |rhs.bitblocks[i];
+    }
+    for (int i=n_srcblocks; i<n_myblocks; i++) {
+      res.bitblocks[i] = bitblocks[i];
+    }
+  } else {
+    for (int i=0; i<n_myblocks; i++) {
+      res.bitblocks[i] = bitblocks[i] | rhs.bitblocks[i];
+    }
+    for (int i=n_myblocks; i<n_srcblocks; i++) {
+      res.bitblocks[i] = rhs.bitblocks[i];
+    }
+  }
+  return std::move(res);
 }
+
+std::string TaskID::to_string() {
+  std::string bs;
+  for (int i=bitblocks.size()-1; i>=0; i--) {
+    bs += bitblocks[i].to_string();
+  }
+  return std::move(bs);
 }
+
+} // namespace parthenon
