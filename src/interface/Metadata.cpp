@@ -15,14 +15,59 @@
 #include "Metadata.hpp"
 
 // STL Includes
-#include <sstream>
 #include <exception>
+#include <sstream>
+#include <string>
+#include <utility>
+#include <vector>
 
 using parthenon::MetadataFlag;
 using parthenon::Metadata;
 
-int Metadata::next_app_flag_ = static_cast<int>(parthenon::internal::MetadataInternal::Max);
+namespace parthenon {
+// Must declare the flag values for ODR-uses
+#define PARTHENON_INTERNAL_FOR_FLAG(name) \
+    constexpr MetadataFlag Metadata::name;
 
-MetadataFlag Metadata::AllocateNewFlag() {
-    return MetadataFlag(next_app_flag_++);
+    PARTHENON_INTERNAL_FOREACH_BUILTIN_FLAG
+#undef PARTHENON_INTERNAL_FOR_FLAG
+
+namespace internal {
+
+class UserMetadataState {
+public:
+    UserMetadataState() {
+#define PARTHENON_INTERNAL_FOR_FLAG(name) \
+    flag_names_.push_back(#name);
+
+    PARTHENON_INTERNAL_FOREACH_BUILTIN_FLAG
+
+#undef PARTHENON_INTERNAL_FOR_FLAG
+    }
+
+    MetadataFlag AllocateNewFlag(std::string &&name) {
+        auto const flag = flag_names_.size();
+        flag_names_.push_back(std::move(name));
+        return MetadataFlag((int)flag);
+    }
+
+    std::string const &FlagName(MetadataFlag flag) {
+        return flag_names_.at(flag.flag_);
+    }
+private:
+    std::vector<std::string> flag_names_;
+};
+
+}
+}
+
+parthenon::internal::UserMetadataState metadata_state;
+
+MetadataFlag Metadata::AllocateNewFlag(std::string &&name) {
+    return metadata_state.AllocateNewFlag(std::move(name));
+}
+
+
+std::string const &MetadataFlag::Name() const {
+    return metadata_state.FlagName(*this);
 }

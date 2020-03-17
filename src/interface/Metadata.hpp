@@ -72,6 +72,8 @@ namespace internal {
     Max
 #undef PARTHENON_INTERNAL_FOR_FLAG
   };
+
+  class UserMetadataState;
 }
 
 class Metadata;
@@ -87,16 +89,20 @@ class TensorShape {
 };
 
 class MetadataFlag {
+  // This allows `Metadata` and `UserMetadataState` to instantiate `MetadataFlag`.
   friend class Metadata;
+  friend class internal::UserMetadataState;
 
 public:
   constexpr bool operator==(MetadataFlag const &other) const {
     return flag_ == other.flag_;
   }
 
+  std::string const &Name() const;
+
 #ifdef CATCH_VERSION_MAJOR
   // Should never be used for application code - only exposed for testing.
-  constexpr int FlagValue() const {
+  constexpr int InternalFlagValue() const {
     return flag_;
   }
 #endif
@@ -133,7 +139,6 @@ class Metadata {
       MetadataFlag(static_cast<int>(::parthenon::internal::MetadataInternal::name));
 
     PARTHENON_INTERNAL_FOREACH_BUILTIN_FLAG
-
 #undef PARTHENON_INTERNAL_FOR_FLAG
 
   /// Default constructor override
@@ -175,7 +180,7 @@ class Metadata {
   }
 
   // Static routines
-  static MetadataFlag AllocateNewFlag();
+  static MetadataFlag AllocateNewFlag(std::string &&name);
 
   // Individual flag setters
   void Set(const MetadataFlag f) { DoBit(f, true); }             ///< Set specific bit
@@ -240,8 +245,6 @@ class Metadata {
   const std::string& getAssociated() const { return associated_; }
 
 private:
-  static int next_app_flag_;
-
   /// the attribute flags that are set for the class
   std::vector<bool> bits_;
   std::vector<int> shape_;
