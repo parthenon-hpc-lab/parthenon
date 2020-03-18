@@ -577,7 +577,8 @@ void Container<T>::calcArrDims_(std::array<int, 6>& arrDims,
   const int N = dims.size();
   if ( N > 3 || N < 0 ) {
     // too many dimensions
-    throw std::invalid_argument ("_addArray() must have dims between [1,5]");
+    throw std::invalid_argument(std::string("Variable must be scalar or")
+                                +std::string(" N-D tensor-field, for N < 4"));
   }
   for (int i = 0; i < 6; i++) arrDims[i] = 1;
   arrDims[0] = pmy_block->ncells1;

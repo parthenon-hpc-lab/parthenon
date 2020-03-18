@@ -29,6 +29,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 #include "athena.hpp"
 #include "athena_arrays.hpp"
@@ -206,32 +207,11 @@ struct FaceVariable : FaceField {
     if (i == 3) return (this->x3f);
     throw std::invalid_argument("Face must be x1f, x2f, or x3f");
   }
-  Real& operator()(int dir,
-                   int nx6, int nx5, int nx4,
-                   int nx3, int nx2, int nx1) {
-    if (dir == 1) return x1f(nx6, nx5, nx4, nx3, nx2, nx1);
-    if (dir == 2) return x2f(nx6, nx5, nx4, nx3, nx2, nx1);
-    if (dir == 3) return x3f(nx6, nx5, nx4, nx3, nx2, nx1);
-    throw std::invalid_argument("Face must be x1f, x2f, or x3f");
-  }
-  Real& operator()(int dir,
-                   int nx5, int nx4, int nx3, int nx2, int nx1) {
-    if (dir == 1) return x1f(nx5, nx4, nx3, nx2, nx1);
-    if (dir == 2) return x2f(nx5, nx4, nx3, nx2, nx1);
-    if (dir == 3) return x3f(nx5, nx4, nx3, nx2, nx1);
-    throw std::invalid_argument("Face must be x1f, x2f, or x3f");
-  }
-  Real& operator()(int dir,
-                   int nx4, int nx3, int nx2, int nx1) {
-    if (dir == 1) return x1f(nx4, nx3, nx2, nx1);
-    if (dir == 2) return x2f(nx4, nx3, nx2, nx1);
-    if (dir == 3) return x3f(nx4, nx3, nx2, nx1);
-    throw std::invalid_argument("Face must be x1f, x2f, or x3f");
-  }
-  Real& operator()(int dir, int k, int j, int i) {
-    if (dir == 1) return x1f(k,j,i);
-    if (dir == 2) return x2f(k,j,i);
-    if (dir == 3) return x3f(k,j,i);
+  template<typename...Args>
+  Real& operator()(int dir, Args... args) {
+    if (dir == 1) return x1f(std::forward<Args>(args)...);
+    if (dir == 2) return x2f(std::forward<Args>(args)...);
+    if (dir == 3) return x3f(std::forward<Args>(args)...);
     throw std::invalid_argument("Face must be x1f, x2f, or x3f");
   }
 

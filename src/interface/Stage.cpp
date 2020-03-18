@@ -40,6 +40,9 @@ Stage<T>::Stage(std::string name, Stage<T>& src) :
   //   EdgeVariable *vNew = new EdgeVariable(v->label(), *v);
   //   _edgeArray.push_back(vNew);
   // }
+
+  // TODO(JMM): This will break when face variables are not one-copy.
+  // They will need to be deep-copied, much like in the lines above.
   for (auto v : src._faceArray) {
     _faceArray.push_back(v);
   }
@@ -53,4 +56,4 @@ Stage<T>::Stage(std::string name, Stage<T>& src) :
 
 template class Stage<Real>;
 
-}
+} // namespace parthenon
