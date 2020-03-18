@@ -24,11 +24,11 @@
 #include <catch2/catch.hpp>
 #include "Kokkos_Macros.hpp"
 
+using parthenon::DevSpace;
 using parthenon::ParArray1D;
 using parthenon::ParArray2D;
 using parthenon::ParArray3D;
 using parthenon::ParArray4D;
-using parthenon::DevSpace;
 using Real = double;
 
 template <class T> bool test_wrapper_1d(T loop_pattern, DevSpace exec_space) {
@@ -52,9 +52,8 @@ template <class T> bool test_wrapper_1d(T loop_pattern, DevSpace exec_space) {
 
   // increment data on the device using prescribed wrapper
   parthenon::par_for(
-      loop_pattern, "unit test 1D", exec_space, 0, N - 1, KOKKOS_LAMBDA(const int i) {
-        arr_dev(i) += 1.0;
-      });
+      loop_pattern, "unit test 1D", exec_space, 0, N - 1,
+      KOKKOS_LAMBDA(const int i) { arr_dev(i) += 1.0; });
 
   // Copy array back from device to host
   Kokkos::deep_copy(arr_host_mod, arr_dev);
@@ -256,4 +255,68 @@ TEST_CASE("par_for loops", "[wrapper]") {
                             default_exec_space) == true);
 #endif
   }
+}
+
+// reused from kokoks/core/perf_test/PerfTest_ExecSpacePartitioning.cpp
+// commit a0d011fb30022362c61b3bb000ae3de6906cb6a7
+struct FunctorRange {
+  int M, R;
+  ParArray1D<Real> arr_dev;
+  FunctorRange(int M_, int R_, ParArray1D<Real> arr_dev_)
+      : M(M_), R(R_), arr_dev(arr_dev_) {}
+  KOKKOS_INLINE_FUNCTION
+  void operator()(const int i) const {
+    for (int r = 0; r < R; r++)
+      for (int j = 0; j < M; j++) {
+        arr_dev(i) += 1.0;
+      }
+  }
+};
+
+TEST_CASE("Overlapping SpaceInstances", "[wrapper]") {
+  auto default_exec_space = DevSpace();
+  auto space1 = parthenon::SpaceInstance<DevSpace>::create();
+  auto space2 = parthenon::SpaceInstance<DevSpace>::create();
+
+  const int64_t N = 5 * 16 * 16 * 16;
+
+  ParArray1D<Real> arr_dev("SpaceInstance test array", N);
+  FunctorRange f(10000, 10, arr_dev);
+  // warmup
+  for (auto it = 0; it < 10; it++) {
+    parthenon::par_for(parthenon::loop_pattern_mdrange_tag, "default space",
+                       default_exec_space, 0, N - 1, f);
+    parthenon::par_for(parthenon::loop_pattern_mdrange_tag, "space1", space1, 0,
+                       N - 1, f);
+    parthenon::par_for(parthenon::loop_pattern_mdrange_tag, "space2", space2, 0,
+                       N - 1, f);
+  }
+  Kokkos::fence();
+
+  Kokkos::Timer timer;
+
+  // meausre time using two execution space simultaneously
+  // race condition in access to arr_dev doesn't matter for this test
+  parthenon::par_for(parthenon::loop_pattern_mdrange_tag, "space1", space1, 0,
+                     N - 1, f);
+  parthenon::par_for(parthenon::loop_pattern_mdrange_tag, "space2", space2, 0,
+                     N - 1, f);
+  space1.fence(); // making sure the kernels are done
+  space2.fence(); // making sure the kernels are done
+  auto time_spaces = timer.seconds();
+
+  timer.reset();
+
+  // measure runtime using the default execution space
+  parthenon::par_for(parthenon::loop_pattern_mdrange_tag, "default space",
+                     default_exec_space, 0, N - 1, f);
+  parthenon::par_for(parthenon::loop_pattern_mdrange_tag, "default space",
+                     default_exec_space, 0, N - 1, f);
+  default_exec_space.fence(); // making sure the kernel is done
+  auto time_default = timer.seconds();
+
+  std::cout << "time default: " << time_default << std::endl;
+  std::cout << "time spaces: " << time_spaces << std::endl;
+
+  REQUIRE(time_default > 1.5 * time_spaces);
 }

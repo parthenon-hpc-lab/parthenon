@@ -64,6 +64,14 @@ static struct LoopPatternTPTTRTVR {
 static struct LoopPatternUndefined {
 } loop_pattern_undefined_tag;
 
+// TODO(pgrete) I don't like this and would prefer to make the default a
+// parameter that is read from the parameter file rather than a compile time
+// constant. Any suggestions on how to do this elegantly? One could use
+// parthenon::Globals but then this unit here would get a dependcy on the global
+// part whereas right now it's completely encapuslated.
+// Alternatively, I could think of putting all this in the parthenon::wrapper
+// namespace so that the default variable can live there.
+// Again, I'm open for suggestions.
 #ifdef MANUAL1D_LOOP
 #define DEFAULT_LOOP_PATTERN loop_pattern_range_tag
 #elif defined SIMDFOR_LOOP
@@ -119,7 +127,10 @@ template <typename Function>
 inline void par_for(LoopPatternMDRange, const std::string &NAME,
                     DevSpace exec_space, const int &IL, const int &IU,
                     const Function &function) {
-  Kokkos::parallel_for(NAME, Kokkos::RangePolicy<>(IL, IU + 1), function);
+  Kokkos::parallel_for(NAME, Kokkos::Experimental::require(
+                                 Kokkos::RangePolicy<>(exec_space, IL, IU + 1),
+                                 Kokkos::Experimental::WorkItemProperty::HintLightWeight),
+                       function);
 }
 
 // 2D loop using MDRange loops
@@ -127,9 +138,10 @@ template <typename Function>
 inline void par_for(LoopPatternMDRange, const std::string &NAME,
                     DevSpace exec_space, const int &JL, const int &JU,
                     const int &IL, const int &IU, const Function &function) {
-  Kokkos::parallel_for(
-      NAME, Kokkos::MDRangePolicy<Kokkos::Rank<2>>({JL, IL}, {JU + 1, IU + 1}),
-      function);
+  Kokkos::parallel_for(NAME,
+                       Kokkos::MDRangePolicy<Kokkos::Rank<2>>(
+                           exec_space, {JL, IL}, {JU + 1, IU + 1}),
+                       function);
 }
 
 // 3D loop using Kokkos 1D Range
@@ -144,7 +156,8 @@ inline void par_for(LoopPatternRange, const std::string &NAME,
   const int NKNJNI = NK * NJ * NI;
   const int NJNI = NJ * NI;
   Kokkos::parallel_for(
-      NAME, NKNJNI, KOKKOS_LAMBDA(const int &IDX) {
+      NAME, Kokkos::RangePolicy<>(exec_space, 0, NKNJNI),
+      KOKKOS_LAMBDA(const int &IDX) {
         int k = IDX / NJNI;
         int j = (IDX - k * NJNI) / NI;
         int i = IDX - k * NJNI - j * NI;
@@ -163,7 +176,7 @@ inline void par_for(LoopPatternMDRange, const std::string &NAME,
                     const Function &function) {
   Kokkos::parallel_for(NAME,
                        Kokkos::MDRangePolicy<Kokkos::Rank<3>>(
-                           {KL, JL, IL}, {KU + 1, JU + 1, IU + 1}),
+                           exec_space, {KL, JL, IL}, {KU + 1, JU + 1, IU + 1}),
                        function);
 }
 
@@ -177,7 +190,7 @@ inline void par_for(LoopPatternTPTTR, const std::string &NAME,
   const int NJ = JU - JL + 1;
   const int NKNJ = NK * NJ;
   Kokkos::parallel_for(
-      NAME, team_policy(NKNJ, Kokkos::AUTO),
+      NAME, team_policy(exec_space, NKNJ, Kokkos::AUTO),
       KOKKOS_LAMBDA(member_type team_member) {
         const int k = team_member.league_rank() / NJ + KL;
         const int j = team_member.league_rank() % NJ + JL;
@@ -197,7 +210,7 @@ inline void par_for(LoopPatternTPTVR, const std::string &NAME,
   const int NJ = JU - JL + 1;
   const int NKNJ = NK * NJ;
   Kokkos::parallel_for(
-      NAME, team_policy(NKNJ, Kokkos::AUTO),
+      NAME, team_policy(exec_space, NKNJ, Kokkos::AUTO),
       KOKKOS_LAMBDA(member_type team_member) {
         const int k = team_member.league_rank() / NJ + KL;
         const int j = team_member.league_rank() % NJ + JL;
@@ -214,7 +227,7 @@ inline void par_for(LoopPatternTPTTRTVR, const std::string &NAME,
                     const Function &function) {
   const int NK = KU - KL + 1;
   Kokkos::parallel_for(
-      NAME, team_policy(NK, Kokkos::AUTO),
+      NAME, team_policy(exec_space, NK, Kokkos::AUTO),
       KOKKOS_LAMBDA(member_type team_member) {
         const int k = team_member.league_rank() + KL;
         Kokkos::parallel_for(
@@ -256,7 +269,8 @@ inline void par_for(LoopPatternRange, const std::string &NAME,
   const int NKNJNI = NK * NJ * NI;
   const int NJNI = NJ * NI;
   Kokkos::parallel_for(
-      NAME, NNNKNJNI, KOKKOS_LAMBDA(const int &IDX) {
+      NAME, Kokkos::RangePolicy<>(exec_space, 0, NNNKNJNI),
+      KOKKOS_LAMBDA(const int &IDX) {
         int n = IDX / NKNJNI;
         int k = (IDX - n * NKNJNI) / NJNI;
         int j = (IDX - n * NKNJNI - k * NJNI) / NI;
@@ -275,10 +289,11 @@ inline void par_for(LoopPatternMDRange, const std::string &NAME,
                     DevSpace exec_space, const int NL, const int NU,
                     const int KL, const int KU, const int JL, const int JU,
                     const int IL, const int IU, const Function &function) {
-  Kokkos::parallel_for(NAME,
-                       Kokkos::MDRangePolicy<Kokkos::Rank<4>>(
-                           {NL, KL, JL, IL}, {NU + 1, KU + 1, JU + 1, IU + 1}),
-                       function);
+  Kokkos::parallel_for(
+      NAME,
+      Kokkos::MDRangePolicy<Kokkos::Rank<4>>(exec_space, {NL, KL, JL, IL},
+                                             {NU + 1, KU + 1, JU + 1, IU + 1}),
+      function);
 }
 
 // 4D loop using TeamPolicy loop with inner TeamThreadRange
@@ -293,7 +308,7 @@ inline void par_for(LoopPatternTPTTR, const std::string &NAME,
   const int NKNJ = NK * NJ;
   const int NNNKNJ = NN * NK * NJ;
   Kokkos::parallel_for(
-      NAME, team_policy(NNNKNJ, Kokkos::AUTO),
+      NAME, team_policy(exec_space, NNNKNJ, Kokkos::AUTO),
       KOKKOS_LAMBDA(member_type team_member) {
         int n = team_member.league_rank() / NKNJ;
         int k = (team_member.league_rank() - n * NKNJ) / NJ;
@@ -318,7 +333,7 @@ inline void par_for(LoopPatternTPTVR, const std::string &NAME,
   const int NKNJ = NK * NJ;
   const int NNNKNJ = NN * NK * NJ;
   Kokkos::parallel_for(
-      NAME, team_policy(NNNKNJ, Kokkos::AUTO),
+      NAME, team_policy(exec_space, NNNKNJ, Kokkos::AUTO),
       KOKKOS_LAMBDA(member_type team_member) {
         int n = team_member.league_rank() / NKNJ;
         int k = (team_member.league_rank() - n * NKNJ) / NJ;
@@ -341,7 +356,7 @@ inline void par_for(LoopPatternTPTTRTVR, const std::string &NAME,
   const int NK = KU - KL + 1;
   const int NNNK = NN * NK;
   Kokkos::parallel_for(
-      NAME, team_policy(NNNK, Kokkos::AUTO),
+      NAME, team_policy(exec_space, NNNK, Kokkos::AUTO),
       KOKKOS_LAMBDA(member_type team_member) {
         int n = team_member.league_rank() / NK + NL;
         int k = team_member.league_rank() % NK + KL;
@@ -370,6 +385,40 @@ inline void par_for(LoopPatternSimdFor, const std::string &NAME,
           function(n, k, j, i);
   Kokkos::Profiling::popRegion();
 }
+
+// reused from kokoks/core/perf_test/PerfTest_ExecSpacePartitioning.cpp
+// commit a0d011fb30022362c61b3bb000ae3de6906cb6a7
+namespace {
+template <class ExecSpace> struct SpaceInstance {
+  static ExecSpace create() { return ExecSpace(); }
+  static void destroy(ExecSpace &) {}
+  static bool overlap() { return false; }
+};
+
+#ifndef KOKKOS_ENABLE_DEBUG
+#ifdef KOKKOS_ENABLE_CUDA
+template <> struct SpaceInstance<Kokkos::Cuda> {
+  static Kokkos::Cuda create() {
+    cudaStream_t stream;
+    cudaStreamCreate(&stream);
+    return Kokkos::Cuda(stream);
+  }
+  static void destroy(Kokkos::Cuda &space) {
+    cudaStream_t stream = space.cuda_stream();
+    cudaStreamDestroy(stream);
+  }
+  static bool overlap() {
+    bool value = true;
+    auto local_rank_str = std::getenv("CUDA_LAUNCH_BLOCKING");
+    if (local_rank_str) {
+      value = (std::atoi(local_rank_str) == 0);
+    }
+    return value;
+  }
+};
+#endif
+#endif
+} // namespace
 } // namespace parthenon
 
 #endif // KOKKOS_ABSTRACTION_HPP_
