@@ -10,6 +10,7 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+#include <algorithm>
 #include <exception>
 #include <memory>
 #include <utility>
@@ -22,8 +23,7 @@
 namespace parthenon {
 namespace BetterRefinement {
 
-std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin)
-{
+std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto ref = std::make_shared<StateDescriptor>("Refinement");
   Params& params = ref->AllParams();
 
@@ -37,10 +37,14 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin)
     int method = pin->GetOrAddInteger(block_name, "method", 0);
     switch(method) {
       case 0:
-        ref->amr_criteria.push_back(std::make_unique<AMRFirstDerivative>(pin, block_name));
+        ref->amr_criteria.push_back(
+          std::make_unique<AMRFirstDerivative>(pin, block_name)
+        );
         break;
       default:
-        throw std::invalid_argument("Invalid selection for refinment method in " + block_name);
+        throw std::invalid_argument(
+          "Invalid selection for refinment method in " + block_name
+        );
     }
     numcrit++;
   }
@@ -77,7 +81,8 @@ int CheckRefinement(Container<Real>& rc) {
   return delta_level;
 }
 
-int FirstDerivative(Variable<Real>& q, const Real refine_criteria, const Real derefine_criteria) {
+int FirstDerivative(Variable<Real>& q,
+                    const Real refine_criteria, const Real derefine_criteria) {
   Real maxd = 0.0;
   const int dim1 = q.GetDim1();
   const int dim2 = q.GetDim2();
@@ -86,7 +91,7 @@ int FirstDerivative(Variable<Real>& q, const Real refine_criteria, const Real de
   if (dim3 > 1) {
     klo = 1;
     khi = dim3-1;
-  } 
+  }
   if (dim2 > 1) {
     jlo = 1;
     jhi = dim2-1;

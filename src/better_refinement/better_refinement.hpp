@@ -11,15 +11,15 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef BETTER_REFINEMENT_HPP_
-#define BETTER_REFINEMENT_HPP_
+#ifndef BETTER_REFINEMENT_BETTER_REFINEMENT_HPP_
+#define BETTER_REFINEMENT_BETTER_REFINEMENT_HPP_
 
 #include <memory>
 #include <string>
 #include "athena.hpp"
-#include "interface/Variable.hpp"
 #include "interface/Container.hpp"
 #include "interface/StateDescriptor.hpp"
+#include "interface/Variable.hpp"
 
 namespace parthenon {
 
@@ -28,9 +28,10 @@ class ParameterInput;
 namespace BetterRefinement {
   std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
   int CheckRefinement(Container<Real>& rc);
-  int FirstDerivative(Variable<Real>& q, const Real refine_criteria, const Real derefine_criteria);
+  int FirstDerivative(Variable<Real>& q,
+                      const Real refine_criteria, const Real derefine_criteria)
 } // namespace BetterRefinement
 
 } // namespace parthenon
 
-#endif
+#endif // BETTER_REFINEMENT_BETTER_REFINEMENT_HPP_

@@ -24,7 +24,7 @@ class ParameterInput;
 
 struct AMRCriteria {
   AMRCriteria() = default;
-  virtual ~AMRCriteria() {};
+  virtual ~AMRCriteria() {}
   virtual int operator () (Container<Real>& rc) = 0;
   std::string _field;
   Real refine_criteria, derefine_criteria;
@@ -38,4 +38,4 @@ struct AMRFirstDerivative : public AMRCriteria {
 
 } // namespace parthenon
 
-#endif // BETTER_REFINEMENT_AMR_CRITERIA_
+#endif // BETTER_REFINEMENT_AMR_CRITERIA_HPP_

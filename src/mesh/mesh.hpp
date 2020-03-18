@@ -26,6 +26,7 @@
 // C++ headers
 #include <cstdint>     // int64_t
 #include <functional>  // reference_wrapper
+#include <map>
 #include <memory>      // std::shared_ptr
 #include <string>
 #include <vector>
@@ -34,17 +35,17 @@
 #include "athena.hpp"
 #include "athena_arrays.hpp"
 #include "bvals/bvals.hpp"
-#include "outputs/io_wrapper.hpp"
-#include "parameter_input.hpp"
-#include "utils/interp_table.hpp"
+#include "bvals/bvals_interfaces.hpp"
 #include "interface/Container.hpp"
 #include "interface/PropertiesInterface.hpp"
-#include "interface/Update.hpp"
 #include "interface/StateDescriptor.hpp"
+#include "interface/Update.hpp"
 #include "mesh_refinement.hpp"
 #include "meshblock_tree.hpp"
-#include "bvals/bvals_interfaces.hpp"
+#include "outputs/io_wrapper.hpp"
+#include "parameter_input.hpp"
 #include "reconstruct/reconstruction.hpp"
+#include "utils/interp_table.hpp"
 
 namespace parthenon {
 // Forward declarations
@@ -60,10 +61,10 @@ class Reconstruction;
 
 // Opaque pointer to application data
 class MeshBlockApplicationData {
-  public:
-    // make this pure virtual so that this class cannot be instantiated (only derived classes can be
-    // instantiated)
-    virtual ~MeshBlockApplicationData() = 0;
+ public:
+  // make this pure virtual so that this class cannot be instantiated
+  // (only derived classes can be instantiated)
+  virtual ~MeshBlockApplicationData() = 0;
 };
 
 // we still need to define this somewhere, though
@@ -79,7 +80,7 @@ class MeshBlock {
   friend class ATHDF5Output;
 #endif
 
-public:
+ public:
   MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_size,
             BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
             std::vector<std::shared_ptr<PropertiesInterface>>& mats,
@@ -93,12 +94,12 @@ public:
             char *mbdata, int igflag);
 
   MeshBlock(int igid, int ilid,
-	    LogicalLocation iloc,
-	    RegionSize input_block,
-	    BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
-	    std::vector<std::shared_ptr<PropertiesInterface>>& mats,
-	    std::map<std::string, std::shared_ptr<StateDescriptor>>& phys,
-	    int igflag, bool ref_flag=false);
+            LogicalLocation iloc,
+            RegionSize input_block,
+            BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
+            std::vector<std::shared_ptr<PropertiesInterface>>& mats,
+            std::map<std::string, std::shared_ptr<StateDescriptor>>& phys,
+            int igflag, bool ref_flag=false);
   ~MeshBlock();
 
   // data
@@ -136,7 +137,7 @@ public:
   std::map<std::string, std::shared_ptr<StateDescriptor>> physics;
   std::unique_ptr<MeshBlockApplicationData> app;
 
-	  // mesh-related objects
+  // mesh-related objects
   std::unique_ptr<Coordinates> pcoord;
   std::unique_ptr<BoundaryValues> pbval;
   std::unique_ptr<MeshRefinement> pmr;
@@ -152,11 +153,11 @@ public:
     return block_size.nx1*block_size.nx2*block_size.nx3; }
   void SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist, int *nslist);
   void WeightedAve(AthenaArray<Real> &u_out, AthenaArray<Real> &u_in1,
-		   AthenaArray<Real> &u_in2, const Real wght[3]);
+                   AthenaArray<Real> &u_in2, const Real wght[3]);
   void WeightedAve(FaceField &b_out, FaceField &b_in1, FaceField &b_in2,
-		   const Real wght[3]);
+                   const Real wght[3]);
 
-  void ResetToIC() { ProblemGenerator(nullptr); };
+  void ResetToIC() { ProblemGenerator(nullptr); }
 
   // inform MeshBlock which arrays contained in member Hydro, Field, Particles,
   // ... etc. classes are the "primary" representations of a quantity. when registered,
@@ -169,7 +170,7 @@ public:
   void UserWorkInLoop();                          // called in TimeIntegratorTaskList
   void SetBlockTimestep(const Real dt) {new_block_dt_ = dt;}
 
-private:
+ private:
   // data
   Real new_block_dt_, new_block_dt_hyperbolic_, new_block_dt_parabolic_,
     new_block_dt_user_;
@@ -186,7 +187,8 @@ private:
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   void ProblemGenerator(ParameterInput *pin);
-  std::unique_ptr<MeshBlockApplicationData> InitApplicationMeshBlockData(ParameterInput *pin);
+  std::unique_ptr<MeshBlockApplicationData>
+    InitApplicationMeshBlockData(ParameterInput *pin);
   void InitUserMeshBlockData(ParameterInput *pin);
 
   // functions and variables for automatic load balancing based on timing
@@ -214,7 +216,7 @@ class Mesh {
   friend class ATHDF5Output;
 #endif
 
-public:
+ public:
   // 2x function overloads of ctor: normal and restarted simulation
   Mesh(ParameterInput *pin,
       std::vector<std::shared_ptr<PropertiesInterface>> &materials,
@@ -255,7 +257,7 @@ public:
   // functions
   void Initialize(int res_flag, ParameterInput *pin);
   void SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size,
-				 BoundaryFlag *block_bcs);
+                                 BoundaryFlag *block_bcs);
   void NewTimeStep();
   void OutputCycleDiagnostics();
   void LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin);
@@ -273,7 +275,7 @@ public:
   int RootLevel() { return root_level; }
 
 
-private:
+ private:
   // data
   int next_phys_id_; // next unused value for encoding final component of MPI tag bitfield
   int root_level, max_level, current_level;
@@ -342,9 +344,9 @@ private:
   void PrepareSendFineToCoarseAMR(MeshBlock* pb, Real *sendbuf);
   // step 7: create new MeshBlock list (same MPI rank but diff level: create new block)
   void FillSameRankFineToCoarseAMR(MeshBlock* pob, MeshBlock* pmb,
-				   LogicalLocation &loc);
+                                   LogicalLocation &loc);
   void FillSameRankCoarseToFineAMR(MeshBlock* pob, MeshBlock* pmb,
-				   LogicalLocation &newloc);
+                                   LogicalLocation &newloc);
   // step 8: receive
   void FinishRecvSameLevel(MeshBlock *pb, Real *recvbuf);
   void FinishRecvFineToCoarseAMR(MeshBlock *pb, Real *recvbuf, LogicalLocation &lloc);
@@ -364,7 +366,7 @@ private:
   void EnrollUserTimeStepFunction(TimeStepFunc my_func);
   void AllocateUserHistoryOutput(int n);
   void EnrollUserHistoryOutput(int i, HistoryOutputFunc my_func, const char *name,
-			       UserHistoryOperation op=UserHistoryOperation::sum);
+                               UserHistoryOperation op=UserHistoryOperation::sum);
   void EnrollUserMetric(MetricFunc my_func);
   void EnrollViscosityCoefficient(ViscosityCoeffFunc my_func);
   void EnrollConductionCoefficient(ConductionCoeffFunc my_func);
@@ -379,7 +381,7 @@ private:
 //        real cell ranges for MeshGenerator_[] functions (default/user vs. uniform)
 
 inline Real ComputeMeshGeneratorX(std::int64_t index, std::int64_t nrange,
-				  bool sym_interval) {
+                                  bool sym_interval) {
   // index is typically 0, ... nrange for non-ghost boundaries
   if (!sym_interval) {
     // to map to fractional logical position [0.0, 1.0], simply divide by # of faces
@@ -472,5 +474,5 @@ inline Real UniformMeshGeneratorX2(Real x, RegionSize rs) {
 inline Real UniformMeshGeneratorX3(Real x, RegionSize rs) {
   return static_cast<Real>(0.5)*(rs.x3min+rs.x3max) + (x*rs.x3max - x*rs.x3min);
 }
-}
+} // namespace parthenon
 #endif  // MESH_MESH_HPP_
