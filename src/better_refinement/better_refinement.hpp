@@ -19,6 +19,7 @@
 #include "athena.hpp"
 #include "interface/Variable.hpp"
 #include "interface/Container.hpp"
+#include "interface/StateDescriptor.hpp"
 
 namespace parthenon {
 

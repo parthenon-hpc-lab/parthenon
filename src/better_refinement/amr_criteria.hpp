@@ -23,13 +23,11 @@ namespace parthenon {
 class ParameterInput;
 
 struct AMRCriteria {
-  public:
-    //AMRCriteria();std::string field, RefineFunction* rfunc, const Real refine_criteria, const Real derefine_criteria) : 
-    //            _field(field), _refine_func(rfunc), _refine_criteria(refine_criteria), _derefine_criteria(derefine_criteria) {}*/
-    AMRCriteria() = default;
-    virtual int operator () (Container<Real>& rc) = 0;
-    std::string _field;
-    Real _refine_criteria, _derefine_criteria;
+  AMRCriteria() = default;
+  virtual ~AMRCriteria() {};
+  virtual int operator () (Container<Real>& rc) = 0;
+  std::string _field;
+  Real _refine_criteria, _derefine_criteria;
 };
 
 struct AMRFirstDerivative : public AMRCriteria {

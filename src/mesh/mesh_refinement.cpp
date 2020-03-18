@@ -31,6 +31,7 @@
 // Athena++ headers
 #include "athena.hpp"
 #include "athena_arrays.hpp"
+#include "better_refinement/better_refinement.hpp"
 #include "coordinates/coordinates.hpp"
 #include "globals.hpp"
 #include "parameter_input.hpp"

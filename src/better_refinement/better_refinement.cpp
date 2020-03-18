@@ -37,7 +37,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin)
     int method = pin->GetOrAddInteger(block_name, "method", 0);
     switch(method) {
       case 0:
-        ref->amr_criteria.push_back(new AMRFirstDerivative(pin, block_name));
+        ref->amr_criteria.push_back(std::make_unique<AMRFirstDerivative>(pin, block_name));
         break;
       default:
         throw std::invalid_argument("Invalid selection for refinment method in " + block_name);
