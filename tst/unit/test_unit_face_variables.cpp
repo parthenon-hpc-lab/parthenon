@@ -14,32 +14,18 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+#include <iostream> // debug
+#include <memory>
 #include <string>
 #include <vector>
 #include <catch2/catch.hpp>
 
 #include "athena.hpp"
-#include "interface/Container.hpp"
 #include "interface/Metadata.hpp"
 #include "interface/Variable.hpp"
 
-// dummy declarations
-namespace parthenon {
-class MeshBlock {
- public:
-  int ncells1;
-  int ncells2;
-  int ncells3;
-  MeshBlock(int nc1, int nc2, int nc3)
-    : ncells1(nc1), ncells2(nc2), ncells3(nc3)
-  {}
-};
-} // namespace parthenon
-
-using parthenon::Container;
 using parthenon::FaceVariable;
 using parthenon::Real;
-using parthenon::MeshBlock;
 using parthenon::Metadata;
 
 TEST_CASE("Can create a vector-valued face-variable",
@@ -52,8 +38,8 @@ TEST_CASE("Can create a vector-valued face-variable",
           Metadata::derived, Metadata::oneCopy}, array_size);
 
     WHEN("We construct a FaceVariable") {
-      int dims[] = {1,1,array_size[0],
-                    blockShape[2],blockShape[1],blockShape[0]};
+      std::array<int,6> dims({blockShape[0],blockShape[1],blockShape[2],
+            array_size[0],1,1});
       FaceVariable f(name,m,dims);
       THEN("Each AthenaArray in the variable has the right shape") {
         REQUIRE(f.Get(1).GetDim1() == blockShape[0] + 1);
@@ -65,7 +51,7 @@ TEST_CASE("Can create a vector-valued face-variable",
         REQUIRE(f.Get(3).GetDim1() == blockShape[0]);
         REQUIRE(f.Get(3).GetDim2() == blockShape[1]);
         REQUIRE(f.Get(3).GetDim3() == blockShape[2] + 1);
-        for (int d = 0; d < 3; d++) {
+        for (int d = 1; d <= 3; d++) {
           f.Get(d).GetDim4() == array_size[0];
         }
         AND_THEN("The metadata is correct") {
@@ -73,7 +59,7 @@ TEST_CASE("Can create a vector-valued face-variable",
         }
         AND_THEN("We can set array elements") {
           int s = 0;
-          for (int d = 0; d < 3; d++) {
+          for (int d = 1; d <= 3; d++) {
             for (int k = 0; k < blockShape[2]; k++) {
               for (int j = 0; j < blockShape[1]; j++) {
                 for (int i = 0; i < blockShape[0]; i++) {
@@ -94,7 +80,7 @@ TEST_CASE("Can create a vector-valued face-variable",
               f(2,k,blockShape[1],i) = -1;
             }
           }
-          for (int j = 0; k < blockShape[1]; j++) {
+          for (int j = 0; j < blockShape[1]; j++) {
             for (int i = 0; i < blockShape[0]; i++) {
               f(3,blockShape[2],j,i) = -1;
             }
@@ -102,7 +88,7 @@ TEST_CASE("Can create a vector-valued face-variable",
           AND_THEN("We can read them back") {
             int s = 0;
             bool read_correct = true;
-            for (int d = 0; d < 3; d++) {
+            for (int d = 1; d <= 3; d++) {
               for (int k = 0; k < blockShape[2]; k++) {
                 for (int j = 0; j < blockShape[1]; j++) {
                   for (int i = 0; i < blockShape[0]; i++) {
@@ -123,38 +109,12 @@ TEST_CASE("Can create a vector-valued face-variable",
                 read_correct = read_correct && f(2,k,blockShape[1],i) == -1;
               }
             }
-            for (int j = 0; k < blockShape[1]; j++) {
+            for (int j = 0; j < blockShape[1]; j++) {
               for (int i = 0; i < blockShape[0]; i++) {
                 read_correct = read_correct && f(3,blockShape[2],j,i) == -1;
               }
             }
             REQUIRE(read_correct);
-          }
-        }
-      }
-    }
-
-    WHEN("We add a face variable to a container") {
-      MeshBlock mb(blockShape[0],blockShape[1],blockShape[2]);
-      Container<Rea> rc;
-      rc.Add(name, m, array_size);
-      THEN("We can get the underlying face variable back") {
-        auto& f = GetFace(name);
-        AND_THEN("Each AthenaArray in the variable has the right shape") {
-          REQUIRE(f.Get(1).GetDim1() == blockShape[0] + 1);
-          REQUIRE(f.Get(1).GetDim2() == blockShape[1]);
-          REQUIRE(f.Get(1).GetDim3() == blockShape[2]);
-          REQUIRE(f.Get(2).GetDim1() == blockShape[0]);
-          REQUIRE(f.Get(2).GetDim2() == blockShape[1] + 1);
-          REQUIRE(f.Get(2).GetDim3() == blockShape[2]);
-          REQUIRE(f.Get(3).GetDim1() == blockShape[0]);
-          REQUIRE(f.Get(3).GetDim2() == blockShape[1]);
-          REQUIRE(f.Get(3).GetDim3() == blockShape[2] + 1);
-          for (int d = 0; d < 3; d++) {
-            f.Get(d).GetDim4() == array_size[0];
-          }
-          AND_THEN("The metadata is correct") {
-            REQUIRE( f.metadata() == m );
           }
         }
       }
