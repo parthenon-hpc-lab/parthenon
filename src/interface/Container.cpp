@@ -580,9 +580,9 @@ void Container<T>::calcArrDims_(std::array<int, 6>& arrDims,
     throw std::invalid_argument ("_addArray() must have dims between [1,5]");
   }
   for (int i = 0; i < 6; i++) arrDims[i] = 1;
-  arrDims[0] = pmy_block->ncells3;
+  arrDims[0] = pmy_block->ncells1;
   arrDims[1] = pmy_block->ncells2;
-  arrDims[2] = pmy_block->ncells1;
+  arrDims[2] = pmy_block->ncells3;
   for (int i=0; i<N; i++) {arrDims[i+3] = dims[i]; }
 }
 
