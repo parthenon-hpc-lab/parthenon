@@ -11,27 +11,26 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-
-#ifndef CALCULATE_PI_HPP
-#define CALCULATE_PI_HPP
+#ifndef EXAMPLE_FACE_FIELDS_FACE_FIELDS_EXAMPLE_HPP_
+#define EXAMPLE_FACE_FIELDS_FACE_FIELDS_EXAMPLE_HPP_
 
 #include <memory>
 
-#include "globals.hpp"
-#include "mesh/mesh.hpp"
 #include "driver/driver.hpp"
+#include "globals.hpp"
 #include "interface/StateDescriptor.hpp"
+#include "mesh/mesh.hpp"
 #include "task_list/tasks.hpp"
 
 namespace parthenon {
 
 class FaceFieldExample : public Driver {
-  public:
-   FaceFieldExample(ParameterInput *pin, Mesh *pm, Outputs *pout)
-     : Driver(pin, pm, pout)
+ public:
+  FaceFieldExample(ParameterInput *pin, Mesh *pm, Outputs *pout)
+    : Driver(pin, pm, pout)
   {}
-   TaskList MakeTaskList(MeshBlock *pmb);
-   DriverStatus Execute();
+  TaskList MakeTaskList(MeshBlock *pmb);
+  DriverStatus Execute();
 };
 
 } // namespace parthenon
@@ -39,4 +38,4 @@ class FaceFieldExample : public Driver {
 namespace FaceFields {
   parthenon::TaskStatus fill_faces(parthenon::MeshBlock* pmb);
 }
-#endif
+#endif // EXAMPLE_FACE_FIELDS_FACE_FIELDS_EXAMPLE_HPP_

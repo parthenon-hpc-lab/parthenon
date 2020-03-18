@@ -11,19 +11,13 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-// C headers
-
-// C++ headers
-#include "parthenon_manager.hpp"
-
-// Application headers
 #include "face_fields_example.hpp"
-  
-using namespace parthenon;
+#include "parthenon_manager.hpp"
 
 int main(int argc, char *argv[]) {
   using parthenon::ParthenonManager;
   using parthenon::ParthenonStatus;
+  using parthenon::FaceFieldExample;
   ParthenonManager pman;
 
   auto status = pman.ParthenonInit(argc, argv);
@@ -34,9 +28,8 @@ int main(int argc, char *argv[]) {
   }
 
   FaceFieldExample driver(pman.pinput.get(),
-			  pman.pmesh.get(),
-			  pman.pouts.get());
-  
+                          pman.pmesh.get(),
+                          pman.pouts.get());
   pman.PreDriver();
   pman.PostDriver(driver.Execute());
   pman.ParthenonFinalize();
