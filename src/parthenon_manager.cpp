@@ -13,6 +13,7 @@
 
 #include <utility>
 
+#include "better_refinement/better_refinement.hpp"
 #include "driver/driver.hpp"
 #include "interface/Update.hpp"
 #include "parthenon_manager.hpp"
@@ -89,6 +90,8 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
   auto properties = ProcessProperties(pinput);
   // set up all the packages in the application
   auto packages = ProcessPackages(pinput);
+  // always add the Refinement package
+  packages["ParthenonRefinement"] = BetterRefinement::Initialize(pinput.get());
 
   // TODO(jdolence): Deal with restarts
   //if (arg.res_flag == 0) {
