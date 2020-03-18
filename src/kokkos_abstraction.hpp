@@ -82,46 +82,51 @@ static struct LoopPatternUndefined {
 
 // 1D default loop pattern
 template <typename Function>
-inline void par_for(const std::string &NAME, const int &IL, const int &IU,
-                    const Function &function) {
-  par_for(loop_pattern_mdrange_tag, IL, IU, function);
+inline void par_for(const std::string &NAME, DevSpace exec_space, const int &IL,
+                    const int &IU, const Function &function) {
+  par_for(loop_pattern_mdrange_tag, NAME, exec_space, IL, IU, function);
 }
 
 // 2D default loop pattern
 template <typename Function>
-inline void par_for(const std::string &NAME, const int &JL, const int &JU,
-                    const int &IL, const int &IU, const Function &function) {
-  par_for(loop_pattern_mdrange_tag, JL, JU, IL, IU, function);
+inline void par_for(const std::string &NAME, DevSpace exec_space, const int &JL,
+                    const int &JU, const int &IL, const int &IU,
+                    const Function &function) {
+  par_for(loop_pattern_mdrange_tag, NAME, exec_space, JL, JU, IL, IU, function);
 }
 
 // 3D default loop pattern
 template <typename Function>
-inline void par_for(const std::string &NAME, const int &KL, const int &KU,
-                    const int &JL, const int &JU, const int &IL, const int &IU,
-                    const Function &function) {
-  par_for(DEFAULT_LOOP_PATTERN, NAME, KL, KU, JL, JU, IL, IU, function);
+inline void par_for(const std::string &NAME, DevSpace exec_space, const int &KL,
+                    const int &KU, const int &JL, const int &JU, const int &IL,
+                    const int &IU, const Function &function) {
+  par_for(DEFAULT_LOOP_PATTERN, NAME, exec_space, KL, KU, JL, JU, IL, IU,
+          function);
 }
 
 // 4D default loop pattern
 template <typename Function>
-inline void par_for(const std::string &NAME, const int &NL, const int &NU,
-                    const int &KL, const int &KU, const int &JL, const int &JU,
-                    const int &IL, const int &IU, const Function &function) {
-  par_for(DEFAULT_LOOP_PATTERN, NAME, NL, NU, KL, KU, JL, JU, IL, IU, function);
+inline void par_for(const std::string &NAME, DevSpace exec_space, const int &NL,
+                    const int &NU, const int &KL, const int &KU, const int &JL,
+                    const int &JU, const int &IL, const int &IU,
+                    const Function &function) {
+  par_for(DEFAULT_LOOP_PATTERN, NAME, exec_space, NL, NU, KL, KU, JL, JU, IL,
+          IU, function);
 }
 
 // 1D loop using MDRange loops
 template <typename Function>
-inline void par_for(LoopPatternMDRange, const std::string &NAME, const int &IL,
-                    const int &IU, const Function &function) {
+inline void par_for(LoopPatternMDRange, const std::string &NAME,
+                    DevSpace exec_space, const int &IL, const int &IU,
+                    const Function &function) {
   Kokkos::parallel_for(NAME, Kokkos::RangePolicy<>(IL, IU + 1), function);
 }
 
 // 2D loop using MDRange loops
 template <typename Function>
-inline void par_for(LoopPatternMDRange, const std::string &NAME, const int &JL,
-                    const int &JU, const int &IL, const int &IU,
-                    const Function &function) {
+inline void par_for(LoopPatternMDRange, const std::string &NAME,
+                    DevSpace exec_space, const int &JL, const int &JU,
+                    const int &IL, const int &IU, const Function &function) {
   Kokkos::parallel_for(
       NAME, Kokkos::MDRangePolicy<Kokkos::Rank<2>>({JL, IL}, {JU + 1, IU + 1}),
       function);
@@ -129,9 +134,10 @@ inline void par_for(LoopPatternMDRange, const std::string &NAME, const int &JL,
 
 // 3D loop using Kokkos 1D Range
 template <typename Function>
-inline void par_for(LoopPatternRange, const std::string &NAME, const int &KL,
-                    const int &KU, const int &JL, const int &JU, const int &IL,
-                    const int &IU, const Function &function) {
+inline void par_for(LoopPatternRange, const std::string &NAME,
+                    DevSpace exec_space, const int &KL, const int &KU,
+                    const int &JL, const int &JU, const int &IL, const int &IU,
+                    const Function &function) {
   const int NK = KU - KL + 1;
   const int NJ = JU - JL + 1;
   const int NI = IU - IL + 1;
@@ -151,9 +157,10 @@ inline void par_for(LoopPatternRange, const std::string &NAME, const int &KL,
 
 // 3D loop using MDRange loops
 template <typename Function>
-inline void par_for(LoopPatternMDRange, const std::string &NAME, const int &KL,
-                    const int &KU, const int &JL, const int &JU, const int &IL,
-                    const int &IU, const Function &function) {
+inline void par_for(LoopPatternMDRange, const std::string &NAME,
+                    DevSpace exec_space, const int &KL, const int &KU,
+                    const int &JL, const int &JU, const int &IL, const int &IU,
+                    const Function &function) {
   Kokkos::parallel_for(NAME,
                        Kokkos::MDRangePolicy<Kokkos::Rank<3>>(
                            {KL, JL, IL}, {KU + 1, JU + 1, IU + 1}),
@@ -162,9 +169,10 @@ inline void par_for(LoopPatternMDRange, const std::string &NAME, const int &KL,
 
 // 3D loop using TeamPolicy with single inner TeamThreadRange
 template <typename Function>
-inline void par_for(LoopPatternTPTTR, const std::string &NAME, const int &KL,
-                    const int &KU, const int &JL, const int &JU, const int &IL,
-                    const int &IU, const Function &function) {
+inline void par_for(LoopPatternTPTTR, const std::string &NAME,
+                    DevSpace exec_space, const int &KL, const int &KU,
+                    const int &JL, const int &JU, const int &IL, const int &IU,
+                    const Function &function) {
   const int NK = KU - KL + 1;
   const int NJ = JU - JL + 1;
   const int NKNJ = NK * NJ;
@@ -180,9 +188,10 @@ inline void par_for(LoopPatternTPTTR, const std::string &NAME, const int &KL,
 
 // 3D loop using TeamPolicy with single inner ThreadVectorRange
 template <typename Function>
-inline void par_for(LoopPatternTPTVR, const std::string &NAME, const int &KL,
-                    const int &KU, const int &JL, const int &JU, const int &IL,
-                    const int &IU, const Function &function) {
+inline void par_for(LoopPatternTPTVR, const std::string &NAME,
+                    DevSpace exec_space, const int &KL, const int &KU,
+                    const int &JL, const int &JU, const int &IL, const int &IU,
+                    const Function &function) {
   // TODO(pgrete) if exec space is Cuda,throw error
   const int NK = KU - KL + 1;
   const int NJ = JU - JL + 1;
@@ -199,9 +208,10 @@ inline void par_for(LoopPatternTPTVR, const std::string &NAME, const int &KL,
 
 // 3D loop using TeamPolicy with nested TeamThreadRange and ThreadVectorRange
 template <typename Function>
-inline void par_for(LoopPatternTPTTRTVR, const std::string &NAME, const int &KL,
-                    const int &KU, const int &JL, const int &JU, const int &IL,
-                    const int &IU, const Function &function) {
+inline void par_for(LoopPatternTPTTRTVR, const std::string &NAME,
+                    DevSpace exec_space, const int &KL, const int &KU,
+                    const int &JL, const int &JU, const int &IL, const int &IU,
+                    const Function &function) {
   const int NK = KU - KL + 1;
   Kokkos::parallel_for(
       NAME, team_policy(NK, Kokkos::AUTO),
@@ -219,9 +229,10 @@ inline void par_for(LoopPatternTPTTRTVR, const std::string &NAME, const int &KL,
 
 // 3D loop using SIMD FOR loops
 template <typename Function>
-inline void par_for(LoopPatternSimdFor, const std::string &NAME, const int &KL,
-                    const int &KU, const int &JL, const int &JU, const int &IL,
-                    const int &IU, const Function &function) {
+inline void par_for(LoopPatternSimdFor, const std::string &NAME,
+                    DevSpace exec_space, const int &KL, const int &KU,
+                    const int &JL, const int &JU, const int &IL, const int &IU,
+                    const Function &function) {
   Kokkos::Profiling::pushRegion(NAME);
   for (auto k = KL; k <= KU; k++)
     for (auto j = JL; j <= JU; j++)
@@ -233,10 +244,10 @@ inline void par_for(LoopPatternSimdFor, const std::string &NAME, const int &KL,
 
 // 4D loop using Kokkos 1D Range
 template <typename Function>
-inline void par_for(LoopPatternRange, const std::string &NAME, const int NL,
-                    const int NU, const int KL, const int KU, const int JL,
-                    const int JU, const int IL, const int IU,
-                    const Function &function) {
+inline void par_for(LoopPatternRange, const std::string &NAME,
+                    DevSpace exec_space, const int NL, const int NU,
+                    const int KL, const int KU, const int JL, const int JU,
+                    const int IL, const int IU, const Function &function) {
   const int NN = (NU) - (NL) + 1;
   const int NK = (KU) - (KL) + 1;
   const int NJ = (JU) - (JL) + 1;
@@ -260,10 +271,10 @@ inline void par_for(LoopPatternRange, const std::string &NAME, const int NL,
 
 // 4D loop using MDRange loops
 template <typename Function>
-inline void par_for(LoopPatternMDRange, const std::string &NAME, const int NL,
-                    const int NU, const int KL, const int KU, const int JL,
-                    const int JU, const int IL, const int IU,
-                    const Function &function) {
+inline void par_for(LoopPatternMDRange, const std::string &NAME,
+                    DevSpace exec_space, const int NL, const int NU,
+                    const int KL, const int KU, const int JL, const int JU,
+                    const int IL, const int IU, const Function &function) {
   Kokkos::parallel_for(NAME,
                        Kokkos::MDRangePolicy<Kokkos::Rank<4>>(
                            {NL, KL, JL, IL}, {NU + 1, KU + 1, JU + 1, IU + 1}),
@@ -272,10 +283,10 @@ inline void par_for(LoopPatternMDRange, const std::string &NAME, const int NL,
 
 // 4D loop using TeamPolicy loop with inner TeamThreadRange
 template <typename Function>
-inline void par_for(LoopPatternTPTTR, const std::string &NAME, const int NL,
-                    const int NU, const int KL, const int KU, const int JL,
-                    const int JU, const int IL, const int IU,
-                    const Function &function) {
+inline void par_for(LoopPatternTPTTR, const std::string &NAME,
+                    DevSpace exec_space, const int NL, const int NU,
+                    const int KL, const int KU, const int JL, const int JU,
+                    const int IL, const int IU, const Function &function) {
   const int NN = NU - NL + 1;
   const int NK = KU - KL + 1;
   const int NJ = JU - JL + 1;
@@ -296,10 +307,10 @@ inline void par_for(LoopPatternTPTTR, const std::string &NAME, const int NL,
 
 // 4D loop using TeamPolicy loop with inner ThreadVectorRange
 template <typename Function>
-inline void par_for(LoopPatternTPTVR, const std::string &NAME, const int NL,
-                    const int NU, const int KL, const int KU, const int JL,
-                    const int JU, const int IL, const int IU,
-                    const Function &function) {
+inline void par_for(LoopPatternTPTVR, const std::string &NAME,
+                    DevSpace exec_space, const int NL, const int NU,
+                    const int KL, const int KU, const int JL, const int JU,
+                    const int IL, const int IU, const Function &function) {
   // TODO(pgrete) if exec space is Cuda,throw error
   const int NN = NU - NL + 1;
   const int NK = KU - KL + 1;
@@ -322,10 +333,10 @@ inline void par_for(LoopPatternTPTVR, const std::string &NAME, const int NL,
 
 // 4D loop using TeamPolicy with nested TeamThreadRange and ThreadVectorRange
 template <typename Function>
-inline void par_for(LoopPatternTPTTRTVR, const std::string &NAME, const int NL,
-                    const int NU, const int KL, const int KU, const int JL,
-                    const int JU, const int IL, const int IU,
-                    const Function &function) {
+inline void par_for(LoopPatternTPTTRTVR, const std::string &NAME,
+                    DevSpace exec_space, const int NL, const int NU,
+                    const int KL, const int KU, const int JL, const int JU,
+                    const int IL, const int IU, const Function &function) {
   const int NN = NU - NL + 1;
   const int NK = KU - KL + 1;
   const int NNNK = NN * NK;
@@ -346,10 +357,10 @@ inline void par_for(LoopPatternTPTTRTVR, const std::string &NAME, const int NL,
 
 // 4D loop using SIMD FOR loops
 template <typename Function>
-inline void par_for(LoopPatternSimdFor, const std::string &NAME, const int NL,
-                    const int NU, const int KL, const int KU, const int JL,
-                    const int JU, const int IL, const int IU,
-                    const Function &function) {
+inline void par_for(LoopPatternSimdFor, const std::string &NAME,
+                    DevSpace exec_space, const int NL, const int NU,
+                    const int KL, const int KU, const int JL, const int JU,
+                    const int IL, const int IU, const Function &function) {
   Kokkos::Profiling::pushRegion(NAME);
   for (auto n = NL; n <= NU; n++)
     for (auto k = KL; k <= KU; k++)

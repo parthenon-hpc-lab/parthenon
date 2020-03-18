@@ -28,9 +28,10 @@ using parthenon::ParArray1D;
 using parthenon::ParArray2D;
 using parthenon::ParArray3D;
 using parthenon::ParArray4D;
+using parthenon::DevSpace;
 using Real = double;
 
-template <class T> bool test_wrapper_1d(T loop_pattern) {
+template <class T> bool test_wrapper_1d(T loop_pattern, DevSpace exec_space) {
   // https://en.cppreference.com/w/cpp/numeric/random/uniform_real_distribution
   std::random_device
       rd; // Will be used to obtain a seed for the random number engine
@@ -51,7 +52,7 @@ template <class T> bool test_wrapper_1d(T loop_pattern) {
 
   // increment data on the device using prescribed wrapper
   parthenon::par_for(
-      loop_pattern, "unit test 1D", 0, N - 1, KOKKOS_LAMBDA(const int i) {
+      loop_pattern, "unit test 1D", exec_space, 0, N - 1, KOKKOS_LAMBDA(const int i) {
         arr_dev(i) += 1.0;
       });
 
@@ -69,7 +70,7 @@ template <class T> bool test_wrapper_1d(T loop_pattern) {
   return all_same;
 }
 
-template <class T> bool test_wrapper_2d(T loop_pattern) {
+template <class T> bool test_wrapper_2d(T loop_pattern, DevSpace exec_space) {
   // https://en.cppreference.com/w/cpp/numeric/random/uniform_real_distribution
   std::random_device
       rd; // Will be used to obtain a seed for the random number engine
@@ -91,10 +92,8 @@ template <class T> bool test_wrapper_2d(T loop_pattern) {
 
   // increment data on the device using prescribed wrapper
   parthenon::par_for(
-      loop_pattern, "unit test 2D", 0, N - 1, 0, N - 1,
-      KOKKOS_LAMBDA(const int j, const int i) {
-        arr_dev(j, i) += 1.0;
-        });
+      loop_pattern, "unit test 2D", exec_space, 0, N - 1, 0, N - 1,
+      KOKKOS_LAMBDA(const int j, const int i) { arr_dev(j, i) += 1.0; });
 
   // Copy array back from device to host
   Kokkos::deep_copy(arr_host_mod, arr_dev);
@@ -111,7 +110,7 @@ template <class T> bool test_wrapper_2d(T loop_pattern) {
   return all_same;
 }
 
-template <class T> bool test_wrapper_3d(T loop_pattern) {
+template <class T> bool test_wrapper_3d(T loop_pattern, DevSpace exec_space) {
   // https://en.cppreference.com/w/cpp/numeric/random/uniform_real_distribution
   std::random_device
       rd; // Will be used to obtain a seed for the random number engine
@@ -134,7 +133,7 @@ template <class T> bool test_wrapper_3d(T loop_pattern) {
 
   // increment data on the device using prescribed wrapper
   parthenon::par_for(
-      loop_pattern, "unit test 3D", 0, N - 1, 0, N - 1, 0, N - 1,
+      loop_pattern, "unit test 3D", exec_space, 0, N - 1, 0, N - 1, 0, N - 1,
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
         arr_dev(k, j, i) += 1.0;
       });
@@ -155,7 +154,7 @@ template <class T> bool test_wrapper_3d(T loop_pattern) {
   return all_same;
 }
 
-template <class T> bool test_wrapper_4d(T loop_pattern) {
+template <class T> bool test_wrapper_4d(T loop_pattern, DevSpace exec_space) {
   // https://en.cppreference.com/w/cpp/numeric/random/uniform_real_distribution
   std::random_device
       rd; // Will be used to obtain a seed for the random number engine
@@ -179,8 +178,8 @@ template <class T> bool test_wrapper_4d(T loop_pattern) {
 
   // increment data on the device using prescribed wrapper
   parthenon::par_for(
-      loop_pattern, "unit test 4D", 0, N - 1, 0, N - 1, 0, N - 1, 0, N - 1,
-      KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
+      loop_pattern, "unit test 4D", exec_space, 0, N - 1, 0, N - 1, 0, N - 1, 0,
+      N - 1, KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
         arr_dev(n, k, j, i) += 1.0;
       });
 
@@ -202,43 +201,59 @@ template <class T> bool test_wrapper_4d(T loop_pattern) {
 }
 
 TEST_CASE("par_for loops", "[wrapper]") {
+  auto default_exec_space = DevSpace();
+
   SECTION("1D loops") {
-    REQUIRE(test_wrapper_1d(parthenon::loop_pattern_mdrange_tag) == true);
+    REQUIRE(test_wrapper_1d(parthenon::loop_pattern_mdrange_tag,
+                            default_exec_space) == true);
   }
 
   SECTION("2D loops") {
-    REQUIRE(test_wrapper_2d(parthenon::loop_pattern_mdrange_tag) == true);
+    REQUIRE(test_wrapper_2d(parthenon::loop_pattern_mdrange_tag,
+                            default_exec_space) == true);
   }
 
   SECTION("3D loops") {
-    REQUIRE(test_wrapper_3d(parthenon::loop_pattern_range_tag) == true);
+    REQUIRE(test_wrapper_3d(parthenon::loop_pattern_range_tag,
+                            default_exec_space) == true);
 
-    REQUIRE(test_wrapper_3d(parthenon::loop_pattern_mdrange_tag) == true);
+    REQUIRE(test_wrapper_3d(parthenon::loop_pattern_mdrange_tag,
+                            default_exec_space) == true);
 
-    REQUIRE(test_wrapper_3d(parthenon::loop_pattern_tpttrtvr_tag) == true);
+    REQUIRE(test_wrapper_3d(parthenon::loop_pattern_tpttrtvr_tag,
+                            default_exec_space) == true);
 
-    REQUIRE(test_wrapper_3d(parthenon::loop_pattern_tpttr_tag) == true);
+    REQUIRE(test_wrapper_3d(parthenon::loop_pattern_tpttr_tag,
+                            default_exec_space) == true);
 
 #ifndef KOKKOS_ENABLE_CUDA
-    REQUIRE(test_wrapper_3d(parthenon::loop_pattern_tptvr_tag) == true);
+    REQUIRE(test_wrapper_3d(parthenon::loop_pattern_tptvr_tag,
+                            default_exec_space) == true);
 
-    REQUIRE(test_wrapper_3d(parthenon::loop_pattern_simdfor_tag) == true);
+    REQUIRE(test_wrapper_3d(parthenon::loop_pattern_simdfor_tag,
+                            default_exec_space) == true);
 #endif
   }
 
   SECTION("4D loops") {
-    REQUIRE(test_wrapper_4d(parthenon::loop_pattern_range_tag) == true);
+    REQUIRE(test_wrapper_4d(parthenon::loop_pattern_range_tag,
+                            default_exec_space) == true);
 
-    REQUIRE(test_wrapper_4d(parthenon::loop_pattern_mdrange_tag) == true);
+    REQUIRE(test_wrapper_4d(parthenon::loop_pattern_mdrange_tag,
+                            default_exec_space) == true);
 
-    REQUIRE(test_wrapper_4d(parthenon::loop_pattern_tpttrtvr_tag) == true);
+    REQUIRE(test_wrapper_4d(parthenon::loop_pattern_tpttrtvr_tag,
+                            default_exec_space) == true);
 
-    REQUIRE(test_wrapper_4d(parthenon::loop_pattern_tpttr_tag) == true);
+    REQUIRE(test_wrapper_4d(parthenon::loop_pattern_tpttr_tag,
+                            default_exec_space) == true);
 
 #ifndef KOKKOS_ENABLE_CUDA
-    REQUIRE(test_wrapper_4d(parthenon::loop_pattern_tptvr_tag) == true);
+    REQUIRE(test_wrapper_4d(parthenon::loop_pattern_tptvr_tag,
+                            default_exec_space) == true);
 
-    REQUIRE(test_wrapper_4d(parthenon::loop_pattern_simdfor_tag) == true);
+    REQUIRE(test_wrapper_4d(parthenon::loop_pattern_simdfor_tag,
+                            default_exec_space) == true);
 #endif
   }
 }
