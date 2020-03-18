@@ -10,26 +10,33 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+#ifndef BETTER_REFINEMENT_AMR_CRITERIA_HPP_
+#define BETTER_REFINEMENT_AMR_CRITERIA_HPP_
 
-#ifndef BETTER_REFINEMENT_HPP_
-#define BETTER_REFINEMENT_HPP_
-
-#include <memory>
 #include <string>
+
 #include "athena.hpp"
-#include "interface/Variable.hpp"
 #include "interface/Container.hpp"
 
 namespace parthenon {
 
 class ParameterInput;
 
-namespace BetterRefinement {
-  std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
-  int CheckRefinement(Container<Real>& rc);
-  int FirstDerivative(Variable<Real>& q, const Real refine_criteria, const Real derefine_criteria);
-} // namespace BetterRefinement
+struct AMRCriteria {
+  public:
+    //AMRCriteria();std::string field, RefineFunction* rfunc, const Real refine_criteria, const Real derefine_criteria) : 
+    //            _field(field), _refine_func(rfunc), _refine_criteria(refine_criteria), _derefine_criteria(derefine_criteria) {}*/
+    AMRCriteria() = default;
+    virtual int operator () (Container<Real>& rc) = 0;
+    std::string _field;
+    Real _refine_criteria, _derefine_criteria;
+};
+
+struct AMRFirstDerivative : public AMRCriteria {
+  AMRFirstDerivative(ParameterInput *pin, std::string block_name);
+  int operator () (Container<Real>& rc);
+};
 
 } // namespace parthenon
 
-#endif
+#endif // BETTER_REFINEMENT_AMR_CRITERIA_

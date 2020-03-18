@@ -10,14 +10,43 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+#include <exception>
+#include <memory>
+#include <utility>
 
 #include "better_refinement.hpp"
-
-#include "mesh/mesh.hpp"
 #include "interface/StateDescriptor.hpp"
+#include "mesh/mesh.hpp"
+#include "parameter_input.hpp"
 
 namespace parthenon {
 namespace BetterRefinement {
+
+std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin)
+{
+  auto ref = std::make_shared<StateDescriptor>("Refinement");
+  Params& params = ref->AllParams();
+
+  std::string base("Refinement");
+  int numcrit = 0;
+  for(;;) {
+    std::string block_name = base + std::to_string(numcrit);
+    if (!pin->DoesBlockExist(block_name)) {
+      break;
+    }
+    int method = pin->GetOrAddInteger(block_name, "method", 0);
+    switch(method) {
+      case 0:
+        ref->amr_criteria.push_back(new AMRFirstDerivative(pin, block_name));
+        break;
+      default:
+        throw std::invalid_argument("Invalid selection for refinment method in " + block_name);
+    }
+    numcrit++;
+  }
+  return std::move(ref);
+}
+
 
 int CheckRefinement(Container<Real>& rc) {
   MeshBlock *pmb = rc.pmy_block;
@@ -33,8 +62,7 @@ int CheckRefinement(Container<Real>& rc) {
   if (delta_level != 1) {
     for (auto & phys : pmb->physics) {
       for (auto & amr : phys.second->amr_criteria) {
-        Variable<Real> q = pmb->real_container.Get(amr._field);
-        delta_level = amr._refine_func(q, amr._refine_criteria, amr._derefine_criteria);
+        delta_level = (*amr)(rc);
         if (delta_level == 1) break;
       }
     }
@@ -44,8 +72,44 @@ int CheckRefinement(Container<Real>& rc) {
 }
 
 int FirstDerivative(Variable<Real>& q, const Real refine_criteria, const Real derefine_criteria) {
-    return -1;
+  Real maxd = 0.0;
+  const int dim1 = q.GetDim1();
+  const int dim2 = q.GetDim2();
+  const int dim3 = q.GetDim3();
+  int klo=0, khi=1, jlo=0, jhi=1, ilo=0, ihi=1;
+  if (dim3 > 1) {
+    klo = 1;
+    khi = dim3-1;
+  } 
+  if (dim2 > 1) {
+    jlo = 1;
+    jhi = dim2-1;
+  }
+  if (dim1 > 1) {
+    ilo = 1;
+    ihi = dim1-1;
+  }
+  for (int k=klo; k<khi; k++) {
+    for (int j=jlo; j<jhi; j++) {
+      for (int i=ilo; i<ihi; i++) {
+        Real scale = std::abs(q(k,j,i));
+        Real d = 0.5*std::abs((q(k,j,i+1)-q(k,j,i-1)))/(scale+1.e-16);
+        maxd = (d > maxd ? d : maxd);
+        if (dim2 > 1) {
+          d = 0.5*std::abs((q(k,j+1,i)-q(k,j-1,i)))/(scale+1.e-16);
+          maxd = (d > maxd ? d : maxd);
+        }
+        if (dim3 > 1) {
+          d = 0.5*std::abs((q(k+1,j,i) - q(k-1,j,i)))/(scale+1.e-16);
+          maxd = (d > maxd ? d : maxd);
+        }
+      }
+    }
+  }
+  if (maxd > refine_criteria) return 1;
+  if (maxd < derefine_criteria) return -1;
+  return 0;;
 }
 
-}
-}
+} // namespace BetterRefinement
+} // namespace parthenon

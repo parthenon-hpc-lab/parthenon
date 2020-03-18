@@ -10,26 +10,27 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-
-#ifndef BETTER_REFINEMENT_HPP_
-#define BETTER_REFINEMENT_HPP_
-
-#include <memory>
-#include <string>
-#include "athena.hpp"
-#include "interface/Variable.hpp"
+#include "amr_criteria.hpp"
+#include "better_refinement.hpp"
 #include "interface/Container.hpp"
+#include "interface/Variable.hpp"
+#include "parameter_input.hpp"
 
 namespace parthenon {
 
-class ParameterInput;
+AMRFirstDerivative::AMRFirstDerivative(ParameterInput *pin, std::string block_name) {
+    _field = pin->GetOrAddString(block_name, "field", "none");
+    if (!_field.compare("none")) {
+      std::cerr << "Error in " << block_name << ": no field set" << std::endl;
+      exit(1);
+    }
+    _refine_criteria = pin->GetOrAddReal(block_name, "refine_tol", 0.5);
+    _derefine_criteria = pin->GetOrAddReal(block_name, "derefine_tol", 0.05);
+}
 
-namespace BetterRefinement {
-  std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
-  int CheckRefinement(Container<Real>& rc);
-  int FirstDerivative(Variable<Real>& q, const Real refine_criteria, const Real derefine_criteria);
-} // namespace BetterRefinement
+int AMRFirstDerivative::operator()(Container<Real>& rc) {
+  Variable<Real>& q = rc.Get(_field);
+  return BetterRefinement::FirstDerivative(q, _refine_criteria, _derefine_criteria);
+}
 
 } // namespace parthenon
-
-#endif
