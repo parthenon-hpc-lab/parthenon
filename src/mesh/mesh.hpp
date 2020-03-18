@@ -66,7 +66,7 @@ class MeshBlockApplicationData {
     // instantiated (only derived classes can be instantiated)
     virtual ~MeshBlockApplicationData() = 0;
 };
-using pMeshBlockApplicationDatap_t = std::unique_ptr<MeshBlockApplicationData>;
+using pMeshBlockApplicationData_t = std::unique_ptr<MeshBlockApplicationData>;
 
 // we still need to define this somewhere, though
 inline MeshBlockApplicationData::~MeshBlockApplicationData() {}
