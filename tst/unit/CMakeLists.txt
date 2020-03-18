@@ -15,7 +15,13 @@
 ## the public, perform publicly and display publicly, and to permit others to do so.
 ##========================================================================================
 
-list(APPEND unit_tests_SOURCES test_unit_params.cpp)
+list(APPEND unit_tests_SOURCES 
+
+    test_unit_params.cpp
+    test_taskid.cpp
+    
+    )
+
 
 add_executable(unit_tests ${unit_tests_SOURCES})
 target_link_libraries(unit_tests PRIVATE parthenon catch2_define )
