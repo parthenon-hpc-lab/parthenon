@@ -28,15 +28,9 @@ namespace parthenon {
     auto package = std::make_shared<StateDescriptor>("FaceFieldExample");
 
     Params& params = package->AllParams();
-    params.Add("px",
-               pin->DoesParameterExist("FaceExample","px") ?
-               pin->GetReal("FaceExample","px") : 2.0);
-    params.Add("py",
-               pin->DoesParameterExist("FaceExample","py") ?
-               pin->GetReal("FaceExample","py") : 2.0);
-    params.Add("pz",
-               pin->DoesParameterExist("FaceExample","pz") ?
-               pin->GetReal("FaceExample","pz") : 2.0);
+    params.Add("px", pin->GetOrAddReal("FaceExample", "px", 2.0));
+    params.Add("py", pin->GetOrAddReal("FaceExample", "py", 2.0));
+    params.Add("pz", pin->GetOrAddReal("FaceExample", "pz", 2.0));
 
     Metadata m;
     std::vector<int> array_size({2});
