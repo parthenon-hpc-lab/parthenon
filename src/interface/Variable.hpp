@@ -167,7 +167,7 @@ struct FaceVariable : FaceField {
  public:
   /// Initialize a face variable
   FaceVariable(const std::string label, const Metadata &metadata,
-	       const std::array<int,6> ncells,
+               const std::array<int,6> ncells,
                const DATASTATUS init=DATASTATUS::allocated) :
     FaceField(ncells[5], ncells[4], ncells[3], ncells[2], ncells[1], ncells[0], init),
     _label(label),
@@ -198,7 +198,7 @@ struct FaceVariable : FaceField {
   /// return information string
   std::string info();
 
-  // TODO: should this be 0,1,2?
+  // TODO(JMM): should this be 0,1,2?
   // Should we return the reference? Or something else?
   AthenaArray<Real>& Get(int i) {
     if (i == 1) return (this->x1f);
@@ -207,22 +207,22 @@ struct FaceVariable : FaceField {
     throw std::invalid_argument("Face must be x1f, x2f, or x3f");
   }
   Real& operator()(int dir,
-		   int nx6, int nx5, int nx4,
-		   int nx3, int nx2, int nx1) {
+                   int nx6, int nx5, int nx4,
+                   int nx3, int nx2, int nx1) {
     if (dir == 1) return x1f(nx6, nx5, nx4, nx3, nx2, nx1);
     if (dir == 2) return x2f(nx6, nx5, nx4, nx3, nx2, nx1);
     if (dir == 3) return x3f(nx6, nx5, nx4, nx3, nx2, nx1);
     throw std::invalid_argument("Face must be x1f, x2f, or x3f");
   }
   Real& operator()(int dir,
-		   int nx5, int nx4, int nx3, int nx2, int nx1) {
+                   int nx5, int nx4, int nx3, int nx2, int nx1) {
     if (dir == 1) return x1f(nx5, nx4, nx3, nx2, nx1);
     if (dir == 2) return x2f(nx5, nx4, nx3, nx2, nx1);
     if (dir == 3) return x3f(nx5, nx4, nx3, nx2, nx1);
     throw std::invalid_argument("Face must be x1f, x2f, or x3f");
   }
   Real& operator()(int dir,
-		   int nx4, int nx3, int nx2, int nx1) {
+                   int nx4, int nx3, int nx2, int nx1) {
     if (dir == 1) return x1f(nx4, nx3, nx2, nx1);
     if (dir == 2) return x2f(nx4, nx3, nx2, nx1);
     if (dir == 3) return x3f(nx4, nx3, nx2, nx1);
@@ -309,6 +309,6 @@ class VariableVector : public std::vector<std::shared_ptr<Variable<T>>> {
   }
   Metadata& metadata() const { return this->begin().second->metadata();}
 };
-}
+} // namespace parthenon
 
 #endif // INTERFACE_VARIABLE_HPP_

@@ -15,10 +15,10 @@
 #include <utility>
 #include <vector>
 #include "bvals/cc/bvals_cc.hpp"
-#include "globals.hpp" // my_rank
-#include "mesh/mesh.hpp"
 #include "Container.hpp"
+#include "globals.hpp" // my_rank
 #include "MaterialVariable.hpp"
+#include "mesh/mesh.hpp"
 
 namespace parthenon {
 ///
@@ -77,7 +77,7 @@ void Container<T>::Add(const std::string label,
   } else if ( metadata.where() == (Metadata::face) ) {
     if ( !(metadata.isOneCopy()) ) {
       std::cerr << "Currently one one-copy face fields are supported"
-		<< std::endl;
+                << std::endl;
       std::exit(1);
     }
     if (metadata.fillsGhost()) {
@@ -158,14 +158,13 @@ void Container<T>::StageSet(std::string name) {
   for (auto &myMap : s->_matVars.getAllCellVars()) {
     // for every variable Map in the material variables array
     for (auto &v : myMap.second) {
-      if ( (v.second->metadata()).fillsGhost()) {  
+      if ( (v.second->metadata()).fillsGhost()) {
         v.second->resetBoundary();
-	      //v.second->vbvar->var_cc = v.second.get();
-	//v.second->mpiStatus=true;
+        //v.second->vbvar->var_cc = v.second.get();
+        //v.second->mpiStatus=true;
       }
     }
   }
-  
 }
 
 // provides a container that has a single material slice
@@ -207,9 +206,8 @@ Container<T> Container<T>::materialSlice(int mat_id) {
   return c;
 }
 
-// TODO: this could be cleaned up, I think.
+// TODO(JMM): this could be cleaned up, I think.
 // Maybe do only one loop, or do the cleanup at the end.
-// ~JMM
 template <typename T>
 void Container<T>::Remove(const std::string label) {
   // first find the index of our
@@ -231,7 +229,7 @@ void Container<T>::Remove(const std::string label) {
   }
 
   // No face match so check edge variables
-  // TODO: fixme
+  // TODO(JMM): fixme
   // idx = 0;
   // for (auto v : s->_edgeArray) {
   //   if ( ! label.compare(v->label())) {
@@ -575,11 +573,9 @@ int Container<T>::GetVariables(const std::vector<std::string>& names,
 
 template<typename T>
 void Container<T>::calcArrDims_(std::array<int, 6>& arrDims,
-				const std::vector<int>& dims) {
+                                const std::vector<int>& dims) {
   const int N = dims.size();
   if ( N > 3 || N < 0 ) {
-
-    
     // too many dimensions
     throw std::invalid_argument ("_addArray() must have dims between [1,5]");
   }
@@ -588,8 +584,7 @@ void Container<T>::calcArrDims_(std::array<int, 6>& arrDims,
   arrDims[1] = pmy_block->ncells2;
   arrDims[2] = pmy_block->ncells1;
   for (int i=0; i<N; i++) {arrDims[i+3] = dims[i]; }
-  
 }
 
 template class Container<double>;
-}
+} // namespace parthenon

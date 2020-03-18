@@ -11,17 +11,18 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef BETTER_TASK_HPP
-#define BETTER_TASK_HPP
+#ifndef TASK_LIST_TASKS_HPP_
+#define TASK_LIST_TASKS_HPP_
 
-#include <list>
-#include <vector>
 #include <bitset>
-#include <string>
+#include <functional>
+#include <iostream>
+#include <list>
 #include <memory>
 #include <stdexcept>
-#include <iostream>
-#include <functional>
+#include <string>
+#include <utility>
+#include <vector>
 
 #define MAX_TASKS 64
 
@@ -40,7 +41,7 @@ using BlockStageNamesTaskFunc =
   std::function<TaskStatus(MeshBlock*, int, std::vector<std::string>&)>;
 using BlockStageNamesIntegratorTaskFunc =
   std::function<TaskStatus(MeshBlock*, int,
-			   std::vector<std::string>&, Integrator*)>;
+                           std::vector<std::string>&, Integrator*)>;
 
 //----------------------------------------------------------------------------------------
 //! \class TaskID
@@ -67,7 +68,7 @@ class TaskID {  // POD but not aggregate (there is a user-provided ctor)
 };
 
 class BaseTask {
-  public:
+ public:
     BaseTask(TaskID id, TaskID dep) : _myid(id), _dep(dep) {}
     virtual ~BaseTask() = default;
     virtual TaskStatus operator () () = 0;
@@ -75,67 +76,77 @@ class BaseTask {
     TaskID GetDependency() { return _dep; }
     void SetComplete() { _complete = true; }
     bool IsComplete() { return _complete; }
-  protected:
+ protected:
     TaskID _myid, _dep;
     bool lb_time, _complete=false;
 };
 
 class SimpleTask : public BaseTask {
-  public:
-    SimpleTask(TaskID id, SimpleTaskFunc func, TaskID dep) : _func(func), BaseTask(id, dep) {}
+ public:
+  SimpleTask(TaskID id, SimpleTaskFunc func, TaskID dep)
+    : _func(func), BaseTask(id, dep) {}
     TaskStatus operator () () { return _func(); }
-  private:
+ private:
     SimpleTaskFunc _func;
 };
 
 class BlockTask : public BaseTask {
-  public:
+ public:
     BlockTask(TaskID id, BlockTaskFunc func, TaskID dep, MeshBlock *pmb)
         : _func(func), _pblock(pmb), BaseTask(id, dep) {}
     TaskStatus operator () () { return _func(_pblock); }
-  private:
+ private:
     BlockTaskFunc _func;
     MeshBlock *_pblock;
 };
 
 class BlockStageTask : public BaseTask {
-  public:
-    BlockStageTask(TaskID id, BlockStageTaskFunc func, TaskID dep, MeshBlock *pmb, int stage)
-        : _func(func), _pblock(pmb), _stage(stage), BaseTask(id,dep) { }
-    TaskStatus operator () () { return _func(_pblock, _stage); }
-  private:
-    BlockStageTaskFunc _func;
-    MeshBlock *_pblock;
-    int _stage;
+ public:
+  BlockStageTask(TaskID id, BlockStageTaskFunc func,
+                 TaskID dep, MeshBlock *pmb, int stage)
+    : _func(func), _pblock(pmb), _stage(stage), BaseTask(id,dep) { }
+  TaskStatus operator () () { return _func(_pblock, _stage); }
+ private:
+  BlockStageTaskFunc _func;
+  MeshBlock *_pblock;
+  int _stage;
 };
 
 class BlockStageNamesTask : public BaseTask {
-  public:
-    BlockStageNamesTask(TaskID id, BlockStageNamesTaskFunc func, TaskID dep, MeshBlock *pmb, int stage, const std::vector<std::string>& sname)
-        : _func(func), _pblock(pmb), _stage(stage), _sname(sname), BaseTask(id,dep) { }
-    TaskStatus operator () () { return _func(_pblock, _stage, _sname); }
-  private:
-    BlockStageNamesTaskFunc _func;
-    MeshBlock *_pblock;
-    int _stage;
-    std::vector<std::string> _sname;
+ public:
+  BlockStageNamesTask(TaskID id, BlockStageNamesTaskFunc func, TaskID dep,
+                      MeshBlock *pmb, int stage,
+                      const std::vector<std::string>& sname)
+        : _func(func), _pblock(pmb), _stage(stage),
+          _sname(sname), BaseTask(id,dep) { }
+  TaskStatus operator () () { return _func(_pblock, _stage, _sname); }
+ private:
+  BlockStageNamesTaskFunc _func;
+  MeshBlock *_pblock;
+  int _stage;
+  std::vector<std::string> _sname;
 };
 
 class BlockStageNamesIntegratorTask : public BaseTask {
-  public:
-    BlockStageNamesIntegratorTask(TaskID id, BlockStageNamesIntegratorTaskFunc func, TaskID dep, MeshBlock *pmb, int stage, const std::vector<std::string>& sname, Integrator* integ)
-        : _func(func), _pblock(pmb), _stage(stage), _sname(sname), _int(integ), BaseTask(id,dep) { }
-    TaskStatus operator () () { return _func(_pblock, _stage, _sname, _int); }
-  private:
-    BlockStageNamesIntegratorTaskFunc _func;
-    MeshBlock *_pblock;
-    int _stage;
-    std::vector<std::string> _sname;
-    Integrator *_int;
+ public:
+  BlockStageNamesIntegratorTask(TaskID id,
+                                BlockStageNamesIntegratorTaskFunc func,
+                                TaskID dep, MeshBlock *pmb, int stage,
+                                const std::vector<std::string>& sname,
+                                Integrator* integ)
+    : _func(func), _pblock(pmb), _stage(stage), _sname(sname),
+      _int(integ), BaseTask(id,dep) { }
+  TaskStatus operator () () { return _func(_pblock, _stage, _sname, _int); }
+ private:
+  BlockStageNamesIntegratorTaskFunc _func;
+  MeshBlock *_pblock;
+  int _stage;
+  std::vector<std::string> _sname;
+  Integrator *_int;
 };
 
 class TaskList {
-  public:
+ public:
     bool IsComplete() { return _task_list.empty(); }
     int Size() { return _task_list.size(); }
     void Reset() {
@@ -197,12 +208,14 @@ class TaskList {
       int i = 0;
       std::cout << "TaskList::Print():" << std::endl;
       for (auto& t : _task_list) {
-        std::cout << "  " << i << "  " << t->GetID().GetBitFld().to_string() << "  " << t->GetDependency().GetBitFld().to_string() << std::endl;
+        std::cout << "  " << i << "  " << t->GetID().GetBitFld().to_string()
+                  << "  " << t->GetDependency().GetBitFld().to_string()
+                  << std::endl;
         i++;
       }
     }
 
-  protected:
+ protected:
     std::list<std::unique_ptr<BaseTask>> _task_list;
     int _tasks_added=0;
     std::vector<TaskList*> _dependencies;
@@ -210,4 +223,4 @@ class TaskList {
 };
 
 } // namespace parthenon
-#endif
+#endif // TASK_LIST_TASKS_HPP_

@@ -65,5 +65,5 @@ class Stage {
   // we want container to be able to access our innards
   friend class Container<T>;
 };
-}
+} // namespace parthenon
 #endif // INTERFACE_STAGE_HPP_

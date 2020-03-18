@@ -201,7 +201,9 @@ class Container {
     return s->_matVars.Get(label,matID);
   }
 
-  Variable<T>& Get(const std::string& label, const int matID) { return GetMaterial(label, matID); }
+  Variable<T>& Get(const std::string& label, const int matID) {
+    return GetMaterial(label, matID);
+  }
 
   // returns a flattened array of the material variables
   VariableVector<T>& GetMaterialVector(const std::string& label) {
@@ -338,10 +340,7 @@ class Container {
   }
 
   /// Sets current stage to named stage
-  void StageSet(std::string name);/* {
-    //    std::cout <<"_______***__________STAGE="<<name<<"_____***______________\n";
-    s = stages[name];
-  }*/
+  void StageSet(std::string name);
 
   /// Deletes named stage
   void StageDelete(std::string name) {
@@ -370,8 +369,8 @@ class Container {
   std::shared_ptr<Stage<T>> s;
 
   void calcArrDims_(std::array<int, 6>& arrDims,
-		    const std::vector<int>& dims);
+                    const std::vector<int>& dims);
 };
 
-}
+} // namespace parthenon
 #endif // INTERFACE_CONTAINER_HPP_
