@@ -26,6 +26,10 @@ There are several weakly linked member functions that applications can (and ofte
 For features that require more detailed documentation a short paragraph or sentence here
 is sufficient with a link to a more detailed description in a separate [file](feature.md).
 
+### Adaptive Mesh Refinement
+
+A description of how to enable and extend the AMR capabilities of Parthenon is provided [here](amr.md).
+
 ### Tasks
 
 The tasking capabilities in Parthenon are documented [here](tasks.md).
