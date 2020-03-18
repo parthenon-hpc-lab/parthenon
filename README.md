@@ -38,4 +38,7 @@ how to use them.
 | Jonah Miller | @Yurlungur  | LANL Physics  |
 | Josh Dolence | @jdolence | LANL Physics |
 | Andrew Gaspar | @AndrewGaspar | LANL Computer Science |
+| Philipp Grete | @pgrete | Athena Physics |
+| Forrest Glines | @forrestglines | Athena Physics |
+| Jim Stone | @jmstone | Athena Physics |
 
