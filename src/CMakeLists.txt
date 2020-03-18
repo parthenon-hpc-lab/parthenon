@@ -50,7 +50,7 @@ add_library(parthenon
   better_boundaries/boundary_conditions.cpp
 
   better_refinement/better_refinement.cpp
-  better_reinement/amr_criteria.cpp
+  better_refinement/amr_criteria.cpp
 
   bvals/cc/bvals_cc.cpp
   bvals/cc/flux_correction_cc.cpp
