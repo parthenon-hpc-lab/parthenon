@@ -65,8 +65,6 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
   is = NGHOST;
   ie = is + block_size.nx1 - 1;
 
-  this->ssID = id++;
-
   ncells1 = block_size.nx1 + 2*NGHOST;
   ncc1 = block_size.nx1/2 + 2*NGHOST;
   if (pmy_mesh->f2) {

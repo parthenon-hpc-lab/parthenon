@@ -24,13 +24,15 @@ AMRFirstDerivative::AMRFirstDerivative(ParameterInput *pin, std::string block_na
       std::cerr << "Error in " << block_name << ": no field set" << std::endl;
       exit(1);
     }
-    _refine_criteria = pin->GetOrAddReal(block_name, "refine_tol", 0.5);
-    _derefine_criteria = pin->GetOrAddReal(block_name, "derefine_tol", 0.05);
+    refine_criteria = pin->GetOrAddReal(block_name, "refine_tol", 0.5);
+    derefine_criteria = pin->GetOrAddReal(block_name, "derefine_tol", 0.05);
+    int global_max_level = pin->GetOrAddInteger("mesh", "numlevel", 1);
+    max_level = pin->GetOrAddInteger(block_name, "max_level", global_max_level);
 }
 
 int AMRFirstDerivative::operator()(Container<Real>& rc) {
   Variable<Real>& q = rc.Get(_field);
-  return BetterRefinement::FirstDerivative(q, _refine_criteria, _derefine_criteria);
+  return BetterRefinement::FirstDerivative(q, refine_criteria, derefine_criteria);
 }
 
 } // namespace parthenon

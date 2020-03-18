@@ -100,6 +100,13 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
   //  pmesh = std::make_unique<Mesh>(pinput.get(), )
   //}
 
+  // add root_level to all max_level
+  for (auto const & ph : packages) {
+    for (auto & amr : ph.second->amr_criteria) {
+      amr->max_level += pmesh->RootLevel();
+    }
+  }
+
   SetFillDerivedFunctions();
 
   pmesh->Initialize(Restart(), pinput.get());

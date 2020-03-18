@@ -27,7 +27,8 @@ struct AMRCriteria {
   virtual ~AMRCriteria() {};
   virtual int operator () (Container<Real>& rc) = 0;
   std::string _field;
-  Real _refine_criteria, _derefine_criteria;
+  Real refine_criteria, derefine_criteria;
+  int max_level;
 };
 
 struct AMRFirstDerivative : public AMRCriteria {

@@ -54,7 +54,8 @@ int CheckRefinement(Container<Real>& rc) {
   for (auto &phys : pmb->physics) {
     auto& desc = phys.second;
     if (desc->CheckRefinement != nullptr) {
-        delta_level = desc->CheckRefinement(rc);
+        int package_delta_level = desc->CheckRefinement(rc);
+        delta_level = std::max(delta_level, package_delta_level);
         if (delta_level == 1) break;
     }
   }
@@ -62,8 +63,13 @@ int CheckRefinement(Container<Real>& rc) {
   if (delta_level != 1) {
     for (auto & phys : pmb->physics) {
       for (auto & amr : phys.second->amr_criteria) {
-        delta_level = (*amr)(rc);
-        if (delta_level == 1) break;
+        int package_delta_level = (*amr)(rc);
+        if (package_delta_level == 0) {
+          delta_level = std::max(delta_level, package_delta_level);
+        } else if (package_delta_level == 1 && rc.pmy_block->loc.level < amr->max_level) {
+          delta_level = 1;
+          break;
+        }
       }
     }
   }
