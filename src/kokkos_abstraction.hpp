@@ -80,6 +80,20 @@ static struct LoopPatternUndefined {
 #define DEFAULT_LOOP_PATTERN loop_pattern_undefined_tag
 #endif
 
+// 1D default loop pattern
+template <typename Function>
+inline void par_for(const std::string &NAME, const int &IL, const int &IU,
+                    const Function &function) {
+  par_for(loop_pattern_mdrange_tag, IL, IU, function);
+}
+
+// 2D default loop pattern
+template <typename Function>
+inline void par_for(const std::string &NAME, const int &JL, const int &JU,
+                    const int &IL, const int &IU, const Function &function) {
+  par_for(loop_pattern_mdrange_tag, JL, JU, IL, IU, function);
+}
+
 // 3D default loop pattern
 template <typename Function>
 inline void par_for(const std::string &NAME, const int &KL, const int &KU,
@@ -94,6 +108,23 @@ inline void par_for(const std::string &NAME, const int &NL, const int &NU,
                     const int &KL, const int &KU, const int &JL, const int &JU,
                     const int &IL, const int &IU, const Function &function) {
   par_for(DEFAULT_LOOP_PATTERN, NAME, NL, NU, KL, KU, JL, JU, IL, IU, function);
+}
+
+// 1D loop using MDRange loops
+template <typename Function>
+inline void par_for(LoopPatternMDRange, const std::string &NAME, const int &IL,
+                    const int &IU, const Function &function) {
+  Kokkos::parallel_for(NAME, Kokkos::RangePolicy<>(IL, IU + 1), function);
+}
+
+// 2D loop using MDRange loops
+template <typename Function>
+inline void par_for(LoopPatternMDRange, const std::string &NAME, const int &JL,
+                    const int &JU, const int &IL, const int &IU,
+                    const Function &function) {
+  Kokkos::parallel_for(
+      NAME, Kokkos::MDRangePolicy<Kokkos::Rank<2>>({JL, IL}, {JU + 1, IU + 1}),
+      function);
 }
 
 // 3D loop using Kokkos 1D Range
@@ -283,8 +314,9 @@ inline void par_for(LoopPatternTPTVR, const std::string &NAME, const int NL,
         int j = team_member.league_rank() - n * NKNJ - k * NJ + JL;
         n += NL;
         k += KL;
-        Kokkos::parallel_for(Kokkos::ThreadVectorRange<>(team_member, IL, IU + 1),
-                             [&](const int i) { function(n, k, j, i); });
+        Kokkos::parallel_for(
+            Kokkos::ThreadVectorRange<>(team_member, IL, IU + 1),
+            [&](const int i) { function(n, k, j, i); });
       });
 }
 
