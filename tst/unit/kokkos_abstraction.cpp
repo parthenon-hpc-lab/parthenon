@@ -17,13 +17,14 @@
 // so.
 //========================================================================================
 
-#include <filesystem>
-#include <iostream>
-#include <random>
 
 #include "../../src/kokkos_abstraction.hpp"
+
+#include <iostream>
+#include <random>
+#include <vector>
+
 #include <catch2/catch.hpp>
-#include "Kokkos_Macros.hpp"
 
 using parthenon::DevSpace;
 using parthenon::ParArray1D;
@@ -54,7 +55,9 @@ template <class T> bool test_wrapper_1d(T loop_pattern, DevSpace exec_space) {
   // increment data on the device using prescribed wrapper
   parthenon::par_for(
       loop_pattern, "unit test 1D", exec_space, 0, N - 1,
-      KOKKOS_LAMBDA(const int i) { arr_dev(i) += 1.0; });
+      KOKKOS_LAMBDA(const int i) {
+        arr_dev(i) += 1.0;
+        });
 
   // Copy array back from device to host
   Kokkos::deep_copy(arr_host_mod, arr_dev);
@@ -93,7 +96,9 @@ template <class T> bool test_wrapper_2d(T loop_pattern, DevSpace exec_space) {
   // increment data on the device using prescribed wrapper
   parthenon::par_for(
       loop_pattern, "unit test 2D", exec_space, 0, N - 1, 0, N - 1,
-      KOKKOS_LAMBDA(const int j, const int i) { arr_dev(j, i) += 1.0; });
+      KOKKOS_LAMBDA(const int j, const int i) {
+        arr_dev(j, i) += 1.0;
+        });
 
   // Copy array back from device to host
   Kokkos::deep_copy(arr_host_mod, arr_dev);
@@ -261,38 +266,50 @@ TEST_CASE("par_for loops", "[wrapper]") {
 // reused from kokoks/core/perf_test/PerfTest_ExecSpacePartitioning.cpp
 // commit a0d011fb30022362c61b3bb000ae3de6906cb6a7
 struct FunctorRange {
-  int M, R;
-  ParArray4D<Real> arr_dev;
-  FunctorRange(int M_, int R_, ParArray4D<Real> arr_dev_)
-      : M(M_), R(R_), arr_dev(arr_dev_) {}
+  int M;
+  ParArray4D<Real> arr_in, arr_out_l, arr_out_r;
+  FunctorRange(int M_, ParArray4D<Real> arr_in_, ParArray4D<Real> arr_out_l_,
+               ParArray4D<Real> arr_out_r_)
+      : M(M_), arr_in(arr_in_), arr_out_l(arr_out_l_), arr_out_r(arr_out_r_) {}
   KOKKOS_INLINE_FUNCTION
   void operator()(const int k, const int j, const int i) const {
-    for (int r = 0; r < R; r++)
-      for (int n = 0; n < M; n++) {
-        arr_dev(n,k,j,i) += 1.0;
-      }
+    for (int n = 0; n < M; n++) {
+      arr_out_l(n, k, j, i) = arr_in(n, k, j, i) - arr_in(n, k, j, i - 1);
+      arr_out_r(n, k, j, i) = arr_in(n, k, j, i + 1) - arr_in(n, k, j, i);
+    }
   }
 };
 
 TEST_CASE("Overlapping SpaceInstances", "[wrapper]") {
   auto default_exec_space = DevSpace();
-  auto space1 = parthenon::SpaceInstance<DevSpace>::create();
-  auto space2 = parthenon::SpaceInstance<DevSpace>::create();
 
-  const int N = 16; // ~meshblock
-  const int M = 5;  // ~nhydro
-  const int R = 100; // repetitions
+  const int N = 32;       // ~meshblock size
+  const int M = 5;        // ~nhydro
+  const int nstreams = 8; // number of streams
 
-  ParArray4D<Real> arr_dev("SpaceInstance test array", M,N,N,N);
-  FunctorRange f(M, R, arr_dev);
+  std::vector<FunctorRange> functs;
+  std::vector<DevSpace> exec_spaces;
+
+  for (auto n = 0; n < nstreams; n++) {
+    functs.push_back(
+        FunctorRange(M, ParArray4D<Real>("SpaceInstance in", M, N, N, N),
+                     ParArray4D<Real>("SpaceInstance out_l", M, N, N, N),
+                     ParArray4D<Real>("SpaceInstance out_r", M, N, N, N)));
+    exec_spaces.push_back(parthenon::SpaceInstance<DevSpace>::create());
+  }
+
+  auto f = FunctorRange(M, ParArray4D<Real>("SpaceInstance in", M, N, N, N),
+                        ParArray4D<Real>("SpaceInstance out_l", M, N, N, N),
+                        ParArray4D<Real>("SpaceInstance out_r", M, N, N, N));
+
   // warmup
   for (auto it = 0; it < 10; it++) {
     parthenon::par_for(parthenon::loop_pattern_mdrange_tag, "default space",
-                       default_exec_space, 0, N - 1, 0, N - 1, 0, N - 1, f);
-    parthenon::par_for(parthenon::loop_pattern_mdrange_tag, "space1", space1, 0,
-                       N - 1, 0, N - 1, 0, N - 1, f);
-    parthenon::par_for(parthenon::loop_pattern_mdrange_tag, "space2", space2, 0,
-                       N - 1, 0, N - 1, 0, N - 1, f);
+                       default_exec_space, 0, N - 1, 0, N - 1, 1, N - 2, f);
+    for (auto n = 0; n < nstreams; n++) {
+      parthenon::par_for(parthenon::loop_pattern_mdrange_tag, "space",
+                         exec_spaces[n], 0, N - 1, 0, N - 1, 1, N - 2, functs[n]);
+    }
   }
   Kokkos::fence();
 
@@ -300,23 +317,22 @@ TEST_CASE("Overlapping SpaceInstances", "[wrapper]") {
 
   // meausre time using two execution space simultaneously
   // race condition in access to arr_dev doesn't matter for this test
-  parthenon::par_for(parthenon::loop_pattern_mdrange_tag, "space1", space1, 0,
-                     N - 1, 0, N - 1, 0, N - 1, f);
-  parthenon::par_for(parthenon::loop_pattern_mdrange_tag, "space2", space2, 0,
-                     N - 1, 0, N - 1, 0, N - 1, f);
-  space1.fence(); // making sure the kernels are done
-  space2.fence(); // making sure the kernels are done
+  for (auto n = 0; n < nstreams; n++) {
+    parthenon::par_for(parthenon::loop_pattern_mdrange_tag, "space", exec_spaces[n],
+                       0, N - 1, 0, N - 1, 1, N - 2, functs[n]);
+  }
+
+  Kokkos::fence();
   auto time_spaces = timer.seconds();
 
   timer.reset();
 
   // measure runtime using the default execution space
-  parthenon::par_for(parthenon::loop_pattern_mdrange_tag, "default space",
-                     default_exec_space, 0, N - 1, 0, N - 1, 0, N - 1,
-                     f);
-  parthenon::par_for(parthenon::loop_pattern_mdrange_tag, "default space",
-                     default_exec_space, 0, N - 1, 0, N - 1, 0, N - 1,
-                     f);
+  for (auto n = 0; n < nstreams; n++) {
+    parthenon::par_for(parthenon::loop_pattern_mdrange_tag, "default space",
+                       default_exec_space, 0, N - 1, 0, N - 1, 1, N - 2, f);
+  }
+
   default_exec_space.fence(); // making sure the kernel is done
   auto time_default = timer.seconds();
 
@@ -324,7 +340,4 @@ TEST_CASE("Overlapping SpaceInstances", "[wrapper]") {
   std::cout << "time spaces: " << time_spaces << std::endl;
 
   REQUIRE(time_default > 1.5 * time_spaces);
-
-  parthenon::SpaceInstance<DevSpace>::destroy(space1);
-  parthenon::SpaceInstance<DevSpace>::destroy(space2);
 }

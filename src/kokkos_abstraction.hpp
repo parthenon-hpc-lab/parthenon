@@ -127,10 +127,12 @@ template <typename Function>
 inline void par_for(LoopPatternMDRange, const std::string &NAME,
                     DevSpace exec_space, const int &IL, const int &IU,
                     const Function &function) {
-  Kokkos::parallel_for(NAME, Kokkos::Experimental::require(
-                                 Kokkos::RangePolicy<>(exec_space, IL, IU + 1),
-                                 Kokkos::Experimental::WorkItemProperty::HintLightWeight),
-                       function);
+  Kokkos::parallel_for(
+      NAME,
+      Kokkos::Experimental::require(
+          Kokkos::RangePolicy<>(exec_space, IL, IU + 1),
+          Kokkos::Experimental::WorkItemProperty::HintLightWeight),
+      function);
 }
 
 // 2D loop using MDRange loops
@@ -138,10 +140,13 @@ template <typename Function>
 inline void par_for(LoopPatternMDRange, const std::string &NAME,
                     DevSpace exec_space, const int &JL, const int &JU,
                     const int &IL, const int &IU, const Function &function) {
-  Kokkos::parallel_for(NAME,
-                       Kokkos::MDRangePolicy<Kokkos::Rank<2>>(
-                           exec_space, {JL, IL}, {JU + 1, IU + 1}),
-                       function);
+  Kokkos::parallel_for(
+      NAME,
+      Kokkos::Experimental::require(
+          Kokkos::MDRangePolicy<Kokkos::Rank<2>>(exec_space, {JL, IL},
+                                                 {JU + 1, IU + 1}),
+          Kokkos::Experimental::WorkItemProperty::HintLightWeight),
+      function);
 }
 
 // 3D loop using Kokkos 1D Range
@@ -174,11 +179,13 @@ inline void par_for(LoopPatternMDRange, const std::string &NAME,
                     DevSpace exec_space, const int &KL, const int &KU,
                     const int &JL, const int &JU, const int &IL, const int &IU,
                     const Function &function) {
-  Kokkos::parallel_for(NAME, Kokkos::Experimental::require(
-                       Kokkos::MDRangePolicy<Kokkos::Rank<3>>(
-                           exec_space, {KL, JL, IL}, {KU + 1, JU + 1, IU + 1}),
-                                 Kokkos::Experimental::WorkItemProperty::HintLightWeight),
-                       function);
+  Kokkos::parallel_for(
+      NAME,
+      Kokkos::Experimental::require(
+          Kokkos::MDRangePolicy<Kokkos::Rank<3>>(exec_space, {KL, JL, IL},
+                                                 {KU + 1, JU + 1, IU + 1}),
+          Kokkos::Experimental::WorkItemProperty::HintLightWeight),
+      function);
 }
 
 // 3D loop using TeamPolicy with single inner TeamThreadRange
@@ -292,8 +299,10 @@ inline void par_for(LoopPatternMDRange, const std::string &NAME,
                     const int IL, const int IU, const Function &function) {
   Kokkos::parallel_for(
       NAME,
-      Kokkos::MDRangePolicy<Kokkos::Rank<4>>(exec_space, {NL, KL, JL, IL},
-                                             {NU + 1, KU + 1, JU + 1, IU + 1}),
+      Kokkos::Experimental::require(
+          Kokkos::MDRangePolicy<Kokkos::Rank<4>>(
+              exec_space, {NL, KL, JL, IL}, {NU + 1, KU + 1, JU + 1, IU + 1}),
+          Kokkos::Experimental::WorkItemProperty::HintLightWeight),
       function);
 }
 
@@ -389,7 +398,6 @@ inline void par_for(LoopPatternSimdFor, const std::string &NAME,
 
 // reused from kokoks/core/perf_test/PerfTest_ExecSpacePartitioning.cpp
 // commit a0d011fb30022362c61b3bb000ae3de6906cb6a7
-namespace {
 template <class ExecSpace> struct SpaceInstance {
   static ExecSpace create() { return ExecSpace(); }
   static void destroy(ExecSpace &) {}
@@ -417,7 +425,6 @@ template <> struct SpaceInstance<Kokkos::Cuda> {
   }
 };
 #endif
-} // namespace
 } // namespace parthenon
 
 #endif // KOKKOS_ABSTRACTION_HPP_
