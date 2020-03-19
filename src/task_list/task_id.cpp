@@ -34,7 +34,8 @@ void TaskID::Set(int id) {
   if (id == 0) return;
   id--;
   const int n_myblocks = id/BITBLOCK + 1;
-  bitblocks.resize(n_myblocks);
+  // grow if necessary.  never shrink
+  if (n_myblocks > bitblocks.size()) bitblocks.resize(n_myblocks);
   bitblocks[n_myblocks-1].set(id%BITBLOCK);
 }
 
