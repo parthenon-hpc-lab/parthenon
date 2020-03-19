@@ -26,7 +26,7 @@ namespace parthenon {
     int n;
   };
 
-  enum IndexShapeLabel {
+  enum IndexShapRegion {
     unassigned, 
     ghost,
     all,
@@ -46,7 +46,7 @@ namespace parthenon {
       IndexRange x2;
       IndexRange x3;
 
-      IndexShapeLabel label = IndexShapeLabel::unassigned;
+      IndexShapeRegion region = IndexShapeLabel::unassigned;
       int GetTotal() const noexcept { return x1.n*x2.n*x3.n; } 
   };
 
