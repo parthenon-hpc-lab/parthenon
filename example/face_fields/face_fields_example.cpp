@@ -144,10 +144,10 @@ namespace parthenon {
 parthenon::TaskStatus FaceFields::fill_faces(parthenon::MeshBlock* pmb) {
   using parthenon::Real;
 
-  auto physics = pmb->physics["FaceFieldExample"];
-  Real px = physics->Param<Real>("px");
-  Real py = physics->Param<Real>("py");
-  Real pz = physics->Param<Real>("pz");
+  auto example = pmb->packages["FaceFieldExample"];
+  Real px = example->Param<Real>("px");
+  Real py = example->Param<Real>("py");
+  Real pz = example->Param<Real>("pz");
   parthenon::Container<Real>& rc = pmb->real_container;
   parthenon::Coordinates *pcoord = pmb->pcoord.get();
   int is = pmb->is; int js = pmb->js; int ks = pmb->ks;

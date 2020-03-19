@@ -63,8 +63,7 @@ namespace parthenon {
 // Mesh constructor, builds mesh at start of calculation using parameters in input file
 
 Mesh::Mesh(ParameterInput *pin,
-    std::vector<std::shared_ptr<PropertiesInterface>> &properties,
-    std::map<std::string, std::shared_ptr<StateDescriptor>>& physics, int mesh_test) :
+    Properties_t &properties, Packages_t &packages, int mesh_test) :
     // public members:
     // aggregate initialization of RegionSize struct:
     mesh_size{pin->GetReal("mesh", "x1min"), pin->GetReal("mesh", "x2min"),
@@ -96,7 +95,7 @@ Mesh::Mesh(ParameterInput *pin,
   nbnew(), nbdel(),
   step_since_lb(), gflag(),
   properties(properties),
-  physics(physics),
+  packages(packages),
   // private members:
   next_phys_id_(), num_mesh_threads_(pin->GetOrAddInteger("mesh", "num_threads", 1)),
   tree(this),
@@ -485,12 +484,12 @@ Mesh::Mesh(ParameterInput *pin,
     if (i == nbs) {
       pblock = new MeshBlock(i, i-nbs, loclist[i], block_size,
                              block_bcs, this, pin, properties,
-                             physics, gflag);
+                             packages, gflag);
       pfirst = pblock;
     } else {
       pblock->next = new MeshBlock(i, i-nbs, loclist[i], block_size,
                                    block_bcs, this, pin, properties,
-                                   physics, gflag);
+                                   packages, gflag);
       pblock->next->prev = pblock;
       pblock = pblock->next;
     }
@@ -505,8 +504,7 @@ Mesh::Mesh(ParameterInput *pin,
 // Mesh constructor for restarts. Load the restart file
 
 Mesh::Mesh(ParameterInput *pin, IOWrapper& resfile,
-    std::vector<std::shared_ptr<PropertiesInterface>> &properties,
-    std::map<std::string, std::shared_ptr<StateDescriptor>>& physics, int mesh_test) :
+    Properties_t &properties, Packages_t &packages, int mesh_test) :
     // public members:
     // aggregate initialization of RegionSize struct:
     // (will be overwritten by memcpy from restart file, in this case)
@@ -539,7 +537,7 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper& resfile,
     nbnew(), nbdel(),
     step_since_lb(), gflag(),
     properties(properties),
-    physics(physics),
+    packages(packages),
     // private members:
     next_phys_id_(), num_mesh_threads_(pin->GetOrAddInteger("mesh", "num_threads", 1)),
     tree(this),
@@ -803,11 +801,11 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper& resfile,
     SetBlockSizeAndBoundaries(loclist[i], block_size, block_bcs);
     // create a block and add into the link list
     if (i == nbs) {
-      pblock = new MeshBlock(i, i-nbs, this, pin, properties, physics, loclist[i], block_size,
+      pblock = new MeshBlock(i, i-nbs, this, pin, properties, packages, loclist[i], block_size,
                              block_bcs, costlist[i], mbdata+buff_os, gflag);
       pfirst = pblock;
     } else {
-      pblock->next = new MeshBlock(i, i-nbs, this, pin, properties, physics, loclist[i], block_size,
+      pblock->next = new MeshBlock(i, i-nbs, this, pin, properties, packages, loclist[i], block_size,
                                    block_bcs, costlist[i], mbdata+buff_os, gflag);
       pblock->next->prev = pblock;
       pblock = pblock->next;

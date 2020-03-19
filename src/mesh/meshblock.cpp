@@ -53,15 +53,15 @@ namespace parthenon {
 static int id=0;
 MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
                      BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
-                     std::vector<std::shared_ptr<PropertiesInterface>>& properties,
-                     std::map<std::string, std::shared_ptr<StateDescriptor>>& phys,
+                     Properties_t& properties,
+                     Packages_t& packages,
                      int igflag, bool ref_flag) :
     pmy_mesh(pm), loc(iloc), block_size(input_block),
     gid(igid), lid(ilid), gflag(igflag), nuser_out_var(), prev(nullptr), next(nullptr),
     new_block_dt_{}, new_block_dt_hyperbolic_{}, new_block_dt_parabolic_{},
     new_block_dt_user_{},
     nreal_user_meshblock_data_(), nint_user_meshblock_data_(), cost_(1.0), properties(properties),
-    physics(phys) {
+    packages(packages) {
   // initialize grid indices
   is = NGHOST;
   ie = is + block_size.nx1 - 1;
@@ -168,9 +168,9 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
     }
   }
   // Add physics data
-  for (auto const & ph : physics) {
+  for (auto const & pkg : packages) {
     //std::cerr << "  Physics: " << ph.first << std::endl;
-    for (auto const & q : ph.second->AllFields()) {
+    for (auto const & q : pkg.second->AllFields()) {
       //std::cerr << "    Adding " << q.first << std::endl;
       real_container.Add(q.first, q.second);
     }
@@ -200,8 +200,7 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
 // MeshBlock constructor for restarts
 
 MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
-                     std::vector<std::shared_ptr<PropertiesInterface>>& properties,
-                     std::map<std::string, std::shared_ptr<StateDescriptor>>& phys,
+                     Properties_t& properties, Packages_t& packages,
                      LogicalLocation iloc, RegionSize input_block,
                      BoundaryFlag *input_bcs,
                      double icost, char *mbdata, int igflag) :

@@ -22,8 +22,8 @@ namespace BetterRefinement {
 int CheckRefinement(Container<Real>& rc) {
   MeshBlock *pmb = rc.pmy_block;
   int delta_level = -1;
-  for (auto &phys : pmb->physics) {
-    auto& desc = phys.second;
+  for (auto &pkg : pmb->packages) {
+    auto& desc = pkg.second;
     if (desc->CheckRefinement != nullptr) {
         delta_level = desc->CheckRefinement(rc);
         if (delta_level == 1) break;
@@ -31,8 +31,8 @@ int CheckRefinement(Container<Real>& rc) {
   }
 
   if (delta_level != 1) {
-    for (auto & phys : pmb->physics) {
-      for (auto & amr : phys.second->amr_criteria) {
+    for (auto & pkg : pmb->packages) {
+      for (auto & amr : pkg.second->amr_criteria) {
         Variable<Real> q = pmb->real_container.Get(amr._field);
         delta_level = amr._refine_func(q, amr._refine_criteria, amr._derefine_criteria);
         if (delta_level == 1) break;

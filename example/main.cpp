@@ -117,9 +117,9 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  std::vector<std::shared_ptr<PropertiesInterface>> properties;
-  std::map<std::string, std::shared_ptr<StateDescriptor>> physics;
-  Mesh m(&pin, properties, physics);
+  parthenon::Properties_t properties;
+  parthenon::Packages_t packages;
+  Mesh m(&pin, properties, packages);
 
 #ifdef MPI_PARALLEL
   MPI_Finalize();
