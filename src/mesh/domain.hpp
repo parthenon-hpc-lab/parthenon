@@ -20,15 +20,34 @@
 
 namespace parthenon {
 
+  struct IndexRange {
+    int start;
+    int stop;
+    int n;
+  };
+
+  enum IndexShapeLabel {
+    unassigned, 
+    ghost,
+    all,
+    base
+  };
+
   //! \class IndexVolume
-  //  \brief Defines the dimensions of a volume of indices, will also return the volume by 
-  //  multiplying the dimensions together
-  class IndexVolume {
+  //  \brief Defines the dimensions of a shape of indices
+  //
+  //  Defines the range of each dimension of the indices by defining a starting and stopping index
+  //  also contains a label for defining which region the index shape is assigned too 
+  class IndexShape {
     public:
       IndexVolume() {};
-      IndexVolume(int d1,int d2,int d3) : dim1(d1), dim2(d2), dim3(d3) {};
-      int dim1, dim2, dim3;
-      int GetVolume() const noexcept { return dim1*dim2*dim3; } 
+      IndexVolume(int nx1,int nx2,int nx3) : x1.n(d1), x2.n(d2), x3.n(d3) {};
+      IndexRange x1;
+      IndexRange x2;
+      IndexRange x3;
+
+      IndexShapeLabel label = IndexShapeLabel::unassigned;
+      int GetTotal() const noexcept { return x1.n*x2.n*x3.n; } 
   };
 
 }
