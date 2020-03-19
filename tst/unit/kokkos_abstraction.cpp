@@ -17,6 +17,7 @@
 // so.
 //========================================================================================
 
+#include <filesystem>
 #include <iostream>
 #include <random>
 
@@ -261,14 +262,14 @@ TEST_CASE("par_for loops", "[wrapper]") {
 // commit a0d011fb30022362c61b3bb000ae3de6906cb6a7
 struct FunctorRange {
   int M, R;
-  ParArray1D<Real> arr_dev;
-  FunctorRange(int M_, int R_, ParArray1D<Real> arr_dev_)
+  ParArray4D<Real> arr_dev;
+  FunctorRange(int M_, int R_, ParArray4D<Real> arr_dev_)
       : M(M_), R(R_), arr_dev(arr_dev_) {}
   KOKKOS_INLINE_FUNCTION
-  void operator()(const int i) const {
+  void operator()(const int k, const int j, const int i) const {
     for (int r = 0; r < R; r++)
-      for (int j = 0; j < M; j++) {
-        arr_dev(i) += 1.0;
+      for (int n = 0; n < M; n++) {
+        arr_dev(n,k,j,i) += 1.0;
       }
   }
 };
@@ -278,18 +279,20 @@ TEST_CASE("Overlapping SpaceInstances", "[wrapper]") {
   auto space1 = parthenon::SpaceInstance<DevSpace>::create();
   auto space2 = parthenon::SpaceInstance<DevSpace>::create();
 
-  const int64_t N = 5 * 16 * 16 * 16;
+  const int N = 16; // ~meshblock
+  const int M = 5;  // ~nhydro
+  const int R = 100; // repetitions
 
-  ParArray1D<Real> arr_dev("SpaceInstance test array", N);
-  FunctorRange f(10000, 10, arr_dev);
+  ParArray4D<Real> arr_dev("SpaceInstance test array", M,N,N,N);
+  FunctorRange f(M, R, arr_dev);
   // warmup
   for (auto it = 0; it < 10; it++) {
     parthenon::par_for(parthenon::loop_pattern_mdrange_tag, "default space",
-                       default_exec_space, 0, N - 1, f);
+                       default_exec_space, 0, N - 1, 0, N - 1, 0, N - 1, f);
     parthenon::par_for(parthenon::loop_pattern_mdrange_tag, "space1", space1, 0,
-                       N - 1, f);
+                       N - 1, 0, N - 1, 0, N - 1, f);
     parthenon::par_for(parthenon::loop_pattern_mdrange_tag, "space2", space2, 0,
-                       N - 1, f);
+                       N - 1, 0, N - 1, 0, N - 1, f);
   }
   Kokkos::fence();
 
@@ -298,9 +301,9 @@ TEST_CASE("Overlapping SpaceInstances", "[wrapper]") {
   // meausre time using two execution space simultaneously
   // race condition in access to arr_dev doesn't matter for this test
   parthenon::par_for(parthenon::loop_pattern_mdrange_tag, "space1", space1, 0,
-                     N - 1, f);
+                     N - 1, 0, N - 1, 0, N - 1, f);
   parthenon::par_for(parthenon::loop_pattern_mdrange_tag, "space2", space2, 0,
-                     N - 1, f);
+                     N - 1, 0, N - 1, 0, N - 1, f);
   space1.fence(); // making sure the kernels are done
   space2.fence(); // making sure the kernels are done
   auto time_spaces = timer.seconds();
@@ -309,9 +312,11 @@ TEST_CASE("Overlapping SpaceInstances", "[wrapper]") {
 
   // measure runtime using the default execution space
   parthenon::par_for(parthenon::loop_pattern_mdrange_tag, "default space",
-                     default_exec_space, 0, N - 1, f);
+                     default_exec_space, 0, N - 1, 0, N - 1, 0, N - 1,
+                     f);
   parthenon::par_for(parthenon::loop_pattern_mdrange_tag, "default space",
-                     default_exec_space, 0, N - 1, f);
+                     default_exec_space, 0, N - 1, 0, N - 1, 0, N - 1,
+                     f);
   default_exec_space.fence(); // making sure the kernel is done
   auto time_default = timer.seconds();
 
@@ -319,4 +324,7 @@ TEST_CASE("Overlapping SpaceInstances", "[wrapper]") {
   std::cout << "time spaces: " << time_spaces << std::endl;
 
   REQUIRE(time_default > 1.5 * time_spaces);
+
+  parthenon::SpaceInstance<DevSpace>::destroy(space1);
+  parthenon::SpaceInstance<DevSpace>::destroy(space2);
 }

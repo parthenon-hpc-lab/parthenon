@@ -174,9 +174,10 @@ inline void par_for(LoopPatternMDRange, const std::string &NAME,
                     DevSpace exec_space, const int &KL, const int &KU,
                     const int &JL, const int &JU, const int &IL, const int &IU,
                     const Function &function) {
-  Kokkos::parallel_for(NAME,
+  Kokkos::parallel_for(NAME, Kokkos::Experimental::require(
                        Kokkos::MDRangePolicy<Kokkos::Rank<3>>(
                            exec_space, {KL, JL, IL}, {KU + 1, JU + 1, IU + 1}),
+                                 Kokkos::Experimental::WorkItemProperty::HintLightWeight),
                        function);
 }
 
@@ -395,7 +396,6 @@ template <class ExecSpace> struct SpaceInstance {
   static bool overlap() { return false; }
 };
 
-#ifndef KOKKOS_ENABLE_DEBUG
 #ifdef KOKKOS_ENABLE_CUDA
 template <> struct SpaceInstance<Kokkos::Cuda> {
   static Kokkos::Cuda create() {
@@ -416,7 +416,6 @@ template <> struct SpaceInstance<Kokkos::Cuda> {
     return value;
   }
 };
-#endif
 #endif
 } // namespace
 } // namespace parthenon
