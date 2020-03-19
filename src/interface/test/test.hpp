@@ -35,7 +35,7 @@ public:
   MeshBlock(int nc1, int nc2, int nc3):ncells1(nc1),ncells2(nc2),ncells3(nc3),
 				       ncc1(nc1),ncc2(nc2),ncc3(nc3)
   {pmy_mesh = new mesh(true,true,true);};
-    
+
 };
 
 class CellCenteredBoundaryVariable {

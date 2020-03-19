@@ -165,11 +165,11 @@ void AverageContainers(Container<Real> &c1, Container<Real> &c2,
 Real EstimateTimestep(Container<Real> &rc) {
   MeshBlock *pmb = rc.pmy_block;
   Real dt_min = std::numeric_limits<Real>::max();
-  for (auto &phys : pmb->physics) {
-    auto &desc = phys.second;
+  for (auto &pkg : pmb->packages) {
+    auto &desc = pkg.second;
     if (desc->EstimateTimestep != nullptr) {
-      Real dt_phys = desc->EstimateTimestep(rc);
-      dt_min = std::min(dt_min, dt_phys);
+      Real dt = desc->EstimateTimestep(rc);
+      dt_min = std::min(dt_min, dt);
     }
   }
   return dt_min;
@@ -188,8 +188,8 @@ void FillDerivedVariables::FillDerived(Container<Real>& rc) {
   if (_pre_package_fill != nullptr) {
     _pre_package_fill(rc);
   }
-  for (auto &phys : rc.pmy_block->physics) {
-    auto &desc = phys.second;
+  for (auto &pkg : rc.pmy_block->packages) {
+    auto &desc = pkg.second;
     if (desc->FillDerived != nullptr) {
       desc->FillDerived(rc);
     }

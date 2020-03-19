@@ -48,8 +48,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 int CheckRefinement(Container<Real>& rc) {
   MeshBlock *pmb = rc.pmy_block;
   int delta_level = -1;
-  for (auto &phys : pmb->physics) {
-    auto& desc = phys.second;
+  for (auto &pkg : pmb->packages) {
+    auto& desc = pkg.second;
     if (desc->CheckRefinement != nullptr) {
         int package_delta_level = desc->CheckRefinement(rc);
         delta_level = std::max(delta_level, package_delta_level);
@@ -58,8 +58,8 @@ int CheckRefinement(Container<Real>& rc) {
   }
 
   if (delta_level != 1) {
-    for (auto & phys : pmb->physics) {
-      for (auto & amr : phys.second->amr_criteria) {
+    for (auto & pkg : pmb->packages) {
+      for (auto & amr : pkg.second->amr_criteria) {
         int package_delta_level = (*amr)(rc);
         if (package_delta_level == 0) {
           delta_level = std::max(delta_level, package_delta_level);

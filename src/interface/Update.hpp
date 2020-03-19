@@ -34,7 +34,7 @@ Real EstimateTimestep(Container<Real> &rc);
 namespace FillDerivedVariables {
   using FillDerivedFunc = void (Container<Real>&);
   void SetFillDerivedFunctions(FillDerivedFunc *pre, FillDerivedFunc *post);
-  void FillDerived(Container<Real> &rc); 
+  void FillDerived(Container<Real> &rc);
 }
 }
 #endif

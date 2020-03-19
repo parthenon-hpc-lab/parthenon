@@ -47,10 +47,10 @@ Stage<T>::Stage(std::string name, Stage<T>& src) :
     _faceArray.push_back(v);
   }
 
-  // Now copy in the material arrays
-  for (auto vars : src._matVars.getAllCellVars()) {
+  // Now copy in the sparse arrays
+  for (auto vars : src._sparseVars.getAllCellVars()) {
     auto& theLabel=vars.first;
-    _matVars.AddCopy(theLabel, src._matVars);
+    _sparseVars.AddCopy(theLabel, src._sparseVars);
   }
 }
 

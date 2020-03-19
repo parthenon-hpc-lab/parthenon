@@ -19,6 +19,7 @@
 #include "interface/StateDescriptor.hpp"
 
 namespace parthenon {
+
 class PropertiesInterface {
 public:
   virtual ~PropertiesInterface() {}
@@ -49,19 +50,6 @@ private:
 
 using Properties_t = std::vector<std::shared_ptr<PropertiesInterface>>;
 
-/*template <typename T>
-auto ConvertPropertiesToInterface(
-    const std::vector<std::shared_ptr<T>> &materials) {
-  static_assert(std::is_base_of<PropertiesInterface, T>::value,
-                "Type given to ConvertPropertiesToInterface is not "
-                "derived from PropertiesInterface");
-  std::vector<std::shared_ptr<PropertiesInterface>> res;
-  for (auto mat : materials)
-    res.push_back(mat);
-
-  return res;
-}
-*/
-
 } // namespace parthenon
+
 #endif // PARTHENON_INTERFACE_PROPERTIESINTERFACE_HPP_

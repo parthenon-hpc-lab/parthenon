@@ -31,7 +31,7 @@ Variable<T>::~Variable() {
   if (_m.isSet(_m.fillGhost)) {
 
     // not sure if destructor is called for flux, need to check --Sriram
-    
+
     // flux is a different variable even if shared
     // so always delete
     //    for (int i=0; i<3; i++) flux[i].DeleteAthenaArray();
