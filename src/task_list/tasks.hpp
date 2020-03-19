@@ -24,8 +24,6 @@
 #include <utility>
 #include <vector>
 
-#define MAX_TASKS 64
-
 namespace parthenon {
 
 class MeshBlock;
@@ -47,57 +45,54 @@ using BlockStageNamesIntegratorTaskFunc =
 //! \class TaskID
 //  \brief generalization of bit fields for Task IDs, status, and dependencies.
 
-class TaskID {  // POD but not aggregate (there is a user-provided ctor)
+#define BITBLOCK 64
+class TaskID {
  public:
   TaskID() = default;
-  explicit TaskID(unsigned int id);
+  explicit TaskID(int id);
 
+  void Set(int id);
   void clear();
-  bool IsUnfinished(const TaskID& id) const;
-  bool CheckDependencies(const TaskID& dep) const;
-  void SetFinished(const TaskID& id);
-  std::bitset<MAX_TASKS> GetBitFld() const {return bitfld_;}
-
+  bool CheckDependencies(const TaskID& rhs) const;
+  void SetFinished(const TaskID& rhs);
   bool operator== (const TaskID& rhs) const;
   TaskID operator| (const TaskID& rhs) const;
-
-  void Print(const std::string label = "");
-
+  std::string to_string();
  private:
-  std::bitset<MAX_TASKS> bitfld_;
+  std::vector<std::bitset<BITBLOCK>> bitblocks;
 };
 
 class BaseTask {
  public:
-    BaseTask(TaskID id, TaskID dep) : _myid(id), _dep(dep) {}
-    virtual ~BaseTask() = default;
-    virtual TaskStatus operator () () = 0;
-    TaskID GetID() { return _myid; }
-    TaskID GetDependency() { return _dep; }
-    void SetComplete() { _complete = true; }
-    bool IsComplete() { return _complete; }
+  BaseTask(TaskID id, TaskID dep) : _myid(id), _dep(dep) {}
+  virtual ~BaseTask() = default;
+  virtual TaskStatus operator () () = 0;
+  TaskID GetID() { return _myid; }
+  TaskID GetDependency() { return _dep; }
+  void SetComplete() { _complete = true; }
+  bool IsComplete() { return _complete; }
  protected:
-    TaskID _myid, _dep;
-    bool lb_time, _complete=false;
+  TaskID _myid, _dep;
+  bool lb_time, _complete=false;
 };
 
 class SimpleTask : public BaseTask {
  public:
   SimpleTask(TaskID id, SimpleTaskFunc func, TaskID dep)
     : _func(func), BaseTask(id, dep) {}
-    TaskStatus operator () () { return _func(); }
+  TaskStatus operator () () { return _func(); }
  private:
-    SimpleTaskFunc _func;
+  SimpleTaskFunc _func;
 };
 
 class BlockTask : public BaseTask {
  public:
-    BlockTask(TaskID id, BlockTaskFunc func, TaskID dep, MeshBlock *pmb)
-        : _func(func), _pblock(pmb), BaseTask(id, dep) {}
-    TaskStatus operator () () { return _func(_pblock); }
+  BlockTask(TaskID id, BlockTaskFunc func, TaskID dep, MeshBlock *pmb)
+    : _func(func), _pblock(pmb), BaseTask(id, dep) {}
+  TaskStatus operator () () { return _func(_pblock); }
  private:
-    BlockTaskFunc _func;
-    MeshBlock *_pblock;
+  BlockTaskFunc _func;
+  MeshBlock *_pblock;
 };
 
 class BlockStageTask : public BaseTask {
@@ -117,8 +112,8 @@ class BlockStageNamesTask : public BaseTask {
   BlockStageNamesTask(TaskID id, BlockStageNamesTaskFunc func, TaskID dep,
                       MeshBlock *pmb, int stage,
                       const std::vector<std::string>& sname)
-        : _func(func), _pblock(pmb), _stage(stage),
-          _sname(sname), BaseTask(id,dep) { }
+    : _func(func), _pblock(pmb), _stage(stage),
+      _sname(sname), BaseTask(id,dep) { }
   TaskStatus operator () () { return _func(_pblock, _stage, _sname); }
  private:
   BlockStageNamesTaskFunc _func;
@@ -147,79 +142,75 @@ class BlockStageNamesIntegratorTask : public BaseTask {
 
 class TaskList {
  public:
-    bool IsComplete() { return _task_list.empty(); }
-    int Size() { return _task_list.size(); }
-    void Reset() {
-      _tasks_added = 0;
-      _task_list.clear();
-      _dependencies.clear();
-      _tasks_completed.clear();
+  bool IsComplete() { return _task_list.empty(); }
+  int Size() { return _task_list.size(); }
+  void Reset() {
+    _tasks_added = 0;
+    _task_list.clear();
+    _dependencies.clear();
+    _tasks_completed.clear();
+  }
+  bool IsReady() {
+    for (auto & l : _dependencies) {
+      if (!l->IsComplete()) {
+        return false;
+      }
     }
-    bool IsReady() {
-      for (auto & l : _dependencies) {
-        if (!l->IsComplete()) {
-          return false;
+    return true;
+  }
+  void MarkTaskComplete(TaskID id) { _tasks_completed.SetFinished(id); }
+  int ClearComplete() {
+    auto task = _task_list.begin();
+    int completed = 0;
+    while (task != _task_list.end()) {
+      if ((*task)->IsComplete()) {
+        task = _task_list.erase(task);
+        completed++;
+      } else {
+        ++task;
+      }
+    }
+    return completed;
+  }
+  TaskListStatus DoAvailable() {
+    for (auto & task : _task_list) {
+      auto dep = task->GetDependency();
+      if(_tasks_completed.CheckDependencies(dep)) {
+        TaskStatus status = (*task)();
+        if (status == TaskStatus::success) {
+          task->SetComplete();
+          MarkTaskComplete(task->GetID());
         }
       }
-      return true;
     }
-    void MarkTaskComplete(TaskID id) { _tasks_completed.SetFinished(id); }
-    int ClearComplete() {
-      auto task = _task_list.begin();
-      int completed = 0;
-      while (task != _task_list.end()) {
-        if ((*task)->IsComplete()) {
-          task = _task_list.erase(task);
-          completed++;
-        } else {
-          ++task;
-        }
-      }
-      return completed;
+    int completed = ClearComplete();
+    if (IsComplete()) return TaskListStatus::complete;
+    return TaskListStatus::running;
+  }
+  template<typename T, class...Args>
+  TaskID AddTask(Args... args) {
+    TaskID id(_tasks_added+1);
+    _task_list.push_back(
+      std::make_unique<T>(id , std::forward<Args>(args)...)
+    );
+    _tasks_added++;
+    return id;
+  }
+  void Print() {
+    int i = 0;
+    std::cout << "TaskList::Print():" << std::endl;
+    for (auto& t : _task_list) {
+      std::cout << "  " << i << "  " << t->GetID().to_string() << "  "
+                << t->GetDependency().to_string() << std::endl;
+      i++;
     }
-    TaskListStatus DoAvailable() {
-      for (auto & task : _task_list) {
-        auto dep = task->GetDependency();
-        if(_tasks_completed.CheckDependencies(dep)) {
-          TaskStatus status = (*task)();
-          if (status == TaskStatus::success) {
-            task->SetComplete();
-            MarkTaskComplete(task->GetID());
-          }
-        }
-      }
-      int completed = ClearComplete();
-      if (IsComplete()) return TaskListStatus::complete;
-      return TaskListStatus::running;
-    }
-    template<typename T, class...Args>
-    TaskID AddTask(Args... args) {
-      if (_tasks_added == MAX_TASKS) {
-        throw std::out_of_range("\n\nTrying to add a task but this would exceed MAX_TASKS.  Increase MAX_TASKS in task_list/tasks.hpp\n\n");
-      }
-      TaskID id(_tasks_added+1);
-      _task_list.push_back(
-        std::make_unique<T>(id , std::forward<Args>(args)...)
-      );
-      _tasks_added++;
-      return id;
-    }
-    void Print() {
-      int i = 0;
-      std::cout << "TaskList::Print():" << std::endl;
-      for (auto& t : _task_list) {
-        std::cout << "  " << i << "  " << t->GetID().GetBitFld().to_string()
-                  << "  " << t->GetDependency().GetBitFld().to_string()
-                  << std::endl;
-        i++;
-      }
-    }
+  }
 
  protected:
-    std::list<std::unique_ptr<BaseTask>> _task_list;
-    int _tasks_added=0;
-    std::vector<TaskList*> _dependencies;
-    TaskID _tasks_completed;
+  std::list<std::unique_ptr<BaseTask>> _task_list;
+  int _tasks_added=0;
+  std::vector<TaskList*> _dependencies;
+  TaskID _tasks_completed;
 };
 
 } // namespace parthenon
