@@ -20,9 +20,8 @@
 
 using parthenon::TaskID;
 
-TEST_CASE("Just check everything","[CheckDependencies,SetFinished,==,|]"){
-
-  GIVEN("Some TaskIDs"){
+TEST_CASE("Just check everything","[CheckDependencies,SetFinished,==,|]") {
+  GIVEN("Some TaskIDs") {
     TaskID a(1);
     TaskID b(2);
     TaskID c(BITBLOCK+1); // make sure we get a task with more than one block
@@ -43,7 +42,7 @@ TEST_CASE("Just check everything","[CheckDependencies,SetFinished,==,|]"){
     REQUIRE(equal_true == true);
     REQUIRE(equal_false == false);
 
-    WHEN("a negative number is passed"){
+    WHEN("a negative number is passed") {
       REQUIRE_THROWS_AS (a.Set(-1), std::invalid_argument);
     }
   }

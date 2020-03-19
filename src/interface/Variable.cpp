@@ -221,4 +221,4 @@ std::string EdgeVariable::info() {
 }
 
 template class Variable<Real>;
-}
+} // namespace parthenon

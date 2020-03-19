@@ -15,6 +15,7 @@
 #define TASK_LIST_TASKS_HPP_
 
 #include <bitset>
+#include <functional>
 #include <iostream>
 #include <list>
 #include <memory>
@@ -31,12 +32,14 @@ class Integrator;
 enum class TaskStatus {fail, success, next};
 enum class TaskListStatus {running, stuck, complete, nothing_to_do};
 
-using SimpleTaskFunc = TaskStatus ();
-using BlockTaskFunc = TaskStatus (MeshBlock*);
-using BlockStageTaskFunc = TaskStatus (MeshBlock*, int);
-using BlockStageNamesTaskFunc = TaskStatus (MeshBlock*, int, std::vector<std::string>&);
+using SimpleTaskFunc = std::function<TaskStatus()>;
+using BlockTaskFunc = std::function<TaskStatus(MeshBlock*)>;
+using BlockStageTaskFunc = std::function<TaskStatus(MeshBlock*, int)>;
+using BlockStageNamesTaskFunc =
+  std::function<TaskStatus(MeshBlock*, int, std::vector<std::string>&)>;
 using BlockStageNamesIntegratorTaskFunc =
-        TaskStatus (MeshBlock*, int, std::vector<std::string>&, Integrator*);
+  std::function<TaskStatus(MeshBlock*, int,
+                           std::vector<std::string>&, Integrator*)>;
 
 //----------------------------------------------------------------------------------------
 //! \class TaskID
@@ -75,46 +78,45 @@ class BaseTask {
 
 class SimpleTask : public BaseTask {
  public:
-  SimpleTask(TaskID id, SimpleTaskFunc* func, TaskID dep)
+  SimpleTask(TaskID id, SimpleTaskFunc func, TaskID dep)
     : _func(func), BaseTask(id, dep) {}
   TaskStatus operator () () { return _func(); }
  private:
-  SimpleTaskFunc* _func;
+  SimpleTaskFunc _func;
 };
 
 class BlockTask : public BaseTask {
  public:
-  BlockTask(TaskID id, BlockTaskFunc* func, TaskID dep, MeshBlock *pmb)
-      : _func(func), _pblock(pmb), BaseTask(id, dep) {}
+  BlockTask(TaskID id, BlockTaskFunc func, TaskID dep, MeshBlock *pmb)
+    : _func(func), _pblock(pmb), BaseTask(id, dep) {}
   TaskStatus operator () () { return _func(_pblock); }
  private:
-  BlockTaskFunc* _func;
+  BlockTaskFunc _func;
   MeshBlock *_pblock;
 };
 
 class BlockStageTask : public BaseTask {
  public:
-  BlockStageTask(
-    TaskID id, BlockStageTaskFunc* func, TaskID dep, MeshBlock *pmb, int stage
-  )
-      : _func(func), _pblock(pmb), _stage(stage), BaseTask(id,dep) { }
+  BlockStageTask(TaskID id, BlockStageTaskFunc func,
+                 TaskID dep, MeshBlock *pmb, int stage)
+    : _func(func), _pblock(pmb), _stage(stage), BaseTask(id,dep) { }
   TaskStatus operator () () { return _func(_pblock, _stage); }
  private:
-  BlockStageTaskFunc* _func;
+  BlockStageTaskFunc _func;
   MeshBlock *_pblock;
   int _stage;
 };
 
 class BlockStageNamesTask : public BaseTask {
  public:
-  BlockStageNamesTask(
-    TaskID id, BlockStageNamesTaskFunc* func, TaskID dep, MeshBlock *pmb, int stage,
-    const std::vector<std::string>& sname
-  )
-      : _func(func), _pblock(pmb), _stage(stage), _sname(sname), BaseTask(id,dep) { }
+  BlockStageNamesTask(TaskID id, BlockStageNamesTaskFunc func, TaskID dep,
+                      MeshBlock *pmb, int stage,
+                      const std::vector<std::string>& sname)
+    : _func(func), _pblock(pmb), _stage(stage),
+      _sname(sname), BaseTask(id,dep) { }
   TaskStatus operator () () { return _func(_pblock, _stage, _sname); }
  private:
-  BlockStageNamesTaskFunc* _func;
+  BlockStageNamesTaskFunc _func;
   MeshBlock *_pblock;
   int _stage;
   std::vector<std::string> _sname;
@@ -122,15 +124,16 @@ class BlockStageNamesTask : public BaseTask {
 
 class BlockStageNamesIntegratorTask : public BaseTask {
  public:
-  BlockStageNamesIntegratorTask(TaskID id, BlockStageNamesIntegratorTaskFunc* func,
-    TaskID dep, MeshBlock *pmb, int stage, const std::vector<std::string>& sname,
-    Integrator* integ
-  )
-      : _func(func), _pblock(pmb), _stage(stage), _sname(sname), _int(integ),
-        BaseTask(id,dep) { }
+  BlockStageNamesIntegratorTask(TaskID id,
+                                BlockStageNamesIntegratorTaskFunc func,
+                                TaskID dep, MeshBlock *pmb, int stage,
+                                const std::vector<std::string>& sname,
+                                Integrator* integ)
+    : _func(func), _pblock(pmb), _stage(stage), _sname(sname),
+      _int(integ), BaseTask(id,dep) { }
   TaskStatus operator () () { return _func(_pblock, _stage, _sname, _int); }
  private:
-  BlockStageNamesIntegratorTaskFunc* _func;
+  BlockStageNamesIntegratorTaskFunc _func;
   MeshBlock *_pblock;
   int _stage;
   std::vector<std::string> _sname;
