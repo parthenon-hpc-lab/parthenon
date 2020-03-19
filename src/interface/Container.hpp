@@ -46,7 +46,7 @@ class Container {
   //-----------------
   // Public Variables
   //-----------------
-  MeshBlock* pmy_block;    // ptr to MeshBlock containing this Hydro
+  MeshBlock* pmy_block = nullptr; // ptr to MeshBlock containing this Hydro
 
   //-----------------
   //Public Methods
@@ -78,10 +78,9 @@ class Container {
     //   EdgeVariable *vNew = new EdgeVariable(v->label(), *v);
     //   this->s->_edgeArray.push_back(vNew);
     // }
-    // for (auto v : stageSrc._faceArray) {
-    //   FaceVariable *vNew = new FaceVariable(v->label(), *v);
-    //   this->s->_faceArray.push_back(vNew);
-    // }
+    for (auto v : stageSrc._faceArray) {
+      this->s->_faceArray.push_back(v);
+    }
 
     // Now copy in the material arrays
     for (auto vars : stageSrc._matVars.getAllCellVars()) {
@@ -202,7 +201,9 @@ class Container {
     return s->_matVars.Get(label,matID);
   }
 
-  Variable<T>& Get(const std::string& label, const int matID) { return GetMaterial(label, matID); }
+  Variable<T>& Get(const std::string& label, const int matID) {
+    return GetMaterial(label, matID);
+  }
 
   // returns a flattened array of the material variables
   VariableVector<T>& GetMaterialVector(const std::string& label) {
@@ -215,12 +216,27 @@ class Container {
   ///
   /// Get a face variable from the container
   /// @param label the name of the variable
-  /// @return the Variable<T> if found or throw exception
+  /// @return the FaceVariable if found or throw exception
   ///
-  FaceVariable *GetFace(std::string label) {
-    // for (auto v : s->_faceArray) {
-    //   if (! v->label().compare(label)) return v;
-    // }
+  FaceVariable& GetFace(std::string label) {
+    for (auto v : s->_faceArray) {
+      if (! v->label().compare(label)) return *v;
+    }
+    throw std::invalid_argument (std::string("\n") +
+                                 std::string(label) +
+                                 std::string(" array not found in Get() Face\n") );
+  }
+
+    ///
+  /// Get a face variable from the container
+  /// @param label the name of the variable
+  /// @param dir, which direction the face is normal to
+  /// @return the AthenaArray in the face variable if found or throw exception
+  ///
+  AthenaArray<Real>& GetFace(std::string label, int dir) {
+    for (auto v : s->_faceArray) {
+      if (! v->label().compare(label)) return v->Get(dir);
+    }
     throw std::invalid_argument (std::string("\n") +
                                  std::string(label) +
                                  std::string(" array not found in Get() Face\n") );
@@ -290,9 +306,9 @@ class Container {
     return s->_matVars;
   }
 
-  // std::vector<FaceVariable*> faceVars() {
-  //   return s->_faceArray;
-  // }
+  std::vector<std::shared_ptr<FaceVariable>>& faceVars() {
+    return s->_faceArray;
+  }
 
   // std::vector<EdgeVariable*> edgeVars() {
   //   return s->_edgeArray;
@@ -324,10 +340,7 @@ class Container {
   }
 
   /// Sets current stage to named stage
-  void StageSet(std::string name);/* {
-    //    std::cout <<"_______***__________STAGE="<<name<<"_____***______________\n";
-    s = stages[name];
-  }*/
+  void StageSet(std::string name);
 
   /// Deletes named stage
   void StageDelete(std::string name) {
@@ -354,7 +367,10 @@ class Container {
   int debug=0;
   std::map< std::string,std::shared_ptr<Stage<T> >> stages;
   std::shared_ptr<Stage<T>> s;
+
+  void calcArrDims_(std::array<int, 6>& arrDims,
+                    const std::vector<int>& dims);
 };
 
-}
+} // namespace parthenon
 #endif // INTERFACE_CONTAINER_HPP_

@@ -3,6 +3,11 @@
 This file provides an overview of different (not necessarily all) features in Parthenon
 and how to use them.
 
+## Description of examples
+
+- [Calculate &pi](../example/calculate_pi)
+- [Average face-centered variables to cell centers](../example/face_fields)
+    
 ## Short feature description
 
 Short feature descriptions may directly go in here with, for example, a link to a (unit)

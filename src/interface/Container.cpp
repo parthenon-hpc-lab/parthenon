@@ -15,10 +15,10 @@
 #include <utility>
 #include <vector>
 #include "bvals/cc/bvals_cc.hpp"
-#include "globals.hpp" // my_rank
-#include "mesh/mesh.hpp"
 #include "Container.hpp"
+#include "globals.hpp" // my_rank
 #include "MaterialVariable.hpp"
+#include "mesh/mesh.hpp"
 
 namespace parthenon {
 ///
@@ -60,25 +60,12 @@ template <typename T>
 void Container<T>::Add(const std::string label,
                        const Metadata &metadata,
                        const std::vector<int> dims) {
-  std::array<int, 6> arrDims {1,1,1,1,1,1};
-  const int N = dims.size();
-  if ( N > 3 || N < 0 ) {
-    // too many dimensions
-    throw std::invalid_argument ("_addArray() must have dims between [1,5]");
-  }
-
+  std::array<int, 6> arrDims;
+  calcArrDims_(arrDims, dims);
   // branch on kind of variable
   if (metadata.hasMaterials()) {
     // add a material map variable
     s->_matVars.Add(*pmy_block, label, metadata, dims);
-  } else if ( metadata.where() == (Metadata::face) ) {
-    std::cerr << "Accessing unliving face array in stage" << std::endl;
-    std::exit(1);
-    // // add a face variable
-    // s->_faceArray.push_back(
-    //     new FaceVariable(label, metadata,
-    //                      pmy_block->ncells3, pmy_block->ncells2, pmy_block->ncells1));
-    return;
   } else if ( metadata.where() == (Metadata::edge) ) {
     // add an edge variable
     std::cerr << "Accessing unliving edge array in stage" << std::endl;
@@ -87,23 +74,25 @@ void Container<T>::Add(const std::string label,
     //     new EdgeVariable(label, metadata,
     //                      pmy_block->ncells3, pmy_block->ncells2, pmy_block->ncells1));
     return;
+  } else if ( metadata.where() == (Metadata::face) ) {
+    if ( !(metadata.isOneCopy()) ) {
+      std::cerr << "Currently one one-copy face fields are supported"
+                << std::endl;
+      std::exit(1);
+    }
+    if (metadata.fillsGhost()) {
+      std::cerr << "Ghost zones not yet supported for face fields" << std::endl;
+      std::exit(1);
+    }
+    // add a face variable
+    auto pfv = std::make_shared<FaceVariable>(label, metadata, arrDims);
+    s->_faceArray.push_back(pfv);
+    return;
   } else if ( (metadata.where() == (Metadata::cell) ) ||
             (metadata.where() == (Metadata::node) )) {
-    if ( N > 3 ) {
-      // too many dimensions
-      throw std::invalid_argument ("_addArray() must have dims between [1,3]");
-    }
-
-    int nc1 = pmy_block->ncells1;
-    int nc2 = pmy_block->ncells2;
-    int nc3 = pmy_block->ncells3;
     if ( metadata.where() == (Metadata::node) ) {
-      nc1++; nc2++; nc3++;
+      arrDims[0]++; arrDims[1]++; arrDims[2]++;
     }
-    arrDims[0] = nc1;
-    arrDims[1] = nc2;
-    arrDims[2] = nc3;
-    for (int i=0; i<N; i++) {arrDims[i+3] = dims[i];}
 
     s->_varArray.push_back(std::make_shared<Variable<T>>(label, arrDims, metadata));
     if ( metadata.fillsGhost()) {
@@ -111,8 +100,7 @@ void Container<T>::Add(const std::string label,
     }
   } else {
     // plain old variable
-    if ( N > 6 || N < 1 ) {
-      // too many dimensions
+    if ( dims.size() > 6 || dims.size() < 1 ) {
       throw std::invalid_argument ("_addArray() must have dims between [1,5]");
     }
     for (int i=0; i<dims.size(); i++) {arrDims[5-i] = dims[i];}
@@ -141,10 +129,9 @@ Container<T>  Container<T>::StageContainer(std::string src) {
   //   EdgeVariable *vNew = new EdgeVariable(v->label(), *v);
   //   c.s->_edgeArray.push_back(vNew);
   // }
-  // for (auto v : stageSrc._faceArray) {
-  //   FaceVariable *vNew = new FaceVariable(v->label(), *v);
-  //   c.s->_faceArray.push_back(vNew);
-  // }
+  for (auto v : stageSrc._faceArray) {
+    c.s->_faceArray.push_back(v);
+  }
 
   // Now copy in the material arrays
   for (auto vars : stageSrc._matVars.getAllCellVars()) {
@@ -171,14 +158,13 @@ void Container<T>::StageSet(std::string name) {
   for (auto &myMap : s->_matVars.getAllCellVars()) {
     // for every variable Map in the material variables array
     for (auto &v : myMap.second) {
-      if ( (v.second->metadata()).fillsGhost()) {  
+      if ( (v.second->metadata()).fillsGhost()) {
         v.second->resetBoundary();
-	      //v.second->vbvar->var_cc = v.second.get();
-	//v.second->mpiStatus=true;
+        //v.second->vbvar->var_cc = v.second.get();
+        //v.second->mpiStatus=true;
       }
     }
   }
-  
 }
 
 // provides a container that has a single material slice
@@ -192,7 +178,7 @@ Container<T> Container<T>::materialSlice(int mat_id) {
   // Note that all standard arrays get added
   // add standard arrays
   for (auto v : s->_varArray) {
-    Metadata m = v->metadata();
+    // Metadata m = v->metadata();
 
     // add an alias
     //c.s->_varArray.push_back(std::make_shared<Variable<T>>(v->label(), *v));
@@ -202,10 +188,9 @@ Container<T> Container<T>::materialSlice(int mat_id) {
   //   EdgeVariable *vNew = new EdgeVariable(v->label(), *v);
   //   c.s->_edgeArray.push_back(vNew);
   // }
-  // for (auto v : s->_faceArray) {
-  //   FaceVariable *vNew = new FaceVariable(v->label(), *v);
-  //   c.s->_faceArray.push_back(vNew);
-  // }
+  for (auto v : s->_faceArray) {
+    c.s->_faceArray.push_back(v);
+  }
 
   // Now copy in the material specific arrays
   for (auto & index_map : s->_matVars.getIndexMap()) {
@@ -221,24 +206,31 @@ Container<T> Container<T>::materialSlice(int mat_id) {
   return c;
 }
 
+// TODO(JMM): this could be cleaned up, I think.
+// Maybe do only one loop, or do the cleanup at the end.
 template <typename T>
 void Container<T>::Remove(const std::string label) {
   // first find the index of our
-  int idx=0;
+  int idx, isize;
 
-  // // Check face variables
-  // idx = 0;
-  // for (auto v : s->_faceArray) {
-  //   if ( ! label.compare(v->label())) {
-  //     // found a match, remove it
-  //     s->_faceArray.erase(s->_faceArray.begin() + idx);
-  //     return;
-  //   }
-  // }
-
+  // Check face variables
+  idx = 0;
+  isize = s->_faceArray.size();
+  for (auto v : s->_faceArray) {
+    if ( ! label.compare(v->label()) ) break;
+    idx++;
+  }
+  if (idx < isize) {
+    s->_faceArray[idx].reset();
+    isize--;
+    if (isize >= 0) s->_faceArray[idx] = std::move(s->_faceArray.back());
+    s->_faceArray.pop_back();
+    return;
+  }
 
   // No face match so check edge variables
-  idx = 0;
+  // TODO(JMM): fixme
+  // idx = 0;
   // for (auto v : s->_edgeArray) {
   //   if ( ! label.compare(v->label())) {
   //     // found a match, remove it
@@ -247,9 +239,8 @@ void Container<T>::Remove(const std::string label) {
   //   }
   // }
 
-
   // no face or edge, so check sized variables
-  int isize = s->_varArray.size();
+  isize = s->_varArray.size();
   idx = 0;
   for (auto v : s->_varArray) {
     if ( ! label.compare(v->label())) {
@@ -257,7 +248,7 @@ void Container<T>::Remove(const std::string label) {
     }
     idx++;
   }
-  if ( idx == isize) {
+  if ( idx >= isize) {
     throw std::invalid_argument ("array not found in Remove()");
   }
 
@@ -498,7 +489,7 @@ template<typename T>
 void Container<T>::print() {
   std::cout << "Variables are:\n";
   for (auto v : s->_varArray)  { std::cout << " cell: "<<v->info() << std::endl; }
-  //  for (auto v : s->_faceArray) { std::cout << " face: "<<v->info() << std::endl; }
+  for (auto v : s->_faceArray) { std::cout << " face: "<<v->info() << std::endl; }
   //  for (auto v : s->_edgeArray) { std::cout << " edge: "<<v->info() << std::endl; }
   s->_matVars.print();
 }
@@ -580,5 +571,21 @@ int Container<T>::GetVariables(const std::vector<std::string>& names,
   return index;
 }
 
-template class Container<double>;
+template<typename T>
+void Container<T>::calcArrDims_(std::array<int, 6>& arrDims,
+                                const std::vector<int>& dims) {
+  const int N = dims.size();
+  if ( N > 3 || N < 0 ) {
+    // too many dimensions
+    throw std::invalid_argument(std::string("Variable must be scalar or")
+                                +std::string(" rank-N tensor-field, for N < 4"));
+  }
+  for (int i = 0; i < 6; i++) arrDims[i] = 1;
+  arrDims[0] = pmy_block->ncells1;
+  arrDims[1] = pmy_block->ncells2;
+  arrDims[2] = pmy_block->ncells3;
+  for (int i=0; i<N; i++) {arrDims[i+3] = dims[i]; }
 }
+
+template class Container<double>;
+} // namespace parthenon

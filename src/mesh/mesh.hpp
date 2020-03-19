@@ -66,6 +66,7 @@ class MeshBlockApplicationData {
   // (only derived classes can be instantiated)
   virtual ~MeshBlockApplicationData() = 0;
 };
+using pMeshBlockApplicationData_t = std::unique_ptr<MeshBlockApplicationData>;
 
 // we still need to define this somewhere, though
 inline MeshBlockApplicationData::~MeshBlockApplicationData() {}
@@ -83,12 +84,12 @@ class MeshBlock {
  public:
   MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_size,
             BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
-            std::vector<std::shared_ptr<PropertiesInterface>>& mats,
+            Properties_t& mats,
             int igflag,
             bool ref_flag = false);
   MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
-            std::vector<std::shared_ptr<PropertiesInterface>> & mats,
-            std::map<std::string, std::shared_ptr<StateDescriptor>>& phys,
+            Properties_t & mats,
+            Packages_t& phys,
             LogicalLocation iloc,
             RegionSize input_block, BoundaryFlag *input_bcs, double icost,
             char *mbdata, int igflag);
@@ -97,8 +98,8 @@ class MeshBlock {
             LogicalLocation iloc,
             RegionSize input_block,
             BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
-            std::vector<std::shared_ptr<PropertiesInterface>>& mats,
-            std::map<std::string, std::shared_ptr<StateDescriptor>>& phys,
+            Properties_t& mats,
+            Packages_t& phys,
             int igflag, bool ref_flag=false);
   ~MeshBlock();
 
@@ -133,8 +134,8 @@ class MeshBlock {
   // The User defined containers
   Container<Real> real_container;
 
-  std::vector<std::shared_ptr<PropertiesInterface>> materials;
-  std::map<std::string, std::shared_ptr<StateDescriptor>> physics;
+  Properties_t materials;
+  Packages_t physics;
   std::unique_ptr<MeshBlockApplicationData> app;
 
   // mesh-related objects
@@ -187,8 +188,7 @@ class MeshBlock {
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   void ProblemGenerator(ParameterInput *pin);
-  std::unique_ptr<MeshBlockApplicationData>
-    InitApplicationMeshBlockData(ParameterInput *pin);
+  pMeshBlockApplicationData_t InitApplicationMeshBlockData(ParameterInput *pin);
   void InitUserMeshBlockData(ParameterInput *pin);
 
   // functions and variables for automatic load balancing based on timing
@@ -219,11 +219,11 @@ class Mesh {
  public:
   // 2x function overloads of ctor: normal and restarted simulation
   Mesh(ParameterInput *pin,
-      std::vector<std::shared_ptr<PropertiesInterface>> &materials,
-      std::map<std::string, std::shared_ptr<StateDescriptor>>& physics, int test_flag=0);
+      Properties_t &materials,
+      Packages_t& physics, int test_flag=0);
   Mesh(ParameterInput *pin, IOWrapper &resfile,
-      std::vector<std::shared_ptr<PropertiesInterface>> &materials,
-      std::map<std::string, std::shared_ptr<StateDescriptor>>& physics, int test_flag=0);
+      Properties_t &materials,
+      Packages_t& physics, int test_flag=0);
   ~Mesh();
 
   // accessors
@@ -248,8 +248,8 @@ class Mesh {
 
   // ptr to first MeshBlock (node) in linked list of blocks belonging to this MPI rank:
   MeshBlock *pblock;
-  std::vector<std::shared_ptr<PropertiesInterface>> materials;
-  std::map<std::string, std::shared_ptr<StateDescriptor>> physics;
+  Properties_t materials;
+  Packages_t physics;
 
   AthenaArray<Real> *ruser_mesh_data;
   AthenaArray<int> *iuser_mesh_data;
@@ -273,7 +273,6 @@ class Mesh {
   void UserWorkAfterLoop(ParameterInput *pin);   // called in main loop
   void UserWorkInLoop(); // called in main after each cycle
   int RootLevel() { return root_level; }
-
 
  private:
   // data

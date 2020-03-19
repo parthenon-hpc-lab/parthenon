@@ -10,46 +10,32 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef TEST_PK_H
-#define TEST_PK_H
+
+#ifndef EXAMPLE_FACE_FIELDS_FACE_FIELDS_EXAMPLE_HPP_
+#define EXAMPLE_FACE_FIELDS_FACE_FIELDS_EXAMPLE_HPP_
+
+#include <memory>
+
+#include "driver/driver.hpp"
+#include "globals.hpp"
+#include "interface/StateDescriptor.hpp"
+#include "mesh/mesh.hpp"
+#include "task_list/tasks.hpp"
 
 namespace parthenon {
-///< a class that includes bare minimum to help compile test
-class mesh {
-public:
-  bool f2;
-  bool f3;
-  bool multilevel;
-  mesh(bool a,bool b,bool c):f2(a),f3(b),multilevel(c)
+
+class FaceFieldExample : public Driver {
+ public:
+  FaceFieldExample(ParameterInput *pin, Mesh *pm, Outputs *pout)
+    : Driver(pin, pm, pout)
   {}
-};
-class MeshBlock {
-public:
-  int ncells1;
-  int ncells2;
-  int ncells3;
-  int ncc1;
-  int ncc2;
-  int ncc3;
-  struct mesh* pmy_mesh;
-  MeshBlock(int nc1, int nc2, int nc3):ncells1(nc1),ncells2(nc2),ncells3(nc3),
-				       ncc1(nc1),ncc2(nc2),ncc3(nc3)
-  {pmy_mesh = new mesh(true,true,true);};
-    
+  TaskList MakeTaskList(MeshBlock *pmb);
+  DriverStatus Execute();
 };
 
-class CellCenteredBoundaryVariable {
-public:
-  int a;
-};
+} // namespace parthenon
 
-#include <array>
-#include <iostream>
-#include "Container.hpp"
-#include "ContainerIterator.hpp"
-extern void testMetadata();
-extern void testVariable();
-extern void testContainer();
-  
+namespace FaceFields {
+  parthenon::TaskStatus fill_faces(parthenon::MeshBlock* pmb);
 }
-#endif
+#endif // EXAMPLE_FACE_FIELDS_FACE_FIELDS_EXAMPLE_HPP_
