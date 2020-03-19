@@ -84,12 +84,12 @@ class MeshBlock {
  public:
   MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_size,
             BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
-            Properties_t& mats,
+            Properties_t& properties,
             int igflag,
             bool ref_flag = false);
   MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
-            Properties_t & mats,
-            Packages_t& phys,
+            Properties_t & properties,
+            Packages_t& packages,
             LogicalLocation iloc,
             RegionSize input_block, BoundaryFlag *input_bcs, double icost,
             char *mbdata, int igflag);
@@ -98,8 +98,8 @@ class MeshBlock {
             LogicalLocation iloc,
             RegionSize input_block,
             BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
-            Properties_t& mats,
-            Packages_t& phys,
+            Properties_t& properties,
+            Packages_t& packages,
             int igflag, bool ref_flag=false);
   ~MeshBlock();
 
@@ -135,8 +135,9 @@ class MeshBlock {
   // The User defined containers
   Container<Real> real_container;
 
-  Properties_t materials;
-  Packages_t physics;
+  Properties_t properties;
+  Packages_t packages;
+
   std::unique_ptr<MeshBlockApplicationData> app;
 
   // mesh-related objects
@@ -220,11 +221,11 @@ class Mesh {
  public:
   // 2x function overloads of ctor: normal and restarted simulation
   Mesh(ParameterInput *pin,
-      Properties_t &materials,
-      Packages_t& physics, int test_flag=0);
+      Properties_t &properties,
+      Packages_t& packages, int test_flag=0);
   Mesh(ParameterInput *pin, IOWrapper &resfile,
-      Properties_t &materials,
-      Packages_t& physics, int test_flag=0);
+      Properties_t &properties,
+      Packages_t& packages, int test_flag=0);
   ~Mesh();
 
   // accessors
@@ -249,8 +250,8 @@ class Mesh {
 
   // ptr to first MeshBlock (node) in linked list of blocks belonging to this MPI rank:
   MeshBlock *pblock;
-  Properties_t materials;
-  Packages_t physics;
+  Properties_t properties;
+  Packages_t packages;
 
   AthenaArray<Real> *ruser_mesh_data;
   AthenaArray<int> *iuser_mesh_data;

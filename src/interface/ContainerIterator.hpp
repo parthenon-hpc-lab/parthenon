@@ -40,9 +40,9 @@ class ContainerIterator {
   /// @param flagVector: a vector of Metadata::flags that you want to match
   ContainerIterator<T>(Container<T>& c, const std::vector<Metadata::flags> &flagVector) {
     _allVars = c.allVars();
-    for (auto& field : c.matVars().getCellVarVectors()) {
+    for (auto& field : c.sparseVars().getCellVarVectors()) {
       int idx=0;
-      auto& IM = c.matVars().GetIndexMap(field.first);
+      auto& IM = c.sparseVars().GetIndexMap(field.first);
       for (auto& v : field.second) {
         if ( flagVector[0] == Metadata::graphics) {
           _allVars.push_back(std::make_shared<Variable<T>>(
