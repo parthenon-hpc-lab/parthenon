@@ -117,7 +117,7 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  std::vector<std::shared_ptr<FieldPropertiesInterface>> properties;
+  std::vector<std::shared_ptr<PropertiesInterface>> properties;
   std::map<std::string, std::shared_ptr<StateDescriptor>> physics;
   Mesh m(&pin, properties, physics);
 
