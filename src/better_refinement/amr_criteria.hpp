@@ -13,6 +13,7 @@
 #ifndef BETTER_REFINEMENT_AMR_CRITERIA_HPP_
 #define BETTER_REFINEMENT_AMR_CRITERIA_HPP_
 
+#include <memory>
 #include <string>
 
 #include "athena.hpp"
@@ -29,10 +30,11 @@ struct AMRCriteria {
   std::string _field;
   Real refine_criteria, derefine_criteria;
   int max_level;
+  static std::shared_ptr<AMRCriteria> MakeAMRCriteria(std::string& criteria, ParameterInput *pin, std::string& block_name);
 };
 
 struct AMRFirstDerivative : public AMRCriteria {
-  AMRFirstDerivative(ParameterInput *pin, std::string block_name);
+  AMRFirstDerivative(ParameterInput *pin, std::string& block_name);
   int operator () (Container<Real>& rc);
 };
 

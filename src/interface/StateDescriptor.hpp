@@ -95,7 +95,7 @@ class StateDescriptor {
     // get all metadata for this physics
     const std::map<std::string, Metadata>& AllMetadata() { return _metadataMap; }
 
-    std::vector<std::unique_ptr<AMRCriteria>> amr_criteria;
+    std::vector<std::shared_ptr<AMRCriteria>> amr_criteria;
     void (*FillDerived)(Container<Real>& rc);
     Real (*EstimateTimestep)(Container<Real>& rc);
     int (*CheckRefinement)(Container<Real>& rc);

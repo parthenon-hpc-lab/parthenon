@@ -25,12 +25,12 @@ refinement = adaptive
 <Refinement2>
 ...
 ```
-In each refinement block, you are required to provide a ``method`` which is an integer that selects among the provided critera (listed below).  Additionally, you are required to provide a ``field`` which must be a valid variable name in the application.  Optionally, you can provide a ``refine_tol`` value (defaults to 0.5) indicating that a block should be tagged for refinement if the criteria selected evaluates to a value above this threshold anywhere on the block.  Similarly, the ``derefine_tol`` value (default 0.05) determines when derefinement can occur (all values of the criteria function must be less than this).  Finally, an integer ``max_level`` value can be specified that limits refinement triggered by this criteria to no greater than this level.  The default is to allow each criteria to refine to ``numlevel``, which is the global maximum number of refinement levels specified in the ``<mesh>`` block.
+In each refinement block, you are required to provide a ``method`` which is a string that selects among the provided critera (listed below).  Additionally, you are required to provide a ``field`` which must be a valid variable name in the application.  Optionally, you can provide a ``refine_tol`` value (defaults to 0.5) indicating that a block should be tagged for refinement if the criteria selected evaluates to a value above this threshold anywhere on the block.  Similarly, the ``derefine_tol`` value (default 0.05) determines when derefinement can occur (all values of the criteria function must be less than this).  Finally, an integer ``max_level`` value can be specified that limits refinement triggered by this criteria to no greater than this level.  The default is to allow each criteria to refine to ``numlevel``, which is the global maximum number of refinement levels specified in the ``<mesh>`` block.
 
 ### Predefined Criteria
 | Method | Description |
 |--------|-------------|
-| 0 | ![formula](https://render.githubusercontent.com/render/math?math=\|dlnq\/dx\|), where q is the user selected variable |
+| derivative_order_1 | ![formula](https://render.githubusercontent.com/render/math?math=\|dlnq\/dx\|), where q is the user selected variable |
 
 ## Package-specific Criteria
 As a package developer, you can define a tagging function that takes a ``Container`` as an argument and returns an integer in {-1,0,1} to indicate the block should be derefined, left alone, or refined, respectively.  This function should be registered in a ``StateDescriptor`` object by assigning the ``CheckRefinement`` function pointer to point at the packages function.  An example is demonstrated [here](../example/calculate_pi/pi.cpp).

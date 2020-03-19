@@ -15,6 +15,7 @@
 #include <memory>
 #include <utility>
 
+#include "amr_criteria.hpp"
 #include "better_refinement.hpp"
 #include "interface/StateDescriptor.hpp"
 #include "mesh/mesh.hpp"
@@ -29,23 +30,15 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   std::string base("Refinement");
   int numcrit = 0;
-  for(;;) {
+  while(true) {
     std::string block_name = base + std::to_string(numcrit);
     if (!pin->DoesBlockExist(block_name)) {
       break;
     }
-    int method = pin->GetOrAddInteger(block_name, "method", 0);
-    switch(method) {
-      case 0:
-        ref->amr_criteria.push_back(
-          std::make_unique<AMRFirstDerivative>(pin, block_name)
-        );
-        break;
-      default:
-        throw std::invalid_argument(
-          "Invalid selection for refinment method in " + block_name
-        );
-    }
+    std::string method = pin->GetOrAddString(block_name, "method", "PLEASE SPECIFY method");
+    ref->amr_criteria.push_back(
+      AMRCriteria::MakeAMRCriteria(method, pin, block_name)
+    );
     numcrit++;
   }
   return std::move(ref);

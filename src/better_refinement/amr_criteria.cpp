@@ -10,6 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+#include <memory>
+
 #include "amr_criteria.hpp"
 #include "better_refinement.hpp"
 #include "interface/Container.hpp"
@@ -18,7 +20,15 @@
 
 namespace parthenon {
 
-AMRFirstDerivative::AMRFirstDerivative(ParameterInput *pin, std::string block_name) {
+std::shared_ptr<AMRCriteria> AMRCriteria::MakeAMRCriteria(std::string& criteria, ParameterInput *pin, std::string& block_name) {
+  if (criteria == "derivative_order_1") return std::make_shared<AMRFirstDerivative>(pin, block_name);
+  throw std::invalid_argument(
+        "\n  Invalid selection for refinment method in " + block_name + ": " + criteria
+  );
+  return std::shared_ptr<AMRCriteria>();
+}
+
+AMRFirstDerivative::AMRFirstDerivative(ParameterInput *pin, std::string& block_name) {
     _field = pin->GetOrAddString(block_name, "field", "none");
     if (!_field.compare("none")) {
       std::cerr << "Error in " << block_name << ": no field set" << std::endl;

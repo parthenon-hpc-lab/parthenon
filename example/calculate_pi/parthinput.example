@@ -47,11 +47,11 @@ nx2 = 8
 nx3 = 1
 
 <Refinement0>
-field = in_or_out       # the name of the variable we want to refine on
-method = 0              # selects the first derivative method
-refine_tol = 0.5        # tag for refinement if |(dfield/dx)/field| > refine_tol
-derefine_tol = 0.05     # tag for derefinement if |(dfield/dx)/field| < derefine_tol
-max_level = 2           # if set, limits refinement level from this criteria to no greater than max_level
+field = in_or_out               # the name of the variable we want to refine on
+method = derivative_order_1     # selects the first derivative method
+refine_tol = 0.5                # tag for refinement if |(dfield/dx)/field| > refine_tol
+derefine_tol = 0.05             # tag for derefinement if |(dfield/dx)/field| < derefine_tol
+max_level = 2                   # if set, limits refinement level from this criteria to no greater than max_level
 
 <output1>
 file_type = hdf5
