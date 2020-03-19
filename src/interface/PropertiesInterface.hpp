@@ -47,6 +47,8 @@ private:
   static std::map<std::string, int> _label_to_id;
 };
 
+using Properties_t = std::vector<std::shared_ptr<PropertiesInterface>>;
+
 /*template <typename T>
 auto ConvertPropertiesToInterface(
     const std::vector<std::shared_ptr<T>> &materials) {

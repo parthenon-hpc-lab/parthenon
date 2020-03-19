@@ -113,5 +113,6 @@ endif()
 
 add_subdirectory(src)
 add_subdirectory(example/calculate_pi)
+add_subdirectory(example/face_fields)
 
 include(cmake/CheckCopyright.cmake)

@@ -14,40 +14,36 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef UTILS_UTILS_HPP_
-#define UTILS_UTILS_HPP_
-//! \file utils.hpp
-//  \brief prototypes of functions and class definitions for utils/*.cpp files
+#include <string>
+#include <catch2/catch.hpp>
+#include "task_list/tasks.hpp"
 
-// C headers
+using parthenon::TaskID;
 
-// C++ headers
-#include <csignal>   // sigset_t POSIX C extension
-#include <cstdint>   // std::int64_t
+TEST_CASE("Just check everything","[CheckDependencies,SetFinished,==,|]") {
+  GIVEN("Some TaskIDs") {
+    TaskID a(1);
+    TaskID b(2);
+    TaskID c(BITBLOCK+1); // make sure we get a task with more than one block
+    TaskID complete;
 
-namespace parthenon {
-// Athena++ headers
+    TaskID ac = (a|c);
+    bool should_be_false = ac.CheckDependencies(b);
+    bool should_be_truea = ac.CheckDependencies(a);
+    bool should_be_truec = ac.CheckDependencies(c);
+    TaskID abc = (a|b|c);
+    complete.SetFinished(abc);
+    bool equal_true  = (complete==abc);
+    bool equal_false = (complete==ac);
 
-void ChangeRunDir(const char *pdir);
-double ran2(std::int64_t *idum);
-void ShowConfig();
+    REQUIRE(should_be_false == false);
+    REQUIRE(should_be_truea == true);
+    REQUIRE(should_be_truec == true);
+    REQUIRE(equal_true == true);
+    REQUIRE(equal_false == false);
 
-//----------------------------------------------------------------------------------------
-//! SignalHandler
-//  \brief static data and functions that implement a simple signal handling system
-
-namespace SignalHandler {
-const int nsignal = 3;
-static volatile int signalflag[nsignal];
-const int ITERM = 0, IINT = 1, IALRM = 2;
-static sigset_t mask;
-void SignalHandlerInit();
-int CheckSignalFlags();
-int GetSignalFlag(int s);
-void SetSignalFlag(int s);
-void SetWallTimeAlarm(int t);
-void CancelWallTimeAlarm();
-void Report();
-} // namespace SignalHandler
+    WHEN("a negative number is passed") {
+      REQUIRE_THROWS_AS (a.Set(-1), std::invalid_argument);
+    }
+  }
 }
-#endif // UTILS_UTILS_HPP_

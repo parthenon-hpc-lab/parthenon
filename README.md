@@ -28,7 +28,7 @@ Please see the [developer guidelines](CONTRIBUTING.md) for additional informatio
 
 # Documentation
 
-Please see the [doc/](doc/README.md) folder for additional documentation on features and
+Please see the [docs/](docs/README.md) folder for additional documentation on features and
 how to use them.
 
 # Contributors
