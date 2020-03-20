@@ -17,7 +17,6 @@
 // so.
 //========================================================================================
 
-
 #include "../../src/kokkos_abstraction.hpp"
 
 #include <iostream>
@@ -263,19 +262,61 @@ TEST_CASE("par_for loops", "[wrapper]") {
   }
 }
 
-// reused from kokoks/core/perf_test/PerfTest_ExecSpacePartitioning.cpp
-// commit a0d011fb30022362c61b3bb000ae3de6906cb6a7
-struct FunctorRange {
+struct BufferPack {
   int M;
-  ParArray4D<Real> arr_in, arr_out_l, arr_out_r;
-  FunctorRange(int M_, ParArray4D<Real> arr_in_, ParArray4D<Real> arr_out_l_,
-               ParArray4D<Real> arr_out_r_)
-      : M(M_), arr_in(arr_in_), arr_out_l(arr_out_l_), arr_out_r(arr_out_r_) {}
+  int nghost;
+  int ncells; // number of cells in the linear dimension - very simplistic
+              // approach
+  ParArray4D<Real> arr_in;
+  // buffer in six direction, i plus, i minus, ...
+  ParArray1D<Real> buf_ip, buf_im, buf_jp, buf_jm, buf_kp, buf_km;
+  BufferPack(const int M_, const int nghost_, const int ncells_,
+             const ParArray4D<Real> arr_in_, ParArray1D<Real> buf_ip_,
+             ParArray1D<Real> buf_im_, ParArray1D<Real> buf_jp_,
+             ParArray1D<Real> buf_jm_, ParArray1D<Real> buf_kp_,
+             ParArray1D<Real> buf_km_)
+      : M(M_), nghost(nghost_), ncells(ncells_), arr_in(arr_in_),
+        buf_ip(buf_ip_), buf_im(buf_im_), buf_jp(buf_jp_), buf_jm(buf_jm_),
+        buf_kp(buf_kp_), buf_km(buf_km_) {}
   KOKKOS_INLINE_FUNCTION
-  void operator()(const int k, const int j, const int i) const {
-    for (int n = 0; n < M; n++) {
-      arr_out_l(n, k, j, i) = arr_in(n, k, j, i) - arr_in(n, k, j, i - 1);
-      arr_out_r(n, k, j, i) = arr_in(n, k, j, i + 1) - arr_in(n, k, j, i);
+  void operator()(const int dir) const {
+    int idx = 0;
+    if (dir == 0) {
+      for (auto n = 0; n < M; n++)
+        for (auto i = nghost; i < 2 * nghost; i++)
+          for (auto j = nghost; j < ncells - nghost; j++)
+            for (auto k = nghost; k < ncells - nghost; k++)
+              buf_im(idx++) = arr_in(n, k, j, i);
+    } else if (dir == 1) {
+      for (auto n = 0; n < M; n++)
+        for (auto i = ncells - nghost; i < ncells; i++)
+          for (auto j = nghost; j < ncells - nghost; j++)
+            for (auto k = nghost; k < ncells - nghost; k++)
+              buf_ip(idx++) = arr_in(n, k, j, i);
+    } else if (dir == 2) {
+      for (auto n = 0; n < M; n++)
+        for (auto i = nghost; i < ncells - nghost; i++)
+          for (auto j = nghost; j < 2 * nghost; j++)
+            for (auto k = nghost; k < ncells - nghost; k++)
+              buf_jm(idx++) = arr_in(n, k, j, i);
+    } else if (dir == 3) {
+      for (auto n = 0; n < M; n++)
+        for (auto i = nghost; i < ncells - nghost; i++)
+          for (auto j = ncells - nghost; j < ncells; j++)
+            for (auto k = nghost; k < ncells - nghost; k++)
+              buf_jp(idx++) = arr_in(n, k, j, i);
+    } else if (dir == 3) {
+      for (auto n = 0; n < M; n++)
+        for (auto i = nghost; i < ncells - nghost; i++)
+          for (auto j = nghost; j < ncells - nghost; j++)
+            for (auto k = nghost; k < 2 * nghost; k++)
+              buf_km(idx++) = arr_in(n, k, j, i);
+    } else if (dir == 4) {
+      for (auto n = 0; n < M; n++)
+        for (auto i = nghost; i < ncells - nghost; i++)
+          for (auto j = nghost; j < ncells - nghost; j++)
+            for (auto k = ncells - nghost; k < ncells; k++)
+              buf_kp(idx++) = arr_in(n, k, j, i);
     }
   }
 };
@@ -285,30 +326,42 @@ TEST_CASE("Overlapping SpaceInstances", "[wrapper]") {
 
   const int N = 32;       // ~meshblock size
   const int M = 5;        // ~nhydro
-  const int nstreams = 8; // number of streams
-
-  std::vector<FunctorRange> functs;
+  const int nstreams = 6; // number of streams
+  const int nghost = 2;   // number of ghost zones
+  const int nbuffers =
+      6; // number of buffers, here up, down, left, right, back, front
+  const int buf_size = M * nghost * (N - 2 * nghost) * 2;
+  std::vector<BufferPack> functs;
   std::vector<DevSpace> exec_spaces;
 
   for (auto n = 0; n < nstreams; n++) {
-    functs.push_back(
-        FunctorRange(M, ParArray4D<Real>("SpaceInstance in", M, N, N, N),
-                     ParArray4D<Real>("SpaceInstance out_l", M, N, N, N),
-                     ParArray4D<Real>("SpaceInstance out_r", M, N, N, N)));
+    functs.push_back(BufferPack(
+        M, nghost, N, ParArray4D<Real>("SpaceInstance in", M, N, N, N),
+        ParArray1D<Real>("buf_ip", buf_size),
+        ParArray1D<Real>("buf_im", buf_size),
+        ParArray1D<Real>("buf_jp", buf_size),
+        ParArray1D<Real>("buf_jm", buf_size),
+        ParArray1D<Real>("buf_kp", buf_size),
+        ParArray1D<Real>("buf_kp", buf_size)));
     exec_spaces.push_back(parthenon::SpaceInstance<DevSpace>::create());
   }
 
-  auto f = FunctorRange(M, ParArray4D<Real>("SpaceInstance in", M, N, N, N),
-                        ParArray4D<Real>("SpaceInstance out_l", M, N, N, N),
-                        ParArray4D<Real>("SpaceInstance out_r", M, N, N, N));
+  auto f =
+      BufferPack(M, nghost, N, ParArray4D<Real>("SpaceInstance in", M, N, N, N),
+                 ParArray1D<Real>("buf_ip", buf_size),
+                 ParArray1D<Real>("buf_im", buf_size),
+                 ParArray1D<Real>("buf_jp", buf_size),
+                 ParArray1D<Real>("buf_jm", buf_size),
+                 ParArray1D<Real>("buf_kp", buf_size),
+                 ParArray1D<Real>("buf_kp", buf_size));
 
   // warmup
   for (auto it = 0; it < 10; it++) {
     parthenon::par_for(parthenon::loop_pattern_mdrange_tag, "default space",
-                       default_exec_space, 0, N - 1, 0, N - 1, 1, N - 2, f);
+                       default_exec_space, 0, nbuffers, f);
     for (auto n = 0; n < nstreams; n++) {
       parthenon::par_for(parthenon::loop_pattern_mdrange_tag, "space",
-                         exec_spaces[n], 0, N - 1, 0, N - 1, 1, N - 2, functs[n]);
+                         exec_spaces[n], 0, nbuffers, functs[n]);
     }
   }
   Kokkos::fence();
@@ -318,8 +371,8 @@ TEST_CASE("Overlapping SpaceInstances", "[wrapper]") {
   // meausre time using two execution space simultaneously
   // race condition in access to arr_dev doesn't matter for this test
   for (auto n = 0; n < nstreams; n++) {
-    parthenon::par_for(parthenon::loop_pattern_mdrange_tag, "space", exec_spaces[n],
-                       0, N - 1, 0, N - 1, 1, N - 2, functs[n]);
+    parthenon::par_for(parthenon::loop_pattern_mdrange_tag, "space",
+                       exec_spaces[n], 0, nbuffers, functs[n]);
   }
 
   Kokkos::fence();
@@ -330,7 +383,7 @@ TEST_CASE("Overlapping SpaceInstances", "[wrapper]") {
   // measure runtime using the default execution space
   for (auto n = 0; n < nstreams; n++) {
     parthenon::par_for(parthenon::loop_pattern_mdrange_tag, "default space",
-                       default_exec_space, 0, N - 1, 0, N - 1, 1, N - 2, f);
+                       default_exec_space, 0, nbuffers, f);
   }
 
   default_exec_space.fence(); // making sure the kernel is done
@@ -339,5 +392,10 @@ TEST_CASE("Overlapping SpaceInstances", "[wrapper]") {
   std::cout << "time default: " << time_default << std::endl;
   std::cout << "time spaces: " << time_spaces << std::endl;
 
-  REQUIRE(time_default > 1.5 * time_spaces);
+  // make sure this test is reasonable IIF streams actually overlap, which is
+  // not the case for the OpenMP backend at this point
+  if (parthenon::SpaceInstance<DevSpace>::overlap()) {
+    // make sure the per kernel runtime didn't increase by more than a factor of 2
+    REQUIRE(time_default > (static_cast<Real>(nstreams) / 2.0 * time_spaces));
+  }
 }
