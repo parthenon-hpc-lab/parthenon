@@ -38,6 +38,12 @@ namespace parthenon {
 /// The container class will provide the following methods:
 ///
 
+template <typename T>
+using VariableArray = std::vector<std::shared_ptr<Variable<T>>>;
+using FaceArray = std::vector<std::shared_ptr<FaceVariable>>;
+template <typename T>
+using SparseArray = std::vector<std::shared_ptr<SparseVariable<T>>>;
+
 class MeshBlock;
 
 template <typename T>
@@ -302,6 +308,8 @@ class Container {
     return s->_varArray;
   }
 
+  std::vector<std::shared_SparseVariable<T>>
+
   SparseVariable<T>& sparseVars() {
     return s->_sparseVars;
   }
@@ -365,6 +373,11 @@ class Container {
 
  private:
   int debug=0;
+  
+  VariableArray<T> _varArray = {}; ///< the saved variable array
+  FaceArray _faceArray = {};  ///< the saved face arrays
+  SparseArray<T> _sparseArray = {};
+
   std::map< std::string,std::shared_ptr<Stage<T> >> stages;
   std::shared_ptr<Stage<T>> s;
 

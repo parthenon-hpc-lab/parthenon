@@ -30,6 +30,7 @@ class ContainerCollection {
   void AddContainer(const std::string& label, Container<T>& src);
   //void AddContainer(const std::string& label, Container<T>& src, const std::vector<Metadata::flags> &flagVector);
 
+  Container<T>& Get() { return containers_["base"]; }
   Container<T>& Get(const std::string& label) {
     if (containers_.find(label) == containers_.end()) {
       throw std::runtime_error("Container " + label + " does not exist in collection.");

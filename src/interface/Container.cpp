@@ -108,41 +108,7 @@ void Container<T>::Add(const std::string label,
   }
 }
 
-/// We can initialize a container with a specific stage set as
-/// the base stage.
-/// @param src The name of the stage we want to create a new container from
-/// @return New container with slices from all variables
-template <typename T>
-Container<T>  Container<T>::StageContainer(std::string src) {
-  Container<T> c;  // creates a container with a blank "base" stage
-
-  Stage<T>&stageSrc = *stages[src];
-
-  // copy in private data
-  c.pmy_block = pmy_block;
-
-  // add aliases of all arrays in state to the new container
-  for (auto v : stageSrc._varArray) {
-    c.s->_varArray.push_back(v);
-  }
-  // for (auto v : stageSrc._edgeArray) {
-  //   EdgeVariable *vNew = new EdgeVariable(v->label(), *v);
-  //   c.s->_edgeArray.push_back(vNew);
-  // }
-  for (auto v : stageSrc._faceArray) {
-    c.s->_faceArray.push_back(v);
-  }
-
-  // Now copy in the sparse arrays
-  for (auto vars : stageSrc._sparseVars.getAllCellVars()) {
-    auto& theLabel=vars.first;
-    auto& theMap = vars.second;
-    c.s->_sparseVars.AddAlias(theLabel, stageSrc._sparseVars);
-  }
-
-  return c;
-}
-
+/*
 template <typename T>
 void Container<T>::StageSet(std::string name) {
   s = stages[name];
@@ -165,7 +131,7 @@ void Container<T>::StageSet(std::string name) {
       }
     }
   }
-}
+}*/
 
 // provides a container that has a single sparse slice
 template <typename T>
@@ -177,33 +143,27 @@ Container<T> Container<T>::sparseSlice(int id) {
 
   // Note that all standard arrays get added
   // add standard arrays
-  for (auto v : s->_varArray) {
-    // Metadata m = v->metadata();
-
-    // add an alias
-    //c.s->_varArray.push_back(std::make_shared<Variable<T>>(v->label(), *v));
-    c.s->_varArray.push_back(v);
+  for (auto v : _varArray) {
+    c._varArray.push_back(v);
   }
   // for (auto v : s->_edgeArray) {
   //   EdgeVariable *vNew = new EdgeVariable(v->label(), *v);
   //   c.s->_edgeArray.push_back(vNew);
   // }
-  for (auto v : s->_faceArray) {
-    c.s->_faceArray.push_back(v);
+  for (auto v : _faceArray) {
+    c._faceArray.push_back(v);
   }
 
   // Now copy in the specific arrays
-  for (auto & index_map : s->_sparseVars.getIndexMap()) {
-    auto & ind = index_map.second;
-    auto it = std::find(ind.begin(), ind.end(), id);
-    if (it != ind.end()) {
-      int elem = std::distance(ind.begin(), it);
-      auto & vars = s->_sparseVars.GetVector(index_map.first);
-      c.s->_varArray.push_back(vars[elem]);
+  auto null_shared_ptr = std::shared_ptr<Variable<T>>(nullptr);
+  for (auto v : _sparseArray) {
+    Variable<T>& vmat = v->Get(id);
+    if (vmat != null_shared_ptr) {
+      c._varArray.push_back(std::shared_ptr<Variable<T>>(&vmat));
     }
   }
 
-  return c;
+  return std::move(c);
 }
 
 // TODO(JMM): this could be cleaned up, I think.
@@ -282,11 +242,14 @@ void Container<T>::SendFluxCorrection() {
 template <typename T>
 bool Container<T>::ReceiveFluxCorrection() {
   int success=0, total=0;
-  for (auto &v : s->_varArray) {
+  for (auto &v : _varArray) {
     if ( (v->metadata()).isIndependent() ) {
       if(v->vbvar->ReceiveFluxCorrection()) success++;
       total++;
     }
+  }
+  for (auto &v : _sparseArray) {
+    
   }
   for (auto &myMap : s->_sparseVars.getAllCellVars()) {
     for (auto &mv : myMap.second) {
