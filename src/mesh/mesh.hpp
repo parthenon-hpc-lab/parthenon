@@ -39,6 +39,7 @@
 #include "interface/PropertiesInterface.hpp"
 #include "interface/StateDescriptor.hpp"
 #include "interface/Update.hpp"
+#include "kokkos_abstraction.hpp"
 #include "mesh_refinement.hpp"
 #include "meshblock_tree.hpp"
 #include "outputs/io_wrapper.hpp"
@@ -103,6 +104,9 @@ class MeshBlock {
             int igflag, bool ref_flag=false);
   ~MeshBlock();
 
+  // Kokkos execution space for this MeshBlock
+  DevSpace exec_space;
+
   // data
   int ssID;
   Mesh *pmy_mesh;  // ptr to Mesh containing this MeshBlock
@@ -151,6 +155,46 @@ class MeshBlock {
   MeshBlock *prev, *next;
 
   // functions
+
+  //----------------------------------------------------------------------------------------
+  //! \fn void MeshBlock::DeepCopy(const DstType& dst, const SrcType& src)
+  //  \brief Deep copy between views using the exec space of the MeshBlock
+  template <class DstType, class SrcType>
+  void deep_copy(const DstType &dst, const SrcType &src) {
+    Kokkos::deep_copy(exec_space, dst, src);
+  }
+
+  // 1D default loop pattern
+  template <typename Function>
+  inline void par_for(const std::string &NAME, const int &IL, const int &IU,
+                      const Function &function) {
+    par_for(NAME, exec_space, IL, IU, function);
+  }
+
+  // 2D default loop pattern
+  template <typename Function>
+  inline void par_for(const std::string &NAME, const int &JL, const int &JU,
+                      const int &IL, const int &IU, const Function &function) {
+    par_for(NAME, exec_space, JL, JU, IL, IU, function);
+  }
+
+  // 3D default loop pattern
+  template <typename Function>
+  inline void par_for(const std::string &NAME, const int &KL, const int &KU,
+                      const int &JL, const int &JU, const int &IL,
+                      const int &IU, const Function &function) {
+    par_for(NAME, exec_space, KL, KU, JL, JU, IL, IU, function);
+  }
+
+  // 4D default loop pattern
+  template <typename Function>
+  inline void par_for(const std::string &NAME, const int &NL, const int &NU,
+                      const int &KL, const int &KU, const int &JL,
+                      const int &JU, const int &IL, const int &IU,
+                      const Function &function) {
+    par_for(NAME, exec_space, NL, NU, KL, KU, JL, JU, IL, IU, function);
+  }
+
   std::size_t GetBlockSizeInBytes();
   int GetNumberOfMeshBlockCells() {
     return block_size.nx1*block_size.nx2*block_size.nx3; }
