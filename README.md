@@ -32,13 +32,9 @@ Following options are available to configure the default behavior of the `par_fo
   - `MANUAL1D_LOOP` maps to `Kokkos::RangePolicy` (default for CUDA backend)
   - `MDRANGE` maps to `Kokkos::MDRangePolicy`
   - `SIMDFOR_LOOP` maps to standard `for` loops with `#pragma omp simd` (default for OpenMP backend)
+  - `TPTTR_LOOP` maps to double nested loop with `Kokkos::TeamPolicy` and `Kokkos::ThreadVectorRange`
+  - `TPTVR_LOOP` maps to double nested loop with `Kokkos::TeamPolicy` and `Kokkos::ThreadVectorRange`
   - `TPTTRTVR_LOOP` maps to triple nested loop with `Kokkos::TeamPolicy`, `Kokkos::TeamThreadRange` and `Kokkos::ThreadVectorRange`
-  - `TP_INNERX_LOOP`
-    - maps double nested loop with outer `Kokkos::TeamPolicy`
-    - inner loop is set by `PAR_LOOP_LAYOUT_INNER`. Options are
-      - `INNER_TTR` for `Kokkos::TeamThreadRange` and
-      - `INNER_TVR` for `Kokkos::ThreadVectorRange`
-- `PAR_VECTOR_LENGTH` (int; set the vector length used in Kokkos::TeamPolicy based wrappers)
 
 ## Kokkos options
 Kokkos can be configured through `cmake` options, see https://github.com/kokkos/kokkos/wiki/Compiling
@@ -61,3 +57,15 @@ Please see the [developer guidelines](CONTRIBUTING.md) for additional informatio
 
 Please see the [docs/](docs/README.md) folder for additional documentation on features and
 how to use them.
+
+# Contributors
+
+| Name          | Handle                | Team              |
+|----------|--------------|------------|
+| Jonah Miller | @Yurlungur  | LANL Physics  |
+| Josh Dolence | @jdolence | LANL Physics |
+| Andrew Gaspar | @AndrewGaspar | LANL Computer Science |
+| Philipp Grete | @pgrete | Athena Physics |
+| Forrest Glines | @forrestglines | Athena Physics |
+| Jim Stone | @jmstone | Athena Physics |
+

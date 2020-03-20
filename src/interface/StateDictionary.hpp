@@ -25,8 +25,8 @@ class StateDictionary : public std::map<std::string, Metadata> {
     void AddState(const std::string& field_name, Metadata& m) {
 #if 0
       std::cerr << "Adding " << field_name << std::endl;
-      if ((!m.isSet(m.materials)) && this->count(field_name)) {
-        std::cerr << "not adding " << field_name << " to state: " << m.isSet(m.materials) << " " << this->count(field_name) << std::endl;
+      if ((!m.isSet(m.sparse)) && this->count(field_name)) {
+        std::cerr << "not adding " << field_name << " to state: " << m.isSet(m.sparse) << " " << this->count(field_name) << std::endl;
 	// already added to state
         // make sure it's metadata matches what's already in there
         // DOES THIS WORK?

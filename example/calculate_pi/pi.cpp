@@ -91,7 +91,7 @@ TaskList CalculatePi::MakeTaskList(MeshBlock *pmb) {
   TaskList tl;
 
   // make some lambdas that over overkill here but clean things up for more realistic code
-  auto AddBlockTask = [pmb,&tl](BlockTaskFunc* func, TaskID dependencies) {
+  auto AddBlockTask = [pmb,&tl](BlockTaskFunc func, TaskID dependencies) {
     return tl.AddTask<BlockTask>(func, dependencies, pmb);
   };
 
@@ -118,7 +118,7 @@ namespace PiCalculator {
     int ie = pmb->ie; int je = pmb->je; int ke = pmb->ke;
     Coordinates *pcoord = pmb->pcoord.get();
     Variable<Real>& v = rc.Get("in_or_out");
-    const auto& radius = pmb->physics["PiCalculator"]->Param<Real>("radius");
+    const auto& radius = pmb->packages["PiCalculator"]->Param<Real>("radius");
     // Set an indicator function that indicates whether the cell center
     // is inside or outside of the circle we're interating the area of.
     // see the CheckRefinement routine below for an explanation of the loop bounds
@@ -191,7 +191,7 @@ namespace PiCalculator {
     int ie = pmb->ie; int je = pmb->je; int ke = pmb->ke;
     Coordinates *pcoord = pmb->pcoord.get();
     Variable<Real>& v = rc.Get("in_or_out");
-    const auto& radius = pmb->physics["PiCalculator"]->Param<Real>("radius");
+    const auto& radius = pmb->packages["PiCalculator"]->Param<Real>("radius");
     Real area = 0.0;
     for (int k=ks; k<=ke; k++) {
       for (int j=js; j<=je; j++) {

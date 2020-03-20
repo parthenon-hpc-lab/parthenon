@@ -10,46 +10,32 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef PARTHENON_INTERFACE_PROPERTIESINTERFACE_HPP_
-#define PARTHENON_INTERFACE_PROPERTIESINTERFACE_HPP_
 
-#include <map>
-#include <string>
+#ifndef EXAMPLE_FACE_FIELDS_FACE_FIELDS_EXAMPLE_HPP_
+#define EXAMPLE_FACE_FIELDS_FACE_FIELDS_EXAMPLE_HPP_
 
+#include <memory>
+
+#include "driver/driver.hpp"
+#include "globals.hpp"
 #include "interface/StateDescriptor.hpp"
+#include "mesh/mesh.hpp"
+#include "task_list/tasks.hpp"
 
 namespace parthenon {
 
-class PropertiesInterface {
-public:
-  virtual ~PropertiesInterface() {}
-
-  virtual StateDescriptor &State() = 0;
-
-  static int GetIDFromLabel(std::string &label) {
-    return PropertiesInterface::_label_to_id[label];
-  }
-
-  static std::string GetLabelFromID(int id) {
-    for (auto &x : PropertiesInterface::_label_to_id) {
-      if (x.second == id)
-        return x.first;
-    }
-    return "UNKNOWN";
-  }
-
-  static void InsertID(const std::string &label, const int &id) {
-    PropertiesInterface::_label_to_id[label] = id;
-  }
-
-private:
-  // _label_to_id is declared here and defined in
-  // PropertiesInterface.cpp
-  static std::map<std::string, int> _label_to_id;
+class FaceFieldExample : public Driver {
+ public:
+  FaceFieldExample(ParameterInput *pin, Mesh *pm, Outputs *pout)
+    : Driver(pin, pm, pout)
+  {}
+  TaskList MakeTaskList(MeshBlock *pmb);
+  DriverStatus Execute();
 };
-
-using Properties_t = std::vector<std::shared_ptr<PropertiesInterface>>;
 
 } // namespace parthenon
 
-#endif // PARTHENON_INTERFACE_PROPERTIESINTERFACE_HPP_
+namespace FaceFields {
+  parthenon::TaskStatus fill_faces(parthenon::MeshBlock* pmb);
+}
+#endif // EXAMPLE_FACE_FIELDS_FACE_FIELDS_EXAMPLE_HPP_

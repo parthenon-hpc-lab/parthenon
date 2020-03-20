@@ -53,14 +53,15 @@ namespace parthenon {
 static int id=0;
 MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
                      BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
-                     std::vector<std::shared_ptr<PropertiesInterface>>& mats,
-                     std::map<std::string, std::shared_ptr<StateDescriptor>>& phys,
+                     Properties_t& properties,
+                     Packages_t& packages,
                      int igflag, bool ref_flag) :
     pmy_mesh(pm), loc(iloc), block_size(input_block),
     gid(igid), lid(ilid), gflag(igflag), nuser_out_var(), prev(nullptr), next(nullptr),
     new_block_dt_{}, new_block_dt_hyperbolic_{}, new_block_dt_parabolic_{},
     new_block_dt_user_{},
-    nreal_user_meshblock_data_(), nint_user_meshblock_data_(), cost_(1.0), materials(mats), physics(phys) {
+    nreal_user_meshblock_data_(), nint_user_meshblock_data_(), cost_(1.0), properties(properties),
+    packages(packages) {
   // initialize grid indices
   is = NGHOST;
   ie = is + block_size.nx1 - 1;
@@ -93,7 +94,6 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
 
   // Set the block pointer for the containers
   real_container.setBlock(this);
-  //  real_container.setNumMat(materials.size());
 
   if (pm->multilevel) {
     cnghost = (NGHOST + 1)/2 + 1;
@@ -159,18 +159,18 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
   */
   // end dummy variable
 
-  // Add material data
-  //std::cerr << "Adding " << materials.size() << " materials to block" << std::endl;
-  for (int i = 0; i < materials.size(); i++) {
-    StateDescriptor& state = materials[i]->State();
+  // Add field properties data
+  //std::cerr << "Adding " << properties.size() << " properties to block" << std::endl;
+  for (int i = 0; i < properties.size(); i++) {
+    StateDescriptor& state = properties[i]->State();
     for (auto const & q : state.AllFields()) {
       real_container.Add(q.first, q.second);
     }
   }
-  // Add non-material physics data
-  for (auto const & ph : physics) {
+  // Add physics data
+  for (auto const & pkg : packages) {
     //std::cerr << "  Physics: " << ph.first << std::endl;
-    for (auto const & q : ph.second->AllFields()) {
+    for (auto const & q : pkg.second->AllFields()) {
       //std::cerr << "    Adding " << q.first << std::endl;
       real_container.Add(q.first, q.second);
     }
@@ -200,8 +200,7 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
 // MeshBlock constructor for restarts
 
 MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
-                     std::vector<std::shared_ptr<PropertiesInterface>>& mats,
-                     std::map<std::string, std::shared_ptr<StateDescriptor>>& phys,
+                     Properties_t& properties, Packages_t& packages,
                      LogicalLocation iloc, RegionSize input_block,
                      BoundaryFlag *input_bcs,
                      double icost, char *mbdata, int igflag) :
@@ -209,7 +208,7 @@ MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
     gid(igid), lid(ilid), gflag(igflag), nuser_out_var(), prev(nullptr), next(nullptr),
     new_block_dt_{}, new_block_dt_hyperbolic_{}, new_block_dt_parabolic_{},
     new_block_dt_user_{},
-    nreal_user_meshblock_data_(), nint_user_meshblock_data_(), cost_(icost), materials(mats) {
+    nreal_user_meshblock_data_(), nint_user_meshblock_data_(), cost_(icost), properties(properties) {
   // initialize grid indices
 
   //std::cerr << "WHY AM I HERE???" << std::endl;

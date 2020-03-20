@@ -10,31 +10,29 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef UPDATE_HPP_PK
-#define UPDATE_HPP_PK
 
-#include "athena.hpp"
-#include "interface/Container.hpp"
-#include "mesh/mesh.hpp"
-namespace parthenon {
-namespace Update {
+#include "face_fields_example.hpp"
+#include "parthenon_manager.hpp"
 
-void FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont);
-void UpdateContainer(Container<Real> &in, Container<Real> &dudt_cont,
-                     const Real dt, Container<Real> &out);
-void AverageContainers(Container<Real> &c1, Container<Real> &c2,
-                       const Real wgt1);
+int main(int argc, char *argv[]) {
+  using parthenon::ParthenonManager;
+  using parthenon::ParthenonStatus;
+  using parthenon::FaceFieldExample;
+  ParthenonManager pman;
 
-void FillDerived(Container<Real> &rc);
+  auto status = pman.ParthenonInit(argc, argv);
+  if (status == ParthenonStatus::complete
+      || status == ParthenonStatus::error) {
+    pman.ParthenonFinalize();
+    return (status == ParthenonStatus::error) ? 1 : 0;
+  }
 
-Real EstimateTimestep(Container<Real> &rc);
+  FaceFieldExample driver(pman.pinput.get(),
+                          pman.pmesh.get(),
+                          pman.pouts.get());
+  pman.PreDriver();
+  pman.PostDriver(driver.Execute());
+  pman.ParthenonFinalize();
 
-} // namespace Update
-
-namespace FillDerivedVariables {
-  using FillDerivedFunc = void (Container<Real>&);
-  void SetFillDerivedFunctions(FillDerivedFunc *pre, FillDerivedFunc *post);
-  void FillDerived(Container<Real> &rc);
+  return 0;
 }
-}
-#endif

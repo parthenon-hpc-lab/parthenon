@@ -1,3 +1,4 @@
+
 ##========================================================================================
 ## Athena++ astrophysical MHD code
 ## Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
@@ -15,27 +16,15 @@
 ## the public, perform publicly and display publicly, and to permit others to do so.
 ##========================================================================================
 
-list(APPEND unit_tests_SOURCES test_unit_params.cpp kokkos_abstraction.cpp)
+list(APPEND unit_tests_SOURCES 
+
+    test_taskid.cpp
+    test_unit_face_variables.cpp
+    test_unit_params.cpp
+    kokkos_abstraction.cpp
+    
+    )
 
 add_executable(unit_tests ${unit_tests_SOURCES})
 target_link_libraries(unit_tests PRIVATE parthenon catch2_define Kokkos::kokkos)
-
-set(EXCEPTION_HANDLING_OPTION ENABLE_EXCEPTIONS) # TODO: Add option to disable exceptions
-set(COMPILED_WITH ${CMAKE_CXX_COMPILER})
-set(COMPILER_COMMAND "<not-implemented>") # TODO: Put something more descriptive here
-set(COMPILER_FLAGS "<not-implemented>") # TODO: Put something more descriptive here
-set(NHYDRO_VARIABLES 0) # TODO: Remove
-set(NFIELD_VARIABLES 0) # TODO: Remove
-set(NWAVE_VALUE 5) # TODO: Remove
-set(NUMBER_GHOST_CELLS 2) # TODO: Make this a CMake option and check it
-
-configure_file(../../src/defs.hpp.in generated/defs.hpp @ONLY)
-
-target_include_directories(unit_tests PUBLIC
-  ${CMAKE_CURRENT_BINARY_DIR}/generated
-)
-
 ParseAndAddCatchTests(unit_tests)
-
-
-

@@ -122,11 +122,12 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  std::vector<std::shared_ptr<PropertiesInterface>> mats;
-  std::map<std::string, std::shared_ptr<StateDescriptor>> physics;
-  Mesh m(&pin, mats, physics);
+  parthenon::Properties_t properties;
+  parthenon::Packages_t packages;
+  Mesh m(&pin, properties, packages);
   }
   Kokkos::finalize();
+
 #ifdef MPI_PARALLEL
   MPI_Finalize();
 #endif

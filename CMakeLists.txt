@@ -96,7 +96,7 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/external/kokkos kokkos)
 # Build Tests and download Catch2
 if (${ENABLE_UNIT_TESTS} OR ${ENABLE_INTEGRATION_TESTS} OR ${ENABLE_REGRESSION_TESTS})
   # Try finding an installed Catch2 first
-  find_package(Catch2 2.11.1)
+  find_package(Catch2 2.11.1 QUIET)
 
   if (NOT CATCH2_FOUND)
     # If Catch2 is not found, instead use the git submodule
@@ -118,5 +118,6 @@ endif()
 
 add_subdirectory(src)
 add_subdirectory(example/calculate_pi)
+add_subdirectory(example/face_fields)
 
 include(cmake/CheckCopyright.cmake)
