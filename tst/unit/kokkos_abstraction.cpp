@@ -283,39 +283,39 @@ struct BufferPack {
     int idx = 0;
     if (dir == 0) {
       for (auto n = 0; n < M; n++)
-        for (auto i = nghost; i < 2 * nghost; i++)
+        for (auto k = nghost; k < ncells - nghost; k++)
           for (auto j = nghost; j < ncells - nghost; j++)
-            for (auto k = nghost; k < ncells - nghost; k++)
+            for (auto i = nghost; i < 2 * nghost; i++)
               buf_im(idx++) = arr_in(n, k, j, i);
     } else if (dir == 1) {
       for (auto n = 0; n < M; n++)
-        for (auto i = ncells - nghost; i < ncells; i++)
+        for (auto k = nghost; k < ncells - nghost; k++)
           for (auto j = nghost; j < ncells - nghost; j++)
-            for (auto k = nghost; k < ncells - nghost; k++)
+            for (auto i = ncells - nghost; i < ncells; i++)
               buf_ip(idx++) = arr_in(n, k, j, i);
     } else if (dir == 2) {
       for (auto n = 0; n < M; n++)
-        for (auto i = nghost; i < ncells - nghost; i++)
+        for (auto k = nghost; k < ncells - nghost; k++)
           for (auto j = nghost; j < 2 * nghost; j++)
-            for (auto k = nghost; k < ncells - nghost; k++)
+            for (auto i = nghost; i < ncells - nghost; i++)
               buf_jm(idx++) = arr_in(n, k, j, i);
     } else if (dir == 3) {
       for (auto n = 0; n < M; n++)
-        for (auto i = nghost; i < ncells - nghost; i++)
+        for (auto k = nghost; k < ncells - nghost; k++)
           for (auto j = ncells - nghost; j < ncells; j++)
-            for (auto k = nghost; k < ncells - nghost; k++)
+            for (auto i = nghost; i < ncells - nghost; i++)
               buf_jp(idx++) = arr_in(n, k, j, i);
-    } else if (dir == 3) {
-      for (auto n = 0; n < M; n++)
-        for (auto i = nghost; i < ncells - nghost; i++)
-          for (auto j = nghost; j < ncells - nghost; j++)
-            for (auto k = nghost; k < 2 * nghost; k++)
-              buf_km(idx++) = arr_in(n, k, j, i);
     } else if (dir == 4) {
       for (auto n = 0; n < M; n++)
-        for (auto i = nghost; i < ncells - nghost; i++)
+        for (auto k = nghost; k < 2 * nghost; k++)
           for (auto j = nghost; j < ncells - nghost; j++)
-            for (auto k = ncells - nghost; k < ncells; k++)
+            for (auto i = nghost; i < ncells - nghost; i++)
+              buf_km(idx++) = arr_in(n, k, j, i);
+    } else if (dir == 5) {
+      for (auto n = 0; n < M; n++)
+        for (auto k = ncells - nghost; k < ncells; k++)
+          for (auto j = nghost; j < ncells - nghost; j++)
+            for (auto i = nghost; i < ncells - nghost; i++)
               buf_kp(idx++) = arr_in(n, k, j, i);
     }
   }
@@ -330,7 +330,7 @@ TEST_CASE("Overlapping SpaceInstances", "[wrapper]") {
   const int nghost = 2;   // number of ghost zones
   const int nbuffers =
       6; // number of buffers, here up, down, left, right, back, front
-  const int buf_size = M * nghost * (N - 2 * nghost) * 2;
+  const int buf_size = M * nghost * (N - 2 * nghost) * (N - 2 * nghost);
   std::vector<BufferPack> functs;
   std::vector<DevSpace> exec_spaces;
 
