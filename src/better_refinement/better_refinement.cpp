@@ -49,32 +49,26 @@ int CheckAllRefinement(Container<Real>& rc) {
   int delta_level = -1;
   for (auto &pkg : pmb->packages) {
     auto& desc = pkg.second;
-    int package_delta_level = -1;
     // call package specific function, if set
     if (desc->CheckRefinement != nullptr) {
-        package_delta_level = std::max(package_delta_level, desc->CheckRefinement(rc));
-        if (package_delta_level == 1) {
-          delta_level = 1;
-          break;
+        delta_level = std::max(delta_level, desc->CheckRefinement(rc));
+        if (delta_level == 1) {
+          return 1;
         }
     }
     // call parthenon criteria that were registered
     for (auto & amr : desc->amr_criteria) {
       int temp_delta = (*amr)(rc);
-      if (temp_delta == 0) {
-        package_delta_level = 0;
-      } else if (temp_delta == 1) {
-        if (rc.pmy_block->loc.level < amr->max_level) {
-          delta_level = 1;
-        } else {
-          package_delta_level = 0;
-        }
-        break;
+      if ( (temp_delta == 1) && rc.pmy_block->loc.level >= amr->max_level) {
+        // don't refine if we're at the max level
+        temp_delta = 0;
       }
+      delta_level = std::max(delta_level, temp_delta);
+      if (delta_level == 1) {
+        return 1;
+      } 
     }
-    delta_level = std::max(delta_level, package_delta_level);
   }
-
   return delta_level;
 }
 
