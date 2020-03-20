@@ -25,12 +25,11 @@ std::shared_ptr<AMRCriteria> AMRCriteria::MakeAMRCriteria(std::string& criteria,
   throw std::invalid_argument(
         "\n  Invalid selection for refinment method in " + block_name + ": " + criteria
   );
-  return std::shared_ptr<AMRCriteria>();
 }
 
 AMRFirstDerivative::AMRFirstDerivative(ParameterInput *pin, std::string& block_name) {
-    _field = pin->GetOrAddString(block_name, "field", "none");
-    if (!_field.compare("none")) {
+    field = pin->GetOrAddString(block_name, "field", "NO FIELD WAS SET");
+    if (field == "NO FIELD WAS SET") {
       std::cerr << "Error in " << block_name << ": no field set" << std::endl;
       exit(1);
     }
@@ -41,7 +40,7 @@ AMRFirstDerivative::AMRFirstDerivative(ParameterInput *pin, std::string& block_n
 }
 
 int AMRFirstDerivative::operator()(Container<Real>& rc) {
-  Variable<Real>& q = rc.Get(_field);
+  Variable<Real>& q = rc.Get(field);
   return BetterRefinement::FirstDerivative(q, refine_criteria, derefine_criteria);
 }
 

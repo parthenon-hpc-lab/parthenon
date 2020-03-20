@@ -28,10 +28,9 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto ref = std::make_shared<StateDescriptor>("Refinement");
   Params& params = ref->AllParams();
 
-  std::string base("Refinement");
   int numcrit = 0;
   while(true) {
-    std::string block_name = base + std::to_string(numcrit);
+    std::string block_name = "Refinement" + std::to_string(numcrit);
     if (!pin->DoesBlockExist(block_name)) {
       break;
     }
@@ -45,30 +44,35 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 }
 
 
-int CheckRefinement(Container<Real>& rc) {
+int CheckAllRefinement(Container<Real>& rc) {
   MeshBlock *pmb = rc.pmy_block;
   int delta_level = -1;
   for (auto &pkg : pmb->packages) {
     auto& desc = pkg.second;
+    int package_delta_level = -1;
+    // call package specific function, if set
     if (desc->CheckRefinement != nullptr) {
-        int package_delta_level = desc->CheckRefinement(rc);
-        delta_level = std::max(delta_level, package_delta_level);
-        if (delta_level == 1) break;
-    }
-  }
-
-  if (delta_level != 1) {
-    for (auto & pkg : pmb->packages) {
-      for (auto & amr : pkg.second->amr_criteria) {
-        int package_delta_level = (*amr)(rc);
-        if (package_delta_level == 0) {
-          delta_level = std::max(delta_level, package_delta_level);
-        } else if (package_delta_level == 1 && rc.pmy_block->loc.level < amr->max_level) {
+        package_delta_level = std::max(package_delta_level, desc->CheckRefinement(rc));
+        if (package_delta_level == 1) {
           delta_level = 1;
           break;
         }
+    }
+    // call parthenon criteria that were registered
+    for (auto & amr : desc->amr_criteria) {
+      int temp_delta = (*amr)(rc);
+      if (temp_delta == 0) {
+        package_delta_level = 0;
+      } else if (temp_delta == 1) {
+        if (rc.pmy_block->loc.level < amr->max_level) {
+          delta_level = 1;
+        } else {
+          package_delta_level = 0;
+        }
+        break;
       }
     }
+    delta_level = std::max(delta_level, package_delta_level);
   }
 
   return delta_level;

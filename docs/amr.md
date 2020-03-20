@@ -1,6 +1,6 @@
 # Adaptive Mesh Refinement
 
-There are two ways to control AMR in parthenon.  First, built-in refinemnt criteria can be activated at runtime via the input file.  Second, package developers can create a package-specific refinement tagging function to allow for less general purpose criteria.
+There are two ways to control AMR in parthenon.  First, built-in refinemnt criteria can be activated at runtime via the input file.  Second, package developers can create a package-specific refinement tagging function to allow for more tailored criteria of less generic applicability.
 
 ## Enable AMR
 To enable AMR, the following lines are required in the `<mesh>` block of your input file.

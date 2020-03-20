@@ -958,7 +958,7 @@ void MeshRefinement::CheckRefinementCondition() {
   MeshBlock *pmb = pmy_block_;
   Container<Real>& rc = pmb->real_container;
   int ret = 0;
-  ret = BetterRefinement::CheckRefinement(rc);
+  ret = BetterRefinement::CheckAllRefinement(rc);
   //if (AMRFlag_ != nullptr) ret = AMRFlag_(pmb);
   SetRefinement(ret);
 }
