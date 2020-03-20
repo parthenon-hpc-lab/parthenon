@@ -346,19 +346,8 @@ TEST_CASE("Overlapping SpaceInstances", "[wrapper]") {
     exec_spaces.push_back(parthenon::SpaceInstance<DevSpace>::create());
   }
 
-  auto f =
-      BufferPack(M, nghost, N, ParArray4D<Real>("SpaceInstance in", M, N, N, N),
-                 ParArray1D<Real>("buf_ip", buf_size),
-                 ParArray1D<Real>("buf_im", buf_size),
-                 ParArray1D<Real>("buf_jp", buf_size),
-                 ParArray1D<Real>("buf_jm", buf_size),
-                 ParArray1D<Real>("buf_kp", buf_size),
-                 ParArray1D<Real>("buf_kp", buf_size));
-
   // warmup
   for (auto it = 0; it < 10; it++) {
-    parthenon::par_for(parthenon::loop_pattern_mdrange_tag, "default space",
-                       default_exec_space, 0, nbuffers, f);
     for (auto n = 0; n < nstreams; n++) {
       parthenon::par_for(parthenon::loop_pattern_mdrange_tag, "space",
                          exec_spaces[n], 0, nbuffers, functs[n]);
@@ -383,7 +372,7 @@ TEST_CASE("Overlapping SpaceInstances", "[wrapper]") {
   // measure runtime using the default execution space
   for (auto n = 0; n < nstreams; n++) {
     parthenon::par_for(parthenon::loop_pattern_mdrange_tag, "default space",
-                       default_exec_space, 0, nbuffers, f);
+                       default_exec_space, 0, nbuffers, functs[n]);
   }
 
   default_exec_space.fence(); // making sure the kernel is done
