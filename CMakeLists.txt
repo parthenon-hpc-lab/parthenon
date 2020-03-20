@@ -91,7 +91,7 @@ endif()
 # Build Tests and download Catch2
 if (${ENABLE_UNIT_TESTS} OR ${ENABLE_INTEGRATION_TESTS} OR ${ENABLE_REGRESSION_TESTS})
   # Try finding an installed Catch2 first
-  find_package(Catch2 2.11.1)
+  find_package(Catch2 2.11.1 QUIET)
 
   if (NOT CATCH2_FOUND)
     # If Catch2 is not found, instead use the git submodule
