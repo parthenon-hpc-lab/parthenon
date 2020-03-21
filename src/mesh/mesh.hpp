@@ -168,14 +168,14 @@ class MeshBlock {
   template <typename Function>
   inline void par_for(const std::string &NAME, const int &IL, const int &IU,
                       const Function &function) {
-    par_for(NAME, exec_space, IL, IU, function);
+    parthenon::par_for(NAME, exec_space, IL, IU, function);
   }
 
   // 2D default loop pattern
   template <typename Function>
   inline void par_for(const std::string &NAME, const int &JL, const int &JU,
                       const int &IL, const int &IU, const Function &function) {
-    par_for(NAME, exec_space, JL, JU, IL, IU, function);
+    parthenon::par_for(NAME, exec_space, JL, JU, IL, IU, function);
   }
 
   // 3D default loop pattern
@@ -183,7 +183,7 @@ class MeshBlock {
   inline void par_for(const std::string &NAME, const int &KL, const int &KU,
                       const int &JL, const int &JU, const int &IL,
                       const int &IU, const Function &function) {
-    par_for(NAME, exec_space, KL, KU, JL, JU, IL, IU, function);
+    parthenon::par_for(NAME, exec_space, KL, KU, JL, JU, IL, IU, function);
   }
 
   // 4D default loop pattern
@@ -192,7 +192,7 @@ class MeshBlock {
                       const int &KL, const int &KU, const int &JL,
                       const int &JU, const int &IL, const int &IU,
                       const Function &function) {
-    par_for(NAME, exec_space, NL, NU, KL, KU, JL, JU, IL, IU, function);
+    parthenon::par_for(NAME, exec_space, NL, NU, KL, KU, JL, JU, IL, IU, function);
   }
 
   std::size_t GetBlockSizeInBytes();

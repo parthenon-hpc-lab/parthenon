@@ -17,7 +17,7 @@
 // so.
 //========================================================================================
 
-#include "../../src/kokkos_abstraction.hpp"
+#include "kokkos_abstraction.hpp"
 
 #include <iostream>
 #include <random>

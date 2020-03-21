@@ -15,6 +15,7 @@
 
 #include "driver/driver.hpp"
 #include "interface/Update.hpp"
+#include <Kokkos_Core.hpp>
 #include "parthenon_manager.hpp"
 
 namespace parthenon {
@@ -64,6 +65,8 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
   Globals::my_rank = 0;
   Globals::nranks  = 1;
 #endif  // MPI_PARALLEL
+
+  Kokkos::initialize(argc, argv);
 
   // parse the input arguments
   ArgStatus arg_status = arg.parse(argc, argv);
@@ -170,8 +173,9 @@ void ParthenonManager::PostDriver(DriverStatus driver_status) {
 }
 
 ParthenonStatus ParthenonManager::ParthenonFinalize() {
+  Kokkos::finalize();
 #ifdef MPI_PARALLEL
-    MPI_Finalize();
+  MPI_Finalize();
 #endif
   return ParthenonStatus::complete;
 }
