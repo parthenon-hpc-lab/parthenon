@@ -280,36 +280,38 @@ struct BufferPack {
   KOKKOS_INLINE_FUNCTION
   void operator()(const int n, const int dir) const {
     int idx = 0;
+    const int offset = n * (nghost * (ncells - 2 * nghost) * (ncells - 2 * nghost));
+
     if (dir == 0) {
-        for (auto k = nghost; k < ncells - nghost; k++)
-          for (auto j = nghost; j < ncells - nghost; j++)
-            for (auto i = nghost; i < 2 * nghost; i++)
-              buf_im(idx++) = arr_in(n, k, j, i);
+      for (auto k = nghost; k < ncells - nghost; k++)
+        for (auto j = nghost; j < ncells - nghost; j++)
+          for (auto i = nghost; i < 2 * nghost; i++)
+            buf_im(offset + idx++) = arr_in(n, k, j, i);
     } else if (dir == 1) {
-        for (auto k = nghost; k < ncells - nghost; k++)
-          for (auto j = nghost; j < ncells - nghost; j++)
-            for (auto i = ncells - nghost; i < ncells; i++)
-              buf_ip(idx++) = arr_in(n, k, j, i);
+      for (auto k = nghost; k < ncells - nghost; k++)
+        for (auto j = nghost; j < ncells - nghost; j++)
+          for (auto i = ncells - nghost; i < ncells; i++)
+            buf_ip(offset + idx++) = arr_in(n, k, j, i);
     } else if (dir == 2) {
-        for (auto k = nghost; k < ncells - nghost; k++)
-          for (auto j = nghost; j < 2 * nghost; j++)
-            for (auto i = nghost; i < ncells - nghost; i++)
-              buf_jm(idx++) = arr_in(n, k, j, i);
+      for (auto k = nghost; k < ncells - nghost; k++)
+        for (auto j = nghost; j < 2 * nghost; j++)
+          for (auto i = nghost; i < ncells - nghost; i++)
+            buf_jm(offset + idx++) = arr_in(n, k, j, i);
     } else if (dir == 3) {
-        for (auto k = nghost; k < ncells - nghost; k++)
-          for (auto j = ncells - nghost; j < ncells; j++)
-            for (auto i = nghost; i < ncells - nghost; i++)
-              buf_jp(idx++) = arr_in(n, k, j, i);
+      for (auto k = nghost; k < ncells - nghost; k++)
+        for (auto j = ncells - nghost; j < ncells; j++)
+          for (auto i = nghost; i < ncells - nghost; i++)
+            buf_jp(offset + idx++) = arr_in(n, k, j, i);
     } else if (dir == 4) {
-        for (auto k = nghost; k < 2 * nghost; k++)
-          for (auto j = nghost; j < ncells - nghost; j++)
-            for (auto i = nghost; i < ncells - nghost; i++)
-              buf_km(idx++) = arr_in(n, k, j, i);
+      for (auto k = nghost; k < 2 * nghost; k++)
+        for (auto j = nghost; j < ncells - nghost; j++)
+          for (auto i = nghost; i < ncells - nghost; i++)
+            buf_km(offset + idx++) = arr_in(n, k, j, i);
     } else if (dir == 5) {
-        for (auto k = ncells - nghost; k < ncells; k++)
-          for (auto j = nghost; j < ncells - nghost; j++)
-            for (auto i = nghost; i < ncells - nghost; i++)
-              buf_kp(idx++) = arr_in(n, k, j, i);
+      for (auto k = ncells - nghost; k < ncells; k++)
+        for (auto j = nghost; j < ncells - nghost; j++)
+          for (auto i = nghost; i < ncells - nghost; i++)
+            buf_kp(offset + idx++) = arr_in(n, k, j, i);
     }
   }
 };
@@ -343,7 +345,7 @@ TEST_CASE("Overlapping SpaceInstances", "[wrapper]") {
   for (auto it = 0; it < 10; it++) {
     for (auto n = 0; n < nstreams; n++) {
       parthenon::par_for(parthenon::loop_pattern_mdrange_tag, "space",
-                         exec_spaces[n], 0, M, 0, nbuffers, functs[n]);
+                         exec_spaces[n], 0, M-1, 0, nbuffers-1, functs[n]);
     }
   }
   Kokkos::fence();
@@ -354,7 +356,7 @@ TEST_CASE("Overlapping SpaceInstances", "[wrapper]") {
   // race condition in access to arr_dev doesn't matter for this test
   for (auto n = 0; n < nstreams; n++) {
     parthenon::par_for(parthenon::loop_pattern_mdrange_tag, "space",
-                       exec_spaces[n], 0, M, 0, nbuffers, functs[n]);
+                       exec_spaces[n], 0, M-1, 0, nbuffers-1, functs[n]);
   }
 
   Kokkos::fence();
@@ -365,7 +367,7 @@ TEST_CASE("Overlapping SpaceInstances", "[wrapper]") {
   // measure runtime using the default execution space
   for (auto n = 0; n < nstreams; n++) {
     parthenon::par_for(parthenon::loop_pattern_mdrange_tag, "default space",
-                       default_exec_space, 0, M, 0, nbuffers, functs[n]);
+                       default_exec_space, 0, M-1, 0, nbuffers-1, functs[n]);
   }
 
   default_exec_space.fence(); // making sure the kernel is done
