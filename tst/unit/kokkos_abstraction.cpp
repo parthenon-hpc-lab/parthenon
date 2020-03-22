@@ -55,7 +55,7 @@ template <class T> bool test_wrapper_1d(T loop_pattern, DevSpace exec_space) {
   parthenon::par_for(
       loop_pattern, "unit test 1D", exec_space, 0, N - 1,
       KOKKOS_LAMBDA(const int i) {
-        arr_dev(i) += 1.0;
+        arr_dev(i) += static_cast<Real>(i);
         });
 
   // Copy array back from device to host
@@ -65,7 +65,7 @@ template <class T> bool test_wrapper_1d(T loop_pattern, DevSpace exec_space) {
 
   // compare data on the host
   for (int i = 0; i < N; i++)
-    if (arr_host_orig(i) + 1.0 != arr_host_mod(i)) {
+    if (arr_host_orig(i) + static_cast<Real>(i) != arr_host_mod(i)) {
       all_same = false;
     }
 
@@ -96,7 +96,7 @@ template <class T> bool test_wrapper_2d(T loop_pattern, DevSpace exec_space) {
   parthenon::par_for(
       loop_pattern, "unit test 2D", exec_space, 0, N - 1, 0, N - 1,
       KOKKOS_LAMBDA(const int j, const int i) {
-        arr_dev(j, i) += 1.0;
+        arr_dev(j, i) += static_cast<Real>(i + N*j);
         });
 
   // Copy array back from device to host
@@ -107,7 +107,7 @@ template <class T> bool test_wrapper_2d(T loop_pattern, DevSpace exec_space) {
   // compare data on the host
   for (int j = 0; j < N; j++)
     for (int i = 0; i < N; i++)
-      if (arr_host_orig(j, i) + 1.0 != arr_host_mod(j, i)) {
+      if (arr_host_orig(j, i) + static_cast<Real>(i + N*j) != arr_host_mod(j, i)) {
         all_same = false;
       }
 
@@ -139,7 +139,7 @@ template <class T> bool test_wrapper_3d(T loop_pattern, DevSpace exec_space) {
   parthenon::par_for(
       loop_pattern, "unit test 3D", exec_space, 0, N - 1, 0, N - 1, 0, N - 1,
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
-        arr_dev(k, j, i) += 1.0;
+        arr_dev(k, j, i) += static_cast<Real>(i + N*(j + N*k));
       });
 
   // Copy array back from device to host
@@ -151,7 +151,7 @@ template <class T> bool test_wrapper_3d(T loop_pattern, DevSpace exec_space) {
   for (int k = 0; k < N; k++)
     for (int j = 0; j < N; j++)
       for (int i = 0; i < N; i++)
-        if (arr_host_orig(k, j, i) + 1.0 != arr_host_mod(k, j, i)) {
+        if (arr_host_orig(k, j, i) + static_cast<Real>(i + N*(j + N*k)) != arr_host_mod(k, j, i)) {
           all_same = false;
         }
 
@@ -184,7 +184,7 @@ template <class T> bool test_wrapper_4d(T loop_pattern, DevSpace exec_space) {
   parthenon::par_for(
       loop_pattern, "unit test 4D", exec_space, 0, N - 1, 0, N - 1, 0, N - 1, 0,
       N - 1, KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
-        arr_dev(n, k, j, i) += 1.0;
+        arr_dev(n, k, j, i) += static_cast<Real>(i + N*(j + N*(k + n))) ;
       });
 
   // Copy array back from device to host
@@ -197,7 +197,7 @@ template <class T> bool test_wrapper_4d(T loop_pattern, DevSpace exec_space) {
     for (int k = 0; k < N; k++)
       for (int j = 0; j < N; j++)
         for (int i = 0; i < N; i++)
-          if (arr_host_orig(n, k, j, i) + 1.0 != arr_host_mod(n, k, j, i)) {
+          if (arr_host_orig(n, k, j, i) + static_cast<Real>(i + N*(j + N*(k + n))) != arr_host_mod(n, k, j, i)) {
             all_same = false;
           }
 
