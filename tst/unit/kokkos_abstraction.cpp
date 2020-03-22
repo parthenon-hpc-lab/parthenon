@@ -428,9 +428,7 @@ TEST_CASE("Overlapping SpaceInstances", "[wrapper]") {
   // make sure this test is reasonable IIF streams actually overlap, which is
   // not the case for the OpenMP backend at this point
   if (parthenon::SpaceInstance<DevSpace>::overlap()) {
-    // make sure that the total runtime in both cases differs by less than 20%
-    REQUIRE( std::fabs( (time_default - time_spaces)/time_default) < 0.2  );
-    //Test that streams are faster
-    REQUIRE( time_spaces < time_default );
+    //Test that streams are either faster or within 10%
+    REQUIRE( time_spaces < 1.1*time_default );
   }
 }
