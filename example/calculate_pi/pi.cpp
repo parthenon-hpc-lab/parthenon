@@ -180,7 +180,10 @@ namespace PiCalculator {
 
     // All the package FillDerived and CheckRefinement functions are called by parthenon
     package->FillDerived = SetInOrOut;
-    package->CheckRefinement = CheckRefinement;
+    // could use this package specific refinement tagging routine (above), but
+    // instead this example will make use of the parthenon shipped first derivative
+    // criteria, as invoked in the input file
+    //package->CheckRefinement = CheckRefinement;
     return package;
   }
 
