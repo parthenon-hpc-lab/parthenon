@@ -36,5 +36,8 @@ TEST_CASE("A Metadata flag is allocated", "[Metadata]") {
         // Checks that the first allocated flag is equal to `Max` - the final built-in flag + 1.
         REQUIRE(f.InternalFlagValue() == static_cast<int>(parthenon::internal::MetadataInternal::Max));
         REQUIRE("TestFlag" == f.Name());
+
+        // It should throw an error if you try to allocate a new flag with the same name.
+        REQUIRE_THROWS_AS(Metadata::AllocateNewFlag("TestFlag"), std::runtime_error);
     }
 }

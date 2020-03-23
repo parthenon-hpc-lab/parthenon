@@ -18,6 +18,7 @@
 #include <exception>
 #include <sstream>
 #include <string>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -38,7 +39,7 @@ class UserMetadataState {
 public:
     UserMetadataState() {
 #define PARTHENON_INTERNAL_FOR_FLAG(name) \
-    flag_names_.push_back(#name);
+    flag_name_map_.push_back(#name);
 
     PARTHENON_INTERNAL_FOREACH_BUILTIN_FLAG
 
@@ -46,16 +47,24 @@ public:
     }
 
     MetadataFlag AllocateNewFlag(std::string &&name) {
-        auto const flag = flag_names_.size();
-        flag_names_.push_back(std::move(name));
+        if (flag_names_.find(name) != flag_names_.end()) {
+            std::stringstream ss;
+            ss << "MetadataFlag with name '" << name << "' already exists.";
+            throw std::runtime_error(ss.str());
+        }
+
+        auto const flag = flag_name_map_.size();
+        flag_names_.insert(name);
+        flag_name_map_.push_back(std::move(name));
         return MetadataFlag((int)flag);
     }
 
     std::string const &FlagName(MetadataFlag flag) {
-        return flag_names_.at(flag.flag_);
+        return flag_name_map_.at(flag.flag_);
     }
 private:
-    std::vector<std::string> flag_names_;
+    std::vector<std::string> flag_name_map_;
+    std::unordered_set<std::string> flag_names_;
 };
 
 }
