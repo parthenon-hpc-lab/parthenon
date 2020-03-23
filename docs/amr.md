@@ -1,6 +1,6 @@
 # Adaptive Mesh Refinement
 
-There are two ways to control AMR in parthenon.  First, built-in refinemnt criteria can be activated at runtime via the input file.  Second, package developers can create a package-specific refinement tagging function to allow for less general purpose criteria.
+There are two ways to control AMR in parthenon.  First, built-in refinemnt criteria can be activated at runtime via the input file.  Second, package developers can create a package-specific refinement tagging function to allow for more tailored criteria of less generic applicability.
 
 ## Enable AMR
 To enable AMR, the following lines are required in the `<mesh>` block of your input file.
@@ -30,7 +30,7 @@ In each refinement block, you are required to provide a ``method`` which is a st
 ### Predefined Criteria
 | Method | Description |
 |--------|-------------|
-| derivative_order_1 | ![formula](https://render.githubusercontent.com/render/math?math=\|dlnq\/dx\|), where q is the user selected variable |
+| derivative_order_1 | ![formula](https://render.githubusercontent.com/render/math?math=\|dlnq\/dlnx\|), where q is the user selected variable |
 
 ## Package-specific Criteria
 As a package developer, you can define a tagging function that takes a ``Container`` as an argument and returns an integer in {-1,0,1} to indicate the block should be derefined, left alone, or refined, respectively.  This function should be registered in a ``StateDescriptor`` object by assigning the ``CheckRefinement`` function pointer to point at the packages function.  An example is demonstrated [here](../example/calculate_pi/pi.cpp).

@@ -27,7 +27,7 @@ struct AMRCriteria {
   AMRCriteria() = default;
   virtual ~AMRCriteria() {}
   virtual int operator () (Container<Real>& rc) = 0;
-  std::string _field;
+  std::string field;
   Real refine_criteria, derefine_criteria;
   int max_level;
   static std::shared_ptr<AMRCriteria> MakeAMRCriteria(std::string& criteria, ParameterInput *pin, std::string& block_name);

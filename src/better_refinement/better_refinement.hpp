@@ -27,7 +27,7 @@ class ParameterInput;
 
 namespace BetterRefinement {
   std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
-  int CheckRefinement(Container<Real>& rc);
+  int CheckAllRefinement(Container<Real>& rc);
   int FirstDerivative(Variable<Real>& q,
                       const Real refine_criteria, const Real derefine_criteria);
 } // namespace BetterRefinement

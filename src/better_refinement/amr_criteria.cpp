@@ -25,12 +25,11 @@ std::shared_ptr<AMRCriteria> AMRCriteria::MakeAMRCriteria(std::string& criteria,
   throw std::invalid_argument(
         "\n  Invalid selection for refinment method in " + block_name + ": " + criteria
   );
-  return std::shared_ptr<AMRCriteria>();
 }
 
 AMRFirstDerivative::AMRFirstDerivative(ParameterInput *pin, std::string& block_name) {
-    _field = pin->GetOrAddString(block_name, "field", "none");
-    if (!_field.compare("none")) {
+    field = pin->GetOrAddString(block_name, "field", "NO FIELD WAS SET");
+    if (field == "NO FIELD WAS SET") {
       std::cerr << "Error in " << block_name << ": no field set" << std::endl;
       exit(1);
     }
@@ -38,10 +37,18 @@ AMRFirstDerivative::AMRFirstDerivative(ParameterInput *pin, std::string& block_n
     derefine_criteria = pin->GetOrAddReal(block_name, "derefine_tol", 0.05);
     int global_max_level = pin->GetOrAddInteger("mesh", "numlevel", 1);
     max_level = pin->GetOrAddInteger(block_name, "max_level", global_max_level);
+    if (max_level > global_max_level) {
+      std::cerr << "WARNING: max_level in " << block_name << 
+        " exceeds numlevel (the global maximum number of levels) set in <mesh>." << 
+        std::endl << std::endl << 
+        "Setting max_level = numlevel, but this may not be what you want." << 
+        std::endl << std::endl;
+      max_level = global_max_level;
+    }
 }
 
 int AMRFirstDerivative::operator()(Container<Real>& rc) {
-  Variable<Real>& q = rc.Get(_field);
+  Variable<Real>& q = rc.Get(field);
   return BetterRefinement::FirstDerivative(q, refine_criteria, derefine_criteria);
 }
 
