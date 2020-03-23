@@ -27,7 +27,7 @@ class ContainerCollection {
     containers_["base"] = Container<T>(); // always add a "base" container
   };
 
-  void AddContainer(const std::string& label, Container<T>& src);
+  void Add(const std::string& label, Container<T>& src);
   //void AddContainer(const std::string& label, Container<T>& src, const std::vector<Metadata::flags> &flagVector);
 
   Container<T>& Get() { return containers_["base"]; }
@@ -44,4 +44,4 @@ class ContainerCollection {
 
 } // namespace parthenon
 
-#endif
+#endif // INTERFACE_CONTAINER_COLLECTION_HPP_

@@ -90,6 +90,8 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
     ncc3 = 1;
   }
 
+  Container<Real>& real_container = real_containers.Get();
+
   // Set the block pointer for the containers
   real_container.setBlock(this);
 
@@ -239,7 +241,7 @@ MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
   }
 
   // Set the block pointer for the containers
-  real_container.setBlock(this);
+  real_containers.Get().setBlock(this);
 
   if (pm->multilevel) {
     cnghost = (NGHOST + 1)/2 + 1;

@@ -1280,7 +1280,7 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
       MeshBlock *pmb = pmb_array[i];
       // BoundaryVariable objects evolved in main TimeIntegratorTaskList:
       pmb->pbval->SetupPersistentMPI();
-      pmb->real_container.SetupPersistentMPI();
+      pmb->real_containers.Get().SetupPersistentMPI();
     }
 
 #pragma omp parallel num_threads(nthreads)
@@ -1288,26 +1288,26 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
       // prepare to receive conserved variables
 #pragma omp for
       for (int i=0; i<nmb; ++i) {
-        pmb_array[i]->real_container.StartReceiving(BoundaryCommSubset::mesh_init);
+        pmb_array[i]->real_containers.Get().StartReceiving(BoundaryCommSubset::mesh_init);
       }
 
       // send conserved variables
 #pragma omp for
       for (int i=0; i<nmb; ++i) {
-        pmb_array[i]->real_container.SendBoundaryBuffers();
+        pmb_array[i]->real_containers.Get().SendBoundaryBuffers();
       }
 
 
       // wait to receive conserved variables
 #pragma omp for
       for (int i=0; i<nmb; ++i) {
-        pmb_array[i]->real_container.ReceiveAndSetBoundariesWithWait();
+        pmb_array[i]->real_containers.Get().ReceiveAndSetBoundariesWithWait();
       }
 
 #pragma omp for
       for (int i=0; i<nmb; ++i) {
-        pmb_array[i]->real_container.SetBoundaries();
-        pmb_array[i]->real_container.ClearBoundary(BoundaryCommSubset::mesh_init);
+        pmb_array[i]->real_containers.Get().SetBoundaries();
+        pmb_array[i]->real_containers.Get().ClearBoundary(BoundaryCommSubset::mesh_init);
       }
 
       // Now do prolongation, compute primitives, apply BCs
@@ -1332,8 +1332,8 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
           if (pbval->nblevel[2][1][1] != -1) ku += NGHOST;
         }
 
-        ApplyBoundaryConditions(pmb->real_container);
-        FillDerivedVariables::FillDerived(pmb->real_container);
+        ApplyBoundaryConditions(pmb->real_containers.Get());
+        FillDerivedVariables::FillDerived(pmb->real_containers.Get());
 
         //pbval->ApplyPhysicalBoundaries(time, 0.0);
       }
@@ -1371,7 +1371,7 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
   // calculate the first time step
 #pragma omp parallel for num_threads(nthreads)
   for (int i=0; i<nmb; ++i) {
-    pmb_array[i]->SetBlockTimestep(Update::EstimateTimestep(pmb_array[i]->real_container));
+    pmb_array[i]->SetBlockTimestep(Update::EstimateTimestep(pmb_array[i]->real_containers.Get()));
   }
 
   NewTimeStep();
@@ -1517,21 +1517,21 @@ void Mesh::CorrectMidpointInitialCondition(std::vector<MeshBlock*> &pmb_array, i
   for (int i=0; i<nmb; ++i) {
     // no need to re-SetupPersistentMPI() the MPI requests for boundary values
     pmb_array[i]->pbval->StartReceiving(BoundaryCommSubset::mesh_init);
-    pmb_array[i]->real_container.StartReceiving(BoundaryCommSubset::mesh_init);
+    pmb_array[i]->real_containers.Get().StartReceiving(BoundaryCommSubset::mesh_init);
   }
 
 #pragma omp for
   for (int i=0; i<nmb; ++i) {
     // send container variables
-    pmb_array[i]->real_container.SendBoundaryBuffers();
+    pmb_array[i]->real_containers.Get().SendBoundaryBuffers();
   }
 
   // wait to receive conserved variables
 #pragma omp for
   for (int i=0; i<nmb; ++i) {
     // receive container variables
-    pmb_array[i]->real_container.ReceiveAndSetBoundariesWithWait();
-    pmb_array[i]->real_container.ClearBoundary(BoundaryCommSubset::mesh_init);
+    pmb_array[i]->real_containers.Get().ReceiveAndSetBoundariesWithWait();
+    pmb_array[i]->real_containers.Get().ClearBoundary(BoundaryCommSubset::mesh_init);
     pmb_array[i]->pbval->ClearBoundary(BoundaryCommSubset::mesh_init);
   } // end second exchange of ghost cells
   return;

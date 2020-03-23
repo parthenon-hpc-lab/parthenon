@@ -21,6 +21,7 @@
 #include "mesh/mesh.hpp"
 
 namespace parthenon {
+
 ///
 /// The new version of Add that takes the fourth dimension from
 /// the metadata structure
@@ -62,10 +63,25 @@ void Container<T>::Add(const std::string label,
                        const std::vector<int> dims) {
   std::array<int, 6> arrDims;
   calcArrDims_(arrDims, dims);
+
+  if ( metadata.where() == (Metadata::node) ) {
+    arrDims[0]++; arrDims[1]++; arrDims[2]++;
+  }
+
   // branch on kind of variable
   if (metadata.hasSparse()) {
     // add a sparse variable
-    s->_sparseVars.Add(*pmy_block, label, metadata, dims);
+    if (_sparseMap.find(label) == _sparseMap.end()) {
+      auto sv = std::make_shared<SparseVariable<T>>(label, metadata, arrDims);
+      _sparseMap[label] = sv;
+      _sparseArray.push_back(sv);
+    }
+    int varIndex = metadata.getSparseID();
+    _sparseMap[label]->Add(varIndex);
+    if (metadata.isSet(Metadata::fillGhost)) {
+      Variable<T>& v = _sparseMap[label]->Get(varIndex);
+      v.allocateComms(pmy_block);
+    }
   } else if ( metadata.where() == (Metadata::edge) ) {
     // add an edge variable
     std::cerr << "Accessing unliving edge array in stage" << std::endl;
@@ -86,17 +102,15 @@ void Container<T>::Add(const std::string label,
     }
     // add a face variable
     auto pfv = std::make_shared<FaceVariable>(label, metadata, arrDims);
-    s->_faceArray.push_back(pfv);
+    _faceArray.push_back(pfv);
     return;
   } else if ( (metadata.where() == (Metadata::cell) ) ||
             (metadata.where() == (Metadata::node) )) {
-    if ( metadata.where() == (Metadata::node) ) {
-      arrDims[0]++; arrDims[1]++; arrDims[2]++;
-    }
 
-    s->_varArray.push_back(std::make_shared<Variable<T>>(label, arrDims, metadata));
+
+    _varArray.push_back(std::make_shared<Variable<T>>(label, arrDims, metadata));
     if ( metadata.fillsGhost()) {
-      s->_varArray.back()->allocateComms(pmy_block);
+      _varArray.back()->allocateComms(pmy_block);
     }
   } else {
     // plain old variable
@@ -104,34 +118,9 @@ void Container<T>::Add(const std::string label,
       throw std::invalid_argument ("_addArray() must have dims between [1,5]");
     }
     for (int i=0; i<dims.size(); i++) {arrDims[5-i] = dims[i];}
-    s->_varArray.push_back(std::make_shared<Variable<T>>(label, arrDims, metadata));
+    _varArray.push_back(std::make_shared<Variable<T>>(label, arrDims, metadata));
   }
 }
-
-/*
-template <typename T>
-void Container<T>::StageSet(std::string name) {
-  s = stages[name];
-
-  for (auto &v : s->_varArray) {
-    if ( (v->metadata()).fillsGhost() ) {
-      v->resetBoundary();
-      //v->vbvar->var_cc = v.get();
-      //      v->mpiStatus=true;
-    }
-  }
-
-  for (auto &myMap : s->_sparseVars.getAllCellVars()) {
-    // for every variable Map in the sparse variables array
-    for (auto &v : myMap.second) {
-      if ( (v.second->metadata()).fillsGhost()) {
-        v.second->resetBoundary();
-        //v.second->vbvar->var_cc = v.second.get();
-        //v.second->mpiStatus=true;
-      }
-    }
-  }
-}*/
 
 // provides a container that has a single sparse slice
 template <typename T>
@@ -155,10 +144,10 @@ Container<T> Container<T>::sparseSlice(int id) {
   }
 
   // Now copy in the specific arrays
-  auto null_shared_ptr = std::shared_ptr<Variable<T>>(nullptr);
   for (auto v : _sparseArray) {
-    Variable<T>& vmat = v->Get(id);
-    if (vmat != null_shared_ptr) {
+    int index = v->GetIndex(id);
+    if (index >= 0) {
+      Variable<T>& vmat = v->Get(id);
       c._varArray.push_back(std::shared_ptr<Variable<T>>(&vmat));
     }
   }
@@ -175,16 +164,16 @@ void Container<T>::Remove(const std::string label) {
 
   // Check face variables
   idx = 0;
-  isize = s->_faceArray.size();
-  for (auto v : s->_faceArray) {
+  isize = _faceArray.size();
+  for (auto v : _faceArray) {
     if ( ! label.compare(v->label()) ) break;
     idx++;
   }
   if (idx < isize) {
-    s->_faceArray[idx].reset();
+    _faceArray[idx].reset();
     isize--;
-    if (isize >= 0) s->_faceArray[idx] = std::move(s->_faceArray.back());
-    s->_faceArray.pop_back();
+    if (isize >= 0) _faceArray[idx] = std::move(_faceArray.back());
+    _faceArray.pop_back();
     return;
   }
 
@@ -200,9 +189,9 @@ void Container<T>::Remove(const std::string label) {
   // }
 
   // no face or edge, so check sized variables
-  isize = s->_varArray.size();
+  isize = _varArray.size();
   idx = 0;
-  for (auto v : s->_varArray) {
+  for (auto v : _varArray) {
     if ( ! label.compare(v->label())) {
       break;
     }
@@ -213,26 +202,26 @@ void Container<T>::Remove(const std::string label) {
   }
 
   // first delete the variable
-  s->_varArray[idx].reset();
+  _varArray[idx].reset();
 
   // Next move the last element into idx and pop last entry
   isize--;
-  if ( isize >= 0) s->_varArray[idx] = std::move(s->_varArray.back());
-  s->_varArray.pop_back();
+  if ( isize >= 0) _varArray[idx] = std::move(_varArray.back());
+  _varArray.pop_back();
   return;
 }
 
 template <typename T>
 void Container<T>::SendFluxCorrection() {
-  for (auto &v : s->_varArray) {
+  for (auto &v : _varArray) {
     if ( (v->metadata()).isIndependent() ) {
       v->vbvar->SendFluxCorrection();
     }
   }
-  for (auto &myMap : s->_sparseVars.getAllCellVars()) {
-    for (auto &mv : myMap.second) {
-      auto &v = mv.second;
-      if ( (v->metadata()).isIndependent() ) {
+  for (auto &sv : _sparseArray) {
+    if ( (sv->isSet(Metadata::independent)) ) {
+      VariableVector<T> vvec = sv->GetVector();
+      for (auto & v : vvec) {
         v->vbvar->SendFluxCorrection();
       }
     }
@@ -248,14 +237,11 @@ bool Container<T>::ReceiveFluxCorrection() {
       total++;
     }
   }
-  for (auto &v : _sparseArray) {
-    
-  }
-  for (auto &myMap : s->_sparseVars.getAllCellVars()) {
-    for (auto &mv : myMap.second) {
-      auto &v = mv.second;
-      if ( (v->metadata()).isIndependent() ) {
-        if(v->vbvar->ReceiveFluxCorrection()) success++;
+  for (auto &sv : _sparseArray) {
+    if ( (sv->isSet(Metadata::independent)) ) {
+      VariableVector<T> vvec = sv->GetVector();
+      for (auto & v : vvec) {
+        if (v->vbvar->ReceiveFluxCorrection()) success++;
         total++;
       }
     }
@@ -268,7 +254,7 @@ void Container<T>::SendBoundaryBuffers() {
   // sends the boundary
   debug=0;
   //  std::cout << "_________SEND from stage:"<<s->name()<<std::endl;
-  for (auto &v : s->_varArray) {
+  for (auto &v : _varArray) {
     if ( (v->metadata()).fillsGhost() ) {
       if ( ! v->mpiStatus ) {
         std::cout << "        sending without the receive, something's up:"
@@ -279,20 +265,18 @@ void Container<T>::SendBoundaryBuffers() {
       v->mpiStatus = false;
     }
   }
-
-  for (auto &myMap : s->_sparseVars.getAllCellVars()) {
-    // for every variable Map in the sparse variables array
-    for (auto &v : myMap.second) {
-      if ( ! (v.second->metadata()).fillsGhost() ) continue; // doesn't fill ghost so skip
-      if ( ! v.second->mpiStatus ) {
-        std::cout << "        _________Err:"
-                  << v.first
-                  << ":sending without the receive, something's up:"
-                  << v.second->label()
+  for (auto &sv : _sparseArray) {
+    if ( (sv->isSet(Metadata::fillGhost)) ) {
+      VariableVector<T> vvec = sv->GetVector();
+      for (auto & v : vvec) {
+        if (! v->mpiStatus ) {
+          std::cout << "        sending without the receive, something's up:"
+                  << v->label()
                   << std::endl;
+        }
+        v->vbvar->SendBoundaryBuffers();
+        v->mpiStatus = false;
       }
-      v.second->vbvar->SendBoundaryBuffers();
-      v.second->mpiStatus = false;
     }
   }
 
@@ -302,19 +286,16 @@ void Container<T>::SendBoundaryBuffers() {
 template <typename T>
 void Container<T>::SetupPersistentMPI() {
   // setup persistent MPI
-  for (auto &v : s->_varArray) {
+  for (auto &v : _varArray) {
     if ( (v->metadata()).fillsGhost() ) {
         v->vbvar->SetupPersistentMPI();
-      }
     }
-
-
-  for (auto &myMap : s->_sparseVars.getAllCellVars()) {
-    // for every variable Map in the sparse variables array
-    for (auto &v : myMap.second) {
-      if ( ! (v.second->metadata()).fillsGhost() ) continue; // doesn't fill ghost so skip
-      if ( ! v.second->mpiStatus ) {
-        v.second->vbvar->SetupPersistentMPI();
+  }
+  for (auto &sv : _sparseArray) {
+    if ( (sv->isSet(Metadata::fillGhost)) ) {
+      VariableVector<T> vvec = sv->GetVector();
+      for (auto & v : vvec) {
+        v->vbvar->SetupPersistentMPI();
       }
     }
   }
@@ -327,8 +308,8 @@ bool Container<T>::ReceiveBoundaryBuffers() {
   //  std::cout << "_________RECV from stage:"<<s->name()<<std::endl;
   ret = true;
   // receives the boundary
-  for (auto &v : s->_varArray) {
-    if ( (v->metadata()).fillsGhost() ) {
+  for (auto &v : _varArray) {
+    if ( v->isSet(Metadata::fillGhost) ) {
       //ret = ret & v->vbvar->ReceiveBoundaryBuffers();
       // In case we have trouble with multiple arrays causing
       // problems with task status, we should comment one line
@@ -339,18 +320,17 @@ bool Container<T>::ReceiveBoundaryBuffers() {
       }
     }
   }
-
-  for (auto &myMap : s->_sparseVars.getAllCellVars()) {
-    // for every variable Map in the sparse variables array
-    for (auto &v : myMap.second) {
-      if ( ! (v.second->metadata()).fillsGhost() ) continue; // doesn't fill ghost so skip
-      if ( ! v.second->mpiStatus ) {
-        v.second->mpiStatus = v.second->vbvar->ReceiveBoundaryBuffers();
-        ret = (ret & v.second->mpiStatus);
+  for (auto &sv : _sparseArray) {
+    if ( (sv->isSet(Metadata::fillGhost)) ) {
+      VariableVector<T> vvec = sv->GetVector();
+      for (auto & v : vvec) {
+        if (! v->mpiStatus) {
+          v->vbvar->ReceiveBoundaryBuffers();
+          ret = (ret & v->mpiStatus);
+        }
       }
     }
   }
-
 
   return ret;
 }
@@ -358,19 +338,20 @@ bool Container<T>::ReceiveBoundaryBuffers() {
 template <typename T>
 void Container<T>::ReceiveAndSetBoundariesWithWait() {
   //  std::cout << "_________RSET from stage:"<<s->name()<<std::endl;
-  for (auto &v : s->_varArray) {
-    if ( (!v->mpiStatus) && ( (v->metadata()).fillsGhost()) ) {
+  for (auto &v : _varArray) {
+    if ( (!v->mpiStatus) && ( (v->isSet(Metadata::fillGhost))) ) {
       v->vbvar->ReceiveAndSetBoundariesWithWait();
       v->mpiStatus = true;
     }
   }
-  for (auto &myMap : s->_sparseVars.getAllCellVars()) {
-    // for every variable Map in the sparse variables array
-    for (auto &v : myMap.second) {
-      if ( ! (v.second->metadata()).fillsGhost() ) continue; // doesn't fill ghost so skip
-      if ( ! v.second->mpiStatus ) {
-        v.second->vbvar->ReceiveAndSetBoundariesWithWait();
-        v.second->mpiStatus = true;
+  for (auto &sv : _sparseArray) {
+    if ( (sv->isSet(Metadata::fillGhost)) ) {
+      VariableVector<T> vvec = sv->GetVector();
+      for (auto & v : vvec) {
+        if (! v->mpiStatus) {
+          v->vbvar->ReceiveAndSetBoundariesWithWait();
+          v->mpiStatus = true;
+        }
       }
     }
   }
@@ -384,19 +365,17 @@ void Container<T>::SetBoundaries() {
   //    std::cout << "in set" << std::endl;
   // sets the boundary
   //  std::cout << "_________BSET from stage:"<<s->name()<<std::endl;
-  for (auto &v : s->_varArray) {
+  for (auto &v : _varArray) {
     if ( (v->metadata()).fillsGhost() ) {
       v->vbvar->SetBoundaries();
       //v->mpiStatus=true;
     }
   }
-
-  for (auto &myMap : s->_sparseVars.getAllCellVars()) {
-    // for every variable Map in the sparse variables array
-    for (auto &v : myMap.second) {
-      if ( (v.second->metadata()).fillsGhost() ) {
-        v.second->vbvar->SetBoundaries();
-        //v.second->mpiStatus=true;
+  for (auto &sv : _sparseArray) {
+    if ( (sv->isSet(Metadata::fillGhost)) ) {
+      VariableVector<T> vvec = sv->GetVector();
+      for (auto & v : vvec) {
+        v->vbvar->SetBoundaries();
       }
     }
   }
@@ -407,19 +386,17 @@ void Container<T>::StartReceiving(BoundaryCommSubset phase) {
   //    std::cout << "in set" << std::endl;
   // sets the boundary
   //  std::cout << "________CLEAR from stage:"<<s->name()<<std::endl;
-  for (auto &v : s->_varArray) {
+  for (auto &v : _varArray) {
     if ( (v->metadata()).fillsGhost() ) {
       v->vbvar->StartReceiving(phase);
       //      v->mpiStatus=true;
     }
   }
-
-  for (auto &myMap : s->_sparseVars.getAllCellVars()) {
-    // for every variable Map in the sparse variables array
-    for (auto &v : myMap.second) {
-      if ( (v.second->metadata()).fillsGhost()) {
-        v.second->vbvar->StartReceiving(phase);
-        //v.second->mpiStatus=true;
+  for (auto &sv : _sparseArray) {
+    if ( (sv->isSet(Metadata::fillGhost)) ) {
+      VariableVector<T> vvec = sv->GetVector();
+      for (auto & v : vvec) {
+        v->vbvar->StartReceiving(phase);
       }
     }
   }
@@ -430,19 +407,17 @@ void Container<T>::ClearBoundary(BoundaryCommSubset phase) {
   //    std::cout << "in set" << std::endl;
   // sets the boundary
   //  std::cout << "________CLEAR from stage:"<<s->name()<<std::endl;
-  for (auto &v : s->_varArray) {
+  for (auto &v : _varArray) {
     if ( (v->metadata()).fillsGhost() ) {
       v->vbvar->ClearBoundary(phase);
       //      v->mpiStatus=true;
     }
   }
-
-  for (auto &myMap : s->_sparseVars.getAllCellVars()) {
-    // for every variable Map in the sparse variables array
-    for (auto &v : myMap.second) {
-      if ( (v.second->metadata()).fillsGhost()) {
-        v.second->vbvar->ClearBoundary(phase);
-        //v.second->mpiStatus=true;
+  for (auto &sv : _sparseArray) {
+    if ( (sv->isSet(Metadata::fillGhost)) ) {
+      VariableVector<T> vvec = sv->GetVector();
+      for (auto & v : vvec) {
+        v->vbvar->ClearBoundary(phase);
       }
     }
   }
@@ -451,10 +426,10 @@ void Container<T>::ClearBoundary(BoundaryCommSubset phase) {
 template<typename T>
 void Container<T>::print() {
   std::cout << "Variables are:\n";
-  for (auto v : s->_varArray)  { std::cout << " cell: "<<v->info() << std::endl; }
-  for (auto v : s->_faceArray) { std::cout << " face: "<<v->info() << std::endl; }
+  for (auto v : _varArray)  {   std::cout << " cell: " <<v->info() << std::endl; }
+  for (auto v : _faceArray) {   std::cout << " face: " <<v->info() << std::endl; }
+  for (auto v : _sparseArray) { std::cout << " sparse:"<<v->info() << std::endl; }
   //  for (auto v : s->_edgeArray) { std::cout << " edge: "<<v->info() << std::endl; }
-  s->_sparseVars.print();
 }
 
 template <typename T>
@@ -477,62 +452,6 @@ static int AddVar(Variable<T>&V, std::vector<Variable<T>>& vRet) {
   return d6*d5*d4;
 }
 
-
-/// Gets an array of real variables from container.
-/// @param index_ret is returned with starting index for each name
-/// @param count_ret is returned with number of arrays for each name
-/// @param sparse_ids if specified, only those sparse IDs are returned
-template<typename T>
-int Container<T>::GetVariables(const std::vector<std::string>& names,
-                               std::vector<Variable<T>>& vRet,
-                               std::map<std::string,std::pair<int,int>>& indexCount,
-                               const std::vector<int>& sparse_ids) {
-  // First count how many entries we need and fill in index and count
-  indexCount.clear();
-
-  int index = 0;
-  for (auto label : names) {
-    int count = 0;
-    try { // normal variable
-      Variable<T>& V = Get(label);
-      count += AddVar(V, vRet);
-    }
-    catch (const std::invalid_argument& x) {
-      // Not a regular variable, so try a sparse variable
-      try { // sparse variable
-        SparseMap<T>& M = GetSparse(label);
-        if ( M.size() > 0) {
-          if ( sparse_ids.size() > 0) {
-            for (auto& id : sparse_ids) {
-              // Want a specific index
-              auto exists = M.find(id);
-              if ( exists != M.end() ) {
-                auto&V = *(exists->second);
-                count += AddVar(V, vRet);
-              }
-            }  // (auto& id : sparse_ids)
-          } else { // if (sparse_ids.size() > 0)
-            auto&V = *(M.begin()->second);
-            count = count*V.GetDim6()*V.GetDim5()*V.GetDim4();
-            for (auto& x : M) {
-              auto&V = *x.second;
-              count += AddVar(V, vRet);
-            }
-          } // else (sparse_ids.size() > 0)
-        } // if (M.size() > 0)
-      } catch (const std::invalid_argument& x) {
-        // rethrow exception because we want to die here
-        throw std::invalid_argument (" Unable to find variable " +
-                                     label + " in container");
-      } // sparse variable
-    } // normal variable
-    indexCount[label] = std::make_pair(index,count);
-    index += count;
-  } // (auto label : names)
-
-  return index;
-}
-
 template<typename T>
 void Container<T>::calcArrDims_(std::array<int, 6>& arrDims,
                                 const std::vector<int>& dims) {
@@ -550,4 +469,5 @@ void Container<T>::calcArrDims_(std::array<int, 6>& arrDims,
 }
 
 template class Container<double>;
+
 } // namespace parthenon

@@ -64,7 +64,8 @@ DriverStatus CalculatePi::Execute() {
   Real area = 0.0;
   MeshBlock* pmb = pmesh->pblock;
   while (pmb != nullptr) {
-    Variable<Real>& v = pmb->real_container.Get("in_or_out");
+    Container<Real>& rc = pmb->real_containers.Get();
+    Variable<Real>& v = rc.Get("in_or_out");
     // NOTE: the MeshBlock integrated indicator function, divided
     // by r0^2, was stashed in v(0,0,0) in ComputeArea.
     Real block_area = v(0,0,0);
@@ -189,7 +190,7 @@ namespace PiCalculator {
 
   TaskStatus ComputeArea(MeshBlock *pmb) {
     // compute 1/r0^2 \int d^2x in_or_out(x,y) over the block's domain
-    Container<Real>& rc = pmb->real_container;
+    Container<Real>& rc = pmb->real_containers.Get();
     int is = pmb->is; int js = pmb->js; int ks = pmb->ks;
     int ie = pmb->ie; int je = pmb->je; int ke = pmb->ke;
     Coordinates *pcoord = pmb->pcoord.get();

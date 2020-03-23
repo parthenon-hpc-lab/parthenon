@@ -36,6 +36,7 @@
 #include "athena_arrays.hpp"
 #include "bvals/bvals.hpp"
 #include "bvals/bvals_interfaces.hpp"
+#include "interface/container_collection.hpp"
 #include "interface/Container.hpp"
 #include "interface/PropertiesInterface.hpp"
 #include "interface/StateDescriptor.hpp"
@@ -132,7 +133,7 @@ class MeshBlock {
   AthenaArray<int> *iuser_meshblock_data;
 
   // The User defined containers
-  Container<Real> real_container;
+  ContainerCollection<Real> real_containers;
 
   Properties_t properties;
   Packages_t packages;

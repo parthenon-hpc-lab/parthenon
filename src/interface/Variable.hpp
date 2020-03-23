@@ -135,6 +135,8 @@ class Variable : public AthenaArray<T> {
 
   std::string getAssociated() { return _m.getAssociated(); }
 
+  bool isSet(const Metadata::flags flag) { return _m.isSet(flag); }
+
   ///  T *Raw(); ///< returns raw data for variable
 
   /// return information string
@@ -195,6 +197,8 @@ struct FaceVariable : FaceField {
 
   ///< retrieve metadata for variable
   Metadata metadata() { return _m; }
+
+  bool isSet(const Metadata::flags flag) { return _m.isSet(flag); }
 
   /// return information string
   std::string info();

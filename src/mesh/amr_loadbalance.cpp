@@ -620,8 +620,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
         MeshBlock* pob = FindMeshBlock(on);
         FillSameRankCoarseToFineAMR(pob, pmb, newloc[n]);
       }
-      ApplyBoundaryConditions(pmb->real_container);
-      FillDerivedVariables::FillDerived(pmb->real_container);
+      ApplyBoundaryConditions(pmb->real_containers.Get());
+      FillDerivedVariables::FillDerived(pmb->real_containers.Get());
     }
   }
 

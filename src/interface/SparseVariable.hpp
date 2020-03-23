@@ -31,8 +31,7 @@
 namespace parthenon {
 
 template <typename T>
-class SparseMap : public std::map<int, std::shared_ptr<Variable<T>>> {
- public:
+struct SparseMap : public std::map<int, std::shared_ptr<Variable<T>>> {
   Variable<T>& operator()(int m) {
     return *(*this)[m];
   }
@@ -54,7 +53,6 @@ class SparseMap : public std::map<int, std::shared_ptr<Variable<T>>> {
   T& operator()(int m, int g, int n, int l, int k, int j, int i) {
     return (*(*this)[m])(g,n,l,k,j,i);
   }
-  Metadata& metadata() const { return this->begin().second->metadata();}
 };
 
 ///
@@ -62,116 +60,71 @@ class SparseMap : public std::map<int, std::shared_ptr<Variable<T>>> {
 template <typename T>
 class SparseVariable {
  public:
-  // Note only default constructor
+  SparseVariable() = default;
+  SparseVariable(const std::string& label, const Metadata& metadata, std::array<int,6>& dims) 
+    : _label(label), _metadata(metadata), _dims(dims) {}
+
+  SparseVariable(SparseVariable& src)
+    : _label(src._label), _metadata(src._metadata), _dims(src._dims) {
+    for (auto & v : src._varMap) {
+      auto var = std::make_shared<Variable<T>>(*v.second);
+      _varMap[v.first] = var;
+      _varArray.push_back(var);
+      _indexMap.push_back(v.first);
+    }
+  }
 
   /// create a new variable alias from variable 'theLabel' in input variable mv
-  void AddAlias(const std::string& theLabel, SparseVariable<T>& mv);
+  //void AddAlias(const std::string& theLabel, SparseVariable<T>& mv);
 
   /// create a new variable deep copy from variable 'theLabel' in input variable mv
-  void AddCopy(const std::string& theLabel, SparseVariable<T>& mv);
+  //void AddCopy(const std::string& theLabel, SparseVariable<T>& mv);
 
   ///create a new variable
-  void Add(MeshBlock &pmb,
-           const std::string &label,
-           const Metadata &metadata,
-           const std::vector<int>& inDims={});
+  void Add(int sparse_index);
 
+  bool isSet(const Metadata::flags flag) { return _metadata.isSet(flag); }
 
   /// return information string
-  std::string info(const std::string &label) {
-    char tmp[100] = "";
-
-    if (_cellVars.find(label) == _cellVars.end()) {
-      return (label + std::string("not found"));
-    }
-
-    auto myMap = _cellVars[label];
-
-    std::string s = label;
-    s.resize(20,'.');
-
-    s += std::string(" variables:");
-    for (auto const& items : myMap) s += std::to_string(items.first) + ":";
-
-    // now append flag
-    auto pVar = myMap.begin();
-    s += " : " + std::to_string(pVar->second->metadata().mask());
-    s += " : " + pVar->second->metadata().maskAsString();
-
+  std::string info() {
+    std::string s = "info not yet implemented for sparse variables";
     return s;
   }
 
-  SparseMap<T>& Get(const std::string& label) {
-    if (_cellVars.find(label) == _cellVars.end()) {
-      throw std::invalid_argument ("Unable to find variable " +
-                                   label +
-                                   " in SparseMap<T> container::Get() ");
+  Variable<T>& Get(const int index) {
+    if (_varMap.find(index) == _varMap.end()) {
+      throw std::invalid_argument("index " + std::to_string(index) + 
+                                  "does not exist in SparseVariable");
     }
-    return _cellVars[label];
+    return *(_varMap[index]);
   }
 
-  VariableVector<T>& GetVector(const std::string& label) {
-    if (_pcellVars.find(label) == _pcellVars.end()) return _empty;
-    /*{
-      std::cerr << "Looking for " << label << " in GetVector" << std::endl;
-      for (auto & v : _pcellVars) {
-        std::cerr << v.first << std::endl;
-      }
-      for (auto & v : _cellVars) {
-        std::cerr << v.first << std::endl;
-      }
-      throw std::invalid_argument ("Unable to find variable in container");
-    }*/
-    return _pcellVars[label];
+  int GetIndex(int id) {
+    auto it = std::find(_indexMap.begin(), _indexMap.end(), id);
+    if (it == _indexMap.end()) return -1; // indicate the id doesn't exist
+    return std::distance(_indexMap.begin(), it);
   }
 
-  std::vector<int>& GetIndexMap(const std::string& label) {
-    if (_indexMap.find(label) == _indexMap.end()) {
-      throw std::invalid_argument ("Unable to find variable in container");
-    }
-    return _indexMap[label];
-  }
+  std::vector<int>& GetIndexMap() { return _indexMap; }
 
-  std::map<std::string,SparseMap<T>> CellVars() { return _cellVars;}
+  VariableVector<T>& GetVector() { return _varArray; }
 
-  void DeleteVariable(const int var_id);
-  void DeleteVariable(const int var_id, const std::string label);
+  SparseMap<T>& GetMap() { return _varMap; }
 
-  Variable<T>& Get(const std::string& label, int sparse_id) {
-    auto myMap = this->Get(label);
-    if (myMap.find(sparse_id) == myMap.end()) {
-      throw std::invalid_argument ("Unable to find specific variable in container");
-    }
-    return *myMap[sparse_id];
-  }
-
-  std::map<std::string,SparseMap<T>>& getAllCellVars() {
-    return _cellVars;
-  }
-
-  std::map<std::string,std::vector<int>> getIndexMap() { return _indexMap; }
-
-  std::map<std::string,VariableVector<T>> getCellVarVectors() { return _pcellVars; }
+  // might want to implement this at some point
+  //void DeleteVariable(const int var_id);
 
   void print() {
-    for ( auto &m : _cellVars) {
-      std::cout << "    sparsevar:cell:" << m.second.begin()->second->info() << ":";
-      for (auto &v : m.second) {
-        std::cout << v.first << ":";
-      }
-      std::cout << std::endl;
-    }
-    for ( auto &m : _pcellVars) {
-      std::cout << "    varvec: " << m.first
-                << " has " << m.second.size() << " elements"
-                << std::endl;
-    }
+    std::cout << "hello from sparse variables print" << std::endl;
   }
 
  private:
-  std::map<std::string,SparseMap<T>> _cellVars;
-  std::map<std::string,VariableVector<T>> _pcellVars;
-  std::map<std::string,std::vector<int>> _indexMap;
+  std::array<int,6> _dims;
+  std::string _label;
+  Metadata _metadata;
+  SparseMap<T> _varMap;
+  VariableVector<T> _varArray;
+  std::vector<int> _indexMap;
   VariableVector<T> _empty;
 };
 

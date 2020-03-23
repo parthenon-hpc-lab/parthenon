@@ -14,6 +14,7 @@
 #include "boundary_conditions.hpp"
 
 #include "bvals/bvals_interfaces.hpp"
+#include "interface/Container.hpp"
 #include "interface/ContainerIterator.hpp"
 #include "mesh/mesh.hpp"
 
