@@ -134,13 +134,22 @@ void Mesh::CalculateLoadBalance(double *clist, int *rlist, int *slist, int *nlis
               << "This will result in poor load balancing." << std::endl;
   }
 #endif
-  if ((Globals::nranks)*(num_mesh_threads_) > nb) {
-    msg << "### FATAL ERROR in CalculateLoadBalance" << std::endl
+  if (Globals::nranks * num_mesh_threads_ > nb) {
+    if (!adaptive) {
+      // mesh is refined statically, treat this an as error (all ranks need to participate)
+      msg << "### FATAL ERROR in CalculateLoadBalance" << std::endl
         << "There are fewer MeshBlocks than OpenMP threads on each MPI rank" << std::endl
         << "Decrease the number of threads or use more MeshBlocks." << std::endl;
-    ATHENA_ERROR(msg);
+      ATHENA_ERROR(msg);
+    } else if (Globals::my_rank == 0) {
+      // we have AMR, print warning only on Rank 0
+      std::cout << "### WARNING in CalculateLoadBalance" << std::endl
+        << "There are fewer MeshBlocks than OpenMP threads on each MPI rank" << std::endl
+        << "This is likely fine if the number of meshblocks is expected to grow during the "
+        "simulations. Otherwise, it might be worthwhile to decrease the number of threads or "
+        "use more meshblocks." << std::endl;
+    }
   }
-  return;
 }
 
 //----------------------------------------------------------------------------------------
