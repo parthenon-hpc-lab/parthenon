@@ -95,22 +95,22 @@ int FirstDerivative(Variable<Real>& q,
   const int dim1 = q.GetDim1();
   const int dim2 = q.GetDim2();
   const int dim3 = q.GetDim3();
-  int klo=0, khi=1, jlo=0, jhi=1, ilo=0, ihi=1;
+  int kl=0, ku=1, jl=0, ju=1, il=0, iu=1;
   if (dim3 > 1) {
-    klo = 1;
-    khi = dim3-1;
+    kl = 1;
+    ku = dim3-1;
   }
   if (dim2 > 1) {
-    jlo = 1;
-    jhi = dim2-1;
+    jl = 1;
+    ju = dim2-1;
   }
   if (dim1 > 1) {
-    ilo = 1;
-    ihi = dim1-1;
+    il = 1;
+    iu = dim1-1;
   }
-  for (int k=klo; k<khi; k++) {
-    for (int j=jlo; j<jhi; j++) {
-      for (int i=ilo; i<ihi; i++) {
+  for (int k=kl; k<ku; k++) {
+    for (int j=jl; j<ju; j++) {
+      for (int i=il; i<iu; i++) {
         Real scale = std::abs(q(k,j,i));
         Real d = 0.5*std::abs((q(k,j,i+1)-q(k,j,i-1)))/(scale+1.e-16);
         maxd = (d > maxd ? d : maxd);
