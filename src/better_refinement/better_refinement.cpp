@@ -45,26 +45,43 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
 
 int CheckAllRefinement(Container<Real>& rc) {
+  // Check all refinement criteria and return the maximum recommended change in 
+  // refinement level:
+  //   delta_level = -1 => recommend derefinement
+  //   delta_level = 0  => leave me alone
+  //   delta_level = 1  => recommend refinement
+  // NOTE: recommendations from this routine are NOT always followed because
+  //    1) the code will not refine more than the global maximum level defined in 
+  //       <mesh>/numlevel in the input
+  //    2) the code must maintain proper nesting, which sometimes means a block that is
+  //       tagged as "derefine" must be left alone (or possibly refined?) because of 
+  //       neighboring blocks.  Similarly for "do nothing"
   MeshBlock *pmb = rc.pmy_block;
+  // delta_level holds the max over all criteria.  default to derefining.
   int delta_level = -1;
   for (auto &pkg : pmb->packages) {
     auto& desc = pkg.second;
     // call package specific function, if set
     if (desc->CheckRefinement != nullptr) {
+        // keep the max over all criteria up to date
         delta_level = std::max(delta_level, desc->CheckRefinement(rc));
         if (delta_level == 1) {
+          // since 1 is the max, we can return without having to look at anything else
           return 1;
         }
     }
     // call parthenon criteria that were registered
     for (auto & amr : desc->amr_criteria) {
+      // get the recommended change in refinement level from this criteria
       int temp_delta = (*amr)(rc);
       if ( (temp_delta == 1) && rc.pmy_block->loc.level >= amr->max_level) {
         // don't refine if we're at the max level
         temp_delta = 0;
       }
+      // maintain the max across all criteria
       delta_level = std::max(delta_level, temp_delta);
       if (delta_level == 1) {
+        // 1 is the max, so just return
         return 1;
       } 
     }
