@@ -75,8 +75,8 @@ int FaceCenteredBoundaryVariable::ComputeVariableBufferSize(const NeighborIndexe
   int nx1 = pmb->block_size.nx1;
   int nx2 = pmb->block_size.nx2;
   int nx3 = pmb->block_size.nx3;
-  const int f2 = static_cast<int>(pmy_mesh_->ndim >= 2); // extra cells/faces from being 2d
-  const int f3 = static_cast<int>(pmy_mesh_->ndim >= 3); // extra cells/faces from being 3d
+  const int f2 = (pmy_mesh_->ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
+  const int f3 = (pmy_mesh_->ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
   int cng1, cng2, cng3;
   cng1 = cng;
   cng2 = cng*f2;
@@ -797,8 +797,8 @@ void FaceCenteredBoundaryVariable::SetupPersistentMPI() {
   int nx3 = pmb->block_size.nx3;
   int &mylevel = pmb->loc.level;
 
-  const int f2 = static_cast<int>(pmy_mesh_->ndim >= 2); // extra cells/faces from being 2d
-  const int f3 = static_cast<int>(pmy_mesh_->ndim >= 3); // extra cells/faces from being 3d
+  const int f2 = (pmy_mesh_->ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
+  const int f3 = (pmy_mesh_->ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
   int cng, cng1, cng2, cng3;
   cng  = cng1 = pmb->cnghost;
   cng2 = cng*f2;
