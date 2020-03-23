@@ -21,7 +21,14 @@
 #include <tuple>
 #include <vector>
 
-// Declare new built-in flags in this list so that other systems which use them stay up-to-date
+/// The point of this macro is to generate code for each built-in flag using the 
+/// `PARTHENON_INTERNAL_FOR_FLAG` macro. This is to accomplish the following goals:
+/// - Generate a unique value for each flag using an enum
+/// - Wrap each value in a `MetadataFlag` type that can only be instantiated within parthenon
+/// - Make it possible to return a user-friendly string for each flag.
+///
+/// Having this macro means you only need to add a new flag in one place and have each of these
+/// properties automatically be updated.
 #define PARTHENON_INTERNAL_FOREACH_BUILTIN_FLAG \
   /**  bit 0 is ignored */ \
   PARTHENON_INTERNAL_FOR_FLAG(Ignore) \
