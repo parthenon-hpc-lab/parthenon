@@ -237,7 +237,6 @@ class Mesh {
   // data
   RegionSize mesh_size;
   BoundaryFlag mesh_bcs[6];
-  const bool f2, f3; // flags indicating (at least) 2D or 3D Mesh
   const int ndim;     // number of dimensions
   const bool adaptive, multilevel;
   Real start_time, time, tlim, dt, dt_hyperbolic, dt_parabolic, dt_user;
