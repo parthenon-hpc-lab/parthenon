@@ -17,6 +17,7 @@
 
 #include "amr_criteria.hpp"
 #include "better_refinement.hpp"
+#include "defs.hpp"
 #include "interface/StateDescriptor.hpp"
 #include "mesh/mesh.hpp"
 #include "parameter_input.hpp"
@@ -112,14 +113,14 @@ int FirstDerivative(Variable<Real>& q,
     for (int j=jl; j<ju; j++) {
       for (int i=il; i<iu; i++) {
         Real scale = std::abs(q(k,j,i));
-        Real d = 0.5*std::abs((q(k,j,i+1)-q(k,j,i-1)))/(scale+1.e-16);
+        Real d = 0.5*std::abs((q(k,j,i+1)-q(k,j,i-1)))/(scale+TINY_NUMBER);
         maxd = (d > maxd ? d : maxd);
         if (dim2 > 1) {
-          d = 0.5*std::abs((q(k,j+1,i)-q(k,j-1,i)))/(scale+1.e-16);
+          d = 0.5*std::abs((q(k,j+1,i)-q(k,j-1,i)))/(scale+TINY_NUMBER);
           maxd = (d > maxd ? d : maxd);
         }
         if (dim3 > 1) {
-          d = 0.5*std::abs((q(k+1,j,i) - q(k-1,j,i)))/(scale+1.e-16);
+          d = 0.5*std::abs((q(k+1,j,i) - q(k-1,j,i)))/(scale+TINY_NUMBER);
           maxd = (d > maxd ? d : maxd);
         }
       }
