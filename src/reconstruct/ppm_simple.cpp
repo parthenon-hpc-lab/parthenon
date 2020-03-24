@@ -19,7 +19,6 @@
 //         for a Cartesian-like coordinate with uniform spacing, Mignone modified original
 //         PPM limiter for nonuniform and/or curvilinear coordinate.
 //  Operates on the entire nx4 range of a single AthenaArray<Real> input (no MHD).
-//  No assumptions of hydrodynamic fluid variable input; no characteristic projection.
 
 // REFERENCES:
 // (CW) P. Colella & P. Woodward, "The Piecewise Parabolic Method (PPM) for Gas-Dynamical

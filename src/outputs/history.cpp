@@ -42,7 +42,7 @@
 // NEW_OUTPUT_TYPES:
 
 // "3" for 1-KE, 2-KE, 3-KE additional columns (come before tot-E)
-#define NHISTORY_VARS ((NHYDRO) + (NFIELD) + 3)
+#define NHISTORY_VARS ((NFIELD) + 3)
 
 namespace parthenon {
 //----------------------------------------------------------------------------------------
@@ -81,8 +81,6 @@ void HistoryOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
         pmb->pcoord->CellVolume(k, j, pmb->is, pmb->ie, vol);
         for (int i=pmb->is; i<=pmb->ie; ++i) {
           // NEW_OUTPUT_TYPES:
-
-          // Hydro conserved variables:
 
           hst_data[0] += 0.0;
           hst_data[1] += 0.0;

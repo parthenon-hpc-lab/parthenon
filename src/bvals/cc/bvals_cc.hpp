@@ -45,8 +45,6 @@ class CellCenteredBoundaryVariable : public BoundaryVariable {
   ~CellCenteredBoundaryVariable();
 
   // may want to rebind var_cc to u,u1,u2,w,w1, etc. registers for time integrator logic.
-  // Also, derived class HydroBoundaryVariable needs to keep switching var and coarse_var
-  // arrays between primitive and conserved variables ---> ptr members, not references
   AthenaArray<Real> *var_cc;
   AthenaArray<Real> *coarse_buf;  // may pass nullptr if mesh refinement is unsupported
 

@@ -117,7 +117,7 @@ class MeshBlock {
   int gid, lid;
   int cis, cie, cjs, cje, cks, cke, cnghost;
   int gflag;
-  // At every cycle n, hydro and field registers (u, b) are advanced from t^n -> t^{n+1},
+  // At every cycle n, and field registers (u, b) are advanced from t^n -> t^{n+1},
   // the time-integration scheme may partially substep several storage register pairs
   // (u,b), (u1,b1), (u2, b2), ..., (um, bm) through the dt interval. Track their time
   // abscissae at the end of each stage (1<=l<=nstage) as (dt_m^l) relative to t^n
@@ -162,7 +162,7 @@ class MeshBlock {
 
   void ResetToIC() { ProblemGenerator(nullptr); }
 
-  // inform MeshBlock which arrays contained in member Hydro, Field, Particles,
+  // inform MeshBlock which arrays contained in member Field, Particles,
   // ... etc. classes are the "primary" representations of a quantity. when registered,
   // that data are used for (1) load balancing (2) (future) dumping to restart file
   void RegisterMeshBlockData(Variable<Real> &pvar_cc);

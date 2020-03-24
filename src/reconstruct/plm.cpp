@@ -34,16 +34,6 @@ void Reconstruction::PiecewiseLinearX1(
   AthenaArray<Real> &bx = scr01_i_, &wc = scr1_ni_, &dwl = scr2_ni_, &dwr = scr3_ni_,
                    &dwm = scr4_ni_;
 
-  // compute L/R slopes for each variable
-  for (int n=0; n<NHYDRO; ++n) {
-#pragma omp simd
-    for (int i=il; i<=iu; ++i) {
-      dwl(n,i) = (w(n,k,j,i  ) - w(n,k,j,i-1));
-      dwr(n,i) = (w(n,k,j,i+1) - w(n,k,j,i  ));
-      wc(n,i) = w(n,k,j,i);
-    }
-  }
-
   // Project slopes to characteristic variables, if necessary
   // Note order of characteristic fields in output vect corresponds to (IVX,IVY,IVZ)
   if (characteristic_projection) {
@@ -120,16 +110,6 @@ void Reconstruction::PiecewiseLinearX2(
   // set work arrays to shallow copies of scratch arrays
   AthenaArray<Real> &bx = scr01_i_, &wc = scr1_ni_, &dwl = scr2_ni_,
                    &dwr = scr3_ni_, &dwm = scr4_ni_;
-
-  // compute L/R slopes for each variable
-  for (int n=0; n<NHYDRO; ++n) {
-#pragma omp simd
-    for (int i=il; i<=iu; ++i) {
-      dwl(n,i) = (w(n,k,j  ,i) - w(n,k,j-1,i));
-      dwr(n,i) = (w(n,k,j+1,i) - w(n,k,j  ,i));
-      wc(n,i) = w(n,k,j,i);
-    }
-  }
 
   // Project slopes to characteristic variables, if necessary
   // Note order of characteristic fields in output vect corresponds to (IVY,IVZ,IVX)
@@ -208,16 +188,6 @@ void Reconstruction::PiecewiseLinearX3(
   // set work arrays to shallow copies of scratch arrays
   AthenaArray<Real> &bx = scr01_i_, &wc = scr1_ni_, &dwl = scr2_ni_, &dwr = scr3_ni_,
                    &dwm = scr4_ni_;
-
-  // compute L/R slopes for each variable
-  for (int n=0; n<NHYDRO; ++n) {
-#pragma omp simd
-    for (int i=il; i<=iu; ++i) {
-      dwl(n,i) = (w(n,k  ,j,i) - w(n,k-1,j,i));
-      dwr(n,i) = (w(n,k+1,j,i) - w(n,k  ,j,i));
-      wc(n,i) = w(n,k,j,i);
-    }
-  }
 
   // Project slopes to characteristic variables, if necessary
   // Note order of characteristic fields in output vect corresponds to (IVZ,IVX,IVY)

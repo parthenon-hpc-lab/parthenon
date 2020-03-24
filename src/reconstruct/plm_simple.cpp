@@ -17,7 +17,6 @@
 //! \file plm_simple.cpp
 //  \brief  piecewise linear reconstruction for both uniform and non-uniform meshes
 //  Operates on the entire nx4 range of a single AthenaArray<Real> input (no MHD).
-//  No assumptions of hydrodynamic fluid variable input; no characteristic projection.
 
 // REFERENCES:
 // (Mignone) A. Mignone, "High-order conservative reconstruction schemes for finite volume

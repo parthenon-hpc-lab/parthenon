@@ -1011,7 +1011,6 @@ void Mesh::OutputMeshStructure(int ndim) {
 //----------------------------------------------------------------------------------------
 // \!fn void Mesh::NewTimeStep()
 // \brief function that loops over all MeshBlocks and find new timestep
-//        this assumes that phydro->NewBlockTimeStep is already called
 
 void Mesh::NewTimeStep() {
   MeshBlock *pmb = pblock;
@@ -1054,7 +1053,7 @@ void Mesh::NewTimeStep() {
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void Mesh::EnrollUserBoundaryFunction(BoundaryFace dir, BValHydro my_bc)
+//! \fn void Mesh::EnrollUserBoundaryFunction(BoundaryFace dir, BValFunc my_bc)
 //  \brief Enroll a user-defined boundary function
 
 void Mesh::EnrollUserBoundaryFunction(BoundaryFace dir, BValFunc my_bc) {
@@ -1462,32 +1461,6 @@ void Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size
 
 
 void Mesh::CorrectMidpointInitialCondition(std::vector<MeshBlock*> &pmb_array, int nmb) {
-#pragma omp for
-  for (int nb=0; nb<nmb; ++nb) {
-    auto pmb = pmb_array[nb];
-
-    // Assume cell-centered analytic value is computed at all real cells, and ghost
-    // cells with the cell-centered U have been exchanged
-    int il = pmb->is, iu = pmb->ie, jl = pmb->js, ju = pmb->je,
-        kl = pmb->ks, ku = pmb->ke;
-
-    // Laplacian of cell-averaged conserved variables, scalar concentrations
-    AthenaArray<Real> delta_cons_, delta_s_;
-
-    // Allocate memory for 4D Laplacian
-    int ncells4 = NHYDRO;
-    int nl = 0;
-    int nu = ncells4 - 1;
-    delta_cons_.NewAthenaArray(ncells4, pmb->ncells3, pmb->ncells2, pmb->ncells1);
-
-
-
-    // TODO(felker): assuming uniform mesh with dx1f=dx2f=dx3f, so this factors out
-    // TODO(felker): also, this may need to be dx1v, since Laplacian is cell-center
-    Real h = pmb->pcoord->dx1f(il);  // pco->dx1f(i); inside loop
-    Real C = (h*h)/24.0;
-  } // end loop over MeshBlocks
-
   // begin second exchange of ghost cells with corrected cell-averaged <U>
   // -----------------  (mostly copied from above section in Mesh::Initialize())
   // prepare to receive conserved variables

@@ -66,19 +66,6 @@ void Reconstruction::PiecewiseParabolicX1(
   AthenaArray<Real> &qplus = scr11_i_, &qminus = scr12_i_, &dqf_plus = scr13_i_,
                 &dqf_minus = scr14_i_;
 
-  // cache the x1-sliced primitive states for eigensystem calculation
-  for (int n=0; n<NHYDRO; ++n) {
-#pragma omp simd
-    for (int i=il; i<=iu; ++i) {
-      wc(n,i) = w(n,k,j,i);
-      q    (n,i) = w(n,k,j,i  );
-      q_im2(n,i) = w(n,k,j,i-2);
-      q_im1(n,i) = w(n,k,j,i-1);
-      q_ip1(n,i) = w(n,k,j,i+1);
-      q_ip2(n,i) = w(n,k,j,i+2);
-    }
-  }
-
   // Project cell-averages to characteristic variables, if necessary
   // Note order of characteristic fields in output vect corresponds to (IVX,IVY,IVZ)
   if (characteristic_projection) {
@@ -329,19 +316,6 @@ void Reconstruction::PiecewiseParabolicX2(
   AthenaArray<Real> &qplus = scr11_i_, &qminus = scr12_i_, &dqf_plus = scr13_i_,
                 &dqf_minus = scr14_i_;
 
-  // cache the x1-sliced primitive states for eigensystem calculation
-  for (int n=0; n<NHYDRO; ++n) {
-#pragma omp simd
-    for (int i=il; i<=iu; ++i) {
-      wc(n,i) = w(n,k,j,i);
-      q    (n,i) = w(n,k,j  ,i);
-      q_jm2(n,i) = w(n,k,j-2,i);
-      q_jm1(n,i) = w(n,k,j-1,i);
-      q_jp1(n,i) = w(n,k,j+1,i);
-      q_jp2(n,i) = w(n,k,j+2,i);
-    }
-  }
-
   // Project cell-averages to characteristic variables, if necessary
   // Note order of characteristic fields in output vect corresponds to (IVY,IVZ,IVX)
   if (characteristic_projection) {
@@ -589,19 +563,6 @@ void Reconstruction::PiecewiseParabolicX3(
 
   AthenaArray<Real> &qplus = scr11_i_, &qminus = scr12_i_, &dqf_plus = scr13_i_,
                 &dqf_minus = scr14_i_;
-
-  // cache the x1-sliced primitive states for eigensystem calculation
-  for (int n=0; n<NHYDRO; ++n) {
-#pragma omp simd
-    for (int i=il; i<=iu; ++i) {
-      wc(n,i) = w(n,k,j,i);
-      q    (n,i) = w(n,k  ,j,i);
-      q_km2(n,i) = w(n,k-2,j,i);
-      q_km1(n,i) = w(n,k-1,j,i);
-      q_kp1(n,i) = w(n,k+1,j,i);
-      q_kp2(n,i) = w(n,k+2,j,i);
-    }
-  }
 
   // Project cell-averages to characteristic variables, if necessary
   // Note order of characteristic fields in output vect corresponds to (IVZ,IVX,IVY)

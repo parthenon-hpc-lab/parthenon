@@ -46,7 +46,7 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin) :
 {
   // Read and set type of spatial reconstruction
   // --------------------------------
-  std::string input_recon = pin->GetOrAddString("Hydro", "xorder", "2");
+  std::string input_recon = pin->GetOrAddString("mesh", "xorder", "2");
 
   if (input_recon == "1") {
     xorder = 1;
@@ -63,7 +63,6 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin) :
     xorder = 3;
     characteristic_projection = true;
   } else if ((input_recon == "4") || (input_recon == "4c")) {
-    // Full 4th-order scheme for hydro or MHD on uniform Cartesian grids
     xorder = 4;
     if (input_recon == "4c")
       characteristic_projection = true;
@@ -151,7 +150,6 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin) :
 
     // check for necessary number of ghost zones for PPM w/ fourth-order flux corrections
     int req_nghost = 4;
-    // until new algorithm for face-averaged Field->bf to cell-averaged Hydro->bcc
     // conversion is added, NGHOST>=6
     if (NGHOST < req_nghost) {
       std::stringstream msg;

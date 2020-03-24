@@ -393,7 +393,6 @@ void CellCenteredBoundaryVariable::SetupPersistentMPI() {
       // specify the offsets in the view point of the target block: flip ox? signs
 
       // Initialize persistent communication requests attached to specific BoundaryData
-      // cell-centered hydro: bd_hydro_
       tag = pmb->pbval->CreateBvalsMPITag(nb.snb.lid, nb.targetid, cc_phys_id_);
       if (bd_var_.req_send[nb.bufid] != MPI_REQUEST_NULL)
         MPI_Request_free(&bd_var_.req_send[nb.bufid]);
@@ -405,7 +404,6 @@ void CellCenteredBoundaryVariable::SetupPersistentMPI() {
       MPI_Recv_init(bd_var_.recv[nb.bufid], rsize, MPI_ATHENA_REAL,
                     nb.snb.rank, tag, MPI_COMM_WORLD, &(bd_var_.req_recv[nb.bufid]));
 
-      // hydro flux correction: bd_var_flcor_
       if (pmy_mesh_->multilevel && nb.ni.type == NeighborConnect::face) {
         int size;
         if (nb.fid == 0 || nb.fid == 1)

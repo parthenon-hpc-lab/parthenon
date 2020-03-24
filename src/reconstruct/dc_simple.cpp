@@ -17,7 +17,6 @@
 //! \file dc_simple.cpp
 //  \brief piecewise constant (donor cell) reconstruction
 //  Operates on the entire nx4 range of a single AthenaArray<Real> input (no MHD).
-//  No assumptions of hydrodynamic fluid variable input; no characteristic projection.
 
 #include "reconstruction.hpp"
 
