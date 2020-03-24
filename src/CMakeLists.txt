@@ -41,6 +41,8 @@ if (${Kokkos_ENABLE_CUDA})
   set(PAR_LOOP_LAYOUT_VALUES "MANUAL1D_LOOP;MDRANGE_LOOP;TPTTR_LOOP;TPTTRTVR_LOOP"
     CACHE STRING "Possible loop layout options.")
 
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --expt-relaxed-constexpr")
+
 elseif(${Kokkos_ENABLE_HPX})
   message( FATAL_ERROR "Need to add/fix/test default loop layouts for HPX backend.")
 

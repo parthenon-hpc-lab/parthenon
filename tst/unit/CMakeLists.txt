@@ -26,5 +26,6 @@ list(APPEND unit_tests_SOURCES
     )
 
 add_executable(unit_tests ${unit_tests_SOURCES})
+target_compile_features(unit_tests PRIVATE cxx_std_14)
 target_link_libraries(unit_tests PRIVATE parthenon catch2_define Kokkos::kokkos)
 ParseAndAddCatchTests(unit_tests)
