@@ -81,8 +81,6 @@ TEST_CASE("ParArrayND","[ParArrayND],[Kokkos]") {
       }
       THEN("slicing is possible") {
         auto b = a.SliceD(std::make_pair(1,3),3);
-        REQUIRE( b(0,0,0) == a(1,0,0) );
-        REQUIRE( b(1,1,1) == a(2,1,1) );
         AND_THEN("slices have correct values.") {
           int total_errors;
           using policy = Kokkos::MDRangePolicy<Kokkos::Rank<3>>;
