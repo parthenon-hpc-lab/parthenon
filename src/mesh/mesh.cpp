@@ -104,8 +104,7 @@ Mesh::Mesh(ParameterInput *pin,
   MeshGenerator_{UniformMeshGeneratorX1, UniformMeshGeneratorX2,
         UniformMeshGeneratorX3},
   BoundaryFunction_{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-  AMRFlag_{}, UserSourceTerm_{}, UserTimeStep_{}, ViscosityCoeff_{},
-  ConductionCoeff_{}, FieldDiffusivity_{}, pblock(nullptr) {
+  AMRFlag_{}, UserSourceTerm_{}, UserTimeStep_{}, FieldDiffusivity_{}, pblock(nullptr) {
     std::stringstream msg;
     RegionSize block_size;
     MeshBlock *pfirst{};
@@ -545,8 +544,7 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper& resfile,
     MeshGenerator_{UniformMeshGeneratorX1, UniformMeshGeneratorX2,
                    UniformMeshGeneratorX3},
     BoundaryFunction_{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    AMRFlag_{}, UserSourceTerm_{}, UserTimeStep_{}, ViscosityCoeff_{},
-    ConductionCoeff_{}, FieldDiffusivity_{}, pblock(nullptr) {
+    AMRFlag_{}, UserSourceTerm_{}, UserTimeStep_{}, FieldDiffusivity_{}, pblock(nullptr) {
   std::stringstream msg;
   RegionSize block_size;
   BoundaryFlag block_bcs[6];
@@ -1168,24 +1166,6 @@ void Mesh::EnrollUserHistoryOutput(int i, HistoryOutputFunc my_func, const char 
 
 void Mesh::EnrollUserMetric(MetricFunc my_func) {
   UserMetric_ = my_func;
-  return;
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void Mesh::EnrollViscosityCoefficient(ViscosityCoeff my_func)
-//  \brief Enroll a user-defined magnetic field diffusivity function
-
-void Mesh::EnrollViscosityCoefficient(ViscosityCoeffFunc my_func) {
-  ViscosityCoeff_ = my_func;
-  return;
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void Mesh::EnrollConductionCoefficient(ConductionCoeff my_func)
-//  \brief Enroll a user-defined thermal conduction function
-
-void Mesh::EnrollConductionCoefficient(ConductionCoeffFunc my_func) {
-  ConductionCoeff_ = my_func;
   return;
 }
 

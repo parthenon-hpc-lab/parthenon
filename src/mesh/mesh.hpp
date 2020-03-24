@@ -317,8 +317,6 @@ class Mesh {
   TimeStepFunc UserTimeStep_;
   HistoryOutputFunc *user_history_func_;
   MetricFunc UserMetric_;
-  ViscosityCoeffFunc ViscosityCoeff_;
-  ConductionCoeffFunc ConductionCoeff_;
   FieldDiffusionCoeffFunc FieldDiffusivity_;
 
   void AllocateRealUserMeshDataField(int n);
@@ -367,8 +365,6 @@ class Mesh {
   void EnrollUserHistoryOutput(int i, HistoryOutputFunc my_func, const char *name,
                                UserHistoryOperation op=UserHistoryOperation::sum);
   void EnrollUserMetric(MetricFunc my_func);
-  void EnrollViscosityCoefficient(ViscosityCoeffFunc my_func);
-  void EnrollConductionCoefficient(ConductionCoeffFunc my_func);
   void EnrollFieldDiffusivity(FieldDiffusionCoeffFunc my_func);
 };
 
