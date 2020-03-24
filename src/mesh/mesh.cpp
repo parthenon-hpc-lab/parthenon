@@ -1516,8 +1516,6 @@ void Mesh::CorrectMidpointInitialCondition(std::vector<MeshBlock*> &pmb_array, i
 }
 
 // Public function for advancing next_phys_id_ counter
-// E.g. if chemistry or radiation elects to communicate additional information with MPI
-// outside the framework of the BoundaryVariable classes
 
 // Store signed, but positive, integer corresponding to the next unused value to be used
 // as unique ID for a BoundaryVariable object's single set of MPI calls (formerly "enum

@@ -290,9 +290,6 @@ void BoundaryValues::ProlongateGhostCells(const NeighborBlock& nb,
   MeshBlock *pmb = pmy_block_;
   auto &pmr = pmb->pmr;
 
-  // prolongate cell-centered S/AMR-enrolled quantities (hydro, radiation, scalars, ...)
-  //(unique to Hydro, PassiveScalars): swap ptrs to (w, coarse_prim) from (u, coarse_cons)
-
   for (auto cc_pair : pmr->pvars_cc_) {
     AthenaArray<Real> *var_cc = std::get<0>(cc_pair);
     AthenaArray<Real> *coarse_cc = std::get<1>(cc_pair);
