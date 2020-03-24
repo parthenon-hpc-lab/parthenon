@@ -13,6 +13,7 @@
 
 #include <utility>
 
+#include "better_refinement/better_refinement.hpp"
 #include "driver/driver.hpp"
 #include "interface/Update.hpp"
 #include <Kokkos_Core.hpp>
@@ -92,6 +93,8 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
   auto properties = ProcessProperties(pinput);
   // set up all the packages in the application
   auto packages = ProcessPackages(pinput);
+  // always add the Refinement package
+  packages["ParthenonRefinement"] = BetterRefinement::Initialize(pinput.get());
 
   // TODO(jdolence): Deal with restarts
   //if (arg.res_flag == 0) {
@@ -99,6 +102,13 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
   //} else {
   //  pmesh = std::make_unique<Mesh>(pinput.get(), )
   //}
+
+  // add root_level to all max_level
+  for (auto const & ph : packages) {
+    for (auto & amr : ph.second->amr_criteria) {
+      amr->max_level += pmesh->GetRootLevel();
+    }
+  }
 
   SetFillDerivedFunctions();
 

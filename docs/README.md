@@ -40,6 +40,10 @@ is sufficient with a link to a more detailed description in a separate [file](fe
   - `auto arr_host = Kokkos::create_mirror_view(arr_dev);` to create an array on the host if the HostSpace != DeviceSpace or get another reference to arr_dev through arr_host if HostSpace == DeviceSpace
 - `par_for` and `Kokkos::deep_copy` by default use the standard stream (on Cuda devices) and are discouraged from use. Use `mb->par_for` and `mb->deep_copy` instead.
 
+### Adaptive Mesh Refinement
+
+A description of how to enable and extend the AMR capabilities of Parthenon is provided [here](amr.md).
+
 ### Tasks
 
 The tasking capabilities in Parthenon are documented [here](tasks.md).
