@@ -151,7 +151,9 @@ template <class T> bool test_wrapper_3d(T loop_pattern, DevSpace exec_space) {
   for (int k = 0; k < N; k++)
     for (int j = 0; j < N; j++)
       for (int i = 0; i < N; i++)
-        if (arr_host_orig(k, j, i) + static_cast<Real>(i + N*(j + N*k)) != arr_host_mod(k, j, i)) {
+        if (arr_host_orig(k, j, i) + static_cast<Real>(i + N * (j + N * k)) !=
+            arr_host_mod(k, j, i)
+            ) {
           all_same = false;
         }
 
@@ -184,7 +186,7 @@ template <class T> bool test_wrapper_4d(T loop_pattern, DevSpace exec_space) {
   parthenon::par_for(
       loop_pattern, "unit test 4D", exec_space, 0, N - 1, 0, N - 1, 0, N - 1, 0,
       N - 1, KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
-        arr_dev(n, k, j, i) += static_cast<Real>(i + N*(j + N*(k + n))) ;
+        arr_dev(n, k, j, i) += static_cast<Real>(i + N*(j + N*(k + n)));
       });
 
   // Copy array back from device to host
@@ -197,7 +199,9 @@ template <class T> bool test_wrapper_4d(T loop_pattern, DevSpace exec_space) {
     for (int k = 0; k < N; k++)
       for (int j = 0; j < N; j++)
         for (int i = 0; i < N; i++)
-          if (arr_host_orig(n, k, j, i) + static_cast<Real>(i + N*(j + N*(k + n))) != arr_host_mod(n, k, j, i)) {
+          if (arr_host_orig(n, k, j, i) +
+                  static_cast<Real>(i + N * (j + N * (k + n))) !=
+              arr_host_mod(n, k, j, i)) {
             all_same = false;
           }
 
@@ -283,7 +287,9 @@ struct LargeNShortTBufferPack {
     const int offset = n * (nghost * (ncells - 2 * nghost) * (ncells - 2 * nghost));
 
     if (dir == 0) {
-      //it loops over [k,j,i]=[ [nghost,ncells-nghost),[nghost,ncells-nghost),[nghost,2*nghost) ]
+      // it loops over [k,j,i]=[ [nghost,ncells-nghost),
+      //                         [nghost,ncells-nghost),
+      //                         [nghost,2*nghost) ]
       //const int it_nk = ncells-nghost*2;
       const int it_nj = ncells-nghost*2;
       const int it_ni = nghost;
@@ -296,7 +302,9 @@ struct LargeNShortTBufferPack {
       const int idx = it_i + it_ni*(it_j + it_nj*it_k);
       buf_im(offset + idx) = arr_in(n, k, j, i);
     } else if (dir == 1) {
-      //it loops over [k,j,i]=[ [nghost,ncells-nghost),[nghost,ncells-nghost),[ncells-2*nghost,ncells-nghost) ]
+      // it loops over [k,j,i]=[ [nghost,ncells-nghost),
+      //                         [nghost,ncells-nghost),
+      //                         [ncells-2*nghost,ncells-nghost) ]
       //const int it_nk = ncells-nghost*2;
       const int it_nj = ncells-nghost*2;
       const int it_ni = nghost;
@@ -309,7 +317,9 @@ struct LargeNShortTBufferPack {
       const int idx = it_i + it_ni*(it_j + it_nj*it_k);
       buf_ip(offset + idx) = arr_in(n, k, j, i);
     } else if (dir == 2) {
-      //it loops over [k,j,i]=[ [nghost,ncells-nghost),[nghost,2*nghost),[nghost,ncells-nghost) ]
+      // it loops over [k,j,i]=[ [nghost,ncells-nghost),
+      //                         [nghost,2*nghost),
+      //                         [nghost,ncells-nghost) ]
       //const int it_nk = ncells-nghost*2;
       const int it_nj = nghost;
       const int it_ni = ncells-nghost*2;
@@ -322,7 +332,9 @@ struct LargeNShortTBufferPack {
       const int idx = it_i + it_ni*(it_j + it_nj*it_k);
       buf_jm(offset + idx) = arr_in(n, k, j, i);
     } else if (dir == 3) {
-      //it loops over [k,j,i]=[ [nghost,ncells-nghost),[ncells-2*nghost,ncells),[nghost,ncells-nghost) ]
+      //it loops over [k,j,i]=[ [nghost,ncells-nghost),
+      //                        [ncells-2*nghost,ncells),
+      //                        [nghost,ncells-nghost) ]
       //const int it_nk = ncells-nghost*2;
       const int it_nj = nghost;
       const int it_ni = ncells-nghost*2;
@@ -335,7 +347,9 @@ struct LargeNShortTBufferPack {
       const int idx = it_i + it_ni*(it_j + it_nj*it_k);
       buf_jp(offset + idx) = arr_in(n, k, j, i);
     } else if (dir == 4) {
-      //it loops over [k,j,i]=[ [nghost,2*nghost),[nghost,ncells-nghost),[nghost,ncells-nghost) ]
+      // it loops over [k,j,i]=[ [nghost,2*nghost),
+      //                         [nghost,ncells-nghost),
+      //                         [nghost,ncells-nghost) ]
       //const int it_nk = nghost;
       const int it_nj = ncells-nghost*2;
       const int it_ni = ncells-nghost*2;
@@ -348,7 +362,9 @@ struct LargeNShortTBufferPack {
       const int idx = it_i + it_ni*(it_j + it_nj*it_k);
       buf_km(offset + idx) = arr_in(n, k, j, i);
     } else if (dir == 5) {
-      //it loops over [k,j,i]=[ [ncells-2*nghost,ncells),[nghost,ncells-nghost),[nghost,ncells-nghost) ]
+      // it loops over [k,j,i]=[ [ncells-2*nghost,ncells),
+      //                         [nghost,ncells-nghost),
+      //                         [nghost,ncells-nghost) ]
       //const int it_nk = nghost;
       const int it_nj = ncells-nghost*2;
       const int it_ni = ncells-nghost*2;
@@ -363,7 +379,7 @@ struct LargeNShortTBufferPack {
     }
   }
 
-  void run(DevSpace exec_space){
+  void run(DevSpace exec_space) {
     const int nbuffers =
         6; // number of buffers, here up, down, left, right, back, front
     auto M = arr_in.extent(0);
@@ -373,9 +389,11 @@ struct LargeNShortTBufferPack {
   }
 
   template <typename TimeType>
-  static void test_time(const TimeType time_default, const TimeType time_spaces, const int nspaces){
-    //Test that streams are faster by at least 5%
-    REQUIRE( time_spaces < 0.95*time_default );
+  static void test_time(const TimeType time_default, const TimeType time_spaces,
+                        const int nspaces) {
+    // Test that streams are not introducing a performance penalty (within 5%
+    // uncertainty). The efficiency here depends on the available HW.
+    REQUIRE( time_spaces < 1.05*time_default );
   }
 };
 
@@ -432,7 +450,7 @@ struct SmallNLongTBufferPack {
     }
   }
 
-  void run(DevSpace exec_space){
+  void run(DevSpace exec_space) {
     auto M = arr_in.extent(0);
     const int nbuffers =
         6; // number of buffers, here up, down, left, right, back, front
@@ -441,14 +459,15 @@ struct SmallNLongTBufferPack {
   }
 
   template <typename TimeType>
-  static void test_time(const TimeType time_default, const TimeType time_spaces, const int nspaces){
+  static void test_time(const TimeType time_default, const TimeType time_spaces,
+                        const int nspaces) {
     // make sure the per kernel runtime didn't increase by more than a factor of 2
     REQUIRE(time_default > (static_cast<Real>(nspaces) / 2.0 * time_spaces));
   }
 };
 
 template <class BufferPack>
-void test_wrapper_buffer_pack_overlapping_space_instances(const std::string test_name){
+void test_wrapper_buffer_pack_overlapping_space_instances(const std::string test_name) {
   auto default_exec_space = DevSpace();
 
   const int N = 32;       // ~meshblock size
@@ -456,7 +475,7 @@ void test_wrapper_buffer_pack_overlapping_space_instances(const std::string test
   const int nspaces = 8; // number of streams
   const int nghost = 2;   // number of ghost zones
   const int buf_size = M * nghost * (N - 2 * nghost) * (N - 2 * nghost);
-  
+
   std::vector<BufferPack> functs;
   std::vector<DevSpace> exec_spaces;
 
@@ -512,11 +531,12 @@ void test_wrapper_buffer_pack_overlapping_space_instances(const std::string test
   }
 }
 TEST_CASE("Overlapping SpaceInstances", "[wrapper]") {
-
-  SECTION ("Many Threads Short Kernel"){
-    test_wrapper_buffer_pack_overlapping_space_instances<LargeNShortTBufferPack>("Many Threads Short Kernel");
+  SECTION ("Many Threads Short Kernel") {
+    test_wrapper_buffer_pack_overlapping_space_instances
+        <LargeNShortTBufferPack>("Many Threads Short Kernel");
   }
-  SECTION ("Few Threads Long Kernel"){
-    test_wrapper_buffer_pack_overlapping_space_instances<SmallNLongTBufferPack>("Few Threads Long Kernel");
+  SECTION ("Few Threads Long Kernel") {
+    test_wrapper_buffer_pack_overlapping_space_instances
+        <SmallNLongTBufferPack>("Few Threads Long Kernel");
   }
 }
