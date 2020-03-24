@@ -26,6 +26,7 @@
 // C++ headers
 #include <cstdint>     // int64_t
 #include <functional>  // reference_wrapper
+#include <map>
 #include <memory>      // std::shared_ptr
 #include <string>
 #include <vector>
@@ -47,7 +48,6 @@
 #include "reconstruct/reconstruction.hpp"
 #include "utils/interp_table.hpp"
 
-
 namespace parthenon {
 // Forward declarations
 class ParameterInput;
@@ -63,9 +63,9 @@ class Reconstruction;
 // Opaque pointer to application data
 class MeshBlockApplicationData {
  public:
-    // make this pure virtual so that this class cannot be
-    // instantiated (only derived classes can be instantiated)
-    virtual ~MeshBlockApplicationData() = 0;
+  // make this pure virtual so that this class cannot be instantiated
+  // (only derived classes can be instantiated)
+  virtual ~MeshBlockApplicationData() = 0;
 };
 using pMeshBlockApplicationData_t = std::unique_ptr<MeshBlockApplicationData>;
 
@@ -108,7 +108,6 @@ class MeshBlock {
   DevSpace exec_space;
 
   // data
-  int ssID;
   Mesh *pmy_mesh;  // ptr to Mesh containing this MeshBlock
   LogicalLocation loc;
   RegionSize block_size;
@@ -281,7 +280,6 @@ class Mesh {
   // data
   RegionSize mesh_size;
   BoundaryFlag mesh_bcs[6];
-  const bool f2, f3; // flags indicating (at least) 2D or 3D Mesh
   const int ndim;     // number of dimensions
   const bool adaptive, multilevel;
   Real start_time, time, tlim, dt, dt_hyperbolic, dt_parabolic, dt_user;
@@ -318,6 +316,7 @@ class Mesh {
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   void UserWorkAfterLoop(ParameterInput *pin);   // called in main loop
   void UserWorkInLoop(); // called in main after each cycle
+  int GetRootLevel() { return root_level; }
 
  private:
   // data

@@ -51,11 +51,11 @@ void FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
     for (int j = js; j <= je; j++) {
       pmb->pcoord->Face1Area(k, j, is, ie + 1, x1area);
       pmb->pcoord->CellVolume(k, j, is, ie, vol);
-      if (pmb->pmy_mesh->f2) {
+      if (pmb->pmy_mesh->ndim >= 2) {
         pmb->pcoord->Face2Area(k, j, is, ie, x2area0);
         pmb->pcoord->Face2Area(k, j + 1, is, ie, x2area1);
       }
-      if (pmb->pmy_mesh->f3) {
+      if (pmb->pmy_mesh->ndim >= 3) {
         pmb->pcoord->Face3Area(k, j, is, ie, x3area0);
         pmb->pcoord->Face3Area(k + 1, j, is, ie, x3area1);
       }
@@ -72,14 +72,14 @@ void FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
                      x1area(i) * x1flux(l, k, j, i));
           }
 
-          if (pmb->pmy_mesh->f2) {
+          if (pmb->pmy_mesh->ndim >= 2) {
             for (int i = is; i <= ie; i++) {
               du(i) += (x2area1(i) * x2flux(l, k, j + 1, i) -
                         x2area0(i) * x2flux(l, k, j, i));
             }
           }
           // TODO(jcd): should the next block be in the preceding if??
-          if (pmb->pmy_mesh->f3) {
+          if (pmb->pmy_mesh->ndim >= 3) {
             for (int i = is; i <= ie; i++) {
               du(i) += (x3area1(i) * x3flux(l, k + 1, j, i) -
                         x3area0(i) * x3flux(l, k, j, i));

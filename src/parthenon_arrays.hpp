@@ -39,7 +39,7 @@ using KokkosUnmanaged = Kokkos::MemoryTraits<Kokkos::Unmanaged>;
 using index_pair_t = std::pair<size_t,size_t>;
 constexpr auto SLC0 = std::make_pair(0,1);
 
-template <typename T, typename Layout = DefaultLayout>
+template <typename T, typename Layout = LayoutWrapper>
 class ParArrayND {
  public:
   ParArrayND() = default;

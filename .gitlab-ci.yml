@@ -35,7 +35,12 @@ parthenon-cuda-short:
 #    - export CUDA_VISIBLE_DEVICES=0
     - mkdir build-cuda
     - cd build-cuda
-    - cmake -DCMAKE_BUILD_TYPE=Debug -DHDF5_ROOT=/usr/local/hdf5/parallel -DKokkos_ARCH_WSM=True -DKokkos_ARCH_PASCAL61=True -DKokkos_ENABLE_CUDA=True -DKokkos_ENABLE_OPENMP=True -DCMAKE_CXX_COMPILER=$(pwd)/../external/kokkos/bin/nvcc_wrapper -DKokkos_ENABLE_CUDA_LAMBDA=True ../ && make && make test
+    - cmake -DCMAKE_BUILD_TYPE=Debug -DHDF5_ROOT=/usr/local/hdf5/parallel
+      -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
+      -DKokkos_ENABLE_CUDA=True -DKokkos_ARCH_PASCAL61=True
+      -DKokkos_ENABLE_CUDA_LAMBDA=True
+      -DCMAKE_CXX_COMPILER=$(pwd)/../external/kokkos/bin/nvcc_wrapper
+      ../ && make && make test
 
 # run short suite on CPUs
 parthenon-cpu-short:
@@ -45,5 +50,7 @@ parthenon-cpu-short:
   script:
     - mkdir build
     - cd build
-    - cmake -DCMAKE_BUILD_TYPE=Debug -DHDF5_ROOT=/usr/local/hdf5/parallel -DKokkos_ARCH_WSM=True -DKokkos_ENABLE_OPENMP=True ../ && make && make test
+    - cmake -DCMAKE_BUILD_TYPE=Debug -DHDF5_ROOT=/usr/local/hdf5/parallel
+      -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
+      ../ && make && make test
 
