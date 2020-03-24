@@ -36,6 +36,7 @@ typedef Kokkos::HostSpace HostSpace;
 #endif
 typedef Kokkos::LayoutRight LayoutWrapper;
 
+template <typename T>
 using ParArray1D = Kokkos::View<T *, LayoutWrapper, DevSpace>;
 template <typename T>
 using ParArray2D = Kokkos::View<T **, LayoutWrapper, DevSpace>;
@@ -45,6 +46,8 @@ template <typename T>
 using ParArray4D = Kokkos::View<T ****, LayoutWrapper, DevSpace>;
 template <typename T>
 using ParArray5D = Kokkos::View<T *****, LayoutWrapper, DevSpace>;
+template <typename T>
+using ParArray6D = Kokkos::View<T ******, LayoutWrapper, DevSpace>;
 
 typedef Kokkos::TeamPolicy<> team_policy;
 typedef Kokkos::TeamPolicy<>::member_type member_type;

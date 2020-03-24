@@ -208,7 +208,7 @@ using flexview_t =  std::tuple<Kokkos::View<T*,Layout,DevSpace>,
                                Kokkos::View<T****,Layout,DevSpace>,
                                Kokkos::View<T*****,Layout,DevSpace>,
                                Kokkos::View<T******,Layout,DevSpace>>;
-template<typename T, typename Layout = DefaultLayout>
+template<typename T, typename Layout = LayoutWrapper>
 class ParArrayFlex {
  public:
   ParArrayFlex() = default;
