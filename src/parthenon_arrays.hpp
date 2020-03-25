@@ -193,6 +193,7 @@ class ParArrayND {
     auto v = Kokkos::subview(d6d_,std::forward<Args>(args)...);
     return ParArrayND<T,typename decltype(v)::array_layout>(v);
   }
+
   auto Slice6D(index_pair_t slc) {
     return Slice(slc,Kokkos::ALL(),Kokkos::ALL(),
                  Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL());
@@ -216,7 +217,34 @@ class ParArrayND {
   auto Slice1D(index_pair_t slc) {
     return Slice(SLC0,SLC0,SLC0,Kokkos::ALL(),Kokkos::ALL(),slc);
   }
-
+  template<std::size_t N = 6>
+  auto SliceD(index_pair_t slc,
+              std::integral_constant<int,N> = std::integral_constant<int,N>{});
+  
+  template<>
+  auto SliceD<6>(index_pair_t slc, std::integral_constant<int,6>) {
+    return Slice6D(slc);
+  }
+  template<>
+  auto SliceD<5>(index_pair_t slc, std::integral_constant<int,5>) {
+    return Slice5D(slc);
+  }
+  template<>
+  auto SliceD<4>(index_pair_t slc, std::integral_constant<int,4>) {
+    return Slice4D(slc);
+  }
+  template<>
+  auto SliceD<3>(index_pair_t slc, std::integral_constant<int,3>) {
+    return Slice3D(slc);
+  }
+  template<>
+  auto SliceD<2>(index_pair_t slc, std::integral_constant<int,2>) {
+    return Slice2D(slc);
+  }
+  template<>
+  auto SliceD<1>(index_pair_t slc, std::integral_constant<int,1>) {
+    return Slice1D(slc);
+  }
   // TODO(JMM): Can we make a mirror object for ParArrayND? Probably.
   // Might not even be very hard.
   auto GetMirror() {
