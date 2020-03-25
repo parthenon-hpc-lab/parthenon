@@ -311,7 +311,7 @@ class ParArrayFlex {
     case 3: return std::get<2>(data_).extent_int(3-i);
     case 4: return std::get<3>(data_).extent_int(4-i);
     case 5: return std::get<4>(data_).extent_int(5-i);
-    case 6: return std::get<5>(data_).extent_int(6-i);
+    default: return std::get<5>(data_).extent_int(6-i);
     }
   }
 
@@ -337,7 +337,7 @@ class ParArrayFlex {
     if (rank_ == 3) return std::get<2>(data_)(0,0,i);
     if (rank_ == 4) return std::get<3>(data_)(0,0,0,i);
     if (rank_ == 5) return std::get<4>(data_)(0,0,0,0,i);
-    if (rank_ == 6) return std::get<5>(data_)(0,0,0,0,0,i);
+    return std::get<5>(data_)(0,0,0,0,0,i);
   }
   KOKKOS_INLINE_FUNCTION
   T &operator() (const int j, const int i) {
@@ -346,7 +346,7 @@ class ParArrayFlex {
     if (rank_ == 3) return std::get<2>(data_)(0,j,i);
     if (rank_ == 4) return std::get<3>(data_)(0,0,j,i);
     if (rank_ == 5) return std::get<4>(data_)(0,0,0,j,i);
-    if (rank_ == 6) return std::get<5>(data_)(0,0,0,0,j,i);
+    return std::get<5>(data_)(0,0,0,0,j,i);
   }
   KOKKOS_INLINE_FUNCTION
   T &operator() (const int k, const int j, const int i) {
@@ -354,21 +354,21 @@ class ParArrayFlex {
     if (rank_ == 3) return std::get<2>(data_)(k,j,i);
     if (rank_ == 4) return std::get<3>(data_)(0,k,j,i);
     if (rank_ == 5) return std::get<4>(data_)(0,0,k,j,i);
-    if (rank_ == 6) return std::get<5>(data_)(0,0,0,k,j,i);
+    return std::get<5>(data_)(0,0,0,k,j,i);
   }
   KOKKOS_INLINE_FUNCTION
   T &operator() (const int n, const int k, const int j, const int i) {
     assert( 4 <= rank_ && rank_ <= 6 );
     if (rank_ == 4) return std::get<3>(data_)(n,k,j,i);
     if (rank_ == 5) return std::get<4>(data_)(0,n,k,j,i);
-    if (rank_ == 6) return std::get<5>(data_)(0,0,n,k,j,i);
+    return std::get<5>(data_)(0,0,n,k,j,i);
   }
   KOKKOS_INLINE_FUNCTION
   T &operator() (const int m, const int n,
                  const int k, const int j, const int i) {
     assert( 5 <= rank_ && rank_ <= 6 );
     if (rank_ == 5) return std::get<4>(data_)(m,n,k,j,i);
-    if (rank_ == 6) return std::get<5>(data_)(0,m,n,k,j,i);
+    return std::get<5>(data_)(0,m,n,k,j,i);
   }
   KOKKOS_INLINE_FUNCTION
   T &operator() (const int l, const int m, const int n,
@@ -384,7 +384,7 @@ class ParArrayFlex {
     if (rank_ == 3) return std::get<2>(data_)(0,0,i);
     if (rank_ == 4) return std::get<3>(data_)(0,0,0,i);
     if (rank_ == 5) return std::get<4>(data_)(0,0,0,0,i);
-    if (rank_ == 6) return std::get<5>(data_)(0,0,0,0,0,i);
+    return std::get<5>(data_)(0,0,0,0,0,i);
   }
   KOKKOS_INLINE_FUNCTION
   T &operator() (const int j, const int i) const {
@@ -393,7 +393,7 @@ class ParArrayFlex {
     if (rank_ == 3) return std::get<2>(data_)(0,j,i);
     if (rank_ == 4) return std::get<3>(data_)(0,0,j,i);
     if (rank_ == 5) return std::get<4>(data_)(0,0,0,j,i);
-    if (rank_ == 6) return std::get<5>(data_)(0,0,0,0,j,i);
+    return std::get<5>(data_)(0,0,0,0,j,i);
   }
   KOKKOS_INLINE_FUNCTION
   T &operator() (const int k, const int j, const int i) const {
@@ -401,7 +401,7 @@ class ParArrayFlex {
     if (rank_ == 3) return std::get<2>(data_)(k,j,i);
     if (rank_ == 4) return std::get<3>(data_)(0,k,j,i);
     if (rank_ == 5) return std::get<4>(data_)(0,0,k,j,i);
-    if (rank_ == 6) return std::get<5>(data_)(0,0,0,k,j,i);
+    return std::get<5>(data_)(0,0,0,k,j,i);
   }
   KOKKOS_INLINE_FUNCTION
   T &operator() (const int n, const int k,
@@ -409,14 +409,14 @@ class ParArrayFlex {
     assert( 4 <= rank_ && rank_ <= 6 );
     if (rank_ == 4) return std::get<3>(data_)(n,k,j,i);
     if (rank_ == 5) return std::get<4>(data_)(0,n,k,j,i);
-    if (rank_ == 6) return std::get<5>(data_)(0,0,n,k,j,i);
+    return std::get<5>(data_)(0,0,n,k,j,i);
   }
   KOKKOS_INLINE_FUNCTION
   T &operator() (const int m, const int n,
                  const int k, const int j, const int i) const {
     assert( 5 <= rank_ && rank_ <= 6 );
     if (rank_ == 5) return std::get<4>(data_)(m,n,k,j,i);
-    if (rank_ == 6) return std::get<5>(data_)(0,m,n,k,j,i);
+    return std::get<5>(data_)(0,m,n,k,j,i);
   }
   KOKKOS_INLINE_FUNCTION
   T &operator() (const int l, const int m, const int n,

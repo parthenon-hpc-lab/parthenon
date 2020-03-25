@@ -22,7 +22,8 @@ list(APPEND unit_tests_SOURCES
     test_unit_face_variables.cpp
     test_unit_params.cpp
     kokkos_abstraction.cpp
-    test_pararrays.cpp    
+    test_pararrays.cpp
+    compare_array_designs.cpp
     )
 
 add_executable(unit_tests ${unit_tests_SOURCES})
