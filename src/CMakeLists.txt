@@ -39,7 +39,6 @@ set(COMPILED_WITH ${CMAKE_CXX_COMPILER})
 set(COMPILER_COMMAND "<not-implemented>") # TODO: Put something more descriptive here
 set(COMPILER_FLAGS "<not-implemented>") # TODO: Put something more descriptive here
 
-set(NHYDRO_VARIABLES 0) # TODO: Remove
 set(NFIELD_VARIABLES 0) # TODO: Remove
 set(NWAVE_VALUE 5) # TODO: Remove
 set(NUMBER_GHOST_CELLS 2) # TODO: Make this a CMake option and check it
@@ -96,11 +95,8 @@ add_library(parthenon
   pgen/default_pgen.cpp
 
   reconstruct/characteristic.cpp
-  reconstruct/dc_simple.cpp
   reconstruct/dc.cpp
-  reconstruct/plm_simple.cpp
   reconstruct/plm.cpp
-  reconstruct/ppm_simple.cpp
   reconstruct/ppm.cpp
   reconstruct/reconstruction.cpp
 

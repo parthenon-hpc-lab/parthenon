@@ -104,8 +104,7 @@ Mesh::Mesh(ParameterInput *pin,
   MeshGenerator_{UniformMeshGeneratorX1, UniformMeshGeneratorX2,
         UniformMeshGeneratorX3},
   BoundaryFunction_{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-  AMRFlag_{}, UserSourceTerm_{}, UserTimeStep_{}, ViscosityCoeff_{},
-  ConductionCoeff_{}, FieldDiffusivity_{}, pblock(nullptr) {
+  AMRFlag_{}, UserSourceTerm_{}, UserTimeStep_{}, FieldDiffusivity_{}, pblock(nullptr) {
     std::stringstream msg;
     RegionSize block_size;
     MeshBlock *pfirst{};
@@ -545,8 +544,7 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper& resfile,
     MeshGenerator_{UniformMeshGeneratorX1, UniformMeshGeneratorX2,
                    UniformMeshGeneratorX3},
     BoundaryFunction_{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    AMRFlag_{}, UserSourceTerm_{}, UserTimeStep_{}, ViscosityCoeff_{},
-    ConductionCoeff_{}, FieldDiffusivity_{}, pblock(nullptr) {
+    AMRFlag_{}, UserSourceTerm_{}, UserTimeStep_{}, FieldDiffusivity_{}, pblock(nullptr) {
   std::stringstream msg;
   RegionSize block_size;
   BoundaryFlag block_bcs[6];
@@ -1013,7 +1011,6 @@ void Mesh::OutputMeshStructure(int ndim) {
 //----------------------------------------------------------------------------------------
 // \!fn void Mesh::NewTimeStep()
 // \brief function that loops over all MeshBlocks and find new timestep
-//        this assumes that phydro->NewBlockTimeStep is already called
 
 void Mesh::NewTimeStep() {
   MeshBlock *pmb = pblock;
@@ -1056,7 +1053,7 @@ void Mesh::NewTimeStep() {
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void Mesh::EnrollUserBoundaryFunction(BoundaryFace dir, BValHydro my_bc)
+//! \fn void Mesh::EnrollUserBoundaryFunction(BoundaryFace dir, BValFunc my_bc)
 //  \brief Enroll a user-defined boundary function
 
 void Mesh::EnrollUserBoundaryFunction(BoundaryFace dir, BValFunc my_bc) {
@@ -1168,24 +1165,6 @@ void Mesh::EnrollUserHistoryOutput(int i, HistoryOutputFunc my_func, const char 
 
 void Mesh::EnrollUserMetric(MetricFunc my_func) {
   UserMetric_ = my_func;
-  return;
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void Mesh::EnrollViscosityCoefficient(ViscosityCoeff my_func)
-//  \brief Enroll a user-defined magnetic field diffusivity function
-
-void Mesh::EnrollViscosityCoefficient(ViscosityCoeffFunc my_func) {
-  ViscosityCoeff_ = my_func;
-  return;
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void Mesh::EnrollConductionCoefficient(ConductionCoeff my_func)
-//  \brief Enroll a user-defined thermal conduction function
-
-void Mesh::EnrollConductionCoefficient(ConductionCoeffFunc my_func) {
-  ConductionCoeff_ = my_func;
   return;
 }
 
@@ -1482,32 +1461,6 @@ void Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size
 
 
 void Mesh::CorrectMidpointInitialCondition(std::vector<MeshBlock*> &pmb_array, int nmb) {
-#pragma omp for
-  for (int nb=0; nb<nmb; ++nb) {
-    auto pmb = pmb_array[nb];
-
-    // Assume cell-centered analytic value is computed at all real cells, and ghost
-    // cells with the cell-centered U have been exchanged
-    int il = pmb->is, iu = pmb->ie, jl = pmb->js, ju = pmb->je,
-        kl = pmb->ks, ku = pmb->ke;
-
-    // Laplacian of cell-averaged conserved variables, scalar concentrations
-    AthenaArray<Real> delta_cons_, delta_s_;
-
-    // Allocate memory for 4D Laplacian
-    int ncells4 = NHYDRO;
-    int nl = 0;
-    int nu = ncells4 - 1;
-    delta_cons_.NewAthenaArray(ncells4, pmb->ncells3, pmb->ncells2, pmb->ncells1);
-
-
-
-    // TODO(felker): assuming uniform mesh with dx1f=dx2f=dx3f, so this factors out
-    // TODO(felker): also, this may need to be dx1v, since Laplacian is cell-center
-    Real h = pmb->pcoord->dx1f(il);  // pco->dx1f(i); inside loop
-    Real C = (h*h)/24.0;
-  } // end loop over MeshBlocks
-
   // begin second exchange of ghost cells with corrected cell-averaged <U>
   // -----------------  (mostly copied from above section in Mesh::Initialize())
   // prepare to receive conserved variables
@@ -1536,8 +1489,6 @@ void Mesh::CorrectMidpointInitialCondition(std::vector<MeshBlock*> &pmb_array, i
 }
 
 // Public function for advancing next_phys_id_ counter
-// E.g. if chemistry or radiation elects to communicate additional information with MPI
-// outside the framework of the BoundaryVariable classes
 
 // Store signed, but positive, integer corresponding to the next unused value to be used
 // as unique ID for a BoundaryVariable object's single set of MPI calls (formerly "enum

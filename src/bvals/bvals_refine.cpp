@@ -35,7 +35,7 @@ namespace parthenon {
 // -----------
 
 // In both Mesh::Initialize and time_integartor.cpp, this wrapper function
-// ProlongateBoundaries expects to have Hydro (and passive scalar)-associated
+// ProlongateBoundaries expects to have associated
 // BoundaryVariable objects with member pointers pointing to their CONSERVED VARIABLE
 // ARRAYS (standard and coarse buffers) by the time this function is called.
 
@@ -46,10 +46,7 @@ namespace parthenon {
 // However, this is currently not a strict requirement, since all below
 // MeshRefinement::Prolongate*() and Restrict*() calls refer directly to
 // MeshRefinement::pvars_cc_, pvars_fc_ vectors, NOT the var_cc, coarse_buf ptr members of
-// CellCenteredBoundaryVariable objects, e.g. And the first step in this function,
-// RestrictGhostCellsOnSameLevel, by default operates on the S/AMR-enrolled:
-// (u, coarse_cons) for Hydro and (s, coarse_s) for PassiveScalars
-// (also on (w, coarse_prim) for Hydro if GR):
+// CellCenteredBoundaryVariable objects
 
 // -----------
 // There are three sets of variable pointers used in this file:
@@ -59,7 +56,7 @@ namespace parthenon {
 // 2) MeshRefinement tuples of pointers: pvars_cc_
 // -- Used in RestrictGhostCellsOnSameLevel() and ProlongateGhostCells()
 
-// 3) Hardcoded pointers through MeshBlock members (pmb->phydro->w, e.g. )
+// 3) Hardcoded pointers through MeshBlock members
 // -- Used in ApplyPhysicalBoundariesOnCoarseLevel() and ProlongateGhostCells() where
 // physical quantities are coupled through EquationOfState
 
@@ -83,18 +80,10 @@ void BoundaryValues::ProlongateBoundaries(const Real time, const Real dt) {
   MeshBlock *pmb = pmy_block_;
   int &mylevel = pmb->loc.level;
 
-  // TODO(KGF): temporarily hardcode Hydro and Field array access for the below switch
-  // around ApplyPhysicalBoundariesOnCoarseLevel()
-
   // This hardcoded technique is also used to manually specify the coupling between
   // physical variables in:
   // - step 2, ApplyPhysicalBoundariesOnCoarseLevel(): calls to W(U) and user BoundaryFunc
   // - step 3, ProlongateGhostCells(): calls to calculate bcc and U(W)
-
-  // Additionally, pmr->SetHydroRefinement() is currently used in
-  // RestrictGhostCellsOnSameLevel() (GR) and ProlongateGhostCells() (always) to switch
-  // between conserved and primitive tuples in MeshRefinement::pvars_cc_, but this does
-  // not require ph, pf due to MeshRefinement::SetHydroRefinement(hydro_type)
 
   // downcast BoundaryVariable pointers to known derived class pointer types:
   // RTTI via dynamic_case
@@ -289,9 +278,6 @@ void BoundaryValues::ProlongateGhostCells(const NeighborBlock& nb,
                                           int sk, int ek) {
   MeshBlock *pmb = pmy_block_;
   auto &pmr = pmb->pmr;
-
-  // prolongate cell-centered S/AMR-enrolled quantities (hydro, radiation, scalars, ...)
-  //(unique to Hydro, PassiveScalars): swap ptrs to (w, coarse_prim) from (u, coarse_cons)
 
   for (auto cc_pair : pmr->pvars_cc_) {
     AthenaArray<Real> *var_cc = std::get<0>(cc_pair);

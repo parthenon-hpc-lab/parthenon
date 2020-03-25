@@ -48,7 +48,7 @@
 
 namespace parthenon {
 //----------------------------------------------------------------------------------------
-// MeshBlock constructor: constructs coordinate, boundary condition, hydro, field
+// MeshBlock constructor: constructs coordinate, boundary condition, field
 //                        and mesh refinement objects.
 static int id=0;
 MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
@@ -108,8 +108,7 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
   vars_fc_.reserve(3);
 
   // construct objects stored in MeshBlock class.  Note in particular that the initial
-  // conditions for the simulation are set in problem generator called from main, not
-  // in the Hydro constructor
+  // conditions for the simulation are set in problem generator called from main
 
   // mesh-related objects
   // Boundary
@@ -132,15 +131,8 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
   // terms, and may enroll quantities in AMR and BoundaryVariable objs. in BoundaryValues
   //  if (Globals::my_rank == 0) { real_container.print(); }
 
-  // TODO(felker): prepare this section of the MeshBlock ctor to become more complicated
-  // for several extensions:
-  // 1) allow solver to compile without a Hydro class (or with a Hydro class for the
-  // background fluid that is not dynamically evolved)
-  // 2) MPI ranks containing MeshBlocks that solve a subset of the physics, e.g. Gravity
-  // but not Hydro.
-
   // KGF: suboptimal solution, since developer must copy/paste BoundaryVariable derived
-  // class type that is used in each PassiveScalars, Field, Hydro, ... etc. class
+  // class type that is used in each PassiveScalars, Field, ... etc. class
   // in order to correctly advance the BoundaryValues::bvars_next_phys_id_ local counter.
 
   // TODO(felker): check that local counter pbval->bvars_next_phys_id_ agrees with shared
