@@ -61,8 +61,8 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
     gid(igid), lid(ilid), gflag(igflag), nuser_out_var(), prev(nullptr), next(nullptr),
     new_block_dt_{}, new_block_dt_hyperbolic_{}, new_block_dt_parabolic_{},
     new_block_dt_user_{},
-    nreal_user_meshblock_data_(), nint_user_meshblock_data_(), cost_(1.0), properties(properties),
-    packages(packages) {
+    nreal_user_meshblock_data_(), nint_user_meshblock_data_(), cost_(1.0),
+    properties(properties), packages(packages), exec_space(DevSpace()) {
   // initialize grid indices
   is = NGHOST;
   ie = is + block_size.nx1 - 1;
@@ -107,8 +107,6 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
   // (probably don't need to preallocate space for references in these vectors)
   vars_cc_.reserve(3);
   vars_fc_.reserve(3);
-
-  exec_space = DevSpace(); // init execution space to default device
 
   // construct objects stored in MeshBlock class.  Note in particular that the initial
   // conditions for the simulation are set in problem generator called from main, not
@@ -209,7 +207,8 @@ MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
     gid(igid), lid(ilid), gflag(igflag), nuser_out_var(), prev(nullptr), next(nullptr),
     new_block_dt_{}, new_block_dt_hyperbolic_{}, new_block_dt_parabolic_{},
     new_block_dt_user_{},
-    nreal_user_meshblock_data_(), nint_user_meshblock_data_(), cost_(icost), properties(properties) {
+    nreal_user_meshblock_data_(), nint_user_meshblock_data_(), cost_(icost),
+    properties(properties), exec_space(DevSpace()) {
   // initialize grid indices
 
   //std::cerr << "WHY AM I HERE???" << std::endl;
@@ -253,8 +252,6 @@ MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
     if (pmy_mesh->ndim >= 3) // 3D
       cks = NGHOST, cke = cks + block_size.nx3/2 - 1;
   }
-
-  exec_space = DevSpace(); // init execution space to default device
 
   // (re-)create mesh-related objects in MeshBlock
 

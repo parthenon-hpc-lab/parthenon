@@ -165,33 +165,33 @@ class MeshBlock {
 
   // 1D default loop pattern
   template <typename Function>
-  inline void par_for(const std::string &NAME, const int &IL, const int &IU,
+  inline void par_for(const std::string &name, const int &il, const int &iu,
                       const Function &function) {
-    parthenon::par_for(NAME, exec_space, IL, IU, function);
+    parthenon::par_for(name, exec_space, il, iu, function);
   }
 
   // 2D default loop pattern
   template <typename Function>
-  inline void par_for(const std::string &NAME, const int &JL, const int &JU,
-                      const int &IL, const int &IU, const Function &function) {
-    parthenon::par_for(NAME, exec_space, JL, JU, IL, IU, function);
+  inline void par_for(const std::string &name, const int &jl, const int &ju,
+                      const int &il, const int &iu, const Function &function) {
+    parthenon::par_for(name, exec_space, jl, ju, il, iu, function);
   }
 
   // 3D default loop pattern
   template <typename Function>
-  inline void par_for(const std::string &NAME, const int &KL, const int &KU,
-                      const int &JL, const int &JU, const int &IL,
-                      const int &IU, const Function &function) {
-    parthenon::par_for(NAME, exec_space, KL, KU, JL, JU, IL, IU, function);
+  inline void par_for(const std::string &name, const int &kl, const int &ku,
+                      const int &jl, const int &ju, const int &il,
+                      const int &iu, const Function &function) {
+    parthenon::par_for(name, exec_space, kl, ku, jl, ju, il, iu, function);
   }
 
   // 4D default loop pattern
   template <typename Function>
-  inline void par_for(const std::string &NAME, const int &NL, const int &NU,
-                      const int &KL, const int &KU, const int &JL,
-                      const int &JU, const int &IL, const int &IU,
+  inline void par_for(const std::string &name, const int &nl, const int &nu,
+                      const int &kl, const int &ku, const int &jl,
+                      const int &ju, const int &il, const int &iu,
                       const Function &function) {
-    parthenon::par_for(NAME, exec_space, NL, NU, KL, KU, JL, JU, IL, IU, function);
+    parthenon::par_for(name, exec_space, nl, nu, kl, ku, jl, ju, il, iu, function);
   }
 
   std::size_t GetBlockSizeInBytes();
