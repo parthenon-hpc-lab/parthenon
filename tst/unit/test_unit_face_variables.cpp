@@ -52,7 +52,7 @@ TEST_CASE("Can create a vector-valued face-variable",
         REQUIRE(f.Get(3).GetDim2() == blockShape[1]);
         REQUIRE(f.Get(3).GetDim3() == blockShape[2] + 1);
         for (int d = 1; d <= 3; d++) {
-          f.Get(d).GetDim4() == array_size[0];
+          REQUIRE( f.Get(d).GetDim4() == array_size[0] );
         }
         AND_THEN("The metadata is correct") {
           REQUIRE( f.metadata() == m );

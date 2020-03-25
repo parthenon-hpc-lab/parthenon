@@ -46,9 +46,9 @@ class Variable : public AthenaArray<T> {
   /// Initialize a blank slate that will be set later
   Variable<T>(const std::string label, Metadata &metadata) :
     AthenaArray<T>(),
+    mpiStatus(true),
     _m(metadata),
-    _label(label),
-    mpiStatus(true) {
+    _label(label) {
     //    std::cout << "_____CREATED VAR: " << _label << ":" << this << std::endl;
   }
 
@@ -59,9 +59,9 @@ class Variable : public AthenaArray<T> {
               const int index,
               const int nvar) :
     AthenaArray<T>(),
-    _label(label),
+    mpiStatus(true),
     _m(src.metadata()),
-    mpiStatus(true)  {
+    _label(label) {
     this->InitWithShallowSlice(src, dim, index, nvar);
     if ( _m.isSet(_m.fillGhost) ) {
       _m.set(_m.sharedComms);
@@ -72,9 +72,9 @@ class Variable : public AthenaArray<T> {
   /// Create an alias for the variable by making a shallow slice with max dim
   Variable<T>(const std::string label, Variable<T> &src) :
     AthenaArray<T>(),
-    _label(label),
+    mpiStatus(true),
     _m(src.metadata()),
-    mpiStatus(true) {
+    _label(label) {
     int dim = 6;
     int start = 0;
     int nvar = src.GetDim6();

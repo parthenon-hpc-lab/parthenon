@@ -208,6 +208,7 @@ void Container<T>::Remove(const std::string label) {
 
 template <typename T>
 void Container<T>::SendFluxCorrection() {
+  return;
   for (auto &v : _varArray) {
     if ( (v->metadata()).isIndependent() ) {
       v->vbvar->SendFluxCorrection();

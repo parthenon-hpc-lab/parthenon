@@ -93,6 +93,7 @@ Mesh::Mesh(ParameterInput *pin,
   dt_diagnostics(pin->GetOrAddInteger("time", "dt_diagnostics", -1)),
   nbnew(), nbdel(),
   step_since_lb(), gflag(),
+  pblock(nullptr),
   properties(properties),
   packages(packages),
   // private members:
@@ -105,7 +106,7 @@ Mesh::Mesh(ParameterInput *pin,
         UniformMeshGeneratorX3},
   BoundaryFunction_{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
   AMRFlag_{}, UserSourceTerm_{}, UserTimeStep_{}, ViscosityCoeff_{},
-  ConductionCoeff_{}, FieldDiffusivity_{}, pblock(nullptr) {
+  ConductionCoeff_{}, FieldDiffusivity_{} {
     std::stringstream msg;
     RegionSize block_size;
     MeshBlock *pfirst{};
@@ -265,7 +266,6 @@ Mesh::Mesh(ParameterInput *pin,
   // SMR / AMR:
   if (adaptive) {
     max_level = pin->GetOrAddInteger("mesh", "numlevel", 1) + root_level - 1;
-    std::cerr << "max level is " << max_level - (root_level - 1) << std::endl;
     if (max_level > 63) {
       msg << "### FATAL ERROR in Mesh constructor" << std::endl
           << "The number of the refinement level must be smaller than "
@@ -508,7 +508,6 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper& resfile,
     // public members:
     // aggregate initialization of RegionSize struct:
     // (will be overwritten by memcpy from restart file, in this case)
-    pblock(nullptr), 
     mesh_size{pin->GetReal("mesh", "x1min"), pin->GetReal("mesh", "x2min"),
               pin->GetReal("mesh", "x3min"), pin->GetReal("mesh", "x1max"),
               pin->GetReal("mesh", "x2max"), pin->GetReal("mesh", "x3max"),
@@ -536,6 +535,7 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper& resfile,
     dt_diagnostics(pin->GetOrAddInteger("time", "dt_diagnostics", -1)),
     nbnew(), nbdel(),
     step_since_lb(), gflag(),
+    pblock(nullptr), 
     properties(properties),
     packages(packages),
     // private members:

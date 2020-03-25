@@ -23,7 +23,7 @@ problem_id = advection
 
 <mesh>
 refinement = adaptive
-numlevel = 2
+numlevel = 3
 
 nx1 = 64
 x1min = -0.5

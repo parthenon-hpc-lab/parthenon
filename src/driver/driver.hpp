@@ -62,7 +62,6 @@ namespace DriverUtils {
     MeshBlock *pmb = driver->pmesh->pblock;
     while (pmb != nullptr) {
       task_lists.push_back (driver->MakeTaskList(pmb, std::forward<Args>(args)...) );
-      //task_lists.back().Print();
       pmb = pmb->next;
     }
     int complete_cnt = 0;
@@ -77,6 +76,7 @@ namespace DriverUtils {
         }
       }
     }
+    //std::exit(1);
     return TaskListStatus::complete;
   }
 } // namespace DriverUtils

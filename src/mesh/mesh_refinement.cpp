@@ -957,8 +957,7 @@ void MeshRefinement::ProlongateInternalField(
 void MeshRefinement::CheckRefinementCondition() {
   MeshBlock *pmb = pmy_block_;
   Container<Real>& rc = pmb->real_containers.Get();
-  int ret;
-  ret = BetterRefinement::CheckAllRefinement(rc);
+  int ret = BetterRefinement::CheckAllRefinement(rc);
   //if (AMRFlag_ != nullptr) ret = AMRFlag_(pmb);
   SetRefinement(ret);
 }
@@ -966,6 +965,8 @@ void MeshRefinement::CheckRefinementCondition() {
 void MeshRefinement::SetRefinement(int flag) {
   MeshBlock *pmb = pmy_block_;
   int aret = std::max(-1,flag);
+
+  if (aret == 0) refine_flag_ = 0;
 
   if (aret >= 0)
     deref_count_ = 0;
@@ -1013,6 +1014,7 @@ void MeshRefinement::SetRefinement(int flag) {
       }
     }
   }
+
   return;
 }
 

@@ -93,7 +93,7 @@ template <typename T>
 Variable<T>::Variable(const Variable<T> &src,
                       const bool allocComms,
                       MeshBlock *pmb) :
-  AthenaArray<T>(src), _label(src.label()), _m(src.metadata()), mpiStatus(false) {
+  AthenaArray<T>(src), mpiStatus(false), _m(src.metadata()), _label(src.label())  {
   //std::cout << "_____CREATED VAR COPY: " << _label << ":" << this << std::endl;
   if (_m.isSet(Metadata::fillGhost)) {
     // Ghost cells are communicated, so make shallow copies

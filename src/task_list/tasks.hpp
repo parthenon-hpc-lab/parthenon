@@ -45,11 +45,14 @@ using BlockStageNamesIntegratorTaskFunc =
 //! \class TaskID
 //  \brief generalization of bit fields for Task IDs, status, and dependencies.
 
-#define BITBLOCK 64
+#define BITBLOCK 16
+
 class TaskID {
  public:
-  TaskID() = default;
-  explicit TaskID(int id);
+  TaskID() {
+    Set(0);
+  };
+  TaskID(int id);
 
   void Set(int id);
   void clear();
@@ -172,10 +175,17 @@ class TaskList {
     for (auto & task : _task_list) {
       auto dep = task->GetDependency();
       if(_tasks_completed.CheckDependencies(dep)) {
+        /*std::cerr << "Task dependency met:" << std::endl
+                  << dep.to_string() << std::endl 
+                  << _tasks_completed.to_string() << std::endl 
+                  << task->GetID().to_string() << std::endl << std::endl;*/
         TaskStatus status = (*task)();
         if (status == TaskStatus::success) {
           task->SetComplete();
           MarkTaskComplete(task->GetID());
+          /*std::cerr << "Task complete:" << std::endl
+                    << task->GetID().to_string() << std::endl 
+                    << _tasks_completed.to_string() << std::endl << std::endl;*/          
         }
       }
     }
