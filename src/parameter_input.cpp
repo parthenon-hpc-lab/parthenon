@@ -79,6 +79,16 @@ ParameterInput::ParameterInput() :pfirst_block{}, last_filename_{} {
 #endif
 }
 
+ParameterInput::ParameterInput(std::string input_filename) : pfirst_block{}, last_filename_{} {
+#ifdef OPENMP_PARALLEL
+  omp_init_lock(&lock_);
+#endif
+  IOWrapper infile;
+  infile.Open(input_filename.c_str(), IOWrapper::FileMode::read);
+  LoadFromFile(infile);
+  infile.Close();
+}
+
 // ParameterInput destructor- iterates through nested singly linked lists of blocks/lines
 // and deletes each InputBlock node (whose destructor below deletes linked list "line"
 // nodes)

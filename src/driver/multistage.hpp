@@ -10,9 +10,45 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#include "MaterialPropertiesInterface.hpp"
+
+#ifndef MULTISTAGE_HPP
+#define MULTISTAGE_HPP
+
+#include <vector>
+#include <string>
+
+#include "driver/driver.hpp"
+#include "parameter_input.hpp"
+#include "mesh/mesh.hpp"
 
 namespace parthenon {
-// Initialize the static map of ids
-std::map<std::string, int> MaterialPropertiesInterface::_label_to_id;
-}
+
+struct Integrator {
+    Integrator() = default;
+    Integrator(int nstages, std::vector<Real> beta) : _nstages(nstages), _beta(beta) {}
+    int _nstages;
+    std::vector<Real> _beta;
+};
+
+class MultiStageDriver : public EvolutionDriver {
+  public:
+    MultiStageDriver(ParameterInput *pin, Mesh *pm, Outputs *pout);
+    std::vector<std::string> stage_name;
+    Integrator *integrator;
+    ~MultiStageDriver() {
+      delete integrator;
+    }
+  private:
+};
+
+class MultiStageBlockTaskDriver : public MultiStageDriver {
+  public:
+    MultiStageBlockTaskDriver(ParameterInput *pin, Mesh *pm, Outputs *pout) : MultiStageDriver(pin,pm,pout) {}
+    TaskListStatus Step();
+    virtual TaskList MakeTaskList(MeshBlock *pmb, int stage) = 0;
+
+};
+
+} // namespace parthenon
+
+#endif

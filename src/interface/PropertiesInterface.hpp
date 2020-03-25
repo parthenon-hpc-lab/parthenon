@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef PARTHENON_INTERFACE_MATERIALPROPERTIESINTERFACE_HPP_
-#define PARTHENON_INTERFACE_MATERIALPROPERTIESINTERFACE_HPP_
+#ifndef PARTHENON_INTERFACE_PROPERTIESINTERFACE_HPP_
+#define PARTHENON_INTERFACE_PROPERTIESINTERFACE_HPP_
 
 #include <map>
 #include <string>
@@ -19,18 +19,19 @@
 #include "interface/StateDescriptor.hpp"
 
 namespace parthenon {
-class MaterialPropertiesInterface {
+
+class PropertiesInterface {
 public:
-  virtual ~MaterialPropertiesInterface() {}
+  virtual ~PropertiesInterface() {}
 
   virtual StateDescriptor &State() = 0;
 
   static int GetIDFromLabel(std::string &label) {
-    return MaterialPropertiesInterface::_label_to_id[label];
+    return PropertiesInterface::_label_to_id[label];
   }
 
   static std::string GetLabelFromID(int id) {
-    for (auto &x : MaterialPropertiesInterface::_label_to_id) {
+    for (auto &x : PropertiesInterface::_label_to_id) {
       if (x.second == id)
         return x.first;
     }
@@ -38,26 +39,17 @@ public:
   }
 
   static void InsertID(const std::string &label, const int &id) {
-    MaterialPropertiesInterface::_label_to_id[label] = id;
+    PropertiesInterface::_label_to_id[label] = id;
   }
 
 private:
   // _label_to_id is declared here and defined in
-  // MaterialPropertiesInterface.cpp
+  // PropertiesInterface.cpp
   static std::map<std::string, int> _label_to_id;
 };
 
-template <typename T>
-auto ConvertMaterialPropertiesToInterface(
-    const std::vector<std::shared_ptr<T>> &materials) {
-  static_assert(std::is_base_of<MaterialPropertiesInterface, T>::value,
-                "Type given to ConvertMaterialPropertiesToInterface is not "
-                "derived from MaterialPropertiesInterface");
-  std::vector<std::shared_ptr<MaterialPropertiesInterface>> res;
-  for (auto mat : materials)
-    res.push_back(mat);
+using Properties_t = std::vector<std::shared_ptr<PropertiesInterface>>;
 
-  return res;
-}
-}
-#endif // PARTHENON_INTERFACE_MATERIALPROPERTIESINTERFACE_HPP_
+} // namespace parthenon
+
+#endif // PARTHENON_INTERFACE_PROPERTIESINTERFACE_HPP_

@@ -134,13 +134,22 @@ void Mesh::CalculateLoadBalance(double *clist, int *rlist, int *slist, int *nlis
               << "This will result in poor load balancing." << std::endl;
   }
 #endif
-  if ((Globals::nranks)*(num_mesh_threads_) > nb) {
-    msg << "### FATAL ERROR in CalculateLoadBalance" << std::endl
+  if (Globals::nranks * num_mesh_threads_ > nb) {
+    if (!adaptive) {
+      // mesh is refined statically, treat this an as error (all ranks need to participate)
+      msg << "### FATAL ERROR in CalculateLoadBalance" << std::endl
         << "There are fewer MeshBlocks than OpenMP threads on each MPI rank" << std::endl
         << "Decrease the number of threads or use more MeshBlocks." << std::endl;
-    ATHENA_ERROR(msg);
+      ATHENA_ERROR(msg);
+    } else if (Globals::my_rank == 0) {
+      // we have AMR, print warning only on Rank 0
+      std::cout << "### WARNING in CalculateLoadBalance" << std::endl
+        << "There are fewer MeshBlocks than OpenMP threads on each MPI rank" << std::endl
+        << "This is likely fine if the number of meshblocks is expected to grow during the "
+        "simulations. Otherwise, it might be worthwhile to decrease the number of threads or "
+        "use more meshblocks." << std::endl;
+    }
   }
-  return;
 }
 
 //----------------------------------------------------------------------------------------
@@ -465,6 +474,9 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
     nx4_tot += var_cc.GetDim4();
   }
 
+  const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d 
+  const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d 
+
   // cell-centered quantities enrolled in SMR/AMR
   int bssame = bnx1*bnx2*bnx3*nx4_tot;
   int bsf2c = (bnx1/2)*((bnx2 + 1)/2)*((bnx3 + 1)/2)*nx4_tot;
@@ -598,11 +610,11 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
       // insert new block in singly-linked list of MeshBlocks
       if (n == nbs) { // first node
         newlist = new MeshBlock(n, n-nbs, newloc[n], block_size, block_bcs, this,
-                                pin, materials, physics, gflag, true);
+                                pin, properties, packages, gflag, true);
         pmb = newlist;
       } else {
         pmb->next = new MeshBlock(n, n-nbs, newloc[n], block_size, block_bcs, this,
-                                  pin, materials, physics, gflag, true);
+                                  pin, properties, packages, gflag, true);
         pmb->next->prev = pmb;
         pmb = pmb->next;
       }
@@ -621,7 +633,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
         FillSameRankCoarseToFineAMR(pob, pmb, newloc[n]);
       }
       ApplyBoundaryConditions(pmb->real_container);
-      Update::FillDerived(pre_fill_derived_, pmb->real_container);
+      FillDerivedVariables::FillDerived(pmb->real_container);
     }
   }
 
@@ -714,6 +726,8 @@ void Mesh::PrepareSendSameLevel(MeshBlock* pb, Real *sendbuf) {
   // pack
   int p = 0;
 
+  const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d 
+  const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d 
   // this helper fn is used for AMR and non-refinement load balancing of
   // MeshBlocks. Therefore, unlike PrepareSendCoarseToFineAMR(), etc., it loops over
   // MeshBlock::vars_cc/fc_ containers, not MeshRefinement::pvars_cc/fc_ containers
@@ -750,16 +764,34 @@ void Mesh::PrepareSendSameLevel(MeshBlock* pb, Real *sendbuf) {
 
 void Mesh::PrepareSendCoarseToFineAMR(MeshBlock* pb, Real *sendbuf,
                                       LogicalLocation &lloc) {
+
+  const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d 
+  const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d 
   int ox1 = ((lloc.lx1 & 1LL) == 1LL), ox2 = ((lloc.lx2 & 1LL) == 1LL),
       ox3 = ((lloc.lx3 & 1LL) == 1LL);
   // pack
   int il, iu, jl, ju, kl, ku;
-  if (ox1 == 0) il = pb->is - 1,               iu = pb->is + pb->block_size.nx1/2;
-  else        il = pb->is + pb->block_size.nx1/2-1,  iu = pb->ie + 1;
-  if (ox2 == 0) jl = pb->js - f2,              ju = pb->js + pb->block_size.nx2/2;
-  else        jl = pb->js + pb->block_size.nx2/2 - f2, ju = pb->je + f2;
-  if (ox3 == 0) kl = pb->ks - f3,              ku = pb->ks + pb->block_size.nx3/2;
-  else        kl = pb->ks + pb->block_size.nx3/2 - f3, ku = pb->ke + f3;
+  if (ox1 == 0) { 
+    il = pb->is - 1;
+    iu = pb->is + pb->block_size.nx1/2;
+  } else {       
+    il = pb->is + pb->block_size.nx1/2-1;
+    iu = pb->ie + 1;
+  }
+  if (ox2 == 0) { 
+    jl = pb->js - f2;
+    ju = pb->js + pb->block_size.nx2/2;
+  } else {        
+    jl = pb->js + pb->block_size.nx2/2 - f2;
+    ju = pb->je + f2;
+  }
+  if (ox3 == 0) { 
+    kl = pb->ks - f3;
+    ku = pb->ks + pb->block_size.nx3/2;
+  } else {        
+    kl = pb->ks + pb->block_size.nx3/2 - f3;
+    ku = pb->ke + f3;
+  }
   int p = 0;
   for (auto cc_pair : pb->pmr->pvars_cc_) {
     AthenaArray<Real> *var_cc = std::get<0>(cc_pair);
@@ -783,6 +815,8 @@ void Mesh::PrepareSendCoarseToFineAMR(MeshBlock* pb, Real *sendbuf,
 
 void Mesh::PrepareSendFineToCoarseAMR(MeshBlock* pb, Real *sendbuf) {
   // restrict and pack
+  const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d 
+  const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d 
   auto &pmr = pb->pmr;
   int p = 0;
   for (auto cc_pair : pmr->pvars_cc_) {
@@ -867,6 +901,9 @@ void Mesh::FillSameRankFineToCoarseAMR(MeshBlock* pob, MeshBlock* pmb,
     pmb_cc_it++;
   }
 
+  const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d 
+  const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d 
+
   auto pmb_fc_it = pmb->pmr->pvars_fc_.begin();
   for (auto fc_pair : pmr->pvars_fc_) {
     FaceField *var_fc = std::get<0>(fc_pair);
@@ -926,6 +963,10 @@ void Mesh::FillSameRankFineToCoarseAMR(MeshBlock* pob, MeshBlock* pmb,
 void Mesh::FillSameRankCoarseToFineAMR(MeshBlock* pob, MeshBlock* pmb,
                                        LogicalLocation &newloc) {
   auto &pmr = pmb->pmr;
+
+  const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d 
+  const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d 
+
   int il = pob->cis - 1, iu = pob->cie + 1, jl = pob->cjs - f2,
       ju = pob->cje + f2, kl = pob->cks - f3, ku = pob->cke + f3;
   int cis = ((newloc.lx1 & 1LL) == 1LL)*pob->block_size.nx1/2 + pob->is - 1;
@@ -1001,6 +1042,9 @@ void Mesh::FillSameRankCoarseToFineAMR(MeshBlock* pob, MeshBlock* pmb,
 // step 8 (receive and load), branch 1 (same2same: unpack)
 void Mesh::FinishRecvSameLevel(MeshBlock *pb, Real *recvbuf) {
   int p = 0;
+  const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d 
+  const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d 
+
   for (AthenaArray<Real> &var_cc : pb->vars_cc_) {
     int nu = var_cc.GetDim4() - 1;
     BufferUtility::UnpackData(recvbuf, var_cc, 0, nu,
@@ -1036,6 +1080,10 @@ void Mesh::FinishRecvSameLevel(MeshBlock *pb, Real *recvbuf) {
 // step 8 (receive and load), branch 2 (f2c: unpack)
 void Mesh::FinishRecvFineToCoarseAMR(MeshBlock *pb, Real *recvbuf,
                                      LogicalLocation &lloc) {
+
+  const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d 
+  const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d 
+
   int ox1 = ((lloc.lx1 & 1LL) == 1LL), ox2 = ((lloc.lx2 & 1LL) == 1LL),
       ox3 = ((lloc.lx3 & 1LL) == 1LL);
   int p = 0, il, iu, jl, ju, kl, ku;
@@ -1077,6 +1125,9 @@ void Mesh::FinishRecvFineToCoarseAMR(MeshBlock *pb, Real *recvbuf,
 
 // step 8 (receive and load), branch 2 (c2f: unpack+prolongate)
 void Mesh::FinishRecvCoarseToFineAMR(MeshBlock *pb, Real *recvbuf) {
+
+  const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d 
+  const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d 
   auto &pmr = pb->pmr;
   int p = 0;
   int il = pb->cis - 1, iu = pb->cie+1, jl = pb->cjs - f2,

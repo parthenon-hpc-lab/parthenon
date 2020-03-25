@@ -17,10 +17,10 @@
 #include <map>
 #include <vector>
 
+#include "better_refinement/amr_criteria.hpp"
 #include "interface/Metadata.hpp"
 #include "interface/Params.hpp"
 #include "interface/Container.hpp"
-#include "better_refinement/better_refinement.hpp"
 
 namespace parthenon {
 enum class DerivedOwnership {shared, unique};
@@ -95,7 +95,7 @@ class StateDescriptor {
     // get all metadata for this physics
     const std::map<std::string, Metadata>& AllMetadata() { return _metadataMap; }
 
-    std::vector<AMRCriteria> amr_criteria;
+    std::vector<std::shared_ptr<AMRCriteria>> amr_criteria;
     void (*FillDerived)(Container<Real>& rc);
     Real (*EstimateTimestep)(Container<Real>& rc);
     int (*CheckRefinement)(Container<Real>& rc);
@@ -106,5 +106,8 @@ class StateDescriptor {
     const std::string _label;
     std::map<std::string, Metadata> _metadataMap;
 };
+
+using Packages_t = std::map<std::string, std::shared_ptr<StateDescriptor>>;
+
 }
 #endif // STATE_DESCRIPTOR_HPP

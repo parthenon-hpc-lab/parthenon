@@ -6,6 +6,7 @@ before_script:
     - export OMP_PLACES=cores
     - export OMP_NUM_THREADS=1
     - export CMAKE_VERSION=3.10.3
+    - export CTEST_OUTPUT_ON_FAILURE=1
     - wget -qO- http://www.cmake.org/files/v${CMAKE_VERSION:0:4}/cmake-${CMAKE_VERSION}-Linux-x86_64.tar.gz | tar -xvz
     - export PATH=$(pwd)/cmake-${CMAKE_VERSION}-Linux-x86_64/bin:$PATH
   
@@ -21,7 +22,8 @@ style-check:
     - cpu
   stage: style
   script:
-    - echo "Placeholder. See https://github.com/lanl/parthenon/issues/16"
+    - python ./tst/style/cpplint.py --counting=detailed --recursive src example tst
+  allow_failure: true
 
 # PLACEHOLDER run short suite on GPUs
 #parthenon-cuda-short:

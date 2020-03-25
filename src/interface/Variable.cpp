@@ -31,7 +31,7 @@ Variable<T>::~Variable() {
   if (_m.isSet(_m.fillGhost)) {
 
     // not sure if destructor is called for flux, need to check --Sriram
-    
+
     // flux is a different variable even if shared
     // so always delete
     //    for (int i=0; i<3; i++) flux[i].DeleteAthenaArray();
@@ -142,10 +142,10 @@ void Variable<T>::allocateComms(MeshBlock *pmb) {
   const int _dim5 = this->GetDim5();
   const int _dim6 = this->GetDim6();
   flux[0].NewAthenaArray(_dim4, pmb->ncells3, pmb->ncells2, pmb->ncells1+1);
-  if (pmb->pmy_mesh->f2) {
+  if (pmb->pmy_mesh->ndim >= 2) {
     flux[1].NewAthenaArray(_dim4, pmb->ncells3, pmb->ncells2+1, pmb->ncells1);
   }
-  if (pmb->pmy_mesh->f3) {
+  if (pmb->pmy_mesh->ndim >= 3) {
     flux[2].NewAthenaArray(_dim4, pmb->ncells3+1, pmb->ncells2, pmb->ncells1);
   }
   coarse_s = new AthenaArray<Real>(_dim4, pmb->ncc3, pmb->ncc2, pmb->ncc1,
@@ -221,4 +221,4 @@ std::string EdgeVariable::info() {
 }
 
 template class Variable<Real>;
-}
+} // namespace parthenon

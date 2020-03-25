@@ -11,30 +11,27 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef BETTER_REFINEMENT_HPP_PK
-#define BETTER_REFINEMENT_HPP_PK
+#ifndef BETTER_REFINEMENT_BETTER_REFINEMENT_HPP_
+#define BETTER_REFINEMENT_BETTER_REFINEMENT_HPP_
 
+#include <memory>
 #include <string>
 #include "athena.hpp"
-#include "interface/Variable.hpp"
 #include "interface/Container.hpp"
+#include "interface/StateDescriptor.hpp"
+#include "interface/Variable.hpp"
 
 namespace parthenon {
-using RefineFunction = int (Variable<Real>& , const Real , const Real);
 
-struct AMRCriteria {
-  public:
-    AMRCriteria(std::string field, RefineFunction* rfunc, const Real refine_criteria, const Real derefine_criteria) :
-                _field(field), _refine_func(rfunc), _refine_criteria(refine_criteria), _derefine_criteria(derefine_criteria) {}
-    std::string _field;
-    RefineFunction* _refine_func;
-    const Real _refine_criteria, _derefine_criteria;
-};
+class ParameterInput;
 
 namespace BetterRefinement {
-  int CheckRefinement(Container<Real>& rc);
-  int FirstDerivative(Variable<Real>& q, const Real refine_criteria, const Real derefine_criteria);
-};
+  std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
+  int CheckAllRefinement(Container<Real>& rc);
+  int FirstDerivative(Variable<Real>& q,
+                      const Real refine_criteria, const Real derefine_criteria);
+} // namespace BetterRefinement
 
-}
-#endif
+} // namespace parthenon
+
+#endif // BETTER_REFINEMENT_BETTER_REFINEMENT_HPP_

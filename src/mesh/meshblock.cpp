@@ -53,23 +53,22 @@ namespace parthenon {
 static int id=0;
 MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
                      BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
-                     std::vector<std::shared_ptr<MaterialPropertiesInterface>>& mats,
-                     std::map<std::string, std::shared_ptr<StateDescriptor>>& phys,
+                     Properties_t& properties,
+                     Packages_t& packages,
                      int igflag, bool ref_flag) :
     pmy_mesh(pm), loc(iloc), block_size(input_block),
     gid(igid), lid(ilid), gflag(igflag), nuser_out_var(), prev(nullptr), next(nullptr),
     new_block_dt_{}, new_block_dt_hyperbolic_{}, new_block_dt_parabolic_{},
     new_block_dt_user_{},
-    nreal_user_meshblock_data_(), nint_user_meshblock_data_(), cost_(1.0), materials(mats), physics(phys) {
+    nreal_user_meshblock_data_(), nint_user_meshblock_data_(), cost_(1.0), properties(properties),
+    packages(packages) {
   // initialize grid indices
   is = NGHOST;
   ie = is + block_size.nx1 - 1;
 
-  this->ssID = id++;
-
   ncells1 = block_size.nx1 + 2*NGHOST;
   ncc1 = block_size.nx1/2 + 2*NGHOST;
-  if (pmy_mesh->f2) {
+  if (pmy_mesh->ndim >= 2) {
     js = NGHOST;
     je = js + block_size.nx2 - 1;
     ncells2 = block_size.nx2 + 2*NGHOST;
@@ -80,7 +79,7 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
     ncc2 = 1;
   }
 
-  if (pmy_mesh->f3) {
+  if (pmy_mesh->ndim >= 3) {
     ks = NGHOST;
     ke = ks + block_size.nx3 - 1;
     ncells3 = block_size.nx3 + 2*NGHOST;
@@ -93,15 +92,14 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
 
   // Set the block pointer for the containers
   real_container.setBlock(this);
-  //  real_container.setNumMat(materials.size());
 
   if (pm->multilevel) {
     cnghost = (NGHOST + 1)/2 + 1;
     cis = NGHOST; cie = cis + block_size.nx1/2 - 1;
     cjs = cje = cks = cke = 0;
-    if (pmy_mesh->f2) // 2D or 3D
+    if (pmy_mesh->ndim >= 2) // 2D or 3D
       cjs = NGHOST, cje = cjs + block_size.nx2/2 - 1;
-    if (pmy_mesh->f3) // 3D
+    if (pmy_mesh->ndim >= 3) // 3D
       cks = NGHOST, cke = cks + block_size.nx3/2 - 1;
   }
 
@@ -127,6 +125,8 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
   // Reconstruction: constructor may implicitly depend on Coordinates, and PPM variable
   // floors depend on EOS, but EOS isn't needed in Reconstruction constructor-> this is ok
   precon = std::make_unique<Reconstruction>(this, pin);
+
+  if (pm->multilevel) pmr = std::make_unique<MeshRefinement>(this, pin);
 
   // physics-related, per-MeshBlock objects: may depend on Coordinates for diffusion
   // terms, and may enroll quantities in AMR and BoundaryVariable objs. in BoundaryValues
@@ -157,18 +157,18 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
   */
   // end dummy variable
 
-  // Add material data
-  //std::cerr << "Adding " << materials.size() << " materials to block" << std::endl;
-  for (int i = 0; i < materials.size(); i++) {
-    StateDescriptor& state = materials[i]->State();
+  // Add field properties data
+  //std::cerr << "Adding " << properties.size() << " properties to block" << std::endl;
+  for (int i = 0; i < properties.size(); i++) {
+    StateDescriptor& state = properties[i]->State();
     for (auto const & q : state.AllFields()) {
       real_container.Add(q.first, q.second);
     }
   }
-  // Add non-material physics data
-  for (auto const & ph : physics) {
+  // Add physics data
+  for (auto const & pkg : packages) {
     //std::cerr << "  Physics: " << ph.first << std::endl;
-    for (auto const & q : ph.second->AllFields()) {
+    for (auto const & q : pkg.second->AllFields()) {
       //std::cerr << "    Adding " << q.first << std::endl;
       real_container.Add(q.first, q.second);
     }
@@ -181,6 +181,14 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
     RegisterMeshBlockData(*ci.vars[n]);
   }
 
+  if (pm->multilevel) {
+    pmr = std::make_unique<MeshRefinement>(this, pin);
+    // This is very redundant, I think, but necessary for now
+    for (int n=0; n<nindependent; n++) {
+      pmr->AddToRefinement(ci.vars[n].get(), ci.vars[n]->coarse_s);
+    }
+  }
+
   // Create user mesh data
   //InitUserMeshBlockData(pin);
   app = InitApplicationMeshBlockData(pin);
@@ -190,8 +198,7 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
 // MeshBlock constructor for restarts
 
 MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
-                     std::vector<std::shared_ptr<MaterialPropertiesInterface>>& mats,
-                     std::map<std::string, std::shared_ptr<StateDescriptor>>& phys,
+                     Properties_t& properties, Packages_t& packages,
                      LogicalLocation iloc, RegionSize input_block,
                      BoundaryFlag *input_bcs,
                      double icost, char *mbdata, int igflag) :
@@ -199,7 +206,7 @@ MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
     gid(igid), lid(ilid), gflag(igflag), nuser_out_var(), prev(nullptr), next(nullptr),
     new_block_dt_{}, new_block_dt_hyperbolic_{}, new_block_dt_parabolic_{},
     new_block_dt_user_{},
-    nreal_user_meshblock_data_(), nint_user_meshblock_data_(), cost_(icost), materials(mats) {
+    nreal_user_meshblock_data_(), nint_user_meshblock_data_(), cost_(icost), properties(properties) {
   // initialize grid indices
 
   //std::cerr << "WHY AM I HERE???" << std::endl;
@@ -209,7 +216,7 @@ MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
 
   ncells1 = block_size.nx1 + 2*NGHOST;
   ncc1 = block_size.nx1/2 + 2*NGHOST;
-  if (pmy_mesh->f2) {
+  if (pmy_mesh->ndim >= 2) {
     js = NGHOST;
     je = js + block_size.nx2 - 1;
     ncells2 = block_size.nx2 + 2*NGHOST;
@@ -220,7 +227,7 @@ MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
     ncc2 = 1;
   }
 
-  if (pmy_mesh->f3) {
+ if (pmy_mesh->ndim >= 3) {
     ks = NGHOST;
     ke = ks + block_size.nx3 - 1;
     ncells3 = block_size.nx3 + 2*NGHOST;
@@ -238,9 +245,9 @@ MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
     cnghost = (NGHOST + 1)/2 + 1;
     cis = NGHOST; cie = cis + block_size.nx1/2 - 1;
     cjs = cje = cks = cke = 0;
-    if (pmy_mesh->f2) // 2D or 3D
+    if (pmy_mesh->ndim >= 2) // 2D or 3D
       cjs = NGHOST, cje = cjs + block_size.nx2/2 - 1;
-    if (pmy_mesh->f3) // 3D
+    if (pmy_mesh->ndim >= 3) // 3D
       cks = NGHOST, cke = cks + block_size.nx3/2 - 1;
   }
 

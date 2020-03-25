@@ -26,7 +26,7 @@ void ApplyBoundaryConditions(Container<Real>& rc) {
     const int imax = pmb->ncells1; const int jmax = pmb->ncells2; const int kmax = pmb->ncells3;
 
     Metadata m;
-    ContainerIterator<Real> citer(rc, {m.independent});
+    ContainerIterator<Real> citer(rc, std::vector<parthenon::Metadata::flags> {m.independent});
     const int nvars = citer.vars.size();
 
     switch (pmb->boundary_flag[BoundaryFace::inner_x1]) {
@@ -107,7 +107,7 @@ void ApplyBoundaryConditions(Container<Real>& rc) {
 
 
 
-    if (pmb->pmy_mesh->f2) {
+    if (pmb->pmy_mesh->ndim >= 2) {
 
     switch (pmb->boundary_flag[BoundaryFace::inner_x2]) {
         case BoundaryFlag::outflow: {
@@ -185,10 +185,10 @@ void ApplyBoundaryConditions(Container<Real>& rc) {
     }
     };
 
-    } // if f2
+    } // if ndim>=2
 
 
-    if (pmb->pmy_mesh->f3) {
+    if (pmb->pmy_mesh->ndim >= 3) {
 
    switch (pmb->boundary_flag[BoundaryFace::inner_x3]) {
         case BoundaryFlag::outflow: {
@@ -266,7 +266,7 @@ void ApplyBoundaryConditions(Container<Real>& rc) {
     }
     };
 
-    } // if f3
+    } // if ndim >= 3
 
 }
 

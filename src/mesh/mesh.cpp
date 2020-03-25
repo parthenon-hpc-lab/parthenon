@@ -63,9 +63,7 @@ namespace parthenon {
 // Mesh constructor, builds mesh at start of calculation using parameters in input file
 
 Mesh::Mesh(ParameterInput *pin,
-    std::vector<std::shared_ptr<MaterialPropertiesInterface>> &materials,
-    std::map<std::string, std::shared_ptr<StateDescriptor>>& physics,
-    PreFillDerivedFunc pre_fill_derived, int mesh_test) :
+    Properties_t &properties, Packages_t &packages, int mesh_test) :
     // public members:
     // aggregate initialization of RegionSize struct:
     mesh_size{pin->GetReal("mesh", "x1min"), pin->GetReal("mesh", "x2min"),
@@ -82,8 +80,7 @@ Mesh::Mesh(ParameterInput *pin,
         GetBoundaryFlag(pin->GetOrAddString("mesh", "ox2_bc", "none")),
         GetBoundaryFlag(pin->GetOrAddString("mesh", "ix3_bc", "none")),
         GetBoundaryFlag(pin->GetOrAddString("mesh", "ox3_bc", "none"))},
-  f2(mesh_size.nx2 > 1 ? true : false), f3(mesh_size.nx3 > 1 ? true : false),
-  ndim(f3 ? 3 : (f2 ? 2 : 1)),
+  ndim((mesh_size.nx3>1) ? 3 : ((mesh_size.nx2>1) ? 2 : 1)),
   adaptive(pin->GetOrAddString("mesh", "refinement", "none") == "adaptive"
            ? true : false),
   multilevel((adaptive || pin->GetOrAddString("mesh", "refinement", "none") == "static")
@@ -96,8 +93,8 @@ Mesh::Mesh(ParameterInput *pin,
   dt_diagnostics(pin->GetOrAddInteger("time", "dt_diagnostics", -1)),
   nbnew(), nbdel(),
   step_since_lb(), gflag(),
-  materials(materials),
-  physics(physics),
+  properties(properties),
+  packages(packages),
   // private members:
   next_phys_id_(), num_mesh_threads_(pin->GetOrAddInteger("mesh", "num_threads", 1)),
   tree(this),
@@ -108,7 +105,7 @@ Mesh::Mesh(ParameterInput *pin,
         UniformMeshGeneratorX3},
   BoundaryFunction_{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
   AMRFlag_{}, UserSourceTerm_{}, UserTimeStep_{}, ViscosityCoeff_{},
-  ConductionCoeff_{}, FieldDiffusivity_{}, pre_fill_derived_(pre_fill_derived),pblock(nullptr) {
+  ConductionCoeff_{}, FieldDiffusivity_{}, pblock(nullptr) {
     std::stringstream msg;
     RegionSize block_size;
     MeshBlock *pfirst{};
@@ -204,11 +201,11 @@ Mesh::Mesh(ParameterInput *pin,
     block_size.x2rat = mesh_size.x2rat;
     block_size.x3rat = mesh_size.x3rat;
     block_size.nx1 = pin->GetOrAddInteger("meshblock", "nx1", mesh_size.nx1);
-    if (f2)
+    if (ndim >= 2)
       block_size.nx2 = pin->GetOrAddInteger("meshblock", "nx2", mesh_size.nx2);
     else
       block_size.nx2 = mesh_size.nx2;
-    if (f3)
+    if (ndim >= 3)
       block_size.nx3 = pin->GetOrAddInteger("meshblock", "nx3", mesh_size.nx3);
     else
       block_size.nx3 = mesh_size.nx3;
@@ -221,8 +218,8 @@ Mesh::Mesh(ParameterInput *pin,
           << "the Mesh must be evenly divisible by the MeshBlock" << std::endl;
       ATHENA_ERROR(msg);
     }
-    if (block_size.nx1 < 4 || (block_size.nx2 < 4 && f2)
-        || (block_size.nx3 < 4 && f3)) {
+    if (block_size.nx1 < 4 || (block_size.nx2 < 4 && (ndim >= 2))
+        || (block_size.nx3 < 4 && (ndim >= 3))) {
       msg << "### FATAL ERROR in Mesh constructor" << std::endl
 << "block_size must be larger than or equal to 4 cells." << std::endl;
     ATHENA_ERROR(msg);
@@ -281,8 +278,8 @@ Mesh::Mesh(ParameterInput *pin,
   InitUserMeshData(pin);
 
   if (multilevel) {
-    if (block_size.nx1 % 2 == 1 || (block_size.nx2 % 2 == 1 && f2)
-        || (block_size.nx3 % 2 == 1 && f3)) {
+    if (block_size.nx1 % 2 == 1 || (block_size.nx2 % 2 == 1 && (ndim >= 2))
+        || (block_size.nx3 % 2 == 1 && (ndim >= 3))) {
       msg << "### FATAL ERROR in Mesh constructor" << std::endl
           << "The size of MeshBlock must be divisible by 2 in order to use SMR or AMR."
           << std::endl;
@@ -295,7 +292,7 @@ Mesh::Mesh(ParameterInput *pin,
         RegionSize ref_size;
         ref_size.x1min = pin->GetReal(pib->block_name, "x1min");
         ref_size.x1max = pin->GetReal(pib->block_name, "x1max");
-        if (f2) {
+        if (ndim >= 2) {
           ref_size.x2min = pin->GetReal(pib->block_name, "x2min");
           ref_size.x2max = pin->GetReal(pib->block_name, "x2max");
         } else {
@@ -357,7 +354,7 @@ Mesh::Mesh(ParameterInput *pin,
         }
         if (lx1min % 2 == 1) lx1min--;
         if (lx1max % 2 == 0) lx1max++;
-        if (f2) { // 2D or 3D
+        if (ndim >= 2) { // 2D or 3D
           lxmax = nrbx2*(1LL << ref_lev);
           for (lx2min=0; lx2min<lxmax; lx2min++) {
             Real rx = ComputeMeshGeneratorX(lx2min+1, lxmax,
@@ -485,13 +482,13 @@ Mesh::Mesh(ParameterInput *pin,
     // create a block and add into the link list
     if (i == nbs) {
       pblock = new MeshBlock(i, i-nbs, loclist[i], block_size,
-                             block_bcs, this, pin, materials,
-                             physics, gflag);
+                             block_bcs, this, pin, properties,
+                             packages, gflag);
       pfirst = pblock;
     } else {
       pblock->next = new MeshBlock(i, i-nbs, loclist[i], block_size,
-                                   block_bcs, this, pin, materials,
-                                   physics, gflag);
+                                   block_bcs, this, pin, properties,
+                                   packages, gflag);
       pblock->next->prev = pblock;
       pblock = pblock->next;
     }
@@ -506,9 +503,7 @@ Mesh::Mesh(ParameterInput *pin,
 // Mesh constructor for restarts. Load the restart file
 
 Mesh::Mesh(ParameterInput *pin, IOWrapper& resfile,
-    std::vector<std::shared_ptr<MaterialPropertiesInterface>> &materials,
-    std::map<std::string, std::shared_ptr<StateDescriptor>>& physics,
-    PreFillDerivedFunc pre_fill_derived, int mesh_test) :
+    Properties_t &properties, Packages_t &packages, int mesh_test) :
     // public members:
     // aggregate initialization of RegionSize struct:
     // (will be overwritten by memcpy from restart file, in this case)
@@ -526,8 +521,7 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper& resfile,
              GetBoundaryFlag(pin->GetOrAddString("mesh", "ox2_bc", "none")),
              GetBoundaryFlag(pin->GetOrAddString("mesh", "ix3_bc", "none")),
              GetBoundaryFlag(pin->GetOrAddString("mesh", "ox3_bc", "none"))},
-    f2(mesh_size.nx2 > 1 ? true : false), f3(mesh_size.nx3 > 1 ? true : false),
-    ndim(f3 ? 3 : (f2 ? 2 : 1)),
+    ndim((mesh_size.nx3 > 1) ? 3 : ((mesh_size.nx2 > 1) ? 2 : 1)),
     adaptive(pin->GetOrAddString("mesh", "refinement", "none") == "adaptive"
              ? true : false),
     multilevel((adaptive || pin->GetOrAddString("mesh", "refinement", "none") == "static")
@@ -540,8 +534,8 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper& resfile,
     dt_diagnostics(pin->GetOrAddInteger("time", "dt_diagnostics", -1)),
     nbnew(), nbdel(),
     step_since_lb(), gflag(),
-    materials(materials),
-    physics(physics),
+    properties(properties),
+    packages(packages),
     // private members:
     next_phys_id_(), num_mesh_threads_(pin->GetOrAddInteger("mesh", "num_threads", 1)),
     tree(this),
@@ -552,7 +546,7 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper& resfile,
                    UniformMeshGeneratorX3},
     BoundaryFunction_{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
     AMRFlag_{}, UserSourceTerm_{}, UserTimeStep_{}, ViscosityCoeff_{},
-    ConductionCoeff_{}, FieldDiffusivity_{}, pre_fill_derived_(pre_fill_derived), pblock(nullptr) {
+    ConductionCoeff_{}, FieldDiffusivity_{}, pblock(nullptr) {
   std::stringstream msg;
   RegionSize block_size;
   BoundaryFlag block_bcs[6];
@@ -805,11 +799,11 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper& resfile,
     SetBlockSizeAndBoundaries(loclist[i], block_size, block_bcs);
     // create a block and add into the link list
     if (i == nbs) {
-      pblock = new MeshBlock(i, i-nbs, this, pin, materials, physics, loclist[i], block_size,
+      pblock = new MeshBlock(i, i-nbs, this, pin, properties, packages, loclist[i], block_size,
                              block_bcs, costlist[i], mbdata+buff_os, gflag);
       pfirst = pblock;
     } else {
-      pblock->next = new MeshBlock(i, i-nbs, this, pin, materials, physics, loclist[i], block_size,
+      pblock->next = new MeshBlock(i, i-nbs, this, pin, properties, packages, loclist[i], block_size,
                                    block_bcs, costlist[i], mbdata+buff_os, gflag);
       pblock->next->prev = pblock;
       pblock = pblock->next;
@@ -1307,6 +1301,8 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
       for (int i=0; i<nmb; ++i) {
         pmb_array[i]->real_container.ReceiveAndSetBoundariesWithWait();
       }
+
+#pragma omp for
       for (int i=0; i<nmb; ++i) {
         pmb_array[i]->real_container.SetBoundaries();
         pmb_array[i]->real_container.ClearBoundary(BoundaryCommSubset::mesh_init);
@@ -1335,7 +1331,7 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
         }
 
         ApplyBoundaryConditions(pmb->real_container);
-        Update::FillDerived(pre_fill_derived_, pmb->real_container);
+        FillDerivedVariables::FillDerived(pmb->real_container);
 
         //pbval->ApplyPhysicalBoundaries(time, 0.0);
       }

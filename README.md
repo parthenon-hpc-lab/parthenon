@@ -21,3 +21,24 @@ Parthenon AMR infrastructure
     cmake ../
     make
     make test
+
+# Developing/Contributing
+
+Please see the [developer guidelines](CONTRIBUTING.md) for additional information.
+
+# Documentation
+
+Please see the [docs/](docs/README.md) folder for additional documentation on features and
+how to use them.
+
+# Contributors
+
+| Name          | Handle                | Team              |
+|----------|--------------|------------|
+| Jonah Miller | @Yurlungur  | LANL Physics  |
+| Josh Dolence | @jdolence | LANL Physics |
+| Andrew Gaspar | @AndrewGaspar | LANL Computer Science |
+| Philipp Grete | @pgrete | Athena Physics |
+| Forrest Glines | @forrestglines | Athena Physics |
+| Jim Stone | @jmstone | Athena Physics |
+
