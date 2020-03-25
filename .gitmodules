@@ -2,5 +2,5 @@
 	path = external/Catch2
 	url = https://github.com/catchorg/Catch2
 [submodule "external/kokkos"]
-	path = external/kokkos
+	path = external/Kokkos
 	url = https://github.com/kokkos/kokkos.git

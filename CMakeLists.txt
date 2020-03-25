@@ -91,8 +91,10 @@ endif()
 # Kokkos recommendatation resulting in not using default GNU extensions
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/external/kokkos/CMakeLists.txt)
-  add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/external/kokkos kokkos)
+if(EXISTS ${Kokkos_ROOT}/CMakeLists.txt)
+  add_subdirectory(${Kokkos_ROOT} Kokkos)
+elseif(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/external/Kokkos/CMakeLists.txt)
+  add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/external/Kokkos Kokkos)
 else()
   find_package(Kokkos 3 REQUIRED)
 endif()
