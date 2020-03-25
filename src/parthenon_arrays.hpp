@@ -469,5 +469,85 @@ class ParArrayFlex {
   flexview_t<T,Layout> data_;
 };
 
+template<typename T>
+inline T prod(T t) {
+  return t;
+}
+template<typename T, typename...Args>
+inline T prod(T t,Args&&...args) {
+  return t*prod(std::forward<Args>(args)...);
+}
+
+template<typename T>
+class ParArrayFlat {
+ public:
+  template<typename...Args>
+  ParArrayFlat(const std::string& label, Args&&...args)
+    : data_(label,prod(std::forward<Args>(args)...))
+  {}
+  ParArrayFlat(const Kokkos::View<T*,DevSpace>& other)
+    : data_(other)
+  {}
+
+  KOKKOS_INLINE_FUNCTION __attribute__((nothrow))
+  ParArrayFlat(const ParArrayFlat<T>& t) = default;
+  KOKKOS_INLINE_FUNCTION __attribute__((nothrow))
+  ~ParArrayFlat() = default;
+  KOKKOS_INLINE_FUNCTION __attribute__((nothrow))
+  ParArrayFlat<T> &operator= (const ParArrayFlat<T> &t) = default;
+  KOKKOS_INLINE_FUNCTION __attribute__((nothrow))
+  ParArrayFlat(ParArrayFlat<T>&& t) = default;
+  KOKKOS_INLINE_FUNCTION __attribute__((nothrow))
+  ParArrayFlat<T> &operator= (ParArrayFlat<T> &&t) = default;
+
+  // TODO(JMM): could do this recursively with parameter packs
+  inline auto Get() {
+    return data_;
+  }
+  inline auto Get(int n) {
+    assert( n == GetSize() );
+    return data_;
+  }
+  template<typename Layout=LayoutWrapper>
+  inline auto Get(int n2, int n1) {
+    assert( prod(n2,n1) == GetSize() );
+    return Kokkos::View<T**,Layout,DevSpace,KokkosUnmanaged>(data_.data(),
+                                                             n2,n1);
+  }
+  template<typename Layout=LayoutWrapper>
+  inline auto Get(int n3, int n2, int n1) {
+    assert( prod(n3,n2,n1) == GetSize() );
+    return Kokkos::View<T***,Layout,DevSpace,KokkosUnmanaged>(data_.data(),
+                                                              n3,n2,n1);
+  }
+  template<typename Layout=LayoutWrapper>
+  inline auto Get(int n4, int n3, int n2, int n1) {
+    assert( prod(n4,n3,n2,n1) == GetSize() );
+    return Kokkos::View<T****,Layout,DevSpace,KokkosUnmanaged>(data_.data(),
+                                                               n4,n3,n2,n1);
+  }
+  template<typename Layout=LayoutWrapper>
+  inline auto Get(int n5, int n4, int n3, int n2, int n1) {
+    assert( prod(n5,n4,n3,n2,n1) == GetSize() );
+    return Kokkos::View<T*****,Layout,DevSpace,KokkosUnmanaged>(data_.data(),
+                                                                n5,n4,n3,n2,n1);
+  }
+  template<typename Layout=LayoutWrapper>
+  inline auto Get(int n6, int n5, int n4, int n3, int n2, int n1) {
+    assert( prod(n6,n5,n4,n3,n2,n1) == GetSize() );
+    return Kokkos::View<T*****,Layout,DevSpace,KokkosUnmanaged>(data_.data(),
+                                                                n6,n5,n4,n3,n2,n1);
+  }
+  KOKKOS_INLINE_FUNCTION int GetSize() const {
+    return data_.extent_int(0);
+  }
+  KOKKOS_INLINE_FUNCTION int GetSizeInBytes() const {
+    return sizeof(T)*GetSize();
+  }
+
+ private:
+  Kokkos::View<T*,DevSpace> data_;
+};
+
 } // namespace parthenon
 #endif // PARTHENON_ARRAYS_HPP

@@ -24,7 +24,7 @@
 
 using parthenon::ParArrayND;
 using parthenon::ParArrayFlex;
-// using parthenon::ParArrayFlat;
+using parthenon::ParArrayFlat;
 using Real = double;
 
 TEST_CASE("ParArrayND","[ParArrayND],[Kokkos]") {
@@ -61,7 +61,7 @@ TEST_CASE("ParArrayND","[ParArrayND],[Kokkos]") {
                                 sum_device);
         REQUIRE( sum_host == sum_device );
       }
-      THEN("the sum of the kower TWO indices is correct") {
+      THEN("the sum of the lower TWO indices is correct") {
         int sum_host = 0;
         int n = 0;
         for (int j = 0; j < N2; j++) {
@@ -175,6 +175,67 @@ TEST_CASE("ParArrayFlex","[ParArrayFlex],[Kokkos]") {
                                   total_errors);
           REQUIRE( total_errors == 0 );
         }
+      }
+    }
+  }
+}
+
+TEST_CASE("ParArrayFlat","[ParArrayFlat]") {
+  GIVEN("A ParArrayFlat with some dimensions") {
+    constexpr int N1 = 2;
+    constexpr int N2 = 3;
+    constexpr int N3 = 4;
+    ParArrayFlat<Real> a("test",N3,N2,N1);
+    THEN("It has the right size") {
+      REQUIRE( a.GetSize() == N3*N2*N1 );
+    }
+    THEN("We can get a view and use it to fill the array") {
+      auto view = a.Get(N3,N2,N1);
+      auto mirror = Kokkos::create_mirror(view);
+      int n = 0;
+      int sum_host = 0;
+      for (int k = 0; k < N3; k++) {
+        for (int j = 0; j < N2; j++) {
+          for (int i = 0; i < N1; i++) {
+            mirror(k,j,i) = n;
+            sum_host += n;
+            n++;
+          }
+        }
+      }
+      Kokkos::deep_copy(view,mirror);
+      AND_THEN("The sum of the lower three indices is correct") {
+        int sum_device;
+        auto v1d = a.Get();
+        Kokkos::parallel_reduce(a.GetSize(),
+                                KOKKOS_LAMBDA(const int i,
+                                              int& update) {
+                                  update += v1d(i);
+                                },
+                                sum_device);
+        REQUIRE( sum_host == sum_device );
+      }
+      AND_THEN("The sum of the lower TWO indices is correct") {
+        auto v2d = Kokkos::subview(view,
+                                   0,
+                                   Kokkos::ALL(),Kokkos::ALL());
+        int sum_host = 0;
+        int n = 0;
+        for (int j = 0; j < N2; j++) {
+          for (int i = 0; i < N1; i++) {
+            sum_host += n;
+            n++;
+          }
+        }
+        int sum_device;
+        using policy = Kokkos::MDRangePolicy<Kokkos::Rank<2>>;
+        Kokkos::parallel_reduce(policy({0,0}, {N2,N1}),
+                                KOKKOS_LAMBDA(const int j, const int i,
+                                              int& update) {
+                                  update += v2d(j,i);
+                                },
+                                sum_device);
+        REQUIRE( sum_host == sum_device );
       }
     }
   }
