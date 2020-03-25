@@ -194,52 +194,33 @@ class ParArrayND {
     return ParArrayND<T,typename decltype(v)::array_layout>(v);
   }
 
-  auto Slice6D(index_pair_t slc) {
+  auto SliceD(index_pair_t slc, std::integral_constant<int,6>) {
     return Slice(slc,Kokkos::ALL(),Kokkos::ALL(),
                  Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL());
   }
-  auto Slice5D(index_pair_t slc) {
+
+  auto SliceD(index_pair_t slc, std::integral_constant<int,5>) {
     return Slice(SLC0,slc,Kokkos::ALL(),
                  Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL());
   }
-  auto Slice4D(index_pair_t slc) {
+
+  auto SliceD(index_pair_t slc, std::integral_constant<int,4>) {
     return Slice(SLC0,SLC0,slc,
                  Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL());
   }
-  auto Slice3D(index_pair_t slc) {
+
+  auto SliceD(index_pair_t slc, std::integral_constant<int,3>) {
     return Slice(SLC0,SLC0,SLC0,
                  slc,Kokkos::ALL(),Kokkos::ALL());
   }
-  auto Slice2D(index_pair_t slc) {
+
+  auto SliceD(index_pair_t slc, std::integral_constant<int,2>) {
     return Slice(SLC0,SLC0,SLC0,
                  Kokkos::ALL(),slc,Kokkos::ALL());
   }
-  auto Slice1D(index_pair_t slc) {
-    return Slice(SLC0,SLC0,SLC0,Kokkos::ALL(),Kokkos::ALL(),slc);
-  }
-
-  auto SliceD(index_pair_t slc, std::integral_constant<int,6>) {
-    return Slice6D(slc);
-  }
-
-  auto SliceD(index_pair_t slc, std::integral_constant<int,5>) {
-    return Slice5D(slc);
-  }
-
-  auto SliceD(index_pair_t slc, std::integral_constant<int,4>) {
-    return Slice4D(slc);
-  }
-
-  auto SliceD(index_pair_t slc, std::integral_constant<int,3>) {
-    return Slice3D(slc);
-  }
-
-  auto SliceD(index_pair_t slc, std::integral_constant<int,2>) {
-    return Slice2D(slc);
-  }
 
   auto SliceD(index_pair_t slc, std::integral_constant<int,1>) {
-    return Slice1D(slc);
+    return Slice(SLC0,SLC0,SLC0,Kokkos::ALL(),Kokkos::ALL(),slc);
   }
 
   template<std::size_t N = 6>
