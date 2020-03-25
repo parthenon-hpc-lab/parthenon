@@ -81,7 +81,8 @@ TEST_CASE("ParArrayND","[ParArrayND],[Kokkos]") {
         REQUIRE( sum_host == sum_device );
       }
       THEN("slicing is possible") {
-        auto b = a.SliceD(std::make_pair(1,3),3);
+        // auto b = a.SliceD(std::make_pair(1,3),3);
+        auto b = a.Slice3D(std::make_pair(1,3));
         AND_THEN("slices have correct values.") {
           int total_errors;
           using policy = Kokkos::MDRangePolicy<Kokkos::Rank<3>>;

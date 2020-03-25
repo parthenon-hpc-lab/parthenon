@@ -24,6 +24,7 @@
 #include <cstddef> // size_t
 #include <string>
 #include <tuple>
+#include <type_traits>
 #include <utility> // make_pair
 #include <vector>
 
@@ -164,6 +165,8 @@ class ParArrayND {
     return d6d_(p,m,n,k,j,i);
   }
 
+  /*
+  // This version only works for contiguous/strided layouts
   template<typename...Args>
   auto Slice(Args...args) {
     return ParArrayND<T,Kokkos::LayoutStride>(Kokkos::subview(d6d_,std::forward<Args>(args)...));
@@ -181,6 +184,36 @@ class ParArrayND {
     if (dim == 2) return Slice(SLC0,SLC0,SLC0,
                                Kokkos::ALL(),slc,Kokkos::ALL());
     // dim == 1
+    return Slice(SLC0,SLC0,SLC0,Kokkos::ALL(),Kokkos::ALL(),slc);
+  }
+  */
+  // this version works for all layouts
+  template<typename...Args>
+  auto Slice(Args...args) {
+    auto v = Kokkos::subview(d6d_,std::forward<Args>(args)...);
+    return ParArrayND<T,typename decltype(v)::array_layout>(v);
+  }
+  auto Slice6D(index_pair_t slc) {
+    return Slice(slc,Kokkos::ALL(),Kokkos::ALL(),
+                 Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL());
+  }
+  auto Slice5D(index_pair_t slc) {
+    return Slice(SLC0,slc,Kokkos::ALL(),
+                 Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL());
+  }
+  auto Slice4D(index_pair_t slc) {
+    return Slice(SLC0,SLC0,slc,
+                 Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL());
+  }
+  auto Slice3D(index_pair_t slc) {
+    return Slice(SLC0,SLC0,SLC0,
+                 slc,Kokkos::ALL(),Kokkos::ALL());
+  }
+  auto Slice2D(index_pair_t slc) {
+    return Slice(SLC0,SLC0,SLC0,
+                 Kokkos::ALL(),slc,Kokkos::ALL());
+  }
+  auto Slice1D(index_pair_t slc) {
     return Slice(SLC0,SLC0,SLC0,Kokkos::ALL(),Kokkos::ALL(),slc);
   }
 
