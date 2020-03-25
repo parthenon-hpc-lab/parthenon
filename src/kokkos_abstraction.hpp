@@ -28,14 +28,14 @@
 namespace parthenon {
 
 #ifdef KOKKOS_ENABLE_CUDA_UVM
-typedef Kokkos::CudaUVMSpace DevSpace;
-typedef Kokkos::CudaUVMSpace HostSpace;
+using DevSpace = Kokkos::CudaUVMSpace;
+using HostSpace = Kokkos::CudaUVMSpace;
 #else
-typedef Kokkos::DefaultExecutionSpace DevSpace;
-typedef Kokkos::HostSpace HostSpace;
+using DevSpace = Kokkos::DefaultExecutionSpace;
+using HostSpace = Kokkos::HostSpace;
 #endif
 
-typedef Kokkos::LayoutRight LayoutWrapper;
+using LayoutWrapper = Kokkos::LayoutRight;
 
 template <typename T>
 using ParArray1D = Kokkos::View<T *, LayoutWrapper, DevSpace>;
@@ -48,8 +48,8 @@ using ParArray4D = Kokkos::View<T ****, LayoutWrapper, DevSpace>;
 template <typename T>
 using ParArray5D = Kokkos::View<T *****, LayoutWrapper, DevSpace>;
 
-typedef Kokkos::TeamPolicy<> team_policy;
-typedef Kokkos::TeamPolicy<>::member_type member_type;
+using team_policy = Kokkos::TeamPolicy<>;
+using member_type = Kokkos::TeamPolicy<>::member_type;
 
 // Defining tags to determine loop_patterns using a tag dispatch design pattern
 static struct LoopPatternSimdFor {
@@ -164,15 +164,15 @@ inline void par_for(LoopPatternFlatRange, const std::string &name,
                     const Function &function) {
   const int Nk = ku - kl + 1;
   const int Nj = ju - jl + 1;
-  const int NI = iu - il + 1;
-  const int NkNjNI = Nk * Nj * NI;
-  const int NjNI = Nj * NI;
+  const int Ni = iu - il + 1;
+  const int NkNjNi = Nk * Nj * Ni;
+  const int NjNi = Nj * Ni;
   Kokkos::parallel_for(
-      name, Kokkos::RangePolicy<>(exec_space, 0, NkNjNI),
+      name, Kokkos::RangePolicy<>(exec_space, 0, NkNjNi),
       KOKKOS_LAMBDA(const int &idx) {
-        int k = idx / NjNI;
-        int j = (idx - k * NjNI) / NI;
-        int i = idx - k * NjNI - j * NI;
+        int k = idx / NjNi;
+        int j = (idx - k * NjNi) / Ni;
+        int i = idx - k * NjNi - j * Ni;
         k += kl;
         j += jl;
         i += il;
@@ -279,17 +279,17 @@ inline void par_for(LoopPatternFlatRange, const std::string &name,
   const int Nn = nu - nl + 1;
   const int Nk = ku - kl + 1;
   const int Nj = ju - jl + 1;
-  const int NI = iu - il + 1;
-  const int NnNkNjNI = Nn * Nk * Nj * NI;
-  const int NkNjNI = Nk * Nj * NI;
-  const int NjNI = Nj * NI;
+  const int Ni = iu - il + 1;
+  const int NnNkNjNi = Nn * Nk * Nj * Ni;
+  const int NkNjNi = Nk * Nj * Ni;
+  const int NjNi = Nj * Ni;
   Kokkos::parallel_for(
-      name, Kokkos::RangePolicy<>(exec_space, 0, NnNkNjNI),
+      name, Kokkos::RangePolicy<>(exec_space, 0, NnNkNjNi),
       KOKKOS_LAMBDA(const int &idx) {
-        int n = idx / NkNjNI;
-        int k = (idx - n * NkNjNI) / NjNI;
-        int j = (idx - n * NkNjNI - k * NjNI) / NI;
-        int i = idx - n * NkNjNI - k * NjNI - j * NI;
+        int n = idx / NkNjNi;
+        int k = (idx - n * NkNjNi) / NjNi;
+        int j = (idx - n * NkNjNi - k * NjNi) / Ni;
+        int i = idx - n * NkNjNi - k * NjNi - j * Ni;
         n += nl;
         k += kl;
         j += jl;
