@@ -111,8 +111,11 @@ if (${ENABLE_UNIT_TESTS} OR ${ENABLE_INTEGRATION_TESTS} OR ${ENABLE_REGRESSION_T
   add_subdirectory(tst)
 endif()
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wno-reorder")
+
 add_subdirectory(src)
 add_subdirectory(example/calculate_pi)
 add_subdirectory(example/face_fields)
+add_subdirectory(example/advection)
 
 include(cmake/CheckCopyright.cmake)

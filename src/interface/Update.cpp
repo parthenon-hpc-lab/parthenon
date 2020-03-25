@@ -72,14 +72,14 @@ void FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
                      x1area(i) * x1flux(l, k, j, i));
           }
 
-          if (pmb->pmy_mesh->ndim >= 2) {
+          if (ndim >= 2) {
             for (int i = is; i <= ie; i++) {
               du(i) += (x2area1(i) * x2flux(l, k, j + 1, i) -
                         x2area0(i) * x2flux(l, k, j, i));
             }
           }
           // TODO(jcd): should the next block be in the preceding if??
-          if (pmb->pmy_mesh->ndim >= 3) {
+          if (ndim >= 3) {
             for (int i = is; i <= ie; i++) {
               du(i) += (x3area1(i) * x3flux(l, k + 1, j, i) -
                         x3area0(i) * x3flux(l, k, j, i));

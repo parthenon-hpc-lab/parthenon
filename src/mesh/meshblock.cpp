@@ -50,7 +50,6 @@ namespace parthenon {
 //----------------------------------------------------------------------------------------
 // MeshBlock constructor: constructs coordinate, boundary condition, hydro, field
 //                        and mesh refinement objects.
-static int id=0;
 MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
                      BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
                      Properties_t& properties,
@@ -60,7 +59,7 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
     gid(igid), lid(ilid), gflag(igflag), nuser_out_var(), prev(nullptr), next(nullptr),
     new_block_dt_{}, new_block_dt_hyperbolic_{}, new_block_dt_parabolic_{},
     new_block_dt_user_{},
-    nreal_user_meshblock_data_(), nint_user_meshblock_data_(), cost_(1.0), properties(properties),
+    nreal_user_meshblock_data_(), nint_user_meshblock_data_(), properties(properties), cost_(1.0),
     packages(packages) {
   // initialize grid indices
   is = NGHOST;
@@ -208,7 +207,7 @@ MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
     gid(igid), lid(ilid), gflag(igflag), nuser_out_var(), prev(nullptr), next(nullptr),
     new_block_dt_{}, new_block_dt_hyperbolic_{}, new_block_dt_parabolic_{},
     new_block_dt_user_{},
-    nreal_user_meshblock_data_(), nint_user_meshblock_data_(), cost_(icost), properties(properties) {
+    nreal_user_meshblock_data_(), nint_user_meshblock_data_(), properties(properties), cost_(icost) {
   // initialize grid indices
 
   //std::cerr << "WHY AM I HERE???" << std::endl;
@@ -377,7 +376,7 @@ void MeshBlock::SetUserOutputVariableName(int n, const char *name) {
 //  \brief Calculate the block data size required for restart.
 
 std::size_t MeshBlock::GetBlockSizeInBytes() {
-  std::size_t size;
+  std::size_t size=0;
   // calculate user MeshBlock data size
   for (int n=0; n<nint_user_meshblock_data_; n++)
     size += iuser_meshblock_data[n].GetSizeInBytes();

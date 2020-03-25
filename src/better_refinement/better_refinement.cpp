@@ -27,7 +27,6 @@ namespace BetterRefinement {
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto ref = std::make_shared<StateDescriptor>("Refinement");
-  Params& params = ref->AllParams();
 
   int numcrit = 0;
   while(true) {
@@ -41,7 +40,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
     );
     numcrit++;
   }
-  return std::move(ref);
+  return ref;
 }
 
 

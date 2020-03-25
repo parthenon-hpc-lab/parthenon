@@ -93,7 +93,7 @@ template <typename T>
 Variable<T>::Variable(const Variable<T> &src,
                       const bool allocComms,
                       MeshBlock *pmb) :
-  AthenaArray<T>(src), _label(src.label()), _m(src.metadata()), mpiStatus(true) {
+  AthenaArray<T>(src), _label(src.label()), _m(src.metadata()), mpiStatus(false) {
   //std::cout << "_____CREATED VAR COPY: " << _label << ":" << this << std::endl;
   if (_m.isSet(Metadata::fillGhost)) {
     // Ghost cells are communicated, so make shallow copies
@@ -135,12 +135,12 @@ void Variable<T>::allocateComms(MeshBlock *pmb) {
   if ( ! pmb ) return;
 
   // set up communication variables
-  const int _dim1 = this->GetDim1();
-  const int _dim2 = this->GetDim2();
-  const int _dim3 = this->GetDim3();
+  //const int _dim1 = this->GetDim1();
+  //const int _dim2 = this->GetDim2();
+  //const int _dim3 = this->GetDim3();
   const int _dim4 = this->GetDim4();
-  const int _dim5 = this->GetDim5();
-  const int _dim6 = this->GetDim6();
+  //const int _dim5 = this->GetDim5();
+  //const int _dim6 = this->GetDim6();
   flux[0].NewAthenaArray(_dim4, pmb->ncells3, pmb->ncells2, pmb->ncells1+1);
   if (pmb->pmy_mesh->ndim >= 2) {
     flux[1].NewAthenaArray(_dim4, pmb->ncells3, pmb->ncells2+1, pmb->ncells1);
@@ -169,7 +169,7 @@ void Variable<T>::allocateComms(MeshBlock *pmb) {
   // register the variable
   //pmb->RegisterMeshBlockData(*this);
 
-  mpiStatus = true;
+  mpiStatus = false;
 }
 
 std::string FaceVariable::info() {

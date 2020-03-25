@@ -38,6 +38,17 @@ class ContainerCollection {
     return containers_[label];
   }
 
+  void PurgeNonBase() {
+    auto c = containers_.begin();
+    while (c != containers_.end()) {
+      if (c->first != "base") {
+        c = containers_.erase(c);
+      } else {
+        ++c;
+      }
+    }
+  }
+
  private:
   std::map<std::string, Container<T>> containers_;
 };

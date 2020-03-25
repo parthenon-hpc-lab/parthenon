@@ -54,15 +54,15 @@ class EvolutionDriver : public Driver {
 namespace DriverUtils {
   template <typename T, class...Args>
   TaskListStatus ConstructAndExecuteBlockTasks(T* driver, Args... args) {
+#ifdef OPENMP_PARALLEL
     int nthreads = driver->pmesh->GetNumMeshThreads();
+#endif
     int nmb = driver->pmesh->GetNumMeshBlocksThisRank(Globals::my_rank);
     std::vector<TaskList> task_lists;
-    task_lists.resize(nmb);
-    int i=0;
     MeshBlock *pmb = driver->pmesh->pblock;
     while (pmb != nullptr) {
-      task_lists[i] = driver->MakeTaskList(pmb, std::forward<Args>(args)...);
-      i++;
+      task_lists.push_back (driver->MakeTaskList(pmb, std::forward<Args>(args)...) );
+      //task_lists.back().Print();
       pmb = pmb->next;
     }
     int complete_cnt = 0;

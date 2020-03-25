@@ -62,10 +62,10 @@ class SparseVariable {
  public:
   SparseVariable() = default;
   SparseVariable(const std::string& label, const Metadata& metadata, std::array<int,6>& dims) 
-    : _label(label), _metadata(metadata), _dims(dims) {}
+    : _dims(dims), _label(label), _metadata(metadata) {}
 
   SparseVariable(SparseVariable& src)
-    : _label(src._label), _metadata(src._metadata), _dims(src._dims) {
+    : _dims(src._dims), _label(src._label), _metadata(src._metadata) {
     for (auto & v : src._varMap) {
       auto var = std::make_shared<Variable<T>>(*v.second);
       _varMap[v.first] = var;

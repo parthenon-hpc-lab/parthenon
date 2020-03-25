@@ -137,7 +137,7 @@ namespace parthenon {
       },
       interpolate, pmb);
 
-    return std::move(tl);
+    return tl;
   }
 
 } // namespace parthenon

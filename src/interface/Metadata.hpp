@@ -69,31 +69,31 @@ class Metadata {
   };
 
   /// Default constructor override
-  Metadata() : sparse_id_(-1),
-               shape_({1}) { }
+  Metadata() : shape_({1}),
+               sparse_id_(-1) { }
 
 
   /// returns a new Metadata instance with set bits,
   /// set sparse_id, and fourth dimension
   explicit Metadata(const std::vector<flags>& bits) :
-    sparse_id_(-1),
-    shape_({1}) {
+    shape_({1}),
+    sparse_id_(-1) {
     setMultiple(bits);
   }
 
   /// returns a metadata with bits and shape set
   explicit Metadata(const std::vector<flags>& bits,
                     std::vector<int> shape) :
-    sparse_id_(-1),
-    shape_(shape) {
+    shape_(shape), 
+    sparse_id_(-1) {
     setMultiple(bits);
   }
 
   /// returns a metadata with bits and sparse id set
   explicit Metadata(const std::vector<flags>& bits,
                     const int sparse_id) :
-    sparse_id_(sparse_id),
-    shape_({1}) {
+    shape_({1}),
+    sparse_id_(sparse_id) {
     setMultiple(bits);
   }
 
@@ -101,16 +101,16 @@ class Metadata {
   explicit Metadata(const std::vector<flags>& bits,
                     const int sparse_id,
                     std::vector<int> shape) :
-    sparse_id_(sparse_id),
-    shape_(shape) {
+    shape_(shape),
+    sparse_id_(sparse_id) {
     setMultiple(bits);
   }
 
   /// copy constructor
-  Metadata(const Metadata&m) : sparse_id_(m.sparse_id_),
+  Metadata(const Metadata&m) : theBits_(m.theBits_),
                                shape_(m.shape_),
-                               theBits_(m.theBits_),
-                               associated_(m.associated_) { }
+                               associated_(m.associated_),
+                               sparse_id_(m.sparse_id_) { }
 
   void setFlags(std::bitset<_MAXBITS_> bitflags) { theBits_ = bitflags; }
 

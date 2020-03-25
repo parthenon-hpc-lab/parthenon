@@ -48,7 +48,9 @@ class ParthenonManager {
  private:
     ArgParse arg;
     clock_t tstart_;
+#ifdef OPENMP_PARALLEL
     double omp_start_time_;
+#endif
 };
 
 } // namespace parthenon

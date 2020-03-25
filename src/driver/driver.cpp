@@ -28,7 +28,11 @@ DriverStatus EvolutionDriver::Execute() {
     if (Globals::my_rank == 0)
       pmesh->OutputCycleDiagnostics();
 
-    Step();
+    TaskListStatus status = Step();
+    if (status != TaskListStatus::complete) {
+      std::cerr << "Step failed to complete all tasks." << std::endl;
+      return DriverStatus::failed;
+    }
     //pmesh->UserWorkInLoop();
 
     pmesh->ncycle++;
@@ -39,33 +43,12 @@ DriverStatus EvolutionDriver::Execute() {
     pmesh->LoadBalancingAndAdaptiveMeshRefinement(pinput);
 
     pmesh->NewTimeStep();
-#ifdef ENABLE_EXCEPTIONS
-    try {
-#endif
-      if (pmesh->time < pmesh->tlim) // skip the final output as it happens later
-        pouts->MakeOutputs(pmesh,pinput);
-#ifdef ENABLE_EXCEPTIONS
-    }
-    catch(std::bad_alloc& ba) {
-      std::cout << "### FATAL ERROR in main" << std::endl
-                << "memory allocation failed during output: " << ba.what() <<std::endl;
-#ifdef MPI_PARALLEL
-      MPI_Finalize();
-#endif
-      return(DriverStatus::failed);
-    }
-    catch(std::exception const& ex) {
-      std::cout << ex.what() << std::endl;  // prints diagnostic message
-#ifdef MPI_PARALLEL
-      MPI_Finalize();
-#endif
-      return(DriverStatus::failed);
-    }
-#endif // ENABLE_EXCEPTIONS
+    if (pmesh->time < pmesh->tlim) // skip the final output as it happens later
+      pouts->MakeOutputs(pmesh,pinput);
 
     // check for signals
     if (SignalHandler::CheckSignalFlags() != 0) {
-      break;
+      return DriverStatus::failed;
     }
   } // END OF MAIN INTEGRATION LOOP ======================================================
   return DriverStatus::complete;

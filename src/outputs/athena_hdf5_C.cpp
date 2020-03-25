@@ -72,7 +72,7 @@ static void writeXdmfArrayRef(std::ofstream& fid, const std::string& prefix,
 }
 
 // XDMF subroutine to write a variable that reads from a HDF file
-static void writeXdmfVariableRef(std::ofstream& fid, const std::string& prefix,
+/*static void writeXdmfVariableRef(std::ofstream& fid, const std::string& prefix,
 				 const std::string& hdfPath, const std::string& label,
 				 const hsize_t* dims, const int& ndims,
 				 const std::string& theType, const int& precision) {
@@ -80,7 +80,7 @@ static void writeXdmfVariableRef(std::ofstream& fid, const std::string& prefix,
   mystr += stringXdmfArrayRef(prefix+"  ", hdfPath, label, dims, ndims, theType, precision);
   mystr += prefix + "</Attribute>\n";
   fid << mystr << std::flush;
-}
+}*/
 
 static void writeXdmfSlabVariableRef(std::ofstream &fid, std::string& name, std::string& hdfFile,
                                      int iblock, const int&vlen, int& ndims, hsize_t *dims,
@@ -294,7 +294,7 @@ void ATHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
   // Also writes companion xdmf file
   MeshBlock *pmb = pm->pblock;
   int max_blocks_global = pm->nbtotal;
-  int max_blocks_local = pm->nblist[Globals::my_rank];
+  //int max_blocks_local = pm->nblist[Globals::my_rank];
   int num_blocks_local = 0;
 
   // shooting a blank just for getting the variable names
@@ -321,9 +321,6 @@ void ATHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
     if (nx2 > 1) nx2 += 2*NGHOST;
     if (nx3 > 1) nx3 += 2*NGHOST;
   }
-
-  // create dataspaces and types
-  int dims_count[1] = {3};
 
   // open HDF5 file
   // Define output filename
@@ -375,9 +372,7 @@ void ATHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
   file = H5Fcreate(filename.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, acc_file);
 
   // write timestep relevant attributes
-  hsize_t dims[4]={1,0,0,0};
   hid_t localDSpace, myDSet;
-  hid_t globalDSpace, globalDSet;
   herr_t status;
 
   // attributes written here:
@@ -435,7 +430,7 @@ void ATHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
 
   // Write mesh coordinates to file
   hsize_t local_start[5], global_count[5], local_count[5];
-  hid_t gLocations, fileDSpace;
+  hid_t gLocations;
 
 
   local_start[0] = 0;

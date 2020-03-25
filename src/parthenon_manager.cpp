@@ -22,7 +22,6 @@ namespace parthenon {
 
 ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
   // initialize MPI
-  int status = 1;
 #ifdef MPI_PARALLEL
 #ifdef OPENMP_PARALLEL
   int mpiprv;
@@ -195,7 +194,7 @@ ParthenonManager::ProcessProperties(std::unique_ptr<ParameterInput>& pin) {
   // In practice, this function should almost always be replaced by a version
   // that sets relevant things for the application.
   Properties_t props;
-  return std::move(props);
+  return props;
 }
 
 Packages_t __attribute__((weak))
@@ -203,7 +202,7 @@ ParthenonManager::ProcessPackages(std::unique_ptr<ParameterInput>& pin) {
   // In practice, this function should almost always be replaced by a version
   // that sets relevant things for the application.
   Packages_t packages;
-  return std::move(packages);
+  return packages;
 }
 
 } // namespace parthenon

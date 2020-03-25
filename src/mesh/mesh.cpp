@@ -265,6 +265,7 @@ Mesh::Mesh(ParameterInput *pin,
   // SMR / AMR:
   if (adaptive) {
     max_level = pin->GetOrAddInteger("mesh", "numlevel", 1) + root_level - 1;
+    std::cerr << "max level is " << max_level - (root_level - 1) << std::endl;
     if (max_level > 63) {
       msg << "### FATAL ERROR in Mesh constructor" << std::endl
           << "The number of the refinement level must be smaller than "
@@ -507,6 +508,7 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper& resfile,
     // public members:
     // aggregate initialization of RegionSize struct:
     // (will be overwritten by memcpy from restart file, in this case)
+    pblock(nullptr), 
     mesh_size{pin->GetReal("mesh", "x1min"), pin->GetReal("mesh", "x2min"),
               pin->GetReal("mesh", "x3min"), pin->GetReal("mesh", "x1max"),
               pin->GetReal("mesh", "x2max"), pin->GetReal("mesh", "x3max"),
@@ -546,7 +548,7 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper& resfile,
                    UniformMeshGeneratorX3},
     BoundaryFunction_{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
     AMRFlag_{}, UserSourceTerm_{}, UserTimeStep_{}, ViscosityCoeff_{},
-    ConductionCoeff_{}, FieldDiffusivity_{}, pblock(nullptr) {
+    ConductionCoeff_{}, FieldDiffusivity_{} {
   std::stringstream msg;
   RegionSize block_size;
   BoundaryFlag block_bcs[6];
@@ -1249,7 +1251,9 @@ void Mesh::ApplyUserWorkBeforeOutput(ParameterInput *pin) {
 void Mesh::Initialize(int res_flag, ParameterInput *pin) {
   bool iflag = true;
   int inb = nbtotal;
+#ifdef OPENMP_PARALLEL  
   int nthreads = GetNumMeshThreads();
+#endif
   int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
   std::vector<MeshBlock*> pmb_array(nmb);
 
@@ -1477,61 +1481,6 @@ void Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size
   block_size.x2rat = mesh_size.x2rat;
   block_size.x3rat = mesh_size.x3rat;
 
-  return;
-}
-
-
-void Mesh::CorrectMidpointInitialCondition(std::vector<MeshBlock*> &pmb_array, int nmb) {
-#pragma omp for
-  for (int nb=0; nb<nmb; ++nb) {
-    auto pmb = pmb_array[nb];
-
-    // Assume cell-centered analytic value is computed at all real cells, and ghost
-    // cells with the cell-centered U have been exchanged
-    int il = pmb->is, iu = pmb->ie, jl = pmb->js, ju = pmb->je,
-        kl = pmb->ks, ku = pmb->ke;
-
-    // Laplacian of cell-averaged conserved variables, scalar concentrations
-    AthenaArray<Real> delta_cons_, delta_s_;
-
-    // Allocate memory for 4D Laplacian
-    int ncells4 = NHYDRO;
-    int nl = 0;
-    int nu = ncells4 - 1;
-    delta_cons_.NewAthenaArray(ncells4, pmb->ncells3, pmb->ncells2, pmb->ncells1);
-
-
-
-    // TODO(felker): assuming uniform mesh with dx1f=dx2f=dx3f, so this factors out
-    // TODO(felker): also, this may need to be dx1v, since Laplacian is cell-center
-    Real h = pmb->pcoord->dx1f(il);  // pco->dx1f(i); inside loop
-    Real C = (h*h)/24.0;
-  } // end loop over MeshBlocks
-
-  // begin second exchange of ghost cells with corrected cell-averaged <U>
-  // -----------------  (mostly copied from above section in Mesh::Initialize())
-  // prepare to receive conserved variables
-#pragma omp for
-  for (int i=0; i<nmb; ++i) {
-    // no need to re-SetupPersistentMPI() the MPI requests for boundary values
-    pmb_array[i]->pbval->StartReceiving(BoundaryCommSubset::mesh_init);
-    pmb_array[i]->real_containers.Get().StartReceiving(BoundaryCommSubset::mesh_init);
-  }
-
-#pragma omp for
-  for (int i=0; i<nmb; ++i) {
-    // send container variables
-    pmb_array[i]->real_containers.Get().SendBoundaryBuffers();
-  }
-
-  // wait to receive conserved variables
-#pragma omp for
-  for (int i=0; i<nmb; ++i) {
-    // receive container variables
-    pmb_array[i]->real_containers.Get().ReceiveAndSetBoundariesWithWait();
-    pmb_array[i]->real_containers.Get().ClearBoundary(BoundaryCommSubset::mesh_init);
-    pmb_array[i]->pbval->ClearBoundary(BoundaryCommSubset::mesh_init);
-  } // end second exchange of ghost cells
   return;
 }
 

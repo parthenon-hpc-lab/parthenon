@@ -26,14 +26,14 @@ namespace parthenon {
 // no need in this app so use the weak version that ships with parthenon
 //Properties_t ParthenonManager::ProcessProperties(std::unique_ptr<ParameterInput>& pin) {
 //  Properties_t props;
-//  return std::move(props);
+//  return props;
 //}
 
 Packages_t ParthenonManager::ProcessPackages(std::unique_ptr<ParameterInput>& pin) {
   Packages_t packages;
   // only have one package for this app, but will typically have more things added to
   packages["PiCalculator"] = PiCalculator::Initialize(pin.get());
-  return std::move(packages);
+  return packages;
 }
 
 // this should set up initial conditions of independent variables on the block
@@ -103,7 +103,7 @@ TaskList CalculatePi::MakeTaskList(MeshBlock *pmb) {
   // auto next_task = tl.AddTask(FuncPtr, get_area, pmb);
   // for a task that executes the function FuncPtr (with argument MeshBlock *pmb)
   // that depends on task get_area
-  return std::move(tl);
+  return tl;
 }
 
 // This defines a "physics" package

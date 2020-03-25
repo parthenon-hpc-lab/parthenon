@@ -181,13 +181,13 @@ class ATHDF5Output : public OutputType {
 
   // Metadata
   std::string filename;                       // name of athdf file
-  float code_time;                            // time in code unit for XDMF
-  int num_blocks_global;                      // number of MeshBlocks in simulation
+  //float code_time;                            // time in code unit for XDMF
+  //int num_blocks_global;                      // number of MeshBlocks in simulation
   int nx1, nx2, nx3;                          // sizes of MeshBlocks
-  int num_datasets;                           // count of datasets to output
-  int *num_variables;                         // list of counts of variables per dataset
-  char (*dataset_names)[max_name_length+1];   // array of C-string names of datasets
-  char (*variable_names)[max_name_length+1];  // array of C-string names of variables
+  //int num_datasets;                           // count of datasets to output
+  //int *num_variables;                         // list of counts of variables per dataset
+  //char (*dataset_names)[max_name_length+1];   // array of C-string names of datasets
+  //char (*variable_names)[max_name_length+1];  // array of C-string names of variables
 };
 #endif
 

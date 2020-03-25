@@ -132,7 +132,10 @@ class Container {
 
   void Add(std::shared_ptr<Variable<T>> var) { _varArray.push_back(var); }
   void Add(std::shared_ptr<FaceVariable> var) { _faceArray.push_back(var);  }
-  void Add(std::shared_ptr<SparseVariable<T>> var) { _sparseArray.push_back(var); }
+  void Add(std::shared_ptr<SparseVariable<T>> var) {
+    // TODO(jcd): deal with adding var to map
+    _sparseArray.push_back(var); 
+  }
 
   ///
   /// Get a raw / cell / node variable from the container
@@ -285,6 +288,7 @@ class Container {
   // }
 
   // Communication routines
+  void ResetBoundaryVariables();
   void SetupPersistentMPI();
   void SetBoundaries();
   void SendBoundaryBuffers();

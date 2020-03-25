@@ -104,14 +104,6 @@ void Container<T>::Add(const std::string label,
     auto pfv = std::make_shared<FaceVariable>(label, metadata, arrDims);
     _faceArray.push_back(pfv);
     return;
-  } else if ( (metadata.where() == (Metadata::cell) ) ||
-            (metadata.where() == (Metadata::node) )) {
-
-
-    _varArray.push_back(std::make_shared<Variable<T>>(label, arrDims, metadata));
-    if ( metadata.fillsGhost()) {
-      _varArray.back()->allocateComms(pmy_block);
-    }
   } else {
     // plain old variable
     if ( dims.size() > 6 || dims.size() < 1 ) {
@@ -119,6 +111,9 @@ void Container<T>::Add(const std::string label,
     }
     for (int i=0; i<dims.size(); i++) {arrDims[5-i] = dims[i];}
     _varArray.push_back(std::make_shared<Variable<T>>(label, arrDims, metadata));
+    if ( metadata.fillsGhost()) {
+      _varArray.back()->allocateComms(pmy_block);
+    }
   }
 }
 
@@ -232,7 +227,7 @@ template <typename T>
 bool Container<T>::ReceiveFluxCorrection() {
   int success=0, total=0;
   for (auto &v : _varArray) {
-    if ( (v->metadata()).isIndependent() ) {
+    if ((v->metadata()).isIndependent() ) {
       if(v->vbvar->ReceiveFluxCorrection()) success++;
       total++;
     }
@@ -256,26 +251,26 @@ void Container<T>::SendBoundaryBuffers() {
   //  std::cout << "_________SEND from stage:"<<s->name()<<std::endl;
   for (auto &v : _varArray) {
     if ( (v->metadata()).fillsGhost() ) {
-      if ( ! v->mpiStatus ) {
+      /*if ( ! v->mpiStatus ) {
         std::cout << "        sending without the receive, something's up:"
                   << v->label()
                   << std::endl;
-      }
+      }*/
       v->vbvar->SendBoundaryBuffers();
-      v->mpiStatus = false;
+      //v->mpiStatus = false;
     }
   }
   for (auto &sv : _sparseArray) {
     if ( (sv->isSet(Metadata::fillGhost)) ) {
       VariableVector<T> vvec = sv->GetVector();
       for (auto & v : vvec) {
-        if (! v->mpiStatus ) {
+        /*if (! v->mpiStatus ) {
           std::cout << "        sending without the receive, something's up:"
                   << v->label()
                   << std::endl;
-        }
+        }*/
         v->vbvar->SendBoundaryBuffers();
-        v->mpiStatus = false;
+        //v->mpiStatus = false;
       }
     }
   }
@@ -325,7 +320,7 @@ bool Container<T>::ReceiveBoundaryBuffers() {
       VariableVector<T> vvec = sv->GetVector();
       for (auto & v : vvec) {
         if (! v->mpiStatus) {
-          v->vbvar->ReceiveBoundaryBuffers();
+          v->mpiStatus = v->vbvar->ReceiveBoundaryBuffers();
           ret = (ret & v->mpiStatus);
         }
       }
@@ -339,7 +334,8 @@ template <typename T>
 void Container<T>::ReceiveAndSetBoundariesWithWait() {
   //  std::cout << "_________RSET from stage:"<<s->name()<<std::endl;
   for (auto &v : _varArray) {
-    if ( (!v->mpiStatus) && ( (v->isSet(Metadata::fillGhost))) ) {
+    if ( (!v->mpiStatus) && ( (v->metadata()).fillsGhost()) ) {
+      //(v->isSet(Metadata::fillGhost))) ) {
       v->vbvar->ReceiveAndSetBoundariesWithWait();
       v->mpiStatus = true;
     }
@@ -382,21 +378,41 @@ void Container<T>::SetBoundaries() {
 }
 
 template <typename T>
-void Container<T>::StartReceiving(BoundaryCommSubset phase) {
-  //    std::cout << "in set" << std::endl;
-  // sets the boundary
-  //  std::cout << "________CLEAR from stage:"<<s->name()<<std::endl;
+void Container<T>::ResetBoundaryVariables() {
   for (auto &v : _varArray) {
     if ( (v->metadata()).fillsGhost() ) {
-      v->vbvar->StartReceiving(phase);
-      //      v->mpiStatus=true;
+      v->vbvar->var_cc = v.get();
     }
   }
   for (auto &sv : _sparseArray) {
     if ( (sv->isSet(Metadata::fillGhost)) ) {
       VariableVector<T> vvec = sv->GetVector();
       for (auto & v : vvec) {
+        v->vbvar->var_cc = v.get();
+      }
+    }
+  }
+}
+
+template <typename T>
+void Container<T>::StartReceiving(BoundaryCommSubset phase) {
+  //    std::cout << "in set" << std::endl;
+  // sets the boundary
+  //  std::cout << "________CLEAR from stage:"<<s->name()<<std::endl;
+  for (auto &v : _varArray) {
+    if ( (v->metadata()).fillsGhost() ) {
+      v->vbvar->var_cc = v.get();
+      v->vbvar->StartReceiving(phase);
+      v->mpiStatus=false;
+    }
+  }
+  for (auto &sv : _sparseArray) {
+    if ( (sv->isSet(Metadata::fillGhost)) ) {
+      VariableVector<T> vvec = sv->GetVector();
+      for (auto & v : vvec) {
+        v->vbvar->var_cc = v.get();
         v->vbvar->StartReceiving(phase);
+        v->mpiStatus = false;
       }
     }
   }
@@ -410,7 +426,6 @@ void Container<T>::ClearBoundary(BoundaryCommSubset phase) {
   for (auto &v : _varArray) {
     if ( (v->metadata()).fillsGhost() ) {
       v->vbvar->ClearBoundary(phase);
-      //      v->mpiStatus=true;
     }
   }
   for (auto &sv : _sparseArray) {

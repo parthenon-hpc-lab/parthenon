@@ -187,7 +187,6 @@ void VTKOutput::WriteContainer(Mesh *pm, ParameterInput *pin, bool flag) {
     // reset container iterator to point to current block data
     auto ci = ContainerIterator<Real>(pmb->real_containers.Get(),{Metadata::graphics});
     for ( auto &v : ci.vars) {
-      int n_dataset = 0;
       if ( ! data ) {
 	std::cout << "____________________SKIPPPING:"<<v->label() << std::endl;
 	continue;

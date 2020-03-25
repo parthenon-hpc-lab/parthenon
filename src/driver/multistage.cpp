@@ -19,8 +19,8 @@ namespace parthenon {
 MultiStageDriver::MultiStageDriver(ParameterInput *pin, Mesh *pm, Outputs *pout) : EvolutionDriver(pin,pm,pout) {
   pmesh = pm;
   std::string integrator_name = pin->GetOrAddString("time", "integrator", "rk2");
+  int nstages = 2; // default rk2
 
-  int nstages;
   std::vector<Real> beta;
   if (!integrator_name.compare("rk1")) {
     nstages = 1;

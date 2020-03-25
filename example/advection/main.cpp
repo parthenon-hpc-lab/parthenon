@@ -11,47 +11,43 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#include <string>
+// C headers
 
-#include "container_collection.hpp"
-#include "Container.hpp"
+// C++ headers
 
-namespace parthenon {
+// Parthenon headers
+#include "parthenon_manager.hpp"
 
-template <typename T>
-void ContainerCollection<T>::Add(const std::string& name, Container<T>& src) {
-  // error check for duplicate names
+// Application headers
+#include "advection.hpp"
 
-  auto c = Container<T>();
-  c.pmy_block = src.pmy_block;
-  for (auto v : src.allVars()) {
-    if (v->isSet(Metadata::oneCopy)) {
-      c.Add(v);
-    } else {
-      c.Add( std::make_shared<Variable<T>>(*v) );
-    }
+int main(int argc, char *argv[]) {
+  using parthenon::ParthenonManager;
+  using parthenon::ParthenonStatus;
+  ParthenonManager pman;
+
+  auto manager_status = pman.ParthenonInit(argc, argv);
+  if (manager_status == ParthenonStatus::complete) {
+    pman.ParthenonFinalize();
+    return 0;
+  }
+  if (manager_status == ParthenonStatus::error) {
+    pman.ParthenonFinalize();
+    return 1;
   }
 
-  for (auto v : src.faceVars()) {
-    if (v->isSet(Metadata::oneCopy)) {
-      c.Add(v);
-    } else {
-      throw std::runtime_error("Non-oneCopy face variables are not yet supported");
-    }
-  }
+  AdvectionDriver driver(pman.pinput.get(), pman.pmesh.get(), pman.pouts.get());
 
-  for (auto v : src.sparseVars()) {
-    if (v->isSet(Metadata::oneCopy)) {
-      c.Add(v);
-    } else {
-      c.Add( std::make_shared<SparseVariable<T>>(*v) );
-    }
-  }
+  // start a timer
+  pman.PreDriver();
 
-  containers_[name] = std::move(c);
+  auto driver_status = driver.Execute();
 
+  // Make final outputs, print diagnostics
+  pman.PostDriver(driver_status);
+
+  // call MPI_Finalize if necessary
+  pman.ParthenonFinalize();
+
+  return(0);
 }
-
-template class ContainerCollection<Real>;
-
-} // namespace parthenon

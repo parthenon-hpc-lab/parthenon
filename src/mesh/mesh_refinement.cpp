@@ -957,7 +957,7 @@ void MeshRefinement::ProlongateInternalField(
 void MeshRefinement::CheckRefinementCondition() {
   MeshBlock *pmb = pmy_block_;
   Container<Real>& rc = pmb->real_containers.Get();
-  int ret = 0;
+  int ret;
   ret = BetterRefinement::CheckAllRefinement(rc);
   //if (AMRFlag_ != nullptr) ret = AMRFlag_(pmb);
   SetRefinement(ret);

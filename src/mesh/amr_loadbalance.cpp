@@ -426,11 +426,10 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
   int nbs = nslist[Globals::my_rank];
   int nbe = nbs + nblist[Globals::my_rank] - 1;
 
+#ifdef MPI_PARALLEL
   int bnx1 = pblock->block_size.nx1;
   int bnx2 = pblock->block_size.nx2;
   int bnx3 = pblock->block_size.nx3;
-
-#ifdef MPI_PARALLEL
   // Step 3. count the number of the blocks to be sent / received
   int nsend = 0, nrecv = 0;
   for (int n=nbs; n<=nbe; n++) {

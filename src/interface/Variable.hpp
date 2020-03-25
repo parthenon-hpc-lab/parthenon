@@ -46,8 +46,8 @@ class Variable : public AthenaArray<T> {
   /// Initialize a blank slate that will be set later
   Variable<T>(const std::string label, Metadata &metadata) :
     AthenaArray<T>(),
-    _label(label),
     _m(metadata),
+    _label(label),
     mpiStatus(true) {
     //    std::cout << "_____CREATED VAR: " << _label << ":" << this << std::endl;
   }
@@ -89,9 +89,9 @@ class Variable : public AthenaArray<T> {
               const std::array<int,6> dims,
               const Metadata &metadata) :
     AthenaArray<T>(dims[5], dims[4], dims[3], dims[2], dims[1], dims[0]),
-    _label(label),
+    mpiStatus(true),
     _m(metadata),
-    mpiStatus(true) {
+    _label(label) {
     //    std::cout << "_____CREATED 6D VAR: " << _label << ":" << this << std::endl;
   }
 
@@ -113,7 +113,6 @@ class Variable : public AthenaArray<T> {
     auto oldData = this->data();
     auto newData = vNew->data();
     // now fill in the data
-    size_t index = 0;
     const size_t n4 = this->GetDim4();
     for (size_t i=0; i<stride; i++) {
       for (size_t j=0; j<n4; j++, newData++) {
@@ -173,8 +172,8 @@ struct FaceVariable : FaceField {
                const std::array<int,6> ncells,
                const DATASTATUS init=DATASTATUS::allocated) :
     FaceField(ncells[5], ncells[4], ncells[3], ncells[2], ncells[1], ncells[0], init),
-    _label(label),
-    _m(metadata) {
+    _m(metadata),
+    _label(label) {
     if ( metadata.hasSparse() ) {
       throw std::invalid_argument ("Sparse not yet implemented for FaceVariable");
     }
@@ -183,8 +182,8 @@ struct FaceVariable : FaceField {
   /// Create an alias for the variable by making a shallow slice with max dim
   FaceVariable(std::string label, FaceVariable &src) :
     FaceField(0,0,0,DATASTATUS::allocated),
-    _label(label),
-    _m(src.metadata()) {
+    _m(src.metadata()),
+    _label(label) {
     int dim = 6;
     int start = 0;
     this->x1f.InitWithShallowSlice(src.x1f, dim, start, src.x1f.GetDim6());
@@ -239,8 +238,8 @@ struct EdgeVariable : EdgeField {
                const int ncells3, const int ncells2, const int ncells1,
                const DATASTATUS init=DATASTATUS::allocated) :
     EdgeField(ncells3, ncells2, ncells1, init),
-    _label(label),
-    _m(metadata) {
+    _m(metadata),
+    _label(label) {
     if ( metadata.hasSparse() ) {
       throw std::invalid_argument ("Sparse not yet implemented for FaceVariable");
     }
@@ -249,8 +248,8 @@ struct EdgeVariable : EdgeField {
   /// Create an alias for the variable by making a shallow slice with max dim
   EdgeVariable(const std::string label, const EdgeVariable &src) :
     EdgeField(0,0,0,DATASTATUS::allocated),
-    _label(label),
-    _m(src.metadata()) {
+    _m(src.metadata()),
+    _label(label) {
     this->x1e.InitWithShallowSlice(src.x1e, 3, 0, src.x1e.GetDim3());
     this->x2e.InitWithShallowSlice(src.x2e, 3, 0, src.x2e.GetDim3());
     this->x3e.InitWithShallowSlice(src.x3e, 3, 0, src.x3e.GetDim3());

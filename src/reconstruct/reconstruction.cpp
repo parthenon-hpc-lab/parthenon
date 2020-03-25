@@ -229,10 +229,6 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin) :
       beta[i] = new Real[kNcols];
     }
 
-    Real w_sol[kNrows], b_rhs[kNrows];
-    int permute[kNrows];
-    int m_coord = 2;
-
     // zero-curvature PPM limiter does not depend on mesh uniformity:
     for (int i=(pmb->is)-1; i<=(pmb->ie)+1; ++i) {
       // h_plus = 3.0;
