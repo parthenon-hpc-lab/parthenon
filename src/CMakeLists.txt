@@ -94,11 +94,8 @@ add_library(parthenon
   pgen/default_pgen.cpp
 
   reconstruct/characteristic.cpp
-  reconstruct/dc_simple.cpp
   reconstruct/dc.cpp
-  reconstruct/plm_simple.cpp
   reconstruct/plm.cpp
-  reconstruct/ppm_simple.cpp
   reconstruct/ppm.cpp
   reconstruct/reconstruction.cpp
 
