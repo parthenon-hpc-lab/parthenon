@@ -144,29 +144,29 @@ void BoundaryValues::ProlongateBoundaries(const Real time, const Real dt) {
     int si, ei, sj, ej, sk, ek;
     if (nb.ni.ox1 == 0) {
       std::int64_t &lx1 = pmb->loc.lx1;
-      si = pmb->cis, ei = pmb->cie;
+      si = pmb->active_coarse_cells.x.at(0).s, ei = pmb->active_coarse_cells.x.at(0).e;
       if ((lx1 & 1LL) == 0LL) ei += cn;
       else             si -= cn;
-    } else if (nb.ni.ox1 > 0) { si = pmb->cie + 1,  ei = pmb->cie + cn;}
-    else              si = pmb->cis-cn, ei = pmb->cis-1;
+    } else if (nb.ni.ox1 > 0) { si = pmb->active_coarse_cells.x.at(0).e + 1,  ei = pmb->active_coarse_cells.x.at(0).e + cn;}
+    else              si = pmb->active_coarse_cells.x.at(0).s-cn, ei = pmb->active_coarse_cells.x.at(0).s-1;
     if (nb.ni.ox2 == 0) {
-      sj = pmb->cjs, ej = pmb->cje;
+      sj = pmb->active_coarse_cells.x.at(1).s, ej = pmb->active_coarse_cells.x.at(1).e;
       if (pmb->block_size.nx2 > 1) {
         std::int64_t &lx2 = pmb->loc.lx2;
         if ((lx2 & 1LL) == 0LL) ej += cn;
         else             sj -= cn;
       }
-    } else if (nb.ni.ox2 > 0) { sj = pmb->cje + 1,  ej = pmb->cje + cn;}
-    else              sj = pmb->cjs-cn, ej = pmb->cjs-1;
+    } else if (nb.ni.ox2 > 0) { sj = pmb->active_coarse_cells.x.at(1).e + 1,  ej = pmb->active_coarse_cells.x.at(1).e + cn;}
+    else              sj = pmb->active_coarse_cells.x.at(1).s-cn, ej = pmb->active_coarse_cells.x.at(1).s-1;
     if (nb.ni.ox3 == 0) {
-      sk = pmb->cks, ek = pmb->cke;
+      sk = pmb->active_coarse_cells.x.at(2).s, ek = pmb->active_coarse_cells.x.at(2).e;
       if (pmb->block_size.nx3 > 1) {
         std::int64_t &lx3 = pmb->loc.lx3;
         if ((lx3 & 1LL) == 0LL) ek += cn;
         else             sk -= cn;
       }
-    } else if (nb.ni.ox3 > 0) { sk = pmb->cke + 1,  ek = pmb->cke + cn;}
-    else              sk = pmb->cks-cn, ek = pmb->cks-1;
+    } else if (nb.ni.ox3 > 0) { sk = pmb->active_coarse_cells.x.at(2).e + 1,  ek = pmb->active_coarse_cells.x.at(2).e + cn;}
+    else              sk = pmb->active_coarse_cells.x.at(2).s-cn, ek = pmb->active_coarse_cells.x.at(2).s-1;
 
     // (temp workaround) to automatically call all BoundaryFunction_[] on coarse_prim/b
     // instead of previous targets var_cc=cons, var_fc=b
@@ -267,21 +267,21 @@ void BoundaryValues::ProlongateGhostCells(const NeighborBlock& nb,
   // now that the ghost-ghost zones are filled and prolongated,
   // calculate the loop limits for the finer grid
   int fsi, fei, fsj, fej, fsk, fek;
-  fsi = (si - pmb->cis)*2 + pmb->is;
-  fei = (ei - pmb->cis)*2 + pmb->is + 1;
+  fsi = (si - pmb->active_coarse_cells.x.at(0).s)*2 + pmb->active_cells.x.at(0).s;
+  fei = (ei - pmb->active_coarse_cells.x.at(0).s)*2 + pmb->active_cells.x.at(0).s + 1;
   if (pmb->block_size.nx2 > 1) {
-    fsj = (sj - pmb->cjs)*2 + pmb->js;
-    fej = (ej - pmb->cjs)*2 + pmb->js + 1;
+    fsj = (sj - pmb->active_coarse_cells.x.at(1).s)*2 + pmb->active_cells.x.at(1).s;
+    fej = (ej - pmb->active_coarse_cells.x.at(1).s)*2 + pmb->active_cells.x.at(1).s + 1;
   } else {
-    fsj = pmb->js;
-    fej = pmb->je;
+    fsj = pmb->active_cells.x.at(1).s;
+    fej = pmb->active_cells.x.at(1).e;
   }
   if (pmb->block_size.nx3 > 1) {
-    fsk = (sk - pmb->cks)*2 + pmb->ks;
-    fek = (ek - pmb->cks)*2 + pmb->ks + 1;
+    fsk = (sk - pmb->active_coarse_cells.x.at(2).s)*2 + pmb->active_cells.x.at(2).s;
+    fek = (ek - pmb->active_coarse_cells.x.at(2).s)*2 + pmb->active_cells.x.at(2).s + 1;
   } else {
-    fsk = pmb->ks;
-    fek = pmb->ke;
+    fsk = pmb->active_cells.x.at(2).s;
+    fek = pmb->active_cells.x.at(2).e;
   }
 
   // KGF: COUPLING OF QUANTITIES (must be manually specified)

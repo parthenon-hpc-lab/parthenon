@@ -1320,9 +1320,9 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
         if (multilevel)
           pbval->ProlongateBoundaries(time, 0.0);
 
-        int il = pmb->is, iu = pmb->ie,
-            jl = pmb->js, ju = pmb->je,
-            kl = pmb->ks, ku = pmb->ke;
+        int il = pmb->active_cells.x.at(0).s, iu = pmb->active_cells.x.at(0).e,
+            jl = pmb->active_cells.x.at(1).s, ju = pmb->active_cells.x.at(1).e,
+            kl = pmb->active_cells.x.at(2).s, ku = pmb->active_cells.x.at(2).e;
         if (pbval->nblevel[1][1][0] != -1) il -= NGHOST;
         if (pbval->nblevel[1][1][2] != -1) iu += NGHOST;
         if (pmb->block_size.nx2 > 1) {
@@ -1492,8 +1492,8 @@ void Mesh::CorrectMidpointInitialCondition(std::vector<MeshBlock*> &pmb_array, i
 
     // Assume cell-centered analytic value is computed at all real cells, and ghost
     // cells with the cell-centered U have been exchanged
-    int il = pmb->is, iu = pmb->ie, jl = pmb->js, ju = pmb->je,
-        kl = pmb->ks, ku = pmb->ke;
+    int il = pmb->active_cells.x.at(0).s, iu = pmb->active_cells.x.at(0).e, jl = pmb->active_cells.x.at(1).s, ju = pmb->active_cells.x.at(1).e,
+        kl = pmb->active_cells.x.at(2).s, ku = pmb->active_cells.x.at(2).e;
 
     // Laplacian of cell-averaged conserved variables, scalar concentrations
     AthenaArray<Real> delta_cons_, delta_s_;
@@ -1502,9 +1502,10 @@ void Mesh::CorrectMidpointInitialCondition(std::vector<MeshBlock*> &pmb_array, i
     int ncells4 = NHYDRO;
     int nl = 0;
     int nu = ncells4 - 1;
-    delta_cons_.NewAthenaArray(ncells4, pmb->num_cells.dim1, pmb->num_cells.dim2, pmb->num_cells.dim3);
-
-
+    delta_cons_.NewAthenaArray(ncells4, 
+        pmb->all_cells.x.at(0).n(), 
+        pmb->all_cells.x.at(1).n(), 
+        pmb->all_cells.x.at(2).n());
 
     // TODO(felker): assuming uniform mesh with dx1f=dx2f=dx3f, so this factors out
     // TODO(felker): also, this may need to be dx1v, since Laplacian is cell-center

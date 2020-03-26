@@ -73,15 +73,21 @@ void VTKOutput::WriteContainer(Mesh *pm, ParameterInput *pin, bool flag) {
   // Loop over MeshBlocks
   while (pmb != nullptr) {
     // set start/end array indices depending on whether ghost zones are included
-    out_is = pmb->is; out_ie = pmb->ie;
-    out_js = pmb->js; out_je = pmb->je;
-    out_ks = pmb->ks; out_ke = pmb->ke;
-    if (output_params.include_ghost_zones) {
-      out_is -= NGHOST; out_ie += NGHOST;
-      if (out_js != out_je) {out_js -= NGHOST; out_je += NGHOST;}
-      if (out_ks != out_ke) {out_ks -= NGHOST; out_ke += NGHOST;}
+    IndexShape cells;
+    {
+      out_is = pmb->active_cells.x.at(0).s; out_ie = pmb->active_cells.x.at(0).e;
+      out_js = pmb->active_cells.x.at(1).s; out_je = pmb->active_cells.x.at(1).e;
+      out_ks = pmb->active_cells.x.at(2).s; out_ke = pmb->active_cells.x.at(2).e;
+      if (output_params.include_ghost_zones) {
+        out_is -= NGHOST; out_ie += NGHOST;
+        if (out_js != out_je) {out_js -= NGHOST; out_je += NGHOST;}
+        if (out_ks != out_ke) {out_ks -= NGHOST; out_ke += NGHOST;}
+      }
+      cells = IndexShape(
+          out_is,out_ie,
+          out_js,out_je,
+          out_ks,out_ke);
     }
-
     // build doubly linked list of OutputData nodes (setting data ptrs to appropriate
     // quantity on MeshBlock for each node), then slice/sum as needed
     // create filename: "file_basename"+ "."+"blockid"+"."+"file_id"+"."+XXXXX+".vtk",
@@ -123,17 +129,13 @@ void VTKOutput::WriteContainer(Mesh *pm, ParameterInput *pin, bool flag) {
     std::fprintf(pfile, "BINARY\n");
 
     //  4. Dataset structure
-    IndexVolume num_cells;
-    num_cells.dim1 = out_ie - out_is + 1;
-    num_cells.dim2 = out_je - out_js + 1;
-    num_cells.dim3 = out_ke - out_ks + 1;
 
-    int ncoord1 = num_cells.dim1;
-    if (num_cells.dim1 > 1) ncoord1++;
-    int ncoord2 = num_cells.dim2;
-    if (num_cells.dim2 > 1) ncoord2++;
-    int ncoord3 = num_cells.dim3;
-    if (num_cells.dim3 > 1) ncoord3++;
+    int ncoord1 = cells.x.at(0).n();
+    if (cells.x.at(0).n() > 1) ncoord1++;
+    int ncoord2 = cells.x.at(0).n();
+    if (cells.x.at(1).n() > 1) ncoord2++;
+    int ncoord3 = cells.x.at(2).n();
+    if (cells.x.at(2).n() > 1) ncoord3++;
 
     float *data;
     int ndata = std::max(ncoord1, ncoord2);
@@ -147,11 +149,11 @@ void VTKOutput::WriteContainer(Mesh *pm, ParameterInput *pin, bool flag) {
 
     // write x1-coordinates as binary float in big endian order
     std::fprintf(pfile, "X_COORDINATES %d float\n", ncoord1);
-    if (num_cells.dim1 == 1) {
-      data[0] = static_cast<float>(pmb->pcoord->x1v(out_is));
+    if (cells.x.at(0).n() == 1) {
+      data[0] = static_cast<float>(pmb->pcoord->x1v(cells.x.at(0).s));
     } else {
-      for (int i=out_is; i<=out_ie+1; ++i) {
-        data[i-out_is] = static_cast<float>(pmb->pcoord->x1f(i));
+      for (int i=cells.x.at(0).s; i<=cells.x.at(0).e+1; ++i) {
+        data[i-cells.x.at(0).s] = static_cast<float>(pmb->pcoord->x1f(i));
       }
     }
     if (!big_end) {for (int i=0; i<ncoord1; ++i) Swap4Bytes(&data[i]);}
@@ -159,11 +161,11 @@ void VTKOutput::WriteContainer(Mesh *pm, ParameterInput *pin, bool flag) {
 
     // write x2-coordinates as binary float in big endian order
     std::fprintf(pfile, "\nY_COORDINATES %d float\n", ncoord2);
-    if (num_cells.dim2 == 1) {
-      data[0] = static_cast<float>(pmb->pcoord->x2v(out_js));
+    if (cells.x.at(1).n() == 1) {
+      data[0] = static_cast<float>(pmb->pcoord->x2v(cells.x.at(1).s));
     } else {
-      for (int j=out_js; j<=out_je+1; ++j) {
-        data[j-out_js] = static_cast<float>(pmb->pcoord->x2f(j));
+      for (int j=cells.x.at(1).s; j<=cells.x.at(1).e+1; ++j) {
+        data[j-cells.x.at(1).s] = static_cast<float>(pmb->pcoord->x2f(j));
       }
     }
     if (!big_end) {for (int i=0; i<ncoord2; ++i) Swap4Bytes(&data[i]);}
@@ -171,11 +173,11 @@ void VTKOutput::WriteContainer(Mesh *pm, ParameterInput *pin, bool flag) {
 
     // write x3-coordinates as binary float in big endian order
     std::fprintf(pfile, "\nZ_COORDINATES %d float\n", ncoord3);
-    if (num_cells.dim3 == 1) {
-      data[0] = static_cast<float>(pmb->pcoord->x3v(out_ks));
+    if (cells.x.at(2).n() == 1) {
+      data[0] = static_cast<float>(pmb->pcoord->x3v(cells.x.at(2).e));
     } else {
-      for (int k=out_ks; k<=out_ke+1; ++k) {
-        data[k-out_ks] = static_cast<float>(pmb->pcoord->x3f(k));
+      for (int k=cells.x.at(2).s; k<=cells.x.at(2).e+1; ++k) {
+        data[k-cells.x.at(2).s] = static_cast<float>(pmb->pcoord->x3f(k));
       }
     }
     if (!big_end) {for (int i=0; i<ncoord3; ++i) Swap4Bytes(&data[i]);}
@@ -184,7 +186,7 @@ void VTKOutput::WriteContainer(Mesh *pm, ParameterInput *pin, bool flag) {
     //  5. Data.  An arbitrary number of scalars and vectors can be written (every node
     //  in the OutputData doubly linked lists), all in binary floats format
 
-    std::fprintf(pfile, "\nCELL_DATA %d", num_cells.GetVolume());
+    std::fprintf(pfile, "\nCELL_DATA %d", cells.GetTotal());
     // reset container iterator to point to current block data
     auto ci = ContainerIterator<Real>(pmb->real_container,{Metadata::graphics});
     for ( auto &v : ci.vars) {
@@ -194,19 +196,19 @@ void VTKOutput::WriteContainer(Mesh *pm, ParameterInput *pin, bool flag) {
 	continue;
       }
       std::fprintf(pfile, "\nLOOKUP_TABLE default\n");
-      for (int k = out_ks; k <= out_ke; k++) {
-	for (int j = out_js; j <= out_je; j++) {
+      for (int k = cells.x.at(2).s; k <= cells.x.at(2).e; k++) {
+	for (int j = cells.x.at(1).s; j <= cells.x.at(1).e; j++) {
 	  int index = 0;
-	  for (int i = out_is; i <= out_ie; i++, index++) {
-	    data[(i-out_is)+index] = (*v)(k,j,i);
+	  for (int i = cells.x.at(0).s; i <= cells.x.at(0).e; i++, index++) {
+	    data[(i-cells.x.at(0).s)+index] = (*v)(k,j,i);
 	  }
 
           // write data in big endian order
           if (!big_end) {
-            for (int i=0; i<(num_cells.dim1); ++i)
+            for (int i=0; i<(cells.x.at(0).n()); ++i)
               Swap4Bytes(&data[i]);
           }
-          std::fwrite(data, sizeof(float), static_cast<std::size_t>(num_cells.dim1), pfile);
+          std::fwrite(data, sizeof(float), static_cast<std::size_t>(cells.x.at(0).n()), pfile);
 	}
       }
     }
@@ -233,15 +235,21 @@ void VTKOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
   // Loop over MeshBlocks
   while (pmb != nullptr) {
     // set start/end array indices depending on whether ghost zones are included
-    out_is = pmb->is; out_ie = pmb->ie;
-    out_js = pmb->js; out_je = pmb->je;
-    out_ks = pmb->ks; out_ke = pmb->ke;
-    if (output_params.include_ghost_zones) {
-      out_is -= NGHOST; out_ie += NGHOST;
-      if (out_js != out_je) {out_js -= NGHOST; out_je += NGHOST;}
-      if (out_ks != out_ke) {out_ks -= NGHOST; out_ke += NGHOST;}
+    IndexShape cells;
+    {
+      out_is = pmb->active_cells.x.at(0).s; out_ie = pmb->active_cells.x.at(0).e;
+      out_js = pmb->active_cells.x.at(1).s; out_je = pmb->active_cells.x.at(1).e;
+      out_ks = pmb->active_cells.x.at(2).s; out_ke = pmb->active_cells.x.at(2).e;
+      if (output_params.include_ghost_zones) {
+        out_is -= NGHOST; out_ie += NGHOST;
+        if (out_js != out_je) {out_js -= NGHOST; out_je += NGHOST;}
+        if (out_ks != out_ke) {out_ks -= NGHOST; out_ke += NGHOST;}
+      }
+      cells = IndexShape(
+          out_is,out_ie,
+          out_js,out_je,
+          out_ks,out_ke);
     }
-
     // build doubly linked list of OutputData nodes (setting data ptrs to appropriate
     // quantity on MeshBlock for each node), then slice/sum as needed
     LoadOutputData(pmb);
@@ -290,17 +298,12 @@ void VTKOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
     std::fprintf(pfile, "BINARY\n");
 
     //  4. Dataset structure
-    IndexVolume num_cells;
-    num_cells.dim1 = out_ie - out_is + 1;
-    num_cells.dim2 = out_je - out_js + 1;
-    num_cells.dim3 = out_ke - out_ks + 1;
-
-    int ncoord1 = num_cells.dim1;
-    if (num_cells.dim1 > 1) ncoord1++;
-    int ncoord2 = num_cells.dim2;
-    if (num_cells.dim2 > 1) ncoord2++;
-    int ncoord3 = num_cells.dim3;
-    if (num_cells.dim3 > 1) ncoord3++;
+    int ncoord1 = cells.x.at(0).n();
+    if (cells.x.at(0).n() > 1) ncoord1++;
+    int ncoord2 = cells.x.at(1).n();
+    if (cells.x.at(1).n() > 1) ncoord2++;
+    int ncoord3 = cells.x.at(2).n();
+    if (cells.x.at(2).n() > 1) ncoord3++;
 
     float *data;
     int ndata = std::max(ncoord1, ncoord2);
@@ -314,11 +317,11 @@ void VTKOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
 
     // write x1-coordinates as binary float in big endian order
     std::fprintf(pfile, "X_COORDINATES %d float\n", ncoord1);
-    if (num_cells.dim1 == 1) {
-      data[0] = static_cast<float>(pmb->pcoord->x1v(out_is));
+    if (cells.x.at(0).n() == 1) {
+      data[0] = static_cast<float>(pmb->pcoord->x1v(cells.x.at(0).s));
     } else {
-      for (int i=out_is; i<=out_ie+1; ++i) {
-        data[i-out_is] = static_cast<float>(pmb->pcoord->x1f(i));
+      for (int i=cells.x.at(0).s; i<= cells.x.at(0).e+1; ++i) {
+        data[i-cells.x.at(0).s] = static_cast<float>(pmb->pcoord->x1f(i));
       }
     }
     if (!big_end) {for (int i=0; i<ncoord1; ++i) Swap4Bytes(&data[i]);}
@@ -326,11 +329,11 @@ void VTKOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
 
     // write x2-coordinates as binary float in big endian order
     std::fprintf(pfile, "\nY_COORDINATES %d float\n", ncoord2);
-    if (num_cells.dim2 == 1) {
-      data[0] = static_cast<float>(pmb->pcoord->x2v(out_js));
+    if (cells.x.at(1).n() == 1) {
+      data[0] = static_cast<float>(pmb->pcoord->x2v(cells.x.at(1).s));
     } else {
-      for (int j=out_js; j<=out_je+1; ++j) {
-        data[j-out_js] = static_cast<float>(pmb->pcoord->x2f(j));
+      for (int j=cells.x.at(1).s; j<=cells.x.at(1).e+1; ++j) {
+        data[j-cells.x.at(1).s] = static_cast<float>(pmb->pcoord->x2f(j));
       }
     }
     if (!big_end) {for (int i=0; i<ncoord2; ++i) Swap4Bytes(&data[i]);}
@@ -338,11 +341,11 @@ void VTKOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
 
     // write x3-coordinates as binary float in big endian order
     std::fprintf(pfile, "\nZ_COORDINATES %d float\n", ncoord3);
-    if (num_cells.dim3 == 1) {
-      data[0] = static_cast<float>(pmb->pcoord->x3v(out_ks));
+    if (cells.x.at(2).n() == 1) {
+      data[0] = static_cast<float>(pmb->pcoord->x3v(cells.x.at(2).s));
     } else {
-      for (int k=out_ks; k<=out_ke+1; ++k) {
-        data[k-out_ks] = static_cast<float>(pmb->pcoord->x3f(k));
+      for (int k=cells.x.at(2).s; k<=cells.x.at(2).e+1; ++k) {
+        data[k-cells.x.at(2).s] = static_cast<float>(pmb->pcoord->x3f(k));
       }
     }
     if (!big_end) {for (int i=0; i<ncoord3; ++i) Swap4Bytes(&data[i]);}
@@ -350,7 +353,7 @@ void VTKOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
 
     //  5. Data.  An arbitrary number of scalars and vectors can be written (every node
     //  in the OutputData doubly linked lists), all in binary floats format
-    std::fprintf(pfile, "\nCELL_DATA %d", num_cells.GetVolume());
+    std::fprintf(pfile, "\nCELL_DATA %d", cells.GetTotal());
 
     OutputData *pdata = pfirst_data_;
     while (pdata != nullptr) {
@@ -359,20 +362,20 @@ void VTKOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
 
       int nvar = pdata->data.GetDim4();
       if (nvar == 1) std::fprintf(pfile, "LOOKUP_TABLE default\n");
-      for (int k=out_ks; k<=out_ke; ++k) {
-        for (int j=out_js; j<=out_je; ++j) {
-          for (int i=out_is; i<=out_ie; ++i) {
+      for (int k=cells.x.at(2).s; k<=cells.x.at(2).e; ++k) {
+        for (int j=cells.x.at(1).s; j<=cells.x.at(1).e; ++j) {
+          for (int i=cells.x.at(0).s; i<=cells.x.at(2).e; ++i) {
             for (int n=0; n<nvar; ++n) {
-              data[nvar*(i-out_is)+n] = static_cast<float>(pdata->data(n,k,j,i));
+              data[nvar*(i-cells.x.at(0).s)+n] = static_cast<float>(pdata->data(n,k,j,i));
             }
           }
 
           // write data in big endian order
           if (!big_end) {
-            for (int i=0; i<(nvar*num_cells.dim1); ++i)
+            for (int i=0; i<(nvar*cells.x.at(0).n()); ++i)
               Swap4Bytes(&data[i]);
           }
-          std::fwrite(data, sizeof(float), static_cast<std::size_t>(nvar*num_cells.dim1), pfile);
+          std::fwrite(data, sizeof(float), static_cast<std::size_t>(nvar*cells.x.at(0).n()), pfile);
         }
       }
       pdata = pdata->pnext;

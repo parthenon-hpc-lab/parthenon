@@ -141,19 +141,19 @@ void Variable<T>::allocateComms(MeshBlock *pmb) {
   const int _dim4 = this->GetDim4();
   const int _dim5 = this->GetDim5();
   const int _dim6 = this->GetDim6();
-  flux[0].NewAthenaArray(_dim4, pmb->num_cells.dim3, pmb->num_cells.dim2, pmb->num_cells.dim1+1);
+  flux[0].NewAthenaArray(_dim4, pmb->all_cells.x.at(2).n(), pmb->all_cells.x.at(1).n(), pmb->all_cells.x.at(0).n()+1);
   if (pmb->pmy_mesh->f2) {
-    flux[1].NewAthenaArray(_dim4, pmb->num_cells.dim3, pmb->num_cells.dim2+1, pmb->num_cells.dim1);
+    flux[1].NewAthenaArray(_dim4, pmb->all_cells.x.at(2).n(), pmb->all_cells.x.at(1).n()+1, pmb->all_cells.x.at(0).n());
   }
   if (pmb->pmy_mesh->f3) {
-    flux[2].NewAthenaArray(_dim4, pmb->num_cells.dim3+1, pmb->num_cells.dim2, pmb->num_cells.dim1);
+    flux[2].NewAthenaArray(_dim4, pmb->all_cells.x.at(2).n()+1, pmb->all_cells.x.at(1).n(), pmb->all_cells.x.at(0).n());
   }
-  coarse_s = new AthenaArray<Real>(_dim4, pmb->ncc3, pmb->ncc2, pmb->ncc1,
+  coarse_s = new AthenaArray<Real>(_dim4, pmb->all_coarse_cells.x.at(2).n(), pmb->all_coarse_cells.x.at(1).n(), pmb->all_coarse_cells.x.at(0).n(),
                                 (pmb->pmy_mesh->multilevel ?
                                  AthenaArray<Real>::DataStatus::allocated :
                                  AthenaArray<Real>::DataStatus::empty));
 
-  coarse_r = new AthenaArray<Real>(_dim4, pmb->ncc3, pmb->ncc2, pmb->ncc1,
+  coarse_r = new AthenaArray<Real>(_dim4, pmb->all_coarse_cells.x.at(2).n(), pmb->all_coarse_cells.x.at(1).n(), pmb->all_coarse_cells.x.at(0).n(),
                                 (pmb->pmy_mesh->multilevel ?
                                  AthenaArray<Real>::DataStatus::allocated :
                                  AthenaArray<Real>::DataStatus::empty));

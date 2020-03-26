@@ -62,48 +62,14 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
     new_block_dt_user_{},
     nreal_user_meshblock_data_(), nint_user_meshblock_data_(), cost_(1.0), materials(mats), physics(phys) {
   // initialize grid indices
-  is = NGHOST;
-  ie = is + block_size.nx1 - 1;
 
   this->ssID = id++;
 
-  num_cells.dim1 = block_size.nx1 + 2*NGHOST;
-  ncc1 = block_size.nx1/2 + 2*NGHOST;
-  if (pmy_mesh->f2) {
-    js = NGHOST;
-    je = js + block_size.nx2 - 1;
-    num_cells.dim2 = block_size.nx2 + 2*NGHOST;
-    ncc2 = block_size.nx2/2 + 2*NGHOST;
-  } else {
-    js = je = 0;
-    num_cells.dim2 = 1;
-    ncc2 = 1;
-  }
-
-  if (pmy_mesh->f3) {
-    ks = NGHOST;
-    ke = ks + block_size.nx3 - 1;
-    num_cells.dim3 = block_size.nx3 + 2*NGHOST;
-    ncc3 = block_size.nx3/2 + 2*NGHOST;
-  } else {
-    ks = ke = 0;
-    num_cells.dim3 = 1;
-    ncc3 = 1;
-  }
-
+  InitializeIndexShapes();
+ 
   // Set the block pointer for the containers
   real_container.setBlock(this);
   //  real_container.setNumMat(materials.size());
-
-  if (pm->multilevel) {
-    cnghost = (NGHOST + 1)/2 + 1;
-    cis = NGHOST; cie = cis + block_size.nx1/2 - 1;
-    cjs = cje = cks = cke = 0;
-    if (pmy_mesh->f2) // 2D or 3D
-      cjs = NGHOST, cje = cjs + block_size.nx2/2 - 1;
-    if (pmy_mesh->f3) // 3D
-      cks = NGHOST, cke = cks + block_size.nx3/2 - 1;
-  }
 
   // (probably don't need to preallocate space for references in these vectors)
   vars_cc_.reserve(3);
@@ -186,6 +152,7 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
   app = InitApplicationMeshBlockData(pin);
 }
 
+
 //----------------------------------------------------------------------------------------
 // MeshBlock constructor for restarts
 
@@ -200,50 +167,12 @@ MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
     new_block_dt_{}, new_block_dt_hyperbolic_{}, new_block_dt_parabolic_{},
     new_block_dt_user_{},
     nreal_user_meshblock_data_(), nint_user_meshblock_data_(), cost_(icost), materials(mats) {
+
   // initialize grid indices
-
-  //std::cerr << "WHY AM I HERE???" << std::endl;
-
-  is = NGHOST;
-  ie = is + block_size.nx1 - 1;
-
-  num_cells.dim1 = block_size.nx1 + 2*NGHOST;
-  ncc1 = block_size.nx1/2 + 2*NGHOST;
-  if (pmy_mesh->f2) {
-    js = NGHOST;
-    je = js + block_size.nx2 - 1;
-    num_cells.dim2 = block_size.nx2 + 2*NGHOST;
-    ncc2 = block_size.nx2/2 + 2*NGHOST;
-  } else {
-    js = je = 0;
-    num_cells.dim2 = 1;
-    ncc2 = 1;
-  }
-
-  if (pmy_mesh->f3) {
-    ks = NGHOST;
-    ke = ks + block_size.nx3 - 1;
-    num_cells.dim3 = block_size.nx3 + 2*NGHOST;
-    ncc3 = block_size.nx3/2 + 2*NGHOST;
-  } else {
-    ks = ke = 0;
-    num_cells.dim3 = 1;
-    ncc3 = 1;
-  }
-
+  InitializeIndexShapes();
+    
   // Set the block pointer for the containers
   real_container.setBlock(this);
-
-  if (pm->multilevel) {
-    cnghost = (NGHOST + 1)/2 + 1;
-    cis = NGHOST; cie = cis + block_size.nx1/2 - 1;
-    cjs = cje = cks = cke = 0;
-    if (pmy_mesh->f2) // 2D or 3D
-      cjs = NGHOST, cje = cjs + block_size.nx2/2 - 1;
-    if (pmy_mesh->f3) // 3D
-      cks = NGHOST, cke = cks + block_size.nx3/2 - 1;
-  }
-
   // (re-)create mesh-related objects in MeshBlock
 
   // Boundary
@@ -294,6 +223,53 @@ MeshBlock::~MeshBlock() {
 
 }
 
+void MeshBlock::InitializeIndexShapes() {
+  int is, ie, js, je, ks, ke;
+  int ncells1, ncells2, ncells3;
+  int ncc1, ncc2, ncc3;
+  is = NGHOST;
+  ie = is + block_size.nx1 - 1;
+  ncells1 = block_size.nx1 + 2*NGHOST;
+  ncc1 = block_size.nx1/2 + 2*NGHOST;
+  if (pmy_mesh->f2) {
+    js = NGHOST;
+    je = js + block_size.nx2 - 1;
+    ncells2 = block_size.nx2 + 2*NGHOST;
+    ncc2 = block_size.nx2/2 + 2*NGHOST;
+  } else {
+    js = je = 0;
+    ncells2 = 1;
+    ncc2 = 1;
+  }
+
+  if (pmy_mesh->f3) {
+    ks = NGHOST;
+    ke = ks + block_size.nx3 - 1;
+    ncells3 = block_size.nx3 + 2*NGHOST;
+    ncc3 = block_size.nx3/2 + 2*NGHOST;
+  } else {
+    ks = ke = 0;
+    ncells3 = 1;
+    ncc3 = 1;
+  }
+
+  int cis, cie, cjs, cje, cks, cke;
+  if (pmy_mesh->multilevel) {
+    cnghost = (NGHOST + 1)/2 + 1;
+    cis = NGHOST; cie = cis + block_size.nx1/2 - 1;
+    cjs = cje = cks = cke = 0;
+    if (pmy_mesh->f2) // 2D or 3D
+      cjs = NGHOST, cje = cjs + block_size.nx2/2 - 1;
+    if (pmy_mesh->f3) // 3D
+      cks = NGHOST, cke = cks + block_size.nx3/2 - 1;
+  }
+
+  all_cells = IndexShape(ncells1,ncells2,ncells3);
+  active_cells = IndexShape(is,ie,js,je,ks,ke);
+  all_coarse_cells = IndexShape(ncc1,ncc2,ncc3);
+  active_coarse_cells = IndexShape(cis,cie,cjs,cje,cks,cke);
+}
+
 //----------------------------------------------------------------------------------------
 //! \fn void MeshBlock::AllocateRealUserMeshBlockDataField(int n)
 //  \brief Allocate Real AthenaArrays for user-defned data in MeshBlock
@@ -341,7 +317,7 @@ void MeshBlock::AllocateUserOutputVariables(int n) {
     return;
   }
   nuser_out_var = n;
-  user_out_var.NewAthenaArray(nuser_out_var, num_cells.dim1, num_cells.dim2, num_cells.dim3);
+  user_out_var.NewAthenaArray(nuser_out_var, all_cells.x.at(0).n(), all_cells.x.at(1).n(), all_cells.x.at(2).n());
   user_out_var_names_ = new std::string[n];
   return;
 }

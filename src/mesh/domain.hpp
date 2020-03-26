@@ -18,20 +18,39 @@
 #ifndef MESH_DOMAIN_HPP_
 #define MESH_DOMAIN_HPP_
 
+#include <numeric>
+
 namespace parthenon {
 
   struct IndexRange {
-    int start;
-    int stop;
-    int n;
+    int s; /// Starting Index (inclusive)
+    int e; /// Ending Index (inclusive)
+    int n() const { return e-s+1; }
   };
 
-  enum IndexShapRegion {
+  //! \enum Defines what regions the shape encompasses
+  //
+  // Assuming we have a block
+  //
+  //  - - - - - - - - -   ^
+  //  |  |  ghost  |  |   | 
+  //  - - - - - - - - -   | 
+  //  |  |         |  |   
+  //  |  |  Base   |  |   all
+  //  |  |         |  |    
+  //  |  |         |  |   | 
+  //  - - - - - - - - -   |
+  //  |  |         |  |   | 
+  //  - - - - - - - - -   v 
+  //
+  // The regions are separated as shown
+  // 
+/*  enum IndexShapeType {
     unassigned, 
     ghost,
     all,
-    base
-  };
+    active
+  };*/
 
   //! \class IndexVolume
   //  \brief Defines the dimensions of a shape of indices
@@ -40,14 +59,20 @@ namespace parthenon {
   //  also contains a label for defining which region the index shape is assigned too 
   class IndexShape {
     public:
-      IndexVolume() {};
-      IndexVolume(int nx1,int nx2,int nx3) : x1.n(d1), x2.n(d2), x3.n(d3) {};
-      IndexRange x1;
-      IndexRange x2;
-      IndexRange x3;
+      std::vector<IndexRange> x;
 
-      IndexShapeRegion region = IndexShapeLabel::unassigned;
-      int GetTotal() const noexcept { return x1.n*x2.n*x3.n; } 
+      IndexShape() {};
+      IndexShape(int nx1,int nx2,int nx3) : 
+        x{IndexRange{0,nx1-1},IndexRange{0,nx2-1},IndexRange{0,nx3-1}} {};
+
+      IndexShape(int is,int ie, int js, int je, int ks, int ke) :
+        x{IndexRange{is,ie},IndexRange{js,je},IndexRange{ks,ke}} {};
+
+      int GetTotal() const noexcept { 
+        return std::accumulate(std::begin(x), std::end(x), 1,
+            [](int x,const IndexRange & y){ return x*y.n();} );
+      }
+          
   };
 
 }

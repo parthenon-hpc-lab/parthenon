@@ -21,11 +21,15 @@ namespace parthenon {
 
 void ApplyBoundaryConditions(Container<Real>& rc) {
     MeshBlock *pmb = rc.pmy_block;
-    const int is = pmb->is; const int js = pmb->js; const int ks = pmb->ks;
-    const int ie = pmb->ie; const int je = pmb->je; const int ke = pmb->ke;
-    const int imax = pmb->num_cells.dim1; 
-    const int jmax = pmb->num_cells.dim2; 
-    const int kmax = pmb->num_cells.dim3;
+    const int is = pmb->active_cells.x.at(0).s; 
+    const int js = pmb->active_cells.x.at(1).s; 
+    const int ks = pmb->active_cells.x.at(2).s;
+    const int ie = pmb->active_cells.x.at(0).e; 
+    const int je = pmb->active_cells.x.at(1).e; 
+    const int ke = pmb->active_cells.x.at(2).e;
+    const int imax = pmb->all_cells.x.at(0).n(); 
+    const int jmax = pmb->all_cells.x.at(1).n(); 
+    const int kmax = pmb->all_cells.x.at(2).n();
 
     Metadata m;
     ContainerIterator<Real> citer(rc, {m.independent});

@@ -94,9 +94,9 @@ void Container<T>::Add(const std::string label,
       throw std::invalid_argument ("_addArray() must have dims between [1,3]");
     }
 
-    arrDims[0] = pmy_block->num_cells.dim1;
-    arrDims[1] = pmy_block->num_cells.dim2;
-    arrDims[2] = pmy_block->num_cells.dim3;
+    arrDims[0] = pmy_block->all_cells.x.at(0).n();
+    arrDims[1] = pmy_block->all_cells.x.at(1).n();
+    arrDims[2] = pmy_block->all_cells.x.at(2).n();
     if ( metadata.where() == (Metadata::node) ) {
       ++arrDims[0]; ++arrDims[1]; ++arrDims[2];
     }

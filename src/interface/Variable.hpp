@@ -168,7 +168,7 @@ struct FaceVariable : FaceField {
  public:
   /// Initialize a face variable
   FaceVariable(const std::string label, const Metadata &metadata,
-               const IndexVolume num_cells,
+               const IndexShape num_cells,
                const DATASTATUS init=DATASTATUS::allocated) :
     FaceField(num_cells, init),
     _label(label),
@@ -180,7 +180,7 @@ struct FaceVariable : FaceField {
 
   /// Create an alias for the variable by making a shallow slice with max dim
   FaceVariable(std::string label, FaceVariable &src) :
-    FaceField(IndexVolume(0,0,0),DATASTATUS::allocated),
+    FaceField(IndexShape(0,0,0),DATASTATUS::allocated),
     _label(label),
     _m(src.metadata()) {
     this->x1f.InitWithShallowSlice(src.x1f, 3, 0, src.x1f.GetDim3());
@@ -214,7 +214,7 @@ struct EdgeVariable : EdgeField {
 
   /// Initialize a edge variable
   EdgeVariable(const std::string label, const Metadata &metadata,
-               const IndexVolume num_cells,
+               const IndexShape num_cells,
                const DATASTATUS init=DATASTATUS::allocated) :
     EdgeField(num_cells, init),
     _label(label),
@@ -226,7 +226,7 @@ struct EdgeVariable : EdgeField {
 
   /// Create an alias for the variable by making a shallow slice with max dim
   EdgeVariable(const std::string label, const EdgeVariable &src) :
-    EdgeField(IndexVolume(0,0,0),DATASTATUS::allocated),
+    EdgeField(IndexShape(0,0,0),DATASTATUS::allocated),
     _label(label),
     _m(src.metadata()) {
     this->x1e.InitWithShallowSlice(src.x1e, 3, 0, src.x1e.GetDim3());

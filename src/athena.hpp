@@ -106,11 +106,11 @@ struct RegionSize {  // aggregate and POD type; do NOT reorder member declaratio
 struct FaceField {
   AthenaArray<Real> x1f, x2f, x3f;
   FaceField() = default;
-  FaceField(IndexVolume num_cells,
+  FaceField(IndexShape num_cells,
             AthenaArray<Real>::DataStatus init=AthenaArray<Real>::DataStatus::allocated) :
-      x1f(num_cells.dim3, num_cells.dim2, num_cells.dim1+1, init), 
-      x2f(num_cells.dim3, num_cells.dim2+1, num_cells.dim1, init),
-      x3f(num_cells.dim3+1, num_cells.dim2, num_cells.dim1, init) {}
+      x1f(num_cells.x.at(2).n(), num_cells.x.at(1).n(), num_cells.x.at(0).n()+1, init), 
+      x2f(num_cells.x.at(2).n(), num_cells.x.at(1).n()+1, num_cells.x.at(0).n(), init),
+      x3f(num_cells.x.at(2).n()+1, num_cells.x.at(1).n(), num_cells.x.at(0).n(), init) {}
 };
 
 //----------------------------------------------------------------------------------------
@@ -120,11 +120,11 @@ struct FaceField {
 struct EdgeField {
   AthenaArray<Real> x1e, x2e, x3e;
   EdgeField() = default;
-  EdgeField(IndexVolume num_cells,
+  EdgeField(IndexShape num_cells,
             AthenaArray<Real>::DataStatus init=AthenaArray<Real>::DataStatus::allocated) :
-      x1e(num_cells.dim3+1, num_cells.dim2+1, num_cells.dim1, init), 
-      x2e(num_cells.dim3+1, num_cells.dim2, num_cells.dim1+1, init),
-      x3e(num_cells.dim3, num_cells.dim2+1, num_cells.dim1+1, init) {}
+      x1e(num_cells.x.at(3).n()+1, num_cells.x.at(1).n()+1, num_cells.x.at(0).n(), init), 
+      x2e(num_cells.x.at(3).n()+1, num_cells.x.at(1).n(), num_cells.x.at(0).n()+1, init),
+      x3e(num_cells.x.at(3).n(), num_cells.x.at(1).n()+1, num_cells.x.at(0).n()+1, init) {}
 };
 
 //----------------------------------------------------------------------------------------

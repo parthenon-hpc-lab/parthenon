@@ -1,21 +1,21 @@
-//========================================================================================
-// Athena++ astrophysical MHD code
-// Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
-// Licensed under the 3-clause BSD License, see LICENSE file for details
-//========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
-//
-// This program was produced under U.S. Government contract 89233218CNA000001 for Los
-// Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
-// for the U.S. Department of Energy/National Nuclear Security Administration. All rights
-// in the program are reserved by Triad National Security, LLC, and the U.S. Department
-// of Energy/National Nuclear Security Administration. The Government is granted for
-// itself and others acting on its behalf a nonexclusive, paid-up, irrevocable worldwide
-// license in this material to reproduce, prepare derivative works, distribute copies to
-// the public, perform publicly and display publicly, and to permit others to do so.
-//========================================================================================
-//! \file reconstruction.cpp
-//  \brief
+  //========================================================================================
+  // Athena++ astrophysical MHD code
+  // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
+  // Licensed under the 3-clause BSD License, see LICENSE file for details
+  //========================================================================================
+  // (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+  //
+  // This program was produced under U.S. Government contract 89233218CNA000001 for Los
+  // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
+  // for the U.S. Department of Energy/National Nuclear Security Administration. All rights
+  // in the program are reserved by Triad National Security, LLC, and the U.S. Department
+  // of Energy/National Nuclear Security Administration. The Government is granted for
+  // itself and others acting on its behalf a nonexclusive, paid-up, irrevocable worldwide
+  // license in this material to reproduce, prepare derivative works, distribute copies to
+  // the public, perform publicly and display publicly, and to permit others to do so.
+  //========================================================================================
+  //! \file reconstruction.cpp
+  //  \brief
 
 #include "reconstruction.hpp"
 
@@ -27,89 +27,89 @@
 #include <stdexcept>  // runtime_error
 #include <string>     // c_str()
 
-namespace parthenon {
-namespace {
-// TODO(felker): replace these hand-rolled linear algebra routines with a real library
-constexpr Real lu_tol = 3e-16;
-int DoolittleLUPDecompose(Real **a, int n, int *pivot);
-void DoolittleLUPSolve(Real **lu, int *pivot, Real *b, int n, Real *x);
-} // namespace
+  namespace parthenon {
+  namespace {
+  // TODO(felker): replace these hand-rolled linear algebra routines with a real library
+  constexpr Real lu_tol = 3e-16;
+  int DoolittleLUPDecompose(Real **a, int n, int *pivot);
+  void DoolittleLUPSolve(Real **lu, int *pivot, Real *b, int n, Real *x);
+  } // namespace
 
-// constructor
+  // constructor
 
-Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin) :
-    characteristic_projection{false}, uniform{true, true, true},
-    // read fourth-order solver switches
-    correct_ic{pin->GetOrAddBoolean("time", "correct_ic", false)},
-    correct_err{pin->GetOrAddBoolean("time", "correct_err", false)}, pmy_block_{pmb}
-{
-  // Read and set type of spatial reconstruction
-  // --------------------------------
-  std::string input_recon = pin->GetOrAddString("Hydro", "xorder", "2");
+  Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin) :
+      characteristic_projection{false}, uniform{true, true, true},
+      // read fourth-order solver switches
+      correct_ic{pin->GetOrAddBoolean("time", "correct_ic", false)},
+      correct_err{pin->GetOrAddBoolean("time", "correct_err", false)}, pmy_block_{pmb}
+  {
+    // Read and set type of spatial reconstruction
+    // --------------------------------
+    std::string input_recon = pin->GetOrAddString("Hydro", "xorder", "2");
 
-  if (input_recon == "1") {
-    xorder = 1;
-  } else if (input_recon == "2") {
-    xorder = 2;
-  } else if (input_recon == "2c") {
-    xorder = 2;
-    characteristic_projection = true;
-  } else if (input_recon == "3") {
-    // PPM approximates interfaces with 4th-order accurate stencils, but use xorder=3
-    // to denote that the overall scheme is "between 2nd and 4th" order w/o flux terms
-    xorder = 3;
-  } else if (input_recon == "3c") {
-    xorder = 3;
-    characteristic_projection = true;
-  } else if ((input_recon == "4") || (input_recon == "4c")) {
-    // Full 4th-order scheme for hydro or MHD on uniform Cartesian grids
-    xorder = 4;
-    if (input_recon == "4c")
+    if (input_recon == "1") {
+      xorder = 1;
+    } else if (input_recon == "2") {
+      xorder = 2;
+    } else if (input_recon == "2c") {
+      xorder = 2;
       characteristic_projection = true;
-  } else {
-    std::stringstream msg;
-    msg << "### FATAL ERROR in Reconstruction constructor" << std::endl
-        << "xorder=" << input_recon << " not valid choice for reconstruction"<< std::endl;
-    ATHENA_ERROR(msg);
-  }
-  // Check for incompatible choices with broader solver configuration
-  // --------------------------------
-
-  // check for necessary number of ghost zones for PPM w/o fourth-order flux corrections
-  if (xorder == 3) {
-    int req_nghost = 3;
-    if (NGHOST < req_nghost) {
+    } else if (input_recon == "3") {
+      // PPM approximates interfaces with 4th-order accurate stencils, but use xorder=3
+      // to denote that the overall scheme is "between 2nd and 4th" order w/o flux terms
+      xorder = 3;
+    } else if (input_recon == "3c") {
+      xorder = 3;
+      characteristic_projection = true;
+    } else if ((input_recon == "4") || (input_recon == "4c")) {
+      // Full 4th-order scheme for hydro or MHD on uniform Cartesian grids
+      xorder = 4;
+      if (input_recon == "4c")
+        characteristic_projection = true;
+    } else {
       std::stringstream msg;
       msg << "### FATAL ERROR in Reconstruction constructor" << std::endl
-          << "xorder=" << input_recon <<
-          " (PPM) reconstruction selected, but nghost=" << NGHOST << std::endl
-          << "Reconfigure with --nghost=XXX with XXX > " << req_nghost-1 << std::endl;
+          << "xorder=" << input_recon << " not valid choice for reconstruction"<< std::endl;
       ATHENA_ERROR(msg);
     }
-  }
+    // Check for incompatible choices with broader solver configuration
+    // --------------------------------
 
-  // perform checks of fourth-order solver configuration restrictions:
-  if (xorder == 4) {
-    // Uniform, Cartesian mesh with square cells (dx1f=dx2f=dx3f)
-    if (pmb->block_size.x1rat != 1.0 || pmb->block_size.x2rat != 1.0 ||
-        pmb->block_size.x3rat != 1.0) {
-      std::stringstream msg;
-      msg << "### FATAL ERROR in Reconstruction constructor" << std::endl
-          << "Selected time/xorder=" << input_recon << " flux calculations"
-          << " require a uniform (x1rat=x2rat=x3rat=1.0), " << std::endl
-          << "Carteisan mesh with square cells. Rerun with uniform cell spacing "
-          << std::endl
-          << "Current values are:" << std::endl
-          << std::scientific
-          << std::setprecision(std::numeric_limits<Real>::max_digits10 -1)
-          << "x1rat= " << pmb->block_size.x1rat << std::endl
-          << "x2rat= " << pmb->block_size.x2rat << std::endl
-          << "x3rat= " << pmb->block_size.x3rat << std::endl;
-      ATHENA_ERROR(msg);
+    // check for necessary number of ghost zones for PPM w/o fourth-order flux corrections
+    if (xorder == 3) {
+      int req_nghost = 3;
+      if (NGHOST < req_nghost) {
+        std::stringstream msg;
+        msg << "### FATAL ERROR in Reconstruction constructor" << std::endl
+            << "xorder=" << input_recon <<
+            " (PPM) reconstruction selected, but nghost=" << NGHOST << std::endl
+            << "Reconfigure with --nghost=XXX with XXX > " << req_nghost-1 << std::endl;
+        ATHENA_ERROR(msg);
+      }
     }
-    Real& dx_i   = pmb->pcoord->dx1f(pmb->is);
-    Real& dx_j   = pmb->pcoord->dx2f(pmb->js);
-    Real& dx_k   = pmb->pcoord->dx3f(pmb->ks);
+
+    // perform checks of fourth-order solver configuration restrictions:
+    if (xorder == 4) {
+      // Uniform, Cartesian mesh with square cells (dx1f=dx2f=dx3f)
+      if (pmb->block_size.x1rat != 1.0 || pmb->block_size.x2rat != 1.0 ||
+          pmb->block_size.x3rat != 1.0) {
+        std::stringstream msg;
+        msg << "### FATAL ERROR in Reconstruction constructor" << std::endl
+            << "Selected time/xorder=" << input_recon << " flux calculations"
+            << " require a uniform (x1rat=x2rat=x3rat=1.0), " << std::endl
+            << "Carteisan mesh with square cells. Rerun with uniform cell spacing "
+            << std::endl
+            << "Current values are:" << std::endl
+            << std::scientific
+            << std::setprecision(std::numeric_limits<Real>::max_digits10 -1)
+            << "x1rat= " << pmb->block_size.x1rat << std::endl
+            << "x2rat= " << pmb->block_size.x2rat << std::endl
+            << "x3rat= " << pmb->block_size.x3rat << std::endl;
+        ATHENA_ERROR(msg);
+      }
+      Real& dx_i   = pmb->pcoord->dx1f(pmb->active_cells.x.at(0).s);
+      Real& dx_j   = pmb->pcoord->dx2f(pmb->active_cells.x.at(1).s);
+      Real& dx_k   = pmb->pcoord->dx3f(pmb->active_cells.x.at(2).s);
     // Note, probably want to make the following condition less strict (signal warning
     // for small differences due to floating-point issues) but upgrade to error for
     // large deviations from a square mesh. Currently signals a warning for each
@@ -176,8 +176,10 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin) :
   // TODO(c-white): use modified version of curvilinear PPM reconstruction weights and
   // limiter formulations for Schwarzschild, Kerr metrics instead of Cartesian-like wghts
 
+  // Avoid pmb indirection
+  const IndexShape all_cells = pmb->all_cells;
   // Allocate memory for scratch arrays used in PLM and PPM
-  int nc1 = pmb->num_cells.dim1;
+  int nc1 = all_cells.x.at(0).n();
   scr01_i_.NewAthenaArray(nc1);
   scr02_i_.NewAthenaArray(nc1);
 
@@ -233,7 +235,7 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin) :
     int m_coord = 2;
 
     // zero-curvature PPM limiter does not depend on mesh uniformity:
-    for (int i=(pmb->is)-1; i<=(pmb->ie)+1; ++i) {
+    for (int i=(pmb->active_cells.x.at(0).s)-1; i<=(pmb->active_cells.x.at(0).e)+1; ++i) {
       // h_plus = 3.0;
       // h_minus = 3.0;
       // Ratios are = 2 for Cartesian coords, as in the original PPM limiter's
@@ -244,7 +246,7 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin) :
     // 4th order reconstruction weights along Cartesian-like x1 w/ uniform spacing
     if (uniform[X1DIR]) {
 #pragma omp simd
-      for (int i=(pmb->is)-NGHOST; i<=(pmb->ie)+NGHOST; ++i) {
+      for (int i=all_cells.x.at(0).s; i<=all_cells.x.at(0).e; ++i) {
         // reducing general formula in ppm.cpp corresonds to Mignone eq B.4 weights:
         // (-1/12, 7/12, 7/12, -1/12)
         c1i(i) = 0.5;
@@ -256,14 +258,14 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin) :
       }
     } else { // coeffcients along Cartesian-like x1 with nonuniform mesh spacing
 #pragma omp simd
-      for (int i=(pmb->is)-NGHOST+1; i<=(pmb->ie)+NGHOST-1; ++i) {
+      for (int i=(pmb->active_cells.x.at(0).s)-NGHOST+1; i<=(pmb->active_cells.x.at(0).e)+NGHOST-1; ++i) {
         Real& dx_im1 = pco->dx1f(i-1);
         Real& dx_i   = pco->dx1f(i  );
         Real& dx_ip1 = pco->dx1f(i+1);
         Real qe = dx_i/(dx_im1 + dx_i + dx_ip1);       // Outermost coeff in CW eq 1.7
         c1i(i) = qe*(2.0*dx_im1+dx_i)/(dx_ip1 + dx_i); // First term in CW eq 1.7
         c2i(i) = qe*(2.0*dx_ip1+dx_i)/(dx_im1 + dx_i); // Second term in CW eq 1.7
-        if (i > (pmb->is)-NGHOST+1) {  // c3-c6 are not computed in first iteration
+        if (i > (pmb->active_cells.x.at(0).s)-NGHOST+1) {  // c3-c6 are not computed in first iteration
           Real& dx_im2 = pco->dx1f(i-2);
           Real qa = dx_im2 + dx_im1 + dx_i + dx_ip1;
           Real qb = dx_im1/(dx_im1 + dx_i);
@@ -280,7 +282,7 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin) :
 
     // Precompute PPM coefficients in x2-direction ---------------------------------------
     if (pmb->block_size.nx2 > 1) {
-      int nc2 = pmb->num_cells.dim2;
+      int nc2 = all_cells.x.at(1).n();
       c1j.NewAthenaArray(nc2);
       c2j.NewAthenaArray(nc2);
       c3j.NewAthenaArray(nc2);
@@ -291,7 +293,7 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin) :
       hminus_ratio_j.NewAthenaArray(nc2);
 
       // zero-curvature PPM limiter does not depend on mesh uniformity:
-      for (int j=(pmb->js)-1; j<=(pmb->je)+1; ++j) {
+      for (int j=(pmb->active_cells.x.at(1).s)-1; j<=(pmb->active_cells.x.at(1).e)+1; ++j) {
         // h_plus = 3.0;
         // h_minus = 3.0;
         // Ratios are = 2 for Cartesian coords, as in the original PPM limiter's
@@ -302,7 +304,7 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin) :
       // 4th order reconstruction weights along Cartesian-like x2 w/ uniform spacing
       if (uniform[X2DIR]) {
 #pragma omp simd
-        for (int j=(pmb->js)-NGHOST; j<=(pmb->je)+NGHOST; ++j) {
+        for (int j=all_cells.x.at(1).s; j<=all_cells.x.at(1).e; ++j) {
           c1j(j) = 0.5;
           c2j(j) = 0.5;
           c3j(j) = 0.5;
@@ -312,7 +314,7 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin) :
         }
       } else { // coeffcients along Cartesian-like x2 with nonuniform mesh spacing
 #pragma omp simd
-        for (int j=(pmb->js)-NGHOST+2; j<=(pmb->je)+NGHOST-1; ++j) {
+        for (int j=(pmb->active_cells.x.at(1).s)-NGHOST+2; j<=(pmb->active_cells.x.at(1).e)+NGHOST-1; ++j) {
           Real& dx_jm1 = pco->dx2f(j-1);
           Real& dx_j   = pco->dx2f(j  );
           Real& dx_jp1 = pco->dx2f(j+1);
@@ -320,7 +322,7 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin) :
           c1j(j) = qe*(2.0*dx_jm1 + dx_j)/(dx_jp1 + dx_j); // First term in CW eq 1.7
           c2j(j) = qe*(2.0*dx_jp1 + dx_j)/(dx_jm1 + dx_j); // Second term in CW eq 1.7
 
-          if (j > (pmb->js)-NGHOST+1) {  // c3-c6 are not computed in first iteration
+          if (j > (pmb->active_cells.x.at(1).s)-NGHOST+1) {  // c3-c6 are not computed in first iteration
             Real& dx_jm2 = pco->dx2f(j-2);
             Real qa = dx_jm2 + dx_jm1 + dx_j + dx_jp1;
             Real qb = dx_jm1/(dx_jm1 + dx_j);
@@ -338,7 +340,7 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin) :
 
     // Precompute PPM coefficients in x3-direction
     if (pmb->block_size.nx3 > 1) {
-      int nc3 = pmb->num_cells.dim3;
+      int nc3 = all_cells.x.at(0).n();
       c1k.NewAthenaArray(nc3);
       c2k.NewAthenaArray(nc3);
       c3k.NewAthenaArray(nc3);
@@ -351,7 +353,7 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin) :
       // reconstruction coeffiencients in x3, Cartesian-like coordinate:
       if (uniform[X3DIR]) { // uniform spacing
 #pragma omp simd
-        for (int k=(pmb->ks)-NGHOST; k<=(pmb->ke)+NGHOST; ++k) {
+        for (int k=all_cells.x.at(2).s; k<=all_cells.x.at(2).e; ++k) {
           c1k(k) = 0.5;
           c2k(k) = 0.5;
           c3k(k) = 0.5;
@@ -362,7 +364,7 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin) :
 
       } else { // nonuniform spacing
 #pragma omp simd
-        for (int k=(pmb->ks)-NGHOST+2; k<=(pmb->ke)+NGHOST-1; ++k) {
+        for (int k=(pmb->active_cells.x.at(2).s)-NGHOST+2; k<=(pmb->active_cells.x.at(2).e)+NGHOST-1; ++k) {
           Real& dx_km1 = pco->dx3f(k-1);
           Real& dx_k   = pco->dx3f(k  );
           Real& dx_kp1 = pco->dx3f(k+1);
@@ -370,7 +372,7 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin) :
           c1k(k) = qe*(2.0*dx_km1+dx_k)/(dx_kp1 + dx_k); // First term in CW eq 1.7
           c2k(k) = qe*(2.0*dx_kp1+dx_k)/(dx_km1 + dx_k); // Second term in CW eq 1.7
 
-          if (k > (pmb->ks)-NGHOST+1) {  // c3-c6 are not computed in first iteration
+          if (k > (pmb->active_cells.x.at(2).s)-NGHOST+1) {  // c3-c6 are not computed in first iteration
             Real& dx_km2 = pco->dx3f(k-2);
             Real qa = dx_km2 + dx_km1 + dx_k + dx_kp1;
             Real qb = dx_km1/(dx_km1 + dx_k);
@@ -385,7 +387,7 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin) :
         }
         // Compute geometric factors for x3 limiter (Mignone eq 48)
         // (no curvilinear corrections in x3)
-        for (int k=(pmb->ks)-1; k<=(pmb->ke)+1; ++k) {
+        for (int k=(pmb->active_cells.x.at(2).s)-1; k<=(pmb->active_cells.x.at(2).e)+1; ++k) {
           // h_plus = 3.0;
           // h_minus = 3.0;
           // Ratios are both = 2 for Cartesian and all curviliniear coords

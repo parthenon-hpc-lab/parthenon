@@ -132,12 +132,12 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(Real *buf,
   MeshBlock *pmb = pmy_block_;
   int si, sj, sk, ei, ej, ek;
 
-  si = (nb.ni.ox1 > 0) ? (pmb->ie - NGHOST + 1) : pmb->is;
-  ei = (nb.ni.ox1 < 0) ? (pmb->is + NGHOST - 1) : pmb->ie;
-  sj = (nb.ni.ox2 > 0) ? (pmb->je - NGHOST + 1) : pmb->js;
-  ej = (nb.ni.ox2 < 0) ? (pmb->js + NGHOST - 1) : pmb->je;
-  sk = (nb.ni.ox3 > 0) ? (pmb->ke - NGHOST + 1) : pmb->ks;
-  ek = (nb.ni.ox3 < 0) ? (pmb->ks + NGHOST - 1) : pmb->ke;
+  si = (nb.ni.ox1 > 0) ? (pmb->active_cells.x.at(0).e - NGHOST + 1) : pmb->active_cells.x.at(0).s;
+  ei = (nb.ni.ox1 < 0) ? (pmb->active_cells.x.at(0).s + NGHOST - 1) : pmb->active_cells.x.at(0).e;
+  sj = (nb.ni.ox2 > 0) ? (pmb->active_cells.x.at(1).e - NGHOST + 1) : pmb->active_cells.x.at(1).s;
+  ej = (nb.ni.ox2 < 0) ? (pmb->active_cells.x.at(1).s + NGHOST - 1) : pmb->active_cells.x.at(1).e;
+  sk = (nb.ni.ox3 > 0) ? (pmb->active_cells.x.at(2).e - NGHOST + 1) : pmb->active_cells.x.at(2).s;
+  ek = (nb.ni.ox3 < 0) ? (pmb->active_cells.x.at(2).s + NGHOST - 1) : pmb->active_cells.x.at(2).e;
   int p = 0;
   AthenaArray<Real> &var = *var_cc;
   BufferUtility::PackData(var, buf, nl_, nu_, si, ei, sj, ej, sk, ek, p);
@@ -158,12 +158,12 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(Real *buf,
   AthenaArray<Real> &var = *var_cc;
   AthenaArray<Real> &coarse_var = *coarse_buf;
 
-  si = (nb.ni.ox1 > 0) ? (pmb->cie - cn) : pmb->cis;
-  ei = (nb.ni.ox1 < 0) ? (pmb->cis + cn) : pmb->cie;
-  sj = (nb.ni.ox2 > 0) ? (pmb->cje - cn) : pmb->cjs;
-  ej = (nb.ni.ox2 < 0) ? (pmb->cjs + cn) : pmb->cje;
-  sk = (nb.ni.ox3 > 0) ? (pmb->cke - cn) : pmb->cks;
-  ek = (nb.ni.ox3 < 0) ? (pmb->cks + cn) : pmb->cke;
+  si = (nb.ni.ox1 > 0) ? (pmb->active_coarse_cells.x.at(0).e - cn) : pmb->active_coarse_cells.x.at(0).s;
+  ei = (nb.ni.ox1 < 0) ? (pmb->active_coarse_cells.x.at(0).s + cn) : pmb->active_coarse_cells.x.at(0).e;
+  sj = (nb.ni.ox2 > 0) ? (pmb->active_coarse_cells.x.at(1).e - cn) : pmb->active_coarse_cells.x.at(1).s;
+  ej = (nb.ni.ox2 < 0) ? (pmb->active_coarse_cells.x.at(1).s + cn) : pmb->active_coarse_cells.x.at(1).e;
+  sk = (nb.ni.ox3 > 0) ? (pmb->active_coarse_cells.x.at(2).e - cn) : pmb->active_coarse_cells.x.at(1).s;
+  ek = (nb.ni.ox3 < 0) ? (pmb->active_coarse_cells.x.at(2).s + cn) : pmb->active_coarse_cells.x.at(1).e;
 
   int p = 0;
   pmb->pmr->RestrictCellCenteredValues(var, coarse_var, nl_, nu_, si, ei, sj, ej, sk, ek);
@@ -183,12 +183,12 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferToFiner(Real *buf,
   int cn = pmb->cnghost - 1;
   AthenaArray<Real> &var = *var_cc;
 
-  si = (nb.ni.ox1 > 0) ? (pmb->ie - cn) : pmb->is;
-  ei = (nb.ni.ox1 < 0) ? (pmb->is + cn) : pmb->ie;
-  sj = (nb.ni.ox2 > 0) ? (pmb->je - cn) : pmb->js;
-  ej = (nb.ni.ox2 < 0) ? (pmb->js + cn) : pmb->je;
-  sk = (nb.ni.ox3 > 0) ? (pmb->ke - cn) : pmb->ks;
-  ek = (nb.ni.ox3 < 0) ? (pmb->ks + cn) : pmb->ke;
+  si = (nb.ni.ox1 > 0) ? (pmb->active_cells.x.at(0).e - cn) : pmb->active_cells.x.at(0).s;
+  ei = (nb.ni.ox1 < 0) ? (pmb->active_cells.x.at(0).s + cn) : pmb->active_cells.x.at(0).e;
+  sj = (nb.ni.ox2 > 0) ? (pmb->active_cells.x.at(1).e - cn) : pmb->active_cells.x.at(1).s;
+  ej = (nb.ni.ox2 < 0) ? (pmb->active_cells.x.at(1).s + cn) : pmb->active_cells.x.at(1).e;
+  sk = (nb.ni.ox3 > 0) ? (pmb->active_cells.x.at(2).e - cn) : pmb->active_cells.x.at(2).s;
+  ek = (nb.ni.ox3 < 0) ? (pmb->active_cells.x.at(2).s + cn) : pmb->active_cells.x.at(2).e;
 
   // send the data first and later prolongate on the target block
   // need to add edges for faces, add corners for edges
@@ -232,15 +232,15 @@ void CellCenteredBoundaryVariable::SetBoundarySameLevel(Real *buf,
   int si, sj, sk, ei, ej, ek;
   AthenaArray<Real> &var = *var_cc;
 
-  if (nb.ni.ox1 == 0)     si = pmb->is,        ei = pmb->ie;
-  else if (nb.ni.ox1 > 0) si = pmb->ie + 1,      ei = pmb->ie + NGHOST;
-  else              si = pmb->is - NGHOST, ei = pmb->is - 1;
-  if (nb.ni.ox2 == 0)     sj = pmb->js,        ej = pmb->je;
-  else if (nb.ni.ox2 > 0) sj = pmb->je + 1,      ej = pmb->je + NGHOST;
-  else              sj = pmb->js - NGHOST, ej = pmb->js - 1;
-  if (nb.ni.ox3 == 0)     sk = pmb->ks,        ek = pmb->ke;
-  else if (nb.ni.ox3 > 0) sk = pmb->ke + 1,      ek = pmb->ke + NGHOST;
-  else              sk = pmb->ks - NGHOST, ek = pmb->ks - 1;
+  if (nb.ni.ox1 == 0)     si = pmb->active_cells.x.at(0).s,        ei = pmb->active_cells.x.at(0).e;
+  else if (nb.ni.ox1 > 0) si = pmb->active_cells.x.at(0).e + 1,      ei = pmb->active_cells.x.at(0).e + NGHOST;
+  else              si = pmb->active_cells.x.at(0).s - NGHOST, ei = pmb->active_cells.x.at(0).s - 1;
+  if (nb.ni.ox2 == 0)     sj = pmb->active_cells.x.at(1).s,        ej = pmb->active_cells.x.at(1).e;
+  else if (nb.ni.ox2 > 0) sj = pmb->active_cells.x.at(1).e + 1,      ej = pmb->active_cells.x.at(1).e + NGHOST;
+  else              sj = pmb->active_cells.x.at(1).s - NGHOST, ej = pmb->active_cells.x.at(1).s - 1;
+  if (nb.ni.ox3 == 0)     sk = pmb->active_cells.x.at(2).s,        ek = pmb->active_cells.x.at(2).e;
+  else if (nb.ni.ox3 > 0) sk = pmb->active_cells.x.at(2).e + 1,      ek = pmb->active_cells.x.at(2).e + NGHOST;
+  else              sk = pmb->active_cells.x.at(2).s - NGHOST, ek = pmb->active_cells.x.at(2).s - 1;
 
   int p = 0;
 
@@ -260,35 +260,43 @@ void CellCenteredBoundaryVariable::SetBoundaryFromCoarser(Real *buf,
   AthenaArray<Real> &coarse_var = *coarse_buf;
 
   if (nb.ni.ox1 == 0) {
-    si = pmb->cis, ei = pmb->cie;
+    si = pmb->active_coarse_cells.x.at(0).s;
+    ei = pmb->active_coarse_cells.x.at(0).e;
     if ((pmb->loc.lx1 & 1LL) == 0LL) ei += cng;
     else                             si -= cng;
   } else if (nb.ni.ox1 > 0)  {
-    si = pmb->cie + 1,   ei = pmb->cie + cng;
+    si = pmb->active_coarse_cells.x.at(0).e + 1;
+    ei = pmb->active_coarse_cells.x.at(0).e + cng;
   } else {
-    si = pmb->cis - cng, ei = pmb->cis - 1;
+    si = pmb->active_coarse_cells.x.at(0).s - cng;
+    ei = pmb->active_coarse_cells.x.at(0).s - 1;
   }
   if (nb.ni.ox2 == 0) {
-    sj = pmb->cjs, ej = pmb->cje;
+    sj = pmb->active_coarse_cells.x.at(1).s, ej = pmb->active_coarse_cells.x.at(1).e;
     if (pmb->block_size.nx2 > 1) {
       if ((pmb->loc.lx2 & 1LL) == 0LL) ej += cng;
       else                             sj -= cng;
     }
   } else if (nb.ni.ox2 > 0) {
-    sj = pmb->cje + 1,   ej = pmb->cje + cng;
+    sj = pmb->active_coarse_cells.x.at(1).e + 1;
+    ej = pmb->active_coarse_cells.x.at(1).e + cng;
   } else {
-    sj = pmb->cjs - cng, ej = pmb->cjs - 1;
+    sj = pmb->active_coarse_cells.x.at(1).s - cng;
+    ej = pmb->active_coarse_cells.x.at(1).s - 1;
   }
   if (nb.ni.ox3 == 0) {
-    sk = pmb->cks, ek = pmb->cke;
+    sk = pmb->active_coarse_cells.x.at(2).s;
+    ek = pmb->active_coarse_cells.x.at(2).e;
     if (pmb->block_size.nx3 > 1) {
       if ((pmb->loc.lx3 & 1LL) == 0LL) ek += cng;
       else                             sk -= cng;
     }
   } else if (nb.ni.ox3 > 0)  {
-    sk = pmb->cke + 1,   ek = pmb->cke + cng;
+    sk = pmb->active_coarse_cells.x.at(2).e + 1;
+    ek = pmb->active_coarse_cells.x.at(2).e + cng;
   } else {
-    sk = pmb->cks - cng, ek = pmb->cks - 1;
+    sk = pmb->active_coarse_cells.x.at(2).s - cng;
+    ek = pmb->active_coarse_cells.x.at(2).s - 1;
   }
 
   int p = 0;
@@ -310,16 +318,18 @@ void CellCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
   int si, sj, sk, ei, ej, ek;
 
   if (nb.ni.ox1 == 0) {
-    si = pmb->is, ei = pmb->ie;
+    si = pmb->active_cells.x.at(0).s; 
+    ei = pmb->active_cells.x.at(0).e;
     if (nb.ni.fi1 == 1)   si += pmb->block_size.nx1/2;
     else            ei -= pmb->block_size.nx1/2;
   } else if (nb.ni.ox1 > 0) {
-    si = pmb->ie + 1,      ei = pmb->ie + NGHOST;
+    si = pmb->active_cells.x.at(0).e + 1,      ei = pmb->active_cells.x.at(0).e + NGHOST;
   } else {
-    si = pmb->is - NGHOST, ei = pmb->is - 1;
+    si = pmb->active_cells.x.at(0).s - NGHOST, ei = pmb->active_cells.x.at(0).s - 1;
   }
   if (nb.ni.ox2 == 0) {
-    sj = pmb->js, ej = pmb->je;
+    sj = pmb->active_cells.x.at(1).s;
+    ej = pmb->active_cells.x.at(1).e;
     if (pmb->block_size.nx2 > 1) {
       if (nb.ni.ox1 != 0) {
         if (nb.ni.fi1 == 1) sj += pmb->block_size.nx2/2;
@@ -330,12 +340,14 @@ void CellCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
       }
     }
   } else if (nb.ni.ox2 > 0) {
-    sj = pmb->je + 1,      ej = pmb->je + NGHOST;
+    sj = pmb->active_cells.x.at(1).e + 1;
+    ej = pmb->active_cells.x.at(1).e + NGHOST;
   } else {
-    sj = pmb->js - NGHOST, ej = pmb->js - 1;
+    sj = pmb->active_cells.x.at(1).s - NGHOST;
+    ej = pmb->active_cells.x.at(1).s - 1;
   }
   if (nb.ni.ox3 == 0) {
-    sk = pmb->ks, ek = pmb->ke;
+    sk = pmb->active_cells.x.at(2).s, ek = pmb->active_cells.x.at(2).e;
     if (pmb->block_size.nx3 > 1) {
       if (nb.ni.ox1 != 0 && nb.ni.ox2 != 0) {
         if (nb.ni.fi1 == 1) sk += pmb->block_size.nx3/2;
@@ -346,9 +358,9 @@ void CellCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
       }
     }
   } else if (nb.ni.ox3 > 0) {
-    sk = pmb->ke + 1,      ek = pmb->ke + NGHOST;
+    sk = pmb->active_cells.x.at(2).e + 1,      ek = pmb->active_cells.x.at(2).e + NGHOST;
   } else {
-    sk = pmb->ks - NGHOST, ek = pmb->ks - 1;
+    sk = pmb->active_cells.x.at(2).s - NGHOST, ek = pmb->active_cells.x.at(2).s - 1;
   }
 
   int p = 0;

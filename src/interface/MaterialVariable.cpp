@@ -102,9 +102,9 @@ void MaterialVariable<T>::Add(MeshBlock &pmb,
     }
 
     // determine size of variable needed
-    int nc1 = pmb.num_cells.dim1;
-    int nc2 = pmb.num_cells.dim2;
-    int nc3 = pmb.num_cells.dim3;
+    int nc1 = pmb.all_cells.x.at(0).n();
+    int nc2 = pmb.all_cells.x.at(1).n();
+    int nc3 = pmb.all_cells.x.at(2).n();
 
     if ( metadata.where() == (Metadata::node) ) {
       nc1++; nc2++; nc3++;

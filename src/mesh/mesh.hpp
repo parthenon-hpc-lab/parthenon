@@ -113,13 +113,16 @@ public:
   RegionSize block_size;
   // for convenience: "max" # of real+ghost cells along each dir for allocating "standard"
   // sized MeshBlock arrays, depending on ndim (i.e. ncells2=nx2+2*NGHOST if nx2>1)
-  IndexVolume num_cells;
-  
+  IndexShape all_cells;
+  IndexShape active_cells; 
+  IndexShape all_coarse_cells;
+  IndexShape active_coarse_cells;
   // on 1x coarser level MeshBlock (i.e. ncc2=nx2/2 + 2*NGHOST, if nx2>1)
-  int ncc1, ncc2, ncc3;
-  int is, ie, js, je, ks, ke;
+  //int ncc1, ncc2, ncc3;
+//  int is, ie, js, je, ks, ke;
   int gid, lid;
-  int cis, cie, cjs, cje, cks, cke, cnghost;
+  //int cis, cie, cjs, cje, cks, cke, 
+  int cnghost;
   int gflag;
   // At every cycle n, hydro and field registers (u, b) are advanced from t^n -> t^{n+1},
   // the time-integration scheme may partially substep several storage register pairs
@@ -186,6 +189,7 @@ private:
   std::vector<std::reference_wrapper<Variable<Real>>> vars_cc_;
   std::vector<std::reference_wrapper<FaceField>> vars_fc_;
 
+  void InitializeIndexShapes();
   // functions
   void AllocateRealUserMeshBlockDataField(int n);
   void AllocateIntUserMeshBlockDataField(int n);

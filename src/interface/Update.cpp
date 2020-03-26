@@ -21,31 +21,31 @@ namespace Update {
 
 void FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
   MeshBlock *pmb = in.pmy_block;
-  int is = pmb->is;
-  int js = pmb->js;
-  int ks = pmb->ks;
-  int ie = pmb->ie;
-  int je = pmb->je;
-  int ke = pmb->ke;
+  int is = pmb->active_cells.x.at(0).s;
+  int js = pmb->active_cells.x.at(1).s;
+  int ks = pmb->active_cells.x.at(2).s;
+  int ie = pmb->active_cells.x.at(0).e;
+  int je = pmb->active_cells.x.at(1).e;
+  int ke = pmb->active_cells.x.at(2).e;
 
   Metadata m;
   ContainerIterator<Real> cin_iter(in, {m.independent});
   ContainerIterator<Real> cout_iter(dudt_cont, {m.independent});
   int nvars = cout_iter.vars.size();
 
-  AthenaArray<Real> x1area(pmb->num_cells.dim1);
-  AthenaArray<Real> x2area0(pmb->num_cells.dim1);
-  AthenaArray<Real> x2area1(pmb->num_cells.dim1);
-  AthenaArray<Real> x3area0(pmb->num_cells.dim1);
-  AthenaArray<Real> x3area1(pmb->num_cells.dim1);
-  AthenaArray<Real> vol(pmb->num_cells.dim1);
+  AthenaArray<Real> x1area(pmb->all_cells.x.at(0).n());
+  AthenaArray<Real> x2area0(pmb->all_cells.x.at(0).n());
+  AthenaArray<Real> x2area1(pmb->all_cells.x.at(0).n());
+  AthenaArray<Real> x3area0(pmb->all_cells.x.at(0).n());
+  AthenaArray<Real> x3area1(pmb->all_cells.x.at(0).n());
+  AthenaArray<Real> vol(pmb->all_cells.x.at(0).n());
 
   /*for (int n = 0; n < nvars; n++) {
     Variable<Real>& dudt = *cout_iter.vars[n];
     dudt.ZeroClear();
   }*/
   int ndim = pmb->pmy_mesh->ndim;
-  AthenaArray<Real> du(pmb->num_cells.dim1);
+  AthenaArray<Real> du(pmb->all_cells.x.at(0).n());
   for (int k = ks; k <= ke; k++) {
     for (int j = js; j <= je; j++) {
       pmb->pcoord->Face1Area(k, j, is, ie + 1, x1area);
@@ -99,12 +99,12 @@ void FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
 void UpdateContainer(Container<Real> &in, Container<Real> &dudt_cont,
                      const Real dt, Container<Real> &out) {
   MeshBlock *pmb = in.pmy_block;
-  int is = pmb->is;
-  int js = pmb->js;
-  int ks = pmb->ks;
-  int ie = pmb->ie;
-  int je = pmb->je;
-  int ke = pmb->ke;
+  int is = pmb->active_cells.x.at(0).s;
+  int js = pmb->active_cells.x.at(1).s;
+  int ks = pmb->active_cells.x.at(2).s;
+  int ie = pmb->active_cells.x.at(0).e;
+  int je = pmb->active_cells.x.at(1).e;
+  int ke = pmb->active_cells.x.at(2).e;
 
   Metadata m;
   ContainerIterator<Real> cin_iter(in, {m.independent});
@@ -132,12 +132,12 @@ void UpdateContainer(Container<Real> &in, Container<Real> &dudt_cont,
 void AverageContainers(Container<Real> &c1, Container<Real> &c2,
                        const Real wgt1) {
   MeshBlock *pmb = c1.pmy_block;
-  int is = pmb->is;
-  int js = pmb->js;
-  int ks = pmb->ks;
-  int ie = pmb->ie;
-  int je = pmb->je;
-  int ke = pmb->ke;
+  int is = pmb->active_cells.x.at(0).s;
+  int js = pmb->active_cells.x.at(1).s;
+  int ks = pmb->active_cells.x.at(2).s;
+  int ie = pmb->active_cells.x.at(0).e;
+  int je = pmb->active_cells.x.at(1).e;
+  int ke = pmb->active_cells.x.at(2).e;
 
   Metadata m;
   ContainerIterator<Real> c1_iter(c1, {m.independent});

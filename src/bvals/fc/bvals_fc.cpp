@@ -182,15 +182,15 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(Real *buf,
   int p = 0;
 
   // bx1
-  if (nb.ni.ox1 == 0)     si = pmb->is,          ei = pmb->ie + 1;
-  else if (nb.ni.ox1 > 0) si = pmb->ie-NGHOST + 1, ei = pmb->ie;
-  else              si = pmb->is + 1,        ei = pmb->is + NGHOST;
-  if (nb.ni.ox2 == 0)     sj = pmb->js,          ej = pmb->je;
-  else if (nb.ni.ox2 > 0) sj = pmb->je-NGHOST + 1, ej = pmb->je;
-  else              sj = pmb->js,          ej = pmb->js + NGHOST-1;
-  if (nb.ni.ox3 == 0)     sk = pmb->ks,          ek = pmb->ke;
-  else if (nb.ni.ox3 > 0) sk = pmb->ke-NGHOST + 1, ek = pmb->ke;
-  else              sk = pmb->ks,          ek = pmb->ks + NGHOST-1;
+  if (nb.ni.ox1 == 0)     si = pmb->active_cells.x.at(0).s,          ei = pmb->active_cells.x.at(0).e + 1;
+  else if (nb.ni.ox1 > 0) si = pmb->active_cells.x.at(0).e-NGHOST + 1, ei = pmb->active_cells.x.at(0).e;
+  else              si = pmb->active_cells.x.at(0).s + 1,        ei = pmb->active_cells.x.at(0).s + NGHOST;
+  if (nb.ni.ox2 == 0)     sj = pmb->active_cells.x.at(1).s,          ej = pmb->active_cells.x.at(1).e;
+  else if (nb.ni.ox2 > 0) sj = pmb->active_cells.x.at(1).e-NGHOST + 1, ej = pmb->active_cells.x.at(1).e;
+  else              sj = pmb->active_cells.x.at(1).s,          ej = pmb->active_cells.x.at(1).s + NGHOST-1;
+  if (nb.ni.ox3 == 0)     sk = pmb->active_cells.x.at(2).s,          ek = pmb->active_cells.x.at(2).e;
+  else if (nb.ni.ox3 > 0) sk = pmb->active_cells.x.at(2).e-NGHOST + 1, ek = pmb->active_cells.x.at(2).e;
+  else              sk = pmb->active_cells.x.at(2).s,          ek = pmb->active_cells.x.at(2).s + NGHOST-1;
   // for SMR/AMR, always include the overlapping faces in edge and corner boundaries
   if (pmy_mesh_->multilevel && nb.ni.type != NeighborConnect::face) {
     if (nb.ni.ox1 > 0) ei++;
@@ -199,13 +199,13 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(Real *buf,
   BufferUtility::PackData((*var_fc).x1f, buf, si, ei, sj, ej, sk, ek, p);
 
   // bx2
-  if (nb.ni.ox1 == 0)      si = pmb->is,          ei = pmb->ie;
-  else if (nb.ni.ox1 > 0)  si = pmb->ie-NGHOST + 1, ei = pmb->ie;
-  else               si = pmb->is,          ei = pmb->is + NGHOST-1;
-  if (pmb->block_size.nx2 == 1) sj = pmb->js,  ej = pmb->je;
-  else if (nb.ni.ox2 == 0) sj = pmb->js,          ej = pmb->je + 1;
-  else if (nb.ni.ox2 > 0)  sj = pmb->je-NGHOST + 1, ej = pmb->je;
-  else               sj = pmb->js + 1,        ej = pmb->js + NGHOST;
+  if (nb.ni.ox1 == 0)      si = pmb->active_cells.x.at(0).s,          ei = pmb->active_cells.x.at(0).e;
+  else if (nb.ni.ox1 > 0)  si = pmb->active_cells.x.at(0).e-NGHOST + 1, ei = pmb->active_cells.x.at(0).e;
+  else               si = pmb->active_cells.x.at(0).s,          ei = pmb->active_cells.x.at(0).s + NGHOST-1;
+  if (pmb->block_size.nx2 == 1) sj = pmb->active_cells.x.at(1).s,  ej = pmb->active_cells.x.at(1).e;
+  else if (nb.ni.ox2 == 0) sj = pmb->active_cells.x.at(1).s,          ej = pmb->active_cells.x.at(1).e + 1;
+  else if (nb.ni.ox2 > 0)  sj = pmb->active_cells.x.at(1).e-NGHOST + 1, ej = pmb->active_cells.x.at(1).e;
+  else               sj = pmb->active_cells.x.at(1).s + 1,        ej = pmb->active_cells.x.at(1).s + NGHOST;
   if (pmy_mesh_->multilevel && nb.ni.type != NeighborConnect::face) {
     if (nb.ni.ox2 > 0) ej++;
     else if (nb.ni.ox2 < 0) sj--;
@@ -213,13 +213,13 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(Real *buf,
   BufferUtility::PackData((*var_fc).x2f, buf, si, ei, sj, ej, sk, ek, p);
 
   // bx3
-  if (nb.ni.ox2 == 0)      sj = pmb->js,          ej = pmb->je;
-  else if (nb.ni.ox2 > 0)  sj = pmb->je-NGHOST + 1, ej = pmb->je;
-  else               sj = pmb->js,          ej = pmb->js + NGHOST-1;
-  if (pmb->block_size.nx3 == 1) sk = pmb->ks,  ek = pmb->ke;
-  else if (nb.ni.ox3 == 0) sk = pmb->ks,          ek = pmb->ke + 1;
-  else if (nb.ni.ox3 > 0)  sk = pmb->ke-NGHOST + 1, ek = pmb->ke;
-  else               sk = pmb->ks + 1,        ek = pmb->ks + NGHOST;
+  if (nb.ni.ox2 == 0)      sj = pmb->active_cells.x.at(1).s,          ej = pmb->active_cells.x.at(1).e;
+  else if (nb.ni.ox2 > 0)  sj = pmb->active_cells.x.at(1).e-NGHOST + 1, ej = pmb->active_cells.x.at(1).e;
+  else               sj = pmb->active_cells.x.at(1).s,          ej = pmb->active_cells.x.at(1).s + NGHOST-1;
+  if (pmb->block_size.nx3 == 1) sk = pmb->active_cells.x.at(2).s,  ek = pmb->active_cells.x.at(2).e;
+  else if (nb.ni.ox3 == 0) sk = pmb->active_cells.x.at(2).s,          ek = pmb->active_cells.x.at(2).e + 1;
+  else if (nb.ni.ox3 > 0)  sk = pmb->active_cells.x.at(2).e-NGHOST + 1, ek = pmb->active_cells.x.at(2).e;
+  else               sk = pmb->active_cells.x.at(2).s + 1,        ek = pmb->active_cells.x.at(2).s + NGHOST;
   if (pmy_mesh_->multilevel && nb.ni.type != NeighborConnect::face) {
     if (nb.ni.ox3 > 0) ek++;
     else if (nb.ni.ox3 < 0) sk--;
@@ -243,15 +243,15 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(Real *buf,
   int p = 0;
 
   // bx1
-  if (nb.ni.ox1 == 0)     si = pmb->cis,       ei = pmb->cie + 1;
-  else if (nb.ni.ox1 > 0) si = pmb->cie-cng + 1, ei = pmb->cie;
-  else              si = pmb->cis + 1,     ei = pmb->cis + cng;
-  if (nb.ni.ox2 == 0)     sj = pmb->cjs,       ej = pmb->cje;
-  else if (nb.ni.ox2 > 0) sj = pmb->cje-cng + 1, ej = pmb->cje;
-  else              sj = pmb->cjs,       ej = pmb->cjs + cng-1;
-  if (nb.ni.ox3 == 0)     sk = pmb->cks,       ek = pmb->cke;
-  else if (nb.ni.ox3 > 0) sk = pmb->cke-cng + 1, ek = pmb->cke;
-  else              sk = pmb->cks,       ek = pmb->cks + cng-1;
+  if (nb.ni.ox1 == 0)     si = pmb->active_coarse_cells.x.at(0).s,       ei = pmb->active_coarse_cells.x.at(0).e + 1;
+  else if (nb.ni.ox1 > 0) si = pmb->active_coarse_cells.x.at(0).e-cng + 1, ei = pmb->active_coarse_cells.x.at(0).e;
+  else              si = pmb->active_coarse_cells.x.at(0).s + 1,     ei = pmb->active_coarse_cells.x.at(0).s + cng;
+  if (nb.ni.ox2 == 0)     sj = pmb->active_coarse_cells.x.at(1).s,       ej = pmb->active_coarse_cells.x.at(1).e;
+  else if (nb.ni.ox2 > 0) sj = pmb->active_coarse_cells.x.at(1).e-cng + 1, ej = pmb->active_coarse_cells.x.at(1).e;
+  else              sj = pmb->active_coarse_cells.x.at(1).s,       ej = pmb->active_coarse_cells.x.at(1).s + cng-1;
+  if (nb.ni.ox3 == 0)     sk = pmb->active_coarse_cells.x.at(2).s,       ek = pmb->active_coarse_cells.x.at(2).e;
+  else if (nb.ni.ox3 > 0) sk = pmb->active_coarse_cells.x.at(2).e-cng + 1, ek = pmb->active_coarse_cells.x.at(2).e;
+  else              sk = pmb->active_coarse_cells.x.at(2).s,       ek = pmb->active_coarse_cells.x.at(2).s + cng-1;
   // include the overlapping faces in edge and corner boundaries
   if (nb.ni.type != NeighborConnect::face) {
     if (nb.ni.ox1 > 0) ei++;
@@ -261,13 +261,13 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(Real *buf,
   BufferUtility::PackData(coarse_buf.x1f, buf, si, ei, sj, ej, sk, ek, p);
 
   // bx2
-  if (nb.ni.ox1 == 0)      si = pmb->cis,       ei = pmb->cie;
-  else if (nb.ni.ox1 > 0)  si = pmb->cie-cng + 1, ei = pmb->cie;
-  else               si = pmb->cis,       ei = pmb->cis + cng-1;
-  if (pmb->block_size.nx2 == 1) sj = pmb->cjs, ej = pmb->cje;
-  else if (nb.ni.ox2 == 0) sj = pmb->cjs,       ej = pmb->cje + 1;
-  else if (nb.ni.ox2 > 0)  sj = pmb->cje-cng + 1, ej = pmb->cje;
-  else               sj = pmb->cjs + 1,     ej = pmb->cjs + cng;
+  if (nb.ni.ox1 == 0)      si = pmb->active_coarse_cells.x.at(0).s,       ei = pmb->active_coarse_cells.x.at(0).e;
+  else if (nb.ni.ox1 > 0)  si = pmb->active_coarse_cells.x.at(0).e-cng + 1, ei = pmb->active_coarse_cells.x.at(0).e;
+  else               si = pmb->active_coarse_cells.x.at(0).s,       ei = pmb->active_coarse_cells.x.at(0).s + cng-1;
+  if (pmb->block_size.nx2 == 1) sj = pmb->active_coarse_cells.x.at(1).s, ej = pmb->active_coarse_cells.x.at(1).e;
+  else if (nb.ni.ox2 == 0) sj = pmb->active_coarse_cells.x.at(1).s,       ej = pmb->active_coarse_cells.x.at(1).e + 1;
+  else if (nb.ni.ox2 > 0)  sj = pmb->active_coarse_cells.x.at(1).e-cng + 1, ej = pmb->active_coarse_cells.x.at(1).e;
+  else               sj = pmb->active_coarse_cells.x.at(1).s + 1,     ej = pmb->active_coarse_cells.x.at(1).s + cng;
   if (nb.ni.type != NeighborConnect::face) {
     if (nb.ni.ox2 > 0) ej++;
     else if (nb.ni.ox2 < 0) sj--;
@@ -280,13 +280,13 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(Real *buf,
   BufferUtility::PackData(coarse_buf.x2f, buf, si, ei, sj, ej, sk, ek, p);
 
   // bx3
-  if (nb.ni.ox2 == 0)      sj = pmb->cjs,       ej = pmb->cje;
-  else if (nb.ni.ox2 > 0)  sj = pmb->cje-cng + 1, ej = pmb->cje;
-  else               sj = pmb->cjs,       ej = pmb->cjs + cng-1;
-  if (pmb->block_size.nx3 == 1) sk = pmb->cks,  ek = pmb->cke;
-  else if (nb.ni.ox3 == 0) sk = pmb->cks,       ek = pmb->cke + 1;
-  else if (nb.ni.ox3 > 0)  sk = pmb->cke-cng + 1, ek = pmb->cke;
-  else               sk = pmb->cks + 1,     ek = pmb->cks + cng;
+  if (nb.ni.ox2 == 0)      sj = pmb->active_coarse_cells.x.at(1).s,       ej = pmb->active_coarse_cells.x.at(1).e;
+  else if (nb.ni.ox2 > 0)  sj = pmb->active_coarse_cells.x.at(1).e-cng + 1, ej = pmb->active_coarse_cells.x.at(1).e;
+  else               sj = pmb->active_coarse_cells.x.at(1).s,       ej = pmb->active_coarse_cells.x.at(1).s + cng-1;
+  if (pmb->block_size.nx3 == 1) sk = pmb->active_coarse_cells.x.at(2).s,  ek = pmb->active_coarse_cells.x.at(2).e;
+  else if (nb.ni.ox3 == 0) sk = pmb->active_coarse_cells.x.at(2).s,       ek = pmb->active_coarse_cells.x.at(2).e + 1;
+  else if (nb.ni.ox3 > 0)  sk = pmb->active_coarse_cells.x.at(2).e-cng + 1, ek = pmb->active_coarse_cells.x.at(2).e;
+  else               sk = pmb->active_coarse_cells.x.at(2).s + 1,     ek = pmb->active_coarse_cells.x.at(2).s + cng;
   if (nb.ni.type != NeighborConnect::face) {
     if (nb.ni.ox3 > 0) ek++;
     else if (nb.ni.ox3 < 0) sk--;
@@ -323,12 +323,12 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToFiner(Real *buf,
   // need to add edges for faces, add corners for edges
   // bx1
   if (nb.ni.ox1 == 0) {
-    if (nb.ni.fi1 == 1)   si = pmb->is + nx1/2-pmb->cnghost, ei = pmb->ie + 1;
-    else            si = pmb->is, ei = pmb->ie + 1-nx1/2 + pmb->cnghost;
-  } else if (nb.ni.ox1 > 0) { si = pmb->ie + 1-pmb->cnghost, ei = pmb->ie + 1;}
-  else              si = pmb->is,                ei = pmb->is + pmb->cnghost;
+    if (nb.ni.fi1 == 1)   si = pmb->active_cells.x.at(0).s + nx1/2-pmb->cnghost, ei = pmb->active_cells.x.at(0).e + 1;
+    else            si = pmb->active_cells.x.at(0).s, ei = pmb->active_cells.x.at(0).e + 1-nx1/2 + pmb->cnghost;
+  } else if (nb.ni.ox1 > 0) { si = pmb->active_cells.x.at(0).e + 1-pmb->cnghost, ei = pmb->active_cells.x.at(0).e + 1;}
+  else              si = pmb->active_cells.x.at(0).s,                ei = pmb->active_cells.x.at(0).s + pmb->cnghost;
   if (nb.ni.ox2 == 0) {
-    sj = pmb->js,    ej = pmb->je;
+    sj = pmb->active_cells.x.at(1).s,    ej = pmb->active_cells.x.at(1).e;
     if (nx2 > 1) {
       if (nb.ni.ox1 != 0) {
         if (nb.ni.fi1 == 1) sj += nx2/2-pmb->cnghost;
@@ -338,10 +338,10 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToFiner(Real *buf,
         else          ej -= nx2/2-pmb->cnghost;
       }
     }
-  } else if (nb.ni.ox2 > 0) { sj = pmb->je-cn, ej = pmb->je;}
-  else              sj = pmb->js,    ej = pmb->js + cn;
+  } else if (nb.ni.ox2 > 0) { sj = pmb->active_cells.x.at(1).e-cn, ej = pmb->active_cells.x.at(1).e;}
+  else              sj = pmb->active_cells.x.at(1).s,    ej = pmb->active_cells.x.at(1).s + cn;
   if (nb.ni.ox3 == 0) {
-    sk = pmb->ks,    ek = pmb->ke;
+    sk = pmb->active_cells.x.at(2).s,    ek = pmb->active_cells.x.at(2).e;
     if (nx3 > 1) {
       if (nb.ni.ox1 != 0 && nb.ni.ox2 != 0) {
         if (nb.ni.fi1 == 1) sk += nx3/2-pmb->cnghost;
@@ -351,18 +351,18 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToFiner(Real *buf,
         else          ek -= nx3/2-pmb->cnghost;
       }
     }
-  } else if (nb.ni.ox3 > 0) { sk = pmb->ke-cn, ek = pmb->ke;}
-  else              sk = pmb->ks,    ek = pmb->ks + cn;
+  } else if (nb.ni.ox3 > 0) { sk = pmb->active_cells.x.at(2).e-cn, ek = pmb->active_cells.x.at(2).e;}
+  else              sk = pmb->active_cells.x.at(2).s,    ek = pmb->active_cells.x.at(2).s + cn;
   BufferUtility::PackData((*var_fc).x1f, buf, si, ei, sj, ej, sk, ek, p);
 
   // bx2
   if (nb.ni.ox1 == 0) {
-    if (nb.ni.fi1 == 1)   si = pmb->is + nx1/2-pmb->cnghost, ei = pmb->ie;
-    else            si = pmb->is, ei = pmb->ie-nx1/2 + pmb->cnghost;
-  } else if (nb.ni.ox1 > 0) { si = pmb->ie-cn, ei = pmb->ie;}
-  else              si = pmb->is,    ei = pmb->is + cn;
+    if (nb.ni.fi1 == 1)   si = pmb->active_cells.x.at(0).s + nx1/2-pmb->cnghost, ei = pmb->active_cells.x.at(0).e;
+    else            si = pmb->active_cells.x.at(0).s, ei = pmb->active_cells.x.at(0).e-nx1/2 + pmb->cnghost;
+  } else if (nb.ni.ox1 > 0) { si = pmb->active_cells.x.at(0).e-cn, ei = pmb->active_cells.x.at(0).e;}
+  else              si = pmb->active_cells.x.at(0).s,    ei = pmb->active_cells.x.at(0).s + cn;
   if (nb.ni.ox2 == 0) {
-    sj = pmb->js,    ej = pmb->je;
+    sj = pmb->active_cells.x.at(1).s,    ej = pmb->active_cells.x.at(1).e;
     if (nx2 > 1) {
       ej++;
       if (nb.ni.ox1 != 0) {
@@ -373,13 +373,13 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToFiner(Real *buf,
         else          ej -= nx2/2-pmb->cnghost;
       }
     }
-  } else if (nb.ni.ox2 > 0) { sj = pmb->je + 1-pmb->cnghost, ej = pmb->je + 1;}
-  else              sj = pmb->js,                ej = pmb->js + pmb->cnghost;
+  } else if (nb.ni.ox2 > 0) { sj = pmb->active_cells.x.at(1).e + 1-pmb->cnghost, ej = pmb->active_cells.x.at(1).e + 1;}
+  else              sj = pmb->active_cells.x.at(1).s,                ej = pmb->active_cells.x.at(1).s + pmb->cnghost;
   BufferUtility::PackData((*var_fc).x2f, buf, si, ei, sj, ej, sk, ek, p);
 
   // bx3
   if (nb.ni.ox2 == 0) {
-    sj = pmb->js,    ej = pmb->je;
+    sj = pmb->active_cells.x.at(1).s,    ej = pmb->active_cells.x.at(1).e;
     if (nx2 > 1) {
       if (nb.ni.ox1 != 0) {
         if (nb.ni.fi1 == 1) sj += nx2/2-pmb->cnghost;
@@ -389,10 +389,10 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToFiner(Real *buf,
         else          ej -= nx2/2-pmb->cnghost;
       }
     }
-  } else if (nb.ni.ox2 > 0) { sj = pmb->je-cn, ej = pmb->je;}
-  else              sj = pmb->js,    ej = pmb->js + cn;
+  } else if (nb.ni.ox2 > 0) { sj = pmb->active_cells.x.at(1).e-cn, ej = pmb->active_cells.x.at(1).e;}
+  else              sj = pmb->active_cells.x.at(1).s,    ej = pmb->active_cells.x.at(1).s + cn;
   if (nb.ni.ox3 == 0) {
-    sk = pmb->ks,    ek = pmb->ke;
+    sk = pmb->active_cells.x.at(2).s,    ek = pmb->active_cells.x.at(2).e;
     if (nx3 > 1) {
       ek++;
       if (nb.ni.ox1 != 0 && nb.ni.ox2 != 0) {
@@ -403,8 +403,8 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToFiner(Real *buf,
         else          ek -= nx3/2-pmb->cnghost;
       }
     }
-  } else if (nb.ni.ox3 > 0) { sk = pmb->ke + 1-pmb->cnghost, ek = pmb->ke + 1;}
-  else              sk = pmb->ks,                ek = pmb->ks + pmb->cnghost;
+  } else if (nb.ni.ox3 > 0) { sk = pmb->active_cells.x.at(2).e + 1-pmb->cnghost, ek = pmb->active_cells.x.at(2).e + 1;}
+  else              sk = pmb->active_cells.x.at(2).s,                ek = pmb->active_cells.x.at(2).s + pmb->cnghost;
   BufferUtility::PackData((*var_fc).x3f, buf, si, ei, sj, ej, sk, ek, p);
 
   return p;
@@ -424,15 +424,15 @@ void FaceCenteredBoundaryVariable::SetBoundarySameLevel(Real *buf,
   int p = 0;
   // bx1
   // for uniform grid: face-neighbors take care of the overlapping faces
-  if (nb.ni.ox1 == 0)     si = pmb->is,        ei = pmb->ie + 1;
-  else if (nb.ni.ox1 > 0) si = pmb->ie + 2,      ei = pmb->ie + NGHOST + 1;
-  else              si = pmb->is - NGHOST, ei = pmb->is - 1;
-  if (nb.ni.ox2 == 0)     sj = pmb->js,        ej = pmb->je;
-  else if (nb.ni.ox2 > 0) sj = pmb->je + 1,      ej = pmb->je + NGHOST;
-  else              sj = pmb->js - NGHOST, ej = pmb->js - 1;
-  if (nb.ni.ox3 == 0)     sk = pmb->ks,        ek = pmb->ke;
-  else if (nb.ni.ox3 > 0) sk = pmb->ke + 1,      ek = pmb->ke + NGHOST;
-  else              sk = pmb->ks - NGHOST, ek = pmb->ks - 1;
+  if (nb.ni.ox1 == 0)     si = pmb->active_cells.x.at(0).s,        ei = pmb->active_cells.x.at(0).e + 1;
+  else if (nb.ni.ox1 > 0) si = pmb->active_cells.x.at(0).e + 2,      ei = pmb->active_cells.x.at(0).e + NGHOST + 1;
+  else              si = pmb->active_cells.x.at(0).s - NGHOST, ei = pmb->active_cells.x.at(0).s - 1;
+  if (nb.ni.ox2 == 0)     sj = pmb->active_cells.x.at(1).s,        ej = pmb->active_cells.x.at(1).e;
+  else if (nb.ni.ox2 > 0) sj = pmb->active_cells.x.at(1).e + 1,      ej = pmb->active_cells.x.at(1).e + NGHOST;
+  else              sj = pmb->active_cells.x.at(1).s - NGHOST, ej = pmb->active_cells.x.at(1).s - 1;
+  if (nb.ni.ox3 == 0)     sk = pmb->active_cells.x.at(2).s,        ek = pmb->active_cells.x.at(2).e;
+  else if (nb.ni.ox3 > 0) sk = pmb->active_cells.x.at(2).e + 1,      ek = pmb->active_cells.x.at(2).e + NGHOST;
+  else              sk = pmb->active_cells.x.at(2).s - NGHOST, ek = pmb->active_cells.x.at(2).s - 1;
   // for SMR/AMR, always include the overlapping faces in edge and corner boundaries
   if (pmy_mesh_->multilevel && nb.ni.type != NeighborConnect::face) {
     if (nb.ni.ox1 > 0) si--;
@@ -443,13 +443,13 @@ void FaceCenteredBoundaryVariable::SetBoundarySameLevel(Real *buf,
 
 
   // bx2
-  if (nb.ni.ox1 == 0)      si = pmb->is,         ei = pmb->ie;
-  else if (nb.ni.ox1 > 0)  si = pmb->ie + 1,       ei = pmb->ie + NGHOST;
-  else               si = pmb->is - NGHOST,  ei = pmb->is - 1;
-  if (pmb->block_size.nx2 == 1) sj = pmb->js, ej = pmb->je;
-  else if (nb.ni.ox2 == 0) sj = pmb->js,         ej = pmb->je + 1;
-  else if (nb.ni.ox2 > 0)  sj = pmb->je + 2,       ej = pmb->je + NGHOST + 1;
-  else               sj = pmb->js - NGHOST,  ej = pmb->js - 1;
+  if (nb.ni.ox1 == 0)      si = pmb->active_cells.x.at(0).s,         ei = pmb->active_cells.x.at(0).e;
+  else if (nb.ni.ox1 > 0)  si = pmb->active_cells.x.at(0).e + 1,       ei = pmb->active_cells.x.at(0).e + NGHOST;
+  else               si = pmb->active_cells.x.at(0).s - NGHOST,  ei = pmb->active_cells.x.at(0).s - 1;
+  if (pmb->block_size.nx2 == 1) sj = pmb->active_cells.x.at(1).s, ej = pmb->active_cells.x.at(1).e;
+  else if (nb.ni.ox2 == 0) sj = pmb->active_cells.x.at(1).s,         ej = pmb->active_cells.x.at(1).e + 1;
+  else if (nb.ni.ox2 > 0)  sj = pmb->active_cells.x.at(1).e + 2,       ej = pmb->active_cells.x.at(1).e + NGHOST + 1;
+  else               sj = pmb->active_cells.x.at(1).s - NGHOST,  ej = pmb->active_cells.x.at(1).s - 1;
   // for SMR/AMR, always include the overlapping faces in edge and corner boundaries
   if (pmy_mesh_->multilevel && nb.ni.type != NeighborConnect::face) {
     if (nb.ni.ox2 > 0) sj--;
@@ -465,13 +465,13 @@ void FaceCenteredBoundaryVariable::SetBoundarySameLevel(Real *buf,
   }
 
   // bx3
-  if (nb.ni.ox2 == 0)      sj = pmb->js,         ej = pmb->je;
-  else if (nb.ni.ox2 > 0)  sj = pmb->je + 1,       ej = pmb->je + NGHOST;
-  else               sj = pmb->js - NGHOST,  ej = pmb->js - 1;
-  if (pmb->block_size.nx3 == 1) sk = pmb->ks, ek = pmb->ke;
-  else if (nb.ni.ox3 == 0) sk = pmb->ks,         ek = pmb->ke + 1;
-  else if (nb.ni.ox3 > 0)  sk = pmb->ke + 2,       ek = pmb->ke + NGHOST + 1;
-  else               sk = pmb->ks - NGHOST,  ek = pmb->ks - 1;
+  if (nb.ni.ox2 == 0)      sj = pmb->active_cells.x.at(1).s,         ej = pmb->active_cells.x.at(1).e;
+  else if (nb.ni.ox2 > 0)  sj = pmb->active_cells.x.at(1).e + 1,       ej = pmb->active_cells.x.at(1).e + NGHOST;
+  else               sj = pmb->active_cells.x.at(1).s - NGHOST,  ej = pmb->active_cells.x.at(1).s - 1;
+  if (pmb->block_size.nx3 == 1) sk = pmb->active_cells.x.at(2).s, ek = pmb->active_cells.x.at(2).e;
+  else if (nb.ni.ox3 == 0) sk = pmb->active_cells.x.at(2).s,         ek = pmb->active_cells.x.at(2).e + 1;
+  else if (nb.ni.ox3 > 0)  sk = pmb->active_cells.x.at(2).e + 2,       ek = pmb->active_cells.x.at(2).e + NGHOST + 1;
+  else               sk = pmb->active_cells.x.at(2).s - NGHOST,  ek = pmb->active_cells.x.at(2).s - 1;
   // for SMR/AMR, always include the overlapping faces in edge and corner boundaries
   if (pmy_mesh_->multilevel && nb.ni.type != NeighborConnect::face) {
     if (nb.ni.ox3 > 0) sk--;
@@ -505,46 +505,46 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromCoarser(Real *buf,
 
   // bx1
   if (nb.ni.ox1 == 0) {
-    si = pmb->cis, ei = pmb->cie + 1;
+    si = pmb->active_coarse_cells.x.at(0).s, ei = pmb->active_coarse_cells.x.at(0).e + 1;
     if ((pmb->loc.lx1 & 1LL) == 0LL) ei += cng;
     else             si -= cng;
-  } else if (nb.ni.ox1 > 0) {  si = pmb->cie + 1,   ei = pmb->cie + 1 + cng;}
-  else               si = pmb->cis - cng, ei = pmb->cis;
+  } else if (nb.ni.ox1 > 0) {  si = pmb->active_coarse_cells.x.at(0).e + 1,   ei = pmb->active_coarse_cells.x.at(0).e + 1 + cng;}
+  else               si = pmb->active_coarse_cells.x.at(0).s - cng, ei = pmb->active_coarse_cells.x.at(0).s;
   if (nb.ni.ox2 == 0) {
-    sj = pmb->cjs, ej = pmb->cje;
+    sj = pmb->active_coarse_cells.x.at(1).s, ej = pmb->active_coarse_cells.x.at(1).e;
     if (pmb->block_size.nx2 > 1) {
       if ((pmb->loc.lx2 & 1LL) == 0LL) ej += cng;
       else             sj -= cng;
     }
-  } else if (nb.ni.ox2 > 0) {  sj = pmb->cje + 1,   ej = pmb->cje + cng;}
-  else               sj = pmb->cjs - cng, ej = pmb->cjs - 1;
+  } else if (nb.ni.ox2 > 0) {  sj = pmb->active_coarse_cells.x.at(1).e + 1,   ej = pmb->active_coarse_cells.x.at(1).e + cng;}
+  else               sj = pmb->active_coarse_cells.x.at(1).s - cng, ej = pmb->active_coarse_cells.x.at(1).s - 1;
   if (nb.ni.ox3 == 0) {
-    sk = pmb->cks, ek = pmb->cke;
+    sk = pmb->active_coarse_cells.x.at(2).s, ek = pmb->active_coarse_cells.x.at(2).e;
     if (pmb->block_size.nx3 > 1) {
       if ((pmb->loc.lx3 & 1LL) == 0LL) ek += cng;
       else             sk -= cng;
     }
-  } else if (nb.ni.ox3 > 0) {  sk = pmb->cke + 1,   ek = pmb->cke + cng;}
-  else               sk = pmb->cks - cng, ek = pmb->cks - 1;
+  } else if (nb.ni.ox3 > 0) {  sk = pmb->active_coarse_cells.x.at(2).e + 1,   ek = pmb->active_coarse_cells.x.at(2).e + cng;}
+  else               sk = pmb->active_coarse_cells.x.at(2).s - cng, ek = pmb->active_coarse_cells.x.at(2).s - 1;
 
   BufferUtility::UnpackData(buf, coarse_buf.x1f, si, ei, sj, ej, sk, ek, p);
 
   // bx2
   if (nb.ni.ox1 == 0) {
-    si = pmb->cis, ei = pmb->cie;
+    si = pmb->active_coarse_cells.x.at(0).s, ei = pmb->active_coarse_cells.x.at(0).e;
     if ((pmb->loc.lx1 & 1LL) == 0LL) ei += cng;
     else             si -= cng;
-  } else if (nb.ni.ox1 > 0) {  si = pmb->cie + 1,   ei = pmb->cie + cng;}
-  else               si = pmb->cis - cng, ei = pmb->cis - 1;
+  } else if (nb.ni.ox1 > 0) {  si = pmb->active_coarse_cells.x.at(0).e + 1,   ei = pmb->active_coarse_cells.x.at(0).e + cng;}
+  else               si = pmb->active_coarse_cells.x.at(0).s - cng, ei = pmb->active_coarse_cells.x.at(0).s - 1;
   if (nb.ni.ox2 == 0) {
-    sj = pmb->cjs, ej = pmb->cje;
+    sj = pmb->active_coarse_cells.x.at(1).s, ej = pmb->active_coarse_cells.x.at(1).e;
     if (pmb->block_size.nx2 > 1) {
       ej++;
       if ((pmb->loc.lx2 & 1LL) == 0LL) ej += cng;
       else             sj -= cng;
     }
-  } else if (nb.ni.ox2 > 0) {  sj = pmb->cje + 1,   ej = pmb->cje + 1 + cng;}
-  else               sj = pmb->cjs - cng, ej = pmb->cjs;
+  } else if (nb.ni.ox2 > 0) {  sj = pmb->active_coarse_cells.x.at(1).e + 1,   ej = pmb->active_coarse_cells.x.at(1).e + 1 + cng;}
+  else               sj = pmb->active_coarse_cells.x.at(1).s - cng, ej = pmb->active_coarse_cells.x.at(1).s;
 
   BufferUtility::UnpackData(buf, coarse_buf.x2f, si, ei, sj, ej, sk, ek, p);
   if (pmb->block_size.nx2  ==  1) { // 1D
@@ -556,22 +556,22 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromCoarser(Real *buf,
 
   // bx3
   if (nb.ni.ox2 == 0) {
-    sj = pmb->cjs, ej = pmb->cje;
+    sj = pmb->active_coarse_cells.x.at(1).s, ej = pmb->active_coarse_cells.x.at(1).e;
     if (pmb->block_size.nx2 > 1) {
       if ((pmb->loc.lx2 & 1LL) == 0LL) ej += cng;
       else             sj -= cng;
     }
-  } else if (nb.ni.ox2 > 0) {  sj = pmb->cje + 1,   ej = pmb->cje + cng;}
-  else               sj = pmb->cjs - cng, ej = pmb->cjs - 1;
+  } else if (nb.ni.ox2 > 0) {  sj = pmb->active_coarse_cells.x.at(1).e + 1,   ej = pmb->active_coarse_cells.x.at(1).e + cng;}
+  else               sj = pmb->active_coarse_cells.x.at(1).s - cng, ej = pmb->active_coarse_cells.x.at(1).s - 1;
   if (nb.ni.ox3 == 0) {
-    sk = pmb->cks, ek = pmb->cke;
+    sk = pmb->active_coarse_cells.x.at(2).s, ek = pmb->active_coarse_cells.x.at(2).e;
     if (pmb->block_size.nx3 > 1) {
       ek++;
       if ((pmb->loc.lx3 & 1LL) == 0LL) ek += cng;
       else             sk -= cng;
     }
-  } else if (nb.ni.ox3 > 0) {  sk = pmb->cke + 1,   ek = pmb->cke + 1 + cng;}
-  else               sk = pmb->cks - cng, ek = pmb->cks;
+  } else if (nb.ni.ox3 > 0) {  sk = pmb->active_coarse_cells.x.at(2).e + 1,   ek = pmb->active_coarse_cells.x.at(2).e + 1 + cng;}
+  else               sk = pmb->active_coarse_cells.x.at(2).s - cng, ek = pmb->active_coarse_cells.x.at(2).s;
 
   BufferUtility::UnpackData(buf, coarse_buf.x3f, si, ei, sj, ej, sk, ek, p);
 
@@ -599,18 +599,18 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
 
   // bx1
   if (nb.ni.ox1 == 0) {
-    si = pmb->is, ei = pmb->ie + 1;
+    si = pmb->active_cells.x.at(0).s, ei = pmb->active_cells.x.at(0).e + 1;
     if (nb.ni.fi1 == 1)   si += pmb->block_size.nx1/2;
     else            ei -= pmb->block_size.nx1/2;
-  } else if (nb.ni.ox1 > 0) { si = pmb->ie + 2,      ei = pmb->ie + NGHOST + 1;}
-  else              si = pmb->is - NGHOST, ei = pmb->is - 1;
+  } else if (nb.ni.ox1 > 0) { si = pmb->active_cells.x.at(0).e + 2,      ei = pmb->active_cells.x.at(0).e + NGHOST + 1;}
+  else              si = pmb->active_cells.x.at(0).s - NGHOST, ei = pmb->active_cells.x.at(0).s - 1;
   // include the overlapping faces in edge and corner boundaries
   if (nb.ni.type != NeighborConnect::face) {
     if (nb.ni.ox1 > 0) si--;
     else if (nb.ni.ox1 < 0) ei++;
   }
   if (nb.ni.ox2 == 0) {
-    sj = pmb->js, ej = pmb->je;
+    sj = pmb->active_cells.x.at(1).s, ej = pmb->active_cells.x.at(1).e;
     if (pmb->block_size.nx2 > 1) {
       if (nb.ni.ox1 != 0) {
         if (nb.ni.fi1 == 1) sj += pmb->block_size.nx2/2;
@@ -620,10 +620,10 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
         else          ej -= pmb->block_size.nx2/2;
       }
     }
-  } else if (nb.ni.ox2 > 0) { sj = pmb->je + 1,      ej = pmb->je + NGHOST;}
-  else              sj = pmb->js - NGHOST, ej = pmb->js - 1;
+  } else if (nb.ni.ox2 > 0) { sj = pmb->active_cells.x.at(1).e + 1,      ej = pmb->active_cells.x.at(1).e + NGHOST;}
+  else              sj = pmb->active_cells.x.at(1).s - NGHOST, ej = pmb->active_cells.x.at(1).s - 1;
   if (nb.ni.ox3 == 0) {
-    sk = pmb->ks, ek = pmb->ke;
+    sk = pmb->active_cells.x.at(2).s, ek = pmb->active_cells.x.at(2).e;
     if (pmb->block_size.nx3 > 1) {
       if (nb.ni.ox1 != 0 && nb.ni.ox2 != 0) {
         if (nb.ni.fi1 == 1) sk += pmb->block_size.nx3/2;
@@ -633,20 +633,20 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
         else          ek -= pmb->block_size.nx3/2;
       }
     }
-  } else if (nb.ni.ox3 > 0) { sk = pmb->ke + 1,      ek = pmb->ke + NGHOST;}
-  else              sk = pmb->ks - NGHOST, ek = pmb->ks - 1;
+  } else if (nb.ni.ox3 > 0) { sk = pmb->active_cells.x.at(2).e + 1,      ek = pmb->active_cells.x.at(2).e + NGHOST;}
+  else              sk = pmb->active_cells.x.at(2).s - NGHOST, ek = pmb->active_cells.x.at(2).s - 1;
 
   BufferUtility::UnpackData(buf, (*var_fc).x1f, si, ei, sj, ej, sk, ek, p);
 
   // bx2
   if (nb.ni.ox1 == 0) {
-    si = pmb->is, ei = pmb->ie;
+    si = pmb->active_cells.x.at(0).s, ei = pmb->active_cells.x.at(0).e;
     if (nb.ni.fi1 == 1)   si += pmb->block_size.nx1/2;
     else            ei -= pmb->block_size.nx1/2;
-  } else if (nb.ni.ox1 > 0) { si = pmb->ie + 1,      ei = pmb->ie + NGHOST;}
-  else              si = pmb->is - NGHOST, ei = pmb->is - 1;
+  } else if (nb.ni.ox1 > 0) { si = pmb->active_cells.x.at(0).e + 1,      ei = pmb->active_cells.x.at(0).e + NGHOST;}
+  else              si = pmb->active_cells.x.at(0).s - NGHOST, ei = pmb->active_cells.x.at(0).s - 1;
   if (nb.ni.ox2 == 0) {
-    sj = pmb->js, ej = pmb->je;
+    sj = pmb->active_cells.x.at(1).s, ej = pmb->active_cells.x.at(1).e;
     if (pmb->block_size.nx2 > 1) {
       ej++;
       if (nb.ni.ox1 != 0) {
@@ -657,8 +657,8 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
         else          ej -= pmb->block_size.nx2/2;
       }
     }
-  } else if (nb.ni.ox2 > 0) { sj = pmb->je + 2,      ej = pmb->je + NGHOST + 1;}
-  else              sj = pmb->js - NGHOST, ej = pmb->js - 1;
+  } else if (nb.ni.ox2 > 0) { sj = pmb->active_cells.x.at(1).e + 2,      ej = pmb->active_cells.x.at(1).e + NGHOST + 1;}
+  else              sj = pmb->active_cells.x.at(1).s - NGHOST, ej = pmb->active_cells.x.at(1).s - 1;
   // include the overlapping faces in edge and corner boundaries
   if (nb.ni.type != NeighborConnect::face) {
     if (nb.ni.ox2 > 0) sj--;
@@ -675,7 +675,7 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
 
   // bx3
   if (nb.ni.ox2 == 0) {
-    sj = pmb->js, ej = pmb->je;
+    sj = pmb->active_cells.x.at(1).s, ej = pmb->active_cells.x.at(1).e;
     if (pmb->block_size.nx2 > 1) {
       if (nb.ni.ox1 != 0) {
         if (nb.ni.fi1 == 1) sj += pmb->block_size.nx2/2;
@@ -685,10 +685,10 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
         else          ej -= pmb->block_size.nx2/2;
       }
     }
-  } else if (nb.ni.ox2 > 0) { sj = pmb->je + 1,      ej = pmb->je + NGHOST;}
-  else              sj = pmb->js - NGHOST, ej = pmb->js - 1;
+  } else if (nb.ni.ox2 > 0) { sj = pmb->active_cells.x.at(1).e + 1,      ej = pmb->active_cells.x.at(1).e + NGHOST;}
+  else              sj = pmb->active_cells.x.at(1).s - NGHOST, ej = pmb->active_cells.x.at(1).s - 1;
   if (nb.ni.ox3 == 0) {
-    sk = pmb->ks, ek = pmb->ke;
+    sk = pmb->active_cells.x.at(2).s, ek = pmb->active_cells.x.at(2).e;
     if (pmb->block_size.nx3 > 1) {
       ek++;
       if (nb.ni.ox1 != 0 && nb.ni.ox2 != 0) {
@@ -699,8 +699,8 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
         else          ek -= pmb->block_size.nx3/2;
       }
     }
-  } else if (nb.ni.ox3 > 0) { sk = pmb->ke + 2,      ek = pmb->ke + NGHOST + 1;}
-  else              sk = pmb->ks - NGHOST, ek = pmb->ks - 1;
+  } else if (nb.ni.ox3 > 0) { sk = pmb->active_cells.x.at(2).e + 2,      ek = pmb->active_cells.x.at(2).e + NGHOST + 1;}
+  else              sk = pmb->active_cells.x.at(2).s - NGHOST, ek = pmb->active_cells.x.at(2).s - 1;
   // include the overlapping faces in edge and corner boundaries
   if (nb.ni.type != NeighborConnect::face) {
     if (nb.ni.ox3 > 0) sk--;
