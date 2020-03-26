@@ -5,7 +5,6 @@
 Variables can be tagged with a variety of `MetadataFlag` values. These flags
 primarily allow an application to tell Parthenon to apply certain behaviors to
 each field.
-
 ### Variable Topology
 
 Topology essentially specifies on which place on the finite volume
@@ -31,7 +30,7 @@ exclusive:
 ### Variable Behaviors
 
 These flags can be used to tell an application code how to treat a
-varaible in relation to the problem.
+variable in relation to the problem.
 
 - `Metadata::Advected` implies a variable is advected with the flow of
   another variable, e.g., a velocity.
@@ -52,13 +51,13 @@ enable output properties.
 For multidimensional variables, these flags specify how to treat the
 individual components at boundaries. For concreteness, we will discuss
 reflecting boundaries. But this may apply more broadly. A variable
-with no flag set is assumed to be a *Scalar*. Scalars obey *dirichlet*
-boundary conditions at reflecting boundaries and are set to a constant
-value.
+with no flag set is assumed to be a *Scalar*. Scalars obey 
+Dirichlet boundary conditions](https://en.wikipedia.org/wiki/Dirichlet_boundary_condition)
+at reflecting boundaries and are set to a constant value.
 
 - `Metadata::Vector` implies the variable transforms as *vector* at
-  reflecting boundaries. And so ith component is flipped for a
-  boundary in the ith direction.
+  reflecting boundaries. And so i-th component is flipped for a
+  boundary in the i-th direction.
 - `Metadata::Tensor` is the generalization of the vector boundary
   condition, but for tensor quantities.
 
