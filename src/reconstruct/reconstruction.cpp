@@ -351,7 +351,7 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin) :
 
     // Precompute PPM coefficients in x3-direction
     if (pmb->block_size.nx3 > 1) {
-      int nc3 = all_cells.x.at(0).n();
+      int nc3 = all_cells.x.at(2).n();
       c1k.NewAthenaArray(nc3);
       c2k.NewAthenaArray(nc3);
       c3k.NewAthenaArray(nc3);

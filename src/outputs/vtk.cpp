@@ -132,7 +132,7 @@ void VTKOutput::WriteContainer(Mesh *pm, ParameterInput *pin, bool flag) {
 
     int ncoord1 = cells.x.at(0).n();
     if (cells.x.at(0).n() > 1) ncoord1++;
-    int ncoord2 = cells.x.at(0).n();
+    int ncoord2 = cells.x.at(1).n();
     if (cells.x.at(1).n() > 1) ncoord2++;
     int ncoord3 = cells.x.at(2).n();
     if (cells.x.at(2).n() > 1) ncoord3++;

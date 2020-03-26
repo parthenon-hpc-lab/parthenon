@@ -322,7 +322,7 @@ void MeshBlock::AllocateUserOutputVariables(int n) {
     return;
   }
   nuser_out_var = n;
-  user_out_var.NewAthenaArray(nuser_out_var, all_cells.x.at(0).n(), all_cells.x.at(1).n(), all_cells.x.at(2).n());
+  user_out_var.NewAthenaArray(nuser_out_var, all_cells.x.at(2).n(), all_cells.x.at(1).n(), all_cells.x.at(0).n());
   user_out_var_names_ = new std::string[n];
   return;
 }
