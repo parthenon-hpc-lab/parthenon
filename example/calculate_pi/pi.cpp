@@ -18,6 +18,7 @@
 #ifdef MPI_PARALLEL
 #include <mpi.h>
 #endif
+#include "kokkos_abstraction.hpp"
 #include "pi.hpp"
 
 namespace parthenon {
@@ -134,6 +135,25 @@ namespace PiCalculator {
         }
       }
     }
+    /** TODO(pgrete) This is what it should should like using the transparent
+      * parallel_for wrapper of the MeshBlock.
+      * Unfortunely, the current Container/Variable/AthenaArray combination
+      * won't work this way and we should discuss how to proceed before
+      * starting a bigger refactoring of the the classes above.
+
+    auto x1v = pcoord->x1v; // LAMBDA doesn't capture member vars so we need to redef.
+    auto x2v = pcoord->x2v;
+    pmb->par_for(
+        "SetInOrOut", ks, ke, js - 1, je + 1, is - 1, ie + 1,
+        KOKKOS_LAMBDA(const int k, const int j, const int i) {
+          Real rsq = pow(x1v(i), 2) + pow(x2v(j), 2);
+          if (rsq < radius * radius) {
+            v(k, j, i) = 1.0;
+          } else {
+            v(k, j, i) = 0.0;
+          }
+        });
+    */
   }
 
   int CheckRefinement(Container<Real>& rc) {

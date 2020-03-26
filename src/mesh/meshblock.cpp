@@ -37,6 +37,7 @@
 #include "bvals/bvals.hpp"
 #include "coordinates/coordinates.hpp"
 #include "globals.hpp"
+#include "kokkos_abstraction.hpp"
 #include "parameter_input.hpp"
 #include "utils/buffer_utils.hpp"
 #include "mesh.hpp"
@@ -60,8 +61,8 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
     gid(igid), lid(ilid), gflag(igflag), nuser_out_var(), prev(nullptr), next(nullptr),
     new_block_dt_{}, new_block_dt_hyperbolic_{}, new_block_dt_parabolic_{},
     new_block_dt_user_{},
-    nreal_user_meshblock_data_(), nint_user_meshblock_data_(), cost_(1.0), properties(properties),
-    packages(packages) {
+    nreal_user_meshblock_data_(), nint_user_meshblock_data_(), cost_(1.0),
+    properties(properties), packages(packages), exec_space(DevSpace()) {
   // initialize grid indices
   is = NGHOST;
   ie = is + block_size.nx1 - 1;
@@ -198,7 +199,8 @@ MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
     gid(igid), lid(ilid), gflag(igflag), nuser_out_var(), prev(nullptr), next(nullptr),
     new_block_dt_{}, new_block_dt_hyperbolic_{}, new_block_dt_parabolic_{},
     new_block_dt_user_{},
-    nreal_user_meshblock_data_(), nint_user_meshblock_data_(), cost_(icost), properties(properties) {
+    nreal_user_meshblock_data_(), nint_user_meshblock_data_(), cost_(icost),
+    properties(properties), exec_space(DevSpace()) {
   // initialize grid indices
 
   //std::cerr << "WHY AM I HERE???" << std::endl;

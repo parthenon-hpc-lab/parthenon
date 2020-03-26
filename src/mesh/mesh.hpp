@@ -40,6 +40,7 @@
 #include "interface/PropertiesInterface.hpp"
 #include "interface/StateDescriptor.hpp"
 #include "interface/Update.hpp"
+#include "kokkos_abstraction.hpp"
 #include "mesh_refinement.hpp"
 #include "meshblock_tree.hpp"
 #include "outputs/io_wrapper.hpp"
@@ -103,6 +104,9 @@ class MeshBlock {
             int igflag, bool ref_flag=false);
   ~MeshBlock();
 
+  // Kokkos execution space for this MeshBlock
+  DevSpace exec_space;
+
   // data
   Mesh *pmy_mesh;  // ptr to Mesh containing this MeshBlock
   LogicalLocation loc;
@@ -150,6 +154,46 @@ class MeshBlock {
   MeshBlock *prev, *next;
 
   // functions
+
+  //----------------------------------------------------------------------------------------
+  //! \fn void MeshBlock::DeepCopy(const DstType& dst, const SrcType& src)
+  //  \brief Deep copy between views using the exec space of the MeshBlock
+  template <class DstType, class SrcType>
+  void deep_copy(const DstType &dst, const SrcType &src) {
+    Kokkos::deep_copy(exec_space, dst, src);
+  }
+
+  // 1D default loop pattern
+  template <typename Function>
+  inline void par_for(const std::string &name, const int &il, const int &iu,
+                      const Function &function) {
+    parthenon::par_for(name, exec_space, il, iu, function);
+  }
+
+  // 2D default loop pattern
+  template <typename Function>
+  inline void par_for(const std::string &name, const int &jl, const int &ju,
+                      const int &il, const int &iu, const Function &function) {
+    parthenon::par_for(name, exec_space, jl, ju, il, iu, function);
+  }
+
+  // 3D default loop pattern
+  template <typename Function>
+  inline void par_for(const std::string &name, const int &kl, const int &ku,
+                      const int &jl, const int &ju, const int &il,
+                      const int &iu, const Function &function) {
+    parthenon::par_for(name, exec_space, kl, ku, jl, ju, il, iu, function);
+  }
+
+  // 4D default loop pattern
+  template <typename Function>
+  inline void par_for(const std::string &name, const int &nl, const int &nu,
+                      const int &kl, const int &ku, const int &jl,
+                      const int &ju, const int &il, const int &iu,
+                      const Function &function) {
+    parthenon::par_for(name, exec_space, nl, nu, kl, ku, jl, ju, il, iu, function);
+  }
+
   std::size_t GetBlockSizeInBytes();
   int GetNumberOfMeshBlockCells() {
     return block_size.nx1*block_size.nx2*block_size.nx3; }

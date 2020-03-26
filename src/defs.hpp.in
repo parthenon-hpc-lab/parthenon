@@ -43,6 +43,9 @@
 // HDF5 output (HDF5OUTPUT or NO_HDF5OUTPUT)
 #define @HDF5_OPTION@
 
+// Kokkos loop layout (outer loop)
+#define @PAR_LOOP_LAYOUT@
+
 // try/throw/catch C++ exception handling (ENABLE_EXCEPTIONS or DISABLE_EXCEPTIONS)
 // (enabled by default)
 #define @EXCEPTION_HANDLING_OPTION@

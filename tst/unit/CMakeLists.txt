@@ -1,3 +1,4 @@
+
 ##========================================================================================
 ## Athena++ astrophysical MHD code
 ## Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
@@ -20,9 +21,10 @@ list(APPEND unit_tests_SOURCES
     test_taskid.cpp
     test_unit_face_variables.cpp
     test_unit_params.cpp
+    kokkos_abstraction.cpp
     
     )
 
 add_executable(unit_tests ${unit_tests_SOURCES})
-target_link_libraries(unit_tests PRIVATE parthenon catch2_define )
+target_link_libraries(unit_tests PRIVATE parthenon catch2_define Kokkos::kokkos)
 ParseAndAddCatchTests(unit_tests)
