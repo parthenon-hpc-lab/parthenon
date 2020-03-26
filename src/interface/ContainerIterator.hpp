@@ -92,6 +92,7 @@ class ContainerIterator {
       if ( f == Metadata::Edge) return true;
       else if ( f == Metadata::Cell) return false;
       else if ( f == Metadata::Face) return false;
+      else if ( f == Metadata::Node) return false;
     }
     return true;
   }
@@ -101,6 +102,7 @@ class ContainerIterator {
       if ( f == Metadata::Face) return true;
       else if ( f == Metadata::Cell) return false;
       else if ( f == Metadata::Edge) return false;
+      else if ( f == Metadata::Node) return false;
     }
     return true;
   }
