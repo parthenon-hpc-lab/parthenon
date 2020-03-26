@@ -97,6 +97,7 @@ add_library(parthenon
   interface/Container.cpp
   interface/PropertiesInterface.cpp
   interface/SparseVariable.cpp
+  interface/Metadata.cpp
   interface/Stage.cpp
   interface/Update.cpp
   interface/Variable.cpp

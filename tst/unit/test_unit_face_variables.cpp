@@ -34,8 +34,8 @@ TEST_CASE("Can create a vector-valued face-variable",
     constexpr int blockShape[] = {14, 12, 10}; // arbitrary
     std::vector<int> array_size({3}); // 3-vector
     std::string name("Test Variable");
-    Metadata m({Metadata::face, Metadata::vector,
-          Metadata::derived, Metadata::oneCopy}, array_size);
+    Metadata m({Metadata::Face, Metadata::Vector,
+          Metadata::Derived, Metadata::OneCopy}, array_size);
 
     WHEN("We construct a FaceVariable") {
       std::array<int,6> dims({blockShape[0],blockShape[1],blockShape[2],
@@ -52,7 +52,7 @@ TEST_CASE("Can create a vector-valued face-variable",
         REQUIRE(f.Get(3).GetDim2() == blockShape[1]);
         REQUIRE(f.Get(3).GetDim3() == blockShape[2] + 1);
         for (int d = 1; d <= 3; d++) {
-          f.Get(d).GetDim4() == array_size[0];
+          REQUIRE(f.Get(d).GetDim4() == array_size[0]);
         }
         AND_THEN("The metadata is correct") {
           REQUIRE( f.metadata() == m );

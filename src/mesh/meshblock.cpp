@@ -142,7 +142,7 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
 
   // adding a dummy variable to container to test comms
   /*Metadata m;
-  m = Metadata({m.cell, m.advected, m.fillGhost});
+  m = Metadata({Metadata::Cell, Metadata::Advected, Metadata::FillGhost});
   real_container.Add(std::string("TestGhost"),m);
   Variable<Real> &styx = real_container.Get("TestGhost");
   Real *data = styx.data();
@@ -168,7 +168,7 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
   }
 
   // TODO: Should these loops be moved to Variable creation
-  ContainerIterator<Real> ci(real_container, {Metadata::independent});
+  ContainerIterator<Real> ci(real_container, {Metadata::Independent});
   int nindependent = ci.vars.size();
   for (int n=0; n<nindependent; n++) {
     RegisterMeshBlockData(*ci.vars[n]);

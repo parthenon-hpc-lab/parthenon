@@ -195,7 +195,7 @@ namespace PiCalculator {
 
     // add a variable called in_or_out that will hold the value of the indicator function
     std::string field_name("in_or_out");
-    Metadata m({Metadata::cell, Metadata::derived, Metadata::graphics});
+    Metadata m({Metadata::Cell, Metadata::Derived, Metadata::Graphics});
     package->AddField(field_name, m, DerivedOwnership::unique);
 
     // All the package FillDerived and CheckRefinement functions are called by parthenon
