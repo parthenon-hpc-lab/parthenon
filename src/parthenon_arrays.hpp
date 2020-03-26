@@ -114,52 +114,27 @@ class ParArrayND {
     return GetDim(1)*GetDim(2)*GetDim(3)*GetDim(4)*GetDim(5)*GetDim(6)*sizeof(T);
   }
 
-  KOKKOS_INLINE_FUNCTION
-  T &operator() (const int n) {
-    return d6d_(0,0,0,0,0,n);
-  }
-  KOKKOS_INLINE_FUNCTION
+  KOKKOS_INLINE_FUNCTION __attribute__((always_inline))
   T &operator() (const int n) const {
     return d6d_(0,0,0,0,0,n);
   }
-  KOKKOS_INLINE_FUNCTION
-  T &operator() (const int n, const int i) {
-    return d6d_(0,0,0,0,n,i);
-  }
-  KOKKOS_INLINE_FUNCTION
+  KOKKOS_INLINE_FUNCTION __attribute__((always_inline))
   T &operator() (const int n, const int i) const {
     return d6d_(0,0,0,0,n,i);
   }
-  KOKKOS_INLINE_FUNCTION
-  T &operator() (const int n, const int j, const int i) {
-    return d6d_(0,0,0,n,j,i);
-  }
-  KOKKOS_INLINE_FUNCTION
+  KOKKOS_INLINE_FUNCTION __attribute__((always_inline))
   T &operator() (const int n, const int j, const int i) const {
     return d6d_(0,0,0,n,j,i);
   }
-  KOKKOS_INLINE_FUNCTION
-  T &operator() (const int n, const int k, const int j, const int i) {
-    return d6d_(0,0,n,k,j,i);
-  }
-  KOKKOS_INLINE_FUNCTION
+  KOKKOS_INLINE_FUNCTION __attribute__((always_inline))
   T &operator() (const int n, const int k, const int j, const int i) const {
     return d6d_(0,0,n,k,j,i);
   }
-  KOKKOS_INLINE_FUNCTION
-  T &operator() (const int m, const int n, const int k, const int j, const int i) {
-    return d6d_(0,m,n,k,j,i);
-  }
-  KOKKOS_INLINE_FUNCTION
+  KOKKOS_INLINE_FUNCTION __attribute__((always_inline))
   T &operator() (const int m, const int n, const int k, const int j, const int i) const {
     return d6d_(0,m,n,k,j,i);
   }
-  KOKKOS_INLINE_FUNCTION
-  T &operator() (const int p, const int m, const int n, const int k, const int j,
-                 const int i) {
-    return d6d_(p,m,n,k,j,i);
-  }
-  KOKKOS_INLINE_FUNCTION
+  KOKKOS_INLINE_FUNCTION __attribute__((always_inline))
   T &operator() (const int p, const int m, const int n, const int k, const int j,
                  const int i) const {
     return d6d_(p,m,n,k,j,i);
