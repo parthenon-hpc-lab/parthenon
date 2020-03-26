@@ -86,7 +86,7 @@ variables are copied or not in multiple stages.
   always required. `OneCopy` variables, for example, may not need
   this.
 
-- `Metadata::SharedComms` TODO: not sure this variable is used
+- `Metadata::SharedComms` TODO(JMM): not sure this variable is used
 
 ### Application Metadata Flags
 
