@@ -166,7 +166,7 @@ void Container<T>::StageSet(std::string name) {
   for (auto &myMap : s->_sparseVars.getAllCellVars()) {
     // for every variable Map in the sparse variables array
     for (auto &v : myMap.second) {
-      if ( (v.second->metadata()).IsSet(Metadata::FillGhost)) {  
+      if ( (v.second->metadata()).IsSet(Metadata::FillGhost)) {
         v.second->resetBoundary();
         //v.second->vbvar->var_cc = v.second.get();
         //v.second->mpiStatus=true;
