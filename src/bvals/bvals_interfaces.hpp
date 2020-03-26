@@ -40,7 +40,6 @@ namespace parthenon {
 class Mesh;
 class MeshBlock;
 class MeshBlockTree;
-class Hydro;
 class Field;
 class ParameterInput;
 class Coordinates;

@@ -39,7 +39,7 @@ parthenon-cuda-short:
       -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
       -DKokkos_ENABLE_CUDA=True -DKokkos_ARCH_PASCAL61=True
       -DKokkos_ENABLE_CUDA_LAMBDA=True
-      -DCMAKE_CXX_COMPILER=$(pwd)/../external/kokkos/bin/nvcc_wrapper
+      -DCMAKE_CXX_COMPILER=$(pwd)/../external/Kokkos/bin/nvcc_wrapper
       ../ && make && make test
 
 # run short suite on CPUs

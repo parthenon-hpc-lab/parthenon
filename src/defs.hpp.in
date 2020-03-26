@@ -58,7 +58,6 @@
 //----------------------------------------------------------------------------------------
 // macros associated with numerical algorithm (rarely modified)
 
-#define NHYDRO @NHYDRO_VARIABLES@
 #define NFIELD @NFIELD_VARIABLES@
 #define NWAVE @NWAVE_VALUE@
 #define NGHOST @NUMBER_GHOST_CELLS@

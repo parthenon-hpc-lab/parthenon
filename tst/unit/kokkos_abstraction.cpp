@@ -222,7 +222,7 @@ TEST_CASE("par_for loops", "[wrapper]") {
   }
 
   SECTION("3D loops") {
-    REQUIRE(test_wrapper_3d(parthenon::loop_pattern_range_tag,
+    REQUIRE(test_wrapper_3d(parthenon::loop_pattern_flatrange_tag,
                             default_exec_space) == true);
 
     REQUIRE(test_wrapper_3d(parthenon::loop_pattern_mdrange_tag,
@@ -244,7 +244,7 @@ TEST_CASE("par_for loops", "[wrapper]") {
   }
 
   SECTION("4D loops") {
-    REQUIRE(test_wrapper_4d(parthenon::loop_pattern_range_tag,
+    REQUIRE(test_wrapper_4d(parthenon::loop_pattern_flatrange_tag,
                             default_exec_space) == true);
 
     REQUIRE(test_wrapper_4d(parthenon::loop_pattern_mdrange_tag,

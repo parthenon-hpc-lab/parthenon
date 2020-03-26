@@ -60,7 +60,6 @@ using Real = double;
 class MeshBlock;
 class Coordinates;
 class ParameterInput;
-class HydroDiffusion;
 class FieldDiffusion;
 
 //--------------------------------------------------------------------------------------
@@ -136,7 +135,7 @@ struct EdgeField {
 
 // TODO(felker): C++ Core Guidelines Enum.5: Don’t use ALL_CAPS for enumerators
 // (avoid clashes with preprocessor macros). Enumerated type definitions in this file and:
-// io_wrapper.hpp, bvals.hpp, hydro_diffusion.hpp, field_diffusion.hpp,
+// io_wrapper.hpp, bvals.hpp, field_diffusion.hpp,
 // task_list.hpp, ???
 
 //------------------
@@ -179,14 +178,6 @@ using MGBoundaryFunc = void (*)(
     AthenaArray<Real> &dst,Real time, int nvar,
     int is, int ie, int js, int je, int ks, int ke, int ngh,
     Real x0, Real y0, Real z0, Real dx, Real dy, Real dz);
-using ViscosityCoeffFunc = void (*)(
-    HydroDiffusion *phdif, MeshBlock *pmb,
-    const  AthenaArray<Real> &w, const AthenaArray<Real> &bc,
-    int is, int ie, int js, int je, int ks, int ke);
-using ConductionCoeffFunc = void (*)(
-    HydroDiffusion *phdif, MeshBlock *pmb,
-    const AthenaArray<Real> &w, const AthenaArray<Real> &bc,
-    int is, int ie, int js, int je, int ks, int ke);
 using FieldDiffusionCoeffFunc = void (*)(
     FieldDiffusion *pfdif, MeshBlock *pmb,
     const AthenaArray<Real> &w,
