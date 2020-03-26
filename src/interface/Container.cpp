@@ -580,9 +580,9 @@ void Container<T>::calcArrDims_(std::array<int, 6>& arrDims,
                                 +std::string(" rank-N tensor-field, for N < 4"));
   }
   for (int i = 0; i < 6; i++) arrDims[i] = 1;
-  arrDims[0] = pmy_block->ncells1;
-  arrDims[1] = pmy_block->ncells2;
-  arrDims[2] = pmy_block->ncells3;
+  arrDims[0] = pmy_block->all_cells.x.at(0).n();
+  arrDims[1] = pmy_block->all_cells.x.at(1).n();
+  arrDims[2] = pmy_block->all_cells.x.at(2).n();
   for (int i=0; i<N; i++) {arrDims[i+3] = dims[i]; }
 }
 

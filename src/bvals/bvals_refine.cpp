@@ -180,35 +180,35 @@ void BoundaryValues::RestrictGhostCellsOnSameLevel(const NeighborBlock& nb, int 
 
   int ris, rie, rjs, rje, rks, rke;
   if (ni == 0) {
-    ris = pmb->cis;
-    rie = pmb->cie;
+    ris = pmb->active_coarse_cells.x.at(0).s;
+    rie = pmb->active_coarse_cells.x.at(0).e;
     if (nb.ni.ox1 == 1) {
-      ris = pmb->cie;
+      ris = pmb->active_coarse_cells.x.at(0).e;
     } else if (nb.ni.ox1 == -1) {
-      rie = pmb->cis;
+      rie = pmb->active_coarse_cells.x.at(0).s;
     }
   } else if (ni == 1) {
-    ris = pmb->cie + 1, rie = pmb->cie + 1;
+    ris = pmb->active_coarse_cells.x.at(0).e + 1, rie = pmb->active_coarse_cells.x.at(0).e + 1;
   } else { //(ni ==  - 1)
-    ris = pmb->cis - 1, rie = pmb->cis - 1;
+    ris = pmb->active_coarse_cells.x.at(0).s - 1, rie = pmb->active_coarse_cells.x.at(0).s - 1;
   }
   if (nj == 0) {
-    rjs = pmb->cjs, rje = pmb->cje;
-    if (nb.ni.ox2 == 1) rjs = pmb->cje;
-    else if (nb.ni.ox2 == -1) rje = pmb->cjs;
+    rjs = pmb->active_coarse_cells.x.at(1).s, rje = pmb->active_coarse_cells.x.at(1).e;
+    if (nb.ni.ox2 == 1) rjs = pmb->active_coarse_cells.x.at(1).e;
+    else if (nb.ni.ox2 == -1) rje = pmb->active_coarse_cells.x.at(1).s;
   } else if (nj == 1) {
-    rjs = pmb->cje + 1, rje = pmb->cje + 1;
+    rjs = pmb->active_coarse_cells.x.at(1).e + 1, rje = pmb->active_coarse_cells.x.at(1).e + 1;
   } else { //(nj == -1)
-    rjs = pmb->cjs - 1, rje = pmb->cjs - 1;
+    rjs = pmb->active_coarse_cells.x.at(1).s - 1, rje = pmb->active_coarse_cells.x.at(1).s - 1;
   }
   if (nk == 0) {
-    rks = pmb->cks, rke = pmb->cke;
-    if (nb.ni.ox3 == 1) rks = pmb->cke;
-    else if (nb.ni.ox3 == -1) rke = pmb->cks;
+    rks = pmb->active_coarse_cells.x.at(2).s, rke = pmb->active_coarse_cells.x.at(2).e;
+    if (nb.ni.ox3 == 1) rks = pmb->active_coarse_cells.x.at(2).e;
+    else if (nb.ni.ox3 == -1) rke = pmb->active_coarse_cells.x.at(2).s;
   } else if (nk == 1) {
-    rks = pmb->cke + 1, rke = pmb->cke + 1;
+    rks = pmb->active_coarse_cells.x.at(2).e + 1, rke = pmb->active_coarse_cells.x.at(2).e + 1;
   } else { //(nk == -1)
-    rks = pmb->cks - 1, rke = pmb->cks - 1;
+    rks = pmb->active_coarse_cells.x.at(2).s - 1, rke = pmb->active_coarse_cells.x.at(2).s - 1;
   }
 
   for (auto cc_pair : pmr->pvars_cc_) {
@@ -224,14 +224,14 @@ void BoundaryValues::RestrictGhostCellsOnSameLevel(const NeighborBlock& nb, int 
     FaceField *coarse_fc = std::get<1>(fc_pair);
     int &mylevel = pmb->loc.level;
     int rs = ris, re = rie + 1;
-    if (rs == pmb->cis   && nblevel[nk+1][nj+1][ni  ] < mylevel) rs++;
-    if (re == pmb->cie+1 && nblevel[nk+1][nj+1][ni+2] < mylevel) re--;
+    if (rs == pmb->active_coarse_cells.x.at(0).s   && nblevel[nk+1][nj+1][ni  ] < mylevel) rs++;
+    if (re == pmb->active_coarse_cells.x.at(0).e+1 && nblevel[nk+1][nj+1][ni+2] < mylevel) re--;
     pmr->RestrictFieldX1((*var_fc).x1f, (*coarse_fc).x1f, rs, re, rjs, rje, rks,
                          rke);
     if (pmb->block_size.nx2 > 1) {
       rs = rjs, re = rje + 1;
-      if (rs == pmb->cjs   && nblevel[nk+1][nj  ][ni+1] < mylevel) rs++;
-      if (re == pmb->cje+1 && nblevel[nk+1][nj+2][ni+1] < mylevel) re--;
+      if (rs == pmb->active_coarse_cells.x.at(1).s   && nblevel[nk+1][nj  ][ni+1] < mylevel) rs++;
+      if (re == pmb->active_coarse_cells.x.at(1).e+1 && nblevel[nk+1][nj+2][ni+1] < mylevel) re--;
       pmr->RestrictFieldX2((*var_fc).x2f, (*coarse_fc).x2f, ris, rie, rs, re, rks,
                            rke);
     } else { // 1D
@@ -242,8 +242,8 @@ void BoundaryValues::RestrictGhostCellsOnSameLevel(const NeighborBlock& nb, int 
     }
     if (pmb->block_size.nx3 > 1) {
       rs = rks, re =  rke + 1;
-      if (rs == pmb->cks   && nblevel[nk  ][nj+1][ni+1] < mylevel) rs++;
-      if (re == pmb->cke+1 && nblevel[nk+2][nj+1][ni+1] < mylevel) re--;
+      if (rs == pmb->active_coarse_cells.x.at(2).s   && nblevel[nk  ][nj+1][ni+1] < mylevel) rs++;
+      if (re == pmb->active_coarse_cells.x.at(2).e+1 && nblevel[nk+2][nj+1][ni+1] < mylevel) re--;
       pmr->RestrictFieldX3((*var_fc).x3f, (*coarse_fc).x3f, ris, rie, rjs, rje, rs,
                            re);
     } else { // 1D or 2D

@@ -61,8 +61,8 @@ namespace parthenon {
     Real rank_sum = 0.0;
     MeshBlock* pmb = pmesh->pblock;
     while (pmb != nullptr) {
-      int is = pmb->is; int js = pmb->js; int ks = pmb->ks;
-      int ie = pmb->ie; int je = pmb->je; int ke = pmb->ke;
+      int is = pmb->active_cells.x.at(0).s; int js = pmb->active_cells.x.at(1).s; int ks = pmb->active_cells.x.at(2).s;
+      int ie = pmb->active_cells.x.at(0).e; int je = pmb->active_cells.x.at(1).e; int ke = pmb->active_cells.x.at(2).e;
       auto& summed = pmb->real_container.Get("c.c.interpolated_sum");
       for (int k = ks; k <= ke; k++) {
         for (int j = js; j <= je; j++) {
@@ -99,8 +99,8 @@ namespace parthenon {
 
     auto interpolate = tl.AddTask<BlockTask>([](MeshBlock* pmb)->TaskStatus {
         Container<Real>& rc = pmb->real_container;
-        int is = pmb->is; int js = pmb->js; int ks = pmb->ks;
-        int ie = pmb->ie; int je = pmb->je; int ke = pmb->ke;
+        int is = pmb->active_cells.x.at(0).s; int js = pmb->active_cells.x.at(1).s; int ks = pmb->active_cells.x.at(2).s;
+        int ie = pmb->active_cells.x.at(0).e; int je = pmb->active_cells.x.at(1).e; int ke = pmb->active_cells.x.at(2).e;
         auto& face = rc.GetFace("f.f.face_averaged_value");
         auto& cell = rc.Get("c.c.interpolated_value");
         // perform interpolation
@@ -121,8 +121,8 @@ namespace parthenon {
 
     auto sum = tl.AddTask<BlockTask>([](MeshBlock* pmb)->TaskStatus {
         Container<Real>& rc = pmb->real_container;
-        int is = pmb->is; int js = pmb->js; int ks = pmb->ks;
-        int ie = pmb->ie; int je = pmb->je; int ke = pmb->ke;
+        int is = pmb->active_cells.x.at(0).s; int js = pmb->active_cells.x.at(1).s; int ks = pmb->active_cells.x.at(2).s;
+        int ie = pmb->active_cells.x.at(0).e; int je = pmb->active_cells.x.at(1).e; int ke = pmb->active_cells.x.at(2).e;
         auto& interped = rc.Get("c.c.interpolated_value");
         auto& summed = rc.Get("c.c.interpolated_sum");
         for (int k = ks; k <= ke; k++) {
@@ -150,8 +150,8 @@ parthenon::TaskStatus FaceFields::fill_faces(parthenon::MeshBlock* pmb) {
   Real pz = example->Param<Real>("pz");
   parthenon::Container<Real>& rc = pmb->real_container;
   parthenon::Coordinates *pcoord = pmb->pcoord.get();
-  int is = pmb->is; int js = pmb->js; int ks = pmb->ks;
-  int ie = pmb->ie; int je = pmb->je; int ke = pmb->ke;
+  int is = pmb->active_cells.x.at(0).s; int js = pmb->active_cells.x.at(1).s; int ks = pmb->active_cells.x.at(2).s;
+  int ie = pmb->active_cells.x.at(0).e; int je = pmb->active_cells.x.at(1).e; int ke = pmb->active_cells.x.at(2).e;
   auto& face = rc.GetFace("f.f.face_averaged_value");
   // fill faces
   for (int e = 0; e < face.Get(1).GetDim4(); e++) {
