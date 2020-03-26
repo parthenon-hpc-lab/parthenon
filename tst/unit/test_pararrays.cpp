@@ -79,6 +79,18 @@ TEST_CASE("ParArrayND","[ParArrayND],[Kokkos]") {
                                 },
                                 sum_device);
         REQUIRE( sum_host == sum_device );
+        AND_THEN("We can get a raw 2d subview and it works the same way.") {
+        auto v2d = a.Get<2>();
+        int sum_device;
+        using policy = Kokkos::MDRangePolicy<Kokkos::Rank<2>>;
+        Kokkos::parallel_reduce(policy({0,0}, {N2,N1}),
+                                KOKKOS_LAMBDA(const int j, const int i,
+                                              int& update) {
+                                  update += v2d(j,i);
+                                },
+                                sum_device);
+        REQUIRE( sum_host == sum_device );
+        }
       }
       THEN("slicing is possible") {
         // auto b = a.SliceD(std::make_pair(1,3),3);

@@ -237,6 +237,57 @@ class ParArrayND {
   ParArray6D<T> Get() {
     return d6d_;
   }
+  auto Get(int i) {
+    return Kokkos::subview(d6d_,i,
+                           Kokkos::ALL(),Kokkos::ALL(),
+                           Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL());
+  }
+  auto Get(int j, int i) {
+    return Kokkos::subview(d6d_,j,i,
+                           Kokkos::ALL(),Kokkos::ALL(),
+                           Kokkos::ALL(),Kokkos::ALL());
+  }
+  auto Get(int k, int j, int i) {
+    return Kokkos::subview(d6d_,k,j,i,
+                           Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL());
+  }
+  auto Get(int n, int k, int j, int i) {
+    return Kokkos::subview(d6d_,n,k,j,i,
+                           Kokkos::ALL(),Kokkos::ALL());
+  }
+  auto Get(int m, int n, int k, int j, int i) {
+    return Kokkos::subview(d6d_,m,n,k,j,i,
+                           Kokkos::ALL());
+  }
+  auto (int l, int m, int n, int k, int j, int i) {
+    return Kokkos::subview(d6d_,l,m,n,k,j,i); // 0d view
+  }
+  auto Get(std::integral_constant<int,6>) {
+    return Get();
+  }
+  auto Get(std::integral_constant<int,5>) {
+    return Get(0);
+  }
+  auto Get(std::integral_constant<int,4>) {
+    return Get(0,0);
+  }
+  auto Get(std::integral_constant<int,3>) {
+    return Get(0,0,0);
+  }
+  auto Get(std::integral_constant<int,2>) {
+    return Get(0,0,0,0);
+  }
+  auto Get(std::integral_constant<int,1>) {
+    return Get(0,0,0,0,0);
+  }
+  auto Get(std::integral_constant<int,0>) {
+    return Get(0,0,0,0,0,0);
+  }
+  template<std::size_t N = 6>
+  auto Get(std::integral_constant<int,N> ic =
+           std::integral_constant<int,N>{}) {
+    return Get(ic);
+  }
 
  private:
   Kokkos::View<T******,Layout,DevSpace> d6d_;
