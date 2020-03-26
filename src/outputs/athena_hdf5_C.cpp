@@ -189,7 +189,7 @@ void ATHDF5Output::genXDMF(std::string hdfFile, Mesh *pm) {
   int ndims = 5;
 
   // same set of variables for all grids so use only one container
-  auto ciX = ContainerIterator<Real>(pmb->real_container,{Metadata::graphics});
+  auto ciX = ContainerIterator<Real>(pmb->real_container,{Metadata::Graphics});
   for(int ib=0; ib<pm->nbtotal; ib++) {
     xdmf << "    <Grid GridType=\"Uniform\" Name=\""<<ib<<"\">" << std::endl;
     xdmf << blockTopology;
@@ -421,7 +421,7 @@ void ATHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
   status = H5Dclose(myDSet);
 
   // allocate space for largest size variable
-  auto ciX = ContainerIterator<Real>(pm->pblock->real_container,{Metadata::graphics});
+  auto ciX = ContainerIterator<Real>(pm->pblock->real_container,{Metadata::Graphics});
   size_t maxV = 3;
   hsize_t sumDim4AllVars = 0;
   for (auto &v : ciX.vars) {
@@ -526,7 +526,7 @@ void ATHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
     }
 
     while (pmb != nullptr) { // for every block
-      auto ci = ContainerIterator<Real>(pmb->real_container,{Metadata::graphics});
+      auto ci = ContainerIterator<Real>(pmb->real_container,{Metadata::Graphics});
       for (auto &v : ci.vars) {
         std::string name=v->label();
         if (name.compare(vWriteName) != 0) {
