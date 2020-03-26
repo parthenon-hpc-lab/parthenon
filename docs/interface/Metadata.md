@@ -55,7 +55,7 @@ with no flag set is assumed to be a *Scalar*. Scalars obey
 [Dirichlet boundary conditions](https://en.wikipedia.org/wiki/Dirichlet_boundary_condition)
 at reflecting boundaries and are set to a constant value.
 
-- `Metadata::Vector` implies the variable transforms as *vector* at
+- `Metadata::Vector` implies the variable transforms as a *vector* at
   reflecting boundaries. And so i-th component is flipped for a
   boundary in the i-th direction.
 - `Metadata::Tensor` is the generalization of the vector boundary
