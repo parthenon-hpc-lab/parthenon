@@ -18,6 +18,7 @@
   //  \brief
 
 #include "reconstruction.hpp"
+#include "mesh/mesh.hpp"
 
 #include <cmath>      // abs()
 #include <cstring>    // strcmp()
@@ -27,32 +28,43 @@
 #include <stdexcept>  // runtime_error
 #include <string>     // c_str()
 
-  namespace parthenon {
-  namespace {
-  // TODO(felker): replace these hand-rolled linear algebra routines with a real library
-  constexpr Real lu_tol = 3e-16;
-  int DoolittleLUPDecompose(Real **a, int n, int *pivot);
-  void DoolittleLUPSolve(Real **lu, int *pivot, Real *b, int n, Real *x);
-  } // namespace
+namespace parthenon {
+namespace {
+// TODO(felker): replace these hand-rolled linear algebra routines with a real library
+constexpr Real lu_tol = 3e-16;
+int DoolittleLUPDecompose(Real **a, int n, int *pivot);
+void DoolittleLUPSolve(Real **lu, int *pivot, Real *b, int n, Real *x);
+} // namespace
 
-  // constructor
+// constructor
 
-  Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin) :
-      characteristic_projection{false}, uniform{true, true, true},
-      // read fourth-order solver switches
-      correct_ic{pin->GetOrAddBoolean("time", "correct_ic", false)},
-      correct_err{pin->GetOrAddBoolean("time", "correct_err", false)}, pmy_block_{pmb}
-  {
-    // Read and set type of spatial reconstruction
-    // --------------------------------
-    std::string input_recon = pin->GetOrAddString("Hydro", "xorder", "2");
+Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin) :
+    characteristic_projection{false}, uniform{true, true, true},
+    // read fourth-order solver switches
+    correct_ic{pin->GetOrAddBoolean("time", "correct_ic", false)},
+    correct_err{pin->GetOrAddBoolean("time", "correct_err", false)}, pmy_block_{pmb}
+{
+  // Read and set type of spatial reconstruction
+  // --------------------------------
+  std::string input_recon = pin->GetOrAddString("mesh", "xorder", "2");
 
-    if (input_recon == "1") {
-      xorder = 1;
-    } else if (input_recon == "2") {
-      xorder = 2;
-    } else if (input_recon == "2c") {
-      xorder = 2;
+  if (input_recon == "1") {
+    xorder = 1;
+  } else if (input_recon == "2") {
+    xorder = 2;
+  } else if (input_recon == "2c") {
+    xorder = 2;
+    characteristic_projection = true;
+  } else if (input_recon == "3") {
+    // PPM approximates interfaces with 4th-order accurate stencils, but use xorder=3
+    // to denote that the overall scheme is "between 2nd and 4th" order w/o flux terms
+    xorder = 3;
+  } else if (input_recon == "3c") {
+    xorder = 3;
+    characteristic_projection = true;
+  } else if ((input_recon == "4") || (input_recon == "4c")) {
+    xorder = 4;
+    if (input_recon == "4c")
       characteristic_projection = true;
     } else if (input_recon == "3") {
       // PPM approximates interfaces with 4th-order accurate stencils, but use xorder=3
@@ -150,7 +162,6 @@
 
     // check for necessary number of ghost zones for PPM w/ fourth-order flux corrections
     int req_nghost = 4;
-    // until new algorithm for face-averaged Field->bf to cell-averaged Hydro->bcc
     // conversion is added, NGHOST>=6
     if (NGHOST < req_nghost) {
       std::stringstream msg;

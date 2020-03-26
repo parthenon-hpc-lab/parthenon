@@ -29,6 +29,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 #include "athena.hpp"
 #include "athena_arrays.hpp"
@@ -168,13 +169,13 @@ struct FaceVariable : FaceField {
  public:
   /// Initialize a face variable
   FaceVariable(const std::string label, const Metadata &metadata,
-               const IndexShape num_cells,
+               const std::array<int,6> ncells,
                const DATASTATUS init=DATASTATUS::allocated) :
-    FaceField(num_cells, init),
+    FaceField(ncells[5], ncells[4], ncells[3], ncells[2], ncells[1], ncells[0], init),
     _label(label),
     _m(metadata) {
-    if ( metadata.hasMaterials() ) {
-      throw std::invalid_argument ("Materials not yet implemented for FaceVariable");
+    if ( metadata.hasSparse() ) {
+      throw std::invalid_argument ("Sparse not yet implemented for FaceVariable");
     }
   }
 
@@ -183,9 +184,11 @@ struct FaceVariable : FaceField {
     FaceField(IndexShape(0,0,0),DATASTATUS::allocated),
     _label(label),
     _m(src.metadata()) {
-    this->x1f.InitWithShallowSlice(src.x1f, 3, 0, src.x1f.GetDim3());
-    this->x2f.InitWithShallowSlice(src.x2f, 3, 0, src.x2f.GetDim3());
-    this->x3f.InitWithShallowSlice(src.x3f, 3, 0, src.x3f.GetDim3());
+    int dim = 6;
+    int start = 0;
+    this->x1f.InitWithShallowSlice(src.x1f, dim, start, src.x1f.GetDim6());
+    this->x2f.InitWithShallowSlice(src.x2f, dim, start, src.x2f.GetDim6());
+    this->x3f.InitWithShallowSlice(src.x3f, dim, start, src.x3f.GetDim6());
   }
 
   ///< retrieve label for variable
@@ -196,6 +199,22 @@ struct FaceVariable : FaceField {
 
   /// return information string
   std::string info();
+
+  // TODO(JMM): should this be 0,1,2?
+  // Should we return the reference? Or something else?
+  AthenaArray<Real>& Get(int i) {
+    if (i == 1) return (this->x1f);
+    if (i == 2) return (this->x2f);
+    if (i == 3) return (this->x3f);
+    throw std::invalid_argument("Face must be x1f, x2f, or x3f");
+  }
+  template<typename...Args>
+  Real& operator()(int dir, Args... args) {
+    if (dir == 1) return x1f(std::forward<Args>(args)...);
+    if (dir == 2) return x2f(std::forward<Args>(args)...);
+    if (dir == 3) return x3f(std::forward<Args>(args)...);
+    throw std::invalid_argument("Face must be x1f, x2f, or x3f");
+  }
 
  private:
   Metadata _m;
@@ -219,8 +238,8 @@ struct EdgeVariable : EdgeField {
     EdgeField(num_cells, init),
     _label(label),
     _m(metadata) {
-    if ( metadata.hasMaterials() ) {
-      throw std::invalid_argument ("Materials not yet implemented for FaceVariable");
+    if ( metadata.hasSparse() ) {
+      throw std::invalid_argument ("Sparse not yet implemented for FaceVariable");
     }
   }
 
@@ -271,6 +290,6 @@ class VariableVector : public std::vector<std::shared_ptr<Variable<T>>> {
   }
   Metadata& metadata() const { return this->begin().second->metadata();}
 };
-}
+} // namespace parthenon
 
 #endif // INTERFACE_VARIABLE_HPP_

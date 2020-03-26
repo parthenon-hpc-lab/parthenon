@@ -20,7 +20,7 @@
 #include <vector>
 #include "globals.hpp"
 //#include "mesh/mesh.hpp"
-#include "MaterialVariable.hpp"
+#include "SparseVariable.hpp"
 #include "Stage.hpp"
 #include "Variable.hpp"
 
@@ -46,7 +46,7 @@ class Container {
   //-----------------
   // Public Variables
   //-----------------
-  MeshBlock* pmy_block;    // ptr to MeshBlock containing this Hydro
+  MeshBlock* pmy_block = nullptr; // ptr to MeshBlock
 
   //-----------------
   //Public Methods
@@ -78,27 +78,26 @@ class Container {
     //   EdgeVariable *vNew = new EdgeVariable(v->label(), *v);
     //   this->s->_edgeArray.push_back(vNew);
     // }
-    // for (auto v : stageSrc._faceArray) {
-    //   FaceVariable *vNew = new FaceVariable(v->label(), *v);
-    //   this->s->_faceArray.push_back(vNew);
-    // }
+    for (auto v : stageSrc._faceArray) {
+      this->s->_faceArray.push_back(v);
+    }
 
-    // Now copy in the material arrays
-    for (auto vars : stageSrc._matVars.getAllCellVars()) {
+    // Now copy in the sparse arrays
+    for (auto vars : stageSrc._sparseVars.getAllCellVars()) {
       auto& theLabel=vars.first;
       auto& theMap = vars.second;
-      this->s->_matVars.AddAlias(theLabel, stageSrc._matVars);
+      this->s->_sparseVars.AddAlias(theLabel, stageSrc._sparseVars);
     }
   }
 
   /// We can initialize a container with slices from a different
-  /// container.  For variables that have the material tag, this will
-  /// return the material slice.  All other variables are added as
+  /// container.  For variables that have the sparse tag, this will
+  /// return the sparse slice.  All other variables are added as
   /// is. This call returns a new container.
   ///
-  /// @param mat_id The material id
+  /// @param sparse_id The sparse id
   /// @return New container with slices from all variables
-  Container<T> materialSlice(int mat_id);
+  Container<T> sparseSlice(int sparse_id);
 
   /// We can create a shallow copy of a container with a specific stage set as
   /// the base stage.
@@ -189,38 +188,55 @@ class Container {
   }
 //  int Index(std::string label) {return Index(label);}
 
-  // returns the material map from the Material Variables
-  MaterialMap<T>& GetMaterial(const std::string& label) {
-    return s->_matVars.Get(label);
+  // returns the sparse map from the Sparse Variables
+  SparseMap<T>& GetSparse(const std::string& label) {
+    return s->_sparseVars.Get(label);
   }
 
   ///
-  /// returns the variable array for a single material for a single
-  /// material variable from the Material Variables array
-  Variable<T>& GetMaterial(const std::string& label, const int matID) {
-    // returns the variable for the specific material from the Material Variables
-    return s->_matVars.Get(label,matID);
+  /// returns the variable array for a single sparse id for a single
+  /// sparse variable from the Sparse Variables array
+  Variable<T>& GetSparse(const std::string& label, const int sparse_id) {
+    // returns the variable for the specific sparse id from the Sparse Variables
+    return s->_sparseVars.Get(label, sparse_id);
   }
 
-  Variable<T>& Get(const std::string& label, const int matID) { return GetMaterial(label, matID); }
-
-  // returns a flattened array of the material variables
-  VariableVector<T>& GetMaterialVector(const std::string& label) {
-    return s->_matVars.GetVector(label);
+  Variable<T>& Get(const std::string& label, const int sparse_id) {
+    return GetSparse(label, sparse_id);
   }
 
-  std::vector<int>& GetMaterialIndexMap(const std::string& label) {
-    return s->_matVars.GetIndexMap(label);
+  // returns a flattened array of the sparse variables
+  VariableVector<T>& GetSparseVector(const std::string& label) {
+    return s->_sparseVars.GetVector(label);
+  }
+
+  std::vector<int>& GetSparseIndexMap(const std::string& label) {
+    return s->_sparseVars.GetIndexMap(label);
   }
   ///
   /// Get a face variable from the container
   /// @param label the name of the variable
-  /// @return the Variable<T> if found or throw exception
+  /// @return the FaceVariable if found or throw exception
   ///
-  FaceVariable *GetFace(std::string label) {
-    // for (auto v : s->_faceArray) {
-    //   if (! v->label().compare(label)) return v;
-    // }
+  FaceVariable& GetFace(std::string label) {
+    for (auto v : s->_faceArray) {
+      if (! v->label().compare(label)) return *v;
+    }
+    throw std::invalid_argument (std::string("\n") +
+                                 std::string(label) +
+                                 std::string(" array not found in Get() Face\n") );
+  }
+
+    ///
+  /// Get a face variable from the container
+  /// @param label the name of the variable
+  /// @param dir, which direction the face is normal to
+  /// @return the AthenaArray in the face variable if found or throw exception
+  ///
+  AthenaArray<Real>& GetFace(std::string label, int dir) {
+    for (auto v : s->_faceArray) {
+      if (! v->label().compare(label)) return v->Get(dir);
+    }
     throw std::invalid_argument (std::string("\n") +
                                  std::string(label) +
                                  std::string(" array not found in Get() Face\n") );
@@ -243,12 +259,12 @@ class Container {
   /// Gets an array of real variables from container.
   /// @param names is the variables we want
   /// @param indexCount a map of names to std::pair<index,count> for each name
-  /// @param matID if specified is list of materials we are interested in.  Note
-  ///        that non-material variables specified are aliased in as is.
+  /// @param sparse_ids if specified is list of sparse ids we are interested in.  Note
+  ///        that non-sparse variables specified are aliased in as is.
   int GetVariables(const std::vector<std::string>& names,
                    std::vector<Variable<T>>& vRet,
                    std::map<std::string,std::pair<int,int>>& indexCount,
-                   const std::vector<int>& matID={});
+                   const std::vector<int>& sparse_ids = {});
 
   ///
   /// get raw data for a variable from the container
@@ -286,13 +302,13 @@ class Container {
     return s->_varArray;
   }
 
-  MaterialVariable<T>& matVars() {
-    return s->_matVars;
+  SparseVariable<T>& sparseVars() {
+    return s->_sparseVars;
   }
 
-  // std::vector<FaceVariable*> faceVars() {
-  //   return s->_faceArray;
-  // }
+  std::vector<std::shared_ptr<FaceVariable>>& faceVars() {
+    return s->_faceArray;
+  }
 
   // std::vector<EdgeVariable*> edgeVars() {
   //   return s->_edgeArray;
@@ -324,10 +340,7 @@ class Container {
   }
 
   /// Sets current stage to named stage
-  void StageSet(std::string name);/* {
-    //    std::cout <<"_______***__________STAGE="<<name<<"_____***______________\n";
-    s = stages[name];
-  }*/
+  void StageSet(std::string name);
 
   /// Deletes named stage
   void StageDelete(std::string name) {
@@ -354,7 +367,10 @@ class Container {
   int debug=0;
   std::map< std::string,std::shared_ptr<Stage<T> >> stages;
   std::shared_ptr<Stage<T>> s;
+
+  void calcArrDims_(std::array<int, 6>& arrDims,
+                    const std::vector<int>& dims);
 };
 
-}
+} // namespace parthenon
 #endif // INTERFACE_CONTAINER_HPP_

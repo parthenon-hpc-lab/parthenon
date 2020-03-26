@@ -6,7 +6,8 @@ before_script:
     - export OMP_PLACES=cores
     - export OMP_NUM_THREADS=1
     - export CMAKE_VERSION=3.10.3
-    - wget -qO- http://www.cmake.org/files/v${CMAKE_VERSION:0:4}/cmake-${CMAKE_VERSION}-Linux-x86_64.tar.gz | tar -xvz
+    - export CTEST_OUTPUT_ON_FAILURE=1
+    - wget -qO- http://www.cmake.org/files/v${CMAKE_VERSION:0:4}/cmake-${CMAKE_VERSION}-Linux-x86_64.tar.gz | tar -xz
     - export PATH=$(pwd)/cmake-${CMAKE_VERSION}-Linux-x86_64/bin:$PATH
   
 variables:
@@ -21,19 +22,25 @@ style-check:
     - cpu
   stage: style
   script:
-    - echo "Placeholder. See https://github.com/lanl/parthenon/issues/16"
+    - python ./tst/style/cpplint.py --counting=detailed --recursive src example tst
+  allow_failure: true
 
-# PLACEHOLDER run short suite on GPUs
-#parthenon-cuda-short:
-#  tags:
-#    - cuda
-#  stage: short
-#  script:
-#    - cd tst/regression/
+parthenon-cuda-short:
+  tags:
+    - cuda
+  stage: short
+  script:
 # mitigate UVM allocations on older multi-GPU systems    
 #    - export CUDA_LAUNCH_BLOCKING=1
 #    - export CUDA_VISIBLE_DEVICES=0
-#    - ...
+    - mkdir build-cuda
+    - cd build-cuda
+    - cmake -DCMAKE_BUILD_TYPE=Debug -DHDF5_ROOT=/usr/local/hdf5/parallel
+      -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
+      -DKokkos_ENABLE_CUDA=True -DKokkos_ARCH_PASCAL61=True
+      -DKokkos_ENABLE_CUDA_LAMBDA=True
+      -DCMAKE_CXX_COMPILER=$(pwd)/../external/Kokkos/bin/nvcc_wrapper
+      ../ && make && make test
 
 # run short suite on CPUs
 parthenon-cpu-short:
@@ -43,5 +50,7 @@ parthenon-cpu-short:
   script:
     - mkdir build
     - cd build
-    - cmake -DCMAKE_BUILD_TYPE=Debug -DHDF5_ROOT=/usr/local/hdf5/parallel ../ && make && make test
+    - cmake -DCMAKE_BUILD_TYPE=Debug -DHDF5_ROOT=/usr/local/hdf5/parallel
+      -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
+      ../ && make && make test
 

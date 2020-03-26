@@ -35,7 +35,7 @@ namespace parthenon {
 // -----------
 
 // In both Mesh::Initialize and time_integartor.cpp, this wrapper function
-// ProlongateBoundaries expects to have Hydro (and passive scalar)-associated
+// ProlongateBoundaries expects to have associated
 // BoundaryVariable objects with member pointers pointing to their CONSERVED VARIABLE
 // ARRAYS (standard and coarse buffers) by the time this function is called.
 
@@ -46,10 +46,7 @@ namespace parthenon {
 // However, this is currently not a strict requirement, since all below
 // MeshRefinement::Prolongate*() and Restrict*() calls refer directly to
 // MeshRefinement::pvars_cc_, pvars_fc_ vectors, NOT the var_cc, coarse_buf ptr members of
-// CellCenteredBoundaryVariable objects, e.g. And the first step in this function,
-// RestrictGhostCellsOnSameLevel, by default operates on the S/AMR-enrolled:
-// (u, coarse_cons) for Hydro and (s, coarse_s) for PassiveScalars
-// (also on (w, coarse_prim) for Hydro if GR):
+// CellCenteredBoundaryVariable objects
 
 // -----------
 // There are three sets of variable pointers used in this file:
@@ -59,7 +56,7 @@ namespace parthenon {
 // 2) MeshRefinement tuples of pointers: pvars_cc_
 // -- Used in RestrictGhostCellsOnSameLevel() and ProlongateGhostCells()
 
-// 3) Hardcoded pointers through MeshBlock members (pmb->phydro->w, e.g. )
+// 3) Hardcoded pointers through MeshBlock members
 // -- Used in ApplyPhysicalBoundariesOnCoarseLevel() and ProlongateGhostCells() where
 // physical quantities are coupled through EquationOfState
 
@@ -83,18 +80,10 @@ void BoundaryValues::ProlongateBoundaries(const Real time, const Real dt) {
   MeshBlock *pmb = pmy_block_;
   int &mylevel = pmb->loc.level;
 
-  // TODO(KGF): temporarily hardcode Hydro and Field array access for the below switch
-  // around ApplyPhysicalBoundariesOnCoarseLevel()
-
   // This hardcoded technique is also used to manually specify the coupling between
   // physical variables in:
   // - step 2, ApplyPhysicalBoundariesOnCoarseLevel(): calls to W(U) and user BoundaryFunc
   // - step 3, ProlongateGhostCells(): calls to calculate bcc and U(W)
-
-  // Additionally, pmr->SetHydroRefinement() is currently used in
-  // RestrictGhostCellsOnSameLevel() (GR) and ProlongateGhostCells() (always) to switch
-  // between conserved and primitive tuples in MeshRefinement::pvars_cc_, but this does
-  // not require ph, pf due to MeshRefinement::SetHydroRefinement(hydro_type)
 
   // downcast BoundaryVariable pointers to known derived class pointer types:
   // RTTI via dynamic_case
@@ -186,7 +175,87 @@ void BoundaryValues::ProlongateBoundaries(const Real time, const Real dt) {
 
 void BoundaryValues::RestrictGhostCellsOnSameLevel(const NeighborBlock& nb, int nk,
                                                    int nj, int ni) {
-  throw std::runtime_error(std::string(__func__) + " is not implemented");
+  MeshBlock *pmb = pmy_block_;
+  MeshRefinement *pmr = pmb->pmr.get();
+
+  int ris, rie, rjs, rje, rks, rke;
+  if (ni == 0) {
+    ris = pmb->cis;
+    rie = pmb->cie;
+    if (nb.ni.ox1 == 1) {
+      ris = pmb->cie;
+    } else if (nb.ni.ox1 == -1) {
+      rie = pmb->cis;
+    }
+  } else if (ni == 1) {
+    ris = pmb->cie + 1, rie = pmb->cie + 1;
+  } else { //(ni ==  - 1)
+    ris = pmb->cis - 1, rie = pmb->cis - 1;
+  }
+  if (nj == 0) {
+    rjs = pmb->cjs, rje = pmb->cje;
+    if (nb.ni.ox2 == 1) rjs = pmb->cje;
+    else if (nb.ni.ox2 == -1) rje = pmb->cjs;
+  } else if (nj == 1) {
+    rjs = pmb->cje + 1, rje = pmb->cje + 1;
+  } else { //(nj == -1)
+    rjs = pmb->cjs - 1, rje = pmb->cjs - 1;
+  }
+  if (nk == 0) {
+    rks = pmb->cks, rke = pmb->cke;
+    if (nb.ni.ox3 == 1) rks = pmb->cke;
+    else if (nb.ni.ox3 == -1) rke = pmb->cks;
+  } else if (nk == 1) {
+    rks = pmb->cke + 1, rke = pmb->cke + 1;
+  } else { //(nk == -1)
+    rks = pmb->cks - 1, rke = pmb->cks - 1;
+  }
+
+  for (auto cc_pair : pmr->pvars_cc_) {
+    AthenaArray<Real> *var_cc = std::get<0>(cc_pair);
+    AthenaArray<Real> *coarse_cc = std::get<1>(cc_pair);
+    int nu = var_cc->GetDim4() - 1;
+    pmb->pmr->RestrictCellCenteredValues(*var_cc, *coarse_cc, 0, nu,
+                                         ris, rie, rjs, rje, rks, rke);
+  }
+
+  for (auto fc_pair : pmr->pvars_fc_) {
+    FaceField *var_fc = std::get<0>(fc_pair);
+    FaceField *coarse_fc = std::get<1>(fc_pair);
+    int &mylevel = pmb->loc.level;
+    int rs = ris, re = rie + 1;
+    if (rs == pmb->cis   && nblevel[nk+1][nj+1][ni  ] < mylevel) rs++;
+    if (re == pmb->cie+1 && nblevel[nk+1][nj+1][ni+2] < mylevel) re--;
+    pmr->RestrictFieldX1((*var_fc).x1f, (*coarse_fc).x1f, rs, re, rjs, rje, rks,
+                         rke);
+    if (pmb->block_size.nx2 > 1) {
+      rs = rjs, re = rje + 1;
+      if (rs == pmb->cjs   && nblevel[nk+1][nj  ][ni+1] < mylevel) rs++;
+      if (re == pmb->cje+1 && nblevel[nk+1][nj+2][ni+1] < mylevel) re--;
+      pmr->RestrictFieldX2((*var_fc).x2f, (*coarse_fc).x2f, ris, rie, rs, re, rks,
+                           rke);
+    } else { // 1D
+      pmr->RestrictFieldX2((*var_fc).x2f, (*coarse_fc).x2f, ris, rie, rjs, rje, rks,
+                           rke);
+      for (int i=ris; i<=rie; i++)
+        (*coarse_fc).x2f(rks,rjs+1,i) = (*coarse_fc).x2f(rks,rjs,i);
+    }
+    if (pmb->block_size.nx3 > 1) {
+      rs = rks, re =  rke + 1;
+      if (rs == pmb->cks   && nblevel[nk  ][nj+1][ni+1] < mylevel) rs++;
+      if (re == pmb->cke+1 && nblevel[nk+2][nj+1][ni+1] < mylevel) re--;
+      pmr->RestrictFieldX3((*var_fc).x3f, (*coarse_fc).x3f, ris, rie, rjs, rje, rs,
+                           re);
+    } else { // 1D or 2D
+      pmr->RestrictFieldX3((*var_fc).x3f, (*coarse_fc).x3f, ris, rie, rjs, rje, rks,
+                           rke);
+      for (int j=rjs; j<=rje; j++) {
+        for (int i=ris; i<=rie; i++)
+          (*coarse_fc).x3f(rks+1,j,i) = (*coarse_fc).x3f(rks,j,i);
+      }
+    }
+  } // end loop over pvars_fc_
+  return;
 }
 
 //----------------------------------------------------------------------------------------
@@ -209,9 +278,6 @@ void BoundaryValues::ProlongateGhostCells(const NeighborBlock& nb,
                                           int sk, int ek) {
   MeshBlock *pmb = pmy_block_;
   auto &pmr = pmb->pmr;
-
-  // prolongate cell-centered S/AMR-enrolled quantities (hydro, radiation, scalars, ...)
-  //(unique to Hydro, PassiveScalars): swap ptrs to (w, coarse_prim) from (u, coarse_cons)
 
   for (auto cc_pair : pmr->pvars_cc_) {
     AthenaArray<Real> *var_cc = std::get<0>(cc_pair);

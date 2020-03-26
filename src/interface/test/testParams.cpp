@@ -45,7 +45,7 @@ int main() {
 
   // die horribly
   //  key="i"; std::cout << key << ":" << p.Get<int>(key) << std::endl;
-  
+
   // destructor automatically called for p
   return 0;
 }

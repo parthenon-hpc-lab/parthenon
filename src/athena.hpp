@@ -61,7 +61,6 @@ using Real = double;
 class MeshBlock;
 class Coordinates;
 class ParameterInput;
-class HydroDiffusion;
 class FieldDiffusion;
 
 //--------------------------------------------------------------------------------------
@@ -111,6 +110,12 @@ struct FaceField {
       x1f(num_cells.x.at(2).n(), num_cells.x.at(1).n(), num_cells.x.at(0).n()+1, init), 
       x2f(num_cells.x.at(2).n(), num_cells.x.at(1).n()+1, num_cells.x.at(0).n(), init),
       x3f(num_cells.x.at(2).n()+1, num_cells.x.at(1).n(), num_cells.x.at(0).n(), init) {}
+  FaceField(int ncells6, int ncells5, int ncells4, int ncells3, int ncells2, int ncells1,
+            AthenaArray<Real>::DataStatus init=AthenaArray<Real>::DataStatus::allocated)
+    : x1f(ncells6, ncells5, ncells4, ncells3, ncells2, ncells1+1, init)
+    , x2f(ncells6, ncells5, ncells4, ncells3, ncells2+1, ncells1, init)
+    , x3f(ncells6, ncells5, ncells4, ncells3+1, ncells2, ncells1, init)
+  {}
 };
 
 //----------------------------------------------------------------------------------------
@@ -133,7 +138,7 @@ struct EdgeField {
 
 // TODO(felker): C++ Core Guidelines Enum.5: Don’t use ALL_CAPS for enumerators
 // (avoid clashes with preprocessor macros). Enumerated type definitions in this file and:
-// io_wrapper.hpp, bvals.hpp, hydro_diffusion.hpp, field_diffusion.hpp,
+// io_wrapper.hpp, bvals.hpp, field_diffusion.hpp,
 // task_list.hpp, ???
 
 //------------------
@@ -176,19 +181,12 @@ using MGBoundaryFunc = void (*)(
     AthenaArray<Real> &dst,Real time, int nvar,
     int is, int ie, int js, int je, int ks, int ke, int ngh,
     Real x0, Real y0, Real z0, Real dx, Real dy, Real dz);
-using ViscosityCoeffFunc = void (*)(
-    HydroDiffusion *phdif, MeshBlock *pmb,
-    const  AthenaArray<Real> &w, const AthenaArray<Real> &bc,
-    int is, int ie, int js, int je, int ks, int ke);
-using ConductionCoeffFunc = void (*)(
-    HydroDiffusion *phdif, MeshBlock *pmb,
-    const AthenaArray<Real> &w, const AthenaArray<Real> &bc,
-    int is, int ie, int js, int je, int ks, int ke);
 using FieldDiffusionCoeffFunc = void (*)(
     FieldDiffusion *pfdif, MeshBlock *pmb,
     const AthenaArray<Real> &w,
     const AthenaArray<Real> &bmag,
     int is, int ie, int js, int je, int ks, int ke);
 
-}
+} // namespace parthenon
+
 #endif // ATHENA_HPP_

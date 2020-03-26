@@ -30,10 +30,10 @@
 // Athena++ headers
 #include "athena.hpp"
 #include "athena_arrays.hpp"
-#include "mesh/mesh.hpp"
 
 namespace parthenon {
 // forward declarations
+class Mesh;
 class MeshBlock;
 class ParameterInput;
 

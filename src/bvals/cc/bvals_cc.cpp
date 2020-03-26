@@ -372,11 +372,10 @@ void CellCenteredBoundaryVariable::SetupPersistentMPI() {
   MeshBlock* pmb = pmy_block_;
   int &mylevel = pmb->loc.level;
 
-  int f2 = pmy_mesh_->f2, f3 = pmy_mesh_->f3;
   int cng, cng1, cng2, cng3;
   cng  = cng1 = pmb->cnghost;
-  cng2 = cng*f2;
-  cng3 = cng*f3;
+  cng2 = (pmy_mesh_->ndim) ? cng : 0;
+  cng3 = (pmy_mesh_->ndim) ? cng : 0;
   int ssize, rsize;
   int tag;
   // Initialize non-polar neighbor communications to other ranks
@@ -406,7 +405,6 @@ void CellCenteredBoundaryVariable::SetupPersistentMPI() {
       // specify the offsets in the view point of the target block: flip ox? signs
 
       // Initialize persistent communication requests attached to specific BoundaryData
-      // cell-centered hydro: bd_hydro_
       tag = pmb->pbval->CreateBvalsMPITag(nb.snb.lid, nb.targetid, cc_phys_id_);
       if (bd_var_.req_send[nb.bufid] != MPI_REQUEST_NULL)
         MPI_Request_free(&bd_var_.req_send[nb.bufid]);
@@ -418,7 +416,6 @@ void CellCenteredBoundaryVariable::SetupPersistentMPI() {
       MPI_Recv_init(bd_var_.recv[nb.bufid], rsize, MPI_ATHENA_REAL,
                     nb.snb.rank, tag, MPI_COMM_WORLD, &(bd_var_.req_recv[nb.bufid]));
 
-      // hydro flux correction: bd_var_flcor_
       if (pmy_mesh_->multilevel && nb.ni.type == NeighborConnect::face) {
         int size;
         if (nb.fid == 0 || nb.fid == 1)

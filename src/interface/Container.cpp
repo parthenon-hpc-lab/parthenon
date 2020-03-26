@@ -15,10 +15,10 @@
 #include <utility>
 #include <vector>
 #include "bvals/cc/bvals_cc.hpp"
-#include "globals.hpp" // my_rank
-#include "mesh/mesh.hpp"
 #include "Container.hpp"
-#include "MaterialVariable.hpp"
+#include "globals.hpp" // my_rank
+#include "SparseVariable.hpp"
+#include "mesh/mesh.hpp"
 
 namespace parthenon {
 ///
@@ -60,25 +60,12 @@ template <typename T>
 void Container<T>::Add(const std::string label,
                        const Metadata &metadata,
                        const std::vector<int> dims) {
-  std::array<int, 6> arrDims {1,1,1,1,1,1};
-  const int N = dims.size();
-  if ( N > 3 || N < 0 ) {
-    // too many dimensions
-    throw std::invalid_argument ("_addArray() must have dims between [1,5]");
-  }
-
+  std::array<int, 6> arrDims;
+  calcArrDims_(arrDims, dims);
   // branch on kind of variable
-  if (metadata.hasMaterials()) {
-    // add a material map variable
-    s->_matVars.Add(*pmy_block, label, metadata, dims);
-  } else if ( metadata.where() == (Metadata::face) ) {
-    std::cerr << "Accessing unliving face array in stage" << std::endl;
-    std::exit(1);
-    // // add a face variable
-    // s->_faceArray.push_back(
-    //     new FaceVariable(label, metadata,
-    //                      pmy_block->ncells3, pmy_block->ncells2, pmy_block->ncells1));
-    return;
+  if (metadata.hasSparse()) {
+    // add a sparse variable
+    s->_sparseVars.Add(*pmy_block, label, metadata, dims);
   } else if ( metadata.where() == (Metadata::edge) ) {
     // add an edge variable
     std::cerr << "Accessing unliving edge array in stage" << std::endl;
@@ -87,20 +74,25 @@ void Container<T>::Add(const std::string label,
     //     new EdgeVariable(label, metadata,
     //                      pmy_block->ncells3, pmy_block->ncells2, pmy_block->ncells1));
     return;
+  } else if ( metadata.where() == (Metadata::face) ) {
+    if ( !(metadata.isOneCopy()) ) {
+      std::cerr << "Currently one one-copy face fields are supported"
+                << std::endl;
+      std::exit(1);
+    }
+    if (metadata.fillsGhost()) {
+      std::cerr << "Ghost zones not yet supported for face fields" << std::endl;
+      std::exit(1);
+    }
+    // add a face variable
+    auto pfv = std::make_shared<FaceVariable>(label, metadata, arrDims);
+    s->_faceArray.push_back(pfv);
+    return;
   } else if ( (metadata.where() == (Metadata::cell) ) ||
             (metadata.where() == (Metadata::node) )) {
-    if ( N > 3 ) {
-      // too many dimensions
-      throw std::invalid_argument ("_addArray() must have dims between [1,3]");
-    }
-
-    arrDims[0] = pmy_block->all_cells.x.at(0).n();
-    arrDims[1] = pmy_block->all_cells.x.at(1).n();
-    arrDims[2] = pmy_block->all_cells.x.at(2).n();
     if ( metadata.where() == (Metadata::node) ) {
-      ++arrDims[0]; ++arrDims[1]; ++arrDims[2];
+      arrDims[0]++; arrDims[1]++; arrDims[2]++;
     }
-    for (int i=0; i<N; i++) {arrDims[i+3] = dims[i];}
 
     s->_varArray.push_back(std::make_shared<Variable<T>>(label, arrDims, metadata));
     if ( metadata.fillsGhost()) {
@@ -108,8 +100,7 @@ void Container<T>::Add(const std::string label,
     }
   } else {
     // plain old variable
-    if ( N > 6 || N < 1 ) {
-      // too many dimensions
+    if ( dims.size() > 6 || dims.size() < 1 ) {
       throw std::invalid_argument ("_addArray() must have dims between [1,5]");
     }
     for (int i=0; i<dims.size(); i++) {arrDims[5-i] = dims[i];}
@@ -138,16 +129,15 @@ Container<T>  Container<T>::StageContainer(std::string src) {
   //   EdgeVariable *vNew = new EdgeVariable(v->label(), *v);
   //   c.s->_edgeArray.push_back(vNew);
   // }
-  // for (auto v : stageSrc._faceArray) {
-  //   FaceVariable *vNew = new FaceVariable(v->label(), *v);
-  //   c.s->_faceArray.push_back(vNew);
-  // }
+  for (auto v : stageSrc._faceArray) {
+    c.s->_faceArray.push_back(v);
+  }
 
-  // Now copy in the material arrays
-  for (auto vars : stageSrc._matVars.getAllCellVars()) {
+  // Now copy in the sparse arrays
+  for (auto vars : stageSrc._sparseVars.getAllCellVars()) {
     auto& theLabel=vars.first;
     auto& theMap = vars.second;
-    c.s->_matVars.AddAlias(theLabel, stageSrc._matVars);
+    c.s->_sparseVars.AddAlias(theLabel, stageSrc._sparseVars);
   }
 
   return c;
@@ -165,22 +155,21 @@ void Container<T>::StageSet(std::string name) {
     }
   }
 
-  for (auto &myMap : s->_matVars.getAllCellVars()) {
-    // for every variable Map in the material variables array
+  for (auto &myMap : s->_sparseVars.getAllCellVars()) {
+    // for every variable Map in the sparse variables array
     for (auto &v : myMap.second) {
-      if ( (v.second->metadata()).fillsGhost()) {  
+      if ( (v.second->metadata()).fillsGhost()) {
         v.second->resetBoundary();
-	      //v.second->vbvar->var_cc = v.second.get();
-	//v.second->mpiStatus=true;
+        //v.second->vbvar->var_cc = v.second.get();
+        //v.second->mpiStatus=true;
       }
     }
   }
-  
 }
 
-// provides a container that has a single material slice
+// provides a container that has a single sparse slice
 template <typename T>
-Container<T> Container<T>::materialSlice(int mat_id) {
+Container<T> Container<T>::sparseSlice(int id) {
   Container<T> c;
 
   // copy in private data
@@ -189,7 +178,7 @@ Container<T> Container<T>::materialSlice(int mat_id) {
   // Note that all standard arrays get added
   // add standard arrays
   for (auto v : s->_varArray) {
-    Metadata m = v->metadata();
+    // Metadata m = v->metadata();
 
     // add an alias
     //c.s->_varArray.push_back(std::make_shared<Variable<T>>(v->label(), *v));
@@ -199,18 +188,17 @@ Container<T> Container<T>::materialSlice(int mat_id) {
   //   EdgeVariable *vNew = new EdgeVariable(v->label(), *v);
   //   c.s->_edgeArray.push_back(vNew);
   // }
-  // for (auto v : s->_faceArray) {
-  //   FaceVariable *vNew = new FaceVariable(v->label(), *v);
-  //   c.s->_faceArray.push_back(vNew);
-  // }
+  for (auto v : s->_faceArray) {
+    c.s->_faceArray.push_back(v);
+  }
 
-  // Now copy in the material specific arrays
-  for (auto & index_map : s->_matVars.getIndexMap()) {
+  // Now copy in the specific arrays
+  for (auto & index_map : s->_sparseVars.getIndexMap()) {
     auto & ind = index_map.second;
-    auto it = std::find(ind.begin(), ind.end(), mat_id);
+    auto it = std::find(ind.begin(), ind.end(), id);
     if (it != ind.end()) {
       int elem = std::distance(ind.begin(), it);
-      auto & vars = s->_matVars.GetVector(index_map.first);
+      auto & vars = s->_sparseVars.GetVector(index_map.first);
       c.s->_varArray.push_back(vars[elem]);
     }
   }
@@ -218,24 +206,31 @@ Container<T> Container<T>::materialSlice(int mat_id) {
   return c;
 }
 
+// TODO(JMM): this could be cleaned up, I think.
+// Maybe do only one loop, or do the cleanup at the end.
 template <typename T>
 void Container<T>::Remove(const std::string label) {
   // first find the index of our
-  int idx=0;
+  int idx, isize;
 
-  // // Check face variables
-  // idx = 0;
-  // for (auto v : s->_faceArray) {
-  //   if ( ! label.compare(v->label())) {
-  //     // found a match, remove it
-  //     s->_faceArray.erase(s->_faceArray.begin() + idx);
-  //     return;
-  //   }
-  // }
-
+  // Check face variables
+  idx = 0;
+  isize = s->_faceArray.size();
+  for (auto v : s->_faceArray) {
+    if ( ! label.compare(v->label()) ) break;
+    idx++;
+  }
+  if (idx < isize) {
+    s->_faceArray[idx].reset();
+    isize--;
+    if (isize >= 0) s->_faceArray[idx] = std::move(s->_faceArray.back());
+    s->_faceArray.pop_back();
+    return;
+  }
 
   // No face match so check edge variables
-  idx = 0;
+  // TODO(JMM): fixme
+  // idx = 0;
   // for (auto v : s->_edgeArray) {
   //   if ( ! label.compare(v->label())) {
   //     // found a match, remove it
@@ -244,9 +239,8 @@ void Container<T>::Remove(const std::string label) {
   //   }
   // }
 
-
   // no face or edge, so check sized variables
-  int isize = s->_varArray.size();
+  isize = s->_varArray.size();
   idx = 0;
   for (auto v : s->_varArray) {
     if ( ! label.compare(v->label())) {
@@ -254,7 +248,7 @@ void Container<T>::Remove(const std::string label) {
     }
     idx++;
   }
-  if ( idx == isize) {
+  if ( idx >= isize) {
     throw std::invalid_argument ("array not found in Remove()");
   }
 
@@ -275,7 +269,7 @@ void Container<T>::SendFluxCorrection() {
       v->vbvar->SendFluxCorrection();
     }
   }
-  for (auto &myMap : s->_matVars.getAllCellVars()) {
+  for (auto &myMap : s->_sparseVars.getAllCellVars()) {
     for (auto &mv : myMap.second) {
       auto &v = mv.second;
       if ( (v->metadata()).isIndependent() ) {
@@ -294,7 +288,7 @@ bool Container<T>::ReceiveFluxCorrection() {
       total++;
     }
   }
-  for (auto &myMap : s->_matVars.getAllCellVars()) {
+  for (auto &myMap : s->_sparseVars.getAllCellVars()) {
     for (auto &mv : myMap.second) {
       auto &v = mv.second;
       if ( (v->metadata()).isIndependent() ) {
@@ -323,8 +317,8 @@ void Container<T>::SendBoundaryBuffers() {
     }
   }
 
-  for (auto &myMap : s->_matVars.getAllCellVars()) {
-    // for every variable Map in the material variables array
+  for (auto &myMap : s->_sparseVars.getAllCellVars()) {
+    // for every variable Map in the sparse variables array
     for (auto &v : myMap.second) {
       if ( ! (v.second->metadata()).fillsGhost() ) continue; // doesn't fill ghost so skip
       if ( ! v.second->mpiStatus ) {
@@ -352,8 +346,8 @@ void Container<T>::SetupPersistentMPI() {
     }
 
 
-  for (auto &myMap : s->_matVars.getAllCellVars()) {
-    // for every variable Map in the material variables array
+  for (auto &myMap : s->_sparseVars.getAllCellVars()) {
+    // for every variable Map in the sparse variables array
     for (auto &v : myMap.second) {
       if ( ! (v.second->metadata()).fillsGhost() ) continue; // doesn't fill ghost so skip
       if ( ! v.second->mpiStatus ) {
@@ -383,8 +377,8 @@ bool Container<T>::ReceiveBoundaryBuffers() {
     }
   }
 
-  for (auto &myMap : s->_matVars.getAllCellVars()) {
-    // for every variable Map in the material variables array
+  for (auto &myMap : s->_sparseVars.getAllCellVars()) {
+    // for every variable Map in the sparse variables array
     for (auto &v : myMap.second) {
       if ( ! (v.second->metadata()).fillsGhost() ) continue; // doesn't fill ghost so skip
       if ( ! v.second->mpiStatus ) {
@@ -407,8 +401,8 @@ void Container<T>::ReceiveAndSetBoundariesWithWait() {
       v->mpiStatus = true;
     }
   }
-  for (auto &myMap : s->_matVars.getAllCellVars()) {
-    // for every variable Map in the material variables array
+  for (auto &myMap : s->_sparseVars.getAllCellVars()) {
+    // for every variable Map in the sparse variables array
     for (auto &v : myMap.second) {
       if ( ! (v.second->metadata()).fillsGhost() ) continue; // doesn't fill ghost so skip
       if ( ! v.second->mpiStatus ) {
@@ -434,8 +428,8 @@ void Container<T>::SetBoundaries() {
     }
   }
 
-  for (auto &myMap : s->_matVars.getAllCellVars()) {
-    // for every variable Map in the material variables array
+  for (auto &myMap : s->_sparseVars.getAllCellVars()) {
+    // for every variable Map in the sparse variables array
     for (auto &v : myMap.second) {
       if ( (v.second->metadata()).fillsGhost() ) {
         v.second->vbvar->SetBoundaries();
@@ -457,8 +451,8 @@ void Container<T>::StartReceiving(BoundaryCommSubset phase) {
     }
   }
 
-  for (auto &myMap : s->_matVars.getAllCellVars()) {
-    // for every variable Map in the material variables array
+  for (auto &myMap : s->_sparseVars.getAllCellVars()) {
+    // for every variable Map in the sparse variables array
     for (auto &v : myMap.second) {
       if ( (v.second->metadata()).fillsGhost()) {
         v.second->vbvar->StartReceiving(phase);
@@ -480,8 +474,8 @@ void Container<T>::ClearBoundary(BoundaryCommSubset phase) {
     }
   }
 
-  for (auto &myMap : s->_matVars.getAllCellVars()) {
-    // for every variable Map in the material variables array
+  for (auto &myMap : s->_sparseVars.getAllCellVars()) {
+    // for every variable Map in the sparse variables array
     for (auto &v : myMap.second) {
       if ( (v.second->metadata()).fillsGhost()) {
         v.second->vbvar->ClearBoundary(phase);
@@ -495,9 +489,9 @@ template<typename T>
 void Container<T>::print() {
   std::cout << "Variables are:\n";
   for (auto v : s->_varArray)  { std::cout << " cell: "<<v->info() << std::endl; }
-  //  for (auto v : s->_faceArray) { std::cout << " face: "<<v->info() << std::endl; }
+  for (auto v : s->_faceArray) { std::cout << " face: "<<v->info() << std::endl; }
   //  for (auto v : s->_edgeArray) { std::cout << " edge: "<<v->info() << std::endl; }
-  s->_matVars.print();
+  s->_sparseVars.print();
 }
 
 template <typename T>
@@ -524,12 +518,12 @@ static int AddVar(Variable<T>&V, std::vector<Variable<T>>& vRet) {
 /// Gets an array of real variables from container.
 /// @param index_ret is returned with starting index for each name
 /// @param count_ret is returned with number of arrays for each name
-/// @param matID if specified, only that ID is returned
+/// @param sparse_ids if specified, only those sparse IDs are returned
 template<typename T>
 int Container<T>::GetVariables(const std::vector<std::string>& names,
                                std::vector<Variable<T>>& vRet,
                                std::map<std::string,std::pair<int,int>>& indexCount,
-                               const std::vector<int>& matID) {
+                               const std::vector<int>& sparse_ids) {
   // First count how many entries we need and fill in index and count
   indexCount.clear();
 
@@ -541,34 +535,33 @@ int Container<T>::GetVariables(const std::vector<std::string>& names,
       count += AddVar(V, vRet);
     }
     catch (const std::invalid_argument& x) {
-      // Not a regular variable, so try a material variable
-      try { // material variable
-        MaterialMap<T>& M = GetMaterial(label);
+      // Not a regular variable, so try a sparse variable
+      try { // sparse variable
+        SparseMap<T>& M = GetSparse(label);
         if ( M.size() > 0) {
-          if ( matID.size() > 0) {
-            for (auto& theMat : matID) {
-              // Want a specific material
-              auto exists = M.find(theMat);
+          if ( sparse_ids.size() > 0) {
+            for (auto& id : sparse_ids) {
+              // Want a specific index
+              auto exists = M.find(id);
               if ( exists != M.end() ) {
                 auto&V = *(exists->second);
                 count += AddVar(V, vRet);
               }
-            }  // (auto& theMat : matID)
-          } else { // if (matID.size() > 0)
+            }  // (auto& id : sparse_ids)
+          } else { // if (sparse_ids.size() > 0)
             auto&V = *(M.begin()->second);
             count = count*V.GetDim6()*V.GetDim5()*V.GetDim4();
             for (auto& x : M) {
               auto&V = *x.second;
               count += AddVar(V, vRet);
             }
-          } // else (matID.size() > 0)
+          } // else (sparse_ids.size() > 0)
         } // if (M.size() > 0)
       } catch (const std::invalid_argument& x) {
         // rethrow exception because we want to die here
         throw std::invalid_argument (" Unable to find variable " +
-                                     label +
-                                     " in container");
-      } // material variable
+                                     label + " in container");
+      } // sparse variable
     } // normal variable
     indexCount[label] = std::make_pair(index,count);
     index += count;
@@ -577,5 +570,21 @@ int Container<T>::GetVariables(const std::vector<std::string>& names,
   return index;
 }
 
-template class Container<double>;
+template<typename T>
+void Container<T>::calcArrDims_(std::array<int, 6>& arrDims,
+                                const std::vector<int>& dims) {
+  const int N = dims.size();
+  if ( N > 3 || N < 0 ) {
+    // too many dimensions
+    throw std::invalid_argument(std::string("Variable must be scalar or")
+                                +std::string(" rank-N tensor-field, for N < 4"));
+  }
+  for (int i = 0; i < 6; i++) arrDims[i] = 1;
+  arrDims[0] = pmy_block->ncells1;
+  arrDims[1] = pmy_block->ncells2;
+  arrDims[2] = pmy_block->ncells3;
+  for (int i=0; i<N; i++) {arrDims[i+3] = dims[i]; }
 }
+
+template class Container<double>;
+} // namespace parthenon

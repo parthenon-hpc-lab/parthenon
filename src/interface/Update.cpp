@@ -11,6 +11,7 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+#include "Update.hpp"
 #include "../coordinates/coordinates.hpp"
 #include "../interface/Container.hpp"
 #include "../interface/ContainerIterator.hpp"
@@ -29,8 +30,8 @@ void FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
   int ke = pmb->active_cells.x.at(2).e;
 
   Metadata m;
-  ContainerIterator<Real> cin_iter(in, {m.independent});
-  ContainerIterator<Real> cout_iter(dudt_cont, {m.independent});
+  ContainerIterator<Real> cin_iter(in, std::vector<parthenon::Metadata::flags> {m.independent});
+  ContainerIterator<Real> cout_iter(dudt_cont, std::vector<parthenon::Metadata::flags> {m.independent});
   int nvars = cout_iter.vars.size();
 
   AthenaArray<Real> x1area(pmb->all_cells.x.at(0).n());
@@ -50,11 +51,11 @@ void FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
     for (int j = js; j <= je; j++) {
       pmb->pcoord->Face1Area(k, j, is, ie + 1, x1area);
       pmb->pcoord->CellVolume(k, j, is, ie, vol);
-      if (pmb->pmy_mesh->f2) {
+      if (pmb->pmy_mesh->ndim >= 2) {
         pmb->pcoord->Face2Area(k, j, is, ie, x2area0);
         pmb->pcoord->Face2Area(k, j + 1, is, ie, x2area1);
       }
-      if (pmb->pmy_mesh->f3) {
+      if (pmb->pmy_mesh->ndim >= 3) {
         pmb->pcoord->Face3Area(k, j, is, ie, x3area0);
         pmb->pcoord->Face3Area(k + 1, j, is, ie, x3area1);
       }
@@ -71,14 +72,14 @@ void FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
                      x1area(i) * x1flux(l, k, j, i));
           }
 
-          if (pmb->pmy_mesh->f2) {
+          if (pmb->pmy_mesh->ndim >= 2) {
             for (int i = is; i <= ie; i++) {
               du(i) += (x2area1(i) * x2flux(l, k, j + 1, i) -
                         x2area0(i) * x2flux(l, k, j, i));
             }
           }
           // TODO(jcd): should the next block be in the preceding if??
-          if (pmb->pmy_mesh->f3) {
+          if (pmb->pmy_mesh->ndim >= 3) {
             for (int i = is; i <= ie; i++) {
               du(i) += (x3area1(i) * x3flux(l, k + 1, j, i) -
                         x3area0(i) * x3flux(l, k, j, i));
@@ -107,9 +108,9 @@ void UpdateContainer(Container<Real> &in, Container<Real> &dudt_cont,
   int ke = pmb->active_cells.x.at(2).e;
 
   Metadata m;
-  ContainerIterator<Real> cin_iter(in, {m.independent});
-  ContainerIterator<Real> cout_iter(out, {m.independent});
-  ContainerIterator<Real> du_iter(dudt_cont, {m.independent});
+  ContainerIterator<Real> cin_iter(in, std::vector<parthenon::Metadata::flags> {m.independent});
+  ContainerIterator<Real> cout_iter(out, std::vector<parthenon::Metadata::flags> {m.independent});
+  ContainerIterator<Real> du_iter(dudt_cont, std::vector<parthenon::Metadata::flags> {m.independent});
   int nvars = cout_iter.vars.size();
 
   for (int n = 0; n < nvars; n++) {
@@ -140,8 +141,8 @@ void AverageContainers(Container<Real> &c1, Container<Real> &c2,
   int ke = pmb->active_cells.x.at(2).e;
 
   Metadata m;
-  ContainerIterator<Real> c1_iter(c1, {m.independent});
-  ContainerIterator<Real> c2_iter(c2, {m.independent});
+  ContainerIterator<Real> c1_iter(c1, std::vector<parthenon::Metadata::flags> {m.independent});
+  ContainerIterator<Real> c2_iter(c2, std::vector<parthenon::Metadata::flags> {m.independent});
   int nvars = c2_iter.vars.size();
 
   for (int n = 0; n < nvars; n++) {
@@ -161,29 +162,41 @@ void AverageContainers(Container<Real> &c1, Container<Real> &c2,
   return;
 }
 
-void FillDerived(PreFillDerivedFunc pre_fill_derived, Container<Real> &rc) {
-  pre_fill_derived(rc);
-
-  for (auto &phys : rc.pmy_block->physics) {
-    auto &desc = phys.second;
-    if (desc->FillDerived != nullptr) {
-      desc->FillDerived(rc);
-    }
-  }
-}
-
 Real EstimateTimestep(Container<Real> &rc) {
   MeshBlock *pmb = rc.pmy_block;
   Real dt_min = std::numeric_limits<Real>::max();
-  for (auto &phys : pmb->physics) {
-    auto &desc = phys.second;
+  for (auto &pkg : pmb->packages) {
+    auto &desc = pkg.second;
     if (desc->EstimateTimestep != nullptr) {
-      Real dt_phys = desc->EstimateTimestep(rc);
-      dt_min = std::min(dt_min, dt_phys);
+      Real dt = desc->EstimateTimestep(rc);
+      dt_min = std::min(dt_min, dt);
     }
   }
   return dt_min;
 }
 
 } // namespace Update
+
+static FillDerivedVariables::FillDerivedFunc* _pre_package_fill = nullptr;
+static FillDerivedVariables::FillDerivedFunc* _post_package_fill = nullptr;
+
+void FillDerivedVariables::SetFillDerivedFunctions(FillDerivedFunc *pre, FillDerivedFunc *post) {
+  _pre_package_fill = pre; _post_package_fill = post;
+}
+
+void FillDerivedVariables::FillDerived(Container<Real>& rc) {
+  if (_pre_package_fill != nullptr) {
+    _pre_package_fill(rc);
+  }
+  for (auto &pkg : rc.pmy_block->packages) {
+    auto &desc = pkg.second;
+    if (desc->FillDerived != nullptr) {
+      desc->FillDerived(rc);
+    }
+  }
+  if (_post_package_fill != nullptr) {
+    _post_package_fill(rc);
+  }
+}
+
 }

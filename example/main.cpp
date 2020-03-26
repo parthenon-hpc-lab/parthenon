@@ -15,8 +15,11 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-// Third Party Includes
+// C includes
 #include <mpi.h>
+
+// STL Includes
+#include <iostream>
 
 // Athena++ headers
 #include "mesh/mesh.hpp"
@@ -80,6 +83,10 @@ int main(int argc, char *argv[]) {
   parthenon::Globals::nranks  = 1;
 #endif  // MPI_PARALLEL
 
+  // Initialize Kokkos
+  Kokkos::initialize( argc, argv );
+  {
+  Kokkos::print_configuration(std::cout);
   if (argc != 2) {
     if (parthenon::Globals::my_rank == 0) {
       std::cout << "\nUsage: " << argv[0] << " input_file\n"
@@ -117,9 +124,11 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  std::vector<std::shared_ptr<MaterialPropertiesInterface>> mats;
-  std::map<std::string, std::shared_ptr<StateDescriptor>> physics;
-  Mesh m(&pin, mats, physics, [](Container<Real> &) {});
+  parthenon::Properties_t properties;
+  parthenon::Packages_t packages;
+  Mesh m(&pin, properties, packages);
+  }
+  Kokkos::finalize();
 
 #ifdef MPI_PARALLEL
   MPI_Finalize();

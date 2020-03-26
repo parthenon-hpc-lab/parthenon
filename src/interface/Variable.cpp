@@ -31,7 +31,7 @@ Variable<T>::~Variable() {
   if (_m.isSet(_m.fillGhost)) {
 
     // not sure if destructor is called for flux, need to check --Sriram
-    
+
     // flux is a different variable even if shared
     // so always delete
     //    for (int i=0; i<3; i++) flux[i].DeleteAthenaArray();
@@ -141,12 +141,24 @@ void Variable<T>::allocateComms(MeshBlock *pmb) {
   const int _dim4 = this->GetDim4();
   const int _dim5 = this->GetDim5();
   const int _dim6 = this->GetDim6();
-  flux[0].NewAthenaArray(_dim4, pmb->all_cells.x.at(2).n(), pmb->all_cells.x.at(1).n(), pmb->all_cells.x.at(0).n()+1);
-  if (pmb->pmy_mesh->f2) {
-    flux[1].NewAthenaArray(_dim4, pmb->all_cells.x.at(2).n(), pmb->all_cells.x.at(1).n()+1, pmb->all_cells.x.at(0).n());
+  flux[0].NewAthenaArray(
+      _dim4, 
+      pmb->all_cells.x.at(2).n(), 
+      pmb->all_cells.x.at(1).n(), 
+      pmb->all_cells.x.at(0).n()+1);
+  if (pmb->pmy_mesh->ndim >= 2) {
+    flux[1].NewAthenaArray(
+        _dim4,
+        pmb->all_cells.x.at(2).n(),
+        pmb->all_cells.x.at(1).n()+1,
+        pmb->all_cells.x.at(0).n());
   }
-  if (pmb->pmy_mesh->f3) {
-    flux[2].NewAthenaArray(_dim4, pmb->all_cells.x.at(2).n()+1, pmb->all_cells.x.at(1).n(), pmb->all_cells.x.at(0).n());
+  if (pmb->pmy_mesh->ndim >= 3) {
+    flux[2].NewAthenaArray(
+        _dim4,
+        pmb->all_cells.x.at(2).n()+1,
+        pmb->all_cells.x.at(1).n(),
+        pmb->all_cells.x.at(0).n());
   }
   coarse_s = new AthenaArray<Real>(_dim4, pmb->all_coarse_cells.x.at(2).n(), pmb->all_coarse_cells.x.at(1).n(), pmb->all_coarse_cells.x.at(0).n(),
                                 (pmb->pmy_mesh->multilevel ?
@@ -221,4 +233,4 @@ std::string EdgeVariable::info() {
 }
 
 template class Variable<Real>;
-}
+} // namespace parthenon

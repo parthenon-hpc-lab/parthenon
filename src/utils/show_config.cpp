@@ -24,7 +24,7 @@
 
 // Athena++ headers
 #include "athena.hpp"
-
+#include <Kokkos_Core.hpp>
 namespace parthenon {
 //----------------------------------------------------------------------------------------
 //! \fn void ShowConfig()
@@ -72,6 +72,10 @@ void ShowConfig() {
   std::cout<<"  Compilation command:        " << COMPILER_COMMAND
            << COMPILED_WITH_OPTIONS << std::endl;
   // configure.py output: Doesnt append "Linker flags" in prev. output (excessive space!)
+
+  std::cout<< std::endl << "# Kokkos configuration" << std::endl;
+  Kokkos::print_configuration(std::cout);
+
   return;
 }
-}
+} // namespace parthenon

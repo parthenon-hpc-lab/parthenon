@@ -37,6 +37,7 @@
 #include "bvals/bvals.hpp"
 #include "coordinates/coordinates.hpp"
 #include "globals.hpp"
+#include "kokkos_abstraction.hpp"
 #include "parameter_input.hpp"
 #include "utils/buffer_utils.hpp"
 #include "mesh.hpp"
@@ -48,36 +49,33 @@
 
 namespace parthenon {
 //----------------------------------------------------------------------------------------
-// MeshBlock constructor: constructs coordinate, boundary condition, hydro, field
+// MeshBlock constructor: constructs coordinate, boundary condition, field
 //                        and mesh refinement objects.
 static int id=0;
 MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
                      BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
-                     std::vector<std::shared_ptr<MaterialPropertiesInterface>>& mats,
-                     std::map<std::string, std::shared_ptr<StateDescriptor>>& phys,
+                     Properties_t& properties,
+                     Packages_t& packages,
                      int igflag, bool ref_flag) :
     pmy_mesh(pm), loc(iloc), block_size(input_block),
     gid(igid), lid(ilid), gflag(igflag), nuser_out_var(), prev(nullptr), next(nullptr),
     new_block_dt_{}, new_block_dt_hyperbolic_{}, new_block_dt_parabolic_{},
     new_block_dt_user_{},
-    nreal_user_meshblock_data_(), nint_user_meshblock_data_(), cost_(1.0), materials(mats), physics(phys) {
+    nreal_user_meshblock_data_(), nint_user_meshblock_data_(), cost_(1.0),
+    properties(properties), packages(packages), exec_space(DevSpace()) {
   // initialize grid indices
-
-  this->ssID = id++;
 
   InitializeIndexShapes();
  
   // Set the block pointer for the containers
   real_container.setBlock(this);
-  //  real_container.setNumMat(materials.size());
 
   // (probably don't need to preallocate space for references in these vectors)
   vars_cc_.reserve(3);
   vars_fc_.reserve(3);
 
   // construct objects stored in MeshBlock class.  Note in particular that the initial
-  // conditions for the simulation are set in problem generator called from main, not
-  // in the Hydro constructor
+  // conditions for the simulation are set in problem generator called from main
 
   // mesh-related objects
   // Boundary
@@ -94,19 +92,14 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
   // floors depend on EOS, but EOS isn't needed in Reconstruction constructor-> this is ok
   precon = std::make_unique<Reconstruction>(this, pin);
 
+  if (pm->multilevel) pmr = std::make_unique<MeshRefinement>(this, pin);
+
   // physics-related, per-MeshBlock objects: may depend on Coordinates for diffusion
   // terms, and may enroll quantities in AMR and BoundaryVariable objs. in BoundaryValues
   //  if (Globals::my_rank == 0) { real_container.print(); }
 
-  // TODO(felker): prepare this section of the MeshBlock ctor to become more complicated
-  // for several extensions:
-  // 1) allow solver to compile without a Hydro class (or with a Hydro class for the
-  // background fluid that is not dynamically evolved)
-  // 2) MPI ranks containing MeshBlocks that solve a subset of the physics, e.g. Gravity
-  // but not Hydro.
-
   // KGF: suboptimal solution, since developer must copy/paste BoundaryVariable derived
-  // class type that is used in each PassiveScalars, Field, Hydro, ... etc. class
+  // class type that is used in each PassiveScalars, Field, ... etc. class
   // in order to correctly advance the BoundaryValues::bvars_next_phys_id_ local counter.
 
   // TODO(felker): check that local counter pbval->bvars_next_phys_id_ agrees with shared
@@ -123,18 +116,18 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
   */
   // end dummy variable
 
-  // Add material data
-  //std::cerr << "Adding " << materials.size() << " materials to block" << std::endl;
-  for (int i = 0; i < materials.size(); i++) {
-    StateDescriptor& state = materials[i]->State();
+  // Add field properties data
+  //std::cerr << "Adding " << properties.size() << " properties to block" << std::endl;
+  for (int i = 0; i < properties.size(); i++) {
+    StateDescriptor& state = properties[i]->State();
     for (auto const & q : state.AllFields()) {
       real_container.Add(q.first, q.second);
     }
   }
-  // Add non-material physics data
-  for (auto const & ph : physics) {
+  // Add physics data
+  for (auto const & pkg : packages) {
     //std::cerr << "  Physics: " << ph.first << std::endl;
-    for (auto const & q : ph.second->AllFields()) {
+    for (auto const & q : pkg.second->AllFields()) {
       //std::cerr << "    Adding " << q.first << std::endl;
       real_container.Add(q.first, q.second);
     }
@@ -147,6 +140,14 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
     RegisterMeshBlockData(*ci.vars[n]);
   }
 
+  if (pm->multilevel) {
+    pmr = std::make_unique<MeshRefinement>(this, pin);
+    // This is very redundant, I think, but necessary for now
+    for (int n=0; n<nindependent; n++) {
+      pmr->AddToRefinement(ci.vars[n].get(), ci.vars[n]->coarse_s);
+    }
+  }
+
   // Create user mesh data
   //InitUserMeshBlockData(pin);
   app = InitApplicationMeshBlockData(pin);
@@ -157,8 +158,7 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
 // MeshBlock constructor for restarts
 
 MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
-                     std::vector<std::shared_ptr<MaterialPropertiesInterface>>& mats,
-                     std::map<std::string, std::shared_ptr<StateDescriptor>>& phys,
+                     Properties_t& properties, Packages_t& packages,
                      LogicalLocation iloc, RegionSize input_block,
                      BoundaryFlag *input_bcs,
                      double icost, char *mbdata, int igflag) :
@@ -166,13 +166,18 @@ MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
     gid(igid), lid(ilid), gflag(igflag), nuser_out_var(), prev(nullptr), next(nullptr),
     new_block_dt_{}, new_block_dt_hyperbolic_{}, new_block_dt_parabolic_{},
     new_block_dt_user_{},
-    nreal_user_meshblock_data_(), nint_user_meshblock_data_(), cost_(icost), materials(mats) {
+    nreal_user_meshblock_data_(), nint_user_meshblock_data_(), cost_(icost),
+    properties(properties), exec_space(DevSpace()) {
+  // initialize grid indices
+
+  //std::cerr << "WHY AM I HERE???" << std::endl;
 
   // initialize grid indices
   InitializeIndexShapes();
     
   // Set the block pointer for the containers
   real_container.setBlock(this);
+
   // (re-)create mesh-related objects in MeshBlock
 
   // Boundary
