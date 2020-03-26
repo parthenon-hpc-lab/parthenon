@@ -64,7 +64,7 @@ at reflecting boundaries and are set to a constant value.
 ### Independent/Derived
 
 These flags specify to an application code, and the infrastructure,
-whether or not variable is part of independent state. Derived
+whether or not a variable is part of independent state. Derived
 quantities can be calculated from the set of independent quantities,
 while independent quantities cannot.
 
