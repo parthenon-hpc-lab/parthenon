@@ -259,7 +259,7 @@ class ParArrayND {
     return Kokkos::subview(d6d_,m,n,k,j,i,
                            Kokkos::ALL());
   }
-  auto (int l, int m, int n, int k, int j, int i) {
+  auto Get(int l, int m, int n, int k, int j, int i) {
     return Kokkos::subview(d6d_,l,m,n,k,j,i); // 0d view
   }
   auto Get(std::integral_constant<int,6>) {

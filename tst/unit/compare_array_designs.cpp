@@ -159,7 +159,7 @@ template <class T> void profile_wrapper_3d(T loop_pattern) {
 TEST_CASE("Time simple stencil operations") {
   SECTION("1d range") {
     std::cout << "1d range:" << std::endl;
-    profile_wrapper_3d(parthenon::loop_pattern_range_tag);
+    profile_wrapper_3d(parthenon::loop_pattern_flatrange_tag);
   }
   SECTION("md range") {
     std::cout << "md range:" << std::endl;
