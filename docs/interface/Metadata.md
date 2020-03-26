@@ -52,7 +52,7 @@ For multidimensional variables, these flags specify how to treat the
 individual components at boundaries. For concreteness, we will discuss
 reflecting boundaries. But this may apply more broadly. A variable
 with no flag set is assumed to be a *Scalar*. Scalars obey 
-Dirichlet boundary conditions](https://en.wikipedia.org/wiki/Dirichlet_boundary_condition)
+[Dirichlet boundary conditions](https://en.wikipedia.org/wiki/Dirichlet_boundary_condition)
 at reflecting boundaries and are set to a constant value.
 
 - `Metadata::Vector` implies the variable transforms as *vector* at
