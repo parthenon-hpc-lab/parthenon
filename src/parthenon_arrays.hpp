@@ -23,7 +23,6 @@
 // C++ headers
 #include <cstddef> // size_t
 #include <string>
-#include <tuple>
 #include <type_traits>
 #include <utility> // make_pair
 #include <vector>
@@ -36,13 +35,13 @@
 
 namespace parthenon {
 
-using KokkosUnmanaged = Kokkos::MemoryTraits<Kokkos::Unmanaged>;
-using index_pair_t = std::pair<size_t,size_t>;
-constexpr auto SLC0 = std::make_pair(0,1);
+#define SLC0 std::make_pair(0,1)
 
 template <typename T, typename Layout = LayoutWrapper>
 class ParArrayND {
  public:
+  using index_pair_t = std::pair<size_t,size_t>;
+
   ParArrayND() = default;
   explicit ParArrayND(const std::string& label,
                       int nx6, int nx5, int nx4, int nx3, int nx2, int nx1)
@@ -81,24 +80,9 @@ class ParArrayND {
   ParArrayND<T,Layout> &operator= (ParArrayND<T,Layout> &&t) = default;
   
   // functions to get array dimensions
-  KOKKOS_INLINE_FUNCTION int GetDim1() const { return d6d_.extent_int(5); }
-  KOKKOS_INLINE_FUNCTION int GetDim2() const { return d6d_.extent_int(5-1); }
-  KOKKOS_INLINE_FUNCTION int GetDim3() const { return d6d_.extent_int(5-2); }
-  KOKKOS_INLINE_FUNCTION int GetDim4() const { return d6d_.extent_int(5-3); }
-  KOKKOS_INLINE_FUNCTION int GetDim5() const { return d6d_.extent_int(5-4); }
-  KOKKOS_INLINE_FUNCTION int GetDim6() const { return d6d_.extent_int(5-5); }
-  KOKKOS_INLINE_FUNCTION int GetDim(size_t i) const {
-    // TODO(JMM): remove if performance cirtical
+  KOKKOS_INLINE_FUNCTION int GetDim(const int i) {
     assert( 0 < i && i <= 6 && "ParArrayNDs are max 6D" );
-    switch (i) {
-    case 1: return GetDim1();
-    case 2: return GetDim2();
-    case 3: return GetDim3();
-    case 4: return GetDim4();
-    case 5: return GetDim5();
-    case 6: return GetDim6();
-    }
-    return -1;
+    return d6d_.extent_int(6-i);
   }
 
   std::vector<int> GetShape() const {
@@ -110,7 +94,7 @@ class ParArrayND {
   KOKKOS_INLINE_FUNCTION int GetSize() const {
     return GetDim(1)*GetDim(2)*GetDim(3)*GetDim(4)*GetDim(5)*GetDim(6);
   }
-  std::size_t GetSizeInBytes() const {
+  KOKKOS_INLINE_FUNCTION std::size_t GetSizeInBytes() const {
     return GetDim(1)*GetDim(2)*GetDim(3)*GetDim(4)*GetDim(5)*GetDim(6)*sizeof(T);
   }
 
@@ -131,38 +115,15 @@ class ParArrayND {
     return d6d_(0,0,n,k,j,i);
   }
   KOKKOS_FORCEINLINE_FUNCTION
-  T &operator() (const int m, const int n, const int k, const int j, const int i) const {
+  T &operator() (const int m, const int n, const int k,
+                 const int j, const int i) const {
     return d6d_(0,m,n,k,j,i);
   }
   KOKKOS_FORCEINLINE_FUNCTION
-  T &operator() (const int p, const int m, const int n, const int k, const int j,
-                 const int i) const {
+  T &operator() (const int p, const int m, const int n,
+                 const int k, const int j, const int i) const {
     return d6d_(p,m,n,k,j,i);
   }
-
-  /*
-  // This version only works for contiguous/strided layouts
-  template<typename...Args>
-  auto Slice(Args...args) {
-    return ParArrayND<T,Kokkos::LayoutStride>(Kokkos::subview(d6d_,std::forward<Args>(args)...));
-  }
-  auto SliceD(index_pair_t slc, int dim=6) {
-    assert( 1 <= dim && dim <= 6);
-    if (dim == 6) return Slice(slc,Kokkos::ALL(),Kokkos::ALL(),
-                               Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL());
-    if (dim == 5) return Slice(SLC0,slc,Kokkos::ALL(),
-                               Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL());
-    if (dim == 4) return Slice(SLC0,SLC0,slc,
-                               Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL());
-    if (dim == 3) return Slice(SLC0,SLC0,SLC0,
-                               slc,Kokkos::ALL(),Kokkos::ALL());
-    if (dim == 2) return Slice(SLC0,SLC0,SLC0,
-                               Kokkos::ALL(),slc,Kokkos::ALL());
-    // dim == 1
-    return Slice(SLC0,SLC0,SLC0,Kokkos::ALL(),Kokkos::ALL(),slc);
-  }
-  */
-  // this version works for all layouts
   template<typename...Args>
   auto Slice(Args...args) {
     auto v = Kokkos::subview(d6d_,std::forward<Args>(args)...);
@@ -203,14 +164,6 @@ class ParArrayND {
               std::integral_constant<int,N> ic =
               std::integral_constant<int,N>{}) {
     return SliceD(slc, ic);
-  }
-  // TODO(JMM): Can we make a mirror object for ParArrayND? Probably.
-  // Might not even be very hard.
-  auto GetMirror() {
-    return Kokkos::create_mirror(d6d_);
-  }
-  ParArray6D<T> Get() {
-    return d6d_;
   }
   auto Get(int i) {
     return Kokkos::subview(d6d_,i,
@@ -268,293 +221,7 @@ class ParArrayND {
   Kokkos::View<T******,Layout,DevSpace> d6d_;
 };
 
-// TODO(JMM): A std::variant would be more efficient
-// and require fewer literals
-// but won't work on GPU unless we use mpark's backport
-// std::tuple works only with CUDA 8+ and C++14+
-template<typename T, typename Layout>
-using flexview_t =  std::tuple<Kokkos::View<T*,Layout,DevSpace>,
-                               Kokkos::View<T**,Layout,DevSpace>,
-                               Kokkos::View<T***,Layout,DevSpace>,
-                               Kokkos::View<T****,Layout,DevSpace>,
-                               Kokkos::View<T*****,Layout,DevSpace>,
-                               Kokkos::View<T******,Layout,DevSpace>>;
-template<typename T, typename Layout = LayoutWrapper>
-class ParArrayFlex {
- public:
-  ParArrayFlex() = default;
-  template<typename...Args>
-  explicit ParArrayFlex(const std::string& label, Args&&...args)
-    : rank_(sizeof...(Args)) {
-    constexpr int rm1 = sizeof...(Args) - 1;
-    using type = typename std::tuple_element<rm1,flexview_t<T,Layout>>::type;
-    std::get<rm1>(data_) = type(label,std::forward<Args>(args)...);
-  }
-  // TODO(JMM): This can probably be made to go away with template magic
-  ParArrayFlex(const Kokkos::View<T*,Layout,DevSpace>& v)
-    : rank_(1) {
-    std::get<0>(data_) = v;
-  }
-  ParArrayFlex(const Kokkos::View<T**,Layout,DevSpace>& v)
-    : rank_(2) {
-    std::get<1>(data_) = v;
-  }
-  ParArrayFlex(const Kokkos::View<T***,Layout,DevSpace>& v)
-    : rank_(3) {
-    std::get<2>(data_) = v;
-  }
-  ParArrayFlex(const Kokkos::View<T****,Layout,DevSpace>& v)
-    : rank_(4) {
-    std::get<3>(data_) = v;
-  }
-  ParArrayFlex(const Kokkos::View<T*****,Layout,DevSpace>& v)
-    : rank_(5) {
-    std::get<4>(data_) = v;
-  }
-  ParArrayFlex(const Kokkos::View<T******,Layout,DevSpace>& v)
-    : rank_(6) {
-    std::get<5>(data_) = v;
-  }
-
-  KOKKOS_INLINE_FUNCTION __attribute__((nothrow))
-  ParArrayFlex(const ParArrayFlex<T,Layout>& t) = default;
-  KOKKOS_INLINE_FUNCTION __attribute__((nothrow))
-  ~ParArrayFlex() = default;
-  KOKKOS_INLINE_FUNCTION __attribute__((nothrow))
-  ParArrayFlex<T,Layout> &operator= (const ParArrayFlex<T,Layout> &t) = default;
-  KOKKOS_INLINE_FUNCTION __attribute__((nothrow))
-  ParArrayFlex(ParArrayFlex<T,Layout>&& t) = default;
-  KOKKOS_INLINE_FUNCTION __attribute__((nothrow))
-  ParArrayFlex<T,Layout> &operator= (ParArrayFlex<T,Layout> &&t) = default;
-
-  constexpr int GetRank() {
-    return rank_;
-  }
-  
-  template<std::size_t I>
-  auto Get() {
-    return std::get<I-1>(data_);
-  }
-
-  template<std::size_t I>
-  auto GetMirror() {
-    return Kokkos::create_mirror(Get<I>());
-  }
-
-  KOKKOS_INLINE_FUNCTION int GetDim(const int i) const {
-    if (i <= 0 || i > rank_) return 0;
-    switch (rank_) {
-    case 1: return std::get<0>(data_).extent_int(0);
-    case 2: return std::get<1>(data_).extent_int(2-i);
-    case 3: return std::get<2>(data_).extent_int(3-i);
-    case 4: return std::get<3>(data_).extent_int(4-i);
-    case 5: return std::get<4>(data_).extent_int(5-i);
-    default: return std::get<5>(data_).extent_int(6-i);
-    }
-  }
-
-  std::vector<int> GetShape() const {
-    return std::vector<int>({GetDim(6), GetDim(5), GetDim(4),
-          GetDim(3), GetDim(2), GetDim(1)});
-  }
-
-  KOKKOS_INLINE_FUNCTION int GetSize() const {
-    return GetDim(1)*GetDim(2)*GetDim(3)*GetDim(4)*GetDim(5)*GetDim(6);
-  }
-  std::size_t GetSizeInBytes() const {
-    return GetDim(1)*GetDim(2)*GetDim(3)*GetDim(4)*GetDim(5)*GetDim(6)*sizeof(T);
-  }
-
-  // TODO(JMM): There's probably a recursive-template
-  // way to write this that's better.
-  KOKKOS_INLINE_FUNCTION
-  T &operator() (const int i) {
-    assert( 1 <= rank_ && rank_ <= 6 );
-    if (rank_ == 1) return std::get<0>(data_)(i);
-    if (rank_ == 2) return std::get<1>(data_)(0,i);
-    if (rank_ == 3) return std::get<2>(data_)(0,0,i);
-    if (rank_ == 4) return std::get<3>(data_)(0,0,0,i);
-    if (rank_ == 5) return std::get<4>(data_)(0,0,0,0,i);
-    return std::get<5>(data_)(0,0,0,0,0,i);
-  }
-  KOKKOS_INLINE_FUNCTION
-  T &operator() (const int j, const int i) {
-    assert( 2 <= rank_ && rank_ <= 6 );
-    if (rank_ == 2) return std::get<1>(data_)(j,i);
-    if (rank_ == 3) return std::get<2>(data_)(0,j,i);
-    if (rank_ == 4) return std::get<3>(data_)(0,0,j,i);
-    if (rank_ == 5) return std::get<4>(data_)(0,0,0,j,i);
-    return std::get<5>(data_)(0,0,0,0,j,i);
-  }
-  KOKKOS_INLINE_FUNCTION
-  T &operator() (const int k, const int j, const int i) {
-    assert( 3 <= rank_ && rank_ <= 6 );
-    if (rank_ == 3) return std::get<2>(data_)(k,j,i);
-    if (rank_ == 4) return std::get<3>(data_)(0,k,j,i);
-    if (rank_ == 5) return std::get<4>(data_)(0,0,k,j,i);
-    return std::get<5>(data_)(0,0,0,k,j,i);
-  }
-  KOKKOS_INLINE_FUNCTION
-  T &operator() (const int n, const int k, const int j, const int i) {
-    assert( 4 <= rank_ && rank_ <= 6 );
-    if (rank_ == 4) return std::get<3>(data_)(n,k,j,i);
-    if (rank_ == 5) return std::get<4>(data_)(0,n,k,j,i);
-    return std::get<5>(data_)(0,0,n,k,j,i);
-  }
-  KOKKOS_INLINE_FUNCTION
-  T &operator() (const int m, const int n,
-                 const int k, const int j, const int i) {
-    assert( 5 <= rank_ && rank_ <= 6 );
-    if (rank_ == 5) return std::get<4>(data_)(m,n,k,j,i);
-    return std::get<5>(data_)(0,m,n,k,j,i);
-  }
-  KOKKOS_INLINE_FUNCTION
-  T &operator() (const int l, const int m, const int n,
-                 const int k, const int j, const int i) {
-    assert( rank_ == 6 );
-    return std::get<5>(data_)(l,m,n,k,j,i);
-  }
-  KOKKOS_INLINE_FUNCTION
-  T &operator() (const int i) const {
-    assert( 1 <= rank_ && rank_ <= 6 );
-    if (rank_ == 1) return std::get<0>(data_)(i);
-    if (rank_ == 2) return std::get<1>(data_)(0,i);
-    if (rank_ == 3) return std::get<2>(data_)(0,0,i);
-    if (rank_ == 4) return std::get<3>(data_)(0,0,0,i);
-    if (rank_ == 5) return std::get<4>(data_)(0,0,0,0,i);
-    return std::get<5>(data_)(0,0,0,0,0,i);
-  }
-  KOKKOS_INLINE_FUNCTION
-  T &operator() (const int j, const int i) const {
-    assert( 2 <= rank_ && rank_ <= 6 );
-    if (rank_ == 2) return std::get<1>(data_)(j,i);
-    if (rank_ == 3) return std::get<2>(data_)(0,j,i);
-    if (rank_ == 4) return std::get<3>(data_)(0,0,j,i);
-    if (rank_ == 5) return std::get<4>(data_)(0,0,0,j,i);
-    return std::get<5>(data_)(0,0,0,0,j,i);
-  }
-  KOKKOS_INLINE_FUNCTION
-  T &operator() (const int k, const int j, const int i) const {
-    assert( 3 <= rank_ && rank_ <= 6 );
-    if (rank_ == 3) return std::get<2>(data_)(k,j,i);
-    if (rank_ == 4) return std::get<3>(data_)(0,k,j,i);
-    if (rank_ == 5) return std::get<4>(data_)(0,0,k,j,i);
-    return std::get<5>(data_)(0,0,0,k,j,i);
-  }
-  KOKKOS_INLINE_FUNCTION
-  T &operator() (const int n, const int k,
-                 const int j, const int i) const {
-    assert( 4 <= rank_ && rank_ <= 6 );
-    if (rank_ == 4) return std::get<3>(data_)(n,k,j,i);
-    if (rank_ == 5) return std::get<4>(data_)(0,n,k,j,i);
-    return std::get<5>(data_)(0,0,n,k,j,i);
-  }
-  KOKKOS_INLINE_FUNCTION
-  T &operator() (const int m, const int n,
-                 const int k, const int j, const int i) const {
-    assert( 5 <= rank_ && rank_ <= 6 );
-    if (rank_ == 5) return std::get<4>(data_)(m,n,k,j,i);
-    return std::get<5>(data_)(0,m,n,k,j,i);
-  }
-  KOKKOS_INLINE_FUNCTION
-  T &operator() (const int l, const int m, const int n,
-                 const int k, const int j, const int i) const {
-    assert( rank_ == 6 );
-    return std::get<5>(data_)(l,m,n,k,j,i);
-  }
-
-  template<typename...Args>
-  auto Slice(Args...args) {
-    constexpr int ndims = sizeof...(Args);
-    assert(ndims == rank_);
-    return ParArrayFlex<T,Kokkos::LayoutStride>
-      (Kokkos::subview(Get<ndims>(),std::forward<Args>(args)...));
-  }
-
- private:
-  int rank_;
-  flexview_t<T,Layout> data_;
-};
-
-template<typename T>
-inline T prod(T t) {
-  return t;
-}
-template<typename T, typename...Args>
-inline T prod(T t,Args&&...args) {
-  return t*prod(std::forward<Args>(args)...);
-}
-
-template<typename T>
-class ParArrayFlat {
- public:
-  template<typename...Args>
-  ParArrayFlat(const std::string& label, Args&&...args)
-    : data_(label,prod(std::forward<Args>(args)...))
-  {}
-  ParArrayFlat(const Kokkos::View<T*,DevSpace>& other)
-    : data_(other)
-  {}
-
-  KOKKOS_INLINE_FUNCTION __attribute__((nothrow))
-  ParArrayFlat(const ParArrayFlat<T>& t) = default;
-  KOKKOS_INLINE_FUNCTION __attribute__((nothrow))
-  ~ParArrayFlat() = default;
-  KOKKOS_INLINE_FUNCTION __attribute__((nothrow))
-  ParArrayFlat<T> &operator= (const ParArrayFlat<T> &t) = default;
-  KOKKOS_INLINE_FUNCTION __attribute__((nothrow))
-  ParArrayFlat(ParArrayFlat<T>&& t) = default;
-  KOKKOS_INLINE_FUNCTION __attribute__((nothrow))
-  ParArrayFlat<T> &operator= (ParArrayFlat<T> &&t) = default;
-
-  // TODO(JMM): could do this recursively with parameter packs
-  inline auto Get() {
-    return data_;
-  }
-  inline auto Get(int n) {
-    assert( n == GetSize() );
-    return data_;
-  }
-  template<typename Layout=LayoutWrapper>
-  inline auto Get(int n2, int n1) {
-    assert( prod(n2,n1) == GetSize() );
-    return Kokkos::View<T**,Layout,DevSpace,KokkosUnmanaged>(data_.data(),
-                                                             n2,n1);
-  }
-  template<typename Layout=LayoutWrapper>
-  inline auto Get(int n3, int n2, int n1) {
-    assert( prod(n3,n2,n1) == GetSize() );
-    return Kokkos::View<T***,Layout,DevSpace,KokkosUnmanaged>(data_.data(),
-                                                              n3,n2,n1);
-  }
-  template<typename Layout=LayoutWrapper>
-  inline auto Get(int n4, int n3, int n2, int n1) {
-    assert( prod(n4,n3,n2,n1) == GetSize() );
-    return Kokkos::View<T****,Layout,DevSpace,KokkosUnmanaged>(data_.data(),
-                                                               n4,n3,n2,n1);
-  }
-  template<typename Layout=LayoutWrapper>
-  inline auto Get(int n5, int n4, int n3, int n2, int n1) {
-    assert( prod(n5,n4,n3,n2,n1) == GetSize() );
-    return Kokkos::View<T*****,Layout,DevSpace,KokkosUnmanaged>(data_.data(),
-                                                                n5,n4,n3,n2,n1);
-  }
-  template<typename Layout=LayoutWrapper>
-  inline auto Get(int n6, int n5, int n4, int n3, int n2, int n1) {
-    assert( prod(n6,n5,n4,n3,n2,n1) == GetSize() );
-    return Kokkos::View<T*****,Layout,DevSpace,KokkosUnmanaged>(data_.data(),
-                                                                n6,n5,n4,n3,n2,n1);
-  }
-  KOKKOS_INLINE_FUNCTION int GetSize() const {
-    return data_.extent_int(0);
-  }
-  KOKKOS_INLINE_FUNCTION int GetSizeInBytes() const {
-    return sizeof(T)*GetSize();
-  }
-
- private:
-  Kokkos::View<T*,DevSpace> data_;
-};
+#undef SLC0
 
 } // namespace parthenon
 #endif // PARTHENON_ARRAYS_HPP

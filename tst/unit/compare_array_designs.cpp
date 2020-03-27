@@ -27,7 +27,6 @@
 
 using parthenon::DevSpace;
 using parthenon::ParArrayND;
-using parthenon::ParArrayFlex;
 using parthenon::ParArray3D;
 using Real = double;
 
@@ -60,12 +59,10 @@ template <class T> void profile_wrapper_3d(T loop_pattern) {
 
   ParArray3D<Real> raw0("raw",N,N,N);
   ParArrayND<Real> nda0("ND",N,N,N);
-  ParArrayFlex<Real> flx0("flex",N,N,N);
   auto xtra0 = nda0.Get<3>();
 
   ParArray3D<Real> raw1("raw",N,N,N);
   ParArrayND<Real> nda1("ND",N,N,N); 
-  ParArrayFlex<Real> flx1("flex",N,N,N);
   auto xtra1 = nda1.Get<3>();
 
   parthenon::par_for(loop_pattern,
@@ -75,7 +72,6 @@ template <class T> void profile_wrapper_3d(T loop_pattern) {
             Real f = gaussian(k,j,i);
             raw0(k,j,i) = f;
             nda0(k,j,i) = f;
-            flx0(k,j,i) = f;
           });
   Kokkos::fence();
   timer.reset();
@@ -112,23 +108,6 @@ template <class T> void profile_wrapper_3d(T loop_pattern) {
   }
   Kokkos::fence();
   auto time_ND_arrays = timer.seconds();
-  timer.reset();
-  for (int it = 0; it < NT; it++) {
-    parthenon::par_for(loop_pattern,
-                       "main loop", exec_space,
-                       1,N-2,1,N-2,1,N-2,
-                       KOKKOS_LAMBDA(const int k, const int j, const int i) {
-                         stencil(flx1,flx0,k,j,i);
-                       });
-    parthenon::par_for(loop_pattern,
-                       "main loop", exec_space,
-                       1,N-2,1,N-2,1,N-2,
-                       KOKKOS_LAMBDA(const int k, const int j, const int i) {
-                         stencil(flx0,flx1,k,j,i);
-                       });
-  }
-  Kokkos::fence();
-  auto time_flex_arrays = timer.seconds();
 
   timer.reset();
   for (int it = 0; it < NT; it++) {
@@ -152,7 +131,6 @@ template <class T> void profile_wrapper_3d(T loop_pattern) {
             << "\traw views   = " << time_raw << " s\n"
             << "\tND arrays   = " << time_ND_arrays << " s\n"
             << "\textracted   = " << time_extracted << " s\n"
-            << "\tflex arrays = " << time_flex_arrays << " s\n"
             << std::endl;
 }
 
