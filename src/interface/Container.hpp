@@ -37,9 +37,9 @@ namespace parthenon {
 /// The container class will provide the following methods:
 ///
 
-using FaceArray = std::vector<std::shared_ptr<FaceVariable>>;
+using FaceVector = std::vector<std::shared_ptr<FaceVariable>>;
 template <typename T>
-using SparseArray = std::vector<std::shared_ptr<SparseVariable<T>>>;
+using SparseVector = std::vector<std::shared_ptr<SparseVariable<T>>>;
 
 template <typename T>
 using MapToVars = std::map<std::string, std::shared_ptr<Variable<T>>>;
@@ -98,11 +98,11 @@ class Container {
   /// identify the size of the first dimension based on the
   /// topological location.
   ///
-  /// @param labelArray the array of names of variables
+  /// @param labelVector the array of names of variables
   /// @param metadata the metadata associated with the variable
   /// @param dims the size of each element
   ///
-  void Add(const std::vector<std::string> labelArray,
+  void Add(const std::vector<std::string> labelVector,
            const Metadata &metadata,
            const std::vector<int> dims);
 
@@ -125,49 +125,63 @@ class Container {
   /// identify the size of the first dimension based on the
   /// topological location.  Dimensions will be taken from the metadata.
   ///
-  /// @param labelArray the array of names of variables
+  /// @param labelVector the array of names of variables
   /// @param metadata the metadata associated with the variable
   ///
-  void Add(const std::vector<std::string> labelArray, const Metadata &metadata);
+  void Add(const std::vector<std::string> labelVector, const Metadata &metadata);
 
-  void Add(std::shared_ptr<Variable<T>> var) { _varArray.push_back(var); }
-  void Add(std::shared_ptr<FaceVariable> var) { _faceArray.push_back(var);  }
+  void Add(std::shared_ptr<Variable<T>> var) {
+    _varVector.push_back(var);
+    _varMap[var->label()] = var;
+  }
+  void Add(std::shared_ptr<FaceVariable> var) {
+    _faceVector.push_back(var);
+    _faceMap[var->label()] = var;
+  }
   void Add(std::shared_ptr<SparseVariable<T>> var) {
-    // TODO(jcd): deal with adding var to map
-    _sparseArray.push_back(var); 
+    _sparseVector.push_back(var); 
+    _sparseMap[var->label()] = var;
   }
 
-  ///
-  /// Get a raw / cell / node variable from the container
-  /// @param label the name of the variable
-  /// @return the Variable<T> if found or throw exception
+  //
+  // Queries related to Variable objects
+  //
+  VariableVector<T>& GetVariableVector() {
+    return _varVector;
+  }
   Variable<T>& Get(std::string label) {
-    for (auto v : _varArray) {
-      if (! v->label().compare(label)) return *v;
-    }
-    throw std::invalid_argument (std::string("\n") +
+    auto it = _varMap.find(label);
+    if (it == _varMap.end()) {
+      throw std::invalid_argument(std::string("\n") +
                                  std::string(label) +
                                  std::string(" array not found in Get()\n") );
+    }
+    return *(it->second);
   }
 
   Variable<T>& Get(const int index) {
-    return *(_varArray[index]);
+    return *(_varVector[index]);
   }
 
   int Index(const std::string& label) {
-    for (int i = 0; i < _varArray.size(); i++) {
-      if (! _varArray[i]->label().compare(label)) return i;
+    for (int i = 0; i < _varVector.size(); i++) {
+      if (! _varVector[i]->label().compare(label)) return i;
     }
     return -1;
   }
-//  int Index(std::string label) {return Index(label);}
 
-  // returns the sparse map from the Sparse Variables
+  //
+  // Queries related to SparseVariable objects
+  //
+  SparseVector<T>& GetSparseVector() {
+    return _sparseVector;
+  }
   SparseVariable<T>& GetSparseVariable(const std::string& label) {
-    if (_sparseMap.find(label) == _sparseMap.end()) {
+    auto it = _sparseMap.find(label);
+    if (it == _sparseMap.end()) {
       throw std::invalid_argument("_sparseMap does not have " + label);
     }
-    return *(_sparseMap[label]);
+    return *(it->second);
   }
 
   SparseMap<T>& GetSparseMap(const std::string& label) {
@@ -186,33 +200,21 @@ class Container {
     return GetSparseVariable(label).GetIndexMap();
   }
 
-  ///
-  /// Get a face variable from the container
-  /// @param label the name of the variable
-  /// @return the FaceVariable if found or throw exception
-  ///
+  //
+  // Queries related to FaceVariable objects
+  //
   FaceVariable& GetFace(std::string label) {
-    for (auto v : _faceArray) {
-      if (! v->label().compare(label)) return *v;
+    auto it = _faceMap.find(label);
+    if (it == _faceMap.end()) {
+      throw std::invalid_argument (std::string("\n") +
+                                   std::string(label) +
+                                   std::string(" array not found in Get() Face\n") );
     }
-    throw std::invalid_argument (std::string("\n") +
-                                 std::string(label) +
-                                 std::string(" array not found in Get() Face\n") );
+    return *(it->second);
   }
 
-    ///
-  /// Get a face variable from the container
-  /// @param label the name of the variable
-  /// @param dir, which direction the face is normal to
-  /// @return the AthenaArray in the face variable if found or throw exception
-  ///
   AthenaArray<Real>& GetFace(std::string label, int dir) {
-    for (auto v : _faceArray) {
-      if (! v->label().compare(label)) return v->Get(dir);
-    }
-    throw std::invalid_argument (std::string("\n") +
-                                 std::string(label) +
-                                 std::string(" array not found in Get() Face\n") );
+    return GetFace(label).Get(dir);
   }
 
   ///
@@ -221,7 +223,7 @@ class Container {
   /// @return the Variable<T> if found or throw exception
   ///
   EdgeVariable *GetEdge(std::string label) {
-    // for (auto v : _edgeArray) {
+    // for (auto v : _edgeVector) {
     //   if (! v->label().compare(label)) return v;
     // }
     throw std::invalid_argument (std::string("\n") +
@@ -257,35 +259,26 @@ class Container {
   void Remove(const std::string label);
 
 
-  // Temporary functions till we implement a *real* iterator
-
   /// Print list of labels in container
   void print();
 
   // return number of stored arrays
-  int size() {return _varArray.size();}
+  int size() {return _varVector.size();}
 
   // // returne variable at index
   // std::weak_ptr<Variable<T>>& at(const int index) {
-  //   return _varArray.at(index);
+  //   return _varVector.at(index);
   // }
 
   // Element accessor functions
-  VariableVector<T>& allVars() {
-    return _varArray;
+
+
+
+
+  FaceVector& GetFaceVector() {
+    return _faceVector;
   }
 
-  SparseArray<T>& sparseVars() {
-    return _sparseArray;
-  }
-
-  FaceArray& faceVars() {
-    return _faceArray;
-  }
-
-  // std::vector<EdgeVariable*> edgeVars() {
-  //   return _edgeArray;
-  // }
 
   // Communication routines
   void ResetBoundaryVariables();
@@ -302,9 +295,9 @@ class Container {
  private:
   int debug=0;
   
-  VariableVector<T> _varArray = {}; ///< the saved variable array
-  FaceArray _faceArray = {};  ///< the saved face arrays
-  SparseArray<T> _sparseArray = {};
+  VariableVector<T> _varVector = {}; ///< the saved variable array
+  FaceVector _faceVector = {};  ///< the saved face arrays
+  SparseVector<T> _sparseVector = {};
 
   MapToVars<T> _varMap = {};
   MapToFace _faceMap = {};

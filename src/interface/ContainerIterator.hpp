@@ -39,8 +39,8 @@ class ContainerIterator {
   /// @param c the container on which you want the iterator
   /// @param flagVector: a vector of Metadata::flags that you want to match
   ContainerIterator<T>(Container<T>& c, const std::vector<Metadata::flags> &flagVector) {
-    _allVars = c.allVars();
-    for (auto & svar : c.sparseVars()) {
+    _allVars = c.GetVariableVector();
+    for (auto & svar : c.GetSparseVector()) {
       VariableVector<T>& svec = svar->GetVector();
       _allVars.insert(_allVars.end(), svec.begin(), svec.end());
     }
@@ -92,7 +92,7 @@ class ContainerIterator {
   uint64_t _mask;
   std::vector<FaceVariable *> _allFaceVars = {};
   std::vector<EdgeVariable *> _allEdgeVars = {};
-  std::vector<std::shared_ptr<Variable<T> > > _allVars;
+  VariableVector<T> _allVars;
   void _emptyVars() {
     vars.clear();
   //  varsFace.clear();

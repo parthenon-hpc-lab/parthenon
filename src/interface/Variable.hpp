@@ -41,11 +41,10 @@ namespace parthenon {
 class MeshBlock;
 
 template <typename T>
-class Variable : public AthenaArray<T> {
+class Variable {
  public:
   /// Initialize a blank slate that will be set later
   Variable<T>(const std::string label, Metadata &metadata) :
-    AthenaArray<T>(),
     mpiStatus(true),
     _m(metadata),
     _label(label) {
@@ -58,11 +57,10 @@ class Variable : public AthenaArray<T> {
               const int dim,
               const int index,
               const int nvar) :
-    AthenaArray<T>(),
     mpiStatus(true),
     _m(src.metadata()),
     _label(label) {
-    this->InitWithShallowSlice(src, dim, index, nvar);
+    data->InitWithShallowSlice(src, dim, index, nvar);
     if ( _m.isSet(_m.fillGhost) ) {
       _m.set(_m.sharedComms);
     }
@@ -78,7 +76,7 @@ class Variable : public AthenaArray<T> {
     int dim = 6;
     int start = 0;
     int nvar = src.GetDim6();
-    this->InitWithShallowSlice(src, dim, start, nvar);
+    data->InitWithShallowSlice(src, dim, start, nvar);
     _m.set(_m.sharedComms);
     //    std::cout << "_____CREATED VAR SLICE: " << _label << ":" << this << std::endl;
   }
@@ -88,7 +86,7 @@ class Variable : public AthenaArray<T> {
   Variable<T>(const std::string label,
               const std::array<int,6> dims,
               const Metadata &metadata) :
-    AthenaArray<T>(dims[5], dims[4], dims[3], dims[2], dims[1], dims[0]),
+    data(dims[5], dims[4], dims[3], dims[2], dims[1], dims[0]),
     mpiStatus(true),
     _m(metadata),
     _label(label) {
@@ -101,13 +99,13 @@ class Variable : public AthenaArray<T> {
               MeshBlock *pmb=nullptr);
 
   /// Return a new array with dimension 4 as dimension 1
-  Variable<T>* createShuffle4() {
+  /*Variable<T>* createShuffle4() {
     // shuffles dim 4 to dim1
 
     // first construct new athena array
-    const std::array<int,6> dims = {this->GetDim4(), this->GetDim1(), this->GetDim2(),
-                                    this->GetDim3(), this->GetDim5(), this->GetDim6()};
-    size_t stride = this->GetDim1()*this->GetDim2()*this->GetDim3();
+    const std::array<int,6> dims = {GetDim4(), GetDim1(), GetDim2(),
+                                    GetDim3(), GetDim5(), GetDim6()};
+    size_t stride = GetDim1()*GetDim2()*GetDim3();
     Variable<T> *vNew = new Variable<T>(_label, dims, _m);
 
     auto oldData = this->data();
@@ -120,7 +118,7 @@ class Variable : public AthenaArray<T> {
       }
     }
     return vNew;
-  }
+  }*/
 
 
   ///< Assign label for variable
@@ -145,8 +143,11 @@ class Variable : public AthenaArray<T> {
   void allocateComms(MeshBlock *pmb);
 
   /// Repoint vbvar's var_cc array at the current variable
-  void resetBoundary();
+  inline void ResetBoundary() {
+    this->vbvar->var_cc = this;
+  };
 
+  AthenaArray<T> data;
   AthenaArray<Real> flux[3];    // used for boundary calculation
   AthenaArray<Real> *coarse_s;  // used for sending coarse boundary calculation
   AthenaArray<Real> *coarse_r;  // used for sending coarse boundary calculation

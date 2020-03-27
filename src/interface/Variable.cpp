@@ -53,11 +53,6 @@ Variable<T>::~Variable() {
 }*/
 
 template <typename T>
-void Variable<T>::resetBoundary() {
-  this->vbvar->var_cc = this;
-}
-
-template <typename T>
 std::string Variable<T>::info() {
     char tmp[100] = "";
     char *stmp = tmp;
@@ -93,14 +88,16 @@ template <typename T>
 Variable<T>::Variable(const Variable<T> &src,
                       const bool allocComms,
                       MeshBlock *pmb) :
-  AthenaArray<T>(src), mpiStatus(false), _m(src.metadata()), _label(src.label())  {
+  mpiStatus(false), _m(src.metadata()), _label(src.label())  {
+  data.NewAthenaArray(src.GetDim6(), src.GetDim5(), src.GetDim4(),
+                      src.GetDim3(), src.GetDim2(), src.GetDim1());
   //std::cout << "_____CREATED VAR COPY: " << _label << ":" << this << std::endl;
   if (_m.isSet(Metadata::fillGhost)) {
     // Ghost cells are communicated, so make shallow copies
     // of communication arrays and swap out the boundary array
 
     if ( allocComms ) {
-      this->allocateComms(pmb);
+      allocateComms(pmb);
     } else {
       _m.set(_m.sharedComms); // note that comms are shared
 
@@ -138,7 +135,7 @@ void Variable<T>::allocateComms(MeshBlock *pmb) {
   //const int _dim1 = this->GetDim1();
   //const int _dim2 = this->GetDim2();
   //const int _dim3 = this->GetDim3();
-  const int _dim4 = this->GetDim4();
+  const int _dim4 = data->GetDim4();
   //const int _dim5 = this->GetDim5();
   //const int _dim6 = this->GetDim6();
   flux[0].NewAthenaArray(_dim4, pmb->ncells3, pmb->ncells2, pmb->ncells1+1);
@@ -159,7 +156,7 @@ void Variable<T>::allocateComms(MeshBlock *pmb) {
                                  AthenaArray<Real>::DataStatus::empty));
 
   // Create the boundary object
-  vbvar = new CellCenteredBoundaryVariable(pmb, this, coarse_s, flux);
+  vbvar = new CellCenteredBoundaryVariable(pmb, &data, coarse_s, flux);
 
   // enroll CellCenteredBoundaryVariable object
   vbvar->bvar_index = pmb->pbval->bvars.size();

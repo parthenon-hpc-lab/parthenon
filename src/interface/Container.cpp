@@ -74,7 +74,7 @@ void Container<T>::Add(const std::string label,
     if (_sparseMap.find(label) == _sparseMap.end()) {
       auto sv = std::make_shared<SparseVariable<T>>(label, metadata, arrDims);
       _sparseMap[label] = sv;
-      _sparseArray.push_back(sv);
+      _sparseVector.push_back(sv);
     }
     int varIndex = metadata.getSparseID();
     _sparseMap[label]->Add(varIndex);
@@ -86,7 +86,7 @@ void Container<T>::Add(const std::string label,
     // add an edge variable
     std::cerr << "Accessing unliving edge array in stage" << std::endl;
     std::exit(1);
-    // s->_edgeArray.push_back(
+    // s->_edgeVector.push_back(
     //     new EdgeVariable(label, metadata,
     //                      pmy_block->ncells3, pmy_block->ncells2, pmy_block->ncells1));
     return;
@@ -102,7 +102,7 @@ void Container<T>::Add(const std::string label,
     }
     // add a face variable
     auto pfv = std::make_shared<FaceVariable>(label, metadata, arrDims);
-    _faceArray.push_back(pfv);
+    _faceVector.push_back(pfv);
     return;
   } else {
     // plain old variable
@@ -110,9 +110,11 @@ void Container<T>::Add(const std::string label,
       throw std::invalid_argument ("_addArray() must have dims between [1,5]");
     }
     for (int i=0; i<dims.size(); i++) {arrDims[5-i] = dims[i];}
-    _varArray.push_back(std::make_shared<Variable<T>>(label, arrDims, metadata));
+    auto sv = std::make_shared<Variable<T>>(label, arrDims, metadata);
+    _varVector.push_back(sv);
+    _varMap[label] = sv;
     if ( metadata.fillsGhost()) {
-      _varArray.back()->allocateComms(pmy_block);
+      _varVector.back()->allocateComms(pmy_block);
     }
   }
 }
@@ -127,94 +129,48 @@ Container<T> Container<T>::sparseSlice(int id) {
 
   // Note that all standard arrays get added
   // add standard arrays
-  for (auto v : _varArray) {
-    c._varArray.push_back(v);
+  for (auto v : _varVector) {
+    c._varVector.push_back(v);
+    c._varMap[v->label()] = v;
   }
-  // for (auto v : s->_edgeArray) {
+  // for (auto v : s->_edgeVector) {
   //   EdgeVariable *vNew = new EdgeVariable(v->label(), *v);
-  //   c.s->_edgeArray.push_back(vNew);
+  //   c.s->_edgeVector.push_back(vNew);
   // }
-  for (auto v : _faceArray) {
-    c._faceArray.push_back(v);
+  for (auto v : _faceVector) {
+    c._faceVector.push_back(v);
+    c._faceMap[v->label()] = v;
   }
 
   // Now copy in the specific arrays
-  for (auto v : _sparseArray) {
+  for (auto v : _sparseVector) {
     int index = v->GetIndex(id);
     if (index >= 0) {
       Variable<T>& vmat = v->Get(id);
-      c._varArray.push_back(std::shared_ptr<Variable<T>>(&vmat));
+      auto sv = std::make_shared<Variable<T>>(vmat);
+      c._varVector.push_back(sv);
+      c._varMap[v->label()] = sv;
     }
   }
 
-  return std::move(c);
+  return c;
 }
 
 // TODO(JMM): this could be cleaned up, I think.
 // Maybe do only one loop, or do the cleanup at the end.
 template <typename T>
 void Container<T>::Remove(const std::string label) {
-  // first find the index of our
-  int idx, isize;
-
-  // Check face variables
-  idx = 0;
-  isize = _faceArray.size();
-  for (auto v : _faceArray) {
-    if ( ! label.compare(v->label()) ) break;
-    idx++;
-  }
-  if (idx < isize) {
-    _faceArray[idx].reset();
-    isize--;
-    if (isize >= 0) _faceArray[idx] = std::move(_faceArray.back());
-    _faceArray.pop_back();
-    return;
-  }
-
-  // No face match so check edge variables
-  // TODO(JMM): fixme
-  // idx = 0;
-  // for (auto v : s->_edgeArray) {
-  //   if ( ! label.compare(v->label())) {
-  //     // found a match, remove it
-  //     s->_edgeArray.erase(s->_edgeArray.begin() + idx);
-  //     return;
-  //   }
-  // }
-
-  // no face or edge, so check sized variables
-  isize = _varArray.size();
-  idx = 0;
-  for (auto v : _varArray) {
-    if ( ! label.compare(v->label())) {
-      break;
-    }
-    idx++;
-  }
-  if ( idx >= isize) {
-    throw std::invalid_argument ("array not found in Remove()");
-  }
-
-  // first delete the variable
-  _varArray[idx].reset();
-
-  // Next move the last element into idx and pop last entry
-  isize--;
-  if ( isize >= 0) _varArray[idx] = std::move(_varArray.back());
-  _varArray.pop_back();
-  return;
+  throw std::runtime_error("Container<T>::Remove not yet implemented");
 }
 
 template <typename T>
 void Container<T>::SendFluxCorrection() {
-  return;
-  for (auto &v : _varArray) {
+  for (auto &v : _varVector) {
     if ( (v->metadata()).isIndependent() ) {
       v->vbvar->SendFluxCorrection();
     }
   }
-  for (auto &sv : _sparseArray) {
+  for (auto &sv : _sparseVector) {
     if ( (sv->isSet(Metadata::independent)) ) {
       VariableVector<T> vvec = sv->GetVector();
       for (auto & v : vvec) {
@@ -227,13 +183,13 @@ void Container<T>::SendFluxCorrection() {
 template <typename T>
 bool Container<T>::ReceiveFluxCorrection() {
   int success=0, total=0;
-  for (auto &v : _varArray) {
+  for (auto &v : _varVector) {
     if ((v->metadata()).isIndependent() ) {
       if(v->vbvar->ReceiveFluxCorrection()) success++;
       total++;
     }
   }
-  for (auto &sv : _sparseArray) {
+  for (auto &sv : _sparseVector) {
     if ( (sv->isSet(Metadata::independent)) ) {
       VariableVector<T> vvec = sv->GetVector();
       for (auto & v : vvec) {
@@ -250,28 +206,18 @@ void Container<T>::SendBoundaryBuffers() {
   // sends the boundary
   debug=0;
   //  std::cout << "_________SEND from stage:"<<s->name()<<std::endl;
-  for (auto &v : _varArray) {
+  for (auto &v : _varVector) {
     if ( (v->metadata()).fillsGhost() ) {
-      /*if ( ! v->mpiStatus ) {
-        std::cout << "        sending without the receive, something's up:"
-                  << v->label()
-                  << std::endl;
-      }*/
+      v->ResetBoundary();
       v->vbvar->SendBoundaryBuffers();
-      //v->mpiStatus = false;
     }
   }
-  for (auto &sv : _sparseArray) {
+  for (auto &sv : _sparseVector) {
     if ( (sv->isSet(Metadata::fillGhost)) ) {
       VariableVector<T> vvec = sv->GetVector();
       for (auto & v : vvec) {
-        /*if (! v->mpiStatus ) {
-          std::cout << "        sending without the receive, something's up:"
-                  << v->label()
-                  << std::endl;
-        }*/
+        v->ResetBoundary();
         v->vbvar->SendBoundaryBuffers();
-        //v->mpiStatus = false;
       }
     }
   }
@@ -282,15 +228,17 @@ void Container<T>::SendBoundaryBuffers() {
 template <typename T>
 void Container<T>::SetupPersistentMPI() {
   // setup persistent MPI
-  for (auto &v : _varArray) {
+  for (auto &v : _varVector) {
     if ( (v->metadata()).fillsGhost() ) {
+        v->ResetBoundary();
         v->vbvar->SetupPersistentMPI();
     }
   }
-  for (auto &sv : _sparseArray) {
+  for (auto &sv : _sparseVector) {
     if ( (sv->isSet(Metadata::fillGhost)) ) {
       VariableVector<T> vvec = sv->GetVector();
       for (auto & v : vvec) {
+        v->ResetBoundary();
         v->vbvar->SetupPersistentMPI();
       }
     }
@@ -304,23 +252,25 @@ bool Container<T>::ReceiveBoundaryBuffers() {
   //  std::cout << "_________RECV from stage:"<<s->name()<<std::endl;
   ret = true;
   // receives the boundary
-  for (auto &v : _varArray) {
+  for (auto &v : _varVector) {
     if ( v->isSet(Metadata::fillGhost) ) {
       //ret = ret & v->vbvar->ReceiveBoundaryBuffers();
       // In case we have trouble with multiple arrays causing
       // problems with task status, we should comment one line
       // above and uncomment the if block below
       if (! v->mpiStatus) {
+        v->ResetBoundary();
         v->mpiStatus = v->vbvar->ReceiveBoundaryBuffers();
         ret = (ret & v->mpiStatus);
       }
     }
   }
-  for (auto &sv : _sparseArray) {
+  for (auto &sv : _sparseVector) {
     if ( (sv->isSet(Metadata::fillGhost)) ) {
       VariableVector<T> vvec = sv->GetVector();
       for (auto & v : vvec) {
         if (! v->mpiStatus) {
+          v->ResetBoundary();
           v->mpiStatus = v->vbvar->ReceiveBoundaryBuffers();
           ret = (ret & v->mpiStatus);
         }
@@ -334,18 +284,20 @@ bool Container<T>::ReceiveBoundaryBuffers() {
 template <typename T>
 void Container<T>::ReceiveAndSetBoundariesWithWait() {
   //  std::cout << "_________RSET from stage:"<<s->name()<<std::endl;
-  for (auto &v : _varArray) {
+  for (auto &v : _varVector) {
     if ( (!v->mpiStatus) && ( (v->metadata()).fillsGhost()) ) {
       //(v->isSet(Metadata::fillGhost))) ) {
+      v->ResetBoundary();
       v->vbvar->ReceiveAndSetBoundariesWithWait();
       v->mpiStatus = true;
     }
   }
-  for (auto &sv : _sparseArray) {
+  for (auto &sv : _sparseVector) {
     if ( (sv->isSet(Metadata::fillGhost)) ) {
       VariableVector<T> vvec = sv->GetVector();
       for (auto & v : vvec) {
         if (! v->mpiStatus) {
+          v->ResetBoundary();
           v->vbvar->ReceiveAndSetBoundariesWithWait();
           v->mpiStatus = true;
         }
@@ -362,16 +314,18 @@ void Container<T>::SetBoundaries() {
   //    std::cout << "in set" << std::endl;
   // sets the boundary
   //  std::cout << "_________BSET from stage:"<<s->name()<<std::endl;
-  for (auto &v : _varArray) {
+  for (auto &v : _varVector) {
     if ( (v->metadata()).fillsGhost() ) {
+      v->ResetBoundary();
       v->vbvar->SetBoundaries();
       //v->mpiStatus=true;
     }
   }
-  for (auto &sv : _sparseArray) {
+  for (auto &sv : _sparseVector) {
     if ( (sv->isSet(Metadata::fillGhost)) ) {
       VariableVector<T> vvec = sv->GetVector();
       for (auto & v : vvec) {
+        v->ResetBoundary();
         v->vbvar->SetBoundaries();
       }
     }
@@ -380,12 +334,12 @@ void Container<T>::SetBoundaries() {
 
 template <typename T>
 void Container<T>::ResetBoundaryVariables() {
-  for (auto &v : _varArray) {
+  for (auto &v : _varVector) {
     if ( (v->metadata()).fillsGhost() ) {
       v->vbvar->var_cc = v.get();
     }
   }
-  for (auto &sv : _sparseArray) {
+  for (auto &sv : _sparseVector) {
     if ( (sv->isSet(Metadata::fillGhost)) ) {
       VariableVector<T> vvec = sv->GetVector();
       for (auto & v : vvec) {
@@ -400,18 +354,18 @@ void Container<T>::StartReceiving(BoundaryCommSubset phase) {
   //    std::cout << "in set" << std::endl;
   // sets the boundary
   //  std::cout << "________CLEAR from stage:"<<s->name()<<std::endl;
-  for (auto &v : _varArray) {
+  for (auto &v : _varVector) {
     if ( (v->metadata()).fillsGhost() ) {
-      v->vbvar->var_cc = v.get();
+      v->ResetBoundary();
       v->vbvar->StartReceiving(phase);
       v->mpiStatus=false;
     }
   }
-  for (auto &sv : _sparseArray) {
+  for (auto &sv : _sparseVector) {
     if ( (sv->isSet(Metadata::fillGhost)) ) {
       VariableVector<T> vvec = sv->GetVector();
       for (auto & v : vvec) {
-        v->vbvar->var_cc = v.get();
+        v->ResetBoundary();
         v->vbvar->StartReceiving(phase);
         v->mpiStatus = false;
       }
@@ -424,12 +378,12 @@ void Container<T>::ClearBoundary(BoundaryCommSubset phase) {
   //    std::cout << "in set" << std::endl;
   // sets the boundary
   //  std::cout << "________CLEAR from stage:"<<s->name()<<std::endl;
-  for (auto &v : _varArray) {
+  for (auto &v : _varVector) {
     if ( (v->metadata()).fillsGhost() ) {
       v->vbvar->ClearBoundary(phase);
     }
   }
-  for (auto &sv : _sparseArray) {
+  for (auto &sv : _sparseVector) {
     if ( (sv->isSet(Metadata::fillGhost)) ) {
       VariableVector<T> vvec = sv->GetVector();
       for (auto & v : vvec) {
@@ -442,10 +396,10 @@ void Container<T>::ClearBoundary(BoundaryCommSubset phase) {
 template<typename T>
 void Container<T>::print() {
   std::cout << "Variables are:\n";
-  for (auto v : _varArray)  {   std::cout << " cell: " <<v->info() << std::endl; }
-  for (auto v : _faceArray) {   std::cout << " face: " <<v->info() << std::endl; }
-  for (auto v : _sparseArray) { std::cout << " sparse:"<<v->info() << std::endl; }
-  //  for (auto v : s->_edgeArray) { std::cout << " edge: "<<v->info() << std::endl; }
+  for (auto v : _varVector)  {   std::cout << " cell: " <<v->info() << std::endl; }
+  for (auto v : _faceVector) {   std::cout << " face: " <<v->info() << std::endl; }
+  for (auto v : _sparseVector) { std::cout << " sparse:"<<v->info() << std::endl; }
+  //  for (auto v : s->_edgeVector) { std::cout << " edge: "<<v->info() << std::endl; }
 }
 
 template <typename T>

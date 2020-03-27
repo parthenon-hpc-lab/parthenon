@@ -24,7 +24,7 @@ void ContainerCollection<T>::Add(const std::string& name, Container<T>& src) {
 
   auto c = Container<T>();
   c.pmy_block = src.pmy_block;
-  for (auto v : src.allVars()) {
+  for (auto v : src.GetVariableVector()) {
     if (v->isSet(Metadata::oneCopy)) {
       c.Add(v);
     } else {
@@ -32,7 +32,7 @@ void ContainerCollection<T>::Add(const std::string& name, Container<T>& src) {
     }
   }
 
-  for (auto v : src.faceVars()) {
+  for (auto v : src.GetFaceVector()) {
     if (v->isSet(Metadata::oneCopy)) {
       c.Add(v);
     } else {
@@ -40,7 +40,7 @@ void ContainerCollection<T>::Add(const std::string& name, Container<T>& src) {
     }
   }
 
-  for (auto v : src.sparseVars()) {
+  for (auto v : src.GetSparseVector()) {
     if (v->isSet(Metadata::oneCopy)) {
       c.Add(v);
     } else {

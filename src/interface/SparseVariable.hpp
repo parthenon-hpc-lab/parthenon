@@ -114,6 +114,8 @@ class SparseVariable {
   // might want to implement this at some point
   //void DeleteVariable(const int var_id);
 
+  std::string& label() { return _label; }
+
   void print() {
     std::cout << "hello from sparse variables print" << std::endl;
   }
