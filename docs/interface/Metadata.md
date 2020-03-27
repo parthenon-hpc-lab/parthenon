@@ -13,7 +13,7 @@ the variable is allocated over. E.g.  `Metadata::Cell` specifies that
 the variable is allocated over the cell index space in each block.
 
 The following fields specify the topology of the variable, and are
-exclusive:
+mutually exclusive:
 
 - `Metadata::None`: no topology specified. The variable could be
   anywhere, or location is not a meaningful concept for this variable.
@@ -54,6 +54,7 @@ reflecting boundaries. But this may apply more broadly. A variable
 with no flag set is assumed to be a *Scalar*. Scalars obey 
 [Dirichlet boundary conditions](https://en.wikipedia.org/wiki/Dirichlet_boundary_condition)
 at reflecting boundaries and are set to a constant value.
+The following flags are mutually exclusive.
 
 - `Metadata::Vector` implies the variable transforms as a *vector* at
   reflecting boundaries. And so i-th component is flipped for a
@@ -66,7 +67,9 @@ at reflecting boundaries and are set to a constant value.
 These flags specify to an application code, and the infrastructure,
 whether or not a variable is part of independent state. Derived
 quantities can be calculated from the set of independent quantities,
-while independent quantities cannot.
+while independent quantities cannot. The following flags are mutually
+exclusive and required. All variables should be either independent or
+derived.
 
 - `Metadata::Independent` implies the variable is part of independent
   state
