@@ -43,6 +43,9 @@
 // HDF5 output (HDF5OUTPUT or NO_HDF5OUTPUT)
 #define @HDF5_OPTION@
 
+// Kokkos loop layout (outer loop)
+#define @PAR_LOOP_LAYOUT@
+
 // try/throw/catch C++ exception handling (ENABLE_EXCEPTIONS or DISABLE_EXCEPTIONS)
 // (enabled by default)
 #define @EXCEPTION_HANDLING_OPTION@
@@ -55,7 +58,6 @@
 //----------------------------------------------------------------------------------------
 // macros associated with numerical algorithm (rarely modified)
 
-#define NHYDRO @NHYDRO_VARIABLES@
 #define NFIELD @NFIELD_VARIABLES@
 #define NWAVE @NWAVE_VALUE@
 #define NGHOST @NUMBER_GHOST_CELLS@

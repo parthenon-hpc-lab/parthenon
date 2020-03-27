@@ -27,7 +27,7 @@ void ApplyBoundaryConditions(Container<Real>& rc) {
     const int imax = pmb->ncells1; const int jmax = pmb->ncells2; const int kmax = pmb->ncells3;
 
     Metadata m;
-    ContainerIterator<Real> citer(rc, std::vector<parthenon::Metadata::flags> {m.independent});
+    ContainerIterator<Real> citer(rc, {Metadata::Independent});
     const int nvars = citer.vars.size();
 
     switch (pmb->boundary_flag[BoundaryFace::inner_x1]) {
@@ -49,7 +49,7 @@ void ApplyBoundaryConditions(Container<Real>& rc) {
         case BoundaryFlag::reflect: {
             for (int n=0; n<nvars; n++) {
                 Variable<Real>& q = *citer.vars[n];
-                bool vec = q.metadata().isVector();
+                bool vec = q.metadata().IsSet(Metadata::Vector);
                 for (int l=0; l<q.GetDim4(); l++) {
                     Real reflect = (l==0 && vec ? -1.0 : 1.0);
                     for (int k=ks; k<=ke; k++) {
@@ -87,7 +87,7 @@ void ApplyBoundaryConditions(Container<Real>& rc) {
         case BoundaryFlag::reflect: {
             for (int n=0; n<nvars; n++) {
                 Variable<Real>& q = *citer.vars[n];
-                bool vec = q.metadata().isVector();
+                bool vec = q.metadata().IsSet(Metadata::Vector);
                 for (int l=0; l<q.GetDim4(); l++) {
                     Real reflect = (l==0 && vec ? -1.0 : 1.0);
                     for (int k=ks; k<=ke; k++) {
@@ -129,7 +129,7 @@ void ApplyBoundaryConditions(Container<Real>& rc) {
         case BoundaryFlag::reflect: {
             for (int n=0; n<nvars; n++) {
                 Variable<Real>& q = *citer.vars[n];
-                bool vec = q.metadata().isVector();
+                bool vec = q.metadata().IsSet(Metadata::Vector);
                 for (int l=0; l<q.GetDim4(); l++) {
                     Real reflect = (l==1 && vec ? -1.0 : 1.0);
                     for (int k=ks; k<=ke; k++) {
@@ -167,7 +167,7 @@ void ApplyBoundaryConditions(Container<Real>& rc) {
         case BoundaryFlag::reflect: {
             for (int n=0; n<nvars; n++) {
                 Variable<Real>& q = *citer.vars[n];
-                bool vec = q.metadata().isVector();
+                bool vec = q.metadata().IsSet(Metadata::Vector);
                 for (int l=0; l<q.GetDim4(); l++) {
                     Real reflect = (l==1 && vec ? -1.0 : 1.0);
                     for (int k=ks; k<=ke; k++) {
@@ -210,7 +210,7 @@ void ApplyBoundaryConditions(Container<Real>& rc) {
         case BoundaryFlag::reflect: {
             for (int n=0; n<nvars; n++) {
                 Variable<Real>& q = *citer.vars[n];
-                bool vec = q.metadata().isVector();
+                bool vec = q.metadata().IsSet(Metadata::Vector);
                 for (int l=0; l<q.GetDim4(); l++) {
                     Real reflect = (l==2 && vec ? -1.0 : 1.0);
                     for (int k=0; k<ks; k++) {
@@ -248,7 +248,7 @@ void ApplyBoundaryConditions(Container<Real>& rc) {
         case BoundaryFlag::reflect: {
             for (int n=0; n<nvars; n++) {
                 Variable<Real>& q = *citer.vars[n];
-                bool vec = q.metadata().isVector();
+                bool vec = q.metadata().IsSet(Metadata::Vector);
                 for (int l=0; l<q.GetDim4(); l++) {
                     Real reflect = (l==2 && vec ? -1.0 : 1.0);
                     for (int k=ke+1; k<kmax; k++) {

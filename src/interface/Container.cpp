@@ -69,8 +69,9 @@ void Container<T>::Add(const std::string label,
   }
 
   // branch on kind of variable
-  if (metadata.hasSparse()) {
+  if (metadata.IsSet(Metadata::Sparse)) {
     // add a sparse variable
+<<<<<<< HEAD
     if (_sparseMap.find(label) == _sparseMap.end()) {
       auto sv = std::make_shared<SparseVariable<T>>(label, metadata, arrDims);
       _sparseMap[label] = sv;
@@ -83,6 +84,18 @@ void Container<T>::Add(const std::string label,
       v.allocateComms(pmy_block);
     }
   } else if ( metadata.where() == (Metadata::edge) ) {
+=======
+    s->_sparseVars.Add(*pmy_block, label, metadata, dims);
+  } else if ( metadata.Where() == (Metadata::Face) ) {
+    std::cerr << "Accessing unliving face array in stage" << std::endl;
+    std::exit(1);
+    // // add a face variable
+    // s->_faceArray.push_back(
+    //     new FaceVariable(label, metadata,
+    //                      pmy_block->ncells3, pmy_block->ncells2, pmy_block->ncells1));
+    return;
+  } else if ( metadata.Where() == (Metadata::Edge) ) {
+>>>>>>> jmm/parthenon-arrays-NDArray
     // add an edge variable
     std::cerr << "Accessing unliving edge array in stage" << std::endl;
     std::exit(1);
@@ -90,13 +103,13 @@ void Container<T>::Add(const std::string label,
     //     new EdgeVariable(label, metadata,
     //                      pmy_block->ncells3, pmy_block->ncells2, pmy_block->ncells1));
     return;
-  } else if ( metadata.where() == (Metadata::face) ) {
-    if ( !(metadata.isOneCopy()) ) {
+  } else if ( metadata.Where() == (Metadata::Face) ) {
+    if ( !(metadata.IsSet(Metadata::OneCopy)) ) {
       std::cerr << "Currently one one-copy face fields are supported"
                 << std::endl;
       std::exit(1);
     }
-    if (metadata.fillsGhost()) {
+    if (metadata.IsSet(Metadata::FillGhost)) {
       std::cerr << "Ghost zones not yet supported for face fields" << std::endl;
       std::exit(1);
     }
@@ -104,17 +117,92 @@ void Container<T>::Add(const std::string label,
     auto pfv = std::make_shared<FaceVariable>(label, metadata, arrDims);
     _faceVector.push_back(pfv);
     return;
+<<<<<<< HEAD
+=======
+  } else if ( (metadata.Where() == (Metadata::Cell) ) ||
+            (metadata.Where() == (Metadata::Node) )) {
+    if ( metadata.Where() == (Metadata::Node) ) {
+      arrDims[0]++; arrDims[1]++; arrDims[2]++;
+    }
+
+    s->_varArray.push_back(std::make_shared<Variable<T>>(label, arrDims, metadata));
+    if ( metadata.IsSet(Metadata::FillGhost)) {
+      s->_varArray.back()->allocateComms(pmy_block);
+    }
+>>>>>>> jmm/parthenon-arrays-NDArray
   } else {
     // plain old variable
     if ( dims.size() > 6 || dims.size() < 1 ) {
       throw std::invalid_argument ("_addArray() must have dims between [1,5]");
     }
     for (int i=0; i<dims.size(); i++) {arrDims[5-i] = dims[i];}
+<<<<<<< HEAD
     auto sv = std::make_shared<Variable<T>>(label, arrDims, metadata);
     _varVector.push_back(sv);
     _varMap[label] = sv;
     if ( metadata.fillsGhost()) {
       _varVector.back()->allocateComms(pmy_block);
+=======
+    s->_varArray.push_back(std::make_shared<Variable<T>>(label, arrDims, metadata));
+  }
+}
+
+/// We can initialize a container with a specific stage set as
+/// the base stage.
+/// @param src The name of the stage we want to create a new container from
+/// @return New container with slices from all variables
+template <typename T>
+Container<T>  Container<T>::StageContainer(std::string src) {
+  Container<T> c;  // creates a container with a blank "base" stage
+
+  Stage<T>&stageSrc = *stages[src];
+
+  // copy in private data
+  c.pmy_block = pmy_block;
+
+  // add aliases of all arrays in state to the new container
+  for (auto v : stageSrc._varArray) {
+    c.s->_varArray.push_back(v);
+  }
+  // for (auto v : stageSrc._edgeArray) {
+  //   EdgeVariable *vNew = new EdgeVariable(v->label(), *v);
+  //   c.s->_edgeArray.push_back(vNew);
+  // }
+  for (auto v : stageSrc._faceArray) {
+    c.s->_faceArray.push_back(v);
+  }
+
+  // Now copy in the sparse arrays
+  for (auto vars : stageSrc._sparseVars.getAllCellVars()) {
+    auto& theLabel=vars.first;
+    auto& theMap = vars.second;
+    c.s->_sparseVars.AddAlias(theLabel, stageSrc._sparseVars);
+  }
+
+  return c;
+}
+
+template <typename T>
+void Container<T>::StageSet(std::string name) {
+  s = stages[name];
+
+  for (auto &v : s->_varArray) {
+    if ( (v->metadata()).IsSet(Metadata::FillGhost) ) {
+      v->resetBoundary();
+      //v->vbvar->var_cc = v.get();
+      //      v->mpiStatus=true;
+    }
+  }
+
+  for (auto &myMap : s->_sparseVars.getAllCellVars()) {
+    // for every variable Map in the sparse variables array
+    for (auto &v : myMap.second) {
+      if ( (v.second->metadata()).IsSet(Metadata::FillGhost)) {
+        v.second->resetBoundary();
+        //v.second->vbvar->var_cc = v.second.get();
+        //v.second->mpiStatus=true;
+      }
+>>>>>>> jmm/parthenon-arrays-NDArray
     }
   }
 }
@@ -165,6 +253,7 @@ void Container<T>::Remove(const std::string label) {
 
 template <typename T>
 void Container<T>::SendFluxCorrection() {
+<<<<<<< HEAD
   for (auto &v : _varVector) {
     if ( (v->metadata()).isIndependent() ) {
       v->vbvar->SendFluxCorrection();
@@ -174,6 +263,17 @@ void Container<T>::SendFluxCorrection() {
     if ( (sv->isSet(Metadata::independent)) ) {
       VariableVector<T> vvec = sv->GetVector();
       for (auto & v : vvec) {
+=======
+  for (auto &v : s->_varArray) {
+    if ( (v->metadata()).IsSet(Metadata::Independent) ) {
+      v->vbvar->SendFluxCorrection();
+    }
+  }
+  for (auto &myMap : s->_sparseVars.getAllCellVars()) {
+    for (auto &mv : myMap.second) {
+      auto &v = mv.second;
+      if ( (v->metadata()).IsSet(Metadata::Independent) ) {
+>>>>>>> jmm/parthenon-arrays-NDArray
         v->vbvar->SendFluxCorrection();
       }
     }
@@ -183,17 +283,30 @@ void Container<T>::SendFluxCorrection() {
 template <typename T>
 bool Container<T>::ReceiveFluxCorrection() {
   int success=0, total=0;
+<<<<<<< HEAD
   for (auto &v : _varVector) {
     if ((v->metadata()).isIndependent() ) {
+=======
+  for (auto &v : s->_varArray) {
+    if ( (v->metadata()).IsSet(Metadata::Independent) ) {
+>>>>>>> jmm/parthenon-arrays-NDArray
       if(v->vbvar->ReceiveFluxCorrection()) success++;
       total++;
     }
   }
+<<<<<<< HEAD
   for (auto &sv : _sparseVector) {
     if ( (sv->isSet(Metadata::independent)) ) {
       VariableVector<T> vvec = sv->GetVector();
       for (auto & v : vvec) {
         if (v->vbvar->ReceiveFluxCorrection()) success++;
+=======
+  for (auto &myMap : s->_sparseVars.getAllCellVars()) {
+    for (auto &mv : myMap.second) {
+      auto &v = mv.second;
+      if ( (v->metadata()).IsSet(Metadata::Independent) ) {
+        if(v->vbvar->ReceiveFluxCorrection()) success++;
+>>>>>>> jmm/parthenon-arrays-NDArray
         total++;
       }
     }
@@ -206,18 +319,42 @@ void Container<T>::SendBoundaryBuffers() {
   // sends the boundary
   debug=0;
   //  std::cout << "_________SEND from stage:"<<s->name()<<std::endl;
+<<<<<<< HEAD
   for (auto &v : _varVector) {
     if ( (v->metadata()).fillsGhost() ) {
       v->ResetBoundary();
+=======
+  for (auto &v : s->_varArray) {
+    if ( (v->metadata()).IsSet(Metadata::FillGhost) ) {
+      if ( ! v->mpiStatus ) {
+        std::cout << "        sending without the receive, something's up:"
+                  << v->label()
+                  << std::endl;
+      }
+>>>>>>> jmm/parthenon-arrays-NDArray
       v->vbvar->SendBoundaryBuffers();
     }
   }
+<<<<<<< HEAD
   for (auto &sv : _sparseVector) {
     if ( (sv->isSet(Metadata::fillGhost)) ) {
       VariableVector<T> vvec = sv->GetVector();
       for (auto & v : vvec) {
         v->ResetBoundary();
         v->vbvar->SendBoundaryBuffers();
+=======
+
+  for (auto &myMap : s->_sparseVars.getAllCellVars()) {
+    // for every variable Map in the sparse variables array
+    for (auto &v : myMap.second) {
+      if ( ! (v.second->metadata()).IsSet(Metadata::FillGhost) ) continue; // doesn't fill ghost so skip
+      if ( ! v.second->mpiStatus ) {
+        std::cout << "        _________Err:"
+                  << v.first
+                  << ":sending without the receive, something's up:"
+                  << v.second->label()
+                  << std::endl;
+>>>>>>> jmm/parthenon-arrays-NDArray
       }
     }
   }
@@ -228,11 +365,17 @@ void Container<T>::SendBoundaryBuffers() {
 template <typename T>
 void Container<T>::SetupPersistentMPI() {
   // setup persistent MPI
+<<<<<<< HEAD
   for (auto &v : _varVector) {
     if ( (v->metadata()).fillsGhost() ) {
         v->ResetBoundary();
+=======
+  for (auto &v : s->_varArray) {
+    if ( (v->metadata()).IsSet(Metadata::FillGhost) ) {
+>>>>>>> jmm/parthenon-arrays-NDArray
         v->vbvar->SetupPersistentMPI();
     }
+<<<<<<< HEAD
   }
   for (auto &sv : _sparseVector) {
     if ( (sv->isSet(Metadata::fillGhost)) ) {
@@ -240,6 +383,16 @@ void Container<T>::SetupPersistentMPI() {
       for (auto & v : vvec) {
         v->ResetBoundary();
         v->vbvar->SetupPersistentMPI();
+=======
+
+
+  for (auto &myMap : s->_sparseVars.getAllCellVars()) {
+    // for every variable Map in the sparse variables array
+    for (auto &v : myMap.second) {
+      if ( ! (v.second->metadata()).IsSet(Metadata::FillGhost) ) continue; // doesn't fill ghost so skip
+      if ( ! v.second->mpiStatus ) {
+        v.second->vbvar->SetupPersistentMPI();
+>>>>>>> jmm/parthenon-arrays-NDArray
       }
     }
   }
@@ -252,8 +405,13 @@ bool Container<T>::ReceiveBoundaryBuffers() {
   //  std::cout << "_________RECV from stage:"<<s->name()<<std::endl;
   ret = true;
   // receives the boundary
+<<<<<<< HEAD
   for (auto &v : _varVector) {
     if ( v->isSet(Metadata::fillGhost) ) {
+=======
+  for (auto &v : s->_varArray) {
+    if ( (v->metadata()).IsSet(Metadata::FillGhost) ) {
+>>>>>>> jmm/parthenon-arrays-NDArray
       //ret = ret & v->vbvar->ReceiveBoundaryBuffers();
       // In case we have trouble with multiple arrays causing
       // problems with task status, we should comment one line
@@ -265,6 +423,7 @@ bool Container<T>::ReceiveBoundaryBuffers() {
       }
     }
   }
+<<<<<<< HEAD
   for (auto &sv : _sparseVector) {
     if ( (sv->isSet(Metadata::fillGhost)) ) {
       VariableVector<T> vvec = sv->GetVector();
@@ -274,6 +433,16 @@ bool Container<T>::ReceiveBoundaryBuffers() {
           v->mpiStatus = v->vbvar->ReceiveBoundaryBuffers();
           ret = (ret & v->mpiStatus);
         }
+=======
+
+  for (auto &myMap : s->_sparseVars.getAllCellVars()) {
+    // for every variable Map in the sparse variables array
+    for (auto &v : myMap.second) {
+      if ( ! (v.second->metadata()).IsSet(Metadata::FillGhost) ) continue; // doesn't fill ghost so skip
+      if ( ! v.second->mpiStatus ) {
+        v.second->mpiStatus = v.second->vbvar->ReceiveBoundaryBuffers();
+        ret = (ret & v.second->mpiStatus);
+>>>>>>> jmm/parthenon-arrays-NDArray
       }
     }
   }
@@ -284,14 +453,20 @@ bool Container<T>::ReceiveBoundaryBuffers() {
 template <typename T>
 void Container<T>::ReceiveAndSetBoundariesWithWait() {
   //  std::cout << "_________RSET from stage:"<<s->name()<<std::endl;
+<<<<<<< HEAD
   for (auto &v : _varVector) {
     if ( (!v->mpiStatus) && ( (v->metadata()).fillsGhost()) ) {
       //(v->isSet(Metadata::fillGhost))) ) {
       v->ResetBoundary();
+=======
+  for (auto &v : s->_varArray) {
+    if ( (!v->mpiStatus) && ( (v->metadata()).IsSet(Metadata::FillGhost)) ) {
+>>>>>>> jmm/parthenon-arrays-NDArray
       v->vbvar->ReceiveAndSetBoundariesWithWait();
       v->mpiStatus = true;
     }
   }
+<<<<<<< HEAD
   for (auto &sv : _sparseVector) {
     if ( (sv->isSet(Metadata::fillGhost)) ) {
       VariableVector<T> vvec = sv->GetVector();
@@ -301,6 +476,15 @@ void Container<T>::ReceiveAndSetBoundariesWithWait() {
           v->vbvar->ReceiveAndSetBoundariesWithWait();
           v->mpiStatus = true;
         }
+=======
+  for (auto &myMap : s->_sparseVars.getAllCellVars()) {
+    // for every variable Map in the sparse variables array
+    for (auto &v : myMap.second) {
+      if ( ! (v.second->metadata()).IsSet(Metadata::FillGhost) ) continue; // doesn't fill ghost so skip
+      if ( ! v.second->mpiStatus ) {
+        v.second->vbvar->ReceiveAndSetBoundariesWithWait();
+        v.second->mpiStatus = true;
+>>>>>>> jmm/parthenon-arrays-NDArray
       }
     }
   }
@@ -314,9 +498,14 @@ void Container<T>::SetBoundaries() {
   //    std::cout << "in set" << std::endl;
   // sets the boundary
   //  std::cout << "_________BSET from stage:"<<s->name()<<std::endl;
+<<<<<<< HEAD
   for (auto &v : _varVector) {
     if ( (v->metadata()).fillsGhost() ) {
       v->ResetBoundary();
+=======
+  for (auto &v : s->_varArray) {
+    if ( (v->metadata()).IsSet(Metadata::FillGhost) ) {
+>>>>>>> jmm/parthenon-arrays-NDArray
       v->vbvar->SetBoundaries();
       //v->mpiStatus=true;
     }
@@ -332,6 +521,7 @@ void Container<T>::SetBoundaries() {
   }
 }
 
+<<<<<<< HEAD
 template <typename T>
 void Container<T>::ResetBoundaryVariables() {
   for (auto &v : _varVector) {
@@ -344,6 +534,14 @@ void Container<T>::ResetBoundaryVariables() {
       VariableVector<T> vvec = sv->GetVector();
       for (auto & v : vvec) {
         v->vbvar->var_cc = v.get();
+=======
+  for (auto &myMap : s->_sparseVars.getAllCellVars()) {
+    // for every variable Map in the sparse variables array
+    for (auto &v : myMap.second) {
+      if ( (v.second->metadata()).IsSet(Metadata::FillGhost) ) {
+        v.second->vbvar->SetBoundaries();
+        //v.second->mpiStatus=true;
+>>>>>>> jmm/parthenon-arrays-NDArray
       }
     }
   }
@@ -354,13 +552,19 @@ void Container<T>::StartReceiving(BoundaryCommSubset phase) {
   //    std::cout << "in set" << std::endl;
   // sets the boundary
   //  std::cout << "________CLEAR from stage:"<<s->name()<<std::endl;
+<<<<<<< HEAD
   for (auto &v : _varVector) {
     if ( (v->metadata()).fillsGhost() ) {
       v->ResetBoundary();
+=======
+  for (auto &v : s->_varArray) {
+    if ( (v->metadata()).IsSet(Metadata::FillGhost) ) {
+>>>>>>> jmm/parthenon-arrays-NDArray
       v->vbvar->StartReceiving(phase);
       v->mpiStatus=false;
     }
   }
+<<<<<<< HEAD
   for (auto &sv : _sparseVector) {
     if ( (sv->isSet(Metadata::fillGhost)) ) {
       VariableVector<T> vvec = sv->GetVector();
@@ -368,6 +572,15 @@ void Container<T>::StartReceiving(BoundaryCommSubset phase) {
         v->ResetBoundary();
         v->vbvar->StartReceiving(phase);
         v->mpiStatus = false;
+=======
+
+  for (auto &myMap : s->_sparseVars.getAllCellVars()) {
+    // for every variable Map in the sparse variables array
+    for (auto &v : myMap.second) {
+      if ( (v.second->metadata()).IsSet(Metadata::FillGhost)) {
+        v.second->vbvar->StartReceiving(phase);
+        //v.second->mpiStatus=true;
+>>>>>>> jmm/parthenon-arrays-NDArray
       }
     }
   }
@@ -378,16 +591,31 @@ void Container<T>::ClearBoundary(BoundaryCommSubset phase) {
   //    std::cout << "in set" << std::endl;
   // sets the boundary
   //  std::cout << "________CLEAR from stage:"<<s->name()<<std::endl;
+<<<<<<< HEAD
   for (auto &v : _varVector) {
     if ( (v->metadata()).fillsGhost() ) {
+=======
+  for (auto &v : s->_varArray) {
+    if ( (v->metadata()).IsSet(Metadata::FillGhost) ) {
+>>>>>>> jmm/parthenon-arrays-NDArray
       v->vbvar->ClearBoundary(phase);
     }
   }
+<<<<<<< HEAD
   for (auto &sv : _sparseVector) {
     if ( (sv->isSet(Metadata::fillGhost)) ) {
       VariableVector<T> vvec = sv->GetVector();
       for (auto & v : vvec) {
         v->vbvar->ClearBoundary(phase);
+=======
+
+  for (auto &myMap : s->_sparseVars.getAllCellVars()) {
+    // for every variable Map in the sparse variables array
+    for (auto &v : myMap.second) {
+      if ( (v.second->metadata()).IsSet(Metadata::FillGhost)) {
+        v.second->vbvar->ClearBoundary(phase);
+        //v.second->mpiStatus=true;
+>>>>>>> jmm/parthenon-arrays-NDArray
       }
     }
   }

@@ -4,7 +4,7 @@ Parthenon manages simulation data through a hierarchy of classes designed to pro
 
 # Metadata
 
-The metadata class provides a mechanism to inform parthenon about an application's needs with respect to each variable.  It's documentation can be found [here](Metadata.md)  An object is associated with each variable and carries the following flags as either 0 or 1 bits.
+The metadata class provides a mechanism to inform parthenon about an application's needs with respect to each variable.  It's documentation can be found [here](Metadata.md).  An object is associated with each variable and is queried as needed.
 
 <table>
   <tr>
@@ -35,9 +35,13 @@ The metadata class provides a mechanism to inform parthenon about an application
 | edge | Edge-centered |
 | node | node-centered |
 
+# WIP ParthenonArray
 
+This may end up as a light wrapper around ```Kokkos::View```.  We'll see...
 
 # Variable
+
+The ```Variable``` class collects several associated objects that are needed to store, describe, and update simulation data.
 
 # Container
 

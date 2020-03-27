@@ -888,7 +888,7 @@ void Mesh::FillSameRankFineToCoarseAMR(MeshBlock* pob, MeshBlock* pmb,
                                     pob->cks, pob->cke);
     // copy from old/original/other MeshBlock (pob) to newly created block (pmb)
     AthenaArray<Real> &src = *coarse_cc;
-    AthenaArray<Real> &dst = *std::get<0>(*pmb_cc_it); // pmb->phydro->u;
+    AthenaArray<Real> &dst = *std::get<0>(*pmb_cc_it);
     for (int nv=0; nv<=nu; nv++) {
       for (int k=kl, fk=pob->cks; fk<=pob->cke; k++, fk++) {
         for (int j=jl, fj=pob->cjs; fj<=pob->cje; j++, fj++) {

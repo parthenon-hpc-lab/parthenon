@@ -26,7 +26,7 @@ Stage<T>::Stage(std::string name, Stage<T>& src) :
 
   for ( auto v : src._varArray) {
     const Metadata &m = v->metadata();
-    if (m.isSet(m.oneCopy)) {
+    if (m.IsSet(Metadata::OneCopy)) {
       // push back an alias of the variable
       _varArray.push_back(v);//std::make_shared<Variable<T>>(v->label(),*v));
     } else {
@@ -35,7 +35,7 @@ Stage<T>::Stage(std::string name, Stage<T>& src) :
     }
   }
 
-  // // for now faces and edges are oneCopy
+  // // for now faces and edges are OneCopy
   // for (auto v : src._edgeArray) {
   //   EdgeVariable *vNew = new EdgeVariable(v->label(), *v);
   //   _edgeArray.push_back(vNew);

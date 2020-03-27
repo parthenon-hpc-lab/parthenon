@@ -34,12 +34,36 @@ else()
   set(HDF5_OPTION NO_HDF5OUTPUT)
 endif()
 
+if (${Kokkos_ENABLE_CUDA})
+  set(PAR_LOOP_LAYOUT "MANUAL1D_LOOP" CACHE STRING
+    "Default loop layout for parallel_for wrapper")
+
+  set(PAR_LOOP_LAYOUT_VALUES "MANUAL1D_LOOP;MDRANGE_LOOP;TPTTR_LOOP;TPTTRTVR_LOOP"
+    CACHE STRING "Possible loop layout options.")
+
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --expt-relaxed-constexpr")
+
+elseif(${Kokkos_ENABLE_HPX})
+  message( FATAL_ERROR "Need to add/fix/test default loop layouts for HPX backend.")
+
+else()
+  # use simd for loop when not using Nvidia GPUs
+  set(PAR_LOOP_LAYOUT "SIMDFOR_LOOP" CACHE STRING
+    "Default loop layout for parallel_for wrapper")
+  set(PAR_LOOP_LAYOUT_VALUES "SIMDFOR_LOOP;MANUAL1D_LOOP;MDRANGE_LOOP;TPTTR_LOOP;TPTVR_LOOP;TPTTRTVR_LOOP"
+    CACHE STRING "Possible loop layout options.")
+
+endif()
+
+set_property(CACHE PAR_LOOP_LAYOUT PROPERTY STRINGS ${PAR_LOOP_LAYOUT_VALUES})
+
+message(STATUS "PAR_LOOP_LAYOUT='${PAR_LOOP_LAYOUT}' (default par_for wrapper layout)")
+
 set(EXCEPTION_HANDLING_OPTION ENABLE_EXCEPTIONS) # TODO: Add option to disable exceptions
 set(COMPILED_WITH ${CMAKE_CXX_COMPILER})
 set(COMPILER_COMMAND "<not-implemented>") # TODO: Put something more descriptive here
 set(COMPILER_FLAGS "<not-implemented>") # TODO: Put something more descriptive here
 
-set(NHYDRO_VARIABLES 0) # TODO: Remove
 set(NFIELD_VARIABLES 0) # TODO: Remove
 set(NWAVE_VALUE 5) # TODO: Remove
 set(NUMBER_GHOST_CELLS 2) # TODO: Make this a CMake option and check it
@@ -75,6 +99,7 @@ add_library(parthenon
   interface/Container.cpp
   interface/PropertiesInterface.cpp
   interface/SparseVariable.cpp
+  interface/Metadata.cpp
   interface/Update.cpp
   interface/Variable.cpp
 
@@ -97,11 +122,8 @@ add_library(parthenon
   pgen/default_pgen.cpp
 
   reconstruct/characteristic.cpp
-  reconstruct/dc_simple.cpp
   reconstruct/dc.cpp
-  reconstruct/plm_simple.cpp
   reconstruct/plm.cpp
-  reconstruct/ppm_simple.cpp
   reconstruct/ppm.cpp
   reconstruct/reconstruction.cpp
 
@@ -131,6 +153,8 @@ endif()
 if (ENABLE_HDF5)
   target_link_libraries(parthenon PUBLIC HDF5_C)
 endif()
+
+target_link_libraries(parthenon PUBLIC Kokkos::kokkos)
 
 target_include_directories(parthenon PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}

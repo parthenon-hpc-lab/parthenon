@@ -88,12 +88,23 @@ if (NOT DISABLE_HDF5)
   target_include_directories(HDF5_C INTERFACE ${HDF5_C_INCLUDE_DIRS})
 endif()
 
+# Kokkos recommendatation resulting in not using default GNU extensions
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+if(EXISTS ${Kokkos_ROOT}/CMakeLists.txt)
+  add_subdirectory(${Kokkos_ROOT} Kokkos)
+elseif(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/external/Kokkos/CMakeLists.txt)
+  add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/external/Kokkos Kokkos)
+else()
+  find_package(Kokkos 3 REQUIRED)
+endif()
+
 # Build Tests and download Catch2
 if (${ENABLE_UNIT_TESTS} OR ${ENABLE_INTEGRATION_TESTS} OR ${ENABLE_REGRESSION_TESTS})
   # Try finding an installed Catch2 first
   find_package(Catch2 2.11.1 QUIET)
 
-  if (NOT CATCH2_FOUND)
+  if (NOT Catch2_FOUND)
     # If Catch2 is not found, instead use the git submodule
     if (NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/external/Catch2/single_include)
       # Unable to find the header files for Catch2 or they don't exist

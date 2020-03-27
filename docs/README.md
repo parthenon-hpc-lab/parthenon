@@ -31,6 +31,15 @@ There are several weakly linked member functions that applications can (and ofte
 For features that require more detailed documentation a short paragraph or sentence here
 is sufficient with a link to a more detailed description in a separate [file](feature.md).
 
+### Kokkos/Wrapper related
+
+- `par_for` wrappers use inclusive bounds, i.e., the loop will include the last index given
+- `AthenaArrayND` arrays by default allocate on the *device* using default precision configured
+- To create an array on the host with identical layout to the device array either use
+  - `auto arr_host = Kokkos::create_mirror(arr_dev);` to always create a new array even if the device is associated with the host (e.g., OpenMP) or
+  - `auto arr_host = Kokkos::create_mirror_view(arr_dev);` to create an array on the host if the HostSpace != DeviceSpace or get another reference to arr_dev through arr_host if HostSpace == DeviceSpace
+- `par_for` and `Kokkos::deep_copy` by default use the standard stream (on Cuda devices) and are discouraged from use. Use `mb->par_for` and `mb->deep_copy` instead where `mb` is a `MeshBlock` (explanation: each `MeshBlock` has an `ExecutionSpace`, which may be changed at runtime, e.g., to a different stream, and the wrapper within a `MeshBlock` offer transparent access to the parallel region/copy where the `MeshBlock`'s `ExecutionSpace` is automatically used).
+
 ### Adaptive Mesh Refinement
 
 A description of how to enable and extend the AMR capabilities of Parthenon is provided [here](amr.md).
@@ -38,3 +47,10 @@ A description of how to enable and extend the AMR capabilities of Parthenon is p
 ### Tasks
 
 The tasking capabilities in Parthenon are documented [here](tasks.md).
+
+### Anonymous Variables
+[Full Documentation](interface/Metadata.md)
+
+Parthenon supports anonymous field variables. These variables can be registered
+with Parthenon to have the framework automatically manage the field, including
+updating ghost cells, prolonging, and restricting.

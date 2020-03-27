@@ -59,10 +59,17 @@ class Variable {
               const int nvar) :
     mpiStatus(true),
     _m(src.metadata()),
+<<<<<<< HEAD
     _label(label) {
     data->InitWithShallowSlice(src, dim, index, nvar);
     if ( _m.isSet(_m.fillGhost) ) {
       _m.set(_m.sharedComms);
+=======
+    mpiStatus(true)  {
+    this->InitWithShallowSlice(src, dim, index, nvar);
+    if ( _m.IsSet(Metadata::FillGhost) ) {
+      _m.Set(Metadata::SharedComms);
+>>>>>>> jmm/parthenon-arrays-NDArray
     }
     //    std::cout << "_____CREATED VAR SLICE: " << _label << ":" << this << std::endl;
   }
@@ -76,8 +83,13 @@ class Variable {
     int dim = 6;
     int start = 0;
     int nvar = src.GetDim6();
+<<<<<<< HEAD
     data->InitWithShallowSlice(src, dim, start, nvar);
     _m.set(_m.sharedComms);
+=======
+    this->InitWithShallowSlice(src, dim, start, nvar);
+    _m.Set(Metadata::SharedComms);
+>>>>>>> jmm/parthenon-arrays-NDArray
     //    std::cout << "_____CREATED VAR SLICE: " << _label << ":" << this << std::endl;
   }
 
@@ -173,9 +185,15 @@ struct FaceVariable : FaceField {
                const std::array<int,6> ncells,
                const DATASTATUS init=DATASTATUS::allocated) :
     FaceField(ncells[5], ncells[4], ncells[3], ncells[2], ncells[1], ncells[0], init),
+<<<<<<< HEAD
     _m(metadata),
     _label(label) {
     if ( metadata.hasSparse() ) {
+=======
+    _label(label),
+    _m(metadata) {
+    if ( metadata.IsSet(Metadata::Sparse) ) {
+>>>>>>> jmm/parthenon-arrays-NDArray
       throw std::invalid_argument ("Sparse not yet implemented for FaceVariable");
     }
   }
@@ -239,9 +257,15 @@ struct EdgeVariable : EdgeField {
                const int ncells3, const int ncells2, const int ncells1,
                const DATASTATUS init=DATASTATUS::allocated) :
     EdgeField(ncells3, ncells2, ncells1, init),
+<<<<<<< HEAD
     _m(metadata),
     _label(label) {
     if ( metadata.hasSparse() ) {
+=======
+    _label(label),
+    _m(metadata) {
+    if ( metadata.IsSet(Metadata::Sparse) ) {
+>>>>>>> jmm/parthenon-arrays-NDArray
       throw std::invalid_argument ("Sparse not yet implemented for FaceVariable");
     }
   }

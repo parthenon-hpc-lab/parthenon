@@ -34,16 +34,16 @@ namespace parthenon {
 
     Metadata m;
     std::vector<int> array_size({2});
-    m = Metadata({Metadata::cell, Metadata::vector, Metadata::derived,
-          Metadata::oneCopy, Metadata::graphics}, array_size);
+    m = Metadata({Metadata::Cell, Metadata::Vector, Metadata::Derived,
+          Metadata::OneCopy, Metadata::Graphics}, array_size);
     package->AddField("c.c.interpolated_value", m, DerivedOwnership::unique);
 
-    m = Metadata({Metadata::cell, Metadata::derived,
-          Metadata::oneCopy, Metadata::graphics});
+    m = Metadata({Metadata::Cell, Metadata::Derived,
+          Metadata::OneCopy, Metadata::Graphics});
     package->AddField("c.c.interpolated_sum", m, DerivedOwnership::unique);
 
-    m = Metadata({Metadata::face, Metadata::vector,
-          Metadata::derived, Metadata::oneCopy}, array_size);
+    m = Metadata({Metadata::Face, Metadata::Vector,
+          Metadata::Derived, Metadata::OneCopy}, array_size);
     package->AddField("f.f.face_averaged_value", m, DerivedOwnership::unique);
 
     packages["FaceFieldExample"] = package;

@@ -84,7 +84,7 @@ BoundaryValues::BoundaryValues(MeshBlock *pmb, BoundaryFlag *input_bcs,
   }
 
   // prevent reallocation of contiguous memory space for each of 4x possible calls to
-  // std::vector<BoundaryVariable *>.push_back() in Hydro, Field, PassiveScalars
+  // std::vector<BoundaryVariable *>.push_back() in Field, PassiveScalars
   bvars.reserve(3);
   // TOOD(KGF): rename to "bvars_time_int"? What about a std::vector for bvars_sts?
   bvars_main_int.reserve(2);

@@ -41,6 +41,7 @@
 #include "interface/PropertiesInterface.hpp"
 #include "interface/StateDescriptor.hpp"
 #include "interface/Update.hpp"
+#include "kokkos_abstraction.hpp"
 #include "mesh_refinement.hpp"
 #include "meshblock_tree.hpp"
 #include "outputs/io_wrapper.hpp"
@@ -104,6 +105,9 @@ class MeshBlock {
             int igflag, bool ref_flag=false);
   ~MeshBlock();
 
+  // Kokkos execution space for this MeshBlock
+  DevSpace exec_space;
+
   // data
   Mesh *pmy_mesh;  // ptr to Mesh containing this MeshBlock
   LogicalLocation loc;
@@ -117,6 +121,14 @@ class MeshBlock {
   int gid, lid;
   int cis, cie, cjs, cje, cks, cke, cnghost;
   int gflag;
+<<<<<<< HEAD
+=======
+  // At every cycle n, and field registers (u, b) are advanced from t^n -> t^{n+1},
+  // the time-integration scheme may partially substep several storage register pairs
+  // (u,b), (u1,b1), (u2, b2), ..., (um, bm) through the dt interval. Track their time
+  // abscissae at the end of each stage (1<=l<=nstage) as (dt_m^l) relative to t^n
+  Real stage_abscissae[MAX_NSTAGE+1][MAX_NREGISTER];
+>>>>>>> jmm/parthenon-arrays-NDArray
 
   // user output variables for analysis
   int nuser_out_var;
@@ -146,6 +158,46 @@ class MeshBlock {
   MeshBlock *prev, *next;
 
   // functions
+
+  //----------------------------------------------------------------------------------------
+  //! \fn void MeshBlock::DeepCopy(const DstType& dst, const SrcType& src)
+  //  \brief Deep copy between views using the exec space of the MeshBlock
+  template <class DstType, class SrcType>
+  void deep_copy(const DstType &dst, const SrcType &src) {
+    Kokkos::deep_copy(exec_space, dst, src);
+  }
+
+  // 1D default loop pattern
+  template <typename Function>
+  inline void par_for(const std::string &name, const int &il, const int &iu,
+                      const Function &function) {
+    parthenon::par_for(name, exec_space, il, iu, function);
+  }
+
+  // 2D default loop pattern
+  template <typename Function>
+  inline void par_for(const std::string &name, const int &jl, const int &ju,
+                      const int &il, const int &iu, const Function &function) {
+    parthenon::par_for(name, exec_space, jl, ju, il, iu, function);
+  }
+
+  // 3D default loop pattern
+  template <typename Function>
+  inline void par_for(const std::string &name, const int &kl, const int &ku,
+                      const int &jl, const int &ju, const int &il,
+                      const int &iu, const Function &function) {
+    parthenon::par_for(name, exec_space, kl, ku, jl, ju, il, iu, function);
+  }
+
+  // 4D default loop pattern
+  template <typename Function>
+  inline void par_for(const std::string &name, const int &nl, const int &nu,
+                      const int &kl, const int &ku, const int &jl,
+                      const int &ju, const int &il, const int &iu,
+                      const Function &function) {
+    parthenon::par_for(name, exec_space, nl, nu, kl, ku, jl, ju, il, iu, function);
+  }
+
   std::size_t GetBlockSizeInBytes();
   int GetNumberOfMeshBlockCells() {
     return block_size.nx1*block_size.nx2*block_size.nx3; }
@@ -157,7 +209,7 @@ class MeshBlock {
 
   void ResetToIC() { ProblemGenerator(nullptr); }
 
-  // inform MeshBlock which arrays contained in member Hydro, Field, Particles,
+  // inform MeshBlock which arrays contained in member Field, Particles,
   // ... etc. classes are the "primary" representations of a quantity. when registered,
   // that data are used for (1) load balancing (2) (future) dumping to restart file
   void RegisterMeshBlockData(Variable<Real> &pvar_cc);
@@ -314,8 +366,6 @@ class Mesh {
   TimeStepFunc UserTimeStep_;
   HistoryOutputFunc *user_history_func_;
   MetricFunc UserMetric_;
-  ViscosityCoeffFunc ViscosityCoeff_;
-  ConductionCoeffFunc ConductionCoeff_;
   FieldDiffusionCoeffFunc FieldDiffusivity_;
 
   void AllocateRealUserMeshDataField(int n);
@@ -363,8 +413,6 @@ class Mesh {
   void EnrollUserHistoryOutput(int i, HistoryOutputFunc my_func, const char *name,
                                UserHistoryOperation op=UserHistoryOperation::sum);
   void EnrollUserMetric(MetricFunc my_func);
-  void EnrollViscosityCoefficient(ViscosityCoeffFunc my_func);
-  void EnrollConductionCoefficient(ConductionCoeffFunc my_func);
   void EnrollFieldDiffusivity(FieldDiffusionCoeffFunc my_func);
 };
 

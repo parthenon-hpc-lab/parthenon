@@ -55,7 +55,7 @@ class Container {
   //-----------------
   // Public Variables
   //-----------------
-  MeshBlock* pmy_block = nullptr; // ptr to MeshBlock containing this Hydro
+  MeshBlock* pmy_block = nullptr; // ptr to MeshBlock
 
   //-----------------
   //Public Methods

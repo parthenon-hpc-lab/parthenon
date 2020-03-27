@@ -62,7 +62,7 @@ class BoundaryBase {
                BoundaryFlag *input_bcs);
   virtual ~BoundaryBase() = default;
   // 1x pair (neighbor index, buffer ID) per entire SET of separate variable buffers
-  // (Hydro, Field, Passive Scalar, etc.). Greedy allocation for worst-case
+  // (Field, Passive Scalar, etc.). Greedy allocation for worst-case
   // of refined 3D; only 26 entries needed/initialized if unrefined 3D, e.g.
   static NeighborIndexes ni[56];
   static int bufid[56];

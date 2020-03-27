@@ -44,7 +44,7 @@ class Reconstruction {
   // data
   // switches for reconstruction method variants:
   int xorder;   // roughly the formal order of accuracy of overall reconstruction method
-  bool characteristic_projection; // reconstruct on characteristic or primitive hydro vars
+  bool characteristic_projection;
   bool uniform[3];
   // (Cartesian reconstruction formulas are used for x3 azimuthal coordinate in both
   // cylindrical and spherical-polar coordinates)
@@ -106,7 +106,6 @@ class Reconstruction {
                             const AthenaArray<Real> &w, const AthenaArray<Real> &bcc,
                             AthenaArray<Real> &wl, AthenaArray<Real> &wr);
 
-  // overloads for non-fluid (cell-centered Hydro prim. and magnetic field) reconstruction
   void DonorCellX1(const int k, const int j, const int il, const int iu,
                    const AthenaArray<Real> &q,
                    AthenaArray<Real> &ql, AthenaArray<Real> &qr);

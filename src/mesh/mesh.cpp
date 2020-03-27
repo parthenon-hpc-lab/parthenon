@@ -105,8 +105,7 @@ Mesh::Mesh(ParameterInput *pin,
   MeshGenerator_{UniformMeshGeneratorX1, UniformMeshGeneratorX2,
         UniformMeshGeneratorX3},
   BoundaryFunction_{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-  AMRFlag_{}, UserSourceTerm_{}, UserTimeStep_{}, ViscosityCoeff_{},
-  ConductionCoeff_{}, FieldDiffusivity_{} {
+  AMRFlag_{}, UserSourceTerm_{}, UserTimeStep_{}, FieldDiffusivity_{} {
     std::stringstream msg;
     RegionSize block_size;
     MeshBlock *pfirst{};
@@ -547,8 +546,7 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper& resfile,
     MeshGenerator_{UniformMeshGeneratorX1, UniformMeshGeneratorX2,
                    UniformMeshGeneratorX3},
     BoundaryFunction_{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    AMRFlag_{}, UserSourceTerm_{}, UserTimeStep_{}, ViscosityCoeff_{},
-    ConductionCoeff_{}, FieldDiffusivity_{} {
+    AMRFlag_{}, UserSourceTerm_{}, UserTimeStep_{}, FieldDiffusivity_{} {
   std::stringstream msg;
   RegionSize block_size;
   BoundaryFlag block_bcs[6];
@@ -1015,7 +1013,6 @@ void Mesh::OutputMeshStructure(int ndim) {
 //----------------------------------------------------------------------------------------
 // \!fn void Mesh::NewTimeStep()
 // \brief function that loops over all MeshBlocks and find new timestep
-//        this assumes that phydro->NewBlockTimeStep is already called
 
 void Mesh::NewTimeStep() {
   MeshBlock *pmb = pblock;
@@ -1058,7 +1055,7 @@ void Mesh::NewTimeStep() {
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void Mesh::EnrollUserBoundaryFunction(BoundaryFace dir, BValHydro my_bc)
+//! \fn void Mesh::EnrollUserBoundaryFunction(BoundaryFace dir, BValFunc my_bc)
 //  \brief Enroll a user-defined boundary function
 
 void Mesh::EnrollUserBoundaryFunction(BoundaryFace dir, BValFunc my_bc) {
@@ -1170,24 +1167,6 @@ void Mesh::EnrollUserHistoryOutput(int i, HistoryOutputFunc my_func, const char 
 
 void Mesh::EnrollUserMetric(MetricFunc my_func) {
   UserMetric_ = my_func;
-  return;
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void Mesh::EnrollViscosityCoefficient(ViscosityCoeff my_func)
-//  \brief Enroll a user-defined magnetic field diffusivity function
-
-void Mesh::EnrollViscosityCoefficient(ViscosityCoeffFunc my_func) {
-  ViscosityCoeff_ = my_func;
-  return;
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void Mesh::EnrollConductionCoefficient(ConductionCoeff my_func)
-//  \brief Enroll a user-defined thermal conduction function
-
-void Mesh::EnrollConductionCoefficient(ConductionCoeffFunc my_func) {
-  ConductionCoeff_ = my_func;
   return;
 }
 
@@ -1485,8 +1464,6 @@ void Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size
 }
 
 // Public function for advancing next_phys_id_ counter
-// E.g. if chemistry or radiation elects to communicate additional information with MPI
-// outside the framework of the BoundaryVariable classes
 
 // Store signed, but positive, integer corresponding to the next unused value to be used
 // as unique ID for a BoundaryVariable object's single set of MPI calls (formerly "enum
