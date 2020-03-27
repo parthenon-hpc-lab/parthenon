@@ -190,6 +190,9 @@ class ParArrayND {
   auto Get(int l, int m, int n, int k, int j, int i) {
     return Kokkos::subview(d6d_,l,m,n,k,j,i); // 0d view
   }
+  auto Get() {
+    return d6d_;
+  }
   auto Get(std::integral_constant<int,6>) {
     return Get();
   }

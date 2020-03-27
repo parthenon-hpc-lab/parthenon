@@ -24,7 +24,6 @@ list(APPEND unit_tests_SOURCES
     kokkos_abstraction.cpp
     test_metadata.cpp
     test_pararrays.cpp
-    compare_array_designs.cpp
 
     )
 
