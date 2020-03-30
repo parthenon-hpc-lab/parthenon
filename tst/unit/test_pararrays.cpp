@@ -141,6 +141,18 @@ TEST_CASE("ParArrayND","[ParArrayND],[Kokkos]") {
     constexpr int N2 = 3;
     constexpr int N3 = 4;
     ParArrayND<Real> a("test",N3,N2,N1);
+    WHEN("The ParArray legacy NewParArray method is used") {
+      ParArrayND<Real> b;
+      b.NewParArrayND(N3,N2,N1);
+      THEN("The dimensions are correct") {
+        REQUIRE( b.GetDim(3) == N3 );
+        REQUIRE( b.GetDim(2) == N2 );
+        REQUIRE( b.GetDim(1) == N1 );
+        for (int d = 4; d <= 6; d++) {
+          REQUIRE( b.GetDim(d) == 1 );
+        }
+      }
+    }
     WHEN("We fill it with increasing integers") {
       auto view = a.Get<3>();
       auto mirror = Kokkos::create_mirror(view);
@@ -201,7 +213,8 @@ TEST_CASE("ParArrayND","[ParArrayND],[Kokkos]") {
       }
       THEN("slicing is possible") {
         // auto b = a.SliceD(std::make_pair(1,3),3);
-        auto b = a.SliceD<3>(std::make_pair(1,3));
+        // auto b = a.SliceD<3>(std::make_pair(1,3));
+        auto b = a.SliceD<3>(1,2); // indx,nvar
         AND_THEN("slices have correct values.") {
           int total_errors;
           using policy = Kokkos::MDRangePolicy<Kokkos::Rank<3>>;
