@@ -32,7 +32,7 @@
 #include <utility>
 #include <vector>
 #include "athena.hpp"
-#include "athena_arrays.hpp"
+#include "parthenon_arrays.hpp"
 #include "bvals/cc/bvals_cc.hpp"
 #include "Metadata.hpp"
 #define DATASTATUS AthenaArray<Real>::DataStatus
@@ -47,7 +47,7 @@ class Variable {
   Variable<T>(const std::string label, Metadata &metadata) :
     data(),
     mpiStatus(true),
-    _dims({0})
+    _dims({0}),
     _m(metadata),
     _label(label) {
   }
@@ -98,9 +98,12 @@ class Variable {
 
   // accessors
 
-  KOKKOS_FORCEINLINE_FUNCTION
   template <class...Args>
-  auto &operator() (const Args... args) { return data(std::forward<Args>(args)...); }
+  KOKKOS_FORCEINLINE_FUNCTION
+  auto &operator() (Args... args) { return data(std::forward<Args>(args)...); }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  auto GetDim(const int i) const { return data.GetDim(i); }
 
 
   /// Return a new array with dimension 4 as dimension 1
@@ -132,7 +135,7 @@ class Variable {
   void setLabel(const std::string label) { _label = label; }
 
   ///< retrieve label for variable
-  std::string label() const { return _label; }
+  const std::string label() const { return _label; }
 
   ///< retrieve metadata for variable
   const Metadata metadata() const { return _m; }
@@ -148,7 +151,9 @@ class Variable {
   void allocateComms(MeshBlock *pmb);
 
   /// Repoint vbvar's var_cc array at the current variable
-  void resetBoundary();
+  void resetBoundary() { vbvar->var_cc = &data; }
+
+  bool isSet(const MetadataFlag bit) const { return _m.IsSet(bit); }
 
   ParArrayND<T> data;
   ParArrayND<T> flux[3];    // used for boundary calculation
@@ -171,24 +176,24 @@ class Variable {
 /// currently only has scalar Face fields, we also only allow scalar
 /// face fields
 template <typename T>
-struct FaceVariable : FaceField {
+class FaceVariable : FaceField {
  public:
   /// Initialize a face variable
   FaceVariable(const std::string label, const Metadata &metadata,
                const std::array<int,6> ncells)
     : FaceField(ncells[5], ncells[4], ncells[3], ncells[2], ncells[1], ncells[0]),
-    _label(label),
-    _m(metadata) {
+    _m(metadata),
+    _label(label) {
     if ( metadata.IsSet(Metadata::Sparse) ) {
       throw std::invalid_argument ("Sparse not yet implemented for FaceVariable");
     }
   }
 
   /// Create an alias for the variable by making a shallow slice with max dim
-  FaceVariable(std::string label, FaceVariable &src) :
+  FaceVariable(std::string label, FaceVariable &src)
     : FaceField(src),
-      _label(label),
-      _m(src.metadata()) { }
+      _m(src.metadata()),
+      _label(label) { }
 
   ///< retrieve label for variable
   std::string label() { return _label; }
@@ -201,7 +206,7 @@ struct FaceVariable : FaceField {
 
   // TODO(JMM): should this be 0,1,2?
   // Should we return the reference? Or something else?
-  AthenaArray<Real>& Get(int i) {
+  ParArrayND<T>& Get(int i) {
     if (i == 1) return (this->x1f);
     if (i == 2) return (this->x2f);
     if (i == 3) return (this->x3f);
@@ -215,6 +220,8 @@ struct FaceVariable : FaceField {
     throw std::invalid_argument("Face must be x1f, x2f, or x3f");
   }
 
+  bool isSet(const MetadataFlag bit) const { return _m.IsSet(bit); }
+
  private:
   Metadata _m;
   std::string _label;
@@ -225,7 +232,8 @@ struct FaceVariable : FaceField {
 /// and label so that we can refer to variables by name.  Since Athena
 /// currently only has scalar Edge fields, we also only allow scalar
 /// edge fields
-struct EdgeVariable : EdgeField {
+template <typename T>
+class EdgeVariable : EdgeField {
  public:
   ///< retrieve metadata for variable
   Metadata metadata() const { return _m; }
@@ -234,8 +242,8 @@ struct EdgeVariable : EdgeField {
   EdgeVariable(const std::string label, const Metadata &metadata,
                const int ncells3, const int ncells2, const int ncells1)
     : EdgeField(ncells3, ncells2, ncells1),
-      _label(label),
-      _m(metadata) {
+      _m(metadata),
+      _label(label) {
       if ( metadata.IsSet(Metadata::Sparse) ) {
         throw std::invalid_argument ("Sparse not yet implemented for FaceVariable");
       }
@@ -244,9 +252,10 @@ struct EdgeVariable : EdgeField {
   /// Create an alias for the variable by making a shallow slice with max dim
   EdgeVariable(const std::string label, const EdgeVariable &src) :
     EdgeField(src),
-    _label(label),
-    _m(src.metadata()) { }
+    _m(src.metadata()),
+    _label(label) {}
 
+  bool isSet(const MetadataFlag bit) const { return _m.IsSet(bit); }
   ///< retrieve label for variable
   std::string label() { return _label; }
 

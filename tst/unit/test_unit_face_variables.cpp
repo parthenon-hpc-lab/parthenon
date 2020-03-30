@@ -40,19 +40,19 @@ TEST_CASE("Can create a vector-valued face-variable",
     WHEN("We construct a FaceVariable") {
       std::array<int,6> dims({blockShape[0],blockShape[1],blockShape[2],
             array_size[0],1,1});
-      FaceVariable f(name,m,dims);
-      THEN("Each AthenaArray in the variable has the right shape") {
-        REQUIRE(f.Get(1).GetDim1() == blockShape[0] + 1);
-        REQUIRE(f.Get(1).GetDim2() == blockShape[1]);
-        REQUIRE(f.Get(1).GetDim3() == blockShape[2]);
-        REQUIRE(f.Get(2).GetDim1() == blockShape[0]);
-        REQUIRE(f.Get(2).GetDim2() == blockShape[1] + 1);
-        REQUIRE(f.Get(2).GetDim3() == blockShape[2]);
-        REQUIRE(f.Get(3).GetDim1() == blockShape[0]);
-        REQUIRE(f.Get(3).GetDim2() == blockShape[1]);
-        REQUIRE(f.Get(3).GetDim3() == blockShape[2] + 1);
+      FaceVariable<Real> f(name,m,dims);
+      THEN("Each ParArrayND in the variable has the right shape") {
+        REQUIRE(f.Get(1).GetDim(1) == blockShape[0] + 1);
+        REQUIRE(f.Get(1).GetDim(2) == blockShape[1]);
+        REQUIRE(f.Get(1).GetDim(3) == blockShape[2]);
+        REQUIRE(f.Get(2).GetDim(1) == blockShape[0]);
+        REQUIRE(f.Get(2).GetDim(2) == blockShape[1] + 1);
+        REQUIRE(f.Get(2).GetDim(3) == blockShape[2]);
+        REQUIRE(f.Get(3).GetDim(1) == blockShape[0]);
+        REQUIRE(f.Get(3).GetDim(2) == blockShape[1]);
+        REQUIRE(f.Get(3).GetDim(3) == blockShape[2] + 1);
         for (int d = 1; d <= 3; d++) {
-          REQUIRE(f.Get(d).GetDim4() == array_size[0]);
+          REQUIRE(f.Get(d).GetDim(4) == array_size[0]);
         }
         AND_THEN("The metadata is correct") {
           REQUIRE( f.metadata() == m );

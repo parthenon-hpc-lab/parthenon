@@ -29,7 +29,6 @@
 
 // Athena++ headers
 #include "athena.hpp"
-#include "athena_arrays.hpp"
 
 namespace parthenon {
 namespace GaussLegendre {

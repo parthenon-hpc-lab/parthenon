@@ -28,7 +28,7 @@ namespace parthenon {
 void Reconstruction::DonorCellX1(const int k, const int j, const int il, const int iu,
                                  const ParArrayND<Real> &q,
                                  ParArrayND<Real> &ql, ParArrayND<Real> &qr) {
-  const int nu = q.GetDim(3) - 1;
+  const int nu = q.GetDim(4) - 1;
 
   // compute L/R states for each variable
   for (int n=0; n<=nu; ++n) {
@@ -48,7 +48,7 @@ void Reconstruction::DonorCellX1(const int k, const int j, const int il, const i
 void Reconstruction::DonorCellX2(const int k, const int j, const int il, const int iu,
                                  const ParArrayND<Real> &q,
                                  ParArrayND<Real> &ql, ParArrayND<Real> &qr) {
-  const int nu = q.GetDim(3) - 1;
+  const int nu = q.GetDim(4) - 1;
   // compute L/R states for each variable
   //std::cout << "RECONSTRUCTING!!!" << std::endl;
   for (int n=0; n<=nu; ++n) {
@@ -68,7 +68,7 @@ void Reconstruction::DonorCellX2(const int k, const int j, const int il, const i
 void Reconstruction::DonorCellX3(const int k, const int j, const int il, const int iu,
                                  const ParArrayND<Real> &q,
                                  ParArrayND<Real> &ql, ParArrayND<Real> &qr) {
-  const int nu = q.GetDim(3) - 1;
+  const int nu = q.GetDim(4) - 1;
   // compute L/R states for each variable
   for (int n=0; n<=nu; ++n) {
 #pragma omp simd

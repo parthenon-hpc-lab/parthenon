@@ -37,13 +37,15 @@ namespace parthenon {
 /// The container class will provide the following methods:
 ///
 
-using FaceVector = std::vector<std::shared_ptr<FaceVariable>>;
+template <typename T>
+using FaceVector = std::vector<std::shared_ptr<FaceVariable<T>>>;
 template <typename T>
 using SparseVector = std::vector<std::shared_ptr<SparseVariable<T>>>;
 
 template <typename T>
 using MapToVars = std::map<std::string, std::shared_ptr<Variable<T>>>;
-using MapToFace = std::map<std::string, std::shared_ptr<FaceVariable>>;
+template <typename T>
+using MapToFace = std::map<std::string, std::shared_ptr<FaceVariable<T>>>;
 template <typename T>
 using MapToSparse = std::map<std::string, std::shared_ptr<SparseVariable<T>>>;
 
@@ -134,7 +136,7 @@ class Container {
     _varVector.push_back(var);
     _varMap[var->label()] = var;
   }
-  void Add(std::shared_ptr<FaceVariable> var) {
+  void Add(std::shared_ptr<FaceVariable<T>> var) {
     _faceVector.push_back(var);
     _faceMap[var->label()] = var;
   }
@@ -203,7 +205,7 @@ class Container {
   //
   // Queries related to FaceVariable objects
   //
-  FaceVariable& GetFace(std::string label) {
+  FaceVariable<T>& GetFace(std::string label) {
     auto it = _faceMap.find(label);
     if (it == _faceMap.end()) {
       throw std::invalid_argument (std::string("\n") +
@@ -222,7 +224,7 @@ class Container {
   /// @param label the name of the variable
   /// @return the Variable<T> if found or throw exception
   ///
-  EdgeVariable *GetEdge(std::string label) {
+  EdgeVariable<T> *GetEdge(std::string label) {
     // for (auto v : _edgeVector) {
     //   if (! v->label().compare(label)) return v;
     // }
@@ -245,12 +247,12 @@ class Container {
   /// get raw data for a variable from the container
   /// @param label the name of the variable
   /// @return a pointer of type T if found or NULL
-  T *Raw(std::string label) {
+  /*T *Raw(std::string label) {
     Variable<T>& v = Get(label);
     //if(v)
     return v.data();
     //return NULL;
-  }
+  }*/
 
   ///
   /// Remove a variable from the container or throw exception if not
@@ -275,7 +277,7 @@ class Container {
 
 
 
-  FaceVector& GetFaceVector() {
+  FaceVector<T>& GetFaceVector() {
     return _faceVector;
   }
 
@@ -296,11 +298,11 @@ class Container {
   int debug=0;
   
   VariableVector<T> _varVector = {}; ///< the saved variable array
-  FaceVector _faceVector = {};  ///< the saved face arrays
+  FaceVector<T> _faceVector = {};  ///< the saved face arrays
   SparseVector<T> _sparseVector = {};
 
   MapToVars<T> _varMap = {};
-  MapToFace _faceMap = {};
+  MapToFace<T> _faceMap = {};
   MapToSparse<T> _sparseMap = {};
 
   void calcArrDims_(std::array<int, 6>& arrDims,

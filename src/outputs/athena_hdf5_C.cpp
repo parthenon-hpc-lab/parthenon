@@ -30,7 +30,7 @@
 
 // Athena++ headers
 #include "athena.hpp"
-#include "athena_arrays.hpp"
+#include "parthenon_arrays.hpp"
 #include "coordinates/coordinates.hpp"
 #include "globals.hpp"
 #include "interface/ContainerIterator.hpp"
@@ -189,7 +189,7 @@ void ATHDF5Output::genXDMF(std::string hdfFile, Mesh *pm) {
   int ndims = 5;
 
   // same set of variables for all grids so use only one container
-  auto ciX = ContainerIterator<Real>(pmb->real_containers.Get(),{Metadata::graphics});
+  auto ciX = ContainerIterator<Real>(pmb->real_containers.Get(),{Metadata::Graphics});
   for(int ib=0; ib<pm->nbtotal; ib++) {
     xdmf << "    <Grid GridType=\"Uniform\" Name=\""<<ib<<"\">" << std::endl;
     xdmf << blockTopology;
@@ -230,7 +230,7 @@ void ATHDF5Output::genXDMF(std::string hdfFile, Mesh *pm) {
     dims[3] = nx1;
     dims[4] = 1;
     for (auto &v : ciX.vars) {
-      const int vlen = v->GetDim4();
+      const int vlen = v->GetDim(4);
       dims[4] = vlen;
       std::string name = v->label();
       writeXdmfSlabVariableRef(xdmf, name, hdfFile,
@@ -416,11 +416,11 @@ void ATHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
   status = H5Dclose(myDSet);
 
   // allocate space for largest size variable
-  auto ciX = ContainerIterator<Real>(pm->pblock->real_containers.Get(),{Metadata::graphics});
+  auto ciX = ContainerIterator<Real>(pm->pblock->real_containers.Get(),{Metadata::Graphics});
   size_t maxV = 3;
   hsize_t sumDim4AllVars = 0;
   for (auto &v : ciX.vars) {
-    const size_t vlen = v->GetDim4();
+    const size_t vlen = v->GetDim(4);
     sumDim4AllVars += vlen;
     maxV = (maxV<vlen?vlen:maxV);
   }
@@ -509,7 +509,7 @@ void ATHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
     const std::string vWriteName = vwrite->label();
     hid_t vLocalSpace, vGlobalSpace;
     pmb = pm->pblock;
-    const hsize_t vlen = vwrite->GetDim4();
+    const hsize_t vlen = vwrite->GetDim(4);
     local_count[4] = global_count[4] = vlen;
 
     if ( vlen == 1) {
@@ -521,7 +521,7 @@ void ATHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
     }
 
     while (pmb != nullptr) { // for every block
-      auto ci = ContainerIterator<Real>(pmb->real_containers.Get(),{Metadata::graphics});
+      auto ci = ContainerIterator<Real>(pmb->real_containers.Get(),{Metadata::Graphics});
       for (auto &v : ci.vars) {
         std::string name=v->label();
         if (name.compare(vWriteName) != 0) {

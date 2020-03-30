@@ -83,11 +83,11 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   params.Add("derefine_tol", derefine_tol);
 
   std::string field_name = "advected";
-  Metadata m({Metadata::cell, Metadata::independent, Metadata::graphics, Metadata::fillGhost});
+  Metadata m({Metadata::Cell, Metadata::Independent, Metadata::Graphics, Metadata::FillGhost});
   pkg->AddField(field_name, m);
 
   field_name = "one_minus_advected";
-  m = Metadata({Metadata::graphics, Metadata::derived, Metadata::oneCopy});
+  m = Metadata({Metadata::Graphics, Metadata::Derived, Metadata::OneCopy});
   pkg->AddField(field_name, m);
 
   field_name = "one_minus_advected_sq";
@@ -186,18 +186,18 @@ Real EstimateTimestep(Container<Real>& rc) {
   int ie = pmb->ie; int je = pmb->je; int ke = pmb->ke;
 
   Real min_dt = std::numeric_limits<Real>::max();
-  AthenaArray<Real> dx(3,pmb->ncells1);
+  ParArrayND<Real> dx("dx",3,pmb->ncells1);
 
   // this is obviously overkill for this constant velocity problem
   for (int k=ks; k<=ke; k++) {
     for (int j=js; j<=je; j++) {
-      AthenaArray<Real> dx0;
-      dx0.InitWithShallowSlice(dx, 2, 0, 1);
-      pmb->pcoord->CenterWidth1(k, j, is, ie, dx0);
-      dx0.InitWithShallowSlice(dx, 2, 1, 1);
-      pmb->pcoord->CenterWidth2(k, j, is, ie, dx0);
-      dx0.InitWithShallowSlice(dx, 2, 2, 1);
-      pmb->pcoord->CenterWidth3(k, j, is, ie, dx0);
+      ParArrayND<Real> dx0[3];
+      //dx0.InitWithShallowSlice(dx, 2, 0, 1);
+      pmb->pcoord->CenterWidth1(k, j, is, ie, dx0[0]);
+      //dx0.InitWithShallowSlice(dx, 2, 1, 1);
+      pmb->pcoord->CenterWidth2(k, j, is, ie, dx0[1]);
+      //dx0.InitWithShallowSlice(dx, 2, 2, 1);
+      pmb->pcoord->CenterWidth3(k, j, is, ie, dx0[2]);
       for (int i=is; i<=ie; i++) {
         min_dt = std::min(min_dt, dx(0,i)/std::abs(vx));
         min_dt = std::min(min_dt, dx(1,i)/std::abs(vy));
@@ -222,16 +222,16 @@ TaskStatus CalculateFluxes(Container<Real>& rc) {
   const auto& vy  = pkg->Param<Real>("vy");
 
   int maxdim = std::max(std::max(pmb->ncells1, pmb->ncells2), pmb->ncells3);
-  AthenaArray<Real> ql, qr, qltemp;
-  ql.NewAthenaArray(maxdim);
-  qr.NewAthenaArray(maxdim);
-  qltemp.NewAthenaArray(maxdim);
+  ParArrayND<Real> ql, qr, qltemp;
+  ql.NewParArrayND(maxdim);
+  qr.NewParArrayND(maxdim);
+  qltemp.NewParArrayND(maxdim);
 
   // get x-fluxes
   for (int k = ks; k <= ke; k++) {
     for (int j = js; j <= je; j++) {
       // get reconstructed state on faces
-      pmb->precon->DonorCellX1(k, j, is-1, ie+1, q, ql, qr);
+      pmb->precon->DonorCellX1(k, j, is-1, ie+1, q.data, ql, qr);
       if (vx > 0.0) {
         for (int i=is; i<=ie+1; i++) {
           q.flux[0](k,j,i) = ql(i)*vx;
@@ -246,9 +246,9 @@ TaskStatus CalculateFluxes(Container<Real>& rc) {
   // get y-fluxes
   if (pmb->pmy_mesh->ndim>=2) {
     for (int k=ks; k<=ke; k++) {
-      pmb->precon->DonorCellX2(k, js-1, is, ie, q, ql, qr);
+      pmb->precon->DonorCellX2(k, js-1, is, ie, q.data, ql, qr);
       for (int j=js; j<=je+1; j++) {
-        pmb->precon->DonorCellX2(k, j, is, ie, q, qltemp, qr);
+        pmb->precon->DonorCellX2(k, j, is, ie, q.data, qltemp, qr);
         if (vy > 0.0) {
           for (int i=is; i<=ie; i++) {
             q.flux[1](k,j,i) = ql(i)*vy;
@@ -258,7 +258,9 @@ TaskStatus CalculateFluxes(Container<Real>& rc) {
             q.flux[1](k,j,i) = qr(i)*vy;
           }
         }
-        ql.SwapAthenaArray(qltemp);
+        auto temp = ql;
+        ql = qltemp;
+        qltemp = temp;
       }
     }
   }

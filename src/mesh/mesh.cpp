@@ -501,7 +501,7 @@ Mesh::Mesh(ParameterInput *pin,
 
 //----------------------------------------------------------------------------------------
 // Mesh constructor for restarts. Load the restart file
-
+#if 0
 Mesh::Mesh(ParameterInput *pin, IOWrapper& resfile,
     Properties_t &properties, Packages_t &packages, int mesh_test) :
     // public members:
@@ -826,6 +826,7 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper& resfile,
   delete [] offset;
 
 }
+#endif
 
 //----------------------------------------------------------------------------------------
 // destructor

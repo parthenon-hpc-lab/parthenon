@@ -27,7 +27,7 @@
 
 // Athena++ headers
 #include "athena.hpp"
-#include "athena_arrays.hpp"
+#include "parthenon_arrays.hpp"
 #include "bvals_interfaces.hpp"
 
 // MPI headers

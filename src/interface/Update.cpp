@@ -34,19 +34,15 @@ void FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
   ContainerIterator<Real> cout_iter(dudt_cont, {Metadata::Independent});
   int nvars = cout_iter.vars.size();
 
-  ParArrayND<Real> x1area(pmb->ncells1);
-  ParArrayND<Real> x2area0(pmb->ncells1);
-  ParArrayND<Real> x2area1(pmb->ncells1);
-  ParArrayND<Real> x3area0(pmb->ncells1);
-  ParArrayND<Real> x3area1(pmb->ncells1);
-  ParArrayND<Real> vol(pmb->ncells1);
+  ParArrayND<Real> x1area("x1area",pmb->ncells1);
+  ParArrayND<Real> x2area0("x2area0",pmb->ncells1);
+  ParArrayND<Real> x2area1("x2area1",pmb->ncells1);
+  ParArrayND<Real> x3area0("x3area0",pmb->ncells1);
+  ParArrayND<Real> x3area1("x3area1",pmb->ncells1);
+  ParArrayND<Real> vol("vol",pmb->ncells1);
 
-  /*for (int n = 0; n < nvars; n++) {
-    Variable<Real>& dudt = *cout_iter.vars[n];
-    dudt.ZeroClear();
-  }*/
   int ndim = pmb->pmy_mesh->ndim;
-  ParArrayND<Real> du(pmb->ncells1);
+  ParArrayND<Real> du("du",pmb->ncells1);
   for (int k = ks; k <= ke; k++) {
     for (int j = js; j <= je; j++) {
       pmb->pcoord->Face1Area(k, j, is, ie + 1, x1area);
@@ -65,8 +61,7 @@ void FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
         ParArrayND<Real> &x2flux = q.flux[1];
         ParArrayND<Real> &x3flux = q.flux[2];
         Variable<Real> &dudt = *cout_iter.vars[n];
-        for (int l = 0; l < q.GetDim4(); l++) {
-          du.ZeroClear();
+        for (int l = 0; l < q.GetDim(4); l++) {
           for (int i = is; i <= ie; i++) {
             du(i) = (x1area(i + 1) * x1flux(l, k, j, i + 1) -
                      x1area(i) * x1flux(l, k, j, i));
@@ -117,7 +112,7 @@ void UpdateContainer(Container<Real> &in, Container<Real> &dudt_cont,
     Variable<Real> &qin = *cin_iter.vars[n];
     Variable<Real> &dudt = *du_iter.vars[n];
     Variable<Real> &qout = *cout_iter.vars[n];
-    for (int l = 0; l < qout.GetDim4(); l++) {
+    for (int l = 0; l < qout.GetDim(4); l++) {
       for (int k = ks; k <= ke; k++) {
         for (int j = js; j <= je; j++) {
           for (int i = is; i <= ie; i++) {
@@ -148,7 +143,7 @@ void AverageContainers(Container<Real> &c1, Container<Real> &c2,
   for (int n = 0; n < nvars; n++) {
     Variable<Real> &q1 = *c1_iter.vars[n];
     Variable<Real> &q2 = *c2_iter.vars[n];
-    for (int l = 0; l < q1.GetDim4(); l++) {
+    for (int l = 0; l < q1.GetDim(4); l++) {
       for (int k = ks; k <= ke; k++) {
         for (int j = js; j <= je; j++) {
           for (int i = is; i <= ie; i++) {

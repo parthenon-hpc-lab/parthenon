@@ -26,7 +26,7 @@
 #include <cstdint>  // std::int64_t
 
 // Athena++ headers
-#include "athena_arrays.hpp"
+#include "parthenon_arrays.hpp"
 #include <defs.hpp>
 
 namespace parthenon {

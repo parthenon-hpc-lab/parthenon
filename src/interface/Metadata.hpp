@@ -155,73 +155,39 @@ class Metadata {
 
   /// returns a new Metadata instance with set bits,
   /// set sparse_id, and fourth dimension
-<<<<<<< HEAD
-  explicit Metadata(const std::vector<flags>& bits) :
+  explicit Metadata(const std::vector<MetadataFlag>& bits) :
     shape_({1}),
     sparse_id_(-1) {
-    setMultiple(bits);
-=======
-  explicit Metadata(const std::vector<MetadataFlag>& bits) :
-    sparse_id_(-1),
-    shape_({1}) {
     SetMultiple(bits);
->>>>>>> jmm/parthenon-arrays-NDArray
   }
 
   /// returns a metadata with bits and shape set
   explicit Metadata(const std::vector<MetadataFlag>& bits,
                     std::vector<int> shape) :
-<<<<<<< HEAD
-    shape_(shape), 
+    shape_(shape),
     sparse_id_(-1) {
-    setMultiple(bits);
-=======
-    sparse_id_(-1),
-    shape_(shape) {
     SetMultiple(bits);
->>>>>>> jmm/parthenon-arrays-NDArray
   }
 
   /// returns a metadata with bits and sparse id set
   explicit Metadata(const std::vector<MetadataFlag>& bits,
                     const int sparse_id) :
-<<<<<<< HEAD
     shape_({1}),
     sparse_id_(sparse_id) {
-    setMultiple(bits);
-=======
-    sparse_id_(sparse_id),
-    shape_({1}) {
     SetMultiple(bits);
->>>>>>> jmm/parthenon-arrays-NDArray
   }
 
   /// returns a metadata with bits, shape, and sparse ID set
   explicit Metadata(const std::vector<MetadataFlag>& bits,
                     const int sparse_id,
                     std::vector<int> shape) :
-<<<<<<< HEAD
     shape_(shape),
     sparse_id_(sparse_id) {
-    setMultiple(bits);
-  }
-
-  /// copy constructor
-  Metadata(const Metadata&m) : theBits_(m.theBits_),
-                               shape_(m.shape_),
-                               associated_(m.associated_),
-                               sparse_id_(m.sparse_id_) { }
-
-  void setFlags(std::bitset<_MAXBITS_> bitflags) { theBits_ = bitflags; }
-=======
-    sparse_id_(sparse_id),
-    shape_(shape) {
     SetMultiple(bits);
   }
 
   // Static routines
   static MetadataFlag AllocateNewFlag(std::string &&name);
->>>>>>> jmm/parthenon-arrays-NDArray
 
   // Individual flag setters
   void Set(const MetadataFlag f) { DoBit(f, true); }             ///< Set specific bit

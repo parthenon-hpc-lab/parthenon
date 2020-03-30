@@ -56,14 +56,15 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
                      Properties_t& properties,
                      Packages_t& packages,
                      int igflag, bool ref_flag) :
+    exec_space(DevSpace()),
     pmy_mesh(pm), loc(iloc), block_size(input_block),
     gid(igid), lid(ilid), gflag(igflag), nuser_out_var(), 
     properties(properties), packages(packages),
     prev(nullptr), next(nullptr),
     new_block_dt_{}, new_block_dt_hyperbolic_{}, new_block_dt_parabolic_{},
     new_block_dt_user_{},
-    nreal_user_meshblock_data_(), nint_user_meshblock_data_(), cost_(1.0),
-    exec_space(DevSpace()) {
+    nreal_user_meshblock_data_(), nint_user_meshblock_data_(),
+    cost_(1.0) {
   // initialize grid indices
   is = NGHOST;
   ie = is + block_size.nx1 - 1;
@@ -181,7 +182,7 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
     pmr = std::make_unique<MeshRefinement>(this, pin);
     // This is very redundant, I think, but necessary for now
     for (int n=0; n<nindependent; n++) {
-      pmr->AddToRefinement(ci.vars[n].get(), ci.vars[n]->coarse_s);
+      pmr->AddToRefinement(&(ci.vars[n]->data), ci.vars[n]->coarse_s);
     }
   }
 
@@ -192,7 +193,7 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
 
 //----------------------------------------------------------------------------------------
 // MeshBlock constructor for restarts
-
+#if 0
 MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
                      Properties_t& properties, Packages_t& packages,
                      LogicalLocation iloc, RegionSize input_block,
@@ -282,6 +283,7 @@ MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
 
   return;
 }
+#endif
 
 //----------------------------------------------------------------------------------------
 // MeshBlock destructor
@@ -434,7 +436,7 @@ void MeshBlock::StopTimeMeasurement() {
 
 
 void MeshBlock::RegisterMeshBlockData(Variable<Real> &pvar_cc) {
-  vars_cc_.push_back(pvar_cc);
+  vars_cc_.push_back(pvar_cc.data);
   return;
 }
 

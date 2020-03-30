@@ -102,7 +102,7 @@ class ParArrayND {
   ParArrayND<T,Layout> &operator= (ParArrayND<T,Layout> &&t) = default;
   
   // functions to get array dimensions
-  KOKKOS_INLINE_FUNCTION int GetDim(const int i) {
+  KOKKOS_INLINE_FUNCTION int GetDim(const int i) const {
     assert( 0 < i && i <= 6 && "ParArrayNDs are max 6D" );
     return d6d_.extent_int(6-i);
   }

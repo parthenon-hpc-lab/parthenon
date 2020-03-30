@@ -83,7 +83,7 @@ class SparseVariable {
   ///create a new variable
   void Add(int sparse_index);
 
-  bool isSet(const Metadata::flags flag) { return _metadata.isSet(flag); }
+  bool isSet(const MetadataFlag flag) { return _metadata.IsSet(flag); }
 
   /// return information string
   std::string info() {

@@ -138,7 +138,7 @@ namespace PiCalculator {
     }
     /** TODO(pgrete) This is what it should should like using the transparent
       * parallel_for wrapper of the MeshBlock.
-      * Unfortunely, the current Container/Variable/AthenaArray combination
+      * Unfortunely, the current Container/Variable/ParArrayND combination
       * won't work this way and we should discuss how to proceed before
       * starting a bigger refactoring of the the classes above.
 

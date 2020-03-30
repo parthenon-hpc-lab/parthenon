@@ -38,7 +38,7 @@ using parthenon::Metadata;
 using parthenon::Params;
 using parthenon::Container;
 using parthenon::ParameterInput;
-using parthenon::AthenaArray;
+using parthenon::ParArrayND;
 using parthenon::Integrator;
 using parthenon::BlockStageNamesIntegratorTaskFunc;
 using parthenon::BlockStageNamesIntegratorTask;

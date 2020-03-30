@@ -39,7 +39,7 @@ void Reconstruction::PiecewiseLinearX1(
   // set work arrays to shallow copies of scratch arrays
   ParArrayND<Real> &qc = scr1_ni_, &dql = scr2_ni_, &dqr = scr3_ni_,
                    &dqm = scr4_ni_;
-  const int nu = q.GetDim(3) - 1;
+  const int nu = q.GetDim(4) - 1;
 
   // compute L/R slopes for each variable
   for (int n=0; n<=nu; ++n) {
@@ -116,7 +116,7 @@ void Reconstruction::PiecewiseLinearX2(
   // set work arrays to shallow copies of scratch arrays
   ParArrayND<Real> &qc = scr1_ni_, &dql = scr2_ni_,
                    &dqr = scr3_ni_, &dqm = scr4_ni_;
-  const int nu = q.GetDim(3) - 1;
+  const int nu = q.GetDim(4) - 1;
 
   // compute L/R slopes for each variable
   for (int n=0; n<=nu; ++n) {
@@ -192,7 +192,7 @@ void Reconstruction::PiecewiseLinearX3(
   // set work arrays to shallow copies of scratch arrays
   ParArrayND<Real> &qc = scr1_ni_, &dql = scr2_ni_, &dqr = scr3_ni_,
                    &dqm = scr4_ni_;
-  const int nu = q.GetDim(3) - 1;
+  const int nu = q.GetDim(4) - 1;
 
   // compute L/R slopes for each variable
   for (int n=0; n<=nu; ++n) {

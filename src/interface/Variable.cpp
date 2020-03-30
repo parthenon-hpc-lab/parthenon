@@ -17,7 +17,8 @@
 
 
 #include "bvals/cc/bvals_cc.hpp"
-#include "athena_arrays.hpp"
+#include "mesh/mesh.hpp"
+#include "parthenon_arrays.hpp"
 #include "Variable.hpp"
 
 namespace parthenon {
@@ -59,7 +60,7 @@ Variable<T>::Variable(const Variable<T> &src,
                       MeshBlock *pmb) :
   mpiStatus(false), _dims(src._dims), _m(src._m), _label(src._label)  {
   data = ParArrayND<T>(_label, _dims[5], _dims[4], _dims[3],
-                   _dims[2], _dims[1], _dims[2];
+                       _dims[2], _dims[1], _dims[2]);
   if (_m.IsSet(Metadata::FillGhost)) {
     // Ghost cells are communicated, so make shallow copies
     // of communication arrays and swap out the boundary array
@@ -94,20 +95,20 @@ void Variable<T>::allocateComms(MeshBlock *pmb) {
   if ( ! pmb ) return;
 
   // set up fluxes
-  if (_m.isSet(Metadata::Independent)) {
-    flux[0] = ParArrayND<T>(_label + ".flux0", _dim[5], _dim[4], _dim[3], _dim[2], _dim[1], _dim[0]+1);
+  if (isSet(Metadata::Independent)) {
+    flux[0] = ParArrayND<T>(_label + ".flux0", _dims[5], _dims[4], _dims[3], _dims[2], _dims[1], _dims[0]+1);
     if (pmb->pmy_mesh->ndim >= 2)
-      flux[1] = ParArrayND<T>(_label + ".flux1", _dim[5], _dim[4], _dim[3], _dim[2], _dim[1]+1, _dim[0]);
+      flux[1] = ParArrayND<T>(_label + ".flux1", _dims[5], _dims[4], _dims[3], _dims[2], _dims[1]+1, _dims[0]);
     if (pmb->pmy_mesh->ndim >= 3)
-      flux[2] = ParArrayND<T>(_label + ".flux2", _dim[5], _dim[4], _dim[3], _dim[2]+1, _dim[1], _dim[0]);
+      flux[2] = ParArrayND<T>(_label + ".flux2", _dims[5], _dims[4], _dims[3], _dims[2]+1, _dims[1], _dims[0]);
   }
   // set up communication variables
   if (pmb->pmy_mesh->multilevel)
-    coarse_s = new ParArrayND<T>(_label+".coarse", _dim[5], _dim[4], _dim[3], 
+    coarse_s = new ParArrayND<T>(_label+".coarse", _dims[5], _dims[4], _dims[3], 
                                    pmb->ncc3, pmb->ncc2, pmb->ncc1);
 
   // Create the boundary object
-  vbvar = new CellCenteredBoundaryVariable(pmb, data, coarse_s, flux);
+  vbvar = new CellCenteredBoundaryVariable(pmb, &data, coarse_s, flux);
 
   // enroll CellCenteredBoundaryVariable object
   vbvar->bvar_index = pmb->pbval->bvars.size();
@@ -122,7 +123,7 @@ void Variable<T>::allocateComms(MeshBlock *pmb) {
 
 // TODO(jcd): clean these next two info routines up
 template <typename T>
-std::string FaceVariable::info() {
+std::string FaceVariable<T>::info() {
   char tmp[100] = "";
 
   // first add label
@@ -146,7 +147,7 @@ std::string FaceVariable::info() {
 }
 
 template <typename T>
-std::string EdgeVariable::info() {
+std::string EdgeVariable<T>::info() {
     char tmp[100] = "";
 
     // first add label

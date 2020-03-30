@@ -49,7 +49,7 @@ void Reconstruction::PiecewiseParabolicX1(
     const int k, const int j, const int il, const int iu,
     const ParArrayND<Real> &q,
     ParArrayND<Real> &ql, ParArrayND<Real> &qr) {
-  const int nu = q.GetDim4() - 1;
+  const int nu = q.GetDim(4) - 1;
 
   // CS08 constant used in second derivative limiter, >1 , independent of h
   const Real C2 = 1.25;
@@ -300,7 +300,7 @@ void Reconstruction::PiecewiseParabolicX2(
     const int k, const int j, const int il, const int iu,
     const ParArrayND<Real> &q,
     ParArrayND<Real> &ql, ParArrayND<Real> &qr) {
-  const int nu = q.GetDim4() - 1;
+  const int nu = q.GetDim(4) - 1;
   // CS08 constant used in second derivative limiter, >1 , independent of h
   const Real C2 = 1.25;
 
@@ -546,7 +546,7 @@ void Reconstruction::PiecewiseParabolicX3(
     const int k, const int j, const int il, const int iu,
     const ParArrayND<Real> &q,
     ParArrayND<Real> &ql, ParArrayND<Real> &qr) {
-  const int nu = q.GetDim4() - 1;
+  const int nu = q.GetDim(4) - 1;
   // CS08 constant used in second derivative limiter, >1 , independent of h
   const Real C2 = 1.25;
 

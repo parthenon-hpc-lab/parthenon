@@ -92,9 +92,9 @@ int CheckAllRefinement(Container<Real>& rc) {
 int FirstDerivative(Variable<Real>& q,
                     const Real refine_criteria, const Real derefine_criteria) {
   Real maxd = 0.0;
-  const int dim1 = q.GetDim1();
-  const int dim2 = q.GetDim2();
-  const int dim3 = q.GetDim3();
+  const int dim1 = q.GetDim(1);
+  const int dim2 = q.GetDim(2);
+  const int dim3 = q.GetDim(3);
   int kl=0, ku=0, jl=0, ju=0, il=0, iu=0;
   if (dim3 > 1) {
     kl = 1;

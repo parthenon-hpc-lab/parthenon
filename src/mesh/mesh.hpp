@@ -217,7 +217,7 @@ class MeshBlock {
   Real new_block_dt_, new_block_dt_hyperbolic_, new_block_dt_parabolic_,
     new_block_dt_user_;
   int nreal_user_meshblock_data_, nint_user_meshblock_data_;
-  std::vector<std::reference_wrapper<Variable<Real>>> vars_cc_;
+  std::vector<std::reference_wrapper<ParArrayND<Real>>> vars_cc_;
   std::vector<std::reference_wrapper<FaceField>> vars_fc_;
 
   // functions

@@ -49,7 +49,7 @@ CellCenteredBoundaryVariable::CellCenteredBoundaryVariable(
     MeshBlock *pmb, ParArrayND<Real> *var, ParArrayND<Real> *coarse_var,
     ParArrayND<Real> *var_flux)
     : BoundaryVariable(pmb), var_cc(var), coarse_buf(coarse_var), x1flux(var_flux[X1DIR]),
-      x2flux(var_flux[X2DIR]), x3flux(var_flux[X3DIR]), nl_(0), nu_(var->GetDim4() -1) {
+      x2flux(var_flux[X2DIR]), x3flux(var_flux[X3DIR]), nl_(0), nu_(var->GetDim(4) -1) {
   // CellCenteredBoundaryVariable should only be used w/ 4D or 3D (nx4=1) ParArrayND
   // For now, assume that full span of 4th dim of input ParArrayND should be used:
   // ---> get the index limits directly from the input ParArrayND
@@ -57,7 +57,7 @@ CellCenteredBoundaryVariable::CellCenteredBoundaryVariable(
   if (nu_ < 0) {
     std::stringstream msg;
     msg << "### FATAL ERROR in CellCenteredBoundaryVariable constructor" << std::endl
-        << "An 'ParArrayND<Real> *var' of nx4_ = " << var->GetDim4() << " was passed\n"
+        << "An 'ParArrayND<Real> *var' of nx4_ = " << var->GetDim(4) << " was passed\n"
         << "Should be nx4 >= 1 (likely uninitialized)." << std::endl;
     ATHENA_ERROR(msg);
   }

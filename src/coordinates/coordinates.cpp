@@ -584,7 +584,10 @@ void Coordinates::LaplacianX1(const ParArrayND<Real> &s, ParArrayND<Real> &delta
       delta_s(i) = (s(n,k,j-1,i) - 2.0*s(n,k,j,i) + s(n,k,j+1,i)) / (dx2f(j)*dx2f(j));
     }
   } else {
-    delta_s.ZeroClear();
+#pragma omp simd
+    for(int i=il; i<=iu; ++i) {
+      delta_s(i) = 0.0;
+    }
   }
 }
 
@@ -619,7 +622,16 @@ void Coordinates::LaplacianX1All(const ParArrayND<Real> &s, ParArrayND<Real> &de
       }
     }
   } else {
-    delta_s.ZeroClear();
+    for (int n=nl; n<=nu; ++n) {
+      for (int k=kl; k<=ku; ++k) {
+        for (int j=jl; j<=ju; ++j) {
+#pragma omp simd
+          for (int i=il; i<=iu; ++i) {
+            delta_s(n,k,j,i) = 0.0;
+          }
+        }
+      }
+    }
   }
   return;
 }

@@ -37,30 +37,12 @@ class ContainerIterator {
 
   /// initializes the iterator with a container and a flag to match
   /// @param c the container on which you want the iterator
-<<<<<<< HEAD
   /// @param flagVector: a vector of Metadata::flags that you want to match
-  ContainerIterator<T>(Container<T>& c, const std::vector<Metadata::flags> &flagVector) {
+  ContainerIterator<T>(Container<T>& c, const std::vector<MetadataFlag> &flagVector) {
     _allVars = c.GetVariableVector();
     for (auto & svar : c.GetSparseVector()) {
       VariableVector<T>& svec = svar->GetVector();
       _allVars.insert(_allVars.end(), svec.begin(), svec.end());
-=======
-  /// @param flagVector: a vector of MetadataFlag that you want to match
-  ContainerIterator<T>(Container<T>& c, const std::vector<MetadataFlag> &flagVector) {
-    _allVars = c.allVars();
-    for (auto& field : c.sparseVars().getCellVarVectors()) {
-      int idx=0;
-      auto& IM = c.sparseVars().GetIndexMap(field.first);
-      for (auto& v : field.second) {
-        if ( flagVector[0] == Metadata::Graphics) {
-          _allVars.push_back(std::make_shared<Variable<T>>(
-              v->label() + "_" + PropertiesInterface::GetLabelFromID(IM[idx]), *v));
-          idx++;
-        } else {
-          _allVars.push_back(v);
-        }
-      }
->>>>>>> jmm/parthenon-arrays-NDArray
     }
     // faces not active yet    _allFaceVars = c.faceVars();
     // edges not active yet    _allEdgeVars = c.edgeVars();
@@ -87,8 +69,8 @@ class ContainerIterator {
 
  private:
   uint64_t _mask;
-  std::vector<FaceVariable *> _allFaceVars = {};
-  std::vector<EdgeVariable *> _allEdgeVars = {};
+  FaceVector<T> _allFaceVars = {};
+  //EdgeVector<T> _allEdgeVars = {};
   VariableVector<T> _allVars;
   void _emptyVars() {
     vars.clear();

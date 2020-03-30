@@ -34,7 +34,7 @@ void ApplyBoundaryConditions(Container<Real>& rc) {
         case BoundaryFlag::outflow: {
             for (int n=0; n<nvars; n++) {
                 Variable<Real>& q = *citer.vars[n];
-                for (int l=0; l<q.GetDim4(); l++) {
+                for (int l=0; l<q.GetDim(4); l++) {
                     for (int k=ks; k<=ke; k++) {
                         for (int j=0; j<jmax; j++) {
                             for (int i=0; i<is; i++) {
@@ -50,7 +50,7 @@ void ApplyBoundaryConditions(Container<Real>& rc) {
             for (int n=0; n<nvars; n++) {
                 Variable<Real>& q = *citer.vars[n];
                 bool vec = q.metadata().IsSet(Metadata::Vector);
-                for (int l=0; l<q.GetDim4(); l++) {
+                for (int l=0; l<q.GetDim(4); l++) {
                     Real reflect = (l==0 && vec ? -1.0 : 1.0);
                     for (int k=ks; k<=ke; k++) {
                         for (int j=0; j<jmax; j++) {
@@ -72,7 +72,7 @@ void ApplyBoundaryConditions(Container<Real>& rc) {
         case BoundaryFlag::outflow: {
             for (int n=0; n<nvars; n++) {
                 Variable<Real>& q = *citer.vars[n];
-                for (int l=0; l<q.GetDim4(); l++) {
+                for (int l=0; l<q.GetDim(4); l++) {
                     for (int k=ks; k<=ke; k++) {
                         for (int j=0; j<jmax; j++) {
                             for (int i=ie+1; i<imax; i++) {
@@ -88,7 +88,7 @@ void ApplyBoundaryConditions(Container<Real>& rc) {
             for (int n=0; n<nvars; n++) {
                 Variable<Real>& q = *citer.vars[n];
                 bool vec = q.metadata().IsSet(Metadata::Vector);
-                for (int l=0; l<q.GetDim4(); l++) {
+                for (int l=0; l<q.GetDim(4); l++) {
                     Real reflect = (l==0 && vec ? -1.0 : 1.0);
                     for (int k=ks; k<=ke; k++) {
                         for (int j=0; j<jmax; j++) {
@@ -114,7 +114,7 @@ void ApplyBoundaryConditions(Container<Real>& rc) {
         case BoundaryFlag::outflow: {
             for (int n=0; n<nvars; n++) {
                 Variable<Real>& q = *citer.vars[n];
-                for (int l=0; l<q.GetDim4(); l++) {
+                for (int l=0; l<q.GetDim(4); l++) {
                     for (int k=ks; k<=ke; k++) {
                         for (int j=0; j<js; j++) {
                             for (int i=0; i<imax; i++) {
@@ -130,7 +130,7 @@ void ApplyBoundaryConditions(Container<Real>& rc) {
             for (int n=0; n<nvars; n++) {
                 Variable<Real>& q = *citer.vars[n];
                 bool vec = q.metadata().IsSet(Metadata::Vector);
-                for (int l=0; l<q.GetDim4(); l++) {
+                for (int l=0; l<q.GetDim(4); l++) {
                     Real reflect = (l==1 && vec ? -1.0 : 1.0);
                     for (int k=ks; k<=ke; k++) {
                         for (int j=0; j<js; j++) {
@@ -152,7 +152,7 @@ void ApplyBoundaryConditions(Container<Real>& rc) {
         case BoundaryFlag::outflow: {
             for (int n=0; n<nvars; n++) {
                 Variable<Real>& q = *citer.vars[n];
-                for (int l=0; l<q.GetDim4(); l++) {
+                for (int l=0; l<q.GetDim(4); l++) {
                     for (int k=ks; k<=ke; k++) {
                         for (int j=je+1; j<jmax; j++) {
                             for (int i=0; i<imax; i++) {
@@ -168,7 +168,7 @@ void ApplyBoundaryConditions(Container<Real>& rc) {
             for (int n=0; n<nvars; n++) {
                 Variable<Real>& q = *citer.vars[n];
                 bool vec = q.metadata().IsSet(Metadata::Vector);
-                for (int l=0; l<q.GetDim4(); l++) {
+                for (int l=0; l<q.GetDim(4); l++) {
                     Real reflect = (l==1 && vec ? -1.0 : 1.0);
                     for (int k=ks; k<=ke; k++) {
                         for (int j=je+1; j<jmax; j++) {
@@ -195,7 +195,7 @@ void ApplyBoundaryConditions(Container<Real>& rc) {
         case BoundaryFlag::outflow: {
             for (int n=0; n<nvars; n++) {
                 Variable<Real>& q = *citer.vars[n];
-                for (int l=0; l<q.GetDim4(); l++) {
+                for (int l=0; l<q.GetDim(4); l++) {
                     for (int k=0; k<ks; k++) {
                         for (int j=0; j<jmax; j++) {
                             for (int i=0; i<imax; i++) {
@@ -211,7 +211,7 @@ void ApplyBoundaryConditions(Container<Real>& rc) {
             for (int n=0; n<nvars; n++) {
                 Variable<Real>& q = *citer.vars[n];
                 bool vec = q.metadata().IsSet(Metadata::Vector);
-                for (int l=0; l<q.GetDim4(); l++) {
+                for (int l=0; l<q.GetDim(4); l++) {
                     Real reflect = (l==2 && vec ? -1.0 : 1.0);
                     for (int k=0; k<ks; k++) {
                         for (int j=0; j<jmax; j++) {
@@ -233,7 +233,7 @@ void ApplyBoundaryConditions(Container<Real>& rc) {
         case BoundaryFlag::outflow: {
             for (int n=0; n<nvars; n++) {
                 Variable<Real>& q = *citer.vars[n];
-                for (int l=0; l<q.GetDim4(); l++) {
+                for (int l=0; l<q.GetDim(4); l++) {
                     for (int k=ke+1; k<kmax; k++) {
                         for (int j=0; j<jmax; j++) {
                             for (int i=0; i<imax; i++) {
@@ -249,7 +249,7 @@ void ApplyBoundaryConditions(Container<Real>& rc) {
             for (int n=0; n<nvars; n++) {
                 Variable<Real>& q = *citer.vars[n];
                 bool vec = q.metadata().IsSet(Metadata::Vector);
-                for (int l=0; l<q.GetDim4(); l++) {
+                for (int l=0; l<q.GetDim(4); l++) {
                     Real reflect = (l==2 && vec ? -1.0 : 1.0);
                     for (int k=ke+1; k<kmax; k++) {
                         for (int j=0; j<jmax; j++) {

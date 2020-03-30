@@ -155,7 +155,7 @@ parthenon::TaskStatus FaceFields::fill_faces(parthenon::MeshBlock* pmb) {
   int ie = pmb->ie; int je = pmb->je; int ke = pmb->ke;
   auto& face = rc.GetFace("f.f.face_averaged_value");
   // fill faces
-  for (int e = 0; e < face.Get(1).GetDim4(); e++) {
+  for (int e = 0; e < face.Get(1).GetDim(4); e++) {
     int sign = (e == 0) ? -1 : 1;
     for (int k=ks; k<=ke; k++) {
       Real z = pcoord->x3v(k);
@@ -168,7 +168,7 @@ parthenon::TaskStatus FaceFields::fill_faces(parthenon::MeshBlock* pmb) {
       }
     }
   }
-  for (int e = 0; e < face.Get(2).GetDim4(); e++) {
+  for (int e = 0; e < face.Get(2).GetDim(4); e++) {
     int sign = (e == 0) ? -1 : 1;
     for (int k=ks; k<=ke; k++) {
       Real z = pcoord->x3v(k);
@@ -181,7 +181,7 @@ parthenon::TaskStatus FaceFields::fill_faces(parthenon::MeshBlock* pmb) {
       }
     }
   }
-  for (int e = 0; e < face.Get(3).GetDim4(); e++) {
+  for (int e = 0; e < face.Get(3).GetDim(4); e++) {
     int sign = (e == 0) ? -1 : 1;
     for (int k=ks; k<=ke+1; k++) {
       Real z= pcoord->x3f(k);

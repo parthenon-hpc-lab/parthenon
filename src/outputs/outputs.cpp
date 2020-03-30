@@ -52,7 +52,7 @@
 // -----------------------------------
 // - outputs.cpp, OutputType:LoadOutputData() (below): conditionally add new OutputData
 // node to linked list, depending on the user-input 'variable' string. Provide direction
-// on how to slice a possible 4D source AthenaArray into separate 3D arrays; automatically
+// on how to slice a possible 4D source ParArrayND into separate 3D arrays; automatically
 // enrolls quantity in vtk.cpp, formatted_table.cpp outputs.
 
 // - athena_hdf5.cpp, ATHDF5Output::WriteOutputFile(): need to allocate space for the new
@@ -100,7 +100,7 @@
 
 // Athena++ headers
 #include "athena.hpp"
-#include "athena_arrays.hpp"
+#include "parthenon_arrays.hpp"
 #include "coordinates/coordinates.hpp"
 #include "mesh/mesh.hpp"
 #include "parameter_input.hpp"
@@ -500,14 +500,14 @@ bool OutputType::SliceOutputData(MeshBlock *pmb, int dim) {
     pnew = new OutputData;
     pnew->type = pdata->type;
     pnew->name = pdata->name;
-    int nx4 = pdata->data.GetDim4();
-    int nx3 = pdata->data.GetDim3();
-    int nx2 = pdata->data.GetDim2();
-    int nx1 = pdata->data.GetDim1();
+    int nx4 = pdata->data.GetDim(4);
+    int nx3 = pdata->data.GetDim(3);
+    int nx2 = pdata->data.GetDim(2);
+    int nx1 = pdata->data.GetDim(1);
 
     // Loop over variables and dimensions, extract slice
     if (dim == 3) {
-      pnew->data.NewAthenaArray(nx4, 1, nx2, nx1);
+      pnew->data.NewParArrayND(nx4, 1, nx2, nx1);
       for (int n=0; n<nx4; ++n) {
         for (int j=out_js; j<=out_je; ++j) {
           for (int i=out_is; i<=out_ie; ++i) {
@@ -516,7 +516,7 @@ bool OutputType::SliceOutputData(MeshBlock *pmb, int dim) {
         }
       }
     } else if (dim == 2) {
-      pnew->data.NewAthenaArray(nx4,nx3,1,nx1);
+      pnew->data.NewParArrayND(nx4,nx3,1,nx1);
       for (int n=0; n<nx4; ++n) {
         for (int k=out_ks; k<=out_ke; ++k) {
           for (int i=out_is; i<=out_ie; ++i) {
@@ -525,7 +525,7 @@ bool OutputType::SliceOutputData(MeshBlock *pmb, int dim) {
         }
       }
     } else {
-      pnew->data.NewAthenaArray(nx4,nx3,nx2,1);
+      pnew->data.NewParArrayND(nx4,nx3,nx2,1);
       for (int n=0; n<nx4; ++n) {
         for (int k=out_ks; k<=out_ke; ++k) {
           for (int j=out_js; j<=out_je; ++j) {
@@ -565,14 +565,14 @@ void OutputType::SumOutputData(MeshBlock* pmb, int dim) {
     OutputData *pnew = new OutputData;
     pnew->type = pdata->type;
     pnew->name = pdata->name;
-    int nx4 = pdata->data.GetDim4();
-    int nx3 = pdata->data.GetDim3();
-    int nx2 = pdata->data.GetDim2();
-    int nx1 = pdata->data.GetDim1();
+    int nx4 = pdata->data.GetDim(4);
+    int nx3 = pdata->data.GetDim(3);
+    int nx2 = pdata->data.GetDim(2);
+    int nx1 = pdata->data.GetDim(1);
 
     // Loop over variables and dimensions, sum over specified dimension
     if (dim == 3) {
-      pnew->data.NewAthenaArray(nx4, 1, nx2, nx1);
+      pnew->data.NewParArrayND(nx4, 1, nx2, nx1);
       for (int n=0; n<nx4; ++n) {
         for (int k=out_ks; k<=out_ke; ++k) {
           for (int j=out_js; j<=out_je; ++j) {
@@ -583,7 +583,7 @@ void OutputType::SumOutputData(MeshBlock* pmb, int dim) {
         }
       }
     } else if (dim == 2) {
-      pnew->data.NewAthenaArray(nx4, nx3, 1, nx1);
+      pnew->data.NewParArrayND(nx4, nx3, 1, nx1);
       for (int n=0; n<nx4; ++n) {
         for (int k=out_ks; k<=out_ke; ++k) {
           for (int j=out_js; j<=out_je; ++j) {
@@ -594,7 +594,7 @@ void OutputType::SumOutputData(MeshBlock* pmb, int dim) {
         }
       }
     } else {
-      pnew->data.NewAthenaArray(nx4, nx3, nx2, 1);
+      pnew->data.NewParArrayND(nx4, nx3, nx2, 1);
       for (int n=0; n<nx4; ++n) {
         for (int k=out_ks; k<=out_ke; ++k) {
           for (int j=out_js; j<=out_je; ++j) {
@@ -626,10 +626,10 @@ void OutputType::SumOutputData(MeshBlock* pmb, int dim) {
 
 
 //----------------------------------------------------------------------------------------
-//! \fn void OutputType::CalculateCartesianVector(AthenaArray<Real> &src,
-//                                AthenaArray<Real> &dst, Coordinates *pco)
+//! \fn void OutputType::CalculateCartesianVector(ParArrayND<Real> &src,
+//                                ParArrayND<Real> &dst, Coordinates *pco)
 //  \brief Convert vectors in curvilinear coordinates into Cartesian
 
-void OutputType::CalculateCartesianVector(AthenaArray<Real> &src, AthenaArray<Real> &dst,
+void OutputType::CalculateCartesianVector(ParArrayND<Real> &src, ParArrayND<Real> &dst,
                                           Coordinates *pco) {}
 }

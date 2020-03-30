@@ -24,7 +24,6 @@
 
 // Athena++ headers
 #include "athena.hpp"
-#include "athena_arrays.hpp"
 #include "gl_quadrature.hpp"
 
 namespace parthenon {
