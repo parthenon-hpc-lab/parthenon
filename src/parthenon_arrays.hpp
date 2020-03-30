@@ -66,7 +66,7 @@ class ParArrayND {
   ParArrayND(const std::string& label, int nx1)
     : d6d_(label,1,1,1,1,1,nx1)
   { }
-  ParArrayND(const Kokkos::View<T******,Layout,DevSpace>& v)
+  explicit ParArrayND(const Kokkos::View<T******,Layout,DevSpace>& v)
     : d6d_(v)
   {}
 
