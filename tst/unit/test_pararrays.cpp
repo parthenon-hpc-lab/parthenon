@@ -189,7 +189,7 @@ TEST_CASE("ParArrayND","[ParArrayND],[Kokkos]") {
             n++;
           }
         }
-        int sum_device;
+        int sum_device = 0;
         using policy = Kokkos::MDRangePolicy<Kokkos::Rank<2>>;
         Kokkos::parallel_reduce(policy({0,0}, {N2,N1}),
                                 KOKKOS_LAMBDA(const int j, const int i,
@@ -200,7 +200,7 @@ TEST_CASE("ParArrayND","[ParArrayND],[Kokkos]") {
         REQUIRE( sum_host == sum_device );
         AND_THEN("We can get a raw 2d subview and it works the same way.") {
         auto v2d = a.Get<2>();
-        int sum_device;
+        int sum_device = 0;
         using policy = Kokkos::MDRangePolicy<Kokkos::Rank<2>>;
         Kokkos::parallel_reduce(policy({0,0}, {N2,N1}),
                                 KOKKOS_LAMBDA(const int j, const int i,
@@ -216,7 +216,7 @@ TEST_CASE("ParArrayND","[ParArrayND],[Kokkos]") {
         // auto b = a.SliceD<3>(std::make_pair(1,3));
         auto b = a.SliceD<3>(1,2); // indx,nvar
         AND_THEN("slices have correct values.") {
-          int total_errors;
+          int total_errors = 0;
           using policy = Kokkos::MDRangePolicy<Kokkos::Rank<3>>;
           Kokkos::parallel_reduce(policy({0,0,0}, {2,N2,N1}),
                                   KOKKOS_LAMBDA(const int k,
