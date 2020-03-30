@@ -136,6 +136,13 @@ template <class T> void profile_wrapper_3d(T loop_pattern) {
 
 TEST_CASE("ParArrayND","[ParArrayND],[Kokkos]") {
 
+  GIVEN("A ParArrayND allocated with no label") {
+    ParArrayND<Real> a(PARARRAY_TEMP,5,4,3,2);
+    THEN("The label is the correct default") {
+      REQUIRE( a.label().find("ParArrayND") != std::string::npos );
+    }
+  }
+
   GIVEN("A ParArrayND with some dimensions") {
     constexpr int N1 = 2;
     constexpr int N2 = 3;
@@ -169,7 +176,7 @@ TEST_CASE("ParArrayND","[ParArrayND],[Kokkos]") {
       }
       Kokkos::deep_copy(view,mirror);
       THEN("the sum of the lower three indices is correct") {
-        int sum_device;
+        int sum_device = 0;
         using policy = Kokkos::MDRangePolicy<Kokkos::Rank<3>>;
         Kokkos::parallel_reduce(policy({0,0,0}, {N3,N2,N1}),
                                 KOKKOS_LAMBDA(const int k, const int j,
@@ -199,16 +206,16 @@ TEST_CASE("ParArrayND","[ParArrayND],[Kokkos]") {
                                 sum_device);
         REQUIRE( sum_host == sum_device );
         AND_THEN("We can get a raw 2d subview and it works the same way.") {
-        auto v2d = a.Get<2>();
-        int sum_device = 0;
-        using policy = Kokkos::MDRangePolicy<Kokkos::Rank<2>>;
-        Kokkos::parallel_reduce(policy({0,0}, {N2,N1}),
-                                KOKKOS_LAMBDA(const int j, const int i,
-                                              int& update) {
-                                  update += v2d(j,i);
-                                },
-                                sum_device);
-        REQUIRE( sum_host == sum_device );
+          auto v2d = a.Get<2>();
+          int sum_device = 0;
+          using policy = Kokkos::MDRangePolicy<Kokkos::Rank<2>>;
+          Kokkos::parallel_reduce(policy({0,0}, {N2,N1}),
+                                  KOKKOS_LAMBDA(const int j, const int i,
+                                                int& update) {
+                                    update += v2d(j,i);
+                                  },
+                                  sum_device);
+          REQUIRE( sum_host == sum_device );
         }
       }
       THEN("slicing is possible") {
@@ -216,7 +223,7 @@ TEST_CASE("ParArrayND","[ParArrayND],[Kokkos]") {
         // auto b = a.SliceD<3>(std::make_pair(1,3));
         auto b = a.SliceD<3>(1,2); // indx,nvar
         AND_THEN("slices have correct values.") {
-          int total_errors = 0;
+          int total_errors = 1; // != 0
           using policy = Kokkos::MDRangePolicy<Kokkos::Rank<3>>;
           Kokkos::parallel_reduce(policy({0,0,0}, {2,N2,N1}),
                                   KOKKOS_LAMBDA(const int k,

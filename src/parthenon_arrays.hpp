@@ -33,6 +33,9 @@
 // Parthenon++ headers
 #include "kokkos_abstraction.hpp"
 
+#define PARARRAY_TEMP\
+  "ParArrayND:"+std::string(__FILE__)+":"+std::to_string(__LINE__)
+
 namespace parthenon {
 
 #define SLC0 std::make_pair(0,1)
@@ -102,6 +105,11 @@ class ParArrayND {
   KOKKOS_INLINE_FUNCTION __attribute__((nothrow))
   ParArrayND<T,Layout> &operator= (ParArrayND<T,Layout> &&t) = default;
   
+  // function to get the label
+  inline const std::string label() const {
+    return d6d_.label();
+  }
+
   // functions to get array dimensions
   KOKKOS_INLINE_FUNCTION int GetDim(const int i) const {
     assert( 0 < i && i <= 6 && "ParArrayNDs are max 6D" );
