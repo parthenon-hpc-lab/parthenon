@@ -161,8 +161,9 @@ TEST_CASE("ParArrayND","[ParArrayND],[Kokkos]") {
       }
     }
     WHEN("We fill it with increasing integers") {
-      auto view = a.Get<3>();
-      auto mirror = Kokkos::create_mirror(view);
+      // auto view = a.Get<3>();
+      // auto mirror = Kokkos::create_mirror(view);
+      auto mirror = a.GetMirror();
       int n = 0;
       int sum_host = 0;
       for (int k = 0; k < N3; k++) {
@@ -174,7 +175,8 @@ TEST_CASE("ParArrayND","[ParArrayND],[Kokkos]") {
           }
         }
       }
-      Kokkos::deep_copy(view,mirror);
+      // Kokkos::deep_copy(view,mirror);
+      a.DeepCopy(mirror);
       THEN("the sum of the lower three indices is correct") {
         int sum_device = 0;
         using policy = Kokkos::MDRangePolicy<Kokkos::Rank<3>>;

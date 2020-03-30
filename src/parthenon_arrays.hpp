@@ -33,77 +33,78 @@
 // Parthenon++ headers
 #include "kokkos_abstraction.hpp"
 
+// Macro for automatically creating a useful name
 #define PARARRAY_TEMP\
-  "ParArrayND:"+std::string(__FILE__)+":"+std::to_string(__LINE__)
+  "ParArrayNDGeneric:"+std::string(__FILE__)+":"+std::to_string(__LINE__)
 
 namespace parthenon {
 
 #define SLC0 std::make_pair(0,1)
 
-template <typename T, typename Layout = LayoutWrapper>
-class ParArrayND {
+// API designed with Container = Kokkos::View<T******> in mind
+template <typename Container>
+class ParArrayNDGeneric {
  public:
   using index_pair_t = std::pair<size_t,size_t>;
-  using device_view_t = Kokkos::View<T******,Layout,DevSpace>;
 
   KOKKOS_FUNCTION
-  ParArrayND() = default;
-  explicit ParArrayND(const std::string& label,
+  ParArrayNDGeneric() = default;
+  explicit ParArrayNDGeneric(const std::string& label,
                       int nx6, int nx5, int nx4, int nx3, int nx2, int nx1)
     : d6d_(label,nx6,nx5,nx4,nx3,nx2,nx1)
   { }
-  ParArrayND(const std::string& label,
+  ParArrayNDGeneric(const std::string& label,
              int nx5, int nx4, int nx3, int nx2, int nx1)
     : d6d_(label,1,nx5,nx4,nx3,nx2,nx1)
   { }
-  ParArrayND(const std::string& label,
+  ParArrayNDGeneric(const std::string& label,
              int nx4, int nx3, int nx2, int nx1)
     : d6d_(label,1,1,nx4,nx3,nx2,nx1)
   { }
-  ParArrayND(const std::string& label, int nx3, int nx2, int nx1)
+  ParArrayNDGeneric(const std::string& label, int nx3, int nx2, int nx1)
     : d6d_(label,1,1,1,nx3,nx2,nx1)
   { }
-  ParArrayND(const std::string& label, int nx2, int nx1)
+  ParArrayNDGeneric(const std::string& label, int nx2, int nx1)
     : d6d_(label,1,1,1,1,nx2,nx1)
   { }
-  ParArrayND(const std::string& label, int nx1)
+  ParArrayNDGeneric(const std::string& label, int nx1)
     : d6d_(label,1,1,1,1,1,nx1)
   { }
-  explicit ParArrayND(const Kokkos::View<T******,Layout,DevSpace>& v)
+  explicit ParArrayNDGeneric(const Container& v)
     : d6d_(v)
   {}
 
   // legacy functions, as requested for backwards compatibility
   // with athena++ patterns
   void NewParArrayND(int nx1) {
-    d6d_ = device_view_t("ParArray1D",1,1,1,1,1,nx1);
+    d6d_ = Container("ParArray1D",1,1,1,1,1,nx1);
   }
   void NewParArrayND(int nx2, int nx1) {
-    d6d_ = device_view_t("ParArray2D",1,1,1,1,nx2,nx1);
+    d6d_ = Container("ParArray2D",1,1,1,1,nx2,nx1);
   }
   void NewParArrayND(int nx3, int nx2, int nx1) {
-    d6d_ = device_view_t("ParArray3D",1,1,1,nx3,nx2,nx1);
+    d6d_ = Container("ParArray3D",1,1,1,nx3,nx2,nx1);
   }
   void NewParArrayND(int nx4, int nx3, int nx2, int nx1) {
-    d6d_ = device_view_t("ParArray4D",1,1,nx4,nx3,nx2,nx1);
+    d6d_ = Container("ParArray4D",1,1,nx4,nx3,nx2,nx1);
   }
   void NewParArrayND(int nx5, int nx4, int nx3, int nx2, int nx1) {
-    d6d_ = device_view_t("ParArray5D",1,nx5,nx4,nx3,nx2,nx1);
+    d6d_ = Container("ParArray5D",1,nx5,nx4,nx3,nx2,nx1);
   }
   void NewParArrayND(int nx6, int nx5, int nx4, int nx3, int nx2, int nx1) {
-    d6d_ = device_view_t("ParArray6D",nx6,nx5,nx4,nx3,nx2,nx1);
+    d6d_ = Container("ParArray6D",nx6,nx5,nx4,nx3,nx2,nx1);
   }
 
   KOKKOS_INLINE_FUNCTION __attribute__((nothrow))
-  ParArrayND(const ParArrayND<T,Layout>& t) = default;
+  ParArrayNDGeneric(const ParArrayNDGeneric<Container>& t) = default;
   KOKKOS_INLINE_FUNCTION __attribute__((nothrow))
-  ~ParArrayND() = default;
+  ~ParArrayNDGeneric() = default;
   KOKKOS_INLINE_FUNCTION __attribute__((nothrow))
-  ParArrayND<T,Layout> &operator= (const ParArrayND<T,Layout> &t) = default;
+  ParArrayNDGeneric<Container> &operator= (const ParArrayNDGeneric<Container> &t) = default;
   KOKKOS_INLINE_FUNCTION __attribute__((nothrow))
-  ParArrayND(ParArrayND<T,Layout>&& t) = default;
+  ParArrayNDGeneric(ParArrayNDGeneric<Container>&& t) = default;
   KOKKOS_INLINE_FUNCTION __attribute__((nothrow))
-  ParArrayND<T,Layout> &operator= (ParArrayND<T,Layout> &&t) = default;
+  ParArrayNDGeneric<Container> &operator= (ParArrayNDGeneric<Container> &&t) = default;
   
   // function to get the label
   inline const std::string label() const {
@@ -112,7 +113,7 @@ class ParArrayND {
 
   // functions to get array dimensions
   KOKKOS_INLINE_FUNCTION int GetDim(const int i) const {
-    assert( 0 < i && i <= 6 && "ParArrayNDs are max 6D" );
+    assert( 0 < i && i <= 6 && "ParArrayNDGenerics are max 6D" );
     return d6d_.extent_int(6-i);
   }
 
@@ -125,40 +126,49 @@ class ParArrayND {
   KOKKOS_INLINE_FUNCTION int GetSize() const {
     return GetDim(1)*GetDim(2)*GetDim(3)*GetDim(4)*GetDim(5)*GetDim(6);
   }
-  KOKKOS_INLINE_FUNCTION std::size_t GetSizeInBytes() const {
-    return GetDim(1)*GetDim(2)*GetDim(3)*GetDim(4)*GetDim(5)*GetDim(6)*sizeof(T);
+
+  // TODO(JMM): expose different memory spaces?
+  // TODO(JMM): expose wrapper for create_mirror_view_and_copy?
+  auto GetMirror() {
+    // no-op if same space
+    auto mirror = Kokkos::create_mirror_view(d6d_);
+    return ParArrayNDGeneric<decltype(mirror)>(mirror);
+  }
+  template<typename Other>
+  void DeepCopy(Other& src) {
+    Kokkos::deep_copy(d6d_,src.Get());
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
-  T &operator() (const int n) const {
+  auto &operator() (const int n) const {
     return d6d_(0,0,0,0,0,n);
   }
   KOKKOS_FORCEINLINE_FUNCTION
-  T &operator() (const int n, const int i) const {
+  auto &operator() (const int n, const int i) const {
     return d6d_(0,0,0,0,n,i);
   }
   KOKKOS_FORCEINLINE_FUNCTION
-  T &operator() (const int n, const int j, const int i) const {
+  auto &operator() (const int n, const int j, const int i) const {
     return d6d_(0,0,0,n,j,i);
   }
   KOKKOS_FORCEINLINE_FUNCTION
-  T &operator() (const int n, const int k, const int j, const int i) const {
+  auto &operator() (const int n, const int k, const int j, const int i) const {
     return d6d_(0,0,n,k,j,i);
   }
   KOKKOS_FORCEINLINE_FUNCTION
-  T &operator() (const int m, const int n, const int k,
-                 const int j, const int i) const {
+  auto &operator() (const int m, const int n, const int k,
+                    const int j, const int i) const {
     return d6d_(0,m,n,k,j,i);
   }
   KOKKOS_FORCEINLINE_FUNCTION
-  T &operator() (const int p, const int m, const int n,
-                 const int k, const int j, const int i) const {
+  auto &operator() (const int p, const int m, const int n,
+                    const int k, const int j, const int i) const {
     return d6d_(p,m,n,k,j,i);
   }
   template<typename...Args>
   auto Slice(Args...args) const {
     auto v = Kokkos::subview(d6d_,std::forward<Args>(args)...);
-    return ParArrayND<T,typename decltype(v)::array_layout>(v);
+    return ParArrayNDGeneric<decltype(v)>(v);
   }
   auto SliceD(index_pair_t slc, std::integral_constant<int,6>) const {
     return Slice(slc,Kokkos::ALL(),Kokkos::ALL(),
@@ -272,8 +282,17 @@ class ParArrayND {
   }
 
  private:
-  device_view_t d6d_;
+  Container d6d_;
 };
+
+template<typename T, typename Layout=LayoutWrapper>
+using device_view_t = Kokkos::View<T******,Layout,DevSpace>;
+template<typename T, typename Layout=LayoutWrapper>
+using host_view_t = typename device_view_t<T,Layout>::HostMirror;
+template<typename T, typename Layout=LayoutWrapper>
+using ParArrayND = ParArrayNDGeneric<device_view_t<T,Layout>>;
+template<typename T, typename Layout=LayoutWrapper>
+using ParArrayHost = ParArrayNDGeneric<host_view_t<T,Layout>>;
 
 #undef SLC0
 
