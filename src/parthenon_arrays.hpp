@@ -41,6 +41,7 @@ template <typename T, typename Layout = LayoutWrapper>
 class ParArrayND {
  public:
   using index_pair_t = std::pair<size_t,size_t>;
+  using device_view_t = Kokkos::View<T******,Layout,DevSpace>;
 
   ParArrayND() = default;
   explicit ParArrayND(const std::string& label,
@@ -67,6 +68,27 @@ class ParArrayND {
   ParArrayND(const Kokkos::View<T******,Layout,DevSpace>& v)
     : d6d_(v)
   {}
+
+  // legacy functions, as requested for backwards compatibility
+  // with athena++ patterns
+  void NewParArrayND(int nx1) {
+    d6d_ = device_view_t("ParArray1D",1,1,1,1,1,nx1);
+  }
+  void NewParArrayND(int nx2, int nx1) {
+    d6d_ = device_view_t("ParArray2D",1,1,1,1,nx2,nx1);
+  }
+  void NewParArrayND(int nx3, int nx2, int nx1) {
+    d6d_ = device_view_t("ParArray3D",1,1,1,nx3,nx2,nx1);
+  }
+  void NewParArrayND(int nx4, int nx3, int nx2, int nx1) {
+    d6d_ = device_view_t("ParArray4D",1,1,nx4,nx3,nx2,nx1);
+  }
+  void NewParArrayND(int nx5, int nx4, int nx3, int nx2, int nx1) {
+    d6d_ = device_view_t("ParArray5D",1,nx5,nx4,nx3,nx2,nx1);
+  }
+  void NewParArrayND(int nx6, int nx5, int nx4, int nx3, int nx2, int nx1) {
+    d6d_ = device_view_t("ParArray6D",nx6,nx5,nx4,nx3,nx2,nx1);
+  }
 
   KOKKOS_INLINE_FUNCTION __attribute__((nothrow))
   ParArrayND(const ParArrayND<T,Layout>& t) = default;
@@ -159,12 +181,24 @@ class ParArrayND {
     return Slice(SLC0,SLC0,SLC0,Kokkos::ALL(),Kokkos::ALL(),slc);
   }
 
+  // AthenaArray.InitWithShallowSlice(src,dim,indx,nvar)
+  // translates into auto dest = src.SliceD<dim>(std::make_pair(indx,indx+nvar))
   template<std::size_t N = 6>
   auto SliceD(index_pair_t slc,
               std::integral_constant<int,N> ic =
               std::integral_constant<int,N>{}) {
     return SliceD(slc, ic);
   }
+
+  // AthenaArray.InitWithShallowSlice(src,dim,indx,nvar)
+  // translates into auto dest = src.SliceD<dim>(indx,nvar)
+  template<std::size_t N = 6>
+  auto SliceD(const int indx, const int nvar,
+              std::integral_constant<int,N> ic =
+              std::integral_constant<int,N>{}) {
+    return SliceD(std::make_pair(indx,indx+nvar),ic);
+  }
+
   auto Get(int i) {
     return Kokkos::subview(d6d_,i,
                            Kokkos::ALL(),Kokkos::ALL(),
@@ -221,7 +255,7 @@ class ParArrayND {
   }
 
  private:
-  Kokkos::View<T******,Layout,DevSpace> d6d_;
+  device_view_t d6d_;
 };
 
 #undef SLC0
