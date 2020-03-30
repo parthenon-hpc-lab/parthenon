@@ -186,21 +186,17 @@ Real EstimateTimestep(Container<Real>& rc) {
   int ie = pmb->ie; int je = pmb->je; int ke = pmb->ke;
 
   Real min_dt = std::numeric_limits<Real>::max();
-  ParArrayND<Real> dx("dx",3,pmb->ncells1);
 
   // this is obviously overkill for this constant velocity problem
   for (int k=ks; k<=ke; k++) {
     for (int j=js; j<=je; j++) {
-      ParArrayND<Real> dx0[3];
-      //dx0.InitWithShallowSlice(dx, 2, 0, 1);
-      pmb->pcoord->CenterWidth1(k, j, is, ie, dx0[0]);
-      //dx0.InitWithShallowSlice(dx, 2, 1, 1);
-      pmb->pcoord->CenterWidth2(k, j, is, ie, dx0[1]);
-      //dx0.InitWithShallowSlice(dx, 2, 2, 1);
-      pmb->pcoord->CenterWidth3(k, j, is, ie, dx0[2]);
+      ParArrayND<Real> dx0("dx0",pmb->ncells1);
+      ParArrayND<Real> dx1("dx1",pmb->ncells1);
+      pmb->pcoord->CenterWidth1(k, j, is, ie, dx0);
+      pmb->pcoord->CenterWidth2(k, j, is, ie, dx1);
       for (int i=is; i<=ie; i++) {
-        min_dt = std::min(min_dt, dx(0,i)/std::abs(vx));
-        min_dt = std::min(min_dt, dx(1,i)/std::abs(vy));
+        min_dt = std::min(min_dt, dx0(i)/std::abs(vx));
+        min_dt = std::min(min_dt, dx1(i)/std::abs(vy));
       }
     }
   }
