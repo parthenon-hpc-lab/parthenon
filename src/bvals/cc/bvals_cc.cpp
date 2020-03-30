@@ -46,18 +46,18 @@ namespace parthenon {
 // constructor
 
 CellCenteredBoundaryVariable::CellCenteredBoundaryVariable(
-    MeshBlock *pmb, AthenaArray<Real> *var, AthenaArray<Real> *coarse_var,
-    AthenaArray<Real> *var_flux)
+    MeshBlock *pmb, ParArrayND<Real> *var, ParArrayND<Real> *coarse_var,
+    ParArrayND<Real> *var_flux)
     : BoundaryVariable(pmb), var_cc(var), coarse_buf(coarse_var), x1flux(var_flux[X1DIR]),
       x2flux(var_flux[X2DIR]), x3flux(var_flux[X3DIR]), nl_(0), nu_(var->GetDim4() -1) {
-  // CellCenteredBoundaryVariable should only be used w/ 4D or 3D (nx4=1) AthenaArray
-  // For now, assume that full span of 4th dim of input AthenaArray should be used:
-  // ---> get the index limits directly from the input AthenaArray
+  // CellCenteredBoundaryVariable should only be used w/ 4D or 3D (nx4=1) ParArrayND
+  // For now, assume that full span of 4th dim of input ParArrayND should be used:
+  // ---> get the index limits directly from the input ParArrayND
   // <=nu_ (inclusive), <nx4 (exclusive)
   if (nu_ < 0) {
     std::stringstream msg;
     msg << "### FATAL ERROR in CellCenteredBoundaryVariable constructor" << std::endl
-        << "An 'AthenaArray<Real> *var' of nx4_ = " << var->GetDim4() << " was passed\n"
+        << "An 'ParArrayND<Real> *var' of nx4_ = " << var->GetDim4() << " was passed\n"
         << "Should be nx4 >= 1 (likely uninitialized)." << std::endl;
     ATHENA_ERROR(msg);
   }
@@ -139,7 +139,7 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(Real *buf,
   sk = (nb.ni.ox3 > 0) ? (pmb->ke - NGHOST + 1) : pmb->ks;
   ek = (nb.ni.ox3 < 0) ? (pmb->ks + NGHOST - 1) : pmb->ke;
   int p = 0;
-  AthenaArray<Real> &var = *var_cc;
+  ParArrayND<Real> &var = *var_cc;
   BufferUtility::PackData(var, buf, nl_, nu_, si, ei, sj, ej, sk, ek, p);
 
   return p;
@@ -155,8 +155,8 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(Real *buf,
   MeshBlock *pmb = pmy_block_;
   int si, sj, sk, ei, ej, ek;
   int cn = NGHOST - 1;
-  AthenaArray<Real> &var = *var_cc;
-  AthenaArray<Real> &coarse_var = *coarse_buf;
+  ParArrayND<Real> &var = *var_cc;
+  ParArrayND<Real> &coarse_var = *coarse_buf;
 
   si = (nb.ni.ox1 > 0) ? (pmb->cie - cn) : pmb->cis;
   ei = (nb.ni.ox1 < 0) ? (pmb->cis + cn) : pmb->cie;
@@ -181,7 +181,7 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferToFiner(Real *buf,
   MeshBlock *pmb = pmy_block_;
   int si, sj, sk, ei, ej, ek;
   int cn = pmb->cnghost - 1;
-  AthenaArray<Real> &var = *var_cc;
+  ParArrayND<Real> &var = *var_cc;
 
   si = (nb.ni.ox1 > 0) ? (pmb->ie - cn) : pmb->is;
   ei = (nb.ni.ox1 < 0) ? (pmb->is + cn) : pmb->ie;
@@ -230,7 +230,7 @@ void CellCenteredBoundaryVariable::SetBoundarySameLevel(Real *buf,
                                                         const NeighborBlock& nb) {
   MeshBlock *pmb = pmy_block_;
   int si, sj, sk, ei, ej, ek;
-  AthenaArray<Real> &var = *var_cc;
+  ParArrayND<Real> &var = *var_cc;
 
   if (nb.ni.ox1 == 0)     si = pmb->is,        ei = pmb->ie;
   else if (nb.ni.ox1 > 0) si = pmb->ie + 1,      ei = pmb->ie + NGHOST;
@@ -257,7 +257,7 @@ void CellCenteredBoundaryVariable::SetBoundaryFromCoarser(Real *buf,
   MeshBlock *pmb = pmy_block_;
   int si, sj, sk, ei, ej, ek;
   int cng = pmb->cnghost;
-  AthenaArray<Real> &coarse_var = *coarse_buf;
+  ParArrayND<Real> &coarse_var = *coarse_buf;
 
   if (nb.ni.ox1 == 0) {
     si = pmb->cis, ei = pmb->cie;
@@ -305,7 +305,7 @@ void CellCenteredBoundaryVariable::SetBoundaryFromCoarser(Real *buf,
 void CellCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
                                                         const NeighborBlock& nb) {
   MeshBlock *pmb = pmy_block_;
-  AthenaArray<Real> &var = *var_cc;
+  ParArrayND<Real> &var = *var_cc;
   // receive already restricted data
   int si, sj, sk, ei, ej, ek;
 

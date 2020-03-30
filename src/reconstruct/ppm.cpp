@@ -18,7 +18,7 @@
 //  \brief piecewise parabolic reconstruction with modified McCorquodale/Colella limiter
 //         for a Cartesian-like coordinate with uniform spacing, Mignone modified original
 //         PPM limiter for nonuniform and/or curvilinear coordinate.
-//  Operates on the entire nx4 range of a single AthenaArray<Real> input (no MHD).
+//  Operates on the entire nx4 range of a single ParArrayND<Real> input (no MHD).
 
 // REFERENCES:
 // (CW) P. Colella & P. Woodward, "The Piecewise Parabolic Method (PPM) for Gas-Dynamical
@@ -47,8 +47,8 @@ namespace parthenon {
 
 void Reconstruction::PiecewiseParabolicX1(
     const int k, const int j, const int il, const int iu,
-    const AthenaArray<Real> &q,
-    AthenaArray<Real> &ql, AthenaArray<Real> &qr) {
+    const ParArrayND<Real> &q,
+    ParArrayND<Real> &ql, ParArrayND<Real> &qr) {
   const int nu = q.GetDim4() - 1;
 
   // CS08 constant used in second derivative limiter, >1 , independent of h
@@ -58,18 +58,18 @@ void Reconstruction::PiecewiseParabolicX1(
   // bx (MHD) and wc (characteristic projection)
 
   // set work arrays used for primitive/characterstic cell-averages to scratch
-  AthenaArray<Real> &q_im2 = scr2_ni_, &q_im1 = scr3_ni_,
+  ParArrayND<Real> &q_im2 = scr2_ni_, &q_im1 = scr3_ni_,
                      &q_i = scr4_ni_, &q_ip1 = scr5_ni_, &q_ip2 = scr6_ni_,
                 &qr_imh = scr7_ni_, &ql_iph = scr8_ni_;
 
   // set work PPM work arrays to shallow copies of scratch arrays:
-  AthenaArray<Real> &dd = scr02_i_, &dd_im1 = scr03_i_, &dd_ip1 = scr04_i_,
+  ParArrayND<Real> &dd = scr02_i_, &dd_im1 = scr03_i_, &dd_ip1 = scr04_i_,
                    &dph = scr05_i_, &dph_ip1 = scr06_i_;
 
-  AthenaArray<Real> &d2qc_im1 = scr07_i_, &d2qc = scr08_i_, &d2qc_ip1 = scr09_i_,
+  ParArrayND<Real> &d2qc_im1 = scr07_i_, &d2qc = scr08_i_, &d2qc_ip1 = scr09_i_,
                         &d2qf = scr10_i_;
 
-  AthenaArray<Real> &qplus = scr11_i_, &qminus = scr12_i_, &dqf_plus = scr13_i_,
+  ParArrayND<Real> &qplus = scr11_i_, &qminus = scr12_i_, &dqf_plus = scr13_i_,
                 &dqf_minus = scr14_i_;
 
   // cache the x1-sliced primitive states for eigensystem calculation
@@ -298,25 +298,25 @@ void Reconstruction::PiecewiseParabolicX1(
 
 void Reconstruction::PiecewiseParabolicX2(
     const int k, const int j, const int il, const int iu,
-    const AthenaArray<Real> &q,
-    AthenaArray<Real> &ql, AthenaArray<Real> &qr) {
+    const ParArrayND<Real> &q,
+    ParArrayND<Real> &ql, ParArrayND<Real> &qr) {
   const int nu = q.GetDim4() - 1;
   // CS08 constant used in second derivative limiter, >1 , independent of h
   const Real C2 = 1.25;
 
   // set work arrays used for primitive/characterstic cell-averages to scratch
-  AthenaArray<Real> &q_jm2 = scr2_ni_, &q_jm1 = scr3_ni_,
+  ParArrayND<Real> &q_jm2 = scr2_ni_, &q_jm1 = scr3_ni_,
                      &q_j = scr4_ni_, &q_jp1 = scr5_ni_, &q_jp2 = scr6_ni_,
                 &qr_jmh = scr7_ni_, &ql_jph = scr8_ni_;
 
   // set work PPM work arrays to shallow copies of scratch arrays:
-  AthenaArray<Real> &dd = scr02_i_, &dd_jm1 = scr03_i_, &dd_jp1 = scr04_i_,
+  ParArrayND<Real> &dd = scr02_i_, &dd_jm1 = scr03_i_, &dd_jp1 = scr04_i_,
                    &dph = scr05_i_, &dph_jp1 = scr06_i_;
 
-  AthenaArray<Real> &d2qc_jm1 = scr07_i_, &d2qc = scr08_i_, &d2qc_jp1 = scr09_i_,
+  ParArrayND<Real> &d2qc_jm1 = scr07_i_, &d2qc = scr08_i_, &d2qc_jp1 = scr09_i_,
                         &d2qf = scr10_i_;
 
-  AthenaArray<Real> &qplus = scr11_i_, &qminus = scr12_i_, &dqf_plus = scr13_i_,
+  ParArrayND<Real> &qplus = scr11_i_, &qminus = scr12_i_, &dqf_plus = scr13_i_,
                 &dqf_minus = scr14_i_;
 
   // cache the x1-sliced primitive states for eigensystem calculation
@@ -544,25 +544,25 @@ void Reconstruction::PiecewiseParabolicX2(
 
 void Reconstruction::PiecewiseParabolicX3(
     const int k, const int j, const int il, const int iu,
-    const AthenaArray<Real> &q,
-    AthenaArray<Real> &ql, AthenaArray<Real> &qr) {
+    const ParArrayND<Real> &q,
+    ParArrayND<Real> &ql, ParArrayND<Real> &qr) {
   const int nu = q.GetDim4() - 1;
   // CS08 constant used in second derivative limiter, >1 , independent of h
   const Real C2 = 1.25;
 
   // set work arrays used for primitive/characterstic cell-averages to scratch
-  AthenaArray<Real> &q_km2 = scr2_ni_, &q_km1 = scr3_ni_,
+  ParArrayND<Real> &q_km2 = scr2_ni_, &q_km1 = scr3_ni_,
                      &q_k = scr4_ni_, &q_kp1 = scr5_ni_, &q_kp2 = scr6_ni_,
                 &qr_kmh = scr7_ni_, &ql_kph = scr8_ni_;
 
   // set work PPM work arrays to shallow copies of scratch arrays:
-  AthenaArray<Real> &dd = scr02_i_, &dd_km1 = scr03_i_, &dd_kp1 = scr04_i_,
+  ParArrayND<Real> &dd = scr02_i_, &dd_km1 = scr03_i_, &dd_kp1 = scr04_i_,
                    &dph = scr05_i_, &dph_kp1 = scr06_i_;
 
-  AthenaArray<Real> &d2qc_km1 = scr07_i_, &d2qc = scr08_i_,
+  ParArrayND<Real> &d2qc_km1 = scr07_i_, &d2qc = scr08_i_,
                     &d2qc_kp1 = scr09_i_, &d2qf = scr10_i_;
 
-  AthenaArray<Real> &qplus = scr11_i_, &qminus = scr12_i_, &dqf_plus = scr13_i_,
+  ParArrayND<Real> &qplus = scr11_i_, &qminus = scr12_i_, &dqf_plus = scr13_i_,
                 &dqf_minus = scr14_i_;
 
   // cache the x1-sliced primitive states for eigensystem calculation

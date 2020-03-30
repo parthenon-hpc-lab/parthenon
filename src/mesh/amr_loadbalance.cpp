@@ -27,7 +27,6 @@
 
 // Athena++ headers
 #include "athena.hpp"
-#include "athena_arrays.hpp"
 #include "globals.hpp"
 #include "utils/buffer_utils.hpp"
 #include "mesh.hpp"
@@ -35,6 +34,7 @@
 #include "meshblock_tree.hpp"
 #include "better_boundaries/boundary_conditions.hpp"
 #include "interface/Update.hpp"
+#include "parthenon_arrays.hpp"
 
 // MPI/OpenMP header
 #ifdef MPI_PARALLEL
@@ -469,8 +469,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
   // int num_cc = pblock->pmr->pvars_cc_.size();
   int num_fc = pblock->vars_fc_.size();
   int nx4_tot = 0;
-  for (AthenaArray<Real> &var_cc : pblock->vars_cc_) {
-    nx4_tot += var_cc.GetDim4();
+  for (ParArrayND<Real> &var_cc : pblock->vars_cc_) {
+    nx4_tot += var_cc.GetDim(4);
   }
 
   const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d 
@@ -736,8 +736,8 @@ void Mesh::PrepareSendSameLevel(MeshBlock* pb, Real *sendbuf) {
 
   // (C++11) range-based for loop: (automatic type deduction fails when iterating over
   // container with std::reference_wrapper; could use auto var_cc_r = var_cc.get())
-  for (AthenaArray<Real> &var_cc : pb->vars_cc_) {
-    int nu = var_cc.GetDim4() - 1;
+  for (ParArrayND<Real> &var_cc : pb->vars_cc_) {
+    int nu = var_cc.GetDim(4) - 1;
     BufferUtility::PackData(var_cc, sendbuf, 0, nu,
                             pb->is, pb->ie, pb->js, pb->je, pb->ks, pb->ke, p);
   }
@@ -793,8 +793,8 @@ void Mesh::PrepareSendCoarseToFineAMR(MeshBlock* pb, Real *sendbuf,
   }
   int p = 0;
   for (auto cc_pair : pb->pmr->pvars_cc_) {
-    AthenaArray<Real> *var_cc = std::get<0>(cc_pair);
-    int nu = var_cc->GetDim4() - 1;
+    ParArrayND<Real> *var_cc = std::get<0>(cc_pair);
+    int nu = var_cc->GetDim(4) - 1;
     BufferUtility::PackData(*var_cc, sendbuf, 0, nu,
                             il, iu, jl, ju, kl, ku, p);
   }
@@ -819,9 +819,9 @@ void Mesh::PrepareSendFineToCoarseAMR(MeshBlock* pb, Real *sendbuf) {
   auto &pmr = pb->pmr;
   int p = 0;
   for (auto cc_pair : pmr->pvars_cc_) {
-    AthenaArray<Real> *var_cc = std::get<0>(cc_pair);
-    AthenaArray<Real> *coarse_cc = std::get<1>(cc_pair);
-    int nu = var_cc->GetDim4() - 1;
+    ParArrayND<Real> *var_cc = std::get<0>(cc_pair);
+    ParArrayND<Real> *coarse_cc = std::get<1>(cc_pair);
+    int nu = var_cc->GetDim(4) - 1;
     pmr->RestrictCellCenteredValues(*var_cc, *coarse_cc,
                                     0, nu,
                                     pb->cis, pb->cie,
@@ -878,17 +878,17 @@ void Mesh::FillSameRankFineToCoarseAMR(MeshBlock* pob, MeshBlock* pmb,
   auto pmb_cc_it = pmb->pmr->pvars_cc_.begin();
   // iterate MeshRefinement std::vectors on pob
   for (auto cc_pair : pmr->pvars_cc_) {
-    AthenaArray<Real> *var_cc = std::get<0>(cc_pair);
-    AthenaArray<Real> *coarse_cc = std::get<1>(cc_pair);
-    int nu = var_cc->GetDim4() - 1;
+    ParArrayND<Real> *var_cc = std::get<0>(cc_pair);
+    ParArrayND<Real> *coarse_cc = std::get<1>(cc_pair);
+    int nu = var_cc->GetDim(4) - 1;
     pmr->RestrictCellCenteredValues(*var_cc, *coarse_cc,
                                     0, nu,
                                     pob->cis, pob->cie,
                                     pob->cjs, pob->cje,
                                     pob->cks, pob->cke);
     // copy from old/original/other MeshBlock (pob) to newly created block (pmb)
-    AthenaArray<Real> &src = *coarse_cc;
-    AthenaArray<Real> &dst = *std::get<0>(*pmb_cc_it);
+    ParArrayND<Real> &src = *coarse_cc;
+    ParArrayND<Real> &dst = *std::get<0>(*pmb_cc_it);
     for (int nv=0; nv<=nu; nv++) {
       for (int k=kl, fk=pob->cks; fk<=pob->cke; k++, fk++) {
         for (int j=jl, fj=pob->cjs; fj<=pob->cje; j++, fj++) {
@@ -975,12 +975,12 @@ void Mesh::FillSameRankCoarseToFineAMR(MeshBlock* pob, MeshBlock* pmb,
   auto pob_cc_it = pob->pmr->pvars_cc_.begin();
   // iterate MeshRefinement std::vectors on new pmb
   for (auto cc_pair : pmr->pvars_cc_) {
-    AthenaArray<Real> *var_cc = std::get<0>(cc_pair);
-    AthenaArray<Real> *coarse_cc = std::get<1>(cc_pair);
-    int nu = var_cc->GetDim4() - 1;
+    ParArrayND<Real> *var_cc = std::get<0>(cc_pair);
+    ParArrayND<Real> *coarse_cc = std::get<1>(cc_pair);
+    int nu = var_cc->GetDim(4) - 1;
 
-    AthenaArray<Real> &src = *std::get<0>(*pob_cc_it);
-    AthenaArray<Real> &dst = *coarse_cc;
+    ParArrayND<Real> &src = *std::get<0>(*pob_cc_it);
+    ParArrayND<Real> &dst = *coarse_cc;
     // fill the coarse buffer
     for (int nv=0; nv<=nu; nv++) {
       for (int k=kl, ck=cks; k<=ku; k++, ck++) {
@@ -1044,8 +1044,8 @@ void Mesh::FinishRecvSameLevel(MeshBlock *pb, Real *recvbuf) {
   const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d 
   const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d 
 
-  for (AthenaArray<Real> &var_cc : pb->vars_cc_) {
-    int nu = var_cc.GetDim4() - 1;
+  for (ParArrayND<Real> &var_cc : pb->vars_cc_) {
+    int nu = var_cc.GetDim(4) - 1;
     BufferUtility::UnpackData(recvbuf, var_cc, 0, nu,
                               pb->is, pb->ie, pb->js, pb->je, pb->ks, pb->ke, p);
   }
@@ -1094,8 +1094,8 @@ void Mesh::FinishRecvFineToCoarseAMR(MeshBlock *pb, Real *recvbuf,
   else        kl = pb->ks + pb->block_size.nx3/2, ku = pb->ke;
 
   for (auto cc_pair : pb->pmr->pvars_cc_) {
-    AthenaArray<Real> *var_cc = std::get<0>(cc_pair);
-    int nu = var_cc->GetDim4() - 1;
+    ParArrayND<Real> *var_cc = std::get<0>(cc_pair);
+    int nu = var_cc->GetDim(4) - 1;
     BufferUtility::UnpackData(recvbuf, *var_cc, 0, nu,
                               il, iu, jl, ju, kl, ku, p);
   }
@@ -1132,9 +1132,9 @@ void Mesh::FinishRecvCoarseToFineAMR(MeshBlock *pb, Real *recvbuf) {
   int il = pb->cis - 1, iu = pb->cie+1, jl = pb->cjs - f2,
       ju = pb->cje + f2, kl = pb->cks - f3, ku = pb->cke + f3;
   for (auto cc_pair : pb->pmr->pvars_cc_) {
-    AthenaArray<Real> *var_cc = std::get<0>(cc_pair);
-    AthenaArray<Real> *coarse_cc = std::get<1>(cc_pair);
-    int nu = var_cc->GetDim4() - 1;
+    ParArrayND<Real> *var_cc = std::get<0>(cc_pair);
+    ParArrayND<Real> *coarse_cc = std::get<1>(cc_pair);
+    int nu = var_cc->GetDim(4) - 1;
     BufferUtility::UnpackData(recvbuf, *coarse_cc,
                               0, nu, il, iu, jl, ju, kl, ku, p);
     pmr->ProlongateCellCenteredValues(

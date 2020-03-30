@@ -11,8 +11,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 ///
-/// A Sparse Variable type for Placebo-K.
-/// Builds on AthenaArrays
+/// A Sparse Variable type.
+/// Builds on ParArrayNDs
 /// Date: Sep 12, 2019
 ///
 #ifndef INTERFACE_SPARSEVARIABLE_HPP_
@@ -86,30 +86,8 @@ class SparseVariable {
   bool isSet(const Metadata::flags flag) { return _metadata.isSet(flag); }
 
   /// return information string
-<<<<<<< HEAD
   std::string info() {
     std::string s = "info not yet implemented for sparse variables";
-=======
-  std::string info(const std::string &label) {
-    char tmp[100] = "";
-
-    if (_cellVars.find(label) == _cellVars.end()) {
-      return (label + std::string("not found"));
-    }
-
-    auto myMap = _cellVars[label];
-
-    std::string s = label;
-    s.resize(20,'.');
-
-    s += std::string(" variables:");
-    for (auto const& items : myMap) s += std::to_string(items.first) + ":";
-
-    // now append flag
-    auto pVar = myMap.begin();
-    s += " : " + pVar->second->metadata().MaskAsString();
-
->>>>>>> jmm/parthenon-arrays-NDArray
     return s;
   }
 

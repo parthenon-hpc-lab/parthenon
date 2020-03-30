@@ -37,7 +37,7 @@ namespace parthenon {
 
 void Reconstruction::LeftEigenmatrixDotVector(
     const int ivx, const int il, const int iu,
-    const AthenaArray<Real> &b1, const AthenaArray<Real> &w, AthenaArray<Real> &vect) {
+    const ParArrayND<Real> &b1, const ParArrayND<Real> &w, ParArrayND<Real> &vect) {
   throw std::runtime_error(std::string(__func__) + " is not implemented");
 }
 
@@ -59,7 +59,7 @@ void Reconstruction::LeftEigenmatrixDotVector(
 
 void Reconstruction::RightEigenmatrixDotVector(
     const int ivx, const int il, const int iu,
-    const AthenaArray<Real> &b1, const AthenaArray<Real> &w, AthenaArray<Real> &vect) {
+    const ParArrayND<Real> &b1, const ParArrayND<Real> &w, ParArrayND<Real> &vect) {
   throw std::runtime_error(std::string(__func__) + " is not implemented");
 }
 }

@@ -26,7 +26,7 @@
 
 // Athena++ headers
 #include "athena.hpp"         // Real
-#include "athena_arrays.hpp"  // AthenaArray
+#include "parthenon_arrays.hpp"  // ParArrayND
 
 namespace parthenon {
 class InterpTable2D {
@@ -37,7 +37,7 @@ class InterpTable2D {
   void SetSize(const int nvar, const int nx2, const int nx1);
   Real interpolate(int nvar, Real x2, Real x1);
   int nvar();
-  AthenaArray<Real> data;
+  ParArrayND<Real> data;
   void SetX1lim(Real x1min, Real x1max);
   void SetX2lim(Real x2min, Real x2max);
   void GetX1lim(Real &x1min, Real &x1max);

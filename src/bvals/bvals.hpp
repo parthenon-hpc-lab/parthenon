@@ -88,7 +88,7 @@ class BoundaryBase {
 
   Mesh *pmy_mesh_;
   RegionSize block_size_;
-  AthenaArray<Real> sarea_[2];
+  ParArrayND<Real> sarea_[2];
 
  private:
   // calculate 3x shared static data members when constructing only the 1st class instance

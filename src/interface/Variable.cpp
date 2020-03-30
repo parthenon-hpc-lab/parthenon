@@ -17,40 +17,10 @@
 
 
 #include "bvals/cc/bvals_cc.hpp"
-#ifndef TEST_PK
-#include "mesh/mesh.hpp"
-#endif // TEST_PK
 #include "athena_arrays.hpp"
 #include "Variable.hpp"
 
 namespace parthenon {
-/*template <typename T>
-Variable<T>::~Variable() {
-  //  std::cout << "_________DELETING VAR: " << _label << ":" << this << std::endl;
-  _label = "Deleted";
-  if (_m.IsSet(Metadata::FillGhost)) {
-
-    // not sure if destructor is called for flux, need to check --Sriram
-
-    // flux is a different variable even if shared
-    // so always delete
-    //    for (int i=0; i<3; i++) flux[i].DeleteAthenaArray();
-
-    // Delete vbvar, coarse_r, and coarse_s only if not shared
-    if ( _m.IsSet(Metadata::SharedComms) ) {
-      // do not delete unallocated variables
-      vbvar = nullptr;
-      coarse_r = coarse_s = nullptr;
-    } else {
-      // delete allocated variables
-      //      coarse_r->DeleteAthenaArray();
-      //      coarse_s->DeleteAthenaArray();
-      delete coarse_r;
-      delete coarse_s;
-      delete vbvar;
-    }
-  }
-}*/
 
 template <typename T>
 std::string Variable<T>::info() {
@@ -58,26 +28,26 @@ std::string Variable<T>::info() {
     char *stmp = tmp;
 
     // first add label
-    std::string s = this->label();
+    std::string s = _label;
     s.resize(20,'.');
     s += " : ";
 
     // now append size
     snprintf(tmp, sizeof(tmp),
              "%dx%dx%dx%dx%dx%d",
-             this->GetDim6(),
-             this->GetDim5(),
-             this->GetDim4(),
-             this->GetDim3(),
-             this->GetDim2(),
-             this->GetDim1()
+             _dims[5],
+             _dims[4],
+             _dims[3],
+             _dims[2],
+             _dims[1],
+             _dims[0]
              );
     while (! strncmp(stmp,"1x",2)) {
       stmp += 2;
     }
     s += stmp;
     // now append flag
-    s += " : " + this->metadata().MaskAsString();
+    s += " : " + _m.MaskAsString();
 
     return s;
   }
@@ -87,10 +57,9 @@ template <typename T>
 Variable<T>::Variable(const Variable<T> &src,
                       const bool allocComms,
                       MeshBlock *pmb) :
-  mpiStatus(false), _m(src.metadata()), _label(src.label())  {
-  data.NewAthenaArray(src.GetDim6(), src.GetDim5(), src.GetDim4(),
-                      src.GetDim3(), src.GetDim2(), src.GetDim1());
-  //std::cout << "_____CREATED VAR COPY: " << _label << ":" << this << std::endl;
+  mpiStatus(false), _dims(src._dims), _m(src._m), _label(src._label)  {
+  data = ParArrayND<T>(_label, _dims[5], _dims[4], _dims[3],
+                   _dims[2], _dims[1], _dims[2];
   if (_m.IsSet(Metadata::FillGhost)) {
     // Ghost cells are communicated, so make shallow copies
     // of communication arrays and swap out the boundary array
@@ -106,18 +75,12 @@ Variable<T>::Variable(const Variable<T> &src,
 
       // fluxes, etc are always a copy
       for (int i = 0; i<3; i++) {
-        if (src.flux[i].data()) {
-          //int n6 = src.flux[i].GetDim6();
-          //flux[i].InitWithShallowSlice(src.flux[i],6,0,n6);
-          flux[i].ShallowCopy(src.flux[i]);
-        } else {
-          flux[i] = src.flux[i];
-        }
+        flux[i] = src.flux[i];
       }
 
       // These members are pointers,
       // point at same memory as src
-      coarse_r = src.coarse_r;
+      //coarse_r = src.coarse_r;
       coarse_s = src.coarse_s;
     }
   }
@@ -130,32 +93,21 @@ template <typename T>
 void Variable<T>::allocateComms(MeshBlock *pmb) {
   if ( ! pmb ) return;
 
+  // set up fluxes
+  if (_m.isSet(Metadata::Independent)) {
+    flux[0] = ParArrayND<T>(_label + ".flux0", _dim[5], _dim[4], _dim[3], _dim[2], _dim[1], _dim[0]+1);
+    if (pmb->pmy_mesh->ndim >= 2)
+      flux[1] = ParArrayND<T>(_label + ".flux1", _dim[5], _dim[4], _dim[3], _dim[2], _dim[1]+1, _dim[0]);
+    if (pmb->pmy_mesh->ndim >= 3)
+      flux[2] = ParArrayND<T>(_label + ".flux2", _dim[5], _dim[4], _dim[3], _dim[2]+1, _dim[1], _dim[0]);
+  }
   // set up communication variables
-  //const int _dim1 = this->GetDim1();
-  //const int _dim2 = this->GetDim2();
-  //const int _dim3 = this->GetDim3();
-  const int _dim4 = data->GetDim4();
-  //const int _dim5 = this->GetDim5();
-  //const int _dim6 = this->GetDim6();
-  flux[0].NewAthenaArray(_dim4, pmb->ncells3, pmb->ncells2, pmb->ncells1+1);
-  if (pmb->pmy_mesh->ndim >= 2) {
-    flux[1].NewAthenaArray(_dim4, pmb->ncells3, pmb->ncells2+1, pmb->ncells1);
-  }
-  if (pmb->pmy_mesh->ndim >= 3) {
-    flux[2].NewAthenaArray(_dim4, pmb->ncells3+1, pmb->ncells2, pmb->ncells1);
-  }
-  coarse_s = new AthenaArray<Real>(_dim4, pmb->ncc3, pmb->ncc2, pmb->ncc1,
-                                (pmb->pmy_mesh->multilevel ?
-                                 AthenaArray<Real>::DataStatus::allocated :
-                                 AthenaArray<Real>::DataStatus::empty));
-
-  coarse_r = new AthenaArray<Real>(_dim4, pmb->ncc3, pmb->ncc2, pmb->ncc1,
-                                (pmb->pmy_mesh->multilevel ?
-                                 AthenaArray<Real>::DataStatus::allocated :
-                                 AthenaArray<Real>::DataStatus::empty));
+  if (pmb->pmy_mesh->multilevel)
+    coarse_s = new ParArrayND<T>(_label+".coarse", _dim[5], _dim[4], _dim[3], 
+                                   pmb->ncc3, pmb->ncc2, pmb->ncc1);
 
   // Create the boundary object
-  vbvar = new CellCenteredBoundaryVariable(pmb, &data, coarse_s, flux);
+  vbvar = new CellCenteredBoundaryVariable(pmb, data, coarse_s, flux);
 
   // enroll CellCenteredBoundaryVariable object
   vbvar->bvar_index = pmb->pbval->bvars.size();
@@ -168,6 +120,8 @@ void Variable<T>::allocateComms(MeshBlock *pmb) {
   mpiStatus = false;
 }
 
+// TODO(jcd): clean these next two info routines up
+template <typename T>
 std::string FaceVariable::info() {
   char tmp[100] = "";
 
@@ -179,9 +133,9 @@ std::string FaceVariable::info() {
   // now append size
   snprintf(tmp, sizeof(tmp),
           "%dx%dx%d",
-          this->x1f.GetDim3(),
-          this->x1f.GetDim2(),
-          this->x1f.GetDim1()
+          this->x1f.GetDim(3),
+          this->x1f.GetDim(2),
+          this->x1f.GetDim(1)
           );
   s += std::string(tmp);
 
@@ -191,6 +145,7 @@ std::string FaceVariable::info() {
   return s;
 }
 
+template <typename T>
 std::string EdgeVariable::info() {
     char tmp[100] = "";
 
@@ -202,9 +157,9 @@ std::string EdgeVariable::info() {
     // now append size
     snprintf(tmp, sizeof(tmp),
              "%dx%dx%d",
-             this->x1e.GetDim3(),
-             this->x1e.GetDim2(),
-             this->x1e.GetDim1()
+             this->x1e.GetDim(3),
+             this->x1e.GetDim(2),
+             this->x1e.GetDim(1)
              );
     s += std::string(tmp);
 
@@ -215,4 +170,6 @@ std::string EdgeVariable::info() {
 }
 
 template class Variable<Real>;
+template class FaceVariable<Real>;
+template class EdgeVariable<Real>;
 } // namespace parthenon

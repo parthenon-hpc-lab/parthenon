@@ -213,7 +213,7 @@ class Container {
     return *(it->second);
   }
 
-  AthenaArray<Real>& GetFace(std::string label, int dir) {
+  ParArrayND<Real>& GetFace(std::string label, int dir) {
     return GetFace(label).Get(dir);
   }
 

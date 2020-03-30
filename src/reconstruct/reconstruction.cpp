@@ -177,43 +177,43 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin) :
 
   // Allocate memory for scratch arrays used in PLM and PPM
   int nc1 = pmb->ncells1;
-  scr01_i_.NewAthenaArray(nc1);
-  scr02_i_.NewAthenaArray(nc1);
+  scr01_i_.NewParArrayND(nc1);
+  scr02_i_.NewParArrayND(nc1);
 
-  scr1_ni_.NewAthenaArray(NWAVE, nc1);
-  scr2_ni_.NewAthenaArray(NWAVE, nc1);
-  scr3_ni_.NewAthenaArray(NWAVE, nc1);
-  scr4_ni_.NewAthenaArray(NWAVE, nc1);
+  scr1_ni_.NewParArrayND(NWAVE, nc1);
+  scr2_ni_.NewParArrayND(NWAVE, nc1);
+  scr3_ni_.NewParArrayND(NWAVE, nc1);
+  scr4_ni_.NewParArrayND(NWAVE, nc1);
 
   if ((xorder == 3) || (xorder == 4)) {
     auto &pco = pmb->pcoord;
-    scr03_i_.NewAthenaArray(nc1);
-    scr04_i_.NewAthenaArray(nc1);
-    scr05_i_.NewAthenaArray(nc1);
-    scr06_i_.NewAthenaArray(nc1);
-    scr07_i_.NewAthenaArray(nc1);
-    scr08_i_.NewAthenaArray(nc1);
-    scr09_i_.NewAthenaArray(nc1);
-    scr10_i_.NewAthenaArray(nc1);
-    scr11_i_.NewAthenaArray(nc1);
-    scr12_i_.NewAthenaArray(nc1);
-    scr13_i_.NewAthenaArray(nc1);
-    scr14_i_.NewAthenaArray(nc1);
+    scr03_i_.NewParArrayND(nc1);
+    scr04_i_.NewParArrayND(nc1);
+    scr05_i_.NewParArrayND(nc1);
+    scr06_i_.NewParArrayND(nc1);
+    scr07_i_.NewParArrayND(nc1);
+    scr08_i_.NewParArrayND(nc1);
+    scr09_i_.NewParArrayND(nc1);
+    scr10_i_.NewParArrayND(nc1);
+    scr11_i_.NewParArrayND(nc1);
+    scr12_i_.NewParArrayND(nc1);
+    scr13_i_.NewParArrayND(nc1);
+    scr14_i_.NewParArrayND(nc1);
 
-    scr5_ni_.NewAthenaArray(NWAVE, nc1);
-    scr6_ni_.NewAthenaArray(NWAVE, nc1);
-    scr7_ni_.NewAthenaArray(NWAVE, nc1);
-    scr8_ni_.NewAthenaArray(NWAVE, nc1);
+    scr5_ni_.NewParArrayND(NWAVE, nc1);
+    scr6_ni_.NewParArrayND(NWAVE, nc1);
+    scr7_ni_.NewParArrayND(NWAVE, nc1);
+    scr8_ni_.NewParArrayND(NWAVE, nc1);
 
     // Precompute PPM coefficients in x1-direction ---------------------------------------
-    c1i.NewAthenaArray(nc1);
-    c2i.NewAthenaArray(nc1);
-    c3i.NewAthenaArray(nc1);
-    c4i.NewAthenaArray(nc1);
-    c5i.NewAthenaArray(nc1);
-    c6i.NewAthenaArray(nc1);
-    hplus_ratio_i.NewAthenaArray(nc1);
-    hminus_ratio_i.NewAthenaArray(nc1);
+    c1i.NewParArrayND(nc1);
+    c2i.NewParArrayND(nc1);
+    c3i.NewParArrayND(nc1);
+    c4i.NewParArrayND(nc1);
+    c5i.NewParArrayND(nc1);
+    c6i.NewParArrayND(nc1);
+    hplus_ratio_i.NewParArrayND(nc1);
+    hminus_ratio_i.NewParArrayND(nc1);
 
     // Greedily allocate tiny 4x4 matrix + 4x1 vectors (RHS, solution, and permutation
     // indices) in case PPMx1 and/or PPMx2 require them for computing the curvilinear
@@ -276,14 +276,14 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin) :
     // Precompute PPM coefficients in x2-direction ---------------------------------------
     if (pmb->block_size.nx2 > 1) {
       int nc2 = pmb->ncells2;
-      c1j.NewAthenaArray(nc2);
-      c2j.NewAthenaArray(nc2);
-      c3j.NewAthenaArray(nc2);
-      c4j.NewAthenaArray(nc2);
-      c5j.NewAthenaArray(nc2);
-      c6j.NewAthenaArray(nc2);
-      hplus_ratio_j.NewAthenaArray(nc2);
-      hminus_ratio_j.NewAthenaArray(nc2);
+      c1j.NewParArrayND(nc2);
+      c2j.NewParArrayND(nc2);
+      c3j.NewParArrayND(nc2);
+      c4j.NewParArrayND(nc2);
+      c5j.NewParArrayND(nc2);
+      c6j.NewParArrayND(nc2);
+      hplus_ratio_j.NewParArrayND(nc2);
+      hminus_ratio_j.NewParArrayND(nc2);
 
       // zero-curvature PPM limiter does not depend on mesh uniformity:
       for (int j=(pmb->js)-1; j<=(pmb->je)+1; ++j) {
@@ -334,14 +334,14 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin) :
     // Precompute PPM coefficients in x3-direction
     if (pmb->block_size.nx3 > 1) {
       int nc3 = pmb->ncells3;
-      c1k.NewAthenaArray(nc3);
-      c2k.NewAthenaArray(nc3);
-      c3k.NewAthenaArray(nc3);
-      c4k.NewAthenaArray(nc3);
-      c5k.NewAthenaArray(nc3);
-      c6k.NewAthenaArray(nc3);
-      hplus_ratio_k.NewAthenaArray(nc3);
-      hminus_ratio_k.NewAthenaArray(nc3);
+      c1k.NewParArrayND(nc3);
+      c2k.NewParArrayND(nc3);
+      c3k.NewParArrayND(nc3);
+      c4k.NewParArrayND(nc3);
+      c5k.NewParArrayND(nc3);
+      c6k.NewParArrayND(nc3);
+      hplus_ratio_k.NewParArrayND(nc3);
+      hminus_ratio_k.NewParArrayND(nc3);
 
       // reconstruction coeffiencients in x3, Cartesian-like coordinate:
       if (uniform[X3DIR]) { // uniform spacing

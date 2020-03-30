@@ -34,19 +34,19 @@ void FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
   ContainerIterator<Real> cout_iter(dudt_cont, {Metadata::Independent});
   int nvars = cout_iter.vars.size();
 
-  AthenaArray<Real> x1area(pmb->ncells1);
-  AthenaArray<Real> x2area0(pmb->ncells1);
-  AthenaArray<Real> x2area1(pmb->ncells1);
-  AthenaArray<Real> x3area0(pmb->ncells1);
-  AthenaArray<Real> x3area1(pmb->ncells1);
-  AthenaArray<Real> vol(pmb->ncells1);
+  ParArrayND<Real> x1area(pmb->ncells1);
+  ParArrayND<Real> x2area0(pmb->ncells1);
+  ParArrayND<Real> x2area1(pmb->ncells1);
+  ParArrayND<Real> x3area0(pmb->ncells1);
+  ParArrayND<Real> x3area1(pmb->ncells1);
+  ParArrayND<Real> vol(pmb->ncells1);
 
   /*for (int n = 0; n < nvars; n++) {
     Variable<Real>& dudt = *cout_iter.vars[n];
     dudt.ZeroClear();
   }*/
   int ndim = pmb->pmy_mesh->ndim;
-  AthenaArray<Real> du(pmb->ncells1);
+  ParArrayND<Real> du(pmb->ncells1);
   for (int k = ks; k <= ke; k++) {
     for (int j = js; j <= je; j++) {
       pmb->pcoord->Face1Area(k, j, is, ie + 1, x1area);
@@ -61,9 +61,9 @@ void FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
       }
       for (int n = 0; n < nvars; n++) {
         Variable<Real> &q = *cin_iter.vars[n];
-        AthenaArray<Real> &x1flux = q.flux[0];
-        AthenaArray<Real> &x2flux = q.flux[1];
-        AthenaArray<Real> &x3flux = q.flux[2];
+        ParArrayND<Real> &x1flux = q.flux[0];
+        ParArrayND<Real> &x2flux = q.flux[1];
+        ParArrayND<Real> &x3flux = q.flux[2];
         Variable<Real> &dudt = *cout_iter.vars[n];
         for (int l = 0; l < q.GetDim4(); l++) {
           du.ZeroClear();

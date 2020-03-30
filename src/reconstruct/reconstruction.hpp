@@ -25,7 +25,7 @@
 
 // parthenon infrastructure includes
 #include "athena.hpp"
-#include "athena_arrays.hpp"
+#include "parthenon_arrays.hpp"
 #include "coordinates/coordinates.hpp"
 
 namespace parthenon {
@@ -53,104 +53,104 @@ class Reconstruction {
   const bool correct_ic, correct_err; // used in Mesh::Initialize() and ProblemGenerator()
 
   // x1-sliced arrays of interpolation coefficients and limiter parameters:
-  AthenaArray<Real> c1i, c2i, c3i, c4i, c5i, c6i;  // coefficients for PPM in x1
-  AthenaArray<Real> hplus_ratio_i, hminus_ratio_i; // for curvilinear PPMx1
-  AthenaArray<Real> c1j, c2j, c3j, c4j, c5j, c6j;  // coefficients for PPM in x2
-  AthenaArray<Real> hplus_ratio_j, hminus_ratio_j; // for curvilinear PPMx2
-  AthenaArray<Real> c1k, c2k, c3k, c4k, c5k, c6k;  // coefficients for PPM in x3
-  AthenaArray<Real> hplus_ratio_k, hminus_ratio_k; // for curvilinear PPMx3
+  ParArrayND<Real> c1i, c2i, c3i, c4i, c5i, c6i;  // coefficients for PPM in x1
+  ParArrayND<Real> hplus_ratio_i, hminus_ratio_i; // for curvilinear PPMx1
+  ParArrayND<Real> c1j, c2j, c3j, c4j, c5j, c6j;  // coefficients for PPM in x2
+  ParArrayND<Real> hplus_ratio_j, hminus_ratio_j; // for curvilinear PPMx2
+  ParArrayND<Real> c1k, c2k, c3k, c4k, c5k, c6k;  // coefficients for PPM in x3
+  ParArrayND<Real> hplus_ratio_k, hminus_ratio_k; // for curvilinear PPMx3
 
   // functions
   // linear transformations of vectors between primitive and characteristic variables
   void LeftEigenmatrixDotVector(
       const int ivx, const int il, const int iu,
-      const AthenaArray<Real> &b1, const AthenaArray<Real> &w, AthenaArray<Real> &vect);
+      const ParArrayND<Real> &b1, const ParArrayND<Real> &w, ParArrayND<Real> &vect);
   void RightEigenmatrixDotVector(
       const int ivx, const int il, const int iu,
-      const AthenaArray<Real> &b1, const AthenaArray<Real> &w, AthenaArray<Real> &vect);
+      const ParArrayND<Real> &b1, const ParArrayND<Real> &w, ParArrayND<Real> &vect);
 
   // reconstruction functions of various orders in each dimension
   void DonorCellX1(const int k, const int j, const int il, const int iu,
-                   const AthenaArray<Real> &w, const AthenaArray<Real> &bcc,
-                   AthenaArray<Real> &wl, AthenaArray<Real> &wr);
+                   const ParArrayND<Real> &w, const ParArrayND<Real> &bcc,
+                   ParArrayND<Real> &wl, ParArrayND<Real> &wr);
 
   void DonorCellX2(const int k, const int j, const int il, const int iu,
-                   const AthenaArray<Real> &w, const AthenaArray<Real> &bcc,
-                   AthenaArray<Real> &wl, AthenaArray<Real> &wr);
+                   const ParArrayND<Real> &w, const ParArrayND<Real> &bcc,
+                   ParArrayND<Real> &wl, ParArrayND<Real> &wr);
 
   void DonorCellX3(const int k, const int j, const int il, const int iu,
-                   const AthenaArray<Real> &w, const AthenaArray<Real> &bcc,
-                   AthenaArray<Real> &wl, AthenaArray<Real> &wr);
+                   const ParArrayND<Real> &w, const ParArrayND<Real> &bcc,
+                   ParArrayND<Real> &wl, ParArrayND<Real> &wr);
 
   void PiecewiseLinearX1(const int k, const int j, const int il, const int iu,
-                         const AthenaArray<Real> &w, const AthenaArray<Real> &bcc,
-                         AthenaArray<Real> &wl, AthenaArray<Real> &wr);
+                         const ParArrayND<Real> &w, const ParArrayND<Real> &bcc,
+                         ParArrayND<Real> &wl, ParArrayND<Real> &wr);
 
   void PiecewiseLinearX2(const int k, const int j, const int il, const int iu,
-                         const AthenaArray<Real> &w, const AthenaArray<Real> &bcc,
-                         AthenaArray<Real> &wl, AthenaArray<Real> &wr);
+                         const ParArrayND<Real> &w, const ParArrayND<Real> &bcc,
+                         ParArrayND<Real> &wl, ParArrayND<Real> &wr);
 
   void PiecewiseLinearX3(const int k, const int j, const int il, const int iu,
-                         const AthenaArray<Real> &w, const AthenaArray<Real> &bcc,
-                         AthenaArray<Real> &wl, AthenaArray<Real> &wr);
+                         const ParArrayND<Real> &w, const ParArrayND<Real> &bcc,
+                         ParArrayND<Real> &wl, ParArrayND<Real> &wr);
 
   void PiecewiseParabolicX1(const int k, const int j, const int il, const int iu,
-                            const AthenaArray<Real> &w, const AthenaArray<Real> &bcc,
-                            AthenaArray<Real> &wl, AthenaArray<Real> &wr);
+                            const ParArrayND<Real> &w, const ParArrayND<Real> &bcc,
+                            ParArrayND<Real> &wl, ParArrayND<Real> &wr);
 
   void PiecewiseParabolicX2(const int k, const int j, const int il, const int iu,
-                            const AthenaArray<Real> &w, const AthenaArray<Real> &bcc,
-                            AthenaArray<Real> &wl, AthenaArray<Real> &wr);
+                            const ParArrayND<Real> &w, const ParArrayND<Real> &bcc,
+                            ParArrayND<Real> &wl, ParArrayND<Real> &wr);
 
   void PiecewiseParabolicX3(const int k, const int j, const int il, const int iu,
-                            const AthenaArray<Real> &w, const AthenaArray<Real> &bcc,
-                            AthenaArray<Real> &wl, AthenaArray<Real> &wr);
+                            const ParArrayND<Real> &w, const ParArrayND<Real> &bcc,
+                            ParArrayND<Real> &wl, ParArrayND<Real> &wr);
 
   void DonorCellX1(const int k, const int j, const int il, const int iu,
-                   const AthenaArray<Real> &q,
-                   AthenaArray<Real> &ql, AthenaArray<Real> &qr);
+                   const ParArrayND<Real> &q,
+                   ParArrayND<Real> &ql, ParArrayND<Real> &qr);
 
   void DonorCellX2(const int k, const int j, const int il, const int iu,
-                   const AthenaArray<Real> &q,
-                   AthenaArray<Real> &ql, AthenaArray<Real> &qr);
+                   const ParArrayND<Real> &q,
+                   ParArrayND<Real> &ql, ParArrayND<Real> &qr);
 
   void DonorCellX3(const int k, const int j, const int il, const int iu,
-                   const AthenaArray<Real> &q,
-                   AthenaArray<Real> &ql, AthenaArray<Real> &qr);
+                   const ParArrayND<Real> &q,
+                   ParArrayND<Real> &ql, ParArrayND<Real> &qr);
 
   void PiecewiseLinearX1(const int k, const int j, const int il, const int iu,
-                         const AthenaArray<Real> &q,
-                         AthenaArray<Real> &ql, AthenaArray<Real> &qr);
+                         const ParArrayND<Real> &q,
+                         ParArrayND<Real> &ql, ParArrayND<Real> &qr);
 
   void PiecewiseLinearX2(const int k, const int j, const int il, const int iu,
-                         const AthenaArray<Real> &q,
-                         AthenaArray<Real> &ql, AthenaArray<Real> &qr);
+                         const ParArrayND<Real> &q,
+                         ParArrayND<Real> &ql, ParArrayND<Real> &qr);
 
   void PiecewiseLinearX3(const int k, const int j, const int il, const int iu,
-                         const AthenaArray<Real> &q,
-                         AthenaArray<Real> &ql, AthenaArray<Real> &qr);
+                         const ParArrayND<Real> &q,
+                         ParArrayND<Real> &ql, ParArrayND<Real> &qr);
 
   void PiecewiseParabolicX1(const int k, const int j, const int il, const int iu,
-                            const AthenaArray<Real> &q,
-                            AthenaArray<Real> &ql, AthenaArray<Real> &qr);
+                            const ParArrayND<Real> &q,
+                            ParArrayND<Real> &ql, ParArrayND<Real> &qr);
 
   void PiecewiseParabolicX2(const int k, const int j, const int il, const int iu,
-                            const AthenaArray<Real> &q,
-                            AthenaArray<Real> &ql, AthenaArray<Real> &qr);
+                            const ParArrayND<Real> &q,
+                            ParArrayND<Real> &ql, ParArrayND<Real> &qr);
 
   void PiecewiseParabolicX3(const int k, const int j, const int il, const int iu,
-                            const AthenaArray<Real> &q,
-                            AthenaArray<Real> &ql, AthenaArray<Real> &qr);
+                            const ParArrayND<Real> &q,
+                            ParArrayND<Real> &ql, ParArrayND<Real> &qr);
 
  private:
   MeshBlock* pmy_block_;  // ptr to MeshBlock containing this Reconstruction
 
   // scratch arrays used in PLM and PPM reconstruction functions
-  AthenaArray<Real> scr01_i_, scr02_i_, scr03_i_, scr04_i_, scr05_i_;
-  AthenaArray<Real> scr06_i_, scr07_i_, scr08_i_, scr09_i_, scr10_i_;
-  AthenaArray<Real> scr11_i_, scr12_i_, scr13_i_, scr14_i_;
-  AthenaArray<Real> scr1_ni_, scr2_ni_, scr3_ni_, scr4_ni_, scr5_ni_;
-  AthenaArray<Real> scr6_ni_, scr7_ni_, scr8_ni_;
+  ParArrayND<Real> scr01_i_, scr02_i_, scr03_i_, scr04_i_, scr05_i_;
+  ParArrayND<Real> scr06_i_, scr07_i_, scr08_i_, scr09_i_, scr10_i_;
+  ParArrayND<Real> scr11_i_, scr12_i_, scr13_i_, scr14_i_;
+  ParArrayND<Real> scr1_ni_, scr2_ni_, scr3_ni_, scr4_ni_, scr5_ni_;
+  ParArrayND<Real> scr6_ni_, scr7_ni_, scr8_ni_;
 };
 }
 #endif // RECONSTRUCT_RECONSTRUCTION_HPP_

@@ -90,8 +90,8 @@ class FaceCenteredBoundaryVariable : public BoundaryVariable {
   void CountFineEdges();   // called in SetupPersistentMPI()
 
   void RemapFlux(const int k, const int jinner, const int jouter, const int i,
-                 const Real eps, const AthenaArray<Real> &var,
-                 AthenaArray<Real> &flux);
+                 const Real eps, const ParArrayND<Real> &var,
+                 ParArrayND<Real> &flux);
 };
 }
 #endif // BVALS_FC_BVALS_FC_HPP_

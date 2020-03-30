@@ -33,12 +33,12 @@
 
 // Athena++ headers
 #include "athena.hpp"
-#include "athena_arrays.hpp"
 #include "bvals/bvals.hpp"
 #include "coordinates/coordinates.hpp"
 #include "globals.hpp"
 #include "kokkos_abstraction.hpp"
 #include "parameter_input.hpp"
+#include "parthenon_arrays.hpp"
 #include "utils/buffer_utils.hpp"
 #include "mesh.hpp"
 #include "mesh_refinement.hpp"
@@ -302,7 +302,7 @@ MeshBlock::~MeshBlock() {
 
 //----------------------------------------------------------------------------------------
 //! \fn void MeshBlock::AllocateRealUserMeshBlockDataField(int n)
-//  \brief Allocate Real AthenaArrays for user-defned data in MeshBlock
+//  \brief Allocate Real ParArrayNDs for user-defned data in MeshBlock
 
 void MeshBlock::AllocateRealUserMeshBlockDataField(int n) {
   if (nreal_user_meshblock_data_ != 0) {
@@ -312,13 +312,13 @@ void MeshBlock::AllocateRealUserMeshBlockDataField(int n) {
     ATHENA_ERROR(msg);
   }
   nreal_user_meshblock_data_ = n;
-  ruser_meshblock_data = new AthenaArray<Real>[n];
+  ruser_meshblock_data = new ParArrayND<Real>[n];
   return;
 }
 
 //----------------------------------------------------------------------------------------
 //! \fn void MeshBlock::AllocateIntUserMeshBlockDataField(int n)
-//  \brief Allocate integer AthenaArrays for user-defned data in MeshBlock
+//  \brief Allocate integer ParArrayNDs for user-defned data in MeshBlock
 
 void MeshBlock::AllocateIntUserMeshBlockDataField(int n) {
   if (nint_user_meshblock_data_ != 0) {
@@ -329,7 +329,7 @@ void MeshBlock::AllocateIntUserMeshBlockDataField(int n) {
     return;
   }
   nint_user_meshblock_data_=n;
-  iuser_meshblock_data = new AthenaArray<int>[n];
+  iuser_meshblock_data = new ParArrayND<int>[n];
   return;
 }
 
@@ -347,7 +347,7 @@ void MeshBlock::AllocateUserOutputVariables(int n) {
     return;
   }
   nuser_out_var = n;
-  user_out_var.NewAthenaArray(nuser_out_var, ncells3, ncells2, ncells1);
+  user_out_var.NewParArrayND(nuser_out_var, ncells3, ncells2, ncells1);
   user_out_var_names_ = new std::string[n];
   return;
 }

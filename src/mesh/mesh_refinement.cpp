@@ -30,7 +30,7 @@
 
 // Athena++ headers
 #include "athena.hpp"
-#include "athena_arrays.hpp"
+#include "parthenon_arrays.hpp"
 #include "better_refinement/better_refinement.hpp"
 #include "coordinates/coordinates.hpp"
 #include "globals.hpp"
@@ -59,26 +59,26 @@ MeshRefinement::MeshRefinement(MeshBlock *pmb, ParameterInput *pin) :
   }
 
   int nc1 = pmb->ncells1;
-  fvol_[0][0].NewAthenaArray(nc1);
-  fvol_[0][1].NewAthenaArray(nc1);
-  fvol_[1][0].NewAthenaArray(nc1);
-  fvol_[1][1].NewAthenaArray(nc1);
-  sarea_x1_[0][0].NewAthenaArray(nc1+1);
-  sarea_x1_[0][1].NewAthenaArray(nc1+1);
-  sarea_x1_[1][0].NewAthenaArray(nc1+1);
-  sarea_x1_[1][1].NewAthenaArray(nc1+1);
-  sarea_x2_[0][0].NewAthenaArray(nc1);
-  sarea_x2_[0][1].NewAthenaArray(nc1);
-  sarea_x2_[0][2].NewAthenaArray(nc1);
-  sarea_x2_[1][0].NewAthenaArray(nc1);
-  sarea_x2_[1][1].NewAthenaArray(nc1);
-  sarea_x2_[1][2].NewAthenaArray(nc1);
-  sarea_x3_[0][0].NewAthenaArray(nc1);
-  sarea_x3_[0][1].NewAthenaArray(nc1);
-  sarea_x3_[1][0].NewAthenaArray(nc1);
-  sarea_x3_[1][1].NewAthenaArray(nc1);
-  sarea_x3_[2][0].NewAthenaArray(nc1);
-  sarea_x3_[2][1].NewAthenaArray(nc1);
+  fvol_[0][0].NewParArrayND(nc1);
+  fvol_[0][1].NewParArrayND(nc1);
+  fvol_[1][0].NewParArrayND(nc1);
+  fvol_[1][1].NewParArrayND(nc1);
+  sarea_x1_[0][0].NewParArrayND(nc1+1);
+  sarea_x1_[0][1].NewParArrayND(nc1+1);
+  sarea_x1_[1][0].NewParArrayND(nc1+1);
+  sarea_x1_[1][1].NewParArrayND(nc1+1);
+  sarea_x2_[0][0].NewParArrayND(nc1);
+  sarea_x2_[0][1].NewParArrayND(nc1);
+  sarea_x2_[0][2].NewParArrayND(nc1);
+  sarea_x2_[1][0].NewParArrayND(nc1);
+  sarea_x2_[1][1].NewParArrayND(nc1);
+  sarea_x2_[1][2].NewParArrayND(nc1);
+  sarea_x3_[0][0].NewParArrayND(nc1);
+  sarea_x3_[0][1].NewParArrayND(nc1);
+  sarea_x3_[1][0].NewParArrayND(nc1);
+  sarea_x3_[1][1].NewParArrayND(nc1);
+  sarea_x3_[2][0].NewParArrayND(nc1);
+  sarea_x3_[2][1].NewParArrayND(nc1);
 
   // KGF: probably don't need to preallocate space for pointers in these vectors
   pvars_cc_.reserve(3);
@@ -95,13 +95,13 @@ MeshRefinement::~MeshRefinement() {
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void MeshRefinement::RestrictCellCenteredValues(const AthenaArray<Real> &fine,
-//                           AthenaArray<Real> &coarse, int sn, int en,
+//! \fn void MeshRefinement::RestrictCellCenteredValues(const ParArrayND<Real> &fine,
+//                           ParArrayND<Real> &coarse, int sn, int en,
 //                           int csi, int cei, int csj, int cej, int csk, int cek)
 //  \brief restrict cell centered values
 
 void MeshRefinement::RestrictCellCenteredValues(
-    const AthenaArray<Real> &fine, AthenaArray<Real> &coarse, int sn, int en,
+    const ParArrayND<Real> &fine, ParArrayND<Real> &coarse, int sn, int en,
     int csi, int cei, int csj, int cej, int csk, int cek) {
   MeshBlock *pmb = pmy_block_;
   auto &pco = pmb->pcoord;
@@ -172,12 +172,12 @@ void MeshRefinement::RestrictCellCenteredValues(
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void MeshRefinement::RestrictFieldX1(const AthenaArray<Real> &fine
-//      AthenaArray<Real> &coarse, int csi, int cei, int csj, int cej, int csk, int cek)
+//! \fn void MeshRefinement::RestrictFieldX1(const ParArrayND<Real> &fine
+//      ParArrayND<Real> &coarse, int csi, int cei, int csj, int cej, int csk, int cek)
 //  \brief restrict the x1 field data and set them into the coarse buffer
 
 void MeshRefinement::RestrictFieldX1(
-    const AthenaArray<Real> &fine, AthenaArray<Real> &coarse,
+    const ParArrayND<Real> &fine, ParArrayND<Real> &coarse,
     int csi, int cei, int csj, int cej, int csk, int cek) {
   MeshBlock *pmb = pmy_block_;
   auto &pco = pmb->pcoord;
@@ -228,12 +228,12 @@ void MeshRefinement::RestrictFieldX1(
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void MeshRefinement::RestrictFieldX2(const AthenaArray<Real> &fine
-//      AthenaArray<Real> &coarse, int csi, int cei, int csj, int cej, int csk, int cek)
+//! \fn void MeshRefinement::RestrictFieldX2(const ParArrayND<Real> &fine
+//      ParArrayND<Real> &coarse, int csi, int cei, int csj, int cej, int csk, int cek)
 //  \brief restrict the x2 field data and set them into the coarse buffer
 
 void MeshRefinement::RestrictFieldX2(
-    const AthenaArray<Real> &fine, AthenaArray<Real> &coarse,
+    const ParArrayND<Real> &fine, ParArrayND<Real> &coarse,
     int csi, int cei, int csj, int cej, int csk, int cek) {
   MeshBlock *pmb = pmy_block_;
   auto &pco = pmb->pcoord;
@@ -285,12 +285,12 @@ void MeshRefinement::RestrictFieldX2(
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void MeshRefinement::RestrictFieldX3(const AthenaArray<Real> &fine
-//      AthenaArray<Real> &coarse, int csi, int cei, int csj, int cej, int csk, int cek)
+//! \fn void MeshRefinement::RestrictFieldX3(const ParArrayND<Real> &fine
+//      ParArrayND<Real> &coarse, int csi, int cei, int csj, int cej, int csk, int cek)
 //  \brief restrict the x3 field data and set them into the coarse buffer
 
 void MeshRefinement::RestrictFieldX3(
-    const AthenaArray<Real> &fine, AthenaArray<Real> &coarse,
+    const ParArrayND<Real> &fine, ParArrayND<Real> &coarse,
     int csi, int cei, int csj, int cej, int csk, int cek) {
   MeshBlock *pmb = pmy_block_;
   auto &pco = pmb->pcoord;
@@ -347,12 +347,12 @@ void MeshRefinement::RestrictFieldX3(
 
 //----------------------------------------------------------------------------------------
 //! \fn void MeshRefinement::ProlongateCellCenteredValues(
-//        const AthenaArray<Real> &coarse,AthenaArray<Real> &fine, int sn, int en,,
+//        const ParArrayND<Real> &coarse,ParArrayND<Real> &fine, int sn, int en,,
 //        int si, int ei, int sj, int ej, int sk, int ek)
 //  \brief Prolongate cell centered values
 
 void MeshRefinement::ProlongateCellCenteredValues(
-    const AthenaArray<Real> &coarse, AthenaArray<Real> &fine,
+    const ParArrayND<Real> &coarse, ParArrayND<Real> &fine,
     int sn, int en, int si, int ei, int sj, int ej, int sk, int ek) {
   MeshBlock *pmb = pmy_block_;
   auto &pco = pmb->pcoord;
@@ -499,12 +499,12 @@ void MeshRefinement::ProlongateCellCenteredValues(
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void MeshRefinement::ProlongateSharedFieldX1(const AthenaArray<Real> &coarse,
-//      AthenaArray<Real> &fine, int si, int ei, int sj, int ej, int sk, int ek)
+//! \fn void MeshRefinement::ProlongateSharedFieldX1(const ParArrayND<Real> &coarse,
+//      ParArrayND<Real> &fine, int si, int ei, int sj, int ej, int sk, int ek)
 //  \brief prolongate x1 face-centered fields shared between coarse and fine levels
 
 void MeshRefinement::ProlongateSharedFieldX1(
-    const AthenaArray<Real> &coarse, AthenaArray<Real> &fine,
+    const ParArrayND<Real> &coarse, ParArrayND<Real> &fine,
     int si, int ei, int sj, int ej, int sk, int ek) {
   MeshBlock *pmb = pmy_block_;
   auto &pco = pmb->pcoord;
@@ -581,12 +581,12 @@ void MeshRefinement::ProlongateSharedFieldX1(
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void MeshRefinement::ProlongateSharedFieldX2(const AthenaArray<Real> &coarse,
-//      AthenaArray<Real> &fine, int si, int ei, int sj, int ej, int sk, int ek)
+//! \fn void MeshRefinement::ProlongateSharedFieldX2(const ParArrayND<Real> &coarse,
+//      ParArrayND<Real> &fine, int si, int ei, int sj, int ej, int sk, int ek)
 //  \brief prolongate x2 face-centered fields shared between coarse and fine levels
 
 void MeshRefinement::ProlongateSharedFieldX2(
-    const AthenaArray<Real> &coarse, AthenaArray<Real> &fine,
+    const ParArrayND<Real> &coarse, ParArrayND<Real> &fine,
     int si, int ei, int sj, int ej, int sk, int ek) {
   MeshBlock *pmb = pmy_block_;
   auto &pco = pmb->pcoord;
@@ -670,12 +670,12 @@ void MeshRefinement::ProlongateSharedFieldX2(
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void MeshRefinement::ProlongateSharedFieldX3(const AthenaArray<Real> &coarse,
-//      AthenaArray<Real> &fine, int si, int ei, int sj, int ej, int sk, int ek)
+//! \fn void MeshRefinement::ProlongateSharedFieldX3(const ParArrayND<Real> &coarse,
+//      ParArrayND<Real> &fine, int si, int ei, int sj, int ej, int sk, int ek)
 //  \brief prolongate x3 face-centered fields shared between coarse and fine levels
 
 void MeshRefinement::ProlongateSharedFieldX3(
-    const AthenaArray<Real> &coarse, AthenaArray<Real> &fine,
+    const ParArrayND<Real> &coarse, ParArrayND<Real> &fine,
     int si, int ei, int sj, int ej, int sk, int ek) {
   MeshBlock *pmb = pmy_block_;
   auto &pco = pmb->pcoord;
@@ -1020,8 +1020,8 @@ void MeshRefinement::SetRefinement(int flag) {
 
 // TODO(felker): consider merging w/ MeshBlock::pvars_cc, etc. See meshblock.cpp
 
-int MeshRefinement::AddToRefinement(AthenaArray<Real> *pvar_cc,
-                                     AthenaArray<Real> *pcoarse_cc) {
+int MeshRefinement::AddToRefinement(ParArrayND<Real> *pvar_cc,
+                                     ParArrayND<Real> *pcoarse_cc) {
   pvars_cc_.push_back(std::make_tuple(pvar_cc, pcoarse_cc));
   return static_cast<int>(pvars_cc_.size() - 1);
 }

@@ -33,7 +33,7 @@
 
 // Athena++ headers
 #include "athena.hpp"
-#include "athena_arrays.hpp"
+#include "parthenon_arrays.hpp"
 #include "bvals/bvals.hpp"
 #include "bvals/bvals_interfaces.hpp"
 #include "interface/container_collection.hpp"
@@ -121,23 +121,15 @@ class MeshBlock {
   int gid, lid;
   int cis, cie, cjs, cje, cks, cke, cnghost;
   int gflag;
-<<<<<<< HEAD
-=======
-  // At every cycle n, and field registers (u, b) are advanced from t^n -> t^{n+1},
-  // the time-integration scheme may partially substep several storage register pairs
-  // (u,b), (u1,b1), (u2, b2), ..., (um, bm) through the dt interval. Track their time
-  // abscissae at the end of each stage (1<=l<=nstage) as (dt_m^l) relative to t^n
-  Real stage_abscissae[MAX_NSTAGE+1][MAX_NREGISTER];
->>>>>>> jmm/parthenon-arrays-NDArray
 
   // user output variables for analysis
   int nuser_out_var;
-  AthenaArray<Real> user_out_var;
+  ParArrayND<Real> user_out_var;
   std::string *user_out_var_names_;
 
   // user MeshBlock data that can be stored in restart files
-  AthenaArray<Real> *ruser_meshblock_data;
-  AthenaArray<int> *iuser_meshblock_data;
+  ParArrayND<Real> *ruser_meshblock_data;
+  ParArrayND<int> *iuser_meshblock_data;
 
   // The User defined containers
   ContainerCollection<Real> real_containers;
@@ -202,8 +194,8 @@ class MeshBlock {
   int GetNumberOfMeshBlockCells() {
     return block_size.nx1*block_size.nx2*block_size.nx3; }
   void SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist, int *nslist);
-  void WeightedAve(AthenaArray<Real> &u_out, AthenaArray<Real> &u_in1,
-                   AthenaArray<Real> &u_in2, const Real wght[3]);
+  void WeightedAve(ParArrayND<Real> &u_out, ParArrayND<Real> &u_in1,
+                   ParArrayND<Real> &u_in2, const Real wght[3]);
   void WeightedAve(FaceField &b_out, FaceField &b_in1, FaceField &b_in2,
                    const Real wght[3]);
 
@@ -299,8 +291,8 @@ class Mesh {
   Properties_t properties;
   Packages_t packages;
 
-  AthenaArray<Real> *ruser_mesh_data;
-  AthenaArray<int> *iuser_mesh_data;
+  ParArrayND<Real> *ruser_mesh_data;
+  ParArrayND<int> *iuser_mesh_data;
 
   // functions
   void Initialize(int res_flag, ParameterInput *pin);

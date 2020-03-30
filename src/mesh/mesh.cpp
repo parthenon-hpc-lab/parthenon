@@ -41,12 +41,12 @@
 
 // Athena++ headers
 #include "athena.hpp"
-#include "athena_arrays.hpp"
 #include "bvals/bvals.hpp"
 #include "coordinates/coordinates.hpp"
 #include "globals.hpp"
 #include "outputs/io_wrapper.hpp"
 #include "parameter_input.hpp"
+#include "parthenon_arrays.hpp"
 #include "utils/buffer_utils.hpp"
 #include "mesh.hpp"
 #include "mesh_refinement.hpp"
@@ -1180,7 +1180,7 @@ void Mesh::EnrollFieldDiffusivity(FieldDiffusionCoeffFunc my_func) {
 }
 //----------------------------------------------------------------------------------------
 //! \fn void Mesh::AllocateRealUserMeshDataField(int n)
-//  \brief Allocate Real AthenaArrays for user-defned data in Mesh
+//  \brief Allocate Real ParArrayNDs for user-defned data in Mesh
 
 void Mesh::AllocateRealUserMeshDataField(int n) {
   if (nreal_user_mesh_data_ != 0) {
@@ -1190,13 +1190,13 @@ void Mesh::AllocateRealUserMeshDataField(int n) {
     ATHENA_ERROR(msg);
   }
   nreal_user_mesh_data_ = n;
-  ruser_mesh_data = new AthenaArray<Real>[n];
+  ruser_mesh_data = new ParArrayND<Real>[n];
   return;
 }
 
 //----------------------------------------------------------------------------------------
 //! \fn void Mesh::AllocateIntUserMeshDataField(int n)
-//  \brief Allocate integer AthenaArrays for user-defned data in Mesh
+//  \brief Allocate integer ParArrayNDs for user-defned data in Mesh
 
 void Mesh::AllocateIntUserMeshDataField(int n) {
   if (nint_user_mesh_data_ != 0) {
@@ -1206,7 +1206,7 @@ void Mesh::AllocateIntUserMeshDataField(int n) {
     ATHENA_ERROR(msg);
   }
   nint_user_mesh_data_ = n;
-  iuser_mesh_data = new AthenaArray<int>[n];
+  iuser_mesh_data = new ParArrayND<int>[n];
   return;
 }
 

@@ -25,7 +25,7 @@
 
 // Athena++ headers
 #include "athena.hpp"         // Real
-#include "athena_arrays.hpp"  // AthenaArray
+#include "parthenon_arrays.hpp"  // ParArrayND
 #include "coordinates/coordinates.hpp" // Coordinates
 #include "interp_table.hpp"
 
@@ -41,7 +41,7 @@ void InterpTable2D::SetSize(const int nvar, const int nx2, const int nx1) {
   nvar_ = nvar; // number of variables/tables
   nx2_ = nx2; // slower indexing dimension
   nx1_ = nx1; // faster indexing dimension
-  data.NewAthenaArray(nvar, nx2, nx1);
+  data.NewParArrayND(nvar, nx2, nx1);
 }
 
 // Set the corrdinate limits for x1
