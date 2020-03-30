@@ -43,6 +43,7 @@ class ParArrayND {
   using index_pair_t = std::pair<size_t,size_t>;
   using device_view_t = Kokkos::View<T******,Layout,DevSpace>;
 
+  KOKKOS_FUNCTION
   ParArrayND() = default;
   explicit ParArrayND(const std::string& label,
                       int nx6, int nx5, int nx4, int nx3, int nx2, int nx1)
@@ -102,7 +103,7 @@ class ParArrayND {
   ParArrayND<T,Layout> &operator= (ParArrayND<T,Layout> &&t) = default;
   
   // functions to get array dimensions
-  KOKKOS_INLINE_FUNCTION int GetDim(const int i) {
+  KOKKOS_INLINE_FUNCTION int GetDim(const int i) const {
     assert( 0 < i && i <= 6 && "ParArrayNDs are max 6D" );
     return d6d_.extent_int(6-i);
   }
@@ -147,37 +148,31 @@ class ParArrayND {
     return d6d_(p,m,n,k,j,i);
   }
   template<typename...Args>
-  auto Slice(Args...args) {
+  auto Slice(Args...args) const {
     auto v = Kokkos::subview(d6d_,std::forward<Args>(args)...);
     return ParArrayND<T,typename decltype(v)::array_layout>(v);
   }
-
-  auto SliceD(index_pair_t slc, std::integral_constant<int,6>) {
+  auto SliceD(index_pair_t slc, std::integral_constant<int,6>) const {
     return Slice(slc,Kokkos::ALL(),Kokkos::ALL(),
                  Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL());
   }
-
-  auto SliceD(index_pair_t slc, std::integral_constant<int,5>) {
+  auto SliceD(index_pair_t slc, std::integral_constant<int,5>) const {
     return Slice(SLC0,slc,Kokkos::ALL(),
                  Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL());
   }
-
-  auto SliceD(index_pair_t slc, std::integral_constant<int,4>) {
+  auto SliceD(index_pair_t slc, std::integral_constant<int,4>) const {
     return Slice(SLC0,SLC0,slc,
                  Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL());
   }
-
-  auto SliceD(index_pair_t slc, std::integral_constant<int,3>) {
+  auto SliceD(index_pair_t slc, std::integral_constant<int,3>) const {
     return Slice(SLC0,SLC0,SLC0,
                  slc,Kokkos::ALL(),Kokkos::ALL());
   }
-
-  auto SliceD(index_pair_t slc, std::integral_constant<int,2>) {
+  auto SliceD(index_pair_t slc, std::integral_constant<int,2>) const {
     return Slice(SLC0,SLC0,SLC0,
                  Kokkos::ALL(),slc,Kokkos::ALL());
   }
-
-  auto SliceD(index_pair_t slc, std::integral_constant<int,1>) {
+  auto SliceD(index_pair_t slc, std::integral_constant<int,1>) const {
     return Slice(SLC0,SLC0,SLC0,Kokkos::ALL(),Kokkos::ALL(),slc);
   }
 
@@ -186,7 +181,7 @@ class ParArrayND {
   template<std::size_t N = 6>
   auto SliceD(index_pair_t slc,
               std::integral_constant<int,N> ic =
-              std::integral_constant<int,N>{}) {
+              std::integral_constant<int,N>{}) const {
     return SliceD(slc, ic);
   }
 
@@ -198,59 +193,73 @@ class ParArrayND {
               std::integral_constant<int,N>{}) {
     return SliceD(std::make_pair(indx,indx+nvar),ic);
   }
-
-  auto Get(int i) {
+  KOKKOS_INLINE_FUNCTION
+  auto Get(int i) const {
     return Kokkos::subview(d6d_,i,
                            Kokkos::ALL(),Kokkos::ALL(),
                            Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL());
   }
-  auto Get(int j, int i) {
+  KOKKOS_INLINE_FUNCTION
+  auto Get(int j, int i) const {
     return Kokkos::subview(d6d_,j,i,
                            Kokkos::ALL(),Kokkos::ALL(),
                            Kokkos::ALL(),Kokkos::ALL());
   }
-  auto Get(int k, int j, int i) {
+  KOKKOS_INLINE_FUNCTION
+  auto Get(int k, int j, int i) const {
     return Kokkos::subview(d6d_,k,j,i,
                            Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL());
   }
-  auto Get(int n, int k, int j, int i) {
+  KOKKOS_INLINE_FUNCTION
+  auto Get(int n, int k, int j, int i) const {
     return Kokkos::subview(d6d_,n,k,j,i,
                            Kokkos::ALL(),Kokkos::ALL());
   }
-  auto Get(int m, int n, int k, int j, int i) {
+  KOKKOS_INLINE_FUNCTION
+  auto Get(int m, int n, int k, int j, int i) const {
     return Kokkos::subview(d6d_,m,n,k,j,i,
                            Kokkos::ALL());
   }
-  auto Get(int l, int m, int n, int k, int j, int i) {
+  KOKKOS_INLINE_FUNCTION
+  auto Get(int l, int m, int n, int k, int j, int i) const {
     return Kokkos::subview(d6d_,l,m,n,k,j,i); // 0d view
   }
-  auto Get() {
+  KOKKOS_INLINE_FUNCTION
+  auto Get() const {
     return d6d_;
   }
-  auto Get(std::integral_constant<int,6>) {
+  KOKKOS_INLINE_FUNCTION
+  auto Get(std::integral_constant<int,6>) const {
     return Get();
   }
-  auto Get(std::integral_constant<int,5>) {
+  KOKKOS_INLINE_FUNCTION
+  auto Get(std::integral_constant<int,5>) const {
     return Get(0);
   }
-  auto Get(std::integral_constant<int,4>) {
+  KOKKOS_INLINE_FUNCTION
+  auto Get(std::integral_constant<int,4>) const {
     return Get(0,0);
   }
-  auto Get(std::integral_constant<int,3>) {
+  KOKKOS_INLINE_FUNCTION
+  auto Get(std::integral_constant<int,3>) const {
     return Get(0,0,0);
   }
-  auto Get(std::integral_constant<int,2>) {
+  KOKKOS_INLINE_FUNCTION
+  auto Get(std::integral_constant<int,2>) const {
     return Get(0,0,0,0);
   }
-  auto Get(std::integral_constant<int,1>) {
+  KOKKOS_INLINE_FUNCTION
+  auto Get(std::integral_constant<int,1>) const {
     return Get(0,0,0,0,0);
   }
-  auto Get(std::integral_constant<int,0>) {
+  KOKKOS_INLINE_FUNCTION
+  auto Get(std::integral_constant<int,0>) const {
     return Get(0,0,0,0,0,0);
   }
   template<std::size_t N = 6>
+  KOKKOS_INLINE_FUNCTION
   auto Get(std::integral_constant<int,N> ic =
-           std::integral_constant<int,N>{}) {
+           std::integral_constant<int,N>{}) const {
     return Get(ic);
   }
 
