@@ -17,11 +17,18 @@
 // so.
 //========================================================================================
 
+// C++ headers
 #include <iostream>
+#include <random>
+#include <string>
+
+// C header
 #include <math.h>
 
+// 3rd-party headers
 #include <catch2/catch.hpp>
 
+// Parthenon headers
 #include "kokkos_abstraction.hpp"
 #include "parthenon_arrays.hpp"
 
@@ -32,6 +39,7 @@ using Real = double;
 
 constexpr int N = 32 + 2;
 constexpr int NT = 100;
+constexpr int NARRAYS = 12;
 
 KOKKOS_INLINE_FUNCTION Real coord(const int i, const int n) {
   const Real dx = 2.0/(n+1.0);
@@ -53,7 +61,10 @@ KOKKOS_INLINE_FUNCTION Real gaussian(const int iz, const int iy, const int ix) {
 
 #define stencil(l,r,k,j,i) l(k,j,i) = (1./6.)*(r(k-1,j,i)+r(k+1,j,i)+r(k,j-1,i)+r(k,j+1,i)+r(k,j,i-1)+r(k,j,i+1))
 
-template <class T> void profile_wrapper_3d(T loop_pattern) {
+#define MYEXP(obj,indx) obj[indx](k,j,i) = exp(obj[indx](k,j,i))
+
+template <class T>
+void profile_wrapper_3d(T loop_pattern) {
   auto exec_space = DevSpace();
   Kokkos::Timer timer;
 
@@ -127,7 +138,7 @@ template <class T> void profile_wrapper_3d(T loop_pattern) {
   Kokkos::fence();
   auto time_extracted = timer.seconds();
 
-  std::cout << "Times:\n"
+  std::cout << "Times for stencil test:\n"
             << "\traw views   = " << time_raw << " s\n"
             << "\tND arrays   = " << time_ND_arrays << " s\n"
             << "\textracted   = " << time_extracted << " s\n"
@@ -247,6 +258,7 @@ TEST_CASE("Time simple stencil operations") {
     std::cout << "1d range:" << std::endl;
     profile_wrapper_3d(parthenon::loop_pattern_flatrange_tag);
   }
+  /* // skip this output for now, since times are comparable
   SECTION("md range") {
     std::cout << "md range:" << std::endl;
     profile_wrapper_3d(parthenon::loop_pattern_mdrange_tag);
@@ -259,14 +271,78 @@ TEST_CASE("Time simple stencil operations") {
     std::cout << "tpttrvr range:" << std::endl;
     profile_wrapper_3d(parthenon::loop_pattern_tpttrtvr_tag);
   }
+  */
 #ifndef KOKKOS_ENABLE_CUDA
+  /*
   SECTION("tptvr") {
     std::cout << "tptvr range:" << std::endl;
     profile_wrapper_3d(parthenon::loop_pattern_tptvr_tag);
   }
+  */
   SECTION("simdfor") {
     std::cout << "simd range:" << std::endl;
     profile_wrapper_3d(parthenon::loop_pattern_simdfor_tag);
   }
 #endif
+}
+
+TEST_CASE("Check registry pressure","[ParArrayND]") {
+  auto exec_space = DevSpace();
+  Kokkos::Timer timer;
+
+  // https://en.cppreference.com/w/cpp/numeric/random/uniform_real_distribution
+  std::random_device
+    rd; // Will be used to obtain a seed for the random number engine
+  std::mt19937 gen(rd()); // Standard mersenne_twister_engine seeded with rd()
+  std::uniform_real_distribution<Real> dis(-1.0, 1.0);
+
+  ParArrayND<Real> arrays[NARRAYS];
+  ParArray3D<Real> views[NARRAYS];
+  // fill arrays on device with random numbers
+  for (int i = 0; i < NARRAYS; i++) {
+    arrays[i] = ParArrayND<Real>(PARARRAY_TEMP,N,N,N);
+    views[i] = ParArray3D<Real>(PARARRAY_TEMP,N,N,N);
+    auto a_h = arrays[i].GetHostMirror();
+    auto v_h = Kokkos::create_mirror_view(views[i]);
+    for (int k = 0; k < N; k++) {
+      for (int j = 0; j < N; j++) {
+        for (int i = 0; i < N; i++) {
+          a_h(k,j,i) = v_h(k,j,i) = dis(gen);
+        }
+      }
+    }
+    Kokkos::deep_copy(views[i],v_h);
+    arrays[i].DeepCopy(a_h);
+  }
+  // perform a compute intensive, non-stencil, task and see
+  // performance
+  Kokkos::fence();
+  timer.reset();
+  parthenon::par_for(parthenon::loop_pattern_flatrange_tag,
+                     "compute intensive task for raw views",
+                     exec_space, 0, N-1, 0, N-1, 0, N-1,
+                     KOKKOS_LAMBDA(const int k, const int j, const int i) {
+                       MYEXP(views,0); MYEXP(views,1);  MYEXP(views,2);
+                       MYEXP(views,3); MYEXP(views,4);  MYEXP(views,5);
+                       MYEXP(views,6); MYEXP(views,7);  MYEXP(views,8);
+                       MYEXP(views,9); MYEXP(views,10); MYEXP(views,11);
+                     });
+  Kokkos::fence();
+  auto time_views = timer.seconds();
+  timer.reset();
+  parthenon::par_for(parthenon::loop_pattern_flatrange_tag,
+                     "compute intensive task for ParArrayND",
+                     exec_space, 0, N-1, 0, N-1, 0, N-1,
+                     KOKKOS_LAMBDA(const int k, const int j, const int i) {
+                       MYEXP(arrays,0); MYEXP(arrays,1);  MYEXP(arrays,2);
+                       MYEXP(arrays,3); MYEXP(arrays,4);  MYEXP(arrays,5);
+                       MYEXP(arrays,6); MYEXP(arrays,7);  MYEXP(arrays,8);
+                       MYEXP(arrays,9); MYEXP(arrays,10); MYEXP(arrays,11);
+                     });
+  Kokkos::fence();
+  auto time_arrays = timer.seconds();
+  std::cout << "Times for registry pressure test:\n"
+            << "\traw views   = " << time_views << " s\n"
+            << "\tND arrays   = " << time_arrays << " s\n"
+            << std::endl;
 }
