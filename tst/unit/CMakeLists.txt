@@ -27,11 +27,15 @@ list(APPEND unit_tests_SOURCES
 
     )
 
+option(CHECK_REGISTRY_PRESSURE "Check the registry pressure for Kokkos CUDA kernels" OFF)
+if (${Kokkos_ENABLE_CUDA})
+  if(CHECK_REGISTRY_PRESSURE)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Xptxas=-v")
+  endif()
+endif()
+
 add_executable(unit_tests ${unit_tests_SOURCES})
 target_compile_features(unit_tests PRIVATE cxx_std_14)
 target_link_libraries(unit_tests PRIVATE parthenon catch2_define Kokkos::kokkos)
-if (${Kokkos_ENABLE_CUDA})
-   target_compile_options(unit_tests PUBLIC $<$<COMPILE_LANGUAGE:CUDA>:--ptxas-options=-v>)
-endif()
 
 ParseAndAddCatchTests(unit_tests)
