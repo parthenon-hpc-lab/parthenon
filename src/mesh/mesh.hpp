@@ -204,8 +204,8 @@ class MeshBlock {
   // inform MeshBlock which arrays contained in member Field, Particles,
   // ... etc. classes are the "primary" representations of a quantity. when registered,
   // that data are used for (1) load balancing (2) (future) dumping to restart file
-  void RegisterMeshBlockData(Variable<Real> &pvar_cc);
-  void RegisterMeshBlockData(FaceField &pvar_fc);
+  void RegisterMeshBlockData(std::shared_ptr<Variable<Real>> pvar_cc);
+  void RegisterMeshBlockData(std::shared_ptr<FaceField> pvar_fc);
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   void UserWorkBeforeOutput(ParameterInput *pin); // called in Mesh fn (friend class)
@@ -217,8 +217,8 @@ class MeshBlock {
   Real new_block_dt_, new_block_dt_hyperbolic_, new_block_dt_parabolic_,
     new_block_dt_user_;
   int nreal_user_meshblock_data_, nint_user_meshblock_data_;
-  std::vector<std::reference_wrapper<ParArrayND<Real>>> vars_cc_;
-  std::vector<std::reference_wrapper<FaceField>> vars_fc_;
+  std::vector<std::shared_ptr<Variable<Real>>> vars_cc_;
+  std::vector<std::shared_ptr<FaceField>> vars_fc_;
 
   // functions
   void AllocateRealUserMeshBlockDataField(int n);

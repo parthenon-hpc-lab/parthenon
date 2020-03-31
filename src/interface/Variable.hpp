@@ -96,6 +96,11 @@ class Variable {
               const bool allocComms=false,
               MeshBlock *pmb=nullptr);
 
+
+  ~Variable<T>() {
+    std::cerr << "Cleaning up " << _label << " " << _m.IsSet(Metadata::SharedComms) << std::endl;
+  }
+
   // accessors
 
   template <class...Args>

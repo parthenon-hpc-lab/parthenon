@@ -1191,7 +1191,7 @@ void Mesh::AllocateRealUserMeshDataField(int n) {
     ATHENA_ERROR(msg);
   }
   nreal_user_mesh_data_ = n;
-  ruser_mesh_data = new ParArrayND<Real>[n];
+  ruser_mesh_data = nullptr;//new ParArrayND<Real>[n];
   return;
 }
 
@@ -1207,7 +1207,7 @@ void Mesh::AllocateIntUserMeshDataField(int n) {
     ATHENA_ERROR(msg);
   }
   nint_user_mesh_data_ = n;
-  iuser_mesh_data = new ParArrayND<int>[n];
+  iuser_mesh_data = nullptr;//new ParArrayND<int>[n];
   return;
 }
 

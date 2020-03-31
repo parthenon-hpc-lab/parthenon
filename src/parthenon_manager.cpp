@@ -182,6 +182,7 @@ void ParthenonManager::PostDriver(DriverStatus driver_status) {
 }
 
 ParthenonStatus ParthenonManager::ParthenonFinalize() {
+  pmesh.reset();
   Kokkos::finalize();
 #ifdef MPI_PARALLEL
   MPI_Finalize();

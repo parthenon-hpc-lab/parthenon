@@ -49,6 +49,14 @@ class ContainerCollection {
     }
   }
 
+  void Print() {
+    for (auto & c : containers_) {
+      std::cout << "Container " << c.first << " has:" << std::endl;
+      c.second.print();
+      std::cout << std::endl;
+    }
+  }
+
  private:
   std::map<std::string, Container<T>> containers_;
 };

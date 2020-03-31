@@ -186,12 +186,12 @@ Real EstimateTimestep(Container<Real>& rc) {
   int ie = pmb->ie; int je = pmb->je; int ke = pmb->ke;
 
   Real min_dt = std::numeric_limits<Real>::max();
+  ParArrayND<Real> dx0("dx0",pmb->ncells1);
+  ParArrayND<Real> dx1("dx1",pmb->ncells1);
 
   // this is obviously overkill for this constant velocity problem
   for (int k=ks; k<=ke; k++) {
     for (int j=js; j<=je; j++) {
-      ParArrayND<Real> dx0("dx0",pmb->ncells1);
-      ParArrayND<Real> dx1("dx1",pmb->ncells1);
       pmb->pcoord->CenterWidth1(k, j, is, ie, dx0);
       pmb->pcoord->CenterWidth2(k, j, is, ie, dx1);
       for (int i=is; i<=ie; i++) {
@@ -218,10 +218,9 @@ TaskStatus CalculateFluxes(Container<Real>& rc) {
   const auto& vy  = pkg->Param<Real>("vy");
 
   int maxdim = std::max(std::max(pmb->ncells1, pmb->ncells2), pmb->ncells3);
-  ParArrayND<Real> ql, qr, qltemp;
-  ql.NewParArrayND(maxdim);
-  qr.NewParArrayND(maxdim);
-  qltemp.NewParArrayND(maxdim);
+  ParArrayND<Real> ql("ql",maxdim);
+  ParArrayND<Real> qr("qr",maxdim);
+  ParArrayND<Real> qltemp("qltemp",maxdim);
 
   // get x-fluxes
   for (int k = ks; k <= ke; k++) {

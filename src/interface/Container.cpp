@@ -109,12 +109,11 @@ void Container<T>::Add(const std::string label,
     if ( dims.size() > 6 || dims.size() < 1 ) {
       throw std::invalid_argument ("_addArray() must have dims between [1,5]");
     }
-    for (int i=0; i<dims.size(); i++) {arrDims[5-i] = dims[i];}
     auto sv = std::make_shared<Variable<T>>(label, arrDims, metadata);
     _varVector.push_back(sv);
     _varMap[label] = sv;
     if ( metadata.IsSet(Metadata::FillGhost) ) {
-      _varVector.back()->allocateComms(pmy_block);
+      sv->allocateComms(pmy_block);
     }
   }
 }

@@ -175,7 +175,7 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
   ContainerIterator<Real> ci(real_container, {Metadata::Independent});
   int nindependent = ci.vars.size();
   for (int n=0; n<nindependent; n++) {
-    RegisterMeshBlockData(*ci.vars[n]);
+    RegisterMeshBlockData(ci.vars[n]);
   }
 
   if (pm->multilevel) {
@@ -293,13 +293,14 @@ MeshBlock::~MeshBlock() {
   if (next != nullptr) next->prev = prev;
 
   // delete user output variables array
+#if 0
   if (nuser_out_var > 0) {
     delete [] user_out_var_names_;
   }
   // delete user MeshBlock data
   if (nreal_user_meshblock_data_ > 0) delete [] ruser_meshblock_data;
   if (nint_user_meshblock_data_ > 0) delete [] iuser_meshblock_data;
-
+#endif
 }
 
 //----------------------------------------------------------------------------------------
@@ -314,7 +315,7 @@ void MeshBlock::AllocateRealUserMeshBlockDataField(int n) {
     ATHENA_ERROR(msg);
   }
   nreal_user_meshblock_data_ = n;
-  ruser_meshblock_data = new ParArrayND<Real>[n];
+  ruser_meshblock_data = nullptr;//new ParArrayND<Real>[n];
   return;
 }
 
@@ -331,7 +332,7 @@ void MeshBlock::AllocateIntUserMeshBlockDataField(int n) {
     return;
   }
   nint_user_meshblock_data_=n;
-  iuser_meshblock_data = new ParArrayND<int>[n];
+  iuser_meshblock_data = nullptr;//new ParArrayND<int>[n];
   return;
 }
 
@@ -341,6 +342,7 @@ void MeshBlock::AllocateIntUserMeshBlockDataField(int n) {
 
 void MeshBlock::AllocateUserOutputVariables(int n) {
   if (n <= 0) return;
+  else throw std::runtime_error("Not yet implemented in parthenon");
   if (nuser_out_var != 0) {
     std::stringstream msg;
     msg << "### FATAL ERROR in MeshBlock::AllocateUserOutputVariables"
@@ -435,13 +437,13 @@ void MeshBlock::StopTimeMeasurement() {
 }
 
 
-void MeshBlock::RegisterMeshBlockData(Variable<Real> &pvar_cc) {
-  vars_cc_.push_back(pvar_cc.data);
+void MeshBlock::RegisterMeshBlockData(std::shared_ptr<Variable<Real>> pvar_cc) {
+  vars_cc_.push_back(pvar_cc);
   return;
 }
 
 
-void MeshBlock::RegisterMeshBlockData(FaceField &pvar_fc) {
+void MeshBlock::RegisterMeshBlockData(std::shared_ptr<FaceField> pvar_fc) {
   vars_fc_.push_back(pvar_fc);
   return;
 }

@@ -469,8 +469,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
   // int num_cc = pblock->pmr->pvars_cc_.size();
   int num_fc = pblock->vars_fc_.size();
   int nx4_tot = 0;
-  for (ParArrayND<Real> &var_cc : pblock->vars_cc_) {
-    nx4_tot += var_cc.GetDim(4);
+  for (auto & pvar_cc : pblock->vars_cc_) {
+    nx4_tot += pvar_cc->GetDim(4);
   }
 
   const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d 
@@ -736,12 +736,14 @@ void Mesh::PrepareSendSameLevel(MeshBlock* pb, Real *sendbuf) {
 
   // (C++11) range-based for loop: (automatic type deduction fails when iterating over
   // container with std::reference_wrapper; could use auto var_cc_r = var_cc.get())
-  for (ParArrayND<Real> &var_cc : pb->vars_cc_) {
-    int nu = var_cc.GetDim(4) - 1;
+  for (auto & pvar_cc : pb->vars_cc_) {
+    int nu = pvar_cc->GetDim(4) - 1;
+    auto & var_cc = pvar_cc->data;
     BufferUtility::PackData(var_cc, sendbuf, 0, nu,
                             pb->is, pb->ie, pb->js, pb->je, pb->ks, pb->ke, p);
   }
-  for (FaceField &var_fc : pb->vars_fc_) {
+  for (auto & pvar_fc : pb->vars_fc_) {
+    auto & var_fc = *pvar_fc;
     BufferUtility::PackData(var_fc.x1f, sendbuf,
                             pb->is, pb->ie+1, pb->js, pb->je, pb->ks, pb->ke, p);
     BufferUtility::PackData(var_fc.x2f, sendbuf,
@@ -1044,12 +1046,14 @@ void Mesh::FinishRecvSameLevel(MeshBlock *pb, Real *recvbuf) {
   const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d 
   const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d 
 
-  for (ParArrayND<Real> &var_cc : pb->vars_cc_) {
-    int nu = var_cc.GetDim(4) - 1;
+  for (auto & pvar_cc : pb->vars_cc_) {
+    int nu = pvar_cc->GetDim(4) - 1;
+    auto & var_cc = pvar_cc->data;
     BufferUtility::UnpackData(recvbuf, var_cc, 0, nu,
                               pb->is, pb->ie, pb->js, pb->je, pb->ks, pb->ke, p);
   }
-  for (FaceField &var_fc : pb->vars_fc_) {
+  for (auto & pvar_fc : pb->vars_fc_) {
+    auto & var_fc = *pvar_fc;
     BufferUtility::UnpackData(recvbuf, var_fc.x1f,
                               pb->is, pb->ie+1, pb->js, pb->je, pb->ks, pb->ke, p);
     BufferUtility::UnpackData(recvbuf, var_fc.x2f,

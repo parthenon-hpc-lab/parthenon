@@ -66,7 +66,7 @@ namespace DriverUtils {
     }
     int complete_cnt = 0;
     while (complete_cnt != nmb) {
-#pragma omp parallel for reduction(+ : complete_cnt) num_threads(nthreads) schedule(dynamic,1)
+//#pragma omp parallel for reduction(+ : complete_cnt) num_threads(nthreads) schedule(dynamic,1)
       for (auto i = 0; i < nmb; ++i) {
         if (!task_lists[i].IsComplete()) {
           auto status = task_lists[i].DoAvailable();

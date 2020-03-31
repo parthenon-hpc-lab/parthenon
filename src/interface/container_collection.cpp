@@ -21,6 +21,12 @@ namespace parthenon {
 template <typename T>
 void ContainerCollection<T>::Add(const std::string& name, Container<T>& src) {
   // error check for duplicate names
+  if (containers_.find(name) != containers_.end()) {
+    std::cerr << name << " already in ContainerCollection" << std::endl;
+    return;
+  } else {
+    std::cerr << "Adding " << name << std::endl;
+  }
 
   auto c = Container<T>();
   c.pmy_block = src.pmy_block;

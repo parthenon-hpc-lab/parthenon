@@ -22,8 +22,8 @@ problem = Linear advection
 problem_id = advection
 
 <mesh>
-refinement = adaptive
-numlevel = 3
+#refinement = adaptive
+#numlevel = 3
 
 nx1 = 64
 x1min = -0.5
@@ -41,9 +41,9 @@ nx3 = 1
 x3min = -0.5
 x3max = 0.5
 
-<meshblock>
-nx1 = 16
-nx2 = 16
+#<meshblock>
+#nx1 = 16
+#nx2 = 16
 #nx3 = 1
 
 <output1>

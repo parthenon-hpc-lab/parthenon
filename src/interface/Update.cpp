@@ -108,6 +108,8 @@ void UpdateContainer(Container<Real> &in, Container<Real> &dudt_cont,
   ContainerIterator<Real> du_iter(dudt_cont, {Metadata::Independent});
   int nvars = cout_iter.vars.size();
 
+  std::cerr << "Container sizes: " << cin_iter.vars.size() << " " << cout_iter.vars.size() << " " << du_iter.vars.size() << std::endl;
+
   for (int n = 0; n < nvars; n++) {
     Variable<Real> &qin = *cin_iter.vars[n];
     Variable<Real> &dudt = *du_iter.vars[n];
