@@ -39,7 +39,13 @@ using Real = double;
 
 constexpr int N = 32 + 2;
 constexpr int NT = 100;
-constexpr int NARRAYS = 12;
+constexpr int NARRAYS = 64;
+
+#ifdef KOKKOS_ENABLE_CUDA
+using UVMSpace = Kokkos::CudaUVMSpace;
+#else // all on host
+using UVMSpace = DevSpace;
+#endif
 
 KOKKOS_INLINE_FUNCTION Real coord(const int i, const int n) {
   const Real dx = 2.0/(n+1.0);
@@ -59,9 +65,8 @@ KOKKOS_INLINE_FUNCTION Real gaussian(const int iz, const int iy, const int ix) {
   return gaussian(iz,iy,ix,N,N,N);
 }
 
-#define stencil(l,r,k,j,i) l(k,j,i) = (1./6.)*(r(k-1,j,i)+r(k+1,j,i)+r(k,j-1,i)+r(k,j+1,i)+r(k,j,i-1)+r(k,j,i+1))
-
-#define MYEXP(obj,indx) obj[indx](k,j,i) = exp(obj[indx](k,j,i))
+#define stencil(l,r,k,j,i) \
+  l(k,j,i) = (1./6.)*(r(k-1,j,i)+r(k+1,j,i)+r(k,j-1,i)+r(k,j+1,i)+r(k,j,i-1)+r(k,j,i+1))
 
 template <class T>
 void profile_wrapper_3d(T loop_pattern) {
@@ -296,14 +301,24 @@ TEST_CASE("Check registry pressure","[ParArrayND]") {
   std::mt19937 gen(rd()); // Standard mersenne_twister_engine seeded with rd()
   std::uniform_real_distribution<Real> dis(-1.0, 1.0);
 
-  ParArrayND<Real> arrays[NARRAYS];
-  ParArray3D<Real> views[NARRAYS];
-  // fill arrays on device with random numbers
-  for (int i = 0; i < NARRAYS; i++) {
-    arrays[i] = ParArrayND<Real>(PARARRAY_TEMP,N,N,N);
-    views[i] = ParArray3D<Real>(PARARRAY_TEMP,N,N,N);
-    auto a_h = arrays[i].GetHostMirror();
-    auto v_h = Kokkos::create_mirror_view(views[i]);
+  // view of views. See:
+  // https://github.com/kokkos/kokkos/wiki/View
+  Kokkos::View<ParArrayND<Real>*,UVMSpace> arrays (Kokkos::view_alloc(std::string("arrays"),
+                                                                      Kokkos::WithoutInitializing),
+                                                   NARRAYS);
+  Kokkos::View<ParArray3D<Real>*,UVMSpace> views (Kokkos::view_alloc(std::string("views"),
+                                                                     Kokkos::WithoutInitializing),
+                                                  NARRAYS);
+  for (int n = 0; n < NARRAYS; n++) {
+    std::string label = std::string("array ") + std::to_string(n);
+    new (&arrays[n]) ParArrayND<Real>(parthenon::device_view_t<Real>(Kokkos::view_alloc(label,
+                                                                                        Kokkos::WithoutInitializing),
+                                                                     1,1,1,N,N,N));
+    label = std::string("view ") + std::to_string(n);
+    new (&views[n]) ParArray3D<Real>(Kokkos::view_alloc(label,Kokkos::WithoutInitializing),
+                                     N,N,N);
+    auto a_h = arrays(n).GetHostMirror();
+    auto v_h = Kokkos::create_mirror_view(views(n));
     for (int k = 0; k < N; k++) {
       for (int j = 0; j < N; j++) {
         for (int i = 0; i < N; i++) {
@@ -311,8 +326,8 @@ TEST_CASE("Check registry pressure","[ParArrayND]") {
         }
       }
     }
-    Kokkos::deep_copy(views[i],v_h);
-    arrays[i].DeepCopy(a_h);
+    Kokkos::deep_copy(views(n),v_h);
+    arrays(n).DeepCopy(a_h);
   }
   // perform a compute intensive, non-stencil, task and see
   // performance
@@ -322,10 +337,9 @@ TEST_CASE("Check registry pressure","[ParArrayND]") {
                      "compute intensive task for raw views",
                      exec_space, 0, N-1, 0, N-1, 0, N-1,
                      KOKKOS_LAMBDA(const int k, const int j, const int i) {
-                       MYEXP(views,0); MYEXP(views,1);  MYEXP(views,2);
-                       MYEXP(views,3); MYEXP(views,4);  MYEXP(views,5);
-                       MYEXP(views,6); MYEXP(views,7);  MYEXP(views,8);
-                       MYEXP(views,9); MYEXP(views,10); MYEXP(views,11);
+                       for (int n = 0; n < NARRAYS; n++) {
+                         views(n)(k,j,i) = exp(views(n)(k,j,i));
+                       }
                      });
   Kokkos::fence();
   auto time_views = timer.seconds();
@@ -334,10 +348,9 @@ TEST_CASE("Check registry pressure","[ParArrayND]") {
                      "compute intensive task for ParArrayND",
                      exec_space, 0, N-1, 0, N-1, 0, N-1,
                      KOKKOS_LAMBDA(const int k, const int j, const int i) {
-                       MYEXP(arrays,0); MYEXP(arrays,1);  MYEXP(arrays,2);
-                       MYEXP(arrays,3); MYEXP(arrays,4);  MYEXP(arrays,5);
-                       MYEXP(arrays,6); MYEXP(arrays,7);  MYEXP(arrays,8);
-                       MYEXP(arrays,9); MYEXP(arrays,10); MYEXP(arrays,11);
+                       for (int n = 0; n < NARRAYS; n++) {
+                         arrays(n)(k,j,i) = exp(arrays(n)(k,j,i));
+                       }
                      });
   Kokkos::fence();
   auto time_arrays = timer.seconds();
