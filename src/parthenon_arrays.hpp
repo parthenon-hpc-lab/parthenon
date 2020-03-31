@@ -145,6 +145,8 @@ class ParArrayNDGeneric {
     Kokkos::deep_copy(d6d_,src.Get());
   }
 
+  // JMM: DO NOT put noexcept here. It somehow interferes with inlining
+  // and the code slows down by a factor of 5.
   KOKKOS_FORCEINLINE_FUNCTION
   auto &operator() (const int n) const {
     return d6d_(0,0,0,0,0,n);

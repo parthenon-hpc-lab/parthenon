@@ -27,12 +27,17 @@ list(APPEND unit_tests_SOURCES
 
     )
 
+# TODO(JMM): Should these be global to the build system?
 option(CHECK_REGISTRY_PRESSURE "Check the registry pressure for Kokkos CUDA kernels" OFF)
 if (${Kokkos_ENABLE_CUDA})
   if(CHECK_REGISTRY_PRESSURE)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Xptxas=-v")
   endif()
 endif()
+option(TEST_INTEL_OPTIMIZATION "Test intel optimization and vectorization" OFF)
+if (TEST_INTEL_OPTIMIZATION)
+   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fp-model fast=2 -qopt_report5 -vec-threshold0 -qopt_report_phase=vec")
+endif()	       
 
 add_executable(unit_tests ${unit_tests_SOURCES})
 target_compile_features(unit_tests PRIVATE cxx_std_14)
