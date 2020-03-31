@@ -163,7 +163,7 @@ TEST_CASE("ParArrayND","[ParArrayND],[Kokkos]") {
     WHEN("We fill it with increasing integers") {
       // auto view = a.Get<3>();
       // auto mirror = Kokkos::create_mirror(view);
-      auto mirror = a.GetMirror();
+      auto mirror = a.GetHostMirror();
       int n = 0;
       int sum_host = 0;
       for (int k = 0; k < N3; k++) {

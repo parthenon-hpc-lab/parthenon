@@ -127,13 +127,19 @@ class ParArrayNDGeneric {
     return GetDim(1)*GetDim(2)*GetDim(3)*GetDim(4)*GetDim(5)*GetDim(6);
   }
 
-  // TODO(JMM): expose different memory spaces?
   // TODO(JMM): expose wrapper for create_mirror_view_and_copy?
-  auto GetMirror() {
-    // no-op if same space
-    auto mirror = Kokkos::create_mirror_view(d6d_);
+  template<typename MemSpace>
+  auto GetMirror(MemSpace const& memspace) {
+    auto mirror = Kokkos::create_mirror_view(memspace,d6d_);
     return ParArrayNDGeneric<decltype(mirror)>(mirror);
   }
+  auto GetHostMirror() {
+    return GetMirror(Kokkos::HostSpace());
+  }
+  auto GetDeviceMirror() {
+    return GetMirror(Kokkos::DefaultExecutionSpace());
+  }
+
   template<typename Other>
   void DeepCopy(Other& src) {
     Kokkos::deep_copy(d6d_,src.Get());
