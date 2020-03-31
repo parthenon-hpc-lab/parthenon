@@ -1,18 +1,18 @@
 # parthenon
 
-Parthenon AMR infrastructure 
+Parthenon AMR infrastructure
 
 # Required Dependencies
 
 * CMake 3.10 or greater
 * gcc or intel compiler
-* mpi 
+* mpi
 * openMP
 * hdf5
 
 # Dependencies Other
 
-* catch2 
+* catch2
 
 # Installation
 
@@ -68,4 +68,5 @@ how to use them.
 | Philipp Grete | @pgrete | Athena Physics |
 | Forrest Glines | @forrestglines | Athena Physics |
 | Jim Stone | @jmstone | Athena Physics |
+| Jonas Lippuner | @jlippuner | LANL Computer Science |
 

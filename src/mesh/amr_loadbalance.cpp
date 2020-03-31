@@ -33,7 +33,7 @@
 #include "mesh.hpp"
 #include "mesh_refinement.hpp"
 #include "meshblock_tree.hpp"
-#include "better_boundaries/boundary_conditions.hpp"
+#include "bvals/boundary_conditions.hpp"
 #include "interface/Update.hpp"
 
 // MPI/OpenMP header
@@ -474,8 +474,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
     nx4_tot += var_cc.GetDim4();
   }
 
-  const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d 
-  const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d 
+  const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
+  const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
 
   // cell-centered quantities enrolled in SMR/AMR
   int bssame = bnx1*bnx2*bnx3*nx4_tot;
@@ -726,8 +726,8 @@ void Mesh::PrepareSendSameLevel(MeshBlock* pb, Real *sendbuf) {
   // pack
   int p = 0;
 
-  const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d 
-  const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d 
+  const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
+  const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
   // this helper fn is used for AMR and non-refinement load balancing of
   // MeshBlocks. Therefore, unlike PrepareSendCoarseToFineAMR(), etc., it loops over
   // MeshBlock::vars_cc/fc_ containers, not MeshRefinement::pvars_cc/fc_ containers
@@ -765,30 +765,30 @@ void Mesh::PrepareSendSameLevel(MeshBlock* pb, Real *sendbuf) {
 void Mesh::PrepareSendCoarseToFineAMR(MeshBlock* pb, Real *sendbuf,
                                       LogicalLocation &lloc) {
 
-  const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d 
-  const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d 
+  const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
+  const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
   int ox1 = ((lloc.lx1 & 1LL) == 1LL), ox2 = ((lloc.lx2 & 1LL) == 1LL),
       ox3 = ((lloc.lx3 & 1LL) == 1LL);
   // pack
   int il, iu, jl, ju, kl, ku;
-  if (ox1 == 0) { 
+  if (ox1 == 0) {
     il = pb->is - 1;
     iu = pb->is + pb->block_size.nx1/2;
-  } else {       
+  } else {
     il = pb->is + pb->block_size.nx1/2-1;
     iu = pb->ie + 1;
   }
-  if (ox2 == 0) { 
+  if (ox2 == 0) {
     jl = pb->js - f2;
     ju = pb->js + pb->block_size.nx2/2;
-  } else {        
+  } else {
     jl = pb->js + pb->block_size.nx2/2 - f2;
     ju = pb->je + f2;
   }
-  if (ox3 == 0) { 
+  if (ox3 == 0) {
     kl = pb->ks - f3;
     ku = pb->ks + pb->block_size.nx3/2;
-  } else {        
+  } else {
     kl = pb->ks + pb->block_size.nx3/2 - f3;
     ku = pb->ke + f3;
   }
@@ -815,8 +815,8 @@ void Mesh::PrepareSendCoarseToFineAMR(MeshBlock* pb, Real *sendbuf,
 
 void Mesh::PrepareSendFineToCoarseAMR(MeshBlock* pb, Real *sendbuf) {
   // restrict and pack
-  const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d 
-  const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d 
+  const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
+  const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
   auto &pmr = pb->pmr;
   int p = 0;
   for (auto cc_pair : pmr->pvars_cc_) {
@@ -901,8 +901,8 @@ void Mesh::FillSameRankFineToCoarseAMR(MeshBlock* pob, MeshBlock* pmb,
     pmb_cc_it++;
   }
 
-  const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d 
-  const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d 
+  const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
+  const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
 
   auto pmb_fc_it = pmb->pmr->pvars_fc_.begin();
   for (auto fc_pair : pmr->pvars_fc_) {
@@ -964,8 +964,8 @@ void Mesh::FillSameRankCoarseToFineAMR(MeshBlock* pob, MeshBlock* pmb,
                                        LogicalLocation &newloc) {
   auto &pmr = pmb->pmr;
 
-  const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d 
-  const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d 
+  const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
+  const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
 
   int il = pob->cis - 1, iu = pob->cie + 1, jl = pob->cjs - f2,
       ju = pob->cje + f2, kl = pob->cks - f3, ku = pob->cke + f3;
@@ -1042,8 +1042,8 @@ void Mesh::FillSameRankCoarseToFineAMR(MeshBlock* pob, MeshBlock* pmb,
 // step 8 (receive and load), branch 1 (same2same: unpack)
 void Mesh::FinishRecvSameLevel(MeshBlock *pb, Real *recvbuf) {
   int p = 0;
-  const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d 
-  const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d 
+  const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
+  const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
 
   for (AthenaArray<Real> &var_cc : pb->vars_cc_) {
     int nu = var_cc.GetDim4() - 1;
@@ -1081,8 +1081,8 @@ void Mesh::FinishRecvSameLevel(MeshBlock *pb, Real *recvbuf) {
 void Mesh::FinishRecvFineToCoarseAMR(MeshBlock *pb, Real *recvbuf,
                                      LogicalLocation &lloc) {
 
-  const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d 
-  const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d 
+  const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
+  const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
 
   int ox1 = ((lloc.lx1 & 1LL) == 1LL), ox2 = ((lloc.lx2 & 1LL) == 1LL),
       ox3 = ((lloc.lx3 & 1LL) == 1LL);
@@ -1126,8 +1126,8 @@ void Mesh::FinishRecvFineToCoarseAMR(MeshBlock *pb, Real *recvbuf,
 // step 8 (receive and load), branch 2 (c2f: unpack+prolongate)
 void Mesh::FinishRecvCoarseToFineAMR(MeshBlock *pb, Real *recvbuf) {
 
-  const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d 
-  const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d 
+  const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
+  const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
   auto &pmr = pb->pmr;
   int p = 0;
   int il = pb->cis - 1, iu = pb->cie+1, jl = pb->cjs - f2,
