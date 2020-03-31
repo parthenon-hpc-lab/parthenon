@@ -17,13 +17,13 @@
 // so.
 //========================================================================================
 
+// C header
+#include <math.h>
+
 // C++ headers
 #include <iostream>
 #include <random>
 #include <string>
-
-// C header
-#include <math.h>
 
 // 3rd-party headers
 #include <catch2/catch.hpp>
@@ -78,7 +78,7 @@ void profile_wrapper_3d(T loop_pattern) {
   auto xtra0 = nda0.Get<3>();
 
   ParArray3D<Real> raw1("raw",N,N,N);
-  ParArrayND<Real> nda1("ND",N,N,N); 
+  ParArrayND<Real> nda1("ND",N,N,N);
   auto xtra1 = nda1.Get<3>();
 
   parthenon::par_for(loop_pattern,
@@ -151,7 +151,6 @@ void profile_wrapper_3d(T loop_pattern) {
 }
 
 TEST_CASE("ParArrayND","[ParArrayND],[Kokkos]") {
-
   GIVEN("A ParArrayND allocated with no label") {
     ParArrayND<Real> a(PARARRAY_TEMP,5,4,3,2);
     THEN("The label is the correct default") {
@@ -303,19 +302,24 @@ TEST_CASE("Check registry pressure","[ParArrayND]") {
 
   // view of views. See:
   // https://github.com/kokkos/kokkos/wiki/View
-  Kokkos::View<ParArrayND<Real>*,UVMSpace> arrays (Kokkos::view_alloc(std::string("arrays"),
-                                                                      Kokkos::WithoutInitializing),
-                                                   NARRAYS);
-  Kokkos::View<ParArray3D<Real>*,UVMSpace> views (Kokkos::view_alloc(std::string("views"),
-                                                                     Kokkos::WithoutInitializing),
-                                                  NARRAYS);
+  using arrays_t = Kokkos::View<ParArrayND<Real>*,UVMSpace>;
+  using views_t = Kokkos::View<ParArray3D<Real>*,UVMSpace>;
+  using device_view_t = parthenon::device_view_t<Real>;
+  arrays_t arrays (Kokkos::view_alloc(std::string("arrays"),
+                                      Kokkos::WithoutInitializing),
+                   NARRAYS);
+  views_t views (Kokkos::view_alloc(std::string("views"),
+                                    Kokkos::WithoutInitializing),
+                 NARRAYS);
   for (int n = 0; n < NARRAYS; n++) {
     std::string label = std::string("array ") + std::to_string(n);
-    new (&arrays[n]) ParArrayND<Real>(parthenon::device_view_t<Real>(Kokkos::view_alloc(label,
-                                                                                        Kokkos::WithoutInitializing),
-                                                                     1,1,1,N,N,N));
+    new (&arrays[n])
+      ParArrayND<Real>(device_view_t(Kokkos::view_alloc(label,
+                                                        Kokkos::WithoutInitializing),
+                                           1,1,1,N,N,N));
     label = std::string("view ") + std::to_string(n);
-    new (&views[n]) ParArray3D<Real>(Kokkos::view_alloc(label,Kokkos::WithoutInitializing),
+    new (&views[n]) ParArray3D<Real>(Kokkos::view_alloc(label,
+                                                        Kokkos::WithoutInitializing),
                                      N,N,N);
     auto a_h = arrays(n).GetHostMirror();
     auto v_h = Kokkos::create_mirror_view(views(n));

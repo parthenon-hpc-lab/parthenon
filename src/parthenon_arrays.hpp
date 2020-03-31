@@ -100,12 +100,13 @@ class ParArrayNDGeneric {
   KOKKOS_INLINE_FUNCTION __attribute__((nothrow))
   ~ParArrayNDGeneric() = default;
   KOKKOS_INLINE_FUNCTION __attribute__((nothrow))
-  ParArrayNDGeneric<Container> &operator= (const ParArrayNDGeneric<Container> &t) = default;
+  ParArrayNDGeneric<Container>
+  &operator= (const ParArrayNDGeneric<Container> &t) = default;
   KOKKOS_INLINE_FUNCTION __attribute__((nothrow))
   ParArrayNDGeneric(ParArrayNDGeneric<Container>&& t) = default;
   KOKKOS_INLINE_FUNCTION __attribute__((nothrow))
   ParArrayNDGeneric<Container> &operator= (ParArrayNDGeneric<Container> &&t) = default;
-  
+
   // function to get the label
   inline const std::string label() const {
     return d6d_.label();
@@ -305,4 +306,4 @@ using ParArrayHost = ParArrayNDGeneric<host_view_t<T,Layout>>;
 #undef SLC0
 
 } // namespace parthenon
-#endif // PARTHENON_ARRAYS_HPP
+#endif // PARTHENON_ARRAYS_HPP_
