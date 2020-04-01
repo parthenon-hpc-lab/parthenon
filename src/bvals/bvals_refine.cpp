@@ -356,7 +356,7 @@ void BoundaryValues::ProlongateGhostCells(const NeighborBlock& nb,
   int fsi, fei, fsj, fej, fsk, fek;
   int cis, cie, cjs, cje, cks, cke;
   pmb->c_cells.GetIndices(interior,cis,cie,cjs,cje,cks,cke);
-  fsi = (si - cis)*2 + js;
+  fsi = (si - cis)*2 + pmb->cells.x1s(interior);
   fei = (ei - cis)*2 + pmb->cells.x1s(interior) + 1;
   if (pmb->block_size.nx2 > 1) {
     fsj = (sj - cjs)*2 + pmb->cells.x2s(interior);
