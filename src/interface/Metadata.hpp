@@ -21,14 +21,15 @@
 #include <tuple>
 #include <vector>
 
-/// The point of this macro is to generate code for each built-in flag using the 
+/// The point of this macro is to generate code for each built-in flag using the
 /// `PARTHENON_INTERNAL_FOR_FLAG` macro. This is to accomplish the following goals:
 /// - Generate a unique value for each flag using an enum
-/// - Wrap each value in a `MetadataFlag` type that can only be instantiated within parthenon
+/// - Wrap each value in a `MetadataFlag` type that can only be instantiated within
+///   parthenon
 /// - Make it possible to return a user-friendly string for each flag.
 ///
-/// Having this macro means you only need to add a new flag in one place and have each of these
-/// properties automatically be updated.
+/// Having this macro means you only need to add a new flag in one place and have each of
+/// these properties automatically be updated.
 #define PARTHENON_INTERNAL_FOREACH_BUILTIN_FLAG \
   /**  bit 0 is ignored */ \
   PARTHENON_INTERNAL_FOR_FLAG(Ignore) \
@@ -72,16 +73,17 @@
 namespace parthenon {
 
 namespace internal {
-  enum class MetadataInternal {
-    // declare all the internal flags in an enum so that their values are unique and kept up to date
+enum class MetadataInternal {
+  // declare all the internal flags in an enum so that their values are unique and kept
+  // up to date
 #define PARTHENON_INTERNAL_FOR_FLAG(name) name,
-    PARTHENON_INTERNAL_FOREACH_BUILTIN_FLAG
-    Max
+  PARTHENON_INTERNAL_FOREACH_BUILTIN_FLAG
+  Max
 #undef PARTHENON_INTERNAL_FOR_FLAG
-  };
+};
 
-  class UserMetadataState;
-}
+class UserMetadataState;
+} // namespace internal
 
 class Metadata;
 
@@ -100,7 +102,7 @@ class MetadataFlag {
   friend class Metadata;
   friend class internal::UserMetadataState;
 
-public:
+ public:
   constexpr bool operator==(MetadataFlag const &other) const {
     return flag_ == other.flag_;
   }
@@ -117,7 +119,8 @@ public:
     return flag_;
   }
 #endif
-private:
+
+ private:
   // MetadataFlag can only be instantiated by Metadata
   constexpr explicit MetadataFlag(int flag) : flag_(flag) {}
 
@@ -138,8 +141,8 @@ class Metadata {
   /// whether it sparse, etc.  This is designed to be easily extensible.
 
 
-  // this wraps all the built-in flags in the `MetadataFlag` type so that using these flags is
-  // type-safe.
+  // this wraps all the built-in flags in the `MetadataFlag` type so that using these
+  // flags is type-safe.
 #define PARTHENON_INTERNAL_FOR_FLAG(name) \
     constexpr static MetadataFlag name = \
       MetadataFlag(static_cast<int>(::parthenon::internal::MetadataInternal::name));
@@ -249,8 +252,8 @@ class Metadata {
     auto const &longer = a.bits_.size() > b.bits_.size() ? a.bits_ : b.bits_;
     for (auto i = max_bits; i < longer.size(); i++) {
       if (longer[i]) {
-        // Bits are default fault, so if any bit in the extraneous portion of the longer bit list is
-        // set, then it cannot be equal to a.
+        // Bits are default fault, so if any bit in the extraneous portion of the longer
+        // bit list is set, then it cannot be equal to a.
         return false;
       }
     }
@@ -271,7 +274,7 @@ class Metadata {
   void Associate(const std::string &name) { associated_ = name; }
   const std::string& getAssociated() const { return associated_; }
 
-private:
+ private:
   /// the attribute flags that are set for the class
   std::vector<bool> bits_;
   std::vector<int> shape_;
@@ -347,5 +350,5 @@ private:
             );
   }
 };
-}
+} // namespace parthenon
 #endif // INTERFACE_METADATA_HPP_

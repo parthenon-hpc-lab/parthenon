@@ -30,11 +30,14 @@ TEST_CASE("Built-in flags are registered", "[Metadata]") {
 TEST_CASE("A Metadata flag is allocated", "[Metadata]") {
     GIVEN("A User Flag") {
         auto const f = Metadata::AllocateNewFlag("TestFlag");
-        // Note: `parthenon::internal` is subject to change, and so this test may rightfully break
-        // later - this test needn't be maintained if so.
+        // Note: `parthenon::internal` is subject to change, and so this test may
+        // rightfully break later - this test needn't be maintained if so.
         //
-        // Checks that the first allocated flag is equal to `Max` - the final built-in flag + 1.
-        REQUIRE(f.InternalFlagValue() == static_cast<int>(parthenon::internal::MetadataInternal::Max));
+        // Checks that the first allocated flag is equal to `Max` - the final built-in
+        // flag + 1.
+        REQUIRE(
+            f.InternalFlagValue() ==
+                static_cast<int>(parthenon::internal::MetadataInternal::Max));
         REQUIRE("TestFlag" == f.Name());
 
         // It should throw an error if you try to allocate a new flag with the same name.
@@ -53,11 +56,12 @@ TEST_CASE("A Metadata struct is created", "[Metadata]") {
 
     GIVEN("Setting an arbitrary Metadata flag only sets that flag") {
         Metadata m;
-        
+
         m.Set(Metadata::FillGhost);
 
 
-#define PARTHENON_INTERNAL_FOR_FLAG(name) if (Metadata::name != Metadata::FillGhost) REQUIRE(!m.IsSet(Metadata::name));
+#define PARTHENON_INTERNAL_FOR_FLAG(name) \
+    if (Metadata::name != Metadata::FillGhost) REQUIRE(!m.IsSet(Metadata::name));
     PARTHENON_INTERNAL_FOREACH_BUILTIN_FLAG
 #undef PARTHENON_INTERNAL_FOR_FLAG
 
