@@ -140,7 +140,7 @@ class ParArrayNDGeneric {
   }
 
   template<typename Other>
-  void DeepCopy(Other& src) {
+  void DeepCopy(const Other& src) {
     Kokkos::deep_copy(d6d_,src.Get());
   }
 
@@ -229,34 +229,36 @@ class ParArrayNDGeneric {
     return SliceD(std::make_pair(indx,indx+nvar),ic);
   }
   KOKKOS_INLINE_FUNCTION
-  auto Get(int i) const {
+  auto Get(const int i) const {
     return Kokkos::subview(d6d_,i,
                            Kokkos::ALL(),Kokkos::ALL(),
                            Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL());
   }
   KOKKOS_INLINE_FUNCTION
-  auto Get(int j, int i) const {
+  auto Get(const int j, const int i) const {
     return Kokkos::subview(d6d_,j,i,
                            Kokkos::ALL(),Kokkos::ALL(),
                            Kokkos::ALL(),Kokkos::ALL());
   }
   KOKKOS_INLINE_FUNCTION
-  auto Get(int k, int j, int i) const {
+  auto Get(const int k, const int j, const int i) const {
     return Kokkos::subview(d6d_,k,j,i,
                            Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL());
   }
   KOKKOS_INLINE_FUNCTION
-  auto Get(int n, int k, int j, int i) const {
+  auto Get(const int n, const int k, const int j, const int i) const {
     return Kokkos::subview(d6d_,n,k,j,i,
                            Kokkos::ALL(),Kokkos::ALL());
   }
   KOKKOS_INLINE_FUNCTION
-  auto Get(int m, int n, int k, int j, int i) const {
+  auto Get(const int m, const int n, const int k,
+           const int j, const int i) const {
     return Kokkos::subview(d6d_,m,n,k,j,i,
                            Kokkos::ALL());
   }
   KOKKOS_INLINE_FUNCTION
-  auto Get(int l, int m, int n, int k, int j, int i) const {
+  auto Get(const int l, const int m, const int n,
+           const int k, const int j, const int i) const {
     return Kokkos::subview(d6d_,l,m,n,k,j,i); // 0d view
   }
   KOKKOS_INLINE_FUNCTION
@@ -293,7 +295,7 @@ class ParArrayNDGeneric {
   }
   template<std::size_t N = 6>
   KOKKOS_INLINE_FUNCTION
-  auto Get(std::integral_constant<int,N> ic =
+  auto Get(const std::integral_constant<int,N>& ic =
            std::integral_constant<int,N>{}) const {
     return Get(ic);
   }

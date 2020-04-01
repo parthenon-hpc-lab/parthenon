@@ -66,9 +66,11 @@ KOKKOS_INLINE_FUNCTION Real gaussian(const int iz, const int iy, const int ix) {
 template<typename T>
 KOKKOS_FORCEINLINE_FUNCTION
 void stencil(T& l, T& r, const int k, const int j, const int i) {
+  // clang-format off
   l(k,j,i) = (1./6.)*( r(k-1, j,   i)   + r(k+1, j,   i)
                       +r(k,   j-1, i)   + r(k,   j+1, i)
                       +r(k,   j,   i-1) + r(k,   j,   i+1));
+  // clang-format on
 }
 
 template <class T>
