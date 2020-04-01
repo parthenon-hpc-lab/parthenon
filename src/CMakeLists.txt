@@ -153,7 +153,7 @@ if (ENABLE_HDF5)
   target_link_libraries(parthenon PUBLIC HDF5_C)
 endif()
 
-if (KOKKOS_ENABLE_CUDA)
+if (Kokkos_ENABLE_CUDA)
    target_compile_options(parthenon PUBLIC --expt-relaxed-constexpr)
 endif()
 

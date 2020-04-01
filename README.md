@@ -47,7 +47,7 @@ For example to build with the OpenMP backend for Intel Skylake architecture usin
 or to build for NVIDIA V100 GPUs (using `nvcc` compiler for GPU code)
 
     mkdir build-cuda-v100 && cd build-cuda-v100
-    cmake -DKokkos_ENABLE_CUDA=On -DCMAKE_CXX_COMPILER=$(pwd)/../external/kokkos/bin/nvcc_wrapper -DKokkos_ARCH_VOLTA70=On -DKokkos_ENABLE_CUDA_LAMBDA=True ../
+    cmake -DKokkos_ENABLE_CUDA=On -DCMAKE_CXX_COMPILER=$(pwd)/../external/kokkos/bin/nvcc_wrapper -DKokkos_ARCH_VOLTA70=On ../
 
 # Developing/Contributing
 

@@ -17,10 +17,8 @@
 #ifndef PARTHENON_ARRAYS_HPP_
 #define PARTHENON_ARRAYS_HPP_
 
-// C headers
-#include<assert.h>
-
 // C++ headers
+#include <cassert>
 #include <cstddef> // size_t
 #include <string>
 #include <type_traits>
@@ -39,17 +37,15 @@
 
 namespace parthenon {
 
-#define SLC0 std::make_pair(0,1)
-
 // API designed with Container = Kokkos::View<T******> in mind
 template <typename Container>
 class ParArrayNDGeneric {
  public:
   using index_pair_t = std::pair<size_t,size_t>;
 
-  KOKKOS_FUNCTION
+  KOKKOS_INLINE_FUNCTION
   ParArrayNDGeneric() = default;
-  explicit ParArrayNDGeneric(const std::string& label,
+  ParArrayNDGeneric(const std::string& label,
                       int nx6, int nx5, int nx4, int nx3, int nx2, int nx1)
     : d6d_(label,nx6,nx5,nx4,nx3,nx2,nx1)
   { }
@@ -70,29 +66,36 @@ class ParArrayNDGeneric {
   ParArrayNDGeneric(const std::string& label, int nx1)
     : d6d_(label,1,1,1,1,1,nx1)
   { }
+  KOKKOS_INLINE_FUNCTION
   explicit ParArrayNDGeneric(const Container& v)
     : d6d_(v)
   {}
 
   // legacy functions, as requested for backwards compatibility
   // with athena++ patterns
-  void NewParArrayND(int nx1) {
-    d6d_ = Container("ParArray1D",1,1,1,1,1,nx1);
+  void NewParArrayND(int nx1,
+                     const std::string& label="ParArray1D") {
+    d6d_ = Container(label,1,1,1,1,1,nx1);
   }
-  void NewParArrayND(int nx2, int nx1) {
-    d6d_ = Container("ParArray2D",1,1,1,1,nx2,nx1);
+  void NewParArrayND(int nx2, int nx1,
+                     const std::string& label="ParArray2D") {
+    d6d_ = Container(label,1,1,1,1,nx2,nx1);
   }
-  void NewParArrayND(int nx3, int nx2, int nx1) {
-    d6d_ = Container("ParArray3D",1,1,1,nx3,nx2,nx1);
+  void NewParArrayND(int nx3, int nx2, int nx1,
+                     const std::string& label="ParArray3D") {
+    d6d_ = Container(label,1,1,1,nx3,nx2,nx1);
   }
-  void NewParArrayND(int nx4, int nx3, int nx2, int nx1) {
-    d6d_ = Container("ParArray4D",1,1,nx4,nx3,nx2,nx1);
+  void NewParArrayND(int nx4, int nx3, int nx2, int nx1,
+                     const std::string& label="ParArray4D") {
+    d6d_ = Container(label,1,1,nx4,nx3,nx2,nx1);
   }
-  void NewParArrayND(int nx5, int nx4, int nx3, int nx2, int nx1) {
-    d6d_ = Container("ParArray5D",1,nx5,nx4,nx3,nx2,nx1);
+  void NewParArrayND(int nx5, int nx4, int nx3, int nx2, int nx1,
+                     const std::string& label="ParArray5D") {
+    d6d_ = Container(label,1,nx5,nx4,nx3,nx2,nx1);
   }
-  void NewParArrayND(int nx6, int nx5, int nx4, int nx3, int nx2, int nx1) {
-    d6d_ = Container("ParArray6D",nx6,nx5,nx4,nx3,nx2,nx1);
+  void NewParArrayND(int nx6, int nx5, int nx4, int nx3, int nx2, int nx1,
+                     const std::string& label="ParArray6D") {
+    d6d_ = Container(label,nx6,nx5,nx4,nx3,nx2,nx1);
   }
 
   KOKKOS_INLINE_FUNCTION __attribute__((nothrow))
@@ -108,7 +111,7 @@ class ParArrayNDGeneric {
   ParArrayNDGeneric<Container> &operator= (ParArrayNDGeneric<Container> &&t) = default;
 
   // function to get the label
-  inline const std::string label() const {
+  std::string label() const {
     return d6d_.label();
   }
 
@@ -116,11 +119,6 @@ class ParArrayNDGeneric {
   KOKKOS_INLINE_FUNCTION int GetDim(const int i) const {
     assert( 0 < i && i <= 6 && "ParArrayNDGenerics are max 6D" );
     return d6d_.extent_int(6-i);
-  }
-
-  std::vector<int> GetShape() const {
-    return std::vector<int>({GetDim(6), GetDim(5), GetDim(4),
-          GetDim(3), GetDim(2), GetDim(1)});
   }
 
   // a function to get the total size of the array
@@ -175,33 +173,43 @@ class ParArrayNDGeneric {
     return d6d_(p,m,n,k,j,i);
   }
   template<typename...Args>
+  KOKKOS_INLINE_FUNCTION
   auto Slice(Args...args) const {
     auto v = Kokkos::subview(d6d_,std::forward<Args>(args)...);
     return ParArrayNDGeneric<decltype(v)>(v);
   }
+
+  #define SLC0 std::make_pair(0,1)
+  KOKKOS_INLINE_FUNCTION
   auto SliceD(index_pair_t slc, std::integral_constant<int,6>) const {
     return Slice(slc,Kokkos::ALL(),Kokkos::ALL(),
                  Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL());
   }
+  KOKKOS_INLINE_FUNCTION
   auto SliceD(index_pair_t slc, std::integral_constant<int,5>) const {
     return Slice(SLC0,slc,Kokkos::ALL(),
                  Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL());
   }
+  KOKKOS_INLINE_FUNCTION
   auto SliceD(index_pair_t slc, std::integral_constant<int,4>) const {
     return Slice(SLC0,SLC0,slc,
                  Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL());
   }
+  KOKKOS_INLINE_FUNCTION
   auto SliceD(index_pair_t slc, std::integral_constant<int,3>) const {
     return Slice(SLC0,SLC0,SLC0,
                  slc,Kokkos::ALL(),Kokkos::ALL());
   }
+  KOKKOS_INLINE_FUNCTION
   auto SliceD(index_pair_t slc, std::integral_constant<int,2>) const {
     return Slice(SLC0,SLC0,SLC0,
                  Kokkos::ALL(),slc,Kokkos::ALL());
   }
+  KOKKOS_INLINE_FUNCTION
   auto SliceD(index_pair_t slc, std::integral_constant<int,1>) const {
     return Slice(SLC0,SLC0,SLC0,Kokkos::ALL(),Kokkos::ALL(),slc);
   }
+  #undef SLC0
 
   // AthenaArray.InitWithShallowSlice(src,dim,indx,nvar)
   // translates into auto dest = src.SliceD<dim>(std::make_pair(indx,indx+nvar))
@@ -302,8 +310,6 @@ template<typename T, typename Layout=LayoutWrapper>
 using ParArrayND = ParArrayNDGeneric<device_view_t<T,Layout>>;
 template<typename T, typename Layout=LayoutWrapper>
 using ParArrayHost = ParArrayNDGeneric<host_view_t<T,Layout>>;
-
-#undef SLC0
 
 } // namespace parthenon
 #endif // PARTHENON_ARRAYS_HPP_

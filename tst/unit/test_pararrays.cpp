@@ -17,10 +17,8 @@
 // so.
 //========================================================================================
 
-// C header
-#include <math.h>
-
 // C++ headers
+#include <cmath>
 #include <iostream>
 #include <random>
 #include <string>
@@ -65,8 +63,13 @@ KOKKOS_INLINE_FUNCTION Real gaussian(const int iz, const int iy, const int ix) {
   return gaussian(iz,iy,ix,N,N,N);
 }
 
-#define stencil(l,r,k,j,i) \
-  l(k,j,i) = (1./6.)*(r(k-1,j,i)+r(k+1,j,i)+r(k,j-1,i)+r(k,j+1,i)+r(k,j,i-1)+r(k,j,i+1))
+template<typename T>
+KOKKOS_FORCEINLINE_FUNCTION
+void stencil(T& l, T& r, const int k, const int j, const int i) {
+  l(k,j,i) = (1./6.)*( r(k-1, j,   i)   + r(k+1, j,   i)
+                      +r(k,   j-1, i)   + r(k,   j+1, i)
+                      +r(k,   j,   i-1) + r(k,   j,   i+1));
+}
 
 template <class T>
 void profile_wrapper_3d(T loop_pattern) {
@@ -257,6 +260,64 @@ TEST_CASE("ParArrayND","[ParArrayND],[Kokkos]") {
   }
 }
 
+TEST_CASE("ParArrayND with LayoutLeft","[ParArrayND],[Kokkos],[LayoutLeft]") {
+
+  GIVEN("A ParArrayND with some dimensions") {
+    constexpr int N1 = 2;
+    constexpr int N2 = 3;
+    constexpr int N3 = 4;
+    ParArrayND<Real,Kokkos::LayoutLeft> a("test",N3,N2,N1);
+    WHEN("We fill it with increasing integers") {
+      // auto view = a.Get<3>();
+      // auto mirror = Kokkos::create_mirror(view);
+      auto mirror = a.GetHostMirror();
+      int n = 0;
+      int sum_host = 0;
+      for (int k = 0; k < N3; k++) {
+        for (int j = 0; j < N2; j++) {
+          for (int i = 0; i < N1; i++) {
+            mirror(k,j,i) = n;
+            sum_host += n;
+            n++;
+          }
+        }
+      }
+      // Kokkos::deep_copy(view,mirror);
+      a.DeepCopy(mirror);
+      THEN("the sum of the lower three indices is correct") {
+        int sum_device = 0;
+        using policy = Kokkos::MDRangePolicy<Kokkos::Rank<3>>;
+        Kokkos::parallel_reduce(policy({0,0,0}, {N3,N2,N1}),
+                                KOKKOS_LAMBDA(const int k, const int j,
+                                              const int i,
+                                              int& update) {
+                                  update += a(k,j,i);
+                                },
+                                sum_device);
+        REQUIRE( sum_host == sum_device );
+      }
+      THEN("slicing is possible") {
+        // auto b = a.SliceD(std::make_pair(1,3),3);
+        // auto b = a.SliceD<3>(std::make_pair(1,3));
+        auto b = a.SliceD<3>(1,2); // indx,nvar
+        AND_THEN("slices have correct values.") {
+          int total_errors = 1; // != 0
+          using policy = Kokkos::MDRangePolicy<Kokkos::Rank<3>>;
+          Kokkos::parallel_reduce(policy({0,0,0}, {2,N2,N1}),
+                                  KOKKOS_LAMBDA(const int k,
+                                                const int j,
+                                                const int i,
+                                                int& update) {
+                                    update += (b(k,j,i) == a(k+1,j,i)) ? 0 : 1;
+                                  },
+                                  total_errors);
+          REQUIRE( total_errors == 0 );
+        }
+      }
+    }
+  }
+}
+
 TEST_CASE("Time simple stencil operations") {
   SECTION("1d range") {
     std::cout << "1d range:" << std::endl;
@@ -301,7 +362,7 @@ TEST_CASE("Check registry pressure","[ParArrayND]") {
   std::uniform_real_distribution<Real> dis(-1.0, 1.0);
 
   // view of views. See:
-  // https://github.com/kokkos/kokkos/wiki/View
+  // https://github.com/kokkos/kokkos/wiki/View#6232-whats-the-problem-with-a-view-of-views
   using arrays_t = Kokkos::View<ParArrayND<Real>*,UVMSpace>;
   using views_t = Kokkos::View<ParArray3D<Real>*,UVMSpace>;
   using device_view_t = parthenon::device_view_t<Real>;

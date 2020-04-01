@@ -66,6 +66,13 @@ if (NOT DISABLE_OPENMP)
   set(ENABLE_OPENMP ON)
 endif()
 
+if (Kokkos_ENABLE_CUDA AND TEST_INTEL_OPTIMIZATION)
+  message(WARNING
+    "Intel optimizer flags may not be passed through NVCC wrapper correctly. "
+    "If you encounter problems, please delete your CMake cache "
+    "and rerun CMake with -DTEST_INTEL_OPTIMIZATION=OFF.")
+endif()
+
 set(ENABLE_HDF5 OFF)
 if (NOT DISABLE_HDF5)
   set(HDF5_PREFER_PARALLEL ${ENABLE_MPI})
@@ -96,6 +103,11 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # Tell Kokkos to vectorize aggressively
 # Kokkos prefers this capitalization for debugging reasons
 SET (Kokkos_ENABLE_AGGRESSIVE_VECTORIZATION ON CACHE BOOL "")
+
+# Tell Kokkos we need lambdas in Cuda.
+if (Kokkos_ENABLE_CUDA)
+  SET (Kokkos_ENABLE_CUDA_LAMBDA ON CACHE BOOL "")
+endif()
 
 if(EXISTS ${Kokkos_ROOT}/CMakeLists.txt)
   add_subdirectory(${Kokkos_ROOT} Kokkos)
@@ -134,6 +146,7 @@ if (${KOKKOS_ENABLE_CUDA})
     add_compile_options(-Xptxas=-v)
   endif()
 endif()
+# Note that these options may not play nice with nvcc wrapper
 if (TEST_INTEL_OPTIMIZATION)
   add_compile_options(-fp-model fast=2 -qopt_report5 -vec-threshold0 -qopt_report_phase=vec)
 endif()	       
