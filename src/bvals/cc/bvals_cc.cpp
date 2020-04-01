@@ -271,46 +271,28 @@ void CellCenteredBoundaryVariable::SetBoundaryFromCoarser(Real *buf,
   AthenaArray<Real> &coarse_var = *coarse_buf;
 
   const IndexShape & c_cells = pmb->c_cells;
-  if (nb.ni.ox1 == 0) {
-    si = c_cells.x1s(interior);
-    ei = c_cells.x1e(interior);
-    if ((pmb->loc.lx1 & 1LL) == 0LL) ei += cng;
-    else                             si -= cng;
-  } else if (nb.ni.ox1 > 0)  {
-    si = c_cells.x1e(interior) + 1;
-    ei = c_cells.x1e(interior) + cng;
-  } else {
-    si = c_cells.x1s(interior) - cng;
-    ei = c_cells.x1s(interior) - 1;
-  }
-  if (nb.ni.ox2 == 0) {
-    sj = c_cells.x2s(interior);
-    ej = c_cells.x2e(interior);
-    if (pmb->block_size.nx2 > 1) {
-      if ((pmb->loc.lx2 & 1LL) == 0LL) ej += cng;
-      else                             sj -= cng;
+
+  auto CalcIndices = [](const int & ox,int &s, int &e, 
+      const int & cell_s, const int & cell_e, 
+      const std::64 & lx const int & cng){
+    if (ox1 == 0) {
+      s = cells_s;
+      e = cells_e;
+      if ((lx & 1LL) == 0LL) {
+        e += cng;
+      } else {
+        s -= cng;}
+    } else if (ox > 0)  {
+      s = cells_e + 1;
+      e = cells_e + cng;
+    } else {
+      s = cells_s - cng;
+      e = cells_s - 1;
     }
-  } else if (nb.ni.ox2 > 0) {
-    sj = c_cells.x2e(interior) + 1;
-    ej = c_cells.x2e(interior) + cng;
-  } else {
-    sj = c_cells.x2s(interior) - cng;
-    ej = c_cells.x2s(interior) - 1;
-  }
-  if (nb.ni.ox3 == 0) {
-    sk = c_cells.x3s(interior);
-    ek = c_cells.x3e(interior);
-    if (pmb->block_size.nx3 > 1) {
-      if ((pmb->loc.lx3 & 1LL) == 0LL) ek += cng;
-      else                             sk -= cng;
-    }
-  } else if (nb.ni.ox3 > 0)  {
-    sk = c_cells.x3e(interior) + 1;
-    ek = c_cells.x3e(interior) + cng;
-  } else {
-    sk = c_cells.x3s(interior) - cng;
-    ek = c_cells.x3s(interior) - 1;
-  }
+  };
+  CalcIndices(nb.ni.ox1, si, ei, c_cells.x1s(interior), c_cells.x1e(interior), pmb->loc.lx1, cng);
+  CalcIndices(nb.ni.ox2, sj, ej, c_cells.x2s(interior), c_cells.x2e(interior), pmb->loc.lx2, cng);
+  CalcIndices(nb.ni.ox3, sk, ek, c_cells.x3s(interior), c_cells.x3e(interior), pmb->loc.lx3, cng);
 
   int p = 0;
   BufferUtility::UnpackData(buf, coarse_var, nl_, nu_, si, ei, sj, ej, sk, ek, p);
