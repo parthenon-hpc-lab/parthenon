@@ -274,20 +274,20 @@ void CellCenteredBoundaryVariable::SetBoundaryFromCoarser(Real *buf,
 
   auto CalcIndices = [](const int & ox,int &s, int &e, 
       const int & cell_s, const int & cell_e, 
-      const std::64 & lx const int & cng){
-    if (ox1 == 0) {
-      s = cells_s;
-      e = cells_e;
+      const std::int64_t & lx, const int & cng){
+    if (ox == 0) {
+      s = cell_s;
+      e = cell_e;
       if ((lx & 1LL) == 0LL) {
         e += cng;
       } else {
         s -= cng;}
     } else if (ox > 0)  {
-      s = cells_e + 1;
-      e = cells_e + cng;
+      s = cell_e + 1;
+      e = cell_e + cng;
     } else {
-      s = cells_s - cng;
-      e = cells_s - 1;
+      s = cell_s - cng;
+      e = cell_s - 1;
     }
   };
   CalcIndices(nb.ni.ox1, si, ei, c_cells.x1s(interior), c_cells.x1e(interior), pmb->loc.lx1, cng);
@@ -313,6 +313,8 @@ void CellCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
   int si, sj, sk, ei, ej, ek;
   
   const IndexShape & cells = pmb->cells;
+
+  
   if (nb.ni.ox1 == 0) {
     si = cells.x1s(interior); 
     ei = cells.x1e(interior);
@@ -326,46 +328,32 @@ void CellCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
     ei = cells.x1s(interior) - 1;
   }
 
-  if (nb.ni.ox2 == 0) {
-    sj = cells.x2s(interior);
-    ej = cells.x2e(interior);
-    if (pmb->block_size.nx2 > 1) {
-      if (nb.ni.ox1 != 0) {
-        if (nb.ni.fi1 == 1) sj += pmb->block_size.nx2/2;
-        else                ej -= pmb->block_size.nx2/2;
-      } else {
-        if (nb.ni.fi2 == 1) sj += pmb->block_size.nx2/2;
-        else                ej -= pmb->block_size.nx2/2;
+  auto CalcIndices = [&,nb](const int & ox,int &s, int &e, 
+      const int & cell_s, const int & cell_e, const int & nx
+      ){
+    if (ox == 0) {
+      s = cell_s;
+      e = cell_e;
+      if (nx > 1) {
+        if (nb.ni.ox1 != 0) {
+          if (nb.ni.fi1 == 1) { s += nx/2; }
+          else { e -= nx/2; }
+        } else {
+          if (nb.ni.fi2 == 1) { s += nx/2; }
+          else { ej -= pmb->block_size.nx2/2; }
+        }
       }
+    } else if (nb.ni.ox2 > 0) {
+      s = cell_e + 1;
+      e = cell_e + NGHOST;
+    } else {
+      s = cell_s - NGHOST;
+      e = cell_s - 1;
     }
-  } else if (nb.ni.ox2 > 0) {
-    sj = cells.x2e(interior) + 1;
-    ej = cells.x2e(interior) + NGHOST;
-  } else {
-    sj = cells.x2s(interior) - NGHOST;
-    ej = cells.x2s(interior) - 1;
-  
-  }
+  };
 
-  if (nb.ni.ox3 == 0) {
-    sk = cells.x3s(interior);
-    ek = cells.x3e(interior);
-    if (pmb->block_size.nx3 > 1) {
-      if (nb.ni.ox1 != 0 && nb.ni.ox2 != 0) {
-        if (nb.ni.fi1 == 1) sk += pmb->block_size.nx3/2;
-        else                ek -= pmb->block_size.nx3/2;
-      } else {
-        if (nb.ni.fi2 == 1) sk += pmb->block_size.nx3/2;
-        else                ek -= pmb->block_size.nx3/2;
-      }
-    }
-  } else if (nb.ni.ox3 > 0) {
-    sk = cells.x3e(interior) + 1;
-    ek = cells.x3e(interior) + NGHOST;
-  } else {
-    sk = cells.x3s(interior) - NGHOST;
-    ek = cells.x3s(interior) - 1;
-  }
+  CalcIndices(nb.ni.ox2,sj, ej, cells.x2s(interior), cells.x2e(interior),pmb->block_size.nx2);
+  CalcIndices(nb.ni.ox3,sk, ek, cells.x3s(interior), cells.x3e(interior),pmb->block_size.nx3);
 
   int p = 0;
   BufferUtility::UnpackData(buf, var, nl_, nu_, si, ei, sj, ej, sk, ek, p);
