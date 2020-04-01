@@ -106,9 +106,8 @@ struct FaceField {
   FaceField() = default;
   FaceField(int ncells3, int ncells2, int ncells1,
             AthenaArray<Real>::DataStatus init=AthenaArray<Real>::DataStatus::allocated) :
-    x1f(ncells3,   ncells2,   ncells1+1, init), 
-    x2f(ncells3,   ncells2+1, ncells1, init),
-    x3f(ncells3+1, ncells2,   ncells1, init) {}
+      x1f(ncells3, ncells2, ncells1+1, init), x2f(ncells3, ncells2+1, ncells1, init),
+      x3f(ncells3+1, ncells2, ncells1, init) {}
   FaceField(int ncells6, int ncells5, int ncells4, int ncells3, int ncells2, int ncells1,
             AthenaArray<Real>::DataStatus init=AthenaArray<Real>::DataStatus::allocated)
     : x1f(ncells6, ncells5, ncells4, ncells3, ncells2, ncells1+1, init)
@@ -126,9 +125,8 @@ struct EdgeField {
   EdgeField() = default;
   EdgeField(int ncells3, int ncells2, int ncells1,
             AthenaArray<Real>::DataStatus init=AthenaArray<Real>::DataStatus::allocated) :
-      x1e(ncells3+1, ncells2+1, ncells3, init), 
-      x2e(ncells3+1, ncells2,   ncells3+1, init),
-      x3e(ncells3,   ncells2+1, ncells3+1, init) {}
+      x1e(ncells3+1, ncells2+1, ncells1, init), x2e(ncells3+1, ncells2,   ncells1+1, init),
+      x3e(ncells3, ncells2+1, ncells1+1, init) {}
 };
 
 //----------------------------------------------------------------------------------------
