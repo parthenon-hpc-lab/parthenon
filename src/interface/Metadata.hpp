@@ -105,6 +105,10 @@ public:
     return flag_ == other.flag_;
   }
 
+  constexpr bool operator!=(MetadataFlag const &other) const {
+    return flag_ != other.flag_;
+  }
+
   std::string const &Name() const;
 
 #ifdef CATCH_VERSION_MAJOR
@@ -128,11 +132,6 @@ private:
 ///  Can set or query attributes specifed in flags.
 ///
 class Metadata {
- private:
-  // must be forward declared
-  auto PackedTuple() const {
-    return std::tie(bits_, shape_, sparse_id_);
-  }
  public:
   /// The flags refer to the different attributes that a variable can
   /// have.  These include the topology, IO, advection, conservation,
@@ -171,7 +170,7 @@ class Metadata {
 
   /// returns a metadata with bits and sparse id set
   explicit Metadata(const std::vector<MetadataFlag>& bits,
-                    const int sparse_id) :
+                    int sparse_id) :
     sparse_id_(sparse_id),
     shape_({1}) {
     SetMultiple(bits);
@@ -179,7 +178,7 @@ class Metadata {
 
   /// returns a metadata with bits, shape, and sparse ID set
   explicit Metadata(const std::vector<MetadataFlag>& bits,
-                    const int sparse_id,
+                    int sparse_id,
                     std::vector<int> shape) :
     sparse_id_(sparse_id),
     shape_(shape) {
@@ -190,8 +189,8 @@ class Metadata {
   static MetadataFlag AllocateNewFlag(std::string &&name);
 
   // Individual flag setters
-  void Set(const MetadataFlag f) { DoBit(f, true); }             ///< Set specific bit
-  void Unset(const MetadataFlag f) { DoBit(f, false); }          ///< Unset specific bit
+  void Set(MetadataFlag f) { DoBit(f, true); }             ///< Set specific bit
+  void Unset(MetadataFlag f) { DoBit(f, false); }          ///< Unset specific bit
 
   /*--------------------------------------------------------*/
   // Getters for attributes
@@ -237,15 +236,36 @@ class Metadata {
   }
 
   /// returns true if bit is set, false otherwise
-  bool IsSet(const MetadataFlag bit) const { return bits_[bit.flag_]; }
+  bool IsSet(MetadataFlag bit) const {
+    return bit.flag_ < bits_.size() && bits_[bit.flag_];
+  }
 
   // Operators
   bool operator==(const Metadata &b) const {
-    return PackedTuple() == b.PackedTuple();
+    auto const &a = *this;
+
+    // Check extra bits are unset
+    auto const max_bits = std::max(a.bits_.size(), b.bits_.size());
+    auto const &longer = a.bits_.size() > b.bits_.size() ? a.bits_ : b.bits_;
+    for (auto i = max_bits; i < longer.size(); i++) {
+      if (longer[i]) {
+        // Bits are default fault, so if any bit in the extraneous portion of the longer bit list is
+        // set, then it cannot be equal to a.
+        return false;
+      }
+    }
+
+    for (size_t i = 0; i < max_bits; i++) {
+      if (a.bits_[i] != b.bits_[i]) {
+        return false;
+      }
+    }
+
+    return std::tie(a.shape_, a.sparse_id_) == std::tie(b.shape_, b.sparse_id_);
   }
 
   bool operator!=(const Metadata &b) const {
-    return PackedTuple() != b.PackedTuple();
+    return !(*this == b);
   }
 
   void Associate(const std::string &name) { associated_ = name; }
@@ -308,7 +328,7 @@ private:
   }
 
   /// if flag is true set bit, clears otherwise
-  void DoBit(MetadataFlag bit, const bool flag) {
+  void DoBit(MetadataFlag bit, bool flag) {
     if (bit.flag_ >= bits_.size()) {
       bits_.resize(bit.flag_ + 1);
     }

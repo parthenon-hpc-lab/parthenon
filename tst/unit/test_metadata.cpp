@@ -41,3 +41,41 @@ TEST_CASE("A Metadata flag is allocated", "[Metadata]") {
         REQUIRE_THROWS_AS(Metadata::AllocateNewFlag("TestFlag"), std::runtime_error);
     }
 }
+
+TEST_CASE("A Metadata struct is created", "[Metadata]") {
+    GIVEN("A default Metadata struct") {
+        Metadata m;
+
+#define PARTHENON_INTERNAL_FOR_FLAG(name) REQUIRE(!m.IsSet(Metadata::name));
+    PARTHENON_INTERNAL_FOREACH_BUILTIN_FLAG
+#undef PARTHENON_INTERNAL_FOR_FLAG
+    }
+
+    GIVEN("Setting an arbitrary Metadata flag only sets that flag") {
+        Metadata m;
+        
+        m.Set(Metadata::FillGhost);
+
+
+#define PARTHENON_INTERNAL_FOR_FLAG(name) if (Metadata::name != Metadata::FillGhost) REQUIRE(!m.IsSet(Metadata::name));
+    PARTHENON_INTERNAL_FOREACH_BUILTIN_FLAG
+#undef PARTHENON_INTERNAL_FOR_FLAG
+
+        REQUIRE(m.IsSet(Metadata::FillGhost));
+    }
+
+    GIVEN("Two Equivalent Metadata Structs Are Compared") {
+        Metadata a({Metadata::Cell}), b({Metadata::Face});
+
+        b.Unset(Metadata::Face);
+        b.Set(Metadata::Cell);
+
+        REQUIRE(a == b);
+    }
+
+    GIVEN("Two Different Metadata Structs Are Compared") {
+        Metadata a({Metadata::Cell}), b({Metadata::Face});
+
+        REQUIRE(a != b);
+    }
+}
