@@ -67,7 +67,7 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
     properties(properties), packages(packages), exec_space(DevSpace()) {
   // initialize grid indices
 
-  InitializeIndexShapes(pmy_mesh->ndim);
+  InitializeIndexShapes();
  
   // Set the block pointer for the containers
   real_container.setBlock(this);
@@ -175,7 +175,7 @@ MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
   //std::cerr << "WHY AM I HERE???" << std::endl;
 
   // initialize grid indices
-  InitializeIndexShapes(pmy_mesh->ndim);
+  InitializeIndexShapes();
     
   // Set the block pointer for the containers
   real_container.setBlock(this);
@@ -230,9 +230,9 @@ MeshBlock::~MeshBlock() {
 
 }
 
-void MeshBlock::InitializeIndexShapes(const int & ndim) {
+void MeshBlock::InitializeIndexShapes() {
 
-  cells = IndexShape(block_size.nx1,block_size.nx2,block_size.nx3,ndim,NGHOST);
+  cells = IndexShape(block_size.nx1,block_size.nx2,block_size.nx3,NGHOST);
 
   if (pmy_mesh->multilevel) {
 
@@ -241,7 +241,6 @@ void MeshBlock::InitializeIndexShapes(const int & ndim) {
       cells.nx1(interior)/2,
       cells.nx2(interior)/2,
       cells.nx3(interior)/2,
-      ndim,
       NGHOST);
 
   }else{
@@ -250,7 +249,6 @@ void MeshBlock::InitializeIndexShapes(const int & ndim) {
       cells.nx1(interior)/2,
       cells.nx2(interior)/2,
       cells.nx3(interior)/2,
-      ndim,
       0);
   }
 

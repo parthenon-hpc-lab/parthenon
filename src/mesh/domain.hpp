@@ -25,6 +25,7 @@
 
 namespace parthenon {
 
+  /// Defines the maximum size of the static array used in the IndexShape objects
   const int NDIM = 3;
 
   struct IndexRange {
@@ -66,17 +67,29 @@ namespace parthenon {
   
       IndexShape() {};
 
-      IndexShape(const int & nx1, const int & nx2, const int & nx3, const int & ndim,const int & ng) 
-      : IndexShape( std::vector<int> {nx1,nx2,nx3}, ndim, ng) {};
+      IndexShape(const int & nx1, const int & nx2, const int & nx3, const int & ng) 
+      : IndexShape( std::vector<int> {nx1,nx2,nx3}, ng) {};
 
-      IndexShape(const std::vector<int> & interior_dims, const int & ndim,const int & ng) { 
-        assert(ndim<=NDIM && "IndexShape cannot be initialized, the number of dimensions exceeds the statically set dimensions, you will need to change the NDIM constant.");
+      IndexShape(const int & nx1, const int & nx2, const int & ng) 
+      : IndexShape( std::vector<int> {nx1,nx2}, ng) {};
+
+      IndexShape(const int & nx1, const int & ng) 
+      : IndexShape( std::vector<int> {nx1}, ng) {};
+
+      IndexShape(const std::vector<int> & interior_dims, const int & ng) { 
+        assert(interior_dims.size()<=NDIM && "IndexShape cannot be initialized, the number of "
+              "dimensions exceeds the statically set dimensions, you will need to change the NDIM "
+              "constant.");
         for( int dim=1, index=0; dim<=NDIM; ++dim, ++index){
-          if (dim <= ndim) {
+          if (dim <= interior_dims.size()) {
+            assert( interior_dims.at(index) > 0 && "IndexShape cannot be initialized with fewer "
+                "than 1 interior cells for each dimension");
             x_[index].start = ng;
             x_[index].end = x_[index].start + interior_dims.at(index) - 1;
             entire_ncells_[index] = interior_dims.at(index) + 2*ng;
           } else {
+            x_[index].start = 0;
+            x_[index].end = 0;
             entire_ncells_[index] = 1;
           }
         }

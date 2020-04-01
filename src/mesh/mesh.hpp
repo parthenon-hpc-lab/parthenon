@@ -268,7 +268,7 @@ class MeshBlock {
   std::vector<std::reference_wrapper<Variable<Real>>> vars_cc_;
   std::vector<std::reference_wrapper<FaceField>> vars_fc_;
 
-  void InitializeIndexShapes(const int & ndim);
+  void InitializeIndexShapes();
   // functions
   void AllocateRealUserMeshBlockDataField(int n);
   void AllocateIntUserMeshBlockDataField(int n);
