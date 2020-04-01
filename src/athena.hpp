@@ -85,6 +85,9 @@ struct LogicalLocation { // aggregate and POD type
   }
 };
 
+/// Defines the maximum size of the static array used in the IndexShape objects
+constexpr int NDIM = 3;
+
 //----------------------------------------------------------------------------------------
 //! \struct RegionSize
 //  \brief physical size and number of cells in a Mesh or a MeshBlock

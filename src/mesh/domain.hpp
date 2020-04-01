@@ -25,9 +25,6 @@
 
 namespace parthenon {
 
-  /// Defines the maximum size of the static array used in the IndexShape objects
-  const int NDIM = 3;
-
   struct IndexRange {
     int start = 0; /// Starting Index (inclusive)
     int end = 0; /// Ending Index (inclusive)
