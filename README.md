@@ -3,7 +3,7 @@
 Parthenon AMR infrastructure 
 
 # Community
-* [Riot](https://riot.im/app/#/room/#parthenon-general:matrix.org)
+* [Matrix](https://riot.im/app/#/room/#parthenon-general:matrix.org)
 
 # Required Dependencies
 
