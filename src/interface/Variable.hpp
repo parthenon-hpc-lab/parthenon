@@ -235,7 +235,7 @@ struct EdgeVariable : EdgeField {
   EdgeVariable(const std::string label, const Metadata &metadata,
                const int ncells3, const int ncells2, const int ncells1,
                const DATASTATUS init=DATASTATUS::allocated) :
-    EdgeField(ncells1, ncells2, ncells3, init),
+    EdgeField(ncells3, ncells2, ncells1, init),
     _label(label),
     _m(metadata) {
     if ( metadata.hasSparse() ) {
