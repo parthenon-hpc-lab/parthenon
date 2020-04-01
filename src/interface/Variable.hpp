@@ -233,7 +233,7 @@ struct EdgeVariable : EdgeField {
 
   /// Initialize a edge variable
   EdgeVariable(const std::string label, const Metadata &metadata,
-               const int ncells1, const int ncells2, const int ncells3,
+               const int ncells3, const int ncells2, const int ncells1,
                const DATASTATUS init=DATASTATUS::allocated) :
     EdgeField(ncells1, ncells2, ncells3, init),
     _label(label),
