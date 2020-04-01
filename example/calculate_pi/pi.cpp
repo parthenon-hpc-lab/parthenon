@@ -21,7 +21,6 @@
 #include "kokkos_abstraction.hpp"
 #include "pi.hpp"
 
-
 namespace parthenon {
 
 // can be used to set global properties that all meshblocks want to know about
@@ -117,7 +116,7 @@ namespace PiCalculator {
   void SetInOrOut(Container<Real>& rc) {
     MeshBlock *pmb = rc.pmy_block;
     int is, js, ks, ie, je, ke;
-    pmb->cells.GetIndices(parthenon::interior,is,js,ks,ie,je,ke);
+    pmb->cells.GetIndices(parthenon::interior,is,ie,js,je,ks,ke);
 
     Coordinates *pcoord = pmb->pcoord.get();
     Variable<Real>& v = rc.Get("in_or_out");
@@ -164,7 +163,7 @@ namespace PiCalculator {
     // function and they are all called by parthenon
     MeshBlock *pmb = rc.pmy_block;
     int is, js, ks, ie, je, ke;
-    pmb->cells.GetIndices(parthenon::interior,is,js,ks,ie,je,ke);
+    pmb->cells.GetIndices(parthenon::interior,is,ie,js,je,ks,ke);
 
     Variable<Real>& v = rc.Get("in_or_out");
     int delta_level = -1;
