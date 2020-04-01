@@ -158,8 +158,6 @@ class Metadata {
   explicit Metadata(const std::vector<MetadataFlag>& bits) :
     shape_({1}),
     sparse_id_(-1) {
-    bits_.resize(64);
-    for (int i=0; i<64; i++) bits_[i] = false;
     SetMultiple(bits);
   }
 
@@ -168,8 +166,6 @@ class Metadata {
                     std::vector<int> shape) :
     shape_(shape),
     sparse_id_(-1) {
-    bits_.resize(64);
-    for (int i=0; i<64; i++) bits_[i] = false;
     SetMultiple(bits);
   }
 
@@ -241,7 +237,12 @@ class Metadata {
   }
 
   /// returns true if bit is set, false otherwise
-  bool IsSet(const MetadataFlag bit) const { return bits_[bit.flag_]; }
+  bool IsSet(const MetadataFlag bit) const { 
+    if (bit.flag_ >= bits_.size()) {
+      return false;
+    }
+    return bits_[bit.flag_];
+  }
 
   // Operators
   bool operator==(const Metadata &b) const {
