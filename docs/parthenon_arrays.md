@@ -11,11 +11,27 @@ fastest moving indexes come last.
 ### Constructors
 
 To construct, call it with `ParArrayND(label,dimensions...)`, where
-dimensions is some number of ints specifying the shape of the array.
+dimensions is some number of ints specifying the shape of the
+array. e.g.,
+```C++
+ParArrayND<Real> myArray("a 3d array", 6, 5, 4);
+```
 
 If you don't know what to name your array, try using the
 `PARARRAY_TEMP` macro. It is provided to name the array based on the
 file and line where it is created.
+
+### Rank counting
+
+The rank of the object is indexed from 1, not 0. In other words, the
+code
+```C++
+ParArrayND<Real> myArray("a 3d array", 6, 5, 4);
+std::cout << myArray.GetDim(3) << " "
+          << myArray.GetDim(2) << " "
+          << myArray.GetDim(1) << std::endl;
+```
+prints out `6 5 4`.
 
 ### Accessors
 
@@ -74,10 +90,13 @@ aliases available are as follows:
 ```C++
 template<typename T, typename Layout=LayoutWrapper>
 using device_view_t = Kokkos::View<T******,Layout,DevSpace>;
+
 template<typename T, typename Layout=LayoutWrapper>
 using host_view_t = typename device_view_t<T,Layout>::HostMirror;
+
 template<typename T, typename Layout=LayoutWrapper>
 using ParArrayND = ParArrayNDGeneric<device_view_t<T,Layout>>;
+
 template<typename T, typename Layout=LayoutWrapper>
 using ParArrayHost = ParArrayNDGeneric<host_view_t<T,Layout>>;
 ```

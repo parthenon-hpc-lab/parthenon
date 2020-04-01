@@ -35,7 +35,8 @@ using parthenon::ParArrayND;
 using parthenon::ParArray3D;
 using Real = double;
 
-constexpr int N = 32 + 2;
+constexpr int NG = 2;
+constexpr int N = 32 + 2*NG;
 constexpr int NT = 100;
 constexpr int NARRAYS = 64;
 
@@ -46,7 +47,7 @@ using UVMSpace = DevSpace;
 #endif
 
 KOKKOS_INLINE_FUNCTION Real coord(const int i, const int n) {
-  const Real dx = 2.0/(n+1.0);
+  const Real dx = 2.0/(n-1.0);
   return -1.0 + dx*i;
 }
 
@@ -99,13 +100,13 @@ void profile_wrapper_3d(T loop_pattern) {
   for (int it = 0; it < NT; it++) {
     parthenon::par_for(loop_pattern,
                        "main loop", exec_space,
-                       1,N-2,1,N-2,1,N-2,
+                       NG,N-1-NG,NG,N-1-NG,NG,N-1-NG,
                        KOKKOS_LAMBDA(const int k, const int j, const int i) {
                          stencil(raw1,raw0,k,j,i);
                        });
     parthenon::par_for(loop_pattern,
                        "main loop", exec_space,
-                       1,N-2,1,N-2,1,N-2,
+                       NG,N-1-NG,NG,N-1-NG,NG,N-1-NG,
                        KOKKOS_LAMBDA(const int k, const int j, const int i) {
                          stencil(raw0,raw1,k,j,i);
                        });
@@ -116,13 +117,13 @@ void profile_wrapper_3d(T loop_pattern) {
   for (int it = 0; it < NT; it++) {
     parthenon::par_for(loop_pattern,
                        "main loop", exec_space,
-                       1,N-2,1,N-2,1,N-2,
+                       NG,N-1-NG,NG,N-1-NG,NG,N-1-NG,
                        KOKKOS_LAMBDA(const int k, const int j, const int i) {
                          stencil(nda1,nda0,k,j,i);
                        });
     parthenon::par_for(loop_pattern,
                        "main loop", exec_space,
-                       1,N-2,1,N-2,1,N-2,
+                       NG,N-1-NG,NG,N-1-NG,NG,N-1-NG,
                        KOKKOS_LAMBDA(const int k, const int j, const int i) {
                          stencil(nda0,nda1,k,j,i);
                        });
@@ -134,13 +135,13 @@ void profile_wrapper_3d(T loop_pattern) {
   for (int it = 0; it < NT; it++) {
     parthenon::par_for(loop_pattern,
                        "main loop", exec_space,
-                       1,N-2,1,N-2,1,N-2,
+                       NG,N-1-NG,NG,N-1-NG,NG,N-1-NG,
                        KOKKOS_LAMBDA(const int k, const int j, const int i) {
                          stencil(xtra1,xtra0,k,j,i);
                        });
     parthenon::par_for(loop_pattern,
                        "main loop", exec_space,
-                       1,N-2,1,N-2,1,N-2,
+                       NG,N-1-NG,NG,N-1-NG,NG,N-1-NG,
                        KOKKOS_LAMBDA(const int k, const int j, const int i) {
                          stencil(xtra0,xtra1,k,j,i);
                        });
