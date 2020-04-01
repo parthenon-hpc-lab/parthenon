@@ -204,24 +204,24 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(Real *buf,
   if      (nb.ni.ox1 == 0) si = cells.x1s(interior),            ei = cells.x1e(interior);
   else if (nb.ni.ox1 > 0)  si = cells.x1e(interior)-NGHOST + 1, ei = cells.x1e(interior);
   else                     si = cells.x1s(interior),            ei = cells.x1s(interior) + NGHOST-1;
-  if (pmb->block_size.nx2 == 1) sj = cells.x2s(interior),  ej = cells.x2e(interior);
+  if (pmb->block_size.nx2 == 1) sj = cells.x2s(interior),       ej = cells.x2e(interior);
   else if (nb.ni.ox2 == 0) sj = cells.x2s(interior),            ej = cells.x2e(interior) + 1;
   else if (nb.ni.ox2 > 0)  sj = cells.x2e(interior)-NGHOST + 1, ej = cells.x2e(interior);
   else                     sj = cells.x2s(interior) + 1,        ej = cells.x2s(interior) + NGHOST;
-  if      (pmy_mesh_->multilevel && nb.ni.type != NeighborConnect::face) {
-    if    (nb.ni.ox2 > 0)   ej++;
+  if (pmy_mesh_->multilevel && nb.ni.type != NeighborConnect::face) {
+    if      (nb.ni.ox2 > 0) ej++;
     else if (nb.ni.ox2 < 0) sj--;
   }
   BufferUtility::PackData((*var_fc).x2f, buf, si, ei, sj, ej, sk, ek, p);
 
   // bx3
-  if        (nb.ni.ox2 == 0) sj = cells.x2s(interior),            ej = cells.x2e(interior);
-  else if   (nb.ni.ox2 > 0)  sj = cells.x2e(interior)-NGHOST + 1, ej = cells.x2e(interior);
-  else                       sj = cells.x2s(interior),            ej = cells.x2s(interior) + NGHOST-1;
-  if (pmb->block_size.nx3 == 1) sk = cells.x3s(interior),         ek = cells.x3e(interior);
-  else if   (nb.ni.ox3 == 0) sk = cells.x3s(interior),            ek = cells.x3e(interior) + 1;
-  else if   (nb.ni.ox3 > 0)  sk = cells.x3e(interior)-NGHOST + 1, ek = cells.x3e(interior);
-  else                       sk = cells.x3s(interior) + 1,          ek = cells.x3s(interior) + NGHOST;
+  if      (nb.ni.ox2 == 0) sj = cells.x2s(interior),            ej = cells.x2e(interior);
+  else if (nb.ni.ox2 > 0)  sj = cells.x2e(interior)-NGHOST + 1, ej = cells.x2e(interior);
+  else                     sj = cells.x2s(interior),            ej = cells.x2s(interior) + NGHOST-1;
+  if (pmb->block_size.nx3 == 1) sk = cells.x3s(interior),       ek = cells.x3e(interior);
+  else if (nb.ni.ox3 == 0) sk = cells.x3s(interior),            ek = cells.x3e(interior) + 1;
+  else if (nb.ni.ox3 > 0)  sk = cells.x3e(interior)-NGHOST + 1, ek = cells.x3e(interior);
+  else                     sk = cells.x3s(interior) + 1,        ek = cells.x3s(interior) + NGHOST;
   if (pmy_mesh_->multilevel && nb.ni.type != NeighborConnect::face) {
     if      (nb.ni.ox3 > 0) ek++;
     else if (nb.ni.ox3 < 0) sk--;
