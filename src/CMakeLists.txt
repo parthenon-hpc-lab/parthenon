@@ -41,8 +41,6 @@ if (${Kokkos_ENABLE_CUDA})
   set(PAR_LOOP_LAYOUT_VALUES "MANUAL1D_LOOP;MDRANGE_LOOP;TPTTR_LOOP;TPTTRTVR_LOOP"
     CACHE STRING "Possible loop layout options.")
 
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --expt-relaxed-constexpr")
-
 elseif(${Kokkos_ENABLE_HPX})
   message( FATAL_ERROR "Need to add/fix/test default loop layouts for HPX backend.")
 
@@ -142,6 +140,7 @@ add_library(parthenon
 )
 target_compile_features(parthenon PUBLIC cxx_std_14)
 
+
 if (ENABLE_MPI)
   target_link_libraries(parthenon PUBLIC MPI::MPI_CXX)
 endif()
@@ -152,6 +151,10 @@ endif()
 
 if (ENABLE_HDF5)
   target_link_libraries(parthenon PUBLIC HDF5_C)
+endif()
+
+if (KOKKOS_ENABLE_CUDA)
+   target_compile_options(parthenon PUBLIC --expt-relaxed-constexpr)
 endif()
 
 target_link_libraries(parthenon PUBLIC Kokkos::kokkos)

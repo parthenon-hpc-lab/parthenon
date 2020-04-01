@@ -91,6 +91,10 @@ endif()
 # Kokkos recommendatation resulting in not using default GNU extensions
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# Tell Kokkos to vectorize aggressively
+# Kokkos prefers this capitalization for debugging reasons
+SET (Kokkos_ENABLE_AGGRESSIVE_VECTORIZATION ON CACHE BOOL "")
+
 if(EXISTS ${Kokkos_ROOT}/CMakeLists.txt)
   add_subdirectory(${Kokkos_ROOT} Kokkos)
 elseif(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/external/Kokkos/CMakeLists.txt)
