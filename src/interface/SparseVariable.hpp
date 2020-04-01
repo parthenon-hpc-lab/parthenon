@@ -95,8 +95,7 @@ class SparseVariable {
 
     // now append flag
     auto pVar = myMap.begin();
-    s += " : " + std::to_string(pVar->second->metadata().mask());
-    s += " : " + pVar->second->metadata().maskAsString();
+    s += " : " + pVar->second->metadata().MaskAsString();
 
     return s;
   }

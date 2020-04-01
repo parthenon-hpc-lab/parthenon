@@ -179,7 +179,7 @@ void VTKOutput::WriteContainer(Mesh *pm, ParameterInput *pin, bool flag) {
 
     std::fprintf(pfile, "\nCELL_DATA %d", pmb->cells.GetTotal(shape_type));
     // reset container iterator to point to current block data
-    auto ci = ContainerIterator<Real>(pmb->real_container,{Metadata::graphics});
+    auto ci = ContainerIterator<Real>(pmb->real_container,{Metadata::Graphics});
     for ( auto &v : ci.vars) {
       int n_dataset = 0;
       if ( ! data ) {

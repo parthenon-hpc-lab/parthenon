@@ -58,7 +58,7 @@ void SparseVariable<T>::AddCopy(const std::string& theLabel, SparseVariable<T>& 
   for (auto& pairs : theSrcMap) {
     auto id = pairs.first;
     auto& var = pairs.second;
-    if (var->metadata().isSet(var->metadata().oneCopy)) {
+    if (var->metadata().IsSet(Metadata::OneCopy)) {
       // push an alias
       myMap[id] = var;//std::make_shared<Variable<T>>(theLabel, var);
       myPcell.push_back(var);
@@ -77,8 +77,8 @@ void SparseVariable<T>::Add(MeshBlock &pmb,
                               const Metadata &metadata,
                               const std::vector<int> &inDims) {
   // Now allocate depending on topology
-  if ( ( metadata.where() == metadata.cell) ||
-       ( metadata.where() == metadata.node)) {
+  if ( ( metadata.Where() == Metadata::Cell) ||
+       ( metadata.Where() == Metadata::Node)) {
     // check if dimensions are in range: at most 3 dimensions
     const int N = inDims.size();
     if (N > 3) {
@@ -94,7 +94,7 @@ void SparseVariable<T>::Add(MeshBlock &pmb,
     //auto& myVec = _pcellVars[label];
 
     // get field id from metadata
-    int varIndex = metadata.getSparseID(); // FIXME
+    int varIndex = metadata.GetSparseId();
 
     // check if variable index already exists
     if (myMap.find(varIndex) != myMap.end()) {
@@ -104,7 +104,8 @@ void SparseVariable<T>::Add(MeshBlock &pmb,
     // determine size of variable needed
     int nc1, nc2, nc3;
     pmb.cells.GetNx(entire,nc1,nc2,nc3);
-    if ( metadata.where() == (Metadata::node) ) {
+
+    if ( metadata.Where() == (Metadata::Node) ) {
       nc1++; nc2++; nc3++;
     }
 
@@ -115,7 +116,7 @@ void SparseVariable<T>::Add(MeshBlock &pmb,
 
     // create the variable and add to map
     auto v = std::make_shared<Variable<T>>(label, arrDims, metadata);
-    if ( metadata.fillsGhost()) {
+    if ( metadata.IsSet(Metadata::FillGhost)) {
       v->allocateComms(&pmb);
     }
     _pcellVars[label].push_back(v);

@@ -64,8 +64,8 @@ class Variable : public AthenaArray<T> {
     _m(src.metadata()),
     mpiStatus(true)  {
     this->InitWithShallowSlice(src, dim, index, nvar);
-    if ( _m.isSet(_m.fillGhost) ) {
-      _m.set(_m.sharedComms);
+    if ( _m.IsSet(Metadata::FillGhost) ) {
+      _m.Set(Metadata::SharedComms);
     }
     //    std::cout << "_____CREATED VAR SLICE: " << _label << ":" << this << std::endl;
   }
@@ -80,7 +80,7 @@ class Variable : public AthenaArray<T> {
     int start = 0;
     int nvar = src.GetDim6();
     this->InitWithShallowSlice(src, dim, start, nvar);
-    _m.set(_m.sharedComms);
+    _m.Set(Metadata::SharedComms);
     //    std::cout << "_____CREATED VAR SLICE: " << _label << ":" << this << std::endl;
   }
 
@@ -174,7 +174,7 @@ struct FaceVariable : FaceField {
     FaceField(ncells[5], ncells[4], ncells[3], ncells[2], ncells[1], ncells[0], init),
     _label(label),
     _m(metadata) {
-    if ( metadata.hasSparse() ) {
+    if ( metadata.IsSet(Metadata::Sparse) ) {
       throw std::invalid_argument ("Sparse not yet implemented for FaceVariable");
     }
   }
@@ -238,7 +238,7 @@ struct EdgeVariable : EdgeField {
     EdgeField(ncells3, ncells2, ncells1, init),
     _label(label),
     _m(metadata) {
-    if ( metadata.hasSparse() ) {
+    if ( metadata.IsSet(Metadata::Sparse) ) {
       throw std::invalid_argument ("Sparse not yet implemented for FaceVariable");
     }
   }

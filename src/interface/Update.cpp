@@ -27,8 +27,8 @@ void FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
   pmb->cells.GetIndices(interior,is,ie,js,je,ks,ke);
 
   Metadata m;
-  ContainerIterator<Real> cin_iter(in, std::vector<parthenon::Metadata::flags> {m.independent});
-  ContainerIterator<Real> cout_iter(dudt_cont, std::vector<parthenon::Metadata::flags> {m.independent});
+  ContainerIterator<Real> cin_iter(in, {Metadata::Independent});
+  ContainerIterator<Real> cout_iter(dudt_cont, {Metadata::Independent});
   int nvars = cout_iter.vars.size();
 
   int nx1 = pmb->cells.nx1(entire); 
@@ -102,9 +102,9 @@ void UpdateContainer(Container<Real> &in, Container<Real> &dudt_cont,
   pmb->cells.GetIndices(interior,is,ie,js,je,ks,ke);
 
   Metadata m;
-  ContainerIterator<Real> cin_iter(in, std::vector<parthenon::Metadata::flags> {m.independent});
-  ContainerIterator<Real> cout_iter(out, std::vector<parthenon::Metadata::flags> {m.independent});
-  ContainerIterator<Real> du_iter(dudt_cont, std::vector<parthenon::Metadata::flags> {m.independent});
+  ContainerIterator<Real> cin_iter(in, {Metadata::Independent});
+  ContainerIterator<Real> cout_iter(out, {Metadata::Independent});
+  ContainerIterator<Real> du_iter(dudt_cont, {Metadata::Independent});
   int nvars = cout_iter.vars.size();
 
   for (int n = 0; n < nvars; n++) {
@@ -131,8 +131,8 @@ void AverageContainers(Container<Real> &c1, Container<Real> &c2,
   pmb->cells.GetIndices(interior,is,ie,js,je,ks,ke);
 
   Metadata m;
-  ContainerIterator<Real> c1_iter(c1, std::vector<parthenon::Metadata::flags> {m.independent});
-  ContainerIterator<Real> c2_iter(c2, std::vector<parthenon::Metadata::flags> {m.independent});
+  ContainerIterator<Real> c1_iter(c1, {Metadata::Independent});
+  ContainerIterator<Real> c2_iter(c2, {Metadata::Independent});
   int nvars = c2_iter.vars.size();
 
   for (int n = 0; n < nvars; n++) {
