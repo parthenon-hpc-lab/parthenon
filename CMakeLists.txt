@@ -22,6 +22,8 @@ option(ENABLE_REGRESSION_TESTS "Enable regression tests" ${BUILD_TESTING})
 option(DISABLE_MPI "MPI is enabled by default if found, set this to True to disable MPI" OFF)
 option(DISABLE_OPENMP "OpenMP is enabled by default if found, set this to True to disable OpenMP" OFF)
 option(DISABLE_HDF5 "HDF5 is enabled by default if found, set this to True to disable HDF5" OFF)
+option(CHECK_REGISTRY_PRESSURE "Check the registry pressure for Kokkos CUDA kernels" OFF)
+option(TEST_INTEL_OPTIMIZATION "Test intel optimization and vectorization" OFF)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -125,6 +127,16 @@ if (${ENABLE_UNIT_TESTS} OR ${ENABLE_INTEGRATION_TESTS} OR ${ENABLE_REGRESSION_T
   include(ParseAndAddCatchTests)
   add_subdirectory(tst)
 endif()
+
+# Globally turn on useful intel and/or nvcc compiler output
+if (${KOKKOS_ENABLE_CUDA})
+  if(CHECK_REGISTRY_PRESSURE)
+    add_compile_options(-Xptxas=-v)
+  endif()
+endif()
+if (TEST_INTEL_OPTIMIZATION)
+  add_compile_options(-fp-model fast=2 -qopt_report5 -vec-threshold0 -qopt_report_phase=vec)
+endif()	       
 
 add_subdirectory(src)
 add_subdirectory(example/calculate_pi)
