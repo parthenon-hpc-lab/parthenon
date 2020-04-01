@@ -31,7 +31,7 @@ template <typename T>
 class ContainerIterator {
  public:
   /// the subset of variables that match this iterator
-  std::vector<std::shared_ptr<Variable<T>>> vars;
+  VariableVector<T> vars;
   //std::vector<FaceVariable> varsFace; // face vars that match
   //std::vector<EdgeVariable> varsEdge; // edge vars that match
 
@@ -71,7 +71,7 @@ class ContainerIterator {
   uint64_t _mask;
   FaceVector<T> _allFaceVars = {};
   //EdgeVector<T> _allEdgeVars = {};
-  VariableVector<T> _allVars;
+  VariableVector<T> _allVars = {};
   void _emptyVars() {
     vars.clear();
   //  varsFace.clear();

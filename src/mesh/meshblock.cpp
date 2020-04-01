@@ -108,10 +108,6 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
       cks = NGHOST, cke = cks + block_size.nx3/2 - 1;
   }
 
-  // (probably don't need to preallocate space for references in these vectors)
-  vars_cc_.reserve(3);
-  vars_fc_.reserve(3);
-
   // construct objects stored in MeshBlock class.  Note in particular that the initial
   // conditions for the simulation are set in problem generator called from main
 
@@ -129,8 +125,6 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
   // Reconstruction: constructor may implicitly depend on Coordinates, and PPM variable
   // floors depend on EOS, but EOS isn't needed in Reconstruction constructor-> this is ok
   precon = std::make_unique<Reconstruction>(this, pin);
-
-  if (pm->multilevel) pmr = std::make_unique<MeshRefinement>(this, pin);
 
   // physics-related, per-MeshBlock objects: may depend on Coordinates for diffusion
   // terms, and may enroll quantities in AMR and BoundaryVariable objs. in BoundaryValues
@@ -167,6 +161,7 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
     //std::cerr << "  Physics: " << ph.first << std::endl;
     for (auto const & q : pkg.second->AllFields()) {
       //std::cerr << "    Adding " << q.first << std::endl;
+      std::cerr << "adding " << q.first << " " << q.second.IsSet(Metadata::FillGhost) << std::endl;
       real_container.Add(q.first, q.second);
     }
   }
@@ -182,7 +177,7 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
     pmr = std::make_unique<MeshRefinement>(this, pin);
     // This is very redundant, I think, but necessary for now
     for (int n=0; n<nindependent; n++) {
-      pmr->AddToRefinement(&(ci.vars[n]->data), ci.vars[n]->coarse_s);
+      pmr->AddToRefinement(&(ci.vars[n]->data), ci.vars[n]->coarse_s.get());
     }
   }
 

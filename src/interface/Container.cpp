@@ -90,7 +90,7 @@ void Container<T>::Add(const std::string label,
     //     new EdgeVariable(label, metadata,
     //                      pmy_block->ncells3, pmy_block->ncells2, pmy_block->ncells1));
     return;
-  } else if ( metadata.Where() == (Metadata::Face) ) {
+  } else if ( metadata.Where() == Metadata::Face ) {
     if ( !(metadata.IsSet(Metadata::OneCopy)) ) {
       std::cerr << "Currently one one-copy face fields are supported"
                 << std::endl;
@@ -113,7 +113,10 @@ void Container<T>::Add(const std::string label,
     _varVector.push_back(sv);
     _varMap[label] = sv;
     if ( metadata.IsSet(Metadata::FillGhost) ) {
+      std::cerr << "allocating comms for " << label << " " << this << std::endl;
       sv->allocateComms(pmy_block);
+    } else {
+      std::cerr << "not allocating comms for " << label << " " << this << std::endl;
     }
   }
 }
@@ -229,6 +232,7 @@ void Container<T>::SetupPersistentMPI() {
   // setup persistent MPI
   for (auto &v : _varVector) {
     if ( v->isSet(Metadata::FillGhost) ) {
+        std::cerr << "reseting " << v->label() << " " << this << std::endl;
         v->resetBoundary();
         v->vbvar->SetupPersistentMPI();
     }

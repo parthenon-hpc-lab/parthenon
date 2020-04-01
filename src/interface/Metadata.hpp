@@ -158,6 +158,8 @@ class Metadata {
   explicit Metadata(const std::vector<MetadataFlag>& bits) :
     shape_({1}),
     sparse_id_(-1) {
+    bits_.resize(64);
+    for (int i=0; i<64; i++) bits_[i] = false;
     SetMultiple(bits);
   }
 
@@ -166,6 +168,8 @@ class Metadata {
                     std::vector<int> shape) :
     shape_(shape),
     sparse_id_(-1) {
+    bits_.resize(64);
+    for (int i=0; i<64; i++) bits_[i] = false;
     SetMultiple(bits);
   }
 

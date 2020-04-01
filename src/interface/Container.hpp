@@ -37,17 +37,6 @@ namespace parthenon {
 /// The container class will provide the following methods:
 ///
 
-template <typename T>
-using FaceVector = std::vector<std::shared_ptr<FaceVariable<T>>>;
-template <typename T>
-using SparseVector = std::vector<std::shared_ptr<SparseVariable<T>>>;
-
-template <typename T>
-using MapToVars = std::map<std::string, std::shared_ptr<Variable<T>>>;
-template <typename T>
-using MapToFace = std::map<std::string, std::shared_ptr<FaceVariable<T>>>;
-template <typename T>
-using MapToSparse = std::map<std::string, std::shared_ptr<SparseVariable<T>>>;
 
 class MeshBlock;
 

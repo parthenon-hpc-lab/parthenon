@@ -80,7 +80,6 @@ void FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
                         x3area0(i) * x3flux(l, k, j, i));
             }
           }
-
           for (int i = is; i <= ie; i++) {
             dudt(l, k, j, i) = -du(i) / vol(i);
           }
@@ -107,8 +106,6 @@ void UpdateContainer(Container<Real> &in, Container<Real> &dudt_cont,
   ContainerIterator<Real> cout_iter(out, {Metadata::Independent});
   ContainerIterator<Real> du_iter(dudt_cont, {Metadata::Independent});
   int nvars = cout_iter.vars.size();
-
-  std::cerr << "Container sizes: " << cin_iter.vars.size() << " " << cout_iter.vars.size() << " " << du_iter.vars.size() << std::endl;
 
   for (int n = 0; n < nvars; n++) {
     Variable<Real> &qin = *cin_iter.vars[n];

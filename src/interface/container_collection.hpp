@@ -24,18 +24,19 @@ template <typename T>
 class ContainerCollection {
  public:
   ContainerCollection() {
-    containers_["base"] = Container<T>(); // always add a "base" container
+    containers_["base"] = std::make_shared<Container<T>>(); // always add a "base" container
   };
 
   void Add(const std::string& label, Container<T>& src);
   //void AddContainer(const std::string& label, Container<T>& src, const std::vector<Metadata::flags> &flagVector);
 
-  Container<T>& Get() { return containers_["base"]; }
+  Container<T>& Get() { return *containers_["base"]; }
   Container<T>& Get(const std::string& label) {
-    if (containers_.find(label) == containers_.end()) {
+    auto it = containers_.find(label);
+    if (it == containers_.end()) {
       throw std::runtime_error("Container " + label + " does not exist in collection.");
     }
-    return containers_[label];
+    return *(it->second);
   }
 
   void PurgeNonBase() {
@@ -52,13 +53,13 @@ class ContainerCollection {
   void Print() {
     for (auto & c : containers_) {
       std::cout << "Container " << c.first << " has:" << std::endl;
-      c.second.print();
+      c.second->print();
       std::cout << std::endl;
     }
   }
 
  private:
-  std::map<std::string, Container<T>> containers_;
+  std::map<std::string, std::shared_ptr<Container<T>>> containers_;
 };
 
 } // namespace parthenon

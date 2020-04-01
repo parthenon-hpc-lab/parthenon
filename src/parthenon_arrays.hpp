@@ -43,72 +43,57 @@ class ParArrayND {
   using index_pair_t = std::pair<size_t,size_t>;
   using device_view_t = Kokkos::View<T******,Layout,DevSpace>;
 
-  ParArrayND() {_label = "default";};
+  ParArrayND() = default;
   explicit ParArrayND(const std::string& label,
                       int nx6, int nx5, int nx4, int nx3, int nx2, int nx1)
-    : _label(label), d6d_(label,nx6,nx5,nx4,nx3,nx2,nx1)
-  { std::cerr << "init " << label << std::endl;}
+    : d6d_(label,nx6,nx5,nx4,nx3,nx2,nx1)
+  { }
   ParArrayND(const std::string& label,
              int nx5, int nx4, int nx3, int nx2, int nx1)
-    : _label(label), d6d_(label,1,nx5,nx4,nx3,nx2,nx1)
-  { std::cerr << "init " << label << std::endl;}
+    : d6d_(label,1,nx5,nx4,nx3,nx2,nx1)
+  { }
   ParArrayND(const std::string& label,
              int nx4, int nx3, int nx2, int nx1)
-    : _label(label), d6d_(label,1,1,nx4,nx3,nx2,nx1)
-  { std::cerr << "init " << label << std::endl;}
+    : d6d_(label,1,1,nx4,nx3,nx2,nx1)
+  { }
   ParArrayND(const std::string& label, int nx3, int nx2, int nx1)
-    : _label(label), d6d_(label,1,1,1,nx3,nx2,nx1)
-  { std::cerr << "init " << label << std::endl;}
+    : d6d_(label,1,1,1,nx3,nx2,nx1)
+  { }
   ParArrayND(const std::string& label, int nx2, int nx1)
-    : _label(label), d6d_(label,1,1,1,1,nx2,nx1)
-  { std::cerr << "init " << label << std::endl;}
+    : d6d_(label,1,1,1,1,nx2,nx1)
+  { }
   ParArrayND(const std::string& label, int nx1)
-    : _label(label), d6d_(label,1,1,1,1,1,nx1)
-  { std::cerr << "init " << label << std::endl; }
+    : d6d_(label,1,1,1,1,1,nx1)
+  { }
   ParArrayND(const Kokkos::View<T******,Layout,DevSpace>& v)
-    : _label("weird"), d6d_(v)
-  {std::cerr << "init " << _label << std::endl;}
+    : d6d_(v)
+  { }
 
   // legacy functions, as requested for backwards compatibility
   // with athena++ patterns
   void NewParArrayND(int nx1) {
-    _label = "ParArray1D";
-  std::cerr << "init " << _label << std::endl;
-    d6d_ = device_view_t(_label,1,1,1,1,1,nx1);
+    d6d_ = device_view_t("ParArray1D",1,1,1,1,1,nx1);
   }
   void NewParArrayND(int nx2, int nx1) {
-    _label = "ParArray2D";
-  std::cerr << "init " << _label << std::endl;
     d6d_ = device_view_t("ParArray2D",1,1,1,1,nx2,nx1);
   }
   void NewParArrayND(int nx3, int nx2, int nx1) {
-    _label = "ParArray3D";
-  std::cerr << "init " << _label << std::endl;
     d6d_ = device_view_t("ParArray3D",1,1,1,nx3,nx2,nx1);
   }
   void NewParArrayND(int nx4, int nx3, int nx2, int nx1) {
-    _label = "ParArray4D";
-  std::cerr << "init " << _label << std::endl;
     d6d_ = device_view_t("ParArray4D",1,1,nx4,nx3,nx2,nx1);
   }
   void NewParArrayND(int nx5, int nx4, int nx3, int nx2, int nx1) {
-    _label = "ParArray5D";
-  std::cerr << "init " << _label << std::endl;
     d6d_ = device_view_t("ParArray5D",1,nx5,nx4,nx3,nx2,nx1);
   }
   void NewParArrayND(int nx6, int nx5, int nx4, int nx3, int nx2, int nx1) {
-    _label = "ParArray6D";
-  std::cerr << "init " << _label << std::endl;
     d6d_ = device_view_t("ParArray6D",nx6,nx5,nx4,nx3,nx2,nx1);
   }
 
   KOKKOS_INLINE_FUNCTION __attribute__((nothrow))
   ParArrayND(const ParArrayND<T,Layout>& t) = default;
-  //KOKKOS_INLINE_FUNCTION __attribute__((nothrow))
-  ~ParArrayND() {
-    std::cerr << "destructing ParArrayND " << _label << " " << d6d_.label() << std::endl;
-  }
-  //~ParArrayND() = default;
+  KOKKOS_INLINE_FUNCTION __attribute__((nothrow))
+  ~ParArrayND() = default;
   KOKKOS_INLINE_FUNCTION __attribute__((nothrow))
   ParArrayND<T,Layout> &operator= (const ParArrayND<T,Layout> &t) = default;
   KOKKOS_INLINE_FUNCTION __attribute__((nothrow))
@@ -270,7 +255,6 @@ class ParArrayND {
   }
 
  private:
-  std::string _label = "unset";
   device_view_t d6d_;
 };
 

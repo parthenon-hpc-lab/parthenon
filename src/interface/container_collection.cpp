@@ -22,25 +22,24 @@ template <typename T>
 void ContainerCollection<T>::Add(const std::string& name, Container<T>& src) {
   // error check for duplicate names
   if (containers_.find(name) != containers_.end()) {
-    std::cerr << name << " already in ContainerCollection" << std::endl;
+    std::cerr << "WARNING: Container " << name 
+              << " already exists in Collection.  This may not be intentional." << std::endl;
     return;
-  } else {
-    std::cerr << "Adding " << name << std::endl;
   }
 
-  auto c = Container<T>();
-  c.pmy_block = src.pmy_block;
+  auto c = std::make_shared<Container<T>>();
+  c->pmy_block = src.pmy_block;
   for (auto v : src.GetVariableVector()) {
     if (v->isSet(Metadata::OneCopy)) {
-      c.Add(v);
+      c->Add(v);
     } else {
-      c.Add( std::make_shared<Variable<T>>(*v) );
+      c->Add( std::make_shared<Variable<T>>(*v) );
     }
   }
 
   for (auto v : src.GetFaceVector()) {
     if (v->isSet(Metadata::OneCopy)) {
-      c.Add(v);
+      c->Add(v);
     } else {
       throw std::runtime_error("Non-oneCopy face variables are not yet supported");
     }
@@ -48,13 +47,13 @@ void ContainerCollection<T>::Add(const std::string& name, Container<T>& src) {
 
   for (auto v : src.GetSparseVector()) {
     if (v->isSet(Metadata::OneCopy)) {
-      c.Add(v);
+      c->Add(v);
     } else {
-      c.Add( std::make_shared<SparseVariable<T>>(*v) );
+      c->Add( std::make_shared<SparseVariable<T>>(*v) );
     }
   }
 
-  containers_[name] = std::move(c);
+  containers_[name] = c;
 
 }
 

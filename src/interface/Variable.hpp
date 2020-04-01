@@ -96,11 +96,6 @@ class Variable {
               const bool allocComms=false,
               MeshBlock *pmb=nullptr);
 
-
-  ~Variable<T>() {
-    std::cerr << "Cleaning up " << _label << " " << _m.IsSet(Metadata::SharedComms) << std::endl;
-  }
-
   // accessors
 
   template <class...Args>
@@ -162,9 +157,9 @@ class Variable {
 
   ParArrayND<T> data;
   ParArrayND<T> flux[3];    // used for boundary calculation
-  ParArrayND<T> *coarse_s;  // used for sending coarse boundary calculation
+  std::shared_ptr<ParArrayND<T>> coarse_s;  // used for sending coarse boundary calculation
   //AthenaArray<Real> *coarse_r;  // used for sending coarse boundary calculation
-  CellCenteredBoundaryVariable *vbvar; // used in case of cell boundary communication
+  std::shared_ptr<CellCenteredBoundaryVariable> vbvar; // used in case of cell boundary communication
   bool mpiStatus;
 
  private:
@@ -272,6 +267,18 @@ class EdgeVariable : EdgeField {
   std::string _label;
 };
 
+
+template <typename T>
+using VariableVector = std::vector<std::shared_ptr<Variable<T>>>;
+template <typename T>
+using FaceVector = std::vector<std::shared_ptr<FaceVariable<T>>>;
+
+template <typename T>
+using MapToVars = std::map<std::string, std::shared_ptr<Variable<T>>>;
+template <typename T>
+using MapToFace = std::map<std::string, std::shared_ptr<FaceVariable<T>>>;
+
+/*
 template<typename T>
 class VariableVector : public std::vector<std::shared_ptr<Variable<T>>> {
  public:
@@ -296,8 +303,7 @@ class VariableVector : public std::vector<std::shared_ptr<Variable<T>>> {
   T& operator()(int m, int g, int n, int l, int k, int j, int i) {
     return (*(*this)[m])(g,n,l,k,j,i);
   }
-  Metadata& metadata() const { return this->begin().second->metadata();}
-};
+};*/
 } // namespace parthenon
 
 #endif // INTERFACE_VARIABLE_HPP_

@@ -87,7 +87,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddField(field_name, m);
 
   field_name = "one_minus_advected";
-  m = Metadata({Metadata::Graphics, Metadata::Derived, Metadata::OneCopy});
+  m = Metadata({Metadata::Cell, Metadata::Graphics, Metadata::Derived, Metadata::OneCopy});
   pkg->AddField(field_name, m);
 
   field_name = "one_minus_advected_sq";

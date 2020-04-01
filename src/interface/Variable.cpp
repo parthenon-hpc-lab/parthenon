@@ -60,7 +60,7 @@ Variable<T>::Variable(const Variable<T> &src,
                       MeshBlock *pmb) :
   mpiStatus(false), _dims(src._dims), _m(src._m), _label(src._label)  {
   data = ParArrayND<T>(_label, _dims[5], _dims[4], _dims[3],
-                       _dims[2], _dims[1], _dims[2]);
+                       _dims[2], _dims[1], _dims[0]);
   if (_m.IsSet(Metadata::FillGhost)) {
     // Ghost cells are communicated, so make shallow copies
     // of communication arrays and swap out the boundary array
@@ -104,16 +104,16 @@ void Variable<T>::allocateComms(MeshBlock *pmb) {
   }
   // set up communication variables
   if (pmb->pmy_mesh->multilevel)
-    coarse_s = new ParArrayND<T>(_label+".coarse", _dims[5], _dims[4], _dims[3], 
-                                   pmb->ncc3, pmb->ncc2, pmb->ncc1);
+    coarse_s = std::make_shared<ParArrayND<T>>(_label+".coarse", _dims[5], _dims[4], _dims[3], 
+                                               pmb->ncc3, pmb->ncc2, pmb->ncc1);
 
   // Create the boundary object
-  vbvar = new CellCenteredBoundaryVariable(pmb, &data, coarse_s, flux);
+  vbvar = std::make_shared<CellCenteredBoundaryVariable>(pmb, &data, coarse_s.get(), flux);
 
   // enroll CellCenteredBoundaryVariable object
   vbvar->bvar_index = pmb->pbval->bvars.size();
-  pmb->pbval->bvars.push_back(vbvar);
-  pmb->pbval->bvars_main_int.push_back(vbvar);
+  pmb->pbval->bvars.push_back(vbvar.get());
+  pmb->pbval->bvars_main_int.push_back(vbvar.get());
 
   // register the variable
   //pmb->RegisterMeshBlockData(*this);

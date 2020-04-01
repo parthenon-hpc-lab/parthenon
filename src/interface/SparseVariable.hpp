@@ -130,6 +130,12 @@ class SparseVariable {
   VariableVector<T> _empty;
 };
 
+template <typename T>
+using SparseVector = std::vector<std::shared_ptr<SparseVariable<T>>>;
+template <typename T>
+using MapToSparse = std::map<std::string, std::shared_ptr<SparseVariable<T>>>;
+
+
 } // namespace parthenon
 
 #endif //INTERFACE_SPARSEVARIABLE_HPP_
