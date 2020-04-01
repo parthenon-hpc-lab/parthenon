@@ -2,6 +2,9 @@
 
 Parthenon AMR infrastructure 
 
+# Community
+* [Matrix](https://riot.im/app/#/room/#parthenon-general:matrix.org)
+
 # Required Dependencies
 
 * CMake 3.10 or greater
