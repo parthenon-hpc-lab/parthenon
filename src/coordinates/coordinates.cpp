@@ -39,19 +39,13 @@ Coordinates::Coordinates(MeshBlock *pmb, ParameterInput *pin, bool flag) :
 
   // Set indices
   if (coarse_flag) {
-    il = pmb->active_coarse_cells.x.at(0).s; 
-    jl = pmb->active_coarse_cells.x.at(1).s; 
-    kl = pmb->active_coarse_cells.x.at(2).s;
-    iu = pmb->active_coarse_cells.x.at(0).e;
-    ju = pmb->active_coarse_cells.x.at(1).e; 
-    ku = pmb->active_coarse_cells.x.at(2).e;
+    pmb->c_cells.GetIndices(interior,il,iu,jl,ju,kl,ku);
+    pmy_block->c_cells.GetNx(entire,nc1,nc2,nc3);
     ng = NGHOST;
-    nc1 = pmy_block->all_coarse_cells.x.at(0).n(), nc2 = pmy_block->all_coarse_cells.x.at(1).n(), nc3 = pmy_block->all_coarse_cells.x.at(2).n();
   } else {
-    il = pmb->active_cells.x.at(0).s; jl = pmb->active_cells.x.at(1).s; kl = pmb->active_cells.x.at(2).s;
-    iu = pmb->active_cells.x.at(0).e; ju = pmb->active_cells.x.at(1).e; ku = pmb->active_cells.x.at(2).e;
+    pmb->cells.GetIndices(interior,il,iu,jl,ju,kl,ku);
+    pmy_block->cells.GetNx(entire,nc1,nc2,nc3);
     ng = NGHOST;
-    nc1 = pmy_block->all_cells.x.at(0).n(), nc2 = pmy_block->all_cells.x.at(1).n(), nc3 = pmy_block->all_cells.x.at(2).n();
   }
 
   // allocate arrays for volume-centered coordinates and positions of cells

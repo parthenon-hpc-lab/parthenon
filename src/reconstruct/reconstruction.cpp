@@ -119,9 +119,9 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin) :
             << "x3rat= " << pmb->block_size.x3rat << std::endl;
         ATHENA_ERROR(msg);
       }
-      Real& dx_i   = pmb->pcoord->dx1f(pmb->active_cells.x.at(0).s);
-      Real& dx_j   = pmb->pcoord->dx2f(pmb->active_cells.x.at(1).s);
-      Real& dx_k   = pmb->pcoord->dx3f(pmb->active_cells.x.at(2).s);
+      Real& dx_i   = pmb->pcoord->dx1f(pmb->cells.x1s(interior));
+      Real& dx_j   = pmb->pcoord->dx2f(pmb->cells.x2s(interior));
+      Real& dx_k   = pmb->pcoord->dx3f(pmb->cells.x3s(interior));
     // Note, probably want to make the following condition less strict (signal warning
     // for small differences due to floating-point issues) but upgrade to error for
     // large deviations from a square mesh. Currently signals a warning for each
@@ -188,9 +188,9 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin) :
   // limiter formulations for Schwarzschild, Kerr metrics instead of Cartesian-like wghts
 
   // Avoid pmb indirection
-  const IndexShape all_cells = pmb->all_cells;
+  const IndexShape cells = pmb->cells;
   // Allocate memory for scratch arrays used in PLM and PPM
-  int nc1 = all_cells.x.at(0).n();
+  int nc1 = cells.nx1(entire);
   scr01_i_.NewAthenaArray(nc1);
   scr02_i_.NewAthenaArray(nc1);
 
@@ -246,7 +246,7 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin) :
     int m_coord = 2;
 
     // zero-curvature PPM limiter does not depend on mesh uniformity:
-    for (int i=(pmb->active_cells.x.at(0).s)-1; i<=(pmb->active_cells.x.at(0).e)+1; ++i) {
+    for (int i=(pmb->cells.x1s(interior))-1; i<=(pmb->cells.x1e(interior))+1; ++i) {
       // h_plus = 3.0;
       // h_minus = 3.0;
       // Ratios are = 2 for Cartesian coords, as in the original PPM limiter's
@@ -257,7 +257,7 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin) :
     // 4th order reconstruction weights along Cartesian-like x1 w/ uniform spacing
     if (uniform[X1DIR]) {
 #pragma omp simd
-      for (int i=all_cells.x.at(0).s; i<=all_cells.x.at(0).e; ++i) {
+      for (int i=cells.x1s(entire); i<=cells.x1e(entire); ++i) {
         // reducing general formula in ppm.cpp corresonds to Mignone eq B.4 weights:
         // (-1/12, 7/12, 7/12, -1/12)
         c1i(i) = 0.5;
@@ -269,14 +269,14 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin) :
       }
     } else { // coeffcients along Cartesian-like x1 with nonuniform mesh spacing
 #pragma omp simd
-      for (int i=(pmb->active_cells.x.at(0).s)-NGHOST+1; i<=(pmb->active_cells.x.at(0).e)+NGHOST-1; ++i) {
+      for (int i=(pmb->cells.x1s(interior))-NGHOST+1; i<=(pmb->cells.x1e(interior))+NGHOST-1; ++i) {
         Real& dx_im1 = pco->dx1f(i-1);
         Real& dx_i   = pco->dx1f(i  );
         Real& dx_ip1 = pco->dx1f(i+1);
         Real qe = dx_i/(dx_im1 + dx_i + dx_ip1);       // Outermost coeff in CW eq 1.7
         c1i(i) = qe*(2.0*dx_im1+dx_i)/(dx_ip1 + dx_i); // First term in CW eq 1.7
         c2i(i) = qe*(2.0*dx_ip1+dx_i)/(dx_im1 + dx_i); // Second term in CW eq 1.7
-        if (i > (pmb->active_cells.x.at(0).s)-NGHOST+1) {  // c3-c6 are not computed in first iteration
+        if (i > (pmb->cells.x1s(interior))-NGHOST+1) {  // c3-c6 are not computed in first iteration
           Real& dx_im2 = pco->dx1f(i-2);
           Real qa = dx_im2 + dx_im1 + dx_i + dx_ip1;
           Real qb = dx_im1/(dx_im1 + dx_i);
@@ -293,7 +293,7 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin) :
 
     // Precompute PPM coefficients in x2-direction ---------------------------------------
     if (pmb->block_size.nx2 > 1) {
-      int nc2 = all_cells.x.at(1).n();
+      int nc2 = cells.nx2(entire);
       c1j.NewAthenaArray(nc2);
       c2j.NewAthenaArray(nc2);
       c3j.NewAthenaArray(nc2);
@@ -304,7 +304,7 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin) :
       hminus_ratio_j.NewAthenaArray(nc2);
 
       // zero-curvature PPM limiter does not depend on mesh uniformity:
-      for (int j=(pmb->active_cells.x.at(1).s)-1; j<=(pmb->active_cells.x.at(1).e)+1; ++j) {
+      for (int j=(pmb->cells.x2s(interior))-1; j<=(pmb->cells.x2e(interior))+1; ++j) {
         // h_plus = 3.0;
         // h_minus = 3.0;
         // Ratios are = 2 for Cartesian coords, as in the original PPM limiter's
@@ -315,7 +315,7 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin) :
       // 4th order reconstruction weights along Cartesian-like x2 w/ uniform spacing
       if (uniform[X2DIR]) {
 #pragma omp simd
-        for (int j=all_cells.x.at(1).s; j<=all_cells.x.at(1).e; ++j) {
+        for (int j=cells.x2s(entire); j<=cells.x2e(entire); ++j) {
           c1j(j) = 0.5;
           c2j(j) = 0.5;
           c3j(j) = 0.5;
@@ -325,7 +325,7 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin) :
         }
       } else { // coeffcients along Cartesian-like x2 with nonuniform mesh spacing
 #pragma omp simd
-        for (int j=(pmb->active_cells.x.at(1).s)-NGHOST+2; j<=(pmb->active_cells.x.at(1).e)+NGHOST-1; ++j) {
+        for (int j=(pmb->cells.x2s(interior))-NGHOST+2; j<=(pmb->cells.x2e(interior))+NGHOST-1; ++j) {
           Real& dx_jm1 = pco->dx2f(j-1);
           Real& dx_j   = pco->dx2f(j  );
           Real& dx_jp1 = pco->dx2f(j+1);
@@ -333,7 +333,7 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin) :
           c1j(j) = qe*(2.0*dx_jm1 + dx_j)/(dx_jp1 + dx_j); // First term in CW eq 1.7
           c2j(j) = qe*(2.0*dx_jp1 + dx_j)/(dx_jm1 + dx_j); // Second term in CW eq 1.7
 
-          if (j > (pmb->active_cells.x.at(1).s)-NGHOST+1) {  // c3-c6 are not computed in first iteration
+          if (j > (pmb->cells.x2s(interior))-NGHOST+1) {  // c3-c6 are not computed in first iteration
             Real& dx_jm2 = pco->dx2f(j-2);
             Real qa = dx_jm2 + dx_jm1 + dx_j + dx_jp1;
             Real qb = dx_jm1/(dx_jm1 + dx_j);
@@ -351,7 +351,7 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin) :
 
     // Precompute PPM coefficients in x3-direction
     if (pmb->block_size.nx3 > 1) {
-      int nc3 = all_cells.x.at(2).n();
+      int nc3 = cells.nx3(entire);
       c1k.NewAthenaArray(nc3);
       c2k.NewAthenaArray(nc3);
       c3k.NewAthenaArray(nc3);
@@ -364,7 +364,7 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin) :
       // reconstruction coeffiencients in x3, Cartesian-like coordinate:
       if (uniform[X3DIR]) { // uniform spacing
 #pragma omp simd
-        for (int k=all_cells.x.at(2).s; k<=all_cells.x.at(2).e; ++k) {
+        for (int k=cells.x3s(entire); k<=cells.x3e(entire); ++k) {
           c1k(k) = 0.5;
           c2k(k) = 0.5;
           c3k(k) = 0.5;
@@ -375,7 +375,7 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin) :
 
       } else { // nonuniform spacing
 #pragma omp simd
-        for (int k=(pmb->active_cells.x.at(2).s)-NGHOST+2; k<=(pmb->active_cells.x.at(2).e)+NGHOST-1; ++k) {
+        for (int k=(pmb->cells.x3s(interior))-NGHOST+2; k<=(pmb->cells.x3e(interior))+NGHOST-1; ++k) {
           Real& dx_km1 = pco->dx3f(k-1);
           Real& dx_k   = pco->dx3f(k  );
           Real& dx_kp1 = pco->dx3f(k+1);
@@ -383,7 +383,7 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin) :
           c1k(k) = qe*(2.0*dx_km1+dx_k)/(dx_kp1 + dx_k); // First term in CW eq 1.7
           c2k(k) = qe*(2.0*dx_kp1+dx_k)/(dx_km1 + dx_k); // Second term in CW eq 1.7
 
-          if (k > (pmb->active_cells.x.at(2).s)-NGHOST+1) {  // c3-c6 are not computed in first iteration
+          if (k > (pmb->cells.x3s(interior))-NGHOST+1) {  // c3-c6 are not computed in first iteration
             Real& dx_km2 = pco->dx3f(k-2);
             Real qa = dx_km2 + dx_km1 + dx_k + dx_kp1;
             Real qb = dx_km1/(dx_km1 + dx_k);
@@ -398,7 +398,7 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin) :
         }
         // Compute geometric factors for x3 limiter (Mignone eq 48)
         // (no curvilinear corrections in x3)
-        for (int k=(pmb->active_cells.x.at(2).s)-1; k<=(pmb->active_cells.x.at(2).e)+1; ++k) {
+        for (int k=(pmb->cells.x3s(interior))-1; k<=(pmb->cells.x3e(interior))+1; ++k) {
           // h_plus = 3.0;
           // h_minus = 3.0;
           // Ratios are both = 2 for Cartesian and all curviliniear coords

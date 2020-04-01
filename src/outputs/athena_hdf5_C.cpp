@@ -298,9 +298,9 @@ void ATHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
   int num_blocks_local = 0;
 
   // shooting a blank just for getting the variable names
-  out_is = pmb->active_cells.x.at(0).s; out_ie = pmb->active_cells.x.at(0).e;
-  out_js = pmb->active_cells.x.at(1).s; out_je = pmb->active_cells.x.at(1).e;
-  out_ks = pmb->active_cells.x.at(2).s; out_ke = pmb->active_cells.x.at(2).e;
+  int out_is, out_ie, out_js, out_je, out_ks, out_ke;
+  pmb->cells.GetIndices(interior,out_is,out_ie,out_js,out_je,out_ks,out_ke);
+
   if (output_params.include_ghost_zones) {
     out_is -= NGHOST; out_ie += NGHOST;
     if (out_js != out_je) {out_js -= NGHOST; out_je += NGHOST;}

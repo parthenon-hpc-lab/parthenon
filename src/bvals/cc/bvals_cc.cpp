@@ -132,12 +132,13 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(Real *buf,
   MeshBlock *pmb = pmy_block_;
   int si, sj, sk, ei, ej, ek;
 
-  si = (nb.ni.ox1 > 0) ? (pmb->active_cells.x.at(0).e - NGHOST + 1) : pmb->active_cells.x.at(0).s;
-  ei = (nb.ni.ox1 < 0) ? (pmb->active_cells.x.at(0).s + NGHOST - 1) : pmb->active_cells.x.at(0).e;
-  sj = (nb.ni.ox2 > 0) ? (pmb->active_cells.x.at(1).e - NGHOST + 1) : pmb->active_cells.x.at(1).s;
-  ej = (nb.ni.ox2 < 0) ? (pmb->active_cells.x.at(1).s + NGHOST - 1) : pmb->active_cells.x.at(1).e;
-  sk = (nb.ni.ox3 > 0) ? (pmb->active_cells.x.at(2).e - NGHOST + 1) : pmb->active_cells.x.at(2).s;
-  ek = (nb.ni.ox3 < 0) ? (pmb->active_cells.x.at(2).s + NGHOST - 1) : pmb->active_cells.x.at(2).e;
+  const IndexShape & cells = pmb->cells;
+  si = (nb.ni.ox1 > 0) ? (cells.x1e(interior) - NGHOST + 1) : cells.x1s(interior);
+  ei = (nb.ni.ox1 < 0) ? (cells.x1s(interior) + NGHOST - 1) : cells.x1e(interior);
+  sj = (nb.ni.ox2 > 0) ? (cells.x2e(interior) - NGHOST + 1) : cells.x2s(interior);
+  ej = (nb.ni.ox2 < 0) ? (cells.x2s(interior) + NGHOST - 1) : cells.x2e(interior);
+  sk = (nb.ni.ox3 > 0) ? (cells.x3e(interior) - NGHOST + 1) : cells.x3s(interior);
+  ek = (nb.ni.ox3 < 0) ? (cells.x3s(interior) + NGHOST - 1) : cells.x3e(interior);
   int p = 0;
   AthenaArray<Real> &var = *var_cc;
   BufferUtility::PackData(var, buf, nl_, nu_, si, ei, sj, ej, sk, ek, p);
@@ -158,12 +159,13 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(Real *buf,
   AthenaArray<Real> &var = *var_cc;
   AthenaArray<Real> &coarse_var = *coarse_buf;
 
-  si = (nb.ni.ox1 > 0) ? (pmb->active_coarse_cells.x.at(0).e - cn) : pmb->active_coarse_cells.x.at(0).s;
-  ei = (nb.ni.ox1 < 0) ? (pmb->active_coarse_cells.x.at(0).s + cn) : pmb->active_coarse_cells.x.at(0).e;
-  sj = (nb.ni.ox2 > 0) ? (pmb->active_coarse_cells.x.at(1).e - cn) : pmb->active_coarse_cells.x.at(1).s;
-  ej = (nb.ni.ox2 < 0) ? (pmb->active_coarse_cells.x.at(1).s + cn) : pmb->active_coarse_cells.x.at(1).e;
-  sk = (nb.ni.ox3 > 0) ? (pmb->active_coarse_cells.x.at(2).e - cn) : pmb->active_coarse_cells.x.at(1).s;
-  ek = (nb.ni.ox3 < 0) ? (pmb->active_coarse_cells.x.at(2).s + cn) : pmb->active_coarse_cells.x.at(1).e;
+  const IndexShape & c_cells = pmb->c_cells;
+  si = (nb.ni.ox1 > 0) ? (c_cells.x1e(interior) - cn) : c_cells.x1s(interior);
+  ei = (nb.ni.ox1 < 0) ? (c_cells.x1s(interior) + cn) : c_cells.x1e(interior);
+  sj = (nb.ni.ox2 > 0) ? (c_cells.x2e(interior) - cn) : c_cells.x2s(interior);
+  ej = (nb.ni.ox2 < 0) ? (c_cells.x2s(interior) + cn) : c_cells.x2e(interior);
+  sk = (nb.ni.ox3 > 0) ? (c_cells.x3e(interior) - cn) : c_cells.x3s(interior);
+  ek = (nb.ni.ox3 < 0) ? (c_cells.x3s(interior) + cn) : c_cells.x3e(interior);
 
   int p = 0;
   pmb->pmr->RestrictCellCenteredValues(var, coarse_var, nl_, nu_, si, ei, sj, ej, sk, ek);
@@ -183,12 +185,13 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferToFiner(Real *buf,
   int cn = pmb->cnghost - 1;
   AthenaArray<Real> &var = *var_cc;
 
-  si = (nb.ni.ox1 > 0) ? (pmb->active_cells.x.at(0).e - cn) : pmb->active_cells.x.at(0).s;
-  ei = (nb.ni.ox1 < 0) ? (pmb->active_cells.x.at(0).s + cn) : pmb->active_cells.x.at(0).e;
-  sj = (nb.ni.ox2 > 0) ? (pmb->active_cells.x.at(1).e - cn) : pmb->active_cells.x.at(1).s;
-  ej = (nb.ni.ox2 < 0) ? (pmb->active_cells.x.at(1).s + cn) : pmb->active_cells.x.at(1).e;
-  sk = (nb.ni.ox3 > 0) ? (pmb->active_cells.x.at(2).e - cn) : pmb->active_cells.x.at(2).s;
-  ek = (nb.ni.ox3 < 0) ? (pmb->active_cells.x.at(2).s + cn) : pmb->active_cells.x.at(2).e;
+  const IndexShape & cells = pmb->cells;
+  si = (nb.ni.ox1 > 0) ? (cells.x1e(interior) - cn) : cells.x1s(interior);
+  ei = (nb.ni.ox1 < 0) ? (cells.x1s(interior) + cn) : cells.x1e(interior);
+  sj = (nb.ni.ox2 > 0) ? (cells.x2e(interior) - cn) : cells.x2s(interior);
+  ej = (nb.ni.ox2 < 0) ? (cells.x2s(interior) + cn) : cells.x2e(interior);
+  sk = (nb.ni.ox3 > 0) ? (cells.x3e(interior) - cn) : cells.x3s(interior);
+  ek = (nb.ni.ox3 < 0) ? (cells.x3s(interior) + cn) : cells.x3e(interior);
 
   // send the data first and later prolongate on the target block
   // need to add edges for faces, add corners for edges
@@ -232,15 +235,39 @@ void CellCenteredBoundaryVariable::SetBoundarySameLevel(Real *buf,
   int si, sj, sk, ei, ej, ek;
   AthenaArray<Real> &var = *var_cc;
 
-  if (nb.ni.ox1 == 0)     si = pmb->active_cells.x.at(0).s,        ei = pmb->active_cells.x.at(0).e;
-  else if (nb.ni.ox1 > 0) si = pmb->active_cells.x.at(0).e + 1,      ei = pmb->active_cells.x.at(0).e + NGHOST;
-  else              si = pmb->active_cells.x.at(0).s - NGHOST, ei = pmb->active_cells.x.at(0).s - 1;
-  if (nb.ni.ox2 == 0)     sj = pmb->active_cells.x.at(1).s,        ej = pmb->active_cells.x.at(1).e;
-  else if (nb.ni.ox2 > 0) sj = pmb->active_cells.x.at(1).e + 1,      ej = pmb->active_cells.x.at(1).e + NGHOST;
-  else              sj = pmb->active_cells.x.at(1).s - NGHOST, ej = pmb->active_cells.x.at(1).s - 1;
-  if (nb.ni.ox3 == 0)     sk = pmb->active_cells.x.at(2).s,        ek = pmb->active_cells.x.at(2).e;
-  else if (nb.ni.ox3 > 0) sk = pmb->active_cells.x.at(2).e + 1,      ek = pmb->active_cells.x.at(2).e + NGHOST;
-  else              sk = pmb->active_cells.x.at(2).s - NGHOST, ek = pmb->active_cells.x.at(2).s - 1;
+  const IndexShape & cells = pmb->cells;
+  if (nb.ni.ox1 == 0)  {
+    si = cells.x1s(interior);
+    ei = cells.x1e(interior);
+  } else if (nb.ni.ox1 > 0) {
+    si = cells.x1e(interior) + 1;
+    ei = cells.x1e(interior) + NGHOST;
+  } else {
+    si = cells.x1s(interior) - NGHOST;
+    ei = cells.x1s(interior) - 1;
+  }
+
+  if (nb.ni.ox2 == 0) {
+    sj = cells.x2s(interior);
+    ej = cells.x2e(interior);
+  }else if (nb.ni.ox2 > 0) {
+    sj = cells.x2e(interior) + 1;
+    ej = cells.x2e(interior) + NGHOST;
+  }else {
+    sj = cells.x2s(interior) - NGHOST;
+    ej = cells.x2s(interior) - 1;
+  }
+
+  if (nb.ni.ox3 == 0) {
+    sk = cells.x3s(interior);
+    ek = cells.x3e(interior);
+  } else if (nb.ni.ox3 > 0) {
+    sk = cells.x3e(interior) + 1;
+    ek = cells.x3e(interior) + NGHOST;
+  }else {
+    sk = cells.x3s(interior) - NGHOST;
+    ek = cells.x3s(interior) - 1;
+  }
 
   int p = 0;
 
@@ -259,44 +286,46 @@ void CellCenteredBoundaryVariable::SetBoundaryFromCoarser(Real *buf,
   int cng = pmb->cnghost;
   AthenaArray<Real> &coarse_var = *coarse_buf;
 
+  const IndexShape & c_cells = pmb->c_cells;
   if (nb.ni.ox1 == 0) {
-    si = pmb->active_coarse_cells.x.at(0).s;
-    ei = pmb->active_coarse_cells.x.at(0).e;
+    si = c_cells.x1s(interior);
+    ei = c_cells.x1e(interior);
     if ((pmb->loc.lx1 & 1LL) == 0LL) ei += cng;
     else                             si -= cng;
   } else if (nb.ni.ox1 > 0)  {
-    si = pmb->active_coarse_cells.x.at(0).e + 1;
-    ei = pmb->active_coarse_cells.x.at(0).e + cng;
+    si = c_cells.x1e(interior) + 1;
+    ei = c_cells.x1e(interior) + cng;
   } else {
-    si = pmb->active_coarse_cells.x.at(0).s - cng;
-    ei = pmb->active_coarse_cells.x.at(0).s - 1;
+    si = c_cells.x1s(interior) - cng;
+    ei = c_cells.x1s(interior) - 1;
   }
   if (nb.ni.ox2 == 0) {
-    sj = pmb->active_coarse_cells.x.at(1).s, ej = pmb->active_coarse_cells.x.at(1).e;
+    sj = c_cells.x2s(interior);
+    ej = c_cells.x2e(interior);
     if (pmb->block_size.nx2 > 1) {
       if ((pmb->loc.lx2 & 1LL) == 0LL) ej += cng;
       else                             sj -= cng;
     }
   } else if (nb.ni.ox2 > 0) {
-    sj = pmb->active_coarse_cells.x.at(1).e + 1;
-    ej = pmb->active_coarse_cells.x.at(1).e + cng;
+    sj = c_cells.x2e(interior) + 1;
+    ej = c_cells.x2e(interior) + cng;
   } else {
-    sj = pmb->active_coarse_cells.x.at(1).s - cng;
-    ej = pmb->active_coarse_cells.x.at(1).s - 1;
+    sj = c_cells.x2s(interior) - cng;
+    ej = c_cells.x2s(interior) - 1;
   }
   if (nb.ni.ox3 == 0) {
-    sk = pmb->active_coarse_cells.x.at(2).s;
-    ek = pmb->active_coarse_cells.x.at(2).e;
+    sk = c_cells.x3s(interior);
+    ek = c_cells.x3e(interior);
     if (pmb->block_size.nx3 > 1) {
       if ((pmb->loc.lx3 & 1LL) == 0LL) ek += cng;
       else                             sk -= cng;
     }
   } else if (nb.ni.ox3 > 0)  {
-    sk = pmb->active_coarse_cells.x.at(2).e + 1;
-    ek = pmb->active_coarse_cells.x.at(2).e + cng;
+    sk = c_cells.x3e(interior) + 1;
+    ek = c_cells.x3e(interior) + cng;
   } else {
-    sk = pmb->active_coarse_cells.x.at(2).s - cng;
-    ek = pmb->active_coarse_cells.x.at(2).s - 1;
+    sk = c_cells.x3s(interior) - cng;
+    ek = c_cells.x3s(interior) - 1;
   }
 
   int p = 0;
@@ -316,51 +345,60 @@ void CellCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
   AthenaArray<Real> &var = *var_cc;
   // receive already restricted data
   int si, sj, sk, ei, ej, ek;
-
+  
+  const IndexShape & cells = pmb->cells;
   if (nb.ni.ox1 == 0) {
-    si = pmb->active_cells.x.at(0).s; 
-    ei = pmb->active_cells.x.at(0).e;
+    si = cells.x1s(interior); 
+    ei = cells.x1e(interior);
     if (nb.ni.fi1 == 1)   si += pmb->block_size.nx1/2;
-    else            ei -= pmb->block_size.nx1/2;
+    else                  ei -= pmb->block_size.nx1/2;
   } else if (nb.ni.ox1 > 0) {
-    si = pmb->active_cells.x.at(0).e + 1,      ei = pmb->active_cells.x.at(0).e + NGHOST;
+    si = cells.x1e(interior) + 1;
+    ei = cells.x1e(interior) + NGHOST;
   } else {
-    si = pmb->active_cells.x.at(0).s - NGHOST, ei = pmb->active_cells.x.at(0).s - 1;
+    si = cells.x1s(interior) - NGHOST;
+    ei = cells.x1s(interior) - 1;
   }
+
   if (nb.ni.ox2 == 0) {
-    sj = pmb->active_cells.x.at(1).s;
-    ej = pmb->active_cells.x.at(1).e;
+    sj = cells.x2s(interior);
+    ej = cells.x2e(interior);
     if (pmb->block_size.nx2 > 1) {
       if (nb.ni.ox1 != 0) {
         if (nb.ni.fi1 == 1) sj += pmb->block_size.nx2/2;
-        else          ej -= pmb->block_size.nx2/2;
+        else                ej -= pmb->block_size.nx2/2;
       } else {
         if (nb.ni.fi2 == 1) sj += pmb->block_size.nx2/2;
-        else          ej -= pmb->block_size.nx2/2;
+        else                ej -= pmb->block_size.nx2/2;
       }
     }
   } else if (nb.ni.ox2 > 0) {
-    sj = pmb->active_cells.x.at(1).e + 1;
-    ej = pmb->active_cells.x.at(1).e + NGHOST;
+    sj = cells.x2e(interior) + 1;
+    ej = cells.x2e(interior) + NGHOST;
   } else {
-    sj = pmb->active_cells.x.at(1).s - NGHOST;
-    ej = pmb->active_cells.x.at(1).s - 1;
+    sj = cells.x2s(interior) - NGHOST;
+    ej = cells.x2s(interior) - 1;
+  
   }
+
   if (nb.ni.ox3 == 0) {
-    sk = pmb->active_cells.x.at(2).s, ek = pmb->active_cells.x.at(2).e;
+    sk = cells.x3s(interior);
+    ek = cells.x3e(interior);
     if (pmb->block_size.nx3 > 1) {
       if (nb.ni.ox1 != 0 && nb.ni.ox2 != 0) {
         if (nb.ni.fi1 == 1) sk += pmb->block_size.nx3/2;
-        else          ek -= pmb->block_size.nx3/2;
+        else                ek -= pmb->block_size.nx3/2;
       } else {
         if (nb.ni.fi2 == 1) sk += pmb->block_size.nx3/2;
-        else          ek -= pmb->block_size.nx3/2;
+        else                ek -= pmb->block_size.nx3/2;
       }
     }
   } else if (nb.ni.ox3 > 0) {
-    sk = pmb->active_cells.x.at(2).e + 1,      ek = pmb->active_cells.x.at(2).e + NGHOST;
+    sk = cells.x3e(interior) + 1;
+    ek = cells.x3e(interior) + NGHOST;
   } else {
-    sk = pmb->active_cells.x.at(2).s - NGHOST, ek = pmb->active_cells.x.at(2).s - 1;
+    sk = cells.x3s(interior) - NGHOST;
+    ek = cells.x3s(interior) - 1;
   }
 
   int p = 0;

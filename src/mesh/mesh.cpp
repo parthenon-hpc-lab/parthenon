@@ -1295,9 +1295,9 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
         if (multilevel)
           pbval->ProlongateBoundaries(time, 0.0);
 
-        int il = pmb->active_cells.x.at(0).s, iu = pmb->active_cells.x.at(0).e,
-            jl = pmb->active_cells.x.at(1).s, ju = pmb->active_cells.x.at(1).e,
-            kl = pmb->active_cells.x.at(2).s, ku = pmb->active_cells.x.at(2).e;
+        int il, iu, jl, ju, kl, ku;
+        pmb->cells.GetIndices(interior,il,iu,jl,ju,kl,ku);
+
         if (pbval->nblevel[1][1][0] != -1) il -= NGHOST;
         if (pbval->nblevel[1][1][2] != -1) iu += NGHOST;
         if (pmb->block_size.nx2 > 1) {

@@ -27,7 +27,6 @@
 
 // Athena++ headers
 #include "athena_arrays.hpp"
-#include "mesh/domain.hpp"
 #include <defs.hpp>
 
 namespace parthenon {
@@ -105,11 +104,11 @@ struct RegionSize {  // aggregate and POD type; do NOT reorder member declaratio
 struct FaceField {
   AthenaArray<Real> x1f, x2f, x3f;
   FaceField() = default;
-  FaceField(IndexShape num_cells,
+  FaceField(int ncells3, int ncells2, int ncells1,
             AthenaArray<Real>::DataStatus init=AthenaArray<Real>::DataStatus::allocated) :
-      x1f(num_cells.x.at(2).n(), num_cells.x.at(1).n(), num_cells.x.at(0).n()+1, init), 
-      x2f(num_cells.x.at(2).n(), num_cells.x.at(1).n()+1, num_cells.x.at(0).n(), init),
-      x3f(num_cells.x.at(2).n()+1, num_cells.x.at(1).n(), num_cells.x.at(0).n(), init) {}
+    x1f(ncells3,   ncells2,   ncells1+1, init), 
+    x2f(ncells3,   ncells2+1, ncells1, init),
+    x3f(ncells3+1, ncells2,   ncells1, init) {}
   FaceField(int ncells6, int ncells5, int ncells4, int ncells3, int ncells2, int ncells1,
             AthenaArray<Real>::DataStatus init=AthenaArray<Real>::DataStatus::allocated)
     : x1f(ncells6, ncells5, ncells4, ncells3, ncells2, ncells1+1, init)
@@ -125,11 +124,11 @@ struct FaceField {
 struct EdgeField {
   AthenaArray<Real> x1e, x2e, x3e;
   EdgeField() = default;
-  EdgeField(IndexShape num_cells,
+  EdgeField(int ncells3, int ncells2, int ncells1,
             AthenaArray<Real>::DataStatus init=AthenaArray<Real>::DataStatus::allocated) :
-      x1e(num_cells.x.at(3).n()+1, num_cells.x.at(1).n()+1, num_cells.x.at(0).n(), init), 
-      x2e(num_cells.x.at(3).n()+1, num_cells.x.at(1).n(), num_cells.x.at(0).n()+1, init),
-      x3e(num_cells.x.at(3).n(), num_cells.x.at(1).n()+1, num_cells.x.at(0).n()+1, init) {}
+      x1e(ncells3+1, ncells2+1, ncells3, init), 
+      x2e(ncells3+1, ncells2,   ncells3+1, init),
+      x3e(ncells3,   ncells2+1, ncells3+1, init) {}
 };
 
 //----------------------------------------------------------------------------------------

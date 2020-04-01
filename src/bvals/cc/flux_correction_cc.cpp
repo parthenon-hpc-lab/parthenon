@@ -61,15 +61,17 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
     if (nb.ni.type != NeighborConnect::face) break;
     if (bd_var_flcor_.sflag[nb.bufid] == BoundaryStatus::completed) continue;
     if (nb.snb.level == pmb->loc.level - 1) {
+      int is, ie, js, je, ks, ke;
+      pmb->cells.GetIndices(interior,is,ie,js,je,ks,ke);
       int p = 0;
       Real *sbuf = bd_var_flcor_.send[nb.bufid];
       // x1 direction
       if (nb.fid == BoundaryFace::inner_x1 || nb.fid == BoundaryFace::outer_x1) {
-        int i = pmb->active_cells.x.at(0).s + (pmb->active_cells.x.at(0).e-pmb->active_cells.x.at(0).s + 1)*nb.fid;
+        int i = is + (ie - is + 1)*nb.fid;
         if (pmb->block_size.nx3>1) { // 3D
           for (int nn=nl_; nn<=nu_; nn++) {
-            for (int k=pmb->active_cells.x.at(2).s; k<=pmb->active_cells.x.at(2).e; k+=2) {
-              for (int j=pmb->active_cells.x.at(1).s; j<=pmb->active_cells.x.at(1).e; j+=2) {
+            for (int k=ks; k<=ke; k+=2) {
+              for (int j=js; j<=je; j+=2) {
                 Real amm = pco->GetFace1Area(k,   j,   i);
                 Real amp = pco->GetFace1Area(k,   j+1, i);
                 Real apm = pco->GetFace1Area(k+1, j,   i);
@@ -83,9 +85,9 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
             }
           }
         } else if (pmb->block_size.nx2>1) { // 2D
-          int k = pmb->active_cells.x.at(2).s;
+          int k = ks;
           for (int nn=nl_; nn<=nu_; nn++) {
-            for (int j=pmb->active_cells.x.at(1).s; j<=pmb->active_cells.x.at(1).e; j+=2) {
+            for (int j=js; j<=je; j+=2) {
               Real am = pco->GetFace1Area(k, j,   i);
               Real ap = pco->GetFace1Area(k, j+1, i);
               Real tarea = am + ap;
@@ -93,19 +95,19 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
             }
           }
         } else { // 1D
-          int k = pmb->active_cells.x.at(2).s, j = pmb->active_cells.x.at(1).s;
+          int k = ks, j = js;
           for (int nn=nl_; nn<=nu_; nn++)
             sbuf[p++] = x1flux(nn, k, j, i);
         }
         // x2 direction
       } else if (nb.fid == BoundaryFace::inner_x2 || nb.fid == BoundaryFace::outer_x2) {
-        int j = pmb->active_cells.x.at(1).s + (pmb->active_cells.x.at(1).e-pmb->active_cells.x.at(1).s + 1)*(nb.fid & 1);
+        int j = js + (je - js + 1)*(nb.fid & 1);
         if (pmb->block_size.nx3>1) { // 3D
           for (int nn=nl_; nn<=nu_; nn++) {
-            for (int k=pmb->active_cells.x.at(2).s; k<=pmb->active_cells.x.at(2).e; k+=2) {
-              pco->Face2Area(k  , j, pmb->active_cells.x.at(0).s, pmb->active_cells.x.at(0).e, sarea0);
-              pco->Face2Area(k+1, j, pmb->active_cells.x.at(0).s, pmb->active_cells.x.at(0).e, sarea1);
-              for (int i=pmb->active_cells.x.at(0).s; i<=pmb->active_cells.x.at(0).e; i+=2) {
+            for (int k=ks; k<=ke; k+=2) {
+              pco->Face2Area(k  , j, is, ie, sarea0);
+              pco->Face2Area(k+1, j, is, ie, sarea1);
+              for (int i=is; i<=ie; i+=2) {
                 Real tarea = sarea0(i) + sarea0(i+1) + sarea1(i) + sarea1(i+1);
                 sbuf[p++] = (x2flux(nn, k  , j, i  )*sarea0(i  )
                             + x2flux(nn, k  , j, i+1)*sarea0(i+1)
@@ -115,10 +117,10 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
             }
           }
         } else if (pmb->block_size.nx2>1) { // 2D
-          int k = pmb->active_cells.x.at(2).s;
+          int k = ks;
           for (int nn=nl_; nn<=nu_; nn++) {
-            pco->Face2Area(0, j, pmb->active_cells.x.at(0).s ,pmb->active_cells.x.at(0).e, sarea0);
-            for (int i=pmb->active_cells.x.at(0).s; i<=pmb->active_cells.x.at(0).e; i+=2) {
+            pco->Face2Area(0, j, is ,ie, sarea0);
+            for (int i=is; i<=ie; i+=2) {
               Real tarea = sarea0(i) + sarea0(i+1);
               sbuf[p++] = (x2flux(nn, k, j, i  )*sarea0(i  )
                           + x2flux(nn, k, j, i+1)*sarea0(i+1))/tarea;
@@ -127,12 +129,12 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
         }
         // x3 direction - 3D onl_y
       } else if (nb.fid == BoundaryFace::inner_x3 || nb.fid == BoundaryFace::outer_x3) {
-        int k = pmb->active_cells.x.at(2).s + (pmb->active_cells.x.at(2).e-pmb->active_cells.x.at(2).s + 1)*(nb.fid & 1);
+        int k = ks + (ke - ks + 1)*(nb.fid & 1);
         for (int nn=nl_; nn<=nu_; nn++) {
-          for (int j=pmb->active_cells.x.at(1).s; j<=pmb->active_cells.x.at(1).e; j+=2) {
-            pco->Face3Area(k, j,   pmb->active_cells.x.at(0).s, pmb->active_cells.x.at(0).e, sarea0);
-            pco->Face3Area(k, j+1, pmb->active_cells.x.at(0).s, pmb->active_cells.x.at(0).e, sarea1);
-            for (int i=pmb->active_cells.x.at(0).s; i<=pmb->active_cells.x.at(0).e; i+=2) {
+          for (int j=js; j<=je; j+=2) {
+            pco->Face3Area(k, j,   is, ie, sarea0);
+            pco->Face3Area(k, j+1, is, ie, sarea1);
+            for (int i=is; i<=ie; i+=2) {
               Real tarea = sarea0(i) + sarea0(i+1) + sarea1(i) + sarea1(i+1);
               sbuf[p++] = (x3flux(nn, k, j  , i  )*sarea0(i  )
                            + x3flux(nn, k, j  , i+1)*sarea0(i+1)
@@ -191,9 +193,12 @@ bool CellCenteredBoundaryVariable::ReceiveFluxCorrection() {
       // boundary arrived; apply flux correction
       int p = 0;
       Real *rbuf=bd_var_flcor_.recv[nb.bufid];
+
+      int is, ie, js, je, ks, ke;
+      pmb->cells.GetIndices(interior,is,ie,js,je,ks,ke);
       if (nb.fid == BoundaryFace::inner_x1 || nb.fid == BoundaryFace::outer_x1) {
-        int il = pmb->active_cells.x.at(0).s + (pmb->active_cells.x.at(0).e - pmb->active_cells.x.at(0).s)*nb.fid+nb.fid;
-        int jl = pmb->active_cells.x.at(1).s, ju = pmb->active_cells.x.at(1).e, kl = pmb->active_cells.x.at(2).s, ku = pmb->active_cells.x.at(2).e;
+        int il = is + (ie - is)*nb.fid+nb.fid;
+        int jl = js, ju = je, kl = ks, ku = ke;
         if (nb.ni.fi1 == 0) ju -= pmb->block_size.nx2/2;
         else          jl += pmb->block_size.nx2/2;
         if (nb.ni.fi2 == 0) ku -= pmb->block_size.nx3/2;
@@ -205,8 +210,8 @@ bool CellCenteredBoundaryVariable::ReceiveFluxCorrection() {
           }
         }
       } else if (nb.fid == BoundaryFace::inner_x2 || nb.fid == BoundaryFace::outer_x2) {
-        int jl = pmb->active_cells.x.at(1).s + (pmb->active_cells.x.at(1).e - pmb->active_cells.x.at(1).s)*(nb.fid & 1) + (nb.fid & 1);
-        int il = pmb->active_cells.x.at(0).s, iu = pmb->active_cells.x.at(0).e, kl = pmb->active_cells.x.at(2).s, ku = pmb->active_cells.x.at(2).e;
+        int jl = js + (je - js)*(nb.fid & 1) + (nb.fid & 1);
+        int il = is, iu = ie, kl = ks, ku = ke;
         if (nb.ni.fi1 == 0) iu -= pmb->block_size.nx1/2;
         else          il += pmb->block_size.nx1/2;
         if (nb.ni.fi2 == 0) ku -= pmb->block_size.nx3/2;
@@ -218,8 +223,8 @@ bool CellCenteredBoundaryVariable::ReceiveFluxCorrection() {
           }
         }
       } else if (nb.fid == BoundaryFace::inner_x3 || nb.fid == BoundaryFace::outer_x3) {
-        int kl = pmb->active_cells.x.at(2).s + (pmb->active_cells.x.at(2).e - pmb->active_cells.x.at(2).s)*(nb.fid & 1) + (nb.fid & 1);
-        int il = pmb->active_cells.x.at(0).s, iu = pmb->active_cells.x.at(0).e, jl = pmb->active_cells.x.at(1).s, ju = pmb->active_cells.x.at(1).e;
+        int kl = ks + (ke - ks)*(nb.fid & 1) + (nb.fid & 1);
+        int il = is, iu = ie, jl = js, ju = je;
         if (nb.ni.fi1 == 0) iu -= pmb->block_size.nx1/2;
         else          il += pmb->block_size.nx1/2;
         if (nb.ni.fi2 == 0) ju -= pmb->block_size.nx2/2;

@@ -18,39 +18,39 @@
 #ifndef MESH_DOMAIN_HPP_
 #define MESH_DOMAIN_HPP_
 
-#include <numeric>
+#include <array>
+
+#include "athena.hpp" 
+#include "athena_arrays.hpp"
 
 namespace parthenon {
 
-  struct IndexRange {
-    int s; /// Starting Index (inclusive)
-    int e; /// Ending Index (inclusive)
-    int n() const { return e-s+1; }
-  };
+  const int NDIM = 3;
 
-  //! \enum Defines what regions the shape encompasses
-  //
+  struct IndexRange {
+    int start = 0; /// Starting Index (inclusive)
+    int end = 0; /// Ending Index (inclusive)
+    int ncells() const noexcept { return end-start+1; }
+  };
+  
   // Assuming we have a block
   //
-  //  - - - - - - - - -   ^
-  //  |  |  ghost  |  |   | 
-  //  - - - - - - - - -   | 
-  //  |  |         |  |   
-  //  |  |  Base   |  |   all
-  //  |  |         |  |    
-  //  |  |         |  |   | 
-  //  - - - - - - - - -   |
-  //  |  |         |  |   | 
-  //  - - - - - - - - -   v 
+  //  - - - - - - - - - -   ^
+  //  |  |  ghost    |  |   | 
+  //  - - - - - - - - - -   | 
+  //  |  |     ^     |  |   | 
+  //  |  |     |     |  |   
+  //  |  | interior  |  |   entire
+  //  |  |     |     |  |    
+  //  |  |     v     |  |   | 
+  //  - - - - - - - - - -   |
+  //  |  |           |  |   | 
+  //  - - - - - - - - - -   v 
   //
-  // The regions are separated as shown
-  // 
-/*  enum IndexShapeType {
-    unassigned, 
-    ghost,
-    all,
-    active
-  };*/
+  enum IndexShapeType {
+    entire,
+    interior
+  };
 
   //! \class IndexVolume
   //  \brief Defines the dimensions of a shape of indices
@@ -58,19 +58,98 @@ namespace parthenon {
   //  Defines the range of each dimension of the indices by defining a starting and stopping index
   //  also contains a label for defining which region the index shape is assigned too 
   class IndexShape {
+    private:
+      std::array<IndexRange,NDIM> x_;
+      std::array<int,NDIM> entire_ncells_;
+
     public:
-      std::vector<IndexRange> x;
-
+  
       IndexShape() {};
-      IndexShape(int nx1,int nx2,int nx3) : 
-        x{IndexRange{0,nx1-1},IndexRange{0,nx2-1},IndexRange{0,nx3-1}} {};
 
-      IndexShape(int is,int ie, int js, int je, int ks, int ke) :
-        x{IndexRange{is,ie},IndexRange{js,je},IndexRange{ks,ke}} {};
+      IndexShape(const int & nx1, const int & nx2, const int & nx3, const int & ndim,const int & ng) 
+      : IndexShape( std::vector<int> {nx1,nx2,nx3}, ndim, ng) {};
 
-      int GetTotal() const noexcept { 
-        return std::accumulate(std::begin(x), std::end(x), 1,
-            [](int x,const IndexRange & y){ return x*y.n();} );
+      IndexShape(const std::vector<int> & interior_dims, const int & ndim,const int & ng) { 
+        assert(ndim<=NDIM && "IndexShape cannot be initialized, the number of dimensions exceeds the statically set dimensions, you will need to change the NDIM constant.");
+        for( int dim=1, index=0; dim<=NDIM; ++dim, ++index){
+          if (dim <= ndim) {
+            x_[index].start = ng;
+            x_[index].end = x_[index].start + interior_dims.at(index) - 1;
+            entire_ncells_[index] = interior_dims.at(index) + 2*ng;
+          } else {
+            entire_ncells_[index] = 1;
+          }
+        }
+      };
+
+      inline int x1s(const IndexShapeType & type) const 
+      { return (type==IndexShapeType::entire) ? 0 : x_[0].start; }
+      
+      inline int x2s(const IndexShapeType & type) const
+      { return (type==IndexShapeType::entire) ? 0 : x_[1].start; }
+      
+      inline int x3s(const IndexShapeType & type) const
+      { return (type==IndexShapeType::entire) ? 0 : x_[2].start; }
+      
+      inline int x1e(const IndexShapeType & type) const 
+      { return (type==IndexShapeType::entire) ? entire_ncells_[0]-1 : x_[0].end; }
+      
+      inline int x2e(const IndexShapeType & type) const 
+      { return (type==IndexShapeType::entire) ? entire_ncells_[1]-1 : x_[1].end; }
+      
+      inline int x3e(const IndexShapeType & type) const 
+      { return (type==IndexShapeType::entire) ? entire_ncells_[2]-1 : x_[2].end; }
+
+      inline int nx1(const IndexShapeType & type) const 
+      { return (type==IndexShapeType::entire) ? entire_ncells_[0] : x_[0].ncells(); }
+      
+      inline int nx2(const IndexShapeType & type) const 
+      { return (type==IndexShapeType::entire) ? entire_ncells_[1] : x_[1].ncells(); }
+      
+      inline int nx3(const IndexShapeType & type) const 
+      { return (type==IndexShapeType::entire) ? entire_ncells_[2] : x_[2].ncells(); }
+
+
+      void GetIndices(const IndexShapeType & type, 
+          int & is, int & ie, int & js, int & je, int & ks, int & ke) const {
+
+        if(type==interior){
+          is = x_[0].start;
+          js = x_[1].start;
+          ks = x_[2].start;
+          ie = x_[0].end;
+          je = x_[1].end;
+          ke = x_[2].end;
+        }else{
+          is = js = ks = 0;
+          ie = entire_ncells_[0];
+          je = entire_ncells_[1];
+          ke = entire_ncells_[2];
+        }
+      }
+
+      void GetNx(const IndexShapeType & type, int & nx1, int & nx2, int & nx3) const {
+        if(type == interior){
+          nx1 = x_[0].ncells();
+          nx2 = x_[1].ncells();
+          nx3 = x_[2].ncells();
+        }else{
+          nx1 = entire_ncells_[0];
+          nx2 = entire_ncells_[1];
+          nx3 = entire_ncells_[2];
+        }
+      }
+
+      // Kept basic for kokkos
+      int GetTotal(const IndexShapeType & type) const noexcept { 
+        if(x_.size() == 0) return 0;
+        int total = 1;
+        if(type==entire){
+          for( int i = 0; i<NDIM; ++i) total*= x_[i].ncells();
+        }else{
+          for( int i = 0; i<NDIM; ++i) total*= entire_ncells_[i];
+        }
+        return total;
       }
           
   };

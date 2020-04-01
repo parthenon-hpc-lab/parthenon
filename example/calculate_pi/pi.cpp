@@ -21,6 +21,7 @@
 #include "kokkos_abstraction.hpp"
 #include "pi.hpp"
 
+
 namespace parthenon {
 
 // can be used to set global properties that all meshblocks want to know about
@@ -115,8 +116,9 @@ namespace PiCalculator {
 
   void SetInOrOut(Container<Real>& rc) {
     MeshBlock *pmb = rc.pmy_block;
-    int is = pmb->active_cells.x.at(0).s; int js = pmb->active_cells.x.at(1).s; int ks = pmb->active_cells.x.at(2).s;
-    int ie = pmb->active_cells.x.at(0).e; int je = pmb->active_cells.x.at(1).e; int ke = pmb->active_cells.x.at(2).e;
+    int is, js, ks, ie, je, ke;
+    pmb->cells.GetIndices(parthenon::interior,is,js,ks,ie,je,ke);
+
     Coordinates *pcoord = pmb->pcoord.get();
     Variable<Real>& v = rc.Get("in_or_out");
     const auto& radius = pmb->packages["PiCalculator"]->Param<Real>("radius");
@@ -161,8 +163,9 @@ namespace PiCalculator {
     // each package can define its own refinement tagging
     // function and they are all called by parthenon
     MeshBlock *pmb = rc.pmy_block;
-    int is = pmb->active_cells.x.at(0).s; int js = pmb->active_cells.x.at(1).s; int ks = pmb->active_cells.x.at(2).s;
-    int ie = pmb->active_cells.x.at(0).e; int je = pmb->active_cells.x.at(1).e; int ke = pmb->active_cells.x.at(2).e;
+    int is, js, ks, ie, je, ke;
+    pmb->cells.GetIndices(parthenon::interior,is,js,ks,ie,je,ke);
+
     Variable<Real>& v = rc.Get("in_or_out");
     int delta_level = -1;
     Real vmin = 1.0;
@@ -210,8 +213,10 @@ namespace PiCalculator {
   TaskStatus ComputeArea(MeshBlock *pmb) {
     // compute 1/r0^2 \int d^2x in_or_out(x,y) over the block's domain
     Container<Real>& rc = pmb->real_container;
-    int is = pmb->active_cells.x.at(0).s; int js = pmb->active_cells.x.at(1).s; int ks = pmb->active_cells.x.at(2).s;
-    int ie = pmb->active_cells.x.at(0).e; int je = pmb->active_cells.x.at(1).e; int ke = pmb->active_cells.x.at(2).e;
+
+    int is, js, ks, ie, je, ke;
+    pmb->cells.GetIndices(parthenon::interior,is,js,ks,ie,je,ke);
+
     Coordinates *pcoord = pmb->pcoord.get();
     Variable<Real>& v = rc.Get("in_or_out");
     const auto& radius = pmb->packages["PiCalculator"]->Param<Real>("radius");

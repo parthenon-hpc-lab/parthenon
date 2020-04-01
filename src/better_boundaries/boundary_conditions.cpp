@@ -17,19 +17,23 @@
 #include "interface/ContainerIterator.hpp"
 #include "mesh/mesh.hpp"
 
+using parthenon::IndexShapeType;
+
 namespace parthenon {
+
 
 void ApplyBoundaryConditions(Container<Real>& rc) {
     MeshBlock *pmb = rc.pmy_block;
-    const int is = pmb->active_cells.x.at(0).s; 
-    const int js = pmb->active_cells.x.at(1).s; 
-    const int ks = pmb->active_cells.x.at(2).s;
-    const int ie = pmb->active_cells.x.at(0).e; 
-    const int je = pmb->active_cells.x.at(1).e; 
-    const int ke = pmb->active_cells.x.at(2).e;
-    const int imax = pmb->all_cells.x.at(0).n(); 
-    const int jmax = pmb->all_cells.x.at(1).n(); 
-    const int kmax = pmb->all_cells.x.at(2).n();
+
+    const int is = pmb->cells.x1s(interior); 
+    const int js = pmb->cells.x2s(interior); 
+    const int ks = pmb->cells.x3s(interior);
+    const int ie = pmb->cells.x1e(interior); 
+    const int je = pmb->cells.x2e(interior); 
+    const int ke = pmb->cells.x3e(interior);
+    const int imax = pmb->cells.nx1(entire); 
+    const int jmax = pmb->cells.nx2(entire); 
+    const int kmax = pmb->cells.nx3(entire);
 
     Metadata m;
     ContainerIterator<Real> citer(rc, std::vector<parthenon::Metadata::flags> {m.independent});

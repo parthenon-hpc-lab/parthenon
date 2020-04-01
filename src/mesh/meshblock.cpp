@@ -47,6 +47,8 @@
 #include "interface/Variable.hpp"
 #include "interface/ContainerIterator.hpp"
 
+using parthenon::IndexShapeType;
+
 namespace parthenon {
 //----------------------------------------------------------------------------------------
 // MeshBlock constructor: constructs coordinate, boundary condition, field
@@ -65,7 +67,7 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
     properties(properties), packages(packages), exec_space(DevSpace()) {
   // initialize grid indices
 
-  InitializeIndexShapes();
+  InitializeIndexShapes(pmy_mesh->ndim);
  
   // Set the block pointer for the containers
   real_container.setBlock(this);
@@ -173,7 +175,7 @@ MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
   //std::cerr << "WHY AM I HERE???" << std::endl;
 
   // initialize grid indices
-  InitializeIndexShapes();
+  InitializeIndexShapes(pmy_mesh->ndim);
     
   // Set the block pointer for the containers
   real_container.setBlock(this);
@@ -228,51 +230,30 @@ MeshBlock::~MeshBlock() {
 
 }
 
-void MeshBlock::InitializeIndexShapes() {
-  int is, ie, js, je, ks, ke;
-  int ncells1, ncells2, ncells3;
-  int ncc1, ncc2, ncc3;
-  is = NGHOST;
-  ie = is + block_size.nx1 - 1;
-  ncells1 = block_size.nx1 + 2*NGHOST;
-  ncc1 = block_size.nx1/2 + 2*NGHOST;
-  if (pmy_mesh->ndim >= 2) {
-    js = NGHOST;
-    je = js + block_size.nx2 - 1;
-    ncells2 = block_size.nx2 + 2*NGHOST;
-    ncc2 = block_size.nx2/2 + 2*NGHOST;
-  } else {
-    js = je = 0;
-    ncells2 = 1;
-    ncc2 = 1;
-  }
+void MeshBlock::InitializeIndexShapes(const int & ndim) {
 
-  if (pmy_mesh->ndim >= 3) {
-    ks = NGHOST;
-    ke = ks + block_size.nx3 - 1;
-    ncells3 = block_size.nx3 + 2*NGHOST;
-    ncc3 = block_size.nx3/2 + 2*NGHOST;
-  } else {
-    ks = ke = 0;
-    ncells3 = 1;
-    ncc3 = 1;
-  }
+  cells = IndexShape(block_size.nx1,block_size.nx2,block_size.nx3,ndim,NGHOST);
 
-  int cis, cie, cjs, cje, cks, cke;
   if (pmy_mesh->multilevel) {
+
     cnghost = (NGHOST + 1)/2 + 1;
-    cis = NGHOST; cie = cis + block_size.nx1/2 - 1;
-    cjs = cje = cks = cke = 0;
-    if (pmy_mesh->ndim >= 2) // 2D or 3D
-      cjs = NGHOST, cje = cjs + block_size.nx2/2 - 1;
-    if (pmy_mesh->ndim >= 3) // 3D
-      cks = NGHOST, cke = cks + block_size.nx3/2 - 1;
+    c_cells = IndexShape(
+      cells.nx1(interior)/2,
+      cells.nx2(interior)/2,
+      cells.nx3(interior)/2,
+      ndim,
+      NGHOST);
+
+  }else{
+
+    c_cells = IndexShape(
+      cells.nx1(interior)/2,
+      cells.nx2(interior)/2,
+      cells.nx3(interior)/2,
+      ndim,
+      0);
   }
 
-  all_cells = IndexShape(ncells1,ncells2,ncells3);
-  active_cells = IndexShape(is,ie,js,je,ks,ke);
-  all_coarse_cells = IndexShape(ncc1,ncc2,ncc3);
-  active_coarse_cells = IndexShape(cis,cie,cjs,cje,cks,cke);
 }
 
 //----------------------------------------------------------------------------------------
@@ -322,7 +303,7 @@ void MeshBlock::AllocateUserOutputVariables(int n) {
     return;
   }
   nuser_out_var = n;
-  user_out_var.NewAthenaArray(nuser_out_var, all_cells.x.at(2).n(), all_cells.x.at(1).n(), all_cells.x.at(0).n());
+  user_out_var.NewAthenaArray(nuser_out_var, cells.nx1(entire), cells.nx2(entire), cells.nx1(entire));
   user_out_var_names_ = new std::string[n];
   return;
 }

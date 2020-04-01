@@ -58,7 +58,7 @@ MeshRefinement::MeshRefinement(MeshBlock *pmb, ParameterInput *pin) :
     ATHENA_ERROR(msg);
   }
 
-  int nc1 = pmb->all_cells.x.at(0).n();
+  int nc1 = pmb->cells.nx1(entire);
   fvol_[0][0].NewAthenaArray(nc1);
   fvol_[0][1].NewAthenaArray(nc1);
   fvol_[1][0].NewAthenaArray(nc1);
@@ -105,21 +105,21 @@ void MeshRefinement::RestrictCellCenteredValues(
     int csi, int cei, int csj, int cej, int csk, int cek) {
   MeshBlock *pmb = pmy_block_;
   auto &pco = pmb->pcoord;
-  int si = (csi - pmb->active_coarse_cells.x.at(0).s)*2 + pmb->active_cells.x.at(0).s, ei = (cei - pmb->active_coarse_cells.x.at(0).s)*2 + pmb->active_cells.x.at(0).s + 1;
+  int si = (csi - pmb->c_cells.x1s(interior))*2 + pmb->cells.x1s(interior), ei = (cei - pmb->c_cells.x1s(interior))*2 + pmb->cells.x1s(interior) + 1;
 
   // store the restricted data in the prolongation buffer for later use
   if (pmb->block_size.nx3>1) { // 3D
     for (int n=sn; n<=en; ++n) {
       for (int ck=csk; ck<=cek; ck++) {
-        int k = (ck - pmb->active_coarse_cells.x.at(2).s)*2 + pmb->active_cells.x.at(2).s;
+        int k = (ck - pmb->c_cells.x3s(interior))*2 + pmb->cells.x3s(interior);
         for (int cj=csj; cj<=cej; cj++) {
-          int j = (cj - pmb->active_coarse_cells.x.at(1).s)*2 + pmb->active_cells.x.at(1).s;
+          int j = (cj - pmb->c_cells.x2s(interior))*2 + pmb->cells.x2s(interior);
           pco->CellVolume(k,j,si,ei,fvol_[0][0]);
           pco->CellVolume(k,j+1,si,ei,fvol_[0][1]);
           pco->CellVolume(k+1,j,si,ei,fvol_[1][0]);
           pco->CellVolume(k+1,j+1,si,ei,fvol_[1][1]);
           for (int ci=csi; ci<=cei; ci++) {
-            int i = (ci - pmb->active_coarse_cells.x.at(0).s)*2 + pmb->active_cells.x.at(0).s;
+            int i = (ci - pmb->c_cells.x1s(interior))*2 + pmb->cells.x1s(interior);
             // KGF: add the off-centered quantities first to preserve FP symmetry
             Real tvol = ((fvol_[0][0](i) + fvol_[0][1](i))
                          + (fvol_[0][0](i+1) + fvol_[0][1](i+1)))
@@ -140,11 +140,11 @@ void MeshRefinement::RestrictCellCenteredValues(
   } else if (pmb->block_size.nx2>1) { // 2D
     for (int n=sn; n<=en; ++n) {
       for (int cj=csj; cj<=cej; cj++) {
-        int j = (cj - pmb->active_coarse_cells.x.at(1).s)*2 + pmb->active_cells.x.at(1).s;
+        int j = (cj - pmb->c_cells.x2s(interior))*2 + pmb->cells.x2s(interior);
         pco->CellVolume(0,j  ,si,ei,fvol_[0][0]);
         pco->CellVolume(0,j+1,si,ei,fvol_[0][1]);
         for (int ci=csi; ci<=cei; ci++) {
-          int i = (ci - pmb->active_coarse_cells.x.at(0).s)*2 + pmb->active_cells.x.at(0).s;
+          int i = (ci - pmb->c_cells.x1s(interior))*2 + pmb->cells.x1s(interior);
           // KGF: add the off-centered quantities first to preserve FP symmetry
           Real tvol = (fvol_[0][0](i) + fvol_[0][1](i)) +
                       (fvol_[0][0](i+1) + fvol_[0][1](i+1));
@@ -158,11 +158,11 @@ void MeshRefinement::RestrictCellCenteredValues(
       }
     }
   } else { // 1D
-    int j = pmb->active_cells.x.at(1).s, cj = pmb->active_coarse_cells.x.at(1).s, k = pmb->active_cells.x.at(2).s, ck = pmb->active_coarse_cells.x.at(2).s;
+    int j = pmb->cells.x2s(interior), cj = pmb->c_cells.x2s(interior), k = pmb->cells.x3s(interior), ck = pmb->c_cells.x3s(interior);
     for (int n=sn; n<=en; ++n) {
       pco->CellVolume(k,j,si,ei,fvol_[0][0]);
       for (int ci=csi; ci<=cei; ci++) {
-        int i = (ci - pmb->active_coarse_cells.x.at(0).s)*2 + pmb->active_cells.x.at(0).s;
+        int i = (ci - pmb->c_cells.x1s(interior))*2 + pmb->cells.x1s(interior);
         Real tvol = fvol_[0][0](i) + fvol_[0][0](i+1);
         coarse(n,ck,cj,ci)
             = (fine(n,k,j,i)*fvol_[0][0](i) + fine(n,k,j,i+1)*fvol_[0][0](i+1))/tvol;
@@ -181,20 +181,20 @@ void MeshRefinement::RestrictFieldX1(
     int csi, int cei, int csj, int cej, int csk, int cek) {
   MeshBlock *pmb = pmy_block_;
   auto &pco = pmb->pcoord;
-  int si = (csi - pmb->active_coarse_cells.x.at(0).s)*2 + pmb->active_cells.x.at(0).s, ei = (cei - pmb->active_coarse_cells.x.at(0).s)*2 + pmb->active_cells.x.at(0).s;
+  int si = (csi - pmb->c_cells.x1s(interior))*2 + pmb->cells.x1s(interior), ei = (cei - pmb->c_cells.x1s(interior))*2 + pmb->cells.x1s(interior);
 
   // store the restricted data in the prolongation buffer for later use
   if (pmb->block_size.nx3>1) { // 3D
     for (int ck=csk; ck<=cek; ck++) {
-      int k = (ck - pmb->active_coarse_cells.x.at(2).s)*2 + pmb->active_cells.x.at(2).s;
+      int k = (ck - pmb->c_cells.x3s(interior))*2 + pmb->cells.x3s(interior);
       for (int cj=csj; cj<=cej; cj++) {
-        int j = (cj - pmb->active_coarse_cells.x.at(1).s)*2 + pmb->active_cells.x.at(1).s;
+        int j = (cj - pmb->c_cells.x2s(interior))*2 + pmb->cells.x2s(interior);
         pco->Face1Area(k,   j,   si, ei, sarea_x1_[0][0]);
         pco->Face1Area(k,   j+1, si, ei, sarea_x1_[0][1]);
         pco->Face1Area(k+1, j,   si, ei, sarea_x1_[1][0]);
         pco->Face1Area(k+1, j+1, si, ei, sarea_x1_[1][1]);
         for (int ci=csi; ci<=cei; ci++) {
-          int i = (ci - pmb->active_coarse_cells.x.at(0).s)*2 + pmb->active_cells.x.at(0).s;
+          int i = (ci - pmb->c_cells.x1s(interior))*2 + pmb->cells.x1s(interior);
           Real tarea = sarea_x1_[0][0](i) + sarea_x1_[0][1](i) +
                        sarea_x1_[1][0](i) + sarea_x1_[1][1](i);
           coarse(ck,cj,ci) =
@@ -205,13 +205,13 @@ void MeshRefinement::RestrictFieldX1(
       }
     }
   } else if (pmb->block_size.nx2>1) { // 2D
-    int k = pmb->active_cells.x.at(2).s;
+    int k = pmb->cells.x3s(interior);
     for (int cj=csj; cj<=cej; cj++) {
-      int j = (cj - pmb->active_coarse_cells.x.at(1).s)*2 + pmb->active_cells.x.at(1).s;
+      int j = (cj - pmb->c_cells.x2s(interior))*2 + pmb->cells.x2s(interior);
       pco->Face1Area(k,  j,   si, ei, sarea_x1_[0][0]);
       pco->Face1Area(k,  j+1, si, ei, sarea_x1_[0][1]);
       for (int ci=csi; ci<=cei; ci++) {
-        int i = (ci - pmb->active_coarse_cells.x.at(0).s)*2 + pmb->active_cells.x.at(0).s;
+        int i = (ci - pmb->c_cells.x1s(interior))*2 + pmb->cells.x1s(interior);
         Real tarea = sarea_x1_[0][0](i) + sarea_x1_[0][1](i);
         coarse(csk,cj,ci) =
             (fine(k,j,i)*sarea_x1_[0][0](i) + fine(k,j+1,i)*sarea_x1_[0][1](i))/tarea;
@@ -219,8 +219,8 @@ void MeshRefinement::RestrictFieldX1(
     }
   } else { // 1D - no restriction, just copy
     for (int ci=csi; ci<=cei; ci++) {
-      int i = (ci - pmb->active_coarse_cells.x.at(0).s)*2 + pmb->active_cells.x.at(0).s;
-      coarse(csk,csj,ci) = fine(pmb->active_cells.x.at(2).s,pmb->active_cells.x.at(1).s,i);
+      int i = (ci - pmb->c_cells.x1s(interior))*2 + pmb->cells.x1s(interior);
+      coarse(csk,csj,ci) = fine(pmb->cells.x3s(interior),pmb->cells.x2s(interior),i);
     }
   }
 
@@ -237,18 +237,18 @@ void MeshRefinement::RestrictFieldX2(
     int csi, int cei, int csj, int cej, int csk, int cek) {
   MeshBlock *pmb = pmy_block_;
   auto &pco = pmb->pcoord;
-  int si = (csi - pmb->active_coarse_cells.x.at(0).s)*2 + pmb->active_cells.x.at(0).s, ei = (cei - pmb->active_coarse_cells.x.at(0).s)*2 + pmb->active_cells.x.at(0).s + 1;
+  int si = (csi - pmb->c_cells.x1s(interior))*2 + pmb->cells.x1s(interior), ei = (cei - pmb->c_cells.x1s(interior))*2 + pmb->cells.x1s(interior) + 1;
 
   // store the restricted data in the prolongation buffer for later use
   if (pmb->block_size.nx3>1) { // 3D
     for (int ck=csk; ck<=cek; ck++) {
-      int k = (ck - pmb->active_coarse_cells.x.at(2).s)*2 + pmb->active_cells.x.at(2).s;
+      int k = (ck - pmb->c_cells.x3s(interior))*2 + pmb->cells.x3s(interior);
       for (int cj=csj; cj<=cej; cj++) {
-        int j = (cj - pmb->active_coarse_cells.x.at(1).s)*2 + pmb->active_cells.x.at(1).s;
+        int j = (cj - pmb->c_cells.x2s(interior))*2 + pmb->cells.x2s(interior);
         pco->Face2Area(k,   j,  si, ei, sarea_x2_[0][0]);
         pco->Face2Area(k+1, j,  si, ei, sarea_x2_[1][0]);
         for (int ci=csi; ci<=cei; ci++) {
-          int i = (ci - pmb->active_coarse_cells.x.at(0).s)*2 + pmb->active_cells.x.at(0).s;
+          int i = (ci - pmb->c_cells.x1s(interior))*2 + pmb->cells.x1s(interior);
           Real tarea = sarea_x2_[0][0](i) + sarea_x2_[0][0](i+1) +
                        sarea_x2_[1][0](i) + sarea_x2_[1][0](i+1);
           coarse(ck,cj,ci) =
@@ -259,24 +259,24 @@ void MeshRefinement::RestrictFieldX2(
       }
     }
   } else if (pmb->block_size.nx2>1) { // 2D
-    int k = pmb->active_cells.x.at(2).s;
+    int k = pmb->cells.x3s(interior);
     for (int cj=csj; cj<=cej; cj++) {
-      int j = (cj - pmb->active_coarse_cells.x.at(1).s)*2 + pmb->active_cells.x.at(1).s;
+      int j = (cj - pmb->c_cells.x2s(interior))*2 + pmb->cells.x2s(interior);
       pco->Face2Area(k, j, si, ei, sarea_x2_[0][0]);
       for (int ci=csi; ci<=cei; ci++) {
-        int i = (ci - pmb->active_coarse_cells.x.at(0).s)*2 + pmb->active_cells.x.at(0).s;
+        int i = (ci - pmb->c_cells.x1s(interior))*2 + pmb->cells.x1s(interior);
         Real tarea = sarea_x2_[0][0](i) + sarea_x2_[0][0](i+1);
-        coarse(pmb->active_coarse_cells.x.at(2).s,cj,ci) =
+        coarse(pmb->c_cells.x3s(interior),cj,ci) =
             (fine(k,j,i)*sarea_x2_[0][0](i) + fine(k,j,i+1)*sarea_x2_[0][0](i+1))/tarea;
       }
     }
   } else { // 1D
-    int k = pmb->active_cells.x.at(2).s, j = pmb->active_cells.x.at(1).s;
+    int k = pmb->cells.x3s(interior), j = pmb->cells.x2s(interior);
     pco->Face2Area(k, j, si, ei, sarea_x2_[0][0]);
     for (int ci=csi; ci<=cei; ci++) {
-      int i = (ci - pmb->active_coarse_cells.x.at(0).s)*2 + pmb->active_cells.x.at(0).s;
+      int i = (ci - pmb->c_cells.x1s(interior))*2 + pmb->cells.x1s(interior);
       Real tarea = sarea_x2_[0][0](i) + sarea_x2_[0][0](i+1);
-      coarse(pmb->active_coarse_cells.x.at(2).s,pmb->active_coarse_cells.x.at(1).s,ci) =
+      coarse(pmb->c_cells.x3s(interior),pmb->c_cells.x2s(interior),ci) =
           (fine(k,j,i)*sarea_x2_[0][0](i) + fine(k,j,i+1)*sarea_x2_[0][0](i+1))/tarea;
     }
   }
@@ -294,18 +294,18 @@ void MeshRefinement::RestrictFieldX3(
     int csi, int cei, int csj, int cej, int csk, int cek) {
   MeshBlock *pmb = pmy_block_;
   auto &pco = pmb->pcoord;
-  int si = (csi - pmb->active_coarse_cells.x.at(0).s)*2 + pmb->active_cells.x.at(0).s, ei = (cei - pmb->active_coarse_cells.x.at(0).s)*2 + pmb->active_cells.x.at(0).s + 1;
+  int si = (csi - pmb->c_cells.x1s(interior))*2 + pmb->cells.x1s(interior), ei = (cei - pmb->c_cells.x1s(interior))*2 + pmb->cells.x1s(interior) + 1;
 
   // store the restricted data in the prolongation buffer for later use
   if (pmb->block_size.nx3>1) { // 3D
     for (int ck=csk; ck<=cek; ck++) {
-      int k = (ck - pmb->active_coarse_cells.x.at(2).s)*2 + pmb->active_cells.x.at(2).s;
+      int k = (ck - pmb->c_cells.x3s(interior))*2 + pmb->cells.x3s(interior);
       for (int cj=csj; cj<=cej; cj++) {
-        int j = (cj - pmb->active_coarse_cells.x.at(1).s)*2 + pmb->active_cells.x.at(1).s;
+        int j = (cj - pmb->c_cells.x2s(interior))*2 + pmb->cells.x2s(interior);
         pco->Face3Area(k,   j,  si, ei, sarea_x3_[0][0]);
         pco->Face3Area(k, j+1,  si, ei, sarea_x3_[0][1]);
         for (int ci=csi; ci<=cei; ci++) {
-          int i = (ci - pmb->active_coarse_cells.x.at(0).s)*2 + pmb->active_cells.x.at(0).s;
+          int i = (ci - pmb->c_cells.x1s(interior))*2 + pmb->cells.x1s(interior);
           Real tarea = sarea_x3_[0][0](i) + sarea_x3_[0][0](i+1) +
                        sarea_x3_[0][1](i) + sarea_x3_[0][1](i+1);
           coarse(ck,cj,ci)  =
@@ -316,28 +316,28 @@ void MeshRefinement::RestrictFieldX3(
       }
     }
   } else if (pmb->block_size.nx2>1) { // 2D
-    int k = pmb->active_cells.x.at(2).s;
+    int k = pmb->cells.x3s(interior);
     for (int cj=csj; cj<=cej; cj++) {
-      int j = (cj - pmb->active_coarse_cells.x.at(1).s)*2 + pmb->active_cells.x.at(1).s;
+      int j = (cj - pmb->c_cells.x2s(interior))*2 + pmb->cells.x2s(interior);
       pco->Face3Area(k,   j, si, ei, sarea_x3_[0][0]);
       pco->Face3Area(k, j+1, si, ei, sarea_x3_[0][1]);
       for (int ci=csi; ci<=cei; ci++) {
-        int i = (ci - pmb->active_coarse_cells.x.at(0).s)*2 + pmb->active_cells.x.at(0).s;
+        int i = (ci - pmb->c_cells.x1s(interior))*2 + pmb->cells.x1s(interior);
         Real tarea = sarea_x3_[0][0](i) + sarea_x3_[0][0](i+1) +
                      sarea_x3_[0][1](i) + sarea_x3_[0][1](i+1);
-        coarse(pmb->active_coarse_cells.x.at(2).s,cj,ci) =
+        coarse(pmb->c_cells.x3s(interior),cj,ci) =
             (fine(k,j  ,i)*sarea_x3_[0][0](i) + fine(k,j  ,i+1)*sarea_x3_[0][0](i+1)
              + fine(k,j+1,i)*sarea_x3_[0][1](i) + fine(k,j+1,i+1)*sarea_x3_[0][1](i+1)
              ) /tarea;
       }
     }
   } else { // 1D
-    int k = pmb->active_cells.x.at(2).s, j = pmb->active_cells.x.at(1).s;
+    int k = pmb->cells.x3s(interior), j = pmb->cells.x2s(interior);
     pco->Face3Area(k, j, si, ei, sarea_x3_[0][0]);
     for (int ci=csi; ci<=cei; ci++) {
-      int i = (ci - pmb->active_coarse_cells.x.at(0).s)*2 + pmb->active_cells.x.at(0).s;
+      int i = (ci - pmb->c_cells.x1s(interior))*2 + pmb->cells.x1s(interior);
       Real tarea = sarea_x3_[0][0](i) + sarea_x3_[0][0](i+1);
-      coarse(pmb->active_coarse_cells.x.at(2).s,pmb->active_coarse_cells.x.at(1).s,ci) =
+      coarse(pmb->c_cells.x3s(interior),pmb->c_cells.x2s(interior),ci) =
           (fine(k,j,i)*sarea_x3_[0][0](i) + fine(k,j,i+1)*sarea_x3_[0][0](i+1))/tarea;
     }
   }
@@ -359,7 +359,7 @@ void MeshRefinement::ProlongateCellCenteredValues(
   if (pmb->block_size.nx3 > 1) {
     for (int n=sn; n<=en; n++) {
       for (int k=sk; k<=ek; k++) {
-        int fk = (k - pmb->active_coarse_cells.x.at(2).s)*2 + pmb->active_cells.x.at(2).s;
+        int fk = (k - pmb->c_cells.x3s(interior))*2 + pmb->cells.x3s(interior);
         const Real& x3m = pcoarsec->x3v(k-1);
         const Real& x3c = pcoarsec->x3v(k);
         const Real& x3p = pcoarsec->x3v(k+1);
@@ -370,7 +370,7 @@ void MeshRefinement::ProlongateCellCenteredValues(
         Real dx3fm =  x3c - fx3m;
         Real dx3fp =  fx3p - x3c;
         for (int j = sj; j<=ej; j++) {
-          int fj = (j - pmb->active_coarse_cells.x.at(1).s)*2 + pmb->active_cells.x.at(1).s;
+          int fj = (j - pmb->c_cells.x2s(interior))*2 + pmb->cells.x2s(interior);
           const Real& x2m = pcoarsec->x2v(j-1);
           const Real& x2c = pcoarsec->x2v(j);
           const Real& x2p = pcoarsec->x2v(j+1);
@@ -381,7 +381,7 @@ void MeshRefinement::ProlongateCellCenteredValues(
           Real dx2fm = x2c - fx2m;
           Real dx2fp = fx2p - x2c;
           for (int i=si; i<=ei; i++) {
-            int fi = (i - pmb->active_coarse_cells.x.at(0).s)*2 + pmb->active_cells.x.at(0).s;
+            int fi = (i - pmb->c_cells.x1s(interior))*2 + pmb->cells.x1s(interior);
             const Real& x1m = pcoarsec->x1v(i-1);
             const Real& x1c = pcoarsec->x1v(i);
             const Real& x1p = pcoarsec->x1v(i+1);
@@ -422,10 +422,10 @@ void MeshRefinement::ProlongateCellCenteredValues(
       }
     }
   } else if (pmb->block_size.nx2 > 1) {
-    int k = pmb->active_coarse_cells.x.at(2).s, fk = pmb->active_cells.x.at(2).s;
+    int k = pmb->c_cells.x3s(interior), fk = pmb->cells.x3s(interior);
     for (int n=sn; n<=en; n++) {
       for (int j=sj; j<=ej; j++) {
-        int fj = (j - pmb->active_coarse_cells.x.at(1).s)*2 + pmb->active_cells.x.at(1).s;
+        int fj = (j - pmb->c_cells.x2s(interior))*2 + pmb->cells.x2s(interior);
         const Real& x2m = pcoarsec->x2v(j-1);
         const Real& x2c = pcoarsec->x2v(j);
         const Real& x2p = pcoarsec->x2v(j+1);
@@ -436,7 +436,7 @@ void MeshRefinement::ProlongateCellCenteredValues(
         Real dx2fm = x2c - fx2m;
         Real dx2fp = fx2p - x2c;
         for (int i=si; i<=ei; i++) {
-          int fi = (i - pmb->active_coarse_cells.x.at(0).s)*2 + pmb->active_cells.x.at(0).s;
+          int fi = (i - pmb->c_cells.x1s(interior))*2 + pmb->cells.x1s(interior);
           const Real& x1m = pcoarsec->x1v(i-1);
           const Real& x1c = pcoarsec->x1v(i);
           const Real& x1p = pcoarsec->x1v(i+1);
@@ -468,10 +468,10 @@ void MeshRefinement::ProlongateCellCenteredValues(
       }
     }
   } else { // 1D
-    int k = pmb->active_coarse_cells.x.at(2).s, fk = pmb->active_cells.x.at(2).s, j = pmb->active_coarse_cells.x.at(1).s, fj = pmb->active_cells.x.at(1).s;
+    int k = pmb->c_cells.x3s(interior), fk = pmb->cells.x3s(interior), j = pmb->c_cells.x2s(interior), fj = pmb->cells.x2s(interior);
     for (int n=sn; n<=en; n++) {
       for (int i=si; i<=ei; i++) {
-        int fi = (i - pmb->active_coarse_cells.x.at(0).s)*2 + pmb->active_cells.x.at(0).s;
+        int fi = (i - pmb->c_cells.x1s(interior))*2 + pmb->cells.x1s(interior);
         const Real& x1m = pcoarsec->x1v(i-1);
         const Real& x1c = pcoarsec->x1v(i);
         const Real& x1p = pcoarsec->x1v(i+1);
@@ -510,7 +510,7 @@ void MeshRefinement::ProlongateSharedFieldX1(
   auto &pco = pmb->pcoord;
   if (pmb->block_size.nx3 > 1) {
     for (int k=sk; k<=ek; k++) {
-      int fk = (k - pmb->active_coarse_cells.x.at(2).s)*2 + pmb->active_cells.x.at(2).s;
+      int fk = (k - pmb->c_cells.x3s(interior))*2 + pmb->cells.x3s(interior);
       const Real& x3m = pcoarsec->x3s1(k-1);
       const Real& x3c = pcoarsec->x3s1(k);
       const Real& x3p = pcoarsec->x3s1(k+1);
@@ -519,7 +519,7 @@ void MeshRefinement::ProlongateSharedFieldX1(
       const Real& fx3m = pco->x3s1(fk);
       const Real& fx3p = pco->x3s1(fk+1);
       for (int j=sj; j<=ej; j++) {
-        int fj = (j - pmb->active_coarse_cells.x.at(1).s)*2 + pmb->active_cells.x.at(1).s;
+        int fj = (j - pmb->c_cells.x2s(interior))*2 + pmb->cells.x2s(interior);
         const Real& x2m = pcoarsec->x2s1(j-1);
         const Real& x2c = pcoarsec->x2s1(j);
         const Real& x2p = pcoarsec->x2s1(j+1);
@@ -528,7 +528,7 @@ void MeshRefinement::ProlongateSharedFieldX1(
         const Real& fx2m = pco->x2s1(fj);
         const Real& fx2p = pco->x2s1(fj+1);
         for (int i=si; i<=ei; i++) {
-          int fi = (i - pmb->active_coarse_cells.x.at(0).s)*2 + pmb->active_cells.x.at(0).s;
+          int fi = (i - pmb->c_cells.x1s(interior))*2 + pmb->cells.x1s(interior);
           Real ccval = coarse(k,j,i);
 
           Real gx2m = (ccval - coarse(k,j-1,i))/dx2m;
@@ -548,9 +548,9 @@ void MeshRefinement::ProlongateSharedFieldX1(
       }
     }
   } else if (pmb->block_size.nx2 > 1) {
-    int k = pmb->active_coarse_cells.x.at(2).s, fk = pmb->active_cells.x.at(2).s;
+    int k = pmb->c_cells.x3s(interior), fk = pmb->cells.x3s(interior);
     for (int j=sj; j<=ej; j++) {
-      int fj = (j - pmb->active_coarse_cells.x.at(1).s)*2 + pmb->active_cells.x.at(1).s;
+      int fj = (j - pmb->c_cells.x2s(interior))*2 + pmb->cells.x2s(interior);
       const Real& x2m = pcoarsec->x2s1(j-1);
       const Real& x2c = pcoarsec->x2s1(j);
       const Real& x2p = pcoarsec->x2s1(j+1);
@@ -559,7 +559,7 @@ void MeshRefinement::ProlongateSharedFieldX1(
       const Real& fx2m = pco->x2s1(fj);
       const Real& fx2p = pco->x2s1(fj+1);
       for (int i=si; i<=ei; i++) {
-        int fi = (i - pmb->active_coarse_cells.x.at(0).s)*2 + pmb->active_cells.x.at(0).s;
+        int fi = (i - pmb->c_cells.x1s(interior))*2 + pmb->cells.x1s(interior);
         Real ccval = coarse(k,j,i);
 
         Real gx2m = (ccval - coarse(k,j-1,i))/dx2m;
@@ -573,7 +573,7 @@ void MeshRefinement::ProlongateSharedFieldX1(
     }
   } else { // 1D
     for (int i=si; i<=ei; i++) {
-      int fi = (i - pmb->active_coarse_cells.x.at(0).s)*2 + pmb->active_cells.x.at(0).s;
+      int fi = (i - pmb->c_cells.x1s(interior))*2 + pmb->cells.x1s(interior);
       fine(0,0,fi) = coarse(0,0,i);
     }
   }
@@ -592,7 +592,7 @@ void MeshRefinement::ProlongateSharedFieldX2(
   auto &pco = pmb->pcoord;
   if (pmb->block_size.nx3 > 1) {
     for (int k=sk; k<=ek; k++) {
-      int fk = (k - pmb->active_coarse_cells.x.at(2).s)*2 + pmb->active_cells.x.at(2).s;
+      int fk = (k - pmb->c_cells.x3s(interior))*2 + pmb->cells.x3s(interior);
       const Real& x3m = pcoarsec->x3s2(k-1);
       const Real& x3c = pcoarsec->x3s2(k);
       const Real& x3p = pcoarsec->x3s2(k+1);
@@ -601,9 +601,9 @@ void MeshRefinement::ProlongateSharedFieldX2(
       const Real& fx3m = pco->x3s2(fk);
       const Real& fx3p = pco->x3s2(fk+1);
       for (int j=sj; j<=ej; j++) {
-        int fj = (j - pmb->active_coarse_cells.x.at(1).s)*2 + pmb->active_cells.x.at(1).s;
+        int fj = (j - pmb->c_cells.x2s(interior))*2 + pmb->cells.x2s(interior);
         for (int i=si; i<=ei; i++) {
-          int fi = (i - pmb->active_coarse_cells.x.at(0).s)*2 + pmb->active_cells.x.at(0).s;
+          int fi = (i - pmb->c_cells.x1s(interior))*2 + pmb->cells.x1s(interior);
           const Real& x1m = pcoarsec->x1s2(i-1);
           const Real& x1c = pcoarsec->x1s2(i);
           const Real& x1p = pcoarsec->x1s2(i+1);
@@ -630,11 +630,11 @@ void MeshRefinement::ProlongateSharedFieldX2(
       }
     }
   } else if (pmb->block_size.nx2 > 1) {
-    int k = pmb->active_coarse_cells.x.at(2).s, fk = pmb->active_cells.x.at(2).s;
+    int k = pmb->c_cells.x3s(interior), fk = pmb->cells.x3s(interior);
     for (int j=sj; j<=ej; j++) {
-      int fj = (j - pmb->active_coarse_cells.x.at(1).s)*2 + pmb->active_cells.x.at(1).s;
+      int fj = (j - pmb->c_cells.x2s(interior))*2 + pmb->cells.x2s(interior);
       for (int i=si; i<=ei; i++) {
-        int fi = (i - pmb->active_coarse_cells.x.at(0).s)*2 + pmb->active_cells.x.at(0).s;
+        int fi = (i - pmb->c_cells.x1s(interior))*2 + pmb->cells.x1s(interior);
         const Real& x1m = pcoarsec->x1s2(i-1);
         const Real& x1c = pcoarsec->x1s2(i);
         const Real& x1p = pcoarsec->x1s2(i+1);
@@ -653,7 +653,7 @@ void MeshRefinement::ProlongateSharedFieldX2(
     }
   } else {
     for (int i=si; i<=ei; i++) {
-      int fi = (i - pmb->active_coarse_cells.x.at(0).s)*2 + pmb->active_cells.x.at(0).s;
+      int fi = (i - pmb->c_cells.x1s(interior))*2 + pmb->cells.x1s(interior);
       Real gxm = (coarse(0,0,i) - coarse(0,0,i-1))
                  /(pcoarsec->x1s2(i) - pcoarsec->x1s2(i-1));
       Real gxp = (coarse(0,0,i+1) - coarse(0,0,i))
@@ -681,9 +681,9 @@ void MeshRefinement::ProlongateSharedFieldX3(
   auto &pco = pmb->pcoord;
   if (pmb->block_size.nx3 > 1) {
     for (int k=sk; k<=ek; k++) {
-      int fk = (k - pmb->active_coarse_cells.x.at(2).s)*2 + pmb->active_cells.x.at(2).s;
+      int fk = (k - pmb->c_cells.x3s(interior))*2 + pmb->cells.x3s(interior);
       for (int j=sj; j<=ej; j++) {
-        int fj = (j - pmb->active_coarse_cells.x.at(1).s)*2 + pmb->active_cells.x.at(1).s;
+        int fj = (j - pmb->c_cells.x2s(interior))*2 + pmb->cells.x2s(interior);
         const Real& x2m = pcoarsec->x2s3(j-1);
         const Real& x2c = pcoarsec->x2s3(j);
         const Real& x2p = pcoarsec->x2s3(j+1);
@@ -692,7 +692,7 @@ void MeshRefinement::ProlongateSharedFieldX3(
         const Real& fx2m = pco->x2s3(fj);
         const Real& fx2p = pco->x2s3(fj+1);
         for (int i=si; i<=ei; i++) {
-          int fi = (i - pmb->active_coarse_cells.x.at(0).s)*2 + pmb->active_cells.x.at(0).s;
+          int fi = (i - pmb->c_cells.x1s(interior))*2 + pmb->cells.x1s(interior);
           const Real& x1m = pcoarsec->x1s3(i-1);
           const Real& x1c = pcoarsec->x1s3(i);
           const Real& x1p = pcoarsec->x1s3(i+1);
@@ -719,9 +719,9 @@ void MeshRefinement::ProlongateSharedFieldX3(
       }
     }
   } else if (pmb->block_size.nx2 > 1) {
-    int k = pmb->active_coarse_cells.x.at(2).s, fk = pmb->active_cells.x.at(2).s;
+    int k = pmb->c_cells.x3s(interior), fk = pmb->cells.x3s(interior);
     for (int j=sj; j<=ej; j++) {
-      int fj = (j - pmb->active_coarse_cells.x.at(1).s)*2 + pmb->active_cells.x.at(1).s;
+      int fj = (j - pmb->c_cells.x2s(interior))*2 + pmb->cells.x2s(interior);
       const Real& x2m = pcoarsec->x2s3(j-1);
       const Real& x2c = pcoarsec->x2s3(j);
       const Real& x2p = pcoarsec->x2s3(j+1);
@@ -732,7 +732,7 @@ void MeshRefinement::ProlongateSharedFieldX3(
       Real dx2fm = x2c - fx2m;
       Real dx2fp = fx2p - x2c;
       for (int i=si; i<=ei; i++) {
-        int fi = (i - pmb->active_coarse_cells.x.at(0).s)*2 + pmb->active_cells.x.at(0).s;
+        int fi = (i - pmb->c_cells.x1s(interior))*2 + pmb->cells.x1s(interior);
         const Real& x1m = pcoarsec->x1s3(i-1);
         const Real& x1c = pcoarsec->x1s3(i);
         const Real& x1p = pcoarsec->x1s3(i+1);
@@ -763,7 +763,7 @@ void MeshRefinement::ProlongateSharedFieldX3(
     }
   } else {
     for (int i=si; i<=ei; i++) {
-      int fi = (i - pmb->active_coarse_cells.x.at(0).s)*2 + pmb->active_cells.x.at(0).s;
+      int fi = (i - pmb->c_cells.x1s(interior))*2 + pmb->cells.x1s(interior);
       Real gxm = (coarse(0,0,i)   - coarse(0,0,i-1))
                  / (pcoarsec->x1s3(i) - pcoarsec->x1s3(i-1));
       Real gxp = (coarse(0,0,i+1) - coarse(0,0,i))
@@ -788,12 +788,12 @@ void MeshRefinement::ProlongateInternalField(
     FaceField &fine, int si, int ei, int sj, int ej, int sk, int ek) {
   MeshBlock *pmb = pmy_block_;
   auto &pco = pmb->pcoord;
-  int fsi = (si - pmb->active_coarse_cells.x.at(0).s)*2 + pmb->active_cells.x.at(0).s, fei = (ei - pmb->active_coarse_cells.x.at(0).s)*2 + pmb->active_cells.x.at(0).s + 1;
+  int fsi = (si - pmb->c_cells.x1s(interior))*2 + pmb->cells.x1s(interior), fei = (ei - pmb->c_cells.x1s(interior))*2 + pmb->cells.x1s(interior) + 1;
   if (pmb->block_size.nx3 > 1) {
     for (int k=sk; k<=ek; k++) {
-      int fk = (k - pmb->active_coarse_cells.x.at(2).s)*2 + pmb->active_cells.x.at(2).s;
+      int fk = (k - pmb->c_cells.x3s(interior))*2 + pmb->cells.x3s(interior);
       for (int j=sj; j<=ej; j++) {
-        int fj = (j - pmb->active_coarse_cells.x.at(1).s)*2 + pmb->active_cells.x.at(1).s;
+        int fj = (j - pmb->c_cells.x2s(interior))*2 + pmb->cells.x2s(interior);
         pco->Face1Area(fk,   fj,   fsi, fei+1, sarea_x1_[0][0]);
         pco->Face1Area(fk,   fj+1, fsi, fei+1, sarea_x1_[0][1]);
         pco->Face1Area(fk+1, fj,   fsi, fei+1, sarea_x1_[1][0]);
@@ -811,7 +811,7 @@ void MeshRefinement::ProlongateInternalField(
         pco->Face3Area(fk+2, fj,   fsi, fei,   sarea_x3_[2][0]);
         pco->Face3Area(fk+2, fj+1, fsi, fei,   sarea_x3_[2][1]);
         for (int i=si; i<=ei; i++) {
-          int fi = (i - pmb->active_coarse_cells.x.at(0).s)*2 + pmb->active_cells.x.at(0).s;
+          int fi = (i - pmb->c_cells.x1s(interior))*2 + pmb->cells.x1s(interior);
           Real Uxx = 0.0, Vyy = 0.0, Wzz = 0.0;
           Real Uxyz = 0.0, Vxyz = 0.0, Wxyz = 0.0;
 #pragma unroll
@@ -903,16 +903,16 @@ void MeshRefinement::ProlongateInternalField(
       }
     }
   } else if (pmb->block_size.nx2 > 1) {
-    int fk = pmb->active_cells.x.at(2).s;
+    int fk = pmb->cells.x3s(interior);
     for (int j=sj; j<=ej; j++) {
-      int fj = (j - pmb->active_coarse_cells.x.at(1).s)*2 + pmb->active_cells.x.at(1).s;
+      int fj = (j - pmb->c_cells.x2s(interior))*2 + pmb->cells.x2s(interior);
       pco->Face1Area(fk,   fj,   fsi, fei+1, sarea_x1_[0][0]);
       pco->Face1Area(fk,   fj+1, fsi, fei+1, sarea_x1_[0][1]);
       pco->Face2Area(fk,   fj,   fsi, fei,   sarea_x2_[0][0]);
       pco->Face2Area(fk,   fj+1, fsi, fei,   sarea_x2_[0][1]);
       pco->Face2Area(fk,   fj+2, fsi, fei,   sarea_x2_[0][2]);
       for (int i=si; i<=ei; i++) {
-        int fi = (i - pmb->active_coarse_cells.x.at(0).s)*2 + pmb->active_cells.x.at(0).s;
+        int fi = (i - pmb->c_cells.x1s(interior))*2 + pmb->cells.x1s(interior);
         Real tmp1 = 0.25*(fine.x2f(fk,fj+2,fi+1)*sarea_x2_[0][2](fi+1)
                           - fine.x2f(fk,fj,  fi+1)*sarea_x2_[0][0](fi+1)
                           - fine.x2f(fk,fj+2,fi  )*sarea_x2_[0][2](fi  )
@@ -942,7 +942,7 @@ void MeshRefinement::ProlongateInternalField(
   } else {
     pco->Face1Area(0, 0, fsi, fei+1, sarea_x1_[0][0]);
     for (int i=si; i<=ei; i++) {
-      int fi = (i - pmb->active_coarse_cells.x.at(0).s)*2 + pmb->active_cells.x.at(0).s;
+      int fi = (i - pmb->c_cells.x1s(interior))*2 + pmb->cells.x1s(interior);
       Real ph = sarea_x1_[0][0](fi)*fine.x1f(0,0,fi);
       fine.x1f(0,0,fi+1) = ph/sarea_x1_[0][0](fi+1);
     }
