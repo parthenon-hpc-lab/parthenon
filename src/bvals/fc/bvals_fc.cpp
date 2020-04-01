@@ -248,15 +248,17 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(Real *buf,
   int cis, cie, cjs, cje, cks, cke;
   pmb->c_cells.GetIndices(interior,cis,cie,cjs,cje,cks,cke);
   // bx1
-  if (nb.ni.ox1 == 0)     si = cis,       ei = cie + 1;
+  // clang-format off
+  if (nb.ni.ox1 == 0)     si = cis,         ei = cie + 1;
   else if (nb.ni.ox1 > 0) si = cie-cng + 1, ei = cie;
-  else              si = cis + 1,     ei = cis + cng;
-  if (nb.ni.ox2 == 0)     sj = cjs,       ej = cje;
+  else                    si = cis + 1,     ei = cis + cng;
+  if (nb.ni.ox2 == 0)     sj = cjs,         ej = cje;
   else if (nb.ni.ox2 > 0) sj = cje-cng + 1, ej = cje;
-  else              sj = cjs,       ej = cjs + cng-1;
-  if (nb.ni.ox3 == 0)     sk = cks,       ek = cke;
+  else                    sj = cjs,         ej = cjs + cng-1;
+  if (nb.ni.ox3 == 0)     sk = cks,         ek = cke;
   else if (nb.ni.ox3 > 0) sk = cke-cng + 1, ek = cke;
-  else              sk = cks,       ek = cks + cng-1;
+  else                    sk = cks,         ek = cks + cng-1;
+  // clang-format on
   // include the overlapping faces in edge and corner boundaries
   if (nb.ni.type != NeighborConnect::face) {
     if (nb.ni.ox1 > 0) ei++;
@@ -266,17 +268,19 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(Real *buf,
   BufferUtility::PackData(coarse_buf.x1f, buf, si, ei, sj, ej, sk, ek, p);
 
   // bx2
-  if (nb.ni.ox1 == 0)      si = cis,       ei = cie;
-  else if (nb.ni.ox1 > 0)  si = cie-cng + 1, ei = cie;
-  else               si = cis,       ei = cis + cng-1;
-  if (pmb->block_size.nx2 == 1) sj = cjs, ej = cje;
-  else if (nb.ni.ox2 == 0) sj = cjs,       ej = cje + 1;
-  else if (nb.ni.ox2 > 0)  sj = cje-cng + 1, ej = cje;
-  else               sj = cjs + 1,     ej = cjs + cng;
+  // clang-format off
+  if (nb.ni.ox1 == 0)           si = cis,         ei = cie;
+  else if (nb.ni.ox1 > 0)       si = cie-cng + 1, ei = cie;
+  else                          si = cis,         ei = cis + cng-1;
+  if (pmb->block_size.nx2 == 1) sj = cjs,         ej = cje;
+  else if (nb.ni.ox2 == 0)      sj = cjs,         ej = cje + 1;
+  else if (nb.ni.ox2 > 0)       sj = cje-cng + 1, ej = cje;
+  else                          sj = cjs + 1,     ej = cjs + cng;
   if (nb.ni.type != NeighborConnect::face) {
-    if (nb.ni.ox2 > 0) ej++;
+    if (nb.ni.ox2 > 0)      ej++;
     else if (nb.ni.ox2 < 0) sj--;
   }
+  // clang-format on
   pmr->RestrictFieldX2((*var_fc).x2f, coarse_buf.x2f, si, ei, sj, ej, sk, ek);
   if (pmb->block_size.nx2 == 1) { // 1D
     for (int i=si; i<=ei; i++)
@@ -285,17 +289,19 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(Real *buf,
   BufferUtility::PackData(coarse_buf.x2f, buf, si, ei, sj, ej, sk, ek, p);
 
   // bx3
-  if (nb.ni.ox2 == 0)      sj = cjs,       ej = cje;
-  else if (nb.ni.ox2 > 0)  sj = cje-cng + 1, ej = cje;
-  else               sj = cjs,       ej = cjs + cng-1;
-  if (pmb->block_size.nx3 == 1) sk = cks,  ek = cke;
-  else if (nb.ni.ox3 == 0) sk = cks,       ek = cke + 1;
-  else if (nb.ni.ox3 > 0)  sk = cke-cng + 1, ek = cke;
-  else               sk = cks + 1,     ek = cks + cng;
+  // clang-format off
+  if (nb.ni.ox2 == 0)           sj = cjs,         ej = cje;
+  else if (nb.ni.ox2 > 0)       sj = cje-cng + 1, ej = cje;
+  else                          sj = cjs,         ej = cjs + cng-1;
+  if (pmb->block_size.nx3 == 1) sk = cks,         ek = cke;
+  else if (nb.ni.ox3 == 0)      sk = cks,         ek = cke + 1;
+  else if (nb.ni.ox3 > 0)       sk = cke-cng + 1, ek = cke;
+  else                          sk = cks + 1,     ek = cks + cng;
   if (nb.ni.type != NeighborConnect::face) {
-    if (nb.ni.ox3 > 0) ek++;
+    if (nb.ni.ox3 > 0)      ek++;
     else if (nb.ni.ox3 < 0) sk--;
   }
+  // clang-format on
   pmr->RestrictFieldX3((*var_fc).x3f, coarse_buf.x3f, si, ei, sj, ej, sk, ek);
   if (pmb->block_size.nx3 == 1) { // 1D or 2D
     for (int j=sj; j<=ej; j++) {
