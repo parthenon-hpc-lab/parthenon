@@ -223,7 +223,6 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferToFiner(Real *buf,
   return p;
 }
 
-
 //----------------------------------------------------------------------------------------
 //! \fn void CellCenteredBoundaryVariable::SetBoundarySameLevel(Real *buf,
 //                                                              const NeighborBlock& nb)
@@ -236,38 +235,23 @@ void CellCenteredBoundaryVariable::SetBoundarySameLevel(Real *buf,
   AthenaArray<Real> &var = *var_cc;
 
   const IndexShape & cells = pmb->cells;
-  if (nb.ni.ox1 == 0)  {
-    si = cells.x1s(interior);
-    ei = cells.x1e(interior);
-  } else if (nb.ni.ox1 > 0) {
-    si = cells.x1e(interior) + 1;
-    ei = cells.x1e(interior) + NGHOST;
-  } else {
-    si = cells.x1s(interior) - NGHOST;
-    ei = cells.x1s(interior) - 1;
-  }
 
-  if (nb.ni.ox2 == 0) {
-    sj = cells.x2s(interior);
-    ej = cells.x2e(interior);
-  }else if (nb.ni.ox2 > 0) {
-    sj = cells.x2e(interior) + 1;
-    ej = cells.x2e(interior) + NGHOST;
-  }else {
-    sj = cells.x2s(interior) - NGHOST;
-    ej = cells.x2s(interior) - 1;
-  }
+  auto CalcIndices = [](int ox,int &s, int &e, const int & cell_s, const int & cell_e){
+    if( ox == 0 ){
+      s = cell_s; 
+      e = cell_e; 
+    }else if (ox > 0 ) {
+      s = cell_e + 1;
+      e = cell_e + NGHOST; 
+    } else {
+      s = cell_s - NGHOST;
+      e = cell_s - 1; 
+    } 
+  };
 
-  if (nb.ni.ox3 == 0) {
-    sk = cells.x3s(interior);
-    ek = cells.x3e(interior);
-  } else if (nb.ni.ox3 > 0) {
-    sk = cells.x3e(interior) + 1;
-    ek = cells.x3e(interior) + NGHOST;
-  }else {
-    sk = cells.x3s(interior) - NGHOST;
-    ek = cells.x3s(interior) - 1;
-  }
+  CalcIndices(nb.ni.ox1, si, ei, cells.x1s(interior), cells.x1e(interior));
+  CalcIndices(nb.ni.ox2, sj, ej, cells.x2s(interior), cells.x2e(interior));
+  CalcIndices(nb.ni.ox3, sk, ek, cells.x3s(interior), cells.x3e(interior));
 
   int p = 0;
 
