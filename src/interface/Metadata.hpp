@@ -248,9 +248,9 @@ class Metadata {
     auto const &a = *this;
 
     // Check extra bits are unset
-    auto const max_bits = std::max(a.bits_.size(), b.bits_.size());
+    auto const min_bits = std::min(a.bits_.size(), b.bits_.size());
     auto const &longer = a.bits_.size() > b.bits_.size() ? a.bits_ : b.bits_;
-    for (auto i = max_bits; i < longer.size(); i++) {
+    for (auto i = min_bits; i < longer.size(); i++) {
       if (longer[i]) {
         // Bits are default false, so if any bit in the extraneous portion of the longer
         // bit list is set, then it cannot be equal to a.
@@ -258,7 +258,7 @@ class Metadata {
       }
     }
 
-    for (size_t i = 0; i < max_bits; i++) {
+    for (size_t i = 0; i < min_bits; i++) {
       if (a.bits_[i] != b.bits_[i]) {
         return false;
       }
