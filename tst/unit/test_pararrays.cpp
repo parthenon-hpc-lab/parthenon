@@ -52,10 +52,10 @@ KOKKOS_INLINE_FUNCTION Real coord(const int i, const int n) {
 
 KOKKOS_INLINE_FUNCTION Real gaussian(const int iz, const int iy, const int ix,
                                      const int nz, const int ny, const int nx) {
-  Real x = coord(ix,nx);
-  Real y = coord(iy,ny);
-  Real z = coord(iz,nz);
-  Real r2 = x*x + y*y + z*z;
+  const Real x = coord(ix,nx);
+  const Real y = coord(iy,ny);
+  const Real z = coord(iz,nz);
+  const Real r2 = x*x + y*y + z*z;
   return exp(-r2);
 }
 
@@ -350,7 +350,7 @@ TEST_CASE("Time simple stencil operations") {
     std::cout << "simd range:" << std::endl;
     profile_wrapper_3d(parthenon::loop_pattern_simdfor_tag);
   }
-#endif
+#endif // !KOKKOS_ENABLE_CUDA
 }
 
 TEST_CASE("Check registry pressure","[ParArrayND]") {
@@ -389,7 +389,8 @@ TEST_CASE("Check registry pressure","[ParArrayND]") {
     for (int k = 0; k < N; k++) {
       for (int j = 0; j < N; j++) {
         for (int i = 0; i < N; i++) {
-          a_h(k,j,i) = v_h(k,j,i) = dis(gen);
+          a_h(k,j,i) = dis(gen);
+          v_h(k,j,i) = dis(gen);
         }
       }
     }
@@ -421,7 +422,7 @@ TEST_CASE("Check registry pressure","[ParArrayND]") {
                      });
   Kokkos::fence();
   auto time_arrays = timer.seconds();
-  std::cout << "Times for registry pressure test:\n"
+  std::cout << "Times for register pressure test:\n"
             << "\traw views   = " << time_views << " s\n"
             << "\tND arrays   = " << time_arrays << " s\n"
             << std::endl;

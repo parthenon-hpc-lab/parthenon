@@ -1,7 +1,7 @@
 # Parthenon Arbitrary-Dimensional Arrays
 
 `ParArrayND` is a wrapper around a rank 6 `Kokkos::View`. It provides
-a rank-agnostic way to create, managed, and carry
+a rank-agnostic way to create, manage, and carry
 `Kokkos::Views`. Since it is built on `Kokkos::View`, it is reference
 counted, works on GPUs, and is almost as performant as `Kokkos::View`.
 
@@ -25,9 +25,8 @@ assumed to be zero.
 
 ### Slicing
 
-You can slice a `ParArrayND` using the
-`ParArrayND.Slice(Args...args)`. It takes the same arguments for
-slicing as `Kokkos::subview`.
+You can slice a `ParArrayND` using `ParArrayND.Slice(Args...args)`. It
+takes the same arguments for slicing as `Kokkos::subview`.
 
 You can also slice with a syntax closer to `AthenArray`'s
 `InitWithShallowSlice`. It's called `SliceD`. It is templated on the
@@ -63,7 +62,7 @@ auto my_mirror = my_array.GetMirror(my_memory_space());
 my_mirror.DeepCopy(my_array);
 ```
 `ParArrayND` provides two convenience functions, `GetHostMirror()` and
-`GetDeviceMirror()` which put a mirror on the host or the device
+`GetDeviceMirror()` which put a mirror on the host and device
 respectively.
 
 ### A note on templates
