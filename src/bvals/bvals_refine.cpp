@@ -354,18 +354,20 @@ void BoundaryValues::ProlongateGhostCells(const NeighborBlock& nb,
   // now that the ghost-ghost zones are filled and prolongated,
   // calculate the loop limits for the finer grid
   int fsi, fei, fsj, fej, fsk, fek;
-  fsi = (si - pmb->c_cells.x1s(interior))*2 + pmb->cells.x1s(interior);
-  fei = (ei - pmb->c_cells.x1s(interior))*2 + pmb->cells.x1s(interior) + 1;
+  int cis, cie, cjs, cje, cks, cke;
+  pmb->c_cells.GetIndices(interior,cis,cie,cjs,cje,cks,cke);
+  fsi = (si - cis)*2 + js;
+  fei = (ei - cis)*2 + pmb->cells.x1s(interior) + 1;
   if (pmb->block_size.nx2 > 1) {
-    fsj = (sj - pmb->c_cells.x2s(interior))*2 + pmb->cells.x2s(interior);
-    fej = (ej - pmb->c_cells.x2s(interior))*2 + pmb->cells.x2s(interior) + 1;
+    fsj = (sj - cjs)*2 + pmb->cells.x2s(interior);
+    fej = (ej - cjs)*2 + pmb->cells.x2s(interior) + 1;
   } else {
     fsj = pmb->cells.x2s(interior);
     fej = pmb->cells.x2e(interior);
   }
   if (pmb->block_size.nx3 > 1) {
-    fsk = (sk - pmb->c_cells.x3s(interior))*2 + pmb->cells.x3s(interior);
-    fek = (ek - pmb->c_cells.x3s(interior))*2 + pmb->cells.x3s(interior) + 1;
+    fsk = (sk - cks)*2 + pmb->cells.x3s(interior);
+    fek = (ek - cks)*2 + pmb->cells.x3s(interior) + 1;
   } else {
     fsk = pmb->cells.x3s(interior);
     fek = pmb->cells.x3e(interior);
