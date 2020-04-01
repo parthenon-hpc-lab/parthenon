@@ -113,10 +113,54 @@ class MeshBlock {
   LogicalLocation loc;
   RegionSize block_size;
   // for convenience: "max" # of real+ghost cells along each dir for allocating "standard"
-  // sized MeshBlock arrays, depending on ndim (i.e. ncells2=nx2+2*NGHOST if nx2>1)
+  // sized MeshBlock arrays, depending on ndim i.e.
+  //
+  // cells.nx2 =    nx2      + 2*NGHOST if   nx2 > 1
+  // (entire)    (interior)               (interior)
+  //  
+  // Assuming we have a block cells, and nx2 = 6, and NGHOST = 1
+  //
+  // <----- nx1 = 8 ---->
+  //       (entire)
+  //
+  //     <- nx1 = 6 ->
+  //       (interior)
+  //
+  //  - - - - - - - - - -   ^
+  //  |  |  ghost    |  |   | 
+  //  - - - - - - - - - -   |         ^
+  //  |  |     ^     |  |   |         |
+  //  |  |     |     |  |  nx2 = 8    nx2 = 6 
+  //  |  | interior  |  | (entire)   (interior)
+  //  |  |     |     |  |             |
+  //  |  |     v     |  |   |         v 
+  //  - - - - - - - - - -   |
+  //  |  |           |  |   | 
+  //  - - - - - - - - - -   v 
+  //
   IndexShape cells;
+  // on 1x coarser level MeshBlock i.e. 
+  //
+  // c_cells.nx2 = cells.nx2 * 1/2 + 2*NGHOST, if  cells.nx2 >1
+  //   (entire)    (interior)                     (interior)
+  //
+  // Assuming we have a block cells, and nx2 = 6, and NGHOST = 1
+  //
+  //          cells                              c_cells
+  //
+  //  - - - - - - - - - -   ^              - - - - - - - - - -     ^
+  //  |  |           |  |   |              |  |           |  |     |
+  //  - - - - - - - - - -   |              - - - - - - - - - -     | 
+  //  |  |     ^     |  |   |              |  |      ^    |  |     |
+  //  |  |     |     |  |   |              |  |      |    |  |     |
+  //  |  |  nx1 = 6  |  |  nx1 = 8  ====>  |  |   nx1 = 3 |  |   nx1 = 5
+  //  |  |(interior) |  |  (entire)        |  | (interior)|  |  (entire)
+  //  |  |     v     |  |   |              |  |      v    |  |     |
+  //  - - - - - - - - - -   |              - - - - - - - - - -     |
+  //  |  |           |  |   |              |  |           |  |     |
+  //  - - - - - - - - - -   v              - - - - - - - - - -     v 
+  //
   IndexShape c_cells; 
-  // on 1x coarser level MeshBlock (i.e. ncc2=nx2/2 + 2*NGHOST, if nx2>1)
   int gid, lid;
   int cnghost;
   int gflag;
