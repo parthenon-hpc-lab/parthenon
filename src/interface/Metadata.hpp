@@ -252,7 +252,7 @@ class Metadata {
     auto const &longer = a.bits_.size() > b.bits_.size() ? a.bits_ : b.bits_;
     for (auto i = max_bits; i < longer.size(); i++) {
       if (longer[i]) {
-        // Bits are default fault, so if any bit in the extraneous portion of the longer
+        // Bits are default false, so if any bit in the extraneous portion of the longer
         // bit list is set, then it cannot be equal to a.
         return false;
       }
