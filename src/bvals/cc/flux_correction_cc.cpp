@@ -63,11 +63,13 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
     if (nb.snb.level == pmb->loc.level - 1) {
       int is, ie, js, je, ks, ke;
       pmb->cells.GetIndices(interior,is,ie,js,je,ks,ke);
+      int nx1, nx2, nx3;
+      pmb->cells.GetNx(interior,nx1,nx2,nx3);
       int p = 0;
       Real *sbuf = bd_var_flcor_.send[nb.bufid];
       // x1 direction
       if (nb.fid == BoundaryFace::inner_x1 || nb.fid == BoundaryFace::outer_x1) {
-        int i = is + (ie - is + 1)*nb.fid;
+        int i = is + nx1*nb.fid;
         if (pmb->block_size.nx3>1) { // 3D
           for (int nn=nl_; nn<=nu_; nn++) {
             for (int k=ks; k<=ke; k+=2) {
@@ -101,7 +103,7 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
         }
         // x2 direction
       } else if (nb.fid == BoundaryFace::inner_x2 || nb.fid == BoundaryFace::outer_x2) {
-        int j = js + (je - js + 1)*(nb.fid & 1);
+        int j = js + nx2*(nb.fid & 1);
         if (pmb->block_size.nx3>1) { // 3D
           for (int nn=nl_; nn<=nu_; nn++) {
             for (int k=ks; k<=ke; k+=2) {
@@ -129,7 +131,7 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
         }
         // x3 direction - 3D onl_y
       } else if (nb.fid == BoundaryFace::inner_x3 || nb.fid == BoundaryFace::outer_x3) {
-        int k = ks + (ke - ks + 1)*(nb.fid & 1);
+        int k = ks + nx3*(nb.fid & 1);
         for (int nn=nl_; nn<=nu_; nn++) {
           for (int j=js; j<=je; j+=2) {
             pco->Face3Area(k, j,   is, ie, sarea0);
