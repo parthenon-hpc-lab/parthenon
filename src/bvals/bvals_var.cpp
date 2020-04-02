@@ -83,7 +83,6 @@ void BoundaryVariable::InitBoundaryData(BoundaryData<> &bd, BoundaryQuantity typ
           << "Invalid boundary type is specified." << std::endl;
       ATHENA_ERROR(msg);
     }
-    if (size <= 0) std::cerr << "SIZE = " << size << std::endl;
     bd.send[n] = new Real[size];
     bd.recv[n] = new Real[size];
   }
