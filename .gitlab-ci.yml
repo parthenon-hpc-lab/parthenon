@@ -44,7 +44,7 @@ parthenon-cuda-short:
       ../ && make -j${J} && make -j${J} test
   artifacts:
     paths:
-      - /builds/pgrete/parthenon/build-cuda/CMakeFiles/CMakeOutput.log
+      - build-cuda/CMakeFiles/CMakeOutput.log
 
 # run short suite on CPUs
 parthenon-cpu-short:
@@ -59,4 +59,4 @@ parthenon-cpu-short:
       ../ && make -j${J} && make test
   artifacts:
     paths:
-      - /builds/pgrete/parthenon/build/CMakeFiles/CMakeOutput.log
+      - build/CMakeFiles/CMakeOutput.log
