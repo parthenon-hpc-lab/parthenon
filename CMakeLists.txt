@@ -22,6 +22,7 @@ option(ENABLE_REGRESSION_TESTS "Enable regression tests" ${BUILD_TESTING})
 option(DISABLE_MPI "MPI is enabled by default if found, set this to True to disable MPI" OFF)
 option(DISABLE_OPENMP "OpenMP is enabled by default if found, set this to True to disable OpenMP" OFF)
 option(DISABLE_HDF5 "HDF5 is enabled by default if found, set this to True to disable HDF5" OFF)
+option(ENABLE_COMPILER_WARNINGS "Enable compiler warnings")
 option(CHECK_REGISTRY_PRESSURE "Check the registry pressure for Kokkos CUDA kernels" OFF)
 option(TEST_INTEL_OPTIMIZATION "Test intel optimization and vectorization" OFF)
 
@@ -102,11 +103,33 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Tell Kokkos to vectorize aggressively
 # Kokkos prefers this capitalization for debugging reasons
-SET (Kokkos_ENABLE_AGGRESSIVE_VECTORIZATION ON CACHE BOOL "")
+SET (Kokkos_ENABLE_AGGRESSIVE_VECTORIZATION ON CACHE BOOL
+     "Kokkos aggressive vectorization")
 
 # Tell Kokkos we need lambdas in Cuda.
 if (Kokkos_ENABLE_CUDA)
-  SET (Kokkos_ENABLE_CUDA_LAMBDA ON CACHE BOOL "")
+  SET (Kokkos_ENABLE_CUDA_LAMBDA ON CACHE BOOL)
+endif()
+
+# If we are in debug mode, set kokkos debug on
+# Using a generator expression because CMAKE_BUILD_TYPE
+# is not always respected. See:
+# https://mesos.apache.org/documentation/latest/cmake/#checking-cmake_build_type
+set(Kokkos_ENABLE_DEBUG $<$<CONFIG:Debug>:True> CACHE BOOL
+    "Broad Kokkos debug mode")
+set(Kokkos_ENABLE_DEBUG_BOUNDS_CHECK $<$<CONFIG:Debug>:True> CACHE BOOL
+    "Bounds checking on Kokkos views")
+set(Kokkos_ENABLE_DEBUG_DUALVIEW_MODIFY_CHECK $<$<CONFIG:Debug>:True> CACHE BOOL
+    "Sanity checks on Kokkos DualView")
+if (Kokkos_ENABLE_DEBUG)
+  message(STATUS "Enabling Kokkos debug mode")
+endif()
+
+if (ENABLE_COMPILER_WARNINGS)
+  message(STATUS "Enabling -Wall and setting Kokkos_ENABLE_COMPILER_WARNINGS=True")
+  set(Kokkos_ENABLE_COMPILER_WARNINGS True CACHE BOOL
+      "Make the compiler warn us about things")
+  add_compile_options(-Wall)
 endif()
 
 if(EXISTS ${Kokkos_ROOT}/CMakeLists.txt)

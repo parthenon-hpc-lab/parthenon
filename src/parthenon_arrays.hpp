@@ -164,34 +164,28 @@ class ParArrayNDGeneric {
   // and the code slows down by a factor of 5.
   KOKKOS_FORCEINLINE_FUNCTION
   auto &operator() (const int n) const {
-    assert( n >= 0 );
     return d6d_(0,0,0,0,0,n);
   }
   KOKKOS_FORCEINLINE_FUNCTION
   auto &operator() (const int n, const int i) const {
-    assert( n >= 0 && i >= 0 );
     return d6d_(0,0,0,0,n,i);
   }
   KOKKOS_FORCEINLINE_FUNCTION
   auto &operator() (const int n, const int j, const int i) const {
-    assert( n >= 0 && j >= 0 && i >= 0 );
     return d6d_(0,0,0,n,j,i);
   }
   KOKKOS_FORCEINLINE_FUNCTION
   auto &operator() (const int n, const int k, const int j, const int i) const {
-    assert( n >= 0 && k >= 0 && j >= 0 && i >= 0 );
     return d6d_(0,0,n,k,j,i);
   }
   KOKKOS_FORCEINLINE_FUNCTION
   auto &operator() (const int m, const int n, const int k,
                     const int j, const int i) const {
-    assert( m >= 0 && n >= 0 && k >= 0 && j >= 0 && i >= 0 );
     return d6d_(0,m,n,k,j,i);
   }
   KOKKOS_FORCEINLINE_FUNCTION
   auto &operator() (const int p, const int m, const int n,
                     const int k, const int j, const int i) const {
-    assert( p >= 0 && m >= 0 && n >= 0 && k >= 0 && j >= 0 && i >= 0 );
     return d6d_(p,m,n,k,j,i);
   }
   template<typename...Args>

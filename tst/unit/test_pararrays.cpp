@@ -35,7 +35,7 @@ using parthenon::ParArrayND;
 using parthenon::ParArray3D;
 using Real = double;
 
-constexpr int NG = 2;
+constexpr int NG = 1; // six-point stencil requires one ghost zone
 constexpr int N = 32 + 2*NG;
 constexpr int NT = 100;
 constexpr int NARRAYS = 64;
@@ -45,6 +45,9 @@ using UVMSpace = Kokkos::CudaUVMSpace;
 #else // all on host
 using UVMSpace = DevSpace;
 #endif
+
+using policy3d = Kokkos::MDRangePolicy<Kokkos::Rank<3>>;
+using policy2d = Kokkos::MDRangePolicy<Kokkos::Rank<2>>;
 
 KOKKOS_INLINE_FUNCTION Real coord(const int i, const int n) {
   const Real dx = 2.0/(n-1.0);
@@ -200,8 +203,7 @@ TEST_CASE("ParArrayND","[ParArrayND],[Kokkos]") {
       a.DeepCopy(mirror);
       THEN("the sum of the lower three indices is correct") {
         int sum_device = 0;
-        using policy = Kokkos::MDRangePolicy<Kokkos::Rank<3>>;
-        Kokkos::parallel_reduce(policy({0,0,0}, {N3,N2,N1}),
+        Kokkos::parallel_reduce(policy3d({0,0,0}, {N3,N2,N1}),
                                 KOKKOS_LAMBDA(const int k, const int j,
                                               const int i,
                                               int& update) {
@@ -211,8 +213,8 @@ TEST_CASE("ParArrayND","[ParArrayND],[Kokkos]") {
         REQUIRE( sum_host == sum_device );
       }
       THEN("the sum of the lower TWO indices is correct") {
-        int sum_host = 0;
-        int n = 0;
+        sum_host = 0;
+        n = 0;
         for (int j = 0; j < N2; j++) {
           for (int i = 0; i < N1; i++) {
             sum_host += n;
@@ -220,8 +222,7 @@ TEST_CASE("ParArrayND","[ParArrayND],[Kokkos]") {
           }
         }
         int sum_device = 0;
-        using policy = Kokkos::MDRangePolicy<Kokkos::Rank<2>>;
-        Kokkos::parallel_reduce(policy({0,0}, {N2,N1}),
+        Kokkos::parallel_reduce(policy2d({0,0}, {N2,N1}),
                                 KOKKOS_LAMBDA(const int j, const int i,
                                               int& update) {
                                   update += a(j,i);
@@ -230,9 +231,8 @@ TEST_CASE("ParArrayND","[ParArrayND],[Kokkos]") {
         REQUIRE( sum_host == sum_device );
         AND_THEN("We can get a raw 2d subview and it works the same way.") {
           auto v2d = a.Get<2>();
-          int sum_device = 0;
-          using policy = Kokkos::MDRangePolicy<Kokkos::Rank<2>>;
-          Kokkos::parallel_reduce(policy({0,0}, {N2,N1}),
+          sum_device = 0;
+          Kokkos::parallel_reduce(policy2d({0,0}, {N2,N1}),
                                   KOKKOS_LAMBDA(const int j, const int i,
                                                 int& update) {
                                     update += v2d(j,i);
@@ -247,8 +247,7 @@ TEST_CASE("ParArrayND","[ParArrayND],[Kokkos]") {
         auto b = a.SliceD<3>(1,2); // indx,nvar
         AND_THEN("slices have correct values.") {
           int total_errors = 1; // != 0
-          using policy = Kokkos::MDRangePolicy<Kokkos::Rank<3>>;
-          Kokkos::parallel_reduce(policy({0,0,0}, {2,N2,N1}),
+          Kokkos::parallel_reduce(policy3d({0,0,0}, {2,N2,N1}),
                                   KOKKOS_LAMBDA(const int k,
                                                 const int j,
                                                 const int i,
@@ -289,8 +288,7 @@ TEST_CASE("ParArrayND with LayoutLeft","[ParArrayND],[Kokkos],[LayoutLeft]") {
       a.DeepCopy(mirror);
       THEN("the sum of the lower three indices is correct") {
         int sum_device = 0;
-        using policy = Kokkos::MDRangePolicy<Kokkos::Rank<3>>;
-        Kokkos::parallel_reduce(policy({0,0,0}, {N3,N2,N1}),
+        Kokkos::parallel_reduce(policy3d({0,0,0}, {N3,N2,N1}),
                                 KOKKOS_LAMBDA(const int k, const int j,
                                               const int i,
                                               int& update) {
@@ -305,8 +303,7 @@ TEST_CASE("ParArrayND with LayoutLeft","[ParArrayND],[Kokkos],[LayoutLeft]") {
         auto b = a.SliceD<3>(1,2); // indx,nvar
         AND_THEN("slices have correct values.") {
           int total_errors = 1; // != 0
-          using policy = Kokkos::MDRangePolicy<Kokkos::Rank<3>>;
-          Kokkos::parallel_reduce(policy({0,0,0}, {2,N2,N1}),
+          Kokkos::parallel_reduce(policy3d({0,0,0}, {2,N2,N1}),
                                   KOKKOS_LAMBDA(const int k,
                                                 const int j,
                                                 const int i,
