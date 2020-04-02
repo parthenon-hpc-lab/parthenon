@@ -7,8 +7,9 @@ before_script:
     - export OMP_NUM_THREADS=1
     - export CMAKE_VERSION=3.10.3
     - export CTEST_OUTPUT_ON_FAILURE=1
+    - export J=$(nproc --all) && echo Using ${J} cores during build
     - wget -qO- http://www.cmake.org/files/v${CMAKE_VERSION:0:4}/cmake-${CMAKE_VERSION}-Linux-x86_64.tar.gz | tar -xz
-    - export PATH=$(pwd)/cmake-${CMAKE_VERSION}-Linux-x86_64/bin:$PATH
+    - export PATH=${PWD}/cmake-${CMAKE_VERSION}-Linux-x86_64/bin:$PATH
   
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
@@ -38,8 +39,8 @@ parthenon-cuda-short:
     - cmake -DCMAKE_BUILD_TYPE=Debug -DHDF5_ROOT=/usr/local/hdf5/parallel
       -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
       -DKokkos_ENABLE_CUDA=True -DKokkos_ARCH_PASCAL61=True
-      -DCMAKE_CXX_COMPILER=$(pwd)/../external/Kokkos/bin/nvcc_wrapper
-      ../ && make && make test
+      -DCMAKE_CXX_COMPILER=${PWD}/../external/Kokkos/bin/nvcc_wrapper
+      ../ && make -j${J} && make -j${J} test
 
 # run short suite on CPUs
 parthenon-cpu-short:
@@ -51,5 +52,4 @@ parthenon-cpu-short:
     - cd build
     - cmake -DCMAKE_BUILD_TYPE=Debug -DHDF5_ROOT=/usr/local/hdf5/parallel
       -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
-      ../ && make && make test
-
+      ../ && make -j${J} && make test
