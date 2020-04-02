@@ -46,10 +46,10 @@ namespace parthenon {
 // constructor
 
 CellCenteredBoundaryVariable::CellCenteredBoundaryVariable(
-    MeshBlock *pmb, ParArrayND<Real> *var, ParArrayND<Real> *coarse_var,
+    MeshBlock *pmb, ParArrayND<Real> var, ParArrayND<Real> coarse_var,
     ParArrayND<Real> *var_flux)
     : BoundaryVariable(pmb), var_cc(var), coarse_buf(coarse_var), x1flux(var_flux[X1DIR]),
-      x2flux(var_flux[X2DIR]), x3flux(var_flux[X3DIR]), nl_(0), nu_(var->GetDim(4) -1) {
+      x2flux(var_flux[X2DIR]), x3flux(var_flux[X3DIR]), nl_(0), nu_(var.GetDim(4) -1) {
   // CellCenteredBoundaryVariable should only be used w/ 4D or 3D (nx4=1) ParArrayND
   // For now, assume that full span of 4th dim of input ParArrayND should be used:
   // ---> get the index limits directly from the input ParArrayND
@@ -57,7 +57,7 @@ CellCenteredBoundaryVariable::CellCenteredBoundaryVariable(
   if (nu_ < 0) {
     std::stringstream msg;
     msg << "### FATAL ERROR in CellCenteredBoundaryVariable constructor" << std::endl
-        << "An 'ParArrayND<Real> *var' of nx4_ = " << var->GetDim(4) << " was passed\n"
+        << "An 'ParArrayND<Real> *var' of nx4_ = " << var.GetDim(4) << " was passed\n"
         << "Should be nx4 >= 1 (likely uninitialized)." << std::endl;
     ATHENA_ERROR(msg);
   }
@@ -139,8 +139,7 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(Real *buf,
   sk = (nb.ni.ox3 > 0) ? (pmb->ke - NGHOST + 1) : pmb->ks;
   ek = (nb.ni.ox3 < 0) ? (pmb->ks + NGHOST - 1) : pmb->ke;
   int p = 0;
-  ParArrayND<Real> &var = *var_cc;
-  BufferUtility::PackData(var, buf, nl_, nu_, si, ei, sj, ej, sk, ek, p);
+  BufferUtility::PackData(var_cc, buf, nl_, nu_, si, ei, sj, ej, sk, ek, p);
 
   return p;
 }
@@ -155,8 +154,8 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(Real *buf,
   MeshBlock *pmb = pmy_block_;
   int si, sj, sk, ei, ej, ek;
   int cn = NGHOST - 1;
-  ParArrayND<Real> &var = *var_cc;
-  ParArrayND<Real> &coarse_var = *coarse_buf;
+  //ParArrayND<Real> &var = *var_cc;
+  //ParArrayND<Real> &coarse_var = *coarse_buf;
 
   si = (nb.ni.ox1 > 0) ? (pmb->cie - cn) : pmb->cis;
   ei = (nb.ni.ox1 < 0) ? (pmb->cis + cn) : pmb->cie;
@@ -166,8 +165,8 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(Real *buf,
   ek = (nb.ni.ox3 < 0) ? (pmb->cks + cn) : pmb->cke;
 
   int p = 0;
-  pmb->pmr->RestrictCellCenteredValues(var, coarse_var, nl_, nu_, si, ei, sj, ej, sk, ek);
-  BufferUtility::PackData(coarse_var, buf, nl_, nu_, si, ei, sj, ej, sk, ek, p);
+  pmb->pmr->RestrictCellCenteredValues(var_cc, coarse_buf, nl_, nu_, si, ei, sj, ej, sk, ek);
+  BufferUtility::PackData(coarse_buf, buf, nl_, nu_, si, ei, sj, ej, sk, ek, p);
   return p;
 }
 
@@ -181,7 +180,7 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferToFiner(Real *buf,
   MeshBlock *pmb = pmy_block_;
   int si, sj, sk, ei, ej, ek;
   int cn = pmb->cnghost - 1;
-  ParArrayND<Real> &var = *var_cc;
+  //ParArrayND<Real> &var = *var_cc;
 
   si = (nb.ni.ox1 > 0) ? (pmb->ie - cn) : pmb->is;
   ei = (nb.ni.ox1 < 0) ? (pmb->is + cn) : pmb->ie;
@@ -216,7 +215,7 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferToFiner(Real *buf,
   }
 
   int p = 0;
-  BufferUtility::PackData(var, buf, nl_, nu_, si, ei, sj, ej, sk, ek, p);
+  BufferUtility::PackData(var_cc, buf, nl_, nu_, si, ei, sj, ej, sk, ek, p);
   return p;
 }
 
@@ -230,7 +229,7 @@ void CellCenteredBoundaryVariable::SetBoundarySameLevel(Real *buf,
                                                         const NeighborBlock& nb) {
   MeshBlock *pmb = pmy_block_;
   int si, sj, sk, ei, ej, ek;
-  ParArrayND<Real> &var = *var_cc;
+  //ParArrayND<Real> &var = *var_cc;
 
   if (nb.ni.ox1 == 0)     si = pmb->is,        ei = pmb->ie;
   else if (nb.ni.ox1 > 0) si = pmb->ie + 1,      ei = pmb->ie + NGHOST;
@@ -244,7 +243,7 @@ void CellCenteredBoundaryVariable::SetBoundarySameLevel(Real *buf,
 
   int p = 0;
 
-  BufferUtility::UnpackData(buf, var, nl_, nu_, si, ei, sj, ej, sk, ek, p);
+  BufferUtility::UnpackData(buf, var_cc, nl_, nu_, si, ei, sj, ej, sk, ek, p);
 }
 
 //----------------------------------------------------------------------------------------
@@ -257,7 +256,7 @@ void CellCenteredBoundaryVariable::SetBoundaryFromCoarser(Real *buf,
   MeshBlock *pmb = pmy_block_;
   int si, sj, sk, ei, ej, ek;
   int cng = pmb->cnghost;
-  ParArrayND<Real> &coarse_var = *coarse_buf;
+  //ParArrayND<Real> &coarse_var = *coarse_buf;
 
   if (nb.ni.ox1 == 0) {
     si = pmb->cis, ei = pmb->cie;
@@ -292,7 +291,7 @@ void CellCenteredBoundaryVariable::SetBoundaryFromCoarser(Real *buf,
   }
 
   int p = 0;
-  BufferUtility::UnpackData(buf, coarse_var, nl_, nu_, si, ei, sj, ej, sk, ek, p);
+  BufferUtility::UnpackData(buf, coarse_buf, nl_, nu_, si, ei, sj, ej, sk, ek, p);
   //pmb->pmr->ProlongateCellCenteredValues(coarse_var, *var_cc, nl_, nu_, si, ei, sj, ej, sk, ek);
 }
 
@@ -305,7 +304,7 @@ void CellCenteredBoundaryVariable::SetBoundaryFromCoarser(Real *buf,
 void CellCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
                                                         const NeighborBlock& nb) {
   MeshBlock *pmb = pmy_block_;
-  ParArrayND<Real> &var = *var_cc;
+  //ParArrayND<Real> &var = *var_cc;
   // receive already restricted data
   int si, sj, sk, ei, ej, ek;
 
@@ -352,7 +351,7 @@ void CellCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
   }
 
   int p = 0;
-  BufferUtility::UnpackData(buf, var, nl_, nu_, si, ei, sj, ej, sk, ek, p);
+  BufferUtility::UnpackData(buf, var_cc, nl_, nu_, si, ei, sj, ej, sk, ek, p);
 }
 
 void CellCenteredBoundaryVariable::SetupPersistentMPI() {

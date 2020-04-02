@@ -103,17 +103,21 @@ void Variable<T>::allocateComms(MeshBlock *pmb) {
       flux[2] = ParArrayND<T>(_label + ".flux2", _dims[5], _dims[4], _dims[3], _dims[2]+1, _dims[1], _dims[0]);
   }
   // set up communication variables
+  //if (pmb->pmy_mesh->multilevel)
+  //  coarse_s = std::make_shared<ParArrayND<T>>(_label+".coarse", _dims[5], _dims[4], _dims[3], 
+  //                                             pmb->ncc3, pmb->ncc2, pmb->ncc1);
   if (pmb->pmy_mesh->multilevel)
-    coarse_s = std::make_shared<ParArrayND<T>>(_label+".coarse", _dims[5], _dims[4], _dims[3], 
+    coarse_s = ParArrayND<T>(_label+".coarse", _dims[5], _dims[4], _dims[3], 
                                                pmb->ncc3, pmb->ncc2, pmb->ncc1);
 
   // Create the boundary object
-  vbvar = std::make_shared<CellCenteredBoundaryVariable>(pmb, &data, coarse_s.get(), flux);
+  //vbvar = std::make_shared<CellCenteredBoundaryVariable>(pmb, &data, coarse_s.get(), flux);
+  vbvar = new CellCenteredBoundaryVariable(pmb, data, coarse_s, flux);
 
   // enroll CellCenteredBoundaryVariable object
   vbvar->bvar_index = pmb->pbval->bvars.size();
-  pmb->pbval->bvars.push_back(vbvar.get());
-  pmb->pbval->bvars_main_int.push_back(vbvar.get());
+  pmb->pbval->bvars.push_back(vbvar);
+  pmb->pbval->bvars_main_int.push_back(vbvar);
 
   // register the variable
   //pmb->RegisterMeshBlockData(*this);

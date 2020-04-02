@@ -81,7 +81,7 @@ class MeshRefinement {
 
   // setter functions for "enrolling" variable arrays in refinement via Mesh::AMR()
   // and/or in BoundaryValues::ProlongateBoundaries() (for SMR and AMR)
-  int AddToRefinement(ParArrayND<Real> *pvar_cc, ParArrayND<Real> *pcoarse_cc);
+  int AddToRefinement(ParArrayND<Real> pvar_cc, ParArrayND<Real> pcoarse_cc);
   int AddToRefinement(FaceField *pvar_fc, FaceField *pcoarse_fc);
 
  private:
@@ -96,7 +96,7 @@ class MeshRefinement {
   AMRFlagFunc AMRFlag_; // duplicate of Mesh class member
 
   // tuples of references to AMR-enrolled arrays (quantity, coarse_quantity)
-  std::vector<std::tuple<ParArrayND<Real> *, ParArrayND<Real> *>> pvars_cc_;
+  std::vector<std::tuple<ParArrayND<Real>, ParArrayND<Real>>> pvars_cc_;
   std::vector<std::tuple<FaceField *, FaceField *>> pvars_fc_;
 };
 }

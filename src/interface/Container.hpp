@@ -137,7 +137,7 @@ class Container {
   //
   // Queries related to Variable objects
   //
-  VariableVector<T>& GetVariableVector() {
+  VariableVector<T> GetVariableVector() {
     return _varVector;
   }
   Variable<T>& Get(std::string label) {
@@ -164,7 +164,7 @@ class Container {
   //
   // Queries related to SparseVariable objects
   //
-  SparseVector<T>& GetSparseVector() {
+  SparseVector<T> GetSparseVector() {
     return _sparseVector;
   }
   SparseVariable<T>& GetSparseVariable(const std::string& label) {
@@ -260,11 +260,6 @@ class Container {
   // std::weak_ptr<Variable<T>>& at(const int index) {
   //   return _varVector.at(index);
   // }
-
-  // Element accessor functions
-
-
-
 
   FaceVector<T>& GetFaceVector() {
     return _faceVector;

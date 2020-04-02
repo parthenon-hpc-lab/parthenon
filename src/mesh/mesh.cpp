@@ -1255,47 +1255,64 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
       }
     }
 
-
+    int call = 0;
     // Create send/recv MPI_Requests for all BoundaryData objects
 #pragma omp parallel for num_threads(nthreads)
     for (int i=0; i<nmb; ++i) {
       MeshBlock *pmb = pmb_array[i];
       // BoundaryVariable objects evolved in main TimeIntegratorTaskList:
+      //std::cout << call << std::endl;
+      //pmb->real_containers.Get().print();
       pmb->pbval->SetupPersistentMPI();
       pmb->real_containers.Get().SetupPersistentMPI();
+      //std::cout << call+0.5 << std::endl;
+      //pmb->real_containers.Get().print();
     }
+    call++; // 1
 
 #pragma omp parallel num_threads(nthreads)
     {
       // prepare to receive conserved variables
 #pragma omp for
       for (int i=0; i<nmb; ++i) {
+      //std::cout << call << std::endl;
+        //pmb_array[i]->real_containers.Get().print();
         pmb_array[i]->real_containers.Get().StartReceiving(BoundaryCommSubset::mesh_init);
       }
-
+      call++; // 2
       // send conserved variables
 #pragma omp for
       for (int i=0; i<nmb; ++i) {
+      //std::cout << call << std::endl;
+        //pmb_array[i]->real_containers.Get().print();
         pmb_array[i]->real_containers.Get().SendBoundaryBuffers();
       }
-
+      call++; // 3
 
       // wait to receive conserved variables
 #pragma omp for
       for (int i=0; i<nmb; ++i) {
+      //std::cout << call << std::endl;
+        //pmb_array[i]->real_containers.Get().print();
         pmb_array[i]->real_containers.Get().ReceiveAndSetBoundariesWithWait();
       }
-
+      call++; // 4
 #pragma omp for
       for (int i=0; i<nmb; ++i) {
-        pmb_array[i]->real_containers.Get().SetBoundaries();
+     // std::cout << call << std::endl;
+       // pmb_array[i]->real_containers.Get().print();
+        //pmb_array[i]->real_containers.Get().SetBoundaries();
         pmb_array[i]->real_containers.Get().ClearBoundary(BoundaryCommSubset::mesh_init);
+      //std::cout << call+0.5 << std::endl;
+        //pmb_array[i]->real_containers.Get().print();
       }
-
+      call++;
       // Now do prolongation, compute primitives, apply BCs
 #pragma omp for
       for (int i=0; i<nmb; ++i) {
         auto &pmb = pmb_array[i];
+     // std::cout << call << std::endl;
+       // pmb->real_containers.Get().print();
         auto &pbval = pmb->pbval;
         if (multilevel)
           pbval->ProlongateBoundaries(time, 0.0);

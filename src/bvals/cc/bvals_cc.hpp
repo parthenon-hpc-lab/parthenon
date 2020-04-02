@@ -40,18 +40,18 @@ namespace parthenon {
 class CellCenteredBoundaryVariable : public BoundaryVariable {
  public:
   CellCenteredBoundaryVariable(MeshBlock *pmb,
-                               ParArrayND<Real> *var, ParArrayND<Real> *coarse_var,
+                               ParArrayND<Real> var, ParArrayND<Real> coarse_var,
                                ParArrayND<Real> *var_flux);
   ~CellCenteredBoundaryVariable();
 
   // may want to rebind var_cc to u,u1,u2,w,w1, etc. registers for time integrator logic.
-  ParArrayND<Real> *var_cc;
-  ParArrayND<Real> *coarse_buf;  // may pass nullptr if mesh refinement is unsupported
+  ParArrayND<Real> var_cc;
+  ParArrayND<Real> coarse_buf;  // may pass nullptr if mesh refinement is unsupported
 
   // currently, no need to ever switch flux[] ---> keep as reference members (not ptrs)
   // flux[3] w/ 3x empty ParArrayNDs may be passed if mesh refinement is unsupported, but
   // nullptr is not allowed
-  ParArrayND<Real> &x1flux, &x2flux, &x3flux;
+  ParArrayND<Real> x1flux, x2flux, x3flux;
 
   // maximum number of reserved unique "physics ID" component of MPI tag bitfield
   // (CellCenteredBoundaryVariable only actually uses 1x if multilevel==false)

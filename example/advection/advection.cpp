@@ -394,10 +394,6 @@ TaskList AdvectionDriver::MakeTaskList(MeshBlock *pmb, int stage) {
       return TaskStatus::success;
     }, fill_derived, pmb);
 
-    /*auto reset_bvars = AddContainerTask([](Container<Real>& rc) {
-      rc.ResetBoundaryVariables();
-      return TaskStatus::success;
-    }, purge_stages, pmb->real_containers.Get());*/
   }
   return tl;
 }

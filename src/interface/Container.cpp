@@ -113,10 +113,7 @@ void Container<T>::Add(const std::string label,
     _varVector.push_back(sv);
     _varMap[label] = sv;
     if ( metadata.IsSet(Metadata::FillGhost) ) {
-      std::cerr << "allocating comms for " << label << " " << this << std::endl;
       sv->allocateComms(pmy_block);
-    } else {
-      std::cerr << "not allocating comms for " << label << " " << this << std::endl;
     }
   }
 }
@@ -232,7 +229,6 @@ void Container<T>::SetupPersistentMPI() {
   // setup persistent MPI
   for (auto &v : _varVector) {
     if ( v->isSet(Metadata::FillGhost) ) {
-        std::cerr << "reseting " << v->label() << " " << this << std::endl;
         v->resetBoundary();
         v->vbvar->SetupPersistentMPI();
     }
@@ -338,14 +334,14 @@ template <typename T>
 void Container<T>::ResetBoundaryVariables() {
   for (auto &v : _varVector) {
     if ( v->isSet(Metadata::FillGhost) ) {
-      v->vbvar->var_cc = &(v->data);
+      v->vbvar->var_cc = v->data;
     }
   }
   for (auto &sv : _sparseVector) {
     if ( sv->isSet(Metadata::FillGhost) ) {
       VariableVector<T> vvec = sv->GetVector();
       for (auto & v : vvec) {
-        v->vbvar->var_cc = &(v->data);
+        v->vbvar->var_cc = v->data;
       }
     }
   }

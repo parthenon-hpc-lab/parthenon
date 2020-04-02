@@ -795,9 +795,9 @@ void Mesh::PrepareSendCoarseToFineAMR(MeshBlock* pb, Real *sendbuf,
   }
   int p = 0;
   for (auto cc_pair : pb->pmr->pvars_cc_) {
-    ParArrayND<Real> *var_cc = std::get<0>(cc_pair);
-    int nu = var_cc->GetDim(4) - 1;
-    BufferUtility::PackData(*var_cc, sendbuf, 0, nu,
+    ParArrayND<Real> var_cc = std::get<0>(cc_pair);
+    int nu = var_cc.GetDim(4) - 1;
+    BufferUtility::PackData(var_cc, sendbuf, 0, nu,
                             il, iu, jl, ju, kl, ku, p);
   }
   for (auto fc_pair : pb->pmr->pvars_fc_) {
@@ -821,15 +821,15 @@ void Mesh::PrepareSendFineToCoarseAMR(MeshBlock* pb, Real *sendbuf) {
   auto &pmr = pb->pmr;
   int p = 0;
   for (auto cc_pair : pmr->pvars_cc_) {
-    ParArrayND<Real> *var_cc = std::get<0>(cc_pair);
-    ParArrayND<Real> *coarse_cc = std::get<1>(cc_pair);
-    int nu = var_cc->GetDim(4) - 1;
-    pmr->RestrictCellCenteredValues(*var_cc, *coarse_cc,
+    ParArrayND<Real> var_cc = std::get<0>(cc_pair);
+    ParArrayND<Real> coarse_cc = std::get<1>(cc_pair);
+    int nu = var_cc.GetDim(4) - 1;
+    pmr->RestrictCellCenteredValues(var_cc, coarse_cc,
                                     0, nu,
                                     pb->cis, pb->cie,
                                     pb->cjs, pb->cje,
                                     pb->cks, pb->cke);
-    BufferUtility::PackData(*coarse_cc, sendbuf, 0, nu,
+    BufferUtility::PackData(coarse_cc, sendbuf, 0, nu,
                             pb->cis, pb->cie,
                             pb->cjs, pb->cje,
                             pb->cks, pb->cke, p);
@@ -880,17 +880,17 @@ void Mesh::FillSameRankFineToCoarseAMR(MeshBlock* pob, MeshBlock* pmb,
   auto pmb_cc_it = pmb->pmr->pvars_cc_.begin();
   // iterate MeshRefinement std::vectors on pob
   for (auto cc_pair : pmr->pvars_cc_) {
-    ParArrayND<Real> *var_cc = std::get<0>(cc_pair);
-    ParArrayND<Real> *coarse_cc = std::get<1>(cc_pair);
-    int nu = var_cc->GetDim(4) - 1;
-    pmr->RestrictCellCenteredValues(*var_cc, *coarse_cc,
+    ParArrayND<Real> var_cc = std::get<0>(cc_pair);
+    ParArrayND<Real> coarse_cc = std::get<1>(cc_pair);
+    int nu = var_cc.GetDim(4) - 1;
+    pmr->RestrictCellCenteredValues(var_cc, coarse_cc,
                                     0, nu,
                                     pob->cis, pob->cie,
                                     pob->cjs, pob->cje,
                                     pob->cks, pob->cke);
     // copy from old/original/other MeshBlock (pob) to newly created block (pmb)
-    ParArrayND<Real> &src = *coarse_cc;
-    ParArrayND<Real> &dst = *std::get<0>(*pmb_cc_it);
+    ParArrayND<Real> src = coarse_cc;
+    ParArrayND<Real> dst = std::get<0>(*pmb_cc_it);
     for (int nv=0; nv<=nu; nv++) {
       for (int k=kl, fk=pob->cks; fk<=pob->cke; k++, fk++) {
         for (int j=jl, fj=pob->cjs; fj<=pob->cje; j++, fj++) {
@@ -977,12 +977,12 @@ void Mesh::FillSameRankCoarseToFineAMR(MeshBlock* pob, MeshBlock* pmb,
   auto pob_cc_it = pob->pmr->pvars_cc_.begin();
   // iterate MeshRefinement std::vectors on new pmb
   for (auto cc_pair : pmr->pvars_cc_) {
-    ParArrayND<Real> *var_cc = std::get<0>(cc_pair);
-    ParArrayND<Real> *coarse_cc = std::get<1>(cc_pair);
-    int nu = var_cc->GetDim(4) - 1;
+    ParArrayND<Real> var_cc = std::get<0>(cc_pair);
+    ParArrayND<Real> coarse_cc = std::get<1>(cc_pair);
+    int nu = var_cc.GetDim(4) - 1;
 
-    ParArrayND<Real> &src = *std::get<0>(*pob_cc_it);
-    ParArrayND<Real> &dst = *coarse_cc;
+    ParArrayND<Real> src = std::get<0>(*pob_cc_it);
+    ParArrayND<Real> dst = coarse_cc;
     // fill the coarse buffer
     for (int nv=0; nv<=nu; nv++) {
       for (int k=kl, ck=cks; k<=ku; k++, ck++) {
@@ -993,7 +993,7 @@ void Mesh::FillSameRankCoarseToFineAMR(MeshBlock* pob, MeshBlock* pmb,
       }
     }
     pmr->ProlongateCellCenteredValues(
-        dst, *var_cc, 0, nu,
+        dst, var_cc, 0, nu,
         pob->cis, pob->cie, pob->cjs, pob->cje, pob->cks, pob->cke);
     pob_cc_it++;
   }
@@ -1098,9 +1098,9 @@ void Mesh::FinishRecvFineToCoarseAMR(MeshBlock *pb, Real *recvbuf,
   else        kl = pb->ks + pb->block_size.nx3/2, ku = pb->ke;
 
   for (auto cc_pair : pb->pmr->pvars_cc_) {
-    ParArrayND<Real> *var_cc = std::get<0>(cc_pair);
-    int nu = var_cc->GetDim(4) - 1;
-    BufferUtility::UnpackData(recvbuf, *var_cc, 0, nu,
+    ParArrayND<Real> var_cc = std::get<0>(cc_pair);
+    int nu = var_cc.GetDim(4) - 1;
+    BufferUtility::UnpackData(recvbuf, var_cc, 0, nu,
                               il, iu, jl, ju, kl, ku, p);
   }
   for (auto fc_pair : pb->pmr->pvars_fc_) {
@@ -1136,13 +1136,13 @@ void Mesh::FinishRecvCoarseToFineAMR(MeshBlock *pb, Real *recvbuf) {
   int il = pb->cis - 1, iu = pb->cie+1, jl = pb->cjs - f2,
       ju = pb->cje + f2, kl = pb->cks - f3, ku = pb->cke + f3;
   for (auto cc_pair : pb->pmr->pvars_cc_) {
-    ParArrayND<Real> *var_cc = std::get<0>(cc_pair);
-    ParArrayND<Real> *coarse_cc = std::get<1>(cc_pair);
-    int nu = var_cc->GetDim(4) - 1;
-    BufferUtility::UnpackData(recvbuf, *coarse_cc,
+    ParArrayND<Real> var_cc = std::get<0>(cc_pair);
+    ParArrayND<Real> coarse_cc = std::get<1>(cc_pair);
+    int nu = var_cc.GetDim(4) - 1;
+    BufferUtility::UnpackData(recvbuf, coarse_cc,
                               0, nu, il, iu, jl, ju, kl, ku, p);
     pmr->ProlongateCellCenteredValues(
-        *coarse_cc, *var_cc, 0, nu,
+        coarse_cc, var_cc, 0, nu,
         pb->cis, pb->cie, pb->cjs, pb->cje, pb->cks, pb->cke);
   }
   for (auto fc_pair : pb->pmr->pvars_fc_) {

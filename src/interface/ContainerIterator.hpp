@@ -39,14 +39,15 @@ class ContainerIterator {
   /// @param c the container on which you want the iterator
   /// @param flagVector: a vector of Metadata::flags that you want to match
   ContainerIterator<T>(Container<T>& c, const std::vector<MetadataFlag> &flagVector) {
-    _allVars = c.GetVariableVector();
+    //c.print();
+    auto allVars = c.GetVariableVector();
     for (auto & svar : c.GetSparseVector()) {
       VariableVector<T>& svec = svar->GetVector();
-      _allVars.insert(_allVars.end(), svec.begin(), svec.end());
+      allVars.insert(allVars.end(), svec.begin(), svec.end());
     }
     // faces not active yet    _allFaceVars = c.faceVars();
     // edges not active yet    _allEdgeVars = c.edgeVars();
-    setMask(flagVector); // fill subset based on mask vector
+    setMask(allVars, flagVector); // fill subset based on mask vector
   }
 
   //~ContainerIterator<T>() {
@@ -54,12 +55,12 @@ class ContainerIterator {
   //}
   /// Changes the mask for the iterator and resets the iterator
   /// @param flagArray: a vector of MetadataFlag that you want to match
-  void setMask(const std::vector<MetadataFlag> &flagVector) {
+  void setMask(VariableVector<T>& allVars, const std::vector<MetadataFlag> &flagVector) {
     // 1: clear out variables stored so far
     _emptyVars();
 
     // 2: fill in the subset of variables that match mask
-    for (auto pv : _allVars) {
+    for (auto pv : allVars) {
       if (pv->metadata().AnyFlagsSet(flagVector)) {
         vars.push_back(pv);
       }
@@ -71,7 +72,7 @@ class ContainerIterator {
   uint64_t _mask;
   FaceVector<T> _allFaceVars = {};
   //EdgeVector<T> _allEdgeVars = {};
-  VariableVector<T> _allVars = {};
+  //VariableVector<T> _allVars = {};
   void _emptyVars() {
     vars.clear();
   //  varsFace.clear();

@@ -83,6 +83,7 @@ void BoundaryVariable::InitBoundaryData(BoundaryData<> &bd, BoundaryQuantity typ
           << "Invalid boundary type is specified." << std::endl;
       ATHENA_ERROR(msg);
     }
+    if (size <= 0) std::cerr << "SIZE = " << size << std::endl;
     bd.send[n] = new Real[size];
     bd.recv[n] = new Real[size];
   }
@@ -95,6 +96,7 @@ void BoundaryVariable::InitBoundaryData(BoundaryData<> &bd, BoundaryQuantity typ
 
 void BoundaryVariable::DestroyBoundaryData(BoundaryData<> &bd) {
   for (int n=0; n<bd.nbmax; n++) {
+    std::cerr << "deleting " << n << std::endl;
     delete [] bd.send[n];
     delete [] bd.recv[n];
 #ifdef MPI_PARALLEL
@@ -168,8 +170,9 @@ void BoundaryVariable::SendBoundaryBuffers() {
       CopyVariableBufferSameProcess(nb, ssize);
     }
 #ifdef MPI_PARALLEL
-    else  // MPI
+    else  {// MPI
       MPI_Start(&(bd_var_.req_send[nb.bufid]));
+    }
 #endif
     bd_var_.sflag[nb.bufid] = BoundaryStatus::completed;
   }

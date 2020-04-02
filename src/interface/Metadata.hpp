@@ -238,7 +238,7 @@ class Metadata {
 
   /// returns true if bit is set, false otherwise
   bool IsSet(const MetadataFlag bit) const { 
-    if (bit.flag_ >= bits_.size()) {
+    if (bit.flag_ >= static_cast<int>(bits_.size())) {
       return false;
     }
     return bits_[bit.flag_];
@@ -314,7 +314,7 @@ private:
 
   /// if flag is true set bit, clears otherwise
   void DoBit(MetadataFlag bit, const bool flag) {
-    if (bit.flag_ >= bits_.size()) {
+    if (bit.flag_ >= static_cast<int>(bits_.size())) {
       bits_.resize(bit.flag_ + 1);
     }
     bits_[bit.flag_] = flag;

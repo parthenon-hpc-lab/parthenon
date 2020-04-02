@@ -151,15 +151,17 @@ class Variable {
   void allocateComms(MeshBlock *pmb);
 
   /// Repoint vbvar's var_cc array at the current variable
-  void resetBoundary() { vbvar->var_cc = &data; }
+  void resetBoundary() { vbvar->var_cc = data; }
 
   bool isSet(const MetadataFlag bit) const { return _m.IsSet(bit); }
 
   ParArrayND<T> data;
   ParArrayND<T> flux[3];    // used for boundary calculation
-  std::shared_ptr<ParArrayND<T>> coarse_s;  // used for sending coarse boundary calculation
+  //std::shared_ptr<ParArrayND<T>> 
+  ParArrayND<T> coarse_s;  // used for sending coarse boundary calculation
   //AthenaArray<Real> *coarse_r;  // used for sending coarse boundary calculation
-  std::shared_ptr<CellCenteredBoundaryVariable> vbvar; // used in case of cell boundary communication
+  //std::shared_ptr<CellCenteredBoundaryVariable> 
+  CellCenteredBoundaryVariable *vbvar = nullptr; // used in case of cell boundary communication
   bool mpiStatus;
 
  private:

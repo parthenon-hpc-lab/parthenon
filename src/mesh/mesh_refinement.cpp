@@ -81,8 +81,8 @@ MeshRefinement::MeshRefinement(MeshBlock *pmb, ParameterInput *pin) :
   sarea_x3_[2][1].NewParArrayND(nc1);
 
   // KGF: probably don't need to preallocate space for pointers in these vectors
-  pvars_cc_.reserve(3);
-  pvars_fc_.reserve(3);
+  //pvars_cc_.reserve(3);
+  //pvars_fc_.reserve(3);
 }
 
 
@@ -1020,8 +1020,8 @@ void MeshRefinement::SetRefinement(int flag) {
 
 // TODO(felker): consider merging w/ MeshBlock::pvars_cc, etc. See meshblock.cpp
 
-int MeshRefinement::AddToRefinement(ParArrayND<Real> *pvar_cc,
-                                     ParArrayND<Real> *pcoarse_cc) {
+int MeshRefinement::AddToRefinement(ParArrayND<Real> pvar_cc,
+                                     ParArrayND<Real> pcoarse_cc) {
   pvars_cc_.push_back(std::make_tuple(pvar_cc, pcoarse_cc));
   return static_cast<int>(pvars_cc_.size() - 1);
 }

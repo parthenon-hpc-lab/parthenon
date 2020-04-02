@@ -158,10 +158,7 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
   }
   // Add physics data
   for (auto const & pkg : packages) {
-    //std::cerr << "  Physics: " << ph.first << std::endl;
     for (auto const & q : pkg.second->AllFields()) {
-      //std::cerr << "    Adding " << q.first << std::endl;
-      std::cerr << "adding " << q.first << " " << q.second.IsSet(Metadata::FillGhost) << std::endl;
       real_container.Add(q.first, q.second);
     }
   }
@@ -177,7 +174,7 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
     pmr = std::make_unique<MeshRefinement>(this, pin);
     // This is very redundant, I think, but necessary for now
     for (int n=0; n<nindependent; n++) {
-      pmr->AddToRefinement(&(ci.vars[n]->data), ci.vars[n]->coarse_s.get());
+      pmr->AddToRefinement(ci.vars[n]->data, ci.vars[n]->coarse_s);
     }
   }
 
