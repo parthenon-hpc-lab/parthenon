@@ -530,6 +530,9 @@ void test_wrapper_buffer_pack_overlapping_space_instances(const std::string test
     BufferPack::test_time(time_default, time_spaces, nspaces);
   }
 }
+// Kokkos Debug mode imposes a significant performance hit
+// and makes these timings less useful.
+#ifdef KOKKOS_ENABLE_DEBUG
 TEST_CASE("Overlapping SpaceInstances", "[wrapper]") {
   SECTION ("Many Threads Short Kernel") {
     test_wrapper_buffer_pack_overlapping_space_instances
@@ -540,3 +543,4 @@ TEST_CASE("Overlapping SpaceInstances", "[wrapper]") {
         <SmallNLongTBufferPack>("Few Threads Long Kernel");
   }
 }
+#endif // KOKKOS_ENABLE_DEBUG

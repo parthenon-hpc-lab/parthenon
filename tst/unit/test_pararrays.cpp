@@ -35,129 +35,8 @@ using parthenon::ParArrayND;
 using parthenon::ParArray3D;
 using Real = double;
 
-constexpr int NG = 1; // six-point stencil requires one ghost zone
-constexpr int N = 32 + 2*NG;
-constexpr int NT = 100;
-constexpr int NARRAYS = 64;
-
-#ifdef KOKKOS_ENABLE_CUDA
-using UVMSpace = Kokkos::CudaUVMSpace;
-#else // all on host
-using UVMSpace = DevSpace;
-#endif
-
 using policy3d = Kokkos::MDRangePolicy<Kokkos::Rank<3>>;
 using policy2d = Kokkos::MDRangePolicy<Kokkos::Rank<2>>;
-
-KOKKOS_INLINE_FUNCTION Real coord(const int i, const int n) {
-  const Real dx = 2.0/(n-1.0);
-  return -1.0 + dx*i;
-}
-
-KOKKOS_INLINE_FUNCTION Real gaussian(const int iz, const int iy, const int ix,
-                                     const int nz, const int ny, const int nx) {
-  const Real x = coord(ix,nx);
-  const Real y = coord(iy,ny);
-  const Real z = coord(iz,nz);
-  const Real r2 = x*x + y*y + z*z;
-  return exp(-r2);
-}
-
-KOKKOS_INLINE_FUNCTION Real gaussian(const int iz, const int iy, const int ix) {
-  return gaussian(iz,iy,ix,N,N,N);
-}
-
-template<typename T>
-KOKKOS_FORCEINLINE_FUNCTION
-void stencil(T& l, T& r, const int k, const int j, const int i) {
-  // clang-format off
-  l(k,j,i) = (1./6.)*( r(k-1, j,   i)   + r(k+1, j,   i)
-                      +r(k,   j-1, i)   + r(k,   j+1, i)
-                      +r(k,   j,   i-1) + r(k,   j,   i+1));
-  // clang-format on
-}
-
-template <class T>
-void profile_wrapper_3d(T loop_pattern) {
-  auto exec_space = DevSpace();
-  Kokkos::Timer timer;
-
-  ParArray3D<Real> raw0("raw",N,N,N);
-  ParArrayND<Real> nda0("ND",N,N,N);
-  auto xtra0 = nda0.Get<3>();
-
-  ParArray3D<Real> raw1("raw",N,N,N);
-  ParArrayND<Real> nda1("ND",N,N,N);
-  auto xtra1 = nda1.Get<3>();
-
-  parthenon::par_for(loop_pattern,
-          "initial data", exec_space,
-          0,N-1,0,N-1,0,N-1,
-          KOKKOS_LAMBDA(const int k, const int j, const int i) {
-            Real f = gaussian(k,j,i);
-            raw0(k,j,i) = f;
-            nda0(k,j,i) = f;
-          });
-  Kokkos::fence();
-  timer.reset();
-  for (int it = 0; it < NT; it++) {
-    parthenon::par_for(loop_pattern,
-                       "main loop", exec_space,
-                       NG,N-1-NG,NG,N-1-NG,NG,N-1-NG,
-                       KOKKOS_LAMBDA(const int k, const int j, const int i) {
-                         stencil(raw1,raw0,k,j,i);
-                       });
-    parthenon::par_for(loop_pattern,
-                       "main loop", exec_space,
-                       NG,N-1-NG,NG,N-1-NG,NG,N-1-NG,
-                       KOKKOS_LAMBDA(const int k, const int j, const int i) {
-                         stencil(raw0,raw1,k,j,i);
-                       });
-  }
-  Kokkos::fence();
-  auto time_raw = timer.seconds();
-  timer.reset();
-  for (int it = 0; it < NT; it++) {
-    parthenon::par_for(loop_pattern,
-                       "main loop", exec_space,
-                       NG,N-1-NG,NG,N-1-NG,NG,N-1-NG,
-                       KOKKOS_LAMBDA(const int k, const int j, const int i) {
-                         stencil(nda1,nda0,k,j,i);
-                       });
-    parthenon::par_for(loop_pattern,
-                       "main loop", exec_space,
-                       NG,N-1-NG,NG,N-1-NG,NG,N-1-NG,
-                       KOKKOS_LAMBDA(const int k, const int j, const int i) {
-                         stencil(nda0,nda1,k,j,i);
-                       });
-  }
-  Kokkos::fence();
-  auto time_ND_arrays = timer.seconds();
-
-  timer.reset();
-  for (int it = 0; it < NT; it++) {
-    parthenon::par_for(loop_pattern,
-                       "main loop", exec_space,
-                       NG,N-1-NG,NG,N-1-NG,NG,N-1-NG,
-                       KOKKOS_LAMBDA(const int k, const int j, const int i) {
-                         stencil(xtra1,xtra0,k,j,i);
-                       });
-    parthenon::par_for(loop_pattern,
-                       "main loop", exec_space,
-                       NG,N-1-NG,NG,N-1-NG,NG,N-1-NG,
-                       KOKKOS_LAMBDA(const int k, const int j, const int i) {
-                         stencil(xtra0,xtra1,k,j,i);
-                       });
-  }
-  Kokkos::fence();
-  auto time_extracted = timer.seconds();
-
-  std::cout << "Times for stencil test:\n"
-            << "\traw views   = " << time_raw << " s\n"
-            << "\tND arrays   = " << time_ND_arrays << " s\n"
-            << "\textracted   = " << time_extracted << " s\n"
-            << std::endl;
-}
 
 TEST_CASE("ParArrayND","[ParArrayND],[Kokkos]") {
   GIVEN("A ParArrayND allocated with no label") {
@@ -318,6 +197,130 @@ TEST_CASE("ParArrayND with LayoutLeft","[ParArrayND],[Kokkos],[LayoutLeft]") {
   }
 }
 
+// Kokkos debug mode introduces a significant performance hit,
+// making these tests not informative
+#ifdef KOKKOS_ENABLE_DEBUG
+constexpr int NG = 1; // six-point stencil requires one ghost zone
+constexpr int N = 32 + 2*NG;
+constexpr int NT = 100;
+constexpr int NARRAYS = 64;
+
+#ifdef KOKKOS_ENABLE_CUDA
+using UVMSpace = Kokkos::CudaUVMSpace;
+#else // all on host
+using UVMSpace = DevSpace;
+#endif
+
+KOKKOS_INLINE_FUNCTION Real coord(const int i, const int n) {
+  const Real dx = 2.0/(n-1.0);
+  return -1.0 + dx*i;
+}
+
+KOKKOS_INLINE_FUNCTION Real gaussian(const int iz, const int iy, const int ix,
+                                     const int nz, const int ny, const int nx) {
+  const Real x = coord(ix,nx);
+  const Real y = coord(iy,ny);
+  const Real z = coord(iz,nz);
+  const Real r2 = x*x + y*y + z*z;
+  return exp(-r2);
+}
+
+KOKKOS_INLINE_FUNCTION Real gaussian(const int iz, const int iy, const int ix) {
+  return gaussian(iz,iy,ix,N,N,N);
+}
+
+template<typename T>
+KOKKOS_FORCEINLINE_FUNCTION
+void stencil(T& l, T& r, const int k, const int j, const int i) {
+  // clang-format off
+  l(k,j,i) = (1./6.)*( r(k-1, j,   i)   + r(k+1, j,   i)
+                      +r(k,   j-1, i)   + r(k,   j+1, i)
+                      +r(k,   j,   i-1) + r(k,   j,   i+1));
+  // clang-format on
+}
+
+template <class T>
+void profile_wrapper_3d(T loop_pattern) {
+  auto exec_space = DevSpace();
+  Kokkos::Timer timer;
+
+  ParArray3D<Real> raw0("raw",N,N,N);
+  ParArrayND<Real> nda0("ND",N,N,N);
+  auto xtra0 = nda0.Get<3>();
+
+  ParArray3D<Real> raw1("raw",N,N,N);
+  ParArrayND<Real> nda1("ND",N,N,N);
+  auto xtra1 = nda1.Get<3>();
+
+  parthenon::par_for(loop_pattern,
+          "initial data", exec_space,
+          0,N-1,0,N-1,0,N-1,
+          KOKKOS_LAMBDA(const int k, const int j, const int i) {
+            Real f = gaussian(k,j,i);
+            raw0(k,j,i) = f;
+            nda0(k,j,i) = f;
+          });
+  Kokkos::fence();
+  timer.reset();
+  for (int it = 0; it < NT; it++) {
+    parthenon::par_for(loop_pattern,
+                       "main loop", exec_space,
+                       NG,N-1-NG,NG,N-1-NG,NG,N-1-NG,
+                       KOKKOS_LAMBDA(const int k, const int j, const int i) {
+                         stencil(raw1,raw0,k,j,i);
+                       });
+    parthenon::par_for(loop_pattern,
+                       "main loop", exec_space,
+                       NG,N-1-NG,NG,N-1-NG,NG,N-1-NG,
+                       KOKKOS_LAMBDA(const int k, const int j, const int i) {
+                         stencil(raw0,raw1,k,j,i);
+                       });
+  }
+  Kokkos::fence();
+  auto time_raw = timer.seconds();
+  timer.reset();
+  for (int it = 0; it < NT; it++) {
+    parthenon::par_for(loop_pattern,
+                       "main loop", exec_space,
+                       NG,N-1-NG,NG,N-1-NG,NG,N-1-NG,
+                       KOKKOS_LAMBDA(const int k, const int j, const int i) {
+                         stencil(nda1,nda0,k,j,i);
+                       });
+    parthenon::par_for(loop_pattern,
+                       "main loop", exec_space,
+                       NG,N-1-NG,NG,N-1-NG,NG,N-1-NG,
+                       KOKKOS_LAMBDA(const int k, const int j, const int i) {
+                         stencil(nda0,nda1,k,j,i);
+                       });
+  }
+  Kokkos::fence();
+  auto time_ND_arrays = timer.seconds();
+
+  timer.reset();
+  for (int it = 0; it < NT; it++) {
+    parthenon::par_for(loop_pattern,
+                       "main loop", exec_space,
+                       NG,N-1-NG,NG,N-1-NG,NG,N-1-NG,
+                       KOKKOS_LAMBDA(const int k, const int j, const int i) {
+                         stencil(xtra1,xtra0,k,j,i);
+                       });
+    parthenon::par_for(loop_pattern,
+                       "main loop", exec_space,
+                       NG,N-1-NG,NG,N-1-NG,NG,N-1-NG,
+                       KOKKOS_LAMBDA(const int k, const int j, const int i) {
+                         stencil(xtra0,xtra1,k,j,i);
+                       });
+  }
+  Kokkos::fence();
+  auto time_extracted = timer.seconds();
+
+  std::cout << "Times for stencil test:\n"
+            << "\traw views   = " << time_raw << " s\n"
+            << "\tND arrays   = " << time_ND_arrays << " s\n"
+            << "\textracted   = " << time_extracted << " s\n"
+            << std::endl;
+}
+
 TEST_CASE("Time simple stencil operations") {
   SECTION("1d range") {
     std::cout << "1d range:" << std::endl;
@@ -425,3 +428,4 @@ TEST_CASE("Check registry pressure","[ParArrayND]") {
             << "\tND arrays   = " << time_arrays << " s\n"
             << std::endl;
 }
+#endif // KOKKOS_ENABLE_DEBUG

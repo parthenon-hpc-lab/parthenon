@@ -53,3 +53,31 @@ parthenon-cpu-short:
     - cmake -DCMAKE_BUILD_TYPE=Debug -DHDF5_ROOT=/usr/local/hdf5/parallel
       -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
       ../ && make -j${J} && make test
+
+parthenon-cuda-peformance:
+  tags:
+    - cuda
+  stage: short
+  script:
+# mitigate UVM allocations on older multi-GPU systems    
+#    - export CUDA_LAUNCH_BLOCKING=1
+#    - export CUDA_VISIBLE_DEVICES=0
+    - mkdir build-cuda-perf
+    - cd build-cuda-perf
+    - cmake -DCMAKE_BUILD_TYPE=Release -DHDF5_ROOT=/usr/local/hdf5/parallel
+      -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
+      -DKokkos_ENABLE_CUDA=True -DKokkos_ARCH_PASCAL61=True
+      -DCMAKE_CXX_COMPILER=${PWD}/../external/Kokkos/bin/nvcc_wrapper
+      ../ && make -j${J} && make -j${J} test
+
+# run short suite on CPUs
+parthenon-cpu-performance:
+  tags:
+    - cpu
+  stage: short
+  script:
+    - mkdir build-perf
+    - cd build-perf
+    - cmake -DCMAKE_BUILD_TYPE=Release -DHDF5_ROOT=/usr/local/hdf5/parallel
+      -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
+      ../ && make -j${J} && make test
