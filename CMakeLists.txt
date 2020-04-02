@@ -108,7 +108,8 @@ SET (Kokkos_ENABLE_AGGRESSIVE_VECTORIZATION ON CACHE BOOL
 
 # Tell Kokkos we need lambdas in Cuda.
 if (Kokkos_ENABLE_CUDA)
-  SET (Kokkos_ENABLE_CUDA_LAMBDA ON CACHE BOOL)
+  SET (Kokkos_ENABLE_CUDA_LAMBDA ON CACHE BOOL
+       "Enable lambda expressions in CUDA")
 endif()
 
 # If we are in debug mode, set kokkos debug on
