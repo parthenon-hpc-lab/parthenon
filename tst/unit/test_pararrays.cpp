@@ -428,4 +428,192 @@ TEST_CASE("Check registry pressure","[ParArrayND]") {
             << "\tND arrays   = " << time_arrays << " s\n"
             << std::endl;
 }
+
+template<typename Array>
+KOKKOS_FORCEINLINE_FUNCTION void many_array_kernel(
+    const Array& arr0, const Array& arr1, const Array& arr2,
+    const Array& arr3, const Array& arr4, const Array& arr5,
+    const Array& arr6, const Array& arr7, const Array& arr8,
+    const Array& arr9, const Array& arr_out,
+    const int k, const int j, const int i){
+  for(int rep = 0; rep < 2; rep++){
+    register Real tmp_array[10];
+    tmp_array[0] = arr0(k,j,i);
+    tmp_array[1] = arr1(k,j,i);
+    tmp_array[2] = arr2(k,j,i);
+    tmp_array[3] = arr3(k,j,i);
+    tmp_array[4] = arr4(k,j,i);
+    tmp_array[5] = arr5(k,j,i);
+    tmp_array[6] = arr6(k,j,i);
+    tmp_array[7] = arr7(k,j,i);
+    tmp_array[8] = arr8(k,j,i);
+    tmp_array[9] = arr9(k,j,i);
+    arr_out(k,j,i) = tmp_array[0] + tmp_array[1]
+                   + tmp_array[2] + tmp_array[3]
+                   + tmp_array[4] + tmp_array[5]
+                   + tmp_array[6] + tmp_array[7]
+                   + tmp_array[8] + tmp_array[9];
+    arr_out(k,j,i) *=tmp_array[0] * tmp_array[1]
+                   * tmp_array[2] * tmp_array[3]
+                   * tmp_array[4] * tmp_array[5]
+                   * tmp_array[6] * tmp_array[7]
+                   * tmp_array[8] * tmp_array[9];
+  }
+}
+
+TEST_CASE("Check many arrays","[ParArrayND]") {
+  auto exec_space = DevSpace();
+  Kokkos::Timer timer;
+
+  // https://en.cppreference.com/w/cpp/numeric/random/uniform_real_distribution
+  std::random_device
+    rd; // Will be used to obtain a seed for the random number engine
+  std::mt19937 gen(rd()); // Standard mersenne_twister_engine seeded with rd()
+  std::uniform_real_distribution<Real> dis(-1.0, 1.0);
+
+  // view of views. See:
+  // https://github.com/kokkos/kokkos/wiki/View
+  ParArray3D<Real> raw0("raw0",N,N,N),raw1("raw1",N,N,N),
+                   raw2("raw2",N,N,N),raw3("raw3",N,N,N),
+                   raw4("raw4",N,N,N),raw5("raw5",N,N,N),
+                   raw6("raw6",N,N,N),raw7("raw7",N,N,N),
+                   raw8("raw8",N,N,N),raw9("raw9",N,N,N),
+                   raw_out("raw_out",N,N,N);
+  ParArrayND<Real> nda0("nda0",N,N,N),nda1("nda1",N,N,N),
+                   nda2("nda2",N,N,N),nda3("nda3",N,N,N),
+                   nda4("nda4",N,N,N),nda5("nda5",N,N,N),
+                   nda6("nda6",N,N,N),nda7("nda7",N,N,N),
+                   nda8("nda8",N,N,N),nda9("nda9",N,N,N),
+                   nda_out("nda_out",N,N,N);
+  auto xtra0 = nda0.Get<3>();
+  auto xtra1 = nda1.Get<3>();
+  auto xtra2 = nda2.Get<3>();
+  auto xtra3 = nda3.Get<3>();
+  auto xtra4 = nda4.Get<3>();
+  auto xtra5 = nda5.Get<3>();
+  auto xtra6 = nda6.Get<3>();
+  auto xtra7 = nda7.Get<3>();
+  auto xtra8 = nda8.Get<3>();
+  auto xtra9 = nda9.Get<3>();
+  auto xtra_out = nda_out.Get<3>();
+
+  parthenon::par_for(parthenon::loop_pattern_flatrange_tag,
+          "initial data", exec_space,
+          0,N-1,0,N-1,0,N-1,
+          KOKKOS_LAMBDA(const int k, const int j, const int i) {
+            Real f = gaussian(k,j,i);
+            raw0(k,j,i) = f;
+            raw1(k,j,i) = f;
+            raw2(k,j,i) = f;
+            raw3(k,j,i) = f;
+            raw4(k,j,i) = f;
+            raw5(k,j,i) = f;
+            raw6(k,j,i) = f;
+            raw7(k,j,i) = f;
+            raw8(k,j,i) = f;
+            raw9(k,j,i) = f;
+            xtra0(k,j,i) = f;
+            xtra1(k,j,i) = f;
+            xtra2(k,j,i) = f;
+            xtra3(k,j,i) = f;
+            xtra4(k,j,i) = f;
+            xtra5(k,j,i) = f;
+            xtra6(k,j,i) = f;
+            xtra7(k,j,i) = f;
+            xtra8(k,j,i) = f;
+            xtra9(k,j,i) = f;
+          });
+
+  //Perform a kernel with many arrays/views, to test high memory and register usage
+  
+  const int nruns = 10; 
+  //Time Raw Views
+  //Warmup first
+  for( int run = 0; run < nruns; run++){
+    parthenon::par_for(parthenon::loop_pattern_flatrange_tag,
+                       "11 Views in one kernel",
+                       exec_space, 0, N-1, 0, N-1, 0, N-1,
+                       KOKKOS_LAMBDA(const int k, const int j, const int i) {
+                         many_array_kernel(raw0,raw1,raw2,raw3,
+                                           raw4,raw5,raw6,raw7,
+                                           raw8,raw9,raw_out,k,j,i);
+                       });
+
+  }
+  Kokkos::fence();
+  timer.reset();
+  for( int run = 0; run < nruns; run++){
+    parthenon::par_for(parthenon::loop_pattern_flatrange_tag,
+                       "11 Views in one kernel",
+                       exec_space, 0, N-1, 0, N-1, 0, N-1,
+                       KOKKOS_LAMBDA(const int k, const int j, const int i) {
+                         many_array_kernel(raw0,raw1,raw2,raw3,
+                                           raw4,raw5,raw6,raw7,
+                                           raw8,raw9,raw_out,k,j,i);
+                       });
+  }
+  Kokkos::fence();
+  auto time_views = timer.seconds();
+
+  //Time ParArrayND
+  //Warmup first
+  for( int run = 0; run < nruns; run++){
+    parthenon::par_for(parthenon::loop_pattern_flatrange_tag,
+                       "11 ParArrayNDs in one kernel",
+                       exec_space, 0, N-1, 0, N-1, 0, N-1,
+                       KOKKOS_LAMBDA(const int k, const int j, const int i) {
+                         many_array_kernel(nda0,nda1,nda2,nda3,
+                                           nda4,nda5,nda6,nda7,
+                                           nda8,nda9,nda_out,k,j,i);
+                       });
+  }
+  Kokkos::fence();
+  timer.reset();
+  for( int run = 0; run < nruns; run++){
+    parthenon::par_for(parthenon::loop_pattern_flatrange_tag,
+                       "11 ParArrayNDs in one kernel",
+                       exec_space, 0, N-1, 0, N-1, 0, N-1,
+                       KOKKOS_LAMBDA(const int k, const int j, const int i) {
+                         many_array_kernel(nda0,nda1,nda2,nda3,
+                                           nda4,nda5,nda6,nda7,
+                                           nda8,nda9,nda_out,k,j,i);
+                       });
+  }
+  Kokkos::fence();
+  auto time_arrays = timer.seconds();
+
+  //Time subviews
+  //Warmup first
+  for( int run = 0; run < nruns; run++){
+    parthenon::par_for(parthenon::loop_pattern_flatrange_tag,
+                       "11 ParArrayND.Get<3>() in one kernel",
+                       exec_space, 0, N-1, 0, N-1, 0, N-1,
+                       KOKKOS_LAMBDA(const int k, const int j, const int i) {
+                         many_array_kernel(xtra0,xtra1,xtra2,xtra3,
+                                           xtra4,xtra5,xtra6,xtra7,
+                                           xtra8,xtra9,xtra_out,k,j,i);
+                       });
+  }
+  Kokkos::fence();
+  timer.reset();
+  for( int run = 0; run < nruns; run++){
+    parthenon::par_for(parthenon::loop_pattern_flatrange_tag,
+                       "11 ParArrayND.Get<3>() in one kernel",
+                       exec_space, 0, N-1, 0, N-1, 0, N-1,
+                       KOKKOS_LAMBDA(const int k, const int j, const int i) {
+                         many_array_kernel(xtra0,xtra1,xtra2,xtra3,
+                                           xtra4,xtra5,xtra6,xtra7,
+                                           xtra8,xtra9,xtra_out,k,j,i);
+                       });
+  }
+  Kokkos::fence();
+  auto time_subviews = timer.seconds();
+
+
+  std::cout << "Times for many arrays test:\n"
+            << "\traw views   = " << time_views << " s\n"
+            << "\tND arrays   = " << time_arrays << " s\n"
+            << "\tsub views   = " << time_subviews << " s\n"
+            << std::endl;
+}
 #endif // KOKKOS_ENABLE_DEBUG
