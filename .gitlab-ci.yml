@@ -59,4 +59,4 @@ parthenon-cpu-short:
       ../ && make -j${J} && make test
   artifacts:
     paths:
-      - /builds/pgrete/parthenon/build-cpu/CMakeFiles/CMakeOutput.log
+      - /builds/pgrete/parthenon/build/CMakeFiles/CMakeOutput.log
