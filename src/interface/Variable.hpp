@@ -25,6 +25,7 @@
 /// for actural data storage and generation
 
 #include <array>
+#include <cassert>
 #include <cstdint>
 #include <map>
 #include <memory>
@@ -183,9 +184,8 @@ class FaceVariable {
       _dims(ncells),
       _m(metadata),
       _label(label) {
-    if ( metadata.IsSet(Metadata::Sparse) ) {
-      throw std::invalid_argument ("Sparse not yet implemented for FaceVariable");
-    }
+    assert ( !metadata.IsSet(Metadata::Sparse)
+             && "Sparse not implemented yet for FaceVariable" );
   }
 
   /// Create an alias for the variable by making a shallow slice with max dim
@@ -208,18 +208,22 @@ class FaceVariable {
 
   // TODO(JMM): should this be 0,1,2?
   // Should we return the reference? Or something else?
+  KOKKOS_FORCEINLINE_FUNCTION
   ParArrayND<T>& Get(int i) {
+    assert( 1 <= i && i <= 3 );
     if (i == 1) return (x1f);
     if (i == 2) return (x2f);
-    if (i == 3) return (x3f);
-    throw std::invalid_argument("Face must be x1f, x2f, or x3f");
+    else return (x3f); // i == 3
+    //throw std::invalid_argument("Face must be x1f, x2f, or x3f");
   }
   template<typename...Args>
-  Real& operator()(int dir, Args... args) {
+  KOKKOS_FORCEINLINE_FUNCTION
+  T& operator()(int dir, Args... args) const {
+    assert( 1 <= dir && dir <= 3 );
     if (dir == 1) return x1f(std::forward<Args>(args)...);
     if (dir == 2) return x2f(std::forward<Args>(args)...);
-    if (dir == 3) return x3f(std::forward<Args>(args)...);
-    throw std::invalid_argument("Face must be x1f, x2f, or x3f");
+    else return x3f(std::forward<Args>(args)...); // i == 3
+    // throw std::invalid_argument("Face must be x1f, x2f, or x3f");
   }
 
   bool isSet(const MetadataFlag bit) const { return _m.IsSet(bit); }
@@ -252,7 +256,7 @@ class EdgeVariable : EdgeField {
       _m(metadata),
       _label(label) {
       if ( metadata.IsSet(Metadata::Sparse) ) {
-        throw std::invalid_argument ("Sparse not yet implemented for FaceVariable");
+        throw std::invalid_argument ("Sparse not yet implemented for EdgeVaraible");
       }
   }
 

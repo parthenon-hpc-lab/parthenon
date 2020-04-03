@@ -238,6 +238,7 @@ TEST_CASE("Time simple stencil operations") {
     std::cout << "1d range:" << std::endl;
     profile_wrapper_3d(parthenon::loop_pattern_flatrange_tag);
   }
+  /*
   SECTION("md range") {
     std::cout << "md range:" << std::endl;
     profile_wrapper_3d(parthenon::loop_pattern_mdrange_tag);
@@ -250,11 +251,14 @@ TEST_CASE("Time simple stencil operations") {
     std::cout << "tpttrvr range:" << std::endl;
     profile_wrapper_3d(parthenon::loop_pattern_tpttrtvr_tag);
   }
+  */
 #ifndef KOKKOS_ENABLE_CUDA
+  /*
   SECTION("tptvr") {
     std::cout << "tptvr range:" << std::endl;
     profile_wrapper_3d(parthenon::loop_pattern_tptvr_tag);
   }
+  */
   SECTION("simdfor") {
     std::cout << "simd range:" << std::endl;
     profile_wrapper_3d(parthenon::loop_pattern_simdfor_tag);
