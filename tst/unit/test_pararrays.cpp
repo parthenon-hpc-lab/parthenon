@@ -199,7 +199,7 @@ TEST_CASE("ParArrayND with LayoutLeft","[ParArrayND],[Kokkos],[LayoutLeft]") {
 
 // Kokkos debug mode introduces a significant performance hit,
 // making these tests not informative
-#ifdef KOKKOS_ENABLE_DEBUG
+#ifndef KOKKOS_ENABLE_DEBUG
 constexpr int NG = 1; // six-point stencil requires one ghost zone
 constexpr int N = 32 + 2*NG;
 constexpr int NT = 100;
@@ -616,4 +616,4 @@ TEST_CASE("Check many arrays","[ParArrayND]") {
             << "\tsub views   = " << time_subviews << " s\n"
             << std::endl;
 }
-#endif // KOKKOS_ENABLE_DEBUG
+#endif // !KOKKOS_ENABLE_DEBUG

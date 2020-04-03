@@ -112,18 +112,14 @@ if (Kokkos_ENABLE_CUDA)
        "Enable lambda expressions in CUDA")
 endif()
 
-# If we are in debug mode, set kokkos debug on
-# Using a generator expression because CMAKE_BUILD_TYPE
-# is not always respected. See:
-# https://mesos.apache.org/documentation/latest/cmake/#checking-cmake_build_type
-set(Kokkos_ENABLE_DEBUG $<$<CONFIG:Debug>:True> CACHE BOOL
-    "Broad Kokkos debug mode")
-set(Kokkos_ENABLE_DEBUG_BOUNDS_CHECK $<$<CONFIG:Debug>:True> CACHE BOOL
-    "Bounds checking on Kokkos views")
-set(Kokkos_ENABLE_DEBUG_DUALVIEW_MODIFY_CHECK $<$<CONFIG:Debug>:True> CACHE BOOL
-    "Sanity checks on Kokkos DualView")
-if (Kokkos_ENABLE_DEBUG)
+# If this is a debug build, set kokkos debug on
+if (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
   message(STATUS "Enabling Kokkos debug mode")
+  set(Kokkos_ENABLE_DEBUG ON CACHE BOOL "Most general debug settings")
+  set(Kokkos_ENABLE_DEBUG_BOUNDS_CHECK ON CACHE BOOL
+     "Bounds checking on Kokkos views")
+  set(Kokkos_ENABLE_DEBUG_DUALVIEW_MODIFY_CHECK ON CACHE BOOL
+      "Sanity checks on Kokkos DualView")
 endif()
 
 if (ENABLE_COMPILER_WARNINGS)
