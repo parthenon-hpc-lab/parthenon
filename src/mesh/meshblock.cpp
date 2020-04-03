@@ -142,7 +142,7 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
   /*Metadata m;
   m = Metadata({Metadata::Cell, Metadata::Advected, Metadata::FillGhost});
   real_container.Add(std::string("TestGhost"),m);
-  Variable<Real> &styx = real_container.Get("TestGhost");
+  CellVariable<Real> &styx = real_container.Get("TestGhost");
   Real *data = styx.data();
   for (int k=0; k<styx.GetSize(); k++) data[k] = pcoord->x1f(0,0,0);
   */
@@ -429,7 +429,7 @@ void MeshBlock::StopTimeMeasurement() {
 }
 
 
-void MeshBlock::RegisterMeshBlockData(std::shared_ptr<Variable<Real>> pvar_cc) {
+void MeshBlock::RegisterMeshBlockData(std::shared_ptr<CellVariable<Real>> pvar_cc) {
   vars_cc_.push_back(pvar_cc);
   return;
 }

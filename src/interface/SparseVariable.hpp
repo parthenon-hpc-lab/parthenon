@@ -31,8 +31,8 @@
 namespace parthenon {
 
 template <typename T>
-struct SparseMap : public std::map<int, std::shared_ptr<Variable<T>>> {
-  Variable<T>& operator()(int m) {
+struct SparseMap : public std::map<int, std::shared_ptr<CellVariable<T>>> {
+  CellVariable<T>& operator()(int m) {
     return *(*this)[m];
   }
   T& operator()(int m, int i) {
@@ -56,7 +56,7 @@ struct SparseMap : public std::map<int, std::shared_ptr<Variable<T>>> {
 };
 
 ///
-/// SparseVariable builds on top of  the Variable class to include a map
+/// SparseVariable builds on top of  the CellVariable class to include a map
 template <typename T>
 class SparseVariable {
  public:
@@ -67,7 +67,7 @@ class SparseVariable {
   SparseVariable(SparseVariable& src)
     : _dims(src._dims), _label(src._label), _metadata(src._metadata) {
     for (auto & v : src._varMap) {
-      auto var = std::make_shared<Variable<T>>(*v.second);
+      auto var = std::make_shared<CellVariable<T>>(*v.second);
       _varMap[v.first] = var;
       _varArray.push_back(var);
       _indexMap.push_back(v.first);
@@ -91,7 +91,7 @@ class SparseVariable {
     return s;
   }
 
-  Variable<T>& Get(const int index) {
+  CellVariable<T>& Get(const int index) {
     if (_varMap.find(index) == _varMap.end()) {
       throw std::invalid_argument("index " + std::to_string(index) + 
                                   "does not exist in SparseVariable");
@@ -107,7 +107,7 @@ class SparseVariable {
 
   std::vector<int>& GetIndexMap() { return _indexMap; }
 
-  VariableVector<T>& GetVector() { return _varArray; }
+  CellVariableVector<T>& GetVector() { return _varArray; }
 
   SparseMap<T>& GetMap() { return _varMap; }
 
@@ -125,9 +125,9 @@ class SparseVariable {
   std::string _label;
   Metadata _metadata;
   SparseMap<T> _varMap;
-  VariableVector<T> _varArray;
+  CellVariableVector<T> _varArray;
   std::vector<int> _indexMap;
-  VariableVector<T> _empty;
+  CellVariableVector<T> _empty;
 };
 
 template <typename T>

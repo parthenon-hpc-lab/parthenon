@@ -56,11 +56,11 @@ void FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
         pmb->pcoord->Face3Area(k + 1, j, is, ie, x3area1);
       }
       for (int n = 0; n < nvars; n++) {
-        Variable<Real> &q = *cin_iter.vars[n];
+        CellVariable<Real> &q = *cin_iter.vars[n];
         ParArrayND<Real> &x1flux = q.flux[0];
         ParArrayND<Real> &x2flux = q.flux[1];
         ParArrayND<Real> &x3flux = q.flux[2];
-        Variable<Real> &dudt = *cout_iter.vars[n];
+        CellVariable<Real> &dudt = *cout_iter.vars[n];
         for (int l = 0; l < q.GetDim(4); l++) {
           for (int i = is; i <= ie; i++) {
             du(i) = (x1area(i + 1) * x1flux(l, k, j, i + 1) -
@@ -108,9 +108,9 @@ void UpdateContainer(Container<Real> &in, Container<Real> &dudt_cont,
   int nvars = cout_iter.vars.size();
 
   for (int n = 0; n < nvars; n++) {
-    Variable<Real> &qin = *cin_iter.vars[n];
-    Variable<Real> &dudt = *du_iter.vars[n];
-    Variable<Real> &qout = *cout_iter.vars[n];
+    CellVariable<Real> &qin = *cin_iter.vars[n];
+    CellVariable<Real> &dudt = *du_iter.vars[n];
+    CellVariable<Real> &qout = *cout_iter.vars[n];
     for (int l = 0; l < qout.GetDim(4); l++) {
       for (int k = ks; k <= ke; k++) {
         for (int j = js; j <= je; j++) {
@@ -140,8 +140,8 @@ void AverageContainers(Container<Real> &c1, Container<Real> &c2,
   int nvars = c2_iter.vars.size();
 
   for (int n = 0; n < nvars; n++) {
-    Variable<Real> &q1 = *c1_iter.vars[n];
-    Variable<Real> &q2 = *c2_iter.vars[n];
+    CellVariable<Real> &q1 = *c1_iter.vars[n];
+    CellVariable<Real> &q2 = *c2_iter.vars[n];
     for (int l = 0; l < q1.GetDim(4); l++) {
       for (int k = ks; k <= ke; k++) {
         for (int j = js; j <= je; j++) {

@@ -66,7 +66,7 @@ DriverStatus CalculatePi::Execute() {
   MeshBlock* pmb = pmesh->pblock;
   while (pmb != nullptr) {
     Container<Real>& rc = pmb->real_containers.Get();
-    Variable<Real>& v = rc.Get("in_or_out");
+    CellVariable<Real>& v = rc.Get("in_or_out");
     // NOTE: the MeshBlock integrated indicator function, divided
     // by r0^2, was stashed in v(0,0,0) in ComputeArea.
     Real block_area = v(0,0,0);
@@ -119,7 +119,7 @@ namespace PiCalculator {
     int is = pmb->is; int js = pmb->js; int ks = pmb->ks;
     int ie = pmb->ie; int je = pmb->je; int ke = pmb->ke;
     Coordinates *pcoord = pmb->pcoord.get();
-    Variable<Real>& v = rc.Get("in_or_out");
+    CellVariable<Real>& v = rc.Get("in_or_out");
     const auto& radius = pmb->packages["PiCalculator"]->Param<Real>("radius");
     // Set an indicator function that indicates whether the cell center
     // is inside or outside of the circle we're interating the area of.
@@ -138,7 +138,7 @@ namespace PiCalculator {
     }
     /** TODO(pgrete) This is what it should should like using the transparent
       * parallel_for wrapper of the MeshBlock.
-      * Unfortunely, the current Container/Variable/ParArrayND combination
+      * Unfortunely, the current Container/CellVariable/ParArrayND combination
       * won't work this way and we should discuss how to proceed before
       * starting a bigger refactoring of the the classes above.
 
@@ -164,7 +164,7 @@ namespace PiCalculator {
     MeshBlock *pmb = rc.pmy_block;
     int is = pmb->is; int js = pmb->js; int ks = pmb->ks;
     int ie = pmb->ie; int je = pmb->je; int ke = pmb->ke;
-    Variable<Real>& v = rc.Get("in_or_out");
+    CellVariable<Real>& v = rc.Get("in_or_out");
     int delta_level = -1;
     Real vmin = 1.0;
     Real vmax = 0.0;
@@ -214,7 +214,7 @@ namespace PiCalculator {
     int is = pmb->is; int js = pmb->js; int ks = pmb->ks;
     int ie = pmb->ie; int je = pmb->je; int ke = pmb->ke;
     Coordinates *pcoord = pmb->pcoord.get();
-    Variable<Real>& v = rc.Get("in_or_out");
+    CellVariable<Real>& v = rc.Get("in_or_out");
     const auto& radius = pmb->packages["PiCalculator"]->Param<Real>("radius");
     Real area = 0.0;
     for (int k=ks; k<=ke; k++) {

@@ -33,7 +33,7 @@ void ApplyBoundaryConditions(Container<Real>& rc) {
     switch (pmb->boundary_flag[BoundaryFace::inner_x1]) {
         case BoundaryFlag::outflow: {
             for (int n=0; n<nvars; n++) {
-                Variable<Real>& q = *citer.vars[n];
+                CellVariable<Real>& q = *citer.vars[n];
                 for (int l=0; l<q.GetDim(4); l++) {
                     for (int k=ks; k<=ke; k++) {
                         for (int j=0; j<jmax; j++) {
@@ -48,7 +48,7 @@ void ApplyBoundaryConditions(Container<Real>& rc) {
         }
         case BoundaryFlag::reflect: {
             for (int n=0; n<nvars; n++) {
-                Variable<Real>& q = *citer.vars[n];
+                CellVariable<Real>& q = *citer.vars[n];
                 bool vec = q.isSet(Metadata::Vector);
                 for (int l=0; l<q.GetDim(4); l++) {
                     Real reflect = (l==0 && vec ? -1.0 : 1.0);
@@ -71,7 +71,7 @@ void ApplyBoundaryConditions(Container<Real>& rc) {
     switch (pmb->boundary_flag[BoundaryFace::outer_x1]) {
         case BoundaryFlag::outflow: {
             for (int n=0; n<nvars; n++) {
-                Variable<Real>& q = *citer.vars[n];
+                CellVariable<Real>& q = *citer.vars[n];
                 for (int l=0; l<q.GetDim(4); l++) {
                     for (int k=ks; k<=ke; k++) {
                         for (int j=0; j<jmax; j++) {
@@ -86,7 +86,7 @@ void ApplyBoundaryConditions(Container<Real>& rc) {
         }
         case BoundaryFlag::reflect: {
             for (int n=0; n<nvars; n++) {
-                Variable<Real>& q = *citer.vars[n];
+                CellVariable<Real>& q = *citer.vars[n];
                 bool vec = q.isSet(Metadata::Vector);
                 for (int l=0; l<q.GetDim(4); l++) {
                     Real reflect = (l==0 && vec ? -1.0 : 1.0);
@@ -113,7 +113,7 @@ void ApplyBoundaryConditions(Container<Real>& rc) {
     switch (pmb->boundary_flag[BoundaryFace::inner_x2]) {
         case BoundaryFlag::outflow: {
             for (int n=0; n<nvars; n++) {
-                Variable<Real>& q = *citer.vars[n];
+                CellVariable<Real>& q = *citer.vars[n];
                 for (int l=0; l<q.GetDim(4); l++) {
                     for (int k=ks; k<=ke; k++) {
                         for (int j=0; j<js; j++) {
@@ -128,7 +128,7 @@ void ApplyBoundaryConditions(Container<Real>& rc) {
         }
         case BoundaryFlag::reflect: {
             for (int n=0; n<nvars; n++) {
-                Variable<Real>& q = *citer.vars[n];
+                CellVariable<Real>& q = *citer.vars[n];
                 bool vec = q.isSet(Metadata::Vector);
                 for (int l=0; l<q.GetDim(4); l++) {
                     Real reflect = (l==1 && vec ? -1.0 : 1.0);
@@ -151,7 +151,7 @@ void ApplyBoundaryConditions(Container<Real>& rc) {
     switch (pmb->boundary_flag[BoundaryFace::outer_x2]) {
         case BoundaryFlag::outflow: {
             for (int n=0; n<nvars; n++) {
-                Variable<Real>& q = *citer.vars[n];
+                CellVariable<Real>& q = *citer.vars[n];
                 for (int l=0; l<q.GetDim(4); l++) {
                     for (int k=ks; k<=ke; k++) {
                         for (int j=je+1; j<jmax; j++) {
@@ -166,7 +166,7 @@ void ApplyBoundaryConditions(Container<Real>& rc) {
         }
         case BoundaryFlag::reflect: {
             for (int n=0; n<nvars; n++) {
-                Variable<Real>& q = *citer.vars[n];
+                CellVariable<Real>& q = *citer.vars[n];
                 bool vec = q.isSet(Metadata::Vector);
                 for (int l=0; l<q.GetDim(4); l++) {
                     Real reflect = (l==1 && vec ? -1.0 : 1.0);
@@ -194,7 +194,7 @@ void ApplyBoundaryConditions(Container<Real>& rc) {
    switch (pmb->boundary_flag[BoundaryFace::inner_x3]) {
         case BoundaryFlag::outflow: {
             for (int n=0; n<nvars; n++) {
-                Variable<Real>& q = *citer.vars[n];
+                CellVariable<Real>& q = *citer.vars[n];
                 for (int l=0; l<q.GetDim(4); l++) {
                     for (int k=0; k<ks; k++) {
                         for (int j=0; j<jmax; j++) {
@@ -209,7 +209,7 @@ void ApplyBoundaryConditions(Container<Real>& rc) {
         }
         case BoundaryFlag::reflect: {
             for (int n=0; n<nvars; n++) {
-                Variable<Real>& q = *citer.vars[n];
+                CellVariable<Real>& q = *citer.vars[n];
                 bool vec = q.isSet(Metadata::Vector);
                 for (int l=0; l<q.GetDim(4); l++) {
                     Real reflect = (l==2 && vec ? -1.0 : 1.0);
@@ -232,7 +232,7 @@ void ApplyBoundaryConditions(Container<Real>& rc) {
     switch (pmb->boundary_flag[BoundaryFace::outer_x3]) {
         case BoundaryFlag::outflow: {
             for (int n=0; n<nvars; n++) {
-                Variable<Real>& q = *citer.vars[n];
+                CellVariable<Real>& q = *citer.vars[n];
                 for (int l=0; l<q.GetDim(4); l++) {
                     for (int k=ke+1; k<kmax; k++) {
                         for (int j=0; j<jmax; j++) {
@@ -247,7 +247,7 @@ void ApplyBoundaryConditions(Container<Real>& rc) {
         }
         case BoundaryFlag::reflect: {
             for (int n=0; n<nvars; n++) {
-                Variable<Real>& q = *citer.vars[n];
+                CellVariable<Real>& q = *citer.vars[n];
                 bool vec = q.isSet(Metadata::Vector);
                 for (int l=0; l<q.GetDim(4); l++) {
                     Real reflect = (l==2 && vec ? -1.0 : 1.0);

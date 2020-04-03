@@ -48,7 +48,7 @@ AMRFirstDerivative::AMRFirstDerivative(ParameterInput *pin, std::string& block_n
 }
 
 int AMRFirstDerivative::operator()(Container<Real>& rc) {
-  Variable<Real>& q = rc.Get(field);
+  CellVariable<Real>& q = rc.Get(field);
   return BetterRefinement::FirstDerivative(q, refine_criteria, derefine_criteria);
 }
 

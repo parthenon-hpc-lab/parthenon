@@ -19,7 +19,6 @@
 #include <utility> // <pair>
 #include <vector>
 #include "globals.hpp"
-//#include "mesh/mesh.hpp"
 #include "SparseVariable.hpp"
 #include "Variable.hpp"
 
@@ -121,7 +120,7 @@ class Container {
   ///
   void Add(const std::vector<std::string> labelVector, const Metadata &metadata);
 
-  void Add(std::shared_ptr<Variable<T>> var) {
+  void Add(std::shared_ptr<CellVariable<T>> var) {
     _varVector.push_back(var);
     _varMap[var->label()] = var;
   }
@@ -135,12 +134,12 @@ class Container {
   }
 
   //
-  // Queries related to Variable objects
+  // Queries related to CellVariable objects
   //
-  VariableVector<T> GetVariableVector() {
+  const CellVariableVector<T>& GetCellVariableVector() const {
     return _varVector;
   }
-  Variable<T>& Get(std::string label) {
+  CellVariable<T>& Get(std::string label) {
     auto it = _varMap.find(label);
     if (it == _varMap.end()) {
       throw std::invalid_argument(std::string("\n") +
@@ -150,7 +149,7 @@ class Container {
     return *(it->second);
   }
 
-  Variable<T>& Get(const int index) {
+  CellVariable<T>& Get(const int index) {
     return *(_varVector[index]);
   }
 
@@ -164,7 +163,7 @@ class Container {
   //
   // Queries related to SparseVariable objects
   //
-  SparseVector<T> GetSparseVector() {
+  const SparseVector<T> GetSparseVector() const {
     return _sparseVector;
   }
   SparseVariable<T>& GetSparseVariable(const std::string& label) {
@@ -179,11 +178,11 @@ class Container {
     return GetSparseVariable(label).GetMap();
   }
 
-  VariableVector<T>& GetSparseVector(const std::string& label) {
+  CellVariableVector<T>& GetSparseVector(const std::string& label) {
     return GetSparseVariable(label).GetVector();
   }
 
-  Variable<T>& Get(const std::string& label, const int sparse_id) {
+  CellVariable<T>& Get(const std::string& label, const int sparse_id) {
     return GetSparseVariable(label).Get(sparse_id);
   }
 
@@ -211,7 +210,7 @@ class Container {
   ///
   /// Get an edge variable from the container
   /// @param label the name of the variable
-  /// @return the Variable<T> if found or throw exception
+  /// @return the CellVariable<T> if found or throw exception
   ///
   EdgeVariable<T> *GetEdge(std::string label) {
     // for (auto v : _edgeVector) {
@@ -227,8 +226,8 @@ class Container {
   /// @param indexCount a map of names to std::pair<index,count> for each name
   /// @param sparse_ids if specified is list of sparse ids we are interested in.  Note
   ///        that non-sparse variables specified are aliased in as is.
-  int GetVariables(const std::vector<std::string>& names,
-                   std::vector<Variable<T>>& vRet,
+  int GetCellVariables(const std::vector<std::string>& names,
+                   std::vector<CellVariable<T>>& vRet,
                    std::map<std::string,std::pair<int,int>>& indexCount,
                    const std::vector<int>& sparse_ids = {});
 
@@ -237,7 +236,7 @@ class Container {
   /// @param label the name of the variable
   /// @return a pointer of type T if found or NULL
   /*T *Raw(std::string label) {
-    Variable<T>& v = Get(label);
+    CellVariable<T>& v = Get(label);
     //if(v)
     return v.data();
     //return NULL;
@@ -257,17 +256,17 @@ class Container {
   int size() {return _varVector.size();}
 
   // // returne variable at index
-  // std::weak_ptr<Variable<T>>& at(const int index) {
+  // std::weak_ptr<CellVariable<T>>& at(const int index) {
   //   return _varVector.at(index);
   // }
 
-  FaceVector<T>& GetFaceVector() {
+  const FaceVector<T>& GetFaceVector() const {
     return _faceVector;
   }
 
 
   // Communication routines
-  void ResetBoundaryVariables();
+  void ResetBoundaryCellVariables();
   void SetupPersistentMPI();
   void SetBoundaries();
   void SendBoundaryBuffers();
@@ -280,12 +279,12 @@ class Container {
 
  private:
   int debug=0;
-  
-  VariableVector<T> _varVector = {}; ///< the saved variable array
+
+  CellVariableVector<T> _varVector = {}; ///< the saved variable array
   FaceVector<T> _faceVector = {};  ///< the saved face arrays
   SparseVector<T> _sparseVector = {};
 
-  MapToVars<T> _varMap = {};
+  MapToCellVars<T> _varMap = {};
   MapToFace<T> _faceMap = {};
   MapToSparse<T> _sparseMap = {};
 

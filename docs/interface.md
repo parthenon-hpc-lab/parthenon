@@ -39,9 +39,9 @@ The metadata class provides a mechanism to inform parthenon about an application
 
 This may end up as a light wrapper around ```Kokkos::View```.  We'll see...
 
-# Variable
+# CellVariable
 
-The ```Variable``` class collects several associated objects that are needed to store, describe, and update simulation data.
+The ```CellVariable``` class collects several associated objects that are needed to store, describe, and update simulation data.
 
 # Container
 

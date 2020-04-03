@@ -40,7 +40,7 @@ TEST_CASE("Can create a vector-valued face-variable",
     WHEN("We construct a FaceVariable") {
       std::array<int,6> dims({blockShape[0],blockShape[1],blockShape[2],
             array_size[0],1,1});
-      FaceVariable<Real> f(name,m,dims);
+      FaceVariable<Real> f(name,dims,m);
       THEN("Each ParArrayND in the variable has the right shape") {
         REQUIRE(f.Get(1).GetDim(1) == blockShape[0] + 1);
         REQUIRE(f.Get(1).GetDim(2) == blockShape[1]);

@@ -41,7 +41,7 @@ Packages_t ParthenonManager::ProcessPackages(std::unique_ptr<ParameterInput>& pi
 
 void MeshBlock::ProblemGenerator(ParameterInput *pin) {
   Container<Real>& rc = real_containers.Get();
-  Variable<Real>& q = rc.Get("advected");
+  CellVariable<Real>& q = rc.Get("advected");
 
   for (int k=0; k<ncells3; k++) {
     for (int j=0; j<ncells2; j++) {
@@ -106,7 +106,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 int CheckRefinement(Container<Real>& rc) {
   MeshBlock *pmb = rc.pmy_block;
   // refine on advected, for example.  could also be a derived quantity
-  Variable<Real>& v = rc.Get("advected");
+  CellVariable<Real>& v = rc.Get("advected");
   Real vmin = 1.0;
   Real vmax = 0.0;
   for (int k=0; k<pmb->ncells3; k++) {
@@ -131,8 +131,8 @@ void PreFill(Container<Real>& rc) {
   MeshBlock *pmb = rc.pmy_block;
   int is = 0; int js = 0; int ks = 0;
   int ie = pmb->ncells1-1; int je = pmb->ncells2-1; int ke = pmb->ncells3-1;
-  Variable<Real>& qin = rc.Get("advected");
-  Variable<Real>& qout = rc.Get("one_minus_advected");
+  CellVariable<Real>& qin = rc.Get("advected");
+  CellVariable<Real>& qout = rc.Get("one_minus_advected");
   for (int i=is; i<=ie; i++) {
     for (int j=js; j<=je; j++) {
       for (int k=ks; k<=ke; k++) {
@@ -147,8 +147,8 @@ void SquareIt(Container<Real>& rc) {
   MeshBlock *pmb = rc.pmy_block;
   int is = 0; int js = 0; int ks = 0;
   int ie = pmb->ncells1-1; int je = pmb->ncells2-1; int ke = pmb->ncells3-1;
-  Variable<Real>& qin = rc.Get("one_minus_advected");
-  Variable<Real>& qout = rc.Get("one_minus_advected_sq");
+  CellVariable<Real>& qin = rc.Get("one_minus_advected");
+  CellVariable<Real>& qout = rc.Get("one_minus_advected_sq");
   for (int i=is; i<=ie; i++) {
     for (int j=js; j<=je; j++) {
       for (int k=ks; k<=ke; k++) {
@@ -163,8 +163,8 @@ void PostFill(Container<Real>& rc) {
   MeshBlock *pmb = rc.pmy_block;
   int is = 0; int js = 0; int ks = 0;
   int ie = pmb->ncells1-1; int je = pmb->ncells2-1; int ke = pmb->ncells3-1;
-  Variable<Real>& qin = rc.Get("one_minus_advected_sq");
-  Variable<Real>& qout = rc.Get("one_minus_sqrt_one_minus_advected_sq");
+  CellVariable<Real>& qin = rc.Get("one_minus_advected_sq");
+  CellVariable<Real>& qout = rc.Get("one_minus_sqrt_one_minus_advected_sq");
   for (int i=is; i<=ie; i++) {
     for (int j=js; j<=je; j++) {
       for (int k=ks; k<=ke; k++) {
@@ -212,7 +212,7 @@ TaskStatus CalculateFluxes(Container<Real>& rc) {
   int is = pmb->is; int js = pmb->js; int ks = pmb->ks;
   int ie = pmb->ie; int je = pmb->je; int ke = pmb->ke;
 
-  Variable<Real>& q = rc.Get("advected");
+  CellVariable<Real>& q = rc.Get("advected");
   auto pkg = pmb->packages["Advection"];
   const auto& vx  = pkg->Param<Real>("vx");
   const auto& vy  = pkg->Param<Real>("vy");

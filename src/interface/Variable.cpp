@@ -24,7 +24,7 @@
 namespace parthenon {
 
 template <typename T>
-std::string Variable<T>::info() {
+std::string CellVariable<T>::info() {
     char tmp[100] = "";
     char *stmp = tmp;
 
@@ -55,7 +55,7 @@ std::string Variable<T>::info() {
 
 // copy constructor
 template <typename T>
-Variable<T>::Variable(const Variable<T> &src,
+CellVariable<T>::CellVariable(const CellVariable<T> &src,
                       const bool allocComms,
                       MeshBlock *pmb) :
   mpiStatus(false), _dims(src._dims), _m(src._m), _label(src._label)  {
@@ -91,7 +91,7 @@ Variable<T>::Variable(const Variable<T> &src,
 /// allocate communication space based on info in MeshBlock
 /// Initialize a 6D variable
 template <typename T>
-void Variable<T>::allocateComms(MeshBlock *pmb) {
+void CellVariable<T>::allocateComms(MeshBlock *pmb) {
   if ( ! pmb ) return;
 
   // set up fluxes
@@ -174,7 +174,7 @@ std::string EdgeVariable<T>::info() {
     return s;
 }
 
-template class Variable<Real>;
+template class CellVariable<Real>;
 template class FaceVariable<Real>;
 template class EdgeVariable<Real>;
 } // namespace parthenon

@@ -29,11 +29,11 @@ void ContainerCollection<T>::Add(const std::string& name, Container<T>& src) {
 
   auto c = std::make_shared<Container<T>>();
   c->pmy_block = src.pmy_block;
-  for (auto v : src.GetVariableVector()) {
+  for (auto v : src.GetCellVariableVector()) {
     if (v->isSet(Metadata::OneCopy)) {
       c->Add(v);
     } else {
-      c->Add( std::make_shared<Variable<T>>(*v) );
+      c->Add( std::make_shared<CellVariable<T>>(*v) );
     }
   }
 

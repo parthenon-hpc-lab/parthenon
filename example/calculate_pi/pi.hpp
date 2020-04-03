@@ -26,7 +26,7 @@ using parthenon::Driver;
 using parthenon::DriverStatus;
 using parthenon::MeshBlock;
 using parthenon::Real;
-using parthenon::Variable;
+using parthenon::CellVariable;
 using parthenon::DriverUtils::ConstructAndExecuteBlockTasks;
 using parthenon::Coordinates;
 using parthenon::StateDescriptor;

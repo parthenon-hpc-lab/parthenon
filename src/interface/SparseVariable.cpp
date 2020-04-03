@@ -27,10 +27,10 @@ void SparseVariable<T>::Add(int varIndex) {
     }
     // create the variable and add to map
     std::string my_name = _label + "_" + PropertiesInterface::GetLabelFromID(varIndex);
-    auto v = std::make_shared<Variable<T>>(my_name, _dims, _metadata);
+    auto v = std::make_shared<CellVariable<T>>(my_name, _dims, _metadata);
     _varArray.push_back(v);
     _indexMap.push_back(varIndex);
-    _varMap.insert( std::pair<int, std::shared_ptr<Variable<T>>> (varIndex, v) );
+    _varMap.insert( std::pair<int, std::shared_ptr<CellVariable<T>>> (varIndex, v) );
   } else {
     throw std::invalid_argument ("unsupported type in SparseVariable");
   }

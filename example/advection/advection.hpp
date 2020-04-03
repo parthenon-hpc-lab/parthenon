@@ -28,7 +28,7 @@ using parthenon::Mesh;
 using parthenon::Outputs;
 using parthenon::BaseTask;
 using parthenon::Real;
-using parthenon::Variable;
+using parthenon::CellVariable;
 using parthenon::StateDescriptor;
 using parthenon::TaskStatus;
 using parthenon::TaskList;

@@ -89,7 +89,7 @@ int CheckAllRefinement(Container<Real>& rc) {
   return delta_level;
 }
 
-int FirstDerivative(Variable<Real>& q,
+int FirstDerivative(CellVariable<Real>& q,
                     const Real refine_criteria, const Real derefine_criteria) {
   Real maxd = 0.0;
   const int dim1 = q.GetDim(1);
