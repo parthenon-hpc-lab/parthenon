@@ -29,7 +29,6 @@ style-check:
 parthenon-cuda-short:
   tags:
     - cuda
-    - debug
   stage: short
   script:
 # mitigate UVM allocations on older multi-GPU systems    
@@ -47,7 +46,6 @@ parthenon-cuda-short:
 parthenon-cpu-short:
   tags:
     - cpu
-    - debug
   stage: short
   script:
     - mkdir build-debug
@@ -59,7 +57,6 @@ parthenon-cpu-short:
 parthenon-cuda-peformance:
   tags:
     - cuda
-    - performance
   stage: short
   script:
 # mitigate UVM allocations on older multi-GPU systems    
@@ -77,7 +74,6 @@ parthenon-cuda-peformance:
 parthenon-cpu-performance:
   tags:
     - cpu
-    - performance
   stage: short
   script:
     - mkdir build-perf
