@@ -79,27 +79,30 @@ TEST_CASE("Can create a vector-valued face-variable",
                     x3f(k,j,i) = 3 + k + j + i;
                   });
           // boundaries
+          int idx = blockShape[0];
           par_for(loop_pattern_mdrange_tag,
                   "set boundaries 0",
                   space,
                   0, blockShape[2]-1,
                   0, blockShape[1]-1,
                   KOKKOS_LAMBDA(const int k, const int j) {
-                    x1f(k,j,blockShape[0]) = -1;
+                    x1f(k,j,idx) = -1;
                   });
+          idx = blockShape[1];
           par_for(loop_pattern_mdrange_tag,
                   "set boundaries 1", space,
                   0, blockShape[2]-1,
                   0, blockShape[0]-1,
                   KOKKOS_LAMBDA(const int k, const int i) {
-                    x2f(k,blockShape[1],i) = -1;
+                    x2f(k,idx,i) = -1;
                   });
+          idx = blockShape[2];
           par_for(loop_pattern_mdrange_tag,
                   "set boundaries 2", space,
                   0, blockShape[1]-1,
                   0, blockShape[0]-1,
                   KOKKOS_LAMBDA(const int j, const int i) {
-                    x3f(blockShape[2],j,i) = -1;
+                    x3f(idx,j,i) = -1;
                   });
           AND_THEN("We can read them back") {
             int num_incorrect = 1; // != 0
@@ -119,26 +122,29 @@ TEST_CASE("Can create a vector-valued face-variable",
             REQUIRE( num_incorrect == 0 );
             // boundaries
             using policy2D = Kokkos::MDRangePolicy<Kokkos::Rank<2>>;
+            idx = blockShape[0];
             Kokkos::parallel_reduce(policy2D({0,0},{blockShape[2],blockShape[1]}),
                                     KOKKOS_LAMBDA(const int k, const int j,
                                                   int& update) {
-                                      bool correct = x1f(k,j,blockShape[0]) == -1;
+                                      bool correct = x1f(k,j,idx) == -1;
                                       update += correct ? 0 : 1;
                                     },
                                     num_incorrect);
             REQUIRE( num_incorrect == 0 );
+            idx = blockShape[1];
             Kokkos::parallel_reduce(policy2D({0,0},{blockShape[2],blockShape[0]}),
                                     KOKKOS_LAMBDA(const int k, const int i,
                                                   int& update) {
-                                      bool correct = x2f(k,blockShape[1],i) == -1;
+                                      bool correct = x2f(k,idx,i) == -1;
                                       update += correct ? 0 : 1;
                                     },
                                     num_incorrect);
             REQUIRE( num_incorrect == 0 );
+            idx = blockShape[2];
             Kokkos::parallel_reduce(policy2D({0,0},{blockShape[1],blockShape[0]}),
                                     KOKKOS_LAMBDA(const int j, const int i,
                                                   int& update) {
-                                      bool correct = x3f(blockShape[2],j,i) == -1;
+                                      bool correct = x3f(idx,j,i) == -1;
                                       update += correct ? 0 : 1;
                                     },
                                     num_incorrect);
