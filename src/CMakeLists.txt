@@ -69,11 +69,6 @@ set(NUMBER_GHOST_CELLS 2) # TODO: Make this a CMake option and check it
 configure_file(defs.hpp.in generated/defs.hpp @ONLY)
 
 add_library(parthenon
-  better_boundaries/boundary_conditions.cpp
-
-  better_refinement/better_refinement.cpp
-  better_refinement/amr_criteria.cpp
-
   bvals/cc/bvals_cc.cpp
   bvals/cc/flux_correction_cc.cpp
 
@@ -85,6 +80,8 @@ add_library(parthenon
   bvals/boundary_flag.cpp
   bvals/bvals_refine.cpp
   bvals/bvals_var.cpp
+
+  bvals/boundary_conditions.cpp
 
   coordinates/coordinates.cpp
   coordinates/cartesian.cpp
@@ -123,6 +120,9 @@ add_library(parthenon
   reconstruct/plm.cpp
   reconstruct/ppm.cpp
   reconstruct/reconstruction.cpp
+
+  refinement/amr_criteria.cpp
+  refinement/refinement.cpp
 
   task_list/task_id.cpp
 

@@ -16,14 +16,14 @@
 #include <utility>
 
 #include "amr_criteria.hpp"
-#include "better_refinement.hpp"
+#include "refinement.hpp"
 #include "defs.hpp"
 #include "interface/StateDescriptor.hpp"
 #include "mesh/mesh.hpp"
 #include "parameter_input.hpp"
 
 namespace parthenon {
-namespace BetterRefinement {
+namespace Refinement {
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto ref = std::make_shared<StateDescriptor>("Refinement");
@@ -46,16 +46,16 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
 
 int CheckAllRefinement(Container<Real>& rc) {
-  // Check all refinement criteria and return the maximum recommended change in 
+  // Check all refinement criteria and return the maximum recommended change in
   // refinement level:
   //   delta_level = -1 => recommend derefinement
   //   delta_level = 0  => leave me alone
   //   delta_level = 1  => recommend refinement
   // NOTE: recommendations from this routine are NOT always followed because
-  //    1) the code will not refine more than the global maximum level defined in 
+  //    1) the code will not refine more than the global maximum level defined in
   //       <mesh>/numlevel in the input
   //    2) the code must maintain proper nesting, which sometimes means a block that is
-  //       tagged as "derefine" must be left alone (or possibly refined?) because of 
+  //       tagged as "derefine" must be left alone (or possibly refined?) because of
   //       neighboring blocks.  Similarly for "do nothing"
   MeshBlock *pmb = rc.pmy_block;
   // delta_level holds the max over all criteria.  default to derefining.
@@ -84,7 +84,7 @@ int CheckAllRefinement(Container<Real>& rc) {
       if (delta_level == 1) {
         // 1 is the max, so just return
         return 1;
-      } 
+      }
     }
   }
   return delta_level;
@@ -131,5 +131,5 @@ int FirstDerivative(Variable<Real>& q,
   return 0;;
 }
 
-} // namespace BetterRefinement
+} // namespace Refinement
 } // namespace parthenon
