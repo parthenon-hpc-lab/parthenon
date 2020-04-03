@@ -24,6 +24,7 @@
 // C++ headers
 #include <string>   // string
 #include <vector>
+#include <memory>
 
 // Athena++ headers
 #include "athena.hpp"
@@ -108,9 +109,9 @@ class BoundaryValues : public BoundaryBase, //public BoundaryPhysics,
 
   // variable-length arrays of references to BoundaryVariable instances
   // containing all BoundaryVariable instances:
-  std::vector<BoundaryVariable *> bvars;
+  std::vector<std::shared_ptr<BoundaryVariable>> bvars;
   // subset of bvars that are exchanged in the main TimeIntegratorTaskList
-  std::vector<BoundaryVariable *> bvars_main_int;
+  std::vector<std::shared_ptr<BoundaryVariable>> bvars_main_int;
 
   void SetBoundaryFlags(BoundaryFlag bc_flag[]) {for (int i=0; i<6; i++) bc_flag[i]=block_bcs[i];}
 

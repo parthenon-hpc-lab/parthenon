@@ -112,7 +112,7 @@ void Variable<T>::allocateComms(MeshBlock *pmb) {
 
   // Create the boundary object
   //vbvar = std::make_shared<CellCenteredBoundaryVariable>(pmb, &data, coarse_s.get(), flux);
-  vbvar = new CellCenteredBoundaryVariable(pmb, data, coarse_s, flux);
+  vbvar = std::make_shared<CellCenteredBoundaryVariable>(pmb, data, coarse_s, flux);
 
   // enroll CellCenteredBoundaryVariable object
   vbvar->bvar_index = pmb->pbval->bvars.size();

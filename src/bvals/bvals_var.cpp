@@ -95,7 +95,6 @@ void BoundaryVariable::InitBoundaryData(BoundaryData<> &bd, BoundaryQuantity typ
 
 void BoundaryVariable::DestroyBoundaryData(BoundaryData<> &bd) {
   for (int n=0; n<bd.nbmax; n++) {
-    std::cerr << "deleting " << n << std::endl;
     delete [] bd.send[n];
     delete [] bd.recv[n];
 #ifdef MPI_PARALLEL

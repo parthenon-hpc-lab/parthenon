@@ -89,7 +89,6 @@ void Container<T>::Add(const std::string label,
     // s->_edgeVector.push_back(
     //     new EdgeVariable(label, metadata,
     //                      pmy_block->ncells3, pmy_block->ncells2, pmy_block->ncells1));
-    return;
   } else if ( metadata.Where() == Metadata::Face ) {
     if ( !(metadata.IsSet(Metadata::OneCopy)) ) {
       std::cerr << "Currently one one-copy face fields are supported"
@@ -103,7 +102,7 @@ void Container<T>::Add(const std::string label,
     // add a face variable
     auto pfv = std::make_shared<FaceVariable<T>>(label, metadata, arrDims);
     _faceVector.push_back(pfv);
-    return;
+    _faceMap[label] = pfv;
   } else {
     // plain old variable
     if ( dims.size() > 6 || dims.size() < 1 ) {

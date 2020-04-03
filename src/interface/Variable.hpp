@@ -161,7 +161,7 @@ class Variable {
   ParArrayND<T> coarse_s;  // used for sending coarse boundary calculation
   //AthenaArray<Real> *coarse_r;  // used for sending coarse boundary calculation
   //std::shared_ptr<CellCenteredBoundaryVariable> 
-  CellCenteredBoundaryVariable *vbvar = nullptr; // used in case of cell boundary communication
+  std::shared_ptr<CellCenteredBoundaryVariable> vbvar; // used in case of cell boundary communication
   bool mpiStatus;
 
  private:
