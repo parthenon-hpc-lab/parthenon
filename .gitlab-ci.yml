@@ -29,13 +29,14 @@ style-check:
 parthenon-cuda-short:
   tags:
     - cuda
+    - debug
   stage: short
   script:
 # mitigate UVM allocations on older multi-GPU systems    
 #    - export CUDA_LAUNCH_BLOCKING=1
 #    - export CUDA_VISIBLE_DEVICES=0
-    - mkdir build-cuda
-    - cd build-cuda
+    - mkdir build-cuda-debug
+    - cd build-cuda-debug
     - cmake -DCMAKE_BUILD_TYPE=Debug -DHDF5_ROOT=/usr/local/hdf5/parallel
       -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
       -DKokkos_ENABLE_CUDA=True -DKokkos_ARCH_PASCAL61=True
@@ -46,10 +47,11 @@ parthenon-cuda-short:
 parthenon-cpu-short:
   tags:
     - cpu
+    - debug
   stage: short
   script:
-    - mkdir build
-    - cd build
+    - mkdir build-debug
+    - cd build-debug
     - cmake -DCMAKE_BUILD_TYPE=Debug -DHDF5_ROOT=/usr/local/hdf5/parallel
       -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
       ../ && make -j${J} && make test
@@ -57,6 +59,7 @@ parthenon-cpu-short:
 parthenon-cuda-peformance:
   tags:
     - cuda
+    - performance
   stage: short
   script:
 # mitigate UVM allocations on older multi-GPU systems    
@@ -74,6 +77,7 @@ parthenon-cuda-peformance:
 parthenon-cpu-performance:
   tags:
     - cpu
+    - performance
   stage: short
   script:
     - mkdir build-perf
