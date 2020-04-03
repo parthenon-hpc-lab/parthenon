@@ -38,168 +38,6 @@ using Real = double;
 using policy3d = Kokkos::MDRangePolicy<Kokkos::Rank<3>>;
 using policy2d = Kokkos::MDRangePolicy<Kokkos::Rank<2>>;
 
-TEST_CASE("ParArrayND","[ParArrayND],[Kokkos]") {
-  GIVEN("A ParArrayND allocated with no label") {
-    ParArrayND<Real> a(PARARRAY_TEMP,5,4,3,2);
-    THEN("The label is the correct default") {
-      REQUIRE( a.label().find("ParArrayND") != std::string::npos );
-    }
-  }
-
-  GIVEN("A ParArrayND with some dimensions") {
-    constexpr int N1 = 2;
-    constexpr int N2 = 3;
-    constexpr int N3 = 4;
-    ParArrayND<Real> a("test",N3,N2,N1);
-    WHEN("The ParArray legacy NewParArray method is used") {
-      ParArrayND<Real> b;
-      b.NewParArrayND(N3,N2,N1);
-      THEN("The dimensions are correct") {
-        REQUIRE( b.GetDim(3) == N3 );
-        REQUIRE( b.GetDim(2) == N2 );
-        REQUIRE( b.GetDim(1) == N1 );
-        for (int d = 4; d <= 6; d++) {
-          REQUIRE( b.GetDim(d) == 1 );
-        }
-      }
-    }
-    WHEN("We fill it with increasing integers") {
-      // auto view = a.Get<3>();
-      // auto mirror = Kokkos::create_mirror(view);
-      auto mirror = a.GetHostMirror();
-      int n = 0;
-      int sum_host = 0;
-      for (int k = 0; k < N3; k++) {
-        for (int j = 0; j < N2; j++) {
-          for (int i = 0; i < N1; i++) {
-            mirror(k,j,i) = n;
-            sum_host += n;
-            n++;
-          }
-        }
-      }
-      // Kokkos::deep_copy(view,mirror);
-      a.DeepCopy(mirror);
-      THEN("the sum of the lower three indices is correct") {
-        int sum_device = 0;
-        Kokkos::parallel_reduce(policy3d({0,0,0}, {N3,N2,N1}),
-                                KOKKOS_LAMBDA(const int k, const int j,
-                                              const int i,
-                                              int& update) {
-                                  update += a(k,j,i);
-                                },
-                                sum_device);
-        REQUIRE( sum_host == sum_device );
-      }
-      THEN("the sum of the lower TWO indices is correct") {
-        sum_host = 0;
-        n = 0;
-        for (int j = 0; j < N2; j++) {
-          for (int i = 0; i < N1; i++) {
-            sum_host += n;
-            n++;
-          }
-        }
-        int sum_device = 0;
-        Kokkos::parallel_reduce(policy2d({0,0}, {N2,N1}),
-                                KOKKOS_LAMBDA(const int j, const int i,
-                                              int& update) {
-                                  update += a(j,i);
-                                },
-                                sum_device);
-        REQUIRE( sum_host == sum_device );
-        AND_THEN("We can get a raw 2d subview and it works the same way.") {
-          auto v2d = a.Get<2>();
-          sum_device = 0;
-          Kokkos::parallel_reduce(policy2d({0,0}, {N2,N1}),
-                                  KOKKOS_LAMBDA(const int j, const int i,
-                                                int& update) {
-                                    update += v2d(j,i);
-                                  },
-                                  sum_device);
-          REQUIRE( sum_host == sum_device );
-        }
-      }
-      THEN("slicing is possible") {
-        // auto b = a.SliceD(std::make_pair(1,3),3);
-        // auto b = a.SliceD<3>(std::make_pair(1,3));
-        auto b = a.SliceD<3>(1,2); // indx,nvar
-        AND_THEN("slices have correct values.") {
-          int total_errors = 1; // != 0
-          Kokkos::parallel_reduce(policy3d({0,0,0}, {2,N2,N1}),
-                                  KOKKOS_LAMBDA(const int k,
-                                                const int j,
-                                                const int i,
-                                                int& update) {
-                                    update += (b(k,j,i) == a(k+1,j,i)) ? 0 : 1;
-                                  },
-                                  total_errors);
-          REQUIRE( total_errors == 0 );
-        }
-      }
-    }
-  }
-}
-
-TEST_CASE("ParArrayND with LayoutLeft","[ParArrayND],[Kokkos],[LayoutLeft]") {
-
-  GIVEN("A ParArrayND with some dimensions") {
-    constexpr int N1 = 2;
-    constexpr int N2 = 3;
-    constexpr int N3 = 4;
-    ParArrayND<Real,Kokkos::LayoutLeft> a("test",N3,N2,N1);
-    WHEN("We fill it with increasing integers") {
-      // auto view = a.Get<3>();
-      // auto mirror = Kokkos::create_mirror(view);
-      auto mirror = a.GetHostMirror();
-      int n = 0;
-      int sum_host = 0;
-      for (int k = 0; k < N3; k++) {
-        for (int j = 0; j < N2; j++) {
-          for (int i = 0; i < N1; i++) {
-            mirror(k,j,i) = n;
-            sum_host += n;
-            n++;
-          }
-        }
-      }
-      // Kokkos::deep_copy(view,mirror);
-      a.DeepCopy(mirror);
-      THEN("the sum of the lower three indices is correct") {
-        int sum_device = 0;
-        Kokkos::parallel_reduce(policy3d({0,0,0}, {N3,N2,N1}),
-                                KOKKOS_LAMBDA(const int k, const int j,
-                                              const int i,
-                                              int& update) {
-                                  update += a(k,j,i);
-                                },
-                                sum_device);
-        REQUIRE( sum_host == sum_device );
-      }
-      THEN("slicing is possible") {
-        // auto b = a.SliceD(std::make_pair(1,3),3);
-        // auto b = a.SliceD<3>(std::make_pair(1,3));
-        auto b = a.SliceD<3>(1,2); // indx,nvar
-        AND_THEN("slices have correct values.") {
-          int total_errors = 1; // != 0
-          Kokkos::parallel_reduce(policy3d({0,0,0}, {2,N2,N1}),
-                                  KOKKOS_LAMBDA(const int k,
-                                                const int j,
-                                                const int i,
-                                                int& update) {
-                                    update += (b(k,j,i) == a(k+1,j,i)) ? 0 : 1;
-                                  },
-                                  total_errors);
-          REQUIRE( total_errors == 0 );
-        }
-      }
-    }
-  }
-}
-
-// Kokkos debug mode introduces a significant performance hit,
-// making these tests not informative
-#ifndef KOKKOS_ENABLE_DEBUG
 constexpr int NG = 1; // six-point stencil requires one ghost zone
 constexpr int N = 32 + 2*NG;
 constexpr int NT = 100;
@@ -321,7 +159,165 @@ void profile_wrapper_3d(T loop_pattern) {
             << std::endl;
 }
 
-TEST_CASE("Time simple stencil operations") {
+TEST_CASE("ParArrayND","[ParArrayND][Kokkos]") {
+  GIVEN("A ParArrayND allocated with no label") {
+    ParArrayND<Real> a(PARARRAY_TEMP,5,4,3,2);
+    THEN("The label is the correct default") {
+      REQUIRE( a.label().find("ParArrayND") != std::string::npos );
+    }
+  }
+
+  GIVEN("A ParArrayND with some dimensions") {
+    constexpr int N1 = 2;
+    constexpr int N2 = 3;
+    constexpr int N3 = 4;
+    ParArrayND<Real> a("test",N3,N2,N1);
+    WHEN("The ParArray legacy NewParArray method is used") {
+      ParArrayND<Real> b;
+      b.NewParArrayND(N3,N2,N1);
+      THEN("The dimensions are correct") {
+        REQUIRE( b.GetDim(3) == N3 );
+        REQUIRE( b.GetDim(2) == N2 );
+        REQUIRE( b.GetDim(1) == N1 );
+        for (int d = 4; d <= 6; d++) {
+          REQUIRE( b.GetDim(d) == 1 );
+        }
+      }
+    }
+    WHEN("We fill it with increasing integers") {
+      // auto view = a.Get<3>();
+      // auto mirror = Kokkos::create_mirror(view);
+      auto mirror = a.GetHostMirror();
+      int n = 0;
+      int sum_host = 0;
+      for (int k = 0; k < N3; k++) {
+        for (int j = 0; j < N2; j++) {
+          for (int i = 0; i < N1; i++) {
+            mirror(k,j,i) = n;
+            sum_host += n;
+            n++;
+          }
+        }
+      }
+      // Kokkos::deep_copy(view,mirror);
+      a.DeepCopy(mirror);
+      THEN("the sum of the lower three indices is correct") {
+        int sum_device = 0;
+        Kokkos::parallel_reduce(policy3d({0,0,0}, {N3,N2,N1}),
+                                KOKKOS_LAMBDA(const int k, const int j,
+                                              const int i,
+                                              int& update) {
+                                  update += a(k,j,i);
+                                },
+                                sum_device);
+        REQUIRE( sum_host == sum_device );
+      }
+      THEN("the sum of the lower TWO indices is correct") {
+        sum_host = 0;
+        n = 0;
+        for (int j = 0; j < N2; j++) {
+          for (int i = 0; i < N1; i++) {
+            sum_host += n;
+            n++;
+          }
+        }
+        int sum_device = 0;
+        Kokkos::parallel_reduce(policy2d({0,0}, {N2,N1}),
+                                KOKKOS_LAMBDA(const int j, const int i,
+                                              int& update) {
+                                  update += a(j,i);
+                                },
+                                sum_device);
+        REQUIRE( sum_host == sum_device );
+        AND_THEN("We can get a raw 2d subview and it works the same way.") {
+          auto v2d = a.Get<2>();
+          sum_device = 0;
+          Kokkos::parallel_reduce(policy2d({0,0}, {N2,N1}),
+                                  KOKKOS_LAMBDA(const int j, const int i,
+                                                int& update) {
+                                    update += v2d(j,i);
+                                  },
+                                  sum_device);
+          REQUIRE( sum_host == sum_device );
+        }
+      }
+      THEN("slicing is possible") {
+        // auto b = a.SliceD(std::make_pair(1,3),3);
+        // auto b = a.SliceD<3>(std::make_pair(1,3));
+        auto b = a.SliceD<3>(1,2); // indx,nvar
+        AND_THEN("slices have correct values.") {
+          int total_errors = 1; // != 0
+          Kokkos::parallel_reduce(policy3d({0,0,0}, {2,N2,N1}),
+                                  KOKKOS_LAMBDA(const int k,
+                                                const int j,
+                                                const int i,
+                                                int& update) {
+                                    update += (b(k,j,i) == a(k+1,j,i)) ? 0 : 1;
+                                  },
+                                  total_errors);
+          REQUIRE( total_errors == 0 );
+        }
+      }
+    }
+  }
+}
+
+TEST_CASE("ParArrayND with LayoutLeft","[ParArrayND][Kokkos][LayoutLeft]") {
+  GIVEN("A ParArrayND with some dimensions") {
+    constexpr int N1 = 2;
+    constexpr int N2 = 3;
+    constexpr int N3 = 4;
+    ParArrayND<Real,Kokkos::LayoutLeft> a("test",N3,N2,N1);
+    WHEN("We fill it with increasing integers") {
+      // auto view = a.Get<3>();
+      // auto mirror = Kokkos::create_mirror(view);
+      auto mirror = a.GetHostMirror();
+      int n = 0;
+      int sum_host = 0;
+      for (int k = 0; k < N3; k++) {
+        for (int j = 0; j < N2; j++) {
+          for (int i = 0; i < N1; i++) {
+            mirror(k,j,i) = n;
+            sum_host += n;
+            n++;
+          }
+        }
+      }
+      // Kokkos::deep_copy(view,mirror);
+      a.DeepCopy(mirror);
+      THEN("the sum of the lower three indices is correct") {
+        int sum_device = 0;
+        Kokkos::parallel_reduce(policy3d({0,0,0}, {N3,N2,N1}),
+                                KOKKOS_LAMBDA(const int k, const int j,
+                                              const int i,
+                                              int& update) {
+                                  update += a(k,j,i);
+                                },
+                                sum_device);
+        REQUIRE( sum_host == sum_device );
+      }
+      THEN("slicing is possible") {
+        // auto b = a.SliceD(std::make_pair(1,3),3);
+        // auto b = a.SliceD<3>(std::make_pair(1,3));
+        auto b = a.SliceD<3>(1,2); // indx,nvar
+        AND_THEN("slices have correct values.") {
+          int total_errors = 1; // != 0
+          Kokkos::parallel_reduce(policy3d({0,0,0}, {2,N2,N1}),
+                                  KOKKOS_LAMBDA(const int k,
+                                                const int j,
+                                                const int i,
+                                                int& update) {
+                                    update += (b(k,j,i) == a(k+1,j,i)) ? 0 : 1;
+                                  },
+                                  total_errors);
+          REQUIRE( total_errors == 0 );
+        }
+      }
+    }
+  }
+}
+
+TEST_CASE("Time simple stencil operations","[ParArrayND][performance]") {
   SECTION("1d range") {
     std::cout << "1d range:" << std::endl;
     profile_wrapper_3d(parthenon::loop_pattern_flatrange_tag);
@@ -354,7 +350,7 @@ TEST_CASE("Time simple stencil operations") {
 #endif // !KOKKOS_ENABLE_CUDA
 }
 
-TEST_CASE("Check registry pressure","[ParArrayND]") {
+TEST_CASE("Check registry pressure","[ParArrayND][performance]") {
   auto exec_space = DevSpace();
   Kokkos::Timer timer;
 
@@ -435,8 +431,8 @@ KOKKOS_FORCEINLINE_FUNCTION void many_array_kernel(
     const Array& arr3, const Array& arr4, const Array& arr5,
     const Array& arr6, const Array& arr7, const Array& arr8,
     const Array& arr9, const Array& arr_out,
-    const int k, const int j, const int i){
-  for(int rep = 0; rep < 2; rep++){
+    const int k, const int j, const int i) {
+  for(int rep = 0; rep < 2; rep++) {
     register Real tmp_array[10];
     tmp_array[0] = arr0(k,j,i);
     tmp_array[1] = arr1(k,j,i);
@@ -461,7 +457,7 @@ KOKKOS_FORCEINLINE_FUNCTION void many_array_kernel(
   }
 }
 
-TEST_CASE("Check many arrays","[ParArrayND]") {
+TEST_CASE("Check many arrays","[ParArrayND][performance]") {
   auto exec_space = DevSpace();
   Kokkos::Timer timer;
 
@@ -525,11 +521,10 @@ TEST_CASE("Check many arrays","[ParArrayND]") {
           });
 
   //Perform a kernel with many arrays/views, to test high memory and register usage
-  
-  const int nruns = 10; 
+  const int nruns = 10;
   //Time Raw Views
   //Warmup first
-  for( int run = 0; run < nruns; run++){
+  for(int run = 0; run < nruns; run++) {
     parthenon::par_for(parthenon::loop_pattern_flatrange_tag,
                        "11 Views in one kernel",
                        exec_space, 0, N-1, 0, N-1, 0, N-1,
@@ -538,11 +533,10 @@ TEST_CASE("Check many arrays","[ParArrayND]") {
                                            raw4,raw5,raw6,raw7,
                                            raw8,raw9,raw_out,k,j,i);
                        });
-
   }
   Kokkos::fence();
   timer.reset();
-  for( int run = 0; run < nruns; run++){
+  for(int run = 0; run < nruns; run++) {
     parthenon::par_for(parthenon::loop_pattern_flatrange_tag,
                        "11 Views in one kernel",
                        exec_space, 0, N-1, 0, N-1, 0, N-1,
@@ -557,7 +551,7 @@ TEST_CASE("Check many arrays","[ParArrayND]") {
 
   //Time ParArrayND
   //Warmup first
-  for( int run = 0; run < nruns; run++){
+  for(int run = 0; run < nruns; run++) {
     parthenon::par_for(parthenon::loop_pattern_flatrange_tag,
                        "11 ParArrayNDs in one kernel",
                        exec_space, 0, N-1, 0, N-1, 0, N-1,
@@ -569,7 +563,7 @@ TEST_CASE("Check many arrays","[ParArrayND]") {
   }
   Kokkos::fence();
   timer.reset();
-  for( int run = 0; run < nruns; run++){
+  for(int run = 0; run < nruns; run++) {
     parthenon::par_for(parthenon::loop_pattern_flatrange_tag,
                        "11 ParArrayNDs in one kernel",
                        exec_space, 0, N-1, 0, N-1, 0, N-1,
@@ -584,7 +578,7 @@ TEST_CASE("Check many arrays","[ParArrayND]") {
 
   //Time subviews
   //Warmup first
-  for( int run = 0; run < nruns; run++){
+  for(int run = 0; run < nruns; run++) {
     parthenon::par_for(parthenon::loop_pattern_flatrange_tag,
                        "11 ParArrayND.Get<3>() in one kernel",
                        exec_space, 0, N-1, 0, N-1, 0, N-1,
@@ -596,7 +590,7 @@ TEST_CASE("Check many arrays","[ParArrayND]") {
   }
   Kokkos::fence();
   timer.reset();
-  for( int run = 0; run < nruns; run++){
+  for(int run = 0; run < nruns; run++) {
     parthenon::par_for(parthenon::loop_pattern_flatrange_tag,
                        "11 ParArrayND.Get<3>() in one kernel",
                        exec_space, 0, N-1, 0, N-1, 0, N-1,
@@ -616,4 +610,3 @@ TEST_CASE("Check many arrays","[ParArrayND]") {
             << "\tsub views   = " << time_subviews << " s\n"
             << std::endl;
 }
-#endif // !KOKKOS_ENABLE_DEBUG

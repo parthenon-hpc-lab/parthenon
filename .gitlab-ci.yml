@@ -40,7 +40,7 @@ parthenon-cuda-short:
       -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
       -DKokkos_ENABLE_CUDA=True -DKokkos_ARCH_PASCAL61=True
       -DCMAKE_CXX_COMPILER=${PWD}/../external/Kokkos/bin/nvcc_wrapper
-      ../ && make -j${J} && make -j${J} test
+      ../ && make -j${J} && ctest -j${J} -LE performance
 
 # run short suite on CPUs
 parthenon-cpu-short:
@@ -52,7 +52,7 @@ parthenon-cpu-short:
     - cd build-debug
     - cmake -DCMAKE_BUILD_TYPE=Debug -DHDF5_ROOT=/usr/local/hdf5/parallel
       -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
-      ../ && make -j${J} && make test
+      ../ && make -j${J} && ctest -j${J} -LE performance
 
 parthenon-cuda-peformance:
   tags:
@@ -68,7 +68,7 @@ parthenon-cuda-peformance:
       -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
       -DKokkos_ENABLE_CUDA=True -DKokkos_ARCH_PASCAL61=True
       -DCMAKE_CXX_COMPILER=${PWD}/../external/Kokkos/bin/nvcc_wrapper
-      ../ && make -j${J} && make -j${J} test
+      ../ && make -j${J} && ctest -L performance
 
 # run short suite on CPUs
 parthenon-cpu-performance:
@@ -80,4 +80,4 @@ parthenon-cpu-performance:
     - cd build-perf
     - cmake -DCMAKE_BUILD_TYPE=Release -DHDF5_ROOT=/usr/local/hdf5/parallel
       -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
-      ../ && make -j${J} && make test
+      ../ && make -j${J} && ctest -L performance
