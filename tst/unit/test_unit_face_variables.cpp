@@ -36,7 +36,7 @@ TEST_CASE("Can create a vector-valued face-variable",
           "[FaceVariable],[Constructor],[Get],[Set]]") {
   GIVEN("One-copy, vector metadata, meshblock size, and vector shape") {
     constexpr int blockShape[] = {14, 12, 10}; // arbitrary
-    std::vector<int> array_size({3}); // 3-vector
+    std::vector<int> array_size({1}); // 1-vector
     std::string name("Test Variable");
     Metadata m({Metadata::Face, Metadata::Vector,
           Metadata::Derived, Metadata::OneCopy}, array_size);
@@ -64,16 +64,19 @@ TEST_CASE("Can create a vector-valued face-variable",
         }
         AND_THEN("We can set array elements") {
           auto space = DevSpace();
+          auto x1f = f.Get(1);
+          auto x2f = f.Get(2);
+          auto x3f = f.Get(3);
           par_for(loop_pattern_mdrange_tag,
                   "set array elements",
                   space,
-                  1,3,
                   0,blockShape[2]-1,
                   0,blockShape[1]-1,
                   0,blockShape[0]-1,
-                  KOKKOS_LAMBDA(const int d, const int k,
-                                const int j, const int i) {
-                    f(d,k,j,i) = d + k + j + i;
+                  KOKKOS_LAMBDA(const int k, const int j, const int i) {
+                    x1f(k,j,i) = 1 + k + j + i;
+                    x2f(k,j,i) = 2 + k + j + i;
+                    x3f(k,j,i) = 3 + k + j + i;
                   });
           // boundaries
           par_for(loop_pattern_mdrange_tag,
@@ -82,32 +85,35 @@ TEST_CASE("Can create a vector-valued face-variable",
                   0, blockShape[2]-1,
                   0, blockShape[1]-1,
                   KOKKOS_LAMBDA(const int k, const int j) {
-                    f(1,k,j,blockShape[0]) = -1;
+                    x1f(k,j,blockShape[0]) = -1;
                   });
           par_for(loop_pattern_mdrange_tag,
                   "set boundaries 1", space,
                   0, blockShape[2]-1,
                   0, blockShape[0]-1,
                   KOKKOS_LAMBDA(const int k, const int i) {
-                    f(2,k,blockShape[1],i) = -1;
+                    x2f(k,blockShape[1],i) = -1;
                   });
           par_for(loop_pattern_mdrange_tag,
                   "set boundaries 2", space,
                   0, blockShape[1]-1,
                   0, blockShape[0]-1,
                   KOKKOS_LAMBDA(const int j, const int i) {
-                    f(3,blockShape[2],j,i) = -1;
+                    x3f(blockShape[2],j,i) = -1;
                   });
           AND_THEN("We can read them back") {
             int num_incorrect = 1; // != 0
-            using policy4D = Kokkos::MDRangePolicy<Kokkos::Rank<4>>;
-            Kokkos::parallel_reduce(policy4D({1,0,0,0},
-                                             {4,blockShape[2],blockShape[1],blockShape[0]}),
-                                    KOKKOS_LAMBDA(const int d, const int k,
+            using policy3D = Kokkos::MDRangePolicy<Kokkos::Rank<3>>;
+            Kokkos::parallel_reduce(policy3D({0,0,0},
+                                             {blockShape[2],blockShape[1],blockShape[0]}),
+                                    KOKKOS_LAMBDA(const int k,
                                                   const int j, const int i,
                                                   int& update) {
-                                      bool correct = f(d,k,j,i) == d + k + j + i;
+                                      bool correct = x1f(k,j,i) == 1 + k + j + i;
                                       update += correct ? 0 : 1;
+                                      correct = x2f(k,j,i) == 2 + k + j + i;
+                                      update += correct ? 0 : 1;
+                                      correct = x3f(k,j,i) == 3 + k + j + i;
                                     },
                                     num_incorrect);
             REQUIRE( num_incorrect == 0 );
@@ -116,7 +122,7 @@ TEST_CASE("Can create a vector-valued face-variable",
             Kokkos::parallel_reduce(policy2D({0,0},{blockShape[2],blockShape[1]}),
                                     KOKKOS_LAMBDA(const int k, const int j,
                                                   int& update) {
-                                      bool correct = f(1,k,j,blockShape[0]) == -1;
+                                      bool correct = x1f(k,j,blockShape[0]) == -1;
                                       update += correct ? 0 : 1;
                                     },
                                     num_incorrect);
@@ -124,7 +130,7 @@ TEST_CASE("Can create a vector-valued face-variable",
             Kokkos::parallel_reduce(policy2D({0,0},{blockShape[2],blockShape[0]}),
                                     KOKKOS_LAMBDA(const int k, const int i,
                                                   int& update) {
-                                      bool correct = f(2,k,blockShape[1],i) == -1;
+                                      bool correct = x2f(k,blockShape[1],i) == -1;
                                       update += correct ? 0 : 1;
                                     },
                                     num_incorrect);
@@ -132,7 +138,7 @@ TEST_CASE("Can create a vector-valued face-variable",
             Kokkos::parallel_reduce(policy2D({0,0},{blockShape[1],blockShape[0]}),
                                     KOKKOS_LAMBDA(const int j, const int i,
                                                   int& update) {
-                                      bool correct = f(3,blockShape[2],j,i) == -1;
+                                      bool correct = x3f(blockShape[2],j,i) == -1;
                                       update += correct ? 0 : 1;
                                     },
                                     num_incorrect);

@@ -197,6 +197,10 @@ class FaceVariable {
       _m(src._m),
       _label(label) { }
 
+  // KOKKOS_FUNCTION FaceVariable() = default;
+  // KOKKOS_FUNCTION FaceVariable(const FaceVariable<T>& v) = default;
+  // KOKKOS_FUNCTION ~FaceVariable() = default;
+
   ///< retrieve label for variable
   const std::string& label() const { return _label; }
 
