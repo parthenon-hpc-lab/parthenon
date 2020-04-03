@@ -48,9 +48,9 @@ A description of how to enable and extend the AMR capabilities of Parthenon is p
 
 The tasking capabilities in Parthenon are documented [here](tasks.md).
 
-### Anonymous Variables
-[Full Documentation](interface/Metadata.md)
+### State Management
+[Full Documentation](interface/state.md)
 
-Parthenon supports anonymous field variables. These variables can be registered
+Parthenon provides a convenient means of managing simulation data. Variables can be registered
 with Parthenon to have the framework automatically manage the field, including
-updating ghost cells, prolonging, and restricting.
+updating ghost cells, prolongation, restriction, and I/O.
