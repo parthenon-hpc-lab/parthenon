@@ -43,6 +43,8 @@ parthenon-cuda-short:
       -DCMAKE_CXX_COMPILER=${PWD}/../external/Kokkos/bin/nvcc_wrapper
       ../ && make -j${J} && make -j${J} test
   artifacts:
+    when: always
+    expire_in: 3 days
     paths:
       - build-cuda/CMakeFiles/CMakeOutput.log
 
@@ -58,5 +60,7 @@ parthenon-cpu-short:
       -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
       ../ && make -j${J} && make test
   artifacts:
+    when: always
+    expire_in: 3 days
     paths:
       - build/CMakeFiles/CMakeOutput.log
