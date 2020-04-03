@@ -31,7 +31,7 @@
 // Athena++ headers
 #include "athena.hpp"
 #include "athena_arrays.hpp"
-#include "better_refinement/better_refinement.hpp"
+#include "refinement/refinement.hpp"
 #include "coordinates/coordinates.hpp"
 #include "globals.hpp"
 #include "parameter_input.hpp"
@@ -958,7 +958,7 @@ void MeshRefinement::CheckRefinementCondition() {
   MeshBlock *pmb = pmy_block_;
   Container<Real>& rc = pmb->real_container;
   int ret = 0;
-  ret = BetterRefinement::CheckAllRefinement(rc);
+  ret = Refinement::CheckAllRefinement(rc);
   //if (AMRFlag_ != nullptr) ret = AMRFlag_(pmb);
   SetRefinement(ret);
 }

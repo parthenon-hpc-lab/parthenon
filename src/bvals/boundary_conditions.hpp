@@ -11,13 +11,15 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef BOUNDARY_CONDITIONS_PK_
-#define BOUNDARY_CONDITIONS_PK_
+#ifndef PARTHENON_BOUNDARY_CONDITIONS_HPP_
+#define PARTHENON_BOUNDARY_CONDITIONS_HPP_
 
 #include "interface/Container.hpp"
 
 namespace parthenon {
-void ApplyBoundaryConditions(Container<Real>& rc);
-}
 
-#endif
+void ApplyBoundaryConditions(Container<Real>& rc);
+
+} // namespace parthenon
+
+#endif // PARTHENON_BOUNDARY_CONDITIONS_HPP_
