@@ -51,7 +51,7 @@
 #include "mesh.hpp"
 #include "mesh_refinement.hpp"
 #include "meshblock_tree.hpp"
-#include "better_boundaries/boundary_conditions.hpp"
+#include "bvals/boundary_conditions.hpp"
 
 // MPI/OpenMP header
 #ifdef MPI_PARALLEL

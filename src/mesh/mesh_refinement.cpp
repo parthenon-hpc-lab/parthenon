@@ -31,7 +31,7 @@
 // Athena++ headers
 #include "athena.hpp"
 #include "parthenon_arrays.hpp"
-#include "better_refinement/better_refinement.hpp"
+#include "refinement/refinement.hpp"
 #include "coordinates/coordinates.hpp"
 #include "globals.hpp"
 #include "parameter_input.hpp"
@@ -957,7 +957,7 @@ void MeshRefinement::ProlongateInternalField(
 void MeshRefinement::CheckRefinementCondition() {
   MeshBlock *pmb = pmy_block_;
   Container<Real>& rc = pmb->real_containers.Get();
-  int ret = BetterRefinement::CheckAllRefinement(rc);
+  int ret = Refinement::CheckAllRefinement(rc);
   //if (AMRFlag_ != nullptr) ret = AMRFlag_(pmb);
   SetRefinement(ret);
 }

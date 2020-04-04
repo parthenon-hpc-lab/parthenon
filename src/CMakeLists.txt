@@ -41,8 +41,6 @@ if (${Kokkos_ENABLE_CUDA})
   set(PAR_LOOP_LAYOUT_VALUES "MANUAL1D_LOOP;MDRANGE_LOOP;TPTTR_LOOP;TPTTRTVR_LOOP"
     CACHE STRING "Possible loop layout options.")
 
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --expt-relaxed-constexpr")
-
 elseif(${Kokkos_ENABLE_HPX})
   message( FATAL_ERROR "Need to add/fix/test default loop layouts for HPX backend.")
 
@@ -72,11 +70,6 @@ set(NUMBER_GHOST_CELLS 2) # TODO: Make this a CMake option and check it
 configure_file(defs.hpp.in generated/defs.hpp @ONLY)
 
 add_library(parthenon
-  better_boundaries/boundary_conditions.cpp
-
-  better_refinement/better_refinement.cpp
-  better_refinement/amr_criteria.cpp
-
   bvals/cc/bvals_cc.cpp
   bvals/cc/flux_correction_cc.cpp
 
@@ -88,6 +81,8 @@ add_library(parthenon
   bvals/boundary_flag.cpp
   bvals/bvals_refine.cpp
   bvals/bvals_var.cpp
+
+  bvals/boundary_conditions.cpp
 
   coordinates/coordinates.cpp
   coordinates/cartesian.cpp
@@ -127,6 +122,9 @@ add_library(parthenon
   reconstruct/ppm.cpp
   reconstruct/reconstruction.cpp
 
+  refinement/amr_criteria.cpp
+  refinement/refinement.cpp
+
   task_list/task_id.cpp
 
   utils/buffer_utils.cpp
@@ -141,6 +139,7 @@ add_library(parthenon
   parthenon_manager.cpp
 )
 target_compile_features(parthenon PUBLIC cxx_std_14)
+
 
 if (ENABLE_MPI)
   target_link_libraries(parthenon PUBLIC MPI::MPI_CXX)

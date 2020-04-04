@@ -22,6 +22,9 @@ option(ENABLE_REGRESSION_TESTS "Enable regression tests" ${BUILD_TESTING})
 option(DISABLE_MPI "MPI is enabled by default if found, set this to True to disable MPI" OFF)
 option(DISABLE_OPENMP "OpenMP is enabled by default if found, set this to True to disable OpenMP" OFF)
 option(DISABLE_HDF5 "HDF5 is enabled by default if found, set this to True to disable HDF5" OFF)
+option(ENABLE_COMPILER_WARNINGS "Enable compiler warnings" OFF)
+option(CHECK_REGISTRY_PRESSURE "Check the registry pressure for Kokkos CUDA kernels" OFF)
+option(TEST_INTEL_OPTIMIZATION "Test intel optimization and vectorization" OFF)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -64,6 +67,13 @@ if (NOT DISABLE_OPENMP)
   set(ENABLE_OPENMP ON)
 endif()
 
+if (Kokkos_ENABLE_CUDA AND TEST_INTEL_OPTIMIZATION)
+  message(WARNING
+    "Intel optimizer flags may not be passed through NVCC wrapper correctly. "
+    "If you encounter problems, please delete your CMake cache "
+    "and rerun CMake with -DTEST_INTEL_OPTIMIZATION=OFF.")
+endif()
+
 set(ENABLE_HDF5 OFF)
 if (NOT DISABLE_HDF5)
   set(HDF5_PREFER_PARALLEL ${ENABLE_MPI})
@@ -90,6 +100,34 @@ endif()
 
 # Kokkos recommendatation resulting in not using default GNU extensions
 set(CMAKE_CXX_EXTENSIONS OFF)
+
+# Tell Kokkos to vectorize aggressively
+# Kokkos prefers this capitalization for debugging reasons
+SET (Kokkos_ENABLE_AGGRESSIVE_VECTORIZATION ON CACHE BOOL
+     "Kokkos aggressive vectorization")
+
+# Tell Kokkos we need lambdas in Cuda.
+if (Kokkos_ENABLE_CUDA)
+  SET (Kokkos_ENABLE_CUDA_LAMBDA ON CACHE BOOL
+       "Enable lambda expressions in CUDA")
+endif()
+
+# If this is a debug build, set kokkos debug on
+if (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
+  message(STATUS "Enabling Kokkos debug mode")
+  set(Kokkos_ENABLE_DEBUG ON CACHE BOOL "Most general debug settings")
+  set(Kokkos_ENABLE_DEBUG_BOUNDS_CHECK ON CACHE BOOL
+     "Bounds checking on Kokkos views")
+  set(Kokkos_ENABLE_DEBUG_DUALVIEW_MODIFY_CHECK ON CACHE BOOL
+      "Sanity checks on Kokkos DualView")
+endif()
+
+if (ENABLE_COMPILER_WARNINGS)
+  message(STATUS "Enabling -Wall and setting Kokkos_ENABLE_COMPILER_WARNINGS=True")
+  set(Kokkos_ENABLE_COMPILER_WARNINGS True CACHE BOOL
+      "Make the compiler warn us about things")
+  add_compile_options(-Wall)
+endif()
 
 if(EXISTS ${Kokkos_ROOT}/CMakeLists.txt)
   add_subdirectory(${Kokkos_ROOT} Kokkos)
@@ -122,8 +160,18 @@ if (${ENABLE_UNIT_TESTS} OR ${ENABLE_INTEGRATION_TESTS} OR ${ENABLE_REGRESSION_T
   add_subdirectory(tst)
 endif()
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wno-unused-variable -Wno-sign-compare -Wno-unused-but-set-variable")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wno-unused-variable -Wno-sign-compare -Wno-unused-but-set-variable")
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+# Globally turn on useful intel and/or nvcc compiler output
+if (${KOKKOS_ENABLE_CUDA})
+  if(CHECK_REGISTRY_PRESSURE)
+    add_compile_options(-Xptxas=-v)
+  endif()
+endif()
+# Note that these options may not play nice with nvcc wrapper
+if (TEST_INTEL_OPTIMIZATION)
+  add_compile_options(-fp-model fast=2 -qopt_report5 -vec-threshold0 -qopt_report_phase=vec)
+endif()	       
 
 add_subdirectory(src)
 add_subdirectory(example/calculate_pi)
