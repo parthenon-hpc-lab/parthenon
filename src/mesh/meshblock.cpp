@@ -370,14 +370,7 @@ void MeshBlock::SetUserOutputVariableName(int n, const char *name) {
 //  \brief Calculate the block data size required for restart.
 
 std::size_t MeshBlock::GetBlockSizeInBytes() {
-  std::size_t size=0;
-  // calculate user MeshBlock data size
-  for (int n=0; n<nint_user_meshblock_data_; n++)
-    size += iuser_meshblock_data[n].GetSizeInBytes();
-  for (int n=0; n<nreal_user_meshblock_data_; n++)
-    size += ruser_meshblock_data[n].GetSizeInBytes();
-
-  return size;
+  throw std::runtime_error("MeshBlock::GetBlockSizeInBytes not yet implemented.");
 }
 
 //----------------------------------------------------------------------------------------

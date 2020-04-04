@@ -16,8 +16,8 @@
 #include <utility>
 
 #include "advection.hpp"
-#include "better_boundaries/boundary_conditions.hpp"
-#include "better_refinement/better_refinement.hpp"
+#include "bvals/boundary_conditions.hpp"
+#include "refinement/refinement.hpp"
 #include "driver/multistage.hpp"
 #include "interface/Params.hpp"
 #include "interface/StateDescriptor.hpp"
