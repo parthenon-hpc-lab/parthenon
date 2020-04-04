@@ -31,6 +31,7 @@
 #include <string>     // c_str()
 
 // Athena++ headers
+#include "basic_types.hpp"
 #include "coordinates/coordinates.hpp"
 #include "globals.hpp"
 #include "mesh/mesh.hpp"

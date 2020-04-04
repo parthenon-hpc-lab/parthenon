@@ -38,7 +38,6 @@ namespace parthenon {
 class MeshBlock;
 class ParameterInput;
 class Coordinates;
-struct FaceField;
 class BoundaryValues;
 
 //----------------------------------------------------------------------------------------

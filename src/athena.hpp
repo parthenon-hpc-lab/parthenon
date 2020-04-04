@@ -26,22 +26,11 @@
 #include <cstdint>  // std::int64_t
 
 // Athena++ headers
+#include "basic_types.hpp"
 #include "parthenon_arrays.hpp"
 #include <defs.hpp>
 
 namespace parthenon {
-// primitive type alias that allows code to run with either floats or doubles
-#if SINGLE_PRECISION_ENABLED
-using Real = float;
-#ifdef MPI_PARALLEL
-#define MPI_ATHENA_REAL MPI_FLOAT
-#endif
-#else
-using Real = double;
-#ifdef MPI_PARALLEL
-#define MPI_ATHENA_REAL MPI_DOUBLE
-#endif
-#endif
 
 // for OpenMP 4.0 SIMD vectorization, control width of SIMD lanes
 #if defined(__AVX512F__)
@@ -95,35 +84,6 @@ struct RegionSize {  // aggregate and POD type; do NOT reorder member declaratio
   Real x1rat, x2rat, x3rat; // ratio of dxf(i)/dxf(i-1)
   // the size of the root grid or a MeshBlock should not exceed std::int32_t limits
   int nx1, nx2, nx3;        // number of active cells (not including ghost zones)
-};
-
-//---------------------------------------------------------------------------------------
-//! \struct FaceField
-//  \brief container for face-centered fields
-
-struct FaceField {
-  ParArrayND<Real> x1f, x2f, x3f;
-  FaceField() = default;
-  FaceField(int ncells3, int ncells2, int ncells1)
-    : x1f("x1f",ncells3, ncells2, ncells1+1), x2f("x2f",ncells3, ncells2+1, ncells1),
-      x3f("x3f",ncells3+1, ncells2, ncells1) {}
-  FaceField(int ncells6, int ncells5, int ncells4, int ncells3, int ncells2, int ncells1)
-    : x1f("x1f",ncells6, ncells5, ncells4, ncells3, ncells2, ncells1+1)
-    , x2f("x2f",ncells6, ncells5, ncells4, ncells3, ncells2+1, ncells1)
-    , x3f("x3f",ncells6, ncells5, ncells4, ncells3+1, ncells2, ncells1)
-  {}
-};
-
-//----------------------------------------------------------------------------------------
-//! \struct EdgeField
-//  \brief container for edge-centered fields
-
-struct EdgeField {
-  ParArrayND<Real> x1e, x2e, x3e;
-  EdgeField() = default;
-  EdgeField(int ncells3, int ncells2, int ncells1)
-    : x1e("x1e",ncells3+1, ncells2+1, ncells1), x2e("x2e",ncells3+1, ncells2, ncells1+1),
-      x3e("x3e",ncells3, ncells2+1, ncells1+1) {}
 };
 
 //----------------------------------------------------------------------------------------

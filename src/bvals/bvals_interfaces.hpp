@@ -45,7 +45,6 @@ class ParameterInput;
 class Coordinates;
 class BoundaryValues;
 struct RegionSize;
-struct FaceField;
 
 // TODO(felker): nest these enum definitions inside bvals/ classes, when possible.
 

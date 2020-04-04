@@ -138,9 +138,9 @@ std::string FaceVariable<T>::info() {
   // now append size
   snprintf(tmp, sizeof(tmp),
           "%dx%dx%d",
-          this->x1f.GetDim(3),
-          this->x1f.GetDim(2),
-          this->x1f.GetDim(1)
+          data.x1f.GetDim(3),
+          data.x1f.GetDim(2),
+          data.x1f.GetDim(1)
           );
   s += std::string(tmp);
 
@@ -162,9 +162,9 @@ std::string EdgeVariable<T>::info() {
     // now append size
     snprintf(tmp, sizeof(tmp),
              "%dx%dx%d",
-             this->x1e.GetDim(3),
-             this->x1e.GetDim(2),
-             this->x1e.GetDim(1)
+             data.x1e.GetDim(3),
+             data.x1e.GetDim(2),
+             data.x1e.GetDim(1)
              );
     s += std::string(tmp);
 
