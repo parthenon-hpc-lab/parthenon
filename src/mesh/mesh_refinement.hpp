@@ -76,7 +76,7 @@ class MeshRefinement {
   void ProlongateInternalField(FaceField &fine,
                                int si, int ei, int sj, int ej, int sk, int ek);
   void CheckRefinementCondition();
-  void SetRefinement(int flag);
+  void SetRefinement(AmrTag flag);
 
   // setter functions for "enrolling" variable arrays in refinement via Mesh::AMR()
   // and/or in BoundaryValues::ProlongateBoundaries() (for SMR and AMR)

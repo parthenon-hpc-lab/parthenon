@@ -30,6 +30,8 @@ using Real = double;
 #endif
 #endif
 
+enum class AmrTag : int {derefine=-1, same=0, refine=1};
+
 }
 
 #endif

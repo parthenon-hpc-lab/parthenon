@@ -44,7 +44,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 }
 
 
-int CheckAllRefinement(Container<Real>& rc) {
+AmrTag CheckAllRefinement(Container<Real>& rc) {
   // Check all refinement criteria and return the maximum recommended change in
   // refinement level:
   //   delta_level = -1 => recommend derefinement
@@ -58,38 +58,39 @@ int CheckAllRefinement(Container<Real>& rc) {
   //       neighboring blocks.  Similarly for "do nothing"
   MeshBlock *pmb = rc.pmy_block;
   // delta_level holds the max over all criteria.  default to derefining.
-  int delta_level = -1;
+  AmrTag delta_level = AmrTag::derefine;
   for (auto &pkg : pmb->packages) {
     auto& desc = pkg.second;
     // call package specific function, if set
     if (desc->CheckRefinement != nullptr) {
         // keep the max over all criteria up to date
         delta_level = std::max(delta_level, desc->CheckRefinement(rc));
-        if (delta_level == 1) {
+        if (delta_level == AmrTag::refine) {
           // since 1 is the max, we can return without having to look at anything else
-          return 1;
+          return AmrTag::refine;
         }
     }
     // call parthenon criteria that were registered
     for (auto & amr : desc->amr_criteria) {
       // get the recommended change in refinement level from this criteria
-      int temp_delta = (*amr)(rc);
-      if ( (temp_delta == 1) && rc.pmy_block->loc.level >= amr->max_level) {
+      AmrTag temp_delta = (*amr)(rc);
+      if ( (temp_delta == AmrTag::refine) 
+            && rc.pmy_block->loc.level >= amr->max_level) {
         // don't refine if we're at the max level
-        temp_delta = 0;
+        temp_delta = AmrTag::same;
       }
       // maintain the max across all criteria
       delta_level = std::max(delta_level, temp_delta);
-      if (delta_level == 1) {
+      if (delta_level == AmrTag::refine) {
         // 1 is the max, so just return
-        return 1;
+        return AmrTag::refine;
       }
     }
   }
   return delta_level;
 }
 
-int FirstDerivative(CellVariable<Real>& q,
+AmrTag FirstDerivative(CellVariable<Real>& q,
                     const Real refine_criteria, const Real derefine_criteria) {
   Real maxd = 0.0;
   const int dim1 = q.GetDim(1);
@@ -125,9 +126,9 @@ int FirstDerivative(CellVariable<Real>& q,
       }
     }
   }
-  if (maxd > refine_criteria) return 1;
-  if (maxd < derefine_criteria) return -1;
-  return 0;;
+  if (maxd > refine_criteria) return AmrTag::refine;
+  if (maxd < derefine_criteria) return AmrTag::derefine;
+  return AmrTag::same;
 }
 
 } // namespace Refinement

@@ -103,7 +103,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   return pkg;
 }
 
-int CheckRefinement(Container<Real>& rc) {
+AmrTag CheckRefinement(Container<Real>& rc) {
   MeshBlock *pmb = rc.pmy_block;
   // refine on advected, for example.  could also be a derived quantity
   CellVariable<Real>& v = rc.Get("advected");
@@ -121,9 +121,9 @@ int CheckRefinement(Container<Real>& rc) {
   const auto& refine_tol = pkg->Param<Real>("refine_tol");
   const auto& derefine_tol = pkg->Param<Real>("derefine_tol");
 
-  if (vmax > refine_tol && vmin < derefine_tol) return 1;
-  if (vmax < derefine_tol) return -1;
-  return 0;
+  if (vmax > refine_tol && vmin < derefine_tol) return AmrTag::refine;
+  if (vmax < derefine_tol) return AmrTag::derefine;
+  return AmrTag::same;
 }
 
 // demonstrate usage of a "pre" fill derived routine

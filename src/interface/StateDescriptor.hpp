@@ -98,7 +98,7 @@ class StateDescriptor {
     std::vector<std::shared_ptr<AMRCriteria>> amr_criteria;
     void (*FillDerived)(Container<Real>& rc);
     Real (*EstimateTimestep)(Container<Real>& rc);
-    int (*CheckRefinement)(Container<Real>& rc);
+    AmrTag (*CheckRefinement)(Container<Real>& rc);
 
 
   private:

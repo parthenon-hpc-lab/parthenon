@@ -29,9 +29,9 @@ namespace Refinement {
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 
-int CheckAllRefinement(Container<Real>& rc);
+AmrTag CheckAllRefinement(Container<Real>& rc);
 
-int FirstDerivative(CellVariable<Real>& q,
+AmrTag FirstDerivative(CellVariable<Real>& q,
                     const Real refine_criteria, const Real derefine_criteria);
 
 } // namespace Refinement

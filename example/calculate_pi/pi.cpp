@@ -157,7 +157,7 @@ namespace PiCalculator {
     */
   }
 
-  int CheckRefinement(Container<Real>& rc) {
+  AmrTag CheckRefinement(Container<Real>& rc) {
     // tag cells for refinement or derefinement
     // each package can define its own refinement tagging
     // function and they are all called by parthenon
@@ -165,7 +165,7 @@ namespace PiCalculator {
     int is = pmb->is; int js = pmb->js; int ks = pmb->ks;
     int ie = pmb->ie; int je = pmb->je; int ke = pmb->ke;
     CellVariable<Real>& v = rc.Get("in_or_out");
-    int delta_level = -1;
+    AmrTag delta_level = AmrTag::derefine;
     Real vmin = 1.0;
     Real vmax = 0.0;
     // loop over all real cells and one layer of ghost cells and refine
@@ -182,7 +182,7 @@ namespace PiCalculator {
     }
     // was the edge of the circle found?
     if (vmax > 0.95 && vmin < 0.05) { // then yes
-      delta_level = 1;
+      delta_level = AmrTag::refine;
     }
     return delta_level;
   }

@@ -957,14 +957,14 @@ void MeshRefinement::ProlongateInternalField(
 void MeshRefinement::CheckRefinementCondition() {
   MeshBlock *pmb = pmy_block_;
   Container<Real>& rc = pmb->real_containers.Get();
-  int ret = Refinement::CheckAllRefinement(rc);
+  AmrTag ret = Refinement::CheckAllRefinement(rc);
   //if (AMRFlag_ != nullptr) ret = AMRFlag_(pmb);
   SetRefinement(ret);
 }
 
-void MeshRefinement::SetRefinement(int flag) {
+void MeshRefinement::SetRefinement(AmrTag flag) {
   MeshBlock *pmb = pmy_block_;
-  int aret = std::max(-1,flag);
+  int aret = std::max(-1,static_cast<int>(flag));
 
   if (aret == 0) refine_flag_ = 0;
 

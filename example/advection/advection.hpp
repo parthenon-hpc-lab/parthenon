@@ -45,6 +45,7 @@ using parthenon::BlockStageNamesIntegratorTask;
 using parthenon::BlockTaskFunc;
 using parthenon::BlockTask;
 using parthenon::BoundaryValues;
+using parthenon::AmrTag;
 
 class AdvectionDriver : public MultiStageBlockTaskDriver {
  public:
@@ -80,7 +81,7 @@ class TwoContainerTask : public BaseTask {
 
 namespace Advection {
   std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
-  int CheckRefinement(Container<Real>& rc);
+  AmrTag CheckRefinement(Container<Real>& rc);
   void PreFill(Container<Real>& rc);
   void SquareIt(Container<Real>& rc);
   void PostFill(Container<Real>& rc);
