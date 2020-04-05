@@ -1261,12 +1261,8 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
     for (int i=0; i<nmb; ++i) {
       MeshBlock *pmb = pmb_array[i];
       // BoundaryVariable objects evolved in main TimeIntegratorTaskList:
-      //std::cout << call << std::endl;
-      //pmb->real_containers.Get().print();
       pmb->pbval->SetupPersistentMPI();
       pmb->real_containers.Get().SetupPersistentMPI();
-      //std::cout << call+0.5 << std::endl;
-      //pmb->real_containers.Get().print();
     }
     call++; // 1
 
@@ -1275,16 +1271,12 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
       // prepare to receive conserved variables
 #pragma omp for
       for (int i=0; i<nmb; ++i) {
-      //std::cout << call << std::endl;
-        //pmb_array[i]->real_containers.Get().print();
         pmb_array[i]->real_containers.Get().StartReceiving(BoundaryCommSubset::mesh_init);
       }
       call++; // 2
       // send conserved variables
 #pragma omp for
       for (int i=0; i<nmb; ++i) {
-      //std::cout << call << std::endl;
-        //pmb_array[i]->real_containers.Get().print();
         pmb_array[i]->real_containers.Get().SendBoundaryBuffers();
       }
       call++; // 3

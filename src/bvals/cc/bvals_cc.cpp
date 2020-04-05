@@ -48,7 +48,7 @@ namespace parthenon {
 
 CellCenteredBoundaryVariable::CellCenteredBoundaryVariable(
     MeshBlock *pmb, ParArrayND<Real> var, ParArrayND<Real> coarse_var,
-    ParArrayND<Real> *var_flux)
+    ParArrayND<Real> var_flux[])
     : BoundaryVariable(pmb), var_cc(var), coarse_buf(coarse_var), x1flux(var_flux[X1DIR]),
       x2flux(var_flux[X2DIR]), x3flux(var_flux[X3DIR]), nl_(0), nu_(var.GetDim(4) -1) {
   // CellCenteredBoundaryVariable should only be used w/ 4D or 3D (nx4=1) ParArrayND
@@ -155,8 +155,6 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(Real *buf,
   MeshBlock *pmb = pmy_block_;
   int si, sj, sk, ei, ej, ek;
   int cn = NGHOST - 1;
-  //ParArrayND<Real> &var = *var_cc;
-  //ParArrayND<Real> &coarse_var = *coarse_buf;
 
   si = (nb.ni.ox1 > 0) ? (pmb->cie - cn) : pmb->cis;
   ei = (nb.ni.ox1 < 0) ? (pmb->cis + cn) : pmb->cie;
@@ -181,7 +179,6 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferToFiner(Real *buf,
   MeshBlock *pmb = pmy_block_;
   int si, sj, sk, ei, ej, ek;
   int cn = pmb->cnghost - 1;
-  //ParArrayND<Real> &var = *var_cc;
 
   si = (nb.ni.ox1 > 0) ? (pmb->ie - cn) : pmb->is;
   ei = (nb.ni.ox1 < 0) ? (pmb->is + cn) : pmb->ie;
@@ -230,7 +227,6 @@ void CellCenteredBoundaryVariable::SetBoundarySameLevel(Real *buf,
                                                         const NeighborBlock& nb) {
   MeshBlock *pmb = pmy_block_;
   int si, sj, sk, ei, ej, ek;
-  //ParArrayND<Real> &var = *var_cc;
 
   if (nb.ni.ox1 == 0)     si = pmb->is,        ei = pmb->ie;
   else if (nb.ni.ox1 > 0) si = pmb->ie + 1,      ei = pmb->ie + NGHOST;
@@ -257,7 +253,6 @@ void CellCenteredBoundaryVariable::SetBoundaryFromCoarser(Real *buf,
   MeshBlock *pmb = pmy_block_;
   int si, sj, sk, ei, ej, ek;
   int cng = pmb->cnghost;
-  //ParArrayND<Real> &coarse_var = *coarse_buf;
 
   if (nb.ni.ox1 == 0) {
     si = pmb->cis, ei = pmb->cie;
