@@ -227,7 +227,6 @@ void CellCenteredBoundaryVariable::SetBoundarySameLevel(Real *buf,
                                                         const NeighborBlock& nb) {
   MeshBlock *pmb = pmy_block_;
   int si, sj, sk, ei, ej, ek;
-  //ParArrayND<Real> &var = *var_cc;
 
   if (nb.ni.ox1 == 0)     si = pmb->is,        ei = pmb->ie;
   else if (nb.ni.ox1 > 0) si = pmb->ie + 1,      ei = pmb->ie + NGHOST;
