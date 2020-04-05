@@ -1275,8 +1275,6 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
       // prepare to receive conserved variables
 #pragma omp for
       for (int i=0; i<nmb; ++i) {
-      //std::cout << call << std::endl;
-        //pmb_array[i]->real_containers.Get().print();
         pmb_array[i]->real_containers.Get().StartReceiving(BoundaryCommSubset::mesh_init);
       }
       call++; // 2
