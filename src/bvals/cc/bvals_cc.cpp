@@ -253,7 +253,6 @@ void CellCenteredBoundaryVariable::SetBoundaryFromCoarser(Real *buf,
   MeshBlock *pmb = pmy_block_;
   int si, sj, sk, ei, ej, ek;
   int cng = pmb->cnghost;
-  //ParArrayND<Real> &coarse_var = *coarse_buf;
 
   if (nb.ni.ox1 == 0) {
     si = pmb->cis, ei = pmb->cie;
