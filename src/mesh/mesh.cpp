@@ -1261,8 +1261,6 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
     for (int i=0; i<nmb; ++i) {
       MeshBlock *pmb = pmb_array[i];
       // BoundaryVariable objects evolved in main TimeIntegratorTaskList:
-      //std::cout << call << std::endl;
-      //pmb->real_containers.Get().print();
       pmb->pbval->SetupPersistentMPI();
       pmb->real_containers.Get().SetupPersistentMPI();
     }
