@@ -1265,8 +1265,6 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
       //pmb->real_containers.Get().print();
       pmb->pbval->SetupPersistentMPI();
       pmb->real_containers.Get().SetupPersistentMPI();
-      //std::cout << call+0.5 << std::endl;
-      //pmb->real_containers.Get().print();
     }
     call++; // 1
 
