@@ -181,7 +181,6 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferToFiner(Real *buf,
   MeshBlock *pmb = pmy_block_;
   int si, sj, sk, ei, ej, ek;
   int cn = pmb->cnghost - 1;
-  //ParArrayND<Real> &var = *var_cc;
 
   si = (nb.ni.ox1 > 0) ? (pmb->ie - cn) : pmb->is;
   ei = (nb.ni.ox1 < 0) ? (pmb->is + cn) : pmb->ie;
