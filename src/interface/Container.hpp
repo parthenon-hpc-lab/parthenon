@@ -276,6 +276,34 @@ class Container {
   void ClearBoundary(BoundaryCommSubset phase);
   void SendFluxCorrection();
   bool ReceiveFluxCorrection();
+  static TaskStatus StartReceivingTask(Container<T>& rc) {
+    rc.StartReceiving(BoundaryCommSubset::all);
+    return TaskStatus::complete;
+  }
+  static TaskStatus SendFluxCorrectionTask(Container<T>& rc) {
+    rc.SendFluxCorrection();
+    return TaskStatus::complete;
+  }
+  static TaskStatus ReceiveFluxCorrectionTask(Container<T>& rc) {
+    if (!rc.ReceiveFluxCorrection()) return TaskStatus::incomplete;
+    return TaskStatus::complete;
+  }
+  static TaskStatus SendBoundaryBuffersTask(Container<T>& rc) {
+    rc.SendBoundaryBuffers();
+    return TaskStatus::complete;
+  }
+  static TaskStatus ReceiveBoundaryBuffersTask(Container<T>& rc) {
+    if ( !rc.ReceiveBoundaryBuffers() ) return TaskStatus::incomplete;
+    return TaskStatus::complete;
+  }
+  static TaskStatus SetBoundariesTask(Container<T>& rc) {
+    rc.SetBoundaries();
+    return TaskStatus::complete;
+  }
+  static TaskStatus ClearBoundaryTask(Container<T>& rc) {
+    rc.ClearBoundary(BoundaryCommSubset::all);
+    return TaskStatus::complete;
+  }
 
  private:
   int debug=0;

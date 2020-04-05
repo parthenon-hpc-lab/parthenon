@@ -24,12 +24,13 @@
 #include <utility>
 #include <vector>
 
+#include "basic_types.hpp"
+
 namespace parthenon {
 
 class MeshBlock;
 struct Integrator;
 
-enum class TaskStatus {fail, complete, incomplete};
 enum class TaskListStatus {running, stuck, complete, nothing_to_do};
 
 using SimpleTaskFunc = std::function<TaskStatus()>;
