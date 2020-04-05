@@ -54,7 +54,7 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
 }
 
 void ParthenonManager::SetFillDerivedFunctions() {
-  parthenon::FillDerivedVariables::SetFillDerivedFunctions(Advection::PreFill, Advection::PostFill);
+  FillDerivedVariables::SetFillDerivedFunctions(Advection::PreFill, Advection::PostFill);
 }
 
 } // namespace parthenon
