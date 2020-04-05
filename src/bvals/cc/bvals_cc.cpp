@@ -155,8 +155,6 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(Real *buf,
   MeshBlock *pmb = pmy_block_;
   int si, sj, sk, ei, ej, ek;
   int cn = NGHOST - 1;
-  //ParArrayND<Real> &var = *var_cc;
-  //ParArrayND<Real> &coarse_var = *coarse_buf;
 
   si = (nb.ni.ox1 > 0) ? (pmb->cie - cn) : pmb->cis;
   ei = (nb.ni.ox1 < 0) ? (pmb->cis + cn) : pmb->cie;
