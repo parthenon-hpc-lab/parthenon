@@ -29,7 +29,7 @@ namespace parthenon {
 class MeshBlock;
 struct Integrator;
 
-enum class TaskStatus {fail, success, next};
+enum class TaskStatus {fail, complete, incomplete};
 enum class TaskListStatus {running, stuck, complete, nothing_to_do};
 
 using SimpleTaskFunc = std::function<TaskStatus()>;
@@ -180,7 +180,7 @@ class TaskList {
                   << _tasks_completed.to_string() << std::endl 
                   << task->GetID().to_string() << std::endl << std::endl;*/
         TaskStatus status = (*task)();
-        if (status == TaskStatus::success) {
+        if (status == TaskStatus::complete) {
           task->SetComplete();
           MarkTaskComplete(task->GetID());
           /*std::cerr << "Task complete:" << std::endl

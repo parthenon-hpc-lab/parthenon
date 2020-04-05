@@ -228,6 +228,6 @@ namespace PiCalculator {
     area /= (radius*radius);
     // just stash the area somewhere for later
     v(0,0,0) = area;
-    return TaskStatus::success;
+    return TaskStatus::complete;
   }
 } // namespace PiCalculator

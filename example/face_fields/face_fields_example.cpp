@@ -116,7 +116,7 @@ namespace parthenon {
             }
           }
         }
-        return TaskStatus::success;
+        return TaskStatus::complete;
       },
       fill_faces, pmb);
 
@@ -133,7 +133,7 @@ namespace parthenon {
             }
           }
         }
-        return TaskStatus::success;
+        return TaskStatus::complete;
       },
       interpolate, pmb);
 
@@ -194,5 +194,5 @@ parthenon::TaskStatus FaceFields::fill_faces(parthenon::MeshBlock* pmb) {
       }
     }
   }
-  return parthenon::TaskStatus::success;
+  return parthenon::TaskStatus::complete;
 }
