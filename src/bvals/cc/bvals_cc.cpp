@@ -48,7 +48,7 @@ namespace parthenon {
 
 CellCenteredBoundaryVariable::CellCenteredBoundaryVariable(
     MeshBlock *pmb, ParArrayND<Real> var, ParArrayND<Real> coarse_var,
-    ParArrayND<Real> *var_flux)
+    ParArrayND<Real> var_flux[])
     : BoundaryVariable(pmb), var_cc(var), coarse_buf(coarse_var), x1flux(var_flux[X1DIR]),
       x2flux(var_flux[X2DIR]), x3flux(var_flux[X3DIR]), nl_(0), nu_(var.GetDim(4) -1) {
   // CellCenteredBoundaryVariable should only be used w/ 4D or 3D (nx4=1) ParArrayND
