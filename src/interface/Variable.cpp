@@ -97,22 +97,20 @@ void CellVariable<T>::allocateComms(MeshBlock *pmb) {
   // set up fluxes
   std::string base_name = label();
   if (isSet(Metadata::Independent)) {
-    flux[0] = ParArrayND<T>(base_name +   ".flux0", GetDim(6), GetDim(5), GetDim(4), GetDim(3), GetDim(2), GetDim(1));
+    flux[0] = ParArrayND<T>(base_name +   ".flux0",
+      GetDim(6), GetDim(5), GetDim(4), GetDim(3), GetDim(2), GetDim(1));
     if (pmb->pmy_mesh->ndim >= 2)
-      flux[1] = ParArrayND<T>(base_name + ".flux1", GetDim(6), GetDim(5), GetDim(4), GetDim(3), GetDim(2), GetDim(1));
+      flux[1] = ParArrayND<T>(base_name + ".flux1",
+      GetDim(6), GetDim(5), GetDim(4), GetDim(3), GetDim(2), GetDim(1));
     if (pmb->pmy_mesh->ndim >= 3)
-      flux[2] = ParArrayND<T>(base_name + ".flux2", GetDim(6), GetDim(5), GetDim(4), GetDim(3), GetDim(2), GetDim(1));
+      flux[2] = ParArrayND<T>(base_name + ".flux2",
+      GetDim(6), GetDim(5), GetDim(4), GetDim(3), GetDim(2), GetDim(1));
   }
-  // set up communication variables
-  //if (pmb->pmy_mesh->multilevel)
-  //  coarse_s = std::make_shared<ParArrayND<T>>(_label+".coarse", _dims[5], _dims[4], _dims[3], 
-  //                                             pmb->ncc3, pmb->ncc2, pmb->ncc1);
   if (pmb->pmy_mesh->multilevel)
-    coarse_s = ParArrayND<T>(base_name+".coarse", GetDim(6), GetDim(5), GetDim(4), 
+    coarse_s = ParArrayND<T>(base_name+".coarse", GetDim(6), GetDim(5), GetDim(4),
                                                pmb->ncc3, pmb->ncc2, pmb->ncc1);
 
   // Create the boundary object
-  //vbvar = std::make_shared<CellCenteredBoundaryVariable>(pmb, &data, coarse_s.get(), flux);
   vbvar = std::make_shared<CellCenteredBoundaryVariable>(pmb, data, coarse_s, flux);
 
   // enroll CellCenteredBoundaryVariable object

@@ -13,6 +13,8 @@
 #ifndef INTERFACE_CONTAINER_COLLECTION_HPP_
 #define INTERFACE_CONTAINER_COLLECTION_HPP_
 
+#include <map>
+#include <memory>
 #include <string>
 
 #include "interface/Container.hpp"
@@ -24,11 +26,10 @@ template <typename T>
 class ContainerCollection {
  public:
   ContainerCollection() {
-    containers_["base"] = std::make_shared<Container<T>>(); // always add a "base" container
-  };
+    containers_["base"] = std::make_shared<Container<T>>(); // always add "base" container
+  }
 
   void Add(const std::string& label, Container<T>& src);
-  //void AddContainer(const std::string& label, Container<T>& src, const std::vector<Metadata::flags> &flagVector);
 
   Container<T>& Get() { return *containers_["base"]; }
   Container<T>& Get(const std::string& label) {

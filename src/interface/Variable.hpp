@@ -32,10 +32,11 @@
 #include <string>
 #include <utility>
 #include <vector>
-#include "athena.hpp"
-#include "parthenon_arrays.hpp"
+
+#include "basic_types.hpp"
 #include "bvals/cc/bvals_cc.hpp"
 #include "Metadata.hpp"
+#include "parthenon_arrays.hpp"
 
 namespace parthenon {
 class MeshBlock;
@@ -43,7 +44,6 @@ class MeshBlock;
 template <typename T>
 class CellVariable {
  public:
-
   /// Initialize a 6D variable
   CellVariable<T>(const std::string label,
               const std::array<int,6> dims,
@@ -91,7 +91,8 @@ class CellVariable {
   ParArrayND<T> data;
   ParArrayND<T> flux[3];    // used for boundary calculation
   ParArrayND<T> coarse_s;   // used for sending coarse boundary calculation
-  std::shared_ptr<CellCenteredBoundaryVariable> vbvar; // used in case of cell boundary communication
+  // used in case of cell boundary communication
+  std::shared_ptr<CellCenteredBoundaryVariable> vbvar;
   bool mpiStatus;
 
  private:
@@ -144,19 +145,23 @@ class FaceVariable {
   KOKKOS_FORCEINLINE_FUNCTION
   ParArrayND<T>& Get(int i) {
     assert( 1 <= i && i <= 3 );
-    if (i == 1) return (data.x1f);
-    if (i == 2) return (data.x2f);
-    else return (data.x3f); // i == 3
-    //throw std::invalid_argument("Face must be x1f, x2f, or x3f");
+    if (i == 1)
+      return (data.x1f);
+    if (i == 2)
+      return (data.x2f);
+    else // i == 3
+      return (data.x3f);
   }
   template<typename...Args>
   KOKKOS_FORCEINLINE_FUNCTION
   T& operator()(int dir, Args... args) const {
     assert( 1 <= dir && dir <= 3 );
-    if (dir == 1) return data.x1f(std::forward<Args>(args)...);
-    if (dir == 2) return data.x2f(std::forward<Args>(args)...);
-    else return data.x3f(std::forward<Args>(args)...); // i == 3
-    // throw std::invalid_argument("Face must be x1f, x2f, or x3f");
+    if (dir == 1)
+      return data.x1f(std::forward<Args>(args)...);
+    if (dir == 2)
+      return data.x2f(std::forward<Args>(args)...);
+    else // dir == 3
+      return data.x3f(std::forward<Args>(args)...);
   }
 
   bool isSet(const MetadataFlag bit) const { return _m.IsSet(bit); }
@@ -177,8 +182,7 @@ class FaceVariable {
 template <typename T>
 class EdgeVariable {
  public:
-
-  /// Initialize a face variable
+  /// Initialize an edge variable
   EdgeVariable(const std::string label, const std::array<int,6> ncells,
     const Metadata& metadata)
     : data(label,ncells[5], ncells[4], ncells[3], ncells[2], ncells[1], ncells[0]),

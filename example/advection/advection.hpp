@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef EXAMPLE_ADVECTION_HPP_
-#define EXAMPLE_ADVECTION_HPP_
+#ifndef EXAMPLE_ADVECTION_ADVECTION_HPP_
+#define EXAMPLE_ADVECTION_ADVECTION_HPP_
 
 #include <memory>
 
@@ -58,7 +58,7 @@ class AdvectionDriver : public MultiStageBlockTaskDriver {
 using ContainerTaskFunc = std::function<TaskStatus(Container<Real>&)>;
 class ContainerTask : public BaseTask {
  public:
-  ContainerTask(TaskID id, ContainerTaskFunc func, 
+  ContainerTask(TaskID id, ContainerTaskFunc func,
                 TaskID dep, Container<Real> rc)
     : BaseTask(id,dep), _func(func), _cont(rc) {}
   TaskStatus operator () () { return _func(_cont); }
@@ -66,10 +66,11 @@ class ContainerTask : public BaseTask {
   ContainerTaskFunc _func;
   Container<Real> _cont;
 };
-using TwoContainerTaskFunc = std::function<TaskStatus(Container<Real>&, Container<Real>&)>;
+using TwoContainerTaskFunc =
+  std::function<TaskStatus(Container<Real>&, Container<Real>&)>;
 class TwoContainerTask : public BaseTask {
  public:
-  TwoContainerTask(TaskID id, TwoContainerTaskFunc func, 
+  TwoContainerTask(TaskID id, TwoContainerTaskFunc func,
                    TaskID dep, Container<Real> rc1, Container<Real> rc2)
     : BaseTask(id,dep), _func(func), _cont1(rc1), _cont2(rc2) {}
   TaskStatus operator () () { return _func(_cont1, _cont2); }
@@ -90,4 +91,4 @@ namespace Advection {
 }
 
 
-#endif // EXAMPLE_ADVECTION_HPP_
+#endif // EXAMPLE_ADVECTION_ADVECTION_HPP_

@@ -129,7 +129,7 @@ class Container {
     _faceMap[var->label()] = var;
   }
   void Add(std::shared_ptr<SparseVariable<T>> var) {
-    _sparseVector.push_back(var); 
+    _sparseVector.push_back(var);
     _sparseMap[var->label()] = var;
   }
 
@@ -230,17 +230,6 @@ class Container {
                    std::vector<CellVariable<T>>& vRet,
                    std::map<std::string,std::pair<int,int>>& indexCount,
                    const std::vector<int>& sparse_ids = {});
-
-  ///
-  /// get raw data for a variable from the container
-  /// @param label the name of the variable
-  /// @return a pointer of type T if found or NULL
-  /*T *Raw(std::string label) {
-    CellVariable<T>& v = Get(label);
-    //if(v)
-    return v.data();
-    //return NULL;
-  }*/
 
   ///
   /// Remove a variable from the container or throw exception if not

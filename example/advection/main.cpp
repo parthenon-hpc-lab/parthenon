@@ -26,6 +26,7 @@ int main(int argc, char *argv[]) {
   using parthenon::ParthenonStatus;
   ParthenonManager pman;
 
+  // call ParthenonInit to initialize MPI and Kokkos, parse the input deck, and set up
   auto manager_status = pman.ParthenonInit(argc, argv);
   if (manager_status == ParthenonStatus::complete) {
     pman.ParthenonFinalize();
@@ -35,19 +36,25 @@ int main(int argc, char *argv[]) {
     pman.ParthenonFinalize();
     return 1;
   }
+  // Now that ParthenonInit has been called and setup succeeded, the code can now
+  // make use of MPI and Kokkos
 
+  // Initialize the driver
   AdvectionDriver driver(pman.pinput.get(), pman.pmesh.get(), pman.pouts.get());
 
   // start a timer
   pman.PreDriver();
 
+  // This line actually runs the simulation
   auto driver_status = driver.Execute();
 
   // Make final outputs, print diagnostics
   pman.PostDriver(driver_status);
 
-  // call MPI_Finalize if necessary
+  // call MPI_Finalize and Kokkos::finalize if necessary
   pman.ParthenonFinalize();
+
+  // MPI and Kokkos can no longer be used
 
   return(0);
 }

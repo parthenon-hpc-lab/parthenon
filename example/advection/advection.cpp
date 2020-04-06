@@ -10,21 +10,23 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-
+#include <algorithm>
+#include <limits>
 #include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "advection.hpp"
 #include "bvals/boundary_conditions.hpp"
-#include "refinement/refinement.hpp"
+#include "bvals/bvals.hpp"
 #include "driver/multistage.hpp"
 #include "interface/Params.hpp"
 #include "interface/StateDescriptor.hpp"
 #include "mesh/mesh.hpp"
 #include "parthenon_manager.hpp"
 #include "reconstruct/reconstruction.hpp"
-#include "bvals/bvals.hpp"
+#include "refinement/refinement.hpp"
 
 using parthenon::ParthenonManager;
 
@@ -83,11 +85,15 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   params.Add("derefine_tol", derefine_tol);
 
   std::string field_name = "advected";
-  Metadata m({Metadata::Cell, Metadata::Independent, Metadata::Graphics, Metadata::FillGhost});
+  Metadata m(
+    {Metadata::Cell, Metadata::Independent, Metadata::Graphics, Metadata::FillGhost}
+  );
   pkg->AddField(field_name, m);
 
   field_name = "one_minus_advected";
-  m = Metadata({Metadata::Cell, Metadata::Graphics, Metadata::Derived, Metadata::OneCopy});
+  m = Metadata(
+    {Metadata::Cell, Metadata::Graphics, Metadata::Derived, Metadata::OneCopy}
+  );
   pkg->AddField(field_name, m);
 
   field_name = "one_minus_advected_sq";
@@ -162,7 +168,9 @@ void SquareIt(Container<Real>& rc) {
 void PostFill(Container<Real>& rc) {
   MeshBlock *pmb = rc.pmy_block;
   int is = 0; int js = 0; int ks = 0;
-  int ie = pmb->ncells1-1; int je = pmb->ncells2-1; int ke = pmb->ncells3-1;
+  int ie = pmb->ncells1-1;
+  int je = pmb->ncells2-1;
+  int ke = pmb->ncells3-1;
   CellVariable<Real>& qin = rc.Get("one_minus_advected_sq");
   CellVariable<Real>& qout = rc.Get("one_minus_sqrt_one_minus_advected_sq");
   for (int i=is; i<=ie; i++) {
@@ -171,7 +179,7 @@ void PostFill(Container<Real>& rc) {
         qout(k,j,i) = 1.0 - sqrt(qin(k,j,i));
       }
     }
-  }  
+  }
 }
 
 // provide the routine that estimates a stable timestep for this package
@@ -204,7 +212,7 @@ Real EstimateTimestep(Container<Real>& rc) {
   return cfl*min_dt;
 }
 
-// Compute fluxes at faces given the constant velocity field and 
+// Compute fluxes at faces given the constant velocity field and
 // some field "advected" that we are pushing around.
 // This routine implements all the "physics" in this example
 TaskStatus CalculateFluxes(Container<Real>& rc) {
@@ -263,7 +271,6 @@ TaskStatus CalculateFluxes(Container<Real>& rc) {
   // TODO(jcd): implement z-fluxes
 
   return TaskStatus::complete;
-
 }
 
 } // namespace Advection
@@ -274,7 +281,9 @@ TaskStatus CalculateFluxes(Container<Real>& rc) {
 // function.                                       *//
 // *************************************************//
 // first some helper tasks
-TaskStatus UpdateContainer(MeshBlock *pmb, int stage, std::vector<std::string>& stage_name, Integrator* integrator) {
+TaskStatus UpdateContainer(MeshBlock *pmb, int stage,
+                           std::vector<std::string>& stage_name,
+                           Integrator* integrator) {
   //const Real beta = stage_wghts[stage-1].beta;
   const Real beta = integrator->beta[stage-1];
   Container<Real>& base = pmb->real_containers.Get();
@@ -291,14 +300,18 @@ TaskList AdvectionDriver::MakeTaskList(MeshBlock *pmb, int stage) {
   TaskList tl;
   // we're going to populate our last with multiple kinds of tasks
   // these lambdas just clean up the interface to adding tasks of the relevant kinds
-  auto AddMyTask = [&tl, pmb, stage, this] (BlockStageNamesIntegratorTaskFunc func, TaskID dep) {
-    return tl.AddTask<BlockStageNamesIntegratorTask>(func,dep,pmb,stage,stage_name,integrator);
+  auto AddMyTask =
+  [&tl, pmb, stage, this] (BlockStageNamesIntegratorTaskFunc func, TaskID dep) {
+    return tl.AddTask<BlockStageNamesIntegratorTask>(func,dep,pmb,stage,
+                                                     stage_name,integrator);
   };
-  auto AddContainerTask = [&tl] (ContainerTaskFunc func, TaskID dep, Container<Real>& rc) {
+  auto AddContainerTask =
+  [&tl] (ContainerTaskFunc func, TaskID dep, Container<Real>& rc) {
     return tl.AddTask<ContainerTask>(func,dep,rc);
   };
-  auto AddTwoContainerTask = [&tl] (TwoContainerTaskFunc func, TaskID dep, Container<Real>& rc1, Container<Real>& rc2) {
-    return tl.AddTask<TwoContainerTask>(func,dep,rc1,rc2);
+  auto AddTwoContainerTask =
+  [&tl] (TwoContainerTaskFunc f, TaskID dep, Container<Real>& rc1, Container<Real>& rc2) {
+    return tl.AddTask<TwoContainerTask>(f,dep,rc1,rc2);
   };
 
   TaskID none(0);
@@ -306,7 +319,8 @@ TaskList AdvectionDriver::MakeTaskList(MeshBlock *pmb, int stage) {
   if (stage == 1) {
     Container<Real>& base = pmb->real_containers.Get();
     pmb->real_containers.Add("dUdt", base);
-    for (int i=1; i<integrator->nstages; i++) pmb->real_containers.Add(stage_name[i], base);
+    for (int i=1; i<integrator->nstages; i++)
+      pmb->real_containers.Add(stage_name[i], base);
   }
 
   // pull out the container we'll use to get fluxes and/or compute RHSs
@@ -343,7 +357,7 @@ TaskList AdvectionDriver::MakeTaskList(MeshBlock *pmb, int stage) {
                                          recv, sc1);
   auto clear_comm_flags = AddContainerTask(Container<Real>::ClearBoundaryTask,
                                            fill_from_bufs, sc1);
-  
+
   auto prolongBound = tl.AddTask<BlockTask>([](MeshBlock *pmb) {
     pmb->pbval->ProlongateBoundaries(0.0, 0.0);
     return TaskStatus::complete;
@@ -377,7 +391,6 @@ TaskList AdvectionDriver::MakeTaskList(MeshBlock *pmb, int stage) {
       pmb->real_containers.PurgeNonBase();
       return TaskStatus::complete;
     }, fill_derived, pmb);
-
   }
   return tl;
 }

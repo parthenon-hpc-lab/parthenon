@@ -13,8 +13,8 @@
 
 #include <string>
 
-#include "container_collection.hpp"
 #include "Container.hpp"
+#include "container_collection.hpp"
 
 namespace parthenon {
 
@@ -22,8 +22,8 @@ template <typename T>
 void ContainerCollection<T>::Add(const std::string& name, Container<T>& src) {
   // error check for duplicate names
   if (containers_.find(name) != containers_.end()) {
-    std::cerr << "WARNING: Container " << name 
-              << " already exists in Collection.  This may not be intentional." << std::endl;
+    std::cerr << "WARNING: Container " << name
+              << " already exists in Collection.  Is this intentional?" << std::endl;
     return;
   }
 
@@ -54,7 +54,6 @@ void ContainerCollection<T>::Add(const std::string& name, Container<T>& src) {
   }
 
   containers_[name] = c;
-
 }
 
 template class ContainerCollection<Real>;

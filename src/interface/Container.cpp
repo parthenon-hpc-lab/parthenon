@@ -14,11 +14,12 @@
 #include <memory>
 #include <utility>
 #include <vector>
+
 #include "bvals/cc/bvals_cc.hpp"
 #include "Container.hpp"
 #include "globals.hpp" // my_rank
-#include "SparseVariable.hpp"
 #include "mesh/mesh.hpp"
+#include "SparseVariable.hpp"
 
 namespace parthenon {
 

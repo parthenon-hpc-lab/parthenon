@@ -266,7 +266,6 @@ class ParArrayNDGeneric {
   }
 
  private:
-
   // These functions exist to get around the fact that partial template
   // specializations are forbidden for functions within a namespace.
   // The trick then is to use tag dispatch with std::integral_constant
@@ -300,7 +299,7 @@ class ParArrayNDGeneric {
   auto Get(std::integral_constant<int,0>) const {
     return Get(0,0,0,0,0,0);
   }
-  
+
   #define SLC0 std::make_pair(0,1)
   KOKKOS_INLINE_FUNCTION
   auto SliceD(index_pair_t slc, std::integral_constant<int,6>) const {
@@ -361,14 +360,16 @@ struct FaceArray {
   FaceArray(const std::string& label, int ncells4, int ncells3, int ncells2, int ncells1)
     : x1f(label+"x1f", ncells4, ncells3, ncells2, ncells1+1)
     , x2f(label+"x2f", ncells4, ncells3, ncells2+1, ncells1)
-    , x3f(label+"x3f", ncells4, ncells3+1, ncells2, ncells1) 
+    , x3f(label+"x3f", ncells4, ncells3+1, ncells2, ncells1)
   {}
-  FaceArray(const std::string& label, int ncells5, int ncells4, int ncells3, int ncells2, int ncells1)
+  FaceArray(const std::string& label, int ncells5, int ncells4,
+            int ncells3, int ncells2, int ncells1)
     : x1f(label+"x1f", ncells5, ncells4, ncells3, ncells2, ncells1+1)
     , x2f(label+"x2f", ncells5, ncells4, ncells3, ncells2+1, ncells1)
-    , x3f(label+"x3f", ncells5, ncells4, ncells3+1, ncells2, ncells1) 
+    , x3f(label+"x3f", ncells5, ncells4, ncells3+1, ncells2, ncells1)
   {}
-  FaceArray(const std::string& label, int ncells6, int ncells5, int ncells4, int ncells3, int ncells2, int ncells1)
+  FaceArray(const std::string& label, int ncells6, int ncells5,
+            int ncells4, int ncells3, int ncells2, int ncells1)
     : x1f(label+"x1f",ncells6, ncells5, ncells4, ncells3, ncells2, ncells1+1)
     , x2f(label+"x2f",ncells6, ncells5, ncells4, ncells3, ncells2+1, ncells1)
     , x3f(label+"x3f",ncells6, ncells5, ncells4, ncells3+1, ncells2, ncells1)
@@ -381,19 +382,23 @@ struct FaceArray {
   KOKKOS_FORCEINLINE_FUNCTION
   ParArrayND<T>& Get(int i) {
     assert( 1 <= i && i <= 3 );
-    if (i == 1) return (x1f);
-    if (i == 2) return (x2f);
-    else return (x3f); // i == 3
-    //throw std::invalid_argument("Face must be x1f, x2f, or x3f");
+    if (i == 1)
+      return (x1f);
+    if (i == 2)
+      return (x2f);
+    else
+      return (x3f); // i == 3
   }
   template<typename...Args>
   KOKKOS_FORCEINLINE_FUNCTION
   T& operator()(int dir, Args... args) const {
     assert( 1 <= dir && dir <= 3 );
-    if (dir == 1) return x1f(std::forward<Args>(args)...);
-    if (dir == 2) return x2f(std::forward<Args>(args)...);
-    else return x3f(std::forward<Args>(args)...); // i == 3
-    // throw std::invalid_argument("Face must be x1f, x2f, or x3f");
+    if (dir == 1)
+      return x1f(std::forward<Args>(args)...);
+    if (dir == 2)
+      return x2f(std::forward<Args>(args)...);
+    else
+      return x3f(std::forward<Args>(args)...); // i == 3
   }
 };
 
@@ -408,22 +413,24 @@ struct EdgeArray {
   EdgeArray(const std::string& label, int ncells3, int ncells2, int ncells1)
     : x1e(label+"x1e", ncells3+1, ncells2+1, ncells1)
     , x2e(label+"x2e", ncells3+1, ncells2, ncells1+1)
-    , x3e(label+"x3e", ncells3, ncells2+1, ncells1+1) 
+    , x3e(label+"x3e", ncells3, ncells2+1, ncells1+1)
   {}
   EdgeArray(const std::string& label, int ncells4, int ncells3, int ncells2, int ncells1)
     : x1e(label+"x1e", ncells4, ncells3+1, ncells2+1, ncells1)
     , x2e(label+"x2e", ncells4, ncells3+1, ncells2, ncells1+1)
-    , x3e(label+"x3e", ncells4, ncells3, ncells2+1, ncells1+1) 
+    , x3e(label+"x3e", ncells4, ncells3, ncells2+1, ncells1+1)
   {}
-  EdgeArray(const std::string& label, int ncells5, int ncells4, int ncells3, int ncells2, int ncells1)
+  EdgeArray(const std::string& label, int ncells5, int ncells4,
+            int ncells3, int ncells2, int ncells1)
     : x1e(label+"x1e", ncells5, ncells4, ncells3+1, ncells2+1, ncells1)
     , x2e(label+"x2e", ncells5, ncells4, ncells3+1, ncells2, ncells1+1)
-    , x3e(label+"x3e", ncells5, ncells4, ncells3, ncells2+1, ncells1+1) 
+    , x3e(label+"x3e", ncells5, ncells4, ncells3, ncells2+1, ncells1+1)
   {}
-  EdgeArray(const std::string& label, int ncells6, int ncells5, int ncells4, int ncells3, int ncells2, int ncells1)
+  EdgeArray(const std::string& label, int ncells6, int ncells5, int ncells4,
+            int ncells3, int ncells2, int ncells1)
     : x1e(label+"x1e", ncells6, ncells5, ncells4, ncells3+1, ncells2+1, ncells1)
     , x2e(label+"x2e", ncells6, ncells5, ncells4, ncells3+1, ncells2, ncells1+1)
-    , x3e(label+"x3e", ncells6, ncells5, ncells4, ncells3, ncells2+1, ncells1+1) 
+    , x3e(label+"x3e", ncells6, ncells5, ncells4, ncells3, ncells2+1, ncells1+1)
   {}
   KOKKOS_INLINE_FUNCTION __attribute__((nothrow))
   ~EdgeArray() = default;

@@ -61,8 +61,8 @@ template <typename T>
 class SparseVariable {
  public:
   SparseVariable() = default;
-  SparseVariable(const std::string& label, const Metadata& metadata, std::array<int,6>& dims) 
-    : _dims(dims), _label(label), _metadata(metadata) {}
+  SparseVariable(const std::string& label, const Metadata& m, std::array<int,6>& dims)
+    : _dims(dims), _label(label), _metadata(m) {}
 
   SparseVariable(SparseVariable& src)
     : _dims(src._dims), _label(src._label), _metadata(src._metadata) {
@@ -93,7 +93,7 @@ class SparseVariable {
 
   CellVariable<T>& Get(const int index) {
     if (_varMap.find(index) == _varMap.end()) {
-      throw std::invalid_argument("index " + std::to_string(index) + 
+      throw std::invalid_argument("index " + std::to_string(index) +
                                   "does not exist in SparseVariable");
     }
     return *(_varMap[index]);
