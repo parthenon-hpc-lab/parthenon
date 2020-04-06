@@ -1,0 +1,14 @@
+name: Command Mode Formatting
+on:
+  issue_comment:
+    types: [created]
+jobs:
+  apply-formatting:
+    name: Format C++ Code
+    runs-on: ubuntu-latest
+    steps:
+    - uses: AndrewGaspar/cpp-auto-formatter/command@v0.1
+      with:
+        botName: hermes
+        clangFormatVersion: 8
+        token: ${{ secrets.GITHUB_TOKEN }}
