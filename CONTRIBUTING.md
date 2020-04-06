@@ -40,6 +40,7 @@ In order for code to be merged into master it must
 
 - obey the style guide (test with CPPLINT)
 - pass the linting test (test with CPPLINT)
+- pass the formatting test (see "Formatting Code" below)
 - pass the existing test suite
 - have at least one approval by one member of each physics/application code
 - include tests that cover the new feature (if applicable)
@@ -48,4 +49,30 @@ In order for code to be merged into master it must
 The reviewers are expected to look out for the items above before approving a merge
 request.
 
+#### Formatting Code
+We use clang-format to automatically format the code. If you have clang-format installed
+locally, you can always execute `make format` or `cmake --build . --target format` from
+your build directory to automatically format the code.
 
+If you don't have clang-format installed locally, our "Hermes" automation can always
+format the code for you. Just create the following comment in your PR, and Hermes will
+format the code and automatically commit it:
+```
+@par-hermes format
+```
+
+After Hermes formats your code, remember to run `git pull` to update your local tracking
+branch.
+
+If you'd like Hermes to amend the formatting to the latest commit, you can use the
+`--amend` option, like so:
+```
+@par-hermes format --amend
+```
+
+You will remain the author of the commit, but Hermes will amend the commit for you with
+the proper formatting.
+Remember - this will change the branch history from your local commit, so you'll need to
+run something equivalent to
+`git fetch origin && git reset --hard origin/$(git branch --show-current)` to update your
+local tracking branch.
