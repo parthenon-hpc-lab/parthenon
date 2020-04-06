@@ -11,13 +11,15 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+#include "parthenon_manager.hpp"
+
 #include <utility>
 
-#include "refinement/refinement.hpp"
 #include "driver/driver.hpp"
 #include "interface/Update.hpp"
 #include <Kokkos_Core.hpp>
-#include "parthenon_manager.hpp"
+#include "refinement/refinement.hpp"
+
 
 namespace parthenon {
 

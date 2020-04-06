@@ -22,8 +22,9 @@
 #include <array>
 #include <memory>
 #include <vector>
-#include "interface/PropertiesInterface.hpp"
+
 #include "Container.hpp"
+#include "interface/PropertiesInterface.hpp"
 #include "Variable.hpp"
 
 namespace parthenon {
@@ -38,7 +39,8 @@ class ContainerIterator {
   /// initializes the iterator with a container and a flag to match
   /// @param c the container on which you want the iterator
   /// @param flagVector: a vector of Metadata::flags that you want to match
-  ContainerIterator<T>(const Container<T>& c, const std::vector<MetadataFlag> &flagVector) {
+  ContainerIterator<T>(const Container<T>& c,
+                       const std::vector<MetadataFlag> &flagVector) {
     //c.print();
     auto allVars = c.GetCellVariableVector();
     for (auto & svar : c.GetSparseVector()) {
@@ -55,7 +57,8 @@ class ContainerIterator {
   //}
   /// Changes the mask for the iterator and resets the iterator
   /// @param flagArray: a vector of MetadataFlag that you want to match
-  void setMask(const CellVariableVector<T>& allVars, const std::vector<MetadataFlag> &flagVector) {
+  void setMask(const CellVariableVector<T>& allVars,
+               const std::vector<MetadataFlag> &flagVector) {
     // 1: clear out variables stored so far
     _emptyVars();
 
@@ -99,5 +102,7 @@ class ContainerIterator {
     return true;
   }
 };
-}
+
+} // namespace parthenon
+
 #endif // INTERFACE_CONTAINERITERATOR_HPP_

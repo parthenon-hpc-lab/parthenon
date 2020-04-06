@@ -52,8 +52,8 @@ class TaskID {
  public:
   TaskID() {
     Set(0);
-  };
-  TaskID(int id);
+  }
+  explict TaskID(int id);
 
   void Set(int id);
   void clear();
