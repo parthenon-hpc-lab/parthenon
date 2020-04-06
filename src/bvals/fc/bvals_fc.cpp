@@ -182,18 +182,21 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(Real *buf,
     si = pmb->ie - NGHOST + 1, ei = pmb->ie;
   else
     si = pmb->is + 1, ei = pmb->is + NGHOST;
+
   if (nb.ni.ox2 == 0)
     sj = pmb->js, ej = pmb->je;
   else if (nb.ni.ox2 > 0)
     sj = pmb->je - NGHOST + 1, ej = pmb->je;
   else
     sj = pmb->js, ej = pmb->js + NGHOST - 1;
+
   if (nb.ni.ox3 == 0)
     sk = pmb->ks, ek = pmb->ke;
   else if (nb.ni.ox3 > 0)
     sk = pmb->ke - NGHOST + 1, ek = pmb->ke;
   else
     sk = pmb->ks, ek = pmb->ks + NGHOST - 1;
+
   // for SMR/AMR, always include the overlapping faces in edge and corner boundaries
   if (pmy_mesh_->multilevel && nb.ni.type != NeighborConnect::face) {
     if (nb.ni.ox1 > 0)
@@ -210,6 +213,7 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(Real *buf,
     si = pmb->ie - NGHOST + 1, ei = pmb->ie;
   else
     si = pmb->is, ei = pmb->is + NGHOST - 1;
+
   if (pmb->block_size.nx2 == 1)
     sj = pmb->js, ej = pmb->je;
   else if (nb.ni.ox2 == 0)
@@ -218,6 +222,7 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(Real *buf,
     sj = pmb->je - NGHOST + 1, ej = pmb->je;
   else
     sj = pmb->js + 1, ej = pmb->js + NGHOST;
+
   if (pmy_mesh_->multilevel && nb.ni.type != NeighborConnect::face) {
     if (nb.ni.ox2 > 0)
       ej++;
@@ -233,6 +238,7 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(Real *buf,
     sj = pmb->je - NGHOST + 1, ej = pmb->je;
   else
     sj = pmb->js, ej = pmb->js + NGHOST - 1;
+
   if (pmb->block_size.nx3 == 1)
     sk = pmb->ks, ek = pmb->ke;
   else if (nb.ni.ox3 == 0)
@@ -241,6 +247,7 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(Real *buf,
     sk = pmb->ke - NGHOST + 1, ek = pmb->ke;
   else
     sk = pmb->ks + 1, ek = pmb->ks + NGHOST;
+
   if (pmy_mesh_->multilevel && nb.ni.type != NeighborConnect::face) {
     if (nb.ni.ox3 > 0)
       ek++;
@@ -272,18 +279,21 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(Real *buf,
     si = pmb->cie - cng + 1, ei = pmb->cie;
   else
     si = pmb->cis + 1, ei = pmb->cis + cng;
+
   if (nb.ni.ox2 == 0)
     sj = pmb->cjs, ej = pmb->cje;
   else if (nb.ni.ox2 > 0)
     sj = pmb->cje - cng + 1, ej = pmb->cje;
   else
     sj = pmb->cjs, ej = pmb->cjs + cng - 1;
+
   if (nb.ni.ox3 == 0)
     sk = pmb->cks, ek = pmb->cke;
   else if (nb.ni.ox3 > 0)
     sk = pmb->cke - cng + 1, ek = pmb->cke;
   else
     sk = pmb->cks, ek = pmb->cks + cng - 1;
+
   // include the overlapping faces in edge and corner boundaries
   if (nb.ni.type != NeighborConnect::face) {
     if (nb.ni.ox1 > 0)
@@ -301,6 +311,7 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(Real *buf,
     si = pmb->cie - cng + 1, ei = pmb->cie;
   else
     si = pmb->cis, ei = pmb->cis + cng - 1;
+
   if (pmb->block_size.nx2 == 1)
     sj = pmb->cjs, ej = pmb->cje;
   else if (nb.ni.ox2 == 0)
@@ -309,6 +320,7 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(Real *buf,
     sj = pmb->cje - cng + 1, ej = pmb->cje;
   else
     sj = pmb->cjs + 1, ej = pmb->cjs + cng;
+
   if (nb.ni.type != NeighborConnect::face) {
     if (nb.ni.ox2 > 0)
       ej++;
@@ -329,6 +341,7 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(Real *buf,
     sj = pmb->cje - cng + 1, ej = pmb->cje;
   else
     sj = pmb->cjs, ej = pmb->cjs + cng - 1;
+
   if (pmb->block_size.nx3 == 1)
     sk = pmb->cks, ek = pmb->cke;
   else if (nb.ni.ox3 == 0)
@@ -337,6 +350,7 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(Real *buf,
     sk = pmb->cke - cng + 1, ek = pmb->cke;
   else
     sk = pmb->cks + 1, ek = pmb->cks + cng;
+
   if (nb.ni.type != NeighborConnect::face) {
     if (nb.ni.ox3 > 0)
       ek++;
@@ -381,8 +395,10 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToFiner(Real *buf,
       si = pmb->is, ei = pmb->ie + 1 - nx1 / 2 + pmb->cnghost;
   } else if (nb.ni.ox1 > 0) {
     si = pmb->ie + 1 - pmb->cnghost, ei = pmb->ie + 1;
-  } else
+  } else {
     si = pmb->is, ei = pmb->is + pmb->cnghost;
+  }
+
   if (nb.ni.ox2 == 0) {
     sj = pmb->js, ej = pmb->je;
     if (nx2 > 1) {
@@ -400,8 +416,10 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToFiner(Real *buf,
     }
   } else if (nb.ni.ox2 > 0) {
     sj = pmb->je - cn, ej = pmb->je;
-  } else
+  } else {
     sj = pmb->js, ej = pmb->js + cn;
+  }
+
   if (nb.ni.ox3 == 0) {
     sk = pmb->ks, ek = pmb->ke;
     if (nx3 > 1) {
@@ -419,8 +437,10 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToFiner(Real *buf,
     }
   } else if (nb.ni.ox3 > 0) {
     sk = pmb->ke - cn, ek = pmb->ke;
-  } else
+  } else {
     sk = pmb->ks, ek = pmb->ks + cn;
+  }
+
   BufferUtility::PackData((*var_fc).x1f, buf, si, ei, sj, ej, sk, ek, p);
 
   // bx2
@@ -431,8 +451,10 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToFiner(Real *buf,
       si = pmb->is, ei = pmb->ie - nx1 / 2 + pmb->cnghost;
   } else if (nb.ni.ox1 > 0) {
     si = pmb->ie - cn, ei = pmb->ie;
-  } else
+  } else {
     si = pmb->is, ei = pmb->is + cn;
+  }
+
   if (nb.ni.ox2 == 0) {
     sj = pmb->js, ej = pmb->je;
     if (nx2 > 1) {
@@ -451,8 +473,10 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToFiner(Real *buf,
     }
   } else if (nb.ni.ox2 > 0) {
     sj = pmb->je + 1 - pmb->cnghost, ej = pmb->je + 1;
-  } else
+  } else {
     sj = pmb->js, ej = pmb->js + pmb->cnghost;
+  }
+
   BufferUtility::PackData((*var_fc).x2f, buf, si, ei, sj, ej, sk, ek, p);
 
   // bx3
@@ -473,8 +497,10 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToFiner(Real *buf,
     }
   } else if (nb.ni.ox2 > 0) {
     sj = pmb->je - cn, ej = pmb->je;
-  } else
+  } else {
     sj = pmb->js, ej = pmb->js + cn;
+  }
+
   if (nb.ni.ox3 == 0) {
     sk = pmb->ks, ek = pmb->ke;
     if (nx3 > 1) {
@@ -493,8 +519,10 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToFiner(Real *buf,
     }
   } else if (nb.ni.ox3 > 0) {
     sk = pmb->ke + 1 - pmb->cnghost, ek = pmb->ke + 1;
-  } else
+  } else {
     sk = pmb->ks, ek = pmb->ks + pmb->cnghost;
+  }
+
   BufferUtility::PackData((*var_fc).x3f, buf, si, ei, sj, ej, sk, ek, p);
 
   return p;
@@ -519,18 +547,21 @@ void FaceCenteredBoundaryVariable::SetBoundarySameLevel(Real *buf,
     si = pmb->ie + 2, ei = pmb->ie + NGHOST + 1;
   else
     si = pmb->is - NGHOST, ei = pmb->is - 1;
+
   if (nb.ni.ox2 == 0)
     sj = pmb->js, ej = pmb->je;
   else if (nb.ni.ox2 > 0)
     sj = pmb->je + 1, ej = pmb->je + NGHOST;
   else
     sj = pmb->js - NGHOST, ej = pmb->js - 1;
+
   if (nb.ni.ox3 == 0)
     sk = pmb->ks, ek = pmb->ke;
   else if (nb.ni.ox3 > 0)
     sk = pmb->ke + 1, ek = pmb->ke + NGHOST;
   else
     sk = pmb->ks - NGHOST, ek = pmb->ks - 1;
+
   // for SMR/AMR, always include the overlapping faces in edge and corner boundaries
   if (pmy_mesh_->multilevel && nb.ni.type != NeighborConnect::face) {
     if (nb.ni.ox1 > 0)
@@ -548,6 +579,7 @@ void FaceCenteredBoundaryVariable::SetBoundarySameLevel(Real *buf,
     si = pmb->ie + 1, ei = pmb->ie + NGHOST;
   else
     si = pmb->is - NGHOST, ei = pmb->is - 1;
+
   if (pmb->block_size.nx2 == 1)
     sj = pmb->js, ej = pmb->je;
   else if (nb.ni.ox2 == 0)
@@ -556,6 +588,7 @@ void FaceCenteredBoundaryVariable::SetBoundarySameLevel(Real *buf,
     sj = pmb->je + 2, ej = pmb->je + NGHOST + 1;
   else
     sj = pmb->js - NGHOST, ej = pmb->js - 1;
+
   // for SMR/AMR, always include the overlapping faces in edge and corner boundaries
   if (pmy_mesh_->multilevel && nb.ni.type != NeighborConnect::face) {
     if (nb.ni.ox2 > 0)
@@ -579,6 +612,7 @@ void FaceCenteredBoundaryVariable::SetBoundarySameLevel(Real *buf,
     sj = pmb->je + 1, ej = pmb->je + NGHOST;
   else
     sj = pmb->js - NGHOST, ej = pmb->js - 1;
+
   if (pmb->block_size.nx3 == 1)
     sk = pmb->ks, ek = pmb->ke;
   else if (nb.ni.ox3 == 0)
@@ -587,6 +621,7 @@ void FaceCenteredBoundaryVariable::SetBoundarySameLevel(Real *buf,
     sk = pmb->ke + 2, ek = pmb->ke + NGHOST + 1;
   else
     sk = pmb->ks - NGHOST, ek = pmb->ks - 1;
+
   // for SMR/AMR, always include the overlapping faces in edge and corner boundaries
   if (pmy_mesh_->multilevel && nb.ni.type != NeighborConnect::face) {
     if (nb.ni.ox3 > 0)
@@ -629,8 +664,10 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromCoarser(Real *buf,
       si -= cng;
   } else if (nb.ni.ox1 > 0) {
     si = pmb->cie + 1, ei = pmb->cie + 1 + cng;
-  } else
+  } else {
     si = pmb->cis - cng, ei = pmb->cis;
+  }
+
   if (nb.ni.ox2 == 0) {
     sj = pmb->cjs, ej = pmb->cje;
     if (pmb->block_size.nx2 > 1) {
@@ -641,8 +678,10 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromCoarser(Real *buf,
     }
   } else if (nb.ni.ox2 > 0) {
     sj = pmb->cje + 1, ej = pmb->cje + cng;
-  } else
+  } else {
     sj = pmb->cjs - cng, ej = pmb->cjs - 1;
+  }
+
   if (nb.ni.ox3 == 0) {
     sk = pmb->cks, ek = pmb->cke;
     if (pmb->block_size.nx3 > 1) {
@@ -653,8 +692,9 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromCoarser(Real *buf,
     }
   } else if (nb.ni.ox3 > 0) {
     sk = pmb->cke + 1, ek = pmb->cke + cng;
-  } else
+  } else {
     sk = pmb->cks - cng, ek = pmb->cks - 1;
+  }
 
   BufferUtility::UnpackData(buf, coarse_buf.x1f, si, ei, sj, ej, sk, ek, p);
 
@@ -667,8 +707,10 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromCoarser(Real *buf,
       si -= cng;
   } else if (nb.ni.ox1 > 0) {
     si = pmb->cie + 1, ei = pmb->cie + cng;
-  } else
+  } else {
     si = pmb->cis - cng, ei = pmb->cis - 1;
+  }
+
   if (nb.ni.ox2 == 0) {
     sj = pmb->cjs, ej = pmb->cje;
     if (pmb->block_size.nx2 > 1) {
@@ -680,8 +722,9 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromCoarser(Real *buf,
     }
   } else if (nb.ni.ox2 > 0) {
     sj = pmb->cje + 1, ej = pmb->cje + 1 + cng;
-  } else
+  } else {
     sj = pmb->cjs - cng, ej = pmb->cjs;
+  }
 
   BufferUtility::UnpackData(buf, coarse_buf.x2f, si, ei, sj, ej, sk, ek, p);
   if (pmb->block_size.nx2 == 1) { // 1D
@@ -701,8 +744,10 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromCoarser(Real *buf,
     }
   } else if (nb.ni.ox2 > 0) {
     sj = pmb->cje + 1, ej = pmb->cje + cng;
-  } else
+  } else {
     sj = pmb->cjs - cng, ej = pmb->cjs - 1;
+  }
+
   if (nb.ni.ox3 == 0) {
     sk = pmb->cks, ek = pmb->cke;
     if (pmb->block_size.nx3 > 1) {
@@ -714,8 +759,9 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromCoarser(Real *buf,
     }
   } else if (nb.ni.ox3 > 0) {
     sk = pmb->cke + 1, ek = pmb->cke + 1 + cng;
-  } else
+  } else {
     sk = pmb->cks - cng, ek = pmb->cks;
+  }
 
   BufferUtility::UnpackData(buf, coarse_buf.x3f, si, ei, sj, ej, sk, ek, p);
 
@@ -750,8 +796,10 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
       ei -= pmb->block_size.nx1 / 2;
   } else if (nb.ni.ox1 > 0) {
     si = pmb->ie + 2, ei = pmb->ie + NGHOST + 1;
-  } else
+  } else {
     si = pmb->is - NGHOST, ei = pmb->is - 1;
+  }
+
   // include the overlapping faces in edge and corner boundaries
   if (nb.ni.type != NeighborConnect::face) {
     if (nb.ni.ox1 > 0)
@@ -759,6 +807,7 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
     else if (nb.ni.ox1 < 0)
       ei++;
   }
+
   if (nb.ni.ox2 == 0) {
     sj = pmb->js, ej = pmb->je;
     if (pmb->block_size.nx2 > 1) {
@@ -776,8 +825,10 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
     }
   } else if (nb.ni.ox2 > 0) {
     sj = pmb->je + 1, ej = pmb->je + NGHOST;
-  } else
+  } else {
     sj = pmb->js - NGHOST, ej = pmb->js - 1;
+  }
+
   if (nb.ni.ox3 == 0) {
     sk = pmb->ks, ek = pmb->ke;
     if (pmb->block_size.nx3 > 1) {
@@ -795,8 +846,9 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
     }
   } else if (nb.ni.ox3 > 0) {
     sk = pmb->ke + 1, ek = pmb->ke + NGHOST;
-  } else
+  } else {
     sk = pmb->ks - NGHOST, ek = pmb->ks - 1;
+  }
 
   BufferUtility::UnpackData(buf, (*var_fc).x1f, si, ei, sj, ej, sk, ek, p);
 
@@ -809,8 +861,10 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
       ei -= pmb->block_size.nx1 / 2;
   } else if (nb.ni.ox1 > 0) {
     si = pmb->ie + 1, ei = pmb->ie + NGHOST;
-  } else
+  } else {
     si = pmb->is - NGHOST, ei = pmb->is - 1;
+  }
+
   if (nb.ni.ox2 == 0) {
     sj = pmb->js, ej = pmb->je;
     if (pmb->block_size.nx2 > 1) {
@@ -829,8 +883,10 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
     }
   } else if (nb.ni.ox2 > 0) {
     sj = pmb->je + 2, ej = pmb->je + NGHOST + 1;
-  } else
+  } else {
     sj = pmb->js - NGHOST, ej = pmb->js - 1;
+  }
+
   // include the overlapping faces in edge and corner boundaries
   if (nb.ni.type != NeighborConnect::face) {
     if (nb.ni.ox2 > 0)
@@ -865,8 +921,10 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
     }
   } else if (nb.ni.ox2 > 0) {
     sj = pmb->je + 1, ej = pmb->je + NGHOST;
-  } else
+  } else {
     sj = pmb->js - NGHOST, ej = pmb->js - 1;
+  }
+
   if (nb.ni.ox3 == 0) {
     sk = pmb->ks, ek = pmb->ke;
     if (pmb->block_size.nx3 > 1) {
@@ -885,8 +943,10 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
     }
   } else if (nb.ni.ox3 > 0) {
     sk = pmb->ke + 2, ek = pmb->ke + NGHOST + 1;
-  } else
+  } else {
     sk = pmb->ks - NGHOST, ek = pmb->ks - 1;
+  }
+
   // include the overlapping faces in edge and corner boundaries
   if (nb.ni.type != NeighborConnect::face) {
     if (nb.ni.ox3 > 0)
@@ -931,6 +991,7 @@ void FaceCenteredBoundaryVariable::CountFineEdges() {
       }
     }
   }
+
   if (pmb->block_size.nx3 > 1) {
     for (int ox3 = -1; ox3 <= 1; ox3 += 2) {
       for (int ox1 = -1; ox1 <= 1; ox1 += 2) {
@@ -948,6 +1009,7 @@ void FaceCenteredBoundaryVariable::CountFineEdges() {
         nedge_fine_[eid++] = nf;
       }
     }
+
     for (int ox3 = -1; ox3 <= 1; ox3 += 2) {
       for (int ox2 = -1; ox2 <= 1; ox2 += 2) {
         int njs, nje, nks, nke;
