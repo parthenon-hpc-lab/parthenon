@@ -184,15 +184,15 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(Real *buf,
 
   const IndexShape & cells = pmb->cells;
   // bx1
-  if      (nb.ni.ox1 == 0) si = cells.x1s(interior),            ei = cells.x1e(interior) + 1;
-  else if (nb.ni.ox1 > 0)  si = cells.x1e(interior)-NGHOST + 1, ei = cells.x1e(interior);
-  else                     si = cells.x1s(interior) + 1,        ei = cells.x1s(interior) + NGHOST;
-  if      (nb.ni.ox2 == 0) sj = cells.x2s(interior),            ej = cells.x2e(interior);
-  else if (nb.ni.ox2 > 0)  sj = cells.x2e(interior)-NGHOST + 1, ej = cells.x2e(interior);
-  else                     sj = cells.x2s(interior),            ej = cells.x2s(interior) + NGHOST-1;
-  if      (nb.ni.ox3 == 0) sk = cells.x3s(interior),            ek = cells.x3e(interior);
-  else if (nb.ni.ox3 > 0)  sk = cells.x3e(interior)-NGHOST + 1, ek = cells.x3e(interior);
-  else                     sk = cells.x3s(interior),            ek = cells.x3s(interior) + NGHOST-1;
+  if      (nb.ni.ox1 == 0) si = cells.is(interior),            ei = cells.ie(interior) + 1;
+  else if (nb.ni.ox1 > 0)  si = cells.ie(interior)-NGHOST + 1, ei = cells.ie(interior);
+  else                     si = cells.is(interior) + 1,        ei = cells.is(interior) + NGHOST;
+  if      (nb.ni.ox2 == 0) sj = cells.js(interior),            ej = cells.je(interior);
+  else if (nb.ni.ox2 > 0)  sj = cells.je(interior)-NGHOST + 1, ej = cells.je(interior);
+  else                     sj = cells.js(interior),            ej = cells.js(interior) + NGHOST-1;
+  if      (nb.ni.ox3 == 0) sk = cells.ks(interior),            ek = cells.ke(interior);
+  else if (nb.ni.ox3 > 0)  sk = cells.ke(interior)-NGHOST + 1, ek = cells.ke(interior);
+  else                     sk = cells.ks(interior),            ek = cells.ks(interior) + NGHOST-1;
   // for SMR/AMR, always include the overlapping faces in edge and corner boundaries
   if (pmy_mesh_->multilevel && nb.ni.type != NeighborConnect::face) {
     if (nb.ni.ox1 > 0) ei++;
@@ -201,13 +201,13 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(Real *buf,
   BufferUtility::PackData((*var_fc).x1f, buf, si, ei, sj, ej, sk, ek, p);
 
   // bx2
-  if      (nb.ni.ox1 == 0) si = cells.x1s(interior),            ei = cells.x1e(interior);
-  else if (nb.ni.ox1 > 0)  si = cells.x1e(interior)-NGHOST + 1, ei = cells.x1e(interior);
-  else                     si = cells.x1s(interior),            ei = cells.x1s(interior) + NGHOST-1;
-  if (pmb->block_size.nx2 == 1) sj = cells.x2s(interior),       ej = cells.x2e(interior);
-  else if (nb.ni.ox2 == 0) sj = cells.x2s(interior),            ej = cells.x2e(interior) + 1;
-  else if (nb.ni.ox2 > 0)  sj = cells.x2e(interior)-NGHOST + 1, ej = cells.x2e(interior);
-  else                     sj = cells.x2s(interior) + 1,        ej = cells.x2s(interior) + NGHOST;
+  if      (nb.ni.ox1 == 0) si = cells.is(interior),            ei = cells.ie(interior);
+  else if (nb.ni.ox1 > 0)  si = cells.ie(interior)-NGHOST + 1, ei = cells.ie(interior);
+  else                     si = cells.is(interior),            ei = cells.is(interior) + NGHOST-1;
+  if (pmb->block_size.nx2 == 1) sj = cells.js(interior),       ej = cells.je(interior);
+  else if (nb.ni.ox2 == 0) sj = cells.js(interior),            ej = cells.je(interior) + 1;
+  else if (nb.ni.ox2 > 0)  sj = cells.je(interior)-NGHOST + 1, ej = cells.je(interior);
+  else                     sj = cells.js(interior) + 1,        ej = cells.js(interior) + NGHOST;
   if (pmy_mesh_->multilevel && nb.ni.type != NeighborConnect::face) {
     if      (nb.ni.ox2 > 0) ej++;
     else if (nb.ni.ox2 < 0) sj--;
@@ -215,13 +215,13 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(Real *buf,
   BufferUtility::PackData((*var_fc).x2f, buf, si, ei, sj, ej, sk, ek, p);
 
   // bx3
-  if      (nb.ni.ox2 == 0) sj = cells.x2s(interior),            ej = cells.x2e(interior);
-  else if (nb.ni.ox2 > 0)  sj = cells.x2e(interior)-NGHOST + 1, ej = cells.x2e(interior);
-  else                     sj = cells.x2s(interior),            ej = cells.x2s(interior) + NGHOST-1;
-  if (pmb->block_size.nx3 == 1) sk = cells.x3s(interior),       ek = cells.x3e(interior);
-  else if (nb.ni.ox3 == 0) sk = cells.x3s(interior),            ek = cells.x3e(interior) + 1;
-  else if (nb.ni.ox3 > 0)  sk = cells.x3e(interior)-NGHOST + 1, ek = cells.x3e(interior);
-  else                     sk = cells.x3s(interior) + 1,        ek = cells.x3s(interior) + NGHOST;
+  if      (nb.ni.ox2 == 0) sj = cells.js(interior),            ej = cells.je(interior);
+  else if (nb.ni.ox2 > 0)  sj = cells.je(interior)-NGHOST + 1, ej = cells.je(interior);
+  else                     sj = cells.js(interior),            ej = cells.js(interior) + NGHOST-1;
+  if (pmb->block_size.nx3 == 1) sk = cells.ks(interior),       ek = cells.ke(interior);
+  else if (nb.ni.ox3 == 0) sk = cells.ks(interior),            ek = cells.ke(interior) + 1;
+  else if (nb.ni.ox3 > 0)  sk = cells.ke(interior)-NGHOST + 1, ek = cells.ke(interior);
+  else                     sk = cells.ks(interior) + 1,        ek = cells.ks(interior) + NGHOST;
   if (pmy_mesh_->multilevel && nb.ni.type != NeighborConnect::face) {
     if      (nb.ni.ox3 > 0) ek++;
     else if (nb.ni.ox3 < 0) sk--;
@@ -335,12 +335,12 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToFiner(Real *buf,
   // need to add edges for faces, add corners for edges
   // bx1
   if (nb.ni.ox1 == 0) {
-    if (nb.ni.fi1 == 1)   si = cells.x1s(interior) + nx1/2-pmb->cnghost, ei = cells.x1e(interior) + 1;
-    else            si = cells.x1s(interior), ei = cells.x1e(interior) + 1-nx1/2 + pmb->cnghost;
-  } else if (nb.ni.ox1 > 0) { si = cells.x1e(interior) + 1-pmb->cnghost, ei = cells.x1e(interior) + 1;}
-  else              si = cells.x1s(interior),                ei = cells.x1s(interior) + pmb->cnghost;
+    if (nb.ni.fi1 == 1)   si = cells.is(interior) + nx1/2-pmb->cnghost, ei = cells.ie(interior) + 1;
+    else            si = cells.is(interior), ei = cells.ie(interior) + 1-nx1/2 + pmb->cnghost;
+  } else if (nb.ni.ox1 > 0) { si = cells.ie(interior) + 1-pmb->cnghost, ei = cells.ie(interior) + 1;}
+  else              si = cells.is(interior),                ei = cells.is(interior) + pmb->cnghost;
   if (nb.ni.ox2 == 0) {
-    sj = cells.x2s(interior),    ej = cells.x2e(interior);
+    sj = cells.js(interior),    ej = cells.je(interior);
     if (nx2 > 1) {
       if (nb.ni.ox1 != 0) {
         if (nb.ni.fi1 == 1) sj += nx2/2-pmb->cnghost;
@@ -350,10 +350,10 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToFiner(Real *buf,
         else          ej -= nx2/2-pmb->cnghost;
       }
     }
-  } else if (nb.ni.ox2 > 0) { sj = cells.x2e(interior)-cn, ej = cells.x2e(interior);}
-  else              sj = cells.x2s(interior),    ej = cells.x2s(interior) + cn;
+  } else if (nb.ni.ox2 > 0) { sj = cells.je(interior)-cn, ej = cells.je(interior);}
+  else              sj = cells.js(interior),    ej = cells.js(interior) + cn;
   if (nb.ni.ox3 == 0) {
-    sk = cells.x3s(interior),    ek = cells.x3e(interior);
+    sk = cells.ks(interior),    ek = cells.ke(interior);
     if (nx3 > 1) {
       if (nb.ni.ox1 != 0 && nb.ni.ox2 != 0) {
         if (nb.ni.fi1 == 1) sk += nx3/2-pmb->cnghost;
@@ -363,18 +363,18 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToFiner(Real *buf,
         else          ek -= nx3/2-pmb->cnghost;
       }
     }
-  } else if (nb.ni.ox3 > 0) { sk = cells.x3e(interior)-cn, ek = cells.x3e(interior);}
-  else              sk = cells.x3s(interior),    ek = cells.x3s(interior) + cn;
+  } else if (nb.ni.ox3 > 0) { sk = cells.ke(interior)-cn, ek = cells.ke(interior);}
+  else              sk = cells.ks(interior),    ek = cells.ks(interior) + cn;
   BufferUtility::PackData((*var_fc).x1f, buf, si, ei, sj, ej, sk, ek, p);
 
   // bx2
   if (nb.ni.ox1 == 0) {
-    if (nb.ni.fi1 == 1)   si = cells.x1s(interior) + nx1/2-pmb->cnghost, ei = cells.x1e(interior);
-    else            si = cells.x1s(interior), ei = cells.x1e(interior)-nx1/2 + pmb->cnghost;
-  } else if (nb.ni.ox1 > 0) { si = cells.x1e(interior)-cn, ei = cells.x1e(interior);}
-  else              si = cells.x1s(interior),    ei = cells.x1s(interior) + cn;
+    if (nb.ni.fi1 == 1)   si = cells.is(interior) + nx1/2-pmb->cnghost, ei = cells.ie(interior);
+    else            si = cells.is(interior), ei = cells.ie(interior)-nx1/2 + pmb->cnghost;
+  } else if (nb.ni.ox1 > 0) { si = cells.ie(interior)-cn, ei = cells.ie(interior);}
+  else              si = cells.is(interior),    ei = cells.is(interior) + cn;
   if (nb.ni.ox2 == 0) {
-    sj = cells.x2s(interior),    ej = cells.x2e(interior);
+    sj = cells.js(interior),    ej = cells.je(interior);
     if (nx2 > 1) {
       ej++;
       if (nb.ni.ox1 != 0) {
@@ -385,13 +385,13 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToFiner(Real *buf,
         else          ej -= nx2/2-pmb->cnghost;
       }
     }
-  } else if (nb.ni.ox2 > 0) { sj = cells.x2e(interior) + 1-pmb->cnghost, ej = cells.x2e(interior) + 1;}
-  else              sj = cells.x2s(interior),                ej = cells.x2s(interior) + pmb->cnghost;
+  } else if (nb.ni.ox2 > 0) { sj = cells.je(interior) + 1-pmb->cnghost, ej = cells.je(interior) + 1;}
+  else              sj = cells.js(interior),                ej = cells.js(interior) + pmb->cnghost;
   BufferUtility::PackData((*var_fc).x2f, buf, si, ei, sj, ej, sk, ek, p);
 
   // bx3
   if (nb.ni.ox2 == 0) {
-    sj = cells.x2s(interior),    ej = cells.x2e(interior);
+    sj = cells.js(interior),    ej = cells.je(interior);
     if (nx2 > 1) {
       if (nb.ni.ox1 != 0) {
         if (nb.ni.fi1 == 1) sj += nx2/2-pmb->cnghost;
@@ -401,10 +401,10 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToFiner(Real *buf,
         else          ej -= nx2/2-pmb->cnghost;
       }
     }
-  } else if (nb.ni.ox2 > 0) { sj = cells.x2e(interior)-cn, ej = cells.x2e(interior);}
-  else              sj = cells.x2s(interior),    ej = cells.x2s(interior) + cn;
+  } else if (nb.ni.ox2 > 0) { sj = cells.je(interior)-cn, ej = cells.je(interior);}
+  else              sj = cells.js(interior),    ej = cells.js(interior) + cn;
   if (nb.ni.ox3 == 0) {
-    sk = cells.x3s(interior),    ek = cells.x3e(interior);
+    sk = cells.ks(interior),    ek = cells.ke(interior);
     if (nx3 > 1) {
       ek++;
       if (nb.ni.ox1 != 0 && nb.ni.ox2 != 0) {
@@ -415,8 +415,8 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToFiner(Real *buf,
         else          ek -= nx3/2-pmb->cnghost;
       }
     }
-  } else if (nb.ni.ox3 > 0) { sk = cells.x3e(interior) + 1-pmb->cnghost, ek = cells.x3e(interior) + 1;}
-  else              sk = cells.x3s(interior),                ek = cells.x3s(interior) + pmb->cnghost;
+  } else if (nb.ni.ox3 > 0) { sk = cells.ke(interior) + 1-pmb->cnghost, ek = cells.ke(interior) + 1;}
+  else              sk = cells.ks(interior),                ek = cells.ks(interior) + pmb->cnghost;
   BufferUtility::PackData((*var_fc).x3f, buf, si, ei, sj, ej, sk, ek, p);
 
   return p;
@@ -437,15 +437,15 @@ void FaceCenteredBoundaryVariable::SetBoundarySameLevel(Real *buf,
   const IndexShape & cells = cells;
   // bx1
   // for uniform grid: face-neighbors take care of the overlapping faces
-  if (nb.ni.ox1 == 0)     si = cells.x1s(interior),        ei = cells.x1e(interior) + 1;
-  else if (nb.ni.ox1 > 0) si = cells.x1e(interior) + 2,      ei = cells.x1e(interior) + NGHOST + 1;
-  else              si = cells.x1s(interior) - NGHOST, ei = cells.x1s(interior) - 1;
-  if (nb.ni.ox2 == 0)     sj = cells.x2s(interior),        ej = cells.x2e(interior);
-  else if (nb.ni.ox2 > 0) sj = cells.x2e(interior) + 1,      ej = cells.x2e(interior) + NGHOST;
-  else              sj = cells.x2s(interior) - NGHOST, ej = cells.x2s(interior) - 1;
-  if (nb.ni.ox3 == 0)     sk = cells.x3s(interior),        ek = cells.x3e(interior);
-  else if (nb.ni.ox3 > 0) sk = cells.x3e(interior) + 1,      ek = cells.x3e(interior) + NGHOST;
-  else              sk = cells.x3s(interior) - NGHOST, ek = cells.x3s(interior) - 1;
+  if (nb.ni.ox1 == 0)     si = cells.is(interior),        ei = cells.ie(interior) + 1;
+  else if (nb.ni.ox1 > 0) si = cells.ie(interior) + 2,      ei = cells.ie(interior) + NGHOST + 1;
+  else              si = cells.is(interior) - NGHOST, ei = cells.is(interior) - 1;
+  if (nb.ni.ox2 == 0)     sj = cells.js(interior),        ej = cells.je(interior);
+  else if (nb.ni.ox2 > 0) sj = cells.je(interior) + 1,      ej = cells.je(interior) + NGHOST;
+  else              sj = cells.js(interior) - NGHOST, ej = cells.js(interior) - 1;
+  if (nb.ni.ox3 == 0)     sk = cells.ks(interior),        ek = cells.ke(interior);
+  else if (nb.ni.ox3 > 0) sk = cells.ke(interior) + 1,      ek = cells.ke(interior) + NGHOST;
+  else              sk = cells.ks(interior) - NGHOST, ek = cells.ks(interior) - 1;
   // for SMR/AMR, always include the overlapping faces in edge and corner boundaries
   if (pmy_mesh_->multilevel && nb.ni.type != NeighborConnect::face) {
     if (nb.ni.ox1 > 0) si--;
@@ -456,13 +456,13 @@ void FaceCenteredBoundaryVariable::SetBoundarySameLevel(Real *buf,
 
 
   // bx2
-  if (nb.ni.ox1 == 0)      si = cells.x1s(interior),         ei = cells.x1e(interior);
-  else if (nb.ni.ox1 > 0)  si = cells.x1e(interior) + 1,       ei = cells.x1e(interior) + NGHOST;
-  else               si = cells.x1s(interior) - NGHOST,  ei = cells.x1s(interior) - 1;
-  if (pmb->block_size.nx2 == 1) sj = cells.x2s(interior), ej = cells.x2e(interior);
-  else if (nb.ni.ox2 == 0) sj = cells.x2s(interior),         ej = cells.x2e(interior) + 1;
-  else if (nb.ni.ox2 > 0)  sj = cells.x2e(interior) + 2,       ej = cells.x2e(interior) + NGHOST + 1;
-  else               sj = cells.x2s(interior) - NGHOST,  ej = cells.x2s(interior) - 1;
+  if (nb.ni.ox1 == 0)      si = cells.is(interior),         ei = cells.ie(interior);
+  else if (nb.ni.ox1 > 0)  si = cells.ie(interior) + 1,       ei = cells.ie(interior) + NGHOST;
+  else               si = cells.is(interior) - NGHOST,  ei = cells.is(interior) - 1;
+  if (pmb->block_size.nx2 == 1) sj = cells.js(interior), ej = cells.je(interior);
+  else if (nb.ni.ox2 == 0) sj = cells.js(interior),         ej = cells.je(interior) + 1;
+  else if (nb.ni.ox2 > 0)  sj = cells.je(interior) + 2,       ej = cells.je(interior) + NGHOST + 1;
+  else               sj = cells.js(interior) - NGHOST,  ej = cells.js(interior) - 1;
   // for SMR/AMR, always include the overlapping faces in edge and corner boundaries
   if (pmy_mesh_->multilevel && nb.ni.type != NeighborConnect::face) {
     if (nb.ni.ox2 > 0) sj--;
@@ -478,13 +478,13 @@ void FaceCenteredBoundaryVariable::SetBoundarySameLevel(Real *buf,
   }
 
   // bx3
-  if (nb.ni.ox2 == 0)      sj = cells.x2s(interior),         ej = cells.x2e(interior);
-  else if (nb.ni.ox2 > 0)  sj = cells.x2e(interior) + 1,       ej = cells.x2e(interior) + NGHOST;
-  else               sj = cells.x2s(interior) - NGHOST,  ej = cells.x2s(interior) - 1;
-  if (pmb->block_size.nx3 == 1) sk = cells.x3s(interior), ek = cells.x3e(interior);
-  else if (nb.ni.ox3 == 0) sk = cells.x3s(interior),         ek = cells.x3e(interior) + 1;
-  else if (nb.ni.ox3 > 0)  sk = cells.x3e(interior) + 2,       ek = cells.x3e(interior) + NGHOST + 1;
-  else               sk = cells.x3s(interior) - NGHOST,  ek = cells.x3s(interior) - 1;
+  if (nb.ni.ox2 == 0)      sj = cells.js(interior),         ej = cells.je(interior);
+  else if (nb.ni.ox2 > 0)  sj = cells.je(interior) + 1,       ej = cells.je(interior) + NGHOST;
+  else               sj = cells.js(interior) - NGHOST,  ej = cells.js(interior) - 1;
+  if (pmb->block_size.nx3 == 1) sk = cells.ks(interior), ek = cells.ke(interior);
+  else if (nb.ni.ox3 == 0) sk = cells.ks(interior),         ek = cells.ke(interior) + 1;
+  else if (nb.ni.ox3 > 0)  sk = cells.ke(interior) + 2,       ek = cells.ke(interior) + NGHOST + 1;
+  else               sk = cells.ks(interior) - NGHOST,  ek = cells.ks(interior) - 1;
   // for SMR/AMR, always include the overlapping faces in edge and corner boundaries
   if (pmy_mesh_->multilevel && nb.ni.type != NeighborConnect::face) {
     if (nb.ni.ox3 > 0) sk--;
@@ -616,18 +616,18 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
   const IndexShape & cells = pmb->cells;
   // bx1
   if (nb.ni.ox1 == 0) {
-    si = cells.x1s(interior), ei = cells.x1e(interior) + 1;
+    si = cells.is(interior), ei = cells.ie(interior) + 1;
     if (nb.ni.fi1 == 1)   si += pmb->block_size.nx1/2;
     else            ei -= pmb->block_size.nx1/2;
-  } else if (nb.ni.ox1 > 0) { si = cells.x1e(interior) + 2,      ei = cells.x1e(interior) + NGHOST + 1;}
-  else              si = cells.x1s(interior) - NGHOST, ei = cells.x1s(interior) - 1;
+  } else if (nb.ni.ox1 > 0) { si = cells.ie(interior) + 2,      ei = cells.ie(interior) + NGHOST + 1;}
+  else              si = cells.is(interior) - NGHOST, ei = cells.is(interior) - 1;
   // include the overlapping faces in edge and corner boundaries
   if (nb.ni.type != NeighborConnect::face) {
     if (nb.ni.ox1 > 0) si--;
     else if (nb.ni.ox1 < 0) ei++;
   }
   if (nb.ni.ox2 == 0) {
-    sj = cells.x2s(interior), ej = cells.x2e(interior);
+    sj = cells.js(interior), ej = cells.je(interior);
     if (pmb->block_size.nx2 > 1) {
       if (nb.ni.ox1 != 0) {
         if (nb.ni.fi1 == 1) sj += pmb->block_size.nx2/2;
@@ -637,10 +637,10 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
         else          ej -= pmb->block_size.nx2/2;
       }
     }
-  } else if (nb.ni.ox2 > 0) { sj = cells.x2e(interior) + 1,      ej = cells.x2e(interior) + NGHOST;}
-  else              sj = cells.x2s(interior) - NGHOST, ej = cells.x2s(interior) - 1;
+  } else if (nb.ni.ox2 > 0) { sj = cells.je(interior) + 1,      ej = cells.je(interior) + NGHOST;}
+  else              sj = cells.js(interior) - NGHOST, ej = cells.js(interior) - 1;
   if (nb.ni.ox3 == 0) {
-    sk = cells.x3s(interior), ek = cells.x3e(interior);
+    sk = cells.ks(interior), ek = cells.ke(interior);
     if (pmb->block_size.nx3 > 1) {
       if (nb.ni.ox1 != 0 && nb.ni.ox2 != 0) {
         if (nb.ni.fi1 == 1) sk += pmb->block_size.nx3/2;
@@ -650,20 +650,20 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
         else          ek -= pmb->block_size.nx3/2;
       }
     }
-  } else if (nb.ni.ox3 > 0) { sk = cells.x3e(interior) + 1,      ek = cells.x3e(interior) + NGHOST;}
-  else              sk = cells.x3s(interior) - NGHOST, ek = cells.x3s(interior) - 1;
+  } else if (nb.ni.ox3 > 0) { sk = cells.ke(interior) + 1,      ek = cells.ke(interior) + NGHOST;}
+  else              sk = cells.ks(interior) - NGHOST, ek = cells.ks(interior) - 1;
 
   BufferUtility::UnpackData(buf, (*var_fc).x1f, si, ei, sj, ej, sk, ek, p);
 
   // bx2
   if (nb.ni.ox1 == 0) {
-    si = cells.x1s(interior), ei = cells.x1e(interior);
+    si = cells.is(interior), ei = cells.ie(interior);
     if (nb.ni.fi1 == 1)   si += pmb->block_size.nx1/2;
     else            ei -= pmb->block_size.nx1/2;
-  } else if (nb.ni.ox1 > 0) { si = cells.x1e(interior) + 1,      ei = cells.x1e(interior) + NGHOST;}
-  else              si = cells.x1s(interior) - NGHOST, ei = cells.x1s(interior) - 1;
+  } else if (nb.ni.ox1 > 0) { si = cells.ie(interior) + 1,      ei = cells.ie(interior) + NGHOST;}
+  else              si = cells.is(interior) - NGHOST, ei = cells.is(interior) - 1;
   if (nb.ni.ox2 == 0) {
-    sj = cells.x2s(interior), ej = cells.x2e(interior);
+    sj = cells.js(interior), ej = cells.je(interior);
     if (pmb->block_size.nx2 > 1) {
       ej++;
       if (nb.ni.ox1 != 0) {
@@ -674,8 +674,8 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
         else          ej -= pmb->block_size.nx2/2;
       }
     }
-  } else if (nb.ni.ox2 > 0) { sj = cells.x2e(interior) + 2,      ej = cells.x2e(interior) + NGHOST + 1;}
-  else              sj = cells.x2s(interior) - NGHOST, ej = cells.x2s(interior) - 1;
+  } else if (nb.ni.ox2 > 0) { sj = cells.je(interior) + 2,      ej = cells.je(interior) + NGHOST + 1;}
+  else              sj = cells.js(interior) - NGHOST, ej = cells.js(interior) - 1;
   // include the overlapping faces in edge and corner boundaries
   if (nb.ni.type != NeighborConnect::face) {
     if (nb.ni.ox2 > 0) sj--;
@@ -692,7 +692,7 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
 
   // bx3
   if (nb.ni.ox2 == 0) {
-    sj = cells.x2s(interior), ej = cells.x2e(interior);
+    sj = cells.js(interior), ej = cells.je(interior);
     if (pmb->block_size.nx2 > 1) {
       if (nb.ni.ox1 != 0) {
         if (nb.ni.fi1 == 1) sj += pmb->block_size.nx2/2;
@@ -702,10 +702,10 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
         else          ej -= pmb->block_size.nx2/2;
       }
     }
-  } else if (nb.ni.ox2 > 0) { sj = cells.x2e(interior) + 1,      ej = cells.x2e(interior) + NGHOST;}
-  else              sj = cells.x2s(interior) - NGHOST, ej = cells.x2s(interior) - 1;
+  } else if (nb.ni.ox2 > 0) { sj = cells.je(interior) + 1,      ej = cells.je(interior) + NGHOST;}
+  else              sj = cells.js(interior) - NGHOST, ej = cells.js(interior) - 1;
   if (nb.ni.ox3 == 0) {
-    sk = cells.x3s(interior), ek = cells.x3e(interior);
+    sk = cells.ks(interior), ek = cells.ke(interior);
     if (pmb->block_size.nx3 > 1) {
       ek++;
       if (nb.ni.ox1 != 0 && nb.ni.ox2 != 0) {
@@ -716,8 +716,8 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
         else          ek -= pmb->block_size.nx3/2;
       }
     }
-  } else if (nb.ni.ox3 > 0) { sk = cells.x3e(interior) + 2,      ek = cells.x3e(interior) + NGHOST + 1;}
-  else              sk = cells.x3s(interior) - NGHOST, ek = cells.x3s(interior) - 1;
+  } else if (nb.ni.ox3 > 0) { sk = cells.ke(interior) + 2,      ek = cells.ke(interior) + NGHOST + 1;}
+  else              sk = cells.ks(interior) - NGHOST, ek = cells.ks(interior) - 1;
   // include the overlapping faces in edge and corner boundaries
   if (nb.ni.type != NeighborConnect::face) {
     if (nb.ni.ox3 > 0) sk--;

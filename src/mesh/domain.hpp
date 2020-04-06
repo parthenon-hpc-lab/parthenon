@@ -92,22 +92,22 @@ namespace parthenon {
         }
       };
 
-      inline int x1s(const IndexShapeType & type) const 
+      inline int is(const IndexShapeType & type) const 
       { return (type==IndexShapeType::entire) ? 0 : x_[0].start; }
       
-      inline int x2s(const IndexShapeType & type) const
+      inline int js(const IndexShapeType & type) const
       { return (type==IndexShapeType::entire) ? 0 : x_[1].start; }
       
-      inline int x3s(const IndexShapeType & type) const
+      inline int ks(const IndexShapeType & type) const
       { return (type==IndexShapeType::entire) ? 0 : x_[2].start; }
       
-      inline int x1e(const IndexShapeType & type) const 
+      inline int ie(const IndexShapeType & type) const 
       { return (type==IndexShapeType::entire) ? entire_ncells_[0]-1 : x_[0].end; }
       
-      inline int x2e(const IndexShapeType & type) const 
+      inline int je(const IndexShapeType & type) const 
       { return (type==IndexShapeType::entire) ? entire_ncells_[1]-1 : x_[1].end; }
       
-      inline int x3e(const IndexShapeType & type) const 
+      inline int ke(const IndexShapeType & type) const 
       { return (type==IndexShapeType::entire) ? entire_ncells_[2]-1 : x_[2].end; }
 
       inline int nx1(const IndexShapeType & type) const 

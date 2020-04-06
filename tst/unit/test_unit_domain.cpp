@@ -27,19 +27,19 @@ TEST_CASE("Checking interior and entire indices with different initializations",
     int num_ghost = 1;
 
     IndexShape shape(nx1, num_ghost);
-    REQUIRE(shape.x1s(parthenon::interior)==num_ghost);
-    REQUIRE(shape.x1e(parthenon::interior)==num_ghost+nx1-1);
-    REQUIRE(shape.x2s(parthenon::interior)==0);
-    REQUIRE(shape.x2e(parthenon::interior)==0);
-    REQUIRE(shape.x3s(parthenon::interior)==0);
-    REQUIRE(shape.x3e(parthenon::interior)==0);
+    REQUIRE(shape.is(parthenon::interior)==num_ghost);
+    REQUIRE(shape.ie(parthenon::interior)==num_ghost+nx1-1);
+    REQUIRE(shape.js(parthenon::interior)==0);
+    REQUIRE(shape.je(parthenon::interior)==0);
+    REQUIRE(shape.ks(parthenon::interior)==0);
+    REQUIRE(shape.ke(parthenon::interior)==0);
 
-    REQUIRE(shape.x1s(parthenon::entire)==0);
-    REQUIRE(shape.x1e(parthenon::entire)==2*num_ghost+nx1-1);
-    REQUIRE(shape.x2s(parthenon::entire)==0);
-    REQUIRE(shape.x2e(parthenon::entire)==0);
-    REQUIRE(shape.x3s(parthenon::entire)==0);
-    REQUIRE(shape.x3e(parthenon::entire)==0);
+    REQUIRE(shape.is(parthenon::entire)==0);
+    REQUIRE(shape.ie(parthenon::entire)==2*num_ghost+nx1-1);
+    REQUIRE(shape.js(parthenon::entire)==0);
+    REQUIRE(shape.je(parthenon::entire)==0);
+    REQUIRE(shape.ks(parthenon::entire)==0);
+    REQUIRE(shape.ke(parthenon::entire)==0);
   }
  
   GIVEN( "A 2D Index Shape"){
@@ -48,19 +48,19 @@ TEST_CASE("Checking interior and entire indices with different initializations",
     int num_ghost = 1;
 
     IndexShape shape(nx1,nx2, num_ghost);
-    REQUIRE(shape.x1s(parthenon::interior)==num_ghost);
-    REQUIRE(shape.x1e(parthenon::interior)==num_ghost+nx1-1);
-    REQUIRE(shape.x2s(parthenon::interior)==num_ghost);
-    REQUIRE(shape.x2e(parthenon::interior)==num_ghost+nx2-1);
-    REQUIRE(shape.x3s(parthenon::interior)==0);
-    REQUIRE(shape.x3e(parthenon::interior)==0);
+    REQUIRE(shape.is(parthenon::interior)==num_ghost);
+    REQUIRE(shape.ie(parthenon::interior)==num_ghost+nx1-1);
+    REQUIRE(shape.js(parthenon::interior)==num_ghost);
+    REQUIRE(shape.je(parthenon::interior)==num_ghost+nx2-1);
+    REQUIRE(shape.ks(parthenon::interior)==0);
+    REQUIRE(shape.ke(parthenon::interior)==0);
 
-    REQUIRE(shape.x1s(parthenon::entire)==0);
-    REQUIRE(shape.x1e(parthenon::entire)==2*num_ghost+nx1-1);
-    REQUIRE(shape.x2s(parthenon::entire)==0);
-    REQUIRE(shape.x2e(parthenon::entire)==2*num_ghost+nx2-1);
-    REQUIRE(shape.x3s(parthenon::entire)==0);
-    REQUIRE(shape.x3e(parthenon::entire)==0);
+    REQUIRE(shape.is(parthenon::entire)==0);
+    REQUIRE(shape.ie(parthenon::entire)==2*num_ghost+nx1-1);
+    REQUIRE(shape.js(parthenon::entire)==0);
+    REQUIRE(shape.je(parthenon::entire)==2*num_ghost+nx2-1);
+    REQUIRE(shape.ks(parthenon::entire)==0);
+    REQUIRE(shape.ke(parthenon::entire)==0);
   }
 
   GIVEN( "A 3D Index Shape"){
@@ -70,19 +70,19 @@ TEST_CASE("Checking interior and entire indices with different initializations",
     int num_ghost = 1;
 
     IndexShape shape(nx1,nx2,nx3,num_ghost);
-    REQUIRE(shape.x1s(parthenon::interior)==num_ghost);
-    REQUIRE(shape.x1e(parthenon::interior)==num_ghost+nx1-1);
-    REQUIRE(shape.x2s(parthenon::interior)==num_ghost);
-    REQUIRE(shape.x2e(parthenon::interior)==num_ghost+nx2-1);
-    REQUIRE(shape.x3s(parthenon::interior)==num_ghost);
-    REQUIRE(shape.x3e(parthenon::interior)==num_ghost+nx3-1);
+    REQUIRE(shape.is(parthenon::interior)==num_ghost);
+    REQUIRE(shape.ie(parthenon::interior)==num_ghost+nx1-1);
+    REQUIRE(shape.js(parthenon::interior)==num_ghost);
+    REQUIRE(shape.je(parthenon::interior)==num_ghost+nx2-1);
+    REQUIRE(shape.ks(parthenon::interior)==num_ghost);
+    REQUIRE(shape.ke(parthenon::interior)==num_ghost+nx3-1);
 
-    REQUIRE(shape.x1s(parthenon::entire)==0);
-    REQUIRE(shape.x1e(parthenon::entire)==2*num_ghost+nx1-1);
-    REQUIRE(shape.x2s(parthenon::entire)==0);
-    REQUIRE(shape.x2e(parthenon::entire)==2*num_ghost+nx2-1);
-    REQUIRE(shape.x3s(parthenon::entire)==0);
-    REQUIRE(shape.x3e(parthenon::entire)==2*num_ghost+nx3-1);
+    REQUIRE(shape.is(parthenon::entire)==0);
+    REQUIRE(shape.ie(parthenon::entire)==2*num_ghost+nx1-1);
+    REQUIRE(shape.js(parthenon::entire)==0);
+    REQUIRE(shape.je(parthenon::entire)==2*num_ghost+nx2-1);
+    REQUIRE(shape.ks(parthenon::entire)==0);
+    REQUIRE(shape.ke(parthenon::entire)==2*num_ghost+nx3-1);
   }
 
 }

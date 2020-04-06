@@ -133,12 +133,12 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(Real *buf,
   int si, sj, sk, ei, ej, ek;
 
   const IndexShape & cells = pmb->cells;
-  si = (nb.ni.ox1 > 0) ? (cells.x1e(interior) - NGHOST + 1) : cells.x1s(interior);
-  ei = (nb.ni.ox1 < 0) ? (cells.x1s(interior) + NGHOST - 1) : cells.x1e(interior);
-  sj = (nb.ni.ox2 > 0) ? (cells.x2e(interior) - NGHOST + 1) : cells.x2s(interior);
-  ej = (nb.ni.ox2 < 0) ? (cells.x2s(interior) + NGHOST - 1) : cells.x2e(interior);
-  sk = (nb.ni.ox3 > 0) ? (cells.x3e(interior) - NGHOST + 1) : cells.x3s(interior);
-  ek = (nb.ni.ox3 < 0) ? (cells.x3s(interior) + NGHOST - 1) : cells.x3e(interior);
+  si = (nb.ni.ox1 > 0) ? (cells.ie(interior) - NGHOST + 1) : cells.is(interior);
+  ei = (nb.ni.ox1 < 0) ? (cells.is(interior) + NGHOST - 1) : cells.ie(interior);
+  sj = (nb.ni.ox2 > 0) ? (cells.je(interior) - NGHOST + 1) : cells.js(interior);
+  ej = (nb.ni.ox2 < 0) ? (cells.js(interior) + NGHOST - 1) : cells.je(interior);
+  sk = (nb.ni.ox3 > 0) ? (cells.ke(interior) - NGHOST + 1) : cells.ks(interior);
+  ek = (nb.ni.ox3 < 0) ? (cells.ks(interior) + NGHOST - 1) : cells.ke(interior);
   int p = 0;
   AthenaArray<Real> &var = *var_cc;
   BufferUtility::PackData(var, buf, nl_, nu_, si, ei, sj, ej, sk, ek, p);
@@ -160,12 +160,12 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(Real *buf,
   AthenaArray<Real> &coarse_var = *coarse_buf;
 
   const IndexShape & c_cells = pmb->c_cells;
-  si = (nb.ni.ox1 > 0) ? (c_cells.x1e(interior) - cn) : c_cells.x1s(interior);
-  ei = (nb.ni.ox1 < 0) ? (c_cells.x1s(interior) + cn) : c_cells.x1e(interior);
-  sj = (nb.ni.ox2 > 0) ? (c_cells.x2e(interior) - cn) : c_cells.x2s(interior);
-  ej = (nb.ni.ox2 < 0) ? (c_cells.x2s(interior) + cn) : c_cells.x2e(interior);
-  sk = (nb.ni.ox3 > 0) ? (c_cells.x3e(interior) - cn) : c_cells.x3s(interior);
-  ek = (nb.ni.ox3 < 0) ? (c_cells.x3s(interior) + cn) : c_cells.x3e(interior);
+  si = (nb.ni.ox1 > 0) ? (c_cells.ie(interior) - cn) : c_cells.is(interior);
+  ei = (nb.ni.ox1 < 0) ? (c_cells.is(interior) + cn) : c_cells.ie(interior);
+  sj = (nb.ni.ox2 > 0) ? (c_cells.je(interior) - cn) : c_cells.js(interior);
+  ej = (nb.ni.ox2 < 0) ? (c_cells.js(interior) + cn) : c_cells.je(interior);
+  sk = (nb.ni.ox3 > 0) ? (c_cells.ke(interior) - cn) : c_cells.ks(interior);
+  ek = (nb.ni.ox3 < 0) ? (c_cells.ks(interior) + cn) : c_cells.ke(interior);
 
   int p = 0;
   pmb->pmr->RestrictCellCenteredValues(var, coarse_var, nl_, nu_, si, ei, sj, ej, sk, ek);
@@ -186,12 +186,12 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferToFiner(Real *buf,
   AthenaArray<Real> &var = *var_cc;
 
   const IndexShape & cells = pmb->cells;
-  si = (nb.ni.ox1 > 0) ? (cells.x1e(interior) - cn) : cells.x1s(interior);
-  ei = (nb.ni.ox1 < 0) ? (cells.x1s(interior) + cn) : cells.x1e(interior);
-  sj = (nb.ni.ox2 > 0) ? (cells.x2e(interior) - cn) : cells.x2s(interior);
-  ej = (nb.ni.ox2 < 0) ? (cells.x2s(interior) + cn) : cells.x2e(interior);
-  sk = (nb.ni.ox3 > 0) ? (cells.x3e(interior) - cn) : cells.x3s(interior);
-  ek = (nb.ni.ox3 < 0) ? (cells.x3s(interior) + cn) : cells.x3e(interior);
+  si = (nb.ni.ox1 > 0) ? (cells.ie(interior) - cn) : cells.is(interior);
+  ei = (nb.ni.ox1 < 0) ? (cells.is(interior) + cn) : cells.ie(interior);
+  sj = (nb.ni.ox2 > 0) ? (cells.je(interior) - cn) : cells.js(interior);
+  ej = (nb.ni.ox2 < 0) ? (cells.js(interior) + cn) : cells.je(interior);
+  sk = (nb.ni.ox3 > 0) ? (cells.ke(interior) - cn) : cells.ks(interior);
+  ek = (nb.ni.ox3 < 0) ? (cells.ks(interior) + cn) : cells.ke(interior);
 
   // send the data first and later prolongate on the target block
   // need to add edges for faces, add corners for edges
@@ -249,9 +249,9 @@ void CellCenteredBoundaryVariable::SetBoundarySameLevel(Real *buf,
     } 
   };
 
-  CalcIndices(nb.ni.ox1, si, ei, cells.x1s(interior), cells.x1e(interior));
-  CalcIndices(nb.ni.ox2, sj, ej, cells.x2s(interior), cells.x2e(interior));
-  CalcIndices(nb.ni.ox3, sk, ek, cells.x3s(interior), cells.x3e(interior));
+  CalcIndices(nb.ni.ox1, si, ei, cells.is(interior), cells.ie(interior));
+  CalcIndices(nb.ni.ox2, sj, ej, cells.js(interior), cells.je(interior));
+  CalcIndices(nb.ni.ox3, sk, ek, cells.ks(interior), cells.ke(interior));
 
   int p = 0;
 
@@ -290,9 +290,9 @@ void CellCenteredBoundaryVariable::SetBoundaryFromCoarser(Real *buf,
       e = cell_s - 1;
     }
   };
-  CalcIndices(nb.ni.ox1, si, ei, c_cells.x1s(interior), c_cells.x1e(interior), pmb->loc.lx1, cng);
-  CalcIndices(nb.ni.ox2, sj, ej, c_cells.x2s(interior), c_cells.x2e(interior), pmb->loc.lx2, cng);
-  CalcIndices(nb.ni.ox3, sk, ek, c_cells.x3s(interior), c_cells.x3e(interior), pmb->loc.lx3, cng);
+  CalcIndices(nb.ni.ox1, si, ei, c_cells.is(interior), c_cells.ie(interior), pmb->loc.lx1, cng);
+  CalcIndices(nb.ni.ox2, sj, ej, c_cells.js(interior), c_cells.je(interior), pmb->loc.lx2, cng);
+  CalcIndices(nb.ni.ox3, sk, ek, c_cells.ks(interior), c_cells.ke(interior), pmb->loc.lx3, cng);
 
   int p = 0;
   BufferUtility::UnpackData(buf, coarse_var, nl_, nu_, si, ei, sj, ej, sk, ek, p);
@@ -316,16 +316,16 @@ void CellCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
 
   
   if (nb.ni.ox1 == 0) {
-    si = cells.x1s(interior); 
-    ei = cells.x1e(interior);
+    si = cells.is(interior); 
+    ei = cells.ie(interior);
     if (nb.ni.fi1 == 1)   si += pmb->block_size.nx1/2;
     else                  ei -= pmb->block_size.nx1/2;
   } else if (nb.ni.ox1 > 0) {
-    si = cells.x1e(interior) + 1;
-    ei = cells.x1e(interior) + NGHOST;
+    si = cells.ie(interior) + 1;
+    ei = cells.ie(interior) + NGHOST;
   } else {
-    si = cells.x1s(interior) - NGHOST;
-    ei = cells.x1s(interior) - 1;
+    si = cells.is(interior) - NGHOST;
+    ei = cells.is(interior) - 1;
   }
 
   auto CalcIndices = [&,nb](const int & ox,int &s, int &e, 
@@ -352,8 +352,8 @@ void CellCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
     }
   };
 
-  CalcIndices(nb.ni.ox2,sj, ej, cells.x2s(interior), cells.x2e(interior),pmb->block_size.nx2);
-  CalcIndices(nb.ni.ox3,sk, ek, cells.x3s(interior), cells.x3e(interior),pmb->block_size.nx3);
+  CalcIndices(nb.ni.ox2,sj, ej, cells.js(interior), cells.je(interior),pmb->block_size.nx2);
+  CalcIndices(nb.ni.ox3,sk, ek, cells.ks(interior), cells.ke(interior),pmb->block_size.nx3);
 
   int p = 0;
   BufferUtility::UnpackData(buf, var, nl_, nu_, si, ei, sj, ej, sk, ek, p);

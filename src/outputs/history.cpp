@@ -76,10 +76,10 @@ void HistoryOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
   // Loop over MeshBlocks
   while (pmb != nullptr) {
     // Sum history variables over cells.  Note ghost cells are never included in sums
-    for (int k=pmb->cells.x3s(interior); k<=pmb->cells.x3e(interior); ++k) {
-      for (int j=pmb->cells.x2s(interior); j<=pmb->cells.x2e(interior); ++j) {
-        pmb->pcoord->CellVolume(k, j, pmb->cells.x1s(interior), pmb->cells.x1e(interior), vol);
-        for (int i=pmb->cells.x1s(interior); i<=pmb->cells.x1e(interior); ++i) {
+    for (int k=pmb->cells.ks(interior); k<=pmb->cells.ke(interior); ++k) {
+      for (int j=pmb->cells.js(interior); j<=pmb->cells.je(interior); ++j) {
+        pmb->pcoord->CellVolume(k, j, pmb->cells.is(interior), pmb->cells.ie(interior), vol);
+        for (int i=pmb->cells.is(interior); i<=pmb->cells.ie(interior); ++i) {
           // NEW_OUTPUT_TYPES:
 
           hst_data[0] += 0.0;

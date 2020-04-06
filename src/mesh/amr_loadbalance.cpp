@@ -771,25 +771,25 @@ void Mesh::PrepareSendCoarseToFineAMR(MeshBlock* pb, Real *sendbuf,
   // pack
   int il, iu, jl, ju, kl, ku;
   if (ox1 == 0) { 
-    il = pb->cells.x1s(interior) - 1;
-    iu = pb->cells.x1s(interior) + pb->block_size.nx1/2;
+    il = pb->cells.is(interior) - 1;
+    iu = pb->cells.is(interior) + pb->block_size.nx1/2;
   } else {
-    il = pb->cells.x1s(interior) + pb->block_size.nx1/2-1;
-    iu = pb->cells.x1e(interior) + 1;
+    il = pb->cells.is(interior) + pb->block_size.nx1/2-1;
+    iu = pb->cells.ie(interior) + 1;
   }
   if (ox2 == 0) {
-    jl = pb->cells.x2s(interior) - f2;
-    ju = pb->cells.x2s(interior) + pb->block_size.nx2/2;
+    jl = pb->cells.js(interior) - f2;
+    ju = pb->cells.js(interior) + pb->block_size.nx2/2;
   } else {
-    jl = pb->cells.x2s(interior) + pb->block_size.nx2/2 - f2;
-    ju = pb->cells.x2e(interior) + f2;
+    jl = pb->cells.js(interior) + pb->block_size.nx2/2 - f2;
+    ju = pb->cells.je(interior) + f2;
   }
   if (ox3 == 0) {
-    kl = pb->cells.x3s(interior) - f3;
-    ku = pb->cells.x3s(interior) + pb->block_size.nx3/2;
+    kl = pb->cells.ks(interior) - f3;
+    ku = pb->cells.ks(interior) + pb->block_size.nx3/2;
   } else {
-    kl = pb->cells.x3s(interior) + pb->block_size.nx3/2 - f3;
-    ku = pb->cells.x3e(interior) + f3;
+    kl = pb->cells.ks(interior) + pb->block_size.nx3/2 - f3;
+    ku = pb->cells.ke(interior) + f3;
   }
 
   int p = 0;
@@ -847,9 +847,9 @@ void Mesh::PrepareSendFineToCoarseAMR(MeshBlock* pb, Real *sendbuf) {
 void Mesh::FillSameRankFineToCoarseAMR(MeshBlock* pob, MeshBlock* pmb,
                                        LogicalLocation &loc) {
   auto &pmr = pob->pmr;
-  int il = pmb->cells.x1s(interior) + ((loc.lx1 & 1LL) == 1LL)*pmb->block_size.nx1/2;
-  int jl = pmb->cells.x2s(interior) + ((loc.lx2 & 1LL) == 1LL)*pmb->block_size.nx2/2;
-  int kl = pmb->cells.x3s(interior) + ((loc.lx3 & 1LL) == 1LL)*pmb->block_size.nx3/2;
+  int il = pmb->cells.is(interior) + ((loc.lx1 & 1LL) == 1LL)*pmb->block_size.nx1/2;
+  int jl = pmb->cells.js(interior) + ((loc.lx2 & 1LL) == 1LL)*pmb->block_size.nx2/2;
+  int kl = pmb->cells.ks(interior) + ((loc.lx3 & 1LL) == 1LL)*pmb->block_size.nx3/2;
 
   int cis, cie, cjs, cje, cks, cke;
   pob->c_cells.GetIndices(interior,cis,cie,cjs,cje,cks,cke);
@@ -906,8 +906,8 @@ void Mesh::FillSameRankFineToCoarseAMR(MeshBlock* pob, MeshBlock* pmb,
       }
     }
 
-    int ks = pmb->cells.x3s(interior);
-    int js = pmb->cells.x2s(interior);
+    int ks = pmb->cells.ks(interior);
+    int js = pmb->cells.js(interior);
     if (pmb->block_size.nx2 == 1) {
       int iu = il + pmb->block_size.nx1/2 - 1;
       for (int i=il; i<=iu; i++)
@@ -941,16 +941,16 @@ void Mesh::FillSameRankCoarseToFineAMR(MeshBlock* pob, MeshBlock* pmb,
   const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d 
   const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d 
 
-  int il = pob->c_cells.x1s(interior) - 1;
-  int iu = pob->c_cells.x1e(interior) + 1;
-  int jl = pob->c_cells.x2s(interior) - f2;
-  int ju = pob->c_cells.x2e(interior) + f2;
-  int kl = pob->c_cells.x3s(interior) - f3;
-  int ku = pob->c_cells.x3e(interior) + f3;
+  int il = pob->c_cells.is(interior) - 1;
+  int iu = pob->c_cells.ie(interior) + 1;
+  int jl = pob->c_cells.js(interior) - f2;
+  int ju = pob->c_cells.je(interior) + f2;
+  int kl = pob->c_cells.ks(interior) - f3;
+  int ku = pob->c_cells.ke(interior) + f3;
 
-  int cis = ((newloc.lx1 & 1LL) == 1LL)*pob->block_size.nx1/2 + pob->cells.x1s(interior) - 1;
-  int cjs = ((newloc.lx2 & 1LL) == 1LL)*pob->block_size.nx2/2 + pob->cells.x2s(interior) - f2;
-  int cks = ((newloc.lx3 & 1LL) == 1LL)*pob->block_size.nx3/2 + pob->cells.x3s(interior) - f3;
+  int cis = ((newloc.lx1 & 1LL) == 1LL)*pob->block_size.nx1/2 + pob->cells.is(interior) - 1;
+  int cjs = ((newloc.lx2 & 1LL) == 1LL)*pob->block_size.nx2/2 + pob->cells.js(interior) - f2;
+  int cks = ((newloc.lx3 & 1LL) == 1LL)*pob->block_size.nx3/2 + pob->cells.ks(interior) - f3;
 
   auto pob_cc_it = pob->pmr->pvars_cc_.begin();
   // iterate MeshRefinement std::vectors on new pmb
@@ -972,9 +972,9 @@ void Mesh::FillSameRankCoarseToFineAMR(MeshBlock* pob, MeshBlock* pmb,
     }
     pmr->ProlongateCellCenteredValues(
         dst, *var_cc, 0, nu,
-        pob->c_cells.x1s(interior), pob->c_cells.x1e(interior),
-        pob->c_cells.x2s(interior), pob->c_cells.x2e(interior),
-        pob->c_cells.x3s(interior), pob->c_cells.x3e(interior));
+        pob->c_cells.is(interior), pob->c_cells.ie(interior),
+        pob->c_cells.js(interior), pob->c_cells.je(interior),
+        pob->c_cells.ks(interior), pob->c_cells.ke(interior));
     pob_cc_it++;
   }
   auto pob_fc_it = pob->pmr->pvars_fc_.begin();
@@ -1005,24 +1005,24 @@ void Mesh::FillSameRankCoarseToFineAMR(MeshBlock* pob, MeshBlock* pmb,
     }
     pmr->ProlongateSharedFieldX1(
         dst_b.x1f, (*var_fc).x1f,
-        pob->c_cells.x1s(interior), pob->c_cells.x1e(interior)+1,
-        pob->c_cells.x2s(interior), pob->c_cells.x2e(interior),
-        pob->c_cells.x3s(interior), pob->c_cells.x3e(interior));
+        pob->c_cells.is(interior), pob->c_cells.ie(interior)+1,
+        pob->c_cells.js(interior), pob->c_cells.je(interior),
+        pob->c_cells.ks(interior), pob->c_cells.ke(interior));
     pmr->ProlongateSharedFieldX2(
         dst_b.x2f, (*var_fc).x2f,
-        pob->c_cells.x1s(interior), pob->c_cells.x1e(interior),
-        pob->c_cells.x2s(interior), pob->c_cells.x2e(interior)+f2,
-        pob->c_cells.x3s(interior), pob->c_cells.x3e(interior));
+        pob->c_cells.is(interior), pob->c_cells.ie(interior),
+        pob->c_cells.js(interior), pob->c_cells.je(interior)+f2,
+        pob->c_cells.ks(interior), pob->c_cells.ke(interior));
     pmr->ProlongateSharedFieldX3(
         dst_b.x3f, (*var_fc).x3f,
-        pob->c_cells.x1s(interior), pob->c_cells.x1e(interior),
-        pob->c_cells.x2s(interior), pob->c_cells.x2e(interior),
-        pob->c_cells.x3s(interior), pob->c_cells.x3e(interior)+f3);
+        pob->c_cells.is(interior), pob->c_cells.ie(interior),
+        pob->c_cells.js(interior), pob->c_cells.je(interior),
+        pob->c_cells.ks(interior), pob->c_cells.ke(interior)+f3);
     pmr->ProlongateInternalField(
         *var_fc, 
-        pob->c_cells.x1s(interior), pob->c_cells.x1e(interior),
-        pob->c_cells.x2s(interior), pob->c_cells.x2e(interior),
-        pob->c_cells.x3s(interior), pob->c_cells.x3e(interior));
+        pob->c_cells.is(interior), pob->c_cells.ie(interior),
+        pob->c_cells.js(interior), pob->c_cells.je(interior),
+        pob->c_cells.ks(interior), pob->c_cells.ke(interior));
     pob_fc_it++;
   }
   return;

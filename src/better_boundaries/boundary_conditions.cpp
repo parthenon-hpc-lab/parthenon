@@ -25,12 +25,12 @@ namespace parthenon {
 void ApplyBoundaryConditions(Container<Real>& rc) {
     MeshBlock *pmb = rc.pmy_block;
 
-    const int is = pmb->cells.x1s(interior); 
-    const int js = pmb->cells.x2s(interior); 
-    const int ks = pmb->cells.x3s(interior);
-    const int ie = pmb->cells.x1e(interior); 
-    const int je = pmb->cells.x2e(interior); 
-    const int ke = pmb->cells.x3e(interior);
+    const int is = pmb->cells.is(interior); 
+    const int js = pmb->cells.js(interior); 
+    const int ks = pmb->cells.ks(interior);
+    const int ie = pmb->cells.ie(interior); 
+    const int je = pmb->cells.je(interior); 
+    const int ke = pmb->cells.ke(interior);
     const int imax = pmb->cells.nx1(entire); 
     const int jmax = pmb->cells.nx2(entire); 
     const int kmax = pmb->cells.nx3(entire);
