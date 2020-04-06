@@ -29,19 +29,19 @@ std::string CellVariable<T>::info() {
     char *stmp = tmp;
 
     // first add label
-    std::string s = _label;
+    std::string s = label();
     s.resize(20,'.');
     s += " : ";
 
     // now append size
     snprintf(tmp, sizeof(tmp),
              "%dx%dx%dx%dx%dx%d",
-             _dims[5],
-             _dims[4],
-             _dims[3],
-             _dims[2],
-             _dims[1],
-             _dims[0]
+             GetDim(6),
+             GetDim(5),
+             GetDim(4),
+             GetDim(3),
+             GetDim(2),
+             GetDim(1)
              );
     while (! strncmp(stmp,"1x",2)) {
       stmp += 2;
@@ -58,9 +58,9 @@ template <typename T>
 CellVariable<T>::CellVariable(const CellVariable<T> &src,
                       const bool allocComms,
                       MeshBlock *pmb) :
-  mpiStatus(false), _dims(src._dims), _m(src._m), _label(src._label)  {
-  data = ParArrayND<T>(_label, _dims[5], _dims[4], _dims[3],
-                       _dims[2], _dims[1], _dims[0]);
+  mpiStatus(false), _m(src._m)  {
+  data = ParArrayND<T>(src.label(), src.GetDim(6), src.GetDim(5), src.GetDim(4),
+                       src.GetDim(3), src.GetDim(2), src.GetDim(1));
   if (_m.IsSet(Metadata::FillGhost)) {
     // Ghost cells are communicated, so make shallow copies
     // of communication arrays and swap out the boundary array
@@ -95,19 +95,20 @@ void CellVariable<T>::allocateComms(MeshBlock *pmb) {
   if ( ! pmb ) return;
 
   // set up fluxes
+  std::string base_name = label();
   if (isSet(Metadata::Independent)) {
-    flux[0] = ParArrayND<T>(_label + ".flux0", _dims[5], _dims[4], _dims[3], _dims[2], _dims[1], _dims[0]+1);
+    flux[0] = ParArrayND<T>(base_name +   ".flux0", GetDim(6), GetDim(5), GetDim(4), GetDim(3), GetDim(2), GetDim(1));
     if (pmb->pmy_mesh->ndim >= 2)
-      flux[1] = ParArrayND<T>(_label + ".flux1", _dims[5], _dims[4], _dims[3], _dims[2], _dims[1]+1, _dims[0]);
+      flux[1] = ParArrayND<T>(base_name + ".flux1", GetDim(6), GetDim(5), GetDim(4), GetDim(3), GetDim(2), GetDim(1));
     if (pmb->pmy_mesh->ndim >= 3)
-      flux[2] = ParArrayND<T>(_label + ".flux2", _dims[5], _dims[4], _dims[3], _dims[2]+1, _dims[1], _dims[0]);
+      flux[2] = ParArrayND<T>(base_name + ".flux2", GetDim(6), GetDim(5), GetDim(4), GetDim(3), GetDim(2), GetDim(1));
   }
   // set up communication variables
   //if (pmb->pmy_mesh->multilevel)
   //  coarse_s = std::make_shared<ParArrayND<T>>(_label+".coarse", _dims[5], _dims[4], _dims[3], 
   //                                             pmb->ncc3, pmb->ncc2, pmb->ncc1);
   if (pmb->pmy_mesh->multilevel)
-    coarse_s = ParArrayND<T>(_label+".coarse", _dims[5], _dims[4], _dims[3], 
+    coarse_s = ParArrayND<T>(base_name+".coarse", GetDim(6), GetDim(5), GetDim(4), 
                                                pmb->ncc3, pmb->ncc2, pmb->ncc1);
 
   // Create the boundary object

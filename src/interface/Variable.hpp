@@ -43,14 +43,6 @@ class MeshBlock;
 template <typename T>
 class CellVariable {
  public:
-  /// Initialize a blank slate that will be set later
-  CellVariable<T>(const std::string label, Metadata &metadata) :
-    data(),
-    mpiStatus(true),
-    _dims({0}),
-    _m(metadata),
-    _label(label) {
-  }
 
   /// Initialize a 6D variable
   CellVariable<T>(const std::string label,
@@ -58,9 +50,7 @@ class CellVariable {
               const Metadata &metadata) :
     data(label, dims[5], dims[4], dims[3], dims[2], dims[1], dims[0]),
     mpiStatus(true),
-    _dims(dims),
-    _m(metadata),
-    _label(label) { }
+    _m(metadata) { }
 
   /// copy constructor
   CellVariable<T>(const CellVariable<T>& src,
@@ -77,10 +67,10 @@ class CellVariable {
   auto GetDim(const int i) const { return data.GetDim(i); }
 
   ///< Assign label for variable
-  void setLabel(const std::string label) { _label = label; }
+  //void setLabel(const std::string label) { _label = label; }
 
   ///< retrieve label for variable
-  const std::string label() const { return _label; }
+  const std::string label() const { return data.label(); }
 
   ///< retrieve metadata for variable
   const Metadata metadata() const { return _m; }
@@ -105,9 +95,7 @@ class CellVariable {
   bool mpiStatus;
 
  private:
-  std::array<int,6> _dims;
   Metadata _m;
-  std::string _label;
 };
 
 
