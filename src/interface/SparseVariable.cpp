@@ -26,7 +26,7 @@ void SparseVariable<T>::Add(int varIndex) {
       throw std::invalid_argument ("Duplicate index in create SparseVariable");
     }
     // create the variable and add to map
-    std::string my_name = _label + "_" + PropertiesInterface::GetLabelFromID(varIndex);
+    std::string my_name = _label + "_" + std::to_string(varIndex);
     auto v = std::make_shared<CellVariable<T>>(my_name, _dims, _metadata);
     _varArray.push_back(v);
     _indexMap.push_back(varIndex);

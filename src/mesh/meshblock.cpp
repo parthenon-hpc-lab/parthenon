@@ -161,6 +161,11 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
     for (auto const & q : pkg.second->AllFields()) {
       real_container.Add(q.first, q.second);
     }
+    for (auto const & q : pkg.second->AllSparseFields()) {
+      for (auto const & m : q.second) {
+        real_container.Add(q.first, m);
+      }
+    }
   }
 
   // TODO: Should these loops be moved to Variable creation

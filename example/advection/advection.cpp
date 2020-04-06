@@ -99,7 +99,20 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   field_name = "one_minus_advected_sq";
   pkg->AddField(field_name, m);
 
+  // for fun make this last one a multi-component field using SparseVariable
   field_name = "one_minus_sqrt_one_minus_advected_sq";
+  m = Metadata(
+    {Metadata::Cell, Metadata::Graphics, Metadata::Derived,
+     Metadata::OneCopy, Metadata::Sparse},
+    12 // just picking a sparse_id out of a hat for demonstration
+  );
+  pkg->AddField(field_name, m);
+  // add another component
+  m = Metadata(
+    {Metadata::Cell, Metadata::Graphics, Metadata::Derived,
+     Metadata::OneCopy, Metadata::Sparse},
+    37 // just picking a sparse_id out of a hat for demonstration
+  );
   pkg->AddField(field_name, m);
 
   pkg->FillDerived = SquareIt;
@@ -136,7 +149,9 @@ AmrTag CheckRefinement(Container<Real>& rc) {
 void PreFill(Container<Real>& rc) {
   MeshBlock *pmb = rc.pmy_block;
   int is = 0; int js = 0; int ks = 0;
-  int ie = pmb->ncells1-1; int je = pmb->ncells2-1; int ke = pmb->ncells3-1;
+  int ie = pmb->ncells1-1;
+  int je = pmb->ncells2-1;
+  int ke = pmb->ncells3-1;
   CellVariable<Real>& qin = rc.Get("advected");
   CellVariable<Real>& qout = rc.Get("one_minus_advected");
   for (int i=is; i<=ie; i++) {
@@ -172,11 +187,17 @@ void PostFill(Container<Real>& rc) {
   int je = pmb->ncells2-1;
   int ke = pmb->ncells3-1;
   CellVariable<Real>& qin = rc.Get("one_minus_advected_sq");
-  CellVariable<Real>& qout = rc.Get("one_minus_sqrt_one_minus_advected_sq");
+  // get component 12
+  CellVariable<Real>& q0 = rc.Get("one_minus_sqrt_one_minus_advected_sq",12);
+  // and component 37
+  CellVariable<Real>& q1 = rc.Get("one_minus_sqrt_one_minus_advected_sq",37);
   for (int i=is; i<=ie; i++) {
     for (int j=js; j<=je; j++) {
       for (int k=ks; k<=ke; k++) {
-        qout(k,j,i) = 1.0 - sqrt(qin(k,j,i));
+        // this will make component 12 = advected
+        q0(k,j,i) = 1.0 - sqrt(qin(k,j,i));
+        // and this will make component 37 = 1 - advected
+        q1(k,j,i) = 1.0 - q0(k,j,i);
       }
     }
   }
