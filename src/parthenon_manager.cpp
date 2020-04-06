@@ -15,10 +15,11 @@
 
 #include <utility>
 
+#include <Kokkos_Core.hpp>
+
 #include "driver/driver.hpp"
 #include "interface/Update.hpp"
 #include "refinement/refinement.hpp"
-#include <Kokkos_Core.hpp>
 
 namespace parthenon {
 

@@ -60,9 +60,9 @@
 
 // Athena++ headers
 #include "athena.hpp"
+#include "defs.hpp"
 #include "globals.hpp"
 #include "parameter_input.hpp"
-#include <defs.hpp>
 
 // OpenMP header
 #ifdef OPENMP_PARALLEL

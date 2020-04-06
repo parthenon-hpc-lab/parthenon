@@ -31,8 +31,8 @@
 
 // Athena++ headers
 #include "athena.hpp"
+#include "defs.hpp"
 #include "outputs/io_wrapper.hpp"
-#include <defs.hpp>
 
 // OpenMP header
 #ifdef OPENMP_PARALLEL
@@ -82,7 +82,7 @@ class ParameterInput {
  public:
   // constructor/destructor
   ParameterInput();
-  ParameterInput(std::string input_filename);
+  explicit ParameterInput(std::string input_filename);
   ~ParameterInput();
 
   // data
