@@ -92,6 +92,18 @@ namespace parthenon {
         }
       };
 
+      std::array<IndexRange,NDIM> GetBounds(const IndexShapeType & type) const noexcept {
+        if( type==IndexShapeType::entire ){
+          std::array<IndexRange,NDIM> bounds;
+          for (int index=0; index<NDIM;  ++index ){
+            bounds[index].start = 0;
+            bounds[index].end = entire_ncells_[index];
+          }
+          return bounds;
+        }
+        return x_; 
+      }
+      
       inline int is(const IndexShapeType & type) const 
       { return (type==IndexShapeType::entire) ? 0 : x_[0].start; }
       
