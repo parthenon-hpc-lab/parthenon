@@ -232,23 +232,23 @@ MeshBlock::~MeshBlock() {
 
 void MeshBlock::InitializeIndexShapes() {
 
-  cells = IndexShape(block_size.nx1,block_size.nx2,block_size.nx3,NGHOST);
+  cellbounds = IndexShape(block_size.nx1,block_size.nx2,block_size.nx3,NGHOST);
 
   if (pmy_mesh->multilevel) {
 
     cnghost = (NGHOST + 1)/2 + 1;
-    c_cells = IndexShape(
-      cells.nx1(interior)/2,
-      cells.nx2(interior)/2,
-      cells.nx3(interior)/2,
+    c_cellbounds = IndexShape(
+      cellbounds.nx1(interior)/2,
+      cellbounds.nx2(interior)/2,
+      cellbounds.nx3(interior)/2,
       NGHOST);
 
   }else{
 
-    c_cells = IndexShape(
-      cells.nx1(interior)/2,
-      cells.nx2(interior)/2,
-      cells.nx3(interior)/2,
+    c_cellbounds = IndexShape(
+      cellbounds.nx1(interior)/2,
+      cellbounds.nx2(interior)/2,
+      cellbounds.nx3(interior)/2,
       0);
   }
 
@@ -301,7 +301,7 @@ void MeshBlock::AllocateUserOutputVariables(int n) {
     return;
   }
   nuser_out_var = n;
-  user_out_var.NewAthenaArray(nuser_out_var, cells.nx1(entire), cells.nx2(entire), cells.nx1(entire));
+  user_out_var.NewAthenaArray(nuser_out_var, cellbounds.nx1(entire), cellbounds.nx2(entire), cellbounds.nx1(entire));
   user_out_var_names_ = new std::string[n];
   return;
 }

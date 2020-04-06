@@ -119,7 +119,7 @@ void VTKOutput::WriteContainer(Mesh *pm, ParameterInput *pin, bool flag) {
 
     //  4. Dataset structure
     int ncells1, ncells2, ncells3;
-    pmb->cells.GetNx(shape_type,ncells1,ncells2,ncells3);
+    pmb->cellbounds.GetNx(shape_type,ncells1,ncells2,ncells3);
     int ncoord1 = ncells1;
     if (ncells1 > 1) ncoord1++;
     int ncoord2 = ncells2;
@@ -137,7 +137,7 @@ void VTKOutput::WriteContainer(Mesh *pm, ParameterInput *pin, bool flag) {
     std::fprintf(pfile, "DATASET RECTILINEAR_GRID\n");
     std::fprintf(pfile, "DIMENSIONS %d %d %d\n", ncoord1, ncoord2, ncoord3);
 
-    pmb->cells.GetIndices(shape_type,out_is,out_ie,out_js,out_je,out_ks,out_ke);
+    pmb->cellbounds.GetIndices(shape_type,out_is,out_ie,out_js,out_je,out_ks,out_ke);
     // write x1-coordinates as binary float in big endian order
     std::fprintf(pfile, "X_COORDINATES %d float\n", ncoord1);
     if (ncells1 == 1) {
@@ -177,7 +177,7 @@ void VTKOutput::WriteContainer(Mesh *pm, ParameterInput *pin, bool flag) {
     //  5. Data.  An arbitrary number of scalars and vectors can be written (every node
     //  in the OutputData doubly linked lists), all in binary floats format
 
-    std::fprintf(pfile, "\nCELL_DATA %d", pmb->cells.GetTotal(shape_type));
+    std::fprintf(pfile, "\nCELL_DATA %d", pmb->cellbounds.GetTotal(shape_type));
     // reset container iterator to point to current block data
     auto ci = ContainerIterator<Real>(pmb->real_container,{Metadata::Graphics});
     for ( auto &v : ci.vars) {
@@ -279,7 +279,7 @@ void VTKOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
 
     //  4. Dataset structure
     int ncells1, ncells2, ncells3;
-    pmb->cells.GetNx(shape_type,ncells1,ncells2,ncells3);
+    pmb->cellbounds.GetNx(shape_type,ncells1,ncells2,ncells3);
     int ncoord1 = ncells1;
     if (ncells1 > 1) ncoord1++;
     int ncoord2 = ncells2;
@@ -297,7 +297,7 @@ void VTKOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
     std::fprintf(pfile, "DATASET RECTILINEAR_GRID\n");
     std::fprintf(pfile, "DIMENSIONS %d %d %d\n", ncoord1, ncoord2, ncoord3);
 
-    pmb->cells.GetIndices(shape_type,out_is,out_ie,out_js,out_je,out_ks,out_ke);
+    pmb->cellbounds.GetIndices(shape_type,out_is,out_ie,out_js,out_je,out_ks,out_ke);
     // write x1-coordinates as binary float in big endian order
     std::fprintf(pfile, "X_COORDINATES %d float\n", ncoord1);
     if (ncells1 == 1) {
@@ -336,7 +336,7 @@ void VTKOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
 
     //  5. Data.  An arbitrary number of scalars and vectors can be written (every node
     //  in the OutputData doubly linked lists), all in binary floats format
-    std::fprintf(pfile, "\nCELL_DATA %d", pmb->cells.GetTotal(shape_type));
+    std::fprintf(pfile, "\nCELL_DATA %d", pmb->cellbounds.GetTotal(shape_type));
 
     OutputData *pdata = pfirst_data_;
     while (pdata != nullptr) {

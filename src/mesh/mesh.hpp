@@ -115,7 +115,7 @@ class MeshBlock {
   // for convenience: "max" # of real+ghost cells along each dir for allocating "standard"
   // sized MeshBlock arrays, depending on ndim i.e.
   //
-  // cells.nx2 =    nx2      + 2*NGHOST if   nx2 > 1
+  // cellbounds.nx2 =    nx2      + 2*NGHOST if   nx2 > 1
   // (entire)    (interior)               (interior)
   //  
   // Assuming we have a block cells, and nx2 = 6, and NGHOST = 1
@@ -138,10 +138,10 @@ class MeshBlock {
   //  |  |           |  |   | 
   //  - - - - - - - - - -   v 
   //
-  IndexShape cells;
+  IndexShape cellbounds;
   // on 1x coarser level MeshBlock i.e. 
   //
-  // c_cells.nx2 = cells.nx2 * 1/2 + 2*NGHOST, if  cells.nx2 >1
+  // c_cellbounds.nx2 = cellbounds.nx2 * 1/2 + 2*NGHOST, if  cellbounds.nx2 >1
   //   (entire)    (interior)                     (interior)
   //
   // Assuming we have a block cells, and nx2 = 6, and NGHOST = 1
@@ -160,7 +160,7 @@ class MeshBlock {
   //  |  |           |  |   |              |  |           |  |     |
   //  - - - - - - - - - -   v              - - - - - - - - - -     v 
   //
-  IndexShape c_cells; 
+  IndexShape c_cellbounds; 
   int gid, lid;
   int cnghost;
   int gflag;

@@ -62,9 +62,9 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
     if (bd_var_flcor_.sflag[nb.bufid] == BoundaryStatus::completed) continue;
     if (nb.snb.level == pmb->loc.level - 1) {
       int is, ie, js, je, ks, ke;
-      pmb->cells.GetIndices(interior,is,ie,js,je,ks,ke);
+      pmb->cellbounds.GetIndices(interior,is,ie,js,je,ks,ke);
       int nx1, nx2, nx3;
-      pmb->cells.GetNx(interior,nx1,nx2,nx3);
+      pmb->cellbounds.GetNx(interior,nx1,nx2,nx3);
       int p = 0;
       Real *sbuf = bd_var_flcor_.send[nb.bufid];
       // x1 direction
@@ -197,7 +197,7 @@ bool CellCenteredBoundaryVariable::ReceiveFluxCorrection() {
       Real *rbuf=bd_var_flcor_.recv[nb.bufid];
 
       int is, ie, js, je, ks, ke;
-      pmb->cells.GetIndices(interior,is,ie,js,je,ks,ke);
+      pmb->cellbounds.GetIndices(interior,is,ie,js,je,ks,ke);
       if (nb.fid == BoundaryFace::inner_x1 || nb.fid == BoundaryFace::outer_x1) {
         int il = is + (ie - is)*nb.fid+nb.fid;
         int jl = js, ju = je, kl = ks, ku = ke;

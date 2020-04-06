@@ -43,7 +43,7 @@ void MeshBlock::WeightedAve(AthenaArray<Real> &u_out, AthenaArray<Real> &u_in1,
   const int nu = u_out.GetDim4() - 1;
 
   int is, ie, js, je, ks, ke;
-  cells.GetIndices(interior,is,ie,js,je,ks,ke);
+  cellbounds.GetIndices(interior,is,ie,js,je,ks,ke);
 
   // u_in2 may be an unallocated AthenaArray if using a 2S time integrator
   if (wght[0] == 1.0) {
@@ -159,7 +159,7 @@ void MeshBlock::WeightedAve(FaceField &b_out, FaceField &b_in1, FaceField &b_in2
                             const Real wght[3]) {
 
   int il, iu, jl, ju, kl, ku;
-  cells.GetIndices(interior,il,iu,jl,ju,kl,ku);
+  cellbounds.GetIndices(interior,il,iu,jl,ju,kl,ku);
 
   // Note: these loops can be combined now that they avoid curl terms
   // Only need to separately account for the final longitudinal face in each loop limit

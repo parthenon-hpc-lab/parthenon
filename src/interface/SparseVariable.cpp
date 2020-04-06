@@ -103,7 +103,7 @@ void SparseVariable<T>::Add(MeshBlock &pmb,
 
     // determine size of variable needed
     int nc1, nc2, nc3;
-    pmb.cells.GetNx(entire,nc1,nc2,nc3);
+    pmb.cellbounds.GetNx(entire,nc1,nc2,nc3);
 
     if ( metadata.Where() == (Metadata::Node) ) {
       nc1++; nc2++; nc3++;

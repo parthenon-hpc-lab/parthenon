@@ -24,14 +24,14 @@ void FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
   MeshBlock *pmb = in.pmy_block;
 
   int is, js, ks, ie, je, ke;
-  pmb->cells.GetIndices(interior,is,ie,js,je,ks,ke);
+  pmb->cellbounds.GetIndices(interior,is,ie,js,je,ks,ke);
 
   Metadata m;
   ContainerIterator<Real> cin_iter(in, {Metadata::Independent});
   ContainerIterator<Real> cout_iter(dudt_cont, {Metadata::Independent});
   int nvars = cout_iter.vars.size();
 
-  int nx1 = pmb->cells.nx1(entire); 
+  int nx1 = pmb->cellbounds.nx1(entire); 
   AthenaArray<Real> x1area(nx1);
   AthenaArray<Real> x2area0(nx1);
   AthenaArray<Real> x2area1(nx1);
@@ -99,7 +99,7 @@ void UpdateContainer(Container<Real> &in, Container<Real> &dudt_cont,
                      const Real dt, Container<Real> &out) {
   MeshBlock *pmb = in.pmy_block;
   int is, js, ks, ie, je, ke;
-  pmb->cells.GetIndices(interior,is,ie,js,je,ks,ke);
+  pmb->cellbounds.GetIndices(interior,is,ie,js,je,ks,ke);
 
   Metadata m;
   ContainerIterator<Real> cin_iter(in, {Metadata::Independent});
@@ -128,7 +128,7 @@ void AverageContainers(Container<Real> &c1, Container<Real> &c2,
                        const Real wgt1) {
   MeshBlock *pmb = c1.pmy_block;
   int is, js, ks, ie, je, ke;
-  pmb->cells.GetIndices(interior,is,ie,js,je,ks,ke);
+  pmb->cellbounds.GetIndices(interior,is,ie,js,je,ks,ke);
 
   Metadata m;
   ContainerIterator<Real> c1_iter(c1, {Metadata::Independent});

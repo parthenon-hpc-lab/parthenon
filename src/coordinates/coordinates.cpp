@@ -39,12 +39,12 @@ Coordinates::Coordinates(MeshBlock *pmb, ParameterInput *pin, bool flag) :
 
   // Set indices
   if (coarse_flag) {
-    pmb->c_cells.GetIndices(interior,il,iu,jl,ju,kl,ku);
-    pmy_block->c_cells.GetNx(entire,nc1,nc2,nc3);
+    pmb->c_cellbounds.GetIndices(interior,il,iu,jl,ju,kl,ku);
+    pmy_block->c_cellbounds.GetNx(entire,nc1,nc2,nc3);
     ng = NGHOST;
   } else {
-    pmb->cells.GetIndices(interior,il,iu,jl,ju,kl,ku);
-    pmy_block->cells.GetNx(entire,nc1,nc2,nc3);
+    pmb->cellbounds.GetIndices(interior,il,iu,jl,ju,kl,ku);
+    pmy_block->cellbounds.GetNx(entire,nc1,nc2,nc3);
     ng = NGHOST;
   }
 

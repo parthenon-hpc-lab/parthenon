@@ -1296,7 +1296,7 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
           pbval->ProlongateBoundaries(time, 0.0);
 
         int il, iu, jl, ju, kl, ku;
-        pmb->cells.GetIndices(interior,il,iu,jl,ju,kl,ku);
+        pmb->cellbounds.GetIndices(interior,il,iu,jl,ju,kl,ku);
 
         if (pbval->nblevel[1][1][0] != -1) il -= NGHOST;
         if (pbval->nblevel[1][1][2] != -1) iu += NGHOST;

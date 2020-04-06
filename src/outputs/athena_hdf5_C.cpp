@@ -299,7 +299,7 @@ void ATHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
 
   // shooting a blank just for getting the variable names
   int out_is, out_ie, out_js, out_je, out_ks, out_ke;
-  pmb->cells.GetIndices(interior,out_is,out_ie,out_js,out_je,out_ks,out_ke);
+  pmb->cellbounds.GetIndices(interior,out_is,out_ie,out_js,out_je,out_ks,out_ke);
 
   if (output_params.include_ghost_zones) {
     out_is -= NGHOST; out_ie += NGHOST;

@@ -64,7 +64,7 @@ namespace parthenon {
     MeshBlock* pmb = pmesh->pblock;
     while (pmb != nullptr) {
       int is, ie, js, je, ks, ke;
-      pmb->cells.GetIndices(interior,is,ie,js,je,ks,ke);
+      pmb->cellbounds.GetIndices(interior,is,ie,js,je,ks,ke);
       auto& summed = pmb->real_container.Get("c.c.interpolated_sum");
       for (int k = ks; k <= ke; k++) {
         for (int j = js; j <= je; j++) {
@@ -102,7 +102,7 @@ namespace parthenon {
     auto interpolate = tl.AddTask<BlockTask>([](MeshBlock* pmb)->TaskStatus {
         Container<Real>& rc = pmb->real_container;
         int is, js, ks, ie, je, ke;
-        pmb->cells.GetIndices(parthenon::interior,is,ie,js,je,ks,ke);
+        pmb->cellbounds.GetIndices(parthenon::interior,is,ie,js,je,ks,ke);
 
         auto& face = rc.GetFace("f.f.face_averaged_value");
         auto& cell = rc.Get("c.c.interpolated_value");
@@ -125,7 +125,7 @@ namespace parthenon {
     auto sum = tl.AddTask<BlockTask>([](MeshBlock* pmb)->TaskStatus {
         Container<Real>& rc = pmb->real_container;
         int is, js, ks, ie,je, ke;
-        pmb->cells.GetIndices(parthenon::interior,is,ie,js,je,ks,ke);
+        pmb->cellbounds.GetIndices(parthenon::interior,is,ie,js,je,ks,ke);
         auto& interped = rc.Get("c.c.interpolated_value");
         auto& summed = rc.Get("c.c.interpolated_sum");
         for (int k = ks; k <= ke; k++) {
@@ -154,7 +154,7 @@ parthenon::TaskStatus FaceFields::fill_faces(parthenon::MeshBlock* pmb) {
   parthenon::Container<Real>& rc = pmb->real_container;
   parthenon::Coordinates *pcoord = pmb->pcoord.get();
   int is, js, ks, ie, je, ke;
-  pmb->cells.GetIndices(parthenon::interior,is,ie,js,je,ks,ke);
+  pmb->cellbounds.GetIndices(parthenon::interior,is,ie,js,je,ks,ke);
   auto& face = rc.GetFace("f.f.face_averaged_value");
   // fill faces
   for (int e = 0; e < face.Get(1).GetDim4(); e++) {

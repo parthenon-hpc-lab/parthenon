@@ -133,24 +133,24 @@ void BoundaryValues::ProlongateBoundaries(const Real time, const Real dt) {
     int si, ei, sj, ej, sk, ek;
     if (nb.ni.ox1 == 0) {
       std::int64_t &lx1 = pmb->loc.lx1;
-      si = pmb->c_cells.is(interior); 
-      ei = pmb->c_cells.ie(interior);
+      si = pmb->c_cellbounds.is(interior); 
+      ei = pmb->c_cellbounds.ie(interior);
       if ((lx1 & 1LL) == 0LL) {
         ei += cn;
       } else {
         si -= cn;
       }
     } else if (nb.ni.ox1 > 0) { 
-      si = pmb->c_cells.ie(interior) + 1;
-      ei = pmb->c_cells.ie(interior) + cn;
+      si = pmb->c_cellbounds.ie(interior) + 1;
+      ei = pmb->c_cellbounds.ie(interior) + cn;
     }else {             
-      si = pmb->c_cells.is(interior)-cn; 
-      ei = pmb->c_cells.is(interior)-1;
+      si = pmb->c_cellbounds.is(interior)-cn; 
+      ei = pmb->c_cellbounds.is(interior)-1;
     }
 
     if (nb.ni.ox2 == 0) {
-      sj = pmb->c_cells.js(interior);
-      ej = pmb->c_cells.je(interior);
+      sj = pmb->c_cellbounds.js(interior);
+      ej = pmb->c_cellbounds.je(interior);
       if (pmb->block_size.nx2 > 1) {
         std::int64_t &lx2 = pmb->loc.lx2;
         if ((lx2 & 1LL) == 0LL) { 
@@ -160,16 +160,16 @@ void BoundaryValues::ProlongateBoundaries(const Real time, const Real dt) {
         }
       }
     } else if (nb.ni.ox2 > 0) {
-      sj = pmb->c_cells.je(interior) + 1;
-      ej = pmb->c_cells.je(interior) + cn;
+      sj = pmb->c_cellbounds.je(interior) + 1;
+      ej = pmb->c_cellbounds.je(interior) + cn;
     }else {
-      sj = pmb->c_cells.js(interior)-cn;
-      ej = pmb->c_cells.js(interior)-1;
+      sj = pmb->c_cellbounds.js(interior)-cn;
+      ej = pmb->c_cellbounds.js(interior)-1;
     }
     
     if (nb.ni.ox3 == 0) {
-      sk = pmb->c_cells.ks(interior);
-      ek = pmb->c_cells.ke(interior);
+      sk = pmb->c_cellbounds.ks(interior);
+      ek = pmb->c_cellbounds.ke(interior);
       if (pmb->block_size.nx3 > 1) {
         std::int64_t &lx3 = pmb->loc.lx3;
         if ((lx3 & 1LL) == 0LL) {
@@ -179,11 +179,11 @@ void BoundaryValues::ProlongateBoundaries(const Real time, const Real dt) {
         }
       }
     } else if (nb.ni.ox3 > 0) {
-      sk = pmb->c_cells.ke(interior) + 1;
-      ek = pmb->c_cells.ke(interior) + cn;
+      sk = pmb->c_cellbounds.ke(interior) + 1;
+      ek = pmb->c_cellbounds.ke(interior) + cn;
   } else {
-      sk = pmb->c_cells.ks(interior)-cn;
-      ek = pmb->c_cells.ks(interior)-1;
+      sk = pmb->c_cellbounds.ks(interior)-cn;
+      ek = pmb->c_cellbounds.ks(interior)-1;
   }
 
     // (temp workaround) to automatically call all BoundaryFunction_[] on coarse_prim/b
@@ -225,7 +225,7 @@ void BoundaryValues::RestrictGhostCellsOnSameLevel(const NeighborBlock& nb, int 
   MeshRefinement *pmr = pmb->pmr.get();
 
   int is, ie, js, je, ks, ke; 
-  pmb->c_cells.GetIndices(interior,is,ie,js,je,ks,ke);
+  pmb->c_cellbounds.GetIndices(interior,is,ie,js,je,ks,ke);
 
   int ris, rie, rjs, rje, rks, rke;
   CalcRestricedIndices(ris,rie,ni,nb.ni.ox1,is,ie);
@@ -355,22 +355,22 @@ void BoundaryValues::ProlongateGhostCells(const NeighborBlock& nb,
   // calculate the loop limits for the finer grid
   int fsi, fei, fsj, fej, fsk, fek;
   int cis, cie, cjs, cje, cks, cke;
-  pmb->c_cells.GetIndices(interior,cis,cie,cjs,cje,cks,cke);
-  fsi = (si - cis)*2 + pmb->cells.is(interior);
-  fei = (ei - cis)*2 + pmb->cells.is(interior) + 1;
+  pmb->c_cellbounds.GetIndices(interior,cis,cie,cjs,cje,cks,cke);
+  fsi = (si - cis)*2 + pmb->cellbounds.is(interior);
+  fei = (ei - cis)*2 + pmb->cellbounds.is(interior) + 1;
   if (pmb->block_size.nx2 > 1) {
-    fsj = (sj - cjs)*2 + pmb->cells.js(interior);
-    fej = (ej - cjs)*2 + pmb->cells.js(interior) + 1;
+    fsj = (sj - cjs)*2 + pmb->cellbounds.js(interior);
+    fej = (ej - cjs)*2 + pmb->cellbounds.js(interior) + 1;
   } else {
-    fsj = pmb->cells.js(interior);
-    fej = pmb->cells.je(interior);
+    fsj = pmb->cellbounds.js(interior);
+    fej = pmb->cellbounds.je(interior);
   }
   if (pmb->block_size.nx3 > 1) {
-    fsk = (sk - cks)*2 + pmb->cells.ks(interior);
-    fek = (ek - cks)*2 + pmb->cells.ks(interior) + 1;
+    fsk = (sk - cks)*2 + pmb->cellbounds.ks(interior);
+    fek = (ek - cks)*2 + pmb->cellbounds.ks(interior) + 1;
   } else {
-    fsk = pmb->cells.ks(interior);
-    fek = pmb->cells.ke(interior);
+    fsk = pmb->cellbounds.ks(interior);
+    fek = pmb->cellbounds.ke(interior);
   }
 
   // KGF: COUPLING OF QUANTITIES (must be manually specified)

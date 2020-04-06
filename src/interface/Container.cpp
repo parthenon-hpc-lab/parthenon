@@ -588,7 +588,7 @@ void Container<T>::calcArrDims_(std::array<int, 6>& arrDims,
                                 +std::string(" rank-N tensor-field, for N < 4"));
   }
   for (int i = 0; i < 6; i++) arrDims[i] = 1;
-  pmy_block->cells.GetNx(entire,arrDims[0],arrDims[1],arrDims[2]);
+  pmy_block->cellbounds.GetNx(entire,arrDims[0],arrDims[1],arrDims[2]);
   for (int i=0; i<N; i++) {arrDims[i+3] = dims[i]; }
 }
 

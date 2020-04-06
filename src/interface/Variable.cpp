@@ -142,7 +142,7 @@ void Variable<T>::allocateComms(MeshBlock *pmb) {
   const int _dim6 = this->GetDim6();
 
   int nx1, nx2, nx3;
-  pmb->cells.GetNx(entire,nx1,nx2,nx3);
+  pmb->cellbounds.GetNx(entire,nx1,nx2,nx3);
 
   flux[0].NewAthenaArray( _dim4,nx3, nx2, nx1+1);
   if (pmb->pmy_mesh->ndim >= 2) {
@@ -152,7 +152,7 @@ void Variable<T>::allocateComms(MeshBlock *pmb) {
     flux[2].NewAthenaArray(_dim4,nx3+1,nx2,nx1);
   }
   int ncc1, ncc2, ncc3;
-  pmb->c_cells.GetNx(entire,ncc1,ncc2,ncc3);
+  pmb->c_cellbounds.GetNx(entire,ncc1,ncc2,ncc3);
 
   coarse_s = new AthenaArray<Real>(_dim4, ncc3, ncc2, ncc1,
                                 (pmb->pmy_mesh->multilevel ?

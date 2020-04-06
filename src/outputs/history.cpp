@@ -53,7 +53,7 @@ void HistoryOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
   MeshBlock *pmb = pm->pblock;
   Real real_max = std::numeric_limits<Real>::max();
   Real real_min = std::numeric_limits<Real>::min();
-  AthenaArray<Real> vol(pmb->cells.nx1(entire));
+  AthenaArray<Real> vol(pmb->cellbounds.nx1(entire));
   const int nhistory_output = NHISTORY_VARS + pm->nuser_history_output_;
   std::unique_ptr<Real[]> hst_data(new Real[nhistory_output]);
   // initialize built-in variable sums to 0.0
@@ -76,10 +76,10 @@ void HistoryOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
   // Loop over MeshBlocks
   while (pmb != nullptr) {
     // Sum history variables over cells.  Note ghost cells are never included in sums
-    for (int k=pmb->cells.ks(interior); k<=pmb->cells.ke(interior); ++k) {
-      for (int j=pmb->cells.js(interior); j<=pmb->cells.je(interior); ++j) {
-        pmb->pcoord->CellVolume(k, j, pmb->cells.is(interior), pmb->cells.ie(interior), vol);
-        for (int i=pmb->cells.is(interior); i<=pmb->cells.ie(interior); ++i) {
+    for (int k=pmb->cellbounds.ks(interior); k<=pmb->cellbounds.ke(interior); ++k) {
+      for (int j=pmb->cellbounds.js(interior); j<=pmb->cellbounds.je(interior); ++j) {
+        pmb->pcoord->CellVolume(k, j, pmb->cellbounds.is(interior), pmb->cellbounds.ie(interior), vol);
+        for (int i=pmb->cellbounds.is(interior); i<=pmb->cellbounds.ie(interior); ++i) {
           // NEW_OUTPUT_TYPES:
 
           hst_data[0] += 0.0;
