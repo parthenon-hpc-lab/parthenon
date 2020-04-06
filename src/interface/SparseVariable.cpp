@@ -30,7 +30,7 @@ void SparseVariable<T>::Add(int varIndex) {
     auto v = std::make_shared<CellVariable<T>>(my_name, _dims, _metadata);
     _varArray.push_back(v);
     _indexMap.push_back(varIndex);
-    _varMap[varIndex] v;
+    _varMap[varIndex] = v;
   } else {
     throw std::invalid_argument ("unsupported type in SparseVariable");
   }

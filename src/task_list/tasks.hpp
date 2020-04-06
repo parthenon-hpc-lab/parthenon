@@ -53,7 +53,7 @@ class TaskID {
   TaskID() {
     Set(0);
   }
-  explict TaskID(int id);
+  explicit TaskID(int id);
 
   void Set(int id);
   void clear();
