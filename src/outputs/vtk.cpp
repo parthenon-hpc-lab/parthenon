@@ -73,7 +73,7 @@ void VTKOutput::WriteContainer(Mesh *pm, ParameterInput *pin, bool flag) {
   // Loop over MeshBlocks
   while (pmb != nullptr) {
     // set start/end array indices depending on whether ghost zones are included
-    IndexShapeType shape_type;
+    IndexShapeType shape_type = interior;
     if (output_params.include_ghost_zones) {
       shape_type = entire;
     } 
