@@ -11,7 +11,13 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
 
-find_program(CLANG_FORMAT clang-format)
+find_program(
+    CLANG_FORMAT
+    NAMES
+        clang-format-8 # Debian package manager, among others, provide this name
+        clang-format-mp-8.0 # MacPorts
+        clang-format # Default name
+    )
 if (CLANG_FORMAT AND NOT CLANG_FORMAT_VERSION)
     # Get clang-format --version
     execute_process(
