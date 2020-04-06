@@ -276,7 +276,7 @@ TaskStatus CalculateFluxes(Container<Real>& rc) {
 // first some helper tasks
 TaskStatus UpdateContainer(MeshBlock *pmb, int stage, std::vector<std::string>& stage_name, Integrator* integrator) {
   //const Real beta = stage_wghts[stage-1].beta;
-  const Real beta = integrator->_beta[stage-1];
+  const Real beta = integrator->beta[stage-1];
   Container<Real>& base = pmb->real_containers.Get();
   Container<Real>& cin = pmb->real_containers.Get(stage_name[stage-1]);
   Container<Real>& cout = pmb->real_containers.Get(stage_name[stage]);
@@ -306,7 +306,7 @@ TaskList AdvectionDriver::MakeTaskList(MeshBlock *pmb, int stage) {
   if (stage == 1) {
     Container<Real>& base = pmb->real_containers.Get();
     pmb->real_containers.Add("dUdt", base);
-    for (int i=1; i<integrator->_nstages; i++) pmb->real_containers.Add(stage_name[i], base);
+    for (int i=1; i<integrator->nstages; i++) pmb->real_containers.Add(stage_name[i], base);
   }
 
   // pull out the container we'll use to get fluxes and/or compute RHSs
@@ -328,10 +328,8 @@ TaskList AdvectionDriver::MakeTaskList(MeshBlock *pmb, int stage) {
                                     advect_flux, sc0);
 
   // compute the divergence of fluxes of conserved variables
-  auto flux_div = AddTwoContainerTask([](Container<Real>& u, Container<Real>& du) {
-    parthenon::Update::FluxDivergence(u, du);
-    return TaskStatus::complete;
-  }, recv_flux, sc0, dudt);
+  auto flux_div = AddTwoContainerTask(parthenon::Update::FluxDivergence,
+                                      recv_flux, sc0, dudt);
 
   // apply du/dt to all independent fields in the container
   auto update_container = AddMyTask(UpdateContainer, flux_div);
@@ -346,27 +344,21 @@ TaskList AdvectionDriver::MakeTaskList(MeshBlock *pmb, int stage) {
   auto clear_comm_flags = AddContainerTask(Container<Real>::ClearBoundaryTask,
                                            fill_from_bufs, sc1);
   
-  auto prolongBound = AddContainerTask([](Container<Real>& rc) {
-    MeshBlock *pmb = rc.pmy_block;
-    BoundaryValues *pbval = pmb->pbval.get();
-    pbval->ProlongateBoundaries(0.0, 0.0);
+  auto prolongBound = tl.AddTask<BlockTask>([](MeshBlock *pmb) {
+    pmb->pbval->ProlongateBoundaries(0.0, 0.0);
     return TaskStatus::complete;
-  }, fill_from_bufs, sc1);
+  }, fill_from_bufs, pmb);
 
   // set physical boundaries
-  auto set_bc = AddContainerTask([](Container<Real>& rc) {
-    parthenon::ApplyBoundaryConditions(rc);
-    return TaskStatus::complete;
-  }, prolongBound, sc1);
+  auto set_bc = AddContainerTask(parthenon::ApplyBoundaryConditions,
+                                 prolongBound, sc1);
 
   // fill in derived fields
-  auto fill_derived = AddContainerTask([](Container<Real>& rc) {
-    parthenon::FillDerivedVariables::FillDerived(rc);
-    return TaskStatus::complete;
-  }, set_bc, sc1);
+  auto fill_derived = AddContainerTask(parthenon::FillDerivedVariables::FillDerived,
+                                       set_bc, sc1);
 
   // estimate next time step
-  if (stage == integrator->_nstages) {
+  if (stage == integrator->nstages) {
     auto new_dt = AddContainerTask([](Container<Real>& rc) {
       MeshBlock *pmb = rc.pmy_block;
       pmb->SetBlockTimestep(parthenon::Update::EstimateTimestep(rc));

@@ -20,7 +20,7 @@
 namespace parthenon {
 namespace Update {
 
-void FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
+TaskStatus FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
   MeshBlock *pmb = in.pmy_block;
   int is = pmb->is;
   int js = pmb->js;
@@ -88,7 +88,7 @@ void FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
     }
   }
 
-  return;
+  return TaskStatus::complete;
 }
 
 void UpdateContainer(Container<Real> &in, Container<Real> &dudt_cont,
@@ -178,7 +178,7 @@ void FillDerivedVariables::SetFillDerivedFunctions(FillDerivedFunc *pre, FillDer
   _pre_package_fill = pre; _post_package_fill = post;
 }
 
-void FillDerivedVariables::FillDerived(Container<Real>& rc) {
+TaskStatus FillDerivedVariables::FillDerived(Container<Real>& rc) {
   if (_pre_package_fill != nullptr) {
     _pre_package_fill(rc);
   }
@@ -191,6 +191,7 @@ void FillDerivedVariables::FillDerived(Container<Real>& rc) {
   if (_post_package_fill != nullptr) {
     _post_package_fill(rc);
   }
+  return TaskStatus::complete;
 }
 
 }

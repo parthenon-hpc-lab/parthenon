@@ -20,7 +20,7 @@
 
 namespace parthenon {
 
-void ApplyBoundaryConditions(Container<Real>& rc) {
+TaskStatus ApplyBoundaryConditions(Container<Real>& rc) {
     MeshBlock *pmb = rc.pmy_block;
     const int is = pmb->is; const int js = pmb->js; const int ks = pmb->ks;
     const int ie = pmb->ie; const int je = pmb->je; const int ke = pmb->ke;
@@ -269,6 +269,7 @@ void ApplyBoundaryConditions(Container<Real>& rc) {
 
     } // if ndim >= 3
 
+    return TaskStatus::complete;
 }
 
 } // namespace parthenon

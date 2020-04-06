@@ -54,7 +54,7 @@ MultiStageDriver::MultiStageDriver(ParameterInput *pin, Mesh *pm, Outputs *pout)
 TaskListStatus MultiStageBlockTaskDriver::Step() {
   using DriverUtils::ConstructAndExecuteBlockTasks;
   TaskListStatus status;
-  for (int stage=1; stage<=integrator->_nstages; stage++) {
+  for (int stage=1; stage<=integrator->nstages; stage++) {
     status = ConstructAndExecuteBlockTasks<>(this, stage);
     if (status != TaskListStatus::complete) break;
   }

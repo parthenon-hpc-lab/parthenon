@@ -25,9 +25,9 @@ namespace parthenon {
 
 struct Integrator {
     Integrator() = default;
-    Integrator(int nstages, std::vector<Real> beta) : _nstages(nstages), _beta(beta) {}
-    int _nstages;
-    std::vector<Real> _beta;
+    Integrator(int nstages, std::vector<Real> beta) : nstages(nstages), beta(beta) {}
+    int nstages;
+    std::vector<Real> beta;
 };
 
 class MultiStageDriver : public EvolutionDriver {

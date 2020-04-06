@@ -14,11 +14,12 @@
 #ifndef PARTHENON_BOUNDARY_CONDITIONS_HPP_
 #define PARTHENON_BOUNDARY_CONDITIONS_HPP_
 
+#include "basic_types.hpp"
 #include "interface/Container.hpp"
 
 namespace parthenon {
 
-void ApplyBoundaryConditions(Container<Real>& rc);
+TaskStatus ApplyBoundaryConditions(Container<Real>& rc);
 
 } // namespace parthenon
 
