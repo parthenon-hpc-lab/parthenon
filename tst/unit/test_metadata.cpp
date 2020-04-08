@@ -77,9 +77,25 @@ TEST_CASE("A Metadata struct is created", "[Metadata]") {
         REQUIRE(a == b);
     }
 
-    GIVEN("Two Different Metadata Structs Are Compared") {
-        Metadata a({Metadata::Cell}), b({Metadata::Face});
+    GIVEN("Two Metadata Structs Are Equivalent But Initialized Differently") {
+        Metadata a, b;
 
-        REQUIRE(a != b);
+        a.Set(Metadata::Cell);
+        a.Set(Metadata::Derived);
+
+        b.Set(Metadata::Derived);
+        b.Set(Metadata::Cell);
+
+        REQUIRE(a == b);
+    }
+
+    GIVEN("Two Different Metadata Structs Are Compared") {
+        REQUIRE(Metadata({Metadata::Cell}) != Metadata({Metadata::Face}));
+        REQUIRE(
+            Metadata({Metadata::Cell, Metadata::Derived}) !=
+            Metadata({Metadata::Face, Metadata::Derived}));
+        REQUIRE(
+            Metadata({Metadata::Cell, Metadata::Derived}) !=
+            Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy}));
     }
 }
