@@ -270,4 +270,4 @@ void ApplyBoundaryConditions(Container<Real>& rc) {
 
 }
 
-}
+} // namespace parthenon

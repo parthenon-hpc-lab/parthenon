@@ -13,7 +13,7 @@
 #include <memory>
 
 #include "amr_criteria.hpp"
-#include "better_refinement.hpp"
+#include "refinement.hpp"
 #include "interface/Container.hpp"
 #include "interface/Variable.hpp"
 #include "parameter_input.hpp"
@@ -38,10 +38,10 @@ AMRFirstDerivative::AMRFirstDerivative(ParameterInput *pin, std::string& block_n
     int global_max_level = pin->GetOrAddInteger("mesh", "numlevel", 1);
     max_level = pin->GetOrAddInteger(block_name, "max_level", global_max_level);
     if (max_level > global_max_level) {
-      std::cerr << "WARNING: max_level in " << block_name << 
-        " exceeds numlevel (the global maximum number of levels) set in <mesh>." << 
-        std::endl << std::endl << 
-        "Setting max_level = numlevel, but this may not be what you want." << 
+      std::cerr << "WARNING: max_level in " << block_name <<
+        " exceeds numlevel (the global maximum number of levels) set in <mesh>." <<
+        std::endl << std::endl <<
+        "Setting max_level = numlevel, but this may not be what you want." <<
         std::endl << std::endl;
       max_level = global_max_level;
     }
@@ -49,7 +49,7 @@ AMRFirstDerivative::AMRFirstDerivative(ParameterInput *pin, std::string& block_n
 
 int AMRFirstDerivative::operator()(Container<Real>& rc) {
   Variable<Real>& q = rc.Get(field);
-  return BetterRefinement::FirstDerivative(q, refine_criteria, derefine_criteria);
+  return Refinement::FirstDerivative(q, refine_criteria, derefine_criteria);
 }
 
 } // namespace parthenon

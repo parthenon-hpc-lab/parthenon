@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef BETTER_REFINEMENT_AMR_CRITERIA_HPP_
-#define BETTER_REFINEMENT_AMR_CRITERIA_HPP_
+#ifndef PARTHENON_REFINEMENT_AMR_CRITERIA_HPP_
+#define PARTHENON_REFINEMENT_AMR_CRITERIA_HPP_
 
 #include <memory>
 #include <string>
@@ -40,4 +40,4 @@ struct AMRFirstDerivative : public AMRCriteria {
 
 } // namespace parthenon
 
-#endif // BETTER_REFINEMENT_AMR_CRITERIA_HPP_
+#endif // PARTHENON_REFINEMENT_AMR_CRITERIA_HPP_

@@ -17,7 +17,7 @@
 #include <map>
 #include <vector>
 
-#include "better_refinement/amr_criteria.hpp"
+#include "refinement/amr_criteria.hpp"
 #include "interface/Metadata.hpp"
 #include "interface/Params.hpp"
 #include "interface/Container.hpp"

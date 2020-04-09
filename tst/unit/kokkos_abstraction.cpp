@@ -530,7 +530,7 @@ void test_wrapper_buffer_pack_overlapping_space_instances(const std::string test
     BufferPack::test_time(time_default, time_spaces, nspaces);
   }
 }
-TEST_CASE("Overlapping SpaceInstances", "[wrapper]") {
+TEST_CASE("Overlapping SpaceInstances", "[wrapper][performance]") {
   SECTION ("Many Threads Short Kernel") {
     test_wrapper_buffer_pack_overlapping_space_instances
         <LargeNShortTBufferPack>("Many Threads Short Kernel");
