@@ -306,7 +306,8 @@ class Container {
   MapToSparse<T> _sparseMap = {};
 
   void calcArrDims_(std::array<int, 6>& arrDims,
-                    const std::vector<int>& dims);
+                    const std::vector<int>& dims,
+                    const Metadata& metadata);
 };
 
 } // namespace parthenon

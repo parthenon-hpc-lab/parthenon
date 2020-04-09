@@ -63,14 +63,14 @@ void Container<T>::Add(const std::string label,
                        const Metadata &metadata,
                        const std::vector<int> dims) {
   std::array<int, 6> arrDims;
-  calcArrDims_(arrDims, dims);
+  calcArrDims_(arrDims, dims, metadata);
 
-  if ( metadata.Where() == Metadata::Node ) {
-    arrDims[0]++; arrDims[1]++; arrDims[2]++;
-  }
 
   // branch on kind of variable
   if (metadata.IsSet(Metadata::Sparse)) {
+    if ( !(metadata.Where() == Metadata::Cell) ) {
+      throw std::invalid_argument("SparseVariable currently only supports cell-centered data");
+    }
     // add a sparse variable
     if (_sparseMap.find(label) == _sparseMap.end()) {
       auto sv = std::make_shared<SparseVariable<T>>(label, metadata, arrDims);
@@ -105,10 +105,6 @@ void Container<T>::Add(const std::string label,
     _faceVector.push_back(pfv);
     _faceMap[label] = pfv;
   } else {
-    // plain old variable
-    if ( dims.size() > 6 || dims.size() < 1 ) {
-      throw std::invalid_argument ("_addArray() must have dims between [1,5]");
-    }
     auto sv = std::make_shared<CellVariable<T>>(label, arrDims, metadata);
     _varVector.push_back(sv);
     _varMap[label] = sv;
@@ -422,18 +418,35 @@ static int AddVar(CellVariable<T>&V, std::vector<CellVariable<T>>& vRet) {
 
 template<typename T>
 void Container<T>::calcArrDims_(std::array<int, 6>& arrDims,
-                                const std::vector<int>& dims) {
+                                const std::vector<int>& dims,
+                                const Metadata& metadata) {
   const int N = dims.size();
-  if ( N > 3 || N < 0 ) {
-    // too many dimensions
-    throw std::invalid_argument(std::string("CellVariable must be scalar or")
-                                +std::string(" rank-N tensor-field, for N < 4"));
+
+
+
+
+  if ( metadata.Where() == Metadata::Cell ||
+       metadata.Where() == Metadata::Face ||
+       metadata.Where() == Metadata::Edge ||
+       metadata.Where() == Metadata::Node ) {
+    // Let the FaceVariable, EdgeVariable, and NodeVariable
+    // classes add the +1's where needed.  They all expect
+    // these dimensions to be the number of cells in each
+    // direction, NOT the size of the arrays
+    assert(N >= 0 && N <= 3);
+    arrDims[0] = pmy_block->ncells1;
+    arrDims[1] = pmy_block->ncells2;
+    arrDims[2] = pmy_block->ncells3;
+    for (int i=0; i<N; i++) arrDims[i+3] = dims[i];
+    for (int i=N; i<3; i++) arrDims[i+3] = 1;
+  } else {
+    // This variable is not necessarily tied to any specific 
+    // mesh element, so dims will be used as the actual array
+    // size in each dimension
+    assert(N >= 1 && N <= 6);
+    for (int i=0; i<N; i++) arrDims[i] = dims[i];
+    for (int i=N; i<6; i++) arrDims[i] = 1;
   }
-  for (int i = 0; i < 6; i++) arrDims[i] = 1;
-  arrDims[0] = pmy_block->ncells1;
-  arrDims[1] = pmy_block->ncells2;
-  arrDims[2] = pmy_block->ncells3;
-  for (int i=0; i<N; i++) {arrDims[i+3] = dims[i]; }
 }
 
 template class Container<double>;
