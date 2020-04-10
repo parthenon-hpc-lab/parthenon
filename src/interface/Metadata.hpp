@@ -21,14 +21,15 @@
 #include <tuple>
 #include <vector>
 
-/// The point of this macro is to generate code for each built-in flag using the 
+/// The point of this macro is to generate code for each built-in flag using the
 /// `PARTHENON_INTERNAL_FOR_FLAG` macro. This is to accomplish the following goals:
 /// - Generate a unique value for each flag using an enum
-/// - Wrap each value in a `MetadataFlag` type that can only be instantiated within parthenon
+/// - Wrap each value in a `MetadataFlag` type that can only be instantiated within
+///   parthenon
 /// - Make it possible to return a user-friendly string for each flag.
 ///
-/// Having this macro means you only need to add a new flag in one place and have each of these
-/// properties automatically be updated.
+/// Having this macro means you only need to add a new flag in one place and have each of
+/// these properties automatically be updated.
 #define PARTHENON_INTERNAL_FOREACH_BUILTIN_FLAG \
   /**  bit 0 is ignored */ \
   PARTHENON_INTERNAL_FOR_FLAG(Ignore) \
@@ -72,16 +73,17 @@
 namespace parthenon {
 
 namespace internal {
-  enum class MetadataInternal {
-    // declare all the internal flags in an enum so that their values are unique and kept up to date
+enum class MetadataInternal {
+  // declare all the internal flags in an enum so that their values are unique and kept
+  // up to date
 #define PARTHENON_INTERNAL_FOR_FLAG(name) name,
-    PARTHENON_INTERNAL_FOREACH_BUILTIN_FLAG
-    Max
+  PARTHENON_INTERNAL_FOREACH_BUILTIN_FLAG
+  Max
 #undef PARTHENON_INTERNAL_FOR_FLAG
-  };
+};
 
-  class UserMetadataState;
-}
+class UserMetadataState;
+} // namespace internal
 
 class Metadata;
 
@@ -100,9 +102,13 @@ class MetadataFlag {
   friend class Metadata;
   friend class internal::UserMetadataState;
 
-public:
+ public:
   constexpr bool operator==(MetadataFlag const &other) const {
     return flag_ == other.flag_;
+  }
+
+  constexpr bool operator!=(MetadataFlag const &other) const {
+    return flag_ != other.flag_;
   }
 
   std::string const &Name() const;
@@ -113,7 +119,8 @@ public:
     return flag_;
   }
 #endif
-private:
+
+ private:
   // MetadataFlag can only be instantiated by Metadata
   constexpr explicit MetadataFlag(int flag) : flag_(flag) {}
 
@@ -128,19 +135,14 @@ private:
 ///  Can set or query attributes specifed in flags.
 ///
 class Metadata {
- private:
-  // must be forward declared
-  auto PackedTuple() const {
-    return std::tie(bits_, shape_, sparse_id_);
-  }
  public:
   /// The flags refer to the different attributes that a variable can
   /// have.  These include the topology, IO, advection, conservation,
   /// whether it sparse, etc.  This is designed to be easily extensible.
 
 
-  // this wraps all the built-in flags in the `MetadataFlag` type so that using these flags is
-  // type-safe.
+  // this wraps all the built-in flags in the `MetadataFlag` type so that using these
+  // flags is type-safe.
 #define PARTHENON_INTERNAL_FOR_FLAG(name) \
     constexpr static MetadataFlag name = \
       MetadataFlag(static_cast<int>(::parthenon::internal::MetadataInternal::name));
@@ -171,7 +173,7 @@ class Metadata {
 
   /// returns a metadata with bits and sparse id set
   explicit Metadata(const std::vector<MetadataFlag>& bits,
-                    const int sparse_id) :
+                    int sparse_id) :
     sparse_id_(sparse_id),
     shape_({1}) {
     SetMultiple(bits);
@@ -179,7 +181,7 @@ class Metadata {
 
   /// returns a metadata with bits, shape, and sparse ID set
   explicit Metadata(const std::vector<MetadataFlag>& bits,
-                    const int sparse_id,
+                    int sparse_id,
                     std::vector<int> shape) :
     sparse_id_(sparse_id),
     shape_(shape) {
@@ -190,8 +192,8 @@ class Metadata {
   static MetadataFlag AllocateNewFlag(std::string &&name);
 
   // Individual flag setters
-  void Set(const MetadataFlag f) { DoBit(f, true); }             ///< Set specific bit
-  void Unset(const MetadataFlag f) { DoBit(f, false); }          ///< Unset specific bit
+  void Set(MetadataFlag f) { DoBit(f, true); }             ///< Set specific bit
+  void Unset(MetadataFlag f) { DoBit(f, false); }          ///< Unset specific bit
 
   /*--------------------------------------------------------*/
   // Getters for attributes
@@ -237,21 +239,42 @@ class Metadata {
   }
 
   /// returns true if bit is set, false otherwise
-  bool IsSet(const MetadataFlag bit) const { return bits_[bit.flag_]; }
+  bool IsSet(MetadataFlag bit) const {
+    return bit.flag_ < bits_.size() && bits_[bit.flag_];
+  }
 
   // Operators
   bool operator==(const Metadata &b) const {
-    return PackedTuple() == b.PackedTuple();
+    auto const &a = *this;
+
+    // Check extra bits are unset
+    auto const min_bits = std::min(a.bits_.size(), b.bits_.size());
+    auto const &longer = a.bits_.size() > b.bits_.size() ? a.bits_ : b.bits_;
+    for (auto i = min_bits; i < longer.size(); i++) {
+      if (longer[i]) {
+        // Bits are default false, so if any bit in the extraneous portion of the longer
+        // bit list is set, then it cannot be equal to a.
+        return false;
+      }
+    }
+
+    for (size_t i = 0; i < min_bits; i++) {
+      if (a.bits_[i] != b.bits_[i]) {
+        return false;
+      }
+    }
+
+    return std::tie(a.shape_, a.sparse_id_) == std::tie(b.shape_, b.sparse_id_);
   }
 
   bool operator!=(const Metadata &b) const {
-    return PackedTuple() != b.PackedTuple();
+    return !(*this == b);
   }
 
   void Associate(const std::string &name) { associated_ = name; }
   const std::string& getAssociated() const { return associated_; }
 
-private:
+ private:
   /// the attribute flags that are set for the class
   std::vector<bool> bits_;
   std::vector<int> shape_;
@@ -308,7 +331,7 @@ private:
   }
 
   /// if flag is true set bit, clears otherwise
-  void DoBit(MetadataFlag bit, const bool flag) {
+  void DoBit(MetadataFlag bit, bool flag) {
     if (bit.flag_ >= bits_.size()) {
       bits_.resize(bit.flag_ + 1);
     }
@@ -327,5 +350,5 @@ private:
             );
   }
 };
-}
+} // namespace parthenon
 #endif // INTERFACE_METADATA_HPP_
