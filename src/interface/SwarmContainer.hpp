@@ -95,12 +95,12 @@ class SwarmContainer {
                                  std::string(" swarm not found in Get()\n") );
   }
 
-  Variable<T>& Get(const int index) {
-    return *(s->swarms[index]);
+  Swarm& Get(const int index) {
+    return *(swarms[index]);
   }
 
   int Index(const std::string& label) {
-    for (int i = 0; i < swarmArray.size(); i++) {
+    for (int i = 0; i < swarms.size(); i++) {
       if (! swarms[i]->label().compare(label)) return i;
     }
     return -1;
@@ -142,6 +142,11 @@ class SwarmContainer {
   bool ReceiveBoundaryBuffers();
   void StartReceiving(BoundaryCommSubset phase);
   void ClearBoundary(BoundaryCommSubset phase);
+
+ int GetVariables(const std::vector<std::string>& names,
+                               std::vector<Swarm>& sRet,
+                               std::map<std::string,std::pair<int,int>>& indexCount,
+                               const std::vector<int>& sparse_ids);
 
  private:
   int debug=0;

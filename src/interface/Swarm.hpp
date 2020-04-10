@@ -41,7 +41,7 @@ class MeshBlock;
 
 class Swarm {
   public:
-    Swarm(const std::string label, Metadata &metadata) :
+    Swarm(const std::string label, const Metadata &metadata) :
       _label(label),
       _m(metadata),
       mpiStatus(true) {}
@@ -57,12 +57,15 @@ class Swarm {
 
   std::string getAssociated() { return _m.getAssociated(); }
 
+  /// return information string
+  std::string info() { return std::string("Default information"); }
+
   bool mpiStatus;
 
  private:
   Metadata _m;
   std::string _label;
-}
+};
 
 } // namespace parthenon
 
