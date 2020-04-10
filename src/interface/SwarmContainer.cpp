@@ -17,16 +17,15 @@
 #include "bvals/cc/bvals_cc.hpp"
 #include "SwarmContainer.hpp"
 #include "globals.hpp" // my_rank
-#include "SparseVariable.hpp"
 #include "mesh/mesh.hpp"
 
 namespace parthenon {
 
 void SwarmContainer::Add(const std::vector<std::string> labelArray,
-                       const Metadata &metadata) {
+                       const SwarmMetadata &smetadata) {
   // generate the vector and call Add
   for (auto label : labelArray) {
-    Add(label, metadata);
+    Add(label, smetadata);
   }
 }
 
@@ -35,15 +34,14 @@ void SwarmContainer::Add(const std::vector<std::string> labelArray,
 /// is topology aware and will allocate accordingly.
 ///
 /// @param label the name of the variable
-/// @param metadata the metadata associated with the variable
+/// @param pmetadata the metadata associated with the particle
 void SwarmContainer::Add(const std::string label,
-                       const Metadata &metadata) {
-  auto swarm = std::make_shared<Swarm>(label, metadata);
+                       const SwarmMetadata &smetadata) {
+  auto swarm = std::make_shared<Swarm>(label, smetadata);
+  // TODO(BRR) check that swarm isn't already enrolled?
   swarms.push_back(swarm);
 }
 
-// TODO(JMM): this could be cleaned up, I think.
-// Maybe do only one loop, or do the cleanup at the end.
 void SwarmContainer::Remove(const std::string label) {
   int idx, isize;
 

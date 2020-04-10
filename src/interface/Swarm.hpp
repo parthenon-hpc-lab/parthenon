@@ -34,37 +34,92 @@
 #include "athena.hpp"
 #include "athena_arrays.hpp"
 #include "bvals/cc/bvals_cc.hpp"
-#include "Metadata.hpp"
+#include "ParticleMetadata.hpp"
+#include "SwarmMetadata.hpp"
 
 namespace parthenon {
 class MeshBlock;
 
+enum class PARTICLE_TYPE {
+  INT, REAL, STRING
+};
+
+enum class PARTICLE_STATUS {
+  UNALLOCATED, ALIVE, DEAD
+};
+
 class Swarm {
   public:
-    Swarm(const std::string label, const Metadata &metadata) :
+    Swarm(const std::string label, const SwarmMetadata &smetadata,
+      const int nmax_pool_in = 1000) :
       _label(label),
-      _m(metadata),
+      _sm(smetadata),
+      _nmax_pool(nmax_pool_in),
       mpiStatus(true) {}
 
-  ///< Assign label for variable
+  ///< Assign label for swarm
   void setLabel(const std::string label) { _label = label; }
 
-  ///< retrieve label for variable
+  ///< retrieve label for swarm
   std::string label() const { return _label; }
 
-  ///< retrieve metadata for variable
-  const Metadata metadata() const { return _m; }
+  ///< retrieve metadata for swarm
+  const SwarmMetadata swarmmetadata() const { return _sm; }
 
-  std::string getAssociated() { return _m.getAssociated(); }
+  /// Assign info for swarm
+  void setInfo(const std::string info) { _info = info; }
 
   /// return information string
-  std::string info() { return std::string("Default information"); }
+  std::string info() { return _info; }
+
+  /// Set max pool size
+  void setPoolMax(const int nmax_pool) {
+    _nmax_pool = nmax_pool;
+    // TODO(BRR) resize arrays and copy data
+  }
 
   bool mpiStatus;
 
+  void Add(const std::string &label, const ParticleMetadata) {
+    // TODO(BRR) fix this
+    PARTICLE_TYPE type = PARTICLE_TYPE::REAL;
+    // TODO(BRR) check that value isn't already enrolled?
+    _labelArray.push_back(label);
+    _typeArray.push_back(type);
+    if (type == PARTICLE_TYPE::INT) {
+      _intArray.push_back(std::make_shared<AthenaArray<int>>(_nmax_pool));
+    } else if (type == PARTICLE_TYPE::REAL) {
+      _realArray.push_back(std::make_shared<AthenaArray<Real>>(_nmax_pool));
+    } else if (type == PARTICLE_TYPE::STRING) {
+      _stringArray.push_back(std::make_shared<AthenaArray<std::string>>(_nmax_pool));
+    } else {
+      throw std::invalid_argument(std::string("\n") +
+                                  std::to_string(static_cast<int>(type)) +
+                                  std::string(" not a PARTICLE_TYPE in Add()\n") );
+
+    }
+  }
+
+  void AddParticle() {
+    // Check that particle fits, if not double size of pool via
+    // setPoolMax(2*_nmax_pool);
+  }
+
+  void Defrag() {
+    // TODO(BRR) Put an O(N) algorithm here to defrag memory
+  }
+
  private:
-  Metadata _m;
+  int _nmax_pool;
+  SwarmMetadata _sm;
   std::string _label;
+  std::string _info;
+  std::vector<std::string> _labelArray;
+  std::vector<PARTICLE_TYPE> _typeArray;
+  std::shared_ptr<AthenaArray<PARTICLE_STATUS>> _pstatus;
+  std::vector<std::shared_ptr<AthenaArray<int>>> _intArray;
+  std::vector<std::shared_ptr<AthenaArray<Real>>> _realArray;
+  std::vector<std::shared_ptr<AthenaArray<std::string>>> _stringArray;
 };
 
 } // namespace parthenon

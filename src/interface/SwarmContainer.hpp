@@ -20,10 +20,7 @@
 #include <vector>
 #include "globals.hpp"
 //#include "mesh/mesh.hpp"
-#include "SparseVariable.hpp"
-#include "Stage.hpp"
 #include "Swarm.hpp"
-#include "Variable.hpp"
 
 namespace parthenon {
 ///
@@ -68,7 +65,7 @@ class SwarmContainer {
   /// @param label the name of the variable
   /// @param metadata the metadata associated with the variable
   ///
-  void Add(const std::string label, const Metadata &metadata);
+  void Add(const std::string label, const SwarmMetadata &smetadata);
 
   ///
   /// Allocate and add a variable<T> to the container
@@ -80,7 +77,7 @@ class SwarmContainer {
   /// @param labelArray the array of names of variables
   /// @param metadata the metadata associated with the variable
   ///
-  void Add(const std::vector<std::string> labelArray, const Metadata &metadata);
+  void Add(const std::vector<std::string> labelArray, const SwarmMetadata &smetadata);
 
   ///
   /// Get a swarm from the container
