@@ -94,6 +94,7 @@ add_library(parthenon
   interface/SparseVariable.cpp
   interface/Metadata.cpp
   interface/Stage.cpp
+  interface/SwarmContainer.cpp
   interface/Update.cpp
   interface/Variable.cpp
 
