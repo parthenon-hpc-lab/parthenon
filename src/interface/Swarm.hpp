@@ -111,6 +111,7 @@ class Swarm {
 
  private:
   int _nmax_pool;
+  int _nmax_occupied = 0;
   SwarmMetadata _sm;
   std::string _label;
   std::string _info;
