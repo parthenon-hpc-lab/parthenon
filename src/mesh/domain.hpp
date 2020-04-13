@@ -26,8 +26,10 @@
 namespace parthenon {
 
   struct IndexRange {
-    int start = 0; /// Starting Index (inclusive)
-    int end = 0; /// Ending Index (inclusive)
+    IndexRange() {};
+    IndexRange(int start, int end) : s(start), e(end) { assert(e>=s); }
+    const int s = 0; /// Starting Index (inclusive)
+    const int e = 0; /// Ending Index (inclusive)
     int ncells() const noexcept { return end-start+1; }
   };
   
@@ -45,7 +47,7 @@ namespace parthenon {
   //  |  |           |  |   | 
   //  - - - - - - - - - -   v 
   //
-  enum IndexShapeType {
+  enum class IndexDomain {
     entire,
     interior
   };
@@ -81,19 +83,19 @@ namespace parthenon {
           if (dim <= interior_dims.size()) {
             assert( interior_dims.at(index) > 0 && "IndexShape cannot be initialized with fewer "
                 "than 1 interior cells for each dimension");
-            x_[index].start = ng;
-            x_[index].end = x_[index].start + interior_dims.at(index) - 1;
+            x_[index].s = ng;
+            x_[index].e = x_[index].s + interior_dims.at(index) - 1;
             entire_ncells_[index] = interior_dims.at(index) + 2*ng;
           } else {
-            x_[index].start = 0;
-            x_[index].end = 0;
+            x_[index].s = 0;
+            x_[index].e = 0;
             entire_ncells_[index] = 1;
           }
         }
       };
 
-      std::array<IndexRange,NDIM> GetBounds(const IndexShapeType & type) const noexcept {
-        if( type==IndexShapeType::entire ){
+      std::array<IndexRange,NDIM> GetBounds(const IndexDomain & domain) const noexcept {
+        if( domain==IndexDomain::entire ){
           std::array<IndexRange,NDIM> bounds;
           for (int index=0; index<NDIM;  ++index ){
             bounds[index].start = 0;
@@ -103,70 +105,51 @@ namespace parthenon {
         }
         return x_; 
       }
-      
-      inline int is(const IndexShapeType & type) const 
-      { return (type==IndexShapeType::entire) ? 0 : x_[0].start; }
-      
-      inline int js(const IndexShapeType & type) const
-      { return (type==IndexShapeType::entire) ? 0 : x_[1].start; }
-      
-      inline int ks(const IndexShapeType & type) const
-      { return (type==IndexShapeType::entire) ? 0 : x_[2].start; }
-      
-      inline int ie(const IndexShapeType & type) const 
-      { return (type==IndexShapeType::entire) ? entire_ncells_[0]-1 : x_[0].end; }
-      
-      inline int je(const IndexShapeType & type) const 
-      { return (type==IndexShapeType::entire) ? entire_ncells_[1]-1 : x_[1].end; }
-      
-      inline int ke(const IndexShapeType & type) const 
-      { return (type==IndexShapeType::entire) ? entire_ncells_[2]-1 : x_[2].end; }
-
-      inline int nx1(const IndexShapeType & type) const 
-      { return (type==IndexShapeType::entire) ? entire_ncells_[0] : x_[0].ncells(); }
-      
-      inline int nx2(const IndexShapeType & type) const 
-      { return (type==IndexShapeType::entire) ? entire_ncells_[1] : x_[1].ncells(); }
-      
-      inline int nx3(const IndexShapeType & type) const 
-      { return (type==IndexShapeType::entire) ? entire_ncells_[2] : x_[2].ncells(); }
-
-
-      void GetIndices(const IndexShapeType & type, 
-          int & is, int & ie, int & js, int & je, int & ks, int & ke) const {
-
-        if(type==interior){
-          is = x_[0].start;
-          js = x_[1].start;
-          ks = x_[2].start;
-          ie = x_[0].end;
-          je = x_[1].end;
-          ke = x_[2].end;
-        }else{
-          is = js = ks = 0;
-          ie = entire_ncells_[0];
-          je = entire_ncells_[1];
-          ke = entire_ncells_[2];
-        }
+ 
+      inline const IndexRange GetBoundsI(const IndexDomain & domain) const {
+        return (domain==IndexDomain::entire) ? IndexRange(0,ncells_entire_[0]) : x_[0];
       }
 
-      void GetNx(const IndexShapeType & type, int & nx1, int & nx2, int & nx3) const {
-        if(type == interior){
-          nx1 = x_[0].ncells();
-          nx2 = x_[1].ncells();
-          nx3 = x_[2].ncells();
-        }else{
-          nx1 = entire_ncells_[0];
-          nx2 = entire_ncells_[1];
-          nx3 = entire_ncells_[2];
-        }
+      inline const IndexRange GetBoundsJ(const IndexDomain & domain) const {
+        return (domain==IndexDomain::entire) ? IndexRange(0,ncells_entire_[1]) : x_[1];
       }
+      
+      inline const IndexRange GetBoundsK(const IndexDomain & domain) const {
+        return (domain==IndexDomain::entire) ? IndexRange(0,ncells_entire_[2]) : x_[2];
+      }
+      
+      inline int is(const IndexDomain & domain) const 
+      { return (domain==IndexDomain::entire) ? 0 : x_[0].s; }
+      
+      inline int js(const IndexDomain & domain) const
+      { return (domain==IndexDomain::entire) ? 0 : x_[1].s; }
+      
+      inline int ks(const IndexDomain & domain) const
+      { return (domain==IndexDomain::entire) ? 0 : x_[2].s; }
+      
+      inline int ie(const IndexDomain & domain) const 
+      { return (domain==IndexDomain::entire) ? entire_ncells_[0]-1 : x_[0].e; }
+      
+      inline int je(const IndexDomain & domain) const 
+      { return (domain==IndexDomain::entire) ? entire_ncells_[1]-1 : x_[1].e; }
+      
+      inline int ke(const IndexDomain & domain) const 
+      { return (domain==IndexDomain::entire) ? entire_ncells_[2]-1 : x_[2].e; }
+
+      inline int ncellsi(const IndexDomain & domain) const 
+      { return (domain==IndexDomain::entire) ? entire_ncells_[0] : x_[0].ncells(); }
+      
+      inline int ncellsj(const IndexDomain & domain) const 
+      { return (domain==IndexDomain::entire) ? entire_ncells_[1] : x_[1].ncells(); }
+      
+      inline int ncellsk(const IndexDomain & domain) const 
+      { return (domain==IndexDomain::entire) ? entire_ncells_[2] : x_[2].ncells(); }
 
       // Kept basic for kokkos
-      int GetTotal(const IndexShapeType & type) const noexcept { 
+      int GetTotal(const IndexDomain & domain) const noexcept { 
         if(x_.size() == 0) return 0;
         int total = 1;
-        if(type==entire){
+        if(domain==entire){
           for( int i = 0; i<NDIM; ++i) total*= x_[i].ncells();
         }else{
           for( int i = 0; i<NDIM; ++i) total*= entire_ncells_[i];
