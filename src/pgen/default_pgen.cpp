@@ -31,11 +31,6 @@
 // architecutres and compilers. In such cases, simply define all 6 of the below class
 // functions in every pgen/*.cpp file (without any function attributes).
 
-// C headers
-
-// C++ headers
-
-// Athena++ headers
 #include "athena.hpp"
 #include "mesh/mesh.hpp"
 #include "parameter_input.hpp"
@@ -44,6 +39,7 @@
 // 3x members of Mesh class:
 
 namespace parthenon {
+
 //========================================================================================
 //! \fn void Mesh::InitUserMeshData(ParameterInput *pin)
 //  \brief Function to initialize problem-specific data in Mesh class.  Can also be used
@@ -134,4 +130,5 @@ void __attribute__((weak)) MeshBlock::UserWorkBeforeOutput(ParameterInput *pin) 
   // do nothing
   return;
 }
+
 } // namespace parthenon

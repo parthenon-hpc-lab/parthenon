@@ -24,9 +24,10 @@
 //========================================================================================
 
 #include "mesh/mesh.hpp"
-#include "reconstruction.hpp"
+#include "reconstruct/reconstruction.hpp"
 
 namespace parthenon {
+
 //----------------------------------------------------------------------------------------
 //! \fn Reconstruction::PiecewiseLinearX1()
 //  \brief
@@ -243,6 +244,6 @@ void Reconstruction::PiecewiseLinearX3(const int k, const int j, const int il,
       qr(n, i) = qc(n, i) - dxm * dqm(n, i);
     }
   }
-  return;
 }
+
 } // namespace parthenon

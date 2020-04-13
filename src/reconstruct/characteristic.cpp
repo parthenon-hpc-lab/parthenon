@@ -17,9 +17,10 @@
 //! \file characteristic.cpp
 //  \brief Functions to transform vectors between primitive and characteristic variables
 
-#include "reconstruction.hpp"
+#include "reconstruct/reconstruction.hpp"
 
 namespace parthenon {
+
 //----------------------------------------------------------------------------------------
 //! \fn Reconstruction::LeftEigenmatrixDotVector()
 //  \brief Computes inner-product of left-eigenmatrix of Roe's matrix A in the primitive
@@ -64,4 +65,5 @@ void Reconstruction::RightEigenmatrixDotVector(const int ivx, const int il, cons
                                                ParArrayND<Real> &vect) {
   throw std::runtime_error(std::string(__func__) + " is not implemented");
 }
+
 } // namespace parthenon

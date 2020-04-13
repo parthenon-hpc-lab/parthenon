@@ -123,7 +123,7 @@ add_library(parthenon
   refinement/amr_criteria.cpp
   refinement/refinement.cpp
 
-  task_list/task_id.cpp
+  task_list/tasks.cpp
 
   utils/buffer_utils.cpp
   utils/change_rundir.cpp
