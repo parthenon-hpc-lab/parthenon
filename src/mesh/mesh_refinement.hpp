@@ -28,6 +28,7 @@
 #include "parthenon_arrays.hpp"
 
 namespace parthenon {
+
 class MeshBlock;
 class ParameterInput;
 class Coordinates;
@@ -91,5 +92,7 @@ class MeshRefinement {
   std::vector<std::tuple<ParArrayND<Real>, ParArrayND<Real>>> pvars_cc_;
   std::vector<std::tuple<FaceField *, FaceField *>> pvars_fc_;
 };
+
 } // namespace parthenon
+
 #endif // MESH_MESH_REFINEMENT_HPP_

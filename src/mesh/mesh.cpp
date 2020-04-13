@@ -17,27 +17,18 @@
 //! \file mesh.cpp
 //  \brief implementation of functions in Mesh class
 
-// C headers
-// pre-C11: needed before including inttypes.h, else won't define int64_t for C++ code
-// #define __STDC_FORMAT_MACROS
-
-#define STR(str, idx, nbx)                                                               \
-  (std::string(str) + ":rank=" + std::to_string(Globals::my_rank) +                      \
-   ":blk=" + std::to_string(idx) + ":of:" + std::to_string(nbx))
-
 #include <algorithm>
-#include <cinttypes> // format macro "PRId64" for fixed-width integer type std::int64_t
-#include <cmath>     // std::abs(), std::pow()
-#include <cstdint>   // std::int64_t fixed-wdith integer type alias
+#include <cinttypes>
+#include <cmath>
+#include <cstdint>
 #include <cstdlib>
-#include <cstring> // std::memcpy()
-#include <iomanip> // std::setprecision()
+#include <cstring>
+#include <iomanip>
 #include <iostream>
 #include <limits>
 #include <sstream>
-#include <stdexcept> // runtime_error
-#include <string>    // c_str()
-#include <unistd.h>  // usleep
+#include <stdexcept>
+#include <string>
 #include <vector>
 
 #include "parthenon_mpi.hpp"
@@ -47,15 +38,16 @@
 #include "bvals/bvals.hpp"
 #include "coordinates/coordinates.hpp"
 #include "globals.hpp"
-#include "mesh.hpp"
-#include "mesh_refinement.hpp"
-#include "meshblock_tree.hpp"
+#include "mesh/mesh.hpp"
+#include "mesh/mesh_refinement.hpp"
+#include "mesh/meshblock_tree.hpp"
 #include "outputs/io_wrapper.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/buffer_utils.hpp"
 
 namespace parthenon {
+
 //----------------------------------------------------------------------------------------
 // Mesh constructor, builds mesh at start of calculation using parameters in input file
 

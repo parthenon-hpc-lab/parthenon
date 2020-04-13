@@ -17,28 +17,25 @@
 //! \file mesh_refinement.cpp
 //  \brief implements functions for static/adaptive mesh refinement
 
-// C headers
-
-// C++ headers
-#include <algorithm> // max()
+#include <algorithm>
 #include <cmath>
-#include <cstring> // strcmp()
+#include <cstring>
 #include <sstream>
-#include <stdexcept> // runtime_error
+#include <stdexcept>
 #include <string>
 #include <tuple>
 
-// Athena++ headers
 #include "athena.hpp"
 #include "coordinates/coordinates.hpp"
 #include "globals.hpp"
-#include "mesh.hpp"
-#include "mesh_refinement.hpp"
+#include "mesh/mesh.hpp"
+#include "mesh/mesh_refinement.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 #include "refinement/refinement.hpp"
 
 namespace parthenon {
+
 //----------------------------------------------------------------------------------------
 //! \fn MeshRefinement::MeshRefinement(MeshBlock *pmb, ParameterInput *pin)
 //  \brief constructor
@@ -1066,4 +1063,5 @@ int MeshRefinement::AddToRefinement(FaceField *pvar_fc, FaceField *pcoarse_fc) {
   pvars_fc_.push_back(std::make_tuple(pvar_fc, pcoarse_fc));
   return static_cast<int>(pvars_fc_.size() - 1);
 }
+
 } // namespace parthenon

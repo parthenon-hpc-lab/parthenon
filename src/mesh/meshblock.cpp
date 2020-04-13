@@ -17,21 +17,17 @@
 //! \file mesh.cpp
 //  \brief implementation of functions in MeshBlock class
 
-// C headers
-
-// C++ headers
-#include <algorithm> // sort()
+#include <algorithm>
 #include <cstdlib>
-#include <cstring> // memcpy()
-#include <ctime>   // clock(), CLOCKS_PER_SEC, clock_t
+#include <cstring>
+#include <ctime>
 #include <iomanip>
 #include <iostream>
 #include <iterator>
 #include <sstream>
-#include <stdexcept> // runtime_error
-#include <string>    // c_str()
+#include <stdexcept>
+#include <string>
 
-// Athena++ headers
 #include "athena.hpp"
 #include "bvals/bvals.hpp"
 #include "coordinates/coordinates.hpp"
@@ -40,14 +36,15 @@
 #include "interface/Metadata.hpp"
 #include "interface/Variable.hpp"
 #include "kokkos_abstraction.hpp"
-#include "mesh.hpp"
-#include "mesh_refinement.hpp"
-#include "meshblock_tree.hpp"
+#include "mesh/mesh.hpp"
+#include "mesh/mesh_refinement.hpp"
+#include "mesh/meshblock_tree.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/buffer_utils.hpp"
 
 namespace parthenon {
+
 //----------------------------------------------------------------------------------------
 // MeshBlock constructor: constructs coordinate, boundary condition, field
 //                        and mesh refinement objects.
@@ -140,7 +137,7 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
     }
   }
 
-  // TODO: Should these loops be moved to Variable creation
+  // TODO(jdolence): Should these loops be moved to Variable creation
   ContainerIterator<Real> ci(real_container, {Metadata::Independent});
   int nindependent = ci.vars.size();
   for (int n = 0; n < nindependent; n++) {
@@ -327,4 +324,5 @@ void MeshBlock::RegisterMeshBlockData(std::shared_ptr<FaceField> pvar_fc) {
   vars_fc_.push_back(pvar_fc);
   return;
 }
+
 } // namespace parthenon
