@@ -24,7 +24,7 @@ In Parthenon, each ```MeshBlock``` owns a ```Packages_t``` object, which is a ``
 
 # ParArrayND
 
-This provides a light wrapper around ```Kokkos::View``` with some convenience features.  It is described fully [here](parthenon_arrays.md).
+This provides a light wrapper around ```Kokkos::View``` with some convenience features.  It is described fully [here](../parthenon_arrays.md).
 
 # CellVariable
 
