@@ -121,9 +121,6 @@ void CellVariable<T>::allocateComms(MeshBlock *pmb) {
   pmb->pbval->bvars.push_back(vbvar);
   pmb->pbval->bvars_main_int.push_back(vbvar);
 
-  // register the variable
-  //pmb->RegisterMeshBlockData(*this);
-
   mpiStatus = false;
 }
 
