@@ -66,6 +66,7 @@ namespace DriverUtils {
     }
     int complete_cnt = 0;
     while (complete_cnt != nmb) {
+// TODO(pgrete): need to let Kokkos::PartitionManager handle this
 //#pragma omp parallel for reduction(+ : complete_cnt) num_threads(nthreads) schedule(dynamic,1)
       for (auto i = 0; i < nmb; ++i) {
         if (!task_lists[i].IsComplete()) {
@@ -76,7 +77,6 @@ namespace DriverUtils {
         }
       }
     }
-    //std::exit(1);
     return TaskListStatus::complete;
   }
 } // namespace DriverUtils
