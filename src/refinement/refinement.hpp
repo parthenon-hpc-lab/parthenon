@@ -22,7 +22,6 @@
 #include "interface/StateDescriptor.hpp"
 #include "interface/Variable.hpp"
 
-
 namespace parthenon {
 
 class ParameterInput;
