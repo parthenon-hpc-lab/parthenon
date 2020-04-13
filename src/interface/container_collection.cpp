@@ -30,7 +30,8 @@ void ContainerCollection<T>::Add(const std::string& name, Container<T>& src) {
   auto c = std::make_shared<Container<T>>();
   c->pmy_block = src.pmy_block;
   for (auto v : src.GetCellVariableVector()) {
-    if (v->isSet(Metadata::OneCopy)) {
+    if (v->IsSet(Metadata::OneCopy)) {
+      // just copy the (shared) pointer
       c->Add(v);
     } else {
       c->Add( std::make_shared<CellVariable<T>>(*v) );
@@ -38,7 +39,7 @@ void ContainerCollection<T>::Add(const std::string& name, Container<T>& src) {
   }
 
   for (auto v : src.GetFaceVector()) {
-    if (v->isSet(Metadata::OneCopy)) {
+    if (v->IsSet(Metadata::OneCopy)) {
       c->Add(v);
     } else {
       throw std::runtime_error("Non-oneCopy face variables are not yet supported");
@@ -46,7 +47,7 @@ void ContainerCollection<T>::Add(const std::string& name, Container<T>& src) {
   }
 
   for (auto v : src.GetSparseVector()) {
-    if (v->isSet(Metadata::OneCopy)) {
+    if (v->IsSet(Metadata::OneCopy)) {
       c->Add(v);
     } else {
       c->Add( std::make_shared<SparseVariable<T>>(*v) );

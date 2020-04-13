@@ -27,7 +27,7 @@ The class provides a nontrivial copy constructor.  Given a ```CellVariable```, t
 
 Additionally, the class overloads the ```()``` operator to provide convenient access to the ```data``` array, though this may be less efficient than operating directly on ```data``` or a reference/copy of that array.
 
-Finally, the ```bool isSet(const MetadataFlag bit)``` member function provides a convenient mechanism to query whether a particular ```Metadata``` flag is set for the ```CellVariable```.
+Finally, the ```bool IsSet(const MetadataFlag bit)``` member function provides a convenient mechanism to query whether a particular ```Metadata``` flag is set for the ```CellVariable```.
 
 
 # FaceVariable (Work in progress...)
@@ -36,7 +36,7 @@ Finally, the ```bool isSet(const MetadataFlag bit)``` member function provides a
 
 # SparseVariable
 
-The ```SparseVariable``` class is designed to support multi-component state where not all components may be present and therefore need to be stored.  At its core, the data is represented using a map that associates an integer ID to a ```std::shared_ptr<CellVariable<T>>```.  Since all ```CellVariable``` entries are assumed to have identical ```Metadata``` flags, the class provides an ```isSet``` member function identical to the ```CellVariable``` class that applies to all variables stored in the map.  The ```Get``` method takes an integer ID as input and returns a reference to the associated ```CellVariable```, or throws a ```std::invalid_argument``` error if it does not exist.  The ```GetVector``` method returns a dense ```std::vector```, eliminating the sparsity but also the association to particular IDs.  The ```GetIndex``` method provides the index in this vector associated with a given sparse ID, and returns -1 if the ID does not exist.
+The ```SparseVariable``` class is designed to support multi-component state where not all components may be present and therefore need to be stored.  At its core, the data is represented using a map that associates an integer ID to a ```std::shared_ptr<CellVariable<T>>```.  Since all ```CellVariable``` entries are assumed to have identical ```Metadata``` flags, the class provides an ```IsSet``` member function identical to the ```CellVariable``` class that applies to all variables stored in the map.  The ```Get``` method takes an integer ID as input and returns a reference to the associated ```CellVariable```, or throws a ```std::invalid_argument``` error if it does not exist.  The ```GetVector``` method returns a dense ```std::vector```, eliminating the sparsity but also the association to particular IDs.  The ```GetIndex``` method provides the index in this vector associated with a given sparse ID, and returns -1 if the ID does not exist.
 
 # Container
 

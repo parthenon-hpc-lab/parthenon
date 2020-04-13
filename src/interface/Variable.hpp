@@ -86,7 +86,7 @@ class CellVariable {
   /// Repoint vbvar's var_cc array at the current variable
   void resetBoundary() { vbvar->var_cc = data; }
 
-  bool isSet(const MetadataFlag bit) const { return _m.IsSet(bit); }
+  bool IsSet(const MetadataFlag bit) const { return _m.IsSet(bit); }
 
   ParArrayND<T> data;
   ParArrayND<T> flux[3];    // used for boundary calculation
@@ -164,7 +164,7 @@ class FaceVariable {
       return data.x3f(std::forward<Args>(args)...);
   }
 
-  bool isSet(const MetadataFlag bit) const { return _m.IsSet(bit); }
+  bool IsSet(const MetadataFlag bit) const { return _m.IsSet(bit); }
 
   FaceArray<T> data;
 
@@ -202,7 +202,7 @@ class EdgeVariable {
   ///< retrieve metadata for variable
   const Metadata metadata() const { return _m; }
 
-  bool isSet(const MetadataFlag bit) const { return _m.IsSet(bit); }
+  bool IsSet(const MetadataFlag bit) const { return _m.IsSet(bit); }
   ///< retrieve label for variable
   std::string label() { return _label; }
 

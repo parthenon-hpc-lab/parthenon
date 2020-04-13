@@ -161,12 +161,12 @@ void Container<T>::Remove(const std::string label) {
 template <typename T>
 void Container<T>::SendFluxCorrection() {
   for (auto &v : _varVector) {
-    if ( v->isSet(Metadata::Independent) ) {
+    if ( v->IsSet(Metadata::Independent) ) {
       v->vbvar->SendFluxCorrection();
     }
   }
   for (auto &sv : _sparseVector) {
-    if ( (sv->isSet(Metadata::Independent)) ) {
+    if ( (sv->IsSet(Metadata::Independent)) ) {
       CellVariableVector<T> vvec = sv->GetVector();
       for (auto & v : vvec) {
         v->vbvar->SendFluxCorrection();
@@ -179,13 +179,13 @@ template <typename T>
 bool Container<T>::ReceiveFluxCorrection() {
   int success=0, total=0;
   for (auto &v : _varVector) {
-    if (v->isSet(Metadata::Independent)) {
+    if (v->IsSet(Metadata::Independent)) {
       if(v->vbvar->ReceiveFluxCorrection()) success++;
       total++;
     }
   }
   for (auto &sv : _sparseVector) {
-    if ( sv->isSet(Metadata::Independent) ) {
+    if ( sv->IsSet(Metadata::Independent) ) {
       CellVariableVector<T> vvec = sv->GetVector();
       for (auto & v : vvec) {
         if (v->vbvar->ReceiveFluxCorrection()) success++;
@@ -202,13 +202,13 @@ void Container<T>::SendBoundaryBuffers() {
   debug=0;
   //  std::cout << "_________SEND from stage:"<<s->name()<<std::endl;
   for (auto &v : _varVector) {
-    if ( v->isSet(Metadata::FillGhost) ) {
+    if ( v->IsSet(Metadata::FillGhost) ) {
       v->resetBoundary();
       v->vbvar->SendBoundaryBuffers();
     }
   }
   for (auto &sv : _sparseVector) {
-    if ( sv->isSet(Metadata::FillGhost) ) {
+    if ( sv->IsSet(Metadata::FillGhost) ) {
       CellVariableVector<T> vvec = sv->GetVector();
       for (auto & v : vvec) {
         v->resetBoundary();
@@ -224,13 +224,13 @@ template <typename T>
 void Container<T>::SetupPersistentMPI() {
   // setup persistent MPI
   for (auto &v : _varVector) {
-    if ( v->isSet(Metadata::FillGhost) ) {
+    if ( v->IsSet(Metadata::FillGhost) ) {
         v->resetBoundary();
         v->vbvar->SetupPersistentMPI();
     }
   }
   for (auto &sv : _sparseVector) {
-    if ( sv->isSet(Metadata::FillGhost) ) {
+    if ( sv->IsSet(Metadata::FillGhost) ) {
       CellVariableVector<T> vvec = sv->GetVector();
       for (auto & v : vvec) {
         v->resetBoundary();
@@ -248,7 +248,7 @@ bool Container<T>::ReceiveBoundaryBuffers() {
   ret = true;
   // receives the boundary
   for (auto &v : _varVector) {
-    if ( v->isSet(Metadata::FillGhost) ) {
+    if ( v->IsSet(Metadata::FillGhost) ) {
       //ret = ret & v->vbvar->ReceiveBoundaryBuffers();
       // In case we have trouble with multiple arrays causing
       // problems with task status, we should comment one line
@@ -261,7 +261,7 @@ bool Container<T>::ReceiveBoundaryBuffers() {
     }
   }
   for (auto &sv : _sparseVector) {
-    if ( sv->isSet(Metadata::FillGhost) ) {
+    if ( sv->IsSet(Metadata::FillGhost) ) {
       CellVariableVector<T> vvec = sv->GetVector();
       for (auto & v : vvec) {
         if (! v->mpiStatus) {
@@ -280,14 +280,14 @@ template <typename T>
 void Container<T>::ReceiveAndSetBoundariesWithWait() {
   //  std::cout << "_________RSET from stage:"<<s->name()<<std::endl;
   for (auto &v : _varVector) {
-    if ( (!v->mpiStatus) && v->isSet(Metadata::FillGhost) ) {
+    if ( (!v->mpiStatus) && v->IsSet(Metadata::FillGhost) ) {
       v->resetBoundary();
       v->vbvar->ReceiveAndSetBoundariesWithWait();
       v->mpiStatus = true;
     }
   }
   for (auto &sv : _sparseVector) {
-    if ( (sv->isSet(Metadata::FillGhost)) ) {
+    if ( (sv->IsSet(Metadata::FillGhost)) ) {
       CellVariableVector<T> vvec = sv->GetVector();
       for (auto & v : vvec) {
         if (! v->mpiStatus) {
@@ -309,14 +309,14 @@ void Container<T>::SetBoundaries() {
   // sets the boundary
   //  std::cout << "_________BSET from stage:"<<s->name()<<std::endl;
   for (auto &v : _varVector) {
-    if ( v->isSet(Metadata::FillGhost) ) {
+    if ( v->IsSet(Metadata::FillGhost) ) {
       v->resetBoundary();
       v->vbvar->SetBoundaries();
       //v->mpiStatus=true;
     }
   }
   for (auto &sv : _sparseVector) {
-    if ( sv->isSet(Metadata::FillGhost) ) {
+    if ( sv->IsSet(Metadata::FillGhost) ) {
       CellVariableVector<T> vvec = sv->GetVector();
       for (auto & v : vvec) {
         v->resetBoundary();
@@ -329,12 +329,12 @@ void Container<T>::SetBoundaries() {
 template <typename T>
 void Container<T>::ResetBoundaryCellVariables() {
   for (auto &v : _varVector) {
-    if ( v->isSet(Metadata::FillGhost) ) {
+    if ( v->IsSet(Metadata::FillGhost) ) {
       v->vbvar->var_cc = v->data;
     }
   }
   for (auto &sv : _sparseVector) {
-    if ( sv->isSet(Metadata::FillGhost) ) {
+    if ( sv->IsSet(Metadata::FillGhost) ) {
       CellVariableVector<T> vvec = sv->GetVector();
       for (auto & v : vvec) {
         v->vbvar->var_cc = v->data;
@@ -349,14 +349,14 @@ void Container<T>::StartReceiving(BoundaryCommSubset phase) {
   // sets the boundary
   //  std::cout << "________CLEAR from stage:"<<s->name()<<std::endl;
   for (auto &v : _varVector) {
-    if ( v->isSet(Metadata::FillGhost) ) {
+    if ( v->IsSet(Metadata::FillGhost) ) {
       v->resetBoundary();
       v->vbvar->StartReceiving(phase);
       v->mpiStatus=false;
     }
   }
   for (auto &sv : _sparseVector) {
-    if ( sv->isSet(Metadata::FillGhost) ) {
+    if ( sv->IsSet(Metadata::FillGhost) ) {
       CellVariableVector<T> vvec = sv->GetVector();
       for (auto & v : vvec) {
         v->resetBoundary();
@@ -373,12 +373,12 @@ void Container<T>::ClearBoundary(BoundaryCommSubset phase) {
   // sets the boundary
   //  std::cout << "________CLEAR from stage:"<<s->name()<<std::endl;
   for (auto &v : _varVector) {
-    if ( v->isSet(Metadata::FillGhost) ) {
+    if ( v->IsSet(Metadata::FillGhost) ) {
       v->vbvar->ClearBoundary(phase);
     }
   }
   for (auto &sv : _sparseVector) {
-    if ( sv->isSet(Metadata::FillGhost) ) {
+    if ( sv->IsSet(Metadata::FillGhost) ) {
       CellVariableVector<T> vvec = sv->GetVector();
       for (auto & v : vvec) {
         v->vbvar->ClearBoundary(phase);

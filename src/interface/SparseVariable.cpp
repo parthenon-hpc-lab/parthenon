@@ -19,18 +19,18 @@ namespace parthenon {
 template <typename T>
 void SparseVariable<T>::Add(int varIndex) {
   // Now allocate depending on topology
-  if ( ( _metadata.Where() == Metadata::Cell) ||
-       ( _metadata.Where() == Metadata::Node)) {
+  if ( ( metadata_.Where() == Metadata::Cell) ||
+       ( metadata_.Where() == Metadata::Node)) {
       // check if variable index already exists
-    if (_varMap.find(varIndex) != _varMap.end()) {
+    if (varMap_.find(varIndex) != varMap_.end()) {
       throw std::invalid_argument ("Duplicate index in create SparseVariable");
     }
     // create the variable and add to map
-    std::string my_name = _label + "_" + std::to_string(varIndex);
-    auto v = std::make_shared<CellVariable<T>>(my_name, _dims, _metadata);
-    _varArray.push_back(v);
-    _indexMap.push_back(varIndex);
-    _varMap[varIndex] = v;
+    std::string my_name = label_ + "_" + std::to_string(varIndex);
+    auto v = std::make_shared<CellVariable<T>>(my_name, dims_, metadata_);
+    varArray_.push_back(v);
+    indexMap_.push_back(varIndex);
+    varMap_[varIndex] = v;
   } else {
     throw std::invalid_argument ("unsupported type in SparseVariable");
   }

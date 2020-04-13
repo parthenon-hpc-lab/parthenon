@@ -96,7 +96,7 @@ void CellVariable<T>::allocateComms(MeshBlock *pmb) {
 
   // set up fluxes
   std::string base_name = label();
-  if (isSet(Metadata::Independent)) {
+  if (IsSet(Metadata::Independent)) {
     flux[0] = ParArrayND<T>(base_name +   ".flux0",
       GetDim(6), GetDim(5), GetDim(4), GetDim(3), GetDim(2), GetDim(1));
     if (pmb->pmy_mesh->ndim >= 2)
