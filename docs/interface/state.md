@@ -4,7 +4,23 @@ Parthenon manages simulation data through a hierarchy of classes designed to pro
 
 # Metadata
 
-The metadata class provides a mechanism to inform parthenon about an application's needs with respect to each variable.  It's documentation can be found [here](Metadata.md).
+The ```Metadata``` class provides a means of defining self-describing variables within Parthenon.  It's documentation can be found [here](Metadata.md).
+
+# StateDescriptor
+
+The ```StateDescriptor``` class is intended to be used to inform Parthenon about the needs of an application and store relevant parameters that control application-specific behavior at runtime.  The class provides several useful features and functions.
+* ```bool AddField(const std::string& field_name, Metadata& m, DerivedOwnership owner=DerivedOwnership::unique)```
+Provides the means to add new variables to a Parthenon-based application with associated ```Metadata```.  This function does not allocate any storage or create any of the objects below, it simply adds the name and ```Metadata``` to a list so that those objects can be populated at the appropriate time.
+* ```void AddParam<T>(const std::string& key, T& value)``` adds a parameter (e.g. a timestep control coefficient, refinement tolerance, etc.) with name ```key``` and value ```value```.
+* ```const T& Param(const std::string& key)``` provides the getter to access parameters previously added by ```AddParam```.
+* ```std::vector<std::shared_ptr<AMRCriteria>> amr_criteria``` holds a vector of criteria that Parthenon will make use of when tagging cells for refinement and derefinement.
+* ```void (*FillDerived)(Container<Real>& rc)``` is a function pointer (defaults to ```nullptr``` and therefore a no-op) that allows an application to provide a function that fills in derived quantities from independent state.
+* ```Real (*EstimateTimestep)(Container<Real>& rc)``` is a function pointer (defaults to ```nullptr``` and therefore a no-op) that allows an application to provide a means of computing stable/accurate timesteps.
+* ```AmrTag (*CheckRefinement)(Container<Real>& rc)``` is a function pointer (defaults to ```nullptr``` and therefore a no-op) that allows an application to define an application-specific refinement/de-refinement tagging function. 
+
+In Parthenon, each ```MeshBlock``` owns a ```Packages_t``` object, which is a ```std::map<std::string, std::shared_ptr<StateDescriptor>>```.  The object is intended to be populated with a ```StateDescriptor``` object per package via an ```Initialize``` function as in the advection example [here](../example/advection/advection.cpp).  When Parthenon makes use of the ```Packages_t``` object, it iterates over all entries in the ```std::map```.
+
+
 
 # ParArrayND
 
@@ -19,14 +35,11 @@ The ```CellVariable``` class collects several associated objects that are needed
 | ```ParArrayND<T> data``` | Storage for the cell-centered associated with the object. |
 | ```ParArrayND<T> flux[3]``` | Storage for the face-centered intercell fluxes in each direction.<br>Only allocated for fields registered with the ```Metadata::Independent``` flag. |
 | ```ParArrayND<T> coarse_s``` | Storage for coarse buffers need for multilevel setups. |
-| ```std::array<int,6> _dims``` | Dimensions of the data. |
-| ```Metadata _m``` | See [here](Metadata.md). |
-| ```std::string _label``` | The name of the variable. |
+| ```Metadata m_``` | See [here](Metadata.md). |
 
 Additionally, the class overloads the ```()``` operator to provide convenient access to the ```data``` array, though this may be less efficient than operating directly on ```data``` or a reference/copy of that array.
 
 Finally, the ```bool IsSet(const MetadataFlag bit)``` member function provides a convenient mechanism to query whether a particular ```Metadata``` flag is set for the ```CellVariable```.
-
 
 # FaceVariable (Work in progress...)
 
@@ -42,8 +55,8 @@ The ```Container``` class provides a means of organizing and accessing simulatio
 
 # ContainerCollection
 
-The ```ContainerCollection``` class is the highest level abstraction in parthenon's state management.  Each ```MeshBlock``` in a simulation owns a ```ContainerCollection``` that through the classes just described, manages all of the simulation data.  Every ```ContainerCollection``` is initialized with a ```Container``` named ```"base"```.  The ```Get``` function, when invoked without arguments, returns a reference to this base ```Container``` which is intended to contain all of the simulation data that persists between timesteps (if applicable).
+The ```ContainerCollection``` class is the highest level abstraction in Parthenon's state management.  Each ```MeshBlock``` in a simulation owns a ```ContainerCollection``` that through the classes just described, manages all of the simulation data.  Every ```ContainerCollection``` is initialized with a ```Container``` named ```"base"```.  The ```Get``` function, when invoked without arguments, returns a reference to this base ```Container``` which is intended to contain all of the simulation data that persists between timesteps (if applicable).
 
 The ```Add(const std::string& label, Container<T>& src)``` member function creates a new ```Container``` with the provided label.  This new ```Container``` is populated with all of the variables in ```src```.  When a variable has the ```Metadata::OneCopy``` flag set, the variables in the new ```Container``` are are just shallow copies from ```src```, i.e. no new storage for data is allocated, the ```std::shared_ptr``` to the variable is just copied.  For variables that do not have ```Metadata::OneCopy``` set, new storage is allocated.  Once created, these new containers are accesible by calling ```Get``` with the name of the desired ```Container``` as an argument.
 
-Two simple examples of usage of these new containers are 1) to provide storage for multistage integration schemes and 2) to provide a mechanism to allocate storage for right hand sides, deltas, etc.  Both of these usages are demonstrated in the advection example that ships with parthenon.
+Two simple examples of usage of these new containers are 1) to provide storage for multistage integration schemes and 2) to provide a mechanism to allocate storage for right hand sides, deltas, etc.  Both of these usages are demonstrated in the advection example that ships with Parthenon.

@@ -80,18 +80,17 @@ namespace advection_example::Advection {
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto pkg = std::make_shared<StateDescriptor>("Advection");
-  Params& params = pkg->AllParams();
 
   Real cfl = pin->GetOrAddReal("Advection", "cfl", 0.45);
-  params.Add("cfl", cfl);
+  pkg->AddParam<>("cfl",cfl);
   Real vx  = pin->GetOrAddReal("Advection", "vx", 1.0);
-  params.Add("vx", vx);
+  pkg->AddParam<>("vx",vx);
   Real vy  = pin->GetOrAddReal("Advection", "vy", 1.0);
-  params.Add("vy", vy);
+  pkg->AddParam<>("vy",vy);
   Real refine_tol  = pin->GetOrAddReal("Advection", "refine_tol", 0.3);
-  params.Add("refine_tol", refine_tol);
+  pkg->AddParam<>("refine_tol",refine_tol);
   Real derefine_tol  = pin->GetOrAddReal("Advection", "derefine_tol", 0.03);
-  params.Add("derefine_tol", derefine_tol);
+  pkg->AddParam<>("derefine_tol",derefine_tol);
 
   std::string field_name = "advected";
   Metadata m(
