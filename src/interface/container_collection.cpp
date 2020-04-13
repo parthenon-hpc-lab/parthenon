@@ -34,7 +34,8 @@ void ContainerCollection<T>::Add(const std::string& name, Container<T>& src) {
       // just copy the (shared) pointer
       c->Add(v);
     } else {
-      c->Add( std::make_shared<CellVariable<T>>(*v) );
+      // allocate new storage
+      c->Add( v->AllocateCopy() );
     }
   }
 
@@ -48,9 +49,10 @@ void ContainerCollection<T>::Add(const std::string& name, Container<T>& src) {
 
   for (auto v : src.GetSparseVector()) {
     if (v->IsSet(Metadata::OneCopy)) {
+      // copy the shared pointer
       c->Add(v);
     } else {
-      c->Add( std::make_shared<SparseVariable<T>>(*v) );
+      c->Add( v->AllocateCopy() );
     }
   }
 

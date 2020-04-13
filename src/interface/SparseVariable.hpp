@@ -42,14 +42,12 @@ class SparseVariable {
   SparseVariable(const std::string& label, const Metadata& m, std::array<int,6>& dims)
     : dims_(dims), label_(label), metadata_(m) {}
 
-  SparseVariable(SparseVariable& src)
-    : dims_(src.dims_), label_(src.label_), metadata_(src.metadata_) {
-    for (auto & v : src.varMap_) {
-      auto var = std::make_shared<CellVariable<T>>(*v.second);
-      varMap_[v.first] = var;
-      varArray_.push_back(var);
-      indexMap_.push_back(v.first);
+  std::shared_ptr<SparseVariable<T>> AllocateCopy() {
+    auto sv = std::make_shared<SparseVariable<T>>(label_, metadata_, dims_);
+    for (auto & v : varMap_) {
+      sv->Add(v.first, v.second->AllocateCopy());
     }
+    return sv;
   }
 
   /// create a new variable alias from variable 'theLabel' in input variable mv
@@ -63,7 +61,7 @@ class SparseVariable {
 
   // accessors
   inline CellVariable<T>& operator() (const int m) {
-    return *(varMap_[m]); 
+    return *(varMap_[m]);
   }
   inline T& operator() (const int m, const int i) {
     return (*(varMap_[m]))(i);
@@ -97,11 +95,12 @@ class SparseVariable {
   }
 
   CellVariable<T>& Get(const int index) {
-    if (varMap_.find(index) == varMap_.end()) {
+    auto it = varMap_.find(index);
+    if (it == varMap_.end()) {
       throw std::invalid_argument("index " + std::to_string(index) +
                                   "does not exist in SparseVariable");
     }
-    return *(varMap_[index]);
+    return *(it->second);
   }
 
   int GetIndex(int id) {
@@ -133,6 +132,14 @@ class SparseVariable {
   CellVariableVector<T> varArray_;
   std::vector<int> indexMap_;
   CellVariableVector<T> _empty;
+
+
+  void Add(int varIndex, std::shared_ptr<CellVariable<T>> cv) {
+    varArray_.push_back(cv);
+    indexMap_.push_back(varIndex);
+    varMap_[varIndex] = cv;
+  }
+
 };
 
 template <typename T>

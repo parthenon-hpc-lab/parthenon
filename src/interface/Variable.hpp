@@ -50,12 +50,16 @@ class CellVariable {
               const Metadata &metadata) :
     data(label, dims[5], dims[4], dims[3], dims[2], dims[1], dims[0]),
     mpiStatus(true),
-    _m(metadata) { }
+    m_(metadata) { }
 
   /// copy constructor
-  CellVariable<T>(const CellVariable<T>& src,
+  /*CellVariable<T>(const CellVariable<T>& src,
               const bool allocComms=false,
-              MeshBlock *pmb=nullptr);
+              MeshBlock *pmb=nullptr);*/
+
+  // make a new CellVariable based on an existing one
+  std::shared_ptr<CellVariable<T>> AllocateCopy(const bool allocComms=false,
+                                                MeshBlock *pmb=nullptr);
 
   // accessors
 
@@ -67,15 +71,15 @@ class CellVariable {
   auto GetDim(const int i) const { return data.GetDim(i); }
 
   ///< Assign label for variable
-  //void setLabel(const std::string label) { _label = label; }
+  //void setLabel(const std::string label) { label_ = label; }
 
   ///< retrieve label for variable
   const std::string label() const { return data.label(); }
 
   ///< retrieve metadata for variable
-  const Metadata metadata() const { return _m; }
+  Metadata metadata() const { return m_; }
 
-  std::string getAssociated() { return _m.getAssociated(); }
+  std::string getAssociated() { return m_.getAssociated(); }
 
   /// return information string
   std::string info();
@@ -86,7 +90,7 @@ class CellVariable {
   /// Repoint vbvar's var_cc array at the current variable
   void resetBoundary() { vbvar->var_cc = data; }
 
-  bool IsSet(const MetadataFlag bit) const { return _m.IsSet(bit); }
+  bool IsSet(const MetadataFlag bit) const { return m_.IsSet(bit); }
 
   ParArrayND<T> data;
   ParArrayND<T> flux[3];    // used for boundary calculation
@@ -96,7 +100,7 @@ class CellVariable {
   bool mpiStatus;
 
  private:
-  Metadata _m;
+  Metadata m_;
 };
 
 
@@ -113,9 +117,9 @@ class FaceVariable {
   FaceVariable(const std::string label, const std::array<int,6> ncells,
     const Metadata& metadata)
     : data(label,ncells[5], ncells[4], ncells[3], ncells[2], ncells[1], ncells[0]),
-      _dims(ncells),
-      _m(metadata),
-      _label(label) {
+      dims_(ncells),
+      m_(metadata),
+      label_(label) {
     assert ( !metadata.IsSet(Metadata::Sparse)
              && "Sparse not implemented yet for FaceVariable" );
   }
@@ -123,19 +127,19 @@ class FaceVariable {
   /// Create an alias for the variable by making a shallow slice with max dim
   FaceVariable(std::string label, FaceVariable<T> &src)
     : data(src.data),
-      _dims(src._dims),
-      _m(src._m),
-      _label(label) { }
+      dims_(src.dims_),
+      m_(src.m_),
+      label_(label) { }
 
   // KOKKOS_FUNCTION FaceVariable() = default;
   // KOKKOS_FUNCTION FaceVariable(const FaceVariable<T>& v) = default;
   // KOKKOS_FUNCTION ~FaceVariable() = default;
 
   ///< retrieve label for variable
-  const std::string& label() const { return _label; }
+  const std::string& label() const { return label_; }
 
   ///< retrieve metadata for variable
-  const Metadata metadata() const { return _m; }
+  const Metadata metadata() const { return m_; }
 
   /// return information string
   std::string info();
@@ -164,14 +168,14 @@ class FaceVariable {
       return data.x3f(std::forward<Args>(args)...);
   }
 
-  bool IsSet(const MetadataFlag bit) const { return _m.IsSet(bit); }
+  bool IsSet(const MetadataFlag bit) const { return m_.IsSet(bit); }
 
   FaceArray<T> data;
 
  private:
-  std::array<int,6> _dims;
-  Metadata _m;
-  std::string _label;
+  std::array<int,6> dims_;
+  Metadata m_;
+  std::string label_;
 };
 
 ///
@@ -186,9 +190,9 @@ class EdgeVariable {
   EdgeVariable(const std::string label, const std::array<int,6> ncells,
     const Metadata& metadata)
     : data(label,ncells[5], ncells[4], ncells[3], ncells[2], ncells[1], ncells[0]),
-      _dims(ncells),
-      _m(metadata),
-      _label(label) {
+      dims_(ncells),
+      m_(metadata),
+      label_(label) {
     assert ( !metadata.IsSet(Metadata::Sparse)
              && "Sparse not implemented yet for FaceVariable" );
   }
@@ -196,15 +200,15 @@ class EdgeVariable {
   /// Create an alias for the variable by making a shallow slice with max dim
   EdgeVariable(std::string label, EdgeVariable<T> &src)
     : data(src.data),
-      _dims(src._dims),
-      _m(src._m),
-      _label(label) { }
+      dims_(src.dims_),
+      m_(src.m_),
+      label_(label) { }
   ///< retrieve metadata for variable
-  const Metadata metadata() const { return _m; }
+  const Metadata metadata() const { return m_; }
 
-  bool IsSet(const MetadataFlag bit) const { return _m.IsSet(bit); }
+  bool IsSet(const MetadataFlag bit) const { return m_.IsSet(bit); }
   ///< retrieve label for variable
-  std::string label() { return _label; }
+  std::string label() { return label_; }
 
   /// return information string
   std::string info();
@@ -212,9 +216,9 @@ class EdgeVariable {
   EdgeArray<Real> data;
 
  private:
-  std::array<int,6> _dims;
-  Metadata _m;
-  std::string _label;
+  std::array<int,6> dims_;
+  Metadata m_;
+  std::string label_;
 };
 
 

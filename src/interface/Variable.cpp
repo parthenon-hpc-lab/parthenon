@@ -48,43 +48,46 @@ std::string CellVariable<T>::info() {
     }
     s += stmp;
     // now append flag
-    s += " : " + _m.MaskAsString();
+    s += " : " + m_.MaskAsString();
 
     return s;
   }
 
 // copy constructor
 template <typename T>
-CellVariable<T>::CellVariable(const CellVariable<T> &src,
-                      const bool allocComms,
-                      MeshBlock *pmb) :
-  mpiStatus(false), _m(src._m)  {
-  data = ParArrayND<T>(src.label(), src.GetDim(6), src.GetDim(5), src.GetDim(4),
-                       src.GetDim(3), src.GetDim(2), src.GetDim(1));
-  if (_m.IsSet(Metadata::FillGhost)) {
-    // Ghost cells are communicated, so make shallow copies
-    // of communication arrays and swap out the boundary array
+std::shared_ptr<CellVariable<T>> CellVariable<T>::AllocateCopy(const bool allocComms,
+                      MeshBlock *pmb) {
+  std::array<int,6> dims =  {GetDim(1), GetDim(2), GetDim(3),
+                             GetDim(4), GetDim(5), GetDim(6)};
 
+  // copy the Metadata and set the SharedComms flag if appropriate
+  Metadata m = m_;
+  if ( IsSet(Metadata::FillGhost) && !allocComms ) {
+    m.Set(Metadata::SharedComms);
+  }
+
+  // make the new CellVariable
+  auto cv = std::make_shared<CellVariable<T>>(label(), dims, m);
+
+  if (IsSet(Metadata::FillGhost)) {
     if ( allocComms ) {
-      allocateComms(pmb);
+      cv->allocateComms(pmb);
     } else {
-      _m.Set(Metadata::SharedComms); // note that comms are shared
-
       // set data pointer for the boundary communication
       // Note that vbvar->var_cc will be set when stage is selected
-       vbvar = src.vbvar;
+       cv->vbvar = vbvar;
 
       // fluxes, etc are always a copy
       for (int i = 0; i<3; i++) {
-        flux[i] = src.flux[i];
+        cv->flux[i] = flux[i];
       }
 
       // These members are pointers,
       // point at same memory as src
-      //coarse_r = src.coarse_r;
-      coarse_s = src.coarse_s;
+      cv->coarse_s = coarse_s;
     }
   }
+  return cv;
 }
 
 
