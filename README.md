@@ -72,4 +72,5 @@ how to use them.
 | Forrest Glines | @forrestglines | Athena Physics |
 | Jim Stone | @jmstone | Athena Physics |
 | Jonas Lippuner | @jlippuner | LANL Computer Science |
+| Joshua Brown | @JoshuaSBrown | LANL Computer Science |
 
