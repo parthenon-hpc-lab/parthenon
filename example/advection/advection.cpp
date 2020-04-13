@@ -325,10 +325,10 @@ TaskStatus UpdateContainer(MeshBlock *pmb, int stage,
   return TaskStatus::complete;
 }
 
-
+// See the advection.hpp declaration for a description of how this function gets called.
 TaskList AdvectionDriver::MakeTaskList(MeshBlock *pmb, int stage) {
   TaskList tl;
-  // we're going to populate our last with multiple kinds of tasks
+  // we're going to populate our list with multiple kinds of tasks
   // these lambdas just clean up the interface to adding tasks of the relevant kinds
   auto AddMyTask =
   [&tl, pmb, stage, this] (BlockStageNamesIntegratorTaskFunc func, TaskID dep) {
