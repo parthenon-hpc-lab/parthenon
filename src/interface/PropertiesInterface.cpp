@@ -10,9 +10,10 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#include "PropertiesInterface.hpp"
+#include "interface/PropertiesInterface.hpp"
 
 namespace parthenon {
+
 // Initialize the static map of ids
 std::map<std::string, int> PropertiesInterface::_label_to_id;
 

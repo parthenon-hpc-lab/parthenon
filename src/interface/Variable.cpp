@@ -11,11 +11,10 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#include <array>
-#include <iostream>
-#include <string>
+#include "interface/Variable.hpp"
 
-#include "Variable.hpp"
+#include <iostream>
+
 #include "bvals/cc/bvals_cc.hpp"
 #include "mesh/mesh.hpp"
 #include "parthenon_arrays.hpp"
@@ -159,4 +158,5 @@ std::string EdgeVariable<T>::info() {
 template class CellVariable<Real>;
 template class FaceVariable<Real>;
 template class EdgeVariable<Real>;
+
 } // namespace parthenon

@@ -18,8 +18,6 @@
 #ifndef INTERFACE_SPARSEVARIABLE_HPP_
 #define INTERFACE_SPARSEVARIABLE_HPP_
 
-#include "Variable.hpp"
-#include "globals.hpp"
 #include <functional>
 #include <iostream>
 #include <map>
@@ -27,6 +25,9 @@
 #include <set>
 #include <string>
 #include <vector>
+
+#include "globals.hpp"
+#include "interface/Variable.hpp"
 
 namespace parthenon {
 

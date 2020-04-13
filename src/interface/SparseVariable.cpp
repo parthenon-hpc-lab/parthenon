@@ -10,9 +10,10 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#include "SparseVariable.hpp"
-#include "PropertiesInterface.hpp"
-#include "athena.hpp"
+
+#include "interface/SparseVariable.hpp"
+
+#include "interface/Metadata.hpp"
 
 namespace parthenon {
 
@@ -36,4 +37,5 @@ void SparseVariable<T>::Add(int varIndex) {
 }
 
 template class SparseVariable<Real>;
+
 } // namespace parthenon

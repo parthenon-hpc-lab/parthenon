@@ -12,22 +12,22 @@
 //========================================================================================
 #ifndef INTERFACE_CONTAINERITERATOR_HPP_
 #define INTERFACE_CONTAINERITERATOR_HPP_
-///
+
 /// Provides an iterator that iterates over the variables in a
 /// container.  Eventually this will get transitioned to an iterator
 /// type in the Container itself, but for now we have to do it this
 /// way because Sriram doesn't know enough C++ to do this correctly.
-///
-//#include <iterator>
+
 #include <array>
 #include <memory>
 #include <vector>
 
-#include "Container.hpp"
-#include "Variable.hpp"
+#include "interface/Container.hpp"
 #include "interface/PropertiesInterface.hpp"
+#include "interface/Variable.hpp"
 
 namespace parthenon {
+
 template <typename T>
 class ContainerIterator {
  public:

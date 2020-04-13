@@ -10,28 +10,33 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef UPDATE_HPP_PK
-#define UPDATE_HPP_PK
+#ifndef INTERFACE_UPDATE_HPP_
+#define INTERFACE_UPDATE_HPP_
 
 #include "athena.hpp"
 #include "interface/Container.hpp"
 #include "mesh/mesh.hpp"
+
 namespace parthenon {
+
 namespace Update {
 
 TaskStatus FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont);
 void UpdateContainer(Container<Real> &in, Container<Real> &dudt_cont, const Real dt,
                      Container<Real> &out);
 void AverageContainers(Container<Real> &c1, Container<Real> &c2, const Real wgt1);
-
 Real EstimateTimestep(Container<Real> &rc);
 
 } // namespace Update
 
 namespace FillDerivedVariables {
+
 using FillDerivedFunc = void(Container<Real> &);
 void SetFillDerivedFunctions(FillDerivedFunc *pre, FillDerivedFunc *post);
 TaskStatus FillDerived(Container<Real> &rc);
+
 } // namespace FillDerivedVariables
+
 } // namespace parthenon
-#endif
+
+#endif // INTERFACE_UPDATE_HPP_

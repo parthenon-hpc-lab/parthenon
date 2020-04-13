@@ -10,10 +10,11 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef STATE_DESCRIPTOR_HPP
-#define STATE_DESCRIPTOR_HPP
+#ifndef INTERFACE_STATEDESCRIPTOR_HPP_
+#define INTERFACE_STATEDESCRIPTOR_HPP_
 
 #include <map>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -132,4 +133,5 @@ class StateDescriptor {
 using Packages_t = std::map<std::string, std::shared_ptr<StateDescriptor>>;
 
 } // namespace parthenon
-#endif // STATE_DESCRIPTOR_HPP
+
+#endif // INTERFACE_STATEDESCRIPTOR_HPP_

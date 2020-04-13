@@ -10,11 +10,13 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef PARTHENON_INTERFACE_PROPERTIESINTERFACE_HPP_
-#define PARTHENON_INTERFACE_PROPERTIESINTERFACE_HPP_
+#ifndef INTERFACE_PROPERTIESINTERFACE_HPP_
+#define INTERFACE_PROPERTIESINTERFACE_HPP_
 
 #include <map>
+#include <memory>
 #include <string>
+#include <vector>
 
 #include "interface/StateDescriptor.hpp"
 
@@ -51,4 +53,4 @@ using Properties_t = std::vector<std::shared_ptr<PropertiesInterface>>;
 
 } // namespace parthenon
 
-#endif // PARTHENON_INTERFACE_PROPERTIESINTERFACE_HPP_
+#endif // INTERFACE_PROPERTIESINTERFACE_HPP_

@@ -10,20 +10,19 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+#include "interface/Container.hpp"
+
 #include <cstdlib>
 #include <memory>
 #include <utility>
 #include <vector>
 
-#include "Container.hpp"
-#include "SparseVariable.hpp"
 #include "bvals/cc/bvals_cc.hpp"
-#include "globals.hpp" // my_rank
 #include "mesh/mesh.hpp"
 
 namespace parthenon {
 
-///
 /// The new version of Add that takes the fourth dimension from
 /// the metadata structure
 template <typename T>
