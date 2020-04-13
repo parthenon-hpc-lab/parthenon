@@ -65,9 +65,6 @@ class CellVariable {
   KOKKOS_FORCEINLINE_FUNCTION
   auto GetDim(const int i) const { return data.GetDim(i); }
 
-  ///< Assign label for variable
-  //void setLabel(const std::string label) { label_ = label; }
-
   ///< retrieve label for variable
   const std::string label() const { return data.label(); }
 
