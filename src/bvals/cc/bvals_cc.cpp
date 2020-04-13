@@ -288,7 +288,6 @@ void CellCenteredBoundaryVariable::SetBoundaryFromCoarser(Real *buf,
 
   int p = 0;
   BufferUtility::UnpackData(buf, coarse_buf, nl_, nu_, si, ei, sj, ej, sk, ek, p);
-  //pmb->pmr->ProlongateCellCenteredValues(coarse_var, *var_cc, nl_, nu_, si, ei, sj, ej, sk, ek);
 }
 
 
@@ -300,7 +299,6 @@ void CellCenteredBoundaryVariable::SetBoundaryFromCoarser(Real *buf,
 void CellCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
                                                         const NeighborBlock& nb) {
   MeshBlock *pmb = pmy_block_;
-  //ParArrayND<Real> &var = *var_cc;
   // receive already restricted data
   int si, sj, sk, ei, ej, ek;
 
