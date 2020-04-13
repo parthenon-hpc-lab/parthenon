@@ -76,7 +76,8 @@ void ParthenonManager::SetFillDerivedFunctions() {
 // how parthenon functions and any tasks needed to *//
 // implement the "physics"                         *//
 // *************************************************//
-namespace advection_example::Advection {
+namespace advection_example {
+namespace Advection {
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto pkg = std::make_shared<StateDescriptor>("Advection");
@@ -303,6 +304,7 @@ TaskStatus CalculateFluxes(Container<Real>& rc) {
 }
 
 } // namespace Advection
+} // namespace advection_example
 
 // *************************************************//
 // define the application driver. in this case,    *//
