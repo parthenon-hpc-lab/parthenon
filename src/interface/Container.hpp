@@ -139,6 +139,9 @@ class Container {
   const CellVariableVector<T>& GetCellVariableVector() const {
     return varVector_;
   }
+  const MapToCellVars<T> GetCellVariableMap() const {
+    return varMap_;
+  }
   CellVariable<T>& Get(std::string label) {
     auto it = varMap_.find(label);
     if (it == varMap_.end()) {
@@ -165,6 +168,9 @@ class Container {
   //
   const SparseVector<T> GetSparseVector() const {
     return sparseVector_;
+  }
+  const MapToSparse<T> GetSparseMap() const {
+    return sparseMap_;
   }
   SparseVariable<T>& GetSparseVariable(const std::string& label) {
     auto it = sparseMap_.find(label);
@@ -193,6 +199,12 @@ class Container {
   //
   // Queries related to FaceVariable objects
   //
+  const FaceVector<T>& GetFaceVector() const {
+    return faceVector_;
+  }
+  const MapToFace<T> GetFaceMap() const {
+    return faceMap_;
+  }
   FaceVariable<T>& GetFace(std::string label) {
     auto it = faceMap_.find(label);
     if (it == faceMap_.end()) {
@@ -244,16 +256,6 @@ class Container {
   // return number of stored arrays
   int Size() {return varVector_.size();}
 
-  // // returne variable at index
-  // std::weak_ptr<CellVariable<T>>& at(const int index) {
-  //   return varVector_.at(index);
-  // }
-
-  const FaceVector<T>& GetFaceVector() const {
-    return faceVector_;
-  }
-
-
   // Communication routines
   void ResetBoundaryCellVariables();
   void SetupPersistentMPI();
@@ -292,6 +294,32 @@ class Container {
   static TaskStatus ClearBoundaryTask(Container<T>& rc) {
     rc.ClearBoundary(BoundaryCommSubset::all);
     return TaskStatus::complete;
+  }
+
+  bool operator== (const Container<T>& cmp) {
+    // do some kind of check of equality
+    // do the two containers contain the same named fields?
+    std::vector<std::string> my_keys;
+    std::vector<std::string> cmp_keys;
+    for (auto & v : varMap_) {
+      my_keys.push_back(v.first);
+    }
+    for (auto & v : faceMap_) {
+      my_keys.push_back(v.first);
+    }
+    for (auto & v : sparseMap_) {
+      my_keys.push_back(v.first);
+    }
+    for (auto & v : cmp.GetCellVariableMap()) {
+      cmp_keys.push_back(v.first);
+    }
+    for (auto & v : cmp.GetFaceMap()) {
+      cmp_keys.push_back(v.first);
+    }
+    for (auto & v : cmp.GetSparseMap()) {
+      cmp_keys.push_back(v.first);
+    }
+    return (my_keys == cmp_keys);
   }
 
  private:
