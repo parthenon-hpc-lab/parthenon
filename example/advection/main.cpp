@@ -40,7 +40,7 @@ int main(int argc, char *argv[]) {
   // make use of MPI and Kokkos
 
   // Initialize the driver
-  AdvectionDriver driver(pman.pinput.get(), pman.pmesh.get(), pman.pouts.get());
+  advection_example::AdvectionDriver driver(pman.pinput.get(), pman.pmesh.get(), pman.pouts.get());
 
   // start a timer
   pman.PreDriver();

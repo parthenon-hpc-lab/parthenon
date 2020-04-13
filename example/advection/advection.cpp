@@ -28,24 +28,16 @@
 #include "reconstruct/reconstruction.hpp"
 #include "refinement/refinement.hpp"
 
+using namespace advection_example;
 using parthenon::ParthenonManager;
-using parthenon::MeshBlock;
-using parthenon::Real;
-using parthenon::StateDescriptor;
-using parthenon::TaskStatus;
-using parthenon::TaskList;
-using parthenon::TaskID;
 using parthenon::Metadata;
 using parthenon::Params;
-using parthenon::Container;
 using parthenon::CellVariable;
-using parthenon::ParameterInput;
 using parthenon::ParArrayND;
 using parthenon::Integrator;
 using parthenon::BlockStageNamesIntegratorTaskFunc;
 using parthenon::BlockStageNamesIntegratorTask;
 using parthenon::BlockTask;
-using parthenon::AmrTag;
 
 // *************************************************//
 // redefine some weakly linked parthenon functions *//
@@ -84,7 +76,7 @@ void ParthenonManager::SetFillDerivedFunctions() {
 // how parthenon functions and any tasks needed to *//
 // implement the "physics"                         *//
 // *************************************************//
-namespace Advection {
+namespace advection_example::Advection {
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto pkg = std::make_shared<StateDescriptor>("Advection");
