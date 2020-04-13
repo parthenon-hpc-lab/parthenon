@@ -65,7 +65,8 @@ After Hermes formats your code, remember to run `git pull` to update your local 
 branch.
 
 If you'd like Hermes to amend the formatting to the latest commit, you can use the
-`--amend` option, like so:
+`--amend` option. WARNING: The usual caveats with changing history apply. See:
+https://mirrors.edge.kernel.org/pub/software/scm/git/docs/user-manual.html#problems-With-rewriting-history
 ```
 @par-hermes format --amend
 ```
