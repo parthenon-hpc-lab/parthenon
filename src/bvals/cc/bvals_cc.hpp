@@ -20,19 +20,14 @@
 //  \brief handle boundaries for any ParArrayND type variable that represents a physical
 //         quantity indexed along / located around cell-centers
 
-// C headers
-
-// C++ headers
-
-// Athena++ classes headers
-#include "bvals/bvals.hpp"
-
-// MPI headers
 #ifdef MPI_PARALLEL
 #include <mpi.h>
 #endif
 
+#include "bvals/bvals.hpp"
+
 namespace parthenon {
+
 //----------------------------------------------------------------------------------------
 //! \class CellCenteredBoundaryVariable
 //  \brief
@@ -92,5 +87,7 @@ class CellCenteredBoundaryVariable : public BoundaryVariable {
                  const int i, const Real eps, const ParArrayND<Real> &var,
                  ParArrayND<Real> &flux);
 };
+
 } // namespace parthenon
+
 #endif // BVALS_CC_BVALS_CC_HPP_

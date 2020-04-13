@@ -18,33 +18,28 @@
 //! \file bvals_cc.cpp
 //  \brief functions that apply BCs for CELL_CENTERED variables
 
-// C headers
+#include "bvals/cc/bvals_cc.hpp"
 
-// C++ headers
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
-#include <cstring>   // memcpy()
-#include <sstream>   // stringstream
-#include <stdexcept> // runtime_error
-#include <string>    // c_str()
+#include <cstring>
+#include <sstream>
+#include <stdexcept>
+#include <string>
 
-// Athena++ headers
+#ifdef MPI_PARALLEL
+#include <mpi.h>
+#endif
+
 #include "basic_types.hpp"
-#include "bvals_cc.hpp"
 #include "coordinates/coordinates.hpp"
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
 #include "parameter_input.hpp"
 #include "utils/buffer_utils.hpp"
 
-// MPI header
-#ifdef MPI_PARALLEL
-#include <mpi.h>
-#endif
-
 namespace parthenon {
-// constructor
 
 CellCenteredBoundaryVariable::CellCenteredBoundaryVariable(MeshBlock *pmb,
                                                            ParArrayND<Real> var,
@@ -501,4 +496,5 @@ void CellCenteredBoundaryVariable::ClearBoundary(BoundaryCommSubset phase) {
 #endif
   }
 }
+
 } // namespace parthenon

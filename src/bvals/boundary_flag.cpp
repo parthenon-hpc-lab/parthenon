@@ -18,16 +18,12 @@
 //  \brief utilities for processing the user's input <mesh> ixn_bc, oxn_bc parameters and
 // the associated internal BoundaryFlag enumerators
 
-// C headers
-
-// C++ headers
 #include <iostream>
 #include <sstream>
-#include <stdexcept> // runtime_error
+#include <stdexcept>
 #include <string>
 
-// Athena++ headers
-#include "bvals.hpp"
+#include "bvals/bvals.hpp"
 
 namespace parthenon {
 //----------------------------------------------------------------------------------------

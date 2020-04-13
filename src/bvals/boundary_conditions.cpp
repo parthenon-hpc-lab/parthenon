@@ -11,7 +11,7 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#include "boundary_conditions.hpp"
+#include "bvals/boundary_conditions.hpp"
 
 #include "bvals/bvals_interfaces.hpp"
 #include "interface/Container.hpp"

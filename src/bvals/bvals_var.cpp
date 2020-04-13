@@ -18,16 +18,13 @@
 //  \brief constructor/destructor and default implementations for some functions in the
 //         abstract BoundaryVariable class
 
-// C headers
+#include "bvals/bvals_interfaces.hpp"
 
-// C++ headers
-#include <cstring>   // std::memcpy
-#include <iostream>  // endl
-#include <sstream>   // stringstream
-#include <stdexcept> // runtime_error
+#include <cstring>
+#include <iostream>
+#include <sstream>
+#include <stdexcept>
 
-// Athena++ headers
-#include "bvals_interfaces.hpp"
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
 

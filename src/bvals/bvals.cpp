@@ -17,25 +17,22 @@
 //! \file bvals.cpp
 //  \brief constructor/destructor and utility functions for BoundaryValues class
 
-// C headers
+#include "bvals/bvals.hpp"
 
-// C++ headers
-#include <algorithm> // min
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
-#include <cstring> // std::memcpy
+#include <cstring>
 #include <iomanip>
-#include <iostream> // endl
+#include <iostream>
 #include <iterator>
 #include <limits>
-#include <sstream>   // stringstream
-#include <stdexcept> // runtime_error
-#include <string>    // c_str()
-#include <utility>   // swap()
+#include <sstream>
+#include <stdexcept>
+#include <string>
+#include <utility>
 #include <vector>
 
-// Athena++ headers
-#include "bvals.hpp"
 #include "coordinates/coordinates.hpp"
 #include "globals.hpp"
 #include "mesh/mesh.hpp"

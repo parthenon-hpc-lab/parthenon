@@ -17,14 +17,11 @@
 //! \file coordinates.cpp
 //  \brief implements functions for Coordinates abstract base class
 
-// C headers
+#include "coordinates/coordinates.hpp"
 
-// C++ headers
 #include <algorithm>
 
-// Athena++ headers
 #include "bvals/bvals.hpp"
-#include "coordinates.hpp"
 #include "mesh/mesh.hpp"
 #include "parameter_input.hpp"
 

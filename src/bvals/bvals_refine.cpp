@@ -17,15 +17,12 @@
 //! \file bvals_refine.cpp
 //  \brief constructor/destructor and utility functions for BoundaryValues class
 
-// C headers
+#include "bvals/bvals_interfaces.hpp"
 
-// C++ headers
-#include <algorithm> // min
+#include <algorithm>
 #include <cmath>
 #include <iterator>
 
-// Athena++ headers
-#include "bvals.hpp"
 #include "fc/bvals_fc.hpp"
 #include "mesh/mesh.hpp"
 
@@ -392,4 +389,5 @@ void BoundaryValues::ProlongateGhostCells(const NeighborBlock &nb, int si, int e
   //                                fsi, fei, fsj, fej, fsk, fek);
   return;
 }
+
 } // namespace parthenon

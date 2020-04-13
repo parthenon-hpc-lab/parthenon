@@ -17,35 +17,29 @@
 //! \file bvals_fc.cpp
 //  \brief functions that apply BCs for FACE_CENTERED variables
 
-// C headers
+#include "bvals/fc/bvals_fc.hpp"
 
-// C++ headers
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
-#include <cstring> // memcpy()
+#include <cstring>
 #include <iomanip>
-#include <iostream>  // endl
-#include <sstream>   // stringstream
-#include <stdexcept> // runtime_error
-#include <string>    // c_str()
+#include <iostream>
+#include <sstream>
+#include <stdexcept>
+#include <string>
 
-// Athena++ headers
+#ifdef MPI_PARALLEL
+#include <mpi.h>
+#endif
+
 #include "basic_types.hpp"
-#include "bvals_fc.hpp"
-#include "coordinates/coordinates.hpp"
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
 #include "parameter_input.hpp"
 #include "utils/buffer_utils.hpp"
 
-// MPI header
-#ifdef MPI_PARALLEL
-#include <mpi.h>
-#endif
-
 namespace parthenon {
-// constructor
 
 FaceCenteredBoundaryVariable::FaceCenteredBoundaryVariable(MeshBlock *pmb, FaceField *var,
                                                            FaceField &coarse_buf,
@@ -1252,4 +1246,5 @@ void FaceCenteredBoundaryVariable::ClearBoundary(BoundaryCommSubset phase) {
 #endif
   }
 }
+
 } // namespace parthenon

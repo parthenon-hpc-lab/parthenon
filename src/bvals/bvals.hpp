@@ -19,22 +19,16 @@
 //! \file bvals.hpp
 //  \brief defines BoundaryBase, BoundaryValues classes used for setting BCs on all data
 
-// C headers
-
-// C++ headers
-#include <memory>
-#include <string> // string
+#include <string>
 #include <vector>
 
-// Athena++ headers
-#include "athena.hpp"
-#include "bvals_interfaces.hpp"
-#include "parthenon_arrays.hpp"
-
-// MPI headers
 #ifdef MPI_PARALLEL
 #include <mpi.h>
 #endif
+
+#include "athena.hpp"
+#include "bvals/bvals_interfaces.hpp"
+#include "parthenon_arrays.hpp"
 
 namespace parthenon {
 // forward declarations
