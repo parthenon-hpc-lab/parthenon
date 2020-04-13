@@ -23,8 +23,6 @@
 
 namespace parthenon {
 
-  using parthenon::IndexShapeType;
-
   Packages_t ParthenonManager::ProcessPackages(std::unique_ptr<ParameterInput>& pin) {
     Packages_t packages;
     auto package = std::make_shared<StateDescriptor>("FaceFieldExample");
@@ -63,12 +61,14 @@ namespace parthenon {
     Real rank_sum = 0.0;
     MeshBlock* pmb = pmesh->pblock;
     while (pmb != nullptr) {
-      int is, ie, js, je, ks, ke;
-      pmb->cellbounds.GetIndices(interior,is,ie,js,je,ks,ke);
+      parthenon::IndexDomain interior = parthenon::IndexDomain::interior;
+      parthenon::IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
+      parthenon::IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
+      parthenon::IndexRange kb = pmb->cellbounds.GetBoundsK(interior);
       auto& summed = pmb->real_container.Get("c.c.interpolated_sum");
-      for (int k = ks; k <= ke; k++) {
-        for (int j = js; j <= je; j++) {
-          for (int i = is; i <= ie; i++) {
+      for (int k = kb.s; k <= kb.e; k++) {
+        for (int j = jb.s; j <= jb.e; j++) {
+          for (int i = ib.s; i <= ib.e; i++) {
             rank_sum += summed(k,j,i);
           }
         }
@@ -101,16 +101,17 @@ namespace parthenon {
 
     auto interpolate = tl.AddTask<BlockTask>([](MeshBlock* pmb)->TaskStatus {
         Container<Real>& rc = pmb->real_container;
-        int is, js, ks, ie, je, ke;
-        pmb->cellbounds.GetIndices(parthenon::interior,is,ie,js,je,ks,ke);
-
+        parthenon::IndexDomain interior = parthenon::IndexDomain::interior;
+        parthenon::IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
+        parthenon::IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
+        parthenon::IndexRange kb = pmb->cellbounds.GetBoundsK(interior);
         auto& face = rc.GetFace("f.f.face_averaged_value");
         auto& cell = rc.Get("c.c.interpolated_value");
         // perform interpolation
         for (int e = 0; e < 2; e++) {
-          for (int k = ks; k <= ke; k++) {
-            for (int j = js; j <= je; j++) {
-              for (int i = is; i <= ie; i++) {
+          for (int k = kb.s; k <= kb.e; k++) {
+            for (int j = jb.s; j <= jb.e; j++) {
+              for (int i = ib.s; i <= ib.e; i++) {
                 cell(e,k,j,i) = (1./6.)*(face(1,e,k,j,i) + face(1,e,k,j,i+1)
                                          + face(2,e,k,j,i) + face(2,e,k,j+1,i)
                                          + face(3,e,k,j,i) + face(3,e,k+1,j,i));
@@ -124,13 +125,15 @@ namespace parthenon {
 
     auto sum = tl.AddTask<BlockTask>([](MeshBlock* pmb)->TaskStatus {
         Container<Real>& rc = pmb->real_container;
-        int is, js, ks, ie,je, ke;
-        pmb->cellbounds.GetIndices(parthenon::interior,is,ie,js,je,ks,ke);
+        parthenon::IndexDomain interior = parthenon::IndexDomain::interior;
+        parthenon::IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
+        parthenon::IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
+        parthenon::IndexRange kb = pmb->cellbounds.GetBoundsK(interior);
         auto& interped = rc.Get("c.c.interpolated_value");
         auto& summed = rc.Get("c.c.interpolated_sum");
-        for (int k = ks; k <= ke; k++) {
-          for (int j = js; j <= je; j++) {
-            for (int i = is; i <= ie; i++) {
+        for (int k = kb.s; k <= kb.e; k++) {
+          for (int j = jb.s; j <= jb.e; j++) {
+            for (int i = ib.s; i <= ib.e; i++) {
               summed(k,j,i) = interped(0,k,j,i) + interped(1,k,j,i);
             }
           }
@@ -153,17 +156,19 @@ parthenon::TaskStatus FaceFields::fill_faces(parthenon::MeshBlock* pmb) {
   Real pz = example->Param<Real>("pz");
   parthenon::Container<Real>& rc = pmb->real_container;
   parthenon::Coordinates *pcoord = pmb->pcoord.get();
-  int is, js, ks, ie, je, ke;
-  pmb->cellbounds.GetIndices(parthenon::interior,is,ie,js,je,ks,ke);
+  parthenon::IndexDomain interior = parthenon::IndexDomain::interior;
+  parthenon::IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
+  parthenon::IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
+  parthenon::IndexRange kb = pmb->cellbounds.GetBoundsK(interior);
   auto& face = rc.GetFace("f.f.face_averaged_value");
   // fill faces
   for (int e = 0; e < face.Get(1).GetDim4(); e++) {
     int sign = (e == 0) ? -1 : 1;
-    for (int k=ks; k<=ke; k++) {
+    for (int k=kb.s; k<=kb.e; k++) {
       Real z = pcoord->x3v(k);
-      for (int j=js; j<=je; j++) {
+      for (int j=jb.s; j<=jb.e; j++) {
         Real y = pcoord->x2v(j);
-        for (int i=is; i<=ie+1; i++) {
+        for (int i=ib.s; i<=ib.e+1; i++) {
           Real x = pcoord->x1f(i);
           face(1,e,k,j,i) = sign*(pow(x,px) + pow(y,py) + pow(z,pz));
         }
@@ -172,11 +177,11 @@ parthenon::TaskStatus FaceFields::fill_faces(parthenon::MeshBlock* pmb) {
   }
   for (int e = 0; e < face.Get(2).GetDim4(); e++) {
     int sign = (e == 0) ? -1 : 1;
-    for (int k=ks; k<=ke; k++) {
+    for (int k=kb.s; k<=kb.e; k++) {
       Real z = pcoord->x3v(k);
-      for (int j=js; j<=je+1; j++) {
+      for (int j=jb.s; j<=jb.e+1; j++) {
         Real y = pcoord->x2f(j);
-        for (int i=is; i<=ie; i++) {
+        for (int i=ib.s; i<=ib.e; i++) {
           Real x = pcoord->x1v(i);
           face(2,e,k,j,i) = sign*(pow(x,px) + pow(y,py) + pow(z,pz));
         }
@@ -185,11 +190,11 @@ parthenon::TaskStatus FaceFields::fill_faces(parthenon::MeshBlock* pmb) {
   }
   for (int e = 0; e < face.Get(3).GetDim4(); e++) {
     int sign = (e == 0) ? -1 : 1;
-    for (int k=ks; k<=ke+1; k++) {
+    for (int k=kb.s; k<=kb.e+1; k++) {
       Real z= pcoord->x3f(k);
-      for (int j=js; j<=je; j++) {
+      for (int j=jb.s; j<=jb.e; j++) {
         Real y = pcoord->x2v(j);
-        for (int i=is; i<=ie; i++) {
+        for (int i=ib.s; i<=ib.e; i++) {
           Real x = pcoord->x1v(i);
           face(3,e,k,j,i) = sign*(pow(x,px) + pow(y,py) + pow(z,pz));
         }

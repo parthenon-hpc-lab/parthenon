@@ -47,8 +47,6 @@
 #include "interface/Variable.hpp"
 #include "interface/ContainerIterator.hpp"
 
-using parthenon::IndexShapeType;
-
 namespace parthenon {
 //----------------------------------------------------------------------------------------
 // MeshBlock constructor: constructs coordinate, boundary condition, field
@@ -234,21 +232,22 @@ void MeshBlock::InitializeIndexShapes() {
 
   cellbounds = IndexShape(block_size.nx1,block_size.nx2,block_size.nx3,NGHOST);
 
+  const IndexDomain interior = IndexDomain::interior;
   if (pmy_mesh->multilevel) {
 
     cnghost = (NGHOST + 1)/2 + 1;
     c_cellbounds = IndexShape(
-      cellbounds.nx1(interior)/2,
-      cellbounds.nx2(interior)/2,
-      cellbounds.nx3(interior)/2,
+      cellbounds.ncellsi(interior)/2,
+      cellbounds.ncellsj(interior)/2,
+      cellbounds.ncellsk(interior)/2,
       NGHOST);
 
   }else{
 
     c_cellbounds = IndexShape(
-      cellbounds.nx1(interior)/2,
-      cellbounds.nx2(interior)/2,
-      cellbounds.nx3(interior)/2,
+      cellbounds.ncellsi(interior)/2,
+      cellbounds.ncellsj(interior)/2,
+      cellbounds.ncellsk(interior)/2,
       0);
   }
 
@@ -301,7 +300,8 @@ void MeshBlock::AllocateUserOutputVariables(int n) {
     return;
   }
   nuser_out_var = n;
-  user_out_var.NewAthenaArray(nuser_out_var, cellbounds.nx1(entire), cellbounds.nx2(entire), cellbounds.nx1(entire));
+  const IndexDomain entire = IndexDomain::entire;
+  user_out_var.NewAthenaArray(nuser_out_var, cellbounds.ncellsi(entire), cellbounds.ncellsj(entire), cellbounds.ncellsk(entire));
   user_out_var_names_ = new std::string[n];
   return;
 }

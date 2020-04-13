@@ -38,13 +38,29 @@ Coordinates::Coordinates(MeshBlock *pmb, ParameterInput *pin, bool flag) :
   RegionSize& block_size = pmy_block->block_size;
 
   // Set indices
+  const IndexDomain interior = IndexDomain::interior;
+  const IndexDomain entire = IndexDomain::entire;
   if (coarse_flag) {
-    pmb->c_cellbounds.GetIndices(interior,il,iu,jl,ju,kl,ku);
-    pmy_block->c_cellbounds.GetNx(entire,nc1,nc2,nc3);
+    il = pmb->c_cellbounds.is(interior);
+    iu = pmb->c_cellbounds.ie(interior);
+    jl = pmb->c_cellbounds.js(interior);
+    ju = pmb->c_cellbounds.je(interior);
+    kl = pmb->c_cellbounds.ks(interior);
+    ku = pmb->c_cellbounds.ke(interior);
+    nc1 = pmy_block->c_cellbounds.ncellsi(entire);
+    nc2 = pmy_block->c_cellbounds.ncellsj(entire);
+    nc3 = pmy_block->c_cellbounds.ncellsk(entire);
     ng = NGHOST;
   } else {
-    pmb->cellbounds.GetIndices(interior,il,iu,jl,ju,kl,ku);
-    pmy_block->cellbounds.GetNx(entire,nc1,nc2,nc3);
+    il = pmb->cellbounds.is(interior);
+    iu = pmb->cellbounds.ie(interior);
+    jl = pmb->cellbounds.js(interior);
+    ju = pmb->cellbounds.je(interior);
+    kl = pmb->cellbounds.ks(interior);
+    ku = pmb->cellbounds.ke(interior);
+    nc1 = pmy_block->cellbounds.ncellsi(entire);
+    nc2 = pmy_block->cellbounds.ncellsj(entire);
+    nc3 = pmy_block->cellbounds.ncellsk(entire);
     ng = NGHOST;
   }
 

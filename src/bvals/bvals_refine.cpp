@@ -128,6 +128,7 @@ void BoundaryValues::ProlongateBoundaries(const Real time, const Real dt) {
       }
     }
 
+    const IndexDomain interior = IndexDomain::interior;
     // calculate the loop limits for the ghost zones
     int cn = pmb->cnghost - 1;
     int si, ei, sj, ej, sk, ek;
@@ -201,21 +202,21 @@ void BoundaryValues::ProlongateBoundaries(const Real time, const Real dt) {
   return;
 }
 
-static void CalcRestricedIndices(int & rs, int & re, int n, int ox, int xs, int xe){
+static void CalcRestricedIndices(int & rs, int & re, int n, int ox, const IndexRange & b){
   if (n == 0) {
-    rs = xs;
-    re = xe;
+    rs = b.s;
+    re = b.e;
     if (ox == 1) {
-      rs = xe;
+      rs = b.e;
     } else if (ox == -1) {
-      re = xs;
+      re = b.s;
     }
   } else if (n == 1) {
-    rs = xe + 1;
-    re = xe + 1;
+    rs = b.e + 1;
+    re = b.e + 1;
   } else { //(n ==  - 1)
-    rs = xs - 1;
-    re = xs - 1;
+    rs = b.s - 1;
+    re = b.s - 1;
   }
 }
 
@@ -224,13 +225,15 @@ void BoundaryValues::RestrictGhostCellsOnSameLevel(const NeighborBlock& nb, int 
   MeshBlock *pmb = pmy_block_;
   MeshRefinement *pmr = pmb->pmr.get();
 
-  int is, ie, js, je, ks, ke; 
-  pmb->c_cellbounds.GetIndices(interior,is,ie,js,je,ks,ke);
+  const IndexDomain interior = IndexDomain::interior;
+  IndexRange cib = pmb->c_cellbounds.GetBoundsI(interior);
+  IndexRange cjb = pmb->c_cellbounds.GetBoundsJ(interior);
+  IndexRange ckb = pmb->c_cellbounds.GetBoundsK(interior);
 
   int ris, rie, rjs, rje, rks, rke;
-  CalcRestricedIndices(ris,rie,ni,nb.ni.ox1,is,ie);
-  CalcRestricedIndices(rjs,rje,nj,nb.ni.ox2,js,je);
-  CalcRestricedIndices(rks,rke,nk,nb.ni.ox3,ks,ke);
+  CalcRestricedIndices(ris,rie,ni,nb.ni.ox1,cib);
+  CalcRestricedIndices(rjs,rje,nj,nb.ni.ox2,cjb);
+  CalcRestricedIndices(rks,rke,nk,nb.ni.ox3,ckb);
 
   for (auto cc_pair : pmr->pvars_cc_) {
     AthenaArray<Real> *var_cc = std::get<0>(cc_pair);
@@ -245,14 +248,14 @@ void BoundaryValues::RestrictGhostCellsOnSameLevel(const NeighborBlock& nb, int 
     FaceField *coarse_fc = std::get<1>(fc_pair);
     int &mylevel = pmb->loc.level;
     int rs = ris, re = rie + 1;
-    if (rs == is   && nblevel[nk+1][nj+1][ni  ] < mylevel) rs++;
-    if (re == ie+1 && nblevel[nk+1][nj+1][ni+2] < mylevel) re--;
+    if (rs == cib.s   && nblevel[nk+1][nj+1][ni  ] < mylevel) rs++;
+    if (re == cib.e+1 && nblevel[nk+1][nj+1][ni+2] < mylevel) re--;
     pmr->RestrictFieldX1((*var_fc).x1f, (*coarse_fc).x1f, rs, re, rjs, rje, rks,
                          rke);
     if (pmb->block_size.nx2 > 1) {
       rs = rjs, re = rje + 1;
-      if (rs == js   && nblevel[nk+1][nj  ][ni+1] < mylevel) rs++;
-      if (re == js+1 && nblevel[nk+1][nj+2][ni+1] < mylevel) re--;
+      if (rs == cjb.s   && nblevel[nk+1][nj  ][ni+1] < mylevel) rs++;
+      if (re == cjb.s+1 && nblevel[nk+1][nj+2][ni+1] < mylevel) re--;
       pmr->RestrictFieldX2((*var_fc).x2f, (*coarse_fc).x2f, ris, rie, rs, re, rks,
                            rke);
     } else { // 1D
@@ -263,8 +266,8 @@ void BoundaryValues::RestrictGhostCellsOnSameLevel(const NeighborBlock& nb, int 
     }
     if (pmb->block_size.nx3 > 1) {
       rs = rks, re =  rke + 1;
-      if (rs == ks   && nblevel[nk  ][nj+1][ni+1] < mylevel) rs++;
-      if (re == ke+1 && nblevel[nk+2][nj+1][ni+1] < mylevel) re--;
+      if (rs == ckb.s   && nblevel[nk  ][nj+1][ni+1] < mylevel) rs++;
+      if (re == ckb.e+1 && nblevel[nk+2][nj+1][ni+1] < mylevel) re--;
       pmr->RestrictFieldX3((*var_fc).x3f, (*coarse_fc).x3f, ris, rie, rjs, rje, rs,
                            re);
     } else { // 1D or 2D
@@ -354,20 +357,24 @@ void BoundaryValues::ProlongateGhostCells(const NeighborBlock& nb,
   // now that the ghost-ghost zones are filled and prolongated,
   // calculate the loop limits for the finer grid
   int fsi, fei, fsj, fej, fsk, fek;
-  int cis, cie, cjs, cje, cks, cke;
-  pmb->c_cellbounds.GetIndices(interior,cis,cie,cjs,cje,cks,cke);
-  fsi = (si - cis)*2 + pmb->cellbounds.is(interior);
-  fei = (ei - cis)*2 + pmb->cellbounds.is(interior) + 1;
+
+  const IndexDomain interior = IndexDomain::interior;
+  IndexRange cib = pmb->c_cellbounds.GetBoundsI(interior);
+  IndexRange cjb = pmb->c_cellbounds.GetBoundsJ(interior);
+  IndexRange ckb = pmb->c_cellbounds.GetBoundsK(interior);
+
+  fsi = (si - cib.s)*2 + pmb->cellbounds.is(interior);
+  fei = (ei - cib.s)*2 + pmb->cellbounds.is(interior) + 1;
   if (pmb->block_size.nx2 > 1) {
-    fsj = (sj - cjs)*2 + pmb->cellbounds.js(interior);
-    fej = (ej - cjs)*2 + pmb->cellbounds.js(interior) + 1;
+    fsj = (sj - cjb.s)*2 + pmb->cellbounds.js(interior);
+    fej = (ej - cjb.s)*2 + pmb->cellbounds.js(interior) + 1;
   } else {
     fsj = pmb->cellbounds.js(interior);
     fej = pmb->cellbounds.je(interior);
   }
   if (pmb->block_size.nx3 > 1) {
-    fsk = (sk - cks)*2 + pmb->cellbounds.ks(interior);
-    fek = (ek - cks)*2 + pmb->cellbounds.ks(interior) + 1;
+    fsk = (sk - ckb.s)*2 + pmb->cellbounds.ks(interior);
+    fek = (ek - ckb.s)*2 + pmb->cellbounds.ks(interior) + 1;
   } else {
     fsk = pmb->cellbounds.ks(interior);
     fek = pmb->cellbounds.ke(interior);

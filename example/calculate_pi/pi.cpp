@@ -116,7 +116,10 @@ namespace PiCalculator {
   void SetInOrOut(Container<Real>& rc) {
     MeshBlock *pmb = rc.pmy_block;
     int is, js, ks, ie, je, ke;
-    pmb->cellbounds.GetIndices(parthenon::interior,is,ie,js,je,ks,ke);
+    parthenon::IndexDomain interior = parthenon::IndexDomain::interior;
+    parthenon::IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
+    parthenon::IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
+    parthenon::IndexRange kb = pmb->cellbounds.GetBoundsK(interior);
 
     Coordinates *pcoord = pmb->pcoord.get();
     Variable<Real>& v = rc.Get("in_or_out");
@@ -124,9 +127,9 @@ namespace PiCalculator {
     // Set an indicator function that indicates whether the cell center
     // is inside or outside of the circle we're interating the area of.
     // see the CheckRefinement routine below for an explanation of the loop bounds
-    for (int k=ks; k<=ke; k++) {
-      for (int j=js-1; j<=je+1; j++) {
-        for (int i=is-1; i<=ie+1; i++) {
+    for (int k=kb.s; k<=kb.e; k++) {
+      for (int j=jb.s-1; j<=jb.e+1; j++) {
+        for (int i=ib.s-1; i<=ib.e+1; i++) {
           Real rsq = std::pow(pcoord->x1v(i),2) + std::pow(pcoord->x2v(j),2);
           if (rsq < radius*radius) {
             v(k,j,i) = 1.0;
@@ -162,8 +165,10 @@ namespace PiCalculator {
     // each package can define its own refinement tagging
     // function and they are all called by parthenon
     MeshBlock *pmb = rc.pmy_block;
-    int is, js, ks, ie, je, ke;
-    pmb->cellbounds.GetIndices(parthenon::interior,is,ie,js,je,ks,ke);
+    parthenon::IndexDomain interior = parthenon::IndexDomain::interior;
+    parthenon::IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
+    parthenon::IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
+    parthenon::IndexRange kb = pmb->cellbounds.GetBoundsK(interior);
 
     Variable<Real>& v = rc.Get("in_or_out");
     int delta_level = -1;
@@ -173,9 +178,9 @@ namespace PiCalculator {
     // if the edge of the circle is found.  The one layer of ghost cells
     // catches the case where the edge is between the cell centers of
     // the first/last real cell and the first ghost cell
-    for (int k=ks; k<=ke; k++) {
-      for (int j=js-1; j<=je+1; j++) {
-        for (int i=is-1; i<=ie+1; i++) {
+    for (int k=kb.s; k<=kb.e; k++) {
+      for (int j=jb.s-1; j<=jb.e+1; j++) {
+        for (int i=ib.s-1; i<=ib.e+1; i++) {
           vmin = (v(k,j,i) < vmin ? v(k,j,i) : vmin);
           vmax = (v(k,j,i) > vmax ? v(k,j,i) : vmax);
         }
@@ -213,16 +218,18 @@ namespace PiCalculator {
     // compute 1/r0^2 \int d^2x in_or_out(x,y) over the block's domain
     Container<Real>& rc = pmb->real_container;
 
-    int is, js, ks, ie, je, ke;
-    pmb->cellbounds.GetIndices(parthenon::interior,is,ie,js,je,ks,ke);
+    parthenon::IndexDomain interior = parthenon::IndexDomain::interior;
+    parthenon::IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
+    parthenon::IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
+    parthenon::IndexRange kb = pmb->cellbounds.GetBoundsK(interior);
 
     Coordinates *pcoord = pmb->pcoord.get();
     Variable<Real>& v = rc.Get("in_or_out");
     const auto& radius = pmb->packages["PiCalculator"]->Param<Real>("radius");
     Real area = 0.0;
-    for (int k=ks; k<=ke; k++) {
-      for (int j=js; j<=je; j++) {
-        for (int i=is; i<=ie; i++) {
+    for (int k=kb.s; k<=kb.e; k++) {
+      for (int j=jb.s; j<=jb.e; j++) {
+        for (int i=ib.s; i<=ib.e; i++) {
           area += v(k,j,i)*pcoord->dx1f(i)*pcoord->dx2f(j);
         }
       }

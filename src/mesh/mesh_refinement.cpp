@@ -58,7 +58,7 @@ MeshRefinement::MeshRefinement(MeshBlock *pmb, ParameterInput *pin) :
     ATHENA_ERROR(msg);
   }
 
-  int nc1 = pmb->cellbounds.nx1(entire);
+  int nc1 = pmb->cellbounds.ncellsi(IndexDomain::entire);
   fvol_[0][0].NewAthenaArray(nc1);
   fvol_[0][1].NewAthenaArray(nc1);
   fvol_[1][0].NewAthenaArray(nc1);
@@ -105,6 +105,7 @@ void MeshRefinement::RestrictCellCenteredValues(
     int csi, int cei, int csj, int cej, int csk, int cek) {
   MeshBlock *pmb = pmy_block_;
   auto &pco = pmb->pcoord;
+  const IndexDomain interior = IndexDomain::interior;
   int si = (csi - pmb->c_cellbounds.is(interior))*2 + pmb->cellbounds.is(interior), ei = (cei - pmb->c_cellbounds.is(interior))*2 + pmb->cellbounds.is(interior) + 1;
 
   // store the restricted data in the prolongation buffer for later use
@@ -181,6 +182,7 @@ void MeshRefinement::RestrictFieldX1(
     int csi, int cei, int csj, int cej, int csk, int cek) {
   MeshBlock *pmb = pmy_block_;
   auto &pco = pmb->pcoord;
+  const IndexDomain interior = IndexDomain::interior;
   int si = (csi - pmb->c_cellbounds.is(interior))*2 + pmb->cellbounds.is(interior), ei = (cei - pmb->c_cellbounds.is(interior))*2 + pmb->cellbounds.is(interior);
 
   // store the restricted data in the prolongation buffer for later use
@@ -237,6 +239,7 @@ void MeshRefinement::RestrictFieldX2(
     int csi, int cei, int csj, int cej, int csk, int cek) {
   MeshBlock *pmb = pmy_block_;
   auto &pco = pmb->pcoord;
+  const IndexDomain interior = IndexDomain::interior;
   int si = (csi - pmb->c_cellbounds.is(interior))*2 + pmb->cellbounds.is(interior), ei = (cei - pmb->c_cellbounds.is(interior))*2 + pmb->cellbounds.is(interior) + 1;
 
   // store the restricted data in the prolongation buffer for later use
@@ -294,6 +297,7 @@ void MeshRefinement::RestrictFieldX3(
     int csi, int cei, int csj, int cej, int csk, int cek) {
   MeshBlock *pmb = pmy_block_;
   auto &pco = pmb->pcoord;
+  const IndexDomain interior = IndexDomain::interior;
   int si = (csi - pmb->c_cellbounds.is(interior))*2 + pmb->cellbounds.is(interior), ei = (cei - pmb->c_cellbounds.is(interior))*2 + pmb->cellbounds.is(interior) + 1;
 
   // store the restricted data in the prolongation buffer for later use
@@ -356,6 +360,7 @@ void MeshRefinement::ProlongateCellCenteredValues(
     int sn, int en, int si, int ei, int sj, int ej, int sk, int ek) {
   MeshBlock *pmb = pmy_block_;
   auto &pco = pmb->pcoord;
+  const IndexDomain interior = IndexDomain::interior;
   if (pmb->block_size.nx3 > 1) {
     for (int n=sn; n<=en; n++) {
       for (int k=sk; k<=ek; k++) {
@@ -508,6 +513,7 @@ void MeshRefinement::ProlongateSharedFieldX1(
     int si, int ei, int sj, int ej, int sk, int ek) {
   MeshBlock *pmb = pmy_block_;
   auto &pco = pmb->pcoord;
+  const IndexDomain interior = IndexDomain::interior;
   if (pmb->block_size.nx3 > 1) {
     for (int k=sk; k<=ek; k++) {
       int fk = (k - pmb->c_cellbounds.ks(interior))*2 + pmb->cellbounds.ks(interior);
@@ -590,6 +596,7 @@ void MeshRefinement::ProlongateSharedFieldX2(
     int si, int ei, int sj, int ej, int sk, int ek) {
   MeshBlock *pmb = pmy_block_;
   auto &pco = pmb->pcoord;
+  const IndexDomain interior = IndexDomain::interior;
   if (pmb->block_size.nx3 > 1) {
     for (int k=sk; k<=ek; k++) {
       int fk = (k - pmb->c_cellbounds.ks(interior))*2 + pmb->cellbounds.ks(interior);
@@ -679,6 +686,7 @@ void MeshRefinement::ProlongateSharedFieldX3(
     int si, int ei, int sj, int ej, int sk, int ek) {
   MeshBlock *pmb = pmy_block_;
   auto &pco = pmb->pcoord;
+  const IndexDomain interior = IndexDomain::interior;
   if (pmb->block_size.nx3 > 1) {
     for (int k=sk; k<=ek; k++) {
       int fk = (k - pmb->c_cellbounds.ks(interior))*2 + pmb->cellbounds.ks(interior);
@@ -788,6 +796,7 @@ void MeshRefinement::ProlongateInternalField(
     FaceField &fine, int si, int ei, int sj, int ej, int sk, int ek) {
   MeshBlock *pmb = pmy_block_;
   auto &pco = pmb->pcoord;
+  const IndexDomain interior = IndexDomain::interior;
   int fsi = (si - pmb->c_cellbounds.is(interior))*2 + pmb->cellbounds.is(interior), fei = (ei - pmb->c_cellbounds.is(interior))*2 + pmb->cellbounds.is(interior) + 1;
   if (pmb->block_size.nx3 > 1) {
     for (int k=sk; k<=ek; k++) {

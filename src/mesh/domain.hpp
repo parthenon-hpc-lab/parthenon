@@ -28,9 +28,9 @@ namespace parthenon {
   struct IndexRange {
     IndexRange() {};
     IndexRange(int start, int end) : s(start), e(end) { assert(e>=s); }
-    const int s = 0; /// Starting Index (inclusive)
-    const int e = 0; /// Ending Index (inclusive)
-    int ncells() const noexcept { return end-start+1; }
+    int s = 0; /// Starting Index (inclusive)
+    int e = 0; /// Ending Index (inclusive)
+    int ncells() const noexcept { return e-s+1; }
   };
   
   // Assuming we have a block
@@ -83,12 +83,10 @@ namespace parthenon {
           if (dim <= interior_dims.size()) {
             assert( interior_dims.at(index) > 0 && "IndexShape cannot be initialized with fewer "
                 "than 1 interior cells for each dimension");
-            x_[index].s = ng;
-            x_[index].e = x_[index].s + interior_dims.at(index) - 1;
+            x_[index] = IndexRange(ng, (ng + interior_dims.at(index) - 1));
             entire_ncells_[index] = interior_dims.at(index) + 2*ng;
           } else {
-            x_[index].s = 0;
-            x_[index].e = 0;
+            x_[index] = IndexRange(0,0);
             entire_ncells_[index] = 1;
           }
         }
@@ -98,8 +96,8 @@ namespace parthenon {
         if( domain==IndexDomain::entire ){
           std::array<IndexRange,NDIM> bounds;
           for (int index=0; index<NDIM;  ++index ){
-            bounds[index].start = 0;
-            bounds[index].end = entire_ncells_[index];
+            bounds[index].s = 0;
+            bounds[index].e = entire_ncells_[index];
           }
           return bounds;
         }
@@ -107,15 +105,15 @@ namespace parthenon {
       }
  
       inline const IndexRange GetBoundsI(const IndexDomain & domain) const {
-        return (domain==IndexDomain::entire) ? IndexRange(0,ncells_entire_[0]) : x_[0];
+        return (domain==IndexDomain::entire) ? IndexRange(0,entire_ncells_[0]-1) : x_[0];
       }
 
       inline const IndexRange GetBoundsJ(const IndexDomain & domain) const {
-        return (domain==IndexDomain::entire) ? IndexRange(0,ncells_entire_[1]) : x_[1];
+        return (domain==IndexDomain::entire) ? IndexRange(0,entire_ncells_[1]-1) : x_[1];
       }
       
       inline const IndexRange GetBoundsK(const IndexDomain & domain) const {
-        return (domain==IndexDomain::entire) ? IndexRange(0,ncells_entire_[2]) : x_[2];
+        return (domain==IndexDomain::entire) ? IndexRange(0,entire_ncells_[2]-1) : x_[2];
       }
       
       inline int is(const IndexDomain & domain) const 
@@ -149,7 +147,7 @@ namespace parthenon {
       int GetTotal(const IndexDomain & domain) const noexcept { 
         if(x_.size() == 0) return 0;
         int total = 1;
-        if(domain==entire){
+        if(domain==IndexDomain::entire){
           for( int i = 0; i<NDIM; ++i) total*= x_[i].ncells();
         }else{
           for( int i = 0; i<NDIM; ++i) total*= entire_ncells_[i];

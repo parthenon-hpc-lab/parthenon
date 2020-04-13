@@ -1295,18 +1295,19 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
         if (multilevel)
           pbval->ProlongateBoundaries(time, 0.0);
 
-        int il, iu, jl, ju, kl, ku;
-        pmb->cellbounds.GetIndices(interior,il,iu,jl,ju,kl,ku);
+        IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior); 
+        IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior); 
+        IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior); 
 
-        if (pbval->nblevel[1][1][0] != -1) il -= NGHOST;
-        if (pbval->nblevel[1][1][2] != -1) iu += NGHOST;
+        if (pbval->nblevel[1][1][0] != -1) ib.s -= NGHOST;
+        if (pbval->nblevel[1][1][2] != -1) ib.e += NGHOST;
         if (pmb->block_size.nx2 > 1) {
-          if (pbval->nblevel[1][0][1] != -1) jl -= NGHOST;
-          if (pbval->nblevel[1][2][1] != -1) ju += NGHOST;
+          if (pbval->nblevel[1][0][1] != -1) jb.s -= NGHOST;
+          if (pbval->nblevel[1][2][1] != -1) jb.e += NGHOST;
         }
         if (pmb->block_size.nx3 > 1) {
-          if (pbval->nblevel[0][1][1] != -1) kl -= NGHOST;
-          if (pbval->nblevel[2][1][1] != -1) ku += NGHOST;
+          if (pbval->nblevel[0][1][1] != -1) kb.s -= NGHOST;
+          if (pbval->nblevel[2][1][1] != -1) kb.e += NGHOST;
         }
 
         ApplyBoundaryConditions(pmb->real_container);

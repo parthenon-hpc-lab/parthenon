@@ -119,6 +119,8 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin) :
             << "x3rat= " << pmb->block_size.x3rat << std::endl;
         ATHENA_ERROR(msg);
       }
+
+      const IndexDomain interior = IndexDomain::interior;
       Real& dx_i   = pmb->pcoord->dx1f(pmb->cellbounds.is(interior));
       Real& dx_j   = pmb->pcoord->dx2f(pmb->cellbounds.js(interior));
       Real& dx_k   = pmb->pcoord->dx3f(pmb->cellbounds.ks(interior));
@@ -188,9 +190,10 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin) :
   // limiter formulations for Schwarzschild, Kerr metrics instead of Cartesian-like wghts
 
   // Avoid pmb indirection
+  const IndexDomain entire = IndexDomain::entire;
   const IndexShape cellbounds = pmb->cellbounds;
   // Allocate memory for scratch arrays used in PLM and PPM
-  int nc1 = cellbounds.nx1(entire);
+  int nc1 = cellbounds.ncellsi(entire);
   scr01_i_.NewAthenaArray(nc1);
   scr02_i_.NewAthenaArray(nc1);
 
@@ -246,6 +249,7 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin) :
     int m_coord = 2;
 
     // zero-curvature PPM limiter does not depend on mesh uniformity:
+    const IndexDomain interior = IndexDomain::interior;
     for (int i=(pmb->cellbounds.is(interior))-1; i<=(pmb->cellbounds.ie(interior))+1; ++i) {
       // h_plus = 3.0;
       // h_minus = 3.0;
@@ -293,7 +297,7 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin) :
 
     // Precompute PPM coefficients in x2-direction ---------------------------------------
     if (pmb->block_size.nx2 > 1) {
-      int nc2 = cellbounds.nx2(entire);
+      int nc2 = cellbounds.ncellsj(entire);
       c1j.NewAthenaArray(nc2);
       c2j.NewAthenaArray(nc2);
       c3j.NewAthenaArray(nc2);
@@ -351,7 +355,7 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin) :
 
     // Precompute PPM coefficients in x3-direction
     if (pmb->block_size.nx3 > 1) {
-      int nc3 = cellbounds.nx3(entire);
+      int nc3 = cellbounds.ncellsk(entire);
       c1k.NewAthenaArray(nc3);
       c2k.NewAthenaArray(nc3);
       c3k.NewAthenaArray(nc3);

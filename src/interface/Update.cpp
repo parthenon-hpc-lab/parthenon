@@ -23,15 +23,17 @@ namespace Update {
 void FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
   MeshBlock *pmb = in.pmy_block;
 
-  int is, js, ks, ie, je, ke;
-  pmb->cellbounds.GetIndices(interior,is,ie,js,je,ks,ke);
+  const IndexDomain interior = IndexDomain::interior;
+  IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
+  IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
+  IndexRange kb = pmb->cellbounds.GetBoundsK(interior);
 
   Metadata m;
   ContainerIterator<Real> cin_iter(in, {Metadata::Independent});
   ContainerIterator<Real> cout_iter(dudt_cont, {Metadata::Independent});
   int nvars = cout_iter.vars.size();
 
-  int nx1 = pmb->cellbounds.nx1(entire); 
+  int nx1 = pmb->cellbounds.ncellsi(IndexDomain::entire); 
   AthenaArray<Real> x1area(nx1);
   AthenaArray<Real> x2area0(nx1);
   AthenaArray<Real> x2area1(nx1);
@@ -45,17 +47,17 @@ void FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
   }*/
   int ndim = pmb->pmy_mesh->ndim;
   AthenaArray<Real> du(nx1);
-  for (int k = ks; k <= ke; k++) {
-    for (int j = js; j <= je; j++) {
-      pmb->pcoord->Face1Area(k, j, is, ie + 1, x1area);
-      pmb->pcoord->CellVolume(k, j, is, ie, vol);
+  for (int k = kb.s; k <= kb.e; k++) {
+    for (int j = jb.s; j <= jb.e; j++) {
+      pmb->pcoord->Face1Area(k, j, ib.s, ib.e + 1, x1area);
+      pmb->pcoord->CellVolume(k, j, ib.s, ib.e, vol);
       if (pmb->pmy_mesh->ndim >= 2) {
-        pmb->pcoord->Face2Area(k, j, is, ie, x2area0);
-        pmb->pcoord->Face2Area(k, j + 1, is, ie, x2area1);
+        pmb->pcoord->Face2Area(k, j, ib.s, ib.e, x2area0);
+        pmb->pcoord->Face2Area(k, j + 1, ib.s, ib.e, x2area1);
       }
       if (pmb->pmy_mesh->ndim >= 3) {
-        pmb->pcoord->Face3Area(k, j, is, ie, x3area0);
-        pmb->pcoord->Face3Area(k + 1, j, is, ie, x3area1);
+        pmb->pcoord->Face3Area(k, j, ib.s, ib.e, x3area0);
+        pmb->pcoord->Face3Area(k + 1, j, ib.s, ib.e, x3area1);
       }
       for (int n = 0; n < nvars; n++) {
         Variable<Real> &q = *cin_iter.vars[n];
@@ -65,26 +67,26 @@ void FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
         Variable<Real> &dudt = *cout_iter.vars[n];
         for (int l = 0; l < q.GetDim4(); l++) {
           du.ZeroClear();
-          for (int i = is; i <= ie; i++) {
+          for (int i = ib.s; i <= ib.e; i++) {
             du(i) = (x1area(i + 1) * x1flux(l, k, j, i + 1) -
                      x1area(i) * x1flux(l, k, j, i));
           }
 
           if (pmb->pmy_mesh->ndim >= 2) {
-            for (int i = is; i <= ie; i++) {
+            for (int i = ib.s; i <= ib.e; i++) {
               du(i) += (x2area1(i) * x2flux(l, k, j + 1, i) -
                         x2area0(i) * x2flux(l, k, j, i));
             }
           }
           // TODO(jcd): should the next block be in the preceding if??
           if (pmb->pmy_mesh->ndim >= 3) {
-            for (int i = is; i <= ie; i++) {
+            for (int i = ib.s; i <= ib.e; i++) {
               du(i) += (x3area1(i) * x3flux(l, k + 1, j, i) -
                         x3area0(i) * x3flux(l, k, j, i));
             }
           }
 
-          for (int i = is; i <= ie; i++) {
+          for (int i = ib.s; i <= ib.e; i++) {
             dudt(l, k, j, i) = -du(i) / vol(i);
           }
         }
@@ -98,9 +100,11 @@ void FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
 void UpdateContainer(Container<Real> &in, Container<Real> &dudt_cont,
                      const Real dt, Container<Real> &out) {
   MeshBlock *pmb = in.pmy_block;
-  int is, js, ks, ie, je, ke;
-  pmb->cellbounds.GetIndices(interior,is,ie,js,je,ks,ke);
 
+  const IndexDomain interior = IndexDomain::interior;
+  IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
+  IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
+  IndexRange kb = pmb->cellbounds.GetBoundsK(interior);
   Metadata m;
   ContainerIterator<Real> cin_iter(in, {Metadata::Independent});
   ContainerIterator<Real> cout_iter(out, {Metadata::Independent});
@@ -112,9 +116,9 @@ void UpdateContainer(Container<Real> &in, Container<Real> &dudt_cont,
     Variable<Real> &dudt = *du_iter.vars[n];
     Variable<Real> &qout = *cout_iter.vars[n];
     for (int l = 0; l < qout.GetDim4(); l++) {
-      for (int k = ks; k <= ke; k++) {
-        for (int j = js; j <= je; j++) {
-          for (int i = is; i <= ie; i++) {
+      for (int k = kb.s; k <= kb.e; k++) {
+        for (int j = jb.s; j <= jb.e; j++) {
+          for (int i = ib.s; i <= ib.e; i++) {
             qout(l, k, j, i) = qin(l, k, j, i) + dt * dudt(l, k, j, i);
           }
         }
@@ -127,8 +131,10 @@ void UpdateContainer(Container<Real> &in, Container<Real> &dudt_cont,
 void AverageContainers(Container<Real> &c1, Container<Real> &c2,
                        const Real wgt1) {
   MeshBlock *pmb = c1.pmy_block;
-  int is, js, ks, ie, je, ke;
-  pmb->cellbounds.GetIndices(interior,is,ie,js,je,ks,ke);
+  const IndexDomain interior = IndexDomain::interior;
+  IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
+  IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
+  IndexRange kb = pmb->cellbounds.GetBoundsK(interior);
 
   Metadata m;
   ContainerIterator<Real> c1_iter(c1, {Metadata::Independent});
@@ -139,9 +145,9 @@ void AverageContainers(Container<Real> &c1, Container<Real> &c2,
     Variable<Real> &q1 = *c1_iter.vars[n];
     Variable<Real> &q2 = *c2_iter.vars[n];
     for (int l = 0; l < q1.GetDim4(); l++) {
-      for (int k = ks; k <= ke; k++) {
-        for (int j = js; j <= je; j++) {
-          for (int i = is; i <= ie; i++) {
+      for (int k = kb.s; k <= kb.e; k++) {
+        for (int j = jb.s; j <= jb.e; j++) {
+          for (int i = ib.s; i <= ib.e; i++) {
             q1(l, k, j, i) =
                 wgt1 * q1(l, k, j, i) + (1 - wgt1) * q2(l, k, j, i);
           }

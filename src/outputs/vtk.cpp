@@ -73,9 +73,9 @@ void VTKOutput::WriteContainer(Mesh *pm, ParameterInput *pin, bool flag) {
   // Loop over MeshBlocks
   while (pmb != nullptr) {
     // set start/end array indices depending on whether ghost zones are included
-    IndexShapeType shape_type = interior;
+    IndexDomain domain = IndexDomain::interior;
     if (output_params.include_ghost_zones) {
-      shape_type = entire;
+      domain = IndexDomain::entire;
     } 
     // build doubly linked list of OutputData nodes (setting data ptrs to appropriate
     // quantity on MeshBlock for each node), then slice/sum as needed
@@ -118,8 +118,9 @@ void VTKOutput::WriteContainer(Mesh *pm, ParameterInput *pin, bool flag) {
     std::fprintf(pfile, "BINARY\n");
 
     //  4. Dataset structure
-    int ncells1, ncells2, ncells3;
-    pmb->cellbounds.GetNx(shape_type,ncells1,ncells2,ncells3);
+    int ncells1 = pmb->cellbounds.ncellsi(domain);
+    int ncells2 = pmb->cellbounds.ncellsj(domain);
+    int ncells3 = pmb->cellbounds.ncellsk(domain);
     int ncoord1 = ncells1;
     if (ncells1 > 1) ncoord1++;
     int ncoord2 = ncells2;
@@ -137,14 +138,16 @@ void VTKOutput::WriteContainer(Mesh *pm, ParameterInput *pin, bool flag) {
     std::fprintf(pfile, "DATASET RECTILINEAR_GRID\n");
     std::fprintf(pfile, "DIMENSIONS %d %d %d\n", ncoord1, ncoord2, ncoord3);
 
-    pmb->cellbounds.GetIndices(shape_type,out_is,out_ie,out_js,out_je,out_ks,out_ke);
+    IndexRange out_ib = pmb->cellbounds.GetBoundsI(domain);
+    IndexRange out_jb = pmb->cellbounds.GetBoundsJ(domain);
+    IndexRange out_kb = pmb->cellbounds.GetBoundsK(domain);
     // write x1-coordinates as binary float in big endian order
     std::fprintf(pfile, "X_COORDINATES %d float\n", ncoord1);
     if (ncells1 == 1) {
-      data[0] = static_cast<float>(pmb->pcoord->x1v(out_is));
+      data[0] = static_cast<float>(pmb->pcoord->x1v(out_ib.s));
     } else {
-      for (int i=out_is; i<=out_ie+1; ++i) {
-        data[i-out_is] = static_cast<float>(pmb->pcoord->x1f(i));
+      for (int i=out_ib.s; i<=out_ib.e+1; ++i) {
+        data[i-out_ib.s] = static_cast<float>(pmb->pcoord->x1f(i));
       }
     }
     if (!big_end) {for (int i=0; i<ncoord1; ++i) Swap4Bytes(&data[i]);}
@@ -153,10 +156,10 @@ void VTKOutput::WriteContainer(Mesh *pm, ParameterInput *pin, bool flag) {
     // write x2-coordinates as binary float in big endian order
     std::fprintf(pfile, "\nY_COORDINATES %d float\n", ncoord2);
     if (ncells2 == 1) {
-      data[0] = static_cast<float>(pmb->pcoord->x2v(out_js));
+      data[0] = static_cast<float>(pmb->pcoord->x2v(out_jb.s));
     } else {
-      for (int j=out_js; j<=out_je+1; ++j) {
-        data[j-out_js] = static_cast<float>(pmb->pcoord->x2f(j));
+      for (int j=out_jb.s; j<=out_jb.e+1; ++j) {
+        data[j-out_jb.s] = static_cast<float>(pmb->pcoord->x2f(j));
       }
     }
     if (!big_end) {for (int i=0; i<ncoord2; ++i) Swap4Bytes(&data[i]);}
@@ -165,10 +168,10 @@ void VTKOutput::WriteContainer(Mesh *pm, ParameterInput *pin, bool flag) {
     // write x3-coordinates as binary float in big endian order
     std::fprintf(pfile, "\nZ_COORDINATES %d float\n", ncoord3);
     if (ncells3 == 1) {
-      data[0] = static_cast<float>(pmb->pcoord->x3v(out_ke));
+      data[0] = static_cast<float>(pmb->pcoord->x3v(out_kb.e));
     } else {
-      for (int k=out_ks; k<=out_ke+1; ++k) {
-        data[k-out_ks] = static_cast<float>(pmb->pcoord->x3f(k));
+      for (int k=out_kb.s; k<=out_kb.e+1; ++k) {
+        data[k-out_kb.s] = static_cast<float>(pmb->pcoord->x3f(k));
       }
     }
     if (!big_end) {for (int i=0; i<ncoord3; ++i) Swap4Bytes(&data[i]);}
@@ -177,7 +180,7 @@ void VTKOutput::WriteContainer(Mesh *pm, ParameterInput *pin, bool flag) {
     //  5. Data.  An arbitrary number of scalars and vectors can be written (every node
     //  in the OutputData doubly linked lists), all in binary floats format
 
-    std::fprintf(pfile, "\nCELL_DATA %d", pmb->cellbounds.GetTotal(shape_type));
+    std::fprintf(pfile, "\nCELL_DATA %d", pmb->cellbounds.GetTotal(domain));
     // reset container iterator to point to current block data
     auto ci = ContainerIterator<Real>(pmb->real_container,{Metadata::Graphics});
     for ( auto &v : ci.vars) {
@@ -187,11 +190,11 @@ void VTKOutput::WriteContainer(Mesh *pm, ParameterInput *pin, bool flag) {
 	continue;
       }
       std::fprintf(pfile, "\nLOOKUP_TABLE default\n");
-      for (int k = out_ks; k <= out_ke; k++) {
-	for (int j = out_js; j <= out_je; j++) {
+      for (int k = out_kb.s; k <= out_kb.e; k++) {
+	for (int j = out_jb.s; j <= out_jb.e; j++) {
 	  int index = 0;
-	  for (int i = out_is; i <= out_ie; i++, index++) {
-	    data[(i-out_is)+index] = (*v)(k,j,i);
+	  for (int i = out_ib.s; i <= out_ib.e; i++, index++) {
+	    data[(i-out_ib.s)+index] = (*v)(k,j,i);
 	  }
 
           // write data in big endian order
@@ -226,9 +229,9 @@ void VTKOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
   // Loop over MeshBlocks
   while (pmb != nullptr) {
     // set start/end array indices depending on whether ghost zones are included
-    IndexShapeType shape_type = interior;
+    IndexDomain domain = IndexDomain::interior;
     if (output_params.include_ghost_zones) {
-      shape_type = entire;
+      domain = IndexDomain::entire;
     }
           // build doubly linked list of OutputData nodes (setting data ptrs to appropriate
     // quantity on MeshBlock for each node), then slice/sum as needed
@@ -278,8 +281,9 @@ void VTKOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
     std::fprintf(pfile, "BINARY\n");
 
     //  4. Dataset structure
-    int ncells1, ncells2, ncells3;
-    pmb->cellbounds.GetNx(shape_type,ncells1,ncells2,ncells3);
+    int ncells1 = pmb->cellbounds.ncellsi(domain);
+    int ncells2 = pmb->cellbounds.ncellsj(domain);
+    int ncells3 = pmb->cellbounds.ncellsk(domain);
     int ncoord1 = ncells1;
     if (ncells1 > 1) ncoord1++;
     int ncoord2 = ncells2;
@@ -297,14 +301,16 @@ void VTKOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
     std::fprintf(pfile, "DATASET RECTILINEAR_GRID\n");
     std::fprintf(pfile, "DIMENSIONS %d %d %d\n", ncoord1, ncoord2, ncoord3);
 
-    pmb->cellbounds.GetIndices(shape_type,out_is,out_ie,out_js,out_je,out_ks,out_ke);
+    IndexRange out_ib = pmb->cellbounds.GetBoundsI(domain);
+    IndexRange out_jb = pmb->cellbounds.GetBoundsJ(domain);
+    IndexRange out_kb = pmb->cellbounds.GetBoundsK(domain);
     // write x1-coordinates as binary float in big endian order
     std::fprintf(pfile, "X_COORDINATES %d float\n", ncoord1);
     if (ncells1 == 1) {
-      data[0] = static_cast<float>(pmb->pcoord->x1v(out_is));
+      data[0] = static_cast<float>(pmb->pcoord->x1v(out_ib.s));
     } else {
-      for (int i=out_is; i<= out_ie+1; ++i) {
-        data[i-out_is] = static_cast<float>(pmb->pcoord->x1f(i));
+      for (int i=out_ib.s; i<= out_ib.e+1; ++i) {
+        data[i-out_ib.s] = static_cast<float>(pmb->pcoord->x1f(i));
       }
     }
     if (!big_end) {for (int i=0; i<ncoord1; ++i) Swap4Bytes(&data[i]);}
@@ -313,10 +319,10 @@ void VTKOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
     // write x2-coordinates as binary float in big endian order
     std::fprintf(pfile, "\nY_COORDINATES %d float\n", ncoord2);
     if (ncells2 == 1) {
-      data[0] = static_cast<float>(pmb->pcoord->x2v(out_js));
+      data[0] = static_cast<float>(pmb->pcoord->x2v(out_jb.s));
     } else {
-      for (int j=out_js; j<=out_je+1; ++j) {
-        data[j-out_js] = static_cast<float>(pmb->pcoord->x2f(j));
+      for (int j=out_jb.s; j<=out_jb.e+1; ++j) {
+        data[j-out_jb.s] = static_cast<float>(pmb->pcoord->x2f(j));
       }
     }
     if (!big_end) {for (int i=0; i<ncoord2; ++i) Swap4Bytes(&data[i]);}
@@ -325,10 +331,10 @@ void VTKOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
     // write x3-coordinates as binary float in big endian order
     std::fprintf(pfile, "\nZ_COORDINATES %d float\n", ncoord3);
     if (ncells3 == 1) {
-      data[0] = static_cast<float>(pmb->pcoord->x3v(out_ks));
+      data[0] = static_cast<float>(pmb->pcoord->x3v(out_kb.s));
     } else {
-      for (int k=out_ks; k<=out_ke+1; ++k) {
-        data[k-out_ks] = static_cast<float>(pmb->pcoord->x3f(k));
+      for (int k=out_kb.s; k<=out_kb.e+1; ++k) {
+        data[k-out_kb.s] = static_cast<float>(pmb->pcoord->x3f(k));
       }
     }
     if (!big_end) {for (int i=0; i<ncoord3; ++i) Swap4Bytes(&data[i]);}
@@ -336,7 +342,7 @@ void VTKOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
 
     //  5. Data.  An arbitrary number of scalars and vectors can be written (every node
     //  in the OutputData doubly linked lists), all in binary floats format
-    std::fprintf(pfile, "\nCELL_DATA %d", pmb->cellbounds.GetTotal(shape_type));
+    std::fprintf(pfile, "\nCELL_DATA %d", pmb->cellbounds.GetTotal(domain));
 
     OutputData *pdata = pfirst_data_;
     while (pdata != nullptr) {
@@ -345,11 +351,11 @@ void VTKOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
 
       int nvar = pdata->data.GetDim4();
       if (nvar == 1) std::fprintf(pfile, "LOOKUP_TABLE default\n");
-      for (int k=out_ks; k<=out_ke; ++k) {
-        for (int j=out_js; j<=out_je; ++j) {
-          for (int i=out_is; i<=out_ke; ++i) {
+      for (int k=out_kb.s; k<=out_kb.e; ++k) {
+        for (int j=out_jb.s; j<=out_jb.e; ++j) {
+          for (int i=out_ib.s; i<=out_ib.e; ++i) {
             for (int n=0; n<nvar; ++n) {
-              data[nvar*(i-out_is)+n] = static_cast<float>(pdata->data(n,k,j,i));
+              data[nvar*(i-out_ib.s)+n] = static_cast<float>(pdata->data(n,k,j,i));
             }
           }
 
