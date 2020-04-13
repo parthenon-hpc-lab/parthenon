@@ -23,8 +23,6 @@ The ```CellVariable``` class collects several associated objects that are needed
 | ```Metadata _m``` | See [here](Metadata.md). |
 | ```std::string _label``` | The name of the variable. |
 
-The class provides a nontrivial copy constructor.  Given a ```CellVariable```, the copy constructor allocates new storage for a ```CellVariable``` with the same name and ```Metadata``` but does not copy the values into this new storage.  The main motivation for this is to support methods like multi-stage integration that require multiple registers for independent state.
-
 Additionally, the class overloads the ```()``` operator to provide convenient access to the ```data``` array, though this may be less efficient than operating directly on ```data``` or a reference/copy of that array.
 
 Finally, the ```bool IsSet(const MetadataFlag bit)``` member function provides a convenient mechanism to query whether a particular ```Metadata``` flag is set for the ```CellVariable```.
