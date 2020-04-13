@@ -14,9 +14,9 @@
 #include <iostream>
 #include <utility>
 #include <vector>
-#ifdef MPI_PARALLEL
-#include <mpi.h>
-#endif
+
+#include "parthenon_mpi.hpp"
+
 #include "face_fields_example.hpp"
 #include "parthenon_manager.hpp"
 

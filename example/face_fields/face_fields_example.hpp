@@ -35,6 +35,9 @@ class FaceFieldExample : public Driver {
 } // namespace parthenon
 
 namespace FaceFields {
+
 parthenon::TaskStatus fill_faces(parthenon::MeshBlock *pmb);
-}
+
+} // namespace FaceFields
+
 #endif // EXAMPLE_FACE_FIELDS_FACE_FIELDS_EXAMPLE_HPP_

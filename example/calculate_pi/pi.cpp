@@ -14,9 +14,9 @@
 #include <iostream>
 #include <string>
 #include <utility>
-#ifdef MPI_PARALLEL
-#include <mpi.h>
-#endif
+
+#include "parthenon_mpi.hpp"
+
 #include "kokkos_abstraction.hpp"
 #include "pi.hpp"
 
@@ -245,4 +245,5 @@ TaskStatus ComputeArea(MeshBlock *pmb) {
   v(0, 0, 0) = area;
   return TaskStatus::complete;
 }
+
 } // namespace PiCalculator
