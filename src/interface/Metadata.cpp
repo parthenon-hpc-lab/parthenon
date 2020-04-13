@@ -36,7 +36,7 @@ namespace parthenon {
 namespace internal {
 
 class UserMetadataState {
-public:
+ public:
     UserMetadataState() {
 #define PARTHENON_INTERNAL_FOR_FLAG(name) \
     flag_name_map_.push_back(#name);
@@ -56,19 +56,20 @@ public:
         auto const flag = flag_name_map_.size();
         flag_names_.insert(name);
         flag_name_map_.push_back(std::move(name));
-        return MetadataFlag((int)flag);
+        return MetadataFlag(static_cast<int>(flag));
     }
 
     std::string const &FlagName(MetadataFlag flag) {
         return flag_name_map_.at(flag.flag_);
     }
-private:
+
+ private:
     std::vector<std::string> flag_name_map_;
     std::unordered_set<std::string> flag_names_;
 };
 
-}
-}
+} // namespace internal
+} // namespace parthenon
 
 parthenon::internal::UserMetadataState metadata_state;
 

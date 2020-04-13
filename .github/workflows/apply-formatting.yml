@@ -1,0 +1,15 @@
+name: Command Mode Formatting
+on:
+  issue_comment:
+    types: [created]
+jobs:
+  apply-formatting:
+    name: Format C++ Code
+    runs-on: ubuntu-latest
+    if: startsWith(github.event.comment.body, '@par-hermes format')
+    steps:
+    - uses: AndrewGaspar/cpp-auto-formatter/command@v0.1
+      with:
+        botName: par-hermes
+        clangFormatVersion: 8
+        token: ${{ secrets.GITHUB_TOKEN }}
