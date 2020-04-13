@@ -49,13 +49,8 @@ class CellVariable {
               const std::array<int,6> dims,
               const Metadata &metadata) :
     data(label, dims[5], dims[4], dims[3], dims[2], dims[1], dims[0]),
-    mpiStatus(true),
+    mpiStatus(false),
     m_(metadata) { }
-
-  /// copy constructor
-  /*CellVariable<T>(const CellVariable<T>& src,
-              const bool allocComms=false,
-              MeshBlock *pmb=nullptr);*/
 
   // make a new CellVariable based on an existing one
   std::shared_ptr<CellVariable<T>> AllocateCopy(const bool allocComms=false,

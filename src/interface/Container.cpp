@@ -312,7 +312,6 @@ void Container<T>::SetBoundaries() {
     if ( v->IsSet(Metadata::FillGhost) ) {
       v->resetBoundary();
       v->vbvar->SetBoundaries();
-      //v->mpiStatus=true;
     }
   }
   for (auto &sv : sparseVector_) {
@@ -393,27 +392,6 @@ void Container<T>::Print() {
   for (auto v : varVector_)  {   std::cout << " cell: " <<v->info() << std::endl; }
   for (auto v : faceVector_) {   std::cout << " face: " <<v->info() << std::endl; }
   for (auto v : sparseVector_) { std::cout << " sparse:"<<v->info() << std::endl; }
-  //  for (auto v : s->_edgeVector) { std::cout << " edge: "<<v->info() << std::endl; }
-}
-
-template <typename T>
-static int AddVar(CellVariable<T>&V, std::vector<CellVariable<T>>& vRet) {
-  // adds aliases to vRet
-  const int d6 = V.GetDim(6);
-  const int d5 = V.GetDim(5);
-  const int d4 = V.GetDim(5);
-  const std::string label = V.label();
-
-  for (int i6=0; i6<d6; i6++) {
-    CellVariable<T> V6(label,V,6,0,d6);
-    for (int i5=0; i5<d5; i5++) {
-      CellVariable<T> V5(label,V6,5,0,d5);
-      for (int i4=0; i4<d4; i4++) {
-        vRet.push_back(CellVariable<T>(label,V5,4,0,d5));
-      }
-    }
-  }
-  return d6*d5*d4;
 }
 
 template<typename T>
@@ -421,9 +399,6 @@ void Container<T>::calcArrDims_(std::array<int, 6>& arrDims,
                                 const std::vector<int>& dims,
                                 const Metadata& metadata) {
   const int N = dims.size();
-
-
-
 
   if ( metadata.Where() == Metadata::Cell ||
        metadata.Where() == Metadata::Face ||
