@@ -22,9 +22,7 @@
 #include <string>
 #include <vector>
 
-#ifdef MPI_PARALLEL
-#include <mpi.h>
-#endif
+#include "parthenon_mpi.hpp"
 
 #include "athena.hpp"
 #include "bvals/bvals_interfaces.hpp"

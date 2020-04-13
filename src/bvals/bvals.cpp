@@ -33,6 +33,8 @@
 #include <utility>
 #include <vector>
 
+#include "parthenon_mpi.hpp"
+
 #include "coordinates/coordinates.hpp"
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
@@ -40,12 +42,8 @@
 #include "parameter_input.hpp"
 #include "utils/buffer_utils.hpp"
 
-// MPI header
-#ifdef MPI_PARALLEL
-#include <mpi.h>
-#endif
-
 namespace parthenon {
+
 // BoundaryValues constructor (the first object constructed inside the MeshBlock()
 // constructor): sets functions for the appropriate boundary conditions at each of the 6
 // dirs of a MeshBlock

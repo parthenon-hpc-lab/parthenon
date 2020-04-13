@@ -25,7 +25,6 @@
   (std::string(str) + ":rank=" + std::to_string(Globals::my_rank) +                      \
    ":blk=" + std::to_string(idx) + ":of:" + std::to_string(nbx))
 
-// C++ headers
 #include <algorithm>
 #include <cinttypes> // format macro "PRId64" for fixed-width integer type std::int64_t
 #include <cmath>     // std::abs(), std::pow()
@@ -41,7 +40,8 @@
 #include <unistd.h>  // usleep
 #include <vector>
 
-// Athena++ headers
+#include "parthenon_mpi.hpp"
+
 #include "athena.hpp"
 #include "bvals/boundary_conditions.hpp"
 #include "bvals/bvals.hpp"
@@ -54,11 +54,6 @@
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/buffer_utils.hpp"
-
-// MPI/OpenMP header
-#ifdef MPI_PARALLEL
-#include <mpi.h>
-#endif
 
 namespace parthenon {
 //----------------------------------------------------------------------------------------

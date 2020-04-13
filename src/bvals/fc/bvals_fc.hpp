@@ -20,9 +20,7 @@
 //  \brief handle boundaries for any FaceField type variable that represents a physical
 //         quantity indexed along / located around face-centers of cells
 
-#ifdef MPI_PARALLEL
-#include <mpi.h>
-#endif
+#include "parthenon_mpi.hpp"
 
 #include "bvals/bvals.hpp"
 

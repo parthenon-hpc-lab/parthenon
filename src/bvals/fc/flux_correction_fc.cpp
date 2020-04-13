@@ -26,6 +26,8 @@
 #include <stdexcept>
 #include <string>
 
+#include "parthenon_mpi.hpp"
+
 #include "athena.hpp"
 #include "bvals/fc/bvals_fc.hpp"
 #include "coordinates/coordinates.hpp"
@@ -34,14 +36,6 @@
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/buffer_utils.hpp"
-
-// this is not added in flux_correction_cc.cpp:
-// #include "bvals.hpp"
-
-// MPI header
-#ifdef MPI_PARALLEL
-#include <mpi.h>
-#endif
 
 // TODO(felker): break-up the long functions in this file
 

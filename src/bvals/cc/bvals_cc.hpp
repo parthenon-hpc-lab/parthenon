@@ -20,10 +20,9 @@
 //  \brief handle boundaries for any ParArrayND type variable that represents a physical
 //         quantity indexed along / located around cell-centers
 
-#ifdef MPI_PARALLEL
-#include <mpi.h>
-#endif
+#include "parthenon_mpi.hpp"
 
+#include "athena.hpp"
 #include "bvals/bvals.hpp"
 
 namespace parthenon {

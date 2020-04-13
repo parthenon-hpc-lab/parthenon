@@ -27,10 +27,9 @@
 #include <stdexcept>
 #include <string>
 
-#ifdef MPI_PARALLEL
-#include <mpi.h>
-#endif
+#include "parthenon_mpi.hpp"
 
+#include "athena.hpp"
 #include "bvals/cc/bvals_cc.hpp"
 #include "coordinates/coordinates.hpp"
 #include "globals.hpp"

@@ -25,16 +25,12 @@
 #include <sstream>
 #include <stdexcept>
 
+#include "parthenon_mpi.hpp"
+
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
 
-// MPI header
-#ifdef MPI_PARALLEL
-#include <mpi.h>
-#endif
-
 namespace parthenon {
-// constructor
 
 BoundaryVariable::BoundaryVariable(MeshBlock *pmb)
     : bvar_index(), pmy_block_(pmb), pmy_mesh_(pmb->pmy_mesh) {}

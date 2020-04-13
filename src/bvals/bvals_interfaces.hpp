@@ -25,10 +25,7 @@
 #include <string>
 #include <vector>
 
-// MPI headers
-#ifdef MPI_PARALLEL
-#include <mpi.h>
-#endif
+#include "parthenon_mpi.hpp"
 
 #include "athena.hpp"
 #include "parthenon_arrays.hpp"

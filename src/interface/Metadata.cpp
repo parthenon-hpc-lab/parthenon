@@ -11,10 +11,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-// Self Include
 #include "interface/Metadata.hpp"
 
-// STL Includes
 #include <exception>
 #include <sstream>
 #include <string>

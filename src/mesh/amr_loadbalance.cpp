@@ -17,29 +17,22 @@
 //! \file mesh_amr.cpp
 //  \brief implementation of Mesh::AdaptiveMeshRefinement() and related utilities
 
-// C headers
-
-// C++ headers
-#include <algorithm> // std::sort()
+#include <algorithm>
 #include <cstdint>
 #include <iostream>
 #include <sstream>
 
-// Athena++ headers
+#include "parthenon_mpi.hpp"
+
 #include "athena.hpp"
 #include "bvals/boundary_conditions.hpp"
 #include "globals.hpp"
 #include "interface/Update.hpp"
-#include "mesh.hpp"
-#include "mesh_refinement.hpp"
-#include "meshblock_tree.hpp"
+#include "mesh/mesh.hpp"
+#include "mesh/mesh_refinement.hpp"
+#include "mesh/meshblock_tree.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/buffer_utils.hpp"
-
-// MPI/OpenMP header
-#ifdef MPI_PARALLEL
-#include <mpi.h>
-#endif
 
 namespace parthenon {
 //----------------------------------------------------------------------------------------
