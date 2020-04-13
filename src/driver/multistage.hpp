@@ -45,6 +45,9 @@ class MultiStageBlockTaskDriver : public MultiStageDriver {
   public:
     MultiStageBlockTaskDriver(ParameterInput *pin, Mesh *pm, Outputs *pout) : MultiStageDriver(pin,pm,pout) {}
     TaskListStatus Step();
+    // An application driver that derives from this class must define this
+    // function, which defines the application specific list of tasks and
+    // there dependencies that must be executed.
     virtual TaskList MakeTaskList(MeshBlock *pmb, int stage) = 0;
 
 };
