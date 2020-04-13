@@ -42,6 +42,13 @@ class AdvectionDriver : public MultiStageBlockTaskDriver {
  public:
   AdvectionDriver(ParameterInput *pin, Mesh *pm, Outputs *pout)
     : MultiStageBlockTaskDriver(pin, pm, pout) {}
+  // This next function essentially defines the driver.
+  // Call graph looks like
+  // main()
+  //   EvolutionDriver::Execute (driver.cpp)
+  //     MultiStageBlockTaskDriver::Step (multistage.cpp)
+  //       DriverUtils::ConstructAndExecuteBlockTasks (driver.hpp)
+  //         AdvectionDriver::MakeTaskList (advection.cpp)
   TaskList MakeTaskList(MeshBlock *pmb, int stage);
 };
 

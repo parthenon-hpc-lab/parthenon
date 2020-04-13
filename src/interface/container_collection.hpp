@@ -54,7 +54,7 @@ class ContainerCollection {
   void Print() {
     for (auto & c : containers_) {
       std::cout << "Container " << c.first << " has:" << std::endl;
-      c.second->print();
+      c.second->Print();
       std::cout << std::endl;
     }
   }

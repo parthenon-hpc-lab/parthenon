@@ -60,7 +60,7 @@ class Container {
   ///
   /// @param sparse_id The sparse id
   /// @return New container with slices from all variables
-  Container<T> sparseSlice(int sparse_id);
+  Container<T> SparseSlice(int sparse_id);
 
   ///
   /// Set the pointer to the mesh block for this container
@@ -121,27 +121,27 @@ class Container {
   void Add(const std::vector<std::string> labelVector, const Metadata &metadata);
 
   void Add(std::shared_ptr<CellVariable<T>> var) {
-    _varVector.push_back(var);
-    _varMap[var->label()] = var;
+    varVector_.push_back(var);
+    varMap_[var->label()] = var;
   }
   void Add(std::shared_ptr<FaceVariable<T>> var) {
-    _faceVector.push_back(var);
-    _faceMap[var->label()] = var;
+    faceVector_.push_back(var);
+    faceMap_[var->label()] = var;
   }
   void Add(std::shared_ptr<SparseVariable<T>> var) {
-    _sparseVector.push_back(var);
-    _sparseMap[var->label()] = var;
+    sparseVector_.push_back(var);
+    sparseMap_[var->label()] = var;
   }
 
   //
   // Queries related to CellVariable objects
   //
   const CellVariableVector<T>& GetCellVariableVector() const {
-    return _varVector;
+    return varVector_;
   }
   CellVariable<T>& Get(std::string label) {
-    auto it = _varMap.find(label);
-    if (it == _varMap.end()) {
+    auto it = varMap_.find(label);
+    if (it == varMap_.end()) {
       throw std::invalid_argument(std::string("\n") +
                                  std::string(label) +
                                  std::string(" array not found in Get()\n") );
@@ -150,12 +150,12 @@ class Container {
   }
 
   CellVariable<T>& Get(const int index) {
-    return *(_varVector[index]);
+    return *(varVector_[index]);
   }
 
   int Index(const std::string& label) {
-    for (int i = 0; i < _varVector.size(); i++) {
-      if (! _varVector[i]->label().compare(label)) return i;
+    for (int i = 0; i < varVector_.size(); i++) {
+      if (! varVector_[i]->label().compare(label)) return i;
     }
     return -1;
   }
@@ -164,12 +164,12 @@ class Container {
   // Queries related to SparseVariable objects
   //
   const SparseVector<T> GetSparseVector() const {
-    return _sparseVector;
+    return sparseVector_;
   }
   SparseVariable<T>& GetSparseVariable(const std::string& label) {
-    auto it = _sparseMap.find(label);
-    if (it == _sparseMap.end()) {
-      throw std::invalid_argument("_sparseMap does not have " + label);
+    auto it = sparseMap_.find(label);
+    if (it == sparseMap_.end()) {
+      throw std::invalid_argument("sparseMap_ does not have " + label);
     }
     return *(it->second);
   }
@@ -194,8 +194,8 @@ class Container {
   // Queries related to FaceVariable objects
   //
   FaceVariable<T>& GetFace(std::string label) {
-    auto it = _faceMap.find(label);
-    if (it == _faceMap.end()) {
+    auto it = faceMap_.find(label);
+    if (it == faceMap_.end()) {
       throw std::invalid_argument (std::string("\n") +
                                    std::string(label) +
                                    std::string(" array not found in Get() Face\n") );
@@ -239,18 +239,18 @@ class Container {
 
 
   /// Print list of labels in container
-  void print();
+  void Print();
 
   // return number of stored arrays
-  int size() {return _varVector.size();}
+  int Size() {return varVector_.size();}
 
   // // returne variable at index
   // std::weak_ptr<CellVariable<T>>& at(const int index) {
-  //   return _varVector.at(index);
+  //   return varVector_.at(index);
   // }
 
   const FaceVector<T>& GetFaceVector() const {
-    return _faceVector;
+    return faceVector_;
   }
 
 
@@ -297,13 +297,13 @@ class Container {
  private:
   int debug=0;
 
-  CellVariableVector<T> _varVector = {}; ///< the saved variable array
-  FaceVector<T> _faceVector = {};  ///< the saved face arrays
-  SparseVector<T> _sparseVector = {};
+  CellVariableVector<T> varVector_ = {}; ///< the saved variable array
+  FaceVector<T> faceVector_ = {};  ///< the saved face arrays
+  SparseVector<T> sparseVector_ = {};
 
-  MapToCellVars<T> _varMap = {};
-  MapToFace<T> _faceMap = {};
-  MapToSparse<T> _sparseMap = {};
+  MapToCellVars<T> varMap_ = {};
+  MapToFace<T> faceMap_ = {};
+  MapToSparse<T> sparseMap_ = {};
 
   void calcArrDims_(std::array<int, 6>& arrDims,
                     const std::vector<int>& dims,
