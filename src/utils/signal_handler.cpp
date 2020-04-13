@@ -18,10 +18,11 @@
 //  \brief contains functions that implement a simple SignalHandler
 //  These functions are based on TAG's signal handler written for Athena 8/19/2004
 
+#include <unistd.h> // alarm() Unix OS utility; not in C standard --> no <cunistd>
+
 // first 2x macros and signal() are the only ISO C features; rest are POSIX C extensions
 #include <csignal>
 #include <iostream>
-#include <unistd.h> // alarm() Unix OS utility; not in C standard --> no <cunistd>
 
 #include "parthenon_mpi.hpp"
 
