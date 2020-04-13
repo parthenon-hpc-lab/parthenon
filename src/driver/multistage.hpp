@@ -11,8 +11,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef MULTISTAGE_HPP
-#define MULTISTAGE_HPP
+#ifndef DRIVER_MULTISTAGE_HPP_
+#define DRIVER_MULTISTAGE_HPP_
 
 #include <string>
 #include <vector>
@@ -53,4 +53,4 @@ class MultiStageBlockTaskDriver : public MultiStageDriver {
 
 } // namespace parthenon
 
-#endif
+#endif // DRIVER_MULTISTAGE_HPP_

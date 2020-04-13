@@ -24,7 +24,6 @@ DriverStatus EvolutionDriver::Execute() {
   pmesh->mbcnt = 0;
   while ((pmesh->time < pmesh->tlim) &&
          (pmesh->nlim < 0 || pmesh->ncycle < pmesh->nlim)) {
-
     if (Globals::my_rank == 0) pmesh->OutputCycleDiagnostics();
 
     TaskListStatus status = Step();
