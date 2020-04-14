@@ -16,13 +16,13 @@
 
 #include <memory>
 
-#include "parameter_input.hpp"
 #include "StateDescriptor.hpp"
+#include "parameter_input.hpp"
 
 namespace parthenon {
 
-void SetGraphics(std::unique_ptr<ParameterInput>& pin, Packages_t& pkg);
+void SetGraphics(std::unique_ptr<ParameterInput> &pin, Packages_t &pkg);
 
-} // namepspace parthenon
+} // namespace parthenon
 
 #endif // INTERFACE_SET_GRAPHICS_HPP_

@@ -16,8 +16,8 @@
 #include <utility>
 
 #include "driver/driver.hpp"
-#include "interface/set_graphics.hpp"
 #include "interface/Update.hpp"
+#include "interface/set_graphics.hpp"
 #include "refinement/refinement.hpp"
 #include <Kokkos_Core.hpp>
 

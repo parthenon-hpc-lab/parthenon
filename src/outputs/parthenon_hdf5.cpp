@@ -420,7 +420,7 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
   local_start[2] = 0;
   local_start[3] = 0;
   local_start[4] = 0;
-  for( int i = 0; i < Globals::my_rank; i++) {
+  for (int i = 0; i < Globals::my_rank; i++) {
     local_start[0] += nblist[i];
   }
   hid_t property_list = H5Pcreate(H5P_DATASET_XFER);

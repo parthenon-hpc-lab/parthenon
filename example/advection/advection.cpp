@@ -94,13 +94,11 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddParam<>("derefine_tol", derefine_tol);
 
   std::string field_name = "advected";
-  Metadata m(
-      {Metadata::Cell, Metadata::Independent, Metadata::FillGhost});
+  Metadata m({Metadata::Cell, Metadata::Independent, Metadata::FillGhost});
   pkg->AddField(field_name, m);
 
   field_name = "one_minus_advected";
-  m = Metadata(
-      {Metadata::Cell, Metadata::Derived, Metadata::OneCopy});
+  m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy});
   pkg->AddField(field_name, m);
 
   field_name = "one_minus_advected_sq";
@@ -108,14 +106,12 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   // for fun make this last one a multi-component field using SparseVariable
   field_name = "one_minus_sqrt_one_minus_advected_sq";
-  m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy,
-                Metadata::Sparse},
+  m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy, Metadata::Sparse},
                12 // just picking a sparse_id out of a hat for demonstration
   );
   pkg->AddField(field_name, m);
   // add another component
-  m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy,
-                Metadata::Sparse},
+  m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy, Metadata::Sparse},
                37 // just picking a sparse_id out of a hat for demonstration
   );
   pkg->AddField(field_name, m);

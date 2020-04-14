@@ -23,22 +23,20 @@ namespace parthenon {
 namespace strip_string {
 constexpr char WHITESPACE[] = " \n\r\t\f\v";
 
-std::string ltrim(const std::string& s) {
+std::string ltrim(const std::string &s) {
   size_t start = s.find_first_not_of(WHITESPACE);
   return (start == std::string::npos) ? "" : s.substr(start);
 }
 
-std::string rtrim(const std::string& s) {
+std::string rtrim(const std::string &s) {
   size_t end = s.find_last_not_of(WHITESPACE);
   return (end == std::string::npos) ? "" : s.substr(0, end + 1);
 }
 
-std::string trim(const std::string& s) {
-  return rtrim(ltrim(s));
-}
+std::string trim(const std::string &s) { return rtrim(ltrim(s)); }
 } // namespace strip_string
 
-void SetGraphics(std::unique_ptr<ParameterInput>& pin, Packages_t& packages) {
+void SetGraphics(std::unique_ptr<ParameterInput> &pin, Packages_t &packages) {
   std::string s = pin->GetOrAddString("Graphics", "variables", "");
   if (s == "") return;
   std::string delimiter = ",";
@@ -52,18 +50,18 @@ void SetGraphics(std::unique_ptr<ParameterInput>& pin, Packages_t& packages) {
   }
   fields.push_front(strip_string::trim(s));
 
-  for (auto & pkg : packages) {
-    for (auto & q : pkg.second->AllFields()) {
+  for (auto &pkg : packages) {
+    for (auto &q : pkg.second->AllFields()) {
       auto it = std::find(fields.begin(), fields.end(), q.first);
       if (it != fields.end()) {
         q.second.Set(Metadata::Graphics);
         fields.erase(it);
       }
     }
-    for (auto & q : pkg.second->AllSparseFields()) {
+    for (auto &q : pkg.second->AllSparseFields()) {
       auto it = std::find(fields.begin(), fields.end(), q.first);
       if (it != fields.end()) {
-        for (auto & m : q.second) {
+        for (auto &m : q.second) {
           m.Set(Metadata::Graphics);
         }
         fields.erase(it);
@@ -73,7 +71,7 @@ void SetGraphics(std::unique_ptr<ParameterInput>& pin, Packages_t& packages) {
 
   if (fields.size() != 0) {
     std::cerr << "Fields listed for graphics dumps do not exist:" << std::endl;
-    for (auto const & field : fields) {
+    for (auto const &field : fields) {
       std::cerr << field << std::endl;
     }
   }

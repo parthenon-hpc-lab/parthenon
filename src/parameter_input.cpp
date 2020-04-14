@@ -153,10 +153,11 @@ void ParameterInput::LoadFromStream(std::istream &is) {
 
     if (line.compare(first_char, 1, "<") == 0) { // a new block
       if (continuing) {
-        msg << "### FATAL ERROR in function [ParameterInput::LoadFromStream]"
-            << std::endl << "Multiline field ended unexpectedly with new block "
+        msg << "### FATAL ERROR in function [ParameterInput::LoadFromStream]" << std::endl
+            << "Multiline field ended unexpectedly with new block "
             << "character <.  Look above this line for the error:" << std::endl
-            << line << std::endl << std::endl;
+            << line << std::endl
+            << std::endl;
         ATHENA_ERROR(msg);
       }
       first_char++;
@@ -312,13 +313,12 @@ bool ParameterInput::ParseLine(InputBlock *pib, std::string line, std::string &n
     len = equal_char - first_char;
     name.assign(line, first_char, len);
     last_char = name.find_last_not_of(" ");
-    name.erase(last_char+1, std::string::npos);
-    line.erase(0, len+1);
-
+    name.erase(last_char + 1, std::string::npos);
+    line.erase(0, len + 1);
   }
 
-  hash_char  = line.find_first_of("#");       // find "#" (optional)
-  cont_char  = line.find_first_of("&");       // find "&" continuation character
+  hash_char = line.find_first_of("#"); // find "#" (optional)
+  cont_char = line.find_first_of("&"); // find "&" continuation character
   // copy substring into value, remove white space at start and end
   len = std::min(cont_char, hash_char);
   if (len == cont_char && cont_char != std::string::npos) continuation = true;
@@ -331,7 +331,7 @@ bool ParameterInput::ParseLine(InputBlock *pib, std::string line, std::string &n
   value.erase(last_char + 1, std::string::npos);
 
   if (continuation) {
-    hash_char  = line.find_first_of("#");       // find "#" (optional)
+    hash_char = line.find_first_of("#"); // find "#" (optional)
   }
 
   // copy substring into comment, if present

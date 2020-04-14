@@ -69,7 +69,7 @@ TaskListStatus ConstructAndExecuteBlockTasks(T *driver, Args... args) {
   while (complete_cnt != nmb) {
     // TODO(pgrete): need to let Kokkos::PartitionManager handle this
     //#pragma omp parallel for reduction(+ : complete_cnt) num_threads(nthreads)
-    //schedule(dynamic,1)
+    // schedule(dynamic,1)
     for (auto i = 0; i < nmb; ++i) {
       if (!task_lists[i].IsComplete()) {
         auto status = task_lists[i].DoAvailable();
