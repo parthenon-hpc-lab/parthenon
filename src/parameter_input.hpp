@@ -106,8 +106,8 @@ class ParameterInput {
   std::string SetString(std::string block, std::string name, std::string value);
   void RollbackNextTime();
   void ForwardNextTime(Real time);
-  void CheckRequiredDesired(std::map<std::string, std::vector<std::string>>& req,
-                            std::map<std::string, std::vector<std::string>>& des);
+  void CheckRequiredDesired(std::map<std::string, std::vector<std::string>> &req,
+                            std::map<std::string, std::vector<std::string>> &des);
 
  private:
   std::string last_filename_; // last input file opened, to prevent duplicate reads

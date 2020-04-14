@@ -40,6 +40,7 @@ class Driver {
   ParameterInput *pinput;
   Mesh *pmesh;
   Outputs *pouts;
+
  private:
   std::map<std::string, std::string> required_inputs;
   std::map<std::string, std::string> suggested_inputs;

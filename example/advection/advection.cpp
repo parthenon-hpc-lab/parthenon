@@ -324,7 +324,7 @@ TaskStatus CalculateFluxes(Container<Real> &rc) {
 // function.                                       *//
 // *************************************************//
 AdvectionDriver::AdvectionDriver(ParameterInput *pin, Mesh *pm, Outputs *pout)
-      : MultiStageBlockTaskDriver(pin, pm, pout) {
+    : MultiStageBlockTaskDriver(pin, pm, pout) {
 
   // specify required arguments in the input file
   std::map<std::string, std::vector<std::string>> req;

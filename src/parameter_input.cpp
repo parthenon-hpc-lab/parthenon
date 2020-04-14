@@ -876,30 +876,29 @@ void ParameterInput::ForwardNextTime(Real mesh_time) {
   }
 }
 
-void ParameterInput::CheckRequiredDesired(std::map<std::string, std::vector<std::string>>& req,
-                          std::map<std::string, std::vector<std::string>>& des) {
-  for (auto & r : req) {
-    for (auto & f : r.second) {
+void ParameterInput::CheckRequiredDesired(
+    std::map<std::string, std::vector<std::string>> &req,
+    std::map<std::string, std::vector<std::string>> &des) {
+  for (auto &r : req) {
+    for (auto &f : r.second) {
       if (!DoesParameterExist(r.first, f)) {
-        std::cerr << "Parameter file missing required field <"
-                  << r.first << ">/" << f << std::endl;
+        std::cerr << "Parameter file missing required field <" << r.first << ">/" << f
+                  << std::endl;
         std::exit(1);
       }
     }
   }
 
-  for (auto & s : des) {
-    for (auto & f : s.second) {
+  for (auto &s : des) {
+    for (auto &f : s.second) {
       if (!DoesParameterExist(s.first, f)) {
-        std::cerr << "Parameter file missing suggested field <"
-                  << s.first << ">/" << f << std::endl;
+        std::cerr << "Parameter file missing suggested field <" << s.first << ">/" << f
+                  << std::endl;
         std::exit(1);
       }
     }
   }
 }
-
-
 
 //----------------------------------------------------------------------------------------
 //! \fn void ParameterInput::ParameterDump(std::ostream& os)
