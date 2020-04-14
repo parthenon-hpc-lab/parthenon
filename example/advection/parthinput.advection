@@ -62,3 +62,5 @@ vy = 1.0
 refine_tol = 0.3    # control the package specific refinement tagging function
 derefine_tol = 0.03
 
+<Graphics>
+variables = advected, one_minus_advected, one_minus_advected_sq, one_minus_sqrt_one_minus_advected_sq

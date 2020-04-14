@@ -96,6 +96,7 @@ add_library(parthenon
   interface/Metadata.cpp
   interface/Update.cpp
   interface/Variable.cpp
+  interface/set_graphics.cpp
 
   mesh/amr_loadbalance.cpp
   mesh/mesh_refinement.cpp

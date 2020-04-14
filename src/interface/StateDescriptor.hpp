@@ -96,8 +96,8 @@ class StateDescriptor {
         return names;
     }
 
-    const std::map<std::string, Metadata>& AllFields() { return _metadataMap; }
-    const std::map<std::string, std::vector<Metadata>>& AllSparseFields() { return _sparseMetadataMap; }
+    std::map<std::string, Metadata>& AllFields() { return _metadataMap; }
+    std::map<std::string, std::vector<Metadata>>& AllSparseFields() { return _sparseMetadataMap; }
 
     // retrieve metadata for a specific field
     Metadata& FieldMetadata(const std::string& field_name) { return _metadataMap[field_name]; }
