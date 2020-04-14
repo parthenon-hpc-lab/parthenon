@@ -168,8 +168,9 @@ void BoundaryVariable::SendBoundaryBuffers() {
       CopyVariableBufferSameProcess(nb, ssize);
     }
 #ifdef MPI_PARALLEL
-    else  // MPI
+    else  {// MPI
       MPI_Start(&(bd_var_.req_send[nb.bufid]));
+    }
 #endif
     bd_var_.sflag[nb.bufid] = BoundaryStatus::completed;
   }

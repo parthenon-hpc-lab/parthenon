@@ -19,9 +19,7 @@
 #include <utility> // <pair>
 #include <vector>
 #include "globals.hpp"
-//#include "mesh/mesh.hpp"
 #include "SparseVariable.hpp"
-#include "Stage.hpp"
 #include "Variable.hpp"
 
 namespace parthenon {
@@ -38,6 +36,7 @@ namespace parthenon {
 /// The container class will provide the following methods:
 ///
 
+
 class MeshBlock;
 
 template <typename T>
@@ -51,44 +50,8 @@ class Container {
   //-----------------
   //Public Methods
   //-----------------
-  /// Constructor initializes the "base" stage
-  //Container<T>() : stages({{std::string("base"),(new Stage<T>("base"))}}),
-  //                 s(stages["base"])
-  //{}
-  Container<T>() {
-    StageAdd("base");
-    StageSet("base");
-  }
-
-  // Construct a container from a specific stage of a different container
-  Container<T>(std::string stageName, Container<T>&cSrc) {
-    Stage<T>&stageSrc = *(cSrc.stages[stageName]);
-
-    StageAdd("base");
-    StageSet("base");
-
-    // copy in private data
-    this->pmy_block = cSrc.pmy_block;
-
-    // add aliases of all arrays in state to the new container
-    for (auto v : stageSrc._varArray) {
-      this->s->_varArray.push_back(v);
-    }
-    // for (auto v : stageSrc._edgeArray) {
-    //   EdgeVariable *vNew = new EdgeVariable(v->label(), *v);
-    //   this->s->_edgeArray.push_back(vNew);
-    // }
-    for (auto v : stageSrc._faceArray) {
-      this->s->_faceArray.push_back(v);
-    }
-
-    // Now copy in the sparse arrays
-    for (auto vars : stageSrc._sparseVars.getAllCellVars()) {
-      auto& theLabel=vars.first;
-      auto& theMap = vars.second;
-      this->s->_sparseVars.AddAlias(theLabel, stageSrc._sparseVars);
-    }
-  }
+  /// Constructor
+  Container<T>() = default;
 
   /// We can initialize a container with slices from a different
   /// container.  For variables that have the sparse tag, this will
@@ -97,13 +60,7 @@ class Container {
   ///
   /// @param sparse_id The sparse id
   /// @return New container with slices from all variables
-  Container<T> sparseSlice(int sparse_id);
-
-  /// We can create a shallow copy of a container with a specific stage set as
-  /// the base stage.
-  /// @param src The name of the stage we want to create a new container from
-  /// @return New container with slices from all variables
-  Container<T> StageContainer(std::string src);
+  Container<T> SparseSlice(int sparse_id);
 
   ///
   /// Set the pointer to the mesh block for this container
@@ -131,11 +88,11 @@ class Container {
   /// identify the size of the first dimension based on the
   /// topological location.
   ///
-  /// @param labelArray the array of names of variables
+  /// @param labelVector the array of names of variables
   /// @param metadata the metadata associated with the variable
   /// @param dims the size of each element
   ///
-  void Add(const std::vector<std::string> labelArray,
+  void Add(const std::vector<std::string> labelVector,
            const Metadata &metadata,
            const std::vector<int> dims);
 
@@ -158,97 +115,117 @@ class Container {
   /// identify the size of the first dimension based on the
   /// topological location.  Dimensions will be taken from the metadata.
   ///
-  /// @param labelArray the array of names of variables
+  /// @param labelVector the array of names of variables
   /// @param metadata the metadata associated with the variable
   ///
-  void Add(const std::vector<std::string> labelArray, const Metadata &metadata);
+  void Add(const std::vector<std::string> labelVector, const Metadata &metadata);
 
-  ///
-  /// Get a raw / cell / node variable from the container
-  /// @param label the name of the variable
-  /// @return the Variable<T> if found or throw exception
-  Variable<T>& Get(std::string label) {
-    for (auto v : s->_varArray) {
-      if (! v->label().compare(label)) return *v;
-    }
-    throw std::invalid_argument (std::string("\n") +
-                                 std::string(label) +
-                                 std::string(" array not found in Get()\n") );
+  void Add(std::shared_ptr<CellVariable<T>> var) {
+    varVector_.push_back(var);
+    varMap_[var->label()] = var;
+  }
+  void Add(std::shared_ptr<FaceVariable<T>> var) {
+    faceVector_.push_back(var);
+    faceMap_[var->label()] = var;
+  }
+  void Add(std::shared_ptr<SparseVariable<T>> var) {
+    sparseVector_.push_back(var);
+    sparseMap_[var->label()] = var;
   }
 
-  Variable<T>& Get(const int index) {
-    return *(s->_varArray[index]);
+  //
+  // Queries related to CellVariable objects
+  //
+  const CellVariableVector<T>& GetCellVariableVector() const {
+    return varVector_;
+  }
+  const MapToCellVars<T> GetCellVariableMap() const {
+    return varMap_;
+  }
+  CellVariable<T>& Get(std::string label) {
+    auto it = varMap_.find(label);
+    if (it == varMap_.end()) {
+      throw std::invalid_argument(std::string("\n") +
+                                 std::string(label) +
+                                 std::string(" array not found in Get()\n") );
+    }
+    return *(it->second);
+  }
+
+  CellVariable<T>& Get(const int index) {
+    return *(varVector_[index]);
   }
 
   int Index(const std::string& label) {
-    for (int i = 0; i < s->_varArray.size(); i++) {
-      if (! s->_varArray[i]->label().compare(label)) return i;
+    for (int i = 0; i < varVector_.size(); i++) {
+      if (! varVector_[i]->label().compare(label)) return i;
     }
     return -1;
   }
-//  int Index(std::string label) {return Index(label);}
 
-  // returns the sparse map from the Sparse Variables
-  SparseMap<T>& GetSparse(const std::string& label) {
-    return s->_sparseVars.Get(label);
+  //
+  // Queries related to SparseVariable objects
+  //
+  const SparseVector<T> GetSparseVector() const {
+    return sparseVector_;
+  }
+  const MapToSparse<T> GetSparseMap() const {
+    return sparseMap_;
+  }
+  SparseVariable<T>& GetSparseVariable(const std::string& label) {
+    auto it = sparseMap_.find(label);
+    if (it == sparseMap_.end()) {
+      throw std::invalid_argument("sparseMap_ does not have " + label);
+    }
+    return *(it->second);
   }
 
-  ///
-  /// returns the variable array for a single sparse id for a single
-  /// sparse variable from the Sparse Variables array
-  Variable<T>& GetSparse(const std::string& label, const int sparse_id) {
-    // returns the variable for the specific sparse id from the Sparse Variables
-    return s->_sparseVars.Get(label, sparse_id);
+  SparseMap<T>& GetSparseMap(const std::string& label) {
+    return GetSparseVariable(label).GetMap();
   }
 
-  Variable<T>& Get(const std::string& label, const int sparse_id) {
-    return GetSparse(label, sparse_id);
+  CellVariableVector<T>& GetSparseVector(const std::string& label) {
+    return GetSparseVariable(label).GetVector();
   }
 
-  // returns a flattened array of the sparse variables
-  VariableVector<T>& GetSparseVector(const std::string& label) {
-    return s->_sparseVars.GetVector(label);
+  CellVariable<T>& Get(const std::string& label, const int sparse_id) {
+    return GetSparseVariable(label).Get(sparse_id);
   }
 
   std::vector<int>& GetSparseIndexMap(const std::string& label) {
-    return s->_sparseVars.GetIndexMap(label);
-  }
-  ///
-  /// Get a face variable from the container
-  /// @param label the name of the variable
-  /// @return the FaceVariable if found or throw exception
-  ///
-  FaceVariable& GetFace(std::string label) {
-    for (auto v : s->_faceArray) {
-      if (! v->label().compare(label)) return *v;
-    }
-    throw std::invalid_argument (std::string("\n") +
-                                 std::string(label) +
-                                 std::string(" array not found in Get() Face\n") );
+    return GetSparseVariable(label).GetIndexMap();
   }
 
-    ///
-  /// Get a face variable from the container
-  /// @param label the name of the variable
-  /// @param dir, which direction the face is normal to
-  /// @return the AthenaArray in the face variable if found or throw exception
-  ///
-  AthenaArray<Real>& GetFace(std::string label, int dir) {
-    for (auto v : s->_faceArray) {
-      if (! v->label().compare(label)) return v->Get(dir);
+  //
+  // Queries related to FaceVariable objects
+  //
+  const FaceVector<T>& GetFaceVector() const {
+    return faceVector_;
+  }
+  const MapToFace<T> GetFaceMap() const {
+    return faceMap_;
+  }
+  FaceVariable<T>& GetFace(std::string label) {
+    auto it = faceMap_.find(label);
+    if (it == faceMap_.end()) {
+      throw std::invalid_argument (std::string("\n") +
+                                   std::string(label) +
+                                   std::string(" array not found in Get() Face\n") );
     }
-    throw std::invalid_argument (std::string("\n") +
-                                 std::string(label) +
-                                 std::string(" array not found in Get() Face\n") );
+    return *(it->second);
+  }
+
+  ParArrayND<Real>& GetFace(std::string label, int dir) {
+    return GetFace(label).Get(dir);
   }
 
   ///
   /// Get an edge variable from the container
   /// @param label the name of the variable
-  /// @return the Variable<T> if found or throw exception
+  /// @return the CellVariable<T> if found or throw exception
   ///
-  EdgeVariable *GetEdge(std::string label) {
-    // for (auto v : s->_edgeArray) {
+  EdgeVariable<T> *GetEdge(std::string label) {
+    // for (auto v : _edgeVector) {
     //   if (! v->label().compare(label)) return v;
     // }
     throw std::invalid_argument (std::string("\n") +
@@ -261,21 +238,10 @@ class Container {
   /// @param indexCount a map of names to std::pair<index,count> for each name
   /// @param sparse_ids if specified is list of sparse ids we are interested in.  Note
   ///        that non-sparse variables specified are aliased in as is.
-  int GetVariables(const std::vector<std::string>& names,
-                   std::vector<Variable<T>>& vRet,
+  int GetCellVariables(const std::vector<std::string>& names,
+                   std::vector<CellVariable<T>>& vRet,
                    std::map<std::string,std::pair<int,int>>& indexCount,
                    const std::vector<int>& sparse_ids = {});
-
-  ///
-  /// get raw data for a variable from the container
-  /// @param label the name of the variable
-  /// @return a pointer of type T if found or NULL
-  T *Raw(std::string label) {
-    Variable<T>& v = Get(label);
-    //if(v)
-    return v.data();
-    //return NULL;
-  }
 
   ///
   /// Remove a variable from the container or throw exception if not
@@ -284,37 +250,14 @@ class Container {
   void Remove(const std::string label);
 
 
-  // Temporary functions till we implement a *real* iterator
-
   /// Print list of labels in container
-  void print();
+  void Print();
 
   // return number of stored arrays
-  int size() {return s->_varArray.size();}
-
-  // // returne variable at index
-  // std::weak_ptr<Variable<T>>& at(const int index) {
-  //   return s->_varArray.at(index);
-  // }
-
-  // Element accessor functions
-  std::vector<std::shared_ptr<Variable<T>>>& allVars() {
-    return s->_varArray;
-  }
-
-  SparseVariable<T>& sparseVars() {
-    return s->_sparseVars;
-  }
-
-  std::vector<std::shared_ptr<FaceVariable>>& faceVars() {
-    return s->_faceArray;
-  }
-
-  // std::vector<EdgeVariable*> edgeVars() {
-  //   return s->_edgeArray;
-  // }
+  int Size() {return varVector_.size();}
 
   // Communication routines
+  void ResetBoundaryCellVariables();
   void SetupPersistentMPI();
   void SetBoundaries();
   void SendBoundaryBuffers();
@@ -324,52 +267,75 @@ class Container {
   void ClearBoundary(BoundaryCommSubset phase);
   void SendFluxCorrection();
   bool ReceiveFluxCorrection();
-
-  // Stage Management
-  ///Adds a stage to the stage directory
-  void StageAdd(std::string name, std::string src=std::string("")) {
-    if ( ! name.compare("base") ) {
-      stages[name] = std::make_shared<Stage<T>>(name);
-      return;
-    }
-    if ( ! src.compare("")) {
-      src = std::string("base");
-    }
-    stages[name] = std::make_shared<Stage<T>>(name, *(stages[src]));
-    return;
+  static TaskStatus StartReceivingTask(Container<T>& rc) {
+    rc.StartReceiving(BoundaryCommSubset::all);
+    return TaskStatus::complete;
+  }
+  static TaskStatus SendFluxCorrectionTask(Container<T>& rc) {
+    rc.SendFluxCorrection();
+    return TaskStatus::complete;
+  }
+  static TaskStatus ReceiveFluxCorrectionTask(Container<T>& rc) {
+    if (!rc.ReceiveFluxCorrection()) return TaskStatus::incomplete;
+    return TaskStatus::complete;
+  }
+  static TaskStatus SendBoundaryBuffersTask(Container<T>& rc) {
+    rc.SendBoundaryBuffers();
+    return TaskStatus::complete;
+  }
+  static TaskStatus ReceiveBoundaryBuffersTask(Container<T>& rc) {
+    if ( !rc.ReceiveBoundaryBuffers() ) return TaskStatus::incomplete;
+    return TaskStatus::complete;
+  }
+  static TaskStatus SetBoundariesTask(Container<T>& rc) {
+    rc.SetBoundaries();
+    return TaskStatus::complete;
+  }
+  static TaskStatus ClearBoundaryTask(Container<T>& rc) {
+    rc.ClearBoundary(BoundaryCommSubset::all);
+    return TaskStatus::complete;
   }
 
-  /// Sets current stage to named stage
-  void StageSet(std::string name);
-
-  /// Deletes named stage
-  void StageDelete(std::string name) {
-    if (s->name().compare(name) == 0) {
-      StageSet(std::string("base"));
+  bool operator== (const Container<T>& cmp) {
+    // do some kind of check of equality
+    // do the two containers contain the same named fields?
+    std::vector<std::string> my_keys;
+    std::vector<std::string> cmp_keys;
+    for (auto & v : varMap_) {
+      my_keys.push_back(v.first);
     }
-    stages.erase(name);
-  }
-
-  /// Purges all stages other than 'base'
-  void StagePurge() {
-    auto baseStage = stages["base"];
-    stages.clear();
-    stages["base"] = baseStage;
-  }
-
-  void StagePrint() {
-    for (auto & st : stages) {
-      std::cout << "Stage " << st.first << std::endl;
+    for (auto & v : faceMap_) {
+      my_keys.push_back(v.first);
     }
+    for (auto & v : sparseMap_) {
+      my_keys.push_back(v.first);
+    }
+    for (auto & v : cmp.GetCellVariableMap()) {
+      cmp_keys.push_back(v.first);
+    }
+    for (auto & v : cmp.GetFaceMap()) {
+      cmp_keys.push_back(v.first);
+    }
+    for (auto & v : cmp.GetSparseMap()) {
+      cmp_keys.push_back(v.first);
+    }
+    return (my_keys == cmp_keys);
   }
 
  private:
   int debug=0;
-  std::map< std::string,std::shared_ptr<Stage<T> >> stages;
-  std::shared_ptr<Stage<T>> s;
+
+  CellVariableVector<T> varVector_ = {}; ///< the saved variable array
+  FaceVector<T> faceVector_ = {};  ///< the saved face arrays
+  SparseVector<T> sparseVector_ = {};
+
+  MapToCellVars<T> varMap_ = {};
+  MapToFace<T> faceMap_ = {};
+  MapToSparse<T> sparseMap_ = {};
 
   void calcArrDims_(std::array<int, 6>& arrDims,
-                    const std::vector<int>& dims);
+                    const std::vector<int>& dims,
+                    const Metadata& metadata);
 };
 
 } // namespace parthenon

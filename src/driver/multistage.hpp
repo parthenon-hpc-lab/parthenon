@@ -25,9 +25,9 @@ namespace parthenon {
 
 struct Integrator {
     Integrator() = default;
-    Integrator(int nstages, std::vector<Real> beta) : _nstages(nstages), _beta(beta) {}
-    int _nstages;
-    std::vector<Real> _beta;
+    Integrator(int nstages, std::vector<Real> beta) : nstages(nstages), beta(beta) {}
+    int nstages;
+    std::vector<Real> beta;
 };
 
 class MultiStageDriver : public EvolutionDriver {
@@ -45,6 +45,9 @@ class MultiStageBlockTaskDriver : public MultiStageDriver {
   public:
     MultiStageBlockTaskDriver(ParameterInput *pin, Mesh *pm, Outputs *pout) : MultiStageDriver(pin,pm,pout) {}
     TaskListStatus Step();
+    // An application driver that derives from this class must define this
+    // function, which defines the application specific list of tasks and
+    // there dependencies that must be executed.
     virtual TaskList MakeTaskList(MeshBlock *pmb, int stage) = 0;
 
 };

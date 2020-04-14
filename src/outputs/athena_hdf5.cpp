@@ -27,7 +27,7 @@
 
 // Athena++ headers
 #include "athena.hpp"
-#include "athena_arrays.hpp"
+#include "parthenon_arrays.hpp"
 #include "coordinates/coordinates.hpp"
 #include "globals.hpp"
 #include "interface/ContainerIterator.hpp"
@@ -253,12 +253,12 @@ void ATHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
     
     int maxV = 1;
     for (auto &v : ci.vars) {
-      const size_t vlen = v->GetDim4();
+      const size_t vlen = v->GetDim(4);
       maxV = (maxV<vlen?vlen:maxV);
     }
     Real *tmpData = new Real[baseSize*maxV];
     for (auto &v : ci.vars) {
-      const size_t vlen = v->GetDim4();
+      const size_t vlen = v->GetDim(4);
       dims[ndims] = vlen;
       if ( vlen > 1 ) ndims += 1;
       int index;

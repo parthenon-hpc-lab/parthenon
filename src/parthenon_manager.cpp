@@ -11,19 +11,20 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+#include "parthenon_manager.hpp"
+
 #include <utility>
 
-#include "refinement/refinement.hpp"
 #include "driver/driver.hpp"
 #include "interface/Update.hpp"
 #include <Kokkos_Core.hpp>
-#include "parthenon_manager.hpp"
+#include "refinement/refinement.hpp"
+
 
 namespace parthenon {
 
 ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
   // initialize MPI
-  int status = 1;
 #ifdef MPI_PARALLEL
 #ifdef OPENMP_PARALLEL
   int mpiprv;
@@ -183,6 +184,7 @@ void ParthenonManager::PostDriver(DriverStatus driver_status) {
 }
 
 ParthenonStatus ParthenonManager::ParthenonFinalize() {
+  pmesh.reset();
   Kokkos::finalize();
 #ifdef MPI_PARALLEL
   MPI_Finalize();
@@ -199,7 +201,7 @@ ParthenonManager::ProcessProperties(std::unique_ptr<ParameterInput>& pin) {
   // In practice, this function should almost always be replaced by a version
   // that sets relevant things for the application.
   Properties_t props;
-  return std::move(props);
+  return props;
 }
 
 Packages_t __attribute__((weak))
@@ -207,7 +209,7 @@ ParthenonManager::ProcessPackages(std::unique_ptr<ParameterInput>& pin) {
   // In practice, this function should almost always be replaced by a version
   // that sets relevant things for the application.
   Packages_t packages;
-  return std::move(packages);
+  return packages;
 }
 
 } // namespace parthenon

@@ -33,9 +33,10 @@
 
 // Athena++ headers
 #include "athena.hpp"
-#include "athena_arrays.hpp"
+#include "parthenon_arrays.hpp"
 #include "bvals/bvals.hpp"
 #include "bvals/bvals_interfaces.hpp"
+#include "interface/container_collection.hpp"
 #include "interface/Container.hpp"
 #include "interface/PropertiesInterface.hpp"
 #include "interface/StateDescriptor.hpp"
@@ -120,23 +121,9 @@ class MeshBlock {
   int gid, lid;
   int cis, cie, cjs, cje, cks, cke, cnghost;
   int gflag;
-  // At every cycle n, and field registers (u, b) are advanced from t^n -> t^{n+1},
-  // the time-integration scheme may partially substep several storage register pairs
-  // (u,b), (u1,b1), (u2, b2), ..., (um, bm) through the dt interval. Track their time
-  // abscissae at the end of each stage (1<=l<=nstage) as (dt_m^l) relative to t^n
-  Real stage_abscissae[MAX_NSTAGE+1][MAX_NREGISTER];
-
-  // user output variables for analysis
-  int nuser_out_var;
-  AthenaArray<Real> user_out_var;
-  std::string *user_out_var_names_;
-
-  // user MeshBlock data that can be stored in restart files
-  AthenaArray<Real> *ruser_meshblock_data;
-  AthenaArray<int> *iuser_meshblock_data;
 
   // The User defined containers
-  Container<Real> real_container;
+  ContainerCollection<Real> real_containers;
 
   Properties_t properties;
   Packages_t packages;
@@ -144,6 +131,7 @@ class MeshBlock {
   std::unique_ptr<MeshBlockApplicationData> app;
 
   // mesh-related objects
+  // TODO(jcd): remove all these?
   std::unique_ptr<Coordinates> pcoord;
   std::unique_ptr<BoundaryValues> pbval;
   std::unique_ptr<MeshRefinement> pmr;
@@ -198,8 +186,8 @@ class MeshBlock {
   int GetNumberOfMeshBlockCells() {
     return block_size.nx1*block_size.nx2*block_size.nx3; }
   void SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist, int *nslist);
-  void WeightedAve(AthenaArray<Real> &u_out, AthenaArray<Real> &u_in1,
-                   AthenaArray<Real> &u_in2, const Real wght[3]);
+  void WeightedAve(ParArrayND<Real> &u_out, ParArrayND<Real> &u_in1,
+                   ParArrayND<Real> &u_in2, const Real wght[3]);
   void WeightedAve(FaceField &b_out, FaceField &b_in1, FaceField &b_in2,
                    const Real wght[3]);
 
@@ -208,8 +196,8 @@ class MeshBlock {
   // inform MeshBlock which arrays contained in member Field, Particles,
   // ... etc. classes are the "primary" representations of a quantity. when registered,
   // that data are used for (1) load balancing (2) (future) dumping to restart file
-  void RegisterMeshBlockData(Variable<Real> &pvar_cc);
-  void RegisterMeshBlockData(FaceField &pvar_fc);
+  void RegisterMeshBlockData(std::shared_ptr<CellVariable<Real>> pvar_cc);
+  void RegisterMeshBlockData(std::shared_ptr<FaceField> pvar_fc);
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   void UserWorkBeforeOutput(ParameterInput *pin); // called in Mesh fn (friend class)
@@ -220,15 +208,10 @@ class MeshBlock {
   // data
   Real new_block_dt_, new_block_dt_hyperbolic_, new_block_dt_parabolic_,
     new_block_dt_user_;
-  int nreal_user_meshblock_data_, nint_user_meshblock_data_;
-  std::vector<std::reference_wrapper<Variable<Real>>> vars_cc_;
-  std::vector<std::reference_wrapper<FaceField>> vars_fc_;
+  std::vector<std::shared_ptr<CellVariable<Real>>> vars_cc_;
+  std::vector<std::shared_ptr<FaceField>> vars_fc_;
 
   // functions
-  void AllocateRealUserMeshBlockDataField(int n);
-  void AllocateIntUserMeshBlockDataField(int n);
-  void AllocateUserOutputVariables(int n);
-  void SetUserOutputVariableName(int n, const char *name);
   void SetCostForLoadBalancing(double cost);
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/
@@ -256,7 +239,6 @@ class Mesh {
   friend class BoundaryValues;
   friend class Coordinates;
   friend class MeshRefinement;
-  friend class FieldDiffusion;
 #ifdef HDF5OUTPUT
   friend class ATHDF5Output;
 #endif
@@ -295,9 +277,6 @@ class Mesh {
   Properties_t properties;
   Packages_t packages;
 
-  AthenaArray<Real> *ruser_mesh_data;
-  AthenaArray<int> *iuser_mesh_data;
-
   // functions
   void Initialize(int res_flag, ParameterInput *pin);
   void SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size,
@@ -317,6 +296,7 @@ class Mesh {
   void UserWorkAfterLoop(ParameterInput *pin);   // called in main loop
   void UserWorkInLoop(); // called in main after each cycle
   int GetRootLevel() { return root_level; }
+  int GetMaxLevel() { return max_level; }
 
  private:
   // data
@@ -342,7 +322,6 @@ class Mesh {
 
   // flags are false if using non-uniform or user meshgen function
   bool use_uniform_meshgen_fn_[3];
-  int nreal_user_mesh_data_, nint_user_mesh_data_;
 
   int nuser_history_output_;
   std::string *user_history_output_names_;
@@ -361,15 +340,11 @@ class Mesh {
   TimeStepFunc UserTimeStep_;
   HistoryOutputFunc *user_history_func_;
   MetricFunc UserMetric_;
-  FieldDiffusionCoeffFunc FieldDiffusivity_;
 
-  void AllocateRealUserMeshDataField(int n);
-  void AllocateIntUserMeshDataField(int n);
   void OutputMeshStructure(int dim);
   void CalculateLoadBalance(double *clist, int *rlist, int *slist, int *nlist, int nb);
   void ResetLoadBalanceVariables();
 
-  void CorrectMidpointInitialCondition(std::vector<MeshBlock*> &pmb_array, int nmb);
   void ReserveMeshBlockPhysIDs();
 
   // Mesh::LoadBalancingAndAdaptiveMeshRefinement() helper functions:
@@ -409,7 +384,6 @@ class Mesh {
   void EnrollUserHistoryOutput(int i, HistoryOutputFunc my_func, const char *name,
                                UserHistoryOperation op=UserHistoryOperation::sum);
   void EnrollUserMetric(MetricFunc my_func);
-  void EnrollFieldDiffusivity(FieldDiffusionCoeffFunc my_func);
 };
 
 

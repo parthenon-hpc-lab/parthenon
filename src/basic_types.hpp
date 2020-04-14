@@ -10,14 +10,29 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef BASIC_TYPES_PK_H
-#define BASIC_TYPES_PK_H
+#ifndef BASIC_TYPES_HPP_
+#define BASIC_TYPES_HPP_
 
-#include <memory>
+#include "defs.hpp"
 
 namespace parthenon {
-  template<class T>
-    using SmartArray = std::unique_ptr<T []>;
-}
 
+// primitive type alias that allows code to run with either floats or doubles
+#if SINGLE_PRECISION_ENABLED
+using Real = float;
+#ifdef MPI_PARALLEL
+#define MPI_ATHENA_REAL MPI_FLOAT
 #endif
+#else
+using Real = double;
+#ifdef MPI_PARALLEL
+#define MPI_ATHENA_REAL MPI_DOUBLE
+#endif
+#endif
+
+enum class TaskStatus {fail, complete, incomplete};
+enum class AmrTag : int {derefine=-1, same=0, refine=1};
+
+} // namespace parthenon
+
+#endif // BASIC_TYPES_HPP_

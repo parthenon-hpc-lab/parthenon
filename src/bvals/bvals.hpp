@@ -24,10 +24,11 @@
 // C++ headers
 #include <string>   // string
 #include <vector>
+#include <memory>
 
 // Athena++ headers
 #include "athena.hpp"
-#include "athena_arrays.hpp"
+#include "parthenon_arrays.hpp"
 #include "bvals_interfaces.hpp"
 
 // MPI headers
@@ -88,7 +89,7 @@ class BoundaryBase {
 
   Mesh *pmy_mesh_;
   RegionSize block_size_;
-  AthenaArray<Real> sarea_[2];
+  ParArrayND<Real> sarea_[2];
 
  private:
   // calculate 3x shared static data members when constructing only the 1st class instance
@@ -108,9 +109,9 @@ class BoundaryValues : public BoundaryBase, //public BoundaryPhysics,
 
   // variable-length arrays of references to BoundaryVariable instances
   // containing all BoundaryVariable instances:
-  std::vector<BoundaryVariable *> bvars;
+  std::vector<std::shared_ptr<BoundaryVariable>> bvars;
   // subset of bvars that are exchanged in the main TimeIntegratorTaskList
-  std::vector<BoundaryVariable *> bvars_main_int;
+  std::vector<std::shared_ptr<BoundaryVariable>> bvars_main_int;
 
   void SetBoundaryFlags(BoundaryFlag bc_flag[]) {for (int i=0; i<6; i++) bc_flag[i]=block_bcs[i];}
 

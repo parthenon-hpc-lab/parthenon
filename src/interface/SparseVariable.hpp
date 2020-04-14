@@ -11,8 +11,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 ///
-/// A Sparse Variable type for Placebo-K.
-/// Builds on AthenaArrays
+/// A Sparse Variable type.
+/// Builds on ParArrayNDs
 /// Date: Sep 12, 2019
 ///
 #ifndef INTERFACE_SPARSEVARIABLE_HPP_
@@ -31,148 +31,122 @@
 namespace parthenon {
 
 template <typename T>
-class SparseMap : public std::map<int, std::shared_ptr<Variable<T>>> {
- public:
-  Variable<T>& operator()(int m) {
-    return *(*this)[m];
-  }
-  T& operator()(int m, int i) {
-    return (*(*this)[m])(i);
-  }
-  T& operator()(int m, int j, int i) {
-    return (*(*this)[m])(j,i);
-  }
-  T& operator()(int m, int k, int j, int i) {
-    return (*(*this)[m])(k,j,i);
-  }
-  T& operator()(int m, int l, int k, int j, int i) {
-    return (*(*this)[m])(l,k,j,i);
-  }
-  T& operator()(int m, int n, int l, int k, int j, int i) {
-    return (*(*this)[m])(n,l,k,j,i);
-  }
-  T& operator()(int m, int g, int n, int l, int k, int j, int i) {
-    return (*(*this)[m])(g,n,l,k,j,i);
-  }
-  Metadata& metadata() const { return this->begin().second->metadata();}
-};
+using SparseMap = std::map<int, std::shared_ptr<CellVariable<T>>>;
 
 ///
-/// SparseVariable builds on top of  the Variable class to include a map
+/// SparseVariable builds on top of  the CellVariable class to include a map
 template <typename T>
 class SparseVariable {
  public:
-  // Note only default constructor
+  SparseVariable() = default;
+  SparseVariable(const std::string& label, const Metadata& m, std::array<int,6>& dims)
+    : dims_(dims), label_(label), metadata_(m) {}
+
+  std::shared_ptr<SparseVariable<T>> AllocateCopy() {
+    auto sv = std::make_shared<SparseVariable<T>>(label_, metadata_, dims_);
+    for (auto & v : varMap_) {
+      sv->Add(v.first, v.second->AllocateCopy());
+    }
+    return sv;
+  }
 
   /// create a new variable alias from variable 'theLabel' in input variable mv
-  void AddAlias(const std::string& theLabel, SparseVariable<T>& mv);
+  //void AddAlias(const std::string& theLabel, SparseVariable<T>& mv);
 
   /// create a new variable deep copy from variable 'theLabel' in input variable mv
-  void AddCopy(const std::string& theLabel, SparseVariable<T>& mv);
+  //void AddCopy(const std::string& theLabel, SparseVariable<T>& mv);
 
   ///create a new variable
-  void Add(MeshBlock &pmb,
-           const std::string &label,
-           const Metadata &metadata,
-           const std::vector<int>& inDims={});
+  void Add(int sparse_index);
 
+  // accessors
+  inline CellVariable<T>& operator() (const int m) {
+    return *(varMap_[m]);
+  }
+  inline T& operator() (const int m, const int i) {
+    return (*(varMap_[m]))(i);
+  }
+  inline T& operator() (const int m, const int j, const int i) {
+    return (*(varMap_[m]))(j,i);
+  }
+  inline T& operator() (const int m, const int k, const int j, const int i) {
+    return (*(varMap_[m]))(k,j,i);
+  }
+  inline T& operator() (const int m, const int n, const int k,
+                        const int j, const int i) {
+    return (*(varMap_[m]))(n,k,j,i);
+  }
+  inline T& operator() (const int m, const int l, const int n,
+                        const int k, const int j, const int i) {
+    return (*(varMap_[m]))(l,n,k,j,i);
+  }
+  inline T& operator() (const int m, const int p, const int l,
+                        const int n, const int k, const int j, const int i) {
+    return (*(varMap_[m]))(p,l,n,k,j,i);
+  }
+
+
+  bool IsSet(const MetadataFlag flag) { return metadata_.IsSet(flag); }
 
   /// return information string
-  std::string info(const std::string &label) {
-    char tmp[100] = "";
-
-    if (_cellVars.find(label) == _cellVars.end()) {
-      return (label + std::string("not found"));
-    }
-
-    auto myMap = _cellVars[label];
-
-    std::string s = label;
-    s.resize(20,'.');
-
-    s += std::string(" variables:");
-    for (auto const& items : myMap) s += std::to_string(items.first) + ":";
-
-    // now append flag
-    auto pVar = myMap.begin();
-    s += " : " + pVar->second->metadata().MaskAsString();
-
+  std::string info() {
+    std::string s = "info not yet implemented for sparse variables";
     return s;
   }
 
-  SparseMap<T>& Get(const std::string& label) {
-    if (_cellVars.find(label) == _cellVars.end()) {
-      throw std::invalid_argument ("Unable to find variable " +
-                                   label +
-                                   " in SparseMap<T> container::Get() ");
+  CellVariable<T>& Get(const int index) {
+    auto it = varMap_.find(index);
+    if (it == varMap_.end()) {
+      throw std::invalid_argument("index " + std::to_string(index) +
+                                  "does not exist in SparseVariable");
     }
-    return _cellVars[label];
+    return *(it->second);
   }
 
-  VariableVector<T>& GetVector(const std::string& label) {
-    if (_pcellVars.find(label) == _pcellVars.end()) return _empty;
-    /*{
-      std::cerr << "Looking for " << label << " in GetVector" << std::endl;
-      for (auto & v : _pcellVars) {
-        std::cerr << v.first << std::endl;
-      }
-      for (auto & v : _cellVars) {
-        std::cerr << v.first << std::endl;
-      }
-      throw std::invalid_argument ("Unable to find variable in container");
-    }*/
-    return _pcellVars[label];
+  int GetIndex(int id) {
+    auto it = std::find(indexMap_.begin(), indexMap_.end(), id);
+    if (it == indexMap_.end()) return -1; // indicate the id doesn't exist
+    return std::distance(indexMap_.begin(), it);
   }
 
-  std::vector<int>& GetIndexMap(const std::string& label) {
-    if (_indexMap.find(label) == _indexMap.end()) {
-      throw std::invalid_argument ("Unable to find variable in container");
-    }
-    return _indexMap[label];
-  }
+  std::vector<int>& GetIndexMap() { return indexMap_; }
 
-  std::map<std::string,SparseMap<T>> CellVars() { return _cellVars;}
+  CellVariableVector<T>& GetVector() { return varArray_; }
 
-  void DeleteVariable(const int var_id);
-  void DeleteVariable(const int var_id, const std::string label);
+  SparseMap<T>& GetMap() { return varMap_; }
 
-  Variable<T>& Get(const std::string& label, int sparse_id) {
-    auto myMap = this->Get(label);
-    if (myMap.find(sparse_id) == myMap.end()) {
-      throw std::invalid_argument ("Unable to find specific variable in container");
-    }
-    return *myMap[sparse_id];
-  }
+  // might want to implement this at some point
+  //void DeleteVariable(const int var_id);
 
-  std::map<std::string,SparseMap<T>>& getAllCellVars() {
-    return _cellVars;
-  }
-
-  std::map<std::string,std::vector<int>> getIndexMap() { return _indexMap; }
-
-  std::map<std::string,VariableVector<T>> getCellVarVectors() { return _pcellVars; }
+  std::string& label() { return label_; }
 
   void print() {
-    for ( auto &m : _cellVars) {
-      std::cout << "    sparsevar:cell:" << m.second.begin()->second->info() << ":";
-      for (auto &v : m.second) {
-        std::cout << v.first << ":";
-      }
-      std::cout << std::endl;
-    }
-    for ( auto &m : _pcellVars) {
-      std::cout << "    varvec: " << m.first
-                << " has " << m.second.size() << " elements"
-                << std::endl;
-    }
+    std::cout << "hello from sparse variables print" << std::endl;
   }
 
  private:
-  std::map<std::string,SparseMap<T>> _cellVars;
-  std::map<std::string,VariableVector<T>> _pcellVars;
-  std::map<std::string,std::vector<int>> _indexMap;
-  VariableVector<T> _empty;
+  std::array<int,6> dims_;
+  std::string label_;
+  Metadata metadata_;
+  SparseMap<T> varMap_;
+  CellVariableVector<T> varArray_;
+  std::vector<int> indexMap_;
+  CellVariableVector<T> _empty;
+
+
+  void Add(int varIndex, std::shared_ptr<CellVariable<T>> cv) {
+    varArray_.push_back(cv);
+    indexMap_.push_back(varIndex);
+    varMap_[varIndex] = cv;
+  }
+
 };
+
+template <typename T>
+using SparseVector = std::vector<std::shared_ptr<SparseVariable<T>>>;
+template <typename T>
+using MapToSparse = std::map<std::string, std::shared_ptr<SparseVariable<T>>>;
+
 
 } // namespace parthenon
 

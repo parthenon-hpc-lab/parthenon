@@ -26,7 +26,7 @@ using parthenon::Driver;
 using parthenon::DriverStatus;
 using parthenon::MeshBlock;
 using parthenon::Real;
-using parthenon::Variable;
+using parthenon::CellVariable;
 using parthenon::DriverUtils::ConstructAndExecuteBlockTasks;
 using parthenon::Coordinates;
 using parthenon::StateDescriptor;
@@ -45,6 +45,7 @@ using parthenon::Globals::nranks;
 using parthenon::ParameterInput;
 using parthenon::Outputs;
 using parthenon::Mesh;
+using parthenon::AmrTag;
 
 class CalculatePi : public Driver {
  public:
@@ -56,7 +57,7 @@ class CalculatePi : public Driver {
 // putting a "physics" package in a namespace
 namespace PiCalculator {
   void SetInOrOut(Container<Real>& rc);
-  int CheckRefinement(Container<Real>& rc);
+  AmrTag CheckRefinement(Container<Real>& rc);
   std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
   TaskStatus ComputeArea(MeshBlock *pmb);
 }

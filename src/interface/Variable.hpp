@@ -15,127 +15,63 @@
 
 ///
 /// A Variable type for Placebo-K.
-/// Builds on AthenaArrays
+/// Builds on ParArrayNDs
 /// Date: August 21, 2019
 ///
 ///
 /// The variable class typically contains state data for the
 /// simulation but can also hold non-mesh-based data such as physics
-/// parameters, etc.  It inherits the AthenaArray class, which is used
+/// parameters, etc.  It inherits the ParArrayND class, which is used
 /// for actural data storage and generation
 
 #include <array>
+#include <cassert>
 #include <cstdint>
 #include <map>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
-#include "athena.hpp"
-#include "athena_arrays.hpp"
+
+#include "basic_types.hpp"
 #include "bvals/cc/bvals_cc.hpp"
 #include "Metadata.hpp"
-#define DATASTATUS AthenaArray<Real>::DataStatus
+#include "parthenon_arrays.hpp"
 
 namespace parthenon {
 class MeshBlock;
 
 template <typename T>
-class Variable : public AthenaArray<T> {
+class CellVariable {
  public:
-  /// Initialize a blank slate that will be set later
-  Variable<T>(const std::string label, Metadata &metadata) :
-    AthenaArray<T>(),
-    _label(label),
-    _m(metadata),
-    mpiStatus(true) {
-    //    std::cout << "_____CREATED VAR: " << _label << ":" << this << std::endl;
-  }
-
-  /// Initialize with a slice from another Variable
-  Variable<T>(const std::string label,
-              Variable<T> &src,
-              const int dim,
-              const int index,
-              const int nvar) :
-    AthenaArray<T>(),
-    _label(label),
-    _m(src.metadata()),
-    mpiStatus(true)  {
-    this->InitWithShallowSlice(src, dim, index, nvar);
-    if ( _m.IsSet(Metadata::FillGhost) ) {
-      _m.Set(Metadata::SharedComms);
-    }
-    //    std::cout << "_____CREATED VAR SLICE: " << _label << ":" << this << std::endl;
-  }
-
-  /// Create an alias for the variable by making a shallow slice with max dim
-  Variable<T>(const std::string label, Variable<T> &src) :
-    AthenaArray<T>(),
-    _label(label),
-    _m(src.metadata()),
-    mpiStatus(true) {
-    int dim = 6;
-    int start = 0;
-    int nvar = src.GetDim6();
-    this->InitWithShallowSlice(src, dim, start, nvar);
-    _m.Set(Metadata::SharedComms);
-    //    std::cout << "_____CREATED VAR SLICE: " << _label << ":" << this << std::endl;
-  }
-
-
   /// Initialize a 6D variable
-  Variable<T>(const std::string label,
+  CellVariable<T>(const std::string label,
               const std::array<int,6> dims,
               const Metadata &metadata) :
-    AthenaArray<T>(dims[5], dims[4], dims[3], dims[2], dims[1], dims[0]),
-    _label(label),
-    _m(metadata),
-    mpiStatus(true) {
-    //    std::cout << "_____CREATED 6D VAR: " << _label << ":" << this << std::endl;
-  }
+    data(label, dims[5], dims[4], dims[3], dims[2], dims[1], dims[0]),
+    mpiStatus(false),
+    m_(metadata) { }
 
-  /// copy constructor
-  Variable<T>(const Variable<T>& src,
-              const bool allocComms=false,
-              MeshBlock *pmb=nullptr);
+  // make a new CellVariable based on an existing one
+  std::shared_ptr<CellVariable<T>> AllocateCopy(const bool allocComms=false,
+                                                MeshBlock *pmb=nullptr);
 
-  /// Return a new array with dimension 4 as dimension 1
-  Variable<T>* createShuffle4() {
-    // shuffles dim 4 to dim1
+  // accessors
 
-    // first construct new athena array
-    const std::array<int,6> dims = {this->GetDim4(), this->GetDim1(), this->GetDim2(),
-                                    this->GetDim3(), this->GetDim5(), this->GetDim6()};
-    size_t stride = this->GetDim1()*this->GetDim2()*this->GetDim3();
-    Variable<T> *vNew = new Variable<T>(_label, dims, _m);
+  template <class...Args>
+  KOKKOS_FORCEINLINE_FUNCTION
+  auto &operator() (Args... args) { return data(std::forward<Args>(args)...); }
 
-    auto oldData = this->data();
-    auto newData = vNew->data();
-    // now fill in the data
-    size_t index = 0;
-    const size_t n4 = this->GetDim4();
-    for (size_t i=0; i<stride; i++) {
-      for (size_t j=0; j<n4; j++, newData++) {
-        *newData = oldData[i+j*stride];
-      }
-    }
-    return vNew;
-  }
-
-
-  ///< Assign label for variable
-  void setLabel(const std::string label) { _label = label; }
+  KOKKOS_FORCEINLINE_FUNCTION
+  auto GetDim(const int i) const { return data.GetDim(i); }
 
   ///< retrieve label for variable
-  std::string label() const { return _label; }
+  const std::string label() const { return data.label(); }
 
   ///< retrieve metadata for variable
-  const Metadata metadata() const { return _m; }
+  Metadata metadata() const { return m_; }
 
-  std::string getAssociated() { return _m.getAssociated(); }
-
-  ///  T *Raw(); ///< returns raw data for variable
+  std::string getAssociated() { return m_.getAssociated(); }
 
   /// return information string
   std::string info();
@@ -144,17 +80,19 @@ class Variable : public AthenaArray<T> {
   void allocateComms(MeshBlock *pmb);
 
   /// Repoint vbvar's var_cc array at the current variable
-  void resetBoundary();
+  void resetBoundary() { vbvar->var_cc = data; }
 
-  AthenaArray<Real> flux[3];    // used for boundary calculation
-  AthenaArray<Real> *coarse_s;  // used for sending coarse boundary calculation
-  AthenaArray<Real> *coarse_r;  // used for sending coarse boundary calculation
-  CellCenteredBoundaryVariable *vbvar; // used in case of cell boundary communication
+  bool IsSet(const MetadataFlag bit) const { return m_.IsSet(bit); }
+
+  ParArrayND<T> data;
+  ParArrayND<T> flux[3];    // used for boundary calculation
+  ParArrayND<T> coarse_s;   // used for sending coarse boundary calculation
+  // used in case of cell boundary communication
+  std::shared_ptr<CellCenteredBoundaryVariable> vbvar;
   bool mpiStatus;
 
  private:
-  Metadata _m;
-  std::string _label;
+  Metadata m_;
 };
 
 
@@ -164,60 +102,72 @@ class Variable : public AthenaArray<T> {
 /// and label so that we can refer to variables by name.  Since Athena
 /// currently only has scalar Face fields, we also only allow scalar
 /// face fields
-struct FaceVariable : FaceField {
+template <typename T>
+class FaceVariable {
  public:
   /// Initialize a face variable
-  FaceVariable(const std::string label, const Metadata &metadata,
-               const std::array<int,6> ncells,
-               const DATASTATUS init=DATASTATUS::allocated) :
-    FaceField(ncells[5], ncells[4], ncells[3], ncells[2], ncells[1], ncells[0], init),
-    _label(label),
-    _m(metadata) {
-    if ( metadata.IsSet(Metadata::Sparse) ) {
-      throw std::invalid_argument ("Sparse not yet implemented for FaceVariable");
-    }
+  FaceVariable(const std::string label, const std::array<int,6> ncells,
+    const Metadata& metadata)
+    : data(label,ncells[5], ncells[4], ncells[3], ncells[2], ncells[1], ncells[0]),
+      dims_(ncells),
+      m_(metadata),
+      label_(label) {
+    assert ( !metadata.IsSet(Metadata::Sparse)
+             && "Sparse not implemented yet for FaceVariable" );
   }
 
   /// Create an alias for the variable by making a shallow slice with max dim
-  FaceVariable(std::string label, FaceVariable &src) :
-    FaceField(0,0,0,DATASTATUS::allocated),
-    _label(label),
-    _m(src.metadata()) {
-    int dim = 6;
-    int start = 0;
-    this->x1f.InitWithShallowSlice(src.x1f, dim, start, src.x1f.GetDim6());
-    this->x2f.InitWithShallowSlice(src.x2f, dim, start, src.x2f.GetDim6());
-    this->x3f.InitWithShallowSlice(src.x3f, dim, start, src.x3f.GetDim6());
-  }
+  FaceVariable(std::string label, FaceVariable<T> &src)
+    : data(src.data),
+      dims_(src.dims_),
+      m_(src.m_),
+      label_(label) { }
+
+  // KOKKOS_FUNCTION FaceVariable() = default;
+  // KOKKOS_FUNCTION FaceVariable(const FaceVariable<T>& v) = default;
+  // KOKKOS_FUNCTION ~FaceVariable() = default;
 
   ///< retrieve label for variable
-  std::string label() { return _label; }
+  const std::string& label() const { return label_; }
 
   ///< retrieve metadata for variable
-  Metadata metadata() { return _m; }
+  const Metadata metadata() const { return m_; }
 
   /// return information string
   std::string info();
 
   // TODO(JMM): should this be 0,1,2?
   // Should we return the reference? Or something else?
-  AthenaArray<Real>& Get(int i) {
-    if (i == 1) return (this->x1f);
-    if (i == 2) return (this->x2f);
-    if (i == 3) return (this->x3f);
-    throw std::invalid_argument("Face must be x1f, x2f, or x3f");
+  KOKKOS_FORCEINLINE_FUNCTION
+  ParArrayND<T>& Get(int i) {
+    assert( 1 <= i && i <= 3 );
+    if (i == 1)
+      return (data.x1f);
+    if (i == 2)
+      return (data.x2f);
+    else // i == 3
+      return (data.x3f);
   }
   template<typename...Args>
-  Real& operator()(int dir, Args... args) {
-    if (dir == 1) return x1f(std::forward<Args>(args)...);
-    if (dir == 2) return x2f(std::forward<Args>(args)...);
-    if (dir == 3) return x3f(std::forward<Args>(args)...);
-    throw std::invalid_argument("Face must be x1f, x2f, or x3f");
+  KOKKOS_FORCEINLINE_FUNCTION
+  T& operator()(int dir, Args... args) const {
+    assert( 1 <= dir && dir <= 3 );
+    if (dir == 1)
+      return data.x1f(std::forward<Args>(args)...);
+    if (dir == 2)
+      return data.x2f(std::forward<Args>(args)...);
+    else // dir == 3
+      return data.x3f(std::forward<Args>(args)...);
   }
 
+  bool IsSet(const MetadataFlag bit) const { return m_.IsSet(bit); }
+
+  FaceArray<T> data;
+
  private:
-  Metadata _m;
-  std::string _label;
+  std::array<int,6> dims_;
+  Metadata m_;
+  std::string label_;
 };
 
 ///
@@ -225,70 +175,55 @@ struct FaceVariable : FaceField {
 /// and label so that we can refer to variables by name.  Since Athena
 /// currently only has scalar Edge fields, we also only allow scalar
 /// edge fields
-struct EdgeVariable : EdgeField {
+template <typename T>
+class EdgeVariable {
  public:
-  ///< retrieve metadata for variable
-  Metadata metadata() const { return _m; }
-
-  /// Initialize a edge variable
-  EdgeVariable(const std::string label, const Metadata &metadata,
-               const int ncells3, const int ncells2, const int ncells1,
-               const DATASTATUS init=DATASTATUS::allocated) :
-    EdgeField(ncells3, ncells2, ncells1, init),
-    _label(label),
-    _m(metadata) {
-    if ( metadata.IsSet(Metadata::Sparse) ) {
-      throw std::invalid_argument ("Sparse not yet implemented for FaceVariable");
-    }
+  /// Initialize an edge variable
+  EdgeVariable(const std::string label, const std::array<int,6> ncells,
+    const Metadata& metadata)
+    : data(label,ncells[5], ncells[4], ncells[3], ncells[2], ncells[1], ncells[0]),
+      dims_(ncells),
+      m_(metadata),
+      label_(label) {
+    assert ( !metadata.IsSet(Metadata::Sparse)
+             && "Sparse not implemented yet for FaceVariable" );
   }
 
   /// Create an alias for the variable by making a shallow slice with max dim
-  EdgeVariable(const std::string label, const EdgeVariable &src) :
-    EdgeField(0,0,0,DATASTATUS::allocated),
-    _label(label),
-    _m(src.metadata()) {
-    this->x1e.InitWithShallowSlice(src.x1e, 3, 0, src.x1e.GetDim3());
-    this->x2e.InitWithShallowSlice(src.x2e, 3, 0, src.x2e.GetDim3());
-    this->x3e.InitWithShallowSlice(src.x3e, 3, 0, src.x3e.GetDim3());
-  }
+  EdgeVariable(std::string label, EdgeVariable<T> &src)
+    : data(src.data),
+      dims_(src.dims_),
+      m_(src.m_),
+      label_(label) { }
+  ///< retrieve metadata for variable
+  const Metadata metadata() const { return m_; }
 
+  bool IsSet(const MetadataFlag bit) const { return m_.IsSet(bit); }
   ///< retrieve label for variable
-  std::string label() { return _label; }
+  std::string label() { return label_; }
 
   /// return information string
   std::string info();
 
+  EdgeArray<Real> data;
+
  private:
-  Metadata _m;
-  std::string _label;
+  std::array<int,6> dims_;
+  Metadata m_;
+  std::string label_;
 };
 
-template<typename T>
-class VariableVector : public std::vector<std::shared_ptr<Variable<T>>> {
- public:
-  Variable<T>& operator()(int m) {
-    return *(*this)[m];
-  }
-  T& operator()(int m, int i) {
-    return (*(*this)[m])(i);
-  }
-  T& operator()(int m, int j, int i) {
-    return (*(*this)[m])(j,i);
-  }
-  T& operator()(int m, int k, int j, int i) {
-    return (*(*this)[m])(k,j,i);
-  }
-  T& operator()(int m, int l, int k, int j, int i) {
-    return (*(*this)[m])(l,k,j,i);
-  }
-  T& operator()(int m, int n, int l, int k, int j, int i) {
-    return (*(*this)[m])(n,l,k,j,i);
-  }
-  T& operator()(int m, int g, int n, int l, int k, int j, int i) {
-    return (*(*this)[m])(g,n,l,k,j,i);
-  }
-  Metadata& metadata() const { return this->begin().second->metadata();}
-};
+
+template <typename T>
+using CellVariableVector = std::vector<std::shared_ptr<CellVariable<T>>>;
+template <typename T>
+using FaceVector = std::vector<std::shared_ptr<FaceVariable<T>>>;
+
+template <typename T>
+using MapToCellVars = std::map<std::string, std::shared_ptr<CellVariable<T>>>;
+template <typename T>
+using MapToFace = std::map<std::string, std::shared_ptr<FaceVariable<T>>>;
+
 } // namespace parthenon
 
 #endif // INTERFACE_VARIABLE_HPP_

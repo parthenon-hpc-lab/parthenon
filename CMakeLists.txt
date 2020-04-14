@@ -174,5 +174,6 @@ endif()
 add_subdirectory(src)
 add_subdirectory(example/calculate_pi)
 add_subdirectory(example/face_fields)
+add_subdirectory(example/advection)
 
 include(cmake/CheckCopyright.cmake)

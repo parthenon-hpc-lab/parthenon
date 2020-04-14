@@ -100,8 +100,8 @@ BoundaryBase::BoundaryBase(Mesh *pm, LogicalLocation iloc, RegionSize isize,
   if (pmy_mesh_->multilevel) { // SMR or AMR
     // allocate surface area array
     int nc1 = block_size_.nx1 + 2*NGHOST;
-    sarea_[0].NewAthenaArray(nc1);
-    sarea_[1].NewAthenaArray(nc1);
+    sarea_[0] = ParArrayND<Real>(PARARRAY_TEMP,nc1);
+    sarea_[1] = ParArrayND<Real>(PARARRAY_TEMP,nc1);
   }
 }
 

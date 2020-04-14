@@ -29,11 +29,10 @@
 
 // Athena++ headers
 #include "athena.hpp"
-#include "athena_arrays.hpp"
 
 namespace parthenon {
 namespace GaussLegendre {
-// TODO(felker): for more complicate f(), use functors/lambdas/pass AthenaArray to both fn
+// TODO(felker): for more complicate f(), use functors/lambdas/pass ParArrayND to both fn
 // 1D f(x1)
 Real integrate(const int n, Real (*f)(Real), Real x1l, Real x1u);
 // 2D f(x1, x2)

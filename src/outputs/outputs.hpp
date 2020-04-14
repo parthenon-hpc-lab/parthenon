@@ -28,6 +28,7 @@
 // Athena++ headers
 #include "athena.hpp"
 #include "io_wrapper.hpp"
+#include "parthenon_arrays.hpp"
 
 namespace parthenon {
 // forward declarations
@@ -69,7 +70,7 @@ struct OutputParameters {
 struct OutputData {
   std::string type;        // one of (SCALARS,VECTORS) used for vtk outputs
   std::string name;
-  AthenaArray<Real> data;  // array containing data (usually shallow copy/slice)
+  ParArrayND<Real> data;  // array containing data (usually shallow copy/slice)
   // ptrs to previous and next nodes in doubly linked list:
   OutputData *pnext, *pprev;
 
@@ -109,7 +110,7 @@ class OutputType {
   bool TransformOutputData(MeshBlock *pmb);
   bool SliceOutputData(MeshBlock *pmb, int dim);
   void SumOutputData(MeshBlock *pmb, int dim);
-  void CalculateCartesianVector(AthenaArray<Real> &src, AthenaArray<Real> &dst,
+  void CalculateCartesianVector(ParArrayND<Real> &src, ParArrayND<Real> &dst,
                                 Coordinates *pco);
   // following pure virtual function must be implemented in all derived classes
   virtual void WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) = 0;
@@ -181,13 +182,7 @@ class ATHDF5Output : public OutputType {
 
   // Metadata
   std::string filename;                       // name of athdf file
-  float code_time;                            // time in code unit for XDMF
-  int num_blocks_global;                      // number of MeshBlocks in simulation
   int nx1, nx2, nx3;                          // sizes of MeshBlocks
-  int num_datasets;                           // count of datasets to output
-  int *num_variables;                         // list of counts of variables per dataset
-  char (*dataset_names)[max_name_length+1];   // array of C-string names of datasets
-  char (*variable_names)[max_name_length+1];  // array of C-string names of variables
 };
 #endif
 

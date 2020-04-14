@@ -26,22 +26,11 @@
 #include <cstdint>  // std::int64_t
 
 // Athena++ headers
-#include "athena_arrays.hpp"
+#include "basic_types.hpp"
+#include "parthenon_arrays.hpp"
 #include <defs.hpp>
 
 namespace parthenon {
-// primitive type alias that allows code to run with either floats or doubles
-#if SINGLE_PRECISION_ENABLED
-using Real = float;
-#ifdef MPI_PARALLEL
-#define MPI_ATHENA_REAL MPI_FLOAT
-#endif
-#else
-using Real = double;
-#ifdef MPI_PARALLEL
-#define MPI_ATHENA_REAL MPI_DOUBLE
-#endif
-#endif
 
 // for OpenMP 4.0 SIMD vectorization, control width of SIMD lanes
 #if defined(__AVX512F__)
@@ -60,7 +49,6 @@ using Real = double;
 class MeshBlock;
 class Coordinates;
 class ParameterInput;
-class FieldDiffusion;
 
 //--------------------------------------------------------------------------------------
 //! \struct LogicalLocation
@@ -97,38 +85,6 @@ struct RegionSize {  // aggregate and POD type; do NOT reorder member declaratio
   int nx1, nx2, nx3;        // number of active cells (not including ghost zones)
 };
 
-//---------------------------------------------------------------------------------------
-//! \struct FaceField
-//  \brief container for face-centered fields
-
-struct FaceField {
-  AthenaArray<Real> x1f, x2f, x3f;
-  FaceField() = default;
-  FaceField(int ncells3, int ncells2, int ncells1,
-            AthenaArray<Real>::DataStatus init=AthenaArray<Real>::DataStatus::allocated) :
-      x1f(ncells3, ncells2, ncells1+1, init), x2f(ncells3, ncells2+1, ncells1, init),
-      x3f(ncells3+1, ncells2, ncells1, init) {}
-  FaceField(int ncells6, int ncells5, int ncells4, int ncells3, int ncells2, int ncells1,
-            AthenaArray<Real>::DataStatus init=AthenaArray<Real>::DataStatus::allocated)
-    : x1f(ncells6, ncells5, ncells4, ncells3, ncells2, ncells1+1, init)
-    , x2f(ncells6, ncells5, ncells4, ncells3, ncells2+1, ncells1, init)
-    , x3f(ncells6, ncells5, ncells4, ncells3+1, ncells2, ncells1, init)
-  {}
-};
-
-//----------------------------------------------------------------------------------------
-//! \struct EdgeField
-//  \brief container for edge-centered fields
-
-struct EdgeField {
-  AthenaArray<Real> x1e, x2e, x3e;
-  EdgeField() = default;
-  EdgeField(int ncells3, int ncells2, int ncells1,
-            AthenaArray<Real>::DataStatus init=AthenaArray<Real>::DataStatus::allocated) :
-      x1e(ncells3+1, ncells2+1, ncells1, init), x2e(ncells3+1, ncells2, ncells1+1, init),
-      x3e(ncells3, ncells2+1, ncells1+1, init) {}
-};
-
 //----------------------------------------------------------------------------------------
 // enums used everywhere
 // (not specifying underlying integral type (C++11) for portability & performance)
@@ -160,29 +116,24 @@ enum class UserHistoryOperation {sum, max, min};
 // function pointer prototypes for user-defined modules set at runtime
 
 using BValFunc = void (*)(
-    MeshBlock *pmb, Coordinates *pco, AthenaArray<Real> &prim, FaceField &b,
+    MeshBlock *pmb, Coordinates *pco, ParArrayND<Real> &prim, FaceField &b,
     Real time, Real dt,
     int is, int ie, int js, int je, int ks, int ke, int ngh);
 using AMRFlagFunc = int (*)(MeshBlock *pmb);
 using MeshGenFunc = Real (*)(Real x, RegionSize rs);
 using SrcTermFunc = void (*)(
     MeshBlock *pmb, const Real time, const Real dt,
-    const AthenaArray<Real> &prim, const AthenaArray<Real> &bcc, AthenaArray<Real> &cons);
+    const ParArrayND<Real> &prim, const ParArrayND<Real> &bcc, ParArrayND<Real> &cons);
 using TimeStepFunc = Real (*)(MeshBlock *pmb);
 using HistoryOutputFunc = Real (*)(MeshBlock *pmb, int iout);
 using MetricFunc = void (*)(
     Real x1, Real x2, Real x3, ParameterInput *pin,
-    AthenaArray<Real> &g, AthenaArray<Real> &g_inv,
-    AthenaArray<Real> &dg_dx1, AthenaArray<Real> &dg_dx2, AthenaArray<Real> &dg_dx3);
+    ParArrayND<Real> &g, ParArrayND<Real> &g_inv,
+    ParArrayND<Real> &dg_dx1, ParArrayND<Real> &dg_dx2, ParArrayND<Real> &dg_dx3);
 using MGBoundaryFunc = void (*)(
-    AthenaArray<Real> &dst,Real time, int nvar,
+    ParArrayND<Real> &dst,Real time, int nvar,
     int is, int ie, int js, int je, int ks, int ke, int ngh,
     Real x0, Real y0, Real z0, Real dx, Real dy, Real dz);
-using FieldDiffusionCoeffFunc = void (*)(
-    FieldDiffusion *pfdif, MeshBlock *pmb,
-    const AthenaArray<Real> &w,
-    const AthenaArray<Real> &bmag,
-    int is, int ie, int js, int je, int ks, int ke);
 
 } // namespace parthenon
 

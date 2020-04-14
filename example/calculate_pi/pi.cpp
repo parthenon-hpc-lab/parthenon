@@ -27,14 +27,14 @@ namespace parthenon {
 // no need in this app so use the weak version that ships with parthenon
 //Properties_t ParthenonManager::ProcessProperties(std::unique_ptr<ParameterInput>& pin) {
 //  Properties_t props;
-//  return std::move(props);
+//  return props;
 //}
 
 Packages_t ParthenonManager::ProcessPackages(std::unique_ptr<ParameterInput>& pin) {
   Packages_t packages;
   // only have one package for this app, but will typically have more things added to
   packages["PiCalculator"] = PiCalculator::Initialize(pin.get());
-  return std::move(packages);
+  return packages;
 }
 
 // this should set up initial conditions of independent variables on the block
@@ -65,7 +65,8 @@ DriverStatus CalculatePi::Execute() {
   Real area = 0.0;
   MeshBlock* pmb = pmesh->pblock;
   while (pmb != nullptr) {
-    Variable<Real>& v = pmb->real_container.Get("in_or_out");
+    Container<Real>& rc = pmb->real_containers.Get();
+    CellVariable<Real>& v = rc.Get("in_or_out");
     // NOTE: the MeshBlock integrated indicator function, divided
     // by r0^2, was stashed in v(0,0,0) in ComputeArea.
     Real block_area = v(0,0,0);
@@ -103,7 +104,7 @@ TaskList CalculatePi::MakeTaskList(MeshBlock *pmb) {
   // auto next_task = tl.AddTask(FuncPtr, get_area, pmb);
   // for a task that executes the function FuncPtr (with argument MeshBlock *pmb)
   // that depends on task get_area
-  return std::move(tl);
+  return tl;
 }
 
 // This defines a "physics" package
@@ -118,7 +119,7 @@ namespace PiCalculator {
     int is = pmb->is; int js = pmb->js; int ks = pmb->ks;
     int ie = pmb->ie; int je = pmb->je; int ke = pmb->ke;
     Coordinates *pcoord = pmb->pcoord.get();
-    Variable<Real>& v = rc.Get("in_or_out");
+    CellVariable<Real>& v = rc.Get("in_or_out");
     const auto& radius = pmb->packages["PiCalculator"]->Param<Real>("radius");
     // Set an indicator function that indicates whether the cell center
     // is inside or outside of the circle we're interating the area of.
@@ -137,7 +138,7 @@ namespace PiCalculator {
     }
     /** TODO(pgrete) This is what it should should like using the transparent
       * parallel_for wrapper of the MeshBlock.
-      * Unfortunely, the current Container/Variable/AthenaArray combination
+      * Unfortunely, the current Container/CellVariable/ParArrayND combination
       * won't work this way and we should discuss how to proceed before
       * starting a bigger refactoring of the the classes above.
 
@@ -156,15 +157,15 @@ namespace PiCalculator {
     */
   }
 
-  int CheckRefinement(Container<Real>& rc) {
+  AmrTag CheckRefinement(Container<Real>& rc) {
     // tag cells for refinement or derefinement
     // each package can define its own refinement tagging
     // function and they are all called by parthenon
     MeshBlock *pmb = rc.pmy_block;
     int is = pmb->is; int js = pmb->js; int ks = pmb->ks;
     int ie = pmb->ie; int je = pmb->je; int ke = pmb->ke;
-    Variable<Real>& v = rc.Get("in_or_out");
-    int delta_level = -1;
+    CellVariable<Real>& v = rc.Get("in_or_out");
+    AmrTag delta_level = AmrTag::derefine;
     Real vmin = 1.0;
     Real vmax = 0.0;
     // loop over all real cells and one layer of ghost cells and refine
@@ -181,7 +182,7 @@ namespace PiCalculator {
     }
     // was the edge of the circle found?
     if (vmax > 0.95 && vmin < 0.05) { // then yes
-      delta_level = 1;
+      delta_level = AmrTag::refine;
     }
     return delta_level;
   }
@@ -209,11 +210,11 @@ namespace PiCalculator {
 
   TaskStatus ComputeArea(MeshBlock *pmb) {
     // compute 1/r0^2 \int d^2x in_or_out(x,y) over the block's domain
-    Container<Real>& rc = pmb->real_container;
+    Container<Real>& rc = pmb->real_containers.Get();
     int is = pmb->is; int js = pmb->js; int ks = pmb->ks;
     int ie = pmb->ie; int je = pmb->je; int ke = pmb->ke;
     Coordinates *pcoord = pmb->pcoord.get();
-    Variable<Real>& v = rc.Get("in_or_out");
+    CellVariable<Real>& v = rc.Get("in_or_out");
     const auto& radius = pmb->packages["PiCalculator"]->Param<Real>("radius");
     Real area = 0.0;
     for (int k=ks; k<=ke; k++) {
@@ -227,6 +228,6 @@ namespace PiCalculator {
     area /= (radius*radius);
     // just stash the area somewhere for later
     v(0,0,0) = area;
-    return TaskStatus::success;
+    return TaskStatus::complete;
   }
 } // namespace PiCalculator

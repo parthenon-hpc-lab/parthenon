@@ -16,7 +16,7 @@
 //========================================================================================
 //! \file plm_simple.cpp
 //  \brief  piecewise linear reconstruction for both uniform and non-uniform meshes
-//  Operates on the entire nx4 range of a single AthenaArray<Real> input (no MHD).
+//  Operates on the entire nx4 range of a single ParArrayND<Real> input (no MHD).
 
 // REFERENCES:
 // (Mignone) A. Mignone, "High-order conservative reconstruction schemes for finite volume
@@ -33,13 +33,13 @@ namespace parthenon {
 
 void Reconstruction::PiecewiseLinearX1(
     const int k, const int j, const int il, const int iu,
-    const AthenaArray<Real> &q,
-    AthenaArray<Real> &ql, AthenaArray<Real> &qr) {
+    const ParArrayND<Real> &q,
+    ParArrayND<Real> &ql, ParArrayND<Real> &qr) {
   auto &pco = pmy_block_->pcoord;
   // set work arrays to shallow copies of scratch arrays
-  AthenaArray<Real> &qc = scr1_ni_, &dql = scr2_ni_, &dqr = scr3_ni_,
+  ParArrayND<Real> &qc = scr1_ni_, &dql = scr2_ni_, &dqr = scr3_ni_,
                    &dqm = scr4_ni_;
-  const int nu = q.GetDim4() - 1;
+  const int nu = q.GetDim(4) - 1;
 
   // compute L/R slopes for each variable
   for (int n=0; n<=nu; ++n) {
@@ -110,13 +110,13 @@ void Reconstruction::PiecewiseLinearX1(
 
 void Reconstruction::PiecewiseLinearX2(
     const int k, const int j, const int il, const int iu,
-    const AthenaArray<Real> &q,
-    AthenaArray<Real> &ql, AthenaArray<Real> &qr) {
+    const ParArrayND<Real> &q,
+    ParArrayND<Real> &ql, ParArrayND<Real> &qr) {
   auto &pco = pmy_block_->pcoord;
   // set work arrays to shallow copies of scratch arrays
-  AthenaArray<Real> &qc = scr1_ni_, &dql = scr2_ni_,
+  ParArrayND<Real> &qc = scr1_ni_, &dql = scr2_ni_,
                    &dqr = scr3_ni_, &dqm = scr4_ni_;
-  const int nu = q.GetDim4() - 1;
+  const int nu = q.GetDim(4) - 1;
 
   // compute L/R slopes for each variable
   for (int n=0; n<=nu; ++n) {
@@ -186,13 +186,13 @@ void Reconstruction::PiecewiseLinearX2(
 
 void Reconstruction::PiecewiseLinearX3(
     const int k, const int j, const int il, const int iu,
-    const AthenaArray<Real> &q,
-    AthenaArray<Real> &ql, AthenaArray<Real> &qr) {
+    const ParArrayND<Real> &q,
+    ParArrayND<Real> &ql, ParArrayND<Real> &qr) {
   auto &pco = pmy_block_->pcoord;
   // set work arrays to shallow copies of scratch arrays
-  AthenaArray<Real> &qc = scr1_ni_, &dql = scr2_ni_, &dqr = scr3_ni_,
+  ParArrayND<Real> &qc = scr1_ni_, &dql = scr2_ni_, &dqr = scr3_ni_,
                    &dqm = scr4_ni_;
-  const int nu = q.GetDim4() - 1;
+  const int nu = q.GetDim(4) - 1;
 
   // compute L/R slopes for each variable
   for (int n=0; n<=nu; ++n) {

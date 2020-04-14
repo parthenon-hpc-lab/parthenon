@@ -41,12 +41,12 @@
 
 // Athena++ headers
 #include "athena.hpp"
-#include "athena_arrays.hpp"
 #include "bvals/bvals.hpp"
 #include "coordinates/coordinates.hpp"
 #include "globals.hpp"
 #include "outputs/io_wrapper.hpp"
 #include "parameter_input.hpp"
+#include "parthenon_arrays.hpp"
 #include "utils/buffer_utils.hpp"
 #include "mesh.hpp"
 #include "mesh_refinement.hpp"
@@ -93,18 +93,19 @@ Mesh::Mesh(ParameterInput *pin,
   dt_diagnostics(pin->GetOrAddInteger("time", "dt_diagnostics", -1)),
   nbnew(), nbdel(),
   step_since_lb(), gflag(),
+  pblock(nullptr),
   properties(properties),
   packages(packages),
   // private members:
   next_phys_id_(), num_mesh_threads_(pin->GetOrAddInteger("mesh", "num_threads", 1)),
   tree(this),
   use_uniform_meshgen_fn_{true, true, true},
-  nreal_user_mesh_data_(), nint_user_mesh_data_(), nuser_history_output_(),
+  nuser_history_output_(),
   lb_flag_(true), lb_automatic_(), lb_manual_(),
   MeshGenerator_{UniformMeshGeneratorX1, UniformMeshGeneratorX2,
         UniformMeshGeneratorX3},
   BoundaryFunction_{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-  AMRFlag_{}, UserSourceTerm_{}, UserTimeStep_{}, FieldDiffusivity_{}, pblock(nullptr) {
+  AMRFlag_{}, UserSourceTerm_{}, UserTimeStep_{} {
     std::stringstream msg;
     RegionSize block_size;
     MeshBlock *pfirst{};
@@ -500,7 +501,7 @@ Mesh::Mesh(ParameterInput *pin,
 
 //----------------------------------------------------------------------------------------
 // Mesh constructor for restarts. Load the restart file
-
+#if 0
 Mesh::Mesh(ParameterInput *pin, IOWrapper& resfile,
     Properties_t &properties, Packages_t &packages, int mesh_test) :
     // public members:
@@ -533,6 +534,7 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper& resfile,
     dt_diagnostics(pin->GetOrAddInteger("time", "dt_diagnostics", -1)),
     nbnew(), nbdel(),
     step_since_lb(), gflag(),
+    pblock(nullptr), 
     properties(properties),
     packages(packages),
     // private members:
@@ -544,7 +546,7 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper& resfile,
     MeshGenerator_{UniformMeshGeneratorX1, UniformMeshGeneratorX2,
                    UniformMeshGeneratorX3},
     BoundaryFunction_{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    AMRFlag_{}, UserSourceTerm_{}, UserTimeStep_{}, FieldDiffusivity_{}, pblock(nullptr) {
+    AMRFlag_{}, UserSourceTerm_{}, UserTimeStep_{}, FieldDiffusivity_{} {
   std::stringstream msg;
   RegionSize block_size;
   BoundaryFlag block_bcs[6];
@@ -824,6 +826,7 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper& resfile,
   delete [] offset;
 
 }
+#endif
 
 //----------------------------------------------------------------------------------------
 // destructor
@@ -852,13 +855,11 @@ Mesh::~Mesh() {
     delete [] bddisp;
   }
   // delete user Mesh data
-  if (nreal_user_mesh_data_>0) delete [] ruser_mesh_data;
   if (nuser_history_output_ > 0) {
     delete [] user_history_output_names_;
     delete [] user_history_func_;
     delete [] user_history_ops_;
   }
-  if (nint_user_mesh_data_>0) delete [] iuser_mesh_data;
 }
 
 //----------------------------------------------------------------------------------------
@@ -1169,47 +1170,6 @@ void Mesh::EnrollUserMetric(MetricFunc my_func) {
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void Mesh::EnrollFieldDiffusivity(FieldDiffusionCoeff my_func)
-//  \brief Enroll a user-defined magnetic field diffusivity function
-
-void Mesh::EnrollFieldDiffusivity(FieldDiffusionCoeffFunc my_func) {
-  FieldDiffusivity_ = my_func;
-  return;
-}
-//----------------------------------------------------------------------------------------
-//! \fn void Mesh::AllocateRealUserMeshDataField(int n)
-//  \brief Allocate Real AthenaArrays for user-defned data in Mesh
-
-void Mesh::AllocateRealUserMeshDataField(int n) {
-  if (nreal_user_mesh_data_ != 0) {
-    std::stringstream msg;
-    msg << "### FATAL ERROR in Mesh::AllocateRealUserMeshDataField"
-        << std::endl << "User Mesh data arrays are already allocated" << std::endl;
-    ATHENA_ERROR(msg);
-  }
-  nreal_user_mesh_data_ = n;
-  ruser_mesh_data = new AthenaArray<Real>[n];
-  return;
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void Mesh::AllocateIntUserMeshDataField(int n)
-//  \brief Allocate integer AthenaArrays for user-defned data in Mesh
-
-void Mesh::AllocateIntUserMeshDataField(int n) {
-  if (nint_user_mesh_data_ != 0) {
-    std::stringstream msg;
-    msg << "### FATAL ERROR in Mesh::AllocateIntUserMeshDataField"
-        << std::endl << "User Mesh data arrays are already allocated" << std::endl;
-    ATHENA_ERROR(msg);
-  }
-  nint_user_mesh_data_ = n;
-  iuser_mesh_data = new AthenaArray<int>[n];
-  return;
-}
-
-
-//----------------------------------------------------------------------------------------
 // \!fn void Mesh::ApplyUserWorkBeforeOutput(ParameterInput *pin)
 // \brief Apply MeshBlock::UserWorkBeforeOutput
 
@@ -1228,7 +1188,9 @@ void Mesh::ApplyUserWorkBeforeOutput(ParameterInput *pin) {
 void Mesh::Initialize(int res_flag, ParameterInput *pin) {
   bool iflag = true;
   int inb = nbtotal;
+#ifdef OPENMP_PARALLEL  
   int nthreads = GetNumMeshThreads();
+#endif
   int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
   std::vector<MeshBlock*> pmb_array(nmb);
 
@@ -1250,43 +1212,43 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
       }
     }
 
-
+    int call = 0;
     // Create send/recv MPI_Requests for all BoundaryData objects
 #pragma omp parallel for num_threads(nthreads)
     for (int i=0; i<nmb; ++i) {
       MeshBlock *pmb = pmb_array[i];
       // BoundaryVariable objects evolved in main TimeIntegratorTaskList:
       pmb->pbval->SetupPersistentMPI();
-      pmb->real_container.SetupPersistentMPI();
+      pmb->real_containers.Get().SetupPersistentMPI();
     }
+    call++; // 1
 
 #pragma omp parallel num_threads(nthreads)
     {
       // prepare to receive conserved variables
 #pragma omp for
       for (int i=0; i<nmb; ++i) {
-        pmb_array[i]->real_container.StartReceiving(BoundaryCommSubset::mesh_init);
+        pmb_array[i]->real_containers.Get().StartReceiving(BoundaryCommSubset::mesh_init);
       }
-
+      call++; // 2
       // send conserved variables
 #pragma omp for
       for (int i=0; i<nmb; ++i) {
-        pmb_array[i]->real_container.SendBoundaryBuffers();
+        pmb_array[i]->real_containers.Get().SendBoundaryBuffers();
       }
-
+      call++; // 3
 
       // wait to receive conserved variables
 #pragma omp for
       for (int i=0; i<nmb; ++i) {
-        pmb_array[i]->real_container.ReceiveAndSetBoundariesWithWait();
+        pmb_array[i]->real_containers.Get().ReceiveAndSetBoundariesWithWait();
       }
-
+      call++; // 4
 #pragma omp for
       for (int i=0; i<nmb; ++i) {
-        pmb_array[i]->real_container.SetBoundaries();
-        pmb_array[i]->real_container.ClearBoundary(BoundaryCommSubset::mesh_init);
+        pmb_array[i]->real_containers.Get().ClearBoundary(BoundaryCommSubset::mesh_init);
       }
-
+      call++;
       // Now do prolongation, compute primitives, apply BCs
 #pragma omp for
       for (int i=0; i<nmb; ++i) {
@@ -1309,10 +1271,8 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
           if (pbval->nblevel[2][1][1] != -1) ku += NGHOST;
         }
 
-        ApplyBoundaryConditions(pmb->real_container);
-        FillDerivedVariables::FillDerived(pmb->real_container);
-
-        //pbval->ApplyPhysicalBoundaries(time, 0.0);
+        ApplyBoundaryConditions(pmb->real_containers.Get());
+        FillDerivedVariables::FillDerived(pmb->real_containers.Get());
       }
 
       if (!res_flag && adaptive) {
@@ -1348,7 +1308,7 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
   // calculate the first time step
 #pragma omp parallel for num_threads(nthreads)
   for (int i=0; i<nmb; ++i) {
-    pmb_array[i]->SetBlockTimestep(Update::EstimateTimestep(pmb_array[i]->real_container));
+    pmb_array[i]->SetBlockTimestep(Update::EstimateTimestep(pmb_array[i]->real_containers.Get()));
   }
 
   NewTimeStep();
@@ -1456,35 +1416,6 @@ void Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size
   block_size.x2rat = mesh_size.x2rat;
   block_size.x3rat = mesh_size.x3rat;
 
-  return;
-}
-
-
-void Mesh::CorrectMidpointInitialCondition(std::vector<MeshBlock*> &pmb_array, int nmb) {
-  // begin second exchange of ghost cells with corrected cell-averaged <U>
-  // -----------------  (mostly copied from above section in Mesh::Initialize())
-  // prepare to receive conserved variables
-#pragma omp for
-  for (int i=0; i<nmb; ++i) {
-    // no need to re-SetupPersistentMPI() the MPI requests for boundary values
-    pmb_array[i]->pbval->StartReceiving(BoundaryCommSubset::mesh_init);
-    pmb_array[i]->real_container.StartReceiving(BoundaryCommSubset::mesh_init);
-  }
-
-#pragma omp for
-  for (int i=0; i<nmb; ++i) {
-    // send container variables
-    pmb_array[i]->real_container.SendBoundaryBuffers();
-  }
-
-  // wait to receive conserved variables
-#pragma omp for
-  for (int i=0; i<nmb; ++i) {
-    // receive container variables
-    pmb_array[i]->real_container.ReceiveAndSetBoundariesWithWait();
-    pmb_array[i]->real_container.ClearBoundary(BoundaryCommSubset::mesh_init);
-    pmb_array[i]->pbval->ClearBoundary(BoundaryCommSubset::mesh_init);
-  } // end second exchange of ghost cells
   return;
 }
 

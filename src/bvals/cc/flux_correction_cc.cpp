@@ -53,8 +53,8 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
   auto &pco = pmb->pcoord;
 
   // cache pointers to surface area arrays (BoundaryBase protected variable)
-  AthenaArray<Real> &sarea0 = pmb->pbval->sarea_[0];
-  AthenaArray<Real> &sarea1 = pmb->pbval->sarea_[1];
+  ParArrayND<Real> &sarea0 = pmb->pbval->sarea_[0];
+  ParArrayND<Real> &sarea1 = pmb->pbval->sarea_[1];
 
   for (int n=0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock& nb = pmb->pbval->neighbor[n];

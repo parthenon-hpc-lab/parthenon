@@ -22,8 +22,9 @@
 #include <array>
 #include <memory>
 #include <vector>
-#include "interface/PropertiesInterface.hpp"
+
 #include "Container.hpp"
+#include "interface/PropertiesInterface.hpp"
 #include "Variable.hpp"
 
 namespace parthenon {
@@ -31,31 +32,24 @@ template <typename T>
 class ContainerIterator {
  public:
   /// the subset of variables that match this iterator
-  std::vector<std::shared_ptr<Variable<T>>> vars;
+  CellVariableVector<T> vars;
   //std::vector<FaceVariable> varsFace; // face vars that match
   //std::vector<EdgeVariable> varsEdge; // edge vars that match
 
   /// initializes the iterator with a container and a flag to match
   /// @param c the container on which you want the iterator
-  /// @param flagVector: a vector of MetadataFlag that you want to match
-  ContainerIterator<T>(Container<T>& c, const std::vector<MetadataFlag> &flagVector) {
-    _allVars = c.allVars();
-    for (auto& field : c.sparseVars().getCellVarVectors()) {
-      int idx=0;
-      auto& IM = c.sparseVars().GetIndexMap(field.first);
-      for (auto& v : field.second) {
-        if ( flagVector[0] == Metadata::Graphics) {
-          _allVars.push_back(std::make_shared<Variable<T>>(
-              v->label() + "_" + PropertiesInterface::GetLabelFromID(IM[idx]), *v));
-          idx++;
-        } else {
-          _allVars.push_back(v);
-        }
-      }
+  /// @param flagVector: a vector of Metadata::flags that you want to match
+  ContainerIterator<T>(const Container<T>& c,
+                       const std::vector<MetadataFlag> &flagVector) {
+    //c.print();
+    auto allVars = c.GetCellVariableVector();
+    for (auto & svar : c.GetSparseVector()) {
+      CellVariableVector<T>& svec = svar->GetVector();
+      allVars.insert(allVars.end(), svec.begin(), svec.end());
     }
     // faces not active yet    _allFaceVars = c.faceVars();
     // edges not active yet    _allEdgeVars = c.edgeVars();
-    setMask(flagVector); // fill subset based on mask vector
+    setMask(allVars, flagVector); // fill subset based on mask vector
   }
 
   //~ContainerIterator<T>() {
@@ -63,12 +57,13 @@ class ContainerIterator {
   //}
   /// Changes the mask for the iterator and resets the iterator
   /// @param flagArray: a vector of MetadataFlag that you want to match
-  void setMask(const std::vector<MetadataFlag> &flagVector) {
+  void setMask(const CellVariableVector<T>& allVars,
+               const std::vector<MetadataFlag> &flagVector) {
     // 1: clear out variables stored so far
     _emptyVars();
 
     // 2: fill in the subset of variables that match mask
-    for (auto pv : _allVars) {
+    for (auto pv : allVars) {
       if (pv->metadata().AnyFlagsSet(flagVector)) {
         vars.push_back(pv);
       }
@@ -78,9 +73,9 @@ class ContainerIterator {
 
  private:
   uint64_t _mask;
-  std::vector<FaceVariable *> _allFaceVars = {};
-  std::vector<EdgeVariable *> _allEdgeVars = {};
-  std::vector<std::shared_ptr<Variable<T> > > _allVars;
+  FaceVector<T> _allFaceVars = {};
+  //EdgeVector<T> _allEdgeVars = {};
+  //CellVariableVector<T> _allVars = {};
   void _emptyVars() {
     vars.clear();
   //  varsFace.clear();
@@ -107,5 +102,7 @@ class ContainerIterator {
     return true;
   }
 };
-}
+
+} // namespace parthenon
+
 #endif // INTERFACE_CONTAINERITERATOR_HPP_

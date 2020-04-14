@@ -55,23 +55,32 @@ class StateDescriptor {
     // field addition / retrieval routines
     // add a field with associated metadata
     bool AddField(const std::string& field_name, Metadata& m, DerivedOwnership owner=DerivedOwnership::unique) {
-      const std::string& assoc = m.getAssociated();
-      if (!assoc.length()) m.Associate(field_name);
-      auto miter = _metadataMap.find(field_name);
-      if (miter != _metadataMap.end()) { // this field has already been added
-        Metadata& mprev = miter->second;
-        if (owner == DerivedOwnership::unique) {
-          throw std::invalid_argument("Field "+field_name+" add with DerivedOwnership::unique already exists");
+      if (m.IsSet(Metadata::Sparse)) {
+        auto miter = _sparseMetadataMap.find(field_name);
+        if (miter != _sparseMetadataMap.end()) {
+          miter->second.push_back(m);
+        } else {
+          _sparseMetadataMap[field_name] = {m};
         }
-        if (mprev != m) {
-          throw std::invalid_argument("Field " + field_name + " already exists with different metadata");
-        }
-        return false;
       } else {
-        _metadataMap[field_name] = m;
-        m.Associate("");
-        return true;
+        const std::string& assoc = m.getAssociated();
+        if (!assoc.length()) m.Associate(field_name);
+        auto miter = _metadataMap.find(field_name);
+        if (miter != _metadataMap.end()) { // this field has already been added
+          Metadata& mprev = miter->second;
+          if (owner == DerivedOwnership::unique) {
+            throw std::invalid_argument("Field "+field_name+" add with DerivedOwnership::unique already exists");
+          }
+          if (mprev != m) {
+            throw std::invalid_argument("Field " + field_name + " already exists with different metadata");
+          }
+          return false;
+        } else {
+          _metadataMap[field_name] = m;
+          m.Associate("");
+        }
       }
+      return true;
     }
 
     // retrieve number of fields
@@ -88,6 +97,7 @@ class StateDescriptor {
     }
 
     const std::map<std::string, Metadata>& AllFields() { return _metadataMap; }
+    const std::map<std::string, std::vector<Metadata>>& AllSparseFields() { return _sparseMetadataMap; }
 
     // retrieve metadata for a specific field
     Metadata& FieldMetadata(const std::string& field_name) { return _metadataMap[field_name]; }
@@ -98,13 +108,14 @@ class StateDescriptor {
     std::vector<std::shared_ptr<AMRCriteria>> amr_criteria;
     void (*FillDerived)(Container<Real>& rc);
     Real (*EstimateTimestep)(Container<Real>& rc);
-    int (*CheckRefinement)(Container<Real>& rc);
+    AmrTag (*CheckRefinement)(Container<Real>& rc);
 
 
   private:
     Params _params;
     const std::string _label;
     std::map<std::string, Metadata> _metadataMap;
+    std::map<std::string, std::vector<Metadata>> _sparseMetadataMap;
 };
 
 using Packages_t = std::map<std::string, std::shared_ptr<StateDescriptor>>;

@@ -33,7 +33,7 @@
 
 // Athena++ headers
 #include "athena.hpp"
-#include "athena_arrays.hpp"
+#include "parthenon_arrays.hpp"
 #include "coordinates/coordinates.hpp"
 #include "mesh/mesh.hpp"
 #include "outputs.hpp"
@@ -185,9 +185,8 @@ void VTKOutput::WriteContainer(Mesh *pm, ParameterInput *pin, bool flag) {
 
     std::fprintf(pfile, "\nCELL_DATA %d", ncells1*ncells2*ncells3);
     // reset container iterator to point to current block data
-    auto ci = ContainerIterator<Real>(pmb->real_container,{Metadata::Graphics});
+    auto ci = ContainerIterator<Real>(pmb->real_containers.Get(),{Metadata::Graphics});
     for ( auto &v : ci.vars) {
-      int n_dataset = 0;
       if ( ! data ) {
 	std::cout << "____________________SKIPPPING:"<<v->label() << std::endl;
 	continue;
@@ -355,7 +354,7 @@ void VTKOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
       // write data type (SCALARS or VECTORS) and name
       std::fprintf(pfile, "\n%s %s float\n", pdata->type.c_str(),  pdata->name.c_str());
 
-      int nvar = pdata->data.GetDim4();
+      int nvar = pdata->data.GetDim(4);
       if (nvar == 1) std::fprintf(pfile, "LOOKUP_TABLE default\n");
       for (int k=out_ks; k<=out_ke; ++k) {
         for (int j=out_js; j<=out_je; ++j) {

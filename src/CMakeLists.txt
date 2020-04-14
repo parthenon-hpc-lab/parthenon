@@ -89,11 +89,11 @@ add_library(parthenon
   driver/driver.cpp
   driver/multistage.cpp
 
+  interface/container_collection.cpp
   interface/Container.cpp
   interface/PropertiesInterface.cpp
   interface/SparseVariable.cpp
   interface/Metadata.cpp
-  interface/Stage.cpp
   interface/Update.cpp
   interface/Variable.cpp
 

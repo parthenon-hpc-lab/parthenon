@@ -31,7 +31,10 @@ TaskID::TaskID(int id) {
 
 void TaskID::Set(int id) {
   if (id < 0) throw std::invalid_argument("TaskID requires integer arguments >= 0");
-  if (id == 0) return;
+  if (id == 0) {
+    bitblocks.resize(1);
+    return;
+  }
   id--;
   const int n_myblocks = id/BITBLOCK + 1;
   // grow if necessary.  never shrink
@@ -137,7 +140,7 @@ TaskID TaskID::operator| (const TaskID& rhs) const {
       res.bitblocks[i] = rhs.bitblocks[i];
     }
   }
-  return std::move(res);
+  return res;
 }
 
 std::string TaskID::to_string() {
@@ -145,7 +148,7 @@ std::string TaskID::to_string() {
   for (int i=bitblocks.size()-1; i>=0; i--) {
     bs += bitblocks[i].to_string();
   }
-  return std::move(bs);
+  return bs;
 }
 
 } // namespace parthenon

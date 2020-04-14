@@ -212,10 +212,10 @@ void BoundaryValues::RestrictGhostCellsOnSameLevel(const NeighborBlock& nb, int 
   }
 
   for (auto cc_pair : pmr->pvars_cc_) {
-    AthenaArray<Real> *var_cc = std::get<0>(cc_pair);
-    AthenaArray<Real> *coarse_cc = std::get<1>(cc_pair);
-    int nu = var_cc->GetDim4() - 1;
-    pmb->pmr->RestrictCellCenteredValues(*var_cc, *coarse_cc, 0, nu,
+    ParArrayND<Real> var_cc = std::get<0>(cc_pair);
+    ParArrayND<Real> coarse_cc = std::get<1>(cc_pair);
+    int nu = var_cc.GetDim(4) - 1;
+    pmb->pmr->RestrictCellCenteredValues(var_cc, coarse_cc, 0, nu,
                                          ris, rie, rjs, rje, rks, rke);
   }
 
@@ -280,10 +280,10 @@ void BoundaryValues::ProlongateGhostCells(const NeighborBlock& nb,
   auto &pmr = pmb->pmr;
 
   for (auto cc_pair : pmr->pvars_cc_) {
-    AthenaArray<Real> *var_cc = std::get<0>(cc_pair);
-    AthenaArray<Real> *coarse_cc = std::get<1>(cc_pair);
-    int nu = var_cc->GetDim4() - 1;
-    pmr->ProlongateCellCenteredValues(*coarse_cc, *var_cc, 0, nu,
+    ParArrayND<Real> var_cc = std::get<0>(cc_pair);
+    ParArrayND<Real> coarse_cc = std::get<1>(cc_pair);
+    int nu = var_cc.GetDim(4) - 1;
+    pmr->ProlongateCellCenteredValues(coarse_cc, var_cc, 0, nu,
                                       si, ei, sj, ej, sk, ek);
   }
 

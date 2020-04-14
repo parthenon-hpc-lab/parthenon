@@ -63,7 +63,8 @@ namespace parthenon {
     while (pmb != nullptr) {
       int is = pmb->is; int js = pmb->js; int ks = pmb->ks;
       int ie = pmb->ie; int je = pmb->je; int ke = pmb->ke;
-      auto& summed = pmb->real_container.Get("c.c.interpolated_sum");
+      Container<Real>& rc = pmb->real_containers.Get();
+      auto& summed = rc.Get("c.c.interpolated_sum");
       for (int k = ks; k <= ke; k++) {
         for (int j = js; j <= je; j++) {
           for (int i = is; i <= ie; i++) {
@@ -98,7 +99,7 @@ namespace parthenon {
     auto fill_faces = tl.AddTask<BlockTask>(FaceFields::fill_faces, none, pmb);
 
     auto interpolate = tl.AddTask<BlockTask>([](MeshBlock* pmb)->TaskStatus {
-        Container<Real>& rc = pmb->real_container;
+        Container<Real>& rc = pmb->real_containers.Get();
         int is = pmb->is; int js = pmb->js; int ks = pmb->ks;
         int ie = pmb->ie; int je = pmb->je; int ke = pmb->ke;
         auto& face = rc.GetFace("f.f.face_averaged_value");
@@ -115,12 +116,12 @@ namespace parthenon {
             }
           }
         }
-        return TaskStatus::success;
+        return TaskStatus::complete;
       },
       fill_faces, pmb);
 
     auto sum = tl.AddTask<BlockTask>([](MeshBlock* pmb)->TaskStatus {
-        Container<Real>& rc = pmb->real_container;
+        Container<Real>& rc = pmb->real_containers.Get();
         int is = pmb->is; int js = pmb->js; int ks = pmb->ks;
         int ie = pmb->ie; int je = pmb->je; int ke = pmb->ke;
         auto& interped = rc.Get("c.c.interpolated_value");
@@ -132,11 +133,11 @@ namespace parthenon {
             }
           }
         }
-        return TaskStatus::success;
+        return TaskStatus::complete;
       },
       interpolate, pmb);
 
-    return std::move(tl);
+    return tl;
   }
 
 } // namespace parthenon
@@ -148,13 +149,13 @@ parthenon::TaskStatus FaceFields::fill_faces(parthenon::MeshBlock* pmb) {
   Real px = example->Param<Real>("px");
   Real py = example->Param<Real>("py");
   Real pz = example->Param<Real>("pz");
-  parthenon::Container<Real>& rc = pmb->real_container;
+  parthenon::Container<Real>& rc = pmb->real_containers.Get();
   parthenon::Coordinates *pcoord = pmb->pcoord.get();
   int is = pmb->is; int js = pmb->js; int ks = pmb->ks;
   int ie = pmb->ie; int je = pmb->je; int ke = pmb->ke;
   auto& face = rc.GetFace("f.f.face_averaged_value");
   // fill faces
-  for (int e = 0; e < face.Get(1).GetDim4(); e++) {
+  for (int e = 0; e < face.Get(1).GetDim(4); e++) {
     int sign = (e == 0) ? -1 : 1;
     for (int k=ks; k<=ke; k++) {
       Real z = pcoord->x3v(k);
@@ -167,7 +168,7 @@ parthenon::TaskStatus FaceFields::fill_faces(parthenon::MeshBlock* pmb) {
       }
     }
   }
-  for (int e = 0; e < face.Get(2).GetDim4(); e++) {
+  for (int e = 0; e < face.Get(2).GetDim(4); e++) {
     int sign = (e == 0) ? -1 : 1;
     for (int k=ks; k<=ke; k++) {
       Real z = pcoord->x3v(k);
@@ -180,7 +181,7 @@ parthenon::TaskStatus FaceFields::fill_faces(parthenon::MeshBlock* pmb) {
       }
     }
   }
-  for (int e = 0; e < face.Get(3).GetDim4(); e++) {
+  for (int e = 0; e < face.Get(3).GetDim(4); e++) {
     int sign = (e == 0) ? -1 : 1;
     for (int k=ks; k<=ke+1; k++) {
       Real z= pcoord->x3f(k);
@@ -193,5 +194,5 @@ parthenon::TaskStatus FaceFields::fill_faces(parthenon::MeshBlock* pmb) {
       }
     }
   }
-  return parthenon::TaskStatus::success;
+  return parthenon::TaskStatus::complete;
 }

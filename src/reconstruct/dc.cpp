@@ -16,7 +16,7 @@
 //========================================================================================
 //! \file dc_simple.cpp
 //  \brief piecewise constant (donor cell) reconstruction
-//  Operates on the entire nx4 range of a single AthenaArray<Real> input (no MHD).
+//  Operates on the entire nx4 range of a single ParArrayND<Real> input (no MHD).
 
 #include "reconstruction.hpp"
 
@@ -26,9 +26,9 @@ namespace parthenon {
 //  \brief reconstruct L/R surfaces of the i-th cells
 
 void Reconstruction::DonorCellX1(const int k, const int j, const int il, const int iu,
-                                 const AthenaArray<Real> &q,
-                                 AthenaArray<Real> &ql, AthenaArray<Real> &qr) {
-  const int nu = q.GetDim4() - 1;
+                                 const ParArrayND<Real> &q,
+                                 ParArrayND<Real> &ql, ParArrayND<Real> &qr) {
+  const int nu = q.GetDim(4) - 1;
 
   // compute L/R states for each variable
   for (int n=0; n<=nu; ++n) {
@@ -46,10 +46,9 @@ void Reconstruction::DonorCellX1(const int k, const int j, const int il, const i
 
 
 void Reconstruction::DonorCellX2(const int k, const int j, const int il, const int iu,
-                                 const AthenaArray<Real> &q,
-                                 AthenaArray<Real> &ql, AthenaArray<Real> &qr) {
-  //const int nu = q.GetDim4() - 1;
-  const int nu = 0;
+                                 const ParArrayND<Real> &q,
+                                 ParArrayND<Real> &ql, ParArrayND<Real> &qr) {
+  const int nu = q.GetDim(4) - 1;
   // compute L/R states for each variable
   //std::cout << "RECONSTRUCTING!!!" << std::endl;
   for (int n=0; n<=nu; ++n) {
@@ -67,9 +66,9 @@ void Reconstruction::DonorCellX2(const int k, const int j, const int il, const i
 //  \brief
 
 void Reconstruction::DonorCellX3(const int k, const int j, const int il, const int iu,
-                                 const AthenaArray<Real> &q,
-                                 AthenaArray<Real> &ql, AthenaArray<Real> &qr) {
-  const int nu = q.GetDim4() - 1;
+                                 const ParArrayND<Real> &q,
+                                 ParArrayND<Real> &ql, ParArrayND<Real> &qr) {
+  const int nu = q.GetDim(4) - 1;
   // compute L/R states for each variable
   for (int n=0; n<=nu; ++n) {
 #pragma omp simd

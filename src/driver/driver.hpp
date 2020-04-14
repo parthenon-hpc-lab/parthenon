@@ -54,20 +54,20 @@ class EvolutionDriver : public Driver {
 namespace DriverUtils {
   template <typename T, class...Args>
   TaskListStatus ConstructAndExecuteBlockTasks(T* driver, Args... args) {
+#ifdef OPENMP_PARALLEL
     int nthreads = driver->pmesh->GetNumMeshThreads();
+#endif
     int nmb = driver->pmesh->GetNumMeshBlocksThisRank(Globals::my_rank);
     std::vector<TaskList> task_lists;
-    task_lists.resize(nmb);
-    int i=0;
     MeshBlock *pmb = driver->pmesh->pblock;
     while (pmb != nullptr) {
-      task_lists[i] = driver->MakeTaskList(pmb, std::forward<Args>(args)...);
-      i++;
+      task_lists.push_back (driver->MakeTaskList(pmb, std::forward<Args>(args)...) );
       pmb = pmb->next;
     }
     int complete_cnt = 0;
     while (complete_cnt != nmb) {
-#pragma omp parallel for reduction(+ : complete_cnt) num_threads(nthreads) schedule(dynamic,1)
+// TODO(pgrete): need to let Kokkos::PartitionManager handle this
+//#pragma omp parallel for reduction(+ : complete_cnt) num_threads(nthreads) schedule(dynamic,1)
       for (auto i = 0; i < nmb; ++i) {
         if (!task_lists[i].IsComplete()) {
           auto status = task_lists[i].DoAvailable();

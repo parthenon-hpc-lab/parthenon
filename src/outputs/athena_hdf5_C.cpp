@@ -30,7 +30,7 @@
 
 // Athena++ headers
 #include "athena.hpp"
-#include "athena_arrays.hpp"
+#include "parthenon_arrays.hpp"
 #include "coordinates/coordinates.hpp"
 #include "globals.hpp"
 #include "interface/ContainerIterator.hpp"
@@ -69,17 +69,6 @@ static void writeXdmfArrayRef(std::ofstream& fid, const std::string& prefix,
 
   fid << stringXdmfArrayRef(prefix, hdfPath, label, dims, ndims, theType, precision)
       << std::flush;
-}
-
-// XDMF subroutine to write a variable that reads from a HDF file
-static void writeXdmfVariableRef(std::ofstream& fid, const std::string& prefix,
-				 const std::string& hdfPath, const std::string& label,
-				 const hsize_t* dims, const int& ndims,
-				 const std::string& theType, const int& precision) {
-  std::string mystr = prefix + "<Attribute Name=\"" + label + R"(" Center="Cell">)"+ '\n';
-  mystr += stringXdmfArrayRef(prefix+"  ", hdfPath, label, dims, ndims, theType, precision);
-  mystr += prefix + "</Attribute>\n";
-  fid << mystr << std::flush;
 }
 
 static void writeXdmfSlabVariableRef(std::ofstream &fid, std::string& name, std::string& hdfFile,
@@ -189,7 +178,7 @@ void ATHDF5Output::genXDMF(std::string hdfFile, Mesh *pm) {
   int ndims = 5;
 
   // same set of variables for all grids so use only one container
-  auto ciX = ContainerIterator<Real>(pmb->real_container,{Metadata::Graphics});
+  auto ciX = ContainerIterator<Real>(pmb->real_containers.Get(),{Metadata::Graphics});
   for(int ib=0; ib<pm->nbtotal; ib++) {
     xdmf << "    <Grid GridType=\"Uniform\" Name=\""<<ib<<"\">" << std::endl;
     xdmf << blockTopology;
@@ -230,7 +219,7 @@ void ATHDF5Output::genXDMF(std::string hdfFile, Mesh *pm) {
     dims[3] = nx1;
     dims[4] = 1;
     for (auto &v : ciX.vars) {
-      const int vlen = v->GetDim4();
+      const int vlen = v->GetDim(4);
       dims[4] = vlen;
       std::string name = v->label();
       writeXdmfSlabVariableRef(xdmf, name, hdfFile,
@@ -294,7 +283,6 @@ void ATHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
   // Also writes companion xdmf file
   MeshBlock *pmb = pm->pblock;
   int max_blocks_global = pm->nbtotal;
-  int max_blocks_local = pm->nblist[Globals::my_rank];
   int num_blocks_local = 0;
 
   // shooting a blank just for getting the variable names
@@ -321,9 +309,6 @@ void ATHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
     if (nx2 > 1) nx2 += 2*NGHOST;
     if (nx3 > 1) nx3 += 2*NGHOST;
   }
-
-  // create dataspaces and types
-  int dims_count[1] = {3};
 
   // open HDF5 file
   // Define output filename
@@ -375,9 +360,7 @@ void ATHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
   file = H5Fcreate(filename.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, acc_file);
 
   // write timestep relevant attributes
-  hsize_t dims[4]={1,0,0,0};
   hid_t localDSpace, myDSet;
-  hid_t globalDSpace, globalDSet;
   herr_t status;
 
   // attributes written here:
@@ -421,11 +404,11 @@ void ATHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
   status = H5Dclose(myDSet);
 
   // allocate space for largest size variable
-  auto ciX = ContainerIterator<Real>(pm->pblock->real_container,{Metadata::Graphics});
+  auto ciX = ContainerIterator<Real>(pm->pblock->real_containers.Get(),{Metadata::Graphics});
   size_t maxV = 3;
   hsize_t sumDim4AllVars = 0;
   for (auto &v : ciX.vars) {
-    const size_t vlen = v->GetDim4();
+    const size_t vlen = v->GetDim(4);
     sumDim4AllVars += vlen;
     maxV = (maxV<vlen?vlen:maxV);
   }
@@ -435,7 +418,7 @@ void ATHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
 
   // Write mesh coordinates to file
   hsize_t local_start[5], global_count[5], local_count[5];
-  hid_t gLocations, fileDSpace;
+  hid_t gLocations;
 
 
   local_start[0] = 0;
@@ -514,7 +497,7 @@ void ATHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
     const std::string vWriteName = vwrite->label();
     hid_t vLocalSpace, vGlobalSpace;
     pmb = pm->pblock;
-    const hsize_t vlen = vwrite->GetDim4();
+    const hsize_t vlen = vwrite->GetDim(4);
     local_count[4] = global_count[4] = vlen;
 
     if ( vlen == 1) {
@@ -526,7 +509,7 @@ void ATHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
     }
 
     while (pmb != nullptr) { // for every block
-      auto ci = ContainerIterator<Real>(pmb->real_container,{Metadata::Graphics});
+      auto ci = ContainerIterator<Real>(pmb->real_containers.Get(),{Metadata::Graphics});
       for (auto &v : ci.vars) {
         std::string name=v->label();
         if (name.compare(vWriteName) != 0) {

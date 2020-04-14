@@ -151,31 +151,31 @@ class Metadata {
 #undef PARTHENON_INTERNAL_FOR_FLAG
 
   /// Default constructor override
-  Metadata() : sparse_id_(-1),
-               shape_({1}) { }
+  Metadata() : shape_({1}),
+               sparse_id_(-1) { }
 
 
   /// returns a new Metadata instance with set bits,
   /// set sparse_id, and fourth dimension
   explicit Metadata(const std::vector<MetadataFlag>& bits) :
-    sparse_id_(-1),
-    shape_({1}) {
+    shape_({1}),
+    sparse_id_(-1) {
     SetMultiple(bits);
   }
 
   /// returns a metadata with bits and shape set
   explicit Metadata(const std::vector<MetadataFlag>& bits,
                     std::vector<int> shape) :
-    sparse_id_(-1),
-    shape_(shape) {
+    shape_(shape),
+    sparse_id_(-1) {
     SetMultiple(bits);
   }
 
   /// returns a metadata with bits and sparse id set
   explicit Metadata(const std::vector<MetadataFlag>& bits,
-                    int sparse_id) :
-    sparse_id_(sparse_id),
-    shape_({1}) {
+                    const int sparse_id) :
+    shape_({1}),
+    sparse_id_(sparse_id) {
     SetMultiple(bits);
   }
 
@@ -183,8 +183,8 @@ class Metadata {
   explicit Metadata(const std::vector<MetadataFlag>& bits,
                     int sparse_id,
                     std::vector<int> shape) :
-    sparse_id_(sparse_id),
-    shape_(shape) {
+    shape_(shape),
+    sparse_id_(sparse_id) {
     SetMultiple(bits);
   }
 

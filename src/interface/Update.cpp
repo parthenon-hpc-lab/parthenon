@@ -20,7 +20,7 @@
 namespace parthenon {
 namespace Update {
 
-void FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
+TaskStatus FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
   MeshBlock *pmb = in.pmy_block;
   int is = pmb->is;
   int js = pmb->js;
@@ -34,19 +34,15 @@ void FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
   ContainerIterator<Real> cout_iter(dudt_cont, {Metadata::Independent});
   int nvars = cout_iter.vars.size();
 
-  AthenaArray<Real> x1area(pmb->ncells1);
-  AthenaArray<Real> x2area0(pmb->ncells1);
-  AthenaArray<Real> x2area1(pmb->ncells1);
-  AthenaArray<Real> x3area0(pmb->ncells1);
-  AthenaArray<Real> x3area1(pmb->ncells1);
-  AthenaArray<Real> vol(pmb->ncells1);
+  ParArrayND<Real> x1area("x1area",pmb->ncells1);
+  ParArrayND<Real> x2area0("x2area0",pmb->ncells1);
+  ParArrayND<Real> x2area1("x2area1",pmb->ncells1);
+  ParArrayND<Real> x3area0("x3area0",pmb->ncells1);
+  ParArrayND<Real> x3area1("x3area1",pmb->ncells1);
+  ParArrayND<Real> vol("vol",pmb->ncells1);
 
-  /*for (int n = 0; n < nvars; n++) {
-    Variable<Real>& dudt = *cout_iter.vars[n];
-    dudt.ZeroClear();
-  }*/
   int ndim = pmb->pmy_mesh->ndim;
-  AthenaArray<Real> du(pmb->ncells1);
+  ParArrayND<Real> du("du",pmb->ncells1);
   for (int k = ks; k <= ke; k++) {
     for (int j = js; j <= je; j++) {
       pmb->pcoord->Face1Area(k, j, is, ie + 1, x1area);
@@ -60,32 +56,30 @@ void FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
         pmb->pcoord->Face3Area(k + 1, j, is, ie, x3area1);
       }
       for (int n = 0; n < nvars; n++) {
-        Variable<Real> &q = *cin_iter.vars[n];
-        AthenaArray<Real> &x1flux = q.flux[0];
-        AthenaArray<Real> &x2flux = q.flux[1];
-        AthenaArray<Real> &x3flux = q.flux[2];
-        Variable<Real> &dudt = *cout_iter.vars[n];
-        for (int l = 0; l < q.GetDim4(); l++) {
-          du.ZeroClear();
+        CellVariable<Real> &q = *cin_iter.vars[n];
+        ParArrayND<Real> &x1flux = q.flux[0];
+        ParArrayND<Real> &x2flux = q.flux[1];
+        ParArrayND<Real> &x3flux = q.flux[2];
+        CellVariable<Real> &dudt = *cout_iter.vars[n];
+        for (int l = 0; l < q.GetDim(4); l++) {
           for (int i = is; i <= ie; i++) {
             du(i) = (x1area(i + 1) * x1flux(l, k, j, i + 1) -
                      x1area(i) * x1flux(l, k, j, i));
           }
 
-          if (pmb->pmy_mesh->ndim >= 2) {
+          if (ndim >= 2) {
             for (int i = is; i <= ie; i++) {
               du(i) += (x2area1(i) * x2flux(l, k, j + 1, i) -
                         x2area0(i) * x2flux(l, k, j, i));
             }
           }
           // TODO(jcd): should the next block be in the preceding if??
-          if (pmb->pmy_mesh->ndim >= 3) {
+          if (ndim >= 3) {
             for (int i = is; i <= ie; i++) {
               du(i) += (x3area1(i) * x3flux(l, k + 1, j, i) -
                         x3area0(i) * x3flux(l, k, j, i));
             }
           }
-
           for (int i = is; i <= ie; i++) {
             dudt(l, k, j, i) = -du(i) / vol(i);
           }
@@ -94,7 +88,7 @@ void FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
     }
   }
 
-  return;
+  return TaskStatus::complete;
 }
 
 void UpdateContainer(Container<Real> &in, Container<Real> &dudt_cont,
@@ -114,10 +108,10 @@ void UpdateContainer(Container<Real> &in, Container<Real> &dudt_cont,
   int nvars = cout_iter.vars.size();
 
   for (int n = 0; n < nvars; n++) {
-    Variable<Real> &qin = *cin_iter.vars[n];
-    Variable<Real> &dudt = *du_iter.vars[n];
-    Variable<Real> &qout = *cout_iter.vars[n];
-    for (int l = 0; l < qout.GetDim4(); l++) {
+    CellVariable<Real> &qin = *cin_iter.vars[n];
+    CellVariable<Real> &dudt = *du_iter.vars[n];
+    CellVariable<Real> &qout = *cout_iter.vars[n];
+    for (int l = 0; l < qout.GetDim(4); l++) {
       for (int k = ks; k <= ke; k++) {
         for (int j = js; j <= je; j++) {
           for (int i = is; i <= ie; i++) {
@@ -146,9 +140,9 @@ void AverageContainers(Container<Real> &c1, Container<Real> &c2,
   int nvars = c2_iter.vars.size();
 
   for (int n = 0; n < nvars; n++) {
-    Variable<Real> &q1 = *c1_iter.vars[n];
-    Variable<Real> &q2 = *c2_iter.vars[n];
-    for (int l = 0; l < q1.GetDim4(); l++) {
+    CellVariable<Real> &q1 = *c1_iter.vars[n];
+    CellVariable<Real> &q2 = *c2_iter.vars[n];
+    for (int l = 0; l < q1.GetDim(4); l++) {
       for (int k = ks; k <= ke; k++) {
         for (int j = js; j <= je; j++) {
           for (int i = is; i <= ie; i++) {
@@ -184,7 +178,7 @@ void FillDerivedVariables::SetFillDerivedFunctions(FillDerivedFunc *pre, FillDer
   _pre_package_fill = pre; _post_package_fill = post;
 }
 
-void FillDerivedVariables::FillDerived(Container<Real>& rc) {
+TaskStatus FillDerivedVariables::FillDerived(Container<Real>& rc) {
   if (_pre_package_fill != nullptr) {
     _pre_package_fill(rc);
   }
@@ -197,6 +191,7 @@ void FillDerivedVariables::FillDerived(Container<Real>& rc) {
   if (_post_package_fill != nullptr) {
     _post_package_fill(rc);
   }
+  return TaskStatus::complete;
 }
 
 }

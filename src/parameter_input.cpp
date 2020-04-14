@@ -424,9 +424,7 @@ int ParameterInput::DoesParameterExist(std::string block, std::string name) {
 //  \brief check whether block exists
 
 int ParameterInput::DoesBlockExist(std::string block) {
-  InputLine *pl;
-  InputBlock *pb;
-  pb = GetPtrToBlock(block);
+  InputBlock *pb = GetPtrToBlock(block);
   if (pb == nullptr) return 0;
   return 1;
 }

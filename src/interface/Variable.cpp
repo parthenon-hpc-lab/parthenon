@@ -17,161 +17,116 @@
 
 
 #include "bvals/cc/bvals_cc.hpp"
-#ifndef TEST_PK
 #include "mesh/mesh.hpp"
-#endif // TEST_PK
-#include "athena_arrays.hpp"
+#include "parthenon_arrays.hpp"
 #include "Variable.hpp"
 
 namespace parthenon {
-/*template <typename T>
-Variable<T>::~Variable() {
-  //  std::cout << "_________DELETING VAR: " << _label << ":" << this << std::endl;
-  _label = "Deleted";
-  if (_m.IsSet(Metadata::FillGhost)) {
-
-    // not sure if destructor is called for flux, need to check --Sriram
-
-    // flux is a different variable even if shared
-    // so always delete
-    //    for (int i=0; i<3; i++) flux[i].DeleteAthenaArray();
-
-    // Delete vbvar, coarse_r, and coarse_s only if not shared
-    if ( _m.IsSet(Metadata::SharedComms) ) {
-      // do not delete unallocated variables
-      vbvar = nullptr;
-      coarse_r = coarse_s = nullptr;
-    } else {
-      // delete allocated variables
-      //      coarse_r->DeleteAthenaArray();
-      //      coarse_s->DeleteAthenaArray();
-      delete coarse_r;
-      delete coarse_s;
-      delete vbvar;
-    }
-  }
-}*/
 
 template <typename T>
-void Variable<T>::resetBoundary() {
-  this->vbvar->var_cc = this;
-}
-
-template <typename T>
-std::string Variable<T>::info() {
+std::string CellVariable<T>::info() {
     char tmp[100] = "";
     char *stmp = tmp;
 
     // first add label
-    std::string s = this->label();
+    std::string s = label();
     s.resize(20,'.');
     s += " : ";
 
     // now append size
     snprintf(tmp, sizeof(tmp),
              "%dx%dx%dx%dx%dx%d",
-             this->GetDim6(),
-             this->GetDim5(),
-             this->GetDim4(),
-             this->GetDim3(),
-             this->GetDim2(),
-             this->GetDim1()
+             GetDim(6),
+             GetDim(5),
+             GetDim(4),
+             GetDim(3),
+             GetDim(2),
+             GetDim(1)
              );
     while (! strncmp(stmp,"1x",2)) {
       stmp += 2;
     }
     s += stmp;
     // now append flag
-    s += " : " + this->metadata().MaskAsString();
+    s += " : " + m_.MaskAsString();
 
     return s;
   }
 
 // copy constructor
 template <typename T>
-Variable<T>::Variable(const Variable<T> &src,
-                      const bool allocComms,
-                      MeshBlock *pmb) :
-  AthenaArray<T>(src), _label(src.label()), _m(src.metadata()), mpiStatus(true) {
-  //std::cout << "_____CREATED VAR COPY: " << _label << ":" << this << std::endl;
-  if (_m.IsSet(Metadata::FillGhost)) {
-    // Ghost cells are communicated, so make shallow copies
-    // of communication arrays and swap out the boundary array
+std::shared_ptr<CellVariable<T>> CellVariable<T>::AllocateCopy(const bool allocComms,
+                      MeshBlock *pmb) {
+  std::array<int,6> dims =  {GetDim(1), GetDim(2), GetDim(3),
+                             GetDim(4), GetDim(5), GetDim(6)};
 
+  // copy the Metadata and set the SharedComms flag if appropriate
+  Metadata m = m_;
+  if ( IsSet(Metadata::FillGhost) && !allocComms ) {
+    m.Set(Metadata::SharedComms);
+  }
+
+  // make the new CellVariable
+  auto cv = std::make_shared<CellVariable<T>>(label(), dims, m);
+
+  if (IsSet(Metadata::FillGhost)) {
     if ( allocComms ) {
-      this->allocateComms(pmb);
+      cv->allocateComms(pmb);
     } else {
-      _m.Set(Metadata::SharedComms); // note that comms are shared
-
       // set data pointer for the boundary communication
       // Note that vbvar->var_cc will be set when stage is selected
-       vbvar = src.vbvar;
+       cv->vbvar = vbvar;
 
       // fluxes, etc are always a copy
       for (int i = 0; i<3; i++) {
-        if (src.flux[i].data()) {
-          //int n6 = src.flux[i].GetDim6();
-          //flux[i].InitWithShallowSlice(src.flux[i],6,0,n6);
-          flux[i].ShallowCopy(src.flux[i]);
-        } else {
-          flux[i] = src.flux[i];
-        }
+        cv->flux[i] = flux[i];
       }
 
       // These members are pointers,
       // point at same memory as src
-      coarse_r = src.coarse_r;
-      coarse_s = src.coarse_s;
+      cv->coarse_s = coarse_s;
     }
   }
+  return cv;
 }
 
 
 /// allocate communication space based on info in MeshBlock
 /// Initialize a 6D variable
 template <typename T>
-void Variable<T>::allocateComms(MeshBlock *pmb) {
+void CellVariable<T>::allocateComms(MeshBlock *pmb) {
   if ( ! pmb ) return;
 
-  // set up communication variables
-  const int _dim1 = this->GetDim1();
-  const int _dim2 = this->GetDim2();
-  const int _dim3 = this->GetDim3();
-  const int _dim4 = this->GetDim4();
-  const int _dim5 = this->GetDim5();
-  const int _dim6 = this->GetDim6();
-  flux[0].NewAthenaArray(_dim4, pmb->ncells3, pmb->ncells2, pmb->ncells1+1);
-  if (pmb->pmy_mesh->ndim >= 2) {
-    flux[1].NewAthenaArray(_dim4, pmb->ncells3, pmb->ncells2+1, pmb->ncells1);
+  // set up fluxes
+  std::string base_name = label();
+  if (IsSet(Metadata::Independent)) {
+    flux[0] = ParArrayND<T>(base_name +   ".flux0",
+      GetDim(6), GetDim(5), GetDim(4), GetDim(3), GetDim(2), GetDim(1));
+    if (pmb->pmy_mesh->ndim >= 2)
+      flux[1] = ParArrayND<T>(base_name + ".flux1",
+      GetDim(6), GetDim(5), GetDim(4), GetDim(3), GetDim(2), GetDim(1));
+    if (pmb->pmy_mesh->ndim >= 3)
+      flux[2] = ParArrayND<T>(base_name + ".flux2",
+      GetDim(6), GetDim(5), GetDim(4), GetDim(3), GetDim(2), GetDim(1));
   }
-  if (pmb->pmy_mesh->ndim >= 3) {
-    flux[2].NewAthenaArray(_dim4, pmb->ncells3+1, pmb->ncells2, pmb->ncells1);
-  }
-  coarse_s = new AthenaArray<Real>(_dim4, pmb->ncc3, pmb->ncc2, pmb->ncc1,
-                                (pmb->pmy_mesh->multilevel ?
-                                 AthenaArray<Real>::DataStatus::allocated :
-                                 AthenaArray<Real>::DataStatus::empty));
-
-  coarse_r = new AthenaArray<Real>(_dim4, pmb->ncc3, pmb->ncc2, pmb->ncc1,
-                                (pmb->pmy_mesh->multilevel ?
-                                 AthenaArray<Real>::DataStatus::allocated :
-                                 AthenaArray<Real>::DataStatus::empty));
+  if (pmb->pmy_mesh->multilevel)
+    coarse_s = ParArrayND<T>(base_name+".coarse", GetDim(6), GetDim(5), GetDim(4),
+                                               pmb->ncc3, pmb->ncc2, pmb->ncc1);
 
   // Create the boundary object
-  vbvar = new CellCenteredBoundaryVariable(pmb, this, coarse_s, flux);
+  vbvar = std::make_shared<CellCenteredBoundaryVariable>(pmb, data, coarse_s, flux);
 
   // enroll CellCenteredBoundaryVariable object
   vbvar->bvar_index = pmb->pbval->bvars.size();
   pmb->pbval->bvars.push_back(vbvar);
   pmb->pbval->bvars_main_int.push_back(vbvar);
 
-  // register the variable
-  //pmb->RegisterMeshBlockData(*this);
-
-  mpiStatus = true;
+  mpiStatus = false;
 }
 
-std::string FaceVariable::info() {
+// TODO(jcd): clean these next two info routines up
+template <typename T>
+std::string FaceVariable<T>::info() {
   char tmp[100] = "";
 
   // first add label
@@ -182,9 +137,9 @@ std::string FaceVariable::info() {
   // now append size
   snprintf(tmp, sizeof(tmp),
           "%dx%dx%d",
-          this->x1f.GetDim3(),
-          this->x1f.GetDim2(),
-          this->x1f.GetDim1()
+          data.x1f.GetDim(3),
+          data.x1f.GetDim(2),
+          data.x1f.GetDim(1)
           );
   s += std::string(tmp);
 
@@ -194,7 +149,8 @@ std::string FaceVariable::info() {
   return s;
 }
 
-std::string EdgeVariable::info() {
+template <typename T>
+std::string EdgeVariable<T>::info() {
     char tmp[100] = "";
 
     // first add label
@@ -205,9 +161,9 @@ std::string EdgeVariable::info() {
     // now append size
     snprintf(tmp, sizeof(tmp),
              "%dx%dx%d",
-             this->x1e.GetDim3(),
-             this->x1e.GetDim2(),
-             this->x1e.GetDim1()
+             data.x1e.GetDim(3),
+             data.x1e.GetDim(2),
+             data.x1e.GetDim(1)
              );
     s += std::string(tmp);
 
@@ -217,5 +173,7 @@ std::string EdgeVariable::info() {
     return s;
 }
 
-template class Variable<Real>;
+template class CellVariable<Real>;
+template class FaceVariable<Real>;
+template class EdgeVariable<Real>;
 } // namespace parthenon

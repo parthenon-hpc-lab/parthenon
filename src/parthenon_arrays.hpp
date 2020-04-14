@@ -1,5 +1,5 @@
 //========================================================================================
-// Parthenon++ astrophysical MHD code
+// Athena++ astrophysical MHD code
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
@@ -28,7 +28,8 @@
 // Kokkos Headers
 #include <Kokkos_Core.hpp>
 
-// Parthenon++ headers
+// Parthenon headers
+#include "basic_types.hpp"
 #include "kokkos_abstraction.hpp"
 
 // Macro for automatically creating a useful name
@@ -75,7 +76,7 @@ class ParArrayNDGeneric {
   KOKKOS_INLINE_FUNCTION
   explicit ParArrayNDGeneric(const Data& v)
     : d6d_(v)
-  {}
+  { }
 
   // legacy functions, as requested for backwards compatibility
   // with athena++ patterns
@@ -265,7 +266,6 @@ class ParArrayNDGeneric {
   }
 
  private:
-
   // These functions exist to get around the fact that partial template
   // specializations are forbidden for functions within a namespace.
   // The trick then is to use tag dispatch with std::integral_constant
@@ -299,7 +299,7 @@ class ParArrayNDGeneric {
   auto Get(std::integral_constant<int,0>) const {
     return Get(0,0,0,0,0,0);
   }
-  
+
   #define SLC0 std::make_pair(0,1)
   KOKKOS_INLINE_FUNCTION
   auto SliceD(index_pair_t slc, std::integral_constant<int,6>) const {
@@ -346,6 +346,99 @@ using ParArrayND = ParArrayNDGeneric<device_view_t<T,Layout>>;
 
 template<typename T, typename Layout=LayoutWrapper>
 using ParArrayHost = ParArrayNDGeneric<host_view_t<T,Layout>>;
+
+
+template <typename T>
+struct FaceArray {
+  ParArrayND<T> x1f, x2f, x3f;
+  FaceArray() = default;
+  FaceArray(const std::string& label, int ncells3, int ncells2, int ncells1)
+    : x1f(label+"x1f",ncells3, ncells2, ncells1+1)
+    , x2f(label+"x2f",ncells3, ncells2+1, ncells1)
+    , x3f(label+"x3f",ncells3+1, ncells2, ncells1)
+  {}
+  FaceArray(const std::string& label, int ncells4, int ncells3, int ncells2, int ncells1)
+    : x1f(label+"x1f", ncells4, ncells3, ncells2, ncells1+1)
+    , x2f(label+"x2f", ncells4, ncells3, ncells2+1, ncells1)
+    , x3f(label+"x3f", ncells4, ncells3+1, ncells2, ncells1)
+  {}
+  FaceArray(const std::string& label, int ncells5, int ncells4,
+            int ncells3, int ncells2, int ncells1)
+    : x1f(label+"x1f", ncells5, ncells4, ncells3, ncells2, ncells1+1)
+    , x2f(label+"x2f", ncells5, ncells4, ncells3, ncells2+1, ncells1)
+    , x3f(label+"x3f", ncells5, ncells4, ncells3+1, ncells2, ncells1)
+  {}
+  FaceArray(const std::string& label, int ncells6, int ncells5,
+            int ncells4, int ncells3, int ncells2, int ncells1)
+    : x1f(label+"x1f",ncells6, ncells5, ncells4, ncells3, ncells2, ncells1+1)
+    , x2f(label+"x2f",ncells6, ncells5, ncells4, ncells3, ncells2+1, ncells1)
+    , x3f(label+"x3f",ncells6, ncells5, ncells4, ncells3+1, ncells2, ncells1)
+  {}
+  KOKKOS_INLINE_FUNCTION __attribute__((nothrow))
+  ~FaceArray() = default;
+
+  // TODO(JMM): should this be 0,1,2?
+  // Should we return the reference? Or something else?
+  KOKKOS_FORCEINLINE_FUNCTION
+  ParArrayND<T>& Get(int i) {
+    assert( 1 <= i && i <= 3 );
+    if (i == 1)
+      return (x1f);
+    if (i == 2)
+      return (x2f);
+    else
+      return (x3f); // i == 3
+  }
+  template<typename...Args>
+  KOKKOS_FORCEINLINE_FUNCTION
+  T& operator()(int dir, Args... args) const {
+    assert( 1 <= dir && dir <= 3 );
+    if (dir == 1)
+      return x1f(std::forward<Args>(args)...);
+    if (dir == 2)
+      return x2f(std::forward<Args>(args)...);
+    else
+      return x3f(std::forward<Args>(args)...); // i == 3
+  }
+};
+
+// this is for backward compatibility with Athena++ functionality
+using FaceField = FaceArray<Real>;
+
+
+template <typename T>
+struct EdgeArray {
+  ParArrayND<Real> x1e, x2e, x3e;
+  EdgeArray() = default;
+  EdgeArray(const std::string& label, int ncells3, int ncells2, int ncells1)
+    : x1e(label+"x1e", ncells3+1, ncells2+1, ncells1)
+    , x2e(label+"x2e", ncells3+1, ncells2, ncells1+1)
+    , x3e(label+"x3e", ncells3, ncells2+1, ncells1+1)
+  {}
+  EdgeArray(const std::string& label, int ncells4, int ncells3, int ncells2, int ncells1)
+    : x1e(label+"x1e", ncells4, ncells3+1, ncells2+1, ncells1)
+    , x2e(label+"x2e", ncells4, ncells3+1, ncells2, ncells1+1)
+    , x3e(label+"x3e", ncells4, ncells3, ncells2+1, ncells1+1)
+  {}
+  EdgeArray(const std::string& label, int ncells5, int ncells4,
+            int ncells3, int ncells2, int ncells1)
+    : x1e(label+"x1e", ncells5, ncells4, ncells3+1, ncells2+1, ncells1)
+    , x2e(label+"x2e", ncells5, ncells4, ncells3+1, ncells2, ncells1+1)
+    , x3e(label+"x3e", ncells5, ncells4, ncells3, ncells2+1, ncells1+1)
+  {}
+  EdgeArray(const std::string& label, int ncells6, int ncells5, int ncells4,
+            int ncells3, int ncells2, int ncells1)
+    : x1e(label+"x1e", ncells6, ncells5, ncells4, ncells3+1, ncells2+1, ncells1)
+    , x2e(label+"x2e", ncells6, ncells5, ncells4, ncells3+1, ncells2, ncells1+1)
+    , x3e(label+"x3e", ncells6, ncells5, ncells4, ncells3, ncells2+1, ncells1+1)
+  {}
+  KOKKOS_INLINE_FUNCTION __attribute__((nothrow))
+  ~EdgeArray() = default;
+};
+
+// backwards compatibility with Athena++ functionality
+using EdgeField = EdgeArray<Real>;
+
 
 } // namespace parthenon
 #endif // PARTHENON_ARRAYS_HPP_

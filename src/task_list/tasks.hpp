@@ -24,12 +24,13 @@
 #include <utility>
 #include <vector>
 
+#include "basic_types.hpp"
+
 namespace parthenon {
 
 class MeshBlock;
-class Integrator;
+struct Integrator;
 
-enum class TaskStatus {fail, success, next};
 enum class TaskListStatus {running, stuck, complete, nothing_to_do};
 
 using SimpleTaskFunc = std::function<TaskStatus()>;
@@ -45,10 +46,13 @@ using BlockStageNamesIntegratorTaskFunc =
 //! \class TaskID
 //  \brief generalization of bit fields for Task IDs, status, and dependencies.
 
-#define BITBLOCK 64
+#define BITBLOCK 16
+
 class TaskID {
  public:
-  TaskID() = default;
+  TaskID() {
+    Set(0);
+  }
   explicit TaskID(int id);
 
   void Set(int id);
@@ -79,7 +83,7 @@ class BaseTask {
 class SimpleTask : public BaseTask {
  public:
   SimpleTask(TaskID id, SimpleTaskFunc func, TaskID dep)
-    : _func(func), BaseTask(id, dep) {}
+    : BaseTask(id,dep), _func(func) {}
   TaskStatus operator () () { return _func(); }
  private:
   SimpleTaskFunc _func;
@@ -88,7 +92,7 @@ class SimpleTask : public BaseTask {
 class BlockTask : public BaseTask {
  public:
   BlockTask(TaskID id, BlockTaskFunc func, TaskID dep, MeshBlock *pmb)
-    : _func(func), _pblock(pmb), BaseTask(id, dep) {}
+    : BaseTask(id,dep), _func(func), _pblock(pmb) {}
   TaskStatus operator () () { return _func(_pblock); }
  private:
   BlockTaskFunc _func;
@@ -99,7 +103,7 @@ class BlockStageTask : public BaseTask {
  public:
   BlockStageTask(TaskID id, BlockStageTaskFunc func,
                  TaskID dep, MeshBlock *pmb, int stage)
-    : _func(func), _pblock(pmb), _stage(stage), BaseTask(id,dep) { }
+    : BaseTask(id,dep), _func(func), _pblock(pmb), _stage(stage) { }
   TaskStatus operator () () { return _func(_pblock, _stage); }
  private:
   BlockStageTaskFunc _func;
@@ -112,8 +116,7 @@ class BlockStageNamesTask : public BaseTask {
   BlockStageNamesTask(TaskID id, BlockStageNamesTaskFunc func, TaskID dep,
                       MeshBlock *pmb, int stage,
                       const std::vector<std::string>& sname)
-    : _func(func), _pblock(pmb), _stage(stage),
-      _sname(sname), BaseTask(id,dep) { }
+    : BaseTask(id,dep), _func(func), _pblock(pmb), _stage(stage), _sname(sname) {}
   TaskStatus operator () () { return _func(_pblock, _stage, _sname); }
  private:
   BlockStageNamesTaskFunc _func;
@@ -129,8 +132,8 @@ class BlockStageNamesIntegratorTask : public BaseTask {
                                 TaskID dep, MeshBlock *pmb, int stage,
                                 const std::vector<std::string>& sname,
                                 Integrator* integ)
-    : _func(func), _pblock(pmb), _stage(stage), _sname(sname),
-      _int(integ), BaseTask(id,dep) { }
+    : BaseTask(id,dep), _func(func), _pblock(pmb), _stage(stage), _sname(sname),
+      _int(integ) { }
   TaskStatus operator () () { return _func(_pblock, _stage, _sname, _int); }
  private:
   BlockStageNamesIntegratorTaskFunc _func;
@@ -159,31 +162,35 @@ class TaskList {
     return true;
   }
   void MarkTaskComplete(TaskID id) { _tasks_completed.SetFinished(id); }
-  int ClearComplete() {
+  void ClearComplete() {
     auto task = _task_list.begin();
-    int completed = 0;
     while (task != _task_list.end()) {
       if ((*task)->IsComplete()) {
         task = _task_list.erase(task);
-        completed++;
       } else {
         ++task;
       }
     }
-    return completed;
   }
   TaskListStatus DoAvailable() {
     for (auto & task : _task_list) {
       auto dep = task->GetDependency();
       if(_tasks_completed.CheckDependencies(dep)) {
+        /*std::cerr << "Task dependency met:" << std::endl
+                  << dep.to_string() << std::endl 
+                  << _tasks_completed.to_string() << std::endl 
+                  << task->GetID().to_string() << std::endl << std::endl;*/
         TaskStatus status = (*task)();
-        if (status == TaskStatus::success) {
+        if (status == TaskStatus::complete) {
           task->SetComplete();
           MarkTaskComplete(task->GetID());
+          /*std::cerr << "Task complete:" << std::endl
+                    << task->GetID().to_string() << std::endl 
+                    << _tasks_completed.to_string() << std::endl << std::endl;*/          
         }
       }
     }
-    int completed = ClearComplete();
+    ClearComplete();
     if (IsComplete()) return TaskListStatus::complete;
     return TaskListStatus::running;
   }
