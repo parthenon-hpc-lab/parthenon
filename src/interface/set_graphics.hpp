@@ -25,4 +25,4 @@ void SetGraphics(std::unique_ptr<ParameterInput>& pin, Packages_t& pkg);
 
 } // namepspace parthenon
 
-#endif
+#endif // INTERFACE_SET_GRAPHICS_HPP_
