@@ -20,14 +20,14 @@
 // C headers
 
 // C++ headers
-#include <cmath>   // sqrt()
+#include <cmath>     // sqrt()
 #include <stdexcept> // std::invalid_argument
 
 // Athena++ headers
-#include "athena.hpp"         // Real
-#include "parthenon_arrays.hpp"  // ParArrayND
+#include "athena.hpp"                  // Real
 #include "coordinates/coordinates.hpp" // Coordinates
 #include "interp_table.hpp"
+#include "parthenon_arrays.hpp" // ParArrayND
 
 namespace parthenon {
 // A contructor that setts the size of the table with number of variables nvar
@@ -39,9 +39,9 @@ InterpTable2D::InterpTable2D(const int nvar, const int nx2, const int nx1) {
 // Set size of table
 void InterpTable2D::SetSize(const int nvar, const int nx2, const int nx1) {
   nvar_ = nvar; // number of variables/tables
-  nx2_ = nx2; // slower indexing dimension
-  nx1_ = nx1; // faster indexing dimension
-  data = ParArrayND<Real>(PARARRAY_TEMP,nvar, nx2, nx1);
+  nx2_ = nx2;   // slower indexing dimension
+  nx1_ = nx1;   // faster indexing dimension
+  data = ParArrayND<Real>(PARARRAY_TEMP, nvar, nx2, nx1);
 }
 
 // Set the corrdinate limits for x1
@@ -62,7 +62,6 @@ void InterpTable2D::GetX1lim(Real &x1min, Real &x1max) {
   x1min = x1min_;
   x1max = x1max_;
 }
-
 
 void InterpTable2D::GetX2lim(Real &x2min, Real &x2max) {
   x2min = x2min_;
@@ -90,21 +89,20 @@ Real InterpTable2D::interpolate(int var, Real x2, Real x1) {
   } else if (xil >= nx - 1) { // above xmax
     xil = nx - 2;
   }
-  xrl = 1 + xil - x;  // x residual
+  xrl = 1 + xil - x; // x residual
 
   if (yil < 0) { // below ymin
     yil = 0;
   } else if (yil >= ny - 1) { // above ymax
     yil = ny - 2;
   }
-  yrl = 1 + yil - y;  // y residual
+  yrl = 1 + yil - y; // y residual
 
   // Sample from the 4 nearest data points and weight appropriately
   // data is an attribute of the eos class
-  out =   xrl  *  yrl  *data(var, xil , yil )
-          +   xrl  *(1-yrl)*data(var, xil ,yil+1)
-          + (1-xrl)*  yrl  *data(var,xil+1, yil )
-          + (1-xrl)*(1-yrl)*data(var,xil+1,yil+1);
+  out = xrl * yrl * data(var, xil, yil) + xrl * (1 - yrl) * data(var, xil, yil + 1) +
+        (1 - xrl) * yrl * data(var, xil + 1, yil) +
+        (1 - xrl) * (1 - yrl) * data(var, xil + 1, yil + 1);
   return out;
 }
-}
+} // namespace parthenon

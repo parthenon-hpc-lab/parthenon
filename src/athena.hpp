@@ -23,7 +23,7 @@
 
 // C++ headers
 #include <cmath>
-#include <cstdint>  // std::int64_t
+#include <cstdint> // std::int64_t
 
 // Athena++ headers
 #include "basic_types.hpp"
@@ -68,7 +68,7 @@ struct LogicalLocation { // aggregate and POD type
   static bool Lesser(const LogicalLocation &left, const LogicalLocation &right) {
     return left.level < right.level;
   }
-  static bool Greater(const LogicalLocation & left, const LogicalLocation &right) {
+  static bool Greater(const LogicalLocation &left, const LogicalLocation &right) {
     return left.level > right.level;
   }
 };
@@ -77,12 +77,12 @@ struct LogicalLocation { // aggregate and POD type
 //! \struct RegionSize
 //  \brief physical size and number of cells in a Mesh or a MeshBlock
 
-struct RegionSize {  // aggregate and POD type; do NOT reorder member declarations:
+struct RegionSize { // aggregate and POD type; do NOT reorder member declarations:
   Real x1min, x2min, x3min;
   Real x1max, x2max, x3max;
   Real x1rat, x2rat, x3rat; // ratio of dxf(i)/dxf(i-1)
   // the size of the root grid or a MeshBlock should not exceed std::int32_t limits
-  int nx1, nx2, nx3;        // number of active cells (not including ghost zones)
+  int nx1, nx2, nx3; // number of active cells (not including ghost zones)
 };
 
 //----------------------------------------------------------------------------------------
@@ -100,40 +100,38 @@ struct RegionSize {  // aggregate and POD type; do NOT reorder member declaratio
 
 // needed for arrays dimensioned over grid directions
 // enumerator type only used in Mesh::EnrollUserMeshGenerator()
-enum CoordinateDirection {X1DIR=0, X2DIR=1, X3DIR=2};
+enum CoordinateDirection { X1DIR = 0, X2DIR = 1, X3DIR = 2 };
 
 //------------------
 // strongly typed / scoped enums (C++11):
 //------------------
 // KGF: Except for the 2x MG* enums, these may be unnessary w/ the new class inheritance
 // Now, only passed to BoundaryVariable::InitBoundaryData(); could replace w/ bool switch
-enum class BoundaryQuantity {cc, fc, cc_flcor, fc_flcor};
-enum class BoundaryCommSubset {mesh_init, gr_amr, all};
+enum class BoundaryQuantity { cc, fc, cc_flcor, fc_flcor };
+enum class BoundaryCommSubset { mesh_init, gr_amr, all };
 // TODO(felker): consider generalizing/renaming to QuantityFormulation
-enum class UserHistoryOperation {sum, max, min};
+enum class UserHistoryOperation { sum, max, min };
 
 //----------------------------------------------------------------------------------------
 // function pointer prototypes for user-defined modules set at runtime
 
-using BValFunc = void (*)(
-    MeshBlock *pmb, Coordinates *pco, ParArrayND<Real> &prim, FaceField &b,
-    Real time, Real dt,
-    int is, int ie, int js, int je, int ks, int ke, int ngh);
+using BValFunc = void (*)(MeshBlock *pmb, Coordinates *pco, ParArrayND<Real> &prim,
+                          FaceField &b, Real time, Real dt, int is, int ie, int js,
+                          int je, int ks, int ke, int ngh);
 using AMRFlagFunc = int (*)(MeshBlock *pmb);
 using MeshGenFunc = Real (*)(Real x, RegionSize rs);
-using SrcTermFunc = void (*)(
-    MeshBlock *pmb, const Real time, const Real dt,
-    const ParArrayND<Real> &prim, const ParArrayND<Real> &bcc, ParArrayND<Real> &cons);
+using SrcTermFunc = void (*)(MeshBlock *pmb, const Real time, const Real dt,
+                             const ParArrayND<Real> &prim, const ParArrayND<Real> &bcc,
+                             ParArrayND<Real> &cons);
 using TimeStepFunc = Real (*)(MeshBlock *pmb);
 using HistoryOutputFunc = Real (*)(MeshBlock *pmb, int iout);
-using MetricFunc = void (*)(
-    Real x1, Real x2, Real x3, ParameterInput *pin,
-    ParArrayND<Real> &g, ParArrayND<Real> &g_inv,
-    ParArrayND<Real> &dg_dx1, ParArrayND<Real> &dg_dx2, ParArrayND<Real> &dg_dx3);
-using MGBoundaryFunc = void (*)(
-    ParArrayND<Real> &dst,Real time, int nvar,
-    int is, int ie, int js, int je, int ks, int ke, int ngh,
-    Real x0, Real y0, Real z0, Real dx, Real dy, Real dz);
+using MetricFunc = void (*)(Real x1, Real x2, Real x3, ParameterInput *pin,
+                            ParArrayND<Real> &g, ParArrayND<Real> &g_inv,
+                            ParArrayND<Real> &dg_dx1, ParArrayND<Real> &dg_dx2,
+                            ParArrayND<Real> &dg_dx3);
+using MGBoundaryFunc = void (*)(ParArrayND<Real> &dst, Real time, int nvar, int is,
+                                int ie, int js, int je, int ks, int ke, int ngh, Real x0,
+                                Real y0, Real z0, Real dx, Real dy, Real dz);
 
 } // namespace parthenon
 

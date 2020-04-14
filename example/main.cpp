@@ -24,13 +24,13 @@
 // Athena++ headers
 #include "mesh/mesh.hpp"
 
-using parthenon::Mesh;
-using parthenon::ParameterInput;
+using parthenon::Container;
 using parthenon::IOWrapper;
 using parthenon::MaterialPropertiesInterface;
-using parthenon::StateDescriptor;
+using parthenon::Mesh;
+using parthenon::ParameterInput;
 using parthenon::Real;
-using parthenon::Container;
+using parthenon::StateDescriptor;
 
 //----------------------------------------------------------------------------------------
 //! \fn int main(int argc, char *argv[])
@@ -51,8 +51,7 @@ int main(int argc, char *argv[]) {
   if (mpiprv != MPI_THREAD_MULTIPLE) {
     std::cout << "### FATAL ERROR in main" << std::endl
               << "MPI_THREAD_MULTIPLE must be supported for the hybrid parallelzation. "
-              << MPI_THREAD_MULTIPLE << " : " << mpiprv
-              << std::endl;
+              << MPI_THREAD_MULTIPLE << " : " << mpiprv << std::endl;
     MPI_Finalize();
     return 2;
   }
@@ -62,7 +61,7 @@ int main(int argc, char *argv[]) {
               << "MPI Initialization failed." << std::endl;
     return 3;
   }
-#endif  // OPENMP_PARALLEL
+#endif // OPENMP_PARALLEL
   // Get process id (rank) in MPI_COMM_WORLD
   if (MPI_SUCCESS != MPI_Comm_rank(MPI_COMM_WORLD, &(parthenon::Globals::my_rank))) {
     std::cout << "### FATAL ERROR in main" << std::endl
@@ -80,53 +79,52 @@ int main(int argc, char *argv[]) {
   }
 #else  // no MPI
   parthenon::Globals::my_rank = 0;
-  parthenon::Globals::nranks  = 1;
-#endif  // MPI_PARALLEL
+  parthenon::Globals::nranks = 1;
+#endif // MPI_PARALLEL
 
   // Initialize Kokkos
-  Kokkos::initialize( argc, argv );
+  Kokkos::initialize(argc, argv);
   {
-  Kokkos::print_configuration(std::cout);
-  if (argc != 2) {
+    Kokkos::print_configuration(std::cout);
+    if (argc != 2) {
+      if (parthenon::Globals::my_rank == 0) {
+        std::cout << "\nUsage: " << argv[0] << " input_file\n"
+                  << "\tTry this input file:\n"
+                  << "\tparthenon/example/parthinput.example" << std::endl;
+      }
+      return 0;
+    }
+    std::string inputFileName = argv[1];
+    ParameterInput pin;
+    IOWrapper inputFile;
+    inputFile.Open(inputFileName.c_str(), IOWrapper::FileMode::read);
+    pin.LoadFromFile(inputFile);
+    inputFile.Close();
+
     if (parthenon::Globals::my_rank == 0) {
-      std::cout << "\nUsage: " << argv[0] << " input_file\n"
-        << "\tTry this input file:\n"
-        << "\tparthenon/example/parthinput.example"
-        << std::endl;
+      std::cout << "\ninput file = " << inputFileName << std::endl;
+      if (pin.DoesParameterExist("mesh", "nx1")) {
+        std::cout << "nx1 = " << pin.GetInteger("mesh", "nx1") << std::endl;
+      }
+      if (pin.DoesParameterExist("mesh", "x1min")) {
+        std::cout << "x1min = " << pin.GetReal("mesh", "x1min") << std::endl;
+      }
+      if (pin.DoesParameterExist("mesh", "x1max")) {
+        std::cout << "x1max = " << pin.GetReal("mesh", "x1max") << std::endl;
+      }
+      if (pin.DoesParameterExist("mesh", "ix1_bc")) {
+        std::cout << "x1 inner boundary condition = " << pin.GetString("mesh", "ix1_bc")
+                  << std::endl;
+      }
+      if (pin.DoesParameterExist("mesh", "ox1_bc")) {
+        std::cout << "x1 outer boundary condition = " << pin.GetString("mesh", "ox1_bc")
+                  << std::endl;
+      }
     }
-    return 0;
-  }
-  std::string inputFileName = argv[1];
-  ParameterInput pin;
-  IOWrapper inputFile;
-  inputFile.Open(inputFileName.c_str(), IOWrapper::FileMode::read);
-  pin.LoadFromFile(inputFile);
-  inputFile.Close();
 
-  if (parthenon::Globals::my_rank == 0) {
-    std::cout << "\ninput file = " << inputFileName << std::endl;
-    if (pin.DoesParameterExist("mesh","nx1")) {
-      std::cout << "nx1 = " << pin.GetInteger("mesh","nx1") << std::endl;
-    }
-    if (pin.DoesParameterExist("mesh","x1min")) {
-      std::cout << "x1min = " << pin.GetReal("mesh","x1min") << std::endl;
-    }
-    if (pin.DoesParameterExist("mesh","x1max")) {
-      std::cout << "x1max = " << pin.GetReal("mesh","x1max") << std::endl;
-    }
-    if (pin.DoesParameterExist("mesh", "ix1_bc")) {
-      std::cout << "x1 inner boundary condition = "
-        << pin.GetString("mesh","ix1_bc") << std::endl;
-    }
-    if (pin.DoesParameterExist("mesh", "ox1_bc")) {
-      std::cout << "x1 outer boundary condition = "
-        << pin.GetString("mesh","ox1_bc") << std::endl;
-    }
-  }
-
-  parthenon::Properties_t properties;
-  parthenon::Packages_t packages;
-  Mesh m(&pin, properties, packages);
+    parthenon::Properties_t properties;
+    parthenon::Packages_t packages;
+    Mesh m(&pin, properties, packages);
   }
   Kokkos::finalize();
 

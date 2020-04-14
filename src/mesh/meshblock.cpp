@@ -20,32 +20,32 @@
 // C headers
 
 // C++ headers
-#include <algorithm>  // sort()
+#include <algorithm> // sort()
 #include <cstdlib>
-#include <cstring>    // memcpy()
-#include <ctime>      // clock(), CLOCKS_PER_SEC, clock_t
+#include <cstring> // memcpy()
+#include <ctime>   // clock(), CLOCKS_PER_SEC, clock_t
 #include <iomanip>
 #include <iostream>
-#include <sstream>
-#include <stdexcept>  // runtime_error
-#include <string>     // c_str()
 #include <iterator>
+#include <sstream>
+#include <stdexcept> // runtime_error
+#include <string>    // c_str()
 
 // Athena++ headers
 #include "athena.hpp"
 #include "bvals/bvals.hpp"
 #include "coordinates/coordinates.hpp"
 #include "globals.hpp"
+#include "interface/ContainerIterator.hpp"
+#include "interface/Metadata.hpp"
+#include "interface/Variable.hpp"
 #include "kokkos_abstraction.hpp"
-#include "parameter_input.hpp"
-#include "parthenon_arrays.hpp"
-#include "utils/buffer_utils.hpp"
 #include "mesh.hpp"
 #include "mesh_refinement.hpp"
 #include "meshblock_tree.hpp"
-#include "interface/Metadata.hpp"
-#include "interface/Variable.hpp"
-#include "interface/ContainerIterator.hpp"
+#include "parameter_input.hpp"
+#include "parthenon_arrays.hpp"
+#include "utils/buffer_utils.hpp"
 
 namespace parthenon {
 //----------------------------------------------------------------------------------------
@@ -53,28 +53,23 @@ namespace parthenon {
 //                        and mesh refinement objects.
 MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
                      BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
-                     Properties_t& properties,
-                     Packages_t& packages,
-                     int igflag, bool ref_flag) :
-    exec_space(DevSpace()),
-    pmy_mesh(pm), loc(iloc), block_size(input_block),
-    gid(igid), lid(ilid), gflag(igflag),
-    properties(properties), packages(packages),
-    prev(nullptr), next(nullptr),
-    new_block_dt_{}, new_block_dt_hyperbolic_{}, new_block_dt_parabolic_{},
-    new_block_dt_user_{},
-    cost_(1.0) {
+                     Properties_t &properties, Packages_t &packages, int igflag,
+                     bool ref_flag)
+    : exec_space(DevSpace()), pmy_mesh(pm), loc(iloc), block_size(input_block), gid(igid),
+      lid(ilid), gflag(igflag), properties(properties), packages(packages), prev(nullptr),
+      next(nullptr), new_block_dt_{}, new_block_dt_hyperbolic_{},
+      new_block_dt_parabolic_{}, new_block_dt_user_{}, cost_(1.0) {
   // initialize grid indices
   is = NGHOST;
   ie = is + block_size.nx1 - 1;
 
-  ncells1 = block_size.nx1 + 2*NGHOST;
-  ncc1 = block_size.nx1/2 + 2*NGHOST;
+  ncells1 = block_size.nx1 + 2 * NGHOST;
+  ncc1 = block_size.nx1 / 2 + 2 * NGHOST;
   if (pmy_mesh->ndim >= 2) {
     js = NGHOST;
     je = js + block_size.nx2 - 1;
-    ncells2 = block_size.nx2 + 2*NGHOST;
-    ncc2 = block_size.nx2/2 + 2*NGHOST;
+    ncells2 = block_size.nx2 + 2 * NGHOST;
+    ncc2 = block_size.nx2 / 2 + 2 * NGHOST;
   } else {
     js = je = 0;
     ncells2 = 1;
@@ -84,27 +79,28 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
   if (pmy_mesh->ndim >= 3) {
     ks = NGHOST;
     ke = ks + block_size.nx3 - 1;
-    ncells3 = block_size.nx3 + 2*NGHOST;
-    ncc3 = block_size.nx3/2 + 2*NGHOST;
+    ncells3 = block_size.nx3 + 2 * NGHOST;
+    ncc3 = block_size.nx3 / 2 + 2 * NGHOST;
   } else {
     ks = ke = 0;
     ncells3 = 1;
     ncc3 = 1;
   }
 
-  Container<Real>& real_container = real_containers.Get();
+  Container<Real> &real_container = real_containers.Get();
 
   // Set the block pointer for the containers
   real_container.setBlock(this);
 
   if (pm->multilevel) {
-    cnghost = (NGHOST + 1)/2 + 1;
-    cis = NGHOST; cie = cis + block_size.nx1/2 - 1;
+    cnghost = (NGHOST + 1) / 2 + 1;
+    cis = NGHOST;
+    cie = cis + block_size.nx1 / 2 - 1;
     cjs = cje = cks = cke = 0;
     if (pmy_mesh->ndim >= 2) // 2D or 3D
-      cjs = NGHOST, cje = cjs + block_size.nx2/2 - 1;
+      cjs = NGHOST, cje = cjs + block_size.nx2 / 2 - 1;
     if (pmy_mesh->ndim >= 3) // 3D
-      cks = NGHOST, cke = cks + block_size.nx3/2 - 1;
+      cks = NGHOST, cke = cks + block_size.nx3 / 2 - 1;
   }
 
   // construct objects stored in MeshBlock class.  Note in particular that the initial
@@ -112,7 +108,7 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
 
   // mesh-related objects
   // Boundary
-  pbval  = std::make_unique<BoundaryValues>(this, input_bcs, pin);
+  pbval = std::make_unique<BoundaryValues>(this, input_bcs, pin);
   pbval->SetBoundaryFlags(boundary_flag);
 
   // Coordinates
@@ -127,18 +123,18 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
 
   // Add field properties data
   for (int i = 0; i < properties.size(); i++) {
-    StateDescriptor& state = properties[i]->State();
-    for (auto const & q : state.AllFields()) {
+    StateDescriptor &state = properties[i]->State();
+    for (auto const &q : state.AllFields()) {
       real_container.Add(q.first, q.second);
     }
   }
   // Add physics data
-  for (auto const & pkg : packages) {
-    for (auto const & q : pkg.second->AllFields()) {
+  for (auto const &pkg : packages) {
+    for (auto const &q : pkg.second->AllFields()) {
       real_container.Add(q.first, q.second);
     }
-    for (auto const & q : pkg.second->AllSparseFields()) {
-      for (auto const & m : q.second) {
+    for (auto const &q : pkg.second->AllSparseFields()) {
+      for (auto const &m : q.second) {
         real_container.Add(q.first, m);
       }
     }
@@ -147,20 +143,20 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
   // TODO: Should these loops be moved to Variable creation
   ContainerIterator<Real> ci(real_container, {Metadata::Independent});
   int nindependent = ci.vars.size();
-  for (int n=0; n<nindependent; n++) {
+  for (int n = 0; n < nindependent; n++) {
     RegisterMeshBlockData(ci.vars[n]);
   }
 
   if (pm->multilevel) {
     pmr = std::make_unique<MeshRefinement>(this, pin);
     // This is very redundant, I think, but necessary for now
-    for (int n=0; n<nindependent; n++) {
+    for (int n = 0; n < nindependent; n++) {
       pmr->AddToRefinement(ci.vars[n]->data, ci.vars[n]->coarse_s);
     }
   }
 
   // Create user mesh data
-  //InitUserMeshBlockData(pin);
+  // InitUserMeshBlockData(pin);
   app = InitApplicationMeshBlockData(pin);
 }
 
@@ -322,15 +318,13 @@ void MeshBlock::StopTimeMeasurement() {
   }
 }
 
-
 void MeshBlock::RegisterMeshBlockData(std::shared_ptr<CellVariable<Real>> pvar_cc) {
   vars_cc_.push_back(pvar_cc);
   return;
 }
 
-
 void MeshBlock::RegisterMeshBlockData(std::shared_ptr<FaceField> pvar_fc) {
   vars_fc_.push_back(pvar_fc);
   return;
 }
-}
+} // namespace parthenon

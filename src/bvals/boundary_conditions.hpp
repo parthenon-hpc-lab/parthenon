@@ -19,7 +19,7 @@
 
 namespace parthenon {
 
-TaskStatus ApplyBoundaryConditions(Container<Real>& rc);
+TaskStatus ApplyBoundaryConditions(Container<Real> &rc);
 
 } // namespace parthenon
 

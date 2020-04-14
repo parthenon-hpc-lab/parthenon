@@ -13,10 +13,10 @@
 //========================================================================================
 
 #include "driver.hpp"
-#include "utils/utils.hpp"
-#include "parameter_input.hpp"
 #include "mesh/mesh.hpp"
 #include "outputs/outputs.hpp"
+#include "parameter_input.hpp"
+#include "utils/utils.hpp"
 
 namespace parthenon {
 
@@ -25,15 +25,14 @@ DriverStatus EvolutionDriver::Execute() {
   while ((pmesh->time < pmesh->tlim) &&
          (pmesh->nlim < 0 || pmesh->ncycle < pmesh->nlim)) {
 
-    if (Globals::my_rank == 0)
-      pmesh->OutputCycleDiagnostics();
+    if (Globals::my_rank == 0) pmesh->OutputCycleDiagnostics();
 
     TaskListStatus status = Step();
     if (status != TaskListStatus::complete) {
       std::cerr << "Step failed to complete all tasks." << std::endl;
       return DriverStatus::failed;
     }
-    //pmesh->UserWorkInLoop();
+    // pmesh->UserWorkInLoop();
 
     pmesh->ncycle++;
     pmesh->time += pmesh->dt;
@@ -44,7 +43,7 @@ DriverStatus EvolutionDriver::Execute() {
 
     pmesh->NewTimeStep();
     if (pmesh->time < pmesh->tlim) // skip the final output as it happens later
-      pouts->MakeOutputs(pmesh,pinput);
+      pouts->MakeOutputs(pmesh, pinput);
 
     // check for signals
     if (SignalHandler::CheckSignalFlags() != 0) {

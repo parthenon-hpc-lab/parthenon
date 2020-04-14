@@ -29,10 +29,10 @@ class ContainerCollection {
     containers_["base"] = std::make_shared<Container<T>>(); // always add "base" container
   }
 
-  void Add(const std::string& label, Container<T>& src);
+  void Add(const std::string &label, Container<T> &src);
 
-  Container<T>& Get() { return *containers_["base"]; }
-  Container<T>& Get(const std::string& label) {
+  Container<T> &Get() { return *containers_["base"]; }
+  Container<T> &Get(const std::string &label) {
     auto it = containers_.find(label);
     if (it == containers_.end()) {
       throw std::runtime_error("Container " + label + " does not exist in collection.");
@@ -52,7 +52,7 @@ class ContainerCollection {
   }
 
   void Print() {
-    for (auto & c : containers_) {
+    for (auto &c : containers_) {
       std::cout << "Container " << c.first << " has:" << std::endl;
       c.second->Print();
       std::cout << std::endl;

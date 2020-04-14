@@ -15,54 +15,46 @@
 #include <iostream>
 #include <string>
 
-
+#include "Variable.hpp"
 #include "bvals/cc/bvals_cc.hpp"
 #include "mesh/mesh.hpp"
 #include "parthenon_arrays.hpp"
-#include "Variable.hpp"
 
 namespace parthenon {
 
 template <typename T>
 std::string CellVariable<T>::info() {
-    char tmp[100] = "";
-    char *stmp = tmp;
+  char tmp[100] = "";
+  char *stmp = tmp;
 
-    // first add label
-    std::string s = label();
-    s.resize(20,'.');
-    s += " : ";
+  // first add label
+  std::string s = label();
+  s.resize(20, '.');
+  s += " : ";
 
-    // now append size
-    snprintf(tmp, sizeof(tmp),
-             "%dx%dx%dx%dx%dx%d",
-             GetDim(6),
-             GetDim(5),
-             GetDim(4),
-             GetDim(3),
-             GetDim(2),
-             GetDim(1)
-             );
-    while (! strncmp(stmp,"1x",2)) {
-      stmp += 2;
-    }
-    s += stmp;
-    // now append flag
-    s += " : " + m_.MaskAsString();
-
-    return s;
+  // now append size
+  snprintf(tmp, sizeof(tmp), "%dx%dx%dx%dx%dx%d", GetDim(6), GetDim(5), GetDim(4),
+           GetDim(3), GetDim(2), GetDim(1));
+  while (!strncmp(stmp, "1x", 2)) {
+    stmp += 2;
   }
+  s += stmp;
+  // now append flag
+  s += " : " + m_.MaskAsString();
+
+  return s;
+}
 
 // copy constructor
 template <typename T>
 std::shared_ptr<CellVariable<T>> CellVariable<T>::AllocateCopy(const bool allocComms,
-                      MeshBlock *pmb) {
-  std::array<int,6> dims =  {GetDim(1), GetDim(2), GetDim(3),
+                                                               MeshBlock *pmb) {
+  std::array<int, 6> dims = {GetDim(1), GetDim(2), GetDim(3),
                              GetDim(4), GetDim(5), GetDim(6)};
 
   // copy the Metadata and set the SharedComms flag if appropriate
   Metadata m = m_;
-  if ( IsSet(Metadata::FillGhost) && !allocComms ) {
+  if (IsSet(Metadata::FillGhost) && !allocComms) {
     m.Set(Metadata::SharedComms);
   }
 
@@ -70,15 +62,15 @@ std::shared_ptr<CellVariable<T>> CellVariable<T>::AllocateCopy(const bool allocC
   auto cv = std::make_shared<CellVariable<T>>(label(), dims, m);
 
   if (IsSet(Metadata::FillGhost)) {
-    if ( allocComms ) {
+    if (allocComms) {
       cv->allocateComms(pmb);
     } else {
       // set data pointer for the boundary communication
       // Note that vbvar->var_cc will be set when stage is selected
-       cv->vbvar = vbvar;
+      cv->vbvar = vbvar;
 
       // fluxes, etc are always a copy
-      for (int i = 0; i<3; i++) {
+      for (int i = 0; i < 3; i++) {
         cv->flux[i] = flux[i];
       }
 
@@ -90,28 +82,27 @@ std::shared_ptr<CellVariable<T>> CellVariable<T>::AllocateCopy(const bool allocC
   return cv;
 }
 
-
 /// allocate communication space based on info in MeshBlock
 /// Initialize a 6D variable
 template <typename T>
 void CellVariable<T>::allocateComms(MeshBlock *pmb) {
-  if ( ! pmb ) return;
+  if (!pmb) return;
 
   // set up fluxes
   std::string base_name = label();
   if (IsSet(Metadata::Independent)) {
-    flux[0] = ParArrayND<T>(base_name +   ".flux0",
-      GetDim(6), GetDim(5), GetDim(4), GetDim(3), GetDim(2), GetDim(1));
+    flux[0] = ParArrayND<T>(base_name + ".flux0", GetDim(6), GetDim(5), GetDim(4),
+                            GetDim(3), GetDim(2), GetDim(1));
     if (pmb->pmy_mesh->ndim >= 2)
-      flux[1] = ParArrayND<T>(base_name + ".flux1",
-      GetDim(6), GetDim(5), GetDim(4), GetDim(3), GetDim(2), GetDim(1));
+      flux[1] = ParArrayND<T>(base_name + ".flux1", GetDim(6), GetDim(5), GetDim(4),
+                              GetDim(3), GetDim(2), GetDim(1));
     if (pmb->pmy_mesh->ndim >= 3)
-      flux[2] = ParArrayND<T>(base_name + ".flux2",
-      GetDim(6), GetDim(5), GetDim(4), GetDim(3), GetDim(2), GetDim(1));
+      flux[2] = ParArrayND<T>(base_name + ".flux2", GetDim(6), GetDim(5), GetDim(4),
+                              GetDim(3), GetDim(2), GetDim(1));
   }
   if (pmb->pmy_mesh->multilevel)
-    coarse_s = ParArrayND<T>(base_name+".coarse", GetDim(6), GetDim(5), GetDim(4),
-                                               pmb->ncc3, pmb->ncc2, pmb->ncc1);
+    coarse_s = ParArrayND<T>(base_name + ".coarse", GetDim(6), GetDim(5), GetDim(4),
+                             pmb->ncc3, pmb->ncc2, pmb->ncc1);
 
   // Create the boundary object
   vbvar = std::make_shared<CellCenteredBoundaryVariable>(pmb, data, coarse_s, flux);
@@ -131,16 +122,12 @@ std::string FaceVariable<T>::info() {
 
   // first add label
   std::string s = this->label();
-  s.resize(20,'.');
-  s +=  " : ";
+  s.resize(20, '.');
+  s += " : ";
 
   // now append size
-  snprintf(tmp, sizeof(tmp),
-          "%dx%dx%d",
-          data.x1f.GetDim(3),
-          data.x1f.GetDim(2),
-          data.x1f.GetDim(1)
-          );
+  snprintf(tmp, sizeof(tmp), "%dx%dx%d", data.x1f.GetDim(3), data.x1f.GetDim(2),
+           data.x1f.GetDim(1));
   s += std::string(tmp);
 
   // now append flag
@@ -151,26 +138,22 @@ std::string FaceVariable<T>::info() {
 
 template <typename T>
 std::string EdgeVariable<T>::info() {
-    char tmp[100] = "";
+  char tmp[100] = "";
 
-    // first add label
-    //    snprintf(tmp, sizeof(tmp), "%40s : ",this->label().cstr());
-    std::string s = this->label();
-    s.resize(20,'.');
+  // first add label
+  //    snprintf(tmp, sizeof(tmp), "%40s : ",this->label().cstr());
+  std::string s = this->label();
+  s.resize(20, '.');
 
-    // now append size
-    snprintf(tmp, sizeof(tmp),
-             "%dx%dx%d",
-             data.x1e.GetDim(3),
-             data.x1e.GetDim(2),
-             data.x1e.GetDim(1)
-             );
-    s += std::string(tmp);
+  // now append size
+  snprintf(tmp, sizeof(tmp), "%dx%dx%d", data.x1e.GetDim(3), data.x1e.GetDim(2),
+           data.x1e.GetDim(1));
+  s += std::string(tmp);
 
-    // now append flag
-    s += " : " + this->metadata().MaskAsString();
+  // now append flag
+  s += " : " + this->metadata().MaskAsString();
 
-    return s;
+  return s;
 }
 
 template class CellVariable<Real>;
