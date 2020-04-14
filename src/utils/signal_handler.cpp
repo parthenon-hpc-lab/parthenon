@@ -19,17 +19,17 @@
 //  These functions are based on TAG's signal handler written for Athena 8/19/2004
 
 // C headers
-#include <unistd.h>   // alarm() Unix OS utility; not in C standard --> no <cunistd>
+#include <unistd.h> // alarm() Unix OS utility; not in C standard --> no <cunistd>
 
 // C++ headers
 // first 2x macros and signal() are the only ISO C features; rest are POSIX C extensions
-#include <csignal>    // SIGTERM, SIGINT, SIGALARM, signal(), sigemptyset(), ...
+#include <csignal> // SIGTERM, SIGINT, SIGALARM, signal(), sigemptyset(), ...
 #include <iostream>
 
 // Athena++ headers
-#include <defs.hpp>
 #include "globals.hpp"
 #include "utils.hpp"
+#include <defs.hpp>
 
 #ifdef MPI_PARALLEL
 #include <mpi.h>
@@ -44,13 +44,13 @@ namespace SignalHandler {
 //  \brief install handlers for selected signals
 
 void SignalHandlerInit() {
-  for (int n=0; n<nsignal; n++) {
-    signalflag[n]=0;
+  for (int n = 0; n < nsignal; n++) {
+    signalflag[n] = 0;
   }
   // C++11 standard guarantees that <csignal> places C-standard signal.h contents in std::
   // namespace. POSIX C extensions are likely only placed in global namespace (not std::)
   std::signal(SIGTERM, SetSignalFlag);
-  std::signal(SIGINT,  SetSignalFlag);
+  std::signal(SIGINT, SetSignalFlag);
   std::signal(SIGALRM, SetSignalFlag);
 
   // populate set of signals to block while the handler is running; prevent premption
@@ -75,7 +75,7 @@ int CheckSignalFlags() {
                 const_cast<void *>(reinterpret_cast<volatile void *>(signalflag)),
                 nsignal, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
 #endif
-  for (int n=0; n<nsignal; n++)
+  for (int n = 0; n < nsignal; n++)
     ret += signalflag[n];
   sigprocmask(SIG_UNBLOCK, &mask, nullptr);
   return ret;
@@ -87,20 +87,20 @@ int CheckSignalFlags() {
 //         Returns -1 if the specified signal is not handled.
 
 int GetSignalFlag(int s) {
-  int ret=-1;
-  switch(s) {
-    case SIGTERM:
-      ret=signalflag[ITERM];
-      break;
-    case SIGINT:
-      ret=signalflag[IINT];
-      break;
-    case SIGALRM:
-      ret=signalflag[IALRM];
-      break;
-    default:
-      // nothing
-      break;
+  int ret = -1;
+  switch (s) {
+  case SIGTERM:
+    ret = signalflag[ITERM];
+    break;
+  case SIGINT:
+    ret = signalflag[IINT];
+    break;
+  case SIGALRM:
+    ret = signalflag[IALRM];
+    break;
+  default:
+    // nothing
+    break;
   }
   return ret;
 }
@@ -111,22 +111,22 @@ int GetSignalFlag(int s) {
 
 void SetSignalFlag(int s) {
   // Signal handler functions must have C linkage; C++ linkage is implemantation-defined
-  switch(s) {
-    case SIGTERM:
-      signalflag[ITERM]=1;
-      signal(s, SetSignalFlag);
-      break;
-    case SIGINT:
-      signalflag[IINT]=1;
-      signal(s, SetSignalFlag);
-      break;
-    case SIGALRM:
-      signalflag[IALRM]=1;
-      signal(s, SetSignalFlag);
-      break;
-    default:
-      // nothing
-      break;
+  switch (s) {
+  case SIGTERM:
+    signalflag[ITERM] = 1;
+    signal(s, SetSignalFlag);
+    break;
+  case SIGINT:
+    signalflag[IINT] = 1;
+    signal(s, SetSignalFlag);
+    break;
+  case SIGALRM:
+    signalflag[IALRM] = 1;
+    signal(s, SetSignalFlag);
+    break;
+  default:
+    // nothing
+    break;
   }
   return;
 }
@@ -160,4 +160,4 @@ void Report() {
 }
 
 } // namespace SignalHandler
-}
+} // namespace parthenon

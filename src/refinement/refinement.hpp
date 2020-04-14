@@ -14,12 +14,12 @@
 #ifndef PARTHENON_REFINEMENT_REFINEMENT_HPP_
 #define PARTHENON_REFINEMENT_REFINEMENT_HPP_
 
-#include <memory>
-#include <string>
 #include "athena.hpp"
 #include "interface/Container.hpp"
 #include "interface/StateDescriptor.hpp"
 #include "interface/Variable.hpp"
+#include <memory>
+#include <string>
 
 namespace parthenon {
 
@@ -29,10 +29,10 @@ namespace Refinement {
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 
-AmrTag CheckAllRefinement(Container<Real>& rc);
+AmrTag CheckAllRefinement(Container<Real> &rc);
 
-AmrTag FirstDerivative(CellVariable<Real>& q,
-                    const Real refine_criteria, const Real derefine_criteria);
+AmrTag FirstDerivative(CellVariable<Real> &q, const Real refine_criteria,
+                       const Real derefine_criteria);
 
 } // namespace Refinement
 

@@ -49,5 +49,5 @@ int main(int argc, char *argv[]) {
   // call MPI_Finalize if necessary
   pman.ParthenonFinalize();
 
-  return(0);
+  return (0);
 }

@@ -26,6 +26,8 @@ option(ENABLE_COMPILER_WARNINGS "Enable compiler warnings" OFF)
 option(CHECK_REGISTRY_PRESSURE "Check the registry pressure for Kokkos CUDA kernels" OFF)
 option(TEST_INTEL_OPTIMIZATION "Test intel optimization and vectorization" OFF)
 
+include(cmake/Format.cmake)
+
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Don't allow in-source builds

@@ -25,8 +25,8 @@
 
 // parthenon infrastructure includes
 #include "athena.hpp"
-#include "parthenon_arrays.hpp"
 #include "coordinates/coordinates.hpp"
+#include "parthenon_arrays.hpp"
 
 namespace parthenon {
 // Forward declarations
@@ -37,13 +37,13 @@ class ParameterInput;
 
 class Reconstruction {
  public:
-  enum VelocityIndex {IVX=1, IVY=2, IVZ=3};
+  enum VelocityIndex { IVX = 1, IVY = 2, IVZ = 3 };
 
   Reconstruction(MeshBlock *pmb, ParameterInput *pin);
 
   // data
   // switches for reconstruction method variants:
-  int xorder;   // roughly the formal order of accuracy of overall reconstruction method
+  int xorder; // roughly the formal order of accuracy of overall reconstruction method
   bool characteristic_projection;
   bool uniform[3];
   // (Cartesian reconstruction formulas are used for x3 azimuthal coordinate in both
@@ -62,12 +62,12 @@ class Reconstruction {
 
   // functions
   // linear transformations of vectors between primitive and characteristic variables
-  void LeftEigenmatrixDotVector(
-      const int ivx, const int il, const int iu,
-      const ParArrayND<Real> &b1, const ParArrayND<Real> &w, ParArrayND<Real> &vect);
-  void RightEigenmatrixDotVector(
-      const int ivx, const int il, const int iu,
-      const ParArrayND<Real> &b1, const ParArrayND<Real> &w, ParArrayND<Real> &vect);
+  void LeftEigenmatrixDotVector(const int ivx, const int il, const int iu,
+                                const ParArrayND<Real> &b1, const ParArrayND<Real> &w,
+                                ParArrayND<Real> &vect);
+  void RightEigenmatrixDotVector(const int ivx, const int il, const int iu,
+                                 const ParArrayND<Real> &b1, const ParArrayND<Real> &w,
+                                 ParArrayND<Real> &vect);
 
   // reconstruction functions of various orders in each dimension
   void DonorCellX1(const int k, const int j, const int il, const int iu,
@@ -107,43 +107,40 @@ class Reconstruction {
                             ParArrayND<Real> &wl, ParArrayND<Real> &wr);
 
   void DonorCellX1(const int k, const int j, const int il, const int iu,
-                   const ParArrayND<Real> &q,
-                   ParArrayND<Real> &ql, ParArrayND<Real> &qr);
+                   const ParArrayND<Real> &q, ParArrayND<Real> &ql, ParArrayND<Real> &qr);
 
   void DonorCellX2(const int k, const int j, const int il, const int iu,
-                   const ParArrayND<Real> &q,
-                   ParArrayND<Real> &ql, ParArrayND<Real> &qr);
+                   const ParArrayND<Real> &q, ParArrayND<Real> &ql, ParArrayND<Real> &qr);
 
   void DonorCellX3(const int k, const int j, const int il, const int iu,
-                   const ParArrayND<Real> &q,
-                   ParArrayND<Real> &ql, ParArrayND<Real> &qr);
+                   const ParArrayND<Real> &q, ParArrayND<Real> &ql, ParArrayND<Real> &qr);
 
   void PiecewiseLinearX1(const int k, const int j, const int il, const int iu,
-                         const ParArrayND<Real> &q,
-                         ParArrayND<Real> &ql, ParArrayND<Real> &qr);
+                         const ParArrayND<Real> &q, ParArrayND<Real> &ql,
+                         ParArrayND<Real> &qr);
 
   void PiecewiseLinearX2(const int k, const int j, const int il, const int iu,
-                         const ParArrayND<Real> &q,
-                         ParArrayND<Real> &ql, ParArrayND<Real> &qr);
+                         const ParArrayND<Real> &q, ParArrayND<Real> &ql,
+                         ParArrayND<Real> &qr);
 
   void PiecewiseLinearX3(const int k, const int j, const int il, const int iu,
-                         const ParArrayND<Real> &q,
-                         ParArrayND<Real> &ql, ParArrayND<Real> &qr);
+                         const ParArrayND<Real> &q, ParArrayND<Real> &ql,
+                         ParArrayND<Real> &qr);
 
   void PiecewiseParabolicX1(const int k, const int j, const int il, const int iu,
-                            const ParArrayND<Real> &q,
-                            ParArrayND<Real> &ql, ParArrayND<Real> &qr);
+                            const ParArrayND<Real> &q, ParArrayND<Real> &ql,
+                            ParArrayND<Real> &qr);
 
   void PiecewiseParabolicX2(const int k, const int j, const int il, const int iu,
-                            const ParArrayND<Real> &q,
-                            ParArrayND<Real> &ql, ParArrayND<Real> &qr);
+                            const ParArrayND<Real> &q, ParArrayND<Real> &ql,
+                            ParArrayND<Real> &qr);
 
   void PiecewiseParabolicX3(const int k, const int j, const int il, const int iu,
-                            const ParArrayND<Real> &q,
-                            ParArrayND<Real> &ql, ParArrayND<Real> &qr);
+                            const ParArrayND<Real> &q, ParArrayND<Real> &ql,
+                            ParArrayND<Real> &qr);
 
  private:
-  MeshBlock* pmy_block_;  // ptr to MeshBlock containing this Reconstruction
+  MeshBlock *pmy_block_; // ptr to MeshBlock containing this Reconstruction
 
   // scratch arrays used in PLM and PPM reconstruction functions
   ParArrayND<Real> scr01_i_, scr02_i_, scr03_i_, scr04_i_, scr05_i_;
@@ -152,5 +149,5 @@ class Reconstruction {
   ParArrayND<Real> scr1_ni_, scr2_ni_, scr3_ni_, scr4_ni_, scr5_ni_;
   ParArrayND<Real> scr6_ni_, scr7_ni_, scr8_ni_;
 };
-}
+} // namespace parthenon
 #endif // RECONSTRUCT_RECONSTRUCTION_HPP_
