@@ -38,7 +38,7 @@ MultiStageDriver::MultiStageDriver(ParameterInput *pin, Mesh *pm, Outputs *pout)
     beta[1] = 0.25;
     beta[2] = 2.0/3.0;
   } else {
-    // this should be an error
+    throw std::invalid_argument("Invalid selection for the time integrator: " + integrator_name);
   }
 
   integrator = new Integrator(nstages, beta);
