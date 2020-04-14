@@ -90,12 +90,12 @@ add_library(parthenon
   driver/multistage.cpp
 
   interface/container_collection.cpp
-  interface/Container.cpp
-  interface/PropertiesInterface.cpp
-  interface/SparseVariable.cpp
-  interface/Metadata.cpp
-  interface/Update.cpp
-  interface/Variable.cpp
+  interface/container.cpp
+  interface/metadata.cpp
+  interface/properties_interface.cpp
+  interface/sparse_variable.cpp
+  interface/update.cpp
+  interface/variable.cpp
 
   mesh/amr_loadbalance.cpp
   mesh/mesh_refinement.cpp

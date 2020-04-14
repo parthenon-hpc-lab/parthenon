@@ -18,9 +18,9 @@
 #include <string>
 
 #include "athena.hpp"
-#include "interface/Container.hpp"
-#include "interface/StateDescriptor.hpp"
-#include "interface/Variable.hpp"
+#include "interface/container.hpp"
+#include "interface/state_descriptor.hpp"
+#include "interface/variable.hpp"
 
 namespace parthenon {
 

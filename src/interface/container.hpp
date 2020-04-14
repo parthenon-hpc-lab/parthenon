@@ -20,8 +20,8 @@
 #include <vector>
 
 #include "globals.hpp"
-#include "interface/SparseVariable.hpp"
-#include "interface/Variable.hpp"
+#include "interface/sparse_variable.hpp"
+#include "interface/variable.hpp"
 
 namespace parthenon {
 

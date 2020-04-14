@@ -14,8 +14,8 @@
 
 #include <memory>
 
-#include "interface/Container.hpp"
-#include "interface/Variable.hpp"
+#include "interface/container.hpp"
+#include "interface/variable.hpp"
 #include "parameter_input.hpp"
 #include "refinement/refinement.hpp"
 

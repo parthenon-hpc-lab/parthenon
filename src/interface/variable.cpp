@@ -11,7 +11,7 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#include "interface/Variable.hpp"
+#include "interface/variable.hpp"
 
 #include <iostream>
 

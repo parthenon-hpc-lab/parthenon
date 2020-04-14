@@ -15,7 +15,7 @@
 #define BVALS_BOUNDARY_CONDITIONS_HPP_
 
 #include "basic_types.hpp"
-#include "interface/Container.hpp"
+#include "interface/container.hpp"
 
 namespace parthenon {
 

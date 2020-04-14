@@ -10,17 +10,17 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef INTERFACE_STATEDESCRIPTOR_HPP_
-#define INTERFACE_STATEDESCRIPTOR_HPP_
+#ifndef INTERFACE_STATE_DESCRIPTOR_HPP_
+#define INTERFACE_STATE_DESCRIPTOR_HPP_
 
 #include <map>
 #include <memory>
 #include <string>
 #include <vector>
 
-#include "interface/Container.hpp"
-#include "interface/Metadata.hpp"
-#include "interface/Params.hpp"
+#include "interface/container.hpp"
+#include "interface/metadata.hpp"
+#include "interface/params.hpp"
 #include "refinement/amr_criteria.hpp"
 
 namespace parthenon {
@@ -134,4 +134,4 @@ using Packages_t = std::map<std::string, std::shared_ptr<StateDescriptor>>;
 
 } // namespace parthenon
 
-#endif // INTERFACE_STATEDESCRIPTOR_HPP_
+#endif // INTERFACE_STATE_DESCRIPTOR_HPP_

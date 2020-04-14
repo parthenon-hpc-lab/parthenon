@@ -27,7 +27,7 @@
 #include "athena.hpp"
 #include "bvals/boundary_conditions.hpp"
 #include "globals.hpp"
-#include "interface/Update.hpp"
+#include "interface/update.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock_tree.hpp"

@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef INTERFACE_CONTAINERITERATOR_HPP_
-#define INTERFACE_CONTAINERITERATOR_HPP_
+#ifndef INTERFACE_CONTAINER_ITERATOR_HPP_
+#define INTERFACE_CONTAINER_ITERATOR_HPP_
 
 /// Provides an iterator that iterates over the variables in a
 /// container.  Eventually this will get transitioned to an iterator
@@ -22,9 +22,9 @@
 #include <memory>
 #include <vector>
 
-#include "interface/Container.hpp"
-#include "interface/PropertiesInterface.hpp"
-#include "interface/Variable.hpp"
+#include "interface/container.hpp"
+#include "interface/properties_interface.hpp"
+#include "interface/variable.hpp"
 
 namespace parthenon {
 
@@ -112,4 +112,4 @@ class ContainerIterator {
 
 } // namespace parthenon
 
-#endif // INTERFACE_CONTAINERITERATOR_HPP_
+#endif // INTERFACE_CONTAINER_ITERATOR_HPP_

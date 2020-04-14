@@ -17,7 +17,7 @@
 
 #include "driver/driver.hpp"
 #include "globals.hpp"
-#include "interface/StateDescriptor.hpp"
+#include "interface/state_descriptor.hpp"
 #include "mesh/mesh.hpp"
 #include "parthenon_manager.hpp"
 #include "task_list/tasks.hpp"

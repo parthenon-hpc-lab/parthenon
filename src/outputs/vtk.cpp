@@ -30,7 +30,7 @@
 
 #include "athena.hpp"
 #include "coordinates/coordinates.hpp"
-#include "interface/ContainerIterator.hpp"
+#include "interface/container_iterator.hpp"
 #include "mesh/mesh.hpp"
 #include "outputs/outputs.hpp"
 #include "parthenon_arrays.hpp"

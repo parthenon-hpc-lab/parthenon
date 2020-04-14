@@ -18,7 +18,7 @@
 #include <Kokkos_Core.hpp>
 
 #include "driver/driver.hpp"
-#include "interface/Update.hpp"
+#include "interface/update.hpp"
 #include "refinement/refinement.hpp"
 
 namespace parthenon {

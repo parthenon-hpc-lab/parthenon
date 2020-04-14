@@ -13,7 +13,7 @@
 
 #include <catch2/catch.hpp>
 
-#include "interface/Metadata.hpp"
+#include "interface/metadata.hpp"
 
 using parthenon::Metadata;
 

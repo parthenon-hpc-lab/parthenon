@@ -17,7 +17,7 @@
 #include <string>
 
 #include "athena.hpp"
-#include "interface/Container.hpp"
+#include "interface/container.hpp"
 
 namespace parthenon {
 

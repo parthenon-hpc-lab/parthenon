@@ -10,32 +10,47 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+#ifndef INTERFACE_PROPERTIES_INTERFACE_HPP_
+#define INTERFACE_PROPERTIES_INTERFACE_HPP_
 
-#include "interface/SparseVariable.hpp"
+#include <map>
+#include <memory>
+#include <string>
+#include <vector>
 
-#include "interface/Metadata.hpp"
+#include "interface/state_descriptor.hpp"
 
 namespace parthenon {
 
-template <typename T>
-void SparseVariable<T>::Add(int varIndex) {
-  // Now allocate depending on topology
-  if ((metadata_.Where() == Metadata::Cell) || (metadata_.Where() == Metadata::Node)) {
-    // check if variable index already exists
-    if (varMap_.find(varIndex) != varMap_.end()) {
-      throw std::invalid_argument("Duplicate index in create SparseVariable");
-    }
-    // create the variable and add to map
-    std::string my_name = label_ + "_" + std::to_string(varIndex);
-    auto v = std::make_shared<CellVariable<T>>(my_name, dims_, metadata_);
-    varArray_.push_back(v);
-    indexMap_.push_back(varIndex);
-    varMap_[varIndex] = v;
-  } else {
-    throw std::invalid_argument("unsupported type in SparseVariable");
-  }
-}
+class PropertiesInterface {
+ public:
+  virtual ~PropertiesInterface() {}
 
-template class SparseVariable<Real>;
+  virtual StateDescriptor &State() = 0;
+
+  static int GetIDFromLabel(std::string &label) {
+    return PropertiesInterface::_label_to_id[label];
+  }
+
+  static std::string GetLabelFromID(int id) {
+    for (auto &x : PropertiesInterface::_label_to_id) {
+      if (x.second == id) return x.first;
+    }
+    return "UNKNOWN";
+  }
+
+  static void InsertID(const std::string &label, const int &id) {
+    PropertiesInterface::_label_to_id[label] = id;
+  }
+
+ private:
+  // _label_to_id is declared here and defined in
+  // PropertiesInterface.cpp
+  static std::map<std::string, int> _label_to_id;
+};
+
+using Properties_t = std::vector<std::shared_ptr<PropertiesInterface>>;
 
 } // namespace parthenon
+
+#endif // INTERFACE_PROPERTIES_INTERFACE_HPP_

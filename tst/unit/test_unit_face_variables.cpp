@@ -23,8 +23,8 @@
 #include <catch2/catch.hpp>
 
 #include "athena.hpp"
-#include "interface/Metadata.hpp"
-#include "interface/Variable.hpp"
+#include "interface/metadata.hpp"
+#include "interface/variable.hpp"
 #include "kokkos_abstraction.hpp"
 
 using parthenon::DevSpace;

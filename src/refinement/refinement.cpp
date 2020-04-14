@@ -18,7 +18,7 @@
 #include <memory>
 #include <utility>
 
-#include "interface/StateDescriptor.hpp"
+#include "interface/state_descriptor.hpp"
 #include "mesh/mesh.hpp"
 #include "parameter_input.hpp"
 #include "refinement/amr_criteria.hpp"

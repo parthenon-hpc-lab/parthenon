@@ -19,7 +19,7 @@
 
 #include <catch2/catch.hpp>
 
-#include "interface/Params.hpp"
+#include "interface/params.hpp"
 
 using parthenon::Params;
 
