@@ -10,7 +10,7 @@ variables = density, velocity, & # comments are still ok
 
 ## Python scripts
 
-The ```vis/python``` folder includes scripts that may be useful for visualizing or analyzing data in the ```.phdf``` files.  The ```phdf.py``` file defines a class to read in and query data.  The ```movie2d.py``` script shows an example of using this class, and also provides a convenient means of making movies of 2D simulations.  The script can be invoked as
+The ```scripts/python``` folder includes scripts that may be useful for visualizing or analyzing data in the ```.phdf``` files.  The ```phdf.py``` file defines a class to read in and query data.  The ```movie2d.py``` script shows an example of using this class, and also provides a convenient means of making movies of 2D simulations.  The script can be invoked as
 ```
 python3 /path/to/movie2d.py name_of_variable *.phdf
 ```
