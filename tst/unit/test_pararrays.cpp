@@ -17,16 +17,13 @@
 // so.
 //========================================================================================
 
-// C++ headers
 #include <cmath>
 #include <iostream>
 #include <random>
 #include <string>
 
-// 3rd-party headers
 #include <catch2/catch.hpp>
 
-// Parthenon headers
 #include "kokkos_abstraction.hpp"
 #include "parthenon_arrays.hpp"
 
@@ -302,37 +299,41 @@ TEST_CASE("ParArrayND with LayoutLeft", "[ParArrayND][Kokkos][LayoutLeft]") {
   }
 }
 
-TEST_CASE("Time simple stencil operations", "[ParArrayND][performance]"){
-    SECTION("1d range"){std::cout << "1d range:" << std::endl;
-profile_wrapper_3d(parthenon::loop_pattern_flatrange_tag);
-}
-/* // skip this output for now, since times are comparable
-SECTION("md range") {
-  std::cout << "md range:" << std::endl;
-  profile_wrapper_3d(parthenon::loop_pattern_mdrange_tag);
-}
-SECTION("tpttr") {
-  std::cout << "tpttr range:" << std::endl;
-  profile_wrapper_3d(parthenon::loop_pattern_tpttr_tag);
-}
-SECTION("tpttrtvr") {
-  std::cout << "tpttrvr range:" << std::endl;
-  profile_wrapper_3d(parthenon::loop_pattern_tpttrtvr_tag);
-}
-*/
+// clang-format gets confused by the #ifndef inside the TEST_CASE
+// clang-format off
+TEST_CASE("Time simple stencil operations", "[ParArrayND][performance]") {
+  SECTION("1d range") {
+    std::cout << "1d range:" << std::endl;
+    profile_wrapper_3d(parthenon::loop_pattern_flatrange_tag);
+  }
+
+  // skip this output for now, since times are comparable
+  // SECTION("md range") {
+  //   std::cout << "md range:" << std::endl;
+  //   profile_wrapper_3d(parthenon::loop_pattern_mdrange_tag);
+  // }
+  // SECTION("tpttr") {
+  //   std::cout << "tpttr range:" << std::endl;
+  //   profile_wrapper_3d(parthenon::loop_pattern_tpttr_tag);
+  // }
+  // SECTION("tpttrtvr") {
+  //   std::cout << "tpttrvr range:" << std::endl;
+  //   profile_wrapper_3d(parthenon::loop_pattern_tpttrtvr_tag);
+  // }
+
 #ifndef KOKKOS_ENABLE_CUDA
-/*
-SECTION("tptvr") {
-  std::cout << "tptvr range:" << std::endl;
-  profile_wrapper_3d(parthenon::loop_pattern_tptvr_tag);
-}
-*/
-SECTION("simdfor") {
-  std::cout << "simd range:" << std::endl;
-  profile_wrapper_3d(parthenon::loop_pattern_simdfor_tag);
-}
+  // SECTION("tptvr") {
+  //   std::cout << "tptvr range:" << std::endl;
+  //   profile_wrapper_3d(parthenon::loop_pattern_tptvr_tag);
+  // }
+
+  SECTION("simdfor") {
+    std::cout << "simd range:" << std::endl;
+    profile_wrapper_3d(parthenon::loop_pattern_simdfor_tag);
+  }
 #endif // !KOKKOS_ENABLE_CUDA
 }
+// clang-format on
 
 TEST_CASE("Check registry pressure", "[ParArrayND][performance]") {
   auto exec_space = DevSpace();

@@ -14,11 +14,13 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#include <catch2/catch.hpp>
-#include <iostream> // debug
+
+#include <iostream>
 #include <memory>
 #include <string>
 #include <vector>
+
+#include <catch2/catch.hpp>
 
 #include "athena.hpp"
 #include "interface/Metadata.hpp"

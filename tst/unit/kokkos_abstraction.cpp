@@ -17,13 +17,13 @@
 // so.
 //========================================================================================
 
-#include "kokkos_abstraction.hpp"
-
 #include <iostream>
 #include <random>
 #include <vector>
 
 #include <catch2/catch.hpp>
+
+#include "kokkos_abstraction.hpp"
 
 using parthenon::DevSpace;
 using parthenon::ParArray1D;

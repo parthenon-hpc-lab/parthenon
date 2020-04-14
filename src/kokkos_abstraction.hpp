@@ -20,9 +20,8 @@
 #ifndef KOKKOS_ABSTRACTION_HPP_
 #define KOKKOS_ABSTRACTION_HPP_
 
-#include <string> // string
+#include <string>
 
-// Kokkos headers
 #include <Kokkos_Core.hpp>
 
 namespace parthenon {
@@ -413,6 +412,7 @@ struct SpaceInstance<Kokkos::Cuda> {
   }
 };
 #endif
+
 } // namespace parthenon
 
 #endif // KOKKOS_ABSTRACTION_HPP_
