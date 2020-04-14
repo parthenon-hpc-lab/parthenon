@@ -29,6 +29,7 @@
 #endif
 
 namespace parthenon {
+
 /// Defines a class that can be used to hold parameters
 /// of any kind
 class Params {
@@ -124,5 +125,7 @@ class Params {
   std::map<std::string, std::unique_ptr<Params::base_t>> myParams_;
   std::map<std::string, std::string> myTypes_;
 };
+
 } // namespace parthenon
+
 #endif // INTERFACE_PARAMS_HPP_

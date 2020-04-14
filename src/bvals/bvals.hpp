@@ -19,6 +19,7 @@
 //! \file bvals.hpp
 //  \brief defines BoundaryBase, BoundaryValues classes used for setting BCs on all data
 
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -29,6 +30,7 @@
 #include "parthenon_arrays.hpp"
 
 namespace parthenon {
+
 // forward declarations
 // TODO(felker): how many of these foward declarations are actually needed now?
 // Can #include "./bvals_interfaces.hpp" suffice?
@@ -157,5 +159,7 @@ class BoundaryValues : public BoundaryBase, // public BoundaryPhysics,
   // TODO(KGF): consider removing these friendship designations:
   friend class CellCenteredBoundaryVariable;
 };
+
 } // namespace parthenon
+
 #endif // BVALS_BVALS_HPP_

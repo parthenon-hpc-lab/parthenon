@@ -27,6 +27,7 @@
 #include "mesh/mesh.hpp"
 
 namespace parthenon {
+
 // -----------
 // NOTE ON SWITCHING BETWEEN PRIMITIVE VS. CONSERVED AND STANDARD VS. COARSE BUFFERS HERE:
 // -----------

@@ -16,6 +16,7 @@
 //========================================================================================
 #ifndef UTILS_INTERP_TABLE_HPP_
 #define UTILS_INTERP_TABLE_HPP_
+
 //! \file interp_table.hpp
 //  \brief defines class InterpTable2D
 //  Contains functions that implement an intpolated lookup table

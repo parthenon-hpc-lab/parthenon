@@ -11,6 +11,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+#include "pi.hpp"
+
 #include <iostream>
 #include <string>
 #include <utility>
@@ -18,7 +20,6 @@
 #include "parthenon_mpi.hpp"
 
 #include "kokkos_abstraction.hpp"
-#include "pi.hpp"
 
 namespace parthenon {
 

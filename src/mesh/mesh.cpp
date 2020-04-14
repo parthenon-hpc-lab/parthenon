@@ -484,51 +484,52 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
 //----------------------------------------------------------------------------------------
 // Mesh constructor for restarts. Load the restart file
 #if 0
-Mesh::Mesh(ParameterInput *pin, IOWrapper& resfile,
-    Properties_t &properties, Packages_t &packages, int mesh_test) :
-    // public members:
-    // aggregate initialization of RegionSize struct:
-    // (will be overwritten by memcpy from restart file, in this case)
-    mesh_size{pin->GetReal("mesh", "x1min"), pin->GetReal("mesh", "x2min"),
-              pin->GetReal("mesh", "x3min"), pin->GetReal("mesh", "x1max"),
-              pin->GetReal("mesh", "x2max"), pin->GetReal("mesh", "x3max"),
-              pin->GetOrAddReal("mesh", "x1rat", 1.0),
-              pin->GetOrAddReal("mesh", "x2rat", 1.0),
-              pin->GetOrAddReal("mesh", "x3rat", 1.0),
-              pin->GetInteger("mesh", "nx1"), pin->GetInteger("mesh", "nx2"),
-              pin->GetInteger("mesh", "nx3") },
-    mesh_bcs{GetBoundaryFlag(pin->GetOrAddString("mesh", "ix1_bc", "none")),
-             GetBoundaryFlag(pin->GetOrAddString("mesh", "ox1_bc", "none")),
-             GetBoundaryFlag(pin->GetOrAddString("mesh", "ix2_bc", "none")),
-             GetBoundaryFlag(pin->GetOrAddString("mesh", "ox2_bc", "none")),
-             GetBoundaryFlag(pin->GetOrAddString("mesh", "ix3_bc", "none")),
-             GetBoundaryFlag(pin->GetOrAddString("mesh", "ox3_bc", "none"))},
-    ndim((mesh_size.nx3 > 1) ? 3 : ((mesh_size.nx2 > 1) ? 2 : 1)),
-    adaptive(pin->GetOrAddString("mesh", "refinement", "none") == "adaptive"
-             ? true : false),
-    multilevel((adaptive || pin->GetOrAddString("mesh", "refinement", "none") == "static")
-               ? true : false),
-    start_time(pin->GetOrAddReal("time", "start_time", 0.0)), time(start_time),
-    tlim(pin->GetReal("time", "tlim")), dt(std::numeric_limits<Real>::max()),
-    dt_hyperbolic(dt), dt_parabolic(dt), dt_user(dt),
-    nlim(pin->GetOrAddInteger("time", "nlim", -1)), ncycle(),
-    ncycle_out(pin->GetOrAddInteger("time", "ncycle_out", 1)),
-    dt_diagnostics(pin->GetOrAddInteger("time", "dt_diagnostics", -1)),
-    nbnew(), nbdel(),
-    step_since_lb(), gflag(),
-    pblock(nullptr), 
-    properties(properties),
-    packages(packages),
-    // private members:
-    next_phys_id_(), num_mesh_threads_(pin->GetOrAddInteger("mesh", "num_threads", 1)),
-    tree(this),
-    use_uniform_meshgen_fn_{true, true, true},
-    nreal_user_mesh_data_(), nint_user_mesh_data_(), nuser_history_output_(),
-    lb_flag_(true), lb_automatic_(), lb_manual_(),
-    MeshGenerator_{UniformMeshGeneratorX1, UniformMeshGeneratorX2,
-                   UniformMeshGeneratorX3},
-    BoundaryFunction_{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-    AMRFlag_{}, UserSourceTerm_{}, UserTimeStep_{}, FieldDiffusivity_{} {
+Mesh::Mesh(ParameterInput *pin, IOWrapper &resfile, Properties_t &properties,
+           Packages_t &packages, int mesh_test)
+    : // public members:
+      // aggregate initialization of RegionSize struct:
+      // (will be overwritten by memcpy from restart file, in this case)
+      mesh_size{pin->GetReal("mesh", "x1min"),
+                pin->GetReal("mesh", "x2min"),
+                pin->GetReal("mesh", "x3min"),
+                pin->GetReal("mesh", "x1max"),
+                pin->GetReal("mesh", "x2max"),
+                pin->GetReal("mesh", "x3max"),
+                pin->GetOrAddReal("mesh", "x1rat", 1.0),
+                pin->GetOrAddReal("mesh", "x2rat", 1.0),
+                pin->GetOrAddReal("mesh", "x3rat", 1.0),
+                pin->GetInteger("mesh", "nx1"),
+                pin->GetInteger("mesh", "nx2"),
+                pin->GetInteger("mesh", "nx3")},
+      mesh_bcs{GetBoundaryFlag(pin->GetOrAddString("mesh", "ix1_bc", "none")),
+               GetBoundaryFlag(pin->GetOrAddString("mesh", "ox1_bc", "none")),
+               GetBoundaryFlag(pin->GetOrAddString("mesh", "ix2_bc", "none")),
+               GetBoundaryFlag(pin->GetOrAddString("mesh", "ox2_bc", "none")),
+               GetBoundaryFlag(pin->GetOrAddString("mesh", "ix3_bc", "none")),
+               GetBoundaryFlag(pin->GetOrAddString("mesh", "ox3_bc", "none"))},
+      ndim((mesh_size.nx3 > 1) ? 3 : ((mesh_size.nx2 > 1) ? 2 : 1)),
+      adaptive(pin->GetOrAddString("mesh", "refinement", "none") == "adaptive" ? true
+                                                                               : false),
+      multilevel(
+          (adaptive || pin->GetOrAddString("mesh", "refinement", "none") == "static")
+              ? true
+              : false),
+      start_time(pin->GetOrAddReal("time", "start_time", 0.0)), time(start_time),
+      tlim(pin->GetReal("time", "tlim")), dt(std::numeric_limits<Real>::max()),
+      dt_hyperbolic(dt), dt_parabolic(dt), dt_user(dt),
+      nlim(pin->GetOrAddInteger("time", "nlim", -1)), ncycle(),
+      ncycle_out(pin->GetOrAddInteger("time", "ncycle_out", 1)),
+      dt_diagnostics(pin->GetOrAddInteger("time", "dt_diagnostics", -1)), nbnew(),
+      nbdel(), step_since_lb(), gflag(), pblock(nullptr), properties(properties),
+      packages(packages),
+      // private members:
+      next_phys_id_(), num_mesh_threads_(pin->GetOrAddInteger("mesh", "num_threads", 1)),
+      tree(this), use_uniform_meshgen_fn_{true, true, true}, nreal_user_mesh_data_(),
+      nint_user_mesh_data_(), nuser_history_output_(), lb_flag_(true), lb_automatic_(),
+      lb_manual_(), MeshGenerator_{UniformMeshGeneratorX1, UniformMeshGeneratorX2,
+                                   UniformMeshGeneratorX3},
+      BoundaryFunction_{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, AMRFlag_{},
+      UserSourceTerm_{}, UserTimeStep_{}, FieldDiffusivity_{} {
   std::stringstream msg;
   RegionSize block_size;
   BoundaryFlag block_bcs[6];
@@ -541,15 +542,15 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper& resfile,
 
 #ifdef MPI_PARALLEL
   // reserve phys=0 for former TAG_AMR=8; now hard-coded in Mesh::CreateAMRMPITag()
-  next_phys_id_  = 1;
+  next_phys_id_ = 1;
   ReserveMeshBlockPhysIDs();
 #endif
 
   // check the number of OpenMP threads for mesh
   if (num_mesh_threads_ < 1) {
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
-        << "Number of OpenMP threads must be >= 1, but num_threads="
-        << num_mesh_threads_ << std::endl;
+        << "Number of OpenMP threads must be >= 1, but num_threads=" << num_mesh_threads_
+        << std::endl;
     ATHENA_ERROR(msg);
   }
 
@@ -557,8 +558,8 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper& resfile,
   headeroffset = resfile.GetPosition();
   // read the restart file
   // the file is already open and the pointer is set to after <par_end>
-  IOWrapperSizeT headersize = sizeof(int)*3+sizeof(Real)*2
-                              + sizeof(RegionSize)+sizeof(IOWrapperSizeT);
+  IOWrapperSizeT headersize =
+      sizeof(int) * 3 + sizeof(Real) * 2 + sizeof(RegionSize) + sizeof(IOWrapperSizeT);
   char *headerdata = new char[headersize];
   if (Globals::my_rank == 0) { // the master process reads the header data
     if (resfile.Read(headerdata, 1, headersize) != headersize) {
@@ -586,9 +587,9 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper& resfile,
   std::memcpy(&ncycle, &(headerdata[hdos]), sizeof(int));
   hdos += sizeof(int);
   std::memcpy(&datasize, &(headerdata[hdos]), sizeof(IOWrapperSizeT));
-  hdos += sizeof(IOWrapperSizeT);   // (this updated value is never used)
+  hdos += sizeof(IOWrapperSizeT); // (this updated value is never used)
 
-  delete [] headerdata;
+  delete[] headerdata;
 
   // initialize
   loclist = new LogicalLocation[nbtotal];
@@ -603,9 +604,9 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper& resfile,
   block_size.nx3 = pin->GetOrAddInteger("meshblock", "nx3", mesh_size.nx3);
 
   // calculate the number of the blocks
-  nrbx1 = mesh_size.nx1/block_size.nx1;
-  nrbx2 = mesh_size.nx2/block_size.nx2;
-  nrbx3 = mesh_size.nx3/block_size.nx3;
+  nrbx1 = mesh_size.nx1 / block_size.nx1;
+  nrbx2 = mesh_size.nx2 / block_size.nx2;
+  nrbx3 = mesh_size.nx3 / block_size.nx3;
 
   // initialize user-enrollable functions
   if (mesh_size.x1rat != 1.0) {
@@ -648,9 +649,9 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper& resfile,
 
   // read user Mesh data
   IOWrapperSizeT udsize = 0;
-  for (int n=0; n<nint_user_mesh_data_; n++)
+  for (int n = 0; n < nint_user_mesh_data_; n++)
     udsize += iuser_mesh_data[n].GetSizeInBytes();
-  for (int n=0; n<nreal_user_mesh_data_; n++)
+  for (int n = 0; n < nreal_user_mesh_data_; n++)
     udsize += ruser_mesh_data[n].GetSizeInBytes();
   if (udsize != 0) {
     char *userdata = new char[udsize];
@@ -666,24 +667,24 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper& resfile,
     MPI_Bcast(userdata, udsize, MPI_BYTE, 0, MPI_COMM_WORLD);
 #endif
 
-    IOWrapperSizeT udoffset=0;
-    for (int n=0; n<nint_user_mesh_data_; n++) {
+    IOWrapperSizeT udoffset = 0;
+    for (int n = 0; n < nint_user_mesh_data_; n++) {
       std::memcpy(iuser_mesh_data[n].data(), &(userdata[udoffset]),
                   iuser_mesh_data[n].GetSizeInBytes());
       udoffset += iuser_mesh_data[n].GetSizeInBytes();
     }
-    for (int n=0; n<nreal_user_mesh_data_; n++) {
+    for (int n = 0; n < nreal_user_mesh_data_; n++) {
       std::memcpy(ruser_mesh_data[n].data(), &(userdata[udoffset]),
                   ruser_mesh_data[n].GetSizeInBytes());
       udoffset += ruser_mesh_data[n].GetSizeInBytes();
     }
-    delete [] userdata;
+    delete[] userdata;
   }
 
   // read the ID list
-  listsize = sizeof(LogicalLocation)+sizeof(Real);
-  //allocate the idlist buffer
-  char *idlist = new char[listsize*nbtotal];
+  listsize = sizeof(LogicalLocation) + sizeof(Real);
+  // allocate the idlist buffer
+  char *idlist = new char[listsize * nbtotal];
   if (Globals::my_rank == 0) { // only the master process reads the ID list
     if (resfile.Read(idlist, listsize, nbtotal) != static_cast<unsigned int>(nbtotal)) {
       msg << "### FATAL ERROR in Mesh constructor" << std::endl
@@ -693,27 +694,26 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper& resfile,
   }
 #ifdef MPI_PARALLEL
   // then broadcast the ID list
-  MPI_Bcast(idlist, listsize*nbtotal, MPI_BYTE, 0, MPI_COMM_WORLD);
+  MPI_Bcast(idlist, listsize * nbtotal, MPI_BYTE, 0, MPI_COMM_WORLD);
 #endif
 
   int os = 0;
-  for (int i=0; i<nbtotal; i++) {
+  for (int i = 0; i < nbtotal; i++) {
     std::memcpy(&(loclist[i]), &(idlist[os]), sizeof(LogicalLocation));
     os += sizeof(LogicalLocation);
     std::memcpy(&(costlist[i]), &(idlist[os]), sizeof(double));
     os += sizeof(double);
     if (loclist[i].level > current_level) current_level = loclist[i].level;
   }
-  delete [] idlist;
+  delete[] idlist;
 
   // calculate the header offset and seek
-  headeroffset += headersize + udsize + listsize*nbtotal;
-  if (Globals::my_rank != 0)
-    resfile.Seek(headeroffset);
+  headeroffset += headersize + udsize + listsize * nbtotal;
+  if (Globals::my_rank != 0) resfile.Seek(headeroffset);
 
   // rebuild the Block Tree
   tree.CreateRootGrid();
-  for (int i=0; i<nbtotal; i++)
+  for (int i = 0; i < nbtotal; i++)
     tree.AddMeshBlockWithoutRefine(loclist[i]);
   int nnb;
   // check the tree structure, and assign GID
@@ -729,14 +729,14 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper& resfile,
   if (nbtotal < Globals::nranks) {
     if (mesh_test == 0) {
       msg << "### FATAL ERROR in Mesh constructor" << std::endl
-          << "Too few mesh blocks: nbtotal ("<< nbtotal <<") < nranks ("
+          << "Too few mesh blocks: nbtotal (" << nbtotal << ") < nranks ("
           << Globals::nranks << ")" << std::endl;
       ATHENA_ERROR(msg);
     } else { // test
       std::cout << "### Warning in Mesh constructor" << std::endl
-                << "Too few mesh blocks: nbtotal ("<< nbtotal <<") < nranks ("
+                << "Too few mesh blocks: nbtotal (" << nbtotal << ") < nranks ("
                 << Globals::nranks << ")" << std::endl;
-      delete [] offset;
+      delete[] offset;
       return;
     }
   }
@@ -758,7 +758,7 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper& resfile,
   // Output MeshBlock list and quit (mesh test only); do not create meshes
   if (mesh_test > 0) {
     if (Globals::my_rank == 0) OutputMeshStructure(ndim);
-    delete [] offset;
+    delete[] offset;
     return;
   }
 
@@ -766,34 +766,35 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper& resfile,
   int nb = nblist[Globals::my_rank];
   int nbs = nslist[Globals::my_rank];
   int nbe = nbs + nb - 1;
-  char *mbdata = new char[datasize*nb];
+  char *mbdata = new char[datasize * nb];
   // load MeshBlocks (parallel)
-  if (resfile.Read_at_all(mbdata, datasize, nb, headeroffset+nbs*datasize) !=
+  if (resfile.Read_at_all(mbdata, datasize, nb, headeroffset + nbs * datasize) !=
       static_cast<unsigned int>(nb)) {
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
         << "The restart file is broken or input parameters are inconsistent."
         << std::endl;
     ATHENA_ERROR(msg);
   }
-  for (int i=nbs; i<=nbe; i++) {
+  for (int i = nbs; i <= nbe; i++) {
     // Match fixed-width integer precision of IOWrapperSizeT datasize
-    std::uint64_t buff_os = datasize * (i-nbs);
+    std::uint64_t buff_os = datasize * (i - nbs);
     SetBlockSizeAndBoundaries(loclist[i], block_size, block_bcs);
     // create a block and add into the link list
     if (i == nbs) {
-      pblock = new MeshBlock(i, i-nbs, this, pin, properties, packages, loclist[i], block_size,
-                             block_bcs, costlist[i], mbdata+buff_os, gflag);
+      pblock = new MeshBlock(i, i - nbs, this, pin, properties, packages, loclist[i],
+                             block_size, block_bcs, costlist[i], mbdata + buff_os, gflag);
       pfirst = pblock;
     } else {
-      pblock->next = new MeshBlock(i, i-nbs, this, pin, properties, packages, loclist[i], block_size,
-                                   block_bcs, costlist[i], mbdata+buff_os, gflag);
+      pblock->next =
+          new MeshBlock(i, i - nbs, this, pin, properties, packages, loclist[i],
+                        block_size, block_bcs, costlist[i], mbdata + buff_os, gflag);
       pblock->next->prev = pblock;
       pblock = pblock->next;
     }
     pblock->pbval->SearchAndSetNeighbors(tree, ranklist, nslist);
   }
   pblock = pfirst;
-  delete [] mbdata;
+  delete[] mbdata;
   // check consistency
   if (datasize != pblock->GetBlockSizeInBytes()) {
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
@@ -805,8 +806,7 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper& resfile,
   ResetLoadBalanceVariables();
 
   // clean up
-  delete [] offset;
-
+  delete[] offset;
 }
 #endif
 
@@ -1456,4 +1456,5 @@ void Mesh::OutputCycleDiagnostics() {
   }
   return;
 }
+
 } // namespace parthenon

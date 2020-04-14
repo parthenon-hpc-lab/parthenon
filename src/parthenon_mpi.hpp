@@ -19,7 +19,7 @@
 //         issue was that some header files attempted to include MPI by checking #ifdef
 //         MPI_PARALLEL, but they didn't include defs.hpp, which defined MPI_PARALLEL
 
-#include <defs.hpp>
+#include "defs.hpp"
 
 #ifdef MPI_PARALLEL
 #include <mpi.h>

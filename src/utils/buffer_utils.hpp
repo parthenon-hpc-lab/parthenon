@@ -24,6 +24,7 @@
 
 namespace parthenon {
 namespace BufferUtility {
+
 // 2x templated and overloaded functions
 // 4D
 template <typename T>

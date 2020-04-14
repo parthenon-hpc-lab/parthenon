@@ -24,7 +24,7 @@
 #include "interface/Variable.hpp"
 
 namespace parthenon {
-///
+
 /// Interface to underlying infrastructure for data declaration and access.
 /// Date: August 22, 2019
 ///

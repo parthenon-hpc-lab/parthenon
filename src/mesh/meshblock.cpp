@@ -161,43 +161,39 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
 // MeshBlock constructor for restarts
 #if 0
 MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
-                     Properties_t& properties, Packages_t& packages,
-                     LogicalLocation iloc, RegionSize input_block,
-                     BoundaryFlag *input_bcs,
-                     double icost, char *mbdata, int igflag) :
-    pmy_mesh(pm), loc(iloc), block_size(input_block),
-    gid(igid), lid(ilid), gflag(igflag), nuser_out_var(), 
-    properties(properties), packages(packages),
-    prev(nullptr), next(nullptr),
-    new_block_dt_{}, new_block_dt_hyperbolic_{}, new_block_dt_parabolic_{},
-    new_block_dt_user_{},
-    nreal_user_meshblock_data_(), nint_user_meshblock_data_(), cost_(icost),
-    exec_space(DevSpace()) {
+                     Properties_t &properties, Packages_t &packages, LogicalLocation iloc,
+                     RegionSize input_block, BoundaryFlag *input_bcs, double icost,
+                     char *mbdata, int igflag)
+    : pmy_mesh(pm), loc(iloc), block_size(input_block), gid(igid), lid(ilid),
+      gflag(igflag), nuser_out_var(), properties(properties), packages(packages),
+      prev(nullptr), next(nullptr), new_block_dt_{}, new_block_dt_hyperbolic_{},
+      new_block_dt_parabolic_{}, new_block_dt_user_{}, nreal_user_meshblock_data_(),
+      nint_user_meshblock_data_(), cost_(icost), exec_space(DevSpace()) {
   // initialize grid indices
 
-  //std::cerr << "WHY AM I HERE???" << std::endl;
+  // std::cerr << "WHY AM I HERE???" << std::endl;
 
   is = NGHOST;
   ie = is + block_size.nx1 - 1;
 
-  ncells1 = block_size.nx1 + 2*NGHOST;
-  ncc1 = block_size.nx1/2 + 2*NGHOST;
+  ncells1 = block_size.nx1 + 2 * NGHOST;
+  ncc1 = block_size.nx1 / 2 + 2 * NGHOST;
   if (pmy_mesh->ndim >= 2) {
     js = NGHOST;
     je = js + block_size.nx2 - 1;
-    ncells2 = block_size.nx2 + 2*NGHOST;
-    ncc2 = block_size.nx2/2 + 2*NGHOST;
+    ncells2 = block_size.nx2 + 2 * NGHOST;
+    ncc2 = block_size.nx2 / 2 + 2 * NGHOST;
   } else {
     js = je = 0;
     ncells2 = 1;
     ncc2 = 1;
   }
 
- if (pmy_mesh->ndim >= 3) {
+  if (pmy_mesh->ndim >= 3) {
     ks = NGHOST;
     ke = ks + block_size.nx3 - 1;
-    ncells3 = block_size.nx3 + 2*NGHOST;
-    ncc3 = block_size.nx3/2 + 2*NGHOST;
+    ncells3 = block_size.nx3 + 2 * NGHOST;
+    ncc3 = block_size.nx3 / 2 + 2 * NGHOST;
   } else {
     ks = ke = 0;
     ncells3 = 1;
@@ -208,13 +204,14 @@ MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
   real_containers.Get().setBlock(this);
 
   if (pm->multilevel) {
-    cnghost = (NGHOST + 1)/2 + 1;
-    cis = NGHOST; cie = cis + block_size.nx1/2 - 1;
+    cnghost = (NGHOST + 1) / 2 + 1;
+    cis = NGHOST;
+    cie = cis + block_size.nx1 / 2 - 1;
     cjs = cje = cks = cke = 0;
     if (pmy_mesh->ndim >= 2) // 2D or 3D
-      cjs = NGHOST, cje = cjs + block_size.nx2/2 - 1;
+      cjs = NGHOST, cje = cjs + block_size.nx2 / 2 - 1;
     if (pmy_mesh->ndim >= 3) // 3D
-      cks = NGHOST, cke = cks + block_size.nx3/2 - 1;
+      cks = NGHOST, cke = cks + block_size.nx3 / 2 - 1;
   }
 
   // (re-)create mesh-related objects in MeshBlock
@@ -236,12 +233,12 @@ MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
   std::size_t os = 0;
 
   // load user MeshBlock data
-  for (int n=0; n<nint_user_meshblock_data_; n++) {
+  for (int n = 0; n < nint_user_meshblock_data_; n++) {
     std::memcpy(iuser_meshblock_data[n].data(), &(mbdata[os]),
                 iuser_meshblock_data[n].GetSizeInBytes());
     os += iuser_meshblock_data[n].GetSizeInBytes();
   }
-  for (int n=0; n<nreal_user_meshblock_data_; n++) {
+  for (int n = 0; n < nreal_user_meshblock_data_; n++) {
     std::memcpy(ruser_meshblock_data[n].data(), &(mbdata[os]),
                 ruser_meshblock_data[n].GetSizeInBytes());
     os += ruser_meshblock_data[n].GetSizeInBytes();

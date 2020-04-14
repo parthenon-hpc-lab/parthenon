@@ -23,10 +23,10 @@
 #include "athena.hpp"
 
 namespace parthenon {
+namespace GaussLegendre {
 
 // Not checking that input integration order "N" is correct: 1 < N <=64
 
-namespace GaussLegendre {
 // NOTE: 3x function overload definitions follow the 64x abscissae and 64x weights arrays
 // (around L1120)
 

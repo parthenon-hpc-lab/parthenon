@@ -17,19 +17,16 @@
 //! \file interp_table.cpp
 //  \brief implements functions in class InterpTable2D an intpolated lookup table
 
-// C headers
+#include <cmath>
+#include <stdexcept>
 
-// C++ headers
-#include <cmath>     // sqrt()
-#include <stdexcept> // std::invalid_argument
-
-// Athena++ headers
-#include "athena.hpp"                  // Real
-#include "coordinates/coordinates.hpp" // Coordinates
-#include "interp_table.hpp"
-#include "parthenon_arrays.hpp" // ParArrayND
+#include "athena.hpp"
+#include "coordinates/coordinates.hpp"
+#include "parthenon_arrays.hpp"
+#include "utils/interp_table.hpp"
 
 namespace parthenon {
+
 // A contructor that setts the size of the table with number of variables nvar
 // and dimensions nx2 x nx1 (interpolated dimensions)
 InterpTable2D::InterpTable2D(const int nvar, const int nx2, const int nx1) {
@@ -105,4 +102,5 @@ Real InterpTable2D::interpolate(int var, Real x2, Real x1) {
         (1 - xrl) * (1 - yrl) * data(var, xil + 1, yil + 1);
   return out;
 }
+
 } // namespace parthenon

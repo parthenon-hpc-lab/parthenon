@@ -26,6 +26,7 @@
 #include "parameter_input.hpp"
 
 namespace parthenon {
+
 //----------------------------------------------------------------------------------------
 // Coordinates constructor: sets coordinates and coordinate spacing of cell FACES
 
@@ -782,4 +783,5 @@ void Coordinates::Metric(Real x1, Real x2, Real x3, ParameterInput *pin,
   pmy_block->pmy_mesh->UserMetric_(x1, x2, x3, pin, g, g_inv, dg_dx1, dg_dx2, dg_dx3);
   return;
 }
+
 } // namespace parthenon

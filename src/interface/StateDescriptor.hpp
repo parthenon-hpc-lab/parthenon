@@ -24,9 +24,9 @@
 #include "refinement/amr_criteria.hpp"
 
 namespace parthenon {
+
 enum class DerivedOwnership { shared, unique };
 
-///
 /// The state metadata descriptor class.
 ///
 /// Each State descriptor has a label, associated parameters, and

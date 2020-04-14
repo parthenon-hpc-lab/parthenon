@@ -17,18 +17,15 @@
 #ifndef PARTHENON_ARRAYS_HPP_
 #define PARTHENON_ARRAYS_HPP_
 
-// C++ headers
 #include <cassert>
-#include <cstddef> // size_t
+#include <cstddef>
 #include <string>
 #include <type_traits>
-#include <utility> // make_pair
+#include <utility>
 #include <vector>
 
-// Kokkos Headers
 #include <Kokkos_Core.hpp>
 
-// Parthenon headers
 #include "basic_types.hpp"
 #include "kokkos_abstraction.hpp"
 
@@ -379,4 +376,5 @@ struct EdgeArray {
 using EdgeField = EdgeArray<Real>;
 
 } // namespace parthenon
+
 #endif // PARTHENON_ARRAYS_HPP_

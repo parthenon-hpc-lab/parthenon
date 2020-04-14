@@ -26,6 +26,7 @@
 #include "bvals/bvals.hpp"
 
 namespace parthenon {
+
 //----------------------------------------------------------------------------------------
 //! \fn GetBoundaryFlag(std::string input_string)
 //  \brief Parses input string to return scoped enumerator flag specifying boundary
@@ -122,4 +123,5 @@ void CheckBoundaryFlag(BoundaryFlag block_flag, CoordinateDirection dir) {
   }
   return;
 }
+
 } // namespace parthenon

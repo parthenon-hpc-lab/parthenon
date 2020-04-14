@@ -156,14 +156,15 @@ void BoundaryVariable::SendBoundaryBuffers() {
       ssize = LoadBoundaryBufferToCoarser(bd_var_.send[nb.bufid], nb);
     else
       ssize = LoadBoundaryBufferToFiner(bd_var_.send[nb.bufid], nb);
-    if (nb.snb.rank == Globals::my_rank) { // on the same process
+    if (nb.snb.rank == Globals::my_rank) {
+      // on the same process
       CopyVariableBufferSameProcess(nb, ssize);
-    }
+    } else {
 #ifdef MPI_PARALLEL
-    else { // MPI
       MPI_Start(&(bd_var_.req_send[nb.bufid]));
-    }
 #endif
+    }
+
     bd_var_.sflag[nb.bufid] = BoundaryStatus::completed;
   }
   return;
@@ -246,4 +247,5 @@ void BoundaryVariable::ReceiveAndSetBoundariesWithWait() {
 
   return;
 }
+
 } // namespace parthenon

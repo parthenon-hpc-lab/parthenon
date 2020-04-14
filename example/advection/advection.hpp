@@ -22,8 +22,6 @@
 #include "mesh/mesh.hpp"
 #include "task_list/tasks.hpp"
 
-namespace advection_example {
-
 using parthenon::AmrTag;
 using parthenon::BaseTask;
 using parthenon::Container;
@@ -37,6 +35,8 @@ using parthenon::StateDescriptor;
 using parthenon::TaskID;
 using parthenon::TaskList;
 using parthenon::TaskStatus;
+
+namespace advection_example {
 
 class AdvectionDriver : public MultiStageBlockTaskDriver {
  public:
@@ -80,6 +80,7 @@ class TwoContainerTask : public BaseTask {
 };
 
 namespace Advection {
+
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 AmrTag CheckRefinement(Container<Real> &rc);
 void PreFill(Container<Real> &rc);
@@ -87,6 +88,7 @@ void SquareIt(Container<Real> &rc);
 void PostFill(Container<Real> &rc);
 Real EstimateTimestep(Container<Real> &rc);
 TaskStatus CalculateFluxes(Container<Real> &rc);
+
 } // namespace Advection
 
 } // namespace advection_example

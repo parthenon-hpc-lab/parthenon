@@ -56,10 +56,12 @@ class CalculatePi : public Driver {
 
 // putting a "physics" package in a namespace
 namespace PiCalculator {
+
 void SetInOrOut(Container<Real> &rc);
 AmrTag CheckRefinement(Container<Real> &rc);
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 TaskStatus ComputeArea(MeshBlock *pmb);
+
 } // namespace PiCalculator
 
 #endif // EXAMPLE_CALCULATE_PI_PI_HPP_

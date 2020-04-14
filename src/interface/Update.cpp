@@ -22,6 +22,7 @@
 #include "mesh/mesh.hpp"
 
 namespace parthenon {
+
 namespace Update {
 
 TaskStatus FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
