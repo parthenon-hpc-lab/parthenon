@@ -22,8 +22,8 @@
 // C headers
 
 // C++ headers
-#include <csignal>   // sigset_t POSIX C extension
-#include <cstdint>   // std::int64_t
+#include <csignal> // sigset_t POSIX C extension
+#include <cstdint> // std::int64_t
 
 namespace parthenon {
 // Athena++ headers
@@ -49,5 +49,5 @@ void SetWallTimeAlarm(int t);
 void CancelWallTimeAlarm();
 void Report();
 } // namespace SignalHandler
-}
+} // namespace parthenon
 #endif // UTILS_UTILS_HPP_

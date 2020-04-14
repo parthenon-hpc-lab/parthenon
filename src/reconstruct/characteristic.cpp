@@ -35,9 +35,10 @@ namespace parthenon {
 // - J. Stone, T. Gardiner, P. Teuben, J. Hawley, & J. Simon "Athena: A new code for
 //   astrophysical MHD", ApJS, (2008), Appendix A.  Equation numbers refer to this paper.
 
-void Reconstruction::LeftEigenmatrixDotVector(
-    const int ivx, const int il, const int iu,
-    const ParArrayND<Real> &b1, const ParArrayND<Real> &w, ParArrayND<Real> &vect) {
+void Reconstruction::LeftEigenmatrixDotVector(const int ivx, const int il, const int iu,
+                                              const ParArrayND<Real> &b1,
+                                              const ParArrayND<Real> &w,
+                                              ParArrayND<Real> &vect) {
   throw std::runtime_error(std::string(__func__) + " is not implemented");
 }
 
@@ -57,9 +58,10 @@ void Reconstruction::LeftEigenmatrixDotVector(
 // - J. Stone, T. Gardiner, P. Teuben, J. Hawley, & J. Simon "Athena: A new code for
 //   astrophysical MHD", ApJS, (2008), Appendix A.  Equation numbers refer to this paper.
 
-void Reconstruction::RightEigenmatrixDotVector(
-    const int ivx, const int il, const int iu,
-    const ParArrayND<Real> &b1, const ParArrayND<Real> &w, ParArrayND<Real> &vect) {
+void Reconstruction::RightEigenmatrixDotVector(const int ivx, const int il, const int iu,
+                                               const ParArrayND<Real> &b1,
+                                               const ParArrayND<Real> &w,
+                                               ParArrayND<Real> &vect) {
   throw std::runtime_error(std::string(__func__) + " is not implemented");
 }
-}
+} // namespace parthenon

@@ -40,7 +40,8 @@ int main(int argc, char *argv[]) {
   // make use of MPI and Kokkos
 
   // Initialize the driver
-  advection_example::AdvectionDriver driver(pman.pinput.get(), pman.pmesh.get(), pman.pouts.get());
+  advection_example::AdvectionDriver driver(pman.pinput.get(), pman.pmesh.get(),
+                                            pman.pouts.get());
 
   // start a timer
   pman.PreDriver();
@@ -56,5 +57,5 @@ int main(int argc, char *argv[]) {
 
   // MPI and Kokkos can no longer be used
 
-  return(0);
+  return (0);
 }

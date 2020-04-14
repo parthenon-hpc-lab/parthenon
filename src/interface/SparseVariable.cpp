@@ -10,20 +10,19 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#include "athena.hpp"
-#include "PropertiesInterface.hpp"
 #include "SparseVariable.hpp"
+#include "PropertiesInterface.hpp"
+#include "athena.hpp"
 
 namespace parthenon {
 
 template <typename T>
 void SparseVariable<T>::Add(int varIndex) {
   // Now allocate depending on topology
-  if ( ( metadata_.Where() == Metadata::Cell) ||
-       ( metadata_.Where() == Metadata::Node)) {
-      // check if variable index already exists
+  if ((metadata_.Where() == Metadata::Cell) || (metadata_.Where() == Metadata::Node)) {
+    // check if variable index already exists
     if (varMap_.find(varIndex) != varMap_.end()) {
-      throw std::invalid_argument ("Duplicate index in create SparseVariable");
+      throw std::invalid_argument("Duplicate index in create SparseVariable");
     }
     // create the variable and add to map
     std::string my_name = label_ + "_" + std::to_string(varIndex);
@@ -32,7 +31,7 @@ void SparseVariable<T>::Add(int varIndex) {
     indexMap_.push_back(varIndex);
     varMap_[varIndex] = v;
   } else {
-    throw std::invalid_argument ("unsupported type in SparseVariable");
+    throw std::invalid_argument("unsupported type in SparseVariable");
   }
 }
 

@@ -25,8 +25,8 @@
 // C++ headers
 
 // Athena++ headers
-#include "athena.hpp"         // Real
-#include "parthenon_arrays.hpp"  // ParArrayND
+#include "athena.hpp"           // Real
+#include "parthenon_arrays.hpp" // ParArrayND
 
 namespace parthenon {
 class InterpTable2D {
@@ -55,5 +55,5 @@ class InterpTable2D {
   Real x2max_;
   Real x2norm_;
 };
-}
-#endif //UTILS_INTERP_TABLE_HPP_
+} // namespace parthenon
+#endif // UTILS_INTERP_TABLE_HPP_

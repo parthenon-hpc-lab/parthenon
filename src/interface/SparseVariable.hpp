@@ -18,6 +18,8 @@
 #ifndef INTERFACE_SPARSEVARIABLE_HPP_
 #define INTERFACE_SPARSEVARIABLE_HPP_
 
+#include "Variable.hpp"
+#include "globals.hpp"
 #include <functional>
 #include <iostream>
 #include <map>
@@ -25,8 +27,6 @@
 #include <set>
 #include <string>
 #include <vector>
-#include "globals.hpp"
-#include "Variable.hpp"
 
 namespace parthenon {
 
@@ -39,52 +39,46 @@ template <typename T>
 class SparseVariable {
  public:
   SparseVariable() = default;
-  SparseVariable(const std::string& label, const Metadata& m, std::array<int,6>& dims)
-    : dims_(dims), label_(label), metadata_(m) {}
+  SparseVariable(const std::string &label, const Metadata &m, std::array<int, 6> &dims)
+      : dims_(dims), label_(label), metadata_(m) {}
 
   std::shared_ptr<SparseVariable<T>> AllocateCopy() {
     auto sv = std::make_shared<SparseVariable<T>>(label_, metadata_, dims_);
-    for (auto & v : varMap_) {
+    for (auto &v : varMap_) {
       sv->Add(v.first, v.second->AllocateCopy());
     }
     return sv;
   }
 
   /// create a new variable alias from variable 'theLabel' in input variable mv
-  //void AddAlias(const std::string& theLabel, SparseVariable<T>& mv);
+  // void AddAlias(const std::string& theLabel, SparseVariable<T>& mv);
 
   /// create a new variable deep copy from variable 'theLabel' in input variable mv
-  //void AddCopy(const std::string& theLabel, SparseVariable<T>& mv);
+  // void AddCopy(const std::string& theLabel, SparseVariable<T>& mv);
 
-  ///create a new variable
+  /// create a new variable
   void Add(int sparse_index);
 
   // accessors
-  inline CellVariable<T>& operator() (const int m) {
-    return *(varMap_[m]);
+  inline CellVariable<T> &operator()(const int m) { return *(varMap_[m]); }
+  inline T &operator()(const int m, const int i) { return (*(varMap_[m]))(i); }
+  inline T &operator()(const int m, const int j, const int i) {
+    return (*(varMap_[m]))(j, i);
   }
-  inline T& operator() (const int m, const int i) {
-    return (*(varMap_[m]))(i);
+  inline T &operator()(const int m, const int k, const int j, const int i) {
+    return (*(varMap_[m]))(k, j, i);
   }
-  inline T& operator() (const int m, const int j, const int i) {
-    return (*(varMap_[m]))(j,i);
+  inline T &operator()(const int m, const int n, const int k, const int j, const int i) {
+    return (*(varMap_[m]))(n, k, j, i);
   }
-  inline T& operator() (const int m, const int k, const int j, const int i) {
-    return (*(varMap_[m]))(k,j,i);
+  inline T &operator()(const int m, const int l, const int n, const int k, const int j,
+                       const int i) {
+    return (*(varMap_[m]))(l, n, k, j, i);
   }
-  inline T& operator() (const int m, const int n, const int k,
-                        const int j, const int i) {
-    return (*(varMap_[m]))(n,k,j,i);
+  inline T &operator()(const int m, const int p, const int l, const int n, const int k,
+                       const int j, const int i) {
+    return (*(varMap_[m]))(p, l, n, k, j, i);
   }
-  inline T& operator() (const int m, const int l, const int n,
-                        const int k, const int j, const int i) {
-    return (*(varMap_[m]))(l,n,k,j,i);
-  }
-  inline T& operator() (const int m, const int p, const int l,
-                        const int n, const int k, const int j, const int i) {
-    return (*(varMap_[m]))(p,l,n,k,j,i);
-  }
-
 
   bool IsSet(const MetadataFlag flag) { return metadata_.IsSet(flag); }
 
@@ -94,7 +88,7 @@ class SparseVariable {
     return s;
   }
 
-  CellVariable<T>& Get(const int index) {
+  CellVariable<T> &Get(const int index) {
     auto it = varMap_.find(index);
     if (it == varMap_.end()) {
       throw std::invalid_argument("index " + std::to_string(index) +
@@ -109,23 +103,21 @@ class SparseVariable {
     return std::distance(indexMap_.begin(), it);
   }
 
-  std::vector<int>& GetIndexMap() { return indexMap_; }
+  std::vector<int> &GetIndexMap() { return indexMap_; }
 
-  CellVariableVector<T>& GetVector() { return varArray_; }
+  CellVariableVector<T> &GetVector() { return varArray_; }
 
-  SparseMap<T>& GetMap() { return varMap_; }
+  SparseMap<T> &GetMap() { return varMap_; }
 
   // might want to implement this at some point
-  //void DeleteVariable(const int var_id);
+  // void DeleteVariable(const int var_id);
 
-  std::string& label() { return label_; }
+  std::string &label() { return label_; }
 
-  void print() {
-    std::cout << "hello from sparse variables print" << std::endl;
-  }
+  void print() { std::cout << "hello from sparse variables print" << std::endl; }
 
  private:
-  std::array<int,6> dims_;
+  std::array<int, 6> dims_;
   std::string label_;
   Metadata metadata_;
   SparseMap<T> varMap_;
@@ -133,13 +125,11 @@ class SparseVariable {
   std::vector<int> indexMap_;
   CellVariableVector<T> _empty;
 
-
   void Add(int varIndex, std::shared_ptr<CellVariable<T>> cv) {
     varArray_.push_back(cv);
     indexMap_.push_back(varIndex);
     varMap_[varIndex] = cv;
   }
-
 };
 
 template <typename T>
@@ -147,7 +137,6 @@ using SparseVector = std::vector<std::shared_ptr<SparseVariable<T>>>;
 template <typename T>
 using MapToSparse = std::map<std::string, std::shared_ptr<SparseVariable<T>>>;
 
-
 } // namespace parthenon
 
-#endif //INTERFACE_SPARSEVARIABLE_HPP_
+#endif // INTERFACE_SPARSEVARIABLE_HPP_

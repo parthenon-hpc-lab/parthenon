@@ -14,42 +14,41 @@
 #ifndef MULTISTAGE_HPP
 #define MULTISTAGE_HPP
 
-#include <vector>
 #include <string>
+#include <vector>
 
 #include "driver/driver.hpp"
-#include "parameter_input.hpp"
 #include "mesh/mesh.hpp"
+#include "parameter_input.hpp"
 
 namespace parthenon {
 
 struct Integrator {
-    Integrator() = default;
-    Integrator(int nstages, std::vector<Real> beta) : nstages(nstages), beta(beta) {}
-    int nstages;
-    std::vector<Real> beta;
+  Integrator() = default;
+  Integrator(int nstages, std::vector<Real> beta) : nstages(nstages), beta(beta) {}
+  int nstages;
+  std::vector<Real> beta;
 };
 
 class MultiStageDriver : public EvolutionDriver {
-  public:
-    MultiStageDriver(ParameterInput *pin, Mesh *pm, Outputs *pout);
-    std::vector<std::string> stage_name;
-    Integrator *integrator;
-    ~MultiStageDriver() {
-      delete integrator;
-    }
-  private:
+ public:
+  MultiStageDriver(ParameterInput *pin, Mesh *pm, Outputs *pout);
+  std::vector<std::string> stage_name;
+  Integrator *integrator;
+  ~MultiStageDriver() { delete integrator; }
+
+ private:
 };
 
 class MultiStageBlockTaskDriver : public MultiStageDriver {
-  public:
-    MultiStageBlockTaskDriver(ParameterInput *pin, Mesh *pm, Outputs *pout) : MultiStageDriver(pin,pm,pout) {}
-    TaskListStatus Step();
-    // An application driver that derives from this class must define this
-    // function, which defines the application specific list of tasks and
-    // there dependencies that must be executed.
-    virtual TaskList MakeTaskList(MeshBlock *pmb, int stage) = 0;
-
+ public:
+  MultiStageBlockTaskDriver(ParameterInput *pin, Mesh *pm, Outputs *pout)
+      : MultiStageDriver(pin, pm, pout) {}
+  TaskListStatus Step();
+  // An application driver that derives from this class must define this
+  // function, which defines the application specific list of tasks and
+  // there dependencies that must be executed.
+  virtual TaskList MakeTaskList(MeshBlock *pmb, int stage) = 0;
 };
 
 } // namespace parthenon

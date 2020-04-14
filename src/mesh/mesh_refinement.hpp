@@ -26,8 +26,8 @@
 #include <vector>
 
 // Athena++ headers
-#include "athena.hpp"         // Real
-#include "parthenon_arrays.hpp"  // ParArrayND
+#include "athena.hpp"           // Real
+#include "parthenon_arrays.hpp" // ParArrayND
 
 // MPI headers
 #ifdef MPI_PARALLEL
@@ -55,26 +55,26 @@ class MeshRefinement {
   ~MeshRefinement();
 
   // functions
-  void RestrictCellCenteredValues(const ParArrayND<Real> &fine,
-                                  ParArrayND<Real> &coarse, int sn, int en,
-                                  int csi, int cei, int csj, int cej, int csk, int cek);
-  void RestrictFieldX1(const ParArrayND<Real> &fine, ParArrayND<Real> &coarse,
-                       int csi, int cei, int csj, int cej, int csk, int cek);
-  void RestrictFieldX2(const ParArrayND<Real> &fine, ParArrayND<Real> &coarse,
-                       int csi, int cei, int csj, int cej, int csk, int cek);
-  void RestrictFieldX3(const ParArrayND<Real> &fine, ParArrayND<Real> &coarse,
-                       int csi, int cei, int csj, int cej, int csk, int cek);
+  void RestrictCellCenteredValues(const ParArrayND<Real> &fine, ParArrayND<Real> &coarse,
+                                  int sn, int en, int csi, int cei, int csj, int cej,
+                                  int csk, int cek);
+  void RestrictFieldX1(const ParArrayND<Real> &fine, ParArrayND<Real> &coarse, int csi,
+                       int cei, int csj, int cej, int csk, int cek);
+  void RestrictFieldX2(const ParArrayND<Real> &fine, ParArrayND<Real> &coarse, int csi,
+                       int cei, int csj, int cej, int csk, int cek);
+  void RestrictFieldX3(const ParArrayND<Real> &fine, ParArrayND<Real> &coarse, int csi,
+                       int cei, int csj, int cej, int csk, int cek);
   void ProlongateCellCenteredValues(const ParArrayND<Real> &coarse,
-                                    ParArrayND<Real> &fine, int sn, int en,
-                                    int si, int ei, int sj, int ej, int sk, int ek);
+                                    ParArrayND<Real> &fine, int sn, int en, int si,
+                                    int ei, int sj, int ej, int sk, int ek);
   void ProlongateSharedFieldX1(const ParArrayND<Real> &coarse, ParArrayND<Real> &fine,
                                int si, int ei, int sj, int ej, int sk, int ek);
   void ProlongateSharedFieldX2(const ParArrayND<Real> &coarse, ParArrayND<Real> &fine,
                                int si, int ei, int sj, int ej, int sk, int ek);
   void ProlongateSharedFieldX3(const ParArrayND<Real> &coarse, ParArrayND<Real> &fine,
                                int si, int ei, int sj, int ej, int sk, int ek);
-  void ProlongateInternalField(FaceField &fine,
-                               int si, int ei, int sj, int ej, int sk, int ek);
+  void ProlongateInternalField(FaceField &fine, int si, int ei, int sj, int ej, int sk,
+                               int ek);
   void CheckRefinementCondition();
   void SetRefinement(AmrTag flag);
 
@@ -98,5 +98,5 @@ class MeshRefinement {
   std::vector<std::tuple<ParArrayND<Real>, ParArrayND<Real>>> pvars_cc_;
   std::vector<std::tuple<FaceField *, FaceField *>> pvars_fc_;
 };
-}
+} // namespace parthenon
 #endif // MESH_MESH_REFINEMENT_HPP_

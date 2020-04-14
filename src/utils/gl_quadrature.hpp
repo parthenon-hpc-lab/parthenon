@@ -36,11 +36,11 @@ namespace GaussLegendre {
 // 1D f(x1)
 Real integrate(const int n, Real (*f)(Real), Real x1l, Real x1u);
 // 2D f(x1, x2)
-Real integrate(const int n, Real (*f)(Real, Real),
-               Real x1l, Real x1u, Real x2l, Real x2u);
+Real integrate(const int n, Real (*f)(Real, Real), Real x1l, Real x1u, Real x2l,
+               Real x2u);
 // 3D f(x1, x2, x3)
-Real integrate(const int n, Real (*f)(Real, Real, Real),
-               Real x1l, Real x1u, Real x2l, Real x2u, Real x3l, Real x3u);
+Real integrate(const int n, Real (*f)(Real, Real, Real), Real x1l, Real x1u, Real x2l,
+               Real x2u, Real x3l, Real x3u);
 } // namespace GaussLegendre
-}
+} // namespace parthenon
 #endif // UTILS_GL_QUADRATURE_HPP_

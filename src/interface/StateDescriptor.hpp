@@ -13,17 +13,17 @@
 #ifndef STATE_DESCRIPTOR_HPP
 #define STATE_DESCRIPTOR_HPP
 
-#include <string>
 #include <map>
+#include <string>
 #include <vector>
 
-#include "refinement/amr_criteria.hpp"
+#include "interface/Container.hpp"
 #include "interface/Metadata.hpp"
 #include "interface/Params.hpp"
-#include "interface/Container.hpp"
+#include "refinement/amr_criteria.hpp"
 
 namespace parthenon {
-enum class DerivedOwnership {shared, unique};
+enum class DerivedOwnership { shared, unique };
 
 ///
 /// The state metadata descriptor class.
@@ -31,94 +31,105 @@ enum class DerivedOwnership {shared, unique};
 /// Each State descriptor has a label, associated parameters, and
 /// metadata for all fields within that state.
 class StateDescriptor {
-  public:
-    // copy constructor throw error
-    StateDescriptor(const StateDescriptor&s) = delete;
+ public:
+  // copy constructor throw error
+  StateDescriptor(const StateDescriptor &s) = delete;
 
-    // Preferred constructor
-    explicit StateDescriptor(std::string label) : _label(label) {
-      FillDerived=nullptr;
-      EstimateTimestep=nullptr;
-      CheckRefinement=nullptr;
-    }
+  // Preferred constructor
+  explicit StateDescriptor(std::string label) : _label(label) {
+    FillDerived = nullptr;
+    EstimateTimestep = nullptr;
+    CheckRefinement = nullptr;
+  }
 
-    template<typename T>
-    void AddParam(const std::string& key, T& value) { _params.Add<T>(key, value); }
+  template <typename T>
+  void AddParam(const std::string &key, T &value) {
+    _params.Add<T>(key, value);
+  }
 
-    template <typename T>
-    const T& Param(const std::string& key) {return _params.Get<T>(key);}
+  template <typename T>
+  const T &Param(const std::string &key) {
+    return _params.Get<T>(key);
+  }
 
-    Params& AllParams() {return _params;}
-    // retrieve label
-    const std::string& label() { return _label;}
+  Params &AllParams() { return _params; }
+  // retrieve label
+  const std::string &label() { return _label; }
 
-    // field addition / retrieval routines
-    // add a field with associated metadata
-    bool AddField(const std::string& field_name, Metadata& m, DerivedOwnership owner=DerivedOwnership::unique) {
-      if (m.IsSet(Metadata::Sparse)) {
-        auto miter = _sparseMetadataMap.find(field_name);
-        if (miter != _sparseMetadataMap.end()) {
-          miter->second.push_back(m);
-        } else {
-          _sparseMetadataMap[field_name] = {m};
-        }
+  // field addition / retrieval routines
+  // add a field with associated metadata
+  bool AddField(const std::string &field_name, Metadata &m,
+                DerivedOwnership owner = DerivedOwnership::unique) {
+    if (m.IsSet(Metadata::Sparse)) {
+      auto miter = _sparseMetadataMap.find(field_name);
+      if (miter != _sparseMetadataMap.end()) {
+        miter->second.push_back(m);
       } else {
-        const std::string& assoc = m.getAssociated();
-        if (!assoc.length()) m.Associate(field_name);
-        auto miter = _metadataMap.find(field_name);
-        if (miter != _metadataMap.end()) { // this field has already been added
-          Metadata& mprev = miter->second;
-          if (owner == DerivedOwnership::unique) {
-            throw std::invalid_argument("Field "+field_name+" add with DerivedOwnership::unique already exists");
-          }
-          if (mprev != m) {
-            throw std::invalid_argument("Field " + field_name + " already exists with different metadata");
-          }
-          return false;
-        } else {
-          _metadataMap[field_name] = m;
-          m.Associate("");
-        }
+        _sparseMetadataMap[field_name] = {m};
       }
-      return true;
-    }
-
-    // retrieve number of fields
-    int size() const { return _metadataMap.size(); }
-
-    // retrieve all field names
-    std::vector<std::string> Fields() {
-        std::vector<std::string> names;
-        names.reserve(_metadataMap.size());
-        for ( auto& x : _metadataMap) {
-            names.push_back(x.first);
+    } else {
+      const std::string &assoc = m.getAssociated();
+      if (!assoc.length()) m.Associate(field_name);
+      auto miter = _metadataMap.find(field_name);
+      if (miter != _metadataMap.end()) { // this field has already been added
+        Metadata &mprev = miter->second;
+        if (owner == DerivedOwnership::unique) {
+          throw std::invalid_argument(
+              "Field " + field_name +
+              " add with DerivedOwnership::unique already exists");
         }
-        return names;
+        if (mprev != m) {
+          throw std::invalid_argument("Field " + field_name +
+                                      " already exists with different metadata");
+        }
+        return false;
+      } else {
+        _metadataMap[field_name] = m;
+        m.Associate("");
+      }
     }
+    return true;
+  }
 
-    const std::map<std::string, Metadata>& AllFields() { return _metadataMap; }
-    const std::map<std::string, std::vector<Metadata>>& AllSparseFields() { return _sparseMetadataMap; }
+  // retrieve number of fields
+  int size() const { return _metadataMap.size(); }
 
-    // retrieve metadata for a specific field
-    Metadata& FieldMetadata(const std::string& field_name) { return _metadataMap[field_name]; }
+  // retrieve all field names
+  std::vector<std::string> Fields() {
+    std::vector<std::string> names;
+    names.reserve(_metadataMap.size());
+    for (auto &x : _metadataMap) {
+      names.push_back(x.first);
+    }
+    return names;
+  }
 
-    // get all metadata for this physics
-    const std::map<std::string, Metadata>& AllMetadata() { return _metadataMap; }
+  const std::map<std::string, Metadata> &AllFields() { return _metadataMap; }
+  const std::map<std::string, std::vector<Metadata>> &AllSparseFields() {
+    return _sparseMetadataMap;
+  }
 
-    std::vector<std::shared_ptr<AMRCriteria>> amr_criteria;
-    void (*FillDerived)(Container<Real>& rc);
-    Real (*EstimateTimestep)(Container<Real>& rc);
-    AmrTag (*CheckRefinement)(Container<Real>& rc);
+  // retrieve metadata for a specific field
+  Metadata &FieldMetadata(const std::string &field_name) {
+    return _metadataMap[field_name];
+  }
 
+  // get all metadata for this physics
+  const std::map<std::string, Metadata> &AllMetadata() { return _metadataMap; }
 
-  private:
-    Params _params;
-    const std::string _label;
-    std::map<std::string, Metadata> _metadataMap;
-    std::map<std::string, std::vector<Metadata>> _sparseMetadataMap;
+  std::vector<std::shared_ptr<AMRCriteria>> amr_criteria;
+  void (*FillDerived)(Container<Real> &rc);
+  Real (*EstimateTimestep)(Container<Real> &rc);
+  AmrTag (*CheckRefinement)(Container<Real> &rc);
+
+ private:
+  Params _params;
+  const std::string _label;
+  std::map<std::string, Metadata> _metadataMap;
+  std::map<std::string, std::vector<Metadata>> _sparseMetadataMap;
 };
 
 using Packages_t = std::map<std::string, std::shared_ptr<StateDescriptor>>;
 
-}
+} // namespace parthenon
 #endif // STATE_DESCRIPTOR_HPP
