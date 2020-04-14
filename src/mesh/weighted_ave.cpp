@@ -17,16 +17,12 @@
 //! \file weighted_ave.cpp
 //  \brief
 
-// C headers
-
-// C++ headers
-
-// Athena++ headers
 #include "athena.hpp"
-#include "mesh.hpp"
+#include "mesh/mesh.hpp"
 #include "parthenon_arrays.hpp"
 
 namespace parthenon {
+
 //----------------------------------------------------------------------------------------
 //! \fn  void WeightedAve::WeightedAve
 //  \brief Compute weighted average of ParArrayNDs (including cell-averaged U in time
@@ -415,4 +411,5 @@ void MeshBlock::WeightedAve(FaceField &b_out, FaceField &b_in1, FaceField &b_in2
   }
   return;
 }
+
 } // namespace parthenon

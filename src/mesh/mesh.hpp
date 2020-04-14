@@ -21,28 +21,24 @@
 //  The Mesh is the overall grid structure, and MeshBlocks are local patches of data
 //  (potentially on different levels) that tile the entire domain.
 
-// C headers
-
-// C++ headers
-#include <cstdint>    // int64_t
-#include <functional> // reference_wrapper
+#include <cstdint>
+#include <functional>
 #include <map>
-#include <memory> // std::shared_ptr
+#include <memory>
 #include <string>
 #include <vector>
 
-// Athena++ headers
 #include "athena.hpp"
 #include "bvals/bvals.hpp"
 #include "bvals/bvals_interfaces.hpp"
-#include "interface/Container.hpp"
-#include "interface/PropertiesInterface.hpp"
-#include "interface/StateDescriptor.hpp"
-#include "interface/Update.hpp"
+#include "interface/container.hpp"
 #include "interface/container_collection.hpp"
+#include "interface/properties_interface.hpp"
+#include "interface/state_descriptor.hpp"
+#include "interface/update.hpp"
 #include "kokkos_abstraction.hpp"
-#include "mesh_refinement.hpp"
-#include "meshblock_tree.hpp"
+#include "mesh/mesh_refinement.hpp"
+#include "mesh/meshblock_tree.hpp"
 #include "outputs/io_wrapper.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
@@ -50,6 +46,7 @@
 #include "utils/interp_table.hpp"
 
 namespace parthenon {
+
 // Forward declarations
 class ParameterInput;
 class Mesh;
@@ -477,5 +474,7 @@ inline Real UniformMeshGeneratorX2(Real x, RegionSize rs) {
 inline Real UniformMeshGeneratorX3(Real x, RegionSize rs) {
   return static_cast<Real>(0.5) * (rs.x3min + rs.x3max) + (x * rs.x3max - x * rs.x3min);
 }
+
 } // namespace parthenon
+
 #endif // MESH_MESH_HPP_

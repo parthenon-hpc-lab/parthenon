@@ -12,7 +12,7 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#include "multistage.hpp"
+#include "driver/multistage.hpp"
 
 namespace parthenon {
 

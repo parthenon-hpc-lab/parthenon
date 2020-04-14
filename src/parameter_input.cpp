@@ -46,30 +46,20 @@
 //   - Jan 2014:  Rewritten in C++ for the Athena++ code by J.M. Stone
 //========================================================================================
 
-// C headers
-
-// C++ headers
-#include <algorithm> // transform
-#include <cmath>     // std::fmod()
-#include <cstdlib>   // atoi(), atof(), nullptr, std::size_t
-#include <fstream>   // ifstream
-#include <iostream>  // endl, ostream
-#include <sstream>   // stringstream
-#include <stdexcept> // runtime_error
-#include <string>    // string
-
-// Athena++ headers
-#include "athena.hpp"
-#include "globals.hpp"
 #include "parameter_input.hpp"
-#include <defs.hpp>
 
-// OpenMP header
-#ifdef OPENMP_PARALLEL
-#include <omp.h>
-#endif
+#include <algorithm>
+#include <cmath>
+#include <cstdlib>
+#include <fstream>
+#include <iostream>
+#include <sstream>
+#include <stdexcept>
+
+#include "globals.hpp"
 
 namespace parthenon {
+
 //----------------------------------------------------------------------------------------
 // ParameterInput constructor
 
@@ -905,4 +895,5 @@ void ParameterInput::Unlock() {
 #endif
   return;
 }
+
 } // namespace parthenon

@@ -11,13 +11,14 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+#include "face_fields_example.hpp"
+
 #include <iostream>
 #include <utility>
 #include <vector>
-#ifdef MPI_PARALLEL
-#include <mpi.h>
-#endif
-#include "face_fields_example.hpp"
+
+#include "parthenon_mpi.hpp"
+
 #include "parthenon_manager.hpp"
 
 namespace parthenon {

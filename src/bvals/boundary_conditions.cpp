@@ -11,11 +11,11 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#include "boundary_conditions.hpp"
+#include "bvals/boundary_conditions.hpp"
 
 #include "bvals/bvals_interfaces.hpp"
-#include "interface/Container.hpp"
-#include "interface/ContainerIterator.hpp"
+#include "interface/container.hpp"
+#include "interface/container_iterator.hpp"
 #include "mesh/mesh.hpp"
 
 namespace parthenon {
@@ -37,7 +37,7 @@ TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
   const int nvars = citer.vars.size();
 
   switch (pmb->boundary_flag[BoundaryFace::inner_x1]) {
-  case BoundaryFlag::outflow: {
+  case BoundaryFlag::outflow:
     for (int n = 0; n < nvars; n++) {
       CellVariable<Real> &q = *citer.vars[n];
       for (int l = 0; l < q.GetDim(4); l++) {
@@ -51,8 +51,8 @@ TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
       }
     }
     break;
-  }
-  case BoundaryFlag::reflect: {
+
+  case BoundaryFlag::reflect:
     for (int n = 0; n < nvars; n++) {
       CellVariable<Real> &q = *citer.vars[n];
       bool vec = q.IsSet(Metadata::Vector);
@@ -68,14 +68,13 @@ TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
       }
     }
     break;
-  }
-  default: {
+
+  default:
     break;
   }
-  };
 
   switch (pmb->boundary_flag[BoundaryFace::outer_x1]) {
-  case BoundaryFlag::outflow: {
+  case BoundaryFlag::outflow:
     for (int n = 0; n < nvars; n++) {
       CellVariable<Real> &q = *citer.vars[n];
       for (int l = 0; l < q.GetDim(4); l++) {
@@ -89,8 +88,8 @@ TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
       }
     }
     break;
-  }
-  case BoundaryFlag::reflect: {
+
+  case BoundaryFlag::reflect:
     for (int n = 0; n < nvars; n++) {
       CellVariable<Real> &q = *citer.vars[n];
       bool vec = q.IsSet(Metadata::Vector);
@@ -106,16 +105,14 @@ TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
       }
     }
     break;
-  }
-  default: {
+
+  default:
     break;
   }
-  };
 
   if (pmb->pmy_mesh->ndim >= 2) {
-
     switch (pmb->boundary_flag[BoundaryFace::inner_x2]) {
-    case BoundaryFlag::outflow: {
+    case BoundaryFlag::outflow:
       for (int n = 0; n < nvars; n++) {
         CellVariable<Real> &q = *citer.vars[n];
         for (int l = 0; l < q.GetDim(4); l++) {
@@ -129,8 +126,8 @@ TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
         }
       }
       break;
-    }
-    case BoundaryFlag::reflect: {
+
+    case BoundaryFlag::reflect:
       for (int n = 0; n < nvars; n++) {
         CellVariable<Real> &q = *citer.vars[n];
         bool vec = q.IsSet(Metadata::Vector);
@@ -146,14 +143,13 @@ TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
         }
       }
       break;
-    }
-    default: {
+
+    default:
       break;
     }
-    };
 
     switch (pmb->boundary_flag[BoundaryFace::outer_x2]) {
-    case BoundaryFlag::outflow: {
+    case BoundaryFlag::outflow:
       for (int n = 0; n < nvars; n++) {
         CellVariable<Real> &q = *citer.vars[n];
         for (int l = 0; l < q.GetDim(4); l++) {
@@ -167,8 +163,8 @@ TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
         }
       }
       break;
-    }
-    case BoundaryFlag::reflect: {
+
+    case BoundaryFlag::reflect:
       for (int n = 0; n < nvars; n++) {
         CellVariable<Real> &q = *citer.vars[n];
         bool vec = q.IsSet(Metadata::Vector);
@@ -184,18 +180,15 @@ TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
         }
       }
       break;
-    }
-    default: {
+
+    default:
       break;
     }
-    };
-
   } // if ndim>=2
 
   if (pmb->pmy_mesh->ndim >= 3) {
-
     switch (pmb->boundary_flag[BoundaryFace::inner_x3]) {
-    case BoundaryFlag::outflow: {
+    case BoundaryFlag::outflow:
       for (int n = 0; n < nvars; n++) {
         CellVariable<Real> &q = *citer.vars[n];
         for (int l = 0; l < q.GetDim(4); l++) {
@@ -209,8 +202,8 @@ TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
         }
       }
       break;
-    }
-    case BoundaryFlag::reflect: {
+
+    case BoundaryFlag::reflect:
       for (int n = 0; n < nvars; n++) {
         CellVariable<Real> &q = *citer.vars[n];
         bool vec = q.IsSet(Metadata::Vector);
@@ -226,14 +219,13 @@ TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
         }
       }
       break;
-    }
-    default: {
+
+    default:
       break;
     }
-    };
 
     switch (pmb->boundary_flag[BoundaryFace::outer_x3]) {
-    case BoundaryFlag::outflow: {
+    case BoundaryFlag::outflow:
       for (int n = 0; n < nvars; n++) {
         CellVariable<Real> &q = *citer.vars[n];
         for (int l = 0; l < q.GetDim(4); l++) {
@@ -247,8 +239,8 @@ TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
         }
       }
       break;
-    }
-    case BoundaryFlag::reflect: {
+
+    case BoundaryFlag::reflect:
       for (int n = 0; n < nvars; n++) {
         CellVariable<Real> &q = *citer.vars[n];
         bool vec = q.IsSet(Metadata::Vector);
@@ -264,12 +256,10 @@ TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
         }
       }
       break;
-    }
-    default: {
+
+    default:
       break;
     }
-    };
-
   } // if ndim >= 3
 
   return TaskStatus::complete;

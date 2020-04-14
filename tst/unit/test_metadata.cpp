@@ -11,11 +11,9 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-// Third Party Includes
 #include <catch2/catch.hpp>
 
-// Parthenon includes
-#include <interface/Metadata.hpp>
+#include "interface/metadata.hpp"
 
 using parthenon::Metadata;
 
@@ -60,6 +58,7 @@ TEST_CASE("A Metadata struct is created", "[Metadata]") {
 
 #define PARTHENON_INTERNAL_FOR_FLAG(name)                                                \
   if (Metadata::name != Metadata::FillGhost) REQUIRE(!m.IsSet(Metadata::name));
+
     PARTHENON_INTERNAL_FOREACH_BUILTIN_FLAG
 #undef PARTHENON_INTERNAL_FOR_FLAG
 

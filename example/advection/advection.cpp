@@ -10,6 +10,9 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+#include "advection.hpp"
+
 #include <algorithm>
 #include <limits>
 #include <memory>
@@ -17,18 +20,16 @@
 #include <utility>
 #include <vector>
 
-#include "advection.hpp"
 #include "bvals/boundary_conditions.hpp"
 #include "bvals/bvals.hpp"
 #include "driver/multistage.hpp"
-#include "interface/Params.hpp"
-#include "interface/StateDescriptor.hpp"
+#include "interface/params.hpp"
+#include "interface/state_descriptor.hpp"
 #include "mesh/mesh.hpp"
 #include "parthenon_manager.hpp"
 #include "reconstruct/reconstruction.hpp"
 #include "refinement/refinement.hpp"
 
-using namespace advection_example;
 using parthenon::BlockStageNamesIntegratorTask;
 using parthenon::BlockStageNamesIntegratorTaskFunc;
 using parthenon::BlockTask;
@@ -42,11 +43,12 @@ using parthenon::ParthenonManager;
 // *************************************************//
 // redefine some weakly linked parthenon functions *//
 // *************************************************//
+
 namespace parthenon {
 
 Packages_t ParthenonManager::ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   Packages_t packages;
-  packages["Advection"] = Advection::Initialize(pin.get());
+  packages["Advection"] = advection_example::Advection::Initialize(pin.get());
   return packages;
 }
 
@@ -65,7 +67,8 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
 }
 
 void ParthenonManager::SetFillDerivedFunctions() {
-  FillDerivedVariables::SetFillDerivedFunctions(Advection::PreFill, Advection::PostFill);
+  FillDerivedVariables::SetFillDerivedFunctions(advection_example::Advection::PreFill,
+                                                advection_example::Advection::PostFill);
 }
 
 } // namespace parthenon
@@ -76,6 +79,7 @@ void ParthenonManager::SetFillDerivedFunctions() {
 // how parthenon functions and any tasks needed to *//
 // implement the "physics"                         *//
 // *************************************************//
+
 namespace advection_example {
 namespace Advection {
 
@@ -316,7 +320,6 @@ TaskStatus CalculateFluxes(Container<Real> &rc) {
 }
 
 } // namespace Advection
-} // namespace advection_example
 
 // *************************************************//
 // define the application driver. in this case,    *//
@@ -445,3 +448,5 @@ TaskList AdvectionDriver::MakeTaskList(MeshBlock *pmb, int stage) {
   }
   return tl;
 }
+
+} // namespace advection_example

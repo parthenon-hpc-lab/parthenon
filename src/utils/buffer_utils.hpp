@@ -19,16 +19,12 @@
 //! \file buffer_utils.hpp
 //  \brief prototypes of utility functions to pack/unpack buffers
 
-// C headers
-
-// C++ headers
-
-// Athena++ headers
 #include "athena.hpp"
 #include "parthenon_arrays.hpp"
 
 namespace parthenon {
 namespace BufferUtility {
+
 // 2x templated and overloaded functions
 // 4D
 template <typename T>
@@ -46,6 +42,8 @@ void UnpackData(T *buf, ParArrayND<T> &dst, int sn, int en, int si, int ei, int 
 template <typename T>
 void UnpackData(T *buf, ParArrayND<T> &dst, int si, int ei, int sj, int ej, int sk,
                 int ek, int &offset);
+
 } // namespace BufferUtility
 } // namespace parthenon
+
 #endif // UTILS_BUFFER_UTILS_HPP_

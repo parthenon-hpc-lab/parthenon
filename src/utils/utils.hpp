@@ -19,14 +19,10 @@
 //! \file utils.hpp
 //  \brief prototypes of functions and class definitions for utils/*.cpp files
 
-// C headers
-
-// C++ headers
-#include <csignal> // sigset_t POSIX C extension
-#include <cstdint> // std::int64_t
+#include <csignal>
+#include <cstdint>
 
 namespace parthenon {
-// Athena++ headers
 
 void ChangeRunDir(const char *pdir);
 double ran2(std::int64_t *idum);
@@ -35,8 +31,8 @@ void ShowConfig();
 //----------------------------------------------------------------------------------------
 //! SignalHandler
 //  \brief static data and functions that implement a simple signal handling system
-
 namespace SignalHandler {
+
 const int nsignal = 3;
 static volatile int signalflag[nsignal];
 const int ITERM = 0, IINT = 1, IALRM = 2;
@@ -48,6 +44,9 @@ void SetSignalFlag(int s);
 void SetWallTimeAlarm(int t);
 void CancelWallTimeAlarm();
 void Report();
+
 } // namespace SignalHandler
+
 } // namespace parthenon
+
 #endif // UTILS_UTILS_HPP_

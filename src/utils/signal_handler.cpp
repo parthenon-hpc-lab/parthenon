@@ -18,25 +18,18 @@
 //  \brief contains functions that implement a simple SignalHandler
 //  These functions are based on TAG's signal handler written for Athena 8/19/2004
 
-// C headers
 #include <unistd.h> // alarm() Unix OS utility; not in C standard --> no <cunistd>
 
-// C++ headers
 // first 2x macros and signal() are the only ISO C features; rest are POSIX C extensions
-#include <csignal> // SIGTERM, SIGINT, SIGALARM, signal(), sigemptyset(), ...
+#include <csignal>
 #include <iostream>
 
-// Athena++ headers
+#include "parthenon_mpi.hpp"
+
 #include "globals.hpp"
 #include "utils.hpp"
-#include <defs.hpp>
-
-#ifdef MPI_PARALLEL
-#include <mpi.h>
-#endif
 
 namespace parthenon {
-
 namespace SignalHandler {
 
 //----------------------------------------------------------------------------------------

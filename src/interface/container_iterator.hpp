@@ -10,24 +10,24 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef INTERFACE_CONTAINERITERATOR_HPP_
-#define INTERFACE_CONTAINERITERATOR_HPP_
-///
+#ifndef INTERFACE_CONTAINER_ITERATOR_HPP_
+#define INTERFACE_CONTAINER_ITERATOR_HPP_
+
 /// Provides an iterator that iterates over the variables in a
 /// container.  Eventually this will get transitioned to an iterator
 /// type in the Container itself, but for now we have to do it this
 /// way because Sriram doesn't know enough C++ to do this correctly.
-///
-//#include <iterator>
+
 #include <array>
 #include <memory>
 #include <vector>
 
-#include "Container.hpp"
-#include "Variable.hpp"
-#include "interface/PropertiesInterface.hpp"
+#include "interface/container.hpp"
+#include "interface/properties_interface.hpp"
+#include "interface/variable.hpp"
 
 namespace parthenon {
+
 template <typename T>
 class ContainerIterator {
  public:
@@ -112,4 +112,4 @@ class ContainerIterator {
 
 } // namespace parthenon
 
-#endif // INTERFACE_CONTAINERITERATOR_HPP_
+#endif // INTERFACE_CONTAINER_ITERATOR_HPP_

@@ -82,6 +82,7 @@ enum class MetadataInternal {
 };
 
 class UserMetadataState;
+
 } // namespace internal
 
 class Metadata;
@@ -325,5 +326,7 @@ class Metadata {
             (bit == None));
   }
 };
+
 } // namespace parthenon
+
 #endif // INTERFACE_METADATA_HPP_

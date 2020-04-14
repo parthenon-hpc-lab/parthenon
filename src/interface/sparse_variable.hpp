@@ -15,11 +15,9 @@
 /// Builds on ParArrayNDs
 /// Date: Sep 12, 2019
 ///
-#ifndef INTERFACE_SPARSEVARIABLE_HPP_
-#define INTERFACE_SPARSEVARIABLE_HPP_
+#ifndef INTERFACE_SPARSE_VARIABLE_HPP_
+#define INTERFACE_SPARSE_VARIABLE_HPP_
 
-#include "Variable.hpp"
-#include "globals.hpp"
 #include <functional>
 #include <iostream>
 #include <map>
@@ -27,6 +25,9 @@
 #include <set>
 #include <string>
 #include <vector>
+
+#include "globals.hpp"
+#include "interface/variable.hpp"
 
 namespace parthenon {
 
@@ -139,4 +140,4 @@ using MapToSparse = std::map<std::string, std::shared_ptr<SparseVariable<T>>>;
 
 } // namespace parthenon
 
-#endif // INTERFACE_SPARSEVARIABLE_HPP_
+#endif // INTERFACE_SPARSE_VARIABLE_HPP_

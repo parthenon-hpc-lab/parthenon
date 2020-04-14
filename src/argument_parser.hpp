@@ -11,16 +11,20 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef ARGUMENT_PARSER_HPP
-#define ARGUMENT_PARSER_HPP
+#ifndef ARGUMENT_PARSER_HPP_
+#define ARGUMENT_PARSER_HPP_
+
+#include <iostream>
+#include <string>
 
 #include "athena.hpp"
 #include "globals.hpp"
 #include "utils/utils.hpp"
-#include <iostream>
 
 namespace parthenon {
+
 enum class ArgStatus { ok, complete, error };
+
 class ArgParse {
  public:
   ArgParse() = default;
@@ -114,5 +118,7 @@ class ArgParse {
   int wtlim = 0;
   int exit_flag = 0;
 };
+
 } // namespace parthenon
-#endif
+
+#endif // ARGUMENT_PARSER_HPP_

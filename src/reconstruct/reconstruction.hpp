@@ -19,16 +19,12 @@
 //! \file reconstruction.hpp
 //  \brief defines class Reconstruction, data and functions for spatial reconstruction
 
-// C headers
-
-// C++ headers
-
-// parthenon infrastructure includes
 #include "athena.hpp"
 #include "coordinates/coordinates.hpp"
 #include "parthenon_arrays.hpp"
 
 namespace parthenon {
+
 // Forward declarations
 class ParameterInput;
 
@@ -149,5 +145,7 @@ class Reconstruction {
   ParArrayND<Real> scr1_ni_, scr2_ni_, scr3_ni_, scr4_ni_, scr5_ni_;
   ParArrayND<Real> scr6_ni_, scr7_ni_, scr8_ni_;
 };
+
 } // namespace parthenon
+
 #endif // RECONSTRUCT_RECONSTRUCTION_HPP_

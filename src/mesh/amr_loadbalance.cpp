@@ -17,31 +17,25 @@
 //! \file mesh_amr.cpp
 //  \brief implementation of Mesh::AdaptiveMeshRefinement() and related utilities
 
-// C headers
-
-// C++ headers
-#include <algorithm> // std::sort()
+#include <algorithm>
 #include <cstdint>
 #include <iostream>
 #include <sstream>
 
-// Athena++ headers
+#include "parthenon_mpi.hpp"
+
 #include "athena.hpp"
 #include "bvals/boundary_conditions.hpp"
 #include "globals.hpp"
-#include "interface/Update.hpp"
-#include "mesh.hpp"
-#include "mesh_refinement.hpp"
-#include "meshblock_tree.hpp"
+#include "interface/update.hpp"
+#include "mesh/mesh.hpp"
+#include "mesh/mesh_refinement.hpp"
+#include "mesh/meshblock_tree.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/buffer_utils.hpp"
 
-// MPI/OpenMP header
-#ifdef MPI_PARALLEL
-#include <mpi.h>
-#endif
-
 namespace parthenon {
+
 //----------------------------------------------------------------------------------------
 // \!fn void Mesh::LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin)
 // \brief Main function for adaptive mesh refinement
@@ -759,7 +753,6 @@ void Mesh::PrepareSendSameLevel(MeshBlock *pb, Real *sendbuf) {
 
 void Mesh::PrepareSendCoarseToFineAMR(MeshBlock *pb, Real *sendbuf,
                                       LogicalLocation &lloc) {
-
   const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
   const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
   int ox1 = ((lloc.lx1 & 1LL) == 1LL), ox2 = ((lloc.lx2 & 1LL) == 1LL),
@@ -1042,7 +1035,6 @@ void Mesh::FinishRecvSameLevel(MeshBlock *pb, Real *recvbuf) {
 // step 8 (receive and load), branch 2 (f2c: unpack)
 void Mesh::FinishRecvFineToCoarseAMR(MeshBlock *pb, Real *recvbuf,
                                      LogicalLocation &lloc) {
-
   const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
   const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
 
@@ -1089,7 +1081,6 @@ void Mesh::FinishRecvFineToCoarseAMR(MeshBlock *pb, Real *recvbuf,
 
 // step 8 (receive and load), branch 2 (c2f: unpack+prolongate)
 void Mesh::FinishRecvCoarseToFineAMR(MeshBlock *pb, Real *recvbuf) {
-
   const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
   const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
   auto &pmr = pb->pmr;
@@ -1135,4 +1126,5 @@ int Mesh::CreateAMRMPITag(int lid, int ox1, int ox2, int ox3) {
   // former "AthenaTagMPI" AthenaTagMPI::amr=8 redefined to 0
   return (lid << 8) | (ox1 << 7) | (ox2 << 6) | (ox3 << 5) | 0;
 }
+
 } // namespace parthenon

@@ -17,35 +17,25 @@
 //! \file flux_correction_fc.cpp
 //  \brief functions that perform flux correction for face-centered variables
 
-// C headers
-
-// C++ headers
 #include <cmath>
 #include <cstdlib>
-#include <cstring> // memcpy()
+#include <cstring>
 #include <iomanip>
-#include <iostream>  // endl
-#include <sstream>   // stringstream
-#include <stdexcept> // runtime_error
-#include <string>    // c_str()
+#include <iostream>
+#include <sstream>
+#include <stdexcept>
+#include <string>
 
-// Athena++ headers
+#include "parthenon_mpi.hpp"
+
 #include "athena.hpp"
-#include "bvals_fc.hpp"
+#include "bvals/fc/bvals_fc.hpp"
 #include "coordinates/coordinates.hpp"
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/buffer_utils.hpp"
-
-// this is not added in flux_correction_cc.cpp:
-// #include "bvals.hpp"
-
-// MPI header
-#ifdef MPI_PARALLEL
-#include <mpi.h>
-#endif
 
 // TODO(felker): break-up the long functions in this file
 
@@ -67,4 +57,5 @@ bool FaceCenteredBoundaryVariable::ReceiveFluxCorrection() {
   throw std::runtime_error(
       "FaceCenteredBoundaryVariable::ReceiveFluxCorrection not implemented yet");
 }
+
 } // namespace parthenon

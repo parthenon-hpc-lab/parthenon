@@ -22,21 +22,18 @@
 // grid (user-specified root grid) will be greater than zero if it contains more than
 // one MeshBlock
 
-// C headers
-
-// C++ headers
-#include <cstdint> // int64_t
+#include <cstdint>
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
 
-// Athena++ headers
 #include "athena.hpp"
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
-#include "meshblock_tree.hpp"
+#include "mesh/meshblock_tree.hpp"
 
 namespace parthenon {
+
 // Define static member variables
 Mesh *pmesh_;
 MeshBlockTree *MeshBlockTree::proot_;
@@ -374,7 +371,6 @@ MeshBlockTree *MeshBlockTree::FindNeighbor(LogicalLocation myloc, int ox1, int o
       return nullptr;
   }
   if (lx >= pmesh_->nrbx1 << (ll - pmesh_->root_level)) {
-    ;
     if (pmesh_->mesh_bcs[BoundaryFace::outer_x1] == BoundaryFlag::periodic)
       lx = 0;
     else
@@ -465,4 +461,5 @@ MeshBlockTree *MeshBlockTree::FindMeshBlock(LogicalLocation tloc) {
   if (pleaf_[n] == nullptr) return nullptr;
   return pleaf_[n]->FindMeshBlock(tloc);
 }
+
 } // namespace parthenon

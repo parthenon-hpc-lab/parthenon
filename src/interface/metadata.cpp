@@ -11,10 +11,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-// Self Include
-#include "Metadata.hpp"
+#include "interface/metadata.hpp"
 
-// STL Includes
 #include <exception>
 #include <sstream>
 #include <string>
@@ -26,6 +24,7 @@ using parthenon::Metadata;
 using parthenon::MetadataFlag;
 
 namespace parthenon {
+
 // Must declare the flag values for ODR-uses
 #define PARTHENON_INTERNAL_FOR_FLAG(name) constexpr MetadataFlag Metadata::name;
 
@@ -65,6 +64,7 @@ class UserMetadataState {
 };
 
 } // namespace internal
+
 } // namespace parthenon
 
 parthenon::internal::UserMetadataState metadata_state;

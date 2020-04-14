@@ -90,12 +90,12 @@ add_library(parthenon
   driver/multistage.cpp
 
   interface/container_collection.cpp
-  interface/Container.cpp
-  interface/PropertiesInterface.cpp
-  interface/SparseVariable.cpp
-  interface/Metadata.cpp
-  interface/Update.cpp
-  interface/Variable.cpp
+  interface/container.cpp
+  interface/metadata.cpp
+  interface/properties_interface.cpp
+  interface/sparse_variable.cpp
+  interface/update.cpp
+  interface/variable.cpp
 
   mesh/amr_loadbalance.cpp
   mesh/mesh_refinement.cpp
@@ -104,7 +104,6 @@ add_library(parthenon
   mesh/meshblock_tree.cpp
   mesh/weighted_ave.cpp
 
-  outputs/athena_hdf5.cpp
   outputs/athena_hdf5_C.cpp
   outputs/formatted_table.cpp
   outputs/history.cpp
@@ -124,7 +123,7 @@ add_library(parthenon
   refinement/amr_criteria.cpp
   refinement/refinement.cpp
 
-  task_list/task_id.cpp
+  task_list/tasks.cpp
 
   utils/buffer_utils.cpp
   utils/change_rundir.cpp

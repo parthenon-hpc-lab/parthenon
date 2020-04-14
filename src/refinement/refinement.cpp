@@ -10,17 +10,18 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+#include "refinement/refinement.hpp"
+
 #include <algorithm>
 #include <exception>
 #include <memory>
 #include <utility>
 
-#include "amr_criteria.hpp"
-#include "defs.hpp"
-#include "interface/StateDescriptor.hpp"
+#include "interface/state_descriptor.hpp"
 #include "mesh/mesh.hpp"
 #include "parameter_input.hpp"
-#include "refinement.hpp"
+#include "refinement/amr_criteria.hpp"
 
 namespace parthenon {
 namespace Refinement {
@@ -124,6 +125,7 @@ AmrTag FirstDerivative(CellVariable<Real> &q, const Real refine_criteria,
       }
     }
   }
+
   if (maxd > refine_criteria) return AmrTag::refine;
   if (maxd < derefine_criteria) return AmrTag::derefine;
   return AmrTag::same;

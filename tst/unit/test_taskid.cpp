@@ -14,9 +14,12 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#include "task_list/tasks.hpp"
-#include <catch2/catch.hpp>
+
 #include <string>
+
+#include <catch2/catch.hpp>
+
+#include "task_list/tasks.hpp"
 
 using parthenon::TaskID;
 

@@ -18,9 +18,6 @@
 //  \brief writes history output data, volume-averaged quantities that are output
 //         frequently in time to trace their history.
 
-// C headers
-
-// C++ headers
 #include <cstdio>
 #include <cstdlib>
 #include <iomanip>
@@ -31,12 +28,11 @@
 #include <stdexcept>
 #include <string>
 
-// Athena++ headers
 #include "athena.hpp"
 #include "coordinates/coordinates.hpp"
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
-#include "outputs.hpp"
+#include "outputs/outputs.hpp"
 #include "parthenon_arrays.hpp"
 
 // NEW_OUTPUT_TYPES:
@@ -45,6 +41,7 @@
 #define NHISTORY_VARS ((NFIELD) + 3)
 
 namespace parthenon {
+
 //----------------------------------------------------------------------------------------
 //! \fn void OutputType::HistoryFile()
 //  \brief Writes a history file
@@ -203,4 +200,5 @@ void HistoryOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
   pin->SetReal(output_params.block_name, "next_time", output_params.next_time);
   return;
 }
+
 } // namespace parthenon

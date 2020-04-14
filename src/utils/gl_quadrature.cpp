@@ -18,18 +18,15 @@
 //  \brief namespace containing GL quadrature function implementations, weights, and
 // abscissas
 
-// C headers
+#include "utils/gl_quadrature.hpp"
 
-// C++ headers
-
-// Athena++ headers
-#include "gl_quadrature.hpp"
 #include "athena.hpp"
 
 namespace parthenon {
+namespace GaussLegendre {
+
 // Not checking that input integration order "N" is correct: 1 < N <=64
 
-namespace GaussLegendre {
 // NOTE: 3x function overload definitions follow the 64x abscissae and 64x weights arrays
 // (around L1120)
 
@@ -1456,5 +1453,6 @@ Real integrate(const int n, Real (*f)(Real, Real, Real), Real x1l, Real x1u, Rea
   }
   return m1 * m2 * m3 * sum;
 }
+
 } // namespace GaussLegendre
 } // namespace parthenon

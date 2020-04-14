@@ -18,17 +18,14 @@
 //  \brief implements functions for Cartesian (x-y-z) coordinates in a derived class of
 //  the Coordinates abstract base class.
 
-// C headers
+#include "coordinates/coordinates.hpp"
 
-// C++ headers
-
-// Athena++ headers
 #include "athena.hpp"
-#include "coordinates.hpp"
 #include "mesh/mesh.hpp"
 #include "parameter_input.hpp"
 
 namespace parthenon {
+
 //----------------------------------------------------------------------------------------
 // Cartesian coordinates constructor
 
@@ -111,4 +108,5 @@ Cartesian::Cartesian(MeshBlock *pmb, ParameterInput *pin, bool flag)
     }
   }
 }
+
 } // namespace parthenon

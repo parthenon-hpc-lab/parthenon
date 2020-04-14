@@ -17,33 +17,28 @@
 //! \file flux_correction_cc.cpp
 //  \brief functions that perform flux correction for CELL_CENTERED variables
 
-// C headers
-
-// C++ headers
-#include <algorithm> // min
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
-#include <cstring> // std::memcpy
+#include <cstring>
 #include <iomanip>
-#include <iostream>  // endl
-#include <sstream>   // stringstream
-#include <stdexcept> // runtime_error
-#include <string>    // c_str()
+#include <iostream>
+#include <sstream>
+#include <stdexcept>
+#include <string>
 
-// Athena++ headers
-#include "bvals_cc.hpp"
+#include "parthenon_mpi.hpp"
+
+#include "athena.hpp"
+#include "bvals/cc/bvals_cc.hpp"
 #include "coordinates/coordinates.hpp"
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
 #include "parameter_input.hpp"
 #include "utils/buffer_utils.hpp"
 
-// MPI header
-#ifdef MPI_PARALLEL
-#include <mpi.h>
-#endif
-
 namespace parthenon {
+
 //----------------------------------------------------------------------------------------
 //! \fn void CellCenteredBoundaryVariable::SendFluxCorrection()
 //  \brief Restrict, pack and send the surface flux to the coarse neighbor(s)
@@ -251,4 +246,5 @@ bool CellCenteredBoundaryVariable::ReceiveFluxCorrection() {
   }
   return bflag;
 }
+
 } // namespace parthenon

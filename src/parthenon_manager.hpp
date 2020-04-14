@@ -18,8 +18,8 @@
 
 #include "argument_parser.hpp"
 #include "driver/driver.hpp"
-#include "interface/PropertiesInterface.hpp"
-#include "interface/StateDescriptor.hpp"
+#include "interface/properties_interface.hpp"
+#include "interface/state_descriptor.hpp"
 #include "mesh/mesh.hpp"
 #include "outputs/outputs.hpp"
 #include "parameter_input.hpp"

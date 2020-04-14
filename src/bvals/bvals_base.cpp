@@ -17,9 +17,8 @@
 //! \file bvals_base.cpp
 //  \brief utility functions for BoundaryBase neighbors and buffers
 
-// C headers
+#include "bvals/bvals.hpp"
 
-// C++ headers
 #include <cmath>
 #include <cstdlib>
 #include <cstring> // memcpy()
@@ -29,13 +28,12 @@
 #include <stdexcept> // runtime_error
 #include <string>    // c_str()
 
-// Athena++ headers
-#include "bvals.hpp"
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
 #include "utils/buffer_utils.hpp"
 
 namespace parthenon {
+
 // required definitions of static data members of BoundaryBase outside class definition
 // (zero-initialization is performed for all static storage duration variables)
 // scalar types: integral constant 0 is explicitly converted to type
@@ -617,4 +615,5 @@ void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist,
   }
   return;
 }
+
 } // namespace parthenon

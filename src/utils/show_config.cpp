@@ -16,16 +16,15 @@
 //========================================================================================
 //! \file show_config.cpp
 
-// C headers
-
-// C++ headers
 #include <iostream>
 #include <sstream>
 
-// Athena++ headers
-#include "athena.hpp"
 #include <Kokkos_Core.hpp>
+
+#include "athena.hpp"
+
 namespace parthenon {
+
 //----------------------------------------------------------------------------------------
 //! \fn void ShowConfig()
 //  \brief prints diagnostic messages about the configuration of an Athena++ executable
@@ -78,4 +77,5 @@ void ShowConfig() {
 
   return;
 }
+
 } // namespace parthenon

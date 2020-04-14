@@ -19,11 +19,8 @@
 //  Data is written in RECTILINEAR_GRID geometry, in BINARY format, and in FLOAT type
 //  Writes one file per MeshBlock.
 
-// C headers
-
-// C++ headers
 #include <algorithm>
-#include <cstdio> // fwrite(), fclose(), fopen(), fnprintf(), snprintf()
+#include <cstdio>
 #include <cstdlib>
 #include <iomanip>
 #include <iostream>
@@ -31,15 +28,15 @@
 #include <stdexcept>
 #include <string>
 
-// Athena++ headers
 #include "athena.hpp"
 #include "coordinates/coordinates.hpp"
-#include "interface/ContainerIterator.hpp"
+#include "interface/container_iterator.hpp"
 #include "mesh/mesh.hpp"
-#include "outputs.hpp"
+#include "outputs/outputs.hpp"
 #include "parthenon_arrays.hpp"
 
 namespace parthenon {
+
 //----------------------------------------------------------------------------------------
 // Functions to detect big endian machine, and to byte-swap 32-bit words.  The vtk
 // legacy format requires data to be stored as big-endian.
@@ -431,4 +428,5 @@ void VTKOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
 
   return;
 }
+
 } // namespace parthenon

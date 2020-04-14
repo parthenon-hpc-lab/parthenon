@@ -20,16 +20,11 @@
 //  \brief defines the LogicalLocation structure and MeshBlockTree class
 //======================================================================================
 
-// C headers
-
-// C++ headers
-
-// Athena++ headers
 #include "athena.hpp"
 #include "bvals/bvals.hpp"
-#include <defs.hpp>
 
 namespace parthenon {
+
 class Mesh;
 
 //--------------------------------------------------------------------------------------
@@ -72,5 +67,7 @@ class MeshBlockTree {
   static MeshBlockTree *proot_;
   static int nleaf_;
 };
+
 } // namespace parthenon
+
 #endif // MESH_MESHBLOCK_TREE_HPP_

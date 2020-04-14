@@ -86,27 +86,25 @@
 // automatic loops over registered MeshBlock quantities in pvars_cc, pvars_fc vectors.
 //========================================================================================
 
-// C headers
+#include "outputs/outputs.hpp"
 
-// C++ headers
 #include <cstdio>
 #include <cstdlib>
-#include <cstring> // strcmp
+#include <cstring>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
-#include <string> // std::string, to_string()
+#include <string>
 
-// Athena++ headers
 #include "athena.hpp"
 #include "coordinates/coordinates.hpp"
 #include "mesh/mesh.hpp"
-#include "outputs.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 
 namespace parthenon {
+
 //----------------------------------------------------------------------------------------
 // OutputType constructor
 
@@ -629,4 +627,5 @@ void OutputType::SumOutputData(MeshBlock *pmb, int dim) {
 
 void OutputType::CalculateCartesianVector(ParArrayND<Real> &src, ParArrayND<Real> &dst,
                                           Coordinates *pco) {}
+
 } // namespace parthenon

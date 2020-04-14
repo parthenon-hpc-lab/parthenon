@@ -33,12 +33,14 @@
 #include <utility>
 #include <vector>
 
-#include "Metadata.hpp"
+#include "athena.hpp"
 #include "basic_types.hpp"
 #include "bvals/cc/bvals_cc.hpp"
+#include "interface/metadata.hpp"
 #include "parthenon_arrays.hpp"
 
 namespace parthenon {
+
 class MeshBlock;
 
 template <typename T>

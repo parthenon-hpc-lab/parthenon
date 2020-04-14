@@ -17,26 +17,28 @@
 //! \file reconstruction.cpp
 //  \brief
 
-#include "reconstruction.hpp"
-#include "mesh/mesh.hpp"
+#include "reconstruct/reconstruction.hpp"
 
-#include <cmath>   // abs()
-#include <cstring> // strcmp()
+#include <cmath>
+#include <cstring>
 #include <iomanip>
 #include <limits>
 #include <sstream>
-#include <stdexcept> // runtime_error
-#include <string>    // c_str()
+#include <stdexcept>
+#include <string>
+
+#include "mesh/mesh.hpp"
 
 namespace parthenon {
+
 namespace {
+
 // TODO(felker): replace these hand-rolled linear algebra routines with a real library
 constexpr Real lu_tol = 3e-16;
 int DoolittleLUPDecompose(Real **a, int n, int *pivot);
 void DoolittleLUPSolve(Real **lu, int *pivot, Real *b, int n, Real *x);
-} // namespace
 
-// constructor
+} // anonymous namespace
 
 Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin)
     : characteristic_projection{false}, uniform{true, true, true},
@@ -521,5 +523,7 @@ void DoolittleLUPSolve(Real **lu, int *pivot, Real *b, int n, Real *x) {
   }
   return;
 }
-} // namespace
+
+} // anonymous namespace
+
 } // namespace parthenon

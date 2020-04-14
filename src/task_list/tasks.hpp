@@ -220,4 +220,5 @@ class TaskList {
 };
 
 } // namespace parthenon
+
 #endif // TASK_LIST_TASKS_HPP_

@@ -19,22 +19,16 @@
 //! \file mesh_refinement.hpp
 //  \brief defines MeshRefinement class used for static/adaptive mesh refinement
 
-// C headers
-
-// C++ headers
 #include <tuple>
 #include <vector>
 
-// Athena++ headers
-#include "athena.hpp"           // Real
-#include "parthenon_arrays.hpp" // ParArrayND
+#include "parthenon_mpi.hpp"
 
-// MPI headers
-#ifdef MPI_PARALLEL
-#include <mpi.h>
-#endif
+#include "athena.hpp"
+#include "parthenon_arrays.hpp"
 
 namespace parthenon {
+
 class MeshBlock;
 class ParameterInput;
 class Coordinates;
@@ -98,5 +92,7 @@ class MeshRefinement {
   std::vector<std::tuple<ParArrayND<Real>, ParArrayND<Real>>> pvars_cc_;
   std::vector<std::tuple<FaceField *, FaceField *>> pvars_fc_;
 };
+
 } // namespace parthenon
+
 #endif // MESH_MESH_REFINEMENT_HPP_

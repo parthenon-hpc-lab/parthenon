@@ -11,15 +11,16 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef PARTHENON_REFINEMENT_REFINEMENT_HPP_
-#define PARTHENON_REFINEMENT_REFINEMENT_HPP_
+#ifndef REFINEMENT_REFINEMENT_HPP_
+#define REFINEMENT_REFINEMENT_HPP_
 
-#include "athena.hpp"
-#include "interface/Container.hpp"
-#include "interface/StateDescriptor.hpp"
-#include "interface/Variable.hpp"
 #include <memory>
 #include <string>
+
+#include "athena.hpp"
+#include "interface/container.hpp"
+#include "interface/state_descriptor.hpp"
+#include "interface/variable.hpp"
 
 namespace parthenon {
 
@@ -38,4 +39,4 @@ AmrTag FirstDerivative(CellVariable<Real> &q, const Real refine_criteria,
 
 } // namespace parthenon
 
-#endif // PARTHENON_REFINEMENT_REFINEMENT_HPP_
+#endif // REFINEMENT_REFINEMENT_HPP_
