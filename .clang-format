@@ -1,0 +1,10 @@
+ColumnLimit: 90
+IndentWidth: 2
+AccessModifierOffset: -1
+
+AllowAllParametersOfDeclarationOnNextLine: true
+AllowShortIfStatementsOnASingleLine: true
+AlwaysBreakTemplateDeclarations: true
+BinPackArguments: true
+BinPackParameters: true
+ConstructorInitializerAllOnOneLineOrOnePerLine: false

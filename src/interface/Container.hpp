@@ -13,14 +13,14 @@
 #ifndef INTERFACE_CONTAINER_HPP_
 #define INTERFACE_CONTAINER_HPP_
 
+#include "SparseVariable.hpp"
+#include "Variable.hpp"
+#include "globals.hpp"
 #include <map>
 #include <memory>
 #include <string>
 #include <utility> // <pair>
 #include <vector>
-#include "globals.hpp"
-#include "SparseVariable.hpp"
-#include "Variable.hpp"
 
 namespace parthenon {
 ///
@@ -36,7 +36,6 @@ namespace parthenon {
 /// The container class will provide the following methods:
 ///
 
-
 class MeshBlock;
 
 template <typename T>
@@ -45,10 +44,10 @@ class Container {
   //-----------------
   // Public Variables
   //-----------------
-  MeshBlock* pmy_block = nullptr; // ptr to MeshBlock
+  MeshBlock *pmy_block = nullptr; // ptr to MeshBlock
 
   //-----------------
-  //Public Methods
+  // Public Methods
   //-----------------
   /// Constructor
   Container<T>() = default;
@@ -77,8 +76,7 @@ class Container {
   /// @param metadata the metadata associated with the variable
   /// @param dims the size of each element
   ///
-  void Add(const std::string label,
-           const Metadata &metadata,
+  void Add(const std::string label, const Metadata &metadata,
            const std::vector<int> dims);
 
   ///
@@ -92,8 +90,7 @@ class Container {
   /// @param metadata the metadata associated with the variable
   /// @param dims the size of each element
   ///
-  void Add(const std::vector<std::string> labelVector,
-           const Metadata &metadata,
+  void Add(const std::vector<std::string> labelVector, const Metadata &metadata,
            const std::vector<int> dims);
 
   ///
@@ -136,29 +133,22 @@ class Container {
   //
   // Queries related to CellVariable objects
   //
-  const CellVariableVector<T>& GetCellVariableVector() const {
-    return varVector_;
-  }
-  const MapToCellVars<T> GetCellVariableMap() const {
-    return varMap_;
-  }
-  CellVariable<T>& Get(std::string label) {
+  const CellVariableVector<T> &GetCellVariableVector() const { return varVector_; }
+  const MapToCellVars<T> GetCellVariableMap() const { return varMap_; }
+  CellVariable<T> &Get(std::string label) {
     auto it = varMap_.find(label);
     if (it == varMap_.end()) {
-      throw std::invalid_argument(std::string("\n") +
-                                 std::string(label) +
-                                 std::string(" array not found in Get()\n") );
+      throw std::invalid_argument(std::string("\n") + std::string(label) +
+                                  std::string(" array not found in Get()\n"));
     }
     return *(it->second);
   }
 
-  CellVariable<T>& Get(const int index) {
-    return *(varVector_[index]);
-  }
+  CellVariable<T> &Get(const int index) { return *(varVector_[index]); }
 
-  int Index(const std::string& label) {
+  int Index(const std::string &label) {
     for (int i = 0; i < varVector_.size(); i++) {
-      if (! varVector_[i]->label().compare(label)) return i;
+      if (!varVector_[i]->label().compare(label)) return i;
     }
     return -1;
   }
@@ -166,13 +156,9 @@ class Container {
   //
   // Queries related to SparseVariable objects
   //
-  const SparseVector<T> GetSparseVector() const {
-    return sparseVector_;
-  }
-  const MapToSparse<T> GetSparseMap() const {
-    return sparseMap_;
-  }
-  SparseVariable<T>& GetSparseVariable(const std::string& label) {
+  const SparseVector<T> GetSparseVector() const { return sparseVector_; }
+  const MapToSparse<T> GetSparseMap() const { return sparseMap_; }
+  SparseVariable<T> &GetSparseVariable(const std::string &label) {
     auto it = sparseMap_.find(label);
     if (it == sparseMap_.end()) {
       throw std::invalid_argument("sparseMap_ does not have " + label);
@@ -180,42 +166,37 @@ class Container {
     return *(it->second);
   }
 
-  SparseMap<T>& GetSparseMap(const std::string& label) {
+  SparseMap<T> &GetSparseMap(const std::string &label) {
     return GetSparseVariable(label).GetMap();
   }
 
-  CellVariableVector<T>& GetSparseVector(const std::string& label) {
+  CellVariableVector<T> &GetSparseVector(const std::string &label) {
     return GetSparseVariable(label).GetVector();
   }
 
-  CellVariable<T>& Get(const std::string& label, const int sparse_id) {
+  CellVariable<T> &Get(const std::string &label, const int sparse_id) {
     return GetSparseVariable(label).Get(sparse_id);
   }
 
-  std::vector<int>& GetSparseIndexMap(const std::string& label) {
+  std::vector<int> &GetSparseIndexMap(const std::string &label) {
     return GetSparseVariable(label).GetIndexMap();
   }
 
   //
   // Queries related to FaceVariable objects
   //
-  const FaceVector<T>& GetFaceVector() const {
-    return faceVector_;
-  }
-  const MapToFace<T> GetFaceMap() const {
-    return faceMap_;
-  }
-  FaceVariable<T>& GetFace(std::string label) {
+  const FaceVector<T> &GetFaceVector() const { return faceVector_; }
+  const MapToFace<T> GetFaceMap() const { return faceMap_; }
+  FaceVariable<T> &GetFace(std::string label) {
     auto it = faceMap_.find(label);
     if (it == faceMap_.end()) {
-      throw std::invalid_argument (std::string("\n") +
-                                   std::string(label) +
-                                   std::string(" array not found in Get() Face\n") );
+      throw std::invalid_argument(std::string("\n") + std::string(label) +
+                                  std::string(" array not found in Get() Face\n"));
     }
     return *(it->second);
   }
 
-  ParArrayND<Real>& GetFace(std::string label, int dir) {
+  ParArrayND<Real> &GetFace(std::string label, int dir) {
     return GetFace(label).Get(dir);
   }
 
@@ -228,9 +209,8 @@ class Container {
     // for (auto v : _edgeVector) {
     //   if (! v->label().compare(label)) return v;
     // }
-    throw std::invalid_argument (std::string("\n") +
-                                 std::string(label) +
-                                 std::string(" array not found in Get() Edge\n") );
+    throw std::invalid_argument(std::string("\n") + std::string(label) +
+                                std::string(" array not found in Get() Edge\n"));
   }
 
   /// Gets an array of real variables from container.
@@ -238,10 +218,10 @@ class Container {
   /// @param indexCount a map of names to std::pair<index,count> for each name
   /// @param sparse_ids if specified is list of sparse ids we are interested in.  Note
   ///        that non-sparse variables specified are aliased in as is.
-  int GetCellVariables(const std::vector<std::string>& names,
-                   std::vector<CellVariable<T>>& vRet,
-                   std::map<std::string,std::pair<int,int>>& indexCount,
-                   const std::vector<int>& sparse_ids = {});
+  int GetCellVariables(const std::vector<std::string> &names,
+                       std::vector<CellVariable<T>> &vRet,
+                       std::map<std::string, std::pair<int, int>> &indexCount,
+                       const std::vector<int> &sparse_ids = {});
 
   ///
   /// Remove a variable from the container or throw exception if not
@@ -249,12 +229,11 @@ class Container {
   /// @param label the name of the variable to be deleted
   void Remove(const std::string label);
 
-
   /// Print list of labels in container
   void Print();
 
   // return number of stored arrays
-  int Size() {return varVector_.size();}
+  int Size() { return varVector_.size(); }
 
   // Communication routines
   void ResetBoundaryCellVariables();
@@ -267,75 +246,74 @@ class Container {
   void ClearBoundary(BoundaryCommSubset phase);
   void SendFluxCorrection();
   bool ReceiveFluxCorrection();
-  static TaskStatus StartReceivingTask(Container<T>& rc) {
+  static TaskStatus StartReceivingTask(Container<T> &rc) {
     rc.StartReceiving(BoundaryCommSubset::all);
     return TaskStatus::complete;
   }
-  static TaskStatus SendFluxCorrectionTask(Container<T>& rc) {
+  static TaskStatus SendFluxCorrectionTask(Container<T> &rc) {
     rc.SendFluxCorrection();
     return TaskStatus::complete;
   }
-  static TaskStatus ReceiveFluxCorrectionTask(Container<T>& rc) {
+  static TaskStatus ReceiveFluxCorrectionTask(Container<T> &rc) {
     if (!rc.ReceiveFluxCorrection()) return TaskStatus::incomplete;
     return TaskStatus::complete;
   }
-  static TaskStatus SendBoundaryBuffersTask(Container<T>& rc) {
+  static TaskStatus SendBoundaryBuffersTask(Container<T> &rc) {
     rc.SendBoundaryBuffers();
     return TaskStatus::complete;
   }
-  static TaskStatus ReceiveBoundaryBuffersTask(Container<T>& rc) {
-    if ( !rc.ReceiveBoundaryBuffers() ) return TaskStatus::incomplete;
+  static TaskStatus ReceiveBoundaryBuffersTask(Container<T> &rc) {
+    if (!rc.ReceiveBoundaryBuffers()) return TaskStatus::incomplete;
     return TaskStatus::complete;
   }
-  static TaskStatus SetBoundariesTask(Container<T>& rc) {
+  static TaskStatus SetBoundariesTask(Container<T> &rc) {
     rc.SetBoundaries();
     return TaskStatus::complete;
   }
-  static TaskStatus ClearBoundaryTask(Container<T>& rc) {
+  static TaskStatus ClearBoundaryTask(Container<T> &rc) {
     rc.ClearBoundary(BoundaryCommSubset::all);
     return TaskStatus::complete;
   }
 
-  bool operator== (const Container<T>& cmp) {
+  bool operator==(const Container<T> &cmp) {
     // do some kind of check of equality
     // do the two containers contain the same named fields?
     std::vector<std::string> my_keys;
     std::vector<std::string> cmp_keys;
-    for (auto & v : varMap_) {
+    for (auto &v : varMap_) {
       my_keys.push_back(v.first);
     }
-    for (auto & v : faceMap_) {
+    for (auto &v : faceMap_) {
       my_keys.push_back(v.first);
     }
-    for (auto & v : sparseMap_) {
+    for (auto &v : sparseMap_) {
       my_keys.push_back(v.first);
     }
-    for (auto & v : cmp.GetCellVariableMap()) {
+    for (auto &v : cmp.GetCellVariableMap()) {
       cmp_keys.push_back(v.first);
     }
-    for (auto & v : cmp.GetFaceMap()) {
+    for (auto &v : cmp.GetFaceMap()) {
       cmp_keys.push_back(v.first);
     }
-    for (auto & v : cmp.GetSparseMap()) {
+    for (auto &v : cmp.GetSparseMap()) {
       cmp_keys.push_back(v.first);
     }
     return (my_keys == cmp_keys);
   }
 
  private:
-  int debug=0;
+  int debug = 0;
 
   CellVariableVector<T> varVector_ = {}; ///< the saved variable array
-  FaceVector<T> faceVector_ = {};  ///< the saved face arrays
+  FaceVector<T> faceVector_ = {};        ///< the saved face arrays
   SparseVector<T> sparseVector_ = {};
 
   MapToCellVars<T> varMap_ = {};
   MapToFace<T> faceMap_ = {};
   MapToSparse<T> sparseMap_ = {};
 
-  void calcArrDims_(std::array<int, 6>& arrDims,
-                    const std::vector<int>& dims,
-                    const Metadata& metadata);
+  void calcArrDims_(std::array<int, 6> &arrDims, const std::vector<int> &dims,
+                    const Metadata &metadata);
 };
 
 } // namespace parthenon

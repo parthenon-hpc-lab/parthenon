@@ -24,8 +24,8 @@
 #include <vector>
 
 #include "Container.hpp"
-#include "interface/PropertiesInterface.hpp"
 #include "Variable.hpp"
+#include "interface/PropertiesInterface.hpp"
 
 namespace parthenon {
 template <typename T>
@@ -33,18 +33,18 @@ class ContainerIterator {
  public:
   /// the subset of variables that match this iterator
   CellVariableVector<T> vars;
-  //std::vector<FaceVariable> varsFace; // face vars that match
-  //std::vector<EdgeVariable> varsEdge; // edge vars that match
+  // std::vector<FaceVariable> varsFace; // face vars that match
+  // std::vector<EdgeVariable> varsEdge; // edge vars that match
 
   /// initializes the iterator with a container and a flag to match
   /// @param c the container on which you want the iterator
   /// @param flagVector: a vector of Metadata::flags that you want to match
-  ContainerIterator<T>(const Container<T>& c,
+  ContainerIterator<T>(const Container<T> &c,
                        const std::vector<MetadataFlag> &flagVector) {
-    //c.print();
+    // c.print();
     auto allVars = c.GetCellVariableVector();
-    for (auto & svar : c.GetSparseVector()) {
-      CellVariableVector<T>& svec = svar->GetVector();
+    for (auto &svar : c.GetSparseVector()) {
+      CellVariableVector<T> &svec = svar->GetVector();
       allVars.insert(allVars.end(), svec.begin(), svec.end());
     }
     // faces not active yet    _allFaceVars = c.faceVars();
@@ -57,7 +57,7 @@ class ContainerIterator {
   //}
   /// Changes the mask for the iterator and resets the iterator
   /// @param flagArray: a vector of MetadataFlag that you want to match
-  void setMask(const CellVariableVector<T>& allVars,
+  void setMask(const CellVariableVector<T> &allVars,
                const std::vector<MetadataFlag> &flagVector) {
     // 1: clear out variables stored so far
     _emptyVars();
@@ -70,34 +70,41 @@ class ContainerIterator {
     }
   }
 
-
  private:
   uint64_t _mask;
   FaceVector<T> _allFaceVars = {};
-  //EdgeVector<T> _allEdgeVars = {};
-  //CellVariableVector<T> _allVars = {};
+  // EdgeVector<T> _allEdgeVars = {};
+  // CellVariableVector<T> _allVars = {};
   void _emptyVars() {
     vars.clear();
-  //  varsFace.clear();
-  //  varsEdge.clear();
+    //  varsFace.clear();
+    //  varsEdge.clear();
   }
   static bool couldBeEdge(const std::vector<MetadataFlag> &flagVector) {
     // returns true if face is set or if no topology set
     for (auto &f : flagVector) {
-      if ( f == Metadata::Edge) return true;
-      else if ( f == Metadata::Cell) return false;
-      else if ( f == Metadata::Face) return false;
-      else if ( f == Metadata::Node) return false;
+      if (f == Metadata::Edge)
+        return true;
+      else if (f == Metadata::Cell)
+        return false;
+      else if (f == Metadata::Face)
+        return false;
+      else if (f == Metadata::Node)
+        return false;
     }
     return true;
   }
   static bool couldBeFace(const std::vector<MetadataFlag> &flagVector) {
     // returns true if face is set or if no topology set
     for (auto &f : flagVector) {
-      if ( f == Metadata::Face) return true;
-      else if ( f == Metadata::Cell) return false;
-      else if ( f == Metadata::Edge) return false;
-      else if ( f == Metadata::Node) return false;
+      if (f == Metadata::Face)
+        return true;
+      else if (f == Metadata::Cell)
+        return false;
+      else if (f == Metadata::Edge)
+        return false;
+      else if (f == Metadata::Node)
+        return false;
     }
     return true;
   }

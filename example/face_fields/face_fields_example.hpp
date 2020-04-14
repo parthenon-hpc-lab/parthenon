@@ -27,8 +27,7 @@ namespace parthenon {
 class FaceFieldExample : public Driver {
  public:
   FaceFieldExample(ParameterInput *pin, Mesh *pm, Outputs *pout)
-    : Driver(pin, pm, pout)
-  {}
+      : Driver(pin, pm, pout) {}
   TaskList MakeTaskList(MeshBlock *pmb);
   DriverStatus Execute();
 };
@@ -36,6 +35,6 @@ class FaceFieldExample : public Driver {
 } // namespace parthenon
 
 namespace FaceFields {
-  parthenon::TaskStatus fill_faces(parthenon::MeshBlock* pmb);
+parthenon::TaskStatus fill_faces(parthenon::MeshBlock *pmb);
 }
 #endif // EXAMPLE_FACE_FIELDS_FACE_FIELDS_EXAMPLE_HPP_

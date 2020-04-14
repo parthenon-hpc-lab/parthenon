@@ -20,8 +20,8 @@
 // C headers
 
 // C++ headers
-#include <cstdio>    // snprintf()
-#include <cstring>   // memcpy()
+#include <cstdio>  // snprintf()
+#include <cstring> // memcpy()
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -31,12 +31,11 @@
 
 // Athena++ headers
 #include "athena.hpp"
-#include "parthenon_arrays.hpp"
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
-#include "parameter_input.hpp"
 #include "outputs.hpp"
-
+#include "parameter_input.hpp"
+#include "parthenon_arrays.hpp"
 
 namespace parthenon {
 //----------------------------------------------------------------------------------------
@@ -46,4 +45,4 @@ namespace parthenon {
 void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool force_write) {
   throw std::runtime_error(std::string(__func__) + " is not implemented");
 }
-}
+} // namespace parthenon

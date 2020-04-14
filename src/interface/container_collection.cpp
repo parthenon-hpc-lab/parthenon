@@ -19,7 +19,7 @@
 namespace parthenon {
 
 template <typename T>
-void ContainerCollection<T>::Add(const std::string& name, Container<T>& src) {
+void ContainerCollection<T>::Add(const std::string &name, Container<T> &src) {
   // error check for duplicate names
   auto it = containers_.find(name);
   if (it != containers_.end()) {
@@ -38,7 +38,7 @@ void ContainerCollection<T>::Add(const std::string& name, Container<T>& src) {
       c->Add(v);
     } else {
       // allocate new storage
-      c->Add( v->AllocateCopy() );
+      c->Add(v->AllocateCopy());
     }
   }
 
@@ -55,7 +55,7 @@ void ContainerCollection<T>::Add(const std::string& name, Container<T>& src) {
       // copy the shared pointer
       c->Add(v);
     } else {
-      c->Add( v->AllocateCopy() );
+      c->Add(v->AllocateCopy());
     }
   }
 

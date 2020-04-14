@@ -15,11 +15,11 @@
 #include <utility>
 #include <vector>
 
-#include "bvals/cc/bvals_cc.hpp"
 #include "Container.hpp"
+#include "SparseVariable.hpp"
+#include "bvals/cc/bvals_cc.hpp"
 #include "globals.hpp" // my_rank
 #include "mesh/mesh.hpp"
-#include "SparseVariable.hpp"
 
 namespace parthenon {
 
@@ -29,7 +29,7 @@ namespace parthenon {
 template <typename T>
 void Container<T>::Add(const std::string label, const Metadata &metadata) {
   // generate the vector and call Add
-  const std::vector<int>& dims = metadata.Shape();
+  const std::vector<int> &dims = metadata.Shape();
   Add(label, metadata, dims);
 }
 
@@ -44,8 +44,7 @@ void Container<T>::Add(const std::vector<std::string> labelArray,
 
 template <typename T>
 void Container<T>::Add(const std::vector<std::string> labelArray,
-                       const Metadata &metadata,
-                       const std::vector<int> dims) {
+                       const Metadata &metadata, const std::vector<int> dims) {
   for (auto label : labelArray) {
     Add(label, metadata, dims);
   }
@@ -59,17 +58,16 @@ void Container<T>::Add(const std::vector<std::string> labelArray,
 /// @param dims the size of each element
 /// @param metadata the metadata associated with the variable
 template <typename T>
-void Container<T>::Add(const std::string label,
-                       const Metadata &metadata,
+void Container<T>::Add(const std::string label, const Metadata &metadata,
                        const std::vector<int> dims) {
   std::array<int, 6> arrDims;
   calcArrDims_(arrDims, dims, metadata);
 
-
   // branch on kind of variable
   if (metadata.IsSet(Metadata::Sparse)) {
-    if ( !(metadata.Where() == Metadata::Cell) ) {
-      throw std::invalid_argument("SparseVariable currently only supports cell-centered data");
+    if (!(metadata.Where() == Metadata::Cell)) {
+      throw std::invalid_argument(
+          "SparseVariable currently only supports cell-centered data");
     }
     // add a sparse variable
     if (sparseMap_.find(label) == sparseMap_.end()) {
@@ -80,20 +78,19 @@ void Container<T>::Add(const std::string label,
     int varIndex = metadata.GetSparseId();
     sparseMap_[label]->Add(varIndex);
     if (metadata.IsSet(Metadata::FillGhost)) {
-      CellVariable<T>& v = sparseMap_[label]->Get(varIndex);
+      CellVariable<T> &v = sparseMap_[label]->Get(varIndex);
       v.allocateComms(pmy_block);
     }
-  } else if ( metadata.Where() == Metadata::Edge ) {
+  } else if (metadata.Where() == Metadata::Edge) {
     // add an edge variable
     std::cerr << "Accessing unliving edge array in stage" << std::endl;
     std::exit(1);
     // s->_edgeVector.push_back(
     //     new EdgeVariable(label, metadata,
     //                      pmy_block->ncells3, pmy_block->ncells2, pmy_block->ncells1));
-  } else if ( metadata.Where() == Metadata::Face ) {
-    if ( !(metadata.IsSet(Metadata::OneCopy)) ) {
-      std::cerr << "Currently one one-copy face fields are supported"
-                << std::endl;
+  } else if (metadata.Where() == Metadata::Face) {
+    if (!(metadata.IsSet(Metadata::OneCopy))) {
+      std::cerr << "Currently one one-copy face fields are supported" << std::endl;
       std::exit(1);
     }
     if (metadata.IsSet(Metadata::FillGhost)) {
@@ -108,7 +105,7 @@ void Container<T>::Add(const std::string label,
     auto sv = std::make_shared<CellVariable<T>>(label, arrDims, metadata);
     varVector_.push_back(sv);
     varMap_[label] = sv;
-    if ( metadata.IsSet(Metadata::FillGhost) ) {
+    if (metadata.IsSet(Metadata::FillGhost)) {
       sv->allocateComms(pmy_block);
     }
   }
@@ -141,7 +138,7 @@ Container<T> Container<T>::SparseSlice(int id) {
   for (auto v : sparseVector_) {
     int index = v->GetIndex(id);
     if (index >= 0) {
-      CellVariable<T>& vmat = v->Get(id);
+      CellVariable<T> &vmat = v->Get(id);
       auto sv = std::make_shared<CellVariable<T>>(vmat);
       c.varVector_.push_back(sv);
       c.varMap_[v->label()] = sv;
@@ -161,14 +158,14 @@ void Container<T>::Remove(const std::string label) {
 template <typename T>
 void Container<T>::SendFluxCorrection() {
   for (auto &v : varVector_) {
-    if ( v->IsSet(Metadata::Independent) ) {
+    if (v->IsSet(Metadata::Independent)) {
       v->vbvar->SendFluxCorrection();
     }
   }
   for (auto &sv : sparseVector_) {
-    if ( (sv->IsSet(Metadata::Independent)) ) {
+    if ((sv->IsSet(Metadata::Independent))) {
       CellVariableVector<T> vvec = sv->GetVector();
-      for (auto & v : vvec) {
+      for (auto &v : vvec) {
         v->vbvar->SendFluxCorrection();
       }
     }
@@ -177,40 +174,40 @@ void Container<T>::SendFluxCorrection() {
 
 template <typename T>
 bool Container<T>::ReceiveFluxCorrection() {
-  int success=0, total=0;
+  int success = 0, total = 0;
   for (auto &v : varVector_) {
     if (v->IsSet(Metadata::Independent)) {
-      if(v->vbvar->ReceiveFluxCorrection()) success++;
+      if (v->vbvar->ReceiveFluxCorrection()) success++;
       total++;
     }
   }
   for (auto &sv : sparseVector_) {
-    if ( sv->IsSet(Metadata::Independent) ) {
+    if (sv->IsSet(Metadata::Independent)) {
       CellVariableVector<T> vvec = sv->GetVector();
-      for (auto & v : vvec) {
+      for (auto &v : vvec) {
         if (v->vbvar->ReceiveFluxCorrection()) success++;
         total++;
       }
     }
   }
-  return (success==total);
+  return (success == total);
 }
 
 template <typename T>
 void Container<T>::SendBoundaryBuffers() {
   // sends the boundary
-  debug=0;
+  debug = 0;
   //  std::cout << "_________SEND from stage:"<<s->name()<<std::endl;
   for (auto &v : varVector_) {
-    if ( v->IsSet(Metadata::FillGhost) ) {
+    if (v->IsSet(Metadata::FillGhost)) {
       v->resetBoundary();
       v->vbvar->SendBoundaryBuffers();
     }
   }
   for (auto &sv : sparseVector_) {
-    if ( sv->IsSet(Metadata::FillGhost) ) {
+    if (sv->IsSet(Metadata::FillGhost)) {
       CellVariableVector<T> vvec = sv->GetVector();
-      for (auto & v : vvec) {
+      for (auto &v : vvec) {
         v->resetBoundary();
         v->vbvar->SendBoundaryBuffers();
       }
@@ -224,15 +221,15 @@ template <typename T>
 void Container<T>::SetupPersistentMPI() {
   // setup persistent MPI
   for (auto &v : varVector_) {
-    if ( v->IsSet(Metadata::FillGhost) ) {
-        v->resetBoundary();
-        v->vbvar->SetupPersistentMPI();
+    if (v->IsSet(Metadata::FillGhost)) {
+      v->resetBoundary();
+      v->vbvar->SetupPersistentMPI();
     }
   }
   for (auto &sv : sparseVector_) {
-    if ( sv->IsSet(Metadata::FillGhost) ) {
+    if (sv->IsSet(Metadata::FillGhost)) {
       CellVariableVector<T> vvec = sv->GetVector();
-      for (auto & v : vvec) {
+      for (auto &v : vvec) {
         v->resetBoundary();
         v->vbvar->SetupPersistentMPI();
       }
@@ -248,12 +245,12 @@ bool Container<T>::ReceiveBoundaryBuffers() {
   ret = true;
   // receives the boundary
   for (auto &v : varVector_) {
-    if ( v->IsSet(Metadata::FillGhost) ) {
-      //ret = ret & v->vbvar->ReceiveBoundaryBuffers();
+    if (v->IsSet(Metadata::FillGhost)) {
+      // ret = ret & v->vbvar->ReceiveBoundaryBuffers();
       // In case we have trouble with multiple arrays causing
       // problems with task status, we should comment one line
       // above and uncomment the if block below
-      if (! v->mpiStatus) {
+      if (!v->mpiStatus) {
         v->resetBoundary();
         v->mpiStatus = v->vbvar->ReceiveBoundaryBuffers();
         ret = (ret & v->mpiStatus);
@@ -261,10 +258,10 @@ bool Container<T>::ReceiveBoundaryBuffers() {
     }
   }
   for (auto &sv : sparseVector_) {
-    if ( sv->IsSet(Metadata::FillGhost) ) {
+    if (sv->IsSet(Metadata::FillGhost)) {
       CellVariableVector<T> vvec = sv->GetVector();
-      for (auto & v : vvec) {
-        if (! v->mpiStatus) {
+      for (auto &v : vvec) {
+        if (!v->mpiStatus) {
           v->resetBoundary();
           v->mpiStatus = v->vbvar->ReceiveBoundaryBuffers();
           ret = (ret & v->mpiStatus);
@@ -280,17 +277,17 @@ template <typename T>
 void Container<T>::ReceiveAndSetBoundariesWithWait() {
   //  std::cout << "_________RSET from stage:"<<s->name()<<std::endl;
   for (auto &v : varVector_) {
-    if ( (!v->mpiStatus) && v->IsSet(Metadata::FillGhost) ) {
+    if ((!v->mpiStatus) && v->IsSet(Metadata::FillGhost)) {
       v->resetBoundary();
       v->vbvar->ReceiveAndSetBoundariesWithWait();
       v->mpiStatus = true;
     }
   }
   for (auto &sv : sparseVector_) {
-    if ( (sv->IsSet(Metadata::FillGhost)) ) {
+    if ((sv->IsSet(Metadata::FillGhost))) {
       CellVariableVector<T> vvec = sv->GetVector();
-      for (auto & v : vvec) {
-        if (! v->mpiStatus) {
+      for (auto &v : vvec) {
+        if (!v->mpiStatus) {
           v->resetBoundary();
           v->vbvar->ReceiveAndSetBoundariesWithWait();
           v->mpiStatus = true;
@@ -309,15 +306,15 @@ void Container<T>::SetBoundaries() {
   // sets the boundary
   //  std::cout << "_________BSET from stage:"<<s->name()<<std::endl;
   for (auto &v : varVector_) {
-    if ( v->IsSet(Metadata::FillGhost) ) {
+    if (v->IsSet(Metadata::FillGhost)) {
       v->resetBoundary();
       v->vbvar->SetBoundaries();
     }
   }
   for (auto &sv : sparseVector_) {
-    if ( sv->IsSet(Metadata::FillGhost) ) {
+    if (sv->IsSet(Metadata::FillGhost)) {
       CellVariableVector<T> vvec = sv->GetVector();
-      for (auto & v : vvec) {
+      for (auto &v : vvec) {
         v->resetBoundary();
         v->vbvar->SetBoundaries();
       }
@@ -328,14 +325,14 @@ void Container<T>::SetBoundaries() {
 template <typename T>
 void Container<T>::ResetBoundaryCellVariables() {
   for (auto &v : varVector_) {
-    if ( v->IsSet(Metadata::FillGhost) ) {
+    if (v->IsSet(Metadata::FillGhost)) {
       v->vbvar->var_cc = v->data;
     }
   }
   for (auto &sv : sparseVector_) {
-    if ( sv->IsSet(Metadata::FillGhost) ) {
+    if (sv->IsSet(Metadata::FillGhost)) {
       CellVariableVector<T> vvec = sv->GetVector();
-      for (auto & v : vvec) {
+      for (auto &v : vvec) {
         v->vbvar->var_cc = v->data;
       }
     }
@@ -348,16 +345,16 @@ void Container<T>::StartReceiving(BoundaryCommSubset phase) {
   // sets the boundary
   //  std::cout << "________CLEAR from stage:"<<s->name()<<std::endl;
   for (auto &v : varVector_) {
-    if ( v->IsSet(Metadata::FillGhost) ) {
+    if (v->IsSet(Metadata::FillGhost)) {
       v->resetBoundary();
       v->vbvar->StartReceiving(phase);
-      v->mpiStatus=false;
+      v->mpiStatus = false;
     }
   }
   for (auto &sv : sparseVector_) {
-    if ( sv->IsSet(Metadata::FillGhost) ) {
+    if (sv->IsSet(Metadata::FillGhost)) {
       CellVariableVector<T> vvec = sv->GetVector();
-      for (auto & v : vvec) {
+      for (auto &v : vvec) {
         v->resetBoundary();
         v->vbvar->StartReceiving(phase);
         v->mpiStatus = false;
@@ -372,38 +369,41 @@ void Container<T>::ClearBoundary(BoundaryCommSubset phase) {
   // sets the boundary
   //  std::cout << "________CLEAR from stage:"<<s->name()<<std::endl;
   for (auto &v : varVector_) {
-    if ( v->IsSet(Metadata::FillGhost) ) {
+    if (v->IsSet(Metadata::FillGhost)) {
       v->vbvar->ClearBoundary(phase);
     }
   }
   for (auto &sv : sparseVector_) {
-    if ( sv->IsSet(Metadata::FillGhost) ) {
+    if (sv->IsSet(Metadata::FillGhost)) {
       CellVariableVector<T> vvec = sv->GetVector();
-      for (auto & v : vvec) {
+      for (auto &v : vvec) {
         v->vbvar->ClearBoundary(phase);
       }
     }
   }
 }
 
-template<typename T>
+template <typename T>
 void Container<T>::Print() {
   std::cout << "Variables are:\n";
-  for (auto v : varVector_)  {   std::cout << " cell: " <<v->info() << std::endl; }
-  for (auto v : faceVector_) {   std::cout << " face: " <<v->info() << std::endl; }
-  for (auto v : sparseVector_) { std::cout << " sparse:"<<v->info() << std::endl; }
+  for (auto v : varVector_) {
+    std::cout << " cell: " << v->info() << std::endl;
+  }
+  for (auto v : faceVector_) {
+    std::cout << " face: " << v->info() << std::endl;
+  }
+  for (auto v : sparseVector_) {
+    std::cout << " sparse:" << v->info() << std::endl;
+  }
 }
 
-template<typename T>
-void Container<T>::calcArrDims_(std::array<int, 6>& arrDims,
-                                const std::vector<int>& dims,
-                                const Metadata& metadata) {
+template <typename T>
+void Container<T>::calcArrDims_(std::array<int, 6> &arrDims, const std::vector<int> &dims,
+                                const Metadata &metadata) {
   const int N = dims.size();
 
-  if ( metadata.Where() == Metadata::Cell ||
-       metadata.Where() == Metadata::Face ||
-       metadata.Where() == Metadata::Edge ||
-       metadata.Where() == Metadata::Node ) {
+  if (metadata.Where() == Metadata::Cell || metadata.Where() == Metadata::Face ||
+      metadata.Where() == Metadata::Edge || metadata.Where() == Metadata::Node) {
     // Let the FaceVariable, EdgeVariable, and NodeVariable
     // classes add the +1's where needed.  They all expect
     // these dimensions to be the number of cells in each
@@ -412,15 +412,19 @@ void Container<T>::calcArrDims_(std::array<int, 6>& arrDims,
     arrDims[0] = pmy_block->ncells1;
     arrDims[1] = pmy_block->ncells2;
     arrDims[2] = pmy_block->ncells3;
-    for (int i=0; i<N; i++) arrDims[i+3] = dims[i];
-    for (int i=N; i<3; i++) arrDims[i+3] = 1;
+    for (int i = 0; i < N; i++)
+      arrDims[i + 3] = dims[i];
+    for (int i = N; i < 3; i++)
+      arrDims[i + 3] = 1;
   } else {
-    // This variable is not necessarily tied to any specific 
+    // This variable is not necessarily tied to any specific
     // mesh element, so dims will be used as the actual array
     // size in each dimension
     assert(N >= 1 && N <= 6);
-    for (int i=0; i<N; i++) arrDims[i] = dims[i];
-    for (int i=N; i<6; i++) arrDims[i] = 1;
+    for (int i = 0; i < N; i++)
+      arrDims[i] = dims[i];
+    for (int i = N; i < 6; i++)
+      arrDims[i] = 1;
   }
 }
 

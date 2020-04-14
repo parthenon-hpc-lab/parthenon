@@ -39,14 +39,13 @@ namespace parthenon {
 
 class CellCenteredBoundaryVariable : public BoundaryVariable {
  public:
-  CellCenteredBoundaryVariable(MeshBlock *pmb,
-                               ParArrayND<Real> var, ParArrayND<Real> coarse_var,
-                               ParArrayND<Real> *var_flux);
+  CellCenteredBoundaryVariable(MeshBlock *pmb, ParArrayND<Real> var,
+                               ParArrayND<Real> coarse_var, ParArrayND<Real> *var_flux);
   ~CellCenteredBoundaryVariable();
 
   // may want to rebind var_cc to u,u1,u2,w,w1, etc. registers for time integrator logic.
   ParArrayND<Real> var_cc;
-  ParArrayND<Real> coarse_buf;  // may pass nullptr if mesh refinement is unsupported
+  ParArrayND<Real> coarse_buf; // may pass nullptr if mesh refinement is unsupported
 
   // currently, no need to ever switch flux[] ---> keep as reference members (not ptrs)
   // flux[3] w/ 3x empty ParArrayNDs may be passed if mesh refinement is unsupported, but
@@ -59,8 +58,8 @@ class CellCenteredBoundaryVariable : public BoundaryVariable {
   static constexpr int max_phys_id = 3;
 
   // BoundaryVariable:
-  int ComputeVariableBufferSize(const NeighborIndexes& ni, int cng) override;
-  int ComputeFluxCorrectionBufferSize(const NeighborIndexes& ni, int cng) override;
+  int ComputeVariableBufferSize(const NeighborIndexes &ni, int cng) override;
+  int ComputeFluxCorrectionBufferSize(const NeighborIndexes &ni, int cng) override;
 
   // BoundaryCommunication:
   void SetupPersistentMPI() override;
@@ -76,14 +75,14 @@ class CellCenteredBoundaryVariable : public BoundaryVariable {
 
  private:
   // BoundaryBuffer:
-  int LoadBoundaryBufferSameLevel(Real *buf, const NeighborBlock& nb) override;
-  void SetBoundarySameLevel(Real *buf, const NeighborBlock& nb) override;
+  int LoadBoundaryBufferSameLevel(Real *buf, const NeighborBlock &nb) override;
+  void SetBoundarySameLevel(Real *buf, const NeighborBlock &nb) override;
 
-  int LoadBoundaryBufferToCoarser(Real *buf, const NeighborBlock& nb) override;
-  int LoadBoundaryBufferToFiner(Real *buf, const NeighborBlock& nb) override;
+  int LoadBoundaryBufferToCoarser(Real *buf, const NeighborBlock &nb) override;
+  int LoadBoundaryBufferToFiner(Real *buf, const NeighborBlock &nb) override;
 
-  void SetBoundaryFromCoarser(Real *buf, const NeighborBlock& nb) override;
-  void SetBoundaryFromFiner(Real *buf, const NeighborBlock& nb) override;
+  void SetBoundaryFromCoarser(Real *buf, const NeighborBlock &nb) override;
+  void SetBoundaryFromFiner(Real *buf, const NeighborBlock &nb) override;
 
 #ifdef MPI_PARALLEL
   int cc_phys_id_, cc_flx_phys_id_;
@@ -93,5 +92,5 @@ class CellCenteredBoundaryVariable : public BoundaryVariable {
                  const int i, const Real eps, const ParArrayND<Real> &var,
                  ParArrayND<Real> &flux);
 };
-}
+} // namespace parthenon
 #endif // BVALS_CC_BVALS_CC_HPP_

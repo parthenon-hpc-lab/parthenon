@@ -34,15 +34,15 @@ TaskStatus FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
   ContainerIterator<Real> cout_iter(dudt_cont, {Metadata::Independent});
   int nvars = cout_iter.vars.size();
 
-  ParArrayND<Real> x1area("x1area",pmb->ncells1);
-  ParArrayND<Real> x2area0("x2area0",pmb->ncells1);
-  ParArrayND<Real> x2area1("x2area1",pmb->ncells1);
-  ParArrayND<Real> x3area0("x3area0",pmb->ncells1);
-  ParArrayND<Real> x3area1("x3area1",pmb->ncells1);
-  ParArrayND<Real> vol("vol",pmb->ncells1);
+  ParArrayND<Real> x1area("x1area", pmb->ncells1);
+  ParArrayND<Real> x2area0("x2area0", pmb->ncells1);
+  ParArrayND<Real> x2area1("x2area1", pmb->ncells1);
+  ParArrayND<Real> x3area0("x3area0", pmb->ncells1);
+  ParArrayND<Real> x3area1("x3area1", pmb->ncells1);
+  ParArrayND<Real> vol("vol", pmb->ncells1);
 
   int ndim = pmb->pmy_mesh->ndim;
-  ParArrayND<Real> du("du",pmb->ncells1);
+  ParArrayND<Real> du("du", pmb->ncells1);
   for (int k = ks; k <= ke; k++) {
     for (int j = js; j <= je; j++) {
       pmb->pcoord->Face1Area(k, j, is, ie + 1, x1area);
@@ -63,21 +63,21 @@ TaskStatus FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
         CellVariable<Real> &dudt = *cout_iter.vars[n];
         for (int l = 0; l < q.GetDim(4); l++) {
           for (int i = is; i <= ie; i++) {
-            du(i) = (x1area(i + 1) * x1flux(l, k, j, i + 1) -
-                     x1area(i) * x1flux(l, k, j, i));
+            du(i) =
+                (x1area(i + 1) * x1flux(l, k, j, i + 1) - x1area(i) * x1flux(l, k, j, i));
           }
 
           if (ndim >= 2) {
             for (int i = is; i <= ie; i++) {
-              du(i) += (x2area1(i) * x2flux(l, k, j + 1, i) -
-                        x2area0(i) * x2flux(l, k, j, i));
+              du(i) +=
+                  (x2area1(i) * x2flux(l, k, j + 1, i) - x2area0(i) * x2flux(l, k, j, i));
             }
           }
           // TODO(jcd): should the next block be in the preceding if??
           if (ndim >= 3) {
             for (int i = is; i <= ie; i++) {
-              du(i) += (x3area1(i) * x3flux(l, k + 1, j, i) -
-                        x3area0(i) * x3flux(l, k, j, i));
+              du(i) +=
+                  (x3area1(i) * x3flux(l, k + 1, j, i) - x3area0(i) * x3flux(l, k, j, i));
             }
           }
           for (int i = is; i <= ie; i++) {
@@ -91,8 +91,8 @@ TaskStatus FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
   return TaskStatus::complete;
 }
 
-void UpdateContainer(Container<Real> &in, Container<Real> &dudt_cont,
-                     const Real dt, Container<Real> &out) {
+void UpdateContainer(Container<Real> &in, Container<Real> &dudt_cont, const Real dt,
+                     Container<Real> &out) {
   MeshBlock *pmb = in.pmy_block;
   int is = pmb->is;
   int js = pmb->js;
@@ -124,8 +124,7 @@ void UpdateContainer(Container<Real> &in, Container<Real> &dudt_cont,
   return;
 }
 
-void AverageContainers(Container<Real> &c1, Container<Real> &c2,
-                       const Real wgt1) {
+void AverageContainers(Container<Real> &c1, Container<Real> &c2, const Real wgt1) {
   MeshBlock *pmb = c1.pmy_block;
   int is = pmb->is;
   int js = pmb->js;
@@ -146,8 +145,7 @@ void AverageContainers(Container<Real> &c1, Container<Real> &c2,
       for (int k = ks; k <= ke; k++) {
         for (int j = js; j <= je; j++) {
           for (int i = is; i <= ie; i++) {
-            q1(l, k, j, i) =
-                wgt1 * q1(l, k, j, i) + (1 - wgt1) * q2(l, k, j, i);
+            q1(l, k, j, i) = wgt1 * q1(l, k, j, i) + (1 - wgt1) * q2(l, k, j, i);
           }
         }
       }
@@ -171,14 +169,16 @@ Real EstimateTimestep(Container<Real> &rc) {
 
 } // namespace Update
 
-static FillDerivedVariables::FillDerivedFunc* _pre_package_fill = nullptr;
-static FillDerivedVariables::FillDerivedFunc* _post_package_fill = nullptr;
+static FillDerivedVariables::FillDerivedFunc *_pre_package_fill = nullptr;
+static FillDerivedVariables::FillDerivedFunc *_post_package_fill = nullptr;
 
-void FillDerivedVariables::SetFillDerivedFunctions(FillDerivedFunc *pre, FillDerivedFunc *post) {
-  _pre_package_fill = pre; _post_package_fill = post;
+void FillDerivedVariables::SetFillDerivedFunctions(FillDerivedFunc *pre,
+                                                   FillDerivedFunc *post) {
+  _pre_package_fill = pre;
+  _post_package_fill = post;
 }
 
-TaskStatus FillDerivedVariables::FillDerived(Container<Real>& rc) {
+TaskStatus FillDerivedVariables::FillDerived(Container<Real> &rc) {
   if (_pre_package_fill != nullptr) {
     _pre_package_fill(rc);
   }
@@ -194,4 +194,4 @@ TaskStatus FillDerivedVariables::FillDerived(Container<Real>& rc) {
   return TaskStatus::complete;
 }
 
-}
+} // namespace parthenon

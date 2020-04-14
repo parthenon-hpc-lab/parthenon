@@ -17,9 +17,8 @@
 
 #include "driver/driver.hpp"
 #include "interface/Update.hpp"
-#include <Kokkos_Core.hpp>
 #include "refinement/refinement.hpp"
-
+#include <Kokkos_Core.hpp>
 
 namespace parthenon {
 
@@ -36,9 +35,8 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
   if (mpiprv != MPI_THREAD_MULTIPLE) {
     std::cout << "### FATAL ERROR in ParthenonInit" << std::endl
               << "MPI_THREAD_MULTIPLE must be supported for the hybrid parallelzation. "
-              << MPI_THREAD_MULTIPLE << " : " << mpiprv
-              << std::endl;
-    //MPI_Finalize();
+              << MPI_THREAD_MULTIPLE << " : " << mpiprv << std::endl;
+    // MPI_Finalize();
     return ParthenonStatus::error;
   }
 #else  // no OpenMP
@@ -47,12 +45,12 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
               << "MPI Initialization failed." << std::endl;
     return ParthenonStatus::error;
   }
-#endif  // OPENMP_PARALLEL
+#endif // OPENMP_PARALLEL
   // Get process id (rank) in MPI_COMM_WORLD
   if (MPI_SUCCESS != MPI_Comm_rank(MPI_COMM_WORLD, &(Globals::my_rank))) {
     std::cout << "### FATAL ERROR in ParthenonInit" << std::endl
               << "MPI_Comm_rank failed." << std::endl;
-    //MPI_Finalize();
+    // MPI_Finalize();
     return ParthenonStatus::error;
   }
 
@@ -60,13 +58,13 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
   if (MPI_SUCCESS != MPI_Comm_size(MPI_COMM_WORLD, &Globals::nranks)) {
     std::cout << "### FATAL ERROR in main" << std::endl
               << "MPI_Comm_size failed." << std::endl;
-    //MPI_Finalize();
+    // MPI_Finalize();
     return ParthenonStatus::error;
   }
 #else  // no MPI
   Globals::my_rank = 0;
-  Globals::nranks  = 1;
-#endif  // MPI_PARALLEL
+  Globals::nranks = 1;
+#endif // MPI_PARALLEL
 
   Kokkos::initialize(argc, argv);
 
@@ -80,9 +78,7 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
 
   // Set up the signal handler
   SignalHandler::SignalHandlerInit();
-  if (Globals::my_rank == 0 && arg.wtlim > 0)
-    SignalHandler::SetWallTimeAlarm(arg.wtlim);
-
+  if (Globals::my_rank == 0 && arg.wtlim > 0) SignalHandler::SetWallTimeAlarm(arg.wtlim);
 
   // Populate the ParameterInput object
   if (arg.input_filename != nullptr) {
@@ -98,15 +94,15 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
   packages["ParthenonRefinement"] = Refinement::Initialize(pinput.get());
 
   // TODO(jdolence): Deal with restarts
-  //if (arg.res_flag == 0) {
-    pmesh = std::make_unique<Mesh>(pinput.get(), properties, packages, arg.mesh_flag);
+  // if (arg.res_flag == 0) {
+  pmesh = std::make_unique<Mesh>(pinput.get(), properties, packages, arg.mesh_flag);
   //} else {
   //  pmesh = std::make_unique<Mesh>(pinput.get(), )
   //}
 
   // add root_level to all max_level
-  for (auto const & ph : packages) {
-    for (auto & amr : ph.second->amr_criteria) {
+  for (auto const &ph : packages) {
+    for (auto &amr : ph.second->amr_criteria) {
       amr->max_level += pmesh->GetRootLevel();
     }
   }
@@ -135,8 +131,7 @@ void ParthenonManager::PreDriver() {
 }
 
 void ParthenonManager::PostDriver(DriverStatus driver_status) {
-  if (Globals::my_rank == 0)
-    SignalHandler::CancelWallTimeAlarm();
+  if (Globals::my_rank == 0) SignalHandler::CancelWallTimeAlarm();
 
   pouts->MakeOutputs(pmesh.get(), pinput.get());
 
@@ -156,9 +151,10 @@ void ParthenonManager::PostDriver(DriverStatus driver_status) {
     std::cout << "tlim=" << pmesh->tlim << " nlim=" << pmesh->nlim << std::endl;
 
     if (pmesh->adaptive) {
-      std::cout << std::endl << "Number of MeshBlocks = " << pmesh->nbtotal
-                << "; " << pmesh->nbnew << "  created, " << pmesh->nbdel
-                << " destroyed during this simulation." << std::endl;
+      std::cout << std::endl
+                << "Number of MeshBlocks = " << pmesh->nbtotal << "; " << pmesh->nbnew
+                << "  created, " << pmesh->nbdel << " destroyed during this simulation."
+                << std::endl;
     }
 
     // Calculate and print the zone-cycles/cpu-second and wall-second
@@ -166,17 +162,18 @@ void ParthenonManager::PostDriver(DriverStatus driver_status) {
     double omp_time = omp_get_wtime() - omp_start_time_;
 #endif
     clock_t tstop = clock();
-    double cpu_time = (tstop>tstart_ ? static_cast<double> (tstop-tstart_) :
-                       1.0)/static_cast<double> (CLOCKS_PER_SEC);
-    std::uint64_t zonecycles = pmesh->mbcnt *
-        static_cast<std::uint64_t> (pmesh->pblock->GetNumberOfMeshBlockCells());
-    double zc_cpus = static_cast<double> (zonecycles) / cpu_time;
+    double cpu_time = (tstop > tstart_ ? static_cast<double>(tstop - tstart_) : 1.0) /
+                      static_cast<double>(CLOCKS_PER_SEC);
+    std::uint64_t zonecycles =
+        pmesh->mbcnt *
+        static_cast<std::uint64_t>(pmesh->pblock->GetNumberOfMeshBlockCells());
+    double zc_cpus = static_cast<double>(zonecycles) / cpu_time;
 
     std::cout << std::endl << "zone-cycles = " << zonecycles << std::endl;
     std::cout << "cpu time used  = " << cpu_time << std::endl;
     std::cout << "zone-cycles/cpu_second = " << zc_cpus << std::endl;
 #ifdef OPENMP_PARALLEL
-    double zc_omps = static_cast<double> (zonecycles) / omp_time;
+    double zc_omps = static_cast<double>(zonecycles) / omp_time;
     std::cout << std::endl << "omp wtime used = " << omp_time << std::endl;
     std::cout << "zone-cycles/omp_wsecond = " << zc_omps << std::endl;
 #endif
@@ -193,11 +190,11 @@ ParthenonStatus ParthenonManager::ParthenonFinalize() {
 }
 
 void __attribute__((weak)) ParthenonManager::SetFillDerivedFunctions() {
-  FillDerivedVariables::SetFillDerivedFunctions(nullptr,nullptr);
+  FillDerivedVariables::SetFillDerivedFunctions(nullptr, nullptr);
 }
 
 Properties_t __attribute__((weak))
-ParthenonManager::ProcessProperties(std::unique_ptr<ParameterInput>& pin) {
+ParthenonManager::ProcessProperties(std::unique_ptr<ParameterInput> &pin) {
   // In practice, this function should almost always be replaced by a version
   // that sets relevant things for the application.
   Properties_t props;
@@ -205,7 +202,7 @@ ParthenonManager::ProcessProperties(std::unique_ptr<ParameterInput>& pin) {
 }
 
 Packages_t __attribute__((weak))
-ParthenonManager::ProcessPackages(std::unique_ptr<ParameterInput>& pin) {
+ParthenonManager::ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   // In practice, this function should almost always be replaced by a version
   // that sets relevant things for the application.
   Packages_t packages;

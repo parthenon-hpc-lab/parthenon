@@ -31,23 +31,21 @@ namespace parthenon {
 namespace BufferUtility {
 // 2x templated and overloaded functions
 // 4D
-template <typename T> void PackData(ParArrayND<T> &src, T *buf,
-                                    int sn, int en,
-                                    int si, int ei, int sj, int ej, int sk, int ek,
-                                    int &offset);
+template <typename T>
+void PackData(ParArrayND<T> &src, T *buf, int sn, int en, int si, int ei, int sj, int ej,
+              int sk, int ek, int &offset);
 // 3D
-template <typename T> void PackData(ParArrayND<T> &src, T *buf,
-                                    int si, int ei, int sj, int ej, int sk, int ek,
-                                    int &offset);
+template <typename T>
+void PackData(ParArrayND<T> &src, T *buf, int si, int ei, int sj, int ej, int sk, int ek,
+              int &offset);
 // 4D
-template <typename T> void UnpackData(T *buf, ParArrayND<T> &dst,
-                                      int sn, int en,
-                                      int si, int ei, int sj, int ej, int sk, int ek,
-                                      int &offset);
+template <typename T>
+void UnpackData(T *buf, ParArrayND<T> &dst, int sn, int en, int si, int ei, int sj,
+                int ej, int sk, int ek, int &offset);
 // 3D
-template <typename T> void UnpackData(T *buf, ParArrayND<T> &dst,
-                                      int si, int ei, int sj, int ej, int sk, int ek,
-                                      int &offset);
+template <typename T>
+void UnpackData(T *buf, ParArrayND<T> &dst, int si, int ei, int sj, int ej, int sk,
+                int ek, int &offset);
 } // namespace BufferUtility
-}
+} // namespace parthenon
 #endif // UTILS_BUFFER_UTILS_HPP_

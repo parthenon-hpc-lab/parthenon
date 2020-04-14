@@ -19,8 +19,8 @@
 
 // C headers
 // POSIX C extensions
-#include <sys/stat.h>  // mkdir()
-#include <unistd.h>    // chdir()
+#include <sys/stat.h> // mkdir()
+#include <unistd.h>   // chdir()
 
 // C++ headers
 #include <iostream>
@@ -49,4 +49,4 @@ void ChangeRunDir(const char *pdir) {
 
   return;
 }
-}
+} // namespace parthenon

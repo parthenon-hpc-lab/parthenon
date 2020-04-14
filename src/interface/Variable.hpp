@@ -33,9 +33,9 @@
 #include <utility>
 #include <vector>
 
+#include "Metadata.hpp"
 #include "basic_types.hpp"
 #include "bvals/cc/bvals_cc.hpp"
-#include "Metadata.hpp"
 #include "parthenon_arrays.hpp"
 
 namespace parthenon {
@@ -45,22 +45,21 @@ template <typename T>
 class CellVariable {
  public:
   /// Initialize a 6D variable
-  CellVariable<T>(const std::string label,
-              const std::array<int,6> dims,
-              const Metadata &metadata) :
-    data(label, dims[5], dims[4], dims[3], dims[2], dims[1], dims[0]),
-    mpiStatus(false),
-    m_(metadata) { }
+  CellVariable<T>(const std::string label, const std::array<int, 6> dims,
+                  const Metadata &metadata)
+      : data(label, dims[5], dims[4], dims[3], dims[2], dims[1], dims[0]),
+        mpiStatus(false), m_(metadata) {}
 
   // make a new CellVariable based on an existing one
-  std::shared_ptr<CellVariable<T>> AllocateCopy(const bool allocComms=false,
-                                                MeshBlock *pmb=nullptr);
+  std::shared_ptr<CellVariable<T>> AllocateCopy(const bool allocComms = false,
+                                                MeshBlock *pmb = nullptr);
 
   // accessors
 
-  template <class...Args>
-  KOKKOS_FORCEINLINE_FUNCTION
-  auto &operator() (Args... args) { return data(std::forward<Args>(args)...); }
+  template <class... Args>
+  KOKKOS_FORCEINLINE_FUNCTION auto &operator()(Args... args) {
+    return data(std::forward<Args>(args)...);
+  }
 
   KOKKOS_FORCEINLINE_FUNCTION
   auto GetDim(const int i) const { return data.GetDim(i); }
@@ -85,8 +84,8 @@ class CellVariable {
   bool IsSet(const MetadataFlag bit) const { return m_.IsSet(bit); }
 
   ParArrayND<T> data;
-  ParArrayND<T> flux[3];    // used for boundary calculation
-  ParArrayND<T> coarse_s;   // used for sending coarse boundary calculation
+  ParArrayND<T> flux[3];  // used for boundary calculation
+  ParArrayND<T> coarse_s; // used for sending coarse boundary calculation
   // used in case of cell boundary communication
   std::shared_ptr<CellCenteredBoundaryVariable> vbvar;
   bool mpiStatus;
@@ -94,8 +93,6 @@ class CellVariable {
  private:
   Metadata m_;
 };
-
-
 
 ///
 /// FaceVariable extends the FaceField struct to include the metadata
@@ -106,29 +103,24 @@ template <typename T>
 class FaceVariable {
  public:
   /// Initialize a face variable
-  FaceVariable(const std::string label, const std::array<int,6> ncells,
-    const Metadata& metadata)
-    : data(label,ncells[5], ncells[4], ncells[3], ncells[2], ncells[1], ncells[0]),
-      dims_(ncells),
-      m_(metadata),
-      label_(label) {
-    assert ( !metadata.IsSet(Metadata::Sparse)
-             && "Sparse not implemented yet for FaceVariable" );
+  FaceVariable(const std::string label, const std::array<int, 6> ncells,
+               const Metadata &metadata)
+      : data(label, ncells[5], ncells[4], ncells[3], ncells[2], ncells[1], ncells[0]),
+        dims_(ncells), m_(metadata), label_(label) {
+    assert(!metadata.IsSet(Metadata::Sparse) &&
+           "Sparse not implemented yet for FaceVariable");
   }
 
   /// Create an alias for the variable by making a shallow slice with max dim
   FaceVariable(std::string label, FaceVariable<T> &src)
-    : data(src.data),
-      dims_(src.dims_),
-      m_(src.m_),
-      label_(label) { }
+      : data(src.data), dims_(src.dims_), m_(src.m_), label_(label) {}
 
   // KOKKOS_FUNCTION FaceVariable() = default;
   // KOKKOS_FUNCTION FaceVariable(const FaceVariable<T>& v) = default;
   // KOKKOS_FUNCTION ~FaceVariable() = default;
 
   ///< retrieve label for variable
-  const std::string& label() const { return label_; }
+  const std::string &label() const { return label_; }
 
   ///< retrieve metadata for variable
   const Metadata metadata() const { return m_; }
@@ -139,21 +131,18 @@ class FaceVariable {
   // TODO(JMM): should this be 0,1,2?
   // Should we return the reference? Or something else?
   KOKKOS_FORCEINLINE_FUNCTION
-  ParArrayND<T>& Get(int i) {
-    assert( 1 <= i && i <= 3 );
-    if (i == 1)
-      return (data.x1f);
+  ParArrayND<T> &Get(int i) {
+    assert(1 <= i && i <= 3);
+    if (i == 1) return (data.x1f);
     if (i == 2)
       return (data.x2f);
     else // i == 3
       return (data.x3f);
   }
-  template<typename...Args>
-  KOKKOS_FORCEINLINE_FUNCTION
-  T& operator()(int dir, Args... args) const {
-    assert( 1 <= dir && dir <= 3 );
-    if (dir == 1)
-      return data.x1f(std::forward<Args>(args)...);
+  template <typename... Args>
+  KOKKOS_FORCEINLINE_FUNCTION T &operator()(int dir, Args... args) const {
+    assert(1 <= dir && dir <= 3);
+    if (dir == 1) return data.x1f(std::forward<Args>(args)...);
     if (dir == 2)
       return data.x2f(std::forward<Args>(args)...);
     else // dir == 3
@@ -165,7 +154,7 @@ class FaceVariable {
   FaceArray<T> data;
 
  private:
-  std::array<int,6> dims_;
+  std::array<int, 6> dims_;
   Metadata m_;
   std::string label_;
 };
@@ -179,22 +168,17 @@ template <typename T>
 class EdgeVariable {
  public:
   /// Initialize an edge variable
-  EdgeVariable(const std::string label, const std::array<int,6> ncells,
-    const Metadata& metadata)
-    : data(label,ncells[5], ncells[4], ncells[3], ncells[2], ncells[1], ncells[0]),
-      dims_(ncells),
-      m_(metadata),
-      label_(label) {
-    assert ( !metadata.IsSet(Metadata::Sparse)
-             && "Sparse not implemented yet for FaceVariable" );
+  EdgeVariable(const std::string label, const std::array<int, 6> ncells,
+               const Metadata &metadata)
+      : data(label, ncells[5], ncells[4], ncells[3], ncells[2], ncells[1], ncells[0]),
+        dims_(ncells), m_(metadata), label_(label) {
+    assert(!metadata.IsSet(Metadata::Sparse) &&
+           "Sparse not implemented yet for FaceVariable");
   }
 
   /// Create an alias for the variable by making a shallow slice with max dim
   EdgeVariable(std::string label, EdgeVariable<T> &src)
-    : data(src.data),
-      dims_(src.dims_),
-      m_(src.m_),
-      label_(label) { }
+      : data(src.data), dims_(src.dims_), m_(src.m_), label_(label) {}
   ///< retrieve metadata for variable
   const Metadata metadata() const { return m_; }
 
@@ -208,11 +192,10 @@ class EdgeVariable {
   EdgeArray<Real> data;
 
  private:
-  std::array<int,6> dims_;
+  std::array<int, 6> dims_;
   Metadata m_;
   std::string label_;
 };
-
 
 template <typename T>
 using CellVariableVector = std::vector<std::shared_ptr<CellVariable<T>>>;

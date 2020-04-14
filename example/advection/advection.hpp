@@ -24,24 +24,24 @@
 
 namespace advection_example {
 
-using parthenon::MultiStageBlockTaskDriver;
-using parthenon::ParameterInput;
+using parthenon::AmrTag;
+using parthenon::BaseTask;
+using parthenon::Container;
 using parthenon::Mesh;
-using parthenon::Outputs;
 using parthenon::MeshBlock;
+using parthenon::MultiStageBlockTaskDriver;
+using parthenon::Outputs;
+using parthenon::ParameterInput;
+using parthenon::Real;
+using parthenon::StateDescriptor;
+using parthenon::TaskID;
 using parthenon::TaskList;
 using parthenon::TaskStatus;
-using parthenon::TaskID;
-using parthenon::Real;
-using parthenon::Container;
-using parthenon::BaseTask;
-using parthenon::StateDescriptor;
-using parthenon::AmrTag;
 
 class AdvectionDriver : public MultiStageBlockTaskDriver {
  public:
   AdvectionDriver(ParameterInput *pin, Mesh *pm, Outputs *pout)
-    : MultiStageBlockTaskDriver(pin, pm, pout) {}
+      : MultiStageBlockTaskDriver(pin, pm, pout) {}
   // This next function essentially defines the driver.
   // Call graph looks like
   // main()
@@ -53,25 +53,26 @@ class AdvectionDriver : public MultiStageBlockTaskDriver {
 };
 
 // demonstrate making a custom Task type
-using ContainerTaskFunc = std::function<TaskStatus(Container<Real>&)>;
+using ContainerTaskFunc = std::function<TaskStatus(Container<Real> &)>;
 class ContainerTask : public BaseTask {
  public:
-  ContainerTask(TaskID id, ContainerTaskFunc func,
-                TaskID dep, Container<Real> rc)
-    : BaseTask(id,dep), _func(func), _cont(rc) {}
-  TaskStatus operator () () { return _func(_cont); }
+  ContainerTask(TaskID id, ContainerTaskFunc func, TaskID dep, Container<Real> rc)
+      : BaseTask(id, dep), _func(func), _cont(rc) {}
+  TaskStatus operator()() { return _func(_cont); }
+
  private:
   ContainerTaskFunc _func;
   Container<Real> _cont;
 };
 using TwoContainerTaskFunc =
-  std::function<TaskStatus(Container<Real>&, Container<Real>&)>;
+    std::function<TaskStatus(Container<Real> &, Container<Real> &)>;
 class TwoContainerTask : public BaseTask {
  public:
-  TwoContainerTask(TaskID id, TwoContainerTaskFunc func,
-                   TaskID dep, Container<Real> rc1, Container<Real> rc2)
-    : BaseTask(id,dep), _func(func), _cont1(rc1), _cont2(rc2) {}
-  TaskStatus operator () () { return _func(_cont1, _cont2); }
+  TwoContainerTask(TaskID id, TwoContainerTaskFunc func, TaskID dep, Container<Real> rc1,
+                   Container<Real> rc2)
+      : BaseTask(id, dep), _func(func), _cont1(rc1), _cont2(rc2) {}
+  TaskStatus operator()() { return _func(_cont1, _cont2); }
+
  private:
   TwoContainerTaskFunc _func;
   Container<Real> _cont1;
@@ -79,14 +80,14 @@ class TwoContainerTask : public BaseTask {
 };
 
 namespace Advection {
-  std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
-  AmrTag CheckRefinement(Container<Real>& rc);
-  void PreFill(Container<Real>& rc);
-  void SquareIt(Container<Real>& rc);
-  void PostFill(Container<Real>& rc);
-  Real EstimateTimestep(Container<Real>& rc);
-  TaskStatus CalculateFluxes(Container<Real>& rc);
-}
+std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
+AmrTag CheckRefinement(Container<Real> &rc);
+void PreFill(Container<Real> &rc);
+void SquareIt(Container<Real> &rc);
+void PostFill(Container<Real> &rc);
+Real EstimateTimestep(Container<Real> &rc);
+TaskStatus CalculateFluxes(Container<Real> &rc);
+} // namespace Advection
 
 } // namespace advection_example
 

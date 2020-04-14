@@ -40,14 +40,16 @@ class MeshBlockTree {
   friend class Mesh;
   friend class MeshBlock;
   friend class BoundaryBase;
+
  public:
   explicit MeshBlockTree(Mesh *pmesh);
   MeshBlockTree(MeshBlockTree *parent, int ox1, int ox2, int ox3);
   ~MeshBlockTree();
 
   // accessor
-  MeshBlockTree* GetLeaf(int ox1, int ox2, int ox3)
-  { return pleaf_[(ox1 + (ox2<<1) + (ox3<<2))]; }
+  MeshBlockTree *GetLeaf(int ox1, int ox2, int ox3) {
+    return pleaf_[(ox1 + (ox2 << 1) + (ox3 << 2))];
+  }
 
   // functions
   void CreateRootGrid();
@@ -55,20 +57,20 @@ class MeshBlockTree {
   void AddMeshBlockWithoutRefine(LogicalLocation rloc);
   void Refine(int &nnew);
   void Derefine(int &ndel);
-  MeshBlockTree* FindMeshBlock(LogicalLocation tloc);
-  void CountMeshBlock(int& count);
-  void GetMeshBlockList(LogicalLocation *list, int *pglist, int& count);
-  MeshBlockTree* FindNeighbor(LogicalLocation myloc, int ox1, int ox2, int ox3,
-                              bool amrflag=false);
+  MeshBlockTree *FindMeshBlock(LogicalLocation tloc);
+  void CountMeshBlock(int &count);
+  void GetMeshBlockList(LogicalLocation *list, int *pglist, int &count);
+  MeshBlockTree *FindNeighbor(LogicalLocation myloc, int ox1, int ox2, int ox3,
+                              bool amrflag = false);
 
  private:
   // data
-  MeshBlockTree** pleaf_;
+  MeshBlockTree **pleaf_;
   int gid_;
   LogicalLocation loc_;
 
-  static MeshBlockTree* proot_;
+  static MeshBlockTree *proot_;
   static int nleaf_;
 };
-}
+} // namespace parthenon
 #endif // MESH_MESHBLOCK_TREE_HPP_

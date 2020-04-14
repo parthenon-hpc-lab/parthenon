@@ -47,7 +47,7 @@ class Coordinates {
   virtual ~Coordinates() = default;
 
   // data
-  MeshBlock *pmy_block;  // ptr to MeshBlock containing this Coordinates
+  MeshBlock *pmy_block; // ptr to MeshBlock containing this Coordinates
   ParArrayND<Real> dx1f, dx2f, dx3f, x1f, x2f, x3f;    // face   spacing and positions
   ParArrayND<Real> dx1v, dx2v, dx3v, x1v, x2v, x3v;    // volume spacing and positions
   ParArrayND<Real> x1s2, x1s3, x2s1, x2s3, x3s1, x3s2; // area averaged positions for AMR
@@ -100,31 +100,27 @@ class Coordinates {
                                   ParArrayND<Real> &area);
 
   // ...to compute Laplacian of quantities in the coord system and orthogonal subspaces
-  virtual void Laplacian(
-      const ParArrayND<Real> &s, ParArrayND<Real> &delta_s,
-      const int il, const int iu, const int jl, const int ju, const int kl, const int ku,
-      const int nl, const int nu);
-  virtual void LaplacianX1(
-      const ParArrayND<Real> &s, ParArrayND<Real> &delta_s,
-      const int n, const int k, const int j, const int il, const int iu);
-  virtual void LaplacianX1All(
-      const ParArrayND<Real> &s, ParArrayND<Real> &delta_s,
-      const int nl, const int nu, const int kl, const int ku,
-      const int jl, const int ju, const int il, const int iu);
-  virtual void LaplacianX2(
-      const ParArrayND<Real> &s, ParArrayND<Real> &delta_s,
-      const int n, const int k, const int j, const int il, const int iu);
-  virtual void LaplacianX2All(
-      const ParArrayND<Real> &s, ParArrayND<Real> &delta_s,
-      const int nl, const int nu, const int kl, const int ku,
-      const int jl, const int ju, const int il, const int iu);
-  virtual void LaplacianX3(
-      const ParArrayND<Real> &s, ParArrayND<Real> &delta_s,
-      const int n, const int k, const int j, const int il, const int iu);
-  virtual void LaplacianX3All(
-      const ParArrayND<Real> &s, ParArrayND<Real> &delta_s,
-      const int nl, const int nu, const int kl, const int ku,
-      const int jl, const int ju, const int il, const int iu);
+  virtual void Laplacian(const ParArrayND<Real> &s, ParArrayND<Real> &delta_s,
+                         const int il, const int iu, const int jl, const int ju,
+                         const int kl, const int ku, const int nl, const int nu);
+  virtual void LaplacianX1(const ParArrayND<Real> &s, ParArrayND<Real> &delta_s,
+                           const int n, const int k, const int j, const int il,
+                           const int iu);
+  virtual void LaplacianX1All(const ParArrayND<Real> &s, ParArrayND<Real> &delta_s,
+                              const int nl, const int nu, const int kl, const int ku,
+                              const int jl, const int ju, const int il, const int iu);
+  virtual void LaplacianX2(const ParArrayND<Real> &s, ParArrayND<Real> &delta_s,
+                           const int n, const int k, const int j, const int il,
+                           const int iu);
+  virtual void LaplacianX2All(const ParArrayND<Real> &s, ParArrayND<Real> &delta_s,
+                              const int nl, const int nu, const int kl, const int ku,
+                              const int jl, const int ju, const int il, const int iu);
+  virtual void LaplacianX3(const ParArrayND<Real> &s, ParArrayND<Real> &delta_s,
+                           const int n, const int k, const int j, const int il,
+                           const int iu);
+  virtual void LaplacianX3All(const ParArrayND<Real> &s, ParArrayND<Real> &delta_s,
+                              const int nl, const int nu, const int kl, const int ku,
+                              const int jl, const int ju, const int il, const int iu);
 
   // ...to compute volume of cells
   virtual void CellVolume(const int k, const int j, const int il, const int iu,
@@ -133,19 +129,18 @@ class Coordinates {
 
   // ...to compute geometrical source terms
   virtual void AddCoordTermsDivergence(const Real dt, const ParArrayND<Real> *flux,
-                             const ParArrayND<Real> &prim, const ParArrayND<Real> &bcc,
-                             ParArrayND<Real> &u);
+                                       const ParArrayND<Real> &prim,
+                                       const ParArrayND<Real> &bcc, ParArrayND<Real> &u);
 
   // In GR, functions...
   // ...to return private variables
-  Real GetMass() const {return bh_mass_;}
-  Real GetSpin() const {return bh_spin_;}
+  Real GetMass() const { return bh_mass_; }
+  Real GetSpin() const { return bh_spin_; }
 
   // ...to compute metric
-  void Metric(
-      Real x1, Real x2, Real x3, ParameterInput *pin, ParArrayND<Real> &g,
-      ParArrayND<Real> &g_inv, ParArrayND<Real> &dg_dx1, ParArrayND<Real> &dg_dx2,
-      ParArrayND<Real> &dg_dx3);
+  void Metric(Real x1, Real x2, Real x3, ParameterInput *pin, ParArrayND<Real> &g,
+              ParArrayND<Real> &g_inv, ParArrayND<Real> &dg_dx1, ParArrayND<Real> &dg_dx2,
+              ParArrayND<Real> &dg_dx3);
   virtual void CellMetric(const int k, const int j, const int il, const int iu,
                           ParArrayND<Real> &g, ParArrayND<Real> &gi) {}
   virtual void Face1Metric(const int k, const int j, const int il, const int iu,
@@ -156,32 +151,29 @@ class Coordinates {
                            ParArrayND<Real> &g, ParArrayND<Real> &g_inv) {}
 
   // ...to transform primitives to locally flat space
-  virtual void PrimToLocal1(
-      const int k, const int j, const int il, const int iu,
-      const ParArrayND<Real> &b1_vals, ParArrayND<Real> &prim_left,
-      ParArrayND<Real> &prim_right, ParArrayND<Real> &bx) {}
-  virtual void PrimToLocal2(
-      const int k, const int j, const int il, const int iu,
-      const ParArrayND<Real> &b2_vals, ParArrayND<Real> &prim_left,
-      ParArrayND<Real> &prim_right, ParArrayND<Real> &bx) {}
-  virtual void PrimToLocal3(
-      const int k, const int j, const int il, const int iu,
-      const ParArrayND<Real> &b3_vals, ParArrayND<Real> &prim_left,
-      ParArrayND<Real> &prim_right, ParArrayND<Real> &bx) {}
+  virtual void PrimToLocal1(const int k, const int j, const int il, const int iu,
+                            const ParArrayND<Real> &b1_vals, ParArrayND<Real> &prim_left,
+                            ParArrayND<Real> &prim_right, ParArrayND<Real> &bx) {}
+  virtual void PrimToLocal2(const int k, const int j, const int il, const int iu,
+                            const ParArrayND<Real> &b2_vals, ParArrayND<Real> &prim_left,
+                            ParArrayND<Real> &prim_right, ParArrayND<Real> &bx) {}
+  virtual void PrimToLocal3(const int k, const int j, const int il, const int iu,
+                            const ParArrayND<Real> &b3_vals, ParArrayND<Real> &prim_left,
+                            ParArrayND<Real> &prim_right, ParArrayND<Real> &bx) {}
 
   // ...to transform fluxes in locally flat space to global frame
-  virtual void FluxToGlobal1(
-      const int k, const int j, const int il, const int iu,
-      const ParArrayND<Real> &cons, const ParArrayND<Real> &bbx,
-      ParArrayND<Real> &flux, ParArrayND<Real> &ey, ParArrayND<Real> &ez) {}
-  virtual void FluxToGlobal2(
-      const int k, const int j, const int il, const int iu,
-      const ParArrayND<Real> &cons, const ParArrayND<Real> &bbx,
-      ParArrayND<Real> &flux, ParArrayND<Real> &ey, ParArrayND<Real> &ez) {}
-  virtual void FluxToGlobal3(
-      const int k, const int j, const int il, const int iu,
-      const ParArrayND<Real> &cons, const ParArrayND<Real> &bbx,
-      ParArrayND<Real> &flux, ParArrayND<Real> &ey, ParArrayND<Real> &ez) {}
+  virtual void FluxToGlobal1(const int k, const int j, const int il, const int iu,
+                             const ParArrayND<Real> &cons, const ParArrayND<Real> &bbx,
+                             ParArrayND<Real> &flux, ParArrayND<Real> &ey,
+                             ParArrayND<Real> &ez) {}
+  virtual void FluxToGlobal2(const int k, const int j, const int il, const int iu,
+                             const ParArrayND<Real> &cons, const ParArrayND<Real> &bbx,
+                             ParArrayND<Real> &flux, ParArrayND<Real> &ey,
+                             ParArrayND<Real> &ez) {}
+  virtual void FluxToGlobal3(const int k, const int j, const int il, const int iu,
+                             const ParArrayND<Real> &cons, const ParArrayND<Real> &bbx,
+                             ParArrayND<Real> &flux, ParArrayND<Real> &ey,
+                             ParArrayND<Real> &ez) {}
 
   // ...to raise (lower) covariant (contravariant) components of a vector
   virtual void RaiseVectorCell(Real a_0, Real a_1, Real a_2, Real a_3, int k, int j,
@@ -190,10 +182,10 @@ class Coordinates {
                                Real *pa_0, Real *pa_1, Real *pa_2, Real *pa_3) {}
 
  protected:
-  bool coarse_flag;  // true if this coordinate object is parent (coarse) mesh in AMR
+  bool coarse_flag; // true if this coordinate object is parent (coarse) mesh in AMR
   Mesh *pm;
-  int il, iu, jl, ju, kl, ku, ng;  // limits of indices of arrays (normal or coarse)
-  int nc1, nc2, nc3;               // # cells in each dir of arrays (normal or coarse)
+  int il, iu, jl, ju, kl, ku, ng; // limits of indices of arrays (normal or coarse)
+  int nc1, nc2, nc3;              // # cells in each dir of arrays (normal or coarse)
   // Scratch arrays for coordinate factors
   // Format: coord_<type>[<direction>]_<index>[<count>]_
   //   type: vol[ume], area, etc.
@@ -215,9 +207,9 @@ class Coordinates {
   ParArrayND<Real> coord_area3_i_, coord_area3_i1_, coord_area3_i2_;
   ParArrayND<Real> coord_area3_j1_, coord_area3_j2_;
   ParArrayND<Real> coord_area3_kji_;
-  ParArrayND<Real> coord_area1vc_i_,coord_area1vc_j_; //nonidealmhd additions
-  ParArrayND<Real> coord_area2vc_i_,coord_area2vc_j_; //nonidealmhd additions
-  ParArrayND<Real> coord_area3vc_i_; //nonidealmhd addition
+  ParArrayND<Real> coord_area1vc_i_, coord_area1vc_j_; // nonidealmhd additions
+  ParArrayND<Real> coord_area2vc_i_, coord_area2vc_j_; // nonidealmhd additions
+  ParArrayND<Real> coord_area3vc_i_;                   // nonidealmhd addition
   ParArrayND<Real> coord_len1_i1_, coord_len1_i2_;
   ParArrayND<Real> coord_len1_j1_, coord_len1_j2_;
   ParArrayND<Real> coord_len1_kji_;
@@ -263,18 +255,18 @@ class Coordinates {
   ParArrayND<Real> metric_face3_kji_;
   ParArrayND<Real> trans_face1_i1_, trans_face1_i2_;
   ParArrayND<Real> trans_face1_j1_;
-  ParArrayND<Real> trans_face1_ji1_, trans_face1_ji2_, trans_face1_ji3_,
-    trans_face1_ji4_, trans_face1_ji5_, trans_face1_ji6_, trans_face1_ji7_;
+  ParArrayND<Real> trans_face1_ji1_, trans_face1_ji2_, trans_face1_ji3_, trans_face1_ji4_,
+      trans_face1_ji5_, trans_face1_ji6_, trans_face1_ji7_;
   ParArrayND<Real> trans_face1_kji_;
   ParArrayND<Real> trans_face2_i1_, trans_face2_i2_;
   ParArrayND<Real> trans_face2_j1_;
-  ParArrayND<Real> trans_face2_ji1_, trans_face2_ji2_, trans_face2_ji3_,
-    trans_face2_ji4_, trans_face2_ji5_, trans_face2_ji6_;
+  ParArrayND<Real> trans_face2_ji1_, trans_face2_ji2_, trans_face2_ji3_, trans_face2_ji4_,
+      trans_face2_ji5_, trans_face2_ji6_;
   ParArrayND<Real> trans_face2_kji_;
   ParArrayND<Real> trans_face3_i1_, trans_face3_i2_;
   ParArrayND<Real> trans_face3_j1_;
-  ParArrayND<Real> trans_face3_ji1_, trans_face3_ji2_, trans_face3_ji3_,
-    trans_face3_ji4_, trans_face3_ji5_, trans_face3_ji6_;
+  ParArrayND<Real> trans_face3_ji1_, trans_face3_ji2_, trans_face3_ji3_, trans_face3_ji4_,
+      trans_face3_ji5_, trans_face3_ji6_;
   ParArrayND<Real> trans_face3_kji_;
   ParArrayND<Real> g_, gi_;
 
@@ -293,5 +285,5 @@ class Cartesian : public Coordinates {
  public:
   Cartesian(MeshBlock *pmb, ParameterInput *pin, bool flag);
 };
-}
+} // namespace parthenon
 #endif // COORDINATES_COORDINATES_HPP_

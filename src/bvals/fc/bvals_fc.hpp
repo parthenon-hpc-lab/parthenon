@@ -55,8 +55,8 @@ class FaceCenteredBoundaryVariable : public BoundaryVariable {
   static constexpr int max_phys_id = 5;
 
   // BoundaryVariable:
-  int ComputeVariableBufferSize(const NeighborIndexes& ni, int cng) override;
-  int ComputeFluxCorrectionBufferSize(const NeighborIndexes& ni, int cng) override;
+  int ComputeVariableBufferSize(const NeighborIndexes &ni, int cng) override;
+  int ComputeFluxCorrectionBufferSize(const NeighborIndexes &ni, int cng) override;
 
   // BoundaryCommunication:
   void SetupPersistentMPI() override;
@@ -80,18 +80,17 @@ class FaceCenteredBoundaryVariable : public BoundaryVariable {
 #endif
 
   // BoundaryBuffer:
-  int LoadBoundaryBufferSameLevel(Real *buf, const NeighborBlock& nb) override;
-  void SetBoundarySameLevel(Real *buf, const NeighborBlock& nb) override;
-  int LoadBoundaryBufferToCoarser(Real *buf, const NeighborBlock& nb) override;
-  int LoadBoundaryBufferToFiner(Real *buf, const NeighborBlock& nb) override;
-  void SetBoundaryFromCoarser(Real *buf, const NeighborBlock& nb) override;
-  void SetBoundaryFromFiner(Real *buf, const NeighborBlock& nb) override;
+  int LoadBoundaryBufferSameLevel(Real *buf, const NeighborBlock &nb) override;
+  void SetBoundarySameLevel(Real *buf, const NeighborBlock &nb) override;
+  int LoadBoundaryBufferToCoarser(Real *buf, const NeighborBlock &nb) override;
+  int LoadBoundaryBufferToFiner(Real *buf, const NeighborBlock &nb) override;
+  void SetBoundaryFromCoarser(Real *buf, const NeighborBlock &nb) override;
+  void SetBoundaryFromFiner(Real *buf, const NeighborBlock &nb) override;
 
-  void CountFineEdges();   // called in SetupPersistentMPI()
+  void CountFineEdges(); // called in SetupPersistentMPI()
 
   void RemapFlux(const int k, const int jinner, const int jouter, const int i,
-                 const Real eps, const ParArrayND<Real> &var,
-                 ParArrayND<Real> &flux);
+                 const Real eps, const ParArrayND<Real> &var, ParArrayND<Real> &flux);
 };
-}
+} // namespace parthenon
 #endif // BVALS_FC_BVALS_FC_HPP_

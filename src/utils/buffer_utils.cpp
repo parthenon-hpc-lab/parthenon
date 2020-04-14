@@ -22,9 +22,9 @@
 // C++ headers
 
 // Athena++ headers
+#include "buffer_utils.hpp"
 #include "athena.hpp"
 #include "parthenon_arrays.hpp"
-#include "buffer_utils.hpp"
 
 namespace parthenon {
 namespace BufferUtility {
@@ -33,16 +33,15 @@ namespace BufferUtility {
 //                     int si, int ei, int sj, int ej, int sk, int ek, int &offset)
 //  \brief pack a 4D ParArrayND into a one-dimensional buffer
 
-template <typename T> void PackData(ParArrayND<T> &src, T *buf,
-                                    int sn, int en,
-                                    int si, int ei, int sj, int ej, int sk, int ek,
-                                    int &offset) {
-  for (int n=sn; n<=en; ++n) {
-    for (int k=sk; k<=ek; k++) {
-      for (int j=sj; j<=ej; j++) {
+template <typename T>
+void PackData(ParArrayND<T> &src, T *buf, int sn, int en, int si, int ei, int sj, int ej,
+              int sk, int ek, int &offset) {
+  for (int n = sn; n <= en; ++n) {
+    for (int k = sk; k <= ek; k++) {
+      for (int j = sj; j <= ej; j++) {
 #pragma omp simd
-        for (int i=si; i<=ei; i++)
-          buf[offset++] = src(n,k,j,i);
+        for (int i = si; i <= ei; i++)
+          buf[offset++] = src(n, k, j, i);
       }
     }
   }
@@ -53,13 +52,13 @@ template <typename T> void PackData(ParArrayND<T> &src, T *buf,
 //                      int si, int ei, int sj, int ej, int sk, int ek, int &offset)
 //  \brief pack a 3D ParArrayND into a one-dimensional buffer
 
-template <typename T> void PackData(ParArrayND<T> &src, T *buf,
-                                    int si, int ei, int sj, int ej, int sk, int ek,
-                                    int &offset) {
-  for (int k=sk; k<=ek; k++) {
-    for (int j=sj; j<=ej; j++) {
+template <typename T>
+void PackData(ParArrayND<T> &src, T *buf, int si, int ei, int sj, int ej, int sk, int ek,
+              int &offset) {
+  for (int k = sk; k <= ek; k++) {
+    for (int j = sj; j <= ej; j++) {
 #pragma omp simd
-      for (int i=si; i<=ei; i++)
+      for (int i = si; i <= ei; i++)
         buf[offset++] = src(k, j, i);
     }
   }
@@ -71,16 +70,15 @@ template <typename T> void PackData(ParArrayND<T> &src, T *buf,
 //                        int si, int ei, int sj, int ej, int sk, int ek, int &offset)
 //  \brief unpack a one-dimensional buffer into a 4D ParArrayND
 
-template <typename T> void UnpackData(T *buf, ParArrayND<T> &dst,
-                                      int sn, int en,
-                                      int si, int ei, int sj, int ej, int sk, int ek,
-                                      int &offset) {
-  for (int n=sn; n<=en; ++n) {
-    for (int k=sk; k<=ek; ++k) {
-      for (int j=sj; j<=ej; ++j) {
+template <typename T>
+void UnpackData(T *buf, ParArrayND<T> &dst, int sn, int en, int si, int ei, int sj,
+                int ej, int sk, int ek, int &offset) {
+  for (int n = sn; n <= en; ++n) {
+    for (int k = sk; k <= ek; ++k) {
+      for (int j = sj; j <= ej; ++j) {
 #pragma omp simd
-        for (int i=si; i<=ei; ++i)
-          dst(n,k,j,i) = buf[offset++];
+        for (int i = si; i <= ei; ++i)
+          dst(n, k, j, i) = buf[offset++];
       }
     }
   }
@@ -92,14 +90,14 @@ template <typename T> void UnpackData(T *buf, ParArrayND<T> &dst,
 //                        int si, int ei, int sj, int ej, int sk, int ek, int &offset)
 //  \brief unpack a one-dimensional buffer into a 3D ParArrayND
 
-template <typename T> void UnpackData(T *buf, ParArrayND<T> &dst,
-                                      int si, int ei, int sj, int ej, int sk, int ek,
-                                      int &offset) {
-  for (int k=sk; k<=ek; ++k) {
-    for (int j=sj; j<=ej; ++j) {
+template <typename T>
+void UnpackData(T *buf, ParArrayND<T> &dst, int si, int ei, int sj, int ej, int sk,
+                int ek, int &offset) {
+  for (int k = sk; k <= ek; ++k) {
+    for (int j = sj; j <= ej; ++j) {
 #pragma omp simd
-      for (int i=si; i<=ei; ++i)
-        dst(k,j,i) = buf[offset++];
+      for (int i = si; i <= ei; ++i)
+        dst(k, j, i) = buf[offset++];
     }
   }
   return;
@@ -111,16 +109,14 @@ template <typename T> void UnpackData(T *buf, ParArrayND<T> &dst,
 
 // 13x files include buffer_utils.hpp
 template void UnpackData<Real>(Real *, ParArrayND<Real> &, int, int, int, int, int, int,
-                               int, int,
-                               int &);
+                               int, int, int &);
 template void UnpackData<Real>(Real *, ParArrayND<Real> &, int, int, int, int, int, int,
                                int &);
 
 template void PackData<Real>(ParArrayND<Real> &, Real *, int, int, int, int, int, int,
-                             int, int,
-                             int &);
+                             int, int, int &);
 template void PackData<Real>(ParArrayND<Real> &, Real *, int, int, int, int, int, int,
                              int &);
 
 } // end namespace BufferUtility
-}
+} // namespace parthenon
