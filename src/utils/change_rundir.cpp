@@ -17,20 +17,18 @@
 //! \file change_rundir.cpp
 //! \brief executes unix 'chdir' command to change dir in which Athena++ runs
 
-// C headers
 // POSIX C extensions
-#include <sys/stat.h> // mkdir()
-#include <unistd.h>   // chdir()
+#include <sys/stat.h>
+#include <unistd.h>
 
-// C++ headers
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
 
-// Athena++ headers
 #include "athena.hpp"
 
 namespace parthenon {
+
 //----------------------------------------------------------------------------------------
 //! \fn void ChangeRunDir(const char *pdir)
 //  \brief change to input run directory; create if it does not exist yet
@@ -49,4 +47,5 @@ void ChangeRunDir(const char *pdir) {
 
   return;
 }
+
 } // namespace parthenon

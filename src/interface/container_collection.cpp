@@ -11,10 +11,9 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#include <string>
+#include "interface/container_collection.hpp"
 
-#include "Container.hpp"
-#include "container_collection.hpp"
+#include <string>
 
 namespace parthenon {
 

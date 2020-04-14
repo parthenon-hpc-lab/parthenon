@@ -11,15 +11,17 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef DRIVER_HPP_PK
-#define DRIVER_HPP_PK
+#ifndef DRIVER_DRIVER_HPP_
+#define DRIVER_DRIVER_HPP_
+
+#include <string>
+#include <utility>
+#include <vector>
 
 #include "athena.hpp"
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
 #include "task_list/tasks.hpp"
-#include <string>
-#include <vector>
 
 namespace parthenon {
 
@@ -53,6 +55,7 @@ class EvolutionDriver : public Driver {
 };
 
 namespace DriverUtils {
+
 template <typename T, class... Args>
 TaskListStatus ConstructAndExecuteBlockTasks(T *driver, Args... args) {
 #ifdef OPENMP_PARALLEL
@@ -79,7 +82,9 @@ TaskListStatus ConstructAndExecuteBlockTasks(T *driver, Args... args) {
   }
   return TaskListStatus::complete;
 }
+
 } // namespace DriverUtils
 
 } // namespace parthenon
-#endif
+
+#endif // DRIVER_DRIVER_HPP_

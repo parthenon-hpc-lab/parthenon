@@ -17,17 +17,14 @@
 //! \file buffer_utils.cpp
 //  \brief namespace containing buffer utilities.
 
-// C headers
+#include "utils/buffer_utils.hpp"
 
-// C++ headers
-
-// Athena++ headers
-#include "buffer_utils.hpp"
 #include "athena.hpp"
 #include "parthenon_arrays.hpp"
 
 namespace parthenon {
 namespace BufferUtility {
+
 //----------------------------------------------------------------------------------------
 //! \fn template <typename T> void PackData(ParArrayND<T> &src, T *buf, int sn, int en,
 //                     int si, int ei, int sj, int ej, int sk, int ek, int &offset)
@@ -118,5 +115,5 @@ template void PackData<Real>(ParArrayND<Real> &, Real *, int, int, int, int, int
 template void PackData<Real>(ParArrayND<Real> &, Real *, int, int, int, int, int, int,
                              int &);
 
-} // end namespace BufferUtility
+} // namespace BufferUtility
 } // namespace parthenon

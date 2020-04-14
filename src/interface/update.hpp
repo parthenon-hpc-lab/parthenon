@@ -10,45 +10,33 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef PARTHENON_INTERFACE_PROPERTIESINTERFACE_HPP_
-#define PARTHENON_INTERFACE_PROPERTIESINTERFACE_HPP_
+#ifndef INTERFACE_UPDATE_HPP_
+#define INTERFACE_UPDATE_HPP_
 
-#include <map>
-#include <string>
-
-#include "interface/StateDescriptor.hpp"
+#include "athena.hpp"
+#include "interface/container.hpp"
+#include "mesh/mesh.hpp"
 
 namespace parthenon {
 
-class PropertiesInterface {
- public:
-  virtual ~PropertiesInterface() {}
+namespace Update {
 
-  virtual StateDescriptor &State() = 0;
+TaskStatus FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont);
+void UpdateContainer(Container<Real> &in, Container<Real> &dudt_cont, const Real dt,
+                     Container<Real> &out);
+void AverageContainers(Container<Real> &c1, Container<Real> &c2, const Real wgt1);
+Real EstimateTimestep(Container<Real> &rc);
 
-  static int GetIDFromLabel(std::string &label) {
-    return PropertiesInterface::_label_to_id[label];
-  }
+} // namespace Update
 
-  static std::string GetLabelFromID(int id) {
-    for (auto &x : PropertiesInterface::_label_to_id) {
-      if (x.second == id) return x.first;
-    }
-    return "UNKNOWN";
-  }
+namespace FillDerivedVariables {
 
-  static void InsertID(const std::string &label, const int &id) {
-    PropertiesInterface::_label_to_id[label] = id;
-  }
+using FillDerivedFunc = void(Container<Real> &);
+void SetFillDerivedFunctions(FillDerivedFunc *pre, FillDerivedFunc *post);
+TaskStatus FillDerived(Container<Real> &rc);
 
- private:
-  // _label_to_id is declared here and defined in
-  // PropertiesInterface.cpp
-  static std::map<std::string, int> _label_to_id;
-};
-
-using Properties_t = std::vector<std::shared_ptr<PropertiesInterface>>;
+} // namespace FillDerivedVariables
 
 } // namespace parthenon
 
-#endif // PARTHENON_INTERFACE_PROPERTIESINTERFACE_HPP_
+#endif // INTERFACE_UPDATE_HPP_

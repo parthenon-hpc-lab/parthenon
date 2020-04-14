@@ -15,17 +15,19 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#include <catch2/catch.hpp>
-#include <iostream> // debug
+
+#include <iostream>
 #include <memory>
 #include <string>
 #include <vector>
 
+#include <catch2/catch.hpp>
+
 #include "basic_types.hpp"
-#include "interface/Container.hpp"
-#include "interface/ContainerIterator.hpp"
-#include "interface/Metadata.hpp"
-#include "interface/Variable.hpp"
+#include "interface/container.hpp"
+#include "interface/container_iterator.hpp"
+#include "interface/metadata.hpp"
+#include "interface/variable.hpp"
 #include "kokkos_abstraction.hpp"
 #include "parthenon_arrays.hpp"
 

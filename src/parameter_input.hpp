@@ -22,24 +22,20 @@
 // read from the input file.  See comments at start of parameter_input.cpp for more
 // information on the Athena++ input file format.
 
-// C headers
+#include <cstddef>
+#include <ostream>
+#include <string>
 
-// C++ headers
-#include <cstddef> // std::size_t
-#include <ostream> // ostream
-#include <string>  // string
-
-// Athena++ headers
 #include "athena.hpp"
+#include "defs.hpp"
 #include "outputs/io_wrapper.hpp"
-#include <defs.hpp>
 
-// OpenMP header
 #ifdef OPENMP_PARALLEL
 #include <omp.h>
 #endif
 
 namespace parthenon {
+
 //----------------------------------------------------------------------------------------
 //! \struct InputLine
 //  \brief  node in a singly linked list of parameters contained within 1x input block
@@ -82,7 +78,7 @@ class ParameterInput {
  public:
   // constructor/destructor
   ParameterInput();
-  ParameterInput(std::string input_filename);
+  explicit ParameterInput(std::string input_filename);
   ~ParameterInput();
 
   // data

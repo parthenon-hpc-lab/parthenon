@@ -17,9 +17,8 @@
 //! \file io_wrapper.cpp
 //  \brief functions that provide wrapper for MPI-IO versus serial input/output
 
-// C headers
+#include "outputs/io_wrapper.hpp"
 
-// C++ headers
 #include <cstdio>
 #include <cstdlib>
 #include <iomanip>
@@ -30,9 +29,9 @@
 
 // Athena++ headers
 #include "athena.hpp"
-#include "io_wrapper.hpp"
 
 namespace parthenon {
+
 //----------------------------------------------------------------------------------------
 //! \fn int IOWrapper::Open(const char* fname, FileMode rw)
 //  \brief wrapper for {MPI_File_open} versus {std::fopen} including error check

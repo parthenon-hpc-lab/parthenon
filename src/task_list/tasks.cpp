@@ -14,16 +14,18 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-//! \file task_id.cpp
+//! \file tasks.cpp
 //  \brief implementation of the TaskID class
 
+#include "task_list/tasks.hpp"
+
+#include <algorithm>
 #include <bitset>
 #include <string>
 #include <utility>
 
-#include "tasks.hpp"
-
 namespace parthenon {
+
 // TaskID constructor. Default id = 0.
 TaskID::TaskID(int id) { Set(id); }
 

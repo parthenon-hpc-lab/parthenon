@@ -19,24 +19,18 @@
 //! \file bvals.hpp
 //  \brief defines BoundaryBase, BoundaryValues classes used for setting BCs on all data
 
-// C headers
-
-// C++ headers
 #include <memory>
-#include <string> // string
+#include <string>
 #include <vector>
 
-// Athena++ headers
+#include "parthenon_mpi.hpp"
+
 #include "athena.hpp"
-#include "bvals_interfaces.hpp"
+#include "bvals/bvals_interfaces.hpp"
 #include "parthenon_arrays.hpp"
 
-// MPI headers
-#ifdef MPI_PARALLEL
-#include <mpi.h>
-#endif
-
 namespace parthenon {
+
 // forward declarations
 // TODO(felker): how many of these foward declarations are actually needed now?
 // Can #include "./bvals_interfaces.hpp" suffice?
@@ -165,5 +159,7 @@ class BoundaryValues : public BoundaryBase, // public BoundaryPhysics,
   // TODO(KGF): consider removing these friendship designations:
   friend class CellCenteredBoundaryVariable;
 };
+
 } // namespace parthenon
+
 #endif // BVALS_BVALS_HPP_

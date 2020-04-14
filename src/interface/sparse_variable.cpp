@@ -10,28 +10,32 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef UPDATE_HPP_PK
-#define UPDATE_HPP_PK
 
-#include "athena.hpp"
-#include "interface/Container.hpp"
-#include "mesh/mesh.hpp"
+#include "interface/sparse_variable.hpp"
+
+#include "interface/metadata.hpp"
+
 namespace parthenon {
-namespace Update {
 
-TaskStatus FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont);
-void UpdateContainer(Container<Real> &in, Container<Real> &dudt_cont, const Real dt,
-                     Container<Real> &out);
-void AverageContainers(Container<Real> &c1, Container<Real> &c2, const Real wgt1);
+template <typename T>
+void SparseVariable<T>::Add(int varIndex) {
+  // Now allocate depending on topology
+  if ((metadata_.Where() == Metadata::Cell) || (metadata_.Where() == Metadata::Node)) {
+    // check if variable index already exists
+    if (varMap_.find(varIndex) != varMap_.end()) {
+      throw std::invalid_argument("Duplicate index in create SparseVariable");
+    }
+    // create the variable and add to map
+    std::string my_name = label_ + "_" + std::to_string(varIndex);
+    auto v = std::make_shared<CellVariable<T>>(my_name, dims_, metadata_);
+    varArray_.push_back(v);
+    indexMap_.push_back(varIndex);
+    varMap_[varIndex] = v;
+  } else {
+    throw std::invalid_argument("unsupported type in SparseVariable");
+  }
+}
 
-Real EstimateTimestep(Container<Real> &rc);
+template class SparseVariable<Real>;
 
-} // namespace Update
-
-namespace FillDerivedVariables {
-using FillDerivedFunc = void(Container<Real> &);
-void SetFillDerivedFunctions(FillDerivedFunc *pre, FillDerivedFunc *post);
-TaskStatus FillDerived(Container<Real> &rc);
-} // namespace FillDerivedVariables
 } // namespace parthenon
-#endif

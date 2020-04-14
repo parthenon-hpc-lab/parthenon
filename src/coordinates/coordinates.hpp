@@ -32,6 +32,7 @@
 #include "parthenon_arrays.hpp"
 
 namespace parthenon {
+
 // forward declarations
 class Mesh;
 class MeshBlock;
@@ -281,9 +282,10 @@ class Coordinates {
 //  in the Coordinates abstract base class need to be overridden.
 
 class Cartesian : public Coordinates {
-
  public:
   Cartesian(MeshBlock *pmb, ParameterInput *pin, bool flag);
 };
+
 } // namespace parthenon
+
 #endif // COORDINATES_COORDINATES_HPP_

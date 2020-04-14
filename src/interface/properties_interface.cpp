@@ -1,8 +1,4 @@
 //========================================================================================
-// Athena++ astrophysical MHD code
-// Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
-// Licensed under the 3-clause BSD License, see LICENSE file for details
-//========================================================================================
 // (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
@@ -14,17 +10,11 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef GLOBALS_HPP_
-#define GLOBALS_HPP_
-//! \file globals.hpp
-//  \brief namespace containing external global variables
+#include "interface/properties_interface.hpp"
 
 namespace parthenon {
-namespace Globals {
 
-extern int my_rank, nranks;
+// Initialize the static map of ids
+std::map<std::string, int> PropertiesInterface::_label_to_id;
 
-} // namespace Globals
 } // namespace parthenon
-
-#endif // GLOBALS_HPP_

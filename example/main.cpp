@@ -15,13 +15,10 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-// C includes
-#include <mpi.h>
-
-// STL Includes
 #include <iostream>
 
-// Athena++ headers
+#include "parthenon_mpi.hpp"
+
 #include "mesh/mesh.hpp"
 
 using parthenon::Container;

@@ -17,25 +17,24 @@
 //! \file bvals.cpp
 //  \brief constructor/destructor and utility functions for BoundaryValues class
 
-// C headers
+#include "bvals/bvals.hpp"
 
-// C++ headers
-#include <algorithm> // min
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
-#include <cstring> // std::memcpy
+#include <cstring>
 #include <iomanip>
-#include <iostream> // endl
+#include <iostream>
 #include <iterator>
 #include <limits>
-#include <sstream>   // stringstream
-#include <stdexcept> // runtime_error
-#include <string>    // c_str()
-#include <utility>   // swap()
+#include <sstream>
+#include <stdexcept>
+#include <string>
+#include <utility>
 #include <vector>
 
-// Athena++ headers
-#include "bvals.hpp"
+#include "parthenon_mpi.hpp"
+
 #include "coordinates/coordinates.hpp"
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
@@ -43,12 +42,8 @@
 #include "parameter_input.hpp"
 #include "utils/buffer_utils.hpp"
 
-// MPI header
-#ifdef MPI_PARALLEL
-#include <mpi.h>
-#endif
-
 namespace parthenon {
+
 // BoundaryValues constructor (the first object constructed inside the MeshBlock()
 // constructor): sets functions for the appropriate boundary conditions at each of the 6
 // dirs of a MeshBlock
@@ -150,4 +145,5 @@ int BoundaryValues::AdvanceCounterPhysID(int num_phys) {
   return 0;
 #endif
 }
+
 } // namespace parthenon

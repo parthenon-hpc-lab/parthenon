@@ -22,20 +22,16 @@
 // TODO(felker): deduplicate forward declarations
 // TODO(felker): consider moving enums and structs in a new file? bvals_structs.hpp?
 
-// C++ headers
-#include <string> // string
-#include <vector> // vector
+#include <string>
+#include <vector>
 
-// Athena++ classes headers
+#include "parthenon_mpi.hpp"
+
 #include "athena.hpp"
 #include "parthenon_arrays.hpp"
 
-// MPI headers
-#ifdef MPI_PARALLEL
-#include <mpi.h>
-#endif
-
 namespace parthenon {
+
 // forward declarations
 class Mesh;
 class MeshBlock;
@@ -282,5 +278,7 @@ class BoundaryVariable : public BoundaryCommunication, public BoundaryBuffer {
 
   // private:
 };
+
 } // namespace parthenon
+
 #endif // BVALS_BVALS_INTERFACES_HPP_

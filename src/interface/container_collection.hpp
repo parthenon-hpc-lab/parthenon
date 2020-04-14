@@ -17,8 +17,8 @@
 #include <memory>
 #include <string>
 
-#include "interface/Container.hpp"
-#include "interface/Metadata.hpp"
+#include "interface/container.hpp"
+#include "interface/metadata.hpp"
 
 namespace parthenon {
 

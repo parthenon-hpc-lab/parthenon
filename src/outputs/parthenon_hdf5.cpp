@@ -15,39 +15,32 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-// C Defines
-#include <defs.hpp>
-
-// C++ headers
-#include <fstream> // ofstream, quoted
+#include <cstdlib>
+#include <fstream>
 #include <iomanip>
 #include <sstream>
 
-#ifdef MPI_PARALLEL
-// MPI headers
-#include "mpi.h"
-#endif
+#include "parthenon_mpi.hpp"
 
-// Athena++ headers
 #include "athena.hpp"
 #include "coordinates/coordinates.hpp"
 #include "globals.hpp"
-#include "interface/ContainerIterator.hpp"
+#include "interface/container_iterator.hpp"
 #include "mesh/mesh.hpp"
-#include "outputs.hpp"
+#include "outputs/outputs.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 
 // Only proceed if HDF5 output enabled
 #ifdef HDF5OUTPUT
 
-#include "hdf5.h"
-#include "stdlib.h"
+#include <hdf5.h>
 
 #define PREDINT32 H5T_NATIVE_INT32
 #define PREDFLOAT64 H5T_NATIVE_DOUBLE
 
 namespace parthenon {
+
 // XDMF subroutine to write a dataitem that refers to an HDF array
 static std::string stringXdmfArrayRef(const std::string &prefix,
                                       const std::string &hdfPath,
@@ -69,7 +62,6 @@ static void writeXdmfArrayRef(std::ofstream &fid, const std::string &prefix,
                               const std::string &hdfPath, const std::string &label,
                               const hsize_t *dims, const int &ndims,
                               const std::string &theType, const int &precision) {
-
   fid << stringXdmfArrayRef(prefix, hdfPath, label, dims, ndims, theType, precision)
       << std::flush;
 }
@@ -93,7 +85,7 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, std::string &name,
   fid << prefix << "    "
       << R"(<DataItem Dimensions="3 5" NumberType="Int" Format="XML">)" << iblock
       << " 0 0 0 0 1 1 1 1 1 1 " << dims321 << " " << vlen << "</DataItem>" << std::endl;
-  ;
+
   writeXdmfArrayRef(fid, prefix + "    ", hdfFile + ":/", name, dims, ndims, "Float", 8);
   fid << prefix << "  "
       << "</DataItem>" << std::endl;
@@ -565,5 +557,7 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
   pin->SetReal(output_params.block_name, "next_time", output_params.next_time);
   return;
 }
+
 } // namespace parthenon
+
 #endif // HDF5OUTPUT

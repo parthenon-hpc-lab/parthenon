@@ -14,14 +14,16 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#include "interface/Params.hpp"
-#include <catch2/catch.hpp>
+
 #include <string>
+
+#include <catch2/catch.hpp>
+
+#include "interface/params.hpp"
 
 using parthenon::Params;
 
 TEST_CASE("Add and Get is called", "[Add,Get]") {
-
   GIVEN("A key") {
     Params params;
     std::string key = "test_key";

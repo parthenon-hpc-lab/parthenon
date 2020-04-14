@@ -10,22 +10,23 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef STATE_DESCRIPTOR_HPP
-#define STATE_DESCRIPTOR_HPP
+#ifndef INTERFACE_STATE_DESCRIPTOR_HPP_
+#define INTERFACE_STATE_DESCRIPTOR_HPP_
 
 #include <map>
+#include <memory>
 #include <string>
 #include <vector>
 
-#include "interface/Container.hpp"
-#include "interface/Metadata.hpp"
-#include "interface/Params.hpp"
+#include "interface/container.hpp"
+#include "interface/metadata.hpp"
+#include "interface/params.hpp"
 #include "refinement/amr_criteria.hpp"
 
 namespace parthenon {
+
 enum class DerivedOwnership { shared, unique };
 
-///
 /// The state metadata descriptor class.
 ///
 /// Each State descriptor has a label, associated parameters, and
@@ -132,4 +133,5 @@ class StateDescriptor {
 using Packages_t = std::map<std::string, std::shared_ptr<StateDescriptor>>;
 
 } // namespace parthenon
-#endif // STATE_DESCRIPTOR_HPP
+
+#endif // INTERFACE_STATE_DESCRIPTOR_HPP_

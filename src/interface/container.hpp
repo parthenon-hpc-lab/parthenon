@@ -13,17 +13,18 @@
 #ifndef INTERFACE_CONTAINER_HPP_
 #define INTERFACE_CONTAINER_HPP_
 
-#include "SparseVariable.hpp"
-#include "Variable.hpp"
-#include "globals.hpp"
 #include <map>
 #include <memory>
 #include <string>
-#include <utility> // <pair>
+#include <utility>
 #include <vector>
 
+#include "globals.hpp"
+#include "interface/sparse_variable.hpp"
+#include "interface/variable.hpp"
+
 namespace parthenon {
-///
+
 /// Interface to underlying infrastructure for data declaration and access.
 /// Date: August 22, 2019
 ///
@@ -317,4 +318,5 @@ class Container {
 };
 
 } // namespace parthenon
+
 #endif // INTERFACE_CONTAINER_HPP_

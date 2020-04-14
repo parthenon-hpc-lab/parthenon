@@ -37,9 +37,10 @@
 // methods in cylindrical and spherical coordinates", JCP, 270, 784 (2014)
 //========================================================================================
 
-#include "reconstruction.hpp"
+#include "reconstruct/reconstruction.hpp"
 
 namespace parthenon {
+
 //----------------------------------------------------------------------------------------
 //! \fn Reconstruction::PiecewiseParabolicX1()
 //  \brief Returns L/R interface values in X1-dir constructed using fourth-order PPM and
@@ -287,7 +288,6 @@ void Reconstruction::PiecewiseParabolicX1(const int k, const int j, const int il
       qr(n, i) = qr_imh(n, i);
     }
   }
-  return;
 }
 
 //-------------------------------------------------------------------------------------
@@ -532,7 +532,6 @@ void Reconstruction::PiecewiseParabolicX2(const int k, const int j, const int il
       qr(n, i) = qr_jmh(n, i);
     }
   }
-  return;
 }
 
 //----------------------------------------------------------------------------------------
@@ -778,6 +777,6 @@ void Reconstruction::PiecewiseParabolicX3(const int k, const int j, const int il
       qr(n, i) = qr_kmh(n, i);
     }
   }
-  return;
 }
+
 } // namespace parthenon

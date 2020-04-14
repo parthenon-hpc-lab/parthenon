@@ -20,17 +20,9 @@
 //  \brief handle boundaries for any FaceField type variable that represents a physical
 //         quantity indexed along / located around face-centers of cells
 
-// C headers
+#include "parthenon_mpi.hpp"
 
-// C++ headers
-
-// Athena++ classes headers
 #include "bvals/bvals.hpp"
-
-// MPI headers
-#ifdef MPI_PARALLEL
-#include <mpi.h>
-#endif
 
 namespace parthenon {
 //----------------------------------------------------------------------------------------
@@ -92,5 +84,7 @@ class FaceCenteredBoundaryVariable : public BoundaryVariable {
   void RemapFlux(const int k, const int jinner, const int jouter, const int i,
                  const Real eps, const ParArrayND<Real> &var, ParArrayND<Real> &flux);
 };
+
 } // namespace parthenon
+
 #endif // BVALS_FC_BVALS_FC_HPP_

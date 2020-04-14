@@ -19,18 +19,14 @@
 //! \file outputs.hpp
 //  \brief provides classes to handle ALL types of data output
 
-// C headers
-
-// C++ headers
-#include <cstdio> // std::size_t
 #include <string>
 
-// Athena++ headers
 #include "athena.hpp"
 #include "io_wrapper.hpp"
 #include "parthenon_arrays.hpp"
 
 namespace parthenon {
+
 // forward declarations
 class Mesh;
 class ParameterInput;
@@ -114,7 +110,7 @@ class OutputType {
                                 Coordinates *pco);
   // following pure virtual function must be implemented in all derived classes
   virtual void WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) = 0;
-  virtual void WriteContainer(Mesh *pm, ParameterInput *pin, bool flag) { return; };
+  virtual void WriteContainer(Mesh *pm, ParameterInput *pin, bool flag) { return; }
 
  protected:
   int num_vars_; // number of variables in output
@@ -203,5 +199,7 @@ class Outputs {
   OutputType *pfirst_type_; // ptr to head OutputType node in singly linked list
   // (not storing a reference to the tail node)
 };
+
 } // namespace parthenon
+
 #endif // OUTPUTS_OUTPUTS_HPP_

@@ -11,14 +11,15 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+#include "pi.hpp"
+
 #include <iostream>
 #include <string>
 #include <utility>
-#ifdef MPI_PARALLEL
-#include <mpi.h>
-#endif
+
+#include "parthenon_mpi.hpp"
+
 #include "kokkos_abstraction.hpp"
-#include "pi.hpp"
 
 namespace parthenon {
 
@@ -245,4 +246,5 @@ TaskStatus ComputeArea(MeshBlock *pmb) {
   v(0, 0, 0) = area;
   return TaskStatus::complete;
 }
+
 } // namespace PiCalculator

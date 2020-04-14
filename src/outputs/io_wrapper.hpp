@@ -19,19 +19,14 @@
 //! \file io_wrapper.hpp
 //  \brief defines a set of small wrapper functions for MPI versus Serial Output.
 
-// C headers
-
-// C++ headers
 #include <cstdio>
 
-// Athena++ headers
+#include "parthenon_mpi.hpp"
+
 #include "athena.hpp"
 
-#ifdef MPI_PARALLEL
-#include <mpi.h>
-#endif
-
 namespace parthenon {
+
 #ifdef MPI_PARALLEL
 using IOWrapperFile = MPI_File;
 #else

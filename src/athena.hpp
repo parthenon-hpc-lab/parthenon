@@ -19,16 +19,12 @@
 //! \file athena.hpp
 //  \brief contains Athena++ general purpose types, structures, enums, etc.
 
-// C headers
-
-// C++ headers
 #include <cmath>
-#include <cstdint> // std::int64_t
+#include <cstdint>
 
-// Athena++ headers
 #include "basic_types.hpp"
+#include "defs.hpp"
 #include "parthenon_arrays.hpp"
-#include <defs.hpp>
 
 namespace parthenon {
 

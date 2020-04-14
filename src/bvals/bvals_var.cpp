@@ -18,26 +18,19 @@
 //  \brief constructor/destructor and default implementations for some functions in the
 //         abstract BoundaryVariable class
 
-// C headers
+#include "bvals/bvals_interfaces.hpp"
 
-// C++ headers
-#include <cstring>   // std::memcpy
-#include <iostream>  // endl
-#include <sstream>   // stringstream
-#include <stdexcept> // runtime_error
+#include <cstring>
+#include <iostream>
+#include <sstream>
+#include <stdexcept>
 
-// Athena++ headers
-#include "bvals_interfaces.hpp"
+#include "parthenon_mpi.hpp"
+
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
 
-// MPI header
-#ifdef MPI_PARALLEL
-#include <mpi.h>
-#endif
-
 namespace parthenon {
-// constructor
 
 BoundaryVariable::BoundaryVariable(MeshBlock *pmb)
     : bvar_index(), pmy_block_(pmb), pmy_mesh_(pmb->pmy_mesh) {}
@@ -163,14 +156,15 @@ void BoundaryVariable::SendBoundaryBuffers() {
       ssize = LoadBoundaryBufferToCoarser(bd_var_.send[nb.bufid], nb);
     else
       ssize = LoadBoundaryBufferToFiner(bd_var_.send[nb.bufid], nb);
-    if (nb.snb.rank == Globals::my_rank) { // on the same process
+    if (nb.snb.rank == Globals::my_rank) {
+      // on the same process
       CopyVariableBufferSameProcess(nb, ssize);
-    }
+    } else {
 #ifdef MPI_PARALLEL
-    else { // MPI
       MPI_Start(&(bd_var_.req_send[nb.bufid]));
-    }
 #endif
+    }
+
     bd_var_.sflag[nb.bufid] = BoundaryStatus::completed;
   }
   return;
@@ -253,4 +247,5 @@ void BoundaryVariable::ReceiveAndSetBoundariesWithWait() {
 
   return;
 }
+
 } // namespace parthenon

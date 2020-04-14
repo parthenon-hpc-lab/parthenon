@@ -19,10 +19,7 @@
 //  3D data sets as this format is very slow and memory intensive.  Most useful for 1D
 //  slices and/or sums.  Writes one file per Meshblock.
 
-// C headers
-
-// C++ headers
-#include <cstdio> // fwrite(), fclose(), fopen(), fnprintf(), snprintf()
+#include <cstdio>
 #include <cstdlib>
 #include <iomanip>
 #include <iostream>
@@ -30,11 +27,10 @@
 #include <stdexcept>
 #include <string>
 
-// Athena++ headers
 #include "athena.hpp"
 #include "coordinates/coordinates.hpp"
 #include "mesh/mesh.hpp"
-#include "outputs.hpp"
+#include "outputs/outputs.hpp"
 
 namespace parthenon {
 
@@ -173,4 +169,5 @@ void FormattedTableOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool f
 
   return;
 }
+
 } // namespace parthenon

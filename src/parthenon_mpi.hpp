@@ -10,30 +10,19 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#include "SparseVariable.hpp"
-#include "PropertiesInterface.hpp"
-#include "athena.hpp"
 
-namespace parthenon {
+#ifndef PARTHENON_MPI_HPP_
+#define PARTHENON_MPI_HPP_
 
-template <typename T>
-void SparseVariable<T>::Add(int varIndex) {
-  // Now allocate depending on topology
-  if ((metadata_.Where() == Metadata::Cell) || (metadata_.Where() == Metadata::Node)) {
-    // check if variable index already exists
-    if (varMap_.find(varIndex) != varMap_.end()) {
-      throw std::invalid_argument("Duplicate index in create SparseVariable");
-    }
-    // create the variable and add to map
-    std::string my_name = label_ + "_" + std::to_string(varIndex);
-    auto v = std::make_shared<CellVariable<T>>(my_name, dims_, metadata_);
-    varArray_.push_back(v);
-    indexMap_.push_back(varIndex);
-    varMap_[varIndex] = v;
-  } else {
-    throw std::invalid_argument("unsupported type in SparseVariable");
-  }
-}
+//! \file parthenon_mpi.hpp
+//  \brief Helper file to include MPI if it's enabled and otherwise not include it. One
+//         issue was that some header files attempted to include MPI by checking #ifdef
+//         MPI_PARALLEL, but they didn't include defs.hpp, which defined MPI_PARALLEL
 
-template class SparseVariable<Real>;
-} // namespace parthenon
+#include "defs.hpp"
+
+#ifdef MPI_PARALLEL
+#include <mpi.h>
+#endif
+
+#endif // PARTHENON_MPI_HPP_
