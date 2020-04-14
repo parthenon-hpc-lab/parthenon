@@ -174,7 +174,7 @@ TEST_CASE("ParArrayND","[ParArrayND][Kokkos]") {
     ParArrayND<Real> a("test",N3,N2,N1);
     WHEN("The ParArray legacy NewParArray method is used") {
       ParArrayND<Real> b;
-      b.NewParArrayND(N3,N2,N1);
+      b = ParArrayND<Real>(PARARRAY_TEMP,N3,N2,N1);
       THEN("The dimensions are correct") {
         REQUIRE( b.GetDim(3) == N3 );
         REQUIRE( b.GetDim(2) == N2 );

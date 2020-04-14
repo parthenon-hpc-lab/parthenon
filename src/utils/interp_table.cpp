@@ -41,7 +41,7 @@ void InterpTable2D::SetSize(const int nvar, const int nx2, const int nx1) {
   nvar_ = nvar; // number of variables/tables
   nx2_ = nx2; // slower indexing dimension
   nx1_ = nx1; // faster indexing dimension
-  data.NewParArrayND(nvar, nx2, nx1);
+  data = ParArrayND<Real>(PARARRAY_TEMP,nvar, nx2, nx1);
 }
 
 // Set the corrdinate limits for x1

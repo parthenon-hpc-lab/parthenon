@@ -507,7 +507,7 @@ bool OutputType::SliceOutputData(MeshBlock *pmb, int dim) {
 
     // Loop over variables and dimensions, extract slice
     if (dim == 3) {
-      pnew->data.NewParArrayND(nx4, 1, nx2, nx1);
+      pnew->data = ParArrayND<Real>(PARARRAY_TEMP,nx4, 1, nx2, nx1);
       for (int n=0; n<nx4; ++n) {
         for (int j=out_js; j<=out_je; ++j) {
           for (int i=out_is; i<=out_ie; ++i) {
@@ -516,7 +516,7 @@ bool OutputType::SliceOutputData(MeshBlock *pmb, int dim) {
         }
       }
     } else if (dim == 2) {
-      pnew->data.NewParArrayND(nx4,nx3,1,nx1);
+      pnew->data = ParArrayND<Real>(PARARRAY_TEMP,nx4,nx3,1,nx1);
       for (int n=0; n<nx4; ++n) {
         for (int k=out_ks; k<=out_ke; ++k) {
           for (int i=out_is; i<=out_ie; ++i) {
@@ -525,7 +525,7 @@ bool OutputType::SliceOutputData(MeshBlock *pmb, int dim) {
         }
       }
     } else {
-      pnew->data.NewParArrayND(nx4,nx3,nx2,1);
+      pnew->data = ParArrayND<Real>(PARARRAY_TEMP,nx4,nx3,nx2,1);
       for (int n=0; n<nx4; ++n) {
         for (int k=out_ks; k<=out_ke; ++k) {
           for (int j=out_js; j<=out_je; ++j) {
@@ -572,7 +572,7 @@ void OutputType::SumOutputData(MeshBlock* pmb, int dim) {
 
     // Loop over variables and dimensions, sum over specified dimension
     if (dim == 3) {
-      pnew->data.NewParArrayND(nx4, 1, nx2, nx1);
+      pnew->data = ParArrayND<Real>(PARARRAY_TEMP,nx4, 1, nx2, nx1);
       for (int n=0; n<nx4; ++n) {
         for (int k=out_ks; k<=out_ke; ++k) {
           for (int j=out_js; j<=out_je; ++j) {
@@ -583,7 +583,7 @@ void OutputType::SumOutputData(MeshBlock* pmb, int dim) {
         }
       }
     } else if (dim == 2) {
-      pnew->data.NewParArrayND(nx4, nx3, 1, nx1);
+      pnew->data = ParArrayND<Real>(PARARRAY_TEMP,nx4, nx3, 1, nx1);
       for (int n=0; n<nx4; ++n) {
         for (int k=out_ks; k<=out_ke; ++k) {
           for (int j=out_js; j<=out_je; ++j) {
@@ -594,7 +594,7 @@ void OutputType::SumOutputData(MeshBlock* pmb, int dim) {
         }
       }
     } else {
-      pnew->data.NewParArrayND(nx4, nx3, nx2, 1);
+      pnew->data = ParArrayND<Real>(PARARRAY_TEMP,nx4, nx3, nx2, 1);
       for (int n=0; n<nx4; ++n) {
         for (int k=out_ks; k<=out_ke; ++k) {
           for (int j=out_js; j<=out_je; ++j) {

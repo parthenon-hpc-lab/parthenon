@@ -71,17 +71,6 @@ static void writeXdmfArrayRef(std::ofstream& fid, const std::string& prefix,
       << std::flush;
 }
 
-// XDMF subroutine to write a variable that reads from a HDF file
-/*static void writeXdmfVariableRef(std::ofstream& fid, const std::string& prefix,
-				 const std::string& hdfPath, const std::string& label,
-				 const hsize_t* dims, const int& ndims,
-				 const std::string& theType, const int& precision) {
-  std::string mystr = prefix + "<Attribute Name=\"" + label + R"(" Center="Cell">)"+ '\n';
-  mystr += stringXdmfArrayRef(prefix+"  ", hdfPath, label, dims, ndims, theType, precision);
-  mystr += prefix + "</Attribute>\n";
-  fid << mystr << std::flush;
-}*/
-
 static void writeXdmfSlabVariableRef(std::ofstream &fid, std::string& name, std::string& hdfFile,
                                      int iblock, const int&vlen, int& ndims, hsize_t *dims,
                                      const std::string& dims321
@@ -294,7 +283,6 @@ void ATHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
   // Also writes companion xdmf file
   MeshBlock *pmb = pm->pblock;
   int max_blocks_global = pm->nbtotal;
-  //int max_blocks_local = pm->nblist[Globals::my_rank];
   int num_blocks_local = 0;
 
   // shooting a blank just for getting the variable names

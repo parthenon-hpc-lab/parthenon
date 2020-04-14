@@ -59,26 +59,26 @@ MeshRefinement::MeshRefinement(MeshBlock *pmb, ParameterInput *pin) :
   }
 
   int nc1 = pmb->ncells1;
-  fvol_[0][0].NewParArrayND(nc1);
-  fvol_[0][1].NewParArrayND(nc1);
-  fvol_[1][0].NewParArrayND(nc1);
-  fvol_[1][1].NewParArrayND(nc1);
-  sarea_x1_[0][0].NewParArrayND(nc1+1);
-  sarea_x1_[0][1].NewParArrayND(nc1+1);
-  sarea_x1_[1][0].NewParArrayND(nc1+1);
-  sarea_x1_[1][1].NewParArrayND(nc1+1);
-  sarea_x2_[0][0].NewParArrayND(nc1);
-  sarea_x2_[0][1].NewParArrayND(nc1);
-  sarea_x2_[0][2].NewParArrayND(nc1);
-  sarea_x2_[1][0].NewParArrayND(nc1);
-  sarea_x2_[1][1].NewParArrayND(nc1);
-  sarea_x2_[1][2].NewParArrayND(nc1);
-  sarea_x3_[0][0].NewParArrayND(nc1);
-  sarea_x3_[0][1].NewParArrayND(nc1);
-  sarea_x3_[1][0].NewParArrayND(nc1);
-  sarea_x3_[1][1].NewParArrayND(nc1);
-  sarea_x3_[2][0].NewParArrayND(nc1);
-  sarea_x3_[2][1].NewParArrayND(nc1);
+  fvol_[0][0] = ParArrayND<Real>(PARARRAY_TEMP,nc1);
+  fvol_[0][1] = ParArrayND<Real>(PARARRAY_TEMP,nc1);
+  fvol_[1][0] = ParArrayND<Real>(PARARRAY_TEMP,nc1);
+  fvol_[1][1] = ParArrayND<Real>(PARARRAY_TEMP,nc1);
+  sarea_x1_[0][0] = ParArrayND<Real>(PARARRAY_TEMP,nc1+1);
+  sarea_x1_[0][1] = ParArrayND<Real>(PARARRAY_TEMP,nc1+1);
+  sarea_x1_[1][0] = ParArrayND<Real>(PARARRAY_TEMP,nc1+1);
+  sarea_x1_[1][1] = ParArrayND<Real>(PARARRAY_TEMP,nc1+1);
+  sarea_x2_[0][0] = ParArrayND<Real>(PARARRAY_TEMP,nc1);
+  sarea_x2_[0][1] = ParArrayND<Real>(PARARRAY_TEMP,nc1);
+  sarea_x2_[0][2] = ParArrayND<Real>(PARARRAY_TEMP,nc1);
+  sarea_x2_[1][0] = ParArrayND<Real>(PARARRAY_TEMP,nc1);
+  sarea_x2_[1][1] = ParArrayND<Real>(PARARRAY_TEMP,nc1);
+  sarea_x2_[1][2] = ParArrayND<Real>(PARARRAY_TEMP,nc1);
+  sarea_x3_[0][0] = ParArrayND<Real>(PARARRAY_TEMP,nc1);
+  sarea_x3_[0][1] = ParArrayND<Real>(PARARRAY_TEMP,nc1);
+  sarea_x3_[1][0] = ParArrayND<Real>(PARARRAY_TEMP,nc1);
+  sarea_x3_[1][1] = ParArrayND<Real>(PARARRAY_TEMP,nc1);
+  sarea_x3_[2][0] = ParArrayND<Real>(PARARRAY_TEMP,nc1);
+  sarea_x3_[2][1] = ParArrayND<Real>(PARARRAY_TEMP,nc1);
 }
 
 

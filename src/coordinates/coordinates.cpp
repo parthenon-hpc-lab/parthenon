@@ -51,35 +51,35 @@ Coordinates::Coordinates(MeshBlock *pmb, ParameterInput *pin, bool flag) :
   }
 
   // allocate arrays for volume-centered coordinates and positions of cells
-  dx1v.NewParArrayND(nc1);
-  dx2v.NewParArrayND(nc2);
-  dx3v.NewParArrayND(nc3);
-  x1v.NewParArrayND(nc1);
-  x2v.NewParArrayND(nc2);
-  x3v.NewParArrayND(nc3);
+  dx1v = ParArrayND<Real>(PARARRAY_TEMP,nc1);
+  dx2v = ParArrayND<Real>(PARARRAY_TEMP,nc2);
+  dx3v = ParArrayND<Real>(PARARRAY_TEMP,nc3);
+  x1v = ParArrayND<Real>(PARARRAY_TEMP,nc1);
+  x2v = ParArrayND<Real>(PARARRAY_TEMP,nc2);
+  x3v = ParArrayND<Real>(PARARRAY_TEMP,nc3);
   // allocate arrays for face-centered coordinates and coordinate spacing
   // (note extra cell for face-positions)
-  dx1f.NewParArrayND(nc1);
-  dx2f.NewParArrayND(nc2);
-  dx3f.NewParArrayND(nc3);
-  x1f.NewParArrayND(nc1+1);
-  x2f.NewParArrayND(nc2+1);
-  x3f.NewParArrayND(nc3+1);
+  dx1f = ParArrayND<Real>(PARARRAY_TEMP,nc1);
+  dx2f = ParArrayND<Real>(PARARRAY_TEMP,nc2);
+  dx3f = ParArrayND<Real>(PARARRAY_TEMP,nc3);
+  x1f = ParArrayND<Real>(PARARRAY_TEMP,nc1+1);
+  x2f = ParArrayND<Real>(PARARRAY_TEMP,nc2+1);
+  x3f = ParArrayND<Real>(PARARRAY_TEMP,nc3+1);
 
   // allocate arrays for volume- and face-centered geometry coefficients of cells
   // (only for spherical-polar, cylindrical, cartesian coordinates, for now)
-  h2f.NewParArrayND(nc1);
-  dh2fd1.NewParArrayND(nc1);
-  h31f.NewParArrayND(nc1);
-  dh31fd1.NewParArrayND(nc1);
-  h32f.NewParArrayND(nc2);
-  dh32fd2.NewParArrayND(nc2);
-  h2v.NewParArrayND(nc1);
-  dh2vd1.NewParArrayND(nc1);
-  h31v.NewParArrayND(nc1);
-  dh31vd1.NewParArrayND(nc1);
-  h32v.NewParArrayND(nc2);
-  dh32vd2.NewParArrayND(nc2);
+  h2f = ParArrayND<Real>(PARARRAY_TEMP,nc1);
+  dh2fd1 = ParArrayND<Real>(PARARRAY_TEMP,nc1);
+  h31f = ParArrayND<Real>(PARARRAY_TEMP,nc1);
+  dh31fd1 = ParArrayND<Real>(PARARRAY_TEMP,nc1);
+  h32f = ParArrayND<Real>(PARARRAY_TEMP,nc2);
+  dh32fd2 = ParArrayND<Real>(PARARRAY_TEMP,nc2);
+  h2v = ParArrayND<Real>(PARARRAY_TEMP,nc1);
+  dh2vd1 = ParArrayND<Real>(PARARRAY_TEMP,nc1);
+  h31v = ParArrayND<Real>(PARARRAY_TEMP,nc1);
+  dh31vd1 = ParArrayND<Real>(PARARRAY_TEMP,nc1);
+  h32v = ParArrayND<Real>(PARARRAY_TEMP,nc2);
+  dh32vd2 = ParArrayND<Real>(PARARRAY_TEMP,nc2);
 
   std::int64_t nrootmesh, noffset;
   std::int64_t &lx1 = pmy_block->loc.lx1;
