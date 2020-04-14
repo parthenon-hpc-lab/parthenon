@@ -15,6 +15,7 @@
 
 #include <algorithm>
 #include <limits>
+#include <map>
 #include <memory>
 #include <string>
 #include <utility>
@@ -319,9 +320,37 @@ TaskStatus CalculateFluxes(Container<Real> &rc) {
 
 // *************************************************//
 // define the application driver. in this case,    *//
-// that just means defining the MakeTaskList       *//
+// that mostly means defining the MakeTaskList     *//
 // function.                                       *//
 // *************************************************//
+AdvectionDriver::AdvectionDriver(ParameterInput *pin, Mesh *pm, Outputs *pout)
+      : MultiStageBlockTaskDriver(pin, pm, pout) {
+
+  // specify required arguments in the input file
+  std::map<std::string, std::vector<std::string>> req;
+  req["mesh"].push_back("nx1");
+  req["mesh"].push_back("x1min");
+  req["mesh"].push_back("x1max");
+  req["mesh"].push_back("nx2");
+  req["mesh"].push_back("x2min");
+  req["mesh"].push_back("x2max");
+
+  req["time"].push_back("tlim");
+
+  std::map<std::string, std::vector<std::string>> des;
+  des["mesh"].push_back("refinement");
+  des["mesh"].push_back("numlevel");
+
+  des["Advection"].push_back("cfl");
+  des["Advection"].push_back("vx");
+  des["Advection"].push_back("vy");
+  des["Advection"].push_back("refine_tol");
+  des["Advection"].push_back("derefine_tol");
+
+  des["Graphics"].push_back("variables");
+
+  pin->CheckRequiredDesired(req, des);
+}
 // first some helper tasks
 TaskStatus UpdateContainer(MeshBlock *pmb, int stage,
                            std::vector<std::string> &stage_name, Integrator *integrator) {

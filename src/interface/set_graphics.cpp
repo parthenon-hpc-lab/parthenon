@@ -15,7 +15,7 @@
 #include <list>
 #include <string>
 
-#include "Metadata.hpp"
+#include "metadata.hpp"
 #include "set_graphics.hpp"
 
 namespace parthenon {

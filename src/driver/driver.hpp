@@ -14,6 +14,7 @@
 #ifndef DRIVER_DRIVER_HPP_
 #define DRIVER_DRIVER_HPP_
 
+#include <map>
 #include <string>
 #include <utility>
 #include <vector>
@@ -39,6 +40,9 @@ class Driver {
   ParameterInput *pinput;
   Mesh *pmesh;
   Outputs *pouts;
+ private:
+  std::map<std::string, std::string> required_inputs;
+  std::map<std::string, std::string> suggested_inputs;
 };
 
 class SimpleDriver : public Driver {

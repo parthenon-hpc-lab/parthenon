@@ -16,7 +16,7 @@
 
 #include <memory>
 
-#include "StateDescriptor.hpp"
+#include "state_descriptor.hpp"
 #include "parameter_input.hpp"
 
 namespace parthenon {
