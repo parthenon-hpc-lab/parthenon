@@ -80,12 +80,7 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
           (adaptive || pin->GetOrAddString("mesh", "refinement", "none") == "static")
               ? true
               : false),
-      start_time(pin->GetOrAddReal("time", "start_time", 0.0)), time(start_time),
-      tlim(pin->GetReal("time", "tlim")), dt(std::numeric_limits<Real>::max()),
-      dt_hyperbolic(dt), dt_parabolic(dt), dt_user(dt),
-      nlim(pin->GetOrAddInteger("time", "nlim", -1)), ncycle(),
-      ncycle_out(pin->GetOrAddInteger("time", "ncycle_out", 1)),
-      dt_diagnostics(pin->GetOrAddInteger("time", "dt_diagnostics", -1)), nbnew(),
+      nbnew(),
       nbdel(), step_since_lb(), gflag(), pblock(nullptr), properties(properties),
       packages(packages),
       // private members:

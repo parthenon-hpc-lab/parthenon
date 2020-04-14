@@ -40,10 +40,6 @@ class Driver {
   ParameterInput *pinput;
   Mesh *pmesh;
   Outputs *pouts;
-
- private:
-  std::map<std::string, std::string> required_inputs;
-  std::map<std::string, std::string> suggested_inputs;
 };
 
 class SimpleDriver : public Driver {
@@ -54,9 +50,19 @@ class SimpleDriver : public Driver {
 
 class EvolutionDriver : public Driver {
  public:
-  EvolutionDriver(ParameterInput *pin, Mesh *pm, Outputs *pout) : Driver(pin, pm, pout) {}
+  EvolutionDriver(ParameterInput *pin, Mesh *pm, Outputs *pout) : Driver(pin, pm, pout),
+    start_time(pin->GetOrAddReal("time", "start_time", 0.0)),
+    time(start_time),
+    tlim(pin->GetReal("time", "tlim")),
+    dt(std::numeric_limits<Real>::max()),
+    dt_hyperbolic(dt), dt_parabolic(dt), dt_user(dt),
+    nlim(pin->GetOrAddInteger("time", "nlim", -1)), ncycle(),
+    ncycle_out(pin->GetOrAddInteger("time", "ncycle_out", 1)),
   DriverStatus Execute();
   virtual TaskListStatus Step() = 0;
+ protected:
+  Real dt,time,start_time,tlim,dt_hyperbolic,dt_parabolic,dt_user;
+  int nlim,ncycle,ncycle_out;
 };
 
 namespace DriverUtils {

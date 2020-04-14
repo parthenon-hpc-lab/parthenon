@@ -894,7 +894,6 @@ void ParameterInput::CheckRequiredDesired(
       if (!DoesParameterExist(s.first, f)) {
         std::cerr << "Parameter file missing suggested field <" << s.first << ">/" << f
                   << std::endl;
-        std::exit(1);
       }
     }
   }
