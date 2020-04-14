@@ -49,7 +49,6 @@ namespace parthenon {
 class MeshBlock;
 class Coordinates;
 class ParameterInput;
-class FieldDiffusion;
 
 //--------------------------------------------------------------------------------------
 //! \struct LogicalLocation
@@ -135,11 +134,6 @@ using MGBoundaryFunc = void (*)(
     ParArrayND<Real> &dst,Real time, int nvar,
     int is, int ie, int js, int je, int ks, int ke, int ngh,
     Real x0, Real y0, Real z0, Real dx, Real dy, Real dz);
-using FieldDiffusionCoeffFunc = void (*)(
-    FieldDiffusion *pfdif, MeshBlock *pmb,
-    const ParArrayND<Real> &w,
-    const ParArrayND<Real> &bmag,
-    int is, int ie, int js, int je, int ks, int ke);
 
 } // namespace parthenon
 

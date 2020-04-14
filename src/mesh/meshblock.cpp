@@ -58,12 +58,11 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
                      int igflag, bool ref_flag) :
     exec_space(DevSpace()),
     pmy_mesh(pm), loc(iloc), block_size(input_block),
-    gid(igid), lid(ilid), gflag(igflag), nuser_out_var(), 
+    gid(igid), lid(ilid), gflag(igflag),
     properties(properties), packages(packages),
     prev(nullptr), next(nullptr),
     new_block_dt_{}, new_block_dt_hyperbolic_{}, new_block_dt_parabolic_{},
     new_block_dt_user_{},
-    nreal_user_meshblock_data_(), nint_user_meshblock_data_(),
     cost_(1.0) {
   // initialize grid indices
   is = NGHOST;
@@ -126,30 +125,7 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
   // floors depend on EOS, but EOS isn't needed in Reconstruction constructor-> this is ok
   precon = std::make_unique<Reconstruction>(this, pin);
 
-  // physics-related, per-MeshBlock objects: may depend on Coordinates for diffusion
-  // terms, and may enroll quantities in AMR and BoundaryVariable objs. in BoundaryValues
-  //  if (Globals::my_rank == 0) { real_container.print(); }
-
-  // KGF: suboptimal solution, since developer must copy/paste BoundaryVariable derived
-  // class type that is used in each PassiveScalars, Field, ... etc. class
-  // in order to correctly advance the BoundaryValues::bvars_next_phys_id_ local counter.
-
-  // TODO(felker): check that local counter pbval->bvars_next_phys_id_ agrees with shared
-  // Mesh::next_phys_id_ counter (including non-BoundaryVariable / per-MeshBlock reserved
-  // values). Compare both private member variables via BoundaryValues::CheckCounterPhysID
-
-  // adding a dummy variable to container to test comms
-  /*Metadata m;
-  m = Metadata({Metadata::Cell, Metadata::Advected, Metadata::FillGhost});
-  real_container.Add(std::string("TestGhost"),m);
-  CellVariable<Real> &styx = real_container.Get("TestGhost");
-  Real *data = styx.data();
-  for (int k=0; k<styx.GetSize(); k++) data[k] = pcoord->x1f(0,0,0);
-  */
-  // end dummy variable
-
   // Add field properties data
-  //std::cerr << "Adding " << properties.size() << " properties to block" << std::endl;
   for (int i = 0; i < properties.size(); i++) {
     StateDescriptor& state = properties[i]->State();
     for (auto const & q : state.AllFields()) {
@@ -288,86 +264,6 @@ MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
 MeshBlock::~MeshBlock() {
   if (prev != nullptr) prev->next = next;
   if (next != nullptr) next->prev = prev;
-
-  // delete user output variables array
-#if 0
-  if (nuser_out_var > 0) {
-    delete [] user_out_var_names_;
-  }
-  // delete user MeshBlock data
-  if (nreal_user_meshblock_data_ > 0) delete [] ruser_meshblock_data;
-  if (nint_user_meshblock_data_ > 0) delete [] iuser_meshblock_data;
-#endif
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void MeshBlock::AllocateRealUserMeshBlockDataField(int n)
-//  \brief Allocate Real ParArrayNDs for user-defned data in MeshBlock
-
-void MeshBlock::AllocateRealUserMeshBlockDataField(int n) {
-  if (nreal_user_meshblock_data_ != 0) {
-    std::stringstream msg;
-    msg << "### FATAL ERROR in MeshBlock::AllocateRealUserMeshBlockDataField"
-        << std::endl << "User MeshBlock data arrays are already allocated" << std::endl;
-    ATHENA_ERROR(msg);
-  }
-  nreal_user_meshblock_data_ = n;
-  ruser_meshblock_data = nullptr;//new ParArrayND<Real>[n];
-  return;
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void MeshBlock::AllocateIntUserMeshBlockDataField(int n)
-//  \brief Allocate integer ParArrayNDs for user-defned data in MeshBlock
-
-void MeshBlock::AllocateIntUserMeshBlockDataField(int n) {
-  if (nint_user_meshblock_data_ != 0) {
-    std::stringstream msg;
-    msg << "### FATAL ERROR in MeshBlock::AllocateIntusermeshblockDataField"
-        << std::endl << "User MeshBlock data arrays are already allocated" << std::endl;
-    ATHENA_ERROR(msg);
-    return;
-  }
-  nint_user_meshblock_data_=n;
-  iuser_meshblock_data = nullptr;//new ParArrayND<int>[n];
-  return;
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void MeshBlock::AllocateUserOutputVariables(int n)
-//  \brief Allocate user-defined output variables
-
-void MeshBlock::AllocateUserOutputVariables(int n) {
-  if (n <= 0) return;
-  else throw std::runtime_error("Not yet implemented in parthenon");
-  if (nuser_out_var != 0) {
-    std::stringstream msg;
-    msg << "### FATAL ERROR in MeshBlock::AllocateUserOutputVariables"
-        << std::endl << "User output variables are already allocated." << std::endl;
-    ATHENA_ERROR(msg);
-    return;
-  }
-  nuser_out_var = n;
-  user_out_var.NewParArrayND(nuser_out_var, ncells3, ncells2, ncells1);
-  user_out_var_names_ = new std::string[n];
-  return;
-}
-
-
-//----------------------------------------------------------------------------------------
-//! \fn void MeshBlock::SetUserOutputVariableName(int n, const char *name)
-//  \brief set the user-defined output variable name
-
-void MeshBlock::SetUserOutputVariableName(int n, const char *name) {
-  if (n >= nuser_out_var) {
-    std::stringstream msg;
-    msg << "### FATAL ERROR in MeshBlock::SetUserOutputVariableName"
-        << std::endl << "User output variable is not allocated." << std::endl;
-    ATHENA_ERROR(msg);
-    return;
-  }
-  user_out_var_names_[n] = name;
-  return;
 }
 
 //----------------------------------------------------------------------------------------

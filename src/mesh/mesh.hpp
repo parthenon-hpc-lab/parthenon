@@ -122,15 +122,6 @@ class MeshBlock {
   int cis, cie, cjs, cje, cks, cke, cnghost;
   int gflag;
 
-  // user output variables for analysis
-  int nuser_out_var;
-  ParArrayND<Real> user_out_var;
-  std::string *user_out_var_names_;
-
-  // user MeshBlock data that can be stored in restart files
-  ParArrayND<Real> *ruser_meshblock_data;
-  ParArrayND<int> *iuser_meshblock_data;
-
   // The User defined containers
   ContainerCollection<Real> real_containers;
 
@@ -140,6 +131,7 @@ class MeshBlock {
   std::unique_ptr<MeshBlockApplicationData> app;
 
   // mesh-related objects
+  // TODO(jcd): remove all these?
   std::unique_ptr<Coordinates> pcoord;
   std::unique_ptr<BoundaryValues> pbval;
   std::unique_ptr<MeshRefinement> pmr;
@@ -216,15 +208,10 @@ class MeshBlock {
   // data
   Real new_block_dt_, new_block_dt_hyperbolic_, new_block_dt_parabolic_,
     new_block_dt_user_;
-  int nreal_user_meshblock_data_, nint_user_meshblock_data_;
   std::vector<std::shared_ptr<CellVariable<Real>>> vars_cc_;
   std::vector<std::shared_ptr<FaceField>> vars_fc_;
 
   // functions
-  void AllocateRealUserMeshBlockDataField(int n);
-  void AllocateIntUserMeshBlockDataField(int n);
-  void AllocateUserOutputVariables(int n);
-  void SetUserOutputVariableName(int n, const char *name);
   void SetCostForLoadBalancing(double cost);
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/
@@ -252,7 +239,6 @@ class Mesh {
   friend class BoundaryValues;
   friend class Coordinates;
   friend class MeshRefinement;
-  friend class FieldDiffusion;
 #ifdef HDF5OUTPUT
   friend class ATHDF5Output;
 #endif
@@ -290,9 +276,6 @@ class Mesh {
   MeshBlock *pblock;
   Properties_t properties;
   Packages_t packages;
-
-  ParArrayND<Real> *ruser_mesh_data;
-  ParArrayND<int> *iuser_mesh_data;
 
   // functions
   void Initialize(int res_flag, ParameterInput *pin);
@@ -339,7 +322,6 @@ class Mesh {
 
   // flags are false if using non-uniform or user meshgen function
   bool use_uniform_meshgen_fn_[3];
-  int nreal_user_mesh_data_, nint_user_mesh_data_;
 
   int nuser_history_output_;
   std::string *user_history_output_names_;
@@ -358,10 +340,7 @@ class Mesh {
   TimeStepFunc UserTimeStep_;
   HistoryOutputFunc *user_history_func_;
   MetricFunc UserMetric_;
-  FieldDiffusionCoeffFunc FieldDiffusivity_;
 
-  void AllocateRealUserMeshDataField(int n);
-  void AllocateIntUserMeshDataField(int n);
   void OutputMeshStructure(int dim);
   void CalculateLoadBalance(double *clist, int *rlist, int *slist, int *nlist, int nb);
   void ResetLoadBalanceVariables();
@@ -405,7 +384,6 @@ class Mesh {
   void EnrollUserHistoryOutput(int i, HistoryOutputFunc my_func, const char *name,
                                UserHistoryOperation op=UserHistoryOperation::sum);
   void EnrollUserMetric(MetricFunc my_func);
-  void EnrollFieldDiffusivity(FieldDiffusionCoeffFunc my_func);
 };
 
 

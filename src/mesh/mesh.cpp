@@ -100,12 +100,12 @@ Mesh::Mesh(ParameterInput *pin,
   next_phys_id_(), num_mesh_threads_(pin->GetOrAddInteger("mesh", "num_threads", 1)),
   tree(this),
   use_uniform_meshgen_fn_{true, true, true},
-  nreal_user_mesh_data_(), nint_user_mesh_data_(), nuser_history_output_(),
+  nuser_history_output_(),
   lb_flag_(true), lb_automatic_(), lb_manual_(),
   MeshGenerator_{UniformMeshGeneratorX1, UniformMeshGeneratorX2,
         UniformMeshGeneratorX3},
   BoundaryFunction_{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
-  AMRFlag_{}, UserSourceTerm_{}, UserTimeStep_{}, FieldDiffusivity_{} {
+  AMRFlag_{}, UserSourceTerm_{}, UserTimeStep_{} {
     std::stringstream msg;
     RegionSize block_size;
     MeshBlock *pfirst{};
@@ -855,13 +855,11 @@ Mesh::~Mesh() {
     delete [] bddisp;
   }
   // delete user Mesh data
-  if (nreal_user_mesh_data_>0) delete [] ruser_mesh_data;
   if (nuser_history_output_ > 0) {
     delete [] user_history_output_names_;
     delete [] user_history_func_;
     delete [] user_history_ops_;
   }
-  if (nint_user_mesh_data_>0) delete [] iuser_mesh_data;
 }
 
 //----------------------------------------------------------------------------------------
@@ -1172,47 +1170,6 @@ void Mesh::EnrollUserMetric(MetricFunc my_func) {
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void Mesh::EnrollFieldDiffusivity(FieldDiffusionCoeff my_func)
-//  \brief Enroll a user-defined magnetic field diffusivity function
-
-void Mesh::EnrollFieldDiffusivity(FieldDiffusionCoeffFunc my_func) {
-  FieldDiffusivity_ = my_func;
-  return;
-}
-//----------------------------------------------------------------------------------------
-//! \fn void Mesh::AllocateRealUserMeshDataField(int n)
-//  \brief Allocate Real ParArrayNDs for user-defned data in Mesh
-
-void Mesh::AllocateRealUserMeshDataField(int n) {
-  if (nreal_user_mesh_data_ != 0) {
-    std::stringstream msg;
-    msg << "### FATAL ERROR in Mesh::AllocateRealUserMeshDataField"
-        << std::endl << "User Mesh data arrays are already allocated" << std::endl;
-    ATHENA_ERROR(msg);
-  }
-  nreal_user_mesh_data_ = n;
-  ruser_mesh_data = nullptr;//new ParArrayND<Real>[n];
-  return;
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void Mesh::AllocateIntUserMeshDataField(int n)
-//  \brief Allocate integer ParArrayNDs for user-defned data in Mesh
-
-void Mesh::AllocateIntUserMeshDataField(int n) {
-  if (nint_user_mesh_data_ != 0) {
-    std::stringstream msg;
-    msg << "### FATAL ERROR in Mesh::AllocateIntUserMeshDataField"
-        << std::endl << "User Mesh data arrays are already allocated" << std::endl;
-    ATHENA_ERROR(msg);
-  }
-  nint_user_mesh_data_ = n;
-  iuser_mesh_data = nullptr;//new ParArrayND<int>[n];
-  return;
-}
-
-
-//----------------------------------------------------------------------------------------
 // \!fn void Mesh::ApplyUserWorkBeforeOutput(ParameterInput *pin)
 // \brief Apply MeshBlock::UserWorkBeforeOutput
 
@@ -1284,27 +1241,18 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
       // wait to receive conserved variables
 #pragma omp for
       for (int i=0; i<nmb; ++i) {
-      //std::cout << call << std::endl;
-        //pmb_array[i]->real_containers.Get().print();
         pmb_array[i]->real_containers.Get().ReceiveAndSetBoundariesWithWait();
       }
       call++; // 4
 #pragma omp for
       for (int i=0; i<nmb; ++i) {
-     // std::cout << call << std::endl;
-       // pmb_array[i]->real_containers.Get().print();
-        //pmb_array[i]->real_containers.Get().SetBoundaries();
         pmb_array[i]->real_containers.Get().ClearBoundary(BoundaryCommSubset::mesh_init);
-      //std::cout << call+0.5 << std::endl;
-        //pmb_array[i]->real_containers.Get().print();
       }
       call++;
       // Now do prolongation, compute primitives, apply BCs
 #pragma omp for
       for (int i=0; i<nmb; ++i) {
         auto &pmb = pmb_array[i];
-     // std::cout << call << std::endl;
-       // pmb->real_containers.Get().print();
         auto &pbval = pmb->pbval;
         if (multilevel)
           pbval->ProlongateBoundaries(time, 0.0);
@@ -1325,8 +1273,6 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
 
         ApplyBoundaryConditions(pmb->real_containers.Get());
         FillDerivedVariables::FillDerived(pmb->real_containers.Get());
-
-        //pbval->ApplyPhysicalBoundaries(time, 0.0);
       }
 
       if (!res_flag && adaptive) {
