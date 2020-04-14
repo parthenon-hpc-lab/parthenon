@@ -55,7 +55,7 @@
 // on how to slice a possible 4D source ParArrayND into separate 3D arrays; automatically
 // enrolls quantity in vtk.cpp, formatted_table.cpp outputs.
 
-// - athena_hdf5.cpp, ATHDF5Output::WriteOutputFile(): need to allocate space for the new
+// - athena_hdf5.cpp, PHDF5Output::WriteOutputFile(): need to allocate space for the new
 // OutputData node as an HDF5 "variable" inside an existing HDF5 "dataset" (cell-centered
 // vs. face-centered data).
 
@@ -247,7 +247,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin) {
         } else if (op.file_type.compare("ath5") == 0
                    || op.file_type.compare("hdf5") == 0) {
 #ifdef HDF5OUTPUT
-          pnew_type = new ATHDF5Output(op);
+          pnew_type = new PHDF5Output(op);
 #else
           msg << "### FATAL ERROR in Outputs constructor" << std::endl
               << "Executable not configured for HDF5 outputs, but HDF5 file format "

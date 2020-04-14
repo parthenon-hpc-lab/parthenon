@@ -132,7 +132,7 @@ static herr_t writeH5AF64(const char *name, const Real* pData,
   return status;
 }
 
-void ATHDF5Output::genXDMF(std::string hdfFile, Mesh *pm) {
+void PHDF5Output::genXDMF(std::string hdfFile, Mesh *pm) {
   // using round robin generation.
   // must switch to MPIIO at some point
 
@@ -273,10 +273,10 @@ void ATHDF5Output::genXDMF(std::string hdfFile, Mesh *pm) {
 
 
 //----------------------------------------------------------------------------------------
-//! \fn void ATHDF5Output:::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag)
-//  \brief Cycles over all MeshBlocks and writes OutputData in the Athena++ HDF5 format,
+//! \fn void PHDF5Output:::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag)
+//  \brief Cycles over all MeshBlocks and writes OutputData in the Parthenon HDF5 format,
 //         one file per output using parallel IO.
-void ATHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
+void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
 
   // writes all graphics variables to hdf file
   // HDF5 structures
@@ -319,7 +319,7 @@ void ATHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
   std::stringstream file_number;
   file_number << std::setw(5) << std::setfill('0') << output_params.file_number;
   filename.append(file_number.str());
-  filename.append(".athdf");
+  filename.append(".phdf");
 
   hid_t file;
   hid_t acc_file = H5P_DEFAULT;
@@ -347,9 +347,9 @@ void ATHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
   ierr = H5Pset_alignment(acc_file, 524288, 262144);
 
   ierr = MPI_Info_set(FILE_INFO_TEMPLATE, "access_style", "write_once");
-   ierr = MPI_Info_set(FILE_INFO_TEMPLATE, "collective_buffering", "true");
-   ierr = MPI_Info_set(FILE_INFO_TEMPLATE, "cb_block_size", "1048576");
-   ierr = MPI_Info_set(FILE_INFO_TEMPLATE, "cb_buffer_size", "4194304");
+  ierr = MPI_Info_set(FILE_INFO_TEMPLATE, "collective_buffering", "true");
+  ierr = MPI_Info_set(FILE_INFO_TEMPLATE, "cb_block_size", "1048576");
+  ierr = MPI_Info_set(FILE_INFO_TEMPLATE, "cb_buffer_size", "4194304");
 
   /* tell the HDF5 library that we want to use MPI-IO to do the writing */
   ierr = H5Pset_fapl_mpio(acc_file, MPI_COMM_WORLD, FILE_INFO_TEMPLATE);
@@ -369,7 +369,7 @@ void ATHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
   myDSet = H5Dcreate(file, "/Timestep", PREDINT32, localDSpace,
                      H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
 
-  int max_level = pm->current_level - pm->root_level;
+  int max_level = pm->GetCurrentLevel() - pm->GetRootLevel();
   status = writeH5AI32("NCycle", &pm->ncycle, file, localDSpace, myDSet);
   status = writeH5AF64("Time", &pm->time, file, localDSpace, myDSet);
   status = writeH5AI32("NumDims", &pm->ndim, file, localDSpace, myDSet);
@@ -386,7 +386,8 @@ void ATHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
   status = H5Sclose(localDSpace);
   hsize_t nPE = Globals::nranks;
   localDSpace = H5Screate_simple(1, &nPE, NULL);
-  status = writeH5AI32("BlocksPerPE", pm->nblist, file, localDSpace, myDSet);
+  auto nblist = pm->GetNbList();
+  status = writeH5AI32("BlocksPerPE", nblist.data(), file, localDSpace, myDSet);
   status = H5Sclose(localDSpace);
 
 
@@ -427,7 +428,7 @@ void ATHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
   local_start[3] = 0;
   local_start[4] = 0;
   for( int i=0; i<Globals::my_rank; i++) {
-    local_start[0] += pm->nblist[i];
+    local_start[0] += nblist[i];
   }
   hid_t property_list = H5Pcreate(H5P_DATASET_XFER);
 #ifdef MPI_PARALLEL
@@ -574,17 +575,3 @@ void ATHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
 }
 }
 #endif  // HDF5OUTPUT
-
-
-
-
-
-
-
-
-
-
-
-
-
-

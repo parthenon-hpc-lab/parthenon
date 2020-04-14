@@ -166,13 +166,13 @@ class RestartOutput : public OutputType {
 
 #ifdef HDF5OUTPUT
 //----------------------------------------------------------------------------------------
-//! \class ATHDF5Output
+//! \class PHDF5Output
 //  \brief derived OutputType class for Athena HDF5 files
 
-class ATHDF5Output : public OutputType {
+class PHDF5Output : public OutputType {
  public:
   // Function declarations
-  explicit ATHDF5Output(OutputParameters oparams) : OutputType(oparams) {}
+  explicit PHDF5Output(OutputParameters oparams) : OutputType(oparams) {}
   void WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) override;
   void genXDMF(std::string hdfFile, Mesh *pm);
 
@@ -181,7 +181,7 @@ class ATHDF5Output : public OutputType {
   static const int max_name_length = 128;  // maximum length of names excluding \0
 
   // Metadata
-  std::string filename;                       // name of athdf file
+  std::string filename;                       // name of phdf file
   int nx1, nx2, nx3;                          // sizes of MeshBlocks
 };
 #endif
