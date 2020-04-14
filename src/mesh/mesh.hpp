@@ -228,9 +228,6 @@ class Mesh {
   friend class BoundaryValues;
   friend class Coordinates;
   friend class MeshRefinement;
-#ifdef HDF5OUTPUT
-  friend class ATHDF5Output;
-#endif
 
  public:
   // 2x function overloads of ctor: normal and restarted simulation
