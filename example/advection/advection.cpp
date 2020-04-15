@@ -247,6 +247,15 @@ Real EstimateTimestep(Container<Real> &rc) {
       }
     }
   }
+  if (min_dt < 1.e-3) {
+    std::cout << "min_dt = " << min_dt << std::endl;
+    std::exit(1);
+  }
+  if (cfl < 1.e-3) {
+    std::cout << "cfl = " << cfl << std::endl;
+    std::exit(1);
+  }
+
 
   return cfl * min_dt;
 }
@@ -323,8 +332,8 @@ TaskStatus CalculateFluxes(Container<Real> &rc) {
 // that mostly means defining the MakeTaskList     *//
 // function.                                       *//
 // *************************************************//
-AdvectionDriver::AdvectionDriver(ParameterInput *pin, Mesh *pm, Outputs *pout)
-    : MultiStageBlockTaskDriver(pin, pm, pout) {
+AdvectionDriver::AdvectionDriver(ParameterInput *pin, Mesh *pm, Outputs *pout, SimTime &tm)
+    : MultiStageBlockTaskDriver(pin, pm, pout, tm) {
 
   // specify required arguments in the input file
   std::map<std::string, std::vector<std::string>> req;
@@ -356,12 +365,13 @@ TaskStatus UpdateContainer(MeshBlock *pmb, int stage,
                            std::vector<std::string> &stage_name, Integrator *integrator) {
   // const Real beta = stage_wghts[stage-1].beta;
   const Real beta = integrator->beta[stage - 1];
+  const Real dt = integrator->dt;
   Container<Real> &base = pmb->real_containers.Get();
   Container<Real> &cin = pmb->real_containers.Get(stage_name[stage - 1]);
   Container<Real> &cout = pmb->real_containers.Get(stage_name[stage]);
   Container<Real> &dudt = pmb->real_containers.Get("dUdt");
   parthenon::Update::AverageContainers(cin, base, beta);
-  parthenon::Update::UpdateContainer(cin, dudt, beta * pmb->pmy_mesh->dt, cout);
+  parthenon::Update::UpdateContainer(cin, dudt, beta * dt, cout);
   return TaskStatus::complete;
 }
 

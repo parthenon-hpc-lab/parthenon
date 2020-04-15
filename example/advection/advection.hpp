@@ -15,6 +15,7 @@
 
 #include <memory>
 
+#include "basic_types.hpp"
 #include "driver/driver.hpp"
 #include "driver/multistage.hpp"
 #include "interface/container.hpp"
@@ -31,6 +32,7 @@ using parthenon::MultiStageBlockTaskDriver;
 using parthenon::Outputs;
 using parthenon::ParameterInput;
 using parthenon::Real;
+using parthenon::SimTime;
 using parthenon::StateDescriptor;
 using parthenon::TaskID;
 using parthenon::TaskList;
@@ -40,7 +42,7 @@ namespace advection_example {
 
 class AdvectionDriver : public MultiStageBlockTaskDriver {
  public:
-  AdvectionDriver(ParameterInput *pin, Mesh *pm, Outputs *pout);
+  AdvectionDriver(ParameterInput *pin, Mesh *pm, Outputs *pout, SimTime &tm);
   // This next function essentially defines the driver.
   // Call graph looks like
   // main()

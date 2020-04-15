@@ -35,7 +35,7 @@ int main(int argc, char *argv[]) {
 
   // Initialize the driver
   advection_example::AdvectionDriver driver(pman.pinput.get(), pman.pmesh.get(),
-                                            pman.pouts.get());
+                                            pman.pouts.get(), pman.tm);
 
   // start a timer
   pman.PreDriver();

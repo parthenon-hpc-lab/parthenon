@@ -120,7 +120,7 @@ OutputType::OutputType(OutputParameters oparams)
 //----------------------------------------------------------------------------------------
 // Outputs constructor
 
-Outputs::Outputs(Mesh *pm, ParameterInput *pin) {
+Outputs::Outputs(Mesh *pm, ParameterInput *pin, Real time) {
   pfirst_type_ = nullptr;
   std::stringstream msg;
   InputBlock *pib = pin->pfirst_block;
@@ -140,7 +140,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin) {
       op.block_name.assign(pib->block_name);
 
       // set time of last output, time between outputs
-      op.next_time = pin->GetOrAddReal(op.block_name, "next_time", pm->time);
+      op.next_time = pin->GetOrAddReal(op.block_name, "next_time", time);
       op.dt = pin->GetReal(op.block_name, "dt");
 
       if (op.dt > 0.0) { // only add output if dt>0
@@ -392,17 +392,17 @@ void OutputType::ClearOutputData() {
 //! \fn void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, bool wtflag)
 //  \brief scans through singly linked list of OutputTypes and makes any outputs needed.
 
-void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, bool wtflag) {
+void Outputs::MakeOutputs(SimTime &tm, Mesh *pm, ParameterInput *pin, bool wtflag) {
   bool first = true;
   OutputType *ptype = pfirst_type_;
   while (ptype != nullptr) {
-    if ((pm->time == pm->start_time) || (pm->time >= ptype->output_params.next_time) ||
-        (pm->time >= pm->tlim) || (wtflag && ptype->output_params.file_type == "rst")) {
+    if ((tm.time == tm.start_time) || (tm.time >= ptype->output_params.next_time) ||
+        (tm.time >= tm.tlim) || (wtflag && ptype->output_params.file_type == "rst")) {
       if (first && ptype->output_params.file_type != "hst") {
         pm->ApplyUserWorkBeforeOutput(pin);
         first = false;
       }
-      ptype->WriteOutputFile(pm, pin, wtflag);
+      ptype->WriteOutputFile(tm, pm, pin, wtflag);
     }
     ptype = ptype->pnext_type; // move to next OutputType node in signly linked list
   }

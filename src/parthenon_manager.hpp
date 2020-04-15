@@ -17,6 +17,7 @@
 #include <memory>
 
 #include "argument_parser.hpp"
+#include "basic_types.hpp"
 #include "driver/driver.hpp"
 #include "interface/properties_interface.hpp"
 #include "interface/state_descriptor.hpp"
@@ -45,6 +46,7 @@ class ParthenonManager {
   std::unique_ptr<ParameterInput> pinput;
   std::unique_ptr<Mesh> pmesh;
   std::unique_ptr<Outputs> pouts;
+  SimTime tm;
 
  private:
   ArgParse arg;

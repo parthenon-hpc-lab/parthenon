@@ -16,8 +16,8 @@
 
 namespace parthenon {
 
-MultiStageDriver::MultiStageDriver(ParameterInput *pin, Mesh *pm, Outputs *pout)
-    : EvolutionDriver(pin, pm, pout) {
+MultiStageDriver::MultiStageDriver(ParameterInput *pin, Mesh *pm, Outputs *pout, SimTime &tm)
+    : EvolutionDriver(pin, pm, pout, tm) {
   pmesh = pm;
   std::string integrator_name = pin->GetOrAddString("time", "integrator", "rk2");
   int nstages = 2; // default rk2
@@ -55,6 +55,7 @@ MultiStageDriver::MultiStageDriver(ParameterInput *pin, Mesh *pm, Outputs *pout)
 TaskListStatus MultiStageBlockTaskDriver::Step() {
   using DriverUtils::ConstructAndExecuteBlockTasks;
   TaskListStatus status;
+  integrator->dt = tm.dt;
   for (int stage = 1; stage <= integrator->nstages; stage++) {
     status = ConstructAndExecuteBlockTasks<>(this, stage);
     if (status != TaskListStatus::complete) break;

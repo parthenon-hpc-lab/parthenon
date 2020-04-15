@@ -19,7 +19,7 @@
 #include <utility>
 #include <vector>
 
-#include "athena.hpp"
+#include "basic_types.hpp"
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
 #include "task_list/tasks.hpp"
@@ -48,21 +48,19 @@ class SimpleDriver : public Driver {
   DriverStatus Execute() { return DriverStatus::complete; }
 };
 
+
 class EvolutionDriver : public Driver {
  public:
-  EvolutionDriver(ParameterInput *pin, Mesh *pm, Outputs *pout) : Driver(pin, pm, pout),
-    start_time(pin->GetOrAddReal("time", "start_time", 0.0)),
-    time(start_time),
-    tlim(pin->GetReal("time", "tlim")),
-    dt(std::numeric_limits<Real>::max()),
-    dt_hyperbolic(dt), dt_parabolic(dt), dt_user(dt),
-    nlim(pin->GetOrAddInteger("time", "nlim", -1)), ncycle(),
-    ncycle_out(pin->GetOrAddInteger("time", "ncycle_out", 1)),
+  EvolutionDriver(ParameterInput *pin, Mesh *pm, Outputs *pout, SimTime &t) :
+    Driver(pin, pm, pout), tm(t) { }
   DriverStatus Execute();
+  void NewTimeStep();
+  void OutputCycleDiagnostics();
   virtual TaskListStatus Step() = 0;
- protected:
-  Real dt,time,start_time,tlim,dt_hyperbolic,dt_parabolic,dt_user;
-  int nlim,ncycle,ncycle_out;
+  SimTime tm;
+ private:
+  void InitializeBlockTimeSteps();
+  void Report(DriverStatus status);
 };
 
 namespace DriverUtils {

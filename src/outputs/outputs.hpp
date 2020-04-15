@@ -21,7 +21,7 @@
 
 #include <string>
 
-#include "athena.hpp"
+#include "basic_types.hpp"
 #include "io_wrapper.hpp"
 #include "parthenon_arrays.hpp"
 
@@ -109,8 +109,8 @@ class OutputType {
   void CalculateCartesianVector(ParArrayND<Real> &src, ParArrayND<Real> &dst,
                                 Coordinates *pco);
   // following pure virtual function must be implemented in all derived classes
-  virtual void WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) = 0;
-  virtual void WriteContainer(Mesh *pm, ParameterInput *pin, bool flag) { return; }
+  virtual void WriteOutputFile(SimTime &tm, Mesh *pm, ParameterInput *pin, bool flag) = 0;
+  virtual void WriteContainer(SimTime &tm, Mesh *pm, ParameterInput *pin, bool flag) { return; }
 
  protected:
   int num_vars_; // number of variables in output
@@ -126,7 +126,7 @@ class OutputType {
 class HistoryOutput : public OutputType {
  public:
   explicit HistoryOutput(OutputParameters oparams) : OutputType(oparams) {}
-  void WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) override;
+  void WriteOutputFile(SimTime &tm, Mesh *pm, ParameterInput *pin, bool flag) override;
 };
 
 //----------------------------------------------------------------------------------------
@@ -136,7 +136,7 @@ class HistoryOutput : public OutputType {
 class FormattedTableOutput : public OutputType {
  public:
   explicit FormattedTableOutput(OutputParameters oparams) : OutputType(oparams) {}
-  void WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) override;
+  void WriteOutputFile(SimTime &tm, Mesh *pm, ParameterInput *pin, bool flag) override;
 };
 
 //----------------------------------------------------------------------------------------
@@ -146,8 +146,8 @@ class FormattedTableOutput : public OutputType {
 class VTKOutput : public OutputType {
  public:
   explicit VTKOutput(OutputParameters oparams) : OutputType(oparams) {}
-  void WriteContainer(Mesh *pm, ParameterInput *pin, bool flag) override;
-  void WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) override;
+  void WriteContainer(SimTime &tm, Mesh *pm, ParameterInput *pin, bool flag) override;
+  void WriteOutputFile(SimTime &tm, Mesh *pm, ParameterInput *pin, bool flag) override;
 };
 
 //----------------------------------------------------------------------------------------
@@ -157,7 +157,7 @@ class VTKOutput : public OutputType {
 class RestartOutput : public OutputType {
  public:
   explicit RestartOutput(OutputParameters oparams) : OutputType(oparams) {}
-  void WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) override;
+  void WriteOutputFile(SimTime &tm, Mesh *pm, ParameterInput *pin, bool flag) override;
 };
 
 #ifdef HDF5OUTPUT
@@ -169,8 +169,8 @@ class PHDF5Output : public OutputType {
  public:
   // Function declarations
   explicit PHDF5Output(OutputParameters oparams) : OutputType(oparams) {}
-  void WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) override;
-  void genXDMF(std::string hdfFile, Mesh *pm);
+  void WriteOutputFile(SimTime &tm, Mesh *pm, ParameterInput *pin, bool flag) override;
+  void genXDMF(std::string hdfFile, Mesh *pm, SimTime &tm);
 
  private:
   // Parameters
@@ -190,10 +190,10 @@ class PHDF5Output : public OutputType {
 
 class Outputs {
  public:
-  Outputs(Mesh *pm, ParameterInput *pin);
+  Outputs(Mesh *pm, ParameterInput *pin, Real time);
   ~Outputs();
 
-  void MakeOutputs(Mesh *pm, ParameterInput *pin, bool wtflag = false);
+  void MakeOutputs(SimTime &tm, Mesh *pm, ParameterInput *pin, bool wtflag = false);
 
  private:
   OutputType *pfirst_type_; // ptr to head OutputType node in singly linked list
