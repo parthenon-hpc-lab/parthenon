@@ -902,22 +902,33 @@ void ParameterInput::ForwardNextTime(Real mesh_time) {
 }
 
 void ParameterInput::CheckRequiredDesired(AppInputs_t &req, AppInputs_t &des) {
+  bool missing_req = false;
   for (auto &r : req) {
     for (auto &f : r.second) {
       bool missing = true;
+      bool def = false;
       if (DoesParameterExist(r.first, f)) {
-        missing = (GetComment(r.first, f) == "# Default value added at run time");
+        missing = false;
+        def = (GetComment(r.first, f) == "# Default value added at run time");
       }
       if (missing) {
         std::cerr << std::endl
                   << "Parameter file missing required field <" << r.first << ">/" << f
                   << std::endl
                   << std::endl;
-        std::exit(1);
+        missing_req = true;
+      }
+      if (def) {
+        std::cerr << std::endl
+                  << "Please set required field explicitly in input <" << r.first << ">/"
+                  << f << std::endl
+                  << std::endl;
+        missing_req = true;
       }
     }
   }
 
+  bool missing_des = false;
   for (auto &s : des) {
     for (auto &f : s.second) {
       bool missing = true;
@@ -929,9 +940,11 @@ void ParameterInput::CheckRequiredDesired(AppInputs_t &req, AppInputs_t &des) {
                   << "Parameter file missing suggested field <" << s.first << ">/" << f
                   << std::endl
                   << std::endl;
+        missing_des;
       }
     }
   }
+  if (missing_req) throw std::runtime_error("Missing required parameter in input");
 }
 
 //----------------------------------------------------------------------------------------
