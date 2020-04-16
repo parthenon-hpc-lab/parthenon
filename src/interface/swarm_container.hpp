@@ -54,6 +54,9 @@ class SwarmContainer {
   /// Set the pointer to the mesh block for this container
   void setBlock(MeshBlock *pmb) { pmy_block = pmb; }
 
+  // TODO BRR also add Add() functions for setting single int, real, string
+  // values?
+
   ///
   /// Allocate and add a variable<T> to the container
   ///
@@ -64,7 +67,7 @@ class SwarmContainer {
   /// @param label the name of the variable
   /// @param metadata the metadata associated with the variable
   ///
-  void Add(const std::string label, const SwarmMetadata &smetadata);
+  void Add(const std::string label, const Metadata &metadata);
 
   ///
   /// Allocate and add a variable<T> to the container
@@ -76,7 +79,7 @@ class SwarmContainer {
   /// @param labelArray the array of names of variables
   /// @param metadata the metadata associated with the variable
   ///
-  void Add(const std::vector<std::string> labelArray, const SwarmMetadata &smetadata);
+  void Add(const std::vector<std::string> labelArray, const Metadata &metadata);
 
   ///
   /// Get a swarm from the container

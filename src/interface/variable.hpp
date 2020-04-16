@@ -200,6 +200,33 @@ class EdgeVariable {
 };
 
 template <typename T>
+class ParticleVariable {
+ public:
+  /// Initialize a particle variable
+  ParticleVariable(const std::string label, const int npool, const Metadata &metadata)
+      : data(label, npool),
+        npool_(npool), m_(metadata), label_(label) {}
+
+  ///< retrieve metadata for variable
+  const Metadata metadata() const { return m_; }
+
+  bool IsSet(const MetadataFlag bit) const { return m_.IsSet(bit); }
+
+  ///< retrieve label for variable
+  std::string label() { return label_; }
+
+  /// return information string
+  std::string info();
+
+  ParArrayND<Real> data;
+
+ private:
+  int npool_;
+  Metadata m_;
+  std::string label_;
+};
+
+template <typename T>
 using CellVariableVector = std::vector<std::shared_ptr<CellVariable<T>>>;
 template <typename T>
 using FaceVector = std::vector<std::shared_ptr<FaceVariable<T>>>;
@@ -208,6 +235,11 @@ template <typename T>
 using MapToCellVars = std::map<std::string, std::shared_ptr<CellVariable<T>>>;
 template <typename T>
 using MapToFace = std::map<std::string, std::shared_ptr<FaceVariable<T>>>;
+
+template <typename T>
+using ParticleVariableVector = std::vector<std::shared_ptr<ParticleVariable<T>>>;
+template <typename T>
+using MapToParticle = std::map<std::string, std::shared_ptr<ParticleVariable<T>>>;
 
 } // namespace parthenon
 

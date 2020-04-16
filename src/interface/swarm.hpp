@@ -26,8 +26,8 @@
 #include <vector>
 #include "athena.hpp"
 #include "parthenon_arrays.hpp"
-#include "particle_metadata.hpp"
-#include "swarm_metadata.hpp"
+#include "variable.hpp"
+#include "metadata.hpp"
 #include "bvals/cc/bvals_cc.hpp"
 
 namespace parthenon {
@@ -43,12 +43,21 @@ enum class PARTICLE_STATUS {
 
 class Swarm {
   public:
-    Swarm(const std::string label, const SwarmMetadata &smetadata,
+    Swarm(const std::string label, const Metadata &metadata,
       const int nmax_pool_in = 1000) :
       _label(label),
-      _sm(smetadata),
+      _m(metadata),
       _nmax_pool(nmax_pool_in),
       mpiStatus(true) {}
+
+  ///< Add variable to swarm
+  void Add(const std::string label, const Metadata &metadata);
+
+  ///< Add multiple variables with common metadata to swarm
+  void Add(const std::vector<std::string> labelVector, const Metadata &metadata);
+
+  ///< Remote a variable from swarm
+  void Remove(const std::string label);
 
   ///< Assign label for swarm
   void setLabel(const std::string label) { _label = label; }
@@ -57,7 +66,7 @@ class Swarm {
   std::string label() const { return _label; }
 
   ///< retrieve metadata for swarm
-  const SwarmMetadata swarmmetadata() const { return _sm; }
+  const Metadata metadata() const { return _m; }
 
   /// Assign info for swarm
   void setInfo(const std::string info) { _info = info; }
@@ -73,26 +82,6 @@ class Swarm {
 
   bool mpiStatus;
 
-  void Add(const std::string &label, const ParticleMetadata) {
-    // TODO(BRR) fix this
-    PARTICLE_TYPE type = PARTICLE_TYPE::REAL;
-    // TODO(BRR) check that value isn't already enrolled?
-    _labelArray.push_back(label);
-    _typeArray.push_back(type);
-    if (type == PARTICLE_TYPE::INT) {
-      _intArray.push_back(std::make_shared<ParArrayND<int>>(label, _nmax_pool));
-    } else if (type == PARTICLE_TYPE::REAL) {
-      _realArray.push_back(std::make_shared<ParArrayND<Real>>(label, _nmax_pool));
-    } else if (type == PARTICLE_TYPE::STRING) {
-      _stringArray.push_back(std::make_shared<ParArrayND<std::string>>(label, _nmax_pool));
-    } else {
-      throw std::invalid_argument(std::string("\n") +
-                                  std::to_string(static_cast<int>(type)) +
-                                  std::string(" not a PARTICLE_TYPE in Add()\n") );
-
-    }
-  }
-
   void AddParticle() {
     // Check that particle fits, if not double size of pool via
     // setPoolMax(2*_nmax_pool);
@@ -105,15 +94,19 @@ class Swarm {
  private:
   int _nmax_pool;
   int _nmax_occupied = 0;
-  SwarmMetadata _sm;
+  Metadata _m;
   std::string _label;
   std::string _info;
   std::vector<std::string> _labelArray;
   std::vector<PARTICLE_TYPE> _typeArray;
   std::shared_ptr<ParArrayND<PARTICLE_STATUS>> _pstatus;
-  std::vector<std::shared_ptr<ParArrayND<int>>> _intArray;
-  std::vector<std::shared_ptr<ParArrayND<Real>>> _realArray;
-  std::vector<std::shared_ptr<ParArrayND<std::string>>> _stringArray;
+  ParticleVariableVector<int> _intVector;
+  std::vector<std::shared_ptr<ParArrayND<Real>>> _realVector;
+  std::vector<std::shared_ptr<ParArrayND<std::string>>> _stringVector;
+
+  MapToParticle<int> _intMap;
+  std::map<std::string, std::shared_ptr<ParArrayND<int>>> _realMap;
+  std::map<std::string, std::shared_ptr<ParArrayND<int>>> _stringMap;
 };
 
 using SP_Swarm = std::shared_ptr<Swarm>;

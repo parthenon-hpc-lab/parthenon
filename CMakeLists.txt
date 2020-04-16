@@ -171,11 +171,12 @@ endif()
 # Note that these options may not play nice with nvcc wrapper
 if (TEST_INTEL_OPTIMIZATION)
   add_compile_options(-fp-model fast=2 -qopt_report5 -vec-threshold0 -qopt_report_phase=vec)
-endif()	       
+endif()
 
 add_subdirectory(src)
 add_subdirectory(example/calculate_pi)
 add_subdirectory(example/face_fields)
 add_subdirectory(example/advection)
+add_subdirectory(example/particles)
 
 include(cmake/CheckCopyright.cmake)

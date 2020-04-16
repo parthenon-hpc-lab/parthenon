@@ -155,6 +155,24 @@ std::string EdgeVariable<T>::info() {
   return s;
 }
 
+template <typename T>
+std::string ParticleVariable<T>::info() {
+  char tmp[100] = "";
+
+  // first add label
+  std::string s = this->label();
+  s.resize(20, '.');
+
+  // now append size
+  snprintf(tmp, sizeof(tmp), "%d", data.GetDim(1));
+  s += std::string(tmp);
+
+  // now append flag
+  s += " : " + this->metadata().MaskAsString();
+
+  return s;
+}
+
 template class CellVariable<Real>;
 template class FaceVariable<Real>;
 template class EdgeVariable<Real>;

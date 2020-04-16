@@ -22,10 +22,10 @@
 namespace parthenon {
 
 void SwarmContainer::Add(const std::vector<std::string> labelArray,
-                       const SwarmMetadata &smetadata) {
+                       const Metadata &metadata) {
   // generate the vector and call Add
   for (auto label : labelArray) {
-    Add(label, smetadata);
+    Add(label, metadata);
   }
 }
 
@@ -34,14 +34,14 @@ void SwarmContainer::Add(const std::vector<std::string> labelArray,
 /// is topology aware and will allocate accordingly.
 ///
 /// @param label the name of the variable
-/// @param pmetadata the metadata associated with the particle
+/// @param metadata the metadata associated with the particle
 void SwarmContainer::Add(const std::string label,
-                       const SwarmMetadata &smetadata) {
+                       const Metadata &metadata) {
   if (swarmMap_.find(label) != swarmMap_.end()) {
     throw std::invalid_argument ("swarm " + label  +" already enrolled during Add()!");
   }
 
-  auto swarm = std::make_shared<Swarm>(label, smetadata);
+  auto swarm = std::make_shared<Swarm>(label, metadata);
   swarmVector_.push_back(swarm);
   swarmMap_[label] = swarm;
 }
