@@ -83,7 +83,7 @@ class SwarmContainer {
   /// @param label the name of the swarm
   /// @return the Swarm if found or throw exception
   Swarm& Get(std::string label) {
-    for (auto v : swarms) {
+    for (auto v : swarmVector_) {
       if (! v->label().compare(label)) return *v;
     }
     throw std::invalid_argument (std::string("\n") +
@@ -92,12 +92,12 @@ class SwarmContainer {
   }
 
   Swarm& Get(const int index) {
-    return *(swarms[index]);
+    return *(swarmVector_[index]);
   }
 
   int Index(const std::string& label) {
-    for (int i = 0; i < swarms.size(); i++) {
-      if (! swarms[i]->label().compare(label)) return i;
+    for (int i = 0; i < swarmVector_.size(); i++) {
+      if (! swarmVector_[i]->label().compare(label)) return i;
     }
     return -1;
   }
@@ -111,6 +111,9 @@ class SwarmContainer {
                 std::vector<Swarm>& sRet,
                 std::map<std::string,std::pair<int,int>>& indexCount);
 
+  const SwarmVector &GetSwarmVector() const { return swarmVector_; }
+  const SwarmMap &GetSwarmMap() const { return swarmMap_; }
+
   ///
   /// Remove a variable from the container or throw exception if not
   /// found.
@@ -120,14 +123,14 @@ class SwarmContainer {
   // Temporary functions till we implement a *real* iterator
 
   /// Print list of labels in container
-  void print();
+  void Print();
 
   // return number of stored arrays
-  int size() {return swarms.size();}
+  int Size() {return swarmVector_.size();}
 
   // Element accessor functions
   std::vector<std::shared_ptr<Swarm>>& allSwarms() {
-    return swarms;
+    return swarmVector_;
   }
 
   // Communication routines
@@ -139,14 +142,24 @@ class SwarmContainer {
   void StartReceiving(BoundaryCommSubset phase);
   void ClearBoundary(BoundaryCommSubset phase);
 
- int GetVariables(const std::vector<std::string>& names,
-                               std::vector<Swarm>& sRet,
-                               std::map<std::string,std::pair<int,int>>& indexCount,
-                               const std::vector<int>& sparse_ids);
+  bool operator==(const SwarmContainer &cmp) {
+    // Test that labels of swarms are the same
+    std::vector<std::string> my_keys;
+    std::vector<std::string> cmp_keys;
+    for (auto &s : swarmMap_) {
+      my_keys.push_back(s.first);
+    }
+    for (auto &s : cmp.GetSwarmMap()) {
+      cmp_keys.push_back(s.first);
+    }
+    return my_keys == cmp_keys;
+  }
 
  private:
   int debug=0;
-  std::vector<std::shared_ptr<Swarm>> swarms = {};
+
+  SwarmVector swarmVector_ = {};
+  SwarmMap swarmMap_ = {};
 };
 
 } // namespace parthenon

@@ -37,18 +37,22 @@ void SwarmContainer::Add(const std::vector<std::string> labelArray,
 /// @param pmetadata the metadata associated with the particle
 void SwarmContainer::Add(const std::string label,
                        const SwarmMetadata &smetadata) {
+  if (swarmMap_.find(label) != swarmMap_.end()) {
+    throw std::invalid_argument ("swarm " + label  +" already enrolled during Add()!");
+  }
+
   auto swarm = std::make_shared<Swarm>(label, smetadata);
-  // TODO(BRR) check that swarm isn't already enrolled?
-  swarms.push_back(swarm);
+  swarmVector_.push_back(swarm);
+  swarmMap_[label] = swarm;
 }
 
 void SwarmContainer::Remove(const std::string label) {
   int idx, isize;
 
   // Find index of swarm
-  isize = swarms.size();
+  isize = swarmVector_.size();
   idx = 0;
-  for (auto s : swarms) {
+  for (auto s : swarmVector_) {
     if ( ! label.compare(s->label())) {
       break;
     }
@@ -59,20 +63,22 @@ void SwarmContainer::Remove(const std::string label) {
   }
 
   // first delete the variable
-  swarms[idx].reset();
+  swarmVector_[idx].reset();
 
   // Next move the last element into idx and pop last entry
   isize--;
-  if ( isize >= 0) swarms[idx] = std::move(swarms.back());
-  swarms.pop_back();
-  return;
+  if ( isize >= 0) swarmVector_[idx] = std::move(swarmVector_.back());
+  swarmVector_.pop_back();
+
+  // Also remove swarm from map
+  swarmMap_.erase(label);
 }
 
 void SwarmContainer::SendBoundaryBuffers() {}
 
 void SwarmContainer::SetupPersistentMPI() {}
 
-bool SwarmContainer::ReceiveBoundaryBuffers() {}
+bool SwarmContainer::ReceiveBoundaryBuffers() { return true; }
 
 void SwarmContainer::ReceiveAndSetBoundariesWithWait() {}
 
@@ -82,45 +88,9 @@ void SwarmContainer::StartReceiving(BoundaryCommSubset phase) {}
 
 void SwarmContainer::ClearBoundary(BoundaryCommSubset phase) {}
 
-void SwarmContainer::print() {
+void SwarmContainer::Print() {
   std::cout << "Swarms are:\n";
-  for (auto s : swarms) { std::cout << "  " << s->info() << std::endl; }
-}
-
-static void AddSwarm(Swarm&V, std::vector<Swarm>& sRet) {
-  // adds aliases to sRet
-  sRet.push_back(Swarm(V));
-}
-
-
-/// Gets an array of real variables from container.
-/// @param index_ret is returned with starting index for each name
-/// @param count_ret is returned with number of arrays for each name
-/// @param sparse_ids if specified, only those sparse IDs are returned
-int SwarmContainer::GetVariables(const std::vector<std::string>& names,
-                               std::vector<Swarm>& sRet,
-                               std::map<std::string,std::pair<int,int>>& indexCount,
-                               const std::vector<int>& sparse_ids) {
-  // First count how many entries we need and fill in index and count
-  indexCount.clear();
-
-  int index = 0;
-  for (auto label : names) {
-    int count = 0;
-    try { // normal variable
-      Swarm& S = Get(label);
-      AddSwarm(S, sRet);
-      count++;
-    }
-    catch (const std::invalid_argument& x) {
-      throw std::invalid_argument (" Unable to find swarm " +
-                                     label + " in container");
-    }
-    indexCount[label] = std::make_pair(index,count);
-    index += count;
-  } // (auto label : names)
-
-  return index;
+  for (auto s : swarmMap_) { std::cout << "  " << s.second->info() << std::endl; }
 }
 
 } // namespace parthenon

@@ -14,15 +14,8 @@
 #define INTERFACE_SWARM_HPP_
 
 ///
-/// A Variable type for Placebo-K.
-/// Builds on AthenaArrays
+/// A swarm contains all particles of a particular species
 /// Date: August 21, 2019
-///
-///
-/// The variable class typically contains state data for the
-/// simulation but can also hold non-mesh-based data such as physics
-/// parameters, etc.  It inherits the AthenaArray class, which is used
-/// for actural data storage and generation
 
 #include <array>
 #include <cstdint>
@@ -106,7 +99,7 @@ class Swarm {
   }
 
   void Defrag() {
-    // TODO(BRR) Put an O(N) algorithm here to defrag memory
+    // TODO(BRR) Put a fast algorithm here to defrag memory
   }
 
  private:
@@ -122,6 +115,10 @@ class Swarm {
   std::vector<std::shared_ptr<ParArrayND<Real>>> _realArray;
   std::vector<std::shared_ptr<ParArrayND<std::string>>> _stringArray;
 };
+
+using SP_Swarm = std::shared_ptr<Swarm>;
+using SwarmVector = std::vector<SP_Swarm>;
+using SwarmMap = std::map<std::string, SP_Swarm>;
 
 } // namespace parthenon
 
