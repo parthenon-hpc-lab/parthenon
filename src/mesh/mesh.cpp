@@ -81,8 +81,7 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
           (adaptive || pin->GetOrAddString("mesh", "refinement", "none") == "static")
               ? true
               : false),
-      nbnew(),
-      nbdel(), step_since_lb(), gflag(), pblock(nullptr), properties(properties),
+      nbnew(), nbdel(), step_since_lb(), gflag(), pblock(nullptr), properties(properties),
       packages(packages),
       // private members:
       next_phys_id_(), num_mesh_threads_(pin->GetOrAddInteger("mesh", "num_threads", 1)),
@@ -988,7 +987,6 @@ void Mesh::OutputMeshStructure(int ndim) {
 
   return;
 }
-
 
 //----------------------------------------------------------------------------------------
 //! \fn void Mesh::EnrollUserBoundaryFunction(BoundaryFace dir, BValFunc my_bc)

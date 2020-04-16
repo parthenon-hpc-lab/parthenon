@@ -31,8 +31,7 @@ DriverStatus EvolutionDriver::Execute() {
   SetGlobalTimeStep();
   pouts->MakeOutputs(pmesh, pinput, &tm);
   pmesh->mbcnt = 0;
-  while ((tm.time < tm.tlim) &&
-         (tm.nlim < 0 || tm.ncycle < tm.nlim)) {
+  while ((tm.time < tm.tlim) && (tm.nlim < 0 || tm.ncycle < tm.nlim)) {
     if (Globals::my_rank == 0) OutputCycleDiagnostics();
 
     TaskListStatus status = Step();
@@ -71,8 +70,7 @@ void EvolutionDriver::InitializeBlockTimeSteps() {
   // calculate the first time step
   MeshBlock *pmb = pmesh->pblock;
   while (pmb != nullptr) {
-    pmb->SetBlockTimestep(
-        Update::EstimateTimestep(pmb->real_containers.Get()));
+    pmb->SetBlockTimestep(Update::EstimateTimestep(pmb->real_containers.Get()));
     pmb = pmb->next;
   }
 }
@@ -123,7 +121,8 @@ void EvolutionDriver::SetGlobalTimeStep() {
   MPI_Allreduce(MPI_IN_PLACE, &tm.dt, 1, MPI_ATHENA_REAL, MPI_MIN, MPI_COMM_WORLD);
 #endif
 
-  if (tm.time < tm.tlim && (tm.tlim - tm.time) < tm.dt) // timestep would take us past desired endpoint
+  if (tm.time < tm.tlim &&
+      (tm.tlim - tm.time) < tm.dt) // timestep would take us past desired endpoint
     tm.dt = tm.tlim - tm.time;
 
   return;
@@ -136,7 +135,8 @@ void EvolutionDriver::OutputCycleDiagnostics() {
     if (tm.ncycle % tm.ncycle_out == 0) {
       if (Globals::my_rank == 0) {
         std::cout << "cycle=" << tm.ncycle << std::scientific
-                  << std::setprecision(dt_precision) << " time=" << tm.time << " dt=" << tm.dt;
+                  << std::setprecision(dt_precision) << " time=" << tm.time
+                  << " dt=" << tm.dt;
         // insert more diagnostics here
         std::cout << std::endl;
       }
@@ -144,6 +144,5 @@ void EvolutionDriver::OutputCycleDiagnostics() {
   }
   return;
 }
-
 
 } // namespace parthenon

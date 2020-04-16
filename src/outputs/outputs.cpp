@@ -139,15 +139,14 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     }
     // set file number, basename, id, and format
     op.file_number = pin->GetOrAddInteger(op.block_name, "file_number", 0);
-    op.file_basename = pin->GetOrAddString("job", "problem_id","parthenon");
+    op.file_basename = pin->GetOrAddString("job", "problem_id", "parthenon");
     char define_id[15];
     std::snprintf(define_id, sizeof(define_id), "graphics%d",
                   op.block_number); // default id="outN"
     op.file_id = pin->GetOrAddString(op.block_name, "id", define_id);
     op.file_type = "hdf5";
     // read ghost cell option
-    op.include_ghost_zones =
-      pin->GetOrAddBoolean(op.block_name, "ghost_zones", false);
+    op.include_ghost_zones = pin->GetOrAddBoolean(op.block_name, "ghost_zones", false);
     pnew_type = new PHDF5Output(op);
     pfirst_type_ = pnew_type;
     plast = pnew_type;
@@ -173,7 +172,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       if (op.dt > 0.0) { // only add output if dt>0
         // set file number, basename, id, and format
         op.file_number = pin->GetOrAddInteger(op.block_name, "file_number", 0);
-        op.file_basename = pin->GetOrAddString("job", "problem_id","parthenon");
+        op.file_basename = pin->GetOrAddString("job", "problem_id", "parthenon");
         char define_id[10];
         std::snprintf(define_id, sizeof(define_id), "out%d",
                       op.block_number); // default id="outN"
@@ -423,10 +422,8 @@ void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   bool first = true;
   OutputType *ptype = pfirst_type_;
   while (ptype != nullptr) {
-    if ( tm == nullptr ||
-        (tm->time == tm->start_time) ||
-        (tm->time >= ptype->output_params.next_time) ||
-        (tm->time >= tm->tlim)) {
+    if (tm == nullptr || (tm->time == tm->start_time) ||
+        (tm->time >= ptype->output_params.next_time) || (tm->time >= tm->tlim)) {
       if (first && ptype->output_params.file_type != "hst") {
         pm->ApplyUserWorkBeforeOutput(pin);
         first = false;

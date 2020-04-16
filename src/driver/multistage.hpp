@@ -43,8 +43,7 @@ class MultiStageDriver : public EvolutionDriver {
 
 class MultiStageBlockTaskDriver : public MultiStageDriver {
  public:
-  MultiStageBlockTaskDriver(ParameterInput *pin, Mesh *pm)
-      : MultiStageDriver(pin, pm) {}
+  MultiStageBlockTaskDriver(ParameterInput *pin, Mesh *pm) : MultiStageDriver(pin, pm) {}
   TaskListStatus Step();
   // An application driver that derives from this class must define this
   // function, which defines the application specific list of tasks and

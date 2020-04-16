@@ -110,7 +110,9 @@ class OutputType {
                                 Coordinates *pco);
   // following pure virtual function must be implemented in all derived classes
   virtual void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) = 0;
-  virtual void WriteContainer(SimTime &tm, Mesh *pm, ParameterInput *pin, bool flag) { return; }
+  virtual void WriteContainer(SimTime &tm, Mesh *pm, ParameterInput *pin, bool flag) {
+    return;
+  }
 
  protected:
   int num_vars_; // number of variables in output
@@ -190,10 +192,10 @@ class PHDF5Output : public OutputType {
 
 class Outputs {
  public:
-  Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm=nullptr);
+  Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm = nullptr);
   ~Outputs();
 
-  void MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm=nullptr);
+  void MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm = nullptr);
 
  private:
   OutputType *pfirst_type_; // ptr to head OutputType node in singly linked list

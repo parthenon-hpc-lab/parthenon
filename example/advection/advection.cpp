@@ -256,7 +256,6 @@ Real EstimateTimestep(Container<Real> &rc) {
     std::exit(1);
   }
 
-
   return cfl * min_dt;
 }
 
@@ -341,7 +340,6 @@ AdvectionDriver::AdvectionDriver(ParameterInput *pin, Mesh *pm)
   req["mesh"].push_back("ox1_bc");
   req["mesh"].push_back("ix2_bc");
   req["mesh"].push_back("ox2_bc");
-
 
   std::map<std::string, std::vector<std::string>> des;
   des["mesh"].push_back("refinement");

@@ -36,15 +36,13 @@ enum class DriverStatus { complete, timeout, failed };
 
 class Driver {
  public:
-  Driver(ParameterInput *pin, Mesh *pm)
-      : pinput(pin), pmesh(pm) { }
+  Driver(ParameterInput *pin, Mesh *pm) : pinput(pin), pmesh(pm) {}
   virtual DriverStatus Execute() = 0;
-  void InitializeOutputs() {
-    pouts = std::make_unique<Outputs>(pmesh, pinput);
-  }
+  void InitializeOutputs() { pouts = std::make_unique<Outputs>(pmesh, pinput); }
   ParameterInput *pinput;
   Mesh *pmesh;
   std::unique_ptr<Outputs> pouts;
+
  private:
 };
 
@@ -54,11 +52,9 @@ class SimpleDriver : public Driver {
   DriverStatus Execute() { return DriverStatus::complete; }
 };
 
-
 class EvolutionDriver : public Driver {
  public:
-  EvolutionDriver(ParameterInput *pin, Mesh *pm) :
-    Driver(pin, pm) {
+  EvolutionDriver(ParameterInput *pin, Mesh *pm) : Driver(pin, pm) {
     Real start_time = pinput->GetOrAddReal("time", "start_time", 0.0);
     Real tstop = pinput->GetReal("time", "tlim");
     int nmax = pinput->GetOrAddInteger("time", "nlim", -1);
@@ -73,6 +69,7 @@ class EvolutionDriver : public Driver {
 
   virtual TaskListStatus Step() = 0;
   SimTime tm;
+
  private:
   void InitializeBlockTimeSteps();
   void Report(DriverStatus status);

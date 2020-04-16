@@ -35,15 +35,15 @@ using Real = double;
 enum class TaskStatus { fail, complete, incomplete };
 enum class AmrTag : int { derefine = -1, same = 0, refine = 1 };
 
-
 struct SimTime {
   SimTime() = default;
-  SimTime(const Real tstart, const Real tstop, const int nmax, const int ncurr, const int nout)
-        : start_time(tstart), time(tstart),
-          tlim(tstop), dt(std::numeric_limits<Real>::max()),
-          nlim(nmax), ncycle(ncurr), ncycle_out(nout) {}
-  Real start_time,time,tlim,dt;
-  int nlim,ncycle,ncycle_out;
+  SimTime(const Real tstart, const Real tstop, const int nmax, const int ncurr,
+          const int nout)
+      : start_time(tstart), time(tstart), tlim(tstop),
+        dt(std::numeric_limits<Real>::max()), nlim(nmax), ncycle(ncurr),
+        ncycle_out(nout) {}
+  Real start_time, time, tlim, dt;
+  int nlim, ncycle, ncycle_out;
 };
 
 } // namespace parthenon

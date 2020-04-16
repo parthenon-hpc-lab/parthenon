@@ -296,7 +296,7 @@ bool ParameterInput::ParseLine(InputBlock *pib, std::string line, std::string &n
   comment = "";
   if (hash_char != std::string::npos) {
     comment = line.substr(hash_char);
-    line.erase(hash_char,std::string::npos);
+    line.erase(hash_char, std::string::npos);
   }
 
   first_char = line.find_first_not_of(" "); // find first non-white space
@@ -909,8 +909,10 @@ void ParameterInput::CheckRequiredDesired(AppInputs_t &req, AppInputs_t &des) {
         missing = (GetComment(r.first, f) == "# Default value added at run time");
       }
       if (missing) {
-        std::cerr << std::endl << "Parameter file missing required field <" << r.first << ">/" << f
-                  << std::endl << std::endl;
+        std::cerr << std::endl
+                  << "Parameter file missing required field <" << r.first << ">/" << f
+                  << std::endl
+                  << std::endl;
         std::exit(1);
       }
     }
@@ -923,8 +925,10 @@ void ParameterInput::CheckRequiredDesired(AppInputs_t &req, AppInputs_t &des) {
         missing = (GetComment(s.first, f) == "# Default value added at run time");
       }
       if (missing) {
-        std::cerr << std::endl << "Parameter file missing suggested field <" << s.first << ">/" << f
-                  << std::endl << std::endl;
+        std::cerr << std::endl
+                  << "Parameter file missing suggested field <" << s.first << ">/" << f
+                  << std::endl
+                  << std::endl;
       }
     }
   }
