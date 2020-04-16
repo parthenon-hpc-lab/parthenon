@@ -13,6 +13,7 @@
 #ifndef EXAMPLE_CALCULATE_PI_TASKS_HPP_
 #define EXAMPLE_CALCULATE_PI_TASKS_HPP_
 
+// Parthenon Includes
 #include <parthenon/task.hpp>
 
 namespace calculate_pi {

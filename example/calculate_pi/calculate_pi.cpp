@@ -11,7 +11,7 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-// Third Party Includes
+// Parthenon Includes
 #include <parthenon/app.hpp>
 
 // Local Includes
