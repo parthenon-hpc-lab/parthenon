@@ -10,18 +10,20 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef PARTHENON_INTERFACE_PROPERTIESINTERFACE_HPP_
-#define PARTHENON_INTERFACE_PROPERTIESINTERFACE_HPP_
+#ifndef INTERFACE_PROPERTIES_INTERFACE_HPP_
+#define INTERFACE_PROPERTIES_INTERFACE_HPP_
 
 #include <map>
+#include <memory>
 #include <string>
+#include <vector>
 
-#include "interface/StateDescriptor.hpp"
+#include "interface/state_descriptor.hpp"
 
 namespace parthenon {
 
 class PropertiesInterface {
-public:
+ public:
   virtual ~PropertiesInterface() {}
 
   virtual StateDescriptor &State() = 0;
@@ -32,8 +34,7 @@ public:
 
   static std::string GetLabelFromID(int id) {
     for (auto &x : PropertiesInterface::_label_to_id) {
-      if (x.second == id)
-        return x.first;
+      if (x.second == id) return x.first;
     }
     return "UNKNOWN";
   }
@@ -42,7 +43,7 @@ public:
     PropertiesInterface::_label_to_id[label] = id;
   }
 
-private:
+ private:
   // _label_to_id is declared here and defined in
   // PropertiesInterface.cpp
   static std::map<std::string, int> _label_to_id;
@@ -52,4 +53,4 @@ using Properties_t = std::vector<std::shared_ptr<PropertiesInterface>>;
 
 } // namespace parthenon
 
-#endif // PARTHENON_INTERFACE_PROPERTIESINTERFACE_HPP_
+#endif // INTERFACE_PROPERTIES_INTERFACE_HPP_

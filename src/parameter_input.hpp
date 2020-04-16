@@ -22,33 +22,29 @@
 // read from the input file.  See comments at start of parameter_input.cpp for more
 // information on the Athena++ input file format.
 
-// C headers
+#include <cstddef>
+#include <ostream>
+#include <string>
 
-// C++ headers
-#include <cstddef>  // std::size_t
-#include <ostream>  // ostream
-#include <string>   // string
-
-// Athena++ headers
 #include "athena.hpp"
-#include <defs.hpp>
+#include "defs.hpp"
 #include "outputs/io_wrapper.hpp"
 
-// OpenMP header
 #ifdef OPENMP_PARALLEL
 #include <omp.h>
 #endif
 
 namespace parthenon {
+
 //----------------------------------------------------------------------------------------
 //! \struct InputLine
 //  \brief  node in a singly linked list of parameters contained within 1x input block
 
 struct InputLine {
   std::string param_name;
-  std::string param_value;   // value of the parameter is stored as a string!
+  std::string param_value; // value of the parameter is stored as a string!
   std::string param_comment;
-  InputLine *pnext;   // pointer to the next node in this nested singly linked list
+  InputLine *pnext; // pointer to the next node in this nested singly linked list
 };
 
 //----------------------------------------------------------------------------------------
@@ -64,13 +60,13 @@ class InputBlock {
   std::string block_name;
   std::size_t max_len_parname;  // length of longest param_name, for nice-looking output
   std::size_t max_len_parvalue; // length of longest param_value, to format outputs
-  InputBlock *pnext;  // pointer to the next node in InputBlock singly linked list
+  InputBlock *pnext; // pointer to the next node in InputBlock singly linked list
 
-  InputLine *pline;   // pointer to head node in nested singly linked list (in this block)
+  InputLine *pline; // pointer to head node in nested singly linked list (in this block)
   // (not storing a reference to the tail node)
 
   // functions
-  InputLine* GetPtrToLine(std::string name);
+  InputLine *GetPtrToLine(std::string name);
 };
 
 //----------------------------------------------------------------------------------------
@@ -82,23 +78,23 @@ class ParameterInput {
  public:
   // constructor/destructor
   ParameterInput();
-  ParameterInput(std::string input_filename);
+  explicit ParameterInput(std::string input_filename);
   ~ParameterInput();
 
   // data
-  InputBlock* pfirst_block;   // pointer to head node in singly linked list of InputBlock
+  InputBlock *pfirst_block; // pointer to head node in singly linked list of InputBlock
   // (not storing a reference to the tail node)
 
   // functions
   void LoadFromStream(std::istream &is);
   void LoadFromFile(IOWrapper &input);
   void ModifyFromCmdline(int argc, char *argv[]);
-  void ParameterDump(std::ostream& os);
-  int  DoesParameterExist(std::string block, std::string name);
-  int  DoesBlockExist(std::string block);
-  int  GetInteger(std::string block, std::string name);
-  int  GetOrAddInteger(std::string block, std::string name, int value);
-  int  SetInteger(std::string block, std::string name, int value);
+  void ParameterDump(std::ostream &os);
+  int DoesParameterExist(std::string block, std::string name);
+  int DoesBlockExist(std::string block);
+  int GetInteger(std::string block, std::string name);
+  int GetOrAddInteger(std::string block, std::string name, int value);
+  int SetInteger(std::string block, std::string name, int value);
   Real GetReal(std::string block, std::string name);
   Real GetOrAddReal(std::string block, std::string name, Real value);
   Real SetReal(std::string block, std::string name, Real value);
@@ -112,12 +108,12 @@ class ParameterInput {
   void ForwardNextTime(Real time);
 
  private:
-  std::string last_filename_;  // last input file opened, to prevent duplicate reads
+  std::string last_filename_; // last input file opened, to prevent duplicate reads
 
-  InputBlock* FindOrAddBlock(std::string name);
-  InputBlock* GetPtrToBlock(std::string name);
-  void ParseLine(InputBlock *pib, std::string line, std::string& name,
-                 std::string& value, std::string& comment);
+  InputBlock *FindOrAddBlock(std::string name);
+  InputBlock *GetPtrToBlock(std::string name);
+  void ParseLine(InputBlock *pib, std::string line, std::string &name, std::string &value,
+                 std::string &comment);
   void AddParameter(InputBlock *pib, std::string name, std::string value,
                     std::string comment);
 
@@ -129,5 +125,5 @@ class ParameterInput {
   void Lock();
   void Unlock();
 };
-}
+} // namespace parthenon
 #endif // PARAMETER_INPUT_HPP_

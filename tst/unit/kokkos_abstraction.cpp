@@ -17,13 +17,13 @@
 // so.
 //========================================================================================
 
-#include "kokkos_abstraction.hpp"
-
 #include <iostream>
 #include <random>
 #include <vector>
 
 #include <catch2/catch.hpp>
+
+#include "kokkos_abstraction.hpp"
 
 using parthenon::DevSpace;
 using parthenon::ParArray1D;
@@ -32,10 +32,10 @@ using parthenon::ParArray3D;
 using parthenon::ParArray4D;
 using Real = double;
 
-template <class T> bool test_wrapper_1d(T loop_pattern, DevSpace exec_space) {
+template <class T>
+bool test_wrapper_1d(T loop_pattern, DevSpace exec_space) {
   // https://en.cppreference.com/w/cpp/numeric/random/uniform_real_distribution
-  std::random_device
-      rd; // Will be used to obtain a seed for the random number engine
+  std::random_device rd;  // Will be used to obtain a seed for the random number engine
   std::mt19937 gen(rd()); // Standard mersenne_twister_engine seeded with rd()
   std::uniform_real_distribution<Real> dis(-1.0, 1.0);
 
@@ -54,9 +54,7 @@ template <class T> bool test_wrapper_1d(T loop_pattern, DevSpace exec_space) {
   // increment data on the device using prescribed wrapper
   parthenon::par_for(
       loop_pattern, "unit test 1D", exec_space, 0, N - 1,
-      KOKKOS_LAMBDA(const int i) {
-        arr_dev(i) += static_cast<Real>(i);
-        });
+      KOKKOS_LAMBDA(const int i) { arr_dev(i) += static_cast<Real>(i); });
 
   // Copy array back from device to host
   Kokkos::deep_copy(arr_host_mod, arr_dev);
@@ -72,10 +70,10 @@ template <class T> bool test_wrapper_1d(T loop_pattern, DevSpace exec_space) {
   return all_same;
 }
 
-template <class T> bool test_wrapper_2d(T loop_pattern, DevSpace exec_space) {
+template <class T>
+bool test_wrapper_2d(T loop_pattern, DevSpace exec_space) {
   // https://en.cppreference.com/w/cpp/numeric/random/uniform_real_distribution
-  std::random_device
-      rd; // Will be used to obtain a seed for the random number engine
+  std::random_device rd;  // Will be used to obtain a seed for the random number engine
   std::mt19937 gen(rd()); // Standard mersenne_twister_engine seeded with rd()
   std::uniform_real_distribution<Real> dis(-1.0, 1.0);
 
@@ -96,8 +94,8 @@ template <class T> bool test_wrapper_2d(T loop_pattern, DevSpace exec_space) {
   parthenon::par_for(
       loop_pattern, "unit test 2D", exec_space, 0, N - 1, 0, N - 1,
       KOKKOS_LAMBDA(const int j, const int i) {
-        arr_dev(j, i) += static_cast<Real>(i + N*j);
-        });
+        arr_dev(j, i) += static_cast<Real>(i + N * j);
+      });
 
   // Copy array back from device to host
   Kokkos::deep_copy(arr_host_mod, arr_dev);
@@ -107,17 +105,17 @@ template <class T> bool test_wrapper_2d(T loop_pattern, DevSpace exec_space) {
   // compare data on the host
   for (int j = 0; j < N; j++)
     for (int i = 0; i < N; i++)
-      if (arr_host_orig(j, i) + static_cast<Real>(i + N*j) != arr_host_mod(j, i)) {
+      if (arr_host_orig(j, i) + static_cast<Real>(i + N * j) != arr_host_mod(j, i)) {
         all_same = false;
       }
 
   return all_same;
 }
 
-template <class T> bool test_wrapper_3d(T loop_pattern, DevSpace exec_space) {
+template <class T>
+bool test_wrapper_3d(T loop_pattern, DevSpace exec_space) {
   // https://en.cppreference.com/w/cpp/numeric/random/uniform_real_distribution
-  std::random_device
-      rd; // Will be used to obtain a seed for the random number engine
+  std::random_device rd;  // Will be used to obtain a seed for the random number engine
   std::mt19937 gen(rd()); // Standard mersenne_twister_engine seeded with rd()
   std::uniform_real_distribution<Real> dis(-1.0, 1.0);
 
@@ -139,7 +137,7 @@ template <class T> bool test_wrapper_3d(T loop_pattern, DevSpace exec_space) {
   parthenon::par_for(
       loop_pattern, "unit test 3D", exec_space, 0, N - 1, 0, N - 1, 0, N - 1,
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
-        arr_dev(k, j, i) += static_cast<Real>(i + N*(j + N*k));
+        arr_dev(k, j, i) += static_cast<Real>(i + N * (j + N * k));
       });
 
   // Copy array back from device to host
@@ -152,18 +150,17 @@ template <class T> bool test_wrapper_3d(T loop_pattern, DevSpace exec_space) {
     for (int j = 0; j < N; j++)
       for (int i = 0; i < N; i++)
         if (arr_host_orig(k, j, i) + static_cast<Real>(i + N * (j + N * k)) !=
-            arr_host_mod(k, j, i)
-            ) {
+            arr_host_mod(k, j, i)) {
           all_same = false;
         }
 
   return all_same;
 }
 
-template <class T> bool test_wrapper_4d(T loop_pattern, DevSpace exec_space) {
+template <class T>
+bool test_wrapper_4d(T loop_pattern, DevSpace exec_space) {
   // https://en.cppreference.com/w/cpp/numeric/random/uniform_real_distribution
-  std::random_device
-      rd; // Will be used to obtain a seed for the random number engine
+  std::random_device rd;  // Will be used to obtain a seed for the random number engine
   std::mt19937 gen(rd()); // Standard mersenne_twister_engine seeded with rd()
   std::uniform_real_distribution<Real> dis(-1.0, 1.0);
 
@@ -184,9 +181,9 @@ template <class T> bool test_wrapper_4d(T loop_pattern, DevSpace exec_space) {
 
   // increment data on the device using prescribed wrapper
   parthenon::par_for(
-      loop_pattern, "unit test 4D", exec_space, 0, N - 1, 0, N - 1, 0, N - 1, 0,
-      N - 1, KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
-        arr_dev(n, k, j, i) += static_cast<Real>(i + N*(j + N*(k + n)));
+      loop_pattern, "unit test 4D", exec_space, 0, N - 1, 0, N - 1, 0, N - 1, 0, N - 1,
+      KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
+        arr_dev(n, k, j, i) += static_cast<Real>(i + N * (j + N * (k + n)));
       });
 
   // Copy array back from device to host
@@ -199,8 +196,7 @@ template <class T> bool test_wrapper_4d(T loop_pattern, DevSpace exec_space) {
     for (int k = 0; k < N; k++)
       for (int j = 0; j < N; j++)
         for (int i = 0; i < N; i++)
-          if (arr_host_orig(n, k, j, i) +
-                  static_cast<Real>(i + N * (j + N * (k + n))) !=
+          if (arr_host_orig(n, k, j, i) + static_cast<Real>(i + N * (j + N * (k + n))) !=
               arr_host_mod(n, k, j, i)) {
             all_same = false;
           }
@@ -212,56 +208,56 @@ TEST_CASE("par_for loops", "[wrapper]") {
   auto default_exec_space = DevSpace();
 
   SECTION("1D loops") {
-    REQUIRE(test_wrapper_1d(parthenon::loop_pattern_mdrange_tag,
-                            default_exec_space) == true);
+    REQUIRE(test_wrapper_1d(parthenon::loop_pattern_mdrange_tag, default_exec_space) ==
+            true);
   }
 
   SECTION("2D loops") {
-    REQUIRE(test_wrapper_2d(parthenon::loop_pattern_mdrange_tag,
-                            default_exec_space) == true);
+    REQUIRE(test_wrapper_2d(parthenon::loop_pattern_mdrange_tag, default_exec_space) ==
+            true);
   }
 
   SECTION("3D loops") {
-    REQUIRE(test_wrapper_3d(parthenon::loop_pattern_flatrange_tag,
-                            default_exec_space) == true);
+    REQUIRE(test_wrapper_3d(parthenon::loop_pattern_flatrange_tag, default_exec_space) ==
+            true);
 
-    REQUIRE(test_wrapper_3d(parthenon::loop_pattern_mdrange_tag,
-                            default_exec_space) == true);
+    REQUIRE(test_wrapper_3d(parthenon::loop_pattern_mdrange_tag, default_exec_space) ==
+            true);
 
-    REQUIRE(test_wrapper_3d(parthenon::loop_pattern_tpttrtvr_tag,
-                            default_exec_space) == true);
+    REQUIRE(test_wrapper_3d(parthenon::loop_pattern_tpttrtvr_tag, default_exec_space) ==
+            true);
 
-    REQUIRE(test_wrapper_3d(parthenon::loop_pattern_tpttr_tag,
-                            default_exec_space) == true);
+    REQUIRE(test_wrapper_3d(parthenon::loop_pattern_tpttr_tag, default_exec_space) ==
+            true);
 
 #ifndef KOKKOS_ENABLE_CUDA
-    REQUIRE(test_wrapper_3d(parthenon::loop_pattern_tptvr_tag,
-                            default_exec_space) == true);
+    REQUIRE(test_wrapper_3d(parthenon::loop_pattern_tptvr_tag, default_exec_space) ==
+            true);
 
-    REQUIRE(test_wrapper_3d(parthenon::loop_pattern_simdfor_tag,
-                            default_exec_space) == true);
+    REQUIRE(test_wrapper_3d(parthenon::loop_pattern_simdfor_tag, default_exec_space) ==
+            true);
 #endif
   }
 
   SECTION("4D loops") {
-    REQUIRE(test_wrapper_4d(parthenon::loop_pattern_flatrange_tag,
-                            default_exec_space) == true);
+    REQUIRE(test_wrapper_4d(parthenon::loop_pattern_flatrange_tag, default_exec_space) ==
+            true);
 
-    REQUIRE(test_wrapper_4d(parthenon::loop_pattern_mdrange_tag,
-                            default_exec_space) == true);
+    REQUIRE(test_wrapper_4d(parthenon::loop_pattern_mdrange_tag, default_exec_space) ==
+            true);
 
-    REQUIRE(test_wrapper_4d(parthenon::loop_pattern_tpttrtvr_tag,
-                            default_exec_space) == true);
+    REQUIRE(test_wrapper_4d(parthenon::loop_pattern_tpttrtvr_tag, default_exec_space) ==
+            true);
 
-    REQUIRE(test_wrapper_4d(parthenon::loop_pattern_tpttr_tag,
-                            default_exec_space) == true);
+    REQUIRE(test_wrapper_4d(parthenon::loop_pattern_tpttr_tag, default_exec_space) ==
+            true);
 
 #ifndef KOKKOS_ENABLE_CUDA
-    REQUIRE(test_wrapper_4d(parthenon::loop_pattern_tptvr_tag,
-                            default_exec_space) == true);
+    REQUIRE(test_wrapper_4d(parthenon::loop_pattern_tptvr_tag, default_exec_space) ==
+            true);
 
-    REQUIRE(test_wrapper_4d(parthenon::loop_pattern_simdfor_tag,
-                            default_exec_space) == true);
+    REQUIRE(test_wrapper_4d(parthenon::loop_pattern_simdfor_tag, default_exec_space) ==
+            true);
 #endif
   }
 }
@@ -274,13 +270,13 @@ struct LargeNShortTBufferPack {
   // buffer in six direction, i plus, i minus, ...
   ParArray1D<Real> buf_ip, buf_im, buf_jp, buf_jm, buf_kp, buf_km;
   LargeNShortTBufferPack(const int nghost_, const int ncells_,
-             const ParArray4D<Real> arr_in_, ParArray1D<Real> buf_ip_,
-             ParArray1D<Real> buf_im_, ParArray1D<Real> buf_jp_,
-             ParArray1D<Real> buf_jm_, ParArray1D<Real> buf_kp_,
-             ParArray1D<Real> buf_km_)
-      : nghost(nghost_), ncells(ncells_), arr_in(arr_in_),
-        buf_ip(buf_ip_), buf_im(buf_im_), buf_jp(buf_jp_), buf_jm(buf_jm_),
-        buf_kp(buf_kp_), buf_km(buf_km_) {}
+                         const ParArray4D<Real> arr_in_, ParArray1D<Real> buf_ip_,
+                         ParArray1D<Real> buf_im_, ParArray1D<Real> buf_jp_,
+                         ParArray1D<Real> buf_jm_, ParArray1D<Real> buf_kp_,
+                         ParArray1D<Real> buf_km_)
+      : nghost(nghost_), ncells(ncells_), arr_in(arr_in_), buf_ip(buf_ip_),
+        buf_im(buf_im_), buf_jp(buf_jp_), buf_jm(buf_jm_), buf_kp(buf_kp_),
+        buf_km(buf_km_) {}
   KOKKOS_INLINE_FUNCTION
 
   void operator()(const int dir, const int n, const int it) const {
@@ -290,102 +286,101 @@ struct LargeNShortTBufferPack {
       // it loops over [k,j,i]=[ [nghost,ncells-nghost),
       //                         [nghost,ncells-nghost),
       //                         [nghost,2*nghost) ]
-      //const int it_nk = ncells-nghost*2;
-      const int it_nj = ncells-nghost*2;
+      // const int it_nk = ncells-nghost*2;
+      const int it_nj = ncells - nghost * 2;
       const int it_ni = nghost;
-      const int it_k = it / (it_ni*it_nj);
-      const int it_j = ( it - it_k*it_ni*it_nj)/it_ni;
-      const int it_i = it - it_k*it_ni*it_nj - it_j*it_ni;
+      const int it_k = it / (it_ni * it_nj);
+      const int it_j = (it - it_k * it_ni * it_nj) / it_ni;
+      const int it_i = it - it_k * it_ni * it_nj - it_j * it_ni;
       const int k = it_k + nghost;
       const int j = it_j + nghost;
       const int i = it_i + nghost;
-      const int idx = it_i + it_ni*(it_j + it_nj*it_k);
+      const int idx = it_i + it_ni * (it_j + it_nj * it_k);
       buf_im(offset + idx) = arr_in(n, k, j, i);
     } else if (dir == 1) {
       // it loops over [k,j,i]=[ [nghost,ncells-nghost),
       //                         [nghost,ncells-nghost),
       //                         [ncells-2*nghost,ncells-nghost) ]
-      //const int it_nk = ncells-nghost*2;
-      const int it_nj = ncells-nghost*2;
+      // const int it_nk = ncells-nghost*2;
+      const int it_nj = ncells - nghost * 2;
       const int it_ni = nghost;
-      const int it_k = it / (it_ni*it_nj);
-      const int it_j = ( it - it_k*it_ni*it_nj)/it_ni;
-      const int it_i = it - it_k*it_ni*it_nj - it_j*it_ni;
+      const int it_k = it / (it_ni * it_nj);
+      const int it_j = (it - it_k * it_ni * it_nj) / it_ni;
+      const int it_i = it - it_k * it_ni * it_nj - it_j * it_ni;
       const int k = it_k + nghost;
       const int j = it_j + nghost;
-      const int i = it_i + ncells-2*nghost;
-      const int idx = it_i + it_ni*(it_j + it_nj*it_k);
+      const int i = it_i + ncells - 2 * nghost;
+      const int idx = it_i + it_ni * (it_j + it_nj * it_k);
       buf_ip(offset + idx) = arr_in(n, k, j, i);
     } else if (dir == 2) {
       // it loops over [k,j,i]=[ [nghost,ncells-nghost),
       //                         [nghost,2*nghost),
       //                         [nghost,ncells-nghost) ]
-      //const int it_nk = ncells-nghost*2;
+      // const int it_nk = ncells-nghost*2;
       const int it_nj = nghost;
-      const int it_ni = ncells-nghost*2;
-      const int it_k = it / (it_ni*it_nj);
-      const int it_j = ( it - it_k*it_ni*it_nj)/it_ni;
-      const int it_i = it - it_k*it_ni*it_nj - it_j*it_ni;
+      const int it_ni = ncells - nghost * 2;
+      const int it_k = it / (it_ni * it_nj);
+      const int it_j = (it - it_k * it_ni * it_nj) / it_ni;
+      const int it_i = it - it_k * it_ni * it_nj - it_j * it_ni;
       const int k = it_k + nghost;
       const int j = it_j + nghost;
       const int i = it_i + nghost;
-      const int idx = it_i + it_ni*(it_j + it_nj*it_k);
+      const int idx = it_i + it_ni * (it_j + it_nj * it_k);
       buf_jm(offset + idx) = arr_in(n, k, j, i);
     } else if (dir == 3) {
-      //it loops over [k,j,i]=[ [nghost,ncells-nghost),
+      // it loops over [k,j,i]=[ [nghost,ncells-nghost),
       //                        [ncells-2*nghost,ncells),
       //                        [nghost,ncells-nghost) ]
-      //const int it_nk = ncells-nghost*2;
+      // const int it_nk = ncells-nghost*2;
       const int it_nj = nghost;
-      const int it_ni = ncells-nghost*2;
-      const int it_k = it / (it_ni*it_nj);
-      const int it_j = ( it - it_k*it_ni*it_nj)/it_ni;
-      const int it_i = it - it_k*it_ni*it_nj - it_j*it_ni;
+      const int it_ni = ncells - nghost * 2;
+      const int it_k = it / (it_ni * it_nj);
+      const int it_j = (it - it_k * it_ni * it_nj) / it_ni;
+      const int it_i = it - it_k * it_ni * it_nj - it_j * it_ni;
       const int k = it_k + nghost;
-      const int j = it_j + ncells-2*nghost;
+      const int j = it_j + ncells - 2 * nghost;
       const int i = it_i + nghost;
-      const int idx = it_i + it_ni*(it_j + it_nj*it_k);
+      const int idx = it_i + it_ni * (it_j + it_nj * it_k);
       buf_jp(offset + idx) = arr_in(n, k, j, i);
     } else if (dir == 4) {
       // it loops over [k,j,i]=[ [nghost,2*nghost),
       //                         [nghost,ncells-nghost),
       //                         [nghost,ncells-nghost) ]
-      //const int it_nk = nghost;
-      const int it_nj = ncells-nghost*2;
-      const int it_ni = ncells-nghost*2;
-      const int it_k = it / (it_ni*it_nj);
-      const int it_j = ( it - it_k*it_ni*it_nj)/it_ni;
-      const int it_i = it - it_k*it_ni*it_nj - it_j*it_ni;
+      // const int it_nk = nghost;
+      const int it_nj = ncells - nghost * 2;
+      const int it_ni = ncells - nghost * 2;
+      const int it_k = it / (it_ni * it_nj);
+      const int it_j = (it - it_k * it_ni * it_nj) / it_ni;
+      const int it_i = it - it_k * it_ni * it_nj - it_j * it_ni;
       const int k = it_k + nghost;
       const int j = it_j + nghost;
       const int i = it_i + nghost;
-      const int idx = it_i + it_ni*(it_j + it_nj*it_k);
+      const int idx = it_i + it_ni * (it_j + it_nj * it_k);
       buf_km(offset + idx) = arr_in(n, k, j, i);
     } else if (dir == 5) {
       // it loops over [k,j,i]=[ [ncells-2*nghost,ncells),
       //                         [nghost,ncells-nghost),
       //                         [nghost,ncells-nghost) ]
-      //const int it_nk = nghost;
-      const int it_nj = ncells-nghost*2;
-      const int it_ni = ncells-nghost*2;
-      const int it_k = it / (it_ni*it_nj);
-      const int it_j = ( it - it_k*it_ni*it_nj)/it_ni;
-      const int it_i = it - it_k*it_ni*it_nj - it_j*it_ni;
-      const int k = it_k + ncells-2*nghost;
+      // const int it_nk = nghost;
+      const int it_nj = ncells - nghost * 2;
+      const int it_ni = ncells - nghost * 2;
+      const int it_k = it / (it_ni * it_nj);
+      const int it_j = (it - it_k * it_ni * it_nj) / it_ni;
+      const int it_i = it - it_k * it_ni * it_nj - it_j * it_ni;
+      const int k = it_k + ncells - 2 * nghost;
       const int j = it_j + nghost;
       const int i = it_i + nghost;
-      const int idx = it_i + it_ni*(it_j + it_nj*it_k);
+      const int idx = it_i + it_ni * (it_j + it_nj * it_k);
       buf_kp(offset + idx) = arr_in(n, k, j, i);
     }
   }
 
   void run(DevSpace exec_space) {
-    const int nbuffers =
-        6; // number of buffers, here up, down, left, right, back, front
+    const int nbuffers = 6; // number of buffers, here up, down, left, right, back, front
     auto M = arr_in.extent(0);
-    auto slab_size = buf_im.extent(0)/M;
+    auto slab_size = buf_im.extent(0) / M;
     parthenon::par_for(parthenon::loop_pattern_mdrange_tag, "LargeNShortTBufferPack",
-        exec_space, 0, nbuffers-1, 0, M-1, 0, slab_size-1, *this);
+                       exec_space, 0, nbuffers - 1, 0, M - 1, 0, slab_size - 1, *this);
   }
 
   template <typename TimeType>
@@ -393,7 +388,7 @@ struct LargeNShortTBufferPack {
                         const int nspaces) {
     // Test that streams are not introducing a performance penalty (within 5%
     // uncertainty). The efficiency here depends on the available HW.
-    REQUIRE( time_spaces < 1.05*time_default );
+    REQUIRE(time_spaces < 1.05 * time_default);
   }
 };
 
@@ -405,13 +400,13 @@ struct SmallNLongTBufferPack {
   // buffer in six direction, i plus, i minus, ...
   ParArray1D<Real> buf_ip, buf_im, buf_jp, buf_jm, buf_kp, buf_km;
   SmallNLongTBufferPack(const int nghost_, const int ncells_,
-             const ParArray4D<Real> arr_in_, ParArray1D<Real> buf_ip_,
-             ParArray1D<Real> buf_im_, ParArray1D<Real> buf_jp_,
-             ParArray1D<Real> buf_jm_, ParArray1D<Real> buf_kp_,
-             ParArray1D<Real> buf_km_)
-      : nghost(nghost_), ncells(ncells_), arr_in(arr_in_),
-        buf_ip(buf_ip_), buf_im(buf_im_), buf_jp(buf_jp_), buf_jm(buf_jm_),
-        buf_kp(buf_kp_), buf_km(buf_km_) {}
+                        const ParArray4D<Real> arr_in_, ParArray1D<Real> buf_ip_,
+                        ParArray1D<Real> buf_im_, ParArray1D<Real> buf_jp_,
+                        ParArray1D<Real> buf_jm_, ParArray1D<Real> buf_kp_,
+                        ParArray1D<Real> buf_km_)
+      : nghost(nghost_), ncells(ncells_), arr_in(arr_in_), buf_ip(buf_ip_),
+        buf_im(buf_im_), buf_jp(buf_jp_), buf_jm(buf_jm_), buf_kp(buf_kp_),
+        buf_km(buf_km_) {}
   KOKKOS_INLINE_FUNCTION
   void operator()(const int n, const int dir) const {
     int idx = 0;
@@ -452,10 +447,9 @@ struct SmallNLongTBufferPack {
 
   void run(DevSpace exec_space) {
     auto M = arr_in.extent(0);
-    const int nbuffers =
-        6; // number of buffers, here up, down, left, right, back, front
+    const int nbuffers = 6; // number of buffers, here up, down, left, right, back, front
     parthenon::par_for(parthenon::loop_pattern_mdrange_tag, "SmallNLongTBufferPack",
-        exec_space, 0, M-1, 0, nbuffers-1, *this);
+                       exec_space, 0, M - 1, 0, nbuffers - 1, *this);
   }
 
   template <typename TimeType>
@@ -470,10 +464,10 @@ template <class BufferPack>
 void test_wrapper_buffer_pack_overlapping_space_instances(const std::string test_name) {
   auto default_exec_space = DevSpace();
 
-  const int N = 32;       // ~meshblock size
-  const int M = 5;        // ~nhydro
+  const int N = 32;      // ~meshblock size
+  const int M = 5;       // ~nhydro
   const int nspaces = 8; // number of streams
-  const int nghost = 2;   // number of ghost zones
+  const int nghost = 2;  // number of ghost zones
   const int buf_size = M * nghost * (N - 2 * nghost) * (N - 2 * nghost);
 
   std::vector<BufferPack> functs;
@@ -482,12 +476,9 @@ void test_wrapper_buffer_pack_overlapping_space_instances(const std::string test
   for (auto n = 0; n < nspaces; n++) {
     functs.push_back(BufferPack(
         nghost, N, ParArray4D<Real>("SpaceInstance in", M, N, N, N),
-        ParArray1D<Real>("buf_ip", buf_size),
-        ParArray1D<Real>("buf_im", buf_size),
-        ParArray1D<Real>("buf_jp", buf_size),
-        ParArray1D<Real>("buf_jm", buf_size),
-        ParArray1D<Real>("buf_kp", buf_size),
-        ParArray1D<Real>("buf_kp", buf_size)));
+        ParArray1D<Real>("buf_ip", buf_size), ParArray1D<Real>("buf_im", buf_size),
+        ParArray1D<Real>("buf_jp", buf_size), ParArray1D<Real>("buf_jm", buf_size),
+        ParArray1D<Real>("buf_kp", buf_size), ParArray1D<Real>("buf_kp", buf_size)));
     exec_spaces.push_back(parthenon::SpaceInstance<DevSpace>::create());
   }
 
@@ -531,12 +522,12 @@ void test_wrapper_buffer_pack_overlapping_space_instances(const std::string test
   }
 }
 TEST_CASE("Overlapping SpaceInstances", "[wrapper][performance]") {
-  SECTION ("Many Threads Short Kernel") {
-    test_wrapper_buffer_pack_overlapping_space_instances
-        <LargeNShortTBufferPack>("Many Threads Short Kernel");
+  SECTION("Many Threads Short Kernel") {
+    test_wrapper_buffer_pack_overlapping_space_instances<LargeNShortTBufferPack>(
+        "Many Threads Short Kernel");
   }
-  SECTION ("Few Threads Long Kernel") {
-    test_wrapper_buffer_pack_overlapping_space_instances
-        <SmallNLongTBufferPack>("Few Threads Long Kernel");
+  SECTION("Few Threads Long Kernel") {
+    test_wrapper_buffer_pack_overlapping_space_instances<SmallNLongTBufferPack>(
+        "Few Threads Long Kernel");
   }
 }

@@ -31,19 +31,15 @@
 // architecutres and compilers. In such cases, simply define all 6 of the below class
 // functions in every pgen/*.cpp file (without any function attributes).
 
-// C headers
-
-// C++ headers
-
-// Athena++ headers
 #include "athena.hpp"
-#include "athena_arrays.hpp"
 #include "mesh/mesh.hpp"
 #include "parameter_input.hpp"
+#include "parthenon_arrays.hpp"
 
 // 3x members of Mesh class:
 
 namespace parthenon {
+
 //========================================================================================
 //! \fn void Mesh::InitUserMeshData(ParameterInput *pin)
 //  \brief Function to initialize problem-specific data in Mesh class.  Can also be used
@@ -79,14 +75,15 @@ void __attribute__((weak)) Mesh::UserWorkAfterLoop(ParameterInput *pin) {
 // 5x members of MeshBlock class:
 
 //========================================================================================
-//! \fn std::unique_ptr<MeshBlockApplicationData> MeshBlock::InitApplicationMeshBlockData(ParameterInput *pin)
-//  \brief Function to initialize application-specific data in MeshBlock class.  Can also be
-//  used to initialize variables which are global to other functions in this file.
+//! \fn std::unique_ptr<MeshBlockApplicationData>
+//! MeshBlock::InitApplicationMeshBlockData(ParameterInput *pin)
+//  \brief Function to initialize application-specific data in MeshBlock class.  Can also
+//  be used to initialize variables which are global to other functions in this file.
 //  Called in MeshBlock constructor before ProblemGenerator.
 //========================================================================================
 
-std::unique_ptr<MeshBlockApplicationData>
-__attribute__((weak)) MeshBlock::InitApplicationMeshBlockData(ParameterInput *pin) {
+std::unique_ptr<MeshBlockApplicationData> __attribute__((weak))
+MeshBlock::InitApplicationMeshBlockData(ParameterInput *pin) {
   // do nothing
   return nullptr;
 }
@@ -133,4 +130,5 @@ void __attribute__((weak)) MeshBlock::UserWorkBeforeOutput(ParameterInput *pin) 
   // do nothing
   return;
 }
-}
+
+} // namespace parthenon

@@ -19,23 +19,18 @@
 //! \file io_wrapper.hpp
 //  \brief defines a set of small wrapper functions for MPI versus Serial Output.
 
-// C headers
-
-// C++ headers
 #include <cstdio>
 
-// Athena++ headers
+#include "parthenon_mpi.hpp"
+
 #include "athena.hpp"
 
-#ifdef MPI_PARALLEL
-#include <mpi.h>
-#endif
-
 namespace parthenon {
+
 #ifdef MPI_PARALLEL
-using  IOWrapperFile = MPI_File;
+using IOWrapperFile = MPI_File;
 #else
-using  IOWrapperFile = FILE*;
+using IOWrapperFile = FILE *;
 #endif
 
 using IOWrapperSizeT = std::uint64_t;
@@ -44,23 +39,23 @@ class IOWrapper {
  public:
 #ifdef MPI_PARALLEL
   IOWrapper() : fh_(nullptr), comm_(MPI_COMM_WORLD) {}
-  void SetCommunicator(MPI_Comm scomm) { comm_=scomm;}
+  void SetCommunicator(MPI_Comm scomm) { comm_ = scomm; }
 #else
-  IOWrapper() {fh_=nullptr;}
+  IOWrapper() { fh_ = nullptr; }
 #endif
   ~IOWrapper() {}
   // nested type definition of strongly typed/scoped enum in class definition
-  enum class FileMode {read, write};
+  enum class FileMode { read, write };
 
   // wrapper functions for basic I/O tasks
-  int Open(const char* fname, FileMode rw);
+  int Open(const char *fname, FileMode rw);
   std::size_t Read(void *buf, IOWrapperSizeT size, IOWrapperSizeT count);
   std::size_t Read_all(void *buf, IOWrapperSizeT size, IOWrapperSizeT count);
-  std::size_t Read_at_all(void *buf, IOWrapperSizeT size,
-                          IOWrapperSizeT count, IOWrapperSizeT offset);
+  std::size_t Read_at_all(void *buf, IOWrapperSizeT size, IOWrapperSizeT count,
+                          IOWrapperSizeT offset);
   std::size_t Write(const void *buf, IOWrapperSizeT size, IOWrapperSizeT count);
-  std::size_t Write_at_all(const void *buf, IOWrapperSizeT size,
-                           IOWrapperSizeT cnt, IOWrapperSizeT offset);
+  std::size_t Write_at_all(const void *buf, IOWrapperSizeT size, IOWrapperSizeT cnt,
+                           IOWrapperSizeT offset);
   int Close();
   int Seek(IOWrapperSizeT offset);
   IOWrapperSizeT GetPosition();

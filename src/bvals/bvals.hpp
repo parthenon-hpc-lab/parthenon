@@ -19,23 +19,18 @@
 //! \file bvals.hpp
 //  \brief defines BoundaryBase, BoundaryValues classes used for setting BCs on all data
 
-// C headers
-
-// C++ headers
-#include <string>   // string
+#include <memory>
+#include <string>
 #include <vector>
 
-// Athena++ headers
-#include "athena.hpp"
-#include "athena_arrays.hpp"
-#include "bvals_interfaces.hpp"
+#include "parthenon_mpi.hpp"
 
-// MPI headers
-#ifdef MPI_PARALLEL
-#include <mpi.h>
-#endif
+#include "athena.hpp"
+#include "bvals/bvals_interfaces.hpp"
+#include "parthenon_arrays.hpp"
 
 namespace parthenon {
+
 // forward declarations
 // TODO(felker): how many of these foward declarations are actually needed now?
 // Can #include "./bvals_interfaces.hpp" suffice?
@@ -47,7 +42,7 @@ class Coordinates;
 struct RegionSize;
 
 // free functions to return boundary flag given input string, and vice versa
-BoundaryFlag GetBoundaryFlag(const std::string& input_string);
+BoundaryFlag GetBoundaryFlag(const std::string &input_string);
 std::string GetBoundaryString(BoundaryFlag input_flag);
 // + confirming that the MeshBlock's boundaries are all valid selections
 void CheckBoundaryFlag(BoundaryFlag block_flag, CoordinateDirection dir);
@@ -58,8 +53,7 @@ void CheckBoundaryFlag(BoundaryFlag block_flag, CoordinateDirection dir);
 
 class BoundaryBase {
  public:
-  BoundaryBase(Mesh *pm, LogicalLocation iloc, RegionSize isize,
-               BoundaryFlag *input_bcs);
+  BoundaryBase(Mesh *pm, LogicalLocation iloc, RegionSize isize, BoundaryFlag *input_bcs);
   virtual ~BoundaryBase() = default;
   // 1x pair (neighbor index, buffer ID) per entire SET of separate variable buffers
   // (Field, Passive Scalar, etc.). Greedy allocation for worst-case
@@ -88,7 +82,7 @@ class BoundaryBase {
 
   Mesh *pmy_mesh_;
   RegionSize block_size_;
-  AthenaArray<Real> sarea_[2];
+  ParArrayND<Real> sarea_[2];
 
  private:
   // calculate 3x shared static data members when constructing only the 1st class instance
@@ -101,18 +95,21 @@ class BoundaryBase {
 //  \brief centralized class for interacting with each individual variable boundary data
 //         (design pattern ~ mediator)
 
-class BoundaryValues : public BoundaryBase, //public BoundaryPhysics,
+class BoundaryValues : public BoundaryBase, // public BoundaryPhysics,
                        public BoundaryCommunication {
  public:
   BoundaryValues(MeshBlock *pmb, BoundaryFlag *input_bcs, ParameterInput *pin);
 
   // variable-length arrays of references to BoundaryVariable instances
   // containing all BoundaryVariable instances:
-  std::vector<BoundaryVariable *> bvars;
+  std::vector<std::shared_ptr<BoundaryVariable>> bvars;
   // subset of bvars that are exchanged in the main TimeIntegratorTaskList
-  std::vector<BoundaryVariable *> bvars_main_int;
+  std::vector<std::shared_ptr<BoundaryVariable>> bvars_main_int;
 
-  void SetBoundaryFlags(BoundaryFlag bc_flag[]) {for (int i=0; i<6; i++) bc_flag[i]=block_bcs[i];}
+  void SetBoundaryFlags(BoundaryFlag bc_flag[]) {
+    for (int i = 0; i < 6; i++)
+      bc_flag[i] = block_bcs[i];
+  }
 
   // inherited functions (interface shared with BoundaryVariable objects):
   // ------
@@ -131,12 +128,12 @@ class BoundaryValues : public BoundaryBase, //public BoundaryPhysics,
   int AdvanceCounterPhysID(int num_phys);
 
  private:
-  MeshBlock *pmy_block_;      // ptr to MeshBlock containing this BoundaryValues
-  int nface_, nedge_;         // used only in fc/flux_correction_fc.cpp calculations
+  MeshBlock *pmy_block_; // ptr to MeshBlock containing this BoundaryValues
+  int nface_, nedge_;    // used only in fc/flux_correction_fc.cpp calculations
 
   // if a BoundaryPhysics or user fn should be applied at each MeshBlock boundary
   // false --> e.g. block, polar, periodic boundaries
-  bool apply_bndry_fn_[6]{};   // C++11: in-class initializer of non-static member
+  bool apply_bndry_fn_[6]{}; // C++11: in-class initializer of non-static member
   // C++11: direct-list-initialization -> value init of array -> zero init of each scalar
 
   // local counter for generating unique MPI tags for per-MeshBlock BoundaryVariable
@@ -145,12 +142,12 @@ class BoundaryValues : public BoundaryBase, //public BoundaryPhysics,
 
   // ProlongateBoundaries() wraps the following S/AMR-operations (within nneighbor loop):
   // (the next function is also called within 3x nested loops over nk,nj,ni)
-  void RestrictGhostCellsOnSameLevel(const NeighborBlock& nb, int nk, int nj, int ni);
-  void ApplyPhysicalBoundariesOnCoarseLevel(
-      const NeighborBlock& nb, const Real time, const Real dt,
-      int si, int ei, int sj, int ej, int sk, int ek);
-  void ProlongateGhostCells(const NeighborBlock& nb,
-                            int si, int ei, int sj, int ej, int sk, int ek);
+  void RestrictGhostCellsOnSameLevel(const NeighborBlock &nb, int nk, int nj, int ni);
+  void ApplyPhysicalBoundariesOnCoarseLevel(const NeighborBlock &nb, const Real time,
+                                            const Real dt, int si, int ei, int sj, int ej,
+                                            int sk, int ek);
+  void ProlongateGhostCells(const NeighborBlock &nb, int si, int ei, int sj, int ej,
+                            int sk, int ek);
 
   // temporary--- Added by @tomidakn on 2015-11-27 in f0f989f85f
   // TODO(KGF): consider removing this friendship designation
@@ -158,9 +155,11 @@ class BoundaryValues : public BoundaryBase, //public BoundaryPhysics,
   // currently, this class friendship is required for copying send/recv buffers between
   // BoundaryVariable objects within different MeshBlocks on the same MPI rank:
   friend class BoundaryVariable;
-  friend class FaceCenteredBoundaryVariable;  // needs nface_, nedge_, num_north/south_...
+  friend class FaceCenteredBoundaryVariable; // needs nface_, nedge_, num_north/south_...
   // TODO(KGF): consider removing these friendship designations:
   friend class CellCenteredBoundaryVariable;
 };
-}
+
+} // namespace parthenon
+
 #endif // BVALS_BVALS_HPP_

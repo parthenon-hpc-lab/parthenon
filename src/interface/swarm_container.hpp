@@ -19,8 +19,7 @@
 #include <utility> // <pair>
 #include <vector>
 #include "globals.hpp"
-//#include "mesh/mesh.hpp"
-#include "Swarm.hpp"
+#include "swarm.hpp"
 
 namespace parthenon {
 ///

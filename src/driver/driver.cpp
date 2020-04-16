@@ -12,11 +12,12 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#include "driver.hpp"
-#include "utils/utils.hpp"
-#include "parameter_input.hpp"
+#include "driver/driver.hpp"
+
 #include "mesh/mesh.hpp"
 #include "outputs/outputs.hpp"
+#include "parameter_input.hpp"
+#include "utils/utils.hpp"
 
 namespace parthenon {
 
@@ -24,12 +25,14 @@ DriverStatus EvolutionDriver::Execute() {
   pmesh->mbcnt = 0;
   while ((pmesh->time < pmesh->tlim) &&
          (pmesh->nlim < 0 || pmesh->ncycle < pmesh->nlim)) {
+    if (Globals::my_rank == 0) pmesh->OutputCycleDiagnostics();
 
-    if (Globals::my_rank == 0)
-      pmesh->OutputCycleDiagnostics();
-
-    Step();
-    //pmesh->UserWorkInLoop();
+    TaskListStatus status = Step();
+    if (status != TaskListStatus::complete) {
+      std::cerr << "Step failed to complete all tasks." << std::endl;
+      return DriverStatus::failed;
+    }
+    // pmesh->UserWorkInLoop();
 
     pmesh->ncycle++;
     pmesh->time += pmesh->dt;
@@ -39,33 +42,12 @@ DriverStatus EvolutionDriver::Execute() {
     pmesh->LoadBalancingAndAdaptiveMeshRefinement(pinput);
 
     pmesh->NewTimeStep();
-#ifdef ENABLE_EXCEPTIONS
-    try {
-#endif
-      if (pmesh->time < pmesh->tlim) // skip the final output as it happens later
-        pouts->MakeOutputs(pmesh,pinput);
-#ifdef ENABLE_EXCEPTIONS
-    }
-    catch(std::bad_alloc& ba) {
-      std::cout << "### FATAL ERROR in main" << std::endl
-                << "memory allocation failed during output: " << ba.what() <<std::endl;
-#ifdef MPI_PARALLEL
-      MPI_Finalize();
-#endif
-      return(DriverStatus::failed);
-    }
-    catch(std::exception const& ex) {
-      std::cout << ex.what() << std::endl;  // prints diagnostic message
-#ifdef MPI_PARALLEL
-      MPI_Finalize();
-#endif
-      return(DriverStatus::failed);
-    }
-#endif // ENABLE_EXCEPTIONS
+    if (pmesh->time < pmesh->tlim) // skip the final output as it happens later
+      pouts->MakeOutputs(pmesh, pinput);
 
     // check for signals
     if (SignalHandler::CheckSignalFlags() != 0) {
-      break;
+      return DriverStatus::failed;
     }
   } // END OF MAIN INTEGRATION LOOP ======================================================
   return DriverStatus::complete;

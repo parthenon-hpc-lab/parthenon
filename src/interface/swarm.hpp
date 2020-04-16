@@ -32,10 +32,10 @@
 #include <utility>
 #include <vector>
 #include "athena.hpp"
-#include "athena_arrays.hpp"
+#include "parthenon_arrays.hpp"
+#include "particle_metadata.hpp"
+#include "swarm_metadata.hpp"
 #include "bvals/cc/bvals_cc.hpp"
-#include "ParticleMetadata.hpp"
-#include "SwarmMetadata.hpp"
 
 namespace parthenon {
 class MeshBlock;
@@ -87,11 +87,11 @@ class Swarm {
     _labelArray.push_back(label);
     _typeArray.push_back(type);
     if (type == PARTICLE_TYPE::INT) {
-      _intArray.push_back(std::make_shared<AthenaArray<int>>(_nmax_pool));
+      _intArray.push_back(std::make_shared<ParArrayND<int>>(label, _nmax_pool));
     } else if (type == PARTICLE_TYPE::REAL) {
-      _realArray.push_back(std::make_shared<AthenaArray<Real>>(_nmax_pool));
+      _realArray.push_back(std::make_shared<ParArrayND<Real>>(label, _nmax_pool));
     } else if (type == PARTICLE_TYPE::STRING) {
-      _stringArray.push_back(std::make_shared<AthenaArray<std::string>>(_nmax_pool));
+      _stringArray.push_back(std::make_shared<ParArrayND<std::string>>(label, _nmax_pool));
     } else {
       throw std::invalid_argument(std::string("\n") +
                                   std::to_string(static_cast<int>(type)) +
@@ -117,10 +117,10 @@ class Swarm {
   std::string _info;
   std::vector<std::string> _labelArray;
   std::vector<PARTICLE_TYPE> _typeArray;
-  std::shared_ptr<AthenaArray<PARTICLE_STATUS>> _pstatus;
-  std::vector<std::shared_ptr<AthenaArray<int>>> _intArray;
-  std::vector<std::shared_ptr<AthenaArray<Real>>> _realArray;
-  std::vector<std::shared_ptr<AthenaArray<std::string>>> _stringArray;
+  std::shared_ptr<ParArrayND<PARTICLE_STATUS>> _pstatus;
+  std::vector<std::shared_ptr<ParArrayND<int>>> _intArray;
+  std::vector<std::shared_ptr<ParArrayND<Real>>> _realArray;
+  std::vector<std::shared_ptr<ParArrayND<std::string>>> _stringArray;
 };
 
 } // namespace parthenon

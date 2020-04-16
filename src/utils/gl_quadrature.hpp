@@ -22,26 +22,25 @@
 
 // TODO(felker): add other Gaussian quadratures, or alternative approaches for computing
 // the initial condition that outperform GL quadrature for a discontinuous function
-
-// C headers
-
-// C++ headers
-
-// Athena++ headers
 #include "athena.hpp"
-#include "athena_arrays.hpp"
 
 namespace parthenon {
 namespace GaussLegendre {
-// TODO(felker): for more complicate f(), use functors/lambdas/pass AthenaArray to both fn
+
+// TODO(felker): for more complicate f(), use functors/lambdas/pass ParArrayND to both fn
+
 // 1D f(x1)
 Real integrate(const int n, Real (*f)(Real), Real x1l, Real x1u);
+
 // 2D f(x1, x2)
-Real integrate(const int n, Real (*f)(Real, Real),
-               Real x1l, Real x1u, Real x2l, Real x2u);
+Real integrate(const int n, Real (*f)(Real, Real), Real x1l, Real x1u, Real x2l,
+               Real x2u);
+
 // 3D f(x1, x2, x3)
-Real integrate(const int n, Real (*f)(Real, Real, Real),
-               Real x1l, Real x1u, Real x2l, Real x2u, Real x3l, Real x3u);
+Real integrate(const int n, Real (*f)(Real, Real, Real), Real x1l, Real x1u, Real x2l,
+               Real x2u, Real x3l, Real x3u);
+
 } // namespace GaussLegendre
-}
+} // namespace parthenon
+
 #endif // UTILS_GL_QUADRATURE_HPP_

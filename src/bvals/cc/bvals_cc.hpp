@@ -17,41 +17,34 @@
 #ifndef BVALS_CC_BVALS_CC_HPP_
 #define BVALS_CC_BVALS_CC_HPP_
 //! \file bvals_cc.hpp
-//  \brief handle boundaries for any AthenaArray type variable that represents a physical
+//  \brief handle boundaries for any ParArrayND type variable that represents a physical
 //         quantity indexed along / located around cell-centers
 
-// C headers
+#include "parthenon_mpi.hpp"
 
-// C++ headers
-
-// Athena++ classes headers
+#include "athena.hpp"
 #include "bvals/bvals.hpp"
 
-// MPI headers
-#ifdef MPI_PARALLEL
-#include <mpi.h>
-#endif
-
 namespace parthenon {
+
 //----------------------------------------------------------------------------------------
 //! \class CellCenteredBoundaryVariable
 //  \brief
 
 class CellCenteredBoundaryVariable : public BoundaryVariable {
  public:
-  CellCenteredBoundaryVariable(MeshBlock *pmb,
-                               AthenaArray<Real> *var, AthenaArray<Real> *coarse_var,
-                               AthenaArray<Real> *var_flux);
+  CellCenteredBoundaryVariable(MeshBlock *pmb, ParArrayND<Real> var,
+                               ParArrayND<Real> coarse_var, ParArrayND<Real> *var_flux);
   ~CellCenteredBoundaryVariable();
 
   // may want to rebind var_cc to u,u1,u2,w,w1, etc. registers for time integrator logic.
-  AthenaArray<Real> *var_cc;
-  AthenaArray<Real> *coarse_buf;  // may pass nullptr if mesh refinement is unsupported
+  ParArrayND<Real> var_cc;
+  ParArrayND<Real> coarse_buf; // may pass nullptr if mesh refinement is unsupported
 
   // currently, no need to ever switch flux[] ---> keep as reference members (not ptrs)
-  // flux[3] w/ 3x empty AthenaArrays may be passed if mesh refinement is unsupported, but
+  // flux[3] w/ 3x empty ParArrayNDs may be passed if mesh refinement is unsupported, but
   // nullptr is not allowed
-  AthenaArray<Real> &x1flux, &x2flux, &x3flux;
+  ParArrayND<Real> x1flux, x2flux, x3flux;
 
   // maximum number of reserved unique "physics ID" component of MPI tag bitfield
   // (CellCenteredBoundaryVariable only actually uses 1x if multilevel==false)
@@ -59,8 +52,8 @@ class CellCenteredBoundaryVariable : public BoundaryVariable {
   static constexpr int max_phys_id = 3;
 
   // BoundaryVariable:
-  int ComputeVariableBufferSize(const NeighborIndexes& ni, int cng) override;
-  int ComputeFluxCorrectionBufferSize(const NeighborIndexes& ni, int cng) override;
+  int ComputeVariableBufferSize(const NeighborIndexes &ni, int cng) override;
+  int ComputeFluxCorrectionBufferSize(const NeighborIndexes &ni, int cng) override;
 
   // BoundaryCommunication:
   void SetupPersistentMPI() override;
@@ -76,22 +69,24 @@ class CellCenteredBoundaryVariable : public BoundaryVariable {
 
  private:
   // BoundaryBuffer:
-  int LoadBoundaryBufferSameLevel(Real *buf, const NeighborBlock& nb) override;
-  void SetBoundarySameLevel(Real *buf, const NeighborBlock& nb) override;
+  int LoadBoundaryBufferSameLevel(Real *buf, const NeighborBlock &nb) override;
+  void SetBoundarySameLevel(Real *buf, const NeighborBlock &nb) override;
 
-  int LoadBoundaryBufferToCoarser(Real *buf, const NeighborBlock& nb) override;
-  int LoadBoundaryBufferToFiner(Real *buf, const NeighborBlock& nb) override;
+  int LoadBoundaryBufferToCoarser(Real *buf, const NeighborBlock &nb) override;
+  int LoadBoundaryBufferToFiner(Real *buf, const NeighborBlock &nb) override;
 
-  void SetBoundaryFromCoarser(Real *buf, const NeighborBlock& nb) override;
-  void SetBoundaryFromFiner(Real *buf, const NeighborBlock& nb) override;
+  void SetBoundaryFromCoarser(Real *buf, const NeighborBlock &nb) override;
+  void SetBoundaryFromFiner(Real *buf, const NeighborBlock &nb) override;
 
 #ifdef MPI_PARALLEL
   int cc_phys_id_, cc_flx_phys_id_;
 #endif
 
   void RemapFlux(const int n, const int k, const int jinner, const int jouter,
-                 const int i, const Real eps, const AthenaArray<Real> &var,
-                 AthenaArray<Real> &flux);
+                 const int i, const Real eps, const ParArrayND<Real> &var,
+                 ParArrayND<Real> &flux);
 };
-}
+
+} // namespace parthenon
+
 #endif // BVALS_CC_BVALS_CC_HPP_
