@@ -53,7 +53,7 @@ struct OutputParameters {
   Real x1_slice, x2_slice, x3_slice;
   // TODO(felker): some of the parameters in this class are not initialized in constructor
   OutputParameters()
-      : block_number(0), next_time(0.0), dt(0.0), file_number(0), output_slicex1(false),
+      : block_number(0), next_time(0.0), dt(-1.0), file_number(0), output_slicex1(false),
         output_slicex2(false), output_slicex3(false), output_sumx1(false),
         output_sumx2(false), output_sumx3(false), include_ghost_zones(false),
         cartesian_vector(false), islice(0), jslice(0), kslice(0) {}
@@ -109,7 +109,7 @@ class OutputType {
   void CalculateCartesianVector(ParArrayND<Real> &src, ParArrayND<Real> &dst,
                                 Coordinates *pco);
   // following pure virtual function must be implemented in all derived classes
-  virtual void WriteOutputFile(SimTime &tm, Mesh *pm, ParameterInput *pin, bool flag) = 0;
+  virtual void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) = 0;
   virtual void WriteContainer(SimTime &tm, Mesh *pm, ParameterInput *pin, bool flag) { return; }
 
  protected:
@@ -126,7 +126,7 @@ class OutputType {
 class HistoryOutput : public OutputType {
  public:
   explicit HistoryOutput(OutputParameters oparams) : OutputType(oparams) {}
-  void WriteOutputFile(SimTime &tm, Mesh *pm, ParameterInput *pin, bool flag) override;
+  void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) override;
 };
 
 //----------------------------------------------------------------------------------------
@@ -136,7 +136,7 @@ class HistoryOutput : public OutputType {
 class FormattedTableOutput : public OutputType {
  public:
   explicit FormattedTableOutput(OutputParameters oparams) : OutputType(oparams) {}
-  void WriteOutputFile(SimTime &tm, Mesh *pm, ParameterInput *pin, bool flag) override;
+  void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) override;
 };
 
 //----------------------------------------------------------------------------------------
@@ -147,7 +147,7 @@ class VTKOutput : public OutputType {
  public:
   explicit VTKOutput(OutputParameters oparams) : OutputType(oparams) {}
   void WriteContainer(SimTime &tm, Mesh *pm, ParameterInput *pin, bool flag) override;
-  void WriteOutputFile(SimTime &tm, Mesh *pm, ParameterInput *pin, bool flag) override;
+  void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) override;
 };
 
 //----------------------------------------------------------------------------------------
@@ -157,7 +157,7 @@ class VTKOutput : public OutputType {
 class RestartOutput : public OutputType {
  public:
   explicit RestartOutput(OutputParameters oparams) : OutputType(oparams) {}
-  void WriteOutputFile(SimTime &tm, Mesh *pm, ParameterInput *pin, bool flag) override;
+  void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) override;
 };
 
 #ifdef HDF5OUTPUT
@@ -169,8 +169,8 @@ class PHDF5Output : public OutputType {
  public:
   // Function declarations
   explicit PHDF5Output(OutputParameters oparams) : OutputType(oparams) {}
-  void WriteOutputFile(SimTime &tm, Mesh *pm, ParameterInput *pin, bool flag) override;
-  void genXDMF(std::string hdfFile, Mesh *pm, SimTime &tm);
+  void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) override;
+  void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm);
 
  private:
   // Parameters
@@ -190,10 +190,10 @@ class PHDF5Output : public OutputType {
 
 class Outputs {
  public:
-  Outputs(Mesh *pm, ParameterInput *pin, Real time);
+  Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm=nullptr);
   ~Outputs();
 
-  void MakeOutputs(SimTime &tm, Mesh *pm, ParameterInput *pin, bool wtflag = false);
+  void MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm=nullptr);
 
  private:
   OutputType *pfirst_type_; // ptr to head OutputType node in singly linked list

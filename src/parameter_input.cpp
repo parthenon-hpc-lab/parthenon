@@ -292,6 +292,13 @@ bool ParameterInput::ParseLine(InputBlock *pib, std::string line, std::string &n
   std::size_t first_char, last_char, equal_char, hash_char, cont_char, len;
   bool continuation = false;
 
+  hash_char = line.find_first_of("#"); // find "#" (optional)
+  comment = "";
+  if (hash_char != std::string::npos) {
+    comment = line.substr(hash_char);
+    line.erase(hash_char,std::string::npos);
+  }
+
   first_char = line.find_first_not_of(" "); // find first non-white space
   equal_char = line.find_first_of("=");     // find "=" char
 
@@ -307,10 +314,9 @@ bool ParameterInput::ParseLine(InputBlock *pib, std::string line, std::string &n
     line.erase(0, len + 1);
   }
 
-  hash_char = line.find_first_of("#"); // find "#" (optional)
   cont_char = line.find_first_of("&"); // find "&" continuation character
   // copy substring into value, remove white space at start and end
-  len = std::min(cont_char, hash_char);
+  len = cont_char;
   if (len == cont_char && cont_char != std::string::npos) continuation = true;
   value.assign(line, 0, len);
 
@@ -320,16 +326,6 @@ bool ParameterInput::ParseLine(InputBlock *pib, std::string line, std::string &n
   last_char = value.find_last_not_of(" ");
   value.erase(last_char + 1, std::string::npos);
 
-  if (continuation) {
-    hash_char = line.find_first_of("#"); // find "#" (optional)
-  }
-
-  // copy substring into comment, if present
-  if (hash_char != std::string::npos) {
-    comment = line.substr(hash_char);
-  } else {
-    comment = "";
-  }
   return continuation;
 }
 
@@ -460,6 +456,35 @@ int ParameterInput::DoesBlockExist(std::string block) {
   InputBlock *pb = GetPtrToBlock(block);
   if (pb == nullptr) return 0;
   return 1;
+}
+
+std::string ParameterInput::GetComment(std::string block, std::string name) {
+  InputBlock *pb;
+  InputLine *pl;
+  std::stringstream msg;
+
+  Lock();
+
+  // get pointer to node with same block name in singly linked list of InputBlocks
+  pb = GetPtrToBlock(block);
+  if (pb == nullptr) {
+    msg << "### FATAL ERROR in function [ParameterInput::GetInteger]" << std::endl
+        << "Block name '" << block << "' not found when trying to set value "
+        << "for parameter '" << name << "'";
+    ATHENA_ERROR(msg);
+  }
+
+  // get pointer to node with same parameter name in singly linked list of InputLines
+  pl = pb->GetPtrToLine(name);
+  if (pl == nullptr) {
+    msg << "### FATAL ERROR in function [ParameterInput::GetInteger]" << std::endl
+        << "Parameter name '" << name << "' not found in block '" << block << "'";
+    ATHENA_ERROR(msg);
+  }
+
+  std::string val = pl->param_comment;
+  Unlock();
+  return val;
 }
 
 //----------------------------------------------------------------------------------------
@@ -876,14 +901,16 @@ void ParameterInput::ForwardNextTime(Real mesh_time) {
   }
 }
 
-void ParameterInput::CheckRequiredDesired(
-    std::map<std::string, std::vector<std::string>> &req,
-    std::map<std::string, std::vector<std::string>> &des) {
+void ParameterInput::CheckRequiredDesired(AppInputs_t &req, AppInputs_t &des) {
   for (auto &r : req) {
     for (auto &f : r.second) {
-      if (!DoesParameterExist(r.first, f)) {
-        std::cerr << "Parameter file missing required field <" << r.first << ">/" << f
-                  << std::endl;
+      bool missing = true;
+      if (DoesParameterExist(r.first, f)) {
+        missing = (GetComment(r.first, f) == "# Default value added at run time");
+      }
+      if (missing) {
+        std::cerr << std::endl << "Parameter file missing required field <" << r.first << ">/" << f
+                  << std::endl << std::endl;
         std::exit(1);
       }
     }
@@ -891,9 +918,13 @@ void ParameterInput::CheckRequiredDesired(
 
   for (auto &s : des) {
     for (auto &f : s.second) {
-      if (!DoesParameterExist(s.first, f)) {
-        std::cerr << "Parameter file missing suggested field <" << s.first << ">/" << f
-                  << std::endl;
+      bool missing = true;
+      if (DoesParameterExist(s.first, f)) {
+        missing = (GetComment(s.first, f) == "# Default value added at run time");
+      }
+      if (missing) {
+        std::cerr << std::endl << "Parameter file missing suggested field <" << s.first << ">/" << f
+                  << std::endl << std::endl;
       }
     }
   }

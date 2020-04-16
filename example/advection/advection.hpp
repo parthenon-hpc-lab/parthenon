@@ -42,7 +42,7 @@ namespace advection_example {
 
 class AdvectionDriver : public MultiStageBlockTaskDriver {
  public:
-  AdvectionDriver(ParameterInput *pin, Mesh *pm, Outputs *pout, SimTime &tm);
+  AdvectionDriver(ParameterInput *pin, Mesh *pm);
   // This next function essentially defines the driver.
   // Call graph looks like
   // main()

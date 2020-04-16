@@ -39,7 +39,7 @@ namespace parthenon {
 //  \brief writes OutputData to file in tabular format using C style std::fprintf
 //         Writes one file per MeshBlock
 
-void FormattedTableOutput::WriteOutputFile(SimTime &tm, Mesh *pm, ParameterInput *pin, bool flag) {
+void FormattedTableOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   throw std::runtime_error(std::string(__func__) + " is not implemented");
 }
 

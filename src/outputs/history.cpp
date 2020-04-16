@@ -46,7 +46,7 @@ namespace parthenon {
 //! \fn void OutputType::HistoryFile()
 //  \brief Writes a history file
 
-void HistoryOutput::WriteOutputFile(SimTime &tm, Mesh *pm, ParameterInput *pin, bool flag) {
+void HistoryOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   throw std::runtime_error(std::string(__func__) + " is not implemented");
 }
 

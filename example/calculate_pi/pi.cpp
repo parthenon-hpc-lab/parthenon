@@ -59,6 +59,8 @@ DriverStatus CalculatePi::Execute() {
   // No evolution in this driver.  Just calculates something once.
   // For evolution, look at the EvolutionDriver
 
+  pouts->MakeOutputs(pmesh, pinput);
+
   ConstructAndExecuteBlockTasks<>(this);
 
   // All the blocks are done, now do a global reduce and spit out the answer

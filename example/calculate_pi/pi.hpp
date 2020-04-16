@@ -19,10 +19,12 @@
 #include "globals.hpp"
 #include "interface/state_descriptor.hpp"
 #include "mesh/mesh.hpp"
+#include "parameter_input.hpp"
 #include "parthenon_manager.hpp"
 #include "task_list/tasks.hpp"
 
 using parthenon::AmrTag;
+using parthenon::AppInputs_t;
 using parthenon::BlockTask;
 using parthenon::BlockTaskFunc;
 using parthenon::CellVariable;
@@ -49,7 +51,14 @@ using parthenon::Globals::nranks;
 
 class CalculatePi : public Driver {
  public:
-  CalculatePi(ParameterInput *pin, Mesh *pm, Outputs *pout) : Driver(pin, pm, pout) {}
+  CalculatePi(ParameterInput *pin, Mesh *pm) : Driver(pin, pm) {
+    InitializeOutputs();
+    AppInputs_t required;
+    AppInputs_t desired;
+    desired["Pi"].push_back("radius");
+    desired["graphics"].push_back("variables");
+    pin->CheckRequiredDesired(required, desired);
+  }
   TaskList MakeTaskList(MeshBlock *pmb);
   DriverStatus Execute();
 };

@@ -115,20 +115,7 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
 
   pmesh->Initialize(Restart(), pinput.get());
 
-  // Initialize should produce a SimTime object, but let's cheat for now to limit the
-  // scope of the current effort.  There is still some question as to the right design
-  // here since not all types of simulations will even want a SimTime object
-  Real start_time = pinput->GetOrAddReal("time", "start_time", 0.0);
-  Real tstop = pinput->GetReal("time", "tlim");
-  int nmax = pinput->GetOrAddInteger("time", "nlim", -1);
-  int nout = pinput->GetOrAddInteger("time", "ncycle_out", 1);
-  // TODO(jcd): the 0 below should be the current cycle number, not necessarily 0
-  tm = SimTime(start_time, tstop, nmax, 0, nout);
-
   ChangeRunDir(arg.prundir);
-  pouts = std::make_unique<Outputs>(pmesh.get(), pinput.get(), tm.time);
-
-  if (!Restart()) pouts->MakeOutputs(tm, pmesh.get(), pinput.get());
 
   return ParthenonStatus::ok;
 }

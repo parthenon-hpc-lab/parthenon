@@ -332,19 +332,16 @@ TaskStatus CalculateFluxes(Container<Real> &rc) {
 // that mostly means defining the MakeTaskList     *//
 // function.                                       *//
 // *************************************************//
-AdvectionDriver::AdvectionDriver(ParameterInput *pin, Mesh *pm, Outputs *pout, SimTime &tm)
-    : MultiStageBlockTaskDriver(pin, pm, pout, tm) {
+AdvectionDriver::AdvectionDriver(ParameterInput *pin, Mesh *pm)
+    : MultiStageBlockTaskDriver(pin, pm) {
 
   // specify required arguments in the input file
   std::map<std::string, std::vector<std::string>> req;
-  req["mesh"].push_back("nx1");
-  req["mesh"].push_back("x1min");
-  req["mesh"].push_back("x1max");
-  req["mesh"].push_back("nx2");
-  req["mesh"].push_back("x2min");
-  req["mesh"].push_back("x2max");
+  req["mesh"].push_back("ix1_bc");
+  req["mesh"].push_back("ox1_bc");
+  req["mesh"].push_back("ix2_bc");
+  req["mesh"].push_back("ox2_bc");
 
-  req["time"].push_back("tlim");
 
   std::map<std::string, std::vector<std::string>> des;
   des["mesh"].push_back("refinement");

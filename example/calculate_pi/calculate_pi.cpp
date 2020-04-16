@@ -30,7 +30,7 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  CalculatePi driver(pman.pinput.get(), pman.pmesh.get(), pman.pouts.get());
+  CalculatePi driver(pman.pinput.get(), pman.pmesh.get());
 
   // start a timer
   pman.PreDriver();

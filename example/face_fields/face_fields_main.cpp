@@ -26,7 +26,7 @@ int main(int argc, char *argv[]) {
     return (status == ParthenonStatus::error) ? 1 : 0;
   }
 
-  FaceFieldExample driver(pman.pinput.get(), pman.pmesh.get(), pman.pouts.get());
+  FaceFieldExample driver(pman.pinput.get(), pman.pmesh.get());
   pman.PreDriver();
   pman.PostDriver(driver.Execute());
   pman.ParthenonFinalize();

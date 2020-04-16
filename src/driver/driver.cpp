@@ -28,7 +28,8 @@ namespace parthenon {
 
 DriverStatus EvolutionDriver::Execute() {
   InitializeBlockTimeSteps();
-  NewTimeStep();
+  SetGlobalTimeStep();
+  pouts->MakeOutputs(pmesh, pinput, &tm);
   pmesh->mbcnt = 0;
   while ((tm.time < tm.tlim) &&
          (tm.nlim < 0 || tm.ncycle < tm.nlim)) {
@@ -48,9 +49,9 @@ DriverStatus EvolutionDriver::Execute() {
 
     pmesh->LoadBalancingAndAdaptiveMeshRefinement(pinput);
     if (pmesh->modified) InitializeBlockTimeSteps();
-    NewTimeStep();
+    SetGlobalTimeStep();
     if (tm.time < tm.tlim) // skip the final output as it happens later
-      pouts->MakeOutputs(tm, pmesh, pinput);
+      pouts->MakeOutputs(pmesh, pinput, &tm);
 
     // check for signals
     if (SignalHandler::CheckSignalFlags() != 0) {
@@ -60,6 +61,7 @@ DriverStatus EvolutionDriver::Execute() {
 
   DriverStatus status = DriverStatus::complete;
 
+  pouts->MakeOutputs(pmesh, pinput, &tm);
   Report(status);
 
   return status;
@@ -77,8 +79,6 @@ void EvolutionDriver::InitializeBlockTimeSteps() {
 
 void EvolutionDriver::Report(DriverStatus status) {
   if (Globals::my_rank == 0) SignalHandler::CancelWallTimeAlarm();
-
-  pouts->MakeOutputs(tm, pmesh, pinput);
 
   // Print diagnostic messages related to the end of the simulation
   if (Globals::my_rank == 0) {
@@ -105,10 +105,10 @@ void EvolutionDriver::Report(DriverStatus status) {
 }
 
 //----------------------------------------------------------------------------------------
-// \!fn void EvolutionDriver::NewTimeStep()
+// \!fn void EvolutionDriver::SetGlobalTimeStep()
 // \brief function that loops over all MeshBlocks and find new timestep
 
-void EvolutionDriver::NewTimeStep() {
+void EvolutionDriver::SetGlobalTimeStep() {
   MeshBlock *pmb = pmesh->pblock;
 
   Real dt_max = 2.0 * tm.dt;

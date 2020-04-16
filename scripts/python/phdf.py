@@ -121,11 +121,17 @@ class phdf:
         try:
             f = h.File(filename,'r')
             # Read in the timestep attributes
-            ts = f['Timestep']
+            ts = f['Info']
             self.fid=f
             self.NumDims = ts.attrs['NumDims']
-            self.NCycle = ts.attrs['NCycle']
-            self.Time = ts.attrs['Time']
+            try:
+                self.NCycle = ts.attrs['NCycle']
+            except:
+                self.NCycle = -1
+            try:
+                self.Time = ts.attrs['Time']
+            except:
+                self.Time = 0.0
             try:
                 self.NGhost = ts.attrs['NGhost']
             except:

@@ -45,8 +45,6 @@ class ParthenonManager {
   // member data
   std::unique_ptr<ParameterInput> pinput;
   std::unique_ptr<Mesh> pmesh;
-  std::unique_ptr<Outputs> pouts;
-  SimTime tm;
 
  private:
   ArgParse arg;

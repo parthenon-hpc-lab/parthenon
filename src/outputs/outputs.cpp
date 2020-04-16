@@ -120,13 +120,38 @@ OutputType::OutputType(OutputParameters oparams)
 //----------------------------------------------------------------------------------------
 // Outputs constructor
 
-Outputs::Outputs(Mesh *pm, ParameterInput *pin, Real time) {
+Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   pfirst_type_ = nullptr;
   std::stringstream msg;
   InputBlock *pib = pin->pfirst_block;
   OutputType *pnew_type;
   OutputType *plast = pfirst_type_;
   int num_hst_outputs = 0, num_rst_outputs = 0; // number of history and restart outputs
+
+  // look for a Graphics block
+  if (pin->DoesBlockExist("graphics")) {
+    OutputParameters op;
+    op.block_number = 0;
+    op.block_name.assign("graphics");
+    if (tm != nullptr) {
+      op.next_time = pin->GetOrAddReal(op.block_name, "next_time", tm->time);
+      op.dt = pin->GetOrAddReal(op.block_name, "dt", tm->tlim);
+    }
+    // set file number, basename, id, and format
+    op.file_number = pin->GetOrAddInteger(op.block_name, "file_number", 0);
+    op.file_basename = pin->GetOrAddString("job", "problem_id","parthenon");
+    char define_id[15];
+    std::snprintf(define_id, sizeof(define_id), "graphics%d",
+                  op.block_number); // default id="outN"
+    op.file_id = pin->GetOrAddString(op.block_name, "id", define_id);
+    op.file_type = "hdf5";
+    // read ghost cell option
+    op.include_ghost_zones =
+      pin->GetOrAddBoolean(op.block_name, "ghost_zones", false);
+    pnew_type = new PHDF5Output(op);
+    pfirst_type_ = pnew_type;
+    plast = pnew_type;
+  }
 
   // loop over input block names.  Find those that start with "output", read parameters,
   // and construct singly linked list of OutputTypes.
@@ -140,13 +165,15 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, Real time) {
       op.block_name.assign(pib->block_name);
 
       // set time of last output, time between outputs
-      op.next_time = pin->GetOrAddReal(op.block_name, "next_time", time);
-      op.dt = pin->GetReal(op.block_name, "dt");
+      if (tm != nullptr) {
+        op.next_time = pin->GetOrAddReal(op.block_name, "next_time", tm->time);
+        op.dt = pin->GetOrAddReal(op.block_name, "dt", tm->tlim);
+      }
 
       if (op.dt > 0.0) { // only add output if dt>0
         // set file number, basename, id, and format
         op.file_number = pin->GetOrAddInteger(op.block_name, "file_number", 0);
-        op.file_basename = pin->GetString("job", "problem_id");
+        op.file_basename = pin->GetOrAddString("job", "problem_id","parthenon");
         char define_id[10];
         std::snprintf(define_id, sizeof(define_id), "out%d",
                       op.block_number); // default id="outN"
@@ -392,17 +419,19 @@ void OutputType::ClearOutputData() {
 //! \fn void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, bool wtflag)
 //  \brief scans through singly linked list of OutputTypes and makes any outputs needed.
 
-void Outputs::MakeOutputs(SimTime &tm, Mesh *pm, ParameterInput *pin, bool wtflag) {
+void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   bool first = true;
   OutputType *ptype = pfirst_type_;
   while (ptype != nullptr) {
-    if ((tm.time == tm.start_time) || (tm.time >= ptype->output_params.next_time) ||
-        (tm.time >= tm.tlim) || (wtflag && ptype->output_params.file_type == "rst")) {
+    if ( tm == nullptr ||
+        (tm->time == tm->start_time) ||
+        (tm->time >= ptype->output_params.next_time) ||
+        (tm->time >= tm->tlim)) {
       if (first && ptype->output_params.file_type != "hst") {
         pm->ApplyUserWorkBeforeOutput(pin);
         first = false;
       }
-      ptype->WriteOutputFile(tm, pm, pin, wtflag);
+      ptype->WriteOutputFile(pm, pin, tm);
     }
     ptype = ptype->pnext_type; // move to next OutputType node in signly linked list
   }
