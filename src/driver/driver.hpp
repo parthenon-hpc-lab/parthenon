@@ -44,13 +44,13 @@ class Driver {
 class SimpleDriver : public Driver {
  public:
   SimpleDriver(ParameterInput *pin, Mesh *pm, Outputs *pout) : Driver(pin, pm, pout) {}
-  DriverStatus Execute() { return DriverStatus::complete; }
+  DriverStatus Execute() override { return DriverStatus::complete; }
 };
 
 class EvolutionDriver : public Driver {
  public:
   EvolutionDriver(ParameterInput *pin, Mesh *pm, Outputs *pout) : Driver(pin, pm, pout) {}
-  DriverStatus Execute();
+  DriverStatus Execute() override;
   virtual TaskListStatus Step() = 0;
 };
 

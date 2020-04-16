@@ -10,39 +10,38 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef EXAMPLE_CALCULATE_PI_PI_HPP_
-#define EXAMPLE_CALCULATE_PI_PI_HPP_
 
-// Standard Includes
-#include <memory>
+// Self Include
+#include "tasks.hpp"
 
-// Parthenon Includes
-#include <parthenon/app.hpp>
-#include <parthenon/driver.hpp>
+// Imports commonly used names in Parthenon tasks
+using namespace parthenon::task::prelude;
 
 namespace calculate_pi {
-using namespace parthenon::app::prelude;
-using namespace parthenon::driver::prelude;
-
-/**
- * @brief Constructs a driver which estimates PI using AMR.
- */
-class CalculatePi : public Driver {
- public:
-  CalculatePi(ParameterInput *pin, Mesh *pm, Outputs *pout) : Driver(pin, pm, pout) {}
-
-  /// MakeTaskList isn't a virtual routine on `Driver`, but each driver is expected to
-  /// implement it.
-  TaskList MakeTaskList(MeshBlock *pmb);
-
-  /// `Execute` cylces until simulation completion.
-  DriverStatus Execute() override;
-};
-
-void SetInOrOut(Container<Real> &rc);
-parthenon::AmrTag CheckRefinement(Container<Real> &rc);
-std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
-
+TaskStatus ComputeArea(MeshBlock *pmb) {
+  // compute 1/r0^2 \int d^2x in_or_out(x,y) over the block's domain
+  Container<Real> &rc = pmb->real_containers.Get();
+  int is = pmb->is;
+  int js = pmb->js;
+  int ks = pmb->ks;
+  int ie = pmb->ie;
+  int je = pmb->je;
+  int ke = pmb->ke;
+  Coordinates *pcoord = pmb->pcoord.get();
+  CellVariable<Real> &v = rc.Get("in_or_out");
+  const auto &radius = pmb->packages["calculate_pi"]->Param<Real>("radius");
+  Real area = 0.0;
+  for (int k = ks; k <= ke; k++) {
+    for (int j = js; j <= je; j++) {
+      for (int i = is; i <= ie; i++) {
+        area += v(k, j, i) * pcoord->dx1f(i) * pcoord->dx2f(j);
+      }
+    }
+  }
+  // std::cout << "area = " << area << std::endl;
+  area /= (radius * radius);
+  // just stash the area somewhere for later
+  v(0, 0, 0) = area;
+  return TaskStatus::complete;
+}
 } // namespace calculate_pi
-
-#endif // EXAMPLE_CALCULATE_PI_PI_HPP_

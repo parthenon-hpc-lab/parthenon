@@ -11,15 +11,27 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+// Self Include
 #include "pi.hpp"
 
+// Standard Includes
 #include <iostream>
 #include <string>
 #include <utility>
 
-#include "parthenon_mpi.hpp"
+// Parthenon Includes
+#include <parthenon/app.hpp>
+#include <parthenon/task.hpp>
 
-#include "kokkos_abstraction.hpp"
+// Local Includes
+#include "tasks.hpp"
+
+// This file implements both
+using namespace parthenon::driver::prelude;
+
+using calculate_pi::CalculatePi;
+using parthenon::BlockTaskFunc;
+using parthenon::Coordinates;
 
 namespace parthenon {
 
@@ -34,7 +46,7 @@ namespace parthenon {
 Packages_t ParthenonManager::ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   Packages_t packages;
   // only have one package for this app, but will typically have more things added to
-  packages["PiCalculator"] = PiCalculator::Initialize(pin.get());
+  packages["calculate_pi"] = calculate_pi::Initialize(pin.get());
   return packages;
 }
 
@@ -93,7 +105,7 @@ DriverStatus CalculatePi::Execute() {
 
 TaskList CalculatePi::MakeTaskList(MeshBlock *pmb) {
   // make a task list for this mesh block
-  using PiCalculator::ComputeArea;
+  using calculate_pi::ComputeArea;
   TaskList tl;
 
   // make some lambdas that over overkill here but clean things up for more realistic code
@@ -112,11 +124,11 @@ TaskList CalculatePi::MakeTaskList(MeshBlock *pmb) {
 }
 
 // This defines a "physics" package
-// In this case, PiCalculator provides the functions required to set up
+// In this case, calculate_pi provides the functions required to set up
 // an indicator function in_or_out(x,y) = (r < r0 ? 1 : 0), and compute the area
 // of a circle of radius r0 as A = \int d^x in_or_out(x,y) over the domain. Then
 // pi \approx A/r0^2
-namespace PiCalculator {
+namespace calculate_pi {
 
 void SetInOrOut(Container<Real> &rc) {
   MeshBlock *pmb = rc.pmy_block;
@@ -128,7 +140,7 @@ void SetInOrOut(Container<Real> &rc) {
   int ke = pmb->ke;
   Coordinates *pcoord = pmb->pcoord.get();
   CellVariable<Real> &v = rc.Get("in_or_out");
-  const auto &radius = pmb->packages["PiCalculator"]->Param<Real>("radius");
+  const auto &radius = pmb->packages["calculate_pi"]->Param<Real>("radius");
   // Set an indicator function that indicates whether the cell center
   // is inside or outside of the circle we're interating the area of.
   // see the CheckRefinement routine below for an explanation of the loop bounds
@@ -200,7 +212,7 @@ AmrTag CheckRefinement(Container<Real> &rc) {
 }
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
-  auto package = std::make_shared<StateDescriptor>("PiCalculator");
+  auto package = std::make_shared<StateDescriptor>("calculate_pi");
   Params &params = package->AllParams();
 
   Real radius = pin->GetOrAddReal("Pi", "radius", 1.0);
@@ -220,31 +232,4 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   return package;
 }
 
-TaskStatus ComputeArea(MeshBlock *pmb) {
-  // compute 1/r0^2 \int d^2x in_or_out(x,y) over the block's domain
-  Container<Real> &rc = pmb->real_containers.Get();
-  int is = pmb->is;
-  int js = pmb->js;
-  int ks = pmb->ks;
-  int ie = pmb->ie;
-  int je = pmb->je;
-  int ke = pmb->ke;
-  Coordinates *pcoord = pmb->pcoord.get();
-  CellVariable<Real> &v = rc.Get("in_or_out");
-  const auto &radius = pmb->packages["PiCalculator"]->Param<Real>("radius");
-  Real area = 0.0;
-  for (int k = ks; k <= ke; k++) {
-    for (int j = js; j <= je; j++) {
-      for (int i = is; i <= ie; i++) {
-        area += v(k, j, i) * pcoord->dx1f(i) * pcoord->dx2f(j);
-      }
-    }
-  }
-  // std::cout << "area = " << area << std::endl;
-  area /= (radius * radius);
-  // just stash the area somewhere for later
-  v(0, 0, 0) = area;
-  return TaskStatus::complete;
-}
-
-} // namespace PiCalculator
+} // namespace calculate_pi

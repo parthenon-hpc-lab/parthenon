@@ -11,43 +11,12 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-// Third Party Includes
-#include <parthenon/app.hpp>
+#ifndef PARTHENON_PARTHENON_HPP_
+#define PARTHENON_PARTHENON_HPP_
 
-// Local Includes
-#include "pi.hpp"
+// Re-export all public Parthenon headers
+#include "app.hpp"
+#include "driver.hpp"
+#include "task.hpp"
 
-// Preludes
-using namespace parthenon::app::prelude;
-
-// Self namespace
-using namespace calculate_pi;
-
-int main(int argc, char *argv[]) {
-  ParthenonManager pman;
-
-  auto manager_status = pman.ParthenonInit(argc, argv);
-  if (manager_status == ParthenonStatus::complete) {
-    pman.ParthenonFinalize();
-    return 0;
-  }
-  if (manager_status == ParthenonStatus::error) {
-    pman.ParthenonFinalize();
-    return 1;
-  }
-
-  CalculatePi driver(pman.pinput.get(), pman.pmesh.get(), pman.pouts.get());
-
-  // start a timer
-  pman.PreDriver();
-
-  auto driver_status = driver.Execute();
-
-  // Make final outputs, print diagnostics
-  pman.PostDriver(driver_status);
-
-  // call MPI_Finalize if necessary
-  pman.ParthenonFinalize();
-
-  return (0);
-}
+#endif // PARTHENON_PARTHENON_HPP_

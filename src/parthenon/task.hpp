@@ -11,43 +11,30 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-// Third Party Includes
-#include <parthenon/app.hpp>
+#ifndef PARTHENON_TASK_HPP_
+#define PARTHENON_TASK_HPP_
+
+// Internal Includes
+#include <basic_types.hpp>
+#include <coordinates/coordinates.hpp>
+#include <kokkos_abstraction.hpp>
+#include <mesh/mesh.hpp>
+#include <task_list/tasks.hpp>
 
 // Local Includes
-#include "pi.hpp"
+#include "prelude.hpp"
 
-// Preludes
-using namespace parthenon::app::prelude;
+namespace parthenon {
+namespace task {
+namespace prelude {
+using namespace ::parthenon::prelude;
 
-// Self namespace
-using namespace calculate_pi;
+using ::parthenon::Coordinates;
+using ::parthenon::MeshBlock;
+using ::parthenon::par_for;
+using ::parthenon::TaskStatus;
+} // namespace prelude
+} // namespace task
+} // namespace parthenon
 
-int main(int argc, char *argv[]) {
-  ParthenonManager pman;
-
-  auto manager_status = pman.ParthenonInit(argc, argv);
-  if (manager_status == ParthenonStatus::complete) {
-    pman.ParthenonFinalize();
-    return 0;
-  }
-  if (manager_status == ParthenonStatus::error) {
-    pman.ParthenonFinalize();
-    return 1;
-  }
-
-  CalculatePi driver(pman.pinput.get(), pman.pmesh.get(), pman.pouts.get());
-
-  // start a timer
-  pman.PreDriver();
-
-  auto driver_status = driver.Execute();
-
-  // Make final outputs, print diagnostics
-  pman.PostDriver(driver_status);
-
-  // call MPI_Finalize if necessary
-  pman.ParthenonFinalize();
-
-  return (0);
-}
+#endif // PARTHENON_TASK_HPP_
