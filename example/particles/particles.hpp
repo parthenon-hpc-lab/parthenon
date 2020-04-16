@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef EXAMPLE_ADVECTION_ADVECTION_HPP_
-#define EXAMPLE_ADVECTION_ADVECTION_HPP_
+#ifndef EXAMPLE_PARTICLES_PARTICLES_HPP_
+#define EXAMPLE_PARTICLES_PARTICLES_HPP_
 
 #include <memory>
 
@@ -41,12 +41,12 @@ namespace particles_example {
 class ParticleDriver : public MultiStageBlockTaskDriver {
  public:
   ParticleDriver(ParameterInput *pin, Mesh *pm, Outputs *pout)
-      : EvolutionDriver(pin, pm, pout) {}
+      : MultiStageBlockTaskDriver(pin, pm, pout) {}
   // This next function essentially defines the driver.
   // Call graph looks like
   // main()
-  //   EvolutionDriver::Execute (driver.cpp)
-  //     MultiStageBlockTaskDriver::Step (multistage.cpp)
+  //   MultiStageBlockTaskDriver::Execute (driver.cpp)
+  //     MultiStageBlockTaskDriver::Step (driver.cpp)
   //       DriverUtils::ConstructAndExecuteBlockTasks (driver.hpp)
   //         AdvectionDriver::MakeTaskList (advection.cpp)
   TaskList MakeTaskList(MeshBlock *pmb, int stage);

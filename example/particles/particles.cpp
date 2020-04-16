@@ -48,12 +48,12 @@ namespace parthenon {
 
 Packages_t ParthenonManager::ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   Packages_t packages;
-  packages["Advection"] = advection_example::Advection::Initialize(pin.get());
+  packages["Particles"] = particles_example::Particles::Initialize(pin.get());
   return packages;
 }
 
 void MeshBlock::ProblemGenerator(ParameterInput *pin) {
-  Container<Real> &rc = real_containers.Get();
+  SwarmContainer &sc = swarm_containers.Get();
   CellVariable<Real> &q = rc.Get("advected");
 
   for (int k = 0; k < ncells3; k++) {
@@ -74,65 +74,36 @@ void ParthenonManager::SetFillDerivedFunctions() {
 } // namespace parthenon
 
 // *************************************************//
-// define the "physics" package Advect, which      *//
+// define the "physics" package Particles, which   *//
 // includes defining various functions that control*//
 // how parthenon functions and any tasks needed to *//
 // implement the "physics"                         *//
 // *************************************************//
 
-namespace advection_example {
-namespace Advection {
+namespace particles_example {
+namespace Particles {
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
-  auto pkg = std::make_shared<StateDescriptor>("Advection");
+  auto pkg = std::make_shared<StateDescriptor>("Particles");
 
-  Real cfl = pin->GetOrAddReal("Advection", "cfl", 0.45);
-  pkg->AddParam<>("cfl", cfl);
-  Real vx = pin->GetOrAddReal("Advection", "vx", 1.0);
-  pkg->AddParam<>("vx", vx);
-  Real vy = pin->GetOrAddReal("Advection", "vy", 1.0);
-  pkg->AddParam<>("vy", vy);
-  Real refine_tol = pin->GetOrAddReal("Advection", "refine_tol", 0.3);
-  pkg->AddParam<>("refine_tol", refine_tol);
-  Real derefine_tol = pin->GetOrAddReal("Advection", "derefine_tol", 0.03);
-  pkg->AddParam<>("derefine_tol", derefine_tol);
+  int num_particles = pin->GetOrAddInteger("Particles", "num_particles", 100);
+  pkg->AddParam<>("num_particles", num_particles);
+  Real particle_speed = pin->GetOrAddReal("Particles", "particle_speed", 1.0);
+  pkg->AddParam<>("particle_speed", particle_speed);
 
-  std::string field_name = "advected";
-  Metadata m(
-      {Metadata::Cell, Metadata::Independent, Metadata::Graphics, Metadata::FillGhost});
-  pkg->AddField(field_name, m);
+  std::string swarm_name = "particles";
+  Metadata m({});
+  pkg->AddSwarm(swarm_name, m);
 
-  field_name = "one_minus_advected";
-  m = Metadata(
-      {Metadata::Cell, Metadata::Graphics, Metadata::Derived, Metadata::OneCopy});
-  pkg->AddField(field_name, m);
-
-  field_name = "one_minus_advected_sq";
-  pkg->AddField(field_name, m);
-
-  // for fun make this last one a multi-component field using SparseVariable
-  field_name = "one_minus_sqrt_one_minus_advected_sq";
-  m = Metadata({Metadata::Cell, Metadata::Graphics, Metadata::Derived, Metadata::OneCopy,
-                Metadata::Sparse},
-               12 // just picking a sparse_id out of a hat for demonstration
-  );
-  pkg->AddField(field_name, m);
-  // add another component
-  m = Metadata({Metadata::Cell, Metadata::Graphics, Metadata::Derived, Metadata::OneCopy,
-                Metadata::Sparse},
-               37 // just picking a sparse_id out of a hat for demonstration
-  );
-  pkg->AddField(field_name, m);
-
-  pkg->FillDerived = SquareIt;
-  pkg->CheckRefinement = CheckRefinement;
-  pkg->EstimateTimestep = EstimateTimestep;
+  //pkg->FillDerived = SquareIt;
+  //pkg->CheckRefinement = CheckRefinement;
+  //pkg->EstimateTimestep = EstimateTimestep;
 
   return pkg;
 }
 
 AmrTag CheckRefinement(Container<Real> &rc) {
-  MeshBlock *pmb = rc.pmy_block;
+  /*MeshBlock *pmb = rc.pmy_block;
   // refine on advected, for example.  could also be a derived quantity
   CellVariable<Real> &v = rc.Get("advected");
   Real vmin = 1.0;
@@ -150,13 +121,13 @@ AmrTag CheckRefinement(Container<Real> &rc) {
   const auto &derefine_tol = pkg->Param<Real>("derefine_tol");
 
   if (vmax > refine_tol && vmin < derefine_tol) return AmrTag::refine;
-  if (vmax < derefine_tol) return AmrTag::derefine;
+  if (vmax < derefine_tol) return AmrTag::derefine;*/
   return AmrTag::same;
 }
 
 // demonstrate usage of a "pre" fill derived routine
 void PreFill(Container<Real> &rc) {
-  MeshBlock *pmb = rc.pmy_block;
+  /*MeshBlock *pmb = rc.pmy_block;
   int is = 0;
   int js = 0;
   int ks = 0;
@@ -171,12 +142,12 @@ void PreFill(Container<Real> &rc) {
         qout(k, j, i) = 1.0 - qin(k, j, i);
       }
     }
-  }
+  }*/
 }
 
 // this is the package registered function to fill derived
 void SquareIt(Container<Real> &rc) {
-  MeshBlock *pmb = rc.pmy_block;
+  /*MeshBlock *pmb = rc.pmy_block;
   int is = 0;
   int js = 0;
   int ks = 0;
@@ -191,12 +162,12 @@ void SquareIt(Container<Real> &rc) {
         qout(k, j, i) = qin(k, j, i) * qin(k, j, i);
       }
     }
-  }
+  }*/
 }
 
 // demonstrate usage of a "post" fill derived routine
 void PostFill(Container<Real> &rc) {
-  MeshBlock *pmb = rc.pmy_block;
+  /*MeshBlock *pmb = rc.pmy_block;
   int is = 0;
   int js = 0;
   int ks = 0;
@@ -217,12 +188,12 @@ void PostFill(Container<Real> &rc) {
         q1(k, j, i) = 1.0 - q0(k, j, i);
       }
     }
-  }
+  }*/
 }
 
 // provide the routine that estimates a stable timestep for this package
 Real EstimateTimestep(Container<Real> &rc) {
-  MeshBlock *pmb = rc.pmy_block;
+  /*MeshBlock *pmb = rc.pmy_block;
   auto pkg = pmb->packages["Advection"];
   const auto &cfl = pkg->Param<Real>("cfl");
   const auto &vx = pkg->Param<Real>("vx");
@@ -251,14 +222,16 @@ Real EstimateTimestep(Container<Real> &rc) {
     }
   }
 
-  return cfl * min_dt;
+  return cfl * min_dt;*/
+
+  return 0.1*tlim;
 }
 
 // Compute fluxes at faces given the constant velocity field and
 // some field "advected" that we are pushing around.
 // This routine implements all the "physics" in this example
 TaskStatus CalculateFluxes(Container<Real> &rc) {
-  MeshBlock *pmb = rc.pmy_block;
+  /*MeshBlock *pmb = rc.pmy_block;
   int is = pmb->is;
   int js = pmb->js;
   int ks = pmb->ks;
@@ -316,10 +289,10 @@ TaskStatus CalculateFluxes(Container<Real> &rc) {
 
   // TODO(jcd): implement z-fluxes
 
-  return TaskStatus::complete;
+  return TaskStatus::complete;*/
 }
 
-} // namespace Advection
+} // namespace Particles
 
 // *************************************************//
 // define the application driver. in this case,    *//
@@ -339,6 +312,8 @@ TaskStatus UpdateContainer(MeshBlock *pmb, int stage,
   parthenon::Update::UpdateContainer(cin, dudt, beta * pmb->pmy_mesh->dt, cout);
   return TaskStatus::complete;
 }
+
+TaskState UpdateSwarm
 
 // See the advection.hpp declaration for a description of how this function gets called.
 TaskList AdvectionDriver::MakeTaskList(MeshBlock *pmb, int stage) {
@@ -376,7 +351,9 @@ TaskList AdvectionDriver::MakeTaskList(MeshBlock *pmb, int stage) {
   // effectively, sc1 = sc0 + dudt*dt
   Container<Real> &sc1 = pmb->real_containers.Get(stage_name[stage]);
 
-  auto start_recv = AddContainerTask(Container<Real>::StartReceivingTask, none, sc1);
+  SwarmContainer &swarmcontainer = pmb->real_containers.Get();
+
+  /*auto start_recv = AddContainerTask(Container<Real>::StartReceivingTask, none, sc1);
 
   auto advect_flux = AddContainerTask(Advection::CalculateFluxes, none, sc0);
 
@@ -387,10 +364,10 @@ TaskList AdvectionDriver::MakeTaskList(MeshBlock *pmb, int stage) {
 
   // compute the divergence of fluxes of conserved variables
   auto flux_div =
-      AddTwoContainerTask(parthenon::Update::FluxDivergence, recv_flux, sc0, dudt);
+      AddTwoContainerTask(parthenon::Update::FluxDivergence, recv_flux, sc0, dudt)*/;
 
-  // apply du/dt to all independent fields in the container
-  auto update_container = AddMyTask(UpdateContainer, flux_div);
+  // Push all particles by v*dt
+  auto update_swarm = tl.AddTask<SwarmTask>(UpdateSwarm, none, particles);
 
   // update ghost cells
   auto send =

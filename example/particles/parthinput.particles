@@ -55,10 +55,6 @@ variable = prim
 tlim = 1.0
 integrator = rk2
 
-<Advection>
-cfl = 0.45
-vx = 1.0
-vy = 1.0
-refine_tol = 0.3    # control the package specific refinement tagging function
-derefine_tol = 0.03
-
+<Particles>
+num_particles = 100
+particle_speed = 1.0

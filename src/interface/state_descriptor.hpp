@@ -19,6 +19,7 @@
 #include <vector>
 
 #include "interface/container.hpp"
+#include "interface/swarm.hpp"
 #include "interface/metadata.hpp"
 #include "interface/params.hpp"
 #include "refinement/amr_criteria.hpp"
