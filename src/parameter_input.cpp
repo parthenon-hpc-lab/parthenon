@@ -903,15 +903,14 @@ void ParameterInput::ForwardNextTime(Real mesh_time) {
 
 void ParameterInput::CheckRequired(std::string block, std::string name) {
   bool missing = true;
-  if (DoesParameterExist(block,name)) {
-    missing = (GetComment(block,name) == "# Default value added at run time");
+  if (DoesParameterExist(block, name)) {
+    missing = (GetComment(block, name) == "# Default value added at run time");
   }
   if (missing) {
     std::stringstream ss;
     ss << std::endl
        << "### ERROR in CheckRequired:" << std::endl
-       << "Parameter file missing required field <" << block << ">/" << name
-       << std::endl
+       << "Parameter file missing required field <" << block << ">/" << name << std::endl
        << std::endl;
     throw std::runtime_error(ss.str());
   }
@@ -919,8 +918,8 @@ void ParameterInput::CheckRequired(std::string block, std::string name) {
 
 void ParameterInput::CheckDesired(std::string block, std::string name) {
   bool missing = true;
-  if (DoesParameterExist(block,name)) {
-    missing = (GetComment(block,name) == "# Default value added at run time");
+  if (DoesParameterExist(block, name)) {
+    missing = (GetComment(block, name) == "# Default value added at run time");
   }
   if (missing) {
     std::cout << std::endl

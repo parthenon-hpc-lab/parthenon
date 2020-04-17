@@ -52,8 +52,8 @@ class CalculatePi : public Driver {
  public:
   CalculatePi(ParameterInput *pin, Mesh *pm) : Driver(pin, pm) {
     InitializeOutputs();
-    pin->CheckDesired("Pi","radius");
-    pin->CheckDesired("graphics","variables");
+    pin->CheckDesired("Pi", "radius");
+    pin->CheckDesired("graphics", "variables");
   }
   TaskList MakeTaskList(MeshBlock *pmb);
   DriverStatus Execute();
