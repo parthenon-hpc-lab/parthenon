@@ -46,11 +46,6 @@ nx1 = 16
 nx2 = 16
 #nx3 = 1
 
-<output1>
-file_type = hdf5
-dt = 0.05
-variable = prim
-
 <time>
 tlim = 1.0
 integrator = rk2
@@ -61,4 +56,14 @@ vx = 1.0
 vy = 1.0
 refine_tol = 0.3    # control the package specific refinement tagging function
 derefine_tol = 0.03
+
+<Graphics>
+variables = advected, one_minus_advected, & # comments are ok
+            one_minus_advected_sq, & # on every (& characters are ok in comments)
+            one_minus_sqrt_one_minus_advected_sq # line
+
+<output1>
+file_type = hdf5
+dt = 0.05
+variable = prim
 

@@ -228,9 +228,6 @@ class Mesh {
   friend class BoundaryValues;
   friend class Coordinates;
   friend class MeshRefinement;
-#ifdef HDF5OUTPUT
-  friend class ATHDF5Output;
-#endif
 
  public:
   // 2x function overloads of ctor: normal and restarted simulation
@@ -286,6 +283,12 @@ class Mesh {
   void UserWorkInLoop();                       // called in main after each cycle
   int GetRootLevel() { return root_level; }
   int GetMaxLevel() { return max_level; }
+  int GetCurrentLevel() { return current_level; }
+  std::vector<int> GetNbList() {
+    std::vector<int> nlist;
+    nlist.assign(nblist, nblist + Globals::nranks);
+    return nlist;
+  }
 
  private:
   // data

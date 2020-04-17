@@ -115,7 +115,7 @@ static herr_t writeH5AF64(const char *name, const Real *pData, hid_t &file,
   return status;
 }
 
-void ATHDF5Output::genXDMF(std::string hdfFile, Mesh *pm) {
+void PHDF5Output::genXDMF(std::string hdfFile, Mesh *pm) {
   // using round robin generation.
   // must switch to MPIIO at some point
 
@@ -249,10 +249,11 @@ void ATHDF5Output::genXDMF(std::string hdfFile, Mesh *pm) {
   }
 
 //----------------------------------------------------------------------------------------
-//! \fn void ATHDF5Output:::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag)
-//  \brief Cycles over all MeshBlocks and writes OutputData in the Athena++ HDF5 format,
+//! \fn void PHDF5Output:::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag)
+//  \brief Cycles over all MeshBlocks and writes OutputData in the Parthenon HDF5 format,
 //         one file per output using parallel IO.
-void ATHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
+void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
+
   // writes all graphics variables to hdf file
   // HDF5 structures
   // Also writes companion xdmf file
@@ -304,7 +305,7 @@ void ATHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
   std::stringstream file_number;
   file_number << std::setw(5) << std::setfill('0') << output_params.file_number;
   filename.append(file_number.str());
-  filename.append(".athdf");
+  filename.append(".phdf");
 
   hid_t file;
   hid_t acc_file = H5P_DEFAULT;
@@ -354,7 +355,7 @@ void ATHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
   myDSet = H5Dcreate(file, "/Timestep", PREDINT32, localDSpace, H5P_DEFAULT, H5P_DEFAULT,
                      H5P_DEFAULT);
 
-  int max_level = pm->current_level - pm->root_level;
+  int max_level = pm->GetCurrentLevel() - pm->GetRootLevel();
   status = writeH5AI32("NCycle", &pm->ncycle, file, localDSpace, myDSet);
   status = writeH5AF64("Time", &pm->time, file, localDSpace, myDSet);
   status = writeH5AI32("NumDims", &pm->ndim, file, localDSpace, myDSet);
@@ -371,7 +372,8 @@ void ATHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
   status = H5Sclose(localDSpace);
   hsize_t nPE = Globals::nranks;
   localDSpace = H5Screate_simple(1, &nPE, NULL);
-  status = writeH5AI32("BlocksPerPE", pm->nblist, file, localDSpace, myDSet);
+  auto nblist = pm->GetNbList();
+  status = writeH5AI32("BlocksPerPE", nblist.data(), file, localDSpace, myDSet);
   status = H5Sclose(localDSpace);
 
   // open vector space
@@ -411,7 +413,7 @@ void ATHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
   local_start[3] = 0;
   local_start[4] = 0;
   for (int i = 0; i < Globals::my_rank; i++) {
-    local_start[0] += pm->nblist[i];
+    local_start[0] += nblist[i];
   }
   hid_t property_list = H5Pcreate(H5P_DATASET_XFER);
 #ifdef MPI_PARALLEL
