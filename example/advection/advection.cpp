@@ -247,14 +247,6 @@ Real EstimateTimestep(Container<Real> &rc) {
       }
     }
   }
-  if (min_dt < 1.e-3) {
-    std::cout << "min_dt = " << min_dt << std::endl;
-    std::exit(1);
-  }
-  if (cfl < 1.e-3) {
-    std::cout << "cfl = " << cfl << std::endl;
-    std::exit(1);
-  }
 
   return cfl * min_dt;
 }
