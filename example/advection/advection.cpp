@@ -333,27 +333,21 @@ TaskStatus CalculateFluxes(Container<Real> &rc) {
 // *************************************************//
 AdvectionDriver::AdvectionDriver(ParameterInput *pin, Mesh *pm)
     : MultiStageBlockTaskDriver(pin, pm) {
+  // fail if these are not specified in the input file
+  pin->CheckRequired("mesh","ix1_bc");
+  pin->CheckRequired("mesh","ox1_bc");
+  pin->CheckRequired("mesh","ix2_bc");
+  pin->CheckRequired("mesh","ox2_bc");
 
-  // specify required arguments in the input file
-  std::map<std::string, std::vector<std::string>> req;
-  req["mesh"].push_back("ix1_bc");
-  req["mesh"].push_back("ox1_bc");
-  req["mesh"].push_back("ix2_bc");
-  req["mesh"].push_back("ox2_bc");
-
-  std::map<std::string, std::vector<std::string>> des;
-  des["mesh"].push_back("refinement");
-  des["mesh"].push_back("numlevel");
-
-  des["Advection"].push_back("cfl");
-  des["Advection"].push_back("vx");
-  des["Advection"].push_back("vy");
-  des["Advection"].push_back("refine_tol");
-  des["Advection"].push_back("derefine_tol");
-
-  des["Graphics"].push_back("variables");
-
-  pin->CheckRequiredDesired(req, des);
+  // warn if these fields aren't specified in the input file
+  pin->CheckDesired("mesh","refinement");
+  pin->CheckDesired("mesh","numlevel");
+  pin->CheckDesired("Advection","cfl");
+  pin->CheckDesired("Advection","vx");
+  pin->CheckDesired("Advection","refine_tol");
+  pin->CheckDesired("Advection","derefine_tol");
+  pin->CheckDesired("graphics","variables");
+  pin->CheckDesired("graphics","dt");
 }
 // first some helper tasks
 TaskStatus UpdateContainer(MeshBlock *pmb, int stage,

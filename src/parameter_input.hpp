@@ -37,9 +37,6 @@
 
 namespace parthenon {
 
-// provide a data structure to express required/desired input parameters
-using AppInputs_t = std::map<std::string, std::vector<std::string>>;
-
 //----------------------------------------------------------------------------------------
 //! \struct InputLine
 //  \brief  node in a singly linked list of parameters contained within 1x input block
@@ -111,7 +108,8 @@ class ParameterInput {
   std::string SetString(std::string block, std::string name, std::string value);
   void RollbackNextTime();
   void ForwardNextTime(Real time);
-  void CheckRequiredDesired(AppInputs_t &req, AppInputs_t &des);
+  void CheckRequired(std::string block, std::string name);
+  void CheckDesired(std::string block, std::string name);
 
  private:
   std::string last_filename_; // last input file opened, to prevent duplicate reads

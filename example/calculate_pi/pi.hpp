@@ -24,7 +24,6 @@
 #include "task_list/tasks.hpp"
 
 using parthenon::AmrTag;
-using parthenon::AppInputs_t;
 using parthenon::BlockTask;
 using parthenon::BlockTaskFunc;
 using parthenon::CellVariable;
@@ -53,11 +52,8 @@ class CalculatePi : public Driver {
  public:
   CalculatePi(ParameterInput *pin, Mesh *pm) : Driver(pin, pm) {
     InitializeOutputs();
-    AppInputs_t required;
-    AppInputs_t desired;
-    desired["Pi"].push_back("radius");
-    desired["graphics"].push_back("variables");
-    pin->CheckRequiredDesired(required, desired);
+    pin->CheckDesired("Pi","radius");
+    pin->CheckDesired("graphics","variables");
   }
   TaskList MakeTaskList(MeshBlock *pmb);
   DriverStatus Execute();

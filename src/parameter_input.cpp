@@ -901,50 +901,34 @@ void ParameterInput::ForwardNextTime(Real mesh_time) {
   }
 }
 
-void ParameterInput::CheckRequiredDesired(AppInputs_t &req, AppInputs_t &des) {
-  bool missing_req = false;
-  for (auto &r : req) {
-    for (auto &f : r.second) {
-      bool missing = true;
-      bool def = false;
-      if (DoesParameterExist(r.first, f)) {
-        missing = false;
-        def = (GetComment(r.first, f) == "# Default value added at run time");
-      }
-      if (missing) {
-        std::cerr << std::endl
-                  << "Parameter file missing required field <" << r.first << ">/" << f
-                  << std::endl
-                  << std::endl;
-        missing_req = true;
-      }
-      if (def) {
-        std::cerr << std::endl
-                  << "Please set required field explicitly in input <" << r.first << ">/"
-                  << f << std::endl
-                  << std::endl;
-        missing_req = true;
-      }
-    }
+void ParameterInput::CheckRequired(std::string block, std::string name) {
+  bool missing = true;
+  if (DoesParameterExist(block,name)) {
+    missing = (GetComment(block,name) == "# Default value added at run time");
   }
+  if (missing) {
+    std::stringstream ss;
+    ss << std::endl
+       << "### ERROR in CheckRequired:" << std::endl
+       << "Parameter file missing required field <" << block << ">/" << name
+       << std::endl
+       << std::endl;
+    throw std::runtime_error(ss.str());
+  }
+}
 
-  bool missing_des = false;
-  for (auto &s : des) {
-    for (auto &f : s.second) {
-      bool missing = true;
-      if (DoesParameterExist(s.first, f)) {
-        missing = (GetComment(s.first, f) == "# Default value added at run time");
-      }
-      if (missing) {
-        std::cerr << std::endl
-                  << "Parameter file missing suggested field <" << s.first << ">/" << f
-                  << std::endl
-                  << std::endl;
-        missing_des;
-      }
-    }
+void ParameterInput::CheckDesired(std::string block, std::string name) {
+  bool missing = true;
+  if (DoesParameterExist(block,name)) {
+    missing = (GetComment(block,name) == "# Default value added at run time");
   }
-  if (missing_req) throw std::runtime_error("Missing required parameter in input");
+  if (missing) {
+    std::cout << std::endl
+              << "### WARNING in CheckDesired:" << std::endl
+              << "Parameter file missing desired field <" << block << ">/" << name
+              << std::endl
+              << std::endl;
+  }
 }
 
 //----------------------------------------------------------------------------------------
