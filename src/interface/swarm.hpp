@@ -49,6 +49,7 @@ class Swarm {
           m_(metadata),
           nmax_pool_(nmax_pool_in),
           mpiStatus(true) {
+      printf("%s %i\n", __FILE__, __LINE__);
       Add("x", Metadata({Metadata::Real}));
       Add("y", Metadata({Metadata::Real}));
       Add("z", Metadata({Metadata::Real}));
@@ -121,8 +122,6 @@ class Swarm {
   Metadata m_;
   std::string label_;
   std::string info_;
-  std::vector<std::string> labelArray_;
-  std::vector<PARTICLE_TYPE> typeArray_;
   std::shared_ptr<ParArrayND<PARTICLE_STATUS>> pstatus_;
   ParticleVariableVector<int> intVector_;
   ParticleVariableVector<Real> realVector_;

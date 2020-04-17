@@ -85,6 +85,7 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
   }
 
   Container<Real> &real_container = real_containers.Get();
+  SwarmContainer &swarm_container = real_containers.GetSwarm();
 
   // Set the block pointer for the containers
   real_container.setBlock(this);
@@ -134,6 +135,19 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
       for (auto const &m : q.second) {
         real_container.Add(q.first, m);
       }
+    }
+  }
+
+  // Add swarm properties data
+  for (int i = 0; i < properties.size(); i++) {
+    StateDescriptor &state = properties[i]->State();
+    for (auto const &q : state.AllSwarms()) {
+      swarm_container.Add(q.first, q.second);
+    }
+  }
+  for (auto const &pkg : packages) {
+    for (auto const &q: pkg.second->AllSwarms()) {
+      swarm_container.Add(q.first, q.second);
     }
   }
 

@@ -58,28 +58,42 @@ namespace DriverUtils {
 
 template <typename T, class... Args>
 TaskListStatus ConstructAndExecuteBlockTasks(T *driver, Args... args) {
+  printf("%s %i\n", __FILE__, __LINE__);
 #ifdef OPENMP_PARALLEL
   int nthreads = driver->pmesh->GetNumMeshThreads();
 #endif
+  printf("%s %i\n", __FILE__, __LINE__);
   int nmb = driver->pmesh->GetNumMeshBlocksThisRank(Globals::my_rank);
+  printf("%s %i\n", __FILE__, __LINE__);
   std::vector<TaskList> task_lists;
+  printf("%s %i\n", __FILE__, __LINE__);
   MeshBlock *pmb = driver->pmesh->pblock;
+  printf("%s %i\n", __FILE__, __LINE__);
   while (pmb != nullptr) {
+  printf("%s %i\n", __FILE__, __LINE__);
     task_lists.push_back(driver->MakeTaskList(pmb, std::forward<Args>(args)...));
+  printf("%s %i\n", __FILE__, __LINE__);
     pmb = pmb->next;
   }
+  printf("%s %i\n", __FILE__, __LINE__);
   int complete_cnt = 0;
+  printf("%s %i\n", __FILE__, __LINE__);
   while (complete_cnt != nmb) {
+  printf("%s %i\n", __FILE__, __LINE__);
     // TODO(pgrete): need to let Kokkos::PartitionManager handle this
     for (auto i = 0; i < nmb; ++i) {
+  printf("%s %i\n", __FILE__, __LINE__);
       if (!task_lists[i].IsComplete()) {
+  printf("%s %i\n", __FILE__, __LINE__);
         auto status = task_lists[i].DoAvailable();
         if (status == TaskListStatus::complete) {
+  printf("%s %i\n", __FILE__, __LINE__);
           complete_cnt++;
         }
       }
     }
   }
+  printf("%s %i\n", __FILE__, __LINE__);
   return TaskListStatus::complete;
 }
 

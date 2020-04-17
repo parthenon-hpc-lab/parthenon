@@ -54,6 +54,7 @@ Packages_t ParthenonManager::ProcessPackages(std::unique_ptr<ParameterInput> &pi
 
 void MeshBlock::ProblemGenerator(ParameterInput *pin) {
   SwarmContainer &sc = real_containers.GetSwarm();
+  printf("%s %i\n", __FILE__, __LINE__);
   Swarm &s = sc.Get("particles");
   //CellVariable<Real> &q = rc.Get("advected");
 
@@ -297,8 +298,8 @@ TaskStatus CalculateFluxes(Container<Real> &rc) {
   }
 
   // TODO(jcd): implement z-fluxes
-
-  return TaskStatus::complete;*/
+  */
+  return TaskStatus::complete;
 }
 
 } // namespace Particles
@@ -325,6 +326,7 @@ TaskStatus UpdateContainer(MeshBlock *pmb, int stage,
 TaskStatus UpdateSwarm(MeshBlock *pmb, int stage, std::vector<std::string> &stage_name,
                        Integrator *integrator) {
   SwarmContainer &base = pmb->real_containers.GetSwarm();
+  return TaskStatus::complete;
 }
 
 // See the advection.hpp declaration for a description of how this function gets called.
@@ -347,6 +349,7 @@ TaskList ParticleDriver::MakeTaskList(MeshBlock *pmb, int stage) {
 
   TaskID none(0);
   // first make other useful containers
+  printf("stage = %i\n", stage);
   if (stage == 1) {
     SwarmContainer &base = pmb->real_containers.GetSwarm();
     pmb->real_containers.Add("particles", base);

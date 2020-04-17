@@ -25,9 +25,12 @@ DriverStatus EvolutionDriver::Execute() {
   pmesh->mbcnt = 0;
   while ((pmesh->time < pmesh->tlim) &&
          (pmesh->nlim < 0 || pmesh->ncycle < pmesh->nlim)) {
+    printf("%s %i\n", __FILE__, __LINE__);
     if (Globals::my_rank == 0) pmesh->OutputCycleDiagnostics();
+    printf("%s %i\n", __FILE__, __LINE__);
 
     TaskListStatus status = Step();
+    printf("%s %i\n", __FILE__, __LINE__);
     if (status != TaskListStatus::complete) {
       std::cerr << "Step failed to complete all tasks." << std::endl;
       return DriverStatus::failed;
