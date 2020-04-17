@@ -42,6 +42,13 @@ using parthenon::ParArrayND;
 using parthenon::ParArray4D;
 using parthenon::Real;
 
+template <typename T>
+Kokkos::View<T*> make_view_of_type(T orig_view, std::string label, int size) {
+  Kokkos::View<T*> new_view(label, size);
+  return std::move(new_view);
+}
+
+
 TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIterator]") {
   GIVEN("A Container with a set of variables") {
     Container<Real> rc;
@@ -174,17 +181,18 @@ TEST_CASE("Container Iterator Performance",
           "[ContainerIterator][performance]") {
 
 
-  const int N = 16; //Dimensions of blocks
+  const int N = 128; //Dimensions of blocks
+  const int Nvar = 10;
   const int n_burn = 500; //Num times to burn in before timing
   const int n_perf = 500; //Num times to run while timing
 
   //Make a raw ParArray4D for closest to bare metal looping
-  ParArray4D<Real> raw_array("raw_array",10,N,N,N);
+  ParArrayND<Real> raw_array("raw_array",Nvar,N,N,N);
 
   //Make a function for initializing the raw ParArray4D
   auto init_raw_array = [&]() {
     par_for("Initialize ", DevSpace(),
-      0, 10-1,
+      0, Nvar-1,
       0, N-1,
       0, N-1,
       0, N-1,
@@ -197,7 +205,7 @@ TEST_CASE("Container Iterator Performance",
   double time_raw_array = performance_test_wrapper( n_burn, n_perf,init_raw_array,
     [&](){
       par_for("Raw Array Perf", DevSpace(),
-        0, 10-1,
+        0, Nvar-1,
         0, N-1,
         0, N-1,
         0, N-1,
@@ -206,13 +214,12 @@ TEST_CASE("Container Iterator Performance",
         });
     });
 
-
   //Make a container for testing performance
   Container<Real> container;
   Metadata m_in({Metadata::Independent});
   Metadata m_out;
   std::vector<int> scalar_block_size {N,N,N};
-  std::vector<int> vector_block_size {3,N,N,N};
+  std::vector<int> vector_block_size {N,N,N,3};
 
   // make some variables - 5 in all, 2 3-vectors, total 10 fields
   container.Add("v0",m_in, scalar_block_size);
@@ -220,6 +227,7 @@ TEST_CASE("Container Iterator Performance",
   container.Add("v2",m_in, vector_block_size);
   container.Add("v3",m_in, scalar_block_size);
   container.Add("v4",m_in, vector_block_size);
+  container.Add("v5",m_in, scalar_block_size);
 
   //Make a function for initializing the container variables
   auto init_container = [&]() {
@@ -254,6 +262,50 @@ TEST_CASE("Container Iterator Performance",
       }
     });
 
+/*
+  const CellVariableVector<Real> &cv = container.GetCellVariableVector();
+  std::cout << "dim4 = " << cv[0]->GetDim(4);
+  // count the size
+  int vsize = 0;
+  for (int n=0; n<cv.size(); n++) vsize += cv[n]->GetDim(4);
+  auto var_view = make_view_of_type<>(cv[0]->data.SliceD<4>(0,1), "var_view", vsize);
+  auto h_var_view = Kokkos::create_mirror_view(var_view);
+  int vindex = 0;
+  for (int n=0; n<cv.size(); n++) {
+    for (int l=0; l<cv[n]->GetDim(4); l++) {
+      h_var_view(vindex++) = cv[n]->data.SliceD<4>(l,l+1);
+    }
+  }
+  //var_view.DeepCopy(h_var_view);
+  Kokkos::deep_copy(var_view, h_var_view);
+
+  auto init_view_of_views = [&]() {
+    par_for("Initialize ", DevSpace(),
+      0, vsize-1,
+      0, N-1,
+      0, N-1,
+      0, N-1,
+      KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
+        auto v = var_view(l);
+        v(k,j,i) = static_cast<Real>( (l+1)*(k+1)*(j+1)*(i+1) );
+      });
+  };
+
+  //Test performance iterating over variables (we should aim for this performance)
+  double time_view_of_views = performance_test_wrapper( n_burn, n_perf,init_view_of_views,
+    [&](){
+      par_for("Flat Container Array Perf", DevSpace(),
+        0, vsize-1,
+        0, N-1,
+        0, N-1,
+        0, N-1,
+        KOKKOS_LAMBDA(const int l,const int k, const int j, const int i) {
+          auto v = var_view(l);
+          v(k,j,i) *= v(k,j,i); //Do something trivial, square each term
+        });
+    });
+*/
+
 
   //Make a View of Views proof of concept
   const CellVariableVector<Real>& cv = container.GetCellVariableVector();
@@ -281,8 +333,6 @@ TEST_CASE("Container Iterator Performance",
           }
         });
     });
-
-
 
   std::cout << "raw_array performance: " << time_raw_array << std::endl;
   std::cout << "iterate_variables performance: " << time_iterate_variables << std::endl;
