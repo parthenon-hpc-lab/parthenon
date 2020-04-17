@@ -81,6 +81,11 @@ class SwarmContainer {
   ///
   void Add(const std::vector<std::string> labelArray, const Metadata &metadata);
 
+  void Add(std::shared_ptr<Swarm> swarm) {
+    swarmVector_.push_back(swarm);
+    swarmMap_[swarm->label()] = swarm;
+  }
+
   ///
   /// Get a swarm from the container
   /// @param label the name of the swarm

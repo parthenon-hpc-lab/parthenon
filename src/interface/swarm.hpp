@@ -45,16 +45,16 @@ class Swarm {
   public:
     Swarm(const std::string label, const Metadata &metadata,
           const int nmax_pool_in = 1000) :
-          _label(label),
-          _m(metadata),
-          _nmax_pool(nmax_pool_in),
+          label_(label),
+          m_(metadata),
+          nmax_pool_(nmax_pool_in),
           mpiStatus(true) {
       Add("x", Metadata({Metadata::Real}));
       Add("y", Metadata({Metadata::Real}));
       Add("z", Metadata({Metadata::Real}));
       Add("mask", Metadata({Metadata::Integer}));
       auto &mask = GetInteger("mask");
-      for (int n = 0; n < _nmax_pool; n++) {
+      for (int n = 0; n < nmax_pool_; n++) {
         mask(n) = 0;
       }
     }
@@ -69,36 +69,37 @@ class Swarm {
   void Remove(const std::string label);
 
   ParticleVariable<Real> &GetReal(const std::string label) {
-    return *(_realMap.at(label));
+    return *(realMap_.at(label));
   }
 
   ParticleVariable<int> &GetInteger(const std::string label) {
-    return *(_intMap.at(label));
+    return *(intMap_.at(label));
   }
 
   ///< Assign label for swarm
-  void setLabel(const std::string label) { _label = label; }
+  void setLabel(const std::string label) { label_ = label; }
 
   ///< retrieve label for swarm
-  std::string label() const { return _label; }
+  std::string label() const { return label_; }
 
   ///< retrieve metadata for swarm
-  const Metadata metadata() const { return _m; }
+  const Metadata metadata() const { return m_; }
 
   /// Assign info for swarm
-  void setInfo(const std::string info) { _info = info; }
+  void setInfo(const std::string info) { info_ = info; }
 
   /// return information string
-  std::string info() { return _info; }
+  std::string info() { return info_; }
 
   /// Set max pool size
   void setPoolMax(const int nmax_pool) {
-    _nmax_pool = nmax_pool;
+    nmax_pool_ = nmax_pool;
+    // TODO(BRR) require that nmax_pool > nmax_pool_?
     // TODO(BRR) resize arrays and copy data
   }
 
   int get_nmax_active() {
-    return _nmax_active;
+    return nmax_active_;
   }
 
   bool mpiStatus;
@@ -108,26 +109,28 @@ class Swarm {
     // setPoolMax(2*_nmax_pool);
   }
 
+  // TODO(BRR) add a bunch of particles at once?
+
   void Defrag() {
     // TODO(BRR) Put a fast algorithm here to defrag memory
   }
 
  private:
-  int _nmax_pool;
-  int _nmax_active = 0;
-  Metadata _m;
-  std::string _label;
-  std::string _info;
-  std::vector<std::string> _labelArray;
-  std::vector<PARTICLE_TYPE> _typeArray;
-  std::shared_ptr<ParArrayND<PARTICLE_STATUS>> _pstatus;
-  ParticleVariableVector<int> _intVector;
-  ParticleVariableVector<Real> _realVector;
-  ParticleVariableVector<std::string> _stringVector;
+  int nmax_pool_;
+  int nmax_active_ = 0;
+  Metadata m_;
+  std::string label_;
+  std::string info_;
+  std::vector<std::string> labelArray_;
+  std::vector<PARTICLE_TYPE> typeArray_;
+  std::shared_ptr<ParArrayND<PARTICLE_STATUS>> pstatus_;
+  ParticleVariableVector<int> intVector_;
+  ParticleVariableVector<Real> realVector_;
+  ParticleVariableVector<std::string> stringVector_;
 
-  MapToParticle<int> _intMap;
-  MapToParticle<Real> _realMap;
-  MapToParticle<std::string> _stringMap;
+  MapToParticle<int> intMap_;
+  MapToParticle<Real> realMap_;
+  MapToParticle<std::string> stringMap_;
 };
 
 using SP_Swarm = std::shared_ptr<Swarm>;

@@ -29,7 +29,7 @@ class ContainerCollection {
   ContainerCollection() {
     // Always add "base" containers
     containers_["base"] = std::make_shared<Container<T>>();
-    swarm_containers_["base"] = std::make_shared<SwarmContainer>();
+    swarmContainers_["base"] = std::make_shared<SwarmContainer>();
   }
 
   void Add(const std::string &label, Container<T> &src);
@@ -45,10 +45,10 @@ class ContainerCollection {
     return *(it->second);
   }
 
-  SwarmContainer &GetSwarm() { return *swarm_containers_["base"]; }
+  SwarmContainer &GetSwarm() { return *swarmContainers_["base"]; }
   SwarmContainer &GetSwarm(const std::string &label) {
-    auto it = swarm_containers_.find(label);
-    if (it == swarm_containers_.end()) {
+    auto it = swarmContainers_.find(label);
+    if (it == swarmContainers_.end()) {
       throw std::runtime_error("SwarmContainer " + label + " does not exist in collection.");
     }
     return *(it->second);
@@ -63,10 +63,10 @@ class ContainerCollection {
         ++c;
       }
     }
-    auto sc = swarm_containers_.begin();
-    while (sc != swarm_containers_.end()) {
+    auto sc = swarmContainers_.begin();
+    while (sc != swarmContainers_.end()) {
       if (sc->first != "base") {
-        sc = swarm_containers_.erase(sc);
+        sc = swarmContainers_.erase(sc);
       } else {
         ++sc;
       }
@@ -79,7 +79,7 @@ class ContainerCollection {
       c.second->Print();
       std::cout << std::endl;
     }
-    for (auto &sc : swarm_containers_) {
+    for (auto &sc : swarmContainers_) {
       std::cout << "SwarmContainer " << sc.first << " has:" << std::endl;
       sc.second->Print();
       std::cout << std::endl;
@@ -88,7 +88,7 @@ class ContainerCollection {
 
  private:
   std::map<std::string, std::shared_ptr<Container<T>>> containers_;
-  std::map<std::string, std::shared_ptr<SwarmContainer>> swarm_containers_;
+  std::map<std::string, std::shared_ptr<SwarmContainer>> swarmContainers_;
 };
 
 } // namespace parthenon

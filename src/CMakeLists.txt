@@ -92,6 +92,7 @@ add_library(parthenon
   interface/container_collection.cpp
   interface/container.cpp
   interface/swarm_container.cpp
+  interface/swarm.cpp
   interface/metadata.cpp
   interface/properties_interface.cpp
   interface/sparse_variable.cpp

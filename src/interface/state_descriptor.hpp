@@ -63,7 +63,6 @@ class StateDescriptor {
       throw std::invalid_argument("Swarm " + swarm_name + "already exists!");
     }
     _swarmMetadataMap[swarm_name] = m;
-    return true;
   }
 
   // field addition / retrieval routines

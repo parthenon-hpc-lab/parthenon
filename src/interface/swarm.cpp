@@ -37,24 +37,24 @@ void Swarm::Add(const std::vector<std::string> labelArray,
 /// @param metadata the metadata associated with the particle
 void Swarm::Add(const std::string label, const Metadata &metadata) {
   // labels must be unique, even between different types of data
-  if (intMap_.find(label) != intMap_.end() ||
-      realMap_.find(label) != realMap_.end() ||
-      stringMap_.find(label) != stringMap_.end()) {
+  if (intMap_.count(label) > 0 ||
+      realMap_.count(label) > 0 ||
+      stringMap_.count(label) > 0) {
     throw std::invalid_argument ("swarm variable " + label + " already enrolled during Add()!");
   }
 
-  std::array<int, 6> arrDims = {_nmax_pool, 1, 1, 1, 1, 1};
+  std::array<int, 6> arrDims = {nmax_pool_, 1, 1, 1, 1, 1};
 
   if (metadata.Type() == Metadata::Integer) {
-    auto var = std::make_shared<ParticleVariable<int>>(label, _nmax_pool, metadata);
+    auto var = std::make_shared<ParticleVariable<int>>(label, nmax_pool_, metadata);
     intVector_.push_back(var);
     intMap_[label] = var;
   } else if (metadata.Type() == Metadata::Real) {
-    auto var = std::make_shared<ParticleVariable<Real>>(label, _nmax_pool, metadata);
+    auto var = std::make_shared<ParticleVariable<Real>>(label, nmax_pool_, metadata);
     realVector_.push_back(var);
     realMap_[label] = var;
   } else if (metadata.Type() == Metadata::String) {
-    auto var = std::make_shared<ParticleVariable<String>>(label, _nmax_pool, metadata);
+    auto var = std::make_shared<ParticleVariable<std::string>>(label, nmax_pool_, metadata);
     stringVector_.push_back(var);
     stringMap_[label] = var;
   } else {
@@ -80,7 +80,7 @@ void Swarm::Remove(const std::string label) {
     intVector_[idx].reset();
 
     // Next move the last element into idx and pop last entry
-    if ( intVector.size() > 1) intVector_[idx] = std::move(intVector_.back());
+    if ( intVector_.size() > 1) intVector_[idx] = std::move(intVector_.back());
     intVector_.pop_back();
 
     // Also remove variable from map
@@ -99,7 +99,7 @@ void Swarm::Remove(const std::string label) {
   }
   if (found == true) {
     realVector_[idx].reset();
-    if ( realVector.size() > 1) realVector_[idx] = std::move(realVector_.back());
+    if ( realVector_.size() > 1) realVector_[idx] = std::move(realVector_.back());
     realVector_.pop_back();
     realMap_.erase(label);
   }
@@ -116,7 +116,7 @@ void Swarm::Remove(const std::string label) {
   }
   if (found == true) {
     stringVector_[idx].reset();
-    if ( stringVector.size() > 1) stringVector_[idx] = std::move(stringVector_.back());
+    if ( stringVector_.size() > 1) stringVector_[idx] = std::move(stringVector_.back());
     stringVector_.pop_back();
     stringMap_.erase(label);
   }
@@ -124,25 +124,6 @@ void Swarm::Remove(const std::string label) {
   if (found == false) {
     throw std::invalid_argument ("swarm not found in Remove()");
   }
-}
-
-void SwarmContainer::SendBoundaryBuffers() {}
-
-void SwarmContainer::SetupPersistentMPI() {}
-
-bool SwarmContainer::ReceiveBoundaryBuffers() { return true; }
-
-void SwarmContainer::ReceiveAndSetBoundariesWithWait() {}
-
-void SwarmContainer::SetBoundaries() {}
-
-void SwarmContainer::StartReceiving(BoundaryCommSubset phase) {}
-
-void SwarmContainer::ClearBoundary(BoundaryCommSubset phase) {}
-
-void SwarmContainer::Print() {
-  std::cout << "Swarms are:\n";
-  for (auto s : swarmMap_) { std::cout << "  " << s.second->info() << std::endl; }
 }
 
 } // namespace parthenon
