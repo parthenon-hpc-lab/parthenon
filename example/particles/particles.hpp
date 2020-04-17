@@ -25,6 +25,8 @@
 using parthenon::AmrTag;
 using parthenon::BaseTask;
 using parthenon::Container;
+using parthenon::SwarmContainer;
+using parthenon::Swarm;
 using parthenon::Mesh;
 using parthenon::MeshBlock;
 using parthenon::MultiStageBlockTaskDriver;
@@ -64,20 +66,21 @@ class ContainerTask : public BaseTask {
   ContainerTaskFunc _func;
   Container<Real> _cont;
 };
-using TwoContainerTaskFunc =
-    std::function<TaskStatus(Container<Real> &, Container<Real> &)>;
-class TwoContainerTask : public BaseTask {
+*/
+using TwoSwarmTaskFunc =
+    std::function<TaskStatus(Swarm &, Swarm &)>;
+class TwoSwarmTask : public BaseTask {
  public:
-  TwoContainerTask(TaskID id, TwoContainerTaskFunc func, TaskID dep, Container<Real> rc1,
-                   Container<Real> rc2)
-      : BaseTask(id, dep), _func(func), _cont1(rc1), _cont2(rc2) {}
-  TaskStatus operator()() { return _func(_cont1, _cont2); }
+  TwoSwarmTask(TaskID id, TwoSwarmTaskFunc func, TaskID dep, Swarm s1,
+                   Swarm s2)
+      : BaseTask(id, dep), _func(func), _swarm1(s1), _swarm2(s2) {}
+  TaskStatus operator()() { return _func(_swarm1, _swarm2); }
 
  private:
-  TwoContainerTaskFunc _func;
-  Container<Real> _cont1;
-  Container<Real> _cont2;
-};*/
+  TwoSwarmTaskFunc _func;
+  Swarm _swarm1;
+  Swarm _swarm2;
+};
 
 namespace Particles {
 

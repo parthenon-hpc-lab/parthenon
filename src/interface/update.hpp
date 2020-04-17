@@ -24,6 +24,7 @@ namespace Update {
 TaskStatus FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont);
 void UpdateContainer(Container<Real> &in, Container<Real> &dudt_cont, const Real dt,
                      Container<Real> &out);
+TaskStatus TransportSwarm(Swarm &in, Swarm &out);
 void AverageContainers(Container<Real> &c1, Container<Real> &c2, const Real wgt1);
 Real EstimateTimestep(Container<Real> &rc);
 

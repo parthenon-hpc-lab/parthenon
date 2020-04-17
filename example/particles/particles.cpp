@@ -53,22 +53,27 @@ Packages_t ParthenonManager::ProcessPackages(std::unique_ptr<ParameterInput> &pi
 }
 
 void MeshBlock::ProblemGenerator(ParameterInput *pin) {
-  SwarmContainer &sc = swarm_containers.Get();
-  CellVariable<Real> &q = rc.Get("advected");
+  SwarmContainer &sc = real_containers.GetSwarm();
+  Swarm &s = sc.Get("particles");
+  //CellVariable<Real> &q = rc.Get("advected");
 
-  for (int k = 0; k < ncells3; k++) {
+  s.AddParticle();
+
+
+
+  /*for (int k = 0; k < ncells3; k++) {
     for (int j = 0; j < ncells2; j++) {
       for (int i = 0; i < ncells1; i++) {
         Real rsq = std::pow(pcoord->x1v(i), 2) + std::pow(pcoord->x2v(j), 2);
         q(k, j, i) = (rsq < 0.15 * 0.15 ? 1.0 : 0.0);
       }
     }
-  }
+  }*/
 }
 
 void ParthenonManager::SetFillDerivedFunctions() {
-  FillDerivedVariables::SetFillDerivedFunctions(advection_example::Advection::PreFill,
-                                                advection_example::Advection::PostFill);
+  FillDerivedVariables::SetFillDerivedFunctions(particles_example::Particles::PreFill,
+                                                particles_example::Particles::PostFill);
 }
 
 } // namespace parthenon
@@ -92,7 +97,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddParam<>("particle_speed", particle_speed);
 
   std::string swarm_name = "particles";
-  Metadata m({});
+  Metadata m;
   pkg->AddSwarm(swarm_name, m);
 
   //pkg->FillDerived = SquareIt;
@@ -224,6 +229,10 @@ Real EstimateTimestep(Container<Real> &rc) {
 
   return cfl * min_dt;*/
 
+  MeshBlock *pmb = rc.pmy_block;
+  auto pkg = pmb->packages["Particles"];
+  const auto &tlim = pkg->Param<Real>("tlim");
+
   return 0.1*tlim;
 }
 
@@ -313,14 +322,17 @@ TaskStatus UpdateContainer(MeshBlock *pmb, int stage,
   return TaskStatus::complete;
 }
 
-TaskState UpdateSwarm
+TaskStatus UpdateSwarm(MeshBlock *pmb, int stage, std::vector<std::string> &stage_name,
+                       Integrator *integrator) {
+  SwarmContainer &base = pmb->real_containers.GetSwarm();
+}
 
 // See the advection.hpp declaration for a description of how this function gets called.
-TaskList AdvectionDriver::MakeTaskList(MeshBlock *pmb, int stage) {
+TaskList ParticleDriver::MakeTaskList(MeshBlock *pmb, int stage) {
   TaskList tl;
   // we're going to populate our list with multiple kinds of tasks
   // these lambdas just clean up the interface to adding tasks of the relevant kinds
-  auto AddMyTask = [&tl, pmb, stage, this](BlockStageNamesIntegratorTaskFunc func,
+  /*auto AddMyTask = [&tl, pmb, stage, this](BlockStageNamesIntegratorTaskFunc func,
                                            TaskID dep) {
     return tl.AddTask<BlockStageNamesIntegratorTask>(func, dep, pmb, stage, stage_name,
                                                      integrator);
@@ -331,27 +343,31 @@ TaskList AdvectionDriver::MakeTaskList(MeshBlock *pmb, int stage) {
   auto AddTwoContainerTask = [&tl](TwoContainerTaskFunc f, TaskID dep,
                                    Container<Real> &rc1, Container<Real> &rc2) {
     return tl.AddTask<TwoContainerTask>(f, dep, rc1, rc2);
-  };
+  };*/
 
   TaskID none(0);
   // first make other useful containers
   if (stage == 1) {
-    Container<Real> &base = pmb->real_containers.Get();
-    pmb->real_containers.Add("dUdt", base);
-    for (int i = 1; i < integrator->nstages; i++)
-      pmb->real_containers.Add(stage_name[i], base);
+    SwarmContainer &base = pmb->real_containers.GetSwarm();
+    pmb->real_containers.Add("particles", base);
+    //Container<Real> &base = pmb->real_containers.Get();
+    //pmb->real_containers.Add("dUdt", base);
+    //for (int i = 1; i < integrator->nstages; i++)
+    //  pmb->real_containers.Add(stage_name[i], base);
   }
 
   // pull out the container we'll use to get fluxes and/or compute RHSs
-  Container<Real> &sc0 = pmb->real_containers.Get(stage_name[stage - 1]);
+  //Container<Real> &sc0 = pmb->real_containers.Get(stage_name[stage - 1]);
   // pull out a container we'll use to store dU/dt.
   // This is just -flux_divergence in this example
-  Container<Real> &dudt = pmb->real_containers.Get("dUdt");
+  //Container<Real> &dudt = pmb->real_containers.Get("dUdt");
   // pull out the container that will hold the updated state
   // effectively, sc1 = sc0 + dudt*dt
-  Container<Real> &sc1 = pmb->real_containers.Get(stage_name[stage]);
+  //Container<Real> &sc1 = pmb->real_containers.Get(stage_name[stage]);
 
-  SwarmContainer &swarmcontainer = pmb->real_containers.Get();
+  SwarmContainer &particles = pmb->real_containers.GetSwarm("particles");
+
+  Swarm &swarm = particles.Get("particles");
 
   /*auto start_recv = AddContainerTask(Container<Real>::StartReceivingTask, none, sc1);
 
@@ -367,10 +383,11 @@ TaskList AdvectionDriver::MakeTaskList(MeshBlock *pmb, int stage) {
       AddTwoContainerTask(parthenon::Update::FluxDivergence, recv_flux, sc0, dudt)*/;
 
   // Push all particles by v*dt
-  auto update_swarm = tl.AddTask<SwarmTask>(UpdateSwarm, none, particles);
+  auto update_swarm = tl.AddTask<TwoSwarmTask>(parthenon::Update::TransportSwarm, none,
+                                               swarm, swarm);
 
   // update ghost cells
-  auto send =
+  /*auto send =
       AddContainerTask(Container<Real>::SendBoundaryBuffersTask, update_container, sc1);
   auto recv = AddContainerTask(Container<Real>::ReceiveBoundaryBuffersTask, send, sc1);
   auto fill_from_bufs = AddContainerTask(Container<Real>::SetBoundariesTask, recv, sc1);
@@ -386,44 +403,45 @@ TaskList AdvectionDriver::MakeTaskList(MeshBlock *pmb, int stage) {
 
   // set physical boundaries
   auto set_bc = AddContainerTask(parthenon::ApplyBoundaryConditions, prolongBound, sc1);
-
+  */
   // fill in derived fields
-  auto fill_derived =
-      AddContainerTask(parthenon::FillDerivedVariables::FillDerived, set_bc, sc1);
+  //auto fill_derived =
+  //    AddContainerTask(parthenon::FillDerivedVariables::FillDerived, set_bc, sc1);
 
   // estimate next time step
   if (stage == integrator->nstages) {
-    auto new_dt = AddContainerTask(
+    /*auto new_dt = AddContainerTask(
         [](Container<Real> &rc) {
           MeshBlock *pmb = rc.pmy_block;
           pmb->SetBlockTimestep(parthenon::Update::EstimateTimestep(rc));
           return TaskStatus::complete;
         },
-        fill_derived, sc1);
+        fill_derived, sc1);*/
+    printf("stage == integrator->nstages, I guess\n");
 
     // Update refinement
-    if (pmesh->adaptive) {
+    /*if (pmesh->adaptive) {
       auto tag_refine = tl.AddTask<BlockTask>(
           [](MeshBlock *pmb) {
             pmb->pmr->CheckRefinementCondition();
             return TaskStatus::complete;
           },
           fill_derived, pmb);
-    }
+    }*/
     // Purge stages -- this task isn't really required.  If we don't purge the containers
     // then the next time we go to add them, they'll already exist and it will be a no-op.
     // Not purging the stages is more performant, but if the "base" Container changes, we
     // need to purge the stages and recreate the non-base containers or else there will be
     // bugs, e.g. the containers for rk stages won't have the same variables as the "base"
     // container, likely leading to strange errors and/or segfaults.
-    auto purge_stages = tl.AddTask<BlockTask>(
+    /*auto purge_stages = tl.AddTask<BlockTask>(
         [](MeshBlock *pmb) {
           pmb->real_containers.PurgeNonBase();
           return TaskStatus::complete;
         },
-        fill_derived, pmb);
+        fill_derived, pmb);*/
   }
   return tl;
 }
 
-} // namespace advection_example
+} // namespace particles_example

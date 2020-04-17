@@ -96,6 +96,35 @@ TaskStatus FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
   return TaskStatus::complete;
 }
 
+//void TransportSwarm(Swarm &in, const Real dt, Swarm &out) {
+TaskStatus TransportSwarm(Swarm &in, Swarm &out) {
+  // TODO BRR put const real dt back in the args list
+  const Real dt = 0.1;
+  int nmax_active = in.get_nmax_active();
+
+  ParticleVariable<Real> &x_in = in.GetReal("x");
+  ParticleVariable<Real> &y_in = in.GetReal("y");
+  ParticleVariable<Real> &z_in = in.GetReal("z");
+  ParticleVariable<Real> &x_out = out.GetReal("x");
+  ParticleVariable<Real> &y_out = out.GetReal("y");
+  ParticleVariable<Real> &z_out = out.GetReal("z");
+  //ParticleVariable<Real> vx = in.Get("vx");
+  //ParticleVariable<Real> vy = in.Get("vy");
+  //ParticleVariable<Real> vz = in.Get("vz");
+  //ParticleVariable<int> mask = in.Get("mask");
+  double vx = 1.;
+  double vy = 1.;
+  double vz = 1.;
+
+  for (int n = 0; n < nmax_active; n++) {
+    x_out(n) = x_in(n) + vx*dt;
+    y_out(n) = y_in(n) + vy*dt;
+    z_out(n) = z_in(n) + vz*dt;
+  }
+
+  return TaskStatus::complete;
+}
+
 void UpdateContainer(Container<Real> &in, Container<Real> &dudt_cont, const Real dt,
                      Container<Real> &out) {
   MeshBlock *pmb = in.pmy_block;

@@ -58,6 +58,14 @@ class StateDescriptor {
   // retrieve label
   const std::string &label() { return _label; }
 
+  bool AddSwarm(const std::string &swarm_name, Metadata &m) {
+    if (_swarmMetadataMap.count(swarm_name) > 0) {
+      throw std::invalid_argument("Swarm " + swarm_name + "already exists!");
+    }
+    _swarmMetadataMap[swarm_name] = m;
+    return true;
+  }
+
   // field addition / retrieval routines
   // add a field with associated metadata
   bool AddField(const std::string &field_name, Metadata &m,
@@ -106,14 +114,30 @@ class StateDescriptor {
     return names;
   }
 
+  // retrieve all swarm names
+  std::vector<std::string> Swarms() {
+    std::vector<std::string> names;
+    names.reserve(_swarmMetadataMap.size());
+    for (auto &x : _swarmMetadataMap) {
+      names.push_back(x.first);
+    }
+    return names;
+  }
+
   const std::map<std::string, Metadata> &AllFields() { return _metadataMap; }
   const std::map<std::string, std::vector<Metadata>> &AllSparseFields() {
     return _sparseMetadataMap;
   }
+  const std::map<std::string, Metadata> &AllSwarms() { return _swarmMetadataMap; }
 
   // retrieve metadata for a specific field
   Metadata &FieldMetadata(const std::string &field_name) {
     return _metadataMap[field_name];
+  }
+
+  // retrieve metadata for a specific swarm
+  Metadata &SwarmMetadata(const std::string &swarm_name) {
+    return _swarmMetadataMap[swarm_name];
   }
 
   // get all metadata for this physics
@@ -129,6 +153,7 @@ class StateDescriptor {
   const std::string _label;
   std::map<std::string, Metadata> _metadataMap;
   std::map<std::string, std::vector<Metadata>> _sparseMetadataMap;
+  std::map<std::string, Metadata> _swarmMetadataMap;
 };
 
 using Packages_t = std::map<std::string, std::shared_ptr<StateDescriptor>>;

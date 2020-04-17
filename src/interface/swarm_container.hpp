@@ -86,12 +86,12 @@ class SwarmContainer {
   /// @param label the name of the swarm
   /// @return the Swarm if found or throw exception
   Swarm& Get(std::string label) {
-    for (auto v : swarmVector_) {
-      if (! v->label().compare(label)) return *v;
+    if (swarmMap_.count(label) > 0) {
+      throw std::invalid_argument (std::string("\n") +
+                                   std::string(label) +
+                                   std::string(" swarm not found in Get()\n") );
     }
-    throw std::invalid_argument (std::string("\n") +
-                                 std::string(label) +
-                                 std::string(" swarm not found in Get()\n") );
+    return *swarmMap_[label];
   }
 
   Swarm& Get(const int index) {

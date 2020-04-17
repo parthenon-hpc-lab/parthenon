@@ -44,11 +44,20 @@ enum class PARTICLE_STATUS {
 class Swarm {
   public:
     Swarm(const std::string label, const Metadata &metadata,
-      const int nmax_pool_in = 1000) :
-      _label(label),
-      _m(metadata),
-      _nmax_pool(nmax_pool_in),
-      mpiStatus(true) {}
+          const int nmax_pool_in = 1000) :
+          _label(label),
+          _m(metadata),
+          _nmax_pool(nmax_pool_in),
+          mpiStatus(true) {
+      Add("x", Metadata({Metadata::Real}));
+      Add("y", Metadata({Metadata::Real}));
+      Add("z", Metadata({Metadata::Real}));
+      Add("mask", Metadata({Metadata::Integer}));
+      auto &mask = GetInteger("mask");
+      for (int n = 0; n < _nmax_pool; n++) {
+        mask(n) = 0;
+      }
+    }
 
   ///< Add variable to swarm
   void Add(const std::string label, const Metadata &metadata);
@@ -58,6 +67,14 @@ class Swarm {
 
   ///< Remote a variable from swarm
   void Remove(const std::string label);
+
+  ParticleVariable<Real> &GetReal(const std::string label) {
+    return *(_realMap.at(label));
+  }
+
+  ParticleVariable<int> &GetInteger(const std::string label) {
+    return *(_intMap.at(label));
+  }
 
   ///< Assign label for swarm
   void setLabel(const std::string label) { _label = label; }
@@ -80,6 +97,10 @@ class Swarm {
     // TODO(BRR) resize arrays and copy data
   }
 
+  int get_nmax_active() {
+    return _nmax_active;
+  }
+
   bool mpiStatus;
 
   void AddParticle() {
@@ -93,7 +114,7 @@ class Swarm {
 
  private:
   int _nmax_pool;
-  int _nmax_occupied = 0;
+  int _nmax_active = 0;
   Metadata _m;
   std::string _label;
   std::string _info;
@@ -101,12 +122,12 @@ class Swarm {
   std::vector<PARTICLE_TYPE> _typeArray;
   std::shared_ptr<ParArrayND<PARTICLE_STATUS>> _pstatus;
   ParticleVariableVector<int> _intVector;
-  std::vector<std::shared_ptr<ParArrayND<Real>>> _realVector;
-  std::vector<std::shared_ptr<ParArrayND<std::string>>> _stringVector;
+  ParticleVariableVector<Real> _realVector;
+  ParticleVariableVector<std::string> _stringVector;
 
   MapToParticle<int> _intMap;
-  std::map<std::string, std::shared_ptr<ParArrayND<int>>> _realMap;
-  std::map<std::string, std::shared_ptr<ParArrayND<int>>> _stringMap;
+  MapToParticle<Real> _realMap;
+  MapToParticle<std::string> _stringMap;
 };
 
 using SP_Swarm = std::shared_ptr<Swarm>;

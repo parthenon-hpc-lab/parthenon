@@ -207,6 +207,12 @@ class ParticleVariable {
       : data(label, npool),
         npool_(npool), m_(metadata), label_(label) {}
 
+  // accessors
+  template <class... Args>
+  KOKKOS_FORCEINLINE_FUNCTION auto &operator()(Args... args) {
+    return data(std::forward<Args>(args)...);
+  }
+
   ///< retrieve metadata for variable
   const Metadata metadata() const { return m_; }
 
@@ -218,7 +224,7 @@ class ParticleVariable {
   /// return information string
   std::string info();
 
-  ParArrayND<Real> data;
+  ParArrayND<T> data;
 
  private:
   int npool_;
