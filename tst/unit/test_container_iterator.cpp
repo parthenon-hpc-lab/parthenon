@@ -39,6 +39,7 @@ using parthenon::loop_pattern_mdrange_tag;
 using parthenon::Metadata;
 using parthenon::par_for;
 using parthenon::ParArrayND;
+using parthenon::ParArray4D;
 using parthenon::Real;
 
 TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIterator]") {
@@ -254,8 +255,39 @@ TEST_CASE("Container Iterator Performance",
     });
 
 
+  //Make a View of Views proof of concept
+  const CellVariableVector<Real>& cv = container.GetCellVariableVector();
+  Kokkos::View< ParArrayND<Real>* > var_view("var_view",cv.size());
+  auto h_var_view = Kokkos::create_mirror_view(var_view);
+  for (int n=0; n<cv.size(); n++) {
+    h_var_view[n] = cv[n]->data; //Will this behave correctly on the device?
+  }
+  Kokkos::deep_copy(var_view,h_var_view);
+  
+  //Use the same function for containers for initializing container variables 
+
+  //Test performance iterating over var_view in one kernel
+  double time_view_of_views = performance_test_wrapper( n_burn, n_perf,init_container,
+    [&](){
+      par_for("View of Views Perf", DevSpace(),
+        0, cv.size()-1,
+        0, cv[0]->data.GetDim(3)-1,
+        0, cv[0]->data.GetDim(2)-1,
+        0, cv[0]->data.GetDim(1)-1,
+        KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
+          auto v = var_view(n);
+          for(int l = 0; l < v.GetDim(4); l++){
+            v(l,k,j,i) *= v(l,k,j,i); //Do something trivial, square each term
+          }
+        });
+    });
+
+
+
   std::cout << "raw_array performance: " << time_raw_array << std::endl;
   std::cout << "iterate_variables performance: " << time_iterate_variables << std::endl;
   std::cout << "iterate_variables/raw_array " << time_iterate_variables/time_raw_array << std::endl;
+  std::cout << "view_of_views performance: " << time_view_of_views << std::endl;
+  std::cout << "view_of_views/raw_array " << time_view_of_views/time_raw_array << std::endl;
 
 }
