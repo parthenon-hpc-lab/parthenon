@@ -25,8 +25,10 @@ option(DISABLE_HDF5 "HDF5 is enabled by default if found, set this to True to di
 option(ENABLE_COMPILER_WARNINGS "Enable compiler warnings" OFF)
 option(CHECK_REGISTRY_PRESSURE "Check the registry pressure for Kokkos CUDA kernels" OFF)
 option(TEST_INTEL_OPTIMIZATION "Test intel optimization and vectorization" OFF)
+option(PARTHENON_SYSTEM_DETECTION "Controls whether system detection is run" ON)
 
 include(cmake/Format.cmake)
+include(platform/DetectPlatform.cmake)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
