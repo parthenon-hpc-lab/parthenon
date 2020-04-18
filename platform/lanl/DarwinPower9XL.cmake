@@ -28,7 +28,7 @@ set(XL_CUDA_VERSION "10.1")
 if ("16.1.1.7" VERSION_GREATER CMAKE_CXX_COMPILER_VERSION)
     message(
         FATAL_ERROR
-        "Your version of IBM XL is non supported on Darwin Power9. You must \
+        "Your version of IBM XL is not supported on Darwin Power9. You must \
         use version 16.1.1.7 or newer.")
 endif()
 
