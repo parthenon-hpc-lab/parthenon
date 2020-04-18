@@ -77,3 +77,13 @@ Remember - this will change the branch history from your local commit, so you'll
 run something equivalent to
 `git fetch origin && git reset --hard origin/$(git branch --show-current)` to update your
 local tracking branch.
+
+## Build Improvements
+
+### System Specialization
+If you need to add some specializations to stream-line configuration on specific
+platforms, (e.g. on your commonly used cluster at your institution), you can add
+those customizations in the `platform/` directory. See
+`platform/DetectPlatform.cmake` to understand the process. Your specializations
+should be highly specific in order to not accidentally capture platforms you
+didn't intend to.
