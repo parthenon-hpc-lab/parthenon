@@ -212,7 +212,7 @@ TEST_CASE("Container Iterator Performance",
   Metadata m_in({Metadata::Independent});
   Metadata m_out;
   std::vector<int> scalar_block_size {N,N,N};
-  std::vector<int> vector_block_size {3,N,N,N};
+  std::vector<int> vector_block_size {N,N,N,3};
 
   // make some variables - 5 in all, 2 3-vectors, total 10 fields
   container.Add("v0",m_in, scalar_block_size);
@@ -220,6 +220,7 @@ TEST_CASE("Container Iterator Performance",
   container.Add("v2",m_in, vector_block_size);
   container.Add("v3",m_in, scalar_block_size);
   container.Add("v4",m_in, vector_block_size);
+  container.Add("v5",m_in, scalar_block_size);
 
   //Make a function for initializing the container variables
   auto init_container = [&]() {
