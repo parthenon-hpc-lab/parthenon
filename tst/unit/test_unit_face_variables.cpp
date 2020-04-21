@@ -27,7 +27,7 @@
 #include "interface/variable.hpp"
 #include "kokkos_abstraction.hpp"
 
-using parthenon::DevSpace;
+using parthenon::DevExecSpace;
 using parthenon::FaceVariable;
 using parthenon::loop_pattern_mdrange_tag;
 using parthenon::Metadata;
@@ -64,7 +64,7 @@ TEST_CASE("Can create a vector-valued face-variable",
         }
         AND_THEN("The metadata is correct") { REQUIRE(f.metadata() == m); }
         AND_THEN("We can set array elements") {
-          auto space = DevSpace();
+          auto space = DevExecSpace();
           auto x1f = f.Get(1);
           auto x2f = f.Get(2);
           auto x3f = f.Get(3);

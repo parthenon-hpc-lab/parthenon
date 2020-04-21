@@ -253,7 +253,6 @@ void PHDF5Output::genXDMF(std::string hdfFile, Mesh *pm) {
 //  \brief Cycles over all MeshBlocks and writes OutputData in the Parthenon HDF5 format,
 //         one file per output using parallel IO.
 void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
-
   // writes all graphics variables to hdf file
   // HDF5 structures
   // Also writes companion xdmf file

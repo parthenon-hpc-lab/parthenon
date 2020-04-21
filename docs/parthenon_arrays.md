@@ -80,6 +80,10 @@ my_mirror.DeepCopy(my_array);
 `ParArrayND` provides two convenience functions, `GetHostMirror()` and
 `GetDeviceMirror()` which put a mirror on the host and device
 respectively.
+In addition, `GetHostMirrorAndCopy()` creates a new and deep copies the content, e.g.,
+```C++
+auto my_host_array = my_array.getHostMirrorAndCopy();
+```
 
 ### A note on templates
 
@@ -89,7 +93,7 @@ aliases available are as follows:
 
 ```C++
 template<typename T, typename Layout=LayoutWrapper>
-using device_view_t = Kokkos::View<T******,Layout,DevSpace>;
+using device_view_t = Kokkos::View<T******,Layout,DevMemSpace>;
 
 template<typename T, typename Layout=LayoutWrapper>
 using host_view_t = typename device_view_t<T,Layout>::HostMirror;

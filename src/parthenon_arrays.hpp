@@ -130,7 +130,6 @@ class ParArrayNDGeneric {
     return GetDim(1) * GetDim(2) * GetDim(3) * GetDim(4) * GetDim(5) * GetDim(6);
   }
 
-  // TODO(JMM): expose wrapper for create_mirror_view_and_copy?
   template <typename MemSpace>
   auto GetMirror(MemSpace const &memspace) {
     auto mirror = Kokkos::create_mirror_view(memspace, d6d_);
@@ -142,6 +141,12 @@ class ParArrayNDGeneric {
   template <typename Other>
   void DeepCopy(const Other &src) {
     Kokkos::deep_copy(d6d_, src.Get());
+  }
+
+  auto GetHostMirrorAndCopy() {
+    auto host_mirror = GetHostMirror();
+    Kokkos::deep_copy(host_mirror.Get(), d6d_);
+    return host_mirror;
   }
 
   // JMM: DO NOT put noexcept here. It somehow interferes with inlining
@@ -286,7 +291,7 @@ class ParArrayNDGeneric {
 };
 
 template <typename T, typename Layout = LayoutWrapper>
-using device_view_t = Kokkos::View<T ******, Layout, DevSpace>;
+using device_view_t = Kokkos::View<T ******, Layout, DevMemSpace>;
 
 template <typename T, typename Layout = LayoutWrapper>
 using host_view_t = typename device_view_t<T, Layout>::HostMirror;
