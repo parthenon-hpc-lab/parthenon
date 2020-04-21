@@ -11,7 +11,7 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-
+#include <fstream>
 #include <iostream>
 #include <string>
 #include <utility>
@@ -81,6 +81,10 @@ DriverStatus CalculatePi::Execute() {
   if(my_rank == 0) {
     std::cout << std::endl << std::endl << "PI = " << pi_val <<
                  "    rel error = " << (pi_val-M_PI)/M_PI << std::endl << std::endl;
+    std::fstream fs;
+    fs.open ("summary.txt", std::fstream::out);
+    fs << "PI = " << pi_val << "    rel error = " << (pi_val-M_PI)/M_PI << std::endl;
+    fs.close();
   }
   pmesh->mbcnt = pmesh->nbtotal; // this is how many blocks were processed
   return DriverStatus::complete;
