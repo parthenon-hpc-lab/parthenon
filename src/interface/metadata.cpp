@@ -11,10 +11,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-// Self Include
-#include "Metadata.hpp"
+#include "interface/metadata.hpp"
 
-// STL Includes
 #include <exception>
 #include <sstream>
 #include <string>
@@ -22,62 +20,57 @@
 #include <utility>
 #include <vector>
 
-using parthenon::MetadataFlag;
 using parthenon::Metadata;
+using parthenon::MetadataFlag;
 
 namespace parthenon {
-// Must declare the flag values for ODR-uses
-#define PARTHENON_INTERNAL_FOR_FLAG(name) \
-    constexpr MetadataFlag Metadata::name;
 
-    PARTHENON_INTERNAL_FOREACH_BUILTIN_FLAG
+// Must declare the flag values for ODR-uses
+#define PARTHENON_INTERNAL_FOR_FLAG(name) constexpr MetadataFlag Metadata::name;
+
+PARTHENON_INTERNAL_FOREACH_BUILTIN_FLAG
 #undef PARTHENON_INTERNAL_FOR_FLAG
 
 namespace internal {
 
 class UserMetadataState {
  public:
-    UserMetadataState() {
-#define PARTHENON_INTERNAL_FOR_FLAG(name) \
-    flag_name_map_.push_back(#name);
+  UserMetadataState() {
+#define PARTHENON_INTERNAL_FOR_FLAG(name) flag_name_map_.push_back(#name);
 
     PARTHENON_INTERNAL_FOREACH_BUILTIN_FLAG
 
 #undef PARTHENON_INTERNAL_FOR_FLAG
+  }
+
+  MetadataFlag AllocateNewFlag(std::string &&name) {
+    if (flag_names_.find(name) != flag_names_.end()) {
+      std::stringstream ss;
+      ss << "MetadataFlag with name '" << name << "' already exists.";
+      throw std::runtime_error(ss.str());
     }
 
-    MetadataFlag AllocateNewFlag(std::string &&name) {
-        if (flag_names_.find(name) != flag_names_.end()) {
-            std::stringstream ss;
-            ss << "MetadataFlag with name '" << name << "' already exists.";
-            throw std::runtime_error(ss.str());
-        }
+    auto const flag = flag_name_map_.size();
+    flag_names_.insert(name);
+    flag_name_map_.push_back(std::move(name));
+    return MetadataFlag(static_cast<int>(flag));
+  }
 
-        auto const flag = flag_name_map_.size();
-        flag_names_.insert(name);
-        flag_name_map_.push_back(std::move(name));
-        return MetadataFlag(static_cast<int>(flag));
-    }
-
-    std::string const &FlagName(MetadataFlag flag) {
-        return flag_name_map_.at(flag.flag_);
-    }
+  std::string const &FlagName(MetadataFlag flag) { return flag_name_map_.at(flag.flag_); }
 
  private:
-    std::vector<std::string> flag_name_map_;
-    std::unordered_set<std::string> flag_names_;
+  std::vector<std::string> flag_name_map_;
+  std::unordered_set<std::string> flag_names_;
 };
 
 } // namespace internal
+
 } // namespace parthenon
 
 parthenon::internal::UserMetadataState metadata_state;
 
 MetadataFlag Metadata::AllocateNewFlag(std::string &&name) {
-    return metadata_state.AllocateNewFlag(std::move(name));
+  return metadata_state.AllocateNewFlag(std::move(name));
 }
 
-
-std::string const &MetadataFlag::Name() const {
-    return metadata_state.FlagName(*this);
-}
+std::string const &MetadataFlag::Name() const { return metadata_state.FlagName(*this); }

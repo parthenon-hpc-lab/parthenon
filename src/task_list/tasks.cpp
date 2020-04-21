@@ -14,138 +14,141 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-//! \file task_id.cpp
+//! \file tasks.cpp
 //  \brief implementation of the TaskID class
 
+#include "task_list/tasks.hpp"
+
+#include <algorithm>
 #include <bitset>
 #include <string>
 #include <utility>
 
-#include "tasks.hpp"
-
 namespace parthenon {
+
 // TaskID constructor. Default id = 0.
-TaskID::TaskID(int id) {
-  Set(id);
-}
+TaskID::TaskID(int id) { Set(id); }
 
 void TaskID::Set(int id) {
   if (id < 0) throw std::invalid_argument("TaskID requires integer arguments >= 0");
-  if (id == 0) return;
+  if (id == 0) {
+    bitblocks.resize(1);
+    return;
+  }
   id--;
-  const int n_myblocks = id/BITBLOCK + 1;
+  const int n_myblocks = id / BITBLOCK + 1;
   // grow if necessary.  never shrink
   if (n_myblocks > bitblocks.size()) bitblocks.resize(n_myblocks);
-  bitblocks[n_myblocks-1].set(id%BITBLOCK);
+  bitblocks[n_myblocks - 1].set(id % BITBLOCK);
 }
 
 void TaskID::clear() {
-  for (auto & bset : bitblocks) {
+  for (auto &bset : bitblocks) {
     bset.reset();
   }
 }
 
-bool TaskID::CheckDependencies(const TaskID& rhs) const {
+bool TaskID::CheckDependencies(const TaskID &rhs) const {
   const int n_myblocks = bitblocks.size();
   const int n_srcblocks = rhs.bitblocks.size();
   if (n_myblocks == n_srcblocks) {
-    for (int i=0; i<n_myblocks; i++) {
+    for (int i = 0; i < n_myblocks; i++) {
       if ((bitblocks[i] & rhs.bitblocks[i]) != rhs.bitblocks[i]) return false;
     }
   } else if (n_myblocks > n_srcblocks) {
-    for (int i=0; i<n_srcblocks; i++) {
+    for (int i = 0; i < n_srcblocks; i++) {
       if ((bitblocks[i] & rhs.bitblocks[i]) != rhs.bitblocks[i]) return false;
     }
   } else {
-    for (int i=0; i<n_myblocks; i++) {
+    for (int i = 0; i < n_myblocks; i++) {
       if ((bitblocks[i] & rhs.bitblocks[i]) != rhs.bitblocks[i]) return false;
     }
-    for (int i=n_myblocks; i<n_srcblocks; i++) {
+    for (int i = n_myblocks; i < n_srcblocks; i++) {
       if (rhs.bitblocks[i].any()) return false;
     }
   }
   return true;
 }
 
-void TaskID::SetFinished(const TaskID& rhs) {
+void TaskID::SetFinished(const TaskID &rhs) {
   const int n_myblocks = bitblocks.size();
   const int n_srcblocks = rhs.bitblocks.size();
   if (n_myblocks == n_srcblocks) {
-    for (int i=0; i<n_myblocks; i++) {
+    for (int i = 0; i < n_myblocks; i++) {
       bitblocks[i] ^= rhs.bitblocks[i];
     }
   } else if (n_myblocks > n_srcblocks) {
-    for (int i=0; i<n_srcblocks; i++) {
+    for (int i = 0; i < n_srcblocks; i++) {
       bitblocks[i] ^= rhs.bitblocks[i];
     }
   } else {
-    for (int i=0; i<n_myblocks; i++) {
+    for (int i = 0; i < n_myblocks; i++) {
       bitblocks[i] ^= rhs.bitblocks[i];
     }
-    for (int i=n_myblocks; i<n_srcblocks; i++) {
+    for (int i = n_myblocks; i < n_srcblocks; i++) {
       bitblocks.push_back(rhs.bitblocks[i]);
     }
   }
 }
 
-bool TaskID::operator== (const TaskID& rhs) const {
+bool TaskID::operator==(const TaskID &rhs) const {
   const int n_myblocks = bitblocks.size();
   const int n_srcblocks = rhs.bitblocks.size();
   if (n_myblocks == n_srcblocks) {
-    for (int i=0; i<n_myblocks; i++) {
+    for (int i = 0; i < n_myblocks; i++) {
       if (bitblocks[i] != rhs.bitblocks[i]) return false;
     }
   } else if (n_myblocks > n_srcblocks) {
-    for (int i=0; i<n_srcblocks; i++) {
+    for (int i = 0; i < n_srcblocks; i++) {
       if (bitblocks[i] != rhs.bitblocks[i]) return false;
     }
-    for (int i=n_srcblocks; i<n_myblocks; i++) {
+    for (int i = n_srcblocks; i < n_myblocks; i++) {
       if (bitblocks[i].any()) return false;
     }
   } else {
-    for (int i=0; i<n_myblocks; i++) {
+    for (int i = 0; i < n_myblocks; i++) {
       if (bitblocks[i] != rhs.bitblocks[i]) return false;
     }
-    for (int i=n_myblocks; i<n_srcblocks; i++) {
+    for (int i = n_myblocks; i < n_srcblocks; i++) {
       if (rhs.bitblocks[i].any()) return false;
     }
   }
   return true;
 }
 
-TaskID TaskID::operator| (const TaskID& rhs) const {
+TaskID TaskID::operator|(const TaskID &rhs) const {
   TaskID res;
   const int n_myblocks = bitblocks.size();
   const int n_srcblocks = rhs.bitblocks.size();
-  res.bitblocks.resize(std::max(n_myblocks,n_srcblocks));
+  res.bitblocks.resize(std::max(n_myblocks, n_srcblocks));
   if (n_myblocks == n_srcblocks) {
-    for (int i=0; i<n_myblocks; i++) {
+    for (int i = 0; i < n_myblocks; i++) {
       res.bitblocks[i] = bitblocks[i] | rhs.bitblocks[i];
     }
   } else if (n_myblocks > n_srcblocks) {
-    for (int i=0; i<n_srcblocks; i++) {
-      res.bitblocks[i] = bitblocks[i] |rhs.bitblocks[i];
+    for (int i = 0; i < n_srcblocks; i++) {
+      res.bitblocks[i] = bitblocks[i] | rhs.bitblocks[i];
     }
-    for (int i=n_srcblocks; i<n_myblocks; i++) {
+    for (int i = n_srcblocks; i < n_myblocks; i++) {
       res.bitblocks[i] = bitblocks[i];
     }
   } else {
-    for (int i=0; i<n_myblocks; i++) {
+    for (int i = 0; i < n_myblocks; i++) {
       res.bitblocks[i] = bitblocks[i] | rhs.bitblocks[i];
     }
-    for (int i=n_myblocks; i<n_srcblocks; i++) {
+    for (int i = n_myblocks; i < n_srcblocks; i++) {
       res.bitblocks[i] = rhs.bitblocks[i];
     }
   }
-  return std::move(res);
+  return res;
 }
 
 std::string TaskID::to_string() {
   std::string bs;
-  for (int i=bitblocks.size()-1; i>=0; i--) {
+  for (int i = bitblocks.size() - 1; i >= 0; i--) {
     bs += bitblocks[i].to_string();
   }
-  return std::move(bs);
+  return bs;
 }
 
 } // namespace parthenon

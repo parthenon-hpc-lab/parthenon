@@ -11,14 +11,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-// C headers
-
-// C++ headers
-
-// Parthenon headers
 #include "parthenon_manager.hpp"
 
-// Application headers
 #include "pi.hpp"
 
 int main(int argc, char *argv[]) {
@@ -49,5 +43,5 @@ int main(int argc, char *argv[]) {
   // call MPI_Finalize if necessary
   pman.ParthenonFinalize();
 
-  return(0);
+  return (0);
 }

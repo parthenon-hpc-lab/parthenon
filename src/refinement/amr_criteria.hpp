@@ -10,14 +10,14 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef PARTHENON_REFINEMENT_AMR_CRITERIA_HPP_
-#define PARTHENON_REFINEMENT_AMR_CRITERIA_HPP_
+#ifndef REFINEMENT_AMR_CRITERIA_HPP_
+#define REFINEMENT_AMR_CRITERIA_HPP_
 
 #include <memory>
 #include <string>
 
 #include "athena.hpp"
-#include "interface/Container.hpp"
+#include "interface/container.hpp"
 
 namespace parthenon {
 
@@ -26,18 +26,19 @@ class ParameterInput;
 struct AMRCriteria {
   AMRCriteria() = default;
   virtual ~AMRCriteria() {}
-  virtual int operator () (Container<Real>& rc) = 0;
+  virtual AmrTag operator()(Container<Real> &rc) = 0;
   std::string field;
   Real refine_criteria, derefine_criteria;
   int max_level;
-  static std::shared_ptr<AMRCriteria> MakeAMRCriteria(std::string& criteria, ParameterInput *pin, std::string& block_name);
+  static std::shared_ptr<AMRCriteria>
+  MakeAMRCriteria(std::string &criteria, ParameterInput *pin, std::string &block_name);
 };
 
 struct AMRFirstDerivative : public AMRCriteria {
-  AMRFirstDerivative(ParameterInput *pin, std::string& block_name);
-  int operator () (Container<Real>& rc);
+  AMRFirstDerivative(ParameterInput *pin, std::string &block_name);
+  AmrTag operator()(Container<Real> &rc);
 };
 
 } // namespace parthenon
 
-#endif // PARTHENON_REFINEMENT_AMR_CRITERIA_HPP_
+#endif // REFINEMENT_AMR_CRITERIA_HPP_

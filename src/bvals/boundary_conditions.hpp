@@ -11,15 +11,16 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef PARTHENON_BOUNDARY_CONDITIONS_HPP_
-#define PARTHENON_BOUNDARY_CONDITIONS_HPP_
+#ifndef BVALS_BOUNDARY_CONDITIONS_HPP_
+#define BVALS_BOUNDARY_CONDITIONS_HPP_
 
-#include "interface/Container.hpp"
+#include "basic_types.hpp"
+#include "interface/container.hpp"
 
 namespace parthenon {
 
-void ApplyBoundaryConditions(Container<Real>& rc);
+TaskStatus ApplyBoundaryConditions(Container<Real> &rc);
 
 } // namespace parthenon
 
-#endif // PARTHENON_BOUNDARY_CONDITIONS_HPP_
+#endif // BVALS_BOUNDARY_CONDITIONS_HPP_

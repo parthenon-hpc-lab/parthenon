@@ -10,31 +10,19 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef UPDATE_HPP_PK
-#define UPDATE_HPP_PK
 
-#include "athena.hpp"
-#include "interface/Container.hpp"
-#include "mesh/mesh.hpp"
-namespace parthenon {
-namespace Update {
+#ifndef PARTHENON_MPI_HPP_
+#define PARTHENON_MPI_HPP_
 
-void FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont);
-void UpdateContainer(Container<Real> &in, Container<Real> &dudt_cont,
-                     const Real dt, Container<Real> &out);
-void AverageContainers(Container<Real> &c1, Container<Real> &c2,
-                       const Real wgt1);
+//! \file parthenon_mpi.hpp
+//  \brief Helper file to include MPI if it's enabled and otherwise not include it. One
+//         issue was that some header files attempted to include MPI by checking #ifdef
+//         MPI_PARALLEL, but they didn't include defs.hpp, which defined MPI_PARALLEL
 
-void FillDerived(Container<Real> &rc);
+#include "defs.hpp"
 
-Real EstimateTimestep(Container<Real> &rc);
-
-} // namespace Update
-
-namespace FillDerivedVariables {
-  using FillDerivedFunc = void (Container<Real>&);
-  void SetFillDerivedFunctions(FillDerivedFunc *pre, FillDerivedFunc *post);
-  void FillDerived(Container<Real> &rc);
-}
-}
+#ifdef MPI_PARALLEL
+#include <mpi.h>
 #endif
+
+#endif // PARTHENON_MPI_HPP_

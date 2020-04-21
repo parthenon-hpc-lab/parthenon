@@ -14,65 +14,66 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
 #include <string>
+
 #include <catch2/catch.hpp>
-#include "interface/Params.hpp"
+
+#include "interface/params.hpp"
 
 using parthenon::Params;
 
-TEST_CASE("Add and Get is called", "[Add,Get]"){
-
-  GIVEN( "A key"){
+TEST_CASE("Add and Get is called", "[Add,Get]") {
+  GIVEN("A key") {
     Params params;
     std::string key = "test_key";
     double value = -2.0;
-    params.Add(key,value);
+    params.Add(key, value);
     double output = params.Get<double>(key);
     REQUIRE(output == Approx(value));
-    WHEN( "the same key is provided a second time"){
-      REQUIRE_THROWS_AS( params.Add(key,value), std::invalid_argument);
+    WHEN("the same key is provided a second time") {
+      REQUIRE_THROWS_AS(params.Add(key, value), std::invalid_argument);
     }
 
-    WHEN( "attempting to get the key but casting to a different type") {
-      REQUIRE_THROWS_AS( params.Get<int>(key), std::invalid_argument);
+    WHEN("attempting to get the key but casting to a different type") {
+      REQUIRE_THROWS_AS(params.Get<int>(key), std::invalid_argument);
     }
   }
 
-  GIVEN( "An empty params structure") {
+  GIVEN("An empty params structure") {
     Params params;
-    WHEN( " attempting to get a key that does not exist "){
+    WHEN(" attempting to get a key that does not exist ") {
       std::string non_existent_key = "key";
-      REQUIRE_THROWS_AS( params.Get<double>(non_existent_key), std::invalid_argument);
-    } 
-  }
-}
-
-TEST_CASE("reset is called","[reset]"){
-  GIVEN( "A key is added") {
-    Params params;
-    std::string key = "test_key";
-    double value = -2.0;
-    params.Add(key,value);
-    WHEN( "the params are reset"){
-      params.reset();
-      REQUIRE_THROWS_AS( params.Get<double>(key), std::invalid_argument);
+      REQUIRE_THROWS_AS(params.Get<double>(non_existent_key), std::invalid_argument);
     }
   }
 }
 
-TEST_CASE("when hasKey is called", "[hasKey]"){
-  GIVEN( "A key is added") {
+TEST_CASE("reset is called", "[reset]") {
+  GIVEN("A key is added") {
     Params params;
     std::string key = "test_key";
     double value = -2.0;
-    params.Add(key,value);
+    params.Add(key, value);
+    WHEN("the params are reset") {
+      params.reset();
+      REQUIRE_THROWS_AS(params.Get<double>(key), std::invalid_argument);
+    }
+  }
+}
+
+TEST_CASE("when hasKey is called", "[hasKey]") {
+  GIVEN("A key is added") {
+    Params params;
+    std::string key = "test_key";
+    double value = -2.0;
+    params.Add(key, value);
 
     REQUIRE(params.hasKey(key) == true);
 
-    WHEN( "the params are reset"){
+    WHEN("the params are reset") {
       params.reset();
       REQUIRE(params.hasKey(key) == false);
     }
   }
-
 }

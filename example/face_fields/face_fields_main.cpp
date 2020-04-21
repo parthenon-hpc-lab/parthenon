@@ -15,21 +15,18 @@
 #include "parthenon_manager.hpp"
 
 int main(int argc, char *argv[]) {
+  using parthenon::FaceFieldExample;
   using parthenon::ParthenonManager;
   using parthenon::ParthenonStatus;
-  using parthenon::FaceFieldExample;
   ParthenonManager pman;
 
   auto status = pman.ParthenonInit(argc, argv);
-  if (status == ParthenonStatus::complete
-      || status == ParthenonStatus::error) {
+  if (status == ParthenonStatus::complete || status == ParthenonStatus::error) {
     pman.ParthenonFinalize();
     return (status == ParthenonStatus::error) ? 1 : 0;
   }
 
-  FaceFieldExample driver(pman.pinput.get(),
-                          pman.pmesh.get(),
-                          pman.pouts.get());
+  FaceFieldExample driver(pman.pinput.get(), pman.pmesh.get(), pman.pouts.get());
   pman.PreDriver();
   pman.PostDriver(driver.Execute());
   pman.ParthenonFinalize();

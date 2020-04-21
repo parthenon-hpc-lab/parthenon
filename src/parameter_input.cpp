@@ -46,40 +46,31 @@
 //   - Jan 2014:  Rewritten in C++ for the Athena++ code by J.M. Stone
 //========================================================================================
 
-// C headers
-
-// C++ headers
-#include <algorithm>  // transform
-#include <cmath>      // std::fmod()
-#include <cstdlib>    // atoi(), atof(), nullptr, std::size_t
-#include <fstream>    // ifstream
-#include <iostream>   // endl, ostream
-#include <sstream>    // stringstream
-#include <stdexcept>  // runtime_error
-#include <string>     // string
-
-// Athena++ headers
-#include "athena.hpp"
-#include <defs.hpp>
-#include "globals.hpp"
 #include "parameter_input.hpp"
 
-// OpenMP header
-#ifdef OPENMP_PARALLEL
-#include <omp.h>
-#endif
+#include <algorithm>
+#include <cmath>
+#include <cstdlib>
+#include <fstream>
+#include <iostream>
+#include <sstream>
+#include <stdexcept>
+
+#include "globals.hpp"
 
 namespace parthenon {
+
 //----------------------------------------------------------------------------------------
 // ParameterInput constructor
 
-ParameterInput::ParameterInput() :pfirst_block{}, last_filename_{} {
+ParameterInput::ParameterInput() : pfirst_block{}, last_filename_{} {
 #ifdef OPENMP_PARALLEL
   omp_init_lock(&lock_);
 #endif
 }
 
-ParameterInput::ParameterInput(std::string input_filename) : pfirst_block{}, last_filename_{} {
+ParameterInput::ParameterInput(std::string input_filename)
+    : pfirst_block{}, last_filename_{} {
 #ifdef OPENMP_PARALLEL
   omp_init_lock(&lock_);
 #endif
@@ -132,6 +123,9 @@ void ParameterInput::LoadFromStream(std::istream &is) {
   InputBlock *pib{};
   int line_num{-1}, blocks_found{0};
 
+  std::string multiline_name, multiline_value, multiline_comment;
+  bool continuing = false;
+
   while (is.good()) {
     std::getline(is, line);
     line_num++;
@@ -141,47 +135,72 @@ void ParameterInput::LoadFromStream(std::istream &is) {
       //     << std::endl << "Tab characters are forbidden in input files";
       // ATHENA_ERROR(msg);
     }
-    if (line.empty()) continue;                             // skip blank line
-    first_char = line.find_first_not_of(" ");               // skip white space
-    if (first_char == std::string::npos) continue;          // line is all white space
+    if (line.empty()) continue;                               // skip blank line
+    first_char = line.find_first_not_of(" ");                 // skip white space
+    if (first_char == std::string::npos) continue;            // line is all white space
     if (line.compare(first_char, 1, "#") == 0) continue;      // skip comments
     if (line.compare(first_char, 9, "<par_end>") == 0) break; // stop on <par_end>
 
-    if (line.compare(first_char, 1, "<") == 0) {              // a new block
+    if (line.compare(first_char, 1, "<") == 0) { // a new block
+      if (continuing) {
+        msg << "### FATAL ERROR in function [ParameterInput::LoadFromStream]" << std::endl
+            << "Multiline field ended unexpectedly with new block "
+            << "character <.  Look above this line for the error:" << std::endl
+            << line << std::endl
+            << std::endl;
+        ATHENA_ERROR(msg);
+      }
       first_char++;
       last_char = (line.find_first_of(">", first_char));
-      block_name.assign(line, first_char, last_char-1);       // extract block name
+      block_name.assign(line, first_char, last_char - 1); // extract block name
 
       if (last_char == std::string::npos) {
-        msg << "### FATAL ERROR in function [ParameterInput::LoadFromStream]"
-            << std::endl << "Block name '" << block_name
-            << "' in the input stream'" << "' not properly ended";
+        msg << "### FATAL ERROR in function [ParameterInput::LoadFromStream]" << std::endl
+            << "Block name '" << block_name << "' in the input stream'"
+            << "' not properly ended";
         ATHENA_ERROR(msg);
       }
 
-      pib = FindOrAddBlock(block_name);  // find or add block to singly linked list
+      pib = FindOrAddBlock(block_name); // find or add block to singly linked list
 
       if (pib == nullptr) {
-        msg << "### FATAL ERROR in function [ParameterInput::LoadFromStream]"
-            << std::endl << "Block name '" << block_name
-            << "' could not be found/added";
+        msg << "### FATAL ERROR in function [ParameterInput::LoadFromStream]" << std::endl
+            << "Block name '" << block_name << "' could not be found/added";
         ATHENA_ERROR(msg);
       }
       blocks_found++;
-      continue;  // skip to next line if block name was found
-    } // end "a new block was found"
+      continue; // skip to next line if block name was found
+    }           // end "a new block was found"
 
     // if line does not contain a block name or skippable information (comments,
     // whitespace), it must contain a parameter value
     if (blocks_found == 0) {
-        msg << "### FATAL ERROR in function [ParameterInput::LoadFromStream]"
-            << std::endl << "Input file must specify a block name before the first"
-            << " parameter = value line";
-        ATHENA_ERROR(msg);
+      msg << "### FATAL ERROR in function [ParameterInput::LoadFromStream]" << std::endl
+          << "Input file must specify a block name before the first"
+          << " parameter = value line";
+      ATHENA_ERROR(msg);
     }
     // parse line and add name/value/comment strings (if found) to current block name
-    ParseLine(pib, line, param_name, param_value, param_comment);
-    AddParameter(pib, param_name, param_value, param_comment);
+    bool continuation = ParseLine(pib, line, param_name, param_value, param_comment);
+    if (continuing || continuation) {
+      multiline_name += param_name;
+      multiline_value += param_value;
+      multiline_comment += param_comment;
+      continuing = true;
+    }
+
+    if (continuing && !continuation) {
+      continuing = false;
+      param_name = multiline_name;
+      param_value = multiline_value;
+      param_comment = multiline_comment;
+    }
+
+    if (!continuing) {
+      if (param_name != "") {
+        AddParameter(pib, param_name, param_value, param_comment);
+      }
+    }
   }
   return;
 }
@@ -208,13 +227,13 @@ void ParameterInput::LoadFromFile(IOWrapper &input) {
 #endif
     par.write(buf, ret); // add the buffer into the stream
     header += ret;
-    std::string sbuf = par.str(); // create string for search
+    std::string sbuf = par.str();    // create string for search
     loc = sbuf.find("<par_end>", 0); // search from the top of the stream
-    if (loc != std::string::npos) { // found <par_end>
-      header = loc + 10; // store the header length
+    if (loc != std::string::npos) {  // found <par_end>
+      header = loc + 10;             // store the header length
       break;
     }
-    if (header > kBufSize*10) {
+    if (header > kBufSize * 10) {
       msg << "### FATAL ERROR in function [ParameterInput::LoadFromFile]"
           << "<par_end> is not found in the first 40KBytes." << std::endl
           << "Probably the file is broken or a wrong file is specified" << std::endl;
@@ -235,7 +254,7 @@ void ParameterInput::LoadFromFile(IOWrapper &input) {
 //! \fn InputBlock* ParameterInput::FindOrAddBlock(std::string name)
 //  \brief find or add specified InputBlock.  Returns pointer to block.
 
-InputBlock* ParameterInput::FindOrAddBlock(std::string name) {
+InputBlock *ParameterInput::FindOrAddBlock(std::string name) {
   InputBlock *pib, *plast;
   plast = pfirst_block;
   pib = pfirst_block;
@@ -249,15 +268,15 @@ InputBlock* ParameterInput::FindOrAddBlock(std::string name) {
 
   // Create new block in list if not found above
   pib = new InputBlock;
-  pib->block_name.assign(name);  // store the new block name
-  pib->pline = nullptr;             // Terminate the InputLine list
-  pib->pnext = nullptr;             // Terminate the InputBlock list
+  pib->block_name.assign(name); // store the new block name
+  pib->pline = nullptr;         // Terminate the InputLine list
+  pib->pnext = nullptr;         // Terminate the InputBlock list
 
   // if this is the first block in list, save pointer to it in class
   if (pfirst_block == nullptr) {
     pfirst_block = pib;
   } else {
-    plast->pnext = pib;      // link new node into list
+    plast->pnext = pib; // link new node into list
   }
 
   return pib;
@@ -268,31 +287,42 @@ InputBlock* ParameterInput::FindOrAddBlock(std::string name) {
 //           std::string& name, std::string& value, std::string& comment)
 //  \brief parse "name = value # comment" format, return name/value/comment strings.
 
-void ParameterInput::ParseLine(InputBlock *pib, std::string line,
-                               std::string& name, std::string& value,
-                               std::string& comment) {
-  std::size_t first_char, last_char, equal_char, hash_char, len;
+bool ParameterInput::ParseLine(InputBlock *pib, std::string line, std::string &name,
+                               std::string &value, std::string &comment) {
+  std::size_t first_char, last_char, equal_char, hash_char, cont_char, len;
+  bool continuation = false;
 
-  first_char = line.find_first_not_of(" ");   // find first non-white space
-  equal_char = line.find_first_of("=");       // find "=" char
-  hash_char  = line.find_first_of("#");       // find "#" (optional)
+  first_char = line.find_first_not_of(" "); // find first non-white space
+  equal_char = line.find_first_of("=");     // find "=" char
 
   // copy substring into name, remove white space at end of name
-  len = equal_char - first_char;
-  name.assign(line, first_char, len);
+  if (equal_char == std::string::npos) {
+    name = "";
+    line.erase(0, first_char);
+  } else {
+    len = equal_char - first_char;
+    name.assign(line, first_char, len);
+    last_char = name.find_last_not_of(" ");
+    name.erase(last_char + 1, std::string::npos);
+    line.erase(0, len + 1);
+  }
 
-  last_char = name.find_last_not_of(" ");
-  name.erase(last_char+1, std::string::npos);
-
+  hash_char = line.find_first_of("#"); // find "#" (optional)
+  cont_char = line.find_first_of("&"); // find "&" continuation character
   // copy substring into value, remove white space at start and end
-  len = hash_char - equal_char - 1;
-  value.assign(line, equal_char+1, len);
+  len = std::min(cont_char, hash_char);
+  if (len == cont_char && cont_char != std::string::npos) continuation = true;
+  value.assign(line, 0, len);
 
   first_char = value.find_first_not_of(" ");
   value.erase(0, first_char);
 
   last_char = value.find_last_not_of(" ");
-  value.erase(last_char+1, std::string::npos);
+  value.erase(last_char + 1, std::string::npos);
+
+  if (continuation) {
+    hash_char = line.find_first_of("#"); // find "#" (optional)
+  }
 
   // copy substring into comment, if present
   if (hash_char != std::string::npos) {
@@ -300,6 +330,7 @@ void ParameterInput::ParseLine(InputBlock *pib, std::string line,
   } else {
     comment = "";
   }
+  return continuation;
 }
 
 //----------------------------------------------------------------------------------------
@@ -309,17 +340,17 @@ void ParameterInput::ParseLine(InputBlock *pib, std::string line,
 //  If a parameter with the same name already exists, the value and comment strings
 //  are replaced (overwritten).
 
-void ParameterInput::AddParameter(InputBlock *pb, std::string name,
-                                  std::string value, std::string comment) {
+void ParameterInput::AddParameter(InputBlock *pb, std::string name, std::string value,
+                                  std::string comment) {
   InputLine *pl, *plast;
   // Search singly linked list of InputLines to see if name exists.  This also sets *plast
   // to point to the tail node (but not storing a pointer to the tail node in InputBlock)
   pl = pb->pline;
   plast = pb->pline;
   while (pl != nullptr) {
-    if (name.compare(pl->param_name) == 0) {   // param name already exists
-      pl->param_value.assign(value);           // replace existing param value
-      pl->param_comment.assign(comment);       // replace exisiting param comment
+    if (name.compare(pl->param_name) == 0) { // param name already exists
+      pl->param_value.assign(value);         // replace existing param value
+      pl->param_comment.assign(comment);     // replace exisiting param comment
       if (value.length() > pb->max_len_parvalue) pb->max_len_parvalue = value.length();
       return;
     }
@@ -340,7 +371,7 @@ void ParameterInput::AddParameter(InputBlock *pb, std::string name,
     pb->max_len_parname = name.length();
     pb->max_len_parvalue = value.length();
   } else {
-    plast->pnext = pl;  // link new node into list
+    plast->pnext = pl; // link new node into list
     if (name.length() > pb->max_len_parname) pb->max_len_parname = name.length();
     if (value.length() > pb->max_len_parvalue) pb->max_len_parvalue = value.length();
   }
@@ -354,29 +385,30 @@ void ParameterInput::AddParameter(InputBlock *pb, std::string name,
 // Note this function is very forgiving (no warnings!) if there is an error in format
 
 void ParameterInput::ModifyFromCmdline(int argc, char *argv[]) {
-  std::string input_text, block,name, value;
+  std::string input_text, block, name, value;
   std::stringstream msg;
   InputBlock *pb;
   InputLine *pl;
 
-  for (int i=1; i<argc; i++) {
+  for (int i = 1; i < argc; i++) {
     input_text = argv[i];
-    std::size_t slash_posn = input_text.find_first_of("/");   // find "/" character
-    std::size_t equal_posn = input_text.find_first_of("=");   // find "=" character
+    std::size_t slash_posn = input_text.find_first_of("/"); // find "/" character
+    std::size_t equal_posn = input_text.find_first_of("="); // find "=" character
 
     // skip if either "/" or "=" do not exist in input
     if ((slash_posn == std::string::npos) || (equal_posn == std::string::npos)) continue;
 
     // extract block/name/value strings
     block = input_text.substr(0, slash_posn);
-    name  = input_text.substr(slash_posn+1, (equal_posn - slash_posn - 1));
-    value = input_text.substr(equal_posn+1, std::string::npos);
+    name = input_text.substr(slash_posn + 1, (equal_posn - slash_posn - 1));
+    value = input_text.substr(equal_posn + 1, std::string::npos);
 
     // get pointer to node with same block name in singly linked list of InputBlocks
     pb = GetPtrToBlock(block);
     if (pb == nullptr) {
       msg << "### FATAL ERROR in function [ParameterInput::ModifyFromCmdline]"
-          << std::endl << "Block name '" << block << "' on command line not found";
+          << std::endl
+          << "Block name '" << block << "' on command line not found";
       ATHENA_ERROR(msg);
     }
 
@@ -384,11 +416,12 @@ void ParameterInput::ModifyFromCmdline(int argc, char *argv[]) {
     pl = pb->GetPtrToLine(name);
     if (pl == nullptr) {
       msg << "### FATAL ERROR in function [ParameterInput::ModifyFromCmdline]"
-          << std::endl << "Parameter '" << name << "' in block '" << block
+          << std::endl
+          << "Parameter '" << name << "' in block '" << block
           << "' on command line not found";
       ATHENA_ERROR(msg);
     }
-    pl->param_value.assign(value);   // replace existing value
+    pl->param_value.assign(value); // replace existing value
 
     if (value.length() > pb->max_len_parvalue) pb->max_len_parvalue = value.length();
   }
@@ -398,7 +431,7 @@ void ParameterInput::ModifyFromCmdline(int argc, char *argv[]) {
 //! \fn InputBlock* ParameterInput::GetPtrToBlock(std::string name)
 //  \brief return pointer to specified InputBlock if it exists
 
-InputBlock* ParameterInput::GetPtrToBlock(std::string name) {
+InputBlock *ParameterInput::GetPtrToBlock(std::string name) {
   InputBlock *pb;
   for (pb = pfirst_block; pb != nullptr; pb = pb->pnext) {
     if (name.compare(pb->block_name) == 0) return pb;
@@ -424,9 +457,7 @@ int ParameterInput::DoesParameterExist(std::string block, std::string name) {
 //  \brief check whether block exists
 
 int ParameterInput::DoesBlockExist(std::string block) {
-  InputLine *pl;
-  InputBlock *pb;
-  pb = GetPtrToBlock(block);
+  InputBlock *pb = GetPtrToBlock(block);
   if (pb == nullptr) return 0;
   return 1;
 }
@@ -436,8 +467,8 @@ int ParameterInput::DoesBlockExist(std::string block) {
 //  \brief returns integer value of string stored in block/name
 
 int ParameterInput::GetInteger(std::string block, std::string name) {
-  InputBlock* pb;
-  InputLine* pl;
+  InputBlock *pb;
+  InputLine *pl;
   std::stringstream msg;
 
   Lock();
@@ -459,7 +490,7 @@ int ParameterInput::GetInteger(std::string block, std::string name) {
     ATHENA_ERROR(msg);
   }
 
-  std::string val=pl->param_value;
+  std::string val = pl->param_value;
   Unlock();
 
   // Convert string to integer and return value
@@ -471,8 +502,8 @@ int ParameterInput::GetInteger(std::string block, std::string name) {
 //  \brief returns real value of string stored in block/name
 
 Real ParameterInput::GetReal(std::string block, std::string name) {
-  InputBlock* pb;
-  InputLine* pl;
+  InputBlock *pb;
+  InputLine *pl;
   std::stringstream msg;
 
   Lock();
@@ -494,7 +525,7 @@ Real ParameterInput::GetReal(std::string block, std::string name) {
     ATHENA_ERROR(msg);
   }
 
-  std::string val=pl->param_value;
+  std::string val = pl->param_value;
   Unlock();
 
   // Convert string to real and return value
@@ -506,8 +537,8 @@ Real ParameterInput::GetReal(std::string block, std::string name) {
 //  \brief returns boolean value of string stored in block/name
 
 bool ParameterInput::GetBoolean(std::string block, std::string name) {
-  InputBlock* pb;
-  InputLine* pl;
+  InputBlock *pb;
+  InputLine *pl;
   std::stringstream msg;
 
   Lock();
@@ -529,11 +560,11 @@ bool ParameterInput::GetBoolean(std::string block, std::string name) {
     ATHENA_ERROR(msg);
   }
 
-  std::string val=pl->param_value;
+  std::string val = pl->param_value;
   Unlock();
 
   // check is string contains integers 0 or 1 (instead of true or false) and return
-  if (val.compare(0, 1, "0")==0 || val.compare(0, 1, "1")==0) {
+  if (val.compare(0, 1, "0") == 0 || val.compare(0, 1, "1") == 0) {
     return static_cast<bool>(atoi(val.c_str()));
   }
 
@@ -552,8 +583,8 @@ bool ParameterInput::GetBoolean(std::string block, std::string name) {
 //  \brief returns string stored in block/name
 
 std::string ParameterInput::GetString(std::string block, std::string name) {
-  InputBlock* pb;
-  InputLine* pl;
+  InputBlock *pb;
+  InputLine *pl;
   std::stringstream msg;
 
   Lock();
@@ -575,7 +606,7 @@ std::string ParameterInput::GetString(std::string block, std::string name) {
     ATHENA_ERROR(msg);
   }
 
-  std::string val=pl->param_value;
+  std::string val = pl->param_value;
   Unlock();
 
   // return value
@@ -589,7 +620,7 @@ std::string ParameterInput::GetString(std::string block, std::string name) {
 //  value to def_value if it does not exist
 
 int ParameterInput::GetOrAddInteger(std::string block, std::string name, int def_value) {
-  InputBlock* pb;
+  InputBlock *pb;
   InputLine *pl;
   std::stringstream ss_value;
   int ret;
@@ -617,7 +648,7 @@ int ParameterInput::GetOrAddInteger(std::string block, std::string name, int def
 //  value to def_value if it does not exist
 
 Real ParameterInput::GetOrAddReal(std::string block, std::string name, Real def_value) {
-  InputBlock* pb;
+  InputBlock *pb;
   InputLine *pl;
   std::stringstream ss_value;
   Real ret;
@@ -644,8 +675,9 @@ Real ParameterInput::GetOrAddReal(std::string block, std::string name, Real def_
 //  \brief returns boolean value stored in block/name if it exists, or creates and sets
 //  value to def_value if it does not exist
 
-bool ParameterInput::GetOrAddBoolean(std::string block,std::string name, bool def_value) {
-  InputBlock* pb;
+bool ParameterInput::GetOrAddBoolean(std::string block, std::string name,
+                                     bool def_value) {
+  InputBlock *pb;
   InputLine *pl;
   std::stringstream ss_value;
   bool ret;
@@ -655,7 +687,7 @@ bool ParameterInput::GetOrAddBoolean(std::string block,std::string name, bool de
     pb = GetPtrToBlock(block);
     pl = pb->GetPtrToLine(name);
     std::string val = pl->param_value;
-    if (val.compare(0, 1, "0")==0 || val.compare(0, 1, "1")==0) {
+    if (val.compare(0, 1, "0") == 0 || val.compare(0, 1, "1") == 0) {
       ret = static_cast<bool>(atoi(val.c_str()));
     } else {
       std::transform(val.begin(), val.end(), val.begin(), ::tolower);
@@ -680,7 +712,7 @@ bool ParameterInput::GetOrAddBoolean(std::string block,std::string name, bool de
 
 std::string ParameterInput::GetOrAddString(std::string block, std::string name,
                                            std::string def_value) {
-  InputBlock* pb;
+  InputBlock *pb;
   InputLine *pl;
   std::stringstream ss_value;
   std::string ret;
@@ -704,7 +736,7 @@ std::string ParameterInput::GetOrAddString(std::string block, std::string name,
 //  \brief updates an integer parameter; creates it if it does not exist
 
 int ParameterInput::SetInteger(std::string block, std::string name, int value) {
-  InputBlock* pb;
+  InputBlock *pb;
   std::stringstream ss_value;
 
   Lock();
@@ -720,7 +752,7 @@ int ParameterInput::SetInteger(std::string block, std::string name, int value) {
 //  \brief updates a real parameter; creates it if it does not exist
 
 Real ParameterInput::SetReal(std::string block, std::string name, Real value) {
-  InputBlock* pb;
+  InputBlock *pb;
   std::stringstream ss_value;
 
   Lock();
@@ -736,7 +768,7 @@ Real ParameterInput::SetReal(std::string block, std::string name, Real value) {
 //  \brief updates a boolean parameter; creates it if it does not exist
 
 bool ParameterInput::SetBoolean(std::string block, std::string name, bool value) {
-  InputBlock* pb;
+  InputBlock *pb;
   std::stringstream ss_value;
 
   Lock();
@@ -754,7 +786,7 @@ bool ParameterInput::SetBoolean(std::string block, std::string name, bool value)
 
 std::string ParameterInput::SetString(std::string block, std::string name,
                                       std::string value) {
-  InputBlock* pb;
+  InputBlock *pb;
 
   Lock();
   pb = FindOrAddBlock(block);
@@ -769,7 +801,7 @@ std::string ParameterInput::SetString(std::string block, std::string name,
 
 void ParameterInput::RollbackNextTime() {
   InputBlock *pb = pfirst_block;
-  InputLine* pl;
+  InputLine *pl;
   std::stringstream msg;
   Real next_time;
 
@@ -778,21 +810,21 @@ void ParameterInput::RollbackNextTime() {
       pl = pb->GetPtrToLine("next_time");
       if (pl == nullptr) {
         msg << "### FATAL ERROR in function [ParameterInput::RollbackNextTime]"
-            << std::endl << "Parameter name 'next_time' not found in block '"
-            << pb->block_name << "'";
+            << std::endl
+            << "Parameter name 'next_time' not found in block '" << pb->block_name << "'";
         ATHENA_ERROR(msg);
       }
       next_time = static_cast<Real>(atof(pl->param_value.c_str()));
       pl = pb->GetPtrToLine("dt");
       if (pl == nullptr) {
         msg << "### FATAL ERROR in function [ParameterInput::RollbackNextTime]"
-            << std::endl << "Parameter name 'dt' not found in block '"
-            << pb->block_name << "'";
+            << std::endl
+            << "Parameter name 'dt' not found in block '" << pb->block_name << "'";
         ATHENA_ERROR(msg);
       }
       next_time -= static_cast<Real>(atof(pl->param_value.c_str()));
       msg << next_time;
-      //AddParameter(pb, "next_time", msg.str().c_str(), "# Updated during run time");
+      // AddParameter(pb, "next_time", msg.str().c_str(), "# Updated during run time");
       SetReal(pb->block_name, "next_time", next_time);
     }
     pb = pb->pnext;
@@ -805,7 +837,7 @@ void ParameterInput::RollbackNextTime() {
 
 void ParameterInput::ForwardNextTime(Real mesh_time) {
   InputBlock *pb = pfirst_block;
-  InputLine* pl;
+  InputLine *pl;
   Real next_time;
   Real dt0, dt;
   bool fresh = false;
@@ -824,8 +856,8 @@ void ParameterInput::ForwardNextTime(Real mesh_time) {
       pl = pb->GetPtrToLine("dt");
       if (pl == nullptr) {
         msg << "### FATAL ERROR in function [ParameterInput::ForwardNextTime]"
-            << std::endl << "Parameter name 'dt' not found in block '"
-            << pb->block_name << "'";
+            << std::endl
+            << "Parameter name 'dt' not found in block '" << pb->block_name << "'";
         ATHENA_ERROR(msg);
       }
       dt0 = static_cast<Real>(atof(pl->param_value.c_str()));
@@ -848,44 +880,43 @@ void ParameterInput::ForwardNextTime(Real mesh_time) {
 //! \fn void ParameterInput::ParameterDump(std::ostream& os)
 //  \brief output entire InputBlock/InputLine hierarchy to specified stream
 
-void ParameterInput::ParameterDump(std::ostream& os) {
+void ParameterInput::ParameterDump(std::ostream &os) {
   InputBlock *pb;
   InputLine *pl;
-  std::string param_name,param_value;
+  std::string param_name, param_value;
   std::size_t len;
 
-  os<< "#------------------------- PAR_DUMP -------------------------" << std::endl;
+  os << "#------------------------- PAR_DUMP -------------------------" << std::endl;
 
   for (pb = pfirst_block; pb != nullptr; pb = pb->pnext) { // loop over InputBlocks
-    os<< "<" << pb->block_name << ">" << std::endl;     // write block name
-    for (pl = pb->pline; pl != nullptr; pl = pl->pnext) {   // loop over InputLines
+    os << "<" << pb->block_name << ">" << std::endl;       // write block name
+    for (pl = pb->pline; pl != nullptr; pl = pl->pnext) {  // loop over InputLines
       param_name.assign(pl->param_name);
       param_value.assign(pl->param_value);
 
       len = pb->max_len_parname - param_name.length() + 1;
-      param_name.append(len,' ');                      // pad name to align vertically
+      param_name.append(len, ' '); // pad name to align vertically
       len = pb->max_len_parvalue - param_value.length() + 1;
-      param_value.append(len,' ');                     // pad value to align vertically
+      param_value.append(len, ' '); // pad value to align vertically
 
-      os<< param_name << "= " << param_value << pl->param_comment <<  std::endl;
+      os << param_name << "= " << param_value << pl->param_comment << std::endl;
     }
   }
 
-  os<< "#------------------------- PAR_DUMP -------------------------" << std::endl;
-  os<< "<par_end>" << std::endl;    // finish with par-end (useful in restart files)
+  os << "#------------------------- PAR_DUMP -------------------------" << std::endl;
+  os << "<par_end>" << std::endl; // finish with par-end (useful in restart files)
 }
 
 //----------------------------------------------------------------------------------------
 //! \fn InputLine* InputBlock::GetPtrToLine(std::string name)
 //  \brief return pointer to InputLine containing specified parameter if it exists
 
-InputLine* InputBlock::GetPtrToLine(std::string name) {
-  for (InputLine* pl = pline; pl != nullptr; pl = pl->pnext) {
+InputLine *InputBlock::GetPtrToLine(std::string name) {
+  for (InputLine *pl = pline; pl != nullptr; pl = pl->pnext) {
     if (name.compare(pl->param_name) == 0) return pl;
   }
   return nullptr;
 }
-
 
 //----------------------------------------------------------------------------------------
 //! \fn void ParameterInput::Lock()
@@ -906,4 +937,5 @@ void ParameterInput::Unlock() {
 #endif
   return;
 }
-}
+
+} // namespace parthenon

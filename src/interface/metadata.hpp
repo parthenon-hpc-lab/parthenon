@@ -30,59 +30,59 @@
 ///
 /// Having this macro means you only need to add a new flag in one place and have each of
 /// these properties automatically be updated.
-#define PARTHENON_INTERNAL_FOREACH_BUILTIN_FLAG \
-  /**  bit 0 is ignored */ \
-  PARTHENON_INTERNAL_FOR_FLAG(Ignore) \
-  /**  no topology specified */ \
-  PARTHENON_INTERNAL_FOR_FLAG(None) \
-  /**  cell variable */ \
-  PARTHENON_INTERNAL_FOR_FLAG(Cell) \
-  /**  face variable */ \
-  PARTHENON_INTERNAL_FOR_FLAG(Face) \
-  /**  edge variable */ \
-  PARTHENON_INTERNAL_FOR_FLAG(Edge) \
-  /**  node variable */ \
-  PARTHENON_INTERNAL_FOR_FLAG(Node) \
-  /**  a vector quantity, i.e. a rank 1 contravariant tenso */ \
-  PARTHENON_INTERNAL_FOR_FLAG(Vector) \
-  /**  a rank-2 tensor */ \
-  PARTHENON_INTERNAL_FOR_FLAG(Tensor) \
-  /**  advected variable */ \
-  PARTHENON_INTERNAL_FOR_FLAG(Advected) \
-  /**  conserved variable */ \
-  PARTHENON_INTERNAL_FOR_FLAG(Conserved) \
-  /** intensive variable */ \
-  PARTHENON_INTERNAL_FOR_FLAG(Intensive) \
-  /** added to restart dump */ \
-  PARTHENON_INTERNAL_FOR_FLAG(Restart) \
-  /** added to graphics dumps */ \
-  PARTHENON_INTERNAL_FOR_FLAG(Graphics) \
-  /** is specified per-sparse index */ \
-  PARTHENON_INTERNAL_FOR_FLAG(Sparse) \
-  /** is an independent, evolved variable */ \
-  PARTHENON_INTERNAL_FOR_FLAG(Independent) \
-  /** is a derived quantity (ignored) */ \
-  PARTHENON_INTERNAL_FOR_FLAG(Derived) \
-  /** only one copy even if multiple stages */ \
-  PARTHENON_INTERNAL_FOR_FLAG(OneCopy) \
-  /** Do boundary communication */ \
-  PARTHENON_INTERNAL_FOR_FLAG(FillGhost) \
-  /** Communication arrays are a copy: hint to destructor */ \
+#define PARTHENON_INTERNAL_FOREACH_BUILTIN_FLAG                                          \
+  /**  bit 0 is ignored */                                                               \
+  PARTHENON_INTERNAL_FOR_FLAG(Ignore)                                                    \
+  /**  no topology specified */                                                          \
+  PARTHENON_INTERNAL_FOR_FLAG(None)                                                      \
+  /**  cell variable */                                                                  \
+  PARTHENON_INTERNAL_FOR_FLAG(Cell)                                                      \
+  /**  face variable */                                                                  \
+  PARTHENON_INTERNAL_FOR_FLAG(Face)                                                      \
+  /**  edge variable */                                                                  \
+  PARTHENON_INTERNAL_FOR_FLAG(Edge)                                                      \
+  /**  node variable */                                                                  \
+  PARTHENON_INTERNAL_FOR_FLAG(Node)                                                      \
+  /**  a vector quantity, i.e. a rank 1 contravariant tenso */                           \
+  PARTHENON_INTERNAL_FOR_FLAG(Vector)                                                    \
+  /**  a rank-2 tensor */                                                                \
+  PARTHENON_INTERNAL_FOR_FLAG(Tensor)                                                    \
+  /**  advected variable */                                                              \
+  PARTHENON_INTERNAL_FOR_FLAG(Advected)                                                  \
+  /**  conserved variable */                                                             \
+  PARTHENON_INTERNAL_FOR_FLAG(Conserved)                                                 \
+  /** intensive variable */                                                              \
+  PARTHENON_INTERNAL_FOR_FLAG(Intensive)                                                 \
+  /** added to restart dump */                                                           \
+  PARTHENON_INTERNAL_FOR_FLAG(Restart)                                                   \
+  /** added to graphics dumps */                                                         \
+  PARTHENON_INTERNAL_FOR_FLAG(Graphics)                                                  \
+  /** is specified per-sparse index */                                                   \
+  PARTHENON_INTERNAL_FOR_FLAG(Sparse)                                                    \
+  /** is an independent, evolved variable */                                             \
+  PARTHENON_INTERNAL_FOR_FLAG(Independent)                                               \
+  /** is a derived quantity (ignored) */                                                 \
+  PARTHENON_INTERNAL_FOR_FLAG(Derived)                                                   \
+  /** only one copy even if multiple stages */                                           \
+  PARTHENON_INTERNAL_FOR_FLAG(OneCopy)                                                   \
+  /** Do boundary communication */                                                       \
+  PARTHENON_INTERNAL_FOR_FLAG(FillGhost)                                                 \
+  /** Communication arrays are a copy: hint to destructor */                             \
   PARTHENON_INTERNAL_FOR_FLAG(SharedComms)
 
 namespace parthenon {
 
 namespace internal {
 enum class MetadataInternal {
-  // declare all the internal flags in an enum so that their values are unique and kept
-  // up to date
+// declare all the internal flags in an enum so that their values are unique and kept
+// up to date
 #define PARTHENON_INTERNAL_FOR_FLAG(name) name,
-  PARTHENON_INTERNAL_FOREACH_BUILTIN_FLAG
-  Max
+  PARTHENON_INTERNAL_FOREACH_BUILTIN_FLAG Max
 #undef PARTHENON_INTERNAL_FOR_FLAG
 };
 
 class UserMetadataState;
+
 } // namespace internal
 
 class Metadata;
@@ -91,9 +91,7 @@ class TensorShape {
  public:
   TensorShape() {}
   explicit TensorShape(int scalar) {}
-  TensorShape(int rank, int *size) {
-    shape_.insert(shape_.end(), size, size+rank);
-  }
+  TensorShape(int rank, int *size) { shape_.insert(shape_.end(), size, size + rank); }
   std::vector<int> shape_;
 };
 
@@ -115,9 +113,7 @@ class MetadataFlag {
 
 #ifdef CATCH_VERSION_MAJOR
   // Should never be used for application code - only exposed for testing.
-  constexpr int InternalFlagValue() const {
-    return flag_;
-  }
+  constexpr int InternalFlagValue() const { return flag_; }
 #endif
 
  private:
@@ -140,51 +136,40 @@ class Metadata {
   /// have.  These include the topology, IO, advection, conservation,
   /// whether it sparse, etc.  This is designed to be easily extensible.
 
-
   // this wraps all the built-in flags in the `MetadataFlag` type so that using these
   // flags is type-safe.
-#define PARTHENON_INTERNAL_FOR_FLAG(name) \
-    constexpr static MetadataFlag name = \
+#define PARTHENON_INTERNAL_FOR_FLAG(name)                                                \
+  constexpr static MetadataFlag name =                                                   \
       MetadataFlag(static_cast<int>(::parthenon::internal::MetadataInternal::name));
 
-    PARTHENON_INTERNAL_FOREACH_BUILTIN_FLAG
+  PARTHENON_INTERNAL_FOREACH_BUILTIN_FLAG
 #undef PARTHENON_INTERNAL_FOR_FLAG
 
   /// Default constructor override
-  Metadata() : sparse_id_(-1),
-               shape_({1}) { }
-
+  Metadata() : shape_({1}), sparse_id_(-1) {}
 
   /// returns a new Metadata instance with set bits,
   /// set sparse_id, and fourth dimension
-  explicit Metadata(const std::vector<MetadataFlag>& bits) :
-    sparse_id_(-1),
-    shape_({1}) {
+  explicit Metadata(const std::vector<MetadataFlag> &bits) : shape_({1}), sparse_id_(-1) {
     SetMultiple(bits);
   }
 
   /// returns a metadata with bits and shape set
-  explicit Metadata(const std::vector<MetadataFlag>& bits,
-                    std::vector<int> shape) :
-    sparse_id_(-1),
-    shape_(shape) {
+  explicit Metadata(const std::vector<MetadataFlag> &bits, std::vector<int> shape)
+      : shape_(shape), sparse_id_(-1) {
     SetMultiple(bits);
   }
 
   /// returns a metadata with bits and sparse id set
-  explicit Metadata(const std::vector<MetadataFlag>& bits,
-                    int sparse_id) :
-    sparse_id_(sparse_id),
-    shape_({1}) {
+  explicit Metadata(const std::vector<MetadataFlag> &bits, const int sparse_id)
+      : shape_({1}), sparse_id_(sparse_id) {
     SetMultiple(bits);
   }
 
   /// returns a metadata with bits, shape, and sparse ID set
-  explicit Metadata(const std::vector<MetadataFlag>& bits,
-                    int sparse_id,
-                    std::vector<int> shape) :
-    sparse_id_(sparse_id),
-    shape_(shape) {
+  explicit Metadata(const std::vector<MetadataFlag> &bits, int sparse_id,
+                    std::vector<int> shape)
+      : shape_(shape), sparse_id_(sparse_id) {
     SetMultiple(bits);
   }
 
@@ -192,8 +177,8 @@ class Metadata {
   static MetadataFlag AllocateNewFlag(std::string &&name);
 
   // Individual flag setters
-  void Set(MetadataFlag f) { DoBit(f, true); }             ///< Set specific bit
-  void Unset(MetadataFlag f) { DoBit(f, false); }          ///< Unset specific bit
+  void Set(MetadataFlag f) { DoBit(f, true); }    ///< Set specific bit
+  void Unset(MetadataFlag f) { DoBit(f, false); } ///< Unset specific bit
 
   /*--------------------------------------------------------*/
   // Getters for attributes
@@ -215,7 +200,7 @@ class Metadata {
 
   int GetSparseId() const { return sparse_id_; }
 
-  const std::vector<int>& Shape() const { return shape_; }
+  const std::vector<int> &Shape() const { return shape_; }
 
   /*--------------------------------------------------------*/
   // Utility functions
@@ -233,9 +218,8 @@ class Metadata {
    * @brief Returns true if any flag is set
    */
   bool AnyFlagsSet(std::vector<MetadataFlag> const &flags) const {
-    return std::any_of(flags.begin(), flags.end(), [this](MetadataFlag const &f) {
-      return IsSet(f);
-    });
+    return std::any_of(flags.begin(), flags.end(),
+                       [this](MetadataFlag const &f) { return IsSet(f); });
   }
 
   /// returns true if bit is set, false otherwise
@@ -267,12 +251,10 @@ class Metadata {
     return std::tie(a.shape_, a.sparse_id_) == std::tie(b.shape_, b.sparse_id_);
   }
 
-  bool operator!=(const Metadata &b) const {
-    return !(*this == b);
-  }
+  bool operator!=(const Metadata &b) const { return !(*this == b); }
 
   void Associate(const std::string &name) { associated_ = name; }
-  const std::string& getAssociated() const { return associated_; }
+  const std::string &getAssociated() const { return associated_; }
 
  private:
   /// the attribute flags that are set for the class
@@ -286,29 +268,29 @@ class Metadata {
   /*--------------------------------------------------------*/
   void SetWhere(MetadataFlag x) {
     UnsetMultiple({Cell, Face, Edge, Node, None});
-    if ( x == Cell )      {
+    if (x == Cell) {
       DoBit(Cell, true);
-    } else if ( x == Face ) {
+    } else if (x == Face) {
       DoBit(Face, true);
-    } else if ( x == Edge ) {
+    } else if (x == Edge) {
       DoBit(Edge, true);
-    } else if ( x == Node ) {
+    } else if (x == Node) {
       DoBit(Node, true);
-    } else if ( x == None ) {
+    } else if (x == None) {
       DoBit(None, true);
     } else {
-      throw std::invalid_argument ("received invalid topology flag in SetWhere()");
+      throw std::invalid_argument("received invalid topology flag in SetWhere()");
     }
   } ///< Set topological element where variable is defined (None/Cell/Face/Edge/Node)
 
-    /// Set multiple flags at the same time.
-    /// Takes a comma separated set of flags from the enum above
-    ///
-    /// e.g. set({Face, Advected, Conserved, Sparse})
+  /// Set multiple flags at the same time.
+  /// Takes a comma separated set of flags from the enum above
+  ///
+  /// e.g. set({Face, Advected, Conserved, Sparse})
   void SetMultiple(const std::vector<MetadataFlag> &theAttributes) {
     int numTopo = 0;
     for (auto &a : theAttributes) {
-      if ( IsTopology(a) ) { // topology flags are special
+      if (IsTopology(a)) { // topology flags are special
         SetWhere(a);
         numTopo++;
       } else {
@@ -316,7 +298,7 @@ class Metadata {
       }
     }
     if (numTopo > 1) {
-      throw std::invalid_argument ("Multiple topologies sent to SetMultiple()");
+      throw std::invalid_argument("Multiple topologies sent to SetMultiple()");
     }
   }
 
@@ -338,17 +320,13 @@ class Metadata {
     bits_[bit.flag_] = flag;
   }
 
-
   /// Checks if the bit is a topology bit
   bool IsTopology(MetadataFlag bit) const {
-    return (
-            (bit == Cell) ||
-            (bit == Face) ||
-            (bit == Edge) ||
-            (bit == Node) ||
-            (bit == None)
-            );
+    return ((bit == Cell) || (bit == Face) || (bit == Edge) || (bit == Node) ||
+            (bit == None));
   }
 };
+
 } // namespace parthenon
+
 #endif // INTERFACE_METADATA_HPP_

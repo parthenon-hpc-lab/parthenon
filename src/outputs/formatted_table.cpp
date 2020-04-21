@@ -19,10 +19,7 @@
 //  3D data sets as this format is very slow and memory intensive.  Most useful for 1D
 //  slices and/or sums.  Writes one file per Meshblock.
 
-// C headers
-
-// C++ headers
-#include <cstdio>      // fwrite(), fclose(), fopen(), fnprintf(), snprintf()
+#include <cstdio>
 #include <cstdlib>
 #include <iomanip>
 #include <iostream>
@@ -30,11 +27,10 @@
 #include <stdexcept>
 #include <string>
 
-// Athena++ headers
 #include "athena.hpp"
 #include "coordinates/coordinates.hpp"
 #include "mesh/mesh.hpp"
-#include "outputs.hpp"
+#include "outputs/outputs.hpp"
 
 namespace parthenon {
 
@@ -49,20 +45,30 @@ void FormattedTableOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool f
   // Loop over MeshBlocks
   while (pmb != nullptr) {
     // set start/end array indices depending on whether ghost zones are included
-    out_is = pmb->is; out_ie = pmb->ie;
-    out_js = pmb->js; out_je = pmb->je;
-    out_ks = pmb->ks; out_ke = pmb->ke;
+    out_is = pmb->is;
+    out_ie = pmb->ie;
+    out_js = pmb->js;
+    out_je = pmb->je;
+    out_ks = pmb->ks;
+    out_ke = pmb->ke;
     if (output_params.include_ghost_zones) {
-      out_is -= NGHOST; out_ie += NGHOST;
-      if (out_js != out_je) {out_js -= NGHOST; out_je += NGHOST;}
-      if (out_ks != out_ke) {out_ks -= NGHOST; out_ke += NGHOST;}
+      out_is -= NGHOST;
+      out_ie += NGHOST;
+      if (out_js != out_je) {
+        out_js -= NGHOST;
+        out_je += NGHOST;
+      }
+      if (out_ks != out_ke) {
+        out_ks -= NGHOST;
+        out_ke += NGHOST;
+      }
     }
 
     // build doubly linked list of OutputData nodes (setting data ptrs to appropriate
     // quantity on MeshBlock for each node), then slice/sum as needed
     LoadOutputData(pmb);
     if (!TransformOutputData(pmb)) {
-      ClearOutputData();  // required when LoadOutputData() is used.
+      ClearOutputData(); // required when LoadOutputData() is used.
       pmb = pmb->next;
       continue;
     } // skip if slice was out of range
@@ -87,10 +93,10 @@ void FormattedTableOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool f
     // open file for output
     FILE *pfile;
     std::stringstream msg;
-    if ((pfile = std::fopen(fname.c_str(),"w")) == nullptr) {
+    if ((pfile = std::fopen(fname.c_str(), "w")) == nullptr) {
       msg << "### FATAL ERROR in function [FormattedTableOutput::WriteOutputFile]"
-          << std::endl << "Output file '" << fname << "' could not be opened"
-          << std::endl;
+          << std::endl
+          << "Output file '" << fname << "' could not be opened" << std::endl;
       ATHENA_ERROR(msg);
     }
 
@@ -119,33 +125,33 @@ void FormattedTableOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool f
     std::fprintf(pfile, "\n"); // terminate line
 
     // loop over all cells in data arrays
-    for (int k=out_ks; k<=out_ke; ++k) {
-      for (int j=out_js; j<=out_je; ++j) {
-        for (int i=out_is; i<=out_ie; ++i) {
+    for (int k = out_ks; k <= out_ke; ++k) {
+      for (int j = out_js; j <= out_je; ++j) {
+        for (int i = out_is; i <= out_ie; ++i) {
           // write x1, x2, x3 indices and coordinates on start of new line
           if (out_is != out_ie) {
             std::fprintf(pfile, "%04d", i);
             std::fprintf(pfile, output_params.data_format.c_str(), pmb->pcoord->x1v(i));
           }
           if (out_js != out_je) {
-            std::fprintf(pfile, " %04d", j);  // note extra space for formatting
+            std::fprintf(pfile, " %04d", j); // note extra space for formatting
             std::fprintf(pfile, output_params.data_format.c_str(), pmb->pcoord->x2v(j));
           }
           if (out_ks != out_ke) {
-            std::fprintf(pfile, " %04d", k);  // note extra space for formatting
+            std::fprintf(pfile, " %04d", k); // note extra space for formatting
             std::fprintf(pfile, output_params.data_format.c_str(), pmb->pcoord->x3v(k));
           }
 
           // step through doubly linked list of OutputData's and write each on same line
           OutputData *pdata_inner_loop = pfirst_data_;
           while (pdata_inner_loop != nullptr) {
-            for (int n=0; n<(pdata_inner_loop->data.GetDim4()); ++n) {
+            for (int n = 0; n < (pdata_inner_loop->data.GetDim(4)); ++n) {
               std::fprintf(pfile, output_params.data_format.c_str(),
-                           pdata_inner_loop->data(n,k,j,i));
+                           pdata_inner_loop->data(n, k, j, i));
             }
             pdata_inner_loop = pdata_inner_loop->pnext;
           }
-          std::fprintf(pfile,"\n"); // terminate line
+          std::fprintf(pfile, "\n"); // terminate line
         }
       }
     }
@@ -153,7 +159,7 @@ void FormattedTableOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool f
     std::fclose(pfile);
     ClearOutputData(); // required when LoadOutputData() is used.
     pmb = pmb->next;
-  }  // end loop over MeshBlocks
+  } // end loop over MeshBlocks
 
   // increment counters
   output_params.file_number++;
@@ -163,4 +169,5 @@ void FormattedTableOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool f
 
   return;
 }
-}
+
+} // namespace parthenon
