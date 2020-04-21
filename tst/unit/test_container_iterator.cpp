@@ -181,7 +181,7 @@ TEST_CASE("Container Iterator Performance",
           "[ContainerIterator][performance]") {
 
 
-  const int N = 128; //Dimensions of blocks
+  const int N = 32; //Dimensions of blocks
   const int Nvar = 10;
   const int n_burn = 500; //Num times to burn in before timing
   const int n_perf = 500; //Num times to run while timing
@@ -262,18 +262,17 @@ TEST_CASE("Container Iterator Performance",
       }
     });
 
-/*
+
   const CellVariableVector<Real> &cv = container.GetCellVariableVector();
-  std::cout << "dim4 = " << cv[0]->GetDim(4);
   // count the size
   int vsize = 0;
   for (int n=0; n<cv.size(); n++) vsize += cv[n]->GetDim(4);
-  auto var_view = make_view_of_type<>(cv[0]->data.SliceD<4>(0,1), "var_view", vsize);
+  auto var_view = make_view_of_type<>(cv[0]->data.Get(0,0,1), "var_view", vsize);
   auto h_var_view = Kokkos::create_mirror_view(var_view);
   int vindex = 0;
   for (int n=0; n<cv.size(); n++) {
     for (int l=0; l<cv[n]->GetDim(4); l++) {
-      h_var_view(vindex++) = cv[n]->data.SliceD<4>(l,l+1);
+      h_var_view(vindex++) = cv[n]->data.Get(0,0,l);
     }
   }
   //var_view.DeepCopy(h_var_view);
@@ -300,11 +299,11 @@ TEST_CASE("Container Iterator Performance",
         0, N-1,
         0, N-1,
         KOKKOS_LAMBDA(const int l,const int k, const int j, const int i) {
-          auto v = var_view(l);
+          auto& v = var_view(l);
           v(k,j,i) *= v(k,j,i); //Do something trivial, square each term
         });
     });
-*/
+/*
 
 
   //Make a View of Views proof of concept
@@ -333,7 +332,7 @@ TEST_CASE("Container Iterator Performance",
           }
         });
     });
-
+*/
   std::cout << "raw_array performance: " << time_raw_array << std::endl;
   std::cout << "iterate_variables performance: " << time_iterate_variables << std::endl;
   std::cout << "iterate_variables/raw_array " << time_iterate_variables/time_raw_array << std::endl;
