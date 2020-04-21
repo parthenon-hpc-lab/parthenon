@@ -19,34 +19,37 @@
 //! \file error_checking.hpp
 //  \brief utility macros for error checking
 
+#include <Kokkos_Core.hpp>
 #include <iostream>
 
-#define PARTHENON_REQUIRE(condition, message)                                  \
-  if (!(condition)) {                                                          \
-    parthenon::ErrorChecking::require(#condition, message, __FILE__, __LINE__);\
+#define PARTHENON_REQUIRE(condition, message)                                            \
+  if (!(condition)) {                                                                    \
+    parthenon::ErrorChecking::require(#condition, message, __FILE__, __LINE__);          \
   }
 
-#define PARTHENON_FAIL(message)                                                \
-  parthenon::ErrorChecking::fail(message, __FILE__, __LINE__);                 \
+#define PARTHENON_FAIL(message)                                                          \
+  parthenon::ErrorChecking::fail(message, __FILE__, __LINE__);
 
 namespace parthenon {
 namespace ErrorChecking {
 
-inline void require(std::string const &condition, std::string const &message,
-                    std::string const &filename, int const linenumber) {
-  std::cout << "!!! PARTHENON ERROR !!!" << std::endl;
-  std::cout << "  Condition:   " << condition << std::endl;
-  std::cout << "  Message:     " << message << std::endl;
-  std::cout << "  File:        " << filename << std::endl;
-  std::cout << "  Line number: " << linenumber << std::endl;
+KOKKOS_INLINE_FUNCTION
+void require(std::string const &condition, std::string const &message,
+             std::string const &filename, int const linenumber) {
+  fprintf(stderr,
+          "!!! PARTHENON ERROR !!!\n  Condition:   %s\n  Message:     %s\n  File:       "
+          "%s\n  Line number: %i\n",
+          condition.c_str(), message.c_str(), filename.c_str(), linenumber);
+  exit(-1);
 }
 
-inline void fail(std::string const &message, std::string const &filename,
-                 int const linenumber) {
-  std::cout << "!!! PARTHENON ERROR !!!" << std::endl;
-  std::cout << "  Message:     " << message << std::endl;
-  std::cout << "  File:        " << filename << std::endl;
-  std::cout << "  Line number: " << linenumber << std::endl;
+KOKKOS_INLINE_FUNCTION
+void fail(std::string const &message, std::string const &filename, int const linenumber) {
+  fprintf(
+      stderr,
+      "!!! PARTHENON ERROR !!!\n  Message:     %s\n  File:       %s\n  Line number: %i\n",
+      message.c_str(), filename.c_str(), linenumber);
+  exit(-1);
 }
 
 } // namespace ErrorChecking

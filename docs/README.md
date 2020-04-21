@@ -7,7 +7,7 @@ and how to use them.
 
 - [Calculate &pi](../example/calculate_pi)
 - [Average face-centered variables to cell centers](../example/face_fields)
-    
+
 ## Short feature description
 
 Short feature descriptions may directly go in here with, for example, a link to a (unit)
@@ -24,6 +24,13 @@ There are several weakly linked member functions that applications can (and ofte
   * Constructs and returns a Packages_t object that contains a listing of all the variables and their metadata associated with each package.
 * ParthenonManager::SetFillDerivedFunctions
   * Each package can register a function pointer in the Packages_t object that provides a callback mechanism for derived quantities (e.g. velocity, from momentum and mass) to be filled.  Additionally, this function provides a mechanism to register functions to fill derived quantities before and/or after all the individual package calls are made.  This is particularly useful for derived quantities that are shared by multiple packages.
+
+### Error checking
+
+Macros for causing execution to exit are provided [here](../src/utils/error_checking.hpp)
+* PARTHENON_REQUIRE(condition, message) exits if the condition does not evaluate to true.
+* PARTHENON_FAIL(message) always exits.
+Both macros print the message, and filename and line number where the macro is called. PARTHENON_REQUIRE also prints the condition.
 
 
 ## Long feature description
