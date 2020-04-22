@@ -13,6 +13,7 @@
 #ifndef INTERFACE_METADATA_HPP_
 #define INTERFACE_METADATA_HPP_
 
+#include "utils/error_checking.hpp"
 #include <algorithm>
 #include <bitset>
 #include <exception>
@@ -20,7 +21,6 @@
 #include <string>
 #include <tuple>
 #include <vector>
-#include "utils/error_checking.hpp"
 
 /// The point of this macro is to generate code for each built-in flag using the
 /// `PARTHENON_INTERNAL_FOR_FLAG` macro. This is to accomplish the following goals:

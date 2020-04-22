@@ -17,12 +17,12 @@
 #define DEBUG_ 0
 #endif
 
+#include "utils/error_checking.hpp"
 #include <iostream>
 #include <map>
 #include <memory>
 #include <string>
 #include <vector>
-#include "utils/error_checking.hpp"
 
 #if (DEBUG_ > 0)
 #include <typeindex>
