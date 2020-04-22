@@ -41,12 +41,104 @@ using parthenon::par_for;
 using parthenon::ParArrayND;
 using parthenon::ParArray4D;
 using parthenon::Real;
+using parthenon::MetadataFlag;
 
-template <typename T>
+/*template <typename T>
 Kokkos::View<T*> make_view_of_type(T orig_view, std::string label, int size) {
   Kokkos::View<T*> new_view(label, size);
   return std::move(new_view);
+}*/
+
+template <typename T>
+class OrigFlattenedIterator {
+ public:
+  OrigFlattenedIterator(T orig_view, std::string label, int size) : v(label, size) {}
+  template <class... Args>
+  KOKKOS_FORCEINLINE_FUNCTION
+  auto& operator() (const int n, Args... args) const {
+    return v(n)(std::forward<Args>(args)...);
+  }
+  auto create_mirror_view() {
+    return Kokkos::create_mirror_view(v);
+  }
+  template <typename U>
+  void deep_copy(U h_var_view) {
+    Kokkos::deep_copy(v, h_var_view);
+  }
+  KOKKOS_FORCEINLINE_FUNCTION
+  auto GetDim(const int i) {
+    if (i==4) return v.extent_int(0);
+    else return v(0).extent_int(3-i);
+  }
+
+ private:
+  Kokkos::View<T*> v;
+};
+
+
+template <typename T>
+class FlattenedIterator {
+ public:
+  FlattenedIterator(T view) : v(view) {}
+  KOKKOS_FORCEINLINE_FUNCTION
+  auto& operator() (const int n) {
+    return v(n);
+  }
+  template <class... Args>
+  KOKKOS_FORCEINLINE_FUNCTION
+  auto& operator() (const int n, Args... args) const {
+    return v(n)(std::forward<Args>(args)...);
+  }
+  KOKKOS_FORCEINLINE_FUNCTION
+  auto GetDim(const int i) {
+    if (i==4) return v.extent_int(0);
+    else return v(0).extent_int(3-i);
+  }
+ private:
+  T v;
+};
+
+
+template <typename T>
+auto MakeIterator(const Container<T> &c,
+                    const std::vector<MetadataFlag> &flagVector) {
+  CellVariableVector<T> vars;
+  for (const auto& v : c.GetCellVariableVector()) {
+    if (v->metadata().AnyFlagsSet(flagVector)) {
+      vars.push_back(v);
+    }
+  }
+  for (const auto& v : c.GetSparseVector()) {
+    if (v->metadata().AnyFlagsSet(flagVector)) {
+      auto& svec = v->GetVector();
+      vars.insert(vars.end(), svec.begin(), svec.end());
+    }
+  }
+
+  // count up the size
+  int vsize = 0;
+  for (const auto& v : vars) {
+    vsize += v->GetDim(6)*v->GetDim(5)*v->GetDim(4);
+  }
+
+  auto array = vars[0]->data;
+  auto slice_type = array.Get(0,0,0);
+  auto cv = Kokkos::View<decltype(slice_type)*>("ContainerIterator::cv_",vsize);
+  auto host_view = Kokkos::create_mirror_view(cv);
+  int vindex = 0;
+  for (const auto& v : vars) {
+    for (int k=0; k<v->GetDim(6); k++) {
+      for (int j=0; j<v->GetDim(5); j++) {
+        for (int i=0; i<v->GetDim(4); i++) {
+          host_view(vindex++) = v->data.Get(k,j,i);
+        }
+      }
+    }
+  }
+  Kokkos::deep_copy(cv, host_view);
+  return FlattenedIterator<decltype(cv)>(cv);
 }
+
 
 
 TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIterator]") {
@@ -213,6 +305,7 @@ TEST_CASE("Container Iterator Performance",
           raw_array(l,k,j,i) *= raw_array(l,k,j,i); //Do something trivial, square each term
         });
     });
+    //std::cout << "val = " << raw_array(3,2,3,4) << std::endl;
 
   //Make a container for testing performance
   Container<Real> container;
@@ -244,9 +337,10 @@ TEST_CASE("Container Iterator Performance",
         });
     }
   };
+  double time_iterate_variables = 0.0;
 
   //Test performance iterating over variables in container
-  double time_iterate_variables = performance_test_wrapper( n_burn, n_perf,init_container,
+  time_iterate_variables = performance_test_wrapper( n_burn, n_perf,init_container,
     [&](){
       const CellVariableVector<Real>& cv = container.GetCellVariableVector();
       for (int n=0; n<cv.size(); n++) {
@@ -262,13 +356,17 @@ TEST_CASE("Container Iterator Performance",
       }
     });
 
+/*
+    const CellVariableVector<Real> &cv = container.GetCellVariableVector();
+    std::cout << "val = " << cv[2]->data(1,2,3,4) << std::endl;
 
-  const CellVariableVector<Real> &cv = container.GetCellVariableVector();
   // count the size
   int vsize = 0;
   for (int n=0; n<cv.size(); n++) vsize += cv[n]->GetDim(4);
-  auto var_view = make_view_of_type<>(cv[0]->data.Get(0,0,1), "var_view", vsize);
-  auto h_var_view = Kokkos::create_mirror_view(var_view);
+  //auto var_view = make_view_of_type<>(cv[0]->data.Get(0,0,1), "var_view", vsize);
+  auto var_view = OrigFlattenedIterator<decltype(cv[0]->data.Get(0,0,0))>(cv[0]->data.Get(0,0,0), "var_view", vsize);
+  //auto h_var_view = Kokkos::create_mirror_view(var_view);
+  auto h_var_view = var_view.create_mirror_view();
   int vindex = 0;
   for (int n=0; n<cv.size(); n++) {
     for (int l=0; l<cv[n]->GetDim(4); l++) {
@@ -276,17 +374,25 @@ TEST_CASE("Container Iterator Performance",
     }
   }
   //var_view.DeepCopy(h_var_view);
-  Kokkos::deep_copy(var_view, h_var_view);
+  var_view.deep_copy<>(h_var_view);
+  //Kokkos::deep_copy(var_view, h_var_view);
+*/
+
+  auto var_view = MakeIterator<Real>(container, {Metadata::Independent});
+
+  //std::cout << "DIMS: " << var_view.GetDim(4) << " " << var_view.GetDim(3)
+  //          << " " << var_view.GetDim(2) << " " << var_view.GetDim(1)
+  //          << std::endl;
 
   auto init_view_of_views = [&]() {
     par_for("Initialize ", DevSpace(),
-      0, vsize-1,
-      0, N-1,
-      0, N-1,
-      0, N-1,
+      0, var_view.GetDim(4)-1,
+      0, var_view.GetDim(3)-1,
+      0, var_view.GetDim(2)-1,
+      0, var_view.GetDim(1)-1,
       KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
-        auto v = var_view(l);
-        v(k,j,i) = static_cast<Real>( (l+1)*(k+1)*(j+1)*(i+1) );
+        //auto& v = var_view(l);
+        var_view(l,k,j,i) = static_cast<Real>( (l+1)*(k+1)*(j+1)*(i+1) );
       });
   };
 
@@ -294,15 +400,17 @@ TEST_CASE("Container Iterator Performance",
   double time_view_of_views = performance_test_wrapper( n_burn, n_perf,init_view_of_views,
     [&](){
       par_for("Flat Container Array Perf", DevSpace(),
-        0, vsize-1,
-        0, N-1,
-        0, N-1,
-        0, N-1,
+      0, var_view.GetDim(4)-1,
+      0, var_view.GetDim(3)-1,
+      0, var_view.GetDim(2)-1,
+      0, var_view.GetDim(1)-1,
         KOKKOS_LAMBDA(const int l,const int k, const int j, const int i) {
-          auto& v = var_view(l);
-          v(k,j,i) *= v(k,j,i); //Do something trivial, square each term
+          //auto& v = var_view(l);
+          var_view(l,k,j,i) *= var_view(l,k,j,i); //Do something trivial, square each term
         });
     });
+
+    //std::cout << "val = " << var_view(3,2,3,4) << std::endl;
 /*
 
 
