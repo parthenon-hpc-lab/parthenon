@@ -22,6 +22,8 @@
 #include <csignal>
 #include <cstdint>
 
+#include "error_checking.hpp"
+
 namespace parthenon {
 
 void ChangeRunDir(const char *pdir);

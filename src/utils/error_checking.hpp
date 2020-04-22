@@ -21,6 +21,13 @@
 
 #include <Kokkos_Core.hpp>
 #include <iostream>
+#include <stdexcept>
+
+#ifndef DEBUG_MODE_
+#define DEBUG_MODE_RELEASE_ 0
+#define DEBUG_MODE_DEBUG_   1
+#define DEBUG_MODE_ DEBUG_MODE_RELEASE_
+#endif
 
 #define PARTHENON_REQUIRE(condition, message)                                            \
   if (!(condition)) {                                                                    \
@@ -30,6 +37,18 @@
 #define PARTHENON_FAIL(message)                                                          \
   parthenon::ErrorChecking::fail(message, __FILE__, __LINE__);
 
+#if DEBUG_MODE_ == DEBUG_MODE_DEBUG_
+#define PARTHENON_DEBUG_REQUIRE(condition, message) PARTHENON_REQUIRE(condition, message)
+#elif DEBUG_MODE_ == DEBUG_MODE_RELEASE_
+#define PARTHENON_DEBUG_REQUIRE(condition, message)
+#endif
+
+#if DEBUG_MODE_ == DEBUG_MODE_DEBUG_
+#define PARTHENON_DEBUG_FAIL(message) PARTHENON_FAIL(message)
+#elif DEBUG_MOGE_ == DEBUG_MODE_RELEASE_
+#define PARTHENON_DEBUG_FAIL(message)
+#endif
+
 namespace parthenon {
 namespace ErrorChecking {
 
@@ -37,19 +56,19 @@ KOKKOS_INLINE_FUNCTION
 void require(std::string const &condition, std::string const &message,
              std::string const &filename, int const linenumber) {
   fprintf(stderr,
-          "!!! PARTHENON ERROR !!!\n  Condition:   %s\n  Message:     %s\n  File:       "
+          "### PARTHENON ERROR\n  Condition:   %s\n  Message:     %s\n  File:        "
           "%s\n  Line number: %i\n",
           condition.c_str(), message.c_str(), filename.c_str(), linenumber);
-  exit(-1);
+  throw std::runtime_error("PARTHENON_REQUIRE exception");
 }
 
 KOKKOS_INLINE_FUNCTION
 void fail(std::string const &message, std::string const &filename, int const linenumber) {
   fprintf(
       stderr,
-      "!!! PARTHENON ERROR !!!\n  Message:     %s\n  File:       %s\n  Line number: %i\n",
+      "### PARTHENON ERROR\n  Message:     %s\n  File:        %s\n  Line number: %i\n",
       message.c_str(), filename.c_str(), linenumber);
-  exit(-1);
+  throw std::runtime_error("PARTHENON_FAIL exception");
 }
 
 } // namespace ErrorChecking

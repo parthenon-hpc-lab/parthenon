@@ -27,9 +27,11 @@ There are several weakly linked member functions that applications can (and ofte
 
 ### Error checking
 
-Macros for causing execution to exit are provided [here](../src/utils/error_checking.hpp)
+Macros for causing execution to throw an exception are provided [here](../src/utils/error_checking.hpp)
 * PARTHENON_REQUIRE(condition, message) exits if the condition does not evaluate to true.
 * PARTHENON_FAIL(message) always exits.
+* PARTHENON_DEBUG_REQUIRE(condition, message) exits if the condition does not evaluate to true when in debug mode.
+* PARTHENON_DEBUG_FAIL(message) always exits when in debug mode.
 
 Both macros print the message, and filename and line number where the macro is called. PARTHENON_REQUIRE also prints the condition.
 
