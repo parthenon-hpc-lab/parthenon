@@ -72,7 +72,9 @@ def main(**kwargs):
 
     test_case.CleanOutputFolder()
 
-    test_result = test_case.RunAnalyze()
+    test_case.Run()
+
+    test_result = test_case.Analyze()
 
     if (test_result == True):
         return 0

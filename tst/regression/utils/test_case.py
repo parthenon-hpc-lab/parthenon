@@ -18,6 +18,7 @@
 
 import os
 from shutil import rmtree
+import subprocess
 
 class Parameters():
     def __init__(self):
@@ -114,17 +115,33 @@ class TestCase:
         os.mkdir(self.parameters.output_path)
         os.chdir(self.parameters.output_path)
 
-    def RunAnalyze(self):
+    def Run(self):
+       
+        run_command = []
+        run_command.append(self.parameters.mpi_cmd)
+        for opt in self.parameters.mpi_opts:
+            run_command.extend(opt.split()) 
+        #run_command.extend(parameters.mpi_opts)
+        run_command.append(self.parameters.driver_path)  
+        run_command.append('-i')
+        run_command.append(self.parameters.driver_input_path)
+        print("*****************************************************************")
+        print("Running Driver")
+        print("*****************************************************************",flush=True)
+        print("Command to execute driver")
+        print(run_command,flush=True)
+        try:
+            subprocess.check_call(run_command)
+        except subprocess.CalledProcessError as err:
+            raise TestCaseError('\nReturn code {0} from command \'{1}\''
+                              .format(err.returncode, ' '.join(err.cmd)))
+
+    def Analyze(self):
 
         module = __import__(self.__test_module, globals(), locals(),
-                fromlist=['run', 'analyze'])
+                fromlist=['analyze'])
 
         test_pass = False
-
-        try:
-            module.run(self.parameters)
-        except Exception:
-            raise TestCaseError("Failed to run driver for test " + self.test) 
 
         try:
             print("*****************************************************************")
