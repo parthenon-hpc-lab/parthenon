@@ -16,68 +16,31 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #========================================================================================
 
-
 # Modules
-#import logging
 import os
+import sys
 import subprocess
-from timeit import default_timer as timer
 
+""" To prevent littering up imported folders with .pyc files or __pycache_ folder"""
+sys.dont_write_bytecode = True
 # Functions for running Parthenon
-def run(driver, input_filename, arguments, lcov_test_suffix=None):
-    
-    #try:
-    run_command = [driver, '-i', input_filename]
+def run(parameters):
+   
+    run_command = []
+    run_command.append(parameters.mpi_cmd)
+    for opt in parameters.mpi_opts:
+        run_command.extend(opt.split()) 
+    #run_command.extend(parameters.mpi_opts)
+    run_command.append(parameters.driver_path)  
+    run_command.append('-i')
+    run_command.append(parameters.driver_input_path)
+    print("Command to execute driver")
+    print(run_command)
     try:
-        cmd = run_command #+ arguments + global_run_args
-        print("run cmd is")
-        print(cmd)
-        print("current working dir")
-        print(os.getcwd())
-        #logging.getLogger('athena.run').debug('Executing: ' + ' '.join(cmd))
-        #subprocess.check_call(cmd, stdout=out_log)
-        subprocess.check_call(cmd)
+        subprocess.check_call(run_command)
     except subprocess.CalledProcessError as err:
-        raise ParthenonError('Return code {0} from command \'{1}\''
+        raise ParthenonError('\nReturn code {0} from command \'{1}\''
                           .format(err.returncode, ' '.join(err.cmd)))
-        #else:
-            #os.chdir(current_dir)
-            # (optional) if execution completes without error, and a lcov_test_suffix is
-            # explicitly passed, process Lcov tracefile immediately after run_command
-            #analyze_code_coverage(global_test_name, lcov_test_suffix)
-    #finally:
-        #out_log.close()
-        #os.chdir(current_dir)
-#
-#
-#def mpirun(mpirun_cmd, mpirun_opts, nproc, input_filename, arguments,
-#           lcov_test_suffix=None):
-#    current_dir = os.getcwd()
-#    os.chdir('bin')
-#    out_log = LogPipe('athena.run', logging.INFO)
-#    try:
-#        input_filename_full = '../' + athena_rel_path + 'inputs/' + \
-#                              input_filename
-#        run_command = [mpirun_cmd] + mpirun_opts + ['-n', str(nproc), './athena', '-i',
-#                                                    input_filename_full]
-#        run_command = list(filter(None, run_command))  # remove any empty strings
-#        try:
-#            cmd = run_command + arguments + global_run_args
-#            logging.getLogger('athena.run').debug('Executing (mpirun): ' + ' '.join(cmd))
-#            subprocess.check_call(cmd, stdout=out_log)
-#        except subprocess.CalledProcessError as err:
-#            raise AthenaError('Return code {0} from command \'{1}\''
-#                              .format(err.returncode, ' '.join(err.cmd)))
-#        else:
-#            os.chdir(current_dir)
-#            # (optional) if execution completes without error, and a lcov_test_suffix is
-#            # explicitly passed, process Lcov tracefile immediately after run_command
-#            analyze_code_coverage(global_test_name, lcov_test_suffix)
-#    finally:
-#        out_log.close()
-#        os.chdir(current_dir)
-#
-
 
 # General exception class for these functions
 class ParthenonError(RuntimeError):

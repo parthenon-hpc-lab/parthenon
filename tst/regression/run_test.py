@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #========================================================================================
 # Athena++ astrophysical MHD code
 # Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
@@ -16,119 +16,60 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #========================================================================================
 
-"""
-Regression test script.
-
-Usage: From this directory, call this script with python:
-      python run_test.py
-
-Notes:
-  - Requires Python 2.7+. (compliant with Python 3)
-  - This file should not be modified when adding new scripts.
-  - To add a new script, create a new .py file in scripts/tests/ subdirectory.
-  - See scripts/tests/example.py for an example.
-    - Example can be forced to run, but does not run by default in full test.
-  - For more information, check online regression test documentation.
-"""
-
 # Python modules
-from __future__ import print_function
 import argparse
 import os
-from shutil import rmtree
-#from collections import OrderedDict
-from pkgutil import iter_modules
-from timeit import default_timer as timer
-
-# Prevent generation of .pyc files
-# This should be set before importing any user modules
 import sys
+
+""" To prevent littering up imported folders with .pyc files"""
 sys.dont_write_bytecode = True
 
 # Parthenon modules
-import utils.parthenon as parthenon  # noqa
+import utils.parthenon as parthenon 
+import utils.test_case as tc 
 
+""" Split a path into folders """
+def SplitPathIntoFolders(path):
+    folders = []
+    while 1:
+        path, folder = os.path.split(path)
+        if folder != "":
+            folders.append(folder)
+        else:
+            if path != "":
+                folders.append(path)
+            break
+    return folders
+
+def checkRunScriptLocation(run_test_py_path):
+  
+    """ Check that run_test is in the correct folder """
+    folders = SplitPathIntoFolders(run_test_py_path)
+    if( os.path.join(folders[2], folders[1], folders[0]) != "parthenon/tst/regression" ): 
+        error_msg = "Cannot run run_test.py, it is not in the correct directory, must be "
+        error_msg += "kept in parthenon/tst/regression"
+        raise TestError(error_msg)
+
+    """ Check that test_suites folder exists """
+    if( not os.path.isdir(os.path.join(run_test_py_path,'test_suites')) ): 
+        raise TestError("Cannot run run_test.py, the test_suites folder is missing.")
 
 # Main function
 def main(**kwargs):
 
-    # Make list of tests to run
-    test_dir = kwargs.pop('test')
-    parthenon_driver = kwargs.pop('driver')
-    parthenon_driver_input = kwargs.pop('driver_input')
-    
-    starting_dir = os.getcwd()
+    run_test_py_path = os.path.dirname(os.path.realpath(__file__))
+    checkRunScriptLocation(run_test_py_path) 
 
-    if not os.path.isdir(test_dir[0]) :
-        raise TestError("Missing regression test folder " + test_dir[0] + "." )
+    test_case = tc.TestCase(run_test_py_path,**kwargs)
 
-    abs_path_test_dir = os.path.abspath(test_dir[0])
-    test = os.path.basename(os.path.normpath(abs_path_test_dir))
+    test_case.CleanOutputFolder()
 
-    if not os.path.isfile(test_dir[0] +  "/" + test + ".py") :
-        raise TestError("Missing regression test python file " + test_dir[0] +"/" + test + ".py ." )
-
-    if not os.path.isfile(parthenon_driver[0]):
-        raise TestError("Unable to locate driver "+parthenon_driver[0])
-
-    abs_path_driver = os.path.abspath(parthenon_driver[0])
-    abs_path_driver_input = os.path.abspath(parthenon_driver_input[0])
-    
-    test_times = []
-    test_errors = []
-    test_result = 1
-    
-    t0 = timer()
-    try:
-        test_module = 'test_suites.' + test + '.' + test
-
-        module = __import__(test_module, globals(), locals(),
-                fromlist=['prepare', 'run', 'analyze'])
-
-
-        # Move to regression test folder and run test there 
-        os.chdir(abs_path_test_dir)
-        # Check if output folder exists if it does delete it and create a fresh folder
-        CleanOutputFolder()
-
-        try:
-            module.prepare(**kwargs)
-        except Exception:
-            raise TestError(test_module.replace('.','/')+'.py')
-
-        try:
-            run_ret = module.run(abs_path_driver,abs_path_driver_input)
-        except Exception:
-            raise TestError(test_module.replace('.','/')+'.py') 
-
-        print("Run success")
-        try:
-            print("Running Analyze")
-            test_result = module.analyze()
-        except: 
-            raise TestError(test_module.replace('.','/')+'.py')
-
-        os.chdir(starting_dir)
-    except TestError as err:
-        test_times.append(None)
-    else:
-        test_times.append(timer() - t0)
-        msg = 'Test {0} took {1:.3g} seconds to complete.'
-        msg = msg.format(test, test_times[-1])
-        test_errors.append(None)
+    test_result = test_case.RunAnalyze()
 
     if (test_result == True):
         return 0
     else:
-        raise TestError("Test " + test + " failed")
-
-
-def CleanOutputFolder():
-    if os.path.isdir("output"):
-            rmtree("output")
-
-    os.mkdir("output")
-    os.chdir("output")
+        raise TestError("Test " + test_case.test + " failed")
 
 
 # Exception for unexpected behavior by individual tests
@@ -137,26 +78,40 @@ class TestError(RuntimeError):
 
 # Execute main function
 if __name__ == '__main__':
-    help_msg = ('name of test to run, relative to modules/,'
-                'excluding .py')
+    help_msg = ('name of the test directory, relative to test_suites/, '
+               'excluding .py.')
     parser = argparse.ArgumentParser()
-    parser.add_argument('--test','-t',
+    parser.add_argument('--test_dir','-t',
                         type=str,
                         default=None,
                         nargs=1,
+                        required=True,
                         help=help_msg)
 
     parser.add_argument("--driver", "-dr",
                         type=str,
                         default=None,
                         nargs=1,
-                        help='name of driver to test')
+                        required=True,
+                        help='path to the driver to test, where the driver is a binary executable')
 
-    parser.add_argument("--driver_input", "-drin",
+    parser.add_argument("--driver_input", "-dr_in",
                         type=str,
                         default=None,
                         nargs=1,
-                        help='input file to pass to driver')
+                        required=True,
+                        help='path to input file, to pass to driver')
+
+    parser.add_argument('--mpirun',
+                        default='mpirun',
+                        # 2x MPI, Slurm, PBS/Torque, LSF, Cray ALPS
+                        choices=['mpirun', 'mpiexec', 'srun', 'qsub', 'lsrun', 'aprun'],
+                        help='change MPI run wrapper command (e.g. for job schedulers)')
+
+    parser.add_argument('--mpirun_opts',
+                        default=[],
+                        action='append',
+                        help='add options to mpirun command')
 
     args = parser.parse_args()
 
