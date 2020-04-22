@@ -26,15 +26,6 @@ import utils.parthenon as parthenon
 """ To prevent littering up imported folders with .pyc files or __pycache_ folder"""
 sys.dont_write_bytecode = True
 
-def run(parameters):
-    """
-    Run the executable.
-
-    This function is called second. It is responsible for calling the Athena++ binary in
-    such a way as to produce testable output. It takes no inputs and produces no outputs.
-    """
-    parthenon.run(parameters)
-
 def analyze(parameters):
     """
     Analyze the output and determine if the test passes.
