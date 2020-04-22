@@ -59,7 +59,7 @@ void require(std::string const &condition, std::string const &message,
           "### PARTHENON ERROR\n  Condition:   %s\n  Message:     %s\n  File:        "
           "%s\n  Line number: %i\n",
           condition.c_str(), message.c_str(), filename.c_str(), linenumber);
-  throw std::runtime_error("PARTHENON_REQUIRE exception");
+  exit(EXIT_FAILURE);
 }
 
 KOKKOS_INLINE_FUNCTION
@@ -68,7 +68,7 @@ void fail(std::string const &message, std::string const &filename, int const lin
       stderr,
       "### PARTHENON ERROR\n  Message:     %s\n  File:        %s\n  Line number: %i\n",
       message.c_str(), filename.c_str(), linenumber);
-  throw std::runtime_error("PARTHENON_FAIL exception");
+  exit(EXIT_FAILURE);
 }
 
 } // namespace ErrorChecking
