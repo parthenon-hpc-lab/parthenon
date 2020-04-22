@@ -143,11 +143,12 @@ class ParArrayNDGeneric {
     Kokkos::deep_copy(d6d_, src.Get());
   }
 
-  auto GetHostMirrorAndCopy() {
-    auto host_mirror = GetHostMirror();
-    Kokkos::deep_copy(host_mirror.Get(), d6d_);
-    return host_mirror;
+  template <typename MemSpace>
+  auto GetMirrorAndCopy(MemSpace const &memspace) {
+    auto mirror = Kokkos::create_mirror_view_and_copy(memspace, d6d_);
+    return ParArrayNDGeneric<decltype(mirror)>(mirror);
   }
+  auto GetHostMirrorAndCopy() { return GetMirrorAndCopy(Kokkos::HostSpace()); }
 
   // JMM: DO NOT put noexcept here. It somehow interferes with inlining
   // and the code slows down by a factor of 5.

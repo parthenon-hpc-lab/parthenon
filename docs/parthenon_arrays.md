@@ -80,7 +80,8 @@ my_mirror.DeepCopy(my_array);
 `ParArrayND` provides two convenience functions, `GetHostMirror()` and
 `GetDeviceMirror()` which put a mirror on the host and device
 respectively.
-In addition, `GetHostMirrorAndCopy()` creates a new and deep copies the content, e.g.,
+In addition, `GetHostMirrorAndCopy()` creates a new `ParArrayND` on the host
+with identical layout and deep copies the content, e.g.,
 ```C++
 auto my_host_array = my_array.getHostMirrorAndCopy();
 ```
