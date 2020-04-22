@@ -34,8 +34,11 @@ def run(parameters):
     run_command.append(parameters.driver_path)  
     run_command.append('-i')
     run_command.append(parameters.driver_input_path)
+    print("*****************************************************************")
+    print("Running Driver")
+    print("*****************************************************************",flush=True)
     print("Command to execute driver")
-    print(run_command)
+    print(run_command,flush=True)
     try:
         subprocess.check_call(run_command)
     except subprocess.CalledProcessError as err:

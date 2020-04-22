@@ -61,7 +61,7 @@ class TestCase:
         output_msg += "driver input at: " + driver_input_path + "\n"
         output_msg += "test folder:     " + test_path + "\n"
         output_msg += "output sent to:  " + output_path + "\n"
-        print(output_msg)
+        print(output_msg,flush=True)
 
         self.parameters.driver_path = driver_path
         self.parameters.driver_input_path = driver_input_path
@@ -91,9 +91,10 @@ class TestCase:
             return os.path.abspath(test_dir)
 
     def __checkRegressionTestScript(self,test_base_name):
-        if not os.path.isfile(os.path.join('test_suites',test_base_name,test_base_name + ".py")) :
+        python_test_script = os.path.join(self.__run_test_py_path,'test_suites',test_base_name,test_base_name + ".py")
+        if not os.path.isfile(python_test_script) :
             error_msg = "Missing regression test file "
-            error_msg += os.path.join('test_suites',test_base_name,test_base_name + ".py")
+            error_msg += python_test_script
             error_msg += "\nEach test folder must have a python script with the same name as the "
             error_msg += "regression test folder."
             raise TestCaseError(error_msg)
@@ -126,6 +127,9 @@ class TestCase:
             raise TestCaseError("Failed to run driver for test " + self.test) 
 
         try:
+            print("*****************************************************************")
+            print("Analyzing Driver Output")
+            print("*****************************************************************",flush=True)
             test_pass = module.analyze(self.parameters)
         except: 
             raise TestCaseError("Error in analyzing test criteria for test " + self.test)

@@ -57,10 +57,18 @@ def checkRunScriptLocation(run_test_py_path):
 # Main function
 def main(**kwargs):
 
+    print("*****************************************************************")
+    print("Beginning Python regression testing script")
+    print("*****************************************************************")
+
     run_test_py_path = os.path.dirname(os.path.realpath(__file__))
     checkRunScriptLocation(run_test_py_path) 
 
+    print("Initializing Test Case")
+
     test_case = tc.TestCase(run_test_py_path,**kwargs)
+
+    print("Cleaning output folder in test")
 
     test_case.CleanOutputFolder()
 
