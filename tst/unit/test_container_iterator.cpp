@@ -76,10 +76,14 @@ class OrigFlattenedIterator {
 };
 
 
-template <typename T>
+// TODO(JMM): Holding a device view of views
+// and a host mirror just to enable `GetDim`
+// is not an ideal solution. A better solution
+// would be to store this shape in a private variable.
+template <typename T, typename TH>
 class FlattenedIterator {
  public:
-  FlattenedIterator(T view) : v(view) {}
+  FlattenedIterator(T view, TH view_host) : v(view), v_h(view_host) {}
   KOKKOS_FORCEINLINE_FUNCTION
   auto& operator() (const int n) {
     return v(n);
@@ -90,12 +94,17 @@ class FlattenedIterator {
     return v(n)(std::forward<Args>(args)...);
   }
   KOKKOS_FORCEINLINE_FUNCTION
-  auto GetDim(const int i) {
+  auto GetDimDevice(const int i) {
     if (i==4) return v.extent_int(0);
     else return v(0).extent_int(3-i);
   }
+  auto GetDimHost(const int i) {
+    if (i==4) return v_h.extent_int(0);
+    else return v_h(0).extent_int(3-i);
+  }
  private:
   T v;
+  TH v_h;
 };
 
 
@@ -136,7 +145,7 @@ auto MakeIterator(const Container<T> &c,
     }
   }
   Kokkos::deep_copy(cv, host_view);
-  return FlattenedIterator<decltype(cv)>(cv);
+  return FlattenedIterator<decltype(cv),decltype(host_view)>(cv,host_view);
 }
 
 
@@ -386,10 +395,10 @@ TEST_CASE("Container Iterator Performance",
 
   auto init_view_of_views = [&]() {
     par_for("Initialize ", DevSpace(),
-      0, var_view.GetDim(4)-1,
-      0, var_view.GetDim(3)-1,
-      0, var_view.GetDim(2)-1,
-      0, var_view.GetDim(1)-1,
+      0, var_view.GetDimHost(4)-1,
+      0, var_view.GetDimHost(3)-1,
+      0, var_view.GetDimHost(2)-1,
+      0, var_view.GetDimHost(1)-1,
       KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
         //auto& v = var_view(l);
         var_view(l,k,j,i) = static_cast<Real>( (l+1)*(k+1)*(j+1)*(i+1) );
@@ -400,10 +409,10 @@ TEST_CASE("Container Iterator Performance",
   double time_view_of_views = performance_test_wrapper( n_burn, n_perf,init_view_of_views,
     [&](){
       par_for("Flat Container Array Perf", DevSpace(),
-      0, var_view.GetDim(4)-1,
-      0, var_view.GetDim(3)-1,
-      0, var_view.GetDim(2)-1,
-      0, var_view.GetDim(1)-1,
+      0, var_view.GetDimHost(4)-1,
+      0, var_view.GetDimHost(3)-1,
+      0, var_view.GetDimHost(2)-1,
+      0, var_view.GetDimHost(1)-1,
         KOKKOS_LAMBDA(const int l,const int k, const int j, const int i) {
           //auto& v = var_view(l);
           var_view(l,k,j,i) *= var_view(l,k,j,i); //Do something trivial, square each term
