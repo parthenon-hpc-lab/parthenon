@@ -249,65 +249,70 @@ TEST_CASE("Container Iterator Performance", "[ContainerIterator][performance]") 
 
     auto init_view_of_views = [&]() {
       par_for(
-	      "Initialize ", DevSpace(), 0, var_view.GetDim(4) - 1, 0, var_view.GetDim(3) - 1,
-	      0, var_view.GetDim(2) - 1, 0, var_view.GetDim(1) - 1,
-	      KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
-		var_view(l, k, j, i) = static_cast<Real>((l + 1) * (k + 1) * (j + 1) * (i + 1));
-	      });
+          "Initialize ", DevSpace(), 0, var_view.GetDim(4) - 1, 0, var_view.GetDim(3) - 1,
+          0, var_view.GetDim(2) - 1, 0, var_view.GetDim(1) - 1,
+          KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
+            var_view(l, k, j, i) =
+                static_cast<Real>((l + 1) * (k + 1) * (j + 1) * (i + 1));
+          });
     };
 
     // Test performance of view of views VariablePack implementation
     double time_view_of_views =
-      performance_test_wrapper(n_burn, n_perf, init_view_of_views, [&]() {
-	  par_for(
-		  "Flat Container Array Perf", DevSpace(), 0, var_view.GetDim(4) - 1, 0,
-		  var_view.GetDim(3) - 1, 0, var_view.GetDim(2) - 1, 0, var_view.GetDim(1) - 1,
-		  KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
-		    var_view(l, k, j, i) *=
-		      var_view(l, k, j, i); // Do something trivial, square each term
-		  });
-	});
+        performance_test_wrapper(n_burn, n_perf, init_view_of_views, [&]() {
+          par_for(
+              "Flat Container Array Perf", DevSpace(), 0, var_view.GetDim(4) - 1, 0,
+              var_view.GetDim(3) - 1, 0, var_view.GetDim(2) - 1, 0,
+              var_view.GetDim(1) - 1,
+              KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
+                var_view(l, k, j, i) *=
+                    var_view(l, k, j, i); // Do something trivial, square each term
+              });
+        });
 
     std::cout << "raw_array performance: " << time_raw_array << std::endl;
     std::cout << "iterate_variables performance: " << time_iterate_variables << std::endl;
     std::cout << "iterate_variables/raw_array " << time_iterate_variables / time_raw_array
-	      << std::endl;
+              << std::endl;
     std::cout << "view_of_views performance: " << time_view_of_views << std::endl;
     std::cout << "view_of_views/raw_array " << time_view_of_views / time_raw_array
-	      << std::endl;
-
-
+              << std::endl;
   }
   { // Grab variables by name and do timing tests
-    auto var_view_named = PackVariables<Real>(container, {"v0","v1","v2","v3","v4","v5"});
+    auto var_view_named =
+        PackVariables<Real>(container, {"v0", "v1", "v2", "v3", "v4", "v5"});
 
     auto init_view_of_views = [&]() {
       par_for(
-	      "Initialize ", DevSpace(), 0, var_view_named.GetDim(4) - 1, 0, var_view_named.GetDim(3) - 1,
-	      0, var_view_named.GetDim(2) - 1, 0, var_view_named.GetDim(1) - 1,
-	      KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
-		var_view_named(l, k, j, i) = static_cast<Real>((l + 1) * (k + 1) * (j + 1) * (i + 1));
-	      });
+          "Initialize ", DevSpace(), 0, var_view_named.GetDim(4) - 1, 0,
+          var_view_named.GetDim(3) - 1, 0, var_view_named.GetDim(2) - 1, 0,
+          var_view_named.GetDim(1) - 1,
+          KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
+            var_view_named(l, k, j, i) =
+                static_cast<Real>((l + 1) * (k + 1) * (j + 1) * (i + 1));
+          });
     };
 
     // Test performance of view of views VariablePack implementation
     double time_view_of_views =
-      performance_test_wrapper(n_burn, n_perf, init_view_of_views, [&]() {
-	  par_for(
-		  "Flat Container Array Perf", DevSpace(), 0, var_view_named.GetDim(4) - 1, 0,
-		  var_view_named.GetDim(3) - 1, 0, var_view_named.GetDim(2) - 1, 0, var_view_named.GetDim(1) - 1,
-		  KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
-		    var_view_named(l, k, j, i) *=
-		      var_view_named(l, k, j, i); // Do something trivial, square each term
-		  });
-	});
+        performance_test_wrapper(n_burn, n_perf, init_view_of_views, [&]() {
+          par_for(
+              "Flat Container Array Perf", DevSpace(), 0, var_view_named.GetDim(4) - 1, 0,
+              var_view_named.GetDim(3) - 1, 0, var_view_named.GetDim(2) - 1, 0,
+              var_view_named.GetDim(1) - 1,
+              KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
+                var_view_named(l, k, j, i) *=
+                    var_view_named(l, k, j, i); // Do something trivial, square each term
+              });
+        });
 
     std::cout << "Named: raw_array performance: " << time_raw_array << std::endl;
-    std::cout << "Named: iterate_variables performance: " << time_iterate_variables << std::endl;
-    std::cout << "Named: iterate_variables/raw_array " << time_iterate_variables / time_raw_array
-	      << std::endl;
+    std::cout << "Named: iterate_variables performance: " << time_iterate_variables
+              << std::endl;
+    std::cout << "Named: iterate_variables/raw_array "
+              << time_iterate_variables / time_raw_array << std::endl;
     std::cout << "Named: view_of_views performance: " << time_view_of_views << std::endl;
     std::cout << "Named: view_of_views/raw_array " << time_view_of_views / time_raw_array
-	      << std::endl;
+              << std::endl;
   }
 }
