@@ -1,3 +1,4 @@
+#!/bin/python
 #========================================================================================
 # Athena++ astrophysical MHD code
 # Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
@@ -57,15 +58,17 @@ def main(**kwargs):
 
     print("Initializing Test Case")
 
-    test_case = tc.TestCase(run_test_py_path,**kwargs)
+    test_manager = tc.TestManager(run_test_py_path,**kwargs)
 
     print("Cleaning output folder in test")
 
-    test_case.CleanOutputFolder()
+    test_manager.CleanOutputFolder()
 
-    test_case.Run()
+    test_manager.Prepare()
 
-    test_result = test_case.Analyze()
+    test_manager.Run()
+
+    test_result = test_manager.Analyse()
 
     if (test_result == True):
         return 0
@@ -79,15 +82,18 @@ class TestError(RuntimeError):
 
 # Execute main function
 if __name__ == '__main__':
-    help_msg = ('name of the test directory, relative to test_suites/, '
+
+    parser = argparse.ArgumentParser("run_test.py a regression testing script")
+    
+    desc = ('name of the test directory, relative to test_suites/, '
                'excluding .py.')
-    parser = argparse.ArgumentParser()
+   
     parser.add_argument('--test_dir','-t',
                         type=str,
                         nargs=1,
                         required=True,
-                        help=help_msg)
-
+                        help=desc)
+    
     parser.add_argument("--driver", "-dr",
                         type=str,
                         default=None,

@@ -98,9 +98,30 @@ The \__init__.py file is left empty, it is used to notify python that it is allo
 import the contents from any python file present in the foo_test folder. 
 
 The second file foo_test.py **must** have the same name as the folder it is located in. The
-foo_test.py folder **must** contain an Analyze function. The analyze function is responsible for
+foo_test.py folder **must** contain a class called TestCase which inherets from TestCaseAbs. The
+TestCase class **must** contain an Analyze and Prepare method. The prepare method can be used to 
+execute tasks before the driver is called such a file prepartion or overwriting arguments that
+are passed in through the input deck file. The analyze method is responsible for
 checking the output of the driver (foo_driver) and ensuring it has passed. It is called once the 
 foo_driver has been executed. 
+
+Here is a base template for foo_test.py:
+
+```
+import utils.test_case
+
+# To prevent littering up imported folders with .pyc files or __pycache_ folder
+sys.dont_write_bytecode = True
+
+class TestCase(utils.test_case.TestCaseAbs):
+    def Prepare(self,parameters):
+        return parameters
+
+    def Analyse(self,parameters):
+        analyze_status = True
+        return analyze_status
+
+```
 
 All regression tests are run using the `run_test.py` script located in /test/regression. The reason
 for the python script is to ensure that after the test has been run it meets the appropriate 

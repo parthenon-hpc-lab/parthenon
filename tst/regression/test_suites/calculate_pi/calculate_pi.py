@@ -20,45 +20,78 @@ import math
 import numpy as np
 import sys
 import os
+import utils.test_case
 
 """ To prevent littering up imported folders with .pyc files or __pycache_ folder"""
 sys.dont_write_bytecode = True
 
-def analyze(parameters):
-    """
-    Analyze the output and determine if the test passes.
+class TestCase(utils.test_case.TestCaseAbs):
+    def Prepare(self,parameters):
+        """
+        Any preprocessing that is needed before the drive is run can be done in
+        this method
 
-    This function is called after the driver has been executed. It is
-    responsible for reading whatever data it needs and making a judgment about
-    whether or not the test passes. It takes no inputs. Output should be True
-    (test passes) or False (test fails).  
+        This includes preparing files or any other pre processing steps that
+        need to be implmeneted.  The method also provides access to the
+        parameters object which controls which parameters are being used to run
+        the driver. 
 
-    The parameters that are passed in provide the paths to relevant locations and commands. Of
-    particular importance is the path to the output folder. All files from a drivers run should
-    appear in and output folder located in parthenon/tst/regression/test_suites/test_name/output.
+        It is possible to append arguments to the driver_cmd_line_args if it is
+        desired to  override the parthenon input file. Each element in the list
+        is simply a string of the form '<block>/<field>=<value>', where the
+        contents of the string are exactly what one would type on the command
+        line run running a parthenon driver.
 
-    It is possible in this function to read any of the output files such as hdf5 output and compare
-    them to expected quantities.
+        As an example if the following block was uncommented it would overwrite
+        any of the parameters that were specified in the parthenon input file
 
-    """
+        parameters.driver_cmd_line_args = [
+                'output1/file_type=vtk',
+                'output1/variable=cons',
+                'output1/dt=0.4',
+                'time/tlim=0.4',
+                'mesh/nx1=400']
 
-    line = ""
-    try:
-        f = open(os.path.join(parameters.output_path, "summary.txt"),"r")
-        # Do something with the file
-        line = f.readline()
+        """
+        return parameters
 
-        f.close()
-    except IOError:
-        print("Summary file not accessible")
+    def Analyse(self,parameters):
+        """
+        Analyze the output and determine if the test passes.
 
-    words = line.split()
-    pi_val = float(words[2])
+        This function is called after the driver has been executed. It is
+        responsible for reading whatever data it needs and making a judgment
+        about whether or not the test passes. It takes no inputs. Output should
+        be True (test passes) or False (test fails).  
 
-    error_abs_e = math.fabs( math.pi - pi_val ) / math.pi  
+        The parameters that are passed in provide the paths to relevant
+        locations and commands. Of particular importance is the path to the
+        output folder. All files from a drivers run should appear in and output
+        folder located in
+        parthenon/tst/regression/test_suites/test_name/output.
 
-    analyze_status = True
-    if (error_abs_e > 0.001 ) or np.isnan(error_abs_e):
-        analyze_status = False
-    
-    return analyze_status
+        It is possible in this function to read any of the output files such as
+        hdf5 output and compare them to expected quantities.
+
+        """
+
+        line = ""
+        try:
+            f = open(os.path.join(parameters.output_path, "summary.txt"),"r")
+            # Do something with the file
+            line = f.readline()
+
+            f.close()
+        except IOError:
+            print("Summary file not accessible")
+
+        words = line.split()
+        pi_val = float(words[2])
+
+        error_abs_e = math.fabs( math.pi - pi_val ) / math.pi  
+
+        analyze_status = True
+        if (error_abs_e > 0.001 ) or np.isnan(error_abs_e):
+            analyze_status = False
+        
+        return analyze_status

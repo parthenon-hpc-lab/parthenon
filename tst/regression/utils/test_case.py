@@ -28,10 +28,17 @@ class Parameters():
         output_path = ""
         mpi_cmd = ""
         mpi_opts = ""
+        driver_cmd_line_args = []
 
-class TestCase:
+class TestCaseAbs:
+    def Prepare(parameters):
+        raise NotImplementedError("Every TestCase must initialse a Prepare method")
+        return parameters
 
+    def Analyse(parameters):
+        raise NotImplementedError("Every TestCase must initialse an Analyse method")
 
+class TestManager:
     def __init__(self,run_test_path,**kwargs):
 
         self.parameters = Parameters()
@@ -73,6 +80,14 @@ class TestCase:
         self.parameters.mpi_cmd = kwargs.pop('mpirun')
         self.parameters.mpi_opts = kwargs.pop('mpirun_opts')
 
+        module = __import__(self.__test_module, globals(), locals(),
+                fromlist=['TestCase'])
+        my_TestCase = getattr(module,'TestCase')
+        self.test_case = my_TestCase()
+
+        if( not issubclass(my_TestCase,TestCaseAbs)):
+            raise TestManagerError('TestCase is not a child of TestCaseAbs')
+
     def __checkAndGetRegressionTestFolder(self,test_dir):
         if not os.path.isdir(test_dir) :
             if not os.path.isdir( os.path.join('test_suites',test_dir)):
@@ -87,7 +102,7 @@ class TestCase:
                 for folder in known_test_folders:
                     error_msg += "\n  " + folder 
 
-                raise TestCaseError(error_msg)
+                raise TestManagerError(error_msg)
             else:
                 return os.path.abspath(os.path.join('test_suites',test_dir))
         else:
@@ -100,15 +115,15 @@ class TestCase:
             error_msg += python_test_script
             error_msg += "\nEach test folder must have a python script with the same name as the "
             error_msg += "regression test folder."
-            raise TestCaseError(error_msg)
+            raise TestManagerError(error_msg)
 
     def __checkDriverPath(self,parthenon_driver):
         if not os.path.isfile(parthenon_driver):
-            raise TestCaseError("Unable to locate driver "+parthenon_driver)
+            raise TestManagerError("Unable to locate driver "+parthenon_driver)
 
     def __checkDriverInputPath(self,parthenon_driver_input):
         if not os.path.isfile(parthenon_driver_input):
-            raise TestCaseError("Unable to locate driver input file " + parthenon_driver_input)
+            raise TestManagerError("Unable to locate driver input file " + parthenon_driver_input)
 
     def CleanOutputFolder(self):
         if os.path.isdir(self.parameters.output_path):
@@ -117,6 +132,13 @@ class TestCase:
         os.mkdir(self.parameters.output_path)
         os.chdir(self.parameters.output_path)
 
+    def Prepare(self):
+        print("*****************************************************************")
+        print("Preparing Test Case")
+        print("*****************************************************************")
+        sys.stdout.flush()
+        self.parameters = self.test_case.Prepare(self.parameters)
+
     def Run(self):
        
         run_command = []
@@ -124,10 +146,12 @@ class TestCase:
             run_command.append(self.parameters.mpi_cmd)
         for opt in self.parameters.mpi_opts:
             run_command.extend(opt.split()) 
-        #run_command.extend(parameters.mpi_opts)
         run_command.append(self.parameters.driver_path)  
         run_command.append('-i')
         run_command.append(self.parameters.driver_input_path)
+        for arg in self.parameters.driver_cmd_line_args:
+            run_command.append(arg)
+
         print("*****************************************************************")
         print("Running Driver")
         print("*****************************************************************")
@@ -137,29 +161,36 @@ class TestCase:
         try:
             subprocess.check_call(run_command)
         except subprocess.CalledProcessError as err:
-            raise TestCaseError('\nReturn code {0} from command \'{1}\''
+            raise TestManagerError('\nReturn code {0} from command \'{1}\''
                               .format(err.returncode, ' '.join(err.cmd)))
 
-    def Analyze(self):
-
-        module = __import__(self.__test_module, globals(), locals(),
-                fromlist=['analyze'])
+    def Analyse(self):
 
         test_pass = False
 
-        try:
-            print("*****************************************************************")
-            print("Analyzing Driver Output")
-            print("*****************************************************************")
-            sys.stdout.flush()
-            test_pass = module.analyze(self.parameters)
-        except: 
-            raise TestCaseError("Error in analyzing test criteria for test " + self.test)
+        print("*****************************************************************")
+        print("Analysing Driver Output")
+        print("*****************************************************************")
+        sys.stdout.flush()
+        test_pass = self.test_case.Analyse(self.parameters)
+
+        return test_pass
+
+
+    def Analyse(self):
+
+        test_pass = False
+
+        print("*****************************************************************")
+        print("Analysing Driver Output")
+        print("*****************************************************************")
+        sys.stdout.flush()
+        test_pass = self.test_case.Analyse(self.parameters)
 
         return test_pass
 
 # Exception for unexpected behavior by individual tests
-class TestCaseError(RuntimeError):
+class TestManagerError(RuntimeError):
     pass
 
 
