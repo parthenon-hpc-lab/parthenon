@@ -18,6 +18,7 @@
 #endif
 
 #include "utils/error_checking.hpp"
+
 #include <iostream>
 #include <map>
 #include <memory>

@@ -14,6 +14,7 @@
 #define INTERFACE_METADATA_HPP_
 
 #include "utils/error_checking.hpp"
+
 #include <algorithm>
 #include <bitset>
 #include <exception>
