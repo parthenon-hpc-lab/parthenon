@@ -45,9 +45,18 @@ class VariablePack {
     return dims_[i - 1];
   }
 
- private:
+ protected:
   const T v_;
   const std::array<int, 4> dims_;
+};
+
+template <typename T>
+class IndexedVariablePack : public VariablePack<T> {
+ public:
+  IndexedVariablePack(T view, std::array<int, 4> dims,
+                      Kokkos::View<int*> index_lo, Kokkos::View<int*> index_hi) :
+    VariablePack<T>(view, dims), ilo(index_lo), ihi(index_hi) {}
+  Kokkos::View<int*> ilo, ihi;
 };
 
 template <typename T>
@@ -78,6 +87,47 @@ auto MakePack(VarList<T> &vars) {
   Kokkos::deep_copy(cv, host_view);
   std::array<int, 4> cv_size = {fvar.GetDim(1), fvar.GetDim(2), fvar.GetDim(3), vsize};
   return VariablePack<decltype(cv)>(cv, cv_size);
+}
+template <typename T>
+auto MakeIndexedPack(VarList<T> &vars) {
+  // count up the size
+  int vsize = 0;
+  int nvars = 0;
+  for (const auto &v : vars) {
+    nvars++;
+    vsize += v->GetDim(6) * v->GetDim(5) * v->GetDim(4);
+  }
+
+  // make some arrays to hold indexing info
+  Kokkos::View<int*> index_lo("index_lo", nvars);
+  Kokkos::View<int*> index_hi("index_hi", nvars);
+  auto h_ilo = Kokkos::create_mirror_view(index_lo);
+  auto h_ihi = Kokkos::create_mirror_view(index_hi);
+
+  auto fvar = vars.front()->data;
+  auto slice = fvar.Get(0, 0, 0);
+  // make the outer view
+  auto cv = Kokkos::View<decltype(slice) *>("MakePack::cv", vsize);
+  auto host_view = Kokkos::create_mirror_view(cv);
+  int vindex = 0;
+  int ivar = 0;
+  for (const auto &v : vars) {
+    h_ilo(ivar) = vindex;
+    for (int k = 0; k < v->GetDim(6); k++) {
+      for (int j = 0; j < v->GetDim(5); j++) {
+        for (int i = 0; i < v->GetDim(4); i++) {
+          host_view(vindex++) = v->data.Get(k, j, i);
+        }
+      }
+    }
+    h_ihi(ivar) = vindex-1;
+    ivar++;
+  }
+  Kokkos::deep_copy(cv, host_view);
+  Kokkos::deep_copy(index_lo, h_ilo);
+  Kokkos::deep_copy(index_hi, h_ihi);
+  std::array<int, 4> cv_size = {fvar.GetDim(1), fvar.GetDim(2), fvar.GetDim(3), vsize};
+  return IndexedVariablePack<decltype(cv)>(cv, cv_size, index_lo, index_hi);
 }
 
 template <typename T>
