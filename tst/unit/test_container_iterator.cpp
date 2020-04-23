@@ -34,7 +34,7 @@
 using parthenon::CellVariableVector;
 using parthenon::Container;
 using parthenon::ContainerIterator;
-using parthenon::DevSpace;
+using parthenon::DevExecSpace;
 using parthenon::loop_pattern_mdrange_tag;
 using parthenon::Metadata;
 using parthenon::par_for;
@@ -44,7 +44,7 @@ using parthenon::Real;
 
 static void setVector( const ParArrayND<Real> &v, const Real &value) {
   par_for(
-	  "Initialize variables", DevSpace(), 0, v.GetDim(4) - 1, 0, v.GetDim(3) - 1, 0,
+	  "Initialize variables", DevExecSpace(), 0, v.GetDim(4) - 1, 0, v.GetDim(3) - 1, 0,
 	  v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
 	  KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
 	    v(l, k, j, i) = value;
