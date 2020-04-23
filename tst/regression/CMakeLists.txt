@@ -27,7 +27,7 @@
 
 function(setup_test dir arg)
   separate_arguments(arg) 
-  add_test( NAME regression_test:${dir} COMMAND python3 "${CMAKE_CURRENT_SOURCE_DIR}/run_test.py" ${arg} --test_dir "${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}")
+  add_test( NAME regression_test:${dir} COMMAND python "${CMAKE_CURRENT_SOURCE_DIR}/run_test.py" ${arg} --test_dir "${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}")
   set_tests_properties(regression_test:${dir} PROPERTIES LABELS "regression" )        
 endfunction()
 

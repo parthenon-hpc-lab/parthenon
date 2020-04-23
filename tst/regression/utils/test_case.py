@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 #========================================================================================
 # Athena++ astrophysical MHD code
 # Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
@@ -19,6 +18,7 @@
 import os
 from shutil import rmtree
 import subprocess
+import sys
 
 class Parameters():
     def __init__(self):
@@ -63,7 +63,8 @@ class TestCase:
         output_msg += "driver input at: " + driver_input_path + "\n"
         output_msg += "test folder:     " + test_path + "\n"
         output_msg += "output sent to:  " + output_path + "\n"
-        print(output_msg,flush=True)
+        print(output_msg)
+        sys.stdout.flush()
 
         self.parameters.driver_path = driver_path
         self.parameters.driver_input_path = driver_input_path
@@ -128,9 +129,10 @@ class TestCase:
         run_command.append(self.parameters.driver_input_path)
         print("*****************************************************************")
         print("Running Driver")
-        print("*****************************************************************",flush=True)
+        print("*****************************************************************")
         print("Command to execute driver")
-        print(run_command,flush=True)
+        print(run_command)
+        sys.stdout.flush()
         try:
             subprocess.check_call(run_command)
         except subprocess.CalledProcessError as err:
@@ -147,7 +149,8 @@ class TestCase:
         try:
             print("*****************************************************************")
             print("Analyzing Driver Output")
-            print("*****************************************************************",flush=True)
+            print("*****************************************************************")
+            sys.stdout.flush()
             test_pass = module.analyze(self.parameters)
         except: 
             raise TestCaseError("Error in analyzing test criteria for test " + self.test)

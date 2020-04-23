@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 #========================================================================================
 # Athena++ astrophysical MHD code
 # Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
