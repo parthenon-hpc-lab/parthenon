@@ -120,7 +120,8 @@ class TestCase:
     def Run(self):
        
         run_command = []
-        run_command.append(self.parameters.mpi_cmd)
+        if( self.parameters.mpi_cmd !="" ):
+            run_command.append(self.parameters.mpi_cmd)
         for opt in self.parameters.mpi_opts:
             run_command.extend(opt.split()) 
         #run_command.extend(parameters.mpi_opts)

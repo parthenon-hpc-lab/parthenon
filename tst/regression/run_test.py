@@ -43,6 +43,11 @@ def checkRunScriptLocation(run_test_py_path):
 # Main function
 def main(**kwargs):
 
+    print(kwargs)
+    if( hasattr(kwargs,'mpirun_opts') ):
+        if(kwargs.mpirun == ""):
+            raise TestError("Cannot provide --mpirun_opts without specifying --mpirun")
+
     print("*****************************************************************")
     print("Beginning Python regression testing script")
     print("*****************************************************************")
@@ -99,8 +104,9 @@ if __name__ == '__main__':
                         help='path to input file, to pass to driver')
 
     parser.add_argument('--mpirun',
-                        default='mpirun',
+                        default='',
                         # 2x MPI, Slurm, PBS/Torque, LSF, Cray ALPS
+                        nargs=1,
                         choices=['mpirun', 'mpiexec', 'srun', 'qsub', 'lsrun', 'aprun'],
                         help='change MPI run wrapper command (e.g. for job schedulers)')
 
@@ -110,7 +116,6 @@ if __name__ == '__main__':
                         help='add options to mpirun command')
 
     args = parser.parse_args()
-
     try:
         main(**vars(args))
     except Exception:
