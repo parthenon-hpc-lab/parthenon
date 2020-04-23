@@ -33,10 +33,6 @@
 namespace parthenon {
 class MeshBlock;
 
-enum class PARTICLE_TYPE {
-  INT, REAL, STRING
-};
-
 enum class PARTICLE_STATUS {
   UNALLOCATED, ALIVE, DEAD
 };
@@ -49,7 +45,6 @@ class Swarm {
           m_(metadata),
           nmax_pool_(nmax_pool_in),
           mpiStatus(true) {
-      printf("%s %i\n", __FILE__, __LINE__);
       Add("x", Metadata({Metadata::Real}));
       Add("y", Metadata({Metadata::Real}));
       Add("z", Metadata({Metadata::Real}));

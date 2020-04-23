@@ -54,19 +54,6 @@ class ParticleDriver : public MultiStageBlockTaskDriver {
   TaskList MakeTaskList(MeshBlock *pmb, int stage);
 };
 
-// demonstrate making a custom Task type
-/*using ContainerTaskFunc = std::function<TaskStatus(Container<Real> &)>;
-class ContainerTask : public BaseTask {
- public:
-  ContainerTask(TaskID id, ContainerTaskFunc func, TaskID dep, Container<Real> rc)
-      : BaseTask(id, dep), _func(func), _cont(rc) {}
-  TaskStatus operator()() { return _func(_cont); }
-
- private:
-  ContainerTaskFunc _func;
-  Container<Real> _cont;
-};
-*/
 using TwoSwarmTaskFunc =
     std::function<TaskStatus(Swarm &, Swarm &)>;
 class TwoSwarmTask : public BaseTask {
@@ -86,14 +73,9 @@ namespace Particles {
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 AmrTag CheckRefinement(Container<Real> &rc);
-void PreFill(Container<Real> &rc);
-void SquareIt(Container<Real> &rc);
-void PostFill(Container<Real> &rc);
-Real EstimateTimestep(Container<Real> &rc);
-//TaskStatus CalculateFluxes(Container<Real> &rc);
 
-} // namespace Advection
+} // namespace Particles
 
-} // namespace advection_example
+} // namespace particles_example
 
-#endif // EXAMPLE_ADVECTION_ADVECTION_HPP_
+#endif // EXAMPLE_PARTICLES_PARTICLES_HPP_
