@@ -22,6 +22,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <string>
+
 #include <Kokkos_Core.hpp>
 
 #define PARTHENON_REQUIRE(condition, message)                                            \
