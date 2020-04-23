@@ -95,7 +95,7 @@ class MeshBlock {
   ~MeshBlock();
 
   // Kokkos execution space for this MeshBlock
-  DevSpace exec_space;
+  DevExecSpace exec_space;
 
   // data
   Mesh *pmy_mesh; // ptr to Mesh containing this MeshBlock
