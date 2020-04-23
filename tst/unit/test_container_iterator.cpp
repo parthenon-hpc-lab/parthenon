@@ -35,7 +35,7 @@ using parthenon::CellVariable;
 using parthenon::CellVariableVector;
 using parthenon::Container;
 using parthenon::ContainerIterator;
-using parthenon::DevSpace;
+using parthenon::DevExecSpace;
 using parthenon::loop_pattern_mdrange_tag;
 using parthenon::Metadata;
 using parthenon::MetadataFlag;
@@ -66,8 +66,8 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
       for (int n = 0; n < cv.size(); n++) {
         ParArrayND<Real> v = cv[n]->data;
         par_for(
-            "Initialize variables", DevSpace(), 0, v.GetDim(4) - 1, 0, v.GetDim(3) - 1, 0,
-            v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
+            "Initialize variables", DevExecSpace(), 0, v.GetDim(4) - 1, 0,
+            v.GetDim(3) - 1, 0, v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
             KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
               v(l, k, j, i) = 0.0;
             });
@@ -113,7 +113,7 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
       for (int n = 0; n < civ.size(); n++) {
         ParArrayND<Real> v = civ[n]->data;
         par_for(
-            "Set independent variables", DevSpace(), 0, v.GetDim(4) - 1, 0,
+            "Set independent variables", DevExecSpace(), 0, v.GetDim(4) - 1, 0,
             v.GetDim(3) - 1, 0, v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
             KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
               v(l, k, j, i) = 1.0;

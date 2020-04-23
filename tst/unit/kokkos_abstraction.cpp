@@ -25,7 +25,7 @@
 
 #include "kokkos_abstraction.hpp"
 
-using parthenon::DevSpace;
+using parthenon::DevExecSpace;
 using parthenon::ParArray1D;
 using parthenon::ParArray2D;
 using parthenon::ParArray3D;
@@ -33,7 +33,7 @@ using parthenon::ParArray4D;
 using Real = double;
 
 template <class T>
-bool test_wrapper_1d(T loop_pattern, DevSpace exec_space) {
+bool test_wrapper_1d(T loop_pattern, DevExecSpace exec_space) {
   // https://en.cppreference.com/w/cpp/numeric/random/uniform_real_distribution
   std::random_device rd;  // Will be used to obtain a seed for the random number engine
   std::mt19937 gen(rd()); // Standard mersenne_twister_engine seeded with rd()
@@ -71,7 +71,7 @@ bool test_wrapper_1d(T loop_pattern, DevSpace exec_space) {
 }
 
 template <class T>
-bool test_wrapper_2d(T loop_pattern, DevSpace exec_space) {
+bool test_wrapper_2d(T loop_pattern, DevExecSpace exec_space) {
   // https://en.cppreference.com/w/cpp/numeric/random/uniform_real_distribution
   std::random_device rd;  // Will be used to obtain a seed for the random number engine
   std::mt19937 gen(rd()); // Standard mersenne_twister_engine seeded with rd()
@@ -113,7 +113,7 @@ bool test_wrapper_2d(T loop_pattern, DevSpace exec_space) {
 }
 
 template <class T>
-bool test_wrapper_3d(T loop_pattern, DevSpace exec_space) {
+bool test_wrapper_3d(T loop_pattern, DevExecSpace exec_space) {
   // https://en.cppreference.com/w/cpp/numeric/random/uniform_real_distribution
   std::random_device rd;  // Will be used to obtain a seed for the random number engine
   std::mt19937 gen(rd()); // Standard mersenne_twister_engine seeded with rd()
@@ -158,7 +158,7 @@ bool test_wrapper_3d(T loop_pattern, DevSpace exec_space) {
 }
 
 template <class T>
-bool test_wrapper_4d(T loop_pattern, DevSpace exec_space) {
+bool test_wrapper_4d(T loop_pattern, DevExecSpace exec_space) {
   // https://en.cppreference.com/w/cpp/numeric/random/uniform_real_distribution
   std::random_device rd;  // Will be used to obtain a seed for the random number engine
   std::mt19937 gen(rd()); // Standard mersenne_twister_engine seeded with rd()
@@ -205,7 +205,7 @@ bool test_wrapper_4d(T loop_pattern, DevSpace exec_space) {
 }
 
 TEST_CASE("par_for loops", "[wrapper]") {
-  auto default_exec_space = DevSpace();
+  auto default_exec_space = DevExecSpace();
 
   SECTION("1D loops") {
     REQUIRE(test_wrapper_1d(parthenon::loop_pattern_mdrange_tag, default_exec_space) ==
@@ -375,7 +375,7 @@ struct LargeNShortTBufferPack {
     }
   }
 
-  void run(DevSpace exec_space) {
+  void run(DevExecSpace exec_space) {
     const int nbuffers = 6; // number of buffers, here up, down, left, right, back, front
     auto M = arr_in.extent(0);
     auto slab_size = buf_im.extent(0) / M;
@@ -445,7 +445,7 @@ struct SmallNLongTBufferPack {
     }
   }
 
-  void run(DevSpace exec_space) {
+  void run(DevExecSpace exec_space) {
     auto M = arr_in.extent(0);
     const int nbuffers = 6; // number of buffers, here up, down, left, right, back, front
     parthenon::par_for(parthenon::loop_pattern_mdrange_tag, "SmallNLongTBufferPack",
@@ -462,7 +462,7 @@ struct SmallNLongTBufferPack {
 
 template <class BufferPack>
 void test_wrapper_buffer_pack_overlapping_space_instances(const std::string test_name) {
-  auto default_exec_space = DevSpace();
+  auto default_exec_space = DevExecSpace();
 
   const int N = 32;      // ~meshblock size
   const int M = 5;       // ~nhydro
@@ -471,7 +471,7 @@ void test_wrapper_buffer_pack_overlapping_space_instances(const std::string test
   const int buf_size = M * nghost * (N - 2 * nghost) * (N - 2 * nghost);
 
   std::vector<BufferPack> functs;
-  std::vector<DevSpace> exec_spaces;
+  std::vector<DevExecSpace> exec_spaces;
 
   for (auto n = 0; n < nspaces; n++) {
     functs.push_back(BufferPack(
@@ -479,7 +479,7 @@ void test_wrapper_buffer_pack_overlapping_space_instances(const std::string test
         ParArray1D<Real>("buf_ip", buf_size), ParArray1D<Real>("buf_im", buf_size),
         ParArray1D<Real>("buf_jp", buf_size), ParArray1D<Real>("buf_jm", buf_size),
         ParArray1D<Real>("buf_kp", buf_size), ParArray1D<Real>("buf_kp", buf_size)));
-    exec_spaces.push_back(parthenon::SpaceInstance<DevSpace>::create());
+    exec_spaces.push_back(parthenon::SpaceInstance<DevExecSpace>::create());
   }
 
   // warmup
@@ -517,7 +517,7 @@ void test_wrapper_buffer_pack_overlapping_space_instances(const std::string test
 
   // make sure this test is reasonable IIF streams actually overlap, which is
   // not the case for the OpenMP backend at this point
-  if (parthenon::SpaceInstance<DevSpace>::overlap()) {
+  if (parthenon::SpaceInstance<DevExecSpace>::overlap()) {
     BufferPack::test_time(time_default, time_spaces, nspaces);
   }
 }
