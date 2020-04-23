@@ -19,11 +19,11 @@
 //! \file error_checking.hpp
 //  \brief utility macros for error checking
 
+#include <Kokkos_Core.hpp>
+
 #include <iostream>
 #include <stdexcept>
 #include <string>
-
-#include <Kokkos_Core.hpp>
 
 #define PARTHENON_REQUIRE(condition, message)                                            \
   if (!(condition)) {                                                                    \
