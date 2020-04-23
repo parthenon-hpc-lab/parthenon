@@ -184,7 +184,7 @@ TEST_CASE("Container Iterator Performance", "[ContainerIterator][performance]") 
   // Make a function for initializing the raw ParArray4D
   auto init_raw_array = [&]() {
     par_for(
-        "Initialize ", DevSpace(), 0, Nvar - 1, 0, N - 1, 0, N - 1, 0, N - 1,
+        "Initialize ", DevExecSpace(), 0, Nvar - 1, 0, N - 1, 0, N - 1, 0, N - 1,
         KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
           raw_array(l, k, j, i) =
               static_cast<Real>((l + 1) * (k + 1) * (j + 1) * (i + 1));
@@ -194,7 +194,7 @@ TEST_CASE("Container Iterator Performance", "[ContainerIterator][performance]") 
   // Test performance iterating over variables (we should aim for this performance)
   double time_raw_array = performance_test_wrapper(n_burn, n_perf, init_raw_array, [&]() {
     par_for(
-        "Raw Array Perf", DevSpace(), 0, Nvar - 1, 0, N - 1, 0, N - 1, 0, N - 1,
+        "Raw Array Perf", DevExecSpace(), 0, Nvar - 1, 0, N - 1, 0, N - 1, 0, N - 1,
         KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
           raw_array(l, k, j, i) *=
               raw_array(l, k, j, i); // Do something trivial, square each term
@@ -221,7 +221,7 @@ TEST_CASE("Container Iterator Performance", "[ContainerIterator][performance]") 
     for (int n = 0; n < cv.size(); n++) {
       ParArrayND<Real> v = cv[n]->data;
       par_for(
-          "Initialize variables", DevSpace(), 0, v.GetDim(4) - 1, 0, v.GetDim(3) - 1, 0,
+          "Initialize variables", DevExecSpace(), 0, v.GetDim(4) - 1, 0, v.GetDim(3) - 1, 0,
           v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
           KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
             v(l, k, j, i) = static_cast<Real>((l + 1) * (k + 1) * (j + 1) * (i + 1));
@@ -236,7 +236,7 @@ TEST_CASE("Container Iterator Performance", "[ContainerIterator][performance]") 
         for (int n = 0; n < cv.size(); n++) {
           ParArrayND<Real> v = cv[n]->data;
           par_for(
-              "Iterate Variables Perf", DevSpace(), 0, v.GetDim(4) - 1, 0,
+              "Iterate Variables Perf", DevExecSpace(), 0, v.GetDim(4) - 1, 0,
               v.GetDim(3) - 1, 0, v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
               KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
                 v(l, k, j, i) *= v(l, k, j, i); // Do something trivial, square each term
@@ -249,7 +249,7 @@ TEST_CASE("Container Iterator Performance", "[ContainerIterator][performance]") 
 
     auto init_view_of_views = [&]() {
       par_for(
-          "Initialize ", DevSpace(), 0, var_view.GetDim(4) - 1, 0, var_view.GetDim(3) - 1,
+          "Initialize ", DevExecSpace(), 0, var_view.GetDim(4) - 1, 0, var_view.GetDim(3) - 1,
           0, var_view.GetDim(2) - 1, 0, var_view.GetDim(1) - 1,
           KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
             var_view(l, k, j, i) =
@@ -261,7 +261,7 @@ TEST_CASE("Container Iterator Performance", "[ContainerIterator][performance]") 
     double time_view_of_views =
         performance_test_wrapper(n_burn, n_perf, init_view_of_views, [&]() {
           par_for(
-              "Flat Container Array Perf", DevSpace(), 0, var_view.GetDim(4) - 1, 0,
+              "Flat Container Array Perf", DevExecSpace(), 0, var_view.GetDim(4) - 1, 0,
               var_view.GetDim(3) - 1, 0, var_view.GetDim(2) - 1, 0,
               var_view.GetDim(1) - 1,
               KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
@@ -284,7 +284,7 @@ TEST_CASE("Container Iterator Performance", "[ContainerIterator][performance]") 
 
     auto init_view_of_views = [&]() {
       par_for(
-          "Initialize ", DevSpace(), 0, var_view_named.GetDim(4) - 1, 0,
+          "Initialize ", DevExecSpace(), 0, var_view_named.GetDim(4) - 1, 0,
           var_view_named.GetDim(3) - 1, 0, var_view_named.GetDim(2) - 1, 0,
           var_view_named.GetDim(1) - 1,
           KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
@@ -297,7 +297,7 @@ TEST_CASE("Container Iterator Performance", "[ContainerIterator][performance]") 
     double time_view_of_views =
         performance_test_wrapper(n_burn, n_perf, init_view_of_views, [&]() {
           par_for(
-              "Flat Container Array Perf", DevSpace(), 0, var_view_named.GetDim(4) - 1, 0,
+              "Flat Container Array Perf", DevExecSpace(), 0, var_view_named.GetDim(4) - 1, 0,
               var_view_named.GetDim(3) - 1, 0, var_view_named.GetDim(2) - 1, 0,
               var_view_named.GetDim(1) - 1,
               KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
