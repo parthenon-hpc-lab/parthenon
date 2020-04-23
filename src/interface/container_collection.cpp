@@ -32,9 +32,11 @@ void ContainerCollection<T>::Add(const std::string &name, SwarmContainer &src) {
   auto sc = std::make_shared<SwarmContainer>();
   sc->pmy_block = src.pmy_block;
   for (auto v : src.GetSwarmVector()) {
-    // just copy the (shared) pointer
-    // TODO BRR change this?
-    sc->Add(v);
+    if (v->isSet(Metadata::OneCopy)) {
+      c->Add(v);
+    } else {
+      c->Add(v->AllocateCopy());
+    }
   }
 
   swarmContainers_[name] = sc;
