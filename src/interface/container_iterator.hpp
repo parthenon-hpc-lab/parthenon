@@ -47,20 +47,20 @@ class ContainerIterator {
       CellVariableVector<T> &svec = svar->GetVector();
       allVars.insert(allVars.end(), svec.begin(), svec.end());
     }
-    // faces not active yet    _allFaceVars = c.faceVars();
-    // edges not active yet    _allEdgeVars = c.edgeVars();
+    // faces not active yet    allFaceVars_ = c.faceVars();
+    // edges not active yet    allEdgeVars_ = c.edgeVars();
     setMask(allVars, flagVector); // fill subset based on mask vector
   }
 
   //~ContainerIterator<T>() {
-  //  _emptyVars();
+  //  emptyVars_();
   //}
   /// Changes the mask for the iterator and resets the iterator
   /// @param flagArray: a vector of MetadataFlag that you want to match
   void setMask(const CellVariableVector<T> &allVars,
                const std::vector<MetadataFlag> &flagVector) {
     // 1: clear out variables stored so far
-    _emptyVars();
+    emptyVars_();
 
     // 2: fill in the subset of variables that match mask
     for (auto pv : allVars) {
@@ -71,11 +71,11 @@ class ContainerIterator {
   }
 
  private:
-  uint64_t _mask;
-  FaceVector<T> _allFaceVars = {};
-  // EdgeVector<T> _allEdgeVars = {};
-  // CellVariableVector<T> _allVars = {};
-  void _emptyVars() {
+  uint64_t mask_;
+  FaceVector<T> allFaceVars_ = {};
+  // EdgeVector<T> allEdgeVars_ = {};
+  // CellVariableVector<T> allVars_ = {};
+  void emptyVars_() {
     vars.clear();
     //  varsFace.clear();
     //  varsEdge.clear();

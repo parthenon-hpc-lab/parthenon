@@ -124,7 +124,6 @@ class SparseVariable {
   SparseMap<T> varMap_;
   CellVariableVector<T> varArray_;
   std::vector<int> indexMap_;
-  CellVariableVector<T> _empty;
 
   void Add(int varIndex, std::shared_ptr<CellVariable<T>> cv) {
     varArray_.push_back(cv);

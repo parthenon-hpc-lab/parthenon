@@ -29,24 +29,24 @@ class PropertiesInterface {
   virtual StateDescriptor &State() = 0;
 
   static int GetIDFromLabel(std::string &label) {
-    return PropertiesInterface::_label_to_id[label];
+    return PropertiesInterface::label_to_id_[label];
   }
 
   static std::string GetLabelFromID(int id) {
-    for (auto &x : PropertiesInterface::_label_to_id) {
+    for (auto &x : PropertiesInterface::label_to_id_) {
       if (x.second == id) return x.first;
     }
     return "UNKNOWN";
   }
 
   static void InsertID(const std::string &label, const int &id) {
-    PropertiesInterface::_label_to_id[label] = id;
+    PropertiesInterface::label_to_id_[label] = id;
   }
 
  private:
-  // _label_to_id is declared here and defined in
+  // label_to_id_ is declared here and defined in
   // PropertiesInterface.cpp
-  static std::map<std::string, int> _label_to_id;
+  static std::map<std::string, int> label_to_id_;
 };
 
 using Properties_t = std::vector<std::shared_ptr<PropertiesInterface>>;
