@@ -19,10 +19,10 @@
 //! \file error_checking.hpp
 //  \brief utility macros for error checking
 
-#include <Kokkos_Core.hpp>
 #include <iostream>
 #include <stdexcept>
 #include <string>
+#include <Kokkos_Core.hpp>
 
 #define PARTHENON_REQUIRE(condition, message)                                            \
   if (!(condition)) {                                                                    \
@@ -33,13 +33,13 @@
   parthenon::ErrorChecking::fail(message, __FILE__, __LINE__);
 
 #ifdef NDEBUG
-#define PARTHENON_DEBUG_REQUIRE(condition, message)
+#define PARTHENON_DEBUG_REQUIRE(condition, message) ((void)0)
 #else
 #define PARTHENON_DEBUG_REQUIRE(condition, message) PARTHENON_REQUIRE(condition, message)
 #endif
 
 #ifdef NDEBUG
-#define PARTHENON_DEBUG_FAIL(message)
+#define PARTHENON_DEBUG_FAIL(message) ((void)0)
 #else
 #define PARTHENON_DEBUG_FAIL(message) PARTHENON_FAIL(message)
 #endif
