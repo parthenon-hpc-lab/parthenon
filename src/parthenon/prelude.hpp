@@ -20,6 +20,7 @@
 #include <interface/container.hpp>
 #include <interface/variable.hpp>
 #include <mesh/mesh.hpp>
+#include <parthenon_arrays.hpp>
 #include <parthenon_manager.hpp>
 #include <parthenon_mpi.hpp>
 
@@ -28,6 +29,7 @@ namespace prelude {
 using ::parthenon::CellVariable;
 using ::parthenon::Container;
 using ::parthenon::MeshBlock;
+using ::parthenon::ParArrayND;
 using ::parthenon::ParthenonStatus;
 using ::parthenon::Real;
 using ::parthenon::Globals::my_rank;
