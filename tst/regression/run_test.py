@@ -26,24 +26,12 @@ sys.dont_write_bytecode = True
 # Parthenon modules
 import utils.test_case as tc 
 
-""" Split a path into folders """
-def SplitPathIntoFolders(path):
-    folders = []
-    while 1:
-        path, folder = os.path.split(path)
-        if folder != "":
-            folders.append(folder)
-        else:
-            if path != "":
-                folders.append(path)
-            break
-    return folders
-
 def checkRunScriptLocation(run_test_py_path):
   
     """ Check that run_test is in the correct folder """
-    folders = SplitPathIntoFolders(run_test_py_path)
-    if( os.path.join(folders[2], folders[1], folders[0]) != "parthenon/tst/regression" ): 
+    #folders = SplitPathIntoFolders(run_test_py_path)
+    if not os.path.normpath(run_test_py_path).endswith(os.path.normpath("parthenon/tst/regression")):
+    #if( os.path.join(folders[2], folders[1], folders[0]) != "parthenon/tst/regression" ): 
         error_msg = "Cannot run run_test.py, it is not in the correct directory, must be "
         error_msg += "kept in parthenon/tst/regression"
         raise TestError(error_msg)
