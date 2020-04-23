@@ -21,7 +21,6 @@ import math
 import numpy as np
 import sys
 import os
-import utils.parthenon as parthenon          
 
 """ To prevent littering up imported folders with .pyc files or __pycache_ folder"""
 sys.dont_write_bytecode = True
@@ -30,11 +29,20 @@ def analyze(parameters):
     """
     Analyze the output and determine if the test passes.
 
-    This function is called third; nothing from this file is called after it. It is
-    responsible for reading whatever data it needs and making a judgment about whether or
-    not the test passes. It takes no inputs. Output should be True (test passes) or False
-    (test fails).
+    This function is called after the driver has been executed. It is
+    responsible for reading whatever data it needs and making a judgment about
+    whether or not the test passes. It takes no inputs. Output should be True
+    (test passes) or False (test fails).  
+
+    The parameters that are passed in provide the paths to relevant locations and commands. Of
+    particular importance is the path to the output folder. All files from a drivers run should
+    appear in and output folder located in parthenon/tst/regression/test_suites/test_name/output.
+
+    It is possible in this function to read any of the output files such as hdf5 output and compare
+    them to expected quantities.
+
     """
+
     line = ""
     try:
         f = open(os.path.join(parameters.output_path, "summary.txt"),"r")

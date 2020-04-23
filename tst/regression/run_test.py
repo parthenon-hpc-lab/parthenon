@@ -25,7 +25,6 @@ import sys
 sys.dont_write_bytecode = True
 
 # Parthenon modules
-import utils.parthenon as parthenon 
 import utils.test_case as tc 
 
 """ Split a path into folders """

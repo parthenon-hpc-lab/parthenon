@@ -28,6 +28,7 @@ class Parameters():
         output_path = ""
         mpi_cmd = ""
         mpi_opts = ""
+
 class TestCase:
 
 
