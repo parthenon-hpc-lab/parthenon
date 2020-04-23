@@ -61,7 +61,6 @@ auto MakePack(VarList<T> &vars) {
   for (const auto &v : vars) {
     vsize += v->GetDim(6) * v->GetDim(5) * v->GetDim(4);
   }
-
   auto fvar = vars.front()->data;
   auto slice = fvar.Get(0, 0, 0);
   auto cv = Kokkos::View<decltype(slice) *>("MakePack::cv", vsize);
