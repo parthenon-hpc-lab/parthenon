@@ -63,3 +63,6 @@ tlim = 1.0
 
 <Pi>
 radius = 1.5
+
+<Graphics>
+variables = in_or_out

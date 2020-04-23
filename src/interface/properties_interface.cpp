@@ -15,6 +15,6 @@
 namespace parthenon {
 
 // Initialize the static map of ids
-std::map<std::string, int> PropertiesInterface::_label_to_id;
+std::map<std::string, int> PropertiesInterface::label_to_id_;
 
 } // namespace parthenon

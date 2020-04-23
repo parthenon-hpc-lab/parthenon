@@ -37,7 +37,7 @@ class StateDescriptor {
   StateDescriptor(const StateDescriptor &s) = delete;
 
   // Preferred constructor
-  explicit StateDescriptor(std::string label) : _label(label) {
+  explicit StateDescriptor(std::string label) : label_(label) {
     FillDerived = nullptr;
     EstimateTimestep = nullptr;
     CheckRefinement = nullptr;
@@ -45,34 +45,34 @@ class StateDescriptor {
 
   template <typename T>
   void AddParam(const std::string &key, T &value) {
-    _params.Add<T>(key, value);
+    params_.Add<T>(key, value);
   }
 
   template <typename T>
   const T &Param(const std::string &key) {
-    return _params.Get<T>(key);
+    return params_.Get<T>(key);
   }
 
-  Params &AllParams() { return _params; }
+  Params &AllParams() { return params_; }
   // retrieve label
-  const std::string &label() { return _label; }
+  const std::string &label() { return label_; }
 
   // field addition / retrieval routines
   // add a field with associated metadata
   bool AddField(const std::string &field_name, Metadata &m,
                 DerivedOwnership owner = DerivedOwnership::unique) {
     if (m.IsSet(Metadata::Sparse)) {
-      auto miter = _sparseMetadataMap.find(field_name);
-      if (miter != _sparseMetadataMap.end()) {
+      auto miter = sparseMetadataMap_.find(field_name);
+      if (miter != sparseMetadataMap_.end()) {
         miter->second.push_back(m);
       } else {
-        _sparseMetadataMap[field_name] = {m};
+        sparseMetadataMap_[field_name] = {m};
       }
     } else {
       const std::string &assoc = m.getAssociated();
       if (!assoc.length()) m.Associate(field_name);
-      auto miter = _metadataMap.find(field_name);
-      if (miter != _metadataMap.end()) { // this field has already been added
+      auto miter = metadataMap_.find(field_name);
+      if (miter != metadataMap_.end()) { // this field has already been added
         Metadata &mprev = miter->second;
         if (owner == DerivedOwnership::unique) {
           throw std::invalid_argument(
@@ -85,7 +85,7 @@ class StateDescriptor {
         }
         return false;
       } else {
-        _metadataMap[field_name] = m;
+        metadataMap_[field_name] = m;
         m.Associate("");
       }
     }
@@ -93,30 +93,30 @@ class StateDescriptor {
   }
 
   // retrieve number of fields
-  int size() const { return _metadataMap.size(); }
+  int size() const { return metadataMap_.size(); }
 
   // retrieve all field names
   std::vector<std::string> Fields() {
     std::vector<std::string> names;
-    names.reserve(_metadataMap.size());
-    for (auto &x : _metadataMap) {
+    names.reserve(metadataMap_.size());
+    for (auto &x : metadataMap_) {
       names.push_back(x.first);
     }
     return names;
   }
 
-  const std::map<std::string, Metadata> &AllFields() { return _metadataMap; }
-  const std::map<std::string, std::vector<Metadata>> &AllSparseFields() {
-    return _sparseMetadataMap;
+  std::map<std::string, Metadata> &AllFields() { return metadataMap_; }
+  std::map<std::string, std::vector<Metadata>> &AllSparseFields() {
+    return sparseMetadataMap_;
   }
 
   // retrieve metadata for a specific field
   Metadata &FieldMetadata(const std::string &field_name) {
-    return _metadataMap[field_name];
+    return metadataMap_[field_name];
   }
 
   // get all metadata for this physics
-  const std::map<std::string, Metadata> &AllMetadata() { return _metadataMap; }
+  const std::map<std::string, Metadata> &AllMetadata() { return metadataMap_; }
 
   std::vector<std::shared_ptr<AMRCriteria>> amr_criteria;
   void (*FillDerived)(Container<Real> &rc);
@@ -124,10 +124,10 @@ class StateDescriptor {
   AmrTag (*CheckRefinement)(Container<Real> &rc);
 
  private:
-  Params _params;
-  const std::string _label;
-  std::map<std::string, Metadata> _metadataMap;
-  std::map<std::string, std::vector<Metadata>> _sparseMetadataMap;
+  Params params_;
+  const std::string label_;
+  std::map<std::string, Metadata> metadataMap_;
+  std::map<std::string, std::vector<Metadata>> sparseMetadataMap_;
 };
 
 using Packages_t = std::map<std::string, std::shared_ptr<StateDescriptor>>;
