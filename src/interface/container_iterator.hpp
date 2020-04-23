@@ -76,7 +76,7 @@ auto MakePack(VarList<T> &vars) {
     }
   }
   Kokkos::deep_copy(cv, host_view);
-  std::array<int, 4> cv_size = {fvar.GetDim(1), fvar.GetDim(2), fvar.GetDim(2), vsize};
+  std::array<int, 4> cv_size = {fvar.GetDim(1), fvar.GetDim(2), fvar.GetDim(3), vsize};
   return VariablePack<decltype(cv)>(cv, cv_size);
 }
 
