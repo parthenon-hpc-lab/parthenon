@@ -117,7 +117,7 @@ class SparseVariable {
 
   void print() { std::cout << "hello from sparse variables print" << std::endl; }
 
-  const Metadata& metadata() { return metadata_; }
+  const Metadata &metadata() { return metadata_; }
 
  private:
   std::array<int, 6> dims_;

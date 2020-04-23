@@ -19,6 +19,7 @@
 /// way because Sriram doesn't know enough C++ to do this correctly.
 
 #include <array>
+#include <forward_list>
 #include <memory>
 #include <vector>
 
@@ -27,6 +28,76 @@
 #include "interface/variable.hpp"
 
 namespace parthenon {
+
+template <typename T>
+class VariablePack {
+ public:
+  VariablePack(T view, std::array<int, 4> dims) : v_(view), dims_(dims) {}
+  KOKKOS_FORCEINLINE_FUNCTION
+  auto &operator()(const int n) { return v_(n); }
+  KOKKOS_FORCEINLINE_FUNCTION
+  auto &operator()(const int n, const int k, const int j, const int i) const {
+    return v_(n)(k, j, i);
+  }
+  KOKKOS_FORCEINLINE_FUNCTION
+  int GetDim(const int i) {
+    assert(i > 0 && i < 5);
+    return dims_[i - 1];
+  }
+
+ private:
+  const T v_;
+  const std::array<int, 4> dims_;
+};
+
+template <typename T>
+using VarList = std::forward_list<std::shared_ptr<CellVariable<T>>>;
+
+template <typename T>
+auto MakePack(VarList<T> &vars) {
+  // count up the size
+  int vsize = 0;
+  for (const auto &v : vars) {
+    vsize += v->GetDim(6) * v->GetDim(5) * v->GetDim(4);
+  }
+
+  auto fvar = vars.front()->data;
+  auto slice = fvar.Get(0, 0, 0);
+  auto cv = Kokkos::View<decltype(slice) *>("MakePack::cv", vsize);
+  auto host_view = Kokkos::create_mirror_view(cv);
+  int vindex = 0;
+  for (const auto &v : vars) {
+    for (int k = 0; k < v->GetDim(6); k++) {
+      for (int j = 0; j < v->GetDim(5); j++) {
+        for (int i = 0; i < v->GetDim(4); i++) {
+          host_view(vindex++) = v->data.Get(k, j, i);
+        }
+      }
+    }
+  }
+  Kokkos::deep_copy(cv, host_view);
+  std::array<int, 4> cv_size = {fvar.GetDim(1), fvar.GetDim(2), fvar.GetDim(2), vsize};
+  return VariablePack<decltype(cv)>(cv, cv_size);
+}
+
+template <typename T>
+auto PackVariables(const Container<T> &c, const std::vector<MetadataFlag> &flagVector) {
+  VarList<T> vars;
+  for (const auto &v : c.GetCellVariableVector()) {
+    if (v->metadata().AnyFlagsSet(flagVector)) {
+      vars.push_front(v);
+    }
+  }
+  for (const auto &sv : c.GetSparseVector()) {
+    if (sv->metadata().AnyFlagsSet(flagVector)) {
+      for (const auto &v : sv->GetVector()) {
+        vars.push_front(v);
+      }
+    }
+  }
+
+  return MakePack<T>(vars);
+}
 
 template <typename T>
 class ContainerIterator {
