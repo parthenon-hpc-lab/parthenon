@@ -84,7 +84,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--test_dir','-t',
                         type=str,
-                        default=None,
                         nargs=1,
                         required=True,
                         help=help_msg)
