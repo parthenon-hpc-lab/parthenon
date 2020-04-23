@@ -21,6 +21,7 @@
 #include <array>
 #include <forward_list>
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "interface/container.hpp"
@@ -81,19 +82,38 @@ auto MakePack(VarList<T> &vars) {
 }
 
 template <typename T>
-auto PackVariables(const Container<T> &c, const std::vector<MetadataFlag> &flagVector) {
+auto PackVariables(const Container<T> &c, const std::vector<MetadataFlag> &flags) {
   VarList<T> vars;
   for (const auto &v : c.GetCellVariableVector()) {
-    if (v->metadata().AnyFlagsSet(flagVector)) {
+    if (v->metadata().AnyFlagsSet(flags)) {
       vars.push_front(v);
     }
   }
   for (const auto &sv : c.GetSparseVector()) {
-    if (sv->metadata().AnyFlagsSet(flagVector)) {
+    if (sv->metadata().AnyFlagsSet(flags)) {
       for (const auto &v : sv->GetVector()) {
         vars.push_front(v);
       }
     }
+  }
+
+  return MakePack<T>(vars);
+}
+
+template <typename T>
+auto PackVariables(const Container<T> &c, const std::vector<std::string> &names) {
+  VarList<T> vars;
+  for (const auto &v : c.GetCellVariableVector()) {
+    if (std::find(names.begin(), names.end(), v->label()) != names.end()) {
+      vars.push_front(v);
+    }
+  }
+
+  for (const auto &sv : c.GetSparseVector()) {
+    if (std::find(names.begin(), names.end(), sv->label()) != names.end())
+      for (const auto &v : sv->GetVector()) {
+        vars.push_front(v);
+      }
   }
 
   return MakePack<T>(vars);
@@ -109,9 +129,8 @@ class ContainerIterator {
 
   /// initializes the iterator with a container and a flag to match
   /// @param c the container on which you want the iterator
-  /// @param flagVector: a vector of Metadata::flags that you want to match
-  ContainerIterator<T>(const Container<T> &c,
-                       const std::vector<MetadataFlag> &flagVector) {
+  /// @param flags: a vector of Metadata::flags that you want to match
+  ContainerIterator<T>(const Container<T> &c, const std::vector<MetadataFlag> &flags) {
     // c.print();
     auto allVars = c.GetCellVariableVector();
     for (auto &svar : c.GetSparseVector()) {
@@ -120,7 +139,7 @@ class ContainerIterator {
     }
     // faces not active yet    _allFaceVars = c.faceVars();
     // edges not active yet    _allEdgeVars = c.edgeVars();
-    setMask(allVars, flagVector); // fill subset based on mask vector
+    setMask(allVars, flags); // fill subset based on mask vector
   }
 
   //~ContainerIterator<T>() {
@@ -129,13 +148,13 @@ class ContainerIterator {
   /// Changes the mask for the iterator and resets the iterator
   /// @param flagArray: a vector of MetadataFlag that you want to match
   void setMask(const CellVariableVector<T> &allVars,
-               const std::vector<MetadataFlag> &flagVector) {
+               const std::vector<MetadataFlag> &flags) {
     // 1: clear out variables stored so far
     _emptyVars();
 
     // 2: fill in the subset of variables that match mask
     for (auto pv : allVars) {
-      if (pv->metadata().AnyFlagsSet(flagVector)) {
+      if (pv->metadata().AnyFlagsSet(flags)) {
         vars.push_back(pv);
       }
     }
@@ -151,9 +170,9 @@ class ContainerIterator {
     //  varsFace.clear();
     //  varsEdge.clear();
   }
-  static bool couldBeEdge(const std::vector<MetadataFlag> &flagVector) {
+  static bool couldBeEdge(const std::vector<MetadataFlag> &flags) {
     // returns true if face is set or if no topology set
-    for (auto &f : flagVector) {
+    for (auto &f : flags) {
       if (f == Metadata::Edge)
         return true;
       else if (f == Metadata::Cell)
@@ -165,9 +184,9 @@ class ContainerIterator {
     }
     return true;
   }
-  static bool couldBeFace(const std::vector<MetadataFlag> &flagVector) {
+  static bool couldBeFace(const std::vector<MetadataFlag> &flags) {
     // returns true if face is set or if no topology set
-    for (auto &f : flagVector) {
+    for (auto &f : flags) {
       if (f == Metadata::Face)
         return true;
       else if (f == Metadata::Cell)
