@@ -21,14 +21,13 @@ import subprocess
 import sys
 
 class Parameters():
-    def __init__(self):
-        driver_path = ""
-        driver_input_path = ""
-        test_path = ""
-        output_path = ""
-        mpi_cmd = ""
-        mpi_opts = ""
-        driver_cmd_line_args = []
+    driver_path = ""
+    driver_input_path = ""
+    test_path = ""
+    output_path = ""
+    mpi_cmd = ""
+    mpi_opts = ""
+    driver_cmd_line_args = []
 
 class TestCaseAbs:
     def Prepare(parameters):
@@ -151,7 +150,6 @@ class TestManager:
         run_command.append(self.parameters.driver_input_path)
         for arg in self.parameters.driver_cmd_line_args:
             run_command.append(arg)
-
         print("*****************************************************************")
         print("Running Driver")
         print("*****************************************************************")

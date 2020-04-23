@@ -44,14 +44,11 @@ class TestCase(utils.test_case.TestCaseAbs):
 
         As an example if the following block was uncommented it would overwrite
         any of the parameters that were specified in the parthenon input file
-
-        parameters.driver_cmd_line_args = [
-                'output1/file_type=vtk',
+        parameters.driver_cmd_line_args = ['output1/file_type=vtk',
                 'output1/variable=cons',
                 'output1/dt=0.4',
                 'time/tlim=0.4',
                 'mesh/nx1=400']
-
         """
         return parameters
 
