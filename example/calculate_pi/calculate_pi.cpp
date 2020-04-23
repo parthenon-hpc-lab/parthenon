@@ -12,13 +12,13 @@
 //========================================================================================
 
 // Parthenon Includes
-#include <parthenon/app.hpp>
+#include <parthenon/package.hpp>
 
 // Local Includes
 #include "pi.hpp"
 
 // Preludes
-using namespace parthenon::app::prelude;
+using namespace parthenon::package::prelude;
 
 // Self namespace
 using namespace calculate_pi;

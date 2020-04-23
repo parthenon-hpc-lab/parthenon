@@ -11,27 +11,36 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef PARTHENON_APP_HPP_
-#define PARTHENON_APP_HPP_
+#ifndef PARTHENON_PACKAGE_HPP_
+#define PARTHENON_PACKAGE_HPP_
 
 // Internal Includes
+#include <basic_types.hpp>
+#include <coordinates/coordinates.hpp>
 #include <interface/state_descriptor.hpp>
+#include <kokkos_abstraction.hpp>
+#include <mesh/mesh.hpp>
 #include <parameter_input.hpp>
 #include <parthenon_manager.hpp>
+#include <task_list/tasks.hpp>
 
 // Local Includes
 #include "prelude.hpp"
 
 namespace parthenon {
-namespace app {
+namespace package {
 namespace prelude {
 using namespace ::parthenon::prelude;
 
+using ::parthenon::Coordinates;
+using ::parthenon::MeshBlock;
+using ::parthenon::par_for;
 using ::parthenon::ParameterInput;
 using ::parthenon::ParthenonManager;
 using ::parthenon::StateDescriptor;
+using ::parthenon::TaskStatus;
 } // namespace prelude
-} // namespace app
+} // namespace package
 } // namespace parthenon
 
-#endif // PARTHENON_APP_HPP_
+#endif // PARTHENON_PACKAGE_HPP_

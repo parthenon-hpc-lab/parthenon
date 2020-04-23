@@ -20,8 +20,7 @@
 #include <utility>
 
 // Parthenon Includes
-#include <parthenon/app.hpp>
-#include <parthenon/task.hpp>
+#include <parthenon/package.hpp>
 
 // Local Includes
 #include "tasks.hpp"

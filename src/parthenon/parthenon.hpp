@@ -15,8 +15,7 @@
 #define PARTHENON_PARTHENON_HPP_
 
 // Re-export all public Parthenon headers
-#include "app.hpp"
 #include "driver.hpp"
-#include "task.hpp"
+#include "package.hpp"
 
 #endif // PARTHENON_PARTHENON_HPP_

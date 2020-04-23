@@ -17,11 +17,11 @@
 #include <memory>
 
 // Parthenon Includes
-#include <parthenon/app.hpp>
 #include <parthenon/driver.hpp>
+#include <parthenon/package.hpp>
 
 namespace calculate_pi {
-using namespace parthenon::app::prelude;
+using namespace parthenon::package::prelude;
 using namespace parthenon::driver::prelude;
 
 /**

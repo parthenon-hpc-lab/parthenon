@@ -14,7 +14,7 @@
 #define EXAMPLE_CALCULATE_PI_TASKS_HPP_
 
 // Parthenon Includes
-#include <parthenon/task.hpp>
+#include <parthenon/package.hpp>
 
 namespace calculate_pi {
 parthenon::TaskStatus ComputeArea(parthenon::MeshBlock *pmb);

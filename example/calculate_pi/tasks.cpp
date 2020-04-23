@@ -14,8 +14,8 @@
 // Self Include
 #include "tasks.hpp"
 
-// Imports commonly used names in Parthenon tasks
-using namespace parthenon::task::prelude;
+// Imports commonly used names in Parthenon packages
+using namespace parthenon::package::prelude;
 
 namespace calculate_pi {
 TaskStatus ComputeArea(MeshBlock *pmb) {
