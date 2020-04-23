@@ -123,15 +123,15 @@ void PHDF5Output::genXDMF(std::string hdfFile, Mesh *pm) {
   if (Globals::my_rank != 0) {
     return;
   }
-  std::string filename_aux = hdfFile + ".xdmf";
-  std::ofstream xdmf;
+
   MeshBlock *pmb;
   hsize_t dims[5] = {0, 0, 0, 0, 0};
 
   pmb = pm->pblock;
 
   // open file
-  xdmf = std::ofstream(filename_aux.c_str(), std::ofstream::trunc);
+  std::string filename_aux = hdfFile + ".xdmf";
+  std::ofstream xdmf(filename_aux.c_str(), std::ofstream::trunc);
 
   // Write header
   xdmf << R"(<?xml version="1.0" ?>)" << std::endl;
@@ -208,8 +208,6 @@ void PHDF5Output::genXDMF(std::string hdfFile, Mesh *pm) {
   xdmf << "  </Domain>" << std::endl;
   xdmf << "</Xdmf>" << std::endl;
   xdmf.close();
-
-  return;
 }
 
 // loads a variable
