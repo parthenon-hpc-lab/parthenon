@@ -13,8 +13,7 @@
 
 add_executable(
     pi-example
+        pi_driver.cpp
         calculate_pi.cpp
-        pi.cpp
-        tasks.cpp
 )
 target_link_libraries(pi-example PRIVATE parthenon)

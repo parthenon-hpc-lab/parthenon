@@ -10,14 +10,30 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef EXAMPLE_CALCULATE_PI_TASKS_HPP_
-#define EXAMPLE_CALCULATE_PI_TASKS_HPP_
 
-// Parthenon Includes
-#include <parthenon/package.hpp>
+#ifndef EXAMPLE_CALCULATE_PI_PI_DRIVER_HPP_
+#define EXAMPLE_CALCULATE_PI_PI_DRIVER_HPP_
 
-namespace calculate_pi {
-parthenon::TaskStatus ComputeArea(parthenon::MeshBlock *pmb);
-}
+#include <parthenon/driver.hpp>
 
-#endif // EXAMPLE_CALCULATE_PI_TASKS_HPP_
+namespace pi {
+using namespace parthenon::driver::prelude;
+
+/**
+ * @brief Constructs a driver which estimates PI using AMR.
+ */
+class PiDriver : public Driver {
+ public:
+  PiDriver(ParameterInput *pin, Mesh *pm, Outputs *pout) : Driver(pin, pm, pout) {}
+
+  /// MakeTaskList isn't a virtual routine on `Driver`, but each driver is expected to
+  /// implement it.
+  TaskList MakeTaskList(MeshBlock *pmb);
+
+  /// `Execute` cylces until simulation completion.
+  DriverStatus Execute() override;
+};
+
+} // namespace pi
+
+#endif // EXAMPLE_CALCULATE_PI_PI_DRIVER_HPP_

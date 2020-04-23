@@ -15,11 +15,7 @@
 #define PARTHENON_DRIVER_HPP_
 
 // Internal Includes
-#include <basic_types.hpp>
 #include <driver/driver.hpp>
-#include <interface/metadata.hpp>
-#include <interface/params.hpp>
-#include <interface/state_descriptor.hpp>
 #include <mesh/mesh.hpp>
 #include <outputs/outputs.hpp>
 #include <parameter_input.hpp>
@@ -33,17 +29,13 @@ namespace driver {
 namespace prelude {
 using namespace ::parthenon::prelude;
 
-using ::parthenon::AmrTag;
 using ::parthenon::BlockTask;
-using ::parthenon::DerivedOwnership;
 using ::parthenon::Driver;
 using ::parthenon::DriverStatus;
 using ::parthenon::Mesh;
 using ::parthenon::MeshBlock;
-using ::parthenon::Metadata;
 using ::parthenon::Outputs;
 using ::parthenon::ParameterInput;
-using ::parthenon::Params;
 using ::parthenon::TaskID;
 using ::parthenon::TaskList;
 using ::parthenon::DriverUtils::ConstructAndExecuteBlockTasks;

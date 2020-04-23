@@ -17,6 +17,8 @@
 // Internal Includes
 #include <basic_types.hpp>
 #include <coordinates/coordinates.hpp>
+#include <interface/metadata.hpp>
+#include <interface/params.hpp>
 #include <interface/state_descriptor.hpp>
 #include <kokkos_abstraction.hpp>
 #include <mesh/mesh.hpp>
@@ -32,10 +34,14 @@ namespace package {
 namespace prelude {
 using namespace ::parthenon::prelude;
 
+using ::parthenon::AmrTag;
 using ::parthenon::Coordinates;
+using ::parthenon::DerivedOwnership;
 using ::parthenon::MeshBlock;
+using ::parthenon::Metadata;
 using ::parthenon::par_for;
 using ::parthenon::ParameterInput;
+using ::parthenon::Params;
 using ::parthenon::ParthenonManager;
 using ::parthenon::StateDescriptor;
 using ::parthenon::TaskStatus;
