@@ -29,6 +29,15 @@ void Swarm::Add(const std::vector<std::string> labelArray,
   }
 }
 
+std::shared_ptr<Swarm> Swarm::AllocateCopy(const bool allocComms,
+                                    MeshBlock *pmb) {
+  Metadata m = m_;
+
+  auto swarm = std::make_shared<Swarm>(label(), m, nmax_pool_);
+
+  return swarm;
+}
+
 ///
 /// The internal routine for allocating a particle swarm.  This subroutine
 /// is topology aware and will allocate accordingly.

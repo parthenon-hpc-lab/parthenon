@@ -45,8 +45,8 @@ class ContainerCollection {
     return *(it->second);
   }
 
-  SwarmContainer &GetSwarm() { return *swarmContainers_["base"]; }
-  SwarmContainer &GetSwarm(const std::string &label) {
+  SwarmContainer &GetSwarmContainer() { return *swarmContainers_["base"]; }
+  SwarmContainer &GetSwarmContainer(const std::string &label) {
     auto it = swarmContainers_.find(label);
     if (it == swarmContainers_.end()) {
       throw std::runtime_error("SwarmContainer " + label + " does not exist in collection.");

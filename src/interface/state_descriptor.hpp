@@ -60,9 +60,22 @@ class StateDescriptor {
 
   bool AddSwarm(const std::string &swarm_name, Metadata &m) {
     if (_swarmMetadataMap.count(swarm_name) > 0) {
-      throw std::invalid_argument("Swarm " + swarm_name + "already exists!");
+      throw std::invalid_argument("Swarm " + swarm_name + " already exists!");
     }
     _swarmMetadataMap[swarm_name] = m;
+
+    return true;
+  }
+
+  bool AddSwarmValue(const std::string &value_name, const std::string &swarm_name,
+                     Metadata &m) {
+    if (_swarmMetadataMap.count(swarm_name) == 0) {
+      throw std::invalid_argument("Swarm " + swarm_name + " does not exist!");
+    }
+    if (_swarmValueMetadataMap[swarm_name].count(value_name) > 0) {
+      throw std::invalid_argument("Swarm value " + value_name + " already exists!");
+    }
+    _swarmValueMetadataMap[swarm_name][value_name] = m;
 
     return true;
   }
@@ -130,6 +143,9 @@ class StateDescriptor {
     return _sparseMetadataMap;
   }
   const std::map<std::string, Metadata> &AllSwarms() { return _swarmMetadataMap; }
+  const std::map<std::string, Metadata> &AllSwarmValues(const std::string swarm_name) {
+    return _swarmValueMetadataMap.at(swarm_name);
+  }
 
   // retrieve metadata for a specific field
   Metadata &FieldMetadata(const std::string &field_name) {
@@ -155,6 +171,7 @@ class StateDescriptor {
   std::map<std::string, Metadata> _metadataMap;
   std::map<std::string, std::vector<Metadata>> _sparseMetadataMap;
   std::map<std::string, Metadata> _swarmMetadataMap;
+  std::map<std::string, std::map<std::string, Metadata>> _swarmValueMetadataMap;
 };
 
 using Packages_t = std::map<std::string, std::shared_ptr<StateDescriptor>>;

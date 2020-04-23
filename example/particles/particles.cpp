@@ -53,9 +53,9 @@ Packages_t ParthenonManager::ProcessPackages(std::unique_ptr<ParameterInput> &pi
 }
 
 void MeshBlock::ProblemGenerator(ParameterInput *pin) {
-  SwarmContainer &sc = real_containers.GetSwarm();
+  SwarmContainer &sc = real_containers.GetSwarmContainer();
   printf("%s %i\n", __FILE__, __LINE__);
-  Swarm &s = sc.Get("particles");
+  Swarm &s = sc.Get("my_particles");
   //CellVariable<Real> &q = rc.Get("advected");
 
   s.AddParticle();
@@ -97,9 +97,11 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   Real particle_speed = pin->GetOrAddReal("Particles", "particle_speed", 1.0);
   pkg->AddParam<>("particle_speed", particle_speed);
 
-  std::string swarm_name = "particles";
-  Metadata m;
-  pkg->AddSwarm(swarm_name, m);
+  std::string swarm_name = "my_particles";
+  Metadata swarm_metadata;
+  pkg->AddSwarm(swarm_name, swarm_metadata);
+  Metadata real_swarmvalue_metadata({Metadata::Real});
+  pkg->AddSwarmValue("weight", swarm_name, real_swarmvalue_metadata);
 
   //pkg->FillDerived = SquareIt;
   //pkg->CheckRefinement = CheckRefinement;
@@ -325,7 +327,10 @@ TaskStatus UpdateContainer(MeshBlock *pmb, int stage,
 
 TaskStatus UpdateSwarm(MeshBlock *pmb, int stage, std::vector<std::string> &stage_name,
                        Integrator *integrator) {
-  SwarmContainer &base = pmb->real_containers.GetSwarm();
+  SwarmContainer &base = pmb->real_containers.GetSwarmContainer();
+
+  // weight = sqrt(x^2 + y^2 + z^2)?
+
   return TaskStatus::complete;
 }
 
@@ -351,13 +356,15 @@ TaskList ParticleDriver::MakeTaskList(MeshBlock *pmb, int stage) {
   // first make other useful containers
   printf("stage = %i\n", stage);
   if (stage == 1) {
-    SwarmContainer &base = pmb->real_containers.GetSwarm();
-    pmb->real_containers.Add("particles", base);
+    SwarmContainer &base = pmb->real_containers.GetSwarmContainer();
+    pmb->real_containers.Add("my swarm container", base);
     //Container<Real> &base = pmb->real_containers.Get();
     //pmb->real_containers.Add("dUdt", base);
     //for (int i = 1; i < integrator->nstages; i++)
     //  pmb->real_containers.Add(stage_name[i], base);
   }
+
+  SwarmContainer sc = pmb->real_containers.GetSwarmContainer("my swarm container");
 
   // pull out the container we'll use to get fluxes and/or compute RHSs
   //Container<Real> &sc0 = pmb->real_containers.Get(stage_name[stage - 1]);
@@ -368,9 +375,7 @@ TaskList ParticleDriver::MakeTaskList(MeshBlock *pmb, int stage) {
   // effectively, sc1 = sc0 + dudt*dt
   //Container<Real> &sc1 = pmb->real_containers.Get(stage_name[stage]);
 
-  SwarmContainer &particles = pmb->real_containers.GetSwarm("particles");
-
-  Swarm &swarm = particles.Get("particles");
+  Swarm &swarm = sc.Get("my_particles");
 
   /*auto start_recv = AddContainerTask(Container<Real>::StartReceivingTask, none, sc1);
 

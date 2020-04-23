@@ -60,6 +60,10 @@ class Swarm {
       }
     }
 
+  ///< Make a new Swarm based on an existing one
+  std::shared_ptr<Swarm> AllocateCopy(const bool allocComms = false,
+                                      MeshBlock *pmb = nullptr);
+
   ///< Add variable to swarm
   void Add(const std::string label, const Metadata &metadata);
 
@@ -98,6 +102,8 @@ class Swarm {
     // TODO(BRR) require that nmax_pool > nmax_pool_?
     // TODO(BRR) resize arrays and copy data
   }
+
+  bool IsSet(const MetadataFlag bit) const { return m_.IsSet(bit); }
 
   int get_nmax_active() {
     return nmax_active_;
