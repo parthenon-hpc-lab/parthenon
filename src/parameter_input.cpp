@@ -123,6 +123,9 @@ void ParameterInput::LoadFromStream(std::istream &is) {
   InputBlock *pib{};
   int line_num{-1}, blocks_found{0};
 
+  std::string multiline_name, multiline_value, multiline_comment;
+  bool continuing = false;
+
   while (is.good()) {
     std::getline(is, line);
     line_num++;
@@ -139,6 +142,14 @@ void ParameterInput::LoadFromStream(std::istream &is) {
     if (line.compare(first_char, 9, "<par_end>") == 0) break; // stop on <par_end>
 
     if (line.compare(first_char, 1, "<") == 0) { // a new block
+      if (continuing) {
+        msg << "### FATAL ERROR in function [ParameterInput::LoadFromStream]" << std::endl
+            << "Multiline field ended unexpectedly with new block "
+            << "character <.  Look above this line for the error:" << std::endl
+            << line << std::endl
+            << std::endl;
+        ATHENA_ERROR(msg);
+      }
       first_char++;
       last_char = (line.find_first_of(">", first_char));
       block_name.assign(line, first_char, last_char - 1); // extract block name
@@ -170,8 +181,26 @@ void ParameterInput::LoadFromStream(std::istream &is) {
       ATHENA_ERROR(msg);
     }
     // parse line and add name/value/comment strings (if found) to current block name
-    ParseLine(pib, line, param_name, param_value, param_comment);
-    AddParameter(pib, param_name, param_value, param_comment);
+    bool continuation = ParseLine(pib, line, param_name, param_value, param_comment);
+    if (continuing || continuation) {
+      multiline_name += param_name;
+      multiline_value += param_value;
+      multiline_comment += param_comment;
+      continuing = true;
+    }
+
+    if (continuing && !continuation) {
+      continuing = false;
+      param_name = multiline_name;
+      param_value = multiline_value;
+      param_comment = multiline_comment;
+    }
+
+    if (!continuing) {
+      if (param_name != "") {
+        AddParameter(pib, param_name, param_value, param_comment);
+      }
+    }
   }
   return;
 }
@@ -258,24 +287,32 @@ InputBlock *ParameterInput::FindOrAddBlock(std::string name) {
 //           std::string& name, std::string& value, std::string& comment)
 //  \brief parse "name = value # comment" format, return name/value/comment strings.
 
-void ParameterInput::ParseLine(InputBlock *pib, std::string line, std::string &name,
+bool ParameterInput::ParseLine(InputBlock *pib, std::string line, std::string &name,
                                std::string &value, std::string &comment) {
-  std::size_t first_char, last_char, equal_char, hash_char, len;
+  std::size_t first_char, last_char, equal_char, hash_char, cont_char, len;
+  bool continuation = false;
 
   first_char = line.find_first_not_of(" "); // find first non-white space
   equal_char = line.find_first_of("=");     // find "=" char
-  hash_char = line.find_first_of("#");      // find "#" (optional)
 
   // copy substring into name, remove white space at end of name
-  len = equal_char - first_char;
-  name.assign(line, first_char, len);
+  if (equal_char == std::string::npos) {
+    name = "";
+    line.erase(0, first_char);
+  } else {
+    len = equal_char - first_char;
+    name.assign(line, first_char, len);
+    last_char = name.find_last_not_of(" ");
+    name.erase(last_char + 1, std::string::npos);
+    line.erase(0, len + 1);
+  }
 
-  last_char = name.find_last_not_of(" ");
-  name.erase(last_char + 1, std::string::npos);
-
+  hash_char = line.find_first_of("#"); // find "#" (optional)
+  cont_char = line.find_first_of("&"); // find "&" continuation character
   // copy substring into value, remove white space at start and end
-  len = hash_char - equal_char - 1;
-  value.assign(line, equal_char + 1, len);
+  len = std::min(cont_char, hash_char);
+  if (len == cont_char && cont_char != std::string::npos) continuation = true;
+  value.assign(line, 0, len);
 
   first_char = value.find_first_not_of(" ");
   value.erase(0, first_char);
@@ -283,12 +320,17 @@ void ParameterInput::ParseLine(InputBlock *pib, std::string line, std::string &n
   last_char = value.find_last_not_of(" ");
   value.erase(last_char + 1, std::string::npos);
 
+  if (continuation) {
+    hash_char = line.find_first_of("#"); // find "#" (optional)
+  }
+
   // copy substring into comment, if present
   if (hash_char != std::string::npos) {
     comment = line.substr(hash_char);
   } else {
     comment = "";
   }
+  return continuation;
 }
 
 //----------------------------------------------------------------------------------------

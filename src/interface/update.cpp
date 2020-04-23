@@ -203,18 +203,18 @@ Real EstimateTimestep(Container<Real> &rc) {
 
 } // namespace Update
 
-static FillDerivedVariables::FillDerivedFunc *_pre_package_fill = nullptr;
-static FillDerivedVariables::FillDerivedFunc *_post_package_fill = nullptr;
+static FillDerivedVariables::FillDerivedFunc *pre_package_fill_ = nullptr;
+static FillDerivedVariables::FillDerivedFunc *post_package_fill_ = nullptr;
 
 void FillDerivedVariables::SetFillDerivedFunctions(FillDerivedFunc *pre,
                                                    FillDerivedFunc *post) {
-  _pre_package_fill = pre;
-  _post_package_fill = post;
+  pre_package_fill_ = pre;
+  post_package_fill_ = post;
 }
 
 TaskStatus FillDerivedVariables::FillDerived(Container<Real> &rc) {
-  if (_pre_package_fill != nullptr) {
-    _pre_package_fill(rc);
+  if (pre_package_fill_ != nullptr) {
+    pre_package_fill_(rc);
   }
   for (auto &pkg : rc.pmy_block->packages) {
     auto &desc = pkg.second;
@@ -222,8 +222,8 @@ TaskStatus FillDerivedVariables::FillDerived(Container<Real> &rc) {
       desc->FillDerived(rc);
     }
   }
-  if (_post_package_fill != nullptr) {
-    _post_package_fill(rc);
+  if (post_package_fill_ != nullptr) {
+    post_package_fill_(rc);
   }
   return TaskStatus::complete;
 }

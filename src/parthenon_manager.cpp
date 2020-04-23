@@ -18,6 +18,7 @@
 #include <Kokkos_Core.hpp>
 
 #include "driver/driver.hpp"
+#include "interface/set_graphics.hpp"
 #include "interface/update.hpp"
 #include "refinement/refinement.hpp"
 
@@ -93,6 +94,8 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
   auto packages = ProcessPackages(pinput);
   // always add the Refinement package
   packages["ParthenonRefinement"] = Refinement::Initialize(pinput.get());
+
+  SetGraphics(pinput, packages);
 
   // TODO(jdolence): Deal with restarts
   // if (arg.res_flag == 0) {

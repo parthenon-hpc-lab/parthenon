@@ -62,3 +62,7 @@ A description of how to enable and extend the AMR capabilities of Parthenon is p
 
 The tasking capabilities in Parthenon are documented [here](tasks.md).
 
+### Graphics
+
+Check [here](graphics.md) for a description of how to get data out of Parthenon and how to visualize it.
+

@@ -10,47 +10,19 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef INTERFACE_PROPERTIES_INTERFACE_HPP_
-#define INTERFACE_PROPERTIES_INTERFACE_HPP_
 
-#include <map>
+#ifndef INTERFACE_SET_GRAPHICS_HPP_
+#define INTERFACE_SET_GRAPHICS_HPP_
+
 #include <memory>
-#include <string>
-#include <vector>
 
-#include "interface/state_descriptor.hpp"
+#include "parameter_input.hpp"
+#include "state_descriptor.hpp"
 
 namespace parthenon {
 
-class PropertiesInterface {
- public:
-  virtual ~PropertiesInterface() {}
-
-  virtual StateDescriptor &State() = 0;
-
-  static int GetIDFromLabel(std::string &label) {
-    return PropertiesInterface::label_to_id_[label];
-  }
-
-  static std::string GetLabelFromID(int id) {
-    for (auto &x : PropertiesInterface::label_to_id_) {
-      if (x.second == id) return x.first;
-    }
-    return "UNKNOWN";
-  }
-
-  static void InsertID(const std::string &label, const int &id) {
-    PropertiesInterface::label_to_id_[label] = id;
-  }
-
- private:
-  // label_to_id_ is declared here and defined in
-  // PropertiesInterface.cpp
-  static std::map<std::string, int> label_to_id_;
-};
-
-using Properties_t = std::vector<std::shared_ptr<PropertiesInterface>>;
+void SetGraphics(std::unique_ptr<ParameterInput> &pin, Packages_t &pkg);
 
 } // namespace parthenon
 
-#endif // INTERFACE_PROPERTIES_INTERFACE_HPP_
+#endif // INTERFACE_SET_GRAPHICS_HPP_

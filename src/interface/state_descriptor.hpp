@@ -38,7 +38,7 @@ class StateDescriptor {
   StateDescriptor(const StateDescriptor &s) = delete;
 
   // Preferred constructor
-  explicit StateDescriptor(std::string label) : _label(label) {
+  explicit StateDescriptor(std::string label) : label_(label) {
     FillDerived = nullptr;
     EstimateTimestep = nullptr;
     CheckRefinement = nullptr;
@@ -46,36 +46,36 @@ class StateDescriptor {
 
   template <typename T>
   void AddParam(const std::string &key, T &value) {
-    _params.Add<T>(key, value);
+    params_.Add<T>(key, value);
   }
 
   template <typename T>
   const T &Param(const std::string &key) {
-    return _params.Get<T>(key);
+    return params_.Get<T>(key);
   }
 
-  Params &AllParams() { return _params; }
+  Params &AllParams() { return params_; }
   // retrieve label
-  const std::string &label() { return _label; }
+  const std::string &label() { return label_; }
 
   bool AddSwarm(const std::string &swarm_name, Metadata &m) {
-    if (_swarmMetadataMap.count(swarm_name) > 0) {
+    if (swarmMetadataMap_.count(swarm_name) > 0) {
       throw std::invalid_argument("Swarm " + swarm_name + " already exists!");
     }
-    _swarmMetadataMap[swarm_name] = m;
+    swarmMetadataMap_[swarm_name] = m;
 
     return true;
   }
 
   bool AddSwarmValue(const std::string &value_name, const std::string &swarm_name,
                      Metadata &m) {
-    if (_swarmMetadataMap.count(swarm_name) == 0) {
+    if (swarmMetadataMap_.count(swarm_name) == 0) {
       throw std::invalid_argument("Swarm " + swarm_name + " does not exist!");
     }
-    if (_swarmValueMetadataMap[swarm_name].count(value_name) > 0) {
+    if (swarmValueMetadataMap_[swarm_name].count(value_name) > 0) {
       throw std::invalid_argument("Swarm value " + value_name + " already exists!");
     }
-    _swarmValueMetadataMap[swarm_name][value_name] = m;
+    swarmValueMetadataMap_[swarm_name][value_name] = m;
 
     return true;
   }
@@ -85,17 +85,17 @@ class StateDescriptor {
   bool AddField(const std::string &field_name, Metadata &m,
                 DerivedOwnership owner = DerivedOwnership::unique) {
     if (m.IsSet(Metadata::Sparse)) {
-      auto miter = _sparseMetadataMap.find(field_name);
-      if (miter != _sparseMetadataMap.end()) {
+      auto miter = sparseMetadataMap_.find(field_name);
+      if (miter != sparseMetadataMap_.end()) {
         miter->second.push_back(m);
       } else {
-        _sparseMetadataMap[field_name] = {m};
+        sparseMetadataMap_[field_name] = {m};
       }
     } else {
       const std::string &assoc = m.getAssociated();
       if (!assoc.length()) m.Associate(field_name);
-      auto miter = _metadataMap.find(field_name);
-      if (miter != _metadataMap.end()) { // this field has already been added
+      auto miter = metadataMap_.find(field_name);
+      if (miter != metadataMap_.end()) { // this field has already been added
         Metadata &mprev = miter->second;
         if (owner == DerivedOwnership::unique) {
           throw std::invalid_argument(
@@ -108,7 +108,7 @@ class StateDescriptor {
         }
         return false;
       } else {
-        _metadataMap[field_name] = m;
+        metadataMap_[field_name] = m;
         m.Associate("");
       }
     }
@@ -116,13 +116,13 @@ class StateDescriptor {
   }
 
   // retrieve number of fields
-  int size() const { return _metadataMap.size(); }
+  int size() const { return metadataMap_.size(); }
 
   // retrieve all field names
   std::vector<std::string> Fields() {
     std::vector<std::string> names;
-    names.reserve(_metadataMap.size());
-    for (auto &x : _metadataMap) {
+    names.reserve(metadataMap_.size());
+    for (auto &x : metadataMap_) {
       names.push_back(x.first);
     }
     return names;
@@ -131,34 +131,34 @@ class StateDescriptor {
   // retrieve all swarm names
   std::vector<std::string> Swarms() {
     std::vector<std::string> names;
-    names.reserve(_swarmMetadataMap.size());
-    for (auto &x : _swarmMetadataMap) {
+    names.reserve(swarmMetadataMap_.size());
+    for (auto &x : swarmMetadataMap_) {
       names.push_back(x.first);
     }
     return names;
   }
 
-  const std::map<std::string, Metadata> &AllFields() { return _metadataMap; }
-  const std::map<std::string, std::vector<Metadata>> &AllSparseFields() {
-    return _sparseMetadataMap;
+  std::map<std::string, Metadata> &AllFields() { return metadataMap_; }
+  std::map<std::string, std::vector<Metadata>> &AllSparseFields() {
+    return sparseMetadataMap_;
   }
-  const std::map<std::string, Metadata> &AllSwarms() { return _swarmMetadataMap; }
+  const std::map<std::string, Metadata> &AllSwarms() { return swarmMetadataMap_; }
   const std::map<std::string, Metadata> &AllSwarmValues(const std::string swarm_name) {
-    return _swarmValueMetadataMap.at(swarm_name);
+    return swarmValueMetadataMap_.at(swarm_name);
   }
 
   // retrieve metadata for a specific field
   Metadata &FieldMetadata(const std::string &field_name) {
-    return _metadataMap[field_name];
+    return metadataMap_[field_name];
   }
 
   // retrieve metadata for a specific swarm
   Metadata &SwarmMetadata(const std::string &swarm_name) {
-    return _swarmMetadataMap[swarm_name];
+    return swarmMetadataMap_[swarm_name];
   }
 
   // get all metadata for this physics
-  const std::map<std::string, Metadata> &AllMetadata() { return _metadataMap; }
+  const std::map<std::string, Metadata> &AllMetadata() { return metadataMap_; }
 
   std::vector<std::shared_ptr<AMRCriteria>> amr_criteria;
   void (*FillDerived)(Container<Real> &rc);
@@ -166,12 +166,12 @@ class StateDescriptor {
   AmrTag (*CheckRefinement)(Container<Real> &rc);
 
  private:
-  Params _params;
-  const std::string _label;
-  std::map<std::string, Metadata> _metadataMap;
-  std::map<std::string, std::vector<Metadata>> _sparseMetadataMap;
-  std::map<std::string, Metadata> _swarmMetadataMap;
-  std::map<std::string, std::map<std::string, Metadata>> _swarmValueMetadataMap;
+  Params params_;
+  const std::string label_;
+  std::map<std::string, Metadata> metadataMap_;
+  std::map<std::string, std::vector<Metadata>> sparseMetadataMap_;
+  std::map<std::string, Metadata> swarmMetadataMap_;
+  std::map<std::string, std::map<std::string, Metadata>> swarmValueMetadataMap_;
 };
 
 using Packages_t = std::map<std::string, std::shared_ptr<StateDescriptor>>;
