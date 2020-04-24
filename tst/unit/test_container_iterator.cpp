@@ -221,8 +221,8 @@ TEST_CASE("Container Iterator Performance", "[ContainerIterator][performance]") 
     for (int n = 0; n < cv.size(); n++) {
       ParArrayND<Real> v = cv[n]->data;
       par_for(
-          "Initialize variables", DevExecSpace(), 0, v.GetDim(4) - 1, 0, v.GetDim(3) - 1, 0,
-          v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
+          "Initialize variables", DevExecSpace(), 0, v.GetDim(4) - 1, 0, v.GetDim(3) - 1,
+          0, v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
           KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
             v(l, k, j, i) = static_cast<Real>((l + 1) * (k + 1) * (j + 1) * (i + 1));
           });
@@ -249,8 +249,8 @@ TEST_CASE("Container Iterator Performance", "[ContainerIterator][performance]") 
 
     auto init_view_of_views = [&]() {
       par_for(
-          "Initialize ", DevExecSpace(), 0, var_view.GetDim(4) - 1, 0, var_view.GetDim(3) - 1,
-          0, var_view.GetDim(2) - 1, 0, var_view.GetDim(1) - 1,
+          "Initialize ", DevExecSpace(), 0, var_view.GetDim(4) - 1, 0,
+          var_view.GetDim(3) - 1, 0, var_view.GetDim(2) - 1, 0, var_view.GetDim(1) - 1,
           KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
             var_view(l, k, j, i) =
                 static_cast<Real>((l + 1) * (k + 1) * (j + 1) * (i + 1));
@@ -297,9 +297,9 @@ TEST_CASE("Container Iterator Performance", "[ContainerIterator][performance]") 
     double time_view_of_views =
         performance_test_wrapper(n_burn, n_perf, init_view_of_views, [&]() {
           par_for(
-              "Flat Container Array Perf", DevExecSpace(), 0, var_view_named.GetDim(4) - 1, 0,
-              var_view_named.GetDim(3) - 1, 0, var_view_named.GetDim(2) - 1, 0,
-              var_view_named.GetDim(1) - 1,
+              "Flat Container Array Perf", DevExecSpace(), 0,
+              var_view_named.GetDim(4) - 1, 0, var_view_named.GetDim(3) - 1, 0,
+              var_view_named.GetDim(2) - 1, 0, var_view_named.GetDim(1) - 1,
               KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
                 var_view_named(l, k, j, i) *=
                     var_view_named(l, k, j, i); // Do something trivial, square each term
