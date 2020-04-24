@@ -33,6 +33,9 @@
 #define PARTHENON_FAIL(message)                                                          \
   parthenon::ErrorChecking::fail(message, __FILE__, __LINE__);
 
+#define PARTHENON_WARN(message)                                                          \
+  parthenon::ErrorChecking::warn(message, __FILE__, __LINE__);
+
 #ifdef NDEBUG
 #define PARTHENON_DEBUG_REQUIRE(condition, message) ((void)0)
 #else
@@ -43,6 +46,12 @@
 #define PARTHENON_DEBUG_FAIL(message) ((void)0)
 #else
 #define PARTHENON_DEBUG_FAIL(message) PARTHENON_FAIL(message)
+#endif
+
+#ifdef NDEBUG
+#define PARTHENON_DEBUG_WARN(message) ((void)0)
+#else
+#define PARTHENON_DEBUG_WARN(message) PARTHENON_WARN(message)
 #endif
 
 namespace parthenon {
@@ -65,6 +74,14 @@ void fail(std::string const &message, std::string const &filename, int const lin
       "### PARTHENON ERROR\n  Message:     %s\n  File:        %s\n  Line number: %i\n",
       message.c_str(), filename.c_str(), linenumber);
   exit(EXIT_FAILURE);
+}
+
+KOKKOS_INLINE_FUNCTION
+void warn(std::string const &message, std::string const &filename, int const linenumber) {
+  fprintf(
+      stderr,
+      "### PARTHENON WARNING\n  Message:     %s\n  File:        %s\n  Line number: %i\n",
+      message.c_str(), filename.c_str(), linenumber);
 }
 
 } // namespace ErrorChecking
