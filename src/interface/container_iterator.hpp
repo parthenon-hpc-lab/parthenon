@@ -130,6 +130,22 @@ auto MakeIndexedPack(VarList<T> &vars) {
   return IndexedVariablePack<decltype(cv)>(cv, cv_size, index_lo, index_hi);
 }
 
+
+template <typename T>
+auto PackVariables(const Container<T> &c) {
+  VarList<T> vars;
+  for (const auto &v : c.GetCellVariableVector()) {
+    vars.push_front(v);
+  }
+  for (const auto &sv : c.GetSparseVector()) {
+    for (const auto &v : sv->GetVector()) {
+      vars.push_front(v);
+    }
+  }
+
+  return MakePack<T>(vars);
+}
+
 template <typename T>
 auto PackVariables(const Container<T> &c, const std::vector<MetadataFlag> &flags) {
   VarList<T> vars;
@@ -156,8 +172,8 @@ VarList<T> MakeListFromNames(const Container<T> &c, const std::vector<std::strin
   auto sparse_map = c.GetSparseMap();
   for (auto it = names.rbegin(); it != names.rend(); ++it) {
     bool found = false;
-    auto v = varMap.find(*it);
-    if (v != varMap.end()) {
+    auto v = var_map.find(*it);
+    if (v != var_map.end()) {
       vars.push_front(v->second);
       found = true;
     }
@@ -173,7 +189,7 @@ VarList<T> MakeListFromNames(const Container<T> &c, const std::vector<std::strin
       found = true;
       auto svec = sv->second->GetVector();
       for (auto its = svec.rbegin(); its != svec.rend(); ++its) {
-        vars.push_front(*its)
+        vars.push_front(*its);
       }
     }
     if (!found) {
@@ -188,13 +204,13 @@ VarList<T> MakeListFromNames(const Container<T> &c, const std::vector<std::strin
 
 template <typename T>
 auto PackVariables(const Container<T> &c, const std::vector<std::string> &names) {
-  MakeListFromNames(c, names);
+  VarList<T> vars = MakeListFromNames(c, names);
   return MakePack<T>(vars);
 }
 
 template <typename T>
 auto PackIndexedVariables(const Container<T> &c, const std::vector<std::string> &names) {
-  MakeListFromNames(c, names);
+  VarList<T> vars = MakeListFromNames(c, names);
   return MakeIndexedPack<T>(vars);
 }
 
