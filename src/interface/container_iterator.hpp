@@ -150,22 +150,52 @@ auto PackVariables(const Container<T> &c, const std::vector<MetadataFlag> &flags
 }
 
 template <typename T>
-auto PackVariables(const Container<T> &c, const std::vector<std::string> &names) {
+VarList<T> MakeListFromNames(const Container<T> &c, const std::vector<std::string> &names) {
   VarList<T> vars;
-  for (const auto &v : c.GetCellVariableVector()) {
-    if (std::find(names.begin(), names.end(), v->label()) != names.end()) {
-      vars.push_front(v);
+  auto var_map = c.GetCellVariableMap();
+  auto sparse_map = c.GetSparseMap();
+  for (auto it = names.rbegin(); it != names.rend(); ++it) {
+    bool found = false;
+    auto v = varMap.find(*it);
+    if (v != varMap.end()) {
+      vars.push_front(v->second);
+      found = true;
+    }
+    auto sv = sparse_map.find(*it);
+    if (sv != sparse_map.end()) {
+      if (found) {
+        // that's weird, found the name in both???
+        std::cerr << *it
+                  << " found in both var_map and sparse_map in PackVariables"
+                  << std::endl;
+        std::exit(1);
+      }
+      found = true;
+      auto svec = sv->second->GetVector();
+      for (auto its = svec.rbegin(); its != svec.rend(); ++its) {
+        vars.push_front(*its)
+      }
+    }
+    if (!found) {
+      std::cerr << *it
+                << " not found in var_map or sparse_map in PackVariables"
+                << std::endl;
+      std::exit(1);
     }
   }
+  return vars;
+}
 
-  for (const auto &sv : c.GetSparseVector()) {
-    if (std::find(names.begin(), names.end(), sv->label()) != names.end())
-      for (const auto &v : sv->GetVector()) {
-        vars.push_front(v);
-      }
-  }
-
+template <typename T>
+auto PackVariables(const Container<T> &c, const std::vector<std::string> &names) {
+  MakeListFromNames(c, names);
   return MakePack<T>(vars);
+}
+
+template <typename T>
+auto PackIndexedVariables(const Container<T> &c, const std::vector<std::string> &names) {
+  MakeListFromNames(c, names);
+  return MakeIndexedPack<T>(vars);
 }
 
 template <typename T>
