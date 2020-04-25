@@ -207,7 +207,7 @@ class Container {
   /// @return the CellVariable<T> if found or throw exception
   ///
   EdgeVariable<T> *GetEdge(std::string label) {
-    // for (auto v : _edgeVector) {
+    // for (auto v : edgeVector_) {
     //   if (! v->label().compare(label)) return v;
     // }
     throw std::invalid_argument(std::string("\n") + std::string(label) +
