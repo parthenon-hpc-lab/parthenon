@@ -39,8 +39,8 @@ using parthenon::DevExecSpace;
 using parthenon::loop_pattern_mdrange_tag;
 using parthenon::Metadata;
 using parthenon::MetadataFlag;
-using parthenon::PackVariables;
 using parthenon::PackIndexMap;
+using parthenon::PackVariables;
 using parthenon::par_for;
 using parthenon::ParArray4D;
 using parthenon::ParArrayND;
@@ -62,11 +62,12 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
     rc.Add("v6", m_out, scalar_block_size);
 
     auto v = PackVariables<Real>(rc);
-    par_for("Initialize variables", DevExecSpace(), 0, v.GetDim(4) - 1, 0,
-            v.GetDim(3) - 1, 0, v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
-            KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
-              v(l, k, j, i) = 0.0;
-            });
+    par_for(
+        "Initialize variables", DevExecSpace(), 0, v.GetDim(4) - 1, 0, v.GetDim(3) - 1, 0,
+        v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
+        KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
+          v(l, k, j, i) = 0.0;
+        });
 
     WHEN("we check them") {
       // set them all to zero
@@ -75,11 +76,10 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
         Real total = 0.0;
         Real sum = 1.0;
         Kokkos::parallel_reduce(
-              policy4D({0, 0, 0, 0},
-                       {v.GetDim(4), v.GetDim(3), v.GetDim(2), v.GetDim(1)}),
-              KOKKOS_LAMBDA(const int l, const int k, const int j, const int i,
-                            Real &vsum) { vsum += v(l, k, j, i); },
-              sum);
+            policy4D({0, 0, 0, 0}, {v.GetDim(4), v.GetDim(3), v.GetDim(2), v.GetDim(1)}),
+            KOKKOS_LAMBDA(const int l, const int k, const int j, const int i,
+                          Real &vsum) { vsum += v(l, k, j, i); },
+            sum);
         total += sum;
         REQUIRE(total == 0.0);
       }
@@ -88,11 +88,11 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
         int total = 0;
         int sum = 1;
         Kokkos::parallel_reduce(
-              policy4D({0, 0, 0, 0},
-                       {v.GetDim(4), v.GetDim(3), v.GetDim(2), v.GetDim(1)}),
-              KOKKOS_LAMBDA(const int l, const int k, const int j, const int i,
-                            int &cnt) { cnt++; },
-              sum);
+            policy4D({0, 0, 0, 0}, {v.GetDim(4), v.GetDim(3), v.GetDim(2), v.GetDim(1)}),
+            KOKKOS_LAMBDA(const int l, const int k, const int j, const int i, int &cnt) {
+              cnt++;
+            },
+            sum);
         total += sum;
         REQUIRE(total == 40960);
       }
@@ -102,38 +102,36 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
       // set "Independent" variables to one
       auto v = PackVariables<Real>(rc, {Metadata::Independent});
       par_for(
-            "Set independent variables", DevExecSpace(), 0, v.GetDim(4) - 1, 0,
-            v.GetDim(3) - 1, 0, v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
-            KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
-              v(l, k, j, i) = 1.0;
-            });
+          "Set independent variables", DevExecSpace(), 0, v.GetDim(4) - 1, 0,
+          v.GetDim(3) - 1, 0, v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
+          KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
+            v(l, k, j, i) = 1.0;
+          });
 
       THEN("they should sum appropriately") {
         using policy4D = Kokkos::MDRangePolicy<Kokkos::Rank<4>>;
         Real total = 0.0;
         Real sum = 1.0;
         Kokkos::parallel_reduce(
-              policy4D({0, 0, 0, 0},
-                       {v.GetDim(4), v.GetDim(3), v.GetDim(2), v.GetDim(1)}),
-              KOKKOS_LAMBDA(const int l, const int k, const int j, const int i,
-                            Real &vsum) { vsum += v(l, k, j, i); },
-              sum);
+            policy4D({0, 0, 0, 0}, {v.GetDim(4), v.GetDim(3), v.GetDim(2), v.GetDim(1)}),
+            KOKKOS_LAMBDA(const int l, const int k, const int j, const int i,
+                          Real &vsum) { vsum += v(l, k, j, i); },
+            sum);
         total += sum;
         REQUIRE(std::abs(total - 20480.0) < 1.e-14);
-      } AND_THEN("pulling out a subset by name should work") {
+      }
+      AND_THEN("pulling out a subset by name should work") {
         using policy4D = Kokkos::MDRangePolicy<Kokkos::Rank<4>>;
         auto v = PackVariables<Real>(rc, {"v2", "v3", "v5"});
         Real total = 0.0;
         Real sum = 1.0;
         Kokkos::parallel_reduce(
-              policy4D({0, 0, 0, 0},
-                       {v.GetDim(4), v.GetDim(3), v.GetDim(2), v.GetDim(1)}),
-              KOKKOS_LAMBDA(const int l, const int k, const int j, const int i,
-                            Real &vsum) { vsum += v(l, k, j, i); },
-              sum);
+            policy4D({0, 0, 0, 0}, {v.GetDim(4), v.GetDim(3), v.GetDim(2), v.GetDim(1)}),
+            KOKKOS_LAMBDA(const int l, const int k, const int j, const int i,
+                          Real &vsum) { vsum += v(l, k, j, i); },
+            sum);
         total += sum;
         REQUIRE(std::abs(total - 16384.0) < 1.e-14);
-
       }
     }
 
@@ -143,40 +141,39 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
       const int iv3lo = vmap["v3"].first;
       const int iv3hi = vmap["v3"].second;
       const int iv6 = vmap["v6"].first;
-      par_for("Initialize variables", DevExecSpace(), 0,
-            v.GetDim(3) - 1, 0, v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
-            KOKKOS_LAMBDA(const int k, const int j, const int i) {
-              v(1, k, j, i) = 1.0; // should correspond with iv3lo+1
-              v(3, k, j, i) = 3.0; // should correspond with iv6
-            });
+      par_for(
+          "Initialize variables", DevExecSpace(), 0, v.GetDim(3) - 1, 0, v.GetDim(2) - 1,
+          0, v.GetDim(1) - 1, KOKKOS_LAMBDA(const int k, const int j, const int i) {
+            v(1, k, j, i) = 1.0; // should correspond with iv3lo+1
+            v(3, k, j, i) = 3.0; // should correspond with iv6
+          });
       THEN("the values should as we expect") {
         using policy4D = Kokkos::MDRangePolicy<Kokkos::Rank<4>>;
         Real total = 0.0;
         Real sum = 1.0;
         Kokkos::parallel_reduce(
-              policy4D({0, 0, 0, 0},
-                       {v.GetDim(4), v.GetDim(3), v.GetDim(2), v.GetDim(1)}),
-              KOKKOS_LAMBDA(const int l, const int k, const int j, const int i,
-                            Real &vsum) {
-                bool check3 = (l == iv3lo+1);
-                bool check6 = (l == iv6);
-                vsum += (check3 && v(l,k,j,i) != 1.0);
-                vsum += (check6 && v(l,k,j,i) != 3.0);
-              },
-              sum);
+            policy4D({0, 0, 0, 0}, {v.GetDim(4), v.GetDim(3), v.GetDim(2), v.GetDim(1)}),
+            KOKKOS_LAMBDA(const int l, const int k, const int j, const int i,
+                          Real &vsum) {
+              bool check3 = (l == iv3lo + 1);
+              bool check6 = (l == iv6);
+              vsum += (check3 && v(l, k, j, i) != 1.0);
+              vsum += (check6 && v(l, k, j, i) != 3.0);
+            },
+            sum);
         total += sum;
         REQUIRE(total == 0.0);
-      } AND_THEN("summing up everything should still work") {
+      }
+      AND_THEN("summing up everything should still work") {
         using policy4D = Kokkos::MDRangePolicy<Kokkos::Rank<4>>;
         auto v = PackVariables<Real>(rc);
         Real total = 0.0;
         Real sum = 1.0;
         Kokkos::parallel_reduce(
-              policy4D({0, 0, 0, 0},
-                       {v.GetDim(4), v.GetDim(3), v.GetDim(2), v.GetDim(1)}),
-              KOKKOS_LAMBDA(const int l, const int k, const int j, const int i,
-                            Real &vsum) { vsum += v(l, k, j, i); },
-              sum);
+            policy4D({0, 0, 0, 0}, {v.GetDim(4), v.GetDim(3), v.GetDim(2), v.GetDim(1)}),
+            KOKKOS_LAMBDA(const int l, const int k, const int j, const int i,
+                          Real &vsum) { vsum += v(l, k, j, i); },
+            sum);
         total += sum;
         REQUIRE(std::abs(total - 16384.0) < 1.e-14);
       }
@@ -363,12 +360,10 @@ TEST_CASE("Container Iterator Performance", "[ContainerIterator][performance]") 
 
     auto init_view_of_views = [&]() {
       par_for(
-          "Initialize ", DevExecSpace(), 0, vsub.GetDim(4) - 1, 0,
-          vsub.GetDim(3) - 1, 0, vsub.GetDim(2) - 1, 0,
-          vsub.GetDim(1) - 1,
+          "Initialize ", DevExecSpace(), 0, vsub.GetDim(4) - 1, 0, vsub.GetDim(3) - 1, 0,
+          vsub.GetDim(2) - 1, 0, vsub.GetDim(1) - 1,
           KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
-            vsub(l, k, j, i) =
-                static_cast<Real>((l + 1) * (k + 1) * (j + 1) * (i + 1));
+            vsub(l, k, j, i) = static_cast<Real>((l + 1) * (k + 1) * (j + 1) * (i + 1));
           });
     };
 
@@ -376,15 +371,15 @@ TEST_CASE("Container Iterator Performance", "[ContainerIterator][performance]") 
     double time_view_of_views =
         performance_test_wrapper(n_burn, n_perf, init_view_of_views, [&]() {
           par_for(
-              "Flat Container Array Perf", DevExecSpace(), 0,
-              vsub.GetDim(4) - 1, 0, vsub.GetDim(3) - 1, 0,
-              vsub.GetDim(2) - 1, 0, vsub.GetDim(1) - 1,
+              "Flat Container Array Perf", DevExecSpace(), 0, vsub.GetDim(4) - 1, 0,
+              vsub.GetDim(3) - 1, 0, vsub.GetDim(2) - 1, 0, vsub.GetDim(1) - 1,
               KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
                 vsub(l, k, j, i) *=
                     vsub(l, k, j, i); // Do something trivial, square each term
               });
         });
-    // we only did half as many variables, so multiply by two for something quick and dirty
+    // we only did half as many variables, so multiply by two for something quick and
+    // dirty
     time_view_of_views *= 2.0;
 
     std::cout << "Indexed: raw_array performance: " << time_raw_array << std::endl;
@@ -392,9 +387,9 @@ TEST_CASE("Container Iterator Performance", "[ContainerIterator][performance]") 
               << std::endl;
     std::cout << "Indexed: iterate_variables/raw_array "
               << time_iterate_variables / time_raw_array << std::endl;
-    std::cout << "Indexed: view_of_views performance: " << time_view_of_views << std::endl;
-    std::cout << "Indexed: view_of_views/raw_array " << time_view_of_views / time_raw_array
+    std::cout << "Indexed: view_of_views performance: " << time_view_of_views
               << std::endl;
+    std::cout << "Indexed: view_of_views/raw_array "
+              << time_view_of_views / time_raw_array << std::endl;
   }
-
 }

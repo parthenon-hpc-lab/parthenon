@@ -56,15 +56,15 @@ class VariablePack {
 template <typename T>
 class VariableFluxPack : public VariablePack<T> {
  public:
-  VariableFluxPack(T view, T f0, T f1, T f2, std::array<int, 4> dims) :
-    VariablePack<T>(view, dims), f_({f0,f1,f2}) {}
-  
+  VariableFluxPack(T view, T f0, T f1, T f2, std::array<int, 4> dims)
+      : VariablePack<T>(view, dims), f_({f0, f1, f2}) {}
+
   KOKKOS_FORCEINLINE_FUNCTION
   auto &flux(const int dir) { return f_[dir]; }
 
   KOKKOS_FORCEINLINE_FUNCTION
   auto &flux(const int dir, const int n, const int k, const int j, const int i) {
-    return f_[dir](n)(k,j,i);
+    return f_[dir](n)(k, j, i);
   }
 
  private:
@@ -73,11 +73,11 @@ class VariableFluxPack : public VariablePack<T> {
 
 template <typename T>
 using VarList = std::forward_list<std::shared_ptr<CellVariable<T>>>;
-using IndexPair = std::pair<int,int>;
+using IndexPair = std::pair<int, int>;
 using PackIndexMap = std::map<std::string, IndexPair>;
 
 template <typename T>
-auto MakeFluxPack(VarList<T> &vars, VarList<T> &flux_vars, PackIndexMap* vmap=nullptr) {
+auto MakeFluxPack(VarList<T> &vars, VarList<T> &flux_vars, PackIndexMap *vmap = nullptr) {
   // count up the size
   int vsize = 0;
   int nvars = 0;
@@ -98,7 +98,7 @@ auto MakeFluxPack(VarList<T> &vars, VarList<T> &flux_vars, PackIndexMap* vmap=nu
   auto host_f1 = Kokkos::create_mirror_view(f1);
   auto host_f2 = Kokkos::create_mirror_view(f2);
   int vindex = 0;
-  for (int n=0; n<nvars; n++) {
+  for (int n = 0; n < nvars; n++) {
     int vstart = vindex;
     auto v = vars[n];
     auto fv = flux_vars[n];
@@ -114,11 +114,9 @@ auto MakeFluxPack(VarList<T> &vars, VarList<T> &flux_vars, PackIndexMap* vmap=nu
     }
     if (vmap != nullptr) {
       vmap->insert(
-        std::pair<std::string,IndexPair>(v->label(), IndexPair(vstart,vindex-1))
-      );
+          std::pair<std::string, IndexPair>(v->label(), IndexPair(vstart, vindex - 1)));
       vmap->insert(
-        std::pair<std::string,IndexPair>(fv->label(), IndexPair(vstart, vindex-1))
-      );
+          std::pair<std::string, IndexPair>(fv->label(), IndexPair(vstart, vindex - 1)));
     }
   }
   Kokkos::deep_copy(cv, host_view);
@@ -129,9 +127,8 @@ auto MakeFluxPack(VarList<T> &vars, VarList<T> &flux_vars, PackIndexMap* vmap=nu
   return VariableFluxPack<decltype(cv)>(cv, f0, f1, f2, cv_size);
 }
 
-
 template <typename T>
-auto MakePack(VarList<T> &vars, PackIndexMap* vmap=nullptr) {
+auto MakePack(VarList<T> &vars, PackIndexMap *vmap = nullptr) {
   // count up the size
   int vsize = 0;
   for (const auto &v : vars) {
@@ -155,8 +152,7 @@ auto MakePack(VarList<T> &vars, PackIndexMap* vmap=nullptr) {
     }
     if (vmap != nullptr)
       vmap->insert(
-        std::pair<std::string,IndexPair>(v->label(), IndexPair(vstart,vindex-1))
-      );
+          std::pair<std::string, IndexPair>(v->label(), IndexPair(vstart, vindex - 1)));
   }
   Kokkos::deep_copy(cv, host_view);
   std::array<int, 4> cv_size = {fvar.GetDim(1), fvar.GetDim(2), fvar.GetDim(3), vsize};
@@ -180,8 +176,7 @@ VarList<T> MakeList(const Container<T> &c, const std::vector<std::string> &names
     if (sv != sparse_map.end()) {
       if (found) {
         // that's weird, found the name in both???
-        std::cerr << *it
-                  << " found in both var_map and sparse_map in PackVariables"
+        std::cerr << *it << " found in both var_map and sparse_map in PackVariables"
                   << std::endl;
         std::exit(1);
       }
@@ -192,8 +187,7 @@ VarList<T> MakeList(const Container<T> &c, const std::vector<std::string> &names
       }
     }
     if (!found) {
-      std::cerr << *it
-                << " not found in var_map or sparse_map in PackVariables"
+      std::cerr << *it << " not found in var_map or sparse_map in PackVariables"
                 << std::endl;
       std::exit(1);
     }
@@ -220,10 +214,11 @@ VarList<T> MakeList(const Container<T> &c, const std::vector<MetadataFlag> &flag
 }
 
 template <typename T>
-auto PackVariablesAndFluxes(const Container<T> &c, const std::vector<std::string> &var_names,
-                                                   const std::vector<std::string> &flx_names) {
+auto PackVariablesAndFluxes(const Container<T> &c,
+                            const std::vector<std::string> &var_names,
+                            const std::vector<std::string> &flx_names) {
   assert(var_names.size() == flx_names.size());
-  VarList<T> vars  = MakeList(c, var_names);
+  VarList<T> vars = MakeList(c, var_names);
   VarList<T> fvars = MakeList(c, flx_names);
   return MakeFluxPack<T>(vars, fvars);
 }
@@ -235,23 +230,26 @@ auto PackVariables(const Container<T> &c, const std::vector<std::string> &names)
 }
 
 template <typename T>
-auto PackVariablesAndFluxes(const Container<T> &c, const std::vector<std::string> &var_names,
-                                                   const std::vector<std::string> &flx_names,
-                                                   PackIndexMap &vmap) {
+auto PackVariablesAndFluxes(const Container<T> &c,
+                            const std::vector<std::string> &var_names,
+                            const std::vector<std::string> &flx_names,
+                            PackIndexMap &vmap) {
   assert(var_names.size() == flx_names.size());
-  VarList<T> vars  = MakeList(c, var_names);
+  VarList<T> vars = MakeList(c, var_names);
   VarList<T> fvars = MakeList(c, flx_names);
   return MakeFluxPack<T>(vars, fvars);
 }
 
 template <typename T>
-auto PackVariables(const Container<T> &c, const std::vector<std::string> &names, PackIndexMap &vmap) {
+auto PackVariables(const Container<T> &c, const std::vector<std::string> &names,
+                   PackIndexMap &vmap) {
   VarList<T> vars = MakeList(c, names);
   return MakePack<T>(vars, &vmap);
 }
 
 template <typename T>
-auto PackVariablesAndFluxes(const Container<T> &c, const std::vector<MetadataFlag> &flags) {
+auto PackVariablesAndFluxes(const Container<T> &c,
+                            const std::vector<MetadataFlag> &flags) {
   VarList<T> vars = MakeList(c, flags);
   return MakeFluxPack<T>(vars, vars);
 }
@@ -291,7 +289,6 @@ auto PackVariables(const Container<T> &c) {
 
   return MakePack<T>(vars);
 }
-
 
 template <typename T>
 class ContainerIterator {
