@@ -40,7 +40,7 @@ using parthenon::loop_pattern_mdrange_tag;
 using parthenon::Metadata;
 using parthenon::MetadataFlag;
 using parthenon::PackVariables;
-using parthenon::PackIndexedVariables;
+using parthenon::PackIndexMap;
 using parthenon::par_for;
 using parthenon::ParArray4D;
 using parthenon::ParArrayND;
@@ -138,10 +138,11 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
     }
 
     WHEN("we set individual fields by index") {
-      auto v = PackIndexedVariables<Real>(rc, {"v3", "v6"});
-      const int iv3lo = v.ilo[0];
-      const int iv3hi = v.ihi[0];
-      const int iv6 = v.ilo[1];
+      PackIndexMap vmap;
+      auto v = PackVariables<Real>(rc, {"v3", "v6"}, vmap);
+      const int iv3lo = vmap["v3"].first;
+      const int iv3hi = vmap["v3"].second;
+      const int iv6 = vmap["v6"].first;
       par_for("Initialize variables", DevExecSpace(), 0,
             v.GetDim(3) - 1, 0, v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
             KOKKOS_LAMBDA(const int k, const int j, const int i) {
@@ -357,7 +358,8 @@ TEST_CASE("Container Iterator Performance", "[ContainerIterator][performance]") 
               << std::endl;
   }
   { // Grab some variables by name with indexing and do timing tests
-    auto vsub = PackIndexedVariables<Real>(container, {"v1", "v2", "v5"});
+    PackIndexMap imap;
+    auto vsub = PackVariables<Real>(container, {"v1", "v2", "v5"}, imap);
 
     auto init_view_of_views = [&]() {
       par_for(

@@ -20,8 +20,10 @@
 
 #include <array>
 #include <forward_list>
+#include <map>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "interface/container.hpp"
@@ -52,44 +54,30 @@ class VariablePack {
 };
 
 template <typename T>
-class IndexedVariablePack : public VariablePack<T> {
+class VariableFluxPack : public VariablePack<T> {
  public:
-  IndexedVariablePack(T view, std::array<int, 4> dims,
-                      Kokkos::View<int*> index_lo, Kokkos::View<int*> index_hi) :
-    VariablePack<T>(view, dims), ilo(index_lo), ihi(index_hi) {}
-  Kokkos::View<int*> ilo, ihi;
+  VariableFluxPack(T view, T f0, T f1, T f2, std::array<int, 4> dims) :
+    VariablePack<T>(view, dims), f_({f0,f1,f2}) {}
+  
+  KOKKOS_FORCEINLINE_FUNCTION
+  auto &flux(const int dir) { return f_[dir]; }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  auto &flux(const int dir, const int n, const int k, const int j, const int i) {
+    return f_[dir](n)(k,j,i);
+  }
+
+ private:
+  const std::array<T, 3> f_;
 };
 
 template <typename T>
 using VarList = std::forward_list<std::shared_ptr<CellVariable<T>>>;
+using IndexPair = std::pair<int,int>;
+using PackIndexMap = std::map<std::string, IndexPair>;
 
 template <typename T>
-auto MakePack(VarList<T> &vars) {
-  // count up the size
-  int vsize = 0;
-  for (const auto &v : vars) {
-    vsize += v->GetDim(6) * v->GetDim(5) * v->GetDim(4);
-  }
-  auto fvar = vars.front()->data;
-  auto slice = fvar.Get(0, 0, 0);
-  auto cv = Kokkos::View<decltype(slice) *>("MakePack::cv", vsize);
-  auto host_view = Kokkos::create_mirror_view(cv);
-  int vindex = 0;
-  for (const auto &v : vars) {
-    for (int k = 0; k < v->GetDim(6); k++) {
-      for (int j = 0; j < v->GetDim(5); j++) {
-        for (int i = 0; i < v->GetDim(4); i++) {
-          host_view(vindex++) = v->data.Get(k, j, i);
-        }
-      }
-    }
-  }
-  Kokkos::deep_copy(cv, host_view);
-  std::array<int, 4> cv_size = {fvar.GetDim(1), fvar.GetDim(2), fvar.GetDim(3), vsize};
-  return VariablePack<decltype(cv)>(cv, cv_size);
-}
-template <typename T>
-auto MakeIndexedPack(VarList<T> &vars) {
+auto MakeFluxPack(VarList<T> &vars, VarList<T> &flux_vars, PackIndexMap* vmap=nullptr) {
   // count up the size
   int vsize = 0;
   int nvars = 0;
@@ -98,11 +86,57 @@ auto MakeIndexedPack(VarList<T> &vars) {
     vsize += v->GetDim(6) * v->GetDim(5) * v->GetDim(4);
   }
 
-  // make some arrays to hold indexing info
-  Kokkos::View<int*> index_lo("index_lo", nvars);
-  Kokkos::View<int*> index_hi("index_hi", nvars);
-  auto h_ilo = Kokkos::create_mirror_view(index_lo);
-  auto h_ihi = Kokkos::create_mirror_view(index_hi);
+  auto fvar = vars.front()->data;
+  auto slice = fvar.Get(0, 0, 0);
+  // make the outer view
+  auto cv = Kokkos::View<decltype(slice) *>("MakeFluxPack::cv", vsize);
+  auto f0 = Kokkos::View<decltype(slice) *>("MakeFluxPack::f0", vsize);
+  auto f1 = Kokkos::View<decltype(slice) *>("MakeFluxPack::f1", vsize);
+  auto f2 = Kokkos::View<decltype(slice) *>("MakeFluxPack::f2", vsize);
+  auto host_view = Kokkos::create_mirror_view(cv);
+  auto host_f0 = Kokkos::create_mirror_view(f0);
+  auto host_f1 = Kokkos::create_mirror_view(f1);
+  auto host_f2 = Kokkos::create_mirror_view(f2);
+  int vindex = 0;
+  for (int n=0; n<nvars; n++) {
+    int vstart = vindex;
+    auto v = vars[n];
+    auto fv = flux_vars[n];
+    for (int k = 0; k < v->GetDim(6); k++) {
+      for (int j = 0; j < v->GetDim(5); j++) {
+        for (int i = 0; i < v->GetDim(4); i++) {
+          host_view(vindex) = v->data.Get(k, j, i);
+          host_f0(vindex) = fv->flux[0].Get(k, j, i);
+          host_f1(vindex) = fv->flux[1].Get(k, j, i);
+          host_f2(vindex++) = fv->flux[2].Get(k, j, i);
+        }
+      }
+    }
+    if (vmap != nullptr) {
+      vmap->insert(
+        std::pair<std::string,IndexPair>(v->label(), IndexPair(vstart,vindex-1))
+      );
+      vmap->insert(
+        std::pair<std::string,IndexPair>(fv->label(), IndexPair(vstart, vindex-1))
+      );
+    }
+  }
+  Kokkos::deep_copy(cv, host_view);
+  Kokkos::deep_copy(f0, host_f0);
+  Kokkos::deep_copy(f1, host_f1);
+  Kokkos::deep_copy(f2, host_f2);
+  std::array<int, 4> cv_size = {fvar.GetDim(1), fvar.GetDim(2), fvar.GetDim(3), vsize};
+  return VariableFluxPack<decltype(cv)>(cv, f0, f1, f2, cv_size);
+}
+
+
+template <typename T>
+auto MakePack(VarList<T> &vars, PackIndexMap* vmap=nullptr) {
+  // count up the size
+  int vsize = 0;
+  for (const auto &v : vars) {
+    vsize += v->GetDim(6) * v->GetDim(5) * v->GetDim(4);
+  }
 
   auto fvar = vars.front()->data;
   auto slice = fvar.Get(0, 0, 0);
@@ -110,9 +144,8 @@ auto MakeIndexedPack(VarList<T> &vars) {
   auto cv = Kokkos::View<decltype(slice) *>("MakePack::cv", vsize);
   auto host_view = Kokkos::create_mirror_view(cv);
   int vindex = 0;
-  int ivar = 0;
   for (const auto &v : vars) {
-    h_ilo(ivar) = vindex;
+    int vstart = vindex;
     for (int k = 0; k < v->GetDim(6); k++) {
       for (int j = 0; j < v->GetDim(5); j++) {
         for (int i = 0; i < v->GetDim(4); i++) {
@@ -120,56 +153,22 @@ auto MakeIndexedPack(VarList<T> &vars) {
         }
       }
     }
-    h_ihi(ivar) = vindex-1;
-    ivar++;
+    if (vmap != nullptr)
+      vmap->insert(
+        std::pair<std::string,IndexPair>(v->label(), IndexPair(vstart,vindex-1))
+      );
   }
   Kokkos::deep_copy(cv, host_view);
-  Kokkos::deep_copy(index_lo, h_ilo);
-  Kokkos::deep_copy(index_hi, h_ihi);
   std::array<int, 4> cv_size = {fvar.GetDim(1), fvar.GetDim(2), fvar.GetDim(3), vsize};
-  return IndexedVariablePack<decltype(cv)>(cv, cv_size, index_lo, index_hi);
-}
-
-
-template <typename T>
-auto PackVariables(const Container<T> &c) {
-  VarList<T> vars;
-  for (const auto &v : c.GetCellVariableVector()) {
-    vars.push_front(v);
-  }
-  for (const auto &sv : c.GetSparseVector()) {
-    for (const auto &v : sv->GetVector()) {
-      vars.push_front(v);
-    }
-  }
-
-  return MakePack<T>(vars);
+  return VariablePack<decltype(cv)>(cv, cv_size);
 }
 
 template <typename T>
-auto PackVariables(const Container<T> &c, const std::vector<MetadataFlag> &flags) {
-  VarList<T> vars;
-  for (const auto &v : c.GetCellVariableVector()) {
-    if (v->metadata().AnyFlagsSet(flags)) {
-      vars.push_front(v);
-    }
-  }
-  for (const auto &sv : c.GetSparseVector()) {
-    if (sv->metadata().AnyFlagsSet(flags)) {
-      for (const auto &v : sv->GetVector()) {
-        vars.push_front(v);
-      }
-    }
-  }
-
-  return MakePack<T>(vars);
-}
-
-template <typename T>
-VarList<T> MakeListFromNames(const Container<T> &c, const std::vector<std::string> &names) {
+VarList<T> MakeList(const Container<T> &c, const std::vector<std::string> &names) {
   VarList<T> vars;
   auto var_map = c.GetCellVariableMap();
   auto sparse_map = c.GetSparseMap();
+  // reverse iterator to end up with a list in the same order as requested
   for (auto it = names.rbegin(); it != names.rend(); ++it) {
     bool found = false;
     auto v = var_map.find(*it);
@@ -203,16 +202,96 @@ VarList<T> MakeListFromNames(const Container<T> &c, const std::vector<std::strin
 }
 
 template <typename T>
+VarList<T> MakeList(const Container<T> &c, const std::vector<MetadataFlag> &flags) {
+  VarList<T> vars;
+  for (const auto &v : c.GetCellVariableVector()) {
+    if (v->metadata().AnyFlagsSet(flags)) {
+      vars.push_front(v);
+    }
+  }
+  for (const auto &sv : c.GetSparseVector()) {
+    if (sv->metadata().AnyFlagsSet(flags)) {
+      for (const auto &v : sv->GetVector()) {
+        vars.push_front(v);
+      }
+    }
+  }
+  return vars;
+}
+
+template <typename T>
+auto PackVariablesAndFluxes(const Container<T> &c, const std::vector<std::string> &var_names,
+                                                   const std::vector<std::string> &flx_names) {
+  assert(var_names.size() == flx_names.size());
+  VarList<T> vars  = MakeList(c, var_names);
+  VarList<T> fvars = MakeList(c, flx_names);
+  return MakeFluxPack<T>(vars, fvars);
+}
+
+template <typename T>
 auto PackVariables(const Container<T> &c, const std::vector<std::string> &names) {
-  VarList<T> vars = MakeListFromNames(c, names);
+  VarList<T> vars = MakeList(c, names);
   return MakePack<T>(vars);
 }
 
 template <typename T>
-auto PackIndexedVariables(const Container<T> &c, const std::vector<std::string> &names) {
-  VarList<T> vars = MakeListFromNames(c, names);
-  return MakeIndexedPack<T>(vars);
+auto PackVariablesAndFluxes(const Container<T> &c, const std::vector<std::string> &var_names,
+                                                   const std::vector<std::string> &flx_names,
+                                                   PackIndexMap &vmap) {
+  assert(var_names.size() == flx_names.size());
+  VarList<T> vars  = MakeList(c, var_names);
+  VarList<T> fvars = MakeList(c, flx_names);
+  return MakeFluxPack<T>(vars, fvars);
 }
+
+template <typename T>
+auto PackVariables(const Container<T> &c, const std::vector<std::string> &names, PackIndexMap &vmap) {
+  VarList<T> vars = MakeList(c, names);
+  return MakePack<T>(vars, &vmap);
+}
+
+template <typename T>
+auto PackVariablesAndFluxes(const Container<T> &c, const std::vector<MetadataFlag> &flags) {
+  VarList<T> vars = MakeList(c, flags);
+  return MakeFluxPack<T>(vars, vars);
+}
+
+template <typename T>
+auto PackVariables(const Container<T> &c, const std::vector<MetadataFlag> &flags) {
+  VarList<T> vars = MakeList(c, flags);
+  return MakePack<T>(vars);
+}
+
+template <typename T>
+auto PackVariables(const Container<T> &c, PackIndexMap &vmap) {
+  VarList<T> vars;
+  for (const auto &v : c.GetCellVariableVector()) {
+    vars.push_front(v);
+  }
+  for (const auto &sv : c.GetSparseVector()) {
+    for (const auto &v : sv->GetVector()) {
+      vars.push_front(v);
+    }
+  }
+
+  return MakePack<T>(vars, &vmap);
+}
+
+template <typename T>
+auto PackVariables(const Container<T> &c) {
+  VarList<T> vars;
+  for (const auto &v : c.GetCellVariableVector()) {
+    vars.push_front(v);
+  }
+  for (const auto &sv : c.GetSparseVector()) {
+    for (const auto &v : sv->GetVector()) {
+      vars.push_front(v);
+    }
+  }
+
+  return MakePack<T>(vars);
+}
+
 
 template <typename T>
 class ContainerIterator {
