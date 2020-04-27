@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef EXAMPLE_ADVECTION_ADVECTION_HPP_
-#define EXAMPLE_ADVECTION_ADVECTION_HPP_
+#ifndef EXAMPLE_ADVECTION_ADVECTION_PACKAGE_HPP_
+#define EXAMPLE_ADVECTION_ADVECTION_PACKAGE_HPP_
 
 #include <memory>
 
@@ -38,49 +38,7 @@ using parthenon::TaskID;
 using parthenon::TaskList;
 using parthenon::TaskStatus;
 
-namespace advection_example {
-
-class AdvectionDriver : public MultiStageBlockTaskDriver {
- public:
-  AdvectionDriver(ParameterInput *pin, Mesh *pm);
-  // This next function essentially defines the driver.
-  // Call graph looks like
-  // main()
-  //   EvolutionDriver::Execute (driver.cpp)
-  //     MultiStageBlockTaskDriver::Step (multistage.cpp)
-  //       DriverUtils::ConstructAndExecuteBlockTasks (driver.hpp)
-  //         AdvectionDriver::MakeTaskList (advection.cpp)
-  TaskList MakeTaskList(MeshBlock *pmb, int stage);
-};
-
-// demonstrate making a custom Task type
-using ContainerTaskFunc = std::function<TaskStatus(Container<Real> &)>;
-class ContainerTask : public BaseTask {
- public:
-  ContainerTask(TaskID id, ContainerTaskFunc func, TaskID dep, Container<Real> rc)
-      : BaseTask(id, dep), _func(func), _cont(rc) {}
-  TaskStatus operator()() { return _func(_cont); }
-
- private:
-  ContainerTaskFunc _func;
-  Container<Real> _cont;
-};
-using TwoContainerTaskFunc =
-    std::function<TaskStatus(Container<Real> &, Container<Real> &)>;
-class TwoContainerTask : public BaseTask {
- public:
-  TwoContainerTask(TaskID id, TwoContainerTaskFunc func, TaskID dep, Container<Real> rc1,
-                   Container<Real> rc2)
-      : BaseTask(id, dep), _func(func), _cont1(rc1), _cont2(rc2) {}
-  TaskStatus operator()() { return _func(_cont1, _cont2); }
-
- private:
-  TwoContainerTaskFunc _func;
-  Container<Real> _cont1;
-  Container<Real> _cont2;
-};
-
-namespace Advection {
+namespace advection_package {
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 AmrTag CheckRefinement(Container<Real> &rc);
@@ -90,8 +48,6 @@ void PostFill(Container<Real> &rc);
 Real EstimateTimestep(Container<Real> &rc);
 TaskStatus CalculateFluxes(Container<Real> &rc);
 
-} // namespace Advection
-
-} // namespace advection_example
+} // namespace advection_package
 
 #endif // EXAMPLE_ADVECTION_ADVECTION_HPP_

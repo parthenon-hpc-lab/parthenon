@@ -13,7 +13,7 @@
 
 #include "parthenon_manager.hpp"
 
-#include "advection.hpp"
+#include "advection_driver.hpp"
 
 int main(int argc, char *argv[]) {
   using parthenon::ParthenonManager;
