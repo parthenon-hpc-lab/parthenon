@@ -35,9 +35,9 @@ namespace parthenon {
 template <typename T>
 class VariablePack {
  public:
-  VariablePack(T view, std::array<int, 4> dims) : v_(view), dims_(dims) {}
+  VariablePack(const T view, const std::array<int, 4> dims) : v_(view), dims_(dims) {}
   KOKKOS_FORCEINLINE_FUNCTION
-  auto &operator()(const int n) { return v_(n); }
+  auto &operator()(const int n) const { return v_(n); }
   KOKKOS_FORCEINLINE_FUNCTION
   auto &operator()(const int n, const int k, const int j, const int i) const {
     return v_(n)(k, j, i);
@@ -56,19 +56,20 @@ class VariablePack {
 template <typename T>
 class VariableFluxPack : public VariablePack<T> {
  public:
-  VariableFluxPack(T view, T f0, T f1, T f2, std::array<int, 4> dims, int nflux)
+  VariableFluxPack(const T view, const T f0, const T f1, const T f2,
+                   const std::array<int, 4> dims, const int nflux)
       : VariablePack<T>(view, dims), f_({f0, f1, f2}), nflux_(nflux) {}
 
   KOKKOS_FORCEINLINE_FUNCTION
-  auto &flux(const int dir) { return f_[dir]; }
+  auto &flux(const int dir) const { return f_[dir]; }
 
   KOKKOS_FORCEINLINE_FUNCTION
-  auto &flux(const int dir, const int n, const int k, const int j, const int i) {
+  auto &flux(const int dir, const int n, const int k, const int j, const int i) const {
     return f_[dir](n)(k, j, i);
   }
 
  private:
-  const std::array<T, 3> f_;
+  const std::array<const T, 3> f_;
   const int nflux_;
 };
 
