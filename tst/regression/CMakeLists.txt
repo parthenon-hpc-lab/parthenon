@@ -31,8 +31,19 @@ function(setup_test dir arg)
   set_tests_properties(regression_test:${dir} PROPERTIES LABELS "regression" )        
 endfunction()
 
+function(setup_test_mpi dir arg)
+  if( MPI_FOUND )
+    separate_arguments(arg) 
+    add_test( NAME regression_mpi_test:${dir} COMMAND python ${CMAKE_CURRENT_SOURCE_DIR}/run_test.py  --mpirun ${MPIEXEC_EXECUTABLE} --mpirun_opts "${MPIEXEC_NUMPROC_FLAG} ${MPIEXEC_MAX_NUMPROCS}" ${arg} --test_dir ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir})
+    set_tests_properties(regression_mpi_test:${dir} PROPERTIES LABELS "regression,mpi" )
+  else()
+    message(STATUS "MPI not found, not building regression tests with mpi")
+  endif()
+endfunction()
+
 list(APPEND TEST_DIRS calculate_pi)
-list(APPEND TEST_ARGS "--driver ${CMAKE_BINARY_DIR}/example/calculate_pi/parthenon-example --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/calculate_pi/parthinput.regression")
+list(APPEND TEST_ARGS "--driver ${CMAKE_BINARY_DIR}/example/calculate_pi/pi-example --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/calculate_pi/parthinput.regression")
+
 
 # Add additional regression tests to ctest below this line by calling
 #
@@ -49,4 +60,5 @@ foreach( index RANGE ${end_index})
   list(GET TEST_DIRS ${index} TEST_DIR)
   list(GET TEST_ARGS ${index} TEST_ARG)
   setup_test( ${TEST_DIR} ${TEST_ARG})
+  setup_test_mpi( ${TEST_DIR} ${TEST_ARG})
 endforeach()

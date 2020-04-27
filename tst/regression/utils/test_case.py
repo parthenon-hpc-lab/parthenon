@@ -1,4 +1,4 @@
-#========================================================================================
+
 # Athena++ astrophysical MHD code
 # Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 # Licensed under the 3-clause BSD License, see LICENSE file for details
@@ -46,6 +46,7 @@ class TestManager:
         test_dir = kwargs.pop('test_dir')
         parthenon_driver = kwargs.pop('driver')
         parthenon_driver_input = kwargs.pop('driver_input')
+        mpi_executable = kwargs.pop('mpirun')
 
         self.__initial_working_dir = os.getcwd()
 
@@ -57,6 +58,7 @@ class TestManager:
         self.__checkRegressionTestScript(test_base_name)
         self.__checkDriverPath(parthenon_driver[0])
         self.__checkDriverInputPath(parthenon_driver_input[0])
+        self.__checkMPIExecutable(mpi_executable)
 
         driver_path = os.path.abspath(parthenon_driver[0])
         driver_input_path = os.path.abspath(parthenon_driver_input[0])
@@ -76,7 +78,7 @@ class TestManager:
         self.parameters.driver_input_path = driver_input_path
         self.parameters.output_path = output_path
         self.parameters.test_path = test_path
-        self.parameters.mpi_cmd = kwargs.pop('mpirun')
+        self.parameters.mpi_cmd = mpi_executable
         self.parameters.mpi_opts = kwargs.pop('mpirun_opts')
 
         module = __import__(self.__test_module, globals(), locals(),
@@ -124,6 +126,41 @@ class TestManager:
         if not os.path.isfile(parthenon_driver_input):
             raise TestManagerError("Unable to locate driver input file " + parthenon_driver_input)
 
+    def __checkMPIExecutable(self,mpi_executable):
+
+        if not mpi_executable: return
+
+        mpi_exec = mpi_executable[0]
+
+        choices=['mpirun', 'mpiexec', 'srun', 'qsub', 'lsrun', 'aprun']
+        print("1")
+        sys.stdout.flush()
+        for choice in choices:
+            print("2")
+            sys.stdout.flush()
+            if( mpi_exec.endswith(choice)):
+                print("3")
+                sys.stdout.flush()
+                if len(mpi_exec) != len(choice):
+                    print("4")
+                    sys.stdout.flush()
+                    if os.path.isfile(mpi_exec):
+                        return
+                    else:
+                        error_msg = "mpi executable path provided, but no file found "
+                        error_msg += mpi_exec 
+                        raise TestManagerError(error_msg)
+                else:
+                    return
+
+        error_msg = "Invalid mpi executable specified "
+        error_msg += mpi_exec 
+        error_msg += "\nExpected choices are:"
+        for choice in choices:
+            error_msg += choice
+            error_msg += "\n"
+        raise TestManagerError(error_msg)
+
     def CleanOutputFolder(self):
         if os.path.isdir(self.parameters.output_path):
                 rmtree(self.parameters.output_path)
@@ -142,7 +179,7 @@ class TestManager:
        
         run_command = []
         if( self.parameters.mpi_cmd !="" ):
-            run_command.append(self.parameters.mpi_cmd)
+            run_command.extend(self.parameters.mpi_cmd)
         for opt in self.parameters.mpi_opts:
             run_command.extend(opt.split()) 
         run_command.append(self.parameters.driver_path)  

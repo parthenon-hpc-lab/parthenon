@@ -30,9 +30,7 @@ import utils.test_case as tc
 def checkRunScriptLocation(run_test_py_path):
   
     """ Check that run_test is in the correct folder """
-    #folders = SplitPathIntoFolders(run_test_py_path)
     if not os.path.normpath(run_test_py_path).endswith(os.path.normpath("parthenon/tst/regression")):
-    #if( os.path.join(folders[2], folders[1], folders[0]) != "parthenon/tst/regression" ): 
         error_msg = "Cannot run run_test.py, it is not in the correct directory, must be "
         error_msg += "kept in parthenon/tst/regression"
         raise TestError(error_msg)
@@ -112,7 +110,6 @@ if __name__ == '__main__':
                         default='',
                         # 2x MPI, Slurm, PBS/Torque, LSF, Cray ALPS
                         nargs=1,
-                        choices=['mpirun', 'mpiexec', 'srun', 'qsub', 'lsrun', 'aprun'],
                         help='change MPI run wrapper command (e.g. for job schedulers)')
 
     parser.add_argument('--mpirun_opts',
