@@ -10,11 +10,37 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#include "interface/properties_interface.hpp"
+
+#ifndef PARTHENON_DRIVER_HPP_
+#define PARTHENON_DRIVER_HPP_
+
+// Internal Includes
+#include <driver/driver.hpp>
+#include <mesh/mesh.hpp>
+#include <outputs/outputs.hpp>
+#include <parameter_input.hpp>
+#include <task_list/tasks.hpp>
+
+// Local Includes
+#include "prelude.hpp"
 
 namespace parthenon {
+namespace driver {
+namespace prelude {
+using namespace ::parthenon::prelude;
 
-// Initialize the static map of ids
-std::map<std::string, int> PropertiesInterface::label_to_id_;
-
+using ::parthenon::BlockTask;
+using ::parthenon::Driver;
+using ::parthenon::DriverStatus;
+using ::parthenon::Mesh;
+using ::parthenon::MeshBlock;
+using ::parthenon::Outputs;
+using ::parthenon::ParameterInput;
+using ::parthenon::TaskID;
+using ::parthenon::TaskList;
+using ::parthenon::DriverUtils::ConstructAndExecuteBlockTasks;
+} // namespace prelude
+} // namespace driver
 } // namespace parthenon
+
+#endif // PARTHENON_DRIVER_HPP_

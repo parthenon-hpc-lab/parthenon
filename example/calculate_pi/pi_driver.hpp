@@ -10,11 +10,34 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#include "interface/properties_interface.hpp"
 
-namespace parthenon {
+#ifndef EXAMPLE_CALCULATE_PI_PI_DRIVER_HPP_
+#define EXAMPLE_CALCULATE_PI_PI_DRIVER_HPP_
 
-// Initialize the static map of ids
-std::map<std::string, int> PropertiesInterface::label_to_id_;
+#include <parthenon/driver.hpp>
 
-} // namespace parthenon
+namespace pi {
+using namespace parthenon::driver::prelude;
+
+/**
+ * @brief Constructs a driver which estimates PI using AMR.
+ */
+class PiDriver : public Driver {
+ public:
+  PiDriver(ParameterInput *pin, Mesh *pm) : Driver(pin, pm) {
+    InitializeOutputs();
+    pin->CheckDesired("Pi", "radius");
+    pin->CheckDesired("graphics", "variables");
+  }
+
+  /// MakeTaskList isn't a virtual routine on `Driver`, but each driver is expected to
+  /// implement it.
+  TaskList MakeTaskList(MeshBlock *pmb);
+
+  /// `Execute` cylces until simulation completion.
+  DriverStatus Execute() override;
+};
+
+} // namespace pi
+
+#endif // EXAMPLE_CALCULATE_PI_PI_DRIVER_HPP_

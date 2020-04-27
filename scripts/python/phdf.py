@@ -67,48 +67,6 @@ class phdf:
         later
 
     """
-
-    def GenAuxData(self):
-        """
-        Additional attributes filled in by function GenAuxData():
-                          offset[3]: Offsets for real cells in the block
-             isGhost[CellsPerBlock]: Array of size CellsPerBlock indicating ghost cells
-            BlockIdx[CellsPerBlock]: Converts a cell index to [ib, bidx, iz, iy, ix]
-                                     into [ a block ID, index within that
-                                     block, and z, y, and x locations within that block]
-             BlockBounds[NumBlocks]: Bounds of all the blocks
-        """
-        # flag for ghost cells.
-        #Logic is easier starting with all ghost and unmarking
-        self.offset = np.zeros(3,'i')
-        for i in range(3):
-            if self.MeshBlockSize[i] > 1:
-                self.offset[i] = self.NGhost * self.IncludesGhost
-        xRange = range(self.MeshBlockSize[0])
-        yRange = range(self.MeshBlockSize[1])
-        zRange = range(self.MeshBlockSize[2])
-        xo = [self.offset[0], self.MeshBlockSize[0]-self.offset[0]]
-        yo = [self.offset[1], self.MeshBlockSize[1]-self.offset[1]]
-        zo = [self.offset[2], self.MeshBlockSize[2]-self.offset[2]]
-
-        self.BlockIdx = [None]*self.CellsPerBlock
-        self.isGhost = np.ones(self.CellsPerBlock,dtype=bool)
-        index = 0
-        yMask = False
-        zMask = False
-        for k in zRange:
-            if self.NumDims > 2:
-                zMask = (k<zo[0] or k>=zo[1])
-            for j in yRange:
-                if self.NumDims > 1:
-                    yMask = (j<yo[0] or j>=yo[1])
-                for i in xRange:
-                    xMask = (i<xo[0] or i>=xo[1])
-                    self.isGhost[index] = ( xMask or yMask or zMask )
-                    self.BlockIdx[index] = [k, j, i]
-                    index += 1
-
-              
     def __init__(self, filename):
         """
         Initializes a python structure with the information from
@@ -205,6 +163,46 @@ class phdf:
         except:
             raise FileNotFoundError(
                 errno.ENOENT, os.strerror(errno.ENOENT), filename)
+
+    def GenAuxData(self):
+        """
+        Additional attributes filled in by function GenAuxData():
+                          offset[3]: Offsets for real cells in the block
+             isGhost[CellsPerBlock]: Array of size CellsPerBlock indicating ghost cells
+            BlockIdx[CellsPerBlock]: Converts a cell index to [ib, bidx, iz, iy, ix]
+                                     into [ a block ID, index within that
+                                     block, and z, y, and x locations within that block]
+             BlockBounds[NumBlocks]: Bounds of all the blocks
+        """
+        # flag for ghost cells.
+        #Logic is easier starting with all ghost and unmarking
+        self.offset = np.zeros(3,'i')
+        for i in range(3):
+            if self.MeshBlockSize[i] > 1:
+                self.offset[i] = self.NGhost * self.IncludesGhost
+        xRange = range(self.MeshBlockSize[0])
+        yRange = range(self.MeshBlockSize[1])
+        zRange = range(self.MeshBlockSize[2])
+        xo = [self.offset[0], self.MeshBlockSize[0]-self.offset[0]]
+        yo = [self.offset[1], self.MeshBlockSize[1]-self.offset[1]]
+        zo = [self.offset[2], self.MeshBlockSize[2]-self.offset[2]]
+
+        self.BlockIdx = [None]*self.CellsPerBlock
+        self.isGhost = np.ones(self.CellsPerBlock,dtype=bool)
+        index = 0
+        yMask = False
+        zMask = False
+        for k in zRange:
+            if self.NumDims > 2:
+                zMask = (k<zo[0] or k>=zo[1])
+            for j in yRange:
+                if self.NumDims > 1:
+                    yMask = (j<yo[0] or j>=yo[1])
+                for i in xRange:
+                    xMask = (i<xo[0] or i>=xo[1])
+                    self.isGhost[index] = ( xMask or yMask or zMask )
+                    self.BlockIdx[index] = [k, j, i]
+                    index += 1
 
     def ToLocation(self, index):
         """

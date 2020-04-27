@@ -10,47 +10,43 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef INTERFACE_PROPERTIES_INTERFACE_HPP_
-#define INTERFACE_PROPERTIES_INTERFACE_HPP_
 
-#include <map>
-#include <memory>
-#include <string>
-#include <vector>
+#ifndef PARTHENON_PACKAGE_HPP_
+#define PARTHENON_PACKAGE_HPP_
 
-#include "interface/state_descriptor.hpp"
+// Internal Includes
+#include <basic_types.hpp>
+#include <coordinates/coordinates.hpp>
+#include <interface/metadata.hpp>
+#include <interface/params.hpp>
+#include <interface/state_descriptor.hpp>
+#include <kokkos_abstraction.hpp>
+#include <mesh/mesh.hpp>
+#include <parameter_input.hpp>
+#include <parthenon_manager.hpp>
+#include <task_list/tasks.hpp>
+
+// Local Includes
+#include "prelude.hpp"
 
 namespace parthenon {
+namespace package {
+namespace prelude {
+using namespace ::parthenon::prelude;
 
-class PropertiesInterface {
- public:
-  virtual ~PropertiesInterface() {}
-
-  virtual StateDescriptor &State() = 0;
-
-  static int GetIDFromLabel(std::string &label) {
-    return PropertiesInterface::label_to_id_[label];
-  }
-
-  static std::string GetLabelFromID(int id) {
-    for (auto &x : PropertiesInterface::label_to_id_) {
-      if (x.second == id) return x.first;
-    }
-    return "UNKNOWN";
-  }
-
-  static void InsertID(const std::string &label, const int &id) {
-    PropertiesInterface::label_to_id_[label] = id;
-  }
-
- private:
-  // label_to_id_ is declared here and defined in
-  // PropertiesInterface.cpp
-  static std::map<std::string, int> label_to_id_;
-};
-
-using Properties_t = std::vector<std::shared_ptr<PropertiesInterface>>;
-
+using ::parthenon::AmrTag;
+using ::parthenon::Coordinates;
+using ::parthenon::DerivedOwnership;
+using ::parthenon::MeshBlock;
+using ::parthenon::Metadata;
+using ::parthenon::par_for;
+using ::parthenon::ParameterInput;
+using ::parthenon::Params;
+using ::parthenon::ParthenonManager;
+using ::parthenon::StateDescriptor;
+using ::parthenon::TaskStatus;
+} // namespace prelude
+} // namespace package
 } // namespace parthenon
 
-#endif // INTERFACE_PROPERTIES_INTERFACE_HPP_
+#endif // PARTHENON_PACKAGE_HPP_

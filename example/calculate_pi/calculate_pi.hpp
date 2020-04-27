@@ -10,11 +10,25 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#include "interface/properties_interface.hpp"
+#ifndef EXAMPLE_CALCULATE_PI_CALCULATE_PI_HPP_
+#define EXAMPLE_CALCULATE_PI_CALCULATE_PI_HPP_
 
-namespace parthenon {
+// Standard Includes
+#include <memory>
 
-// Initialize the static map of ids
-std::map<std::string, int> PropertiesInterface::label_to_id_;
+// Parthenon Includes
+#include <parthenon/package.hpp>
 
-} // namespace parthenon
+namespace calculate_pi {
+using namespace parthenon::package::prelude;
+
+// Package Callbacks
+void SetInOrOut(Container<Real> &rc);
+parthenon::AmrTag CheckRefinement(Container<Real> &rc);
+std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
+
+// Task Implementations
+parthenon::TaskStatus ComputeArea(parthenon::MeshBlock *pmb);
+} // namespace calculate_pi
+
+#endif // EXAMPLE_CALCULATE_PI_CALCULATE_PI_HPP_

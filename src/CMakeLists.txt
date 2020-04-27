@@ -137,7 +137,11 @@ add_library(parthenon
   parameter_input.cpp
   parthenon_manager.cpp
 )
+
 target_compile_features(parthenon PUBLIC cxx_std_14)
+if (CMAKE_CXX_COMPILER_ID STREQUAL "XL")
+  target_compile_options(parthenon PUBLIC -std=c++1y -qxflag=disable__cplusplusOverride)
+endif()
 
 
 if (ENABLE_MPI)

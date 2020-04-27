@@ -49,7 +49,7 @@ class Driver {
 class SimpleDriver : public Driver {
  public:
   SimpleDriver(ParameterInput *pin, Mesh *pm) : Driver(pin, pm) {}
-  DriverStatus Execute() { return DriverStatus::complete; }
+  DriverStatus Execute() override { return DriverStatus::complete; }
 };
 
 class EvolutionDriver : public Driver {
@@ -63,7 +63,7 @@ class EvolutionDriver : public Driver {
     tm = SimTime(start_time, tstop, nmax, 0, nout);
     pouts = std::make_unique<Outputs>(pmesh, pinput, &tm);
   }
-  DriverStatus Execute();
+  DriverStatus Execute() override;
   void SetGlobalTimeStep();
   void OutputCycleDiagnostics();
 
