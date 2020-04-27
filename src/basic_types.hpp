@@ -42,8 +42,10 @@ struct SimTime {
       : start_time(tstart), time(tstart), tlim(tstop),
         dt(std::numeric_limits<Real>::max()), nlim(nmax), ncycle(ncurr),
         ncycle_out(nout) {}
+  // beginning time, current time, maximum time, time step
   Real start_time, time, tlim, dt;
-  int nlim, ncycle, ncycle_out;
+  // current cycle number, maximum number of cycles, cycles between diagnostic output
+  int ncycle, nlim, ncycle_out;
 };
 
 } // namespace parthenon
