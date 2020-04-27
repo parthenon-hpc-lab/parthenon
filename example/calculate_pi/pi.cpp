@@ -87,9 +87,10 @@ DriverStatus CalculatePi::Execute() {
               << "PI = " << pi_val << "    rel error = " << (pi_val - M_PI) / M_PI
               << std::endl
               << std::endl;
+
     std::fstream fs;
-    fs.open ("summary.txt", std::fstream::out);
-    fs << "PI = " << pi_val << "    rel error = " << (pi_val-M_PI)/M_PI << std::endl;
+    fs.open("summary.txt", std::fstream::out);
+    fs << "PI = " << pi_val << "    rel error = " << (pi_val - M_PI) / M_PI << std::endl;
     fs.close();
   }
   pmesh->mbcnt = pmesh->nbtotal; // this is how many blocks were processed
