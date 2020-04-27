@@ -56,6 +56,10 @@ if(NOT EXISTS ${XL_CONFIG_FILE})
 endif()
 
 if (GCC_BAD_VERSION)
+    # unset the GCC variable so that you don't have to delete your configuration
+    # if a bad gcc was found initially
+    unset(GCC CACHE)
+
     file(
         GLOB XL_AVAILABLE_GCC_CONFIGURATIONS
         RELATIVE "${XL_CONFIG_ROOT}"
@@ -88,4 +92,4 @@ if (GCC_BAD_VERSION)
     )
 endif()
 
-list(APPEND CMAKE_CXX_FLAGS -F${XL_CONFIG_FILE})
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -F${XL_CONFIG_FILE}")
