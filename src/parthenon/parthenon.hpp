@@ -10,11 +10,12 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#include "interface/properties_interface.hpp"
 
-namespace parthenon {
+#ifndef PARTHENON_PARTHENON_HPP_
+#define PARTHENON_PARTHENON_HPP_
 
-// Initialize the static map of ids
-std::map<std::string, int> PropertiesInterface::label_to_id_;
+// Re-export all public Parthenon headers
+#include "driver.hpp"
+#include "package.hpp"
 
-} // namespace parthenon
+#endif // PARTHENON_PARTHENON_HPP_

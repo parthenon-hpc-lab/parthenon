@@ -10,47 +10,31 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef INTERFACE_PROPERTIES_INTERFACE_HPP_
-#define INTERFACE_PROPERTIES_INTERFACE_HPP_
 
-#include <map>
-#include <memory>
-#include <string>
-#include <vector>
+#ifndef PARTHENON_PRELUDE_HPP_
+#define PARTHENON_PRELUDE_HPP_
 
-#include "interface/state_descriptor.hpp"
+// Internal Includes
+#include <basic_types.hpp>
+#include <globals.hpp>
+#include <interface/container.hpp>
+#include <interface/variable.hpp>
+#include <mesh/mesh.hpp>
+#include <parthenon_arrays.hpp>
+#include <parthenon_manager.hpp>
+#include <parthenon_mpi.hpp>
 
 namespace parthenon {
-
-class PropertiesInterface {
- public:
-  virtual ~PropertiesInterface() {}
-
-  virtual StateDescriptor &State() = 0;
-
-  static int GetIDFromLabel(std::string &label) {
-    return PropertiesInterface::label_to_id_[label];
-  }
-
-  static std::string GetLabelFromID(int id) {
-    for (auto &x : PropertiesInterface::label_to_id_) {
-      if (x.second == id) return x.first;
-    }
-    return "UNKNOWN";
-  }
-
-  static void InsertID(const std::string &label, const int &id) {
-    PropertiesInterface::label_to_id_[label] = id;
-  }
-
- private:
-  // label_to_id_ is declared here and defined in
-  // PropertiesInterface.cpp
-  static std::map<std::string, int> label_to_id_;
-};
-
-using Properties_t = std::vector<std::shared_ptr<PropertiesInterface>>;
-
+namespace prelude {
+using ::parthenon::CellVariable;
+using ::parthenon::Container;
+using ::parthenon::MeshBlock;
+using ::parthenon::ParArrayND;
+using ::parthenon::ParthenonStatus;
+using ::parthenon::Real;
+using ::parthenon::Globals::my_rank;
+using ::parthenon::Globals::nranks;
+} // namespace prelude
 } // namespace parthenon
 
-#endif // INTERFACE_PROPERTIES_INTERFACE_HPP_
+#endif // PARTHENON_PRELUDE_HPP_
