@@ -925,6 +925,8 @@ void ParameterInput::CheckDesired(std::string block, std::string name) {
     std::cout << std::endl
               << "### WARNING in CheckDesired:" << std::endl
               << "Parameter file missing desired field <" << block << ">/" << name
+              << std::endl << "Defaulting to <" << block << ">/" << name << " = "
+              << GetString(block,name) 
               << std::endl
               << std::endl;
   }
