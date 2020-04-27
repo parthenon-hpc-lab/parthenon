@@ -56,8 +56,8 @@ class VariablePack {
 template <typename T>
 class VariableFluxPack : public VariablePack<T> {
  public:
-  VariableFluxPack(T view, T f0, T f1, T f2, std::array<int, 4> dims)
-      : VariablePack<T>(view, dims), f_({f0, f1, f2}) {}
+  VariableFluxPack(T view, T f0, T f1, T f2, std::array<int, 4> dims, int nflux)
+      : VariablePack<T>(view, dims), f_({f0, f1, f2}), nflux_(nflux) {}
 
   KOKKOS_FORCEINLINE_FUNCTION
   auto &flux(const int dir) { return f_[dir]; }
@@ -69,6 +69,7 @@ class VariableFluxPack : public VariablePack<T> {
 
  private:
   const std::array<T, 3> f_;
+  const int nflux_;
 };
 
 template <typename T>
@@ -80,43 +81,57 @@ template <typename T>
 auto MakeFluxPack(VarList<T> &vars, VarList<T> &flux_vars, PackIndexMap *vmap = nullptr) {
   // count up the size
   int vsize = 0;
-  int nvars = 0;
   for (const auto &v : vars) {
-    nvars++;
     vsize += v->GetDim(6) * v->GetDim(5) * v->GetDim(4);
+  }
+  int fsize = 0;
+  for (const auto &v : flux_vars) {
+    fsize += v->GetDim(6) * v->GetDim(5) * v->GetDim(4);
   }
 
   auto fvar = vars.front()->data;
   auto slice = fvar.Get(0, 0, 0);
   // make the outer view
   auto cv = Kokkos::View<decltype(slice) *>("MakeFluxPack::cv", vsize);
-  auto f0 = Kokkos::View<decltype(slice) *>("MakeFluxPack::f0", vsize);
-  auto f1 = Kokkos::View<decltype(slice) *>("MakeFluxPack::f1", vsize);
-  auto f2 = Kokkos::View<decltype(slice) *>("MakeFluxPack::f2", vsize);
+  auto f0 = Kokkos::View<decltype(slice) *>("MakeFluxPack::f0", fsize);
+  auto f1 = Kokkos::View<decltype(slice) *>("MakeFluxPack::f1", fsize);
+  auto f2 = Kokkos::View<decltype(slice) *>("MakeFluxPack::f2", fsize);
   auto host_view = Kokkos::create_mirror_view(cv);
   auto host_f0 = Kokkos::create_mirror_view(f0);
   auto host_f1 = Kokkos::create_mirror_view(f1);
   auto host_f2 = Kokkos::create_mirror_view(f2);
+  // add variables to host view
   int vindex = 0;
-  for (int n = 0; n < nvars; n++) {
+  for (const auto &v : vars) {
     int vstart = vindex;
-    auto v = vars[n];
-    auto fv = flux_vars[n];
     for (int k = 0; k < v->GetDim(6); k++) {
       for (int j = 0; j < v->GetDim(5); j++) {
         for (int i = 0; i < v->GetDim(4); i++) {
-          host_view(vindex) = v->data.Get(k, j, i);
-          host_f0(vindex) = fv->flux[0].Get(k, j, i);
-          host_f1(vindex) = fv->flux[1].Get(k, j, i);
-          host_f2(vindex++) = fv->flux[2].Get(k, j, i);
+          host_view(vindex++) = v->data.Get(k, j, i);
         }
       }
     }
     if (vmap != nullptr) {
       vmap->insert(
           std::pair<std::string, IndexPair>(v->label(), IndexPair(vstart, vindex - 1)));
+    }
+  }
+  // add fluxes to host view
+  vindex = 0;
+  for (const auto &v : flux_vars) {
+    int vstart = vindex;
+    for (int k = 0; k < v->GetDim(6); k++) {
+      for (int j = 0; j < v->GetDim(5); j++) {
+        for (int i = 0; i < v->GetDim(4); i++) {
+          host_f0(vindex) = v->flux[0].Get(k, j, i);
+          host_f1(vindex) = v->flux[1].Get(k, j, i);
+          host_f2(vindex++) = v->flux[2].Get(k, j, i);
+        }
+      }
+    }
+    if (vmap != nullptr) {
       vmap->insert(
-          std::pair<std::string, IndexPair>(fv->label(), IndexPair(vstart, vindex - 1)));
+          std::pair<std::string, IndexPair>(v->label(), IndexPair(vstart, vindex - 1)));
     }
   }
   Kokkos::deep_copy(cv, host_view);
@@ -124,7 +139,7 @@ auto MakeFluxPack(VarList<T> &vars, VarList<T> &flux_vars, PackIndexMap *vmap = 
   Kokkos::deep_copy(f1, host_f1);
   Kokkos::deep_copy(f2, host_f2);
   std::array<int, 4> cv_size = {fvar.GetDim(1), fvar.GetDim(2), fvar.GetDim(3), vsize};
-  return VariableFluxPack<decltype(cv)>(cv, f0, f1, f2, cv_size);
+  return VariableFluxPack<decltype(cv)>(cv, f0, f1, f2, cv_size, fsize);
 }
 
 template <typename T>
@@ -217,7 +232,6 @@ template <typename T>
 auto PackVariablesAndFluxes(const Container<T> &c,
                             const std::vector<std::string> &var_names,
                             const std::vector<std::string> &flx_names) {
-  assert(var_names.size() == flx_names.size());
   VarList<T> vars = MakeList(c, var_names);
   VarList<T> fvars = MakeList(c, flx_names);
   return MakeFluxPack<T>(vars, fvars);
@@ -234,7 +248,6 @@ auto PackVariablesAndFluxes(const Container<T> &c,
                             const std::vector<std::string> &var_names,
                             const std::vector<std::string> &flx_names,
                             PackIndexMap &vmap) {
-  assert(var_names.size() == flx_names.size());
   VarList<T> vars = MakeList(c, var_names);
   VarList<T> fvars = MakeList(c, flx_names);
   return MakeFluxPack<T>(vars, fvars);

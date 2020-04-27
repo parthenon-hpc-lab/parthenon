@@ -21,6 +21,10 @@
 #include "interface/container_iterator.hpp"
 #include "mesh/mesh.hpp"
 
+#include "kokkos_abstraction.hpp"
+using parthenon::DevExecSpace;
+using parthenon::par_for;
+
 namespace parthenon {
 
 namespace Update {
@@ -110,22 +114,17 @@ void UpdateContainer(Container<Real> &in, Container<Real> &dudt_cont, const Real
   ContainerIterator<Real> cin_iter(in, {Metadata::Independent});
   ContainerIterator<Real> cout_iter(out, {Metadata::Independent});
   ContainerIterator<Real> du_iter(dudt_cont, {Metadata::Independent});
+  auto vin = PackVariables(in, {Metadata::Independent});
+  auto vout = PackVariables(out, {Metadata::Independent});
+  auto dudt = PackVariables(dudt_cont, {Metadata::Independent});
   int nvars = cout_iter.vars.size();
 
-  for (int n = 0; n < nvars; n++) {
-    CellVariable<Real> &qin = *cin_iter.vars[n];
-    CellVariable<Real> &dudt = *du_iter.vars[n];
-    CellVariable<Real> &qout = *cout_iter.vars[n];
-    for (int l = 0; l < qout.GetDim(4); l++) {
-      for (int k = ks; k <= ke; k++) {
-        for (int j = js; j <= je; j++) {
-          for (int i = is; i <= ie; i++) {
-            qout(l, k, j, i) = qin(l, k, j, i) + dt * dudt(l, k, j, i);
-          }
-        }
-      }
-    }
-  }
+  par_for(
+      "UpdateContainer", DevExecSpace(), 0, vin.GetDim(4), 0, vin.GetDim(3), 0,
+      vin.GetDim(2), 0, vin.GetDim(1),
+      KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
+        vout(l, k, j, i) = vin(l, k, j, i) + dt * dudt(l, k, j, i);
+      });
   return;
 }
 
