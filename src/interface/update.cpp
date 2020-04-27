@@ -117,11 +117,11 @@ void UpdateContainer(Container<Real> &in, Container<Real> &dudt_cont, const Real
   auto vin = PackVariables(in, {Metadata::Independent});
   auto vout = PackVariables(out, {Metadata::Independent});
   auto dudt = PackVariables(dudt_cont, {Metadata::Independent});
-  //int nvars = cout_iter.vars.size();
+  // int nvars = cout_iter.vars.size();
 
   par_for(
-      "UpdateContainer", DevExecSpace(), 0, vin.GetDim(4)-1, 0, vin.GetDim(3)-1, 0,
-      vin.GetDim(2)-1, 0, vin.GetDim(1)-1,
+      "UpdateContainer", DevExecSpace(), 0, vin.GetDim(4) - 1, 0, vin.GetDim(3) - 1, 0,
+      vin.GetDim(2) - 1, 0, vin.GetDim(1) - 1,
       KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
         vout(l, k, j, i) = vin(l, k, j, i) + dt * dudt(l, k, j, i);
       });

@@ -183,35 +183,30 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
     WHEN("we set fluxes of independent variables") {
       auto vf = PackVariablesAndFluxes(rc, {Metadata::Independent, Metadata::FillGhost});
       par_for(
-        "Set fluxes", DevExecSpace(),
-        0, vf.GetDim(4) - 1,
-        0, vf.GetDim(3) - 1,
-        0, vf.GetDim(2) - 1,
-        0, vf.GetDim(1) - 1,
-        KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
-          vf(l,k,j,i) = 0.0;
-          vf.flux(0,l,k,j,i) = 16.0-i;
-          vf.flux(1,l,k,j,i) = 16.0-j;
-          vf.flux(2,l,k,j,i) = 16.0-k;
-        });
+          "Set fluxes", DevExecSpace(), 0, vf.GetDim(4) - 1, 0, vf.GetDim(3) - 1, 0,
+          vf.GetDim(2) - 1, 0, vf.GetDim(1) - 1,
+          KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
+            vf(l, k, j, i) = 0.0;
+            vf.flux(0, l, k, j, i) = 16.0 - i;
+            vf.flux(1, l, k, j, i) = 16.0 - j;
+            vf.flux(2, l, k, j, i) = 16.0 - k;
+          });
       THEN("adding in the fluxes should change the values appropriately") {
         par_for(
-          "Update vars", DevExecSpace(),
-          0, vf.GetDim(4) - 1,
-          0, vf.GetDim(3) - 2,
-          0, vf.GetDim(2) - 2,
-          0, vf.GetDim(1) - 2,
-          KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
-            vf(l,k,j,i) -= (  (vf.flux(0,l,k,j,i+1)-vf.flux(0,l,k,j,i))
-                            + (vf.flux(1,l,k,j+1,i)-vf.flux(1,l,k,j,i))
-                            + (vf.flux(2,l,k+1,j,i)-vf.flux(2,l,k,j,i)));
-          });
+            "Update vars", DevExecSpace(), 0, vf.GetDim(4) - 1, 0, vf.GetDim(3) - 2, 0,
+            vf.GetDim(2) - 2, 0, vf.GetDim(1) - 2,
+            KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
+              vf(l, k, j, i) -= ((vf.flux(0, l, k, j, i + 1) - vf.flux(0, l, k, j, i)) +
+                                 (vf.flux(1, l, k, j + 1, i) - vf.flux(1, l, k, j, i)) +
+                                 (vf.flux(2, l, k + 1, j, i) - vf.flux(2, l, k, j, i)));
+            });
 
         using policy4D = Kokkos::MDRangePolicy<Kokkos::Rank<4>>;
         Real total = 0.0;
         Real sum = 1.0;
         Kokkos::parallel_reduce(
-            policy4D({0, 0, 0, 0}, {v.GetDim(4), v.GetDim(3)-1, v.GetDim(2)-1, v.GetDim(1)-1}),
+            policy4D({0, 0, 0, 0},
+                     {v.GetDim(4), v.GetDim(3) - 1, v.GetDim(2) - 1, v.GetDim(1) - 1}),
             KOKKOS_LAMBDA(const int l, const int k, const int j, const int i,
                           Real &vsum) { vsum += v(l, k, j, i); },
             sum);
