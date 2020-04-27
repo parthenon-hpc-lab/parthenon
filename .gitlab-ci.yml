@@ -41,6 +41,7 @@ parthenon-cuda-short:
       -DKokkos_ENABLE_CUDA=True -DKokkos_ARCH_PASCAL61=True
       -DCMAKE_CXX_COMPILER=${PWD}/../external/Kokkos/bin/nvcc_wrapper
       ../ && make -j${J} && ctest -j${J} -LE performance
+  allow_failure: true
   artifacts:
     when: always
     expire_in: 3 days
