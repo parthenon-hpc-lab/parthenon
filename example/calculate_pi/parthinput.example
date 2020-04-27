@@ -62,7 +62,7 @@ variable = prim
 tlim = 1.0
 
 <Pi>
-#radius = 1.5
+radius = 1.5
 
 <graphics>
 variables = in_or_out
