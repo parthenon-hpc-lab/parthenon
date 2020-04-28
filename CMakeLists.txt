@@ -12,7 +12,13 @@
 #=========================================================================================
 
 cmake_minimum_required(VERSION 3.10)
-project(parthenon LANGUAGES C CXX)
+project(parthenon LANGUAGES NONE)
+
+include(cmake/GccVersion.cmake)
+include(cmake/KokkosPrefix.cmake)
+
+enable_language(C)
+enable_language(CXX)
 
 # Options
 include(CTest)

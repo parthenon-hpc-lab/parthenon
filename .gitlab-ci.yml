@@ -39,7 +39,6 @@ parthenon-cuda-short:
     - cmake -DCMAKE_BUILD_TYPE=Debug -DHDF5_ROOT=/usr/local/hdf5/parallel
       -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
       -DKokkos_ENABLE_CUDA=True -DKokkos_ARCH_PASCAL61=True
-      -DCMAKE_CXX_COMPILER=${PWD}/../external/Kokkos/bin/nvcc_wrapper
       ../ && make -j${J} && ctest -j${J} -LE performance
   artifacts:
     when: always
@@ -77,7 +76,6 @@ parthenon-cuda-peformance:
     - cmake -DCMAKE_BUILD_TYPE=Release -DHDF5_ROOT=/usr/local/hdf5/parallel
       -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
       -DKokkos_ENABLE_CUDA=True -DKokkos_ARCH_PASCAL61=True
-      -DCMAKE_CXX_COMPILER=${PWD}/../external/Kokkos/bin/nvcc_wrapper
       ../ && make -j${J} && ctest -L performance
   artifacts:
     when: always
