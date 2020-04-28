@@ -41,39 +41,6 @@ using parthenon::par_for;
 using parthenon::ParArrayND;
 using parthenon::Real;
 
-static void setVector(const ParArrayND<Real> &v, const Real &value) {
-  par_for(
-      "Initialize variables", DevExecSpace(), 0, v.GetDim(4) - 1, 0, v.GetDim(3) - 1, 0,
-      v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
-      KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
-        v(l, k, j, i) = value;
-      });
-}
-
-static Real sumVector(const ParArrayND<Real> &v) {
-  using policy4D = Kokkos::MDRangePolicy<Kokkos::Rank<4>>;
-  Real sum = 0.0;
-  Kokkos::parallel_reduce(
-      policy4D({0, 0, 0, 0}, {v.GetDim(4), v.GetDim(3), v.GetDim(2), v.GetDim(1)}),
-      KOKKOS_LAMBDA(const int l, const int k, const int j, const int i, Real &vsum) {
-        vsum += v(l, k, j, i);
-      },
-      sum);
-  return sum;
-}
-
-static int numElements(const ParArrayND<Real> &v) {
-  using policy4D = Kokkos::MDRangePolicy<Kokkos::Rank<4>>;
-  int sum;
-  Kokkos::parallel_reduce(
-      policy4D({0, 0, 0, 0}, {v.GetDim(4), v.GetDim(3), v.GetDim(2), v.GetDim(1)}),
-      KOKKOS_LAMBDA(const int l, const int k, const int j, const int i, int &cnt) {
-        cnt++;
-      },
-      sum);
-  return sum;
-}
-
 TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIterator]") {
   GIVEN("A Container with a set of variables") {
     Container<Real> rc;
@@ -93,13 +60,28 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
       // set them all to zero
       const CellVariableVector<Real> &cv = rc.GetCellVariableVector();
       for (auto &vec : cv) {
-        setVector(vec->data, 0.0);
+        ParArrayND<Real> v = vec->data;
+        par_for(
+            "Initialize variables", DevExecSpace(), 0, v.GetDim(4) - 1, 0,
+            v.GetDim(3) - 1, 0, v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
+            KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
+              v(l, k, j, i) = 0.0;
+            });
       }
 
       THEN("they should sum to zero") {
         Real total = 0.0;
         for (auto &vec : cv) {
-          total += sumVector(vec->data);
+          using policy4D = Kokkos::MDRangePolicy<Kokkos::Rank<4>>;
+          ParArrayND<Real> v = vec->data;
+          Real sum = 0.0;
+          Kokkos::parallel_reduce(
+              policy4D({0, 0, 0, 0},
+                       {v.GetDim(4), v.GetDim(3), v.GetDim(2), v.GetDim(1)}),
+              KOKKOS_LAMBDA(const int l, const int k, const int j, const int i,
+                            Real &vsum) { vsum += v(l, k, j, i); },
+              sum);
+          total += sum;
         }
         REQUIRE(total == 0.0);
       }
@@ -107,7 +89,16 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
       AND_THEN("we touch the right number of elements") {
         int nElements = 0;
         for (auto &vec : cv) {
-          nElements += numElements(vec->data);
+          using policy4D = Kokkos::MDRangePolicy<Kokkos::Rank<4>>;
+          ParArrayND<Real> v = vec->data;
+          int sum;
+          Kokkos::parallel_reduce(
+              policy4D({0, 0, 0, 0},
+                       {v.GetDim(4), v.GetDim(3), v.GetDim(2), v.GetDim(1)}),
+              KOKKOS_LAMBDA(const int l, const int k, const int j, const int i,
+                            int &cnt) { cnt++; },
+              sum);
+          nElements += sum;
         }
         REQUIRE(nElements == 40960);
       }
@@ -119,14 +110,27 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
       CellVariableVector<Real> &civ = ci.vars;
       for (int n = 0; n < civ.size(); n++) {
         ParArrayND<Real> &v = civ[n]->data;
-        setVector(v, 1.0);
+        par_for(
+            "Initialize variables", DevExecSpace(), 0, v.GetDim(4) - 1, 0,
+            v.GetDim(3) - 1, 0, v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
+            KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
+              v(l, k, j, i) = 1.0;
+            });
       }
 
       THEN("they should sum appropriately") {
         Real total = 0.0;
         for (int n = 0; n < civ.size(); n++) {
+          using policy4D = Kokkos::MDRangePolicy<Kokkos::Rank<4>>;
           ParArrayND<Real> &v = civ[n]->data;
-          total += sumVector(v);
+          Real sum = 0.0;
+          Kokkos::parallel_reduce(
+              policy4D({0, 0, 0, 0},
+                       {v.GetDim(4), v.GetDim(3), v.GetDim(2), v.GetDim(1)}),
+              KOKKOS_LAMBDA(const int l, const int k, const int j, const int i,
+                            Real &vsum) { vsum += v(l, k, j, i); },
+              sum);
+          total += sum;
         }
         REQUIRE(std::abs(total - 20480.0) < 1.e-14);
       }
