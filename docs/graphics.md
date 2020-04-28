@@ -1,11 +1,12 @@
 # Graphics
 
-Parthenon allows users to select which fields are captured in the HDF5 (```.phdf```) graphics dumps at runtime.  In the input file, include a ```<Graphics>``` block and list of variables, such as
+Parthenon allows users to select which fields are captured in the HDF5 (```.phdf```) graphics dumps at runtime.  In the input file, include a ```<graphics>``` block and list of variables.  A ```dt``` parameter controls the frequency of outputs for simulations involving evolution. A ```<graphics>``` block might look like
 ```
-<Graphics>
+<graphics>
 variables = density, velocity, & # comments are still ok
             energy               # notice the & continuation character
                                  # for multiline lists
+dt = 1.0
 ```
 
 ## Python scripts

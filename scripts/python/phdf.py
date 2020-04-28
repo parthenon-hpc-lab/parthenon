@@ -79,23 +79,29 @@ class phdf:
         try:
             f = h.File(filename,'r')
             # Read in the timestep attributes
-            ts = f['Timestep']
+            info = f['Info']
             self.fid=f
-            self.NumDims = ts.attrs['NumDims']
-            self.NCycle = ts.attrs['NCycle']
-            self.Time = ts.attrs['Time']
+            self.NumDims = info.attrs['NumDims']
             try:
-                self.NGhost = ts.attrs['NGhost']
+                self.NCycle = info.attrs['NCycle']
+            except:
+                self.NCycle = -1
+            try:
+                self.Time = info.attrs['Time']
+            except:
+                self.Time = 0.0
+            try:
+                self.NGhost = info.attrs['NGhost']
             except:
                 self.NGhost = -1
             try:
-                self.IncludesGhost = ts.attrs['IncludesGhost']
+                self.IncludesGhost = info.attrs['IncludesGhost']
             except:
                 self.IncludesGhost = 0
-            self.NumBlocks = ts.attrs['NumMeshBlocks']
-            self.MeshBlockSize = ts.attrs['MeshBlockSize']
+            self.NumBlocks = info.attrs['NumMeshBlocks']
+            self.MeshBlockSize = info.attrs['MeshBlockSize']
             try:
-                self.BlocksPerPE = ts.attrs['BlocksPerPE']
+                self.BlocksPerPE = info.attrs['BlocksPerPE']
             except:
                 self.BlocksPerPE = np.array((1),self.NumBlocks)
             self.CellsPerBlock = np.prod(self.MeshBlockSize)
@@ -150,7 +156,7 @@ class phdf:
 
             self.TotalCellsReal =  self.NumBlocks*np.prod(self.MeshBlockSize-2*self.offset)
 
-            self.MaxLevel = ts.attrs['MaxLevel']
+            self.MaxLevel = info.attrs['MaxLevel']
 
             self.Variables = [k for k in f.keys()]
             self.varData = {k:None for k in self.Variables}
