@@ -32,3 +32,8 @@ add_executable(unit_tests ${unit_tests_SOURCES})
 target_link_libraries(unit_tests PRIVATE parthenon catch2_define Kokkos::kokkos)
 
 ParseAndAddCatchTests(unit_tests)
+
+set_property(
+    TEST "\"unit_tests:Overlapping SpaceInstances\""
+    PROPERTY RUN_SERIAL ON
+)
