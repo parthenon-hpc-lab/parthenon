@@ -13,7 +13,7 @@
 
 #include "parthenon_manager.hpp"
 
-#include "advection.hpp"
+#include "advection_driver.hpp"
 
 int main(int argc, char *argv[]) {
   using parthenon::ParthenonManager;
@@ -34,8 +34,7 @@ int main(int argc, char *argv[]) {
   // make use of MPI and Kokkos
 
   // Initialize the driver
-  advection_example::AdvectionDriver driver(pman.pinput.get(), pman.pmesh.get(),
-                                            pman.pouts.get());
+  advection_example::AdvectionDriver driver(pman.pinput.get(), pman.pmesh.get());
 
   // start a timer
   pman.PreDriver();

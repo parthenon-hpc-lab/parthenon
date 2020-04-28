@@ -10,50 +10,44 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-
-#ifndef PARTHENON_MANAGER_HPP_
-#define PARTHENON_MANAGER_HPP_
+#ifndef EXAMPLE_ADVECTION_ADVECTION_PACKAGE_HPP_
+#define EXAMPLE_ADVECTION_ADVECTION_PACKAGE_HPP_
 
 #include <memory>
 
-#include "argument_parser.hpp"
 #include "basic_types.hpp"
 #include "driver/driver.hpp"
-#include "interface/properties_interface.hpp"
+#include "driver/multistage.hpp"
+#include "interface/container.hpp"
 #include "interface/state_descriptor.hpp"
 #include "mesh/mesh.hpp"
-#include "outputs/outputs.hpp"
-#include "parameter_input.hpp"
+#include "task_list/tasks.hpp"
 
-namespace parthenon {
+using parthenon::AmrTag;
+using parthenon::BaseTask;
+using parthenon::Container;
+using parthenon::Mesh;
+using parthenon::MeshBlock;
+using parthenon::MultiStageBlockTaskDriver;
+using parthenon::Outputs;
+using parthenon::ParameterInput;
+using parthenon::Real;
+using parthenon::SimTime;
+using parthenon::StateDescriptor;
+using parthenon::TaskID;
+using parthenon::TaskList;
+using parthenon::TaskStatus;
 
-enum class ParthenonStatus { ok, complete, error };
+namespace advection_package {
 
-class ParthenonManager {
- public:
-  ParthenonManager() = default;
-  ParthenonStatus ParthenonInit(int argc, char *argv[]);
-  ParthenonStatus ParthenonFinalize();
+std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
+AmrTag CheckRefinement(Container<Real> &rc);
+void PreFill(Container<Real> &rc);
+void SquareIt(Container<Real> &rc);
+void PostFill(Container<Real> &rc);
+Real EstimateTimestep(Container<Real> &rc);
+TaskStatus CalculateFluxes(Container<Real> &rc);
 
-  bool Restart() { return (arg.restart_filename == nullptr ? false : true); }
-  Properties_t ProcessProperties(std::unique_ptr<ParameterInput> &pin);
-  Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin);
-  void SetFillDerivedFunctions();
-  void PreDriver();
-  void PostDriver(DriverStatus driver_status);
+} // namespace advection_package
 
-  // member data
-  std::unique_ptr<ParameterInput> pinput;
-  std::unique_ptr<Mesh> pmesh;
-
- private:
-  ArgParse arg;
-  clock_t tstart_;
-#ifdef OPENMP_PARALLEL
-  double omp_start_time_;
-#endif
-};
-
-} // namespace parthenon
-
-#endif // PARTHENON_MANAGER_HPP_
+#endif // EXAMPLE_ADVECTION_ADVECTION_PACKAGE_HPP_

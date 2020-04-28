@@ -115,7 +115,7 @@ static herr_t writeH5AF64(const char *name, const Real *pData, hid_t &file,
   return status;
 }
 
-void PHDF5Output::genXDMF(std::string hdfFile, Mesh *pm) {
+void PHDF5Output::genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm) {
   // using round robin generation.
   // must switch to MPIIO at some point
 
@@ -139,9 +139,11 @@ void PHDF5Output::genXDMF(std::string hdfFile, Mesh *pm) {
   xdmf << R"(<Xdmf Version="3.0">)" << std::endl;
   xdmf << "  <Domain>" << std::endl;
   xdmf << R"(  <Grid Name="Mesh" GridType="Collection">)" << std::endl;
-  xdmf << R"(    <Time Value=")" << pm->time << R"("/>)" << std::endl;
-  xdmf << R"(    <Information Name="Cycle" Value=")" << pm->ncycle << R"("/>)"
-       << std::endl;
+  if (tm != nullptr) {
+    xdmf << R"(    <Time Value=")" << tm->time << R"("/>)" << std::endl;
+    xdmf << R"(    <Information Name="Cycle" Value=")" << tm->ncycle << R"("/>)"
+         << std::endl;
+  }
 
   std::string blockTopology = R"(      <Topology Type="3DRectMesh" NumberOfElements=")" +
                               std::to_string(nx3 + 1) + " " + std::to_string(nx2 + 1) +
@@ -252,7 +254,7 @@ void PHDF5Output::genXDMF(std::string hdfFile, Mesh *pm) {
 //! \fn void PHDF5Output:::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag)
 //  \brief Cycles over all MeshBlocks and writes OutputData in the Parthenon HDF5 format,
 //         one file per output using parallel IO.
-void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
+void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   // writes all graphics variables to hdf file
   // HDF5 structures
   // Also writes companion xdmf file
@@ -351,12 +353,14 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
   // attributes written here:
   // All ranks write attributes
   localDSpace = H5Screate(H5S_SCALAR);
-  myDSet = H5Dcreate(file, "/Timestep", PREDINT32, localDSpace, H5P_DEFAULT, H5P_DEFAULT,
+  myDSet = H5Dcreate(file, "/Info", PREDINT32, localDSpace, H5P_DEFAULT, H5P_DEFAULT,
                      H5P_DEFAULT);
 
   int max_level = pm->GetCurrentLevel() - pm->GetRootLevel();
-  status = writeH5AI32("NCycle", &pm->ncycle, file, localDSpace, myDSet);
-  status = writeH5AF64("Time", &pm->time, file, localDSpace, myDSet);
+  if (tm != nullptr) {
+    status = writeH5AI32("NCycle", &(tm->ncycle), file, localDSpace, myDSet);
+    status = writeH5AF64("Time", &(tm->time), file, localDSpace, myDSet);
+  }
   status = writeH5AI32("NumDims", &pm->ndim, file, localDSpace, myDSet);
   status = writeH5AI32("NumMeshBlocks", &pm->nbtotal, file, localDSpace, myDSet);
   status = writeH5AI32("MaxLevel", &max_level, file, localDSpace, myDSet);
@@ -547,7 +551,7 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) {
   H5Fclose(file);
 
   // generate XDMF companion file
-  (void)genXDMF(filename, pm);
+  (void)genXDMF(filename, pm, tm);
 
   // advance output parameters
   output_params.file_number++;

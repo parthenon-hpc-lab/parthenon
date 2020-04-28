@@ -39,7 +39,7 @@ namespace parthenon {
 //! \fn void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag)
 //  \brief Cycles over all MeshBlocks and writes data to a single restart file.
 
-void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool force_write) {
+void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   throw std::runtime_error(std::string(__func__) + " is not implemented");
 }
 
