@@ -60,5 +60,8 @@ foreach( index RANGE ${end_index})
   list(GET TEST_DIRS ${index} TEST_DIR)
   list(GET TEST_ARGS ${index} TEST_ARG)
   setup_test( ${TEST_DIR} ${TEST_ARG})
-  setup_test_mpi( ${TEST_DIR} ${TEST_ARG})
+  # TODO JoshuaSBrown
+  # Temporarily disabled until we can figure out how to allow mpi to be run as non root user in
+  # docker ci 
+  #  setup_test_mpi( ${TEST_DIR} ${TEST_ARG})
 endforeach()

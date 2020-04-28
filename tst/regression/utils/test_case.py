@@ -81,11 +81,6 @@ class TestManager:
         self.parameters.mpi_cmd = mpi_executable
         self.parameters.mpi_opts = kwargs.pop('mpirun_opts')
 
-        # TODO this is non-ideal, and is allowed for the purpose of running regression tests on
-        # the docker ci containers
-        if self.parameters.mpi_opts:
-            self.parameters.mpi_opts.insert(0,'--allow-run-as-root')
-
         module = __import__(self.__test_module, globals(), locals(),
                 fromlist=['TestCase'])
         my_TestCase = getattr(module,'TestCase')
