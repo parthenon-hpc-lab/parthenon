@@ -11,6 +11,10 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+#include <algorithm>
+#include <limits>
+#include <string>
+
 #include <parthenon/package.hpp>
 
 #include "advection_package.hpp"

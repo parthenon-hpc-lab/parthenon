@@ -50,4 +50,4 @@ TaskStatus CalculateFluxes(Container<Real> &rc);
 
 } // namespace advection_package
 
-#endif // EXAMPLE_ADVECTION_ADVECTION_HPP_
+#endif // EXAMPLE_ADVECTION_ADVECTION_PACKAGE_HPP_
