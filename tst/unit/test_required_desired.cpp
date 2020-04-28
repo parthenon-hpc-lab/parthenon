@@ -85,4 +85,21 @@ TEST_CASE("Test required/desired checking from inputs", "[ParameterInput]") {
     }
     std::cout.rdbuf(cout);
   }
+  GIVEN("An invalid input deck") {
+    ParameterInput in;
+    std::stringstream ss;
+    ss << "<block1>" << std::endl
+       << "var1 = 0   # comment" << std::endl
+       << "var2 = 1,  & 2.5 # another comment" << std::endl
+       << "       2" << std::endl
+       << "<block2>" << std::endl
+       << "var3 = 3" << std::endl
+       << "# comment" << std::endl
+       << "var4 = 4" << std::endl
+       << "var_default = 5 # Default value added at run time" << std::endl;
+    WHEN("it is parsed") {
+      std::istringstream s(ss.str());
+      REQUIRE_THROWS_AS(in.LoadFromStream(s), std::runtime_error);
+    }
+  }
 }

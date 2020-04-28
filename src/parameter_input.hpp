@@ -23,7 +23,6 @@
 // information on the Athena++ input file format.
 
 #include <cstddef>
-#include <map>
 #include <ostream>
 #include <string>
 

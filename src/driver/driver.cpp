@@ -31,7 +31,7 @@ DriverStatus EvolutionDriver::Execute() {
   SetGlobalTimeStep();
   pouts->MakeOutputs(pmesh, pinput, &tm);
   pmesh->mbcnt = 0;
-  while ((tm.time < tm.tlim) && (tm.nlim < 0 || tm.ncycle < tm.nlim)) {
+  while (tm.KeepGoing()) {
     if (Globals::my_rank == 0) OutputCycleDiagnostics();
 
     TaskListStatus status = Step();

@@ -317,7 +317,16 @@ bool ParameterInput::ParseLine(InputBlock *pib, std::string line, std::string &n
   cont_char = line.find_first_of("&"); // find "&" continuation character
   // copy substring into value, remove white space at start and end
   len = cont_char;
-  if (len == cont_char && cont_char != std::string::npos) continuation = true;
+  if (cont_char != std::string::npos) {
+    std::string right_of_cont;
+    right_of_cont.assign(line, cont_char + 1, std::string::npos);
+    first_char = right_of_cont.find_first_not_of(" ");
+    if (first_char != std::string::npos) {
+      throw std::runtime_error("ERROR: Non-comment characters are not permitted to the "
+                               "right of line continuations");
+    }
+    continuation = true;
+  }
   value.assign(line, 0, len);
 
   first_char = value.find_first_not_of(" ");
@@ -918,17 +927,20 @@ void ParameterInput::CheckRequired(std::string block, std::string name) {
 
 void ParameterInput::CheckDesired(std::string block, std::string name) {
   bool missing = true;
+  bool defaulted = false;
   if (DoesParameterExist(block, name)) {
     missing = (GetComment(block, name) == "# Default value added at run time");
   }
   if (missing) {
     std::cout << std::endl
               << "### WARNING in CheckDesired:" << std::endl
-              << "Parameter file missing desired field <" << block << ">/" << name
-              << std::endl << "Defaulting to <" << block << ">/" << name << " = "
-              << GetString(block,name) 
-              << std::endl
-              << std::endl;
+              << "Parameter file missing desired field <" << block << ">/" << name;
+    if (defaulted) {
+      std::cout << std::endl
+                << "Defaulting to <" << block << ">/" << name << " = "
+                << GetString(block, name);
+    }
+    std::cout << std::endl << std::endl;
   }
 }
 

@@ -16,7 +16,7 @@
 # ========================================================================================
 
 <comment>
-problem = Calculate PI with AMR!
+problem = Calculate PI with AMR !
 
 <job>
 problem_id = pi_calculator

@@ -46,6 +46,8 @@ struct SimTime {
   Real start_time, time, tlim, dt;
   // current cycle number, maximum number of cycles, cycles between diagnostic output
   int ncycle, nlim, ncycle_out;
+
+  bool KeepGoing() { return ((time < tlim) && (nlim < 0 || ncycle < nlim)); }
 };
 
 } // namespace parthenon
