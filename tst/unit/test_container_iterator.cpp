@@ -109,7 +109,7 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
       ContainerIterator<Real> ci(rc, {Metadata::Independent});
       CellVariableVector<Real> &civ = ci.vars;
       for (int n = 0; n < civ.size(); n++) {
-        ParArrayND<Real> &v = civ[n]->data;
+        ParArrayND<Real> v = civ[n]->data;
         par_for(
             "Initialize variables", DevExecSpace(), 0, v.GetDim(4) - 1, 0,
             v.GetDim(3) - 1, 0, v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
@@ -122,7 +122,7 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
         Real total = 0.0;
         for (int n = 0; n < civ.size(); n++) {
           using policy4D = Kokkos::MDRangePolicy<Kokkos::Rank<4>>;
-          ParArrayND<Real> &v = civ[n]->data;
+          ParArrayND<Real> v = civ[n]->data;
           Real sum = 0.0;
           Kokkos::parallel_reduce(
               policy4D({0, 0, 0, 0},
