@@ -59,8 +59,8 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
     WHEN("We initialize all variables to zero") {
       // set them all to zero
       const CellVariableVector<Real> &cv = rc.GetCellVariableVector();
-      for (auto &vec : cv) {
-        ParArrayND<Real> v = vec->data;
+      for (int n = 0; n < cv.size(); n++) {
+        ParArrayND<Real> v = cv[n]->data;
         par_for(
             "Initialize variables", DevExecSpace(), 0, v.GetDim(4) - 1, 0,
             v.GetDim(3) - 1, 0, v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
@@ -71,9 +71,9 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
 
       THEN("they should sum to zero") {
         Real total = 0.0;
-        for (auto &vec : cv) {
+        for (int n = 0; n < cv.size(); n++) {
+          ParArrayND<Real> v = cv[n]->data;
           using policy4D = Kokkos::MDRangePolicy<Kokkos::Rank<4>>;
-          ParArrayND<Real> v = vec->data;
           Real sum = 0.0;
           Kokkos::parallel_reduce(
               policy4D({0, 0, 0, 0},
@@ -88,9 +88,9 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
 
       AND_THEN("we touch the right number of elements") {
         int nElements = 0;
-        for (auto &vec : cv) {
+        for (int n = 0; n < cv.size(); n++) {
+          ParArrayND<Real> v = cv[n]->data;
           using policy4D = Kokkos::MDRangePolicy<Kokkos::Rank<4>>;
-          ParArrayND<Real> v = vec->data;
           int sum;
           Kokkos::parallel_reduce(
               policy4D({0, 0, 0, 0},
