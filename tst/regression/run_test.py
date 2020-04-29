@@ -30,9 +30,9 @@ import utils.test_case as tc
 def checkRunScriptLocation(run_test_py_path):
   
     """ Check that run_test is in the correct folder """
-    if not os.path.normpath(run_test_py_path).endswith(os.path.normpath("parthenon/tst/regression")):
+    if not os.path.normpath(run_test_py_path).endswith(os.path.normpath("tst/regression")):
         error_msg = "Cannot run run_test.py, it is not in the correct directory, must be "
-        error_msg += "kept in parthenon/tst/regression"
+        error_msg += "kept in tst/regression"
         raise TestError(error_msg)
 
     """ Check that test_suites folder exists """

@@ -94,10 +94,10 @@ class TestManager:
             if not os.path.isdir( os.path.join('test_suites',test_dir)):
                 error_msg = "Regression test folder is unknown: " + test_dir + "\n"
                 error_msg +="looked in:\n" 
-                error_msg += "  parthenon/tst/regression/test_suites/" + test_dir + "\n" 
+                error_msg += "  tst/regression/test_suites/" + test_dir + "\n" 
                 error_msg += "  " + test_dir + "\n"
                 error_msg += "Each regression test must have a folder in "
-                error_msg += "parthenon/regression/tst/test_suites.\n"
+                error_msg += "tst/regression/test_suites.\n"
                 error_msg += "Known tests folders are:"
                 known_test_folders = os.listdir(self.__regression_test_suite_path)
                 for folder in known_test_folders:
