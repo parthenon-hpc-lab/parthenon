@@ -16,8 +16,8 @@ git clone --recursive https://github.com/lanl/parthenon.git
 mkdir bin
 cd bin
 # configure and build
-cmake --build . ..
-make -j
+cmake ..
+cmake -j --build .
 # run unit and regression tests
 ctest -LE performance
 # run performance tests
