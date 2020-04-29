@@ -32,16 +32,20 @@ Packages_t ParthenonManager::ProcessPackages(std::unique_ptr<ParameterInput> &pi
 
 void MeshBlock::ProblemGenerator(ParameterInput *pin) {
   Container<Real> &rc = real_containers.Get();
-  CellVariable<Real> &q = rc.Get("advected");
+  auto q = rc.Get("advected").data;
+  auto x1v = pcoord->x1v.GetHostMirrorAndCopy();
+  auto x2v = pcoord->x1v.GetHostMirrorAndCopy();
 
+  auto q_h = q.GetHostMirror();
   for (int k = 0; k < ncells3; k++) {
     for (int j = 0; j < ncells2; j++) {
       for (int i = 0; i < ncells1; i++) {
-        Real rsq = std::pow(pcoord->x1v(i), 2) + std::pow(pcoord->x2v(j), 2);
-        q(k, j, i) = (rsq < 0.15 * 0.15 ? 1.0 : 0.0);
+        Real rsq = std::pow(x1v(i), 2) + std::pow(x2v(j), 2);
+        q_h(k, j, i) = (rsq < 0.15 * 0.15 ? 1.0 : 0.0);
       }
     }
   }
+  q.DeepCopy(q_h);
 }
 
 void ParthenonManager::SetFillDerivedFunctions() {
