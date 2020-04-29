@@ -34,7 +34,7 @@ endfunction()
 function(setup_test_mpi dir arg)
   if( MPI_FOUND )
     separate_arguments(arg) 
-    add_test( NAME regression_mpi_test:${dir} COMMAND python ${CMAKE_CURRENT_SOURCE_DIR}/run_test.py  --mpirun ${MPIEXEC_EXECUTABLE} --mpirun_opts "${MPIEXEC_NUMPROC_FLAG} ${MPIEXEC_MAX_NUMPROCS}" ${arg} --test_dir ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir})
+    add_test( NAME regression_mpi_test:${dir} COMMAND python ${CMAKE_CURRENT_SOURCE_DIR}/run_test.py  --mpirun ${MPIEXEC_EXECUTABLE} --mpirun_opts "${MPIEXEC_NUMPROC_FLAG} ${MPIEXEC_MAX_NUMPROCS} ${MPIEXEC_PREFLAGS}" ${arg} --test_dir ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir})
     set_tests_properties(regression_mpi_test:${dir} PROPERTIES LABELS "regression,mpi" )
   else()
     message(STATUS "MPI not found, not building regression tests with mpi")
@@ -60,8 +60,5 @@ foreach( index RANGE ${end_index})
   list(GET TEST_DIRS ${index} TEST_DIR)
   list(GET TEST_ARGS ${index} TEST_ARG)
   setup_test( ${TEST_DIR} ${TEST_ARG})
-  # TODO JoshuaSBrown
-  # Temporarily disabled until we can figure out how to allow mpi to be run as non root user in
-  # docker ci 
-  #  setup_test_mpi( ${TEST_DIR} ${TEST_ARG})
+  setup_test_mpi( ${TEST_DIR} ${TEST_ARG})
 endforeach()
