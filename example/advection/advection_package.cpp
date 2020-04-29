@@ -106,15 +106,18 @@ void PreFill(Container<Real> &rc) {
   int ie = pmb->ncells1 - 1;
   int je = pmb->ncells2 - 1;
   int ke = pmb->ncells3 - 1;
-  CellVariable<Real> &qin = rc.Get("advected");
-  CellVariable<Real> &qout = rc.Get("one_minus_advected");
-  for (int i = is; i <= ie; i++) {
-    for (int j = js; j <= je; j++) {
-      for (int k = ks; k <= ke; k++) {
-        qout(k, j, i) = 1.0 - qin(k, j, i);
-      }
-    }
-  }
+  PackIndexMap imap;
+  std::vector<std::string> vars({"advected", "one_minus_advected"});
+  auto v = PackVariables(rc, vars, imap);
+  const int in = imap["advected"].first;
+  const int out = imap["one_minus_advected"].first;
+  par_for("advection_package::PreFill", DevExecSpace(),
+    ks, ke,
+    js, je,
+    is, ie,
+    KOKKOS_LAMBDA(const int k, const int j, const int i) {
+      v(out,k,j,i) = 1.0 - v(in,k,j,i);
+    });
 }
 
 // this is the package registered function to fill derived
@@ -126,15 +129,18 @@ void SquareIt(Container<Real> &rc) {
   int ie = pmb->ncells1 - 1;
   int je = pmb->ncells2 - 1;
   int ke = pmb->ncells3 - 1;
-  CellVariable<Real> &qin = rc.Get("one_minus_advected");
-  CellVariable<Real> &qout = rc.Get("one_minus_advected_sq");
-  for (int i = is; i <= ie; i++) {
-    for (int j = js; j <= je; j++) {
-      for (int k = ks; k <= ke; k++) {
-        qout(k, j, i) = qin(k, j, i) * qin(k, j, i);
-      }
-    }
-  }
+  PackIndexMap imap;
+  std::vector<std::string> vars({"one_minus_advected", "one_minus_advected_sq"});
+  auto v = PackVariables(rc, vars, imap);
+  const int in = imap["one_minus_advected"].first;
+  const int out = imap["one_minus_advected_sq"].first;
+  par_for("advection_package::PreFill", DevExecSpace(),
+    ks, ke,
+    js, je,
+    is, ie,
+    KOKKOS_LAMBDA(const int k, const int j, const int i) {
+      v(out,k,j,i) = v(in,k,j,i)*v(in,k,j,i);
+    });
 }
 
 // demonstrate usage of a "post" fill derived routine
@@ -146,21 +152,22 @@ void PostFill(Container<Real> &rc) {
   int ie = pmb->ncells1 - 1;
   int je = pmb->ncells2 - 1;
   int ke = pmb->ncells3 - 1;
-  CellVariable<Real> &qin = rc.Get("one_minus_advected_sq");
-  // get component 12
-  CellVariable<Real> &q0 = rc.Get("one_minus_sqrt_one_minus_advected_sq", 12);
-  // and component 37
-  CellVariable<Real> &q1 = rc.Get("one_minus_sqrt_one_minus_advected_sq", 37);
-  for (int i = is; i <= ie; i++) {
-    for (int j = js; j <= je; j++) {
-      for (int k = ks; k <= ke; k++) {
-        // this will make component 12 = advected
-        q0(k, j, i) = 1.0 - sqrt(qin(k, j, i));
-        // and this will make component 37 = 1 - advected
-        q1(k, j, i) = 1.0 - q0(k, j, i);
-      }
-    }
-  }
+  PackIndexMap imap;
+  std::vector<std::string> vars(
+    {"one_minus_advected_sq","one_minus_sqrt_one_minus_advected_sq"}
+  );
+  auto v = PackVariables(rc, vars, {12,37}, imap);
+  const int in = imap["one_minus_advected_sq"].first;
+  const int out12 = imap["one_minus_sqrt_one_minus_advected_sq_12"].first;
+  const int out37 = imap["one_minus_sqrt_one_minus_advected_sq_37"].first;
+  par_for("advection_package::PreFill", DevExecSpace(),
+    ks, ke,
+    js, je,
+    is, ie,
+    KOKKOS_LAMBDA(const int k, const int j, const int i) {
+      v(out12,k,j,i) = 1.0 - sqrt(v(in,k,j,i));
+      v(out37,k,j,i) = 1.0 - v(out12,k,j,i);
+    });
 }
 
 // provide the routine that estimates a stable timestep for this package

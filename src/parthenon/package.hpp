@@ -17,6 +17,7 @@
 // Internal Includes
 #include <basic_types.hpp>
 #include <coordinates/coordinates.hpp>
+#include <interface/container_iterator.hpp>
 #include <interface/metadata.hpp>
 #include <interface/params.hpp>
 #include <interface/state_descriptor.hpp>
@@ -37,8 +38,12 @@ using namespace ::parthenon::prelude;
 using ::parthenon::AmrTag;
 using ::parthenon::Coordinates;
 using ::parthenon::DerivedOwnership;
+using ::parthenon::DevExecSpace;
 using ::parthenon::MeshBlock;
 using ::parthenon::Metadata;
+using ::parthenon::PackIndexMap;
+using ::parthenon::PackVariables;
+using ::parthenon::PackVariablesAndFluxes;
 using ::parthenon::par_for;
 using ::parthenon::ParameterInput;
 using ::parthenon::Params;

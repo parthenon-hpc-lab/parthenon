@@ -166,9 +166,10 @@ auto MakePack(VarList<T> &vars, PackIndexMap *vmap = nullptr) {
         }
       }
     }
-    if (vmap != nullptr)
+    if (vmap != nullptr) {
       vmap->insert(
           std::pair<std::string, IndexPair>(v->label(), IndexPair(vstart, vindex - 1)));
+    }
   }
   Kokkos::deep_copy(cv, host_view);
   std::array<int, 4> cv_size = {fvar.GetDim(1), fvar.GetDim(2), fvar.GetDim(3), vsize};
@@ -176,7 +177,8 @@ auto MakePack(VarList<T> &vars, PackIndexMap *vmap = nullptr) {
 }
 
 template <typename T>
-VarList<T> MakeList(const Container<T> &c, const std::vector<std::string> &names) {
+VarList<T> MakeList(const Container<T> &c, const std::vector<std::string> &names,
+                                           const std::vector<int> sparse_ids = {}) {
   VarList<T> vars;
   auto var_map = c.GetCellVariableMap();
   auto sparse_map = c.GetSparseMap();
@@ -197,9 +199,16 @@ VarList<T> MakeList(const Container<T> &c, const std::vector<std::string> &names
         std::exit(1);
       }
       found = true;
-      auto svec = sv->second->GetVector();
-      for (auto its = svec.rbegin(); its != svec.rend(); ++its) {
-        vars.push_front(*its);
+      if (sparse_ids.size() > 0) { // grab specific sparse variabes
+        auto smap = sv->second->GetMap();
+        for (const auto id : sparse_ids) {
+          vars.push_front(smap[id]);
+        }
+      } else {
+        auto svec = sv->second->GetVector();
+        for (auto its = svec.rbegin(); its != svec.rend(); ++its) {
+          vars.push_front(*its);
+        }
       }
     }
     if (!found) {
@@ -239,6 +248,13 @@ auto PackVariablesAndFluxes(const Container<T> &c,
 }
 
 template <typename T>
+auto PackVariables(const Container<T> &c, const std::vector<std::string> &names,
+                                          const std::vector<int> &sparse_ids) {
+  VarList<T> vars = MakeList(c, names, sparse_ids);
+  return MakePack<T>(vars);
+}
+
+template <typename T>
 auto PackVariables(const Container<T> &c, const std::vector<std::string> &names) {
   VarList<T> vars = MakeList(c, names);
   return MakePack<T>(vars);
@@ -254,6 +270,12 @@ auto PackVariablesAndFluxes(const Container<T> &c,
   return MakeFluxPack<T>(vars, fvars);
 }
 
+template <typename T>
+auto PackVariables(const Container<T> &c, const std::vector<std::string> &names,
+                   const std::vector<int> &sparse_ids, PackIndexMap &vmap) {
+  VarList<T> vars = MakeList(c, names, sparse_ids);
+  return MakePack<T>(vars, &vmap);
+}
 template <typename T>
 auto PackVariables(const Container<T> &c, const std::vector<std::string> &names,
                    PackIndexMap &vmap) {
