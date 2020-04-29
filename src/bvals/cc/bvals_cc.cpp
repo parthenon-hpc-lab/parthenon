@@ -134,7 +134,8 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(ParArray1D<Real> &
   ek = (nb.ni.ox3 < 0) ? (pmb->ks + NGHOST - 1) : pmb->ke;
   int p = 0;
 
-  BufferUtility::PackData(var_cc, buf, nl_, nu_, si, ei, sj, ej, sk, ek, p, pmb);
+  ParArray4D<Real> var_cc_ = var_cc.Get<4>(); // automatic template deduction fails
+  BufferUtility::PackData(var_cc_, buf, nl_, nu_, si, ei, sj, ej, sk, ek, p, pmb);
 
   return p;
 }
@@ -160,7 +161,8 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(ParArray1D<Real> &
   int p = 0;
   pmb->pmr->RestrictCellCenteredValues(var_cc, coarse_buf, nl_, nu_, si, ei, sj, ej, sk,
                                        ek);
-  BufferUtility::PackData(coarse_buf, buf, nl_, nu_, si, ei, sj, ej, sk, ek, p, pmb);
+  ParArray4D<Real> coarse_buf_ = coarse_buf.Get<4>(); // auto template deduction fails
+  BufferUtility::PackData(coarse_buf_, buf, nl_, nu_, si, ei, sj, ej, sk, ek, p, pmb);
   return p;
 }
 
@@ -218,7 +220,8 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferToFiner(ParArray1D<Real> &bu
   }
 
   int p = 0;
-  BufferUtility::PackData(var_cc, buf, nl_, nu_, si, ei, sj, ej, sk, ek, p, pmb);
+  ParArray4D<Real> var_cc_ = var_cc.Get<4>(); // auto template deduction fails
+  BufferUtility::PackData(var_cc_, buf, nl_, nu_, si, ei, sj, ej, sk, ek, p, pmb);
   return p;
 }
 

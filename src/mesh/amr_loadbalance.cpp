@@ -735,7 +735,7 @@ void Mesh::PrepareSendSameLevel(MeshBlock *pb, ParArray1D<Real> &sendbuf) {
   // container with std::reference_wrapper; could use auto var_cc_r = var_cc.get())
   for (auto &pvar_cc : pb->vars_cc_) {
     int nu = pvar_cc->GetDim(4) - 1;
-    auto &var_cc = pvar_cc->data;
+    ParArray4D<Real> var_cc = pvar_cc->data.Get<4>();
     BufferUtility::PackData(var_cc, sendbuf, 0, nu, pb->is, pb->ie, pb->js, pb->je,
                             pb->ks, pb->ke, p, pb);
   }
@@ -790,8 +790,8 @@ void Mesh::PrepareSendCoarseToFineAMR(MeshBlock *pb, ParArray1D<Real> &sendbuf,
   }
   int p = 0;
   for (auto cc_pair : pb->pmr->pvars_cc_) {
-    ParArrayND<Real> var_cc = std::get<0>(cc_pair);
-    int nu = var_cc.GetDim(4) - 1;
+    ParArray4D<Real> var_cc = std::get<0>(cc_pair).Get<4>();
+    int nu = var_cc.extent(4) - 1;
     BufferUtility::PackData(var_cc, sendbuf, 0, nu, il, iu, jl, ju, kl, ku, p, pb);
   }
   for (auto fc_pair : pb->pmr->pvars_fc_) {
@@ -819,8 +819,10 @@ void Mesh::PrepareSendFineToCoarseAMR(MeshBlock *pb, ParArray1D<Real> &sendbuf) 
     int nu = var_cc.GetDim(4) - 1;
     pmr->RestrictCellCenteredValues(var_cc, coarse_cc, 0, nu, pb->cis, pb->cie, pb->cjs,
                                     pb->cje, pb->cks, pb->cke);
-    BufferUtility::PackData(coarse_cc, sendbuf, 0, nu, pb->cis, pb->cie, pb->cjs, pb->cje,
-                            pb->cks, pb->cke, p, pb);
+    // TOGO(pgrete) remove temp var once Restrict func interface is updated
+    ParArray4D<Real> coarse_cc_ = coarse_cc.Get<4>();
+    BufferUtility::PackData(coarse_cc_, sendbuf, 0, nu, pb->cis, pb->cie, pb->cjs,
+                            pb->cje, pb->cks, pb->cke, p, pb);
   }
   for (auto fc_pair : pb->pmr->pvars_fc_) {
     FaceField *var_fc = std::get<0>(fc_pair);

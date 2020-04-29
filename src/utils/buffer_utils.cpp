@@ -34,7 +34,7 @@ namespace BufferUtility {
 //  \brief pack a 4D ParArray into a one-dimensional buffer
 
 template <typename T>
-void PackData(ParArrayND<T> &src, ParArray1D<T> &buf, int sn, int en, int si, int ei,
+void PackData(ParArray4D<T> &src, ParArray1D<T> &buf, int sn, int en, int si, int ei,
               int sj, int ej, int sk, int ek, int &offset, MeshBlock *pmb) {
 
   int ni = ei + 1 - si;
@@ -118,7 +118,7 @@ template void UnpackData<Real>(Real *, ParArrayND<Real> &, int, int, int, int, i
 template void UnpackData<Real>(Real *, ParArrayND<Real> &, int, int, int, int, int, int,
                                int &);
 
-template void PackData<Real>(ParArrayND<Real> &, ParArray1D<Real> &, int, int, int, int,
+template void PackData<Real>(ParArray4D<Real> &, ParArray1D<Real> &, int, int, int, int,
                              int, int, int, int, int &, MeshBlock *);
 template void PackData<Real>(ParArrayND<Real> &, Real *, int, int, int, int, int, int,
                              int &);

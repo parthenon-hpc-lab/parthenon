@@ -28,7 +28,7 @@ namespace BufferUtility {
 // 2x templated and overloaded functions
 // 4D
 template <typename T>
-void PackData(ParArrayND<T> &src, ParArray1D<T> &buf, int sn, int en, int si, int ei,
+void PackData(ParArray4D<T> &src, ParArray1D<T> &buf, int sn, int en, int si, int ei,
               int sj, int ej, int sk, int ek, int &offset, MeshBlock *pmb);
 // 3D
 template <typename T>
