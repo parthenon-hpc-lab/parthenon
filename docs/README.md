@@ -3,6 +3,10 @@
 This file provides an overview of different (not necessarily all) features in Parthenon
 and how to use them.
 
+## Building parthenon
+
+See the [build doc](building.md) for details on building parthenon for specific systems.
+
 ## Description of examples
 
 - [Calculate &pi](../example/calculate_pi)
