@@ -157,7 +157,24 @@ auto MakePack(VarList<T> &vars, PackIndexMap *vmap = nullptr) {
   auto cv = Kokkos::View<decltype(slice) *>("MakePack::cv", vsize);
   auto host_view = Kokkos::create_mirror_view(cv);
   int vindex = 0;
-  for (const auto &v : vars) {
+  int sparse_start;
+  // auto vit = vars.begin();
+  // for (const auto &v : vars) {
+  std::string sparse_name = "";
+  // while (vit != vars.end()) {
+  for (const auto v : vars) {
+    // auto& v = *vit;
+    if (v->IsSet(Metadata::Sparse)) {
+      if (sparse_name == "") {
+        sparse_name = v->label();
+        sparse_name.erase(sparse_name.find_last_of("_"));
+        sparse_start = vindex;
+      }
+    } else if (!(sparse_name == "")) {
+      vmap->insert(std::pair<std::string, IndexPair>(
+          sparse_name, IndexPair(sparse_start, vindex - 1)));
+      sparse_name = "";
+    }
     int vstart = vindex;
     for (int k = 0; k < v->GetDim(6); k++) {
       for (int j = 0; j < v->GetDim(5); j++) {
@@ -170,7 +187,13 @@ auto MakePack(VarList<T> &vars, PackIndexMap *vmap = nullptr) {
       vmap->insert(
           std::pair<std::string, IndexPair>(v->label(), IndexPair(vstart, vindex - 1)));
     }
+    //++vit;
   }
+  if (!(sparse_name == "")) {
+    vmap->insert(std::pair<std::string, IndexPair>(sparse_name,
+                                                   IndexPair(sparse_start, vindex - 1)));
+  }
+
   Kokkos::deep_copy(cv, host_view);
   std::array<int, 4> cv_size = {fvar.GetDim(1), fvar.GetDim(2), fvar.GetDim(3), vsize};
   return VariablePack<decltype(cv)>(cv, cv_size);
@@ -201,8 +224,8 @@ VarList<T> MakeList(const Container<T> &c, const std::vector<std::string> &names
       found = true;
       if (sparse_ids.size() > 0) { // grab specific sparse variabes
         auto smap = sv->second->GetMap();
-        for (const auto id : sparse_ids) {
-          vars.push_front(smap[id]);
+        for (auto its = sparse_ids.rbegin(); its != sparse_ids.rend(); ++its) {
+          vars.push_front(smap[*its]);
         }
       } else {
         auto svec = sv->second->GetVector();

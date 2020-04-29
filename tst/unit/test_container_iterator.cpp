@@ -213,6 +213,29 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
         REQUIRE(std::abs(total - 50625.0) < 1.e-14);
       }
     }
+
+    WHEN("we add sparse fields") {
+      Metadata m_sparse;
+      m_sparse = Metadata({Metadata::Sparse}, 1);
+      rc.Add("vsparse", m_sparse, scalar_block_size);
+      m_sparse = Metadata({Metadata::Sparse}, 13);
+      rc.Add("vsparse", m_sparse, scalar_block_size);
+      m_sparse = Metadata({Metadata::Sparse}, 42);
+      rc.Add("vsparse", m_sparse, scalar_block_size);
+      THEN("the low and high index bounds are correct as returned by PackVariables") {
+        PackIndexMap imap;
+        auto v = PackVariables<Real>(rc, {"v3", "v6", "vsparse"}, imap);
+        REQUIRE(imap["vsparse"].first == 4);
+        REQUIRE(imap["vsparse"].second == 6);
+      }
+      AND_THEN("bounds are still correct if I get just a subset of the sparse fields") {
+        PackIndexMap imap;
+        auto v = PackVariables<Real>(rc, {"v3", "vsparse"}, {1, 42}, imap);
+        REQUIRE(imap["vsparse"].first == 3);
+        REQUIRE(imap["vsparse"].second == 4);
+        REQUIRE(imap["vsparse_42"].first == 4);
+      }
+    }
   }
 }
 // Test wrapper to run a function multiple times
