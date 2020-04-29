@@ -280,11 +280,11 @@ class ParArrayNDGeneric {
   }
   KOKKOS_INLINE_FUNCTION
   auto SliceD(index_pair_t slc, std::integral_constant<int, 2>) const {
-    return Slice(SLC0, SLC0, SLC0, Kokkos::ALL(), slc, Kokkos::ALL());
+    return Slice(SLC0, SLC0, SLC0, SLC0, slc, Kokkos::ALL());
   }
   KOKKOS_INLINE_FUNCTION
   auto SliceD(index_pair_t slc, std::integral_constant<int, 1>) const {
-    return Slice(SLC0, SLC0, SLC0, Kokkos::ALL(), Kokkos::ALL(), slc);
+    return Slice(SLC0, SLC0, SLC0, SLC0, SLC0, slc);
   }
 #undef SLC0
 
