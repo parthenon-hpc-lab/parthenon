@@ -121,7 +121,7 @@ int CellCenteredBoundaryVariable::ComputeFluxCorrectionBufferSize(
 //                                                                const NeighborBlock& nb)
 //  \brief Set cell-centered boundary buffers for sending to a block on the same level
 
-int CellCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(Real *buf,
+int CellCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(ParArray1D<Real> &buf,
                                                               const NeighborBlock &nb) {
   MeshBlock *pmb = pmy_block_;
   int si, sj, sk, ei, ej, ek;
@@ -133,7 +133,8 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(Real *buf,
   sk = (nb.ni.ox3 > 0) ? (pmb->ke - NGHOST + 1) : pmb->ks;
   ek = (nb.ni.ox3 < 0) ? (pmb->ks + NGHOST - 1) : pmb->ke;
   int p = 0;
-  BufferUtility::PackData(var_cc, buf, nl_, nu_, si, ei, sj, ej, sk, ek, p);
+
+  BufferUtility::PackData(var_cc, buf, nl_, nu_, si, ei, sj, ej, sk, ek, p, pmb);
 
   return p;
 }
@@ -143,7 +144,7 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(Real *buf,
 //                                                                const NeighborBlock& nb)
 //  \brief Set cell-centered boundary buffers for sending to a block on the coarser level
 
-int CellCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(Real *buf,
+int CellCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(ParArray1D<Real> &buf,
                                                               const NeighborBlock &nb) {
   MeshBlock *pmb = pmy_block_;
   int si, sj, sk, ei, ej, ek;
@@ -159,7 +160,7 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(Real *buf,
   int p = 0;
   pmb->pmr->RestrictCellCenteredValues(var_cc, coarse_buf, nl_, nu_, si, ei, sj, ej, sk,
                                        ek);
-  BufferUtility::PackData(coarse_buf, buf, nl_, nu_, si, ei, sj, ej, sk, ek, p);
+  BufferUtility::PackData(coarse_buf, buf, nl_, nu_, si, ei, sj, ej, sk, ek, p, pmb);
   return p;
 }
 
@@ -168,7 +169,7 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(Real *buf,
 //                                                                const NeighborBlock& nb)
 //  \brief Set cell-centered boundary buffers for sending to a block on the finer level
 
-int CellCenteredBoundaryVariable::LoadBoundaryBufferToFiner(Real *buf,
+int CellCenteredBoundaryVariable::LoadBoundaryBufferToFiner(ParArray1D<Real> &buf,
                                                             const NeighborBlock &nb) {
   MeshBlock *pmb = pmy_block_;
   int si, sj, sk, ei, ej, ek;
@@ -217,7 +218,7 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferToFiner(Real *buf,
   }
 
   int p = 0;
-  BufferUtility::PackData(var_cc, buf, nl_, nu_, si, ei, sj, ej, sk, ek, p);
+  BufferUtility::PackData(var_cc, buf, nl_, nu_, si, ei, sj, ej, sk, ek, p, pmb);
   return p;
 }
 
@@ -417,13 +418,13 @@ void CellCenteredBoundaryVariable::SetupPersistentMPI() {
       tag = pmb->pbval->CreateBvalsMPITag(nb.snb.lid, nb.targetid, cc_phys_id_);
       if (bd_var_.req_send[nb.bufid] != MPI_REQUEST_NULL)
         MPI_Request_free(&bd_var_.req_send[nb.bufid]);
-      MPI_Send_init(bd_var_.send[nb.bufid], ssize, MPI_ATHENA_REAL, nb.snb.rank, tag,
-                    MPI_COMM_WORLD, &(bd_var_.req_send[nb.bufid]));
+      MPI_Send_init(bd_var_.send[nb.bufid].data(), ssize, MPI_ATHENA_REAL, nb.snb.rank,
+                    tag, MPI_COMM_WORLD, &(bd_var_.req_send[nb.bufid]));
       tag = pmb->pbval->CreateBvalsMPITag(pmb->lid, nb.bufid, cc_phys_id_);
       if (bd_var_.req_recv[nb.bufid] != MPI_REQUEST_NULL)
         MPI_Request_free(&bd_var_.req_recv[nb.bufid]);
-      MPI_Recv_init(bd_var_.recv[nb.bufid], rsize, MPI_ATHENA_REAL, nb.snb.rank, tag,
-                    MPI_COMM_WORLD, &(bd_var_.req_recv[nb.bufid]));
+      MPI_Recv_init(bd_var_.recv[nb.bufid].data(), rsize, MPI_ATHENA_REAL, nb.snb.rank,
+                    tag, MPI_COMM_WORLD, &(bd_var_.req_recv[nb.bufid]));
 
       if (pmy_mesh_->multilevel && nb.ni.type == NeighborConnect::face) {
         int size;
@@ -438,14 +439,16 @@ void CellCenteredBoundaryVariable::SetupPersistentMPI() {
           tag = pmb->pbval->CreateBvalsMPITag(nb.snb.lid, nb.targetid, cc_flx_phys_id_);
           if (bd_var_flcor_.req_send[nb.bufid] != MPI_REQUEST_NULL)
             MPI_Request_free(&bd_var_flcor_.req_send[nb.bufid]);
-          MPI_Send_init(bd_var_flcor_.send[nb.bufid], size, MPI_ATHENA_REAL, nb.snb.rank,
-                        tag, MPI_COMM_WORLD, &(bd_var_flcor_.req_send[nb.bufid]));
+          MPI_Send_init(bd_var_flcor_.send[nb.bufid].data(), size, MPI_ATHENA_REAL,
+                        nb.snb.rank, tag, MPI_COMM_WORLD,
+                        &(bd_var_flcor_.req_send[nb.bufid]));
         } else if (nb.snb.level > mylevel) { // receive from finer
           tag = pmb->pbval->CreateBvalsMPITag(pmb->lid, nb.bufid, cc_flx_phys_id_);
           if (bd_var_flcor_.req_recv[nb.bufid] != MPI_REQUEST_NULL)
             MPI_Request_free(&bd_var_flcor_.req_recv[nb.bufid]);
-          MPI_Recv_init(bd_var_flcor_.recv[nb.bufid], size, MPI_ATHENA_REAL, nb.snb.rank,
-                        tag, MPI_COMM_WORLD, &(bd_var_flcor_.req_recv[nb.bufid]));
+          MPI_Recv_init(bd_var_flcor_.recv[nb.bufid].data(), size, MPI_ATHENA_REAL,
+                        nb.snb.rank, tag, MPI_COMM_WORLD,
+                        &(bd_var_flcor_.req_recv[nb.bufid]));
         }
       }
     }

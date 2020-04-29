@@ -347,9 +347,10 @@ class Mesh {
 
   // Mesh::RedistributeAndRefineMeshBlocks() helper functions:
   // step 6: send
-  void PrepareSendSameLevel(MeshBlock *pb, Real *sendbuf);
-  void PrepareSendCoarseToFineAMR(MeshBlock *pb, Real *sendbuf, LogicalLocation &lloc);
-  void PrepareSendFineToCoarseAMR(MeshBlock *pb, Real *sendbuf);
+  void PrepareSendSameLevel(MeshBlock *pb, ParArray1D<Real> &sendbuf);
+  void PrepareSendCoarseToFineAMR(MeshBlock *pb, ParArray1D<Real> &sendbuf,
+                                  LogicalLocation &lloc);
+  void PrepareSendFineToCoarseAMR(MeshBlock *pb, ParArray1D<Real> &sendbuf);
   // step 7: create new MeshBlock list (same MPI rank but diff level: create new block)
   void FillSameRankFineToCoarseAMR(MeshBlock *pob, MeshBlock *pmb, LogicalLocation &loc);
   void FillSameRankCoarseToFineAMR(MeshBlock *pob, MeshBlock *pmb,

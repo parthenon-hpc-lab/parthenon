@@ -57,7 +57,7 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
     if (bd_var_flcor_.sflag[nb.bufid] == BoundaryStatus::completed) continue;
     if (nb.snb.level == pmb->loc.level - 1) {
       int p = 0;
-      Real *sbuf = bd_var_flcor_.send[nb.bufid];
+      Real *sbuf = bd_var_flcor_.send[nb.bufid].data();
       // x1 direction
       if (nb.fid == BoundaryFace::inner_x1 || nb.fid == BoundaryFace::outer_x1) {
         int i = pmb->is + (pmb->ie - pmb->is + 1) * nb.fid;
@@ -188,7 +188,7 @@ bool CellCenteredBoundaryVariable::ReceiveFluxCorrection() {
       }
       // boundary arrived; apply flux correction
       int p = 0;
-      Real *rbuf = bd_var_flcor_.recv[nb.bufid];
+      Real *rbuf = bd_var_flcor_.recv[nb.bufid].data();
       if (nb.fid == BoundaryFace::inner_x1 || nb.fid == BoundaryFace::outer_x1) {
         int il = pmb->is + (pmb->ie - pmb->is) * nb.fid + nb.fid;
         int jl = pmb->js, ju = pmb->je, kl = pmb->ks, ku = pmb->ke;

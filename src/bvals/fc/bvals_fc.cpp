@@ -161,7 +161,7 @@ int FaceCenteredBoundaryVariable::ComputeFluxCorrectionBufferSize(
 //                                                               const NeighborBlock& nb)
 //  \brief Set face-centered boundary buffers for sending to a block on the same level
 
-int FaceCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(Real *buf,
+int FaceCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(ParArray1D<Real> &buf_tmp,
                                                               const NeighborBlock &nb) {
   MeshBlock *pmb = pmy_block_;
   int si, sj, sk, ei, ej, ek;
@@ -196,6 +196,7 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(Real *buf,
     else if (nb.ni.ox1 < 0)
       si--;
   }
+  auto buf = buf_tmp.data(); // TODO(pgrete) use ParArray1D directly
   BufferUtility::PackData((*var_fc).x1f, buf, si, ei, sj, ej, sk, ek, p);
 
   // bx2
@@ -256,7 +257,7 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(Real *buf,
 //                                                                const NeighborBlock& nb)
 //  \brief Set face-centered boundary buffers for sending to a block on the coarser level
 
-int FaceCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(Real *buf,
+int FaceCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(ParArray1D<Real> &buf_tmp,
                                                               const NeighborBlock &nb) {
   MeshBlock *pmb = pmy_block_;
   auto &pmr = pmb->pmr;
@@ -293,6 +294,7 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(Real *buf,
     else if (nb.ni.ox1 < 0)
       si--;
   }
+  auto buf = buf_tmp.data(); // TODO(pgrete) use ParArray1D directly
   pmr->RestrictFieldX1((*var_fc).x1f, coarse_buf.x1f, si, ei, sj, ej, sk, ek);
   BufferUtility::PackData(coarse_buf.x1f, buf, si, ei, sj, ej, sk, ek, p);
 
@@ -366,7 +368,7 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(Real *buf,
 //                                                                const NeighborBlock& nb)
 //  \brief Set face-centered boundary buffers for sending to a block on the finer level
 
-int FaceCenteredBoundaryVariable::LoadBoundaryBufferToFiner(Real *buf,
+int FaceCenteredBoundaryVariable::LoadBoundaryBufferToFiner(ParArray1D<Real> &buf_tmp,
                                                             const NeighborBlock &nb) {
   MeshBlock *pmb = pmy_block_;
   int nx1 = pmb->block_size.nx1;
@@ -433,6 +435,7 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToFiner(Real *buf,
     sk = pmb->ks, ek = pmb->ks + cn;
   }
 
+  auto buf = buf_tmp.data(); // TODO(pgrete) use ParArray1D directly
   BufferUtility::PackData((*var_fc).x1f, buf, si, ei, sj, ej, sk, ek, p);
 
   // bx2
@@ -1098,13 +1101,13 @@ void FaceCenteredBoundaryVariable::SetupPersistentMPI() {
       tag = pmb->pbval->CreateBvalsMPITag(nb.snb.lid, nb.targetid, fc_phys_id_);
       if (bd_var_.req_send[nb.bufid] != MPI_REQUEST_NULL)
         MPI_Request_free(&bd_var_.req_send[nb.bufid]);
-      MPI_Send_init(bd_var_.send[nb.bufid], ssize, MPI_ATHENA_REAL, nb.snb.rank, tag,
-                    MPI_COMM_WORLD, &(bd_var_.req_send[nb.bufid]));
+      MPI_Send_init(bd_var_.send[nb.bufid].data(), ssize, MPI_ATHENA_REAL, nb.snb.rank,
+                    tag, MPI_COMM_WORLD, &(bd_var_.req_send[nb.bufid]));
       tag = pmb->pbval->CreateBvalsMPITag(pmb->lid, nb.bufid, fc_phys_id_);
       if (bd_var_.req_recv[nb.bufid] != MPI_REQUEST_NULL)
         MPI_Request_free(&bd_var_.req_recv[nb.bufid]);
-      MPI_Recv_init(bd_var_.recv[nb.bufid], rsize, MPI_ATHENA_REAL, nb.snb.rank, tag,
-                    MPI_COMM_WORLD, &(bd_var_.req_recv[nb.bufid]));
+      MPI_Recv_init(bd_var_.recv[nb.bufid].data(), rsize, MPI_ATHENA_REAL, nb.snb.rank,
+                    tag, MPI_COMM_WORLD, &(bd_var_.req_recv[nb.bufid]));
 
       // set up flux correction MPI communication buffers
       int f2csize;
@@ -1159,28 +1162,32 @@ void FaceCenteredBoundaryVariable::SetupPersistentMPI() {
           tag = pmb->pbval->CreateBvalsMPITag(nb.snb.lid, nb.targetid, fc_flx_phys_id_);
           if (bd_var_flcor_.req_send[nb.bufid] != MPI_REQUEST_NULL)
             MPI_Request_free(&bd_var_flcor_.req_send[nb.bufid]);
-          MPI_Send_init(bd_var_flcor_.send[nb.bufid], size, MPI_ATHENA_REAL, nb.snb.rank,
-                        tag, MPI_COMM_WORLD, &(bd_var_flcor_.req_send[nb.bufid]));
+          MPI_Send_init(bd_var_flcor_.send[nb.bufid].data(), size, MPI_ATHENA_REAL,
+                        nb.snb.rank, tag, MPI_COMM_WORLD,
+                        &(bd_var_flcor_.req_send[nb.bufid]));
           tag = pmb->pbval->CreateBvalsMPITag(pmb->lid, nb.bufid, fc_flx_phys_id_);
           if (bd_var_flcor_.req_recv[nb.bufid] != MPI_REQUEST_NULL)
             MPI_Request_free(&bd_var_flcor_.req_recv[nb.bufid]);
-          MPI_Recv_init(bd_var_flcor_.recv[nb.bufid], size, MPI_ATHENA_REAL, nb.snb.rank,
-                        tag, MPI_COMM_WORLD, &(bd_var_flcor_.req_recv[nb.bufid]));
+          MPI_Recv_init(bd_var_flcor_.recv[nb.bufid].data(), size, MPI_ATHENA_REAL,
+                        nb.snb.rank, tag, MPI_COMM_WORLD,
+                        &(bd_var_flcor_.req_recv[nb.bufid]));
         }
       }
       if (nb.snb.level > mylevel) { // finer neighbor
         tag = pmb->pbval->CreateBvalsMPITag(pmb->lid, nb.bufid, fc_flx_phys_id_);
         if (bd_var_flcor_.req_recv[nb.bufid] != MPI_REQUEST_NULL)
           MPI_Request_free(&bd_var_flcor_.req_recv[nb.bufid]);
-        MPI_Recv_init(bd_var_flcor_.recv[nb.bufid], f2csize, MPI_ATHENA_REAL, nb.snb.rank,
-                      tag, MPI_COMM_WORLD, &(bd_var_flcor_.req_recv[nb.bufid]));
+        MPI_Recv_init(bd_var_flcor_.recv[nb.bufid].data(), f2csize, MPI_ATHENA_REAL,
+                      nb.snb.rank, tag, MPI_COMM_WORLD,
+                      &(bd_var_flcor_.req_recv[nb.bufid]));
       }
       if (nb.snb.level < mylevel) { // coarser neighbor
         tag = pmb->pbval->CreateBvalsMPITag(nb.snb.lid, nb.targetid, fc_flx_phys_id_);
         if (bd_var_flcor_.req_send[nb.bufid] != MPI_REQUEST_NULL)
           MPI_Request_free(&bd_var_flcor_.req_send[nb.bufid]);
-        MPI_Send_init(bd_var_flcor_.send[nb.bufid], f2csize, MPI_ATHENA_REAL, nb.snb.rank,
-                      tag, MPI_COMM_WORLD, &(bd_var_flcor_.req_send[nb.bufid]));
+        MPI_Send_init(bd_var_flcor_.send[nb.bufid].data(), f2csize, MPI_ATHENA_REAL,
+                      nb.snb.rank, tag, MPI_COMM_WORLD,
+                      &(bd_var_flcor_.req_send[nb.bufid]));
       }
     } // neighbor block is on separate MPI process
   }   // end loop over neighbors

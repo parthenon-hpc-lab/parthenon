@@ -172,7 +172,7 @@ struct BoundaryData { // aggregate and POD (even when MPI_PARALLEL is defined)
   // currently, sflag[] is only used by Multgrid (send buffers are reused each stage in
   // red-black comm. pattern; need to check if they are available)
   BoundaryStatus flag[kMaxNeighbor], sflag[kMaxNeighbor];
-  Real *send[kMaxNeighbor], *recv[kMaxNeighbor];
+  ParArray1D<Real> send[56], recv[56];
 #ifdef MPI_PARALLEL
   MPI_Request req_send[kMaxNeighbor], req_recv[kMaxNeighbor];
 #endif
@@ -227,12 +227,15 @@ class BoundaryBuffer {
 
  protected:
   // universal buffer management methods for Cartesian grids (unrefined and SMR/AMR):
-  virtual int LoadBoundaryBufferSameLevel(Real *buf, const NeighborBlock &nb) = 0;
+  virtual int LoadBoundaryBufferSameLevel(ParArray1D<Real> &buf,
+                                          const NeighborBlock &nb) = 0;
   virtual void SetBoundarySameLevel(Real *buf, const NeighborBlock &nb) = 0;
 
   // SMR/AMR-exclusive buffer management methods:
-  virtual int LoadBoundaryBufferToCoarser(Real *buf, const NeighborBlock &nb) = 0;
-  virtual int LoadBoundaryBufferToFiner(Real *buf, const NeighborBlock &nb) = 0;
+  virtual int LoadBoundaryBufferToCoarser(ParArray1D<Real> &buf,
+                                          const NeighborBlock &nb) = 0;
+  virtual int LoadBoundaryBufferToFiner(ParArray1D<Real> &buf,
+                                        const NeighborBlock &nb) = 0;
   virtual void SetBoundaryFromCoarser(Real *buf, const NeighborBlock &nb) = 0;
   virtual void SetBoundaryFromFiner(Real *buf, const NeighborBlock &nb) = 0;
 };
