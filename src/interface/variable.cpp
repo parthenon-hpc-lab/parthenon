@@ -37,7 +37,7 @@ std::string CellVariable<T>::info() {
   while (!strncmp(stmp, "1x", 2)) {
     stmp += 2;
   }
-  s += stmp;
+  s += std::string("cell:")+stmp;
   // now append flag
   s += " : " + m_.MaskAsString();
 
@@ -125,7 +125,7 @@ std::string FaceVariable<T>::info() {
   s += " : ";
 
   // now append size
-  snprintf(tmp, sizeof(tmp), "%dx%dx%d", data.x1f.GetDim(3), data.x1f.GetDim(2),
+  snprintf(tmp, sizeof(tmp), "face:%dx%dx%d", data.x1f.GetDim(3), data.x1f.GetDim(2),
            data.x1f.GetDim(1));
   s += std::string(tmp);
 
@@ -145,7 +145,7 @@ std::string EdgeVariable<T>::info() {
   s.resize(20, '.');
 
   // now append size
-  snprintf(tmp, sizeof(tmp), "%dx%dx%d", data.x1e.GetDim(3), data.x1e.GetDim(2),
+  snprintf(tmp, sizeof(tmp), "edge:%dx%dx%d", data.x1e.GetDim(3), data.x1e.GetDim(2),
            data.x1e.GetDim(1));
   s += std::string(tmp);
 
