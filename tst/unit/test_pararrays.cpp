@@ -270,6 +270,30 @@ TEST_CASE("ParArrayND", "[ParArrayND][Kokkos]") {
           REQUIRE(total_errors == 0);
         }
       }
+      THEN("We can slice the 2nd dimension") {
+        auto b = a.SliceD<2>(1,2);
+        AND_THEN("slices have correct values.") {
+          int total_errors = 1;
+          Kokkos::parallel_reduce(policy2d({0,0},{2,N1}),
+                                  KOKKOS_LAMBDA(const int j, const int i, int &update) {
+                                    update += (b(j,i) == a(j+1,i)) ? 0 : 1;
+                                  },
+                                  total_errors);
+          REQUIRE(total_errors == 0);
+        }
+      }
+      THEN("We can slice the 1st dimension") {
+        auto b = a.SliceD<1>(1, N1-1);
+        AND_THEN("Slices have correct values.") {
+          int total_errors = 1;
+          Kokkos::parallel_reduce(N1-1,
+                                  KOKKOS_LAMBDA(const int i, int &update) {
+                                    update += (b(i) == a(i+1)) ? 0 : 1;
+                                  },
+                                  total_errors);
+          REQUIRE(total_errors == 0);
+        }
+      }
     }
   }
 }
