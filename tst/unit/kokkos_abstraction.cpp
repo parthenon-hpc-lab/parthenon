@@ -34,6 +34,8 @@ using Real = double;
 
 template <class T>
 bool test_wrapper_1d(T loop_pattern, DevExecSpace exec_space) {
+  int x=7;
+  
   // https://en.cppreference.com/w/cpp/numeric/random/uniform_real_distribution
   std::random_device rd;  // Will be used to obtain a seed for the random number engine
   std::mt19937 gen(rd()); // Standard mersenne_twister_engine seeded with rd()
