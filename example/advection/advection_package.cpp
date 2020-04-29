@@ -111,13 +111,11 @@ void PreFill(Container<Real> &rc) {
   auto v = PackVariables(rc, vars, imap);
   const int in = imap["advected"].first;
   const int out = imap["one_minus_advected"].first;
-  par_for("advection_package::PreFill", DevExecSpace(),
-    ks, ke,
-    js, je,
-    is, ie,
-    KOKKOS_LAMBDA(const int k, const int j, const int i) {
-      v(out,k,j,i) = 1.0 - v(in,k,j,i);
-    });
+  par_for(
+      "advection_package::PreFill", DevExecSpace(), ks, ke, js, je, is, ie,
+      KOKKOS_LAMBDA(const int k, const int j, const int i) {
+        v(out, k, j, i) = 1.0 - v(in, k, j, i);
+      });
 }
 
 // this is the package registered function to fill derived
@@ -134,13 +132,11 @@ void SquareIt(Container<Real> &rc) {
   auto v = PackVariables(rc, vars, imap);
   const int in = imap["one_minus_advected"].first;
   const int out = imap["one_minus_advected_sq"].first;
-  par_for("advection_package::PreFill", DevExecSpace(),
-    ks, ke,
-    js, je,
-    is, ie,
-    KOKKOS_LAMBDA(const int k, const int j, const int i) {
-      v(out,k,j,i) = v(in,k,j,i)*v(in,k,j,i);
-    });
+  par_for(
+      "advection_package::PreFill", DevExecSpace(), ks, ke, js, je, is, ie,
+      KOKKOS_LAMBDA(const int k, const int j, const int i) {
+        v(out, k, j, i) = v(in, k, j, i) * v(in, k, j, i);
+      });
 }
 
 // demonstrate usage of a "post" fill derived routine
@@ -154,20 +150,17 @@ void PostFill(Container<Real> &rc) {
   int ke = pmb->ncells3 - 1;
   PackIndexMap imap;
   std::vector<std::string> vars(
-    {"one_minus_advected_sq","one_minus_sqrt_one_minus_advected_sq"}
-  );
-  auto v = PackVariables(rc, vars, {12,37}, imap);
+      {"one_minus_advected_sq", "one_minus_sqrt_one_minus_advected_sq"});
+  auto v = PackVariables(rc, vars, {12, 37}, imap);
   const int in = imap["one_minus_advected_sq"].first;
   const int out12 = imap["one_minus_sqrt_one_minus_advected_sq_12"].first;
   const int out37 = imap["one_minus_sqrt_one_minus_advected_sq_37"].first;
-  par_for("advection_package::PreFill", DevExecSpace(),
-    ks, ke,
-    js, je,
-    is, ie,
-    KOKKOS_LAMBDA(const int k, const int j, const int i) {
-      v(out12,k,j,i) = 1.0 - sqrt(v(in,k,j,i));
-      v(out37,k,j,i) = 1.0 - v(out12,k,j,i);
-    });
+  par_for(
+      "advection_package::PreFill", DevExecSpace(), ks, ke, js, je, is, ie,
+      KOKKOS_LAMBDA(const int k, const int j, const int i) {
+        v(out12, k, j, i) = 1.0 - sqrt(v(in, k, j, i));
+        v(out37, k, j, i) = 1.0 - v(out12, k, j, i);
+      });
 }
 
 // provide the routine that estimates a stable timestep for this package

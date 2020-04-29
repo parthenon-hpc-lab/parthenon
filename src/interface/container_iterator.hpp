@@ -178,7 +178,7 @@ auto MakePack(VarList<T> &vars, PackIndexMap *vmap = nullptr) {
 
 template <typename T>
 VarList<T> MakeList(const Container<T> &c, const std::vector<std::string> &names,
-                                           const std::vector<int> sparse_ids = {}) {
+                    const std::vector<int> sparse_ids = {}) {
   VarList<T> vars;
   auto var_map = c.GetCellVariableMap();
   auto sparse_map = c.GetSparseMap();
@@ -249,7 +249,7 @@ auto PackVariablesAndFluxes(const Container<T> &c,
 
 template <typename T>
 auto PackVariables(const Container<T> &c, const std::vector<std::string> &names,
-                                          const std::vector<int> &sparse_ids) {
+                   const std::vector<int> &sparse_ids) {
   VarList<T> vars = MakeList(c, names, sparse_ids);
   return MakePack<T>(vars);
 }
