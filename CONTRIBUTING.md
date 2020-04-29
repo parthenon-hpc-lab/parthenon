@@ -64,6 +64,11 @@ format the code and automatically commit it:
 After Hermes formats your code, remember to run `git pull` to update your local tracking
 branch.
 
+**WARNING:** Due to a limitation in GitHub Actions, the "Check Formatting" CI will not
+run, which will block merging. If you don't plan on making any further commits, you or a
+reviewer can run ["./scripts/retrigger-ci.sh"](scripts/retrigger-ci.sh) with your branch
+checked out to re-run the CI.
+
 If you'd like Hermes to amend the formatting to the latest commit, you can use the
 `--amend` option. WARNING: The usual caveats with changing history apply. See:
 https://mirrors.edge.kernel.org/pub/software/scm/git/docs/user-manual.html#problems-With-rewriting-history
