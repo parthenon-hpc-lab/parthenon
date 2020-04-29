@@ -158,7 +158,7 @@ if __name__ == "__main__":
     if not quiet: print(f0.TotalCells,'cells mapped')
 
     for var in f0.Variables:
-        if var == 'Locations' or var == 'Timestep':
+        if var == 'Locations' or var == 'Info':
             continue
         #initialize info values
         same = True
