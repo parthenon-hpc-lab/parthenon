@@ -32,7 +32,7 @@ class TestCase(utils.test_case.TestCaseAbs):
         this method
 
         This includes preparing files or any other pre processing steps that
-        need to be implmeneted.  The method also provides access to the
+        need to be implemented.  The method also provides access to the
         parameters object which controls which parameters are being used to run
         the driver. 
 
