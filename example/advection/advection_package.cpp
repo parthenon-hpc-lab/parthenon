@@ -39,6 +39,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddParam<>("vx", vx);
   Real vy = pin->GetOrAddReal("Advection", "vy", 1.0);
   pkg->AddParam<>("vy", vy);
+  Real vz = pin->GetOrAddReal("Advection", "vz", 0.5);
+  pkg->AddParam<>("vz", vz);
   Real refine_tol = pin->GetOrAddReal("Advection", "refine_tol", 0.3);
   pkg->AddParam<>("refine_tol", refine_tol);
   Real derefine_tol = pin->GetOrAddReal("Advection", "derefine_tol", 0.03);
@@ -108,9 +110,9 @@ void PreFill(Container<Real> &rc) {
   int ke = pmb->ncells3 - 1;
   CellVariable<Real> &qin = rc.Get("advected");
   CellVariable<Real> &qout = rc.Get("one_minus_advected");
-  for (int i = is; i <= ie; i++) {
+  for (int k = ks; k <= ke; k++) {
     for (int j = js; j <= je; j++) {
-      for (int k = ks; k <= ke; k++) {
+      for (int i = is; i <= ie; i++) {
         qout(k, j, i) = 1.0 - qin(k, j, i);
       }
     }
@@ -128,9 +130,9 @@ void SquareIt(Container<Real> &rc) {
   int ke = pmb->ncells3 - 1;
   CellVariable<Real> &qin = rc.Get("one_minus_advected");
   CellVariable<Real> &qout = rc.Get("one_minus_advected_sq");
-  for (int i = is; i <= ie; i++) {
+  for (int k = ks; k <= ke; k++) {
     for (int j = js; j <= je; j++) {
-      for (int k = ks; k <= ke; k++) {
+      for (int i = is; i <= ie; i++) {
         qout(k, j, i) = qin(k, j, i) * qin(k, j, i);
       }
     }
@@ -151,9 +153,9 @@ void PostFill(Container<Real> &rc) {
   CellVariable<Real> &q0 = rc.Get("one_minus_sqrt_one_minus_advected_sq", 12);
   // and component 37
   CellVariable<Real> &q1 = rc.Get("one_minus_sqrt_one_minus_advected_sq", 37);
-  for (int i = is; i <= ie; i++) {
+  for (int k = ks; k <= ke; k++) {
     for (int j = js; j <= je; j++) {
-      for (int k = ks; k <= ke; k++) {
+      for (int i = is; i <= ie; i++) {
         // this will make component 12 = advected
         q0(k, j, i) = 1.0 - sqrt(qin(k, j, i));
         // and this will make component 37 = 1 - advected
@@ -170,6 +172,7 @@ Real EstimateTimestep(Container<Real> &rc) {
   const auto &cfl = pkg->Param<Real>("cfl");
   const auto &vx = pkg->Param<Real>("vx");
   const auto &vy = pkg->Param<Real>("vy");
+  const auto &vz = pkg->Param<Real>("vz");
 
   int is = pmb->is;
   int js = pmb->js;
@@ -179,17 +182,20 @@ Real EstimateTimestep(Container<Real> &rc) {
   int ke = pmb->ke;
 
   Real min_dt = std::numeric_limits<Real>::max();
-  ParArrayND<Real> dx0("dx0", pmb->ncells1);
   ParArrayND<Real> dx1("dx1", pmb->ncells1);
+  ParArrayND<Real> dx2("dx2", pmb->ncells1);
+  ParArrayND<Real> dx3("dx3", pmb->ncells1);
 
   // this is obviously overkill for this constant velocity problem
   for (int k = ks; k <= ke; k++) {
     for (int j = js; j <= je; j++) {
-      pmb->pcoord->CenterWidth1(k, j, is, ie, dx0);
-      pmb->pcoord->CenterWidth2(k, j, is, ie, dx1);
+      pmb->pcoord->CenterWidth1(k, j, is, ie, dx1);
+      pmb->pcoord->CenterWidth2(k, j, is, ie, dx2);
+      pmb->pcoord->CenterWidth3(k, j, is, ie, dx3);
       for (int i = is; i <= ie; i++) {
-        min_dt = std::min(min_dt, dx0(i) / std::abs(vx));
-        min_dt = std::min(min_dt, dx1(i) / std::abs(vy));
+        min_dt = std::min(min_dt, dx1(i) / std::abs(vx));
+        min_dt = std::min(min_dt, dx2(i) / std::abs(vy));
+        min_dt = std::min(min_dt, dx3(i) / std::abs(vz));
       }
     }
   }
@@ -213,11 +219,11 @@ TaskStatus CalculateFluxes(Container<Real> &rc) {
   auto pkg = pmb->packages["advection_package"];
   const auto &vx = pkg->Param<Real>("vx");
   const auto &vy = pkg->Param<Real>("vy");
+  const auto &vz = pkg->Param<Real>("vz");
 
-  int maxdim = std::max(std::max(pmb->ncells1, pmb->ncells2), pmb->ncells3);
-  ParArrayND<Real> ql("ql", maxdim);
-  ParArrayND<Real> qr("qr", maxdim);
-  ParArrayND<Real> qltemp("qltemp", maxdim);
+  ParArrayND<Real> ql("ql", q.GetDim(4), pmb->ncells1);
+  ParArrayND<Real> qr("qr", q.GetDim(4), pmb->ncells1);
+  ParArrayND<Real> qltemp("qltemp", q.GetDim(4), pmb->ncells1);
 
   // get x-fluxes
   for (int k = ks; k <= ke; k++) {
@@ -257,7 +263,27 @@ TaskStatus CalculateFluxes(Container<Real> &rc) {
     }
   }
 
-  // TODO(jcd): implement z-fluxes
+  // get z-fluxes
+  if (pmb->pmy_mesh->ndim == 3) {
+    for (int j = js; j <= je; j++) { // loop ordering is intentional
+      pmb->precon->DonorCellX3(ks - 1, j, is, ie, q.data, ql, qr);
+      for (int k = ks; k <= ke + 1; k++) {
+        pmb->precon->DonorCellX3(k, j, is, ie, q.data, qltemp, qr);
+        if (vz > 0.0) {
+          for (int i = is; i <= ie; i++) {
+            q.flux[2](k, j, i) = ql(i) * vz;
+          }
+        } else {
+          for (int i = is; i <= ie; i++) {
+            q.flux[2](k, j, i) = qr(i) * vz;
+          }
+        }
+        auto temp = ql;
+        ql = qltemp;
+        qltemp = temp;
+      }
+    }
+  }
 
   return TaskStatus::complete;
 }
