@@ -26,27 +26,39 @@ style-check:
     - python ./tst/style/cpplint.py --counting=detailed --recursive src example tst
   allow_failure: true
 
-#parthenon-cuda-short:
-#  tags:
-#    - cuda
-#  stage: short
-#  script:
-## mitigate UVM allocations on older multi-GPU systems    
-##    - export CUDA_LAUNCH_BLOCKING=1
-##    - export CUDA_VISIBLE_DEVICES=0
-#    - mkdir build-cuda-debug
-#    - cd build-cuda-debug
-#    - cmake -DCMAKE_BUILD_TYPE=Debug -DHDF5_ROOT=/usr/local/hdf5/parallel
-#      -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
-#      -DKokkos_ENABLE_CUDA=True -DKokkos_ARCH_PASCAL61=True
-#      -DMPIEXEC_PREFLAGS="--allow-run-as-root"
-#      -DCMAKE_CXX_COMPILER=${PWD}/../external/Kokkos/bin/nvcc_wrapper
-#      ../ && make -j${J} && ctest -j${J} -LE performance
-#  artifacts:
-#    when: always
-#    expire_in: 3 days
-#    paths:
-#      - build-cuda-debug/CMakeFiles/CMakeOutput.log
+parthenon-cuda-short:
+  tags:
+    - cuda
+  stage: short
+  script:
+# mitigate UVM allocations on older multi-GPU systems
+#    - export CUDA_LAUNCH_BLOCKING=1
+#    - export CUDA_VISIBLE_DEVICES=0
+    - mkdir build-cuda-debug
+    - cd build-cuda-debug
+    - cmake -DCMAKE_BUILD_TYPE=Debug -DHDF5_ROOT=/usr/local/hdf5/parallel
+      -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
+      -DKokkos_ENABLE_CUDA=True -DKokkos_ARCH_PASCAL61=True
+      -DMPIEXEC_PREFLAGS="--allow-run-as-root"
+      -DCMAKE_CXX_COMPILER=${PWD}/../external/Kokkos/bin/nvcc_wrapper
+      ../ && make -j${J} && ctest -j${J} -LE 'performance|regression'
+    - cd ..
+# run regression tests with UVM until everything is on the device
+    - mkdir build-cuda-debug-uvm
+    - cd build-cuda-debug-uvm
+    - cmake -DCMAKE_BUILD_TYPE=Debug -DHDF5_ROOT=/usr/local/hdf5/parallel
+      -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
+      -DKokkos_ENABLE_CUDA=True -DKokkos_ARCH_PASCAL61=True
+      -DMPIEXEC_PREFLAGS="--allow-run-as-root"
+      -DCMAKE_CXX_COMPILER=${PWD}/../external/Kokkos/bin/nvcc_wrapper
+      -DKokkos_ENABLE_CUDA_UVM=ON
+      ../ && make -j${J} && ctest -j${J} -L regression
+  artifacts:
+    when: always
+    expire_in: 3 days
+    paths:
+      - build-cuda-debug/CMakeFiles/CMakeOutput.log
+      - build-cuda-debug-uvm/CMakeFiles/CMakeOutput.log
 
 # run short suite on CPUs
 parthenon-cpu-short:
@@ -71,7 +83,7 @@ parthenon-cuda-peformance:
     - cuda
   stage: short
   script:
-# mitigate UVM allocations on older multi-GPU systems    
+# mitigate UVM allocations on older multi-GPU systems
 #    - export CUDA_LAUNCH_BLOCKING=1
 #    - export CUDA_VISIBLE_DEVICES=0
     - mkdir build-cuda-perf
