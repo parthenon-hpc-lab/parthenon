@@ -17,8 +17,8 @@ mkdir bin
 cd bin
 # configure and build
 cmake ..
-make -j
-# run unit tests
+make -j --build .
+# run unit and regression tests
 ctest -LE performance
 # run performance tests
 ctest -L performance
