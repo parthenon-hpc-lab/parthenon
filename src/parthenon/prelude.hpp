@@ -11,25 +11,30 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#include "face_fields_example.hpp"
-#include "parthenon_manager.hpp"
+#ifndef PARTHENON_PRELUDE_HPP_
+#define PARTHENON_PRELUDE_HPP_
 
-int main(int argc, char *argv[]) {
-  using parthenon::FaceFieldExample;
-  using parthenon::ParthenonManager;
-  using parthenon::ParthenonStatus;
-  ParthenonManager pman;
+// Internal Includes
+#include <basic_types.hpp>
+#include <globals.hpp>
+#include <interface/container.hpp>
+#include <interface/variable.hpp>
+#include <mesh/mesh.hpp>
+#include <parthenon_arrays.hpp>
+#include <parthenon_manager.hpp>
+#include <parthenon_mpi.hpp>
 
-  auto status = pman.ParthenonInit(argc, argv);
-  if (status == ParthenonStatus::complete || status == ParthenonStatus::error) {
-    pman.ParthenonFinalize();
-    return (status == ParthenonStatus::error) ? 1 : 0;
-  }
+namespace parthenon {
+namespace prelude {
+using ::parthenon::CellVariable;
+using ::parthenon::Container;
+using ::parthenon::MeshBlock;
+using ::parthenon::ParArrayND;
+using ::parthenon::ParthenonStatus;
+using ::parthenon::Real;
+using ::parthenon::Globals::my_rank;
+using ::parthenon::Globals::nranks;
+} // namespace prelude
+} // namespace parthenon
 
-  FaceFieldExample driver(pman.pinput.get(), pman.pmesh.get());
-  pman.PreDriver();
-  pman.PostDriver(driver.Execute());
-  pman.ParthenonFinalize();
-
-  return 0;
-}
+#endif // PARTHENON_PRELUDE_HPP_

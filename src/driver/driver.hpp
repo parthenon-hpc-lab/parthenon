@@ -14,13 +14,16 @@
 #ifndef DRIVER_DRIVER_HPP_
 #define DRIVER_DRIVER_HPP_
 
+#include <map>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
-#include "athena.hpp"
+#include "basic_types.hpp"
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
+#include "outputs/outputs.hpp"
 #include "task_list/tasks.hpp"
 
 namespace parthenon {
@@ -33,25 +36,43 @@ enum class DriverStatus { complete, timeout, failed };
 
 class Driver {
  public:
-  Driver(ParameterInput *pin, Mesh *pm, Outputs *pout)
-      : pinput(pin), pmesh(pm), pouts(pout) {}
+  Driver(ParameterInput *pin, Mesh *pm) : pinput(pin), pmesh(pm) {}
   virtual DriverStatus Execute() = 0;
+  void InitializeOutputs() { pouts = std::make_unique<Outputs>(pmesh, pinput); }
   ParameterInput *pinput;
   Mesh *pmesh;
-  Outputs *pouts;
+  std::unique_ptr<Outputs> pouts;
+
+ private:
 };
 
 class SimpleDriver : public Driver {
  public:
-  SimpleDriver(ParameterInput *pin, Mesh *pm, Outputs *pout) : Driver(pin, pm, pout) {}
-  DriverStatus Execute() { return DriverStatus::complete; }
+  SimpleDriver(ParameterInput *pin, Mesh *pm) : Driver(pin, pm) {}
+  DriverStatus Execute() override { return DriverStatus::complete; }
 };
 
 class EvolutionDriver : public Driver {
  public:
-  EvolutionDriver(ParameterInput *pin, Mesh *pm, Outputs *pout) : Driver(pin, pm, pout) {}
-  DriverStatus Execute();
+  EvolutionDriver(ParameterInput *pin, Mesh *pm) : Driver(pin, pm) {
+    Real start_time = pinput->GetOrAddReal("time", "start_time", 0.0);
+    Real tstop = pinput->GetReal("time", "tlim");
+    int nmax = pinput->GetOrAddInteger("time", "nlim", -1);
+    int nout = pinput->GetOrAddInteger("time", "ncycle_out", 1);
+    // TODO(jcd): the 0 below should be the current cycle number, not necessarily 0
+    tm = SimTime(start_time, tstop, nmax, 0, nout);
+    pouts = std::make_unique<Outputs>(pmesh, pinput, &tm);
+  }
+  DriverStatus Execute() override;
+  void SetGlobalTimeStep();
+  void OutputCycleDiagnostics();
+
   virtual TaskListStatus Step() = 0;
+  SimTime tm;
+
+ private:
+  void InitializeBlockTimeSteps();
+  void Report(DriverStatus status);
 };
 
 namespace DriverUtils {

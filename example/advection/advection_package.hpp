@@ -10,58 +10,44 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef EXAMPLE_CALCULATE_PI_PI_HPP_
-#define EXAMPLE_CALCULATE_PI_PI_HPP_
+#ifndef EXAMPLE_ADVECTION_ADVECTION_PACKAGE_HPP_
+#define EXAMPLE_ADVECTION_ADVECTION_PACKAGE_HPP_
 
 #include <memory>
 
+#include "basic_types.hpp"
 #include "driver/driver.hpp"
-#include "globals.hpp"
+#include "driver/multistage.hpp"
+#include "interface/container.hpp"
 #include "interface/state_descriptor.hpp"
 #include "mesh/mesh.hpp"
-#include "parthenon_manager.hpp"
 #include "task_list/tasks.hpp"
 
 using parthenon::AmrTag;
-using parthenon::BlockTask;
-using parthenon::BlockTaskFunc;
-using parthenon::CellVariable;
+using parthenon::BaseTask;
 using parthenon::Container;
-using parthenon::Coordinates;
-using parthenon::DerivedOwnership;
-using parthenon::Driver;
-using parthenon::DriverStatus;
 using parthenon::Mesh;
 using parthenon::MeshBlock;
-using parthenon::Metadata;
+using parthenon::MultiStageBlockTaskDriver;
 using parthenon::Outputs;
 using parthenon::ParameterInput;
-using parthenon::Params;
 using parthenon::Real;
+using parthenon::SimTime;
 using parthenon::StateDescriptor;
 using parthenon::TaskID;
 using parthenon::TaskList;
-using parthenon::TaskListStatus;
 using parthenon::TaskStatus;
-using parthenon::DriverUtils::ConstructAndExecuteBlockTasks;
-using parthenon::Globals::my_rank;
-using parthenon::Globals::nranks;
 
-class CalculatePi : public Driver {
- public:
-  CalculatePi(ParameterInput *pin, Mesh *pm, Outputs *pout) : Driver(pin, pm, pout) {}
-  TaskList MakeTaskList(MeshBlock *pmb);
-  DriverStatus Execute();
-};
+namespace advection_package {
 
-// putting a "physics" package in a namespace
-namespace PiCalculator {
-
-void SetInOrOut(Container<Real> &rc);
-AmrTag CheckRefinement(Container<Real> &rc);
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
-TaskStatus ComputeArea(MeshBlock *pmb);
+AmrTag CheckRefinement(Container<Real> &rc);
+void PreFill(Container<Real> &rc);
+void SquareIt(Container<Real> &rc);
+void PostFill(Container<Real> &rc);
+Real EstimateTimestep(Container<Real> &rc);
+TaskStatus CalculateFluxes(Container<Real> &rc);
 
-} // namespace PiCalculator
+} // namespace advection_package
 
-#endif // EXAMPLE_CALCULATE_PI_PI_HPP_
+#endif // EXAMPLE_ADVECTION_ADVECTION_PACKAGE_HPP_

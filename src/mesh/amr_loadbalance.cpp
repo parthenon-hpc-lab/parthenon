@@ -53,12 +53,16 @@ void Mesh::LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin) {
 
   UpdateCostList();
 
+  modified = false;
   if (nnew != 0 || ndel != 0) { // at least one (de)refinement happened
     GatherCostListAndCheckBalance();
     RedistributeAndRefineMeshBlocks(pin, nbtotal + nnew - ndel);
+    modified = true;
   } else if (lb_flag_ && step_since_lb >= lb_interval_) {
-    if (!GatherCostListAndCheckBalance()) // load imbalance detected
+    if (!GatherCostListAndCheckBalance()) { // load imbalance detected
       RedistributeAndRefineMeshBlocks(pin, nbtotal);
+      modified = true;
+    }
     lb_flag_ = false;
   }
   return;
