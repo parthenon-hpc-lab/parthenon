@@ -72,18 +72,20 @@ class TestCase(utils.test_case.TestCaseAbs):
 
         """
 
-        line = ""
+        line1 = ""
+        line2 = ""
         try:
             f = open(os.path.join(parameters.output_path, "summary.txt"),"r")
             # Do something with the file
-            line = f.readline()
+            line1 = f.readline()
+            line2 = f.readline()
 
             f.close()
         except IOError:
             print("Summary file not accessible")
 
-        words = line.split()
-        pi_val = float(words[2])
+        words1 = line1.split()
+        pi_val = float(words1[2])
 
         error_abs_e = math.fabs( math.pi - pi_val ) / math.pi  
 
