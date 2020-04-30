@@ -27,7 +27,7 @@ class PiDriver : public Driver {
   PiDriver(ParameterInput *pin, Mesh *pm) : Driver(pin, pm) {
     InitializeOutputs();
     pin->CheckDesired("Pi", "radius");
-    pin->CheckDesired("graphics", "variables");
+    pin->CheckDesired("parthenon/graphics, "variables");
   }
 
   /// MakeTaskList isn't a virtual routine on `Driver`, but each driver is expected to

@@ -31,7 +31,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   int numcrit = 0;
   while (true) {
-    std::string block_name = "Refinement" + std::to_string(numcrit);
+    std::string block_name = "parthenon/refinement" + std::to_string(numcrit);
     if (!pin->DoesBlockExist(block_name)) {
       break;
     }

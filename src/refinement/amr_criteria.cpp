@@ -38,7 +38,7 @@ AMRFirstDerivative::AMRFirstDerivative(ParameterInput *pin, std::string &block_n
   }
   refine_criteria = pin->GetOrAddReal(block_name, "refine_tol", 0.5);
   derefine_criteria = pin->GetOrAddReal(block_name, "derefine_tol", 0.05);
-  int global_max_level = pin->GetOrAddInteger("mesh", "numlevel", 1);
+  int global_max_level = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1);
   max_level = pin->GetOrAddInteger(block_name, "max_level", global_max_level);
   if (max_level > global_max_level) {
     std::cerr << "WARNING: max_level in " << block_name

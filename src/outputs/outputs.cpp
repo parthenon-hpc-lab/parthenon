@@ -129,17 +129,17 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   int num_hst_outputs = 0, num_rst_outputs = 0; // number of history and restart outputs
 
   // look for a Graphics block
-  if (pin->DoesBlockExist("graphics")) {
+  if (pin->DoesBlockExist("parthenon/graphics)) {
     OutputParameters op;
     op.block_number = 0;
-    op.block_name.assign("graphics");
+    op.block_name.assign("parthenon/graphics);
     if (tm != nullptr) {
       op.next_time = pin->GetOrAddReal(op.block_name, "next_time", tm->time);
       op.dt = pin->GetOrAddReal(op.block_name, "dt", tm->tlim);
     }
     // set file number, basename, id, and format
     op.file_number = pin->GetOrAddInteger(op.block_name, "file_number", 0);
-    op.file_basename = pin->GetOrAddString("job", "problem_id", "parthenon");
+    op.file_basename = pin->GetOrAddString("parthenon/job", "problem_id", "parthenon");
     char define_id[15];
     std::snprintf(define_id, sizeof(define_id), "graphics%d",
                   op.block_number); // default id="outN"
@@ -152,10 +152,10 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     plast = pnew_type;
   }
 
-  // loop over input block names.  Find those that start with "output", read parameters,
+  // loop over input block names.  Find those that start with "parthenon/output", read parameters,
   // and construct singly linked list of OutputTypes.
   while (pib != nullptr) {
-    if (pib->block_name.compare(0, 6, "output") == 0) {
+    if (pib->block_name.compare(0, 16, "parthenon/:output") == 0) {
       OutputParameters op; // define temporary OutputParameters struct
 
       // extract integer number of output block.  Save name and number
@@ -172,7 +172,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       if (op.dt > 0.0) { // only add output if dt>0
         // set file number, basename, id, and format
         op.file_number = pin->GetOrAddInteger(op.block_name, "file_number", 0);
-        op.file_basename = pin->GetOrAddString("job", "problem_id", "parthenon");
+        op.file_basename = pin->GetOrAddString("parthenon/job", "problem_id", "parthenon");
         char define_id[10];
         std::snprintf(define_id, sizeof(define_id), "out%d",
                       op.block_number); // default id="outN"
