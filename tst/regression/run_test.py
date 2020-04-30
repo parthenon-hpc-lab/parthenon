@@ -36,15 +36,15 @@ def checkRunScriptLocation(run_test_py_path):
         raise TestError(error_msg)
 
     """ Check that test_suites folder exists """
-    if( not os.path.isdir(os.path.join(run_test_py_path,'test_suites')) ): 
+    if not os.path.isdir(os.path.join(run_test_py_path,'test_suites')): 
         raise TestError("Cannot run run_test.py, the test_suites folder is missing.")
 
 # Main function
 def main(**kwargs):
 
     print(kwargs)
-    if( hasattr(kwargs,'mpirun_opts') ):
-        if(kwargs.mpirun == ""):
+    if hasattr(kwargs,'mpirun_opts'):
+        if kwargs.mpirun == "":
             raise TestError("Cannot provide --mpirun_opts without specifying --mpirun")
 
     print("*****************************************************************")
@@ -68,7 +68,7 @@ def main(**kwargs):
 
     test_result = test_manager.Analyse()
 
-    if (test_result == True):
+    if test_result == True:
         return 0
     else:
         raise TestError("Test " + test_case.test + " failed")

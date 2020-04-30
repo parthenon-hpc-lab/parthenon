@@ -86,11 +86,11 @@ class TestManager:
         my_TestCase = getattr(module,'TestCase')
         self.test_case = my_TestCase()
 
-        if( not issubclass(my_TestCase,TestCaseAbs)):
+        if not issubclass(my_TestCase,TestCaseAbs):
             raise TestManagerError('TestCase is not a child of TestCaseAbs')
 
     def __checkAndGetRegressionTestFolder(self,test_dir):
-        if not os.path.isdir(test_dir) :
+        if not os.path.isdir(test_dir):
             if not os.path.isdir( os.path.join('test_suites',test_dir)):
                 error_msg = "Regression test folder is unknown: " + test_dir + "\n"
                 error_msg +="looked in:\n" 
@@ -111,7 +111,7 @@ class TestManager:
 
     def __checkRegressionTestScript(self,test_base_name):
         python_test_script = os.path.join(self.__run_test_py_path,'test_suites',test_base_name,test_base_name + ".py")
-        if not os.path.isfile(python_test_script) :
+        if not os.path.isfile(python_test_script):
             error_msg = "Missing regression test file "
             error_msg += python_test_script
             error_msg += "\nEach test folder must have a python script with the same name as the "
@@ -138,7 +138,7 @@ class TestManager:
         for choice in choices:
             print("2")
             sys.stdout.flush()
-            if( mpi_exec.endswith(choice)):
+            if mpi_exec.endswith(choice):
                 print("3")
                 sys.stdout.flush()
                 if len(mpi_exec) != len(choice):
@@ -178,7 +178,7 @@ class TestManager:
     def Run(self):
        
         run_command = []
-        if( self.parameters.mpi_cmd !="" ):
+        if self.parameters.mpi_cmd != "":
             run_command.extend(self.parameters.mpi_cmd)
         for opt in self.parameters.mpi_opts:
             run_command.extend(opt.split()) 
