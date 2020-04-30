@@ -101,6 +101,7 @@ class MetadataFlag {
   friend class internal::UserMetadataState;
 
  public:
+  MetadataFlag() = default;
   constexpr bool operator==(MetadataFlag const &other) const {
     return flag_ == other.flag_;
   }

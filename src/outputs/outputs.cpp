@@ -93,15 +93,19 @@
 #include <cstring>
 #include <iomanip>
 #include <iostream>
+#include <list>
 #include <sstream>
 #include <stdexcept>
 #include <string>
 
 #include "athena.hpp"
 #include "coordinates/coordinates.hpp"
+#include "interface/metadata.hpp"
+#include "interface/state_descriptor.hpp"
 #include "mesh/mesh.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
+#include "utils/trim_string.hpp"
 
 namespace parthenon {
 
@@ -120,7 +124,7 @@ OutputType::OutputType(OutputParameters oparams)
 //----------------------------------------------------------------------------------------
 // Outputs constructor
 
-Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
+Outputs::Outputs(Mesh *pm, ParameterInput *pin, Packages_t *packages, SimTime *tm) {
   pfirst_type_ = nullptr;
   std::stringstream msg;
   InputBlock *pib = pin->pfirst_block;
@@ -128,35 +132,14 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   OutputType *plast = pfirst_type_;
   int num_hst_outputs = 0, num_rst_outputs = 0; // number of history and restart outputs
 
-  // look for a Graphics block
-  if (pin->DoesBlockExist("parthenon/graphics")) {
-    OutputParameters op;
-    op.block_number = 0;
-    op.block_name.assign("parthenon/graphics");
-    if (tm != nullptr) {
-      op.next_time = pin->GetOrAddReal(op.block_name, "next_time", tm->time);
-      op.dt = pin->GetOrAddReal(op.block_name, "dt", tm->tlim);
-    }
-    // set file number, basename, id, and format
-    op.file_number = pin->GetOrAddInteger(op.block_name, "file_number", 0);
-    op.file_basename = pin->GetOrAddString("parthenon/job", "problem_id", "parthenon");
-    char define_id[15];
-    std::snprintf(define_id, sizeof(define_id), "graphics%d",
-                  op.block_number); // default id="outN"
-    op.file_id = pin->GetOrAddString(op.block_name, "id", define_id);
-    op.file_type = "hdf5";
-    // read ghost cell option
-    op.include_ghost_zones = pin->GetOrAddBoolean(op.block_name, "ghost_zones", false);
-    pnew_type = new PHDF5Output(op);
-    pfirst_type_ = pnew_type;
-    plast = pnew_type;
-  }
-
   // loop over input block names.  Find those that start with "parthenon/output", read
   // parameters, and construct singly linked list of OutputTypes.
   while (pib != nullptr) {
     if (pib->block_name.compare(0, 16, "parthenon/output") == 0) {
+      std::cerr << "FOUND BLOCK_NAME = " << pib->block_name << std::endl;
       OutputParameters op; // define temporary OutputParameters struct
+
+      op.metadata_flag = SetOutputFlag(pin, pib->block_name, packages);
 
       // extract integer number of output block.  Save name and number
       std::string outn = pib->block_name.substr(6); // 6 because counting starts at 0!
@@ -169,131 +152,129 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
         op.dt = pin->GetOrAddReal(op.block_name, "dt", tm->tlim);
       }
 
-      if (op.dt > 0.0) { // only add output if dt>0
-        // set file number, basename, id, and format
-        op.file_number = pin->GetOrAddInteger(op.block_name, "file_number", 0);
-        op.file_basename =
-            pin->GetOrAddString("parthenon/job", "problem_id", "parthenon");
-        char define_id[10];
-        std::snprintf(define_id, sizeof(define_id), "out%d",
-                      op.block_number); // default id="outN"
-        op.file_id = pin->GetOrAddString(op.block_name, "id", define_id);
-        op.file_type = pin->GetString(op.block_name, "file_type");
+      // set file number, basename, id, and format
+      op.file_number = pin->GetOrAddInteger(op.block_name, "file_number", 0);
+      op.file_basename =
+        pin->GetOrAddString("parthenon/job", "problem_id", "parthenon");
+      char define_id[10];
+      std::snprintf(define_id, sizeof(define_id), "out%d",
+                    op.block_number); // default id="outN"
+      op.file_id = pin->GetOrAddString(op.block_name, "id", define_id);
+      op.file_type = pin->GetString(op.block_name, "file_type");
 
-        // read slicing options.  Check that slice is within mesh
-        if (pin->DoesParameterExist(op.block_name, "x1_slice")) {
-          Real x1 = pin->GetReal(op.block_name, "x1_slice");
-          if (x1 >= pm->mesh_size.x1min && x1 < pm->mesh_size.x1max) {
-            op.x1_slice = x1;
-            op.output_slicex1 = true;
-          } else {
-            msg << "### FATAL ERROR in Outputs constructor" << std::endl
-                << "Slice at x1=" << x1 << " in output block '" << op.block_name
-                << "' is out of range of Mesh" << std::endl;
-            ATHENA_ERROR(msg);
-          }
-        }
-
-        if (pin->DoesParameterExist(op.block_name, "x2_slice")) {
-          Real x2 = pin->GetReal(op.block_name, "x2_slice");
-          if (x2 >= pm->mesh_size.x2min && x2 < pm->mesh_size.x2max) {
-            op.x2_slice = x2;
-            op.output_slicex2 = true;
-          } else {
-            msg << "### FATAL ERROR in Outputs constructor" << std::endl
-                << "Slice at x2=" << x2 << " in output block '" << op.block_name
-                << "' is out of range of Mesh" << std::endl;
-            ATHENA_ERROR(msg);
-          }
-        }
-
-        if (pin->DoesParameterExist(op.block_name, "x3_slice")) {
-          Real x3 = pin->GetReal(op.block_name, "x3_slice");
-          if (x3 >= pm->mesh_size.x3min && x3 < pm->mesh_size.x3max) {
-            op.x3_slice = x3;
-            op.output_slicex3 = true;
-          } else {
-            msg << "### FATAL ERROR in Outputs constructor" << std::endl
-                << "Slice at x3=" << x3 << " in output block '" << op.block_name
-                << "' is out of range of Mesh" << std::endl;
-            ATHENA_ERROR(msg);
-          }
-        }
-
-        // read sum options.  Check for conflicts with slicing.
-        op.output_sumx1 = pin->GetOrAddBoolean(op.block_name, "x1_sum", false);
-        if ((op.output_slicex1) && (op.output_sumx1)) {
-          msg << "### FATAL ERROR in Outputs constructor" << std::endl
-              << "Cannot request both slice and sum along x1-direction"
-              << " in output block '" << op.block_name << "'" << std::endl;
-          ATHENA_ERROR(msg);
-        }
-        op.output_sumx2 = pin->GetOrAddBoolean(op.block_name, "x2_sum", false);
-        if ((op.output_slicex2) && (op.output_sumx2)) {
-          msg << "### FATAL ERROR in Outputs constructor" << std::endl
-              << "Cannot request both slice and sum along x2-direction"
-              << " in output block '" << op.block_name << "'" << std::endl;
-          ATHENA_ERROR(msg);
-        }
-        op.output_sumx3 = pin->GetOrAddBoolean(op.block_name, "x3_sum", false);
-        if ((op.output_slicex3) && (op.output_sumx3)) {
-          msg << "### FATAL ERROR in Outputs constructor" << std::endl
-              << "Cannot request both slice and sum along x3-direction"
-              << " in output block '" << op.block_name << "'" << std::endl;
-          ATHENA_ERROR(msg);
-        }
-
-        // read ghost cell option
-        op.include_ghost_zones =
-            pin->GetOrAddBoolean(op.block_name, "ghost_zones", false);
-
-        // read cartesian mapping option
-        op.cartesian_vector = false;
-
-        // set output variable and optional data format string used in formatted writes
-        if (op.file_type.compare("hst") != 0 && op.file_type.compare("rst") != 0) {
-          op.variable = pin->GetString(op.block_name, "variable");
-        }
-        op.data_format = pin->GetOrAddString(op.block_name, "data_format", "%12.5e");
-        op.data_format.insert(0, " "); // prepend with blank to separate columns
-
-        // Construct new OutputType according to file format
-        // NEW_OUTPUT_TYPES: Add block to construct new types here
-        if (op.file_type.compare("hst") == 0) {
-          pnew_type = new HistoryOutput(op);
-          num_hst_outputs++;
-        } else if (op.file_type.compare("tab") == 0) {
-          pnew_type = new FormattedTableOutput(op);
-        } else if (op.file_type.compare("vtk") == 0) {
-          pnew_type = new VTKOutput(op);
-        } else if (op.file_type.compare("rst") == 0) {
-          pnew_type = new RestartOutput(op);
-          num_rst_outputs++;
-        } else if (op.file_type.compare("ath5") == 0 ||
-                   op.file_type.compare("hdf5") == 0) {
-#ifdef HDF5OUTPUT
-          pnew_type = new PHDF5Output(op);
-#else
-          msg << "### FATAL ERROR in Outputs constructor" << std::endl
-              << "Executable not configured for HDF5 outputs, but HDF5 file format "
-              << "is requested in output block '" << op.block_name << "'" << std::endl;
-          ATHENA_ERROR(msg);
-#endif
+      // read slicing options.  Check that slice is within mesh
+      if (pin->DoesParameterExist(op.block_name, "x1_slice")) {
+        Real x1 = pin->GetReal(op.block_name, "x1_slice");
+        if (x1 >= pm->mesh_size.x1min && x1 < pm->mesh_size.x1max) {
+          op.x1_slice = x1;
+          op.output_slicex1 = true;
         } else {
           msg << "### FATAL ERROR in Outputs constructor" << std::endl
-              << "Unrecognized file format = '" << op.file_type << "' in output block '"
-              << op.block_name << "'" << std::endl;
+              << "Slice at x1=" << x1 << " in output block '" << op.block_name
+              << "' is out of range of Mesh" << std::endl;
           ATHENA_ERROR(msg);
         }
-
-        // Append type as tail node in singly linked list
-        if (pfirst_type_ == nullptr) {
-          pfirst_type_ = pnew_type;
-        } else {
-          plast->pnext_type = pnew_type;
-        }
-        plast = pnew_type;
       }
+
+      if (pin->DoesParameterExist(op.block_name, "x2_slice")) {
+        Real x2 = pin->GetReal(op.block_name, "x2_slice");
+        if (x2 >= pm->mesh_size.x2min && x2 < pm->mesh_size.x2max) {
+          op.x2_slice = x2;
+          op.output_slicex2 = true;
+        } else {
+          msg << "### FATAL ERROR in Outputs constructor" << std::endl
+              << "Slice at x2=" << x2 << " in output block '" << op.block_name
+              << "' is out of range of Mesh" << std::endl;
+          ATHENA_ERROR(msg);
+        }
+      }
+
+      if (pin->DoesParameterExist(op.block_name, "x3_slice")) {
+        Real x3 = pin->GetReal(op.block_name, "x3_slice");
+        if (x3 >= pm->mesh_size.x3min && x3 < pm->mesh_size.x3max) {
+          op.x3_slice = x3;
+          op.output_slicex3 = true;
+        } else {
+          msg << "### FATAL ERROR in Outputs constructor" << std::endl
+              << "Slice at x3=" << x3 << " in output block '" << op.block_name
+              << "' is out of range of Mesh" << std::endl;
+          ATHENA_ERROR(msg);
+        }
+      }
+
+      // read sum options.  Check for conflicts with slicing.
+      op.output_sumx1 = pin->GetOrAddBoolean(op.block_name, "x1_sum", false);
+      if ((op.output_slicex1) && (op.output_sumx1)) {
+        msg << "### FATAL ERROR in Outputs constructor" << std::endl
+            << "Cannot request both slice and sum along x1-direction"
+            << " in output block '" << op.block_name << "'" << std::endl;
+        ATHENA_ERROR(msg);
+      }
+      op.output_sumx2 = pin->GetOrAddBoolean(op.block_name, "x2_sum", false);
+      if ((op.output_slicex2) && (op.output_sumx2)) {
+        msg << "### FATAL ERROR in Outputs constructor" << std::endl
+            << "Cannot request both slice and sum along x2-direction"
+            << " in output block '" << op.block_name << "'" << std::endl;
+        ATHENA_ERROR(msg);
+      }
+      op.output_sumx3 = pin->GetOrAddBoolean(op.block_name, "x3_sum", false);
+      if ((op.output_slicex3) && (op.output_sumx3)) {
+        msg << "### FATAL ERROR in Outputs constructor" << std::endl
+            << "Cannot request both slice and sum along x3-direction"
+            << " in output block '" << op.block_name << "'" << std::endl;
+        ATHENA_ERROR(msg);
+      }
+
+      // read ghost cell option
+      op.include_ghost_zones =
+          pin->GetOrAddBoolean(op.block_name, "ghost_zones", false);
+
+      // read cartesian mapping option
+      op.cartesian_vector = false;
+
+      // set output variable and optional data format string used in formatted writes
+      /*if (op.file_type.compare("hst") != 0 && op.file_type.compare("rst") != 0) {
+        op.variable = pin->GetString(op.block_name, "variable");
+      }*/
+      op.data_format = pin->GetOrAddString(op.block_name, "data_format", "%12.5e");
+      op.data_format.insert(0, " "); // prepend with blank to separate columns
+
+      // Construct new OutputType according to file format
+      // NEW_OUTPUT_TYPES: Add block to construct new types here
+      if (op.file_type.compare("hst") == 0) {
+        pnew_type = new HistoryOutput(op);
+        num_hst_outputs++;
+      } else if (op.file_type.compare("tab") == 0) {
+        pnew_type = new FormattedTableOutput(op);
+      } else if (op.file_type.compare("vtk") == 0) {
+        pnew_type = new VTKOutput(op);
+      } else if (op.file_type.compare("rst") == 0) {
+        pnew_type = new RestartOutput(op);
+        num_rst_outputs++;
+      } else if (op.file_type.compare("ath5") == 0 ||
+                 op.file_type.compare("hdf5") == 0) {
+#ifdef HDF5OUTPUT
+        pnew_type = new PHDF5Output(op);
+#else
+        msg << "### FATAL ERROR in Outputs constructor" << std::endl
+            << "Executable not configured for HDF5 outputs, but HDF5 file format "
+            << "is requested in output block '" << op.block_name << "'" << std::endl;
+        ATHENA_ERROR(msg);
+#endif
+      } else {
+        msg << "### FATAL ERROR in Outputs constructor" << std::endl
+            << "Unrecognized file format = '" << op.file_type << "' in output block '"
+            << op.block_name << "'" << std::endl;
+        ATHENA_ERROR(msg);
+      }
+
+      // Append type as tail node in singly linked list
+      if (pfirst_type_ == nullptr) {
+        pfirst_type_ = pnew_type;
+      } else {
+        plast->pnext_type = pnew_type;
+      }
+      plast = pnew_type;
     }
     pib = pib->pnext; // move to next input block name
   }
@@ -348,6 +329,64 @@ Outputs::~Outputs() {
     ptype = ptype->pnext_type;
     delete ptype_old;
   }
+}
+
+
+MetadataFlag Outputs::SetOutputFlag(ParameterInput *pin, std::string input_block_name,
+                           Packages_t *packages) {
+  if (!pin->DoesParameterExist(input_block_name,"variables")) {
+    std::cerr << "Block " << input_block_name
+              << " must provide a variables parameter" << std::endl;
+    std::exit(1);
+  }
+
+  std::string&& block_name = std::move(input_block_name);
+
+  std::string s = pin->GetString(block_name, "variables");
+  std::string delimiter = ",";
+  size_t pos = 0;
+  std::string token;
+  std::list<std::string> fields;
+  while ((pos = s.find(delimiter)) != std::string::npos) {
+    token = s.substr(0, pos);
+    variables.push_back(trim_string::trim(token));
+    s.erase(0, pos + delimiter.length());
+  }
+  variables.push_back(trim_string::trim(s));
+
+  // make a new Metadata flag for this output
+  //std::string&& temp_name(block_name);
+  MetadataFlag const new_output_flag = Metadata::AllocateNewFlag(std::move(block_name));
+
+  for (auto &pkg : *packages) {
+    for (auto &q : pkg.second->AllFields()) {
+      auto it = std::find(fields.begin(), fields.end(), q.first);
+      if (it != fields.end()) {
+        q.second.Set(new_output_flag);
+        fields.erase(it);
+     }
+     }
+    for (auto &q : pkg.second->AllSparseFields()) {
+      auto it = std::find(fields.begin(), fields.end(), q.first);
+      if (it != fields.end()) {
+        for (auto &m : q.second) {
+          m.Set(new_output_flag);
+        }
+        fields.erase(it);
+      }
+    }
+  }
+
+  if (fields.size() != 0) {
+    std::cerr << "These variables listed in "
+              << input_block_name
+              << "/variables do not exist:" << std::endl;
+    for (auto const &field : fields) {
+      std::cerr << field << std::endl;
+    }
+  }
+
+  return new_output_flag;
 }
 
 //----------------------------------------------------------------------------------------

@@ -393,10 +393,11 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
 
   // allocate space for largest size variable
   auto ciX =
-      ContainerIterator<Real>(pm->pblock->real_containers.Get(), {Metadata::Graphics});
+      ContainerIterator<Real>(pm->pblock->real_containers.Get(), output_params.variables);
   size_t maxV = 3;
   hsize_t sumDim4AllVars = 0;
   for (auto &v : ciX.vars) {
+    std::cout << "Graphics iterator has " << v->label() << std::endl;
     const size_t vlen = v->GetDim(4);
     sumDim4AllVars += vlen;
     maxV = (maxV < vlen ? vlen : maxV);

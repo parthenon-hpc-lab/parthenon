@@ -20,6 +20,7 @@
 //  \brief provides classes to handle ALL types of data output
 
 #include <string>
+#include <vector>
 
 #include "basic_types.hpp"
 #include "io_wrapper.hpp"
@@ -42,6 +43,7 @@ struct OutputParameters {
   std::string file_basename;
   std::string file_id;
   std::string variable;
+  std::vector<std::string> variables;
   std::string file_type;
   std::string data_format;
   Real next_time, dt;
@@ -200,6 +202,7 @@ class Outputs {
  private:
   OutputType *pfirst_type_; // ptr to head OutputType node in singly linked list
   // (not storing a reference to the tail node)
+  MetadataFlag SetOutputFlag(ParameterInput *pin, std::string block_name);
 };
 
 } // namespace parthenon
