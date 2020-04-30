@@ -167,6 +167,11 @@ list(APPEND TEST_DIRS calculate_pi)
 list(APPEND TEST_ARGS "--driver ${CMAKE_BINARY_DIR}/example/calculate_pi/parthenon-example --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/calculate_pi/parthinput.regression")
 ```
 
+NOTE: By default all regression tests added to these lists will be run in serial and in parallel
+with mpi. The number of mpi processors used is by default set to 4. This default can be adjusted
+by changing the cmake variable NUM_MPI_PROC_TESTING. The number of OpenMP threads is by default set
+to 1 but can be adjusted in the driver input file deck. 
+
 #### Running ctest 
 
 If the above steps have been executed, the tests will automatically be built anytime the code is
