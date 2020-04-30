@@ -361,29 +361,51 @@ class ContainerIterator {
   /// @param c the container on which you want the iterator
   /// @param flags: a vector of Metadata::flags that you want to match
   ContainerIterator<T>(const Container<T> &c, const std::vector<MetadataFlag> &flags) {
-    // c.print();
-    auto allVars = c.GetCellVariableVector();
+    allVars_ = c.GetCellVariableVector();
     for (auto &svar : c.GetSparseVector()) {
       CellVariableVector<T> &svec = svar->GetVector();
-      allVars.insert(allVars.end(), svec.begin(), svec.end());
+      allVars_.insert(allVars_.end(), svec.begin(), svec.end());
     }
     // faces not active yet    allFaceVars_ = c.faceVars();
     // edges not active yet    allEdgeVars_ = c.edgeVars();
-    setMask(allVars, flags); // fill subset based on mask vector
+    resetVars(flags); // fill subset based on mask vector
   }
 
-  //~ContainerIterator<T>() {
-  //  emptyVars_();
-  //}
+  /// initializes the iterator with a container and a flag to match
+  /// @param c the container on which you want the iterator
+  /// @param names: a vector of std::string with names you want to match
+  ContainerIterator<T>(const Container<T> &c, const std::vector<std::string> &names) {
+    allVars_ = c.GetCellVariableVector();
+    for (auto &svar : c.GetSparseVector()) {
+      CellVariableVector<T> &svec = svar->GetVector();
+      allVars_.insert(allVars_.end(), svec.begin(), svec.end());
+    }
+    // faces not active yet    allFaceVars_ = c.faceVars();
+    // edges not active yet    allEdgeVars_ = c.edgeVars();
+    resetVars(names); // fill subset based on mask vector
+  }
+
   /// Changes the mask for the iterator and resets the iterator
-  /// @param flagArray: a vector of MetadataFlag that you want to match
-  void setMask(const CellVariableVector<T> &allVars,
-               const std::vector<MetadataFlag> &flags) {
+  /// @param names: a vector of MetadataFlag that you want to match
+  void resetVars(const std::vector<std::string> &names) {
+    // 1: clear out variables stored so far
+    emptyVars_();
+
+    // 2: fill in the subset of variables that match at least one entry in names
+    for (auto pv : allVars_) {
+      if (std::find(names.begin(), names.end(), pv->label()) != names.end())
+        vars.push_back(pv);
+    }
+  }
+
+  /// Changes the mask for the iterator and resets the iterator
+  /// @param flags: a vector of MetadataFlag that you want to match
+  void resetVars(const std::vector<MetadataFlag> &flags) {
     // 1: clear out variables stored so far
     emptyVars_();
 
     // 2: fill in the subset of variables that match mask
-    for (auto pv : allVars) {
+    for (auto pv : allVars_) {
       if (pv->metadata().AnyFlagsSet(flags)) {
         vars.push_back(pv);
       }
@@ -392,41 +414,13 @@ class ContainerIterator {
 
  private:
   uint64_t mask_;
-  FaceVector<T> allFaceVars_ = {};
+  CellVariableVector<T> allVars_;
+  // FaceVector<T> allFaceVars_ = {};
   // EdgeVector<T> allEdgeVars_ = {};
-  // CellVariableVector<T> allVars_ = {};
   void emptyVars_() {
     vars.clear();
     //  varsFace.clear();
     //  varsEdge.clear();
-  }
-  static bool couldBeEdge(const std::vector<MetadataFlag> &flags) {
-    // returns true if face is set or if no topology set
-    for (auto &f : flags) {
-      if (f == Metadata::Edge)
-        return true;
-      else if (f == Metadata::Cell)
-        return false;
-      else if (f == Metadata::Face)
-        return false;
-      else if (f == Metadata::Node)
-        return false;
-    }
-    return true;
-  }
-  static bool couldBeFace(const std::vector<MetadataFlag> &flags) {
-    // returns true if face is set or if no topology set
-    for (auto &f : flags) {
-      if (f == Metadata::Face)
-        return true;
-      else if (f == Metadata::Cell)
-        return false;
-      else if (f == Metadata::Edge)
-        return false;
-      else if (f == Metadata::Node)
-        return false;
-    }
-    return true;
   }
 };
 
