@@ -62,13 +62,16 @@ void PackData(ParArray4D<T> &src, ParArray1D<T> &buf, int sn, int en, int si, in
 template <typename T>
 void PackData(ParArray3D<T> &src, ParArray1D<T> &buf, int si, int ei, int sj, int ej,
               int sk, int ek, int &offset, MeshBlock *pmb) {
-  for (int k = sk; k <= ek; k++) {
-    for (int j = sj; j <= ej; j++) {
-#pragma omp simd
-      for (int i = si; i <= ei; i++)
-        buf[offset++] = src(k, j, i);
-    }
-  }
+  int ni = ei + 1 - si;
+  int nj = ej + 1 - sj;
+  int nk = ek + 1 - sk;
+
+  pmb->par_for(
+      "PackData 3D", sk, ek, sj, ej, si, ei, KOKKOS_LAMBDA(int k, int j, int i) {
+        buf(offset + i - si + ni * (j - sj + nj * (k - sk))) = src(k, j, i);
+      });
+
+  offset += nk * nj * ni;
   return;
 }
 
@@ -81,15 +84,19 @@ void PackData(ParArray3D<T> &src, ParArray1D<T> &buf, int si, int ei, int sj, in
 template <typename T>
 void UnpackData(ParArray1D<T> &buf, ParArray4D<T> &dst, int sn, int en, int si, int ei,
                 int sj, int ej, int sk, int ek, int &offset, MeshBlock *pmb) {
-  for (int n = sn; n <= en; ++n) {
-    for (int k = sk; k <= ek; ++k) {
-      for (int j = sj; j <= ej; ++j) {
-#pragma omp simd
-        for (int i = si; i <= ei; ++i)
-          dst(n, k, j, i) = buf[offset++];
-      }
-    }
-  }
+  int ni = ei + 1 - si;
+  int nj = ej + 1 - sj;
+  int nk = ek + 1 - sk;
+  int nn = en + 1 - sn;
+
+  pmb->par_for(
+      "UnpackData 4D", sn, en, sk, ek, sj, ej, si, ei,
+      KOKKOS_LAMBDA(int n, int k, int j, int i) {
+        dst(n, k, j, i) =
+            buf(offset + i - si + ni * (j - sj + nj * (k - sk + nk * (n - sn))));
+      });
+
+  offset += nn * nk * nj * ni;
   return;
 }
 
@@ -102,13 +109,17 @@ void UnpackData(ParArray1D<T> &buf, ParArray4D<T> &dst, int sn, int en, int si, 
 template <typename T>
 void UnpackData(ParArray1D<T> &buf, ParArray3D<T> &dst, int si, int ei, int sj, int ej,
                 int sk, int ek, int &offset, MeshBlock *pmb) {
-  for (int k = sk; k <= ek; ++k) {
-    for (int j = sj; j <= ej; ++j) {
-#pragma omp simd
-      for (int i = si; i <= ei; ++i)
-        dst(k, j, i) = buf[offset++];
-    }
-  }
+
+  int ni = ei + 1 - si;
+  int nj = ej + 1 - sj;
+  int nk = ek + 1 - sk;
+
+  pmb->par_for(
+      "UnpackData 3D", sk, ek, sj, ej, si, ei, KOKKOS_LAMBDA(int k, int j, int i) {
+        dst(k, j, i) = buf(offset + i - si + ni * (j - sj + nj * (k - sk)));
+      });
+
+  offset += nk * nj * ni;
   return;
 }
 
