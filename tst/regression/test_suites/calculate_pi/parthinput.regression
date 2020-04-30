@@ -23,6 +23,7 @@ problem_id = pi_calculator
 
 <mesh>
 refinement = adaptive
+num_threads = 4
 numlevel = 5
 
 nx1 = 64
