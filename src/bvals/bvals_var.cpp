@@ -208,11 +208,11 @@ void BoundaryVariable::SetBoundaries() {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
     if (nb.snb.level == mylevel)
       // TODO(pgrete) FIX interface
-      SetBoundarySameLevel(bd_var_.recv[nb.bufid].data(), nb);
+      SetBoundarySameLevel(bd_var_.recv[nb.bufid], nb);
     else if (nb.snb.level < mylevel) // only sets the prolongation buffer
-      SetBoundaryFromCoarser(bd_var_.recv[nb.bufid].data(), nb);
+      SetBoundaryFromCoarser(bd_var_.recv[nb.bufid], nb);
     else
-      SetBoundaryFromFiner(bd_var_.recv[nb.bufid].data(), nb);
+      SetBoundaryFromFiner(bd_var_.recv[nb.bufid], nb);
     bd_var_.flag[nb.bufid] = BoundaryStatus::completed; // completed
   }
 
@@ -233,11 +233,11 @@ void BoundaryVariable::ReceiveAndSetBoundariesWithWait() {
       MPI_Wait(&(bd_var_.req_recv[nb.bufid]), MPI_STATUS_IGNORE);
 #endif
     if (nb.snb.level == mylevel)
-      SetBoundarySameLevel(bd_var_.recv[nb.bufid].data(), nb);
+      SetBoundarySameLevel(bd_var_.recv[nb.bufid], nb);
     else if (nb.snb.level < mylevel)
-      SetBoundaryFromCoarser(bd_var_.recv[nb.bufid].data(), nb);
+      SetBoundaryFromCoarser(bd_var_.recv[nb.bufid], nb);
     else
-      SetBoundaryFromFiner(bd_var_.recv[nb.bufid].data(), nb);
+      SetBoundaryFromFiner(bd_var_.recv[nb.bufid], nb);
     bd_var_.flag[nb.bufid] = BoundaryStatus::completed; // completed
   }
 

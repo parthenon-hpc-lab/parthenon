@@ -117,7 +117,8 @@ int CellCenteredBoundaryVariable::ComputeFluxCorrectionBufferSize(
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn int CellCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(Real *buf,
+//! \fn int CellCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(ParArray1D<Real>
+//! &buf,
 //                                                                const NeighborBlock& nb)
 //  \brief Set cell-centered boundary buffers for sending to a block on the same level
 
@@ -141,7 +142,8 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(ParArray1D<Real> &
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn int CellCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(Real *buf,
+//! \fn int CellCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(ParArray1D<Real>
+//! &buf,
 //                                                                const NeighborBlock& nb)
 //  \brief Set cell-centered boundary buffers for sending to a block on the coarser level
 
@@ -167,7 +169,7 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(ParArray1D<Real> &
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn int CellCenteredBoundaryVariable::LoadBoundaryBufferToFiner(Real *buf,
+//! \fn int CellCenteredBoundaryVariable::LoadBoundaryBufferToFiner(ParArray1D<Real> &buf,
 //                                                                const NeighborBlock& nb)
 //  \brief Set cell-centered boundary buffers for sending to a block on the finer level
 
@@ -226,11 +228,11 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferToFiner(ParArray1D<Real> &bu
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void CellCenteredBoundaryVariable::SetBoundarySameLevel(Real *buf,
+//! \fn void CellCenteredBoundaryVariable::SetBoundarySameLevel(ParArray1D<Real> &buf,
 //                                                              const NeighborBlock& nb)
 //  \brief Set cell-centered boundary received from a block on the same level
 
-void CellCenteredBoundaryVariable::SetBoundarySameLevel(Real *buf,
+void CellCenteredBoundaryVariable::SetBoundarySameLevel(ParArray1D<Real> &buf,
                                                         const NeighborBlock &nb) {
   MeshBlock *pmb = pmy_block_;
   int si, sj, sk, ei, ej, ek;
@@ -256,15 +258,16 @@ void CellCenteredBoundaryVariable::SetBoundarySameLevel(Real *buf,
 
   int p = 0;
 
-  BufferUtility::UnpackData(buf, var_cc, nl_, nu_, si, ei, sj, ej, sk, ek, p);
+  ParArray4D<Real> var_cc_ = var_cc.Get<4>(); // automatic template deduction fails
+  BufferUtility::UnpackData(buf, var_cc_, nl_, nu_, si, ei, sj, ej, sk, ek, p, pmb);
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void CellCenteredBoundaryVariable::SetBoundaryFromCoarser(Real *buf,
+//! \fn void CellCenteredBoundaryVariable::SetBoundaryFromCoarser(ParArray1D<Real> &buf,
 //                                                                const NeighborBlock& nb)
 //  \brief Set cell-centered prolongation buffer received from a block on a coarser level
 
-void CellCenteredBoundaryVariable::SetBoundaryFromCoarser(Real *buf,
+void CellCenteredBoundaryVariable::SetBoundaryFromCoarser(ParArray1D<Real> &buf,
                                                           const NeighborBlock &nb) {
   MeshBlock *pmb = pmy_block_;
   int si, sj, sk, ei, ej, ek;
@@ -309,15 +312,16 @@ void CellCenteredBoundaryVariable::SetBoundaryFromCoarser(Real *buf,
   }
 
   int p = 0;
-  BufferUtility::UnpackData(buf, coarse_buf, nl_, nu_, si, ei, sj, ej, sk, ek, p);
+  ParArray4D<Real> coarse_buf_ = coarse_buf.Get<4>(); // auto template deduction fails
+  BufferUtility::UnpackData(buf, coarse_buf_, nl_, nu_, si, ei, sj, ej, sk, ek, p, pmb);
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void CellCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
+//! \fn void CellCenteredBoundaryVariable::SetBoundaryFromFiner(ParArray1D<Real> &buf,
 //                                                              const NeighborBlock& nb)
 //  \brief Set cell-centered boundary received from a block on a finer level
 
-void CellCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
+void CellCenteredBoundaryVariable::SetBoundaryFromFiner(ParArray1D<Real> &buf,
                                                         const NeighborBlock &nb) {
   MeshBlock *pmb = pmy_block_;
   // receive already restricted data
@@ -376,7 +380,8 @@ void CellCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
   }
 
   int p = 0;
-  BufferUtility::UnpackData(buf, var_cc, nl_, nu_, si, ei, sj, ej, sk, ek, p);
+  ParArray4D<Real> var_cc_ = var_cc.Get<4>(); // automatic template deduction fails
+  BufferUtility::UnpackData(buf, var_cc_, nl_, nu_, si, ei, sj, ej, sk, ek, p, pmb);
 }
 
 void CellCenteredBoundaryVariable::SetupPersistentMPI() {

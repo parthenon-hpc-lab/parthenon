@@ -74,12 +74,12 @@ class FaceCenteredBoundaryVariable : public BoundaryVariable {
   // BoundaryBuffer:
   int LoadBoundaryBufferSameLevel(ParArray1D<Real> &buf,
                                   const NeighborBlock &nb) override;
-  void SetBoundarySameLevel(Real *buf, const NeighborBlock &nb) override;
+  void SetBoundarySameLevel(ParArray1D<Real> &buf, const NeighborBlock &nb) override;
   int LoadBoundaryBufferToCoarser(ParArray1D<Real> &buf,
                                   const NeighborBlock &nb) override;
   int LoadBoundaryBufferToFiner(ParArray1D<Real> &buf, const NeighborBlock &nb) override;
-  void SetBoundaryFromCoarser(Real *buf, const NeighborBlock &nb) override;
-  void SetBoundaryFromFiner(Real *buf, const NeighborBlock &nb) override;
+  void SetBoundaryFromCoarser(ParArray1D<Real> &buf, const NeighborBlock &nb) override;
+  void SetBoundaryFromFiner(ParArray1D<Real> &buf, const NeighborBlock &nb) override;
 
   void CountFineEdges(); // called in SetupPersistentMPI()
 

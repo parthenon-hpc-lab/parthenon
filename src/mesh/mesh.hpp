@@ -356,9 +356,10 @@ class Mesh {
   void FillSameRankCoarseToFineAMR(MeshBlock *pob, MeshBlock *pmb,
                                    LogicalLocation &newloc);
   // step 8: receive
-  void FinishRecvSameLevel(MeshBlock *pb, Real *recvbuf);
-  void FinishRecvFineToCoarseAMR(MeshBlock *pb, Real *recvbuf, LogicalLocation &lloc);
-  void FinishRecvCoarseToFineAMR(MeshBlock *pb, Real *recvbuf);
+  void FinishRecvSameLevel(MeshBlock *pb, ParArray1D<Real> &recvbuf);
+  void FinishRecvFineToCoarseAMR(MeshBlock *pb, ParArray1D<Real> &recvbuf,
+                                 LogicalLocation &lloc);
+  void FinishRecvCoarseToFineAMR(MeshBlock *pb, ParArray1D<Real> &recvbuf);
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   void InitUserMeshData(ParameterInput *pin);

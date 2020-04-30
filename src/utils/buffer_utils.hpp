@@ -32,16 +32,16 @@ void PackData(ParArray4D<T> &src, ParArray1D<T> &buf, int sn, int en, int si, in
               int sj, int ej, int sk, int ek, int &offset, MeshBlock *pmb);
 // 3D
 template <typename T>
-void PackData(ParArrayND<T> &src, T *buf, int si, int ei, int sj, int ej, int sk, int ek,
-              int &offset);
+void PackData(ParArray3D<T> &src, ParArray1D<T> &buf, int si, int ei, int sj, int ej,
+              int sk, int ek, int &offset, MeshBlock *pmb);
 // 4D
 template <typename T>
-void UnpackData(T *buf, ParArrayND<T> &dst, int sn, int en, int si, int ei, int sj,
-                int ej, int sk, int ek, int &offset);
+void UnpackData(ParArray1D<T> &buf, ParArray4D<T> &dst, int sn, int en, int si, int ei,
+                int sj, int ej, int sk, int ek, int &offset, MeshBlock *pmb);
 // 3D
 template <typename T>
-void UnpackData(T *buf, ParArrayND<T> &dst, int si, int ei, int sj, int ej, int sk,
-                int ek, int &offset);
+void UnpackData(ParArray1D<T> &buf, ParArray3D<T> &dst, int si, int ei, int sj, int ej,
+                int sk, int ek, int &offset, MeshBlock *pmb);
 
 } // namespace BufferUtility
 } // namespace parthenon
