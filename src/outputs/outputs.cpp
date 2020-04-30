@@ -136,11 +136,10 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   // parameters, and construct singly linked list of OutputTypes.
   while (pib != nullptr) {
     if (pib->block_name.compare(0, 16, "parthenon/output") == 0) {
-      std::cerr << "FOUND BLOCK_NAME = " << pib->block_name << std::endl;
       OutputParameters op; // define temporary OutputParameters struct
 
       // extract integer number of output block.  Save name and number
-      std::string outn = pib->block_name.substr(6); // 6 because counting starts at 0!
+      std::string outn = pib->block_name.substr(16); // 6 because counting starts at 0!
       op.block_number = atoi(outn.c_str());
       op.block_name.assign(pib->block_name);
 

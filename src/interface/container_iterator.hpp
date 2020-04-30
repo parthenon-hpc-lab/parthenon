@@ -61,11 +61,11 @@ class ContainerIterator {
           vars.push_back(svar);
         }
       }
-      if (!found) {
+      /*if (!found) {
         std::cerr << name << " not found in var_map or sparse_map in PackVariables"
                   << std::endl;
         std::exit(1);
-      }
+      }*/
     }
     return;
   }
