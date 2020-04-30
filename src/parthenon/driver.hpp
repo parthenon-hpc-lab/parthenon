@@ -11,34 +11,42 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef EXAMPLE_FACE_FIELDS_FACE_FIELDS_EXAMPLE_HPP_
-#define EXAMPLE_FACE_FIELDS_FACE_FIELDS_EXAMPLE_HPP_
+#ifndef PARTHENON_DRIVER_HPP_
+#define PARTHENON_DRIVER_HPP_
 
-#include <memory>
+// Internal Includes
+#include <bvals/boundary_conditions.hpp>
+#include <driver/driver.hpp>
+#include <driver/multistage.hpp>
+#include <mesh/mesh.hpp>
+#include <outputs/outputs.hpp>
+#include <parameter_input.hpp>
+#include <task_list/tasks.hpp>
 
-#include "driver/driver.hpp"
-#include "globals.hpp"
-#include "interface/state_descriptor.hpp"
-#include "mesh/mesh.hpp"
-#include "task_list/tasks.hpp"
+// Local Includes
+#include "prelude.hpp"
 
 namespace parthenon {
+namespace driver {
+namespace prelude {
+using namespace ::parthenon::prelude;
 
-class FaceFieldExample : public Driver {
- public:
-  FaceFieldExample(ParameterInput *pin, Mesh *pm) : Driver(pin, pm) {
-    InitializeOutputs();
-  }
-  TaskList MakeTaskList(MeshBlock *pmb);
-  DriverStatus Execute();
-};
-
+using ::parthenon::ApplyBoundaryConditions;
+using ::parthenon::BaseTask;
+using ::parthenon::BlockTask;
+using ::parthenon::Driver;
+using ::parthenon::DriverStatus;
+using ::parthenon::Integrator;
+using ::parthenon::Mesh;
+using ::parthenon::MeshBlock;
+using ::parthenon::MultiStageBlockTaskDriver;
+using ::parthenon::Outputs;
+using ::parthenon::ParameterInput;
+using ::parthenon::TaskID;
+using ::parthenon::TaskList;
+using ::parthenon::DriverUtils::ConstructAndExecuteBlockTasks;
+} // namespace prelude
+} // namespace driver
 } // namespace parthenon
 
-namespace FaceFields {
-
-parthenon::TaskStatus fill_faces(parthenon::MeshBlock *pmb);
-
-} // namespace FaceFields
-
-#endif // EXAMPLE_FACE_FIELDS_FACE_FIELDS_EXAMPLE_HPP_
+#endif // PARTHENON_DRIVER_HPP_

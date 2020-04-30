@@ -11,25 +11,33 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#include "face_fields_example.hpp"
-#include "parthenon_manager.hpp"
+#ifndef EXAMPLE_CALCULATE_PI_PI_DRIVER_HPP_
+#define EXAMPLE_CALCULATE_PI_PI_DRIVER_HPP_
 
-int main(int argc, char *argv[]) {
-  using parthenon::FaceFieldExample;
-  using parthenon::ParthenonManager;
-  using parthenon::ParthenonStatus;
-  ParthenonManager pman;
+#include <parthenon/driver.hpp>
 
-  auto status = pman.ParthenonInit(argc, argv);
-  if (status == ParthenonStatus::complete || status == ParthenonStatus::error) {
-    pman.ParthenonFinalize();
-    return (status == ParthenonStatus::error) ? 1 : 0;
+namespace pi {
+using namespace parthenon::driver::prelude;
+
+/**
+ * @brief Constructs a driver which estimates PI using AMR.
+ */
+class PiDriver : public Driver {
+ public:
+  PiDriver(ParameterInput *pin, Mesh *pm) : Driver(pin, pm) {
+    InitializeOutputs();
+    pin->CheckDesired("Pi", "radius");
+    pin->CheckDesired("graphics", "variables");
   }
 
-  FaceFieldExample driver(pman.pinput.get(), pman.pmesh.get());
-  pman.PreDriver();
-  pman.PostDriver(driver.Execute());
-  pman.ParthenonFinalize();
+  /// MakeTaskList isn't a virtual routine on `Driver`, but each driver is expected to
+  /// implement it.
+  TaskList MakeTaskList(MeshBlock *pmb);
 
-  return 0;
-}
+  /// `Execute` cylces until simulation completion.
+  DriverStatus Execute() override;
+};
+
+} // namespace pi
+
+#endif // EXAMPLE_CALCULATE_PI_PI_DRIVER_HPP_

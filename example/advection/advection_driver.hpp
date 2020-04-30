@@ -10,38 +10,23 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef EXAMPLE_ADVECTION_ADVECTION_HPP_
-#define EXAMPLE_ADVECTION_ADVECTION_HPP_
 
-#include <memory>
+#ifndef EXAMPLE_ADVECTION_ADVECTION_DRIVER_HPP_
+#define EXAMPLE_ADVECTION_ADVECTION_DRIVER_HPP_
 
-#include "driver/driver.hpp"
-#include "driver/multistage.hpp"
-#include "interface/container.hpp"
-#include "interface/state_descriptor.hpp"
-#include "mesh/mesh.hpp"
-#include "task_list/tasks.hpp"
+#include <parthenon/driver.hpp>
 
-using parthenon::AmrTag;
-using parthenon::BaseTask;
-using parthenon::Container;
-using parthenon::Mesh;
-using parthenon::MeshBlock;
-using parthenon::MultiStageBlockTaskDriver;
-using parthenon::Outputs;
-using parthenon::ParameterInput;
-using parthenon::Real;
-using parthenon::StateDescriptor;
-using parthenon::TaskID;
-using parthenon::TaskList;
-using parthenon::TaskStatus;
+#include "advection_driver.hpp"
 
 namespace advection_example {
+using namespace parthenon::driver::prelude;
+using parthenon::BlockStageNamesIntegratorTask;
+using parthenon::BlockStageNamesIntegratorTaskFunc;
+using parthenon::TaskStatus;
 
 class AdvectionDriver : public MultiStageBlockTaskDriver {
  public:
-  AdvectionDriver(ParameterInput *pin, Mesh *pm, Outputs *pout)
-      : MultiStageBlockTaskDriver(pin, pm, pout) {}
+  AdvectionDriver(ParameterInput *pin, Mesh *pm);
   // This next function essentially defines the driver.
   // Call graph looks like
   // main()
@@ -79,18 +64,6 @@ class TwoContainerTask : public BaseTask {
   Container<Real> _cont2;
 };
 
-namespace Advection {
-
-std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
-AmrTag CheckRefinement(Container<Real> &rc);
-void PreFill(Container<Real> &rc);
-void SquareIt(Container<Real> &rc);
-void PostFill(Container<Real> &rc);
-Real EstimateTimestep(Container<Real> &rc);
-TaskStatus CalculateFluxes(Container<Real> &rc);
-
-} // namespace Advection
-
 } // namespace advection_example
 
-#endif // EXAMPLE_ADVECTION_ADVECTION_HPP_
+#endif // EXAMPLE_ADVECTION_ADVECTION_DRIVER_HPP_

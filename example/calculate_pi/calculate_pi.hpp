@@ -10,26 +10,25 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+#ifndef EXAMPLE_CALCULATE_PI_CALCULATE_PI_HPP_
+#define EXAMPLE_CALCULATE_PI_CALCULATE_PI_HPP_
 
-#include "face_fields_example.hpp"
-#include "parthenon_manager.hpp"
+// Standard Includes
+#include <memory>
 
-int main(int argc, char *argv[]) {
-  using parthenon::FaceFieldExample;
-  using parthenon::ParthenonManager;
-  using parthenon::ParthenonStatus;
-  ParthenonManager pman;
+// Parthenon Includes
+#include <parthenon/package.hpp>
 
-  auto status = pman.ParthenonInit(argc, argv);
-  if (status == ParthenonStatus::complete || status == ParthenonStatus::error) {
-    pman.ParthenonFinalize();
-    return (status == ParthenonStatus::error) ? 1 : 0;
-  }
+namespace calculate_pi {
+using namespace parthenon::package::prelude;
 
-  FaceFieldExample driver(pman.pinput.get(), pman.pmesh.get());
-  pman.PreDriver();
-  pman.PostDriver(driver.Execute());
-  pman.ParthenonFinalize();
+// Package Callbacks
+void SetInOrOut(Container<Real> &rc);
+parthenon::AmrTag CheckRefinement(Container<Real> &rc);
+std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 
-  return 0;
-}
+// Task Implementations
+parthenon::TaskStatus ComputeArea(parthenon::MeshBlock *pmb);
+} // namespace calculate_pi
+
+#endif // EXAMPLE_CALCULATE_PI_CALCULATE_PI_HPP_

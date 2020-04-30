@@ -54,6 +54,7 @@ namespace parthenon {
 Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
            int mesh_test)
     : // public members:
+      modified(true),
       // aggregate initialization of RegionSize struct:
       mesh_size{pin->GetReal("mesh", "x1min"),
                 pin->GetReal("mesh", "x2min"),
@@ -67,12 +68,12 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
                 pin->GetInteger("mesh", "nx1"),
                 pin->GetInteger("mesh", "nx2"),
                 pin->GetInteger("mesh", "nx3")},
-      mesh_bcs{GetBoundaryFlag(pin->GetOrAddString("mesh", "ix1_bc", "none")),
-               GetBoundaryFlag(pin->GetOrAddString("mesh", "ox1_bc", "none")),
-               GetBoundaryFlag(pin->GetOrAddString("mesh", "ix2_bc", "none")),
-               GetBoundaryFlag(pin->GetOrAddString("mesh", "ox2_bc", "none")),
-               GetBoundaryFlag(pin->GetOrAddString("mesh", "ix3_bc", "none")),
-               GetBoundaryFlag(pin->GetOrAddString("mesh", "ox3_bc", "none"))},
+      mesh_bcs{GetBoundaryFlag(pin->GetOrAddString("mesh", "ix1_bc", "reflecting")),
+               GetBoundaryFlag(pin->GetOrAddString("mesh", "ox1_bc", "reflecting")),
+               GetBoundaryFlag(pin->GetOrAddString("mesh", "ix2_bc", "reflecting")),
+               GetBoundaryFlag(pin->GetOrAddString("mesh", "ox2_bc", "reflecting")),
+               GetBoundaryFlag(pin->GetOrAddString("mesh", "ix3_bc", "reflecting")),
+               GetBoundaryFlag(pin->GetOrAddString("mesh", "ox3_bc", "reflecting"))},
       ndim((mesh_size.nx3 > 1) ? 3 : ((mesh_size.nx2 > 1) ? 2 : 1)),
       adaptive(pin->GetOrAddString("mesh", "refinement", "none") == "adaptive" ? true
                                                                                : false),
@@ -80,13 +81,7 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
           (adaptive || pin->GetOrAddString("mesh", "refinement", "none") == "static")
               ? true
               : false),
-      start_time(pin->GetOrAddReal("time", "start_time", 0.0)), time(start_time),
-      tlim(pin->GetReal("time", "tlim")), dt(std::numeric_limits<Real>::max()),
-      dt_hyperbolic(dt), dt_parabolic(dt), dt_user(dt),
-      nlim(pin->GetOrAddInteger("time", "nlim", -1)), ncycle(),
-      ncycle_out(pin->GetOrAddInteger("time", "ncycle_out", 1)),
-      dt_diagnostics(pin->GetOrAddInteger("time", "dt_diagnostics", -1)), nbnew(),
-      nbdel(), step_since_lb(), gflag(), pblock(nullptr), properties(properties),
+      nbnew(), nbdel(), step_since_lb(), gflag(), pblock(nullptr), properties(properties),
       packages(packages),
       // private members:
       next_phys_id_(), num_mesh_threads_(pin->GetOrAddInteger("mesh", "num_threads", 1)),
@@ -994,50 +989,6 @@ void Mesh::OutputMeshStructure(int ndim) {
 }
 
 //----------------------------------------------------------------------------------------
-// \!fn void Mesh::NewTimeStep()
-// \brief function that loops over all MeshBlocks and find new timestep
-
-void Mesh::NewTimeStep() {
-  MeshBlock *pmb = pblock;
-
-  // prevent timestep from growing too fast in between 2x cycles (even if every MeshBlock
-  // has new_block_dt > 2.0*dt_old)
-  // dt = static_cast<Real>(2.0)*dt;
-  // consider first MeshBlock on this MPI rank's linked list of blocks:
-  // dt = std::min(dt, pmb->new_block_dt_);
-  // dt_hyperbolic = pmb->new_block_dt_hyperbolic_;
-  // dt_parabolic = pmb->new_block_dt_parabolic_;
-  // dt_user = pmb->new_block_dt_user_;
-  // pmb = pmb->next;
-
-  Real dt_max = 2.0 * dt;
-  dt = std::numeric_limits<Real>::max();
-  while (pmb != nullptr) {
-    dt = std::min(dt, pmb->new_block_dt_);
-    // dt_hyperbolic  = std::min(dt_hyperbolic, pmb->new_block_dt_hyperbolic_);
-    // dt_parabolic  = std::min(dt_parabolic, pmb->new_block_dt_parabolic_);
-    // dt_user  = std::min(dt_user, pmb->new_block_dt_user_);
-    pmb = pmb->next;
-  }
-  dt = std::min(dt_max, dt);
-
-#ifdef MPI_PARALLEL
-  // pack array, MPI allreduce over array, then unpack into Mesh variables
-  Real dt_array[4] = {dt, dt_hyperbolic, dt_parabolic, dt_user};
-  MPI_Allreduce(MPI_IN_PLACE, dt_array, 4, MPI_ATHENA_REAL, MPI_MIN, MPI_COMM_WORLD);
-  dt = dt_array[0];
-  dt_hyperbolic = dt_array[1];
-  dt_parabolic = dt_array[2];
-  dt_user = dt_array[3];
-#endif
-
-  if (time < tlim && (tlim - time) < dt) // timestep would take us past desired endpoint
-    dt = tlim - time;
-
-  return;
-}
-
-//----------------------------------------------------------------------------------------
 //! \fn void Mesh::EnrollUserBoundaryFunction(BoundaryFace dir, BValFunc my_bc)
 //  \brief Enroll a user-defined boundary function
 
@@ -1238,7 +1189,7 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
       for (int i = 0; i < nmb; ++i) {
         auto &pmb = pmb_array[i];
         auto &pbval = pmb->pbval;
-        if (multilevel) pbval->ProlongateBoundaries(time, 0.0);
+        if (multilevel) pbval->ProlongateBoundaries(0.0, 0.0);
 
         int il = pmb->is, iu = pmb->ie, jl = pmb->js, ju = pmb->je, kl = pmb->ks,
             ku = pmb->ke;
@@ -1287,14 +1238,6 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
     }
   } while (!iflag);
 
-  // calculate the first time step
-#pragma omp parallel for num_threads(nthreads)
-  for (int i = 0; i < nmb; ++i) {
-    pmb_array[i]->SetBlockTimestep(
-        Update::EstimateTimestep(pmb_array[i]->real_containers.Get()));
-  }
-
-  NewTimeStep();
   return;
 }
 
@@ -1424,37 +1367,5 @@ int Mesh::ReserveTagPhysIDs(int num_phys) {
 // TODO(felker): deduplicate this logic, which combines conditionals in MeshBlock ctor
 
 void Mesh::ReserveMeshBlockPhysIDs() { return; }
-
-void Mesh::OutputCycleDiagnostics() {
-  const int dt_precision = std::numeric_limits<Real>::max_digits10 - 1;
-  const int ratio_precision = 3;
-  if (ncycle_out != 0) {
-    if (ncycle % ncycle_out == 0) {
-      if (Globals::my_rank == 0) {
-        std::cout << "cycle=" << ncycle << std::scientific
-                  << std::setprecision(dt_precision) << " time=" << time << " dt=" << dt;
-        if (dt_diagnostics != -1) {
-          Real ratio = dt / dt_hyperbolic;
-          std::cout << "\ndt_hyperbolic=" << dt_hyperbolic
-                    << " ratio=" << std::setprecision(ratio_precision) << ratio
-                    << std::setprecision(dt_precision);
-          ratio = dt / dt_parabolic;
-          std::cout << "\ndt_parabolic=" << dt_parabolic
-                    << " ratio=" << std::setprecision(ratio_precision) << ratio
-                    << std::setprecision(dt_precision);
-          if (UserTimeStep_ != nullptr) {
-            Real ratio = dt / dt_user;
-            std::cout << "\ndt_user=" << dt_user
-                      << " ratio=" << std::setprecision(ratio_precision) << ratio
-                      << std::setprecision(dt_precision);
-          }
-        } // else (empty): dt_diagnostics = -1 -> provide no additional timestep
-          // diagnostics
-        std::cout << std::endl;
-      }
-    }
-  }
-  return;
-}
 
 } // namespace parthenon

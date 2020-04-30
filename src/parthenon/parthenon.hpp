@@ -11,25 +11,11 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#include "face_fields_example.hpp"
-#include "parthenon_manager.hpp"
+#ifndef PARTHENON_PARTHENON_HPP_
+#define PARTHENON_PARTHENON_HPP_
 
-int main(int argc, char *argv[]) {
-  using parthenon::FaceFieldExample;
-  using parthenon::ParthenonManager;
-  using parthenon::ParthenonStatus;
-  ParthenonManager pman;
+// Re-export all public Parthenon headers
+#include "driver.hpp"
+#include "package.hpp"
 
-  auto status = pman.ParthenonInit(argc, argv);
-  if (status == ParthenonStatus::complete || status == ParthenonStatus::error) {
-    pman.ParthenonFinalize();
-    return (status == ParthenonStatus::error) ? 1 : 0;
-  }
-
-  FaceFieldExample driver(pman.pinput.get(), pman.pmesh.get());
-  pman.PreDriver();
-  pman.PostDriver(driver.Execute());
-  pman.ParthenonFinalize();
-
-  return 0;
-}
+#endif // PARTHENON_PARTHENON_HPP_

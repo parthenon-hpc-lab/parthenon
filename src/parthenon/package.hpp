@@ -11,34 +11,42 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef EXAMPLE_FACE_FIELDS_FACE_FIELDS_EXAMPLE_HPP_
-#define EXAMPLE_FACE_FIELDS_FACE_FIELDS_EXAMPLE_HPP_
+#ifndef PARTHENON_PACKAGE_HPP_
+#define PARTHENON_PACKAGE_HPP_
 
-#include <memory>
+// Internal Includes
+#include <basic_types.hpp>
+#include <coordinates/coordinates.hpp>
+#include <interface/metadata.hpp>
+#include <interface/params.hpp>
+#include <interface/state_descriptor.hpp>
+#include <kokkos_abstraction.hpp>
+#include <mesh/mesh.hpp>
+#include <parameter_input.hpp>
+#include <parthenon_manager.hpp>
+#include <task_list/tasks.hpp>
 
-#include "driver/driver.hpp"
-#include "globals.hpp"
-#include "interface/state_descriptor.hpp"
-#include "mesh/mesh.hpp"
-#include "task_list/tasks.hpp"
+// Local Includes
+#include "prelude.hpp"
 
 namespace parthenon {
+namespace package {
+namespace prelude {
+using namespace ::parthenon::prelude;
 
-class FaceFieldExample : public Driver {
- public:
-  FaceFieldExample(ParameterInput *pin, Mesh *pm) : Driver(pin, pm) {
-    InitializeOutputs();
-  }
-  TaskList MakeTaskList(MeshBlock *pmb);
-  DriverStatus Execute();
-};
-
+using ::parthenon::AmrTag;
+using ::parthenon::Coordinates;
+using ::parthenon::DerivedOwnership;
+using ::parthenon::MeshBlock;
+using ::parthenon::Metadata;
+using ::parthenon::par_for;
+using ::parthenon::ParameterInput;
+using ::parthenon::Params;
+using ::parthenon::ParthenonManager;
+using ::parthenon::StateDescriptor;
+using ::parthenon::TaskStatus;
+} // namespace prelude
+} // namespace package
 } // namespace parthenon
 
-namespace FaceFields {
-
-parthenon::TaskStatus fill_faces(parthenon::MeshBlock *pmb);
-
-} // namespace FaceFields
-
-#endif // EXAMPLE_FACE_FIELDS_FACE_FIELDS_EXAMPLE_HPP_
+#endif // PARTHENON_PACKAGE_HPP_
