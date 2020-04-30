@@ -508,22 +508,26 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper &resfile, Properties_t &properties,
                GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix3_bc", "none")),
                GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox3_bc", "none"))},
       ndim((mesh_size.nx3 > 1) ? 3 : ((mesh_size.nx2 > 1) ? 2 : 1)),
-      adaptive(pin->GetOrAddString("parthenon/mesh", "refinement", "none") == "adaptive" ? true
-                                                                               : false),
+      adaptive(pin->GetOrAddString("parthenon/mesh", "refinement", "none")
+                                                        == "adaptive" ? true : false),
       multilevel(
-          (adaptive || pin->GetOrAddString("parthenon/mesh", "refinement", "none") == "static")
+          (adaptive ||
+           pin->GetOrAddString("parthenon/mesh", "refinement", "none") == "static")
               ? true
               : false),
-      start_time(pin->GetOrAddReal("parthenon/time", "start_time", 0.0)), time(start_time),
+      start_time(pin->GetOrAddReal("parthenon/time", "start_time", 0.0)),
+      time(start_time),
       tlim(pin->GetReal("parthenon/time", "tlim")), dt(std::numeric_limits<Real>::max()),
       dt_hyperbolic(dt), dt_parabolic(dt), dt_user(dt),
       nlim(pin->GetOrAddInteger("parthenon/time", "nlim", -1)), ncycle(),
       ncycle_out(pin->GetOrAddInteger("parthenon/time", "ncycle_out", 1)),
-      dt_diagnostics(pin->GetOrAddInteger("parthenon/time", "dt_diagnostics", -1)), nbnew(),
+      dt_diagnostics(pin->GetOrAddInteger("parthenon/time", "dt_diagnostics", -1)),
+      nbnew(),
       nbdel(), step_since_lb(), gflag(), pblock(nullptr), properties(properties),
       packages(packages),
       // private members:
-      next_phys_id_(), num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
+      next_phys_id_(),
+      num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
       tree(this), use_uniform_meshgen_fn_{true, true, true}, nreal_user_mesh_data_(),
       nint_user_mesh_data_(), nuser_history_output_(), lb_flag_(true), lb_automatic_(),
       lb_manual_(), MeshGenerator_{UniformMeshGeneratorX1, UniformMeshGeneratorX2,
