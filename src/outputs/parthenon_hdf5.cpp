@@ -397,7 +397,6 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   size_t maxV = 3;
   hsize_t sumDim4AllVars = 0;
   for (auto &v : ciX.vars) {
-    std::cout << "Graphics iterator has " << v->label() << std::endl;
     const size_t vlen = v->GetDim(4);
     sumDim4AllVars += vlen;
     maxV = (maxV < vlen ? vlen : maxV);

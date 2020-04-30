@@ -202,7 +202,8 @@ class Outputs {
  private:
   OutputType *pfirst_type_; // ptr to head OutputType node in singly linked list
   // (not storing a reference to the tail node)
-  MetadataFlag SetOutputFlag(ParameterInput *pin, std::string block_name);
+  std::vector<std::string> SetOutputVariables(ParameterInput *pin,
+                                              std::string block_name);
 };
 
 } // namespace parthenon

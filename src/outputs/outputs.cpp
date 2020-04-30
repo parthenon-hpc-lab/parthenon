@@ -124,7 +124,7 @@ OutputType::OutputType(OutputParameters oparams)
 //----------------------------------------------------------------------------------------
 // Outputs constructor
 
-Outputs::Outputs(Mesh *pm, ParameterInput *pin, Packages_t *packages, SimTime *tm) {
+Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   pfirst_type_ = nullptr;
   std::stringstream msg;
   InputBlock *pib = pin->pfirst_block;
@@ -138,8 +138,6 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, Packages_t *packages, SimTime *t
     if (pib->block_name.compare(0, 16, "parthenon/output") == 0) {
       std::cerr << "FOUND BLOCK_NAME = " << pib->block_name << std::endl;
       OutputParameters op; // define temporary OutputParameters struct
-
-      op.metadata_flag = SetOutputFlag(pin, pib->block_name, packages);
 
       // extract integer number of output block.  Save name and number
       std::string outn = pib->block_name.substr(6); // 6 because counting starts at 0!
@@ -233,9 +231,10 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, Packages_t *packages, SimTime *t
       op.cartesian_vector = false;
 
       // set output variable and optional data format string used in formatted writes
-      /*if (op.file_type.compare("hst") != 0 && op.file_type.compare("rst") != 0) {
-        op.variable = pin->GetString(op.block_name, "variable");
-      }*/
+      if (op.file_type.compare("hst") != 0 && op.file_type.compare("rst") != 0) {
+        //op.variable = pin->GetString(op.block_name, "variable");
+        op.variables = SetOutputVariables(pin, pib->block_name);
+      }
       op.data_format = pin->GetOrAddString(op.block_name, "data_format", "%12.5e");
       op.data_format.insert(0, " "); // prepend with blank to separate columns
 
@@ -332,61 +331,26 @@ Outputs::~Outputs() {
 }
 
 
-MetadataFlag Outputs::SetOutputFlag(ParameterInput *pin, std::string input_block_name,
-                           Packages_t *packages) {
-  if (!pin->DoesParameterExist(input_block_name,"variables")) {
-    std::cerr << "Block " << input_block_name
+std::vector<std::string> Outputs::SetOutputVariables(ParameterInput *pin,
+                                                     std::string block_name) {
+  if (!pin->DoesParameterExist(block_name,"variables")) {
+    std::cerr << "Block " << block_name
               << " must provide a variables parameter" << std::endl;
     std::exit(1);
   }
-
-  std::string&& block_name = std::move(input_block_name);
 
   std::string s = pin->GetString(block_name, "variables");
   std::string delimiter = ",";
   size_t pos = 0;
   std::string token;
-  std::list<std::string> fields;
+  std::vector<std::string> variables;
   while ((pos = s.find(delimiter)) != std::string::npos) {
     token = s.substr(0, pos);
     variables.push_back(trim_string::trim(token));
     s.erase(0, pos + delimiter.length());
   }
   variables.push_back(trim_string::trim(s));
-
-  // make a new Metadata flag for this output
-  //std::string&& temp_name(block_name);
-  MetadataFlag const new_output_flag = Metadata::AllocateNewFlag(std::move(block_name));
-
-  for (auto &pkg : *packages) {
-    for (auto &q : pkg.second->AllFields()) {
-      auto it = std::find(fields.begin(), fields.end(), q.first);
-      if (it != fields.end()) {
-        q.second.Set(new_output_flag);
-        fields.erase(it);
-     }
-     }
-    for (auto &q : pkg.second->AllSparseFields()) {
-      auto it = std::find(fields.begin(), fields.end(), q.first);
-      if (it != fields.end()) {
-        for (auto &m : q.second) {
-          m.Set(new_output_flag);
-        }
-        fields.erase(it);
-      }
-    }
-  }
-
-  if (fields.size() != 0) {
-    std::cerr << "These variables listed in "
-              << input_block_name
-              << "/variables do not exist:" << std::endl;
-    for (auto const &field : fields) {
-      std::cerr << field << std::endl;
-    }
-  }
-
-  return new_output_flag;
+  return variables;
 }
 
 //----------------------------------------------------------------------------------------
