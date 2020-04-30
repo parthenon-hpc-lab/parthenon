@@ -37,7 +37,7 @@ std::string trim(const std::string &s) { return rtrim(ltrim(s)); }
 } // namespace strip_string
 
 void SetGraphics(std::unique_ptr<ParameterInput> &pin, Packages_t &packages) {
-  std::string s = pin->GetOrAddString("parthenon/graphics, "variables", "");
+  std::string s = pin->GetOrAddString("parthenon/graphics", "variables", "");
   if (s == "") return;
   std::string delimiter = ",";
   size_t pos = 0;

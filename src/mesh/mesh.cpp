@@ -68,23 +68,26 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
                 pin->GetInteger("parthenon/mesh", "nx1"),
                 pin->GetInteger("parthenon/mesh", "nx2"),
                 pin->GetInteger("parthenon/mesh", "nx3")},
-      mesh_bcs{GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix1_bc", "reflecting")),
-               GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox1_bc", "reflecting")),
-               GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix2_bc", "reflecting")),
-               GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox2_bc", "reflecting")),
-               GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix3_bc", "reflecting")),
-               GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox3_bc", "reflecting"))},
+      mesh_bcs{
+          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix1_bc", "reflecting")),
+          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox1_bc", "reflecting")),
+          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix2_bc", "reflecting")),
+          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox2_bc", "reflecting")),
+          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix3_bc", "reflecting")),
+          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox3_bc", "reflecting"))},
       ndim((mesh_size.nx3 > 1) ? 3 : ((mesh_size.nx2 > 1) ? 2 : 1)),
-      adaptive(pin->GetOrAddString("parthenon/mesh", "refinement", "none") == "adaptive" ? true
-                                                                               : false),
-      multilevel(
-          (adaptive || pin->GetOrAddString("parthenon/mesh", "refinement", "none") == "static")
-              ? true
-              : false),
+      adaptive(pin->GetOrAddString("parthenon/mesh", "refinement", "none") == "adaptive"
+                   ? true
+                   : false),
+      multilevel((adaptive ||
+                  pin->GetOrAddString("parthenon/mesh", "refinement", "none") == "static")
+                     ? true
+                     : false),
       nbnew(), nbdel(), step_since_lb(), gflag(), pblock(nullptr), properties(properties),
       packages(packages),
       // private members:
-      next_phys_id_(), num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
+      next_phys_id_(),
+      num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
       tree(this), use_uniform_meshgen_fn_{true, true, true}, nuser_history_output_(),
       lb_flag_(true), lb_automatic_(),
       lb_manual_(), MeshGenerator_{UniformMeshGeneratorX1, UniformMeshGeneratorX2,
@@ -273,7 +276,7 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
 
     InputBlock *pib = pin->pfirst_block;
     while (pib != nullptr) {
-      if (pib->block_name.compare(0, 10, "refinement") == 0) {
+      if (pib->block_name.compare(0, 27, "parthenon/static_refinement") == 0) {
         RegionSize ref_size;
         ref_size.x1min = pin->GetReal(pib->block_name, "x1min");
         ref_size.x1max = pin->GetReal(pib->block_name, "x1max");

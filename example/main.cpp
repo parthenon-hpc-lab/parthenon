@@ -110,12 +110,12 @@ int main(int argc, char *argv[]) {
         std::cout << "x1max = " << pin.GetReal("parthenon/mesh", "x1max") << std::endl;
       }
       if (pin.DoesParameterExist("parthenon/mesh", "ix1_bc")) {
-        std::cout << "x1 inner boundary condition = " << pin.GetString("parthenon/mesh", "ix1_bc")
-                  << std::endl;
+        std::cout << "x1 inner boundary condition = "
+                  << pin.GetString("parthenon/mesh", "ix1_bc") << std::endl;
       }
       if (pin.DoesParameterExist("parthenon/mesh", "ox1_bc")) {
-        std::cout << "x1 outer boundary condition = " << pin.GetString("parthenon/mesh", "ox1_bc")
-                  << std::endl;
+        std::cout << "x1 outer boundary condition = "
+                  << pin.GetString("parthenon/mesh", "ox1_bc") << std::endl;
       }
     }
 

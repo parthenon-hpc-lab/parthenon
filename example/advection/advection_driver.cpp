@@ -42,8 +42,8 @@ AdvectionDriver::AdvectionDriver(ParameterInput *pin, Mesh *pm)
   pin->CheckDesired("Advection", "vx");
   pin->CheckDesired("Advection", "refine_tol");
   pin->CheckDesired("Advection", "derefine_tol");
-  pin->CheckDesired("parthenon/graphics, "variables");
-  pin->CheckDesired("parthenon/graphics, "dt");
+  pin->CheckDesired("parthenon/graphics", "variables");
+  pin->CheckDesired("parthenon/graphics", "dt");
 }
 // first some helper tasks
 TaskStatus UpdateContainer(MeshBlock *pmb, int stage,
