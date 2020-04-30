@@ -41,7 +41,7 @@ class ContainerIterator {
     auto var_map = c.GetCellVariableMap();
     auto sparse_map = c.GetSparseMap();
     // reverse iterator to end up with a list in the same order as requested
-    for (const auto& name : names) {
+    for (const auto &name : names) {
       bool found = false;
       auto v = var_map.find(name);
       if (v != var_map.end()) {
@@ -57,7 +57,7 @@ class ContainerIterator {
           std::exit(1);
         }
         found = true;
-        for (const auto& svar : sv->second->GetVector()) {
+        for (const auto &svar : sv->second->GetVector()) {
           vars.push_back(svar);
         }
       }
@@ -88,7 +88,7 @@ class ContainerIterator {
   /// @param c the container on which you want the iterator
   /// @param names: a vector of std::string with names you want to match
   ContainerIterator<T>(const Container<T> &c, const std::vector<std::string> &names) {
-    MakeList(c,names);
+    MakeList(c, names);
     /*allVars_ = c.GetCellVariableVector();
     for (auto &svar : c.GetSparseVector()) {
       CellVariableVector<T> &svec = svar->GetVector();

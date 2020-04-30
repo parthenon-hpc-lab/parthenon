@@ -38,7 +38,7 @@ std::string trim(const std::string &s) { return rtrim(ltrim(s)); }
 OutputFlags SetOutputFlags(std::unique_ptr<ParameterInput> &pin, Packages_t &packages) {
   OutputFlags output_flags;
   InputBlock *pib = pin->first_block;
-  while(pib != nullptr) {
+  while (pib != nullptr) {
     if (pib->block_name.compare(0, 16, "parthenon/output") == 0) {
       if (pin->DoesParameterExist("variables")) {
         std::string s = pin->GetString(pib->block_name), "variables");
@@ -57,7 +57,7 @@ OutputFlags SetOutputFlags(std::unique_ptr<ParameterInput> &pin, Packages_t &pac
         MetadataFlag const new_output_flag = Metadata::AllocateNewFlag(pib->block_name);
         output_flags.push_back(new_output_flag)
 
-        for (auto &pkg : packages) {
+            for (auto &pkg : packages) {
           for (auto &q : pkg.second->AllFields()) {
             auto it = std::find(fields.begin(), fields.end(), q.first);
             if (it != fields.end()) {
@@ -77,8 +77,7 @@ OutputFlags SetOutputFlags(std::unique_ptr<ParameterInput> &pin, Packages_t &pac
         }
 
         if (fields.size() != 0) {
-          std::cerr << "These variables listed in "
-                    << pib->block_name
+          std::cerr << "These variables listed in " << pib->block_name
                     << "/variables do not exist:" << std::endl;
           for (auto const &field : fields) {
             std::cerr << field << std::endl;

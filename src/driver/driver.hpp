@@ -38,8 +38,7 @@ class Driver {
  public:
   Driver(ParameterInput *pin, Mesh *pm) : pinput(pin), pmesh(pm) {}
   virtual DriverStatus Execute() = 0;
-  void InitializeOutputs() {
-    pouts = std::make_unique<Outputs>(pmesh, pinput); }
+  void InitializeOutputs() { pouts = std::make_unique<Outputs>(pmesh, pinput); }
   ParameterInput *pinput;
   Mesh *pmesh;
   std::unique_ptr<Outputs> pouts;

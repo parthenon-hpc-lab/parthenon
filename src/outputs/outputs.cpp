@@ -93,15 +93,12 @@
 #include <cstring>
 #include <iomanip>
 #include <iostream>
-#include <list>
 #include <sstream>
 #include <stdexcept>
 #include <string>
 
 #include "athena.hpp"
 #include "coordinates/coordinates.hpp"
-#include "interface/metadata.hpp"
-#include "interface/state_descriptor.hpp"
 #include "mesh/mesh.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
@@ -151,8 +148,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
 
       // set file number, basename, id, and format
       op.file_number = pin->GetOrAddInteger(op.block_name, "file_number", 0);
-      op.file_basename =
-        pin->GetOrAddString("parthenon/job", "problem_id", "parthenon");
+      op.file_basename = pin->GetOrAddString("parthenon/job", "problem_id", "parthenon");
       char define_id[10];
       std::snprintf(define_id, sizeof(define_id), "out%d",
                     op.block_number); // default id="outN"
@@ -223,15 +219,14 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       }
 
       // read ghost cell option
-      op.include_ghost_zones =
-          pin->GetOrAddBoolean(op.block_name, "ghost_zones", false);
+      op.include_ghost_zones = pin->GetOrAddBoolean(op.block_name, "ghost_zones", false);
 
       // read cartesian mapping option
       op.cartesian_vector = false;
 
       // set output variable and optional data format string used in formatted writes
       if (op.file_type.compare("hst") != 0 && op.file_type.compare("rst") != 0) {
-        //op.variable = pin->GetString(op.block_name, "variable");
+        // op.variable = pin->GetString(op.block_name, "variable");
         op.variables = SetOutputVariables(pin, pib->block_name);
       }
       op.data_format = pin->GetOrAddString(op.block_name, "data_format", "%12.5e");
@@ -249,8 +244,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       } else if (op.file_type.compare("rst") == 0) {
         pnew_type = new RestartOutput(op);
         num_rst_outputs++;
-      } else if (op.file_type.compare("ath5") == 0 ||
-                 op.file_type.compare("hdf5") == 0) {
+      } else if (op.file_type.compare("ath5") == 0 || op.file_type.compare("hdf5") == 0) {
 #ifdef HDF5OUTPUT
         pnew_type = new PHDF5Output(op);
 #else
@@ -329,12 +323,11 @@ Outputs::~Outputs() {
   }
 }
 
-
 std::vector<std::string> Outputs::SetOutputVariables(ParameterInput *pin,
                                                      std::string block_name) {
-  if (!pin->DoesParameterExist(block_name,"variables")) {
-    std::cerr << "Block " << block_name
-              << " must provide a variables parameter" << std::endl;
+  if (!pin->DoesParameterExist(block_name, "variables")) {
+    std::cerr << "Block " << block_name << " must provide a variables parameter"
+              << std::endl;
     std::exit(1);
   }
 
