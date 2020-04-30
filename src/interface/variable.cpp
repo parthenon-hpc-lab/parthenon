@@ -37,7 +37,7 @@ std::string CellVariable<T>::info() {
   while (!strncmp(stmp, "1x", 2)) {
     stmp += 2;
   }
-  s += std::string("cell:")+stmp;
+  s += std::string("cell:") + stmp;
   // now append flag
   s += " : " + m_.MaskAsString();
 
