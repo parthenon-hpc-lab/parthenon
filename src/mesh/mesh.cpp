@@ -306,7 +306,8 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
         if (lrlev > max_level) {
           msg << "### FATAL ERROR in Mesh constructor" << std::endl
               << "Refinement level exceeds the maximum level (specify "
-              << "'maxlevel' parameter in <mesh> input block if adaptive)." << std::endl;
+              << "'maxlevel' parameter in <parthenon/mesh> input block if adaptive)." << std::endl;
+
           ATHENA_ERROR(msg);
         }
         if (ref_size.x1min > ref_size.x1max || ref_size.x2min > ref_size.x2max ||

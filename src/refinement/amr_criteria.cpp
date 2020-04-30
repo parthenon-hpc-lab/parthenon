@@ -42,7 +42,7 @@ AMRFirstDerivative::AMRFirstDerivative(ParameterInput *pin, std::string &block_n
   max_level = pin->GetOrAddInteger(block_name, "max_level", global_max_level);
   if (max_level > global_max_level) {
     std::cerr << "WARNING: max_level in " << block_name
-              << " exceeds numlevel (the global maximum number of levels) set in <mesh>."
+              << " exceeds numlevel (the global maximum number of levels) set in <parthenon/mesh>."
               << std::endl
               << std::endl
               << "Setting max_level = numlevel, but this may not be what you want."
