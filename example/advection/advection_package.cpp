@@ -17,6 +17,7 @@
 
 #include <parthenon/package.hpp>
 
+#include "Kokkos_Macros.hpp"
 #include "advection_package.hpp"
 
 using namespace parthenon::package::prelude;
@@ -108,15 +109,13 @@ void PreFill(Container<Real> &rc) {
   int ie = pmb->ncells1 - 1;
   int je = pmb->ncells2 - 1;
   int ke = pmb->ncells3 - 1;
-  CellVariable<Real> &qin = rc.Get("advected");
-  CellVariable<Real> &qout = rc.Get("one_minus_advected");
-  for (int k = ks; k <= ke; k++) {
-    for (int j = js; j <= je; j++) {
-      for (int i = is; i <= ie; i++) {
+  auto qin = rc.Get("advected").data.Get<3>();
+  auto qout = rc.Get("one_minus_advected").data.Get<3>();
+  pmb->par_for(
+      "PreFill advection example", ks, ke, js, je, is, ie,
+      KOKKOS_LAMBDA(const int k, const int j, const int i) {
         qout(k, j, i) = 1.0 - qin(k, j, i);
-      }
-    }
-  }
+      });
 }
 
 // this is the package registered function to fill derived
@@ -128,15 +127,13 @@ void SquareIt(Container<Real> &rc) {
   int ie = pmb->ncells1 - 1;
   int je = pmb->ncells2 - 1;
   int ke = pmb->ncells3 - 1;
-  CellVariable<Real> &qin = rc.Get("one_minus_advected");
-  CellVariable<Real> &qout = rc.Get("one_minus_advected_sq");
-  for (int k = ks; k <= ke; k++) {
-    for (int j = js; j <= je; j++) {
-      for (int i = is; i <= ie; i++) {
+  auto qin = rc.Get("one_minus_advected").data.Get<3>();
+  auto qout = rc.Get("one_minus_advected_sq").data.Get<3>();
+  pmb->par_for(
+      "SquareIt advection example", ks, ke, js, je, is, ie,
+      KOKKOS_LAMBDA(const int k, const int j, const int i) {
         qout(k, j, i) = qin(k, j, i) * qin(k, j, i);
-      }
-    }
-  }
+      });
 }
 
 // demonstrate usage of a "post" fill derived routine
@@ -148,21 +145,19 @@ void PostFill(Container<Real> &rc) {
   int ie = pmb->ncells1 - 1;
   int je = pmb->ncells2 - 1;
   int ke = pmb->ncells3 - 1;
-  CellVariable<Real> &qin = rc.Get("one_minus_advected_sq");
+  auto qin = rc.Get("one_minus_advected_sq").data.Get<3>();
   // get component 12
-  CellVariable<Real> &q0 = rc.Get("one_minus_sqrt_one_minus_advected_sq", 12);
+  auto q0 = rc.Get("one_minus_sqrt_one_minus_advected_sq", 12).data.Get<3>();
   // and component 37
-  CellVariable<Real> &q1 = rc.Get("one_minus_sqrt_one_minus_advected_sq", 37);
-  for (int k = ks; k <= ke; k++) {
-    for (int j = js; j <= je; j++) {
-      for (int i = is; i <= ie; i++) {
+  auto q1 = rc.Get("one_minus_sqrt_one_minus_advected_sq", 37).data.Get<3>();
+  pmb->par_for(
+      "SquareIt advection example", ks, ke, js, je, is, ie,
+      KOKKOS_LAMBDA(const int k, const int j, const int i) {
         // this will make component 12 = advected
         q0(k, j, i) = 1.0 - sqrt(qin(k, j, i));
         // and this will make component 37 = 1 - advected
         q1(k, j, i) = 1.0 - q0(k, j, i);
-      }
-    }
-  }
+      });
 }
 
 // provide the routine that estimates a stable timestep for this package
