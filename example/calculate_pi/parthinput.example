@@ -53,5 +53,6 @@ max_level = 2                   # if set, limits refinement level from this crit
 <Pi>
 radius = 1.5
 
-<parthenon/graphics>
+<parthenon/output0>
+file_type = hdf5
 variables = in_or_out
