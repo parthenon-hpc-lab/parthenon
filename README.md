@@ -19,6 +19,8 @@ Parthenon AMR infrastructure
 
 # Installation
 
+For detailed instructions for a given system, see our [build doc](docs/building.md).
+
 ## Basics
 
     mkdir build
