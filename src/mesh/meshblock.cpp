@@ -48,7 +48,7 @@ namespace parthenon {
 //----------------------------------------------------------------------------------------
 // MeshBlock constructor: constructs coordinate, boundary condition, field
 //                        and mesh refinement objects.
-  MeshBlock::MeshBlock(const int n_side, const int ndim) {
+MeshBlock::MeshBlock(const int n_side, const int ndim) {
   // initialize grid indices
   is = NGHOST;
   ie = is + n_side - 1;
@@ -77,7 +77,7 @@ namespace parthenon {
     ncc3 = 1;
   }
 }
-  
+
 MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
                      BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
                      Properties_t &properties, Packages_t &packages, int igflag,
