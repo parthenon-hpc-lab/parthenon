@@ -37,6 +37,39 @@ class ContainerIterator {
   // std::vector<FaceVariable> varsFace; // face vars that match
   // std::vector<EdgeVariable> varsEdge; // edge vars that match
 
+  void MakeList(const Container<T> &c, const std::vector<std::string> &names) {
+    auto var_map = c.GetCellVariableMap();
+    auto sparse_map = c.GetSparseMap();
+    // reverse iterator to end up with a list in the same order as requested
+    for (const auto &name : names) {
+      bool found = false;
+      auto v = var_map.find(name);
+      if (v != var_map.end()) {
+        vars.push_back(v->second);
+        found = true;
+      }
+      auto sv = sparse_map.find(name);
+      if (sv != sparse_map.end()) {
+        if (found) {
+          // that's weird, found the name in both???
+          std::cerr << name << " found in both var_map and sparse_map in PackVariables"
+                    << std::endl;
+          std::exit(1);
+        }
+        found = true;
+        for (const auto &svar : sv->second->GetVector()) {
+          vars.push_back(svar);
+        }
+      }
+      /*if (!found) {
+        std::cerr << name << " not found in var_map or sparse_map in PackVariables"
+                  << std::endl;
+        std::exit(1);
+      }*/
+    }
+    return;
+  }
+
   /// initializes the iterator with a container and a flag to match
   /// @param c the container on which you want the iterator
   /// @param flags: a vector of Metadata::flags that you want to match
@@ -55,14 +88,15 @@ class ContainerIterator {
   /// @param c the container on which you want the iterator
   /// @param names: a vector of std::string with names you want to match
   ContainerIterator<T>(const Container<T> &c, const std::vector<std::string> &names) {
-    allVars_ = c.GetCellVariableVector();
+    MakeList(c, names);
+    /*allVars_ = c.GetCellVariableVector();
     for (auto &svar : c.GetSparseVector()) {
       CellVariableVector<T> &svec = svar->GetVector();
       allVars_.insert(allVars_.end(), svec.begin(), svec.end());
     }
     // faces not active yet    allFaceVars_ = c.faceVars();
     // edges not active yet    allEdgeVars_ = c.edgeVars();
-    resetVars(names); // fill subset based on mask vector
+    resetVars(names); // fill subset based on mask vector*/
   }
 
   /// Changes the mask for the iterator and resets the iterator

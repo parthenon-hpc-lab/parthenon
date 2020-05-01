@@ -11,18 +11,20 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef INTERFACE_SET_GRAPHICS_HPP_
-#define INTERFACE_SET_GRAPHICS_HPP_
+#include <string>
 
-#include <memory>
+namespace trim_string {
+constexpr char WHITESPACE[] = " \n\r\t\f\v";
 
-#include "parameter_input.hpp"
-#include "state_descriptor.hpp"
+std::string ltrim(const std::string &s) {
+  size_t start = s.find_first_not_of(WHITESPACE);
+  return (start == std::string::npos) ? "" : s.substr(start);
+}
 
-namespace parthenon {
+std::string rtrim(const std::string &s) {
+  size_t end = s.find_last_not_of(WHITESPACE);
+  return (end == std::string::npos) ? "" : s.substr(0, end + 1);
+}
 
-void SetGraphics(std::unique_ptr<ParameterInput> &pin, Packages_t &pkg);
-
-} // namespace parthenon
-
-#endif // INTERFACE_SET_GRAPHICS_HPP_
+std::string trim(const std::string &s) { return rtrim(ltrim(s)); }
+} // namespace trim_string

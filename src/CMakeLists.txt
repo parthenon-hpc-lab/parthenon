@@ -93,7 +93,6 @@ add_library(parthenon
   interface/container.cpp
   interface/metadata.cpp
   interface/properties_interface.cpp
-  interface/set_graphics.cpp
   interface/sparse_variable.cpp
   interface/update.cpp
   interface/variable.cpp
@@ -132,6 +131,7 @@ add_library(parthenon
   #utils/ran2.cpp
   utils/show_config.cpp
   utils/signal_handler.cpp
+  utils/trim_string.cpp
 
   globals.cpp
   parameter_input.cpp

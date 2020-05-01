@@ -22,7 +22,6 @@
 #include "interface/properties_interface.hpp"
 #include "interface/state_descriptor.hpp"
 #include "mesh/mesh.hpp"
-#include "outputs/outputs.hpp"
 #include "parameter_input.hpp"
 
 namespace parthenon {

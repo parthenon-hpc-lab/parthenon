@@ -11,32 +11,17 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef EXAMPLE_CALCULATE_PI_PI_DRIVER_HPP_
-#define EXAMPLE_CALCULATE_PI_PI_DRIVER_HPP_
+#ifndef UTILS_TRIM_STRING_HPP_
+#define UTILS_TRIM_STRING_HPP_
 
-#include <parthenon/driver.hpp>
+#include <string>
 
-namespace pi {
-using namespace parthenon::driver::prelude;
+namespace trim_string {
 
-/**
- * @brief Constructs a driver which estimates PI using AMR.
- */
-class PiDriver : public Driver {
- public:
-  PiDriver(ParameterInput *pin, Mesh *pm) : Driver(pin, pm) {
-    InitializeOutputs();
-    pin->CheckDesired("Pi", "radius");
-  }
+std::string ltrim(const std::string &s);
+std::string rtrim(const std::string &s);
+std::string trim(const std::string &s);
 
-  /// MakeTaskList isn't a virtual routine on `Driver`, but each driver is expected to
-  /// implement it.
-  TaskList MakeTaskList(MeshBlock *pmb);
+} // namespace trim_string
 
-  /// `Execute` cylces until simulation completion.
-  DriverStatus Execute() override;
-};
-
-} // namespace pi
-
-#endif // EXAMPLE_CALCULATE_PI_PI_DRIVER_HPP_
+#endif // UTILS_TRIM_STRING_HPP_
