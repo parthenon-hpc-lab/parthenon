@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <limits>
 #include <string>
+#include <vector>
 
 #include <parthenon/package.hpp>
 

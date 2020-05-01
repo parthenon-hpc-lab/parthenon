@@ -255,7 +255,6 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
 template <typename InitFunc, typename PerfFunc>
 double performance_test_wrapper(const int n_burn, const int n_perf, InitFunc init_func,
                                 PerfFunc perf_func) {
-
   // Initialize the timer and test
   Kokkos::Timer timer;
   init_func();
@@ -282,7 +281,6 @@ double performance_test_wrapper(const int n_burn, const int n_perf, InitFunc ini
 }
 
 TEST_CASE("Container Iterator Performance", "[ContainerIterator][performance]") {
-
   const int N = 32; // Dimensions of blocks
   const int Nvar = 10;
   const int n_burn = 500; // Num times to burn in before timing
