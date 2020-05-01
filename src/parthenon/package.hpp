@@ -21,6 +21,7 @@
 #include <interface/metadata.hpp>
 #include <interface/params.hpp>
 #include <interface/state_descriptor.hpp>
+#include <interface/variable_pack.hpp>
 #include <kokkos_abstraction.hpp>
 #include <mesh/mesh.hpp>
 #include <parameter_input.hpp>

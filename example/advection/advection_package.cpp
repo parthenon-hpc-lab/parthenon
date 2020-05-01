@@ -108,7 +108,7 @@ void PreFill(Container<Real> &rc) {
   int ke = pmb->ncells3 - 1;
   PackIndexMap imap;
   std::vector<std::string> vars({"advected", "one_minus_advected"});
-  auto v = PackVariables(rc, vars, imap);
+  auto v = PackVariables<>(rc, vars, imap);
   const int in = imap["advected"].first;
   const int out = imap["one_minus_advected"].first;
   par_for(
@@ -129,7 +129,7 @@ void SquareIt(Container<Real> &rc) {
   int ke = pmb->ncells3 - 1;
   PackIndexMap imap;
   std::vector<std::string> vars({"one_minus_advected", "one_minus_advected_sq"});
-  auto v = PackVariables(rc, vars, imap);
+  auto v = PackVariables<>(rc, vars, imap);
   const int in = imap["one_minus_advected"].first;
   const int out = imap["one_minus_advected_sq"].first;
   par_for(
@@ -151,7 +151,7 @@ void PostFill(Container<Real> &rc) {
   PackIndexMap imap;
   std::vector<std::string> vars(
       {"one_minus_advected_sq", "one_minus_sqrt_one_minus_advected_sq"});
-  auto v = PackVariables(rc, vars, {12, 37}, imap);
+  auto v = PackVariables<>(rc, vars, {12, 37}, imap);
   const int in = imap["one_minus_advected_sq"].first;
   const int out12 = imap["one_minus_sqrt_one_minus_advected_sq_12"].first;
   const int out37 = imap["one_minus_sqrt_one_minus_advected_sq_37"].first;

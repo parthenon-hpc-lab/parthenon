@@ -18,12 +18,10 @@
 
 #include "coordinates/coordinates.hpp"
 #include "interface/container.hpp"
-#include "interface/container_iterator.hpp"
+#include "interface/variable_pack.hpp"
 #include "mesh/mesh.hpp"
 
 #include "kokkos_abstraction.hpp"
-using parthenon::DevExecSpace;
-using parthenon::par_for;
 
 namespace parthenon {
 
@@ -37,11 +35,6 @@ TaskStatus FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
   int ie = pmb->ie;
   int je = pmb->je;
   int ke = pmb->ke;
-
-  Metadata m;
-  ContainerIterator<Real> cin_iter(in, {Metadata::Independent});
-  ContainerIterator<Real> cout_iter(dudt_cont, {Metadata::Independent});
-  int nvars = cout_iter.vars.size();
 
   auto vin = PackVariablesAndFluxes<Real>(in, {Metadata::Independent});
   auto dudt = PackVariables<Real>(dudt_cont, {Metadata::Independent});
@@ -81,14 +74,9 @@ void UpdateContainer(Container<Real> &in, Container<Real> &dudt_cont, const Real
   int je = pmb->je;
   int ke = pmb->ke;
 
-  Metadata m;
-  /*ContainerIterator<Real> cin_iter(in, {Metadata::Independent});
-  ContainerIterator<Real> cout_iter(out, {Metadata::Independent});
-  ContainerIterator<Real> du_iter(dudt_cont, {Metadata::Independent});*/
-  auto vin = PackVariables(in, {Metadata::Independent});
-  auto vout = PackVariables(out, {Metadata::Independent});
-  auto dudt = PackVariables(dudt_cont, {Metadata::Independent});
-  // int nvars = cout_iter.vars.size();
+  auto vin = PackVariables<>(in, {Metadata::Independent});
+  auto vout = PackVariables<>(out, {Metadata::Independent});
+  auto dudt = PackVariables<>(dudt_cont, {Metadata::Independent});
 
   par_for(
       "UpdateContainer", DevExecSpace(), 0, vin.GetDim(4) - 1, 0, vin.GetDim(3) - 1, 0,

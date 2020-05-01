@@ -27,6 +27,7 @@
 #include "interface/container_iterator.hpp"
 #include "interface/metadata.hpp"
 #include "interface/variable.hpp"
+#include "interface/variable_pack.hpp"
 #include "kokkos_abstraction.hpp"
 #include "parthenon_arrays.hpp"
 
@@ -180,7 +181,7 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
     }
 
     WHEN("we set fluxes of independent variables") {
-      auto vf = PackVariablesAndFluxes(rc, {Metadata::Independent, Metadata::FillGhost});
+      auto vf = PackVariablesAndFluxes<>(rc, {Metadata::Independent, Metadata::FillGhost});
       par_for(
           "Set fluxes", DevExecSpace(), 0, vf.GetDim(4) - 1, 0, vf.GetDim(3) - 1, 0,
           vf.GetDim(2) - 1, 0, vf.GetDim(1) - 1,
@@ -230,7 +231,7 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
       }
       AND_THEN("bounds are still correct if I get just a subset of the sparse fields") {
         PackIndexMap imap;
-        auto v = PackVariables<Real>(rc, {"v3", "vsparse"}, {1, 42}, imap);
+        auto v = PackVariables<>(rc, {"v3", "vsparse"}, {1, 42}, imap);
         REQUIRE(imap["vsparse"].first == 3);
         REQUIRE(imap["vsparse"].second == 4);
         REQUIRE(imap["vsparse_42"].first == 4);
