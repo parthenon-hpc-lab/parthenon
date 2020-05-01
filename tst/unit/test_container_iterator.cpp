@@ -181,7 +181,8 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
     }
 
     WHEN("we set fluxes of independent variables") {
-      auto vf = PackVariablesAndFluxes<>(rc, {Metadata::Independent, Metadata::FillGhost});
+      auto vf =
+          PackVariablesAndFluxes<>(rc, {Metadata::Independent, Metadata::FillGhost});
       par_for(
           "Set fluxes", DevExecSpace(), 0, vf.GetDim(4) - 1, 0, vf.GetDim(3) - 1, 0,
           vf.GetDim(2) - 1, 0, vf.GetDim(1) - 1,

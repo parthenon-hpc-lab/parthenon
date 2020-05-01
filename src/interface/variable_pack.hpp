@@ -17,7 +17,9 @@
 #include <forward_list>
 #include <map>
 #include <memory>
+#include <string>
 #include <utility>
+#include <vector>
 
 #include "interface/container.hpp"
 #include "interface/metadata.hpp"
@@ -30,7 +32,7 @@ namespace vpack_types {
 template <typename T>
 using VarList = std::forward_list<std::shared_ptr<CellVariable<T>>>;
 using IndexPair = std::pair<int, int>;
-}
+} // namespace vpack_types
 
 using PackIndexMap = std::map<std::string, vpack_types::IndexPair>;
 template <typename T>
@@ -41,7 +43,8 @@ using ViewOfParArrays = Kokkos::View<ParArray3D<T> *>;
 template <typename T>
 class VariablePack {
  public:
-  VariablePack(const ViewOfParArrays<T> view, const std::array<int, 4> dims) : v_(view), dims_(dims) {}
+  VariablePack(const ViewOfParArrays<T> view, const std::array<int, 4> dims)
+      : v_(view), dims_(dims) {}
   KOKKOS_FORCEINLINE_FUNCTION
   auto &operator()(const int n) const { return v_(n); }
   KOKKOS_FORCEINLINE_FUNCTION
@@ -84,8 +87,9 @@ class VariableFluxPack : public VariablePack<T> {
 // define some helper functions
 //
 template <typename T>
-VariableFluxPack<T> MakeFluxPack(vpack_types::VarList<T> &vars, vpack_types::VarList<T> &flux_vars,
-                                        PackIndexMap *vmap=nullptr) {
+VariableFluxPack<T> MakeFluxPack(vpack_types::VarList<T> &vars,
+                                 vpack_types::VarList<T> &flux_vars,
+                                 PackIndexMap *vmap = nullptr) {
   using vpack_types::IndexPair;
   // count up the size
   int vsize = 0;
@@ -151,7 +155,7 @@ VariableFluxPack<T> MakeFluxPack(vpack_types::VarList<T> &vars, vpack_types::Var
 }
 
 template <typename T>
-VariablePack<T> MakePack(vpack_types::VarList<T> &vars, PackIndexMap *vmap=nullptr) {
+VariablePack<T> MakePack(vpack_types::VarList<T> &vars, PackIndexMap *vmap = nullptr) {
   using vpack_types::IndexPair;
   // count up the size
   int vsize = 0;
@@ -203,8 +207,9 @@ VariablePack<T> MakePack(vpack_types::VarList<T> &vars, PackIndexMap *vmap=nullp
 }
 
 template <typename T>
-vpack_types::VarList<T> MakeList(const Container<T> &c, const std::vector<std::string> &names,
-                    const std::vector<int> sparse_ids = {}) {
+vpack_types::VarList<T> MakeList(const Container<T> &c,
+                                 const std::vector<std::string> &names,
+                                 const std::vector<int> sparse_ids = {}) {
   vpack_types::VarList<T> vars;
   auto var_map = c.GetCellVariableMap();
   auto sparse_map = c.GetSparseMap();
@@ -247,7 +252,8 @@ vpack_types::VarList<T> MakeList(const Container<T> &c, const std::vector<std::s
 }
 
 template <typename T>
-vpack_types::VarList<T> MakeList(const Container<T> &c, const std::vector<MetadataFlag> &flags) {
+vpack_types::VarList<T> MakeList(const Container<T> &c,
+                                 const std::vector<MetadataFlag> &flags) {
   vpack_types::VarList<T> vars;
   for (const auto &v : c.GetCellVariableVector()) {
     if (v->metadata().AnyFlagsSet(flags)) {
@@ -271,8 +277,8 @@ vpack_types::VarList<T> MakeList(const Container<T> &c, const std::vector<Metada
 // pull out variables and fluxes by name
 template <typename T>
 VariableFluxPack<T> PackVariablesAndFluxes(const Container<T> &c,
-                            const std::vector<std::string> &var_names,
-                            const std::vector<std::string> &flx_names) {
+                                           const std::vector<std::string> &var_names,
+                                           const std::vector<std::string> &flx_names) {
   vpack_types::VarList<T> vars = MakeList(c, var_names);
   vpack_types::VarList<T> fvars = MakeList(c, flx_names);
   return MakeFluxPack<T>(vars, fvars);
@@ -280,10 +286,9 @@ VariableFluxPack<T> PackVariablesAndFluxes(const Container<T> &c,
 
 // pull out variables and fluxes by name and fill in an index map
 template <typename T>
-VariableFluxPack<T> PackVariablesAndFluxes(const Container<T> &c,
-                            const std::vector<std::string> &var_names,
-                            const std::vector<std::string> &flx_names,
-                            PackIndexMap &vmap) {
+VariableFluxPack<T>
+PackVariablesAndFluxes(const Container<T> &c, const std::vector<std::string> &var_names,
+                       const std::vector<std::string> &flx_names, PackIndexMap &vmap) {
   vpack_types::VarList<T> vars = MakeList(c, var_names);
   vpack_types::VarList<T> fvars = MakeList(c, flx_names);
   return MakeFluxPack<T>(vars, fvars);
@@ -292,45 +297,50 @@ VariableFluxPack<T> PackVariablesAndFluxes(const Container<T> &c,
 // pull out variables and fluxes based on Metadata flags
 template <typename T>
 VariableFluxPack<T> PackVariablesAndFluxes(const Container<T> &c,
-                            const std::vector<MetadataFlag> &flags) {
+                                           const std::vector<MetadataFlag> &flags) {
   vpack_types::VarList<T> vars = MakeList(c, flags);
   return MakeFluxPack<T>(vars, vars);
 }
 
 // pull out variables by name, including a particular set of sparse ids
 template <typename T>
-VariablePack<T> PackVariables(const Container<T> &c, const std::vector<std::string> &names,
-                   const std::vector<int> &sparse_ids) {
+VariablePack<T> PackVariables(const Container<T> &c,
+                              const std::vector<std::string> &names,
+                              const std::vector<int> &sparse_ids) {
   vpack_types::VarList<T> vars = MakeList(c, names, sparse_ids);
   return MakePack<T>(vars);
 }
 
-// pull out variables by name, including a particular set of sparse ids, and fill in an index map
+// pull out variables by name, including a particular set of sparse ids, and fill in an
+// index map
 template <typename T>
-VariablePack<T> PackVariables(const Container<T> &c, const std::vector<std::string> &names,
-                   const std::vector<int> &sparse_ids, PackIndexMap &vmap) {
+VariablePack<T> PackVariables(const Container<T> &c,
+                              const std::vector<std::string> &names,
+                              const std::vector<int> &sparse_ids, PackIndexMap &vmap) {
   vpack_types::VarList<T> vars = MakeList(c, names, sparse_ids);
   return MakePack<T>(vars, &vmap);
 }
 
 // pull out variables by name and fill in an index map
 template <typename T>
-VariablePack<T> PackVariables(const Container<T> &c, const std::vector<std::string> &names,
-                   PackIndexMap &vmap) {
+VariablePack<T> PackVariables(const Container<T> &c,
+                              const std::vector<std::string> &names, PackIndexMap &vmap) {
   vpack_types::VarList<T> vars = MakeList(c, names);
   return MakePack<T>(vars, &vmap);
 }
 
 // pull out variables by name
 template <typename T>
-VariablePack<T> PackVariables(const Container<T> &c, const std::vector<std::string> &names) {
+VariablePack<T> PackVariables(const Container<T> &c,
+                              const std::vector<std::string> &names) {
   vpack_types::VarList<T> vars = MakeList(c, names);
   return MakePack<T>(vars);
 }
 
 // pull out variables based on Metadata
 template <typename T>
-VariablePack<T> PackVariables(const Container<T> &c, const std::vector<MetadataFlag> &flags) {
+VariablePack<T> PackVariables(const Container<T> &c,
+                              const std::vector<MetadataFlag> &flags) {
   vpack_types::VarList<T> vars = MakeList(c, flags);
   return MakePack<T>(vars);
 }
