@@ -72,6 +72,16 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
 
     WHEN("we check them") {
       // set them all to zero
+      const CellVariableVector<Real> &cv = rc.GetCellVariableVector();
+      for (int n = 0; n < cv.size(); n++) {
+        ParArrayND<Real> v = cv[n]->data;
+        par_for(
+            "Initialize variables", DevExecSpace(), 0, v.GetDim(4) - 1, 0,
+            v.GetDim(3) - 1, 0, v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
+            KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
+              v(l, k, j, i) = 0.0;
+            });
+      }
       THEN("they should sum to zero") {
         using policy4D = Kokkos::MDRangePolicy<Kokkos::Rank<4>>;
         Real total = 0.0;
@@ -84,6 +94,7 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
         total += sum;
         REQUIRE(total == 0.0);
       }
+
       AND_THEN("we touch the right number of elements") {
         using policy4D = Kokkos::MDRangePolicy<Kokkos::Rank<4>>;
         int total = 0;
