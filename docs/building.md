@@ -1,3 +1,20 @@
+# CMake build flags
+
+CMake build options.
+
+| Flag                     | Default |
+| ------------------------ | ------- |
+| ENABLE_UNIT_TESTS        | ON      |
+| ENABLE_INTEGRATION_TESTS | ON      |
+| ENABLE_REGRESSION_TESTS  | ON      |
+| BUILD_EXAMPLES           | ON      | 
+| DISABLE_MPI              | OFF     |
+| DISABLE_OPENMP           | OFF     |
+| DISABLE_HDF5             | OFF     |
+| ENABLE_COMPILER_WARNINGS | OFF     |
+| CHECK_REGISTRY_PRESSURE  | OFF     |
+| TEST_INTEL_OPTIMIZATION  | OFF     |
+
 # Building Parthenon on Various Systems
 
 ## Ubuntu 20.04 LTS
