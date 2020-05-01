@@ -12,6 +12,7 @@ Parthenon AMR infrastructure
 * mpi
 * openMP
 * hdf5
+* kokkos
 
 # Dependencies Other
 
