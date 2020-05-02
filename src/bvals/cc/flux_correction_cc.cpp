@@ -17,33 +17,28 @@
 //! \file flux_correction_cc.cpp
 //  \brief functions that perform flux correction for CELL_CENTERED variables
 
-// C headers
-
-// C++ headers
-#include <algorithm>  // min
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
-#include <cstring>    // std::memcpy
+#include <cstring>
 #include <iomanip>
-#include <iostream>   // endl
-#include <sstream>    // stringstream
-#include <stdexcept>  // runtime_error
-#include <string>     // c_str()
+#include <iostream>
+#include <sstream>
+#include <stdexcept>
+#include <string>
 
-// Athena++ headers
+#include "parthenon_mpi.hpp"
+
+#include "athena.hpp"
+#include "bvals/cc/bvals_cc.hpp"
 #include "coordinates/coordinates.hpp"
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
 #include "parameter_input.hpp"
 #include "utils/buffer_utils.hpp"
-#include "bvals_cc.hpp"
-
-// MPI header
-#ifdef MPI_PARALLEL
-#include <mpi.h>
-#endif
 
 namespace parthenon {
+
 //----------------------------------------------------------------------------------------
 //! \fn void CellCenteredBoundaryVariable::SendFluxCorrection()
 //  \brief Restrict, pack and send the surface flux to the coarse neighbor(s)
@@ -53,12 +48,12 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
   auto &pco = pmb->pcoord;
 
   // cache pointers to surface area arrays (BoundaryBase protected variable)
-  AthenaArray<Real> &sarea0 = pmb->pbval->sarea_[0];
-  AthenaArray<Real> &sarea1 = pmb->pbval->sarea_[1];
+  ParArrayND<Real> &sarea0 = pmb->pbval->sarea_[0];
+  ParArrayND<Real> &sarea1 = pmb->pbval->sarea_[1];
   const IndexDomain interior = IndexDomain::interior;
 
-  for (int n=0; n < pmb->pbval->nneighbor; n++) {
-    NeighborBlock& nb = pmb->pbval->neighbor[n];
+  for (int n = 0; n < pmb->pbval->nneighbor; n++) {
+    NeighborBlock &nb = pmb->pbval->neighbor[n];
     if (nb.ni.type != NeighborConnect::face) break;
     if (bd_var_flcor_.sflag[nb.bufid] == BoundaryStatus::completed) continue;
     if (nb.snb.level == pmb->loc.level - 1) {
@@ -73,19 +68,19 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
       // x1 direction
       if (nb.fid == BoundaryFace::inner_x1 || nb.fid == BoundaryFace::outer_x1) {
         int i = ib.s + nx1*nb.fid;
-        if (pmb->block_size.nx3>1) { // 3D
-          for (int nn=nl_; nn<=nu_; nn++) {
+        if (pmb->block_size.nx3 > 1) { // 3D
+          for (int nn = nl_; nn <= nu_; nn++) {
             for (int k=kb.s; k<=kb.e; k+=2) {
               for (int j=jb.s; j<=jb.e; j+=2) {
-                Real amm = pco->GetFace1Area(k,   j,   i);
-                Real amp = pco->GetFace1Area(k,   j+1, i);
-                Real apm = pco->GetFace1Area(k+1, j,   i);
-                Real app = pco->GetFace1Area(k+1, j+1, i);
+                Real amm = pco->GetFace1Area(k, j, i);
+                Real amp = pco->GetFace1Area(k, j + 1, i);
+                Real apm = pco->GetFace1Area(k + 1, j, i);
+                Real app = pco->GetFace1Area(k + 1, j + 1, i);
                 Real tarea = amm + amp + apm + app;
-                sbuf[p++] = (x1flux(nn, k  , j  , i)*amm
-                            + x1flux(nn, k  , j+1, i)*amp
-                            + x1flux(nn, k+1, j  , i)*apm
-                            + x1flux(nn, k+1, j+1, i)*app)/tarea;
+                sbuf[p++] =
+                    (x1flux(nn, k, j, i) * amm + x1flux(nn, k, j + 1, i) * amp +
+                     x1flux(nn, k + 1, j, i) * apm + x1flux(nn, k + 1, j + 1, i) * app) /
+                    tarea;
               }
             }
           }
@@ -96,7 +91,8 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
               Real am = pco->GetFace1Area(k, j,   i);
               Real ap = pco->GetFace1Area(k, j+1, i);
               Real tarea = am + ap;
-              sbuf[p++] = (x1flux(nn, k, j  , i)*am + x1flux(nn, k, j+1, i)*ap)/tarea;
+              sbuf[p++] =
+                  (x1flux(nn, k, j, i) * am + x1flux(nn, k, j + 1, i) * ap) / tarea;
             }
           }
         } else { // 1D
@@ -107,28 +103,30 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
         // x2 direction
       } else if (nb.fid == BoundaryFace::inner_x2 || nb.fid == BoundaryFace::outer_x2) {
         int j = jb.s + nx2*(nb.fid & 1);
-        if (pmb->block_size.nx3>1) { // 3D
-          for (int nn=nl_; nn<=nu_; nn++) {
+        if (pmb->block_size.nx3 > 1) { // 3D
+          for (int nn = nl_; nn <= nu_; nn++) {
             for (int k=kb.s; k<=kb.e; k+=2) {
               pco->Face2Area(k  , j, ib.s, ib.e, sarea0);
               pco->Face2Area(k+1, j, ib.s, ib.e, sarea1);
               for (int i=ib.s; i<=ib.e; i+=2) {
-                Real tarea = sarea0(i) + sarea0(i+1) + sarea1(i) + sarea1(i+1);
-                sbuf[p++] = (x2flux(nn, k  , j, i  )*sarea0(i  )
-                            + x2flux(nn, k  , j, i+1)*sarea0(i+1)
-                            + x2flux(nn, k+1, j, i  )*sarea1(i  )
-                            + x2flux(nn, k+1, j, i+1)*sarea1(i+1))/tarea;
+                Real tarea = sarea0(i) + sarea0(i + 1) + sarea1(i) + sarea1(i + 1);
+                sbuf[p++] = (x2flux(nn, k, j, i) * sarea0(i) +
+                             x2flux(nn, k, j, i + 1) * sarea0(i + 1) +
+                             x2flux(nn, k + 1, j, i) * sarea1(i) +
+                             x2flux(nn, k + 1, j, i + 1) * sarea1(i + 1)) /
+                            tarea;
               }
             }
           }
-        } else if (pmb->block_size.nx2>1) { // 2D
+        } else if (pmb->block_size.nx2 > 1) { // 2D
           int k = kb.s;
-          for (int nn=nl_; nn<=nu_; nn++) {
+          for (int nn = nl_; nn <= nu_; nn++) {
             pco->Face2Area(0, j, ib.s ,ib.e, sarea0);
             for (int i=ib.s; i<=ib.e; i+=2) {
-              Real tarea = sarea0(i) + sarea0(i+1);
-              sbuf[p++] = (x2flux(nn, k, j, i  )*sarea0(i  )
-                          + x2flux(nn, k, j, i+1)*sarea0(i+1))/tarea;
+              Real tarea = sarea0(i) + sarea0(i + 1);
+              sbuf[p++] = (x2flux(nn, k, j, i) * sarea0(i) +
+                           x2flux(nn, k, j, i + 1) * sarea0(i + 1)) /
+                          tarea;
             }
           }
         }
@@ -162,22 +160,21 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
   return;
 }
 
-
 //----------------------------------------------------------------------------------------
 //! \fn bool CellCenteredBoundaryVariable::ReceiveFluxCorrection()
 //  \brief Receive and apply the surface flux from the finer neighbor(s)
 
 bool CellCenteredBoundaryVariable::ReceiveFluxCorrection() {
   MeshBlock *pmb = pmy_block_;
-  bool bflag=true;
+  bool bflag = true;
 
-  for (int n=0; n < pmb->pbval->nneighbor; n++) {
-    NeighborBlock& nb = pmb->pbval->neighbor[n];
+  for (int n = 0; n < pmb->pbval->nneighbor; n++) {
+    NeighborBlock &nb = pmb->pbval->neighbor[n];
     if (nb.ni.type != NeighborConnect::face) break;
-    if (nb.snb.level == pmb->loc.level+1) {
+    if (nb.snb.level == pmb->loc.level + 1) {
       if (bd_var_flcor_.flag[nb.bufid] == BoundaryStatus::completed) continue;
       if (bd_var_flcor_.flag[nb.bufid] == BoundaryStatus::waiting) {
-        if (nb.snb.rank == Globals::my_rank) {// on the same process
+        if (nb.snb.rank == Globals::my_rank) { // on the same process
           bflag = false;
           continue;
         }
@@ -248,4 +245,5 @@ bool CellCenteredBoundaryVariable::ReceiveFluxCorrection() {
   }
   return bflag;
 }
-}
+
+} // namespace parthenon

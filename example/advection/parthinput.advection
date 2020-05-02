@@ -1,0 +1,64 @@
+# ========================================================================================
+#  Athena++ astrophysical MHD code
+#  Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
+#  Licensed under the 3-clause BSD License, see LICENSE file for details
+# ========================================================================================
+#  (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+#
+#  This program was produced under U.S. Government contract 89233218CNA000001 for Los
+#  Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
+#  for the U.S. Department of Energy/National Nuclear Security Administration. All rights
+#  in the program are reserved by Triad National Security, LLC, and the U.S. Department
+#  of Energy/National Nuclear Security Administration. The Government is granted for
+#  itself and others acting on its behalf a nonexclusive, paid-up, irrevocable worldwide
+#  license in this material to reproduce, prepare derivative works, distribute copies to
+#  the public, perform publicly and display publicly, and to permit others to do so.
+# ========================================================================================
+
+<comment>
+problem = Linear advection
+
+<job>
+problem_id = advection
+
+<mesh>
+refinement = adaptive
+numlevel = 3
+
+nx1 = 64
+x1min = -0.5
+x1max = 0.5
+ix1_bc = periodic
+ox1_bc = periodic
+
+nx2 = 64
+x2min = -0.5
+x2max = 0.5
+ix2_bc = periodic
+ox2_bc = periodic
+
+nx3 = 1
+x3min = -0.5
+x3max = 0.5
+
+<meshblock>
+nx1 = 16
+nx2 = 16
+#nx3 = 1
+
+<time>
+tlim = 1.0
+integrator = rk2
+
+<Advection>
+cfl = 0.45
+vx = 1.0
+vy = 1.0
+refine_tol = 0.3    # control the package specific refinement tagging function
+derefine_tol = 0.03
+
+<graphics>
+dt = 0.05
+variables = advected, one_minus_advected, & # comments are ok
+            one_minus_advected_sq, & # on every (& characters are ok in comments)
+            one_minus_sqrt_one_minus_advected_sq # line

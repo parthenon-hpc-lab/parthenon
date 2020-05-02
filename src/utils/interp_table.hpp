@@ -16,19 +16,16 @@
 //========================================================================================
 #ifndef UTILS_INTERP_TABLE_HPP_
 #define UTILS_INTERP_TABLE_HPP_
+
 //! \file interp_table.hpp
 //  \brief defines class InterpTable2D
 //  Contains functions that implement an intpolated lookup table
 
-// C headers
-
-// C++ headers
-
-// Athena++ headers
-#include "athena.hpp"         // Real
-#include "athena_arrays.hpp"  // AthenaArray
+#include "athena.hpp"
+#include "parthenon_arrays.hpp"
 
 namespace parthenon {
+
 class InterpTable2D {
  public:
   InterpTable2D() = default;
@@ -37,7 +34,7 @@ class InterpTable2D {
   void SetSize(const int nvar, const int nx2, const int nx1);
   Real interpolate(int nvar, Real x2, Real x1);
   int nvar();
-  AthenaArray<Real> data;
+  ParArrayND<Real> data;
   void SetX1lim(Real x1min, Real x1max);
   void SetX2lim(Real x2min, Real x2max);
   void GetX1lim(Real &x1min, Real &x1max);
@@ -55,5 +52,7 @@ class InterpTable2D {
   Real x2max_;
   Real x2norm_;
 };
-}
-#endif //UTILS_INTERP_TABLE_HPP_
+
+} // namespace parthenon
+
+#endif // UTILS_INTERP_TABLE_HPP_

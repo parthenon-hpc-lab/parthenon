@@ -14,27 +14,30 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
 #include <string>
+
 #include <catch2/catch.hpp>
+
 #include "task_list/tasks.hpp"
 
 using parthenon::TaskID;
 
-TEST_CASE("Just check everything","[CheckDependencies,SetFinished,==,|]") {
+TEST_CASE("Just check everything", "[CheckDependencies][SetFinished][equal][or]") {
   GIVEN("Some TaskIDs") {
     TaskID a(1);
     TaskID b(2);
-    TaskID c(BITBLOCK+1); // make sure we get a task with more than one block
+    TaskID c(BITBLOCK + 1); // make sure we get a task with more than one block
     TaskID complete;
 
-    TaskID ac = (a|c);
+    TaskID ac = (a | c);
     bool should_be_false = ac.CheckDependencies(b);
     bool should_be_truea = ac.CheckDependencies(a);
     bool should_be_truec = ac.CheckDependencies(c);
-    TaskID abc = (a|b|c);
+    TaskID abc = (a | b | c);
     complete.SetFinished(abc);
-    bool equal_true  = (complete==abc);
-    bool equal_false = (complete==ac);
+    bool equal_true = (complete == abc);
+    bool equal_false = (complete == ac);
 
     REQUIRE(should_be_false == false);
     REQUIRE(should_be_truea == true);
@@ -43,7 +46,7 @@ TEST_CASE("Just check everything","[CheckDependencies,SetFinished,==,|]") {
     REQUIRE(equal_false == false);
 
     WHEN("a negative number is passed") {
-      REQUIRE_THROWS_AS (a.Set(-1), std::invalid_argument);
+      REQUIRE_THROWS_AS(a.Set(-1), std::invalid_argument);
     }
   }
 }

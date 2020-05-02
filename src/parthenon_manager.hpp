@@ -17,38 +17,41 @@
 #include <memory>
 
 #include "argument_parser.hpp"
+#include "basic_types.hpp"
 #include "driver/driver.hpp"
-#include "interface/PropertiesInterface.hpp"
-#include "interface/StateDescriptor.hpp"
+#include "interface/properties_interface.hpp"
+#include "interface/state_descriptor.hpp"
 #include "mesh/mesh.hpp"
 #include "outputs/outputs.hpp"
 #include "parameter_input.hpp"
 
 namespace parthenon {
 
-enum class ParthenonStatus {ok, complete, error};
+enum class ParthenonStatus { ok, complete, error };
 
 class ParthenonManager {
  public:
-    ParthenonManager() = default;
-    ParthenonStatus ParthenonInit(int argc, char *argv[]);
-    ParthenonStatus ParthenonFinalize();
+  ParthenonManager() = default;
+  ParthenonStatus ParthenonInit(int argc, char *argv[]);
+  ParthenonStatus ParthenonFinalize();
 
-    bool Restart() { return (arg.restart_filename == nullptr ? false : true); }
-    Properties_t ProcessProperties(std::unique_ptr<ParameterInput>& pin);
-    Packages_t ProcessPackages(std::unique_ptr<ParameterInput>& pin);
-    void SetFillDerivedFunctions();
-    void PreDriver();
-    void PostDriver(DriverStatus driver_status);
+  bool Restart() { return (arg.restart_filename == nullptr ? false : true); }
+  Properties_t ProcessProperties(std::unique_ptr<ParameterInput> &pin);
+  Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin);
+  void SetFillDerivedFunctions();
+  void PreDriver();
+  void PostDriver(DriverStatus driver_status);
 
-    // member data
-    std::unique_ptr<ParameterInput> pinput;
-    std::unique_ptr<Mesh> pmesh;
-    std::unique_ptr<Outputs> pouts;
+  // member data
+  std::unique_ptr<ParameterInput> pinput;
+  std::unique_ptr<Mesh> pmesh;
+
  private:
-    ArgParse arg;
-    clock_t tstart_;
-    double omp_start_time_;
+  ArgParse arg;
+  clock_t tstart_;
+#ifdef OPENMP_PARALLEL
+  double omp_start_time_;
+#endif
 };
 
 } // namespace parthenon

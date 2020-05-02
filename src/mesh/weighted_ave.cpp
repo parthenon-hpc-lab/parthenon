@@ -17,30 +17,26 @@
 //! \file weighted_ave.cpp
 //  \brief
 
-// C headers
-
-// C++ headers
-
-// Athena++ headers
 #include "athena.hpp"
-#include "athena_arrays.hpp"
-#include "mesh.hpp"
+#include "mesh/mesh.hpp"
+#include "parthenon_arrays.hpp"
 
 namespace parthenon {
+
 //----------------------------------------------------------------------------------------
 //! \fn  void WeightedAve::WeightedAve
-//  \brief Compute weighted average of AthenaArrays (including cell-averaged U in time
+//  \brief Compute weighted average of ParArrayNDs (including cell-averaged U in time
 //         integrator step)
 
-void MeshBlock::WeightedAve(AthenaArray<Real> &u_out, AthenaArray<Real> &u_in1,
-                            AthenaArray<Real> &u_in2, const Real wght[3]) {
+void MeshBlock::WeightedAve(ParArrayND<Real> &u_out, ParArrayND<Real> &u_in1,
+                            ParArrayND<Real> &u_in2, const Real wght[3]) {
   // consider every possible simplified form of weighted sum operator:
   // U = a*U + b*U1 + c*U2
 
   // assuming all 3x arrays are of the same size (or at least u_out is equal or larger
   // than each input array) in each array dimension, and full range is desired:
   // nx4*(3D real MeshBlock cells)
-  const int nu = u_out.GetDim4() - 1;
+  const int nu = u_out.GetDim(4) - 1;
 
   const IndexDomain interior = IndexDomain::interior;
   IndexRange ib = cellbounds.GetBoundsI(interior);
@@ -150,7 +146,6 @@ void MeshBlock::WeightedAve(AthenaArray<Real> &u_out, AthenaArray<Real> &u_in1,
   }
   return;
 }
-
 
 //----------------------------------------------------------------------------------------
 //! \fn  void MeshBlock::WeightedAve
@@ -405,4 +400,5 @@ void MeshBlock::WeightedAve(FaceField &b_out, FaceField &b_in1, FaceField &b_in2
   }
   return;
 }
-}
+
+} // namespace parthenon

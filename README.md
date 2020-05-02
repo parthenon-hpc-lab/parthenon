@@ -1,18 +1,21 @@
 # parthenon
 
-Parthenon AMR infrastructure 
+Parthenon AMR infrastructure
+
+# Community
+* [Matrix](https://riot.im/app/#/room/#parthenon-general:matrix.org)
 
 # Required Dependencies
 
 * CMake 3.10 or greater
 * gcc or intel compiler
-* mpi 
+* mpi
 * openMP
 * hdf5
 
 # Dependencies Other
 
-* catch2 
+* catch2
 
 # Installation
 
@@ -23,6 +26,23 @@ Parthenon AMR infrastructure
     cmake ../
     make
     make test
+
+## Import Into Your Code
+```c++
+// Imports all of parthenon's public interface
+#include <parthenon/parthenon.hpp>
+
+// You can use one of the following headers instead if you want to limit how
+// much you import. They import Parthenon's Driver and Package APIs,
+// respectively
+#include <parthenon/driver.hpp>
+#include <parthenon/package.hpp>
+
+// The following namespaces are good short-hands to import commonly used names
+// for each set of Parthenon APIs.
+using namespace parthenon::driver::prelude;
+using namespace parthenon::package::prelude;
+```
 
 ## Parallel_for wrapper options
 
@@ -47,7 +67,7 @@ For example to build with the OpenMP backend for Intel Skylake architecture usin
 or to build for NVIDIA V100 GPUs (using `nvcc` compiler for GPU code)
 
     mkdir build-cuda-v100 && cd build-cuda-v100
-    cmake -DKokkos_ENABLE_CUDA=On -DCMAKE_CXX_COMPILER=$(pwd)/../external/kokkos/bin/nvcc_wrapper -DKokkos_ARCH_VOLTA70=On -DKokkos_ENABLE_CUDA_LAMBDA=True ../
+    cmake -DKokkos_ENABLE_CUDA=On -DCMAKE_CXX_COMPILER=$(pwd)/../external/kokkos/bin/nvcc_wrapper -DKokkos_ARCH_VOLTA70=On ../
 
 # Developing/Contributing
 
@@ -68,4 +88,6 @@ how to use them.
 | Philipp Grete | @pgrete | Athena Physics |
 | Forrest Glines | @forrestglines | Athena Physics |
 | Jim Stone | @jmstone | Athena Physics |
+| Jonas Lippuner | @jlippuner | LANL Computer Science |
+| Joshua Brown | @JoshuaSBrown | LANL Computer Science |
 

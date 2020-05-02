@@ -40,6 +40,20 @@ is sufficient with a link to a more detailed description in a separate [file](fe
   - `auto arr_host = Kokkos::create_mirror_view(arr_dev);` to create an array on the host if the HostSpace != DeviceSpace or get another reference to arr_dev through arr_host if HostSpace == DeviceSpace
 - `par_for` and `Kokkos::deep_copy` by default use the standard stream (on Cuda devices) and are discouraged from use. Use `mb->par_for` and `mb->deep_copy` instead where `mb` is a `MeshBlock` (explanation: each `MeshBlock` has an `ExecutionSpace`, which may be changed at runtime, e.g., to a different stream, and the wrapper within a `MeshBlock` offer transparent access to the parallel region/copy where the `MeshBlock`'s `ExecutionSpace` is automatically used).
 
+An arbitrary-dimensional wrapper for `Kokkos::Views` is available as
+`ParArrayND`. See documentation [here](parthenon_arrays.md).
+
+### State Management
+[Full Documentation](interface/state.md)
+
+Parthenon provides a convenient means of managing simulation data. Variables can be registered
+with Parthenon to have the framework automatically manage the field, including
+updating ghost cells, prolongation, restriction, and I/O.
+
+### Application Drivers
+
+A description of the Parthenon-provided classes that facilitate developing the high-level functionality of an application (e..g. time stepping) can be found [here](driver.md).
+
 ### Adaptive Mesh Refinement
 
 A description of how to enable and extend the AMR capabilities of Parthenon is provided [here](amr.md).
@@ -48,9 +62,7 @@ A description of how to enable and extend the AMR capabilities of Parthenon is p
 
 The tasking capabilities in Parthenon are documented [here](tasks.md).
 
-### Anonymous Variables
-[Full Documentation](interface/Metadata.md)
+### Graphics
 
-Parthenon supports anonymous field variables. These variables can be registered
-with Parthenon to have the framework automatically manage the field, including
-updating ghost cells, prolonging, and restricting.
+Check [here](graphics.md) for a description of how to get data out of Parthenon and how to visualize it.
+

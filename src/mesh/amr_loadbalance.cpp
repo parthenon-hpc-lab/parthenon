@@ -17,32 +17,25 @@
 //! \file mesh_amr.cpp
 //  \brief implementation of Mesh::AdaptiveMeshRefinement() and related utilities
 
-// C headers
-
-// C++ headers
-#include <algorithm>  // std::sort()
+#include <algorithm>
 #include <cstdint>
 #include <iostream>
 #include <sstream>
 
-// Athena++ headers
+#include "parthenon_mpi.hpp"
+
 #include "athena.hpp"
-#include "athena_arrays.hpp"
+#include "bvals/boundary_conditions.hpp"
 #include "globals.hpp"
+#include "interface/update.hpp"
+#include "mesh/mesh.hpp"
+#include "mesh/mesh_refinement.hpp"
+#include "mesh/meshblock_tree.hpp"
+#include "parthenon_arrays.hpp"
 #include "utils/buffer_utils.hpp"
-#include "mesh.hpp"
-#include "mesh_refinement.hpp"
-#include "meshblock_tree.hpp"
-#include "better_boundaries/boundary_conditions.hpp"
-#include "interface/Update.hpp"
-
-// MPI/OpenMP header
-#ifdef MPI_PARALLEL
-#include <mpi.h>
-#endif
-
 
 namespace parthenon {
+
 //----------------------------------------------------------------------------------------
 // \!fn void Mesh::LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin)
 // \brief Main function for adaptive mesh refinement
@@ -52,24 +45,28 @@ void Mesh::LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin) {
 
   if (adaptive) {
     UpdateMeshBlockTree(nnew, ndel);
-    nbnew += nnew; nbdel += ndel;
+    nbnew += nnew;
+    nbdel += ndel;
   }
 
   lb_flag_ |= lb_automatic_;
 
   UpdateCostList();
 
+  modified = false;
   if (nnew != 0 || ndel != 0) { // at least one (de)refinement happened
     GatherCostListAndCheckBalance();
     RedistributeAndRefineMeshBlocks(pin, nbtotal + nnew - ndel);
+    modified = true;
   } else if (lb_flag_ && step_since_lb >= lb_interval_) {
-    if (!GatherCostListAndCheckBalance()) // load imbalance detected
+    if (!GatherCostListAndCheckBalance()) { // load imbalance detected
       RedistributeAndRefineMeshBlocks(pin, nbtotal);
+      modified = true;
+    }
     lb_flag_ = false;
   }
   return;
 }
-
 
 //----------------------------------------------------------------------------------------
 // \!fn void Mesh::CalculateLoadBalance(double *clist, int *rlist, int *slist,
@@ -79,20 +76,20 @@ void Mesh::LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin) {
 void Mesh::CalculateLoadBalance(double *clist, int *rlist, int *slist, int *nlist,
                                 int nb) {
   std::stringstream msg;
-  double real_max  =  std::numeric_limits<double>::max();
+  double real_max = std::numeric_limits<double>::max();
   double totalcost = 0, maxcost = 0.0, mincost = (real_max);
 
-  for (int i=0; i<nb; i++) {
+  for (int i = 0; i < nb; i++) {
     totalcost += clist[i];
-    mincost = std::min(mincost,clist[i]);
-    maxcost = std::max(maxcost,clist[i]);
+    mincost = std::min(mincost, clist[i]);
+    maxcost = std::max(maxcost, clist[i]);
   }
 
-  int j = (Globals::nranks) - 1;
-  double targetcost = totalcost/Globals::nranks;
+  int j = (Globals::nranks)-1;
+  double targetcost = totalcost / Globals::nranks;
   double mycost = 0.0;
   // create rank list from the end: the master MPI rank should have less load
-  for (int i=nb-1; i>=0; i--) {
+  for (int i = nb - 1; i >= 0; i--) {
     if (targetcost == 0.0) {
       msg << "### FATAL ERROR in CalculateLoadBalance" << std::endl
           << "There is at least one process which has no MeshBlock" << std::endl
@@ -101,34 +98,34 @@ void Mesh::CalculateLoadBalance(double *clist, int *rlist, int *slist, int *nlis
     }
     mycost += clist[i];
     rlist[i] = j;
-    if (mycost >= targetcost && j>0) {
+    if (mycost >= targetcost && j > 0) {
       j--;
       totalcost -= mycost;
       mycost = 0.0;
-      targetcost = totalcost/(j+1);
+      targetcost = totalcost / (j + 1);
     }
   }
   slist[0] = 0;
   j = 0;
-  for (int i=1; i<nb; i++) { // make the list of nbstart and nblocks
-    if (rlist[i] != rlist[i-1]) {
-      nlist[j] = i-slist[j];
+  for (int i = 1; i < nb; i++) { // make the list of nbstart and nblocks
+    if (rlist[i] != rlist[i - 1]) {
+      nlist[j] = i - slist[j];
       slist[++j] = i;
     }
   }
-  nlist[j] = nb-slist[j];
+  nlist[j] = nb - slist[j];
 
   if (Globals::my_rank == 0) {
-    for (int i=0; i<Globals::nranks; i++) {
+    for (int i = 0; i < Globals::nranks; i++) {
       double rcost = 0.0;
-      for(int n=slist[i]; n<slist[i]+nlist[i]; n++)
+      for (int n = slist[i]; n < slist[i] + nlist[i]; n++)
         rcost += clist[n];
     }
   }
 
 #ifdef MPI_PARALLEL
-  if (nb % (Globals::nranks * num_mesh_threads_) != 0
-      && !adaptive && !lb_flag_ && maxcost == mincost && Globals::my_rank == 0) {
+  if (nb % (Globals::nranks * num_mesh_threads_) != 0 && !adaptive && !lb_flag_ &&
+      maxcost == mincost && Globals::my_rank == 0) {
     std::cout << "### Warning in CalculateLoadBalance" << std::endl
               << "The number of MeshBlocks cannot be divided evenly. "
               << "This will result in poor load balancing." << std::endl;
@@ -136,18 +133,24 @@ void Mesh::CalculateLoadBalance(double *clist, int *rlist, int *slist, int *nlis
 #endif
   if (Globals::nranks * num_mesh_threads_ > nb) {
     if (!adaptive) {
-      // mesh is refined statically, treat this an as error (all ranks need to participate)
+      // mesh is refined statically, treat this an as error (all ranks need to
+      // participate)
       msg << "### FATAL ERROR in CalculateLoadBalance" << std::endl
-        << "There are fewer MeshBlocks than OpenMP threads on each MPI rank" << std::endl
-        << "Decrease the number of threads or use more MeshBlocks." << std::endl;
+          << "There are fewer MeshBlocks than OpenMP threads on each MPI rank"
+          << std::endl
+          << "Decrease the number of threads or use more MeshBlocks." << std::endl;
       ATHENA_ERROR(msg);
     } else if (Globals::my_rank == 0) {
       // we have AMR, print warning only on Rank 0
       std::cout << "### WARNING in CalculateLoadBalance" << std::endl
-        << "There are fewer MeshBlocks than OpenMP threads on each MPI rank" << std::endl
-        << "This is likely fine if the number of meshblocks is expected to grow during the "
-        "simulations. Otherwise, it might be worthwhile to decrease the number of threads or "
-        "use more meshblocks." << std::endl;
+                << "There are fewer MeshBlocks than OpenMP threads on each MPI rank"
+                << std::endl
+                << "This is likely fine if the number of meshblocks is expected to grow "
+                   "during the "
+                   "simulations. Otherwise, it might be worthwhile to decrease the "
+                   "number of threads or "
+                   "use more meshblocks."
+                << std::endl;
     }
   }
 }
@@ -176,9 +179,9 @@ void Mesh::ResetLoadBalanceVariables() {
 void Mesh::UpdateCostList() {
   MeshBlock *pmb = pblock;
   if (lb_automatic_) {
-    double w = static_cast<double>(lb_interval_-1)/static_cast<double>(lb_interval_);
+    double w = static_cast<double>(lb_interval_ - 1) / static_cast<double>(lb_interval_);
     while (pmb != nullptr) {
-      costlist[pmb->gid] = costlist[pmb->gid]*w+pmb->cost_;
+      costlist[pmb->gid] = costlist[pmb->gid] * w + pmb->cost_;
       pmb = pmb->next;
     }
   } else if (lb_flag_) {
@@ -206,67 +209,64 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
   nderef[Globals::my_rank] = 0;
   pmb = pblock;
   while (pmb != nullptr) {
-    if (pmb->pmr->refine_flag_ ==  1) nref[Globals::my_rank]++;
+    if (pmb->pmr->refine_flag_ == 1) nref[Globals::my_rank]++;
     if (pmb->pmr->refine_flag_ == -1) nderef[Globals::my_rank]++;
     pmb = pmb->next;
   }
 #ifdef MPI_PARALLEL
-  MPI_Allgather(MPI_IN_PLACE, 1, MPI_INT, nref,   1, MPI_INT, MPI_COMM_WORLD);
+  MPI_Allgather(MPI_IN_PLACE, 1, MPI_INT, nref, 1, MPI_INT, MPI_COMM_WORLD);
   MPI_Allgather(MPI_IN_PLACE, 1, MPI_INT, nderef, 1, MPI_INT, MPI_COMM_WORLD);
 #endif
 
   // count the number of the blocks to be (de)refined and displacement
   int tnref = 0, tnderef = 0;
-  for (int n=0; n<Globals::nranks; n++) {
-    tnref  += nref[n];
+  for (int n = 0; n < Globals::nranks; n++) {
+    tnref += nref[n];
     tnderef += nderef[n];
   }
   if (tnref == 0 && tnderef < nleaf) // nothing to do
     return;
 
   int rd = 0, dd = 0;
-  for (int n=0; n<Globals::nranks; n++) {
+  for (int n = 0; n < Globals::nranks; n++) {
     rdisp[n] = rd;
     ddisp[n] = dd;
     // technically could overflow, since sizeof() operator returns
     // std::size_t = long unsigned int > int
     // on many platforms (LP64). However, these are used below in MPI calls for
     // integer arguments (recvcounts, displs). MPI does not support > 64-bit count ranges
-    bnref[n] = static_cast<int>(nref[n]*sizeof(LogicalLocation));
-    bnderef[n] = static_cast<int>(nderef[n]*sizeof(LogicalLocation));
-    brdisp[n] = static_cast<int>(rd*sizeof(LogicalLocation));
-    bddisp[n] = static_cast<int>(dd*sizeof(LogicalLocation));
+    bnref[n] = static_cast<int>(nref[n] * sizeof(LogicalLocation));
+    bnderef[n] = static_cast<int>(nderef[n] * sizeof(LogicalLocation));
+    brdisp[n] = static_cast<int>(rd * sizeof(LogicalLocation));
+    bddisp[n] = static_cast<int>(dd * sizeof(LogicalLocation));
     rd += nref[n];
     dd += nderef[n];
   }
 
   // allocate memory for the location arrays
   LogicalLocation *lref{}, *lderef{}, *clderef{};
-  if (tnref > 0)
-    lref = new LogicalLocation[tnref];
+  if (tnref > 0) lref = new LogicalLocation[tnref];
   if (tnderef >= nleaf) {
     lderef = new LogicalLocation[tnderef];
-    clderef = new LogicalLocation[tnderef/nleaf];
+    clderef = new LogicalLocation[tnderef / nleaf];
   }
 
   // collect the locations and costs
   int iref = rdisp[Globals::my_rank], ideref = ddisp[Globals::my_rank];
   pmb = pblock;
   while (pmb != nullptr) {
-    if (pmb->pmr->refine_flag_ ==  1)
-      lref[iref++] = pmb->loc;
-    if (pmb->pmr->refine_flag_ == -1 && tnderef >= nleaf)
-      lderef[ideref++] = pmb->loc;
+    if (pmb->pmr->refine_flag_ == 1) lref[iref++] = pmb->loc;
+    if (pmb->pmr->refine_flag_ == -1 && tnderef >= nleaf) lderef[ideref++] = pmb->loc;
     pmb = pmb->next;
   }
 #ifdef MPI_PARALLEL
   if (tnref > 0) {
-    MPI_Allgatherv(MPI_IN_PLACE, bnref[Globals::my_rank],   MPI_BYTE,
-                   lref,   bnref,   brdisp, MPI_BYTE, MPI_COMM_WORLD);
+    MPI_Allgatherv(MPI_IN_PLACE, bnref[Globals::my_rank], MPI_BYTE, lref, bnref, brdisp,
+                   MPI_BYTE, MPI_COMM_WORLD);
   }
   if (tnderef >= nleaf) {
-    MPI_Allgatherv(MPI_IN_PLACE, bnderef[Globals::my_rank], MPI_BYTE,
-                   lderef, bnderef, bddisp, MPI_BYTE, MPI_COMM_WORLD);
+    MPI_Allgatherv(MPI_IN_PLACE, bnderef[Globals::my_rank], MPI_BYTE, lderef, bnderef,
+                   bddisp, MPI_BYTE, MPI_COMM_WORLD);
   }
 #endif
 
@@ -276,19 +276,18 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
     int lk = 0, lj = 0;
     if (mesh_size.nx2 > 1) lj = 1;
     if (mesh_size.nx3 > 1) lk = 1;
-    for (int n=0; n<tnderef; n++) {
-      if ((lderef[n].lx1 & 1LL) == 0LL &&
-          (lderef[n].lx2 & 1LL) == 0LL &&
+    for (int n = 0; n < tnderef; n++) {
+      if ((lderef[n].lx1 & 1LL) == 0LL && (lderef[n].lx2 & 1LL) == 0LL &&
           (lderef[n].lx3 & 1LL) == 0LL) {
         int r = n, rr = 0;
-        for (std::int64_t k=0; k<=lk; k++) {
-          for (std::int64_t j=0; j<=lj; j++) {
-            for (std::int64_t i=0; i<=1; i++) {
+        for (std::int64_t k = 0; k <= lk; k++) {
+          for (std::int64_t j = 0; j <= lj; j++) {
+            for (std::int64_t i = 0; i <= 1; i++) {
               if (r < tnderef) {
-                if ((lderef[n].lx1+i) == lderef[r].lx1
-                    && (lderef[n].lx2+j) == lderef[r].lx2
-                    && (lderef[n].lx3+k) == lderef[r].lx3
-                    &&  lderef[n].level  == lderef[r].level)
+                if ((lderef[n].lx1 + i) == lderef[r].lx1 &&
+                    (lderef[n].lx2 + j) == lderef[r].lx2 &&
+                    (lderef[n].lx3 + k) == lderef[r].lx3 &&
+                    lderef[n].level == lderef[r].level)
                   rr++;
                 r++;
               }
@@ -296,39 +295,35 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
           }
         }
         if (rr == nleaf) {
-          clderef[ctnd].lx1   = lderef[n].lx1>>1;
-          clderef[ctnd].lx2   = lderef[n].lx2>>1;
-          clderef[ctnd].lx3   = lderef[n].lx3>>1;
-          clderef[ctnd].level = lderef[n].level-1;
+          clderef[ctnd].lx1 = lderef[n].lx1 >> 1;
+          clderef[ctnd].lx2 = lderef[n].lx2 >> 1;
+          clderef[ctnd].lx3 = lderef[n].lx3 >> 1;
+          clderef[ctnd].level = lderef[n].level - 1;
           ctnd++;
         }
       }
     }
   }
   // sort the lists by level
-  if (ctnd > 1)
-    std::sort(clderef, &(clderef[ctnd-1]), LogicalLocation::Greater);
+  if (ctnd > 1) std::sort(clderef, &(clderef[ctnd - 1]), LogicalLocation::Greater);
 
-  if (tnderef >= nleaf)
-    delete [] lderef;
+  if (tnderef >= nleaf) delete[] lderef;
 
   // Now the lists of the blocks to be refined and derefined are completed
   // Start tree manipulation
   // Step 1. perform refinement
-  for (int n=0; n<tnref; n++) {
-    MeshBlockTree *bt=tree.FindMeshBlock(lref[n]);
+  for (int n = 0; n < tnref; n++) {
+    MeshBlockTree *bt = tree.FindMeshBlock(lref[n]);
     bt->Refine(nnew);
   }
-  if (tnref != 0)
-    delete [] lref;
+  if (tnref != 0) delete[] lref;
 
   // Step 2. perform derefinement
-  for (int n=0; n<ctnd; n++) {
+  for (int n = 0; n < ctnd; n++) {
     MeshBlockTree *bt = tree.FindMeshBlock(clderef[n]);
     bt->Derefine(ndel);
   }
-  if (tnderef >= nleaf)
-    delete [] clderef;
+  if (tnderef >= nleaf) delete[] clderef;
 
   return;
 }
@@ -344,26 +339,25 @@ bool Mesh::GatherCostListAndCheckBalance() {
                    nslist, MPI_DOUBLE, MPI_COMM_WORLD);
 #endif
     double maxcost = 0.0, avecost = 0.0;
-    for (int rank=0; rank<Globals::nranks; rank++) {
+    for (int rank = 0; rank < Globals::nranks; rank++) {
       double rcost = 0.0;
       int ns = nslist[rank];
       int ne = ns + nblist[rank];
-      for (int n=ns; n<ne; ++n)
+      for (int n = ns; n < ne; ++n)
         rcost += costlist[n];
-      maxcost = std::max(maxcost,rcost);
+      maxcost = std::max(maxcost, rcost);
       avecost += rcost;
     }
     avecost /= Globals::nranks;
 
-    if (adaptive) lb_tolerance_ = 2.0*static_cast<double>(Globals::nranks)
-                                     /static_cast<double>(nbtotal);
+    if (adaptive)
+      lb_tolerance_ =
+          2.0 * static_cast<double>(Globals::nranks) / static_cast<double>(nbtotal);
 
-    if (maxcost > (1.0 + lb_tolerance_)*avecost)
-      return false;
+    if (maxcost > (1.0 + lb_tolerance_) * avecost) return false;
   }
   return true;
 }
-
 
 //----------------------------------------------------------------------------------------
 // \!fn void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot)
@@ -387,32 +381,32 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
   // create a list mapping the previous gid to the current one
   oldtonew[0] = 0;
   int mb_idx = 1;
-  for (int n=1; n<ntot; n++) {
-    if (newtoold[n] == newtoold[n-1] + 1) { // normal
+  for (int n = 1; n < ntot; n++) {
+    if (newtoold[n] == newtoold[n - 1] + 1) { // normal
       oldtonew[mb_idx++] = n;
-    } else if (newtoold[n] == newtoold[n-1] + nleaf) { // derefined
-      for (int j=0; j<nleaf-1; j++)
-        oldtonew[mb_idx++] = n-1;
+    } else if (newtoold[n] == newtoold[n - 1] + nleaf) { // derefined
+      for (int j = 0; j < nleaf - 1; j++)
+        oldtonew[mb_idx++] = n - 1;
       oldtonew[mb_idx++] = n;
     }
   }
   // fill the last block
-  for ( ; mb_idx<nbtold; mb_idx++)
-    oldtonew[mb_idx] = ntot-1;
+  for (; mb_idx < nbtold; mb_idx++)
+    oldtonew[mb_idx] = ntot - 1;
 
   current_level = 0;
-  for (int n=0; n<ntot; n++) {
+  for (int n = 0; n < ntot; n++) {
     // "on" = "old n" = "old gid" = "old global MeshBlock ID"
     int on = newtoold[n];
-    if (newloc[n].level>current_level) // set the current max level
+    if (newloc[n].level > current_level) // set the current max level
       current_level = newloc[n].level;
     if (newloc[n].level >= loclist[on].level) { // same or refined
       newcost[n] = costlist[on];
     } else {
       double acost = 0.0;
-      for (int l=0; l<nleaf; l++)
-        acost += costlist[on+l];
-      newcost[n] = acost/nleaf;
+      for (int l = 0; l < nleaf; l++)
+        acost += costlist[on + l];
+      newcost[n] = acost / nleaf;
     }
   }
 #ifdef MPI_PARALLEL
@@ -426,35 +420,30 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
   int nbs = nslist[Globals::my_rank];
   int nbe = nbs + nblist[Globals::my_rank] - 1;
 
+#ifdef MPI_PARALLEL
   int bnx1 = pblock->block_size.nx1;
   int bnx2 = pblock->block_size.nx2;
   int bnx3 = pblock->block_size.nx3;
-
-#ifdef MPI_PARALLEL
   // Step 3. count the number of the blocks to be sent / received
   int nsend = 0, nrecv = 0;
-  for (int n=nbs; n<=nbe; n++) {
+  for (int n = nbs; n <= nbe; n++) {
     int on = newtoold[n];
     if (loclist[on].level > newloc[n].level) { // f2c
-      for (int k=0; k<nleaf; k++) {
-        if (ranklist[on+k] != Globals::my_rank)
-          nrecv++;
+      for (int k = 0; k < nleaf; k++) {
+        if (ranklist[on + k] != Globals::my_rank) nrecv++;
       }
     } else {
-      if (ranklist[on] != Globals::my_rank)
-        nrecv++;
+      if (ranklist[on] != Globals::my_rank) nrecv++;
     }
   }
-  for (int n=onbs; n<=onbe; n++) {
+  for (int n = onbs; n <= onbe; n++) {
     int nn = oldtonew[n];
     if (loclist[n].level < newloc[nn].level) { // c2f
-      for (int k=0; k<nleaf; k++) {
-        if (newrank[nn+k] != Globals::my_rank)
-          nsend++;
+      for (int k = 0; k < nleaf; k++) {
+        if (newrank[nn + k] != Globals::my_rank) nsend++;
       }
     } else {
-      if (newrank[nn] != Globals::my_rank)
-        nsend++;
+      if (newrank[nn] != Globals::my_rank) nsend++;
     }
   }
 
@@ -470,49 +459,52 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
   // int num_cc = pblock->pmr->pvars_cc_.size();
   int num_fc = pblock->vars_fc_.size();
   int nx4_tot = 0;
-  for (AthenaArray<Real> &var_cc : pblock->vars_cc_) {
-    nx4_tot += var_cc.GetDim4();
+  for (auto &pvar_cc : pblock->vars_cc_) {
+    nx4_tot += pvar_cc->GetDim(4);
   }
 
-  const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d 
-  const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d 
+  const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
+  const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
 
   // cell-centered quantities enrolled in SMR/AMR
-  int bssame = bnx1*bnx2*bnx3*nx4_tot;
-  int bsf2c = (bnx1/2)*((bnx2 + 1)/2)*((bnx3 + 1)/2)*nx4_tot;
-  int bsc2f = (bnx1/2 + 2)*((bnx2 + 1)/2 + 2*f2)*((bnx3 + 1)/2 + 2*f3)*nx4_tot;
+  int bssame = bnx1 * bnx2 * bnx3 * nx4_tot;
+  int bsf2c = (bnx1 / 2) * ((bnx2 + 1) / 2) * ((bnx3 + 1) / 2) * nx4_tot;
+  int bsc2f =
+      (bnx1 / 2 + 2) * ((bnx2 + 1) / 2 + 2 * f2) * ((bnx3 + 1) / 2 + 2 * f3) * nx4_tot;
   // face-centered quantities enrolled in SMR/AMR
-  bssame += num_fc*((bnx1 + 1)*bnx2*bnx3 + bnx1*(bnx2 + f2)*bnx3
-                    + bnx1*bnx2*(bnx3 + f3));
-  bsf2c += num_fc*(((bnx1/2) + 1)*((bnx2 + 1)/2)*((bnx3 + 1)/2)
-                   + (bnx1/2)*(((bnx2 + 1)/2) + f2)*((bnx3 + 1)/2)
-                   + (bnx1/2)*((bnx2 + 1)/2)*(((bnx3 + 1)/2) + f3));
-  bsc2f += num_fc*(((bnx1/2) + 1 + 2)*((bnx2 + 1)/2 + 2*f2)*((bnx3 + 1)/2 + 2*f3)
-                   + (bnx1/2 + 2)*(((bnx2 + 1)/2) + f2 + 2*f2)*((bnx3 + 1)/2 + 2*f3)
-                   + (bnx1/2 + 2)*((bnx2 + 1)/2 + 2*f2)*(((bnx3 + 1)/2) + f3 + 2*f3));
+  bssame += num_fc * ((bnx1 + 1) * bnx2 * bnx3 + bnx1 * (bnx2 + f2) * bnx3 +
+                      bnx1 * bnx2 * (bnx3 + f3));
+  bsf2c += num_fc * (((bnx1 / 2) + 1) * ((bnx2 + 1) / 2) * ((bnx3 + 1) / 2) +
+                     (bnx1 / 2) * (((bnx2 + 1) / 2) + f2) * ((bnx3 + 1) / 2) +
+                     (bnx1 / 2) * ((bnx2 + 1) / 2) * (((bnx3 + 1) / 2) + f3));
+  bsc2f +=
+      num_fc *
+      (((bnx1 / 2) + 1 + 2) * ((bnx2 + 1) / 2 + 2 * f2) * ((bnx3 + 1) / 2 + 2 * f3) +
+       (bnx1 / 2 + 2) * (((bnx2 + 1) / 2) + f2 + 2 * f2) * ((bnx3 + 1) / 2 + 2 * f3) +
+       (bnx1 / 2 + 2) * ((bnx2 + 1) / 2 + 2 * f2) * (((bnx3 + 1) / 2) + f3 + 2 * f3));
   // add one more element to buffer size for storing the derefinement counter
   bssame++;
 
   MPI_Request *req_send, *req_recv;
   // Step 5. allocate and start receiving buffers
   if (nrecv != 0) {
-    recvbuf = new Real*[nrecv];
+    recvbuf = new Real *[nrecv];
     req_recv = new MPI_Request[nrecv];
-    int rb_idx = 0;     // recv buffer index
-    for (int n=nbs; n<=nbe; n++) {
+    int rb_idx = 0; // recv buffer index
+    for (int n = nbs; n <= nbe; n++) {
       int on = newtoold[n];
       LogicalLocation &oloc = loclist[on];
       LogicalLocation &nloc = newloc[n];
       if (oloc.level > nloc.level) { // f2c
-        for (int l=0; l<nleaf; l++) {
-          if (ranklist[on+l] == Globals::my_rank) continue;
-          LogicalLocation &lloc = loclist[on+l];
+        for (int l = 0; l < nleaf; l++) {
+          if (ranklist[on + l] == Globals::my_rank) continue;
+          LogicalLocation &lloc = loclist[on + l];
           int ox1 = ((lloc.lx1 & 1LL) == 1LL), ox2 = ((lloc.lx2 & 1LL) == 1LL),
               ox3 = ((lloc.lx3 & 1LL) == 1LL);
           recvbuf[rb_idx] = new Real[bsf2c];
-          int tag = CreateAMRMPITag(n-nbs, ox1, ox2, ox3);
-          MPI_Irecv(recvbuf[rb_idx], bsf2c, MPI_ATHENA_REAL, ranklist[on+l],
-                    tag, MPI_COMM_WORLD, &(req_recv[rb_idx]));
+          int tag = CreateAMRMPITag(n - nbs, ox1, ox2, ox3);
+          MPI_Irecv(recvbuf[rb_idx], bsf2c, MPI_ATHENA_REAL, ranklist[on + l], tag,
+                    MPI_COMM_WORLD, &(req_recv[rb_idx]));
           rb_idx++;
         }
       } else { // same level or c2f
@@ -524,55 +516,55 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
           size = bsc2f;
         }
         recvbuf[rb_idx] = new Real[size];
-        int tag = CreateAMRMPITag(n-nbs, 0, 0, 0);
-        MPI_Irecv(recvbuf[rb_idx], size, MPI_ATHENA_REAL, ranklist[on],
-                  tag, MPI_COMM_WORLD, &(req_recv[rb_idx]));
+        int tag = CreateAMRMPITag(n - nbs, 0, 0, 0);
+        MPI_Irecv(recvbuf[rb_idx], size, MPI_ATHENA_REAL, ranklist[on], tag,
+                  MPI_COMM_WORLD, &(req_recv[rb_idx]));
         rb_idx++;
       }
     }
   }
   // Step 6. allocate, pack and start sending buffers
   if (nsend != 0) {
-    sendbuf = new Real*[nsend];
+    sendbuf = new Real *[nsend];
     req_send = new MPI_Request[nsend];
-    int sb_idx = 0;      // send buffer index
-    for (int n=onbs; n<=onbe; n++) {
+    int sb_idx = 0; // send buffer index
+    for (int n = onbs; n <= onbe; n++) {
       int nn = oldtonew[n];
       LogicalLocation &oloc = loclist[n];
       LogicalLocation &nloc = newloc[nn];
-      MeshBlock* pb = FindMeshBlock(n);
+      MeshBlock *pb = FindMeshBlock(n);
       if (nloc.level == oloc.level) { // same level
         if (newrank[nn] == Globals::my_rank) continue;
         sendbuf[sb_idx] = new Real[bssame];
         PrepareSendSameLevel(pb, sendbuf[sb_idx]);
-        int tag = CreateAMRMPITag(nn-nslist[newrank[nn]], 0, 0, 0);
-        MPI_Isend(sendbuf[sb_idx], bssame, MPI_ATHENA_REAL, newrank[nn],
-                  tag, MPI_COMM_WORLD, &(req_send[sb_idx]));
+        int tag = CreateAMRMPITag(nn - nslist[newrank[nn]], 0, 0, 0);
+        MPI_Isend(sendbuf[sb_idx], bssame, MPI_ATHENA_REAL, newrank[nn], tag,
+                  MPI_COMM_WORLD, &(req_send[sb_idx]));
         sb_idx++;
       } else if (nloc.level > oloc.level) { // c2f
         // c2f must communicate to multiple leaf blocks (unlike f2c, same2same)
-        for (int l=0; l<nleaf; l++) {
-          if (newrank[nn+l] == Globals::my_rank) continue;
+        for (int l = 0; l < nleaf; l++) {
+          if (newrank[nn + l] == Globals::my_rank) continue;
           sendbuf[sb_idx] = new Real[bsc2f];
-          PrepareSendCoarseToFineAMR(pb, sendbuf[sb_idx], newloc[nn+l]);
-          int tag = CreateAMRMPITag(nn+l-nslist[newrank[nn+l]], 0, 0, 0);
-          MPI_Isend(sendbuf[sb_idx], bsc2f, MPI_ATHENA_REAL, newrank[nn+l],
-                    tag, MPI_COMM_WORLD, &(req_send[sb_idx]));
+          PrepareSendCoarseToFineAMR(pb, sendbuf[sb_idx], newloc[nn + l]);
+          int tag = CreateAMRMPITag(nn + l - nslist[newrank[nn + l]], 0, 0, 0);
+          MPI_Isend(sendbuf[sb_idx], bsc2f, MPI_ATHENA_REAL, newrank[nn + l], tag,
+                    MPI_COMM_WORLD, &(req_send[sb_idx]));
           sb_idx++;
-        } // end loop over nleaf (unique to c2f branch in this step 6)
+        }      // end loop over nleaf (unique to c2f branch in this step 6)
       } else { // f2c: restrict + pack + send
         if (newrank[nn] == Globals::my_rank) continue;
         sendbuf[sb_idx] = new Real[bsf2c];
         PrepareSendFineToCoarseAMR(pb, sendbuf[sb_idx]);
         int ox1 = ((oloc.lx1 & 1LL) == 1LL), ox2 = ((oloc.lx2 & 1LL) == 1LL),
             ox3 = ((oloc.lx3 & 1LL) == 1LL);
-        int tag = CreateAMRMPITag(nn-nslist[newrank[nn]], ox1, ox2, ox3);
-        MPI_Isend(sendbuf[sb_idx], bsf2c, MPI_ATHENA_REAL, newrank[nn],
-                  tag, MPI_COMM_WORLD, &(req_send[sb_idx]));
+        int tag = CreateAMRMPITag(nn - nslist[newrank[nn]], ox1, ox2, ox3);
+        MPI_Isend(sendbuf[sb_idx], bsf2c, MPI_ATHENA_REAL, newrank[nn], tag,
+                  MPI_COMM_WORLD, &(req_send[sb_idx]));
         sb_idx++;
       }
     }
-  } // if (nsend !=0)
+  }    // if (nsend !=0)
 #endif // MPI_PARALLEL
 
   // Step 7. construct a new MeshBlock list (moving the data within the MPI rank)
@@ -580,11 +572,11 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
   MeshBlock *pmb = nullptr;
   RegionSize block_size = pblock->block_size;
 
-  for (int n=nbs; n<=nbe; n++) {
+  for (int n = nbs; n <= nbe; n++) {
     int on = newtoold[n];
     if ((ranklist[on] == Globals::my_rank) && (loclist[on].level == newloc[n].level)) {
       // on the same MPI rank and same level -> just move it
-      MeshBlock* pob = FindMeshBlock(on);
+      MeshBlock *pob = FindMeshBlock(on);
       if (pob->prev == nullptr) {
         pblock = pob->next;
       } else {
@@ -609,38 +601,38 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
       SetBlockSizeAndBoundaries(newloc[n], block_size, block_bcs);
       // insert new block in singly-linked list of MeshBlocks
       if (n == nbs) { // first node
-        newlist = new MeshBlock(n, n-nbs, newloc[n], block_size, block_bcs, this,
-                                pin, properties, packages, gflag, true);
+        newlist = new MeshBlock(n, n - nbs, newloc[n], block_size, block_bcs, this, pin,
+                                properties, packages, gflag, true);
         pmb = newlist;
       } else {
-        pmb->next = new MeshBlock(n, n-nbs, newloc[n], block_size, block_bcs, this,
-                                  pin, properties, packages, gflag, true);
+        pmb->next = new MeshBlock(n, n - nbs, newloc[n], block_size, block_bcs, this, pin,
+                                  properties, packages, gflag, true);
         pmb->next->prev = pmb;
         pmb = pmb->next;
       }
       // fill the conservative variables
       if ((loclist[on].level > newloc[n].level)) { // fine to coarse (f2c)
-        for (int ll=0; ll<nleaf; ll++) {
-          if (ranklist[on+ll] != Globals::my_rank) continue;
+        for (int ll = 0; ll < nleaf; ll++) {
+          if (ranklist[on + ll] != Globals::my_rank) continue;
           // fine to coarse on the same MPI rank (different AMR level) - restriction
-          MeshBlock* pob = FindMeshBlock(on+ll);
-          FillSameRankFineToCoarseAMR(pob, pmb, loclist[on+ll]);
+          MeshBlock *pob = FindMeshBlock(on + ll);
+          FillSameRankFineToCoarseAMR(pob, pmb, loclist[on + ll]);
         }
       } else if ((loclist[on].level < newloc[n].level) && // coarse to fine (c2f)
                  (ranklist[on] == Globals::my_rank)) {
         // coarse to fine on the same MPI rank (different AMR level) - prolongation
-        MeshBlock* pob = FindMeshBlock(on);
+        MeshBlock *pob = FindMeshBlock(on);
         FillSameRankCoarseToFineAMR(pob, pmb, newloc[n]);
       }
-      ApplyBoundaryConditions(pmb->real_container);
-      FillDerivedVariables::FillDerived(pmb->real_container);
+      ApplyBoundaryConditions(pmb->real_containers.Get());
+      FillDerivedVariables::FillDerived(pmb->real_containers.Get());
     }
   }
 
   // discard remaining MeshBlocks
   // they could be reused, but for the moment, just throw them away for simplicity
   if (pblock != nullptr) {
-    while (pblock->next  !=  nullptr)
+    while (pblock->next != nullptr)
       delete pblock->next;
     delete pblock;
   }
@@ -652,8 +644,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
   // This is a test: try MPI_Waitall later.
 #ifdef MPI_PARALLEL
   if (nrecv != 0) {
-    int rb_idx = 0;     // recv buffer index
-    for (int n=nbs; n<=nbe; n++) {
+    int rb_idx = 0; // recv buffer index
+    for (int n = nbs; n <= nbe; n++) {
       int on = newtoold[n];
       LogicalLocation &oloc = loclist[on];
       LogicalLocation &nloc = newloc[n];
@@ -664,10 +656,10 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
         FinishRecvSameLevel(pb, recvbuf[rb_idx]);
         rb_idx++;
       } else if (oloc.level > nloc.level) { // f2c
-        for (int l=0; l<nleaf; l++) {
-          if (ranklist[on+l] == Globals::my_rank) continue;
+        for (int l = 0; l < nleaf; l++) {
+          if (ranklist[on + l] == Globals::my_rank) continue;
           MPI_Wait(&(req_recv[rb_idx]), MPI_STATUS_IGNORE);
-          FinishRecvFineToCoarseAMR(pb, recvbuf[rb_idx], loclist[on+l]);
+          FinishRecvFineToCoarseAMR(pb, recvbuf[rb_idx], loclist[on + l]);
           rb_idx++;
         }
       } else { // c2f
@@ -681,24 +673,24 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
 #endif
 
   // deallocate arrays
-  delete [] loclist;
-  delete [] ranklist;
-  delete [] costlist;
-  delete [] newtoold;
-  delete [] oldtonew;
+  delete[] loclist;
+  delete[] ranklist;
+  delete[] costlist;
+  delete[] newtoold;
+  delete[] oldtonew;
 #ifdef MPI_PARALLEL
   if (nsend != 0) {
     MPI_Waitall(nsend, req_send, MPI_STATUSES_IGNORE);
-    for (int n=0; n<nsend; n++)
-      delete [] sendbuf[n];
-    delete [] sendbuf;
-    delete [] req_send;
+    for (int n = 0; n < nsend; n++)
+      delete[] sendbuf[n];
+    delete[] sendbuf;
+    delete[] req_send;
   }
   if (nrecv != 0) {
-    for (int n=0; n<nrecv; n++)
-      delete [] recvbuf[n];
-    delete [] recvbuf;
-    delete [] req_recv;
+    for (int n = 0; n < nrecv; n++)
+      delete[] recvbuf[n];
+    delete[] recvbuf;
+    delete[] req_recv;
   }
 #endif
 
@@ -722,7 +714,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
 
 // AMR: step 6, branch 1 (same2same: just pack+send)
 
-void Mesh::PrepareSendSameLevel(MeshBlock* pb, Real *sendbuf) {
+void Mesh::PrepareSendSameLevel(MeshBlock *pb, Real *sendbuf) {
   // pack
   int p = 0;
 
@@ -742,11 +734,13 @@ void Mesh::PrepareSendSameLevel(MeshBlock* pb, Real *sendbuf) {
 
   // (C++11) range-based for loop: (automatic type deduction fails when iterating over
   // container with std::reference_wrapper; could use auto var_cc_r = var_cc.get())
-  for (AthenaArray<Real> &var_cc : pb->vars_cc_) {
-    int nu = var_cc.GetDim4() - 1;
+  for (auto &pvar_cc : pb->vars_cc_) {
+    int nu = pvar_cc->GetDim(4) - 1;
+    auto &var_cc = pvar_cc->data;
     BufferUtility::PackData(var_cc, sendbuf, 0, nu, ib.s, ib.e, jb.s, jb.e, kb.s, kb.e, p);
   }
-  for (FaceField &var_fc : pb->vars_fc_) {
+  for (auto &pvar_fc : pb->vars_fc_) {
+    auto &var_fc = *pvar_fc;
     BufferUtility::PackData(var_fc.x1f, sendbuf, ib.s, ib.e+1, jb.s, jb.e, kb.s, kb.e, p);
     BufferUtility::PackData(var_fc.x2f, sendbuf, ib.s, ib.e, jb.s, jb.e+f2, kb.s, kb.e, p);
     BufferUtility::PackData(var_fc.x3f, sendbuf, ib.s, ib.e, jb.s, jb.e, kb.s, kb.e+f3, p);
@@ -760,14 +754,12 @@ void Mesh::PrepareSendSameLevel(MeshBlock* pb, Real *sendbuf) {
   return;
 }
 
-
 // step 6, branch 2 (c2f: just pack+send)
 
-void Mesh::PrepareSendCoarseToFineAMR(MeshBlock* pb, Real *sendbuf,
+void Mesh::PrepareSendCoarseToFineAMR(MeshBlock *pb, Real *sendbuf,
                                       LogicalLocation &lloc) {
-
-  const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d 
-  const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d 
+  const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
+  const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
   int ox1 = ((lloc.lx1 & 1LL) == 1LL), ox2 = ((lloc.lx2 & 1LL) == 1LL),
       ox3 = ((lloc.lx3 & 1LL) == 1LL);
   const IndexDomain interior = IndexDomain::interior;
@@ -797,29 +789,25 @@ void Mesh::PrepareSendCoarseToFineAMR(MeshBlock* pb, Real *sendbuf,
 
   int p = 0;
   for (auto cc_pair : pb->pmr->pvars_cc_) {
-    AthenaArray<Real> *var_cc = std::get<0>(cc_pair);
-    int nu = var_cc->GetDim4() - 1;
-    BufferUtility::PackData(*var_cc, sendbuf, 0, nu,
-                            il, iu, jl, ju, kl, ku, p);
+    ParArrayND<Real> var_cc = std::get<0>(cc_pair);
+    int nu = var_cc.GetDim(4) - 1;
+    BufferUtility::PackData(var_cc, sendbuf, 0, nu, il, iu, jl, ju, kl, ku, p);
   }
   for (auto fc_pair : pb->pmr->pvars_fc_) {
     FaceField *var_fc = std::get<0>(fc_pair);
-    BufferUtility::PackData((*var_fc).x1f, sendbuf,
-                            il, iu+1, jl, ju, kl, ku, p);
-    BufferUtility::PackData((*var_fc).x2f, sendbuf,
-                            il, iu, jl, ju+f2, kl, ku, p);
-    BufferUtility::PackData((*var_fc).x3f, sendbuf,
-                            il, iu, jl, ju, kl, ku+f3, p);
+    BufferUtility::PackData((*var_fc).x1f, sendbuf, il, iu + 1, jl, ju, kl, ku, p);
+    BufferUtility::PackData((*var_fc).x2f, sendbuf, il, iu, jl, ju + f2, kl, ku, p);
+    BufferUtility::PackData((*var_fc).x3f, sendbuf, il, iu, jl, ju, kl, ku + f3, p);
   }
   return;
 }
 
 // step 6, branch 3 (f2c: restrict, pack, send)
 
-void Mesh::PrepareSendFineToCoarseAMR(MeshBlock* pb, Real *sendbuf) {
+void Mesh::PrepareSendFineToCoarseAMR(MeshBlock *pb, Real *sendbuf) {
   // restrict and pack
-  const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d 
-  const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d 
+  const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
+  const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
 
   const IndexDomain interior = IndexDomain::interior;
   IndexRange cib = pb->c_cellbounds.GetBoundsI(interior);
@@ -829,11 +817,11 @@ void Mesh::PrepareSendFineToCoarseAMR(MeshBlock* pb, Real *sendbuf) {
   auto &pmr = pb->pmr;
   int p = 0;
   for (auto cc_pair : pmr->pvars_cc_) {
-    AthenaArray<Real> *var_cc = std::get<0>(cc_pair);
-    AthenaArray<Real> *coarse_cc = std::get<1>(cc_pair);
-    int nu = var_cc->GetDim4() - 1;
-    pmr->RestrictCellCenteredValues(*var_cc, *coarse_cc, 0, nu, cib.s, cib.e, cjb.s, cjb.e, ckb.s, ckb.e);
-    BufferUtility::PackData(*coarse_cc, sendbuf, 0, nu, cib.s, cib.e,cjb.s, cjb.e,ckb.s, ckb.e, p);
+    ParArrayND<Real> var_cc = std::get<0>(cc_pair);
+    ParArrayND<Real> coarse_cc = std::get<1>(cc_pair);
+    int nu = var_cc.GetDim(4) - 1;
+    pmr->RestrictCellCenteredValues(var_cc, coarse_cc, 0, nu, cib.s, cib.e, cjb.s, cjb.e, ckb.s, ckb.e);
+    BufferUtility::PackData(coarse_cc, sendbuf, 0, nu, cib.s, cib.e,cjb.s, cjb.e,ckb.s, ckb.e, p);
   }
   for (auto fc_pair : pb->pmr->pvars_fc_) {
     FaceField *var_fc = std::get<0>(fc_pair);
@@ -850,7 +838,7 @@ void Mesh::PrepareSendFineToCoarseAMR(MeshBlock* pb, Real *sendbuf) {
 
 // step 7: f2c, same MPI rank, different level (just restrict+copy, no pack/send)
 
-void Mesh::FillSameRankFineToCoarseAMR(MeshBlock* pob, MeshBlock* pmb,
+void Mesh::FillSameRankFineToCoarseAMR(MeshBlock *pob, MeshBlock *pmb,
                                        LogicalLocation &loc) {
   auto &pmr = pob->pmr;
   const IndexDomain interior = IndexDomain::interior;
@@ -867,18 +855,19 @@ void Mesh::FillSameRankFineToCoarseAMR(MeshBlock* pob, MeshBlock* pmb,
   auto pmb_cc_it = pmb->pmr->pvars_cc_.begin();
   // iterate MeshRefinement std::vectors on pob
   for (auto cc_pair : pmr->pvars_cc_) {
-    AthenaArray<Real> *var_cc = std::get<0>(cc_pair);
-    AthenaArray<Real> *coarse_cc = std::get<1>(cc_pair);
-    int nu = var_cc->GetDim4() - 1;
-    pmr->RestrictCellCenteredValues(*var_cc, *coarse_cc,
+    ParArrayND<Real> var_cc = std::get<0>(cc_pair);
+    ParArrayND<Real> coarse_cc = std::get<1>(cc_pair);
+    int nu = var_cc.GetDim(4) - 1;
+    pmr->RestrictCellCenteredValues(var_cc, coarse_cc,
                                     0, nu,
                                     cib.s, cib.e,
                                     cjb.s, cjb.e,
                                     ckb.s, ckb.e);
+
     // copy from old/original/other MeshBlock (pob) to newly created block (pmb)
-    AthenaArray<Real> &src = *coarse_cc;
-    AthenaArray<Real> &dst = *std::get<0>(*pmb_cc_it);
-    for (int nv=0; nv<=nu; nv++) {
+    ParArrayND<Real> src = coarse_cc;
+    ParArrayND<Real> dst = std::get<0>(*pmb_cc_it);
+    for (int nv = 0; nv <= nu; nv++) {
       for (int k=kl, fk=ckb.s; fk<=ckb.e; k++, fk++) {
         for (int j=jl, fj=cjb.s; fj<=cjb.e; j++, fj++) {
           for (int i=il, fi=cib.s; fi<=cib.e; i++, fi++)
@@ -889,8 +878,8 @@ void Mesh::FillSameRankFineToCoarseAMR(MeshBlock* pob, MeshBlock* pmb,
     pmb_cc_it++;
   }
 
-  const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d 
-  const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d 
+  const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
+  const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
 
   auto pmb_fc_it = pmb->pmr->pvars_fc_.begin();
   for (auto fc_pair : pmr->pvars_fc_) {
@@ -928,7 +917,7 @@ void Mesh::FillSameRankFineToCoarseAMR(MeshBlock* pob, MeshBlock* pmb,
       }
     }
     if (pmb->block_size.nx3 == 1) {
-      int iu = il + pmb->block_size.nx1/2 - 1, ju = jl + pmb->block_size.nx2/2 - 1;
+      int iu = il + pmb->block_size.nx1 / 2 - 1, ju = jl + pmb->block_size.nx2 / 2 - 1;
       if (pmb->block_size.nx2 == 1) ju = jl;
       for (int j=jl; j<=ju; j++) {
         for (int i=il; i<=iu; i++)
@@ -942,7 +931,7 @@ void Mesh::FillSameRankFineToCoarseAMR(MeshBlock* pob, MeshBlock* pmb,
 
 // step 7: c2f, same MPI rank, different level (just copy+prolongate, no pack/send)
 
-void Mesh::FillSameRankCoarseToFineAMR(MeshBlock* pob, MeshBlock* pmb,
+void Mesh::FillSameRankCoarseToFineAMR(MeshBlock *pob, MeshBlock *pmb,
                                        LogicalLocation &newloc) {
   auto &pmr = pmb->pmr;
   
@@ -964,23 +953,23 @@ void Mesh::FillSameRankCoarseToFineAMR(MeshBlock* pob, MeshBlock* pmb,
   auto pob_cc_it = pob->pmr->pvars_cc_.begin();
   // iterate MeshRefinement std::vectors on new pmb
   for (auto cc_pair : pmr->pvars_cc_) {
-    AthenaArray<Real> *var_cc = std::get<0>(cc_pair);
-    AthenaArray<Real> *coarse_cc = std::get<1>(cc_pair);
-    int nu = var_cc->GetDim4() - 1;
+    ParArrayND<Real> var_cc = std::get<0>(cc_pair);
+    ParArrayND<Real> coarse_cc = std::get<1>(cc_pair);
+    int nu = var_cc.GetDim(4) - 1;
 
-    AthenaArray<Real> &src = *std::get<0>(*pob_cc_it);
-    AthenaArray<Real> &dst = *coarse_cc;
+    ParArrayND<Real> src = std::get<0>(*pob_cc_it);
+    ParArrayND<Real> dst = coarse_cc;
     // fill the coarse buffer
-    for (int nv=0; nv<=nu; nv++) {
-      for (int k=kl, ck=cks; k<=ku; k++, ck++) {
-        for (int j=jl, cj=cjs; j<=ju; j++, cj++) {
-          for (int i=il, ci=cis; i<=iu; i++, ci++)
+    for (int nv = 0; nv <= nu; nv++) {
+      for (int k = kl, ck = cks; k <= ku; k++, ck++) {
+        for (int j = jl, cj = cjs; j <= ju; j++, cj++) {
+          for (int i = il, ci = cis; i <= iu; i++, ci++)
             dst(nv, k, j, i) = src(nv, ck, cj, ci);
         }
       }
     }
     pmr->ProlongateCellCenteredValues(
-        dst, *var_cc, 0, nu,
+        dst, var_cc, 0, nu,
         pob->c_cellbounds.is(interior), pob->c_cellbounds.ie(interior),
         pob->c_cellbounds.js(interior), pob->c_cellbounds.je(interior),
         pob->c_cellbounds.ks(interior), pob->c_cellbounds.ke(interior));
@@ -994,21 +983,21 @@ void Mesh::FillSameRankCoarseToFineAMR(MeshBlock* pob, MeshBlock* pmb,
 
     FaceField &src_b = *std::get<0>(*pob_fc_it);
     FaceField &dst_b = *coarse_fc;
-    for (int k=kl, ck=cks; k<=ku; k++, ck++) {
-      for (int j=jl, cj=cjs; j<=ju; j++, cj++) {
-        for (int i=il, ci=cis; i<=iu+1; i++, ci++)
+    for (int k = kl, ck = cks; k <= ku; k++, ck++) {
+      for (int j = jl, cj = cjs; j <= ju; j++, cj++) {
+        for (int i = il, ci = cis; i <= iu + 1; i++, ci++)
           dst_b.x1f(k, j, i) = src_b.x1f(ck, cj, ci);
       }
     }
-    for (int k=kl, ck=cks; k<=ku; k++, ck++) {
-      for (int j=jl, cj=cjs; j<=ju+f2; j++, cj++) {
-        for (int i=il, ci=cis; i<=iu; i++, ci++)
+    for (int k = kl, ck = cks; k <= ku; k++, ck++) {
+      for (int j = jl, cj = cjs; j <= ju + f2; j++, cj++) {
+        for (int i = il, ci = cis; i <= iu; i++, ci++)
           dst_b.x2f(k, j, i) = src_b.x2f(ck, cj, ci);
       }
     }
-    for (int k=kl, ck=cks; k<=ku+f3; k++, ck++) {
-      for (int j=jl, cj=cjs; j<=ju; j++, cj++) {
-        for (int i=il, ci=cis; i<=iu; i++, ci++)
+    for (int k = kl, ck = cks; k <= ku + f3; k++, ck++) {
+      for (int j = jl, cj = cjs; j <= ju; j++, cj++) {
+        for (int i = il, ci = cis; i <= iu; i++, ci++)
           dst_b.x3f(k, j, i) = src_b.x3f(ck, cj, ci);
       }
     }
@@ -1032,6 +1021,7 @@ void Mesh::FillSameRankCoarseToFineAMR(MeshBlock* pob, MeshBlock* pmb,
         pob->c_cellbounds.is(interior), pob->c_cellbounds.ie(interior),
         pob->c_cellbounds.js(interior), pob->c_cellbounds.je(interior),
         pob->c_cellbounds.ks(interior), pob->c_cellbounds.ke(interior));
+
     pob_fc_it++;
   }
   return;
@@ -1040,29 +1030,32 @@ void Mesh::FillSameRankCoarseToFineAMR(MeshBlock* pob, MeshBlock* pmb,
 // step 8 (receive and load), branch 1 (same2same: unpack)
 void Mesh::FinishRecvSameLevel(MeshBlock *pb, Real *recvbuf) {
   int p = 0;
-  const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d 
-  const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d 
+
+  const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
+  const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
 
   const IndexDomain interior = IndexDomain::interior;
   IndexRange ib = pb->cellbounds.GetBoundsI(interior);
   IndexRange jb = pb->cellbounds.GetBoundsJ(interior);
   IndexRange kb = pb->cellbounds.GetBoundsK(interior);
 
-  for (AthenaArray<Real> &var_cc : pb->vars_cc_) {
-    int nu = var_cc.GetDim4() - 1;
+  for (auto &pvar_cc : pb->vars_cc_) {
+    int nu = pvar_cc->GetDim(4) - 1;
+    auto &var_cc = pvar_cc->data;
     BufferUtility::UnpackData(recvbuf, var_cc, 0, nu, ib.s, ib.e, jb.s, jb.e, kb.s, kb.e, p);
   }
-  for (FaceField &var_fc : pb->vars_fc_) {
+  for (auto &pvar_fc : pb->vars_fc_) {
+    auto &var_fc = *pvar_fc;
     BufferUtility::UnpackData(recvbuf, var_fc.x1f, ib.s, ib.e+1, jb.s, jb.e, kb.s, kb.e, p);
     BufferUtility::UnpackData(recvbuf, var_fc.x2f, ib.s, ib.e, jb.s, jb.e+f2, kb.s, kb.e, p);
     BufferUtility::UnpackData(recvbuf, var_fc.x3f, ib.s, ib.e, jb.s, jb.e, kb.s, kb.e+f3, p);
     if (pb->block_size.nx2 == 1) {
-      for (int i=ib.s; i<=ib.e; i++)
+      for (int i = pb->is; i <= pb->ie; i++)
         var_fc.x2f(kb.s, jb.s+1, i) = var_fc.x2f(kb.s, jb.s, i);
     }
     if (pb->block_size.nx3 == 1) {
-      for (int j=jb.s; j<=jb.e; j++) {
-        for (int i=ib.s; i<=ib.e; i++)
+      for (int j = pb->js; j <= pb->je; j++) {
+        for (int i = pb->is; i <= pb->ie; i++)
           var_fc.x3f(kb.s+1, j, i) = var_fc.x3f(kb.s, j, i);
       }
     }
@@ -1079,9 +1072,8 @@ void Mesh::FinishRecvSameLevel(MeshBlock *pb, Real *recvbuf) {
 // step 8 (receive and load), branch 2 (f2c: unpack)
 void Mesh::FinishRecvFineToCoarseAMR(MeshBlock *pb, Real *recvbuf,
                                      LogicalLocation &lloc) {
-
-  const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d 
-  const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d 
+  const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
+  const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
 
   const IndexDomain interior = IndexDomain::interior;
   IndexRange ib = pb->cellbounds.GetBoundsI(interior);
@@ -1091,6 +1083,7 @@ void Mesh::FinishRecvFineToCoarseAMR(MeshBlock *pb, Real *recvbuf,
   int ox1 = ((lloc.lx1 & 1LL) == 1LL), ox2 = ((lloc.lx2 & 1LL) == 1LL),
       ox3 = ((lloc.lx3 & 1LL) == 1LL);
   int p = 0, il, iu, jl, ju, kl, ku;
+  
   if (ox1 == 0) il = ib.s,            iu = ib.s + pb->block_size.nx1/2 - 1;
   else        il = ib.s + pb->block_size.nx1/2, iu = ib.e;
   if (ox2 == 0) jl = jb.s,            ju = jb.s + pb->block_size.nx2/2 - f2;
@@ -1099,20 +1092,16 @@ void Mesh::FinishRecvFineToCoarseAMR(MeshBlock *pb, Real *recvbuf,
   else        kl = kb.s + pb->block_size.nx3/2, ku = kb.e;
 
   for (auto cc_pair : pb->pmr->pvars_cc_) {
-    AthenaArray<Real> *var_cc = std::get<0>(cc_pair);
-    int nu = var_cc->GetDim4() - 1;
-    BufferUtility::UnpackData(recvbuf, *var_cc, 0, nu,
-                              il, iu, jl, ju, kl, ku, p);
+    ParArrayND<Real> var_cc = std::get<0>(cc_pair);
+    int nu = var_cc.GetDim(4) - 1;
+    BufferUtility::UnpackData(recvbuf, var_cc, 0, nu, il, iu, jl, ju, kl, ku, p);
   }
   for (auto fc_pair : pb->pmr->pvars_fc_) {
     FaceField *var_fc = std::get<0>(fc_pair);
     FaceField &dst_b = *var_fc;
-    BufferUtility::UnpackData(recvbuf, dst_b.x1f,
-                              il, iu+1, jl, ju, kl, ku, p);
-    BufferUtility::UnpackData(recvbuf, dst_b.x2f,
-                              il, iu, jl, ju+f2, kl, ku, p);
-    BufferUtility::UnpackData(recvbuf, dst_b.x3f,
-                              il, iu, jl, ju, kl, ku+f3, p);
+    BufferUtility::UnpackData(recvbuf, dst_b.x1f, il, iu + 1, jl, ju, kl, ku, p);
+    BufferUtility::UnpackData(recvbuf, dst_b.x2f, il, iu, jl, ju + f2, kl, ku, p);
+    BufferUtility::UnpackData(recvbuf, dst_b.x3f, il, iu, jl, ju, kl, ku + f3, p);
     if (pb->block_size.nx2 == 1) {
       for (int i=il; i<=iu; i++)
         dst_b.x2f(kb.s, jb.s+1, i) = dst_b.x2f(kb.s, jb.s, i);
@@ -1129,11 +1118,11 @@ void Mesh::FinishRecvFineToCoarseAMR(MeshBlock *pb, Real *recvbuf,
 
 // step 8 (receive and load), branch 2 (c2f: unpack+prolongate)
 void Mesh::FinishRecvCoarseToFineAMR(MeshBlock *pb, Real *recvbuf) {
-
-  const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d 
-  const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d 
+  const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
+  const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
   auto &pmr = pb->pmr;
   int p = 0;
+
   const IndexDomain interior = IndexDomain::interior;
   IndexRange cib = pb->c_cellbounds.GetBoundsI(interior);
   IndexRange cjb = pb->c_cellbounds.GetBoundsJ(interior);
@@ -1141,26 +1130,23 @@ void Mesh::FinishRecvCoarseToFineAMR(MeshBlock *pb, Real *recvbuf) {
 
   int il = cib.s - 1, iu = cib.e+1, jl = cjb.s - f2,
       ju = cjb.e + f2, kl = ckb.s - f3, ku = ckb.e + f3;
+
   for (auto cc_pair : pb->pmr->pvars_cc_) {
-    AthenaArray<Real> *var_cc = std::get<0>(cc_pair);
-    AthenaArray<Real> *coarse_cc = std::get<1>(cc_pair);
-    int nu = var_cc->GetDim4() - 1;
-    BufferUtility::UnpackData(recvbuf, *coarse_cc,
+    ParArrayND<Real> var_cc = std::get<0>(cc_pair);
+    ParArrayND<Real> coarse_cc = std::get<1>(cc_pair);
+    int nu = var_cc.GetDim(4) - 1;
+    BufferUtility::UnpackData(recvbuf, coarse_cc,
                               0, nu, il, iu, jl, ju, kl, ku, p);
     pmr->ProlongateCellCenteredValues(
-        *coarse_cc, *var_cc, 0, nu,
+        coarse_cc, var_cc, 0, nu,
         cib.s, cib.e, cjb.s, cjb.e, ckb.s, ckb.e);
   }
   for (auto fc_pair : pb->pmr->pvars_fc_) {
     FaceField *var_fc = std::get<0>(fc_pair);
     FaceField *coarse_fc = std::get<1>(fc_pair);
-
-    BufferUtility::UnpackData(recvbuf, (*coarse_fc).x1f,
-                              il, iu+1, jl, ju, kl, ku, p);
-    BufferUtility::UnpackData(recvbuf, (*coarse_fc).x2f,
-                              il, iu, jl, ju+f2, kl, ku, p);
-    BufferUtility::UnpackData(recvbuf, (*coarse_fc).x3f,
-                              il, iu, jl, ju, kl, ku+f3, p);
+    BufferUtility::UnpackData(recvbuf, (*coarse_fc).x1f, il, iu + 1, jl, ju, kl, ku, p);
+    BufferUtility::UnpackData(recvbuf, (*coarse_fc).x2f, il, iu, jl, ju + f2, kl, ku, p);
+    BufferUtility::UnpackData(recvbuf, (*coarse_fc).x3f, il, iu, jl, ju, kl, ku + f3, p);
     pmr->ProlongateSharedFieldX1(
         (*coarse_fc).x1f, (*var_fc).x1f,
         cib.s, cib.e+1, cjb.s, cjb.e, ckb.s, ckb.e);
@@ -1187,6 +1173,7 @@ void Mesh::FinishRecvCoarseToFineAMR(MeshBlock *pb, Real *recvbuf) {
 
 int Mesh::CreateAMRMPITag(int lid, int ox1, int ox2, int ox3) {
   // former "AthenaTagMPI" AthenaTagMPI::amr=8 redefined to 0
-  return (lid<<8) | (ox1<<7)| (ox2<<6) | (ox3<<5) | 0;
+  return (lid << 8) | (ox1 << 7) | (ox2 << 6) | (ox3 << 5) | 0;
 }
-}
+
+} // namespace parthenon

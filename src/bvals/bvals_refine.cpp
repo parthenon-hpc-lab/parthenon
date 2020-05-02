@@ -17,19 +17,17 @@
 //! \file bvals_refine.cpp
 //  \brief constructor/destructor and utility functions for BoundaryValues class
 
-// C headers
+#include "bvals/bvals_interfaces.hpp"
 
-// C++ headers
-#include <algorithm>  // min
+#include <algorithm>
 #include <cmath>
 #include <iterator>
 
-// Athena++ headers
-#include "mesh/mesh.hpp"
-#include "bvals.hpp"
 #include "fc/bvals_fc.hpp"
+#include "mesh/mesh.hpp"
 
 namespace parthenon {
+
 // -----------
 // NOTE ON SWITCHING BETWEEN PRIMITIVE VS. CONSERVED AND STANDARD VS. COARSE BUFFERS HERE:
 // -----------
@@ -90,36 +88,36 @@ void BoundaryValues::ProlongateBoundaries(const Real time, const Real dt) {
 
   // For each finer neighbor, to prolongate a boundary we need to fill one more cell
   // surrounding the boundary zone to calculate the slopes ("ghost-ghost zone"). 3x steps:
-  for (int n=0; n<nneighbor; n++) {
-    NeighborBlock& nb = neighbor[n];
+  for (int n = 0; n < nneighbor; n++) {
+    NeighborBlock &nb = neighbor[n];
     if (nb.snb.level >= mylevel) continue;
     // fill the required ghost-ghost zone
     int nis, nie, njs, nje, nks, nke;
-    nis = std::max(nb.ni.ox1-1, -1);
-    nie = std::min(nb.ni.ox1+1, 1);
+    nis = std::max(nb.ni.ox1 - 1, -1);
+    nie = std::min(nb.ni.ox1 + 1, 1);
     if (pmb->block_size.nx2 == 1) {
       njs = 0;
       nje = 0;
     } else {
-      njs = std::max(nb.ni.ox2-1, -1);
-      nje = std::min(nb.ni.ox2+1, 1);
+      njs = std::max(nb.ni.ox2 - 1, -1);
+      nje = std::min(nb.ni.ox2 + 1, 1);
     }
 
     if (pmb->block_size.nx3 == 1) {
       nks = 0;
       nke = 0;
     } else {
-      nks = std::max(nb.ni.ox3-1, -1);
-      nke = std::min(nb.ni.ox3+1, 1);
+      nks = std::max(nb.ni.ox3 - 1, -1);
+      nke = std::min(nb.ni.ox3 + 1, 1);
     }
 
     // Step 1. Apply necessary variable restrictions when ghost-ghost zone is on same lvl
-    for (int nk=nks; nk<=nke; nk++) {
-      for (int nj=njs; nj<=nje; nj++) {
-        for (int ni=nis; ni<=nie; ni++) {
+    for (int nk = nks; nk <= nke; nk++) {
+      for (int nj = njs; nj <= nje; nj++) {
+        for (int ni = nis; ni <= nie; ni++) {
           int ntype = std::abs(ni) + std::abs(nj) + std::abs(nk);
           // skip myself or coarse levels; only the same level must be restricted
-          if (ntype == 0 || nblevel[nk+1][nj+1][ni+1] != mylevel) continue;
+          if (ntype == 0 || nblevel[nk + 1][nj + 1][ni + 1] != mylevel) continue;
 
           // this neighbor block is on the same level
           // and needs to be restricted for prolongation
@@ -191,7 +189,7 @@ void BoundaryValues::ProlongateBoundaries(const Real time, const Real dt) {
     // instead of previous targets var_cc=cons, var_fc=b
 
     // Step 2. Re-apply physical boundaries on the coarse boundary:
-    //ApplyPhysicalBoundariesOnCoarseLevel(nb, time, dt, si, ei, sj, ej, sk, ek);
+    // ApplyPhysicalBoundariesOnCoarseLevel(nb, time, dt, si, ei, sj, ej, sk, ek);
 
     // (temp workaround) swap BoundaryVariable var_cc/fc to standard primitive variable
     // arrays (not coarse) from coarse primitive variables arrays
@@ -236,11 +234,11 @@ void BoundaryValues::RestrictGhostCellsOnSameLevel(const NeighborBlock& nb, int 
   CalcRestricedIndices(rks,rke,nk,nb.ni.ox3,ckb);
 
   for (auto cc_pair : pmr->pvars_cc_) {
-    AthenaArray<Real> *var_cc = std::get<0>(cc_pair);
-    AthenaArray<Real> *coarse_cc = std::get<1>(cc_pair);
-    int nu = var_cc->GetDim4() - 1;
-    pmb->pmr->RestrictCellCenteredValues(*var_cc, *coarse_cc, 0, nu,
-                                         ris, rie, rjs, rje, rks, rke);
+    ParArrayND<Real> var_cc = std::get<0>(cc_pair);
+    ParArrayND<Real> coarse_cc = std::get<1>(cc_pair);
+    int nu = var_cc.GetDim(4) - 1;
+    pmb->pmr->RestrictCellCenteredValues(var_cc, coarse_cc, 0, nu, ris, rie, rjs, rje,
+                                         rks, rke);
   }
 
   for (auto fc_pair : pmr->pvars_fc_) {
@@ -259,11 +257,11 @@ void BoundaryValues::RestrictGhostCellsOnSameLevel(const NeighborBlock& nb, int 
       pmr->RestrictFieldX2((*var_fc).x2f, (*coarse_fc).x2f, ris, rie, rs, re, rks,
                            rke);
     } else { // 1D
-      pmr->RestrictFieldX2((*var_fc).x2f, (*coarse_fc).x2f, ris, rie, rjs, rje, rks,
-                           rke);
-      for (int i=ris; i<=rie; i++)
-        (*coarse_fc).x2f(rks,rjs+1,i) = (*coarse_fc).x2f(rks,rjs,i);
+      pmr->RestrictFieldX2((*var_fc).x2f, (*coarse_fc).x2f, ris, rie, rjs, rje, rks, rke);
+      for (int i = ris; i <= rie; i++)
+        (*coarse_fc).x2f(rks, rjs + 1, i) = (*coarse_fc).x2f(rks, rjs, i);
     }
+
     if (pmb->block_size.nx3 > 1) {
       rs = rks, re =  rke + 1;
       if (rs == ckb.s   && nblevel[nk  ][nj+1][ni+1] < mylevel) rs++;
@@ -271,11 +269,10 @@ void BoundaryValues::RestrictGhostCellsOnSameLevel(const NeighborBlock& nb, int 
       pmr->RestrictFieldX3((*var_fc).x3f, (*coarse_fc).x3f, ris, rie, rjs, rje, rs,
                            re);
     } else { // 1D or 2D
-      pmr->RestrictFieldX3((*var_fc).x3f, (*coarse_fc).x3f, ris, rie, rjs, rje, rks,
-                           rke);
-      for (int j=rjs; j<=rje; j++) {
-        for (int i=ris; i<=rie; i++)
-          (*coarse_fc).x3f(rks+1,j,i) = (*coarse_fc).x3f(rks,j,i);
+      pmr->RestrictFieldX3((*var_fc).x3f, (*coarse_fc).x3f, ris, rie, rjs, rje, rks, rke);
+      for (int j = rjs; j <= rje; j++) {
+        for (int i = ris; i <= rie; i++)
+          (*coarse_fc).x3f(rks + 1, j, i) = (*coarse_fc).x3f(rks, j, i);
       }
     }
   } // end loop over pvars_fc_
@@ -288,57 +285,67 @@ void BoundaryValues::RestrictGhostCellsOnSameLevel(const NeighborBlock& nb, int 
 //           int si, int ei, int sj, int ej, int sk, int ek)
 //  \brief
 
-void BoundaryValues::ApplyPhysicalBoundariesOnCoarseLevel(
-    const NeighborBlock& nb, const Real time, const Real dt,
-    int si, int ei, int sj, int ej, int sk, int ek) {
-  //TODO(SS)
+void BoundaryValues::ApplyPhysicalBoundariesOnCoarseLevel(const NeighborBlock &nb,
+                                                          const Real time, const Real dt,
+                                                          int si, int ei, int sj, int ej,
+                                                          int sk, int ek) {
+  // TODO(SS)
   // Write code to take a container as input and apply
   // appropriate boundary condiditions
   throw std::runtime_error(std::string(__func__) + " is not implemented");
 }
 
-void BoundaryValues::ProlongateGhostCells(const NeighborBlock& nb,
-                                          int si, int ei, int sj, int ej,
-                                          int sk, int ek) {
+void BoundaryValues::ProlongateGhostCells(const NeighborBlock &nb, int si, int ei, int sj,
+                                          int ej, int sk, int ek) {
   MeshBlock *pmb = pmy_block_;
   auto &pmr = pmb->pmr;
 
   for (auto cc_pair : pmr->pvars_cc_) {
-    AthenaArray<Real> *var_cc = std::get<0>(cc_pair);
-    AthenaArray<Real> *coarse_cc = std::get<1>(cc_pair);
-    int nu = var_cc->GetDim4() - 1;
-    pmr->ProlongateCellCenteredValues(*coarse_cc, *var_cc, 0, nu,
-                                      si, ei, sj, ej, sk, ek);
+    ParArrayND<Real> var_cc = std::get<0>(cc_pair);
+    ParArrayND<Real> coarse_cc = std::get<1>(cc_pair);
+    int nu = var_cc.GetDim(4) - 1;
+    pmr->ProlongateCellCenteredValues(coarse_cc, var_cc, 0, nu, si, ei, sj, ej, sk, ek);
   }
 
   // prolongate face-centered S/AMR-enrolled quantities (magnetic fields)
   int &mylevel = pmb->loc.level;
   int il, iu, jl, ju, kl, ku;
   il = si, iu = ei + 1;
-  if ((nb.ni.ox1 >= 0) && (nblevel[nb.ni.ox3+1][nb.ni.ox2+1][nb.ni.ox1  ] >= mylevel))
+  if ((nb.ni.ox1 >= 0) && (nblevel[nb.ni.ox3 + 1][nb.ni.ox2 + 1][nb.ni.ox1] >= mylevel)) {
     il++;
-  if ((nb.ni.ox1 <= 0) && (nblevel[nb.ni.ox3+1][nb.ni.ox2+1][nb.ni.ox1+2] >= mylevel))
+  }
+  if ((nb.ni.ox1 <= 0) &&
+      (nblevel[nb.ni.ox3 + 1][nb.ni.ox2 + 1][nb.ni.ox1 + 2] >= mylevel)) {
     iu--;
+  }
+
   if (pmb->block_size.nx2 > 1) {
     jl = sj, ju = ej + 1;
-    if ((nb.ni.ox2 >= 0) && (nblevel[nb.ni.ox3+1][nb.ni.ox2  ][nb.ni.ox1+1] >= mylevel))
+    if ((nb.ni.ox2 >= 0) && (nblevel[nb.ni.ox3 + 1][nb.ni.ox2][nb.ni.ox1 + 1] >= mylevel))
       jl++;
-    if ((nb.ni.ox2 <= 0) && (nblevel[nb.ni.ox3+1][nb.ni.ox2+2][nb.ni.ox1+1] >= mylevel))
+    if ((nb.ni.ox2 <= 0) &&
+        (nblevel[nb.ni.ox3 + 1][nb.ni.ox2 + 2][nb.ni.ox1 + 1] >= mylevel))
       ju--;
   } else {
     jl = sj;
     ju = ej;
   }
+
   if (pmb->block_size.nx3 > 1) {
     kl = sk, ku = ek + 1;
-    if ((nb.ni.ox3 >= 0) && (nblevel[nb.ni.ox3  ][nb.ni.ox2+1][nb.ni.ox1+1] >= mylevel))
+    if ((nb.ni.ox3 >= 0) &&
+        (nblevel[nb.ni.ox3][nb.ni.ox2 + 1][nb.ni.ox1 + 1] >= mylevel)) {
       kl++;
-    if ((nb.ni.ox3 <= 0) && (nblevel[nb.ni.ox3+2][nb.ni.ox2+1][nb.ni.ox1+1] >= mylevel))
+    }
+    if ((nb.ni.ox3 <= 0) &&
+        (nblevel[nb.ni.ox3 + 2][nb.ni.ox2 + 1][nb.ni.ox1 + 1] >= mylevel)) {
       ku--;
+    }
   } else {
     kl = sk;
     ku = ek;
   }
+
   for (auto fc_pair : pmr->pvars_fc_) {
     FaceField *var_fc = std::get<0>(fc_pair);
     FaceField *coarse_fc = std::get<1>(fc_pair);
@@ -372,6 +379,7 @@ void BoundaryValues::ProlongateGhostCells(const NeighborBlock& nb,
     fsj = pmb->cellbounds.js(interior);
     fej = pmb->cellbounds.je(interior);
   }
+
   if (pmb->block_size.nx3 > 1) {
     fsk = (sk - ckb.s)*2 + pmb->cellbounds.ks(interior);
     fek = (ek - ckb.s)*2 + pmb->cellbounds.ks(interior) + 1;
@@ -387,8 +395,9 @@ void BoundaryValues::ProlongateGhostCells(const NeighborBlock& nb,
 
   // KGF: COUPLING OF QUANTITIES (must be manually specified)
   // calculate conservative variables
-  //pmb->peos->PrimitiveToConserved(ph->w, pf->bcc, ph->u, pmb->pcoord,
+  // pmb->peos->PrimitiveToConserved(ph->w, pf->bcc, ph->u, pmb->pcoord,
   //                                fsi, fei, fsj, fej, fsk, fek);
   return;
 }
-}
+
+} // namespace parthenon

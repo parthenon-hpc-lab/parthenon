@@ -11,44 +11,46 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef MULTISTAGE_HPP
-#define MULTISTAGE_HPP
+#ifndef DRIVER_MULTISTAGE_HPP_
+#define DRIVER_MULTISTAGE_HPP_
 
-#include <vector>
 #include <string>
+#include <vector>
 
 #include "driver/driver.hpp"
-#include "parameter_input.hpp"
 #include "mesh/mesh.hpp"
+#include "parameter_input.hpp"
 
 namespace parthenon {
 
 struct Integrator {
-    Integrator() = default;
-    Integrator(int nstages, std::vector<Real> beta) : _nstages(nstages), _beta(beta) {}
-    int _nstages;
-    std::vector<Real> _beta;
+  Integrator() = default;
+  Integrator(int nstages, std::vector<Real> beta) : nstages(nstages), beta(beta) {}
+  int nstages;
+  std::vector<Real> beta;
+  Real dt;
 };
 
 class MultiStageDriver : public EvolutionDriver {
-  public:
-    MultiStageDriver(ParameterInput *pin, Mesh *pm, Outputs *pout);
-    std::vector<std::string> stage_name;
-    Integrator *integrator;
-    ~MultiStageDriver() {
-      delete integrator;
-    }
-  private:
+ public:
+  MultiStageDriver(ParameterInput *pin, Mesh *pm);
+  std::vector<std::string> stage_name;
+  Integrator *integrator;
+  ~MultiStageDriver() { delete integrator; }
+
+ private:
 };
 
 class MultiStageBlockTaskDriver : public MultiStageDriver {
-  public:
-    MultiStageBlockTaskDriver(ParameterInput *pin, Mesh *pm, Outputs *pout) : MultiStageDriver(pin,pm,pout) {}
-    TaskListStatus Step();
-    virtual TaskList MakeTaskList(MeshBlock *pmb, int stage) = 0;
-
+ public:
+  MultiStageBlockTaskDriver(ParameterInput *pin, Mesh *pm) : MultiStageDriver(pin, pm) {}
+  TaskListStatus Step();
+  // An application driver that derives from this class must define this
+  // function, which defines the application specific list of tasks and
+  // there dependencies that must be executed.
+  virtual TaskList MakeTaskList(MeshBlock *pmb, int stage) = 0;
 };
 
 } // namespace parthenon
 
-#endif
+#endif // DRIVER_MULTISTAGE_HPP_

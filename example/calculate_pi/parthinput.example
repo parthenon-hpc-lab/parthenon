@@ -16,7 +16,7 @@
 # ========================================================================================
 
 <comment>
-problem = Calculate PI with AMR!
+problem = Calculate PI with AMR !
 
 <job>
 problem_id = pi_calculator
@@ -63,3 +63,6 @@ tlim = 1.0
 
 <Pi>
 radius = 1.5
+
+<graphics>
+variables = in_or_out

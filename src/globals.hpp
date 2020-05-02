@@ -21,8 +21,10 @@
 
 namespace parthenon {
 namespace Globals {
+
 extern int my_rank, nranks;
-}
-}
+
+} // namespace Globals
+} // namespace parthenon
 
 #endif // GLOBALS_HPP_

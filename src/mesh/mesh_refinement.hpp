@@ -19,26 +19,19 @@
 //! \file mesh_refinement.hpp
 //  \brief defines MeshRefinement class used for static/adaptive mesh refinement
 
-// C headers
-
-// C++ headers
 #include <tuple>
 #include <vector>
 
-// Athena++ headers
-#include "athena.hpp"         // Real
-#include "athena_arrays.hpp"  // AthenaArray
+#include "parthenon_mpi.hpp"
 
-// MPI headers
-#ifdef MPI_PARALLEL
-#include <mpi.h>
-#endif
+#include "athena.hpp"
+#include "parthenon_arrays.hpp"
 
 namespace parthenon {
+
 class MeshBlock;
 class ParameterInput;
 class Coordinates;
-struct FaceField;
 class BoundaryValues;
 
 //----------------------------------------------------------------------------------------
@@ -56,32 +49,32 @@ class MeshRefinement {
   ~MeshRefinement();
 
   // functions
-  void RestrictCellCenteredValues(const AthenaArray<Real> &fine,
-                                  AthenaArray<Real> &coarse, int sn, int en,
-                                  int csi, int cei, int csj, int cej, int csk, int cek);
-  void RestrictFieldX1(const AthenaArray<Real> &fine, AthenaArray<Real> &coarse,
-                       int csi, int cei, int csj, int cej, int csk, int cek);
-  void RestrictFieldX2(const AthenaArray<Real> &fine, AthenaArray<Real> &coarse,
-                       int csi, int cei, int csj, int cej, int csk, int cek);
-  void RestrictFieldX3(const AthenaArray<Real> &fine, AthenaArray<Real> &coarse,
-                       int csi, int cei, int csj, int cej, int csk, int cek);
-  void ProlongateCellCenteredValues(const AthenaArray<Real> &coarse,
-                                    AthenaArray<Real> &fine, int sn, int en,
-                                    int si, int ei, int sj, int ej, int sk, int ek);
-  void ProlongateSharedFieldX1(const AthenaArray<Real> &coarse, AthenaArray<Real> &fine,
+  void RestrictCellCenteredValues(const ParArrayND<Real> &fine, ParArrayND<Real> &coarse,
+                                  int sn, int en, int csi, int cei, int csj, int cej,
+                                  int csk, int cek);
+  void RestrictFieldX1(const ParArrayND<Real> &fine, ParArrayND<Real> &coarse, int csi,
+                       int cei, int csj, int cej, int csk, int cek);
+  void RestrictFieldX2(const ParArrayND<Real> &fine, ParArrayND<Real> &coarse, int csi,
+                       int cei, int csj, int cej, int csk, int cek);
+  void RestrictFieldX3(const ParArrayND<Real> &fine, ParArrayND<Real> &coarse, int csi,
+                       int cei, int csj, int cej, int csk, int cek);
+  void ProlongateCellCenteredValues(const ParArrayND<Real> &coarse,
+                                    ParArrayND<Real> &fine, int sn, int en, int si,
+                                    int ei, int sj, int ej, int sk, int ek);
+  void ProlongateSharedFieldX1(const ParArrayND<Real> &coarse, ParArrayND<Real> &fine,
                                int si, int ei, int sj, int ej, int sk, int ek);
-  void ProlongateSharedFieldX2(const AthenaArray<Real> &coarse, AthenaArray<Real> &fine,
+  void ProlongateSharedFieldX2(const ParArrayND<Real> &coarse, ParArrayND<Real> &fine,
                                int si, int ei, int sj, int ej, int sk, int ek);
-  void ProlongateSharedFieldX3(const AthenaArray<Real> &coarse, AthenaArray<Real> &fine,
+  void ProlongateSharedFieldX3(const ParArrayND<Real> &coarse, ParArrayND<Real> &fine,
                                int si, int ei, int sj, int ej, int sk, int ek);
-  void ProlongateInternalField(FaceField &fine,
-                               int si, int ei, int sj, int ej, int sk, int ek);
+  void ProlongateInternalField(FaceField &fine, int si, int ei, int sj, int ej, int sk,
+                               int ek);
   void CheckRefinementCondition();
-  void SetRefinement(int flag);
+  void SetRefinement(AmrTag flag);
 
   // setter functions for "enrolling" variable arrays in refinement via Mesh::AMR()
   // and/or in BoundaryValues::ProlongateBoundaries() (for SMR and AMR)
-  int AddToRefinement(AthenaArray<Real> *pvar_cc, AthenaArray<Real> *pcoarse_cc);
+  int AddToRefinement(ParArrayND<Real> pvar_cc, ParArrayND<Real> pcoarse_cc);
   int AddToRefinement(FaceField *pvar_fc, FaceField *pcoarse_fc);
 
  private:
@@ -89,15 +82,17 @@ class MeshRefinement {
   MeshBlock *pmy_block_;
   Coordinates *pcoarsec;
 
-  AthenaArray<Real> fvol_[2][2], sarea_x1_[2][2], sarea_x2_[2][3], sarea_x3_[3][2];
+  ParArrayND<Real> fvol_[2][2], sarea_x1_[2][2], sarea_x2_[2][3], sarea_x3_[3][2];
   int refine_flag_, neighbor_rflag_, deref_count_, deref_threshold_;
 
   // functions
   AMRFlagFunc AMRFlag_; // duplicate of Mesh class member
 
   // tuples of references to AMR-enrolled arrays (quantity, coarse_quantity)
-  std::vector<std::tuple<AthenaArray<Real> *, AthenaArray<Real> *>> pvars_cc_;
+  std::vector<std::tuple<ParArrayND<Real>, ParArrayND<Real>>> pvars_cc_;
   std::vector<std::tuple<FaceField *, FaceField *>> pvars_fc_;
 };
-}
+
+} // namespace parthenon
+
 #endif // MESH_MESH_REFINEMENT_HPP_
