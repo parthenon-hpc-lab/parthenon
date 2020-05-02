@@ -171,6 +171,12 @@ class MeshBlock {
     parthenon::par_for(name, exec_space, nl, nu, kl, ku, jl, ju, il, iu, function);
   }
 
+  const Real GetVolume() { return cell_volume_; }
+  const std::array<Real, 3> GetDx() { return dx_; }
+  const Real GetDx(const int dir) { return dx_[dir]; }
+  const std::array<Real, 3> GetArea() { return area_; }
+  const Real GetArea(const int dir) { return area_[dir]; }
+
   std::size_t GetBlockSizeInBytes();
   int GetNumberOfMeshBlockCells() {
     return block_size.nx1 * block_size.nx2 * block_size.nx3;
@@ -201,6 +207,8 @@ class MeshBlock {
       new_block_dt_user_;
   std::vector<std::shared_ptr<CellVariable<Real>>> vars_cc_;
   std::vector<std::shared_ptr<FaceField>> vars_fc_;
+  const std::array<Real, 3> dx_, area_;
+  const Real cell_volume_;
 
   // functions
   void SetCostForLoadBalancing(double cost);

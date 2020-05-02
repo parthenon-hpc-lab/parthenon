@@ -188,6 +188,7 @@ Real EstimateTimestep(Container<Real> &rc) {
   ParArrayND<Real> dx3("dx3", pmb->ncells1);
 
   // this is obviously overkill for this constant velocity problem
+  const auto& dx = pmb->GetDx();
   for (int k = ks; k <= ke; k++) {
     for (int j = js; j <= je; j++) {
       pmb->pcoord->CenterWidth1(k, j, is, ie, dx1);
