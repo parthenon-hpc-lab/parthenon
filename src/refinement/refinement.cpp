@@ -31,7 +31,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   int numcrit = 0;
   while (true) {
-    std::string block_name = "Refinement" + std::to_string(numcrit);
+    std::string block_name = "parthenon/refinement" + std::to_string(numcrit);
     if (!pin->DoesBlockExist(block_name)) {
       break;
     }
@@ -51,7 +51,7 @@ AmrTag CheckAllRefinement(Container<Real> &rc) {
   //   delta_level = 1  => recommend refinement
   // NOTE: recommendations from this routine are NOT always followed because
   //    1) the code will not refine more than the global maximum level defined in
-  //       <mesh>/numlevel in the input
+  //       <parthenon/mesh>/numlevel in the input
   //    2) the code must maintain proper nesting, which sometimes means a block that is
   //       tagged as "derefine" must be left alone (or possibly refined?) because of
   //       neighboring blocks.  Similarly for "do nothing"

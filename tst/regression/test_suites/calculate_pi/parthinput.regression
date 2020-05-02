@@ -15,11 +15,15 @@
 #  the public, perform publicly and display publicly, and to permit others to do so.
 # ========================================================================================
 
-<parthenon/job>
+<comment>
+problem = Calculate PI with AMR !
+
+<job>
 problem_id = pi_calculator
 
-<parthenon/mesh>
+<mesh>
 refinement = adaptive
+num_threads = 4
 numlevel = 5
 
 nx1 = 64
@@ -38,21 +42,28 @@ nx3 = 1
 x3min = -0.5
 x3max = 0.5
 
-<parthenon/meshblock>
+<meshblock>
 nx1 = 8
 nx2 = 8
 nx3 = 1
 
-<parthenon/refinement0>
+<Refinement0>
 field = in_or_out               # the name of the variable we want to refine on
 method = derivative_order_1     # selects the first derivative method
 refine_tol = 0.5                # tag for refinement if |(dfield/dx)/field| > refine_tol
 derefine_tol = 0.05             # tag for derefinement if |(dfield/dx)/field| < derefine_tol
 max_level = 2                   # if set, limits refinement level from this criteria to no greater than max_level
 
+<output1>
+file_type = hdf5
+dt = 1.0
+variable = prim
+
+<time>
+tlim = 1.0
+
 <Pi>
 radius = 1.5
 
-<parthenon/output0>
-file_type = hdf5
+<graphics>
 variables = in_or_out
