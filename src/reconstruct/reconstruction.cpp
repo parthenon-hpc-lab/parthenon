@@ -278,7 +278,7 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin)
         c5j(j) = 1.0 / 6.0;
         c6j(j) = -1.0 / 6.0;
       }
-    }   // end 2D or 3D
+    } // end 2D or 3D
 
     // Precompute PPM coefficients in x3-direction
     if (pmb->block_size.nx3 > 1) {

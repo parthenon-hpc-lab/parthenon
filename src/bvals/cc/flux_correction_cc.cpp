@@ -59,9 +59,9 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
           for (int nn = nl_; nn <= nu_; nn++) {
             for (int k = pmb->ks; k <= pmb->ke; k += 2) {
               for (int j = pmb->js; j <= pmb->je; j += 2) {
-                sbuf[p++] =
-                    (x1flux(nn, k, j, i) + x1flux(nn, k, j + 1, i) +
-                     x1flux(nn, k + 1, j, i) + x1flux(nn, k + 1, j + 1, i)) / 4.0;
+                sbuf[p++] = (x1flux(nn, k, j, i) + x1flux(nn, k, j + 1, i) +
+                             x1flux(nn, k + 1, j, i) + x1flux(nn, k + 1, j + 1, i)) /
+                            4.0;
               }
             }
           }
@@ -69,8 +69,7 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
           int k = pmb->ks;
           for (int nn = nl_; nn <= nu_; nn++) {
             for (int j = pmb->js; j <= pmb->je; j += 2) {
-              sbuf[p++] =
-                  (x1flux(nn, k, j, i) + x1flux(nn, k, j + 1, i)) / 2.0;
+              sbuf[p++] = (x1flux(nn, k, j, i) + x1flux(nn, k, j + 1, i)) / 2.0;
             }
           }
         } else { // 1D
@@ -85,10 +84,9 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
           for (int nn = nl_; nn <= nu_; nn++) {
             for (int k = pmb->ks; k <= pmb->ke; k += 2) {
               for (int i = pmb->is; i <= pmb->ie; i += 2) {
-                sbuf[p++] = (x2flux(nn, k, j, i) +
-                             x2flux(nn, k, j, i + 1) +
-                             x2flux(nn, k + 1, j, i) +
-                             x2flux(nn, k + 1, j, i + 1)) / 4.0;
+                sbuf[p++] = (x2flux(nn, k, j, i) + x2flux(nn, k, j, i + 1) +
+                             x2flux(nn, k + 1, j, i) + x2flux(nn, k + 1, j, i + 1)) /
+                            4.0;
               }
             }
           }
@@ -96,8 +94,7 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
           int k = pmb->ks;
           for (int nn = nl_; nn <= nu_; nn++) {
             for (int i = pmb->is; i <= pmb->ie; i += 2) {
-              sbuf[p++] = (x2flux(nn, k, j, i) +
-                           x2flux(nn, k, j, i + 1)) / 2.0;
+              sbuf[p++] = (x2flux(nn, k, j, i) + x2flux(nn, k, j, i + 1)) / 2.0;
             }
           }
         }
@@ -107,10 +104,9 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
         for (int nn = nl_; nn <= nu_; nn++) {
           for (int j = pmb->js; j <= pmb->je; j += 2) {
             for (int i = pmb->is; i <= pmb->ie; i += 2) {
-              sbuf[p++] = (x3flux(nn, k, j, i) +
-                           x3flux(nn, k, j, i + 1) +
-                           x3flux(nn, k, j + 1, i) +
-                           x3flux(nn, k, j + 1, i + 1)) / 4.0;
+              sbuf[p++] = (x3flux(nn, k, j, i) + x3flux(nn, k, j, i + 1) +
+                           x3flux(nn, k, j + 1, i) + x3flux(nn, k, j + 1, i + 1)) /
+                          4.0;
             }
           }
         }

@@ -46,14 +46,14 @@ TaskStatus FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
       KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
         dudt(l, k, j, i) = 0.0;
         dudt(l, k, j, i) +=
-          area[0]*(vin.flux(0, l, k, j, i + 1) - vin.flux(0, l, k, j, i));
+            area[0] * (vin.flux(0, l, k, j, i + 1) - vin.flux(0, l, k, j, i));
         if (ndim >= 2) {
           dudt(l, k, j, i) +=
-            area[1]*(vin.flux(1, l, k, j + 1, i) - vin.flux(1, l, k, j, i));
+              area[1] * (vin.flux(1, l, k, j + 1, i) - vin.flux(1, l, k, j, i));
         }
         if (ndim == 3) {
           dudt(l, k, j, i) +=
-            area[2]*(vin.flux(2, l, k + 1, j, i) - vin.flux(2, l, k, j, i));
+              area[2] * (vin.flux(2, l, k + 1, j, i) - vin.flux(2, l, k, j, i));
         }
         dudt(l, k, j, i) /= -cell_volume;
       });

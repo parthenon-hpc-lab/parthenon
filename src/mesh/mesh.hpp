@@ -176,7 +176,6 @@ class MeshBlock {
   const Real GetArea(const int dir) { return coords.GetArea(dir); }
   const std::array<Real, 3> GetXmin() { return coords.GetXmin(); }
 
-
   std::size_t GetBlockSizeInBytes();
   int GetNumberOfMeshBlockCells() {
     return block_size.nx1 * block_size.nx2 * block_size.nx3;

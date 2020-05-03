@@ -192,8 +192,8 @@ void Reconstruction::PiecewiseParabolicX1(const int k, const int j, const int il
       if (SIGN(qa) == SIGN(qb) && SIGN(qa) == SIGN(qc) && SIGN(qa) == SIGN(qd)) {
         // Extrema is smooth
         qe = SIGN(qd) * std::min(std::min(C2 * std::abs(qa), C2 * std::abs(qb)),
-                                  std::min(C2 * std::abs(qc),
-                                         std::abs(qd))); // (CS eq 22)
+                                 std::min(C2 * std::abs(qc),
+                                          std::abs(qd))); // (CS eq 22)
       }
 
       // Check if 2nd derivative is close to roundoff error
@@ -355,7 +355,7 @@ void Reconstruction::PiecewiseParabolicX2(const int k, const int j, const int il
       Real qd = 0.0;
       if (SIGN(qa) == SIGN(qb) && SIGN(qa) == SIGN(qc)) {
         qd = SIGN(qa) *
-            std::min(C2 * std::abs(qb), std::min(C2 * std::abs(qc), std::abs(qa)));
+             std::min(C2 * std::abs(qb), std::min(C2 * std::abs(qc), std::abs(qa)));
       }
       Real dphjp1_tmp = 0.5 * (q_j(n, i) + q_jp1(n, i)) - qd / 6.0;
       if (qa_tmp * qb_tmp < 0.0) { // Local extrema detected at j+1/2 face
@@ -398,9 +398,8 @@ void Reconstruction::PiecewiseParabolicX2(const int k, const int j, const int il
       Real qe = 0.0;
       if (SIGN(qa) == SIGN(qb) && SIGN(qa) == SIGN(qc) && SIGN(qa) == SIGN(qd)) {
         // Extrema is smooth
-        qe = SIGN(qd) *
-             std::min(std::min(C2 * std::abs(qa), C2 * std::abs(qb)),
-                      std::min(C2 * std::abs(qc), std::abs(qd))); // (CS eq 22)
+        qe = SIGN(qd) * std::min(std::min(C2 * std::abs(qa), C2 * std::abs(qb)),
+                                 std::min(C2 * std::abs(qc), std::abs(qd))); // (CS eq 22)
       }
 
       // Check if 2nd derivative is close to roundoff error
@@ -606,9 +605,8 @@ void Reconstruction::PiecewiseParabolicX3(const int k, const int j, const int il
       Real qe = 0.0;
       if (SIGN(qa) == SIGN(qb) && SIGN(qa) == SIGN(qc) && SIGN(qa) == SIGN(qd)) {
         // Extrema is smooth
-        qe = SIGN(qd) *
-             std::min(std::min(C2 * std::abs(qa), C2 * std::abs(qb)),
-                      std::min(C2 * std::abs(qc), std::abs(qd))); // (CS eq 22)
+        qe = SIGN(qd) * std::min(std::min(C2 * std::abs(qa), C2 * std::abs(qb)),
+                                 std::min(C2 * std::abs(qc), std::abs(qd))); // (CS eq 22)
       }
 
       // Check if 2nd derivative is close to roundoff error

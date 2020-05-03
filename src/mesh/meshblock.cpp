@@ -84,8 +84,7 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
     : exec_space(DevExecSpace()), pmy_mesh(pm), loc(iloc), block_size(input_block),
       gid(igid), lid(ilid), gflag(igflag), properties(properties), packages(packages),
       prev(nullptr), next(nullptr), new_block_dt_{}, new_block_dt_hyperbolic_{},
-      new_block_dt_parabolic_{}, new_block_dt_user_{},
-      cost_(1.0) {
+      new_block_dt_parabolic_{}, new_block_dt_user_{}, cost_(1.0) {
   // initialize grid indices
   is = NGHOST;
   ie = is + block_size.nx1 - 1;
@@ -114,11 +113,11 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
     ncc3 = 1;
   }
 
-  std::array<Real, 3> dx({(input_block.x1max-input_block.x1min)/input_block.nx1,
-                          (input_block.x2max-input_block.x2min)/input_block.nx2,
-                          (input_block.x3max-input_block.x3min)/input_block.nx3});
-  coords = Coordinates({block_size.x1min, block_size.x2min, block_size.x3min},
-                        dx, {is, js, ks});
+  std::array<Real, 3> dx({(input_block.x1max - input_block.x1min) / input_block.nx1,
+                          (input_block.x2max - input_block.x2min) / input_block.nx2,
+                          (input_block.x3max - input_block.x3min) / input_block.nx3});
+  coords = Coordinates({block_size.x1min, block_size.x2min, block_size.x3min}, dx,
+                       {is, js, ks});
 
   Container<Real> &real_container = real_containers.Get();
 

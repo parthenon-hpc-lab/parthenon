@@ -473,7 +473,7 @@ bool OutputType::SliceOutputData(MeshBlock *pmb, int dim) {
     if (output_params.x1_slice >= pmb->block_size.x1min &&
         output_params.x1_slice < pmb->block_size.x1max) {
       for (int i = pmb->is + 1; i <= pmb->ie + 1; ++i) {
-        Real x = xmin[0] + (i-pmb->is)*dx[0];
+        Real x = xmin[0] + (i - pmb->is) * dx[0];
         if (x > output_params.x1_slice) {
           islice = i - 1;
           output_params.islice = islice;
@@ -487,7 +487,7 @@ bool OutputType::SliceOutputData(MeshBlock *pmb, int dim) {
     if (output_params.x2_slice >= pmb->block_size.x2min &&
         output_params.x2_slice < pmb->block_size.x2max) {
       for (int j = pmb->js + 1; j <= pmb->je + 1; ++j) {
-        Real y = xmin[1] + (j-pmb->js)*dx[1];
+        Real y = xmin[1] + (j - pmb->js) * dx[1];
         if (y > output_params.x2_slice) {
           jslice = j - 1;
           output_params.jslice = jslice;
@@ -501,7 +501,7 @@ bool OutputType::SliceOutputData(MeshBlock *pmb, int dim) {
     if (output_params.x3_slice >= pmb->block_size.x3min &&
         output_params.x3_slice < pmb->block_size.x3max) {
       for (int k = pmb->ks + 1; k <= pmb->ke + 1; ++k) {
-        Real z = xmin[2] + (k-pmb->ks)*dx[2];
+        Real z = xmin[2] + (k - pmb->ks) * dx[2];
         if (z > output_params.x3_slice) {
           kslice = k - 1;
           output_params.kslice = kslice;

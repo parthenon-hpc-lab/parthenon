@@ -91,8 +91,7 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
       lb_flag_(true), lb_automatic_(),
       lb_manual_(), MeshGenerator_{UniformMeshGeneratorX1, UniformMeshGeneratorX2,
                                    UniformMeshGeneratorX3},
-      AMRFlag_{},
-      UserSourceTerm_{}, UserTimeStep_{} {
+      AMRFlag_{}, UserSourceTerm_{}, UserTimeStep_{} {
   std::stringstream msg;
   RegionSize block_size;
   MeshBlock *pfirst{};

@@ -185,7 +185,7 @@ Real EstimateTimestep(Container<Real> &rc) {
   Real min_dt = std::numeric_limits<Real>::max();
 
   // this is obviously overkill for this constant velocity problem
-  const auto& dx = pmb->GetDx();
+  const auto &dx = pmb->GetDx();
   for (int k = ks; k <= ke; k++) {
     for (int j = js; j <= je; j++) {
       for (int i = is; i <= ie; i++) {
