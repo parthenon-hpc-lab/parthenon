@@ -144,9 +144,6 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
   pbval = std::make_unique<BoundaryValues>(this, input_bcs, pin);
   pbval->SetBoundaryFlags(boundary_flag);
 
-  // Coordinates
-  pcoord = std::make_unique<Cartesian>(this, pin, false);
-
   // Set the block for containers
   real_container.setBlock(this);
 
@@ -254,9 +251,6 @@ MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
 
   // Boundary
   pbval = std::make_unique<BoundaryValues>(this, input_bcs, pin);
-
-  // Coordinates
-  pcoord = std::make_unique<Cartesian>(this, pin, false);
 
   // Reconstruction (constructor may implicitly depend on Coordinates)
   precon = std::make_unique<Reconstruction>(this, pin);

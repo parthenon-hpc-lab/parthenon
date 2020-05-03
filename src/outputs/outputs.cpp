@@ -467,13 +467,15 @@ bool OutputType::TransformOutputData(MeshBlock *pmb) {
 
 bool OutputType::SliceOutputData(MeshBlock *pmb, int dim) {
   int islice(0), jslice(0), kslice(0);
-
+  auto dx = pmb->GetDx();
+  auto xmin = pmb->GetXmin();
   // Compute i,j,k indices of slice; check if in range of data in this block
   if (dim == 1) {
     if (output_params.x1_slice >= pmb->block_size.x1min &&
         output_params.x1_slice < pmb->block_size.x1max) {
       for (int i = pmb->is + 1; i <= pmb->ie + 1; ++i) {
-        if (pmb->pcoord->x1f(i) > output_params.x1_slice) {
+        Real x = xmin[0] + (i-pmb->is)*dx[0];
+        if (x > output_params.x1_slice) {
           islice = i - 1;
           output_params.islice = islice;
           break;
@@ -486,7 +488,8 @@ bool OutputType::SliceOutputData(MeshBlock *pmb, int dim) {
     if (output_params.x2_slice >= pmb->block_size.x2min &&
         output_params.x2_slice < pmb->block_size.x2max) {
       for (int j = pmb->js + 1; j <= pmb->je + 1; ++j) {
-        if (pmb->pcoord->x2f(j) > output_params.x2_slice) {
+        Real y = xmin[1] + (j-pmb->js)*dx[1];
+        if (y > output_params.x2_slice) {
           jslice = j - 1;
           output_params.jslice = jslice;
           break;
@@ -499,7 +502,8 @@ bool OutputType::SliceOutputData(MeshBlock *pmb, int dim) {
     if (output_params.x3_slice >= pmb->block_size.x3min &&
         output_params.x3_slice < pmb->block_size.x3max) {
       for (int k = pmb->ks + 1; k <= pmb->ke + 1; ++k) {
-        if (pmb->pcoord->x3f(k) > output_params.x3_slice) {
+        Real z = xmin[2] + (k-pmb->ks)*dx[2];
+        if (z > output_params.x3_slice) {
           kslice = k - 1;
           output_params.kslice = kslice;
           break;
@@ -641,13 +645,5 @@ void OutputType::SumOutputData(MeshBlock *pmb, int dim) {
   }
   return;
 }
-
-//----------------------------------------------------------------------------------------
-//! \fn void OutputType::CalculateCartesianVector(ParArrayND<Real> &src,
-//                                ParArrayND<Real> &dst, Coordinates *pco)
-//  \brief Convert vectors in curvilinear coordinates into Cartesian
-
-void OutputType::CalculateCartesianVector(ParArrayND<Real> &src, ParArrayND<Real> &dst,
-                                          Coordinates *pco) {}
 
 } // namespace parthenon

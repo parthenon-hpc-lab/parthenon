@@ -183,21 +183,15 @@ Real EstimateTimestep(Container<Real> &rc) {
   int ke = pmb->ke;
 
   Real min_dt = std::numeric_limits<Real>::max();
-  ParArrayND<Real> dx1("dx1", pmb->ncells1);
-  ParArrayND<Real> dx2("dx2", pmb->ncells1);
-  ParArrayND<Real> dx3("dx3", pmb->ncells1);
 
   // this is obviously overkill for this constant velocity problem
   const auto& dx = pmb->GetDx();
   for (int k = ks; k <= ke; k++) {
     for (int j = js; j <= je; j++) {
-      pmb->pcoord->CenterWidth1(k, j, is, ie, dx1);
-      pmb->pcoord->CenterWidth2(k, j, is, ie, dx2);
-      pmb->pcoord->CenterWidth3(k, j, is, ie, dx3);
       for (int i = is; i <= ie; i++) {
-        min_dt = std::min(min_dt, dx1(i) / std::abs(vx));
-        min_dt = std::min(min_dt, dx2(i) / std::abs(vy));
-        min_dt = std::min(min_dt, dx3(i) / std::abs(vz));
+        min_dt = std::min(min_dt, dx[0] / std::abs(vx));
+        min_dt = std::min(min_dt, dx[1] / std::abs(vy));
+        min_dt = std::min(min_dt, dx[2] / std::abs(vz));
       }
     }
   }

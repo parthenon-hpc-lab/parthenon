@@ -108,8 +108,6 @@ class OutputType {
   bool TransformOutputData(MeshBlock *pmb);
   bool SliceOutputData(MeshBlock *pmb, int dim);
   void SumOutputData(MeshBlock *pmb, int dim);
-  void CalculateCartesianVector(ParArrayND<Real> &src, ParArrayND<Real> &dst,
-                                Coordinates *pco);
   // following pure virtual function must be implemented in all derived classes
   virtual void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) = 0;
   virtual void WriteContainer(SimTime &tm, Mesh *pm, ParameterInput *pin, bool flag) {

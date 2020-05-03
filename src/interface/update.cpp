@@ -35,30 +35,28 @@ TaskStatus FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
   int ie = pmb->ie;
   int je = pmb->je;
   int ke = pmb->ke;
+  auto area = pmb->GetArea();
+  auto cell_volume = pmb->GetVolume();
 
   auto vin = PackVariablesAndFluxes<Real>(in, {Metadata::Independent});
   auto dudt = PackVariables<Real>(dudt_cont, {Metadata::Independent});
 
-  auto pc = pmb->pcoord.get();
   int ndim = pmb->pmy_mesh->ndim;
-  // ParArrayND<Real> du("du", pmb->ncells1);
   par_for(
       "flux divergence", DevExecSpace(), 0, vin.GetDim(4) - 1, ks, ke, js, je, is, ie,
       KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
         dudt(l, k, j, i) = 0.0;
-        dudt(l, k, j, i) += (pc->GetFace1Area(k, j, i + 1) * vin.flux(0, l, k, j, i + 1) -
-                             pc->GetFace1Area(k, j, i) * vin.flux(0, l, k, j, i));
+        dudt(l, k, j, i) +=
+          area[0]*(vin.flux(0, l, k, j, i + 1) - vin.flux(0, l, k, j, i));
         if (ndim >= 2) {
           dudt(l, k, j, i) +=
-              (pc->GetFace2Area(k, j + 1, i) * vin.flux(1, l, k, j + 1, i) -
-               pc->GetFace2Area(k, j, i) * vin.flux(1, l, k, j, i));
+            area[1]*(vin.flux(1, l, k, j + 1, i) - vin.flux(1, l, k, j, i));
         }
         if (ndim == 3) {
           dudt(l, k, j, i) +=
-              (pc->GetFace3Area(k + 1, j, i) * vin.flux(2, l, k + 1, j, i) -
-               pc->GetFace3Area(k, j, i) * vin.flux(2, l, k, j, i));
+            area[2]*(vin.flux(2, l, k + 1, j, i) - vin.flux(2, l, k, j, i));
         }
-        dudt(l, k, j, i) /= -pc->GetCellVolume(k, j, i);
+        dudt(l, k, j, i) /= -cell_volume;
       });
 
   return TaskStatus::complete;

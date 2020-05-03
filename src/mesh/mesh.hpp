@@ -122,7 +122,6 @@ class MeshBlock {
 
   // mesh-related objects
   // TODO(jcd): remove all these?
-  std::unique_ptr<Coordinates> pcoord;
   std::unique_ptr<BoundaryValues> pbval;
   std::unique_ptr<MeshRefinement> pmr;
   std::unique_ptr<Reconstruction> precon;
@@ -176,6 +175,13 @@ class MeshBlock {
   const Real GetDx(const int dir) { return dx_[dir]; }
   const std::array<Real, 3> GetArea() { return area_; }
   const Real GetArea(const int dir) { return area_[dir]; }
+  const Real x1v(const int i) { return block_size.x1min + (i-is+0.5)*dx_[0]; }
+  const Real x2v(const int j) { return block_size.x2min + (j-js+0.5)*dx_[1]; }
+  const Real x3v(const int k) { return block_size.x3min + (k-ks+0.5)*dx_[2]; }
+  const std::array<Real, 3> GetXmin() { 
+    return {block_size.x1min, block_size.x2min, block_size.x3min};
+  }
+
 
   std::size_t GetBlockSizeInBytes();
   int GetNumberOfMeshBlockCells() {

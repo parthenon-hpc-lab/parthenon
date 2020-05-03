@@ -46,7 +46,6 @@ class MeshRefinement {
 
  public:
   MeshRefinement(MeshBlock *pmb, ParameterInput *pin);
-  ~MeshRefinement();
 
   // functions
   void RestrictCellCenteredValues(const ParArrayND<Real> &fine, ParArrayND<Real> &coarse,
@@ -80,7 +79,6 @@ class MeshRefinement {
  private:
   // data
   MeshBlock *pmy_block_;
-  Coordinates *pcoarsec;
 
   ParArrayND<Real> fvol_[2][2], sarea_x1_[2][2], sarea_x2_[2][3], sarea_x3_[3][2];
   int refine_flag_, neighbor_rflag_, deref_count_, deref_threshold_;

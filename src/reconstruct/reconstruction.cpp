@@ -109,9 +109,10 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin)
           << "x3rat= " << pmb->block_size.x3rat << std::endl;
       ATHENA_ERROR(msg);
     }
-    Real &dx_i = pmb->pcoord->dx1f(pmb->is);
-    Real &dx_j = pmb->pcoord->dx2f(pmb->js);
-    Real &dx_k = pmb->pcoord->dx3f(pmb->ks);
+    auto dx = pmb->GetDx();
+    Real &dx_i = dx[0];
+    Real &dx_j = dx[1];
+    Real &dx_k = dx[2];
     // Note, probably want to make the following condition less strict (signal warning
     // for small differences due to floating-point issues) but upgrade to error for
     // large deviations from a square mesh. Currently signals a warning for each
@@ -184,7 +185,6 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin)
   scr4_ni_ = ParArrayND<Real>(PARARRAY_TEMP, NWAVE, nc1);
 
   if ((xorder == 3) || (xorder == 4)) {
-    auto &pco = pmb->pcoord;
     scr03_i_ = ParArrayND<Real>(PARARRAY_TEMP, nc1);
     scr04_i_ = ParArrayND<Real>(PARARRAY_TEMP, nc1);
     scr05_i_ = ParArrayND<Real>(PARARRAY_TEMP, nc1);
@@ -235,40 +235,16 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin)
       hminus_ratio_i(i) = 2.0;
     }
     // 4th order reconstruction weights along Cartesian-like x1 w/ uniform spacing
-    if (uniform[X1DIR]) {
 #pragma omp simd
-      for (int i = (pmb->is) - NGHOST; i <= (pmb->ie) + NGHOST; ++i) {
-        // reducing general formula in ppm.cpp corresonds to Mignone eq B.4 weights:
-        // (-1/12, 7/12, 7/12, -1/12)
-        c1i(i) = 0.5;
-        c2i(i) = 0.5;
-        c3i(i) = 0.5;
-        c4i(i) = 0.5;
-        c5i(i) = 1.0 / 6.0;
-        c6i(i) = -1.0 / 6.0;
-      }
-    } else { // coeffcients along Cartesian-like x1 with nonuniform mesh spacing
-#pragma omp simd
-      for (int i = (pmb->is) - NGHOST + 1; i <= (pmb->ie) + NGHOST - 1; ++i) {
-        Real &dx_im1 = pco->dx1f(i - 1);
-        Real &dx_i = pco->dx1f(i);
-        Real &dx_ip1 = pco->dx1f(i + 1);
-        Real qe = dx_i / (dx_im1 + dx_i + dx_ip1); // Outermost coeff in CW eq 1.7
-        c1i(i) = qe * (2.0 * dx_im1 + dx_i) / (dx_ip1 + dx_i); // First term in CW eq 1.7
-        c2i(i) = qe * (2.0 * dx_ip1 + dx_i) / (dx_im1 + dx_i); // Second term in CW eq 1.7
-        if (i > (pmb->is) - NGHOST + 1) { // c3-c6 are not computed in first iteration
-          Real &dx_im2 = pco->dx1f(i - 2);
-          Real qa = dx_im2 + dx_im1 + dx_i + dx_ip1;
-          Real qb = dx_im1 / (dx_im1 + dx_i);
-          Real qc = (dx_im2 + dx_im1) / (2.0 * dx_im1 + dx_i);
-          Real qd = (dx_ip1 + dx_i) / (2.0 * dx_i + dx_im1);
-          qb = qb + 2.0 * dx_i * qb / qa * (qc - qd);
-          c3i(i) = 1.0 - qb;
-          c4i(i) = qb;
-          c5i(i) = dx_i / qa * qd;
-          c6i(i) = -dx_im1 / qa * qc;
-        }
-      }
+    for (int i = (pmb->is) - NGHOST; i <= (pmb->ie) + NGHOST; ++i) {
+      // reducing general formula in ppm.cpp corresonds to Mignone eq B.4 weights:
+      // (-1/12, 7/12, 7/12, -1/12)
+      c1i(i) = 0.5;
+      c2i(i) = 0.5;
+      c3i(i) = 0.5;
+      c4i(i) = 0.5;
+      c5i(i) = 1.0 / 6.0;
+      c6i(i) = -1.0 / 6.0;
     }
 
     // Precompute PPM coefficients in x2-direction ---------------------------------------
@@ -293,42 +269,15 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin)
         hminus_ratio_j(j) = 2.0;
       }
       // 4th order reconstruction weights along Cartesian-like x2 w/ uniform spacing
-      if (uniform[X2DIR]) {
 #pragma omp simd
-        for (int j = (pmb->js) - NGHOST; j <= (pmb->je) + NGHOST; ++j) {
-          c1j(j) = 0.5;
-          c2j(j) = 0.5;
-          c3j(j) = 0.5;
-          c4j(j) = 0.5;
-          c5j(j) = 1.0 / 6.0;
-          c6j(j) = -1.0 / 6.0;
-        }
-      } else { // coeffcients along Cartesian-like x2 with nonuniform mesh spacing
-#pragma omp simd
-        for (int j = (pmb->js) - NGHOST + 2; j <= (pmb->je) + NGHOST - 1; ++j) {
-          Real &dx_jm1 = pco->dx2f(j - 1);
-          Real &dx_j = pco->dx2f(j);
-          Real &dx_jp1 = pco->dx2f(j + 1);
-          Real qe = dx_j / (dx_jm1 + dx_j + dx_jp1); // Outermost coeff in CW eq 1.7
-          c1j(j) =
-              qe * (2.0 * dx_jm1 + dx_j) / (dx_jp1 + dx_j); // First term in CW eq 1.7
-          c2j(j) =
-              qe * (2.0 * dx_jp1 + dx_j) / (dx_jm1 + dx_j); // Second term in CW eq 1.7
-
-          if (j > (pmb->js) - NGHOST + 1) { // c3-c6 are not computed in first iteration
-            Real &dx_jm2 = pco->dx2f(j - 2);
-            Real qa = dx_jm2 + dx_jm1 + dx_j + dx_jp1;
-            Real qb = dx_jm1 / (dx_jm1 + dx_j);
-            Real qc = (dx_jm2 + dx_jm1) / (2.0 * dx_jm1 + dx_j);
-            Real qd = (dx_jp1 + dx_j) / (2.0 * dx_j + dx_jm1);
-            qb = qb + 2.0 * dx_j * qb / qa * (qc - qd);
-            c3j(j) = 1.0 - qb;
-            c4j(j) = qb;
-            c5j(j) = dx_j / qa * qd;
-            c6j(j) = -dx_jm1 / qa * qc;
-          }
-        }
-      } // end nonuniform Cartesian-like
+      for (int j = (pmb->js) - NGHOST; j <= (pmb->je) + NGHOST; ++j) {
+        c1j(j) = 0.5;
+        c2j(j) = 0.5;
+        c3j(j) = 0.5;
+        c4j(j) = 0.5;
+        c5j(j) = 1.0 / 6.0;
+        c6j(j) = -1.0 / 6.0;
+      }
     }   // end 2D or 3D
 
     // Precompute PPM coefficients in x3-direction
@@ -344,51 +293,14 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin)
       hminus_ratio_k = ParArrayND<Real>(PARARRAY_TEMP, nc3);
 
       // reconstruction coeffiencients in x3, Cartesian-like coordinate:
-      if (uniform[X3DIR]) { // uniform spacing
 #pragma omp simd
-        for (int k = (pmb->ks) - NGHOST; k <= (pmb->ke) + NGHOST; ++k) {
-          c1k(k) = 0.5;
-          c2k(k) = 0.5;
-          c3k(k) = 0.5;
-          c4k(k) = 0.5;
-          c5k(k) = 1.0 / 6.0;
-          c6k(k) = -1.0 / 6.0;
-        }
-
-      } else { // nonuniform spacing
-#pragma omp simd
-        for (int k = (pmb->ks) - NGHOST + 2; k <= (pmb->ke) + NGHOST - 1; ++k) {
-          Real &dx_km1 = pco->dx3f(k - 1);
-          Real &dx_k = pco->dx3f(k);
-          Real &dx_kp1 = pco->dx3f(k + 1);
-          Real qe = dx_k / (dx_km1 + dx_k + dx_kp1); // Outermost coeff in CW eq 1.7
-          c1k(k) =
-              qe * (2.0 * dx_km1 + dx_k) / (dx_kp1 + dx_k); // First term in CW eq 1.7
-          c2k(k) =
-              qe * (2.0 * dx_kp1 + dx_k) / (dx_km1 + dx_k); // Second term in CW eq 1.7
-
-          if (k > (pmb->ks) - NGHOST + 1) { // c3-c6 are not computed in first iteration
-            Real &dx_km2 = pco->dx3f(k - 2);
-            Real qa = dx_km2 + dx_km1 + dx_k + dx_kp1;
-            Real qb = dx_km1 / (dx_km1 + dx_k);
-            Real qc = (dx_km2 + dx_km1) / (2.0 * dx_km1 + dx_k);
-            Real qd = (dx_kp1 + dx_k) / (2.0 * dx_k + dx_km1);
-            qb = qb + 2.0 * dx_k * qb / qa * (qc - qd);
-            c3k(k) = 1.0 - qb;
-            c4k(k) = qb;
-            c5k(k) = dx_k / qa * qd;
-            c6k(k) = -dx_km1 / qa * qc;
-          }
-        }
-        // Compute geometric factors for x3 limiter (Mignone eq 48)
-        // (no curvilinear corrections in x3)
-        for (int k = (pmb->ks) - 1; k <= (pmb->ke) + 1; ++k) {
-          // h_plus = 3.0;
-          // h_minus = 3.0;
-          // Ratios are both = 2 for Cartesian and all curviliniear coords
-          hplus_ratio_k(k) = 2.0;
-          hminus_ratio_k(k) = 2.0;
-        }
+      for (int k = (pmb->ks) - NGHOST; k <= (pmb->ke) + NGHOST; ++k) {
+        c1k(k) = 0.5;
+        c2k(k) = 0.5;
+        c3k(k) = 0.5;
+        c4k(k) = 0.5;
+        c5k(k) = 1.0 / 6.0;
+        c6k(k) = -1.0 / 6.0;
       }
     }
     for (int i = 0; i < kNrows; ++i) {

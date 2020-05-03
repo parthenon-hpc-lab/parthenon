@@ -107,74 +107,59 @@ void Reconstruction::PiecewiseParabolicX1(const int k, const int j, const int il
 
     //--- Step 2a. -----------------------------------------------------------------------
     // Uniform Cartesian-like coordinate: limit interpolated interface states (CD 4.3.1)
-    if (uniform[X1DIR]) {
-      // approximate second derivative at interfaces for smooth extrema preservation
+    // approximate second derivative at interfaces for smooth extrema preservation
 #pragma omp simd simdlen(SIMD_WIDTH)
-      for (int i = il; i <= iu + 1; ++i) {
-        // KGF: add the off-centered quantities first to preserve FP symmetry
-        d2qc_im1(i) = q_im2(n, i) + q_i(n, i) - 2.0 * q_im1(n, i);
-        d2qc(i) = q_im1(n, i) + q_ip1(n, i) - 2.0 * q_i(n, i); // (CD eq 85a) (no 1/2)
-        d2qc_ip1(i) = q_i(n, i) + q_ip2(n, i) - 2.0 * q_ip1(n, i);
-      }
+    for (int i = il; i <= iu + 1; ++i) {
+      // KGF: add the off-centered quantities first to preserve FP symmetry
+      d2qc_im1(i) = q_im2(n, i) + q_i(n, i) - 2.0 * q_im1(n, i);
+      d2qc(i) = q_im1(n, i) + q_ip1(n, i) - 2.0 * q_i(n, i); // (CD eq 85a) (no 1/2)
+      d2qc_ip1(i) = q_i(n, i) + q_ip2(n, i) - 2.0 * q_ip1(n, i);
+    }
 
-      // i-1/2
+    // i-1/2
 #pragma omp simd simdlen(SIMD_WIDTH)
-      for (int i = il; i <= (iu + 1); ++i) {
-        Real qa_tmp = dph(i) - q_im1(n, i); // (CD eq 84a)
-        Real qb_tmp = q_i(n, i) - dph(i);   // (CD eq 84b)
-        // KGF: add the off-centered quantities first to preserve FP symmetry
-        Real qa = 3.0 * (q_im1(n, i) + q_i(n, i) - 2.0 * dph(i)); // (CD eq 85b)
-        Real qb = d2qc_im1(i);                                    // (CD eq 85a) (no 1/2)
-        Real qc = d2qc(i);                                        // (CD eq 85c) (no 1/2)
-        Real qd = 0.0;
-        if (SIGN(qa) == SIGN(qb) && SIGN(qa) == SIGN(qc)) {
-          qd = SIGN(qa) *
-               std::min(C2 * std::abs(qb), std::min(C2 * std::abs(qc), std::abs(qa)));
-        }
-        Real dph_tmp = 0.5 * (q_im1(n, i) + q_i(n, i)) - qd / 6.0;
-        if (qa_tmp * qb_tmp < 0.0) { // Local extrema detected at i-1/2 face
-          dph(i) = dph_tmp;
-        }
+    for (int i = il; i <= (iu + 1); ++i) {
+      Real qa_tmp = dph(i) - q_im1(n, i); // (CD eq 84a)
+      Real qb_tmp = q_i(n, i) - dph(i);   // (CD eq 84b)
+      // KGF: add the off-centered quantities first to preserve FP symmetry
+      Real qa = 3.0 * (q_im1(n, i) + q_i(n, i) - 2.0 * dph(i)); // (CD eq 85b)
+      Real qb = d2qc_im1(i);                                    // (CD eq 85a) (no 1/2)
+      Real qc = d2qc(i);                                        // (CD eq 85c) (no 1/2)
+      Real qd = 0.0;
+      if (SIGN(qa) == SIGN(qb) && SIGN(qa) == SIGN(qc)) {
+        qd = SIGN(qa) *
+             std::min(C2 * std::abs(qb), std::min(C2 * std::abs(qc), std::abs(qa)));
       }
+      Real dph_tmp = 0.5 * (q_im1(n, i) + q_i(n, i)) - qd / 6.0;
+      if (qa_tmp * qb_tmp < 0.0) { // Local extrema detected at i-1/2 face
+        dph(i) = dph_tmp;
+      }
+    }
 
-      // i+1/2
+    // i+1/2
 #pragma omp simd simdlen(SIMD_WIDTH)
-      for (int i = il; i <= (iu + 1); ++i) {
-        Real qa_tmp = dph_ip1(i) - q_i(n, i);   // (CD eq 84a)
-        Real qb_tmp = q_ip1(n, i) - dph_ip1(i); // (CD eq 84b)
-        // KGF: add the off-centered quantities first to preserve FP symmetry
-        Real qa = 3.0 * (q_i(n, i) + q_ip1(n, i) - 2.0 * dph_ip1(i)); // (CD eq 85b)
-        Real qb = d2qc(i);     // (CD eq 85a) (no 1/2)
-        Real qc = d2qc_ip1(i); // (CD eq 85c) (no 1/2)
-        Real qd = 0.0;
-        if (SIGN(qa) == SIGN(qb) && SIGN(qa) == SIGN(qc)) {
-          qd = SIGN(qa) *
-               std::min(C2 * std::abs(qb), std::min(C2 * std::abs(qc), std::abs(qa)));
-        }
-        Real dphip1_tmp = 0.5 * (q_i(n, i) + q_ip1(n, i)) - qd / 6.0;
-        if (qa_tmp * qb_tmp < 0.0) { // Local extrema detected at i+1/2 face
-          dph_ip1(i) = dphip1_tmp;
-        }
+    for (int i = il; i <= (iu + 1); ++i) {
+      Real qa_tmp = dph_ip1(i) - q_i(n, i);   // (CD eq 84a)
+      Real qb_tmp = q_ip1(n, i) - dph_ip1(i); // (CD eq 84b)
+      // KGF: add the off-centered quantities first to preserve FP symmetry
+      Real qa = 3.0 * (q_i(n, i) + q_ip1(n, i) - 2.0 * dph_ip1(i)); // (CD eq 85b)
+      Real qb = d2qc(i);     // (CD eq 85a) (no 1/2)
+      Real qc = d2qc_ip1(i); // (CD eq 85c) (no 1/2)
+      Real qd = 0.0;
+      if (SIGN(qa) == SIGN(qb) && SIGN(qa) == SIGN(qc)) {
+        qd = SIGN(qa) *
+             std::min(C2 * std::abs(qb), std::min(C2 * std::abs(qc), std::abs(qa)));
       }
+      Real dphip1_tmp = 0.5 * (q_i(n, i) + q_ip1(n, i)) - qd / 6.0;
+      if (qa_tmp * qb_tmp < 0.0) { // Local extrema detected at i+1/2 face
+        dph_ip1(i) = dphip1_tmp;
+      }
+    }
 
 #pragma omp simd
-      for (int i = il; i <= iu; ++i) {
-        // KGF: add the off-centered quantities first to preserve FP symmetry
-        d2qf(i) = 6.0 * (dph(i) + dph_ip1(i) - 2.0 * q_i(n, i)); // a6 coefficient * -2
-      }
-
-      //--- Step 2b. ---------------------------------------------------------------------
-      // Nonuniform coordinate: apply strict monotonicity constraints
-      // (Mignone eq 45)
-    } else {
-#pragma omp simd
-      for (int i = il; i <= iu; ++i) {
-        dph(i) = std::min(dph(i), std::max(q_i(n, i), q_im1(n, i)));
-        dph_ip1(i) = std::min(dph_ip1(i), std::max(q_i(n, i), q_ip1(n, i)));
-
-        dph(i) = std::max(dph(i), std::min(q_i(n, i), q_im1(n, i)));
-        dph_ip1(i) = std::max(dph_ip1(i), std::min(q_i(n, i), q_ip1(n, i)));
-      }
+    for (int i = il; i <= iu; ++i) {
+      // KGF: add the off-centered quantities first to preserve FP symmetry
+      d2qf(i) = 6.0 * (dph(i) + dph_ip1(i) - 2.0 * q_i(n, i)); // a6 coefficient * -2
     }
 
     // Cache Riemann states for both non-/uniform limiters
@@ -194,82 +179,60 @@ void Reconstruction::PiecewiseParabolicX1(const int k, const int j, const int il
 
     //--- Step 4a. -----------------------------------------------------------------------
     // For uniform Cartesian-like coordinate: apply CS limiters to parabolic interpolant
-    if (uniform[X1DIR]) {
 #pragma omp simd simdlen(SIMD_WIDTH)
-      for (int i = il; i <= iu; ++i) {
-        Real qa_tmp = dqf_minus(i) * dqf_plus(i);
-        Real qb_tmp = (q_ip1(n, i) - q_i(n, i)) * (q_i(n, i) - q_im1(n, i));
+    for (int i = il; i <= iu; ++i) {
+      Real qa_tmp = dqf_minus(i) * dqf_plus(i);
+      Real qb_tmp = (q_ip1(n, i) - q_i(n, i)) * (q_i(n, i) - q_im1(n, i));
 
-        Real qa = d2qc_im1(i);
-        Real qb = d2qc(i);
-        Real qc = d2qc_ip1(i);
-        Real qd = d2qf(i);
-        Real qe = 0.0;
-        if (SIGN(qa) == SIGN(qb) && SIGN(qa) == SIGN(qc) && SIGN(qa) == SIGN(qd)) {
-          // Extrema is smooth
-          qe = SIGN(qd) * std::min(std::min(C2 * std::abs(qa), C2 * std::abs(qb)),
-                                   std::min(C2 * std::abs(qc),
-                                            std::abs(qd))); // (CS eq 22)
-        }
-
-        // Check if 2nd derivative is close to roundoff error
-        qa = std::max(std::abs(q_im1(n, i)), std::abs(q_im2(n, i)));
-        qb = std::max(std::max(std::abs(q_i(n, i)), std::abs(q_ip1(n, i))),
-                      std::abs(q_ip2(n, i)));
-
-        Real rho = 0.0;
-        if (std::abs(qd) > (1.0e-12) * std::max(qa, qb)) {
-          // Limiter is not sensitive to roundoff. Use limited ratio (MC eq 27)
-          rho = qe / qd;
-        }
-
-        Real tmp_m = q_i(n, i) - rho * dqf_minus(i);
-        Real tmp_p = q_i(n, i) + rho * dqf_plus(i);
-        Real tmp2_m = q_i(n, i) - 2.0 * dqf_plus(i);
-        Real tmp2_p = q_i(n, i) + 2.0 * dqf_minus(i);
-
-        // Check for local extrema
-        if ((qa_tmp <= 0.0 || qb_tmp <= 0.0)) {
-          // Check if relative change in limited 2nd deriv is > roundoff
-          if (rho <= (1.0 - (1.0e-12))) {
-            // Limit smooth extrema
-            qminus(i) = tmp_m; // (CS eq 23)
-            qplus(i) = tmp_p;
-          }
-          // No extrema detected
-        } else {
-          // Overshoot i-1/2,R / i,(-) state
-          if (std::abs(dqf_minus(i)) >= 2.0 * std::abs(dqf_plus(i))) {
-            qminus(i) = tmp2_m;
-          }
-          // Overshoot i+1/2,L / i,(+) state
-          if (std::abs(dqf_plus(i)) >= 2.0 * std::abs(dqf_minus(i))) {
-            qplus(i) = tmp2_p;
-          }
-        }
+      Real qa = d2qc_im1(i);
+      Real qb = d2qc(i);
+      Real qc = d2qc_ip1(i);
+      Real qd = d2qf(i);
+      Real qe = 0.0;
+      if (SIGN(qa) == SIGN(qb) && SIGN(qa) == SIGN(qc) && SIGN(qa) == SIGN(qd)) {
+        // Extrema is smooth
+        qe = SIGN(qd) * std::min(std::min(C2 * std::abs(qa), C2 * std::abs(qb)),
+                                  std::min(C2 * std::abs(qc),
+                                         std::abs(qd))); // (CS eq 22)
       }
 
-      //--- Step 4b. ---------------------------------------------------------------------
-      // Nonuniform coordinate: apply Mignone limiters to parabolic
-      // interpolant. Note, the Mignone limiter does not check for cell-averaged extrema:
-    } else {
-      for (int i = il; i <= iu; ++i) {
-        Real qa = dqf_minus(i) * dqf_plus(i);
-        if (qa <= 0.0) { // Local extrema detected
-          qminus(i) = q_i(n, i);
-          qplus(i) = q_i(n, i);
-        } else { // No extrema detected
-          // Overshoot i-1/2,R / i,(-) state
-          if (std::abs(dqf_minus(i)) >= hplus_ratio_i(i) * std::abs(dqf_plus(i))) {
-            qminus(i) = q_i(n, i) - hplus_ratio_i(i) * dqf_plus(i);
-          }
-          // Overshoot i+1/2,L / i,(+) state
-          if (std::abs(dqf_plus(i)) >= hminus_ratio_i(i) * std::abs(dqf_minus(i))) {
-            qplus(i) = q_i(n, i) + hminus_ratio_i(i) * dqf_minus(i);
-          }
+      // Check if 2nd derivative is close to roundoff error
+      qa = std::max(std::abs(q_im1(n, i)), std::abs(q_im2(n, i)));
+      qb = std::max(std::max(std::abs(q_i(n, i)), std::abs(q_ip1(n, i))),
+                    std::abs(q_ip2(n, i)));
+
+      Real rho = 0.0;
+      if (std::abs(qd) > (1.0e-12) * std::max(qa, qb)) {
+        // Limiter is not sensitive to roundoff. Use limited ratio (MC eq 27)
+        rho = qe / qd;
+      }
+
+      Real tmp_m = q_i(n, i) - rho * dqf_minus(i);
+      Real tmp_p = q_i(n, i) + rho * dqf_plus(i);
+      Real tmp2_m = q_i(n, i) - 2.0 * dqf_plus(i);
+      Real tmp2_p = q_i(n, i) + 2.0 * dqf_minus(i);
+
+      // Check for local extrema
+      if ((qa_tmp <= 0.0 || qb_tmp <= 0.0)) {
+        // Check if relative change in limited 2nd deriv is > roundoff
+        if (rho <= (1.0 - (1.0e-12))) {
+          // Limit smooth extrema
+          qminus(i) = tmp_m; // (CS eq 23)
+          qplus(i) = tmp_p;
+        }
+        // No extrema detected
+      } else {
+        // Overshoot i-1/2,R / i,(-) state
+        if (std::abs(dqf_minus(i)) >= 2.0 * std::abs(dqf_plus(i))) {
+          qminus(i) = tmp2_m;
+        }
+        // Overshoot i+1/2,L / i,(+) state
+        if (std::abs(dqf_plus(i)) >= 2.0 * std::abs(dqf_minus(i))) {
+          qplus(i) = tmp2_p;
         }
       }
     }
+
     //--- Step 5. ------------------------------------------------------------------------
     // Convert limited cell-centered values to interface-centered L/R Riemann states
     // both L/R values defined over [il,iu]
@@ -352,73 +315,58 @@ void Reconstruction::PiecewiseParabolicX2(const int k, const int j, const int il
 
     //--- Step 2a. ---------------------------------------------------------------------
     // Uniform Cartesian-like coordinate: limit interpolated interface states (CD 4.3.1)
-    if (uniform[X2DIR]) {
-      // approximate second derivative at interfaces for smooth extrema preservation
+    // approximate second derivative at interfaces for smooth extrema preservation
 #pragma omp simd simdlen(SIMD_WIDTH)
-      for (int i = il; i <= iu; ++i) {
-        // KGF: add the off-centered quantities first to preserve FP symmetry
-        d2qc_jm1(i) = q_jm2(n, i) + q_j(n, i) - 2.0 * q_jm1(n, i);
-        d2qc(i) = q_jm1(n, i) + q_jp1(n, i) - 2.0 * q_j(n, i); //(CD eq 85a) (no 1/2)
-        d2qc_jp1(i) = q_j(n, i) + q_jp2(n, i) - 2.0 * q_jp1(n, i);
-      }
+    for (int i = il; i <= iu; ++i) {
+      // KGF: add the off-centered quantities first to preserve FP symmetry
+      d2qc_jm1(i) = q_jm2(n, i) + q_j(n, i) - 2.0 * q_jm1(n, i);
+      d2qc(i) = q_jm1(n, i) + q_jp1(n, i) - 2.0 * q_j(n, i); //(CD eq 85a) (no 1/2)
+      d2qc_jp1(i) = q_j(n, i) + q_jp2(n, i) - 2.0 * q_jp1(n, i);
+    }
 
-      // j-1/2
+    // j-1/2
 #pragma omp simd simdlen(SIMD_WIDTH)
-      for (int i = il; i <= iu; ++i) {
-        Real qa_tmp = dph(i) - q_jm1(n, i); // (CD eq 84a)
-        Real qb_tmp = q_j(n, i) - dph(i);   // (CD eq 84b)
-        // KGF: add the off-centered quantities first to preserve FP symmetry
-        Real qa = 3.0 * (q_jm1(n, i) + q_j(n, i) - 2.0 * dph(i)); // (CD eq 85b)
-        Real qb = d2qc_jm1(i);                                    // (CD eq 85a) (no 1/2)
-        Real qc = d2qc(i);                                        // (CD eq 85c) (no 1/2)
-        Real qd = 0.0;
-        if (SIGN(qa) == SIGN(qb) && SIGN(qa) == SIGN(qc)) {
-          qd = SIGN(qa) *
-               std::min(C2 * std::abs(qb), std::min(C2 * std::abs(qc), std::abs(qa)));
-        }
-        Real dph_tmp = 0.5 * (q_jm1(n, i) + q_j(n, i)) - qd / 6.0;
-        if (qa_tmp * qb_tmp < 0.0) { // Local extrema detected at j-1/2 face
-          dph(i) = dph_tmp;
-        }
+    for (int i = il; i <= iu; ++i) {
+      Real qa_tmp = dph(i) - q_jm1(n, i); // (CD eq 84a)
+      Real qb_tmp = q_j(n, i) - dph(i);   // (CD eq 84b)
+      // KGF: add the off-centered quantities first to preserve FP symmetry
+      Real qa = 3.0 * (q_jm1(n, i) + q_j(n, i) - 2.0 * dph(i)); // (CD eq 85b)
+      Real qb = d2qc_jm1(i);                                    // (CD eq 85a) (no 1/2)
+      Real qc = d2qc(i);                                        // (CD eq 85c) (no 1/2)
+      Real qd = 0.0;
+      if (SIGN(qa) == SIGN(qb) && SIGN(qa) == SIGN(qc)) {
+        qd = SIGN(qa) *
+             std::min(C2 * std::abs(qb), std::min(C2 * std::abs(qc), std::abs(qa)));
       }
-      // j+1/2
+      Real dph_tmp = 0.5 * (q_jm1(n, i) + q_j(n, i)) - qd / 6.0;
+      if (qa_tmp * qb_tmp < 0.0) { // Local extrema detected at j-1/2 face
+        dph(i) = dph_tmp;
+      }
+    }
+    // j+1/2
 #pragma omp simd simdlen(SIMD_WIDTH)
-      for (int i = il; i <= iu; ++i) {
-        Real qa_tmp = dph_jp1(i) - q_j(n, i);   // (CD eq 84a)
-        Real qb_tmp = q_jp1(n, i) - dph_jp1(i); // (CD eq 84b)
-        // KGF: add the off-centered quantities first to preserve FP symmetry
-        Real qa = 3.0 * (q_j(n, i) + q_jp1(n, i) - 2.0 * dph_jp1(i)); // (CD eq 85b)
-        Real qb = d2qc(i);     // (CD eq 85a) (no 1/2)
-        Real qc = d2qc_jp1(i); // (CD eq 85c) (no 1/2)
-        Real qd = 0.0;
-        if (SIGN(qa) == SIGN(qb) && SIGN(qa) == SIGN(qc)) {
-          qd = SIGN(qa) *
-               std::min(C2 * std::abs(qb), std::min(C2 * std::abs(qc), std::abs(qa)));
-        }
-        Real dphjp1_tmp = 0.5 * (q_j(n, i) + q_jp1(n, i)) - qd / 6.0;
-        if (qa_tmp * qb_tmp < 0.0) { // Local extrema detected at j+1/2 face
-          dph_jp1(i) = dphjp1_tmp;
-        }
+    for (int i = il; i <= iu; ++i) {
+      Real qa_tmp = dph_jp1(i) - q_j(n, i);   // (CD eq 84a)
+      Real qb_tmp = q_jp1(n, i) - dph_jp1(i); // (CD eq 84b)
+      // KGF: add the off-centered quantities first to preserve FP symmetry
+      Real qa = 3.0 * (q_j(n, i) + q_jp1(n, i) - 2.0 * dph_jp1(i)); // (CD eq 85b)
+      Real qb = d2qc(i);     // (CD eq 85a) (no 1/2)
+      Real qc = d2qc_jp1(i); // (CD eq 85c) (no 1/2)
+      Real qd = 0.0;
+      if (SIGN(qa) == SIGN(qb) && SIGN(qa) == SIGN(qc)) {
+        qd = SIGN(qa) *
+            std::min(C2 * std::abs(qb), std::min(C2 * std::abs(qc), std::abs(qa)));
       }
+      Real dphjp1_tmp = 0.5 * (q_j(n, i) + q_jp1(n, i)) - qd / 6.0;
+      if (qa_tmp * qb_tmp < 0.0) { // Local extrema detected at j+1/2 face
+        dph_jp1(i) = dphjp1_tmp;
+      }
+    }
 
 #pragma omp simd
-      for (int i = il; i <= iu; ++i) {
-        // KGF: add the off-centered quantities first to preserve FP symmetry
-        d2qf(i) = 6.0 * (dph(i) + dph_jp1(i) - 2.0 * q_j(n, i)); // a6 coefficient * -2
-      }
-
-      //--- Step 2b. -------------------------------------------------------------------
-      // Nonuniform coordinate: apply strict monotonicity constraints
-      // (Mignone eq 45)
-    } else {
-#pragma omp simd
-      for (int i = il; i <= iu; ++i) {
-        dph(i) = std::min(dph(i), std::max(q_j(n, i), q_jm1(n, i)));
-        dph_jp1(i) = std::min(dph_jp1(i), std::max(q_j(n, i), q_jp1(n, i)));
-
-        dph(i) = std::max(dph(i), std::min(q_j(n, i), q_jm1(n, i)));
-        dph_jp1(i) = std::max(dph_jp1(i), std::min(q_j(n, i), q_jp1(n, i)));
-      }
+    for (int i = il; i <= iu; ++i) {
+      // KGF: add the off-centered quantities first to preserve FP symmetry
+      d2qf(i) = 6.0 * (dph(i) + dph_jp1(i) - 2.0 * q_j(n, i)); // a6 coefficient * -2
     }
 
     // Cache Riemann states for both non-/uniform limiters
@@ -438,82 +386,60 @@ void Reconstruction::PiecewiseParabolicX2(const int k, const int j, const int il
 
     //--- Step 4a. ---------------------------------------------------------------------
     // For uniform Cartesian-like coordinate: apply CS limiters to parabolic interpolant
-    if (uniform[X2DIR]) {
 #pragma omp simd simdlen(SIMD_WIDTH)
-      for (int i = il; i <= iu; ++i) {
-        Real qa_tmp = dqf_minus(i) * dqf_plus(i);
-        Real qb_tmp = (q_jp1(n, i) - q_j(n, i)) * (q_j(n, i) - q_jm1(n, i));
+    for (int i = il; i <= iu; ++i) {
+      Real qa_tmp = dqf_minus(i) * dqf_plus(i);
+      Real qb_tmp = (q_jp1(n, i) - q_j(n, i)) * (q_j(n, i) - q_jm1(n, i));
 
-        Real qa = d2qc_jm1(i);
-        Real qb = d2qc(i);
-        Real qc = d2qc_jp1(i);
-        Real qd = d2qf(i);
-        Real qe = 0.0;
-        if (SIGN(qa) == SIGN(qb) && SIGN(qa) == SIGN(qc) && SIGN(qa) == SIGN(qd)) {
-          // Extrema is smooth
-          qe = SIGN(qd) *
-               std::min(std::min(C2 * std::abs(qa), C2 * std::abs(qb)),
-                        std::min(C2 * std::abs(qc), std::abs(qd))); // (CS eq 22)
-        }
-
-        // Check if 2nd derivative is close to roundoff error
-        qa = std::max(std::abs(q_jm1(n, i)), std::abs(q_jm2(n, i)));
-        qb = std::max(std::max(std::abs(q_j(n, i)), std::abs(q_jp1(n, i))),
-                      std::abs(q_jp2(n, i)));
-
-        Real rho = 0.0;
-        if (std::abs(qd) > (1.0e-12) * std::max(qa, qb)) {
-          // Limiter is not sensitive to roundoff. Use limited ratio (MC eq 27)
-          rho = qe / qd;
-        }
-
-        Real tmp_m = q_j(n, i) - rho * dqf_minus(i);
-        Real tmp_p = q_j(n, i) + rho * dqf_plus(i);
-        Real tmp2_m = q_j(n, i) - 2.0 * dqf_plus(i);
-        Real tmp2_p = q_j(n, i) + 2.0 * dqf_minus(i);
-
-        // Check if relative change in limited 2nd deriv is > roundoff
-        // Check for local extrema
-        if ((qa_tmp <= 0.0 || qb_tmp <= 0.0)) {
-          if (rho <= (1.0 - (1.0e-12))) {
-            // Limit smooth extrema
-            qminus(i) = tmp_m; // (CS eq 23)
-            qplus(i) = tmp_p;
-          }
-          // No extrema detected
-        } else {
-          // Overshoot j-1/2,R / j,(-) state
-          if (std::abs(dqf_minus(i)) >= 2.0 * std::abs(dqf_plus(i))) {
-            qminus(i) = tmp2_m;
-          }
-          // Overshoot j+1/2,L / j,(+) state
-          if (std::abs(dqf_plus(i)) >= 2.0 * std::abs(dqf_minus(i))) {
-            qplus(i) = tmp2_p;
-          }
-        }
+      Real qa = d2qc_jm1(i);
+      Real qb = d2qc(i);
+      Real qc = d2qc_jp1(i);
+      Real qd = d2qf(i);
+      Real qe = 0.0;
+      if (SIGN(qa) == SIGN(qb) && SIGN(qa) == SIGN(qc) && SIGN(qa) == SIGN(qd)) {
+        // Extrema is smooth
+        qe = SIGN(qd) *
+             std::min(std::min(C2 * std::abs(qa), C2 * std::abs(qb)),
+                      std::min(C2 * std::abs(qc), std::abs(qd))); // (CS eq 22)
       }
 
-      //--- Step 4b. -------------------------------------------------------------------
-      // Nonuniform coordinate: apply Mignone limiters to parabolic
-      // interpolant. Note, the Mignone limiter does not check for cell-averaged extrema:
-    } else {
-      for (int i = il; i <= iu; ++i) {
-        Real qa = dqf_minus(i) * dqf_plus(i);
-        if (qa <= 0.0) { // Local extrema detected
-          qminus(i) = q_j(n, i);
-          qplus(i) = q_j(n, i);
-        } else { // No extrema detected
-          // Overshoot j-1/2,R / j,(-) state
-          if (std::abs(dqf_minus(i)) >= hplus_ratio_j(j) * std::abs(dqf_plus(i))) {
-            qminus(i) = q_j(n, i) - hplus_ratio_j(j) * dqf_plus(i);
-          }
-          // Overshoot j+1/2,L / j,(+) state
-          if (std::abs(dqf_plus(i)) >= hminus_ratio_j(j) * std::abs(dqf_minus(i))) {
-            qplus(i) = q_j(n, i) + hminus_ratio_j(j) * dqf_minus(i);
-          }
+      // Check if 2nd derivative is close to roundoff error
+      qa = std::max(std::abs(q_jm1(n, i)), std::abs(q_jm2(n, i)));
+      qb = std::max(std::max(std::abs(q_j(n, i)), std::abs(q_jp1(n, i))),
+                    std::abs(q_jp2(n, i)));
+
+      Real rho = 0.0;
+      if (std::abs(qd) > (1.0e-12) * std::max(qa, qb)) {
+        // Limiter is not sensitive to roundoff. Use limited ratio (MC eq 27)
+        rho = qe / qd;
+      }
+
+      Real tmp_m = q_j(n, i) - rho * dqf_minus(i);
+      Real tmp_p = q_j(n, i) + rho * dqf_plus(i);
+      Real tmp2_m = q_j(n, i) - 2.0 * dqf_plus(i);
+      Real tmp2_p = q_j(n, i) + 2.0 * dqf_minus(i);
+
+      // Check if relative change in limited 2nd deriv is > roundoff
+      // Check for local extrema
+      if ((qa_tmp <= 0.0 || qb_tmp <= 0.0)) {
+        if (rho <= (1.0 - (1.0e-12))) {
+          // Limit smooth extrema
+          qminus(i) = tmp_m; // (CS eq 23)
+          qplus(i) = tmp_p;
+        }
+        // No extrema detected
+      } else {
+        // Overshoot j-1/2,R / j,(-) state
+        if (std::abs(dqf_minus(i)) >= 2.0 * std::abs(dqf_plus(i))) {
+          qminus(i) = tmp2_m;
+        }
+        // Overshoot j+1/2,L / j,(+) state
+        if (std::abs(dqf_plus(i)) >= 2.0 * std::abs(dqf_minus(i))) {
+          qplus(i) = tmp2_p;
         }
       }
     }
+
     //--- Step 5. ----------------------------------------------------------------------
     // Convert limited cell-centered values to interface-centered L/R Riemann states
     // both L/R values defined over [il,iu]
@@ -596,72 +522,58 @@ void Reconstruction::PiecewiseParabolicX3(const int k, const int j, const int il
 
     //--- Step 2a. -----------------------------------------------------------------------
     // Uniform Cartesian-like coordinate: limit interpolated interface states (CD 4.3.1)
-    if (uniform[X3DIR]) {
-      // approximate second derivative at interfaces for smooth extrema preservation
+    // approximate second derivative at interfaces for smooth extrema preservation
 #pragma omp simd simdlen(SIMD_WIDTH)
-      for (int i = il; i <= iu; ++i) {
-        // KGF: add the off-centered quantities first to preserve FP symmetry
-        d2qc_km1(i) = q_km2(n, i) + q_k(n, i) - 2.0 * q_km1(n, i);
-        d2qc(i) = q_km1(n, i) + q_kp1(n, i) - 2.0 * q_k(n, i); // (CD eq 85a) (no 1/2)
-        d2qc_kp1(i) = q_k(n, i) + q_kp2(n, i) - 2.0 * q_kp1(n, i);
-      }
+    for (int i = il; i <= iu; ++i) {
+      // KGF: add the off-centered quantities first to preserve FP symmetry
+      d2qc_km1(i) = q_km2(n, i) + q_k(n, i) - 2.0 * q_km1(n, i);
+      d2qc(i) = q_km1(n, i) + q_kp1(n, i) - 2.0 * q_k(n, i); // (CD eq 85a) (no 1/2)
+      d2qc_kp1(i) = q_k(n, i) + q_kp2(n, i) - 2.0 * q_kp1(n, i);
+    }
 
-      // k-1/2
+    // k-1/2
 #pragma omp simd simdlen(SIMD_WIDTH)
-      for (int i = il; i <= iu; ++i) {
-        Real qa_tmp = dph(i) - q_km1(n, i); // (CD eq 84a)
-        Real qb_tmp = q_k(n, i) - dph(i);   // (CD eq 84b)
-        // KGF: add the off-centered quantities first to preserve FP symmetry
-        Real qa = 3.0 * (q_km1(n, i) + q_k(n, i) - 2.0 * dph(i)); // (CD eq 85b)
-        Real qb = d2qc_km1(i);                                    // (CD eq 85a) (no 1/2)
-        Real qc = d2qc(i);                                        // (CD eq 85c) (no 1/2)
-        Real qd = 0.0;
-        if (SIGN(qa) == SIGN(qb) && SIGN(qa) == SIGN(qc)) {
-          qd = SIGN(qa) *
-               std::min(C2 * std::abs(qb), std::min(C2 * std::abs(qc), std::abs(qa)));
-        }
-        Real dph_tmp = 0.5 * (q_km1(n, i) + q_k(n, i)) - qd / 6.0;
-        if (qa_tmp * qb_tmp < 0.0) { // Local extrema detected at k-1/2 face
-          dph(i) = dph_tmp;
-        }
+    for (int i = il; i <= iu; ++i) {
+      Real qa_tmp = dph(i) - q_km1(n, i); // (CD eq 84a)
+      Real qb_tmp = q_k(n, i) - dph(i);   // (CD eq 84b)
+      // KGF: add the off-centered quantities first to preserve FP symmetry
+      Real qa = 3.0 * (q_km1(n, i) + q_k(n, i) - 2.0 * dph(i)); // (CD eq 85b)
+      Real qb = d2qc_km1(i);                                    // (CD eq 85a) (no 1/2)
+      Real qc = d2qc(i);                                        // (CD eq 85c) (no 1/2)
+      Real qd = 0.0;
+      if (SIGN(qa) == SIGN(qb) && SIGN(qa) == SIGN(qc)) {
+        qd = SIGN(qa) *
+             std::min(C2 * std::abs(qb), std::min(C2 * std::abs(qc), std::abs(qa)));
       }
-      // k+1/2
+      Real dph_tmp = 0.5 * (q_km1(n, i) + q_k(n, i)) - qd / 6.0;
+      if (qa_tmp * qb_tmp < 0.0) { // Local extrema detected at k-1/2 face
+        dph(i) = dph_tmp;
+      }
+    }
+    // k+1/2
 #pragma omp simd simdlen(SIMD_WIDTH)
-      for (int i = il; i <= iu; ++i) {
-        Real qa_tmp = dph_kp1(i) - q_k(n, i);   // (CD eq 84a)
-        Real qb_tmp = q_kp1(n, i) - dph_kp1(i); // (CD eq 84b)
-        // KGF: add the off-centered quantities first to preserve FP symmetry
-        Real qa = 3.0 * (q_k(n, i) + q_kp1(n, i) - 2.0 * dph_kp1(i)); // (CD eq 85b)
-        Real qb = d2qc(i);     // (CD eq 85a) (no 1/2)
-        Real qc = d2qc_kp1(i); // (CD eq 85c) (no 1/2)
-        Real qd = 0.0;
-        if (SIGN(qa) == SIGN(qb) && SIGN(qa) == SIGN(qc)) {
-          qd = SIGN(qa) *
-               std::min(C2 * std::abs(qb), std::min(C2 * std::abs(qc), std::abs(qa)));
-        }
-        Real dphkp1_tmp = 0.5 * (q_k(n, i) + q_kp1(n, i)) - qd / 6.0;
-        if (qa_tmp * qb_tmp < 0.0) { // Local extrema detected at k+1/2 face
-          dph_kp1(i) = dphkp1_tmp;
-        }
+    for (int i = il; i <= iu; ++i) {
+      Real qa_tmp = dph_kp1(i) - q_k(n, i);   // (CD eq 84a)
+      Real qb_tmp = q_kp1(n, i) - dph_kp1(i); // (CD eq 84b)
+      // KGF: add the off-centered quantities first to preserve FP symmetry
+      Real qa = 3.0 * (q_k(n, i) + q_kp1(n, i) - 2.0 * dph_kp1(i)); // (CD eq 85b)
+      Real qb = d2qc(i);     // (CD eq 85a) (no 1/2)
+      Real qc = d2qc_kp1(i); // (CD eq 85c) (no 1/2)
+      Real qd = 0.0;
+      if (SIGN(qa) == SIGN(qb) && SIGN(qa) == SIGN(qc)) {
+        qd = SIGN(qa) *
+             std::min(C2 * std::abs(qb), std::min(C2 * std::abs(qc), std::abs(qa)));
       }
+      Real dphkp1_tmp = 0.5 * (q_k(n, i) + q_kp1(n, i)) - qd / 6.0;
+      if (qa_tmp * qb_tmp < 0.0) { // Local extrema detected at k+1/2 face
+        dph_kp1(i) = dphkp1_tmp;
+      }
+    }
 
 #pragma omp simd
-      for (int i = il; i <= iu; ++i) {
-        // KGF: add the off-centered quantities first to preserve FP symmetry
-        d2qf(i) = 6.0 * (dph(i) + dph_kp1(i) - 2.0 * q_k(n, i)); // a6 coefficient * -2
-      }
-      //--- Step 2b. ---------------------------------------------------------------------
-      // Nonuniform coordinate spacing: apply strict monotonicity constraints
-      // (Mignone eq 45)
-    } else {
-#pragma omp simd
-      for (int i = il; i <= iu; ++i) {
-        dph(i) = std::min(dph(i), std::max(q_k(n, i), q_km1(n, i)));
-        dph_kp1(i) = std::min(dph_kp1(i), std::max(q_k(n, i), q_kp1(n, i)));
-
-        dph(i) = std::max(dph(i), std::min(q_k(n, i), q_km1(n, i)));
-        dph_kp1(i) = std::max(dph_kp1(i), std::min(q_k(n, i), q_kp1(n, i)));
-      }
+    for (int i = il; i <= iu; ++i) {
+      // KGF: add the off-centered quantities first to preserve FP symmetry
+      d2qf(i) = 6.0 * (dph(i) + dph_kp1(i) - 2.0 * q_k(n, i)); // a6 coefficient * -2
     }
 
     // Cache Riemann states for both non-/uniform limiters
@@ -681,81 +593,58 @@ void Reconstruction::PiecewiseParabolicX3(const int k, const int j, const int il
 
     //--- Step 4a. -----------------------------------------------------------------------
     // For uniform Cartesian-like coordinate: apply CS limiters to parabolic interpolant
-    if (uniform[X3DIR]) {
 #pragma omp simd simdlen(SIMD_WIDTH)
-      for (int i = il; i <= iu; ++i) {
-        Real qa_tmp = dqf_minus(i) * dqf_plus(i);
-        Real qb_tmp = (q_kp1(n, i) - q_k(n, i)) * (q_k(n, i) - q_km1(n, i));
+    for (int i = il; i <= iu; ++i) {
+      Real qa_tmp = dqf_minus(i) * dqf_plus(i);
+      Real qb_tmp = (q_kp1(n, i) - q_k(n, i)) * (q_k(n, i) - q_km1(n, i));
 
-        // Check if extrema is smooth
-        Real qa = d2qc_km1(i);
-        Real qb = d2qc(i);
-        Real qc = d2qc_kp1(i);
-        Real qd = d2qf(i);
-        Real qe = 0.0;
-        if (SIGN(qa) == SIGN(qb) && SIGN(qa) == SIGN(qc) && SIGN(qa) == SIGN(qd)) {
-          // Extrema is smooth
-          qe = SIGN(qd) *
-               std::min(std::min(C2 * std::abs(qa), C2 * std::abs(qb)),
-                        std::min(C2 * std::abs(qc), std::abs(qd))); // (CS eq 22)
-        }
-
-        // Check if 2nd derivative is close to roundoff error
-        qa = std::max(std::abs(q_km1(n, i)), std::abs(q_km2(n, i)));
-        qb = std::max(std::max(std::abs(q_k(n, i)), std::abs(q_kp1(n, i))),
-                      std::abs(q_kp2(n, i)));
-
-        Real rho = 0.0;
-        if (std::abs(qd) > (1.0e-12) * std::max(qa, qb)) {
-          // Limiter is not sensitive to roundoff. Use limited ratio (MC eq 27)
-          rho = qe / qd;
-        }
-
-        Real tmp_m = q_k(n, i) - rho * dqf_minus(i);
-        Real tmp_p = q_k(n, i) + rho * dqf_plus(i);
-        Real tmp2_m = q_k(n, i) - 2.0 * dqf_plus(i);
-        Real tmp2_p = q_k(n, i) + 2.0 * dqf_minus(i);
-
-        // Check for local extrema
-        if (qa_tmp <= 0.0 || qb_tmp <= 0.0) {
-          // Check if relative change in limited 2nd deriv is > roundoff
-          if (rho <= (1.0 - (1.0e-12))) {
-            // Limit smooth extrema
-            qminus(i) = tmp_m; // (CS eq 23)
-            qplus(i) = tmp_p;
-          }
-
-          // No extrema detected
-        } else {
-          // Overshoot k-1/2,R / k,(-) state
-          if (std::abs(dqf_minus(i)) >= 2.0 * std::abs(dqf_plus(i))) {
-            qminus(i) = tmp2_m;
-          }
-          // Overshoot k+1/2,L / k,(+) state
-          if (std::abs(dqf_plus(i)) >= 2.0 * std::abs(dqf_minus(i))) {
-            qplus(i) = tmp2_p;
-          }
-        }
+      // Check if extrema is smooth
+      Real qa = d2qc_km1(i);
+      Real qb = d2qc(i);
+      Real qc = d2qc_kp1(i);
+      Real qd = d2qf(i);
+      Real qe = 0.0;
+      if (SIGN(qa) == SIGN(qb) && SIGN(qa) == SIGN(qc) && SIGN(qa) == SIGN(qd)) {
+        // Extrema is smooth
+        qe = SIGN(qd) *
+             std::min(std::min(C2 * std::abs(qa), C2 * std::abs(qb)),
+                      std::min(C2 * std::abs(qc), std::abs(qd))); // (CS eq 22)
       }
-      //--- Step 4b. ---------------------------------------------------------------------
-      // Nonuniform coordinate spacing: apply Mignone limiters to parabolic interpolant
-      // Note, the Mignone limiter does not check for cell-averaged extrema:
-    } else {
-      for (int i = il; i <= iu; ++i) {
-        Real qa = dqf_minus(i) * dqf_plus(i);
-        if (qa <= 0.0) { // Local extrema detected
-          qminus(i) = q_k(n, i);
-          qplus(i) = q_k(n, i);
-        } else { // No extrema detected
-          // TODO(felker): could delete hplus_ratio_k() arrays for curvilinear PPMx3
-          // Overshoot k-1/2,R / k,(-) state
-          if (std::abs(dqf_minus(i)) >= hplus_ratio_k(k) * std::abs(dqf_plus(i))) {
-            qminus(i) = q_k(n, i) - hplus_ratio_k(k) * dqf_plus(i);
-          }
-          // Overshoot k+1/2,L / k,(+) state
-          if (std::abs(dqf_plus(i)) >= hminus_ratio_k(k) * std::abs(dqf_minus(i))) {
-            qplus(i) = q_k(n, i) + hminus_ratio_k(k) * dqf_minus(i);
-          }
+
+      // Check if 2nd derivative is close to roundoff error
+      qa = std::max(std::abs(q_km1(n, i)), std::abs(q_km2(n, i)));
+      qb = std::max(std::max(std::abs(q_k(n, i)), std::abs(q_kp1(n, i))),
+                    std::abs(q_kp2(n, i)));
+
+      Real rho = 0.0;
+      if (std::abs(qd) > (1.0e-12) * std::max(qa, qb)) {
+        // Limiter is not sensitive to roundoff. Use limited ratio (MC eq 27)
+        rho = qe / qd;
+      }
+
+      Real tmp_m = q_k(n, i) - rho * dqf_minus(i);
+      Real tmp_p = q_k(n, i) + rho * dqf_plus(i);
+      Real tmp2_m = q_k(n, i) - 2.0 * dqf_plus(i);
+      Real tmp2_p = q_k(n, i) + 2.0 * dqf_minus(i);
+
+      // Check for local extrema
+      if (qa_tmp <= 0.0 || qb_tmp <= 0.0) {
+        // Check if relative change in limited 2nd deriv is > roundoff
+        if (rho <= (1.0 - (1.0e-12))) {
+          // Limit smooth extrema
+          qminus(i) = tmp_m; // (CS eq 23)
+          qplus(i) = tmp_p;
+        }
+
+        // No extrema detected
+      } else {
+        // Overshoot k-1/2,R / k,(-) state
+        if (std::abs(dqf_minus(i)) >= 2.0 * std::abs(dqf_plus(i))) {
+          qminus(i) = tmp2_m;
+        }
+        // Overshoot k+1/2,L / k,(+) state
+        if (std::abs(dqf_plus(i)) >= 2.0 * std::abs(dqf_minus(i))) {
+          qplus(i) = tmp2_p;
         }
       }
     }

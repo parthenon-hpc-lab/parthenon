@@ -379,15 +379,6 @@ void BoundaryValues::ProlongateGhostCells(const NeighborBlock &nb, int si, int e
     fek = pmb->ke;
   }
 
-  // KGF: COUPLING OF QUANTITIES (must be manually specified)
-  // Field prolongation completed, calculate cell centered fields
-  // TODO(KGF): passing nullptrs (pf) if no MHD (coarse_* no longer in MeshRefinement)
-  // (may be fine to unconditionally directly set to pmb->pfield now. see above comment)
-
-  // KGF: COUPLING OF QUANTITIES (must be manually specified)
-  // calculate conservative variables
-  // pmb->peos->PrimitiveToConserved(ph->w, pf->bcc, ph->u, pmb->pcoord,
-  //                                fsi, fei, fsj, fej, fsk, fek);
   return;
 }
 
