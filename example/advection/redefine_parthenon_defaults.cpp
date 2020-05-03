@@ -40,14 +40,16 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
   auto dx = GetDx();
   auto xmin = GetXmin();
 
-  par_for("init problem", DevExecSpace(), 0, ncells3-1, 0, ncells2-1, 0, ncells1-1,
-    KOKKOS_LAMBDA(const int k const int j, const int i) {
-      const Real x = xmin[0] + (i-is+0.5)*dx[0];
-      const Real y = xmin[1] + (j-js+0.5)*dx[1];
+  par_for("init problem",
+    0, ncells3-1,
+    0, ncells2-1,
+    0, ncells1-1,
+    KOKKOS_LAMBDA(const int k, const int j, const int i) {
+      const Real x = xmin[0] + (i-il+0.5)*dx[0];
+      const Real y = xmin[1] + (j-jl+0.5)*dx[1];
       Real rsq = x*x + y*y;
-      q(k,j,i) = (rsq < 0.15 * 0.15) ? 1.0 : 0);
-    })
-
+      q(k,j,i) = (rsq < 0.15 * 0.15 ? 1.0 : 0);
+    });
 }
 
 void ParthenonManager::SetFillDerivedFunctions() {

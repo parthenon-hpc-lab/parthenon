@@ -179,12 +179,13 @@ parthenon::TaskStatus FaceFields::fill_faces(parthenon::MeshBlock *pmb) {
   auto xmin = pmb->GetXmin();
 
   for (int e = 0; e < face.Get(1).GetDim(4); e++) {
+    int sign = (e == 0) ? -1 : 1;
     for (int k = ks; k <= ke; k++) {
       for (int j = js; j <= je; j++) {
         for (int i = is; i <= ie + 1; i++) {
-          Real z = x1min[2] + (k-ks)*dx[2];
-          Real y = x1min[1] + (j-js)*dx[1];
-          Real x = x1min[0] + (i-is)*dx[0];
+          Real z = xmin[2] + (k-ks)*dx[2];
+          Real y = xmin[1] + (j-js)*dx[1];
+          Real x = xmin[0] + (i-is)*dx[0];
           face(1, e, k, j, i) = sign * (pow(x, px) + pow(y, py) + pow(z, pz));
         }
       }
@@ -195,9 +196,9 @@ parthenon::TaskStatus FaceFields::fill_faces(parthenon::MeshBlock *pmb) {
     for (int k = ks; k <= ke; k++) {
       for (int j = js; j <= je + 1; j++) {
         for (int i = is; i <= ie; i++) {
-          Real z = x1min[2] + (k-ks)*dx[2];
-          Real y = x1min[1] + (j-js)*dx[1];
-          Real x = x1min[0] + (i-is)*dx[0];
+          Real z = xmin[2] + (k-ks)*dx[2];
+          Real y = xmin[1] + (j-js)*dx[1];
+          Real x = xmin[0] + (i-is)*dx[0];
           face(2, e, k, j, i) = sign * (pow(x, px) + pow(y, py) + pow(z, pz));
         }
       }
@@ -208,9 +209,9 @@ parthenon::TaskStatus FaceFields::fill_faces(parthenon::MeshBlock *pmb) {
     for (int k = ks; k <= ke + 1; k++) {
       for (int j = js; j <= je; j++) {
         for (int i = is; i <= ie; i++) {
-          Real z = x1min[2] + (k-ks)*dx[2];
-          Real y = x1min[1] + (j-js)*dx[1];
-          Real x = x1min[0] + (i-is)*dx[0];
+          Real z = xmin[2] + (k-ks)*dx[2];
+          Real y = xmin[1] + (j-js)*dx[1];
+          Real x = xmin[0] + (i-is)*dx[0];
           face(3, e, k, j, i) = sign * (pow(x, px) + pow(y, py) + pow(z, pz));
         }
       }

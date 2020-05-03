@@ -16,7 +16,6 @@
 
 // Internal Includes
 #include <basic_types.hpp>
-#include <coordinates/coordinates.hpp>
 #include <interface/container_iterator.hpp>
 #include <interface/metadata.hpp>
 #include <interface/params.hpp>
@@ -37,7 +36,6 @@ namespace prelude {
 using namespace ::parthenon::prelude;
 
 using ::parthenon::AmrTag;
-using ::parthenon::Coordinates;
 using ::parthenon::DerivedOwnership;
 using ::parthenon::DevExecSpace;
 using ::parthenon::MeshBlock;

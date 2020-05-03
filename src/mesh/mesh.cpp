@@ -36,7 +36,6 @@
 #include "athena.hpp"
 #include "bvals/boundary_conditions.hpp"
 #include "bvals/bvals.hpp"
-#include "coordinates/coordinates.hpp"
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
@@ -92,7 +91,7 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
       lb_flag_(true), lb_automatic_(),
       lb_manual_(), MeshGenerator_{UniformMeshGeneratorX1, UniformMeshGeneratorX2,
                                    UniformMeshGeneratorX3},
-      BoundaryFunction_{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, AMRFlag_{},
+      AMRFlag_{},
       UserSourceTerm_{}, UserTimeStep_{} {
   std::stringstream msg;
   RegionSize block_size;
@@ -994,20 +993,6 @@ void Mesh::OutputMeshStructure(int ndim) {
   delete[] nb_per_rank;
   delete[] cost_per_rank;
 
-  return;
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void Mesh::EnrollUserBoundaryFunction(BoundaryFace dir, BValFunc my_bc)
-//  \brief Enroll a user-defined boundary function
-
-void Mesh::EnrollUserBoundaryFunction(BoundaryFace dir, BValFunc my_bc) {
-  throw std::runtime_error("Mesh::EnrollUserBoundaryFunction is not implemented");
-}
-
-// DEPRECATED(felker): provide trivial overloads for old-style BoundaryFace enum argument
-void Mesh::EnrollUserBoundaryFunction(int dir, BValFunc my_bc) {
-  EnrollUserBoundaryFunction(static_cast<BoundaryFace>(dir), my_bc);
   return;
 }
 

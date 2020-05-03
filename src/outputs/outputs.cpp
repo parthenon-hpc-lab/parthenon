@@ -98,7 +98,6 @@
 #include <string>
 
 #include "athena.hpp"
-#include "coordinates/coordinates.hpp"
 #include "mesh/mesh.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"

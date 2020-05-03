@@ -24,8 +24,6 @@
 
 using namespace parthenon::package::prelude;
 
-using parthenon::Coordinates;
-
 namespace parthenon {
 
 // can be used to set global properties that all meshblocks want to know about
@@ -74,17 +72,17 @@ void SetInOrOut(Container<Real> &rc) {
   int ie = pmb->ie;
   int je = pmb->je;
   int ke = pmb->ke;
-  CellVariable<Real> &v = rc.Get("in_or_out");
+  auto v = rc.Get("in_or_out").data;
   const auto &radius = pmb->packages["calculate_pi"]->Param<Real>("radius");
 
-  auto dx = GetDx();
-  auto xmin = GetXmin();
+  auto dx = pmb->GetDx();
+  auto xmin = pmb->GetXmin();
 
   // Set an indicator function that indicates whether the cell center
   // is inside or outside of the circle we're interating the area of.
   // see the CheckRefinement routine below for an explanation of the loop bounds
   par_for("init problem", DevExecSpace(), ks, ke, js-1, je+1, is-1, ie+1,
-    KOKKOS_LAMBDA(const int k const int j, const int i) {
+    KOKKOS_LAMBDA(const int k, const int j, const int i) {
       const Real x = xmin[0] + (i-is+0.5)*dx[0];
       const Real y = xmin[1] + (j-js+0.5)*dx[1];
       Real rsq = x*x + y*y;
@@ -160,14 +158,19 @@ TaskStatus ComputeArea(MeshBlock *pmb) {
   int ie = pmb->ie;
   int je = pmb->je;
   int ke = pmb->ke;
-  CellVariable<Real> &v = rc.Get("in_or_out");
+  auto v = rc.Get("in_or_out").data;
   const auto &radius = pmb->packages["calculate_pi"]->Param<Real>("radius");
   const Real cell_area = pmb->GetArea(2);
   Real area = 0.0;
-  par_for("ComputeArea", DevExecSpace(), ks, ke, js, je, is, ie,
-    KOKKOS_LAMBDA(const int k, const int j, const int i) {
+  //par_for("ComputeArea", DevExecSpace(), ks, ke, js, je, is, ie,
+  //  KOKKOS_LAMBDA(const int k, const int j, const int i) {
+  for(int k=ks; k<=ke; k++) {
+    for(int j=js; j<=je; j++) {
+      for (int i=is; i<=ie; i++) {
         area += v(k, j, i) * cell_area;
-    });
+      }
+    }
+  }
 
   area /= (radius * radius);
   // just stash the area somewhere for later

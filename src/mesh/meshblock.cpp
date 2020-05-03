@@ -30,7 +30,6 @@
 
 #include "athena.hpp"
 #include "bvals/bvals.hpp"
-#include "coordinates/coordinates.hpp"
 #include "globals.hpp"
 #include "interface/container_iterator.hpp"
 #include "interface/metadata.hpp"
@@ -86,11 +85,6 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
       gid(igid), lid(ilid), gflag(igflag), properties(properties), packages(packages),
       prev(nullptr), next(nullptr), new_block_dt_{}, new_block_dt_hyperbolic_{},
       new_block_dt_parabolic_{}, new_block_dt_user_{},
-      dx_({(input_block.x1max-input_block.x1min)/input_block.nx1,
-           (input_block.x2max-input_block.x2min)/input_block.nx2,
-           (input_block.x3max-input_block.x3min)/input_block.nx3}),
-      area_({dx_[1]*dx_[2], dx_[0]*dx_[2], dx_[0]*dx_[1]}),
-      cell_volume_(dx_[0]*dx_[1]*dx_[2]),
       cost_(1.0) {
   // initialize grid indices
   is = NGHOST;
@@ -119,6 +113,12 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
     ncells3 = 1;
     ncc3 = 1;
   }
+
+  std::array<Real, 3> dx({(input_block.x1max-input_block.x1min)/input_block.nx1,
+                          (input_block.x2max-input_block.x2min)/input_block.nx2,
+                          (input_block.x3max-input_block.x3min)/input_block.nx3});
+  coords = Coordinates({block_size.x1min, block_size.x2min, block_size.x3min},
+                        dx, {is, js, ks});
 
   Container<Real> &real_container = real_containers.Get();
 

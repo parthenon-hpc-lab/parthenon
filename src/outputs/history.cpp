@@ -29,7 +29,6 @@
 #include <string>
 
 #include "athena.hpp"
-#include "coordinates/coordinates.hpp"
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
 #include "outputs/outputs.hpp"

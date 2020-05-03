@@ -26,7 +26,6 @@
 #include <tuple>
 
 #include "athena.hpp"
-#include "coordinates/coordinates.hpp"
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
@@ -589,9 +588,9 @@ void MeshRefinement::ProlongateInternalField(FaceField &fine, int si, int ei, in
                        fine.x3f(fk, fjj, fii) * area[2]);
             }
           }
-          Real Sdx1 = 4.0*dx[0]*dx[0]; 
-          Real Sdx2 = 4.0*dx[1]*dx[1]; 
-          Real Sdx3 = 4.0*dx[2]*dx[2]; 
+          Real Sdx1 = 4.0*dx[0]*dx[0];
+          Real Sdx2 = 4.0*dx[1]*dx[1];
+          Real Sdx3 = 4.0*dx[2]*dx[2];
 
           Uxx *= 0.125;
           Vyy *= 0.125;
@@ -685,7 +684,7 @@ void MeshRefinement::ProlongateInternalField(FaceField &fine, int si, int ei, in
             area[0];
         fine.x1f(fk, fj + 1, fi + 1) =
             (0.5 * area[0] * (fine.x1f(fk, fj + 1, fi) +
-                    fine.x1f(fk, fj + 1, fi + 2))) +
+                    fine.x1f(fk, fj + 1, fi + 2)) +
              tmp1) /
             area[0];
         fine.x2f(fk, fj + 1, fi) =

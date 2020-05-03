@@ -16,7 +16,6 @@
 #include <algorithm>
 #include <limits>
 
-#include "coordinates/coordinates.hpp"
 #include "interface/container.hpp"
 #include "interface/variable_pack.hpp"
 #include "mesh/mesh.hpp"
