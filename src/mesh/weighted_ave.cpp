@@ -274,7 +274,7 @@ void MeshBlock::WeightedAve(FaceField &b_out, FaceField &b_in1, FaceField &b_in2
       }
       //---- B2
       for (int k = kb.s; k <= kb.e; ++k) {
-        for (int j = jb.s; j <= jb.e; ++j) {
+        for (int j = jl; j <= ju; ++j) {
 #pragma omp simd
           for (int i = ib.s; i <= ib.e; ++i) {
             b_out.x2f(k, j, i) = b_in1.x2f(k, j, i);
