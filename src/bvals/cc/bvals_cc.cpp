@@ -275,7 +275,7 @@ void CellCenteredBoundaryVariable::SetBoundaryFromCoarser(Real *buf,
 
   const IndexShape &c_cellbounds = pmb->c_cellbounds;
 
-  auto CalcIndices = [](const int &ox, int &s, int &e, const int &bounds,
+  auto CalcIndices = [](const int &ox, int &s, int &e, const IndexRange &bounds,
                         const std::int64_t &lx, const int &cng) {
     if (ox == 0) {
       s = bounds.s;
@@ -332,7 +332,7 @@ void CellCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
     ei = cellbounds.is(interior) - 1;
   }
 
-  auto CalcIndices = [&, nb](const int &ox, int &s, int &e, const int &bounds,
+  auto CalcIndices = [&, nb](const int &ox, int &s, int &e, const IndexRange &bounds,
                              const int &nx) {
     if (ox == 0) {
       s = bounds.s;
