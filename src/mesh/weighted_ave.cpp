@@ -161,6 +161,9 @@ void MeshBlock::WeightedAve(FaceField &b_out, FaceField &b_in1, FaceField &b_in2
   IndexRange ib = cellbounds.GetBoundsI(IndexDomain::interior);
   IndexRange jb = cellbounds.GetBoundsJ(IndexDomain::interior);
   IndexRange kb = cellbounds.GetBoundsK(IndexDomain::interior);
+
+  int jl = jb.s;
+  int ju = jb.e + 1;
   // Note: these loops can be combined now that they avoid curl terms
   // Only need to separately account for the final longitudinal face in each loop limit
   if (wght[0] == 1.0) {
@@ -177,7 +180,7 @@ void MeshBlock::WeightedAve(FaceField &b_out, FaceField &b_in1, FaceField &b_in2
       }
       //---- B2
       for (int k = kb.s; k <= kb.e; ++k) {
-        for (int j = jb.s; j <= jb.e; ++j) {
+        for (int j = jl; j <= ju; ++j) {
 #pragma omp simd
           for (int i = ib.s; i <= ib.e; ++i) {
             b_out.x2f(k, j, i) +=
@@ -208,7 +211,7 @@ void MeshBlock::WeightedAve(FaceField &b_out, FaceField &b_in1, FaceField &b_in2
         }
         //---- B2
         for (int k = kb.s; k <= kb.e; ++k) {
-          for (int j = jb.s; j <= jb.e; ++j) {
+          for (int j = jl; j <= ju; ++j) {
 #pragma omp simd
             for (int i = ib.s; i <= ib.e; ++i) {
               b_out.x2f(k, j, i) += wght[1] * b_in1.x2f(k, j, i);
@@ -240,7 +243,7 @@ void MeshBlock::WeightedAve(FaceField &b_out, FaceField &b_in1, FaceField &b_in2
       }
       //---- B2
       for (int k = kb.s; k <= kb.e; ++k) {
-        for (int j = jb.s; j <= jb.e; ++j) {
+        for (int j = jl; j <= ju; ++j) {
 #pragma omp simd
           for (int i = ib.s; i <= ib.e; ++i) {
             b_out.x2f(k, j, i) =
@@ -262,7 +265,7 @@ void MeshBlock::WeightedAve(FaceField &b_out, FaceField &b_in1, FaceField &b_in2
       // jb.est deep copy
       //---- B1
       for (int k = kb.s; k <= kb.e; ++k) {
-        for (int j = jb.s; j <= jb.e; ++j) {
+        for (int j = jl; j <= ju; ++j) {
 #pragma omp simd
           for (int i = ib.s; i <= ib.e + 1; ++i) {
             b_out.x1f(k, j, i) = b_in1.x1f(k, j, i);
@@ -299,7 +302,7 @@ void MeshBlock::WeightedAve(FaceField &b_out, FaceField &b_in1, FaceField &b_in2
       }
       //---- B2
       for (int k = kb.s; k <= kb.e; ++k) {
-        for (int j = jb.s; j <= jb.e; ++j) {
+        for (int j = jl; j <= ju; ++j) {
 #pragma omp simd
           for (int i = ib.s; i <= ib.e; ++i) {
             b_out.x2f(k, j, i) = wght[1] * b_in1.x2f(k, j, i);
@@ -331,7 +334,7 @@ void MeshBlock::WeightedAve(FaceField &b_out, FaceField &b_in1, FaceField &b_in2
       }
       //---- B2
       for (int k = kb.s; k <= kb.e; ++k) {
-        for (int j = jb.s; j <= jb.e; ++j) {
+        for (int j = jl; j <= ju; ++j) {
 #pragma omp simd
           for (int i = ib.s; i <= ib.e; ++i) {
             b_out.x2f(k, j, i) = wght[0] * b_out.x2f(k, j, i) +
@@ -365,7 +368,7 @@ void MeshBlock::WeightedAve(FaceField &b_out, FaceField &b_in1, FaceField &b_in2
         }
         //---- B2
         for (int k = kb.s; k <= kb.e; ++k) {
-          for (int j = jb.s; j <= jb.e; ++j) {
+          for (int j = jl; j <= ju; ++j) {
 #pragma omp simd
             for (int i = ib.s; i <= ib.e; ++i) {
               b_out.x2f(k, j, i) =
@@ -395,7 +398,7 @@ void MeshBlock::WeightedAve(FaceField &b_out, FaceField &b_in1, FaceField &b_in2
         }
         //---- B2
         for (int k = kb.s; k <= kb.e; ++k) {
-          for (int j = jb.s; j <= jb.e; ++j) {
+          for (int j = jl; j <= ju; ++j) {
 #pragma omp simd
             for (int i = ib.s; i <= ib.e; ++i) {
               b_out.x2f(k, j, i) *= wght[0];

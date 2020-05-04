@@ -239,23 +239,23 @@ void CellCenteredBoundaryVariable::SetBoundarySameLevel(Real *buf,
 
   const IndexShape &cellbounds = pmb->cellbounds;
 
-  auto CalcIndices = [](int ox, int &s, int &e, const int &cell_s, const int &cell_e) {
+  auto CalcIndices = [](int ox, int &s, int &e, const IndexRange & bounds) {
     if (ox == 0) {
-      s = cell_s;
-      e = cell_e;
+      s = bounds.s;
+      e = bounds.e;
     } else if (ox > 0) {
-      s = cell_e + 1;
-      e = cell_e + NGHOST;
+      s = bounds.e + 1;
+      e = bounds.e + NGHOST;
     } else {
-      s = cell_s - NGHOST;
-      e = cell_s - 1;
+      s = bounds.s - NGHOST;
+      e = bounds.s - 1;
     }
   };
 
   IndexDomain interior = IndexDomain::interior;
-  CalcIndices(nb.ni.ox1, si, ei, cellbounds.is(interior), cellbounds.ie(interior));
-  CalcIndices(nb.ni.ox2, sj, ej, cellbounds.js(interior), cellbounds.je(interior));
-  CalcIndices(nb.ni.ox3, sk, ek, cellbounds.ks(interior), cellbounds.ke(interior));
+  CalcIndices(nb.ni.ox1, si, ei, cellbounds.GetboundsI(interior));
+  CalcIndices(nb.ni.ox2, sj, ej, cellbounds.GetboundsJ(interior));
+  CalcIndices(nb.ni.ox3, sk, ek, cellbounds.GetboundsK(interior));
 
   int p = 0;
 
@@ -275,32 +275,29 @@ void CellCenteredBoundaryVariable::SetBoundaryFromCoarser(Real *buf,
 
   const IndexShape &c_cellbounds = pmb->c_cellbounds;
 
-  auto CalcIndices = [](const int &ox, int &s, int &e, const int &cell_s,
-                        const int &cell_e, const std::int64_t &lx, const int &cng) {
+  auto CalcIndices = [](const int &ox, int &s, int &e, const int &bounds,
+                        const std::int64_t &lx, const int &cng) {
     if (ox == 0) {
-      s = cell_s;
-      e = cell_e;
+      s = bounds.s;
+      e = bounds.e;
       if ((lx & 1LL) == 0LL) {
         e += cng;
       } else {
         s -= cng;
       }
     } else if (ox > 0) {
-      s = cell_e + 1;
-      e = cell_e + cng;
+      s = bounds.e + 1;
+      e = bounds.e + cng;
     } else {
-      s = cell_s - cng;
-      e = cell_s - 1;
+      s = bounds.s - cng;
+      e = bounds.s - 1;
     }
   };
 
   IndexDomain interior = IndexDomain::interior;
-  CalcIndices(nb.ni.ox1, si, ei, c_cellbounds.is(interior), c_cellbounds.ie(interior),
-              pmb->loc.lx1, cng);
-  CalcIndices(nb.ni.ox2, sj, ej, c_cellbounds.js(interior), c_cellbounds.je(interior),
-              pmb->loc.lx2, cng);
-  CalcIndices(nb.ni.ox3, sk, ek, c_cellbounds.ks(interior), c_cellbounds.ke(interior),
-              pmb->loc.lx3, cng);
+  CalcIndices(nb.ni.ox1, si, ei, c_cellbounds.GetBoundsI(interior), pmb->loc.lx1, cng);
+  CalcIndices(nb.ni.ox2, sj, ej, c_cellbounds.GetBoundsJ(interior), pmb->loc.lx2, cng);
+  CalcIndices(nb.ni.ox3, sk, ek, c_cellbounds.GetBoundsK(interior), pmb->loc.lx3, cng);
 
   int p = 0;
   BufferUtility::UnpackData(buf, coarse_buf, nl_, nu_, si, ei, sj, ej, sk, ek, p);
@@ -335,11 +332,10 @@ void CellCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
     ei = cellbounds.is(interior) - 1;
   }
 
-  auto CalcIndices = [&, nb](const int &ox, int &s, int &e, const int &cell_s,
-                             const int &cell_e, const int &nx) {
+  auto CalcIndices = [&, nb](const int &ox, int &s, int &e, const int & bounds, const int &nx) {
     if (ox == 0) {
-      s = cell_s;
-      e = cell_e;
+      s = bounds.s;
+      e = bounds.e;
       if (nx > 1) {
         if (nb.ni.ox1 != 0) {
           if (nb.ni.fi1 == 1) {
@@ -351,23 +347,21 @@ void CellCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
           if (nb.ni.fi2 == 1) {
             s += nx / 2;
           } else {
-            ej -= pmb->block_size.nx2 / 2;
+            ej -= nx / 2;
           }
         }
       }
     } else if (nb.ni.ox2 > 0) {
-      s = cell_e + 1;
-      e = cell_e + NGHOST;
+      s = bounds.e + 1;
+      e = bounds.e + NGHOST;
     } else {
-      s = cell_s - NGHOST;
-      e = cell_s - 1;
+      s = bounds.s - NGHOST;
+      e = bounds.s - 1;
     }
   };
 
-  CalcIndices(nb.ni.ox2, sj, ej, cellbounds.js(interior), cellbounds.je(interior),
-              pmb->block_size.nx2);
-  CalcIndices(nb.ni.ox3, sk, ek, cellbounds.ks(interior), cellbounds.ke(interior),
-              pmb->block_size.nx3);
+  CalcIndices(nb.ni.ox2, sj, ej, cellbounds.GetBoundsJ(interior), pmb->block_size.nx2);
+  CalcIndices(nb.ni.ox3, sk, ek, cellbounds.GetBoundsK(interior), pmb->block_size.nx3);
 
   int p = 0;
   BufferUtility::UnpackData(buf, var_cc, nl_, nu_, si, ei, sj, ej, sk, ek, p);

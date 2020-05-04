@@ -200,24 +200,6 @@ void BoundaryValues::ProlongateBoundaries(const Real time, const Real dt) {
   return;
 }
 
-static void CalcRestricedIndices(int &rs, int &re, int n, int ox, const IndexRange &b) {
-  if (n == 0) {
-    rs = b.s;
-    re = b.e;
-    if (ox == 1) {
-      rs = b.e;
-    } else if (ox == -1) {
-      re = b.s;
-    }
-  } else if (n == 1) {
-    rs = b.e + 1;
-    re = b.e + 1;
-  } else { //(n ==  - 1)
-    rs = b.s - 1;
-    re = b.s - 1;
-  }
-}
-
 void BoundaryValues::RestrictGhostCellsOnSameLevel(const NeighborBlock &nb, int nk,
                                                    int nj, int ni) {
   MeshBlock *pmb = pmy_block_;
@@ -227,6 +209,24 @@ void BoundaryValues::RestrictGhostCellsOnSameLevel(const NeighborBlock &nb, int 
   IndexRange cib = pmb->c_cellbounds.GetBoundsI(interior);
   IndexRange cjb = pmb->c_cellbounds.GetBoundsJ(interior);
   IndexRange ckb = pmb->c_cellbounds.GetBoundsK(interior);
+
+  auto CalcRestricedIndices = [](int & rs, int & re, int n, int ox, const IndexRange & b){
+    if (n == 0) {
+      rs = b.s;
+      re = b.e;
+      if (ox == 1) {
+        rs = b.e;
+      } else if (ox == -1) {
+        re = b.s;
+      }
+    } else if (n == 1) {
+      rs = b.e + 1;
+      re = b.e + 1;
+    } else { //(n ==  - 1)
+      rs = b.s - 1;
+      re = b.s - 1;
+    }
+  };
 
   int ris, rie, rjs, rje, rks, rke;
   CalcRestricedIndices(ris, rie, ni, nb.ni.ox1, cib);
@@ -252,7 +252,7 @@ void BoundaryValues::RestrictGhostCellsOnSameLevel(const NeighborBlock &nb, int 
     if (pmb->block_size.nx2 > 1) {
       rs = rjs, re = rje + 1;
       if (rs == cjb.s && nblevel[nk + 1][nj][ni + 1] < mylevel) rs++;
-      if (re == cjb.s + 1 && nblevel[nk + 1][nj + 2][ni + 1] < mylevel) re--;
+      if (re == cjb.e + 1 && nblevel[nk + 1][nj + 2][ni + 1] < mylevel) re--;
       pmr->RestrictFieldX2((*var_fc).x2f, (*coarse_fc).x2f, ris, rie, rs, re, rks, rke);
     } else { // 1D
       pmr->RestrictFieldX2((*var_fc).x2f, (*coarse_fc).x2f, ris, rie, rjs, rje, rks, rke);
