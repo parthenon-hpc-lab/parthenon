@@ -253,9 +253,9 @@ void CellCenteredBoundaryVariable::SetBoundarySameLevel(Real *buf,
   };
 
   IndexDomain interior = IndexDomain::interior;
-  CalcIndices(nb.ni.ox1, si, ei, cellbounds.GetboundsI(interior));
-  CalcIndices(nb.ni.ox2, sj, ej, cellbounds.GetboundsJ(interior));
-  CalcIndices(nb.ni.ox3, sk, ek, cellbounds.GetboundsK(interior));
+  CalcIndices(nb.ni.ox1, si, ei, cellbounds.GetBoundsI(interior));
+  CalcIndices(nb.ni.ox2, sj, ej, cellbounds.GetBoundsJ(interior));
+  CalcIndices(nb.ni.ox3, sk, ek, cellbounds.GetBoundsK(interior));
 
   int p = 0;
 
