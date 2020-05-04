@@ -76,7 +76,7 @@ static struct OuterLoopPatternTeams {
 static struct InnerLoopPatternTTR {
 } inner_loop_pattern_ttr_tag;
 static struct InnerLoopPatternSimdFor {
-} inner_loop_pattern_simd_for_tag;
+} inner_loop_pattern_simdfor_tag;
 
 
 // TODO(pgrete) I don't like this and would prefer to make the default a
@@ -108,7 +108,7 @@ static struct InnerLoopPatternSimdFor {
 #ifdef TVR_INNER_LOOP
 #define DEFAULT_INNER_LOOP_PATTERN inner_loop_pattern_ttr_tag
 #elif SIMDFOR_INNER_LOOP
-#define DEFAULT_INNER_LOOP_PATTERN inner_loop_pattern_simd_for_tag
+#define DEFAULT_INNER_LOOP_PATTERN inner_loop_pattern_simdfor_tag
 #else
 #define DEFAULT_INNER_LOOP_PATTERN loop_pattern_undefined_tag
 #endif
@@ -159,7 +159,7 @@ inline void par_outer_for(
                 const int scratch_level,
                 const int kl, const int ku,
                 const int jl, const int ju,
-                Function function) {
+                const Function &function) {
   par_outer_for(DEFAULT_OUTER_LOOP_PATTERN, name, scratch_size_in_bytes, 
       scratch_level, kl, ku, jl, ju, function);
 }
@@ -174,7 +174,7 @@ inline void par_outer_for(
                 const int nl, const int nu,
                 const int kl, const int ku,
                 const int jl, const int ju,
-                Function function) {
+                const Function &function) {
   par_outer_for(DEFAULT_OUTER_LOOP_PATTERN, name, exec_space, scratch_size_in_bytes, 
       scratch_level, nl, nu, jl, ju, function);
 }
@@ -184,7 +184,7 @@ template <typename Function>
 inline void par_inner_for( 
     member_type team_member,
     const int il, const int iu,
-    Function function){
+    const Function &function){
   par_inner_for(DEFAULT_INNER_LOOP_PATTERN,team_member, il, iu, function);
 }
 
@@ -453,7 +453,7 @@ inline void par_outer_for(OuterLoopPatternTeams,
                 const int scratch_level,
                 const int kl, const int ku,
                 const int jl, const int ju,
-                Function function) {
+                const Function &function) {
 
   const int Nk = ku + 1 - kl;
   const int Nj = ju + 1 - jl;
@@ -478,7 +478,7 @@ inline void par_outer_for(OuterLoopPatternTeams,
                 size_t scratch_size_in_bytes,
                 const int scratch_level,
                 const int nl, const int nu, const int kl, const int ku, const int jl,
-                const int ju, const int il, const int iu, const Function &function) {
+                const int ju, const Function &function) {
 
   const int Nn = nu - nl + 1;
   const int Nk = ku - kl + 1;
@@ -508,7 +508,7 @@ inline void par_inner_for(
     InnerLoopPatternTTR,
     member_type team_member,
     const int il, const int iu,
-    Function function){
+    const Function &function){
   Kokkos::parallel_for(
       Kokkos::TeamThreadRange(team_member,il,iu+1),
       function);
@@ -520,7 +520,7 @@ inline void par_inner_for(
     InnerLoopPatternSimdFor,
     member_type team_member,
     const int il, const int iu,
-    Function function){
+    const Function &function){
   #pragma omp simd
   for(int i = il; i <= iu; i++){
       function(i);
