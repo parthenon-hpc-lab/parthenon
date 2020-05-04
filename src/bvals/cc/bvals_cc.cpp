@@ -236,7 +236,6 @@ void CellCenteredBoundaryVariable::SetBoundarySameLevel(Real *buf,
                                                         const NeighborBlock &nb) {
   MeshBlock *pmb = pmy_block_;
   int si, sj, sk, ei, ej, ek;
-  AthenaArray<Real> &var = *var_cc;
 
   const IndexShape & cellbounds = pmb->cellbounds;
 

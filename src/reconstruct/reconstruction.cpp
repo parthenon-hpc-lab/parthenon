@@ -48,6 +48,10 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin)
   // Read and set type of spatial reconstruction
   // --------------------------------
   std::string input_recon = pin->GetOrAddString("mesh", "xorder", "2");
+  // Avoid pmb indirection
+  const IndexDomain entire = IndexDomain::entire;
+  const IndexDomain interior = IndexDomain::interior;
+  const IndexShape cellbounds = pmb->cellbounds;
 
   if (input_recon == "1") {
     xorder = 1;
@@ -108,9 +112,9 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin)
           << "x3rat= " << pmb->block_size.x3rat << std::endl;
       ATHENA_ERROR(msg);
     }
-    Real &dx_i = pmb->pcoord->dx1f(pmb->is);
-    Real &dx_j = pmb->pcoord->dx2f(pmb->js);
-    Real &dx_k = pmb->pcoord->dx3f(pmb->ks);
+    Real &dx_i = pmb->pcoord->dx1f(cellbounds.is(interior));
+    Real &dx_j = pmb->pcoord->dx2f(cellbounds.js(interior));
+    Real &dx_k = pmb->pcoord->dx3f(cellbounds.ks(interior));
     // Note, probably want to make the following condition less strict (signal warning
     // for small differences due to floating-point issues) but upgrade to error for
     // large deviations from a square mesh. Currently signals a warning for each
@@ -172,9 +176,6 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin)
   // TODO(c-white): use modified version of curvilinear PPM reconstruction weights and
   // limiter formulations for Schwarzschild, Kerr metrics instead of Cartesian-like wghts
 
-  // Avoid pmb indirection
-  const IndexDomain entire = IndexDomain::entire;
-  const IndexShape cellbounds = pmb->cellbounds;
   // Allocate memory for scratch arrays used in PLM and PPM
   int nc1 = cellbounds.ncellsi(entire);
   scr01_i_ = ParArrayND<Real>(PARARRAY_TEMP, nc1);
@@ -288,7 +289,7 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin)
       hminus_ratio_j = ParArrayND<Real>(PARARRAY_TEMP, nc2);
 
       // zero-curvature PPM limiter does not depend on mesh uniformity:
-      for (int j = (pmb->js) - 1; j <= (pmb->je) + 1; ++j) {
+      for (int j = (cellbounds.js(interior)) - 1; j <= (cellbounds.je(interior)) + 1; ++j) {
         // h_plus = 3.0;
         // h_minus = 3.0;
         // Ratios are = 2 for Cartesian coords, as in the original PPM limiter's

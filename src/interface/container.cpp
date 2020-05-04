@@ -408,9 +408,10 @@ void Container<T>::calcArrDims_(std::array<int, 6> &arrDims, const std::vector<i
     // these dimensions to be the number of cells in each
     // direction, NOT the size of the arrays
     assert(N >= 0 && N <= 3);
-    arrDims[0] = pmy_block->ncells1;
-    arrDims[1] = pmy_block->ncells2;
-    arrDims[2] = pmy_block->ncells3;
+    const IndexDomain entire = IndexDomain::entire;
+    arrDims[0] = pmy_block->cellbounds.ncellsi(entire);
+    arrDims[1] = pmy_block->cellbounds.ncellsj(entire);
+    arrDims[2] = pmy_block->cellbounds.ncellsk(entire);
     for (int i = 0; i < N; i++)
       arrDims[i + 3] = dims[i];
     for (int i = N; i < 3; i++)

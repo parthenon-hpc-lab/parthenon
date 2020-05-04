@@ -18,10 +18,8 @@
 #ifndef MESH_DOMAIN_HPP_
 #define MESH_DOMAIN_HPP_
 
+#include "athena.hpp"
 #include <array>
-
-#include "athena.hpp" 
-#include "athena_arrays.hpp"
 
 namespace parthenon {
 

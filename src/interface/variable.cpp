@@ -101,7 +101,9 @@ void CellVariable<T>::allocateComms(MeshBlock *pmb) {
   }
   if (pmb->pmy_mesh->multilevel)
     coarse_s = ParArrayND<T>(base_name + ".coarse", GetDim(6), GetDim(5), GetDim(4),
-                             pmb->ncc3, pmb->ncc2, pmb->ncc1);
+                             pmb->c_cellbounds.ncellsk(IndexDomain::entire), 
+                             pmb->c_cellbounds.ncellsj(IndexDomain::entire), 
+                             pmb->c_cellbounds.ncellsi(IndexDomain::entire));
 
   // Create the boundary object
   vbvar = std::make_shared<CellCenteredBoundaryVariable>(pmb, data, coarse_s, flux);

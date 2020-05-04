@@ -20,6 +20,8 @@
 #include "advection_package.hpp"
 
 using namespace parthenon::package::prelude;
+using parthenon::IndexRange;
+using parthenon::IndexDomain;
 
 // *************************************************//
 // define the "physics" package Advect, which      *//
@@ -77,12 +79,15 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 AmrTag CheckRefinement(Container<Real> &rc) {
   MeshBlock *pmb = rc.pmy_block;
   // refine on advected, for example.  could also be a derived quantity
+  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
+  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
+  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
   CellVariable<Real> &v = rc.Get("advected");
   Real vmin = 1.0;
   Real vmax = 0.0;
-  for (int k = 0; k < pmb->ncells3; k++) {
-    for (int j = 0; j < pmb->ncells2; j++) {
-      for (int i = 0; i < pmb->ncells1; i++) {
+  for (int k = kb.s; k <= kb.e; k++) {
+    for (int j = jb.s; j <= jb.e; j++) {
+      for (int i = ib.s; i <= ib.e; i++) {
         vmin = (v(k, j, i) < vmin ? v(k, j, i) : vmin);
         vmax = (v(k, j, i) > vmax ? v(k, j, i) : vmax);
       }
@@ -100,17 +105,14 @@ AmrTag CheckRefinement(Container<Real> &rc) {
 // demonstrate usage of a "pre" fill derived routine
 void PreFill(Container<Real> &rc) {
   MeshBlock *pmb = rc.pmy_block;
-  int is = 0;
-  int js = 0;
-  int ks = 0;
-  int ie = pmb->ncells1 - 1;
-  int je = pmb->ncells2 - 1;
-  int ke = pmb->ncells3 - 1;
+  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
+  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
+  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
   CellVariable<Real> &qin = rc.Get("advected");
   CellVariable<Real> &qout = rc.Get("one_minus_advected");
-  for (int i = is; i <= ie; i++) {
-    for (int j = js; j <= je; j++) {
-      for (int k = ks; k <= ke; k++) {
+  for (int i = ib.s; i <= ib.e; i++) {
+    for (int j = jb.s; j <= jb.e; j++) {
+      for (int k = kb.s; k <= kb.e; k++) {
         qout(k, j, i) = 1.0 - qin(k, j, i);
       }
     }
@@ -120,17 +122,14 @@ void PreFill(Container<Real> &rc) {
 // this is the package registered function to fill derived
 void SquareIt(Container<Real> &rc) {
   MeshBlock *pmb = rc.pmy_block;
-  int is = 0;
-  int js = 0;
-  int ks = 0;
-  int ie = pmb->ncells1 - 1;
-  int je = pmb->ncells2 - 1;
-  int ke = pmb->ncells3 - 1;
+  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
+  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
+  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
   CellVariable<Real> &qin = rc.Get("one_minus_advected");
   CellVariable<Real> &qout = rc.Get("one_minus_advected_sq");
-  for (int i = is; i <= ie; i++) {
-    for (int j = js; j <= je; j++) {
-      for (int k = ks; k <= ke; k++) {
+  for (int i = ib.s; i <= ib.e; i++) {
+    for (int j = jb.s; j <= jb.e; j++) {
+      for (int k = kb.s; k <= kb.e; k++) {
         qout(k, j, i) = qin(k, j, i) * qin(k, j, i);
       }
     }
@@ -140,20 +139,17 @@ void SquareIt(Container<Real> &rc) {
 // demonstrate usage of a "post" fill derived routine
 void PostFill(Container<Real> &rc) {
   MeshBlock *pmb = rc.pmy_block;
-  int is = 0;
-  int js = 0;
-  int ks = 0;
-  int ie = pmb->ncells1 - 1;
-  int je = pmb->ncells2 - 1;
-  int ke = pmb->ncells3 - 1;
+  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
+  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
+  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
   CellVariable<Real> &qin = rc.Get("one_minus_advected_sq");
   // get component 12
   CellVariable<Real> &q0 = rc.Get("one_minus_sqrt_one_minus_advected_sq", 12);
   // and component 37
   CellVariable<Real> &q1 = rc.Get("one_minus_sqrt_one_minus_advected_sq", 37);
-  for (int i = is; i <= ie; i++) {
-    for (int j = js; j <= je; j++) {
-      for (int k = ks; k <= ke; k++) {
+  for (int i = ib.s; i <= ib.e; i++) {
+    for (int j = jb.s; j <= jb.e; j++) {
+      for (int k = kb.s; k <= kb.e; k++) {
         // this will make component 12 = advected
         q0(k, j, i) = 1.0 - sqrt(qin(k, j, i));
         // and this will make component 37 = 1 - advected
@@ -171,23 +167,20 @@ Real EstimateTimestep(Container<Real> &rc) {
   const auto &vx = pkg->Param<Real>("vx");
   const auto &vy = pkg->Param<Real>("vy");
 
-  int is = pmb->is;
-  int js = pmb->js;
-  int ks = pmb->ks;
-  int ie = pmb->ie;
-  int je = pmb->je;
-  int ke = pmb->ke;
+  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
+  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
+  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
 
   Real min_dt = std::numeric_limits<Real>::max();
-  ParArrayND<Real> dx0("dx0", pmb->ncells1);
-  ParArrayND<Real> dx1("dx1", pmb->ncells1);
+  ParArrayND<Real> dx0("dx0", pmb->cellbounds.ncellsi(IndexDomain::entire));
+  ParArrayND<Real> dx1("dx1", pmb->cellbounds.ncellsi(IndexDomain::entire));
 
   // this is obviously overkill for this constant velocity problem
-  for (int k = ks; k <= ke; k++) {
-    for (int j = js; j <= je; j++) {
-      pmb->pcoord->CenterWidth1(k, j, is, ie, dx0);
-      pmb->pcoord->CenterWidth2(k, j, is, ie, dx1);
-      for (int i = is; i <= ie; i++) {
+  for (int k = kb.s; k <= kb.e; k++) {
+    for (int j = jb.s; j <= jb.e; j++) {
+      pmb->pcoord->CenterWidth1(k, j, ib.s, ib.e, dx0);
+      pmb->pcoord->CenterWidth2(k, j, ib.s, ib.e, dx1);
+      for (int i = ib.s; i <= ib.e; i++) {
         min_dt = std::min(min_dt, dx0(i) / std::abs(vx));
         min_dt = std::min(min_dt, dx1(i) / std::abs(vy));
       }
@@ -202,34 +195,34 @@ Real EstimateTimestep(Container<Real> &rc) {
 // This routine implements all the "physics" in this example
 TaskStatus CalculateFluxes(Container<Real> &rc) {
   MeshBlock *pmb = rc.pmy_block;
-  int is = pmb->is;
-  int js = pmb->js;
-  int ks = pmb->ks;
-  int ie = pmb->ie;
-  int je = pmb->je;
-  int ke = pmb->ke;
+  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
+  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
+  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
+  int ncellsi = pmb->cellbounds.ncellsi(IndexDomain::entire);
+  int ncellsj = pmb->cellbounds.ncellsi(IndexDomain::entire);
+  int ncellsk = pmb->cellbounds.ncellsi(IndexDomain::entire);
 
   CellVariable<Real> &q = rc.Get("advected");
   auto pkg = pmb->packages["advection_package"];
   const auto &vx = pkg->Param<Real>("vx");
   const auto &vy = pkg->Param<Real>("vy");
 
-  int maxdim = std::max(std::max(pmb->ncells1, pmb->ncells2), pmb->ncells3);
+  int maxdim = std::max(std::max(ncellsi, ncellsj), ncellsk);
   ParArrayND<Real> ql("ql", maxdim);
   ParArrayND<Real> qr("qr", maxdim);
   ParArrayND<Real> qltemp("qltemp", maxdim);
 
   // get x-fluxes
-  for (int k = ks; k <= ke; k++) {
-    for (int j = js; j <= je; j++) {
+  for (int k = kb.s; k <= kb.e; k++) {
+    for (int j = jb.s; j <= jb.e; j++) {
       // get reconstructed state on faces
-      pmb->precon->DonorCellX1(k, j, is - 1, ie + 1, q.data, ql, qr);
+      pmb->precon->DonorCellX1(k, j, ib.s - 1, ib.e + 1, q.data, ql, qr);
       if (vx > 0.0) {
-        for (int i = is; i <= ie + 1; i++) {
+        for (int i = ib.s; i <= ib.e + 1; i++) {
           q.flux[0](k, j, i) = ql(i) * vx;
         }
       } else {
-        for (int i = is; i <= ie + 1; i++) {
+        for (int i = ib.s; i <= ib.e + 1; i++) {
           q.flux[0](k, j, i) = qr(i) * vx;
         }
       }
@@ -237,16 +230,16 @@ TaskStatus CalculateFluxes(Container<Real> &rc) {
   }
   // get y-fluxes
   if (pmb->pmy_mesh->ndim >= 2) {
-    for (int k = ks; k <= ke; k++) {
-      pmb->precon->DonorCellX2(k, js - 1, is, ie, q.data, ql, qr);
-      for (int j = js; j <= je + 1; j++) {
-        pmb->precon->DonorCellX2(k, j, is, ie, q.data, qltemp, qr);
+    for (int k = kb.s; k <= kb.e; k++) {
+      pmb->precon->DonorCellX2(k, jb.s - 1, ib.s, ib.e, q.data, ql, qr);
+      for (int j = jb.s; j <= jb.e + 1; j++) {
+        pmb->precon->DonorCellX2(k, j, ib.s, ib.e, q.data, qltemp, qr);
         if (vy > 0.0) {
-          for (int i = is; i <= ie; i++) {
+          for (int i = ib.s; i <= ib.e; i++) {
             q.flux[1](k, j, i) = ql(i) * vy;
           }
         } else {
-          for (int i = is; i <= ie; i++) {
+          for (int i = ib.s; i <= ib.e; i++) {
             q.flux[1](k, j, i) = qr(i) * vy;
           }
         }

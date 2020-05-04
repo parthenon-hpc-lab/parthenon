@@ -1050,12 +1050,12 @@ void Mesh::FinishRecvSameLevel(MeshBlock *pb, Real *recvbuf) {
     BufferUtility::UnpackData(recvbuf, var_fc.x2f, ib.s, ib.e, jb.s, jb.e+f2, kb.s, kb.e, p);
     BufferUtility::UnpackData(recvbuf, var_fc.x3f, ib.s, ib.e, jb.s, jb.e, kb.s, kb.e+f3, p);
     if (pb->block_size.nx2 == 1) {
-      for (int i = pb->is; i <= pb->ie; i++)
+      for (int i = ib.s; i <= ib.e; i++)
         var_fc.x2f(kb.s, jb.s+1, i) = var_fc.x2f(kb.s, jb.s, i);
     }
     if (pb->block_size.nx3 == 1) {
-      for (int j = pb->js; j <= pb->je; j++) {
-        for (int i = pb->is; i <= pb->ie; i++)
+      for (int j = jb.s; j <= jb.e; j++) {
+        for (int i = ib.s; i <= ib.e; i++)
           var_fc.x3f(kb.s+1, j, i) = var_fc.x3f(kb.s, j, i);
       }
     }

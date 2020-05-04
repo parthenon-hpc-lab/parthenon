@@ -85,7 +85,7 @@ TaskStatus FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
                   (x3area1(i) * x3flux(l, k + 1, j, i) - x3area0(i) * x3flux(l, k, j, i));
             }
           }
-          for (int i = is; i <= ie; i++) {
+          for (int i = ib.s; i <= ib.e; i++) {
             dudt(l, k, j, i) = -du(i) / vol(i);
           }
         }

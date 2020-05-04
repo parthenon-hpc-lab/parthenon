@@ -58,7 +58,8 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
       new_block_dt_parabolic_{}, new_block_dt_user_{}, cost_(1.0) {
   // initialize grid indices
   InitializeIndexShapes();
- 
+
+  Container<Real> &real_container = real_containers.Get();
   // Set the block pointer for the containers
   real_container.setBlock(this);
 
