@@ -246,7 +246,7 @@ class MeshBlock {
   std::vector<std::shared_ptr<CellVariable<Real>>> vars_cc_;
   std::vector<std::shared_ptr<FaceField>> vars_fc_;
 
-  void InitializeIndexShapes();
+  void InitializeIndexShapes(const int nx1, const int nx2, const int nx3);
   // functions
   void SetCostForLoadBalancing(double cost);
 

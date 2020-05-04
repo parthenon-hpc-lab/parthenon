@@ -257,16 +257,16 @@ TaskStatus CalculateFluxes(Container<Real> &rc) {
 
   // get z-fluxes
   if (pmb->pmy_mesh->ndim == 3) {
-    for (int j = js; j <= je; j++) { // loop ordering is intentional
-      pmb->precon->DonorCellX3(ks - 1, j, is, ie, q.data, ql, qr);
-      for (int k = ks; k <= ke + 1; k++) {
-        pmb->precon->DonorCellX3(k, j, is, ie, q.data, qltemp, qr);
+    for (int j = jb.s; j <= jb.e; j++) { // loop ordering is intentional
+      pmb->precon->DonorCellX3(kb.s - 1, j, ib.s, ib.e, q.data, ql, qr);
+      for (int k = kb.s; k <= kb.e + 1; k++) {
+        pmb->precon->DonorCellX3(k, j, ib.s, ib.e, q.data, qltemp, qr);
         if (vz > 0.0) {
-          for (int i = is; i <= ie; i++) {
+          for (int i = ib.s; i <= ib.e; i++) {
             q.flux[2](k, j, i) = ql(i) * vz;
           }
         } else {
-          for (int i = is; i <= ie; i++) {
+          for (int i = ib.s; i <= ib.e; i++) {
             q.flux[2](k, j, i) = qr(i) * vz;
           }
         }

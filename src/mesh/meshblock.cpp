@@ -50,31 +50,12 @@ namespace parthenon {
 //                        and mesh refinement objects.
 MeshBlock::MeshBlock(const int n_side, const int ndim) {
   // initialize grid indices
-  is = NGHOST;
-  ie = is + n_side - 1;
-
-  ncells1 = n_side + 2 * NGHOST;
-  ncc1 = n_side / 2 + 2 * NGHOST;
-  if (ndim >= 2) {
-    js = NGHOST;
-    je = js + n_side - 1;
-    ncells2 = n_side + 2 * NGHOST;
-    ncc2 = n_side / 2 + 2 * NGHOST;
-  } else {
-    js = je = 0;
-    ncells2 = 1;
-    ncc2 = 1;
-  }
-
-  if (ndim >= 3) {
-    ks = NGHOST;
-    ke = ks + n_side - 1;
-    ncells3 = n_side + 2 * NGHOST;
-    ncc3 = n_side / 2 + 2 * NGHOST;
-  } else {
-    ks = ke = 0;
-    ncells3 = 1;
-    ncc3 = 1;
+  if(ndim==1){
+    InitializeIndexShapes(n_side,1,1);
+  }else if(ndim == 2){
+    InitializeIndexShapes(n_side,n_side,1);
+  }else {
+    InitializeIndexShapes(n_side,n_side,n_side);
   }
 }
 
@@ -87,7 +68,7 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
       prev(nullptr), next(nullptr), new_block_dt_{}, new_block_dt_hyperbolic_{},
       new_block_dt_parabolic_{}, new_block_dt_user_{}, cost_(1.0) {
   // initialize grid indices
-  InitializeIndexShapes();
+  InitializeIndexShapes(block_size.nx1, block_size.nx2, block_size.nx3);
 
   Container<Real> &real_container = real_containers.Get();
   // Set the block pointer for the containers
@@ -171,7 +152,7 @@ MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
   // std::cerr << "WHY AM I HERE???" << std::endl;
 
   // initialize grid indices
-  InitializeIndexShapes();
+  InitializeIndexShapes(block_size.nx1, block_size.nx2, block_size.nx3);
     
   // Set the block pointer for the containers
   real_containers.Get().setBlock(this);
@@ -218,7 +199,7 @@ MeshBlock::~MeshBlock() {
   if (next != nullptr) next->prev = prev;
 }
 
-void MeshBlock::InitializeIndexShapes() {
+void MeshBlock::InitializeIndexShapes(const int nx1, const int nx2, const int nx3) {
 
   cellbounds = IndexShape(block_size.nx1, block_size.nx2, block_size.nx3, NGHOST);
 
