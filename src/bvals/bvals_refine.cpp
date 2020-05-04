@@ -210,7 +210,7 @@ void BoundaryValues::RestrictGhostCellsOnSameLevel(const NeighborBlock &nb, int 
   IndexRange cjb = pmb->c_cellbounds.GetBoundsJ(interior);
   IndexRange ckb = pmb->c_cellbounds.GetBoundsK(interior);
 
-  auto CalcRestricedIndices = [](int & rs, int & re, int n, int ox, const IndexRange & b){
+  auto CalcRestricedIndices = [](int &rs, int &re, int n, int ox, const IndexRange &b) {
     if (n == 0) {
       rs = b.s;
       re = b.e;
