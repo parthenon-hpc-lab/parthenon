@@ -30,20 +30,18 @@ namespace advection_example {
 AdvectionDriver::AdvectionDriver(ParameterInput *pin, Mesh *pm)
     : MultiStageBlockTaskDriver(pin, pm) {
   // fail if these are not specified in the input file
-  pin->CheckRequired("mesh", "ix1_bc");
-  pin->CheckRequired("mesh", "ox1_bc");
-  pin->CheckRequired("mesh", "ix2_bc");
-  pin->CheckRequired("mesh", "ox2_bc");
+  pin->CheckRequired("parthenon/mesh", "ix1_bc");
+  pin->CheckRequired("parthenon/mesh", "ox1_bc");
+  pin->CheckRequired("parthenon/mesh", "ix2_bc");
+  pin->CheckRequired("parthenon/mesh", "ox2_bc");
 
   // warn if these fields aren't specified in the input file
-  pin->CheckDesired("mesh", "refinement");
-  pin->CheckDesired("mesh", "numlevel");
+  pin->CheckDesired("parthenon/mesh", "refinement");
+  pin->CheckDesired("parthenon/mesh", "numlevel");
   pin->CheckDesired("Advection", "cfl");
   pin->CheckDesired("Advection", "vx");
   pin->CheckDesired("Advection", "refine_tol");
   pin->CheckDesired("Advection", "derefine_tol");
-  pin->CheckDesired("graphics", "variables");
-  pin->CheckDesired("graphics", "dt");
 }
 // first some helper tasks
 TaskStatus UpdateContainer(MeshBlock *pmb, int stage,

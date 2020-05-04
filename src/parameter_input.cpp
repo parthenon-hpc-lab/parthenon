@@ -840,7 +840,7 @@ void ParameterInput::RollbackNextTime() {
   Real next_time;
 
   while (pb != nullptr) {
-    if (pb->block_name.compare(0, 6, "output") == 0) {
+    if (pb->block_name.compare(0, 16, "parthenon/output") == 0) {
       pl = pb->GetPtrToLine("next_time");
       if (pl == nullptr) {
         msg << "### FATAL ERROR in function [ParameterInput::RollbackNextTime]"
@@ -877,7 +877,7 @@ void ParameterInput::ForwardNextTime(Real mesh_time) {
   bool fresh = false;
 
   while (pb != nullptr) {
-    if (pb->block_name.compare(0, 6, "output") == 0) {
+    if (pb->block_name.compare(0, 16, "parthenon/output") == 0) {
       std::stringstream msg;
       pl = pb->GetPtrToLine("next_time");
       if (pl == nullptr) {

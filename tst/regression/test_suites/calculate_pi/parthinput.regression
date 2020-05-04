@@ -21,6 +21,7 @@ problem_id = pi_calculator
 <parthenon/mesh>
 refinement = adaptive
 numlevel = 5
+num_threads=4
 
 nx1 = 64
 x1min = -2.0
