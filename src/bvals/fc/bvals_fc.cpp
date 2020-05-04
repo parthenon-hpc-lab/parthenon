@@ -167,9 +167,9 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(Real *buf,
   int p = 0;
 
   const IndexDomain interior = IndexDomain::interior;
-  const IndexRange & ib = pmb->cellbounds.GetBoundsI(interior);
-  const IndexRange & jb = pmb->cellbounds.GetBoundsJ(interior);
-  const IndexRange & kb = pmb->cellbounds.GetBoundsK(interior);
+  const IndexRange &ib = pmb->cellbounds.GetBoundsI(interior);
+  const IndexRange &jb = pmb->cellbounds.GetBoundsJ(interior);
+  const IndexRange &kb = pmb->cellbounds.GetBoundsK(interior);
   // clang-format off
   // bx1
   if      (nb.ni.ox1 == 0) si = ib.s,              ei = ib.e + 1;

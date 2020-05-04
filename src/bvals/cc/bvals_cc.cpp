@@ -239,7 +239,7 @@ void CellCenteredBoundaryVariable::SetBoundarySameLevel(Real *buf,
 
   const IndexShape &cellbounds = pmb->cellbounds;
 
-  auto CalcIndices = [](int ox, int &s, int &e, const IndexRange & bounds) {
+  auto CalcIndices = [](int ox, int &s, int &e, const IndexRange &bounds) {
     if (ox == 0) {
       s = bounds.s;
       e = bounds.e;
@@ -332,7 +332,8 @@ void CellCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
     ei = cellbounds.is(interior) - 1;
   }
 
-  auto CalcIndices = [&, nb](const int &ox, int &s, int &e, const int & bounds, const int &nx) {
+  auto CalcIndices = [&, nb](const int &ox, int &s, int &e, const int &bounds,
+                             const int &nx) {
     if (ox == 0) {
       s = bounds.s;
       e = bounds.e;
