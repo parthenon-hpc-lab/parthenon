@@ -46,9 +46,9 @@ class VariablePack {
   VariablePack(const ViewOfParArrays<T> view, const std::array<int, 4> dims)
       : v_(view), dims_(dims) {}
   KOKKOS_FORCEINLINE_FUNCTION
-  auto &operator()(const int n) const { return v_(n); }
+  ParArray3D<T> &operator()(const int n) const { return v_(n); }
   KOKKOS_FORCEINLINE_FUNCTION
-  auto &operator()(const int n, const int k, const int j, const int i) const {
+  T &operator()(const int n, const int k, const int j, const int i) const {
     return v_(n)(k, j, i);
   }
   KOKKOS_FORCEINLINE_FUNCTION

@@ -373,8 +373,9 @@ TEST_CASE("Container Iterator Performance", "[ContainerIterator][performance]") 
               var_view.GetDim(3) - 1, 0, var_view.GetDim(2) - 1, 0,
               var_view.GetDim(1) - 1,
               KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
-                var_view(l, k, j, i) *=
-                    var_view(l, k, j, i); // Do something trivial, square each term
+                auto &var = var_view(l);
+                var(k, j, i) *=
+                    var(k, j, i); // Do something trivial, square each term
               });
         });
 
