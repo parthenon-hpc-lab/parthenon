@@ -41,8 +41,8 @@ TaskStatus FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
   auto dudt = PackVariables<Real>(dudt_cont, {Metadata::Independent});
 
   int ndim = pmb->pmy_mesh->ndim;
-  par_for(
-      "flux divergence", DevExecSpace(), 0, vin.GetDim(4) - 1, ks, ke, js, je, is, ie,
+  pmb->par_for(
+      "flux divergence", 0, vin.GetDim(4) - 1, ks, ke, js, je, is, ie,
       KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
         dudt(l, k, j, i) = 0.0;
         dudt(l, k, j, i) +=
@@ -75,9 +75,9 @@ void UpdateContainer(Container<Real> &in, Container<Real> &dudt_cont, const Real
   auto vout = PackVariables<>(out, {Metadata::Independent});
   auto dudt = PackVariables<>(dudt_cont, {Metadata::Independent});
 
-  par_for(
-      "UpdateContainer", DevExecSpace(), 0, vin.GetDim(4) - 1, 0, vin.GetDim(3) - 1, 0,
-      vin.GetDim(2) - 1, 0, vin.GetDim(1) - 1,
+  pmb->par_for(
+      "UpdateContainer", 0, vin.GetDim(4) - 1, 0, vin.GetDim(3) - 1, 0, vin.GetDim(2) - 1,
+      0, vin.GetDim(1) - 1,
       KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
         vout(l, k, j, i) = vin(l, k, j, i) + dt * dudt(l, k, j, i);
       });
@@ -96,8 +96,8 @@ void AverageContainers(Container<Real> &c1, Container<Real> &c2, const Real wgt1
   auto v1 = PackVariables<Real>(c1, {Metadata::Independent});
   auto v2 = PackVariables<Real>(c2, {Metadata::Independent});
 
-  par_for(
-      "AverageContainers", DevExecSpace(), 0, v1.GetDim(4) - 1, ks, ke, js, je, is, ie,
+  pmb->par_for(
+      "AverageContainers", 0, v1.GetDim(4) - 1, ks, ke, js, je, is, ie,
       KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
         v1(l, k, j, i) = wgt1 * v1(l, k, j, i) + (1 - wgt1) * v2(l, k, j, i);
       });
