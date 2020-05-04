@@ -76,7 +76,7 @@ void VTKOutput::WriteContainer(SimTime &tm, Mesh *pm, ParameterInput *pin, bool 
     IndexDomain domain = IndexDomain::interior;
     if (output_params.include_ghost_zones) {
       domain = IndexDomain::entire;
-    } 
+    }
     // build doubly linked list of OutputData nodes (setting data ptrs to appropriate
     // quantity on MeshBlock for each node), then slice/sum as needed
     // create filename: "file_basename"+ "."+"blockid"+"."+"file_id"+"."+XXXXX+".vtk",
@@ -146,7 +146,7 @@ void VTKOutput::WriteContainer(SimTime &tm, Mesh *pm, ParameterInput *pin, bool 
     if (ncells1 == 1) {
       data[0] = static_cast<float>(pmb->pcoord->x1v(out_ib.s));
     } else {
-      for (int i = out_ib.s; i <= out_ib.e+1; ++i) {
+      for (int i = out_ib.s; i <= out_ib.e + 1; ++i) {
         data[i - out_ib.s] = static_cast<float>(pmb->pcoord->x1f(i));
       }
     }
@@ -161,7 +161,7 @@ void VTKOutput::WriteContainer(SimTime &tm, Mesh *pm, ParameterInput *pin, bool 
     if (ncells2 == 1) {
       data[0] = static_cast<float>(pmb->pcoord->x2v(out_jb.s));
     } else {
-      for (int j = out_jb.s; j <= out_jb.e+1; ++j) {
+      for (int j = out_jb.s; j <= out_jb.e + 1; ++j) {
         data[j - out_jb.s] = static_cast<float>(pmb->pcoord->x2f(j));
       }
     }
@@ -176,7 +176,7 @@ void VTKOutput::WriteContainer(SimTime &tm, Mesh *pm, ParameterInput *pin, bool 
     if (ncells3 == 1) {
       data[0] = static_cast<float>(pmb->pcoord->x3v(out_kb.e));
     } else {
-      for (int k = out_kb.s; k <= out_kb.e+1; ++k) {
+      for (int k = out_kb.s; k <= out_kb.e + 1; ++k) {
         data[k - out_kb.s] = static_cast<float>(pmb->pcoord->x3f(k));
       }
     }
@@ -199,10 +199,10 @@ void VTKOutput::WriteContainer(SimTime &tm, Mesh *pm, ParameterInput *pin, bool 
       }
       std::fprintf(pfile, "\nLOOKUP_TABLE default\n");
       for (int k = out_kb.s; k <= out_kb.e; k++) {
-	      for (int j = out_jb.s; j <= out_jb.e; j++) {
+        for (int j = out_jb.s; j <= out_jb.e; j++) {
           int index = 0;
           for (int i = out_ib.s; i <= out_ib.e; i++, index++) {
-	          data[(i - out_ib.s) + index] = (*v)(k, j, i);
+            data[(i - out_ib.s) + index] = (*v)(k, j, i);
           }
 
           // write data in big endian order

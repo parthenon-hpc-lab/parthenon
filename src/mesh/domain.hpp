@@ -23,138 +23,146 @@
 
 namespace parthenon {
 
-  struct IndexRange {
-    IndexRange() {};
-    IndexRange(int start, int end) : s(start), e(end) { assert(e>=s); }
-    int s = 0; /// Starting Index (inclusive)
-    int e = 0; /// Ending Index (inclusive)
-    int ncells() const noexcept { return e-s+1; }
-  };
-  
-  // Assuming we have a block
-  //
-  //  - - - - - - - - - -   ^
-  //  |  |  ghost    |  |   | 
-  //  - - - - - - - - - -   | 
-  //  |  |     ^     |  |   | 
-  //  |  |     |     |  |   
-  //  |  | interior  |  |   entire
-  //  |  |     |     |  |    
-  //  |  |     v     |  |   | 
-  //  - - - - - - - - - -   |
-  //  |  |           |  |   | 
-  //  - - - - - - - - - -   v 
-  //
-  enum class IndexDomain {
-    entire,
-    interior
-  };
+struct IndexRange {
+  IndexRange(){};
+  IndexRange(int start, int end) : s(start), e(end) { assert(e >= s); }
+  int s = 0; /// Starting Index (inclusive)
+  int e = 0; /// Ending Index (inclusive)
+  int ncells() const noexcept { return e - s + 1; }
+};
 
-  //! \class IndexVolume
-  //  \brief Defines the dimensions of a shape of indices
-  //
-  //  Defines the range of each dimension of the indices by defining a starting and stopping index
-  //  also contains a label for defining which region the index shape is assigned too 
-  class IndexShape {
-    private:
-      std::array<IndexRange,NDIM> x_;
-      std::array<int,NDIM> entire_ncells_;
+// Assuming we have a block
+//
+//  - - - - - - - - - -   ^
+//  |  |  ghost    |  |   |
+//  - - - - - - - - - -   |
+//  |  |     ^     |  |   |
+//  |  |     |     |  |
+//  |  | interior  |  |   entire
+//  |  |     |     |  |
+//  |  |     v     |  |   |
+//  - - - - - - - - - -   |
+//  |  |           |  |   |
+//  - - - - - - - - - -   v
+//
+enum class IndexDomain { entire, interior };
 
-    public:
-  
-      IndexShape() {};
+//! \class IndexVolume
+//  \brief Defines the dimensions of a shape of indices
+//
+//  Defines the range of each dimension of the indices by defining a starting and stopping
+//  index also contains a label for defining which region the index shape is assigned too
+class IndexShape {
+ private:
+  std::array<IndexRange, NDIM> x_;
+  std::array<int, NDIM> entire_ncells_;
 
-      IndexShape(const int & nx1, const int & nx2, const int & nx3, const int & ng) 
-      : IndexShape( std::vector<int> {nx1,nx2,nx3}, ng) {};
+ public:
+  IndexShape(){};
 
-      IndexShape(const int & nx1, const int & nx2, const int & ng) 
-      : IndexShape( std::vector<int> {nx1,nx2}, ng) {};
+  IndexShape(const int &nx1, const int &nx2, const int &nx3, const int &ng)
+      : IndexShape(std::vector<int>{nx1, nx2, nx3}, ng){};
 
-      IndexShape(const int & nx1, const int & ng) 
-      : IndexShape( std::vector<int> {nx1}, ng) {};
+  IndexShape(const int &nx1, const int &nx2, const int &ng)
+      : IndexShape(std::vector<int>{nx1, nx2}, ng){};
 
-      IndexShape(const std::vector<int> & interior_dims, const int & ng) { 
-        assert(interior_dims.size()<=NDIM && "IndexShape cannot be initialized, the number of "
-              "dimensions exceeds the statically set dimensions, you will need to change the NDIM "
-              "constant.");
-        for( int dim=1, index=0; dim<=NDIM; ++dim, ++index){
-          if (dim <= interior_dims.size()) {
-            assert( interior_dims.at(index) > 0 && "IndexShape cannot be initialized with fewer "
-                "than 1 interior cells for each dimension");
-            x_[index] = IndexRange(ng, (ng + interior_dims.at(index) - 1));
-            entire_ncells_[index] = interior_dims.at(index) + 2*ng;
-          } else {
-            x_[index] = IndexRange(0,0);
-            entire_ncells_[index] = 1;
-          }
-        }
-      };
+  IndexShape(const int &nx1, const int &ng) : IndexShape(std::vector<int>{nx1}, ng){};
 
-      std::array<IndexRange,NDIM> GetBounds(const IndexDomain & domain) const noexcept {
-        if( domain==IndexDomain::entire ){
-          std::array<IndexRange,NDIM> bounds;
-          for (int index=0; index<NDIM;  ++index ){
-            bounds[index].s = 0;
-            bounds[index].e = entire_ncells_[index];
-          }
-          return bounds;
-        }
-        return x_; 
+  IndexShape(const std::vector<int> &interior_dims, const int &ng) {
+    assert(interior_dims.size() <= NDIM &&
+           "IndexShape cannot be initialized, the number of "
+           "dimensions exceeds the statically set dimensions, you will need to change "
+           "the NDIM "
+           "constant.");
+    for (int dim = 1, index = 0; dim <= NDIM; ++dim, ++index) {
+      if (dim <= interior_dims.size()) {
+        assert(interior_dims.at(index) > 0 &&
+               "IndexShape cannot be initialized with fewer "
+               "than 1 interior cells for each dimension");
+        x_[index] = IndexRange(ng, (ng + interior_dims.at(index) - 1));
+        entire_ncells_[index] = interior_dims.at(index) + 2 * ng;
+      } else {
+        x_[index] = IndexRange(0, 0);
+        entire_ncells_[index] = 1;
       }
- 
-      inline const IndexRange GetBoundsI(const IndexDomain & domain) const {
-        return (domain==IndexDomain::entire) ? IndexRange(0,entire_ncells_[0]-1) : x_[0];
-      }
-
-      inline const IndexRange GetBoundsJ(const IndexDomain & domain) const {
-        return (domain==IndexDomain::entire) ? IndexRange(0,entire_ncells_[1]-1) : x_[1];
-      }
-      
-      inline const IndexRange GetBoundsK(const IndexDomain & domain) const {
-        return (domain==IndexDomain::entire) ? IndexRange(0,entire_ncells_[2]-1) : x_[2];
-      }
-      
-      inline int is(const IndexDomain & domain) const 
-      { return (domain==IndexDomain::entire) ? 0 : x_[0].s; }
-      
-      inline int js(const IndexDomain & domain) const
-      { return (domain==IndexDomain::entire) ? 0 : x_[1].s; }
-      
-      inline int ks(const IndexDomain & domain) const
-      { return (domain==IndexDomain::entire) ? 0 : x_[2].s; }
-      
-      inline int ie(const IndexDomain & domain) const 
-      { return (domain==IndexDomain::entire) ? entire_ncells_[0]-1 : x_[0].e; }
-      
-      inline int je(const IndexDomain & domain) const 
-      { return (domain==IndexDomain::entire) ? entire_ncells_[1]-1 : x_[1].e; }
-      
-      inline int ke(const IndexDomain & domain) const 
-      { return (domain==IndexDomain::entire) ? entire_ncells_[2]-1 : x_[2].e; }
-
-      inline int ncellsi(const IndexDomain & domain) const 
-      { return (domain==IndexDomain::entire) ? entire_ncells_[0] : x_[0].ncells(); }
-      
-      inline int ncellsj(const IndexDomain & domain) const 
-      { return (domain==IndexDomain::entire) ? entire_ncells_[1] : x_[1].ncells(); }
-      
-      inline int ncellsk(const IndexDomain & domain) const 
-      { return (domain==IndexDomain::entire) ? entire_ncells_[2] : x_[2].ncells(); }
-
-      // Kept basic for kokkos
-      int GetTotal(const IndexDomain & domain) const noexcept { 
-        if(x_.size() == 0) return 0;
-        int total = 1;
-        if(domain==IndexDomain::entire){
-          for( int i = 0; i<NDIM; ++i) total*= x_[i].ncells();
-        }else{
-          for( int i = 0; i<NDIM; ++i) total*= entire_ncells_[i];
-        }
-        return total;
-      }
-          
+    }
   };
 
-}
+  std::array<IndexRange, NDIM> GetBounds(const IndexDomain &domain) const noexcept {
+    if (domain == IndexDomain::entire) {
+      std::array<IndexRange, NDIM> bounds;
+      for (int index = 0; index < NDIM; ++index) {
+        bounds[index].s = 0;
+        bounds[index].e = entire_ncells_[index];
+      }
+      return bounds;
+    }
+    return x_;
+  }
+
+  inline const IndexRange GetBoundsI(const IndexDomain &domain) const {
+    return (domain == IndexDomain::entire) ? IndexRange(0, entire_ncells_[0] - 1) : x_[0];
+  }
+
+  inline const IndexRange GetBoundsJ(const IndexDomain &domain) const {
+    return (domain == IndexDomain::entire) ? IndexRange(0, entire_ncells_[1] - 1) : x_[1];
+  }
+
+  inline const IndexRange GetBoundsK(const IndexDomain &domain) const {
+    return (domain == IndexDomain::entire) ? IndexRange(0, entire_ncells_[2] - 1) : x_[2];
+  }
+
+  inline int is(const IndexDomain &domain) const {
+    return (domain == IndexDomain::entire) ? 0 : x_[0].s;
+  }
+
+  inline int js(const IndexDomain &domain) const {
+    return (domain == IndexDomain::entire) ? 0 : x_[1].s;
+  }
+
+  inline int ks(const IndexDomain &domain) const {
+    return (domain == IndexDomain::entire) ? 0 : x_[2].s;
+  }
+
+  inline int ie(const IndexDomain &domain) const {
+    return (domain == IndexDomain::entire) ? entire_ncells_[0] - 1 : x_[0].e;
+  }
+
+  inline int je(const IndexDomain &domain) const {
+    return (domain == IndexDomain::entire) ? entire_ncells_[1] - 1 : x_[1].e;
+  }
+
+  inline int ke(const IndexDomain &domain) const {
+    return (domain == IndexDomain::entire) ? entire_ncells_[2] - 1 : x_[2].e;
+  }
+
+  inline int ncellsi(const IndexDomain &domain) const {
+    return (domain == IndexDomain::entire) ? entire_ncells_[0] : x_[0].ncells();
+  }
+
+  inline int ncellsj(const IndexDomain &domain) const {
+    return (domain == IndexDomain::entire) ? entire_ncells_[1] : x_[1].ncells();
+  }
+
+  inline int ncellsk(const IndexDomain &domain) const {
+    return (domain == IndexDomain::entire) ? entire_ncells_[2] : x_[2].ncells();
+  }
+
+  // Kept basic for kokkos
+  int GetTotal(const IndexDomain &domain) const noexcept {
+    if (x_.size() == 0) return 0;
+    int total = 1;
+    if (domain == IndexDomain::entire) {
+      for (int i = 0; i < NDIM; ++i)
+        total *= x_[i].ncells();
+    } else {
+      for (int i = 0; i < NDIM; ++i)
+        total *= entire_ncells_[i];
+    }
+    return total;
+  }
+};
+
+} // namespace parthenon
 
 #endif // MESH_DOMAIN_HPP_

@@ -25,8 +25,8 @@
 using namespace parthenon::package::prelude;
 
 using parthenon::Coordinates;
-using parthenon::IndexRange;
 using parthenon::IndexDomain;
+using parthenon::IndexRange;
 
 namespace parthenon {
 

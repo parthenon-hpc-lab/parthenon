@@ -38,7 +38,7 @@ TaskStatus FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
   ContainerIterator<Real> cout_iter(dudt_cont, {Metadata::Independent});
   int nvars = cout_iter.vars.size();
 
-  int nx1 = pmb->cellbounds.ncellsi(IndexDomain::entire); 
+  int nx1 = pmb->cellbounds.ncellsi(IndexDomain::entire);
   ParArrayND<Real> x1area("x1area", nx1);
   ParArrayND<Real> x2area0("x2area0", nx1);
   ParArrayND<Real> x2area1("x2area1", nx1);

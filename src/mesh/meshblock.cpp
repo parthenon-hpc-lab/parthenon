@@ -154,7 +154,6 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
   app = InitApplicationMeshBlockData(pin);
 }
 
-
 //----------------------------------------------------------------------------------------
 // MeshBlock constructor for restarts
 #if 0
@@ -221,27 +220,22 @@ MeshBlock::~MeshBlock() {
 
 void MeshBlock::InitializeIndexShapes() {
 
-  cellbounds = IndexShape(block_size.nx1,block_size.nx2,block_size.nx3,NGHOST);
+  cellbounds = IndexShape(block_size.nx1, block_size.nx2, block_size.nx3, NGHOST);
 
   const IndexDomain interior = IndexDomain::interior;
   if (pmy_mesh->multilevel) {
 
-    cnghost = (NGHOST + 1)/2 + 1;
-    c_cellbounds = IndexShape(
-      cellbounds.ncellsi(interior)/2,
-      cellbounds.ncellsj(interior)/2,
-      cellbounds.ncellsk(interior)/2,
-      NGHOST);
+    cnghost = (NGHOST + 1) / 2 + 1;
+    c_cellbounds =
+        IndexShape(cellbounds.ncellsi(interior) / 2, cellbounds.ncellsj(interior) / 2,
+                   cellbounds.ncellsk(interior) / 2, NGHOST);
 
-  }else{
+  } else {
 
-    c_cellbounds = IndexShape(
-      cellbounds.ncellsi(interior)/2,
-      cellbounds.ncellsj(interior)/2,
-      cellbounds.ncellsk(interior)/2,
-      0);
+    c_cellbounds =
+        IndexShape(cellbounds.ncellsi(interior) / 2, cellbounds.ncellsj(interior) / 2,
+                   cellbounds.ncellsk(interior) / 2, 0);
   }
-
 }
 
 //----------------------------------------------------------------------------------------

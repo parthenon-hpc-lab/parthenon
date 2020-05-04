@@ -718,8 +718,8 @@ void Mesh::PrepareSendSameLevel(MeshBlock *pb, Real *sendbuf) {
   // pack
   int p = 0;
 
-  const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d 
-  const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d 
+  const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
+  const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
 
   const IndexDomain interior = IndexDomain::interior;
   IndexRange ib = pb->cellbounds.GetBoundsI(interior);
@@ -737,13 +737,17 @@ void Mesh::PrepareSendSameLevel(MeshBlock *pb, Real *sendbuf) {
   for (auto &pvar_cc : pb->vars_cc_) {
     int nu = pvar_cc->GetDim(4) - 1;
     auto &var_cc = pvar_cc->data;
-    BufferUtility::PackData(var_cc, sendbuf, 0, nu, ib.s, ib.e, jb.s, jb.e, kb.s, kb.e, p);
+    BufferUtility::PackData(var_cc, sendbuf, 0, nu, ib.s, ib.e, jb.s, jb.e, kb.s, kb.e,
+                            p);
   }
   for (auto &pvar_fc : pb->vars_fc_) {
     auto &var_fc = *pvar_fc;
-    BufferUtility::PackData(var_fc.x1f, sendbuf, ib.s, ib.e+1, jb.s, jb.e, kb.s, kb.e, p);
-    BufferUtility::PackData(var_fc.x2f, sendbuf, ib.s, ib.e, jb.s, jb.e+f2, kb.s, kb.e, p);
-    BufferUtility::PackData(var_fc.x3f, sendbuf, ib.s, ib.e, jb.s, jb.e, kb.s, kb.e+f3, p);
+    BufferUtility::PackData(var_fc.x1f, sendbuf, ib.s, ib.e + 1, jb.s, jb.e, kb.s, kb.e,
+                            p);
+    BufferUtility::PackData(var_fc.x2f, sendbuf, ib.s, ib.e, jb.s, jb.e + f2, kb.s, kb.e,
+                            p);
+    BufferUtility::PackData(var_fc.x3f, sendbuf, ib.s, ib.e, jb.s, jb.e, kb.s, kb.e + f3,
+                            p);
   }
   // WARNING(felker): casting from "Real *" to "int *" in order to append single integer
   // to send buffer is slightly unsafe (especially if sizeof(int) > sizeof(Real))
@@ -765,25 +769,25 @@ void Mesh::PrepareSendCoarseToFineAMR(MeshBlock *pb, Real *sendbuf,
   const IndexDomain interior = IndexDomain::interior;
   // pack
   int il, iu, jl, ju, kl, ku;
-  if (ox1 == 0) { 
+  if (ox1 == 0) {
     il = pb->cellbounds.is(interior) - 1;
-    iu = pb->cellbounds.is(interior) + pb->block_size.nx1/2;
+    iu = pb->cellbounds.is(interior) + pb->block_size.nx1 / 2;
   } else {
-    il = pb->cellbounds.is(interior) + pb->block_size.nx1/2-1;
+    il = pb->cellbounds.is(interior) + pb->block_size.nx1 / 2 - 1;
     iu = pb->cellbounds.ie(interior) + 1;
   }
   if (ox2 == 0) {
     jl = pb->cellbounds.js(interior) - f2;
-    ju = pb->cellbounds.js(interior) + pb->block_size.nx2/2;
+    ju = pb->cellbounds.js(interior) + pb->block_size.nx2 / 2;
   } else {
-    jl = pb->cellbounds.js(interior) + pb->block_size.nx2/2 - f2;
+    jl = pb->cellbounds.js(interior) + pb->block_size.nx2 / 2 - f2;
     ju = pb->cellbounds.je(interior) + f2;
   }
   if (ox3 == 0) {
     kl = pb->cellbounds.ks(interior) - f3;
-    ku = pb->cellbounds.ks(interior) + pb->block_size.nx3/2;
+    ku = pb->cellbounds.ks(interior) + pb->block_size.nx3 / 2;
   } else {
-    kl = pb->cellbounds.ks(interior) + pb->block_size.nx3/2 - f3;
+    kl = pb->cellbounds.ks(interior) + pb->block_size.nx3 / 2 - f3;
     ku = pb->cellbounds.ke(interior) + f3;
   }
 
@@ -820,18 +824,26 @@ void Mesh::PrepareSendFineToCoarseAMR(MeshBlock *pb, Real *sendbuf) {
     ParArrayND<Real> var_cc = std::get<0>(cc_pair);
     ParArrayND<Real> coarse_cc = std::get<1>(cc_pair);
     int nu = var_cc.GetDim(4) - 1;
-    pmr->RestrictCellCenteredValues(var_cc, coarse_cc, 0, nu, cib.s, cib.e, cjb.s, cjb.e, ckb.s, ckb.e);
-    BufferUtility::PackData(coarse_cc, sendbuf, 0, nu, cib.s, cib.e,cjb.s, cjb.e,ckb.s, ckb.e, p);
+    pmr->RestrictCellCenteredValues(var_cc, coarse_cc, 0, nu, cib.s, cib.e, cjb.s, cjb.e,
+                                    ckb.s, ckb.e);
+    BufferUtility::PackData(coarse_cc, sendbuf, 0, nu, cib.s, cib.e, cjb.s, cjb.e, ckb.s,
+                            ckb.e, p);
   }
   for (auto fc_pair : pb->pmr->pvars_fc_) {
     FaceField *var_fc = std::get<0>(fc_pair);
     FaceField *coarse_fc = std::get<1>(fc_pair);
-    pmr->RestrictFieldX1((*var_fc).x1f, (*coarse_fc).x1f,cib.s, cib.e+1,cjb.s, cjb.e,ckb.s, ckb.e);
-    BufferUtility::PackData((*coarse_fc).x1f, sendbuf,cib.s, cib.e+1,cjb.s, cjb.e,ckb.s, ckb.e, p);
-    pmr->RestrictFieldX2((*var_fc).x2f, (*coarse_fc).x2f,cib.s, cib.e,cjb.s, cjb.e+f2,ckb.s, ckb.e);
-    BufferUtility::PackData((*coarse_fc).x2f, sendbuf,cib.s, cib.e,cjb.s, cjb.e+f2,ckb.s, ckb.e, p);
-    pmr->RestrictFieldX3((*var_fc).x3f, (*coarse_fc).x3f,cib.s, cib.e,cjb.s, cjb.e,ckb.s, ckb.e+f3);
-    BufferUtility::PackData((*coarse_fc).x3f, sendbuf,cib.s, cib.e,cjb.s, cjb.e,ckb.s, ckb.e+f3, p);
+    pmr->RestrictFieldX1((*var_fc).x1f, (*coarse_fc).x1f, cib.s, cib.e + 1, cjb.s, cjb.e,
+                         ckb.s, ckb.e);
+    BufferUtility::PackData((*coarse_fc).x1f, sendbuf, cib.s, cib.e + 1, cjb.s, cjb.e,
+                            ckb.s, ckb.e, p);
+    pmr->RestrictFieldX2((*var_fc).x2f, (*coarse_fc).x2f, cib.s, cib.e, cjb.s, cjb.e + f2,
+                         ckb.s, ckb.e);
+    BufferUtility::PackData((*coarse_fc).x2f, sendbuf, cib.s, cib.e, cjb.s, cjb.e + f2,
+                            ckb.s, ckb.e, p);
+    pmr->RestrictFieldX3((*var_fc).x3f, (*coarse_fc).x3f, cib.s, cib.e, cjb.s, cjb.e,
+                         ckb.s, ckb.e + f3);
+    BufferUtility::PackData((*coarse_fc).x3f, sendbuf, cib.s, cib.e, cjb.s, cjb.e, ckb.s,
+                            ckb.e + f3, p);
   }
   return;
 }
@@ -842,9 +854,12 @@ void Mesh::FillSameRankFineToCoarseAMR(MeshBlock *pob, MeshBlock *pmb,
                                        LogicalLocation &loc) {
   auto &pmr = pob->pmr;
   const IndexDomain interior = IndexDomain::interior;
-  int il = pmb->cellbounds.is(interior) + ((loc.lx1 & 1LL) == 1LL)*pmb->block_size.nx1/2;
-  int jl = pmb->cellbounds.js(interior) + ((loc.lx2 & 1LL) == 1LL)*pmb->block_size.nx2/2;
-  int kl = pmb->cellbounds.ks(interior) + ((loc.lx3 & 1LL) == 1LL)*pmb->block_size.nx3/2;
+  int il =
+      pmb->cellbounds.is(interior) + ((loc.lx1 & 1LL) == 1LL) * pmb->block_size.nx1 / 2;
+  int jl =
+      pmb->cellbounds.js(interior) + ((loc.lx2 & 1LL) == 1LL) * pmb->block_size.nx2 / 2;
+  int kl =
+      pmb->cellbounds.ks(interior) + ((loc.lx3 & 1LL) == 1LL) * pmb->block_size.nx3 / 2;
 
   IndexRange cib = pob->c_cellbounds.GetBoundsI(interior);
   IndexRange cjb = pob->c_cellbounds.GetBoundsJ(interior);
@@ -858,19 +873,16 @@ void Mesh::FillSameRankFineToCoarseAMR(MeshBlock *pob, MeshBlock *pmb,
     ParArrayND<Real> var_cc = std::get<0>(cc_pair);
     ParArrayND<Real> coarse_cc = std::get<1>(cc_pair);
     int nu = var_cc.GetDim(4) - 1;
-    pmr->RestrictCellCenteredValues(var_cc, coarse_cc,
-                                    0, nu,
-                                    cib.s, cib.e,
-                                    cjb.s, cjb.e,
+    pmr->RestrictCellCenteredValues(var_cc, coarse_cc, 0, nu, cib.s, cib.e, cjb.s, cjb.e,
                                     ckb.s, ckb.e);
 
     // copy from old/original/other MeshBlock (pob) to newly created block (pmb)
     ParArrayND<Real> src = coarse_cc;
     ParArrayND<Real> dst = std::get<0>(*pmb_cc_it);
     for (int nv = 0; nv <= nu; nv++) {
-      for (int k=kl, fk=ckb.s; fk<=ckb.e; k++, fk++) {
-        for (int j=jl, fj=cjb.s; fj<=cjb.e; j++, fj++) {
-          for (int i=il, fi=cib.s; fi<=cib.e; i++, fi++)
+      for (int k = kl, fk = ckb.s; fk <= ckb.e; k++, fk++) {
+        for (int j = jl, fj = cjb.s; fj <= cjb.e; j++, fj++) {
+          for (int i = il, fi = cib.s; fi <= cib.e; i++, fi++)
             dst(nv, k, j, i) = src(nv, fk, fj, fi);
         }
       }
@@ -885,20 +897,23 @@ void Mesh::FillSameRankFineToCoarseAMR(MeshBlock *pob, MeshBlock *pmb,
   for (auto fc_pair : pmr->pvars_fc_) {
     FaceField *var_fc = std::get<0>(fc_pair);
     FaceField *coarse_fc = std::get<1>(fc_pair);
-    pmr->RestrictFieldX1((*var_fc).x1f, (*coarse_fc).x1f,cib.s, cib.e+1,cjb.s, cjb.e,ckb.s, ckb.e);
-    pmr->RestrictFieldX2((*var_fc).x2f, (*coarse_fc).x2f,cib.s, cib.e,cjb.s, cjb.e+f2,ckb.s, ckb.e);
-    pmr->RestrictFieldX3((*var_fc).x3f, (*coarse_fc).x3f,cib.s, cib.e,cjb.s, cjb.e,ckb.s, ckb.e+f3);
+    pmr->RestrictFieldX1((*var_fc).x1f, (*coarse_fc).x1f, cib.s, cib.e + 1, cjb.s, cjb.e,
+                         ckb.s, ckb.e);
+    pmr->RestrictFieldX2((*var_fc).x2f, (*coarse_fc).x2f, cib.s, cib.e, cjb.s, cjb.e + f2,
+                         ckb.s, ckb.e);
+    pmr->RestrictFieldX3((*var_fc).x3f, (*coarse_fc).x3f, cib.s, cib.e, cjb.s, cjb.e,
+                         ckb.s, ckb.e + f3);
     FaceField &src_b = *coarse_fc;
     FaceField &dst_b = *std::get<0>(*pmb_fc_it); // pmb->pfield->b;
-    for (int k=kl, fk=ckb.s; fk<=ckb.e; k++, fk++) {
-      for (int j=jl, fj=cjb.s; fj<=cjb.e; j++, fj++) {
-        for (int i=il, fi=cib.s; fi<=cib.e+1; i++, fi++)
+    for (int k = kl, fk = ckb.s; fk <= ckb.e; k++, fk++) {
+      for (int j = jl, fj = cjb.s; fj <= cjb.e; j++, fj++) {
+        for (int i = il, fi = cib.s; fi <= cib.e + 1; i++, fi++)
           dst_b.x1f(k, j, i) = src_b.x1f(fk, fj, fi);
       }
     }
-    for (int k=kl, fk=ckb.s; fk<=ckb.e; k++, fk++) {
-      for (int j=jl, fj=cjb.s; fj<=cjb.e+f2; j++, fj++) {
-        for (int i=il, fi=cib.s; fi<=cib.e; i++, fi++)
+    for (int k = kl, fk = ckb.s; fk <= ckb.e; k++, fk++) {
+      for (int j = jl, fj = cjb.s; fj <= cjb.e + f2; j++, fj++) {
+        for (int i = il, fi = cib.s; fi <= cib.e; i++, fi++)
           dst_b.x2f(k, j, i) = src_b.x2f(fk, fj, fi);
       }
     }
@@ -906,22 +921,22 @@ void Mesh::FillSameRankFineToCoarseAMR(MeshBlock *pob, MeshBlock *pmb,
     int ks = pmb->cellbounds.ks(interior);
     int js = pmb->cellbounds.js(interior);
     if (pmb->block_size.nx2 == 1) {
-      int iu = il + pmb->block_size.nx1/2 - 1;
-      for (int i=il; i<=iu; i++)
-        dst_b.x2f(ks+1,js+1, i) = dst_b.x2f(ks, js, i);
+      int iu = il + pmb->block_size.nx1 / 2 - 1;
+      for (int i = il; i <= iu; i++)
+        dst_b.x2f(ks + 1, js + 1, i) = dst_b.x2f(ks, js, i);
     }
-    for (int k=kl, fk=ckb.s; fk<=ckb.e+f3; k++, fk++) {
-      for (int j=jl, fj=cjb.s; fj<=cjb.e; j++, fj++) {
-        for (int i=il, fi=cib.s; fi<=cib.e; i++, fi++)
+    for (int k = kl, fk = ckb.s; fk <= ckb.e + f3; k++, fk++) {
+      for (int j = jl, fj = cjb.s; fj <= cjb.e; j++, fj++) {
+        for (int i = il, fi = cib.s; fi <= cib.e; i++, fi++)
           dst_b.x3f(k, j, i) = src_b.x3f(fk, fj, fi);
       }
     }
     if (pmb->block_size.nx3 == 1) {
       int iu = il + pmb->block_size.nx1 / 2 - 1, ju = jl + pmb->block_size.nx2 / 2 - 1;
       if (pmb->block_size.nx2 == 1) ju = jl;
-      for (int j=jl; j<=ju; j++) {
-        for (int i=il; i<=iu; i++)
-          dst_b.x3f(ks+1, j, i) = dst_b.x3f(ks, j, i);
+      for (int j = jl; j <= ju; j++) {
+        for (int i = il; i <= iu; i++)
+          dst_b.x3f(ks + 1, j, i) = dst_b.x3f(ks, j, i);
       }
     }
     pmb_fc_it++;
@@ -934,9 +949,9 @@ void Mesh::FillSameRankFineToCoarseAMR(MeshBlock *pob, MeshBlock *pmb,
 void Mesh::FillSameRankCoarseToFineAMR(MeshBlock *pob, MeshBlock *pmb,
                                        LogicalLocation &newloc) {
   auto &pmr = pmb->pmr;
-  
-  const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d 
-  const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d 
+
+  const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
+  const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
 
   const IndexDomain interior = IndexDomain::interior;
   int il = pob->c_cellbounds.is(interior) - 1;
@@ -946,9 +961,12 @@ void Mesh::FillSameRankCoarseToFineAMR(MeshBlock *pob, MeshBlock *pmb,
   int kl = pob->c_cellbounds.ks(interior) - f3;
   int ku = pob->c_cellbounds.ke(interior) + f3;
 
-  int cis = ((newloc.lx1 & 1LL) == 1LL)*pob->block_size.nx1/2 + pob->cellbounds.is(interior) - 1;
-  int cjs = ((newloc.lx2 & 1LL) == 1LL)*pob->block_size.nx2/2 + pob->cellbounds.js(interior) - f2;
-  int cks = ((newloc.lx3 & 1LL) == 1LL)*pob->block_size.nx3/2 + pob->cellbounds.ks(interior) - f3;
+  int cis = ((newloc.lx1 & 1LL) == 1LL) * pob->block_size.nx1 / 2 +
+            pob->cellbounds.is(interior) - 1;
+  int cjs = ((newloc.lx2 & 1LL) == 1LL) * pob->block_size.nx2 / 2 +
+            pob->cellbounds.js(interior) - f2;
+  int cks = ((newloc.lx3 & 1LL) == 1LL) * pob->block_size.nx3 / 2 +
+            pob->cellbounds.ks(interior) - f3;
 
   auto pob_cc_it = pob->pmr->pvars_cc_.begin();
   // iterate MeshRefinement std::vectors on new pmb
@@ -969,10 +987,10 @@ void Mesh::FillSameRankCoarseToFineAMR(MeshBlock *pob, MeshBlock *pmb,
       }
     }
     pmr->ProlongateCellCenteredValues(
-        dst, var_cc, 0, nu,
-        pob->c_cellbounds.is(interior), pob->c_cellbounds.ie(interior),
-        pob->c_cellbounds.js(interior), pob->c_cellbounds.je(interior),
-        pob->c_cellbounds.ks(interior), pob->c_cellbounds.ke(interior));
+        dst, var_cc, 0, nu, pob->c_cellbounds.is(interior),
+        pob->c_cellbounds.ie(interior), pob->c_cellbounds.js(interior),
+        pob->c_cellbounds.je(interior), pob->c_cellbounds.ks(interior),
+        pob->c_cellbounds.ke(interior));
     pob_cc_it++;
   }
   auto pob_fc_it = pob->pmr->pvars_fc_.begin();
@@ -1002,23 +1020,22 @@ void Mesh::FillSameRankCoarseToFineAMR(MeshBlock *pob, MeshBlock *pmb,
       }
     }
     pmr->ProlongateSharedFieldX1(
-        dst_b.x1f, (*var_fc).x1f,
-        pob->c_cellbounds.is(interior), pob->c_cellbounds.ie(interior)+1,
-        pob->c_cellbounds.js(interior), pob->c_cellbounds.je(interior),
-        pob->c_cellbounds.ks(interior), pob->c_cellbounds.ke(interior));
+        dst_b.x1f, (*var_fc).x1f, pob->c_cellbounds.is(interior),
+        pob->c_cellbounds.ie(interior) + 1, pob->c_cellbounds.js(interior),
+        pob->c_cellbounds.je(interior), pob->c_cellbounds.ks(interior),
+        pob->c_cellbounds.ke(interior));
     pmr->ProlongateSharedFieldX2(
-        dst_b.x2f, (*var_fc).x2f,
-        pob->c_cellbounds.is(interior), pob->c_cellbounds.ie(interior),
-        pob->c_cellbounds.js(interior), pob->c_cellbounds.je(interior)+f2,
-        pob->c_cellbounds.ks(interior), pob->c_cellbounds.ke(interior));
+        dst_b.x2f, (*var_fc).x2f, pob->c_cellbounds.is(interior),
+        pob->c_cellbounds.ie(interior), pob->c_cellbounds.js(interior),
+        pob->c_cellbounds.je(interior) + f2, pob->c_cellbounds.ks(interior),
+        pob->c_cellbounds.ke(interior));
     pmr->ProlongateSharedFieldX3(
-        dst_b.x3f, (*var_fc).x3f,
-        pob->c_cellbounds.is(interior), pob->c_cellbounds.ie(interior),
-        pob->c_cellbounds.js(interior), pob->c_cellbounds.je(interior),
-        pob->c_cellbounds.ks(interior), pob->c_cellbounds.ke(interior)+f3);
+        dst_b.x3f, (*var_fc).x3f, pob->c_cellbounds.is(interior),
+        pob->c_cellbounds.ie(interior), pob->c_cellbounds.js(interior),
+        pob->c_cellbounds.je(interior), pob->c_cellbounds.ks(interior),
+        pob->c_cellbounds.ke(interior) + f3);
     pmr->ProlongateInternalField(
-        *var_fc, 
-        pob->c_cellbounds.is(interior), pob->c_cellbounds.ie(interior),
+        *var_fc, pob->c_cellbounds.is(interior), pob->c_cellbounds.ie(interior),
         pob->c_cellbounds.js(interior), pob->c_cellbounds.je(interior),
         pob->c_cellbounds.ks(interior), pob->c_cellbounds.ke(interior));
 
@@ -1042,21 +1059,25 @@ void Mesh::FinishRecvSameLevel(MeshBlock *pb, Real *recvbuf) {
   for (auto &pvar_cc : pb->vars_cc_) {
     int nu = pvar_cc->GetDim(4) - 1;
     auto &var_cc = pvar_cc->data;
-    BufferUtility::UnpackData(recvbuf, var_cc, 0, nu, ib.s, ib.e, jb.s, jb.e, kb.s, kb.e, p);
+    BufferUtility::UnpackData(recvbuf, var_cc, 0, nu, ib.s, ib.e, jb.s, jb.e, kb.s, kb.e,
+                              p);
   }
   for (auto &pvar_fc : pb->vars_fc_) {
     auto &var_fc = *pvar_fc;
-    BufferUtility::UnpackData(recvbuf, var_fc.x1f, ib.s, ib.e+1, jb.s, jb.e, kb.s, kb.e, p);
-    BufferUtility::UnpackData(recvbuf, var_fc.x2f, ib.s, ib.e, jb.s, jb.e+f2, kb.s, kb.e, p);
-    BufferUtility::UnpackData(recvbuf, var_fc.x3f, ib.s, ib.e, jb.s, jb.e, kb.s, kb.e+f3, p);
+    BufferUtility::UnpackData(recvbuf, var_fc.x1f, ib.s, ib.e + 1, jb.s, jb.e, kb.s, kb.e,
+                              p);
+    BufferUtility::UnpackData(recvbuf, var_fc.x2f, ib.s, ib.e, jb.s, jb.e + f2, kb.s,
+                              kb.e, p);
+    BufferUtility::UnpackData(recvbuf, var_fc.x3f, ib.s, ib.e, jb.s, jb.e, kb.s,
+                              kb.e + f3, p);
     if (pb->block_size.nx2 == 1) {
       for (int i = ib.s; i <= ib.e; i++)
-        var_fc.x2f(kb.s, jb.s+1, i) = var_fc.x2f(kb.s, jb.s, i);
+        var_fc.x2f(kb.s, jb.s + 1, i) = var_fc.x2f(kb.s, jb.s, i);
     }
     if (pb->block_size.nx3 == 1) {
       for (int j = jb.s; j <= jb.e; j++) {
         for (int i = ib.s; i <= ib.e; i++)
-          var_fc.x3f(kb.s+1, j, i) = var_fc.x3f(kb.s, j, i);
+          var_fc.x3f(kb.s + 1, j, i) = var_fc.x3f(kb.s, j, i);
       }
     }
   }
@@ -1083,13 +1104,19 @@ void Mesh::FinishRecvFineToCoarseAMR(MeshBlock *pb, Real *recvbuf,
   int ox1 = ((lloc.lx1 & 1LL) == 1LL), ox2 = ((lloc.lx2 & 1LL) == 1LL),
       ox3 = ((lloc.lx3 & 1LL) == 1LL);
   int p = 0, il, iu, jl, ju, kl, ku;
-  
-  if (ox1 == 0) il = ib.s,            iu = ib.s + pb->block_size.nx1/2 - 1;
-  else        il = ib.s + pb->block_size.nx1/2, iu = ib.e;
-  if (ox2 == 0) jl = jb.s,            ju = jb.s + pb->block_size.nx2/2 - f2;
-  else        jl = jb.s + pb->block_size.nx2/2, ju = jb.e;
-  if (ox3 == 0) kl = kb.s,            ku = kb.s + pb->block_size.nx3/2 - f3;
-  else        kl = kb.s + pb->block_size.nx3/2, ku = kb.e;
+
+  if (ox1 == 0)
+    il = ib.s, iu = ib.s + pb->block_size.nx1 / 2 - 1;
+  else
+    il = ib.s + pb->block_size.nx1 / 2, iu = ib.e;
+  if (ox2 == 0)
+    jl = jb.s, ju = jb.s + pb->block_size.nx2 / 2 - f2;
+  else
+    jl = jb.s + pb->block_size.nx2 / 2, ju = jb.e;
+  if (ox3 == 0)
+    kl = kb.s, ku = kb.s + pb->block_size.nx3 / 2 - f3;
+  else
+    kl = kb.s + pb->block_size.nx3 / 2, ku = kb.e;
 
   for (auto cc_pair : pb->pmr->pvars_cc_) {
     ParArrayND<Real> var_cc = std::get<0>(cc_pair);
@@ -1103,13 +1130,13 @@ void Mesh::FinishRecvFineToCoarseAMR(MeshBlock *pb, Real *recvbuf,
     BufferUtility::UnpackData(recvbuf, dst_b.x2f, il, iu, jl, ju + f2, kl, ku, p);
     BufferUtility::UnpackData(recvbuf, dst_b.x3f, il, iu, jl, ju, kl, ku + f3, p);
     if (pb->block_size.nx2 == 1) {
-      for (int i=il; i<=iu; i++)
-        dst_b.x2f(kb.s, jb.s+1, i) = dst_b.x2f(kb.s, jb.s, i);
+      for (int i = il; i <= iu; i++)
+        dst_b.x2f(kb.s, jb.s + 1, i) = dst_b.x2f(kb.s, jb.s, i);
     }
     if (pb->block_size.nx3 == 1) {
-      for (int j=jl; j<=ju; j++) {
-        for (int i=il; i<=iu; i++)
-          dst_b.x3f(kb.s+1, j, i) = dst_b.x3f(kb.s, j, i);
+      for (int j = jl; j <= ju; j++) {
+        for (int i = il; i <= iu; i++)
+          dst_b.x3f(kb.s + 1, j, i) = dst_b.x3f(kb.s, j, i);
       }
     }
   }
@@ -1128,18 +1155,16 @@ void Mesh::FinishRecvCoarseToFineAMR(MeshBlock *pb, Real *recvbuf) {
   IndexRange cjb = pb->c_cellbounds.GetBoundsJ(interior);
   IndexRange ckb = pb->c_cellbounds.GetBoundsK(interior);
 
-  int il = cib.s - 1, iu = cib.e+1, jl = cjb.s - f2,
-      ju = cjb.e + f2, kl = ckb.s - f3, ku = ckb.e + f3;
+  int il = cib.s - 1, iu = cib.e + 1, jl = cjb.s - f2, ju = cjb.e + f2, kl = ckb.s - f3,
+      ku = ckb.e + f3;
 
   for (auto cc_pair : pb->pmr->pvars_cc_) {
     ParArrayND<Real> var_cc = std::get<0>(cc_pair);
     ParArrayND<Real> coarse_cc = std::get<1>(cc_pair);
     int nu = var_cc.GetDim(4) - 1;
-    BufferUtility::UnpackData(recvbuf, coarse_cc,
-                              0, nu, il, iu, jl, ju, kl, ku, p);
-    pmr->ProlongateCellCenteredValues(
-        coarse_cc, var_cc, 0, nu,
-        cib.s, cib.e, cjb.s, cjb.e, ckb.s, ckb.e);
+    BufferUtility::UnpackData(recvbuf, coarse_cc, 0, nu, il, iu, jl, ju, kl, ku, p);
+    pmr->ProlongateCellCenteredValues(coarse_cc, var_cc, 0, nu, cib.s, cib.e, cjb.s,
+                                      cjb.e, ckb.s, ckb.e);
   }
   for (auto fc_pair : pb->pmr->pvars_fc_) {
     FaceField *var_fc = std::get<0>(fc_pair);
@@ -1147,18 +1172,13 @@ void Mesh::FinishRecvCoarseToFineAMR(MeshBlock *pb, Real *recvbuf) {
     BufferUtility::UnpackData(recvbuf, (*coarse_fc).x1f, il, iu + 1, jl, ju, kl, ku, p);
     BufferUtility::UnpackData(recvbuf, (*coarse_fc).x2f, il, iu, jl, ju + f2, kl, ku, p);
     BufferUtility::UnpackData(recvbuf, (*coarse_fc).x3f, il, iu, jl, ju, kl, ku + f3, p);
-    pmr->ProlongateSharedFieldX1(
-        (*coarse_fc).x1f, (*var_fc).x1f,
-        cib.s, cib.e+1, cjb.s, cjb.e, ckb.s, ckb.e);
-    pmr->ProlongateSharedFieldX2(
-        (*coarse_fc).x2f, (*var_fc).x2f,
-        cib.s, cib.e, cjb.s, cjb.e+f2, ckb.s, ckb.e);
-    pmr->ProlongateSharedFieldX3(
-        (*coarse_fc).x3f, (*var_fc).x3f,
-        cib.s, cib.e, cjb.s, cjb.e, ckb.s, ckb.e+f3);
-    pmr->ProlongateInternalField(
-        *var_fc, cib.s, cib.e,
-        cjb.s, cjb.e, ckb.s, ckb.e);
+    pmr->ProlongateSharedFieldX1((*coarse_fc).x1f, (*var_fc).x1f, cib.s, cib.e + 1, cjb.s,
+                                 cjb.e, ckb.s, ckb.e);
+    pmr->ProlongateSharedFieldX2((*coarse_fc).x2f, (*var_fc).x2f, cib.s, cib.e, cjb.s,
+                                 cjb.e + f2, ckb.s, ckb.e);
+    pmr->ProlongateSharedFieldX3((*coarse_fc).x3f, (*var_fc).x3f, cib.s, cib.e, cjb.s,
+                                 cjb.e, ckb.s, ckb.e + f3);
+    pmr->ProlongateInternalField(*var_fc, cib.s, cib.e, cjb.s, cjb.e, ckb.s, ckb.e);
   }
   return;
 }

@@ -1200,9 +1200,9 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
         auto &pbval = pmb->pbval;
         if (multilevel) pbval->ProlongateBoundaries(0.0, 0.0);
 
-        IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior); 
-        IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior); 
-        IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior); 
+        IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
+        IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
+        IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
 
         if (pbval->nblevel[1][1][0] != -1) ib.s -= NGHOST;
         if (pbval->nblevel[1][1][2] != -1) ib.e += NGHOST;

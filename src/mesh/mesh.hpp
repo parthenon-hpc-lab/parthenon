@@ -30,8 +30,8 @@
 
 #include "athena.hpp"
 #include "bvals/bvals.hpp"
-#include "domain.hpp"
 #include "bvals/bvals_interfaces.hpp"
+#include "domain.hpp"
 #include "interface/container.hpp"
 #include "interface/container_collection.hpp"
 #include "interface/properties_interface.hpp"
@@ -108,7 +108,7 @@ class MeshBlock {
   //
   // cellbounds.nx2 =    nx2      + 2*NGHOST if   nx2 > 1
   // (entire)    (interior)               (interior)
-  //  
+  //
   // Assuming we have a block cells, and nx2 = 6, and NGHOST = 1
   //
   // <----- nx1 = 8 ---->
@@ -118,19 +118,19 @@ class MeshBlock {
   //       (interior)
   //
   //  - - - - - - - - - -   ^
-  //  |  |  ghost    |  |   | 
+  //  |  |  ghost    |  |   |
   //  - - - - - - - - - -   |         ^
   //  |  |     ^     |  |   |         |
-  //  |  |     |     |  |  nx2 = 8    nx2 = 6 
+  //  |  |     |     |  |  nx2 = 8    nx2 = 6
   //  |  | interior  |  | (entire)   (interior)
   //  |  |     |     |  |             |
-  //  |  |     v     |  |   |         v 
+  //  |  |     v     |  |   |         v
   //  - - - - - - - - - -   |
-  //  |  |           |  |   | 
-  //  - - - - - - - - - -   v 
+  //  |  |           |  |   |
+  //  - - - - - - - - - -   v
   //
   IndexShape cellbounds;
-  // on 1x coarser level MeshBlock i.e. 
+  // on 1x coarser level MeshBlock i.e.
   //
   // c_cellbounds.nx2 = cellbounds.nx2 * 1/2 + 2*NGHOST, if  cellbounds.nx2 >1
   //   (entire)    (interior)                     (interior)
@@ -141,7 +141,7 @@ class MeshBlock {
   //
   //  - - - - - - - - - -   ^              - - - - - - - - - -     ^
   //  |  |           |  |   |              |  |           |  |     |
-  //  - - - - - - - - - -   |              - - - - - - - - - -     | 
+  //  - - - - - - - - - -   |              - - - - - - - - - -     |
   //  |  |     ^     |  |   |              |  |      ^    |  |     |
   //  |  |     |     |  |   |              |  |      |    |  |     |
   //  |  |  nx1 = 6  |  |  nx1 = 8  ====>  |  |   nx1 = 3 |  |   nx1 = 5
@@ -149,9 +149,9 @@ class MeshBlock {
   //  |  |     v     |  |   |              |  |      v    |  |     |
   //  - - - - - - - - - -   |              - - - - - - - - - -     |
   //  |  |           |  |   |              |  |           |  |     |
-  //  - - - - - - - - - -   v              - - - - - - - - - -     v 
+  //  - - - - - - - - - -   v              - - - - - - - - - -     v
   //
-  IndexShape c_cellbounds; 
+  IndexShape c_cellbounds;
   int gid, lid;
   int cnghost;
   int gflag;

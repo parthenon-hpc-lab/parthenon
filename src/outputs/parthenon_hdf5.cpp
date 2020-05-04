@@ -265,14 +265,14 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   const IndexDomain interior = IndexDomain::interior;
   const IndexDomain entire = IndexDomain::entire;
   // shooting a blank just for getting the variable names
-  IndexRange out_ib = pmb->cellbounds.GetBoundsI(interior);  
-  IndexRange out_jb = pmb->cellbounds.GetBoundsJ(interior);  
-  IndexRange out_kb = pmb->cellbounds.GetBoundsK(interior);  
+  IndexRange out_ib = pmb->cellbounds.GetBoundsI(interior);
+  IndexRange out_jb = pmb->cellbounds.GetBoundsJ(interior);
+  IndexRange out_kb = pmb->cellbounds.GetBoundsK(interior);
 
   if (output_params.include_ghost_zones) {
-    out_ib = pmb->cellbounds.GetBoundsI(entire);  
-    out_jb = pmb->cellbounds.GetBoundsJ(entire);  
-    out_kb = pmb->cellbounds.GetBoundsK(entire);  
+    out_ib = pmb->cellbounds.GetBoundsI(entire);
+    out_jb = pmb->cellbounds.GetBoundsJ(entire);
+    out_kb = pmb->cellbounds.GetBoundsK(entire);
   }
 
   while (pmb != nullptr) {
@@ -427,21 +427,24 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   global_count[0] = max_blocks_global;
 
   pmb = pm->pblock;
-  LOADVARIABLE(tmpData, pmb, pmb->pcoord->x1f, out_ib.s, out_ib.e+1, 0, 0, 0, 0);
-  local_count[1] = global_count[1] = nx1+1;
-  WRITEH5SLAB("x", tmpData, gLocations, local_start, local_count, global_count, property_list);
+  LOADVARIABLE(tmpData, pmb, pmb->pcoord->x1f, out_ib.s, out_ib.e + 1, 0, 0, 0, 0);
+  local_count[1] = global_count[1] = nx1 + 1;
+  WRITEH5SLAB("x", tmpData, gLocations, local_start, local_count, global_count,
+              property_list);
 
   // write Y coordinates
   pmb = pm->pblock;
-  LOADVARIABLE(tmpData, pmb, pmb->pcoord->x2f, out_jb.s, out_jb.e+1, 0, 0, 0, 0);
-  local_count[1] = global_count[1] = nx2+1;
-  WRITEH5SLAB("y", tmpData, gLocations, local_start, local_count, global_count, property_list);
+  LOADVARIABLE(tmpData, pmb, pmb->pcoord->x2f, out_jb.s, out_jb.e + 1, 0, 0, 0, 0);
+  local_count[1] = global_count[1] = nx2 + 1;
+  WRITEH5SLAB("y", tmpData, gLocations, local_start, local_count, global_count,
+              property_list);
 
   // write Z coordinates
   pmb = pm->pblock;
-  LOADVARIABLE(tmpData, pmb, pmb->pcoord->x3f, out_kb.s, out_kb.e+1, 0, 0, 0, 0);
-  local_count[1] = global_count[1] = nx3+1;
-  WRITEH5SLAB("z", tmpData, gLocations, local_start, local_count, global_count, property_list);
+  LOADVARIABLE(tmpData, pmb, pmb->pcoord->x3f, out_kb.s, out_kb.e + 1, 0, 0, 0, 0);
+  local_count[1] = global_count[1] = nx3 + 1;
+  WRITEH5SLAB("z", tmpData, gLocations, local_start, local_count, global_count,
+              property_list);
 
   // close locations tab
   H5Gclose(gLocations);
@@ -501,8 +504,8 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
         if (vlen == 1) {
           for (int k = out_kb.s; k <= out_kb.e; k++) {
             for (int j = out_jb.s; j <= out_jb.e; j++) {
-              for (int i = out_ib.s; i <= out_ib.e; i++,index++) {
-                tmpData[index] = (*v)(k,j,i);
+              for (int i = out_ib.s; i <= out_ib.e; i++, index++) {
+                tmpData[index] = (*v)(k, j, i);
               }
             }
           }

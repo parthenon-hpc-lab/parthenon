@@ -67,11 +67,11 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
       Real *sbuf = bd_var_flcor_.send[nb.bufid];
       // x1 direction
       if (nb.fid == BoundaryFace::inner_x1 || nb.fid == BoundaryFace::outer_x1) {
-        int i = ib.s + nx1*nb.fid;
+        int i = ib.s + nx1 * nb.fid;
         if (pmb->block_size.nx3 > 1) { // 3D
           for (int nn = nl_; nn <= nu_; nn++) {
-            for (int k=kb.s; k<=kb.e; k+=2) {
-              for (int j=jb.s; j<=jb.e; j+=2) {
+            for (int k = kb.s; k <= kb.e; k += 2) {
+              for (int j = jb.s; j <= jb.e; j += 2) {
                 Real amm = pco->GetFace1Area(k, j, i);
                 Real amp = pco->GetFace1Area(k, j + 1, i);
                 Real apm = pco->GetFace1Area(k + 1, j, i);
@@ -84,12 +84,12 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
               }
             }
           }
-        } else if (pmb->block_size.nx2>1) { // 2D
+        } else if (pmb->block_size.nx2 > 1) { // 2D
           int k = kb.s;
-          for (int nn=nl_; nn<=nu_; nn++) {
-            for (int j=jb.s; j<=jb.e; j+=2) {
-              Real am = pco->GetFace1Area(k, j,   i);
-              Real ap = pco->GetFace1Area(k, j+1, i);
+          for (int nn = nl_; nn <= nu_; nn++) {
+            for (int j = jb.s; j <= jb.e; j += 2) {
+              Real am = pco->GetFace1Area(k, j, i);
+              Real ap = pco->GetFace1Area(k, j + 1, i);
               Real tarea = am + ap;
               sbuf[p++] =
                   (x1flux(nn, k, j, i) * am + x1flux(nn, k, j + 1, i) * ap) / tarea;
@@ -97,18 +97,18 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
           }
         } else { // 1D
           int k = kb.s, j = jb.s;
-          for (int nn=nl_; nn<=nu_; nn++)
+          for (int nn = nl_; nn <= nu_; nn++)
             sbuf[p++] = x1flux(nn, k, j, i);
         }
         // x2 direction
       } else if (nb.fid == BoundaryFace::inner_x2 || nb.fid == BoundaryFace::outer_x2) {
-        int j = jb.s + nx2*(nb.fid & 1);
+        int j = jb.s + nx2 * (nb.fid & 1);
         if (pmb->block_size.nx3 > 1) { // 3D
           for (int nn = nl_; nn <= nu_; nn++) {
-            for (int k=kb.s; k<=kb.e; k+=2) {
-              pco->Face2Area(k  , j, ib.s, ib.e, sarea0);
-              pco->Face2Area(k+1, j, ib.s, ib.e, sarea1);
-              for (int i=ib.s; i<=ib.e; i+=2) {
+            for (int k = kb.s; k <= kb.e; k += 2) {
+              pco->Face2Area(k, j, ib.s, ib.e, sarea0);
+              pco->Face2Area(k + 1, j, ib.s, ib.e, sarea1);
+              for (int i = ib.s; i <= ib.e; i += 2) {
                 Real tarea = sarea0(i) + sarea0(i + 1) + sarea1(i) + sarea1(i + 1);
                 sbuf[p++] = (x2flux(nn, k, j, i) * sarea0(i) +
                              x2flux(nn, k, j, i + 1) * sarea0(i + 1) +
@@ -121,8 +121,8 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
         } else if (pmb->block_size.nx2 > 1) { // 2D
           int k = kb.s;
           for (int nn = nl_; nn <= nu_; nn++) {
-            pco->Face2Area(0, j, ib.s ,ib.e, sarea0);
-            for (int i=ib.s; i<=ib.e; i+=2) {
+            pco->Face2Area(0, j, ib.s, ib.e, sarea0);
+            for (int i = ib.s; i <= ib.e; i += 2) {
               Real tarea = sarea0(i) + sarea0(i + 1);
               sbuf[p++] = (x2flux(nn, k, j, i) * sarea0(i) +
                            x2flux(nn, k, j, i + 1) * sarea0(i + 1)) /
@@ -132,17 +132,18 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
         }
         // x3 direction - 3D onl_y
       } else if (nb.fid == BoundaryFace::inner_x3 || nb.fid == BoundaryFace::outer_x3) {
-        int k = kb.s + nx3*(nb.fid & 1);
-        for (int nn=nl_; nn<=nu_; nn++) {
-          for (int j=jb.s; j<=jb.e; j+=2) {
-            pco->Face3Area(k, j,   ib.s, ib.e, sarea0);
-            pco->Face3Area(k, j+1, ib.s, ib.e, sarea1);
-            for (int i=ib.s; i<=ib.e; i+=2) {
-              Real tarea = sarea0(i) + sarea0(i+1) + sarea1(i) + sarea1(i+1);
-              sbuf[p++] = (x3flux(nn, k, j  , i  )*sarea0(i  )
-                           + x3flux(nn, k, j  , i+1)*sarea0(i+1)
-                           + x3flux(nn, k, j+1, i  )*sarea1(i  )
-                           + x3flux(nn, k, j+1, i+1)*sarea1(i+1))/tarea;
+        int k = kb.s + nx3 * (nb.fid & 1);
+        for (int nn = nl_; nn <= nu_; nn++) {
+          for (int j = jb.s; j <= jb.e; j += 2) {
+            pco->Face3Area(k, j, ib.s, ib.e, sarea0);
+            pco->Face3Area(k, j + 1, ib.s, ib.e, sarea1);
+            for (int i = ib.s; i <= ib.e; i += 2) {
+              Real tarea = sarea0(i) + sarea0(i + 1) + sarea1(i) + sarea1(i + 1);
+              sbuf[p++] = (x3flux(nn, k, j, i) * sarea0(i) +
+                           x3flux(nn, k, j, i + 1) * sarea0(i + 1) +
+                           x3flux(nn, k, j + 1, i) * sarea1(i) +
+                           x3flux(nn, k, j + 1, i + 1) * sarea1(i + 1)) /
+                          tarea;
             }
           }
         }
@@ -194,49 +195,61 @@ bool CellCenteredBoundaryVariable::ReceiveFluxCorrection() {
       }
       // boundary arrived; apply flux correction
       int p = 0;
-      Real *rbuf=bd_var_flcor_.recv[nb.bufid];
+      Real *rbuf = bd_var_flcor_.recv[nb.bufid];
 
       const IndexDomain interior = IndexDomain::interior;
       IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
       IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
       IndexRange kb = pmb->cellbounds.GetBoundsK(interior);
       if (nb.fid == BoundaryFace::inner_x1 || nb.fid == BoundaryFace::outer_x1) {
-        int il = ib.s + (ib.e - ib.s)*nb.fid+nb.fid;
+        int il = ib.s + (ib.e - ib.s) * nb.fid + nb.fid;
         int jl = jb.s, ju = jb.e, kl = kb.s, ku = kb.e;
-        if (nb.ni.fi1 == 0) ju -= pmb->block_size.nx2/2;
-        else          jl += pmb->block_size.nx2/2;
-        if (nb.ni.fi2 == 0) ku -= pmb->block_size.nx3/2;
-        else          kl += pmb->block_size.nx3/2;
-        for (int nn=nl_; nn<=nu_; nn++) {
-          for (int k=kl; k<=ku; k++) {
-            for (int j=jl; j<=ju; j++)
-              x1flux(nn,k,j,il) = rbuf[p++];
+        if (nb.ni.fi1 == 0)
+          ju -= pmb->block_size.nx2 / 2;
+        else
+          jl += pmb->block_size.nx2 / 2;
+        if (nb.ni.fi2 == 0)
+          ku -= pmb->block_size.nx3 / 2;
+        else
+          kl += pmb->block_size.nx3 / 2;
+        for (int nn = nl_; nn <= nu_; nn++) {
+          for (int k = kl; k <= ku; k++) {
+            for (int j = jl; j <= ju; j++)
+              x1flux(nn, k, j, il) = rbuf[p++];
           }
         }
       } else if (nb.fid == BoundaryFace::inner_x2 || nb.fid == BoundaryFace::outer_x2) {
-        int jl = jb.s + (jb.e - jb.s)*(nb.fid & 1) + (nb.fid & 1);
+        int jl = jb.s + (jb.e - jb.s) * (nb.fid & 1) + (nb.fid & 1);
         int il = ib.s, iu = ib.e, kl = kb.s, ku = kb.e;
-        if (nb.ni.fi1 == 0) iu -= pmb->block_size.nx1/2;
-        else          il += pmb->block_size.nx1/2;
-        if (nb.ni.fi2 == 0) ku -= pmb->block_size.nx3/2;
-        else          kl += pmb->block_size.nx3/2;
-        for (int nn=nl_; nn<=nu_; nn++) {
-          for (int k=kl; k<=ku; k++) {
-            for (int i=il; i<=iu; i++)
-              x2flux(nn,k,jl,i) = rbuf[p++];
+        if (nb.ni.fi1 == 0)
+          iu -= pmb->block_size.nx1 / 2;
+        else
+          il += pmb->block_size.nx1 / 2;
+        if (nb.ni.fi2 == 0)
+          ku -= pmb->block_size.nx3 / 2;
+        else
+          kl += pmb->block_size.nx3 / 2;
+        for (int nn = nl_; nn <= nu_; nn++) {
+          for (int k = kl; k <= ku; k++) {
+            for (int i = il; i <= iu; i++)
+              x2flux(nn, k, jl, i) = rbuf[p++];
           }
         }
       } else if (nb.fid == BoundaryFace::inner_x3 || nb.fid == BoundaryFace::outer_x3) {
-        int kl = kb.s + (kb.e - kb.s)*(nb.fid & 1) + (nb.fid & 1);
+        int kl = kb.s + (kb.e - kb.s) * (nb.fid & 1) + (nb.fid & 1);
         int il = ib.s, iu = ib.e, jl = jb.s, ju = jb.e;
-        if (nb.ni.fi1 == 0) iu -= pmb->block_size.nx1/2;
-        else          il += pmb->block_size.nx1/2;
-        if (nb.ni.fi2 == 0) ju -= pmb->block_size.nx2/2;
-        else          jl += pmb->block_size.nx2/2;
-        for (int nn=nl_; nn<=nu_; nn++) {
-          for (int j=jl; j<=ju; j++) {
-            for (int i=il; i<=iu; i++)
-              x3flux(nn,kl,j,i) = rbuf[p++];
+        if (nb.ni.fi1 == 0)
+          iu -= pmb->block_size.nx1 / 2;
+        else
+          il += pmb->block_size.nx1 / 2;
+        if (nb.ni.fi2 == 0)
+          ju -= pmb->block_size.nx2 / 2;
+        else
+          jl += pmb->block_size.nx2 / 2;
+        for (int nn = nl_; nn <= nu_; nn++) {
+          for (int j = jl; j <= ju; j++) {
+            for (int i = il; i <= iu; i++)
+              x3flux(nn, kl, j, i) = rbuf[p++];
           }
         }
       }

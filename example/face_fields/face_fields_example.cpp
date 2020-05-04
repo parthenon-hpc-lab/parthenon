@@ -169,11 +169,11 @@ parthenon::TaskStatus FaceFields::fill_faces(parthenon::MeshBlock *pmb) {
   // fill faces
   for (int e = 0; e < face.Get(1).GetDim(4); e++) {
     int sign = (e == 0) ? -1 : 1;
-    for (int k=kb.s; k<=kb.e; k++) {
+    for (int k = kb.s; k <= kb.e; k++) {
       Real z = pcoord->x3v(k);
-      for (int j=jb.s; j<=jb.e; j++) {
+      for (int j = jb.s; j <= jb.e; j++) {
         Real y = pcoord->x2v(j);
-        for (int i=ib.s; i<=ib.e+1; i++) {
+        for (int i = ib.s; i <= ib.e + 1; i++) {
           Real x = pcoord->x1f(i);
           face(1, e, k, j, i) = sign * (pow(x, px) + pow(y, py) + pow(z, pz));
         }
@@ -182,11 +182,11 @@ parthenon::TaskStatus FaceFields::fill_faces(parthenon::MeshBlock *pmb) {
   }
   for (int e = 0; e < face.Get(2).GetDim(4); e++) {
     int sign = (e == 0) ? -1 : 1;
-    for (int k=kb.s; k<=kb.e; k++) {
+    for (int k = kb.s; k <= kb.e; k++) {
       Real z = pcoord->x3v(k);
-      for (int j=jb.s; j<=jb.e+1; j++) {
+      for (int j = jb.s; j <= jb.e + 1; j++) {
         Real y = pcoord->x2f(j);
-        for (int i=ib.s; i<=ib.e; i++) {
+        for (int i = ib.s; i <= ib.e; i++) {
           Real x = pcoord->x1v(i);
           face(2, e, k, j, i) = sign * (pow(x, px) + pow(y, py) + pow(z, pz));
         }
@@ -195,11 +195,11 @@ parthenon::TaskStatus FaceFields::fill_faces(parthenon::MeshBlock *pmb) {
   }
   for (int e = 0; e < face.Get(3).GetDim(4); e++) {
     int sign = (e == 0) ? -1 : 1;
-    for (int k=kb.s; k<=kb.e+1; k++) {
-      Real z= pcoord->x3f(k);
-      for (int j=jb.s; j<=jb.e; j++) {
+    for (int k = kb.s; k <= kb.e + 1; k++) {
+      Real z = pcoord->x3f(k);
+      for (int j = jb.s; j <= jb.e; j++) {
         Real y = pcoord->x2v(j);
-        for (int i=ib.s; i<=ib.e; i++) {
+        for (int i = ib.s; i <= ib.e; i++) {
           Real x = pcoord->x1v(i);
           face(3, e, k, j, i) = sign * (pow(x, px) + pow(y, py) + pow(z, pz));
         }

@@ -127,7 +127,7 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(Real *buf,
   int si, sj, sk, ei, ej, ek;
 
   IndexDomain interior = IndexDomain::interior;
-  const IndexShape & cellbounds = pmb->cellbounds;
+  const IndexShape &cellbounds = pmb->cellbounds;
   si = (nb.ni.ox1 > 0) ? (cellbounds.ie(interior) - NGHOST + 1) : cellbounds.is(interior);
   ei = (nb.ni.ox1 < 0) ? (cellbounds.is(interior) + NGHOST - 1) : cellbounds.ie(interior);
   sj = (nb.ni.ox2 > 0) ? (cellbounds.je(interior) - NGHOST + 1) : cellbounds.js(interior);
@@ -152,7 +152,7 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(Real *buf,
   int cn = NGHOST - 1;
 
   IndexDomain interior = IndexDomain::interior;
-  const IndexShape & c_cellbounds = pmb->c_cellbounds;
+  const IndexShape &c_cellbounds = pmb->c_cellbounds;
   si = (nb.ni.ox1 > 0) ? (c_cellbounds.ie(interior) - cn) : c_cellbounds.is(interior);
   ei = (nb.ni.ox1 < 0) ? (c_cellbounds.is(interior) + cn) : c_cellbounds.ie(interior);
   sj = (nb.ni.ox2 > 0) ? (c_cellbounds.je(interior) - cn) : c_cellbounds.js(interior);
@@ -179,7 +179,7 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferToFiner(Real *buf,
   int cn = pmb->cnghost - 1;
 
   IndexDomain interior = IndexDomain::interior;
-  const IndexShape & cellbounds = pmb->cellbounds;
+  const IndexShape &cellbounds = pmb->cellbounds;
   si = (nb.ni.ox1 > 0) ? (cellbounds.ie(interior) - cn) : cellbounds.is(interior);
   ei = (nb.ni.ox1 < 0) ? (cellbounds.is(interior) + cn) : cellbounds.ie(interior);
   sj = (nb.ni.ox2 > 0) ? (cellbounds.je(interior) - cn) : cellbounds.js(interior);
@@ -237,19 +237,19 @@ void CellCenteredBoundaryVariable::SetBoundarySameLevel(Real *buf,
   MeshBlock *pmb = pmy_block_;
   int si, sj, sk, ei, ej, ek;
 
-  const IndexShape & cellbounds = pmb->cellbounds;
+  const IndexShape &cellbounds = pmb->cellbounds;
 
-  auto CalcIndices = [](int ox,int &s, int &e, const int & cell_s, const int & cell_e){
-    if( ox == 0 ){
-      s = cell_s; 
-      e = cell_e; 
-    }else if (ox > 0 ) {
+  auto CalcIndices = [](int ox, int &s, int &e, const int &cell_s, const int &cell_e) {
+    if (ox == 0) {
+      s = cell_s;
+      e = cell_e;
+    } else if (ox > 0) {
       s = cell_e + 1;
-      e = cell_e + NGHOST; 
+      e = cell_e + NGHOST;
     } else {
       s = cell_s - NGHOST;
-      e = cell_s - 1; 
-    } 
+      e = cell_s - 1;
+    }
   };
 
   IndexDomain interior = IndexDomain::interior;
@@ -273,19 +273,19 @@ void CellCenteredBoundaryVariable::SetBoundaryFromCoarser(Real *buf,
   int si, sj, sk, ei, ej, ek;
   int cng = pmb->cnghost;
 
-  const IndexShape & c_cellbounds = pmb->c_cellbounds;
+  const IndexShape &c_cellbounds = pmb->c_cellbounds;
 
-  auto CalcIndices = [](const int & ox,int &s, int &e, 
-      const int & cell_s, const int & cell_e, 
-      const std::int64_t & lx, const int & cng){
+  auto CalcIndices = [](const int &ox, int &s, int &e, const int &cell_s,
+                        const int &cell_e, const std::int64_t &lx, const int &cng) {
     if (ox == 0) {
       s = cell_s;
       e = cell_e;
       if ((lx & 1LL) == 0LL) {
         e += cng;
       } else {
-        s -= cng;}
-    } else if (ox > 0)  {
+        s -= cng;
+      }
+    } else if (ox > 0) {
       s = cell_e + 1;
       e = cell_e + cng;
     } else {
@@ -295,9 +295,12 @@ void CellCenteredBoundaryVariable::SetBoundaryFromCoarser(Real *buf,
   };
 
   IndexDomain interior = IndexDomain::interior;
-  CalcIndices(nb.ni.ox1, si, ei, c_cellbounds.is(interior), c_cellbounds.ie(interior), pmb->loc.lx1, cng);
-  CalcIndices(nb.ni.ox2, sj, ej, c_cellbounds.js(interior), c_cellbounds.je(interior), pmb->loc.lx2, cng);
-  CalcIndices(nb.ni.ox3, sk, ek, c_cellbounds.ks(interior), c_cellbounds.ke(interior), pmb->loc.lx3, cng);
+  CalcIndices(nb.ni.ox1, si, ei, c_cellbounds.is(interior), c_cellbounds.ie(interior),
+              pmb->loc.lx1, cng);
+  CalcIndices(nb.ni.ox2, sj, ej, c_cellbounds.js(interior), c_cellbounds.je(interior),
+              pmb->loc.lx2, cng);
+  CalcIndices(nb.ni.ox3, sk, ek, c_cellbounds.ks(interior), c_cellbounds.ke(interior),
+              pmb->loc.lx3, cng);
 
   int p = 0;
   BufferUtility::UnpackData(buf, coarse_buf, nl_, nu_, si, ei, sj, ej, sk, ek, p);
@@ -313,15 +316,17 @@ void CellCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
   MeshBlock *pmb = pmy_block_;
   // receive already restricted data
   int si, sj, sk, ei, ej, ek;
-  
-  const IndexShape & cellbounds = pmb->cellbounds;
+
+  const IndexShape &cellbounds = pmb->cellbounds;
 
   IndexDomain interior = IndexDomain::interior;
   if (nb.ni.ox1 == 0) {
-    si = cellbounds.is(interior); 
+    si = cellbounds.is(interior);
     ei = cellbounds.ie(interior);
-    if (nb.ni.fi1 == 1)   si += pmb->block_size.nx1/2;
-    else                  ei -= pmb->block_size.nx1/2;
+    if (nb.ni.fi1 == 1)
+      si += pmb->block_size.nx1 / 2;
+    else
+      ei -= pmb->block_size.nx1 / 2;
   } else if (nb.ni.ox1 > 0) {
     si = cellbounds.ie(interior) + 1;
     ei = cellbounds.ie(interior) + NGHOST;
@@ -330,19 +335,24 @@ void CellCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
     ei = cellbounds.is(interior) - 1;
   }
 
-  auto CalcIndices = [&,nb](const int & ox,int &s, int &e, 
-      const int & cell_s, const int & cell_e, const int & nx
-      ){
+  auto CalcIndices = [&, nb](const int &ox, int &s, int &e, const int &cell_s,
+                             const int &cell_e, const int &nx) {
     if (ox == 0) {
       s = cell_s;
       e = cell_e;
       if (nx > 1) {
         if (nb.ni.ox1 != 0) {
-          if (nb.ni.fi1 == 1) { s += nx/2; }
-          else { e -= nx/2; }
+          if (nb.ni.fi1 == 1) {
+            s += nx / 2;
+          } else {
+            e -= nx / 2;
+          }
         } else {
-          if (nb.ni.fi2 == 1) { s += nx/2; }
-          else { ej -= pmb->block_size.nx2/2; }
+          if (nb.ni.fi2 == 1) {
+            s += nx / 2;
+          } else {
+            ej -= pmb->block_size.nx2 / 2;
+          }
         }
       }
     } else if (nb.ni.ox2 > 0) {
@@ -354,8 +364,10 @@ void CellCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
     }
   };
 
-  CalcIndices(nb.ni.ox2,sj, ej, cellbounds.js(interior), cellbounds.je(interior),pmb->block_size.nx2);
-  CalcIndices(nb.ni.ox3,sk, ek, cellbounds.ks(interior), cellbounds.ke(interior),pmb->block_size.nx3);
+  CalcIndices(nb.ni.ox2, sj, ej, cellbounds.js(interior), cellbounds.je(interior),
+              pmb->block_size.nx2);
+  CalcIndices(nb.ni.ox3, sk, ek, cellbounds.ks(interior), cellbounds.ke(interior),
+              pmb->block_size.nx3);
 
   int p = 0;
   BufferUtility::UnpackData(buf, var_cc, nl_, nu_, si, ei, sj, ej, sk, ek, p);

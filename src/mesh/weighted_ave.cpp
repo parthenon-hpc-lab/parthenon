@@ -45,24 +45,25 @@ void MeshBlock::WeightedAve(ParArrayND<Real> &u_out, ParArrayND<Real> &u_in1,
   // u_in2 may be an unallocated AthenaArray if using a 2S time integrator
   if (wght[0] == 1.0) {
     if (wght[2] != 0.0) {
-      for (int n=0; n<=nu; ++n) {
-        for (int k=kb.s; k<=kb.e; ++k) {
-          for (int j=jb.s; j<=jb.e; ++j) {
+      for (int n = 0; n <= nu; ++n) {
+        for (int k = kb.s; k <= kb.e; ++k) {
+          for (int j = jb.s; j <= jb.e; ++j) {
 #pragma omp simd
-            for (int i=ib.s; i<=ib.e; ++i) {
-              u_out(n,k,j,i) += wght[1]*u_in1(n,k,j,i) + wght[2]*u_in2(n,k,j,i);
+            for (int i = ib.s; i <= ib.e; ++i) {
+              u_out(n, k, j, i) +=
+                  wght[1] * u_in1(n, k, j, i) + wght[2] * u_in2(n, k, j, i);
             }
           }
         }
       }
     } else { // do not dereference u_in2
       if (wght[1] != 0.0) {
-        for (int n=0; n<=nu; ++n) {
-          for (int k=kb.s; k<=kb.e; ++k) {
-            for (int j=jb.s; j<=jb.e; ++j) {
+        for (int n = 0; n <= nu; ++n) {
+          for (int k = kb.s; k <= kb.e; ++k) {
+            for (int j = jb.s; j <= jb.e; ++j) {
 #pragma omp simd
-              for (int i=ib.s; i<=ib.e; ++i) {
-                u_out(n,k,j,i) += wght[1]*u_in1(n,k,j,i);
+              for (int i = ib.s; i <= ib.e; ++i) {
+                u_out(n, k, j, i) += wght[1] * u_in1(n, k, j, i);
               }
             }
           }
@@ -71,35 +72,36 @@ void MeshBlock::WeightedAve(ParArrayND<Real> &u_out, ParArrayND<Real> &u_in1,
     }
   } else if (wght[0] == 0.0) {
     if (wght[2] != 0.0) {
-      for (int n=0; n<=nu; ++n) {
-        for (int k=kb.s; k<=kb.e; ++k) {
-          for (int j=jb.s; j<=jb.e; ++j) {
+      for (int n = 0; n <= nu; ++n) {
+        for (int k = kb.s; k <= kb.e; ++k) {
+          for (int j = jb.s; j <= jb.e; ++j) {
 #pragma omp simd
-            for (int i=ib.s; i<=ib.e; ++i) {
-              u_out(n,k,j,i) = wght[1]*u_in1(n,k,j,i) + wght[2]*u_in2(n,k,j,i);
+            for (int i = ib.s; i <= ib.e; ++i) {
+              u_out(n, k, j, i) =
+                  wght[1] * u_in1(n, k, j, i) + wght[2] * u_in2(n, k, j, i);
             }
           }
         }
       }
     } else if (wght[1] == 1.0) {
       // just deep copy
-      for (int n=0; n<=nu; ++n) {
-        for (int k=kb.s; k<=kb.e; ++k) {
-          for (int j=jb.s; j<=jb.e; ++j) {
+      for (int n = 0; n <= nu; ++n) {
+        for (int k = kb.s; k <= kb.e; ++k) {
+          for (int j = jb.s; j <= jb.e; ++j) {
 #pragma omp simd
-            for (int i=ib.s; i<=ib.e; ++i) {
-              u_out(n,k,j,i) = u_in1(n,k,j,i);
+            for (int i = ib.s; i <= ib.e; ++i) {
+              u_out(n, k, j, i) = u_in1(n, k, j, i);
             }
           }
         }
       }
     } else {
-      for (int n=0; n<=nu; ++n) {
-        for (int k=kb.s; k<=kb.e; ++k) {
-          for (int j=jb.s; j<=jb.e; ++j) {
+      for (int n = 0; n <= nu; ++n) {
+        for (int k = kb.s; k <= kb.e; ++k) {
+          for (int j = jb.s; j <= jb.e; ++j) {
 #pragma omp simd
-            for (int i=ib.s; i<=ib.e; ++i) {
-              u_out(n,k,j,i) = wght[1]*u_in1(n,k,j,i);
+            for (int i = ib.s; i <= ib.e; ++i) {
+              u_out(n, k, j, i) = wght[1] * u_in1(n, k, j, i);
             }
           }
         }
@@ -107,36 +109,38 @@ void MeshBlock::WeightedAve(ParArrayND<Real> &u_out, ParArrayND<Real> &u_in1,
     }
   } else {
     if (wght[2] != 0.0) {
-      for (int n=0; n<=nu; ++n) {
-        for (int k=kb.s; k<=kb.e; ++k) {
-          for (int j=jb.s; j<=jb.e; ++j) {
+      for (int n = 0; n <= nu; ++n) {
+        for (int k = kb.s; k <= kb.e; ++k) {
+          for (int j = jb.s; j <= jb.e; ++j) {
 #pragma omp simd
-            for (int i=ib.s; i<=ib.e; ++i) {
-              u_out(n,k,j,i) = wght[0]*u_out(n,k,j,i) + wght[1]*u_in1(n,k,j,i)
-                               + wght[2]*u_in2(n,k,j,i);
+            for (int i = ib.s; i <= ib.e; ++i) {
+              u_out(n, k, j, i) = wght[0] * u_out(n, k, j, i) +
+                                  wght[1] * u_in1(n, k, j, i) +
+                                  wght[2] * u_in2(n, k, j, i);
             }
           }
         }
       }
     } else { // do not dereference u_in2
       if (wght[1] != 0.0) {
-        for (int n=0; n<=nu; ++n) {
-          for (int k=kb.s; k<=kb.e; ++k) {
-            for (int j=jb.s; j<=jb.e; ++j) {
+        for (int n = 0; n <= nu; ++n) {
+          for (int k = kb.s; k <= kb.e; ++k) {
+            for (int j = jb.s; j <= jb.e; ++j) {
 #pragma omp simd
-              for (int i=ib.s; i<=ib.e; ++i) {
-                u_out(n,k,j,i) = wght[0]*u_out(n,k,j,i) + wght[1]*u_in1(n,k,j,i);
+              for (int i = ib.s; i <= ib.e; ++i) {
+                u_out(n, k, j, i) =
+                    wght[0] * u_out(n, k, j, i) + wght[1] * u_in1(n, k, j, i);
               }
             }
           }
         }
       } else { // do not dereference u_in1
-        for (int n=0; n<=nu; ++n) {
-          for (int k=kb.s; k<=kb.e; ++k) {
-            for (int j=jb.s; j<=jb.e; ++j) {
+        for (int n = 0; n <= nu; ++n) {
+          for (int k = kb.s; k <= kb.e; ++k) {
+            for (int j = jb.s; j <= jb.e; ++j) {
 #pragma omp simd
-              for (int i=ib.s; i<=ib.e; ++i) {
-                u_out(n,k,j,i) *= wght[0];
+              for (int i = ib.s; i <= ib.e; ++i) {
+                u_out(n, k, j, i) *= wght[0];
               }
             }
           }
@@ -162,58 +166,61 @@ void MeshBlock::WeightedAve(FaceField &b_out, FaceField &b_in1, FaceField &b_in2
   if (wght[0] == 1.0) {
     if (wght[2] != 0.0) {
       //---- B1
-      for (int k=kb.s; k<=kb.e; ++k) {
-        for (int j=jb.s; j<=jb.e; ++j) {
+      for (int k = kb.s; k <= kb.e; ++k) {
+        for (int j = jb.s; j <= jb.e; ++j) {
 #pragma omp simd
-          for (int i=ib.s; i<=ib.e+1; ++i) {
-            b_out.x1f(k,j,i) += wght[1]*b_in1.x1f(k,j,i) + wght[2]*b_in2.x1f(k,j,i);
+          for (int i = ib.s; i <= ib.e + 1; ++i) {
+            b_out.x1f(k, j, i) +=
+                wght[1] * b_in1.x1f(k, j, i) + wght[2] * b_in2.x1f(k, j, i);
           }
         }
       }
       //---- B2
-      for (int k=kb.s; k<=kb.e; ++k) {
-        for (int j=jb.s; j<=jb.e; ++j) {
+      for (int k = kb.s; k <= kb.e; ++k) {
+        for (int j = jb.s; j <= jb.e; ++j) {
 #pragma omp simd
-          for (int i=ib.s; i<=ib.e; ++i) {
-            b_out.x2f(k,j,i) += wght[1]*b_in1.x2f(k,j,i) + wght[2]*b_in2.x2f(k,j,i);
+          for (int i = ib.s; i <= ib.e; ++i) {
+            b_out.x2f(k, j, i) +=
+                wght[1] * b_in1.x2f(k, j, i) + wght[2] * b_in2.x2f(k, j, i);
           }
         }
       }
       //---- B3
-      for (int k=kb.s; k<=kb.e+1; ++k) {
-        for (int j=jb.s; j<=jb.e; ++j) {
+      for (int k = kb.s; k <= kb.e + 1; ++k) {
+        for (int j = jb.s; j <= jb.e; ++j) {
 #pragma omp simd
-          for (int i=ib.s; i<=ib.e; ++i) {
-            b_out.x3f(k,j,i) += wght[1]*b_in1.x3f(k,j,i) + wght[2]*b_in2.x3f(k,j,i);
+          for (int i = ib.s; i <= ib.e; ++i) {
+            b_out.x3f(k, j, i) +=
+                wght[1] * b_in1.x3f(k, j, i) + wght[2] * b_in2.x3f(k, j, i);
           }
         }
       }
     } else { // do not dereference u_in2
       if (wght[1] != 0.0) {
         //---- B1
-        for (int k=kb.s; k<=kb.e; ++k) {
-          for (int j=jb.s; j<=jb.e; ++j) {
+        for (int k = kb.s; k <= kb.e; ++k) {
+          for (int j = jb.s; j <= jb.e; ++j) {
 #pragma omp simd
-            for (int i=ib.s; i<=ib.e+1; ++i) {
-              b_out.x1f(k,j,i) += wght[1]*b_in1.x1f(k,j,i);
+            for (int i = ib.s; i <= ib.e + 1; ++i) {
+              b_out.x1f(k, j, i) += wght[1] * b_in1.x1f(k, j, i);
             }
           }
         }
         //---- B2
-        for (int k=kb.s; k<=kb.e; ++k) {
-          for (int j=jb.s; j<=jb.e; ++j) {
+        for (int k = kb.s; k <= kb.e; ++k) {
+          for (int j = jb.s; j <= jb.e; ++j) {
 #pragma omp simd
-            for (int i=ib.s; i<=ib.e; ++i) {
-              b_out.x2f(k,j,i) += wght[1]*b_in1.x2f(k,j,i);
+            for (int i = ib.s; i <= ib.e; ++i) {
+              b_out.x2f(k, j, i) += wght[1] * b_in1.x2f(k, j, i);
             }
           }
         }
         //---- B3
-        for (int k=kb.s; k<=kb.e+1; ++k) {
-          for (int j=jb.s; j<=jb.e; ++j) {
+        for (int k = kb.s; k <= kb.e + 1; ++k) {
+          for (int j = jb.s; j <= jb.e; ++j) {
 #pragma omp simd
-            for (int i=ib.s; i<=ib.e; ++i) {
-              b_out.x3f(k,j,i) += wght[1]*b_in1.x3f(k,j,i);
+            for (int i = ib.s; i <= ib.e; ++i) {
+              b_out.x3f(k, j, i) += wght[1] * b_in1.x3f(k, j, i);
             }
           }
         }
@@ -222,86 +229,89 @@ void MeshBlock::WeightedAve(FaceField &b_out, FaceField &b_in1, FaceField &b_in2
   } else if (wght[0] == 0.0) {
     if (wght[2] != 0.0) {
       //---- B1
-      for (int k=kb.s; k<=kb.e; ++k) {
-        for (int j=jb.s; j<=jb.e; ++j) {
+      for (int k = kb.s; k <= kb.e; ++k) {
+        for (int j = jb.s; j <= jb.e; ++j) {
 #pragma omp simd
-          for (int i=ib.s; i<=ib.e+1; ++i) {
-            b_out.x1f(k,j,i) = wght[1]*b_in1.x1f(k,j,i) + wght[2]*b_in2.x1f(k,j,i);
+          for (int i = ib.s; i <= ib.e + 1; ++i) {
+            b_out.x1f(k, j, i) =
+                wght[1] * b_in1.x1f(k, j, i) + wght[2] * b_in2.x1f(k, j, i);
           }
         }
       }
       //---- B2
-      for (int k=kb.s; k<=kb.e; ++k) {
-        for (int j=jb.s; j<=jb.e; ++j) {
+      for (int k = kb.s; k <= kb.e; ++k) {
+        for (int j = jb.s; j <= jb.e; ++j) {
 #pragma omp simd
-          for (int i=ib.s; i<=ib.e; ++i) {
-            b_out.x2f(k,j,i) = wght[1]*b_in1.x2f(k,j,i) + wght[2]*b_in2.x2f(k,j,i);
+          for (int i = ib.s; i <= ib.e; ++i) {
+            b_out.x2f(k, j, i) =
+                wght[1] * b_in1.x2f(k, j, i) + wght[2] * b_in2.x2f(k, j, i);
           }
         }
       }
       //---- B3
-      for (int k=kb.s; k<=kb.e+1; ++k) {
-        for (int j=jb.s; j<=jb.e; ++j) {
+      for (int k = kb.s; k <= kb.e + 1; ++k) {
+        for (int j = jb.s; j <= jb.e; ++j) {
 #pragma omp simd
-          for (int i=ib.s; i<=ib.e; ++i) {
-            b_out.x3f(k,j,i) = wght[1]*b_in1.x3f(k,j,i) + wght[2]*b_in2.x3f(k,j,i);
+          for (int i = ib.s; i <= ib.e; ++i) {
+            b_out.x3f(k, j, i) =
+                wght[1] * b_in1.x3f(k, j, i) + wght[2] * b_in2.x3f(k, j, i);
           }
         }
       }
     } else if (wght[1] == 1.0) {
       // jb.est deep copy
       //---- B1
-      for (int k=kb.s; k<=kb.e; ++k) {
-        for (int j=jb.s; j<=jb.e; ++j) {
+      for (int k = kb.s; k <= kb.e; ++k) {
+        for (int j = jb.s; j <= jb.e; ++j) {
 #pragma omp simd
-          for (int i=ib.s; i<=ib.e+1; ++i) {
-            b_out.x1f(k,j,i) = b_in1.x1f(k,j,i);
+          for (int i = ib.s; i <= ib.e + 1; ++i) {
+            b_out.x1f(k, j, i) = b_in1.x1f(k, j, i);
           }
         }
       }
       //---- B2
-      for (int k=kb.s; k<=kb.e; ++k) {
-        for (int j=jb.s; j<=jb.e; ++j) {
+      for (int k = kb.s; k <= kb.e; ++k) {
+        for (int j = jb.s; j <= jb.e; ++j) {
 #pragma omp simd
-          for (int i=ib.s; i<=ib.e; ++i) {
-            b_out.x2f(k,j,i) = b_in1.x2f(k,j,i);
+          for (int i = ib.s; i <= ib.e; ++i) {
+            b_out.x2f(k, j, i) = b_in1.x2f(k, j, i);
           }
         }
       }
       //---- B3
-      for (int k=kb.s; k<=kb.e+1; ++k) {
-        for (int j=jb.s; j<=jb.e; ++j) {
+      for (int k = kb.s; k <= kb.e + 1; ++k) {
+        for (int j = jb.s; j <= jb.e; ++j) {
 #pragma omp simd
-          for (int i=ib.s; i<=ib.e; ++i) {
-            b_out.x3f(k,j,i) = b_in1.x3f(k,j,i);
+          for (int i = ib.s; i <= ib.e; ++i) {
+            b_out.x3f(k, j, i) = b_in1.x3f(k, j, i);
           }
         }
       }
     } else {
       //---- B1
-      for (int k=kb.s; k<=kb.e; ++k) {
-        for (int j=jb.s; j<=jb.e; ++j) {
+      for (int k = kb.s; k <= kb.e; ++k) {
+        for (int j = jb.s; j <= jb.e; ++j) {
 #pragma omp simd
-          for (int i=ib.s; i<=ib.e+1; ++i) {
-            b_out.x1f(k,j,i) = wght[1]*b_in1.x1f(k,j,i);
+          for (int i = ib.s; i <= ib.e + 1; ++i) {
+            b_out.x1f(k, j, i) = wght[1] * b_in1.x1f(k, j, i);
           }
         }
       }
       //---- B2
-      for (int k=kb.s; k<=kb.e; ++k) {
-        for (int j=jb.s; j<=jb.e; ++j) {
+      for (int k = kb.s; k <= kb.e; ++k) {
+        for (int j = jb.s; j <= jb.e; ++j) {
 #pragma omp simd
-          for (int i=ib.s; i<=ib.e; ++i) {
-            b_out.x2f(k,j,i) = wght[1]*b_in1.x2f(k,j,i);
+          for (int i = ib.s; i <= ib.e; ++i) {
+            b_out.x2f(k, j, i) = wght[1] * b_in1.x2f(k, j, i);
           }
         }
       }
       //---- B3
-      for (int k=kb.s; k<=kb.e+1; ++k) {
-        for (int j=jb.s; j<=jb.e; ++j) {
+      for (int k = kb.s; k <= kb.e + 1; ++k) {
+        for (int j = jb.s; j <= jb.e; ++j) {
 #pragma omp simd
-          for (int i=ib.s; i<=ib.e; ++i) {
-            b_out.x3f(k,j,i) = wght[1]*b_in1.x3f(k,j,i);
+          for (int i = ib.s; i <= ib.e; ++i) {
+            b_out.x3f(k, j, i) = wght[1] * b_in1.x3f(k, j, i);
           }
         }
       }
@@ -309,89 +319,95 @@ void MeshBlock::WeightedAve(FaceField &b_out, FaceField &b_in1, FaceField &b_in2
   } else {
     if (wght[2] != 0.0) {
       //---- B1
-      for (int k=kb.s; k<=kb.e; ++k) {
-        for (int j=jb.s; j<=jb.e; ++j) {
+      for (int k = kb.s; k <= kb.e; ++k) {
+        for (int j = jb.s; j <= jb.e; ++j) {
 #pragma omp simd
-          for (int i=ib.s; i<=ib.e+1; ++i) {
-            b_out.x1f(k,j,i) = wght[0]*b_out.x1f(k,j,i) + wght[1]*b_in1.x1f(k,j,i)
-                               + wght[2]*b_in2.x1f(k,j,i);
+          for (int i = ib.s; i <= ib.e + 1; ++i) {
+            b_out.x1f(k, j, i) = wght[0] * b_out.x1f(k, j, i) +
+                                 wght[1] * b_in1.x1f(k, j, i) +
+                                 wght[2] * b_in2.x1f(k, j, i);
           }
         }
       }
       //---- B2
-      for (int k=kb.s; k<=kb.e; ++k) {
-        for (int j=jb.s; j<=jb.e; ++j) {
+      for (int k = kb.s; k <= kb.e; ++k) {
+        for (int j = jb.s; j <= jb.e; ++j) {
 #pragma omp simd
-          for (int i=ib.s; i<=ib.e; ++i) {
-            b_out.x2f(k,j,i) = wght[0]*b_out.x2f(k,j,i) + wght[1]*b_in1.x2f(k,j,i)
-                               + wght[2]*b_in2.x2f(k,j,i);
+          for (int i = ib.s; i <= ib.e; ++i) {
+            b_out.x2f(k, j, i) = wght[0] * b_out.x2f(k, j, i) +
+                                 wght[1] * b_in1.x2f(k, j, i) +
+                                 wght[2] * b_in2.x2f(k, j, i);
           }
         }
       }
       //---- B3
-      for (int k=kb.s; k<=kb.e+1; ++k) {
-        for (int j=jb.s; j<=jb.e; ++j) {
+      for (int k = kb.s; k <= kb.e + 1; ++k) {
+        for (int j = jb.s; j <= jb.e; ++j) {
 #pragma omp simd
-          for (int i=ib.s; i<=ib.e; ++i) {
-            b_out.x3f(k,j,i) = wght[0]*b_out.x3f(k,j,i) + wght[1]*b_in1.x3f(k,j,i)
-                               + wght[2]*b_in2.x3f(k,j,i);
+          for (int i = ib.s; i <= ib.e; ++i) {
+            b_out.x3f(k, j, i) = wght[0] * b_out.x3f(k, j, i) +
+                                 wght[1] * b_in1.x3f(k, j, i) +
+                                 wght[2] * b_in2.x3f(k, j, i);
           }
         }
       }
     } else { // do not dereference u_in2
       if (wght[1] != 0.0) {
         //---- B1
-        for (int k=kb.s; k<=kb.e; ++k) {
-          for (int j=jb.s; j<=jb.e; ++j) {
+        for (int k = kb.s; k <= kb.e; ++k) {
+          for (int j = jb.s; j <= jb.e; ++j) {
 #pragma omp simd
-            for (int i=ib.s; i<=ib.e+1; ++i) {
-              b_out.x1f(k,j,i) = wght[0]*b_out.x1f(k,j,i) + wght[1]*b_in1.x1f(k,j,i);
+            for (int i = ib.s; i <= ib.e + 1; ++i) {
+              b_out.x1f(k, j, i) =
+                  wght[0] * b_out.x1f(k, j, i) + wght[1] * b_in1.x1f(k, j, i);
             }
           }
         }
         //---- B2
-        for (int k=kb.s; k<=kb.e; ++k) {
-          for (int j=jb.s; j<=jb.e; ++j) {
+        for (int k = kb.s; k <= kb.e; ++k) {
+          for (int j = jb.s; j <= jb.e; ++j) {
 #pragma omp simd
-            for (int i=ib.s; i<=ib.e; ++i) {
-              b_out.x2f(k,j,i) = wght[0]*b_out.x2f(k,j,i) + wght[1]*b_in1.x2f(k,j,i);
+            for (int i = ib.s; i <= ib.e; ++i) {
+              b_out.x2f(k, j, i) =
+                  wght[0] * b_out.x2f(k, j, i) + wght[1] * b_in1.x2f(k, j, i);
             }
           }
         }
         //---- B3
-        for (int k=kb.s; k<=kb.e+1; ++k) {
-          for (int j=jb.s; j<=jb.e; ++j) {
+        for (int k = kb.s; k <= kb.e + 1; ++k) {
+          for (int j = jb.s; j <= jb.e; ++j) {
 #pragma omp simd
-            for (int i=ib.s; i<=ib.e; ++i) {
-              b_out.x3f(k,j,i) = wght[0]*b_out.x3f(k,j,i) + wght[1]*b_in1.x3f(k,j,i);
+            for (int i = ib.s; i <= ib.e; ++i) {
+              b_out.x3f(k, j, i) =
+                  wght[0] * b_out.x3f(k, j, i) + wght[1] * b_in1.x3f(k, j, i);
             }
           }
         }
       } else { // do not dereference u_in1
         //---- B1
-        for (int k=kb.s; k<=kb.e; ++k) {
-          for (int j=jb.s; j<=jb.e; ++j) {
+        for (int k = kb.s; k <= kb.e; ++k) {
+          for (int j = jb.s; j <= jb.e; ++j) {
 #pragma omp simd
-            for (int i=ib.s; i<=ib.e+1; ++i) {
-              b_out.x1f(k,j,i) *= wght[0];
+            for (int i = ib.s; i <= ib.e + 1; ++i) {
+              b_out.x1f(k, j, i) *= wght[0];
             }
           }
         }
         //---- B2
-        for (int k=kb.s; k<=kb.e; ++k) {
-          for (int j=jb.s; j<=jb.e; ++j) {
+        for (int k = kb.s; k <= kb.e; ++k) {
+          for (int j = jb.s; j <= jb.e; ++j) {
 #pragma omp simd
-            for (int i=ib.s; i<=ib.e; ++i) {
-              b_out.x2f(k,j,i) *= wght[0];
+            for (int i = ib.s; i <= ib.e; ++i) {
+              b_out.x2f(k, j, i) *= wght[0];
             }
           }
         }
         //---- B3
-        for (int k=kb.s; k<=kb.e+1; ++k) {
-          for (int j=jb.s; j<=jb.e; ++j) {
+        for (int k = kb.s; k <= kb.e + 1; ++k) {
+          for (int j = jb.s; j <= jb.e; ++j) {
 #pragma omp simd
-            for (int i=ib.s; i<=ib.e; ++i) {
-              b_out.x3f(k,j,i) *= wght[0];
+            for (int i = ib.s; i <= ib.e; ++i) {
+              b_out.x3f(k, j, i) *= wght[0];
             }
           }
         }

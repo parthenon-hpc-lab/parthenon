@@ -20,8 +20,8 @@
 #include "advection_package.hpp"
 
 using namespace parthenon::package::prelude;
-using parthenon::IndexRange;
 using parthenon::IndexDomain;
+using parthenon::IndexRange;
 
 // *************************************************//
 // define the "physics" package Advect, which      *//
