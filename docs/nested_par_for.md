@@ -15,8 +15,7 @@ synchronization and memory sharing between the threads in the single team is
 possible through the `member_type` team member type from Kokkos.
 
 The bytes of scratch memory for cache needed by a single team is specified via
-the `scratch_size_in_bytes`, which needs be computed using `shmem_size` from
-the Kokkos API.
+the `scratch_size_in_bytes`, which needs be computed using `ScratchPadXD::shmem_size`.
 
 The argument `scratch_level` defines where the scratch memory should be
 allocated. For CUDA GPUs, `scratch_level=0` allocates the cache in the faster
@@ -28,3 +27,10 @@ slower but larger `global` or on device RAM memory. For CPUs, currently
 ## `par_inner_for`
 
 `par_inner_for` abstracts the vector level parallelism of compute units within a team.
+
+## `ScratchPadXD`
+
+Data type for memory in scratch pad/cache memory. Use `ScratchPadXD::shmem_size`, which is documented in [the 
+Kokkos documentation](https://github.com/kokkos/kokkos/wiki/HierarchicalParallelism) for determining scratch pad memory needs before kernel launch.
+
+
