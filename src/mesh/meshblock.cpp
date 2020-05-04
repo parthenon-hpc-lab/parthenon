@@ -48,6 +48,36 @@ namespace parthenon {
 //----------------------------------------------------------------------------------------
 // MeshBlock constructor: constructs coordinate, boundary condition, field
 //                        and mesh refinement objects.
+MeshBlock::MeshBlock(const int n_side, const int ndim) {
+  // initialize grid indices
+  is = NGHOST;
+  ie = is + n_side - 1;
+
+  ncells1 = n_side + 2 * NGHOST;
+  ncc1 = n_side / 2 + 2 * NGHOST;
+  if (ndim >= 2) {
+    js = NGHOST;
+    je = js + n_side - 1;
+    ncells2 = n_side + 2 * NGHOST;
+    ncc2 = n_side / 2 + 2 * NGHOST;
+  } else {
+    js = je = 0;
+    ncells2 = 1;
+    ncc2 = 1;
+  }
+
+  if (ndim >= 3) {
+    ks = NGHOST;
+    ke = ks + n_side - 1;
+    ncells3 = n_side + 2 * NGHOST;
+    ncc3 = n_side / 2 + 2 * NGHOST;
+  } else {
+    ks = ke = 0;
+    ncells3 = 1;
+    ncc3 = 1;
+  }
+}
+
 MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
                      BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
                      Properties_t &properties, Packages_t &packages, int igflag,

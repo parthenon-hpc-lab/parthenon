@@ -15,7 +15,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 //! \file boundary_flag.cpp
-//  \brief utilities for processing the user's input <mesh> ixn_bc, oxn_bc parameters and
+//  \brief utilities for processing the user's input <parthenon/mesh> ixn_bc, oxn_bc
+//  parameters and
 // the associated internal BoundaryFlag enumerators
 
 #include <iostream>

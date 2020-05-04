@@ -162,7 +162,7 @@ void PHDF5Output::genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm) {
   int ndims = 5;
 
   // same set of variables for all grids so use only one container
-  auto ciX = ContainerIterator<Real>(pmb->real_containers.Get(), {Metadata::Graphics});
+  auto ciX = ContainerIterator<Real>(pmb->real_containers.Get(), output_params.variables);
   for (int ib = 0; ib < pm->nbtotal; ib++) {
     xdmf << "    <Grid GridType=\"Uniform\" Name=\"" << ib << "\">" << std::endl;
     xdmf << blockTopology;
@@ -386,7 +386,7 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
 
   // allocate space for largest size variable
   auto ciX =
-      ContainerIterator<Real>(pm->pblock->real_containers.Get(), {Metadata::Graphics});
+      ContainerIterator<Real>(pm->pblock->real_containers.Get(), output_params.variables);
   size_t maxV = 3;
   hsize_t sumDim4AllVars = 0;
   for (auto &v : ciX.vars) {
@@ -489,7 +489,8 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     }
 
     while (pmb != nullptr) { // for every block
-      auto ci = ContainerIterator<Real>(pmb->real_containers.Get(), {Metadata::Graphics});
+      auto ci =
+          ContainerIterator<Real>(pmb->real_containers.Get(), output_params.variables);
       for (auto &v : ci.vars) {
         std::string name = v->label();
         if (name.compare(vWriteName) != 0) {

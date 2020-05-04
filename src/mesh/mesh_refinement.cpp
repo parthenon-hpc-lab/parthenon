@@ -42,7 +42,7 @@ namespace parthenon {
 
 MeshRefinement::MeshRefinement(MeshBlock *pmb, ParameterInput *pin)
     : pmy_block_(pmb), deref_count_(0),
-      deref_threshold_(pin->GetOrAddInteger("mesh", "derefine_count", 10)),
+      deref_threshold_(pin->GetOrAddInteger("parthenon/mesh", "derefine_count", 10)),
       AMRFlag_(pmb->pmy_mesh->AMRFlag_) {
   // Create coarse mesh object for parent grid
   pcoarsec = new Cartesian(pmb, pin, true);
