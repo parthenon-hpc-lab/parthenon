@@ -47,6 +47,8 @@ is sufficient with a link to a more detailed description in a separate [file](fe
 An arbitrary-dimensional wrapper for `Kokkos::Views` is available as
 `ParArrayND`. See documentation [here](parthenon_arrays.md).
 
+The wrappers `par_outer_for` and `par_inner_for` provide a nested parallelism interface that is needed for managing memory cached in tightly nested loops. The wrappers are documented [here](nested_par_for.md).
+
 ### State Management
 [Full Documentation](interface/state.md)
 
