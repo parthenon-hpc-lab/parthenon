@@ -263,14 +263,14 @@ TEST_CASE("par_for loops", "[wrapper]") {
 }
 
 template <class OuterLoopPattern, class InnerLoopPattern>
-bool test_wrapper_nested_3d(
-    OuterLoopPattern outer_loop_pattern, InnerLoopPattern inner_loop_pattern, 
-    DevExecSpace exec_space) {
-  //Compute the 2nd order centered derivative in x of i+1^2 * j+1^2 * k+1^2
+bool test_wrapper_nested_3d(OuterLoopPattern outer_loop_pattern,
+                            InnerLoopPattern inner_loop_pattern,
+                            DevExecSpace exec_space) {
+  // Compute the 2nd order centered derivative in x of i+1^2 * j+1^2 * k+1^2
 
   const int N = 32;
   ParArray3D<Real> dev_u("device u", N, N, N);
-  ParArray3D<Real> dev_du("device du", N, N, N-2);
+  ParArray3D<Real> dev_du("device du", N, N, N - 2);
   auto host_u = Kokkos::create_mirror(dev_u);
   auto host_du = Kokkos::create_mirror(dev_du);
 
@@ -279,52 +279,51 @@ bool test_wrapper_nested_3d(
     for (int k = 0; k < N; k++)
       for (int j = 0; j < N; j++)
         for (int i = 0; i < N; i++)
-          host_u(k, j, i) = pow( (i+1)*(j+1)*(k+1),2.0);
+          host_u(k, j, i) = pow((i + 1) * (j + 1) * (k + 1), 2.0);
 
   // Copy host array content to device
   Kokkos::deep_copy(dev_u, host_u);
 
-  //Compute the scratch memory needs
-  const int scratch_level=0;
+  // Compute the scratch memory needs
+  const int scratch_level = 0;
   size_t scratch_size_in_bytes = parthenon::ScratchPad1D<Real>::shmem_size(N);
 
   // Compute the 2nd order centered derivative in x
   parthenon::par_outer_for(
-    outer_loop_pattern, "unit test Nested 3D", exec_space, 
-    scratch_size_in_bytes,scratch_level,
-    0, N - 1, 0, N - 1,
+      outer_loop_pattern, "unit test Nested 3D", exec_space, scratch_size_in_bytes,
+      scratch_level, 0, N - 1, 0, N - 1,
 
-    KOKKOS_LAMBDA(parthenon::member_type team_member, const int k, const int j) {
-      //Load a pencil in x to minimize DRAM accesses (and test scratch pad)
-      parthenon::ScratchPad1D<Real> scratch_u(team_member.team_scratch(scratch_level),N);
-      parthenon::par_inner_for(inner_loop_pattern, team_member,  0, N-1,
-        [&] (const int i){
-          scratch_u(i) = dev_u(k,j,i);
-        });
-      //Sync all threads in the team so that scratch memory is consistent
-      team_member.team_barrier();
+      KOKKOS_LAMBDA(parthenon::member_type team_member, const int k, const int j) {
+        // Load a pencil in x to minimize DRAM accesses (and test scratch pad)
+        parthenon::ScratchPad1D<Real> scratch_u(team_member.team_scratch(scratch_level),
+                                                N);
+        parthenon::par_inner_for(inner_loop_pattern, team_member, 0, N - 1,
+                                 [&](const int i) { scratch_u(i) = dev_u(k, j, i); });
+        // Sync all threads in the team so that scratch memory is consistent
+        team_member.team_barrier();
 
-      //Compute the derivative from scratch memory
-      parthenon::par_inner_for(inner_loop_pattern, team_member,  1, N-2,
-        [&] (const int i){
-          dev_du(k, j, i-1) = (scratch_u(i+1) - scratch_u(i-1))/2.;
+        // Compute the derivative from scratch memory
+        parthenon::par_inner_for(
+            inner_loop_pattern, team_member, 1, N - 2, [&](const int i) {
+              dev_du(k, j, i - 1) = (scratch_u(i + 1) - scratch_u(i - 1)) / 2.;
+            });
       });
-    });
 
   // Copy array back from device to host
   Kokkos::deep_copy(host_du, dev_du);
 
   Real max_rel_err = -1;
-  const Real rel_tol = 1e-12; // (forrestglines) magic number for machine tolerance - is there something better?
+  const Real rel_tol = 1e-12; // (forrestglines) magic number for machine tolerance - is
+                              // there something better?
 
   // compare data on the host
-  for (int k = 0; k < N; k++){
-    for (int j = 0; j < N; j++){
-      for (int i = 1; i < N-1; i++){
-        const Real analytic = 2.0*(i+1)*pow((j+1)*(k+1),2.0);
-        const Real err = host_du(j,k,i-1) - analytic;
+  for (int k = 0; k < N; k++) {
+    for (int j = 0; j < N; j++) {
+      for (int i = 1; i < N - 1; i++) {
+        const Real analytic = 2.0 * (i + 1) * pow((j + 1) * (k + 1), 2.0);
+        const Real err = host_du(j, k, i - 1) - analytic;
 
-        max_rel_err = fmax( fabs(err/analytic),max_rel_err);
+        max_rel_err = fmax(fabs(err / analytic), max_rel_err);
       }
     }
   }
@@ -333,14 +332,14 @@ bool test_wrapper_nested_3d(
 }
 
 template <class OuterLoopPattern, class InnerLoopPattern>
-bool test_wrapper_nested_4d(
-    OuterLoopPattern outer_loop_pattern, InnerLoopPattern inner_loop_pattern, 
-    DevExecSpace exec_space) {
-  //Compute the 2nd order centered derivative in x of i+1^2 * j+1^2 * k+1^2 * n+1^2
+bool test_wrapper_nested_4d(OuterLoopPattern outer_loop_pattern,
+                            InnerLoopPattern inner_loop_pattern,
+                            DevExecSpace exec_space) {
+  // Compute the 2nd order centered derivative in x of i+1^2 * j+1^2 * k+1^2 * n+1^2
 
   const int N = 32;
   ParArray4D<Real> dev_u("device u", N, N, N, N);
-  ParArray4D<Real> dev_du("device du", N, N, N, N-2);
+  ParArray4D<Real> dev_du("device du", N, N, N, N - 2);
   auto host_u = Kokkos::create_mirror(dev_u);
   auto host_du = Kokkos::create_mirror(dev_du);
 
@@ -349,54 +348,53 @@ bool test_wrapper_nested_4d(
     for (int k = 0; k < N; k++)
       for (int j = 0; j < N; j++)
         for (int i = 0; i < N; i++)
-          host_u(n, k, j, i) = pow( (i+1)*(j+1)*(k+1)*(n+1),2.0);
+          host_u(n, k, j, i) = pow((i + 1) * (j + 1) * (k + 1) * (n + 1), 2.0);
 
   // Copy host array content to device
   Kokkos::deep_copy(dev_u, host_u);
 
-
-  //Compute the scratch memory needs
-  const int scratch_level=0;
+  // Compute the scratch memory needs
+  const int scratch_level = 0;
   size_t scratch_size_in_bytes = parthenon::ScratchPad1D<Real>::shmem_size(N);
 
   // Compute the 2nd order centered derivative in x
   parthenon::par_outer_for(
-    outer_loop_pattern, "unit test Nested 4D", exec_space, 
-    scratch_size_in_bytes,scratch_level,
-    0, N - 1, 0, N - 1, 0, N - 1,
+      outer_loop_pattern, "unit test Nested 4D", exec_space, scratch_size_in_bytes,
+      scratch_level, 0, N - 1, 0, N - 1, 0, N - 1,
 
-    KOKKOS_LAMBDA(parthenon::member_type team_member, const int n, const int k, const int j) {
-      //Load a pencil in x to minimize DRAM accesses (and test scratch pad)
-      parthenon::ScratchPad1D<Real> scratch_u(team_member.team_scratch(scratch_level),N);
-      parthenon::par_inner_for(inner_loop_pattern, team_member,  0, N-1,
-        [&] (const int i){
-          scratch_u(i) = dev_u(n,k,j,i);
-        });
-      //Sync all threads in the team so that scratch memory is consistent
-      team_member.team_barrier();
+      KOKKOS_LAMBDA(parthenon::member_type team_member, const int n, const int k,
+                    const int j) {
+        // Load a pencil in x to minimize DRAM accesses (and test scratch pad)
+        parthenon::ScratchPad1D<Real> scratch_u(team_member.team_scratch(scratch_level),
+                                                N);
+        parthenon::par_inner_for(inner_loop_pattern, team_member, 0, N - 1,
+                                 [&](const int i) { scratch_u(i) = dev_u(n, k, j, i); });
+        // Sync all threads in the team so that scratch memory is consistent
+        team_member.team_barrier();
 
-      //Compute the derivative from scratch memory
-      parthenon::par_inner_for(inner_loop_pattern, team_member,  1, N-2,
-        [&] (const int i){
-          dev_du(n, k, j, i-1) = (scratch_u(i+1) - scratch_u(i-1))/2.;
+        // Compute the derivative from scratch memory
+        parthenon::par_inner_for(
+            inner_loop_pattern, team_member, 1, N - 2, [&](const int i) {
+              dev_du(n, k, j, i - 1) = (scratch_u(i + 1) - scratch_u(i - 1)) / 2.;
+            });
       });
-    });
 
   // Copy array back from device to host
   Kokkos::deep_copy(host_du, dev_du);
 
   Real max_rel_err = -1;
-  const Real rel_tol = 1e-12; // (forrestglines) magic number for machine tolerance - is there something better?
+  const Real rel_tol = 1e-12; // (forrestglines) magic number for machine tolerance - is
+                              // there something better?
 
   // compare data on the host
-  for (int n = 0; n < N; n++){
-    for (int k = 0; k < N; k++){
-      for (int j = 0; j < N; j++){
-        for (int i = 1; i < N-1; i++){
-          const Real analytic = 2.0*(i+1)*pow((j+1)*(k+1)*(n+1),2.0);
-          const Real err = host_du(n,j,k,i-1) - analytic;
+  for (int n = 0; n < N; n++) {
+    for (int k = 0; k < N; k++) {
+      for (int j = 0; j < N; j++) {
+        for (int i = 1; i < N - 1; i++) {
+          const Real analytic = 2.0 * (i + 1) * pow((j + 1) * (k + 1) * (n + 1), 2.0);
+          const Real err = host_du(n, j, k, i - 1) - analytic;
 
-          max_rel_err = fmax( fabs(err/analytic),max_rel_err);
+          max_rel_err = fmax(fabs(err / analytic), max_rel_err);
         }
       }
     }
@@ -409,22 +407,26 @@ TEST_CASE("nested par_for loops", "[wrapper]") {
   auto default_exec_space = DevExecSpace();
 
   SECTION("3D nested loops") {
-    REQUIRE(test_wrapper_nested_3d(parthenon::outer_loop_pattern_teams_tag, parthenon::inner_loop_pattern_ttr_tag, default_exec_space) ==
-            true);
+    REQUIRE(test_wrapper_nested_3d(parthenon::outer_loop_pattern_teams_tag,
+                                   parthenon::inner_loop_pattern_ttr_tag,
+                                   default_exec_space) == true);
 
 #ifndef KOKKOS_ENABLE_CUDA
-    REQUIRE(test_wrapper_nested_3d(parthenon::outer_loop_pattern_teams_tag, parthenon::inner_loop_pattern_simdfor_tag, default_exec_space) ==
-            true);
+    REQUIRE(test_wrapper_nested_3d(parthenon::outer_loop_pattern_teams_tag,
+                                   parthenon::inner_loop_pattern_simdfor_tag,
+                                   default_exec_space) == true);
 #endif
   }
 
   SECTION("4D nested loops") {
-    REQUIRE(test_wrapper_nested_4d(parthenon::outer_loop_pattern_teams_tag, parthenon::inner_loop_pattern_ttr_tag, default_exec_space) ==
-            true);
+    REQUIRE(test_wrapper_nested_4d(parthenon::outer_loop_pattern_teams_tag,
+                                   parthenon::inner_loop_pattern_ttr_tag,
+                                   default_exec_space) == true);
 
 #ifndef KOKKOS_ENABLE_CUDA
-    REQUIRE(test_wrapper_nested_4d(parthenon::outer_loop_pattern_teams_tag, parthenon::inner_loop_pattern_simdfor_tag, default_exec_space) ==
-            true);
+    REQUIRE(test_wrapper_nested_4d(parthenon::outer_loop_pattern_teams_tag,
+                                   parthenon::inner_loop_pattern_simdfor_tag,
+                                   default_exec_space) == true);
 #endif
   }
 }
