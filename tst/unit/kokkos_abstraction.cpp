@@ -284,13 +284,9 @@ bool test_wrapper_nested_3d(
   // Copy host array content to device
   Kokkos::deep_copy(dev_u, host_u);
 
-
-  //Compute the scratch memory needs (forrestglines): should this also be abstracted away?
+  //Compute the scratch memory needs
   const int scratch_level=0;
-  typedef Kokkos::DefaultExecutionSpace::scratch_memory_space ScratchSpace;
-  typedef Kokkos::View< double*, Kokkos::LayoutRight, ScratchSpace,
-                Kokkos::MemoryTraits<Kokkos::Unmanaged> >  ScratchPadView;
-  size_t scratch_size_in_bytes = ScratchPadView::shmem_size(N);
+  size_t scratch_size_in_bytes = parthenon::ScratchPad1D<Real>::shmem_size(N);
 
   // Compute the 2nd order centered derivative in x
   parthenon::par_outer_for(
@@ -300,7 +296,7 @@ bool test_wrapper_nested_3d(
 
     KOKKOS_LAMBDA(parthenon::member_type team_member, const int k, const int j) {
       //Load a pencil in x to minimize DRAM accesses (and test scratch pad)
-      ScratchPadView scratch_u(team_member.team_scratch(scratch_level),N);
+      parthenon::ScratchPad1D<Real> scratch_u(team_member.team_scratch(scratch_level),N);
       parthenon::par_inner_for(inner_loop_pattern, team_member,  0, N-1,
         [&] (const int i){
           scratch_u(i) = dev_u(k,j,i);
@@ -311,7 +307,7 @@ bool test_wrapper_nested_3d(
       //Compute the derivative from scratch memory
       parthenon::par_inner_for(inner_loop_pattern, team_member,  1, N-2,
         [&] (const int i){
-          dev_du(k, j, i-1) = scratch_u(i+1) -2*scratch_u(i) + scratch_u(i-1);
+          dev_du(k, j, i-1) = (scratch_u(i+1) - scratch_u(i-1))/2.;
       });
     });
 
@@ -333,8 +329,7 @@ bool test_wrapper_nested_3d(
     }
   }
 
-
-  return max_rel_err > rel_tol;
+  return max_rel_err < rel_tol;
 }
 
 template <class OuterLoopPattern, class InnerLoopPattern>
@@ -360,12 +355,9 @@ bool test_wrapper_nested_4d(
   Kokkos::deep_copy(dev_u, host_u);
 
 
-  //Compute the scratch memory needs (forrestglines): should this also be abstracted away?
+  //Compute the scratch memory needs
   const int scratch_level=0;
-  typedef Kokkos::DefaultExecutionSpace::scratch_memory_space ScratchSpace;
-  typedef Kokkos::View< double*, Kokkos::LayoutRight, ScratchSpace,
-                Kokkos::MemoryTraits<Kokkos::Unmanaged> >  ScratchPadView;
-  size_t scratch_size_in_bytes = ScratchPadView::shmem_size(N);
+  size_t scratch_size_in_bytes = parthenon::ScratchPad1D<Real>::shmem_size(N);
 
   // Compute the 2nd order centered derivative in x
   parthenon::par_outer_for(
@@ -375,7 +367,7 @@ bool test_wrapper_nested_4d(
 
     KOKKOS_LAMBDA(parthenon::member_type team_member, const int n, const int k, const int j) {
       //Load a pencil in x to minimize DRAM accesses (and test scratch pad)
-      ScratchPadView scratch_u(team_member.team_scratch(scratch_level),N);
+      parthenon::ScratchPad1D<Real> scratch_u(team_member.team_scratch(scratch_level),N);
       parthenon::par_inner_for(inner_loop_pattern, team_member,  0, N-1,
         [&] (const int i){
           scratch_u(i) = dev_u(n,k,j,i);
@@ -386,7 +378,7 @@ bool test_wrapper_nested_4d(
       //Compute the derivative from scratch memory
       parthenon::par_inner_for(inner_loop_pattern, team_member,  1, N-2,
         [&] (const int i){
-          dev_du(n, k, j, i-1) = scratch_u(i+1) -2*scratch_u(i) + scratch_u(i-1);
+          dev_du(n, k, j, i-1) = (scratch_u(i+1) - scratch_u(i-1))/2.;
       });
     });
 
@@ -410,8 +402,7 @@ bool test_wrapper_nested_4d(
     }
   }
 
-
-  return max_rel_err > rel_tol;
+  return max_rel_err < rel_tol;
 }
 
 TEST_CASE("nested par_for loops", "[wrapper]") {

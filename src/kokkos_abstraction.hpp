@@ -35,6 +35,7 @@ using DevMemSpace = Kokkos::DefaultExecutionSpace::memory_space;
 using HostMemSpace = Kokkos::HostSpace;
 using DevExecSpace = Kokkos::DefaultExecutionSpace;
 #endif
+using ScratchMemSpace = Kokkos::DefaultExecutionSpace::scratch_memory_space;
 
 using LayoutWrapper = Kokkos::LayoutRight;
 
@@ -53,6 +54,19 @@ using ParArray6D = Kokkos::View<T ******, LayoutWrapper, DevMemSpace>;
 
 using team_policy = Kokkos::TeamPolicy<>;
 using member_type = Kokkos::TeamPolicy<>::member_type;
+
+template <typename T>
+using ScratchPad1D = Kokkos::View< T*, LayoutWrapper, ScratchMemSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged> >;
+template <typename T>
+using ScratchPad2D = Kokkos::View< T**, LayoutWrapper, ScratchMemSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged> >;
+template <typename T>
+using ScratchPad3D = Kokkos::View< T***, LayoutWrapper, ScratchMemSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged> >;
+template <typename T>
+using ScratchPad4D = Kokkos::View< T****, LayoutWrapper, ScratchMemSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged> >;
+template <typename T>
+using ScratchPad5D = Kokkos::View< T*****, LayoutWrapper, ScratchMemSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged> >;
+template <typename T>
+using ScratchPad6D = Kokkos::View< T******, LayoutWrapper, ScratchMemSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged> >;
 
 // Defining tags to determine loop_patterns using a tag dispatch design pattern
 static struct LoopPatternSimdFor {
