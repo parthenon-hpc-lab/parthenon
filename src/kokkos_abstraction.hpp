@@ -154,6 +154,7 @@ inline void par_for(const std::string &name, DevExecSpace exec_space, const int 
 template <typename Function>
 inline void par_outer_for(
                 const std::string & name,
+                DevExecSpace exec_space,
                 size_t scratch_size_in_bytes,
                 const int scratch_level,
                 const int kl, const int ku,
@@ -167,13 +168,14 @@ inline void par_outer_for(
 template <typename Function>
 inline void par_outer_for(
                 const std::string & name,
+                DevExecSpace exec_space,
                 size_t scratch_size_in_bytes,
                 const int scratch_level,
                 const int nl, const int nu,
                 const int kl, const int ku,
                 const int jl, const int ju,
                 Function function) {
-  par_outer_for(DEFAULT_OUTER_LOOP_PATTERN, name, scratch_size_in_bytes, 
+  par_outer_for(DEFAULT_OUTER_LOOP_PATTERN, name, exec_space, scratch_size_in_bytes, 
       scratch_level, nl, nu, jl, ju, function);
 }
 
@@ -446,6 +448,7 @@ inline void par_for(LoopPatternSimdFor, const std::string &name, DevExecSpace ex
 template <typename Function>
 inline void par_outer_for(OuterLoopPatternTeams,
                 const std::string & name,
+                DevExecSpace exec_space,
                 size_t scratch_size_in_bytes,
                 const int scratch_level,
                 const int kl, const int ku,
@@ -456,7 +459,7 @@ inline void par_outer_for(OuterLoopPatternTeams,
   const int Nj = ju + 1 - jl;
   const int NkNj = Nk*Nj;
 
-  team_policy policy(NkNj);
+  team_policy policy(exec_space,NkNj,Kokkos::AUTO);
 
   Kokkos::parallel_for(name,
     policy.set_scratch_size(scratch_level,Kokkos::PerTeam(scratch_size_in_bytes)),
@@ -471,6 +474,7 @@ inline void par_outer_for(OuterLoopPatternTeams,
 template <typename Function>
 inline void par_outer_for(OuterLoopPatternTeams,
                 const std::string & name,
+                DevExecSpace exec_space,
                 size_t scratch_size_in_bytes,
                 const int scratch_level,
                 const int nl, const int nu, const int kl, const int ku, const int jl,
@@ -482,7 +486,7 @@ inline void par_outer_for(OuterLoopPatternTeams,
   const int NkNj = Nk * Nj;
   const int NnNkNj = Nn * Nk * Nj;
 
-  team_policy policy(NnNkNj);
+  team_policy policy(exec_space,NnNkNj,Kokkos::AUTO);
 
   Kokkos::parallel_for(name,
     policy.set_scratch_size(scratch_level,Kokkos::PerTeam(scratch_size_in_bytes)),
