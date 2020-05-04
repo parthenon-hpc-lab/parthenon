@@ -1200,21 +1200,6 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
         auto &pbval = pmb->pbval;
         if (multilevel) pbval->ProlongateBoundaries(0.0, 0.0);
 
-        IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
-        IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
-        IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
-
-        if (pbval->nblevel[1][1][0] != -1) ib.s -= NGHOST;
-        if (pbval->nblevel[1][1][2] != -1) ib.e += NGHOST;
-        if (pmb->block_size.nx2 > 1) {
-          if (pbval->nblevel[1][0][1] != -1) jb.s -= NGHOST;
-          if (pbval->nblevel[1][2][1] != -1) jb.e += NGHOST;
-        }
-        if (pmb->block_size.nx3 > 1) {
-          if (pbval->nblevel[0][1][1] != -1) kb.s -= NGHOST;
-          if (pbval->nblevel[2][1][1] != -1) kb.e += NGHOST;
-        }
-
         ApplyBoundaryConditions(pmb->real_containers.Get());
         FillDerivedVariables::FillDerived(pmb->real_containers.Get());
       }
