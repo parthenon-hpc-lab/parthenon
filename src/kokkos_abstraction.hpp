@@ -70,6 +70,15 @@ static struct LoopPatternTPTTRTVR {
 static struct LoopPatternUndefined {
 } loop_pattern_undefined_tag;
 
+//Tags for Nested parallelism
+static struct OuterLoopPatternTeams {
+} outer_loop_pattern_teams_tag;
+static struct InnerLoopPatternTTR {
+} inner_loop_pattern_ttr_tag;
+static struct InnerLoopPatternSimdFor {
+} inner_loop_pattern_simd_for_tag;
+
+
 // TODO(pgrete) I don't like this and would prefer to make the default a
 // parameter that is read from the parameter file rather than a compile time
 // constant. Any suggestions on how to do this elegantly? One could use
@@ -92,6 +101,16 @@ static struct LoopPatternUndefined {
 #define DEFAULT_LOOP_PATTERN loop_pattern_tpttrtvr_tag
 #else
 #define DEFAULT_LOOP_PATTERN loop_pattern_undefined_tag
+#endif
+
+#define DEFAULT_OUTER_LOOP_PATTERN outer_loop_pattern_teams_tag
+
+#ifdef TVR_INNER_LOOP
+#define DEFAULT_INNER_LOOP_PATTERN inner_loop_pattern_ttr_tag
+#elif SIMDFOR_INNER_LOOP
+#define DEFAULT_INNER_LOOP_PATTERN inner_loop_pattern_simd_for_tag
+#else
+#define DEFAULT_INNER_LOOP_PATTERN loop_pattern_undefined_tag
 #endif
 
 // 1D default loop pattern
@@ -129,6 +148,42 @@ inline void par_for(const std::string &name, DevExecSpace exec_space, const int 
                     const Function &function) {
   par_for(DEFAULT_LOOP_PATTERN, name, exec_space, nl, nu, kl, ku, jl, ju, il, iu,
           function);
+}
+
+// 2D Outer loop default pattern
+template <typename Function>
+inline void par_outer_for(
+                const std::string & name,
+                size_t scratch_size_in_bytes,
+                const int scratch_level,
+                const int kl, const int ku,
+                const int jl, const int ju,
+                Function function) {
+  par_outer_for(DEFAULT_OUTER_LOOP_PATTERN, name, scratch_size_in_bytes, 
+      scratch_level, kl, ku, jl, ju, function);
+}
+
+// 3D Outer loop default pattern
+template <typename Function>
+inline void par_outer_for(
+                const std::string & name,
+                size_t scratch_size_in_bytes,
+                const int scratch_level,
+                const int nl, const int nu,
+                const int kl, const int ku,
+                const int jl, const int ju,
+                Function function) {
+  par_outer_for(DEFAULT_OUTER_LOOP_PATTERN, name, scratch_size_in_bytes, 
+      scratch_level, nl, nu, jl, ju, function);
+}
+
+// Inner loop default pattern
+template <typename Function>
+inline void par_inner_for( 
+    member_type team_member,
+    const int il, const int iu,
+    Function function){
+  par_inner_for(DEFAULT_INNER_LOOP_PATTERN,team_member, il, iu, function);
 }
 
 // 1D loop using MDRange loops
@@ -384,6 +439,91 @@ inline void par_for(LoopPatternSimdFor, const std::string &name, DevExecSpace ex
           function(n, k, j, i);
   Kokkos::Profiling::popRegion();
 }
+
+
+
+// 2D  outer parallel loop using Kokkos Teams
+template <typename Function>
+inline void par_outer_for(OuterLoopPatternTeams,
+                const std::string & name,
+                size_t scratch_size_in_bytes,
+                const int scratch_level,
+                const int kl, const int ku,
+                const int jl, const int ju,
+                Function function) {
+
+  const int Nk = ku + 1 - kl;
+  const int Nj = ju + 1 - jl;
+  const int NkNj = Nk*Nj;
+
+  team_policy policy(NkNj);
+
+  Kokkos::parallel_for(name,
+    policy.set_scratch_size(scratch_level,Kokkos::PerTeam(scratch_size_in_bytes)),
+    KOKKOS_LAMBDA (member_type team_member) {
+      const int k = team_member.league_rank() / Nk + kl;
+      const int j = team_member.league_rank() % Nj + jl;
+      function(team_member,k,j);
+    });
+}
+
+// 3D  outer parallel loop using Kokkos Teams
+template <typename Function>
+inline void par_outer_for(OuterLoopPatternTeams,
+                const std::string & name,
+                size_t scratch_size_in_bytes,
+                const int scratch_level,
+                const int nl, const int nu, const int kl, const int ku, const int jl,
+                const int ju, const int il, const int iu, const Function &function) {
+
+  const int Nn = nu - nl + 1;
+  const int Nk = ku - kl + 1;
+  const int Nj = ju - jl + 1;
+  const int NkNj = Nk * Nj;
+  const int NnNkNj = Nn * Nk * Nj;
+
+  team_policy policy(NnNkNj);
+
+  Kokkos::parallel_for(name,
+    policy.set_scratch_size(scratch_level,Kokkos::PerTeam(scratch_size_in_bytes)),
+    KOKKOS_LAMBDA (member_type team_member) {
+        int n = team_member.league_rank() / NkNj;
+        int k = (team_member.league_rank() - n * NkNj) / Nj;
+        const int j = team_member.league_rank() - n * NkNj - k * Nj + jl;
+        n += nl;
+        k += kl;
+      function(team_member,n,k,j);
+    });
+}
+
+
+
+// Inner parallel loop using TeamThreamRange
+template <typename Function>
+inline void par_inner_for( 
+    InnerLoopPatternTTR,
+    member_type team_member,
+    const int il, const int iu,
+    Function function){
+  Kokkos::parallel_for(
+      Kokkos::TeamThreadRange(team_member,il,iu+1),
+      function);
+}
+
+// Inner parallel loop using FOR SIMD
+template <typename Function>
+inline void par_inner_for( 
+    InnerLoopPatternSimdFor,
+    member_type team_member,
+    const int il, const int iu,
+    Function function){
+  #pragma omp simd
+  for(int i = il; i <= iu; i++){
+      function(i);
+  }
+}
+
+
 
 // reused from kokoks/core/perf_test/PerfTest_ExecSpacePartitioning.cpp
 // commit a0d011fb30022362c61b3bb000ae3de6906cb6a7
