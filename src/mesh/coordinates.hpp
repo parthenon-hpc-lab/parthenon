@@ -30,51 +30,51 @@ class Coordinates {
         area_({dx[1] * dx[2], dx[0] * dx[2], dx[0] * dx[1]}),
         cell_volume_(dx[0] * dx[1] * dx[2]) {}
 
-  const Real GetVolume() { return cell_volume_; }
-  const std::array<Real, 3> GetDx() { return dx_; }
-  const Real GetDx(const int dir) { return dx_[dir]; }
-  const std::array<Real, 3> GetArea() { return area_; }
-  const Real GetArea(const int dir) { return area_[dir]; }
+  Real GetVolume() { return cell_volume_; }
+  const std::array<Real, 3> &GetDx() { return dx_; }
+  Real GetDx(const int dir) { return dx_[dir]; }
+  const std::array<Real, 3> &GetArea() { return area_; }
+  Real GetArea(const int dir) { return area_[dir]; }
   KOKKOS_FORCEINLINE_FUNCTION
-  const Real x1v(const int i) { return xmin_[0] + (i - istart_[0] + 0.5) * dx_[0]; }
+  Real x1v(const int i) { return xmin_[0] + (i - istart_[0] + 0.5) * dx_[0]; }
   KOKKOS_FORCEINLINE_FUNCTION
-  const Real x1f(const int i) { return xmin_[0] + (i - istart_[0]) * dx_[0]; }
+  Real x1f(const int i) { return xmin_[0] + (i - istart_[0]) * dx_[0]; }
   KOKKOS_FORCEINLINE_FUNCTION
-  const Real x2v(const int j) { return xmin_[1] + (j - istart_[1] + 0.5) * dx_[1]; }
+  Real x2v(const int j) { return xmin_[1] + (j - istart_[1] + 0.5) * dx_[1]; }
   KOKKOS_FORCEINLINE_FUNCTION
-  const Real x2f(const int j) { return xmin_[1] + (j - istart_[1]) * dx_[1]; }
+  Real x2f(const int j) { return xmin_[1] + (j - istart_[1]) * dx_[1]; }
   KOKKOS_FORCEINLINE_FUNCTION
-  const Real x3v(const int k) { return xmin_[2] + (k - istart_[2] + 0.5) * dx_[2]; }
+  Real x3v(const int k) { return xmin_[2] + (k - istart_[2] + 0.5) * dx_[2]; }
   KOKKOS_FORCEINLINE_FUNCTION
-  const Real x3f(const int k) { return xmin_[2] + (k - istart_[2]) * dx_[2]; }
+  Real x3f(const int k) { return xmin_[2] + (k - istart_[2]) * dx_[2]; }
 
   // k, j, i grid functions
   KOKKOS_FORCEINLINE_FUNCTION
-  const Real x1v(const int k, const int j, const int i) {
+  Real x1v(const int k, const int j, const int i) const {
     return xmin_[0] + (i - istart_[0] + 0.5) * dx_[0];
   }
   KOKKOS_FORCEINLINE_FUNCTION
-  const Real x1f(const int k, const int j, const int i) {
+  const Real x1f(const int k, const int j, const int i) const {
     return xmin_[0] + (i - istart_[0]) * dx_[0];
   }
   KOKKOS_FORCEINLINE_FUNCTION
-  const Real x2v(const int k, const int j, const int i) {
+  Real x2v(const int k, const int j, const int i) const {
     return xmin_[1] + (j - istart_[1] + 0.5) * dx_[1];
   }
   KOKKOS_FORCEINLINE_FUNCTION
-  const Real x2f(const int k, const int j, const int i) {
+  const Real x2f(const int k, const int j, const int i) const {
     return xmin_[1] + (j - istart_[1]) * dx_[1];
   }
   KOKKOS_FORCEINLINE_FUNCTION
-  const Real x3v(const int k, const int j, const int i) {
+  Real x3v(const int k, const int j, const int i) const {
     return xmin_[2] + (k - istart_[2] + 0.5) * dx_[2];
   }
   KOKKOS_FORCEINLINE_FUNCTION
-  const Real x3f(const int k, const int j, const int i) {
+  Real x3f(const int k, const int j, const int i) const {
     return xmin_[2] + (k - istart_[2]) * dx_[2];
   }
 
-  const std::array<Real, 3> GetXmin() { return xmin_; }
+  const std::array<Real, 3> &GetXmin() { return xmin_; }
 
  private:
   std::array<int, 3> istart_;

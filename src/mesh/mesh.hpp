@@ -74,9 +74,6 @@ inline MeshBlockApplicationData::~MeshBlockApplicationData() {}
 class MeshBlock {
   friend class RestartOutput;
   friend class Mesh;
-#ifdef HDF5OUTPUT
-  friend class ATHDF5Output;
-#endif
 
  public:
   MeshBlock(const int n_side, const int ndim); // for Kokkos testing with ghost
@@ -169,12 +166,12 @@ class MeshBlock {
     parthenon::par_for(name, exec_space, nl, nu, kl, ku, jl, ju, il, iu, function);
   }
 
-  const Real GetVolume() { return coords.GetVolume(); }
-  const std::array<Real, 3> GetDx() { return coords.GetDx(); }
-  const Real GetDx(const int dir) { return coords.GetDx(dir); }
-  const std::array<Real, 3> GetArea() { return coords.GetArea(); }
-  const Real GetArea(const int dir) { return coords.GetArea(dir); }
-  const std::array<Real, 3> GetXmin() { return coords.GetXmin(); }
+  Real GetVolume() { return coords.GetVolume(); }
+  const std::array<Real, 3> &GetDx() { return coords.GetDx(); }
+  Real GetDx(const int dir) { return coords.GetDx(dir); }
+  const std::array<Real, 3> &GetArea() { return coords.GetArea(); }
+  Real GetArea(const int dir) { return coords.GetArea(dir); }
+  const std::array<Real, 3> &GetXmin() { return coords.GetXmin(); }
 
   std::size_t GetBlockSizeInBytes();
   int GetNumberOfMeshBlockCells() {

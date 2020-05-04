@@ -34,20 +34,25 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
   Container<Real> &rc = real_containers.Get();
   auto q = rc.Get("advected").data;
 
-  const int il = is;
-  const int jl = js;
-  const int kl = ks;
-  auto dx = GetDx();
-  auto xmin = GetXmin();
-
-  par_for(
+  // TODO(jcd): can't seem to call par_for here.  why?
+  /*par_for(
       "init problem", 0, ncells3 - 1, 0, ncells2 - 1, 0, ncells1 - 1,
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
-        const Real x = xmin[0] + (i - il + 0.5) * dx[0];
-        const Real y = xmin[1] + (j - jl + 0.5) * dx[1];
+        const Real x = coords.x1v(i);
+        const Real y = coords.x2v(j);
         Real rsq = x * x + y * y;
         q(k, j, i) = (rsq < 0.15 * 0.15 ? 1.0 : 0);
-      });
+      });*/
+  for (int k = 0; k <= ncells3 - 1; k++) {
+    for (int j = 0; j <= ncells2 - 1; j++) {
+      for (int i = 0; i <= ncells1 - 1; i++) {
+        Real x = coords.x1v(i);
+        Real y = coords.x2v(j);
+        Real rsq = x * x + y * y;
+        q(k, j, i) = (rsq < 0.15 * 0.15 ? 1.0 : 0);
+      }
+    }
+  }
 }
 
 void ParthenonManager::SetFillDerivedFunctions() {
