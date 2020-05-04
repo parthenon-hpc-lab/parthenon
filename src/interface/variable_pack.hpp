@@ -9,7 +9,7 @@
 // itself and others acting on its behalf a nonexclusive, paid-up, irrevocable worldwide
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
-//========================================================================================
+//=======================================================================================
 #ifndef INTERFACE_VARIABLE_PACK_HPP_
 #define INTERFACE_VARIABLE_PACK_HPP_
 
@@ -36,7 +36,7 @@ using IndexPair = std::pair<int, int>;
 
 using PackIndexMap = std::map<std::string, vpack_types::IndexPair>;
 template <typename T>
-using ViewOfParArrays = Kokkos::View<ParArray3D<T> *>;
+using ViewOfParArrays = ParArrayND<ParArray3D<T>>;
 
 // Try to keep these Variable*Pack classes as lightweight as possible.
 // They go to the device.
@@ -101,17 +101,15 @@ VariableFluxPack<T> MakeFluxPack(vpack_types::VarList<T> &vars,
     fsize += v->GetDim(6) * v->GetDim(5) * v->GetDim(4);
   }
 
-  auto fvar = vars.front()->data;
-  auto slice = fvar.Get(0, 0, 0);
   // make the outer view
   ViewOfParArrays<T> cv("MakeFluxPack::cv", vsize);
   ViewOfParArrays<T> f0("MakeFluxPack::f0", fsize);
   ViewOfParArrays<T> f1("MakeFluxPack::f1", fsize);
   ViewOfParArrays<T> f2("MakeFluxPack::f2", fsize);
-  auto host_view = Kokkos::create_mirror_view(cv);
-  auto host_f0 = Kokkos::create_mirror_view(f0);
-  auto host_f1 = Kokkos::create_mirror_view(f1);
-  auto host_f2 = Kokkos::create_mirror_view(f2);
+  auto host_view = cv.GetHostMirror();
+  auto host_f0 = f0.GetHostMirror();
+  auto host_f1 = f1.GetHostMirror();
+  auto host_f2 = f2.GetHostMirror();
   // add variables to host view
   int vindex = 0;
   for (const auto &v : vars) {
@@ -146,10 +144,11 @@ VariableFluxPack<T> MakeFluxPack(vpack_types::VarList<T> &vars,
           std::pair<std::string, IndexPair>(v->label(), IndexPair(vstart, vindex - 1)));
     }
   }
-  Kokkos::deep_copy(cv, host_view);
-  Kokkos::deep_copy(f0, host_f0);
-  Kokkos::deep_copy(f1, host_f1);
-  Kokkos::deep_copy(f2, host_f2);
+  cv.DeepCopy(host_view);
+  f0.DeepCopy(host_f0);
+  f1.DeepCopy(host_f1);
+  f2.DeepCopy(host_f2);
+  auto fvar = vars.front()->data;
   std::array<int, 4> cv_size = {fvar.GetDim(1), fvar.GetDim(2), fvar.GetDim(3), vsize};
   return VariableFluxPack<T>(cv, f0, f1, f2, cv_size, fsize);
 }
@@ -163,11 +162,9 @@ VariablePack<T> MakePack(vpack_types::VarList<T> &vars, PackIndexMap *vmap = nul
     vsize += v->GetDim(6) * v->GetDim(5) * v->GetDim(4);
   }
 
-  auto fvar = vars.front()->data;
-  auto slice = fvar.Get(0, 0, 0);
   // make the outer view
   ViewOfParArrays<T> cv("MakePack::cv", vsize);
-  auto host_view = Kokkos::create_mirror_view(cv);
+  auto host_view = cv.GetHostMirror();
   int vindex = 0;
   int sparse_start;
   std::string sparse_name = "";
@@ -201,7 +198,8 @@ VariablePack<T> MakePack(vpack_types::VarList<T> &vars, PackIndexMap *vmap = nul
                                                    IndexPair(sparse_start, vindex - 1)));
   }
 
-  Kokkos::deep_copy(cv, host_view);
+  cv.DeepCopy(host_view);
+  auto fvar = vars.front()->data;
   std::array<int, 4> cv_size = {fvar.GetDim(1), fvar.GetDim(2), fvar.GetDim(3), vsize};
   return VariablePack<T>(cv, cv_size);
 }
