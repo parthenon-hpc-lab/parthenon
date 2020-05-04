@@ -11,6 +11,9 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+// Standard Includes
+#include <fstream>
+
 // Parthenon Includes
 #include <parthenon/package.hpp>
 
@@ -38,7 +41,7 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  PiDriver driver(pman.pinput.get(), pman.pmesh.get(), pman.pouts.get());
+  PiDriver driver(pman.pinput.get(), pman.pmesh.get());
 
   // start a timer
   pman.PreDriver();
@@ -58,6 +61,8 @@ parthenon::DriverStatus PiDriver::Execute() {
   // this is where the main work is orchestrated
   // No evolution in this driver.  Just calculates something once.
   // For evolution, look at the EvolutionDriver
+
+  pouts->MakeOutputs(pmesh, pinput);
 
   ConstructAndExecuteBlockTasks<>(this);
 
@@ -86,6 +91,12 @@ parthenon::DriverStatus PiDriver::Execute() {
               << "PI = " << pi_val << "    rel error = " << (pi_val - M_PI) / M_PI
               << std::endl
               << std::endl;
+
+    std::fstream fs;
+    fs.open("summary.txt", std::fstream::out);
+    fs << "PI = " << pi_val << std::endl;
+    fs << "rel error = " << (pi_val - M_PI) / M_PI << std::endl;
+    fs.close();
   }
   pmesh->mbcnt = pmesh->nbtotal; // this is how many blocks were processed
   return DriverStatus::complete;

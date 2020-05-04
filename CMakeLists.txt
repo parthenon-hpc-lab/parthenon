@@ -56,6 +56,7 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 set(ENABLE_MPI OFF)
+set(NUM_MPI_PROC_TESTING "4" CACHE STRING "Number of mpi processors to use when running tests with MPI")
 if (NOT DISABLE_MPI)
   find_package(MPI COMPONENTS CXX)
   if (NOT MPI_FOUND)
@@ -188,3 +189,10 @@ add_subdirectory(example/face_fields)
 add_subdirectory(example/advection)
 
 include(cmake/CheckCopyright.cmake)
+
+# Currently Ctest/Cmake doesn't ensure that tests are not stale
+# before running them.
+#
+# If you add tests with other binaries, add them to the DEPENDS line
+add_custom_target(checkit COMMAND ${CMAKE_CTEST_COMMAND}
+                  DEPENDS unit_tests)

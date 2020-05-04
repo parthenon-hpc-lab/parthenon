@@ -1,4 +1,3 @@
-
 //========================================================================================
 // Athena++ astrophysical MHD code
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
@@ -68,12 +67,13 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
               v(l, k, j, i) = 0.0;
             });
       }
+
       THEN("they should sum to zero") {
-        using policy4D = Kokkos::MDRangePolicy<Kokkos::Rank<4>>;
         Real total = 0.0;
         for (int n = 0; n < cv.size(); n++) {
-          Real sum = 1.0;
           ParArrayND<Real> v = cv[n]->data;
+          using policy4D = Kokkos::MDRangePolicy<Kokkos::Rank<4>>;
+          Real sum = 0.0;
           Kokkos::parallel_reduce(
               policy4D({0, 0, 0, 0},
                        {v.GetDim(4), v.GetDim(3), v.GetDim(2), v.GetDim(1)}),
@@ -84,21 +84,22 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
         }
         REQUIRE(total == 0.0);
       }
+
       AND_THEN("we touch the right number of elements") {
-        using policy4D = Kokkos::MDRangePolicy<Kokkos::Rank<4>>;
-        int total = 0;
+        int nElements = 0;
         for (int n = 0; n < cv.size(); n++) {
-          int sum = 1;
           ParArrayND<Real> v = cv[n]->data;
+          using policy4D = Kokkos::MDRangePolicy<Kokkos::Rank<4>>;
+          int sum;
           Kokkos::parallel_reduce(
               policy4D({0, 0, 0, 0},
                        {v.GetDim(4), v.GetDim(3), v.GetDim(2), v.GetDim(1)}),
               KOKKOS_LAMBDA(const int l, const int k, const int j, const int i,
                             int &cnt) { cnt++; },
               sum);
-          total += sum;
+          nElements += sum;
         }
-        REQUIRE(total == 40960);
+        REQUIRE(nElements == 40960);
       }
     }
 
@@ -109,7 +110,7 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
       for (int n = 0; n < civ.size(); n++) {
         ParArrayND<Real> v = civ[n]->data;
         par_for(
-            "Set independent variables", DevExecSpace(), 0, v.GetDim(4) - 1, 0,
+            "Initialize variables", DevExecSpace(), 0, v.GetDim(4) - 1, 0,
             v.GetDim(3) - 1, 0, v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
             KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
               v(l, k, j, i) = 1.0;
@@ -117,13 +118,11 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
       }
 
       THEN("they should sum appropriately") {
-        using policy4D = Kokkos::MDRangePolicy<Kokkos::Rank<4>>;
         Real total = 0.0;
-        ContainerIterator<Real> ci(rc, {Metadata::Independent});
-        CellVariableVector<Real> &civ = ci.vars;
         for (int n = 0; n < civ.size(); n++) {
-          Real sum = 1.0;
+          using policy4D = Kokkos::MDRangePolicy<Kokkos::Rank<4>>;
           ParArrayND<Real> v = civ[n]->data;
+          Real sum = 0.0;
           Kokkos::parallel_reduce(
               policy4D({0, 0, 0, 0},
                        {v.GetDim(4), v.GetDim(3), v.GetDim(2), v.GetDim(1)}),

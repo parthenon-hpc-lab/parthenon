@@ -24,7 +24,10 @@ using namespace parthenon::driver::prelude;
  */
 class PiDriver : public Driver {
  public:
-  PiDriver(ParameterInput *pin, Mesh *pm, Outputs *pout) : Driver(pin, pm, pout) {}
+  PiDriver(ParameterInput *pin, Mesh *pm) : Driver(pin, pm) {
+    InitializeOutputs();
+    pin->CheckDesired("Pi", "radius");
+  }
 
   /// MakeTaskList isn't a virtual routine on `Driver`, but each driver is expected to
   /// implement it.

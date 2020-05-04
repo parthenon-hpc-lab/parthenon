@@ -81,6 +81,7 @@ class MeshBlock {
 #endif
 
  public:
+  MeshBlock(const int n_side, const int ndim); // for Kokkos testing with ghost
   MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_size,
             BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
             Properties_t &properties, int igflag, bool ref_flag = false);
@@ -192,6 +193,7 @@ class MeshBlock {
   void UserWorkBeforeOutput(ParameterInput *pin); // called in Mesh fn (friend class)
   void UserWorkInLoop();                          // called in TimeIntegratorTaskList
   void SetBlockTimestep(const Real dt) { new_block_dt_ = dt; }
+  Real NewDt() { return new_block_dt_; }
 
  private:
   // data
@@ -246,12 +248,11 @@ class Mesh {
   }
 
   // data
+  bool modified;
   RegionSize mesh_size;
   BoundaryFlag mesh_bcs[6];
   const int ndim; // number of dimensions
   const bool adaptive, multilevel;
-  Real start_time, time, tlim, dt, dt_hyperbolic, dt_parabolic, dt_user;
-  int nlim, ncycle, ncycle_out, dt_diagnostics;
   int nbtotal, nbnew, nbdel;
   std::uint64_t mbcnt;
 

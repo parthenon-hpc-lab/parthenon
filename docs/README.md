@@ -3,6 +3,10 @@
 This file provides an overview of different (not necessarily all) features in Parthenon
 and how to use them.
 
+## Building parthenon
+
+See the [build doc](building.md) for details on building parthenon for specific systems.
+
 ## Description of examples
 
 - [Calculate &pi](../example/calculate_pi)
@@ -62,7 +66,7 @@ A description of how to enable and extend the AMR capabilities of Parthenon is p
 
 The tasking capabilities in Parthenon are documented [here](tasks.md).
 
-### Graphics
+### Outputs
 
-Check [here](graphics.md) for a description of how to get data out of Parthenon and how to visualize it.
+Check [here](outputs.md) for a description of how to get data out of Parthenon and how to visualize it.
 
