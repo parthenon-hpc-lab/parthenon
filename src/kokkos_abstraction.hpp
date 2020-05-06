@@ -504,15 +504,17 @@ inline void par_for_outer(OuterLoopPatternTeams, const std::string &name,
 
 // Inner parallel loop using TeamThreamRange
 template <typename Function>
-inline void par_for_inner(InnerLoopPatternTVR, team_mbr_t team_member, const int il,
-                          const int iu, const Function &function) {
+KOKKOS_INLINE_FUNCTION void par_for_inner(InnerLoopPatternTVR, team_mbr_t team_member,
+                                          const int il, const int iu,
+                                          const Function &function) {
   Kokkos::parallel_for(Kokkos::TeamVectorRange(team_member, il, iu + 1), function);
 }
 
 // Inner parallel loop using FOR SIMD
 template <typename Function>
-inline void par_for_inner(InnerLoopPatternSimdFor, team_mbr_t team_member, const int il,
-                          const int iu, const Function &function) {
+KOKKOS_INLINE_FUNCTION void par_for_inner(InnerLoopPatternSimdFor, team_mbr_t team_member,
+                                          const int il, const int iu,
+                                          const Function &function) {
 #pragma omp simd
   for (int i = il; i <= iu; i++) {
     function(i);
