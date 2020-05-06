@@ -923,7 +923,7 @@ void Mesh::FillSameRankFineToCoarseAMR(MeshBlock *pob, MeshBlock *pmb,
     if (pmb->block_size.nx2 == 1) {
       int iu = il + pmb->block_size.nx1 / 2 - 1;
       for (int i = il; i <= iu; i++)
-        dst_b.x2f(ks + 1, js + 1, i) = dst_b.x2f(ks, js, i);
+        dst_b.x2f(ks, js + 1, i) = dst_b.x2f(ks, js, i);
     }
     for (int k = kl, fk = ckb.s; fk <= ckb.e + f3; k++, fk++) {
       for (int j = jl, fj = cjb.s; fj <= cjb.e; j++, fj++) {
