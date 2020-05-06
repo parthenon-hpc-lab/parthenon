@@ -151,7 +151,7 @@ void PostFill(Container<Real> &rc) {
   CellVariable<Real> &q1 = rc.Get("one_minus_sqrt_one_minus_advected_sq", 37);
   for (int k = kb.s; k <= kb.e; k++) {
     for (int j = jb.s; j <= jb.e; j++) {
-      for (int i = ib.s; i <= ib.e; k++) {
+      for (int i = ib.s; i <= ib.e; i++) {
         // this will make component 12 = advected
         q0(k, j, i) = 1.0 - sqrt(qin(k, j, i));
         // and this will make component 37 = 1 - advected
