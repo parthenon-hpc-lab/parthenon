@@ -89,6 +89,11 @@ class VariableFluxPack : public VariablePack<T> {
 // mapping to a tuple instead of using multiple maps reduces # of lookups
 // this wouldn't be super important if lookup time was constant,
 // but std::maps are trees, not hash tables and have an O(log(N)) lookup.
+// Unfortunately, std::pair doesn't work. So I have to roll my own.
+// I have no idea why std::pair doesn't work.
+// It appears to be an interaction between caused by a std::map<key,std::pair>
+// Possibly it's a compiler bug. gcc/7.4.0
+// ~JMM
 template <typename T>
 struct PackIndxPair {
   VariablePack<T> pack;

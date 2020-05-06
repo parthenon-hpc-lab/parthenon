@@ -359,6 +359,7 @@ vpack_types::VarList<T> Container<T>::MakeList_(std::vector<std::string> &names)
       names.push_back(v->label());
     }
   }
+  return vars;
 }
 
 
