@@ -3,7 +3,7 @@
 ## Containers
 
 A *container* owns *variables.* Each variable is named, and the
-container knows about various types of variable, such as whether the
+container knows about various types of variables, such as whether the
 variable is for cell-centered data, face-centered data, sparse data,
 or dense data. (For more details on anonymous variables, see
 [here](Metadata.md).) A variable can be added to a container as:
