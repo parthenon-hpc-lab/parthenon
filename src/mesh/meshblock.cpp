@@ -205,7 +205,6 @@ void MeshBlock::InitializeIndexShapes(const int nx1, const int nx2, const int nx
 
   const IndexDomain interior = IndexDomain::interior;
   if (pmy_mesh->multilevel) {
-
     cnghost = (NGHOST + 1) / 2 + 1;
     c_cellbounds =
         IndexShape(cellbounds.ncellsi(interior) / 2, cellbounds.ncellsj(interior) / 2,

@@ -57,6 +57,15 @@ class IndexShape {
   std::array<IndexRange, NDIM> x_;
   std::array<int, NDIM> entire_ncells_;
 
+  inline bool DimensionProvided_(const std::vector<int> &interior_dim,sint dim){
+    return dim > interior_dims.size();
+  }
+
+  inline void MakeZeroDimensional_(int index){
+    x_[index] = IndexRange(0, 0);
+    entire_ncells_[index] = 1;
+  }
+
  public:
   IndexShape(){};
 
@@ -75,15 +84,18 @@ class IndexShape {
            "the NDIM "
            "constant.");
     for (int dim = 1, index = 0; dim <= NDIM; ++dim, ++index) {
-      if (dim <= interior_dims.size()) {
-        assert(interior_dims.at(index) > 0 &&
-               "IndexShape cannot be initialized with fewer "
-               "than 1 interior cells for each dimension");
-        x_[index] = IndexRange(ng, (ng + interior_dims.at(index) - 1));
-        entire_ncells_[index] = interior_dims.at(index) + 2 * ng;
+      if (DimensionProvided_(interior_dims, dim) == false) {
+        MakeZeroDimensional_(index);
       } else {
-        x_[index] = IndexRange(0, 0);
-        entire_ncells_[index] = 1;
+        assert(interior_dims.at(index) > -1 &&
+            "IndexShape cannot be initialized with a negative number of "
+            "interior cells for any dimension");
+        if (interior_dims.at(index) == 0) { // Dimension does not exist if interior cells 0
+          MakeZeroDimensional_(index);
+        } else {
+          x_[index] = IndexRange(ng, (ng + interior_dims.at(index) - 1));
+          entire_ncells_[index] = interior_dims.at(index) + 2 * ng;
+        }
       }
     }
   };
