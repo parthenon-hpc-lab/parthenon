@@ -64,10 +64,6 @@ void Container<T>::Add(const std::string label, const Metadata &metadata,
 
   // branch on kind of variable
   if (metadata.IsSet(Metadata::Sparse)) {
-    if (!(metadata.Where() == Metadata::Cell)) {
-      throw std::invalid_argument(
-          "SparseVariable currently only supports cell-centered data");
-    }
     // add a sparse variable
     if (sparseMap_.find(label) == sparseMap_.end()) {
       auto sv = std::make_shared<SparseVariable<T>>(label, metadata, arrDims);
