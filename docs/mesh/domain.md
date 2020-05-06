@@ -20,7 +20,8 @@ The **IndexShape** class also provides a means for accessing the number of
 cells in each dimension of each of the domains. This is provided with the
 **ncellsi**, **ncellsj**, and **ncellsk** methods. 
 
-Below is a diagram illustrating the IndexShape. 
+Below is a diagram illustrating a 2d instance of an IndexShape which we will
+call cellbounds.
 
 ![index_shape_diagram](IndexShape.jpg)
 
