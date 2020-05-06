@@ -41,10 +41,10 @@ if (${Kokkos_ENABLE_CUDA})
   set(PAR_LOOP_LAYOUT_VALUES "MANUAL1D_LOOP;MDRANGE_LOOP;TPTTR_LOOP;TPTTRTVR_LOOP"
     CACHE STRING "Possible loop layout options.")
 
-  set(PAR_INNER_LOOP_LAYOUT "TTR_INNER_LOOP" CACHE STRING
-    "Default loop layout for par_inner_for wrapper")
+  set(PAR_LOOP_INNER_LAYOUT "TVR_INNER_LOOP" CACHE STRING
+    "Default loop layout for par_for_inner wrapper")
 
-  set(PAR_INNER_LOOP_LAYOUT_VALUES "TTR_INNER_LOOP"
+  set(PAR_LOOP_INNER_LAYOUT_VALUES "TVR_INNER_LOOP"
     CACHE STRING "Possible inner loop layout options.")
 
 elseif(${Kokkos_ENABLE_HPX})
@@ -57,21 +57,21 @@ else()
   set(PAR_LOOP_LAYOUT_VALUES "SIMDFOR_LOOP;MANUAL1D_LOOP;MDRANGE_LOOP;TPTTR_LOOP;TPTVR_LOOP;TPTTRTVR_LOOP"
     CACHE STRING "Possible loop layout options.")
 
-  set(PAR_INNER_LOOP_LAYOUT "SIMDFOR_INNER_LOOP" CACHE STRING
-    "Default loop layout for par_inner_for wrapper")
+  set(PAR_LOOP_INNER_LAYOUT "SIMDFOR_INNER_LOOP" CACHE STRING
+    "Default loop layout for par_for_inner wrapper")
 
-  set(PAR_INNER_LOOP_LAYOUT_VALUES "SIMDFOR_INNER_LOOP;TTR_INNER_LOOP"
+  set(PAR_LOOP_INNER_LAYOUT_VALUES "SIMDFOR_INNER_LOOP;TVR_INNER_LOOP"
     CACHE STRING "Possible inner loop layout options.")
 
 endif()
 
 set_property(CACHE PAR_LOOP_LAYOUT PROPERTY STRINGS ${PAR_LOOP_LAYOUT_VALUES})
 
-set_property(CACHE PAR_INNER_LOOP_LAYOUT PROPERTY STRINGS ${PAR_INNER_LOOP_LAYOUT_VALUES})
+set_property(CACHE PAR_LOOP_INNER_LAYOUT PROPERTY STRINGS ${PAR_LOOP_INNER_LAYOUT_VALUES})
 
 message(STATUS "PAR_LOOP_LAYOUT='${PAR_LOOP_LAYOUT}' (default par_for wrapper layout)")
 
-message(STATUS "PAR_INNER_LOOP_LAYOUT='${PAR_INNER_LOOP_LAYOUT}' (default par_inner_for wrapper layout)")
+message(STATUS "PAR_LOOP_INNER_LAYOUT='${PAR_LOOP_INNER_LAYOUT}' (default par_for_inner wrapper layout)")
 
 set(EXCEPTION_HANDLING_OPTION ENABLE_EXCEPTIONS) # TODO: Add option to disable exceptions
 set(COMPILED_WITH ${CMAKE_CXX_COMPILER})
