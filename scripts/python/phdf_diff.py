@@ -26,7 +26,7 @@ import argparse
 def Usage():
     print("""
 
-    Usage: %s [-quiet] [-brief] [-all] [-one] [--tol=eps] file1.hdf5 file2.hdf5
+    Usage: %s [-quiet] [-brief] [-all] [-one] [--tol=eps] file1.phdf file2.phdf
 
            -all: report all diffs at all positions
            -one: Quit after first different variable
@@ -61,8 +61,8 @@ def processArgs():
 def addPath():
     """ add the vis/python directory to the pythonpath variable """
     myPath = os.path.realpath(os.path.dirname(__file__))
-    sys.path.insert(0,myPath+'/../vis/python')
-    sys.path.insert(0,myPath+'/vis/python')
+    #sys.path.insert(0,myPath+'/../vis/python')
+    #sys.path.insert(0,myPath+'/vis/python')
 
 if __name__ == "__main__":
     addPath()
@@ -70,14 +70,14 @@ if __name__ == "__main__":
     #**************
     # import Reader
     #**************
-    from better_athdf import better_athdf as bhdf
+    from phdf import phdf
 
 
     #**************
     # Reader Help
     #**************
-    # for help  on better_athdf uncomment following line
-    # print(help(bhdf))
+    # for help  on phdf uncomment following line
+    # print(help(phdf))
 
     # process arguments
     input = processArgs()
@@ -105,18 +105,18 @@ if __name__ == "__main__":
 
     # Load first file and print info
     try:
-        f0 = bhdf(files[0])
+        f0 = phdf(files[0])
         if not quiet: print(f0)
     except:
         exit(1)
 
     # Load second file and print info
     try:
-        f1 = bhdf(files[1])
+        f1 = phdf(files[1])
         if not quiet:  print(f1)
     except:
         print("""
-        *** ERROR: Unable to open %s as athdf file
+        *** ERROR: Unable to open %s as phdf file
         """%files[1])
         exit(2)
 
@@ -158,7 +158,7 @@ if __name__ == "__main__":
     if not quiet: print(f0.TotalCells,'cells mapped')
 
     for var in f0.Variables:
-        if var == 'Locations' or var == 'Timestep':
+        if var == 'Locations' or var == 'Info':
             continue
         #initialize info values
         same = True

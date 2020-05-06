@@ -130,7 +130,6 @@ class ParArrayNDGeneric {
     return GetDim(1) * GetDim(2) * GetDim(3) * GetDim(4) * GetDim(5) * GetDim(6);
   }
 
-  // TODO(JMM): expose wrapper for create_mirror_view_and_copy?
   template <typename MemSpace>
   auto GetMirror(MemSpace const &memspace) {
     auto mirror = Kokkos::create_mirror_view(memspace, d6d_);
@@ -143,6 +142,13 @@ class ParArrayNDGeneric {
   void DeepCopy(const Other &src) {
     Kokkos::deep_copy(d6d_, src.Get());
   }
+
+  template <typename MemSpace>
+  auto GetMirrorAndCopy(MemSpace const &memspace) {
+    auto mirror = Kokkos::create_mirror_view_and_copy(memspace, d6d_);
+    return ParArrayNDGeneric<decltype(mirror)>(mirror);
+  }
+  auto GetHostMirrorAndCopy() { return GetMirrorAndCopy(Kokkos::HostSpace()); }
 
   // JMM: DO NOT put noexcept here. It somehow interferes with inlining
   // and the code slows down by a factor of 5.
@@ -274,11 +280,11 @@ class ParArrayNDGeneric {
   }
   KOKKOS_INLINE_FUNCTION
   auto SliceD(index_pair_t slc, std::integral_constant<int, 2>) const {
-    return Slice(SLC0, SLC0, SLC0, Kokkos::ALL(), slc, Kokkos::ALL());
+    return Slice(SLC0, SLC0, SLC0, SLC0, slc, Kokkos::ALL());
   }
   KOKKOS_INLINE_FUNCTION
   auto SliceD(index_pair_t slc, std::integral_constant<int, 1>) const {
-    return Slice(SLC0, SLC0, SLC0, Kokkos::ALL(), Kokkos::ALL(), slc);
+    return Slice(SLC0, SLC0, SLC0, SLC0, SLC0, slc);
   }
 #undef SLC0
 
@@ -286,7 +292,7 @@ class ParArrayNDGeneric {
 };
 
 template <typename T, typename Layout = LayoutWrapper>
-using device_view_t = Kokkos::View<T ******, Layout, DevSpace>;
+using device_view_t = Kokkos::View<T ******, Layout, DevMemSpace>;
 
 template <typename T, typename Layout = LayoutWrapper>
 using host_view_t = typename device_view_t<T, Layout>::HostMirror;

@@ -48,13 +48,43 @@ namespace parthenon {
 //----------------------------------------------------------------------------------------
 // MeshBlock constructor: constructs coordinate, boundary condition, field
 //                        and mesh refinement objects.
+MeshBlock::MeshBlock(const int n_side, const int ndim) {
+  // initialize grid indices
+  is = NGHOST;
+  ie = is + n_side - 1;
+
+  ncells1 = n_side + 2 * NGHOST;
+  ncc1 = n_side / 2 + 2 * NGHOST;
+  if (ndim >= 2) {
+    js = NGHOST;
+    je = js + n_side - 1;
+    ncells2 = n_side + 2 * NGHOST;
+    ncc2 = n_side / 2 + 2 * NGHOST;
+  } else {
+    js = je = 0;
+    ncells2 = 1;
+    ncc2 = 1;
+  }
+
+  if (ndim >= 3) {
+    ks = NGHOST;
+    ke = ks + n_side - 1;
+    ncells3 = n_side + 2 * NGHOST;
+    ncc3 = n_side / 2 + 2 * NGHOST;
+  } else {
+    ks = ke = 0;
+    ncells3 = 1;
+    ncc3 = 1;
+  }
+}
+
 MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
                      BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
                      Properties_t &properties, Packages_t &packages, int igflag,
                      bool ref_flag)
-    : exec_space(DevSpace()), pmy_mesh(pm), loc(iloc), block_size(input_block), gid(igid),
-      lid(ilid), gflag(igflag), properties(properties), packages(packages), prev(nullptr),
-      next(nullptr), new_block_dt_{}, new_block_dt_hyperbolic_{},
+    : exec_space(DevExecSpace()), pmy_mesh(pm), loc(iloc), block_size(input_block),
+      gid(igid), lid(ilid), gflag(igflag), properties(properties), packages(packages),
+      prev(nullptr), next(nullptr), new_block_dt_{}, new_block_dt_hyperbolic_{},
       new_block_dt_parabolic_{}, new_block_dt_user_{}, cost_(1.0) {
   // initialize grid indices
   is = NGHOST;
@@ -168,7 +198,7 @@ MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
       gflag(igflag), nuser_out_var(), properties(properties), packages(packages),
       prev(nullptr), next(nullptr), new_block_dt_{}, new_block_dt_hyperbolic_{},
       new_block_dt_parabolic_{}, new_block_dt_user_{}, nreal_user_meshblock_data_(),
-      nint_user_meshblock_data_(), cost_(icost), exec_space(DevSpace()) {
+      nint_user_meshblock_data_(), cost_(icost), exec_space(DevExecSpace()) {
   // initialize grid indices
 
   // std::cerr << "WHY AM I HERE???" << std::endl;

@@ -27,7 +27,8 @@
 #include "kokkos_abstraction.hpp"
 #include "parthenon_arrays.hpp"
 
-using parthenon::DevSpace;
+using parthenon::DevExecSpace;
+using parthenon::DevMemSpace;
 using parthenon::ParArray3D;
 using parthenon::ParArrayND;
 using Real = double;
@@ -43,7 +44,7 @@ constexpr int NARRAYS = 64;
 #ifdef KOKKOS_ENABLE_CUDA
 using UVMSpace = Kokkos::CudaUVMSpace;
 #else // all on host
-using UVMSpace = DevSpace;
+using UVMSpace = DevMemSpace;
 #endif
 
 KOKKOS_INLINE_FUNCTION Real coord(const int i, const int n) {
@@ -76,7 +77,7 @@ KOKKOS_FORCEINLINE_FUNCTION void stencil(T &l, T &r, const int k, const int j,
 
 template <class T>
 void profile_wrapper_3d(T loop_pattern) {
-  auto exec_space = DevSpace();
+  auto exec_space = DevExecSpace();
   Kokkos::Timer timer;
 
   ParArray3D<Real> raw0("raw", N, N, N);
@@ -154,6 +155,32 @@ TEST_CASE("ParArrayND", "[ParArrayND][Kokkos]") {
     ParArrayND<Real> a(PARARRAY_TEMP, 5, 4, 3, 2);
     THEN("The label is the correct default") {
       REQUIRE(a.label().find("ParArrayND") != std::string::npos);
+    }
+  }
+
+  GIVEN("A ParArrayND with some numbers and its Kokkos host mirror copy") {
+    ParArrayND<Real> a("GetMirrorAndCopy", 5, 4, 3);
+
+    Kokkos::parallel_for(
+        policy3d({0, 0, 0}, {5, 4, 3}),
+        KOKKOS_LAMBDA(const int k, const int j, const int i) {
+          a(k, j, i) = static_cast<Real>(k * j * i);
+        });
+
+    auto a_host_raw = Kokkos::create_mirror_view(a.Get<3>());
+    Kokkos::deep_copy(a_host_raw, a.Get<3>());
+
+    THEN("The GetHostMirrorAndCopy is identical") {
+      auto a_host_wrap = a.GetHostMirrorAndCopy();
+      bool same = true;
+      for (int k = 0; k < 5; k++)
+        for (int j = 0; j < 4; j++)
+          for (int i = 0; i < 3; i++) {
+            if (a_host_raw(k, j, i) != a_host_wrap(k, j, i)) {
+              same = false;
+            }
+          }
+      REQUIRE(same);
     }
   }
 
@@ -243,6 +270,32 @@ TEST_CASE("ParArrayND", "[ParArrayND][Kokkos]") {
           REQUIRE(total_errors == 0);
         }
       }
+      THEN("We can slice the 2nd dimension") {
+        auto b = a.SliceD<2>(1, 2);
+        AND_THEN("slices have correct values.") {
+          int total_errors = 1;
+          Kokkos::parallel_reduce(
+              policy2d({0, 0}, {2, N1}),
+              KOKKOS_LAMBDA(const int j, const int i, int &update) {
+                update += (b(j, i) == a(j + 1, i)) ? 0 : 1;
+              },
+              total_errors);
+          REQUIRE(total_errors == 0);
+        }
+      }
+      THEN("We can slice the 1st dimension") {
+        auto b = a.SliceD<1>(1, N1 - 1);
+        AND_THEN("Slices have correct values.") {
+          int total_errors = 1;
+          Kokkos::parallel_reduce(
+              N1 - 1,
+              KOKKOS_LAMBDA(const int i, int &update) {
+                update += (b(i) == a(i + 1)) ? 0 : 1;
+              },
+              total_errors);
+          REQUIRE(total_errors == 0);
+        }
+      }
     }
   }
 }
@@ -295,6 +348,19 @@ TEST_CASE("ParArrayND with LayoutLeft", "[ParArrayND][Kokkos][LayoutLeft]") {
           REQUIRE(total_errors == 0);
         }
       }
+      THEN("We can slice the 1st dimension") {
+        auto b = a.SliceD<1>(1, N1 - 1);
+        AND_THEN("Slices have correct values.") {
+          int total_errors = 1;
+          Kokkos::parallel_reduce(
+              N1 - 1,
+              KOKKOS_LAMBDA(const int i, int &update) {
+                update += (b(i) == a(i + 1)) ? 0 : 1;
+              },
+              total_errors);
+          REQUIRE(total_errors == 0);
+        }
+      }
     }
   }
 }
@@ -336,7 +402,7 @@ TEST_CASE("Time simple stencil operations", "[ParArrayND][performance]") {
 // clang-format on
 
 TEST_CASE("Check registry pressure", "[ParArrayND][performance]") {
-  auto exec_space = DevSpace();
+  auto exec_space = DevExecSpace();
   Kokkos::Timer timer;
 
   // https://en.cppreference.com/w/cpp/numeric/random/uniform_real_distribution
@@ -433,7 +499,7 @@ many_array_kernel(const Array &arr0, const Array &arr1, const Array &arr2,
 }
 
 TEST_CASE("Check many arrays", "[ParArrayND][performance]") {
-  auto exec_space = DevSpace();
+  auto exec_space = DevExecSpace();
   Kokkos::Timer timer;
 
   // https://en.cppreference.com/w/cpp/numeric/random/uniform_real_distribution

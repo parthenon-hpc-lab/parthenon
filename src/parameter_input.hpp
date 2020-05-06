@@ -92,6 +92,7 @@ class ParameterInput {
   void ParameterDump(std::ostream &os);
   int DoesParameterExist(std::string block, std::string name);
   int DoesBlockExist(std::string block);
+  std::string GetComment(std::string block, std::string name);
   int GetInteger(std::string block, std::string name);
   int GetOrAddInteger(std::string block, std::string name, int value);
   int SetInteger(std::string block, std::string name, int value);
@@ -106,13 +107,15 @@ class ParameterInput {
   std::string SetString(std::string block, std::string name, std::string value);
   void RollbackNextTime();
   void ForwardNextTime(Real time);
+  void CheckRequired(std::string block, std::string name);
+  void CheckDesired(std::string block, std::string name);
 
  private:
   std::string last_filename_; // last input file opened, to prevent duplicate reads
 
   InputBlock *FindOrAddBlock(std::string name);
   InputBlock *GetPtrToBlock(std::string name);
-  void ParseLine(InputBlock *pib, std::string line, std::string &name, std::string &value,
+  bool ParseLine(InputBlock *pib, std::string line, std::string &name, std::string &value,
                  std::string &comment);
   void AddParameter(InputBlock *pib, std::string name, std::string value,
                     std::string comment);

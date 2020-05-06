@@ -20,8 +20,9 @@
 //  \brief provides classes to handle ALL types of data output
 
 #include <string>
+#include <vector>
 
-#include "athena.hpp"
+#include "basic_types.hpp"
 #include "io_wrapper.hpp"
 #include "parthenon_arrays.hpp"
 
@@ -42,6 +43,7 @@ struct OutputParameters {
   std::string file_basename;
   std::string file_id;
   std::string variable;
+  std::vector<std::string> variables;
   std::string file_type;
   std::string data_format;
   Real next_time, dt;
@@ -53,7 +55,7 @@ struct OutputParameters {
   Real x1_slice, x2_slice, x3_slice;
   // TODO(felker): some of the parameters in this class are not initialized in constructor
   OutputParameters()
-      : block_number(0), next_time(0.0), dt(0.0), file_number(0), output_slicex1(false),
+      : block_number(0), next_time(0.0), dt(-1.0), file_number(0), output_slicex1(false),
         output_slicex2(false), output_slicex3(false), output_sumx1(false),
         output_sumx2(false), output_sumx3(false), include_ghost_zones(false),
         cartesian_vector(false), islice(0), jslice(0), kslice(0) {}
@@ -109,8 +111,10 @@ class OutputType {
   void CalculateCartesianVector(ParArrayND<Real> &src, ParArrayND<Real> &dst,
                                 Coordinates *pco);
   // following pure virtual function must be implemented in all derived classes
-  virtual void WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) = 0;
-  virtual void WriteContainer(Mesh *pm, ParameterInput *pin, bool flag) { return; }
+  virtual void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) = 0;
+  virtual void WriteContainer(SimTime &tm, Mesh *pm, ParameterInput *pin, bool flag) {
+    return;
+  }
 
  protected:
   int num_vars_; // number of variables in output
@@ -126,7 +130,7 @@ class OutputType {
 class HistoryOutput : public OutputType {
  public:
   explicit HistoryOutput(OutputParameters oparams) : OutputType(oparams) {}
-  void WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) override;
+  void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) override;
 };
 
 //----------------------------------------------------------------------------------------
@@ -136,7 +140,7 @@ class HistoryOutput : public OutputType {
 class FormattedTableOutput : public OutputType {
  public:
   explicit FormattedTableOutput(OutputParameters oparams) : OutputType(oparams) {}
-  void WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) override;
+  void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) override;
 };
 
 //----------------------------------------------------------------------------------------
@@ -146,8 +150,8 @@ class FormattedTableOutput : public OutputType {
 class VTKOutput : public OutputType {
  public:
   explicit VTKOutput(OutputParameters oparams) : OutputType(oparams) {}
-  void WriteContainer(Mesh *pm, ParameterInput *pin, bool flag) override;
-  void WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) override;
+  void WriteContainer(SimTime &tm, Mesh *pm, ParameterInput *pin, bool flag) override;
+  void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) override;
 };
 
 //----------------------------------------------------------------------------------------
@@ -157,27 +161,27 @@ class VTKOutput : public OutputType {
 class RestartOutput : public OutputType {
  public:
   explicit RestartOutput(OutputParameters oparams) : OutputType(oparams) {}
-  void WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) override;
+  void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) override;
 };
 
 #ifdef HDF5OUTPUT
 //----------------------------------------------------------------------------------------
-//! \class ATHDF5Output
+//! \class PHDF5Output
 //  \brief derived OutputType class for Athena HDF5 files
 
-class ATHDF5Output : public OutputType {
+class PHDF5Output : public OutputType {
  public:
   // Function declarations
-  explicit ATHDF5Output(OutputParameters oparams) : OutputType(oparams) {}
-  void WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag) override;
-  void genXDMF(std::string hdfFile, Mesh *pm);
+  explicit PHDF5Output(OutputParameters oparams) : OutputType(oparams) {}
+  void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) override;
+  void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm);
 
  private:
   // Parameters
   static const int max_name_length = 128; // maximum length of names excluding \0
 
   // Metadata
-  std::string filename; // name of athdf file
+  std::string filename; // name of phdf file
   int nx1, nx2, nx3;    // sizes of MeshBlocks
 };
 #endif
@@ -190,14 +194,16 @@ class ATHDF5Output : public OutputType {
 
 class Outputs {
  public:
-  Outputs(Mesh *pm, ParameterInput *pin);
+  Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm = nullptr);
   ~Outputs();
 
-  void MakeOutputs(Mesh *pm, ParameterInput *pin, bool wtflag = false);
+  void MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm = nullptr);
 
  private:
   OutputType *pfirst_type_; // ptr to head OutputType node in singly linked list
   // (not storing a reference to the tail node)
+  std::vector<std::string> SetOutputVariables(ParameterInput *pin,
+                                              std::string block_name);
 };
 
 } // namespace parthenon

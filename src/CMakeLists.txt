@@ -104,11 +104,11 @@ add_library(parthenon
   mesh/meshblock_tree.cpp
   mesh/weighted_ave.cpp
 
-  outputs/athena_hdf5_C.cpp
   outputs/formatted_table.cpp
   outputs/history.cpp
   outputs/io_wrapper.cpp
   outputs/outputs.cpp
+  outputs/parthenon_hdf5.cpp
   outputs/restart.cpp
   outputs/vtk.cpp
 
@@ -131,12 +131,17 @@ add_library(parthenon
   #utils/ran2.cpp
   utils/show_config.cpp
   utils/signal_handler.cpp
+  utils/trim_string.cpp
 
   globals.cpp
   parameter_input.cpp
   parthenon_manager.cpp
 )
+
 target_compile_features(parthenon PUBLIC cxx_std_14)
+if (CMAKE_CXX_COMPILER_ID STREQUAL "XL")
+  target_compile_options(parthenon PUBLIC -std=c++1y -qxflag=disable__cplusplusOverride)
+endif()
 
 
 if (ENABLE_MPI)

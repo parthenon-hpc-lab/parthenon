@@ -12,12 +12,15 @@ Parthenon AMR infrastructure
 * mpi
 * openMP
 * hdf5
+* kokkos
 
 # Dependencies Other
 
 * catch2
 
 # Installation
+
+For detailed instructions for a given system, see our [build doc](docs/building.md).
 
 ## Basics
 
@@ -26,6 +29,23 @@ Parthenon AMR infrastructure
     cmake ../
     make
     make test
+
+## Import Into Your Code
+```c++
+// Imports all of parthenon's public interface
+#include <parthenon/parthenon.hpp>
+
+// You can use one of the following headers instead if you want to limit how
+// much you import. They import Parthenon's Driver and Package APIs,
+// respectively
+#include <parthenon/driver.hpp>
+#include <parthenon/package.hpp>
+
+// The following namespaces are good short-hands to import commonly used names
+// for each set of Parthenon APIs.
+using namespace parthenon::driver::prelude;
+using namespace parthenon::package::prelude;
+```
 
 ## Parallel_for wrapper options
 

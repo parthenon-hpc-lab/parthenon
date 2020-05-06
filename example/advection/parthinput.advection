@@ -15,13 +15,10 @@
 #  the public, perform publicly and display publicly, and to permit others to do so.
 # ========================================================================================
 
-<comment>
-problem = Linear advection
-
-<job>
+<parthenon/job>
 problem_id = advection
 
-<mesh>
+<parthenon/mesh>
 refinement = adaptive
 numlevel = 3
 
@@ -41,17 +38,12 @@ nx3 = 1
 x3min = -0.5
 x3max = 0.5
 
-<meshblock>
+<parthenon/meshblock>
 nx1 = 16
 nx2 = 16
 #nx3 = 1
 
-<output1>
-file_type = hdf5
-dt = 0.05
-variable = prim
-
-<time>
+<parthenon/time>
 tlim = 1.0
 integrator = rk2
 
@@ -62,3 +54,9 @@ vy = 1.0
 refine_tol = 0.3    # control the package specific refinement tagging function
 derefine_tol = 0.03
 
+<parthenon/output0>
+file_type = hdf5
+dt = 0.05
+variables = advected, one_minus_advected, & # comments are ok
+            one_minus_advected_sq, & # on every (& characters are ok in comments)
+            one_minus_sqrt_one_minus_advected_sq # line

@@ -14,6 +14,9 @@
 add_executable(
     advection-example
         main.cpp
-        advection.cpp
+        redefine_parthenon_defaults.cpp
+        advection_driver.cpp
+        advection_package.cpp
+
 )
 target_link_libraries(advection-example PRIVATE parthenon)

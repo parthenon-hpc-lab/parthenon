@@ -100,22 +100,22 @@ int main(int argc, char *argv[]) {
 
     if (parthenon::Globals::my_rank == 0) {
       std::cout << "\ninput file = " << inputFileName << std::endl;
-      if (pin.DoesParameterExist("mesh", "nx1")) {
-        std::cout << "nx1 = " << pin.GetInteger("mesh", "nx1") << std::endl;
+      if (pin.DoesParameterExist("parthenon/mesh", "nx1")) {
+        std::cout << "nx1 = " << pin.GetInteger("parthenon/mesh", "nx1") << std::endl;
       }
-      if (pin.DoesParameterExist("mesh", "x1min")) {
-        std::cout << "x1min = " << pin.GetReal("mesh", "x1min") << std::endl;
+      if (pin.DoesParameterExist("parthenon/mesh", "x1min")) {
+        std::cout << "x1min = " << pin.GetReal("parthenon/mesh", "x1min") << std::endl;
       }
-      if (pin.DoesParameterExist("mesh", "x1max")) {
-        std::cout << "x1max = " << pin.GetReal("mesh", "x1max") << std::endl;
+      if (pin.DoesParameterExist("parthenon/mesh", "x1max")) {
+        std::cout << "x1max = " << pin.GetReal("parthenon/mesh", "x1max") << std::endl;
       }
-      if (pin.DoesParameterExist("mesh", "ix1_bc")) {
-        std::cout << "x1 inner boundary condition = " << pin.GetString("mesh", "ix1_bc")
-                  << std::endl;
+      if (pin.DoesParameterExist("parthenon/mesh", "ix1_bc")) {
+        std::cout << "x1 inner boundary condition = "
+                  << pin.GetString("parthenon/mesh", "ix1_bc") << std::endl;
       }
-      if (pin.DoesParameterExist("mesh", "ox1_bc")) {
-        std::cout << "x1 outer boundary condition = " << pin.GetString("mesh", "ox1_bc")
-                  << std::endl;
+      if (pin.DoesParameterExist("parthenon/mesh", "ox1_bc")) {
+        std::cout << "x1 outer boundary condition = "
+                  << pin.GetString("parthenon/mesh", "ox1_bc") << std::endl;
       }
     }
 

@@ -50,6 +50,7 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 set(ENABLE_MPI OFF)
+set(NUM_MPI_PROC_TESTING "4" CACHE STRING "Number of mpi processors to use when running tests with MPI")
 if (NOT DISABLE_MPI)
   find_package(MPI COMPONENTS CXX)
   if (NOT MPI_FOUND)
@@ -131,6 +132,9 @@ if (ENABLE_COMPILER_WARNINGS)
   add_compile_options(-Wall)
 endif()
 
+# We want Kokkos to be built with C++14, since that's what we're using in
+# Parthenon.
+set(Kokkos_CXX_STANDARD 14)
 if(EXISTS ${Kokkos_ROOT}/CMakeLists.txt)
   add_subdirectory(${Kokkos_ROOT} Kokkos)
 elseif(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/external/Kokkos/CMakeLists.txt)
@@ -179,3 +183,10 @@ add_subdirectory(example/face_fields)
 add_subdirectory(example/advection)
 
 include(cmake/CheckCopyright.cmake)
+
+# Currently Ctest/Cmake doesn't ensure that tests are not stale
+# before running them.
+#
+# If you add tests with other binaries, add them to the DEPENDS line
+add_custom_target(checkit COMMAND ${CMAKE_CTEST_COMMAND}
+                  DEPENDS unit_tests)
