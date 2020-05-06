@@ -104,15 +104,15 @@ class ParArrayNDGeneric {
 
   KOKKOS_INLINE_FUNCTION __attribute__((nothrow))
   ParArrayNDGeneric(const ParArrayNDGeneric<Data> &t) = default;
-
+  
   KOKKOS_INLINE_FUNCTION __attribute__((nothrow)) ~ParArrayNDGeneric() = default;
-
+  
   KOKKOS_INLINE_FUNCTION __attribute__((nothrow)) ParArrayNDGeneric<Data> &
   operator=(const ParArrayNDGeneric<Data> &t) = default;
-
+  
   KOKKOS_INLINE_FUNCTION __attribute__((nothrow))
   ParArrayNDGeneric(ParArrayNDGeneric<Data> &&t) = default;
-
+  
   KOKKOS_INLINE_FUNCTION __attribute__((nothrow)) ParArrayNDGeneric<Data> &
   operator=(ParArrayNDGeneric<Data> &&t) = default;
 

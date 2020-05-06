@@ -18,7 +18,6 @@
 
 #include "coordinates/coordinates.hpp"
 #include "interface/container.hpp"
-#include "interface/variable_pack.hpp"
 #include "mesh/mesh.hpp"
 
 #include "kokkos_abstraction.hpp"
@@ -36,8 +35,8 @@ TaskStatus FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
   int je = pmb->je;
   int ke = pmb->ke;
 
-  auto vin = PackVariablesAndFluxes<Real>(in, {Metadata::Independent});
-  auto dudt = PackVariables<Real>(dudt_cont, {Metadata::Independent});
+  auto vin = in.PackVariablesAndFluxes({Metadata::Independent});
+  auto dudt = dudt_cont.PackVariables({Metadata::Independent});
 
   auto pc = pmb->pcoord.get();
   int ndim = pmb->pmy_mesh->ndim;
@@ -74,9 +73,9 @@ void UpdateContainer(Container<Real> &in, Container<Real> &dudt_cont, const Real
   int je = pmb->je;
   int ke = pmb->ke;
 
-  auto vin = PackVariables<>(in, {Metadata::Independent});
-  auto vout = PackVariables<>(out, {Metadata::Independent});
-  auto dudt = PackVariables<>(dudt_cont, {Metadata::Independent});
+  auto vin = in.PackVariables({Metadata::Independent});
+  auto vout = out.PackVariables({Metadata::Independent});
+  auto dudt = out.PackVariables({Metadata::Independent});
 
   pmb->par_for(
       "UpdateContainer", 0, vin.GetDim(4) - 1, 0, vin.GetDim(3) - 1, 0, vin.GetDim(2) - 1,
@@ -96,8 +95,8 @@ void AverageContainers(Container<Real> &c1, Container<Real> &c2, const Real wgt1
   int je = pmb->je;
   int ke = pmb->ke;
 
-  auto v1 = PackVariables<Real>(c1, {Metadata::Independent});
-  auto v2 = PackVariables<Real>(c2, {Metadata::Independent});
+  auto v1 = c1.PackVariables({Metadata::Independent});
+  auto v2 = c2.PackVariables({Metadata::Independent});
 
   pmb->par_for(
       "AverageContainers", 0, v1.GetDim(4) - 1, ks, ke, js, je, is, ie,

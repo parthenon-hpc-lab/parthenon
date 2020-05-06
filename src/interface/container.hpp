@@ -228,15 +228,12 @@ class Container {
 
   /// Queries related to variable packs
   VariableFluxPack<T> PackVariablesAndFluxes(const std::vector<std::string> &var_names,
-                                             const std::vector<std::string> &flx names,
+                                             const std::vector<std::string> &flx_names,
                                              PackIndexMap &vmap);
-  VariableFluxPack<T> Container<T>::PackVariablesAndFluxes(
-    const std::vector<std::string> &var_names,
-    const std::vector<std::string> &flx_names,
-    PackIndexMap &vmap);
-  VariableFluxPack<T> Container<T>::PackVariablesAndFluxes(
-    const std::vector<std::string> &var_names,
-    const std::vector<std::string> &flx_names);
+  VariableFluxPack<T> PackVariablesAndFluxes(const std::vector<std::string> &var_names,
+                                             const std::vector<std::string> &flx_names);
+  VariableFluxPack<T> PackVariablesAndFluxes(const std::vector<MetadataFlag> &flags,
+                                             PackIndexMap &vmap);
   VariableFluxPack<T> PackVariablesAndFluxes(const std::vector<MetadataFlag> &flags);
   VariablePack<T> PackVariables(const std::vector<std::string> &names,
                                 const std::vector<int> &sparse_ids,
@@ -353,7 +350,7 @@ class Container {
                                     const std::vector<int> sparse_ids = {});
   vpack_types::VarList<T> MakeList_(const std::vector<MetadataFlag> &flags,
                                     std::vector<std::string>& labels);
-  vpack::VarList<T> MakeList_(std::vector<std::string> &names);
+  vpack_types::VarList<T> MakeList_(std::vector<std::string> &names);
 
   // These helper functions are private scope because they assume that
   // the names include the components of sparse variables.

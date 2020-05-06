@@ -43,8 +43,6 @@ using ::parthenon::DevExecSpace;
 using ::parthenon::MeshBlock;
 using ::parthenon::Metadata;
 using ::parthenon::PackIndexMap;
-using ::parthenon::PackVariables;
-using ::parthenon::PackVariablesAndFluxes;
 using ::parthenon::par_for;
 using ::parthenon::ParameterInput;
 using ::parthenon::Params;

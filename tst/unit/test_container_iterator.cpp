@@ -40,8 +40,6 @@ using parthenon::loop_pattern_mdrange_tag;
 using parthenon::Metadata;
 using parthenon::MetadataFlag;
 using parthenon::PackIndexMap;
-using parthenon::PackVariables;
-using parthenon::PackVariablesAndFluxes;
 using parthenon::par_for;
 using parthenon::ParArray4D;
 using parthenon::ParArrayND;
@@ -62,7 +60,6 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
     rc.Add("v5", m_in, scalar_block_size);
     rc.Add("v6", m_out, scalar_block_size);
 
-    //auto v = PackVariables<Real>(rc);
     auto v = rc.PackVariables();
     par_for(
         "Initialize variables", DevExecSpace(), 0, v.GetDim(4) - 1, 0, v.GetDim(3) - 1, 0,
@@ -113,7 +110,6 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
 
     WHEN("we set Independent variables to one") {
       // set "Independent" variables to one
-      // auto v = PackVariables<Real>(rc, {Metadata::Independent});
       auto v = rc.PackVariables({Metadata::Independent});
       par_for(
           "Set independent variables", DevExecSpace(), 0, v.GetDim(4) - 1, 0,
@@ -136,7 +132,6 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
       }
       AND_THEN("pulling out a subset by name should work") {
         using policy4D = Kokkos::MDRangePolicy<Kokkos::Rank<4>>;
-        // auto v = PackVariables<Real>(rc, {"v2", "v3", "v5"});
         auto v = rc.PackVariables({"v2","v3","v5"});
         Real total = 0.0;
         Real sum = 1.0;
@@ -152,8 +147,7 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
 
     WHEN("we set individual fields by index") {
       PackIndexMap vmap;
-      // auto v = PackVariables<Real>(rc, {"v3", "v6"}, vmap);
-      auto v = rc.PackVariables({"v3","v6"}, vmap);
+      auto v = rc.PackVariables(std::vector<std::string>({"v3","v6"}), vmap);
       const int iv3lo = vmap["v3"].first;
       const int iv3hi = vmap["v3"].second;
       const int iv6 = vmap["v6"].first;
@@ -182,7 +176,6 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
       }
       AND_THEN("summing up everything should still work") {
         using policy4D = Kokkos::MDRangePolicy<Kokkos::Rank<4>>;
-        // auto v = PackVariables<Real>(rc);
         auto v = rc.PackVariables();
         Real total = 0.0;
         Real sum = 1.0;
@@ -197,8 +190,6 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
     }
 
     WHEN("we set fluxes of independent variables") {
-      // auto vf =
-      //     PackVariablesAndFluxes<>(rc, {Metadata::Independent, Metadata::FillGhost});
       auto vf = rc.PackVariablesAndFluxes({Metadata::Independent, Metadata::FillGhost});
       par_for(
           "Set fluxes", DevExecSpace(), 0, vf.GetDim(4) - 1, 0, vf.GetDim(3) - 1, 0,
@@ -243,14 +234,12 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
       rc.Add("vsparse", m_sparse, scalar_block_size);
       THEN("the low and high index bounds are correct as returned by PackVariables") {
         PackIndexMap imap;
-        // auto v = PackVariables<Real>(rc, {"v3", "v6", "vsparse"}, imap);
         auto v = rc.PackVariables({"v3","v6","vsparse"}, imap);
         REQUIRE(imap["vsparse"].first == 4);
         REQUIRE(imap["vsparse"].second == 6);
       }
       AND_THEN("bounds are still correct if I get just a subset of the sparse fields") {
         PackIndexMap imap;
-        // auto v = PackVariables<>(rc, {"v3", "vsparse"}, {1, 42}, imap);
         auto v = rc.PackVariables({"v3", "vsparse"}, {1, 42}, imap);
         REQUIRE(imap["vsparse"].first == 3);
         REQUIRE(imap["vsparse"].second == 4);
@@ -361,7 +350,6 @@ TEST_CASE("Container Iterator Performance", "[ContainerIterator][performance]") 
       });
 
   { // Grab variables by mask and do timing tests
-    // auto var_view = PackVariables<Real>(container, {Metadata::Independent});
     auto var_view = container.PackVariables({Metadata::Independent});
 
     auto init_view_of_views = [&]() {
@@ -396,8 +384,6 @@ TEST_CASE("Container Iterator Performance", "[ContainerIterator][performance]") 
               << std::endl;
   }
   { // Grab variables by name and do timing tests
-    // auto var_view_named =
-    //     PackVariables<Real>(container, {"v0", "v1", "v2", "v3", "v4", "v5"});
     std::vector<std::string> names({"v0", "v1", "v2", "v3", "v4", "v5"});
     auto var_view_named = container.PackVariables(names);
 
@@ -454,7 +440,6 @@ TEST_CASE("Container Iterator Performance", "[ContainerIterator][performance]") 
   }
   { // Grab some variables by name with indexing and do timing tests
     PackIndexMap imap;
-    // auto vsub = PackVariables<Real>(container, {"v1", "v2", "v5"}, imap);
     auto vsub = container.PackVariables({"v1","v2","v5"}, imap);
 
     auto init_view_of_views = [&]() {

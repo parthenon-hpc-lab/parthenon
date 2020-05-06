@@ -44,6 +44,7 @@ using ViewOfParArrays = ParArrayND<ParArray3D<T>>;
 template <typename T>
 class VariablePack {
  public:
+  VariablePack() = default;
   VariablePack(const ViewOfParArrays<T> view, const std::array<int, 4> dims)
       : v_(view), dims_(dims) {}
   KOKKOS_FORCEINLINE_FUNCTION
@@ -59,13 +60,14 @@ class VariablePack {
   }
 
  protected:
-  const ViewOfParArrays<T> v_;
-  const std::array<int, 4> dims_;
+  ViewOfParArrays<T> v_;
+  std::array<int, 4> dims_;
 };
 
 template <typename T>
 class VariableFluxPack : public VariablePack<T> {
  public:
+  VariableFluxPack() = default;
   VariableFluxPack(const ViewOfParArrays<T> view, const ViewOfParArrays<T> f0,
                    const ViewOfParArrays<T> f1, const ViewOfParArrays<T> f2,
                    const std::array<int, 4> dims, const int nflux)
@@ -80,27 +82,35 @@ class VariableFluxPack : public VariablePack<T> {
   }
 
  private:
-  const std::array<const ViewOfParArrays<T>, 3> f_;
-  const int nflux_;
+  std::array<ViewOfParArrays<T>, 3> f_;
+  int nflux_;
 };
 
 // mapping to a tuple instead of using multiple maps reduces # of lookups
 // this wouldn't be super important if lookup time was constant,
 // but std::maps are trees, not hash tables and have an O(log(N)) lookup.
 template <typename T>
-using PackIndxPair<T> = std::pair<VariablePack<T>,PackIndexMap>;
+struct PackIndxPair {
+  VariablePack<T> pack;
+  PackIndexMap map;
+};
+// using PackIndxPair = std::pair<VariablePack<T>,PackIndexMap>;
 template <typename T>
-using FluxPackIndxPair<T> = std::pair<VariableFluxPack<T>,PackIndexMap>;
+struct FluxPackIndxPair {
+  VariableFluxPack<T> pack;
+  PackIndexMap map;
+};
+//using FluxPackIndxPair = std::pair<VariableFluxPack<T>,PackIndexMap>;
 template <typename T>
-using MapToVariablePack<T> = std::map<std::vector<std::string>,
-                                      PackIndxPair<T>>;
+using MapToVariablePack = std::map<std::vector<std::string>,
+                                   PackIndxPair<T>>;
 template <typename T>
-using MapToVariableFluxPack<T> = std::map<vpack_types::StringPair,
-                                          FluxPackIndxPair>
+using MapToVariableFluxPack = std::map<vpack_types::StringPair,
+                                       FluxPackIndxPair<T>>;
 
 template <typename T>
-VariableFluxPack<T> MakeFluxPack(vpack_types::VarList<T> &vars,
-                                 vpack_types::VarList<T> &flux_vars,
+VariableFluxPack<T> MakeFluxPack(const vpack_types::VarList<T> &vars,
+                                 const vpack_types::VarList<T> &flux_vars,
                                  PackIndexMap *vmap = nullptr) {
   using vpack_types::IndexPair;
   // count up the size
@@ -166,7 +176,8 @@ VariableFluxPack<T> MakeFluxPack(vpack_types::VarList<T> &vars,
 }
 
 template <typename T>
-VariablePack<T> MakePack(vpack_types::VarList<T> &vars, PackIndexMap *vmap = nullptr) {
+VariablePack<T> MakePack(const vpack_types::VarList<T> &vars,
+                         PackIndexMap *vmap = nullptr) {
   using vpack_types::IndexPair;
   // count up the size
   int vsize = 0;
