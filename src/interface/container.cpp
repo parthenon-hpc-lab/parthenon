@@ -143,6 +143,124 @@ Container<T> Container<T>::SparseSlice(int id) {
   return c;
 }
 
+/// Queries related to variable packs
+/// TODO(JMM): Make sure this is thread-safe
+/// TODO(JMM): Should the vector of names be sorted to enforce uniqueness?
+template<typename T>
+VariableFluxPack<T> Container<T>::PackVariablesAndFluxes_(
+  const std::vector<std::string> &var_names,
+  const std::vector<std::string> &flx_names,
+  const vpack_types::VarList<T> &vars,
+  const vpack_types::VarList<T> &fvars,
+  PackIndexMap &vmap) {
+  auto key = std::make_pair(var_names,flx_names);
+  auto kvpair = varFluxPackMap_.find(key);
+  if (kvpair == varFluxPackMap_.end()) {
+    auto pack = MakeFluxPack<T>(vars, fvars, &vmap)
+    varFluxPackMap_[key] = std::make_pair(pack,vmap);
+    return pack;
+  }
+  vmap = std::get<2>(kvpair->second);
+  return std::get<1>(kvpair->second);  
+}
+
+template<typename T>
+VariableFluxPack<T> Container<T>::PackVariablesAndFluxes(
+  const std::vector<std::string> &var_names,
+  const std::vector<std::string> &flx_names,
+  PackIndexMap &vmap) {
+  static std::vector<std::string> all_names;
+  static std::vector<std::string> all_flux_names;
+  vpack_types::VarList<T> vars = MakeList(*this, var_names, {}, &all_names);
+  vpack_types::VarList<T> fvars = MakeList(*this, flx_names, {} &all_flux_names);
+  return this->PackVariablesAndFluxes_(all_names,all_flux_names,vars,fvars,vmap);
+}
+template<typename T>
+VariableFluxPack<T> Container<T>::PackVariablesAndFluxes(
+  const std::vector<std::string> &var_names,
+  const std::vector<std::string> &flx_names) {
+  PackIndexMap vmap;
+  return this->PackVariablesAndFluxes(var_names, flx_names, vmap);
+}
+template<typename T>
+VariableFluxPack<T> Container<T>::PackVariablesAndFluxes(
+  const std::vector<MetadataFlag> &flags,
+  PackIndexMap &vmap) {
+  // TODO(JMM): making this static saves allocations per call
+  // but will not be thread safe.
+  static std::vector<std::string> vnams;
+  vpack_types::VarList<T> vars = MakeList(*this,flags,vnams);
+  return this->PackVariablesAndFluxes_(vnams,vnams,vars,vars,vmap);
+}
+template<typename T>
+VariableFluxPack<T> Container<T>::PackVariablesAndFluxes(
+  const std::vector<MetadataFlag> &flags) {
+  PackIndexMap vmap;
+  return this->PackVariablesAndFluxes(flags, vmap);
+}
+
+template<typename T>
+VariablePack<T> Container<T>::PackVariables_(const std::vector<std::string> &names,
+                                             const vpack_types::VarList<T> &vars,
+                                             PackIndexMap &vmap) {
+  auto kvpair = varPackMap_.find(names);
+  if (kvpair == varPackMap_.end()) {
+    auto pack = MakeFluxPack<T>(vars, &vmap);
+    varPackMap_[key] = std::make_pair(pack,vmap);
+    return pack;
+  }
+  vmap = std::get<2>(kvpair->second);
+  return std::get<1>(kvpair->second); 
+}
+template<typename T>
+VariablePack<T> Container<T>::PackVariables(const std::vector<std::string> &names,
+                                            const std::vector<int> &sparse_ids,
+                                            PackIndexMap &vmap) {
+  static std::vector<std::string> all_names;
+  vpack_types::VarList<T> vars = MakeList(c, names, sparse_ids, &all_names);
+  return this->PackVariables(all_names, vars, vmap);
+}
+template <typename T>
+VariablePack<T> Container<T>::PackVariables(const std::vector<std::string> &names,
+                                            const std::vector<int> &sparse_ids) {
+  PackIndexMap vmap;
+  return this->PackVariables(names, sparse_ids, vmap);
+}
+template<typename T>
+VariablePack<T> Container<T>::PackVariables(const std::vector<std::string> &names,
+                                            PackIndexMap &vmap) {
+  return this->PackVariables(names, {}, vmap);
+}
+template<typename T>
+VariablePack<T> Container<T>::PackVariables(const std::vector<std::string> &names) {
+  PackIndexMap vmap;
+  return this->PackVariables(names, {}, vmap);
+}
+template<typename T>
+VariablePack<T> Container<T>::PackVariables(const std::vector<MetadataFlag> &flags,
+                                            PackIndexMap &vmap) {
+  static std::vector<std::string> vnams;
+  vpack_types::VarList<T> vars = MakeList(*this,flags,vnams);
+  return this->PackVariables_(vnams,vars,vmap);
+}
+template<typename T>
+VariablePack<T> Container<T>::PackVariables(const std::vector<MetadataFlag> &flags) {
+  PackIndexMap &vmap;
+  return this->PackVariables(flags,vmap);
+}
+template<typename T>
+VariablePack<T> Container<T>::PackVariables(PackIndexMap &vmap) {
+  static std::vector<std::string> vnams;
+  vpack_types::VarList<T> vars = MakeList(*this, &vnams);
+  return this->PackVariables_(vnams,vars,vmap);
+}
+template<typename T>
+VariablePack<T> Container<T>::PackVariables() {
+  PackIndexMap &vmap;
+  return this->PackVariables(vmap);
+}
+
+
 // TODO(JMM): this could be cleaned up, I think.
 // Maybe do only one loop, or do the cleanup at the end.
 template <typename T>

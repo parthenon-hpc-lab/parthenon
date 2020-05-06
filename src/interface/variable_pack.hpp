@@ -17,6 +17,7 @@
 #include <forward_list>
 #include <map>
 #include <memory>
+#include <pair>
 #include <string>
 #include <utility>
 #include <vector>
@@ -82,6 +83,21 @@ class VariableFluxPack : public VariablePack<T> {
   const std::array<const ViewOfParArrays<T>, 3> f_;
   const int nflux_;
 };
+
+// Design: map lookup is O(log(N)) so mapping to a tuple
+// instead of using multiple maps reduces lookups
+using StringPair_t = std::pair<std::vector<std::string>,
+                               std::vector<std::string>>;
+template <typename T>
+PackIndxPair_t = std::pair<VariablePack<T>,PackIndexMap>;
+template <typename T>
+FluxPackIndxPair_t = std::pair<VariableFluxPack<T>,PackIndexMap>;
+template <typename T>
+using MapToVariablePack<T> = std::map<std::vector<std::string>,
+                                      PackIndxPair_t<T>>;
+template <typename T>
+using MapToVariableFluxPack<T> = std::map<StringPair_t,
+                                          FluxPackIndxPair_t>
 
 //
 // define some helper functions
@@ -207,8 +223,10 @@ VariablePack<T> MakePack(vpack_types::VarList<T> &vars, PackIndexMap *vmap = nul
 template <typename T>
 vpack_types::VarList<T> MakeList(const Container<T> &c,
                                  const std::vector<std::string> &names,
-                                 const std::vector<int> sparse_ids = {}) {
+                                 const std::vector<int> sparse_ids = {},
+                                 std::vector<std::string>* names_out = nullptr) {
   vpack_types::VarList<T> vars;
+  if (names_out != nullptr) names_out->reset();
   auto var_map = c.GetCellVariableMap();
   auto sparse_map = c.GetSparseMap();
   // reverse iterator to end up with a list in the same order as requested
@@ -217,6 +235,7 @@ vpack_types::VarList<T> MakeList(const Container<T> &c,
     auto v = var_map.find(*it);
     if (v != var_map.end()) {
       vars.push_front(v->second);
+      if (names_out != nullptr) names_out->push_back(v->first);
       found = true;
     }
     auto sv = sparse_map.find(*it);
@@ -232,11 +251,13 @@ vpack_types::VarList<T> MakeList(const Container<T> &c,
         auto smap = sv->second->GetMap();
         for (auto its = sparse_ids.rbegin(); its != sparse_ids.rend(); ++its) {
           vars.push_front(smap[*its]);
+          if (names_out != nullptr) names_out->push_back(smap[*its]->label());
         }
       } else {
         auto svec = sv->second->GetVector();
         for (auto its = svec.rbegin(); its != svec.rend(); ++its) {
           vars.push_front(*its);
+          if (names_out != nullptr) names_out->push_back(its->label());
         }
       }
     }
@@ -268,6 +289,46 @@ vpack_types::VarList<T> MakeList(const Container<T> &c,
   return vars;
 }
 
+// like MakeList above, but also produces a list of names
+template <typename T>
+vpack_types::VarList<T> MakeList(const Container<T> &c,
+                                 const std::vector<MetadataFlag> &flags,
+                                 std::vector<std::string>& labels) {
+  labels.clear();
+  vpack_types::VarList<T> vars;
+  for (const auto &v : c.GetCellVariableVector()) {
+    if (v->metadata().AnyFlagsSet(flags)) {
+      vars.push_front(v);
+      labels.push_back(v->label());
+    }
+  }
+  for (const auto &sv : c.GetSparseVector()) {
+    if (sv->metadata().AnyFlagsSet(flags)) {
+      for (const auto &v : sv->GetVector()) {
+        vars.push_front(v);
+        labels.push_back(v->label());
+      }
+    }
+  }
+  return vars;
+}
+
+vpack::VarList<T> MakeList(const Container<T> &c,
+                           std::vector<std::string> *names = nullptr) {
+  if (names != nullptr) names->reset();
+  vpack_types::VarList<T> vars;
+  for (const auto &v : c.GetCellVariableVector()) {
+    vars.push_front(v);
+    if (names != nullptr) names->push_back(v->label);
+  }
+  for (const auto &sv : c.GetSparseVector()) {
+    for (const auto &v : sv->GetVector()) {
+      vars.push_front(v);
+      if (names != nullptr) names->push_back(v->label);
+    }
+  }
+}
+
 //
 // factory-like functions to generate Variable*Packs
 //
@@ -289,7 +350,7 @@ PackVariablesAndFluxes(const Container<T> &c, const std::vector<std::string> &va
                        const std::vector<std::string> &flx_names, PackIndexMap &vmap) {
   vpack_types::VarList<T> vars = MakeList(c, var_names);
   vpack_types::VarList<T> fvars = MakeList(c, flx_names);
-  return MakeFluxPack<T>(vars, fvars);
+  return MakeFluxPack<T>(vars, fvars, &vmap);
 }
 
 // pull out variables and fluxes based on Metadata flags
@@ -346,16 +407,7 @@ VariablePack<T> PackVariables(const Container<T> &c,
 // pull out all variables and fill in an index map
 template <typename T>
 VariablePack<T> PackVariables(const Container<T> &c, PackIndexMap &vmap) {
-  vpack_types::VarList<T> vars;
-  for (const auto &v : c.GetCellVariableVector()) {
-    vars.push_front(v);
-  }
-  for (const auto &sv : c.GetSparseVector()) {
-    for (const auto &v : sv->GetVector()) {
-      vars.push_front(v);
-    }
-  }
-
+  vpack::VarList<T> vars = MakeList(c);
   return MakePack<T>(vars, &vmap);
 }
 
