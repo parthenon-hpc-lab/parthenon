@@ -107,7 +107,7 @@ class MeshBlock {
   // sized MeshBlock arrays, depending on ndim i.e.
   //
   // cellbounds.nx2 =    nx2      + 2*NGHOST if   nx2 > 1
-  // (entire)    (interior)               (interior)
+  // (entire)         (interior)               (interior)
   //
   // Assuming we have a block cells, and nx2 = 6, and NGHOST = 1
   //
@@ -133,7 +133,7 @@ class MeshBlock {
   // on 1x coarser level MeshBlock i.e.
   //
   // c_cellbounds.nx2 = cellbounds.nx2 * 1/2 + 2*NGHOST, if  cellbounds.nx2 >1
-  //   (entire)    (interior)                     (interior)
+  //   (entire)             (interior)                          (interior)
   //
   // Assuming we have a block cells, and nx2 = 6, and NGHOST = 1
   //
