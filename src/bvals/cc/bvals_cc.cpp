@@ -315,8 +315,8 @@ void CellCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
   int si, sj, sk, ei, ej, ek;
 
   const IndexShape &cellbounds = pmb->cellbounds;
-
   IndexDomain interior = IndexDomain::interior;
+
   if (nb.ni.ox1 == 0) {
     si = cellbounds.is(interior);
     ei = cellbounds.ie(interior);
@@ -332,37 +332,53 @@ void CellCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
     ei = cellbounds.is(interior) - 1;
   }
 
-  auto CalcIndices = [&, nb](const int &ox, int &s, int &e, const IndexRange &bounds,
-                             const int &nx) {
-    if (ox == 0) {
-      s = bounds.s;
-      e = bounds.e;
-      if (nx > 1) {
-        if (nb.ni.ox1 != 0) {
-          if (nb.ni.fi1 == 1) {
-            s += nx / 2;
-          } else {
-            e -= nx / 2;
-          }
-        } else {
-          if (nb.ni.fi2 == 1) {
-            s += nx / 2;
-          } else {
-            ej -= nx / 2;
-          }
-        }
+  if (nb.ni.ox2 == 0) {
+    sj = cellbounds.js(interior);
+    ej = cellbounds.je(interior);
+    if (pmb->block_size.nx2 > 1) {
+      if (nb.ni.ox1 != 0) {
+        if (nb.ni.fi1 == 1)
+          sj += pmb->block_size.nx2 / 2;
+        else
+          ej -= pmb->block_size.nx2 / 2;
+      } else {
+        if (nb.ni.fi2 == 1)
+          sj += pmb->block_size.nx2 / 2;
+        else
+          ej -= pmb->block_size.nx2 / 2;
       }
-    } else if (nb.ni.ox2 > 0) {
-      s = bounds.e + 1;
-      e = bounds.e + NGHOST;
-    } else {
-      s = bounds.s - NGHOST;
-      e = bounds.s - 1;
     }
-  };
+  } else if (nb.ni.ox2 > 0) {
+    sj = cellbounds.je(interior) + 1;
+    ej = cellbounds.je(interior) + NGHOST;
+  } else {
+    sj = cellbounds.js(interior) - NGHOST;
+    ej = cellbounds.js(interior) - 1;
+  }
 
-  CalcIndices(nb.ni.ox2, sj, ej, cellbounds.GetBoundsJ(interior), pmb->block_size.nx2);
-  CalcIndices(nb.ni.ox3, sk, ek, cellbounds.GetBoundsK(interior), pmb->block_size.nx3);
+  if (nb.ni.ox3 == 0) {
+    sk = cellbounds.ks(interior);
+    ek = cellbounds.ke(interior);
+    if (pmb->block_size.nx3 > 1) {
+      if (nb.ni.ox1 != 0 && nb.ni.ox2 != 0) {
+        if (nb.ni.fi1 == 1)
+          sk += pmb->block_size.nx3 / 2;
+        else
+          ek -= pmb->block_size.nx3 / 2;
+      } else {
+        if (nb.ni.fi2 == 1)
+          sk += pmb->block_size.nx3 / 2;
+        else
+          ek -= pmb->block_size.nx3 / 2;
+      }
+    }
+  } else if (nb.ni.ox3 > 0) {
+    sk = cellbounds.ke(interior) + 1;
+    ek = cellbounds.ke(interior) + NGHOST;
+  } else {
+    sk = cellbounds.ks(interior) - NGHOST;
+    ek = cellbounds.ks(interior) - 1;
+  }
 
   int p = 0;
   BufferUtility::UnpackData(buf, var_cc, nl_, nu_, si, ei, sj, ej, sk, ek, p);
