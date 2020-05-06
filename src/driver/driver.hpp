@@ -11,15 +11,20 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef DRIVER_HPP_PK
-#define DRIVER_HPP_PK
+#ifndef DRIVER_DRIVER_HPP_
+#define DRIVER_DRIVER_HPP_
 
-#include <vector>
+#include <map>
+#include <memory>
 #include <string>
+#include <utility>
+#include <vector>
+
+#include "basic_types.hpp"
 #include "globals.hpp"
-#include "athena.hpp"
-#include "task_list/tasks.hpp"
 #include "mesh/mesh.hpp"
+#include "outputs/outputs.hpp"
+#include "task_list/tasks.hpp"
 
 namespace parthenon {
 
@@ -27,60 +32,80 @@ class Mesh;
 class ParameterInput;
 class Outputs;
 
-enum class DriverStatus {complete, timeout, failed};
+enum class DriverStatus { complete, timeout, failed };
 
 class Driver {
-  public:
-    Driver(ParameterInput *pin, Mesh *pm, Outputs *pout) : pinput(pin), pmesh(pm), pouts(pout) { }
-    virtual DriverStatus Execute() = 0;
-    ParameterInput *pinput;
-    Mesh *pmesh;
-    Outputs *pouts;
+ public:
+  Driver(ParameterInput *pin, Mesh *pm) : pinput(pin), pmesh(pm) {}
+  virtual DriverStatus Execute() = 0;
+  void InitializeOutputs() { pouts = std::make_unique<Outputs>(pmesh, pinput); }
+  ParameterInput *pinput;
+  Mesh *pmesh;
+  std::unique_ptr<Outputs> pouts;
+
+ private:
 };
 
 class SimpleDriver : public Driver {
-  public:
-    SimpleDriver(ParameterInput *pin, Mesh *pm, Outputs *pout) : Driver(pin,pm,pout) {}
-    DriverStatus Execute() { return DriverStatus::complete; }
+ public:
+  SimpleDriver(ParameterInput *pin, Mesh *pm) : Driver(pin, pm) {}
+  DriverStatus Execute() override { return DriverStatus::complete; }
 };
 
 class EvolutionDriver : public Driver {
-  public:
-    EvolutionDriver(ParameterInput *pin, Mesh *pm, Outputs *pout) : Driver(pin,pm,pout) {}
-    DriverStatus Execute();
-    virtual TaskListStatus Step() = 0;
+ public:
+  EvolutionDriver(ParameterInput *pin, Mesh *pm) : Driver(pin, pm) {
+    Real start_time = pinput->GetOrAddReal("parthenon/time", "start_time", 0.0);
+    Real tstop = pinput->GetReal("parthenon/time", "tlim");
+    int nmax = pinput->GetOrAddInteger("parthenon/time", "nlim", -1);
+    int nout = pinput->GetOrAddInteger("parthenon/time", "ncycle_out", 1);
+    // TODO(jcd): the 0 below should be the current cycle number, not necessarily 0
+    tm = SimTime(start_time, tstop, nmax, 0, nout);
+    pouts = std::make_unique<Outputs>(pmesh, pinput, &tm);
+  }
+  DriverStatus Execute() override;
+  void SetGlobalTimeStep();
+  void OutputCycleDiagnostics();
+
+  virtual TaskListStatus Step() = 0;
+  SimTime tm;
+
+ private:
+  void InitializeBlockTimeSteps();
+  void Report(DriverStatus status);
 };
 
 namespace DriverUtils {
-  template <typename T, class...Args>
-  TaskListStatus ConstructAndExecuteBlockTasks(T* driver, Args... args) {
-    int nthreads = driver->pmesh->GetNumMeshThreads();
-    int nmb = driver->pmesh->GetNumMeshBlocksThisRank(Globals::my_rank);
-    std::vector<TaskList> task_lists;
-    task_lists.resize(nmb);
-    int i=0;
-    MeshBlock *pmb = driver->pmesh->pblock;
-    while (pmb != nullptr) {
-      task_lists[i] = driver->MakeTaskList(pmb, std::forward<Args>(args)...);
-      i++;
-      pmb = pmb->next;
-    }
-    int complete_cnt = 0;
-    while (complete_cnt != nmb) {
-#pragma omp parallel for reduction(+ : complete_cnt) num_threads(nthreads) schedule(dynamic,1)
-      for (auto tl = task_lists.begin(); tl < task_lists.end(); tl++) {
-        if (!tl->IsComplete()) {
-          auto status = tl->DoAvailable();
-          if (status == TaskListStatus::complete) {
-            complete_cnt++;
-          }
+
+template <typename T, class... Args>
+TaskListStatus ConstructAndExecuteBlockTasks(T *driver, Args... args) {
+#ifdef OPENMP_PARALLEL
+  int nthreads = driver->pmesh->GetNumMeshThreads();
+#endif
+  int nmb = driver->pmesh->GetNumMeshBlocksThisRank(Globals::my_rank);
+  std::vector<TaskList> task_lists;
+  MeshBlock *pmb = driver->pmesh->pblock;
+  while (pmb != nullptr) {
+    task_lists.push_back(driver->MakeTaskList(pmb, std::forward<Args>(args)...));
+    pmb = pmb->next;
+  }
+  int complete_cnt = 0;
+  while (complete_cnt != nmb) {
+    // TODO(pgrete): need to let Kokkos::PartitionManager handle this
+    for (auto i = 0; i < nmb; ++i) {
+      if (!task_lists[i].IsComplete()) {
+        auto status = task_lists[i].DoAvailable();
+        if (status == TaskListStatus::complete) {
+          complete_cnt++;
         }
       }
     }
-    return TaskListStatus::complete;
   }
+  return TaskListStatus::complete;
+}
+
 } // namespace DriverUtils
 
-
 } // namespace parthenon
-#endif
+
+#endif // DRIVER_DRIVER_HPP_

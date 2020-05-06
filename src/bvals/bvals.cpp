@@ -17,38 +17,33 @@
 //! \file bvals.cpp
 //  \brief constructor/destructor and utility functions for BoundaryValues class
 
-// C headers
+#include "bvals/bvals.hpp"
 
-// C++ headers
-#include <algorithm>  // min
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
-#include <cstring>    // std::memcpy
+#include <cstring>
 #include <iomanip>
-#include <iostream>   // endl
+#include <iostream>
 #include <iterator>
 #include <limits>
-#include <sstream>    // stringstream
-#include <stdexcept>  // runtime_error
-#include <string>     // c_str()
-#include <utility>    // swap()
+#include <sstream>
+#include <stdexcept>
+#include <string>
+#include <utility>
 #include <vector>
 
-// Athena++ headers
+#include "parthenon_mpi.hpp"
+
 #include "coordinates/coordinates.hpp"
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
 #include "parameter_input.hpp"
 #include "utils/buffer_utils.hpp"
-#include "bvals.hpp"
-
-// MPI header
-#ifdef MPI_PARALLEL
-#include <mpi.h>
-#endif
 
 namespace parthenon {
+
 // BoundaryValues constructor (the first object constructed inside the MeshBlock()
 // constructor): sets functions for the appropriate boundary conditions at each of the 6
 // dirs of a MeshBlock
@@ -56,35 +51,38 @@ BoundaryValues::BoundaryValues(MeshBlock *pmb, BoundaryFlag *input_bcs,
                                ParameterInput *pin)
     : BoundaryBase(pmb->pmy_mesh, pmb->loc, pmb->block_size, input_bcs), pmy_block_(pmb) {
   // Check BC functions for each of the 6 boundaries in turn ---------------------
-  for (int i=0; i<6; i++) {
+  for (int i = 0; i < 6; i++) {
     switch (block_bcs[i]) {
-      case BoundaryFlag::reflect:
-      case BoundaryFlag::outflow:
-        apply_bndry_fn_[i] = true;
-        break;
-      default: // already initialized to false in class
-        break;
+    case BoundaryFlag::reflect:
+    case BoundaryFlag::outflow:
+      apply_bndry_fn_[i] = true;
+      break;
+    default: // already initialized to false in class
+      break;
     }
   }
   // Inner x1
-  nface_ = 2; nedge_ = 0;
+  nface_ = 2;
+  nedge_ = 0;
   CheckBoundaryFlag(block_bcs[BoundaryFace::inner_x1], CoordinateDirection::X1DIR);
   CheckBoundaryFlag(block_bcs[BoundaryFace::outer_x1], CoordinateDirection::X1DIR);
 
   if (pmb->block_size.nx2 > 1) {
-    nface_ = 4; nedge_ = 4;
+    nface_ = 4;
+    nedge_ = 4;
     CheckBoundaryFlag(block_bcs[BoundaryFace::inner_x2], CoordinateDirection::X2DIR);
     CheckBoundaryFlag(block_bcs[BoundaryFace::outer_x2], CoordinateDirection::X2DIR);
   }
 
   if (pmb->block_size.nx3 > 1) {
-    nface_ = 6; nedge_ = 12;
+    nface_ = 6;
+    nedge_ = 12;
     CheckBoundaryFlag(block_bcs[BoundaryFace::inner_x3], CoordinateDirection::X3DIR);
     CheckBoundaryFlag(block_bcs[BoundaryFace::outer_x3], CoordinateDirection::X3DIR);
   }
 
   // prevent reallocation of contiguous memory space for each of 4x possible calls to
-  // std::vector<BoundaryVariable *>.push_back() in Hydro, Field, PassiveScalars
+  // std::vector<BoundaryVariable *>.push_back() in Field, PassiveScalars
   bvars.reserve(3);
   // TOOD(KGF): rename to "bvars_time_int"? What about a std::vector for bvars_sts?
   bvars_main_int.reserve(2);
@@ -147,4 +145,5 @@ int BoundaryValues::AdvanceCounterPhysID(int num_phys) {
   return 0;
 #endif
 }
-}
+
+} // namespace parthenon

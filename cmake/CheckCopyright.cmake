@@ -14,18 +14,19 @@
 # TODO: Probably shouldn't be done at configure time - instead we should have a separate
 # build task that does this.
 
-file(GLOB_RECURSE COPYRIGHTABLE_SOURCES src/*.cpp example/*.cpp)
-file(GLOB_RECURSE COPYRIGHTABLE_HEADERS src/*.hpp example/*.hpp)
-file(GLOB_RECURSE COPYRIGHTABLE_CMAKE cmake/* src/CMakeLists.txt example/CMakeLists.txt)
+file(GLOB_RECURSE COPYRIGHTABLE_SOURCES src/[^\.]*.cpp example/[^\.]*.cpp)
+file(GLOB_RECURSE COPYRIGHTABLE_HEADERS src/[^\.]*.hpp example/[^\.]*.hpp)
+file(GLOB_RECURSE COPYRIGHTABLE_SCRIPTS scripts/python/[^\.]*.py)
+file(GLOB_RECURSE COPYRIGHTABLE_CMAKE cmake/[^\.]* src/CMakeLists.txt example/CMakeLists.txt)
 
 set(COPYRIGHTABLE
     ${COPYRIGHTABLE_SOURCES}
+    ${COPYRIGHTABLE_SCRIPTS}
     ${COPYRIGHTABLE_HEADERS}
     ${COPYRIGHTABLE_CMAKE}
     CMakeLists.txt
     CPPLINT.cfg
-    LICENSE
-    athdfExample.py)
+    LICENSE)
 
 string(TIMESTAMP CURRENT_YEAR "%Y")
 set(LAST_UPDATED 2020)

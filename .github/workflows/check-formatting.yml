@@ -1,0 +1,11 @@
+name: Check Formatting
+on: push
+jobs:
+  check-formatting:
+    name: Check C++ Formatting
+    runs-on: ubuntu-latest
+    steps:
+    - uses: AndrewGaspar/cpp-auto-formatter/check@v0.1
+      with:
+        clangFormatVersion: 8
+        token: ${{ secrets.GITHUB_TOKEN }}
