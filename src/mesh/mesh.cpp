@@ -1199,6 +1199,19 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
         auto &pmb = pmb_array[i];
         auto &pbval = pmb->pbval;
         if (multilevel) pbval->ProlongateBoundaries(0.0, 0.0);
+// TODO Extract Primitives
+//        int il = pmb->is, iu = pmb->ie, jl = pmb->js, ju = pmb->je, kl = pmb->ks,
+//           ku = pmb->ke;
+//        if (pbval->nblevel[1][1][0] != -1) il -= NGHOST;
+//        if (pbval->nblevel[1][1][2] != -1) iu += NGHOST;
+//        if (pmb->block_size.nx2 > 1) {
+//          if (pbval->nblevel[1][0][1] != -1) jl -= NGHOST;
+//          if (pbval->nblevel[1][2][1] != -1) ju += NGHOST;
+//        }
+//        if (pmb->block_size.nx3 > 1) {
+//          if (pbval->nblevel[0][1][1] != -1) kl -= NGHOST;
+//          if (pbval->nblevel[2][1][1] != -1) ku += NGHOST;
+//        }
 
         ApplyBoundaryConditions(pmb->real_containers.Get());
         FillDerivedVariables::FillDerived(pmb->real_containers.Get());
