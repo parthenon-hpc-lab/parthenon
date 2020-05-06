@@ -57,8 +57,8 @@ class IndexShape {
   std::array<IndexRange, NDIM> x_;
   std::array<int, NDIM> entire_ncells_;
 
-  inline bool DimensionProvided_(const std::vector<int> &interior_dim,sint dim){
-    return dim > interior_dims.size();
+  inline bool DimensionProvided_(const std::vector<int> &interior_dims,int dim){
+    return dim <= interior_dims.size();
   }
 
   inline void MakeZeroDimensional_(int index){
