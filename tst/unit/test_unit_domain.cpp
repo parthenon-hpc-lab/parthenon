@@ -18,8 +18,7 @@
 #include <catch2/catch.hpp>
 #include <string>
 
-TEST_CASE("Checking interior and entire indices with different initializations",
-          "[x1s,x1e,x2s,x2e,x3s,x3e]") {
+TEST_CASE("Checking IndexShape indices","[is,ie,js,je,ks,ke]") {
 
   const parthenon::IndexDomain interior = parthenon::IndexDomain::interior;
   const parthenon::IndexDomain entire = parthenon::IndexDomain::entire;
@@ -87,8 +86,7 @@ TEST_CASE("Checking interior and entire indices with different initializations",
   }
 }
 
-TEST_CASE("Checking interior and entire sizes with different initializations",
-          "[nx1,nx2,nx3]") {
+TEST_CASE("Checking IndexShape cell counts", "[ncellsi,ncellsj,ncellsk]") {
 
   const parthenon::IndexDomain interior = parthenon::IndexDomain::interior;
   const parthenon::IndexDomain entire = parthenon::IndexDomain::entire;
