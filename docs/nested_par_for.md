@@ -43,6 +43,14 @@ Data type for memory in scratch pad/cache memory. Use
 documentation](https://github.com/kokkos/kokkos/wiki/HierarchicalParallelism)
 for determining scratch pad memory needs before kernel launch.
 
+## Important usage hint
+
+In order to ensure that individual threads of a team are synchronized always call
+`team_member.team_barrier();` after an `par_for_inner` if the following execution
+depends on the results of the `par_for_inner`.
+This pertains, for example, to filling a `ScratchPadXD` array in one `par_inner_for`
+and using the scratch array in the next one, see 
+[the unit test](../tst/unit/kokkos_abstraction.cpp) for sample usage.
 
 ## Cmake Options
 
