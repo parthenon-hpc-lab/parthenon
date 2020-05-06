@@ -50,12 +50,12 @@ namespace parthenon {
 //                        and mesh refinement objects.
 MeshBlock::MeshBlock(const int n_side, const int ndim) {
   // initialize grid indices
-  if(ndim==1){
-    InitializeIndexShapes(n_side,1,1);
-  }else if(ndim == 2){
-    InitializeIndexShapes(n_side,n_side,1);
-  }else {
-    InitializeIndexShapes(n_side,n_side,n_side);
+  if (ndim == 1) {
+    InitializeIndexShapes(n_side, 1, 1);
+  } else if (ndim == 2) {
+    InitializeIndexShapes(n_side, n_side, 1);
+  } else {
+    InitializeIndexShapes(n_side, n_side, n_side);
   }
 }
 

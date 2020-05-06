@@ -255,15 +255,16 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin)
       }
     } else { // coeffcients along Cartesian-like x1 with nonuniform mesh spacing
 #pragma omp simd
-      for (int i = pmb->cellbounds.is(entire) + 1;
-           i <= pmb->cellbounds.ie(entire) - 1; ++i) {
+      for (int i = pmb->cellbounds.is(entire) + 1; i <= pmb->cellbounds.ie(entire) - 1;
+           ++i) {
         Real &dx_im1 = pco->dx1f(i - 1);
         Real &dx_i = pco->dx1f(i);
         Real &dx_ip1 = pco->dx1f(i + 1);
         Real qe = dx_i / (dx_im1 + dx_i + dx_ip1); // Outermost coeff in CW eq 1.7
         c1i(i) = qe * (2.0 * dx_im1 + dx_i) / (dx_ip1 + dx_i); // First term in CW eq 1.7
         c2i(i) = qe * (2.0 * dx_ip1 + dx_i) / (dx_im1 + dx_i); // Second term in CW eq 1.7
-        if (i > pmb->cellbounds.is(entire) + 1) { // c3-c6 are not computed in first iteration
+        if (i >
+            pmb->cellbounds.is(entire) + 1) { // c3-c6 are not computed in first iteration
           Real &dx_im2 = pco->dx1f(i - 2);
           Real qa = dx_im2 + dx_im1 + dx_i + dx_ip1;
           Real qb = dx_im1 / (dx_im1 + dx_i);
@@ -314,8 +315,8 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin)
         }
       } else { // coeffcients along Cartesian-like x2 with nonuniform mesh spacing
 #pragma omp simd
-        for (int j = pmb->cellbounds.js(entire) + 2;
-             j <= pmb->cellbounds.je(entire) - 1; ++j) {
+        for (int j = pmb->cellbounds.js(entire) + 2; j <= pmb->cellbounds.je(entire) - 1;
+             ++j) {
           Real &dx_jm1 = pco->dx2f(j - 1);
           Real &dx_j = pco->dx2f(j);
           Real &dx_jp1 = pco->dx2f(j + 1);
@@ -325,7 +326,8 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin)
           c2j(j) =
               qe * (2.0 * dx_jp1 + dx_j) / (dx_jm1 + dx_j); // Second term in CW eq 1.7
 
-          if (j > pmb->cellbounds.js(entire) + 1) { // c3-c6 are not computed in first iteration
+          if (j > pmb->cellbounds.js(entire) +
+                      1) { // c3-c6 are not computed in first iteration
             Real &dx_jm2 = pco->dx2f(j - 2);
             Real qa = dx_jm2 + dx_jm1 + dx_j + dx_jp1;
             Real qb = dx_jm1 / (dx_jm1 + dx_j);
@@ -367,8 +369,8 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin)
 
       } else { // nonuniform spacing
 #pragma omp simd
-        for (int k = pmb->cellbounds.ks(entire) + 2;
-             k <= pmb->cellbounds.ke(entire) - 1; ++k) {
+        for (int k = pmb->cellbounds.ks(entire) + 2; k <= pmb->cellbounds.ke(entire) - 1;
+             ++k) {
           Real &dx_km1 = pco->dx3f(k - 1);
           Real &dx_k = pco->dx3f(k);
           Real &dx_kp1 = pco->dx3f(k + 1);
@@ -378,7 +380,8 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin)
           c2k(k) =
               qe * (2.0 * dx_kp1 + dx_k) / (dx_km1 + dx_k); // Second term in CW eq 1.7
 
-          if (k > pmb->cellbounds.ks(entire) + 1) { // c3-c6 are not computed in first iteration
+          if (k > pmb->cellbounds.ks(entire) +
+                      1) { // c3-c6 are not computed in first iteration
             Real &dx_km2 = pco->dx3f(k - 2);
             Real qa = dx_km2 + dx_km1 + dx_k + dx_kp1;
             Real qb = dx_km1 / (dx_km1 + dx_k);
