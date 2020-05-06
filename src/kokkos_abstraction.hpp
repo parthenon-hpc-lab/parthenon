@@ -35,7 +35,7 @@ using DevMemSpace = Kokkos::DefaultExecutionSpace::memory_space;
 using HostMemSpace = Kokkos::HostSpace;
 using DevExecSpace = Kokkos::DefaultExecutionSpace;
 #endif
-using ScratchMemSpace = Kokkos::DefaultExecutionSpace::scratch_memory_space;
+using ScratchMemSpace = DevExecSpace::scratch_memory_space;
 
 using LayoutWrapper = Kokkos::LayoutRight;
 
@@ -175,8 +175,8 @@ inline void par_for_outer(const std::string &name, DevExecSpace exec_space,
                           size_t scratch_size_in_bytes, const int scratch_level,
                           const int kl, const int ku, const int jl, const int ju,
                           const Function &function) {
-  par_for_outer(DEFAULT_OUTER_LOOP_PATTERN, name, scratch_size_in_bytes, scratch_level,
-                kl, ku, jl, ju, function);
+  par_for_outer(DEFAULT_OUTER_LOOP_PATTERN, name, exec_space, scratch_size_in_bytes,
+                scratch_level, kl, ku, jl, ju, function);
 }
 
 // 3D Outer loop default pattern
@@ -186,7 +186,7 @@ inline void par_for_outer(const std::string &name, DevExecSpace exec_space,
                           const int nl, const int nu, const int kl, const int ku,
                           const int jl, const int ju, const Function &function) {
   par_for_outer(DEFAULT_OUTER_LOOP_PATTERN, name, exec_space, scratch_size_in_bytes,
-                scratch_level, nl, nu, jl, ju, function);
+                scratch_level, nl, nu, kl, ku, jl, ju, function);
 }
 
 // Inner loop default pattern
