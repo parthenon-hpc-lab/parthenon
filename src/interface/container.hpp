@@ -22,7 +22,7 @@
 #include "globals.hpp"
 #include "interface/sparse_variable.hpp"
 #include "interface/variable.hpp"
-#include "interface/variable_pack"
+#include "interface/variable_pack.hpp"
 
 namespace parthenon {
 
@@ -346,6 +346,14 @@ class Container {
 
   void calcArrDims_(std::array<int, 6> &arrDims, const std::vector<int> &dims,
                     const Metadata &metadata);
+
+  // helper functions for VariablePack
+  vpack_types::VarList<T> MakeList_(const std::vector<std::string> &names,
+                                    std::vector<std::string> &names_out,
+                                    const std::vector<int> sparse_ids = {});
+  vpack_types::VarList<T> MakeList_(const std::vector<MetadataFlag> &flags,
+                                    std::vector<std::string>& labels);
+  vpack::VarList<T> MakeList_(std::vector<std::string> &names);
 
   // These helper functions are private scope because they assume that
   // the names include the components of sparse variables.

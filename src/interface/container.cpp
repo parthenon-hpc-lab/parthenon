@@ -147,12 +147,12 @@ Container<T> Container<T>::SparseSlice(int id) {
 /// TODO(JMM): Make sure this is thread-safe
 /// TODO(JMM): Should the vector of names be sorted to enforce uniqueness?
 template<typename T>
-VariableFluxPack<T> Container<T>::PackVariablesAndFluxes_(
-  const std::vector<std::string> &var_names,
-  const std::vector<std::string> &flx_names,
-  const vpack_types::VarList<T> &vars,
-  const vpack_types::VarList<T> &fvars,
-  PackIndexMap &vmap) {
+VariableFluxPack<T>
+Container<T>::PackVariablesAndFluxes_(const std::vector<std::string> &var_names,
+                                      const std::vector<std::string> &flx_names,
+                                      const vpack_types::VarList<T> &vars,
+                                      const vpack_types::VarList<T> &fvars,
+                                      PackIndexMap &vmap) {
   auto key = std::make_pair(var_names,flx_names);
   auto kvpair = varFluxPackMap_.find(key);
   if (kvpair == varFluxPackMap_.end()) {
@@ -165,36 +165,36 @@ VariableFluxPack<T> Container<T>::PackVariablesAndFluxes_(
 }
 
 template<typename T>
-VariableFluxPack<T> Container<T>::PackVariablesAndFluxes(
-  const std::vector<std::string> &var_names,
-  const std::vector<std::string> &flx_names,
+VariableFluxPack<T>
+Container<T>::PackVariablesAndFluxes(const std::vector<std::string> &var_names,
+                                     const std::vector<std::string> &flx_names,
   PackIndexMap &vmap) {
   static std::vector<std::string> all_names;
   static std::vector<std::string> all_flux_names;
-  vpack_types::VarList<T> vars = MakeList(*this, var_names, {}, &all_names);
-  vpack_types::VarList<T> fvars = MakeList(*this, flx_names, {} &all_flux_names);
+  vpack_types::VarList<T> vars = MakeList_(var_names, all_names);
+  vpack_types::VarList<T> fvars = MakeList_(flx_names, all_flux_names);
   return this->PackVariablesAndFluxes_(all_names,all_flux_names,vars,fvars,vmap);
 }
 template<typename T>
-VariableFluxPack<T> Container<T>::PackVariablesAndFluxes(
-  const std::vector<std::string> &var_names,
-  const std::vector<std::string> &flx_names) {
+VariableFluxPack<T>
+Container<T>::PackVariablesAndFluxes(const std::vector<std::string> &var_names,
+                                     const std::vector<std::string> &flx_names) {
   PackIndexMap vmap;
   return this->PackVariablesAndFluxes(var_names, flx_names, vmap);
 }
 template<typename T>
-VariableFluxPack<T> Container<T>::PackVariablesAndFluxes(
-  const std::vector<MetadataFlag> &flags,
-  PackIndexMap &vmap) {
+VariableFluxPack<T>
+Container<T>::PackVariablesAndFluxes(const std::vector<MetadataFlag> &flags,
+                                     PackIndexMap &vmap) {
   // TODO(JMM): making this static saves allocations per call
   // but will not be thread safe.
   static std::vector<std::string> vnams;
-  vpack_types::VarList<T> vars = MakeList(*this,flags,vnams);
+  vpack_types::VarList<T> vars = MakeList_(flags,vnams);
   return this->PackVariablesAndFluxes_(vnams,vnams,vars,vars,vmap);
 }
 template<typename T>
-VariableFluxPack<T> Container<T>::PackVariablesAndFluxes(
-  const std::vector<MetadataFlag> &flags) {
+VariableFluxPack<T>
+Container<T>::PackVariablesAndFluxes(const std::vector<MetadataFlag> &flags) {
   PackIndexMap vmap;
   return this->PackVariablesAndFluxes(flags, vmap);
 }
@@ -217,7 +217,7 @@ VariablePack<T> Container<T>::PackVariables(const std::vector<std::string> &name
                                             const std::vector<int> &sparse_ids,
                                             PackIndexMap &vmap) {
   static std::vector<std::string> all_names;
-  vpack_types::VarList<T> vars = MakeList(c, names, sparse_ids, &all_names);
+  vpack_types::VarList<T> vars = MakeList_(names, all_names, sparse_ids);
   return this->PackVariables(all_names, vars, vmap);
 }
 template <typename T>
@@ -240,24 +240,113 @@ template<typename T>
 VariablePack<T> Container<T>::PackVariables(const std::vector<MetadataFlag> &flags,
                                             PackIndexMap &vmap) {
   static std::vector<std::string> vnams;
-  vpack_types::VarList<T> vars = MakeList(*this,flags,vnams);
+  vpack_types::VarList<T> vars = MakeList_(flags,vnams);
   return this->PackVariables_(vnams,vars,vmap);
 }
 template<typename T>
-VariablePack<T> Container<T>::PackVariables(const std::vector<MetadataFlag> &flags) {
+VariablePack<T>
+Container<T>::PackVariables(const std::vector<MetadataFlag> &flags) {
   PackIndexMap &vmap;
   return this->PackVariables(flags,vmap);
 }
 template<typename T>
 VariablePack<T> Container<T>::PackVariables(PackIndexMap &vmap) {
   static std::vector<std::string> vnams;
-  vpack_types::VarList<T> vars = MakeList(*this, &vnams);
+  vpack_types::VarList<T> vars = MakeList_(vnams);
   return this->PackVariables_(vnams,vars,vmap);
 }
 template<typename T>
 VariablePack<T> Container<T>::PackVariables() {
   PackIndexMap &vmap;
   return this->PackVariables(vmap);
+}
+
+template <typename T>
+vpack_types::VarList<T>
+Container<T>::MakeList_(const std::vector<std::string> &names,
+                        std::vector<std::string> &names_out,
+                        const std::vector<int> sparse_ids = {}) {
+  names_out.reset();
+  vpack_types::VarList<T> vars;
+  auto var_map = GetCellVariableMap();
+  auto sparse_map = GetSparseMap();
+  // reverse iterator to end up with a list in the same order as requested
+  for (auto it = names.rbegin(); it != names.rend(); ++it) {
+    bool found = false;
+    auto v = var_map.find(*it);
+    if (v != var_map.end()) {
+      vars.push_front(v->second);
+      names_out.push_back(v->first);
+      found = true;
+    }
+    auto sv = sparse_map.find(*it);
+    if (sv != sparse_map.end()) {
+      if (found) {
+        // that's weird, found the name in both???
+        std::cerr << *it << " found in both var_map and sparse_map in PackVariables"
+                  << std::endl;
+        std::exit(1);
+      }
+      found = true;
+      if (sparse_ids.size() > 0) { // grab specific sparse variabes
+        auto smap = sv->second->GetMap();
+        for (auto its = sparse_ids.rbegin(); its != sparse_ids.rend(); ++its) {
+          vars.push_front(smap[*its]);
+          names_out.push_back(smap[*its]->label());
+        }
+      } else {
+        auto svec = sv->second->GetVector();
+        for (auto its = svec.rbegin(); its != svec.rend(); ++its) {
+          vars.push_front(*its);
+          names_out.push_back(its->label());
+        }
+      }
+    }
+    if (!found) {
+      std::cerr << *it << " not found in var_map or sparse_map in PackVariables"
+                << std::endl;
+      std::exit(1);
+    }
+  }
+  return vars;
+}
+
+template <typename T>
+vpack_types::VarList<T> Container<T>::MakeList_(const std::vector<MetadataFlag> &flags,
+                                                std::vector<std::string>& labels) {
+  labels.clear();
+  vpack_types::VarList<T> vars;
+  for (const auto &v : GetCellVariableVector()) {
+    if (v->metadata().AnyFlagsSet(flags)) {
+      vars.push_front(v);
+      labels.push_back(v->label());
+    }
+  }
+  for (const auto &sv : GetSparseVector()) {
+    if (sv->metadata().AnyFlagsSet(flags)) {
+      for (const auto &v : sv->GetVector()) {
+        vars.push_front(v);
+        labels.push_back(v->label());
+      }
+    }
+  }
+  return vars;
+}
+
+template <typename T>
+vpack::VarList<T> Container<T>::MakeList_(std::vector<std::string> &names) {
+  if (names != nullptr) names->reset();
+  vpack_types::VarList<T> vars;
+  for (const auto &v : GetCellVariableVector()) {
+    vars.push_front(v);
+    if (names != nullptr) names->push_back(v->label);
+  }
+  for (const auto &sv : GetSparseVector()) {
+    for (const auto &v : sv->GetVector()) {
+      vars.push_front(v);
+      if (names != nullptr) names->push_back(v->label);
+    }
+  }
 }
 
 
