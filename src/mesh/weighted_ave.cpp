@@ -262,10 +262,10 @@ void MeshBlock::WeightedAve(FaceField &b_out, FaceField &b_in1, FaceField &b_in2
         }
       }
     } else if (wght[1] == 1.0) {
-      // jb.est deep copy
+      // just deep copy
       //---- B1
       for (int k = kb.s; k <= kb.e; ++k) {
-        for (int j = jl; j <= ju; ++j) {
+        for (int j = jb.s; j <= jb.e; ++j) {
 #pragma omp simd
           for (int i = ib.s; i <= ib.e + 1; ++i) {
             b_out.x1f(k, j, i) = b_in1.x1f(k, j, i);
