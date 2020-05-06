@@ -60,6 +60,16 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
     rc.Add("v5", m_in, scalar_block_size);
     rc.Add("v6", m_out, scalar_block_size);
 
+    WHEN("We extract a subcontainer") {
+      auto subcontainer = Container<Real>(rc, {"v1", "v3", "v5"});
+      THEN("The container has the names in the right order") {
+        auto vars = subcontainer.GetCellVariableVector();
+        REQUIRE(vars[0]->label() == "v1");
+        REQUIRE(vars[1]->label() == "v3");
+        REQUIRE(vars[2]->label() == "v5");
+      }
+    }
+
     auto v = rc.PackVariables();
     par_for(
         "Initialize variables", DevExecSpace(), 0, v.GetDim(4) - 1, 0, v.GetDim(3) - 1, 0,

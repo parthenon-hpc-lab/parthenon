@@ -106,6 +106,60 @@ void Container<T>::Add(const std::string label, const Metadata &metadata,
   }
 }
 
+// Constructor for getting sub-containers
+// the variables returned are all shallow copies of the src container.
+// Optionally extract only some of the sparse ids of src variable.
+template <typename T>
+Container<T>::Container(const Container<T> &src,
+                        const std::vector<std::string> &names,
+                        const std::vector<int> sparse_ids) {
+  auto var_map = src.GetCellVariableMap();
+  auto sparse_map = src.GetSparseMap();
+  auto face_map = src.GetFaceMap();
+  for (std::string name : names) {
+    bool found = false;
+    auto v = var_map.find(name);
+    if (v != var_map.end()) {
+      varVector_.push_back(v->second);
+      varMap_[v->first] = v->second;
+      found = true;
+    }
+    auto sv = sparse_map.find(name);
+    if (sv != sparse_map.end()) {
+      if (found) {
+        std::cerr << "Container: " << name << " found more than once!"
+                  << std::endl;
+        std::exit(1);
+      }
+      found = true;
+      std::shared_ptr<SparseVariable<T>> newvar;
+      if (sparse_ids.size() > 0) {
+        newvar = std::make_shared<SparseVariable<T>>(sv->second,sparse_ids);
+      } else{
+        newvar = sv->second;
+      }
+      sparseMap_[sv->first] = newvar;
+      sparseVector_.push_back(newvar);
+    }
+    auto fv = face_map.find(name);
+    if (fv != face_map.end()) {
+      if (found) {
+        std::cerr << "Container: " << name << " found more than once!"
+                  << std::endl;
+        std::exit(1);
+      }
+      found = true;
+      faceMap_[fv->first] = fv->second;
+      faceVector_.push_back(fv->second);
+    }
+    if (!found) {
+      std::cerr << "Container: " << name << " not found!"
+                << std::endl;
+      std::exit(1);
+    }
+  }
+}
+
 // provides a container that has a single sparse slice
 template <typename T>
 Container<T> Container<T>::SparseSlice(int id) {
@@ -269,53 +323,12 @@ VariablePack<T> Container<T>::PackVariables() {
   PackIndexMap vmap;
   return PackVariables(vmap);
 }
-
 template <typename T>
 vpack_types::VarList<T> Container<T>::MakeList_(const std::vector<std::string> &names,
                                                 std::vector<std::string> &names_out,
                                                 const std::vector<int> sparse_ids) {
-  names_out.clear();
-  vpack_types::VarList<T> vars;
-  auto var_map = GetCellVariableMap();
-  auto sparse_map = GetSparseMap();
-  // reverse iterator to end up with a list in the same order as requested
-  for (auto it = names.rbegin(); it != names.rend(); ++it) {
-    bool found = false;
-    auto v = var_map.find(*it);
-    if (v != var_map.end()) {
-      vars.push_front(v->second);
-      names_out.push_back(v->first);
-      found = true;
-    }
-    auto sv = sparse_map.find(*it);
-    if (sv != sparse_map.end()) {
-      if (found) {
-        // that's weird, found the name in both???
-        std::cerr << *it << " found in both var_map and sparse_map in PackVariables"
-                  << std::endl;
-        std::exit(1);
-      }
-      found = true;
-      if (sparse_ids.size() > 0) { // grab specific sparse variabes
-        auto smap = sv->second->GetMap();
-        for (auto its = sparse_ids.rbegin(); its != sparse_ids.rend(); ++its) {
-          vars.push_front(smap[*its]);
-          names_out.push_back(smap[*its]->label());
-        }
-      } else {
-        auto svec = sv->second->GetVector();
-        for (auto its = svec.rbegin(); its != svec.rend(); ++its) {
-          vars.push_front(*its);
-          names_out.push_back((*its)->label());
-        }
-      }
-    }
-    if (!found) {
-      std::cerr << *it << " not found in var_map or sparse_map in PackVariables"
-                << std::endl;
-      std::exit(1);
-    }
-  }
+  auto subcontainer = Container(*this, names, sparse_ids);
+  auto vars = subcontainer.MakeList_(names_out);
   return vars;
 }
 

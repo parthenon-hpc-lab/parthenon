@@ -53,6 +53,12 @@ class Container {
   //-----------------
   /// Constructor
   Container<T>() = default;
+  // Constructors for getting sub-containers
+  // the variables returned are all shallow copies of the src container.
+  // Optionally extract only some of the sparse ids of src variable.
+  Container<T>(const Container<T> &src,
+               const std::vector<std::string> &names,
+               const std::vector<int> sparse_ids = {});
 
   /// We can initialize a container with slices from a different
   /// container.  For variables that have the sparse tag, this will
