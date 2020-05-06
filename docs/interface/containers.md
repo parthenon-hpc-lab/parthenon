@@ -30,7 +30,7 @@ instance of a `parthenon::PackIndexMap`.
 This will return a `VariablePack` object, which 
 is essentially a `Kokkos::view` of `parthenon::ParArray3D`s. 
 The map will be filled by reference as a map from 
-variable names to indices in the `VariablePack.
+variable names to indices in the `VariablePack`.
 
 Similar methods are available for metadata and sparse IDs:
 ```C++
