@@ -279,7 +279,7 @@ bool test_wrapper_nested_3d(OuterLoopPattern outer_loop_pattern,
     for (int k = 0; k < N; k++)
       for (int j = 0; j < N; j++)
         for (int i = 0; i < N; i++)
-          host_u(k, j, i) = pow((i + 1) * (j + 1) * (k + 1), 2.0);
+          host_u(k, j, i) = pow((i + 1) * (j + 2) * (k + 3), 2.0);
 
   // Copy host array content to device
   Kokkos::deep_copy(dev_u, host_u);
@@ -319,8 +319,8 @@ bool test_wrapper_nested_3d(OuterLoopPattern outer_loop_pattern,
   for (int k = 0; k < N; k++) {
     for (int j = 0; j < N; j++) {
       for (int i = 1; i < N - 1; i++) {
-        const Real analytic = 2.0 * (i + 1) * pow((j + 1) * (k + 1), 2.0);
-        const Real err = host_du(j, k, i - 1) - analytic;
+        const Real analytic = 2.0 * (i + 1) * pow((j + 2) * (k + 3), 2.0);
+        const Real err = host_du(k, j, i - 1) - analytic;
 
         max_rel_err = fmax(fabs(err / analytic), max_rel_err);
       }
@@ -347,7 +347,7 @@ bool test_wrapper_nested_4d(OuterLoopPattern outer_loop_pattern,
     for (int k = 0; k < N; k++)
       for (int j = 0; j < N; j++)
         for (int i = 0; i < N; i++)
-          host_u(n, k, j, i) = pow((i + 1) * (j + 1) * (k + 1) * (n + 1), 2.0);
+          host_u(n, k, j, i) = pow((i + 1) * (j + 2) * (k + 3) * (n + 4), 2.0);
 
   // Copy host array content to device
   Kokkos::deep_copy(dev_u, host_u);
@@ -389,8 +389,8 @@ bool test_wrapper_nested_4d(OuterLoopPattern outer_loop_pattern,
     for (int k = 0; k < N; k++) {
       for (int j = 0; j < N; j++) {
         for (int i = 1; i < N - 1; i++) {
-          const Real analytic = 2.0 * (i + 1) * pow((j + 1) * (k + 1) * (n + 1), 2.0);
-          const Real err = host_du(n, j, k, i - 1) - analytic;
+          const Real analytic = 2.0 * (i + 1) * pow((j + 2) * (k + 3) * (n + 4), 2.0);
+          const Real err = host_du(n, k, j, i - 1) - analytic;
 
           max_rel_err = fmax(fabs(err / analytic), max_rel_err);
         }
