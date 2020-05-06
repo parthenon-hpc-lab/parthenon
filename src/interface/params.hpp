@@ -28,6 +28,8 @@
 #include <typeinfo>
 #endif
 
+#include "utils/error_checking.hpp"
+
 namespace parthenon {
 
 /// Defines a class that can be used to hold parameters
@@ -100,7 +102,7 @@ class Params {
     // check on return type
     if (myTypes_[key].compare(std::string(typeid(T).name()))) {
       std::cout << "WRONG TYPE FOR KEY '" << key << "'" << std::endl;
-      if (die) throw std::invalid_argument("Wrong type sent to Get<T>()");
+      PARTHENON_REQUIRE(!die, "Exit request on wrong type for key " + key);
     }
   }
 

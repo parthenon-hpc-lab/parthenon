@@ -21,6 +21,8 @@
 #include <tuple>
 #include <vector>
 
+#include "utils/error_checking.hpp"
+
 /// The point of this macro is to generate code for each built-in flag using the
 /// `PARTHENON_INTERNAL_FOR_FLAG` macro. This is to accomplish the following goals:
 /// - Generate a unique value for each flag using an enum
@@ -279,7 +281,7 @@ class Metadata {
     } else if (x == None) {
       DoBit(None, true);
     } else {
-      throw std::invalid_argument("received invalid topology flag in SetWhere()");
+      PARTHENON_FAIL("received invalid topology flag");
     }
   } ///< Set topological element where variable is defined (None/Cell/Face/Edge/Node)
 
