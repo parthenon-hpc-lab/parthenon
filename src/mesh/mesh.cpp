@@ -1199,7 +1199,8 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
         auto &pmb = pmb_array[i];
         auto &pbval = pmb->pbval;
         if (multilevel) pbval->ProlongateBoundaries(0.0, 0.0);
-        // TODO(JoshuaSBrown): Dead code left in for possible future extraction of primitives
+        // TODO(JoshuaSBrown): Dead code left in for possible future extraction of
+        // primitives
         //        int il = pmb->is, iu = pmb->ie, jl = pmb->js, ju = pmb->je, kl =
         //        pmb->ks,
         //           ku = pmb->ke;

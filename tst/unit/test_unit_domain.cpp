@@ -18,7 +18,7 @@
 #include <catch2/catch.hpp>
 #include <string>
 
-TEST_CASE("Checking IndexShape indices","[is,ie,js,je,ks,ke]") {
+TEST_CASE("Checking IndexShape indices", "[is,ie,js,je,ks,ke]") {
 
   const parthenon::IndexDomain interior = parthenon::IndexDomain::interior;
   const parthenon::IndexDomain entire = parthenon::IndexDomain::entire;

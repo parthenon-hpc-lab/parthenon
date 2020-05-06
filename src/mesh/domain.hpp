@@ -57,11 +57,11 @@ class IndexShape {
   std::array<IndexRange, NDIM> x_;
   std::array<int, NDIM> entire_ncells_;
 
-  inline bool DimensionProvided_(const std::vector<int> &interior_dims,int dim){
+  inline bool DimensionProvided_(const std::vector<int> &interior_dims, int dim) {
     return dim <= interior_dims.size();
   }
 
-  inline void MakeZeroDimensional_(int index){
+  inline void MakeZeroDimensional_(int index) {
     x_[index] = IndexRange(0, 0);
     entire_ncells_[index] = 1;
   }
@@ -88,9 +88,10 @@ class IndexShape {
         MakeZeroDimensional_(index);
       } else {
         assert(interior_dims.at(index) > -1 &&
-            "IndexShape cannot be initialized with a negative number of "
-            "interior cells for any dimension");
-        if (interior_dims.at(index) == 0) { // Dimension does not exist if interior cells 0
+               "IndexShape cannot be initialized with a negative number of "
+               "interior cells for any dimension");
+        if (interior_dims.at(index) ==
+            0) { // Dimension does not exist if interior cells 0
           MakeZeroDimensional_(index);
         } else {
           x_[index] = IndexRange(ng, (ng + interior_dims.at(index) - 1));
