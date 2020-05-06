@@ -17,8 +17,6 @@
 #define DEBUG_ 0
 #endif
 
-#include "utils/error_checking.hpp"
-
 #include <iostream>
 #include <map>
 #include <memory>
@@ -29,6 +27,8 @@
 #include <typeindex>
 #include <typeinfo>
 #endif
+
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
