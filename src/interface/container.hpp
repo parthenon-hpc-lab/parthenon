@@ -225,7 +225,6 @@ class Container {
                        std::map<std::string, std::pair<int, int>> &indexCount,
                        const std::vector<int> &sparse_ids = {});
 
-
   /// Queries related to variable packs
   VariableFluxPack<T> PackVariablesAndFluxes(const std::vector<std::string> &var_names,
                                              const std::vector<std::string> &flx_names,
@@ -236,8 +235,7 @@ class Container {
                                              PackIndexMap &vmap);
   VariableFluxPack<T> PackVariablesAndFluxes(const std::vector<MetadataFlag> &flags);
   VariablePack<T> PackVariables(const std::vector<std::string> &names,
-                                const std::vector<int> &sparse_ids,
-                                PackIndexMap &vmap);
+                                const std::vector<int> &sparse_ids, PackIndexMap &vmap);
   VariablePack<T> PackVariables(const std::vector<std::string> &names,
                                 const std::vector<int> &sparse_ids);
   VariablePack<T> PackVariables(const std::vector<std::string> &names,
@@ -248,7 +246,6 @@ class Container {
   VariablePack<T> PackVariables(const std::vector<MetadataFlag> &flags);
   VariablePack<T> PackVariables(PackIndexMap &vmap);
   VariablePack<T> PackVariables();
-
 
   /// Remove a variable from the container or throw exception if not
   /// found.
@@ -349,20 +346,18 @@ class Container {
                                     std::vector<std::string> &names_out,
                                     const std::vector<int> sparse_ids = {});
   vpack_types::VarList<T> MakeList_(const std::vector<MetadataFlag> &flags,
-                                    std::vector<std::string>& labels);
+                                    std::vector<std::string> &labels);
   vpack_types::VarList<T> MakeList_(std::vector<std::string> &names);
 
   // These helper functions are private scope because they assume that
   // the names include the components of sparse variables.
-  VariableFluxPack<T> PackVariablesAndFluxes_(
-    const std::vector<std::string> &var_names,
-    const std::vector<std::string> &flx_names,
-    const vpack_types::VarList<T> &vars,
-    const vpack_types::VarList<T> &fvars,
-    PackIndexMap &vmap);
+  VariableFluxPack<T> PackVariablesAndFluxes_(const std::vector<std::string> &var_names,
+                                              const std::vector<std::string> &flx_names,
+                                              const vpack_types::VarList<T> &vars,
+                                              const vpack_types::VarList<T> &fvars,
+                                              PackIndexMap &vmap);
   VariablePack<T> PackVariables_(const std::vector<std::string> &names,
-                                 const vpack_types::VarList<T> &vars,
-                                 PackIndexMap &vmap);
+                                 const vpack_types::VarList<T> &vars, PackIndexMap &vmap);
 };
 
 } // namespace parthenon

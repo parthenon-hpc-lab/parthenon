@@ -31,8 +31,7 @@ namespace vpack_types {
 template <typename T>
 using VarList = std::forward_list<std::shared_ptr<CellVariable<T>>>;
 using IndexPair = std::pair<int, int>;
-using StringPair = std::pair<std::vector<std::string>,
-                               std::vector<std::string>>;
+using StringPair = std::pair<std::vector<std::string>, std::vector<std::string>>;
 } // namespace vpack_types
 
 using PackIndexMap = std::map<std::string, vpack_types::IndexPair>;
@@ -105,13 +104,11 @@ struct FluxPackIndxPair {
   VariableFluxPack<T> pack;
   PackIndexMap map;
 };
-//using FluxPackIndxPair = std::pair<VariableFluxPack<T>,PackIndexMap>;
+// using FluxPackIndxPair = std::pair<VariableFluxPack<T>,PackIndexMap>;
 template <typename T>
-using MapToVariablePack = std::map<std::vector<std::string>,
-                                   PackIndxPair<T>>;
+using MapToVariablePack = std::map<std::vector<std::string>, PackIndxPair<T>>;
 template <typename T>
-using MapToVariableFluxPack = std::map<vpack_types::StringPair,
-                                       FluxPackIndxPair<T>>;
+using MapToVariableFluxPack = std::map<vpack_types::StringPair, FluxPackIndxPair<T>>;
 
 template <typename T>
 VariableFluxPack<T> MakeFluxPack(const vpack_types::VarList<T> &vars,

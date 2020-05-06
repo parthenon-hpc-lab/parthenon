@@ -52,7 +52,7 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
     Metadata m_out;
     std::vector<int> scalar_block_size{16, 16, 16};
     std::vector<int> vector_block_size{16, 16, 16, 3};
-    // make some variables
+    // Make some variables
     rc.Add("v1", m_in, scalar_block_size);
     rc.Add("v2", m_out, scalar_block_size);
     rc.Add("v3", m_in, vector_block_size);
@@ -132,7 +132,7 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
       }
       AND_THEN("pulling out a subset by name should work") {
         using policy4D = Kokkos::MDRangePolicy<Kokkos::Rank<4>>;
-        auto v = rc.PackVariables({"v2","v3","v5"});
+        auto v = rc.PackVariables({"v2", "v3", "v5"});
         Real total = 0.0;
         Real sum = 1.0;
         Kokkos::parallel_reduce(
@@ -147,7 +147,7 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
 
     WHEN("we set individual fields by index") {
       PackIndexMap vmap;
-      auto v = rc.PackVariables(std::vector<std::string>({"v3","v6"}), vmap);
+      auto v = rc.PackVariables(std::vector<std::string>({"v3", "v6"}), vmap);
       const int iv3lo = vmap["v3"].first;
       const int iv3hi = vmap["v3"].second;
       const int iv6 = vmap["v6"].first;
@@ -234,7 +234,7 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
       rc.Add("vsparse", m_sparse, scalar_block_size);
       THEN("the low and high index bounds are correct as returned by PackVariables") {
         PackIndexMap imap;
-        auto v = rc.PackVariables({"v3","v6","vsparse"}, imap);
+        auto v = rc.PackVariables({"v3", "v6", "vsparse"}, imap);
         REQUIRE(imap["vsparse"].first == 4);
         REQUIRE(imap["vsparse"].second == 6);
       }
@@ -376,9 +376,10 @@ TEST_CASE("Container Iterator Performance", "[ContainerIterator][performance]") 
         });
 
     std::cout << "Mask: raw_array performance: " << time_raw_array << std::endl;
-    std::cout << "Mask: iterate_variables performance: " << time_iterate_variables << std::endl;
-    std::cout << "Mask: iterate_variables/raw_array " << time_iterate_variables / time_raw_array
+    std::cout << "Mask: iterate_variables performance: " << time_iterate_variables
               << std::endl;
+    std::cout << "Mask: iterate_variables/raw_array "
+              << time_iterate_variables / time_raw_array << std::endl;
     std::cout << "Mask: view_of_views performance: " << time_view_of_views << std::endl;
     std::cout << "Mask: view_of_views/raw_array " << time_view_of_views / time_raw_array
               << std::endl;
@@ -414,12 +415,12 @@ TEST_CASE("Container Iterator Performance", "[ContainerIterator][performance]") 
     // Test performance of view of views when the pack is built every time
     // tests caching
     double time_always_pack =
-        performance_test_wrapper(n_burn, n_perf, init_view_of_views, [&]() {\
+        performance_test_wrapper(n_burn, n_perf, init_view_of_views, [&]() {
           auto var_view_named = container.PackVariables(names);
           par_for(
-              "Always pack Perf", DevExecSpace(), 0,
-              var_view_named.GetDim(4) - 1, 0, var_view_named.GetDim(3) - 1, 0,
-              var_view_named.GetDim(2) - 1, 0, var_view_named.GetDim(1) - 1,
+              "Always pack Perf", DevExecSpace(), 0, var_view_named.GetDim(4) - 1, 0,
+              var_view_named.GetDim(3) - 1, 0, var_view_named.GetDim(2) - 1, 0,
+              var_view_named.GetDim(1) - 1,
               KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
                 var_view_named(l, k, j, i) *=
                     var_view_named(l, k, j, i); // Do something trivial, square each term
@@ -440,7 +441,7 @@ TEST_CASE("Container Iterator Performance", "[ContainerIterator][performance]") 
   }
   { // Grab some variables by name with indexing and do timing tests
     PackIndexMap imap;
-    auto vsub = container.PackVariables({"v1","v2","v5"}, imap);
+    auto vsub = container.PackVariables({"v1", "v2", "v5"}, imap);
 
     auto init_view_of_views = [&]() {
       par_for(
