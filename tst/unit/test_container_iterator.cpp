@@ -161,6 +161,11 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
       const int iv3lo = vmap["v3"].first;
       const int iv3hi = vmap["v3"].second;
       const int iv6 = vmap["v6"].first;
+      THEN("The indices match our expectations") {
+        REQUIRE( iv3lo == 0 );
+        REQUIRE( iv3hi == 2 );
+        REQUIRE( iv6 == 3 );
+      }
       par_for(
           "Initialize variables", DevExecSpace(), 0, v.GetDim(3) - 1, 0, v.GetDim(2) - 1,
           0, v.GetDim(1) - 1, KOKKOS_LAMBDA(const int k, const int j, const int i) {
