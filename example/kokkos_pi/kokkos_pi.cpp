@@ -47,49 +47,27 @@
 // and using flat range and MDRange in Kokkos
 //
 
-#include <array>
+#include <stdio.h>
+
 #include <iostream>
-#include <memory>
 #include <string>
-#include <vector>
 
 #include "Kokkos_Core.hpp"
 
-#include "basic_types.hpp"
 #include "interface/container.hpp"
-#include "interface/container_iterator.hpp"
 #include "interface/metadata.hpp"
-#include "interface/variable.hpp"
 #include "kokkos_abstraction.hpp"
 #include "mesh/mesh.hpp"
-#include "parthenon_arrays.hpp"
 
 using Real = double;
 
-using parthenon::CellVariable;
-using parthenon::CellVariableVector;
 using parthenon::Container;
-using parthenon::ContainerIterator;
 using parthenon::DevExecSpace;
-using parthenon::loop_pattern_mdrange_tag;
 using parthenon::MeshBlock;
 using parthenon::Metadata;
-using parthenon::MetadataFlag;
-using parthenon::par_for;
-using parthenon::ParArray4D;
-using parthenon::ParArrayND;
 using parthenon::Real;
 
-using View1D = Kokkos::View<Real *, Kokkos::LayoutRight, Kokkos::DefaultExecutionSpace>;
 using View2D = Kokkos::View<Real **, Kokkos::LayoutRight, Kokkos::DefaultExecutionSpace>;
-using View3D = Kokkos::View<Real ***, Kokkos::LayoutRight, Kokkos::DefaultExecutionSpace>;
-using View4D =
-    Kokkos::View<Real ****, Kokkos::LayoutRight, Kokkos::DefaultExecutionSpace>;
-using ViewOfView3D = Kokkos::View<View3D *>;
-using ViewMeshBlock1D =
-    Kokkos::View<MeshBlock *, Kokkos::LayoutRight, Kokkos::DefaultExecutionSpace>;
-using ViewMesh =
-    Kokkos::View<ViewMeshBlock1D, Kokkos::LayoutRight, Kokkos::DefaultExecutionSpace>;
 
 // simple giga-ops calculator
 double calcGops(const int &nops, const double &t, const int &n_block3, const int &n_mesh3,
