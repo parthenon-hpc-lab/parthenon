@@ -21,6 +21,8 @@
 //  defs.hpp file will be created (overwriting the last) from this template. This new
 //  file contains Athena++ specific cpp macros and definitions set by configure.
 
+using Coordinates_t = @COORDINATE_TYPE@;
+
 //----------------------------------------------------------------------------------------
 // macros which define physics and algorithms
 

@@ -133,6 +133,8 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
   // construct objects stored in MeshBlock class.  Note in particular that the initial
   // conditions for the simulation are set in problem generator called from main
 
+  coords = Coordinates_t(block_size, pin);
+
   // mesh-related objects
   // Boundary
   pbval = std::make_unique<BoundaryValues>(this, input_bcs, pin);

@@ -31,6 +31,7 @@
 #include "athena.hpp"
 #include "bvals/bvals.hpp"
 #include "bvals/bvals_interfaces.hpp"
+#include "coordinates/uniform_cartesian.hpp"
 #include "interface/container.hpp"
 #include "interface/container_collection.hpp"
 #include "interface/properties_interface.hpp"
@@ -53,7 +54,6 @@ class Mesh;
 class MeshRefinement;
 class MeshBlockTree;
 class BoundaryValues;
-class Coordinates;
 class Reconstruction;
 
 // template class Container<Real>;
@@ -76,9 +76,6 @@ inline MeshBlockApplicationData::~MeshBlockApplicationData() {}
 class MeshBlock {
   friend class RestartOutput;
   friend class Mesh;
-#ifdef HDF5OUTPUT
-  friend class ATHDF5Output;
-#endif
 
  public:
   MeshBlock(const int n_side, const int ndim); // for Kokkos testing with ghost
@@ -120,9 +117,11 @@ class MeshBlock {
 
   std::unique_ptr<MeshBlockApplicationData> app;
 
+  Coordinates_t coords;
+
   // mesh-related objects
   // TODO(jcd): remove all these?
-  std::unique_ptr<Coordinates> pcoord;
+  //std::unique_ptr<Coordinates> pcoord;
   std::unique_ptr<BoundaryValues> pbval;
   std::unique_ptr<MeshRefinement> pmr;
   std::unique_ptr<Reconstruction> precon;
