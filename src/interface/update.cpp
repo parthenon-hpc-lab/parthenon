@@ -75,7 +75,7 @@ void UpdateContainer(Container<Real> &in, Container<Real> &dudt_cont, const Real
 
   auto vin = in.PackVariables({Metadata::Independent});
   auto vout = out.PackVariables({Metadata::Independent});
-  auto dudt = out.PackVariables({Metadata::Independent});
+  auto dudt = dudt_cont.PackVariables({Metadata::Independent});
 
   pmb->par_for(
       "UpdateContainer", 0, vin.GetDim(4) - 1, 0, vin.GetDim(3) - 1, 0, vin.GetDim(2) - 1,
