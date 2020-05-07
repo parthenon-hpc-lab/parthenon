@@ -74,7 +74,6 @@ using parthenon::loop_pattern_mdrange_tag;
 using parthenon::MeshBlock;
 using parthenon::Metadata;
 using parthenon::MetadataFlag;
-using parthenon::PackVariables;
 using parthenon::par_for;
 using parthenon::ParArray4D;
 using parthenon::ParArrayND;
@@ -122,47 +121,6 @@ double kernel_timer_wrapper(const int n_burn, const int n_perf, PerfFunc perf_fu
   double perf_time = timer.seconds();
 
   return perf_time;
-}
-
-// Test wrapper for timing a container on the square array test
-double container_test_wrapper(const int n_burn, const int n_perf,
-                              Container<Real> &container_in,
-                              Container<Real> &container_out) {
-  // Setup a variable pack
-  auto var_view_in = PackVariables<Real>(container_in, {Metadata::Independent});
-  auto var_view_out = PackVariables<Real>(container_out, {Metadata::Independent});
-
-  // Test performance of view of views VariablePack implementation
-  return kernel_timer_wrapper(n_burn, n_perf, [&]() {
-    par_for(
-        "Flat Container Array Perf", DevExecSpace(), 0, var_view_in.GetDim(4) - 1, 0,
-        var_view_in.GetDim(3) - 1, 0, var_view_in.GetDim(2) - 1, 0,
-        var_view_in.GetDim(1) - 1,
-        KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
-          var_view_out(l, k, j, i) = 2. * var_view_in(l, k, j, i);
-        });
-  });
-}
-
-// Test wrapper for timing a container on the square array test
-double container_always_pack_test_wrapper(const int n_burn, const int n_perf,
-                                          Container<Real> &container_in,
-                                          Container<Real> &container_out) {
-
-  // Test performance of view of views VariablePack implementation
-  return kernel_timer_wrapper(n_burn, n_perf, [&]() {
-    // Setup a variable pack
-    auto var_view_in = PackVariables<Real>(container_in, {Metadata::Independent});
-    auto var_view_out = PackVariables<Real>(container_out, {Metadata::Independent});
-
-    par_for(
-        "Flat Container Array Perf", DevExecSpace(), 0, var_view_in.GetDim(4) - 1, 0,
-        var_view_in.GetDim(3) - 1, 0, var_view_in.GetDim(2) - 1, 0,
-        var_view_in.GetDim(1) - 1,
-        KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
-          var_view_out(l, k, j, i) = 2. * var_view_in(l, k, j, i);
-        });
-  });
 }
 
 void usage(std::string program) {
@@ -271,11 +229,11 @@ int main(int argc, char *argv[]) {
     double time_basic;
     {
       MeshBlock *pStart = allBlocks[0];
-      time_basic = kernel_timer_wrapper(n_iter, n_iter, [&]() {
+      time_basic = kernel_timer_wrapper(0, n_iter, [&]() {
         MeshBlock *pmb = pStart;
         for (int iMesh = 0; iMesh < n_mesh3; iMesh++, pmb = pmb->next) {
           Container<Real> &base = pmb->real_containers.Get();
-          auto inOrOut = PackVariables<Real>(base, {Metadata::Independent});
+          auto inOrOut = base.PackVariables({Metadata::Independent});
           // iops = 8  fops = 11
           Kokkos::parallel_for(
               "Compute In Or Out", policyBlock, KOKKOS_LAMBDA(const int &idx) {
@@ -306,7 +264,7 @@ int main(int argc, char *argv[]) {
       MeshBlock *pmb = allBlocks[0];
       for (int iMesh = 0; iMesh < n_mesh3; iMesh++, pmb = pmb->next) {
         Container<Real> &base = pmb->real_containers.Get();
-        auto inOrOut = PackVariables<Real>(base, {Metadata::Independent});
+        auto inOrOut = base.PackVariables({Metadata::Independent});
         double onePi;
         Kokkos::parallel_reduce(
             "Reduce Sum", policyBlock,
