@@ -46,13 +46,14 @@
 // We plan to explore using a flat range and a MDRange within par_for
 // and using flat range and MDRange in Kokkos
 //
-#include "Kokkos_Core.hpp"
 
 #include <array>
 #include <iostream>
 #include <memory>
 #include <string>
 #include <vector>
+
+#include "Kokkos_Core.hpp"
 
 #include "basic_types.hpp"
 #include "interface/container.hpp"
@@ -95,17 +96,15 @@ double calcGops(const int &nops, const double &t, const int &n_block3, const int
                 const int &n_iter) {
   return (static_cast<Real>(nops * n_iter) / t / 1.0e9 * static_cast<Real>(n_block3) *
           static_cast<Real>(n_mesh3));
-};
+}
 
 // Test wrapper to run a function multiple times
 template <typename PerfFunc>
 double kernel_timer_wrapper(const int n_burn, const int n_perf, PerfFunc perf_func) {
-
   // Initialize the timer and test
   Kokkos::Timer timer;
 
   for (int i_run = 0; i_run < n_burn + n_perf; i_run++) {
-
     if (i_run == n_burn) {
       // Burn in time is over, start timing
       Kokkos::fence();
@@ -138,7 +137,6 @@ void usage(std::string program) {
 int main(int argc, char *argv[]) {
   Kokkos::initialize(argc, argv);
   do {
-
     // ensure we have correct number of arguments
     if (!(argc == 4 || argc == 5)) {
       std::cout << "argc=" << argc << std::endl;
@@ -293,7 +291,6 @@ int main(int argc, char *argv[]) {
            "%.16lf GIops=%.16lf\n",
            myPi, time_basic, calcGops(nfops, time_basic, n_block3, n_mesh3, n_iter),
            calcGops(niops, time_basic, n_block3, n_mesh3, n_iter));
-
   } while (0);
   Kokkos::finalize();
 }
