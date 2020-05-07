@@ -110,8 +110,7 @@ void Container<T>::Add(const std::string label, const Metadata &metadata,
 // the variables returned are all shallow copies of the src container.
 // Optionally extract only some of the sparse ids of src variable.
 template <typename T>
-Container<T>::Container(const Container<T> &src,
-                        const std::vector<std::string> &names,
+Container<T>::Container(const Container<T> &src, const std::vector<std::string> &names,
                         const std::vector<int> sparse_ids) {
   auto var_map = src.GetCellVariableMap();
   auto sparse_map = src.GetSparseMap();
@@ -127,15 +126,14 @@ Container<T>::Container(const Container<T> &src,
     auto sv = sparse_map.find(name);
     if (sv != sparse_map.end()) {
       if (found) {
-        std::cerr << "Container: " << name << " found more than once!"
-                  << std::endl;
+        std::cerr << "Container: " << name << " found more than once!" << std::endl;
         std::exit(1);
       }
       found = true;
       std::shared_ptr<SparseVariable<T>> newvar;
       if (sparse_ids.size() > 0) {
-        newvar = std::make_shared<SparseVariable<T>>(sv->second,sparse_ids);
-      } else{
+        newvar = std::make_shared<SparseVariable<T>>(sv->second, sparse_ids);
+      } else {
         newvar = sv->second;
       }
       sparseMap_[sv->first] = newvar;
@@ -144,8 +142,7 @@ Container<T>::Container(const Container<T> &src,
     auto fv = face_map.find(name);
     if (fv != face_map.end()) {
       if (found) {
-        std::cerr << "Container: " << name << " found more than once!"
-                  << std::endl;
+        std::cerr << "Container: " << name << " found more than once!" << std::endl;
         std::exit(1);
       }
       found = true;
@@ -153,15 +150,13 @@ Container<T>::Container(const Container<T> &src,
       faceVector_.push_back(fv->second);
     }
     if (!found) {
-      std::cerr << "Container: " << name << " not found!"
-                << std::endl;
+      std::cerr << "Container: " << name << " not found!" << std::endl;
       std::exit(1);
     }
   }
 }
-template<typename T>
-Container<T>::Container(const Container<T> &src,
-                        const std::vector<MetadataFlag> &flags) {
+template <typename T>
+Container<T>::Container(const Container<T> &src, const std::vector<MetadataFlag> &flags) {
   auto var_map = src.GetCellVariableMap();
   auto sparse_map = src.GetSparseMap();
   auto face_map = src.GetFaceMap();
@@ -190,7 +185,6 @@ Container<T>::Container(const Container<T> &src,
     }
   }
 }
-
 
 // provides a container that has a single sparse slice
 template <typename T>
@@ -232,8 +226,20 @@ Container<T> Container<T>::SparseSlice(int id) {
 /// Queries related to variable packs
 /// TODO(JMM): Make sure this is thread-safe
 /// TODO(JMM): Should the vector of names be sorted to enforce uniqueness?
+/// This is a helper function that queries the cache for the given pack.
+/// The strings are the keys and the lists are the values.
+/// Inputs:
+/// var_names = vector of names of variables to pack
+/// flx_names = vector of names of flux variables to pack
+/// vars = forward list of shared pointers of vars to pack
+/// fvars = forward list of shared pointers of fluxes to pack
+/// Outputs:
+/// vmap = std::map from names to std::pairs of indices
+///        indices are the locations in the outer Kokkos::view of the pack
+///        indices represent inclusive bounds for, e.g., a sparse or tensor-valued
+///        variable.
 template <typename T>
-VariableFluxPack<T> Container<T>::PackVariablesAndFluxes_(
+VariableFluxPack<T> Container<T>::PackVariablesAndFluxesHelper_(
     const std::vector<std::string> &var_names, const std::vector<std::string> &flx_names,
     const vpack_types::VarList<T> &vars, const vpack_types::VarList<T> &fvars,
     PackIndexMap &vmap) {
@@ -259,11 +265,14 @@ VariableFluxPack<T>
 Container<T>::PackVariablesAndFluxes(const std::vector<std::string> &var_names,
                                      const std::vector<std::string> &flx_names,
                                      PackIndexMap &vmap) {
-  static std::vector<std::string> all_names;
-  static std::vector<std::string> all_flux_names;
-  vpack_types::VarList<T> vars = MakeList_(var_names, all_names);
+  // expanded names expands sparse variables to varname_idx, where idx is the sparse index
+  // this is required since not all sparse indices of a variable are necessarily
+  // included in a pack.
+  std::vector<std::string> expanded_names;
+  std::vector<std::string> all_flux_names;
+  vpack_types::VarList<T> vars = MakeList_(var_names, expanded_names);
   vpack_types::VarList<T> fvars = MakeList_(flx_names, all_flux_names);
-  return PackVariablesAndFluxes_(all_names, all_flux_names, vars, fvars, vmap);
+  return PackVariablesAndFluxesHelper_(expanded_names, all_flux_names, vars, fvars, vmap);
 }
 template <typename T>
 VariableFluxPack<T>
@@ -276,11 +285,9 @@ template <typename T>
 VariableFluxPack<T>
 Container<T>::PackVariablesAndFluxes(const std::vector<MetadataFlag> &flags,
                                      PackIndexMap &vmap) {
-  // TODO(JMM): making this static saves allocations per call
-  // but will not be thread safe.
-  static std::vector<std::string> vnams;
+  std::vector<std::string> vnams;
   vpack_types::VarList<T> vars = MakeList_(flags, vnams);
-  return PackVariablesAndFluxes_(vnams, vnams, vars, vars, vmap);
+  return PackVariablesAndFluxesHelper_(vnams, vnams, vars, vars, vmap);
 }
 template <typename T>
 VariableFluxPack<T>
@@ -289,10 +296,20 @@ Container<T>::PackVariablesAndFluxes(const std::vector<MetadataFlag> &flags) {
   return PackVariablesAndFluxes(flags, vmap);
 }
 
+/// This is a helper function that queries the cache for the given pack.
+/// The strings are the keys and the lists are the values.
+/// Inputs:
+/// var_names = vector of names of variables to pack
+/// vars = forward list of shared pointers of vars to pack
+/// Outputs:
+/// vmap = std::map from names to std::pairs of indices
+///        indices are the locations in the outer Kokkos::view of the pack
+///        indices represent inclusive bounds for, e.g., a sparse or tensor-valued
+///        variable.
 template <typename T>
-VariablePack<T> Container<T>::PackVariables_(const std::vector<std::string> &names,
-                                             const vpack_types::VarList<T> &vars,
-                                             PackIndexMap &vmap) {
+VariablePack<T> Container<T>::PackVariablesHelper_(const std::vector<std::string> &names,
+                                                   const vpack_types::VarList<T> &vars,
+                                                   PackIndexMap &vmap) {
   auto kvpair = varPackMap_.find(names);
   if (kvpair == varPackMap_.end()) {
     auto pack = MakePack<T>(vars, &vmap);
@@ -312,9 +329,9 @@ template <typename T>
 VariablePack<T> Container<T>::PackVariables(const std::vector<std::string> &names,
                                             const std::vector<int> &sparse_ids,
                                             PackIndexMap &vmap) {
-  static std::vector<std::string> all_names;
-  vpack_types::VarList<T> vars = MakeList_(names, all_names, sparse_ids);
-  return PackVariables_(all_names, vars, vmap);
+  std::vector<std::string> expanded_names;
+  vpack_types::VarList<T> vars = MakeList_(names, expanded_names, sparse_ids);
+  return PackVariablesHelper_(expanded_names, vars, vmap);
 }
 template <typename T>
 VariablePack<T> Container<T>::PackVariables(const std::vector<std::string> &names,
@@ -335,9 +352,9 @@ VariablePack<T> Container<T>::PackVariables(const std::vector<std::string> &name
 template <typename T>
 VariablePack<T> Container<T>::PackVariables(const std::vector<MetadataFlag> &flags,
                                             PackIndexMap &vmap) {
-  static std::vector<std::string> vnams;
+  std::vector<std::string> vnams;
   vpack_types::VarList<T> vars = MakeList_(flags, vnams);
-  return PackVariables_(vnams, vars, vmap);
+  return PackVariablesHelper_(vnams, vars, vmap);
 }
 template <typename T>
 VariablePack<T> Container<T>::PackVariables(const std::vector<MetadataFlag> &flags) {
@@ -346,37 +363,27 @@ VariablePack<T> Container<T>::PackVariables(const std::vector<MetadataFlag> &fla
 }
 template <typename T>
 VariablePack<T> Container<T>::PackVariables(PackIndexMap &vmap) {
-  static std::vector<std::string> vnams;
+  std::vector<std::string> vnams;
   vpack_types::VarList<T> vars = MakeList_(vnams);
-  return PackVariables_(vnams, vars, vmap);
+  return PackVariablesHelper_(vnams, vars, vmap);
 }
 template <typename T>
 VariablePack<T> Container<T>::PackVariables() {
   PackIndexMap vmap;
   return PackVariables(vmap);
 }
-template <typename T>
-vpack_types::VarList<T> Container<T>::MakeList_(const std::vector<std::string> &names,
-                                                std::vector<std::string> &names_out,
-                                                const std::vector<int> sparse_ids) {
-  auto subcontainer = Container(*this, names, sparse_ids);
-  auto vars = subcontainer.MakeList_(names_out);
-  return vars;
-}
 
+// From a given container, extract all variables and all fields in sparse variables
+// into a single linked list of variables. The sparse fields are then named
+// variable_index.
+// The names of the non-sparse variables and the sparse fields are then
+// packed into the std::vector "expanded_names," which is used as the key for
+// the pack cache.
 template <typename T>
-vpack_types::VarList<T> Container<T>::MakeList_(const std::vector<MetadataFlag> &flags,
-                                                std::vector<std::string> &labels) {
-  auto subcontainer = Container(*this, flags);
-  auto vars = subcontainer.MakeList_(labels);
-  return vars;
-}
-
-template <typename T>
-vpack_types::VarList<T> Container<T>::MakeList_(std::vector<std::string> &names) {
+vpack_types::VarList<T> Container<T>::MakeList_(std::vector<std::string> &expanded_names) {
   int size = 0;
   vpack_types::VarList<T> vars;
-  // reverse iteration through variables to make list correct
+  // reverse iteration through variables to preserve ordering in forward list
   for (auto it = varVector_.rbegin(); it != varVector_.rend(); ++it) {
     auto v = *it;
     vars.push_front(v);
@@ -391,13 +398,33 @@ vpack_types::VarList<T> Container<T>::MakeList_(std::vector<std::string> &names)
       size++;
     }
   }
-  // second sweep to get the names in the same order as the list
-  // faster than push_back
-  names.resize(size);
+  // second sweep to get the expanded names in the same order as the list.
+  // Resize is faster than insert or push_back, since it requires
+  // only one resize and O(N) copies.
+  expanded_names.resize(size);
   int it = 0;
   for (auto &v : vars) {
-    names[it++] = v->label();
+    expanded_names[it++] = v->label();
   }
+  return vars;
+}
+// These versions do the same as above, but instead of adding the full container,
+// they add a subset of the container... specified by either variable names
+// or by metadata flags. In the case of names, the list can optionally only contain
+// some subset of the sparse ids in a sparse variable.
+template <typename T>
+vpack_types::VarList<T> Container<T>::MakeList_(const std::vector<std::string> &names,
+                                                std::vector<std::string> &expanded_names,
+                                                const std::vector<int> sparse_ids) {
+  auto subcontainer = Container(*this, names, sparse_ids);
+  auto vars = subcontainer.MakeList_(expanded_names);
+  return vars;
+}
+template <typename T>
+vpack_types::VarList<T> Container<T>::MakeList_(const std::vector<MetadataFlag> &flags,
+                                                std::vector<std::string> &expanded_names) {
+  auto subcontainer = Container(*this, flags);
+  auto vars = subcontainer.MakeList_(expanded_names);
   return vars;
 }
 
