@@ -18,8 +18,6 @@
 /// type in the Container itself, but for now we have to do it this
 /// way because Sriram doesn't know enough C++ to do this correctly.
 
-#include <array>
-#include <memory>
 #include <string>
 #include <vector>
 

@@ -82,3 +82,7 @@ The tasking capabilities in Parthenon are documented [here](tasks.md).
 
 Check [here](outputs.md) for a description of how to get data out of Parthenon and how to visualize it.
 
+### Containers and Container Iterators
+
+See [here](interface/containers.md) for a description of containers,
+container iterators, and variable packs.
