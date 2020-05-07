@@ -380,7 +380,8 @@ VariablePack<T> Container<T>::PackVariables() {
 // packed into the std::vector "expanded_names," which is used as the key for
 // the pack cache.
 template <typename T>
-vpack_types::VarList<T> Container<T>::MakeList_(std::vector<std::string> &expanded_names) {
+vpack_types::VarList<T>
+Container<T>::MakeList_(std::vector<std::string> &expanded_names) {
   int size = 0;
   vpack_types::VarList<T> vars;
   // reverse iteration through variables to preserve ordering in forward list
@@ -421,8 +422,9 @@ vpack_types::VarList<T> Container<T>::MakeList_(const std::vector<std::string> &
   return vars;
 }
 template <typename T>
-vpack_types::VarList<T> Container<T>::MakeList_(const std::vector<MetadataFlag> &flags,
-                                                std::vector<std::string> &expanded_names) {
+vpack_types::VarList<T>
+Container<T>::MakeList_(const std::vector<MetadataFlag> &flags,
+                        std::vector<std::string> &expanded_names) {
   auto subcontainer = Container(*this, flags);
   auto vars = subcontainer.MakeList_(expanded_names);
   return vars;
