@@ -22,6 +22,7 @@
 #include "globals.hpp"
 #include "interface/sparse_variable.hpp"
 #include "interface/variable.hpp"
+#include "interface/variable_pack.hpp"
 
 namespace parthenon {
 
@@ -52,6 +53,12 @@ class Container {
   //-----------------
   /// Constructor
   Container<T>() = default;
+  // Constructors for getting sub-containers
+  // the variables returned are all shallow copies of the src container.
+  // Optionally extract only some of the sparse ids of src variable.
+  Container<T>(const Container<T> &src, const std::vector<std::string> &names,
+               const std::vector<int> sparse_ids = {});
+  Container<T>(const Container<T> &src, const std::vector<MetadataFlag> &flags);
 
   /// We can initialize a container with slices from a different
   /// container.  For variables that have the sparse tag, this will
@@ -224,7 +231,28 @@ class Container {
                        std::map<std::string, std::pair<int, int>> &indexCount,
                        const std::vector<int> &sparse_ids = {});
 
-  ///
+  /// Queries related to variable packs
+  VariableFluxPack<T> PackVariablesAndFluxes(const std::vector<std::string> &var_names,
+                                             const std::vector<std::string> &flx_names,
+                                             PackIndexMap &vmap);
+  VariableFluxPack<T> PackVariablesAndFluxes(const std::vector<std::string> &var_names,
+                                             const std::vector<std::string> &flx_names);
+  VariableFluxPack<T> PackVariablesAndFluxes(const std::vector<MetadataFlag> &flags,
+                                             PackIndexMap &vmap);
+  VariableFluxPack<T> PackVariablesAndFluxes(const std::vector<MetadataFlag> &flags);
+  VariablePack<T> PackVariables(const std::vector<std::string> &names,
+                                const std::vector<int> &sparse_ids, PackIndexMap &vmap);
+  VariablePack<T> PackVariables(const std::vector<std::string> &names,
+                                const std::vector<int> &sparse_ids);
+  VariablePack<T> PackVariables(const std::vector<std::string> &names,
+                                PackIndexMap &vmap);
+  VariablePack<T> PackVariables(const std::vector<std::string> &names);
+  VariablePack<T> PackVariables(const std::vector<MetadataFlag> &flags,
+                                PackIndexMap &vmap);
+  VariablePack<T> PackVariables(const std::vector<MetadataFlag> &flags);
+  VariablePack<T> PackVariables(PackIndexMap &vmap);
+  VariablePack<T> PackVariables();
+
   /// Remove a variable from the container or throw exception if not
   /// found.
   /// @param label the name of the variable to be deleted
@@ -313,8 +341,30 @@ class Container {
   MapToFace<T> faceMap_ = {};
   MapToSparse<T> sparseMap_ = {};
 
+  MapToVariablePack<T> varPackMap_ = {};
+  MapToVariableFluxPack<T> varFluxPackMap_ = {};
+
   void calcArrDims_(std::array<int, 6> &arrDims, const std::vector<int> &dims,
                     const Metadata &metadata);
+
+  // helper functions for VariablePack
+  vpack_types::VarList<T> MakeList_(const std::vector<std::string> &names,
+                                    std::vector<std::string> &names_out,
+                                    const std::vector<int> sparse_ids = {});
+  vpack_types::VarList<T> MakeList_(const std::vector<MetadataFlag> &flags,
+                                    std::vector<std::string> &labels);
+  vpack_types::VarList<T> MakeList_(std::vector<std::string> &names);
+
+  // These helper functions are private scope because they assume that
+  // the names include the components of sparse variables.
+  VariableFluxPack<T>
+  PackVariablesAndFluxesHelper_(const std::vector<std::string> &var_names,
+                                const std::vector<std::string> &flx_names,
+                                const vpack_types::VarList<T> &vars,
+                                const vpack_types::VarList<T> &fvars, PackIndexMap &vmap);
+  VariablePack<T> PackVariablesHelper_(const std::vector<std::string> &names,
+                                       const vpack_types::VarList<T> &vars,
+                                       PackIndexMap &vmap);
 };
 
 } // namespace parthenon

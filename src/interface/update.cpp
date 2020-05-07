@@ -18,12 +18,9 @@
 
 #include "coordinates/coordinates.hpp"
 #include "interface/container.hpp"
-#include "interface/container_iterator.hpp"
 #include "mesh/mesh.hpp"
 
 #include "kokkos_abstraction.hpp"
-using parthenon::DevExecSpace;
-using parthenon::par_for;
 
 namespace parthenon {
 
@@ -38,19 +35,14 @@ TaskStatus FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
   int je = pmb->je;
   int ke = pmb->ke;
 
-  Metadata m;
-  ContainerIterator<Real> cin_iter(in, {Metadata::Independent});
-  ContainerIterator<Real> cout_iter(dudt_cont, {Metadata::Independent});
-  int nvars = cout_iter.vars.size();
-
-  auto vin = PackVariablesAndFluxes<Real>(in, {Metadata::Independent});
-  auto dudt = PackVariables<Real>(dudt_cont, {Metadata::Independent});
+  auto vin = in.PackVariablesAndFluxes({Metadata::Independent});
+  auto dudt = dudt_cont.PackVariables({Metadata::Independent});
 
   auto pc = pmb->pcoord.get();
   int ndim = pmb->pmy_mesh->ndim;
   // ParArrayND<Real> du("du", pmb->ncells1);
-  par_for(
-      "flux divergence", DevExecSpace(), 0, vin.GetDim(4) - 1, ks, ke, js, je, is, ie,
+  pmb->par_for(
+      "flux divergence", 0, vin.GetDim(4) - 1, ks, ke, js, je, is, ie,
       KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
         dudt(l, k, j, i) = 0.0;
         dudt(l, k, j, i) += (pc->GetFace1Area(k, j, i + 1) * vin.flux(0, l, k, j, i + 1) -
@@ -81,18 +73,13 @@ void UpdateContainer(Container<Real> &in, Container<Real> &dudt_cont, const Real
   int je = pmb->je;
   int ke = pmb->ke;
 
-  Metadata m;
-  /*ContainerIterator<Real> cin_iter(in, {Metadata::Independent});
-  ContainerIterator<Real> cout_iter(out, {Metadata::Independent});
-  ContainerIterator<Real> du_iter(dudt_cont, {Metadata::Independent});*/
-  auto vin = PackVariables(in, {Metadata::Independent});
-  auto vout = PackVariables(out, {Metadata::Independent});
-  auto dudt = PackVariables(dudt_cont, {Metadata::Independent});
-  // int nvars = cout_iter.vars.size();
+  auto vin = in.PackVariables({Metadata::Independent});
+  auto vout = out.PackVariables({Metadata::Independent});
+  auto dudt = dudt_cont.PackVariables({Metadata::Independent});
 
-  par_for(
-      "UpdateContainer", DevExecSpace(), 0, vin.GetDim(4) - 1, 0, vin.GetDim(3) - 1, 0,
-      vin.GetDim(2) - 1, 0, vin.GetDim(1) - 1,
+  pmb->par_for(
+      "UpdateContainer", 0, vin.GetDim(4) - 1, 0, vin.GetDim(3) - 1, 0, vin.GetDim(2) - 1,
+      0, vin.GetDim(1) - 1,
       KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
         vout(l, k, j, i) = vin(l, k, j, i) + dt * dudt(l, k, j, i);
       });
@@ -108,11 +95,11 @@ void AverageContainers(Container<Real> &c1, Container<Real> &c2, const Real wgt1
   int je = pmb->je;
   int ke = pmb->ke;
 
-  auto v1 = PackVariables<Real>(c1, {Metadata::Independent});
-  auto v2 = PackVariables<Real>(c2, {Metadata::Independent});
+  auto v1 = c1.PackVariables({Metadata::Independent});
+  auto v2 = c2.PackVariables({Metadata::Independent});
 
-  par_for(
-      "AverageContainers", DevExecSpace(), 0, v1.GetDim(4) - 1, ks, ke, js, je, is, ie,
+  pmb->par_for(
+      "AverageContainers", 0, v1.GetDim(4) - 1, ks, ke, js, je, is, ie,
       KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
         v1(l, k, j, i) = wgt1 * v1(l, k, j, i) + (1 - wgt1) * v2(l, k, j, i);
       });
