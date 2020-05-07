@@ -15,6 +15,7 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 #include <array>
+#include <cmath>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -44,6 +45,19 @@ using parthenon::par_for;
 using parthenon::ParArray4D;
 using parthenon::ParArrayND;
 using parthenon::Real;
+
+bool indx_between_bounds(int indx, const std::pair<int,int> &bnds) {
+  if (indx < bnds.first) return false;
+  if (indx > bnds.second) return false;
+  return true;
+}
+bool intervals_intersect(const std::pair<int,int> &i1, const std::pair<int,int> &i2) {
+  if (indx_between_bounds(i1.first,i2)) return true;
+  if (indx_between_bounds(i1.second,i2)) return true;
+  if (indx_between_bounds(i2.first,i1)) return true;
+  if (indx_between_bounds(i2.second,i1)) return true;
+  return false;
+}
 
 TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIterator]") {
   GIVEN("A Container with a set of variables initialized to zero") {
@@ -161,18 +175,24 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
       const int iv3lo = vmap["v3"].first;
       const int iv3hi = vmap["v3"].second;
       const int iv6 = vmap["v6"].first;
-      THEN("The indices match our expectations") {
-        REQUIRE( iv3lo == 0 );
-        REQUIRE( iv3hi == 2 );
-        REQUIRE( iv6 == 3 );
+      THEN( "The pack indices are all different" ) {
+        REQUIRE( iv3hi > iv3lo );
+        REQUIRE( iv3hi != iv6 );
+        REQUIRE( iv3lo != iv6 );
+        if (iv6 > iv3lo) REQUIRE( iv6 > iv3hi );
       }
       par_for(
           "Initialize variables", DevExecSpace(), 0, v.GetDim(3) - 1, 0, v.GetDim(2) - 1,
           0, v.GetDim(1) - 1, KOKKOS_LAMBDA(const int k, const int j, const int i) {
-            v(1, k, j, i) = 1.0; // should correspond with iv3lo+1
-            v(3, k, j, i) = 3.0; // should correspond with iv6
+            v(iv3lo+1, k, j, i) = 1.0;
+            v(iv6, k, j, i) = 3.0;
           });
       THEN("the values should as we expect") {
+        PackIndexMap vmap; // recompute the pack
+        auto v = rc.PackVariables(std::vector<std::string>({"v3", "v6"}), vmap);
+        const int iv3lo = vmap["v3"].first;
+        const int iv3hi = vmap["v3"].second;
+        const int iv6 = vmap["v6"].first;
         using policy4D = Kokkos::MDRangePolicy<Kokkos::Rank<4>>;
         Real total = 0.0;
         Real sum = 1.0;
@@ -250,15 +270,19 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
       THEN("the low and high index bounds are correct as returned by PackVariables") {
         PackIndexMap imap;
         auto v = rc.PackVariables({"v3", "v6", "vsparse"}, imap);
-        REQUIRE(imap["vsparse"].first == 4);
-        REQUIRE(imap["vsparse"].second == 6);
+        REQUIRE(imap["vsparse"].second == imap["vsparse"].first + 2);
+        REQUIRE(imap["v6"].second == imap["v6"].first);
+        REQUIRE(imap["v3"].second == imap["v3"].first + 2);
+        REQUIRE( !indx_between_bounds(imap["v6"].first, imap["v3"]) );
+        REQUIRE( !indx_between_bounds(imap["v6"].first, imap["vsparse"]) );
+        REQUIRE( !intervals_intersect(imap["v3"], imap["vsparse"]) );
       }
       AND_THEN("bounds are still correct if I get just a subset of the sparse fields") {
         PackIndexMap imap;
         auto v = rc.PackVariables({"v3", "vsparse"}, {1, 42}, imap);
-        REQUIRE(imap["vsparse"].first == 3);
-        REQUIRE(imap["vsparse"].second == 4);
-        REQUIRE(imap["vsparse_42"].first == 4);
+        REQUIRE(imap["vsparse"].second == imap["vsparse"].first + 1);
+        REQUIRE( std::abs(imap["vsparse_42"].first - imap["vsparse_1"].first) == 1 );
+        REQUIRE( !intervals_intersect(imap["v3"],imap["vsparse"]) );
       }
     }
   }

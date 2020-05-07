@@ -59,6 +59,8 @@ class Container {
   Container<T>(const Container<T> &src,
                const std::vector<std::string> &names,
                const std::vector<int> sparse_ids = {});
+  Container<T>(const Container<T> &src,
+               const std::vector<MetadataFlag> &flags);
 
   /// We can initialize a container with slices from a different
   /// container.  For variables that have the sparse tag, this will

@@ -159,6 +159,38 @@ Container<T>::Container(const Container<T> &src,
     }
   }
 }
+template<typename T>
+Container<T>::Container(const Container<T> &src,
+                        const std::vector<MetadataFlag> &flags) {
+  auto var_map = src.GetCellVariableMap();
+  auto sparse_map = src.GetSparseMap();
+  auto face_map = src.GetFaceMap();
+  for (auto &it : var_map) {
+    auto n = it.first;
+    auto v = it.second;
+    if (v->metadata().AnyFlagsSet(flags)) {
+      varVector_.push_back(v);
+      varMap_[n] = v;
+    }
+  }
+  for (auto &it : sparse_map) {
+    auto n = it.first;
+    auto v = it.second;
+    if (v->metadata().AnyFlagsSet(flags)) {
+      sparseVector_.push_back(v);
+      sparseMap_[n] = v;
+    }
+  }
+  for (auto &it : face_map) {
+    auto n = it.first;
+    auto v = it.second;
+    if (v->metadata().AnyFlagsSet(flags)) {
+      faceVector_.push_back(v);
+      faceMap_[n] = v;
+    }
+  }
+}
+
 
 // provides a container that has a single sparse slice
 template <typename T>
@@ -335,38 +367,36 @@ vpack_types::VarList<T> Container<T>::MakeList_(const std::vector<std::string> &
 template <typename T>
 vpack_types::VarList<T> Container<T>::MakeList_(const std::vector<MetadataFlag> &flags,
                                                 std::vector<std::string> &labels) {
-  labels.clear();
-  vpack_types::VarList<T> vars;
-  for (const auto &v : GetCellVariableVector()) {
-    if (v->metadata().AnyFlagsSet(flags)) {
-      vars.push_front(v);
-      labels.push_back(v->label());
-    }
-  }
-  for (const auto &sv : GetSparseVector()) {
-    if (sv->metadata().AnyFlagsSet(flags)) {
-      for (const auto &v : sv->GetVector()) {
-        vars.push_front(v);
-        labels.push_back(v->label());
-      }
-    }
-  }
+  auto subcontainer = Container(*this, flags);
+  auto vars = subcontainer.MakeList_(labels);
   return vars;
 }
 
 template <typename T>
 vpack_types::VarList<T> Container<T>::MakeList_(std::vector<std::string> &names) {
-  names.clear();
+  int size = 0;
   vpack_types::VarList<T> vars;
-  for (const auto &v : GetCellVariableVector()) {
+  // reverse iteration through variables to make list correct
+  for (auto it = varVector_.rbegin(); it != varVector_.rend(); ++it) {
+    auto v = *it;
     vars.push_front(v);
-    names.push_back(v->label());
+    size++;
   }
-  for (const auto &sv : GetSparseVector()) {
-    for (const auto &v : sv->GetVector()) {
+  for (auto it = sparseVector_.rbegin(); it != sparseVector_.rend(); ++it) {
+    auto sv = *it;
+    auto varvector = sv->GetVector();
+    for (auto svit = varvector.rbegin(); svit != varvector.rend(); ++svit) {
+      auto v = *svit;
       vars.push_front(v);
-      names.push_back(v->label());
+      size++;
     }
+  }
+  // second sweep to get the names in the same order as the list
+  // faster than push_back
+  names.resize(size);
+  int it = 0;
+  for (auto &v : vars) {
+    names[it++] = v->label();
   }
   return vars;
 }
