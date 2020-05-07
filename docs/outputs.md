@@ -13,6 +13,9 @@ variables = density, velocity, & # comments are still ok
                                  # for multiline lists
 dt = 1.0
 ```
+This will produce an hdf5 (`.phdf`) output file every 1 units of
+simulation time containing the density, velocity, and energy of each
+cell.
 
 ## Python scripts
 

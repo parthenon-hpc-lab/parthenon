@@ -53,6 +53,12 @@ class Container {
   //-----------------
   /// Constructor
   Container<T>() = default;
+  // Constructors for getting sub-containers
+  // the variables returned are all shallow copies of the src container.
+  // Optionally extract only some of the sparse ids of src variable.
+  Container<T>(const Container<T> &src, const std::vector<std::string> &names,
+               const std::vector<int> sparse_ids = {});
+  Container<T>(const Container<T> &src, const std::vector<MetadataFlag> &flags);
 
   /// We can initialize a container with slices from a different
   /// container.  For variables that have the sparse tag, this will
@@ -351,13 +357,14 @@ class Container {
 
   // These helper functions are private scope because they assume that
   // the names include the components of sparse variables.
-  VariableFluxPack<T> PackVariablesAndFluxes_(const std::vector<std::string> &var_names,
-                                              const std::vector<std::string> &flx_names,
-                                              const vpack_types::VarList<T> &vars,
-                                              const vpack_types::VarList<T> &fvars,
-                                              PackIndexMap &vmap);
-  VariablePack<T> PackVariables_(const std::vector<std::string> &names,
-                                 const vpack_types::VarList<T> &vars, PackIndexMap &vmap);
+  VariableFluxPack<T>
+  PackVariablesAndFluxesHelper_(const std::vector<std::string> &var_names,
+                                const std::vector<std::string> &flx_names,
+                                const vpack_types::VarList<T> &vars,
+                                const vpack_types::VarList<T> &fvars, PackIndexMap &vmap);
+  VariablePack<T> PackVariablesHelper_(const std::vector<std::string> &names,
+                                       const vpack_types::VarList<T> &vars,
+                                       PackIndexMap &vmap);
 };
 
 } // namespace parthenon

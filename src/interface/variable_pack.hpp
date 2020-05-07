@@ -30,7 +30,11 @@ namespace parthenon {
 namespace vpack_types {
 template <typename T>
 using VarList = std::forward_list<std::shared_ptr<CellVariable<T>>>;
+// Sparse and/or scalar variables are multiple indices in the outer view of a pack
+// the pairs represent interval (inclusive) of thos indices
 using IndexPair = std::pair<int, int>;
+// Flux packs require a set of names for the variables and a set of names for the strings
+// and order matters. So StringPair forms the keys for the FluxPack cache.
 using StringPair = std::pair<std::vector<std::string>, std::vector<std::string>>;
 } // namespace vpack_types
 
@@ -85,26 +89,22 @@ class VariableFluxPack : public VariablePack<T> {
   int nflux_;
 };
 
-// mapping to a tuple instead of using multiple maps reduces # of lookups
-// this wouldn't be super important if lookup time was constant,
-// but std::maps are trees, not hash tables and have an O(log(N)) lookup.
+// Using std::map, not std::unordered_map because the key
+// would require a custom hashing function. Note this is slower: O(log(N))
+// instead of O(1).
 // Unfortunately, std::pair doesn't work. So I have to roll my own.
-// I have no idea why std::pair doesn't work.
-// It appears to be an interaction between caused by a std::map<key,std::pair>
+// It appears to be an interaction caused by a std::map<key,std::pair>
 // Possibly it's a compiler bug. gcc/7.4.0
 // ~JMM
-template <typename T>
-struct PackIndxPair {
-  VariablePack<T> pack;
+template <typename PackType>
+struct PackAndIndexMap {
+  PackType pack;
   PackIndexMap map;
 };
-// using PackIndxPair = std::pair<VariablePack<T>,PackIndexMap>;
 template <typename T>
-struct FluxPackIndxPair {
-  VariableFluxPack<T> pack;
-  PackIndexMap map;
-};
-// using FluxPackIndxPair = std::pair<VariableFluxPack<T>,PackIndexMap>;
+using PackIndxPair = PackAndIndexMap<VariablePack<T>>;
+template <typename T>
+using FluxPackIndxPair = PackAndIndexMap<VariableFluxPack<T>>;
 template <typename T>
 using MapToVariablePack = std::map<std::vector<std::string>, PackIndxPair<T>>;
 template <typename T>

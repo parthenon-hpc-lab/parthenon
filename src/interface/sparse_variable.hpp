@@ -40,6 +40,22 @@ template <typename T>
 class SparseVariable {
  public:
   SparseVariable() = default;
+  // Copies src variable but only including chosen sparse ids.
+  SparseVariable(SparseVariable<T> &src, const std::vector<int> &sparse_ids)
+      : dims_(src.dims_), label_(src.label_), metadata_(src.metadata_) {
+    for (int id : sparse_ids) {
+      auto var = src.varMap_[id];
+      Add(id, var);
+    }
+  }
+  SparseVariable(std::shared_ptr<SparseVariable<T>> src,
+                 const std::vector<int> &sparse_ids)
+      : dims_(src->dims_), label_(src->label_), metadata_(src->metadata_) {
+    for (int id : sparse_ids) {
+      auto var = src->varMap_[id];
+      Add(id, var);
+    }
+  }
   SparseVariable(const std::string &label, const Metadata &m, std::array<int, 6> &dims)
       : dims_(dims), label_(label), metadata_(m) {}
 
