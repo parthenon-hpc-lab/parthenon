@@ -115,62 +115,62 @@ class IndexShape {
   }
 
   inline const IndexRange GetBoundsI(const IndexDomain &domain) const noexcept {
-    static_assert(NDIM>0 && "Cannot call GetBoundsI with NDIM < 1");
+    static_assert(NDIM > 0 && "Cannot call GetBoundsI with NDIM < 1");
     return (domain == IndexDomain::entire) ? IndexRange(0, entire_ncells_[0] - 1) : x_[0];
   }
 
   inline const IndexRange GetBoundsJ(const IndexDomain &domain) const noexcept {
-    static_assert(NDIM>1 && "Cannot call GetBoundsJ with NDIM < 2");
+    static_assert(NDIM > 1 && "Cannot call GetBoundsJ with NDIM < 2");
     return (domain == IndexDomain::entire) ? IndexRange(0, entire_ncells_[1] - 1) : x_[1];
   }
 
   inline const IndexRange GetBoundsK(const IndexDomain &domain) const noexcept {
-    static_assert(NDIM>2 && "Cannot call GetBoundsK with NDIM < 3");
+    static_assert(NDIM > 2 && "Cannot call GetBoundsK with NDIM < 3");
     return (domain == IndexDomain::entire) ? IndexRange(0, entire_ncells_[2] - 1) : x_[2];
   }
 
   inline int is(const IndexDomain &domain) const noexcept {
-    static_assert(NDIM>0 && "Cannot call is when initialized with NDIM < 1");
+    static_assert(NDIM > 0 && "Cannot call is when initialized with NDIM < 1");
     return (domain == IndexDomain::entire) ? 0 : x_[0].s;
   }
 
   inline int js(const IndexDomain &domain) const noexcept {
-    static_assert(NDIM>1 && "Cannot call js when initialized with NDIM < 2");
+    static_assert(NDIM > 1 && "Cannot call js when initialized with NDIM < 2");
     return (domain == IndexDomain::entire) ? 0 : x_[1].s;
   }
 
   inline int ks(const IndexDomain &domain) const noexcept {
-    static_assert(NDIM>2 && "Cannot call ks when initialized with NDIM < 3");
+    static_assert(NDIM > 2 && "Cannot call ks when initialized with NDIM < 3");
     return (domain == IndexDomain::entire) ? 0 : x_[2].s;
   }
 
   inline int ie(const IndexDomain &domain) const noexcept {
-    static_assert(NDIM>0 && "Cannot call ie when initialized with NDIM < 1");
+    static_assert(NDIM > 0 && "Cannot call ie when initialized with NDIM < 1");
     return (domain == IndexDomain::entire) ? entire_ncells_[0] - 1 : x_[0].e;
   }
 
   inline int je(const IndexDomain &domain) const noexcept {
-    static_assert(NDIM>1 && "Cannot call je when initialized with NDIM < 2");
+    static_assert(NDIM > 1 && "Cannot call je when initialized with NDIM < 2");
     return (domain == IndexDomain::entire) ? entire_ncells_[1] - 1 : x_[1].e;
   }
 
   inline int ke(const IndexDomain &domain) const noexcept {
-    static_assert(NDIM>2 && "Cannot call ke when initialized with NDIM < 3");
+    static_assert(NDIM > 2 && "Cannot call ke when initialized with NDIM < 3");
     return (domain == IndexDomain::entire) ? entire_ncells_[2] - 1 : x_[2].e;
   }
 
   inline int ncellsi(const IndexDomain &domain) const noexcept {
-    static_assert(NDIM>0 && "Cannot call ncellsi when initialized with NDIM < 1");
+    static_assert(NDIM > 0 && "Cannot call ncellsi when initialized with NDIM < 1");
     return (domain == IndexDomain::entire) ? entire_ncells_[0] : x_[0].ncells();
   }
 
   inline int ncellsj(const IndexDomain &domain) const noexcept {
-    static_assert(NDIM>1 && "Cannot call ncellsj when initialized with NDIM < 2");
+    static_assert(NDIM > 1 && "Cannot call ncellsj when initialized with NDIM < 2");
     return (domain == IndexDomain::entire) ? entire_ncells_[1] : x_[1].ncells();
   }
 
   inline int ncellsk(const IndexDomain &domain) const noexcept {
-    static_assert(NDIM>2 && "Cannot call ncellsk when initialized with NDIM < 3");
+    static_assert(NDIM > 2 && "Cannot call ncellsk when initialized with NDIM < 3");
     return (domain == IndexDomain::entire) ? entire_ncells_[2] : x_[2].ncells();
   }
 
