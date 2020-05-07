@@ -10,6 +10,42 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+// This is a simple example that uses par_for() to compute whether cell
+// centers sit within a unit sphere or not.  Adding up all the
+// cells that lie within a unit sphere gives us a way to compute pi.
+//
+// Note: The goal is to use different methods of iterating through
+// mesh blocks to see what works best for different architectures.
+// While this code could be sped up by checking the innermost and
+// outermost points of a mesh block, that would defeat the purpose of
+// this program, so please do not make that change.
+//
+// Since the mesh infrastructure is not yet usable on GPUs, we create
+// mesh blocks and chain them manually.  The cell coordinates are
+// computed based on the origin of the mesh block and given cell
+// sizes.  Once we have a canonical method of using a mesh on the GPU,
+// this code will be changed to reflect that.
+//
+// Usage: examples/kokkos_pi/kokkos-pi N_Block N_Mesh N_iter
+//          N_Block = size of each mesh block on each edge
+//           N_Mesh = Number of mesh blocks along each axis
+//           N_Iter = Number of timing iterations to run
+//         [Radius] = Optional: Radius of sphere (size of cube).
+//                    Defaults to 1.0
+//
+// The unit sphere is actually a unit octant that sits within a unit
+// square which runs from (0,0,0) to (1,1,1).  Hence, in the perfect
+// case, the sum of the interior would be pi/6. Our unit cube has
+// N_Mesh*N_Block cells that span from [0,1] which gives us a
+// dimension of 1.0/(N_Mesh*N_Block) for each side of the cell and the
+// rest can be computed accordingly.  The coordinates of each cell
+// within the block can be computed as:
+//      (x0+dx*i_grid,y0+dy*j_grid,z0+dx*k_grid).
+//
+// We plan to explore using a flat range and a MDRange within par_for
+// and using flat range and MDRange in Kokkos
+//
 #include "Kokkos_Core.hpp"
 
 #include <array>
@@ -24,14 +60,10 @@
 #include "interface/metadata.hpp"
 #include "interface/variable.hpp"
 #include "kokkos_abstraction.hpp"
+#include "mesh/mesh.hpp"
 #include "parthenon_arrays.hpp"
 
 using Real = double;
-using View1D = Kokkos::View<Real *, Kokkos::LayoutRight, Kokkos::DefaultExecutionSpace>;
-using View3D = Kokkos::View<Real ***, Kokkos::LayoutRight, Kokkos::DefaultExecutionSpace>;
-using View4D =
-    Kokkos::View<Real ****, Kokkos::LayoutRight, Kokkos::DefaultExecutionSpace>;
-using ViewOfView3D = Kokkos::View<View3D *>;
 
 using parthenon::CellVariable;
 using parthenon::CellVariableVector;
@@ -39,6 +71,7 @@ using parthenon::Container;
 using parthenon::ContainerIterator;
 using parthenon::DevExecSpace;
 using parthenon::loop_pattern_mdrange_tag;
+using parthenon::MeshBlock;
 using parthenon::Metadata;
 using parthenon::MetadataFlag;
 using parthenon::PackVariables;
@@ -46,6 +79,24 @@ using parthenon::par_for;
 using parthenon::ParArray4D;
 using parthenon::ParArrayND;
 using parthenon::Real;
+
+using View1D = Kokkos::View<Real *, Kokkos::LayoutRight, Kokkos::DefaultExecutionSpace>;
+using View2D = Kokkos::View<Real **, Kokkos::LayoutRight, Kokkos::DefaultExecutionSpace>;
+using View3D = Kokkos::View<Real ***, Kokkos::LayoutRight, Kokkos::DefaultExecutionSpace>;
+using View4D =
+    Kokkos::View<Real ****, Kokkos::LayoutRight, Kokkos::DefaultExecutionSpace>;
+using ViewOfView3D = Kokkos::View<View3D *>;
+using ViewMeshBlock1D =
+    Kokkos::View<MeshBlock *, Kokkos::LayoutRight, Kokkos::DefaultExecutionSpace>;
+using ViewMesh =
+    Kokkos::View<ViewMeshBlock1D, Kokkos::LayoutRight, Kokkos::DefaultExecutionSpace>;
+
+// simple giga-ops calculator
+double calcGops(const int &nops, const double &t, const int &n_block3,
+                const int &n_mesh3, const int &n_iter) {
+  return (static_cast<Real>(nops*n_iter) / t / 1.0e9 * static_cast<Real>(n_block3) *
+          static_cast<Real>(n_mesh3));
+};
 
 // Test wrapper to run a function multiple times
 template <typename PerfFunc>
@@ -116,192 +167,175 @@ double container_always_pack_test_wrapper(const int n_burn, const int n_perf,
 
 void usage(std::string program) {
   std::cout << std::endl
-            << "    Usage: " << program << " n_vars n_vector n_side n_run" << std::endl
-	    << std::endl
-            << "              n_vars = total number of columns" << std::endl
-            << "              n_vector = number of columns in each vector." << std::endl
-            << "                         Note that n_vars%n_vector must be 0" << std::endl
-            << "              n_side = number of cells on each side of block" << std::endl
-            << "              n_run = number of iterations to time" << std::endl
+            << "    Usage: " << program << " n_block n_mesh n_iter" << std::endl
+            << std::endl
+            << "             n_block = size of each mesh block on each axis" << std::endl
+            << "              n_mesh = number mesh blocks alogn each axis" << std::endl
+            << "              n_iter = number of iterations to time" << std::endl
+            << "            [Radius] = Optional: Radius of sphere" << std::endl
+            << "                                 Defaults to 1.0" << std::endl
             << std::endl;
 }
 
 int main(int argc, char *argv[]) {
   Kokkos::initialize(argc, argv);
-  {
-    std::size_t pos;
+  do {
 
     // ensure we have correct number of arguments
-    if (argc != 5) {
+    if (!(argc == 4 || argc == 5)) {
+      std::cout << "argc=" << argc << std::endl;
       usage(argv[0]);
-      exit(1);
+      break;
     }
 
-    const int n_var = std::stoi(argv[1], &pos);
-    const int n_vector = std::stoi(argv[2], &pos);
-    const int n_side = std::stoi(argv[3], &pos);
-    const int n_run = std::stoi(argv[4], &pos);
+    std::size_t pos;
+    Real radius = 1.0;
 
-    if (n_var % n_vector != 0) {
-      std::cerr << "Error! n_var \% n_vector =" << n_var % n_vector << " is not zero"
-                << std::endl;
-      exit(0);
+    // Read command line input
+    const int n_block = std::stoi(argv[1], &pos);
+    const int n_mesh = std::stoi(argv[2], &pos);
+    const int n_iter = std::stoi(argv[3], &pos);
+    if (argc == 5) {
+      radius = static_cast<Real>(std::stod(argv[4], &pos));
     }
 
-    // Order of iteration, fastest moving to slowest moving:
-    // x (full n_side), y (full n_side), z (only n_buf), var (n_var)
-    const int n_side2 = n_side * n_side;
-    const int n_side3 = n_side * n_side * n_side;
-    const int n_grid = n_side3;
+    // Setup auxilliary variables
+    const int n_block2 = n_block * n_block;
+    const int n_block3 = n_block * n_block * n_block;
+    const int n_mesh3 = n_mesh * n_mesh * n_mesh;
+    const double radius2 = radius * radius;
+    const double radius3 = radius * radius * radius;
+    const Real dxyzCell = radius / static_cast<Real>(n_mesh * n_block);
+    const Real dVol = radius3 / static_cast<Real>(n_mesh3 * n_block3);
 
-    //////////////////////////////////////////////////
-    // Do some plain Kokkos tests
-    //////////////////////////////////////////////////
+    // allocate space for origin coordinates and create host mirror view
+    View2D xyz("xyzBlocks", 3, n_mesh3);
+    auto h_xyz = Kokkos::create_mirror_view(xyz);
 
-    auto policy = Kokkos::RangePolicy<>(Kokkos::DefaultExecutionSpace(), 0,
-                                        n_var * n_grid, Kokkos::ChunkSize(512));
+    // *** Kludge warning ***
+    // Since our mesh is not GPU friendly we set up a hacked up
+    // collection of mesh blocks.  The hope is that when our mesh is
+    // up to par we will replace this code with the mesh
+    // infrastructure.
 
-    // Setup a raw 4D view
-    View4D view4d_in("view4d_in", n_var, n_side, n_side, n_side);
-    View4D view4d_out("view4d_out", n_var, n_side, n_side, n_side);
+    // Set up our mesh.
+    Metadata myMetadata({Metadata::Independent, Metadata::Cell});
 
-    double time_view4d = kernel_timer_wrapper(n_run, n_run, [&]() {
-      Kokkos::parallel_for(
-          "View4D Loop", policy, KOKKOS_LAMBDA(const int &idx) {
-            const int v_var = idx / n_side3;
-            const int k_grid = (idx - v_var * n_side3) / n_side2;
-            const int j_grid = (idx - v_var * n_side3 - k_grid * n_side2) / n_side;
-            const int i_grid = idx - v_var * n_side3 - k_grid * n_side2 - j_grid * n_side;
+    MeshBlock *lastBlock = nullptr;
+    MeshBlock *allBlocks[n_mesh3]; // probably not needed, but creating it so that we can
+                                   // launch many blocks
 
-            view4d_out(v_var, k_grid, j_grid, i_grid) =
-                2. * view4d_in(v_var, k_grid, j_grid, i_grid);
-          });
-    });
-
-    // Setup a view of views
-    ViewOfView3D view_of_view3d_in("view_of_view3d_in", n_var);
-    ViewOfView3D view_of_view3d_out("view_of_view3d_out", n_var);
-
-    auto h_view_of_view3d_in = Kokkos::create_mirror_view(view_of_view3d_in);
-    auto h_view_of_view3d_out = Kokkos::create_mirror_view(view_of_view3d_out);
-
-    for (int i = 0; i < n_var; i++) {
-      h_view_of_view3d_in[i] = View3D("view3d_in", n_side, n_side, n_side);
-      h_view_of_view3d_out[i] = View3D("view3d_out", n_side, n_side, n_side);
-    }
-    Kokkos::deep_copy(view_of_view3d_in, h_view_of_view3d_in);
-    Kokkos::deep_copy(view_of_view3d_out, h_view_of_view3d_out);
-
-    //////////////////////////////////////////////////
-    // Do some plain Kokkos tests
-    //////////////////////////////////////////////////
-
-    double time_view_of_view3d = kernel_timer_wrapper(n_run, n_run, [&]() {
-      Kokkos::parallel_for(
-          policy, KOKKOS_LAMBDA(const int &idx) {
-            const int v_var = idx / n_side3;
-            const int k_grid = (idx - v_var * n_side3) / n_side2;
-            const int j_grid = (idx - v_var * n_side3 - k_grid * n_side2) / n_side;
-            const int i_grid = idx - v_var * n_side3 - k_grid * n_side2 - j_grid * n_side;
-
-            // Get the 3D views
-            auto view3d_in = view_of_view3d_in(v_var);
-            auto view3d_out = view_of_view3d_out(v_var);
-
-            view3d_out(k_grid, j_grid, i_grid) = 2. * view3d_in(k_grid, j_grid, i_grid);
-          });
-    });
-
-    //////////////////////////////////////////////////
-    // Test Parthenon infrastructure
-    //////////////////////////////////////////////////
-
-    Metadata m_in({Metadata::Independent});
-    Metadata m_out({Metadata::Independent});
-    std::vector<int> scalar_block_size{n_side, n_side, n_side};
-    std::vector<int> vector_block_size{n_side, n_side, n_side, n_vector};
-    std::vector<int> n_var_block_size{n_side, n_side, n_side, n_var};
-
-    // Time a container with n_var scalars
-    Container<Real> container_scalars_in;
-    Container<Real> container_scalars_out;
-    for (int i = 0; i < n_var; i++) {
-      container_scalars_in.Add(std::string("s_in") + std::to_string(i), m_in,
-                               scalar_block_size);
-      container_scalars_out.Add(std::string("s_out") + std::to_string(i), m_out,
-                                scalar_block_size);
-    }
-    double time_scalars =
-        container_test_wrapper(n_run, n_run, container_scalars_in, container_scalars_out);
-
-    // Time a container with n_vector-vectors to have total n_var fields
-    Container<Real> container_vectors_in;
-    Container<Real> container_vectors_out;
-    for (int i = 0; i < n_var; i += n_vector) {
-      container_vectors_in.Add(std::string("v_in") + std::to_string(i), m_in,
-                               vector_block_size);
-      container_vectors_out.Add(std::string("v_out") + std::to_string(i), m_out,
-                                vector_block_size);
-    }
-    double time_vectors =
-        container_test_wrapper(n_run, n_run, container_vectors_in, container_vectors_out);
-
-    // Time a container with a mix of vectors and scalars, every other one, scalars to
-    // backfill
-    Container<Real> container_mix_in;
-    Container<Real> container_mix_out;
-    {
-      int i = 0;
-      bool add_scalar = true;
-      while (i < n_var) {
-        if (add_scalar) {
-          container_mix_in.Add(std::string("s_in") + std::to_string(i), m_in,
-                               scalar_block_size);
-          container_mix_out.Add(std::string("s_out") + std::to_string(i), m_out,
-                                scalar_block_size);
-          i++;
-          if (i + n_vector <= n_var) { // Add a vector if it will fit
-            add_scalar = false;
+    std::cout << "Begin setup " << std::endl;
+    int idxMesh = 0; // an index into AllBlocks array
+    for (int k_mesh = 0; k_mesh < n_mesh; k_mesh++) {
+      for (int j_mesh = 0; j_mesh < n_mesh; j_mesh++) {
+        for (int i_mesh = 0; i_mesh < n_mesh; i_mesh++, idxMesh++) {
+          // get a new meshblock
+          auto *pmb = new MeshBlock(n_block, 3);
+          // if not first block then add to chain
+          if (lastBlock) {
+            // set pointers accordingly
+            lastBlock->next = pmb;
+            pmb->prev = lastBlock;
           }
-        } else {
-          container_mix_in.Add(std::string("v_in") + std::to_string(i), m_in,
-                               vector_block_size);
-          container_mix_out.Add(std::string("v_out") + std::to_string(i), m_out,
-                                vector_block_size);
-          i += n_vector;
+
+          // store block away
+          lastBlock = allBlocks[idxMesh] = pmb;
+          // set coordinates of first cell center
+          h_xyz(0, idxMesh) = dxyzCell * (static_cast<Real>(i_mesh * n_block) + 0.5);
+          h_xyz(1, idxMesh) = dxyzCell * (static_cast<Real>(j_mesh * n_block) + 0.5);
+          h_xyz(2, idxMesh) = dxyzCell * (static_cast<Real>(k_mesh * n_block) + 0.5);
+          // Add our variable for in_or_out
+          Container<Real> &base = pmb->real_containers.Get();
+          base.setBlock(pmb);
+          base.Add("in_or_out", myMetadata);
         }
       }
     }
-    double time_mix =
-        container_test_wrapper(n_run, n_run, container_mix_in, container_mix_out);
+    // copy our coordinates over to Device and wait for completion
+    Kokkos::deep_copy(xyz, h_xyz);
+    Kokkos::fence();
 
-    // Time a container with one big vector
-    Container<Real> container_one_vector_in;
-    Container<Real> container_one_vector_out;
-    container_one_vector_in.Add("v_in", m_in, n_var_block_size);
-    container_one_vector_out.Add("v_out", m_out, n_var_block_size);
-    double time_one_vector = container_test_wrapper(n_run, n_run, container_one_vector_in,
-                                                    container_one_vector_out);
+    // first let us do a stupid loop over the mesh
+    // This policy is over entire mesh
 
-    // Time a container with n_var scalars, always packing
-    Container<Real> container_always_pack_in;
-    Container<Real> container_always_pack_out;
-    for (int i = 0; i < n_var; i++) {
-      container_always_pack_in.Add("s_in", m_in, scalar_block_size);
-      container_always_pack_out.Add("s_out", m_out, scalar_block_size);
+    // This policy is over entire mesh
+    auto policy = Kokkos::RangePolicy<>(Kokkos::DefaultExecutionSpace(), 0,
+                                        n_block3 * n_mesh3, Kokkos::ChunkSize(512));
+
+    // This policy is over one block
+    auto policyBlock = Kokkos::RangePolicy<>(Kokkos::DefaultExecutionSpace(), 0, n_block3,
+                                             Kokkos::ChunkSize(512));
+
+    std::cout << "Begin basic timing " << std::endl;
+    double time_basic;
+    {
+      MeshBlock *pStart = allBlocks[0];
+      time_basic = kernel_timer_wrapper(n_iter, n_iter, [&]() {
+        MeshBlock *pmb = pStart;
+        for (int iMesh = 0; iMesh < n_mesh3; iMesh++, pmb = pmb->next) {
+          Container<Real> &base = pmb->real_containers.Get();
+          auto inOrOut = PackVariables<Real>(base, {Metadata::Independent});
+          // iops = 8  fops = 11
+          Kokkos::parallel_for(
+              "Compute In Or Out", policyBlock, KOKKOS_LAMBDA(const int &idx) {
+                const int k_grid = idx / n_block2;                             // iops = 1
+                const int j_grid = (idx - k_grid * n_block2) / n_block;        // iops = 3
+                const int i_grid = idx - k_grid * n_block2 - j_grid * n_block; // iops = 4
+                const Real x =
+                    xyz(0, iMesh) + dxyzCell * static_cast<Real>(i_grid); // fops = 2
+                const Real y =
+                    xyz(1, iMesh) + dxyzCell * static_cast<Real>(j_grid); // fops = 2
+                const Real z =
+                    xyz(2, iMesh) + dxyzCell * static_cast<Real>(k_grid); // fops = 2
+                const Real myR2 = x * x + y * y + z * z;                  // fops = 5
+                inOrOut(0, k_grid + NGHOST, j_grid + NGHOST, i_grid + NGHOST) =
+                    (myR2 < radius2 ? 1.0 : 0.0); // iops = 3
+              });
+        }
+      });
+      // wait for work to finish, redundant due to timing loop
+      Kokkos::fence();
     }
-    double time_always_pack = container_always_pack_test_wrapper(
-        n_run, n_run, container_always_pack_in, container_always_pack_out);
 
-    double timings[] = {time_view4d, time_view_of_view3d, time_scalars,    time_vectors,
-                        time_mix,    time_one_vector,     time_always_pack};
+    std::cout << "Begin reduce sum" << std::endl;
+    double myPi = 0.0;
+    {
+      // reduce the sum on the device
+      // I'm pretty sure I can do this better, but not worried about performance for this
+      MeshBlock *pmb = allBlocks[0];
+      for (int iMesh = 0; iMesh < n_mesh3; iMesh++, pmb = pmb->next) {
+        Container<Real> &base = pmb->real_containers.Get();
+        auto inOrOut = PackVariables<Real>(base, {Metadata::Independent});
+        double onePi;
+        Kokkos::parallel_reduce(
+            "Reduce Sum", policyBlock,
+            KOKKOS_LAMBDA(const int &idx, double &mySum) {
+              const int k_grid = idx / n_block2;
+              const int j_grid = (idx - k_grid * n_block2) / n_block;
+              const int i_grid = idx - k_grid * n_block2 - j_grid * n_block;
+              mySum += inOrOut(0, k_grid + NGHOST, j_grid + NGHOST, i_grid + NGHOST);
+            },
+            onePi);
+        Kokkos::fence();
+        myPi += onePi;
+      }
 
-    std::cout << n_var << " " << n_side << " " << n_run << " " << n_vector;
-    for (double timing : timings) {
-      std::cout << " " << timing << " "
-                << static_cast<double>(n_grid) * static_cast<double>(n_run) / timing;
+      // wait for work to finish
+      Kokkos::fence();
+
+      // calculate Pi
+      myPi = 6.0 * myPi * dVol / radius3;
     }
-    std::cout << std::endl;
-  }
+
+    constexpr int niops = 8;
+    constexpr int nfops = 11;
+
+    printf("Calculated value of pi=%.16lf in %.6lf seconds; GFlops="
+           "%.16lf GIops=%.16lf\n",
+           myPi, time_basic, calcGops(nfops, time_basic, n_block3, n_mesh3, n_iter),
+           calcGops(niops, time_basic, n_block3, n_mesh3, n_iter));
+
+  } while (0);
   Kokkos::finalize();
 }
