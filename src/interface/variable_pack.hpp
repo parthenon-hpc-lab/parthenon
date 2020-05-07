@@ -91,7 +91,7 @@ class VariableFluxPack : public VariablePack<T> {
 
 // Using std::map, not std::unordered_map because the key
 // would require a custom hashing function. Note this is slower: O(log(N))
-// instead of O(1). 
+// instead of O(1).
 // Unfortunately, std::pair doesn't work. So I have to roll my own.
 // It appears to be an interaction caused by a std::map<key,std::pair>
 // Possibly it's a compiler bug. gcc/7.4.0
