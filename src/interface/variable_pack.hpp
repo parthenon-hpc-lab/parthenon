@@ -96,7 +96,7 @@ class VariableFluxPack : public VariablePack<T> {
 // It appears to be an interaction caused by a std::map<key,std::pair>
 // Possibly it's a compiler bug. gcc/7.4.0
 // ~JMM
-template<typename PackType>
+template <typename PackType>
 struct PackAndIndexMap {
   PackType pack;
   PackIndexMap map;

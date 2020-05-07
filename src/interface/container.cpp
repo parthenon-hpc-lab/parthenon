@@ -414,10 +414,9 @@ Container<T>::MakeList_(std::vector<std::string> &expanded_names) {
 // or by metadata flags. In the case of names, the list can optionally only contain
 // some subset of the sparse ids in a sparse variable.
 template <typename T>
-vpack_types::VarList<T>
-Container<T>::MakeList_(const std::vector<std::string> &names,
-                        std::vector<std::string> &expanded_names,
-                        const std::vector<int> sparse_ids) {
+vpack_types::VarList<T> Container<T>::MakeList_(const std::vector<std::string> &names,
+                                                std::vector<std::string> &expanded_names,
+                                                const std::vector<int> sparse_ids) {
   auto subcontainer = Container(*this, names, sparse_ids);
   auto vars = subcontainer.MakeList_(expanded_names);
   return vars;
