@@ -91,9 +91,9 @@ using ViewMesh =
     Kokkos::View<ViewMeshBlock1D, Kokkos::LayoutRight, Kokkos::DefaultExecutionSpace>;
 
 // simple giga-ops calculator
-double calcGops(const int &nops, const double &t, const int &n_block3,
-                const int &n_mesh3, const int &n_iter) {
-  return (static_cast<Real>(nops*n_iter) / t / 1.0e9 * static_cast<Real>(n_block3) *
+double calcGops(const int &nops, const double &t, const int &n_block3, const int &n_mesh3,
+                const int &n_iter) {
+  return (static_cast<Real>(nops * n_iter) / t / 1.0e9 * static_cast<Real>(n_block3) *
           static_cast<Real>(n_mesh3));
 };
 
