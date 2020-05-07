@@ -31,7 +31,7 @@
 #include "athena.hpp"
 #include "bvals/bvals.hpp"
 #include "bvals/bvals_interfaces.hpp"
-#include "coordinates/uniform_cartesian.hpp"
+#include "coordinates/new_coordinates.hpp"
 #include "interface/container.hpp"
 #include "interface/container_collection.hpp"
 #include "interface/properties_interface.hpp"
@@ -49,6 +49,7 @@
 namespace parthenon {
 
 // Forward declarations
+class Coordinates;
 class ParameterInput;
 class Mesh;
 class MeshRefinement;
@@ -121,7 +122,7 @@ class MeshBlock {
 
   // mesh-related objects
   // TODO(jcd): remove all these?
-  //std::unique_ptr<Coordinates> pcoord;
+  std::unique_ptr<Coordinates> pcoord;
   std::unique_ptr<BoundaryValues> pbval;
   std::unique_ptr<MeshRefinement> pmr;
   std::unique_ptr<Reconstruction> precon;

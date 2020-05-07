@@ -31,6 +31,7 @@
 #include "athena.hpp"
 #include "bvals/bvals.hpp"
 #include "coordinates/coordinates.hpp"
+#include "coordinates/new_coordinates.hpp"
 #include "globals.hpp"
 #include "interface/container_iterator.hpp"
 #include "interface/metadata.hpp"

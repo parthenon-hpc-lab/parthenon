@@ -25,13 +25,13 @@
 #include "parthenon_mpi.hpp"
 
 #include "athena.hpp"
+#include "coordinates/new_coordinates.hpp"
 #include "parthenon_arrays.hpp"
 
 namespace parthenon {
 
 class MeshBlock;
 class ParameterInput;
-class Coordinates;
 class BoundaryValues;
 
 //----------------------------------------------------------------------------------------
@@ -81,6 +81,7 @@ class MeshRefinement {
   // data
   MeshBlock *pmy_block_;
   Coordinates *pcoarsec;
+  Coordinates_t coarse_coords;
 
   ParArrayND<Real> fvol_[2][2], sarea_x1_[2][2], sarea_x2_[2][3], sarea_x3_[3][2];
   int refine_flag_, neighbor_rflag_, deref_count_, deref_threshold_;

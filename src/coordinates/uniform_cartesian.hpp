@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef COORDINATES_NEW_COORDINATES_HPP_
-#define COORDINATES_NEW_COORDINATES_HPP_
+#ifndef COORDINATES_UNIFORM_CARTESIAN_HPP_
+#define COORDINATES_UNIFORM_CARTESIAN_HPP_
 
 #include <array>
 
@@ -106,4 +106,4 @@ class UniformCartesian {
 
 } // namespace parthenon
 
-#endif // COORDINATES_NEW_COORDINATES_HPP_
+#endif // COORDINATES_UNIFORM_CARTESIAN_HPP_

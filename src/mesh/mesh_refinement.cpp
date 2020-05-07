@@ -45,6 +45,12 @@ MeshRefinement::MeshRefinement(MeshBlock *pmb, ParameterInput *pin)
       deref_threshold_(pin->GetOrAddInteger("parthenon/mesh", "derefine_count", 10)),
       AMRFlag_(pmb->pmy_mesh->AMRFlag_) {
   // Create coarse mesh object for parent grid
+  RegionSize coarse_block = pmb->block_size;
+  coarse_block.nx1 = coarse_block.nx1/2;
+  coarse_block.nx2 = (coarse_block.nx2 > 1 ? coarse_block.nx2/2 : 1);
+  coarse_block.nx3 = (coarse_block.nx3 > 1 ? coarse_block.nx3/2 : 1);
+  coarse_coords = Coordinates_t(coarse_block, pin);
+
   pcoarsec = new Cartesian(pmb, pin, true);
 
   if (NGHOST % 2) {
@@ -95,59 +101,66 @@ void MeshRefinement::RestrictCellCenteredValues(const ParArrayND<Real> &fine,
                                                 int csi, int cei, int csj, int cej,
                                                 int csk, int cek) {
   MeshBlock *pmb = pmy_block_;
-  auto &pco = pmb->pcoord;
   int si = (csi - pmb->cis) * 2 + pmb->is, ei = (cei - pmb->cis) * 2 + pmb->is + 1;
 
+  auto coords = pmb->coords;
   // store the restricted data in the prolongation buffer for later use
   if (pmb->block_size.nx3 > 1) { // 3D
     for (int n = sn; n <= en; ++n) {
       for (int ck = csk; ck <= cek; ck++) {
-        int k = (ck - pmb->cks) * 2 + pmb->ks;
         for (int cj = csj; cj <= cej; cj++) {
-          int j = (cj - pmb->cjs) * 2 + pmb->js;
-          pco->CellVolume(k, j, si, ei, fvol_[0][0]);
-          pco->CellVolume(k, j + 1, si, ei, fvol_[0][1]);
-          pco->CellVolume(k + 1, j, si, ei, fvol_[1][0]);
-          pco->CellVolume(k + 1, j + 1, si, ei, fvol_[1][1]);
           for (int ci = csi; ci <= cei; ci++) {
+            int k = (ck - pmb->cks) * 2 + pmb->ks;
+            int j = (cj - pmb->cjs) * 2 + pmb->js;
             int i = (ci - pmb->cis) * 2 + pmb->is;
             // KGF: add the off-centered quantities first to preserve FP symmetry
-            Real tvol = ((fvol_[0][0](i) + fvol_[0][1](i)) +
-                         (fvol_[0][0](i + 1) + fvol_[0][1](i + 1))) +
-                        ((fvol_[1][0](i) + fvol_[1][1](i)) +
-                         (fvol_[1][0](i + 1) + fvol_[1][1](i + 1)));
+            const Real vol000 = coords.Volume(k,j,i);
+            const Real vol001 = coords.Volume(k,j,i+1);
+            const Real vol010 = coords.Volume(k,j+1,i);
+            const Real vol011 = coords.Volume(k,j+1,i+1);
+            const Real vol100 = coords.Volume(k+1,j,i);
+            const Real vol101 = coords.Volume(k+1,j,i+1);
+            const Real vol110 = coords.Volume(k+1,j+1,i);
+            const Real vol111 = coords.Volume(k+1,j+1,i+1);
+            Real tvol = ((vol000 + vol010) +
+                         (vol001 + vol011)) +
+                        ((vol100+ vol110) +
+                         (vol101 + vol111));
             // KGF: add the off-centered quantities first to preserve FP symmetry
             coarse(n, ck, cj, ci) =
-                (((fine(n, k, j, i) * fvol_[0][0](i) +
-                   fine(n, k, j + 1, i) * fvol_[0][1](i)) +
-                  (fine(n, k, j, i + 1) * fvol_[0][0](i + 1) +
-                   fine(n, k, j + 1, i + 1) * fvol_[0][1](i + 1))) +
-                 ((fine(n, k + 1, j, i) * fvol_[1][0](i) +
-                   fine(n, k + 1, j + 1, i) * fvol_[1][1](i)) +
-                  (fine(n, k + 1, j, i + 1) * fvol_[1][0](i + 1) +
-                   fine(n, k + 1, j + 1, i + 1) * fvol_[1][1](i + 1)))) /
+                (((fine(n, k, j, i) * vol000 +
+                   fine(n, k, j + 1, i) * vol010) +
+                  (fine(n, k, j, i + 1) * vol001 +
+                   fine(n, k, j + 1, i + 1) * vol011)) +
+                 ((fine(n, k + 1, j, i) * vol100 +
+                   fine(n, k + 1, j + 1, i) * vol110) +
+                  (fine(n, k + 1, j, i + 1) * vol101 +
+                   fine(n, k + 1, j + 1, i + 1) * vol111))) /
                 tvol;
           }
         }
       }
     }
   } else if (pmb->block_size.nx2 > 1) { // 2D
+    int k = pmb->ks, ck = pmb->cks;
     for (int n = sn; n <= en; ++n) {
       for (int cj = csj; cj <= cej; cj++) {
         int j = (cj - pmb->cjs) * 2 + pmb->js;
-        pco->CellVolume(0, j, si, ei, fvol_[0][0]);
-        pco->CellVolume(0, j + 1, si, ei, fvol_[0][1]);
         for (int ci = csi; ci <= cei; ci++) {
           int i = (ci - pmb->cis) * 2 + pmb->is;
           // KGF: add the off-centered quantities first to preserve FP symmetry
-          Real tvol = (fvol_[0][0](i) + fvol_[0][1](i)) +
-                      (fvol_[0][0](i + 1) + fvol_[0][1](i + 1));
+          const Real vol00 = coords.Volume(k,j,i);
+          const Real vol10 = coords.Volume(k,j+1,i);
+          const Real vol01 = coords.Volume(k,j,i+1);
+          const Real vol11 = coords.Volume(k,j+1,i+1);
+          Real tvol = (vol00 + vol10) +
+                      (vol01 + vol11);
 
           // KGF: add the off-centered quantities first to preserve FP symmetry
-          coarse(n, 0, cj, ci) = ((fine(n, 0, j, i) * fvol_[0][0](i) +
-                                   fine(n, 0, j + 1, i) * fvol_[0][1](i)) +
-                                  (fine(n, 0, j, i + 1) * fvol_[0][0](i + 1) +
-                                   fine(n, 0, j + 1, i + 1) * fvol_[0][1](i + 1))) /
+          coarse(n, 0, cj, ci) = ((fine(n, 0, j, i) * vol00 +
+                                   fine(n, 0, j + 1, i) * vol10) +
+                                  (fine(n, 0, j, i + 1) * vol01 +
+                                   fine(n, 0, j + 1, i + 1) * vol11)) /
                                  tvol;
         }
       }
@@ -155,12 +168,13 @@ void MeshRefinement::RestrictCellCenteredValues(const ParArrayND<Real> &fine,
   } else { // 1D
     int j = pmb->js, cj = pmb->cjs, k = pmb->ks, ck = pmb->cks;
     for (int n = sn; n <= en; ++n) {
-      pco->CellVolume(k, j, si, ei, fvol_[0][0]);
       for (int ci = csi; ci <= cei; ci++) {
         int i = (ci - pmb->cis) * 2 + pmb->is;
-        Real tvol = fvol_[0][0](i) + fvol_[0][0](i + 1);
-        coarse(n, ck, cj, ci) = (fine(n, k, j, i) * fvol_[0][0](i) +
-                                 fine(n, k, j, i + 1) * fvol_[0][0](i + 1)) /
+        const Real vol0 = coords.Volume(k,j,i);
+        const Real vol1 = coords.Volume(k,j,i+1);
+        Real tvol = vol0 + vol1;
+        coarse(n, ck, cj, ci) = (fine(n, k, j, i) * vol0 +
+                                 fine(n, k, j, i + 1) * vol1) /
                                 tvol;
       }
     }
@@ -360,42 +374,48 @@ void MeshRefinement::ProlongateCellCenteredValues(const ParArrayND<Real> &coarse
                                                   int si, int ei, int sj, int ej, int sk,
                                                   int ek) {
   MeshBlock *pmb = pmy_block_;
-  auto &pco = pmb->pcoord;
+  auto coords = pmb->coords;
   if (pmb->block_size.nx3 > 1) {
     for (int n = sn; n <= en; n++) {
       for (int k = sk; k <= ek; k++) {
-        int fk = (k - pmb->cks) * 2 + pmb->ks;
-        const Real &x3m = pcoarsec->x3v(k - 1);
-        const Real &x3c = pcoarsec->x3v(k);
-        const Real &x3p = pcoarsec->x3v(k + 1);
-        Real dx3m = x3c - x3m;
-        Real dx3p = x3p - x3c;
-        const Real &fx3m = pco->x3v(fk);
-        const Real &fx3p = pco->x3v(fk + 1);
-        Real dx3fm = x3c - fx3m;
-        Real dx3fp = fx3p - x3c;
         for (int j = sj; j <= ej; j++) {
-          int fj = (j - pmb->cjs) * 2 + pmb->js;
-          const Real &x2m = pcoarsec->x2v(j - 1);
-          const Real &x2c = pcoarsec->x2v(j);
-          const Real &x2p = pcoarsec->x2v(j + 1);
-          Real dx2m = x2c - x2m;
-          Real dx2p = x2p - x2c;
-          const Real &fx2m = pco->x2v(fj);
-          const Real &fx2p = pco->x2v(fj + 1);
-          Real dx2fm = x2c - fx2m;
-          Real dx2fp = fx2p - x2c;
           for (int i = si; i <= ei; i++) {
+            // x3 direction
+            int fk = (k - pmb->cks) * 2 + pmb->ks;
+            const Real x3m = coarse_coords.x3v(k-1);
+            const Real x3c = coarse_coords.x3v(k);
+            const Real x3p = coarse_coords.x3v(k+1);
+            Real dx3m = x3c - x3m;
+            Real dx3p = x3p - x3c;
+            const Real fx3m = coords.x3v(fk);
+            const Real fx3p = coords.x3v(fk + 1);
+            Real dx3fm = x3c - fx3m;
+            Real dx3fp = fx3p - x3c;
+
+            // x2 direction
+            int fj = (j - pmb->cjs) * 2 + pmb->js;
+            const Real x2m = coarse_coords.x2v(j - 1);
+            const Real x2c = coarse_coords.x2v(j);
+            const Real x2p = coarse_coords.x2v(j + 1);
+            Real dx2m = x2c - x2m;
+            Real dx2p = x2p - x2c;
+            const Real fx2m = coords.x2v(fj);
+            const Real fx2p = coords.x2v(fj + 1);
+            Real dx2fm = x2c - fx2m;
+            Real dx2fp = fx2p - x2c;
+
+            // x1 direction
             int fi = (i - pmb->cis) * 2 + pmb->is;
-            const Real &x1m = pcoarsec->x1v(i - 1);
-            const Real &x1c = pcoarsec->x1v(i);
-            const Real &x1p = pcoarsec->x1v(i + 1);
+            const Real &x1m = coarse_coords.x1v(i - 1);
+            const Real &x1c = coarse_coords.x1v(i);
+            const Real &x1p = coarse_coords.x1v(i + 1);
             Real dx1m = x1c - x1m;
             Real dx1p = x1p - x1c;
-            const Real &fx1m = pco->x1v(fi);
-            const Real &fx1p = pco->x1v(fi + 1);
+            const Real &fx1m = coords.x1v(fi);
+            const Real &fx1p = coords.x1v(fi + 1);
             Real dx1fm = x1c - fx1m;
             Real dx1fp = fx1p - x1c;
+
             Real ccval = coarse(n, k, j, i);
 
             // calculate 3D gradients using the minmod limiter
@@ -437,27 +457,31 @@ void MeshRefinement::ProlongateCellCenteredValues(const ParArrayND<Real> &coarse
     int k = pmb->cks, fk = pmb->ks;
     for (int n = sn; n <= en; n++) {
       for (int j = sj; j <= ej; j++) {
-        int fj = (j - pmb->cjs) * 2 + pmb->js;
-        const Real &x2m = pcoarsec->x2v(j - 1);
-        const Real &x2c = pcoarsec->x2v(j);
-        const Real &x2p = pcoarsec->x2v(j + 1);
-        Real dx2m = x2c - x2m;
-        Real dx2p = x2p - x2c;
-        const Real &fx2m = pco->x2v(fj);
-        const Real &fx2p = pco->x2v(fj + 1);
-        Real dx2fm = x2c - fx2m;
-        Real dx2fp = fx2p - x2c;
         for (int i = si; i <= ei; i++) {
+          // x2 direction
+          int fj = (j - pmb->cjs) * 2 + pmb->js;
+          const Real x2m = coarse_coords.x2v(j - 1);
+          const Real x2c = coarse_coords.x2v(j);
+          const Real x2p = coarse_coords.x2v(j + 1);
+          Real dx2m = x2c - x2m;
+          Real dx2p = x2p - x2c;
+          const Real fx2m = coords.x2v(fj);
+          const Real fx2p = coords.x2v(fj + 1);
+          Real dx2fm = x2c - fx2m;
+          Real dx2fp = fx2p - x2c;
+
+          // x1 direction
           int fi = (i - pmb->cis) * 2 + pmb->is;
-          const Real &x1m = pcoarsec->x1v(i - 1);
-          const Real &x1c = pcoarsec->x1v(i);
-          const Real &x1p = pcoarsec->x1v(i + 1);
+          const Real x1m = coarse_coords.x1v(i - 1);
+          const Real x1c = coarse_coords.x1v(i);
+          const Real x1p = coarse_coords.x1v(i + 1);
           Real dx1m = x1c - x1m;
           Real dx1p = x1p - x1c;
-          const Real &fx1m = pco->x1v(fi);
-          const Real &fx1p = pco->x1v(fi + 1);
+          const Real fx1m = coords.x1v(fi);
+          const Real fx1p = coords.x1v(fi + 1);
           Real dx1fm = x1c - fx1m;
           Real dx1fp = fx1p - x1c;
+
           Real ccval = coarse(n, k, j, i);
 
           // calculate 2D gradients using the minmod limiter
@@ -484,15 +508,16 @@ void MeshRefinement::ProlongateCellCenteredValues(const ParArrayND<Real> &coarse
     for (int n = sn; n <= en; n++) {
       for (int i = si; i <= ei; i++) {
         int fi = (i - pmb->cis) * 2 + pmb->is;
-        const Real &x1m = pcoarsec->x1v(i - 1);
-        const Real &x1c = pcoarsec->x1v(i);
-        const Real &x1p = pcoarsec->x1v(i + 1);
+        const Real x1m = coarse_coords.x1v(i - 1);
+        const Real x1c = coarse_coords.x1v(i);
+        const Real x1p = coarse_coords.x1v(i + 1);
         Real dx1m = x1c - x1m;
         Real dx1p = x1p - x1c;
-        const Real &fx1m = pco->x1v(fi);
-        const Real &fx1p = pco->x1v(fi + 1);
+        const Real fx1m = coords.x1v(fi);
+        const Real fx1p = coords.x1v(fi + 1);
         Real dx1fm = x1c - fx1m;
         Real dx1fp = fx1p - x1c;
+
         Real ccval = coarse(n, k, j, i);
 
         // calculate 1D gradient using the min-mod limiter
