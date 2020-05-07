@@ -119,8 +119,7 @@ Container<T>::Container(const Container<T> &src, const std::vector<std::string> 
     bool found = false;
     auto v = var_map.find(name);
     if (v != var_map.end()) {
-      varVector_.push_back(v->second);
-      varMap_[v->first] = v->second;
+      Add(v->second);
       found = true;
     }
     auto sv = sparse_map.find(name);
@@ -136,8 +135,7 @@ Container<T>::Container(const Container<T> &src, const std::vector<std::string> 
       } else {
         newvar = sv->second;
       }
-      sparseMap_[sv->first] = newvar;
-      sparseVector_.push_back(newvar);
+      Add(newvar);
     }
     auto fv = face_map.find(name);
     if (fv != face_map.end()) {
@@ -146,8 +144,7 @@ Container<T>::Container(const Container<T> &src, const std::vector<std::string> 
         std::exit(1);
       }
       found = true;
-      faceMap_[fv->first] = fv->second;
-      faceVector_.push_back(fv->second);
+      Add(fv->second);
     }
     if (!found) {
       std::cerr << "Container: " << name << " not found!" << std::endl;
@@ -164,24 +161,21 @@ Container<T>::Container(const Container<T> &src, const std::vector<MetadataFlag>
     auto n = it.first;
     auto v = it.second;
     if (v->metadata().AnyFlagsSet(flags)) {
-      varVector_.push_back(v);
-      varMap_[n] = v;
+      Add(v);
     }
   }
   for (auto &it : sparse_map) {
     auto n = it.first;
     auto v = it.second;
     if (v->metadata().AnyFlagsSet(flags)) {
-      sparseVector_.push_back(v);
-      sparseMap_[n] = v;
+      Add(v);
     }
   }
   for (auto &it : face_map) {
     auto n = it.first;
     auto v = it.second;
     if (v->metadata().AnyFlagsSet(flags)) {
-      faceVector_.push_back(v);
-      faceMap_[n] = v;
+      Add(v);
     }
   }
 }
@@ -197,16 +191,14 @@ Container<T> Container<T>::SparseSlice(int id) {
   // Note that all standard arrays get added
   // add standard arrays
   for (auto v : varVector_) {
-    c.varVector_.push_back(v);
-    c.varMap_[v->label()] = v;
+    c.Add(v);
   }
   // for (auto v : s->_edgeVector) {
   //   EdgeVariable *vNew = new EdgeVariable(v->label(), *v);
   //   c.s->_edgeVector.push_back(vNew);
   // }
   for (auto v : faceVector_) {
-    c.faceVector_.push_back(v);
-    c.faceMap_[v->label()] = v;
+    c.Add(v);
   }
 
   // Now copy in the specific arrays
@@ -215,8 +207,7 @@ Container<T> Container<T>::SparseSlice(int id) {
     if (index >= 0) {
       CellVariable<T> &vmat = v->Get(id);
       auto sv = std::make_shared<CellVariable<T>>(vmat);
-      c.varVector_.push_back(sv);
-      c.varMap_[v->label()] = sv;
+      c.Add(sv);
     }
   }
 
