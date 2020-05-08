@@ -38,6 +38,7 @@
 
 #define PREDINT32 H5T_NATIVE_INT32
 #define PREDFLOAT64 H5T_NATIVE_DOUBLE
+#define PREDCHAR H5T_NATIVE_CHAR
 
 namespace parthenon {
 
@@ -111,6 +112,17 @@ static herr_t writeH5AF64(const char *name, const Real *pData, hid_t &file,
   hid_t attribute;
   attribute = H5Acreate(dSet, name, PREDFLOAT64, dSpace, H5P_DEFAULT, H5P_DEFAULT);
   status = H5Awrite(attribute, PREDFLOAT64, pData);
+  status = H5Aclose(attribute);
+  return status;
+}
+
+static herr_t writeH5ASTRING(const char *name, const std::string pData, hid_t &file,
+                             const hid_t &dSpace, const hid_t &dSet) {
+  auto atype = H5Tcopy(H5T_C_S1);
+  auto status = H5Tset_size(atype, pData.length());
+  status = H5Tset_strpad(atype, H5T_STR_NULLTERM);
+  auto attribute = H5Acreate(dSet, name, atype, dSpace, H5P_DEFAULT, H5P_DEFAULT);
+  status = H5Awrite(attribute, atype, pData.c_str());
   status = H5Aclose(attribute);
   return status;
 }
@@ -370,6 +382,8 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   // write number of ghost cells in simulation
   iTmp = NGHOST;
   status = writeH5AI32("NGhost", &iTmp, file, localDSpace, myDSet);
+  status = writeH5ASTRING("Coordinates", std::string(pmb->coords.Name()), file,
+                          localDSpace, myDSet);
 
   // close scalar space
   status = H5Sclose(localDSpace);

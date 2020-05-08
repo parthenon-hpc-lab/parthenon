@@ -49,12 +49,11 @@
 namespace parthenon {
 
 // Forward declarations
-class Coordinates;
-class ParameterInput;
-class Mesh;
-class MeshRefinement;
-class MeshBlockTree;
 class BoundaryValues;
+class Mesh;
+class MeshBlockTree;
+class MeshRefinement;
+class ParameterInput;
 class Reconstruction;
 
 // template class Container<Real>;

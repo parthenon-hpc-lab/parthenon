@@ -88,14 +88,14 @@ void CellVariable<T>::allocateComms(MeshBlock *pmb) {
   // set up fluxes
   std::string base_name = label();
   if (IsSet(Metadata::Independent)) {
-    flux[1] = ParArrayND<T>(base_name + ".flux1", GetDim(6), GetDim(5), GetDim(4),
-                            GetDim(3), GetDim(2), GetDim(1));
+    flux[X1DIR] = ParArrayND<T>(base_name + ".fluxX1", GetDim(6), GetDim(5), GetDim(4),
+                                GetDim(3), GetDim(2), GetDim(1));
     if (GetDim(2) > 1)
-      flux[2] = ParArrayND<T>(base_name + ".flux2", GetDim(6), GetDim(5), GetDim(4),
-                              GetDim(3), GetDim(2), GetDim(1));
+      flux[X2DIR] = ParArrayND<T>(base_name + ".fluxX2", GetDim(6), GetDim(5), GetDim(4),
+                                  GetDim(3), GetDim(2), GetDim(1));
     if (GetDim(3) > 1)
-      flux[3] = ParArrayND<T>(base_name + ".flux3", GetDim(6), GetDim(5), GetDim(4),
-                              GetDim(3), GetDim(2), GetDim(1));
+      flux[X3DIR] = ParArrayND<T>(base_name + ".fluxX3", GetDim(6), GetDim(5), GetDim(4),
+                                  GetDim(3), GetDim(2), GetDim(1));
   }
 
   if (!pmb) return;

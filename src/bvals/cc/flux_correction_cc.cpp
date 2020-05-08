@@ -61,10 +61,10 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
           for (int nn = nl_; nn <= nu_; nn++) {
             for (int k = pmb->ks; k <= pmb->ke; k += 2) {
               for (int j = pmb->js; j <= pmb->je; j += 2) {
-                const Real amm = coords.Area(1, k, j, i);
-                const Real amp = coords.Area(1, k, j + 1, i);
-                const Real apm = coords.Area(1, k + 1, j, i);
-                const Real app = coords.Area(1, k + 1, j + 1, i);
+                const Real amm = coords.Area(X1DIR, k, j, i);
+                const Real amp = coords.Area(X1DIR, k, j + 1, i);
+                const Real apm = coords.Area(X1DIR, k + 1, j, i);
+                const Real app = coords.Area(X1DIR, k + 1, j + 1, i);
                 const Real tarea = amm + amp + apm + app;
                 sbuf[p++] =
                     (x1flux(nn, k, j, i) * amm + x1flux(nn, k, j + 1, i) * amp +
@@ -77,8 +77,8 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
           int k = pmb->ks;
           for (int nn = nl_; nn <= nu_; nn++) {
             for (int j = pmb->js; j <= pmb->je; j += 2) {
-              const Real am = coords.Area(1, k, j, i);
-              const Real ap = coords.Area(1, k, j + 1, i);
+              const Real am = coords.Area(X1DIR, k, j, i);
+              const Real ap = coords.Area(X1DIR, k, j + 1, i);
               const Real tarea = am + ap;
               sbuf[p++] =
                   (x1flux(nn, k, j, i) * am + x1flux(nn, k, j + 1, i) * ap) / tarea;
@@ -96,10 +96,10 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
           for (int nn = nl_; nn <= nu_; nn++) {
             for (int k = pmb->ks; k <= pmb->ke; k += 2) {
               for (int i = pmb->is; i <= pmb->ie; i += 2) {
-                const Real area00 = coords.Area(2, k, j, i);
-                const Real area01 = coords.Area(2, k, j, i + 1);
-                const Real area10 = coords.Area(2, k + 1, j, i);
-                const Real area11 = coords.Area(2, k + 1, j, i + 1);
+                const Real area00 = coords.Area(X2DIR, k, j, i);
+                const Real area01 = coords.Area(X2DIR, k, j, i + 1);
+                const Real area10 = coords.Area(X2DIR, k + 1, j, i);
+                const Real area11 = coords.Area(X2DIR, k + 1, j, i + 1);
                 const Real tarea = area00 + area01 + area10 + area11;
                 sbuf[p++] =
                     (x2flux(nn, k, j, i) * area00 + x2flux(nn, k, j, i + 1) * area01 +
@@ -113,8 +113,8 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
           int k = pmb->ks;
           for (int nn = nl_; nn <= nu_; nn++) {
             for (int i = pmb->is; i <= pmb->ie; i += 2) {
-              const Real area0 = coords.Area(2, k, j, i);
-              const Real area1 = coords.Area(2, k, j, i + 1);
+              const Real area0 = coords.Area(X2DIR, k, j, i);
+              const Real area1 = coords.Area(X2DIR, k, j, i + 1);
               const Real tarea = area0 + area1;
               sbuf[p++] =
                   (x2flux(nn, k, j, i) * area0 + x2flux(nn, k, j, i + 1) * area1) / tarea;
@@ -127,10 +127,10 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
         for (int nn = nl_; nn <= nu_; nn++) {
           for (int j = pmb->js; j <= pmb->je; j += 2) {
             for (int i = pmb->is; i <= pmb->ie; i += 2) {
-              const Real area00 = coords.Area(3, k, j, i);
-              const Real area01 = coords.Area(3, k, j, i + 1);
-              const Real area10 = coords.Area(3, k, j + 1, i);
-              const Real area11 = coords.Area(3, k, j + 1, i + 1);
+              const Real area00 = coords.Area(X3DIR, k, j, i);
+              const Real area01 = coords.Area(X3DIR, k, j, i + 1);
+              const Real area10 = coords.Area(X3DIR, k, j + 1, i);
+              const Real area11 = coords.Area(X3DIR, k, j + 1, i + 1);
               const Real tarea = area00 + area01 + area10 + area11;
               sbuf[p++] =
                   (x3flux(nn, k, j, i) * area00 + x3flux(nn, k, j, i + 1) * area01 +

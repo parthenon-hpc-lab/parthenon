@@ -43,7 +43,7 @@ class UniformCartesian {
   }
   UniformCartesian(const UniformCartesian &src, int coarsen) {
     istart_ = src.GetStartIndex();
-    dx_ = src.Dx();
+    dx_ = src.Dx_();
     xmin_ = src.GetXmin();
     xmin_[0] += istart_[0] * dx_[0] * (1 - coarsen);
     xmin_[1] += istart_[1] * dx_[1] * (1 - coarsen);
@@ -62,15 +62,11 @@ class UniformCartesian {
     return cell_volume_;
   }
 
-  const std::array<Real, 3> &Dx() const { return dx_; }
-
   template <class... Args>
   KOKKOS_FORCEINLINE_FUNCTION Real Dx(const int dir, Args... args) const {
     assert(dir > 0 && dir < 4);
     return dx_[dir - 1];
   }
-
-  const std::array<Real, 3> &Area() const { return area_; }
 
   template <class... Args>
   KOKKOS_FORCEINLINE_FUNCTION Real Area(const int dir, Args... args) const {
@@ -156,11 +152,15 @@ class UniformCartesian {
 
   const std::array<Real, 3> &GetXmin() const { return xmin_; }
   const std::array<int, 3> &GetStartIndex() const { return istart_; }
+  const char *Name() const { return name_; }
 
  private:
   std::array<int, 3> istart_;
   std::array<Real, 3> xmin_, dx_, area_;
   Real cell_volume_;
+  constexpr static const char *name_ = "UniformCartesian";
+
+  const std::array<Real, 3> &Dx_() const { return dx_; }
 };
 
 } // namespace parthenon

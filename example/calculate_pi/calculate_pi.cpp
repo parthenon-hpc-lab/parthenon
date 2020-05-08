@@ -75,7 +75,7 @@ void SetInOrOut(Container<Real> &rc) {
   int ke = pmb->ke;
   ParArrayND<Real> &v = rc.Get("in_or_out").data;
   const auto &radius = pmb->packages["calculate_pi"]->Param<Real>("radius");
-  auto coords = pmb->coords;
+  auto &coords = pmb->coords;
   // Set an indicator function that indicates whether the cell center
   // is inside or outside of the circle we're interating the area of.
   // see the CheckRefinement routine below for an explanation of the loop bounds

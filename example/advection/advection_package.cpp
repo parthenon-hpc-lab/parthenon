@@ -169,9 +169,6 @@ void PostFill(Container<Real> &rc) {
 
 // provide the routine that estimates a stable timestep for this package
 Real EstimateTimestep(Container<Real> &rc) {
-  using parthenon::X1DIR;
-  using parthenon::X2DIR;
-  using parthenon::X3DIR;
   MeshBlock *pmb = rc.pmy_block;
   auto pkg = pmb->packages["advection_package"];
   const auto &cfl = pkg->Param<Real>("cfl");
@@ -207,9 +204,6 @@ Real EstimateTimestep(Container<Real> &rc) {
 // some field "advected" that we are pushing around.
 // This routine implements all the "physics" in this example
 TaskStatus CalculateFluxes(Container<Real> &rc) {
-  using parthenon::X1DIR;
-  using parthenon::X2DIR;
-  using parthenon::X3DIR;
   MeshBlock *pmb = rc.pmy_block;
   int is = pmb->is;
   int js = pmb->js;
