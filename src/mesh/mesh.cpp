@@ -88,10 +88,10 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
       // private members:
       next_phys_id_(),
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
-      tree(this), use_uniform_meshgen_fn_{true, true, true}, nuser_history_output_(),
-      lb_flag_(true), lb_automatic_(),
-      lb_manual_(), MeshGenerator_{UniformMeshGeneratorX1, UniformMeshGeneratorX2,
-                                   UniformMeshGeneratorX3},
+      tree(this), use_uniform_meshgen_fn_{true, true, true, true},
+      nuser_history_output_(), lb_flag_(true), lb_automatic_(),
+      lb_manual_(), MeshGenerator_{nullptr, UniformMeshGeneratorX1,
+                                   UniformMeshGeneratorX2, UniformMeshGeneratorX3},
       BoundaryFunction_{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, AMRFlag_{},
       UserSourceTerm_{}, UserTimeStep_{} {
   std::stringstream msg;

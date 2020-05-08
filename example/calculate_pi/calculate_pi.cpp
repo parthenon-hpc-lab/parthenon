@@ -163,7 +163,7 @@ TaskStatus ComputeArea(MeshBlock *pmb) {
   for (int k = ks; k <= ke; k++) {
     for (int j = js; j <= je; j++) {
       for (int i = is; i <= ie; i++) {
-        area += v(k, j, i) * coords.dx1f(i) * coords.dx2f(j);
+        area += v(k, j, i) * coords.Area(parthenon::X3DIR, k, j, i);
       }
     }
   }

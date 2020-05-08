@@ -41,7 +41,7 @@ void DoolittleLUPSolve(Real **lu, int *pivot, Real *b, int n, Real *x);
 } // anonymous namespace
 
 Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin)
-    : characteristic_projection{false}, uniform{true, true, true},
+    : characteristic_projection{false}, uniform{true, true, true, true},
       // read fourth-order solver switches
       correct_ic{pin->GetOrAddBoolean("parthenon/time", "correct_ic", false)},
       correct_err{pin->GetOrAddBoolean("parthenon/time", "correct_err", false)},
