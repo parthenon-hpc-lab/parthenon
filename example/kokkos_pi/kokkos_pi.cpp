@@ -51,6 +51,7 @@
 
 #include <iostream>
 #include <string>
+#include <vector>
 
 #include "Kokkos_Core.hpp"
 
@@ -68,6 +69,15 @@ using parthenon::Metadata;
 using parthenon::Real;
 
 using View2D = Kokkos::View<Real **, Kokkos::LayoutRight, Kokkos::DefaultExecutionSpace>;
+
+// The result struct contains results of different tests
+typedef struct result_t {
+  std::string name; // The name of this test
+  Real pi;          // the value of pi calculated
+  Real t;           // time taken to run test
+  int iops;         // number of integer ops
+  int fops;         // number of floating point ops
+} result_t;
 
 // simple giga-ops calculator
 static double calcGops(const int &nops, const double &t, const int &n_block3,
@@ -113,20 +123,20 @@ static void usage(std::string program) {
             << std::endl;
 }
 
-static double sumArray(MeshBlock *firstBlock, const int &n_block, const double scale) {
+static double sumArray(MeshBlock *firstBlock, const int &n_block) {
   // This policy is over one block
   const int n_block2 = n_block * n_block;
   const int n_block3 = n_block * n_block * n_block;
   auto policyBlock = Kokkos::RangePolicy<>(Kokkos::DefaultExecutionSpace(), 0, n_block3,
                                            Kokkos::ChunkSize(512));
-  double myPi = 0.0;
+  double theSum = 0.0;
   // reduce the sum on the device
   // I'm pretty sure I can do this better, but not worried about performance for this
   MeshBlock *pmb = firstBlock;
   while (pmb) {
     Container<Real> &base = pmb->real_containers.Get();
     auto inOrOut = base.PackVariables({Metadata::Independent});
-    double onePi;
+    double oneSum;
     Kokkos::parallel_reduce(
         "Reduce Sum", policyBlock,
         KOKKOS_LAMBDA(const int &idx, double &mySum) {
@@ -135,14 +145,131 @@ static double sumArray(MeshBlock *firstBlock, const int &n_block, const double s
           const int i_grid = idx - k_grid * n_block2 - j_grid * n_block;
           mySum += inOrOut(0, k_grid + NGHOST, j_grid + NGHOST, i_grid + NGHOST);
         },
-        onePi);
+        oneSum);
     Kokkos::fence();
-    myPi += onePi;
+    theSum += oneSum;
     pmb = pmb->next;
   }
   // calculate Pi
-  myPi = 6.0 * myPi * scale;
-  return myPi;
+  return theSum;
+}
+
+static MeshBlock *setupMesh(const int &n_block, const int &n_mesh, const double &radius,
+                            View2D &xyz) {
+  // *** Kludge warning ***
+  // Since our mesh is not GPU friendly we set up a hacked up
+  // collection of mesh blocks.  The hope is that when our mesh is
+  // up to par we will replace this code with the mesh
+  // infrastructure.
+
+  const Real dxyzCell = radius / static_cast<Real>(n_mesh * n_block);
+  auto h_xyz = Kokkos::create_mirror_view(xyz);
+
+  // Set up our mesh.
+  Metadata myMetadata({Metadata::Independent, Metadata::Cell});
+  MeshBlock *firstBlock = nullptr;
+  MeshBlock *lastBlock = nullptr;
+
+  int idxMesh = 0; // an index into Block coordinate array
+  for (int k_mesh = 0; k_mesh < n_mesh; k_mesh++) {
+    for (int j_mesh = 0; j_mesh < n_mesh; j_mesh++) {
+      for (int i_mesh = 0; i_mesh < n_mesh; i_mesh++, idxMesh++) {
+        // get a new meshblock and insert into chain
+        auto *pmb = new MeshBlock(n_block, 3);
+        if (lastBlock) {
+          lastBlock->next = pmb;
+          pmb->prev = lastBlock;
+        } else {
+          firstBlock = pmb;
+        }
+        // set coordinates of first cell center
+        h_xyz(0, idxMesh) = dxyzCell * (static_cast<Real>(i_mesh * n_block) + 0.5);
+        h_xyz(1, idxMesh) = dxyzCell * (static_cast<Real>(j_mesh * n_block) + 0.5);
+        h_xyz(2, idxMesh) = dxyzCell * (static_cast<Real>(k_mesh * n_block) + 0.5);
+        // Add variable for in_or_out
+        Container<Real> &base = pmb->real_containers.Get();
+        base.setBlock(pmb);
+        base.Add("in_or_out", myMetadata);
+        // repoint lastBlock for next iteration
+        lastBlock = pmb;
+      }
+    }
+  }
+  // copy our coordinates over to Device and wait for completion
+  Kokkos::deep_copy(xyz, h_xyz);
+  Kokkos::fence();
+
+  return firstBlock;
+}
+
+void deleteMesh(MeshBlock *firstBlock) {
+  // deletes the mesh chain starting with firstBlock
+  auto pmb = firstBlock;
+  while (pmb) {
+    auto next = pmb->next;
+    delete pmb;
+    pmb = next;
+  }
+}
+
+result_t naiveKokkos(int n_block, int n_mesh, int n_iter, double radius) {
+  // creates a mesh and rusn a basic Kokkos implementation for looping through blocks.
+
+  // Setup auxilliary variables
+  const int n_block2 = n_block * n_block;
+  const int n_block3 = n_block * n_block * n_block;
+  const int n_mesh3 = n_mesh * n_mesh * n_mesh;
+  const double radius2 = radius * radius;
+  const double radius3 = radius * radius * radius;
+  const Real dxyzCell = radius / static_cast<Real>(n_mesh * n_block);
+  const Real dVol = radius3 / static_cast<Real>(n_mesh3 * n_block3);
+
+  // allocate space for origin coordinates and set up the mesh
+  View2D xyz("xyzBlocks", 3, n_mesh3);
+  MeshBlock *firstBlock = setupMesh(n_block, n_mesh, radius, xyz);
+
+  // first A  naive Kokkos loop over the mesh
+  // This policy is over one block
+  auto policyBlock = Kokkos::RangePolicy<>(Kokkos::DefaultExecutionSpace(), 0, n_block3,
+                                           Kokkos::ChunkSize(512));
+
+  MeshBlock *pStart = firstBlock;
+  double time_basic = kernel_timer_wrapper(0, n_iter, [&]() {
+    MeshBlock *pmb = pStart;
+    for (int iMesh = 0; iMesh < n_mesh3; iMesh++, pmb = pmb->next) {
+      Container<Real> &base = pmb->real_containers.Get();
+      auto inOrOut = base.PackVariables({Metadata::Independent});
+      // iops = 8  fops = 11
+      Kokkos::parallel_for(
+          "Compute In Or Out", policyBlock, KOKKOS_LAMBDA(const int &idx) {
+            const int k_grid = idx / n_block2;                             // iops = 1
+            const int j_grid = (idx - k_grid * n_block2) / n_block;        // iops = 3
+            const int i_grid = idx - k_grid * n_block2 - j_grid * n_block; // iops = 4
+            const Real x =
+                xyz(0, iMesh) + dxyzCell * static_cast<Real>(i_grid); // fops = 2
+            const Real y =
+                xyz(1, iMesh) + dxyzCell * static_cast<Real>(j_grid); // fops = 2
+            const Real z =
+                xyz(2, iMesh) + dxyzCell * static_cast<Real>(k_grid); // fops = 2
+            const Real myR2 = x * x + y * y + z * z;                  // fops = 5
+            inOrOut(0, k_grid + NGHOST, j_grid + NGHOST, i_grid + NGHOST) =
+                (myR2 < radius2 ? 1.0 : 0.0); // iops = 3
+          });
+    }
+  });
+  Kokkos::fence();
+
+  // formulate result struct
+  constexpr int niops = 8;
+  constexpr int nfops = 11;
+  auto r =
+      result_t{"Naive_Kokkos", (6.0 * sumArray(firstBlock, n_block) * dVol / radius3),
+               time_basic, niops, nfops};
+
+  // Clean up the mesh
+  deleteMesh(firstBlock);
+
+  return r;
 }
 
 int main(int argc, char *argv[]) {
@@ -162,121 +289,28 @@ int main(int argc, char *argv[]) {
     const int n_block = std::stoi(argv[1], &pos);
     const int n_mesh = std::stoi(argv[2], &pos);
     const int n_iter = std::stoi(argv[3], &pos);
-    if (argc == 5) {
+    if (argc >= 5) {
       radius = static_cast<Real>(std::stod(argv[4], &pos));
+    } else {
+      radius = 1.0;
     }
 
-    // Setup auxilliary variables
-    const int n_block2 = n_block * n_block;
-    const int n_block3 = n_block * n_block * n_block;
-    const int n_mesh3 = n_mesh * n_mesh * n_mesh;
-    const double radius2 = radius * radius;
-    const double radius3 = radius * radius * radius;
-    const Real dxyzCell = radius / static_cast<Real>(n_mesh * n_block);
-    const Real dVol = radius3 / static_cast<Real>(n_mesh3 * n_block3);
-    std::map<std::string, std::array<double, 4>> results;
+    // Run tests
+    // A result vector
+    std::vector<struct result_t> results;
 
-    // allocate space for origin coordinates and create host mirror view
-    View2D xyz("xyzBlocks", 3, n_mesh3);
-    auto h_xyz = Kokkos::create_mirror_view(xyz);
-
-    // *** Kludge warning ***
-    // Since our mesh is not GPU friendly we set up a hacked up
-    // collection of mesh blocks.  The hope is that when our mesh is
-    // up to par we will replace this code with the mesh
-    // infrastructure.
-
-    // Set up our mesh.
-    Metadata myMetadata({Metadata::Independent, Metadata::Cell});
-
-    MeshBlock *firstBlock = nullptr;
-    MeshBlock *lastBlock = nullptr;
-
-    std::cout << "Begin setup " << std::endl;
-    int idxMesh = 0; // an index into Block coordinate array
-    for (int k_mesh = 0; k_mesh < n_mesh; k_mesh++) {
-      for (int j_mesh = 0; j_mesh < n_mesh; j_mesh++) {
-        for (int i_mesh = 0; i_mesh < n_mesh; i_mesh++, idxMesh++) {
-          // get a new meshblock
-          auto *pmb = new MeshBlock(n_block, 3);
-          // if not first block then add to chain
-          if (lastBlock) {
-            // set pointers accordingly
-            lastBlock->next = pmb;
-            pmb->prev = lastBlock;
-          } else {
-            // store first block
-            firstBlock = pmb;
-          }
-          // set coordinates of first cell center
-          h_xyz(0, idxMesh) = dxyzCell * (static_cast<Real>(i_mesh * n_block) + 0.5);
-          h_xyz(1, idxMesh) = dxyzCell * (static_cast<Real>(j_mesh * n_block) + 0.5);
-          h_xyz(2, idxMesh) = dxyzCell * (static_cast<Real>(k_mesh * n_block) + 0.5);
-          // Add our variable for in_or_out
-          Container<Real> &base = pmb->real_containers.Get();
-          base.setBlock(pmb);
-          base.Add("in_or_out", myMetadata);
-          // repoint lastBlock for next iteration
-          lastBlock = pmb;
-        }
-      }
-    }
-    // copy our coordinates over to Device and wait for completion
-    Kokkos::deep_copy(xyz, h_xyz);
-    Kokkos::fence();
-
-    // first A  naive Kokkos loop over the mesh
-    // This policy is over one block
-    auto policyBlock = Kokkos::RangePolicy<>(Kokkos::DefaultExecutionSpace(), 0, n_block3,
-                                             Kokkos::ChunkSize(512));
-
-    std::cout << "Begin basic timing " << std::endl;
-    double time_basic;
-    {
-      MeshBlock *pStart = firstBlock;
-      time_basic = kernel_timer_wrapper(0, n_iter, [&]() {
-        MeshBlock *pmb = pStart;
-        for (int iMesh = 0; iMesh < n_mesh3; iMesh++, pmb = pmb->next) {
-          Container<Real> &base = pmb->real_containers.Get();
-          auto inOrOut = base.PackVariables({Metadata::Independent});
-          // iops = 8  fops = 11
-          Kokkos::parallel_for(
-              "Compute In Or Out", policyBlock, KOKKOS_LAMBDA(const int &idx) {
-                const int k_grid = idx / n_block2;                             // iops = 1
-                const int j_grid = (idx - k_grid * n_block2) / n_block;        // iops = 3
-                const int i_grid = idx - k_grid * n_block2 - j_grid * n_block; // iops = 4
-                const Real x =
-                    xyz(0, iMesh) + dxyzCell * static_cast<Real>(i_grid); // fops = 2
-                const Real y =
-                    xyz(1, iMesh) + dxyzCell * static_cast<Real>(j_grid); // fops = 2
-                const Real z =
-                    xyz(2, iMesh) + dxyzCell * static_cast<Real>(k_grid); // fops = 2
-                const Real myR2 = x * x + y * y + z * z;                  // fops = 5
-                inOrOut(0, k_grid + NGHOST, j_grid + NGHOST, i_grid + NGHOST) =
-                    (myR2 < radius2 ? 1.0 : 0.0); // iops = 3
-              });
-        }
-      });
-      // wait for work to finish, redundant due to timing loop
-      Kokkos::fence();
-    }
-
-    std::cout << "Begin Answer Check" << std::endl;
-    constexpr int niops = 8;
-    constexpr int nfops = 11;
-    double myPi = sumArray(firstBlock, n_block, dVol / radius3);
-
-    results["basic Kokkos"] = {myPi, time_basic,
-                               calcGops(nfops, time_basic, n_block3, n_mesh3, n_iter),
-                               calcGops(niops, time_basic, n_block3, n_mesh3, n_iter)};
+    // Run Naive Kokkos Implementation
+    results.push_back(naiveKokkos(n_block, n_mesh, n_iter, radius));
 
     // print all results
-    for (auto &item : results) {
-      auto name = item.first;
-      auto values = item.second;
-      printf("%20s: pi=%.16lf in %.6lf seconds; GFlops="
-             "%.16lf GIops=%.16lf\n",
-             name.c_str(), values[0], values[1], values[2], values[3]);
+    const int64_t n_block3 = n_block * n_block * n_block;
+    const int64_t n_mesh3 = n_mesh * n_mesh * n_mesh;
+
+    printf("\nname,t(s),GFlops,GIops,pi\n");
+    for (auto &test : results) {
+      printf("%s,%.8lf,%.4lf,%.4lf,%.14lf\n", test.name.c_str(), test.t,
+             calcGops(test.fops, test.t, n_block3, n_mesh3, n_iter),
+             calcGops(test.iops, test.t, n_block3, n_mesh3, n_iter), test.pi);
     }
   } while (0);
   Kokkos::finalize();
