@@ -70,15 +70,16 @@ using parthenon::Real;
 using View2D = Kokkos::View<Real **, Kokkos::LayoutRight, Kokkos::DefaultExecutionSpace>;
 
 // simple giga-ops calculator
-double calcGops(const int &nops, const double &t, const int &n_block3, const int &n_mesh3,
-                const int &n_iter) {
+static double calcGops(const int &nops, const double &t, const int &n_block3,
+                       const int &n_mesh3, const int &n_iter) {
   return (static_cast<Real>(nops * n_iter) / t / 1.0e9 * static_cast<Real>(n_block3) *
           static_cast<Real>(n_mesh3));
 }
 
 // Test wrapper to run a function multiple times
 template <typename PerfFunc>
-double kernel_timer_wrapper(const int n_burn, const int n_perf, PerfFunc perf_func) {
+static double kernel_timer_wrapper(const int n_burn, const int n_perf,
+                                   PerfFunc perf_func) {
   // Initialize the timer and test
   Kokkos::Timer timer;
 
@@ -100,7 +101,7 @@ double kernel_timer_wrapper(const int n_burn, const int n_perf, PerfFunc perf_fu
   return perf_time;
 }
 
-void usage(std::string program) {
+static void usage(std::string program) {
   std::cout << std::endl
             << "    Usage: " << program << " n_block n_mesh n_iter" << std::endl
             << std::endl
@@ -110,6 +111,38 @@ void usage(std::string program) {
             << "            [Radius] = Optional: Radius of sphere" << std::endl
             << "                                 Defaults to 1.0" << std::endl
             << std::endl;
+}
+
+static double sumArray(MeshBlock *firstBlock, const int &n_block, const double scale) {
+  // This policy is over one block
+  const int n_block2 = n_block * n_block;
+  const int n_block3 = n_block * n_block * n_block;
+  auto policyBlock = Kokkos::RangePolicy<>(Kokkos::DefaultExecutionSpace(), 0, n_block3,
+                                           Kokkos::ChunkSize(512));
+  double myPi = 0.0;
+  // reduce the sum on the device
+  // I'm pretty sure I can do this better, but not worried about performance for this
+  MeshBlock *pmb = firstBlock;
+  while (pmb) {
+    Container<Real> &base = pmb->real_containers.Get();
+    auto inOrOut = base.PackVariables({Metadata::Independent});
+    double onePi;
+    Kokkos::parallel_reduce(
+        "Reduce Sum", policyBlock,
+        KOKKOS_LAMBDA(const int &idx, double &mySum) {
+          const int k_grid = idx / n_block2;
+          const int j_grid = (idx - k_grid * n_block2) / n_block;
+          const int i_grid = idx - k_grid * n_block2 - j_grid * n_block;
+          mySum += inOrOut(0, k_grid + NGHOST, j_grid + NGHOST, i_grid + NGHOST);
+        },
+        onePi);
+    Kokkos::fence();
+    myPi += onePi;
+    pmb = pmb->next;
+  }
+  // calculate Pi
+  myPi = 6.0 * myPi * scale;
+  return myPi;
 }
 
 int main(int argc, char *argv[]) {
@@ -141,6 +174,7 @@ int main(int argc, char *argv[]) {
     const double radius3 = radius * radius * radius;
     const Real dxyzCell = radius / static_cast<Real>(n_mesh * n_block);
     const Real dVol = radius3 / static_cast<Real>(n_mesh3 * n_block3);
+    std::map<std::string, std::array<double, 4>> results;
 
     // allocate space for origin coordinates and create host mirror view
     View2D xyz("xyzBlocks", 3, n_mesh3);
@@ -155,12 +189,11 @@ int main(int argc, char *argv[]) {
     // Set up our mesh.
     Metadata myMetadata({Metadata::Independent, Metadata::Cell});
 
+    MeshBlock *firstBlock = nullptr;
     MeshBlock *lastBlock = nullptr;
-    MeshBlock *allBlocks[n_mesh3]; // probably not needed, but creating it so that we can
-                                   // launch many blocks
 
     std::cout << "Begin setup " << std::endl;
-    int idxMesh = 0; // an index into AllBlocks array
+    int idxMesh = 0; // an index into Block coordinate array
     for (int k_mesh = 0; k_mesh < n_mesh; k_mesh++) {
       for (int j_mesh = 0; j_mesh < n_mesh; j_mesh++) {
         for (int i_mesh = 0; i_mesh < n_mesh; i_mesh++, idxMesh++) {
@@ -171,10 +204,10 @@ int main(int argc, char *argv[]) {
             // set pointers accordingly
             lastBlock->next = pmb;
             pmb->prev = lastBlock;
+          } else {
+            // store first block
+            firstBlock = pmb;
           }
-
-          // store block away
-          lastBlock = allBlocks[idxMesh] = pmb;
           // set coordinates of first cell center
           h_xyz(0, idxMesh) = dxyzCell * (static_cast<Real>(i_mesh * n_block) + 0.5);
           h_xyz(1, idxMesh) = dxyzCell * (static_cast<Real>(j_mesh * n_block) + 0.5);
@@ -183,6 +216,8 @@ int main(int argc, char *argv[]) {
           Container<Real> &base = pmb->real_containers.Get();
           base.setBlock(pmb);
           base.Add("in_or_out", myMetadata);
+          // repoint lastBlock for next iteration
+          lastBlock = pmb;
         }
       }
     }
@@ -190,13 +225,7 @@ int main(int argc, char *argv[]) {
     Kokkos::deep_copy(xyz, h_xyz);
     Kokkos::fence();
 
-    // first let us do a stupid loop over the mesh
-    // This policy is over entire mesh
-
-    // This policy is over entire mesh
-    auto policy = Kokkos::RangePolicy<>(Kokkos::DefaultExecutionSpace(), 0,
-                                        n_block3 * n_mesh3, Kokkos::ChunkSize(512));
-
+    // first A  naive Kokkos loop over the mesh
     // This policy is over one block
     auto policyBlock = Kokkos::RangePolicy<>(Kokkos::DefaultExecutionSpace(), 0, n_block3,
                                              Kokkos::ChunkSize(512));
@@ -204,7 +233,7 @@ int main(int argc, char *argv[]) {
     std::cout << "Begin basic timing " << std::endl;
     double time_basic;
     {
-      MeshBlock *pStart = allBlocks[0];
+      MeshBlock *pStart = firstBlock;
       time_basic = kernel_timer_wrapper(0, n_iter, [&]() {
         MeshBlock *pmb = pStart;
         for (int iMesh = 0; iMesh < n_mesh3; iMesh++, pmb = pmb->next) {
@@ -232,43 +261,23 @@ int main(int argc, char *argv[]) {
       Kokkos::fence();
     }
 
-    std::cout << "Begin reduce sum" << std::endl;
-    double myPi = 0.0;
-    {
-      // reduce the sum on the device
-      // I'm pretty sure I can do this better, but not worried about performance for this
-      MeshBlock *pmb = allBlocks[0];
-      for (int iMesh = 0; iMesh < n_mesh3; iMesh++, pmb = pmb->next) {
-        Container<Real> &base = pmb->real_containers.Get();
-        auto inOrOut = base.PackVariables({Metadata::Independent});
-        double onePi;
-        Kokkos::parallel_reduce(
-            "Reduce Sum", policyBlock,
-            KOKKOS_LAMBDA(const int &idx, double &mySum) {
-              const int k_grid = idx / n_block2;
-              const int j_grid = (idx - k_grid * n_block2) / n_block;
-              const int i_grid = idx - k_grid * n_block2 - j_grid * n_block;
-              mySum += inOrOut(0, k_grid + NGHOST, j_grid + NGHOST, i_grid + NGHOST);
-            },
-            onePi);
-        Kokkos::fence();
-        myPi += onePi;
-      }
-
-      // wait for work to finish
-      Kokkos::fence();
-
-      // calculate Pi
-      myPi = 6.0 * myPi * dVol / radius3;
-    }
-
+    std::cout << "Begin Answer Check" << std::endl;
     constexpr int niops = 8;
     constexpr int nfops = 11;
+    double myPi = sumArray(firstBlock, n_block, dVol / radius3);
 
-    printf("Calculated value of pi=%.16lf in %.6lf seconds; GFlops="
-           "%.16lf GIops=%.16lf\n",
-           myPi, time_basic, calcGops(nfops, time_basic, n_block3, n_mesh3, n_iter),
-           calcGops(niops, time_basic, n_block3, n_mesh3, n_iter));
+    results["basic Kokkos"] = {myPi, time_basic,
+                               calcGops(nfops, time_basic, n_block3, n_mesh3, n_iter),
+                               calcGops(niops, time_basic, n_block3, n_mesh3, n_iter)};
+
+    // print all results
+    for (auto &item : results) {
+      auto name = item.first;
+      auto values = item.second;
+      printf("%20s: pi=%.16lf in %.6lf seconds; GFlops="
+             "%.16lf GIops=%.16lf\n",
+             name.c_str(), values[0], values[1], values[2], values[3]);
+    }
   } while (0);
   Kokkos::finalize();
 }
