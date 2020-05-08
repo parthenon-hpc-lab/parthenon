@@ -373,8 +373,8 @@ int main(int argc, char *argv[]) {
                             static_cast<int64_t>(n_block3);
     for (auto &test : results) {
       double cps = static_cast<Real>(iterBlockMesh) / test.t;
-      printf("%s,%.8lf,%10g,%.4lf,%.4lf,%.14lf\n", test.name.c_str(), test.t, cps,
-             calcGops(test.fops, test.t, n_block3, n_mesh3, n_iter));
+      printf("%s,%.8lf,%10g,%.4lf,%.14lf\n", test.name.c_str(), test.t, cps,
+             calcGops(test.fops, test.t, n_block3, n_mesh3, n_iter), test.pi);
     }
   } while (0);
   Kokkos::finalize();
