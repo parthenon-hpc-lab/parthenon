@@ -190,9 +190,9 @@ Real EstimateTimestep(Container<Real> &rc) {
   for (int k = ks; k <= ke; k++) {
     for (int j = js; j <= je; j++) {
       for (int i = is; i <= ie; i++) {
-        min_dt = std::min(min_dt, coords.Dx(1, i) / std::abs(vx));
-        min_dt = std::min(min_dt, coords.Dx(2, i) / std::abs(vy));
-        min_dt = std::min(min_dt, coords.Dx(3, i) / std::abs(vz));
+        min_dt = std::min(min_dt, coords.Dx(1, k, j, i) / std::abs(vx));
+        min_dt = std::min(min_dt, coords.Dx(2, k, j, i) / std::abs(vy));
+        min_dt = std::min(min_dt, coords.Dx(3, k, j, i) / std::abs(vz));
       }
     }
   }
