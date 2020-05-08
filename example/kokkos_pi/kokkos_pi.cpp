@@ -66,7 +66,11 @@ using parthenon::Container;
 using parthenon::DevExecSpace;
 using parthenon::MeshBlock;
 using parthenon::Metadata;
+using parthenon::par_for;
 using parthenon::Real;
+
+using parthenon::ParArray4D;
+using parthenon::ParArrayND;
 
 using View2D = Kokkos::View<Real **, Kokkos::LayoutRight, Kokkos::DefaultExecutionSpace>;
 
@@ -155,7 +159,7 @@ static double sumArray(MeshBlock *firstBlock, const int &n_block) {
 }
 
 static MeshBlock *setupMesh(const int &n_block, const int &n_mesh, const double &radius,
-                            View2D &xyz) {
+                            View2D &xyz, const int NG = 0) {
   // *** Kludge warning ***
   // Since our mesh is not GPU friendly we set up a hacked up
   // collection of mesh blocks.  The hope is that when our mesh is
@@ -170,10 +174,13 @@ static MeshBlock *setupMesh(const int &n_block, const int &n_mesh, const double 
   MeshBlock *firstBlock = nullptr;
   MeshBlock *lastBlock = nullptr;
 
-  int idxMesh = 0; // an index into Block coordinate array
+  // compute an offset due to ghost cells
+  double delta = dxyzCell * static_cast<Real>(NG);
+
+  int idx = 0; // an index into Block coordinate array
   for (int k_mesh = 0; k_mesh < n_mesh; k_mesh++) {
     for (int j_mesh = 0; j_mesh < n_mesh; j_mesh++) {
-      for (int i_mesh = 0; i_mesh < n_mesh; i_mesh++, idxMesh++) {
+      for (int i_mesh = 0; i_mesh < n_mesh; i_mesh++, idx++) {
         // get a new meshblock and insert into chain
         auto *pmb = new MeshBlock(n_block, 3);
         if (lastBlock) {
@@ -183,9 +190,9 @@ static MeshBlock *setupMesh(const int &n_block, const int &n_mesh, const double 
           firstBlock = pmb;
         }
         // set coordinates of first cell center
-        h_xyz(0, idxMesh) = dxyzCell * (static_cast<Real>(i_mesh * n_block) + 0.5);
-        h_xyz(1, idxMesh) = dxyzCell * (static_cast<Real>(j_mesh * n_block) + 0.5);
-        h_xyz(2, idxMesh) = dxyzCell * (static_cast<Real>(k_mesh * n_block) + 0.5);
+        h_xyz(0, idx) = dxyzCell * (static_cast<Real>(i_mesh * n_block) + 0.5) - delta;
+        h_xyz(1, idx) = dxyzCell * (static_cast<Real>(j_mesh * n_block) + 0.5) - delta;
+        h_xyz(2, idx) = dxyzCell * (static_cast<Real>(k_mesh * n_block) + 0.5) - delta;
         // Add variable for in_or_out
         Container<Real> &base = pmb->real_containers.Get();
         base.setBlock(pmb);
@@ -222,7 +229,7 @@ result_t naiveKokkos(int n_block, int n_mesh, int n_iter, double radius) {
   const double radius2 = radius * radius;
   const double radius3 = radius * radius * radius;
   const Real dxyzCell = radius / static_cast<Real>(n_mesh * n_block);
-  const Real dVol = radius3 / static_cast<Real>(n_mesh3 * n_block3);
+  const Real dVol = radius3 / static_cast<Real>(n_mesh3) / static_cast<Real>(n_block3);
 
   // allocate space for origin coordinates and set up the mesh
   View2D xyz("xyzBlocks", 3, n_mesh3);
@@ -272,6 +279,60 @@ result_t naiveKokkos(int n_block, int n_mesh, int n_iter, double radius) {
   return r;
 }
 
+result_t naiveParFor(int n_block, int n_mesh, int n_iter, double radius) {
+  // creates a mesh and rusn a basic par_for implementation for looping through blocks.
+
+  // Setup auxilliary variables
+  const int n_block3 = n_block * n_block * n_block;
+  const int n_mesh3 = n_mesh * n_mesh * n_mesh;
+  const double radius2 = radius * radius;
+  const double radius3 = radius * radius * radius;
+  const Real dxyzCell = radius / static_cast<Real>(n_mesh * n_block);
+  const Real dVol = radius3 / static_cast<Real>(n_mesh3) / static_cast<Real>(n_block3);
+
+  // allocate space for origin coordinates and set up the mesh
+  View2D xyz("xyzBlocks", 3, n_mesh3);
+  MeshBlock *firstBlock = setupMesh(n_block, n_mesh, radius, xyz, NGHOST);
+
+  MeshBlock *pStart = firstBlock;
+  double time_basic = kernel_timer_wrapper(0, n_iter, [&]() {
+    MeshBlock *pmb = pStart;
+    for (int iMesh = 0; iMesh < n_mesh3; iMesh++, pmb = pmb->next) {
+      Container<Real> &base = pmb->real_containers.Get();
+      auto inOrOut = base.PackVariables({Metadata::Independent});
+      // iops = 0  fops = 11
+      par_for(
+          "par_for in or out", DevExecSpace(), 0, inOrOut.GetDim(4) - 1, NGHOST,
+          inOrOut.GetDim(3) - NGHOST - 1, NGHOST, inOrOut.GetDim(2) - NGHOST - 1, NGHOST,
+          inOrOut.GetDim(1) - NGHOST - 1,
+          KOKKOS_LAMBDA(const int l, const int k_grid, const int j_grid,
+                        const int i_grid) {
+            const Real x =
+                xyz(0, iMesh) + dxyzCell * static_cast<Real>(i_grid); // fops = 2
+            const Real y =
+                xyz(1, iMesh) + dxyzCell * static_cast<Real>(j_grid); // fops = 2
+            const Real z =
+                xyz(2, iMesh) + dxyzCell * static_cast<Real>(k_grid); // fops = 2
+            const Real myR2 = x * x + y * y + z * z;                  // fops = 5
+            inOrOut(l, k_grid, j_grid, i_grid) = (myR2 < radius2 ? 1.0 : 0.0);
+          });
+    }
+  });
+  Kokkos::fence();
+
+  // formulate result struct
+  constexpr int niops = 0;
+  constexpr int nfops = 11;
+  auto r =
+      result_t{"Naive_ParFor", (6.0 * sumArray(firstBlock, n_block) * dVol / radius3),
+               time_basic, niops, nfops};
+
+  // Clean up the mesh
+  deleteMesh(firstBlock);
+
+  return r;
+}
+
 int main(int argc, char *argv[]) {
   Kokkos::initialize(argc, argv);
   do {
@@ -301,16 +362,19 @@ int main(int argc, char *argv[]) {
 
     // Run Naive Kokkos Implementation
     results.push_back(naiveKokkos(n_block, n_mesh, n_iter, radius));
+    results.push_back(naiveParFor(n_block, n_mesh, n_iter, radius));
 
     // print all results
     const int64_t n_block3 = n_block * n_block * n_block;
     const int64_t n_mesh3 = n_mesh * n_mesh * n_mesh;
 
-    printf("\nname,t(s),GFlops,GIops,pi\n");
+    printf("\nname,t(s),cps,GFlops,pi\n");
+    int64_t iterBlockMesh = static_cast<int64_t>(n_iter) * static_cast<int64_t>(n_mesh3) *
+                            static_cast<int64_t>(n_block3);
     for (auto &test : results) {
-      printf("%s,%.8lf,%.4lf,%.4lf,%.14lf\n", test.name.c_str(), test.t,
-             calcGops(test.fops, test.t, n_block3, n_mesh3, n_iter),
-             calcGops(test.iops, test.t, n_block3, n_mesh3, n_iter), test.pi);
+      double cps = static_cast<Real>(iterBlockMesh) / test.t;
+      printf("%s,%.8lf,%10g,%.4lf,%.4lf,%.14lf\n", test.name.c_str(), test.t, cps,
+             calcGops(test.fops, test.t, n_block3, n_mesh3, n_iter));
     }
   } while (0);
   Kokkos::finalize();
