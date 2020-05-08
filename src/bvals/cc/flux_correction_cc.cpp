@@ -31,7 +31,7 @@
 
 #include "athena.hpp"
 #include "bvals/cc/bvals_cc.hpp"
-#include "coordinates/coordinates.hpp"
+#include "coordinates/new_coordinates.hpp"
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
 #include "parameter_input.hpp"
@@ -45,11 +45,7 @@ namespace parthenon {
 
 void CellCenteredBoundaryVariable::SendFluxCorrection() {
   MeshBlock *pmb = pmy_block_;
-  auto &pco = pmb->pcoord;
-
-  // cache pointers to surface area arrays (BoundaryBase protected variable)
-  ParArrayND<Real> &sarea0 = pmb->pbval->sarea_[0];
-  ParArrayND<Real> &sarea1 = pmb->pbval->sarea_[1];
+  auto &coords = pmb->coords;
 
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
@@ -65,11 +61,11 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
           for (int nn = nl_; nn <= nu_; nn++) {
             for (int k = pmb->ks; k <= pmb->ke; k += 2) {
               for (int j = pmb->js; j <= pmb->je; j += 2) {
-                Real amm = pco->GetFace1Area(k, j, i);
-                Real amp = pco->GetFace1Area(k, j + 1, i);
-                Real apm = pco->GetFace1Area(k + 1, j, i);
-                Real app = pco->GetFace1Area(k + 1, j + 1, i);
-                Real tarea = amm + amp + apm + app;
+                const Real amm = coords.Area(1, k, j, i);
+                const Real amp = coords.Area(1, k, j + 1, i);
+                const Real apm = coords.Area(1, k + 1, j, i);
+                const Real app = coords.Area(1, k + 1, j + 1, i);
+                const Real tarea = amm + amp + apm + app;
                 sbuf[p++] =
                     (x1flux(nn, k, j, i) * amm + x1flux(nn, k, j + 1, i) * amp +
                      x1flux(nn, k + 1, j, i) * apm + x1flux(nn, k + 1, j + 1, i) * app) /
@@ -81,9 +77,9 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
           int k = pmb->ks;
           for (int nn = nl_; nn <= nu_; nn++) {
             for (int j = pmb->js; j <= pmb->je; j += 2) {
-              Real am = pco->GetFace1Area(k, j, i);
-              Real ap = pco->GetFace1Area(k, j + 1, i);
-              Real tarea = am + ap;
+              const Real am = coords.Area(1, k, j, i);
+              const Real ap = coords.Area(1, k, j + 1, i);
+              const Real tarea = am + ap;
               sbuf[p++] =
                   (x1flux(nn, k, j, i) * am + x1flux(nn, k, j + 1, i) * ap) / tarea;
             }
@@ -99,44 +95,48 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
         if (pmb->block_size.nx3 > 1) { // 3D
           for (int nn = nl_; nn <= nu_; nn++) {
             for (int k = pmb->ks; k <= pmb->ke; k += 2) {
-              pco->Face2Area(k, j, pmb->is, pmb->ie, sarea0);
-              pco->Face2Area(k + 1, j, pmb->is, pmb->ie, sarea1);
               for (int i = pmb->is; i <= pmb->ie; i += 2) {
-                Real tarea = sarea0(i) + sarea0(i + 1) + sarea1(i) + sarea1(i + 1);
-                sbuf[p++] = (x2flux(nn, k, j, i) * sarea0(i) +
-                             x2flux(nn, k, j, i + 1) * sarea0(i + 1) +
-                             x2flux(nn, k + 1, j, i) * sarea1(i) +
-                             x2flux(nn, k + 1, j, i + 1) * sarea1(i + 1)) /
-                            tarea;
+                const Real area00 = coords.Area(2, k, j, i);
+                const Real area01 = coords.Area(2, k, j, i + 1);
+                const Real area10 = coords.Area(2, k + 1, j, i);
+                const Real area11 = coords.Area(2, k + 1, j, i + 1);
+                const Real tarea = area00 + area01 + area10 + area11;
+                sbuf[p++] =
+                    (x2flux(nn, k, j, i) * area00 + x2flux(nn, k, j, i + 1) * area01 +
+                     x2flux(nn, k + 1, j, i) * area10 +
+                     x2flux(nn, k + 1, j, i + 1) * area11) /
+                    tarea;
               }
             }
           }
         } else if (pmb->block_size.nx2 > 1) { // 2D
           int k = pmb->ks;
           for (int nn = nl_; nn <= nu_; nn++) {
-            pco->Face2Area(0, j, pmb->is, pmb->ie, sarea0);
             for (int i = pmb->is; i <= pmb->ie; i += 2) {
-              Real tarea = sarea0(i) + sarea0(i + 1);
-              sbuf[p++] = (x2flux(nn, k, j, i) * sarea0(i) +
-                           x2flux(nn, k, j, i + 1) * sarea0(i + 1)) /
-                          tarea;
+              const Real area0 = coords.Area(2, k, j, i);
+              const Real area1 = coords.Area(2, k, j, i + 1);
+              const Real tarea = area0 + area1;
+              sbuf[p++] =
+                  (x2flux(nn, k, j, i) * area0 + x2flux(nn, k, j, i + 1) * area1) / tarea;
             }
           }
         }
-        // x3 direction - 3D onl_y
+        // x3 direction - 3D only
       } else if (nb.fid == BoundaryFace::inner_x3 || nb.fid == BoundaryFace::outer_x3) {
         int k = pmb->ks + (pmb->ke - pmb->ks + 1) * (nb.fid & 1);
         for (int nn = nl_; nn <= nu_; nn++) {
           for (int j = pmb->js; j <= pmb->je; j += 2) {
-            pco->Face3Area(k, j, pmb->is, pmb->ie, sarea0);
-            pco->Face3Area(k, j + 1, pmb->is, pmb->ie, sarea1);
             for (int i = pmb->is; i <= pmb->ie; i += 2) {
-              Real tarea = sarea0(i) + sarea0(i + 1) + sarea1(i) + sarea1(i + 1);
-              sbuf[p++] = (x3flux(nn, k, j, i) * sarea0(i) +
-                           x3flux(nn, k, j, i + 1) * sarea0(i + 1) +
-                           x3flux(nn, k, j + 1, i) * sarea1(i) +
-                           x3flux(nn, k, j + 1, i + 1) * sarea1(i + 1)) /
-                          tarea;
+              const Real area00 = coords.Area(3, k, j, i);
+              const Real area01 = coords.Area(3, k, j, i + 1);
+              const Real area10 = coords.Area(3, k, j + 1, i);
+              const Real area11 = coords.Area(3, k, j + 1, i + 1);
+              const Real tarea = area00 + area01 + area10 + area11;
+              sbuf[p++] =
+                  (x3flux(nn, k, j, i) * area00 + x3flux(nn, k, j, i + 1) * area01 +
+                   x3flux(nn, k, j + 1, i) * area10 +
+                   x3flux(nn, k, j + 1, i + 1) * area11) /
+                  tarea;
             }
           }
         }

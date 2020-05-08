@@ -23,7 +23,7 @@
 #include "parthenon_mpi.hpp"
 
 #include "athena.hpp"
-#include "coordinates/coordinates.hpp"
+#include "coordinates/new_coordinates.hpp"
 #include "globals.hpp"
 #include "interface/container_iterator.hpp"
 #include "mesh/mesh.hpp"
@@ -434,21 +434,21 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   global_count[0] = max_blocks_global;
 
   pmb = pm->pblock;
-  LOADVARIABLE(tmpData, pmb, pmb->pcoord->x1f, out_is, out_ie + 1, 0, 0, 0, 0);
+  LOADVARIABLE(tmpData, pmb, pmb->coords.x1f, out_is, out_ie + 1, 0, 0, 0, 0);
   local_count[1] = global_count[1] = nx1 + 1;
   WRITEH5SLAB("x", tmpData, gLocations, local_start, local_count, global_count,
               property_list);
 
   // write Y coordinates
   pmb = pm->pblock;
-  LOADVARIABLE(tmpData, pmb, pmb->pcoord->x2f, out_js, out_je + 1, 0, 0, 0, 0);
+  LOADVARIABLE(tmpData, pmb, pmb->coords.x2f, 0, 0, out_js, out_je + 1, 0, 0);
   local_count[1] = global_count[1] = nx2 + 1;
   WRITEH5SLAB("y", tmpData, gLocations, local_start, local_count, global_count,
               property_list);
 
   // write Z coordinates
   pmb = pm->pblock;
-  LOADVARIABLE(tmpData, pmb, pmb->pcoord->x3f, out_ks, out_ke + 1, 0, 0, 0, 0);
+  LOADVARIABLE(tmpData, pmb, pmb->coords.x3f, 0, 0, 0, 0, out_ks, out_ke + 1);
   local_count[1] = global_count[1] = nx3 + 1;
   WRITEH5SLAB("z", tmpData, gLocations, local_start, local_count, global_count,
               property_list);
