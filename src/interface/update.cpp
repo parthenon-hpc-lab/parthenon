@@ -44,15 +44,18 @@ TaskStatus FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
       "flux divergence", 0, vin.GetDim(4) - 1, ks, ke, js, je, is, ie,
       KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
         dudt(l, k, j, i) = 0.0;
-        dudt(l, k, j, i) += (coords.Area(1, k, j, i + 1) * vin.flux(0, l, k, j, i + 1) -
-                             coords.Area(1, k, j, i) * vin.flux(0, l, k, j, i));
+        dudt(l, k, j, i) +=
+            (coords.Area(X1DIR, k, j, i + 1) * vin.flux(X1DIR, l, k, j, i + 1) -
+             coords.Area(X1DIR, k, j, i) * vin.flux(X1DIR, l, k, j, i));
         if (ndim >= 2) {
-          dudt(l, k, j, i) += (coords.Area(2, k, j + 1, i) * vin.flux(1, l, k, j + 1, i) -
-                               coords.Area(2, k, j, i) * vin.flux(1, l, k, j, i));
+          dudt(l, k, j, i) +=
+              (coords.Area(X2DIR, k, j + 1, i) * vin.flux(X2DIR, l, k, j + 1, i) -
+               coords.Area(X2DIR, k, j, i) * vin.flux(X2DIR, l, k, j, i));
         }
         if (ndim == 3) {
-          dudt(l, k, j, i) += (coords.Area(3, k + 1, j, i) * vin.flux(2, l, k + 1, j, i) -
-                               coords.Area(3, k, j, i) * vin.flux(2, l, k, j, i));
+          dudt(l, k, j, i) +=
+              (coords.Area(X3DIR, k + 1, j, i) * vin.flux(X3DIR, l, k + 1, j, i) -
+               coords.Area(X3DIR, k, j, i) * vin.flux(X3DIR, l, k, j, i));
         }
         dudt(l, k, j, i) /= -coords.Volume(k, j, i);
       });

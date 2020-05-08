@@ -205,6 +205,9 @@ Real EstimateTimestep(Container<Real> &rc) {
 // This routine implements all the "physics" in this example
 TaskStatus CalculateFluxes(Container<Real> &rc) {
   MeshBlock *pmb = rc.pmy_block;
+  using parthenon::X1DIR;
+  using parthenon::X2DIR;
+  using parthenon::X3DIR;
   int is = pmb->is;
   int js = pmb->js;
   int ks = pmb->ks;
@@ -229,11 +232,11 @@ TaskStatus CalculateFluxes(Container<Real> &rc) {
       pmb->precon->DonorCellX1(k, j, is - 1, ie + 1, q.data, ql, qr);
       if (vx > 0.0) {
         for (int i = is; i <= ie + 1; i++) {
-          q.flux[0](k, j, i) = ql(i) * vx;
+          q.flux[X1DIR](k, j, i) = ql(i) * vx;
         }
       } else {
         for (int i = is; i <= ie + 1; i++) {
-          q.flux[0](k, j, i) = qr(i) * vx;
+          q.flux[X1DIR](k, j, i) = qr(i) * vx;
         }
       }
     }
@@ -246,11 +249,11 @@ TaskStatus CalculateFluxes(Container<Real> &rc) {
         pmb->precon->DonorCellX2(k, j, is, ie, q.data, qltemp, qr);
         if (vy > 0.0) {
           for (int i = is; i <= ie; i++) {
-            q.flux[1](k, j, i) = ql(i) * vy;
+            q.flux[X2DIR](k, j, i) = ql(i) * vy;
           }
         } else {
           for (int i = is; i <= ie; i++) {
-            q.flux[1](k, j, i) = qr(i) * vy;
+            q.flux[X2DIR](k, j, i) = qr(i) * vy;
           }
         }
         auto temp = ql;
@@ -268,11 +271,11 @@ TaskStatus CalculateFluxes(Container<Real> &rc) {
         pmb->precon->DonorCellX3(k, j, is, ie, q.data, qltemp, qr);
         if (vz > 0.0) {
           for (int i = is; i <= ie; i++) {
-            q.flux[2](k, j, i) = ql(i) * vz;
+            q.flux[X3DIR](k, j, i) = ql(i) * vz;
           }
         } else {
           for (int i = is; i <= ie; i++) {
-            q.flux[2](k, j, i) = qr(i) * vz;
+            q.flux[X3DIR](k, j, i) = qr(i) * vz;
           }
         }
         auto temp = ql;

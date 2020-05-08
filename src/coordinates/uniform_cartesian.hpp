@@ -109,17 +109,17 @@ class UniformCartesian {
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
-  Real x1v(const int i) const { return xmin_[0] + (i - istart_[0] + 0.5) * dx_[0]; }
+  Real x1v(const int i) const { return xmin_[0] + (i + 0.5) * dx_[0]; }
   KOKKOS_FORCEINLINE_FUNCTION
-  Real x1f(const int i) const { return xmin_[0] + (i - istart_[0]) * dx_[0]; }
+  Real x1f(const int i) const { return xmin_[0] + i * dx_[0]; }
   KOKKOS_FORCEINLINE_FUNCTION
-  Real x2v(const int j) const { return xmin_[1] + (j - istart_[1] + 0.5) * dx_[1]; }
+  Real x2v(const int j) const { return xmin_[1] + (j + 0.5) * dx_[1]; }
   KOKKOS_FORCEINLINE_FUNCTION
-  Real x2f(const int j) const { return xmin_[1] + (j - istart_[1]) * dx_[1]; }
+  Real x2f(const int j) const { return xmin_[1] + j * dx_[1]; }
   KOKKOS_FORCEINLINE_FUNCTION
-  Real x3v(const int k) const { return xmin_[2] + (k - istart_[2] + 0.5) * dx_[2]; }
+  Real x3v(const int k) const { return xmin_[2] + (k + 0.5) * dx_[2]; }
   KOKKOS_FORCEINLINE_FUNCTION
-  Real x3f(const int k) const { return xmin_[2] + (k - istart_[2]) * dx_[2]; }
+  Real x3f(const int k) const { return xmin_[2] + k * dx_[2]; }
 
   KOKKOS_FORCEINLINE_FUNCTION
   Real x1s2(const int i) const { return x1v(i); }

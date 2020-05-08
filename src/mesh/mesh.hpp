@@ -314,7 +314,7 @@ class Mesh {
   // std::int64_t nrbx1, nrbx2, nrbx3;
 
   // flags are false if using non-uniform or user meshgen function
-  bool use_uniform_meshgen_fn_[3];
+  bool use_uniform_meshgen_fn_[4];
 
   int nuser_history_output_;
   std::string *user_history_output_names_;
@@ -326,7 +326,7 @@ class Mesh {
   int lb_interval_;
 
   // functions
-  MeshGenFunc MeshGenerator_[3];
+  MeshGenFunc MeshGenerator_[4];
   BValFunc BoundaryFunction_[6];
   AMRFlagFunc AMRFlag_;
   SrcTermFunc UserSourceTerm_;

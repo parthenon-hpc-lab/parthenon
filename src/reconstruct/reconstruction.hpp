@@ -41,7 +41,7 @@ class Reconstruction {
   // switches for reconstruction method variants:
   int xorder; // roughly the formal order of accuracy of overall reconstruction method
   bool characteristic_projection;
-  bool uniform[3];
+  bool uniform[4];
   // (Cartesian reconstruction formulas are used for x3 azimuthal coordinate in both
   // cylindrical and spherical-polar coordinates)
 
