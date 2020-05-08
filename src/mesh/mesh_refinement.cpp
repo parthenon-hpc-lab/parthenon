@@ -824,22 +824,25 @@ void MeshRefinement::ProlongateInternalField(FaceField &fine, int si, int ei, in
             for (int ii = 0; ii < 2; ii++) {
               int is = 2 * ii - 1, fii = fi + ii, fip = fi + 2 * ii;
 
-              Uxx +=
+              Uxx += is *
+                     (js * (fine.x2f(fk, fjp, fii) * coords.Area(X2DIR, fk, fjp, fii) +
+                            fine.x2f(fk + 1, fjp, fii) *
+                                coords.Area(X2DIR, fk + 1, fjp, fii)) +
+                      (fine.x3f(fk + 2, fjj, fii) * coords.Area(X3DIR, fk + 2, fjj, fii) -
+                       fine.x3f(fk, fjj, fii) * coords.Area(X3DIR, fk, fjj, fii)));
+              Vyy += js *
+                     ((fine.x3f(fk + 2, fjj, fii) * coords.Area(X3DIR, fk + 2, fjj, fii) -
+                       fine.x3f(fk, fjj, fii) * coords.Area(X3DIR, fk, fjj, fii)) +
+                      is * (fine.x1f(fk, fjj, fip) * coords.Area(X1DIR, fk, fjj, fip) +
+                            fine.x1f(fk + 1, fjj, fip) *
+                                coords.Area(X1DIR, fk + 1, fjj, fip)));
+              Wzz +=
                   is *
-                  (js * (fine.x2f(fk, fjp, fii) * coords.Area(X2DIR, fk, fjp, fii) +
-                         fine.x2f(fk + 1, fjp, fii) * coords.Area(X2DIR, fk + 1, fjp, fii)) +
-                   (fine.x3f(fk + 2, fjj, fii) * coords.Area(X3DIR, fk + 2, fjj, fii) -
-                    fine.x3f(fk, fjj, fii) * coords.Area(X3DIR, fk, fjj, fii)));
-              Vyy +=
+                      (fine.x1f(fk + 1, fjj, fip) * coords.Area(X1DIR, fk + 1, fjj, fip) -
+                       fine.x1f(fk, fjj, fip) * coords.Area(X1DIR, fk, fjj, fip)) +
                   js *
-                  ((fine.x3f(fk + 2, fjj, fii) * coords.Area(X3DIR, fk + 2, fjj, fii) -
-                    fine.x3f(fk, fjj, fii) * coords.Area(X3DIR, fk, fjj, fii)) +
-                   is * (fine.x1f(fk, fjj, fip) * coords.Area(X1DIR, fk, fjj, fip) +
-                         fine.x1f(fk + 1, fjj, fip) * coords.Area(X1DIR, fk + 1, fjj, fip)));
-              Wzz += is * (fine.x1f(fk + 1, fjj, fip) * coords.Area(X1DIR, fk + 1, fjj, fip) -
-                           fine.x1f(fk, fjj, fip) * coords.Area(X1DIR, fk, fjj, fip)) +
-                     js * (fine.x2f(fk + 1, fjp, fii) * coords.Area(X2DIR, fk + 1, fjp, fii) -
-                           fine.x2f(fk, fjp, fii) * coords.Area(X2DIR, fk, fjp, fii));
+                      (fine.x2f(fk + 1, fjp, fii) * coords.Area(X2DIR, fk + 1, fjp, fii) -
+                       fine.x2f(fk, fjp, fii) * coords.Area(X2DIR, fk, fjp, fii));
               Uxyz += is * js *
                       (fine.x1f(fk + 1, fjj, fip) * coords.Area(X1DIR, fk + 1, fjj, fip) -
                        fine.x1f(fk, fjj, fip) * coords.Area(X1DIR, fk, fjj, fip));
@@ -869,16 +872,19 @@ void MeshRefinement::ProlongateInternalField(FaceField &fine, int si, int ei, in
               sarea_x1_[0][0](fi + 1);
           fine.x1f(fk, fj + 1, fi + 1) =
               (0.5 * (fine.x1f(fk, fj + 1, fi) * coords.Area(X1DIR, fk, fj + 1, fi) +
-                      fine.x1f(fk, fj + 1, fi + 2) * coords.Area(X1DIR, fk, fj + 1, fi + 2)) +
+                      fine.x1f(fk, fj + 1, fi + 2) *
+                          coords.Area(X1DIR, fk, fj + 1, fi + 2)) +
                Uxx - Sdx3 * Vxyz + Sdx2 * Wxyz) /
               coords.Area(X1DIR, fk, fj + 1, fi + 1);
           fine.x1f(fk + 1, fj, fi + 1) =
               (0.5 * (fine.x1f(fk + 1, fj, fi) * coords.Area(X1DIR, fk + 1, fj, fi) +
-                      fine.x1f(fk + 1, fj, fi + 2) * coords.Area(X1DIR, fk + 1, fj, fi + 2)) +
+                      fine.x1f(fk + 1, fj, fi + 2) *
+                          coords.Area(X1DIR, fk + 1, fj, fi + 2)) +
                Uxx + Sdx3 * Vxyz - Sdx2 * Wxyz) /
               coords.Area(X1DIR, fk + 1, fj, fi + 1);
           fine.x1f(fk + 1, fj + 1, fi + 1) =
-              (0.5 * (fine.x1f(fk + 1, fj + 1, fi) * coords.Area(X1DIR, fk + 1, fj + 1, fi) +
+              (0.5 * (fine.x1f(fk + 1, fj + 1, fi) *
+                          coords.Area(X1DIR, fk + 1, fj + 1, fi) +
                       fine.x1f(fk + 1, fj + 1, fi + 2) *
                           coords.Area(X1DIR, fk + 1, fj + 1, fi + 2)) +
                Uxx + Sdx3 * Vxyz + Sdx2 * Wxyz) /
@@ -891,16 +897,19 @@ void MeshRefinement::ProlongateInternalField(FaceField &fine, int si, int ei, in
               coords.Area(X2DIR, fk, fj + 1, fi);
           fine.x2f(fk, fj + 1, fi + 1) =
               (0.5 * (fine.x2f(fk, fj, fi + 1) * coords.Area(X2DIR, fk, fj, fi + 1) +
-                      fine.x2f(fk, fj + 2, fi + 1) * coords.Area(X2DIR, fk, fj + 2, fi + 1)) +
+                      fine.x2f(fk, fj + 2, fi + 1) *
+                          coords.Area(X2DIR, fk, fj + 2, fi + 1)) +
                Vyy - Sdx3 * Uxyz + Sdx1 * Wxyz) /
               coords.Area(X2DIR, fk, fj + 1, fi + 1);
           fine.x2f(fk + 1, fj + 1, fi) =
               (0.5 * (fine.x2f(fk + 1, fj, fi) * coords.Area(X2DIR, fk + 1, fj, fi) +
-                      fine.x2f(fk + 1, fj + 2, fi) * coords.Area(X2DIR, fk + 1, fj + 2, fi)) +
+                      fine.x2f(fk + 1, fj + 2, fi) *
+                          coords.Area(X2DIR, fk + 1, fj + 2, fi)) +
                Vyy + Sdx3 * Uxyz - Sdx1 * Wxyz) /
               coords.Area(X2DIR, fk + 1, fj + 1, fi);
           fine.x2f(fk + 1, fj + 1, fi + 1) =
-              (0.5 * (fine.x2f(fk + 1, fj, fi + 1) * coords.Area(X2DIR, fk + 1, fj, fi + 1) +
+              (0.5 * (fine.x2f(fk + 1, fj, fi + 1) *
+                          coords.Area(X2DIR, fk + 1, fj, fi + 1) +
                       fine.x2f(fk + 1, fj + 2, fi + 1) *
                           coords.Area(X2DIR, fk + 1, fj + 2, fi + 1)) +
                Vyy + Sdx3 * Uxyz + Sdx1 * Wxyz) /
@@ -912,19 +921,22 @@ void MeshRefinement::ProlongateInternalField(FaceField &fine, int si, int ei, in
                Wzz - Sdx2 * Uxyz - Sdx1 * Vxyz) /
               coords.Area(X3DIR, fk + 1, fj, fi);
           fine.x3f(fk + 1, fj, fi + 1) =
-              (0.5 * (fine.x3f(fk + 2, fj, fi + 1) * coords.Area(X3DIR, fk + 2, fj, fi + 1) +
+              (0.5 * (fine.x3f(fk + 2, fj, fi + 1) *
+                          coords.Area(X3DIR, fk + 2, fj, fi + 1) +
                       fine.x3f(fk, fj, fi + 1) * coords.Area(X3DIR, fk, fj, fi + 1)) +
                Wzz - Sdx2 * Uxyz + Sdx1 * Vxyz) /
               coords.Area(X3DIR, fk + 1, fj, fi + 1);
           fine.x3f(fk + 1, fj + 1, fi) =
-              (0.5 * (fine.x3f(fk + 2, fj + 1, fi) * coords.Area(X3DIR, fk + 2, fj + 1, fi) +
+              (0.5 * (fine.x3f(fk + 2, fj + 1, fi) *
+                          coords.Area(X3DIR, fk + 2, fj + 1, fi) +
                       fine.x3f(fk, fj + 1, fi) * coords.Area(X3DIR, fk, fj + 1, fi)) +
                Wzz + Sdx2 * Uxyz - Sdx1 * Vxyz) /
               coords.Area(X3DIR, fk + 1, fj + 1, fi);
           fine.x3f(fk + 1, fj + 1, fi + 1) =
               (0.5 * (fine.x3f(fk + 2, fj + 1, fi + 1) *
                           coords.Area(X3DIR, fk + 2, fj + 1, fi + 1) +
-                      fine.x3f(fk, fj + 1, fi + 1) * coords.Area(X3DIR, fk, fj + 1, fi + 1)) +
+                      fine.x3f(fk, fj + 1, fi + 1) *
+                          coords.Area(X3DIR, fk, fj + 1, fi + 1)) +
                Wzz + Sdx2 * Uxyz + Sdx1 * Vxyz) /
               coords.Area(X3DIR, fk + 1, fj + 1, fi + 1);
         }
@@ -937,23 +949,26 @@ void MeshRefinement::ProlongateInternalField(FaceField &fine, int si, int ei, in
       for (int i = si; i <= ei; i++) {
         int fi = (i - pmb->cis) * 2 + pmb->is;
         Real tmp1 =
-            0.25 * (fine.x2f(fk, fj + 2, fi + 1) * coords.Area(X2DIR, fk, fj + 2, fi + 1) -
-                    fine.x2f(fk, fj, fi + 1) * coords.Area(X2DIR, fk, fj, fi + 1) -
-                    fine.x2f(fk, fj + 2, fi) * coords.Area(X2DIR, fk, fj + 2, fi) +
-                    fine.x2f(fk, fj, fi) * coords.Area(X2DIR, fk, fj, fi));
+            0.25 *
+            (fine.x2f(fk, fj + 2, fi + 1) * coords.Area(X2DIR, fk, fj + 2, fi + 1) -
+             fine.x2f(fk, fj, fi + 1) * coords.Area(X2DIR, fk, fj, fi + 1) -
+             fine.x2f(fk, fj + 2, fi) * coords.Area(X2DIR, fk, fj + 2, fi) +
+             fine.x2f(fk, fj, fi) * coords.Area(X2DIR, fk, fj, fi));
         Real tmp2 =
-            0.25 * (fine.x1f(fk, fj, fi) * coords.Area(X1DIR, fk, fj, fi) -
-                    fine.x1f(fk, fj, fi + 2) * coords.Area(X1DIR, fk, fj, fi + 2) -
-                    fine.x1f(fk, fj + 1, fi) * coords.Area(X1DIR, fk, fj + 1, fi) +
-                    fine.x1f(fk, fj + 1, fi + 2) * coords.Area(X1DIR, fk, fj + 1, fi + 2));
+            0.25 *
+            (fine.x1f(fk, fj, fi) * coords.Area(X1DIR, fk, fj, fi) -
+             fine.x1f(fk, fj, fi + 2) * coords.Area(X1DIR, fk, fj, fi + 2) -
+             fine.x1f(fk, fj + 1, fi) * coords.Area(X1DIR, fk, fj + 1, fi) +
+             fine.x1f(fk, fj + 1, fi + 2) * coords.Area(X1DIR, fk, fj + 1, fi + 2));
         fine.x1f(fk, fj, fi + 1) =
             (0.5 * (fine.x1f(fk, fj, fi) * coords.Area(X1DIR, fk, fj, fi) +
                     fine.x1f(fk, fj, fi + 2) * coords.Area(X1DIR, fk, fj, fi + 2)) +
              tmp1) /
             coords.Area(X1DIR, fk, fj, fi + 1);
         fine.x1f(fk, fj + 1, fi + 1) =
-            (0.5 * (fine.x1f(fk, fj + 1, fi) * coords.Area(X1DIR, fk, fj + 1, fi) +
-                    fine.x1f(fk, fj + 1, fi + 2) * coords.Area(X1DIR, fk, fj + 1, fi + 2)) +
+            (0.5 *
+                 (fine.x1f(fk, fj + 1, fi) * coords.Area(X1DIR, fk, fj + 1, fi) +
+                  fine.x1f(fk, fj + 1, fi + 2) * coords.Area(X1DIR, fk, fj + 1, fi + 2)) +
              tmp1) /
             coords.Area(X1DIR, fk, fj + 1, fi + 1);
         fine.x2f(fk, fj + 1, fi) =
@@ -962,8 +977,9 @@ void MeshRefinement::ProlongateInternalField(FaceField &fine, int si, int ei, in
              tmp2) /
             coords.Area(X2DIR, fk, fj + 1, fi);
         fine.x2f(fk, fj + 1, fi + 1) =
-            (0.5 * (fine.x2f(fk, fj, fi + 1) * coords.Area(X2DIR, fk, fj, fi + 1) +
-                    fine.x2f(fk, fj + 2, fi + 1) * coords.Area(X2DIR, fk, fj + 2, fi + 1)) +
+            (0.5 *
+                 (fine.x2f(fk, fj, fi + 1) * coords.Area(X2DIR, fk, fj, fi + 1) +
+                  fine.x2f(fk, fj + 2, fi + 1) * coords.Area(X2DIR, fk, fj + 2, fi + 1)) +
              tmp2) /
             coords.Area(X2DIR, fk, fj + 1, fi + 1);
       }

@@ -244,9 +244,10 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
             "Update vars", DevExecSpace(), 0, vf.GetDim(4) - 1, 0, vf.GetDim(3) - 2, 0,
             vf.GetDim(2) - 2, 0, vf.GetDim(1) - 2,
             KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
-              vf(l, k, j, i) -= ((vf.flux(X1DIR, l, k, j, i + 1) - vf.flux(X1DIR, l, k, j, i)) +
-                                 (vf.flux(X2DIR, l, k, j + 1, i) - vf.flux(X2DIR, l, k, j, i)) +
-                                 (vf.flux(X3DIR, l, k + 1, j, i) - vf.flux(X3DIR, l, k, j, i)));
+              vf(l, k, j, i) -=
+                  ((vf.flux(X1DIR, l, k, j, i + 1) - vf.flux(X1DIR, l, k, j, i)) +
+                   (vf.flux(X2DIR, l, k, j + 1, i) - vf.flux(X2DIR, l, k, j, i)) +
+                   (vf.flux(X3DIR, l, k + 1, j, i) - vf.flux(X3DIR, l, k, j, i)));
             });
 
         using policy4D = Kokkos::MDRangePolicy<Kokkos::Rank<4>>;
