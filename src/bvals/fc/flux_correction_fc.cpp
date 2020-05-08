@@ -30,7 +30,6 @@
 
 #include "athena.hpp"
 #include "bvals/fc/bvals_fc.hpp"
-#include "coordinates/coordinates.hpp"
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
 #include "parameter_input.hpp"

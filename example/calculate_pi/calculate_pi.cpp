@@ -20,7 +20,7 @@
 #include <utility>
 
 // Parthenon Includes
-#include <coordinates/new_coordinates.hpp>
+#include <coordinates/coordinates.hpp>
 #include <parthenon/package.hpp>
 
 using namespace parthenon::package::prelude;

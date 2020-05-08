@@ -31,7 +31,6 @@
 #include "athena.hpp"
 #include "bvals/bvals.hpp"
 #include "coordinates/coordinates.hpp"
-#include "coordinates/new_coordinates.hpp"
 #include "globals.hpp"
 #include "interface/container_iterator.hpp"
 #include "interface/metadata.hpp"
@@ -141,9 +140,6 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
   pbval = std::make_unique<BoundaryValues>(this, input_bcs, pin);
   pbval->SetBoundaryFlags(boundary_flag);
 
-  // Coordinates
-  pcoord = std::make_unique<Cartesian>(this, pin, false);
-
   // Set the block for containers
   real_container.setBlock(this);
 
@@ -249,11 +245,10 @@ MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
 
   // (re-)create mesh-related objects in MeshBlock
 
+  coords = Coordinates_t(block_size, pin);
+
   // Boundary
   pbval = std::make_unique<BoundaryValues>(this, input_bcs, pin);
-
-  // Coordinates
-  pcoord = std::make_unique<Cartesian>(this, pin, false);
 
   // Reconstruction (constructor may implicitly depend on Coordinates)
   precon = std::make_unique<Reconstruction>(this, pin);

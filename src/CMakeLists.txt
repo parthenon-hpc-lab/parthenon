@@ -84,9 +84,6 @@ add_library(parthenon
 
   bvals/boundary_conditions.cpp
 
-  coordinates/coordinates.cpp
-  coordinates/cartesian.cpp
-
   driver/driver.cpp
   driver/multistage.cpp
 

@@ -36,7 +36,6 @@
 #include "athena.hpp"
 #include "bvals/boundary_conditions.hpp"
 #include "bvals/bvals.hpp"
-#include "coordinates/coordinates.hpp"
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"

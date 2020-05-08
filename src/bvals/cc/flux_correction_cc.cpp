@@ -31,7 +31,7 @@
 
 #include "athena.hpp"
 #include "bvals/cc/bvals_cc.hpp"
-#include "coordinates/new_coordinates.hpp"
+#include "coordinates/coordinates.hpp"
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
 #include "parameter_input.hpp"

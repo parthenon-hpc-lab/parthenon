@@ -16,7 +16,7 @@
 #include <string>
 #include <vector>
 
-#include <coordinates/new_coordinates.hpp>
+#include <coordinates/coordinates.hpp>
 #include <parthenon/package.hpp>
 
 #include "advection_package.hpp"

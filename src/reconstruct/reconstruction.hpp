@@ -20,7 +20,6 @@
 //  \brief defines class Reconstruction, data and functions for spatial reconstruction
 
 #include "athena.hpp"
-#include "coordinates/coordinates.hpp"
 #include "parthenon_arrays.hpp"
 
 namespace parthenon {

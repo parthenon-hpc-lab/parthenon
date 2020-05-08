@@ -47,8 +47,6 @@ MeshRefinement::MeshRefinement(MeshBlock *pmb, ParameterInput *pin)
   // Create coarse mesh object for parent grid
   coarse_coords = Coordinates_t(pmb->coords, 2);
 
-  pcoarsec = new Cartesian(pmb, pin, true);
-
   if (NGHOST % 2) {
     std::stringstream msg;
     msg << "### FATAL ERROR in MeshRefinement constructor" << std::endl
@@ -56,35 +54,7 @@ MeshRefinement::MeshRefinement(MeshBlock *pmb, ParameterInput *pin)
         << "Reconfigure with an even number of ghost cells " << std::endl;
     ATHENA_ERROR(msg);
   }
-
-  int nc1 = pmb->ncells1;
-  fvol_[0][0] = ParArrayND<Real>(PARARRAY_TEMP, nc1);
-  fvol_[0][1] = ParArrayND<Real>(PARARRAY_TEMP, nc1);
-  fvol_[1][0] = ParArrayND<Real>(PARARRAY_TEMP, nc1);
-  fvol_[1][1] = ParArrayND<Real>(PARARRAY_TEMP, nc1);
-  sarea_x1_[0][0] = ParArrayND<Real>(PARARRAY_TEMP, nc1 + 1);
-  sarea_x1_[0][1] = ParArrayND<Real>(PARARRAY_TEMP, nc1 + 1);
-  sarea_x1_[1][0] = ParArrayND<Real>(PARARRAY_TEMP, nc1 + 1);
-  sarea_x1_[1][1] = ParArrayND<Real>(PARARRAY_TEMP, nc1 + 1);
-  sarea_x2_[0][0] = ParArrayND<Real>(PARARRAY_TEMP, nc1);
-  sarea_x2_[0][1] = ParArrayND<Real>(PARARRAY_TEMP, nc1);
-  sarea_x2_[0][2] = ParArrayND<Real>(PARARRAY_TEMP, nc1);
-  sarea_x2_[1][0] = ParArrayND<Real>(PARARRAY_TEMP, nc1);
-  sarea_x2_[1][1] = ParArrayND<Real>(PARARRAY_TEMP, nc1);
-  sarea_x2_[1][2] = ParArrayND<Real>(PARARRAY_TEMP, nc1);
-  sarea_x3_[0][0] = ParArrayND<Real>(PARARRAY_TEMP, nc1);
-  sarea_x3_[0][1] = ParArrayND<Real>(PARARRAY_TEMP, nc1);
-  sarea_x3_[1][0] = ParArrayND<Real>(PARARRAY_TEMP, nc1);
-  sarea_x3_[1][1] = ParArrayND<Real>(PARARRAY_TEMP, nc1);
-  sarea_x3_[2][0] = ParArrayND<Real>(PARARRAY_TEMP, nc1);
-  sarea_x3_[2][1] = ParArrayND<Real>(PARARRAY_TEMP, nc1);
 }
-
-//----------------------------------------------------------------------------------------
-//! \fn MeshRefinement::~MeshRefinement()
-//  \brief destructor
-
-MeshRefinement::~MeshRefinement() { delete pcoarsec; }
 
 //----------------------------------------------------------------------------------------
 //! \fn void MeshRefinement::RestrictCellCenteredValues(const ParArrayND<Real> &fine,
@@ -274,7 +244,7 @@ void MeshRefinement::RestrictFieldX2(const ParArrayND<Real> &fine,
       int i = (ci - pmb->cis) * 2 + pmb->is;
       const Real area0 = coords.Area(X2DIR, k, j, i);
       const Real area1 = coords.Area(X2DIR, k, j, i + 1);
-      const Real tarea = sarea_x2_[0][0](i) + sarea_x2_[0][0](i + 1);
+      const Real tarea = area0 + area1;
       coarse(pmb->cks, pmb->cjs, ci) =
           (fine(k, j, i) * area0 + fine(k, j, i + 1) * area1) / tarea;
     }
@@ -869,7 +839,7 @@ void MeshRefinement::ProlongateInternalField(FaceField &fine, int si, int ei, in
               (0.5 * (fine.x1f(fk, fj, fi) * coords.Area(X1DIR, fk, fj, fi) +
                       fine.x1f(fk, fj, fi + 2) * coords.Area(X1DIR, fk, fj, fi + 2)) +
                Uxx - Sdx3 * Vxyz - Sdx2 * Wxyz) /
-              sarea_x1_[0][0](fi + 1);
+              coords.Area(X1DIR, fk, fj, fi + 1);
           fine.x1f(fk, fj + 1, fi + 1) =
               (0.5 * (fine.x1f(fk, fj + 1, fi) * coords.Area(X1DIR, fk, fj + 1, fi) +
                       fine.x1f(fk, fj + 1, fi + 2) *
