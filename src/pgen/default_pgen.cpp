@@ -63,11 +63,11 @@ void __attribute__((weak)) Mesh::UserWorkInLoop() {
 }
 
 //========================================================================================
-//! \fn void Mesh::UserWorkAfterLoop(ParameterInput *pin)
+//! \fn void Mesh::UserWorkAfterLoop(ParameterInput *pin, SimTime &tm)
 //  \brief Function called after main loop is finished for user-defined work.
 //========================================================================================
 
-void __attribute__((weak)) Mesh::UserWorkAfterLoop(ParameterInput *pin) {
+void __attribute__((weak)) Mesh::UserWorkAfterLoop(ParameterInput *pin, SimTime &tm) {
   // do nothing
   return;
 }
