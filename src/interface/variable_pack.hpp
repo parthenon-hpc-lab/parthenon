@@ -89,6 +89,9 @@ class VariableFluxPack : public VariablePack<T> {
     return f_[dir - 1](n)(k, j, i);
   }
 
+  KOKKOS_FORCEINLINE_FUNCTION
+  int GetNdim() const { return ndim_; }
+
  private:
   std::array<ViewOfParArrays<T>, 3> f_;
   int nflux_, ndim_;
