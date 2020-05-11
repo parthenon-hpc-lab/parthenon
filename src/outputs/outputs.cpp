@@ -98,7 +98,6 @@
 #include <string>
 
 #include "athena.hpp"
-#include "coordinates/coordinates.hpp"
 #include "mesh/mesh.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
@@ -473,9 +472,8 @@ bool OutputType::SliceOutputData(MeshBlock *pmb, int dim) {
   if (dim == 1) {
     if (output_params.x1_slice >= pmb->block_size.x1min &&
         output_params.x1_slice < pmb->block_size.x1max) {
-      for (int i = pmb->cellbounds.is(interior) + 1;
-           i <= pmb->cellbounds.ie(interior) + 1; ++i) {
-        if (pmb->pcoord->x1f(i) > output_params.x1_slice) {
+      for (int i = pmb->cellbounds.is(interior) + 1; i <= pmb->cellbounds.ie(interior) + 1; ++i) {
+        if (pmb->coords.x1f(i) > output_params.x1_slice) {
           islice = i - 1;
           output_params.islice = islice;
           break;
@@ -487,9 +485,8 @@ bool OutputType::SliceOutputData(MeshBlock *pmb, int dim) {
   } else if (dim == 2) {
     if (output_params.x2_slice >= pmb->block_size.x2min &&
         output_params.x2_slice < pmb->block_size.x2max) {
-      for (int j = pmb->cellbounds.js(interior) + 1;
-           j <= pmb->cellbounds.je(interior) + 1; ++j) {
-        if (pmb->pcoord->x2f(j) > output_params.x2_slice) {
+      for (int j = pmb->cellbounds.js(interior) + 1; j <= pmb->cellbounds.je(interior) + 1; ++j) {
+        if (pmb->coords.x2f(j) > output_params.x2_slice) {
           jslice = j - 1;
           output_params.jslice = jslice;
           break;
@@ -501,9 +498,8 @@ bool OutputType::SliceOutputData(MeshBlock *pmb, int dim) {
   } else {
     if (output_params.x3_slice >= pmb->block_size.x3min &&
         output_params.x3_slice < pmb->block_size.x3max) {
-      for (int k = pmb->cellbounds.ks(interior) + 1;
-           k <= pmb->cellbounds.ke(interior) + 1; ++k) {
-        if (pmb->pcoord->x3f(k) > output_params.x3_slice) {
+      for (int k = pmb->cellbounds.ks(interior) + 1; k <= pmb->cellbounds.ke(interior) + 1; ++k) {
+        if (pmb->coords.x3f(k) > output_params.x3_slice) {
           kslice = k - 1;
           output_params.kslice = kslice;
           break;

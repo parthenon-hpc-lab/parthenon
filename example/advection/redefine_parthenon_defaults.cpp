@@ -40,7 +40,7 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
   for (int k = kb.s; k <= kb.e; k++) {
     for (int j = jb.s; j <= jb.e; j++) {
       for (int i = ib.s; i <= ib.e; i++) {
-        Real rsq = std::pow(pcoord->x1v(i), 2) + std::pow(pcoord->x2v(j), 2);
+        Real rsq = std::pow(coords.x1v(i), 2) + std::pow(coords.x2v(j), 2);
         q(k, j, i) = (rsq < 0.15 * 0.15 ? 1.0 : 0.0);
       }
     }

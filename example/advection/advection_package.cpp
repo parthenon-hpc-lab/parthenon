@@ -16,6 +16,7 @@
 #include <string>
 #include <vector>
 
+#include <coordinates/coordinates.hpp>
 #include <parthenon/package.hpp>
 
 #include "advection_package.hpp"
@@ -182,21 +183,15 @@ Real EstimateTimestep(Container<Real> &rc) {
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
 
   Real min_dt = std::numeric_limits<Real>::max();
-
-  ParArrayND<Real> dx1("dx1", pmb->cellbounds.ncellsi(IndexDomain::entire));
-  ParArrayND<Real> dx2("dx2", pmb->cellbounds.ncellsi(IndexDomain::entire));
-  ParArrayND<Real> dx3("dx3", pmb->cellbounds.ncellsi(IndexDomain::entire));
+  auto &coords = pmb->coords;
 
   // this is obviously overkill for this constant velocity problem
   for (int k = kb.s; k <= kb.e; k++) {
     for (int j = jb.s; j <= jb.e; j++) {
-      pmb->pcoord->CenterWidth1(k, j, ib.s, ib.e, dx1);
-      pmb->pcoord->CenterWidth2(k, j, ib.s, ib.e, dx2);
-      pmb->pcoord->CenterWidth3(k, j, ib.s, ib.e, dx3);
       for (int i = ib.s; i <= ib.e; i++) {
-        min_dt = std::min(min_dt, dx1(i) / std::abs(vx));
-        min_dt = std::min(min_dt, dx2(i) / std::abs(vy));
-        min_dt = std::min(min_dt, dx3(i) / std::abs(vz));
+        min_dt = std::min(min_dt, coords.Dx(X1DIR, k, j, i) / std::abs(vx));
+        min_dt = std::min(min_dt, coords.Dx(X2DIR, k, j, i) / std::abs(vy));
+        min_dt = std::min(min_dt, coords.Dx(X3DIR, k, j, i) / std::abs(vz));
       }
     }
   }
@@ -231,11 +226,11 @@ TaskStatus CalculateFluxes(Container<Real> &rc) {
       pmb->precon->DonorCellX1(k, j, ib.s - 1, ib.e + 1, q.data, ql, qr);
       if (vx > 0.0) {
         for (int i = ib.s; i <= ib.e + 1; i++) {
-          q.flux[0](k, j, i) = ql(i) * vx;
+          q.flux[X1DIR](k, j, i) = ql(i) * vx;
         }
       } else {
         for (int i = ib.s; i <= ib.e + 1; i++) {
-          q.flux[0](k, j, i) = qr(i) * vx;
+          q.flux[X1DIR](k, j, i) = qr(i) * vx;
         }
       }
     }
@@ -248,11 +243,11 @@ TaskStatus CalculateFluxes(Container<Real> &rc) {
         pmb->precon->DonorCellX2(k, j, ib.s, ib.e, q.data, qltemp, qr);
         if (vy > 0.0) {
           for (int i = ib.s; i <= ib.e; i++) {
-            q.flux[1](k, j, i) = ql(i) * vy;
+            q.flux[X2DIR](k, j, i) = ql(i) * vy;
           }
         } else {
           for (int i = ib.s; i <= ib.e; i++) {
-            q.flux[1](k, j, i) = qr(i) * vy;
+            q.flux[X2DIR](k, j, i) = qr(i) * vy;
           }
         }
         auto temp = ql;
@@ -270,11 +265,11 @@ TaskStatus CalculateFluxes(Container<Real> &rc) {
         pmb->precon->DonorCellX3(k, j, ib.s, ib.e, q.data, qltemp, qr);
         if (vz > 0.0) {
           for (int i = ib.s; i <= ib.e; i++) {
-            q.flux[2](k, j, i) = ql(i) * vz;
+            q.flux[X3DIR](k, j, i) = ql(i) * vz;
           }
         } else {
           for (int i = ib.s; i <= ib.e; i++) {
-            q.flux[2](k, j, i) = qr(i) * vz;
+            q.flux[X3DIR](k, j, i) = qr(i) * vz;
           }
         }
         auto temp = ql;

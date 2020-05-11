@@ -69,7 +69,7 @@ std::shared_ptr<CellVariable<T>> CellVariable<T>::AllocateCopy(const bool allocC
       cv->vbvar = vbvar;
 
       // fluxes, etc are always a copy
-      for (int i = 0; i < 3; i++) {
+      for (int i = 1; i <= 3; i++) {
         cv->flux[i] = flux[i];
       }
 
@@ -88,14 +88,14 @@ void CellVariable<T>::allocateComms(MeshBlock *pmb) {
   // set up fluxes
   std::string base_name = label();
   if (IsSet(Metadata::Independent)) {
-    flux[0] = ParArrayND<T>(base_name + ".flux0", GetDim(6), GetDim(5), GetDim(4),
-                            GetDim(3), GetDim(2), GetDim(1));
+    flux[X1DIR] = ParArrayND<T>(base_name + ".fluxX1", GetDim(6), GetDim(5), GetDim(4),
+                                GetDim(3), GetDim(2), GetDim(1));
     if (GetDim(2) > 1)
-      flux[1] = ParArrayND<T>(base_name + ".flux1", GetDim(6), GetDim(5), GetDim(4),
-                              GetDim(3), GetDim(2), GetDim(1));
+      flux[X2DIR] = ParArrayND<T>(base_name + ".fluxX2", GetDim(6), GetDim(5), GetDim(4),
+                                  GetDim(3), GetDim(2), GetDim(1));
     if (GetDim(3) > 1)
-      flux[2] = ParArrayND<T>(base_name + ".flux2", GetDim(6), GetDim(5), GetDim(4),
-                              GetDim(3), GetDim(2), GetDim(1));
+      flux[X3DIR] = ParArrayND<T>(base_name + ".fluxX3", GetDim(6), GetDim(5), GetDim(4),
+                                  GetDim(3), GetDim(2), GetDim(1));
   }
 
   if (!pmb) return;

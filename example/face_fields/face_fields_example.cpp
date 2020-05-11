@@ -160,7 +160,7 @@ parthenon::TaskStatus FaceFields::fill_faces(parthenon::MeshBlock *pmb) {
   Real py = example->Param<Real>("py");
   Real pz = example->Param<Real>("pz");
   parthenon::Container<Real> &rc = pmb->real_containers.Get();
-  parthenon::Coordinates *pcoord = pmb->pcoord.get();
+  auto coords = pmb->coords;
   parthenon::IndexDomain interior = parthenon::IndexDomain::interior;
   parthenon::IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
   parthenon::IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
@@ -170,11 +170,11 @@ parthenon::TaskStatus FaceFields::fill_faces(parthenon::MeshBlock *pmb) {
   for (int e = 0; e < face.Get(1).GetDim(4); e++) {
     int sign = (e == 0) ? -1 : 1;
     for (int k = kb.s; k <= kb.e; k++) {
-      Real z = pcoord->x3v(k);
+      Real z = coords.x3v(k);
       for (int j = jb.s; j <= jb.e; j++) {
-        Real y = pcoord->x2v(j);
+        Real y = coords.x2v(j);
         for (int i = ib.s; i <= ib.e + 1; i++) {
-          Real x = pcoord->x1f(i);
+          Real x = coords.x1f(i);
           face(1, e, k, j, i) = sign * (pow(x, px) + pow(y, py) + pow(z, pz));
         }
       }
@@ -183,11 +183,11 @@ parthenon::TaskStatus FaceFields::fill_faces(parthenon::MeshBlock *pmb) {
   for (int e = 0; e < face.Get(2).GetDim(4); e++) {
     int sign = (e == 0) ? -1 : 1;
     for (int k = kb.s; k <= kb.e; k++) {
-      Real z = pcoord->x3v(k);
+      Real z = coords.x3v(k);
       for (int j = jb.s; j <= jb.e + 1; j++) {
-        Real y = pcoord->x2f(j);
+        Real y = coords.x2f(j);
         for (int i = ib.s; i <= ib.e; i++) {
-          Real x = pcoord->x1v(i);
+          Real x = coords.x1v(i);
           face(2, e, k, j, i) = sign * (pow(x, px) + pow(y, py) + pow(z, pz));
         }
       }
@@ -196,11 +196,11 @@ parthenon::TaskStatus FaceFields::fill_faces(parthenon::MeshBlock *pmb) {
   for (int e = 0; e < face.Get(3).GetDim(4); e++) {
     int sign = (e == 0) ? -1 : 1;
     for (int k = kb.s; k <= kb.e + 1; k++) {
-      Real z = pcoord->x3f(k);
+      Real z = coords.x3f(k);
       for (int j = jb.s; j <= jb.e; j++) {
-        Real y = pcoord->x2v(j);
+        Real y = coords.x2v(j);
         for (int i = ib.s; i <= ib.e; i++) {
-          Real x = pcoord->x1v(i);
+          Real x = coords.x1v(i);
           face(3, e, k, j, i) = sign * (pow(x, px) + pow(y, py) + pow(z, pz));
         }
       }

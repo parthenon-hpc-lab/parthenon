@@ -144,10 +144,10 @@ void VTKOutput::WriteContainer(SimTime &tm, Mesh *pm, ParameterInput *pin, bool 
     // write x1-coordinates as binary float in big endian order
     std::fprintf(pfile, "X_COORDINATES %d float\n", ncoord1);
     if (ncells1 == 1) {
-      data[0] = static_cast<float>(pmb->pcoord->x1v(out_ib.s));
+      data[0] = static_cast<float>(pmb->coords.x1v(out_ib.s));
     } else {
       for (int i = out_ib.s; i <= out_ib.e + 1; ++i) {
-        data[i - out_ib.s] = static_cast<float>(pmb->pcoord->x1f(i));
+        data[i - out_ib.s] = static_cast<float>(pmb->coords.x1f(i));
       }
     }
     if (!big_end) {
@@ -159,10 +159,10 @@ void VTKOutput::WriteContainer(SimTime &tm, Mesh *pm, ParameterInput *pin, bool 
     // write x2-coordinates as binary float in big endian order
     std::fprintf(pfile, "\nY_COORDINATES %d float\n", ncoord2);
     if (ncells2 == 1) {
-      data[0] = static_cast<float>(pmb->pcoord->x2v(out_jb.s));
+      data[0] = static_cast<float>(pmb->coords.x2v(out_jb.s));
     } else {
       for (int j = out_jb.s; j <= out_jb.e + 1; ++j) {
-        data[j - out_jb.s] = static_cast<float>(pmb->pcoord->x2f(j));
+        data[j - out_jb.s] = static_cast<float>(pmb->coords.x2f(j));
       }
     }
     if (!big_end) {
@@ -174,10 +174,10 @@ void VTKOutput::WriteContainer(SimTime &tm, Mesh *pm, ParameterInput *pin, bool 
     // write x3-coordinates as binary float in big endian order
     std::fprintf(pfile, "\nZ_COORDINATES %d float\n", ncoord3);
     if (ncells3 == 1) {
-      data[0] = static_cast<float>(pmb->pcoord->x3v(out_kb.e));
+      data[0] = static_cast<float>(pmb->coords.x3v(out_kb.s));
     } else {
       for (int k = out_kb.s; k <= out_kb.e + 1; ++k) {
-        data[k - out_kb.s] = static_cast<float>(pmb->pcoord->x3f(k));
+        data[k - out_kb.s] = static_cast<float>(pmb->coords.x3f(k));
       }
     }
     if (!big_end) {

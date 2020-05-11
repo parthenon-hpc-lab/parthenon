@@ -49,6 +49,9 @@ using ::parthenon::Params;
 using ::parthenon::ParthenonManager;
 using ::parthenon::StateDescriptor;
 using ::parthenon::TaskStatus;
+using ::parthenon::X1DIR;
+using ::parthenon::X2DIR;
+using ::parthenon::X3DIR;
 } // namespace prelude
 } // namespace package
 } // namespace parthenon

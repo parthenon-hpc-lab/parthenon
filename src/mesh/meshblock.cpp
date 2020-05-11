@@ -81,13 +81,12 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
   // construct objects stored in MeshBlock class.  Note in particular that the initial
   // conditions for the simulation are set in problem generator called from main
 
+  coords = Coordinates_t(block_size, pin);
+
   // mesh-related objects
   // Boundary
   pbval = std::make_unique<BoundaryValues>(this, input_bcs, pin);
   pbval->SetBoundaryFlags(boundary_flag);
-
-  // Coordinates
-  pcoord = std::make_unique<Cartesian>(this, pin, false);
 
   // Set the block for containers
   real_container.setBlock(this);
@@ -159,11 +158,10 @@ MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
 
   // (re-)create mesh-related objects in MeshBlock
 
+  coords = Coordinates_t(block_size, pin);
+
   // Boundary
   pbval = std::make_unique<BoundaryValues>(this, input_bcs, pin);
-
-  // Coordinates
-  pcoord = std::make_unique<Cartesian>(this, pin, false);
 
   // Reconstruction (constructor may implicitly depend on Coordinates)
   precon = std::make_unique<Reconstruction>(this, pin);
