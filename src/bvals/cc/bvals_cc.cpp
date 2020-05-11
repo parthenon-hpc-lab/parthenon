@@ -31,7 +31,6 @@
 #include "parthenon_mpi.hpp"
 
 #include "basic_types.hpp"
-#include "coordinates/coordinates.hpp"
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
 #include "parameter_input.hpp"

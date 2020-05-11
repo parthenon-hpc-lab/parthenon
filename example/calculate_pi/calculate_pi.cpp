@@ -20,11 +20,10 @@
 #include <utility>
 
 // Parthenon Includes
+#include <coordinates/coordinates.hpp>
 #include <parthenon/package.hpp>
 
 using namespace parthenon::package::prelude;
-
-using parthenon::Coordinates;
 
 namespace parthenon {
 
@@ -74,43 +73,22 @@ void SetInOrOut(Container<Real> &rc) {
   int ie = pmb->ie;
   int je = pmb->je;
   int ke = pmb->ke;
-  Coordinates *pcoord = pmb->pcoord.get();
-  CellVariable<Real> &v = rc.Get("in_or_out");
+  ParArrayND<Real> &v = rc.Get("in_or_out").data;
   const auto &radius = pmb->packages["calculate_pi"]->Param<Real>("radius");
+  auto &coords = pmb->coords;
   // Set an indicator function that indicates whether the cell center
   // is inside or outside of the circle we're interating the area of.
   // see the CheckRefinement routine below for an explanation of the loop bounds
-  for (int k = ks; k <= ke; k++) {
-    for (int j = js - 1; j <= je + 1; j++) {
-      for (int i = is - 1; i <= ie + 1; i++) {
-        Real rsq = std::pow(pcoord->x1v(i), 2) + std::pow(pcoord->x2v(j), 2);
-        if (rsq < radius * radius) {
-          v(k, j, i) = 1.0;
-        } else {
-          v(k, j, i) = 0.0;
-        }
-      }
-    }
-  }
-  /** TODO(pgrete) This is what it should should like using the transparent
-    * parallel_for wrapper of the MeshBlock.
-    * Unfortunely, the current Container/CellVariable/ParArrayND combination
-    * won't work this way and we should discuss how to proceed before
-    * starting a bigger refactoring of the the classes above.
-
-  auto x1v = pcoord->x1v; // LAMBDA doesn't capture member vars so we need to redef.
-  auto x2v = pcoord->x2v;
   pmb->par_for(
       "SetInOrOut", ks, ke, js - 1, je + 1, is - 1, ie + 1,
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
-        Real rsq = pow(x1v(i), 2) + pow(x2v(j), 2);
+        Real rsq = std::pow(coords.x1v(i), 2) + std::pow(coords.x2v(j), 2);
         if (rsq < radius * radius) {
           v(k, j, i) = 1.0;
         } else {
           v(k, j, i) = 0.0;
         }
       });
-  */
 }
 
 AmrTag CheckRefinement(Container<Real> &rc) {
@@ -177,14 +155,15 @@ TaskStatus ComputeArea(MeshBlock *pmb) {
   int ie = pmb->ie;
   int je = pmb->je;
   int ke = pmb->ke;
-  Coordinates *pcoord = pmb->pcoord.get();
-  CellVariable<Real> &v = rc.Get("in_or_out");
+  auto &coords = pmb->coords;
+
+  ParArrayND<Real> &v = rc.Get("in_or_out").data;
   const auto &radius = pmb->packages["calculate_pi"]->Param<Real>("radius");
   Real area = 0.0;
   for (int k = ks; k <= ke; k++) {
     for (int j = js; j <= je; j++) {
       for (int i = is; i <= ie; i++) {
-        area += v(k, j, i) * pcoord->dx1f(i) * pcoord->dx2f(j);
+        area += v(k, j, i) * coords.Area(parthenon::X3DIR, k, j, i);
       }
     }
   }

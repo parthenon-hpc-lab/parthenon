@@ -79,14 +79,14 @@ class VariableFluxPack : public VariablePack<T> {
 
   KOKKOS_FORCEINLINE_FUNCTION
   ViewOfParArrays<T> &flux(const int dir) const {
-    assert(dir < ndim_);
-    return f_[dir];
+    assert(dir > 0 && dir <= ndim_);
+    return f_[dir - 1];
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
   T &flux(const int dir, const int n, const int k, const int j, const int i) const {
-    assert(dir < ndim_);
-    return f_[dir](n)(k, j, i);
+    assert(dir > 0 && dir <= ndim_);
+    return f_[dir - 1](n)(k, j, i);
   }
 
  private:
@@ -137,13 +137,13 @@ VariableFluxPack<T> MakeFluxPack(const vpack_types::VarList<T> &vars,
 
   // make the outer view
   ViewOfParArrays<T> cv("MakeFluxPack::cv", vsize);
-  ViewOfParArrays<T> f0("MakeFluxPack::f0", fsize);
   ViewOfParArrays<T> f1("MakeFluxPack::f1", fsize);
   ViewOfParArrays<T> f2("MakeFluxPack::f2", fsize);
+  ViewOfParArrays<T> f3("MakeFluxPack::f3", fsize);
   auto host_view = cv.GetHostMirror();
-  auto host_f0 = f0.GetHostMirror();
   auto host_f1 = f1.GetHostMirror();
   auto host_f2 = f2.GetHostMirror();
+  auto host_f3 = f3.GetHostMirror();
   // add variables to host view
   int vindex = 0;
   for (const auto &v : vars) {
@@ -167,11 +167,11 @@ VariableFluxPack<T> MakeFluxPack(const vpack_types::VarList<T> &vars,
     for (int k = 0; k < v->GetDim(6); k++) {
       for (int j = 0; j < v->GetDim(5); j++) {
         for (int i = 0; i < v->GetDim(4); i++) {
-          host_f0(vindex) = v->flux[0].Get(k, j, i);
+          host_f1(vindex) = v->flux[X1DIR].Get(k, j, i);
           if (ndim >= 2)
-            host_f1(vindex) = v->flux[1].Get(k, j, i);
-          if (ndim == 3)
-            host_f2(vindex) = v->flux[2].Get(k, j, i);
+            host_f2(vindex) = v->flux[X2DIR].Get(k, j, i);
+          if (ndim >= 3)
+            host_f3(vindex) = v->flux[X3DIR].Get(k, j, i);
           vindex++;
         }
       }
@@ -182,10 +182,10 @@ VariableFluxPack<T> MakeFluxPack(const vpack_types::VarList<T> &vars,
     }
   }
   cv.DeepCopy(host_view);
-  f0.DeepCopy(host_f0);
   f1.DeepCopy(host_f1);
   f2.DeepCopy(host_f2);
-  return VariableFluxPack<T>(cv, f0, f1, f2, cv_size, fsize);
+  f3.DeepCopy(host_f3);
+  return VariableFluxPack<T>(cv, f1, f2, f3, cv_size, fsize);
 }
 
 template <typename T>

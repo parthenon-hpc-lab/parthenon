@@ -41,7 +41,7 @@ void DoolittleLUPSolve(Real **lu, int *pivot, Real *b, int n, Real *x);
 } // anonymous namespace
 
 Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin)
-    : characteristic_projection{false}, uniform{true, true, true},
+    : characteristic_projection{false}, uniform{true, true, true, true},
       // read fourth-order solver switches
       correct_ic{pin->GetOrAddBoolean("parthenon/time", "correct_ic", false)},
       correct_err{pin->GetOrAddBoolean("parthenon/time", "correct_err", false)},
@@ -109,9 +109,9 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin)
           << "x3rat= " << pmb->block_size.x3rat << std::endl;
       ATHENA_ERROR(msg);
     }
-    Real &dx_i = pmb->pcoord->dx1f(pmb->is);
-    Real &dx_j = pmb->pcoord->dx2f(pmb->js);
-    Real &dx_k = pmb->pcoord->dx3f(pmb->ks);
+    Real dx_i = pmb->coords.dx1f(pmb->is);
+    Real dx_j = pmb->coords.dx2f(pmb->js);
+    Real dx_k = pmb->coords.dx3f(pmb->ks);
     // Note, probably want to make the following condition less strict (signal warning
     // for small differences due to floating-point issues) but upgrade to error for
     // large deviations from a square mesh. Currently signals a warning for each
@@ -184,7 +184,7 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin)
   scr4_ni_ = ParArrayND<Real>(PARARRAY_TEMP, NWAVE, nc1);
 
   if ((xorder == 3) || (xorder == 4)) {
-    auto &pco = pmb->pcoord;
+    auto &coords = pmb->coords;
     scr03_i_ = ParArrayND<Real>(PARARRAY_TEMP, nc1);
     scr04_i_ = ParArrayND<Real>(PARARRAY_TEMP, nc1);
     scr05_i_ = ParArrayND<Real>(PARARRAY_TEMP, nc1);
@@ -250,14 +250,14 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin)
     } else { // coeffcients along Cartesian-like x1 with nonuniform mesh spacing
 #pragma omp simd
       for (int i = (pmb->is) - NGHOST + 1; i <= (pmb->ie) + NGHOST - 1; ++i) {
-        Real &dx_im1 = pco->dx1f(i - 1);
-        Real &dx_i = pco->dx1f(i);
-        Real &dx_ip1 = pco->dx1f(i + 1);
+        Real dx_im1 = coords.dx1f(i - 1);
+        Real dx_i = coords.dx1f(i);
+        Real dx_ip1 = coords.dx1f(i + 1);
         Real qe = dx_i / (dx_im1 + dx_i + dx_ip1); // Outermost coeff in CW eq 1.7
         c1i(i) = qe * (2.0 * dx_im1 + dx_i) / (dx_ip1 + dx_i); // First term in CW eq 1.7
         c2i(i) = qe * (2.0 * dx_ip1 + dx_i) / (dx_im1 + dx_i); // Second term in CW eq 1.7
         if (i > (pmb->is) - NGHOST + 1) { // c3-c6 are not computed in first iteration
-          Real &dx_im2 = pco->dx1f(i - 2);
+          Real dx_im2 = coords.dx1f(i - 2);
           Real qa = dx_im2 + dx_im1 + dx_i + dx_ip1;
           Real qb = dx_im1 / (dx_im1 + dx_i);
           Real qc = (dx_im2 + dx_im1) / (2.0 * dx_im1 + dx_i);
@@ -306,9 +306,9 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin)
       } else { // coeffcients along Cartesian-like x2 with nonuniform mesh spacing
 #pragma omp simd
         for (int j = (pmb->js) - NGHOST + 2; j <= (pmb->je) + NGHOST - 1; ++j) {
-          Real &dx_jm1 = pco->dx2f(j - 1);
-          Real &dx_j = pco->dx2f(j);
-          Real &dx_jp1 = pco->dx2f(j + 1);
+          Real dx_jm1 = coords.dx2f(j - 1);
+          Real dx_j = coords.dx2f(j);
+          Real dx_jp1 = coords.dx2f(j + 1);
           Real qe = dx_j / (dx_jm1 + dx_j + dx_jp1); // Outermost coeff in CW eq 1.7
           c1j(j) =
               qe * (2.0 * dx_jm1 + dx_j) / (dx_jp1 + dx_j); // First term in CW eq 1.7
@@ -316,7 +316,7 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin)
               qe * (2.0 * dx_jp1 + dx_j) / (dx_jm1 + dx_j); // Second term in CW eq 1.7
 
           if (j > (pmb->js) - NGHOST + 1) { // c3-c6 are not computed in first iteration
-            Real &dx_jm2 = pco->dx2f(j - 2);
+            Real dx_jm2 = coords.dx2f(j - 2);
             Real qa = dx_jm2 + dx_jm1 + dx_j + dx_jp1;
             Real qb = dx_jm1 / (dx_jm1 + dx_j);
             Real qc = (dx_jm2 + dx_jm1) / (2.0 * dx_jm1 + dx_j);
@@ -358,9 +358,9 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin)
       } else { // nonuniform spacing
 #pragma omp simd
         for (int k = (pmb->ks) - NGHOST + 2; k <= (pmb->ke) + NGHOST - 1; ++k) {
-          Real &dx_km1 = pco->dx3f(k - 1);
-          Real &dx_k = pco->dx3f(k);
-          Real &dx_kp1 = pco->dx3f(k + 1);
+          Real dx_km1 = coords.dx3f(k - 1);
+          Real dx_k = coords.dx3f(k);
+          Real dx_kp1 = coords.dx3f(k + 1);
           Real qe = dx_k / (dx_km1 + dx_k + dx_kp1); // Outermost coeff in CW eq 1.7
           c1k(k) =
               qe * (2.0 * dx_km1 + dx_k) / (dx_kp1 + dx_k); // First term in CW eq 1.7
@@ -368,7 +368,7 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin)
               qe * (2.0 * dx_kp1 + dx_k) / (dx_km1 + dx_k); // Second term in CW eq 1.7
 
           if (k > (pmb->ks) - NGHOST + 1) { // c3-c6 are not computed in first iteration
-            Real &dx_km2 = pco->dx3f(k - 2);
+            Real dx_km2 = coords.dx3f(k - 2);
             Real qa = dx_km2 + dx_km1 + dx_k + dx_kp1;
             Real qb = dx_km1 / (dx_km1 + dx_k);
             Real qc = (dx_km2 + dx_km1) / (2.0 * dx_km1 + dx_k);

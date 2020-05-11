@@ -104,6 +104,7 @@ class phdf:
                 self.BlocksPerPE = info.attrs['BlocksPerPE']
             except:
                 self.BlocksPerPE = np.array((1),self.NumBlocks)
+            self.Coordinates = info.attrs['Coordinates']
             self.CellsPerBlock = np.prod(self.MeshBlockSize)
             self.TotalCells = self.NumBlocks * self.CellsPerBlock
 
@@ -354,6 +355,7 @@ class phdf:
          BlocksPerPE=%s
               NGhost=%d
        IncludesGhost=%d
+         Coordinates=%s
 --------------------------------------------
            Variables="""%(self.file,
                           self.Time,
@@ -368,7 +370,8 @@ class phdf:
                           np.sum(self.BlocksPerPE.shape),
                           self.BlocksPerPE,
                           self.NGhost,
-                          self.IncludesGhost
+                          self.IncludesGhost,
+                          self.Coordinates
            ) + str([k for k in self.Variables]) + """
 --------------------------------------------
 """
