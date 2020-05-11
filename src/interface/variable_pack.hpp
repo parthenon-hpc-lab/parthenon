@@ -130,7 +130,6 @@ VariableFluxPack<T> MakeFluxPack(const vpack_types::VarList<T> &vars,
     fsize += v->GetDim(6) * v->GetDim(5) * v->GetDim(4);
   }
 
-
   auto fvar = vars.front()->data;
   std::array<int, 4> cv_size = {fvar.GetDim(1), fvar.GetDim(2), fvar.GetDim(3), vsize};
   const int ndim = (cv_size[2] > 1 ? 3 : (cv_size[1] > 1 ? 2 : 1));
@@ -168,10 +167,8 @@ VariableFluxPack<T> MakeFluxPack(const vpack_types::VarList<T> &vars,
       for (int j = 0; j < v->GetDim(5); j++) {
         for (int i = 0; i < v->GetDim(4); i++) {
           host_f1(vindex) = v->flux[X1DIR].Get(k, j, i);
-          if (ndim >= 2)
-            host_f2(vindex) = v->flux[X2DIR].Get(k, j, i);
-          if (ndim >= 3)
-            host_f3(vindex) = v->flux[X3DIR].Get(k, j, i);
+          if (ndim >= 2) host_f2(vindex) = v->flux[X2DIR].Get(k, j, i);
+          if (ndim >= 3) host_f3(vindex) = v->flux[X3DIR].Get(k, j, i);
           vindex++;
         }
       }
