@@ -152,7 +152,7 @@ void PostFill(Container<Real> &rc) {
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
-  
+
   PackIndexMap imap;
   std::vector<std::string> vars(
       {"one_minus_advected_sq", "one_minus_sqrt_one_minus_advected_sq"});
