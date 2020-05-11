@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <limits>
 #include <string>
+#include <vector>
 
 #include <parthenon/package.hpp>
 
@@ -107,58 +108,64 @@ AmrTag CheckRefinement(Container<Real> &rc) {
 // demonstrate usage of a "pre" fill derived routine
 void PreFill(Container<Real> &rc) {
   MeshBlock *pmb = rc.pmy_block;
+
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
-  CellVariable<Real> &qin = rc.Get("advected");
-  CellVariable<Real> &qout = rc.Get("one_minus_advected");
-  for (int k = kb.s; k <= kb.e; k++) {
-    for (int j = jb.s; j <= jb.e; j++) {
-      for (int i = ib.s; i <= ib.e; i++) {
-        qout(k, j, i) = 1.0 - qin(k, j, i);
-      }
-    }
-  }
+
+  PackIndexMap imap;
+  std::vector<std::string> vars({"advected", "one_minus_advected"});
+  auto v = rc.PackVariables(vars, imap);
+  const int in = imap["advected"].first;
+  const int out = imap["one_minus_advected"].first;
+  pmb->par_for(
+      "advection_package::PreFill", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int k, const int j, const int i) {
+        v(out, k, j, i) = 1.0 - v(in, k, j, i);
+      });
 }
 
 // this is the package registered function to fill derived
 void SquareIt(Container<Real> &rc) {
   MeshBlock *pmb = rc.pmy_block;
+
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
-  CellVariable<Real> &qin = rc.Get("one_minus_advected");
-  CellVariable<Real> &qout = rc.Get("one_minus_advected_sq");
-  for (int k = kb.s; k <= kb.e; k++) {
-    for (int j = jb.s; j <= jb.e; j++) {
-      for (int i = ib.s; i <= ib.e; i++) {
-        qout(k, j, i) = qin(k, j, i) * qin(k, j, i);
-      }
-    }
-  }
+
+  PackIndexMap imap;
+  std::vector<std::string> vars({"one_minus_advected", "one_minus_advected_sq"});
+  auto v = rc.PackVariables(vars, imap);
+  const int in = imap["one_minus_advected"].first;
+  const int out = imap["one_minus_advected_sq"].first;
+  pmb->par_for(
+      "advection_package::PreFill", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int k, const int j, const int i) {
+        v(out, k, j, i) = v(in, k, j, i) * v(in, k, j, i);
+      });
 }
 
 // demonstrate usage of a "post" fill derived routine
 void PostFill(Container<Real> &rc) {
   MeshBlock *pmb = rc.pmy_block;
+
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
-  CellVariable<Real> &qin = rc.Get("one_minus_advected_sq");
-  // get component 12
-  CellVariable<Real> &q0 = rc.Get("one_minus_sqrt_one_minus_advected_sq", 12);
-  // and component 37
-  CellVariable<Real> &q1 = rc.Get("one_minus_sqrt_one_minus_advected_sq", 37);
-  for (int k = kb.s; k <= kb.e; k++) {
-    for (int j = jb.s; j <= jb.e; j++) {
-      for (int i = ib.s; i <= ib.e; i++) {
-        // this will make component 12 = advected
-        q0(k, j, i) = 1.0 - sqrt(qin(k, j, i));
-        // and this will make component 37 = 1 - advected
-        q1(k, j, i) = 1.0 - q0(k, j, i);
-      }
-    }
-  }
+  
+  PackIndexMap imap;
+  std::vector<std::string> vars(
+      {"one_minus_advected_sq", "one_minus_sqrt_one_minus_advected_sq"});
+  auto v = rc.PackVariables(vars, {12, 37}, imap);
+  const int in = imap["one_minus_advected_sq"].first;
+  const int out12 = imap["one_minus_sqrt_one_minus_advected_sq_12"].first;
+  const int out37 = imap["one_minus_sqrt_one_minus_advected_sq_37"].first;
+  pmb->par_for(
+      "advection_package::PreFill", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int k, const int j, const int i) {
+        v(out12, k, j, i) = 1.0 - sqrt(v(in, k, j, i));
+        v(out37, k, j, i) = 1.0 - v(out12, k, j, i);
+      });
 }
 
 // provide the routine that estimates a stable timestep for this package
