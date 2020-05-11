@@ -290,6 +290,13 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
         REQUIRE(!intervals_intersect(imap["v3"], imap["vsparse"]));
       }
     }
+
+    WHEN("we add a 2d variable") {
+      std::vector<int> twod_block_size{16, 16, 1};
+      rc.Add("v2d", m_in, twod_block_size);
+      auto packw2d = rc.PackVariablesAndFluxes({"v2d"}, {"v2d"});
+      THEN("The pack knows it is 2d") { REQUIRE(packw2d.GetNdim() == 2); }
+    }
   }
 }
 // Test wrapper to run a function multiple times
