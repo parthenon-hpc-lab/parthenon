@@ -300,7 +300,7 @@ class Mesh {
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   void UserWorkAfterLoop(ParameterInput *pin, SimTime &tm); // called in main loop
-  void UserWorkInLoop();                       // called in main after each cycle
+  void UserWorkInLoop(); // called in main after each cycle
   int GetRootLevel() { return root_level; }
   int GetMaxLevel() { return max_level; }
   int GetCurrentLevel() { return current_level; }
