@@ -456,7 +456,6 @@ inline void par_for_outer(OuterLoopPatternTeams, const std::string &name,
                           DevExecSpace exec_space, size_t scratch_size_in_bytes,
                           const int scratch_level, const int kl, const int ku,
                           const int jl, const int ju, const Function &function) {
-
   const int Nk = ku + 1 - kl;
   const int Nj = ju + 1 - jl;
   const int NkNj = Nk * Nj;
