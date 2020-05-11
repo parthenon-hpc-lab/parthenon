@@ -265,27 +265,33 @@ class ParArrayNDGeneric {
 #define SLC0 std::make_pair(0, 1)
   KOKKOS_INLINE_FUNCTION
   auto SliceD(index_pair_t slc, std::integral_constant<int, 6>) const {
+    assert( GetSize() > 0 && "Can't take the subview of an unitialized array" );
     return Slice(slc, Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL(),
                  Kokkos::ALL());
   }
   KOKKOS_INLINE_FUNCTION
   auto SliceD(index_pair_t slc, std::integral_constant<int, 5>) const {
+    assert( GetSize() > 0 && "Can't take the subview of an unitialized array" );
     return Slice(SLC0, slc, Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL());
   }
   KOKKOS_INLINE_FUNCTION
   auto SliceD(index_pair_t slc, std::integral_constant<int, 4>) const {
+    assert( GetSize() > 0 && "Can't take the subview of an unitialized array" );
     return Slice(SLC0, SLC0, slc, Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL());
   }
   KOKKOS_INLINE_FUNCTION
   auto SliceD(index_pair_t slc, std::integral_constant<int, 3>) const {
+    assert( GetSize() > 0 && "Can't take the subview of an unitialized array" );
     return Slice(SLC0, SLC0, SLC0, slc, Kokkos::ALL(), Kokkos::ALL());
   }
   KOKKOS_INLINE_FUNCTION
   auto SliceD(index_pair_t slc, std::integral_constant<int, 2>) const {
+    assert( GetSize() > 0 && "Can't take the subview of an unitialized array" );
     return Slice(SLC0, SLC0, SLC0, SLC0, slc, Kokkos::ALL());
   }
   KOKKOS_INLINE_FUNCTION
   auto SliceD(index_pair_t slc, std::integral_constant<int, 1>) const {
+    assert( GetSize() > 0 && "Can't take the subview of an unitialized array" );
     return Slice(SLC0, SLC0, SLC0, SLC0, SLC0, slc);
   }
 #undef SLC0
