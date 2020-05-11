@@ -72,7 +72,7 @@ void ApplyBoundaryConditions(Container<Real> &rc) {
   default: {
     break;
   }
-  };
+  }
 
   switch (pmb->boundary_flag[BoundaryFace::outer_x1]) {
   case BoundaryFlag::outflow: {
@@ -110,10 +110,9 @@ void ApplyBoundaryConditions(Container<Real> &rc) {
   default: {
     break;
   }
-  };
+  }
 
   if (pmb->pmy_mesh->ndim >= 2) {
-
     switch (pmb->boundary_flag[BoundaryFace::inner_x2]) {
     case BoundaryFlag::outflow: {
       for (int n = 0; n < nvars; n++) {
@@ -150,7 +149,7 @@ void ApplyBoundaryConditions(Container<Real> &rc) {
     default: {
       break;
     }
-    };
+    }
 
     switch (pmb->boundary_flag[BoundaryFace::outer_x2]) {
     case BoundaryFlag::outflow: {
@@ -188,12 +187,10 @@ void ApplyBoundaryConditions(Container<Real> &rc) {
     default: {
       break;
     }
-    };
-
+    }
   } // if ndim>=2
 
   if (pmb->pmy_mesh->ndim >= 3) {
-
     switch (pmb->boundary_flag[BoundaryFace::inner_x3]) {
     case BoundaryFlag::outflow: {
       for (int n = 0; n < nvars; n++) {
@@ -230,7 +227,7 @@ void ApplyBoundaryConditions(Container<Real> &rc) {
     default: {
       break;
     }
-    };
+    }
 
     switch (pmb->boundary_flag[BoundaryFace::outer_x3]) {
     case BoundaryFlag::outflow: {
@@ -268,8 +265,7 @@ void ApplyBoundaryConditions(Container<Real> &rc) {
     default: {
       break;
     }
-    };
-
+    }
   } // if ndim >= 3
 }
 

@@ -157,7 +157,6 @@ void MeshBlock::WeightedAve(ParArrayND<Real> &u_out, ParArrayND<Real> &u_in1,
 
 void MeshBlock::WeightedAve(FaceField &b_out, FaceField &b_in1, FaceField &b_in2,
                             const Real wght[3]) {
-
   IndexRange ib = cellbounds.GetBoundsI(IndexDomain::interior);
   IndexRange jb = cellbounds.GetBoundsJ(IndexDomain::interior);
   IndexRange kb = cellbounds.GetBoundsK(IndexDomain::interior);

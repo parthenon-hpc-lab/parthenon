@@ -175,11 +175,11 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(Real *buf,
   if      (nb.ni.ox1 == 0) si = ib.s,              ei = ib.e + 1;
   else if (nb.ni.ox1 > 0)  si = ib.e - NGHOST + 1, ei = ib.e;
   else                     si = ib.s + 1,          ei = ib.s + NGHOST;
-  
+
   if      (nb.ni.ox2 == 0) sj = jb.s,              ej = jb.e;
   else if (nb.ni.ox2 > 0)  sj = jb.e - NGHOST + 1, ej = jb.e;
   else                     sj = jb.s,              ej = jb.s + NGHOST - 1;
-  
+
   if      (nb.ni.ox3 == 0) sk = kb.s,              ek = kb.e;
   else if (nb.ni.ox3 > 0)  sk = kb.e - NGHOST + 1, ek = kb.e;
   else                     sk = kb.s,              ek = kb.s + NGHOST - 1;
@@ -194,12 +194,12 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(Real *buf,
   if      (nb.ni.ox1 == 0)      si = ib.s,              ei = ib.e;
   else if (nb.ni.ox1 > 0)       si = ib.e - NGHOST + 1, ei = ib.e;
   else                          si = ib.s,              ei = ib.s + NGHOST - 1;
-  
+
   if (pmb->block_size.nx2 == 1) sj = jb.s,              ej = jb.e;
   else if (nb.ni.ox2 == 0)      sj = jb.s,              ej = jb.e + 1;
   else if (nb.ni.ox2 > 0)       sj = jb.e - NGHOST + 1, ej = jb.e;
   else                          sj = jb.s + 1,          ej = jb.s + NGHOST;
-  
+
   if (pmy_mesh_->multilevel && nb.ni.type != NeighborConnect::face) {
     if      (nb.ni.ox2 > 0) ej++;
     else if (nb.ni.ox2 < 0) sj--;
@@ -210,12 +210,12 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(Real *buf,
   if      (nb.ni.ox2 == 0)      sj = jb.s,              ej = jb.e;
   else if (nb.ni.ox2 > 0)       sj = jb.e - NGHOST + 1, ej = jb.e;
   else                          sj = jb.s,              ej = jb.s + NGHOST - 1;
-  
+
   if (pmb->block_size.nx3 == 1) sk = kb.s,              ek = kb.e;
   else if (nb.ni.ox3 == 0)      sk = kb.s,              ek = kb.e + 1;
   else if (nb.ni.ox3 > 0)       sk = kb.e - NGHOST + 1, ek = kb.e;
   else                          sk = kb.s + 1,          ek = kb.s + NGHOST;
-  
+
   if (pmy_mesh_->multilevel && nb.ni.type != NeighborConnect::face) {
     if      (nb.ni.ox3 > 0) ek++;
     else if (nb.ni.ox3 < 0) sk--;
@@ -349,8 +349,9 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToFiner(Real *buf,
       ei = cellbounds.ie(interior) + 1 - nx1 / 2 + pmb->cnghost;
   } else if (nb.ni.ox1 > 0) {
     si = cellbounds.ie(interior) + 1 - pmb->cnghost, ei = cellbounds.ie(interior) + 1;
-  } else
+  } else {
     si = cellbounds.is(interior), ei = cellbounds.is(interior) + pmb->cnghost;
+  }
   if (nb.ni.ox2 == 0) {
     sj = cellbounds.js(interior), ej = cellbounds.je(interior);
     if (nx2 > 1) {
@@ -368,8 +369,9 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToFiner(Real *buf,
     }
   } else if (nb.ni.ox2 > 0) {
     sj = cellbounds.je(interior) - cn, ej = cellbounds.je(interior);
-  } else
+  } else {
     sj = cellbounds.js(interior), ej = cellbounds.js(interior) + cn;
+  }
   if (nb.ni.ox3 == 0) {
     sk = cellbounds.ks(interior), ek = cellbounds.ke(interior);
     if (nx3 > 1) {
@@ -387,8 +389,9 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToFiner(Real *buf,
     }
   } else if (nb.ni.ox3 > 0) {
     sk = cellbounds.ke(interior) - cn, ek = cellbounds.ke(interior);
-  } else
+  } else {
     sk = cellbounds.ks(interior), ek = cellbounds.ks(interior) + cn;
+  }
   BufferUtility::PackData((*var_fc).x1f, buf, si, ei, sj, ej, sk, ek, p);
 
   // bx2
@@ -399,8 +402,9 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToFiner(Real *buf,
       si = cellbounds.is(interior), ei = cellbounds.ie(interior) - nx1 / 2 + pmb->cnghost;
   } else if (nb.ni.ox1 > 0) {
     si = cellbounds.ie(interior) - cn, ei = cellbounds.ie(interior);
-  } else
+  } else {
     si = cellbounds.is(interior), ei = cellbounds.is(interior) + cn;
+  }
   if (nb.ni.ox2 == 0) {
     sj = cellbounds.js(interior), ej = cellbounds.je(interior);
     if (nx2 > 1) {
@@ -419,8 +423,9 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToFiner(Real *buf,
     }
   } else if (nb.ni.ox2 > 0) {
     sj = cellbounds.je(interior) + 1 - pmb->cnghost, ej = cellbounds.je(interior) + 1;
-  } else
+  } else {
     sj = cellbounds.js(interior), ej = cellbounds.js(interior) + pmb->cnghost;
+  }
 
   BufferUtility::PackData((*var_fc).x2f, buf, si, ei, sj, ej, sk, ek, p);
 
@@ -442,8 +447,9 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToFiner(Real *buf,
     }
   } else if (nb.ni.ox2 > 0) {
     sj = cellbounds.je(interior) - cn, ej = cellbounds.je(interior);
-  } else
+  } else {
     sj = cellbounds.js(interior), ej = cellbounds.js(interior) + cn;
+  }
   if (nb.ni.ox3 == 0) {
     sk = cellbounds.ks(interior), ek = cellbounds.ke(interior);
     if (nx3 > 1) {
@@ -462,8 +468,9 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToFiner(Real *buf,
     }
   } else if (nb.ni.ox3 > 0) {
     sk = cellbounds.ke(interior) + 1 - pmb->cnghost, ek = cellbounds.ke(interior) + 1;
-  } else
+  } else {
     sk = cellbounds.ks(interior), ek = cellbounds.ks(interior) + pmb->cnghost;
+  }
   BufferUtility::PackData((*var_fc).x3f, buf, si, ei, sj, ej, sk, ek, p);
 
   return p;
@@ -605,8 +612,9 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromCoarser(Real *buf,
       si -= cng;
   } else if (nb.ni.ox1 > 0) {
     si = cib.e + 1, ei = cib.e + 1 + cng;
-  } else
+  } else {
     si = cib.s - cng, ei = cib.s;
+  }
   if (nb.ni.ox2 == 0) {
     sj = cjb.s, ej = cjb.e;
     if (pmb->block_size.nx2 > 1) {
@@ -617,8 +625,9 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromCoarser(Real *buf,
     }
   } else if (nb.ni.ox2 > 0) {
     sj = cjb.e + 1, ej = cjb.e + cng;
-  } else
+  } else {
     sj = cjb.s - cng, ej = cjb.s - 1;
+  }
   if (nb.ni.ox3 == 0) {
     sk = ckb.s, ek = ckb.e;
     if (pmb->block_size.nx3 > 1) {
@@ -629,8 +638,9 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromCoarser(Real *buf,
     }
   } else if (nb.ni.ox3 > 0) {
     sk = ckb.e + 1, ek = ckb.e + cng;
-  } else
+  } else {
     sk = ckb.s - cng, ek = ckb.s - 1;
+  }
 
   BufferUtility::UnpackData(buf, coarse_buf.x1f, si, ei, sj, ej, sk, ek, p);
 
@@ -643,8 +653,9 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromCoarser(Real *buf,
       si -= cng;
   } else if (nb.ni.ox1 > 0) {
     si = cib.e + 1, ei = cib.e + cng;
-  } else
+  } else {
     si = cib.s - cng, ei = cib.s - 1;
+  }
   if (nb.ni.ox2 == 0) {
     sj = cjb.s, ej = cjb.e;
     if (pmb->block_size.nx2 > 1) {
@@ -656,8 +667,9 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromCoarser(Real *buf,
     }
   } else if (nb.ni.ox2 > 0) {
     sj = cjb.e + 1, ej = cjb.e + 1 + cng;
-  } else
+  } else {
     sj = cjb.s - cng, ej = cjb.s;
+  }
 
   BufferUtility::UnpackData(buf, coarse_buf.x2f, si, ei, sj, ej, sk, ek, p);
   if (pmb->block_size.nx2 == 1) { // 1D
@@ -677,8 +689,9 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromCoarser(Real *buf,
     }
   } else if (nb.ni.ox2 > 0) {
     sj = cjb.e + 1, ej = cjb.e + cng;
-  } else
+  } else {
     sj = cjb.s - cng, ej = cjb.s - 1;
+  }
   if (nb.ni.ox3 == 0) {
     sk = ckb.s, ek = ckb.e;
     if (pmb->block_size.nx3 > 1) {
@@ -690,8 +703,9 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromCoarser(Real *buf,
     }
   } else if (nb.ni.ox3 > 0) {
     sk = ckb.e + 1, ek = ckb.e + 1 + cng;
-  } else
+  } else {
     sk = ckb.s - cng, ek = ckb.s;
+  }
 
   BufferUtility::UnpackData(buf, coarse_buf.x3f, si, ei, sj, ej, sk, ek, p);
 
@@ -728,8 +742,9 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
       ei -= pmb->block_size.nx1 / 2;
   } else if (nb.ni.ox1 > 0) {
     si = cellbounds.ie(interior) + 2, ei = cellbounds.ie(interior) + NGHOST + 1;
-  } else
+  } else {
     si = cellbounds.is(interior) - NGHOST, ei = cellbounds.is(interior) - 1;
+  }
   // include the overlapping faces in edge and corner boundaries
   if (nb.ni.type != NeighborConnect::face) {
     if (nb.ni.ox1 > 0)
@@ -755,8 +770,9 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
     }
   } else if (nb.ni.ox2 > 0) {
     sj = cellbounds.je(interior) + 1, ej = cellbounds.je(interior) + NGHOST;
-  } else
+  } else {
     sj = cellbounds.js(interior) - NGHOST, ej = cellbounds.js(interior) - 1;
+  }
   if (nb.ni.ox3 == 0) {
     sk = cellbounds.ks(interior), ek = cellbounds.ke(interior);
     if (pmb->block_size.nx3 > 1) {
@@ -774,8 +790,9 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
     }
   } else if (nb.ni.ox3 > 0) {
     sk = cellbounds.ke(interior) + 1, ek = cellbounds.ke(interior) + NGHOST;
-  } else
+  } else {
     sk = cellbounds.ks(interior) - NGHOST, ek = cellbounds.ks(interior) - 1;
+  }
 
   BufferUtility::UnpackData(buf, (*var_fc).x1f, si, ei, sj, ej, sk, ek, p);
 
@@ -788,8 +805,9 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
       ei -= pmb->block_size.nx1 / 2;
   } else if (nb.ni.ox1 > 0) {
     si = cellbounds.ie(interior) + 1, ei = cellbounds.ie(interior) + NGHOST;
-  } else
+  } else {
     si = cellbounds.is(interior) - NGHOST, ei = cellbounds.is(interior) - 1;
+  }
   if (nb.ni.ox2 == 0) {
     sj = cellbounds.js(interior), ej = cellbounds.je(interior);
     if (pmb->block_size.nx2 > 1) {
@@ -808,8 +826,9 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
     }
   } else if (nb.ni.ox2 > 0) {
     sj = cellbounds.je(interior) + 2, ej = cellbounds.je(interior) + NGHOST + 1;
-  } else
+  } else {
     sj = cellbounds.js(interior) - NGHOST, ej = cellbounds.js(interior) - 1;
+  }
   // include the overlapping faces in edge and corner boundaries
   if (nb.ni.type != NeighborConnect::face) {
     if (nb.ni.ox2 > 0)
@@ -844,8 +863,9 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
     }
   } else if (nb.ni.ox2 > 0) {
     sj = cellbounds.je(interior) + 1, ej = cellbounds.je(interior) + NGHOST;
-  } else
+  } else {
     sj = cellbounds.js(interior) - NGHOST, ej = cellbounds.js(interior) - 1;
+  }
   if (nb.ni.ox3 == 0) {
     sk = cellbounds.ks(interior), ek = cellbounds.ke(interior);
     if (pmb->block_size.nx3 > 1) {
@@ -864,8 +884,9 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
     }
   } else if (nb.ni.ox3 > 0) {
     sk = cellbounds.ke(interior) + 2, ek = cellbounds.ke(interior) + NGHOST + 1;
-  } else
+  } else {
     sk = cellbounds.ks(interior) - NGHOST, ek = cellbounds.ks(interior) - 1;
+  }
   // include the overlapping faces in edge and corner boundaries
   if (nb.ni.type != NeighborConnect::face) {
     if (nb.ni.ox3 > 0)

@@ -18,14 +18,16 @@
 #ifndef MESH_DOMAIN_HPP_
 #define MESH_DOMAIN_HPP_
 
-#include "athena.hpp"
 #include <array>
 #include <type_traits>
+#include <vector>
+
+#include "athena.hpp"
 
 namespace parthenon {
 
 struct IndexRange {
-  IndexRange(){};
+  IndexRange() {}
   IndexRange(int start, int end) : s(start), e(end) { assert(e >= s); }
   int s = 0; /// Starting Index (inclusive)
   int e = 0; /// Ending Index (inclusive)
@@ -68,15 +70,15 @@ class IndexShape {
   }
 
  public:
-  IndexShape(){};
+  IndexShape() {}
 
   IndexShape(const int &nx1, const int &nx2, const int &nx3, const int &ng)
-      : IndexShape(std::vector<int>{nx1, nx2, nx3}, ng){};
+      : IndexShape(std::vector<int>{nx1, nx2, nx3}, ng) {}
 
   IndexShape(const int &nx1, const int &nx2, const int &ng)
-      : IndexShape(std::vector<int>{nx1, nx2}, ng){};
+      : IndexShape(std::vector<int>{nx1, nx2}, ng) {}
 
-  IndexShape(const int &nx1, const int &ng) : IndexShape(std::vector<int>{nx1}, ng){};
+  IndexShape(const int &nx1, const int &ng) : IndexShape(std::vector<int>{nx1}, ng) {}
 
   IndexShape(const std::vector<int> &interior_dims, const int &ng) {
     assert(interior_dims.size() <= NDIM &&
@@ -100,7 +102,7 @@ class IndexShape {
         }
       }
     }
-  };
+  }
 
   std::array<IndexRange, NDIM> GetBounds(const IndexDomain &domain) const noexcept {
     if (domain == IndexDomain::entire) {

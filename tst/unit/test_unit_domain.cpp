@@ -14,12 +14,14 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#include "mesh/domain.hpp"
-#include <catch2/catch.hpp>
+
 #include <string>
 
-TEST_CASE("Checking IndexShape indices", "[is,ie,js,je,ks,ke]") {
+#include "mesh/domain.hpp"
 
+#include <catch2/catch.hpp>
+
+TEST_CASE("Checking IndexShape indices", "[is,ie,js,je,ks,ke]") {
   const parthenon::IndexDomain interior = parthenon::IndexDomain::interior;
   const parthenon::IndexDomain entire = parthenon::IndexDomain::entire;
   GIVEN("A 1D Index Shape") {
@@ -87,7 +89,6 @@ TEST_CASE("Checking IndexShape indices", "[is,ie,js,je,ks,ke]") {
 }
 
 TEST_CASE("Checking IndexShape cell counts", "[ncellsi,ncellsj,ncellsk]") {
-
   const parthenon::IndexDomain interior = parthenon::IndexDomain::interior;
   const parthenon::IndexDomain entire = parthenon::IndexDomain::entire;
   GIVEN("A 1D Index Shape, check the numbers of cells") {

@@ -281,7 +281,6 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin)
 
     // Precompute PPM coefficients in x2-direction ---------------------------------------
     if (pmb->block_size.nx2 > 1) {
-
       int nc2 = cellbounds.ncellsj(entire);
       c1j = ParArrayND<Real>(PARARRAY_TEMP, nc2);
       c2j = ParArrayND<Real>(PARARRAY_TEMP, nc2);

@@ -153,7 +153,7 @@ MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
 
   // initialize grid indices
   InitializeIndexShapes(block_size.nx1, block_size.nx2, block_size.nx3);
-    
+
   // Set the block pointer for the containers
   real_containers.Get().setBlock(this);
 
@@ -200,7 +200,6 @@ MeshBlock::~MeshBlock() {
 }
 
 void MeshBlock::InitializeIndexShapes(const int nx1, const int nx2, const int nx3) {
-
   cellbounds = IndexShape(block_size.nx1, block_size.nx2, block_size.nx3, NGHOST);
 
   const IndexDomain interior = IndexDomain::interior;
@@ -211,7 +210,6 @@ void MeshBlock::InitializeIndexShapes(const int nx1, const int nx2, const int nx
                    cellbounds.ncellsk(interior) / 2, NGHOST);
 
   } else {
-
     c_cellbounds =
         IndexShape(cellbounds.ncellsi(interior) / 2, cellbounds.ncellsj(interior) / 2,
                    cellbounds.ncellsk(interior) / 2, 0);
