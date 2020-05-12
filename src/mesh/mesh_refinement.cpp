@@ -163,7 +163,8 @@ void MeshRefinement::RestrictFieldX1(const ParArrayND<Real> &fine,
       for (int cj = csj; cj <= cej; cj++) {
         int j = (cj - pmb->c_cellbounds.js(interior)) * 2 + pmb->cellbounds.js(interior);
         for (int ci = csi; ci <= cei; ci++) {
-          int i = (ci - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
+          int i =
+              (ci - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
           const Real area00 = coords.Area(X1DIR, k, j, i);
           const Real area01 = coords.Area(X1DIR, k, j + 1, i);
           const Real area10 = coords.Area(X1DIR, k + 1, j, i);
@@ -220,7 +221,8 @@ void MeshRefinement::RestrictFieldX2(const ParArrayND<Real> &fine,
       for (int cj = csj; cj <= cej; cj++) {
         int j = (cj - pmb->c_cellbounds.js(interior)) * 2 + pmb->cellbounds.js(interior);
         for (int ci = csi; ci <= cei; ci++) {
-          int i = (ci - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
+          int i =
+              (ci - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
           const Real area00 = coords.Area(X2DIR, k, j, i);
           const Real area01 = coords.Area(X2DIR, k, j, i + 1);
           const Real area10 = coords.Area(X2DIR, k + 1, j, i);
@@ -283,7 +285,8 @@ void MeshRefinement::RestrictFieldX3(const ParArrayND<Real> &fine,
       for (int cj = csj; cj <= cej; cj++) {
         int j = (cj - pmb->c_cellbounds.js(interior)) * 2 + pmb->cellbounds.js(interior);
         for (int ci = csi; ci <= cei; ci++) {
-          int i = (ci - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
+          int i =
+              (ci - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
           const Real area00 = coords.Area(X3DIR, k, j, i);
           const Real area01 = coords.Area(X3DIR, k, j, i + 1);
           const Real area10 = coords.Area(X3DIR, k, j + 1, i);
@@ -606,7 +609,8 @@ void MeshRefinement::ProlongateSharedFieldX2(const ParArrayND<Real> &coarse,
       for (int j = sj; j <= ej; j++) {
         int fj = (j - pmb->c_cellbounds.js(interior)) * 2 + pmb->cellbounds.js(interior);
         for (int i = si; i <= ei; i++) {
-          int fi = (i - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
+          int fi =
+              (i - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
           const Real x1m = coarse_coords.x1s2(i - 1);
           const Real x1c = coarse_coords.x1s2(i);
           const Real x1p = coarse_coords.x1s2(i + 1);
@@ -695,7 +699,8 @@ void MeshRefinement::ProlongateSharedFieldX3(const ParArrayND<Real> &coarse,
         const Real fx2m = coords.x2s3(fj);
         const Real fx2p = coords.x2s3(fj + 1);
         for (int i = si; i <= ei; i++) {
-          int fi = (i - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
+          int fi =
+              (i - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
           const Real x1m = coarse_coords.x1s3(i - 1);
           const Real x1c = coarse_coords.x1s3(i);
           const Real x1p = coarse_coords.x1s3(i + 1);
