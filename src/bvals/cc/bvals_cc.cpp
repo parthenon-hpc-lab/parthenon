@@ -279,7 +279,7 @@ void CellCenteredBoundaryVariable::SetBoundaryFromCoarser(Real *buf,
     if (ox == 0) {
       s = bounds.s;
       e = bounds.e;
-      if(include_dim) {
+      if (include_dim) {
         if ((lx & 1LL) == 0LL) {
           e += cng;
         } else {
@@ -296,9 +296,12 @@ void CellCenteredBoundaryVariable::SetBoundaryFromCoarser(Real *buf,
   };
 
   IndexDomain interior = IndexDomain::interior;
-  CalcIndices(nb.ni.ox1, si, ei, c_cellbounds.GetBoundsI(interior), pmb->loc.lx1, cng, true);
-  CalcIndices(nb.ni.ox2, sj, ej, c_cellbounds.GetBoundsJ(interior), pmb->loc.lx2, cng, pmb->block_size.nx2 > 1);
-  CalcIndices(nb.ni.ox3, sk, ek, c_cellbounds.GetBoundsK(interior), pmb->loc.lx3, cng, pmb->block_size.nx3 > 1);
+  CalcIndices(nb.ni.ox1, si, ei, c_cellbounds.GetBoundsI(interior), pmb->loc.lx1, cng,
+              true);
+  CalcIndices(nb.ni.ox2, sj, ej, c_cellbounds.GetBoundsJ(interior), pmb->loc.lx2, cng,
+              pmb->block_size.nx2 > 1);
+  CalcIndices(nb.ni.ox3, sk, ek, c_cellbounds.GetBoundsK(interior), pmb->loc.lx3, cng,
+              pmb->block_size.nx3 > 1);
 
   int p = 0;
   BufferUtility::UnpackData(buf, coarse_buf, nl_, nu_, si, ei, sj, ej, sk, ek, p);
