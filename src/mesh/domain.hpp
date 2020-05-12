@@ -93,7 +93,6 @@ class IndexShape {
         assert(interior_dims.at(index) > -1 &&
                "IndexShape cannot be initialized with a negative number of "
                "interior cells for any dimension");
-        // Dimension does not exist if interior cells 0 
         if (interior_dims.at(index) == 0) {
           MakeZeroDimensional_(index);
         } else {
