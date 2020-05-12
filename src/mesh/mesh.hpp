@@ -97,7 +97,7 @@ class MeshBlock {
   DevExecSpace exec_space;
 
   // data
-  Mesh *pmy_mesh; // ptr to Mesh containing this MeshBlock
+  Mesh *pmy_mesh = nullptr; // ptr to Mesh containing this MeshBlock
   LogicalLocation loc;
   RegionSize block_size;
   // for convenience: "max" # of real+ghost cells along each dir for allocating "standard"

@@ -34,7 +34,6 @@ TaskStatus FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
   IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
   IndexRange kb = pmb->cellbounds.GetBoundsK(interior);
 
-  int nx1 = pmb->cellbounds.ncellsi(IndexDomain::entire);
   auto vin = in.PackVariablesAndFluxes({Metadata::Independent});
   auto dudt = dudt_cont.PackVariables({Metadata::Independent});
 

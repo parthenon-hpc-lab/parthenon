@@ -51,9 +51,9 @@ namespace parthenon {
 MeshBlock::MeshBlock(const int n_side, const int ndim) {
   // initialize grid indices
   if (ndim == 1) {
-    InitializeIndexShapes(n_side, 1, 1);
+    InitializeIndexShapes(n_side, 0, 0);
   } else if (ndim == 2) {
-    InitializeIndexShapes(n_side, n_side, 1);
+    InitializeIndexShapes(n_side, n_side, 0);
   } else {
     InitializeIndexShapes(n_side, n_side, n_side);
   }
@@ -68,7 +68,13 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
       prev(nullptr), next(nullptr), new_block_dt_{}, new_block_dt_hyperbolic_{},
       new_block_dt_parabolic_{}, new_block_dt_user_{}, cost_(1.0) {
   // initialize grid indices
-  InitializeIndexShapes(block_size.nx1, block_size.nx2, block_size.nx3);
+  if (pmy_mesh->ndim >= 3) {
+    InitializeIndexShapes(block_size.nx1, block_size.nx2, block_size.nx3);
+  } else if(pmy_mesh->ndim >= 2) {
+    InitializeIndexShapes(block_size.nx1, block_size.nx2, 0);
+  } else {
+    InitializeIndexShapes(block_size.nx1, 0, 0);
+  }
 
   Container<Real> &real_container = real_containers.Get();
   // Set the block pointer for the containers
@@ -198,19 +204,15 @@ MeshBlock::~MeshBlock() {
 }
 
 void MeshBlock::InitializeIndexShapes(const int nx1, const int nx2, const int nx3) {
-  cellbounds = IndexShape(block_size.nx1, block_size.nx2, block_size.nx3, NGHOST);
+  cellbounds = IndexShape(nx1, nx2, nx3, NGHOST);
 
-  const IndexDomain interior = IndexDomain::interior;
-  if (pmy_mesh->multilevel) {
-    cnghost = (NGHOST + 1) / 2 + 1;
-    c_cellbounds =
-        IndexShape(cellbounds.ncellsi(interior) / 2, cellbounds.ncellsj(interior) / 2,
-                   cellbounds.ncellsk(interior) / 2, NGHOST);
-
-  } else {
-    c_cellbounds =
-        IndexShape(cellbounds.ncellsi(interior) / 2, cellbounds.ncellsj(interior) / 2,
-                   cellbounds.ncellsk(interior) / 2, 0);
+  if (pmy_mesh != nullptr) {
+    if (pmy_mesh->multilevel) {
+      cnghost = (NGHOST + 1) / 2 + 1;
+      c_cellbounds = IndexShape(nx1 / 2, nx2 / 2, nx3 / 2, NGHOST);
+    } else {
+      c_cellbounds = IndexShape(nx1 / 2, nx2 / 2, nx3 / 2, 0);
+    }
   }
 }
 
