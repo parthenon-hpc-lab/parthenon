@@ -37,12 +37,16 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
   Container<Real> &rc = real_containers.Get();
   CellVariable<Real> &q = rc.Get("advected");
 
+  Real x1size = pmy_mesh->mesh_size.x1max - pmy_mesh->mesh_size.x1min;
+  Real x2size = pmy_mesh->mesh_size.x2max - pmy_mesh->mesh_size.x2min;
+  Real x3size = pmy_mesh->mesh_size.x3max - pmy_mesh->mesh_size.x3min;
+
   for (int k = 0; k < ncells3; k++) {
     for (int j = 0; j < ncells2; j++) {
       for (int i = 0; i < ncells1; i++) {
-        Real rsq = std::pow(pcoord->x1v(i), 2) + std::pow(pcoord->x2v(j), 2) +
-                   std::pow(pcoord->x3v(k), 2);
-        q(k, j, i) = (rsq < 0.15 * 0.15 * 0.15 ? 1.0 : 0.0);
+        q(k, j, i) = 1e-6 * sin(pcoord->x1v(i) / x1size * TWO_PI) *
+                     cos(pcoord->x2v(j) / x2size * TWO_PI) *
+                     cos(pcoord->x3v(k) / x3size * TWO_PI);
       }
     }
   }
@@ -72,12 +76,9 @@ void Mesh::UserWorkAfterLoop(ParameterInput *pin, SimTime &tm) {
     const auto &vy = pkg->Param<Real>("vy");
     const auto &vz = pkg->Param<Real>("vz");
 
-    // const auto offset_x = vx * tm.time;
-    // const auto offset_y = vy * tm.time;
-    // const auto offset_z = vz * tm.time;
-    const auto offset_x = 0.0;
-    const auto offset_y = 0.0;
-    const auto offset_z = 0.0;
+    Real x1size = mesh_size.x1max - mesh_size.x1min;
+    Real x2size = mesh_size.x2max - mesh_size.x2min;
+    Real x3size = mesh_size.x3max - mesh_size.x3min;
 
     int il = pmb->is, iu = pmb->ie, jl = pmb->js, ju = pmb->je, kl = pmb->ks,
         ku = pmb->ke;
@@ -89,10 +90,9 @@ void Mesh::UserWorkAfterLoop(ParameterInput *pin, SimTime &tm) {
     for (int k = kl; k <= ku; ++k) {
       for (int j = jl; j <= ju; ++j) {
         for (int i = il; i <= iu; ++i) {
-          Real rsq = std::pow(pmb->pcoord->x1v(i) + offset_x, 2) +
-                     std::pow(pmb->pcoord->x2v(j) + offset_y, 2) +
-                     std::pow(pmb->pcoord->x3v(k) + offset_z, 2);
-          Real ref_val = (rsq < 0.15 * 0.15 * 0.15 ? 1.0 : 0.0);
+          Real ref_val = 1e-6 * sin(pmb->pcoord->x1v(i) / x1size * TWO_PI) *
+                         cos(pmb->pcoord->x2v(j) / x2size * TWO_PI) *
+                         cos(pmb->pcoord->x3v(k) / x3size * TWO_PI);
 
           // Weight l1 error by cell volume
           Real vol = pmb->pcoord->GetCellVolume(k, j, i);
@@ -104,7 +104,7 @@ void Mesh::UserWorkAfterLoop(ParameterInput *pin, SimTime &tm) {
     }
     pmb = pmb->next;
   }
-  //  Real rms_err = 0.0,
+
   Real max_max_over_l1 = 0.0;
 
 #ifdef MPI_PARALLEL

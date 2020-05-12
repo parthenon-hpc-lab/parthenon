@@ -40,7 +40,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddParam<>("vx", vx);
   Real vy = pin->GetOrAddReal("Advection", "vy", 1.0);
   pkg->AddParam<>("vy", vy);
-  Real vz = pin->GetOrAddReal("Advection", "vz", 0.5);
+  Real vz = pin->GetOrAddReal("Advection", "vz", 1.0);
   pkg->AddParam<>("vz", vz);
   Real refine_tol = pin->GetOrAddReal("Advection", "refine_tol", 0.3);
   pkg->AddParam<>("refine_tol", refine_tol);
@@ -194,9 +194,9 @@ Real EstimateTimestep(Container<Real> &rc) {
       pmb->pcoord->CenterWidth2(k, j, is, ie, dx2);
       pmb->pcoord->CenterWidth3(k, j, is, ie, dx3);
       for (int i = is; i <= ie; i++) {
-        min_dt = std::min(min_dt, dx1(i) / std::abs(vx));
-        min_dt = std::min(min_dt, dx2(i) / std::abs(vy));
-        min_dt = std::min(min_dt, dx3(i) / std::abs(vz));
+        if (vx != 0.0) min_dt = std::min(min_dt, dx1(i) / std::abs(vx));
+        if (vy != 0.0) min_dt = std::min(min_dt, dx2(i) / std::abs(vy));
+        if (vz != 0.0) min_dt = std::min(min_dt, dx3(i) / std::abs(vz));
       }
     }
   }
