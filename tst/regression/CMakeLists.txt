@@ -37,7 +37,8 @@ function(setup_test_mpi dir arg)
     separate_arguments(arg) 
     add_test( NAME regression_mpi_test:${dir} COMMAND python ${CMAKE_CURRENT_SOURCE_DIR}/run_test.py
       --mpirun ${MPIEXEC_EXECUTABLE} 
-      --mpirun_opts "${MPIEXEC_NUMPROC_FLAG} ${NUM_MPI_PROC_TESTING} ${MPIEXEC_PREFLAGS}" ${arg} 
+      --mpirun_opts=${MPIEXEC_NUMPROC_FLAG} --mpirun_opts=${NUM_MPI_PROC_TESTING}
+      --mpirun_opts=${MPIEXEC_PREFLAGS} ${arg}
       --test_dir ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir})
     set_tests_properties(regression_mpi_test:${dir} PROPERTIES LABELS "regression,mpi" RUN_SERIAL ON )
   else()
