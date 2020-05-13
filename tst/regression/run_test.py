@@ -62,16 +62,17 @@ def main(**kwargs):
 
     test_manager.CleanOutputFolder()
 
-    test_manager.Prepare()
+    for step in range(1,kwargs['num_steps'] + 1):
+        test_manager.Prepare(step)
 
-    test_manager.Run()
+        test_manager.Run()
 
     test_result = test_manager.Analyse()
 
     if test_result == True:
         return 0
     else:
-        raise TestError("Test " + test_case.test + " failed")
+        raise TestError("Test " + test_manager.test + " failed")
 
 
 # Exception for unexpected behavior by individual tests
@@ -105,6 +106,12 @@ if __name__ == '__main__':
                         nargs=1,
                         required=True,
                         help='path to input file, to pass to driver')
+
+    parser.add_argument("--num_steps", "-n",
+                        type=int,
+                        default=1,
+                        required=False,
+                        help='Number of steps in test. Default: 1')
 
     parser.add_argument('--mpirun',
                         default='',

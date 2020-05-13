@@ -168,12 +168,12 @@ class TestManager:
         os.mkdir(self.parameters.output_path)
         os.chdir(self.parameters.output_path)
 
-    def Prepare(self):
+    def Prepare(self, step):
         print("*****************************************************************")
-        print("Preparing Test Case")
+        print("Preparing Test Case Step %d" % step)
         print("*****************************************************************")
         sys.stdout.flush()
-        self.parameters = self.test_case.Prepare(self.parameters)
+        self.parameters = self.test_case.Prepare(self.parameters, step)
 
     def Run(self):
        
@@ -211,18 +211,6 @@ class TestManager:
 
         return test_pass
 
-
-    def Analyse(self):
-
-        test_pass = False
-
-        print("*****************************************************************")
-        print("Analysing Driver Output")
-        print("*****************************************************************")
-        sys.stdout.flush()
-        test_pass = self.test_case.Analyse(self.parameters)
-
-        return test_pass
 
 # Exception for unexpected behavior by individual tests
 class TestManagerError(RuntimeError):
