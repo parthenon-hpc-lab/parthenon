@@ -49,6 +49,10 @@ list(APPEND TEST_DIRS calculate_pi)
 list(APPEND TEST_ARGS "--driver ${CMAKE_BINARY_DIR}/example/calculate_pi/pi-example \
 --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/calculate_pi/parthinput.regression")
 
+list(APPEND TEST_DIRS advection_convergence)
+list(APPEND TEST_ARGS "--driver ${CMAKE_BINARY_DIR}/example/advection/advection-example \
+--driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/advection_convergence/parthinput.advection \
+--num_steps 18")
 
 # Add additional regression tests to ctest below this line by calling
 #
