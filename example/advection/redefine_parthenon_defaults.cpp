@@ -16,6 +16,7 @@
 #include <parthenon/package.hpp>
 
 #include "advection_package.hpp"
+#include "defs.hpp"
 #include "utils/error_checking.hpp"
 
 using namespace parthenon::package::prelude;
@@ -37,16 +38,22 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
   Container<Real> &rc = real_containers.Get();
   CellVariable<Real> &q = rc.Get("advected");
 
-  Real x1size = pmy_mesh->mesh_size.x1max - pmy_mesh->mesh_size.x1min;
-  Real x2size = pmy_mesh->mesh_size.x2max - pmy_mesh->mesh_size.x2min;
-  Real x3size = pmy_mesh->mesh_size.x3max - pmy_mesh->mesh_size.x3min;
+  auto pkg = packages["advection_package"];
+  const auto &amp = pkg->Param<Real>("amp");
+  const auto &vel = pkg->Param<Real>("vel");
+  const auto &k_par = pkg->Param<Real>("k_par");
+  const auto &cos_a2 = pkg->Param<Real>("cos_a2");
+  const auto &cos_a3 = pkg->Param<Real>("cos_a3");
+  const auto &sin_a2 = pkg->Param<Real>("sin_a2");
+  const auto &sin_a3 = pkg->Param<Real>("sin_a3");
 
   for (int k = 0; k < ncells3; k++) {
     for (int j = 0; j < ncells2; j++) {
       for (int i = 0; i < ncells1; i++) {
-        q(k, j, i) = 1e-6 * sin(pcoord->x1v(i) / x1size * TWO_PI) *
-                     cos(pcoord->x2v(j) / x2size * TWO_PI) *
-                     cos(pcoord->x3v(k) / x3size * TWO_PI);
+        Real x = cos_a2 * (pcoord->x1v(i) * cos_a3 + pcoord->x2v(j) * sin_a3) +
+                 pcoord->x3v(k) * sin_a2;
+        Real sn = std::sin(k_par * x);
+        q(k, j, i) = 1.0 + amp * sn * vel;
       }
     }
   }
@@ -72,27 +79,29 @@ void Mesh::UserWorkAfterLoop(ParameterInput *pin, SimTime &tm) {
   MeshBlock *pmb = pblock;
   while (pmb != nullptr) {
     auto pkg = pmb->packages["advection_package"];
-    const auto &vx = pkg->Param<Real>("vx");
-    const auto &vy = pkg->Param<Real>("vy");
-    const auto &vz = pkg->Param<Real>("vz");
-
-    Real x1size = mesh_size.x1max - mesh_size.x1min;
-    Real x2size = mesh_size.x2max - mesh_size.x2min;
-    Real x3size = mesh_size.x3max - mesh_size.x3min;
 
     int il = pmb->is, iu = pmb->ie, jl = pmb->js, ju = pmb->je, kl = pmb->ks,
         ku = pmb->ke;
 
     auto rc = pmb->real_containers.Get(); // get base container
     ParArray3D<Real> q = rc.Get("advected").data.Get<3>();
+    const auto &amp = pkg->Param<Real>("amp");
+    const auto &vel = pkg->Param<Real>("vel");
+    const auto &k_par = pkg->Param<Real>("k_par");
+    const auto &cos_a2 = pkg->Param<Real>("cos_a2");
+    const auto &cos_a3 = pkg->Param<Real>("cos_a3");
+    const auto &sin_a2 = pkg->Param<Real>("sin_a2");
+    const auto &sin_a3 = pkg->Param<Real>("sin_a3");
 
     // TODO(pgrete) needs to be a reduction when using parallel_for
     for (int k = kl; k <= ku; ++k) {
       for (int j = jl; j <= ju; ++j) {
         for (int i = il; i <= iu; ++i) {
-          Real ref_val = 1e-6 * sin(pmb->pcoord->x1v(i) / x1size * TWO_PI) *
-                         cos(pmb->pcoord->x2v(j) / x2size * TWO_PI) *
-                         cos(pmb->pcoord->x3v(k) / x3size * TWO_PI);
+          Real x =
+              cos_a2 * (pmb->pcoord->x1v(i) * cos_a3 + pmb->pcoord->x2v(j) * sin_a3) +
+              pmb->pcoord->x3v(k) * sin_a2;
+          Real sn = std::sin(k_par * x);
+          Real ref_val = 1.0 + amp * sn * vel;
 
           // Weight l1 error by cell volume
           Real vol = pmb->pcoord->GetCellVolume(k, j, i);

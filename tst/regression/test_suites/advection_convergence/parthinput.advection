@@ -54,6 +54,10 @@ cfl = 0.30
 vx = 1.0
 vy = 2.0
 vz = 3.0
+ang_2 = 0.0
+ang_3 = 0.0
+ang_2_vert = false
+ang_3_vert = false
 
 refine_tol = 0.3    # control the package specific refinement tagging function
 derefine_tol = 0.03

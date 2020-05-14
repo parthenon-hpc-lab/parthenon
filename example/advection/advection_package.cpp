@@ -12,6 +12,7 @@
 //========================================================================================
 
 #include <algorithm>
+#include <cmath>
 #include <limits>
 #include <string>
 #include <vector>
@@ -37,15 +38,85 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   Real cfl = pin->GetOrAddReal("Advection", "cfl", 0.45);
   pkg->AddParam<>("cfl", cfl);
   Real vx = pin->GetOrAddReal("Advection", "vx", 1.0);
-  pkg->AddParam<>("vx", vx);
   Real vy = pin->GetOrAddReal("Advection", "vy", 1.0);
-  pkg->AddParam<>("vy", vy);
   Real vz = pin->GetOrAddReal("Advection", "vz", 1.0);
-  pkg->AddParam<>("vz", vz);
   Real refine_tol = pin->GetOrAddReal("Advection", "refine_tol", 0.3);
   pkg->AddParam<>("refine_tol", refine_tol);
   Real derefine_tol = pin->GetOrAddReal("Advection", "derefine_tol", 0.03);
   pkg->AddParam<>("derefine_tol", derefine_tol);
+
+  Real amp = pin->GetOrAddReal("Advection", "amp", 1e-6);
+  Real vel = std::sqrt(vx * vx + vy * vy + vz * vz);
+  Real ang_2 = pin->GetOrAddReal("Advection", "ang_2", -999.9);
+  Real ang_3 = pin->GetOrAddReal("Advection", "ang_3", -999.9);
+
+  Real ang_2_vert = pin->GetOrAddBoolean("Advection", "ang_2_vert", false);
+  Real ang_3_vert = pin->GetOrAddBoolean("Advection", "ang_3_vert", false);
+
+  // For wavevector along coordinate axes, set desired values of ang_2/ang_3.
+  //    For example, for 1D problem use ang_2 = ang_3 = 0.0
+  //    For wavevector along grid diagonal, do not input values for ang_2/ang_3.
+  // Code below will automatically calculate these imposing periodicity and exactly one
+  // wavelength along each grid direction
+  Real x1size = pin->GetOrAddReal("parthenon/mesh", "x1max", 1.5) -
+                pin->GetOrAddReal("parthenon/mesh", "x1min", -1.5);
+  Real x2size = pin->GetOrAddReal("parthenon/mesh", "x2max", 1.0) -
+                pin->GetOrAddReal("parthenon/mesh", "x2min", -1.0);
+  Real x3size = pin->GetOrAddReal("parthenon/mesh", "x3max", 1.0) -
+                pin->GetOrAddReal("parthenon/mesh", "x3min", -1.0);
+
+  // User should never input -999.9 in angles
+  if (ang_3 == -999.9) ang_3 = std::atan(x1size / x2size);
+  Real sin_a3 = std::sin(ang_3);
+  Real cos_a3 = std::cos(ang_3);
+
+  // Override ang_3 input and hardcode vertical (along x2 axis) wavevector
+  if (ang_3_vert) {
+    sin_a3 = 1.0;
+    cos_a3 = 0.0;
+    ang_3 = 0.5 * M_PI;
+  }
+
+  if (ang_2 == -999.9)
+    ang_2 = std::atan(0.5 * (x1size * cos_a3 + x2size * sin_a3) / x3size);
+  Real sin_a2 = std::sin(ang_2);
+  Real cos_a2 = std::cos(ang_2);
+
+  // Override ang_2 input and hardcode vertical (along x3 axis) wavevector
+  if (ang_2_vert) {
+    sin_a2 = 1.0;
+    cos_a2 = 0.0;
+    ang_2 = 0.5 * M_PI;
+  }
+
+  Real x1 = x1size * cos_a2 * cos_a3;
+  Real x2 = x2size * cos_a2 * sin_a3;
+  Real x3 = x3size * sin_a2;
+
+  // For lambda choose the smaller of the 3
+  Real lambda = x1;
+  if ((pin->GetOrAddInteger("parthenon/mesh", "nx2", 1) > 1) && ang_3 != 0.0)
+    lambda = std::min(lambda, x2);
+  if ((pin->GetOrAddInteger("parthenon/mesh", "nx3", 1) > 1) && ang_2 != 0.0)
+    lambda = std::min(lambda, x3);
+
+  // If cos_a2 or cos_a3 = 0, need to override lambda
+  if (ang_3_vert) lambda = x2;
+  if (ang_2_vert) lambda = x3;
+
+  // Initialize k_parallel
+  Real k_par = 2.0 * (PI) / lambda;
+
+  pkg->AddParam<>("amp", amp);
+  pkg->AddParam<>("vel", vel);
+  pkg->AddParam<>("vx", vx);
+  pkg->AddParam<>("vy", vy);
+  pkg->AddParam<>("vz", vz);
+  pkg->AddParam<>("k_par", k_par);
+  pkg->AddParam<>("cos_a2", cos_a2);
+  pkg->AddParam<>("cos_a3", cos_a3);
+  pkg->AddParam<>("sin_a2", sin_a2);
+  pkg->AddParam<>("sin_a3", sin_a3);
 
   std::string field_name = "advected";
   Metadata m({Metadata::Cell, Metadata::Independent, Metadata::FillGhost});

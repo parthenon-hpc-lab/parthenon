@@ -56,7 +56,7 @@ setup_test( advection_convergence "--driver ${CMAKE_BINARY_DIR}/example/advectio
 --num_steps 18")
 setup_test_mpi( 1 advection_convergence "--driver ${CMAKE_BINARY_DIR}/example/advection/advection-example \
 --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/advection_convergence/parthinput.advection \
---num_steps 18")
+--num_steps 21")
 
 # Add additional regression tests to ctest below this line by calling
 #

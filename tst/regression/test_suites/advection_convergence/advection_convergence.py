@@ -79,6 +79,7 @@ class TestCase(utils.test_case.TestCaseAbs):
                 'parthenon/meshblock/nx3=4',
                 'Advection/vx=0.0',
                 'Advection/vz=0.0',
+                'Advection/ang_3_vert=true',
                 ]
         # TEST: Advection only in z-direction
         elif step <= 3*n_res:
@@ -91,9 +92,69 @@ class TestCase(utils.test_case.TestCaseAbs):
                 'parthenon/meshblock/nx3=%d' % lin_res[step % n_res -1],
                 'Advection/vx=0.0',
                 'Advection/vy=0.0',
+                'Advection/ang_2_vert=true',
+                ]
+        # TEST: Advection only in x at highest res with identical params
+        elif step == 3*n_res + 1:
+            parameters.driver_cmd_line_args = [
+                'parthenon/mesh/nx1=%d' % lin_res[-1],
+                'parthenon/meshblock/nx1=%d' % lin_res[-1],
+                'parthenon/mesh/nx2=4',
+                'parthenon/meshblock/nx2=4',
+                'parthenon/mesh/nx3=4',
+                'parthenon/meshblock/nx3=4',
+                'parthenon/mesh/x1min=-0.5',
+                'parthenon/mesh/x1max=0.5',
+                'parthenon/mesh/x2min=-0.5',
+                'parthenon/mesh/x2max=0.5',
+                'parthenon/mesh/x3min=-0.5',
+                'parthenon/mesh/x3max=0.5',
+                'Advection/vx=1.0',
+                'Advection/vy=0.0',
+                'Advection/vz=0.0',
+                ]
+        # TEST: Advection only in y at highest res with identical params
+        elif step == 3*n_res + 2:
+            parameters.driver_cmd_line_args = [
+                'parthenon/mesh/nx1=4',
+                'parthenon/meshblock/nx1=4',
+                'parthenon/mesh/nx2=%d' % lin_res[-1],
+                'parthenon/meshblock/nx2=%d' % lin_res[-1],
+                'parthenon/mesh/nx3=4',
+                'parthenon/meshblock/nx3=4',
+                'parthenon/mesh/x1min=-0.5',
+                'parthenon/mesh/x1max=0.5',
+                'parthenon/mesh/x2min=-0.5',
+                'parthenon/mesh/x2max=0.5',
+                'parthenon/mesh/x3min=-0.5',
+                'parthenon/mesh/x3max=0.5',
+                'Advection/vx=0.0',
+                'Advection/vy=1.0',
+                'Advection/vz=0.0',
+                'Advection/ang_3_vert=true',
+                ]
+        # TEST: Advection only in z at highest res with identical params
+        elif step == 3*n_res + 3:
+            parameters.driver_cmd_line_args = [
+                'parthenon/mesh/nx1=4',
+                'parthenon/meshblock/nx1=4',
+                'parthenon/mesh/nx2=4',
+                'parthenon/meshblock/nx2=4',
+                'parthenon/mesh/nx3=%d' % lin_res[-1],
+                'parthenon/meshblock/nx3=%d' % lin_res[-1],
+                'parthenon/mesh/x1min=-0.5',
+                'parthenon/mesh/x1max=0.5',
+                'parthenon/mesh/x2min=-0.5',
+                'parthenon/mesh/x2max=0.5',
+                'parthenon/mesh/x3min=-0.5',
+                'parthenon/mesh/x3max=0.5',
+                'Advection/vx=0.0',
+                'Advection/vy=0.0',
+                'Advection/vz=1.0',
+                'Advection/ang_2_vert=true',
                 ]
         # TEST: Advection at along diagonal with dx != dy != dz and Lx != Ly != Lz (half res)
-        elif step == 16:
+        elif step == 3*n_res + 4:
             parameters.driver_cmd_line_args = [
                 'parthenon/mesh/nx1=32',
                 'parthenon/meshblock/nx1=32',
@@ -101,18 +162,24 @@ class TestCase(utils.test_case.TestCaseAbs):
                 'parthenon/meshblock/nx2=32',
                 'parthenon/mesh/nx3=32',
                 'parthenon/meshblock/nx3=32',
+                'Advection/ang_2=-999.9',
+                'Advection/ang_3=-999.9',
                 ]
         # TEST: Advection at along diagonal with dx != dy != dz and Lx != Ly != Lz (def res)
-        elif step == 17:
+        elif step == 3*n_res + 5:
             parameters.driver_cmd_line_args = [
+                'Advection/ang_2=-999.9',
+                'Advection/ang_3=-999.9',
                 ]
         # TEST: Advection at along diagonal with dx != dy != dz and Lx != Ly != Lz (def res)
         # using multiple MeshBlocks
-        elif step == 18:
+        elif step == 3*n_res + 6:
             parameters.driver_cmd_line_args = [
                 'parthenon/meshblock/nx1=8',
                 'parthenon/meshblock/nx2=16',
                 'parthenon/meshblock/nx3=8',
+                'Advection/ang_2=-999.9',
+                'Advection/ang_3=-999.9',
                 ]
 
         return parameters
@@ -150,17 +217,31 @@ class TestCase(utils.test_case.TestCaseAbs):
         # ensure errors in all three directions are identical
         n_res = len(lin_res)
 
+        # ref val for nx = 32 and L = 1
+        ref_32 = 2.239292e-07
+        # ref val for nx = 512 and L = 1
+        ref_512 = 1.695192e-08
+
         for i in range(n_res):
             # sample line: 128  4  4  427  3.258335e-08   1.570405e+00  5.116905e-08
             line_x = lines[i+0*n_res+1].split()
             line_y = lines[i+1*n_res+1].split()
             line_z = lines[i+2*n_res+1].split()
-            for j in range(3,7):
+            # num iterations and relative error must be identical
+            for j in [3,5]:
                 if line_x[j] != line_y[j]:
-                    print("Mismatch between ", line_x, line_y)
+                    print("Mismatch between X and Y", line_x, line_y)
                     analyze_status = False
                 if line_x[j] != line_z[j]:
-                    print("Mismatch between ", line_x, line_z)
+                    print("Mismatch between X and Z", line_x, line_z)
+                    analyze_status = False
+            # absolute errors should be close
+            for j in [4,6]:
+                if not math.isclose(2*float(line_x[j]),float(line_y[j]),rel_tol=1e-6):
+                    print("Mismatch between rel. X and Y", line_x, line_y)
+                    analyze_status = False
+                if not math.isclose(3*float(line_x[j]),float(line_z[j]),rel_tol=1e-6):
+                    print("Mismatch between rel. X and Z", line_x, line_z)
                     analyze_status = False
 
         # test for error tolerance
@@ -170,8 +251,25 @@ class TestCase(utils.test_case.TestCaseAbs):
         if int(err_512[0]) != 512:
             print("Mismtach in line. Expected 512 in nx1 but got:", lines[5])
             analyze_status = False
-        if float(err_512[4]) >= 8.5e-9:
-            print("Error too large. Expected < 8.5e-9 but got:", err_512[4])
+        if float(err_512[4]) >= 1.7e-8:
+            print("Error too large. Expected < 1.7e-8 but got:", err_512[4])
+            analyze_status = False
+
+        # make sure errors are identical in different dims for identical params
+        if lines[-6][11:] != lines[-5][11:]:
+            print("X and Y dim don't match: ", lines[-6], lines[-5])
+            analyze_status = False
+        if lines[-6][11:] != lines[-4][11:]:
+            print("X and Z dim don't match: ", lines[-6], lines[-4])
+            analyze_status = False
+
+        # check convergence and error for diagnoal advection
+        if float(lines[-3].split()[4])/float(lines[-2].split()[4]) < 1.9:
+            print("Advection across diagnonal did not converge: ", lines[-3], lines[-2])
+            analyze_status = False
+        if float(lines[-2].split()[4]) >= 2.15e-7:
+            print("Error too large in diagnoal advection. Expected < 2.15e-7 but got:",
+                  lines[-2].split()[4])
             analyze_status = False
 
         # ensure that using a single meshblock for the entire mesh and multiple give same result
