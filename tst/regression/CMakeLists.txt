@@ -28,7 +28,8 @@
 function(setup_test dir arg)
   separate_arguments(arg) 
   add_test( NAME regression_test:${dir} COMMAND python "${CMAKE_CURRENT_SOURCE_DIR}/run_test.py" 
-    ${arg} --test_dir "${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}")
+    ${arg} --test_dir "${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}"
+    --output_dir "${CMAKE_BINARY_DIR}/tst/regression/outputs/${dir}")
   set_tests_properties(regression_test:${dir} PROPERTIES LABELS "regression" )
 endfunction()
 
@@ -39,7 +40,8 @@ function(setup_test_mpi nproc dir arg)
       --mpirun ${MPIEXEC_EXECUTABLE} 
       --mpirun_opts=${MPIEXEC_NUMPROC_FLAG} --mpirun_opts=${nproc}
       --mpirun_opts=${MPIEXEC_PREFLAGS} ${arg}
-      --test_dir ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir})
+      --test_dir ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}
+      --output_dir "${CMAKE_BINARY_DIR}/tst/regression/outputs/${dir}")
     set_tests_properties(regression_mpi_test:${dir} PROPERTIES LABELS "regression,mpi" RUN_SERIAL ON )
   else()
     message(STATUS "MPI not found, not building regression tests with mpi")

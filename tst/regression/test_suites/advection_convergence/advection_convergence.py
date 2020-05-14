@@ -217,11 +217,6 @@ class TestCase(utils.test_case.TestCaseAbs):
         # ensure errors in all three directions are identical
         n_res = len(lin_res)
 
-        # ref val for nx = 32 and L = 1
-        ref_32 = 2.239292e-07
-        # ref val for nx = 512 and L = 1
-        ref_512 = 1.695192e-08
-
         for i in range(n_res):
             # sample line: 128  4  4  427  3.258335e-08   1.570405e+00  5.116905e-08
             line_x = lines[i+0*n_res+1].split()

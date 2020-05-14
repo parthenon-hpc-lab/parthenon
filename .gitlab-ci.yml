@@ -73,9 +73,6 @@ parthenon-cuda-performance_and_regression:
     - cuda
   stage: performance_and_regression
   script:
-# mitigate UVM allocations on older multi-GPU systems
-#    - export CUDA_LAUNCH_BLOCKING=1
-#    - export CUDA_VISIBLE_DEVICES=0
     - mkdir build-cuda-perf
     - cd build-cuda-perf
     - cmake -DCMAKE_BUILD_TYPE=Release -DHDF5_ROOT=/usr/local/hdf5/parallel
@@ -85,6 +82,9 @@ parthenon-cuda-performance_and_regression:
       -DCMAKE_CXX_COMPILER=${PWD}/../external/Kokkos/bin/nvcc_wrapper
       ../ && make -j${J} && ctest -L performance
 # run regression tests with UVM until everything is on the device
+# mitigate UVM allocations on older multi-GPU systems
+    - export CUDA_LAUNCH_BLOCKING=1
+    - export CUDA_VISIBLE_DEVICES=0
     - cd ..
     - mkdir build-cuda-perf-uvm
     - cd build-cuda-perf-uvm
@@ -100,7 +100,7 @@ parthenon-cuda-performance_and_regression:
     expire_in: 3 days
     paths:
       - build-cuda-perf/CMakeFiles/CMakeOutput.log
-      - tst/regression/test_suites/advection_convergence/output/advection-errors.dat
+      - build-cuda-perf-uvm/tst/regression/outputs/advection_convergence/advection-errors.dat
 
 # run performance and regrssion on CPUs
 parthenon-cpu-performance_and_regression:
@@ -119,4 +119,4 @@ parthenon-cpu-performance_and_regression:
     expire_in: 3 days
     paths:
       - build-perf/CMakeFiles/CMakeOutput.log
-      - tst/regression/test_suites/advection_convergence/output/advection-errors.dat
+      - build-perf/tst/regression/outputs/advection_convergence/advection-errors.dat

@@ -92,7 +92,12 @@ if __name__ == '__main__':
                         nargs=1,
                         required=True,
                         help=desc)
-    
+
+    parser.add_argument('--output_dir','-o',
+                        type=str,
+                        help="path to simulation outputs. " +
+                             "Defaults to individual \"output\" folders in regression src.")
+
     parser.add_argument("--driver", "-dr",
                         type=str,
                         default=None,

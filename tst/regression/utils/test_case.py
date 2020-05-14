@@ -15,11 +15,21 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #========================================================================================
 
+import errno
 import os
 from shutil import rmtree
 import subprocess
 import sys
 
+# TODO(pgrete) update CI image to Python 3
+def mkdir_p(path):
+    try:
+        os.makedirs(path)
+    except OSError as exc:  # Python >= 2.5
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else:
+            raise
 class Parameters():
     driver_path = ""
     driver_input_path = ""
@@ -62,7 +72,10 @@ class TestManager:
 
         driver_path = os.path.abspath(parthenon_driver[0])
         driver_input_path = os.path.abspath(parthenon_driver_input[0])
-        output_path = test_path + "/output"
+        if 'output_dir' in list(kwargs.keys()):
+            output_path = kwargs.pop("output_dir")
+        else:
+            output_path = test_path + "/output"
         self.__test_module = 'test_suites.' + test_base_name + '.' + test_base_name
 
         test_module = 'test_suites.' + test_base_name + '.' + test_base_name
@@ -165,7 +178,7 @@ class TestManager:
         if os.path.isdir(self.parameters.output_path):
                 rmtree(self.parameters.output_path)
 
-        os.mkdir(self.parameters.output_path)
+        mkdir_p(self.parameters.output_path)
         os.chdir(self.parameters.output_path)
 
     def Prepare(self, step):
