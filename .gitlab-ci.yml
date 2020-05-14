@@ -85,6 +85,7 @@ parthenon-cuda-performance_and_regression:
       -DCMAKE_CXX_COMPILER=${PWD}/../external/Kokkos/bin/nvcc_wrapper
       ../ && make -j${J} && ctest -L performance
 # run regression tests with UVM until everything is on the device
+    - cd ..
     - mkdir build-cuda-perf-uvm
     - cd build-cuda-perf-uvm
     - cmake -DCMAKE_BUILD_TYPE=Release -DHDF5_ROOT=/usr/local/hdf5/parallel
