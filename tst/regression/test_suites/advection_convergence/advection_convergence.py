@@ -237,10 +237,10 @@ class TestCase(utils.test_case.TestCaseAbs):
                     analyze_status = False
             # absolute errors should be close
             for j in [4,6]:
-                if not math.isclose(2*float(line_x[j]),float(line_y[j]),rel_tol=1e-6):
+                if not np.isclose(2*float(line_x[j]),float(line_y[j]),rtol=1e-6,atol=0.0):
                     print("Mismatch between rel. X and Y", line_x, line_y)
                     analyze_status = False
-                if not math.isclose(3*float(line_x[j]),float(line_z[j]),rel_tol=1e-6):
+                if not np.isclose(3*float(line_x[j]),float(line_z[j]),rtol=1e-6,atol=0.0):
                     print("Mismatch between rel. X and Z", line_x, line_z)
                     analyze_status = False
 
