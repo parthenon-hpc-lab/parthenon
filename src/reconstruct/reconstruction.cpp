@@ -52,7 +52,7 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin)
   // Avoid pmb indirection
   const IndexDomain entire = IndexDomain::entire;
   const IndexDomain interior = IndexDomain::interior;
-  const IndexShape cellbounds = pmb->cellbounds;
+  const IndexShape & cellbounds = pmb->cellbounds;
 
   if (input_recon == "1") {
     xorder = 1;
