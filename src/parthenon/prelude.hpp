@@ -19,6 +19,7 @@
 #include <globals.hpp>
 #include <interface/container.hpp>
 #include <interface/variable.hpp>
+#include <mesh/dompain.hpp>
 #include <mesh/mesh.hpp>
 #include <parthenon_arrays.hpp>
 #include <parthenon_manager.hpp>
@@ -28,6 +29,8 @@ namespace parthenon {
 namespace prelude {
 using ::parthenon::CellVariable;
 using ::parthenon::Container;
+using ::parthenon::IndexDomain;
+using ::parthenon::IndexRange;
 using ::parthenon::MeshBlock;
 using ::parthenon::ParArrayND;
 using ::parthenon::ParthenonStatus;
