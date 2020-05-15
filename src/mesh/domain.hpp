@@ -18,6 +18,7 @@
 #ifndef MESH_DOMAIN_HPP_
 #define MESH_DOMAIN_HPP_
 
+#include <algorithm>
 #include <array>
 #include <type_traits>
 #include <vector>
@@ -72,15 +73,25 @@ class IndexShape {
  public:
   IndexShape() {}
 
-  IndexShape(const int &nx1, const int &nx2, const int &nx3, const int &ng)
-      : IndexShape(std::vector<int>{nx1, nx2, nx3}, ng) {}
+  IndexShape(const int &nx3, const int &nx2, const int &nx1, const int &ng)
+      : IndexShape(std::vector<int>{nx3, nx2, nx1}, ng) {}
 
-  IndexShape(const int &nx1, const int &nx2, const int &ng)
-      : IndexShape(std::vector<int>{nx1, nx2}, ng) {}
+  IndexShape(const int &nx2, const int &nx1, const int &ng)
+      : IndexShape(std::vector<int>{nx2, nx1}, ng) {}
 
   IndexShape(const int &nx1, const int &ng) : IndexShape(std::vector<int>{nx1}, ng) {}
 
-  IndexShape(const std::vector<int> &interior_dims, const int &ng) {
+  //----------------------------------------------------------------------------------------
+  //! \fn IndexShape::IndexShape(const std::vector<int> & interior_dims, const int &ng)
+  //  \brief Builds IndexShape using interior_dims, note that the interior dims must
+  //  be specified in the order:
+  //
+  //  interior_dims.at(0) = nx3
+  //  interior_dims.at(1) = nx2
+  //  interior_dims.at(2) = nx1
+  //
+  IndexShape(std::vector<int> interior_dims, const int &ng) {
+    std::reverse(interior_dims.begin(),interior_dims.end());
     assert(interior_dims.size() <= NDIM &&
            "IndexShape cannot be initialized, the number of "
            "dimensions exceeds the statically set dimensions, you will need to change "
