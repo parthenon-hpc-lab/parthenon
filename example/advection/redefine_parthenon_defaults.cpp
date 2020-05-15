@@ -58,10 +58,13 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
           Real sn = std::sin(k_par * x);
           q(k, j, i) = 1.0 + amp * sn * vel;
         } else if (profile == 1) { // smooth gaussian
-          Real r = std::sqrt(pcoord->x1v(i) * pcoord->x1v(i) +
-                             pcoord->x2v(j) * pcoord->x2v(j) +
-                             pcoord->x3v(k) * pcoord->x3v(k));
-          q(k, j, i) = 1. + exp(-100.0 * r * r);
+          Real rsq = pcoord->x1v(i) * pcoord->x1v(i) + pcoord->x2v(j) * pcoord->x2v(j) +
+                     pcoord->x3v(k) * pcoord->x3v(k);
+          q(k, j, i) = 1. + exp(-100.0 * rsq);
+        } else if (profile == 2) { // hard_sphere
+          Real rsq = pcoord->x1v(i) * pcoord->x1v(i) + pcoord->x2v(j) * pcoord->x2v(j) +
+                     pcoord->x3v(k) * pcoord->x3v(k);
+          q(k, j, i) = (rsq < 0.15 * 0.15 ? 1.0 : 0.0);
         } else {
           q(k, j, i) = 0.0;
         }
@@ -117,10 +120,15 @@ void Mesh::UserWorkAfterLoop(ParameterInput *pin, SimTime &tm) {
             Real sn = std::sin(k_par * x);
             ref_val = 1.0 + amp * sn * vel;
           } else if (profile == 1) { // smooth gaussian
-            Real r = std::sqrt(pmb->pcoord->x1v(i) * pmb->pcoord->x1v(i) +
-                               pmb->pcoord->x2v(j) * pmb->pcoord->x2v(j) +
-                               pmb->pcoord->x3v(k) * pmb->pcoord->x3v(k));
-            ref_val = 1. + exp(-100.0 * r * r);
+            Real rsq = pmb->pcoord->x1v(i) * pmb->pcoord->x1v(i) +
+                       pmb->pcoord->x2v(j) * pmb->pcoord->x2v(j) +
+                       pmb->pcoord->x3v(k) * pmb->pcoord->x3v(k);
+            ref_val = 1. + exp(-100.0 * rsq);
+          } else if (profile == 2) { // hard_sphere
+            Real rsq = pmb->pcoord->x1v(i) * pmb->pcoord->x1v(i) +
+                       pmb->pcoord->x2v(j) * pmb->pcoord->x2v(j) +
+                       pmb->pcoord->x3v(k) * pmb->pcoord->x3v(k);
+            ref_val = (rsq < 0.15 * 0.15 ? 1.0 : 0.0);
           } else {
             ref_val = 1e9; // use an artifically large error
           }

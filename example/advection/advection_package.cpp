@@ -51,6 +51,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
     profile = 0;
   } else if (profile_str.compare("smooth_gaussian") == 0) {
     profile = 1;
+  } else if (profile_str.compare("hard_sphere") == 0) {
+    profile = 2;
   } else {
     PARTHENON_FAIL("Unknown profile in advection example: " + profile_str);
   }

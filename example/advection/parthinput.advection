@@ -34,7 +34,7 @@ x2max = 0.5
 ix2_bc = periodic
 ox2_bc = periodic
 
-nx3 = 64
+nx3 = 1
 x3min = -0.5
 x3max = 0.5
 ix3_bc = periodic
@@ -43,17 +43,18 @@ ox3_bc = periodic
 <parthenon/meshblock>
 nx1 = 16
 nx2 = 16
-nx3 = 16
+nx3 = 1
 
 <parthenon/time>
 tlim = 1.0
-integrator = rk1
+integrator = rk2
 
 <Advection>
-cfl = 0.30
+cfl = 0.45
 vx = 1.0
 vy = 1.0
 vz = 1.0
+profile = hard_sphere
 
 refine_tol = 0.3    # control the package specific refinement tagging function
 derefine_tol = 0.03
