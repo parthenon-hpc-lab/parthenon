@@ -60,6 +60,15 @@ setup_test_mpi( 1 advection_convergence "--driver ${CMAKE_BINARY_DIR}/example/ad
 --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/advection_convergence/parthinput.advection \
 --num_steps 21")
 
+if (ENABLE_HDF5)
+setup_test( output_hdf5 "--driver ${CMAKE_BINARY_DIR}/example/advection/advection-example \
+--driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/output_hdf5/parthinput.advection \
+--num_steps 2")
+setup_test_mpi( 1 output_hdf5 "--driver ${CMAKE_BINARY_DIR}/example/advection/advection-example \
+--driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/output_hdf5/parthinput.advection \
+--num_steps 2")
+endif()
+
 # Add additional regression tests to ctest below this line by calling
 #
 # list(APPEND TEST_DIRS name_of_folder )   
