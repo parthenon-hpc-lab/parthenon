@@ -204,14 +204,14 @@ MeshBlock::~MeshBlock() {
 }
 
 void MeshBlock::InitializeIndexShapes(const int nx1, const int nx2, const int nx3) {
-  cellbounds = IndexShape(nx1, nx2, nx3, NGHOST);
+  cellbounds = IndexShape(nx3, nx2, nx1, NGHOST);
 
   if (pmy_mesh != nullptr) {
     if (pmy_mesh->multilevel) {
       cnghost = (NGHOST + 1) / 2 + 1;
-      c_cellbounds = IndexShape(nx1 / 2, nx2 / 2, nx3 / 2, NGHOST);
+      c_cellbounds = IndexShape(nx3 / 2, nx2 / 2, nx1 / 2, NGHOST);
     } else {
-      c_cellbounds = IndexShape(nx1 / 2, nx2 / 2, nx3 / 2, 0);
+      c_cellbounds = IndexShape(nx3 / 2, nx2 / 2, nx1 / 2, 0);
     }
   }
 }
