@@ -61,10 +61,10 @@ class TestCase(utils.test_case.TestCaseAbs):
             parameters.driver_cmd_line_args = [
                 'parthenon/mesh/nx1=%d' % lin_res[step % n_res -1],
                 'parthenon/meshblock/nx1=%d' % lin_res[step % n_res -1],
-                'parthenon/mesh/nx2=4',
-                'parthenon/meshblock/nx2=4',
-                'parthenon/mesh/nx3=4',
-                'parthenon/meshblock/nx3=4',
+                'parthenon/mesh/nx2=1',
+                'parthenon/meshblock/nx2=1',
+                'parthenon/mesh/nx3=1',
+                'parthenon/meshblock/nx3=1',
                 'Advection/vy=0.0',
                 'Advection/vz=0.0',
                 ]
@@ -75,8 +75,8 @@ class TestCase(utils.test_case.TestCaseAbs):
                 'parthenon/meshblock/nx1=4',
                 'parthenon/mesh/nx2=%d' % lin_res[step % n_res -1],
                 'parthenon/meshblock/nx2=%d' % lin_res[step % n_res -1],
-                'parthenon/mesh/nx3=4',
-                'parthenon/meshblock/nx3=4',
+                'parthenon/mesh/nx3=1',
+                'parthenon/meshblock/nx3=1',
                 'Advection/vx=0.0',
                 'Advection/vz=0.0',
                 'Advection/ang_3_vert=true',
@@ -213,6 +213,11 @@ class TestCase(utils.test_case.TestCaseAbs):
             print("Advection error file not accessible")
 
         analyze_status = True
+
+        if len(lines) != 22:
+            print("Missing lines in output file. Expected 22, but got ", len(lines))
+            print("CAREFUL!!! All following logs may be misleading (tests have fixed indices).")
+            analyze_status = False
 
         # ensure errors in all three directions are identical
         n_res = len(lin_res)
