@@ -15,8 +15,8 @@ variables:
   GIT_SUBMODULE_STRATEGY: recursive
 
 stages:
-  - style
   - short
+  - style
 
 style-check:
   tags:
@@ -24,7 +24,6 @@ style-check:
   stage: style
   script:
     - python ./tst/style/cpplint.py --counting=detailed --recursive src example tst
-  allow_failure: true
 
 parthenon-cuda-short:
   tags:

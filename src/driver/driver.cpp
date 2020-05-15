@@ -58,6 +58,8 @@ DriverStatus EvolutionDriver::Execute() {
     }
   } // END OF MAIN INTEGRATION LOOP ======================================================
 
+  pmesh->UserWorkAfterLoop(pinput, tm);
+
   DriverStatus status = DriverStatus::complete;
 
   pouts->MakeOutputs(pmesh, pinput, &tm);

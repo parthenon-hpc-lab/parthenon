@@ -417,8 +417,10 @@ void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   bool first = true;
   OutputType *ptype = pfirst_type_;
   while (ptype != nullptr) {
-    if (tm == nullptr || (tm->time == tm->start_time) ||
-        (tm->time >= ptype->output_params.next_time) || (tm->time >= tm->tlim)) {
+    if ((tm == nullptr) ||
+        ((ptype->output_params.dt >= 0.0) &&
+         ((tm->time == tm->start_time) || (tm->time >= ptype->output_params.next_time) ||
+          (tm->time >= tm->tlim)))) {
       if (first && ptype->output_params.file_type != "hst") {
         pm->ApplyUserWorkBeforeOutput(pin);
         first = false;
