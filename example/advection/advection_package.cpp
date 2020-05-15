@@ -45,6 +45,17 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   Real derefine_tol = pin->GetOrAddReal("Advection", "derefine_tol", 0.03);
   pkg->AddParam<>("derefine_tol", derefine_tol);
 
+  auto profile_str = pin->GetOrAddString("Advection", "profile", "wave");
+  int profile = -1; // unspecified profile
+  if (profile_str.compare("wave") == 0) {
+    profile = 0;
+  } else if (profile_str.compare("smooth_gaussian") == 0) {
+    profile = 1;
+  } else {
+    PARTHENON_FAIL("Unknown profile in advection example: " + profile_str);
+  }
+  pkg->AddParam<>("profile", profile);
+
   Real amp = pin->GetOrAddReal("Advection", "amp", 1e-6);
   Real vel = std::sqrt(vx * vx + vy * vy + vz * vz);
   Real ang_2 = pin->GetOrAddReal("Advection", "ang_2", -999.9);

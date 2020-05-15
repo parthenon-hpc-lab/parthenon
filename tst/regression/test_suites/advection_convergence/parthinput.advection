@@ -54,6 +54,7 @@ cfl = 0.30
 vx = 1.0
 vy = 2.0
 vz = 3.0
+profile = wave
 ang_2 = 0.0
 ang_3 = 0.0
 ang_2_vert = false

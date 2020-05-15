@@ -14,6 +14,7 @@
 #include <sstream>
 
 #include <parthenon/package.hpp>
+#include <string>
 
 #include "advection_package.hpp"
 #include "defs.hpp"
@@ -46,14 +47,24 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
   const auto &cos_a3 = pkg->Param<Real>("cos_a3");
   const auto &sin_a2 = pkg->Param<Real>("sin_a2");
   const auto &sin_a3 = pkg->Param<Real>("sin_a3");
+  const auto &profile = pkg->Param<int>("profile");
 
   for (int k = 0; k < ncells3; k++) {
     for (int j = 0; j < ncells2; j++) {
       for (int i = 0; i < ncells1; i++) {
-        Real x = cos_a2 * (pcoord->x1v(i) * cos_a3 + pcoord->x2v(j) * sin_a3) +
-                 pcoord->x3v(k) * sin_a2;
-        Real sn = std::sin(k_par * x);
-        q(k, j, i) = 1.0 + amp * sn * vel;
+        if (profile == 0) { // wave
+          Real x = cos_a2 * (pcoord->x1v(i) * cos_a3 + pcoord->x2v(j) * sin_a3) +
+                   pcoord->x3v(k) * sin_a2;
+          Real sn = std::sin(k_par * x);
+          q(k, j, i) = 1.0 + amp * sn * vel;
+        } else if (profile == 1) { // smooth gaussian
+          Real r = std::sqrt(pcoord->x1v(i) * pcoord->x1v(i) +
+                             pcoord->x2v(j) * pcoord->x2v(j) +
+                             pcoord->x3v(k) * pcoord->x3v(k));
+          q(k, j, i) = 1. + exp(-100.0 * r * r);
+        } else {
+          q(k, j, i) = 0.0;
+        }
       }
     }
   }
@@ -92,16 +103,27 @@ void Mesh::UserWorkAfterLoop(ParameterInput *pin, SimTime &tm) {
     const auto &cos_a3 = pkg->Param<Real>("cos_a3");
     const auto &sin_a2 = pkg->Param<Real>("sin_a2");
     const auto &sin_a3 = pkg->Param<Real>("sin_a3");
+    const auto &profile = pkg->Param<int>("profile");
 
     // TODO(pgrete) needs to be a reduction when using parallel_for
     for (int k = kl; k <= ku; ++k) {
       for (int j = jl; j <= ju; ++j) {
         for (int i = il; i <= iu; ++i) {
-          Real x =
-              cos_a2 * (pmb->pcoord->x1v(i) * cos_a3 + pmb->pcoord->x2v(j) * sin_a3) +
-              pmb->pcoord->x3v(k) * sin_a2;
-          Real sn = std::sin(k_par * x);
-          Real ref_val = 1.0 + amp * sn * vel;
+          Real ref_val;
+          if (profile == 0) { // wave
+            Real x =
+                cos_a2 * (pmb->pcoord->x1v(i) * cos_a3 + pmb->pcoord->x2v(j) * sin_a3) +
+                pmb->pcoord->x3v(k) * sin_a2;
+            Real sn = std::sin(k_par * x);
+            ref_val = 1.0 + amp * sn * vel;
+          } else if (profile == 1) { // smooth gaussian
+            Real r = std::sqrt(pmb->pcoord->x1v(i) * pmb->pcoord->x1v(i) +
+                               pmb->pcoord->x2v(j) * pmb->pcoord->x2v(j) +
+                               pmb->pcoord->x3v(k) * pmb->pcoord->x3v(k));
+            ref_val = 1. + exp(-100.0 * r * r);
+          } else {
+            ref_val = 1e9; // use an artifically large error
+          }
 
           // Weight l1 error by cell volume
           Real vol = pmb->pcoord->GetCellVolume(k, j, i);
