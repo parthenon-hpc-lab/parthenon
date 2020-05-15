@@ -25,9 +25,6 @@
 
 using namespace parthenon::package::prelude;
 
-using parthenon::IndexDomain;
-using parthenon::IndexRange;
-
 namespace parthenon {
 
 // can be used to set global properties that all meshblocks want to know about
