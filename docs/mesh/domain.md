@@ -4,7 +4,7 @@
 
 The index shape class provides access to the index bounds of a mesh block. The
 bounds are split into two domains which can be accessed using a class enum
-**IndexDomain**. The **IndedDomain** can either be **entire** or **interior**.
+**IndexDomain**. The **IndexDomain** can either be **entire** or **interior**.
 Using the **entire** domain, allows one to access the starting indices of the
 full meshblock including ghost zones, The **interior** domain allows access to
 the interior of the meshblock excluding ghost cells. 
