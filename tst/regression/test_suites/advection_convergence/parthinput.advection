@@ -59,9 +59,10 @@ ang_2 = 0.0
 ang_3 = 0.0
 ang_2_vert = false
 ang_3_vert = false
+amp = 1e-6
 
-refine_tol = 0.3    # control the package specific refinement tagging function
-derefine_tol = 0.03
+refine_tol = 1.01    # control the package specific refinement tagging function
+derefine_tol = 1.001
 compute_error = true
 
 <parthenon/output0>

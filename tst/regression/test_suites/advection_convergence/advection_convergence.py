@@ -181,6 +181,73 @@ class TestCase(utils.test_case.TestCaseAbs):
                 'Advection/ang_2=-999.9',
                 'Advection/ang_3=-999.9',
                 ]
+        # TEST: AMR test - diagonal advection low res no AMR (low res baseline)
+        # Lx != Ly != Lz and dx != dy != dz
+        elif step == 3*n_res + 7:
+            parameters.driver_cmd_line_args = [
+                'parthenon/mesh/nx1=40',
+                'parthenon/meshblock/nx1=40',
+                'parthenon/mesh/nx2=30',
+                'parthenon/meshblock/nx2=30',
+                'parthenon/mesh/nx3=36',
+                'parthenon/meshblock/nx3=36',
+                'parthenon/mesh/x1min=-1.5',
+                'parthenon/mesh/x1max=1.5',
+                'parthenon/mesh/x2min=-0.75',
+                'parthenon/mesh/x2max=0.75',
+                'parthenon/mesh/x3min=-1.0',
+                'parthenon/mesh/x3max=1.0',
+                'Advection/vx=3.0',
+                'Advection/vy=1.5',
+                'Advection/vz=2.0',
+                'Advection/profile=smooth_gaussian',
+                'Advection/amp=1.0',
+                ]
+        # TEST: AMR test - diagonal advection higher res no AMR
+        # Lx != Ly != Lz and dx != dy != dz
+        elif step == 3*n_res + 8:
+            parameters.driver_cmd_line_args = [
+                'parthenon/mesh/nx1=80',
+                'parthenon/meshblock/nx1=80',
+                'parthenon/mesh/nx2=60',
+                'parthenon/meshblock/nx2=60',
+                'parthenon/mesh/nx3=72',
+                'parthenon/meshblock/nx3=72',
+                'parthenon/mesh/x1min=-1.5',
+                'parthenon/mesh/x1max=1.5',
+                'parthenon/mesh/x2min=-0.75',
+                'parthenon/mesh/x2max=0.75',
+                'parthenon/mesh/x3min=-1.0',
+                'parthenon/mesh/x3max=1.0',
+                'Advection/vx=3.0',
+                'Advection/vy=1.5',
+                'Advection/vz=2.0',
+                'Advection/profile=smooth_gaussian',
+                'Advection/amp=1.0',
+                ]
+        # TEST: AMR test - diagonal advection low res with AMR
+        # Lx != Ly != Lz and dx != dy != dz
+        elif step == 3*n_res + 9:
+            parameters.driver_cmd_line_args = [
+                'parthenon/mesh/refinement=adaptive',
+                'parthenon/mesh/nx1=40',
+                'parthenon/meshblock/nx1=8',
+                'parthenon/mesh/nx2=30',
+                'parthenon/meshblock/nx2=6',
+                'parthenon/mesh/nx3=36',
+                'parthenon/meshblock/nx3=6',
+                'parthenon/mesh/x1min=-1.5',
+                'parthenon/mesh/x1max=1.5',
+                'parthenon/mesh/x2min=-0.75',
+                'parthenon/mesh/x2max=0.75',
+                'parthenon/mesh/x3min=-1.0',
+                'parthenon/mesh/x3max=1.0',
+                'Advection/vx=3.0',
+                'Advection/vy=1.5',
+                'Advection/vz=2.0',
+                'Advection/profile=smooth_gaussian',
+                'Advection/amp=1.0',
+                ]
 
         return parameters
 
@@ -214,8 +281,8 @@ class TestCase(utils.test_case.TestCaseAbs):
 
         analyze_status = True
 
-        if len(lines) != 22:
-            print("Missing lines in output file. Expected 22, but got ", len(lines))
+        if len(lines) != 25:
+            print("Missing lines in output file. Expected 25, but got ", len(lines))
             print("CAREFUL!!! All following logs may be misleading (tests have fixed indices).")
             analyze_status = False
 
@@ -255,27 +322,52 @@ class TestCase(utils.test_case.TestCaseAbs):
             print("Error too large. Expected < 1.7e-8 but got:", err_512[4])
             analyze_status = False
 
+        offset = 3*n_res + 1
         # make sure errors are identical in different dims for identical params
-        if lines[-6][11:] != lines[-5][11:]:
-            print("X and Y dim don't match: ", lines[-6], lines[-5])
+        if lines[offset][11:] != lines[offset+1][11:]:
+            print("X and Y dim don't match: ", lines[offset], lines[offset+1])
             analyze_status = False
-        if lines[-6][11:] != lines[-4][11:]:
-            print("X and Z dim don't match: ", lines[-6], lines[-4])
+        if lines[offset][11:] != lines[offset+2][11:]:
+            print("X and Z dim don't match: ", lines[offset], lines[offset+2])
             analyze_status = False
 
+        offset += 3
         # check convergence and error for diagnoal advection
-        if float(lines[-3].split()[4])/float(lines[-2].split()[4]) < 1.9:
-            print("Advection across diagnonal did not converge: ", lines[-3], lines[-2])
+        if float(lines[offset].split()[4])/float(lines[offset+1].split()[4]) < 1.9:
+            print("Advection across diagnonal did not converge: ", lines[offset], lines[offset+1])
             analyze_status = False
-        if float(lines[-2].split()[4]) >= 2.15e-7:
+        if float(lines[offset+1].split()[4]) >= 2.15e-7:
             print("Error too large in diagnoal advection. Expected < 2.15e-7 but got:",
-                  lines[-2].split()[4])
+                  lines[offset+1].split()[4])
             analyze_status = False
 
         # ensure that using a single meshblock for the entire mesh and multiple give same result
-        if lines[-1] != lines[-2]:
-            print("Single meshblock error:", lines[-2],
-                  "is different from usingle multiple: ", lines[-1])
+        if lines[offset+2] != lines[offset+1]:
+            print("Single meshblock error:", lines[offset+1],
+                  "is different from usingle multiple: ", lines[offset+2])
+            analyze_status = False
+
+        offset += 3
+        # AMR test
+        # make sure error got smaller when using higher res and compare absolute error val
+        if not np.isclose(float(lines[offset].split()[4])/1.089750e-03,1.0,atol=0.0,rtol=1e-6):
+            print("Mismatch in error for low res AMR baseline: ", lines[offset],
+                  "but expected: 1.089750e-03")
+            analyze_status = False
+        if not np.isclose(float(lines[offset+1].split()[4])/9.749603e-04,1.0,atol=0.0,rtol=1e-6):
+            print("Mismatch in error for higher res AMR baseline: ", lines[offset+1],
+                  "but expected: 9.749603e-04")
+            analyze_status = False
+
+        # ensure that higher res static run and lower res AMR run provide similar errors
+        ratio = float(lines[offset+1].split()[4])/float(lines[offset+2].split()[4])
+        if ratio > 1.0:
+            print("AMR run is more accurate than static grid run at higher res:",
+                  lines[offset+2], lines[offset+1])
+            analyze_status = False
+        if ratio < 0.999:
+            print("AMR error too large compared to static grid run (threshold used 0.999):",
+                  lines[offset+2], lines[offset+1])
             analyze_status = False
 
         return analyze_status

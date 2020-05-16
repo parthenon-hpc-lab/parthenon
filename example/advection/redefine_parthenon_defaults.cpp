@@ -60,7 +60,7 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
         } else if (profile == 1) { // smooth gaussian
           Real rsq = pcoord->x1v(i) * pcoord->x1v(i) + pcoord->x2v(j) * pcoord->x2v(j) +
                      pcoord->x3v(k) * pcoord->x3v(k);
-          q(k, j, i) = 1. + exp(-100.0 * rsq);
+          q(k, j, i) = 1. + amp * exp(-100.0 * rsq);
         } else if (profile == 2) { // hard_sphere
           Real rsq = pcoord->x1v(i) * pcoord->x1v(i) + pcoord->x2v(j) * pcoord->x2v(j) +
                      pcoord->x3v(k) * pcoord->x3v(k);
@@ -123,7 +123,7 @@ void Mesh::UserWorkAfterLoop(ParameterInput *pin, SimTime &tm) {
             Real rsq = pmb->pcoord->x1v(i) * pmb->pcoord->x1v(i) +
                        pmb->pcoord->x2v(j) * pmb->pcoord->x2v(j) +
                        pmb->pcoord->x3v(k) * pmb->pcoord->x3v(k);
-            ref_val = 1. + exp(-100.0 * rsq);
+            ref_val = 1. + amp * exp(-100.0 * rsq);
           } else if (profile == 2) { // hard_sphere
             Real rsq = pmb->pcoord->x1v(i) * pmb->pcoord->x1v(i) +
                        pmb->pcoord->x2v(j) * pmb->pcoord->x2v(j) +
