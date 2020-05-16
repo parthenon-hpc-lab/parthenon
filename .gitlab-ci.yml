@@ -10,8 +10,9 @@ before_script:
     - export J=$(( $(nproc --all) / 4  + 1 )) && echo Using ${J} cores during build
     - wget -qO- http://www.cmake.org/files/v${CMAKE_VERSION:0:4}/cmake-${CMAKE_VERSION}-Linux-x86_64.tar.gz | tar -xz
     - export PATH=${PWD}/cmake-${CMAKE_VERSION}-Linux-x86_64/bin:$PATH
-    - export GOLD_STANDARD_VER=1
-    - if [ `cat tst/regression/gold_standard/current_version` != ${GOLD_STANDARD_VER} ]; then 
+    - export GOLD_STANDARD_VER=2
+    - if [ `cat tst/regression/gold_standard/current_version` != ${GOLD_STANDARD_VER} ]; then
+      echo "Updating regression Gold standard to ${GOLD_STANDARD_VER}." &&
       wget -qO- https://pgrete.de/dl/parthenon_regression_gold_r${GOLD_STANDARD_VER}.tgz | tar -xz -C tst/regression/gold_standard; fi
 
 cache:

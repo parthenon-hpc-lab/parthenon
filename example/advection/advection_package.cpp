@@ -276,9 +276,9 @@ Real EstimateTimestep(Container<Real> &rc) {
       for (int i = is; i <= ie; i++) {
         if (vx != 0.0)
           min_dt = std::min(min_dt, coords.Dx(X1DIR, k, j, i) / std::abs(vx));
-        if (vx != 0.0)
+        if (vy != 0.0)
           min_dt = std::min(min_dt, coords.Dx(X2DIR, k, j, i) / std::abs(vy));
-        if (vx != 0.0)
+        if (vz != 0.0)
           min_dt = std::min(min_dt, coords.Dx(X3DIR, k, j, i) / std::abs(vz));
       }
     }
