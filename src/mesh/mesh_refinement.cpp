@@ -329,6 +329,7 @@ void MeshRefinement::ProlongateCellCenteredValues(const ParArrayND<Real> &coarse
                                                   int ek) {
   MeshBlock *pmb = pmy_block_;
   auto coords = pmb->coords;
+  auto coarse_coords = this->coarse_coords;
   const int cks = pmb->cks;
   const int cjs = pmb->cjs;
   const int cis = pmb->cis;
