@@ -538,12 +538,13 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
           // skip, not interested in this variable
           continue;
         }
+        auto v_h = (*v).data.GetHostMirrorAndCopy();
         hsize_t index = pmb->lid * varSize * vlen;
         if (vlen == 1) {
           for (int k = out_ks; k <= out_ke; k++) {
             for (int j = out_js; j <= out_je; j++) {
               for (int i = out_is; i <= out_ie; i++, index++) {
-                tmpData[index] = (*v)(k, j, i);
+                tmpData[index] = v_h(k, j, i);
               }
             }
           }
@@ -552,7 +553,7 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
             for (int j = out_js; j <= out_je; j++) {
               for (int i = out_is; i <= out_ie; i++) {
                 for (int l = 0; l < vlen; l++, index++) {
-                  tmpData[index] = (*v)(l, k, j, i);
+                  tmpData[index] = v_h(l, k, j, i);
                 }
               }
             }
