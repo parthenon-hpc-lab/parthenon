@@ -37,7 +37,7 @@ Packages_t ParthenonManager::ProcessPackages(std::unique_ptr<ParameterInput> &pi
 
 void MeshBlock::ProblemGenerator(ParameterInput *pin) {
   Container<Real> &rc = real_containers.Get();
-  CellVariable<Real> &q = rc.Get("advected");
+  auto &q = rc.Get("advected").data;
 
   auto pkg = packages["advection_package"];
   const auto &amp = pkg->Param<Real>("amp");
@@ -49,6 +49,8 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
   const auto &sin_a3 = pkg->Param<Real>("sin_a3");
   const auto &profile = pkg->Param<int>("profile");
 
+  auto q_h = q.GetHostMirror();
+
   for (int k = 0; k < ncells3; k++) {
     for (int j = 0; j < ncells2; j++) {
       for (int i = 0; i < ncells1; i++) {
@@ -56,21 +58,22 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
           Real x = cos_a2 * (coords.x1v(i) * cos_a3 + coords.x2v(j) * sin_a3) +
                    coords.x3v(k) * sin_a2;
           Real sn = std::sin(k_par * x);
-          q(k, j, i) = 1.0 + amp * sn * vel;
+          q_h(k, j, i) = 1.0 + amp * sn * vel;
         } else if (profile == 1) { // smooth gaussian
           Real rsq = coords.x1v(i) * coords.x1v(i) + coords.x2v(j) * coords.x2v(j) +
                      coords.x3v(k) * coords.x3v(k);
-          q(k, j, i) = 1. + amp * exp(-100.0 * rsq);
+          q_h(k, j, i) = 1. + amp * exp(-100.0 * rsq);
         } else if (profile == 2) { // hard_sphere
           Real rsq = coords.x1v(i) * coords.x1v(i) + coords.x2v(j) * coords.x2v(j) +
                      coords.x3v(k) * coords.x3v(k);
-          q(k, j, i) = (rsq < 0.15 * 0.15 ? 1.0 : 0.0);
+          q_h(k, j, i) = (rsq < 0.15 * 0.15 ? 1.0 : 0.0);
         } else {
-          q(k, j, i) = 0.0;
+          q_h(k, j, i) = 0.0;
         }
       }
     }
   }
+  q.DeepCopy(q_h);
 }
 
 void ParthenonManager::SetFillDerivedFunctions() {
