@@ -70,27 +70,43 @@ static void writeXdmfArrayRef(std::ofstream &fid, const std::string &prefix,
 static void writeXdmfSlabVariableRef(std::ofstream &fid, std::string &name,
                                      std::string &hdfFile, int iblock, const int &vlen,
                                      int &ndims, hsize_t *dims,
-                                     const std::string &dims321) {
+                                     const std::string &dims321, bool isVector) {
   // writes a slab reference to file
 
-  const std::string prefix = "      ";
-  fid << prefix << R"(<Attribute Name=")" << name << R"(" Center="Cell")";
-  if (vlen > 1) {
-    fid << R"( AttributeType="Vector")"
-        << R"( Dimensions=")" << dims321 << " " << vlen << R"(")";
+  std::vector<std::string> names;
+  int nentries = 1;
+  int vector_size = 1;
+  if (vlen == 1 || isVector) {
+    names.push_back(name);
+  } else {
+    nentries = vlen;
+    for (int i = 0; i < vlen; i++) {
+      names.push_back(name + "_" + std::to_string(i));
+    }
   }
-  fid << ">" << std::endl;
-  fid << prefix << "  "
-      << R"(<DataItem ItemType="HyperSlab" Dimensions=")" << dims321 << " " << vlen
-      << R"(">)" << std::endl;
-  fid << prefix << "    "
-      << R"(<DataItem Dimensions="3 5" NumberType="Int" Format="XML">)" << iblock
-      << " 0 0 0 0 1 1 1 1 1 1 " << dims321 << " " << vlen << "</DataItem>" << std::endl;
+  if (isVector) vector_size = vlen;
 
-  writeXdmfArrayRef(fid, prefix + "    ", hdfFile + ":/", name, dims, ndims, "Float", 8);
-  fid << prefix << "  "
-      << "</DataItem>" << std::endl;
-  fid << prefix << "</Attribute>" << std::endl;
+  const std::string prefix = "      ";
+  for (int i = 0; i < nentries; i++) {
+    fid << prefix << R"(<Attribute Name=")" << names[i] << R"(" Center="Cell")";
+    if (isVector) {
+      fid << R"( AttributeType="Vector")"
+          << R"( Dimensions=")" << dims321 << " " << vector_size << R"(")";
+    }
+    fid << ">" << std::endl;
+    fid << prefix << "  "
+        << R"(<DataItem ItemType="HyperSlab" Dimensions=")" << dims321 << " "
+        << vector_size << R"(">)" << std::endl;
+    fid << prefix << "    "
+        << R"(<DataItem Dimensions="3 5" NumberType="Int" Format="XML">)" << iblock
+        << " 0 0 0 " << i << " 1 1 1 1 1 1 " << dims321 << " " << vector_size
+        << "</DataItem>" << std::endl;
+    writeXdmfArrayRef(fid, prefix + "    ", hdfFile + ":/", name, dims, ndims, "Float",
+                      8);
+    fid << prefix << "  "
+        << "</DataItem>" << std::endl;
+    fid << prefix << "</Attribute>" << std::endl;
+  }
   return;
 }
 
@@ -214,7 +230,8 @@ void PHDF5Output::genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm) {
       const int vlen = v->GetDim(4);
       dims[4] = vlen;
       std::string name = v->label();
-      writeXdmfSlabVariableRef(xdmf, name, hdfFile, ib, vlen, ndims, dims, dims321);
+      writeXdmfSlabVariableRef(xdmf, name, hdfFile, ib, vlen, ndims, dims, dims321,
+                               v->IsSet(Metadata::Vector));
     }
     xdmf << "      </Grid>" << std::endl;
   }
@@ -401,7 +418,7 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   // allocate space for largest size variable
   auto ciX =
       ContainerIterator<Real>(pm->pblock->real_containers.Get(), output_params.variables);
-  size_t maxV = 3;
+  size_t maxV = 1;
   hsize_t sumDim4AllVars = 0;
   for (auto &v : ciX.vars) {
     const size_t vlen = v->GetDim(4);
