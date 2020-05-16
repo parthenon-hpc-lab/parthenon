@@ -18,6 +18,8 @@
 #include <parthenon/package.hpp>
 
 #include "advection_package.hpp"
+#include "kokkos_abstraction.hpp"
+#include "reconstruct/dc.hpp"
 
 using namespace parthenon::package::prelude;
 
@@ -302,26 +304,36 @@ TaskStatus CalculateFluxes(Container<Real> &rc) {
   const auto &vy = pkg->Param<Real>("vy");
   const auto &vz = pkg->Param<Real>("vz");
 
+  const int scratch_level = 1; // 0 is actual scratch (tiny); 1 is HBM
+  const int nx1 = pmb->ncells1;
+  const int nvar = q.GetDim(4);
+  size_t scratch_size_in_bytes = parthenon::ScratchPad2D<Real>::shmem_size(nvar, nx1);
+  parthenon::ParArray4D<Real> tmp = q.data.Get<4>();
+  parthenon::ParArray4D<Real> x1flux = q.flux[X1DIR].Get<4>();
+  // get x-fluxes
+  pmb->par_for_outer(
+      "x1 flux", 2 * scratch_size_in_bytes, scratch_level, ks, ke, js, je,
+      KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int k, const int j) {
+        parthenon::ScratchPad2D<Real> ql(member.team_scratch(scratch_level), nvar, nx1);
+        parthenon::ScratchPad2D<Real> qr(member.team_scratch(scratch_level), nvar, nx1);
+        // get reconstructed state on faces
+        parthenon::DonorCellX1(member, k, j, is - 1, ie + 1, tmp, ql, qr);
+        for (int n = 0; n < nvar; n++) {
+          if (vx > 0.0) {
+            parthenon::par_for_inner(member, is, ie + 1, [&](const int i) {
+              x1flux(n, k, j, i) = ql(n, i) * vx;
+            });
+          } else {
+            parthenon::par_for_inner(member, is, ie + 1, [&](const int i) {
+              x1flux(n, k, j, i) = qr(n, i) * vx;
+            });
+          }
+        }
+      });
+
   ParArrayND<Real> ql("ql", q.GetDim(4), pmb->ncells1);
   ParArrayND<Real> qr("qr", q.GetDim(4), pmb->ncells1);
   ParArrayND<Real> qltemp("qltemp", q.GetDim(4), pmb->ncells1);
-
-  // get x-fluxes
-  for (int k = ks; k <= ke; k++) {
-    for (int j = js; j <= je; j++) {
-      // get reconstructed state on faces
-      pmb->precon->DonorCellX1(k, j, is - 1, ie + 1, q.data, ql, qr);
-      if (vx > 0.0) {
-        for (int i = is; i <= ie + 1; i++) {
-          q.flux[X1DIR](k, j, i) = ql(i) * vx;
-        }
-      } else {
-        for (int i = is; i <= ie + 1; i++) {
-          q.flux[X1DIR](k, j, i) = qr(i) * vx;
-        }
-      }
-    }
-  }
   // get y-fluxes
   if (pmb->pmy_mesh->ndim >= 2) {
     for (int k = ks; k <= ke; k++) {
