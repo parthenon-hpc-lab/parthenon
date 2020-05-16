@@ -191,9 +191,18 @@ inline void par_for_outer(const std::string &name, DevExecSpace exec_space,
 
 // Inner loop default pattern
 template <typename Function>
-inline void par_for_inner(team_mbr_t team_member, const int il, const int iu,
-                          const Function &function) {
+KOKKOS_INLINE_FUNCTION void par_for_inner(team_mbr_t team_member, const int il,
+                                          const int iu, const Function &function) {
+#ifdef TVR_INNER_LOOP
+  Kokkos::parallel_for(Kokkos::TeamVectorRange(team_member, il, iu + 1), function);
+#elif SIMDFOR_INNER_LOOP
+#pragma omp simd
+  for (int i = il; i <= iu; i++) {
+    function(i);
+  }
+#else
   par_for_inner(DEFAULT_INNER_LOOP_PATTERN, team_member, il, iu, function);
+#endif
 }
 
 // 1D loop using MDRange loops
