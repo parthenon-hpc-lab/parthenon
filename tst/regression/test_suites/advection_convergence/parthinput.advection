@@ -19,8 +19,8 @@
 problem_id = advection
 
 <parthenon/mesh>
-refinement = adaptive
-numlevel = 3
+refinement = none
+numlevel = 2
 
 nx1 = 64
 x1min = -0.5
@@ -29,40 +29,45 @@ ix1_bc = periodic
 ox1_bc = periodic
 
 nx2 = 64
-x2min = -0.5
-x2max = 0.5
+x2min = -1.0
+x2max = 1.0
 ix2_bc = periodic
 ox2_bc = periodic
 
-nx3 = 1
-x3min = -0.5
-x3max = 0.5
+nx3 = 64
+x3min = -1.5
+x3max = 1.5
 ix3_bc = periodic
 ox3_bc = periodic
 
 <parthenon/meshblock>
-nx1 = 16
-nx2 = 16
-nx3 = 1
+nx1 = 64
+nx2 = 64
+nx3 = 64
 
 <parthenon/time>
 tlim = 1.0
-integrator = rk2
+integrator = rk1
 
 <Advection>
-cfl = 0.45
+cfl = 0.30
 vx = 1.0
-vy = 1.0
-vz = 1.0
-profile = hard_sphere
+vy = 2.0
+vz = 3.0
+profile = wave
+ang_2 = 0.0
+ang_3 = 0.0
+ang_2_vert = false
+ang_3_vert = false
+amp = 1e-6
 
-refine_tol = 0.3    # control the package specific refinement tagging function
-derefine_tol = 0.03
-compute_error = false
+refine_tol = 1.01    # control the package specific refinement tagging function
+derefine_tol = 1.001
+compute_error = true
 
 <parthenon/output0>
 file_type = hdf5
-dt = 0.05
+dt = -1.0
 variables = advected, one_minus_advected, & # comments are ok
             one_minus_advected_sq, & # on every (& characters are ok in comments)
             one_minus_sqrt_one_minus_advected_sq # line

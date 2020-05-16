@@ -20,7 +20,8 @@ namespace parthenon {
 template <typename T>
 void SparseVariable<T>::Add(int varIndex) {
   // Now allocate depending on topology
-  if ((metadata_.Where() == Metadata::Cell) || (metadata_.Where() == Metadata::Node)) {
+  if ((metadata_.Where() == Metadata::Cell) || (metadata_.Where() == Metadata::Node) ||
+      (metadata_.Where() == Metadata::None)) {
     // check if variable index already exists
     if (varMap_.find(varIndex) != varMap_.end()) {
       throw std::invalid_argument("Duplicate index in create SparseVariable");

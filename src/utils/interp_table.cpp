@@ -21,7 +21,6 @@
 #include <stdexcept>
 
 #include "athena.hpp"
-#include "coordinates/coordinates.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/interp_table.hpp"
 

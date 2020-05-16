@@ -17,9 +17,11 @@
 // Internal Includes
 #include <basic_types.hpp>
 #include <coordinates/coordinates.hpp>
+#include <interface/container_iterator.hpp>
 #include <interface/metadata.hpp>
 #include <interface/params.hpp>
 #include <interface/state_descriptor.hpp>
+#include <interface/variable_pack.hpp>
 #include <kokkos_abstraction.hpp>
 #include <mesh/mesh.hpp>
 #include <parameter_input.hpp>
@@ -37,14 +39,19 @@ using namespace ::parthenon::prelude;
 using ::parthenon::AmrTag;
 using ::parthenon::Coordinates;
 using ::parthenon::DerivedOwnership;
+using ::parthenon::DevExecSpace;
 using ::parthenon::MeshBlock;
 using ::parthenon::Metadata;
+using ::parthenon::PackIndexMap;
 using ::parthenon::par_for;
 using ::parthenon::ParameterInput;
 using ::parthenon::Params;
 using ::parthenon::ParthenonManager;
 using ::parthenon::StateDescriptor;
 using ::parthenon::TaskStatus;
+using ::parthenon::X1DIR;
+using ::parthenon::X2DIR;
+using ::parthenon::X3DIR;
 } // namespace prelude
 } // namespace package
 } // namespace parthenon
