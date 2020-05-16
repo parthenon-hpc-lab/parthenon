@@ -23,6 +23,7 @@
 
 #include <catch2/catch.hpp>
 
+#include "athena.hpp"
 #include "basic_types.hpp"
 #include "interface/container.hpp"
 #include "interface/container_iterator.hpp"
@@ -45,6 +46,9 @@ using parthenon::par_for;
 using parthenon::ParArray4D;
 using parthenon::ParArrayND;
 using parthenon::Real;
+using parthenon::X1DIR;
+using parthenon::X2DIR;
+using parthenon::X3DIR;
 
 bool indx_between_bounds(int indx, const std::pair<int, int> &bnds) {
   if (indx < bnds.first) return false;
@@ -231,18 +235,19 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
           vf.GetDim(2) - 1, 0, vf.GetDim(1) - 1,
           KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
             vf(l, k, j, i) = 0.0;
-            vf.flux(0, l, k, j, i) = 16.0 - i;
-            vf.flux(1, l, k, j, i) = 16.0 - j;
-            vf.flux(2, l, k, j, i) = 16.0 - k;
+            vf.flux(X1DIR, l, k, j, i) = 16.0 - i;
+            vf.flux(X2DIR, l, k, j, i) = 16.0 - j;
+            vf.flux(X3DIR, l, k, j, i) = 16.0 - k;
           });
       THEN("adding in the fluxes should change the values appropriately") {
         par_for(
             "Update vars", DevExecSpace(), 0, vf.GetDim(4) - 1, 0, vf.GetDim(3) - 2, 0,
             vf.GetDim(2) - 2, 0, vf.GetDim(1) - 2,
             KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
-              vf(l, k, j, i) -= ((vf.flux(0, l, k, j, i + 1) - vf.flux(0, l, k, j, i)) +
-                                 (vf.flux(1, l, k, j + 1, i) - vf.flux(1, l, k, j, i)) +
-                                 (vf.flux(2, l, k + 1, j, i) - vf.flux(2, l, k, j, i)));
+              vf(l, k, j, i) -=
+                  ((vf.flux(X1DIR, l, k, j, i + 1) - vf.flux(X1DIR, l, k, j, i)) +
+                   (vf.flux(X2DIR, l, k, j + 1, i) - vf.flux(X2DIR, l, k, j, i)) +
+                   (vf.flux(X3DIR, l, k + 1, j, i) - vf.flux(X3DIR, l, k, j, i)));
             });
 
         using policy4D = Kokkos::MDRangePolicy<Kokkos::Rank<4>>;
@@ -284,6 +289,13 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
         REQUIRE(std::abs(imap["vsparse_42"].first - imap["vsparse_1"].first) == 1);
         REQUIRE(!intervals_intersect(imap["v3"], imap["vsparse"]));
       }
+    }
+
+    WHEN("we add a 2d variable") {
+      std::vector<int> twod_block_size{16, 16, 1};
+      rc.Add("v2d", m_in, twod_block_size);
+      auto packw2d = rc.PackVariablesAndFluxes({"v2d"}, {"v2d"});
+      THEN("The pack knows it is 2d") { REQUIRE(packw2d.GetNdim() == 2); }
     }
   }
 }

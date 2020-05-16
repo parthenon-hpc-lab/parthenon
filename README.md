@@ -93,4 +93,8 @@ how to use them.
 | Jim Stone | @jmstone | Athena Physics |
 | Jonas Lippuner | @jlippuner | LANL Computer Science |
 | Joshua Brown | @JoshuaSBrown | LANL Computer Science |
+| Christoph Junghans | @junghans | LANL Computer Science |
+| Sriram Swaminarayan | @nmsriram | LANL Computer Science |
+| Daniel Holladay | @dholladay00 | LANL Computer Science |
+| Galen Shipman | @gshipman | LANL Computer Science | 
 

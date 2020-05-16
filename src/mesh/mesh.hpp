@@ -31,6 +31,7 @@
 #include "athena.hpp"
 #include "bvals/bvals.hpp"
 #include "bvals/bvals_interfaces.hpp"
+#include "coordinates/coordinates.hpp"
 #include "interface/container.hpp"
 #include "interface/container_collection.hpp"
 #include "interface/properties_interface.hpp"
@@ -48,12 +49,11 @@
 namespace parthenon {
 
 // Forward declarations
-class ParameterInput;
-class Mesh;
-class MeshRefinement;
-class MeshBlockTree;
 class BoundaryValues;
-class Coordinates;
+class Mesh;
+class MeshBlockTree;
+class MeshRefinement;
+class ParameterInput;
 class Reconstruction;
 
 // template class Container<Real>;
@@ -76,9 +76,6 @@ inline MeshBlockApplicationData::~MeshBlockApplicationData() {}
 class MeshBlock {
   friend class RestartOutput;
   friend class Mesh;
-#ifdef HDF5OUTPUT
-  friend class ATHDF5Output;
-#endif
 
  public:
   MeshBlock(const int n_side, const int ndim); // for Kokkos testing with ghost
@@ -120,9 +117,10 @@ class MeshBlock {
 
   std::unique_ptr<MeshBlockApplicationData> app;
 
+  Coordinates_t coords;
+
   // mesh-related objects
   // TODO(jcd): remove all these?
-  std::unique_ptr<Coordinates> pcoord;
   std::unique_ptr<BoundaryValues> pbval;
   std::unique_ptr<MeshRefinement> pmr;
   std::unique_ptr<Reconstruction> precon;
@@ -333,7 +331,7 @@ class Mesh {
   // std::int64_t nrbx1, nrbx2, nrbx3;
 
   // flags are false if using non-uniform or user meshgen function
-  bool use_uniform_meshgen_fn_[3];
+  bool use_uniform_meshgen_fn_[4];
 
   int nuser_history_output_;
   std::string *user_history_output_names_;
@@ -345,7 +343,7 @@ class Mesh {
   int lb_interval_;
 
   // functions
-  MeshGenFunc MeshGenerator_[3];
+  MeshGenFunc MeshGenerator_[4];
   BValFunc BoundaryFunction_[6];
   AMRFlagFunc AMRFlag_;
   SrcTermFunc UserSourceTerm_;

@@ -74,19 +74,27 @@ class VariableFluxPack : public VariablePack<T> {
   VariableFluxPack(const ViewOfParArrays<T> view, const ViewOfParArrays<T> f0,
                    const ViewOfParArrays<T> f1, const ViewOfParArrays<T> f2,
                    const std::array<int, 4> dims, const int nflux)
-      : VariablePack<T>(view, dims), f_({f0, f1, f2}), nflux_(nflux) {}
+      : VariablePack<T>(view, dims), f_({f0, f1, f2}), nflux_(nflux),
+        ndim_((dims[2] > 1 ? 3 : (dims[1] > 1 ? 2 : 1))) {}
 
   KOKKOS_FORCEINLINE_FUNCTION
-  ViewOfParArrays<T> &flux(const int dir) const { return f_[dir]; }
+  ViewOfParArrays<T> &flux(const int dir) const {
+    assert(dir > 0 && dir <= ndim_);
+    return f_[dir - 1];
+  }
 
   KOKKOS_FORCEINLINE_FUNCTION
   T &flux(const int dir, const int n, const int k, const int j, const int i) const {
-    return f_[dir](n)(k, j, i);
+    assert(dir > 0 && dir <= ndim_);
+    return f_[dir - 1](n)(k, j, i);
   }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  int GetNdim() const { return ndim_; }
 
  private:
   std::array<ViewOfParArrays<T>, 3> f_;
-  int nflux_;
+  int nflux_, ndim_;
 };
 
 // Using std::map, not std::unordered_map because the key
@@ -125,15 +133,19 @@ VariableFluxPack<T> MakeFluxPack(const vpack_types::VarList<T> &vars,
     fsize += v->GetDim(6) * v->GetDim(5) * v->GetDim(4);
   }
 
+  auto fvar = vars.front()->data;
+  std::array<int, 4> cv_size = {fvar.GetDim(1), fvar.GetDim(2), fvar.GetDim(3), vsize};
+  const int ndim = (cv_size[2] > 1 ? 3 : (cv_size[1] > 1 ? 2 : 1));
+
   // make the outer view
   ViewOfParArrays<T> cv("MakeFluxPack::cv", vsize);
-  ViewOfParArrays<T> f0("MakeFluxPack::f0", fsize);
   ViewOfParArrays<T> f1("MakeFluxPack::f1", fsize);
   ViewOfParArrays<T> f2("MakeFluxPack::f2", fsize);
+  ViewOfParArrays<T> f3("MakeFluxPack::f3", fsize);
   auto host_view = cv.GetHostMirror();
-  auto host_f0 = f0.GetHostMirror();
   auto host_f1 = f1.GetHostMirror();
   auto host_f2 = f2.GetHostMirror();
+  auto host_f3 = f3.GetHostMirror();
   // add variables to host view
   int vindex = 0;
   for (const auto &v : vars) {
@@ -157,9 +169,10 @@ VariableFluxPack<T> MakeFluxPack(const vpack_types::VarList<T> &vars,
     for (int k = 0; k < v->GetDim(6); k++) {
       for (int j = 0; j < v->GetDim(5); j++) {
         for (int i = 0; i < v->GetDim(4); i++) {
-          host_f0(vindex) = v->flux[0].Get(k, j, i);
-          host_f1(vindex) = v->flux[1].Get(k, j, i);
-          host_f2(vindex++) = v->flux[2].Get(k, j, i);
+          host_f1(vindex) = v->flux[X1DIR].Get(k, j, i);
+          if (ndim >= 2) host_f2(vindex) = v->flux[X2DIR].Get(k, j, i);
+          if (ndim >= 3) host_f3(vindex) = v->flux[X3DIR].Get(k, j, i);
+          vindex++;
         }
       }
     }
@@ -169,12 +182,10 @@ VariableFluxPack<T> MakeFluxPack(const vpack_types::VarList<T> &vars,
     }
   }
   cv.DeepCopy(host_view);
-  f0.DeepCopy(host_f0);
   f1.DeepCopy(host_f1);
   f2.DeepCopy(host_f2);
-  auto fvar = vars.front()->data;
-  std::array<int, 4> cv_size = {fvar.GetDim(1), fvar.GetDim(2), fvar.GetDim(3), vsize};
-  return VariableFluxPack<T>(cv, f0, f1, f2, cv_size, fsize);
+  f3.DeepCopy(host_f3);
+  return VariableFluxPack<T>(cv, f1, f2, f3, cv_size, fsize);
 }
 
 template <typename T>

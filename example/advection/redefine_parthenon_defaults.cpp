@@ -53,17 +53,17 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
     for (int j = 0; j < ncells2; j++) {
       for (int i = 0; i < ncells1; i++) {
         if (profile == 0) { // wave
-          Real x = cos_a2 * (pcoord->x1v(i) * cos_a3 + pcoord->x2v(j) * sin_a3) +
-                   pcoord->x3v(k) * sin_a2;
+          Real x = cos_a2 * (coords.x1v(i) * cos_a3 + coords.x2v(j) * sin_a3) +
+                   coords.x3v(k) * sin_a2;
           Real sn = std::sin(k_par * x);
           q(k, j, i) = 1.0 + amp * sn * vel;
         } else if (profile == 1) { // smooth gaussian
-          Real rsq = pcoord->x1v(i) * pcoord->x1v(i) + pcoord->x2v(j) * pcoord->x2v(j) +
-                     pcoord->x3v(k) * pcoord->x3v(k);
+          Real rsq = coords.x1v(i) * coords.x1v(i) + coords.x2v(j) * coords.x2v(j) +
+                     coords.x3v(k) * coords.x3v(k);
           q(k, j, i) = 1. + amp * exp(-100.0 * rsq);
         } else if (profile == 2) { // hard_sphere
-          Real rsq = pcoord->x1v(i) * pcoord->x1v(i) + pcoord->x2v(j) * pcoord->x2v(j) +
-                     pcoord->x3v(k) * pcoord->x3v(k);
+          Real rsq = coords.x1v(i) * coords.x1v(i) + coords.x2v(j) * coords.x2v(j) +
+                     coords.x3v(k) * coords.x3v(k);
           q(k, j, i) = (rsq < 0.15 * 0.15 ? 1.0 : 0.0);
         } else {
           q(k, j, i) = 0.0;
@@ -115,26 +115,26 @@ void Mesh::UserWorkAfterLoop(ParameterInput *pin, SimTime &tm) {
           Real ref_val;
           if (profile == 0) { // wave
             Real x =
-                cos_a2 * (pmb->pcoord->x1v(i) * cos_a3 + pmb->pcoord->x2v(j) * sin_a3) +
-                pmb->pcoord->x3v(k) * sin_a2;
+                cos_a2 * (pmb->coords.x1v(i) * cos_a3 + pmb->coords.x2v(j) * sin_a3) +
+                pmb->coords.x3v(k) * sin_a2;
             Real sn = std::sin(k_par * x);
             ref_val = 1.0 + amp * sn * vel;
           } else if (profile == 1) { // smooth gaussian
-            Real rsq = pmb->pcoord->x1v(i) * pmb->pcoord->x1v(i) +
-                       pmb->pcoord->x2v(j) * pmb->pcoord->x2v(j) +
-                       pmb->pcoord->x3v(k) * pmb->pcoord->x3v(k);
+            Real rsq = pmb->coords.x1v(i) * pmb->coords.x1v(i) +
+                       pmb->coords.x2v(j) * pmb->coords.x2v(j) +
+                       pmb->coords.x3v(k) * pmb->coords.x3v(k);
             ref_val = 1. + amp * exp(-100.0 * rsq);
           } else if (profile == 2) { // hard_sphere
-            Real rsq = pmb->pcoord->x1v(i) * pmb->pcoord->x1v(i) +
-                       pmb->pcoord->x2v(j) * pmb->pcoord->x2v(j) +
-                       pmb->pcoord->x3v(k) * pmb->pcoord->x3v(k);
+            Real rsq = pmb->coords.x1v(i) * pmb->coords.x1v(i) +
+                       pmb->coords.x2v(j) * pmb->coords.x2v(j) +
+                       pmb->coords.x3v(k) * pmb->coords.x3v(k);
             ref_val = (rsq < 0.15 * 0.15 ? 1.0 : 0.0);
           } else {
             ref_val = 1e9; // use an artifically large error
           }
 
           // Weight l1 error by cell volume
-          Real vol = pmb->pcoord->GetCellVolume(k, j, i);
+          Real vol = pmb->coords.Volume(k, j, i);
 
           l1_err += std::abs(ref_val - q(k, j, i)) * vol;
           max_err = std::max(static_cast<Real>(std::abs(ref_val - q(k, j, i))), max_err);
