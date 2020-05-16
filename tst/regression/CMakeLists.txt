@@ -64,7 +64,8 @@ if (ENABLE_HDF5)
 setup_test( output_hdf5 "--driver ${CMAKE_BINARY_DIR}/example/advection/advection-example \
 --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/output_hdf5/parthinput.advection \
 --num_steps 2")
-setup_test_mpi( 1 output_hdf5 "--driver ${CMAKE_BINARY_DIR}/example/advection/advection-example \
+setup_test_mpi( ${NUM_MPI_PROC_TESTING} output_hdf5
+"--driver ${CMAKE_BINARY_DIR}/example/advection/advection-example \
 --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/output_hdf5/parthinput.advection \
 --num_steps 2")
 endif()

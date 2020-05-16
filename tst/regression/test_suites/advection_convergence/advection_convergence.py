@@ -186,11 +186,11 @@ class TestCase(utils.test_case.TestCaseAbs):
         elif step == 3*n_res + 7:
             parameters.driver_cmd_line_args = [
                 'parthenon/mesh/nx1=40',
-                'parthenon/meshblock/nx1=40',
+                'parthenon/meshblock/nx1=20',
                 'parthenon/mesh/nx2=30',
-                'parthenon/meshblock/nx2=30',
+                'parthenon/meshblock/nx2=15',
                 'parthenon/mesh/nx3=36',
-                'parthenon/meshblock/nx3=36',
+                'parthenon/meshblock/nx3=18',
                 'parthenon/mesh/x1min=-1.5',
                 'parthenon/mesh/x1max=1.5',
                 'parthenon/mesh/x2min=-0.75',
@@ -208,11 +208,11 @@ class TestCase(utils.test_case.TestCaseAbs):
         elif step == 3*n_res + 8:
             parameters.driver_cmd_line_args = [
                 'parthenon/mesh/nx1=80',
-                'parthenon/meshblock/nx1=80',
+                'parthenon/meshblock/nx1=40',
                 'parthenon/mesh/nx2=60',
-                'parthenon/meshblock/nx2=60',
+                'parthenon/meshblock/nx2=30',
                 'parthenon/mesh/nx3=72',
-                'parthenon/meshblock/nx3=72',
+                'parthenon/meshblock/nx3=36',
                 'parthenon/mesh/x1min=-1.5',
                 'parthenon/mesh/x1max=1.5',
                 'parthenon/mesh/x2min=-0.75',
