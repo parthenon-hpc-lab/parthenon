@@ -91,7 +91,7 @@ class IndexShape {
   //  interior_dims.at(2) = nx1
   //
   IndexShape(std::vector<int> interior_dims, const int &ng) {
-    std::reverse(interior_dims.begin(),interior_dims.end());
+    std::reverse(interior_dims.begin(), interior_dims.end());
     assert(interior_dims.size() <= NDIM &&
            "IndexShape cannot be initialized, the number of "
            "dimensions exceeds the statically set dimensions, you will need to change "
