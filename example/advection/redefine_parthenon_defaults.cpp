@@ -101,7 +101,6 @@ void Mesh::UserWorkAfterLoop(ParameterInput *pin, SimTime &tm) {
         ku = pmb->ke;
 
     auto rc = pmb->real_containers.Get(); // get base container
-    ParArray3D<Real> q = rc.Get("advected").data.Get<3>();
     const auto &amp = pkg->Param<Real>("amp");
     const auto &vel = pkg->Param<Real>("vel");
     const auto &k_par = pkg->Param<Real>("k_par");
@@ -111,7 +110,8 @@ void Mesh::UserWorkAfterLoop(ParameterInput *pin, SimTime &tm) {
     const auto &sin_a3 = pkg->Param<Real>("sin_a3");
     const auto &profile = pkg->Param<int>("profile");
 
-    // TODO(pgrete) needs to be a reduction when using parallel_for
+    // calculate error on host
+    auto q = rc.Get("advected").data.GetHostMirrorAndCopy();
     for (int k = kl; k <= ku; ++k) {
       for (int j = jl; j <= ju; ++j) {
         for (int i = il; i <= iu; ++i) {
