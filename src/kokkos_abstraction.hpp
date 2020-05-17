@@ -126,7 +126,7 @@ static struct InnerLoopPatternSimdFor {
 
 #ifdef TVR_INNER_LOOP
 #define DEFAULT_INNER_LOOP_PATTERN inner_loop_pattern_tvr_tag
-#elif SIMDFOR_INNER_LOOP
+#elif defined SIMDFOR_INNER_LOOP
 #define DEFAULT_INNER_LOOP_PATTERN inner_loop_pattern_simdfor_tag
 #else
 #define DEFAULT_INNER_LOOP_PATTERN loop_pattern_undefined_tag
@@ -195,7 +195,7 @@ KOKKOS_INLINE_FUNCTION void par_for_inner(team_mbr_t team_member, const int il,
                                           const int iu, const Function &function) {
 #ifdef TVR_INNER_LOOP
   Kokkos::parallel_for(Kokkos::TeamVectorRange(team_member, il, iu + 1), function);
-#elif SIMDFOR_INNER_LOOP
+#elif defined SIMDFOR_INNER_LOOP
 #pragma omp simd
   for (int i = il; i <= iu; i++) {
     function(i);
