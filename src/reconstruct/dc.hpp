@@ -34,7 +34,7 @@ KOKKOS_FORCEINLINE_FUNCTION
 void DonorCellX1(parthenon::team_mbr_t const &member, const int k, const int j,
                  const int il, const int iu, const ParArray4D<Real> &q,
                  ScratchPad2D<Real> &ql, ScratchPad2D<Real> &qr) {
-  const int nu = q.extent(4) - 1;
+  const int nu = q.extent(0) - 1;
 
   // compute L/R states for each variable
   for (int n = 0; n <= nu; ++n) {
@@ -51,7 +51,7 @@ KOKKOS_FORCEINLINE_FUNCTION
 void DonorCellX2(parthenon::team_mbr_t const &member, const int k, const int j,
                  const int il, const int iu, const ParArray4D<Real> &q,
                  ScratchPad2D<Real> &ql, ScratchPad2D<Real> &qr) {
-  const int nu = q.extent(4) - 1;
+  const int nu = q.extent(0) - 1;
   // compute L/R states for each variable
   for (int n = 0; n <= nu; ++n) {
     parthenon::par_for_inner(member, il, iu,
@@ -67,7 +67,7 @@ KOKKOS_FORCEINLINE_FUNCTION
 void DonorCellX3(parthenon::team_mbr_t const &member, const int k, const int j,
                  const int il, const int iu, const ParArray4D<Real> &q,
                  ScratchPad2D<Real> &ql, ScratchPad2D<Real> &qr) {
-  const int nu = q.extent(4) - 1;
+  const int nu = q.extent(0) - 1;
   // compute L/R states for each variable
   for (int n = 0; n <= nu; ++n) {
     parthenon::par_for_inner(member, il, iu,
