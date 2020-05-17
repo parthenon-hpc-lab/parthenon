@@ -318,6 +318,9 @@ TaskStatus CalculateFluxes(Container<Real> &rc) {
         parthenon::ScratchPad2D<Real> qr(member.team_scratch(scratch_level), nvar, nx1);
         // get reconstructed state on faces
         parthenon::DonorCellX1(member, k, j, is - 1, ie + 1, tmp, ql, qr);
+        // Sync all threads in the team so that scratch memory is consistent
+        member.team_barrier();
+
         for (int n = 0; n < nvar; n++) {
           if (vx > 0.0) {
             parthenon::par_for_inner(member, is, ie + 1, [&](const int i) {
@@ -331,30 +334,43 @@ TaskStatus CalculateFluxes(Container<Real> &rc) {
         }
       });
 
+  // get y-fluxes
+  if (pmb->pmy_mesh->ndim >= 2) {
+    parthenon::ParArray4D<Real> x2flux = q.flux[X2DIR].Get<4>();
+    pmb->par_for_outer(
+        "x2 flux", 3 * scratch_size_in_bytes, scratch_level, ks, ke, js, je + 1,
+        KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int k, const int j) {
+          // the overall algorithm/use of scratch pad here is clear inefficient and kept
+          // just for demonstrating purposes. The key point is that we cannot reuse
+          // reconstructed arrays for different `j` with `j` being part of the outer
+          // loop given that this loop can be handled by multiple threads simultaneously.
+
+          parthenon::ScratchPad2D<Real> ql(member.team_scratch(scratch_level), nvar, nx1);
+          parthenon::ScratchPad2D<Real> qr(member.team_scratch(scratch_level), nvar, nx1);
+          parthenon::ScratchPad2D<Real> q_unused(member.team_scratch(scratch_level), nvar,
+                                                 nx1);
+          // get reconstructed state on faces
+          parthenon::DonorCellX2(member, k, j - 1, is, ie, tmp, ql, q_unused);
+          parthenon::DonorCellX2(member, k, j, is, ie, tmp, q_unused, qr);
+          // Sync all threads in the team so that scratch memory is consistent
+          member.team_barrier();
+          for (int n = 0; n < nvar; n++) {
+            if (vy > 0.0) {
+              parthenon::par_for_inner(member, is, ie, [&](const int i) {
+                x2flux(n, k, j, i) = ql(n, i) * vy;
+              });
+            } else {
+              parthenon::par_for_inner(member, is, ie, [&](const int i) {
+                x2flux(n, k, j, i) = qr(n, i) * vy;
+              });
+            }
+          }
+        });
+  }
+
   ParArrayND<Real> ql("ql", q.GetDim(4), pmb->ncells1);
   ParArrayND<Real> qr("qr", q.GetDim(4), pmb->ncells1);
   ParArrayND<Real> qltemp("qltemp", q.GetDim(4), pmb->ncells1);
-  // get y-fluxes
-  if (pmb->pmy_mesh->ndim >= 2) {
-    for (int k = ks; k <= ke; k++) {
-      pmb->precon->DonorCellX2(k, js - 1, is, ie, q.data, ql, qr);
-      for (int j = js; j <= je + 1; j++) {
-        pmb->precon->DonorCellX2(k, j, is, ie, q.data, qltemp, qr);
-        if (vy > 0.0) {
-          for (int i = is; i <= ie; i++) {
-            q.flux[X2DIR](k, j, i) = ql(i) * vy;
-          }
-        } else {
-          for (int i = is; i <= ie; i++) {
-            q.flux[X2DIR](k, j, i) = qr(i) * vy;
-          }
-        }
-        auto temp = ql;
-        ql = qltemp;
-        qltemp = temp;
-      }
-    }
-  }
 
   // get z-fluxes
   if (pmb->pmy_mesh->ndim == 3) {
