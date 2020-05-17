@@ -298,7 +298,7 @@ TaskStatus CalculateFluxes(Container<Real> &rc) {
   int je = pmb->je;
   int ke = pmb->ke;
 
-  CellVariable<Real> &q = rc.Get("advected");
+  CellVariable<Real> &advected = rc.Get("advected");
   auto pkg = pmb->packages["advection_package"];
   const auto &vx = pkg->Param<Real>("vx");
   const auto &vy = pkg->Param<Real>("vy");
@@ -306,10 +306,10 @@ TaskStatus CalculateFluxes(Container<Real> &rc) {
 
   const int scratch_level = 1; // 0 is actual scratch (tiny); 1 is HBM
   const int nx1 = pmb->ncells1;
-  const int nvar = q.GetDim(4);
+  const int nvar = advected.GetDim(4);
   size_t scratch_size_in_bytes = parthenon::ScratchPad2D<Real>::shmem_size(nvar, nx1);
-  parthenon::ParArray4D<Real> tmp = q.data.Get<4>();
-  parthenon::ParArray4D<Real> x1flux = q.flux[X1DIR].Get<4>();
+  parthenon::ParArray4D<Real> q = advected.data.Get<4>();
+  parthenon::ParArray4D<Real> x1flux = advected.flux[X1DIR].Get<4>();
   // get x-fluxes
   pmb->par_for_outer(
       "x1 flux", 2 * scratch_size_in_bytes, scratch_level, ks, ke, js, je,
@@ -317,7 +317,7 @@ TaskStatus CalculateFluxes(Container<Real> &rc) {
         parthenon::ScratchPad2D<Real> ql(member.team_scratch(scratch_level), nvar, nx1);
         parthenon::ScratchPad2D<Real> qr(member.team_scratch(scratch_level), nvar, nx1);
         // get reconstructed state on faces
-        parthenon::DonorCellX1(member, k, j, is - 1, ie + 1, tmp, ql, qr);
+        parthenon::DonorCellX1(member, k, j, is - 1, ie + 1, q, ql, qr);
         // Sync all threads in the team so that scratch memory is consistent
         member.team_barrier();
 
@@ -336,7 +336,7 @@ TaskStatus CalculateFluxes(Container<Real> &rc) {
 
   // get y-fluxes
   if (pmb->pmy_mesh->ndim >= 2) {
-    parthenon::ParArray4D<Real> x2flux = q.flux[X2DIR].Get<4>();
+    parthenon::ParArray4D<Real> x2flux = advected.flux[X2DIR].Get<4>();
     pmb->par_for_outer(
         "x2 flux", 3 * scratch_size_in_bytes, scratch_level, ks, ke, js, je + 1,
         KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int k, const int j) {
@@ -350,8 +350,8 @@ TaskStatus CalculateFluxes(Container<Real> &rc) {
           parthenon::ScratchPad2D<Real> q_unused(member.team_scratch(scratch_level), nvar,
                                                  nx1);
           // get reconstructed state on faces
-          parthenon::DonorCellX2(member, k, j - 1, is, ie, tmp, ql, q_unused);
-          parthenon::DonorCellX2(member, k, j, is, ie, tmp, q_unused, qr);
+          parthenon::DonorCellX2(member, k, j - 1, is, ie, q, ql, q_unused);
+          parthenon::DonorCellX2(member, k, j, is, ie, q, q_unused, qr);
           // Sync all threads in the team so that scratch memory is consistent
           member.team_barrier();
           for (int n = 0; n < nvar; n++) {
@@ -368,30 +368,38 @@ TaskStatus CalculateFluxes(Container<Real> &rc) {
         });
   }
 
-  ParArrayND<Real> ql("ql", q.GetDim(4), pmb->ncells1);
-  ParArrayND<Real> qr("qr", q.GetDim(4), pmb->ncells1);
-  ParArrayND<Real> qltemp("qltemp", q.GetDim(4), pmb->ncells1);
-
   // get z-fluxes
   if (pmb->pmy_mesh->ndim == 3) {
-    for (int j = js; j <= je; j++) { // loop ordering is intentional
-      pmb->precon->DonorCellX3(ks - 1, j, is, ie, q.data, ql, qr);
-      for (int k = ks; k <= ke + 1; k++) {
-        pmb->precon->DonorCellX3(k, j, is, ie, q.data, qltemp, qr);
-        if (vz > 0.0) {
-          for (int i = is; i <= ie; i++) {
-            q.flux[X3DIR](k, j, i) = ql(i) * vz;
+    parthenon::ParArray4D<Real> x3flux = advected.flux[X3DIR].Get<4>();
+    pmb->par_for_outer(
+        "x3 flux", 3 * scratch_size_in_bytes, scratch_level, ks, ke + 1, js, je,
+        KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int k, const int j) {
+          // the overall algorithm/use of scratch pad here is clear inefficient and kept
+          // just for demonstrating purposes. The key point is that we cannot reuse
+          // reconstructed arrays for different `j` with `j` being part of the outer
+          // loop given that this loop can be handled by multiple threads simultaneously.
+
+          parthenon::ScratchPad2D<Real> ql(member.team_scratch(scratch_level), nvar, nx1);
+          parthenon::ScratchPad2D<Real> qr(member.team_scratch(scratch_level), nvar, nx1);
+          parthenon::ScratchPad2D<Real> q_unused(member.team_scratch(scratch_level), nvar,
+                                                 nx1);
+          // get reconstructed state on faces
+          parthenon::DonorCellX3(member, k - 1, j, is, ie, q, ql, q_unused);
+          parthenon::DonorCellX3(member, k, j, is, ie, q, q_unused, qr);
+          // Sync all threads in the team so that scratch memory is consistent
+          member.team_barrier();
+          for (int n = 0; n < nvar; n++) {
+            if (vz > 0.0) {
+              parthenon::par_for_inner(member, is, ie, [&](const int i) {
+                x3flux(n, k, j, i) = ql(n, i) * vz;
+              });
+            } else {
+              parthenon::par_for_inner(member, is, ie, [&](const int i) {
+                x3flux(n, k, j, i) = qr(n, i) * vz;
+              });
+            }
           }
-        } else {
-          for (int i = is; i <= ie; i++) {
-            q.flux[X3DIR](k, j, i) = qr(i) * vz;
-          }
-        }
-        auto temp = ql;
-        ql = qltemp;
-        qltemp = temp;
-      }
-    }
+        });
   }
 
   return TaskStatus::complete;
