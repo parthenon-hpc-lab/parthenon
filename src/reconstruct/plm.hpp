@@ -193,7 +193,6 @@ void PiecewiseLinearX2(parthenon::team_mbr_t const &member, const int k, const i
     });
   }
 }
-#if 0
 
 //----------------------------------------------------------------------------------------
 //! \fn Reconstruction::PiecewiseLinearX3()
@@ -214,26 +213,27 @@ void PiecewiseLinearX3(parthenon::team_mbr_t const &member, const int k, const i
 
   // compute L/R slopes for each variable
   for (int n = 0; n <= nu; ++n) {
-#pragma omp simd
-    for (int i = il; i <= iu; ++i) {
+    parthenon::par_for_inner(member, il, iu, [&](const int i) {
       // renamed dw* -> dq* from plm.cpp
       dql(n, i) = (q(n, k, j, i) - q(n, k - 1, j, i));
       dqr(n, i) = (q(n, k + 1, j, i) - q(n, k, j, i));
       qc(n, i) = q(n, k, j, i);
-    }
+    });
   }
+  member.team_barrier();
 
   // Apply simplified van Leer (VL) limiter expression for a Cartesian-like coordinate
   // with uniform mesh spacing
-  if (uniform[X3DIR]) {
+  // if (uniform[X3DIR]) {
+  if (true) { // TODO(pgrete) make conditional work again
     for (int n = 0; n <= nu; ++n) {
-#pragma omp simd simdlen(SIMD_WIDTH)
-      for (int i = il; i <= iu; ++i) {
+      parthenon::par_for_inner(member, il, iu, [&](const int i) {
         Real dq2 = dql(n, i) * dqr(n, i);
         dqm(n, i) = 2.0 * dq2 / (dql(n, i) + dqr(n, i));
         if (dq2 <= 0.0) dqm(n, i) = 0.0;
-      }
+      });
     }
+    member.team_barrier();
 
     // Apply original VL limiter's general expression for a Cartesian-like coordinate with
     // nonuniform mesh spacing
@@ -241,8 +241,7 @@ void PiecewiseLinearX3(parthenon::team_mbr_t const &member, const int k, const i
     Real dxF = coords.dx3f(k) / coords.dx3v(k);
     Real dxB = coords.dx3f(k) / coords.dx3v(k - 1);
     for (int n = 0; n <= nu; ++n) {
-#pragma omp simd simdlen(SIMD_WIDTH)
-      for (int i = il; i <= iu; ++i) {
+      parthenon::par_for_inner(member, il, iu, [&](const int i) {
         Real dqF = dqr(n, i) * dxF;
         Real dqB = dql(n, i) * dxB;
         Real dq2 = dqF * dqB;
@@ -251,22 +250,21 @@ void PiecewiseLinearX3(parthenon::team_mbr_t const &member, const int k, const i
         // dq2 > 0 ---> dqF, dqB are nonzero and have the same sign ----> no risk for
         // (dqF + dqB) = 0 cancellation causing a divide-by-0 in the above line
         if (dq2 <= 0.0) dqm(n, i) = 0.0;
-      }
+      });
     }
+    member.team_barrier();
   }
 
   // compute ql_(k+1/2) and qr_(k-1/2) using limited slopes
   Real dxp = (coords.x3f(k + 1) - coords.x3v(k)) / coords.dx3f(k);
   Real dxm = (coords.x3v(k) - coords.x3f(k)) / coords.dx3f(k);
   for (int n = 0; n <= nu; ++n) {
-#pragma omp simd simdlen(SIMD_WIDTH)
-    for (int i = il; i <= iu; ++i) {
+    parthenon::par_for_inner(member, il, iu, [&](const int i) {
       ql(n, i) = qc(n, i) + dxp * dqm(n, i);
       qr(n, i) = qc(n, i) - dxm * dqm(n, i);
-    }
+    });
   }
 }
-#endif
 } // namespace parthenon
 
 #endif // RECONSTRUCT_PLM_HPP_
