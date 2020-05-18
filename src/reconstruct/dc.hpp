@@ -32,14 +32,14 @@ namespace parthenon {
 
 KOKKOS_FORCEINLINE_FUNCTION
 void DonorCellX1(parthenon::team_mbr_t const &member, const int k, const int j,
-                 const int il, const int iu, const ParArray4D<Real> &q,
+                 const int il, const int iu, const ParArrayND<Real> &q,
                  ScratchPad2D<Real> &ql, ScratchPad2D<Real> &qr) {
-  const int nu = q.extent(0) - 1;
+  const int nu = q.GetDim(4) - 1;
 
   // compute L/R states for each variable
   for (int n = 0; n <= nu; ++n) {
-    parthenon::par_for_inner(
-        member, il, iu, [&](const int i) { ql(n, i + 1) = qr(n, i) = q(n, k, j, i); });
+    parthenon::par_for_inner(member, il, iu, [&](const int i) {
+      ql(n, i + 1) = qr(n, i) = q(n, k, j, i); });
   }
   return;
 }
@@ -49,9 +49,9 @@ void DonorCellX1(parthenon::team_mbr_t const &member, const int k, const int j,
 //  \brief
 KOKKOS_FORCEINLINE_FUNCTION
 void DonorCellX2(parthenon::team_mbr_t const &member, const int k, const int j,
-                 const int il, const int iu, const ParArray4D<Real> &q,
+                 const int il, const int iu, const ParArrayND<Real> &q,
                  ScratchPad2D<Real> &ql, ScratchPad2D<Real> &qr) {
-  const int nu = q.extent(0) - 1;
+  const int nu = q.GetDim(4) - 1;
   // compute L/R states for each variable
   for (int n = 0; n <= nu; ++n) {
     parthenon::par_for_inner(member, il, iu,
@@ -65,9 +65,9 @@ void DonorCellX2(parthenon::team_mbr_t const &member, const int k, const int j,
 //  \brief
 KOKKOS_FORCEINLINE_FUNCTION
 void DonorCellX3(parthenon::team_mbr_t const &member, const int k, const int j,
-                 const int il, const int iu, const ParArray4D<Real> &q,
+                 const int il, const int iu, const ParArrayND<Real> &q,
                  ScratchPad2D<Real> &ql, ScratchPad2D<Real> &qr) {
-  const int nu = q.extent(0) - 1;
+  const int nu = q.GetDim(4) - 1;
   // compute L/R states for each variable
   for (int n = 0; n <= nu; ++n) {
     parthenon::par_for_inner(member, il, iu,
