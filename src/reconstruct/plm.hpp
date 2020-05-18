@@ -114,7 +114,6 @@ void PiecewiseLinearX1(parthenon::team_mbr_t const &member, const int k, const i
   }
   return;
 }
-#if 0
 //----------------------------------------------------------------------------------------
 //! \fn Reconstruction::PiecewiseLinearX2()
 //  \brief
@@ -123,32 +122,38 @@ void PiecewiseLinearX2(parthenon::team_mbr_t const &member, const int k, const i
                        const int il, const int iu, const Coordinates_t &coords,
                        const ParArrayND<Real> &q, ScratchPad2D<Real> &ql,
                        ScratchPad2D<Real> &qr) {
-  // set work arrays to shallow copies of scratch arrays
-  ParArrayND<Real> &qc = scr1_ni_, &dql = scr2_ni_, &dqr = scr3_ni_, &dqm = scr4_ni_;
   const int nu = q.GetDim(4) - 1;
+  const int nx1 = ql.extent(1);
+
+  const int scratch_level = 1; // 0 is actual scratch (tiny); 1 is HBM
+  ScratchPad2D<Real> qc(member.team_scratch(scratch_level), nu + 1, nx1);
+  ScratchPad2D<Real> dql(member.team_scratch(scratch_level), nu + 1, nx1);
+  ScratchPad2D<Real> dqr(member.team_scratch(scratch_level), nu + 1, nx1);
+  ScratchPad2D<Real> dqm(member.team_scratch(scratch_level), nu + 1, nx1);
 
   // compute L/R slopes for each variable
   for (int n = 0; n <= nu; ++n) {
-#pragma omp simd
-    for (int i = il; i <= iu; ++i) {
+    parthenon::par_for_inner(member, il, iu, [&](const int i) {
       // renamed dw* -> dq* from plm.cpp
       dql(n, i) = (q(n, k, j, i) - q(n, k, j - 1, i));
       dqr(n, i) = (q(n, k, j + 1, i) - q(n, k, j, i));
       qc(n, i) = q(n, k, j, i);
-    }
+    });
   }
+  member.team_barrier();
 
   // Apply simplified van Leer (VL) limiter expression for a Cartesian-like coordinate
   // with uniform mesh spacing
-  if (uniform[X2DIR]) {
+  // if (uniform[X2DIR]) {
+  if (true) { // TODO(pgrete) make work again
     for (int n = 0; n <= nu; ++n) {
-#pragma omp simd simdlen(SIMD_WIDTH)
-      for (int i = il; i <= iu; ++i) {
+      parthenon::par_for_inner(member, il, iu, [&](const int i) {
         Real dq2 = dql(n, i) * dqr(n, i);
         dqm(n, i) = 2.0 * dq2 / (dql(n, i) + dqr(n, i));
         if (dq2 <= 0.0) dqm(n, i) = 0.0;
-      }
+      });
     }
+    member.team_barrier();
 
     // Apply general VL limiter expression w/ the Mignone correction for a Cartesian-like
     // coordinate with nonuniform mesh spacing
@@ -159,8 +164,7 @@ void PiecewiseLinearX2(parthenon::team_mbr_t const &member, const int k, const i
         coords.dx2f(j) / coords.dx2v(j); // dimensionless, not technically a dx quantity
     Real dxB = coords.dx2f(j) / coords.dx2v(j - 1);
     for (int n = 0; n <= nu; ++n) {
-#pragma omp simd simdlen(SIMD_WIDTH)
-      for (int i = il; i <= iu; ++i) {
+      parthenon::par_for_inner(member, il, iu, [&](const int i) {
         Real dqF = dqr(n, i) * dxF;
         Real dqB = dql(n, i) * dxB;
         Real dq2 = dqF * dqB;
@@ -173,8 +177,9 @@ void PiecewiseLinearX2(parthenon::team_mbr_t const &member, const int k, const i
         // // monotoniced central (MC) limiter (Mignone eq 38)
         // // (std::min calls should avoid issue if divide-by-zero causes v=Inf)
         // dqm(n,i) = dqF*std::max(0.0, std::min(0.5*(1.0 + v), std::min(cf, cb*v)));
-      }
+      });
     }
+    member.team_barrier();
   }
 
   // compute ql_(j+1/2) and qr_(j-1/2) using limited slopes
@@ -182,13 +187,13 @@ void PiecewiseLinearX2(parthenon::team_mbr_t const &member, const int k, const i
   Real dxp = (coords.x2f(j + 1) - coords.x2v(j)) / coords.dx2f(j);
   Real dxm = (coords.x2v(j) - coords.x2f(j)) / coords.dx2f(j);
   for (int n = 0; n <= nu; ++n) {
-#pragma omp simd simdlen(SIMD_WIDTH)
-    for (int i = il; i <= iu; ++i) {
+    parthenon::par_for_inner(member, il, iu, [&](const int i) {
       ql(n, i) = qc(n, i) + dxp * dqm(n, i);
       qr(n, i) = qc(n, i) - dxm * dqm(n, i);
-    }
+    });
   }
 }
+#if 0
 
 //----------------------------------------------------------------------------------------
 //! \fn Reconstruction::PiecewiseLinearX3()
@@ -198,9 +203,14 @@ void PiecewiseLinearX3(parthenon::team_mbr_t const &member, const int k, const i
                        const int il, const int iu, const Coordinates_t &coords,
                        const ParArrayND<Real> &q, ScratchPad2D<Real> &ql,
                        ScratchPad2D<Real> &qr) {
-  // set work arrays to shallow copies of scratch arrays
-  ParArrayND<Real> &qc = scr1_ni_, &dql = scr2_ni_, &dqr = scr3_ni_, &dqm = scr4_ni_;
   const int nu = q.GetDim(4) - 1;
+  const int nx1 = ql.extent(1);
+
+  const int scratch_level = 1; // 0 is actual scratch (tiny); 1 is HBM
+  ScratchPad2D<Real> qc(member.team_scratch(scratch_level), nu + 1, nx1);
+  ScratchPad2D<Real> dql(member.team_scratch(scratch_level), nu + 1, nx1);
+  ScratchPad2D<Real> dqr(member.team_scratch(scratch_level), nu + 1, nx1);
+  ScratchPad2D<Real> dqm(member.team_scratch(scratch_level), nu + 1, nx1);
 
   // compute L/R slopes for each variable
   for (int n = 0; n <= nu; ++n) {
