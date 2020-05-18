@@ -25,6 +25,7 @@ option(DISABLE_HDF5 "HDF5 is enabled by default if found, set this to True to di
 option(ENABLE_COMPILER_WARNINGS "Enable compiler warnings" OFF)
 option(CHECK_REGISTRY_PRESSURE "Check the registry pressure for Kokkos CUDA kernels" OFF)
 option(TEST_INTEL_OPTIMIZATION "Test intel optimization and vectorization" OFF)
+option(CODE_COVERAGE "Enable code coverage reporting" OFF)
 
 include(cmake/Format.cmake)
 
@@ -99,6 +100,28 @@ if (NOT DISABLE_HDF5)
   target_link_libraries(HDF5_C INTERFACE ${HDF5_C_LIBRARIES})
   target_compile_definitions(HDF5_C INTERFACE ${HDF5_C_DEFINITIONS})
   target_include_directories(HDF5_C INTERFACE ${HDF5_C_INCLUDE_DIRS})
+endif()
+
+if(CODE_COVERAGE)
+  #  find_program( PATH_GCOV gcov )
+  #find_program( PATH_LCOV  NAMES lcov )
+
+  #if(NOT PATH_GCOV)
+  #    message(FATAL_ERROR "Unable to build with code coverage gcov was not found.")
+  #endif() # NOT GCOV_PATH
+
+  if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+      message(WARNING "Using code coverage with an optimized build is discoraged, as it may lead to misleading results.")
+  endif() 
+
+  SET(GCC_COVERAGE_COMPILE_FLAGS "-fprofile-arcs -ftest-coverage")
+  SET(GCC_COVERAGE_LINK_FLAGS    "-lgcov")
+
+  SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} ${GCC_COVERAGE_COMPILE_FLAGS}")
+  SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} ${GCC_COVERAGE_LINK_FLAGS}")
+  #if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
+  #    link_libraries(gcov)
+  #endif()
 endif()
 
 # Kokkos recommendatation resulting in not using default GNU extensions
