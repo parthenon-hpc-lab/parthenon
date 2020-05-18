@@ -308,7 +308,6 @@ TaskStatus CalculateFluxes(Container<Real> &rc) {
   const int nx1 = pmb->ncells1;
   const int nvar = advected.GetDim(4);
   size_t scratch_size_in_bytes = parthenon::ScratchPad2D<Real>::shmem_size(nvar, nx1);
-  parthenon::ParArray4D<Real> q = advected.data.Get<4>();
   parthenon::ParArray4D<Real> x1flux = advected.flux[X1DIR].Get<4>();
   // get x-fluxes
   pmb->par_for_outer(
@@ -317,7 +316,7 @@ TaskStatus CalculateFluxes(Container<Real> &rc) {
         parthenon::ScratchPad2D<Real> ql(member.team_scratch(scratch_level), nvar, nx1);
         parthenon::ScratchPad2D<Real> qr(member.team_scratch(scratch_level), nvar, nx1);
         // get reconstructed state on faces
-        parthenon::DonorCellX1(member, k, j, is - 1, ie + 1, q, ql, qr);
+        parthenon::DonorCellX1(member, k, j, is - 1, ie + 1, advected.data, ql, qr);
         // Sync all threads in the team so that scratch memory is consistent
         member.team_barrier();
 
@@ -350,8 +349,8 @@ TaskStatus CalculateFluxes(Container<Real> &rc) {
           parthenon::ScratchPad2D<Real> q_unused(member.team_scratch(scratch_level), nvar,
                                                  nx1);
           // get reconstructed state on faces
-          parthenon::DonorCellX2(member, k, j - 1, is, ie, q, ql, q_unused);
-          parthenon::DonorCellX2(member, k, j, is, ie, q, q_unused, qr);
+          parthenon::DonorCellX2(member, k, j - 1, is, ie, advected.data, ql, q_unused);
+          parthenon::DonorCellX2(member, k, j, is, ie, advected.data, q_unused, qr);
           // Sync all threads in the team so that scratch memory is consistent
           member.team_barrier();
           for (int n = 0; n < nvar; n++) {
@@ -384,8 +383,8 @@ TaskStatus CalculateFluxes(Container<Real> &rc) {
           parthenon::ScratchPad2D<Real> q_unused(member.team_scratch(scratch_level), nvar,
                                                  nx1);
           // get reconstructed state on faces
-          parthenon::DonorCellX3(member, k - 1, j, is, ie, q, ql, q_unused);
-          parthenon::DonorCellX3(member, k, j, is, ie, q, q_unused, qr);
+          parthenon::DonorCellX3(member, k - 1, j, is, ie, advected.data, ql, q_unused);
+          parthenon::DonorCellX3(member, k, j, is, ie, advected.data, q_unused, qr);
           // Sync all threads in the team so that scratch memory is consistent
           member.team_barrier();
           for (int n = 0; n < nvar; n++) {
