@@ -475,7 +475,7 @@ inline void par_for_outer(OuterLoopPatternTeams, const std::string &name,
       name,
       policy.set_scratch_size(scratch_level, Kokkos::PerTeam(scratch_size_in_bytes)),
       KOKKOS_LAMBDA(team_mbr_t team_member) {
-        const int k = team_member.league_rank() / Nk + kl;
+        const int k = team_member.league_rank() / Nj + kl;
         const int j = team_member.league_rank() % Nj + jl;
         function(team_member, k, j);
       });
