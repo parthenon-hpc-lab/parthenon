@@ -31,6 +31,12 @@ include(cmake/Format.cmake)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+SET(GCC_COVERAGE_COMPILE_FLAGS "-fprofile-arcs -ftest-coverage")
+SET(GCC_COVERAGE_LINK_FLAGS    "-lgcov")
+
+SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} ${GCC_COVERAGE_COMPILE_FLAGS}")
+SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} ${GCC_COVERAGE_LINK_FLAGS}")
+ 
 # Don't allow in-source builds
 file(TO_CMAKE_PATH "${PROJECT_BINARY_DIR}/CMakeLists.txt" LOC_PATH)
 if(EXISTS "${LOC_PATH}")
@@ -100,28 +106,6 @@ if (NOT DISABLE_HDF5)
   target_link_libraries(HDF5_C INTERFACE ${HDF5_C_LIBRARIES})
   target_compile_definitions(HDF5_C INTERFACE ${HDF5_C_DEFINITIONS})
   target_include_directories(HDF5_C INTERFACE ${HDF5_C_INCLUDE_DIRS})
-endif()
-
-if(CODE_COVERAGE)
-  #  find_program( PATH_GCOV gcov )
-  #find_program( PATH_LCOV  NAMES lcov )
-
-  #if(NOT PATH_GCOV)
-  #    message(FATAL_ERROR "Unable to build with code coverage gcov was not found.")
-  #endif() # NOT GCOV_PATH
-
-  if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
-      message(WARNING "Using code coverage with an optimized build is discoraged, as it may lead to misleading results.")
-  endif() 
-
-  SET(GCC_COVERAGE_COMPILE_FLAGS "-fprofile-arcs -ftest-coverage")
-  SET(GCC_COVERAGE_LINK_FLAGS    "-lgcov")
-
-  SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} ${GCC_COVERAGE_COMPILE_FLAGS}")
-  SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} ${GCC_COVERAGE_LINK_FLAGS}")
-  #if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
-  #    link_libraries(gcov)
-  #endif()
 endif()
 
 # Kokkos recommendatation resulting in not using default GNU extensions
@@ -205,6 +189,7 @@ add_subdirectory(example/calculate_pi)
 add_subdirectory(example/face_fields)
 add_subdirectory(example/advection)
 
+include(cmake/CodeCov.cmake)
 include(cmake/CheckCopyright.cmake)
 
 # Currently Ctest/Cmake doesn't ensure that tests are not stale
@@ -213,3 +198,4 @@ include(cmake/CheckCopyright.cmake)
 # If you add tests with other binaries, add them to the DEPENDS line
 add_custom_target(checkit COMMAND ${CMAKE_CTEST_COMMAND}
                   DEPENDS unit_tests)
+
