@@ -86,3 +86,7 @@ Check [here](outputs.md) for a description of how to get data out of Parthenon a
 
 See [here](interface/containers.md) for a description of containers,
 container iterators, and variable packs.
+
+### Index Shape and Index Range
+
+A description of mesh indexing classes [here](mesh/domain.md).

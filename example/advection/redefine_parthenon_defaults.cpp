@@ -33,9 +33,13 @@ Packages_t ParthenonManager::ProcessPackages(std::unique_ptr<ParameterInput> &pi
 void MeshBlock::ProblemGenerator(ParameterInput *pin) {
   Container<Real> &rc = real_containers.Get();
   CellVariable<Real> &q = rc.Get("advected");
-  for (int k = 0; k < ncells3; k++) {
-    for (int j = 0; j < ncells2; j++) {
-      for (int i = 0; i < ncells1; i++) {
+  IndexRange ib = cellbounds.GetBoundsI(IndexDomain::entire);
+  IndexRange jb = cellbounds.GetBoundsJ(IndexDomain::entire);
+  IndexRange kb = cellbounds.GetBoundsK(IndexDomain::entire);
+
+  for (int k = kb.s; k <= kb.e; k++) {
+    for (int j = jb.s; j <= jb.e; j++) {
+      for (int i = ib.s; i <= ib.e; i++) {
         Real rsq = std::pow(coords.x1v(i), 2) + std::pow(coords.x2v(j), 2);
         q(k, j, i) = (rsq < 0.15 * 0.15 ? 1.0 : 0.0);
       }
