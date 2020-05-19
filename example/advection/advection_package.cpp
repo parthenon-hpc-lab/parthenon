@@ -164,23 +164,36 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 AmrTag CheckRefinement(Container<Real> &rc) {
   MeshBlock *pmb = rc.pmy_block;
   // refine on advected, for example.  could also be a derived quantity
-  CellVariable<Real> &v = rc.Get("advected");
-  Real vmin = 1.0;
-  Real vmax = 0.0;
-  for (int k = 0; k < pmb->ncells3; k++) {
-    for (int j = 0; j < pmb->ncells2; j++) {
-      for (int i = 0; i < pmb->ncells1; i++) {
-        vmin = (v(k, j, i) < vmin ? v(k, j, i) : vmin);
-        vmax = (v(k, j, i) > vmax ? v(k, j, i) : vmax);
-      }
-    }
-  }
+  auto v = rc.Get("advected").data;
+
+  auto nx1 = pmb->ncells1;
+  auto nx2 = pmb->ncells2;
+  auto nx3 = pmb->ncells3;
+
+  Kokkos::complex<Real> minmax(1.0, 0.0); // using real as vmin and imag as vmax
+  Kokkos::Sum<Kokkos::complex<Real>> minmax_reducer(minmax);
+  // using a "cheap" (read dirty) reduction on a complex variable instead of
+  // two scalars to prevent the implementation of a custom reduction on an array
+  // Alternatively, we may want to change the reducer type to a view at some point
+  // to precent an implicit fence at the end of the kernel. However, then we also need
+  // to refactor more code so that this function can return immediate and we collect
+  // the result later (similar to calculating timesteps on individual meshblocks)
+  Kokkos::parallel_reduce(
+      "advection check refinement",
+      Kokkos::MDRangePolicy<Kokkos::Rank<3>>({0, 0, 0}, {nx3, nx2, nx1}, {1, 1, nx1}),
+      KOKKOS_LAMBDA(int k, int j, int i, Kokkos::complex<Real> &minmax) {
+        Real vmin = (v(k, j, i) < minmax.real() ? v(k, j, i) : minmax.real());
+        Real vmax = (v(k, j, i) > minmax.imag() ? v(k, j, i) : minmax.imag());
+        minmax = Kokkos::complex<Real>(vmin, vmax);
+      },
+      minmax_reducer);
+
   auto pkg = pmb->packages["advection_package"];
   const auto &refine_tol = pkg->Param<Real>("refine_tol");
   const auto &derefine_tol = pkg->Param<Real>("derefine_tol");
 
-  if (vmax > refine_tol && vmin < derefine_tol) return AmrTag::refine;
-  if (vmax < derefine_tol) return AmrTag::derefine;
+  if (minmax.imag() > refine_tol && minmax.real() < derefine_tol) return AmrTag::refine;
+  if (minmax.imag() < derefine_tol) return AmrTag::derefine;
   return AmrTag::same;
 }
 
