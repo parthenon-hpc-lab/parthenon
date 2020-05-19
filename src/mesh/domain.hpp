@@ -32,7 +32,7 @@ struct IndexRange {
   IndexRange(int start, int end) : s(start), e(end) { assert(e >= s); }
   int s = 0; /// Starting Index (inclusive)
   int e = 0; /// Ending Index (inclusive)
-  int ncells() const noexcept { return e - s + 1; }
+  KOKKOS_INLINE_FUNCTION int ncells() const noexcept { return e - s + 1; }
 };
 
 // Assuming we have a block
@@ -61,11 +61,11 @@ class IndexShape {
   std::array<IndexRange, NDIM> x_;
   std::array<int, NDIM> entire_ncells_;
 
-  inline bool DimensionProvided_(const std::vector<int> &interior_dims, int dim) {
+  KOKKOS_INLINE_FUNCTION  bool DimensionProvided_(const std::vector<int> &interior_dims, int dim) {
     return dim <= interior_dims.size();
   }
 
-  inline void MakeZeroDimensional_(int index) {
+  KOKKOS_INLINE_FUNCTION void MakeZeroDimensional_(int index) {
     x_[index] = IndexRange(0, 0);
     entire_ncells_[index] = 1;
   }
@@ -126,51 +126,51 @@ class IndexShape {
     return x_;
   }
 
-  inline const IndexRange GetBoundsI(const IndexDomain &domain) const noexcept {
+  KOKKOS_INLINE_FUNCTION const IndexRange GetBoundsI(const IndexDomain &domain) const noexcept {
     return (domain == IndexDomain::entire) ? IndexRange(0, entire_ncells_[0] - 1) : x_[0];
   }
 
-  inline const IndexRange GetBoundsJ(const IndexDomain &domain) const noexcept {
+  KOKKOS_INLINE_FUNCTION const IndexRange GetBoundsJ(const IndexDomain &domain) const noexcept {
     return (domain == IndexDomain::entire) ? IndexRange(0, entire_ncells_[1] - 1) : x_[1];
   }
 
-  inline const IndexRange GetBoundsK(const IndexDomain &domain) const noexcept {
+  KOKKOS_INLINE_FUNCTION const IndexRange GetBoundsK(const IndexDomain &domain) const noexcept {
     return (domain == IndexDomain::entire) ? IndexRange(0, entire_ncells_[2] - 1) : x_[2];
   }
 
-  inline int is(const IndexDomain &domain) const noexcept {
+  KOKKOS_INLINE_FUNCTION int is(const IndexDomain &domain) const noexcept {
     return (domain == IndexDomain::entire) ? 0 : x_[0].s;
   }
 
-  inline int js(const IndexDomain &domain) const noexcept {
+  KOKKOS_INLINE_FUNCTION int js(const IndexDomain &domain) const noexcept {
     return (domain == IndexDomain::entire) ? 0 : x_[1].s;
   }
 
-  inline int ks(const IndexDomain &domain) const noexcept {
+  KOKKOS_INLINE_FUNCTION int ks(const IndexDomain &domain) const noexcept {
     return (domain == IndexDomain::entire) ? 0 : x_[2].s;
   }
 
-  inline int ie(const IndexDomain &domain) const noexcept {
+  KOKKOS_INLINE_FUNCTION int ie(const IndexDomain &domain) const noexcept {
     return (domain == IndexDomain::entire) ? entire_ncells_[0] - 1 : x_[0].e;
   }
 
-  inline int je(const IndexDomain &domain) const noexcept {
+  KOKKOS_INLINE_FUNCTION int je(const IndexDomain &domain) const noexcept {
     return (domain == IndexDomain::entire) ? entire_ncells_[1] - 1 : x_[1].e;
   }
 
-  inline int ke(const IndexDomain &domain) const noexcept {
+  KOKKOS_INLINE_FUNCTION int ke(const IndexDomain &domain) const noexcept {
     return (domain == IndexDomain::entire) ? entire_ncells_[2] - 1 : x_[2].e;
   }
 
-  inline int ncellsi(const IndexDomain &domain) const noexcept {
+  KOKKOS_INLINE_FUNCTION int ncellsi(const IndexDomain &domain) const noexcept {
     return (domain == IndexDomain::entire) ? entire_ncells_[0] : x_[0].ncells();
   }
 
-  inline int ncellsj(const IndexDomain &domain) const noexcept {
+  KOKKOS_INLINE_FUNCTION int ncellsj(const IndexDomain &domain) const noexcept {
     return (domain == IndexDomain::entire) ? entire_ncells_[1] : x_[1].ncells();
   }
 
-  inline int ncellsk(const IndexDomain &domain) const noexcept {
+  KOKKOS_INLINE_FUNCTION int ncellsk(const IndexDomain &domain) const noexcept {
     return (domain == IndexDomain::entire) ? entire_ncells_[2] : x_[2].ncells();
   }
 
