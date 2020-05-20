@@ -288,6 +288,12 @@ class Mesh {
   void NewTimeStep();
   void OutputCycleDiagnostics();
   void LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin);
+  // Moved here given Cuda/nvcc restriction:
+  // "error: The enclosing parent function ("...")
+  // for an extended __host__ __device__ lambda cannot have private or
+  // protected access within its class"
+  void FillSameRankCoarseToFineAMR(MeshBlock *pob, MeshBlock *pmb,
+                                   LogicalLocation &newloc);
   int CreateAMRMPITag(int lid, int ox1, int ox2, int ox3);
   MeshBlock *FindMeshBlock(int tgid);
   void ApplyUserWorkBeforeOutput(ParameterInput *pin);
@@ -371,8 +377,6 @@ class Mesh {
   void PrepareSendFineToCoarseAMR(MeshBlock *pb, ParArray1D<Real> &sendbuf);
   // step 7: create new MeshBlock list (same MPI rank but diff level: create new block)
   void FillSameRankFineToCoarseAMR(MeshBlock *pob, MeshBlock *pmb, LogicalLocation &loc);
-  void FillSameRankCoarseToFineAMR(MeshBlock *pob, MeshBlock *pmb,
-                                   LogicalLocation &newloc);
   // step 8: receive
   void FinishRecvSameLevel(MeshBlock *pb, ParArray1D<Real> &recvbuf);
   void FinishRecvFineToCoarseAMR(MeshBlock *pb, ParArray1D<Real> &recvbuf,

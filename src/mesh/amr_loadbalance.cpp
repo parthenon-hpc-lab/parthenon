@@ -956,14 +956,22 @@ void Mesh::FillSameRankCoarseToFineAMR(MeshBlock *pob, MeshBlock *pmb,
     ParArrayND<Real> src = std::get<0>(*pob_cc_it);
     ParArrayND<Real> dst = coarse_cc;
     // fill the coarse buffer
-    for (int nv = 0; nv <= nu; nv++) {
-      for (int k = kl, ck = cks; k <= ku; k++, ck++) {
-        for (int j = jl, cj = cjs; j <= ju; j++, cj++) {
-          for (int i = il, ci = cis; i <= iu; i++, ci++)
-            dst(nv, k, j, i) = src(nv, ck, cj, ci);
-        }
-      }
-    }
+    // WARNING: potential Cuda stream pitfall (exec space of coarse and fine MB)
+    // Need to make sure that both src and dst are done with all other task up to here
+    pob->par_for(
+        "FillSameRankCoarseToFineAMR", 0, nu, kl, ku, jl, ju, il, iu,
+        KOKKOS_LAMBDA(const int nv, const int k, const int j, const int i) {
+          dst(nv, k, j, i) = src(nv, k - kl + cks, j - jl + cjs, i - il + cis);
+        });
+    // keeping the original, following block for reference to indexing
+    // for (int nv = 0; nv <= nu; nv++) {
+    //   for (int k = kl, ck = cks; k <= ku; k++, ck++) {
+    //     for (int j = jl, cj = cjs; j <= ju; j++, cj++) {
+    //       for (int i = il, ci = cis; i <= iu; i++, ci++)
+    //         dst(nv, k, j, i) = src(nv, ck, cj, ci);
+    //     }
+    //   }
+    // }
     pmr->ProlongateCellCenteredValues(dst, var_cc, 0, nu, pob->cis, pob->cie, pob->cjs,
                                       pob->cje, pob->cks, pob->cke);
     pob_cc_it++;
