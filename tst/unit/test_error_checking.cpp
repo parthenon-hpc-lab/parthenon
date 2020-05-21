@@ -21,12 +21,11 @@
 
 #include "utils/error_checking.hpp"
 
-#ifdef PARTHENON_TEST_ERROR_CHECKING
-
 TEST_CASE("Parthenon Error Checking", "[ErrorChecking][Kokkos]") {
   SECTION("PARTHENON_REQUIRE passes if condition true") {
     PARTHENON_REQUIRE(true, "This shouldn't fail");
   }
+#ifdef PARTHENON_TEST_ERROR_CHECKING
   SECTION("PARTHENON_REQUIRE fails if condition false") {
     PARTHENON_REQUIRE(false, "This should fail");
   }
@@ -37,6 +36,5 @@ TEST_CASE("Parthenon Error Checking", "[ErrorChecking][Kokkos]") {
   SECTION("PARTHENON_DEBUG_FAIL does nothing if NDEBUG is defined") {
     PARTHENON_DEBUG_FAIL("This should only die if NDEBUG is not defined");
   }
-}
-
 #endif // PARTHENON_TEST_ERROR_CHECKING
+}
