@@ -13,20 +13,16 @@
 #ifndef INTERFACE_PARAMS_HPP_
 #define INTERFACE_PARAMS_HPP_
 
-#ifndef DEBUG_
-#define DEBUG_ 0
-#endif
-
 #include <iostream>
 #include <map>
 #include <memory>
 #include <string>
 #include <vector>
 
-#if (DEBUG_ > 0)
+#ifndef NDEBUG
 #include <typeindex>
 #include <typeinfo>
-#endif
+#endif // NDEBUG
 
 #include "utils/error_checking.hpp"
 
@@ -100,14 +96,16 @@ class Params {
   template <typename T>
   void typeCheck(const std::string key, bool die) {
     // check on return type
+    // TODO(JMM): This is really clunky. Should we remove the conditional
+    // and put it in the require statement?
     if (myTypes_[key].compare(std::string(typeid(T).name()))) {
-      std::cout << "WRONG TYPE FOR KEY '" << key << "'" << std::endl;
-      PARTHENON_REQUIRE(!die, "Exit request on wrong type for key " + key);
+      std::string message = "WRONG TYPE FOR KEY '" + key + "'";
+      PARTHENON_REQUIRE(!die, message.c_str());
     }
   }
 
   void keyCheck(const std::string key, bool die) {
-#if (DEBUG_ > 0)
+#ifndef NDEBUG
     if (!hasKey(key)) {
       // key alread exists, replace
       std::cout << std::endl;
@@ -117,11 +115,10 @@ class Params {
       std::cout << "----------------------------------------------" << std::endl;
       std::cout << std::endl;
 
-      if (die) {
-        throw std::invalid_argument("Key " + key + " doesn't exist");
-      }
+      std::string message = "Key " + key + " doesn't exist";
+      PARTHENON_DEBUG_REQUIRE(!die,message.c_str());
     }
-#endif
+#endif // NDEBUG
   }
 
   std::map<std::string, std::unique_ptr<Params::base_t>> myParams_;

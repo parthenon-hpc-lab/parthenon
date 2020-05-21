@@ -27,10 +27,15 @@ list(APPEND unit_tests_SOURCES
     test_pararrays.cpp
     test_container_iterator.cpp
     test_required_desired.cpp
+    test_error_checking.cpp
 
 )
 
 add_executable(unit_tests ${unit_tests_SOURCES})
 target_link_libraries(unit_tests PRIVATE parthenon catch2_define Kokkos::kokkos)
+if (TEST_ERROR_CHECKING)
+   message(WARNING "\tTesting error checking. This test will FAIL.")
+   target_compile_definitions(unit_tests PRIVATE PARTHENON_TEST_ERROR_CHECKING)
+endif()
 
 ParseAndAddCatchTests(unit_tests)
