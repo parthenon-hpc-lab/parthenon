@@ -116,7 +116,7 @@ class Params {
       std::cout << std::endl;
 
       std::string message = "Key " + key + " doesn't exist";
-      PARTHENON_DEBUG_REQUIRE(!die,message.c_str());
+      PARTHENON_DEBUG_REQUIRE(!die, message.c_str());
     }
 #endif // NDEBUG
   }

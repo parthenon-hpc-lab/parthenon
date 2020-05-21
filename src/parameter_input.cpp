@@ -402,9 +402,9 @@ void ParameterInput::ModifyFromCmdline(int argc, char *argv[]) {
     std::size_t equal_posn = input_text.find_first_of("="); // find "=" character
 
     if (slash_posn > equal_posn) {
-      msg << "'/' used as value (rhs of =) when modifying "
-          << input_text << "." << " Please update value of change "
-          <<"logic in ModifyFromCmdline function.";
+      msg << "'/' used as value (rhs of =) when modifying " << input_text << "."
+          << " Please update value of change "
+          << "logic in ModifyFromCmdline function.";
       PARTHENON_FAIL(msg.str().c_str());
     }
 
