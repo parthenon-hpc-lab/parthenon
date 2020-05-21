@@ -47,8 +47,8 @@ namespace parthenon {
 namespace ErrorChecking {
 
 KOKKOS_INLINE_FUNCTION
-void require(const char * const condition, const char * const message,
-             const char * const filename, int const linenumber) {
+void require(const char *const condition, const char *const message,
+             const char *const filename, int const linenumber) {
   printf("### PARTHENON ERROR\n  Condition:   %s\n  Message:     %s\n  File:        "
          "%s\n  Line number: %i\n",
          condition, message, filename, linenumber);
@@ -56,8 +56,7 @@ void require(const char * const condition, const char * const message,
 }
 
 KOKKOS_INLINE_FUNCTION
-void fail(const char * const message, const char * const filename,
-          int const linenumber) {
+void fail(const char *const message, const char *const filename, int const linenumber) {
   printf("### PARTHENON ERROR\n  Message:     %s\n  File:        %s\n  Line number: %i\n",
          message, filename, linenumber);
   Kokkos::abort(message);
