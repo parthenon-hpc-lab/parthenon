@@ -1,4 +1,4 @@
-image: cuda10.0-mpi-hdf5
+image: cuda10.2-mpi-hdf5-mpl
 
 # Is performed before the scripts in the stages step
 before_script:
@@ -108,9 +108,11 @@ parthenon-cuda-performance_and_regression:
     expire_in: 3 days
     paths:
       - build-cuda-perf/CMakeFiles/CMakeOutput.log
+      - build-cuda-perf-uvm/CMakeFiles/CMakeOutput.log
       - build-cuda-perf-uvm/tst/regression/outputs/advection_convergence/advection-errors.dat
+      - build-cuda-perf-uvm/tst/regression/outputs/advection_convergence/advection-errors.png
 
-# run performance and regrssion on CPUs
+# run performance and regression on CPUs
 parthenon-cpu-performance_and_regression:
   tags:
     - cpu
@@ -128,3 +130,4 @@ parthenon-cpu-performance_and_regression:
     paths:
       - build-perf/CMakeFiles/CMakeOutput.log
       - build-perf/tst/regression/outputs/advection_convergence/advection-errors.dat
+      - build-perf/tst/regression/outputs/advection_convergence/advection-errors.png
