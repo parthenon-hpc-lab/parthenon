@@ -22,15 +22,14 @@ namespace parthenon {
 
 TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
   MeshBlock *pmb = rc.pmy_block;
-  const int is = pmb->is;
-  const int js = pmb->js;
-  const int ks = pmb->ks;
-  const int ie = pmb->ie;
-  const int je = pmb->je;
-  const int ke = pmb->ke;
-  const int imax = pmb->ncells1;
-  const int jmax = pmb->ncells2;
-  const int kmax = pmb->ncells3;
+  const IndexDomain interior = IndexDomain::interior;
+  const IndexDomain entire = IndexDomain::entire;
+  IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
+  IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
+  IndexRange kb = pmb->cellbounds.GetBoundsK(interior);
+  const int imax = pmb->cellbounds.ncellsi(entire);
+  const int jmax = pmb->cellbounds.ncellsj(entire);
+  const int kmax = pmb->cellbounds.ncellsk(entire);
 
   Metadata m;
   ContainerIterator<Real> citer(rc, {Metadata::Independent});
@@ -41,10 +40,10 @@ TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
     for (int n = 0; n < nvars; n++) {
       CellVariable<Real> &q = *citer.vars[n];
       for (int l = 0; l < q.GetDim(4); l++) {
-        for (int k = ks; k <= ke; k++) {
+        for (int k = kb.s; k <= kb.e; k++) {
           for (int j = 0; j < jmax; j++) {
-            for (int i = 0; i < is; i++) {
-              q(l, k, j, i) = q(l, k, j, is);
+            for (int i = 0; i < ib.s; i++) {
+              q(l, k, j, i) = q(l, k, j, ib.s);
             }
           }
         }
@@ -58,10 +57,10 @@ TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
       bool vec = q.IsSet(Metadata::Vector);
       for (int l = 0; l < q.GetDim(4); l++) {
         Real reflect = (l == 0 && vec ? -1.0 : 1.0);
-        for (int k = ks; k <= ke; k++) {
+        for (int k = kb.s; k <= kb.e; k++) {
           for (int j = 0; j < jmax; j++) {
-            for (int i = 0; i < is; i++) {
-              q(l, k, j, i) = reflect * q(l, k, j, 2 * is - i - 1);
+            for (int i = 0; i < ib.s; i++) {
+              q(l, k, j, i) = reflect * q(l, k, j, 2 * ib.s - i - 1);
             }
           }
         }
@@ -78,10 +77,10 @@ TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
     for (int n = 0; n < nvars; n++) {
       CellVariable<Real> &q = *citer.vars[n];
       for (int l = 0; l < q.GetDim(4); l++) {
-        for (int k = ks; k <= ke; k++) {
+        for (int k = kb.s; k <= kb.e; k++) {
           for (int j = 0; j < jmax; j++) {
-            for (int i = ie + 1; i < imax; i++) {
-              q(l, k, j, i) = q(l, k, j, ie);
+            for (int i = ib.e + 1; i < imax; i++) {
+              q(l, k, j, i) = q(l, k, j, ib.e);
             }
           }
         }
@@ -95,10 +94,10 @@ TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
       bool vec = q.IsSet(Metadata::Vector);
       for (int l = 0; l < q.GetDim(4); l++) {
         Real reflect = (l == 0 && vec ? -1.0 : 1.0);
-        for (int k = ks; k <= ke; k++) {
+        for (int k = kb.s; k <= kb.e; k++) {
           for (int j = 0; j < jmax; j++) {
-            for (int i = ie + 1; i < imax; i++) {
-              q(l, k, j, i) = reflect * q(l, k, j, 2 * ie - i + 1);
+            for (int i = ib.e + 1; i < imax; i++) {
+              q(l, k, j, i) = reflect * q(l, k, j, 2 * ib.e - i + 1);
             }
           }
         }
@@ -116,10 +115,10 @@ TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
       for (int n = 0; n < nvars; n++) {
         CellVariable<Real> &q = *citer.vars[n];
         for (int l = 0; l < q.GetDim(4); l++) {
-          for (int k = ks; k <= ke; k++) {
-            for (int j = 0; j < js; j++) {
+          for (int k = kb.s; k <= kb.e; k++) {
+            for (int j = 0; j < jb.s; j++) {
               for (int i = 0; i < imax; i++) {
-                q(l, k, j, i) = q(l, k, js, i);
+                q(l, k, j, i) = q(l, k, jb.s, i);
               }
             }
           }
@@ -133,10 +132,10 @@ TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
         bool vec = q.IsSet(Metadata::Vector);
         for (int l = 0; l < q.GetDim(4); l++) {
           Real reflect = (l == 1 && vec ? -1.0 : 1.0);
-          for (int k = ks; k <= ke; k++) {
-            for (int j = 0; j < js; j++) {
+          for (int k = kb.s; k <= kb.e; k++) {
+            for (int j = 0; j < jb.s; j++) {
               for (int i = 0; i < imax; i++) {
-                q(l, k, j, i) = reflect * q(l, k, 2 * js - j - 1, i);
+                q(l, k, j, i) = reflect * q(l, k, 2 * jb.s - j - 1, i);
               }
             }
           }
@@ -153,10 +152,10 @@ TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
       for (int n = 0; n < nvars; n++) {
         CellVariable<Real> &q = *citer.vars[n];
         for (int l = 0; l < q.GetDim(4); l++) {
-          for (int k = ks; k <= ke; k++) {
-            for (int j = je + 1; j < jmax; j++) {
+          for (int k = kb.s; k <= kb.e; k++) {
+            for (int j = jb.e + 1; j < jmax; j++) {
               for (int i = 0; i < imax; i++) {
-                q(l, k, j, i) = q(l, k, je, i);
+                q(l, k, j, i) = q(l, k, jb.e, i);
               }
             }
           }
@@ -170,10 +169,10 @@ TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
         bool vec = q.IsSet(Metadata::Vector);
         for (int l = 0; l < q.GetDim(4); l++) {
           Real reflect = (l == 1 && vec ? -1.0 : 1.0);
-          for (int k = ks; k <= ke; k++) {
-            for (int j = je + 1; j < jmax; j++) {
+          for (int k = kb.s; k <= kb.e; k++) {
+            for (int j = jb.e + 1; j < jmax; j++) {
               for (int i = 0; i < imax; i++) {
-                q(l, k, j, i) = reflect * q(l, k, 2 * je - j + 1, i);
+                q(l, k, j, i) = reflect * q(l, k, 2 * jb.e - j + 1, i);
               }
             }
           }
@@ -192,10 +191,10 @@ TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
       for (int n = 0; n < nvars; n++) {
         CellVariable<Real> &q = *citer.vars[n];
         for (int l = 0; l < q.GetDim(4); l++) {
-          for (int k = 0; k < ks; k++) {
+          for (int k = 0; k < kb.s; k++) {
             for (int j = 0; j < jmax; j++) {
               for (int i = 0; i < imax; i++) {
-                q(l, k, j, i) = q(l, ks, j, i);
+                q(l, k, j, i) = q(l, kb.s, j, i);
               }
             }
           }
@@ -209,10 +208,10 @@ TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
         bool vec = q.IsSet(Metadata::Vector);
         for (int l = 0; l < q.GetDim(4); l++) {
           Real reflect = (l == 2 && vec ? -1.0 : 1.0);
-          for (int k = 0; k < ks; k++) {
+          for (int k = 0; k < kb.s; k++) {
             for (int j = 0; j < jmax; j++) {
               for (int i = 0; i < imax; i++) {
-                q(l, k, j, i) = reflect * q(l, 2 * ks - k - 1, j, i);
+                q(l, k, j, i) = reflect * q(l, 2 * kb.s - k - 1, j, i);
               }
             }
           }
@@ -229,10 +228,10 @@ TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
       for (int n = 0; n < nvars; n++) {
         CellVariable<Real> &q = *citer.vars[n];
         for (int l = 0; l < q.GetDim(4); l++) {
-          for (int k = ke + 1; k < kmax; k++) {
+          for (int k = kb.e + 1; k < kmax; k++) {
             for (int j = 0; j < jmax; j++) {
               for (int i = 0; i < imax; i++) {
-                q(l, k, j, i) = q(l, ke, j, i);
+                q(l, k, j, i) = q(l, kb.e, j, i);
               }
             }
           }
@@ -246,10 +245,10 @@ TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
         bool vec = q.IsSet(Metadata::Vector);
         for (int l = 0; l < q.GetDim(4); l++) {
           Real reflect = (l == 2 && vec ? -1.0 : 1.0);
-          for (int k = ke + 1; k < kmax; k++) {
+          for (int k = kb.e + 1; k < kmax; k++) {
             for (int j = 0; j < jmax; j++) {
               for (int i = 0; i < imax; i++) {
-                q(l, k, j, i) = reflect * q(l, 2 * ke - k + 1, j, i);
+                q(l, k, j, i) = reflect * q(l, 2 * kb.e - k + 1, j, i);
               }
             }
           }

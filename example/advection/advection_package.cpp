@@ -12,9 +12,12 @@
 //========================================================================================
 
 #include <algorithm>
+#include <cmath>
 #include <limits>
 #include <string>
+#include <vector>
 
+#include <coordinates/coordinates.hpp>
 #include <parthenon/package.hpp>
 
 #include "advection_package.hpp"
@@ -46,17 +49,12 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddParam<>("derefine_tol", derefine_tol);
 
   auto profile_str = pin->GetOrAddString("Advection", "profile", "wave");
-  int profile = -1; // unspecified profile
-  if (profile_str.compare("wave") == 0) {
-    profile = 0;
-  } else if (profile_str.compare("smooth_gaussian") == 0) {
-    profile = 1;
-  } else if (profile_str.compare("hard_sphere") == 0) {
-    profile = 2;
-  } else {
+  if (!((profile_str.compare("wave") == 0) ||
+        (profile_str.compare("smooth_gaussian") == 0) ||
+        (profile_str.compare("hard_sphere") == 0))) {
     PARTHENON_FAIL("Unknown profile in advection example: " + profile_str);
   }
-  pkg->AddParam<>("profile", profile);
+  pkg->AddParam<>("profile", profile_str);
 
   Real amp = pin->GetOrAddReal("Advection", "amp", 1e-6);
   Real vel = std::sqrt(vx * vx + vy * vy + vz * vz);
@@ -166,9 +164,9 @@ AmrTag CheckRefinement(Container<Real> &rc) {
   // refine on advected, for example.  could also be a derived quantity
   auto v = rc.Get("advected").data;
 
-  auto nx1 = pmb->ncells1;
-  auto nx2 = pmb->ncells2;
-  auto nx3 = pmb->ncells3;
+  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
+  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
+  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
 
   Kokkos::complex<Real> minmax(1.0, 0.0); // using real as vmin and imag as vmax
   Kokkos::Sum<Kokkos::complex<Real>> minmax_reducer(minmax);
@@ -180,7 +178,8 @@ AmrTag CheckRefinement(Container<Real> &rc) {
   // the result later (similar to calculating timesteps on individual meshblocks)
   Kokkos::parallel_reduce(
       "advection check refinement",
-      Kokkos::MDRangePolicy<Kokkos::Rank<3>>({0, 0, 0}, {nx3, nx2, nx1}, {1, 1, nx1}),
+      Kokkos::MDRangePolicy<Kokkos::Rank<3>>({kb.s, jb.s, ib.s}, {kb.e, jb.e, ib.e},
+                                             {1, 1, ib.e - ib.s}),
       KOKKOS_LAMBDA(int k, int j, int i, Kokkos::complex<Real> &minmax) {
         Real vmin = (v(k, j, i) < minmax.real() ? v(k, j, i) : minmax.real());
         Real vmax = (v(k, j, i) > minmax.imag() ? v(k, j, i) : minmax.imag());
@@ -200,19 +199,18 @@ AmrTag CheckRefinement(Container<Real> &rc) {
 // demonstrate usage of a "pre" fill derived routine
 void PreFill(Container<Real> &rc) {
   MeshBlock *pmb = rc.pmy_block;
-  int is = 0;
-  int js = 0;
-  int ks = 0;
-  int ie = pmb->ncells1 - 1;
-  int je = pmb->ncells2 - 1;
-  int ke = pmb->ncells3 - 1;
+
+  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
+  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
+  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
+
   PackIndexMap imap;
   std::vector<std::string> vars({"advected", "one_minus_advected"});
   auto v = rc.PackVariables(vars, imap);
   const int in = imap["advected"].first;
   const int out = imap["one_minus_advected"].first;
   pmb->par_for(
-      "advection_package::PreFill", ks, ke, js, je, is, ie,
+      "advection_package::PreFill", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
         v(out, k, j, i) = 1.0 - v(in, k, j, i);
       });
@@ -221,19 +219,18 @@ void PreFill(Container<Real> &rc) {
 // this is the package registered function to fill derived
 void SquareIt(Container<Real> &rc) {
   MeshBlock *pmb = rc.pmy_block;
-  int is = 0;
-  int js = 0;
-  int ks = 0;
-  int ie = pmb->ncells1 - 1;
-  int je = pmb->ncells2 - 1;
-  int ke = pmb->ncells3 - 1;
+
+  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
+  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
+  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
+
   PackIndexMap imap;
   std::vector<std::string> vars({"one_minus_advected", "one_minus_advected_sq"});
   auto v = rc.PackVariables(vars, imap);
   const int in = imap["one_minus_advected"].first;
   const int out = imap["one_minus_advected_sq"].first;
   pmb->par_for(
-      "advection_package::PreFill", ks, ke, js, je, is, ie,
+      "advection_package::PreFill", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
         v(out, k, j, i) = v(in, k, j, i) * v(in, k, j, i);
       });
@@ -242,12 +239,11 @@ void SquareIt(Container<Real> &rc) {
 // demonstrate usage of a "post" fill derived routine
 void PostFill(Container<Real> &rc) {
   MeshBlock *pmb = rc.pmy_block;
-  int is = 0;
-  int js = 0;
-  int ks = 0;
-  int ie = pmb->ncells1 - 1;
-  int je = pmb->ncells2 - 1;
-  int ke = pmb->ncells3 - 1;
+
+  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
+  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
+  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
+
   PackIndexMap imap;
   std::vector<std::string> vars(
       {"one_minus_advected_sq", "one_minus_sqrt_one_minus_advected_sq"});
@@ -256,7 +252,7 @@ void PostFill(Container<Real> &rc) {
   const int out12 = imap["one_minus_sqrt_one_minus_advected_sq_12"].first;
   const int out37 = imap["one_minus_sqrt_one_minus_advected_sq_37"].first;
   pmb->par_for(
-      "advection_package::PreFill", ks, ke, js, je, is, ie,
+      "advection_package::PreFill", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
         v(out12, k, j, i) = 1.0 - sqrt(v(in, k, j, i));
         v(out37, k, j, i) = 1.0 - v(out12, k, j, i);
@@ -272,20 +268,17 @@ Real EstimateTimestep(Container<Real> &rc) {
   const auto &vy = pkg->Param<Real>("vy");
   const auto &vz = pkg->Param<Real>("vz");
 
-  int is = pmb->is;
-  int js = pmb->js;
-  int ks = pmb->ks;
-  int ie = pmb->ie;
-  int je = pmb->je;
-  int ke = pmb->ke;
+  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
+  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
+  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
 
   Real min_dt = std::numeric_limits<Real>::max();
   auto &coords = pmb->coords;
 
   // this is obviously overkill for this constant velocity problem
-  for (int k = ks; k <= ke; k++) {
-    for (int j = js; j <= je; j++) {
-      for (int i = is; i <= ie; i++) {
+  for (int k = kb.s; k <= kb.e; k++) {
+    for (int j = jb.s; j <= jb.e; j++) {
+      for (int i = ib.s; i <= ib.e; i++) {
         if (vx != 0.0)
           min_dt = std::min(min_dt, coords.Dx(X1DIR, k, j, i) / std::abs(vx));
         if (vy != 0.0)
@@ -304,12 +297,9 @@ Real EstimateTimestep(Container<Real> &rc) {
 // This routine implements all the "physics" in this example
 TaskStatus CalculateFluxes(Container<Real> &rc) {
   MeshBlock *pmb = rc.pmy_block;
-  int is = pmb->is;
-  int js = pmb->js;
-  int ks = pmb->ks;
-  int ie = pmb->ie;
-  int je = pmb->je;
-  int ke = pmb->ke;
+  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
+  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
+  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
 
   CellVariable<Real> &advected = rc.Get("advected");
   auto pkg = pmb->packages["advection_package"];
@@ -318,28 +308,28 @@ TaskStatus CalculateFluxes(Container<Real> &rc) {
   const auto &vz = pkg->Param<Real>("vz");
 
   const int scratch_level = 1; // 0 is actual scratch (tiny); 1 is HBM
-  const int nx1 = pmb->ncells1;
+  const int nx1 = pmb->cellbounds.ncellsi(IndexDomain::entire);
   const int nvar = advected.GetDim(4);
   size_t scratch_size_in_bytes = parthenon::ScratchPad2D<Real>::shmem_size(nvar, nx1);
   parthenon::ParArray4D<Real> x1flux = advected.flux[X1DIR].Get<4>();
   // get x-fluxes
   pmb->par_for_outer(
-      "x1 flux", 2 * scratch_size_in_bytes, scratch_level, ks, ke, js, je,
+      "x1 flux", 2 * scratch_size_in_bytes, scratch_level, kb.s, kb.e, jb.s, jb.e,
       KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int k, const int j) {
         parthenon::ScratchPad2D<Real> ql(member.team_scratch(scratch_level), nvar, nx1);
         parthenon::ScratchPad2D<Real> qr(member.team_scratch(scratch_level), nvar, nx1);
         // get reconstructed state on faces
-        parthenon::DonorCellX1(member, k, j, is - 1, ie + 1, advected.data, ql, qr);
+        parthenon::DonorCellX1(member, k, j, ib.s - 1, ib.e + 1, advected.data, ql, qr);
         // Sync all threads in the team so that scratch memory is consistent
         member.team_barrier();
 
         for (int n = 0; n < nvar; n++) {
           if (vx > 0.0) {
-            parthenon::par_for_inner(member, is, ie + 1, [&](const int i) {
+            parthenon::par_for_inner(member, ib.s, ib.e + 1, [&](const int i) {
               x1flux(n, k, j, i) = ql(n, i) * vx;
             });
           } else {
-            parthenon::par_for_inner(member, is, ie + 1, [&](const int i) {
+            parthenon::par_for_inner(member, ib.s, ib.e + 1, [&](const int i) {
               x1flux(n, k, j, i) = qr(n, i) * vx;
             });
           }
@@ -350,7 +340,7 @@ TaskStatus CalculateFluxes(Container<Real> &rc) {
   if (pmb->pmy_mesh->ndim >= 2) {
     parthenon::ParArray4D<Real> x2flux = advected.flux[X2DIR].Get<4>();
     pmb->par_for_outer(
-        "x2 flux", 3 * scratch_size_in_bytes, scratch_level, ks, ke, js, je + 1,
+        "x2 flux", 3 * scratch_size_in_bytes, scratch_level, kb.s, kb.e, jb.s, jb.e + 1,
         KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int k, const int j) {
           // the overall algorithm/use of scratch pad here is clear inefficient and kept
           // just for demonstrating purposes. The key point is that we cannot reuse
@@ -362,17 +352,18 @@ TaskStatus CalculateFluxes(Container<Real> &rc) {
           parthenon::ScratchPad2D<Real> q_unused(member.team_scratch(scratch_level), nvar,
                                                  nx1);
           // get reconstructed state on faces
-          parthenon::DonorCellX2(member, k, j - 1, is, ie, advected.data, ql, q_unused);
-          parthenon::DonorCellX2(member, k, j, is, ie, advected.data, q_unused, qr);
+          parthenon::DonorCellX2(member, k, j - 1, ib.s, ib.e, advected.data, ql,
+                                 q_unused);
+          parthenon::DonorCellX2(member, k, j, ib.s, ib.e, advected.data, q_unused, qr);
           // Sync all threads in the team so that scratch memory is consistent
           member.team_barrier();
           for (int n = 0; n < nvar; n++) {
             if (vy > 0.0) {
-              parthenon::par_for_inner(member, is, ie, [&](const int i) {
+              parthenon::par_for_inner(member, ib.s, ib.e, [&](const int i) {
                 x2flux(n, k, j, i) = ql(n, i) * vy;
               });
             } else {
-              parthenon::par_for_inner(member, is, ie, [&](const int i) {
+              parthenon::par_for_inner(member, ib.s, ib.e, [&](const int i) {
                 x2flux(n, k, j, i) = qr(n, i) * vy;
               });
             }
@@ -384,7 +375,7 @@ TaskStatus CalculateFluxes(Container<Real> &rc) {
   if (pmb->pmy_mesh->ndim == 3) {
     parthenon::ParArray4D<Real> x3flux = advected.flux[X3DIR].Get<4>();
     pmb->par_for_outer(
-        "x3 flux", 3 * scratch_size_in_bytes, scratch_level, ks, ke + 1, js, je,
+        "x3 flux", 3 * scratch_size_in_bytes, scratch_level, kb.s, kb.e + 1, jb.s, jb.e,
         KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int k, const int j) {
           // the overall algorithm/use of scratch pad here is clear inefficient and kept
           // just for demonstrating purposes. The key point is that we cannot reuse
@@ -396,17 +387,18 @@ TaskStatus CalculateFluxes(Container<Real> &rc) {
           parthenon::ScratchPad2D<Real> q_unused(member.team_scratch(scratch_level), nvar,
                                                  nx1);
           // get reconstructed state on faces
-          parthenon::DonorCellX3(member, k - 1, j, is, ie, advected.data, ql, q_unused);
-          parthenon::DonorCellX3(member, k, j, is, ie, advected.data, q_unused, qr);
+          parthenon::DonorCellX3(member, k - 1, j, ib.s, ib.e, advected.data, ql,
+                                 q_unused);
+          parthenon::DonorCellX3(member, k, j, ib.s, ib.e, advected.data, q_unused, qr);
           // Sync all threads in the team so that scratch memory is consistent
           member.team_barrier();
           for (int n = 0; n < nvar; n++) {
             if (vz > 0.0) {
-              parthenon::par_for_inner(member, is, ie, [&](const int i) {
+              parthenon::par_for_inner(member, ib.s, ib.e, [&](const int i) {
                 x3flux(n, k, j, i) = ql(n, i) * vz;
               });
             } else {
-              parthenon::par_for_inner(member, is, ie, [&](const int i) {
+              parthenon::par_for_inner(member, ib.s, ib.e, [&](const int i) {
                 x3flux(n, k, j, i) = qr(n, i) * vz;
               });
             }

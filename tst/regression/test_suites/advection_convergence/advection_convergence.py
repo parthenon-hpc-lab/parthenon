@@ -18,6 +18,9 @@
 # Modules
 import math
 import numpy as np
+import matplotlib
+matplotlib.use('agg')
+import matplotlib.pylab as plt
 import sys
 import os
 import utils.test_case
@@ -369,5 +372,34 @@ class TestCase(utils.test_case.TestCaseAbs):
             print("AMR error too large compared to static grid run (threshold used 0.999):",
                   lines[offset+2], lines[offset+1])
             analyze_status = False
+
+
+        # Plot results
+        data = np.genfromtxt(os.path.join(parameters.output_path, "advection-errors.dat"))
+
+        n_res = 5
+        sym = 'xo+'
+
+        for i, x in enumerate("xyz"):
+            plt.plot(data[i*n_res:(i+1)*n_res,0+i],
+                    data[i*n_res:(i+1)*n_res,4],
+                    marker = sym[i],
+                    label=x + "-dir (vary res)")
+            plt.plot(data[3*n_res+i,0+i], data[3*n_res+i,4],
+                    lw=0, marker = sym[i], label=x + "-dir (same res)", alpha=0.5)
+
+        plt.plot(data[3*n_res+3:3*n_res+3+2,0],
+                data[3*n_res+3:3*n_res+3+2,4],
+                marker = '^', label = "oblique")
+
+        plt.plot([32,512], [3e-7,3e-7/(512/32)], '--', label="first order")
+
+        plt.legend()
+        plt.xscale("log")
+        plt.yscale("log")
+        plt.ylabel("L1 err")
+        plt.xlabel("Linear resolution")
+        plt.savefig(os.path.join(parameters.output_path, "advection-errors.png"),
+                    bbox_inches='tight')
 
         return analyze_status

@@ -126,50 +126,63 @@ void BoundaryValues::ProlongateBoundaries(const Real time, const Real dt) {
       }
     }
 
+    const IndexDomain interior = IndexDomain::interior;
     // calculate the loop limits for the ghost zones
     int cn = pmb->cnghost - 1;
     int si, ei, sj, ej, sk, ek;
     if (nb.ni.ox1 == 0) {
       std::int64_t &lx1 = pmb->loc.lx1;
-      si = pmb->cis, ei = pmb->cie;
-      if ((lx1 & 1LL) == 0LL)
+      si = pmb->c_cellbounds.is(interior);
+      ei = pmb->c_cellbounds.ie(interior);
+      if ((lx1 & 1LL) == 0LL) {
         ei += cn;
-      else
+      } else {
         si -= cn;
+      }
     } else if (nb.ni.ox1 > 0) {
-      si = pmb->cie + 1, ei = pmb->cie + cn;
+      si = pmb->c_cellbounds.ie(interior) + 1;
+      ei = pmb->c_cellbounds.ie(interior) + cn;
     } else {
-      si = pmb->cis - cn, ei = pmb->cis - 1;
+      si = pmb->c_cellbounds.is(interior) - cn;
+      ei = pmb->c_cellbounds.is(interior) - 1;
     }
 
     if (nb.ni.ox2 == 0) {
-      sj = pmb->cjs, ej = pmb->cje;
+      sj = pmb->c_cellbounds.js(interior);
+      ej = pmb->c_cellbounds.je(interior);
       if (pmb->block_size.nx2 > 1) {
         std::int64_t &lx2 = pmb->loc.lx2;
-        if ((lx2 & 1LL) == 0LL)
+        if ((lx2 & 1LL) == 0LL) {
           ej += cn;
-        else
+        } else {
           sj -= cn;
+        }
       }
     } else if (nb.ni.ox2 > 0) {
-      sj = pmb->cje + 1, ej = pmb->cje + cn;
+      sj = pmb->c_cellbounds.je(interior) + 1;
+      ej = pmb->c_cellbounds.je(interior) + cn;
     } else {
-      sj = pmb->cjs - cn, ej = pmb->cjs - 1;
+      sj = pmb->c_cellbounds.js(interior) - cn;
+      ej = pmb->c_cellbounds.js(interior) - 1;
     }
 
     if (nb.ni.ox3 == 0) {
-      sk = pmb->cks, ek = pmb->cke;
+      sk = pmb->c_cellbounds.ks(interior);
+      ek = pmb->c_cellbounds.ke(interior);
       if (pmb->block_size.nx3 > 1) {
         std::int64_t &lx3 = pmb->loc.lx3;
-        if ((lx3 & 1LL) == 0LL)
+        if ((lx3 & 1LL) == 0LL) {
           ek += cn;
-        else
+        } else {
           sk -= cn;
+        }
       }
     } else if (nb.ni.ox3 > 0) {
-      sk = pmb->cke + 1, ek = pmb->cke + cn;
+      sk = pmb->c_cellbounds.ke(interior) + 1;
+      ek = pmb->c_cellbounds.ke(interior) + cn;
     } else {
-      sk = pmb->cks - cn, ek = pmb->cks - 1;
+      sk = pmb->c_cellbounds.ks(interior) - cn;
+      ek = pmb->c_cellbounds.ks(interior) - 1;
     }
 
     // (temp workaround) to automatically call all BoundaryFunction_[] on coarse_prim/b
@@ -192,44 +205,33 @@ void BoundaryValues::RestrictGhostCellsOnSameLevel(const NeighborBlock &nb, int 
   MeshBlock *pmb = pmy_block_;
   MeshRefinement *pmr = pmb->pmr.get();
 
-  int ris, rie, rjs, rje, rks, rke;
-  if (ni == 0) {
-    ris = pmb->cis;
-    rie = pmb->cie;
-    if (nb.ni.ox1 == 1) {
-      ris = pmb->cie;
-    } else if (nb.ni.ox1 == -1) {
-      rie = pmb->cis;
+  const IndexDomain interior = IndexDomain::interior;
+  IndexRange cib = pmb->c_cellbounds.GetBoundsI(interior);
+  IndexRange cjb = pmb->c_cellbounds.GetBoundsJ(interior);
+  IndexRange ckb = pmb->c_cellbounds.GetBoundsK(interior);
+
+  auto CalcRestricedIndices = [](int &rs, int &re, int n, int ox, const IndexRange &b) {
+    if (n == 0) {
+      rs = b.s;
+      re = b.e;
+      if (ox == 1) {
+        rs = b.e;
+      } else if (ox == -1) {
+        re = b.s;
+      }
+    } else if (n == 1) {
+      rs = b.e + 1;
+      re = b.e + 1;
+    } else { //(n ==  - 1)
+      rs = b.s - 1;
+      re = b.s - 1;
     }
-  } else if (ni == 1) {
-    ris = pmb->cie + 1, rie = pmb->cie + 1;
-  } else { //(ni ==  - 1)
-    ris = pmb->cis - 1, rie = pmb->cis - 1;
-  }
+  };
 
-  if (nj == 0) {
-    rjs = pmb->cjs, rje = pmb->cje;
-    if (nb.ni.ox2 == 1)
-      rjs = pmb->cje;
-    else if (nb.ni.ox2 == -1)
-      rje = pmb->cjs;
-  } else if (nj == 1) {
-    rjs = pmb->cje + 1, rje = pmb->cje + 1;
-  } else { //(nj == -1)
-    rjs = pmb->cjs - 1, rje = pmb->cjs - 1;
-  }
-
-  if (nk == 0) {
-    rks = pmb->cks, rke = pmb->cke;
-    if (nb.ni.ox3 == 1)
-      rks = pmb->cke;
-    else if (nb.ni.ox3 == -1)
-      rke = pmb->cks;
-  } else if (nk == 1) {
-    rks = pmb->cke + 1, rke = pmb->cke + 1;
-  } else { //(nk == -1)
-    rks = pmb->cks - 1, rke = pmb->cks - 1;
-  }
+  int ris, rie, rjs, rje, rks, rke;
+  CalcRestricedIndices(ris, rie, ni, nb.ni.ox1, cib);
+  CalcRestricedIndices(rjs, rje, nj, nb.ni.ox2, cjb);
+  CalcRestricedIndices(rks, rke, nk, nb.ni.ox3, ckb);
 
   for (auto cc_pair : pmr->pvars_cc_) {
     ParArrayND<Real> var_cc = std::get<0>(cc_pair);
@@ -244,14 +246,13 @@ void BoundaryValues::RestrictGhostCellsOnSameLevel(const NeighborBlock &nb, int 
     FaceField *coarse_fc = std::get<1>(fc_pair);
     int &mylevel = pmb->loc.level;
     int rs = ris, re = rie + 1;
-    if (rs == pmb->cis && nblevel[nk + 1][nj + 1][ni] < mylevel) rs++;
-    if (re == pmb->cie + 1 && nblevel[nk + 1][nj + 1][ni + 2] < mylevel) re--;
+    if (rs == cib.s && nblevel[nk + 1][nj + 1][ni] < mylevel) rs++;
+    if (re == cib.e + 1 && nblevel[nk + 1][nj + 1][ni + 2] < mylevel) re--;
     pmr->RestrictFieldX1((*var_fc).x1f, (*coarse_fc).x1f, rs, re, rjs, rje, rks, rke);
-
     if (pmb->block_size.nx2 > 1) {
       rs = rjs, re = rje + 1;
-      if (rs == pmb->cjs && nblevel[nk + 1][nj][ni + 1] < mylevel) rs++;
-      if (re == pmb->cje + 1 && nblevel[nk + 1][nj + 2][ni + 1] < mylevel) re--;
+      if (rs == cjb.s && nblevel[nk + 1][nj][ni + 1] < mylevel) rs++;
+      if (re == cjb.e + 1 && nblevel[nk + 1][nj + 2][ni + 1] < mylevel) re--;
       pmr->RestrictFieldX2((*var_fc).x2f, (*coarse_fc).x2f, ris, rie, rs, re, rks, rke);
     } else { // 1D
       pmr->RestrictFieldX2((*var_fc).x2f, (*coarse_fc).x2f, ris, rie, rjs, rje, rks, rke);
@@ -261,8 +262,8 @@ void BoundaryValues::RestrictGhostCellsOnSameLevel(const NeighborBlock &nb, int 
 
     if (pmb->block_size.nx3 > 1) {
       rs = rks, re = rke + 1;
-      if (rs == pmb->cks && nblevel[nk][nj + 1][ni + 1] < mylevel) rs++;
-      if (re == pmb->cke + 1 && nblevel[nk + 2][nj + 1][ni + 1] < mylevel) re--;
+      if (rs == ckb.s && nblevel[nk][nj + 1][ni + 1] < mylevel) rs++;
+      if (re == ckb.e + 1 && nblevel[nk + 2][nj + 1][ni + 1] < mylevel) re--;
       pmr->RestrictFieldX3((*var_fc).x3f, (*coarse_fc).x3f, ris, rie, rjs, rje, rs, re);
     } else { // 1D or 2D
       pmr->RestrictFieldX3((*var_fc).x3f, (*coarse_fc).x3f, ris, rie, rjs, rje, rks, rke);
@@ -360,23 +361,28 @@ void BoundaryValues::ProlongateGhostCells(const NeighborBlock &nb, int si, int e
   // now that the ghost-ghost zones are filled and prolongated,
   // calculate the loop limits for the finer grid
   int fsi, fei, fsj, fej, fsk, fek;
-  fsi = (si - pmb->cis) * 2 + pmb->is;
-  fei = (ei - pmb->cis) * 2 + pmb->is + 1;
 
+  const IndexDomain interior = IndexDomain::interior;
+  IndexRange cib = pmb->c_cellbounds.GetBoundsI(interior);
+  IndexRange cjb = pmb->c_cellbounds.GetBoundsJ(interior);
+  IndexRange ckb = pmb->c_cellbounds.GetBoundsK(interior);
+
+  fsi = (si - cib.s) * 2 + pmb->cellbounds.is(interior);
+  fei = (ei - cib.s) * 2 + pmb->cellbounds.is(interior) + 1;
   if (pmb->block_size.nx2 > 1) {
-    fsj = (sj - pmb->cjs) * 2 + pmb->js;
-    fej = (ej - pmb->cjs) * 2 + pmb->js + 1;
+    fsj = (sj - cjb.s) * 2 + pmb->cellbounds.js(interior);
+    fej = (ej - cjb.s) * 2 + pmb->cellbounds.js(interior) + 1;
   } else {
-    fsj = pmb->js;
-    fej = pmb->je;
+    fsj = pmb->cellbounds.js(interior);
+    fej = pmb->cellbounds.je(interior);
   }
 
   if (pmb->block_size.nx3 > 1) {
-    fsk = (sk - pmb->cks) * 2 + pmb->ks;
-    fek = (ek - pmb->cks) * 2 + pmb->ks + 1;
+    fsk = (sk - ckb.s) * 2 + pmb->cellbounds.ks(interior);
+    fek = (ek - ckb.s) * 2 + pmb->cellbounds.ks(interior) + 1;
   } else {
-    fsk = pmb->ks;
-    fek = pmb->ke;
+    fsk = pmb->cellbounds.ks(interior);
+    fek = pmb->cellbounds.ke(interior);
   }
 
   // KGF: COUPLING OF QUANTITIES (must be manually specified)
