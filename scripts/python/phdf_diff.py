@@ -84,7 +84,9 @@ def compare(files, all=False, brief=True, quiet=False, one=False, tol=1.0e-12):
         f0 = phdf(files[0])
         if not quiet: print(f0)
     except:
-        print("whoosp")
+        print("""
+        *** ERROR: Unable to open %s as phdf file
+        """%files[0])
         return(1)
 
     # Load second file and print info
