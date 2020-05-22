@@ -47,7 +47,7 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
   const auto &cos_a3 = pkg->Param<Real>("cos_a3");
   const auto &sin_a2 = pkg->Param<Real>("sin_a2");
   const auto &sin_a3 = pkg->Param<Real>("sin_a3");
-  const auto &profile = pkg->Param<int>("profile");
+  const auto &profile = pkg->Param<std::string>("profile");
 
   IndexRange ib = cellbounds.GetBoundsI(IndexDomain::entire);
   IndexRange jb = cellbounds.GetBoundsJ(IndexDomain::entire);
@@ -56,16 +56,16 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
   for (int k = kb.s; k <= kb.e; k++) {
     for (int j = jb.s; j <= jb.e; j++) {
       for (int i = ib.s; i <= ib.e; i++) {
-        if (profile == 0) { // wave
+        if (profile.compare("wave") == 0) {
           Real x = cos_a2 * (coords.x1v(i) * cos_a3 + coords.x2v(j) * sin_a3) +
                    coords.x3v(k) * sin_a2;
           Real sn = std::sin(k_par * x);
           q(k, j, i) = 1.0 + amp * sn * vel;
-        } else if (profile == 1) { // smooth gaussian
+        } else if (profile.compare("smooth_gaussian") == 0) {
           Real rsq = coords.x1v(i) * coords.x1v(i) + coords.x2v(j) * coords.x2v(j) +
                      coords.x3v(k) * coords.x3v(k);
           q(k, j, i) = 1. + amp * exp(-100.0 * rsq);
-        } else if (profile == 2) { // hard_sphere
+        } else if (profile.compare("hard_sphere") == 0) {
           Real rsq = coords.x1v(i) * coords.x1v(i) + coords.x2v(j) * coords.x2v(j) +
                      coords.x3v(k) * coords.x3v(k);
           q(k, j, i) = (rsq < 0.15 * 0.15 ? 1.0 : 0.0);
@@ -98,7 +98,6 @@ void Mesh::UserWorkAfterLoop(ParameterInput *pin, SimTime &tm) {
   while (pmb != nullptr) {
     auto pkg = pmb->packages["advection_package"];
 
-
     auto rc = pmb->real_containers.Get(); // get base container
     ParArray3D<Real> q = rc.Get("advected").data.Get<3>();
     const auto &amp = pkg->Param<Real>("amp");
@@ -108,7 +107,7 @@ void Mesh::UserWorkAfterLoop(ParameterInput *pin, SimTime &tm) {
     const auto &cos_a3 = pkg->Param<Real>("cos_a3");
     const auto &sin_a2 = pkg->Param<Real>("sin_a2");
     const auto &sin_a3 = pkg->Param<Real>("sin_a3");
-    const auto &profile = pkg->Param<int>("profile");
+    const auto &profile = pkg->Param<std::string>("profile");
 
     IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
     IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
@@ -119,18 +118,18 @@ void Mesh::UserWorkAfterLoop(ParameterInput *pin, SimTime &tm) {
       for (int j = jb.s; j <= jb.e; j++) {
         for (int i = ib.s; i <= ib.e; i++) {
           Real ref_val;
-          if (profile == 0) { // wave
+          if (profile.compare("wave") == 0) {
             Real x =
                 cos_a2 * (pmb->coords.x1v(i) * cos_a3 + pmb->coords.x2v(j) * sin_a3) +
                 pmb->coords.x3v(k) * sin_a2;
             Real sn = std::sin(k_par * x);
             ref_val = 1.0 + amp * sn * vel;
-          } else if (profile == 1) { // smooth gaussian
+          } else if (profile.compare("smooth_gaussian") == 0) {
             Real rsq = pmb->coords.x1v(i) * pmb->coords.x1v(i) +
                        pmb->coords.x2v(j) * pmb->coords.x2v(j) +
                        pmb->coords.x3v(k) * pmb->coords.x3v(k);
             ref_val = 1. + amp * exp(-100.0 * rsq);
-          } else if (profile == 2) { // hard_sphere
+          } else if (profile.compare("hard_sphere") == 0) {
             Real rsq = pmb->coords.x1v(i) * pmb->coords.x1v(i) +
                        pmb->coords.x2v(j) * pmb->coords.x2v(j) +
                        pmb->coords.x3v(k) * pmb->coords.x3v(k);
