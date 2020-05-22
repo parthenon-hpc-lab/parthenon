@@ -28,12 +28,11 @@ namespace Update {
 
 TaskStatus FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
   MeshBlock *pmb = in.pmy_block;
-  int is = pmb->is;
-  int js = pmb->js;
-  int ks = pmb->ks;
-  int ie = pmb->ie;
-  int je = pmb->je;
-  int ke = pmb->ke;
+
+  const IndexDomain interior = IndexDomain::interior;
+  IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
+  IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
+  IndexRange kb = pmb->cellbounds.GetBoundsK(interior);
 
   auto vin = in.PackVariablesAndFluxes({Metadata::Independent});
   auto dudt = dudt_cont.PackVariables({Metadata::Independent});
@@ -41,7 +40,7 @@ TaskStatus FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
   auto &coords = pmb->coords;
   int ndim = pmb->pmy_mesh->ndim;
   pmb->par_for(
-      "flux divergence", 0, vin.GetDim(4) - 1, ks, ke, js, je, is, ie,
+      "flux divergence", 0, vin.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
         dudt(l, k, j, i) = 0.0;
         dudt(l, k, j, i) +=
@@ -66,12 +65,6 @@ TaskStatus FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
 void UpdateContainer(Container<Real> &in, Container<Real> &dudt_cont, const Real dt,
                      Container<Real> &out) {
   MeshBlock *pmb = in.pmy_block;
-  int is = pmb->is;
-  int js = pmb->js;
-  int ks = pmb->ks;
-  int ie = pmb->ie;
-  int je = pmb->je;
-  int ke = pmb->ke;
 
   auto vin = in.PackVariables({Metadata::Independent});
   auto vout = out.PackVariables({Metadata::Independent});
@@ -88,18 +81,16 @@ void UpdateContainer(Container<Real> &in, Container<Real> &dudt_cont, const Real
 
 void AverageContainers(Container<Real> &c1, Container<Real> &c2, const Real wgt1) {
   MeshBlock *pmb = c1.pmy_block;
-  int is = pmb->is;
-  int js = pmb->js;
-  int ks = pmb->ks;
-  int ie = pmb->ie;
-  int je = pmb->je;
-  int ke = pmb->ke;
+  const IndexDomain interior = IndexDomain::interior;
+  IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
+  IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
+  IndexRange kb = pmb->cellbounds.GetBoundsK(interior);
 
   auto v1 = c1.PackVariables({Metadata::Independent});
   auto v2 = c2.PackVariables({Metadata::Independent});
 
   pmb->par_for(
-      "AverageContainers", 0, v1.GetDim(4) - 1, ks, ke, js, je, is, ie,
+      "AverageContainers", 0, v1.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
         v1(l, k, j, i) = wgt1 * v1(l, k, j, i) + (1 - wgt1) * v2(l, k, j, i);
       });

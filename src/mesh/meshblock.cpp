@@ -50,31 +50,12 @@ namespace parthenon {
 //                        and mesh refinement objects.
 MeshBlock::MeshBlock(const int n_side, const int ndim) {
   // initialize grid indices
-  is = NGHOST;
-  ie = is + n_side - 1;
-
-  ncells1 = n_side + 2 * NGHOST;
-  ncc1 = n_side / 2 + 2 * NGHOST;
-  if (ndim >= 2) {
-    js = NGHOST;
-    je = js + n_side - 1;
-    ncells2 = n_side + 2 * NGHOST;
-    ncc2 = n_side / 2 + 2 * NGHOST;
+  if (ndim == 1) {
+    InitializeIndexShapes(n_side, 0, 0);
+  } else if (ndim == 2) {
+    InitializeIndexShapes(n_side, n_side, 0);
   } else {
-    js = je = 0;
-    ncells2 = 1;
-    ncc2 = 1;
-  }
-
-  if (ndim >= 3) {
-    ks = NGHOST;
-    ke = ks + n_side - 1;
-    ncells3 = n_side + 2 * NGHOST;
-    ncc3 = n_side / 2 + 2 * NGHOST;
-  } else {
-    ks = ke = 0;
-    ncells3 = 1;
-    ncc3 = 1;
+    InitializeIndexShapes(n_side, n_side, n_side);
   }
 }
 
@@ -87,48 +68,21 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
       prev(nullptr), next(nullptr), new_block_dt_{}, new_block_dt_hyperbolic_{},
       new_block_dt_parabolic_{}, new_block_dt_user_{}, cost_(1.0) {
   // initialize grid indices
-  is = NGHOST;
-  ie = is + block_size.nx1 - 1;
-
-  ncells1 = block_size.nx1 + 2 * NGHOST;
-  ncc1 = block_size.nx1 / 2 + 2 * NGHOST;
-  if (pmy_mesh->ndim >= 2) {
-    js = NGHOST;
-    je = js + block_size.nx2 - 1;
-    ncells2 = block_size.nx2 + 2 * NGHOST;
-    ncc2 = block_size.nx2 / 2 + 2 * NGHOST;
-  } else {
-    js = je = 0;
-    ncells2 = 1;
-    ncc2 = 1;
-  }
-
   if (pmy_mesh->ndim >= 3) {
-    ks = NGHOST;
-    ke = ks + block_size.nx3 - 1;
-    ncells3 = block_size.nx3 + 2 * NGHOST;
-    ncc3 = block_size.nx3 / 2 + 2 * NGHOST;
+    InitializeIndexShapes(block_size.nx1, block_size.nx2, block_size.nx3);
+  } else if (pmy_mesh->ndim >= 2) {
+    InitializeIndexShapes(block_size.nx1, block_size.nx2, 0);
   } else {
-    ks = ke = 0;
-    ncells3 = 1;
-    ncc3 = 1;
+    InitializeIndexShapes(block_size.nx1, 0, 0);
   }
 
   Container<Real> &real_container = real_containers.Get();
-
   // Set the block pointer for the containers
   real_container.setBlock(this);
 
-  if (pm->multilevel) {
-    cnghost = (NGHOST + 1) / 2 + 1;
-    cis = NGHOST;
-    cie = cis + block_size.nx1 / 2 - 1;
-    cjs = cje = cks = cke = 0;
-    if (pmy_mesh->ndim >= 2) // 2D or 3D
-      cjs = NGHOST, cje = cjs + block_size.nx2 / 2 - 1;
-    if (pmy_mesh->ndim >= 3) // 3D
-      cks = NGHOST, cke = cks + block_size.nx3 / 2 - 1;
-  }
+  // (probably don't need to preallocate space for references in these vectors)
+  vars_cc_.reserve(3);
+  vars_fc_.reserve(3);
 
   // construct objects stored in MeshBlock class.  Note in particular that the initial
   // conditions for the simulation are set in problem generator called from main
@@ -202,46 +156,11 @@ MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
 
   // std::cerr << "WHY AM I HERE???" << std::endl;
 
-  is = NGHOST;
-  ie = is + block_size.nx1 - 1;
-
-  ncells1 = block_size.nx1 + 2 * NGHOST;
-  ncc1 = block_size.nx1 / 2 + 2 * NGHOST;
-  if (pmy_mesh->ndim >= 2) {
-    js = NGHOST;
-    je = js + block_size.nx2 - 1;
-    ncells2 = block_size.nx2 + 2 * NGHOST;
-    ncc2 = block_size.nx2 / 2 + 2 * NGHOST;
-  } else {
-    js = je = 0;
-    ncells2 = 1;
-    ncc2 = 1;
-  }
-
-  if (pmy_mesh->ndim >= 3) {
-    ks = NGHOST;
-    ke = ks + block_size.nx3 - 1;
-    ncells3 = block_size.nx3 + 2 * NGHOST;
-    ncc3 = block_size.nx3 / 2 + 2 * NGHOST;
-  } else {
-    ks = ke = 0;
-    ncells3 = 1;
-    ncc3 = 1;
-  }
+  // initialize grid indices
+  InitializeIndexShapes(block_size.nx1, block_size.nx2, block_size.nx3);
 
   // Set the block pointer for the containers
   real_containers.Get().setBlock(this);
-
-  if (pm->multilevel) {
-    cnghost = (NGHOST + 1) / 2 + 1;
-    cis = NGHOST;
-    cie = cis + block_size.nx1 / 2 - 1;
-    cjs = cje = cks = cke = 0;
-    if (pmy_mesh->ndim >= 2) // 2D or 3D
-      cjs = NGHOST, cje = cjs + block_size.nx2 / 2 - 1;
-    if (pmy_mesh->ndim >= 3) // 3D
-      cks = NGHOST, cke = cks + block_size.nx3 / 2 - 1;
-  }
 
   // (re-)create mesh-related objects in MeshBlock
 
@@ -282,6 +201,19 @@ MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
 MeshBlock::~MeshBlock() {
   if (prev != nullptr) prev->next = next;
   if (next != nullptr) next->prev = prev;
+}
+
+void MeshBlock::InitializeIndexShapes(const int nx1, const int nx2, const int nx3) {
+  cellbounds = IndexShape(nx3, nx2, nx1, NGHOST);
+
+  if (pmy_mesh != nullptr) {
+    if (pmy_mesh->multilevel) {
+      cnghost = (NGHOST + 1) / 2 + 1;
+      c_cellbounds = IndexShape(nx3 / 2, nx2 / 2, nx1 / 2, NGHOST);
+    } else {
+      c_cellbounds = IndexShape(nx3 / 2, nx2 / 2, nx1 / 2, 0);
+    }
+  }
 }
 
 //----------------------------------------------------------------------------------------

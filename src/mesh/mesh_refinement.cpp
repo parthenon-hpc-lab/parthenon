@@ -67,23 +67,26 @@ void MeshRefinement::RestrictCellCenteredValues(const ParArrayND<Real> &fine,
                                                 int csi, int cei, int csj, int cej,
                                                 int csk, int cek) {
   MeshBlock *pmb = pmy_block_;
-  int si = (csi - pmb->cis) * 2 + pmb->is, ei = (cei - pmb->cis) * 2 + pmb->is + 1;
 
   auto coords = pmb->coords;
-  const int cks = pmb->cks;
-  const int cjs = pmb->cjs;
-  const int cis = pmb->cis;
-  const int ks = pmb->ks;
-  const int js = pmb->js;
-  const int is = pmb->is;
+  const IndexDomain interior = IndexDomain::interior;
+  const IndexRange ckb = pmb->c_cellbounds.GetBoundsK(interior);
+  const IndexRange cjb = pmb->c_cellbounds.GetBoundsJ(interior);
+  const IndexRange cib = pmb->c_cellbounds.GetBoundsI(interior);
+  const IndexRange kb = pmb->cellbounds.GetBoundsK(interior);
+  const IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
+  const IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
+
+  int si = (csi - cib.s) * 2 + ib.s;
+  int ei = (cei - cib.s) * 2 + ib.s + 1;
   // store the restricted data in the prolongation buffer for later use
   if (pmb->block_size.nx3 > 1) { // 3D
     pmb->par_for(
         "RestrictCellCenteredValues3d", sn, en, csk, cek, csj, cej, csi, cei,
         KOKKOS_LAMBDA(const int n, const int ck, const int cj, const int ci) {
-          int k = (ck - cks) * 2 + ks;
-          int j = (cj - cjs) * 2 + js;
-          int i = (ci - cis) * 2 + is;
+          int k = (ck - ckb.s) * 2 + kb.s;
+          int j = (cj - cjb.s) * 2 + jb.s;
+          int i = (ci - cib.s) * 2 + ib.s;
           // KGF: add the off-centered quantities first to preserve FP symmetry
           const Real vol000 = coords.Volume(k, j, i);
           const Real vol001 = coords.Volume(k, j, i + 1);
@@ -105,12 +108,12 @@ void MeshRefinement::RestrictCellCenteredValues(const ParArrayND<Real> &fine,
               tvol;
         });
   } else if (pmb->block_size.nx2 > 1) { // 2D
-    int k = ks, ck = cks;
+    int k = kb.s, ck = ckb.s;
     pmb->par_for(
         "RestrictCellCenteredValues2d", sn, en, csj, cej, csi, cei,
         KOKKOS_LAMBDA(const int n, const int cj, const int ci) {
-          int j = (cj - cjs) * 2 + js;
-          int i = (ci - cis) * 2 + is;
+          int j = (cj - cjb.s) * 2 + jb.s;
+          int i = (ci - cib.s) * 2 + ib.s;
           // KGF: add the off-centered quantities first to preserve FP symmetry
           const Real vol00 = coords.Volume(k, j, i);
           const Real vol10 = coords.Volume(k, j + 1, i);
@@ -125,11 +128,11 @@ void MeshRefinement::RestrictCellCenteredValues(const ParArrayND<Real> &fine,
               tvol;
         });
   } else { // 1D
-    int j = js, cj = cjs, k = ks, ck = cks;
+    int j = jb.s, cj = cjb.s, k = kb.s, ck = ckb.s;
     pmb->par_for(
         "RestrictCellCenteredValues1d", sn, en, csi, cei,
         KOKKOS_LAMBDA(const int n, const int ci) {
-          int i = (ci - cis) * 2 + is;
+          int i = (ci - cib.s) * 2 + ib.s;
           const Real vol0 = coords.Volume(k, j, i);
           const Real vol1 = coords.Volume(k, j, i + 1);
           Real tvol = vol0 + vol1;
@@ -149,16 +152,19 @@ void MeshRefinement::RestrictFieldX1(const ParArrayND<Real> &fine,
                                      int cej, int csk, int cek) {
   MeshBlock *pmb = pmy_block_;
   auto &coords = pmb->coords;
-  int si = (csi - pmb->cis) * 2 + pmb->is, ei = (cei - pmb->cis) * 2 + pmb->is;
+  const IndexDomain interior = IndexDomain::interior;
+  int si = (csi - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
+  int ei = (cei - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
 
   // store the restricted data in the prolongation buffer for later use
   if (pmb->block_size.nx3 > 1) { // 3D
     for (int ck = csk; ck <= cek; ck++) {
-      int k = (ck - pmb->cks) * 2 + pmb->ks;
+      int k = (ck - pmb->c_cellbounds.ks(interior)) * 2 + pmb->cellbounds.ks(interior);
       for (int cj = csj; cj <= cej; cj++) {
-        int j = (cj - pmb->cjs) * 2 + pmb->js;
+        int j = (cj - pmb->c_cellbounds.js(interior)) * 2 + pmb->cellbounds.js(interior);
         for (int ci = csi; ci <= cei; ci++) {
-          int i = (ci - pmb->cis) * 2 + pmb->is;
+          int i =
+              (ci - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
           const Real area00 = coords.Area(X1DIR, k, j, i);
           const Real area01 = coords.Area(X1DIR, k, j + 1, i);
           const Real area10 = coords.Area(X1DIR, k + 1, j, i);
@@ -172,11 +178,11 @@ void MeshRefinement::RestrictFieldX1(const ParArrayND<Real> &fine,
       }
     }
   } else if (pmb->block_size.nx2 > 1) { // 2D
-    int k = pmb->ks;
+    int k = pmb->cellbounds.ks(interior);
     for (int cj = csj; cj <= cej; cj++) {
-      int j = (cj - pmb->cjs) * 2 + pmb->js;
+      int j = (cj - pmb->c_cellbounds.js(interior)) * 2 + pmb->cellbounds.js(interior);
       for (int ci = csi; ci <= cei; ci++) {
-        int i = (ci - pmb->cis) * 2 + pmb->is;
+        int i = (ci - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
         const Real area0 = coords.Area(X1DIR, k, j, i);
         const Real area1 = coords.Area(X1DIR, k, j + 1, i);
         const Real tarea = area0 + area1;
@@ -185,8 +191,9 @@ void MeshRefinement::RestrictFieldX1(const ParArrayND<Real> &fine,
     }
   } else { // 1D - no restriction, just copy
     for (int ci = csi; ci <= cei; ci++) {
-      int i = (ci - pmb->cis) * 2 + pmb->is;
-      coarse(csk, csj, ci) = fine(pmb->ks, pmb->js, i);
+      int i = (ci - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
+      coarse(csk, csj, ci) =
+          fine(pmb->cellbounds.ks(interior), pmb->cellbounds.js(interior), i);
     }
   }
 
@@ -203,16 +210,19 @@ void MeshRefinement::RestrictFieldX2(const ParArrayND<Real> &fine,
                                      int cej, int csk, int cek) {
   MeshBlock *pmb = pmy_block_;
   auto &coords = pmb->coords;
-  int si = (csi - pmb->cis) * 2 + pmb->is, ei = (cei - pmb->cis) * 2 + pmb->is + 1;
+  const IndexDomain interior = IndexDomain::interior;
+  int si = (csi - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
+  int ei = (cei - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior) + 1;
 
   // store the restricted data in the prolongation buffer for later use
   if (pmb->block_size.nx3 > 1) { // 3D
     for (int ck = csk; ck <= cek; ck++) {
-      int k = (ck - pmb->cks) * 2 + pmb->ks;
+      int k = (ck - pmb->c_cellbounds.ks(interior)) * 2 + pmb->cellbounds.ks(interior);
       for (int cj = csj; cj <= cej; cj++) {
-        int j = (cj - pmb->cjs) * 2 + pmb->js;
+        int j = (cj - pmb->c_cellbounds.js(interior)) * 2 + pmb->cellbounds.js(interior);
         for (int ci = csi; ci <= cei; ci++) {
-          int i = (ci - pmb->cis) * 2 + pmb->is;
+          int i =
+              (ci - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
           const Real area00 = coords.Area(X2DIR, k, j, i);
           const Real area01 = coords.Area(X2DIR, k, j, i + 1);
           const Real area10 = coords.Area(X2DIR, k + 1, j, i);
@@ -226,26 +236,26 @@ void MeshRefinement::RestrictFieldX2(const ParArrayND<Real> &fine,
       }
     }
   } else if (pmb->block_size.nx2 > 1) { // 2D
-    int k = pmb->ks;
+    int k = pmb->cellbounds.ks(interior);
     for (int cj = csj; cj <= cej; cj++) {
-      int j = (cj - pmb->cjs) * 2 + pmb->js;
+      int j = (cj - pmb->c_cellbounds.js(interior)) * 2 + pmb->cellbounds.js(interior);
       for (int ci = csi; ci <= cei; ci++) {
-        int i = (ci - pmb->cis) * 2 + pmb->is;
+        int i = (ci - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
         const Real area0 = coords.Area(X2DIR, k, j, i);
         const Real area1 = coords.Area(X2DIR, k, j, i + 1);
         const Real tarea = area0 + area1;
-        coarse(pmb->cks, cj, ci) =
+        coarse(pmb->c_cellbounds.ks(interior), cj, ci) =
             (fine(k, j, i) * area0 + fine(k, j, i + 1) * area1) / tarea;
       }
     }
   } else { // 1D
-    int k = pmb->ks, j = pmb->js;
+    int k = pmb->cellbounds.ks(interior), j = pmb->cellbounds.js(interior);
     for (int ci = csi; ci <= cei; ci++) {
-      int i = (ci - pmb->cis) * 2 + pmb->is;
+      int i = (ci - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
       const Real area0 = coords.Area(X2DIR, k, j, i);
       const Real area1 = coords.Area(X2DIR, k, j, i + 1);
       const Real tarea = area0 + area1;
-      coarse(pmb->cks, pmb->cjs, ci) =
+      coarse(pmb->c_cellbounds.ks(interior), pmb->c_cellbounds.js(interior), ci) =
           (fine(k, j, i) * area0 + fine(k, j, i + 1) * area1) / tarea;
     }
   }
@@ -263,16 +273,19 @@ void MeshRefinement::RestrictFieldX3(const ParArrayND<Real> &fine,
                                      int cej, int csk, int cek) {
   MeshBlock *pmb = pmy_block_;
   auto &coords = pmb->coords;
-  int si = (csi - pmb->cis) * 2 + pmb->is, ei = (cei - pmb->cis) * 2 + pmb->is + 1;
+  const IndexDomain interior = IndexDomain::interior;
+  int si = (csi - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior),
+      ei = (cei - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior) + 1;
 
   // store the restricted data in the prolongation buffer for later use
   if (pmb->block_size.nx3 > 1) { // 3D
     for (int ck = csk; ck <= cek; ck++) {
-      int k = (ck - pmb->cks) * 2 + pmb->ks;
+      int k = (ck - pmb->c_cellbounds.ks(interior)) * 2 + pmb->cellbounds.ks(interior);
       for (int cj = csj; cj <= cej; cj++) {
-        int j = (cj - pmb->cjs) * 2 + pmb->js;
+        int j = (cj - pmb->c_cellbounds.js(interior)) * 2 + pmb->cellbounds.js(interior);
         for (int ci = csi; ci <= cei; ci++) {
-          int i = (ci - pmb->cis) * 2 + pmb->is;
+          int i =
+              (ci - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
           const Real area00 = coords.Area(X3DIR, k, j, i);
           const Real area01 = coords.Area(X3DIR, k, j, i + 1);
           const Real area10 = coords.Area(X3DIR, k, j + 1, i);
@@ -286,30 +299,30 @@ void MeshRefinement::RestrictFieldX3(const ParArrayND<Real> &fine,
       }
     }
   } else if (pmb->block_size.nx2 > 1) { // 2D
-    int k = pmb->ks;
+    int k = pmb->cellbounds.ks(interior);
     for (int cj = csj; cj <= cej; cj++) {
-      int j = (cj - pmb->cjs) * 2 + pmb->js;
+      int j = (cj - pmb->c_cellbounds.js(interior)) * 2 + pmb->cellbounds.js(interior);
       for (int ci = csi; ci <= cei; ci++) {
-        int i = (ci - pmb->cis) * 2 + pmb->is;
+        int i = (ci - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
         const Real area00 = coords.Area(X3DIR, k, j, i);
         const Real area01 = coords.Area(X3DIR, k, j, i + 1);
         const Real area10 = coords.Area(X3DIR, k, j + 1, i);
         const Real area11 = coords.Area(X3DIR, k, j + 1, i + 1);
         const Real tarea = area00 + area01 + area10 + area11;
-        coarse(pmb->cks, cj, ci) =
+        coarse(pmb->c_cellbounds.ks(interior), cj, ci) =
             (fine(k, j, i) * area00 + fine(k, j, i + 1) * area01 +
              fine(k, j + 1, i) * area10 + fine(k, j + 1, i + 1) * area11) /
             tarea;
       }
     }
   } else { // 1D
-    int k = pmb->ks, j = pmb->js;
+    int k = pmb->cellbounds.ks(interior), j = pmb->cellbounds.js(interior);
     for (int ci = csi; ci <= cei; ci++) {
-      int i = (ci - pmb->cis) * 2 + pmb->is;
+      int i = (ci - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
       const Real area0 = coords.Area(X3DIR, k, j, i);
       const Real area1 = coords.Area(X3DIR, k, j, i + 1);
       const Real tarea = area0 + area1;
-      coarse(pmb->cks, pmb->cjs, ci) =
+      coarse(pmb->c_cellbounds.ks(interior), pmb->c_cellbounds.js(interior), ci) =
           (fine(k, j, i) * area0 + fine(k, j, i + 1) * area1) / tarea;
     }
   }
@@ -330,18 +343,19 @@ void MeshRefinement::ProlongateCellCenteredValues(const ParArrayND<Real> &coarse
   MeshBlock *pmb = pmy_block_;
   auto coords = pmb->coords;
   auto coarse_coords = this->coarse_coords;
-  const int cks = pmb->cks;
-  const int cjs = pmb->cjs;
-  const int cis = pmb->cis;
-  const int ks = pmb->ks;
-  const int js = pmb->js;
-  const int is = pmb->is;
+  const IndexDomain interior = IndexDomain::interior;
+  const IndexRange ckb = pmb->c_cellbounds.GetBoundsK(interior);
+  const IndexRange cjb = pmb->c_cellbounds.GetBoundsJ(interior);
+  const IndexRange cib = pmb->c_cellbounds.GetBoundsI(interior);
+  const IndexRange kb = pmb->cellbounds.GetBoundsK(interior);
+  const IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
+  const IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
   if (pmb->block_size.nx3 > 1) {
     pmb->par_for(
         "ProlongateCellCenteredValues3d", sn, en, sk, ek, sj, ej, si, ei,
         KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
           // x3 direction
-          int fk = (k - cks) * 2 + ks;
+          int fk = (k - ckb.s) * 2 + kb.s;
           const Real x3m = coarse_coords.x3v(k - 1);
           const Real x3c = coarse_coords.x3v(k);
           const Real x3p = coarse_coords.x3v(k + 1);
@@ -353,7 +367,7 @@ void MeshRefinement::ProlongateCellCenteredValues(const ParArrayND<Real> &coarse
           Real dx3fp = fx3p - x3c;
 
           // x2 direction
-          int fj = (j - cjs) * 2 + js;
+          int fj = (j - cjb.s) * 2 + jb.s;
           const Real x2m = coarse_coords.x2v(j - 1);
           const Real x2c = coarse_coords.x2v(j);
           const Real x2p = coarse_coords.x2v(j + 1);
@@ -365,7 +379,7 @@ void MeshRefinement::ProlongateCellCenteredValues(const ParArrayND<Real> &coarse
           Real dx2fp = fx2p - x2c;
 
           // x1 direction
-          int fi = (i - cis) * 2 + is;
+          int fi = (i - cib.s) * 2 + ib.s;
           const Real x1m = coarse_coords.x1v(i - 1);
           const Real x1c = coarse_coords.x1v(i);
           const Real x1p = coarse_coords.x1v(i + 1);
@@ -408,12 +422,12 @@ void MeshRefinement::ProlongateCellCenteredValues(const ParArrayND<Real> &coarse
               ccval + (gx1c * dx1fp + gx2c * dx2fp + gx3c * dx3fp);
         });
   } else if (pmb->block_size.nx2 > 1) {
-    int k = cks, fk = ks;
+    int k = ckb.s, fk = kb.s;
     pmb->par_for(
         "ProlongateCellCenteredValues2d", sn, en, sj, ej, si, ei,
         KOKKOS_LAMBDA(const int n, const int j, const int i) {
           // x2 direction
-          int fj = (j - cjs) * 2 + js;
+          int fj = (j - cjb.s) * 2 + jb.s;
           const Real x2m = coarse_coords.x2v(j - 1);
           const Real x2c = coarse_coords.x2v(j);
           const Real x2p = coarse_coords.x2v(j + 1);
@@ -425,7 +439,7 @@ void MeshRefinement::ProlongateCellCenteredValues(const ParArrayND<Real> &coarse
           Real dx2fp = fx2p - x2c;
 
           // x1 direction
-          int fi = (i - cis) * 2 + is;
+          int fi = (i - cib.s) * 2 + ib.s;
           const Real x1m = coarse_coords.x1v(i - 1);
           const Real x1c = coarse_coords.x1v(i);
           const Real x1p = coarse_coords.x1v(i + 1);
@@ -456,11 +470,11 @@ void MeshRefinement::ProlongateCellCenteredValues(const ParArrayND<Real> &coarse
           fine(n, fk, fj + 1, fi + 1) = ccval + (gx1c * dx1fp + gx2c * dx2fp);
         });
   } else { // 1D
-    int k = cks, fk = ks, j = cjs, fj = js;
+    int k = ckb.s, fk = kb.s, j = cjb.s, fj = jb.s;
     pmb->par_for(
         "ProlongateCellCenteredValues1d", sn, en, si, ei,
         KOKKOS_LAMBDA(const int n, const int i) {
-          int fi = (i - cis) * 2 + is;
+          int fi = (i - cib.s) * 2 + ib.s;
           const Real x1m = coarse_coords.x1v(i - 1);
           const Real x1c = coarse_coords.x1v(i);
           const Real x1p = coarse_coords.x1v(i + 1);
@@ -497,9 +511,10 @@ void MeshRefinement::ProlongateSharedFieldX1(const ParArrayND<Real> &coarse,
                                              int sj, int ej, int sk, int ek) {
   MeshBlock *pmb = pmy_block_;
   auto &coords = pmb->coords;
+  const IndexDomain interior = IndexDomain::interior;
   if (pmb->block_size.nx3 > 1) {
     for (int k = sk; k <= ek; k++) {
-      int fk = (k - pmb->cks) * 2 + pmb->ks;
+      int fk = (k - pmb->c_cellbounds.ks(interior)) * 2 + pmb->cellbounds.ks(interior);
       const Real x3m = coarse_coords.x3s1(k - 1);
       const Real x3c = coarse_coords.x3s1(k);
       const Real x3p = coarse_coords.x3s1(k + 1);
@@ -508,7 +523,7 @@ void MeshRefinement::ProlongateSharedFieldX1(const ParArrayND<Real> &coarse,
       const Real fx3m = coords.x3s1(fk);
       const Real fx3p = coords.x3s1(fk + 1);
       for (int j = sj; j <= ej; j++) {
-        int fj = (j - pmb->cjs) * 2 + pmb->js;
+        int fj = (j - pmb->c_cellbounds.js(interior)) * 2 + pmb->cellbounds.js(interior);
         const Real x2m = coarse_coords.x2s1(j - 1);
         const Real x2c = coarse_coords.x2s1(j);
         const Real x2p = coarse_coords.x2s1(j + 1);
@@ -517,7 +532,8 @@ void MeshRefinement::ProlongateSharedFieldX1(const ParArrayND<Real> &coarse,
         const Real fx2m = coords.x2s1(fj);
         const Real fx2p = coords.x2s1(fj + 1);
         for (int i = si; i <= ei; i++) {
-          int fi = (i - pmb->cis) * 2 + pmb->is;
+          int fi =
+              (i - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
           Real ccval = coarse(k, j, i);
 
           Real gx2m = (ccval - coarse(k, j - 1, i)) / dx2m;
@@ -537,9 +553,9 @@ void MeshRefinement::ProlongateSharedFieldX1(const ParArrayND<Real> &coarse,
       }
     }
   } else if (pmb->block_size.nx2 > 1) {
-    int k = pmb->cks, fk = pmb->ks;
+    int k = pmb->c_cellbounds.ks(interior), fk = pmb->cellbounds.ks(interior);
     for (int j = sj; j <= ej; j++) {
-      int fj = (j - pmb->cjs) * 2 + pmb->js;
+      int fj = (j - pmb->c_cellbounds.js(interior)) * 2 + pmb->cellbounds.js(interior);
       const Real x2m = coarse_coords.x2s1(j - 1);
       const Real x2c = coarse_coords.x2s1(j);
       const Real x2p = coarse_coords.x2s1(j + 1);
@@ -548,7 +564,7 @@ void MeshRefinement::ProlongateSharedFieldX1(const ParArrayND<Real> &coarse,
       const Real fx2m = coords.x2s1(fj);
       const Real fx2p = coords.x2s1(fj + 1);
       for (int i = si; i <= ei; i++) {
-        int fi = (i - pmb->cis) * 2 + pmb->is;
+        int fi = (i - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
         Real ccval = coarse(k, j, i);
 
         Real gx2m = (ccval - coarse(k, j - 1, i)) / dx2m;
@@ -562,7 +578,7 @@ void MeshRefinement::ProlongateSharedFieldX1(const ParArrayND<Real> &coarse,
     }
   } else { // 1D
     for (int i = si; i <= ei; i++) {
-      int fi = (i - pmb->cis) * 2 + pmb->is;
+      int fi = (i - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
       fine(0, 0, fi) = coarse(0, 0, i);
     }
   }
@@ -578,10 +594,11 @@ void MeshRefinement::ProlongateSharedFieldX2(const ParArrayND<Real> &coarse,
                                              ParArrayND<Real> &fine, int si, int ei,
                                              int sj, int ej, int sk, int ek) {
   MeshBlock *pmb = pmy_block_;
+  const IndexDomain interior = IndexDomain::interior;
   auto &coords = pmb->coords;
   if (pmb->block_size.nx3 > 1) {
     for (int k = sk; k <= ek; k++) {
-      int fk = (k - pmb->cks) * 2 + pmb->ks;
+      int fk = (k - pmb->c_cellbounds.ks(interior)) * 2 + pmb->cellbounds.ks(interior);
       const Real x3m = coarse_coords.x3s2(k - 1);
       const Real x3c = coarse_coords.x3s2(k);
       const Real x3p = coarse_coords.x3s2(k + 1);
@@ -590,9 +607,10 @@ void MeshRefinement::ProlongateSharedFieldX2(const ParArrayND<Real> &coarse,
       const Real fx3m = coords.x3s2(fk);
       const Real fx3p = coords.x3s2(fk + 1);
       for (int j = sj; j <= ej; j++) {
-        int fj = (j - pmb->cjs) * 2 + pmb->js;
+        int fj = (j - pmb->c_cellbounds.js(interior)) * 2 + pmb->cellbounds.js(interior);
         for (int i = si; i <= ei; i++) {
-          int fi = (i - pmb->cis) * 2 + pmb->is;
+          int fi =
+              (i - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
           const Real x1m = coarse_coords.x1s2(i - 1);
           const Real x1c = coarse_coords.x1s2(i);
           const Real x1p = coarse_coords.x1s2(i + 1);
@@ -619,11 +637,11 @@ void MeshRefinement::ProlongateSharedFieldX2(const ParArrayND<Real> &coarse,
       }
     }
   } else if (pmb->block_size.nx2 > 1) {
-    int k = pmb->cks, fk = pmb->ks;
+    int k = pmb->c_cellbounds.ks(interior), fk = pmb->cellbounds.ks(interior);
     for (int j = sj; j <= ej; j++) {
-      int fj = (j - pmb->cjs) * 2 + pmb->js;
+      int fj = (j - pmb->c_cellbounds.js(interior)) * 2 + pmb->cellbounds.js(interior);
       for (int i = si; i <= ei; i++) {
-        int fi = (i - pmb->cis) * 2 + pmb->is;
+        int fi = (i - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
         const Real x1m = coarse_coords.x1s2(i - 1);
         const Real x1c = coarse_coords.x1s2(i);
         const Real x1p = coarse_coords.x1s2(i + 1);
@@ -642,7 +660,7 @@ void MeshRefinement::ProlongateSharedFieldX2(const ParArrayND<Real> &coarse,
     }
   } else {
     for (int i = si; i <= ei; i++) {
-      int fi = (i - pmb->cis) * 2 + pmb->is;
+      int fi = (i - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
       Real gxm = (coarse(0, 0, i) - coarse(0, 0, i - 1)) /
                  (coarse_coords.x1s2(i) - coarse_coords.x1s2(i - 1));
       Real gxp = (coarse(0, 0, i + 1) - coarse(0, 0, i)) /
@@ -666,12 +684,13 @@ void MeshRefinement::ProlongateSharedFieldX3(const ParArrayND<Real> &coarse,
                                              ParArrayND<Real> &fine, int si, int ei,
                                              int sj, int ej, int sk, int ek) {
   MeshBlock *pmb = pmy_block_;
+  const IndexDomain interior = IndexDomain::interior;
   auto &coords = pmb->coords;
   if (pmb->block_size.nx3 > 1) {
     for (int k = sk; k <= ek; k++) {
-      int fk = (k - pmb->cks) * 2 + pmb->ks;
+      int fk = (k - pmb->c_cellbounds.ks(interior)) * 2 + pmb->cellbounds.ks(interior);
       for (int j = sj; j <= ej; j++) {
-        int fj = (j - pmb->cjs) * 2 + pmb->js;
+        int fj = (j - pmb->c_cellbounds.js(interior)) * 2 + pmb->cellbounds.js(interior);
         const Real x2m = coarse_coords.x2s3(j - 1);
         const Real x2c = coarse_coords.x2s3(j);
         const Real x2p = coarse_coords.x2s3(j + 1);
@@ -680,7 +699,8 @@ void MeshRefinement::ProlongateSharedFieldX3(const ParArrayND<Real> &coarse,
         const Real fx2m = coords.x2s3(fj);
         const Real fx2p = coords.x2s3(fj + 1);
         for (int i = si; i <= ei; i++) {
-          int fi = (i - pmb->cis) * 2 + pmb->is;
+          int fi =
+              (i - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
           const Real x1m = coarse_coords.x1s3(i - 1);
           const Real x1c = coarse_coords.x1s3(i);
           const Real x1p = coarse_coords.x1s3(i + 1);
@@ -707,9 +727,9 @@ void MeshRefinement::ProlongateSharedFieldX3(const ParArrayND<Real> &coarse,
       }
     }
   } else if (pmb->block_size.nx2 > 1) {
-    int k = pmb->cks, fk = pmb->ks;
+    int k = pmb->c_cellbounds.ks(interior), fk = pmb->cellbounds.ks(interior);
     for (int j = sj; j <= ej; j++) {
-      int fj = (j - pmb->cjs) * 2 + pmb->js;
+      int fj = (j - pmb->c_cellbounds.js(interior)) * 2 + pmb->cellbounds.js(interior);
       const Real x2m = coarse_coords.x2s3(j - 1);
       const Real x2c = coarse_coords.x2s3(j);
       const Real x2p = coarse_coords.x2s3(j + 1);
@@ -720,7 +740,7 @@ void MeshRefinement::ProlongateSharedFieldX3(const ParArrayND<Real> &coarse,
       Real dx2fm = x2c - fx2m;
       Real dx2fp = fx2p - x2c;
       for (int i = si; i <= ei; i++) {
-        int fi = (i - pmb->cis) * 2 + pmb->is;
+        int fi = (i - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
         const Real x1m = coarse_coords.x1s3(i - 1);
         const Real x1c = coarse_coords.x1s3(i);
         const Real x1p = coarse_coords.x1s3(i + 1);
@@ -754,7 +774,7 @@ void MeshRefinement::ProlongateSharedFieldX3(const ParArrayND<Real> &coarse,
     }
   } else {
     for (int i = si; i <= ei; i++) {
-      int fi = (i - pmb->cis) * 2 + pmb->is;
+      int fi = (i - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
       Real gxm = (coarse(0, 0, i) - coarse(0, 0, i - 1)) /
                  (coarse_coords.x1s3(i) - coarse_coords.x1s3(i - 1));
       Real gxp = (coarse(0, 0, i + 1) - coarse(0, 0, i)) /
@@ -778,14 +798,17 @@ void MeshRefinement::ProlongateInternalField(FaceField &fine, int si, int ei, in
                                              int ej, int sk, int ek) {
   MeshBlock *pmb = pmy_block_;
   auto &coords = pmb->coords;
-  int fsi = (si - pmb->cis) * 2 + pmb->is, fei = (ei - pmb->cis) * 2 + pmb->is + 1;
+  const IndexDomain interior = IndexDomain::interior;
+  int fsi = (si - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior),
+      fei = (ei - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior) + 1;
   if (pmb->block_size.nx3 > 1) {
     for (int k = sk; k <= ek; k++) {
-      int fk = (k - pmb->cks) * 2 + pmb->ks;
+      int fk = (k - pmb->c_cellbounds.ks(interior)) * 2 + pmb->cellbounds.ks(interior);
       for (int j = sj; j <= ej; j++) {
-        int fj = (j - pmb->cjs) * 2 + pmb->js;
+        int fj = (j - pmb->c_cellbounds.js(interior)) * 2 + pmb->cellbounds.js(interior);
         for (int i = si; i <= ei; i++) {
-          int fi = (i - pmb->cis) * 2 + pmb->is;
+          int fi =
+              (i - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
           Real Uxx = 0.0, Vyy = 0.0, Wzz = 0.0;
           Real Uxyz = 0.0, Vxyz = 0.0, Wxyz = 0.0;
 #pragma unroll
@@ -914,11 +937,11 @@ void MeshRefinement::ProlongateInternalField(FaceField &fine, int si, int ei, in
       }
     }
   } else if (pmb->block_size.nx2 > 1) {
-    int fk = pmb->ks;
+    int fk = pmb->cellbounds.ks(interior);
     for (int j = sj; j <= ej; j++) {
-      int fj = (j - pmb->cjs) * 2 + pmb->js;
+      int fj = (j - pmb->c_cellbounds.js(interior)) * 2 + pmb->cellbounds.js(interior);
       for (int i = si; i <= ei; i++) {
-        int fi = (i - pmb->cis) * 2 + pmb->is;
+        int fi = (i - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
         Real tmp1 =
             0.25 *
             (fine.x2f(fk, fj + 2, fi + 1) * coords.Area(X2DIR, fk, fj + 2, fi + 1) -
@@ -957,7 +980,7 @@ void MeshRefinement::ProlongateInternalField(FaceField &fine, int si, int ei, in
     }
   } else {
     for (int i = si; i <= ei; i++) {
-      int fi = (i - pmb->cis) * 2 + pmb->is;
+      int fi = (i - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
       Real ph = coords.Area(X1DIR, 0, 0, fi) * fine.x1f(0, 0, fi);
       fine.x1f(0, 0, fi + 1) = ph / coords.Area(X1DIR, 0, 0, fi + 1);
     }

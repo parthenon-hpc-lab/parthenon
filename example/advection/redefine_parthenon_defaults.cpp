@@ -49,9 +49,13 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
   const auto &sin_a3 = pkg->Param<Real>("sin_a3");
   const auto &profile = pkg->Param<int>("profile");
 
-  for (int k = 0; k < ncells3; k++) {
-    for (int j = 0; j < ncells2; j++) {
-      for (int i = 0; i < ncells1; i++) {
+  IndexRange ib = cellbounds.GetBoundsI(IndexDomain::entire);
+  IndexRange jb = cellbounds.GetBoundsJ(IndexDomain::entire);
+  IndexRange kb = cellbounds.GetBoundsK(IndexDomain::entire);
+
+  for (int k = kb.s; k <= kb.e; k++) {
+    for (int j = jb.s; j <= jb.e; j++) {
+      for (int i = ib.s; i <= ib.e; i++) {
         if (profile == 0) { // wave
           Real x = cos_a2 * (coords.x1v(i) * cos_a3 + coords.x2v(j) * sin_a3) +
                    coords.x3v(k) * sin_a2;
@@ -94,8 +98,6 @@ void Mesh::UserWorkAfterLoop(ParameterInput *pin, SimTime &tm) {
   while (pmb != nullptr) {
     auto pkg = pmb->packages["advection_package"];
 
-    int il = pmb->is, iu = pmb->ie, jl = pmb->js, ju = pmb->je, kl = pmb->ks,
-        ku = pmb->ke;
 
     auto rc = pmb->real_containers.Get(); // get base container
     ParArray3D<Real> q = rc.Get("advected").data.Get<3>();
@@ -108,10 +110,14 @@ void Mesh::UserWorkAfterLoop(ParameterInput *pin, SimTime &tm) {
     const auto &sin_a3 = pkg->Param<Real>("sin_a3");
     const auto &profile = pkg->Param<int>("profile");
 
+    IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
+    IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
+    IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
+
     // TODO(pgrete) needs to be a reduction when using parallel_for
-    for (int k = kl; k <= ku; ++k) {
-      for (int j = jl; j <= ju; ++j) {
-        for (int i = il; i <= iu; ++i) {
+    for (int k = kb.s; k <= kb.e; k++) {
+      for (int j = jb.s; j <= jb.e; j++) {
+        for (int i = ib.s; i <= ib.e; i++) {
           Real ref_val;
           if (profile == 0) { // wave
             Real x =
