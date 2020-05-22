@@ -99,10 +99,10 @@ parthenon-cuda-performance_and_regression:
     - cmake -DCMAKE_BUILD_TYPE=Release -DHDF5_ROOT=/usr/local/hdf5/parallel
       -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
       -DKokkos_ENABLE_CUDA=True -DKokkos_ARCH_PASCAL61=True
-      -DMPIEXEC_PREFLAGS="--allow-run-as-root"
+      -DDISABLE_MPI=ON
       -DCMAKE_CXX_COMPILER=${PWD}/../external/Kokkos/bin/nvcc_wrapper
       -DKokkos_ENABLE_CUDA_UVM=ON
-      ../ && make -j${J} && ctest -L regression
+      ../ && make -j${J} && ctest -L regression -LE mpi
   artifacts:
     when: always
     expire_in: 3 days
@@ -112,7 +112,34 @@ parthenon-cuda-performance_and_regression:
       - build-cuda-perf-uvm/tst/regression/outputs/advection_convergence/advection-errors.dat
       - build-cuda-perf-uvm/tst/regression/outputs/advection_convergence/advection-errors.png
 
-# run performance and regression on CPUs
+parthenon-cuda-performance_and_regression-mpi:
+  tags:
+    - cuda
+  stage: performance_and_regression
+  script:
+# run regression tests with UVM until everything is on the device
+# mitigate UVM allocations on older multi-GPU systems
+    - export CUDA_LAUNCH_BLOCKING=1
+    - export CUDA_VISIBLE_DEVICES=0
+    - mkdir build-cuda-perf-mpi-uvm
+    - cd build-cuda-perf-mpi-uvm
+    - cmake -DCMAKE_BUILD_TYPE=Release -DHDF5_ROOT=/usr/local/hdf5/parallel
+      -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
+      -DKokkos_ENABLE_CUDA=True -DKokkos_ARCH_PASCAL61=True
+      -DMPIEXEC_PREFLAGS="--allow-run-as-root"
+      -DCMAKE_CXX_COMPILER=${PWD}/../external/Kokkos/bin/nvcc_wrapper
+      -DKokkos_ENABLE_CUDA_UVM=ON
+      ../ && make -j${J} 
+    - ctest -L regression -LE nompi
+  artifacts:
+    when: always
+    expire_in: 3 days
+    paths:
+      - build-cuda-perf-mpi-uvm/CMakeFiles/CMakeOutput.log
+      - build-cuda-perf-mpi-uvm/tst/regression/outputs/advection_convergence/advection-errors.dat
+      - build-cuda-perf-mpi-uvm/tst/regression/outputs/advection_convergence/advection-errors.png
+
+# run performance and regression on CPUs without MPI
 parthenon-cpu-performance_and_regression:
   tags:
     - cpu
@@ -122,8 +149,8 @@ parthenon-cpu-performance_and_regression:
     - cd build-perf
     - cmake -DCMAKE_BUILD_TYPE=Release -DHDF5_ROOT=/usr/local/hdf5/parallel
       -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
-      -DMPIEXEC_PREFLAGS="--allow-run-as-root"
-      ../ && make -j${J} && ctest -L "performance|regression"
+      -DDISABLE_MPI=ON
+      ../ && make -j${J} && ctest -L "performance|regression" -LE "mpi"
   artifacts:
     when: always
     expire_in: 3 days
@@ -131,3 +158,25 @@ parthenon-cpu-performance_and_regression:
       - build-perf/CMakeFiles/CMakeOutput.log
       - build-perf/tst/regression/outputs/advection_convergence/advection-errors.dat
       - build-perf/tst/regression/outputs/advection_convergence/advection-errors.png
+
+# run performance and regression on CPUs with MPI
+parthenon-cpu-performance_and_regression-mpi:
+  tags:
+    - cpu
+  stage: performance_and_regression
+  script:
+    - mkdir build-perf-mpi
+    - cd build-perf-mpi
+    - cmake -DCMAKE_BUILD_TYPE=Release -DHDF5_ROOT=/usr/local/hdf5/parallel
+      -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
+      -DMPIEXEC_PREFLAGS="--allow-run-as-root"
+      ../ && make -j${J}
+#    - ctest -L "performance" # no need for performance test as currently none use MPI
+    - ctest -L "regression" -LE "nompi"
+  artifacts:
+    when: always
+    expire_in: 3 days
+    paths:
+      - build-perf-mpi/CMakeFiles/CMakeOutput.log
+      - build-perf-mpi/tst/regression/outputs/advection_convergence/advection-errors.dat
+      - build-perf-mpi/tst/regression/outputs/advection_convergence/advection-errors.png
