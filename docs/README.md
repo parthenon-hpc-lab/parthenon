@@ -14,8 +14,28 @@ See the [build doc](building.md) for details on building parthenon for specific 
 
 ## Short feature description
 
-Short feature descriptions may directly go in here with, for example, a link to a (unit)
-test illustrating its usage.
+### Automated tests
+
+Regression and convergence tests that cover the majority of features are based on the
+[Advection example](../example/advection-example) and defined in the
+[advection-convergence](../tst/regression/test_suites/advection_convergence) and
+[output_hdf5](../tst/regression/test_suites/output_hdf5) test suites.
+
+The tests currently cover
+- advection of wave in x, y, and z direction as well oblique to the *static* grid for different resolutions to demonstrate first order convergence (see `tst/regression/outputs/advection_convergence/advection-errors.png` file in the build directory after running the test)
+- Advection of a smoothed sphere at an angle on a *static* grid, on a *static* grid a twice the resolution, and with *AMR* covering the sphere at the effective higher resolution
+- Advection of a sharp sphere at an angle with *AMR* writing hdf5 output and comparing against a gold standard output.
+
+To execute the tests first obtain the current gold standard output
+```bash
+# from within the main parthenon directory
+wget -qO- https://pgrete.de/dl/parthenon_regression_gold_latest.tgz | tar -xz -C tst/regression/gold_standard
+```
+and afterwards run the tests, e.g., through
+```bash
+# from within the build directory (add -V fore more detailed output)
+ctest -R regression
+```
 
 ### ParthenonManager
 
@@ -38,12 +58,6 @@ Macros for causing execution to throw an exception are provided [here](../src/ut
 * PARTHENON_DEBUG_FAIL(message) always exits when in debug mode.
 
 Both macros print the message, and filename and line number where the macro is called. PARTHENON_REQUIRE also prints the condition.
-
-
-## Long feature description
-
-For features that require more detailed documentation a short paragraph or sentence here
-is sufficient with a link to a more detailed description in a separate [file](feature.md).
 
 ### Kokkos/Wrapper related
 
