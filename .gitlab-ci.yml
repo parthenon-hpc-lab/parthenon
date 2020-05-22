@@ -1,4 +1,4 @@
-image: cuda10.2-mpi-hdf5-mpl
+image: cuda10.0-mpi-hdf5-mpl
 
 # Is performed before the scripts in the stages step
 before_script:
@@ -14,6 +14,7 @@ before_script:
     - if [ `cat tst/regression/gold_standard/current_version` != ${GOLD_STANDARD_VER} ]; then
       echo "Updating regression Gold standard to ${GOLD_STANDARD_VER}." &&
       wget -qO- https://pgrete.de/dl/parthenon_regression_gold_r${GOLD_STANDARD_VER}.tgz | tar -xz -C tst/regression/gold_standard; fi
+    - update-alternatives --install /usr/bin/python python /usr/bin/python3 10
 
 cache:
   paths:
@@ -96,7 +97,7 @@ parthenon-cuda-performance_and_regression:
     - cd ..
     - mkdir build-cuda-perf-uvm
     - cd build-cuda-perf-uvm
-    - cmake -DCMAKE_BUILD_TYPE=Release -DHDF5_ROOT=/usr/local/hdf5/parallel
+    - cmake -DCMAKE_BUILD_TYPE=Release -DHDF5_ROOT=/usr/local/hdf5/serial
       -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
       -DKokkos_ENABLE_CUDA=True -DKokkos_ARCH_PASCAL61=True
       -DDISABLE_MPI=ON
@@ -147,7 +148,7 @@ parthenon-cpu-performance_and_regression:
   script:
     - mkdir build-perf
     - cd build-perf
-    - cmake -DCMAKE_BUILD_TYPE=Release -DHDF5_ROOT=/usr/local/hdf5/parallel
+    - cmake -DCMAKE_BUILD_TYPE=Release -DHDF5_ROOT=/usr/local/hdf5/serial
       -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
       -DDISABLE_MPI=ON
       ../ && make -j${J} && ctest -L "performance|regression" -LE "mpi"
