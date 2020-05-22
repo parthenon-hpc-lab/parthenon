@@ -12,9 +12,9 @@
 //========================================================================================
 
 #include <sstream>
+#include <string>
 
 #include <parthenon/package.hpp>
-#include <string>
 
 #include "advection_package.hpp"
 #include "defs.hpp"
