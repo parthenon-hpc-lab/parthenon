@@ -71,7 +71,7 @@ struct LogicalLocation { // aggregate and POD type
 
 /// Defines the maximum size of the static array used in the IndexShape objects
 constexpr int NDIM = 3;
-static_assert(NDIM >= 3 &&
+static_assert(NDIM >= 3,
               "IndexShape cannot be used when NDIM is set to a value less than 3");
 //----------------------------------------------------------------------------------------
 //! \struct RegionSize
