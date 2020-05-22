@@ -103,7 +103,7 @@ parthenon-cuda-performance_and_regression:
       -DDISABLE_MPI=ON
       -DCMAKE_CXX_COMPILER=${PWD}/../external/Kokkos/bin/nvcc_wrapper
       -DKokkos_ENABLE_CUDA_UVM=ON
-      ../ && make -j${J} && ctest -L regression -LE mpi
+      ../ && make -j${J} && ctest -L regression -LE mpi-yes
   artifacts:
     when: always
     expire_in: 3 days
@@ -131,7 +131,7 @@ parthenon-cuda-performance_and_regression-mpi:
       -DCMAKE_CXX_COMPILER=${PWD}/../external/Kokkos/bin/nvcc_wrapper
       -DKokkos_ENABLE_CUDA_UVM=ON
       ../ && make -j${J} 
-    - ctest -L regression -LE nompi
+    - ctest -L regression -LE mpi-no
   artifacts:
     when: always
     expire_in: 3 days
@@ -151,7 +151,7 @@ parthenon-cpu-performance_and_regression:
     - cmake -DCMAKE_BUILD_TYPE=Release -DHDF5_ROOT=/usr/local/hdf5/serial
       -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
       -DDISABLE_MPI=ON
-      ../ && make -j${J} && ctest -L "performance|regression" -LE "mpi"
+      ../ && make -j${J} && ctest -L "performance|regression" -LE mpi-yes
   artifacts:
     when: always
     expire_in: 3 days
@@ -173,7 +173,7 @@ parthenon-cpu-performance_and_regression-mpi:
       -DMPIEXEC_PREFLAGS="--allow-run-as-root"
       ../ && make -j${J}
 #    - ctest -L "performance" # no need for performance test as currently none use MPI
-    - ctest -L "regression" -LE "nompi"
+    - ctest -L regression -LE mpi-no
   artifacts:
     when: always
     expire_in: 3 days
