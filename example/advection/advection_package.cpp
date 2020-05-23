@@ -168,31 +168,25 @@ AmrTag CheckRefinement(Container<Real> &rc) {
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
 
-  Kokkos::complex<Real> minmax(1.0, 0.0); // using real as vmin and imag as vmax
-  Kokkos::Sum<Kokkos::complex<Real>> minmax_reducer(minmax);
-  // using a "cheap" (read dirty) reduction on a complex variable instead of
-  // two scalars to prevent the implementation of a custom reduction on an array
-  // Alternatively, we may want to change the reducer type to a view at some point
-  // to precent an implicit fence at the end of the kernel. However, then we also need
-  // to refactor more code so that this function can return immediate and we collect
-  // the result later (similar to calculating timesteps on individual meshblocks)
+  typename Kokkos::MinMax<Real>::value_type minmax;
   Kokkos::parallel_reduce(
       "advection check refinement",
-      Kokkos::MDRangePolicy<Kokkos::Rank<3>>({kb.s, jb.s, ib.s}, {kb.e, jb.e, ib.e},
-                                             {1, 1, ib.e - ib.s}),
-      KOKKOS_LAMBDA(int k, int j, int i, Kokkos::complex<Real> &minmax) {
-        Real vmin = (v(k, j, i) < minmax.real() ? v(k, j, i) : minmax.real());
-        Real vmax = (v(k, j, i) > minmax.imag() ? v(k, j, i) : minmax.imag());
-        minmax = Kokkos::complex<Real>(vmin, vmax);
+      Kokkos::MDRangePolicy<Kokkos::Rank<3>>(pmb->exec_space, {kb.s, jb.s, ib.s},
+                                             {kb.e + 1, jb.e + 1, ib.e + 1},
+                                             {1, 1, ib.e + 1 - ib.s}),
+      KOKKOS_LAMBDA(int k, int j, int i,
+                    typename Kokkos::MinMax<Real>::value_type &lminmax) {
+        lminmax.min_val = (v(k, j, i) < lminmax.min_val ? v(k, j, i) : lminmax.min_val);
+        lminmax.max_val = (v(k, j, i) > lminmax.max_val ? v(k, j, i) : lminmax.max_val);
       },
-      minmax_reducer);
+      Kokkos::MinMax<Real>(minmax));
 
   auto pkg = pmb->packages["advection_package"];
   const auto &refine_tol = pkg->Param<Real>("refine_tol");
   const auto &derefine_tol = pkg->Param<Real>("derefine_tol");
 
-  if (minmax.imag() > refine_tol && minmax.real() < derefine_tol) return AmrTag::refine;
-  if (minmax.imag() < derefine_tol) return AmrTag::derefine;
+  if (minmax.max_val > refine_tol && minmax.min_val < derefine_tol) return AmrTag::refine;
+  if (minmax.max_val < derefine_tol) return AmrTag::derefine;
   return AmrTag::same;
 }
 
