@@ -28,11 +28,8 @@
 namespace parthenon {
 
 struct IndexRange {
-  IndexRange() {}
-  IndexRange(int start, int end) : s(start), e(end) { assert(e >= s); }
   int s = 0; /// Starting Index (inclusive)
   int e = 0; /// Ending Index (inclusive)
-  KOKKOS_INLINE_FUNCTION int ncells() const noexcept { return e - s + 1; }
 };
 
 // Assuming we have a block
@@ -67,7 +64,7 @@ class IndexShape {
   }
 
   KOKKOS_INLINE_FUNCTION void MakeZeroDimensional_(int index) {
-    x_[index] = IndexRange(0, 0);
+    x_[index] = IndexRange{0, 0};
     entire_ncells_[index] = 1;
   }
 
@@ -108,7 +105,7 @@ class IndexShape {
         if (interior_dims.at(index) == 0) {
           MakeZeroDimensional_(index);
         } else {
-          x_[index] = IndexRange(ng, (ng + interior_dims.at(index) - 1));
+          x_[index] = IndexRange{ng, (ng + interior_dims.at(index) - 1)};
           entire_ncells_[index] = interior_dims.at(index) + 2 * ng;
         }
       }
@@ -127,19 +124,19 @@ class IndexShape {
     return x_;
   }
 
-  KOKKOS_INLINE_FUNCTION const IndexRange GetBoundsI(const IndexDomain &domain) const
-      noexcept {
-    return (domain == IndexDomain::entire) ? IndexRange(0, entire_ncells_[0] - 1) : x_[0];
+  KOKKOS_INLINE_FUNCTION const IndexRange
+  GetBoundsI(const IndexDomain &domain) const noexcept {
+    return (domain == IndexDomain::entire) ? IndexRange{0, entire_ncells_[0] - 1} : x_[0];
   }
 
-  KOKKOS_INLINE_FUNCTION const IndexRange GetBoundsJ(const IndexDomain &domain) const
-      noexcept {
-    return (domain == IndexDomain::entire) ? IndexRange(0, entire_ncells_[1] - 1) : x_[1];
+  KOKKOS_INLINE_FUNCTION const IndexRange
+  GetBoundsJ(const IndexDomain &domain) const noexcept {
+    return (domain == IndexDomain::entire) ? IndexRange{0, entire_ncells_[1] - 1} : x_[1];
   }
 
-  KOKKOS_INLINE_FUNCTION const IndexRange GetBoundsK(const IndexDomain &domain) const
-      noexcept {
-    return (domain == IndexDomain::entire) ? IndexRange(0, entire_ncells_[2] - 1) : x_[2];
+  KOKKOS_INLINE_FUNCTION const IndexRange
+  GetBoundsK(const IndexDomain &domain) const noexcept {
+    return (domain == IndexDomain::entire) ? IndexRange{0, entire_ncells_[2] - 1} : x_[2];
   }
 
   KOKKOS_INLINE_FUNCTION int is(const IndexDomain &domain) const noexcept {
@@ -167,15 +164,15 @@ class IndexShape {
   }
 
   KOKKOS_INLINE_FUNCTION int ncellsi(const IndexDomain &domain) const noexcept {
-    return (domain == IndexDomain::entire) ? entire_ncells_[0] : x_[0].ncells();
+    return (domain == IndexDomain::entire) ? entire_ncells_[0] : x_[0].e - x_[0].s + 1;
   }
 
   KOKKOS_INLINE_FUNCTION int ncellsj(const IndexDomain &domain) const noexcept {
-    return (domain == IndexDomain::entire) ? entire_ncells_[1] : x_[1].ncells();
+    return (domain == IndexDomain::entire) ? entire_ncells_[1] : x_[1].e - x_[1].s + 1;
   }
 
   KOKKOS_INLINE_FUNCTION int ncellsk(const IndexDomain &domain) const noexcept {
-    return (domain == IndexDomain::entire) ? entire_ncells_[2] : x_[2].ncells();
+    return (domain == IndexDomain::entire) ? entire_ncells_[2] : x_[2].e - x_[2].s + 1;
   }
 
   // Kept basic for kokkos
@@ -184,7 +181,7 @@ class IndexShape {
     int total = 1;
     if (domain == IndexDomain::entire) {
       for (int i = 0; i < NDIM; ++i)
-        total *= x_[i].ncells();
+        total *= x_[i].e - x_[i].s + 1;
     } else {
       for (int i = 0; i < NDIM; ++i)
         total *= entire_ncells_[i];
