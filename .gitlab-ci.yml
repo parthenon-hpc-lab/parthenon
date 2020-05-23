@@ -103,7 +103,8 @@ parthenon-cuda-performance_and_regression:
       -DDISABLE_MPI=ON
       -DCMAKE_CXX_COMPILER=${PWD}/../external/Kokkos/bin/nvcc_wrapper
       -DKokkos_ENABLE_CUDA_UVM=ON
-      ../ && make -j${J} && ctest -L regression -LE mpi-yes
+      ../ && make -j${J} && ctest -L regression -LE mpi-yes --timeout 3600
+  allow_failure: true
   artifacts:
     when: always
     expire_in: 3 days
@@ -131,7 +132,8 @@ parthenon-cuda-performance_and_regression-mpi:
       -DCMAKE_CXX_COMPILER=${PWD}/../external/Kokkos/bin/nvcc_wrapper
       -DKokkos_ENABLE_CUDA_UVM=ON
       ../ && make -j${J} 
-    - ctest -L regression -LE mpi-no
+    - ctest -L regression -LE mpi-no --timeout 3600
+  allow_failure: true
   artifacts:
     when: always
     expire_in: 3 days
