@@ -124,18 +124,18 @@ class IndexShape {
     return x_;
   }
 
-  KOKKOS_INLINE_FUNCTION const IndexRange
-  GetBoundsI(const IndexDomain &domain) const noexcept {
+  KOKKOS_INLINE_FUNCTION const IndexRange GetBoundsI(const IndexDomain &domain) const
+      noexcept {
     return (domain == IndexDomain::entire) ? IndexRange{0, entire_ncells_[0] - 1} : x_[0];
   }
 
-  KOKKOS_INLINE_FUNCTION const IndexRange
-  GetBoundsJ(const IndexDomain &domain) const noexcept {
+  KOKKOS_INLINE_FUNCTION const IndexRange GetBoundsJ(const IndexDomain &domain) const
+      noexcept {
     return (domain == IndexDomain::entire) ? IndexRange{0, entire_ncells_[1] - 1} : x_[1];
   }
 
-  KOKKOS_INLINE_FUNCTION const IndexRange
-  GetBoundsK(const IndexDomain &domain) const noexcept {
+  KOKKOS_INLINE_FUNCTION const IndexRange GetBoundsK(const IndexDomain &domain) const
+      noexcept {
     return (domain == IndexDomain::entire) ? IndexRange{0, entire_ncells_[2] - 1} : x_[2];
   }
 
