@@ -737,8 +737,8 @@ void Mesh::PrepareSendSameLevel(MeshBlock *pb, ParArray1D<Real> &sendbuf) {
   for (auto &pvar_cc : pb->vars_cc_) {
     int nu = pvar_cc->GetDim(4) - 1;
     ParArray4D<Real> var_cc = pvar_cc->data.Get<4>();
-    BufferUtility::PackData(var_cc, sendbuf, 0, nu, ib.s, ib.e, jb.s, jb.e, kb.s, kb.e,
-                            p, pb);
+    BufferUtility::PackData(var_cc, sendbuf, 0, nu, ib.s, ib.e, jb.s, jb.e, kb.s, kb.e, p,
+                            pb);
   }
   for (auto &pvar_fc : pb->vars_fc_) {
     auto &var_fc = *pvar_fc;
