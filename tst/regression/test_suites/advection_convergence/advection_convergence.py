@@ -297,13 +297,13 @@ class TestCase(utils.test_case.TestCaseAbs):
             line_x = lines[i+0*n_res+1].split()
             line_y = lines[i+1*n_res+1].split()
             line_z = lines[i+2*n_res+1].split()
-            # num iterations and relative error must be identical
-            for j in [3,5]:
+            # num iterations must be identical
+            for j in [3]:
                 if line_x[j] != line_y[j]:
-                    print("Mismatch between X and Y", line_x, line_y)
+                    print("Cycle mismatch between X and Y", line_x, line_y)
                     analyze_status = False
                 if line_x[j] != line_z[j]:
-                    print("Mismatch between X and Z", line_x, line_z)
+                    print("Cycle mismatch between X and Z", line_x, line_z)
                     analyze_status = False
             # absolute errors should be close
             for j in [4,6]:
