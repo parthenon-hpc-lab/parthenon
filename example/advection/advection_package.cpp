@@ -22,7 +22,7 @@
 
 #include "advection_package.hpp"
 #include "kokkos_abstraction.hpp"
-#include "reconstruct/dc.hpp"
+#include "reconstruct/dc_inline.hpp"
 
 using namespace parthenon::package::prelude;
 

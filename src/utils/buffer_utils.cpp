@@ -37,7 +37,6 @@ namespace BufferUtility {
 template <typename T>
 void PackData(ParArray4D<T> &src, ParArray1D<T> &buf, int sn, int en, int si, int ei,
               int sj, int ej, int sk, int ek, int &offset, MeshBlock *pmb) {
-
   int ni = ei + 1 - si;
   int nj = ej + 1 - sj;
   int nk = ek + 1 - sk;
@@ -109,7 +108,6 @@ void UnpackData(ParArray1D<T> &buf, ParArray4D<T> &dst, int sn, int en, int si, 
 template <typename T>
 void UnpackData(ParArray1D<T> &buf, ParArray3D<T> &dst, int si, int ei, int sj, int ej,
                 int sk, int ek, int &offset, MeshBlock *pmb) {
-
   int ni = ei + 1 - si;
   int nj = ej + 1 - sj;
   int nk = ek + 1 - sk;

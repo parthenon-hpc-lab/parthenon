@@ -14,8 +14,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef RECONSTRUCT_DC_HPP_
-#define RECONSTRUCT_DC_HPP_
+#ifndef RECONSTRUCT_DC_INLINE_HPP_
+#define RECONSTRUCT_DC_INLINE_HPP_
 //! \file dc.hpp
 //  \brief implements donor cell reconstruction
 
@@ -77,4 +77,4 @@ void DonorCellX3(parthenon::team_mbr_t const &member, const int k, const int j,
 }
 } // namespace parthenon
 
-#endif // RECONSTRUCT_DC_HPP_
+#endif // RECONSTRUCT_DC_INLINE_HPP_

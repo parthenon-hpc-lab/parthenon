@@ -23,6 +23,25 @@
 namespace parthenon {
 
 //----------------------------------------------------------------------------------------
+//! \fn Reconstruction::DonorCellX1()
+//  \brief reconstruct L/R surfaces of the i-th cells
+
+void Reconstruction::DonorCellX1(const int k, const int j, const int il, const int iu,
+                                 const ParArrayND<Real> &q, ParArrayND<Real> &ql,
+                                 ParArrayND<Real> &qr) {
+  const int nu = q.GetDim(4) - 1;
+
+  // compute L/R states for each variable
+  for (int n = 0; n <= nu; ++n) {
+#pragma omp simd
+    for (int i = il; i <= iu; ++i) {
+      ql(n, i + 1) = qr(n, i) = q(n, k, j, i);
+    }
+  }
+  return;
+}
+
+//----------------------------------------------------------------------------------------
 //! \fn Reconstruction::DonorCellX2()
 //  \brief
 

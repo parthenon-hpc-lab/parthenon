@@ -22,8 +22,8 @@
 // (Mignone) A. Mignone, "High-order conservative reconstruction schemes for finite volume
 // methods in cylindrical and spherical coordinates", JCP, 270, 784 (2014)
 //========================================================================================
-#ifndef RECONSTRUCT_PLM_HPP_
-#define RECONSTRUCT_PLM_HPP_
+#ifndef RECONSTRUCT_PLM_INLINE_HPP_
+#define RECONSTRUCT_PLM_INLINE_HPP_
 //! \file plm.hpp
 //  \brief implements piecewise linear reconstruction
 
@@ -267,4 +267,4 @@ void PiecewiseLinearX3(parthenon::team_mbr_t const &member, const int k, const i
 }
 } // namespace parthenon
 
-#endif // RECONSTRUCT_PLM_HPP_
+#endif // RECONSTRUCT_PLM_INLINE_HPP_
