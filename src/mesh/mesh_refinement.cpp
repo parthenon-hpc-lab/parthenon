@@ -272,7 +272,6 @@ void MeshRefinement::RestrictFieldX3(const ParArrayND<Real> &fine,
                                      ParArrayND<Real> &coarse, int csi, int cei, int csj,
                                      int cej, int csk, int cek) {
   MeshBlock *pmb = pmy_block_;
-
   auto &coords = pmb->coords;
   const IndexDomain interior = IndexDomain::interior;
   int si = (csi - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior),
@@ -343,6 +342,7 @@ void MeshRefinement::ProlongateCellCenteredValues(const ParArrayND<Real> &coarse
                                                   int ek) {
   MeshBlock *pmb = pmy_block_;
   auto coords = pmb->coords;
+  auto coarse_coords = this->coarse_coords;
   const IndexDomain interior = IndexDomain::interior;
   const IndexRange ckb = pmb->c_cellbounds.GetBoundsK(interior);
   const IndexRange cjb = pmb->c_cellbounds.GetBoundsJ(interior);
