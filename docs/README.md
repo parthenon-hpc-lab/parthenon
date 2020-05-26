@@ -59,19 +59,11 @@ Macros for causing execution to throw an exception are provided [here](../src/ut
 
 Both macros print the message, and filename and line number where the macro is called. PARTHENON_REQUIRE also prints the condition.
 
-### Kokkos/Wrapper related
+### Developer guide
 
-- `par_for` wrappers use inclusive bounds, i.e., the loop will include the last index given
-- `AthenaArrayND` arrays by default allocate on the *device* using default precision configured
-- To create an array on the host with identical layout to the device array either use
-  - `auto arr_host = Kokkos::create_mirror(arr_dev);` to always create a new array even if the device is associated with the host (e.g., OpenMP) or
-  - `auto arr_host = Kokkos::create_mirror_view(arr_dev);` to create an array on the host if the HostSpace != DeviceSpace or get another reference to arr_dev through arr_host if HostSpace == DeviceSpace
-- `par_for` and `Kokkos::deep_copy` by default use the standard stream (on Cuda devices) and are discouraged from use. Use `mb->par_for` and `mb->deep_copy` instead where `mb` is a `MeshBlock` (explanation: each `MeshBlock` has an `ExecutionSpace`, which may be changed at runtime, e.g., to a different stream, and the wrapper within a `MeshBlock` offer transparent access to the parallel region/copy where the `MeshBlock`'s `ExecutionSpace` is automatically used).
-
-An arbitrary-dimensional wrapper for `Kokkos::Views` is available as
-`ParArrayND`. See documentation [here](parthenon_arrays.md).
-
-The wrappers `par_for_outer` and `par_for_inner` provide a nested parallelism interface that is needed for managing memory cached in tightly nested loops. The wrappers are documented [here](nested_par_for.md).
+Please see the [full development guide](development.md) on how to use Kokkos-based
+performance portable abstractions available within Parthenon and how to write
+performance portable code.
 
 ### State Management
 [Full Documentation](interface/state.md)
