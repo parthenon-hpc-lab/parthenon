@@ -39,28 +39,33 @@ if(CODE_COVERAGE)
     COMMAND echo "====================== Code Coverage ======================"
     COMMAND mkdir -p coverage
     COMMAND ${PATH_LCOV} --version
-
     # Clean
     COMMAND ${PATH_LCOV} --gcov-tool ${PATH_GCOV} --directory ${CMAKE_BINARY_DIR} -b ${CMAKE_SOURCE_DIR} --zerocounters
     # Base report
-    COMMAND make test  
+    COMMAND ${CMAKE_MAKE_PROGRAM} test  
     COMMAND ${PATH_LCOV} --gcov-tool ${PATH_GCOV} -c -i -d ${CMAKE_BINARY_DIR} -b ${CMAKE_SOURCE_DIR} -o ${CMAKE_BINARY_DIR}/coverage/report.base.old
     # Remove Kokkos info from code coverage
     COMMAND ${PATH_LCOV} --remove ${CMAKE_BINARY_DIR}/coverage/report.base.old 'Kokkos/*' -o ${CMAKE_BINARY_DIR}/coverage/report.base
     # Capture information from test runs
     COMMAND ${PATH_LCOV} --gcov-tool ${PATH_GCOV} --directory ${CMAKE_BINARY_DIR} -b ${CMAKE_SOURCE_DIR} --capture --output-file ${CMAKE_BINARY_DIR}/coverage/report.test.old
     # Remove Kokkos info from code coverage
-    COMMAND ${PATH_LCOV} --remove ${CMAKE_BINARY_DIR}/coverage/report.test.old 'Kokkos/*' -o ${CMAKE_BINARY_DIR}/coverage/test.base
+    COMMAND ${PATH_LCOV} --remove ${CMAKE_BINARY_DIR}/coverage/report.test.old 'Kokkos/*' -o ${CMAKE_BINARY_DIR}/coverage/report.test
     # Combining base line counters with counters from running tests
-    COMMAND ${PATH_LCOV} --gcov-tool ${PATH_GCOV} -a ${CMAKE_BINARY_DIR}/coverage/report.base -a ${CMAKE_BINARY_DIR}/coverage/test.base --output-file ${CMAKE_BINARY_DIR}/coverage/report.all
+    COMMAND ${PATH_LCOV} --gcov-tool ${PATH_GCOV} -a ${CMAKE_BINARY_DIR}/coverage/report.base -a ${CMAKE_BINARY_DIR}/coverage/report.test --output-file ${CMAKE_BINARY_DIR}/coverage/report.all
+    # Remove unneeded reports
+    COMMAND rm ${CMAKE_BINARY_DIR/coverage/report.test.old
+    COMMAND rm ${CMAKE_BINARY_DIR/coverage/report.base.old
+    COMMAND rm ${CMAKE_BINARY_DIR/coverage/report.base
+    COMMAND rm ${CMAKE_BINARY_DIR/coverage/report.test
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     )
 
   add_custom_target(coverage-upload) 
   add_custom_command(TARGET coverage-upload
+    COMMAND echo "================ Uploading Code Coverage =================="
     # Upload coverage report
     COMMAND bash <(curl -s https://codecov.io/bash) || bash echo "code coverage failed to upload"
-    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/coverage
     )
 
   if(ENABLE_UNIT_TESTS)
