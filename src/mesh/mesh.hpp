@@ -339,6 +339,8 @@ class Mesh {
   // protected access within its class"
   void FillSameRankCoarseToFineAMR(MeshBlock *pob, MeshBlock *pmb,
                                    LogicalLocation &newloc);
+  // step 7: create new MeshBlock list (same MPI rank but diff level: create new block)
+  void FillSameRankFineToCoarseAMR(MeshBlock *pob, MeshBlock *pmb, LogicalLocation &loc);
   int CreateAMRMPITag(int lid, int ox1, int ox2, int ox3);
   MeshBlock *FindMeshBlock(int tgid);
   void ApplyUserWorkBeforeOutput(ParameterInput *pin);
@@ -420,8 +422,6 @@ class Mesh {
   void PrepareSendCoarseToFineAMR(MeshBlock *pb, ParArray1D<Real> &sendbuf,
                                   LogicalLocation &lloc);
   void PrepareSendFineToCoarseAMR(MeshBlock *pb, ParArray1D<Real> &sendbuf);
-  // step 7: create new MeshBlock list (same MPI rank but diff level: create new block)
-  void FillSameRankFineToCoarseAMR(MeshBlock *pob, MeshBlock *pmb, LogicalLocation &loc);
   // step 8: receive
   void FinishRecvSameLevel(MeshBlock *pb, ParArray1D<Real> &recvbuf);
   void FinishRecvFineToCoarseAMR(MeshBlock *pb, ParArray1D<Real> &recvbuf,

@@ -886,14 +886,17 @@ void Mesh::FillSameRankFineToCoarseAMR(MeshBlock *pob, MeshBlock *pmb,
     // copy from old/original/other MeshBlock (pob) to newly created block (pmb)
     ParArrayND<Real> src = coarse_cc;
     ParArrayND<Real> dst = std::get<0>(*pmb_cc_it);
-    for (int nv = 0; nv <= nu; nv++) {
-      for (int k = kl, fk = ckb.s; fk <= ckb.e; k++, fk++) {
-        for (int j = jl, fj = cjb.s; fj <= cjb.e; j++, fj++) {
-          for (int i = il, fi = cib.s; fi <= cib.e; i++, fi++)
-            dst(nv, k, j, i) = src(nv, fk, fj, fi);
-        }
-      }
-    }
+    int koff = kl - ckb.s;
+    int joff = jl - cjb.s;
+    int ioff = il - cib.s;
+    pmb->par_for("FillSameRankFineToCoarseAMR",
+      0, nu,
+      ckb.s, ckb.e,
+      cjb.s, cjb.e,
+      cib.s, cib.e,
+      KOKKOS_LAMBDA(const int nv, const int k, const int j, const int i) {
+        dst(nv, k+koff, j+joff, i+ioff) = src(nv, k, j, i);
+      });
     pmb_cc_it++;
   }
 
