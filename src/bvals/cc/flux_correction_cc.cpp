@@ -101,7 +101,7 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
               const Real ap = coords.Area(X1DIR, k, jf + 1, i);
               const Real tarea = am + ap;
               int p = j + jsize*(nn-nl);
-              sbuf[p] =
+              sbuf(p) =
                 (x1flux(nn, k, jf, i) * am + x1flux(nn, k, jf + 1, i) * ap) / tarea;
             });
         } else { // 1D
