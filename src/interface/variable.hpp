@@ -63,6 +63,11 @@ class CellVariable {
     return data(std::forward<Args>(args)...);
   }
 
+  template <class... Args>
+  KOKKOS_FORCEINLINE_FUNCTION auto const &operator()(Args... args) const {
+    return data(std::forward<Args>(args)...);
+  }
+
   KOKKOS_FORCEINLINE_FUNCTION
   auto GetDim(const int i) const { return data.GetDim(i); }
 

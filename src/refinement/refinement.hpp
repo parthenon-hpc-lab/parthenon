@@ -32,8 +32,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 
 AmrTag CheckAllRefinement(Container<Real> &rc);
 
-AmrTag FirstDerivative(CellVariable<Real> &q, const Real refine_criteria,
-                       const Real derefine_criteria);
+AmrTag FirstDerivative(DevExecSpace exec_space, CellVariable<Real> &q,
+                       const Real refine_criteria, const Real derefine_criteria);
 
 } // namespace Refinement
 
