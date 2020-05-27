@@ -69,6 +69,7 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
         int js = jb.s;
         int ksize = (kb.e-kb.s+1)/2;
         int jsize = (jb.e-jb.s+1)/2;
+        auto &x1flx = x1flux;
         if (pmb->block_size.nx3 > 1) { // 3D
           psize = jsize*ksize*(nu_-nl_+1);
           pmb->par_for("SendFluxCorrection3D_x1",
@@ -85,8 +86,8 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
               const Real tarea = amm + amp + apm + app;
               int p = j + jsize*(k + ksize*(nn-nl));
               sbuf(p) =
-                    (x1flux(nn, kf, jf, i) * amm + x1flux(nn, kf, jf + 1, i) * amp +
-                     x1flux(nn, kf + 1, jf, i) * apm + x1flux(nn, kf + 1, jf + 1, i) * app) /
+                    (x1flx(nn, kf, jf, i) * amm + x1flx(nn, kf, jf + 1, i) * amp +
+                     x1flx(nn, kf + 1, jf, i) * apm + x1flx(nn, kf + 1, jf + 1, i) * app) /
                     tarea;
             });
         } else if (pmb->block_size.nx2 > 1) { // 2D
@@ -102,7 +103,7 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
               const Real tarea = am + ap;
               int p = j + jsize*(nn-nl);
               sbuf(p) =
-                (x1flux(nn, k, jf, i) * am + x1flux(nn, k, jf + 1, i) * ap) / tarea;
+                (x1flx(nn, k, jf, i) * am + x1flx(nn, k, jf + 1, i) * ap) / tarea;
             });
         } else { // 1D
           int k = kb.s, j = jb.s;
@@ -110,7 +111,7 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
           pmb->par_for("SendFluxCorrection1D_x1",
             nl_, nu_,
             KOKKOS_LAMBDA(const int nn) {
-              sbuf(nn-nl) = x1flux(nn, k, j, i);
+              sbuf(nn-nl) = x1flx(nn, k, j, i);
             });
         }
         // x2 direction
@@ -120,6 +121,7 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
         int is = ib.s;
         int ksize = (kb.e-kb.s+1)/2;
         int isize = (ib.e-ib.s+1)/2;
+        auto &x2flx = x2flux;
         if (pmb->block_size.nx3 > 1) { // 3D
           psize = isize*ksize*(nu_-nl_+1);
           pmb->par_for("SendFluxCorrection3D_x2",
@@ -136,9 +138,9 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
               const Real tarea = area00 + area01 + area10 + area11;
               int p = i + isize*(k + ksize*(nn-nl));
               sbuf(p) =
-                  (x2flux(nn, kf, j, ii) * area00 + x2flux(nn, kf, j, ii + 1) * area01 +
-                   x2flux(nn, kf + 1, j, ii) * area10 +
-                   x2flux(nn, kf + 1, j, ii + 1) * area11) /
+                  (x2flx(nn, kf, j, ii) * area00 + x2flx(nn, kf, j, ii + 1) * area01 +
+                   x2flx(nn, kf + 1, j, ii) * area10 +
+                   x2flx(nn, kf + 1, j, ii + 1) * area11) /
                   tarea;
             });
         } else if (pmb->block_size.nx2 > 1) { // 2D
@@ -154,7 +156,7 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
               const Real tarea = area0 + area1;
               int p = i + isize*(nn-nl);
               sbuf(p) =
-                  (x2flux(nn, k, j, ii) * area0 + x2flux(nn, k, j, ii + 1) * area1) / tarea;
+                  (x2flx(nn, k, j, ii) * area0 + x2flx(nn, k, j, ii + 1) * area1) / tarea;
             });
         }
         // x3 direction - 3D only
@@ -164,6 +166,7 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
         int is = ib.s;
         int jsize = (jb.e-jb.s+1)/2;
         int isize = (ib.e-ib.s+1)/2;
+        auto &x3flx = x3flux;
         psize = isize*jsize*(nu_-nl_+1);
         pmb->par_for("SendFluxCorrection3D_x3",
           nl_, nu_,
@@ -179,9 +182,9 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
             const Real tarea = area00 + area01 + area10 + area11;
             int p = i + isize*(j + jsize*(nn-nl));
             sbuf(p) =
-                (x3flux(nn, k, jf, ii) * area00 + x3flux(nn, k, jf, ii + 1) * area01 +
-                 x3flux(nn, k, jf + 1, ii) * area10 +
-                 x3flux(nn, k, jf + 1, ii + 1) * area11) /
+                (x3flx(nn, k, jf, ii) * area00 + x3flx(nn, k, jf, ii + 1) * area01 +
+                 x3flx(nn, k, jf + 1, ii) * area10 +
+                 x3flx(nn, k, jf + 1, ii + 1) * area11) /
                 tarea;
           });
       }
@@ -250,13 +253,14 @@ bool CellCenteredBoundaryVariable::ReceiveFluxCorrection() {
           kl += pmb->block_size.nx3 / 2;
         int jsize = ju-jl+1;
         int ksize = ku-kl+1;
+        auto &x1flx = x1flux;
         pmb->par_for("ReceiveFluxCorrection_x1",
           nl_, nu_,
           kl, ku,
           jl, ju,
           KOKKOS_LAMBDA(const int nn, const int k, const int j) {
             int p = j-jl + jsize*((k-kl) + ksize*(nn-nl));
-            x1flux(nn, k, j, il) = rbuf(p);
+            x1flx(nn, k, j, il) = rbuf(p);
           });
       } else if (nb.fid == BoundaryFace::inner_x2 || nb.fid == BoundaryFace::outer_x2) {
         int jl = jb.s + (jb.e - jb.s) * (nb.fid & 1) + (nb.fid & 1);
@@ -271,13 +275,14 @@ bool CellCenteredBoundaryVariable::ReceiveFluxCorrection() {
           kl += pmb->block_size.nx3 / 2;
         int ksize = ku-kl+1;
         int isize = iu-il+1;
+        auto &x2flx = x2flux;
         pmb->par_for("ReceiveFluxCorrection_x2",
           nl_, nu_,
           kl, ku,
           il, iu,
           KOKKOS_LAMBDA(const int nn, const int k, const int i) {
             int p = i-il + isize*((k-kl) + ksize*(nn-nl));
-            x2flux(nn, k, jl, i) = rbuf(p);
+            x2flx(nn, k, jl, i) = rbuf(p);
           });
       } else if (nb.fid == BoundaryFace::inner_x3 || nb.fid == BoundaryFace::outer_x3) {
         int kl = kb.s + (kb.e - kb.s) * (nb.fid & 1) + (nb.fid & 1);
@@ -292,13 +297,14 @@ bool CellCenteredBoundaryVariable::ReceiveFluxCorrection() {
           jl += pmb->block_size.nx2 / 2;
         int jsize = ju-jl+1;
         int isize = iu-il+1;
+        auto &x3flx = x3flux;
         pmb->par_for("ReceiveFluxCorrection_x1",
           nl_, nu_,
           jl, ju,
           il, iu,
           KOKKOS_LAMBDA(const int nn, const int j, const int i) {
             int p = i-il + isize*((j-jl) + jsize*(nn-nl));
-            x3flux(nn, kl, j, i) = rbuf(p);
+            x3flx(nn, kl, j, i) = rbuf(p);
           });
       }
       bd_var_flcor_.flag[nb.bufid] = BoundaryStatus::completed;
