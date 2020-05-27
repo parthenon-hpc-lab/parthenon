@@ -50,7 +50,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   if (!((profile_str.compare("wave") == 0) ||
         (profile_str.compare("smooth_gaussian") == 0) ||
         (profile_str.compare("hard_sphere") == 0))) {
-    PARTHENON_FAIL("Unknown profile in advection example: " + profile_str);
+    PARTHENON_FAIL(("Unknown profile in advection example: " + profile_str).c_str());
   }
   pkg->AddParam<>("profile", profile_str);
 
