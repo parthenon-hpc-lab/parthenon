@@ -26,6 +26,43 @@ ctest -L performance
 
 ## LANL Darwin - Power 9
 
+### GCC 7.4.0 + Cuda 10.1
+
+The following works on the Darwin Power 9 nodes. We use Spack to install `hdf5` with the `xl`
+compiler. Setting up Spack is beyond the scop of this documentation.
+
+```bash
+# HDF5 is optional, but recommended
+spack install hdf5%gcc@7.4.0
+
+# load required modules and set environment
+module purge
+
+module load cmake/3.17.0
+module load clang/8.0.1
+module load openmpi/p9/4.0.2-gcc_7.4.0
+module load gcc/7.4.0
+module load cuda/10.1
+
+spack load hdf5%gcc@7.4.0
+
+export NVCC_WRAPPER_DEFAULT_COMPILER=g++
+
+# clone parthenon with submodules
+git clone --recursive https://github.com/lanl/parthenon.git
+
+# make a build directory
+mkdir build
+cd build
+
+# configure and build (if hdf5 is not available, add -DDISABLE_HDF5=ON)
+cmake -DCMAKE_CXX_COMPILER=$PWD/../external/Kokkos/bin/nvcc_wrapper -DKokkos_ENABLE_CUDA=ON -DKokkos_ENABLE_OPENMP=ON -DKokkos_ARCH_POWER9=ON -DKokkos_ARCH_VOLTA70=ON ..
+make -j
+make test
+```
+
+
+### IBM XL
 The following works on the Darwin Power 9 nodes. We use Spack to install `hdf5` with the `xl`
 compiler. Setting up Spack is beyond the scop of this documentation.
 
