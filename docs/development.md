@@ -10,7 +10,7 @@ The following list contains a few overall design decision that are useful to kee
 ### Kokkos wrappers/abstractions
 
 - `par_for` wrappers use inclusive bounds, i.e., the loop will include the last index given
-- `AthenaArrayND` arrays by default allocate on the *device* using default precision configured
+- `ParArrayND` arrays by default allocate on the *device* using default precision configured
 - To create an array on the host with identical layout to the device array either use
   - `auto arr_host = Kokkos::create_mirror(arr_dev);` to always create a new array even if the device is associated with the host (e.g., OpenMP) or
   - `auto arr_host = Kokkos::create_mirror_view(arr_dev);` to create an array on the host if the HostSpace != DeviceSpace or get another reference to arr_dev through arr_host if HostSpace == DeviceSpace
