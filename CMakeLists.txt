@@ -14,8 +14,10 @@
 cmake_minimum_required(VERSION 3.10)
 project(parthenon LANGUAGES C CXX)
 
-# Options
 include(CTest)
+
+# Options
+option(NUMBER_GHOST_CELLS "Change number of ghost cells" 2)
 option(ENABLE_UNIT_TESTS "Enable unit tests" ${BUILD_TESTING})
 option(ENABLE_INTEGRATION_TESTS "Enable integration tests" ${BUILD_TESTING})
 option(ENABLE_REGRESSION_TESTS "Enable regression tests" ${BUILD_TESTING})

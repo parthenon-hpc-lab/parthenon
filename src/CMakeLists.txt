@@ -80,7 +80,6 @@ set(COMPILER_FLAGS "<not-implemented>") # TODO: Put something more descriptive h
 
 set(NFIELD_VARIABLES 0) # TODO: Remove
 set(NWAVE_VALUE 5) # TODO: Remove
-set(NUMBER_GHOST_CELLS 2) # TODO: Make this a CMake option and check it
 set(COORDINATE_TYPE UniformCartesian) # TODO: Make this an option when more are available
 
 configure_file(defs.hpp.in generated/defs.hpp @ONLY)
