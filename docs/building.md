@@ -50,6 +50,7 @@ export NVCC_WRAPPER_DEFAULT_COMPILER=g++
 
 # clone parthenon with submodules
 git clone --recursive https://github.com/lanl/parthenon.git
+cd parthenon
 
 # make a build directory
 mkdir build
@@ -86,6 +87,7 @@ export NVCC_WRAPPER_DEFAULT_COMPILER=xlc++
 
 # clone parthenon with submodules
 git clone --recursive https://github.com/lanl/parthenon.git
+cd parthenon
 
 # make a build directory
 mkdir build
