@@ -109,7 +109,7 @@ AmrTag FirstDerivative(DevExecSpace exec_space, CellVariable<Real> &q, const Rea
 
   Real maxd = 0.0;
   Kokkos::parallel_reduce(
-      "advection check refinement",
+      "refinement first derivative",
       Kokkos::MDRangePolicy<Kokkos::Rank<3>>(exec_space, {kl, jl, il},
                                              {ku + 1, ju + 1, iu + 1},
                                              {1, 1, iu + 1 - il}),
