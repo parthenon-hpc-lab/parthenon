@@ -14,7 +14,6 @@
 
 # Configure defs.hpp
 set(PROBLEM_GENERATOR "<not-implemented>") # TODO: Figure out what to put here
-set(SINGLE_PRECISION_ENABLED 0) # TODO: Add CMake option for this
 
 if (ENABLE_MPI)
   set(MPI_OPTION MPI_PARALLEL)
