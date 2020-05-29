@@ -101,12 +101,26 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddSwarmValue("vy", swarm_name, real_swarmvalue_metadata);
   pkg->AddSwarmValue("vz", swarm_name, real_swarmvalue_metadata);
 
+  pkg->EstimateTimestep = EstimateTimestep;
+
   return pkg;
 }
 
 AmrTag CheckRefinement(Container<Real> &rc) {
   return AmrTag::same;
 }
+
+Real EstimateTimestep(Container<Real> &rc) {
+  return 0.5;
+}
+
+TaskStatus SetTimestepTask(Container<Real> &rc) {
+  MeshBlock *pmb = rc.pmy_block;
+  pmb->SetBlockTimestep(parthenon::Update::EstimateTimestep(rc));
+  return TaskStatus::complete;
+}
+
+//}
 
 } // namespace Particles
 
@@ -119,6 +133,7 @@ AmrTag CheckRefinement(Container<Real> &rc) {
 TaskStatus UpdateContainer(MeshBlock *pmb, int stage,
                            std::vector<std::string> &stage_name, Integrator *integrator) {
   // const Real beta = stage_wghts[stage-1].beta;
+  printf("UPDATE CONTAINER\n");
   const Real beta = integrator->beta[stage - 1];
   Container<Real> &base = pmb->real_containers.Get();
   Container<Real> &cin = pmb->real_containers.Get(stage_name[stage - 1]);
@@ -129,8 +144,14 @@ TaskStatus UpdateContainer(MeshBlock *pmb, int stage,
   return TaskStatus::complete;
 }
 
+TaskStatus MyContainerTask(Container<Real> container) {
+  printf("MY CONTAINER TASK\n");
+  return TaskStatus::complete;
+}
+
 TaskStatus UpdateSwarm(MeshBlock *pmb, int stage, std::vector<std::string> &stage_name,
                        Integrator *integrator) {
+  printf("UPDATE SWARM\n");
   SwarmContainer &base = pmb->real_containers.GetSwarmContainer();
 
   // weight = sqrt(x^2 + y^2 + z^2)?
@@ -140,13 +161,16 @@ TaskStatus UpdateSwarm(MeshBlock *pmb, int stage, std::vector<std::string> &stag
 
 // See the advection.hpp declaration for a description of how this function gets called.
 TaskList ParticleDriver::MakeTaskList(MeshBlock *pmb, int stage) {
+  printf("MAKE TASK LIST\n");
   TaskList tl;
 
   TaskID none(0);
   // first make other useful containers
   if (stage == 1) {
+    Container<Real> &container = pmb->real_containers.Get();
     SwarmContainer &base = pmb->real_containers.GetSwarmContainer();
     pmb->real_containers.Add("my swarm container", base);
+    pmb->real_containers.Add("my container", container);
   }
 
   SwarmContainer sc = pmb->real_containers.GetSwarmContainer("my swarm container");
@@ -156,9 +180,16 @@ TaskList ParticleDriver::MakeTaskList(MeshBlock *pmb, int stage) {
   auto update_swarm = tl.AddTask<TwoSwarmTask>(parthenon::Update::TransportSwarm, none,
                                                swarm, swarm);
 
+  Container<Real> container = pmb->real_containers.Get("my container");
+
+  auto update_container = tl.AddTask<ContainerTask>(MyContainerTask, none, container);
+
   // estimate next time step
   if (stage == integrator->nstages) {
     // Do nothing
+    //AddContainerTask();
+    //pmb->SetBlockTimestep(0.25);
+    //printf("Setting dt to 0.5!\n");
   }
   return tl;
 }

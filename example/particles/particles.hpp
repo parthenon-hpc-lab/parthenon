@@ -54,6 +54,29 @@ class ParticleDriver : public MultiStageBlockTaskDriver {
   TaskList MakeTaskList(MeshBlock *pmb, int stage);
 };
 
+using EmptyTaskFunc = std::function<TaskStatus()>;
+class EmptyTask: public BaseTask {
+  public:
+    EmptyTask(TaskID id, EmptyTaskFunc func, TaskID dep)
+      : BaseTask(id, dep), func_(func) {}
+    TaskStatus operator()() { return func_(); }
+
+  private:
+    EmptyTaskFunc func_;
+};
+
+using ContainerTaskFunc = std::function<TaskStatus(Container<Real> &)>;
+class ContainerTask: public BaseTask {
+  public:
+    ContainerTask(TaskID id, ContainerTaskFunc func, TaskID dep, Container<Real> c)
+      : BaseTask(id, dep), func_(func), container_(c) {}
+    TaskStatus operator()() { return func_(container_); }
+
+  private:
+   ContainerTaskFunc func_;
+   Container<Real> container_;
+};
+
 using TwoSwarmTaskFunc =
     std::function<TaskStatus(Swarm &, Swarm &)>;
 class TwoSwarmTask : public BaseTask {
@@ -73,6 +96,7 @@ namespace Particles {
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 AmrTag CheckRefinement(Container<Real> &rc);
+Real EstimateTimestep(Container<Real> &rc);
 
 } // namespace Particles
 
