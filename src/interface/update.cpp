@@ -97,9 +97,9 @@ TaskStatus FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
 }
 
 //void TransportSwarm(Swarm &in, const Real dt, Swarm &out) {
-TaskStatus TransportSwarm(Swarm &in, Swarm &out) {
+TaskStatus TransportSwarm(Swarm &in, Swarm &out, const Real dt) {
   // TODO BRR put const real dt back in the args list
-  const Real dt = 0.1;
+  printf("TRANSPORTING SWARM!\n");
   int nmax_active = in.get_nmax_active();
 
   ParticleVariable<Real> &x_in = in.GetReal("x");

@@ -144,12 +144,18 @@ TaskStatus UpdateContainer(MeshBlock *pmb, int stage,
   return TaskStatus::complete;
 }
 
+TaskStatus UpdateSwarm(MeshBlock *pmb, Swarm &swarm) {
+  printf("UPDATE SWARM\n");
+  parthenon::Update::TransportSwarm(swarm, swarm, pmb->pmy_mesh->dt);
+  return TaskStatus::complete;
+}
+
 TaskStatus MyContainerTask(Container<Real> container) {
   printf("MY CONTAINER TASK\n");
   return TaskStatus::complete;
 }
 
-TaskStatus UpdateSwarm(MeshBlock *pmb, int stage, std::vector<std::string> &stage_name,
+/*TaskStatus UpdateSwarm(MeshBlock *pmb, int stage, std::vector<std::string> &stage_name,
                        Integrator *integrator) {
   printf("UPDATE SWARM\n");
   SwarmContainer &base = pmb->real_containers.GetSwarmContainer();
@@ -157,7 +163,7 @@ TaskStatus UpdateSwarm(MeshBlock *pmb, int stage, std::vector<std::string> &stag
   // weight = sqrt(x^2 + y^2 + z^2)?
 
   return TaskStatus::complete;
-}
+}*/
 
 // See the advection.hpp declaration for a description of how this function gets called.
 TaskList ParticleDriver::MakeTaskList(MeshBlock *pmb, int stage) {
@@ -177,8 +183,11 @@ TaskList ParticleDriver::MakeTaskList(MeshBlock *pmb, int stage) {
 
   Swarm &swarm = sc.Get("my particles");
 
-  auto update_swarm = tl.AddTask<TwoSwarmTask>(parthenon::Update::TransportSwarm, none,
-                                               swarm, swarm);
+  //auto update_swarm = tl.AddTask<TwoSwarmTask>(parthenon::Update::TransportSwarm, none,
+   //                                            swarm, swarm);
+
+  //auto update_swarm = tl.AddTask<SwarmTask>(UpdateSwarm, none, swarm);
+  auto update_swarm = tl.AddTask<SwarmTask>(UpdateSwarm, pmb, none, swarm);
 
   Container<Real> container = pmb->real_containers.Get("my container");
 

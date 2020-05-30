@@ -77,6 +77,19 @@ class ContainerTask: public BaseTask {
    Container<Real> container_;
 };
 
+using SwarmTaskFunc = std::function<TaskStatus(MeshBlock *, Swarm &)>;
+class SwarmTask : public BaseTask {
+  public:
+    SwarmTask(TaskID id, SwarmTaskFunc func, MeshBlock *pblock, TaskID dep, Swarm swarm) :
+      BaseTask(id, dep), func_(func), pblock_(pblock), swarm_(swarm) {}
+    TaskStatus operator()() { return func_(pblock_, swarm_); }
+
+  private:
+    MeshBlock *pblock_;
+    SwarmTaskFunc func_;
+    Swarm swarm_;
+};
+
 using TwoSwarmTaskFunc =
     std::function<TaskStatus(Swarm &, Swarm &)>;
 class TwoSwarmTask : public BaseTask {
