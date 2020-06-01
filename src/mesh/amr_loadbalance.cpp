@@ -714,7 +714,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
 
 // AMR: step 6, branch 1 (same2same: just pack+send)
 
-void Mesh::PrepareSendSameLevel(MeshBlock *pb, ParArray1D<Real> &sendbuf) {
+void Mesh::PrepareSendSameLevel(MeshBlock *pmb, ParArray1D<Real> &sendbuf) {
   // pack
   int p = 0;
 
@@ -722,38 +722,42 @@ void Mesh::PrepareSendSameLevel(MeshBlock *pb, ParArray1D<Real> &sendbuf) {
   const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
 
   const IndexDomain interior = IndexDomain::interior;
-  IndexRange ib = pb->cellbounds.GetBoundsI(interior);
-  IndexRange jb = pb->cellbounds.GetBoundsJ(interior);
-  IndexRange kb = pb->cellbounds.GetBoundsK(interior);
+  IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
+  IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
+  IndexRange kb = pmb->cellbounds.GetBoundsK(interior);
   // this helper fn is used for AMR and non-refinement load balancing of
   // MeshBlocks. Therefore, unlike PrepareSendCoarseToFineAMR(), etc., it loops over
   // MeshBlock::vars_cc/fc_ containers, not MeshRefinement::pvars_cc/fc_ containers
 
-  // TODO(felker): add explicit check to ensure that elements of pb->vars_cc/fc_ and
-  // pb->pmr->pvars_cc/fc_ v point to the same objects, if adaptive
+  // TODO(felker): add explicit check to ensure that elements of pmb->vars_cc/fc_ and
+  // pmb->pmr->pvars_cc/fc_ v point to the same objects, if adaptive
 
   // (C++11) range-based for loop: (automatic type deduction fails when iterating over
   // container with std::reference_wrapper; could use auto var_cc_r = var_cc.get())
-  for (auto &pvar_cc : pb->vars_cc_) {
+  for (auto &pvar_cc : pmb->vars_cc_) {
     int nu = pvar_cc->GetDim(4) - 1;
     ParArray4D<Real> var_cc = pvar_cc->data.Get<4>();
     BufferUtility::PackData(var_cc, sendbuf, 0, nu, ib.s, ib.e, jb.s, jb.e, kb.s, kb.e, p,
-                            pb);
+                            pmb);
   }
-  for (auto &pvar_fc : pb->vars_fc_) {
+  for (auto &pvar_fc : pmb->vars_fc_) {
     auto &var_fc = *pvar_fc;
     ParArray3D<Real> x1f = var_fc.x1f.Get<3>();
     ParArray3D<Real> x2f = var_fc.x2f.Get<3>();
     ParArray3D<Real> x3f = var_fc.x3f.Get<3>();
-    BufferUtility::PackData(x1f, sendbuf, ib.s, ib.e + 1, jb.s, jb.e, kb.s, kb.e, p, pb);
-    BufferUtility::PackData(x2f, sendbuf, ib.s, ib.e, jb.s, jb.e + f2, kb.s, kb.e, p, pb);
-    BufferUtility::PackData(x3f, sendbuf, ib.s, ib.e, jb.s, jb.e, kb.s, kb.e + f3, p, pb);
+    BufferUtility::PackData(x1f, sendbuf, ib.s, ib.e + 1, jb.s, jb.e, kb.s, kb.e, p, pmb);
+    BufferUtility::PackData(x2f, sendbuf, ib.s, ib.e, jb.s, jb.e + f2, kb.s, kb.e, p,
+                            pmb);
+    BufferUtility::PackData(x3f, sendbuf, ib.s, ib.e, jb.s, jb.e, kb.s, kb.e + f3, p,
+                            pmb);
   }
   // WARNING(felker): casting from "Real *" to "int *" in order to append single integer
   // to send buffer is slightly unsafe (especially if sizeof(int) > sizeof(Real))
   if (adaptive) {
-    int *dcp = reinterpret_cast<int *>(&(sendbuf[p]));
-    *dcp = pb->pmr->deref_count_;
+    Kokkos::deep_copy(pmb->exec_space,
+                      Kokkos::View<int, Kokkos::MemoryUnmanaged>(
+                          reinterpret_cast<int *>(Kokkos::subview(sendbuf, p).data())),
+                      pmb->pmr->deref_count_);
   }
   return;
 }
@@ -1060,39 +1064,39 @@ void Mesh::FillSameRankCoarseToFineAMR(MeshBlock *pob, MeshBlock *pmb,
 }
 
 // step 8 (receive and load), branch 1 (same2same: unpack)
-void Mesh::FinishRecvSameLevel(MeshBlock *pb, ParArray1D<Real> &recvbuf) {
+void Mesh::FinishRecvSameLevel(MeshBlock *pmb, ParArray1D<Real> &recvbuf) {
   int p = 0;
 
   const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
   const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
 
   const IndexDomain interior = IndexDomain::interior;
-  IndexRange ib = pb->cellbounds.GetBoundsI(interior);
-  IndexRange jb = pb->cellbounds.GetBoundsJ(interior);
-  IndexRange kb = pb->cellbounds.GetBoundsK(interior);
+  IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
+  IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
+  IndexRange kb = pmb->cellbounds.GetBoundsK(interior);
 
-  for (auto &pvar_cc : pb->vars_cc_) {
+  for (auto &pvar_cc : pmb->vars_cc_) {
     int nu = pvar_cc->GetDim(4) - 1;
     ParArray4D<Real> var_cc_ = pvar_cc->data.Get<4>();
     BufferUtility::UnpackData(recvbuf, var_cc_, 0, nu, ib.s, ib.e, jb.s, jb.e, kb.s, kb.e,
-                              p, pb);
+                              p, pmb);
   }
-  for (auto &pvar_fc : pb->vars_fc_) {
+  for (auto &pvar_fc : pmb->vars_fc_) {
     auto &var_fc = *pvar_fc;
     ParArray3D<Real> x1f = var_fc.x1f.Get<3>();
     ParArray3D<Real> x2f = var_fc.x2f.Get<3>();
     ParArray3D<Real> x3f = var_fc.x3f.Get<3>();
     BufferUtility::UnpackData(recvbuf, x1f, ib.s, ib.e + 1, jb.s, jb.e, kb.s, kb.e, p,
-                              pb);
+                              pmb);
     BufferUtility::UnpackData(recvbuf, x2f, ib.s, ib.e, jb.s, jb.e + f2, kb.s, kb.e, p,
-                              pb);
+                              pmb);
     BufferUtility::UnpackData(recvbuf, x3f, ib.s, ib.e, jb.s, jb.e, kb.s, kb.e + f3, p,
-                              pb);
-    if (pb->block_size.nx2 == 1) {
+                              pmb);
+    if (pmb->block_size.nx2 == 1) {
       for (int i = ib.s; i <= ib.e; i++)
         var_fc.x2f(kb.s, jb.s + 1, i) = var_fc.x2f(kb.s, jb.s, i);
     }
-    if (pb->block_size.nx3 == 1) {
+    if (pmb->block_size.nx3 == 1) {
       for (int j = jb.s; j <= jb.e; j++) {
         for (int i = ib.s; i <= ib.e; i++)
           var_fc.x3f(kb.s + 1, j, i) = var_fc.x3f(kb.s, j, i);
@@ -1102,8 +1106,9 @@ void Mesh::FinishRecvSameLevel(MeshBlock *pb, ParArray1D<Real> &recvbuf) {
   // WARNING(felker): casting from "Real *" to "int *" in order to read single
   // appended integer from received buffer is slightly unsafe
   if (adaptive) {
-    int *dcp = reinterpret_cast<int *>(&(recvbuf[p]));
-    pb->pmr->deref_count_ = *dcp;
+    Kokkos::deep_copy(pmb->exec_space, pmb->pmr->deref_count_,
+                      Kokkos::View<int, Kokkos::MemoryUnmanaged>(
+                          reinterpret_cast<int *>(Kokkos::subview(recvbuf, p).data())));
   }
   return;
 }
