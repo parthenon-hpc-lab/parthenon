@@ -151,17 +151,16 @@ TaskStatus ComputeArea(MeshBlock *pmb) {
   ParArrayND<Real> &v = rc.Get("in_or_out").data;
   const auto &radius = pmb->packages["calculate_pi"]->Param<Real>("radius");
 
-  Kokkos::deep_copy(pmb->exec_space, v.Get(0,0,0,0,0,0), 0.0);
+  Kokkos::deep_copy(pmb->exec_space, v.Get(0, 0, 0, 0, 0, 0), 0.0);
   Kokkos::parallel_reduce(
       "calculate_pi compute area",
       Kokkos::MDRangePolicy<Kokkos::Rank<3>>(pmb->exec_space, {kb.s, jb.s, ib.s},
                                              {kb.e + 1, jb.e + 1, ib.e + 1},
                                              {1, 1, ib.e + 1 - ib.s}),
-      KOKKOS_LAMBDA(int k, int j, int i,
-                    Real &area) {
+      KOKKOS_LAMBDA(int k, int j, int i, Real &area) {
         area += v(k, j, i) * coords.Area(parthenon::X3DIR, k, j, i);
       },
-      Kokkos::Sum<Real, parthenon::DevMemSpace>(v.Get(0,0,0,0,0,0)));
+      Kokkos::Sum<Real, parthenon::DevMemSpace>(v.Get(0, 0, 0, 0, 0, 0)));
 
   return TaskStatus::complete;
 }

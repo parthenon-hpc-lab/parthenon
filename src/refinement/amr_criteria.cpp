@@ -56,7 +56,8 @@ AMRFirstDerivative::AMRFirstDerivative(ParameterInput *pin, std::string &block_n
 
 AmrTag AMRFirstDerivative::operator()(Container<Real> &rc) {
   CellVariable<Real> &q = rc.Get(field);
-  return Refinement::FirstDerivative(rc.pmy_block->exec_space, q, refine_criteria, derefine_criteria);
+  return Refinement::FirstDerivative(rc.pmy_block->exec_space, q, refine_criteria,
+                                     derefine_criteria);
 }
 
 } // namespace parthenon

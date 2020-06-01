@@ -889,14 +889,11 @@ void Mesh::FillSameRankFineToCoarseAMR(MeshBlock *pob, MeshBlock *pmb,
     int koff = kl - ckb.s;
     int joff = jl - cjb.s;
     int ioff = il - cib.s;
-    pmb->par_for("FillSameRankFineToCoarseAMR",
-      0, nu,
-      ckb.s, ckb.e,
-      cjb.s, cjb.e,
-      cib.s, cib.e,
-      KOKKOS_LAMBDA(const int nv, const int k, const int j, const int i) {
-        dst(nv, k+koff, j+joff, i+ioff) = src(nv, k, j, i);
-      });
+    pmb->par_for(
+        "FillSameRankFineToCoarseAMR", 0, nu, ckb.s, ckb.e, cjb.s, cjb.e, cib.s, cib.e,
+        KOKKOS_LAMBDA(const int nv, const int k, const int j, const int i) {
+          dst(nv, k + koff, j + joff, i + ioff) = src(nv, k, j, i);
+        });
     pmb_cc_it++;
   }
 

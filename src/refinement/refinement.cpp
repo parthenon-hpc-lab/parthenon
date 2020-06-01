@@ -88,8 +88,8 @@ AmrTag CheckAllRefinement(Container<Real> &rc) {
   return delta_level;
 }
 
-AmrTag FirstDerivative(DevExecSpace exec_space, CellVariable<Real> &q, const Real refine_criteria,
-                       const Real derefine_criteria) {
+AmrTag FirstDerivative(DevExecSpace exec_space, CellVariable<Real> &q,
+                       const Real refine_criteria, const Real derefine_criteria) {
   const int dim1 = q.GetDim(1);
   const int dim2 = q.GetDim(2);
   const int dim3 = q.GetDim(3);
@@ -110,11 +110,9 @@ AmrTag FirstDerivative(DevExecSpace exec_space, CellVariable<Real> &q, const Rea
   Real maxd = 0.0;
   Kokkos::parallel_reduce(
       "refinement first derivative",
-      Kokkos::MDRangePolicy<Kokkos::Rank<3>>(exec_space, {kl, jl, il},
-                                             {ku + 1, ju + 1, iu + 1},
-                                             {1, 1, iu + 1 - il}),
-      KOKKOS_LAMBDA(int k, int j, int i,
-                    Real &maxd) {
+      Kokkos::MDRangePolicy<Kokkos::Rank<3>>(
+          exec_space, {kl, jl, il}, {ku + 1, ju + 1, iu + 1}, {1, 1, iu + 1 - il}),
+      KOKKOS_LAMBDA(int k, int j, int i, Real &maxd) {
         Real scale = std::abs(q(k, j, i));
         Real d =
             0.5 * std::abs((q(k, j, i + 1) - q(k, j, i - 1))) / (scale + TINY_NUMBER);
