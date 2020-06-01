@@ -179,9 +179,10 @@ if (TEST_INTEL_OPTIMIZATION)
 endif()	       
 
 add_subdirectory(src)
+add_subdirectory(example/advection)
 add_subdirectory(example/calculate_pi)
 add_subdirectory(example/face_fields)
-add_subdirectory(example/advection)
+add_subdirectory(example/kokkos_pi)
 
 include(cmake/CheckCopyright.cmake)
 
