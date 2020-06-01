@@ -169,6 +169,15 @@ inline void par_for(const std::string &name, DevExecSpace exec_space, const int 
           function);
 }
 
+// 1D Outer loop default pattern
+template <typename Function>
+inline void par_for_outer(const std::string &name, DevExecSpace exec_space,
+                          size_t scratch_size_in_bytes, const int scratch_level,
+                          const int kl, const int ku, const Function &function) {
+  par_for_outer(DEFAULT_OUTER_LOOP_PATTERN, name, exec_space, scratch_size_in_bytes,
+                scratch_level, kl, ku, function);
+}
+
 // 2D Outer loop default pattern
 template <typename Function>
 inline void par_for_outer(const std::string &name, DevExecSpace exec_space,
@@ -457,6 +466,25 @@ inline void par_for(LoopPatternSimdFor, const std::string &name, DevExecSpace ex
         for (auto i = il; i <= iu; i++)
           function(n, k, j, i);
   Kokkos::Profiling::popRegion();
+}
+
+// 1D  outer parallel loop using Kokkos Teams
+template <typename Function>
+inline void par_for_outer(OuterLoopPatternTeams, const std::string &name,
+                          DevExecSpace exec_space, size_t scratch_size_in_bytes,
+                          const int scratch_level, const int kl, const int ku,
+                          const Function &function) {
+  const int Nk = ku + 1 - kl;
+
+  team_policy policy(exec_space, Nk, Kokkos::AUTO);
+
+  Kokkos::parallel_for(
+      name,
+      policy.set_scratch_size(scratch_level, Kokkos::PerTeam(scratch_size_in_bytes)),
+      KOKKOS_LAMBDA(team_mbr_t team_member) {
+        const int k = team_member.league_rank() + kl;
+        function(team_member, k);
+      });
 }
 
 // 2D  outer parallel loop using Kokkos Teams

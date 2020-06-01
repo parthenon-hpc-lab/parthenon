@@ -43,7 +43,6 @@ void PiecewiseLinearX1(parthenon::team_mbr_t const &member, const int k, const i
                        ScratchPad2D<Real> &qr, ScratchPad2D<Real> &qc,
                        ScratchPad2D<Real> &dql, ScratchPad2D<Real> &dqr,
                        ScratchPad2D<Real> &dqm) {
-
   const int nu = q.GetDim(4) - 1;
 
   // compute L/R slopes for each variable
