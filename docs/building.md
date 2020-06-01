@@ -24,7 +24,7 @@ ctest -LE performance
 ctest -L performance
 ```
 
-## List of cmake options:
+### List of cmake options:
 
    |         Option           | Default | Type   | Description |
    | -----------------------: | :------ | :----- | :---------- |
@@ -33,11 +33,12 @@ ctest -L performance
    |    PARTHENON_DISABLE_MPI | OFF     | Option | MPI is enabled by default if found, set this to True to disable MPI |
    | PARTHENON_DISABLE_OPENMP | OFF     | Option | OpenMP is enabled by default if found, set this to True to disable OpenMP |
    | ENABLE_COMPILER_WARNINGS | OFF     | Option | Enable compiler warnings |
-   |            BUILD_TESTING | ON      | Option | Multi-testing enablement |
    |      TEST_ERROR_CHECKING | OFF     | Option | Enables the error checking unit test. This test will FAIL |
    |  TEST_INTEL_OPTIMIZATION | OFF     | Option | Test intel optimization and vectorization |
    |  CHECK_REGISTRY_PRESSURE | OFF     | Option | Check the registry pressure for Kokkos CUDA kernels |
+   |            BUILD_TESTING | ON      | Option | Multi-testing enablement |
    | ENABLE_INTEGRATION_TESTS | ${BUILD_TESTING} | Option | Enable integration tests |
    |  ENABLE_REGRESSION_TESTS | ${BUILD_TESTING} | Option | Enable regression tests |
    |        ENABLE_UNIT_TESTS | ${BUILD_TESTING} | Option | Enable unit tests |
 
+   Note: Options that are prefixed with PARTHENON_ modify behavior.
