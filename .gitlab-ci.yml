@@ -45,11 +45,7 @@ parthenon-cuda-unit:
 #    - export CUDA_VISIBLE_DEVICES=0
     - mkdir build-cuda-debug
     - cd build-cuda-debug
-    - cmake -DCMAKE_BUILD_TYPE=Debug
-      -DPARTHENON_SINGLE_PRECISION=OFF
-      -DPARTHENON_NGHOST=2
-      -DPARTHENON_DISABLE_HDF5=OFF -DPARTHENON_DISABLE_MPI=OFF -DPARTHENON_DISABLE_OPENMP=OFF 
-      -DHDF5_ROOT=/usr/local/hdf5/parallel
+    - cmake -DCMAKE_BUILD_TYPE=Debug -DHDF5_ROOT=/usr/local/hdf5/parallel
       -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
       -DKokkos_ENABLE_CUDA=True -DKokkos_ARCH_PASCAL61=True
       -DMPIEXEC_PREFLAGS="--allow-run-as-root"
@@ -104,7 +100,7 @@ parthenon-cuda-performance_and_regression:
     - cmake -DCMAKE_BUILD_TYPE=Release -DHDF5_ROOT=/usr/local/hdf5/serial
       -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
       -DKokkos_ENABLE_CUDA=True -DKokkos_ARCH_PASCAL61=True
-      -DDISABLE_MPI=ON
+      -DPARTHENON_DISABLE_MPI=ON
       -DCMAKE_CXX_COMPILER=${PWD}/../external/Kokkos/bin/nvcc_wrapper
       -DKokkos_ENABLE_CUDA_UVM=ON
       ../ && make -j${J} && ctest -L regression -LE mpi-yes --timeout 3600
@@ -156,7 +152,7 @@ parthenon-cpu-performance_and_regression:
     - cd build-perf
     - cmake -DCMAKE_BUILD_TYPE=Release -DHDF5_ROOT=/usr/local/hdf5/serial
       -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
-      -DDISABLE_MPI=ON
+      -DPARTHENON_DISABLE_MPI=ON
       ../ && make -j${J} && ctest -L "performance|regression" -LE mpi-yes
   artifacts:
     when: always
