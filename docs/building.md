@@ -42,4 +42,4 @@ ctest -L performance
    |    ENABLE_REGRESSION_TESTS | ${BUILD_TESTING} | Option | Enable regression tests |
    |          ENABLE_UNIT_TESTS | ${BUILD_TESTING} | Option | Enable unit tests |
 
-### NB: CMake pptions prefixed with *PARTHENON_* modify behavior.
+### NB: CMake options prefixed with *PARTHENON_* modify behavior.
