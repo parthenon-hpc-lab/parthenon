@@ -116,10 +116,15 @@ TaskStatus TransportSwarm(Swarm &in, Swarm &out, const Real dt) {
   double vy = 1.;
   double vz = 1.;
 
+  printf("swarm in: %s\n", in.label().c_str());
+  printf("swarm out: %s\n", out.label().c_str());
+  printf("nmax_active = %i\n", nmax_active);
+
   for (int n = 0; n < nmax_active; n++) {
     x_out(n) = x_in(n) + vx*dt;
     y_out(n) = y_in(n) + vy*dt;
     z_out(n) = z_in(n) + vz*dt;
+    printf("[%i] x y z = %e %e %e\n", n, x_out(n), y_out(n), z_out(n));
   }
 
   return TaskStatus::complete;

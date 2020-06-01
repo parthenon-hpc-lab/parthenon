@@ -53,6 +53,7 @@ class Swarm {
       for (int n = 0; n < nmax_pool_; n++) {
         mask(n) = 0;
       }
+      printf("CONSTRUCTING SWARM: %s\n", label.c_str());
     }
 
   ///< Make a new Swarm based on an existing one
@@ -107,8 +108,14 @@ class Swarm {
   bool mpiStatus;
 
   void AddParticle() {
+    printf("AddParticle! swarm name: %s\n", label_.c_str());
     // Check that particle fits, if not double size of pool via
     // setPoolMax(2*_nmax_pool);
+    // TODO silly example here
+    nmax_active_ = 1;
+    ParticleVariable<Real> &x = GetReal("x");
+    x(0) = 1.;
+
   }
 
   // TODO(BRR) add a bunch of particles at once?

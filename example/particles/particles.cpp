@@ -53,6 +53,7 @@ Packages_t ParthenonManager::ProcessPackages(std::unique_ptr<ParameterInput> &pi
 }
 
 void MeshBlock::ProblemGenerator(ParameterInput *pin) {
+  printf("PROBLEM GENERATOR\n");
   SwarmContainer &sc = real_containers.GetSwarmContainer();
   Swarm &s = sc.Get("my particles");
   //CellVariable<Real> &q = rc.Get("advected");
@@ -85,6 +86,7 @@ namespace particles_example {
 namespace Particles {
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
+  printf("INITIALIZE\n");
   auto pkg = std::make_shared<StateDescriptor>("Particles");
 
   int num_particles = pin->GetOrAddInteger("Particles", "num_particles", 100);
@@ -174,14 +176,21 @@ TaskList ParticleDriver::MakeTaskList(MeshBlock *pmb, int stage) {
   // first make other useful containers
   if (stage == 1) {
     Container<Real> &container = pmb->real_containers.Get();
-    SwarmContainer &base = pmb->real_containers.GetSwarmContainer();
-    pmb->real_containers.Add("my swarm container", base);
     pmb->real_containers.Add("my container", container);
+    SwarmContainer &base = pmb->real_containers.GetSwarmContainer();
+    //pmb->real_containers.Add("my swarm container", base);
   }
 
-  SwarmContainer sc = pmb->real_containers.GetSwarmContainer("my swarm container");
+  printf("A\n");
+
+  //SwarmContainer sc = pmb->real_containers.GetSwarmContainer("my swarm container");
+  SwarmContainer sc = pmb->real_containers.GetSwarmContainer();
+
+  printf("B\n");
 
   Swarm &swarm = sc.Get("my particles");
+
+  printf("C\n");
 
   //auto update_swarm = tl.AddTask<TwoSwarmTask>(parthenon::Update::TransportSwarm, none,
    //                                            swarm, swarm);
