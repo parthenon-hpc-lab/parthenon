@@ -20,7 +20,7 @@ include(CTest)
 set(PARTHENON_NGHOST 2 CACHE STRING "Number of ghost cells") 
 
 # Compile Options
-option(PARTHENON_SINGLE_PRECISION "Run in single precision" 0) 
+option(PARTHENON_SINGLE_PRECISION "Run in single precision" OFF) 
 option(PARTHENON_DISABLE_MPI "MPI is enabled by default if found, set this to True to disable MPI" OFF)
 option(PARTHENON_DISABLE_OPENMP "OpenMP is enabled by default if found, set this to True to disable OpenMP" OFF)
 option(PARTHENON_DISABLE_HDF5 "HDF5 is enabled by default if found, set this to True to disable HDF5" OFF)
