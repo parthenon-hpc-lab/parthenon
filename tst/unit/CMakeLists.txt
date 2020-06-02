@@ -25,7 +25,7 @@ list(APPEND unit_tests_SOURCES
     kokkos_abstraction.cpp
     test_metadata.cpp
     test_pararrays.cpp
-    #    test_container_iterator.cpp
+    test_container_iterator.cpp
     test_required_desired.cpp
     test_error_checking.cpp
 
