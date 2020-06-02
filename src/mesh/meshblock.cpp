@@ -56,6 +56,7 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
       gid(igid), lid(ilid), gflag(igflag), properties(properties), packages(packages),
       prev(nullptr), next(nullptr), new_block_dt_{}, new_block_dt_hyperbolic_{},
       new_block_dt_parabolic_{}, new_block_dt_user_{}, cost_(1.0) {
+  printf("CONSTRUCTING MESHBLOCK\n");
   // initialize grid indices
   is = NGHOST;
   ie = is + block_size.nx1 - 1;
@@ -141,7 +142,9 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
   // Add swarm properties data
   for (int i = 0; i < properties.size(); i++) {
     StateDescriptor &state = properties[i]->State();
+    printf("state: %s\n", state.label().c_str());
     for (auto const &q : state.AllSwarms()) {
+      printf("q.first: %s\n", q.first.c_str());
       swarm_container.Add(q.first, q.second);
       // Populate swarm values
       auto swarm = swarm_container.Get(q.first);
@@ -151,15 +154,41 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
     }
   }
   for (auto const &pkg : packages) {
+    printf("package: %s\n", pkg.first.c_str());
     for (auto const &q: pkg.second->AllSwarms()) {
+      printf("q.first: %s\n", q.first.c_str());
       swarm_container.Add(q.first, q.second);
       // Populate swarm values
-      auto swarm = swarm_container.Get(q.first);
+      Swarm &swarm = swarm_container.Get(q.first);
+      printf("got swarm: %s\n", swarm.label().c_str());
+      printf("address of this swarm: %p\n", &swarm);
       for (auto const &m : pkg.second->AllSwarmValues(q.first)) {
+        printf("m.first: %s\n", m.first.c_str());
         swarm.Add(m.first, m.second);
       }
+      swarm.Add("test variable", Metadata({Metadata::Real}));
+      // TODO this is junk
+      auto test = swarm.GetReal("x");
+
+
+
+      /*Swarm* swarm = swarm_container.GetPtr(q.first);
+      printf("got swarm: %s\n", swarm->label().c_str());
+      printf("address of this swarm: %p\n", swarm);
+      for (auto const &m : pkg.second->AllSwarmValues(q.first)) {
+        printf("m.first: %s\n", m.first.c_str());
+        swarm->Add(m.first, m.second);
+      }
+      swarm->Add("test variable", Metadata({Metadata::Real}));
+      // TODO this is junk
+      auto test = swarm->GetReal("x");*/
     }
   }
+
+  printf("DONE ADDING PROPERTIES AND PACKAGES\n");
+  real_containers.GetSwarmContainer().Get("my particles").printrealvars();
+  swarm_container.Get("my particles").printrealvars();
+  exit(-1);
 
   // TODO(jdolence): Should these loops be moved to Variable creation
   ContainerIterator<Real> ci(real_container, {Metadata::Independent});

@@ -37,6 +37,7 @@ void SwarmContainer::Add(const std::vector<std::string> labelArray,
 /// @param metadata the metadata associated with the particle
 void SwarmContainer::Add(const std::string label,
                        const Metadata &metadata) {
+  printf("Adding swarm to SwarmContainer!\n");
   if (swarmMap_.find(label) != swarmMap_.end()) {
     throw std::invalid_argument ("swarm " + label  +" already enrolled during Add()!");
   }

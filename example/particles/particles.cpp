@@ -54,12 +54,56 @@ Packages_t ParthenonManager::ProcessPackages(std::unique_ptr<ParameterInput> &pi
 
 void MeshBlock::ProblemGenerator(ParameterInput *pin) {
   printf("PROBLEM GENERATOR\n");
+
   SwarmContainer &sc = real_containers.GetSwarmContainer();
   Swarm &s = sc.Get("my particles");
-  //CellVariable<Real> &q = rc.Get("advected");
+  printf("swarm: %s\n", s.label().c_str());
 
-  // We should create some particles here
-  s.AddParticle();
+  printf("a\n");
+  ParticleVariable<Real> &x = s.GetReal("x");
+  printf("b\n");
+  ParticleVariable<Real> &y = s.GetReal("y");
+  printf("c\n");
+  ParticleVariable<Real> &z = s.GetReal("z");
+  printf("d\n");
+  ParticleVariable<Real> &vx = s.GetReal("vx");
+  printf("e\n");
+  ParticleVariable<Real> &vy = s.GetReal("vy");
+  printf("f\n");
+  ParticleVariable<Real> &vz = s.GetReal("vz");
+  printf("g\n");
+
+  // Here we demonstrate the different ways to add particles
+
+  // Add a single particle
+  printf("Add empty particle\n");
+  auto particle_index = s.AddEmptyParticle();
+  x(particle_index) = 0.5;
+  y(particle_index) = 0.5;
+  z(particle_index) = 0.5;
+  vx(particle_index) = 0.5;
+  vy(particle_index) = 0.5;
+  vz(particle_index) = 0.5;
+
+  // Add 2 empty particles and assign positions and weights
+  printf("Add empty particles\n");
+  auto empty_particle_indices = s.AddEmptyParticles(2);
+  for (auto n : empty_particle_indices) {
+    x(n) = 0.1*n;
+    y(n) = 0.1*n;
+    z(n) = 0.1*n;
+    vx(n) = 0.1;
+    vy(n) = 0.;
+    vz(n) = 0.;
+  }
+
+  // Add 2 uniformly spaced particles
+  auto uniform_particle_indices = s.AddUniformParticles(2);
+  for (auto n : empty_particle_indices) {
+    vx(n) = 0.1;
+    vy(n) = 0.;
+    vz(n) = 0.;
+  }
 
 
 
@@ -86,7 +130,7 @@ namespace particles_example {
 namespace Particles {
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
-  printf("INITIALIZE\n");
+  printf("INITIALIZING PACKAGE\n");
   auto pkg = std::make_shared<StateDescriptor>("Particles");
 
   int num_particles = pin->GetOrAddInteger("Particles", "num_particles", 100);
@@ -104,6 +148,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddSwarmValue("vz", swarm_name, real_swarmvalue_metadata);
 
   pkg->EstimateTimestep = EstimateTimestep;
+
+  printf("DONE INITIALIZING PACKAGE\n");
 
   return pkg;
 }

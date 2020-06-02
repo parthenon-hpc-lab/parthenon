@@ -25,7 +25,7 @@ problem_id = particles
 refinement = none
 #numlevel = 3
 
-nx1 = 32
+nx1 = 16
 x1min = -0.5
 x1max = 0.5
 ix1_bc = periodic

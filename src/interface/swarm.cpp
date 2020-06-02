@@ -54,11 +54,15 @@ void Swarm::Add(const std::string label, const Metadata &metadata) {
 
   std::array<int, 6> arrDims = {nmax_pool_, 1, 1, 1, 1, 1};
 
+  printf("Adding: %s\n", label.c_str());
+
   if (metadata.Type() == Metadata::Integer) {
+    printf("int!\n");
     auto var = std::make_shared<ParticleVariable<int>>(label, nmax_pool_, metadata);
     intVector_.push_back(var);
     intMap_[label] = var;
   } else if (metadata.Type() == Metadata::Real) {
+    printf("real!\n");
     auto var = std::make_shared<ParticleVariable<Real>>(label, nmax_pool_, metadata);
     realVector_.push_back(var);
     realMap_[label] = var;
@@ -72,6 +76,7 @@ void Swarm::Add(const std::string label, const Metadata &metadata) {
 }
 
 void Swarm::Remove(const std::string label) {
+  printf("SWARM::REMOVE!!\n");
   int idx, isize;
   bool found = false;
 

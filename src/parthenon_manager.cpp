@@ -94,12 +94,15 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
   auto packages = ProcessPackages(pinput);
   // always add the Refinement package
   packages["ParthenonRefinement"] = Refinement::Initialize(pinput.get());
+  printf("Done with processing packages\n");
 
   SetGraphics(pinput, packages);
 
   // TODO(jdolence): Deal with restarts
   // if (arg.res_flag == 0) {
   pmesh = std::make_unique<Mesh>(pinput.get(), properties, packages, arg.mesh_flag);
+  pmesh->pblock->real_containers.GetSwarmContainer().Get("my particles").printrealvars();
+  printf("Done with making unique ptr to mesh\n");
   //} else {
   //  pmesh = std::make_unique<Mesh>(pinput.get(), )
   //}

@@ -86,6 +86,16 @@ class SwarmContainer {
     swarmMap_[swarm->label()] = swarm;
   }
 
+  Swarm* GetPtr(std::string label) {
+    if (swarmMap_.count(label) == 0) {
+      throw std::invalid_argument (std::string("\n") +
+                                   std::string(label) +
+                                   std::string(" swarm not found in Get()\n") );
+    }
+    printf("swarm pointer: %p\n", &(*swarmMap_[label]));
+    return &(*swarmMap_[label]);
+  }
+
   ///
   /// Get a swarm from the container
   /// @param label the name of the swarm
@@ -96,10 +106,12 @@ class SwarmContainer {
                                    std::string(label) +
                                    std::string(" swarm not found in Get()\n") );
     }
+    printf("swarm pointer: %p\n", &(*swarmMap_[label]));
     return *swarmMap_[label];
   }
 
   Swarm& Get(const int index) {
+    printf("Get swarm by index: %i\n", index);
     return *(swarmVector_[index]);
   }
 
