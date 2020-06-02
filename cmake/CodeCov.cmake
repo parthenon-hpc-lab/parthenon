@@ -73,6 +73,7 @@ if(CODE_COVERAGE)
   endif()
 
 else()
+  add_custom_target(coverage)
   add_custom_command(TARGET coverage
     COMMAND echo "====================== Code Coverage ======================"
     COMMENT "Code coverage has not been enabled"
