@@ -53,10 +53,10 @@ if(CODE_COVERAGE)
     # Combining base line counters with counters from running tests
     COMMAND ${PATH_LCOV} --gcov-tool ${PATH_GCOV} -a ${CMAKE_BINARY_DIR}/coverage/report.base -a ${CMAKE_BINARY_DIR}/coverage/report.test --output-file ${CMAKE_BINARY_DIR}/coverage/report.all
     # Remove unneeded reports
-    COMMAND rm ${CMAKE_BINARY_DIR/coverage/report.test.old
-    COMMAND rm ${CMAKE_BINARY_DIR/coverage/report.base.old
-    COMMAND rm ${CMAKE_BINARY_DIR/coverage/report.base
-    COMMAND rm ${CMAKE_BINARY_DIR/coverage/report.test
+    COMMAND rm ${CMAKE_BINARY_DIR}/coverage/report.test.old
+    COMMAND rm ${CMAKE_BINARY_DIR}/coverage/report.base.old
+    COMMAND rm ${CMAKE_BINARY_DIR}/coverage/report.base
+    COMMAND rm ${CMAKE_BINARY_DIR}/coverage/report.test
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     )
 
