@@ -55,8 +55,9 @@ enum class IndexDomain { entire, interior };
 //  index also contains a label for defining which region the index shape is assigned too
 class IndexShape {
  private:
-  std::array<IndexRange, NDIM> x_;
-  std::array<int, NDIM> entire_ncells_;
+
+  IndexRange x_[NDIM];
+  int entire_ncells_[NDIM];
 
   KOKKOS_INLINE_FUNCTION bool DimensionProvided_(const std::vector<int> &interior_dims,
                                                  int dim) {
@@ -112,18 +113,6 @@ class IndexShape {
     }
   }
 
-  std::array<IndexRange, NDIM> GetBounds(const IndexDomain &domain) const noexcept {
-    if (domain == IndexDomain::entire) {
-      std::array<IndexRange, NDIM> bounds;
-      for (int index = 0; index < NDIM; ++index) {
-        bounds[index].s = 0;
-        bounds[index].e = entire_ncells_[index];
-      }
-      return bounds;
-    }
-    return x_;
-  }
-
   KOKKOS_INLINE_FUNCTION const IndexRange GetBoundsI(const IndexDomain &domain) const
       noexcept {
     return (domain == IndexDomain::entire) ? IndexRange{0, entire_ncells_[0] - 1} : x_[0];
@@ -177,7 +166,7 @@ class IndexShape {
 
   // Kept basic for kokkos
   int GetTotal(const IndexDomain &domain) const noexcept {
-    if (x_.size() == 0) return 0;
+    if (NDIM == 0) return 0;
     int total = 1;
     if (domain == IndexDomain::entire) {
       for (int i = 0; i < NDIM; ++i)
