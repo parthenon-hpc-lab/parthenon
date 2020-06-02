@@ -57,21 +57,13 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
 
   SwarmContainer &sc = real_containers.GetSwarmContainer();
   Swarm &s = sc.Get("my particles");
-  printf("swarm: %s\n", s.label().c_str());
 
-  printf("a\n");
   ParticleVariable<Real> &x = s.GetReal("x");
-  printf("b\n");
   ParticleVariable<Real> &y = s.GetReal("y");
-  printf("c\n");
   ParticleVariable<Real> &z = s.GetReal("z");
-  printf("d\n");
   ParticleVariable<Real> &vx = s.GetReal("vx");
-  printf("e\n");
   ParticleVariable<Real> &vy = s.GetReal("vy");
-  printf("f\n");
   ParticleVariable<Real> &vz = s.GetReal("vz");
-  printf("g\n");
 
   // Here we demonstrate the different ways to add particles
 
@@ -97,6 +89,8 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
     vz(n) = 0.;
   }
 
+  printf("now have 3 particles\n");
+
   // Add 2 uniformly spaced particles
   auto uniform_particle_indices = s.AddUniformParticles(2);
   for (auto n : empty_particle_indices) {
@@ -105,16 +99,7 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
     vz(n) = 0.;
   }
 
-
-
-  /*for (int k = 0; k < ncells3; k++) {
-    for (int j = 0; j < ncells2; j++) {
-      for (int i = 0; i < ncells1; i++) {
-        Real rsq = std::pow(pcoord->x1v(i), 2) + std::pow(pcoord->x2v(j), 2);
-        q(k, j, i) = (rsq < 0.15 * 0.15 ? 1.0 : 0.0);
-      }
-    }
-  }*/
+  s.printpool();
 }
 
 } // namespace parthenon
@@ -227,21 +212,10 @@ TaskList ParticleDriver::MakeTaskList(MeshBlock *pmb, int stage) {
     //pmb->real_containers.Add("my swarm container", base);
   }
 
-  printf("A\n");
-
-  //SwarmContainer sc = pmb->real_containers.GetSwarmContainer("my swarm container");
   SwarmContainer sc = pmb->real_containers.GetSwarmContainer();
-
-  printf("B\n");
 
   Swarm &swarm = sc.Get("my particles");
 
-  printf("C\n");
-
-  //auto update_swarm = tl.AddTask<TwoSwarmTask>(parthenon::Update::TransportSwarm, none,
-   //                                            swarm, swarm);
-
-  //auto update_swarm = tl.AddTask<SwarmTask>(UpdateSwarm, none, swarm);
   auto update_swarm = tl.AddTask<SwarmTask>(UpdateSwarm, pmb, none, swarm);
 
   Container<Real> container = pmb->real_containers.Get("my container");

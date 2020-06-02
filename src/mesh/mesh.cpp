@@ -1170,7 +1170,6 @@ void Mesh::ApplyUserWorkBeforeOutput(ParameterInput *pin) {
 // \brief  initialization before the main loop
 
 void Mesh::Initialize(int res_flag, ParameterInput *pin) {
-  printf("MESH::INITIALIZE\n");
   bool iflag = true;
   int inb = nbtotal;
 #ifdef OPENMP_PARALLEL
@@ -1178,10 +1177,6 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
 #endif
   int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
   std::vector<MeshBlock *> pmb_array(nmb);
-
-  MeshBlock *tmp = pblock;
-  auto swarm = tmp->real_containers.GetSwarmContainer().Get("my particles");
-  swarm.printrealvars();
 
   do {
     // initialize a vector of MeshBlock pointers
@@ -1196,7 +1191,6 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
     if (res_flag == 0) {
 #pragma omp parallel for num_threads(nthreads)
       for (int i = 0; i < nmb; ++i) {
-        printf("About to call meshblock's problem generator!\n");
         MeshBlock *pmb = pmb_array[i];
         pmb->ProblemGenerator(pin);
       }
@@ -1301,7 +1295,6 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
   }
 
   NewTimeStep();
-  printf("DONE WITH MESH INITIALIZE\n");
   return;
 }
 

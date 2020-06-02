@@ -46,20 +46,15 @@ class Swarm {
           m_(metadata),
           nmax_pool_(nmax_pool_in),
           mpiStatus(true) {
-      printf("CONSTRUCTING SWARM: %s\n", label.c_str());
       Add("x", Metadata({Metadata::Real}));
       Add("y", Metadata({Metadata::Real}));
       Add("z", Metadata({Metadata::Real}));
-      Add("test2", Metadata({Metadata::Real}));
       Add("mask", Metadata({Metadata::Integer}));
       auto &mask = GetInteger("mask");
-      printf("Initializing pool:\n");
       for (int n = 0; n < nmax_pool_; n++) {
         mask(n) = 0;
-        printf("  n = %i\n", n);
         free_indices_.push_back(n);
       }
-      printf("Swarm \"%s\" constructed\n", label.c_str());
     }
 
   ///< Make a new Swarm based on an existing one
@@ -76,10 +71,6 @@ class Swarm {
   void Remove(const std::string label);
 
   ParticleVariable<Real> &GetReal(const std::string label) {
-    for (auto key : realMap_) {
-      printf("key: %s\n", key.first.c_str());
-    }
-    printf("realVector_.size() = %i\n", realVector_.size());
     return *(realMap_.at(label));
   }
 
@@ -102,9 +93,24 @@ class Swarm {
   /// return information string
   std::string info() { return info_; }
 
+  /// Expand pool size geometrically as necessary
+  void increasePoolMax() {
+    setPoolMax(2*nmax_pool_);
+  }
+
+  void printpool() {
+    ParticleVariable<int> &mask = GetInteger("mask");
+    ParticleVariable<Real> &x = GetReal("x");
+    ParticleVariable<Real> &y = GetReal("y");
+    ParticleVariable<Real> &z = GetReal("z");
+    for (int n = 0; n < nmax_pool_; n++) {
+      printf("[%i] (x, y, z) = (%g, %g, %g) mask: %i\n", n, x(n), y(n), z(n), mask(n));
+    }
+  }
+
   /// Set max pool size
   void setPoolMax(const int nmax_pool) {
-    printf("SET POOL MAX\n");
+    printf("Increasing pool max from %i to %i!\n", nmax_pool_, nmax_pool);
     if (nmax_pool < nmax_pool_) {
       printf("Must increase pool size!\n");
       exit(-1);
@@ -125,25 +131,28 @@ class Swarm {
                                                             nmax_pool,
                                                             oldvar->metadata());
       for (int m = 0; m < nmax_pool_; m++) {
-        (*oldvar)(m) = (*newvar)(m);
+        (*newvar)(m) = (*oldvar)(m);
       }
       intVector_[n] = newvar;
       intMap_[oldvar->label()] = newvar;
     }
 
+    for (int n = 0; n < realVector_.size(); n++) {
+      auto oldvar = realVector_[n];
+      auto newvar = std::make_shared<ParticleVariable<Real>>(oldvar->label(),
+                                                             nmax_pool,
+                                                             oldvar->metadata());
+      for (int m = 0; m < nmax_pool_; m++) {
+        (*newvar)(m) = (*oldvar)(m);
+      }
+      realVector_[n] = newvar;
+      realMap_[oldvar->label()] = newvar;
+    }
 
-    // TODO(BRR) require that nmax_pool > nmax_pool_?
-    // TODO(BRR) resize arrays and copy data
     nmax_pool_ = nmax_pool;
   }
 
   bool IsSet(const MetadataFlag bit) const { return m_.IsSet(bit); }
-
-  void printrealvars() {
-    for (auto var : realMap_) {
-      printf("swarm var: %s\n", var.first.c_str());
-    }
-  }
 
   int get_nmax_active() {
     return nmax_active_;
@@ -156,15 +165,64 @@ class Swarm {
     // Check that particle fits, if not double size of pool via
     // setPoolMax(2*_nmax_pool);
     // TODO silly example here
-    nmax_active_ = 1;
-    return 0;
+
+    if (free_indices_.size() == 0) {
+      increasePoolMax();
+    }
+
+    auto free_index_iter = free_indices_.begin();
+    int free_index = *free_index_iter;
+    free_indices_.erase(free_index_iter);
+
+    ParticleVariable<int> &mask = GetInteger("mask");
+    ParticleVariable<Real> &x = GetReal("x");
+    ParticleVariable<Real> &y = GetReal("y");
+    ParticleVariable<Real> &z = GetReal("z");
+
+    mask(free_index) = 1;
+    nmax_active_ = std::max<int>(nmax_active_, free_index);
+
+    x(free_index) = 0.;
+    y(free_index) = 0.;
+    z(free_index) = 0.;
+
+    return free_index;
   }
 
   std::vector<int> AddEmptyParticles(int num_to_add) {
-    return std::vector<int>();
+    while (free_indices_.size() < num_to_add) {
+      increasePoolMax();
+    }
+
+    std::vector<int> indices(num_to_add);
+
+    auto free_index = free_indices_.begin();
+
+    ParticleVariable<int> &mask = GetInteger("mask");
+    ParticleVariable<Real> &x = GetReal("x");
+    ParticleVariable<Real> &y = GetReal("y");
+    ParticleVariable<Real> &z = GetReal("z");
+
+    for (int n = 0; n < num_to_add; n++) {
+      indices[n] = *free_index;
+      mask(*free_index) = 1;
+      nmax_active_ = std::max<int>(nmax_active_, *free_index);
+
+      x(*free_index) = 0.;
+      y(*free_index) = 0.;
+      z(*free_index) = 0.;
+
+      free_index = free_indices_.erase(free_index);
+    }
+
+    return indices;
   }
 
   std::vector<int> AddUniformParticles(int num_to_add) {
+    while (free_indices_.size() < num_to_add) {
+      increasePoolMax();
+    }
+
     return std::vector<int>();
   }
 
