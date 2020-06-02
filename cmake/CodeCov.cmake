@@ -60,11 +60,14 @@ if(CODE_COVERAGE)
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     )
 
+  set(UPLOAD_COMMAND "bash <\(curl -s https://codecov.io/bash\) \|\| echo \"code coverage failed to upload\"")
+  message(${UPLOAD_COMMAND})
   add_custom_target(coverage-upload) 
   add_custom_command(TARGET coverage-upload
     COMMAND echo "================ Uploading Code Coverage =================="
     # Upload coverage report
-    COMMAND bash <(curl -s https://codecov.io/bash) || bash echo "code coverage failed to upload"
+    COMMAND curl -s https://codecov.io/bash\ > script.coverage
+    COMMAND bash script.coverage
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/coverage
     )
 
