@@ -67,12 +67,9 @@ namespace calculate_pi {
 
 void SetInOrOut(Container<Real> &rc) {
   MeshBlock *pmb = rc.pmy_block;
-  int is = pmb->is;
-  int js = pmb->js;
-  int ks = pmb->ks;
-  int ie = pmb->ie;
-  int je = pmb->je;
-  int ke = pmb->ke;
+  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
+  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
+  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
   ParArrayND<Real> &v = rc.Get("in_or_out").data;
   const auto &radius = pmb->packages["calculate_pi"]->Param<Real>("radius");
   auto &coords = pmb->coords;
@@ -80,7 +77,7 @@ void SetInOrOut(Container<Real> &rc) {
   // is inside or outside of the circle we're interating the area of.
   // see the CheckRefinement routine below for an explanation of the loop bounds
   pmb->par_for(
-      "SetInOrOut", ks, ke, js - 1, je + 1, is - 1, ie + 1,
+      "SetInOrOut", kb.s, kb.e, jb.s - 1, jb.e + 1, ib.s - 1, ib.e + 1,
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
         Real rsq = std::pow(coords.x1v(i), 2) + std::pow(coords.x2v(j), 2);
         if (rsq < radius * radius) {
@@ -96,12 +93,9 @@ AmrTag CheckRefinement(Container<Real> &rc) {
   // each package can define its own refinement tagging
   // function and they are all called by parthenon
   MeshBlock *pmb = rc.pmy_block;
-  int is = pmb->is;
-  int js = pmb->js;
-  int ks = pmb->ks;
-  int ie = pmb->ie;
-  int je = pmb->je;
-  int ke = pmb->ke;
+  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
+  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
+  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
   CellVariable<Real> &v = rc.Get("in_or_out");
   AmrTag delta_level = AmrTag::derefine;
   Real vmin = 1.0;
@@ -110,9 +104,9 @@ AmrTag CheckRefinement(Container<Real> &rc) {
   // if the edge of the circle is found.  The one layer of ghost cells
   // catches the case where the edge is between the cell centers of
   // the first/last real cell and the first ghost cell
-  for (int k = ks; k <= ke; k++) {
-    for (int j = js - 1; j <= je + 1; j++) {
-      for (int i = is - 1; i <= ie + 1; i++) {
+  for (int k = kb.s; k <= kb.e; k++) {
+    for (int j = jb.s - 1; j <= jb.e + 1; j++) {
+      for (int i = ib.s - 1; i <= ib.e + 1; i++) {
         vmin = (v(k, j, i) < vmin ? v(k, j, i) : vmin);
         vmax = (v(k, j, i) > vmax ? v(k, j, i) : vmax);
       }
@@ -149,20 +143,17 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 TaskStatus ComputeArea(MeshBlock *pmb) {
   // compute 1/r0^2 \int d^2x in_or_out(x,y) over the block's domain
   Container<Real> &rc = pmb->real_containers.Get();
-  int is = pmb->is;
-  int js = pmb->js;
-  int ks = pmb->ks;
-  int ie = pmb->ie;
-  int je = pmb->je;
-  int ke = pmb->ke;
+  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
+  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
+  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
   auto &coords = pmb->coords;
 
   ParArrayND<Real> &v = rc.Get("in_or_out").data;
   const auto &radius = pmb->packages["calculate_pi"]->Param<Real>("radius");
   Real area = 0.0;
-  for (int k = ks; k <= ke; k++) {
-    for (int j = js; j <= je; j++) {
-      for (int i = is; i <= ie; i++) {
+  for (int k = kb.s; k <= kb.e; k++) {
+    for (int j = jb.s; j <= jb.e; j++) {
+      for (int i = ib.s; i <= ib.e; i++) {
         area += v(k, j, i) * coords.Area(parthenon::X3DIR, k, j, i);
       }
     }

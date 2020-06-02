@@ -402,9 +402,10 @@ void ParameterInput::ModifyFromCmdline(int argc, char *argv[]) {
     std::size_t equal_posn = input_text.find_first_of("="); // find "=" character
 
     if (slash_posn > equal_posn) {
-      PARTHENON_FAIL(
-          "'/' used as value (rhs of =) when modifying " + input_text + "." +
-          "Please update value of change logic in ModifyFromCmdline function.");
+      msg << "'/' used as value (rhs of =) when modifying " << input_text << "."
+          << " Please update value of change "
+          << "logic in ModifyFromCmdline function.";
+      PARTHENON_FAIL(msg.str().c_str());
     }
 
     // skip if either "/" or "=" do not exist in input
@@ -421,7 +422,7 @@ void ParameterInput::ModifyFromCmdline(int argc, char *argv[]) {
       msg << "### FATAL ERROR in function [ParameterInput::ModifyFromCmdline]"
           << std::endl
           << "Block name '" << block << "' on command line not found";
-      PARTHENON_FAIL(msg.str());
+      PARTHENON_FAIL(msg.str().c_str());
     }
 
     // get pointer to node with same parameter name in singly linked list of InputLines
@@ -431,7 +432,7 @@ void ParameterInput::ModifyFromCmdline(int argc, char *argv[]) {
           << std::endl
           << "Parameter '" << name << "' in block '" << block
           << "' on command line not found";
-      PARTHENON_FAIL(msg.str());
+      PARTHENON_FAIL(msg.str().c_str());
     }
     pl->param_value.assign(value); // replace existing value
 

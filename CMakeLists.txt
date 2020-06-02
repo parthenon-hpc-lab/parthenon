@@ -25,6 +25,7 @@ option(DISABLE_HDF5 "HDF5 is enabled by default if found, set this to True to di
 option(ENABLE_COMPILER_WARNINGS "Enable compiler warnings" OFF)
 option(CHECK_REGISTRY_PRESSURE "Check the registry pressure for Kokkos CUDA kernels" OFF)
 option(TEST_INTEL_OPTIMIZATION "Test intel optimization and vectorization" OFF)
+option(TEST_ERROR_CHECKING "Enables the error checking unit test. This test will FAIL" OFF)
 option(CODE_COVERAGE "Enable code coverage reporting" OFF)
 
 include(cmake/Format.cmake)

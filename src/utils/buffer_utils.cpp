@@ -20,83 +20,104 @@
 #include "utils/buffer_utils.hpp"
 
 #include "athena.hpp"
+#include "kokkos_abstraction.hpp"
+#include "mesh/mesh.hpp"
 #include "parthenon_arrays.hpp"
 
 namespace parthenon {
 namespace BufferUtility {
 
 //----------------------------------------------------------------------------------------
-//! \fn template <typename T> void PackData(ParArrayND<T> &src, T *buf, int sn, int en,
-//                     int si, int ei, int sj, int ej, int sk, int ek, int &offset)
-//  \brief pack a 4D ParArrayND into a one-dimensional buffer
+//! \fn template <typename T> void PackData(ParArray4D<T> &src, ParArray1D<T> &buf,
+//                     int sn, int en,
+//                     int si, int ei, int sj, int ej, int sk, int ek, int &offset,
+//                     MeshBlock *pmb)
+//  \brief pack a 4D ParArray into a one-dimensional buffer
 
 template <typename T>
-void PackData(ParArrayND<T> &src, T *buf, int sn, int en, int si, int ei, int sj, int ej,
-              int sk, int ek, int &offset) {
-  for (int n = sn; n <= en; ++n) {
-    for (int k = sk; k <= ek; k++) {
-      for (int j = sj; j <= ej; j++) {
-#pragma omp simd
-        for (int i = si; i <= ei; i++)
-          buf[offset++] = src(n, k, j, i);
-      }
-    }
-  }
-}
+void PackData(ParArray4D<T> &src, ParArray1D<T> &buf, int sn, int en, int si, int ei,
+              int sj, int ej, int sk, int ek, int &offset, MeshBlock *pmb) {
+  int ni = ei + 1 - si;
+  int nj = ej + 1 - sj;
+  int nk = ek + 1 - sk;
+  int nn = en + 1 - sn;
 
-//----------------------------------------------------------------------------------------
-//! \fn template <typename T> void PackData(ParArrayND<T> &src, T *buf,
-//                      int si, int ei, int sj, int ej, int sk, int ek, int &offset)
-//  \brief pack a 3D ParArrayND into a one-dimensional buffer
-
-template <typename T>
-void PackData(ParArrayND<T> &src, T *buf, int si, int ei, int sj, int ej, int sk, int ek,
-              int &offset) {
-  for (int k = sk; k <= ek; k++) {
-    for (int j = sj; j <= ej; j++) {
-#pragma omp simd
-      for (int i = si; i <= ei; i++)
-        buf[offset++] = src(k, j, i);
-    }
-  }
+  pmb->par_for(
+      "PackData 4D", sn, en, sk, ek, sj, ej, si, ei,
+      KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
+        buf(offset + i - si + ni * (j - sj + nj * (k - sk + nk * (n - sn)))) =
+            src(n, k, j, i);
+      });
+  offset += nn * nk * nj * ni;
   return;
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn template <typename T> void UnpackData(T *buf, ParArrayND<T> &dst, int sn, int en,
-//                        int si, int ei, int sj, int ej, int sk, int ek, int &offset)
-//  \brief unpack a one-dimensional buffer into a 4D ParArrayND
+//! \fn template <typename T> void PackData(ParArrayND<T> &src, ParArray1D<T> &buf,
+//                      int si, int ei, int sj, int ej, int sk, int ek, int &offset,
+//                      MeshBlock *pmb)
+//  \brief pack a 3D ParArray into a one-dimensional buffer
 
 template <typename T>
-void UnpackData(T *buf, ParArrayND<T> &dst, int sn, int en, int si, int ei, int sj,
-                int ej, int sk, int ek, int &offset) {
-  for (int n = sn; n <= en; ++n) {
-    for (int k = sk; k <= ek; ++k) {
-      for (int j = sj; j <= ej; ++j) {
-#pragma omp simd
-        for (int i = si; i <= ei; ++i)
-          dst(n, k, j, i) = buf[offset++];
-      }
-    }
-  }
+void PackData(ParArray3D<T> &src, ParArray1D<T> &buf, int si, int ei, int sj, int ej,
+              int sk, int ek, int &offset, MeshBlock *pmb) {
+  int ni = ei + 1 - si;
+  int nj = ej + 1 - sj;
+  int nk = ek + 1 - sk;
+
+  pmb->par_for(
+      "PackData 3D", sk, ek, sj, ej, si, ei, KOKKOS_LAMBDA(int k, int j, int i) {
+        buf(offset + i - si + ni * (j - sj + nj * (k - sk))) = src(k, j, i);
+      });
+
+  offset += nk * nj * ni;
   return;
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn template <typename T> void UnpackData(T *buf, ParArrayND<T> &dst,
-//                        int si, int ei, int sj, int ej, int sk, int ek, int &offset)
-//  \brief unpack a one-dimensional buffer into a 3D ParArrayND
+//! \fn template <typename T> void UnpackData(ParArray1D<T> &buf, ParArray4D<T> &dst,
+//                        int sn, int en, int si, int ei, int sj, int ej, int sk, int ek,
+//                        int &offset, MeshBlock *pmb)
+//  \brief unpack a one-dimensional buffer into a ParArray4D
 
 template <typename T>
-void UnpackData(T *buf, ParArrayND<T> &dst, int si, int ei, int sj, int ej, int sk,
-                int ek, int &offset) {
-  for (int k = sk; k <= ek; ++k) {
-    for (int j = sj; j <= ej; ++j) {
-#pragma omp simd
-      for (int i = si; i <= ei; ++i)
-        dst(k, j, i) = buf[offset++];
-    }
-  }
+void UnpackData(ParArray1D<T> &buf, ParArray4D<T> &dst, int sn, int en, int si, int ei,
+                int sj, int ej, int sk, int ek, int &offset, MeshBlock *pmb) {
+  int ni = ei + 1 - si;
+  int nj = ej + 1 - sj;
+  int nk = ek + 1 - sk;
+  int nn = en + 1 - sn;
+
+  pmb->par_for(
+      "UnpackData 4D", sn, en, sk, ek, sj, ej, si, ei,
+      KOKKOS_LAMBDA(int n, int k, int j, int i) {
+        dst(n, k, j, i) =
+            buf(offset + i - si + ni * (j - sj + nj * (k - sk + nk * (n - sn))));
+      });
+
+  offset += nn * nk * nj * ni;
+  return;
+}
+
+//----------------------------------------------------------------------------------------
+//! \fn template <typename T> void UnpackData(ParArray1D<T> &buf, ParArray3D<T> &dst,
+//                        int si, int ei, int sj, int ej, int sk, int ek, int &offset,
+//                        MeshBlock *pmb)
+//  \brief unpack a one-dimensional buffer into a 3D ParArray
+
+template <typename T>
+void UnpackData(ParArray1D<T> &buf, ParArray3D<T> &dst, int si, int ei, int sj, int ej,
+                int sk, int ek, int &offset, MeshBlock *pmb) {
+  int ni = ei + 1 - si;
+  int nj = ej + 1 - sj;
+  int nk = ek + 1 - sk;
+
+  pmb->par_for(
+      "UnpackData 3D", sk, ek, sj, ej, si, ei, KOKKOS_LAMBDA(int k, int j, int i) {
+        dst(k, j, i) = buf(offset + i - si + ni * (j - sj + nj * (k - sk)));
+      });
+
+  offset += nk * nj * ni;
   return;
 }
 
@@ -105,15 +126,15 @@ void UnpackData(T *buf, ParArrayND<T> &dst, int si, int ei, int sj, int ej, int 
 // for other TUs during linking time (~13x files include "buffer_utils.hpp")
 
 // 13x files include buffer_utils.hpp
-template void UnpackData<Real>(Real *, ParArrayND<Real> &, int, int, int, int, int, int,
-                               int, int, int &);
-template void UnpackData<Real>(Real *, ParArrayND<Real> &, int, int, int, int, int, int,
-                               int &);
+template void UnpackData<Real>(ParArray1D<Real> &, ParArray4D<Real> &, int, int, int, int,
+                               int, int, int, int, int &, MeshBlock *);
+template void UnpackData<Real>(ParArray1D<Real> &, ParArray3D<Real> &, int, int, int, int,
+                               int, int, int &, MeshBlock *);
 
-template void PackData<Real>(ParArrayND<Real> &, Real *, int, int, int, int, int, int,
-                             int, int, int &);
-template void PackData<Real>(ParArrayND<Real> &, Real *, int, int, int, int, int, int,
-                             int &);
+template void PackData<Real>(ParArray4D<Real> &, ParArray1D<Real> &, int, int, int, int,
+                             int, int, int, int, int &, MeshBlock *);
+template void PackData<Real>(ParArray3D<Real> &, ParArray1D<Real> &, int, int, int, int,
+                             int, int, int &, MeshBlock *);
 
 } // namespace BufferUtility
 } // namespace parthenon

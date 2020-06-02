@@ -26,7 +26,7 @@ import utils.test_case
 sys.dont_write_bytecode = True
 
 class TestCase(utils.test_case.TestCaseAbs):
-    def Prepare(self,parameters):
+    def Prepare(self,parameters, step):
         """
         Any preprocessing that is needed before the drive is run can be done in
         this method
