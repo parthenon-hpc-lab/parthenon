@@ -156,7 +156,7 @@ void BoundaryVariable::SendBoundaryBuffers() {
       CopyVariableBufferSameProcess(nb, ssize);
     } else {
 #ifdef MPI_PARALLEL
-      MPI_Start(&(bd_var_.req_send[nb.bufid]));
+      ParthenonFence(pmb->exec_space, MPI_Start, &(bd_var_.req_send[nb.bufid]));
 #endif
     }
 
