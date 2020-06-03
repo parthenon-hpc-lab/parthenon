@@ -56,7 +56,7 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
 }
 
 DriverStatus FaceFieldExample::Execute() {
-  PreExecute();
+  Driver::PreExecute();
   DriverUtils::ConstructAndExecuteBlockTasks<>(this);
 
   // post-evolution analysis
@@ -92,7 +92,7 @@ DriverStatus FaceFieldExample::Execute() {
   }
 
   pmesh->mbcnt = pmesh->nbtotal;
-  PostExecute();
+  Driver::PostExecute();
   return DriverStatus::complete;
 }
 
