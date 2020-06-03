@@ -87,6 +87,7 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
       // private members:
       next_phys_id_(),
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
+      num_mesh_streams_(pin->GetOrAddInteger("parthenon/mesh", "num_streams", 1)),
       tree(this), use_uniform_meshgen_fn_{true, true, true, true},
       nuser_history_output_(), lb_flag_(true), lb_automatic_(),
       lb_manual_(), MeshGenerator_{nullptr, UniformMeshGeneratorX1,
@@ -112,6 +113,13 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
   if (num_mesh_threads_ < 1) {
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
         << "Number of OpenMP threads must be >= 1, but num_threads=" << num_mesh_threads_
+        << std::endl;
+    ATHENA_ERROR(msg);
+  }
+
+  if (num_mesh_streams_ < 1) {
+    msg << "### FATAL ERROR in Mesh constructor" << std::endl
+        << "Number of Stream must be >= 1, but num_streams=" << num_mesh_streams_
         << std::endl;
     ATHENA_ERROR(msg);
   }
@@ -1132,7 +1140,8 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
   bool iflag = true;
   int inb = nbtotal;
 #ifdef OPENMP_PARALLEL
-  int nthreads = GetNumMeshThreads();
+  // int nthreads = GetNumMeshThreads();
+  int nthreads = 1; // TODO(pgrete) check what's going wrong here
 #endif
   int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
   std::vector<MeshBlock *> pmb_array(nmb);
