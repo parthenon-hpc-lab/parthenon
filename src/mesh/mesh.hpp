@@ -213,6 +213,14 @@ class MeshBlock {
     parthenon::par_for(name, exec_space, nl, nu, kl, ku, jl, ju, il, iu, function);
   }
 
+  // 1D Outer default loop pattern
+  template <typename Function>
+  inline void par_for_outer(const std::string &name, const size_t &scratch_size_in_bytes,
+                            const int &scratch_level, const int &kl, const int &ku,
+                            const Function &function) {
+    parthenon::par_for_outer(name, exec_space, scratch_size_in_bytes, scratch_level, kl,
+                             ku, function);
+  }
   // 2D Outer default loop pattern
   template <typename Function>
   inline void par_for_outer(const std::string &name, const size_t &scratch_size_in_bytes,
@@ -333,6 +341,12 @@ class Mesh {
   void NewTimeStep();
   void OutputCycleDiagnostics();
   void LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin);
+  // Moved here given Cuda/nvcc restriction:
+  // "error: The enclosing parent function ("...")
+  // for an extended __host__ __device__ lambda cannot have private or
+  // protected access within its class"
+  void FillSameRankCoarseToFineAMR(MeshBlock *pob, MeshBlock *pmb,
+                                   LogicalLocation &newloc);
   int CreateAMRMPITag(int lid, int ox1, int ox2, int ox3);
   MeshBlock *FindMeshBlock(int tgid);
   void ApplyUserWorkBeforeOutput(ParameterInput *pin);
@@ -410,17 +424,17 @@ class Mesh {
 
   // Mesh::RedistributeAndRefineMeshBlocks() helper functions:
   // step 6: send
-  void PrepareSendSameLevel(MeshBlock *pb, Real *sendbuf);
-  void PrepareSendCoarseToFineAMR(MeshBlock *pb, Real *sendbuf, LogicalLocation &lloc);
-  void PrepareSendFineToCoarseAMR(MeshBlock *pb, Real *sendbuf);
+  void PrepareSendSameLevel(MeshBlock *pb, ParArray1D<Real> &sendbuf);
+  void PrepareSendCoarseToFineAMR(MeshBlock *pb, ParArray1D<Real> &sendbuf,
+                                  LogicalLocation &lloc);
+  void PrepareSendFineToCoarseAMR(MeshBlock *pb, ParArray1D<Real> &sendbuf);
   // step 7: create new MeshBlock list (same MPI rank but diff level: create new block)
   void FillSameRankFineToCoarseAMR(MeshBlock *pob, MeshBlock *pmb, LogicalLocation &loc);
-  void FillSameRankCoarseToFineAMR(MeshBlock *pob, MeshBlock *pmb,
-                                   LogicalLocation &newloc);
   // step 8: receive
-  void FinishRecvSameLevel(MeshBlock *pb, Real *recvbuf);
-  void FinishRecvFineToCoarseAMR(MeshBlock *pb, Real *recvbuf, LogicalLocation &lloc);
-  void FinishRecvCoarseToFineAMR(MeshBlock *pb, Real *recvbuf);
+  void FinishRecvSameLevel(MeshBlock *pb, ParArray1D<Real> &recvbuf);
+  void FinishRecvFineToCoarseAMR(MeshBlock *pb, ParArray1D<Real> &recvbuf,
+                                 LogicalLocation &lloc);
+  void FinishRecvCoarseToFineAMR(MeshBlock *pb, ParArray1D<Real> &recvbuf);
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   void InitUserMeshData(ParameterInput *pin);

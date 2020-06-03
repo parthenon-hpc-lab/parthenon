@@ -116,11 +116,12 @@ int CellCenteredBoundaryVariable::ComputeFluxCorrectionBufferSize(
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn int CellCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(Real *buf,
+//! \fn int CellCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(ParArray1D<Real>
+//! &buf,
 //                                                                const NeighborBlock& nb)
 //  \brief Set cell-centered boundary buffers for sending to a block on the same level
 
-int CellCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(Real *buf,
+int CellCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(ParArray1D<Real> &buf,
                                                               const NeighborBlock &nb) {
   MeshBlock *pmb = pmy_block_;
   int si, sj, sk, ei, ej, ek;
@@ -134,17 +135,20 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(Real *buf,
   sk = (nb.ni.ox3 > 0) ? (cellbounds.ke(interior) - NGHOST + 1) : cellbounds.ks(interior);
   ek = (nb.ni.ox3 < 0) ? (cellbounds.ks(interior) + NGHOST - 1) : cellbounds.ke(interior);
   int p = 0;
-  BufferUtility::PackData(var_cc, buf, nl_, nu_, si, ei, sj, ej, sk, ek, p);
+
+  ParArray4D<Real> var_cc_ = var_cc.Get<4>(); // automatic template deduction fails
+  BufferUtility::PackData(var_cc_, buf, nl_, nu_, si, ei, sj, ej, sk, ek, p, pmb);
 
   return p;
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn int CellCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(Real *buf,
+//! \fn int CellCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(ParArray1D<Real>
+//! &buf,
 //                                                                const NeighborBlock& nb)
 //  \brief Set cell-centered boundary buffers for sending to a block on the coarser level
 
-int CellCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(Real *buf,
+int CellCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(ParArray1D<Real> &buf,
                                                               const NeighborBlock &nb) {
   MeshBlock *pmb = pmy_block_;
   int si, sj, sk, ei, ej, ek;
@@ -162,16 +166,17 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(Real *buf,
   int p = 0;
   pmb->pmr->RestrictCellCenteredValues(var_cc, coarse_buf, nl_, nu_, si, ei, sj, ej, sk,
                                        ek);
-  BufferUtility::PackData(coarse_buf, buf, nl_, nu_, si, ei, sj, ej, sk, ek, p);
+  ParArray4D<Real> coarse_buf_ = coarse_buf.Get<4>(); // auto template deduction fails
+  BufferUtility::PackData(coarse_buf_, buf, nl_, nu_, si, ei, sj, ej, sk, ek, p, pmb);
   return p;
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn int CellCenteredBoundaryVariable::LoadBoundaryBufferToFiner(Real *buf,
+//! \fn int CellCenteredBoundaryVariable::LoadBoundaryBufferToFiner(ParArray1D<Real> &buf,
 //                                                                const NeighborBlock& nb)
 //  \brief Set cell-centered boundary buffers for sending to a block on the finer level
 
-int CellCenteredBoundaryVariable::LoadBoundaryBufferToFiner(Real *buf,
+int CellCenteredBoundaryVariable::LoadBoundaryBufferToFiner(ParArray1D<Real> &buf,
                                                             const NeighborBlock &nb) {
   MeshBlock *pmb = pmy_block_;
   int si, sj, sk, ei, ej, ek;
@@ -222,16 +227,17 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferToFiner(Real *buf,
   }
 
   int p = 0;
-  BufferUtility::PackData(var_cc, buf, nl_, nu_, si, ei, sj, ej, sk, ek, p);
+  ParArray4D<Real> var_cc_ = var_cc.Get<4>(); // auto template deduction fails
+  BufferUtility::PackData(var_cc_, buf, nl_, nu_, si, ei, sj, ej, sk, ek, p, pmb);
   return p;
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void CellCenteredBoundaryVariable::SetBoundarySameLevel(Real *buf,
+//! \fn void CellCenteredBoundaryVariable::SetBoundarySameLevel(ParArray1D<Real> &buf,
 //                                                              const NeighborBlock& nb)
 //  \brief Set cell-centered boundary received from a block on the same level
 
-void CellCenteredBoundaryVariable::SetBoundarySameLevel(Real *buf,
+void CellCenteredBoundaryVariable::SetBoundarySameLevel(ParArray1D<Real> &buf,
                                                         const NeighborBlock &nb) {
   MeshBlock *pmb = pmy_block_;
   int si, sj, sk, ei, ej, ek;
@@ -258,15 +264,16 @@ void CellCenteredBoundaryVariable::SetBoundarySameLevel(Real *buf,
 
   int p = 0;
 
-  BufferUtility::UnpackData(buf, var_cc, nl_, nu_, si, ei, sj, ej, sk, ek, p);
+  ParArray4D<Real> var_cc_ = var_cc.Get<4>(); // automatic template deduction fails
+  BufferUtility::UnpackData(buf, var_cc_, nl_, nu_, si, ei, sj, ej, sk, ek, p, pmb);
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void CellCenteredBoundaryVariable::SetBoundaryFromCoarser(Real *buf,
+//! \fn void CellCenteredBoundaryVariable::SetBoundaryFromCoarser(ParArray1D<Real> &buf,
 //                                                                const NeighborBlock& nb)
 //  \brief Set cell-centered prolongation buffer received from a block on a coarser level
 
-void CellCenteredBoundaryVariable::SetBoundaryFromCoarser(Real *buf,
+void CellCenteredBoundaryVariable::SetBoundaryFromCoarser(ParArray1D<Real> &buf,
                                                           const NeighborBlock &nb) {
   MeshBlock *pmb = pmy_block_;
   int si, sj, sk, ei, ej, ek;
@@ -304,15 +311,16 @@ void CellCenteredBoundaryVariable::SetBoundaryFromCoarser(Real *buf,
               pmb->block_size.nx3 > 1);
 
   int p = 0;
-  BufferUtility::UnpackData(buf, coarse_buf, nl_, nu_, si, ei, sj, ej, sk, ek, p);
+  ParArray4D<Real> coarse_buf_ = coarse_buf.Get<4>(); // auto template deduction fails
+  BufferUtility::UnpackData(buf, coarse_buf_, nl_, nu_, si, ei, sj, ej, sk, ek, p, pmb);
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void CellCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
+//! \fn void CellCenteredBoundaryVariable::SetBoundaryFromFiner(ParArray1D<Real> &buf,
 //                                                              const NeighborBlock& nb)
 //  \brief Set cell-centered boundary received from a block on a finer level
 
-void CellCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
+void CellCenteredBoundaryVariable::SetBoundaryFromFiner(ParArray1D<Real> &buf,
                                                         const NeighborBlock &nb) {
   MeshBlock *pmb = pmy_block_;
   // receive already restricted data
@@ -385,7 +393,8 @@ void CellCenteredBoundaryVariable::SetBoundaryFromFiner(Real *buf,
   }
 
   int p = 0;
-  BufferUtility::UnpackData(buf, var_cc, nl_, nu_, si, ei, sj, ej, sk, ek, p);
+  ParArray4D<Real> var_cc_ = var_cc.Get<4>(); // automatic template deduction fails
+  BufferUtility::UnpackData(buf, var_cc_, nl_, nu_, si, ei, sj, ej, sk, ek, p, pmb);
 }
 
 void CellCenteredBoundaryVariable::SetupPersistentMPI() {
@@ -430,13 +439,13 @@ void CellCenteredBoundaryVariable::SetupPersistentMPI() {
       tag = pmb->pbval->CreateBvalsMPITag(nb.snb.lid, nb.targetid, cc_phys_id_);
       if (bd_var_.req_send[nb.bufid] != MPI_REQUEST_NULL)
         MPI_Request_free(&bd_var_.req_send[nb.bufid]);
-      MPI_Send_init(bd_var_.send[nb.bufid], ssize, MPI_ATHENA_REAL, nb.snb.rank, tag,
-                    MPI_COMM_WORLD, &(bd_var_.req_send[nb.bufid]));
+      MPI_Send_init(bd_var_.send[nb.bufid].data(), ssize, MPI_ATHENA_REAL, nb.snb.rank,
+                    tag, MPI_COMM_WORLD, &(bd_var_.req_send[nb.bufid]));
       tag = pmb->pbval->CreateBvalsMPITag(pmb->lid, nb.bufid, cc_phys_id_);
       if (bd_var_.req_recv[nb.bufid] != MPI_REQUEST_NULL)
         MPI_Request_free(&bd_var_.req_recv[nb.bufid]);
-      MPI_Recv_init(bd_var_.recv[nb.bufid], rsize, MPI_ATHENA_REAL, nb.snb.rank, tag,
-                    MPI_COMM_WORLD, &(bd_var_.req_recv[nb.bufid]));
+      MPI_Recv_init(bd_var_.recv[nb.bufid].data(), rsize, MPI_ATHENA_REAL, nb.snb.rank,
+                    tag, MPI_COMM_WORLD, &(bd_var_.req_recv[nb.bufid]));
 
       if (pmy_mesh_->multilevel && nb.ni.type == NeighborConnect::face) {
         int size;
@@ -451,14 +460,16 @@ void CellCenteredBoundaryVariable::SetupPersistentMPI() {
           tag = pmb->pbval->CreateBvalsMPITag(nb.snb.lid, nb.targetid, cc_flx_phys_id_);
           if (bd_var_flcor_.req_send[nb.bufid] != MPI_REQUEST_NULL)
             MPI_Request_free(&bd_var_flcor_.req_send[nb.bufid]);
-          MPI_Send_init(bd_var_flcor_.send[nb.bufid], size, MPI_ATHENA_REAL, nb.snb.rank,
-                        tag, MPI_COMM_WORLD, &(bd_var_flcor_.req_send[nb.bufid]));
+          MPI_Send_init(bd_var_flcor_.send[nb.bufid].data(), size, MPI_ATHENA_REAL,
+                        nb.snb.rank, tag, MPI_COMM_WORLD,
+                        &(bd_var_flcor_.req_send[nb.bufid]));
         } else if (nb.snb.level > mylevel) { // receive from finer
           tag = pmb->pbval->CreateBvalsMPITag(pmb->lid, nb.bufid, cc_flx_phys_id_);
           if (bd_var_flcor_.req_recv[nb.bufid] != MPI_REQUEST_NULL)
             MPI_Request_free(&bd_var_flcor_.req_recv[nb.bufid]);
-          MPI_Recv_init(bd_var_flcor_.recv[nb.bufid], size, MPI_ATHENA_REAL, nb.snb.rank,
-                        tag, MPI_COMM_WORLD, &(bd_var_flcor_.req_recv[nb.bufid]));
+          MPI_Recv_init(bd_var_flcor_.recv[nb.bufid].data(), size, MPI_ATHENA_REAL,
+                        nb.snb.rank, tag, MPI_COMM_WORLD,
+                        &(bd_var_flcor_.req_recv[nb.bufid]));
         }
       }
     }
