@@ -64,14 +64,13 @@ def addPath():
     #sys.path.insert(0,myPath+'/../vis/python')
     #sys.path.insert(0,myPath+'/vis/python')
 
-if __name__ == "__main__":
-    addPath()
+def compare(files, all=False, brief=True, quiet=False, one=False, tol=1.0e-12):
+    """ compares two hdf files """
 
     #**************
     # import Reader
     #**************
     from phdf import phdf
-
 
     #**************
     # Reader Help
@@ -79,36 +78,16 @@ if __name__ == "__main__":
     # for help  on phdf uncomment following line
     # print(help(phdf))
 
-    # process arguments
-    input = processArgs()
-
-    brief=input.b
-    quiet=input.q
-    one = input.o
-
-    # set all only if brief not set
-    if brief or quiet:
-        all=False
-    else:
-        all = input.a
-    files = input.files
-
-    if input.tol is not None:
-        tol = float(input.tol)
-    else:
-        tol = 1.0e-12
-
-
-    if len(files) != 2:
-        Usage()
-        exit(1)
 
     # Load first file and print info
     try:
         f0 = phdf(files[0])
         if not quiet: print(f0)
     except:
-        exit(1)
+        print("""
+        *** ERROR: Unable to open %s as phdf file
+        """%files[0])
+        return(1)
 
     # Load second file and print info
     try:
@@ -118,7 +97,7 @@ if __name__ == "__main__":
         print("""
         *** ERROR: Unable to open %s as phdf file
         """%files[1])
-        exit(2)
+        return(2)
 
     # rudimentary checks
     if f0.TotalCellsReal != f1.TotalCellsReal:
@@ -129,7 +108,7 @@ if __name__ == "__main__":
 
         Quitting...
         """)
-        exit(3)
+        return(3)
 
     # Now go through all variables in first file
     # and hunt for them in second file.
@@ -141,7 +120,7 @@ if __name__ == "__main__":
     if not brief and not quiet:
         print('____Comparing on a per variable basis with tolerance %.16g'%tol)
     breakOut = False
-    oneTenth = f0.TotalCells/10
+    oneTenth = f0.TotalCells//10
     if not quiet: print('Mapping indices:')
     print('Tolerance = %g' % tol)
     otherLocations = [None]*f0.TotalCells
@@ -226,6 +205,36 @@ if __name__ == "__main__":
             break
 
     if no_diffs:
-      exit(0)
+      return(0)
     else:
-      exit(4)
+      return(4)
+
+if __name__ == "__main__":
+    addPath()
+
+    # process arguments
+    input = processArgs()
+
+    brief=input.b
+    quiet=input.q
+    one = input.o
+
+    # set all only if brief not set
+    if brief or quiet:
+        all=False
+    else:
+        all = input.a
+    files = input.files
+
+    if input.tol is not None:
+        tol = float(input.tol)
+    else:
+        tol = 1.0e-12
+
+
+    if len(files) != 2:
+        Usage()
+        exit(1)
+
+    ret = compare(files, all, brief, quiet, one, tol)
+    exit(ret)

@@ -36,7 +36,6 @@
 #include "athena.hpp"
 #include "bvals/boundary_conditions.hpp"
 #include "bvals/bvals.hpp"
-#include "coordinates/coordinates.hpp"
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
@@ -88,10 +87,10 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
       // private members:
       next_phys_id_(),
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
-      tree(this), use_uniform_meshgen_fn_{true, true, true}, nuser_history_output_(),
-      lb_flag_(true), lb_automatic_(),
-      lb_manual_(), MeshGenerator_{UniformMeshGeneratorX1, UniformMeshGeneratorX2,
-                                   UniformMeshGeneratorX3},
+      tree(this), use_uniform_meshgen_fn_{true, true, true, true},
+      nuser_history_output_(), lb_flag_(true), lb_automatic_(),
+      lb_manual_(), MeshGenerator_{nullptr, UniformMeshGeneratorX1,
+                                   UniformMeshGeneratorX2, UniformMeshGeneratorX3},
       BoundaryFunction_{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, AMRFlag_{},
       UserSourceTerm_{}, UserTimeStep_{} {
   std::stringstream msg;
@@ -1199,19 +1198,21 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
         auto &pmb = pmb_array[i];
         auto &pbval = pmb->pbval;
         if (multilevel) pbval->ProlongateBoundaries(0.0, 0.0);
-
-        int il = pmb->is, iu = pmb->ie, jl = pmb->js, ju = pmb->je, kl = pmb->ks,
-            ku = pmb->ke;
-        if (pbval->nblevel[1][1][0] != -1) il -= NGHOST;
-        if (pbval->nblevel[1][1][2] != -1) iu += NGHOST;
-        if (pmb->block_size.nx2 > 1) {
-          if (pbval->nblevel[1][0][1] != -1) jl -= NGHOST;
-          if (pbval->nblevel[1][2][1] != -1) ju += NGHOST;
-        }
-        if (pmb->block_size.nx3 > 1) {
-          if (pbval->nblevel[0][1][1] != -1) kl -= NGHOST;
-          if (pbval->nblevel[2][1][1] != -1) ku += NGHOST;
-        }
+        // TODO(JoshuaSBrown): Dead code left in for possible future extraction of
+        // primitives
+        //        int il = pmb->is, iu = pmb->ie, jl = pmb->js, ju = pmb->je, kl =
+        //        pmb->ks,
+        //           ku = pmb->ke;
+        //        if (pbval->nblevel[1][1][0] != -1) il -= NGHOST;
+        //        if (pbval->nblevel[1][1][2] != -1) iu += NGHOST;
+        //        if (pmb->block_size.nx2 > 1) {
+        //          if (pbval->nblevel[1][0][1] != -1) jl -= NGHOST;
+        //          if (pbval->nblevel[1][2][1] != -1) ju += NGHOST;
+        //        }
+        //        if (pmb->block_size.nx3 > 1) {
+        //          if (pbval->nblevel[0][1][1] != -1) kl -= NGHOST;
+        //          if (pbval->nblevel[2][1][1] != -1) ku += NGHOST;
+        //        }
 
         ApplyBoundaryConditions(pmb->real_containers.Get());
         FillDerivedVariables::FillDerived(pmb->real_containers.Get());

@@ -38,6 +38,7 @@
 
 #define PREDINT32 H5T_NATIVE_INT32
 #define PREDFLOAT64 H5T_NATIVE_DOUBLE
+#define PREDCHAR H5T_NATIVE_CHAR
 
 namespace parthenon {
 
@@ -69,27 +70,43 @@ static void writeXdmfArrayRef(std::ofstream &fid, const std::string &prefix,
 static void writeXdmfSlabVariableRef(std::ofstream &fid, std::string &name,
                                      std::string &hdfFile, int iblock, const int &vlen,
                                      int &ndims, hsize_t *dims,
-                                     const std::string &dims321) {
+                                     const std::string &dims321, bool isVector) {
   // writes a slab reference to file
 
-  const std::string prefix = "      ";
-  fid << prefix << R"(<Attribute Name=")" << name << R"(" Center="Cell")";
-  if (vlen > 1) {
-    fid << R"( AttributeType="Vector")"
-        << R"( Dimensions=")" << dims321 << " " << vlen << R"(")";
+  std::vector<std::string> names;
+  int nentries = 1;
+  int vector_size = 1;
+  if (vlen == 1 || isVector) {
+    names.push_back(name);
+  } else {
+    nentries = vlen;
+    for (int i = 0; i < vlen; i++) {
+      names.push_back(name + "_" + std::to_string(i));
+    }
   }
-  fid << ">" << std::endl;
-  fid << prefix << "  "
-      << R"(<DataItem ItemType="HyperSlab" Dimensions=")" << dims321 << " " << vlen
-      << R"(">)" << std::endl;
-  fid << prefix << "    "
-      << R"(<DataItem Dimensions="3 5" NumberType="Int" Format="XML">)" << iblock
-      << " 0 0 0 0 1 1 1 1 1 1 " << dims321 << " " << vlen << "</DataItem>" << std::endl;
+  if (isVector) vector_size = vlen;
 
-  writeXdmfArrayRef(fid, prefix + "    ", hdfFile + ":/", name, dims, ndims, "Float", 8);
-  fid << prefix << "  "
-      << "</DataItem>" << std::endl;
-  fid << prefix << "</Attribute>" << std::endl;
+  const std::string prefix = "      ";
+  for (int i = 0; i < nentries; i++) {
+    fid << prefix << R"(<Attribute Name=")" << names[i] << R"(" Center="Cell")";
+    if (isVector) {
+      fid << R"( AttributeType="Vector")"
+          << R"( Dimensions=")" << dims321 << " " << vector_size << R"(")";
+    }
+    fid << ">" << std::endl;
+    fid << prefix << "  "
+        << R"(<DataItem ItemType="HyperSlab" Dimensions=")" << dims321 << " "
+        << vector_size << R"(">)" << std::endl;
+    fid << prefix << "    "
+        << R"(<DataItem Dimensions="3 5" NumberType="Int" Format="XML">)" << iblock
+        << " 0 0 0 " << i << " 1 1 1 1 1 1 " << dims321 << " " << vector_size
+        << "</DataItem>" << std::endl;
+    writeXdmfArrayRef(fid, prefix + "    ", hdfFile + ":/", name, dims, ndims, "Float",
+                      8);
+    fid << prefix << "  "
+        << "</DataItem>" << std::endl;
+    fid << prefix << "</Attribute>" << std::endl;
+  }
   return;
 }
 
@@ -111,6 +128,17 @@ static herr_t writeH5AF64(const char *name, const Real *pData, hid_t &file,
   hid_t attribute;
   attribute = H5Acreate(dSet, name, PREDFLOAT64, dSpace, H5P_DEFAULT, H5P_DEFAULT);
   status = H5Awrite(attribute, PREDFLOAT64, pData);
+  status = H5Aclose(attribute);
+  return status;
+}
+
+static herr_t writeH5ASTRING(const char *name, const std::string pData, hid_t &file,
+                             const hid_t &dSpace, const hid_t &dSet) {
+  auto atype = H5Tcopy(H5T_C_S1);
+  auto status = H5Tset_size(atype, pData.length());
+  status = H5Tset_strpad(atype, H5T_STR_NULLTERM);
+  auto attribute = H5Acreate(dSet, name, atype, dSpace, H5P_DEFAULT, H5P_DEFAULT);
+  status = H5Awrite(attribute, atype, pData.c_str());
   status = H5Aclose(attribute);
   return status;
 }
@@ -202,7 +230,8 @@ void PHDF5Output::genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm) {
       const int vlen = v->GetDim(4);
       dims[4] = vlen;
       std::string name = v->label();
-      writeXdmfSlabVariableRef(xdmf, name, hdfFile, ib, vlen, ndims, dims, dims321);
+      writeXdmfSlabVariableRef(xdmf, name, hdfFile, ib, vlen, ndims, dims, dims321,
+                               v->IsSet(Metadata::Vector));
     }
     xdmf << "      </Grid>" << std::endl;
   }
@@ -262,24 +291,17 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   int max_blocks_global = pm->nbtotal;
   int num_blocks_local = 0;
 
+  const IndexDomain interior = IndexDomain::interior;
+  const IndexDomain entire = IndexDomain::entire;
   // shooting a blank just for getting the variable names
-  out_is = pmb->is;
-  out_ie = pmb->ie;
-  out_js = pmb->js;
-  out_je = pmb->je;
-  out_ks = pmb->ks;
-  out_ke = pmb->ke;
+  IndexRange out_ib = pmb->cellbounds.GetBoundsI(interior);
+  IndexRange out_jb = pmb->cellbounds.GetBoundsJ(interior);
+  IndexRange out_kb = pmb->cellbounds.GetBoundsK(interior);
+
   if (output_params.include_ghost_zones) {
-    out_is -= NGHOST;
-    out_ie += NGHOST;
-    if (out_js != out_je) {
-      out_js -= NGHOST;
-      out_je += NGHOST;
-    }
-    if (out_ks != out_ke) {
-      out_ks -= NGHOST;
-      out_ke += NGHOST;
-    }
+    out_ib = pmb->cellbounds.GetBoundsI(entire);
+    out_jb = pmb->cellbounds.GetBoundsJ(entire);
+    out_kb = pmb->cellbounds.GetBoundsK(entire);
   }
 
   while (pmb != nullptr) {
@@ -370,6 +392,8 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   // write number of ghost cells in simulation
   iTmp = NGHOST;
   status = writeH5AI32("NGhost", &iTmp, file, localDSpace, myDSet);
+  status = writeH5ASTRING("Coordinates", std::string(pmb->coords.Name()), file,
+                          localDSpace, myDSet);
 
   // close scalar space
   status = H5Sclose(localDSpace);
@@ -394,7 +418,7 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   // allocate space for largest size variable
   auto ciX =
       ContainerIterator<Real>(pm->pblock->real_containers.Get(), output_params.variables);
-  size_t maxV = 3;
+  size_t maxV = 1;
   hsize_t sumDim4AllVars = 0;
   for (auto &v : ciX.vars) {
     const size_t vlen = v->GetDim(4);
@@ -434,21 +458,21 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   global_count[0] = max_blocks_global;
 
   pmb = pm->pblock;
-  LOADVARIABLE(tmpData, pmb, pmb->pcoord->x1f, out_is, out_ie + 1, 0, 0, 0, 0);
+  LOADVARIABLE(tmpData, pmb, pmb->coords.x1f, out_ib.s, out_ib.e + 1, 0, 0, 0, 0);
   local_count[1] = global_count[1] = nx1 + 1;
   WRITEH5SLAB("x", tmpData, gLocations, local_start, local_count, global_count,
               property_list);
 
   // write Y coordinates
   pmb = pm->pblock;
-  LOADVARIABLE(tmpData, pmb, pmb->pcoord->x2f, out_js, out_je + 1, 0, 0, 0, 0);
+  LOADVARIABLE(tmpData, pmb, pmb->coords.x2f, 0, 0, out_jb.s, out_jb.e + 1, 0, 0);
   local_count[1] = global_count[1] = nx2 + 1;
   WRITEH5SLAB("y", tmpData, gLocations, local_start, local_count, global_count,
               property_list);
 
   // write Z coordinates
   pmb = pm->pblock;
-  LOADVARIABLE(tmpData, pmb, pmb->pcoord->x3f, out_ks, out_ke + 1, 0, 0, 0, 0);
+  LOADVARIABLE(tmpData, pmb, pmb->coords.x3f, 0, 0, 0, 0, out_kb.s, out_kb.e + 1);
   local_count[1] = global_count[1] = nx3 + 1;
   WRITEH5SLAB("z", tmpData, gLocations, local_start, local_count, global_count,
               property_list);
@@ -507,21 +531,22 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
           // skip, not interested in this variable
           continue;
         }
+        auto v_h = (*v).data.GetHostMirrorAndCopy();
         hsize_t index = pmb->lid * varSize * vlen;
         if (vlen == 1) {
-          for (int k = out_ks; k <= out_ke; k++) {
-            for (int j = out_js; j <= out_je; j++) {
-              for (int i = out_is; i <= out_ie; i++, index++) {
-                tmpData[index] = (*v)(k, j, i);
+          for (int k = out_kb.s; k <= out_kb.e; k++) {
+            for (int j = out_jb.s; j <= out_jb.e; j++) {
+              for (int i = out_ib.s; i <= out_ib.e; i++, index++) {
+                tmpData[index] = v_h(k, j, i);
               }
             }
           }
         } else { // shuffle and use new dataspace
-          for (int k = out_ks; k <= out_ke; k++) {
-            for (int j = out_js; j <= out_je; j++) {
-              for (int i = out_is; i <= out_ie; i++) {
+          for (int k = out_kb.s; k <= out_kb.e; k++) {
+            for (int j = out_jb.s; j <= out_jb.e; j++) {
+              for (int i = out_ib.s; i <= out_ib.e; i++) {
                 for (int l = 0; l < vlen; l++, index++) {
-                  tmpData[index] = (*v)(l, k, j, i);
+                  tmpData[index] = v_h(l, k, j, i);
                 }
               }
             }

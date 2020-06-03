@@ -31,6 +31,8 @@
 #include "athena.hpp"
 #include "bvals/bvals.hpp"
 #include "bvals/bvals_interfaces.hpp"
+#include "coordinates/coordinates.hpp"
+#include "domain.hpp"
 #include "interface/container.hpp"
 #include "interface/container_collection.hpp"
 #include "interface/properties_interface.hpp"
@@ -48,12 +50,11 @@
 namespace parthenon {
 
 // Forward declarations
-class ParameterInput;
-class Mesh;
-class MeshRefinement;
-class MeshBlockTree;
 class BoundaryValues;
-class Coordinates;
+class Mesh;
+class MeshBlockTree;
+class MeshRefinement;
+class ParameterInput;
 class Reconstruction;
 
 // template class Container<Real>;
@@ -76,9 +77,6 @@ inline MeshBlockApplicationData::~MeshBlockApplicationData() {}
 class MeshBlock {
   friend class RestartOutput;
   friend class Mesh;
-#ifdef HDF5OUTPUT
-  friend class ATHDF5Output;
-#endif
 
  public:
   MeshBlock(const int n_side, const int ndim); // for Kokkos testing with ghost
@@ -99,17 +97,60 @@ class MeshBlock {
   DevExecSpace exec_space;
 
   // data
-  Mesh *pmy_mesh; // ptr to Mesh containing this MeshBlock
+  Mesh *pmy_mesh = nullptr; // ptr to Mesh containing this MeshBlock
   LogicalLocation loc;
   RegionSize block_size;
   // for convenience: "max" # of real+ghost cells along each dir for allocating "standard"
-  // sized MeshBlock arrays, depending on ndim (i.e. ncells2=nx2+2*NGHOST if nx2>1)
-  int ncells1, ncells2, ncells3;
-  // on 1x coarser level MeshBlock (i.e. ncc2=nx2/2 + 2*NGHOST, if nx2>1)
-  int ncc1, ncc2, ncc3;
-  int is, ie, js, je, ks, ke;
+  // sized MeshBlock arrays, depending on ndim i.e.
+  //
+  // cellbounds.nx2 =    nx2      + 2*NGHOST if   nx2 > 1
+  // (entire)         (interior)               (interior)
+  //
+  // Assuming we have a block cells, and nx2 = 6, and NGHOST = 1
+  //
+  // <----- nx1 = 8 ---->
+  //       (entire)
+  //
+  //     <- nx1 = 6 ->
+  //       (interior)
+  //
+  //  - - - - - - - - - -   ^
+  //  |  |  ghost    |  |   |
+  //  - - - - - - - - - -   |         ^
+  //  |  |     ^     |  |   |         |
+  //  |  |     |     |  |  nx2 = 8    nx2 = 6
+  //  |  | interior  |  | (entire)   (interior)
+  //  |  |     |     |  |             |
+  //  |  |     v     |  |   |         v
+  //  - - - - - - - - - -   |
+  //  |  |           |  |   |
+  //  - - - - - - - - - -   v
+  //
+  IndexShape cellbounds;
+  // on 1x coarser level MeshBlock i.e.
+  //
+  // c_cellbounds.nx2 = cellbounds.nx2 * 1/2 + 2*NGHOST, if  cellbounds.nx2 >1
+  //   (entire)             (interior)                          (interior)
+  //
+  // Assuming we have a block cells, and nx2 = 6, and NGHOST = 1
+  //
+  //          cells                              c_cells
+  //
+  //  - - - - - - - - - -   ^              - - - - - - - - - -     ^
+  //  |  |           |  |   |              |  |           |  |     |
+  //  - - - - - - - - - -   |              - - - - - - - - - -     |
+  //  |  |     ^     |  |   |              |  |      ^    |  |     |
+  //  |  |     |     |  |   |              |  |      |    |  |     |
+  //  |  |  nx2 = 6  |  |  nx2 = 8  ====>  |  |   nx2 = 3 |  |   nx2 = 5
+  //  |  |(interior) |  |  (entire)        |  | (interior)|  |  (entire)
+  //  |  |     v     |  |   |              |  |      v    |  |     |
+  //  - - - - - - - - - -   |              - - - - - - - - - -     |
+  //  |  |           |  |   |              |  |           |  |     |
+  //  - - - - - - - - - -   v              - - - - - - - - - -     v
+  //
+  IndexShape c_cellbounds;
   int gid, lid;
-  int cis, cie, cjs, cje, cks, cke, cnghost;
+  int cnghost;
   int gflag;
 
   // The User defined containers
@@ -120,9 +161,10 @@ class MeshBlock {
 
   std::unique_ptr<MeshBlockApplicationData> app;
 
+  Coordinates_t coords;
+
   // mesh-related objects
   // TODO(jcd): remove all these?
-  std::unique_ptr<Coordinates> pcoord;
   std::unique_ptr<BoundaryValues> pbval;
   std::unique_ptr<MeshRefinement> pmr;
   std::unique_ptr<Reconstruction> precon;
@@ -171,6 +213,33 @@ class MeshBlock {
     parthenon::par_for(name, exec_space, nl, nu, kl, ku, jl, ju, il, iu, function);
   }
 
+  // 1D Outer default loop pattern
+  template <typename Function>
+  inline void par_for_outer(const std::string &name, const size_t &scratch_size_in_bytes,
+                            const int &scratch_level, const int &kl, const int &ku,
+                            const Function &function) {
+    parthenon::par_for_outer(name, exec_space, scratch_size_in_bytes, scratch_level, kl,
+                             ku, function);
+  }
+  // 2D Outer default loop pattern
+  template <typename Function>
+  inline void par_for_outer(const std::string &name, const size_t &scratch_size_in_bytes,
+                            const int &scratch_level, const int &kl, const int &ku,
+                            const int &jl, const int &ju, const Function &function) {
+    parthenon::par_for_outer(name, exec_space, scratch_size_in_bytes, scratch_level, kl,
+                             ku, jl, ju, function);
+  }
+
+  // 3D Outer default loop pattern
+  template <typename Function>
+  inline void par_for(const std::string &name, size_t &scratch_size_in_bytes,
+                      const int &scratch_level, const int &nl, const int &nu,
+                      const int &kl, const int &ku, const int &jl, const int &ju,
+                      const Function &function) {
+    parthenon::par_for_outer(name, exec_space, scratch_size_in_bytes, scratch_level, nl,
+                             nu, kl, ku, jl, ju, function);
+  }
+
   std::size_t GetBlockSizeInBytes();
   int GetNumberOfMeshBlockCells() {
     return block_size.nx1 * block_size.nx2 * block_size.nx3;
@@ -202,6 +271,7 @@ class MeshBlock {
   std::vector<std::shared_ptr<CellVariable<Real>>> vars_cc_;
   std::vector<std::shared_ptr<FaceField>> vars_fc_;
 
+  void InitializeIndexShapes(const int nx1, const int nx2, const int nx3);
   // functions
   void SetCostForLoadBalancing(double cost);
 
@@ -271,6 +341,12 @@ class Mesh {
   void NewTimeStep();
   void OutputCycleDiagnostics();
   void LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin);
+  // Moved here given Cuda/nvcc restriction:
+  // "error: The enclosing parent function ("...")
+  // for an extended __host__ __device__ lambda cannot have private or
+  // protected access within its class"
+  void FillSameRankCoarseToFineAMR(MeshBlock *pob, MeshBlock *pmb,
+                                   LogicalLocation &newloc);
   int CreateAMRMPITag(int lid, int ox1, int ox2, int ox3);
   MeshBlock *FindMeshBlock(int tgid);
   void ApplyUserWorkBeforeOutput(ParameterInput *pin);
@@ -280,8 +356,8 @@ class Mesh {
   int ReserveTagPhysIDs(int num_phys);
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/
-  void UserWorkAfterLoop(ParameterInput *pin); // called in main loop
-  void UserWorkInLoop();                       // called in main after each cycle
+  void UserWorkAfterLoop(ParameterInput *pin, SimTime &tm); // called in main loop
+  void UserWorkInLoop(); // called in main after each cycle
   int GetRootLevel() { return root_level; }
   int GetMaxLevel() { return max_level; }
   int GetCurrentLevel() { return current_level; }
@@ -314,7 +390,7 @@ class Mesh {
   // std::int64_t nrbx1, nrbx2, nrbx3;
 
   // flags are false if using non-uniform or user meshgen function
-  bool use_uniform_meshgen_fn_[3];
+  bool use_uniform_meshgen_fn_[4];
 
   int nuser_history_output_;
   std::string *user_history_output_names_;
@@ -326,7 +402,7 @@ class Mesh {
   int lb_interval_;
 
   // functions
-  MeshGenFunc MeshGenerator_[3];
+  MeshGenFunc MeshGenerator_[4];
   BValFunc BoundaryFunction_[6];
   AMRFlagFunc AMRFlag_;
   SrcTermFunc UserSourceTerm_;
@@ -348,17 +424,17 @@ class Mesh {
 
   // Mesh::RedistributeAndRefineMeshBlocks() helper functions:
   // step 6: send
-  void PrepareSendSameLevel(MeshBlock *pb, Real *sendbuf);
-  void PrepareSendCoarseToFineAMR(MeshBlock *pb, Real *sendbuf, LogicalLocation &lloc);
-  void PrepareSendFineToCoarseAMR(MeshBlock *pb, Real *sendbuf);
+  void PrepareSendSameLevel(MeshBlock *pb, ParArray1D<Real> &sendbuf);
+  void PrepareSendCoarseToFineAMR(MeshBlock *pb, ParArray1D<Real> &sendbuf,
+                                  LogicalLocation &lloc);
+  void PrepareSendFineToCoarseAMR(MeshBlock *pb, ParArray1D<Real> &sendbuf);
   // step 7: create new MeshBlock list (same MPI rank but diff level: create new block)
   void FillSameRankFineToCoarseAMR(MeshBlock *pob, MeshBlock *pmb, LogicalLocation &loc);
-  void FillSameRankCoarseToFineAMR(MeshBlock *pob, MeshBlock *pmb,
-                                   LogicalLocation &newloc);
   // step 8: receive
-  void FinishRecvSameLevel(MeshBlock *pb, Real *recvbuf);
-  void FinishRecvFineToCoarseAMR(MeshBlock *pb, Real *recvbuf, LogicalLocation &lloc);
-  void FinishRecvCoarseToFineAMR(MeshBlock *pb, Real *recvbuf);
+  void FinishRecvSameLevel(MeshBlock *pb, ParArray1D<Real> &recvbuf);
+  void FinishRecvFineToCoarseAMR(MeshBlock *pb, ParArray1D<Real> &recvbuf,
+                                 LogicalLocation &lloc);
+  void FinishRecvCoarseToFineAMR(MeshBlock *pb, ParArray1D<Real> &recvbuf);
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   void InitUserMeshData(ParameterInput *pin);

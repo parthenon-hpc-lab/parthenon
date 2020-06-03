@@ -28,36 +28,35 @@ namespace Update {
 
 TaskStatus FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
   MeshBlock *pmb = in.pmy_block;
-  int is = pmb->is;
-  int js = pmb->js;
-  int ks = pmb->ks;
-  int ie = pmb->ie;
-  int je = pmb->je;
-  int ke = pmb->ke;
+
+  const IndexDomain interior = IndexDomain::interior;
+  IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
+  IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
+  IndexRange kb = pmb->cellbounds.GetBoundsK(interior);
 
   auto vin = in.PackVariablesAndFluxes({Metadata::Independent});
   auto dudt = dudt_cont.PackVariables({Metadata::Independent});
 
-  auto pc = pmb->pcoord.get();
+  auto &coords = pmb->coords;
   int ndim = pmb->pmy_mesh->ndim;
-  // ParArrayND<Real> du("du", pmb->ncells1);
   pmb->par_for(
-      "flux divergence", 0, vin.GetDim(4) - 1, ks, ke, js, je, is, ie,
+      "flux divergence", 0, vin.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
         dudt(l, k, j, i) = 0.0;
-        dudt(l, k, j, i) += (pc->GetFace1Area(k, j, i + 1) * vin.flux(0, l, k, j, i + 1) -
-                             pc->GetFace1Area(k, j, i) * vin.flux(0, l, k, j, i));
+        dudt(l, k, j, i) +=
+            (coords.Area(X1DIR, k, j, i + 1) * vin.flux(X1DIR, l, k, j, i + 1) -
+             coords.Area(X1DIR, k, j, i) * vin.flux(X1DIR, l, k, j, i));
         if (ndim >= 2) {
           dudt(l, k, j, i) +=
-              (pc->GetFace2Area(k, j + 1, i) * vin.flux(1, l, k, j + 1, i) -
-               pc->GetFace2Area(k, j, i) * vin.flux(1, l, k, j, i));
+              (coords.Area(X2DIR, k, j + 1, i) * vin.flux(X2DIR, l, k, j + 1, i) -
+               coords.Area(X2DIR, k, j, i) * vin.flux(X2DIR, l, k, j, i));
         }
         if (ndim == 3) {
           dudt(l, k, j, i) +=
-              (pc->GetFace3Area(k + 1, j, i) * vin.flux(2, l, k + 1, j, i) -
-               pc->GetFace3Area(k, j, i) * vin.flux(2, l, k, j, i));
+              (coords.Area(X3DIR, k + 1, j, i) * vin.flux(X3DIR, l, k + 1, j, i) -
+               coords.Area(X3DIR, k, j, i) * vin.flux(X3DIR, l, k, j, i));
         }
-        dudt(l, k, j, i) /= -pc->GetCellVolume(k, j, i);
+        dudt(l, k, j, i) /= -coords.Volume(k, j, i);
       });
 
   return TaskStatus::complete;
@@ -66,12 +65,6 @@ TaskStatus FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
 void UpdateContainer(Container<Real> &in, Container<Real> &dudt_cont, const Real dt,
                      Container<Real> &out) {
   MeshBlock *pmb = in.pmy_block;
-  int is = pmb->is;
-  int js = pmb->js;
-  int ks = pmb->ks;
-  int ie = pmb->ie;
-  int je = pmb->je;
-  int ke = pmb->ke;
 
   auto vin = in.PackVariables({Metadata::Independent});
   auto vout = out.PackVariables({Metadata::Independent});
@@ -88,18 +81,16 @@ void UpdateContainer(Container<Real> &in, Container<Real> &dudt_cont, const Real
 
 void AverageContainers(Container<Real> &c1, Container<Real> &c2, const Real wgt1) {
   MeshBlock *pmb = c1.pmy_block;
-  int is = pmb->is;
-  int js = pmb->js;
-  int ks = pmb->ks;
-  int ie = pmb->ie;
-  int je = pmb->je;
-  int ke = pmb->ke;
+  const IndexDomain interior = IndexDomain::interior;
+  IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
+  IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
+  IndexRange kb = pmb->cellbounds.GetBoundsK(interior);
 
   auto v1 = c1.PackVariables({Metadata::Independent});
   auto v2 = c2.PackVariables({Metadata::Independent});
 
   pmb->par_for(
-      "AverageContainers", 0, v1.GetDim(4) - 1, ks, ke, js, je, is, ie,
+      "AverageContainers", 0, v1.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
         v1(l, k, j, i) = wgt1 * v1(l, k, j, i) + (1 - wgt1) * v2(l, k, j, i);
       });

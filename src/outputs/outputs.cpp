@@ -98,7 +98,6 @@
 #include <string>
 
 #include "athena.hpp"
-#include "coordinates/coordinates.hpp"
 #include "mesh/mesh.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
@@ -418,8 +417,10 @@ void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   bool first = true;
   OutputType *ptype = pfirst_type_;
   while (ptype != nullptr) {
-    if (tm == nullptr || (tm->time == tm->start_time) ||
-        (tm->time >= ptype->output_params.next_time) || (tm->time >= tm->tlim)) {
+    if ((tm == nullptr) ||
+        ((ptype->output_params.dt >= 0.0) &&
+         ((tm->time == tm->start_time) || (tm->time >= ptype->output_params.next_time) ||
+          (tm->time >= tm->tlim)))) {
       if (first && ptype->output_params.file_type != "hst") {
         pm->ApplyUserWorkBeforeOutput(pin);
         first = false;
@@ -469,11 +470,13 @@ bool OutputType::SliceOutputData(MeshBlock *pmb, int dim) {
   int islice(0), jslice(0), kslice(0);
 
   // Compute i,j,k indices of slice; check if in range of data in this block
+  const IndexDomain interior = IndexDomain::interior;
   if (dim == 1) {
     if (output_params.x1_slice >= pmb->block_size.x1min &&
         output_params.x1_slice < pmb->block_size.x1max) {
-      for (int i = pmb->is + 1; i <= pmb->ie + 1; ++i) {
-        if (pmb->pcoord->x1f(i) > output_params.x1_slice) {
+      for (int i = pmb->cellbounds.is(interior) + 1;
+           i <= pmb->cellbounds.ie(interior) + 1; ++i) {
+        if (pmb->coords.x1f(i) > output_params.x1_slice) {
           islice = i - 1;
           output_params.islice = islice;
           break;
@@ -485,8 +488,9 @@ bool OutputType::SliceOutputData(MeshBlock *pmb, int dim) {
   } else if (dim == 2) {
     if (output_params.x2_slice >= pmb->block_size.x2min &&
         output_params.x2_slice < pmb->block_size.x2max) {
-      for (int j = pmb->js + 1; j <= pmb->je + 1; ++j) {
-        if (pmb->pcoord->x2f(j) > output_params.x2_slice) {
+      for (int j = pmb->cellbounds.js(interior) + 1;
+           j <= pmb->cellbounds.je(interior) + 1; ++j) {
+        if (pmb->coords.x2f(j) > output_params.x2_slice) {
           jslice = j - 1;
           output_params.jslice = jslice;
           break;
@@ -498,8 +502,9 @@ bool OutputType::SliceOutputData(MeshBlock *pmb, int dim) {
   } else {
     if (output_params.x3_slice >= pmb->block_size.x3min &&
         output_params.x3_slice < pmb->block_size.x3max) {
-      for (int k = pmb->ks + 1; k <= pmb->ke + 1; ++k) {
-        if (pmb->pcoord->x3f(k) > output_params.x3_slice) {
+      for (int k = pmb->cellbounds.ks(interior) + 1;
+           k <= pmb->cellbounds.ke(interior) + 1; ++k) {
+        if (pmb->coords.x3f(k) > output_params.x3_slice) {
           kslice = k - 1;
           output_params.kslice = kslice;
           break;
