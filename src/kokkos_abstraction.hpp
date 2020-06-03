@@ -132,6 +132,12 @@ static struct InnerLoopPatternSimdFor {
 #define DEFAULT_INNER_LOOP_PATTERN loop_pattern_undefined_tag
 #endif
 
+template <typename Func, class... Args>
+void ParthenonFence(DevExecSpace exec_space, Func f, Args... args) {
+  exec_space.fence();
+  f(std::forward<Args>(args)...);
+}
+
 // 1D default loop pattern
 template <typename Function>
 inline void par_for(const std::string &name, DevExecSpace exec_space, const int &il,

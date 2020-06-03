@@ -1184,14 +1184,14 @@ void FaceCenteredBoundaryVariable::StartReceiving(BoundaryCommSubset phase) {
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
     if (nb.snb.rank != Globals::my_rank && phase != BoundaryCommSubset::gr_amr) {
-      MPI_Start(&(bd_var_.req_recv[nb.bufid]));
+      ParthenonFence(pmb->exec_space, MPI_Start, (&(bd_var_.req_recv[nb.bufid]));
       if (phase == BoundaryCommSubset::all &&
           (nb.ni.type == NeighborConnect::face || nb.ni.type == NeighborConnect::edge)) {
         if ((nb.snb.level > mylevel) ||
             ((nb.snb.level == mylevel) &&
              ((nb.ni.type == NeighborConnect::face) ||
               ((nb.ni.type == NeighborConnect::edge) && (edge_flag_[nb.eid])))))
-          MPI_Start(&(bd_var_flcor_.req_recv[nb.bufid]));
+          ParthenonFence(pmb->exec_space, MPI_Start, (&(bd_var_flcor_.req_recv[nb.bufid]));
       }
     }
   }
