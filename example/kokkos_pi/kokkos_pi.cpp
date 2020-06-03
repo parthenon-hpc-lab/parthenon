@@ -55,22 +55,9 @@
 
 #include "Kokkos_Core.hpp"
 
-#include "interface/container.hpp"
-#include "interface/metadata.hpp"
-#include "kokkos_abstraction.hpp"
-#include "mesh/mesh.hpp"
-
-using Real = double;
-
-using parthenon::Container;
-using parthenon::DevExecSpace;
-using parthenon::MeshBlock;
-using parthenon::Metadata;
-using parthenon::par_for;
-using parthenon::Real;
-
-using parthenon::ParArray4D;
-using parthenon::ParArrayND;
+// Get most commonly used parthenon package includes
+#include "parthenon/package.hpp"
+using namespace parthenon::package::prelude;
 
 using View2D = Kokkos::View<Real **, Kokkos::LayoutRight, Kokkos::DefaultExecutionSpace>;
 
@@ -120,7 +107,7 @@ static void usage(std::string program) {
             << "    Usage: " << program << " n_block n_mesh n_iter" << std::endl
             << std::endl
             << "             n_block = size of each mesh block on each axis" << std::endl
-            << "              n_mesh = number mesh blocks alogn each axis" << std::endl
+            << "              n_mesh = number mesh blocks along each axis" << std::endl
             << "              n_iter = number of iterations to time" << std::endl
             << "            [Radius] = Optional: Radius of sphere" << std::endl
             << "                                 Defaults to 1.0" << std::endl
