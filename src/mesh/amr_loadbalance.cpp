@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <iostream>
 #include <sstream>
+#include <string>
 
 #include "parthenon_mpi.hpp"
 
@@ -448,7 +449,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
   }
 
   // Step 4. calculate buffer sizes
-  Real **sendbuf, **recvbuf;
+  ParArray1D<Real> *sendbuf, *recvbuf;
   // use the first MeshBlock in the linked list of blocks belonging to this MPI rank as a
   // representative of all MeshBlocks for counting the "load-balancing registered" and
   // "SMR/AMR-enrolled" quantities (loop over MeshBlock::vars_cc_, not MeshRefinement)
@@ -488,7 +489,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
   MPI_Request *req_send, *req_recv;
   // Step 5. allocate and start receiving buffers
   if (nrecv != 0) {
-    recvbuf = new Real *[nrecv];
+    recvbuf = new ParArray1D<Real>[nrecv];
     req_recv = new MPI_Request[nrecv];
     int rb_idx = 0; // recv buffer index
     for (int n = nbs; n <= nbe; n++) {
@@ -501,9 +502,9 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
           LogicalLocation &lloc = loclist[on + l];
           int ox1 = ((lloc.lx1 & 1LL) == 1LL), ox2 = ((lloc.lx2 & 1LL) == 1LL),
               ox3 = ((lloc.lx3 & 1LL) == 1LL);
-          recvbuf[rb_idx] = new Real[bsf2c];
+          recvbuf[rb_idx] = ParArray1D<Real>("recvbuf" + std::to_string(rb_idx), bsf2c);
           int tag = CreateAMRMPITag(n - nbs, ox1, ox2, ox3);
-          MPI_Irecv(recvbuf[rb_idx], bsf2c, MPI_ATHENA_REAL, ranklist[on + l], tag,
+          MPI_Irecv(recvbuf[rb_idx].data(), bsf2c, MPI_ATHENA_REAL, ranklist[on + l], tag,
                     MPI_COMM_WORLD, &(req_recv[rb_idx]));
           rb_idx++;
         }
@@ -515,9 +516,9 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
         } else {
           size = bsc2f;
         }
-        recvbuf[rb_idx] = new Real[size];
+        recvbuf[rb_idx] = ParArray1D<Real>("recvbuf" + std::to_string(rb_idx), size);
         int tag = CreateAMRMPITag(n - nbs, 0, 0, 0);
-        MPI_Irecv(recvbuf[rb_idx], size, MPI_ATHENA_REAL, ranklist[on], tag,
+        MPI_Irecv(recvbuf[rb_idx].data(), size, MPI_ATHENA_REAL, ranklist[on], tag,
                   MPI_COMM_WORLD, &(req_recv[rb_idx]));
         rb_idx++;
       }
@@ -525,7 +526,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
   }
   // Step 6. allocate, pack and start sending buffers
   if (nsend != 0) {
-    sendbuf = new Real *[nsend];
+    sendbuf = new ParArray1D<Real>[nsend];
     req_send = new MPI_Request[nsend];
     int sb_idx = 0; // send buffer index
     for (int n = onbs; n <= onbe; n++) {
@@ -535,31 +536,34 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
       MeshBlock *pb = FindMeshBlock(n);
       if (nloc.level == oloc.level) { // same level
         if (newrank[nn] == Globals::my_rank) continue;
-        sendbuf[sb_idx] = new Real[bssame];
+        sendbuf[sb_idx] =
+            ParArray1D<Real>("amr send buf same" + std::to_string(sb_idx), bssame);
         PrepareSendSameLevel(pb, sendbuf[sb_idx]);
         int tag = CreateAMRMPITag(nn - nslist[newrank[nn]], 0, 0, 0);
-        MPI_Isend(sendbuf[sb_idx], bssame, MPI_ATHENA_REAL, newrank[nn], tag,
+        MPI_Isend(sendbuf[sb_idx].data(), bssame, MPI_ATHENA_REAL, newrank[nn], tag,
                   MPI_COMM_WORLD, &(req_send[sb_idx]));
         sb_idx++;
       } else if (nloc.level > oloc.level) { // c2f
         // c2f must communicate to multiple leaf blocks (unlike f2c, same2same)
         for (int l = 0; l < nleaf; l++) {
           if (newrank[nn + l] == Globals::my_rank) continue;
-          sendbuf[sb_idx] = new Real[bsc2f];
+          sendbuf[sb_idx] =
+              ParArray1D<Real>("amr send buf c2f" + std::to_string(sb_idx), bsc2f);
           PrepareSendCoarseToFineAMR(pb, sendbuf[sb_idx], newloc[nn + l]);
           int tag = CreateAMRMPITag(nn + l - nslist[newrank[nn + l]], 0, 0, 0);
-          MPI_Isend(sendbuf[sb_idx], bsc2f, MPI_ATHENA_REAL, newrank[nn + l], tag,
+          MPI_Isend(sendbuf[sb_idx].data(), bsc2f, MPI_ATHENA_REAL, newrank[nn + l], tag,
                     MPI_COMM_WORLD, &(req_send[sb_idx]));
           sb_idx++;
         }      // end loop over nleaf (unique to c2f branch in this step 6)
       } else { // f2c: restrict + pack + send
         if (newrank[nn] == Globals::my_rank) continue;
-        sendbuf[sb_idx] = new Real[bsf2c];
+        sendbuf[sb_idx] =
+            ParArray1D<Real>("amr send buf f2c" + std::to_string(sb_idx), bsf2c);
         PrepareSendFineToCoarseAMR(pb, sendbuf[sb_idx]);
         int ox1 = ((oloc.lx1 & 1LL) == 1LL), ox2 = ((oloc.lx2 & 1LL) == 1LL),
             ox3 = ((oloc.lx3 & 1LL) == 1LL);
         int tag = CreateAMRMPITag(nn - nslist[newrank[nn]], ox1, ox2, ox3);
-        MPI_Isend(sendbuf[sb_idx], bsf2c, MPI_ATHENA_REAL, newrank[nn], tag,
+        MPI_Isend(sendbuf[sb_idx].data(), bsf2c, MPI_ATHENA_REAL, newrank[nn], tag,
                   MPI_COMM_WORLD, &(req_send[sb_idx]));
         sb_idx++;
       }
@@ -681,14 +685,10 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
 #ifdef MPI_PARALLEL
   if (nsend != 0) {
     MPI_Waitall(nsend, req_send, MPI_STATUSES_IGNORE);
-    for (int n = 0; n < nsend; n++)
-      delete[] sendbuf[n];
     delete[] sendbuf;
     delete[] req_send;
   }
   if (nrecv != 0) {
-    for (int n = 0; n < nrecv; n++)
-      delete[] recvbuf[n];
     delete[] recvbuf;
     delete[] req_recv;
   }
@@ -714,7 +714,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
 
 // AMR: step 6, branch 1 (same2same: just pack+send)
 
-void Mesh::PrepareSendSameLevel(MeshBlock *pb, Real *sendbuf) {
+void Mesh::PrepareSendSameLevel(MeshBlock *pb, ParArray1D<Real> &sendbuf) {
   // pack
   int p = 0;
 
@@ -736,18 +736,18 @@ void Mesh::PrepareSendSameLevel(MeshBlock *pb, Real *sendbuf) {
   // container with std::reference_wrapper; could use auto var_cc_r = var_cc.get())
   for (auto &pvar_cc : pb->vars_cc_) {
     int nu = pvar_cc->GetDim(4) - 1;
-    auto &var_cc = pvar_cc->data;
-    BufferUtility::PackData(var_cc, sendbuf, 0, nu, ib.s, ib.e, jb.s, jb.e, kb.s, kb.e,
-                            p);
+    ParArray4D<Real> var_cc = pvar_cc->data.Get<4>();
+    BufferUtility::PackData(var_cc, sendbuf, 0, nu, ib.s, ib.e, jb.s, jb.e, kb.s, kb.e, p,
+                            pb);
   }
   for (auto &pvar_fc : pb->vars_fc_) {
     auto &var_fc = *pvar_fc;
-    BufferUtility::PackData(var_fc.x1f, sendbuf, ib.s, ib.e + 1, jb.s, jb.e, kb.s, kb.e,
-                            p);
-    BufferUtility::PackData(var_fc.x2f, sendbuf, ib.s, ib.e, jb.s, jb.e + f2, kb.s, kb.e,
-                            p);
-    BufferUtility::PackData(var_fc.x3f, sendbuf, ib.s, ib.e, jb.s, jb.e, kb.s, kb.e + f3,
-                            p);
+    ParArray3D<Real> x1f = var_fc.x1f.Get<3>();
+    ParArray3D<Real> x2f = var_fc.x2f.Get<3>();
+    ParArray3D<Real> x3f = var_fc.x3f.Get<3>();
+    BufferUtility::PackData(x1f, sendbuf, ib.s, ib.e + 1, jb.s, jb.e, kb.s, kb.e, p, pb);
+    BufferUtility::PackData(x2f, sendbuf, ib.s, ib.e, jb.s, jb.e + f2, kb.s, kb.e, p, pb);
+    BufferUtility::PackData(x3f, sendbuf, ib.s, ib.e, jb.s, jb.e, kb.s, kb.e + f3, p, pb);
   }
   // WARNING(felker): casting from "Real *" to "int *" in order to append single integer
   // to send buffer is slightly unsafe (especially if sizeof(int) > sizeof(Real))
@@ -760,7 +760,7 @@ void Mesh::PrepareSendSameLevel(MeshBlock *pb, Real *sendbuf) {
 
 // step 6, branch 2 (c2f: just pack+send)
 
-void Mesh::PrepareSendCoarseToFineAMR(MeshBlock *pb, Real *sendbuf,
+void Mesh::PrepareSendCoarseToFineAMR(MeshBlock *pb, ParArray1D<Real> &sendbuf,
                                       LogicalLocation &lloc) {
   const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
   const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
@@ -790,25 +790,27 @@ void Mesh::PrepareSendCoarseToFineAMR(MeshBlock *pb, Real *sendbuf,
     kl = pb->cellbounds.ks(interior) + pb->block_size.nx3 / 2 - f3;
     ku = pb->cellbounds.ke(interior) + f3;
   }
-
   int p = 0;
   for (auto cc_pair : pb->pmr->pvars_cc_) {
-    ParArrayND<Real> var_cc = std::get<0>(cc_pair);
-    int nu = var_cc.GetDim(4) - 1;
-    BufferUtility::PackData(var_cc, sendbuf, 0, nu, il, iu, jl, ju, kl, ku, p);
+    ParArray4D<Real> var_cc = std::get<0>(cc_pair).Get<4>();
+    int nu = var_cc.extent(0) - 1;
+    BufferUtility::PackData(var_cc, sendbuf, 0, nu, il, iu, jl, ju, kl, ku, p, pb);
   }
   for (auto fc_pair : pb->pmr->pvars_fc_) {
     FaceField *var_fc = std::get<0>(fc_pair);
-    BufferUtility::PackData((*var_fc).x1f, sendbuf, il, iu + 1, jl, ju, kl, ku, p);
-    BufferUtility::PackData((*var_fc).x2f, sendbuf, il, iu, jl, ju + f2, kl, ku, p);
-    BufferUtility::PackData((*var_fc).x3f, sendbuf, il, iu, jl, ju, kl, ku + f3, p);
+    ParArray3D<Real> x1f = (*var_fc).x1f.Get<3>();
+    ParArray3D<Real> x2f = (*var_fc).x2f.Get<3>();
+    ParArray3D<Real> x3f = (*var_fc).x3f.Get<3>();
+    BufferUtility::PackData(x1f, sendbuf, il, iu + 1, jl, ju, kl, ku, p, pb);
+    BufferUtility::PackData(x2f, sendbuf, il, iu, jl, ju + f2, kl, ku, p, pb);
+    BufferUtility::PackData(x3f, sendbuf, il, iu, jl, ju, kl, ku + f3, p, pb);
   }
   return;
 }
 
 // step 6, branch 3 (f2c: restrict, pack, send)
 
-void Mesh::PrepareSendFineToCoarseAMR(MeshBlock *pb, Real *sendbuf) {
+void Mesh::PrepareSendFineToCoarseAMR(MeshBlock *pb, ParArray1D<Real> &sendbuf) {
   // restrict and pack
   const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
   const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
@@ -826,24 +828,29 @@ void Mesh::PrepareSendFineToCoarseAMR(MeshBlock *pb, Real *sendbuf) {
     int nu = var_cc.GetDim(4) - 1;
     pmr->RestrictCellCenteredValues(var_cc, coarse_cc, 0, nu, cib.s, cib.e, cjb.s, cjb.e,
                                     ckb.s, ckb.e);
-    BufferUtility::PackData(coarse_cc, sendbuf, 0, nu, cib.s, cib.e, cjb.s, cjb.e, ckb.s,
-                            ckb.e, p);
+    // TOGO(pgrete) remove temp var once Restrict func interface is updated
+    ParArray4D<Real> coarse_cc_ = coarse_cc.Get<4>();
+    BufferUtility::PackData(coarse_cc_, sendbuf, 0, nu, cib.s, cib.e, cjb.s, cjb.e, ckb.s,
+                            ckb.e, p, pb);
   }
   for (auto fc_pair : pb->pmr->pvars_fc_) {
     FaceField *var_fc = std::get<0>(fc_pair);
     FaceField *coarse_fc = std::get<1>(fc_pair);
+    ParArray3D<Real> x1f = (*coarse_fc).x1f.Get<3>();
+    ParArray3D<Real> x2f = (*coarse_fc).x2f.Get<3>();
+    ParArray3D<Real> x3f = (*coarse_fc).x3f.Get<3>();
     pmr->RestrictFieldX1((*var_fc).x1f, (*coarse_fc).x1f, cib.s, cib.e + 1, cjb.s, cjb.e,
                          ckb.s, ckb.e);
-    BufferUtility::PackData((*coarse_fc).x1f, sendbuf, cib.s, cib.e + 1, cjb.s, cjb.e,
-                            ckb.s, ckb.e, p);
+    BufferUtility::PackData(x1f, sendbuf, cib.s, cib.e + 1, cjb.s, cjb.e, ckb.s, ckb.e, p,
+                            pb);
     pmr->RestrictFieldX2((*var_fc).x2f, (*coarse_fc).x2f, cib.s, cib.e, cjb.s, cjb.e + f2,
                          ckb.s, ckb.e);
-    BufferUtility::PackData((*coarse_fc).x2f, sendbuf, cib.s, cib.e, cjb.s, cjb.e + f2,
-                            ckb.s, ckb.e, p);
+    BufferUtility::PackData(x2f, sendbuf, cib.s, cib.e, cjb.s, cjb.e + f2, ckb.s, ckb.e,
+                            p, pb);
     pmr->RestrictFieldX3((*var_fc).x3f, (*coarse_fc).x3f, cib.s, cib.e, cjb.s, cjb.e,
                          ckb.s, ckb.e + f3);
-    BufferUtility::PackData((*coarse_fc).x3f, sendbuf, cib.s, cib.e, cjb.s, cjb.e, ckb.s,
-                            ckb.e + f3, p);
+    BufferUtility::PackData(x3f, sendbuf, cib.s, cib.e, cjb.s, cjb.e, ckb.s, ckb.e + f3,
+                            p, pb);
   }
   return;
 }
@@ -978,14 +985,22 @@ void Mesh::FillSameRankCoarseToFineAMR(MeshBlock *pob, MeshBlock *pmb,
     ParArrayND<Real> src = std::get<0>(*pob_cc_it);
     ParArrayND<Real> dst = coarse_cc;
     // fill the coarse buffer
-    for (int nv = 0; nv <= nu; nv++) {
-      for (int k = kl, ck = cks; k <= ku; k++, ck++) {
-        for (int j = jl, cj = cjs; j <= ju; j++, cj++) {
-          for (int i = il, ci = cis; i <= iu; i++, ci++)
-            dst(nv, k, j, i) = src(nv, ck, cj, ci);
-        }
-      }
-    }
+    // WARNING: potential Cuda stream pitfall (exec space of coarse and fine MB)
+    // Need to make sure that both src and dst are done with all other task up to here
+    pob->par_for(
+        "FillSameRankCoarseToFineAMR", 0, nu, kl, ku, jl, ju, il, iu,
+        KOKKOS_LAMBDA(const int nv, const int k, const int j, const int i) {
+          dst(nv, k, j, i) = src(nv, k - kl + cks, j - jl + cjs, i - il + cis);
+        });
+    // keeping the original, following block for reference to indexing
+    // for (int nv = 0; nv <= nu; nv++) {
+    //   for (int k = kl, ck = cks; k <= ku; k++, ck++) {
+    //     for (int j = jl, cj = cjs; j <= ju; j++, cj++) {
+    //       for (int i = il, ci = cis; i <= iu; i++, ci++)
+    //         dst(nv, k, j, i) = src(nv, ck, cj, ci);
+    //     }
+    //   }
+    // }
     pmr->ProlongateCellCenteredValues(
         dst, var_cc, 0, nu, pob->c_cellbounds.is(interior),
         pob->c_cellbounds.ie(interior), pob->c_cellbounds.js(interior),
@@ -1045,7 +1060,7 @@ void Mesh::FillSameRankCoarseToFineAMR(MeshBlock *pob, MeshBlock *pmb,
 }
 
 // step 8 (receive and load), branch 1 (same2same: unpack)
-void Mesh::FinishRecvSameLevel(MeshBlock *pb, Real *recvbuf) {
+void Mesh::FinishRecvSameLevel(MeshBlock *pb, ParArray1D<Real> &recvbuf) {
   int p = 0;
 
   const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
@@ -1058,18 +1073,21 @@ void Mesh::FinishRecvSameLevel(MeshBlock *pb, Real *recvbuf) {
 
   for (auto &pvar_cc : pb->vars_cc_) {
     int nu = pvar_cc->GetDim(4) - 1;
-    auto &var_cc = pvar_cc->data;
-    BufferUtility::UnpackData(recvbuf, var_cc, 0, nu, ib.s, ib.e, jb.s, jb.e, kb.s, kb.e,
-                              p);
+    ParArray4D<Real> var_cc_ = pvar_cc->data.Get<4>();
+    BufferUtility::UnpackData(recvbuf, var_cc_, 0, nu, ib.s, ib.e, jb.s, jb.e, kb.s, kb.e,
+                              p, pb);
   }
   for (auto &pvar_fc : pb->vars_fc_) {
     auto &var_fc = *pvar_fc;
-    BufferUtility::UnpackData(recvbuf, var_fc.x1f, ib.s, ib.e + 1, jb.s, jb.e, kb.s, kb.e,
-                              p);
-    BufferUtility::UnpackData(recvbuf, var_fc.x2f, ib.s, ib.e, jb.s, jb.e + f2, kb.s,
-                              kb.e, p);
-    BufferUtility::UnpackData(recvbuf, var_fc.x3f, ib.s, ib.e, jb.s, jb.e, kb.s,
-                              kb.e + f3, p);
+    ParArray3D<Real> x1f = var_fc.x1f.Get<3>();
+    ParArray3D<Real> x2f = var_fc.x2f.Get<3>();
+    ParArray3D<Real> x3f = var_fc.x3f.Get<3>();
+    BufferUtility::UnpackData(recvbuf, x1f, ib.s, ib.e + 1, jb.s, jb.e, kb.s, kb.e, p,
+                              pb);
+    BufferUtility::UnpackData(recvbuf, x2f, ib.s, ib.e, jb.s, jb.e + f2, kb.s, kb.e, p,
+                              pb);
+    BufferUtility::UnpackData(recvbuf, x3f, ib.s, ib.e, jb.s, jb.e, kb.s, kb.e + f3, p,
+                              pb);
     if (pb->block_size.nx2 == 1) {
       for (int i = ib.s; i <= ib.e; i++)
         var_fc.x2f(kb.s, jb.s + 1, i) = var_fc.x2f(kb.s, jb.s, i);
@@ -1091,7 +1109,7 @@ void Mesh::FinishRecvSameLevel(MeshBlock *pb, Real *recvbuf) {
 }
 
 // step 8 (receive and load), branch 2 (f2c: unpack)
-void Mesh::FinishRecvFineToCoarseAMR(MeshBlock *pb, Real *recvbuf,
+void Mesh::FinishRecvFineToCoarseAMR(MeshBlock *pb, ParArray1D<Real> &recvbuf,
                                      LogicalLocation &lloc) {
   const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
   const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
@@ -1119,16 +1137,19 @@ void Mesh::FinishRecvFineToCoarseAMR(MeshBlock *pb, Real *recvbuf,
     kl = kb.s + pb->block_size.nx3 / 2, ku = kb.e;
 
   for (auto cc_pair : pb->pmr->pvars_cc_) {
-    ParArrayND<Real> var_cc = std::get<0>(cc_pair);
-    int nu = var_cc.GetDim(4) - 1;
-    BufferUtility::UnpackData(recvbuf, var_cc, 0, nu, il, iu, jl, ju, kl, ku, p);
+    ParArray4D<Real> var_cc = std::get<0>(cc_pair).Get<4>();
+    int nu = var_cc.extent(0) - 1;
+    BufferUtility::UnpackData(recvbuf, var_cc, 0, nu, il, iu, jl, ju, kl, ku, p, pb);
   }
   for (auto fc_pair : pb->pmr->pvars_fc_) {
     FaceField *var_fc = std::get<0>(fc_pair);
     FaceField &dst_b = *var_fc;
-    BufferUtility::UnpackData(recvbuf, dst_b.x1f, il, iu + 1, jl, ju, kl, ku, p);
-    BufferUtility::UnpackData(recvbuf, dst_b.x2f, il, iu, jl, ju + f2, kl, ku, p);
-    BufferUtility::UnpackData(recvbuf, dst_b.x3f, il, iu, jl, ju, kl, ku + f3, p);
+    ParArray3D<Real> x1f = dst_b.x1f.Get<3>();
+    ParArray3D<Real> x2f = dst_b.x2f.Get<3>();
+    ParArray3D<Real> x3f = dst_b.x3f.Get<3>();
+    BufferUtility::UnpackData(recvbuf, x1f, il, iu + 1, jl, ju, kl, ku, p, pb);
+    BufferUtility::UnpackData(recvbuf, x2f, il, iu, jl, ju + f2, kl, ku, p, pb);
+    BufferUtility::UnpackData(recvbuf, x3f, il, iu, jl, ju, kl, ku + f3, p, pb);
     if (pb->block_size.nx2 == 1) {
       for (int i = il; i <= iu; i++)
         dst_b.x2f(kb.s, jb.s + 1, i) = dst_b.x2f(kb.s, jb.s, i);
@@ -1144,7 +1165,7 @@ void Mesh::FinishRecvFineToCoarseAMR(MeshBlock *pb, Real *recvbuf,
 }
 
 // step 8 (receive and load), branch 2 (c2f: unpack+prolongate)
-void Mesh::FinishRecvCoarseToFineAMR(MeshBlock *pb, Real *recvbuf) {
+void Mesh::FinishRecvCoarseToFineAMR(MeshBlock *pb, ParArray1D<Real> &recvbuf) {
   const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
   const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
   auto &pmr = pb->pmr;
@@ -1162,16 +1183,21 @@ void Mesh::FinishRecvCoarseToFineAMR(MeshBlock *pb, Real *recvbuf) {
     ParArrayND<Real> var_cc = std::get<0>(cc_pair);
     ParArrayND<Real> coarse_cc = std::get<1>(cc_pair);
     int nu = var_cc.GetDim(4) - 1;
-    BufferUtility::UnpackData(recvbuf, coarse_cc, 0, nu, il, iu, jl, ju, kl, ku, p);
+    ParArray4D<Real> coarse_cc_ = coarse_cc.Get<4>();
+    BufferUtility::UnpackData(recvbuf, coarse_cc_, 0, nu, il, iu, jl, ju, kl, ku, p, pb);
     pmr->ProlongateCellCenteredValues(coarse_cc, var_cc, 0, nu, cib.s, cib.e, cjb.s,
                                       cjb.e, ckb.s, ckb.e);
   }
   for (auto fc_pair : pb->pmr->pvars_fc_) {
     FaceField *var_fc = std::get<0>(fc_pair);
     FaceField *coarse_fc = std::get<1>(fc_pair);
-    BufferUtility::UnpackData(recvbuf, (*coarse_fc).x1f, il, iu + 1, jl, ju, kl, ku, p);
-    BufferUtility::UnpackData(recvbuf, (*coarse_fc).x2f, il, iu, jl, ju + f2, kl, ku, p);
-    BufferUtility::UnpackData(recvbuf, (*coarse_fc).x3f, il, iu, jl, ju, kl, ku + f3, p);
+
+    ParArray3D<Real> x1f = (*coarse_fc).x1f.Get<3>();
+    ParArray3D<Real> x2f = (*coarse_fc).x2f.Get<3>();
+    ParArray3D<Real> x3f = (*coarse_fc).x3f.Get<3>();
+    BufferUtility::UnpackData(recvbuf, x1f, il, iu + 1, jl, ju, kl, ku, p, pb);
+    BufferUtility::UnpackData(recvbuf, x2f, il, iu, jl, ju + f2, kl, ku, p, pb);
+    BufferUtility::UnpackData(recvbuf, x3f, il, iu, jl, ju, kl, ku + f3, p, pb);
     pmr->ProlongateSharedFieldX1((*coarse_fc).x1f, (*var_fc).x1f, cib.s, cib.e + 1, cjb.s,
                                  cjb.e, ckb.s, ckb.e);
     pmr->ProlongateSharedFieldX2((*coarse_fc).x2f, (*var_fc).x2f, cib.s, cib.e, cjb.s,
