@@ -78,7 +78,6 @@ class EvolutionDriver : public Driver {
 
  private:
   void InitializeBlockTimeSteps();
-  void Report(DriverStatus status);
 };
 
 namespace DriverUtils {

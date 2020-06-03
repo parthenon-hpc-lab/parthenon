@@ -26,7 +26,6 @@
 
 namespace parthenon {
 
-
 void Driver::PreExecute() {
   if (Globals::my_rank == 0) {
     std::cout << std::endl << "Setup complete, executing driver...\n" << std::endl;
@@ -106,7 +105,6 @@ DriverStatus EvolutionDriver::Execute() {
   return status;
 }
 
-
 void EvolutionDriver::PostExecute(DriverStatus status) {
   // Print diagnostic messages related to the end of the simulation
   if (Globals::my_rank == 0) {
@@ -140,12 +138,6 @@ void EvolutionDriver::InitializeBlockTimeSteps() {
     pmb->SetBlockTimestep(Update::EstimateTimestep(pmb->real_containers.Get()));
     pmb = pmb->next;
   }
-}
-
-
-
-void EvolutionDriver::Report(DriverStatus status) {
-
 }
 
 //----------------------------------------------------------------------------------------
