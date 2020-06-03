@@ -37,7 +37,7 @@ Packages_t ParthenonManager::ProcessPackages(std::unique_ptr<ParameterInput> &pi
 
 void MeshBlock::ProblemGenerator(ParameterInput *pin) {
   Container<Real> &rc = real_containers.Get();
-  CellVariable<Real> &q = rc.Get("advected");
+  auto &q = rc.Get("advected").data;
 
   auto pkg = packages["advection_package"];
   const auto &amp = pkg->Param<Real>("amp");
@@ -48,6 +48,8 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
   const auto &sin_a2 = pkg->Param<Real>("sin_a2");
   const auto &sin_a3 = pkg->Param<Real>("sin_a3");
   const auto &profile = pkg->Param<std::string>("profile");
+
+  auto q_h = q.GetHostMirror();
 
   IndexRange ib = cellbounds.GetBoundsI(IndexDomain::entire);
   IndexRange jb = cellbounds.GetBoundsJ(IndexDomain::entire);
@@ -60,21 +62,22 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
           Real x = cos_a2 * (coords.x1v(i) * cos_a3 + coords.x2v(j) * sin_a3) +
                    coords.x3v(k) * sin_a2;
           Real sn = std::sin(k_par * x);
-          q(k, j, i) = 1.0 + amp * sn * vel;
+          q_h(k, j, i) = 1.0 + amp * sn * vel;
         } else if (profile.compare("smooth_gaussian") == 0) {
           Real rsq = coords.x1v(i) * coords.x1v(i) + coords.x2v(j) * coords.x2v(j) +
                      coords.x3v(k) * coords.x3v(k);
-          q(k, j, i) = 1. + amp * exp(-100.0 * rsq);
+          q_h(k, j, i) = 1. + amp * exp(-100.0 * rsq);
         } else if (profile.compare("hard_sphere") == 0) {
           Real rsq = coords.x1v(i) * coords.x1v(i) + coords.x2v(j) * coords.x2v(j) +
                      coords.x3v(k) * coords.x3v(k);
-          q(k, j, i) = (rsq < 0.15 * 0.15 ? 1.0 : 0.0);
+          q_h(k, j, i) = (rsq < 0.15 * 0.15 ? 1.0 : 0.0);
         } else {
-          q(k, j, i) = 0.0;
+          q_h(k, j, i) = 0.0;
         }
       }
     }
   }
+  q.DeepCopy(q_h);
 }
 
 void ParthenonManager::SetFillDerivedFunctions() {
@@ -99,7 +102,6 @@ void Mesh::UserWorkAfterLoop(ParameterInput *pin, SimTime &tm) {
     auto pkg = pmb->packages["advection_package"];
 
     auto rc = pmb->real_containers.Get(); // get base container
-    ParArray3D<Real> q = rc.Get("advected").data.Get<3>();
     const auto &amp = pkg->Param<Real>("amp");
     const auto &vel = pkg->Param<Real>("vel");
     const auto &k_par = pkg->Param<Real>("k_par");
@@ -113,7 +115,8 @@ void Mesh::UserWorkAfterLoop(ParameterInput *pin, SimTime &tm) {
     IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
     IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
 
-    // TODO(pgrete) needs to be a reduction when using parallel_for
+    // calculate error on host
+    auto q = rc.Get("advected").data.GetHostMirrorAndCopy();
     for (int k = kb.s; k <= kb.e; k++) {
       for (int j = jb.s; j <= jb.e; j++) {
         for (int i = ib.s; i <= ib.e; i++) {
