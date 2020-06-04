@@ -48,7 +48,9 @@ namespace parthenon {
 //----------------------------------------------------------------------------------------
 // MeshBlock constructor: constructs coordinate, boundary condition, field
 //                        and mesh refinement objects.
-MeshBlock::MeshBlock(const int n_side, const int ndim) {
+MeshBlock::MeshBlock(const int n_side, const int ndim)
+    : exec_space(DevExecSpace()), pmy_mesh(nullptr), prev(nullptr), next(nullptr),
+      cost_(1.0) {
   // initialize grid indices
   if (ndim == 1) {
     InitializeIndexShapes(n_side, 0, 0);
@@ -98,7 +100,8 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
   real_container.setBlock(this);
 
   // Reconstruction: constructor may implicitly depend on Coordinates, and PPM variable
-  // floors depend on EOS, but EOS isn't needed in Reconstruction constructor-> this is ok
+  // floors depend on EOS, but EOS isn't needed in Reconstruction constructor-> this is
+  // ok
   precon = std::make_unique<Reconstruction>(this, pin);
 
   // Add field properties data
