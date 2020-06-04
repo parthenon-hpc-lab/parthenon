@@ -92,12 +92,12 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
   printf("now have 3 particles\n");
 
   // Add 2 uniformly spaced particles
-  auto uniform_particle_indices = s.AddUniformParticles(2);
-  for (auto n : empty_particle_indices) {
-    vx(n) = 0.1;
-    vy(n) = 0.;
-    vz(n) = 0.;
-  }
+  //auto uniform_particle_indices = s.AddUniformParticles(2);
+  //for (auto n : empty_particle_indices) {
+  //  vx(n) = 0.1;
+  //  vy(n) = 0.;
+  //  vz(n) = 0.;
+  //}
 
   s.printpool();
 }

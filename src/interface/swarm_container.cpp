@@ -43,6 +43,7 @@ void SwarmContainer::Add(const std::string label,
   }
 
   auto swarm = std::make_shared<Swarm>(label, metadata);
+  swarm->pmy_block = pmy_block;
   swarmVector_.push_back(swarm);
   swarmMap_[label] = swarm;
 }

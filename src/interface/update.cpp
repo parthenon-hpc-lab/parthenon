@@ -62,31 +62,30 @@ TaskStatus FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
   return TaskStatus::complete;
 }
 
-//void TransportSwarm(Swarm &in, const Real dt, Swarm &out) {
 TaskStatus TransportSwarm(Swarm &in, Swarm &out, const Real dt) {
-  // TODO BRR put const real dt back in the args list
-  printf("TRANSPORTING SWARM!\n");
   int nmax_active = in.get_nmax_active();
 
-  ParticleVariable<Real> &x_in = in.GetReal("x");
-  ParticleVariable<Real> &y_in = in.GetReal("y");
-  ParticleVariable<Real> &z_in = in.GetReal("z");
-  ParticleVariable<Real> &x_out = out.GetReal("x");
-  ParticleVariable<Real> &y_out = out.GetReal("y");
-  ParticleVariable<Real> &z_out = out.GetReal("z");
-  //ParticleVariable<Real> vx = in.Get("vx");
-  //ParticleVariable<Real> vy = in.Get("vy");
-  //ParticleVariable<Real> vz = in.Get("vz");
-  //ParticleVariable<int> mask = in.Get("mask");
-  double vx = 1.;
-  double vy = 1.;
-  double vz = 1.;
+  MeshBlock *pmb = in.pmy_block;
 
-  for (int n = 0; n < nmax_active; n++) {
-    x_out(n) = x_in(n) + vx*dt;
-    y_out(n) = y_in(n) + vy*dt;
-    z_out(n) = z_in(n) + vz*dt;
-  }
+  auto &x_in = in.GetReal("x").Get();
+  auto &y_in = in.GetReal("y").Get();
+  auto &z_in = in.GetReal("z").Get();
+  auto &x_out = out.GetReal("x").Get();
+  auto &y_out = out.GetReal("y").Get();
+  auto &z_out = out.GetReal("z").Get();
+  auto &vx = in.GetReal("vx").Get();
+  auto &vy = in.GetReal("vy").Get();
+  auto &vz = in.GetReal("vz").Get();
+  auto &mask = in.GetInteger("mask").Get();
+
+  pmb->par_for("TransportSwarm", 0, nmax_active,
+    KOKKOS_LAMBDA(const int n) {
+      x_out(n) = x_in(n) + mask(n)*vx(n)*dt;
+      y_out(n) = y_in(n) + mask(n)*vy(n)*dt;
+      z_out(n) = z_in(n) + mask(n)*vz(n)*dt;
+    });
+
+  out.printpool();
 
   return TaskStatus::complete;
 }

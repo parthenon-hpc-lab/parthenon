@@ -46,7 +46,7 @@ nx2 = 16
 <parthenon/output0>
 file_type = hdf5
 dt = 0.05
-variable = prim
+variables = prim
 
 <parthenon/time>
 tlim = 1.0

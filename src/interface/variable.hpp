@@ -208,8 +208,12 @@ class ParticleVariable {
         npool_(npool), m_(metadata), label_(label) {}
 
   // accessors
+  KOKKOS_FORCEINLINE_FUNCTION
+  ParArrayND<T> &Get() {
+    return data;
+  }
   template <class... Args>
-  KOKKOS_FORCEINLINE_FUNCTION auto &operator()(Args... args) {
+  KOKKOS_FORCEINLINE_FUNCTION T &operator()(Args... args) const {
     return data(std::forward<Args>(args)...);
   }
 

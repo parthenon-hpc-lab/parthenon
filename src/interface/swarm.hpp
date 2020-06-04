@@ -40,6 +40,8 @@ enum class PARTICLE_STATUS {
 
 class Swarm {
   public:
+    MeshBlock *pmy_block = nullptr; // ptr to MeshBlock
+
     Swarm(const std::string label, const Metadata &metadata,
           const int nmax_pool_in = 3) :
           label_(label),
