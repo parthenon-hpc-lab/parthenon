@@ -26,6 +26,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "athena.hpp"
@@ -181,6 +182,17 @@ class MeshBlock {
   template <class DstType, class SrcType>
   void deep_copy(const DstType &dst, const SrcType &src) {
     Kokkos::deep_copy(exec_space, dst, src);
+  }
+
+  template <class... Args>
+  void MPI_Start(Args... args) {
+    exec_space.fence();
+    ::MPI_Start(std::forward<Args>(args)...);
+  }
+  template <class... Args>
+  void MPI_Wait(Args... args) {
+    exec_space.fence();
+    ::MPI_Wait(std::forward<Args>(args)...);
   }
 
   // 1D default loop pattern

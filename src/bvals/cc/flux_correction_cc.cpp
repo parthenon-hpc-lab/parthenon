@@ -184,7 +184,7 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
       }
 #ifdef MPI_PARALLEL
       else
-        ParthenonFence(pmb->exec_space, MPI_Start, (&(bd_var_flcor_.req_send[nb.bufid]));
+        pmb->MPI_Start(&(bd_var_flcor_.req_send[nb.bufid]));
 #endif
       bd_var_flcor_.sflag[nb.bufid] = BoundaryStatus::completed;
     }

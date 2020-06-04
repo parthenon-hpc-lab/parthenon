@@ -485,10 +485,10 @@ void CellCenteredBoundaryVariable::StartReceiving(BoundaryCommSubset phase) {
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
     if (nb.snb.rank != Globals::my_rank) {
-      ParthenonFence(pmb->exec_space, MPI_Start, (&(bd_var_.req_recv[nb.bufid]));
+      pmb->MPI_Start(&(bd_var_.req_recv[nb.bufid]));
       if (phase == BoundaryCommSubset::all && nb.ni.type == NeighborConnect::face &&
           nb.snb.level > mylevel) // opposite condition in ClearBoundary()
-        ParthenonFence(pmb->exec_space, MPI_Start, (&(bd_var_flcor_.req_recv[nb.bufid]));
+        pmb->MPI_Start(&(bd_var_flcor_.req_recv[nb.bufid]));
     }
   }
 #endif
@@ -510,10 +510,10 @@ void CellCenteredBoundaryVariable::ClearBoundary(BoundaryCommSubset phase) {
     int mylevel = pmb->loc.level;
     if (nb.snb.rank != Globals::my_rank) {
       // Wait for Isend
-      MPI_Wait(&(bd_var_.req_send[nb.bufid]), MPI_STATUS_IGNORE);
+      pmb->MPI_Wait(&(bd_var_.req_send[nb.bufid]), MPI_STATUS_IGNORE);
       if (phase == BoundaryCommSubset::all && nb.ni.type == NeighborConnect::face &&
           nb.snb.level < mylevel)
-        MPI_Wait(&(bd_var_flcor_.req_send[nb.bufid]), MPI_STATUS_IGNORE);
+        pmb->MPI_Wait(&(bd_var_flcor_.req_send[nb.bufid]), MPI_STATUS_IGNORE);
     }
 #endif
   }

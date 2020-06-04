@@ -156,7 +156,7 @@ void BoundaryVariable::SendBoundaryBuffers() {
       CopyVariableBufferSameProcess(nb, ssize);
     } else {
 #ifdef MPI_PARALLEL
-      ParthenonFence(pmb->exec_space, MPI_Start, &(bd_var_.req_send[nb.bufid]));
+      pmb->MPI_Start(&(bd_var_.req_send[nb.bufid]));
 #endif
     }
 
@@ -230,7 +230,7 @@ void BoundaryVariable::ReceiveAndSetBoundariesWithWait() {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
 #ifdef MPI_PARALLEL
     if (nb.snb.rank != Globals::my_rank)
-      MPI_Wait(&(bd_var_.req_recv[nb.bufid]), MPI_STATUS_IGNORE);
+      pmb->MPI_Wait(&(bd_var_.req_recv[nb.bufid]), MPI_STATUS_IGNORE);
 #endif
     if (nb.snb.level == mylevel)
       SetBoundarySameLevel(bd_var_.recv[nb.bufid], nb);

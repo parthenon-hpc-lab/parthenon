@@ -114,6 +114,7 @@ void EvolutionDriver::SetGlobalTimeStep() {
   Real dt_max = 2.0 * tm.dt;
   tm.dt = std::numeric_limits<Real>::max();
   while (pmb != nullptr) {
+    pmb->exec_space.fence();
     tm.dt = std::min(tm.dt, pmb->NewDt());
     pmb = pmb->next;
   }

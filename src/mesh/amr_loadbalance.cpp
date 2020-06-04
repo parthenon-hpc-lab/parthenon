@@ -656,19 +656,19 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
       MeshBlock *pb = FindMeshBlock(n);
       if (oloc.level == nloc.level) { // same
         if (ranklist[on] == Globals::my_rank) continue;
-        MPI_Wait(&(req_recv[rb_idx]), MPI_STATUS_IGNORE);
+        pb->MPI_Wait(&(req_recv[rb_idx]), MPI_STATUS_IGNORE);
         FinishRecvSameLevel(pb, recvbuf[rb_idx]);
         rb_idx++;
       } else if (oloc.level > nloc.level) { // f2c
         for (int l = 0; l < nleaf; l++) {
           if (ranklist[on + l] == Globals::my_rank) continue;
-          MPI_Wait(&(req_recv[rb_idx]), MPI_STATUS_IGNORE);
+          pb->MPI_Wait(&(req_recv[rb_idx]), MPI_STATUS_IGNORE);
           FinishRecvFineToCoarseAMR(pb, recvbuf[rb_idx], loclist[on + l]);
           rb_idx++;
         }
       } else { // c2f
         if (ranklist[on] == Globals::my_rank) continue;
-        MPI_Wait(&(req_recv[rb_idx]), MPI_STATUS_IGNORE);
+        pb->MPI_Wait(&(req_recv[rb_idx]), MPI_STATUS_IGNORE);
         FinishRecvCoarseToFineAMR(pb, recvbuf[rb_idx]);
         rb_idx++;
       }
