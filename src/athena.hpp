@@ -69,6 +69,10 @@ struct LogicalLocation { // aggregate and POD type
   }
 };
 
+/// Defines the maximum size of the static array used in the IndexShape objects
+constexpr int NDIM = 3;
+static_assert(NDIM >= 3,
+              "IndexShape cannot be used when NDIM is set to a value less than 3");
 //----------------------------------------------------------------------------------------
 //! \struct RegionSize
 //  \brief physical size and number of cells in a Mesh or a MeshBlock
@@ -96,7 +100,11 @@ struct RegionSize { // aggregate and POD type; do NOT reorder member declaration
 
 // needed for arrays dimensioned over grid directions
 // enumerator type only used in Mesh::EnrollUserMeshGenerator()
-enum CoordinateDirection { X1DIR = 0, X2DIR = 1, X3DIR = 2 };
+// X0DIR time-like direction
+// X1DIR x, r, etc...
+// X2DIR y, theta, etc...
+// X3DIR z, phi, etc...
+enum CoordinateDirection { X0DIR = 0, X1DIR = 1, X2DIR = 2, X3DIR = 3 };
 
 //------------------
 // strongly typed / scoped enums (C++11):

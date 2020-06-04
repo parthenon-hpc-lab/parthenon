@@ -11,18 +11,42 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef INTERFACE_SET_GRAPHICS_HPP_
-#define INTERFACE_SET_GRAPHICS_HPP_
+#ifndef PARTHENON_DRIVER_HPP_
+#define PARTHENON_DRIVER_HPP_
 
-#include <memory>
+// Internal Includes
+#include <bvals/boundary_conditions.hpp>
+#include <driver/driver.hpp>
+#include <driver/multistage.hpp>
+#include <mesh/mesh.hpp>
+#include <outputs/outputs.hpp>
+#include <parameter_input.hpp>
+#include <task_list/tasks.hpp>
 
-#include "parameter_input.hpp"
-#include "state_descriptor.hpp"
+// Local Includes
+#include "prelude.hpp"
 
 namespace parthenon {
+namespace driver {
+namespace prelude {
+using namespace ::parthenon::prelude;
 
-void SetGraphics(std::unique_ptr<ParameterInput> &pin, Packages_t &pkg);
-
+using ::parthenon::ApplyBoundaryConditions;
+using ::parthenon::BaseTask;
+using ::parthenon::BlockTask;
+using ::parthenon::Driver;
+using ::parthenon::DriverStatus;
+using ::parthenon::Integrator;
+using ::parthenon::Mesh;
+using ::parthenon::MeshBlock;
+using ::parthenon::MultiStageBlockTaskDriver;
+using ::parthenon::Outputs;
+using ::parthenon::ParameterInput;
+using ::parthenon::TaskID;
+using ::parthenon::TaskList;
+using ::parthenon::DriverUtils::ConstructAndExecuteBlockTasks;
+} // namespace prelude
+} // namespace driver
 } // namespace parthenon
 
-#endif // INTERFACE_SET_GRAPHICS_HPP_
+#endif // PARTHENON_DRIVER_HPP_

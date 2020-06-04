@@ -57,6 +57,7 @@
 #include <stdexcept>
 
 #include "globals.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
@@ -292,6 +293,13 @@ bool ParameterInput::ParseLine(InputBlock *pib, std::string line, std::string &n
   std::size_t first_char, last_char, equal_char, hash_char, cont_char, len;
   bool continuation = false;
 
+  hash_char = line.find_first_of("#"); // find "#" (optional)
+  comment = "";
+  if (hash_char != std::string::npos) {
+    comment = line.substr(hash_char);
+    line.erase(hash_char, std::string::npos);
+  }
+
   first_char = line.find_first_not_of(" "); // find first non-white space
   equal_char = line.find_first_of("=");     // find "=" char
 
@@ -307,11 +315,19 @@ bool ParameterInput::ParseLine(InputBlock *pib, std::string line, std::string &n
     line.erase(0, len + 1);
   }
 
-  hash_char = line.find_first_of("#"); // find "#" (optional)
   cont_char = line.find_first_of("&"); // find "&" continuation character
   // copy substring into value, remove white space at start and end
-  len = std::min(cont_char, hash_char);
-  if (len == cont_char && cont_char != std::string::npos) continuation = true;
+  len = cont_char;
+  if (cont_char != std::string::npos) {
+    std::string right_of_cont;
+    right_of_cont.assign(line, cont_char + 1, std::string::npos);
+    first_char = right_of_cont.find_first_not_of(" ");
+    if (first_char != std::string::npos) {
+      throw std::runtime_error("ERROR: Non-comment characters are not permitted to the "
+                               "right of line continuations");
+    }
+    continuation = true;
+  }
   value.assign(line, 0, len);
 
   first_char = value.find_first_not_of(" ");
@@ -320,16 +336,6 @@ bool ParameterInput::ParseLine(InputBlock *pib, std::string line, std::string &n
   last_char = value.find_last_not_of(" ");
   value.erase(last_char + 1, std::string::npos);
 
-  if (continuation) {
-    hash_char = line.find_first_of("#"); // find "#" (optional)
-  }
-
-  // copy substring into comment, if present
-  if (hash_char != std::string::npos) {
-    comment = line.substr(hash_char);
-  } else {
-    comment = "";
-  }
   return continuation;
 }
 
@@ -392,8 +398,15 @@ void ParameterInput::ModifyFromCmdline(int argc, char *argv[]) {
 
   for (int i = 1; i < argc; i++) {
     input_text = argv[i];
-    std::size_t slash_posn = input_text.find_first_of("/"); // find "/" character
+    std::size_t slash_posn = input_text.rfind("/");         // find last "/" character
     std::size_t equal_posn = input_text.find_first_of("="); // find "=" character
+
+    if (slash_posn > equal_posn) {
+      msg << "'/' used as value (rhs of =) when modifying " << input_text << "."
+          << " Please update value of change "
+          << "logic in ModifyFromCmdline function.";
+      PARTHENON_FAIL(msg.str().c_str());
+    }
 
     // skip if either "/" or "=" do not exist in input
     if ((slash_posn == std::string::npos) || (equal_posn == std::string::npos)) continue;
@@ -409,7 +422,7 @@ void ParameterInput::ModifyFromCmdline(int argc, char *argv[]) {
       msg << "### FATAL ERROR in function [ParameterInput::ModifyFromCmdline]"
           << std::endl
           << "Block name '" << block << "' on command line not found";
-      ATHENA_ERROR(msg);
+      PARTHENON_FAIL(msg.str().c_str());
     }
 
     // get pointer to node with same parameter name in singly linked list of InputLines
@@ -419,7 +432,7 @@ void ParameterInput::ModifyFromCmdline(int argc, char *argv[]) {
           << std::endl
           << "Parameter '" << name << "' in block '" << block
           << "' on command line not found";
-      ATHENA_ERROR(msg);
+      PARTHENON_FAIL(msg.str().c_str());
     }
     pl->param_value.assign(value); // replace existing value
 
@@ -460,6 +473,35 @@ int ParameterInput::DoesBlockExist(std::string block) {
   InputBlock *pb = GetPtrToBlock(block);
   if (pb == nullptr) return 0;
   return 1;
+}
+
+std::string ParameterInput::GetComment(std::string block, std::string name) {
+  InputBlock *pb;
+  InputLine *pl;
+  std::stringstream msg;
+
+  Lock();
+
+  // get pointer to node with same block name in singly linked list of InputBlocks
+  pb = GetPtrToBlock(block);
+  if (pb == nullptr) {
+    msg << "### FATAL ERROR in function [ParameterInput::GetComment]" << std::endl
+        << "Block name '" << block << "' not found when trying to set value "
+        << "for parameter '" << name << "'";
+    ATHENA_ERROR(msg);
+  }
+
+  // get pointer to node with same parameter name in singly linked list of InputLines
+  pl = pb->GetPtrToLine(name);
+  if (pl == nullptr) {
+    msg << "### FATAL ERROR in function [ParameterInput::GetComment]" << std::endl
+        << "Parameter name '" << name << "' not found in block '" << block << "'";
+    ATHENA_ERROR(msg);
+  }
+
+  std::string val = pl->param_comment;
+  Unlock();
+  return val;
 }
 
 //----------------------------------------------------------------------------------------
@@ -546,7 +588,7 @@ bool ParameterInput::GetBoolean(std::string block, std::string name) {
   // get pointer to node with same block name in singly linked list of InputBlocks
   pb = GetPtrToBlock(block);
   if (pb == nullptr) {
-    msg << "### FATAL ERROR in function [ParameterInput::GetReal]" << std::endl
+    msg << "### FATAL ERROR in function [ParameterInput::GetBoolean]" << std::endl
         << "Block name '" << block << "' not found when trying to set value "
         << "for parameter '" << name << "'";
     ATHENA_ERROR(msg);
@@ -555,7 +597,7 @@ bool ParameterInput::GetBoolean(std::string block, std::string name) {
   // get pointer to node with same parameter name in singly linked list of InputLines
   pl = pb->GetPtrToLine(name);
   if (pl == nullptr) {
-    msg << "### FATAL ERROR in function [ParameterInput::GetReal]" << std::endl
+    msg << "### FATAL ERROR in function [ParameterInput::GetBoolean]" << std::endl
         << "Parameter name '" << name << "' not found in block '" << block << "'";
     ATHENA_ERROR(msg);
   }
@@ -592,7 +634,7 @@ std::string ParameterInput::GetString(std::string block, std::string name) {
   // get pointer to node with same block name in singly linked list of InputBlocks
   pb = GetPtrToBlock(block);
   if (pb == nullptr) {
-    msg << "### FATAL ERROR in function [ParameterInput::GetReal]" << std::endl
+    msg << "### FATAL ERROR in function [ParameterInput::GetString]" << std::endl
         << "Block name '" << block << "' not found when trying to set value "
         << "for parameter '" << name << "'";
     ATHENA_ERROR(msg);
@@ -601,7 +643,7 @@ std::string ParameterInput::GetString(std::string block, std::string name) {
   // get pointer to node with same parameter name in singly linked list of InputLines
   pl = pb->GetPtrToLine(name);
   if (pl == nullptr) {
-    msg << "### FATAL ERROR in function [ParameterInput::GetReal]" << std::endl
+    msg << "### FATAL ERROR in function [ParameterInput::GetString]" << std::endl
         << "Parameter name '" << name << "' not found in block '" << block << "'";
     ATHENA_ERROR(msg);
   }
@@ -806,7 +848,7 @@ void ParameterInput::RollbackNextTime() {
   Real next_time;
 
   while (pb != nullptr) {
-    if (pb->block_name.compare(0, 6, "output") == 0) {
+    if (pb->block_name.compare(0, 16, "parthenon/output") == 0) {
       pl = pb->GetPtrToLine("next_time");
       if (pl == nullptr) {
         msg << "### FATAL ERROR in function [ParameterInput::RollbackNextTime]"
@@ -843,7 +885,7 @@ void ParameterInput::ForwardNextTime(Real mesh_time) {
   bool fresh = false;
 
   while (pb != nullptr) {
-    if (pb->block_name.compare(0, 6, "output") == 0) {
+    if (pb->block_name.compare(0, 16, "parthenon/output") == 0) {
       std::stringstream msg;
       pl = pb->GetPtrToLine("next_time");
       if (pl == nullptr) {
@@ -873,6 +915,40 @@ void ParameterInput::ForwardNextTime(Real mesh_time) {
       AddParameter(pb, "next_time", msg.str().c_str(), "# Updated during run time");
     }
     pb = pb->pnext;
+  }
+}
+
+void ParameterInput::CheckRequired(std::string block, std::string name) {
+  bool missing = true;
+  if (DoesParameterExist(block, name)) {
+    missing = (GetComment(block, name) == "# Default value added at run time");
+  }
+  if (missing) {
+    std::stringstream ss;
+    ss << std::endl
+       << "### ERROR in CheckRequired:" << std::endl
+       << "Parameter file missing required field <" << block << ">/" << name << std::endl
+       << std::endl;
+    throw std::runtime_error(ss.str());
+  }
+}
+
+void ParameterInput::CheckDesired(std::string block, std::string name) {
+  bool missing = true;
+  bool defaulted = false;
+  if (DoesParameterExist(block, name)) {
+    missing = (GetComment(block, name) == "# Default value added at run time");
+  }
+  if (missing) {
+    std::cout << std::endl
+              << "### WARNING in CheckDesired:" << std::endl
+              << "Parameter file missing desired field <" << block << ">/" << name;
+    if (defaulted) {
+      std::cout << std::endl
+                << "Defaulting to <" << block << ">/" << name << " = "
+                << GetString(block, name);
+    }
+    std::cout << std::endl << std::endl;
   }
 }
 

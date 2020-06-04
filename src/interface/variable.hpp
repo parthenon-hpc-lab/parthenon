@@ -86,7 +86,7 @@ class CellVariable {
   bool IsSet(const MetadataFlag bit) const { return m_.IsSet(bit); }
 
   ParArrayND<T> data;
-  ParArrayND<T> flux[3];  // used for boundary calculation
+  ParArrayND<T> flux[4];  // used for boundary calculation
   ParArrayND<T> coarse_s; // used for sending coarse boundary calculation
   // used in case of cell boundary communication
   std::shared_ptr<CellCenteredBoundaryVariable> vbvar;

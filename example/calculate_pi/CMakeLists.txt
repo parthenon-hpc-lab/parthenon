@@ -12,8 +12,8 @@
 #=========================================================================================
 
 add_executable(
-    parthenon-example
+    pi-example
+        pi_driver.cpp
         calculate_pi.cpp
-        pi.cpp
 )
-target_link_libraries(parthenon-example PRIVATE parthenon)
+target_link_libraries(pi-example PRIVATE parthenon)

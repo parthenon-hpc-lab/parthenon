@@ -69,7 +69,7 @@ std::shared_ptr<CellVariable<T>> CellVariable<T>::AllocateCopy(const bool allocC
       cv->vbvar = vbvar;
 
       // fluxes, etc are always a copy
-      for (int i = 0; i < 3; i++) {
+      for (int i = 1; i <= 3; i++) {
         cv->flux[i] = flux[i];
       }
 
@@ -85,23 +85,26 @@ std::shared_ptr<CellVariable<T>> CellVariable<T>::AllocateCopy(const bool allocC
 /// Initialize a 6D variable
 template <typename T>
 void CellVariable<T>::allocateComms(MeshBlock *pmb) {
-  if (!pmb) return;
-
   // set up fluxes
   std::string base_name = label();
   if (IsSet(Metadata::Independent)) {
-    flux[0] = ParArrayND<T>(base_name + ".flux0", GetDim(6), GetDim(5), GetDim(4),
-                            GetDim(3), GetDim(2), GetDim(1));
-    if (pmb->pmy_mesh->ndim >= 2)
-      flux[1] = ParArrayND<T>(base_name + ".flux1", GetDim(6), GetDim(5), GetDim(4),
-                              GetDim(3), GetDim(2), GetDim(1));
-    if (pmb->pmy_mesh->ndim >= 3)
-      flux[2] = ParArrayND<T>(base_name + ".flux2", GetDim(6), GetDim(5), GetDim(4),
-                              GetDim(3), GetDim(2), GetDim(1));
+    flux[X1DIR] = ParArrayND<T>(base_name + ".fluxX1", GetDim(6), GetDim(5), GetDim(4),
+                                GetDim(3), GetDim(2), GetDim(1));
+    if (GetDim(2) > 1)
+      flux[X2DIR] = ParArrayND<T>(base_name + ".fluxX2", GetDim(6), GetDim(5), GetDim(4),
+                                  GetDim(3), GetDim(2), GetDim(1));
+    if (GetDim(3) > 1)
+      flux[X3DIR] = ParArrayND<T>(base_name + ".fluxX3", GetDim(6), GetDim(5), GetDim(4),
+                                  GetDim(3), GetDim(2), GetDim(1));
   }
+
+  if (!pmb) return;
+
   if (pmb->pmy_mesh->multilevel)
     coarse_s = ParArrayND<T>(base_name + ".coarse", GetDim(6), GetDim(5), GetDim(4),
-                             pmb->ncc3, pmb->ncc2, pmb->ncc1);
+                             pmb->c_cellbounds.ncellsk(IndexDomain::entire),
+                             pmb->c_cellbounds.ncellsj(IndexDomain::entire),
+                             pmb->c_cellbounds.ncellsi(IndexDomain::entire));
 
   // Create the boundary object
   vbvar = std::make_shared<CellCenteredBoundaryVariable>(pmb, data, coarse_s, flux);

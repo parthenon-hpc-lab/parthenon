@@ -15,19 +15,13 @@
 #  the public, perform publicly and display publicly, and to permit others to do so.
 # ========================================================================================
 
-<comment>
-problem = simple example
-
-<job>
+<parthenon/job>
 problem_id = example
 
-<mesh>
+<parthenon/mesh>
 nx1 = 50
 x1min = -0.5
 x1max = 0.5
-
-ix1_bc = reflecting
-ox1_bc = reflecting
 
 nx2 = 1
 x2min = -0.5
@@ -39,10 +33,7 @@ x3max = 0.5
 
 num_threads = 1
 
-<time>
-tlim = 1.0
-
-<meshblock>
+<parthenon/meshblock>
 nx1 = 50
 nx2 = 1
 nx3 = 1

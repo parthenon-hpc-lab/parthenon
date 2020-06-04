@@ -18,7 +18,6 @@
 #include <Kokkos_Core.hpp>
 
 #include "driver/driver.hpp"
-#include "interface/set_graphics.hpp"
 #include "interface/update.hpp"
 #include "refinement/refinement.hpp"
 
@@ -95,8 +94,6 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
   // always add the Refinement package
   packages["ParthenonRefinement"] = Refinement::Initialize(pinput.get());
 
-  SetGraphics(pinput, packages);
-
   // TODO(jdolence): Deal with restarts
   // if (arg.res_flag == 0) {
   pmesh = std::make_unique<Mesh>(pinput.get(), properties, packages, arg.mesh_flag);
@@ -116,9 +113,6 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
   pmesh->Initialize(Restart(), pinput.get());
 
   ChangeRunDir(arg.prundir);
-  pouts = std::make_unique<Outputs>(pmesh.get(), pinput.get());
-
-  if (!Restart()) pouts->MakeOutputs(pmesh.get(), pinput.get());
 
   return ParthenonStatus::ok;
 }
@@ -135,32 +129,7 @@ void ParthenonManager::PreDriver() {
 }
 
 void ParthenonManager::PostDriver(DriverStatus driver_status) {
-  if (Globals::my_rank == 0) SignalHandler::CancelWallTimeAlarm();
-
-  pouts->MakeOutputs(pmesh.get(), pinput.get());
-
-  // Print diagnostic messages related to the end of the simulation
   if (Globals::my_rank == 0) {
-    pmesh->OutputCycleDiagnostics();
-    SignalHandler::Report();
-    if (driver_status == DriverStatus::complete) {
-      std::cout << std::endl << "Driver completed." << std::endl;
-    } else if (driver_status == DriverStatus::timeout) {
-      std::cout << std::endl << "Driver timed out.  Restart to continue." << std::endl;
-    } else if (driver_status == DriverStatus::failed) {
-      std::cout << std::endl << "Driver failed." << std::endl;
-    }
-
-    std::cout << "time=" << pmesh->time << " cycle=" << pmesh->ncycle << std::endl;
-    std::cout << "tlim=" << pmesh->tlim << " nlim=" << pmesh->nlim << std::endl;
-
-    if (pmesh->adaptive) {
-      std::cout << std::endl
-                << "Number of MeshBlocks = " << pmesh->nbtotal << "; " << pmesh->nbnew
-                << "  created, " << pmesh->nbdel << " destroyed during this simulation."
-                << std::endl;
-    }
-
     // Calculate and print the zone-cycles/cpu-second and wall-second
 #ifdef OPENMP_PARALLEL
     double omp_time = omp_get_wtime() - omp_start_time_;

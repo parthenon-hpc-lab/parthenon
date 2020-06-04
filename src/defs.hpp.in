@@ -21,6 +21,8 @@
 //  defs.hpp file will be created (overwriting the last) from this template. This new
 //  file contains Athena++ specific cpp macros and definitions set by configure.
 
+#define COORDINATE_TYPE @COORDINATE_TYPE@
+
 //----------------------------------------------------------------------------------------
 // macros which define physics and algorithms
 
@@ -43,8 +45,11 @@
 // HDF5 output (HDF5OUTPUT or NO_HDF5OUTPUT)
 #define @HDF5_OPTION@
 
-// Kokkos loop layout (outer loop)
+// Kokkos tight loop layout
 #define @PAR_LOOP_LAYOUT@
+
+// Kokkos nested loop layout (inner)
+#define @PAR_LOOP_INNER_LAYOUT@
 
 // try/throw/catch C++ exception handling (ENABLE_EXCEPTIONS or DISABLE_EXCEPTIONS)
 // (enabled by default)
