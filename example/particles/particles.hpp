@@ -37,13 +37,16 @@ using parthenon::StateDescriptor;
 using parthenon::TaskID;
 using parthenon::TaskList;
 using parthenon::TaskStatus;
+using parthenon::Integrator;
 
 namespace particles_example {
 
 class ParticleDriver : public MultiStageBlockTaskDriver {
  public:
-  ParticleDriver(ParameterInput *pin, Mesh *pm, Outputs *pout)
-      : MultiStageBlockTaskDriver(pin, pm, pout) {}
+  ParticleDriver(ParameterInput *pin, Mesh *pm)//, Outputs *pout)
+      : MultiStageBlockTaskDriver(pin, pm) {//, pout) {}
+    //pin->CheckRequired("parthenon/mesh", "ix1_bc");
+  }
   // This next function essentially defines the driver.
   // Call graph looks like
   // main()
@@ -77,17 +80,26 @@ class ContainerTask: public BaseTask {
    Container<Real> container_;
 };
 
-using SwarmTaskFunc = std::function<TaskStatus(MeshBlock *, Swarm &)>;
+using SwarmTaskFunc = std::function<TaskStatus(MeshBlock *, int,
+                                               std::vector<std::string> &,
+                                               Integrator *)>;
 class SwarmTask : public BaseTask {
   public:
-    SwarmTask(TaskID id, SwarmTaskFunc func, MeshBlock *pblock, TaskID dep, Swarm swarm) :
-      BaseTask(id, dep), func_(func), pblock_(pblock), swarm_(swarm) {}
-    TaskStatus operator()() { return func_(pblock_, swarm_); }
+    //SwarmTask(TaskID id, SwarmTaskFunc func, MeshBlock *pblock, TaskID dep, Swarm swarm) :
+    //  BaseTask(id, dep), func_(func), pblock_(pblock), swarm_(swarm) {}
+    SwarmTask(TaskID id, SwarmTaskFunc func, TaskID dep, MeshBlock *pblock,
+      int stage, std::vector<std::string> stage_name, Integrator *integrator) :
+      BaseTask(id, dep), func_(func), pblock_(pblock), stage_(stage),
+      stage_name_(stage_name), integrator_(integrator) {}
+    TaskStatus operator()() { return func_(pblock_, stage_, stage_name_, integrator_); }
 
   private:
     MeshBlock *pblock_;
     SwarmTaskFunc func_;
-    Swarm swarm_;
+    int stage_;
+    std::vector<std::string> stage_name_;
+    Integrator *integrator_;
+    //Swarm swarm_;
 };
 
 using TwoSwarmTaskFunc =

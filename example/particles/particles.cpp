@@ -168,18 +168,22 @@ TaskStatus UpdateContainer(MeshBlock *pmb, int stage,
   // const Real beta = stage_wghts[stage-1].beta;
   printf("UPDATE CONTAINER\n");
   const Real beta = integrator->beta[stage - 1];
+  const Real dt = integrator->dt;
   Container<Real> &base = pmb->real_containers.Get();
   Container<Real> &cin = pmb->real_containers.Get(stage_name[stage - 1]);
   Container<Real> &cout = pmb->real_containers.Get(stage_name[stage]);
   Container<Real> &dudt = pmb->real_containers.Get("dUdt");
   parthenon::Update::AverageContainers(cin, base, beta);
-  parthenon::Update::UpdateContainer(cin, dudt, beta * pmb->pmy_mesh->dt, cout);
+  parthenon::Update::UpdateContainer(cin, dudt, beta * dt, cout);
   return TaskStatus::complete;
 }
 
-TaskStatus UpdateSwarm(MeshBlock *pmb, Swarm &swarm) {
+TaskStatus UpdateSwarm(MeshBlock *pmb, int stage,
+                       std::vector<std::string> &stage_name,
+                       Integrator *integrator) {
   printf("UPDATE SWARM\n");
-  parthenon::Update::TransportSwarm(swarm, swarm, pmb->pmy_mesh->dt);
+  Swarm &swarm = pmb->real_containers.GetSwarmContainer().Get("my particles");
+  parthenon::Update::TransportSwarm(swarm, swarm, integrator->dt);
   return TaskStatus::complete;
 }
 
@@ -216,7 +220,9 @@ TaskList ParticleDriver::MakeTaskList(MeshBlock *pmb, int stage) {
 
   Swarm &swarm = sc.Get("my particles");
 
-  auto update_swarm = tl.AddTask<SwarmTask>(UpdateSwarm, pmb, none, swarm);
+  //auto update_swarm = tl.AddTask<SwarmTask>(UpdateSwarm, pmb, none, swarm);
+  auto update_swarm = tl.AddTask<SwarmTask>(UpdateSwarm, none, pmb, stage,
+                                            stage_name, integrator);
 
   Container<Real> container = pmb->real_containers.Get("my container");
 

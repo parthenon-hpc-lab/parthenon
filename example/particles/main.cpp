@@ -35,8 +35,8 @@ int main(int argc, char *argv[]) {
   // make use of MPI and Kokkos
 
   // Initialize the driver
-  particles_example::ParticleDriver driver(pman.pinput.get(), pman.pmesh.get(),
-                                            pman.pouts.get());
+  particles_example::ParticleDriver driver(pman.pinput.get(), pman.pmesh.get());
+                                            //pman.pouts.get());
   printf("File: %s Line: %i\n", __FILE__, __LINE__);
 
   // start a timer
