@@ -101,13 +101,11 @@ class ParArrayNDGeneric {
     d6d_ = Data(label, nx6, nx5, nx4, nx3, nx2, nx1);
   }
 
-  __attribute__((nothrow))
-  ParArrayNDGeneric(const ParArrayNDGeneric<Data> &t) = default;
+  __attribute__((nothrow)) ParArrayNDGeneric(const ParArrayNDGeneric<Data> &t) = default;
   __attribute__((nothrow)) ~ParArrayNDGeneric() = default;
   __attribute__((nothrow)) ParArrayNDGeneric<Data> &
   operator=(const ParArrayNDGeneric<Data> &t) = default;
-  __attribute__((nothrow))
-  ParArrayNDGeneric(ParArrayNDGeneric<Data> &&t) = default;
+  __attribute__((nothrow)) ParArrayNDGeneric(ParArrayNDGeneric<Data> &&t) = default;
   __attribute__((nothrow)) ParArrayNDGeneric<Data> &
   operator=(ParArrayNDGeneric<Data> &&t) = default;
 
