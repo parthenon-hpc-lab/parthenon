@@ -41,7 +41,6 @@ class ParArrayNDGeneric {
  public:
   using index_pair_t = std::pair<size_t, size_t>;
 
-  KOKKOS_INLINE_FUNCTION
   ParArrayNDGeneric() = default;
   ParArrayNDGeneric(const std::string &label, int nx6, int nx5, int nx4, int nx3, int nx2,
                     int nx1) {
@@ -102,14 +101,14 @@ class ParArrayNDGeneric {
     d6d_ = Data(label, nx6, nx5, nx4, nx3, nx2, nx1);
   }
 
-  KOKKOS_INLINE_FUNCTION __attribute__((nothrow))
+  __attribute__((nothrow))
   ParArrayNDGeneric(const ParArrayNDGeneric<Data> &t) = default;
-  KOKKOS_INLINE_FUNCTION __attribute__((nothrow)) ~ParArrayNDGeneric() = default;
-  KOKKOS_INLINE_FUNCTION __attribute__((nothrow)) ParArrayNDGeneric<Data> &
+  __attribute__((nothrow)) ~ParArrayNDGeneric() = default;
+  __attribute__((nothrow)) ParArrayNDGeneric<Data> &
   operator=(const ParArrayNDGeneric<Data> &t) = default;
-  KOKKOS_INLINE_FUNCTION __attribute__((nothrow))
+  __attribute__((nothrow))
   ParArrayNDGeneric(ParArrayNDGeneric<Data> &&t) = default;
-  KOKKOS_INLINE_FUNCTION __attribute__((nothrow)) ParArrayNDGeneric<Data> &
+  __attribute__((nothrow)) ParArrayNDGeneric<Data> &
   operator=(ParArrayNDGeneric<Data> &&t) = default;
 
   // function to get the label
