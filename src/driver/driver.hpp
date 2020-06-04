@@ -83,23 +83,12 @@ TaskListStatus ConstructAndExecuteBlockTasks(T *driver, Args... args) {
 #ifdef OPENMP_PARALLEL
   int nthreads = driver->pmesh->GetNumMeshThreads();
 #endif
-  int nstreams = driver->pmesh->GetNumMeshStreams();
-
-  // TODO (pgrete) reuse streams
-  std::vector<DevExecSpace> exec_spaces;
-  for (auto n = 0; n < nstreams; n++) {
-    exec_spaces.push_back(parthenon::SpaceInstance<DevExecSpace>::create());
-  }
 
   int nmb = driver->pmesh->GetNumMeshBlocksThisRank(Globals::my_rank);
   std::vector<TaskList> task_lists;
   MeshBlock *pmb = driver->pmesh->pblock;
-  int pmb_counter = 0;
   while (pmb != nullptr) {
     task_lists.push_back(driver->MakeTaskList(pmb, std::forward<Args>(args)...));
-    // assign stream to meshblock for this tasklist
-    pmb->exec_space = exec_spaces[pmb_counter % nstreams];
-    pmb_counter++;
     pmb = pmb->next;
   }
   int complete_cnt = 0;
@@ -113,15 +102,6 @@ TaskListStatus ConstructAndExecuteBlockTasks(T *driver, Args... args) {
         }
       }
     }
-  }
-  // reset execution spaces
-  pmb = driver->pmesh->pblock;
-  while (pmb != nullptr) {
-    pmb->exec_space = DevExecSpace();
-    pmb = pmb->next;
-  }
-  for (auto n = 0; n < nstreams; n++) {
-    SpaceInstance<DevExecSpace>::destroy(exec_spaces[n]);
   }
 
   return TaskListStatus::complete;

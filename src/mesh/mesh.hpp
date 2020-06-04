@@ -318,6 +318,10 @@ class Mesh {
            pblock->block_size.nx2 * pblock->block_size.nx3;
   }
 
+  DevExecSpace GetExecSpaceFromPool(int nmb) {
+    return exec_spaces[nmb % num_mesh_streams_];
+  }
+
   // data
   bool modified;
   RegionSize mesh_size;
@@ -374,6 +378,7 @@ class Mesh {
   int root_level, max_level, current_level;
   int num_mesh_threads_;
   int num_mesh_streams_;
+  std::vector<DevExecSpace> exec_spaces;
   int *nslist, *ranklist, *nblist;
   double *costlist;
   // 8x arrays used exclusively for AMR (not SMR):

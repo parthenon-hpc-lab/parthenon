@@ -31,6 +31,7 @@
 #include <string>
 #include <vector>
 
+#include "kokkos_abstraction.hpp"
 #include "parthenon_mpi.hpp"
 
 #include "athena.hpp"
@@ -122,6 +123,14 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
         << "Number of Stream must be >= 1, but num_streams=" << num_mesh_streams_
         << std::endl;
     ATHENA_ERROR(msg);
+  }
+
+  if (num_mesh_streams_ > 1) {
+    for (auto n = 0; n < num_mesh_streams_; n++) {
+      exec_spaces.push_back(parthenon::SpaceInstance<DevExecSpace>::create());
+    }
+  } else {
+    exec_spaces.push_back(DevExecSpace());
   }
 
   // check number of grid cells in root level of mesh from input file.
@@ -535,6 +544,7 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper &resfile, Properties_t &properties,
       // private members:
       next_phys_id_(),
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
+      num_mesh_streams_(pin->GetOrAddInteger("parthenon/mesh", "num_streams", 1)),
       tree(this), use_uniform_meshgen_fn_{true, true, true}, nreal_user_mesh_data_(),
       nint_user_mesh_data_(), nuser_history_output_(), lb_flag_(true), lb_automatic_(),
       lb_manual_(), MeshGenerator_{UniformMeshGeneratorX1, UniformMeshGeneratorX2,
@@ -563,6 +573,21 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper &resfile, Properties_t &properties,
         << "Number of OpenMP threads must be >= 1, but num_threads=" << num_mesh_threads_
         << std::endl;
     ATHENA_ERROR(msg);
+  }
+
+  if (num_mesh_streams_ < 1) {
+    msg << "### FATAL ERROR in Mesh constructor" << std::endl
+        << "Number of Stream must be >= 1, but num_streams=" << num_mesh_streams_
+        << std::endl;
+    ATHENA_ERROR(msg);
+  }
+
+  if(num_mesh_streams_> 1) {
+  for (auto n = 0; n < num_mesh_streams_; n++) {
+    exec_spaces.push_back(parthenon::SpaceInstance<DevExecSpace>::create());
+  }
+  } else {
+    exec_spaces.push_back(DevExecSpace());
   }
 
   // get the end of the header
@@ -852,6 +877,12 @@ Mesh::~Mesh() {
     delete[] user_history_output_names_;
     delete[] user_history_func_;
     delete[] user_history_ops_;
+  }
+  // only cleanup streams if some were actually created
+  if (num_mesh_streams_ > 1) {
+    for (auto n = 0; n < num_mesh_streams_; n++) {
+      SpaceInstance<DevExecSpace>::destroy(exec_spaces[n]);
+    }
   }
 }
 
@@ -1162,6 +1193,12 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
         MeshBlock *pmb = pmb_array[i];
         pmb->ProblemGenerator(pin);
       }
+    }
+    // assign exec space to MeshBlock
+    // TODO(pgrete) need to update exec spaces for AMR
+    for (int i = 0; i < nmb; ++i) {
+      MeshBlock *pmb = pmb_array[i];
+      pmb->exec_space = GetExecSpaceFromPool(i);
     }
 
     int call = 0;
