@@ -180,6 +180,7 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
             });
       }
       if (nb.snb.rank == Globals::my_rank) { // on the same node
+        pmb->exec_space.fence();
         CopyFluxCorrectionBufferSameProcess(nb, psize);
       }
 #ifdef MPI_PARALLEL

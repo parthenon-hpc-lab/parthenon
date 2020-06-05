@@ -110,6 +110,7 @@ void BoundaryVariable::CopyVariableBufferSameProcess(NeighborBlock &nb, int ssiz
   // 1) which MeshBlock?
   MeshBlock *ptarget_block = pmy_mesh_->FindMeshBlock(nb.snb.gid);
   // 2) which element in vector of BoundaryVariable *?
+  ptarget_block->exec_space.fence();
   BoundaryData<> *ptarget_bdata = &(ptarget_block->pbval->bvars[bvar_index]->bd_var_);
   ptarget_block->deep_copy(ptarget_bdata->recv[nb.targetid], bd_var_.send[nb.bufid]);
   // finally, set the BoundaryStatus flag on the destination buffer
@@ -124,6 +125,7 @@ void BoundaryVariable::CopyFluxCorrectionBufferSameProcess(NeighborBlock &nb, in
   // 1) which MeshBlock?
   MeshBlock *ptarget_block = pmy_mesh_->FindMeshBlock(nb.snb.gid);
   // 2) which element in vector of BoundaryVariable *?
+  ptarget_block->exec_space.fence();
   BoundaryData<> *ptarget_bdata =
       &(ptarget_block->pbval->bvars[bvar_index]->bd_var_flcor_);
   ptarget_block->deep_copy(ptarget_bdata->recv[nb.targetid],
@@ -153,6 +155,7 @@ void BoundaryVariable::SendBoundaryBuffers() {
       ssize = LoadBoundaryBufferToFiner(bd_var_.send[nb.bufid], nb);
     if (nb.snb.rank == Globals::my_rank) {
       // on the same process
+      pmb->exec_space.fence();
       CopyVariableBufferSameProcess(nb, ssize);
     } else {
 #ifdef MPI_PARALLEL
