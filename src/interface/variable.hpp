@@ -212,8 +212,8 @@ class ParticleVariable {
   ParArrayND<T> &Get() {
     return data;
   }
-  template <class... Args>
-  KOKKOS_FORCEINLINE_FUNCTION T &operator()(Args... args) const {
+  template <typename... Args>
+  KOKKOS_FORCEINLINE_FUNCTION T &operator()(Args... args) { //const {
     return data(std::forward<Args>(args)...);
   }
 

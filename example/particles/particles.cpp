@@ -54,42 +54,41 @@ Packages_t ParthenonManager::ProcessPackages(std::unique_ptr<ParameterInput> &pi
 
 void MeshBlock::ProblemGenerator(ParameterInput *pin) {
   printf("PROBLEM GENERATOR\n");
+  auto pkg = packages["Particles"];
 
   SwarmContainer &sc = real_containers.GetSwarmContainer();
   Swarm &s = sc.Get("my particles");
 
-  ParticleVariable<Real> &x = s.GetReal("x");
-  ParticleVariable<Real> &y = s.GetReal("y");
-  ParticleVariable<Real> &z = s.GetReal("z");
-  ParticleVariable<Real> &vx = s.GetReal("vx");
-  ParticleVariable<Real> &vy = s.GetReal("vy");
-  ParticleVariable<Real> &vz = s.GetReal("vz");
+  //ParticleVariable<Real> &x = s.GetReal("x");
+  auto &x = s.GetReal("x").Get();
+  auto &y = s.GetReal("y").Get();
+  auto &z = s.GetReal("z").Get();
+  auto &vx = s.GetReal("vx").Get();
+  auto &vy = s.GetReal("vy").Get();
+  auto &vz = s.GetReal("vz").Get();
 
   // Here we demonstrate the different ways to add particles
 
-  // Add a single particle
-  printf("Add empty particle\n");
-  auto particle_index = s.AddEmptyParticle();
-  x(particle_index) = 0.5;
-  y(particle_index) = 0.5;
-  z(particle_index) = 0.5;
-  vx(particle_index) = 0.5;
-  vy(particle_index) = 0.5;
-  vz(particle_index) = 0.5;
+  // Add the number of empty particles requested in parameter file
+  const int &num_particles_to_add = pkg->Param<int>("num_particles");
+  std::vector<int> empty_particle_indices = s.AddEmptyParticles(num_particles_to_add);
 
-  // Add 2 empty particles and assign positions and weights
-  printf("Add empty particles\n");
-  auto empty_particle_indices = s.AddEmptyParticles(2);
-  for (auto n : empty_particle_indices) {
-    x(n) = 0.1*n;
-    y(n) = 0.1*n;
-    z(n) = 0.1*n;
+  printf("x.getdim: %i\n", x.GetDim(1));
+  printf("y.getdim: %i\n", y.GetDim(1));
+  printf("z.getdim: %i\n", z.GetDim(1));
+  printf("vx.getdim: %i\n", vx.GetDim(1));
+  printf("vy.getdim: %i\n", vy.GetDim(1));
+  printf("vz.getdim: %i\n", vz.GetDim(1));
+  exit(-1);
+
+  for (int n : empty_particle_indices) {
+    x(n) = 1.e-1*n;
+    y(n) = 1.e-2*n;
+    z(n) = 1.e-3*n;
     vx(n) = 0.1;
-    vy(n) = 0.;
-    vz(n) = 0.;
+    vy(n) = 1.e-5;
+    vz(n) = 1.e-4*n;
   }
-
-  printf("now have 3 particles\n");
 
   // Add 2 uniformly spaced particles
   //auto uniform_particle_indices = s.AddUniformParticles(2);
@@ -98,8 +97,6 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
   //  vy(n) = 0.;
   //  vz(n) = 0.;
   //}
-
-  s.printpool();
 }
 
 } // namespace parthenon

@@ -73,6 +73,11 @@ class Swarm {
   void Remove(const std::string label);
 
   ParticleVariable<Real> &GetReal(const std::string label) {
+  for (int n = 0; n < realVector_.size(); n++) {
+    printf("getreal var (%s) has size %i\n", realVector_[n]->label().c_str(),
+      //realVector_[n]->Get().GetDim(1));
+      realMap_.at(realVector_[n]->label())->Get().GetDim(1));
+  }
     return *(realMap_.at(label));
   }
 
@@ -111,7 +116,8 @@ class Swarm {
   }
 
   /// Set max pool size
-  void setPoolMax(const int nmax_pool) {
+  void setPoolMax(const int nmax_pool);
+  /*{
     printf("Increasing pool max from %i to %i!\n", nmax_pool_, nmax_pool);
     if (nmax_pool < nmax_pool_) {
       printf("Must increase pool size!\n");
@@ -141,6 +147,7 @@ class Swarm {
 
     for (int n = 0; n < realVector_.size(); n++) {
       auto oldvar = realVector_[n];
+      printf("making newvar (%s) of size %i\n", oldvar->label().c_str(), nmax_pool);
       auto newvar = std::make_shared<ParticleVariable<Real>>(oldvar->label(),
                                                              nmax_pool,
                                                              oldvar->metadata());
@@ -151,8 +158,13 @@ class Swarm {
       realMap_[oldvar->label()] = newvar;
     }
 
+    for (int n = 0; n < realVector_.size(); n++) {
+      printf("new var (%s) has size %i\n", realVector_[n]->label().c_str(),
+        realVector_[n].Get().GetDim(1));
+    }
+
     nmax_pool_ = nmax_pool;
-  }
+  }*/
 
   bool IsSet(const MetadataFlag bit) const { return m_.IsSet(bit); }
 
