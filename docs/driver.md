@@ -4,7 +4,7 @@ Parthenon provides some basic functionality for coordinating various types of ca
 
 ## Driver
 
-```Driver``` is an abstract base class that owns pointers to a ```ParameterInput``` object, a ```Mesh``` object, and an ```Outputs``` object.  It has a single pure virtual member function called ```Execute``` that must be defined by a derived class and is intended to be called from ```main()```.  A simple example of defining an application based on inheriting from this class can be found [here](../example/calculate_pi/pi.hpp).
+```Driver``` is an abstract base class that owns pointers to a ```ParameterInput``` object, a ```Mesh``` object, and an ```Outputs``` object.  It has a single pure virtual member function called ```Execute``` that must be defined by a derived class and is intended to be called from ```main()```.  A simple example of defining an application based on inheriting from this class can be found [here](../example/calculate_pi/pi_driver.hpp).
 
 ## EvolutionDriver
 
@@ -22,4 +22,10 @@ The ```MultiStageDriver``` derives from the ```EvolutionDriver```, extending it 
 
 ## MultiStageBlockTaskDriver
 
-The ```MultiStageBlockTaskDriver``` derives from the ```MultiStageDriver```, defining the ```Step``` function to loop over the stages in a step, constructing and executing task lists per ```MeshBlock```.  This class includes a single pure virtual member function called ```MakeTaskList``` which must be defined by an application and is responsible for constructing a ```TaskList``` for a given ```MeshBlock``` and ```Stage```.  The driver for the advection example (found [here](../example/advection/advection.hpp)) derives from this class, demonstrating how a simple application based on a multi-stage Runge-Kutta scheme can be built. 
+The ```MultiStageBlockTaskDriver``` derives from the ```MultiStageDriver```, defining the ```Step``` function to loop over the stages in a step, constructing and executing task lists per ```MeshBlock```.  This class includes a single pure virtual member function called ```MakeTaskList``` which must be defined by an application and is responsible for constructing a ```TaskList``` for a given ```MeshBlock``` and ```Stage```.  The driver for the advection example (found [here](../example/advection/advection_driver.hpp)) derives from this class, demonstrating how a simple application based on a multi-stage Runge-Kutta scheme can be built. 
+
+## PreExecute/PostExecute
+
+The ```Driver``` class defines two virtual void member functions, ```PreExecute``` and ```PostExecute```, that provide simple reporting including timing data for the application.  Application drivers that derive from ```Driver``` are intended to call these functions at the beginning and end of their ```Execute``` function if such reporting is desired.  In addition, applications can extend these capabilities as desired, as demonstrated in the example [here](../example/calculate_pi/pi_driver.cpp).
+
+The ```EvolutionDriver```, which already defines the ```Execute``` function, extends the ```PostExecute``` function with additional reporting and calls both methods.
