@@ -95,7 +95,7 @@ void Mesh::CalculateLoadBalance(double *clist, int *rlist, int *slist, int *nlis
       msg << "### FATAL ERROR in CalculateLoadBalance" << std::endl
           << "There is at least one process which has no MeshBlock" << std::endl
           << "Decrease the number of processes or use smaller MeshBlocks." << std::endl;
-      ATHENA_ERROR(msg);
+      PARTHENON_FAIL(msg);
     }
     mycost += clist[i];
     rlist[i] = j;
@@ -140,7 +140,7 @@ void Mesh::CalculateLoadBalance(double *clist, int *rlist, int *slist, int *nlis
           << "There are fewer MeshBlocks than OpenMP threads on each MPI rank"
           << std::endl
           << "Decrease the number of threads or use more MeshBlocks." << std::endl;
-      ATHENA_ERROR(msg);
+      PARTHENON_FAIL(msg);
     } else if (Globals::my_rank == 0) {
       // we have AMR, print warning only on Rank 0
       std::cout << "### WARNING in CalculateLoadBalance" << std::endl
