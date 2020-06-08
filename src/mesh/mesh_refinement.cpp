@@ -33,6 +33,7 @@
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 #include "refinement/refinement.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 

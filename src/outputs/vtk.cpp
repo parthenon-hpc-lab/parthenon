@@ -34,6 +34,7 @@
 #include "mesh/mesh.hpp"
 #include "outputs/outputs.hpp"
 #include "parthenon_arrays.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 

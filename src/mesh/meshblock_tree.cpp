@@ -31,6 +31,7 @@
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock_tree.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 

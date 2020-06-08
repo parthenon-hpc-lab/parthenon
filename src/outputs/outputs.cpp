@@ -101,6 +101,7 @@
 #include "mesh/mesh.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
+#include "utils/error_checking.hpp"
 #include "utils/trim_string.hpp"
 
 namespace parthenon {
