@@ -216,8 +216,8 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
     pmb = pmb->next;
   }
 #ifdef MPI_PARALLEL
-  MPI_Allgather(MPI_IN_PLACE, 1, MPI_INT, nref, 1, MPI_INT, MPI_COMM_WORLD);
-  MPI_Allgather(MPI_IN_PLACE, 1, MPI_INT, nderef, 1, MPI_INT, MPI_COMM_WORLD);
+  MPI_Allgather(MPI_IN_PLACE, 1, MPI_INT, nref.data(), 1, MPI_INT, MPI_COMM_WORLD);
+  MPI_Allgather(MPI_IN_PLACE, 1, MPI_INT, nderef.data(), 1, MPI_INT, MPI_COMM_WORLD);
 #endif
 
   // count the number of the blocks to be (de)refined and displacement
@@ -263,12 +263,12 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
   }
 #ifdef MPI_PARALLEL
   if (tnref > 0) {
-    MPI_Allgatherv(MPI_IN_PLACE, bnref[Globals::my_rank], MPI_BYTE, lref, bnref, brdisp,
-                   MPI_BYTE, MPI_COMM_WORLD);
+    MPI_Allgatherv(MPI_IN_PLACE, bnref[Globals::my_rank], MPI_BYTE, lref, bnref.data(),
+                   brdisp.data(), MPI_BYTE, MPI_COMM_WORLD);
   }
   if (tnderef >= nleaf) {
-    MPI_Allgatherv(MPI_IN_PLACE, bnderef[Globals::my_rank], MPI_BYTE, lderef, bnderef,
-                   bddisp, MPI_BYTE, MPI_COMM_WORLD);
+    MPI_Allgatherv(MPI_IN_PLACE, bnderef[Globals::my_rank], MPI_BYTE, lderef,
+                   bnderef.data(), bddisp.data(), MPI_BYTE, MPI_COMM_WORLD);
   }
 #endif
 

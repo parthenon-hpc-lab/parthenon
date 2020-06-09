@@ -379,10 +379,13 @@ class Mesh {
   /// Maps global block ID to its cost
   std::vector<double> costlist;
   // 8x arrays used exclusively for AMR (not SMR):
-  int *nref, *nderef;
-  int *rdisp, *ddisp;
-  int *bnref, *bnderef;
-  int *brdisp, *bddisp;
+  /// Count of blocks to refine on each rank
+  std::vector<int> nref;
+  /// Count of blocks to de-refine on each rank
+  std::vector<int> nderef;
+  std::vector<int> rdisp, ddisp;
+  std::vector<int> bnref, bnderef;
+  std::vector<int> brdisp, bddisp;
   // the last 4x should be std::size_t, but are limited to int by MPI
 
   std::vector<LogicalLocation> loclist;

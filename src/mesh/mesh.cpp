@@ -433,14 +433,14 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
   nslist = std::vector<int>(Globals::nranks);
   nblist = std::vector<int>(Globals::nranks);
   if (adaptive) { // allocate arrays for AMR
-    nref = new int[Globals::nranks];
-    nderef = new int[Globals::nranks];
-    rdisp = new int[Globals::nranks];
-    ddisp = new int[Globals::nranks];
-    bnref = new int[Globals::nranks];
-    bnderef = new int[Globals::nranks];
-    brdisp = new int[Globals::nranks];
-    bddisp = new int[Globals::nranks];
+    nref = std::vector<int>(Globals::nranks);
+    nderef = std::vector<int>(Globals::nranks);
+    rdisp = std::vector<int>(Globals::nranks);
+    ddisp = std::vector<int>(Globals::nranks);
+    bnref = std::vector<int>(Globals::nranks);
+    bnderef = std::vector<int>(Globals::nranks);
+    brdisp = std::vector<int>(Globals::nranks);
+    bddisp = std::vector<int>(Globals::nranks);
   }
 
   // initialize cost array with the simplest estimate; all the blocks are equal
@@ -746,14 +746,14 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper &resfile, Properties_t &properties,
 #endif
 
   if (adaptive) { // allocate arrays for AMR
-    nref = new int[Globals::nranks];
-    nderef = new int[Globals::nranks];
-    rdisp = new int[Globals::nranks];
-    ddisp = new int[Globals::nranks];
-    bnref = new int[Globals::nranks];
-    bnderef = new int[Globals::nranks];
-    brdisp = new int[Globals::nranks];
-    bddisp = new int[Globals::nranks];
+    nref = std::vector<int>(Globals::nranks);
+    nderef = std::vector<int>(Globals::nranks);
+    rdisp = std::vector<int>(Globals::nranks);
+    ddisp = std::vector<int>(Globals::nranks);
+    bnref = std::vector<int>(Globals::nranks);
+    bnderef = std::vector<int>(Globals::nranks);
+    brdisp = std::vector<int>(Globals::nranks);
+    bddisp = std::vector<int>(Globals::nranks);
   }
 
   CalculateLoadBalance(nbtotal, costlist, ranklist, nslist, nblist);
@@ -823,16 +823,6 @@ Mesh::~Mesh() {
     while (pblock->next != nullptr)
       delete pblock->next;
     delete pblock;
-  }
-  if (adaptive) { // deallocate arrays for AMR
-    delete[] nref;
-    delete[] nderef;
-    delete[] rdisp;
-    delete[] ddisp;
-    delete[] bnref;
-    delete[] bnderef;
-    delete[] brdisp;
-    delete[] bddisp;
   }
   // delete user Mesh data
   if (nuser_history_output_ > 0) {
