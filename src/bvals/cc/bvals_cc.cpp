@@ -28,6 +28,9 @@
 #include <stdexcept>
 #include <string>
 
+#include "Kokkos_ExecPolicy.hpp"
+#include "Kokkos_Parallel.hpp"
+#include "kokkos_abstraction.hpp"
 #include "parthenon_mpi.hpp"
 
 #include "basic_types.hpp"
@@ -142,11 +145,124 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(ParArray1D<Real> &
   return p;
 }
 
+struct BndInfo {
+  int si = 0;
+  int ei = 0;
+  int sj = 0;
+  int ej = 0;
+  int sk = 0;
+  int ek = 0;
+  int sn = 0;
+  int en = 0;
+  ParArray1D<Real> recv_buf;
+};
+
+//  Hardcoded test of boundary filling routine for non-MPI, no mesh refinement sims
+void CellCenteredBoundaryVariable::SendBoundaryBuffers() {
+  MeshBlock *pmb = pmy_block_;
+
+  // check which and how many meshblocks need to be handled
+  int num_nmb = 0;
+
+  for (int n = 0; n < pmb->pbval->nneighbor; n++) {
+    NeighborBlock &nb = pmb->pbval->neighbor[n];
+    if (bd_var_.sflag[nb.bufid] == BoundaryStatus::completed) {
+      continue;
+    } else {
+      num_nmb++;
+    }
+  }
+  BndInfo *bnd_info_all = new BndInfo[num_nmb];
+  // fill boundary info buffer
+  int mb = 0;
+  for (int n = 0; n < pmb->pbval->nneighbor; n++) {
+    NeighborBlock &nb = pmb->pbval->neighbor[n];
+    if (bd_var_.sflag[nb.bufid] == BoundaryStatus::completed) {
+      continue;
+    } else {
+
+      IndexDomain interior = IndexDomain::interior;
+      const IndexShape &cellbounds = pmb->cellbounds;
+      bnd_info_all[mb].si = (nb.ni.ox1 > 0) ? (cellbounds.ie(interior) - NGHOST + 1)
+                                            : cellbounds.is(interior);
+      bnd_info_all[mb].ei = (nb.ni.ox1 < 0) ? (cellbounds.is(interior) + NGHOST - 1)
+                                            : cellbounds.ie(interior);
+      bnd_info_all[mb].sj = (nb.ni.ox2 > 0) ? (cellbounds.je(interior) - NGHOST + 1)
+                                            : cellbounds.js(interior);
+      bnd_info_all[mb].ej = (nb.ni.ox2 < 0) ? (cellbounds.js(interior) + NGHOST - 1)
+                                            : cellbounds.je(interior);
+      bnd_info_all[mb].sk = (nb.ni.ox3 > 0) ? (cellbounds.ke(interior) - NGHOST + 1)
+                                            : cellbounds.ks(interior);
+      bnd_info_all[mb].ek = (nb.ni.ox3 < 0) ? (cellbounds.ks(interior) + NGHOST - 1)
+                                            : cellbounds.ke(interior);
+      bnd_info_all[mb].sn = nl_;
+      bnd_info_all[mb].en = nu_;
+
+      // Locate target buffer
+      // 1) which MeshBlock?
+      MeshBlock *ptarget_block = pmy_mesh_->FindMeshBlock(nb.snb.gid);
+      // 2) which element in vector of BoundaryVariable *?
+      bnd_info_all[mb].recv_buf =
+          ptarget_block->pbval->bvars[bvar_index]->GetBdVar()->recv[nb.targetid];
+
+      mb++;
+    }
+  }
+
+  ParArray4D<Real> var_cc_ = var_cc.Get<4>(); // automatic template deduction fails
+  Kokkos::parallel_for(
+      "CellCenteredVar::SendBoundaryBuffers",
+      Kokkos::RangePolicy<>(pmb->exec_space, 0, num_nmb), KOKKOS_LAMBDA(const int mb) {
+        const int si = bnd_info_all[mb].si;
+        const int ei = bnd_info_all[mb].ei;
+        const int sj = bnd_info_all[mb].sj;
+        const int ej = bnd_info_all[mb].ej;
+        const int sk = bnd_info_all[mb].sk;
+        const int ek = bnd_info_all[mb].ek;
+        const int sn = bnd_info_all[mb].sn;
+        const int en = bnd_info_all[mb].en;
+        const int ni = ei + 1 - si;
+        const int nj = ej + 1 - sj;
+        const int nk = ek + 1 - sk;
+
+        for (int n = sn; n <= en; ++n) {
+          for (int k = sk; k <= ek; ++k) {
+            for (int j = sj; j <= ej; ++j) {
+              for (int i = si; i <= ei; ++i) {
+                // original offset is ignored here
+                bnd_info_all[mb].recv_buf(i - si +
+                                          ni * (j - sj + nj * (k - sk + nk * (n - sn)))) =
+                    var_cc(n, k, j, i);
+              }
+            }
+          }
+        }
+      });
+
+  pmb->exec_space.fence();
+
+  // set all flags completed (even once that were before)
+  for (int n = 0; n < pmb->pbval->nneighbor; n++) {
+    NeighborBlock &nb = pmb->pbval->neighbor[n];
+    bd_var_.sflag[nb.bufid] = BoundaryStatus::completed;
+    // Locate target buffer
+    // 1) which MeshBlock?
+    MeshBlock *ptarget_block = pmy_mesh_->FindMeshBlock(nb.snb.gid);
+    // 2) which element in vector of BoundaryVariable *?
+    BoundaryData<> *ptarget_bdata = (ptarget_block->pbval->bvars[bvar_index]->GetBdVar());
+    ptarget_bdata->flag[nb.targetid] = BoundaryStatus::arrived;
+  }
+  delete[] bnd_info_all;
+  return;
+}
+
 //----------------------------------------------------------------------------------------
 //! \fn int CellCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(ParArray1D<Real>
 //! &buf,
-//                                                                const NeighborBlock& nb)
-//  \brief Set cell-centered boundary buffers for sending to a block on the coarser level
+//                                                                const NeighborBlock&
+//                                                                nb)
+//  \brief Set cell-centered boundary buffers for sending to a block on the coarser
+//  level
 
 int CellCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(ParArray1D<Real> &buf,
                                                               const NeighborBlock &nb) {
@@ -172,8 +288,10 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(ParArray1D<Real> &
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn int CellCenteredBoundaryVariable::LoadBoundaryBufferToFiner(ParArray1D<Real> &buf,
-//                                                                const NeighborBlock& nb)
+//! \fn int CellCenteredBoundaryVariable::LoadBoundaryBufferToFiner(ParArray1D<Real>
+//! &buf,
+//                                                                const NeighborBlock&
+//                                                                nb)
 //  \brief Set cell-centered boundary buffers for sending to a block on the finer level
 
 int CellCenteredBoundaryVariable::LoadBoundaryBufferToFiner(ParArray1D<Real> &buf,
@@ -270,8 +388,10 @@ void CellCenteredBoundaryVariable::SetBoundarySameLevel(ParArray1D<Real> &buf,
 
 //----------------------------------------------------------------------------------------
 //! \fn void CellCenteredBoundaryVariable::SetBoundaryFromCoarser(ParArray1D<Real> &buf,
-//                                                                const NeighborBlock& nb)
-//  \brief Set cell-centered prolongation buffer received from a block on a coarser level
+//                                                                const NeighborBlock&
+//                                                                nb)
+//  \brief Set cell-centered prolongation buffer received from a block on a coarser
+//  level
 
 void CellCenteredBoundaryVariable::SetBoundaryFromCoarser(ParArray1D<Real> &buf,
                                                           const NeighborBlock &nb) {
