@@ -363,19 +363,21 @@ class Mesh {
   int GetRootLevel() { return root_level; }
   int GetMaxLevel() { return max_level; }
   int GetCurrentLevel() { return current_level; }
-  std::vector<int> GetNbList() {
-    std::vector<int> nlist;
-    nlist.assign(nblist, nblist + Globals::nranks);
-    return nlist;
-  }
+  std::vector<int> GetNbList() { return nblist; }
 
  private:
   // data
   int next_phys_id_; // next unused value for encoding final component of MPI tag bitfield
   int root_level, max_level, current_level;
   int num_mesh_threads_;
-  int *nslist, *ranklist, *nblist;
-  double *costlist;
+  /// Maps Global Block IDs to which rank the block is mapped to.
+  std::vector<int> ranklist;
+  /// Maps rank to start of local block IDs.
+  std::vector<int> nslist;
+  /// Maps rank to count of local blocks.
+  std::vector<int> nblist;
+  /// Maps global block ID to its cost
+  std::vector<double> costlist;
   // 8x arrays used exclusively for AMR (not SMR):
   int *nref, *nderef;
   int *rdisp, *ddisp;
@@ -383,7 +385,7 @@ class Mesh {
   int *brdisp, *bddisp;
   // the last 4x should be std::size_t, but are limited to int by MPI
 
-  LogicalLocation *loclist;
+  std::vector<LogicalLocation> loclist;
   MeshBlockTree tree;
   // number of MeshBlocks in the x1, x2, x3 directions of the root grid:
   // (unlike LogicalLocation.lxi, nrbxi don't grow w/ AMR # of levels, so keep 32-bit int)
@@ -413,7 +415,9 @@ class Mesh {
   MetricFunc UserMetric_;
 
   void OutputMeshStructure(int dim);
-  void CalculateLoadBalance(double *clist, int *rlist, int *slist, int *nlist, int nb);
+  void CalculateLoadBalance(int total_blocks, std::vector<double> const &costlist,
+                            std::vector<int> &ranklist, std::vector<int> &nslist,
+                            std::vector<int> &nblist);
   void ResetLoadBalanceVariables();
 
   void ReserveMeshBlockPhysIDs();

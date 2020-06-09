@@ -409,8 +409,8 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
 
   // initial mesh hierarchy construction is completed here
   tree.CountMeshBlock(nbtotal);
-  loclist = new LogicalLocation[nbtotal];
-  tree.GetMeshBlockList(loclist, nullptr, nbtotal);
+  loclist.resize(nbtotal);
+  tree.GetMeshBlockList(loclist.data(), nullptr, nbtotal);
 
 #ifdef MPI_PARALLEL
   // check if there are sufficient blocks
@@ -428,10 +428,10 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
   }
 #endif
 
-  ranklist = new int[nbtotal];
-  nslist = new int[Globals::nranks];
-  nblist = new int[Globals::nranks];
-  costlist = new double[nbtotal];
+  ranklist = std::vector<int>(nbtotal);
+
+  nslist = std::vector<int>(Globals::nranks);
+  nblist = std::vector<int>(Globals::nranks);
   if (adaptive) { // allocate arrays for AMR
     nref = new int[Globals::nranks];
     nderef = new int[Globals::nranks];
@@ -444,10 +444,9 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
   }
 
   // initialize cost array with the simplest estimate; all the blocks are equal
-  for (int i = 0; i < nbtotal; i++)
-    costlist[i] = 1.0;
+  costlist = std::vector<double>(nbtotal, 1.0);
 
-  CalculateLoadBalance(costlist, ranklist, nslist, nblist, nbtotal);
+  CalculateLoadBalance(nbtotal, costlist, ranklist, nslist, nblist);
 
   // Output some diagnostic information to terminal
 
@@ -474,7 +473,7 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
       pblock->next->prev = pblock;
       pblock = pblock->next;
     }
-    pblock->pbval->SearchAndSetNeighbors(tree, ranklist, nslist);
+    pblock->pbval->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
   }
   pblock = pfirst;
 
@@ -596,12 +595,12 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper &resfile, Properties_t &properties,
   delete[] headerdata;
 
   // initialize
-  loclist = new LogicalLocation[nbtotal];
+  loclist = std::vector<LogicalLocation>(nbtotal);
   offset = new IOWrapperSizeT[nbtotal];
-  costlist = new double[nbtotal];
-  ranklist = new int[nbtotal];
-  nslist = new int[Globals::nranks];
-  nblist = new int[Globals::nranks];
+  costlist = std::vector<double>(nbtotal);
+  ranklist = std::vector<int>(nbtotal);
+  nslist = std::vector<int>(Globals::nranks);
+  nblist = std::vector<int>(Globals::nranks);
 
   block_size.nx1 = pin->GetOrAddInteger("parthenon/meshblock", "nx1", mesh_size.nx1);
   block_size.nx2 = pin->GetOrAddInteger("parthenon/meshblock", "nx2", mesh_size.nx2);
@@ -757,7 +756,7 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper &resfile, Properties_t &properties,
     bddisp = new int[Globals::nranks];
   }
 
-  CalculateLoadBalance(costlist, ranklist, nslist, nblist, nbtotal);
+  CalculateLoadBalance(nbtotal, costlist, ranklist, nslist, nblist);
 
   // Output MeshBlock list and quit (mesh test only); do not create meshes
   if (mesh_test > 0) {
@@ -825,11 +824,6 @@ Mesh::~Mesh() {
       delete pblock->next;
     delete pblock;
   }
-  delete[] nslist;
-  delete[] nblist;
-  delete[] ranklist;
-  delete[] costlist;
-  delete[] loclist;
   if (adaptive) { // deallocate arrays for AMR
     delete[] nref;
     delete[] nderef;

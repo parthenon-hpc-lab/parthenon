@@ -71,69 +71,69 @@ void Mesh::LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin) {
 }
 
 //----------------------------------------------------------------------------------------
-// \!fn void Mesh::CalculateLoadBalance(double *clist, int *rlist, int *slist,
-//                                      int *nlist, int nb)
 // \brief Calculate distribution of MeshBlocks based on the cost list
-
-void Mesh::CalculateLoadBalance(double *clist, int *rlist, int *slist, int *nlist,
-                                int nb) {
+void Mesh::CalculateLoadBalance(int total_blocks, std::vector<double> const &costlist,
+                                std::vector<int> &ranklist, std::vector<int> &nslist,
+                                std::vector<int> &nblist) {
   std::stringstream msg;
   double real_max = std::numeric_limits<double>::max();
   double totalcost = 0, maxcost = 0.0, mincost = (real_max);
 
-  for (int i = 0; i < nb; i++) {
-    totalcost += clist[i];
-    mincost = std::min(mincost, clist[i]);
-    maxcost = std::max(maxcost, clist[i]);
+  for (int block = 0; block < total_blocks; block++) {
+    totalcost += costlist[block];
+    mincost = std::min(mincost, costlist[block]);
+    maxcost = std::max(maxcost, costlist[block]);
   }
 
-  int j = (Globals::nranks)-1;
-  double targetcost = totalcost / Globals::nranks;
-  double mycost = 0.0;
-  // create rank list from the end: the master MPI rank should have less load
-  for (int i = nb - 1; i >= 0; i--) {
-    if (targetcost == 0.0) {
-      msg << "### FATAL ERROR in CalculateLoadBalance" << std::endl
-          << "There is at least one process which has no MeshBlock" << std::endl
-          << "Decrease the number of processes or use smaller MeshBlocks." << std::endl;
-      PARTHENON_FAIL(msg);
-    }
-    mycost += clist[i];
-    rlist[i] = j;
-    if (mycost >= targetcost && j > 0) {
-      j--;
-      totalcost -= mycost;
-      mycost = 0.0;
-      targetcost = totalcost / (j + 1);
-    }
-  }
-  slist[0] = 0;
-  j = 0;
-  for (int i = 1; i < nb; i++) { // make the list of nbstart and nblocks
-    if (rlist[i] != rlist[i - 1]) {
-      nlist[j] = i - slist[j];
-      slist[++j] = i;
-    }
-  }
-  nlist[j] = nb - slist[j];
+  {
+    // This loop assigns blocks to ranks on a rougly cost-equal basis.
 
-  if (Globals::my_rank == 0) {
-    for (int i = 0; i < Globals::nranks; i++) {
-      double rcost = 0.0;
-      for (int n = slist[i]; n < slist[i] + nlist[i]; n++)
-        rcost += clist[n];
+    int rank = (Globals::nranks)-1;
+    double targetcost = totalcost / Globals::nranks;
+    double mycost = 0.0;
+    // create rank list from the end: the master MPI rank should have less load
+    for (int block = total_blocks - 1; block >= 0; block--) {
+      if (targetcost == 0.0) {
+        msg << "### FATAL ERROR in CalculateLoadBalance" << std::endl
+            << "There is at least one process which has no MeshBlock" << std::endl
+            << "Decrease the number of processes or use smaller MeshBlocks." << std::endl;
+        PARTHENON_FAIL(msg);
+      }
+      mycost += costlist[block];
+      ranklist[block] = rank;
+      if (mycost >= targetcost && rank > 0) {
+        rank--;
+        totalcost -= mycost;
+        mycost = 0.0;
+        targetcost = totalcost / (rank + 1);
+      }
     }
+  }
+
+  {
+    // This loop updates nslist with the ID of the starting block on each rank and the
+    // count of blocks on each rank.
+
+    nslist[0] = 0;
+    int rank = 0;
+    for (int block = 1; block < total_blocks; block++) {
+      if (ranklist[block] != ranklist[block - 1]) {
+        nblist[rank] = block - nslist[rank];
+        nslist[++rank] = block;
+      }
+    }
+    nblist[rank] = total_blocks - nslist[rank];
   }
 
 #ifdef MPI_PARALLEL
-  if (nb % (Globals::nranks) != 0 && !adaptive && !lb_flag_ && maxcost == mincost &&
-      Globals::my_rank == 0) {
+  if (total_blocks % (Globals::nranks) != 0 && !adaptive && !lb_flag_ &&
+      maxcost == mincost && Globals::my_rank == 0) {
     std::cout << "### Warning in CalculateLoadBalance" << std::endl
               << "The number of MeshBlocks cannot be divided evenly. "
               << "This will result in poor load balancing." << std::endl;
   }
 #endif
-  if (Globals::nranks > nb) {
+  if (Globals::nranks > total_blocks) {
     if (!adaptive) {
       // mesh is refined statically, treat this an as error (all ranks need to
       // participate)
@@ -337,8 +337,8 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
 bool Mesh::GatherCostListAndCheckBalance() {
   if (lb_manual_ || lb_automatic_) {
 #ifdef MPI_PARALLEL
-    MPI_Allgatherv(MPI_IN_PLACE, nblist[Globals::my_rank], MPI_DOUBLE, costlist, nblist,
-                   nslist, MPI_DOUBLE, MPI_COMM_WORLD);
+    MPI_Allgatherv(MPI_IN_PLACE, nblist[Globals::my_rank], MPI_DOUBLE, costlist.data(),
+                   nblist.data(), nslist.data(), MPI_DOUBLE, MPI_COMM_WORLD);
 #endif
     double maxcost = 0.0, avecost = 0.0;
     for (int rank = 0; rank < Globals::nranks; rank++) {
@@ -372,13 +372,14 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
   if (mesh_size.nx3 > 1) nleaf = 8;
 
   // Step 1. construct new lists
-  LogicalLocation *newloc = new LogicalLocation[ntot];
-  int *newrank = new int[ntot];
-  double *newcost = new double[ntot];
-  int *newtoold = new int[ntot];
-  int *oldtonew = new int[nbtotal];
+  std::vector<LogicalLocation> newloc(ntot);
+  std::vector<int> newrank(ntot);
+  std::vector<double> newcost(ntot);
+  std::vector<int> newtoold(ntot);
+  std::vector<int> oldtonew(nbtotal);
+
   int nbtold = nbtotal;
-  tree.GetMeshBlockList(newloc, newtoold, nbtotal);
+  tree.GetMeshBlockList(newloc.data(), newtoold.data(), nbtotal);
 
   // create a list mapping the previous gid to the current one
   oldtonew[0] = 0;
@@ -417,7 +418,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
   int onbe = onbs + nblist[Globals::my_rank] - 1;
 #endif
   // Step 2. Calculate new load balance
-  CalculateLoadBalance(newcost, newrank, nslist, nblist, ntot);
+  CalculateLoadBalance(ntot, newcost, newrank, nslist, nblist);
 
   int nbs = nslist[Globals::my_rank];
   int nbe = nbs + nblist[Globals::my_rank] - 1;
@@ -679,11 +680,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
 #endif
 
   // deallocate arrays
-  delete[] loclist;
-  delete[] ranklist;
-  delete[] costlist;
-  delete[] newtoold;
-  delete[] oldtonew;
+  newtoold.clear();
+  oldtonew.clear();
 #ifdef MPI_PARALLEL
   if (nsend != 0) {
     MPI_Waitall(nsend, req_send, MPI_STATUSES_IGNORE);
@@ -697,14 +695,14 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
 #endif
 
   // update the lists
-  loclist = newloc;
-  ranklist = newrank;
-  costlist = newcost;
+  loclist = std::move(newloc);
+  ranklist = std::move(newrank);
+  costlist = std::move(newcost);
 
   // re-initialize the MeshBlocks
   pmb = pblock;
   while (pmb != nullptr) {
-    pmb->pbval->SearchAndSetNeighbors(tree, ranklist, nslist);
+    pmb->pbval->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
     pmb = pmb->next;
   }
   Initialize(2, pin);
