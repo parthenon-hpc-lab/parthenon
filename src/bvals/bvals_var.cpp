@@ -116,6 +116,8 @@ void BoundaryVariable::CopyVariableBufferSameProcess(NeighborBlock &nb, int ssiz
   // using source block for deep copy to ensure physics kernels are done
   MeshBlock *psource_block = pmy_block_;
   psource_block->deep_copy(ptarget_bdata->recv[nb.targetid], bd_var_.send[nb.bufid]);
+  // need fence here as deep_copy is async
+  psource_block->exec_space.fence();
   // finally, set the BoundaryStatus flag on the destination buffer
   ptarget_bdata->flag[nb.targetid] = BoundaryStatus::arrived;
   return;
@@ -134,6 +136,8 @@ void BoundaryVariable::CopyFluxCorrectionBufferSameProcess(NeighborBlock &nb, in
   MeshBlock *psource_block = pmy_block_;
   psource_block->deep_copy(ptarget_bdata->recv[nb.targetid],
                            bd_var_flcor_.send[nb.bufid]);
+  // need fence here as deep_copy is async
+  psource_block->exec_space.fence();
   ptarget_bdata->flag[nb.targetid] = BoundaryStatus::arrived;
   return;
 }
