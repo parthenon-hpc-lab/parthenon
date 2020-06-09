@@ -114,7 +114,7 @@ static void usage(std::string program) {
             << std::endl;
 }
 
-static double sumArray(MeshBlock *firstBlock, const int &n_block) {
+static double sumArray(std::list<MeshBlock> &blocks, const int &n_block) {
   // This policy is over one block
   const int n_block2 = n_block * n_block;
   const int n_block3 = n_block * n_block * n_block;
@@ -123,9 +123,8 @@ static double sumArray(MeshBlock *firstBlock, const int &n_block) {
   double theSum = 0.0;
   // reduce the sum on the device
   // I'm pretty sure I can do this better, but not worried about performance for this
-  MeshBlock *pmb = firstBlock;
-  while (pmb) {
-    Container<Real> &base = pmb->real_containers.Get();
+  for (auto &block : blocks) {
+    Container<Real> &base = block.real_containers.Get();
     auto inOrOut = base.PackVariables({Metadata::Independent});
     double oneSum;
     Kokkos::parallel_reduce(
@@ -139,14 +138,14 @@ static double sumArray(MeshBlock *firstBlock, const int &n_block) {
         oneSum);
     Kokkos::fence();
     theSum += oneSum;
-    pmb = pmb->next;
   }
   // calculate Pi
   return theSum;
 }
 
-static MeshBlock *setupMesh(const int &n_block, const int &n_mesh, const double &radius,
-                            View2D &xyz, const int NG = 0) {
+static std::list<MeshBlock> setupMesh(const int &n_block, const int &n_mesh,
+                                      const double &radius, View2D &xyz,
+                                      const int NG = 0) {
   // *** Kludge warning ***
   // Since our mesh is not GPU friendly we set up a hacked up
   // collection of mesh blocks.  The hope is that when our mesh is
@@ -158,8 +157,7 @@ static MeshBlock *setupMesh(const int &n_block, const int &n_mesh, const double 
 
   // Set up our mesh.
   Metadata myMetadata({Metadata::Independent, Metadata::Cell});
-  MeshBlock *firstBlock = nullptr;
-  MeshBlock *lastBlock = nullptr;
+  std::list<MeshBlock> block_list;
 
   // compute an offset due to ghost cells
   double delta = dxyzCell * static_cast<Real>(NG);
@@ -169,23 +167,16 @@ static MeshBlock *setupMesh(const int &n_block, const int &n_mesh, const double 
     for (int j_mesh = 0; j_mesh < n_mesh; j_mesh++) {
       for (int i_mesh = 0; i_mesh < n_mesh; i_mesh++, idx++) {
         // get a new meshblock and insert into chain
-        auto *pmb = new MeshBlock(n_block, 3);
-        if (lastBlock) {
-          lastBlock->next = pmb;
-          pmb->prev = lastBlock;
-        } else {
-          firstBlock = pmb;
-        }
+        block_list.emplace_back(n_block, 3);
+        auto &pmb = block_list.back();
         // set coordinates of first cell center
         h_xyz(0, idx) = dxyzCell * (static_cast<Real>(i_mesh * n_block) + 0.5) - delta;
         h_xyz(1, idx) = dxyzCell * (static_cast<Real>(j_mesh * n_block) + 0.5) - delta;
         h_xyz(2, idx) = dxyzCell * (static_cast<Real>(k_mesh * n_block) + 0.5) - delta;
         // Add variable for in_or_out
-        Container<Real> &base = pmb->real_containers.Get();
-        base.setBlock(pmb);
+        Container<Real> &base = pmb.real_containers.Get();
+        base.setBlock(&pmb);
         base.Add("in_or_out", myMetadata);
-        // repoint lastBlock for next iteration
-        lastBlock = pmb;
       }
     }
   }
@@ -193,17 +184,7 @@ static MeshBlock *setupMesh(const int &n_block, const int &n_mesh, const double 
   Kokkos::deep_copy(xyz, h_xyz);
   Kokkos::fence();
 
-  return firstBlock;
-}
-
-void deleteMesh(MeshBlock *firstBlock) {
-  // deletes the mesh chain starting with firstBlock
-  auto pmb = firstBlock;
-  while (pmb) {
-    auto next = pmb->next;
-    delete pmb;
-    pmb = next;
-  }
+  return block_list;
 }
 
 result_t naiveKokkos(int n_block, int n_mesh, int n_iter, double radius) {
@@ -220,17 +201,16 @@ result_t naiveKokkos(int n_block, int n_mesh, int n_iter, double radius) {
 
   // allocate space for origin coordinates and set up the mesh
   View2D xyz("xyzBlocks", 3, n_mesh3);
-  MeshBlock *firstBlock = setupMesh(n_block, n_mesh, radius, xyz);
+  auto blocks = setupMesh(n_block, n_mesh, radius, xyz);
 
   // first A  naive Kokkos loop over the mesh
   // This policy is over one block
   auto policyBlock = Kokkos::RangePolicy<>(Kokkos::DefaultExecutionSpace(), 0, n_block3,
                                            Kokkos::ChunkSize(512));
 
-  MeshBlock *pStart = firstBlock;
   double time_basic = kernel_timer_wrapper(0, n_iter, [&]() {
-    MeshBlock *pmb = pStart;
-    for (int iMesh = 0; iMesh < n_mesh3; iMesh++, pmb = pmb->next) {
+    auto pmb = blocks.begin();
+    for (int iMesh = 0; iMesh < n_mesh3; iMesh++, pmb++) {
       Container<Real> &base = pmb->real_containers.Get();
       auto inOrOut = base.PackVariables({Metadata::Independent});
       // iops = 8  fops = 11
@@ -256,12 +236,8 @@ result_t naiveKokkos(int n_block, int n_mesh, int n_iter, double radius) {
   // formulate result struct
   constexpr int niops = 8;
   constexpr int nfops = 11;
-  auto r =
-      result_t{"Naive_Kokkos", (6.0 * sumArray(firstBlock, n_block) * dVol / radius3),
-               time_basic, niops, nfops};
-
-  // Clean up the mesh
-  deleteMesh(firstBlock);
+  auto r = result_t{"Naive_Kokkos", (6.0 * sumArray(blocks, n_block) * dVol / radius3),
+                    time_basic, niops, nfops};
 
   return r;
 }
@@ -279,12 +255,11 @@ result_t naiveParFor(int n_block, int n_mesh, int n_iter, double radius) {
 
   // allocate space for origin coordinates and set up the mesh
   View2D xyz("xyzBlocks", 3, n_mesh3);
-  MeshBlock *firstBlock = setupMesh(n_block, n_mesh, radius, xyz, NGHOST);
+  auto blocks = setupMesh(n_block, n_mesh, radius, xyz, NGHOST);
 
-  MeshBlock *pStart = firstBlock;
   double time_basic = kernel_timer_wrapper(0, n_iter, [&]() {
-    MeshBlock *pmb = pStart;
-    for (int iMesh = 0; iMesh < n_mesh3; iMesh++, pmb = pmb->next) {
+    auto pmb = blocks.begin();
+    for (int iMesh = 0; iMesh < n_mesh3; iMesh++, pmb++) {
       Container<Real> &base = pmb->real_containers.Get();
       auto inOrOut = base.PackVariables({Metadata::Independent});
       // iops = 0  fops = 11
@@ -310,12 +285,8 @@ result_t naiveParFor(int n_block, int n_mesh, int n_iter, double radius) {
   // formulate result struct
   constexpr int niops = 0;
   constexpr int nfops = 11;
-  auto r =
-      result_t{"Naive_ParFor", (6.0 * sumArray(firstBlock, n_block) * dVol / radius3),
-               time_basic, niops, nfops};
-
-  // Clean up the mesh
-  deleteMesh(firstBlock);
+  auto r = result_t{"Naive_ParFor", (6.0 * sumArray(blocks, n_block) * dVol / radius3),
+                    time_basic, niops, nfops};
 
   return r;
 }

@@ -64,22 +64,20 @@ parthenon::DriverStatus PiDriver::Execute() {
   // All the blocks are done, now do a global reduce and spit out the answer
   // first sum over blocks on this rank
   Real area = 0.0;
-  MeshBlock *pmb = pmesh->pblock;
-  while (pmb != nullptr) {
-    Container<Real> &rc = pmb->real_containers.Get();
+  for (auto &block : pmesh->pblock) {
+    Container<Real> &rc = block.real_containers.Get();
     ParArrayND<Real> v = rc.Get("in_or_out").data;
 
     // extract area from device memory
     Real block_area;
-    Kokkos::deep_copy(pmb->exec_space, block_area, v.Get(0, 0, 0, 0, 0, 0));
-    pmb->exec_space.fence(); // as the deep copy may be async
+    Kokkos::deep_copy(block.exec_space, block_area, v.Get(0, 0, 0, 0, 0, 0));
+    block.exec_space.fence(); // as the deep copy may be async
 
-    const auto &radius = pmb->packages["calculate_pi"]->Param<Real>("radius");
+    const auto &radius = block.packages["calculate_pi"]->Param<Real>("radius");
     // area must be reduced by r^2 to get the block's contribution to PI
     block_area /= (radius * radius);
 
     area += block_area;
-    pmb = pmb->next;
   }
 #ifdef MPI_PARALLEL
   Real pi_val;

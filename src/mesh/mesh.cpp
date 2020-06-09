@@ -83,20 +83,19 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
                   pin->GetOrAddString("parthenon/mesh", "refinement", "none") == "static")
                      ? true
                      : false),
-      nbnew(), nbdel(), step_since_lb(), gflag(), pblock(nullptr), properties(properties),
+      nbnew(), nbdel(), step_since_lb(), gflag(), properties(properties),
       packages(packages),
       // private members:
       next_phys_id_(),
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
-      tree(this), use_uniform_meshgen_fn_{true, true, true, true},
-      nuser_history_output_(), lb_flag_(true), lb_automatic_(),
+      tree(this), use_uniform_meshgen_fn_{true, true, true, true}, lb_flag_(true),
+      lb_automatic_(),
       lb_manual_(), MeshGenerator_{nullptr, UniformMeshGeneratorX1,
                                    UniformMeshGeneratorX2, UniformMeshGeneratorX3},
       BoundaryFunction_{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, AMRFlag_{},
       UserSourceTerm_{}, UserTimeStep_{} {
   std::stringstream msg;
   RegionSize block_size;
-  MeshBlock *pfirst{};
   BoundaryFlag block_bcs[6];
   std::int64_t nbmax;
 
@@ -463,19 +462,10 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
   for (int i = nbs; i <= nbe; i++) {
     SetBlockSizeAndBoundaries(loclist[i], block_size, block_bcs);
     // create a block and add into the link list
-    if (i == nbs) {
-      pblock = new MeshBlock(i, i - nbs, loclist[i], block_size, block_bcs, this, pin,
-                             properties, packages, gflag);
-      pfirst = pblock;
-    } else {
-      pblock->next = new MeshBlock(i, i - nbs, loclist[i], block_size, block_bcs, this,
-                                   pin, properties, packages, gflag);
-      pblock->next->prev = pblock;
-      pblock = pblock->next;
-    }
-    pblock->pbval->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
+    pblock.emplace_back(i, i - nbs, loclist[i], block_size, block_bcs, this, pin,
+                        properties, packages, gflag);
+    pblock.front().pbval->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
   }
-  pblock = pfirst;
 
   ResetLoadBalanceVariables();
 }
@@ -528,7 +518,7 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper &resfile, Properties_t &properties,
       next_phys_id_(),
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
       tree(this), use_uniform_meshgen_fn_{true, true, true}, nreal_user_mesh_data_(),
-      nint_user_mesh_data_(), nuser_history_output_(), lb_flag_(true), lb_automatic_(),
+      nint_user_mesh_data_(), lb_flag_(true), lb_automatic_(),
       lb_manual_(), MeshGenerator_{UniformMeshGeneratorX1, UniformMeshGeneratorX2,
                                    UniformMeshGeneratorX3},
       BoundaryFunction_{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, AMRFlag_{},
@@ -536,7 +526,6 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper &resfile, Properties_t &properties,
   std::stringstream msg;
   RegionSize block_size;
   BoundaryFlag block_bcs[6];
-  MeshBlock *pfirst{};
   IOWrapperSizeT *offset{};
   IOWrapperSizeT datasize, listsize, headeroffset;
 
@@ -783,23 +772,13 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper &resfile, Properties_t &properties,
     std::uint64_t buff_os = datasize * (i - nbs);
     SetBlockSizeAndBoundaries(loclist[i], block_size, block_bcs);
     // create a block and add into the link list
-    if (i == nbs) {
-      pblock = new MeshBlock(i, i - nbs, this, pin, properties, packages, loclist[i],
+    pblock.emplace_back(i, i - nbs, this, pin, properties, packages, loclist[i],
                              block_size, block_bcs, costlist[i], mbdata + buff_os, gflag);
-      pfirst = pblock;
-    } else {
-      pblock->next =
-          new MeshBlock(i, i - nbs, this, pin, properties, packages, loclist[i],
-                        block_size, block_bcs, costlist[i], mbdata + buff_os, gflag);
-      pblock->next->prev = pblock;
-      pblock = pblock->next;
-    }
-    pblock->pbval->SearchAndSetNeighbors(tree, ranklist, nslist);
+    pblock.back().pbval->SearchAndSetNeighbors(tree, ranklist, nslist);
   }
-  pblock = pfirst;
   delete[] mbdata;
   // check consistency
-  if (datasize != pblock->GetBlockSizeInBytes()) {
+  if (datasize != pblock.front().GetBlockSizeInBytes()) {
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
         << "The restart file is broken or input parameters are inconsistent."
         << std::endl;
@@ -816,21 +795,7 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper &resfile, Properties_t &properties,
 //----------------------------------------------------------------------------------------
 // destructor
 
-Mesh::~Mesh() {
-  if (pblock != nullptr) {
-    while (pblock->prev != nullptr) // should not be true
-      delete pblock->prev;
-    while (pblock->next != nullptr)
-      delete pblock->next;
-    delete pblock;
-  }
-  // delete user Mesh data
-  if (nuser_history_output_ > 0) {
-    delete[] user_history_output_names_;
-    delete[] user_history_func_;
-    delete[] user_history_ops_;
-  }
-}
+Mesh::~Mesh() = default;
 
 //----------------------------------------------------------------------------------------
 //! \fn void Mesh::OutputMeshStructure(int ndim)
@@ -1057,38 +1022,6 @@ void Mesh::EnrollUserTimeStepFunction(TimeStepFunc my_func) {
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void Mesh::AllocateUserHistoryOutput(int n)
-//  \brief set the number of user-defined history outputs
-
-void Mesh::AllocateUserHistoryOutput(int n) {
-  nuser_history_output_ = n;
-  user_history_output_names_ = new std::string[n];
-  user_history_func_ = new HistoryOutputFunc[n];
-  user_history_ops_ = new UserHistoryOperation[n];
-  for (int i = 0; i < n; i++)
-    user_history_func_[i] = nullptr;
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void Mesh::EnrollUserHistoryOutput(int i, HistoryOutputFunc my_func,
-//                                         const char *name, UserHistoryOperation op)
-//  \brief Enroll a user-defined history output function and set its name
-
-void Mesh::EnrollUserHistoryOutput(int i, HistoryOutputFunc my_func, const char *name,
-                                   UserHistoryOperation op) {
-  std::stringstream msg;
-  if (i >= nuser_history_output_) {
-    msg << "### FATAL ERROR in EnrollUserHistoryOutput function" << std::endl
-        << "The number of the user-defined history output (" << i << ") "
-        << "exceeds the declared number (" << nuser_history_output_ << ")." << std::endl;
-    PARTHENON_FAIL(msg);
-  }
-  user_history_output_names_[i] = name;
-  user_history_func_[i] = my_func;
-  user_history_ops_[i] = op;
-}
-
-//----------------------------------------------------------------------------------------
 //! \fn void Mesh::EnrollUserMetric(MetricFunc my_func)
 //  \brief Enroll a user-defined metric for arbitrary GR coordinates
 
@@ -1102,10 +1035,8 @@ void Mesh::EnrollUserMetric(MetricFunc my_func) {
 // \brief Apply MeshBlock::UserWorkBeforeOutput
 
 void Mesh::ApplyUserWorkBeforeOutput(ParameterInput *pin) {
-  MeshBlock *pmb = pblock;
-  while (pmb != nullptr) {
-    pmb->UserWorkBeforeOutput(pin);
-    pmb = pmb->next;
+  for (auto &block : pblock) {
+    block.UserWorkBeforeOutput(pin);
   }
 }
 
@@ -1120,16 +1051,17 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
   int nthreads = GetNumMeshThreads();
 #endif
   int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
-  std::vector<MeshBlock *> pmb_array(nmb);
+  std::vector<MeshBlock *> pmb_array;
 
   do {
     // initialize a vector of MeshBlock pointers
     nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
-    if (static_cast<unsigned int>(nmb) != pmb_array.size()) pmb_array.resize(nmb);
-    MeshBlock *pmbl = pblock;
-    for (int i = 0; i < nmb; ++i) {
-      pmb_array[i] = pmbl;
-      pmbl = pmbl->next;
+
+    pmb_array.clear();
+    pmb_array.reserve(nmb);
+
+    for (auto &block : pblock) {
+      pmb_array.push_back(&block);
     }
 
     if (res_flag == 0) {
@@ -1236,17 +1168,22 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
   return;
 }
 
-//----------------------------------------------------------------------------------------
-//! \fn MeshBlock* Mesh::FindMeshBlock(int tgid)
-//  \brief return the MeshBlock whose gid is tgid
+/// Finds location of a block with ID `tgid`. Can provide an optional "hint" to start
+/// the search at.
+std::list<MeshBlock>::iterator Mesh::FindMeshBlock(int tgid,
+                                                   std::list<MeshBlock>::iterator *hint) {
+  auto const test = [tgid](MeshBlock const &bl) { return bl.gid == tgid; };
 
-MeshBlock *Mesh::FindMeshBlock(int tgid) {
-  MeshBlock *pbl = pblock;
-  while (pbl != nullptr) {
-    if (pbl->gid == tgid) break;
-    pbl = pbl->next;
+  auto begin = hint ? *hint : pblock.begin();
+
+  // start from hint
+  auto it = std::find_if(begin, pblock.end(), test);
+  if (it != pblock.end()) {
+    return it;
   }
-  return pbl;
+
+  // search the rest of the list
+  return std::find_if(pblock.begin(), begin, test);
 }
 
 //----------------------------------------------------------------------------------------

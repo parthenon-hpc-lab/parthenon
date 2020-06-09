@@ -49,8 +49,7 @@ namespace parthenon {
 // MeshBlock constructor: constructs coordinate, boundary condition, field
 //                        and mesh refinement objects.
 MeshBlock::MeshBlock(const int n_side, const int ndim)
-    : exec_space(DevExecSpace()), pmy_mesh(nullptr), prev(nullptr), next(nullptr),
-      cost_(1.0) {
+    : exec_space(DevExecSpace()), pmy_mesh(nullptr), cost_(1.0) {
   // initialize grid indices
   if (ndim == 1) {
     InitializeIndexShapes(n_side, 0, 0);
@@ -66,8 +65,8 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
                      Properties_t &properties, Packages_t &packages, int igflag,
                      bool ref_flag)
     : exec_space(DevExecSpace()), pmy_mesh(pm), loc(iloc), block_size(input_block),
-      gid(igid), lid(ilid), gflag(igflag), properties(properties), packages(packages),
-      prev(nullptr), next(nullptr), new_block_dt_{}, new_block_dt_hyperbolic_{},
+      gid(igid), lid(ilid), gflag(igflag), properties(properties),
+      packages(packages), new_block_dt_{}, new_block_dt_hyperbolic_{},
       new_block_dt_parabolic_{}, new_block_dt_user_{}, cost_(1.0) {
   // initialize grid indices
   if (pmy_mesh->ndim >= 3) {
@@ -152,7 +151,7 @@ MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
                      char *mbdata, int igflag)
     : pmy_mesh(pm), loc(iloc), block_size(input_block), gid(igid), lid(ilid),
       gflag(igflag), nuser_out_var(), properties(properties), packages(packages),
-      prev(nullptr), next(nullptr), new_block_dt_{}, new_block_dt_hyperbolic_{},
+      new_block_dt_{}, new_block_dt_hyperbolic_{},
       new_block_dt_parabolic_{}, new_block_dt_user_{}, nreal_user_meshblock_data_(),
       nint_user_meshblock_data_(), cost_(icost), exec_space(DevExecSpace()) {
   // initialize grid indices
@@ -201,10 +200,7 @@ MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
 //----------------------------------------------------------------------------------------
 // MeshBlock destructor
 
-MeshBlock::~MeshBlock() {
-  if (prev != nullptr) prev->next = next;
-  if (next != nullptr) next->prev = prev;
-}
+MeshBlock::~MeshBlock() = default;
 
 void MeshBlock::InitializeIndexShapes(const int nx1, const int nx2, const int nx3) {
   cellbounds = IndexShape(nx3, nx2, nx1, NGHOST);

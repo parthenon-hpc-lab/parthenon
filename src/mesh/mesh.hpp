@@ -23,6 +23,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <list>
 #include <map>
 #include <memory>
 #include <string>
@@ -171,8 +172,6 @@ class MeshBlock {
 
   BoundaryFlag boundary_flag[6];
 
-  MeshBlock *prev, *next;
-
   // functions
 
   //----------------------------------------------------------------------------------------
@@ -262,7 +261,7 @@ class MeshBlock {
   void UserWorkBeforeOutput(ParameterInput *pin); // called in Mesh fn (friend class)
   void UserWorkInLoop();                          // called in TimeIntegratorTaskList
   void SetBlockTimestep(const Real dt) { new_block_dt_ = dt; }
-  Real NewDt() { return new_block_dt_; }
+  Real NewDt() const { return new_block_dt_; }
 
  private:
   // data
@@ -313,8 +312,9 @@ class Mesh {
   int GetNumMeshBlocksThisRank(int my_rank) { return nblist[my_rank]; }
   int GetNumMeshThreads() const { return num_mesh_threads_; }
   std::int64_t GetTotalCells() {
-    return static_cast<std::int64_t>(nbtotal) * pblock->block_size.nx1 *
-           pblock->block_size.nx2 * pblock->block_size.nx3;
+    auto &block = pblock.front();
+    return static_cast<std::int64_t>(nbtotal) * block.block_size.nx1 *
+           block.block_size.nx2 * block.block_size.nx3;
   }
 
   // data
@@ -330,7 +330,7 @@ class Mesh {
   int gflag;
 
   // ptr to first MeshBlock (node) in linked list of blocks belonging to this MPI rank:
-  MeshBlock *pblock;
+  std::list<MeshBlock> pblock;
   Properties_t properties;
   Packages_t packages;
 
@@ -350,7 +350,10 @@ class Mesh {
                                    LogicalLocation &newloc);
   void FillSameRankFineToCoarseAMR(MeshBlock *pob, MeshBlock *pmb, LogicalLocation &loc);
   int CreateAMRMPITag(int lid, int ox1, int ox2, int ox3);
-  MeshBlock *FindMeshBlock(int tgid);
+
+  std::list<MeshBlock>::iterator
+  FindMeshBlock(int tgid, std::list<MeshBlock>::iterator *hint = nullptr);
+
   void ApplyUserWorkBeforeOutput(ParameterInput *pin);
 
   // function for distributing unique "phys" bitfield IDs to BoundaryVariable objects and
@@ -399,10 +402,6 @@ class Mesh {
   // flags are false if using non-uniform or user meshgen function
   bool use_uniform_meshgen_fn_[4];
 
-  int nuser_history_output_;
-  std::string *user_history_output_names_;
-  UserHistoryOperation *user_history_ops_;
-
   // variables for load balancing control
   bool lb_flag_, lb_automatic_, lb_manual_;
   double lb_tolerance_;
@@ -414,7 +413,6 @@ class Mesh {
   AMRFlagFunc AMRFlag_;
   SrcTermFunc UserSourceTerm_;
   TimeStepFunc UserTimeStep_;
-  HistoryOutputFunc *user_history_func_;
   MetricFunc UserMetric_;
 
   void OutputMeshStructure(int dim);
@@ -457,9 +455,6 @@ class Mesh {
   void EnrollUserMeshGenerator(CoordinateDirection dir, MeshGenFunc my_mg);
   void EnrollUserExplicitSourceFunction(SrcTermFunc my_func);
   void EnrollUserTimeStepFunction(TimeStepFunc my_func);
-  void AllocateUserHistoryOutput(int n);
-  void EnrollUserHistoryOutput(int i, HistoryOutputFunc my_func, const char *name,
-                               UserHistoryOperation op = UserHistoryOperation::sum);
   void EnrollUserMetric(MetricFunc my_func);
 };
 
