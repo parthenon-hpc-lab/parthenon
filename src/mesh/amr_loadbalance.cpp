@@ -565,28 +565,21 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
 
   // Step 7. construct a new MeshBlock list (moving the data within the MPI rank)
   {
-    std::list<MeshBlock> newlist;
-    std::list<MeshBlock>::iterator pmb;
     RegionSize block_size = pblock.front().block_size;
 
+    std::list<MeshBlock> newlist;
     for (int n = nbs; n <= nbe; n++) {
       int on = newtoold[n];
       if ((ranklist[on] == Globals::my_rank) && (loclist[on].level == newloc[n].level)) {
         // on the same MPI rank and same level -> just move it
         auto const pob = FindMeshBlock(on);
 
-        // If this is the first block to move, then insert it at the beginning of
-        // `newlist`
-        if (n == nbs) {
-          newlist.splice(newlist.begin(), pblock, pob);
-        } else {
-          pblock.splice(pmb, pblock, pob);
-        }
+        // Move the block from `pblock` to `newlist`
+        pblock.splice(newlist.end(), pblock, pob);
 
         // pob is now the current block
-        pmb = pob;
-        pmb->gid = n;
-        pmb->lid = n - nbs;
+        pob->gid = n;
+        pob->lid = n - nbs;
       } else {
         // on a different refinement level or MPI rank - create a new block
         BoundaryFlag block_bcs[6];
@@ -594,23 +587,22 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
         // append new block to list of MeshBlocks
         newlist.emplace_back(n, n - nbs, newloc[n], block_size, block_bcs, this, pin,
                              properties, packages, gflag, true);
-        pmb = std::prev(newlist.end());
         // fill the conservative variables
         if ((loclist[on].level > newloc[n].level)) { // fine to coarse (f2c)
           for (int ll = 0; ll < nleaf; ll++) {
             if (ranklist[on + ll] != Globals::my_rank) continue;
             // fine to coarse on the same MPI rank (different AMR level) - restriction
             auto pob = FindMeshBlock(on + ll);
-            FillSameRankFineToCoarseAMR(&*pob, &*pmb, loclist[on + ll]);
+            FillSameRankFineToCoarseAMR(&*pob, &newlist.back(), loclist[on + ll]);
           }
         } else if ((loclist[on].level < newloc[n].level) && // coarse to fine (c2f)
                    (ranklist[on] == Globals::my_rank)) {
           // coarse to fine on the same MPI rank (different AMR level) - prolongation
           auto pob = FindMeshBlock(on);
-          FillSameRankCoarseToFineAMR(&*pob, &*pmb, newloc[n]);
+          FillSameRankCoarseToFineAMR(&*pob, &newlist.back(), newloc[n]);
         }
-        ApplyBoundaryConditions(pmb->real_containers.Get());
-        FillDerivedVariables::FillDerived(pmb->real_containers.Get());
+        ApplyBoundaryConditions(newlist.back().real_containers.Get());
+        FillDerivedVariables::FillDerived(newlist.back().real_containers.Get());
       }
     }
 
