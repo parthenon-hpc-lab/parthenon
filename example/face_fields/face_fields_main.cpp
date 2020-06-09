@@ -27,8 +27,7 @@ int main(int argc, char *argv[]) {
   }
 
   FaceFieldExample driver(pman.pinput.get(), pman.pmesh.get());
-  pman.PreDriver();
-  pman.PostDriver(driver.Execute());
+  driver.Execute();
   pman.ParthenonFinalize();
 
   return 0;
