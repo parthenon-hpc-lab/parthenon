@@ -210,9 +210,48 @@ void CellCenteredBoundaryVariable::SendBoundaryBuffers() {
     }
   }
 
-  ParArray4D<Real> var_cc_ = var_cc.Get<4>(); // automatic template deduction fails
+  // ParArray4D<Real> var_cc_ = var_cc.Get<4>(); // automatic template deduction fails
+  auto var_cc_ = var_cc;
   Kokkos::parallel_for(
-      "CellCenteredVar::SendBoundaryBuffers",
+      "CellCenteredVar::SendBoundaryBuffers TeamPolicy",
+      team_policy(pmb->exec_space, num_nmb, Kokkos::AUTO),
+      KOKKOS_LAMBDA(team_mbr_t team_member) {
+        const int mb = team_member.league_rank();
+        const int si = bnd_info_all[mb].si;
+        const int ei = bnd_info_all[mb].ei;
+        const int sj = bnd_info_all[mb].sj;
+        const int ej = bnd_info_all[mb].ej;
+        const int sk = bnd_info_all[mb].sk;
+        const int ek = bnd_info_all[mb].ek;
+        const int sn = bnd_info_all[mb].sn;
+        const int en = bnd_info_all[mb].en;
+        const int Ni = ei + 1 - si;
+        const int Nj = ej + 1 - sj;
+        const int Nk = ek + 1 - sk;
+        const int Nn = en + 1 - sn;
+        const int NnNkNjNi = Nn * Nk * Nj * Ni;
+        const int NkNjNi = Nk * Nj * Ni;
+        const int NjNi = Nj * Ni;
+
+        Kokkos::parallel_for(
+            Kokkos::TeamVectorRange(team_member, NnNkNjNi), [&](const int idx) {
+              int n = idx / NkNjNi;
+              int k = (idx - n * NkNjNi) / NjNi;
+              int j = (idx - n * NkNjNi - k * NjNi) / Ni;
+              int i = idx - n * NkNjNi - k * NjNi - j * Ni;
+              n += sn;
+              k += sk;
+              j += sj;
+              i += si;
+              // original offset is ignored here
+              bnd_info_all[mb].recv_buf(i - si +
+                                        Ni * (j - sj + Nj * (k - sk + Nk * (n - sn)))) =
+                  var_cc_(n, k, j, i);
+            });
+      });
+#if 0
+  Kokkos::parallel_for(
+      "CellCenteredVar::SendBoundaryBuffers RangePolicy",
       Kokkos::RangePolicy<>(pmb->exec_space, 0, num_nmb), KOKKOS_LAMBDA(const int mb) {
         const int si = bnd_info_all[mb].si;
         const int ei = bnd_info_all[mb].ei;
@@ -239,7 +278,7 @@ void CellCenteredBoundaryVariable::SendBoundaryBuffers() {
           }
         }
       });
-
+#endif
   pmb->exec_space.fence();
 
   // set all flags completed (even once that were before)
