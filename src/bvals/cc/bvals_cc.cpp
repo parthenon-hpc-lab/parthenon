@@ -35,6 +35,7 @@
 #include "mesh/mesh.hpp"
 #include "parameter_input.hpp"
 #include "utils/buffer_utils.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
@@ -53,7 +54,7 @@ CellCenteredBoundaryVariable::CellCenteredBoundaryVariable(MeshBlock *pmb,
     msg << "### FATAL ERROR in CellCenteredBoundaryVariable constructor" << std::endl
         << "An 'ParArrayND<Real> *var' of nx4_ = " << var.GetDim(4) << " was passed\n"
         << "Should be nx4 >= 1 (likely uninitialized)." << std::endl;
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
 
   InitBoundaryData(bd_var_, BoundaryQuantity::cc);

@@ -62,6 +62,11 @@ void fail(const char *const message, const char *const filename, int const linen
   Kokkos::abort(message);
 }
 
+inline void fail(std::stringstream const &message, const char *const filename,
+                 int const linenumber) {
+  fail(message.str().c_str(), filename, linenumber);
+}
+
 } // namespace ErrorChecking
 } // namespace parthenon
 

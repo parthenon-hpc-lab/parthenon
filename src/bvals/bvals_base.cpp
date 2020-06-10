@@ -281,7 +281,7 @@ int BoundaryBase::FindBufferID(int ox1, int ox2, int ox3, int fi1, int fi2) {
 // lead to unsafe conversions (and overflows from built-in types and MPI_TAG_UB).  Note,
 // the MPI standard requires signed int tag, with MPI_TAG_UB>= 2^15-1 = 32,767 (inclusive)
 
-// TODO(felker) Consider adding safety check: if (tag > MPI_TAG_UB) ATHENA_ERROR();
+// TODO(felker) Consider adding safety check: if (tag > MPI_TAG_UB) PARTHENON_FAIL();
 // TODO(felker) Consider adding safety check: signed int inputs & outputs are positive
 // TODO(felker) Store # of bits for each bitfield component in preprocessor macros
 //              TAG_BITS_PHYS=5, MAX_NUM_PHYS=31
