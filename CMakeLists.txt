@@ -162,7 +162,11 @@ else()
 endif()
 
 # Build Tests and download Catch2
-if (${ENABLE_UNIT_TESTS} OR ${ENABLE_INTEGRATION_TESTS} OR ${ENABLE_REGRESSION_TESTS})
+if (${ENABLE_UNIT_TESTS} OR ${ENABLE_INTEGRATION_TESTS} OR ${ENABLE_REGRESSION_TESTS} OR ${ENABLE_PERFORMANCE_TESTS})
+
+  if (${ENABLE_PERFORMANCE_TESTS})
+    add_definitions(-DCATCH_CONFIG_ENABLE_BENCHMARKING)
+  endif()
   # Try finding an installed Catch2 first
   find_package(Catch2 2.11.1 QUIET)
 
@@ -175,7 +179,6 @@ if (${ENABLE_UNIT_TESTS} OR ${ENABLE_INTEGRATION_TESTS} OR ${ENABLE_REGRESSION_T
       # Clone the submodule
       execute_process(COMMAND git submodule update --init --force -- external/Catch2 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
     endif()
-
     add_subdirectory(external/Catch2)
     list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/external/Catch2/contrib")
   endif()
