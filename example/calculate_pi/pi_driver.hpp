@@ -35,6 +35,9 @@ class PiDriver : public Driver {
 
   /// `Execute` cylces until simulation completion.
   DriverStatus Execute() override;
+
+ protected:
+  void PostExecute(Real pi_val);
 };
 
 } // namespace pi

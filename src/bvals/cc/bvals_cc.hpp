@@ -52,31 +52,31 @@ class CellCenteredBoundaryVariable : public BoundaryVariable {
   static constexpr int max_phys_id = 3;
 
   // BoundaryVariable:
-  int ComputeVariableBufferSize(const NeighborIndexes &ni, int cng) override;
-  int ComputeFluxCorrectionBufferSize(const NeighborIndexes &ni, int cng) override;
+  int ComputeVariableBufferSize(const NeighborIndexes &ni, int cng) final;
+  int ComputeFluxCorrectionBufferSize(const NeighborIndexes &ni, int cng) final;
 
   // BoundaryCommunication:
-  void SetupPersistentMPI() override;
-  void StartReceiving(BoundaryCommSubset phase) override;
-  void ClearBoundary(BoundaryCommSubset phase) override;
+  void SetupPersistentMPI() final;
+  void StartReceiving(BoundaryCommSubset phase) final;
+  void ClearBoundary(BoundaryCommSubset phase) final;
 
   // BoundaryBuffer:
-  void SendFluxCorrection() override;
-  bool ReceiveFluxCorrection() override;
+  void SendFluxCorrection() final;
+  bool ReceiveFluxCorrection() final;
 
  protected:
   int nl_, nu_;
 
  private:
   // BoundaryBuffer:
-  int LoadBoundaryBufferSameLevel(Real *buf, const NeighborBlock &nb) override;
-  void SetBoundarySameLevel(Real *buf, const NeighborBlock &nb) override;
+  int LoadBoundaryBufferSameLevel(ParArray1D<Real> &buf, const NeighborBlock &nb) final;
+  void SetBoundarySameLevel(ParArray1D<Real> &buf, const NeighborBlock &nb) final;
 
-  int LoadBoundaryBufferToCoarser(Real *buf, const NeighborBlock &nb) override;
-  int LoadBoundaryBufferToFiner(Real *buf, const NeighborBlock &nb) override;
+  int LoadBoundaryBufferToCoarser(ParArray1D<Real> &buf, const NeighborBlock &nb) final;
+  int LoadBoundaryBufferToFiner(ParArray1D<Real> &buf, const NeighborBlock &nb) final;
 
-  void SetBoundaryFromCoarser(Real *buf, const NeighborBlock &nb) override;
-  void SetBoundaryFromFiner(Real *buf, const NeighborBlock &nb) override;
+  void SetBoundaryFromCoarser(ParArray1D<Real> &buf, const NeighborBlock &nb) final;
+  void SetBoundaryFromFiner(ParArray1D<Real> &buf, const NeighborBlock &nb) final;
 
 #ifdef MPI_PARALLEL
   int cc_phys_id_, cc_flx_phys_id_;

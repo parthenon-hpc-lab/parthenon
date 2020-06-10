@@ -25,6 +25,7 @@
 #include <string>
 
 #include "bvals/bvals.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
@@ -49,7 +50,7 @@ BoundaryFlag GetBoundaryFlag(const std::string &input_string) {
     msg << "### FATAL ERROR in GetBoundaryFlag" << std::endl
         << "Input string=" << input_string << "\n"
         << "is an invalid boundary type" << std::endl;
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
 }
 
@@ -76,7 +77,7 @@ std::string GetBoundaryString(BoundaryFlag input_flag) {
     msg << "### FATAL ERROR in GetBoundaryString" << std::endl
         << "Input enum class BoundaryFlag=" << static_cast<int>(input_flag) << "\n"
         << "is an invalid boundary type" << std::endl;
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
     break;
   }
 }
@@ -98,7 +99,7 @@ void CheckBoundaryFlag(BoundaryFlag block_flag, CoordinateDirection dir) {
   case CoordinateDirection::X1DIR:
     switch (block_flag) {
     case BoundaryFlag::undef:
-      ATHENA_ERROR(msg);
+      PARTHENON_FAIL(msg);
       break;
     default:
       break;
@@ -107,7 +108,7 @@ void CheckBoundaryFlag(BoundaryFlag block_flag, CoordinateDirection dir) {
   case CoordinateDirection::X2DIR:
     switch (block_flag) {
     case BoundaryFlag::undef:
-      ATHENA_ERROR(msg);
+      PARTHENON_FAIL(msg);
       break;
     default:
       break;
@@ -116,7 +117,7 @@ void CheckBoundaryFlag(BoundaryFlag block_flag, CoordinateDirection dir) {
   case CoordinateDirection::X3DIR:
     switch (block_flag) {
     case BoundaryFlag::undef:
-      ATHENA_ERROR(msg);
+      PARTHENON_FAIL(msg);
       break;
     default:
       break;

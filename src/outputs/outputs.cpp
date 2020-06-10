@@ -101,6 +101,7 @@
 #include "mesh/mesh.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
+#include "utils/error_checking.hpp"
 #include "utils/trim_string.hpp"
 
 namespace parthenon {
@@ -164,7 +165,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
           msg << "### FATAL ERROR in Outputs constructor" << std::endl
               << "Slice at x1=" << x1 << " in output block '" << op.block_name
               << "' is out of range of Mesh" << std::endl;
-          ATHENA_ERROR(msg);
+          PARTHENON_FAIL(msg);
         }
       }
 
@@ -177,7 +178,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
           msg << "### FATAL ERROR in Outputs constructor" << std::endl
               << "Slice at x2=" << x2 << " in output block '" << op.block_name
               << "' is out of range of Mesh" << std::endl;
-          ATHENA_ERROR(msg);
+          PARTHENON_FAIL(msg);
         }
       }
 
@@ -190,7 +191,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
           msg << "### FATAL ERROR in Outputs constructor" << std::endl
               << "Slice at x3=" << x3 << " in output block '" << op.block_name
               << "' is out of range of Mesh" << std::endl;
-          ATHENA_ERROR(msg);
+          PARTHENON_FAIL(msg);
         }
       }
 
@@ -200,21 +201,21 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
         msg << "### FATAL ERROR in Outputs constructor" << std::endl
             << "Cannot request both slice and sum along x1-direction"
             << " in output block '" << op.block_name << "'" << std::endl;
-        ATHENA_ERROR(msg);
+        PARTHENON_FAIL(msg);
       }
       op.output_sumx2 = pin->GetOrAddBoolean(op.block_name, "x2_sum", false);
       if ((op.output_slicex2) && (op.output_sumx2)) {
         msg << "### FATAL ERROR in Outputs constructor" << std::endl
             << "Cannot request both slice and sum along x2-direction"
             << " in output block '" << op.block_name << "'" << std::endl;
-        ATHENA_ERROR(msg);
+        PARTHENON_FAIL(msg);
       }
       op.output_sumx3 = pin->GetOrAddBoolean(op.block_name, "x3_sum", false);
       if ((op.output_slicex3) && (op.output_sumx3)) {
         msg << "### FATAL ERROR in Outputs constructor" << std::endl
             << "Cannot request both slice and sum along x3-direction"
             << " in output block '" << op.block_name << "'" << std::endl;
-        ATHENA_ERROR(msg);
+        PARTHENON_FAIL(msg);
       }
 
       // read ghost cell option
@@ -250,13 +251,13 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
         msg << "### FATAL ERROR in Outputs constructor" << std::endl
             << "Executable not configured for HDF5 outputs, but HDF5 file format "
             << "is requested in output block '" << op.block_name << "'" << std::endl;
-        ATHENA_ERROR(msg);
+        PARTHENON_FAIL(msg);
 #endif
       } else {
         msg << "### FATAL ERROR in Outputs constructor" << std::endl
             << "Unrecognized file format = '" << op.file_type << "' in output block '"
             << op.block_name << "'" << std::endl;
-        ATHENA_ERROR(msg);
+        PARTHENON_FAIL(msg);
       }
 
       // Append type as tail node in singly linked list
@@ -275,7 +276,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     msg << "### FATAL ERROR in Outputs constructor" << std::endl
         << "More than one history or restart output block detected in input file"
         << std::endl;
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
 
   // Move restarts to the tail end of the OutputType list, so file counters for other
@@ -470,10 +471,12 @@ bool OutputType::SliceOutputData(MeshBlock *pmb, int dim) {
   int islice(0), jslice(0), kslice(0);
 
   // Compute i,j,k indices of slice; check if in range of data in this block
+  const IndexDomain interior = IndexDomain::interior;
   if (dim == 1) {
     if (output_params.x1_slice >= pmb->block_size.x1min &&
         output_params.x1_slice < pmb->block_size.x1max) {
-      for (int i = pmb->is + 1; i <= pmb->ie + 1; ++i) {
+      for (int i = pmb->cellbounds.is(interior) + 1;
+           i <= pmb->cellbounds.ie(interior) + 1; ++i) {
         if (pmb->coords.x1f(i) > output_params.x1_slice) {
           islice = i - 1;
           output_params.islice = islice;
@@ -486,7 +489,8 @@ bool OutputType::SliceOutputData(MeshBlock *pmb, int dim) {
   } else if (dim == 2) {
     if (output_params.x2_slice >= pmb->block_size.x2min &&
         output_params.x2_slice < pmb->block_size.x2max) {
-      for (int j = pmb->js + 1; j <= pmb->je + 1; ++j) {
+      for (int j = pmb->cellbounds.js(interior) + 1;
+           j <= pmb->cellbounds.je(interior) + 1; ++j) {
         if (pmb->coords.x2f(j) > output_params.x2_slice) {
           jslice = j - 1;
           output_params.jslice = jslice;
@@ -499,7 +503,8 @@ bool OutputType::SliceOutputData(MeshBlock *pmb, int dim) {
   } else {
     if (output_params.x3_slice >= pmb->block_size.x3min &&
         output_params.x3_slice < pmb->block_size.x3max) {
-      for (int k = pmb->ks + 1; k <= pmb->ke + 1; ++k) {
+      for (int k = pmb->cellbounds.ks(interior) + 1;
+           k <= pmb->cellbounds.ke(interior) + 1; ++k) {
         if (pmb->coords.x3f(k) > output_params.x3_slice) {
           kslice = k - 1;
           output_params.kslice = kslice;

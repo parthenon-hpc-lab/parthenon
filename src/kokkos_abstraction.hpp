@@ -126,7 +126,7 @@ static struct InnerLoopPatternSimdFor {
 
 #ifdef TVR_INNER_LOOP
 #define DEFAULT_INNER_LOOP_PATTERN inner_loop_pattern_tvr_tag
-#elif SIMDFOR_INNER_LOOP
+#elif defined SIMDFOR_INNER_LOOP
 #define DEFAULT_INNER_LOOP_PATTERN inner_loop_pattern_simdfor_tag
 #else
 #define DEFAULT_INNER_LOOP_PATTERN loop_pattern_undefined_tag
@@ -169,6 +169,15 @@ inline void par_for(const std::string &name, DevExecSpace exec_space, const int 
           function);
 }
 
+// 1D Outer loop default pattern
+template <typename Function>
+inline void par_for_outer(const std::string &name, DevExecSpace exec_space,
+                          size_t scratch_size_in_bytes, const int scratch_level,
+                          const int kl, const int ku, const Function &function) {
+  par_for_outer(DEFAULT_OUTER_LOOP_PATTERN, name, exec_space, scratch_size_in_bytes,
+                scratch_level, kl, ku, function);
+}
+
 // 2D Outer loop default pattern
 template <typename Function>
 inline void par_for_outer(const std::string &name, DevExecSpace exec_space,
@@ -191,9 +200,18 @@ inline void par_for_outer(const std::string &name, DevExecSpace exec_space,
 
 // Inner loop default pattern
 template <typename Function>
-inline void par_for_inner(team_mbr_t team_member, const int il, const int iu,
-                          const Function &function) {
+KOKKOS_INLINE_FUNCTION void par_for_inner(team_mbr_t team_member, const int il,
+                                          const int iu, const Function &function) {
+#ifdef TVR_INNER_LOOP
+  Kokkos::parallel_for(Kokkos::TeamVectorRange(team_member, il, iu + 1), function);
+#elif defined SIMDFOR_INNER_LOOP
+#pragma omp simd
+  for (int i = il; i <= iu; i++) {
+    function(i);
+  }
+#else
   par_for_inner(DEFAULT_INNER_LOOP_PATTERN, team_member, il, iu, function);
+#endif
 }
 
 // 1D loop using MDRange loops
@@ -450,6 +468,25 @@ inline void par_for(LoopPatternSimdFor, const std::string &name, DevExecSpace ex
   Kokkos::Profiling::popRegion();
 }
 
+// 1D  outer parallel loop using Kokkos Teams
+template <typename Function>
+inline void par_for_outer(OuterLoopPatternTeams, const std::string &name,
+                          DevExecSpace exec_space, size_t scratch_size_in_bytes,
+                          const int scratch_level, const int kl, const int ku,
+                          const Function &function) {
+  const int Nk = ku + 1 - kl;
+
+  team_policy policy(exec_space, Nk, Kokkos::AUTO);
+
+  Kokkos::parallel_for(
+      name,
+      policy.set_scratch_size(scratch_level, Kokkos::PerTeam(scratch_size_in_bytes)),
+      KOKKOS_LAMBDA(team_mbr_t team_member) {
+        const int k = team_member.league_rank() + kl;
+        function(team_member, k);
+      });
+}
+
 // 2D  outer parallel loop using Kokkos Teams
 template <typename Function>
 inline void par_for_outer(OuterLoopPatternTeams, const std::string &name,
@@ -466,7 +503,7 @@ inline void par_for_outer(OuterLoopPatternTeams, const std::string &name,
       name,
       policy.set_scratch_size(scratch_level, Kokkos::PerTeam(scratch_size_in_bytes)),
       KOKKOS_LAMBDA(team_mbr_t team_member) {
-        const int k = team_member.league_rank() / Nk + kl;
+        const int k = team_member.league_rank() / Nj + kl;
         const int j = team_member.league_rank() % Nj + jl;
         function(team_member, k, j);
       });

@@ -20,8 +20,6 @@
 //  \brief utility macros for error checking
 
 #include <iostream>
-#include <stdexcept>
-#include <string>
 
 #include <Kokkos_Core.hpp>
 
@@ -49,22 +47,24 @@ namespace parthenon {
 namespace ErrorChecking {
 
 KOKKOS_INLINE_FUNCTION
-void require(std::string const &condition, std::string const &message,
-             std::string const &filename, int const linenumber) {
-  fprintf(stderr,
-          "### PARTHENON ERROR\n  Condition:   %s\n  Message:     %s\n  File:        "
-          "%s\n  Line number: %i\n",
-          condition.c_str(), message.c_str(), filename.c_str(), linenumber);
-  exit(EXIT_FAILURE);
+void require(const char *const condition, const char *const message,
+             const char *const filename, int const linenumber) {
+  printf("### PARTHENON ERROR\n  Condition:   %s\n  Message:     %s\n  File:        "
+         "%s\n  Line number: %i\n",
+         condition, message, filename, linenumber);
+  Kokkos::abort(message);
 }
 
 KOKKOS_INLINE_FUNCTION
-void fail(std::string const &message, std::string const &filename, int const linenumber) {
-  fprintf(
-      stderr,
-      "### PARTHENON ERROR\n  Message:     %s\n  File:        %s\n  Line number: %i\n",
-      message.c_str(), filename.c_str(), linenumber);
-  exit(EXIT_FAILURE);
+void fail(const char *const message, const char *const filename, int const linenumber) {
+  printf("### PARTHENON ERROR\n  Message:     %s\n  File:        %s\n  Line number: %i\n",
+         message, filename, linenumber);
+  Kokkos::abort(message);
+}
+
+inline void fail(std::stringstream const &message, const char *const filename,
+                 int const linenumber) {
+  fail(message.str().c_str(), filename, linenumber);
 }
 
 } // namespace ErrorChecking
