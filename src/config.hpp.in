@@ -14,8 +14,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef DEFS_HPP_
-#define DEFS_HPP_
+#ifndef CONFIG_HPP_
+#define CONFIG_HPP_
 //! \file config.hpp.in
 //  \brief Template file for config.hpp.  When the configure.py script is run, a new
 //  config.hpp file will be created (overwriting the last) from this template. This new
@@ -84,4 +84,4 @@
 #define SQR(x) ( (x) * (x) )
 #define SIGN(x) ( ((x) < 0.0) ? -1.0 : 1.0 )
 
-#endif // DEFS_HPP_
+#endif // CONFIG_HPP_

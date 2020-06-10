@@ -14,8 +14,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef ATHENA_HPP_
-#define ATHENA_HPP_
+#ifndef DEFS_HPP_
+#define DEFS_HPP_
 //! \file defs.hpp
 //  \brief contains Athena++ general purpose types, structures, enums, etc.
 
@@ -139,4 +139,4 @@ using MGBoundaryFunc = void (*)(ParArrayND<Real> &dst, Real time, int nvar, int 
 
 } // namespace parthenon
 
-#endif // ATHENA_HPP_
+#endif // DEFS_HPP_
