@@ -1170,20 +1170,10 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
 
 /// Finds location of a block with ID `tgid`. Can provide an optional "hint" to start
 /// the search at.
-std::list<MeshBlock>::iterator Mesh::FindMeshBlock(int tgid,
-                                                   std::list<MeshBlock>::iterator *hint) {
-  auto const test = [tgid](MeshBlock const &bl) { return bl.gid == tgid; };
-
-  auto begin = hint ? *hint : pblock.begin();
-
-  // start from hint
-  auto it = std::find_if(begin, pblock.end(), test);
-  if (it != pblock.end()) {
-    return it;
-  }
-
+std::list<MeshBlock>::iterator Mesh::FindMeshBlock(int tgid) {
   // search the rest of the list
-  return std::find_if(pblock.begin(), begin, test);
+  return std::find_if(pblock.begin(), pblock.end(),
+                      [tgid](MeshBlock const &bl) { return bl.gid == tgid; });
 }
 
 //----------------------------------------------------------------------------------------

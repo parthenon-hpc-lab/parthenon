@@ -351,8 +351,7 @@ class Mesh {
   void FillSameRankFineToCoarseAMR(MeshBlock *pob, MeshBlock *pmb, LogicalLocation &loc);
   int CreateAMRMPITag(int lid, int ox1, int ox2, int ox3);
 
-  std::list<MeshBlock>::iterator
-  FindMeshBlock(int tgid, std::list<MeshBlock>::iterator *hint = nullptr);
+  std::list<MeshBlock>::iterator FindMeshBlock(int tgid);
 
   void ApplyUserWorkBeforeOutput(ParameterInput *pin);
 
