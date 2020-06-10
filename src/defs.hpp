@@ -16,14 +16,14 @@
 //========================================================================================
 #ifndef ATHENA_HPP_
 #define ATHENA_HPP_
-//! \file athena.hpp
+//! \file defs.hpp
 //  \brief contains Athena++ general purpose types, structures, enums, etc.
 
 #include <cmath>
 #include <cstdint>
 
 #include "basic_types.hpp"
-#include "defs.hpp"
+#include "config.hpp"
 #include "parthenon_arrays.hpp"
 
 namespace parthenon {

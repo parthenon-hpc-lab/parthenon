@@ -28,8 +28,8 @@
 
 #include "parthenon_mpi.hpp"
 
-#include "athena.hpp"
 #include "bvals/fc/bvals_fc.hpp"
+#include "defs.hpp"
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
 #include "parameter_input.hpp"

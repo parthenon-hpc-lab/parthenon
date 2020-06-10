@@ -12,7 +12,7 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
 
-# Configure defs.hpp
+# Configure config.hpp
 set(PROBLEM_GENERATOR "<not-implemented>") # TODO: Figure out what to put here
 
 if (ENABLE_MPI)
@@ -81,7 +81,7 @@ set(NFIELD_VARIABLES 0) # TODO: Remove
 set(NWAVE_VALUE 5) # TODO: Remove
 set(COORDINATE_TYPE UniformCartesian) # TODO: Make this an option when more are available
 
-configure_file(defs.hpp.in generated/defs.hpp @ONLY)
+configure_file(config.hpp.in generated/config.hpp @ONLY)
 
 add_library(parthenon
   bvals/cc/bvals_cc.cpp
