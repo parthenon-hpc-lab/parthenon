@@ -172,7 +172,8 @@ void CellCenteredBoundaryVariable::SendBoundaryBuffers() {
       num_nmb++;
     }
   }
-  BndInfo *bnd_info_all = new BndInfo[num_nmb];
+  // BndInfo *bnd_info_all = new BndInfo[num_nmb];
+  BndInfo bnd_info_all[57];
   // fill boundary info buffer
   int mb = 0;
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
@@ -232,7 +233,7 @@ void CellCenteredBoundaryVariable::SendBoundaryBuffers() {
                 // original offset is ignored here
                 bnd_info_all[mb].recv_buf(i - si +
                                           ni * (j - sj + nj * (k - sk + nk * (n - sn)))) =
-                    var_cc(n, k, j, i);
+                    var_cc_(n, k, j, i);
               }
             }
           }
@@ -252,7 +253,7 @@ void CellCenteredBoundaryVariable::SendBoundaryBuffers() {
     BoundaryData<> *ptarget_bdata = (ptarget_block->pbval->bvars[bvar_index]->GetBdVar());
     ptarget_bdata->flag[nb.targetid] = BoundaryStatus::arrived;
   }
-  delete[] bnd_info_all;
+  // delete[] bnd_info_all;
   return;
 }
 
