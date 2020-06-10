@@ -16,13 +16,12 @@
 ## the public, perform publicly and display publicly, and to permit others to do so.
 ##========================================================================================
 
-list(APPEND performance_tests_SOURCES
-
-    test_container_iterator.cpp
-
+add_executable(performance_tests)
+target_sources(
+    performance_tests
+    PRIVATE
+        test_container_iterator.cpp
 )
-
-add_executable(performance_tests ${performance_tests_SOURCES})
 target_link_libraries(performance_tests PRIVATE parthenon catch2_define Kokkos::kokkos)
 
 ParseAndAddCatchTests(performance_tests)
