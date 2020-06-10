@@ -37,5 +37,6 @@ if (TEST_ERROR_CHECKING)
    message(WARNING "\tTesting error checking. This test will FAIL.")
    target_compile_definitions(unit_tests PRIVATE PARTHENON_TEST_ERROR_CHECKING)
 endif()
+lint_target(unit_tests)
 
 ParseAndAddCatchTests(unit_tests)
