@@ -15,16 +15,24 @@ if (PARTHENON_LINT_DEFAULT)
     set(ALL "ALL")
 endif()
 
-add_custom_target(lint ${ALL})
+add_custom_target(
+    lint ${ALL}
+    COMMENT "Linted project")
 
 function(lint_file SOURCE_DIR INPUT OUTPUT)
+    get_filename_component(OUTPUT_DIR ${OUTPUT} DIRECTORY)
+    if (OUTPUT_DIR)
+        set(MKDIR_COMMAND COMMAND ${CMAKE_COMMAND} -E make_directory ${OUTPUT_DIR})
+    endif()
+
     add_custom_command(
         OUTPUT ${OUTPUT}
         COMMAND
             ${PROJECT_SOURCE_DIR}/tst/style/cpplint.py
                 --counting=detailed
                 --quiet ${SOURCE_DIR}/${INPUT}
-        COMMAND touch ${OUTPUT}
+        ${MKDIR_COMMAND}
+        COMMAND ${CMAKE_COMMAND} -E touch ${OUTPUT}
         DEPENDS ${INPUT}
         COMMENT "Linting ${INPUT}"
     )
@@ -40,6 +48,9 @@ function(lint_target TARGET_NAME)
         list(APPEND TARGET_OUTPUTS ${SOURCE}.lint)
     endforeach()
 
-    add_custom_target(${TARGET_NAME}-lint DEPENDS ${TARGET_OUTPUTS})
+    add_custom_target(
+        ${TARGET_NAME}-lint
+        DEPENDS ${TARGET_OUTPUTS}
+        COMMENT "Linted ${TARGET_NAME}")
     add_dependencies(lint ${TARGET_NAME}-lint)
 endfunction(lint_target)
