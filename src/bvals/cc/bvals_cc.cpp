@@ -152,9 +152,7 @@ struct BndInfo {
   int ej = 0;
   int sk = 0;
   int ek = 0;
-  int sn = 0;
-  int en = 0;
-  ParArray1D<Real> recv_buf;
+  ParArray1D<Real> buf;
 };
 
 //  Hardcoded test of boundary filling routine for non-MPI, no mesh refinement sims
@@ -196,14 +194,11 @@ void CellCenteredBoundaryVariable::SendBoundaryBuffers() {
                                             : cellbounds.ks(interior);
       bnd_info_all[mb].ek = (nb.ni.ox3 < 0) ? (cellbounds.ks(interior) + NGHOST - 1)
                                             : cellbounds.ke(interior);
-      bnd_info_all[mb].sn = nl_;
-      bnd_info_all[mb].en = nu_;
-
       // Locate target buffer
       // 1) which MeshBlock?
       MeshBlock *ptarget_block = pmy_mesh_->FindMeshBlock(nb.snb.gid);
       // 2) which element in vector of BoundaryVariable *?
-      bnd_info_all[mb].recv_buf =
+      bnd_info_all[mb].buf =
           ptarget_block->pbval->bvars[bvar_index]->GetBdVar()->recv[nb.targetid];
 
       mb++;
@@ -212,6 +207,8 @@ void CellCenteredBoundaryVariable::SendBoundaryBuffers() {
 
   // ParArray4D<Real> var_cc_ = var_cc.Get<4>(); // automatic template deduction fails
   auto var_cc_ = var_cc;
+  const auto sn = nl_;
+  const auto en = nu_;
   Kokkos::parallel_for(
       "CellCenteredVar::SendBoundaryBuffers TeamPolicy",
       team_policy(pmb->exec_space, num_nmb, Kokkos::AUTO),
@@ -223,8 +220,6 @@ void CellCenteredBoundaryVariable::SendBoundaryBuffers() {
         const int ej = bnd_info_all[mb].ej;
         const int sk = bnd_info_all[mb].sk;
         const int ek = bnd_info_all[mb].ek;
-        const int sn = bnd_info_all[mb].sn;
-        const int en = bnd_info_all[mb].en;
         const int Ni = ei + 1 - si;
         const int Nj = ej + 1 - sj;
         const int Nk = ek + 1 - sk;
@@ -244,8 +239,8 @@ void CellCenteredBoundaryVariable::SendBoundaryBuffers() {
               j += sj;
               i += si;
               // original offset is ignored here
-              bnd_info_all[mb].recv_buf(i - si +
-                                        Ni * (j - sj + Nj * (k - sk + Nk * (n - sn)))) =
+              bnd_info_all[mb].buf(i - si +
+                                   Ni * (j - sj + Nj * (k - sk + Nk * (n - sn)))) =
                   var_cc_(n, k, j, i);
             });
       });
@@ -424,6 +419,92 @@ void CellCenteredBoundaryVariable::SetBoundarySameLevel(ParArray1D<Real> &buf,
 
   ParArray4D<Real> var_cc_ = var_cc.Get<4>(); // automatic template deduction fails
   BufferUtility::UnpackData(buf, var_cc_, nl_, nu_, si, ei, sj, ej, sk, ek, p, pmb);
+}
+
+//----------------------------------------------------------------------------------------
+//! \fn void BoundaryVariable::SetBoundaries()
+//  \brief set the boundary data
+// HARDCODED VERSION WITHOUT MPI or AMR support
+
+void CellCenteredBoundaryVariable::SetBoundaries() {
+  MeshBlock *pmb = pmy_block_;
+
+  auto CalcIndices = [](int ox, int &s, int &e, const IndexRange &bounds) {
+    if (ox == 0) {
+      s = bounds.s;
+      e = bounds.e;
+    } else if (ox > 0) {
+      s = bounds.e + 1;
+      e = bounds.e + NGHOST;
+    } else {
+      s = bounds.s - NGHOST;
+      e = bounds.s - 1;
+    }
+  };
+
+  // TODO(pgrete) fix hardcoded 57
+  BndInfo bnd_info_all[57];
+
+  for (int n = 0; n < pmb->pbval->nneighbor; n++) {
+    NeighborBlock &nb = pmb->pbval->neighbor[n];
+
+    const IndexShape &cellbounds = pmb->cellbounds;
+
+    IndexDomain interior = IndexDomain::interior;
+    CalcIndices(nb.ni.ox1, bnd_info_all[n].si, bnd_info_all[n].ei,
+                cellbounds.GetBoundsI(interior));
+    CalcIndices(nb.ni.ox2, bnd_info_all[n].sj, bnd_info_all[n].ej,
+                cellbounds.GetBoundsJ(interior));
+    CalcIndices(nb.ni.ox3, bnd_info_all[n].sk, bnd_info_all[n].ek,
+                cellbounds.GetBoundsK(interior));
+    bnd_info_all[n].buf = bd_var_.recv[nb.bufid];
+  }
+
+  auto var_cc_ = var_cc;
+  const auto sn = nl_;
+  const auto en = nu_;
+  Kokkos::parallel_for(
+      "CellCenteredVar::SetBoundaries TeamPolicy",
+      team_policy(pmb->exec_space, pmb->pbval->nneighbor, Kokkos::AUTO),
+      KOKKOS_LAMBDA(team_mbr_t team_member) {
+        const int mb = team_member.league_rank();
+        const int si = bnd_info_all[mb].si;
+        const int ei = bnd_info_all[mb].ei;
+        const int sj = bnd_info_all[mb].sj;
+        const int ej = bnd_info_all[mb].ej;
+        const int sk = bnd_info_all[mb].sk;
+        const int ek = bnd_info_all[mb].ek;
+        const int Ni = ei + 1 - si;
+        const int Nj = ej + 1 - sj;
+        const int Nk = ek + 1 - sk;
+        const int Nn = en + 1 - sn;
+        const int NnNkNjNi = Nn * Nk * Nj * Ni;
+        const int NkNjNi = Nk * Nj * Ni;
+        const int NjNi = Nj * Ni;
+
+        Kokkos::parallel_for(
+            Kokkos::TeamVectorRange(team_member, NnNkNjNi), [&](const int idx) {
+              int n = idx / NkNjNi;
+              int k = (idx - n * NkNjNi) / NjNi;
+              int j = (idx - n * NkNjNi - k * NjNi) / Ni;
+              int i = idx - n * NkNjNi - k * NjNi - j * Ni;
+              n += sn;
+              k += sk;
+              j += sj;
+              i += si;
+              // original offset is ignored here
+              var_cc_(n, k, j, i) = bnd_info_all[mb].buf(
+                  i - si + Ni * (j - sj + Nj * (k - sk + Nk * (n - sn))));
+            });
+      });
+
+  pmb->exec_space.fence();
+  for (int n = 0; n < pmb->pbval->nneighbor; n++) {
+    NeighborBlock &nb = pmb->pbval->neighbor[n];
+    bd_var_.flag[nb.bufid] = BoundaryStatus::completed; // completed
+  }
+
+  return;
 }
 
 //----------------------------------------------------------------------------------------
