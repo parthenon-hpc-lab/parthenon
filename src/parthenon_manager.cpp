@@ -18,7 +18,6 @@
 #include <Kokkos_Core.hpp>
 
 #include "driver/driver.hpp"
-#include "interface/set_graphics.hpp"
 #include "interface/update.hpp"
 #include "refinement/refinement.hpp"
 
@@ -95,8 +94,6 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
   // always add the Refinement package
   packages["ParthenonRefinement"] = Refinement::Initialize(pinput.get());
 
-  SetGraphics(pinput, packages);
-
   // TODO(jdolence): Deal with restarts
   // if (arg.res_flag == 0) {
   pmesh = std::make_unique<Mesh>(pinput.get(), properties, packages, arg.mesh_flag);
@@ -118,42 +115,6 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
   ChangeRunDir(arg.prundir);
 
   return ParthenonStatus::ok;
-}
-
-void ParthenonManager::PreDriver() {
-  if (Globals::my_rank == 0) {
-    std::cout << std::endl << "Setup complete, entering main loop...\n" << std::endl;
-  }
-
-  tstart_ = clock();
-#ifdef OPENMP_PARALLEL
-  omp_start_time_ = omp_get_wtime();
-#endif
-}
-
-void ParthenonManager::PostDriver(DriverStatus driver_status) {
-  if (Globals::my_rank == 0) {
-    // Calculate and print the zone-cycles/cpu-second and wall-second
-#ifdef OPENMP_PARALLEL
-    double omp_time = omp_get_wtime() - omp_start_time_;
-#endif
-    clock_t tstop = clock();
-    double cpu_time = (tstop > tstart_ ? static_cast<double>(tstop - tstart_) : 1.0) /
-                      static_cast<double>(CLOCKS_PER_SEC);
-    std::uint64_t zonecycles =
-        pmesh->mbcnt *
-        static_cast<std::uint64_t>(pmesh->pblock->GetNumberOfMeshBlockCells());
-    double zc_cpus = static_cast<double>(zonecycles) / cpu_time;
-
-    std::cout << std::endl << "zone-cycles = " << zonecycles << std::endl;
-    std::cout << "cpu time used  = " << cpu_time << std::endl;
-    std::cout << "zone-cycles/cpu_second = " << zc_cpus << std::endl;
-#ifdef OPENMP_PARALLEL
-    double zc_omps = static_cast<double>(zonecycles) / omp_time;
-    std::cout << std::endl << "omp wtime used = " << omp_time << std::endl;
-    std::cout << "zone-cycles/omp_wsecond = " << zc_omps << std::endl;
-#endif
-  }
 }
 
 ParthenonStatus ParthenonManager::ParthenonFinalize() {

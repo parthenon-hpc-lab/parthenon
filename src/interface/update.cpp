@@ -18,8 +18,9 @@
 
 #include "coordinates/coordinates.hpp"
 #include "interface/container.hpp"
-#include "interface/container_iterator.hpp"
 #include "mesh/mesh.hpp"
+
+#include "kokkos_abstraction.hpp"
 
 namespace parthenon {
 
@@ -27,71 +28,36 @@ namespace Update {
 
 TaskStatus FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
   MeshBlock *pmb = in.pmy_block;
-  int is = pmb->is;
-  int js = pmb->js;
-  int ks = pmb->ks;
-  int ie = pmb->ie;
-  int je = pmb->je;
-  int ke = pmb->ke;
 
-  Metadata m;
-  ContainerIterator<Real> cin_iter(in, {Metadata::Independent});
-  ContainerIterator<Real> cout_iter(dudt_cont, {Metadata::Independent});
-  int nvars = cout_iter.vars.size();
+  const IndexDomain interior = IndexDomain::interior;
+  IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
+  IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
+  IndexRange kb = pmb->cellbounds.GetBoundsK(interior);
 
-  ParArrayND<Real> x1area("x1area", pmb->ncells1);
-  ParArrayND<Real> x2area0("x2area0", pmb->ncells1);
-  ParArrayND<Real> x2area1("x2area1", pmb->ncells1);
-  ParArrayND<Real> x3area0("x3area0", pmb->ncells1);
-  ParArrayND<Real> x3area1("x3area1", pmb->ncells1);
-  ParArrayND<Real> vol("vol", pmb->ncells1);
+  auto vin = in.PackVariablesAndFluxes({Metadata::Independent});
+  auto dudt = dudt_cont.PackVariables({Metadata::Independent});
 
+  auto &coords = pmb->coords;
   int ndim = pmb->pmy_mesh->ndim;
-  ParArrayND<Real> du("du", pmb->ncells1);
-  for (int k = ks; k <= ke; k++) {
-    for (int j = js; j <= je; j++) {
-      pmb->pcoord->Face1Area(k, j, is, ie + 1, x1area);
-      pmb->pcoord->CellVolume(k, j, is, ie, vol);
-      if (pmb->pmy_mesh->ndim >= 2) {
-        pmb->pcoord->Face2Area(k, j, is, ie, x2area0);
-        pmb->pcoord->Face2Area(k, j + 1, is, ie, x2area1);
-      }
-      if (pmb->pmy_mesh->ndim >= 3) {
-        pmb->pcoord->Face3Area(k, j, is, ie, x3area0);
-        pmb->pcoord->Face3Area(k + 1, j, is, ie, x3area1);
-      }
-      for (int n = 0; n < nvars; n++) {
-        CellVariable<Real> &q = *cin_iter.vars[n];
-        ParArrayND<Real> &x1flux = q.flux[0];
-        ParArrayND<Real> &x2flux = q.flux[1];
-        ParArrayND<Real> &x3flux = q.flux[2];
-        CellVariable<Real> &dudt = *cout_iter.vars[n];
-        for (int l = 0; l < q.GetDim(4); l++) {
-          for (int i = is; i <= ie; i++) {
-            du(i) =
-                (x1area(i + 1) * x1flux(l, k, j, i + 1) - x1area(i) * x1flux(l, k, j, i));
-          }
-
-          if (ndim >= 2) {
-            for (int i = is; i <= ie; i++) {
-              du(i) +=
-                  (x2area1(i) * x2flux(l, k, j + 1, i) - x2area0(i) * x2flux(l, k, j, i));
-            }
-          }
-          // TODO(jcd): should the next block be in the preceding if??
-          if (ndim >= 3) {
-            for (int i = is; i <= ie; i++) {
-              du(i) +=
-                  (x3area1(i) * x3flux(l, k + 1, j, i) - x3area0(i) * x3flux(l, k, j, i));
-            }
-          }
-          for (int i = is; i <= ie; i++) {
-            dudt(l, k, j, i) = -du(i) / vol(i);
-          }
+  pmb->par_for(
+      "flux divergence", 0, vin.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
+        dudt(l, k, j, i) = 0.0;
+        dudt(l, k, j, i) +=
+            (coords.Area(X1DIR, k, j, i + 1) * vin.flux(X1DIR, l, k, j, i + 1) -
+             coords.Area(X1DIR, k, j, i) * vin.flux(X1DIR, l, k, j, i));
+        if (ndim >= 2) {
+          dudt(l, k, j, i) +=
+              (coords.Area(X2DIR, k, j + 1, i) * vin.flux(X2DIR, l, k, j + 1, i) -
+               coords.Area(X2DIR, k, j, i) * vin.flux(X2DIR, l, k, j, i));
         }
-      }
-    }
-  }
+        if (ndim == 3) {
+          dudt(l, k, j, i) +=
+              (coords.Area(X3DIR, k + 1, j, i) * vin.flux(X3DIR, l, k + 1, j, i) -
+               coords.Area(X3DIR, k, j, i) * vin.flux(X3DIR, l, k, j, i));
+        }
+        dudt(l, k, j, i) /= -coords.Volume(k, j, i);
+      });
 
   return TaskStatus::complete;
 }
@@ -99,63 +65,36 @@ TaskStatus FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
 void UpdateContainer(Container<Real> &in, Container<Real> &dudt_cont, const Real dt,
                      Container<Real> &out) {
   MeshBlock *pmb = in.pmy_block;
-  int is = pmb->is;
-  int js = pmb->js;
-  int ks = pmb->ks;
-  int ie = pmb->ie;
-  int je = pmb->je;
-  int ke = pmb->ke;
 
-  Metadata m;
-  ContainerIterator<Real> cin_iter(in, {Metadata::Independent});
-  ContainerIterator<Real> cout_iter(out, {Metadata::Independent});
-  ContainerIterator<Real> du_iter(dudt_cont, {Metadata::Independent});
-  int nvars = cout_iter.vars.size();
+  auto vin = in.PackVariables({Metadata::Independent});
+  auto vout = out.PackVariables({Metadata::Independent});
+  auto dudt = dudt_cont.PackVariables({Metadata::Independent});
 
-  for (int n = 0; n < nvars; n++) {
-    CellVariable<Real> &qin = *cin_iter.vars[n];
-    CellVariable<Real> &dudt = *du_iter.vars[n];
-    CellVariable<Real> &qout = *cout_iter.vars[n];
-    for (int l = 0; l < qout.GetDim(4); l++) {
-      for (int k = ks; k <= ke; k++) {
-        for (int j = js; j <= je; j++) {
-          for (int i = is; i <= ie; i++) {
-            qout(l, k, j, i) = qin(l, k, j, i) + dt * dudt(l, k, j, i);
-          }
-        }
-      }
-    }
-  }
+  pmb->par_for(
+      "UpdateContainer", 0, vin.GetDim(4) - 1, 0, vin.GetDim(3) - 1, 0, vin.GetDim(2) - 1,
+      0, vin.GetDim(1) - 1,
+      KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
+        vout(l, k, j, i) = vin(l, k, j, i) + dt * dudt(l, k, j, i);
+      });
   return;
 }
 
 void AverageContainers(Container<Real> &c1, Container<Real> &c2, const Real wgt1) {
   MeshBlock *pmb = c1.pmy_block;
-  int is = pmb->is;
-  int js = pmb->js;
-  int ks = pmb->ks;
-  int ie = pmb->ie;
-  int je = pmb->je;
-  int ke = pmb->ke;
+  const IndexDomain interior = IndexDomain::interior;
+  IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
+  IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
+  IndexRange kb = pmb->cellbounds.GetBoundsK(interior);
 
-  Metadata m;
-  ContainerIterator<Real> c1_iter(c1, {Metadata::Independent});
-  ContainerIterator<Real> c2_iter(c2, {Metadata::Independent});
-  int nvars = c2_iter.vars.size();
+  auto v1 = c1.PackVariables({Metadata::Independent});
+  auto v2 = c2.PackVariables({Metadata::Independent});
 
-  for (int n = 0; n < nvars; n++) {
-    CellVariable<Real> &q1 = *c1_iter.vars[n];
-    CellVariable<Real> &q2 = *c2_iter.vars[n];
-    for (int l = 0; l < q1.GetDim(4); l++) {
-      for (int k = ks; k <= ke; k++) {
-        for (int j = js; j <= je; j++) {
-          for (int i = is; i <= ie; i++) {
-            q1(l, k, j, i) = wgt1 * q1(l, k, j, i) + (1 - wgt1) * q2(l, k, j, i);
-          }
-        }
-      }
-    }
-  }
+  pmb->par_for(
+      "AverageContainers", 0, v1.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
+        v1(l, k, j, i) = wgt1 * v1(l, k, j, i) + (1 - wgt1) * v2(l, k, j, i);
+      });
+
   return;
 }
 

@@ -45,31 +45,34 @@ namespace parthenon {
 
 void CellCenteredBoundaryVariable::SendFluxCorrection() {
   MeshBlock *pmb = pmy_block_;
-  auto &pco = pmb->pcoord;
-
-  // cache pointers to surface area arrays (BoundaryBase protected variable)
-  ParArrayND<Real> &sarea0 = pmb->pbval->sarea_[0];
-  ParArrayND<Real> &sarea1 = pmb->pbval->sarea_[1];
+  auto &coords = pmb->coords;
+  const IndexDomain interior = IndexDomain::interior;
 
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
     if (nb.ni.type != NeighborConnect::face) break;
     if (bd_var_flcor_.sflag[nb.bufid] == BoundaryStatus::completed) continue;
     if (nb.snb.level == pmb->loc.level - 1) {
+      IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
+      IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
+      IndexRange kb = pmb->cellbounds.GetBoundsK(interior);
+      int nx1 = pmb->cellbounds.ncellsi(interior);
+      int nx2 = pmb->cellbounds.ncellsj(interior);
+      int nx3 = pmb->cellbounds.ncellsk(interior);
       int p = 0;
-      Real *sbuf = bd_var_flcor_.send[nb.bufid];
+      Real *sbuf = bd_var_flcor_.send[nb.bufid].data();
       // x1 direction
       if (nb.fid == BoundaryFace::inner_x1 || nb.fid == BoundaryFace::outer_x1) {
-        int i = pmb->is + (pmb->ie - pmb->is + 1) * nb.fid;
+        int i = ib.s + nx1 * nb.fid;
         if (pmb->block_size.nx3 > 1) { // 3D
           for (int nn = nl_; nn <= nu_; nn++) {
-            for (int k = pmb->ks; k <= pmb->ke; k += 2) {
-              for (int j = pmb->js; j <= pmb->je; j += 2) {
-                Real amm = pco->GetFace1Area(k, j, i);
-                Real amp = pco->GetFace1Area(k, j + 1, i);
-                Real apm = pco->GetFace1Area(k + 1, j, i);
-                Real app = pco->GetFace1Area(k + 1, j + 1, i);
-                Real tarea = amm + amp + apm + app;
+            for (int k = kb.s; k <= kb.e; k += 2) {
+              for (int j = jb.s; j <= jb.e; j += 2) {
+                const Real amm = coords.Area(X1DIR, k, j, i);
+                const Real amp = coords.Area(X1DIR, k, j + 1, i);
+                const Real apm = coords.Area(X1DIR, k + 1, j, i);
+                const Real app = coords.Area(X1DIR, k + 1, j + 1, i);
+                const Real tarea = amm + amp + apm + app;
                 sbuf[p++] =
                     (x1flux(nn, k, j, i) * amm + x1flux(nn, k, j + 1, i) * amp +
                      x1flux(nn, k + 1, j, i) * apm + x1flux(nn, k + 1, j + 1, i) * app) /
@@ -78,65 +81,69 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
             }
           }
         } else if (pmb->block_size.nx2 > 1) { // 2D
-          int k = pmb->ks;
+          int k = kb.s;
           for (int nn = nl_; nn <= nu_; nn++) {
-            for (int j = pmb->js; j <= pmb->je; j += 2) {
-              Real am = pco->GetFace1Area(k, j, i);
-              Real ap = pco->GetFace1Area(k, j + 1, i);
-              Real tarea = am + ap;
+            for (int j = jb.s; j <= jb.e; j += 2) {
+              const Real am = coords.Area(X1DIR, k, j, i);
+              const Real ap = coords.Area(X1DIR, k, j + 1, i);
+              const Real tarea = am + ap;
               sbuf[p++] =
                   (x1flux(nn, k, j, i) * am + x1flux(nn, k, j + 1, i) * ap) / tarea;
             }
           }
         } else { // 1D
-          int k = pmb->ks, j = pmb->js;
+          int k = kb.s, j = jb.s;
           for (int nn = nl_; nn <= nu_; nn++)
             sbuf[p++] = x1flux(nn, k, j, i);
         }
         // x2 direction
       } else if (nb.fid == BoundaryFace::inner_x2 || nb.fid == BoundaryFace::outer_x2) {
-        int j = pmb->js + (pmb->je - pmb->js + 1) * (nb.fid & 1);
+        int j = jb.s + nx2 * (nb.fid & 1);
         if (pmb->block_size.nx3 > 1) { // 3D
           for (int nn = nl_; nn <= nu_; nn++) {
-            for (int k = pmb->ks; k <= pmb->ke; k += 2) {
-              pco->Face2Area(k, j, pmb->is, pmb->ie, sarea0);
-              pco->Face2Area(k + 1, j, pmb->is, pmb->ie, sarea1);
-              for (int i = pmb->is; i <= pmb->ie; i += 2) {
-                Real tarea = sarea0(i) + sarea0(i + 1) + sarea1(i) + sarea1(i + 1);
-                sbuf[p++] = (x2flux(nn, k, j, i) * sarea0(i) +
-                             x2flux(nn, k, j, i + 1) * sarea0(i + 1) +
-                             x2flux(nn, k + 1, j, i) * sarea1(i) +
-                             x2flux(nn, k + 1, j, i + 1) * sarea1(i + 1)) /
-                            tarea;
+            for (int k = kb.s; k <= kb.e; k += 2) {
+              for (int i = ib.s; i <= ib.e; i += 2) {
+                const Real area00 = coords.Area(X2DIR, k, j, i);
+                const Real area01 = coords.Area(X2DIR, k, j, i + 1);
+                const Real area10 = coords.Area(X2DIR, k + 1, j, i);
+                const Real area11 = coords.Area(X2DIR, k + 1, j, i + 1);
+                const Real tarea = area00 + area01 + area10 + area11;
+                sbuf[p++] =
+                    (x2flux(nn, k, j, i) * area00 + x2flux(nn, k, j, i + 1) * area01 +
+                     x2flux(nn, k + 1, j, i) * area10 +
+                     x2flux(nn, k + 1, j, i + 1) * area11) /
+                    tarea;
               }
             }
           }
         } else if (pmb->block_size.nx2 > 1) { // 2D
-          int k = pmb->ks;
+          int k = kb.s;
           for (int nn = nl_; nn <= nu_; nn++) {
-            pco->Face2Area(0, j, pmb->is, pmb->ie, sarea0);
-            for (int i = pmb->is; i <= pmb->ie; i += 2) {
-              Real tarea = sarea0(i) + sarea0(i + 1);
-              sbuf[p++] = (x2flux(nn, k, j, i) * sarea0(i) +
-                           x2flux(nn, k, j, i + 1) * sarea0(i + 1)) /
-                          tarea;
+            for (int i = ib.s; i <= ib.e; i += 2) {
+              const Real area0 = coords.Area(X2DIR, k, j, i);
+              const Real area1 = coords.Area(X2DIR, k, j, i + 1);
+              const Real tarea = area0 + area1;
+              sbuf[p++] =
+                  (x2flux(nn, k, j, i) * area0 + x2flux(nn, k, j, i + 1) * area1) / tarea;
             }
           }
         }
-        // x3 direction - 3D onl_y
+        // x3 direction - 3D only
       } else if (nb.fid == BoundaryFace::inner_x3 || nb.fid == BoundaryFace::outer_x3) {
-        int k = pmb->ks + (pmb->ke - pmb->ks + 1) * (nb.fid & 1);
+        int k = kb.s + nx3 * (nb.fid & 1);
         for (int nn = nl_; nn <= nu_; nn++) {
-          for (int j = pmb->js; j <= pmb->je; j += 2) {
-            pco->Face3Area(k, j, pmb->is, pmb->ie, sarea0);
-            pco->Face3Area(k, j + 1, pmb->is, pmb->ie, sarea1);
-            for (int i = pmb->is; i <= pmb->ie; i += 2) {
-              Real tarea = sarea0(i) + sarea0(i + 1) + sarea1(i) + sarea1(i + 1);
-              sbuf[p++] = (x3flux(nn, k, j, i) * sarea0(i) +
-                           x3flux(nn, k, j, i + 1) * sarea0(i + 1) +
-                           x3flux(nn, k, j + 1, i) * sarea1(i) +
-                           x3flux(nn, k, j + 1, i + 1) * sarea1(i + 1)) /
-                          tarea;
+          for (int j = jb.s; j <= jb.e; j += 2) {
+            for (int i = ib.s; i <= ib.e; i += 2) {
+              const Real area00 = coords.Area(X3DIR, k, j, i);
+              const Real area01 = coords.Area(X3DIR, k, j, i + 1);
+              const Real area10 = coords.Area(X3DIR, k, j + 1, i);
+              const Real area11 = coords.Area(X3DIR, k, j + 1, i + 1);
+              const Real tarea = area00 + area01 + area10 + area11;
+              sbuf[p++] =
+                  (x3flux(nn, k, j, i) * area00 + x3flux(nn, k, j, i + 1) * area01 +
+                   x3flux(nn, k, j + 1, i) * area10 +
+                   x3flux(nn, k, j + 1, i + 1) * area11) /
+                  tarea;
             }
           }
         }
@@ -188,10 +195,15 @@ bool CellCenteredBoundaryVariable::ReceiveFluxCorrection() {
       }
       // boundary arrived; apply flux correction
       int p = 0;
-      Real *rbuf = bd_var_flcor_.recv[nb.bufid];
+      Real *rbuf = bd_var_flcor_.recv[nb.bufid].data();
+
+      const IndexDomain interior = IndexDomain::interior;
+      IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
+      IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
+      IndexRange kb = pmb->cellbounds.GetBoundsK(interior);
       if (nb.fid == BoundaryFace::inner_x1 || nb.fid == BoundaryFace::outer_x1) {
-        int il = pmb->is + (pmb->ie - pmb->is) * nb.fid + nb.fid;
-        int jl = pmb->js, ju = pmb->je, kl = pmb->ks, ku = pmb->ke;
+        int il = ib.s + (ib.e - ib.s) * nb.fid + nb.fid;
+        int jl = jb.s, ju = jb.e, kl = kb.s, ku = kb.e;
         if (nb.ni.fi1 == 0)
           ju -= pmb->block_size.nx2 / 2;
         else
@@ -207,8 +219,8 @@ bool CellCenteredBoundaryVariable::ReceiveFluxCorrection() {
           }
         }
       } else if (nb.fid == BoundaryFace::inner_x2 || nb.fid == BoundaryFace::outer_x2) {
-        int jl = pmb->js + (pmb->je - pmb->js) * (nb.fid & 1) + (nb.fid & 1);
-        int il = pmb->is, iu = pmb->ie, kl = pmb->ks, ku = pmb->ke;
+        int jl = jb.s + (jb.e - jb.s) * (nb.fid & 1) + (nb.fid & 1);
+        int il = ib.s, iu = ib.e, kl = kb.s, ku = kb.e;
         if (nb.ni.fi1 == 0)
           iu -= pmb->block_size.nx1 / 2;
         else
@@ -224,8 +236,8 @@ bool CellCenteredBoundaryVariable::ReceiveFluxCorrection() {
           }
         }
       } else if (nb.fid == BoundaryFace::inner_x3 || nb.fid == BoundaryFace::outer_x3) {
-        int kl = pmb->ks + (pmb->ke - pmb->ks) * (nb.fid & 1) + (nb.fid & 1);
-        int il = pmb->is, iu = pmb->ie, jl = pmb->js, ju = pmb->je;
+        int kl = kb.s + (kb.e - kb.s) * (nb.fid & 1) + (nb.fid & 1);
+        int il = ib.s, iu = ib.e, jl = jb.s, ju = jb.e;
         if (nb.ni.fi1 == 0)
           iu -= pmb->block_size.nx1 / 2;
         else

@@ -47,17 +47,17 @@ class FaceCenteredBoundaryVariable : public BoundaryVariable {
   static constexpr int max_phys_id = 5;
 
   // BoundaryVariable:
-  int ComputeVariableBufferSize(const NeighborIndexes &ni, int cng) override;
-  int ComputeFluxCorrectionBufferSize(const NeighborIndexes &ni, int cng) override;
+  int ComputeVariableBufferSize(const NeighborIndexes &ni, int cng) final;
+  int ComputeFluxCorrectionBufferSize(const NeighborIndexes &ni, int cng) final;
 
   // BoundaryCommunication:
-  void SetupPersistentMPI() override;
-  void StartReceiving(BoundaryCommSubset phase) override;
-  void ClearBoundary(BoundaryCommSubset phase) override;
+  void SetupPersistentMPI() final;
+  void StartReceiving(BoundaryCommSubset phase) final;
+  void ClearBoundary(BoundaryCommSubset phase) final;
 
   // BoundaryBuffer:
-  void SendFluxCorrection() override;
-  bool ReceiveFluxCorrection() override;
+  void SendFluxCorrection() final;
+  bool ReceiveFluxCorrection() final;
 
  private:
   bool edge_flag_[12];
@@ -72,12 +72,12 @@ class FaceCenteredBoundaryVariable : public BoundaryVariable {
 #endif
 
   // BoundaryBuffer:
-  int LoadBoundaryBufferSameLevel(Real *buf, const NeighborBlock &nb) override;
-  void SetBoundarySameLevel(Real *buf, const NeighborBlock &nb) override;
-  int LoadBoundaryBufferToCoarser(Real *buf, const NeighborBlock &nb) override;
-  int LoadBoundaryBufferToFiner(Real *buf, const NeighborBlock &nb) override;
-  void SetBoundaryFromCoarser(Real *buf, const NeighborBlock &nb) override;
-  void SetBoundaryFromFiner(Real *buf, const NeighborBlock &nb) override;
+  int LoadBoundaryBufferSameLevel(ParArray1D<Real> &buf, const NeighborBlock &nb) final;
+  void SetBoundarySameLevel(ParArray1D<Real> &buf, const NeighborBlock &nb) final;
+  int LoadBoundaryBufferToCoarser(ParArray1D<Real> &buf, const NeighborBlock &nb) final;
+  int LoadBoundaryBufferToFiner(ParArray1D<Real> &buf, const NeighborBlock &nb) final;
+  void SetBoundaryFromCoarser(ParArray1D<Real> &buf, const NeighborBlock &nb) final;
+  void SetBoundaryFromFiner(ParArray1D<Real> &buf, const NeighborBlock &nb) final;
 
   void CountFineEdges(); // called in SetupPersistentMPI()
 

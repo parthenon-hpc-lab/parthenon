@@ -57,6 +57,7 @@
 #include <stdexcept>
 
 #include "globals.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
@@ -133,7 +134,7 @@ void ParameterInput::LoadFromStream(std::istream &is) {
       line.erase(std::remove(line.begin(), line.end(), '\t'), line.end());
       // msg << "### FATAL ERROR in function [ParameterInput::LoadFromStream]"
       //     << std::endl << "Tab characters are forbidden in input files";
-      // ATHENA_ERROR(msg);
+      // PARTHENON_FAIL(msg);
     }
     if (line.empty()) continue;                               // skip blank line
     first_char = line.find_first_not_of(" ");                 // skip white space
@@ -148,7 +149,7 @@ void ParameterInput::LoadFromStream(std::istream &is) {
             << "character <.  Look above this line for the error:" << std::endl
             << line << std::endl
             << std::endl;
-        ATHENA_ERROR(msg);
+        PARTHENON_FAIL(msg);
       }
       first_char++;
       last_char = (line.find_first_of(">", first_char));
@@ -158,7 +159,7 @@ void ParameterInput::LoadFromStream(std::istream &is) {
         msg << "### FATAL ERROR in function [ParameterInput::LoadFromStream]" << std::endl
             << "Block name '" << block_name << "' in the input stream'"
             << "' not properly ended";
-        ATHENA_ERROR(msg);
+        PARTHENON_FAIL(msg);
       }
 
       pib = FindOrAddBlock(block_name); // find or add block to singly linked list
@@ -166,7 +167,7 @@ void ParameterInput::LoadFromStream(std::istream &is) {
       if (pib == nullptr) {
         msg << "### FATAL ERROR in function [ParameterInput::LoadFromStream]" << std::endl
             << "Block name '" << block_name << "' could not be found/added";
-        ATHENA_ERROR(msg);
+        PARTHENON_FAIL(msg);
       }
       blocks_found++;
       continue; // skip to next line if block name was found
@@ -178,7 +179,7 @@ void ParameterInput::LoadFromStream(std::istream &is) {
       msg << "### FATAL ERROR in function [ParameterInput::LoadFromStream]" << std::endl
           << "Input file must specify a block name before the first"
           << " parameter = value line";
-      ATHENA_ERROR(msg);
+      PARTHENON_FAIL(msg);
     }
     // parse line and add name/value/comment strings (if found) to current block name
     bool continuation = ParseLine(pib, line, param_name, param_value, param_comment);
@@ -237,7 +238,7 @@ void ParameterInput::LoadFromFile(IOWrapper &input) {
       msg << "### FATAL ERROR in function [ParameterInput::LoadFromFile]"
           << "<par_end> is not found in the first 40KBytes." << std::endl
           << "Probably the file is broken or a wrong file is specified" << std::endl;
-      ATHENA_ERROR(msg);
+      PARTHENON_FAIL(msg);
     }
   } while (ret == kBufSize); // till EOF (or par_end is found)
 
@@ -397,8 +398,15 @@ void ParameterInput::ModifyFromCmdline(int argc, char *argv[]) {
 
   for (int i = 1; i < argc; i++) {
     input_text = argv[i];
-    std::size_t slash_posn = input_text.find_first_of("/"); // find "/" character
+    std::size_t slash_posn = input_text.rfind("/");         // find last "/" character
     std::size_t equal_posn = input_text.find_first_of("="); // find "=" character
+
+    if (slash_posn > equal_posn) {
+      msg << "'/' used as value (rhs of =) when modifying " << input_text << "."
+          << " Please update value of change "
+          << "logic in ModifyFromCmdline function.";
+      PARTHENON_FAIL(msg.str().c_str());
+    }
 
     // skip if either "/" or "=" do not exist in input
     if ((slash_posn == std::string::npos) || (equal_posn == std::string::npos)) continue;
@@ -414,7 +422,7 @@ void ParameterInput::ModifyFromCmdline(int argc, char *argv[]) {
       msg << "### FATAL ERROR in function [ParameterInput::ModifyFromCmdline]"
           << std::endl
           << "Block name '" << block << "' on command line not found";
-      ATHENA_ERROR(msg);
+      PARTHENON_FAIL(msg.str().c_str());
     }
 
     // get pointer to node with same parameter name in singly linked list of InputLines
@@ -424,7 +432,7 @@ void ParameterInput::ModifyFromCmdline(int argc, char *argv[]) {
           << std::endl
           << "Parameter '" << name << "' in block '" << block
           << "' on command line not found";
-      ATHENA_ERROR(msg);
+      PARTHENON_FAIL(msg.str().c_str());
     }
     pl->param_value.assign(value); // replace existing value
 
@@ -480,7 +488,7 @@ std::string ParameterInput::GetComment(std::string block, std::string name) {
     msg << "### FATAL ERROR in function [ParameterInput::GetComment]" << std::endl
         << "Block name '" << block << "' not found when trying to set value "
         << "for parameter '" << name << "'";
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
 
   // get pointer to node with same parameter name in singly linked list of InputLines
@@ -488,7 +496,7 @@ std::string ParameterInput::GetComment(std::string block, std::string name) {
   if (pl == nullptr) {
     msg << "### FATAL ERROR in function [ParameterInput::GetComment]" << std::endl
         << "Parameter name '" << name << "' not found in block '" << block << "'";
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
 
   std::string val = pl->param_comment;
@@ -513,7 +521,7 @@ int ParameterInput::GetInteger(std::string block, std::string name) {
     msg << "### FATAL ERROR in function [ParameterInput::GetInteger]" << std::endl
         << "Block name '" << block << "' not found when trying to set value "
         << "for parameter '" << name << "'";
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
 
   // get pointer to node with same parameter name in singly linked list of InputLines
@@ -521,7 +529,7 @@ int ParameterInput::GetInteger(std::string block, std::string name) {
   if (pl == nullptr) {
     msg << "### FATAL ERROR in function [ParameterInput::GetInteger]" << std::endl
         << "Parameter name '" << name << "' not found in block '" << block << "'";
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
 
   std::string val = pl->param_value;
@@ -548,7 +556,7 @@ Real ParameterInput::GetReal(std::string block, std::string name) {
     msg << "### FATAL ERROR in function [ParameterInput::GetReal]" << std::endl
         << "Block name '" << block << "' not found when trying to set value "
         << "for parameter '" << name << "'";
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
 
   // get pointer to node with same parameter name in singly linked list of InputLines
@@ -556,7 +564,7 @@ Real ParameterInput::GetReal(std::string block, std::string name) {
   if (pl == nullptr) {
     msg << "### FATAL ERROR in function [ParameterInput::GetReal]" << std::endl
         << "Parameter name '" << name << "' not found in block '" << block << "'";
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
 
   std::string val = pl->param_value;
@@ -583,7 +591,7 @@ bool ParameterInput::GetBoolean(std::string block, std::string name) {
     msg << "### FATAL ERROR in function [ParameterInput::GetBoolean]" << std::endl
         << "Block name '" << block << "' not found when trying to set value "
         << "for parameter '" << name << "'";
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
 
   // get pointer to node with same parameter name in singly linked list of InputLines
@@ -591,7 +599,7 @@ bool ParameterInput::GetBoolean(std::string block, std::string name) {
   if (pl == nullptr) {
     msg << "### FATAL ERROR in function [ParameterInput::GetBoolean]" << std::endl
         << "Parameter name '" << name << "' not found in block '" << block << "'";
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
 
   std::string val = pl->param_value;
@@ -629,7 +637,7 @@ std::string ParameterInput::GetString(std::string block, std::string name) {
     msg << "### FATAL ERROR in function [ParameterInput::GetString]" << std::endl
         << "Block name '" << block << "' not found when trying to set value "
         << "for parameter '" << name << "'";
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
 
   // get pointer to node with same parameter name in singly linked list of InputLines
@@ -637,7 +645,7 @@ std::string ParameterInput::GetString(std::string block, std::string name) {
   if (pl == nullptr) {
     msg << "### FATAL ERROR in function [ParameterInput::GetString]" << std::endl
         << "Parameter name '" << name << "' not found in block '" << block << "'";
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
 
   std::string val = pl->param_value;
@@ -840,13 +848,13 @@ void ParameterInput::RollbackNextTime() {
   Real next_time;
 
   while (pb != nullptr) {
-    if (pb->block_name.compare(0, 6, "output") == 0) {
+    if (pb->block_name.compare(0, 16, "parthenon/output") == 0) {
       pl = pb->GetPtrToLine("next_time");
       if (pl == nullptr) {
         msg << "### FATAL ERROR in function [ParameterInput::RollbackNextTime]"
             << std::endl
             << "Parameter name 'next_time' not found in block '" << pb->block_name << "'";
-        ATHENA_ERROR(msg);
+        PARTHENON_FAIL(msg);
       }
       next_time = static_cast<Real>(atof(pl->param_value.c_str()));
       pl = pb->GetPtrToLine("dt");
@@ -854,7 +862,7 @@ void ParameterInput::RollbackNextTime() {
         msg << "### FATAL ERROR in function [ParameterInput::RollbackNextTime]"
             << std::endl
             << "Parameter name 'dt' not found in block '" << pb->block_name << "'";
-        ATHENA_ERROR(msg);
+        PARTHENON_FAIL(msg);
       }
       next_time -= static_cast<Real>(atof(pl->param_value.c_str()));
       msg << next_time;
@@ -877,7 +885,7 @@ void ParameterInput::ForwardNextTime(Real mesh_time) {
   bool fresh = false;
 
   while (pb != nullptr) {
-    if (pb->block_name.compare(0, 6, "output") == 0) {
+    if (pb->block_name.compare(0, 16, "parthenon/output") == 0) {
       std::stringstream msg;
       pl = pb->GetPtrToLine("next_time");
       if (pl == nullptr) {
@@ -892,7 +900,7 @@ void ParameterInput::ForwardNextTime(Real mesh_time) {
         msg << "### FATAL ERROR in function [ParameterInput::ForwardNextTime]"
             << std::endl
             << "Parameter name 'dt' not found in block '" << pb->block_name << "'";
-        ATHENA_ERROR(msg);
+        PARTHENON_FAIL(msg);
       }
       dt0 = static_cast<Real>(atof(pl->param_value.c_str()));
       dt = dt0 * static_cast<int>((mesh_time - next_time) / dt0) + dt0;

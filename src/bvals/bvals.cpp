@@ -35,7 +35,6 @@
 
 #include "parthenon_mpi.hpp"
 
-#include "coordinates/coordinates.hpp"
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"

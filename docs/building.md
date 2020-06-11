@@ -40,3 +40,23 @@ ctest -LE performance
 # run performance tests
 ctest -L performance
 ```
+
+### List of cmake options:
+
+   |           Option             | Default  | Type   | Description |
+   | ---------------------------: | :------- | :----- | :---------- |
+   |            PARTHENON\_NGHOST | 2        | String | Number of ghost cells | 
+   | PARTHENON\_SINGLE\_PRECISION | OFF      | Option | Enable single precision mode if requested |
+   |     PARTHENON\_DISABLE\_HDF5 | OFF      | Option | HDF5 is enabled by default if found, set this to True to disable HDF5 |
+   |      PARTHENON\_DISABLE\_MPI | OFF      | Option | MPI is enabled by default if found, set this to True to disable MPI |
+   |   PARTHENON\_DISABLE\_OPENMP | OFF      | Option | OpenMP is enabled by default if found, set this to True to disable OpenMP |
+   |   ENABLE\_COMPILER\_WARNINGS | OFF      | Option | Enable compiler warnings |
+   |        TEST\_ERROR\_CHECKING | OFF      | Option | Enables the error checking unit test. This test will FAIL |
+   |    TEST\_INTEL\_OPTIMIZATION | OFF      | Option | Test intel optimization and vectorization |
+   |    CHECK\_REGISTRY\_PRESSURE | OFF      | Option | Check the registry pressure for Kokkos CUDA kernels |
+   |               BUILD\_TESTING | ON       | Option | Multi-testing enablement |
+   |   ENABLE\_INTEGRATION\_TESTS | ${BUILD\_TESTING} | Option | Enable integration tests |
+   |    ENABLE\_REGRESSION\_TESTS | ${BUILD\_TESTING} | Option | Enable regression tests |
+   |          ENABLE\_UNIT\_TESTS | ${BUILD\_TESTING} | Option | Enable unit tests |
+
+### NB: CMake options prefixed with *PARTHENON\_* modify behavior.

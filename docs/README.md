@@ -11,11 +11,31 @@ See the [build doc](building.md) for details on building parthenon for specific 
 
 - [Calculate &pi](../example/calculate_pi)
 - [Average face-centered variables to cell centers](../example/face_fields)
-    
+
 ## Short feature description
 
-Short feature descriptions may directly go in here with, for example, a link to a (unit)
-test illustrating its usage.
+### Automated tests
+
+Regression and convergence tests that cover the majority of features are based on the
+[Advection example](../example/advection-example) and defined in the
+[advection-convergence](../tst/regression/test_suites/advection_convergence) and
+[output_hdf5](../tst/regression/test_suites/output_hdf5) test suites.
+
+The tests currently cover
+- advection of wave in x, y, and z direction as well oblique to the *static* grid for different resolutions to demonstrate first order convergence (see `tst/regression/outputs/advection_convergence/advection-errors.png` file in the build directory after running the test)
+- Advection of a smoothed sphere at an angle on a *static* grid, on a *static* grid a twice the resolution, and with *AMR* covering the sphere at the effective higher resolution
+- Advection of a sharp sphere at an angle with *AMR* writing hdf5 output and comparing against a gold standard output.
+
+To execute the tests first obtain the current gold standard output
+```bash
+# from within the main parthenon directory
+wget -qO- https://pgrete.de/dl/parthenon_regression_gold_latest.tgz | tar -xz -C tst/regression/gold_standard
+```
+and afterwards run the tests, e.g., through
+```bash
+# from within the build directory (add -V fore more detailed output)
+ctest -R regression
+```
 
 ### ParthenonManager
 
@@ -29,23 +49,25 @@ There are several weakly linked member functions that applications can (and ofte
 * ParthenonManager::SetFillDerivedFunctions
   * Each package can register a function pointer in the Packages_t object that provides a callback mechanism for derived quantities (e.g. velocity, from momentum and mass) to be filled.  Additionally, this function provides a mechanism to register functions to fill derived quantities before and/or after all the individual package calls are made.  This is particularly useful for derived quantities that are shared by multiple packages.
 
+### Error checking
 
-## Long feature description
+Macros for causing execution to throw an exception are provided [here](../src/utils/error_checking.hpp)
+* PARTHENON_REQUIRE(condition, message) exits if the condition does not evaluate to true.
+* PARTHENON_FAIL(message) always exits.
+* PARTHENON_DEBUG_REQUIRE(condition, message) exits if the condition does not evaluate to true when in debug mode.
+* PARTHENON_DEBUG_FAIL(message) always exits when in debug mode.
 
-For features that require more detailed documentation a short paragraph or sentence here
-is sufficient with a link to a more detailed description in a separate [file](feature.md).
+Both macros print the message, and filename and line number where the
+macro is called. PARTHENON_REQUIRE also prints the condition. Note
+that these macros take a C style string, not a C++ style string. This
+is a limitation of GPU compatibility. Examples of use can be found
+[here](../tst/unit/test_error_checking.cpp).
 
-### Kokkos/Wrapper related
+### Developer guide
 
-- `par_for` wrappers use inclusive bounds, i.e., the loop will include the last index given
-- `AthenaArrayND` arrays by default allocate on the *device* using default precision configured
-- To create an array on the host with identical layout to the device array either use
-  - `auto arr_host = Kokkos::create_mirror(arr_dev);` to always create a new array even if the device is associated with the host (e.g., OpenMP) or
-  - `auto arr_host = Kokkos::create_mirror_view(arr_dev);` to create an array on the host if the HostSpace != DeviceSpace or get another reference to arr_dev through arr_host if HostSpace == DeviceSpace
-- `par_for` and `Kokkos::deep_copy` by default use the standard stream (on Cuda devices) and are discouraged from use. Use `mb->par_for` and `mb->deep_copy` instead where `mb` is a `MeshBlock` (explanation: each `MeshBlock` has an `ExecutionSpace`, which may be changed at runtime, e.g., to a different stream, and the wrapper within a `MeshBlock` offer transparent access to the parallel region/copy where the `MeshBlock`'s `ExecutionSpace` is automatically used).
-
-An arbitrary-dimensional wrapper for `Kokkos::Views` is available as
-`ParArrayND`. See documentation [here](parthenon_arrays.md).
+Please see the [full development guide](development.md) on how to use Kokkos-based
+performance portable abstractions available within Parthenon and how to write
+performance portable code.
 
 ### State Management
 [Full Documentation](interface/state.md)
@@ -66,7 +88,15 @@ A description of how to enable and extend the AMR capabilities of Parthenon is p
 
 The tasking capabilities in Parthenon are documented [here](tasks.md).
 
-### Graphics
+### Outputs
 
-Check [here](graphics.md) for a description of how to get data out of Parthenon and how to visualize it.
+Check [here](outputs.md) for a description of how to get data out of Parthenon and how to visualize it.
 
+### Containers and Container Iterators
+
+See [here](interface/containers.md) for a description of containers,
+container iterators, and variable packs.
+
+### Index Shape and Index Range
+
+A description of mesh indexing classes [here](mesh/domain.md).

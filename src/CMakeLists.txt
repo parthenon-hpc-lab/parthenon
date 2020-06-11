@@ -14,7 +14,6 @@
 
 # Configure defs.hpp
 set(PROBLEM_GENERATOR "<not-implemented>") # TODO: Figure out what to put here
-set(SINGLE_PRECISION_ENABLED 0) # TODO: Add CMake option for this
 
 if (ENABLE_MPI)
   set(MPI_OPTION MPI_PARALLEL)
@@ -41,6 +40,12 @@ if (${Kokkos_ENABLE_CUDA})
   set(PAR_LOOP_LAYOUT_VALUES "MANUAL1D_LOOP;MDRANGE_LOOP;TPTTR_LOOP;TPTTRTVR_LOOP"
     CACHE STRING "Possible loop layout options.")
 
+  set(PAR_LOOP_INNER_LAYOUT "TVR_INNER_LOOP" CACHE STRING
+    "Default loop layout for par_for_inner wrapper")
+
+  set(PAR_LOOP_INNER_LAYOUT_VALUES "TVR_INNER_LOOP"
+    CACHE STRING "Possible inner loop layout options.")
+
 elseif(${Kokkos_ENABLE_HPX})
   message( FATAL_ERROR "Need to add/fix/test default loop layouts for HPX backend.")
 
@@ -51,11 +56,21 @@ else()
   set(PAR_LOOP_LAYOUT_VALUES "SIMDFOR_LOOP;MANUAL1D_LOOP;MDRANGE_LOOP;TPTTR_LOOP;TPTVR_LOOP;TPTTRTVR_LOOP"
     CACHE STRING "Possible loop layout options.")
 
+  set(PAR_LOOP_INNER_LAYOUT "SIMDFOR_INNER_LOOP" CACHE STRING
+    "Default loop layout for par_for_inner wrapper")
+
+  set(PAR_LOOP_INNER_LAYOUT_VALUES "SIMDFOR_INNER_LOOP;TVR_INNER_LOOP"
+    CACHE STRING "Possible inner loop layout options.")
+
 endif()
 
 set_property(CACHE PAR_LOOP_LAYOUT PROPERTY STRINGS ${PAR_LOOP_LAYOUT_VALUES})
 
+set_property(CACHE PAR_LOOP_INNER_LAYOUT PROPERTY STRINGS ${PAR_LOOP_INNER_LAYOUT_VALUES})
+
 message(STATUS "PAR_LOOP_LAYOUT='${PAR_LOOP_LAYOUT}' (default par_for wrapper layout)")
+
+message(STATUS "PAR_LOOP_INNER_LAYOUT='${PAR_LOOP_INNER_LAYOUT}' (default par_for_inner wrapper layout)")
 
 set(EXCEPTION_HANDLING_OPTION ENABLE_EXCEPTIONS) # TODO: Add option to disable exceptions
 set(COMPILED_WITH ${CMAKE_CXX_COMPILER})
@@ -64,7 +79,7 @@ set(COMPILER_FLAGS "<not-implemented>") # TODO: Put something more descriptive h
 
 set(NFIELD_VARIABLES 0) # TODO: Remove
 set(NWAVE_VALUE 5) # TODO: Remove
-set(NUMBER_GHOST_CELLS 2) # TODO: Make this a CMake option and check it
+set(COORDINATE_TYPE UniformCartesian) # TODO: Make this an option when more are available
 
 configure_file(defs.hpp.in generated/defs.hpp @ONLY)
 
@@ -83,9 +98,6 @@ add_library(parthenon
 
   bvals/boundary_conditions.cpp
 
-  coordinates/coordinates.cpp
-  coordinates/cartesian.cpp
-
   driver/driver.cpp
   driver/multistage.cpp
 
@@ -93,7 +105,6 @@ add_library(parthenon
   interface/container.cpp
   interface/metadata.cpp
   interface/properties_interface.cpp
-  interface/set_graphics.cpp
   interface/sparse_variable.cpp
   interface/update.cpp
   interface/variable.cpp
@@ -132,6 +143,7 @@ add_library(parthenon
   #utils/ran2.cpp
   utils/show_config.cpp
   utils/signal_handler.cpp
+  utils/trim_string.cpp
 
   globals.cpp
   parameter_input.cpp

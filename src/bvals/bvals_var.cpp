@@ -29,6 +29,7 @@
 
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
@@ -62,8 +63,6 @@ void BoundaryVariable::InitBoundaryData(BoundaryData<> &bd, BoundaryQuantity typ
     // Clear flags and requests
     bd.flag[n] = BoundaryStatus::waiting;
     bd.sflag[n] = BoundaryStatus::waiting;
-    bd.send[n] = nullptr;
-    bd.recv[n] = nullptr;
 #ifdef MPI_PARALLEL
     bd.req_send[n] = MPI_REQUEST_NULL;
     bd.req_recv[n] = MPI_REQUEST_NULL;
@@ -77,10 +76,10 @@ void BoundaryVariable::InitBoundaryData(BoundaryData<> &bd, BoundaryQuantity typ
       std::stringstream msg;
       msg << "### FATAL ERROR in InitBoundaryData" << std::endl
           << "Invalid boundary type is specified." << std::endl;
-      ATHENA_ERROR(msg);
+      PARTHENON_FAIL(msg);
     }
-    bd.send[n] = new Real[size];
-    bd.recv[n] = new Real[size];
+    bd.send[n] = ParArray1D<Real>("send buf " + std::to_string(n), size);
+    bd.recv[n] = ParArray1D<Real>("recv buf " + std::to_string(n), size);
   }
 }
 
@@ -90,8 +89,6 @@ void BoundaryVariable::InitBoundaryData(BoundaryData<> &bd, BoundaryQuantity typ
 
 void BoundaryVariable::DestroyBoundaryData(BoundaryData<> &bd) {
   for (int n = 0; n < bd.nbmax; n++) {
-    delete[] bd.send[n];
-    delete[] bd.recv[n];
 #ifdef MPI_PARALLEL
     if (bd.req_send[n] != MPI_REQUEST_NULL) MPI_Request_free(&bd.req_send[n]);
     if (bd.req_recv[n] != MPI_REQUEST_NULL) MPI_Request_free(&bd.req_recv[n]);
@@ -104,7 +101,7 @@ void BoundaryVariable::DestroyBoundaryData(BoundaryData<> &bd) {
 //  \brief
 
 //  Called in BoundaryVariable::SendBoundaryBuffer(), SendFluxCorrection() calls when the
-//  destination neighbor block is on the same MPI rank as the sending MeshBlcok. So
+//  destination neighbor block is on the same MPI rank as the sending MeshBlock. So
 //  std::memcpy() call requires pointer to "void *dst" corresponding to
 //  bd_var_.recv[nb.targetid] in separate BoundaryVariable object in separate vector in
 //  separate BoundaryValues
@@ -115,8 +112,7 @@ void BoundaryVariable::CopyVariableBufferSameProcess(NeighborBlock &nb, int ssiz
   MeshBlock *ptarget_block = pmy_mesh_->FindMeshBlock(nb.snb.gid);
   // 2) which element in vector of BoundaryVariable *?
   BoundaryData<> *ptarget_bdata = &(ptarget_block->pbval->bvars[bvar_index]->bd_var_);
-  std::memcpy(ptarget_bdata->recv[nb.targetid], bd_var_.send[nb.bufid],
-              ssize * sizeof(Real));
+  ptarget_block->deep_copy(ptarget_bdata->recv[nb.targetid], bd_var_.send[nb.bufid]);
   // finally, set the BoundaryStatus flag on the destination buffer
   ptarget_bdata->flag[nb.targetid] = BoundaryStatus::arrived;
   return;
@@ -131,8 +127,8 @@ void BoundaryVariable::CopyFluxCorrectionBufferSameProcess(NeighborBlock &nb, in
   // 2) which element in vector of BoundaryVariable *?
   BoundaryData<> *ptarget_bdata =
       &(ptarget_block->pbval->bvars[bvar_index]->bd_var_flcor_);
-  std::memcpy(ptarget_bdata->recv[nb.targetid], bd_var_flcor_.send[nb.bufid],
-              ssize * sizeof(Real));
+  ptarget_block->deep_copy(ptarget_bdata->recv[nb.targetid],
+                           bd_var_flcor_.send[nb.bufid]);
   ptarget_bdata->flag[nb.targetid] = BoundaryStatus::arrived;
   return;
 }
@@ -212,6 +208,7 @@ void BoundaryVariable::SetBoundaries() {
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
     if (nb.snb.level == mylevel)
+      // TODO(pgrete) FIX interface
       SetBoundarySameLevel(bd_var_.recv[nb.bufid], nb);
     else if (nb.snb.level < mylevel) // only sets the prolongation buffer
       SetBoundaryFromCoarser(bd_var_.recv[nb.bufid], nb);
