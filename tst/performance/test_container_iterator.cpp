@@ -54,6 +54,7 @@ using parthenon::X3DIR;
 // File scope variables
 static const int N = 32; // Dimensions of blocks
 static const int Nvar = 10;
+static const int N_kernels_to_launch_per_test = 100;
 
 template <typename InitFunc, typename PerfFunc>
 void performance_test_wrapper(const std::string test_name, InitFunc init_func,
@@ -62,20 +63,12 @@ void performance_test_wrapper(const std::string test_name, InitFunc init_func,
   BENCHMARK_ADVANCED(test_name.c_str())(Catch::Benchmark::Chronometer meter) {
     init_func();
     Kokkos::fence();
-    meter.measure([&]() { return perf_func(); });
-    Kokkos::fence();
+    meter.measure([&]() { 
+        for( int i = 0; i < N_kernels_to_launch_per_test; ++i ) { perf_func(); } 
+        Kokkos::fence();
+        });
   };
 }
-
-//template <typename InitFunc, typename PerfFunc>
-//void performance_test_wrapper_inc_fence(const std::string test_name, InitFunc init_func,
-//                                PerfFunc perf_func) {
-//
-//  BENCHMARK_ADVANCED(test_name.c_str())(Catch::Benchmark::Chronometer meter) {
-//    init_func();
-//    meter.measure([&]() { return Kokkos::fence(); perf_func(); Kokkos::fence;});
-//  };
-//}
 
 static Container<Real> createTestContainer() {
   // Make a container for testing performance
@@ -141,42 +134,22 @@ TEST_CASE("Catch2 Container Iterator Performance", "[ContainerIterator][performa
       // Make a raw ParArray4D for closest to bare metal looping
       ParArrayND<Real> raw_array("raw_array", Nvar, N, N, N);
       auto init_raw_array = createLambdaRaw(raw_array);
-      WHEN("Not including fence in timing.") {
-        // Make a function for initializing the raw ParArray4D
-        performance_test_wrapper("Mask: Raw Array Perf", init_raw_array,[&]() {
-            par_for(
-                "Raw Array Perf", DevExecSpace(), 0, Nvar - 1, 0, N - 1, 0, N - 1, 0, N - 1,
-                KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
-                raw_array(l, k, j, i) *=
-                raw_array(l, k, j, i); // Do something trivial, square each term
-                });
-            });
-      } // WHEN
-
-      WHEN("Including fence in timing.") {
-        // Make a raw ParArray4D for closest to bare metal looping
-        ParArrayND<Real> raw_array("raw_array", Nvar, N, N, N);
-        auto init_raw_array = createLambdaRaw(raw_array);
-        // Make a function for initializing the raw ParArray4D
-        performance_test_wrapper("Mask: Raw Array Perf with fence", init_raw_array,[&]() {
-            Kokkos::fence();
-            par_for(
-                "Raw Array Perf", DevExecSpace(), 0, Nvar - 1, 0, N - 1, 0, N - 1, 0, N - 1,
-                KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
-                raw_array(l, k, j, i) *=
-                raw_array(l, k, j, i); // Do something trivial, square each term
-                });
-            Kokkos::fence();
-            });
-      } // WHEN
+      // Make a function for initializing the raw ParArray4D
+      performance_test_wrapper("Mask: Raw Array Perf", init_raw_array,[&]() {
+          par_for(
+              "Raw Array Perf", DevExecSpace(), 0, Nvar - 1, 0, N - 1, 0, N - 1, 0, N - 1,
+              KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
+              raw_array(l, k, j, i) *=
+              raw_array(l, k, j, i); // Do something trivial, square each term
+              });
+          });
     } // GIVEN
   } // SECTION
 
   SECTION("Iterate Variables") {
     GIVEN("A container.") {
-    Container<Real> container = createTestContainer();
-    auto init_container = createLambdaContainer(container);
-    WHEN("Not includeing fence in timing.") {
+      Container<Real> container = createTestContainer();
+      auto init_container = createLambdaContainer(container);
       // Make a function for initializing the container variables
       performance_test_wrapper("Mask: Iterate Variables Perf", init_container, [&]() {
           const CellVariableVector<Real> &cv = container.GetCellVariableVector();
@@ -190,25 +163,6 @@ TEST_CASE("Catch2 Container Iterator Performance", "[ContainerIterator][performa
               });
           } 
           });
-      } // WHEN
-
-    WHEN("Includeing fence in timing.") {
-      // Make a function for initializing the container variables
-      performance_test_wrapper("Mask: Iterate Variables Perf", init_container, [&]() {
-          const CellVariableVector<Real> &cv = container.GetCellVariableVector();
-          for (int n = 0; n < cv.size(); n++) {
-          ParArrayND<Real> v = cv[n]->data;
-          Kokkos::fence();
-          par_for(
-              "Iterate Variables Perf", DevExecSpace(), 0, v.GetDim(4) - 1, 0,
-              v.GetDim(3) - 1, 0, v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
-              KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
-              v(l, k, j, i) *= v(l, k, j, i); // Do something trivial, square each term
-              });
-          } 
-          Kokkos::fence();
-          });
-      } // WHEN
     } // GIVEN
   } // SECTION
 
@@ -269,7 +223,7 @@ TEST_CASE("Catch2 Container Iterator Performance", "[ContainerIterator][performa
 
       WHEN("The view of views is implemneted with names and indices.") {
         PackIndexMap imap;
-        auto vsub = container.PackVariables({"v1", "v2", "v5"}, imap);
+        auto vsub = container.PackVariables({"v0", "v1", "v2", "v3", "v4", "v5"}, imap);
         auto init_view_of_views = createLambdaInitViewOfViews(vsub);
         performance_test_wrapper("View of views", init_view_of_views, [&]() {
             par_for(
