@@ -17,6 +17,7 @@
 #include <array>
 #include <cmath>
 #include <iostream>
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -50,64 +51,33 @@ using parthenon::X1DIR;
 using parthenon::X2DIR;
 using parthenon::X3DIR;
 
-// Test wrapper to run a function multiple times
+// File scope variables
+static const int N = 32; // Dimensions of blocks
+static const int Nvar = 10;
+
 template <typename InitFunc, typename PerfFunc>
-double performance_test_wrapper(const int n_burn, const int n_perf, InitFunc init_func,
+void performance_test_wrapper(const std::string test_name, InitFunc init_func,
                                 PerfFunc perf_func) {
-  // Initialize the timer and test
-  Kokkos::Timer timer;
-  init_func();
 
-  for (int i_run = 0; i_run < n_burn; i_run++) {
-    // burn
-    perf_func();
-  }
-  Kokkos::fence();
-  timer.reset();
-  for (int i_run = 0; i_run < n_perf; i_run++) {
-    // time
-    perf_func();
-  }
-
-  // Time it
-  Kokkos::fence();
-  double perf_time = timer.seconds();
-
-  // FIXME?
-  // Validate results?
-
-  return perf_time;
+  BENCHMARK_ADVANCED(test_name.c_str())(Catch::Benchmark::Chronometer meter) {
+    init_func();
+    Kokkos::fence();
+    meter.measure([&]() { return perf_func(); });
+    Kokkos::fence();
+  };
 }
 
-TEST_CASE("Container Iterator Performance", "[ContainerIterator][performance]") {
-  const int N = 32; // Dimensions of blocks
-  const int Nvar = 10;
-  const int n_burn = 500; // Num times to burn in before timing
-  const int n_perf = 500; // Num times to run while timing
+//template <typename InitFunc, typename PerfFunc>
+//void performance_test_wrapper_inc_fence(const std::string test_name, InitFunc init_func,
+//                                PerfFunc perf_func) {
+//
+//  BENCHMARK_ADVANCED(test_name.c_str())(Catch::Benchmark::Chronometer meter) {
+//    init_func();
+//    meter.measure([&]() { return Kokkos::fence(); perf_func(); Kokkos::fence;});
+//  };
+//}
 
-  // Make a raw ParArray4D for closest to bare metal looping
-  ParArrayND<Real> raw_array("raw_array", Nvar, N, N, N);
-
-  // Make a function for initializing the raw ParArray4D
-  auto init_raw_array = [&]() {
-    par_for(
-        "Initialize ", DevExecSpace(), 0, Nvar - 1, 0, N - 1, 0, N - 1, 0, N - 1,
-        KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
-          raw_array(l, k, j, i) =
-              static_cast<Real>((l + 1) * (k + 1) * (j + 1) * (i + 1));
-        });
-  };
-
-  // Test performance iterating over variables (we should aim for this performance)
-  double time_raw_array = performance_test_wrapper(n_burn, n_perf, init_raw_array, [&]() {
-    par_for(
-        "Raw Array Perf", DevExecSpace(), 0, Nvar - 1, 0, N - 1, 0, N - 1, 0, N - 1,
-        KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
-          raw_array(l, k, j, i) *=
-              raw_array(l, k, j, i); // Do something trivial, square each term
-        });
-  });
-
+static Container<Real> createTestContainer() {
   // Make a container for testing performance
   Container<Real> container;
   Metadata m_in({Metadata::Independent});
@@ -122,161 +92,195 @@ TEST_CASE("Container Iterator Performance", "[ContainerIterator][performance]") 
   container.Add("v3", m_in, scalar_block_size);
   container.Add("v4", m_in, vector_block_size);
   container.Add("v5", m_in, scalar_block_size);
-  // Make a function for initializing the container variables
-  auto init_container = [&]() {
-    const CellVariableVector<Real> &cv = container.GetCellVariableVector();
-    for (int n = 0; n < cv.size(); n++) {
-      ParArrayND<Real> v = cv[n]->data;
-      par_for(
-          "Initialize variables", DevExecSpace(), 0, v.GetDim(4) - 1, 0, v.GetDim(3) - 1,
-          0, v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
-          KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
-            v(l, k, j, i) = static_cast<Real>((l + 1) * (k + 1) * (j + 1) * (i + 1));
-          });
-    }
-  };
+  return container;
+}
 
-  // Test performance iterating over variables in container
-  double time_iterate_variables =
-      performance_test_wrapper(n_burn, n_perf, init_container, [&]() {
-        const CellVariableVector<Real> &cv = container.GetCellVariableVector();
-        for (int n = 0; n < cv.size(); n++) {
+std::function<void()> createLambdaRaw(ParArrayND<Real> & raw_array){
+  return [&]() {
+    par_for(
+        "Initialize ", DevExecSpace(), 0, Nvar - 1, 0, N - 1, 0, N - 1, 0, N - 1,
+        KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
+        raw_array(l, k, j, i) =
+        static_cast<Real>((l + 1) * (k + 1) * (j + 1) * (i + 1));
+        });
+  };
+}
+
+std::function<void()> createLambdaContainer(Container<Real> & container){
+  return [&]() {
+      const CellVariableVector<Real> &cv = container.GetCellVariableVector();
+      for (int n = 0; n < cv.size(); n++) {
+        ParArrayND<Real> v = cv[n]->data;
+        par_for(
+            "Initialize variables", DevExecSpace(), 0, v.GetDim(4) - 1, 0, v.GetDim(3) - 1,
+            0, v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
+            KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
+            v(l, k, j, i) = static_cast<Real>((l + 1) * (k + 1) * (j + 1) * (i + 1));
+            });
+      }
+      return container;
+    };
+}
+
+std::function<void()> createLambdaInitViewOfViews(parthenon::VariablePack<Real> & var_view){
+  return [&]() {
+        par_for(
+            "Initialize ", DevExecSpace(), 0, var_view.GetDim(4) - 1, 0,
+            var_view.GetDim(3) - 1, 0, var_view.GetDim(2) - 1, 0, var_view.GetDim(1) - 1,
+            KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
+            var_view(l, k, j, i) =
+            static_cast<Real>((l + 1) * (k + 1) * (j + 1) * (i + 1));
+            });
+      };
+}
+
+TEST_CASE("Catch2 Container Iterator Performance", "[ContainerIterator][performance]") {
+
+  SECTION("Raw Array") { 
+    GIVEN("A raw ParArray4d"){
+      // Make a raw ParArray4D for closest to bare metal looping
+      ParArrayND<Real> raw_array("raw_array", Nvar, N, N, N);
+      auto init_raw_array = createLambdaRaw(raw_array);
+      WHEN("Not including fence in timing.") {
+        // Make a function for initializing the raw ParArray4D
+        performance_test_wrapper("Mask: Raw Array Perf", init_raw_array,[&]() {
+            par_for(
+                "Raw Array Perf", DevExecSpace(), 0, Nvar - 1, 0, N - 1, 0, N - 1, 0, N - 1,
+                KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
+                raw_array(l, k, j, i) *=
+                raw_array(l, k, j, i); // Do something trivial, square each term
+                });
+            });
+      } // WHEN
+
+      WHEN("Including fence in timing.") {
+        // Make a raw ParArray4D for closest to bare metal looping
+        ParArrayND<Real> raw_array("raw_array", Nvar, N, N, N);
+        auto init_raw_array = createLambdaRaw(raw_array);
+        // Make a function for initializing the raw ParArray4D
+        performance_test_wrapper("Mask: Raw Array Perf with fence", init_raw_array,[&]() {
+            Kokkos::fence();
+            par_for(
+                "Raw Array Perf", DevExecSpace(), 0, Nvar - 1, 0, N - 1, 0, N - 1, 0, N - 1,
+                KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
+                raw_array(l, k, j, i) *=
+                raw_array(l, k, j, i); // Do something trivial, square each term
+                });
+            Kokkos::fence();
+            });
+      } // WHEN
+    } // GIVEN
+  } // SECTION
+
+  SECTION("Iterate Variables") {
+    GIVEN("A container.") {
+    Container<Real> container = createTestContainer();
+    auto init_container = createLambdaContainer(container);
+    WHEN("Not includeing fence in timing.") {
+      // Make a function for initializing the container variables
+      performance_test_wrapper("Mask: Iterate Variables Perf", init_container, [&]() {
+          const CellVariableVector<Real> &cv = container.GetCellVariableVector();
+          for (int n = 0; n < cv.size(); n++) {
           ParArrayND<Real> v = cv[n]->data;
           par_for(
               "Iterate Variables Perf", DevExecSpace(), 0, v.GetDim(4) - 1, 0,
               v.GetDim(3) - 1, 0, v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
               KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
-                v(l, k, j, i) *= v(l, k, j, i); // Do something trivial, square each term
+              v(l, k, j, i) *= v(l, k, j, i); // Do something trivial, square each term
               });
-        }
-      });
-
-  { // Grab variables by mask and do timing tests
-    auto var_view = container.PackVariables({Metadata::Independent});
-
-    auto init_view_of_views = [&]() {
-      par_for(
-          "Initialize ", DevExecSpace(), 0, var_view.GetDim(4) - 1, 0,
-          var_view.GetDim(3) - 1, 0, var_view.GetDim(2) - 1, 0, var_view.GetDim(1) - 1,
-          KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
-            var_view(l, k, j, i) =
-                static_cast<Real>((l + 1) * (k + 1) * (j + 1) * (i + 1));
+          } 
           });
-    };
+      } // WHEN
 
-    // Test performance of view of views VariablePack implementation
-    double time_view_of_views =
-        performance_test_wrapper(n_burn, n_perf, init_view_of_views, [&]() {
+    WHEN("Includeing fence in timing.") {
+      // Make a function for initializing the container variables
+      performance_test_wrapper("Mask: Iterate Variables Perf", init_container, [&]() {
+          const CellVariableVector<Real> &cv = container.GetCellVariableVector();
+          for (int n = 0; n < cv.size(); n++) {
+          ParArrayND<Real> v = cv[n]->data;
+          Kokkos::fence();
           par_for(
-              "Flat Container Array Perf", DevExecSpace(), 0, var_view.GetDim(4) - 1, 0,
-              var_view.GetDim(3) - 1, 0, var_view.GetDim(2) - 1, 0,
-              var_view.GetDim(1) - 1,
+              "Iterate Variables Perf", DevExecSpace(), 0, v.GetDim(4) - 1, 0,
+              v.GetDim(3) - 1, 0, v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
               KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
+              v(l, k, j, i) *= v(l, k, j, i); // Do something trivial, square each term
+              });
+          } 
+          Kokkos::fence();
+          });
+      } // WHEN
+    } // GIVEN
+  } // SECTION
+
+
+  SECTION("View of Views") {
+    GIVEN("A container."){
+      Container<Real> container = createTestContainer();
+      WHEN("The view of views does not have any names."){
+        parthenon::VariablePack<Real> var_view = container.PackVariables({Metadata::Independent});
+        auto init_view_of_views = createLambdaInitViewOfViews(var_view);
+        // Test performance of view of views VariablePack implementation
+        performance_test_wrapper("Mask: View of Views Perf", init_view_of_views, [&]() {
+            par_for(
+                "Flat Container Array Perf", DevExecSpace(), 0, var_view.GetDim(4) - 1, 0,
+                var_view.GetDim(3) - 1, 0, var_view.GetDim(2) - 1, 0,
+                var_view.GetDim(1) - 1,
+                KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
                 auto &var = var_view(l);
                 var(k, j, i) *= var(k, j, i); // Do something trivial, square each term
-              });
-        });
+                });
+            });
+      } // WHEN
 
-    std::cout << "Mask: raw_array performance: " << time_raw_array << std::endl;
-    std::cout << "Mask: iterate_variables performance: " << time_iterate_variables
-              << std::endl;
-    std::cout << "Mask: iterate_variables/raw_array "
-              << time_iterate_variables / time_raw_array << std::endl;
-    std::cout << "Mask: view_of_views performance: " << time_view_of_views << std::endl;
-    std::cout << "Mask: view_of_views/raw_array " << time_view_of_views / time_raw_array
-              << std::endl;
-  }
-  { // Grab variables by name and do timing tests
-    std::vector<std::string> names({"v0", "v1", "v2", "v3", "v4", "v5"});
-    auto var_view_named = container.PackVariables(names);
-
-    auto init_view_of_views = [&]() {
-      par_for(
-          "Initialize ", DevExecSpace(), 0, var_view_named.GetDim(4) - 1, 0,
-          var_view_named.GetDim(3) - 1, 0, var_view_named.GetDim(2) - 1, 0,
-          var_view_named.GetDim(1) - 1,
-          KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
-            var_view_named(l, k, j, i) =
-                static_cast<Real>((l + 1) * (k + 1) * (j + 1) * (i + 1));
-          });
-    };
-
-    // Test performance of view of views VariablePack implementation
-    double time_view_of_views =
-        performance_test_wrapper(n_burn, n_perf, init_view_of_views, [&]() {
-          par_for(
-              "Flat Container Array Perf", DevExecSpace(), 0,
-              var_view_named.GetDim(4) - 1, 0, var_view_named.GetDim(3) - 1, 0,
-              var_view_named.GetDim(2) - 1, 0, var_view_named.GetDim(1) - 1,
-              KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
+      WHEN("The view of views is implmeneted with names.") {
+        std::vector<std::string> names({"v0", "v1", "v2", "v3", "v4", "v5"});
+        parthenon::VariablePack<Real> var_view_named = container.PackVariables(names);
+        auto init_view_of_views = createLambdaInitViewOfViews(var_view_named);
+        // Test performance of view of views VariablePack implementation
+        performance_test_wrapper("Named: View of views", init_view_of_views, [&]() {
+            par_for(
+                "Flat Container Array Perf", DevExecSpace(), 0,
+                var_view_named.GetDim(4) - 1, 0, var_view_named.GetDim(3) - 1, 0,
+                var_view_named.GetDim(2) - 1, 0, var_view_named.GetDim(1) - 1,
+                KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
                 var_view_named(l, k, j, i) *=
-                    var_view_named(l, k, j, i); // Do something trivial, square each term
-              });
-        });
+                var_view_named(l, k, j, i); // Do something trivial, square each term
+                });
+            });
+      } // WHEN
 
-    // Test performance of view of views when the pack is built every time
-    // tests caching
-    double time_always_pack =
-        performance_test_wrapper(n_burn, n_perf, init_view_of_views, [&]() {
-          auto var_view_named = container.PackVariables(names);
-          par_for(
-              "Always pack Perf", DevExecSpace(), 0, var_view_named.GetDim(4) - 1, 0,
-              var_view_named.GetDim(3) - 1, 0, var_view_named.GetDim(2) - 1, 0,
-              var_view_named.GetDim(1) - 1,
-              KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
+      // The pack is built every time, tests caching
+      WHEN("The view of views is implmeneted with names and construction of Pack Variables is included in the timing."){
+        std::vector<std::string> names({"v0", "v1", "v2", "v3", "v4", "v5"});
+        auto var_view_named = container.PackVariables(names);
+        auto init_view_of_views = createLambdaInitViewOfViews(var_view_named);
+        performance_test_wrapper("View of views", init_view_of_views, [&]() {
+            auto var_view_named = container.PackVariables(names);
+            par_for(
+                "Always pack Perf", DevExecSpace(), 0, var_view_named.GetDim(4) - 1, 0,
+                var_view_named.GetDim(3) - 1, 0, var_view_named.GetDim(2) - 1, 0,
+                var_view_named.GetDim(1) - 1,
+                KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
                 var_view_named(l, k, j, i) *=
-                    var_view_named(l, k, j, i); // Do something trivial, square each term
-              });
-        });
+                var_view_named(l, k, j, i); // Do something trivial, square each term
+                });
+            });
+      } // WHEN
 
-    std::cout << "Named: raw_array performance: " << time_raw_array << std::endl;
-    std::cout << "Named: iterate_variables performance: " << time_iterate_variables
-              << std::endl;
-    std::cout << "Named: iterate_variables/raw_array "
-              << time_iterate_variables / time_raw_array << std::endl;
-    std::cout << "Named: view_of_views performance: " << time_view_of_views << std::endl;
-    std::cout << "Named: view_of_views/raw_array " << time_view_of_views / time_raw_array
-              << std::endl;
-    std::cout << "Named: always pack performance: " << time_always_pack << std::endl;
-    std::cout << "Named: always_pack/raw_array " << time_always_pack / time_raw_array
-              << std::endl;
-  }
-  { // Grab some variables by name with indexing and do timing tests
-    PackIndexMap imap;
-    auto vsub = container.PackVariables({"v1", "v2", "v5"}, imap);
-
-    auto init_view_of_views = [&]() {
-      par_for(
-          "Initialize ", DevExecSpace(), 0, vsub.GetDim(4) - 1, 0, vsub.GetDim(3) - 1, 0,
-          vsub.GetDim(2) - 1, 0, vsub.GetDim(1) - 1,
-          KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
-            vsub(l, k, j, i) = static_cast<Real>((l + 1) * (k + 1) * (j + 1) * (i + 1));
-          });
-    };
-
-    // Test performance of view of views VariablePack implementation
-    double time_view_of_views =
-        performance_test_wrapper(n_burn, n_perf, init_view_of_views, [&]() {
-          par_for(
-              "Flat Container Array Perf", DevExecSpace(), 0, vsub.GetDim(4) - 1, 0,
-              vsub.GetDim(3) - 1, 0, vsub.GetDim(2) - 1, 0, vsub.GetDim(1) - 1,
-              KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
+      WHEN("The view of views is implemneted with names and indices.") {
+        PackIndexMap imap;
+        auto vsub = container.PackVariables({"v1", "v2", "v5"}, imap);
+        auto init_view_of_views = createLambdaInitViewOfViews(vsub);
+        performance_test_wrapper("View of views", init_view_of_views, [&]() {
+            par_for(
+                "Flat Container Array Perf", DevExecSpace(), 0, vsub.GetDim(4) - 1, 0,
+                vsub.GetDim(3) - 1, 0, vsub.GetDim(2) - 1, 0, vsub.GetDim(1) - 1,
+                KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
                 vsub(l, k, j, i) *=
-                    vsub(l, k, j, i); // Do something trivial, square each term
-              });
-        });
-    // we only did half as many variables, so multiply by two for something quick and
-    // dirty
-    time_view_of_views *= 2.0;
-
-    std::cout << "Indexed: raw_array performance: " << time_raw_array << std::endl;
-    std::cout << "Indexed: iterate_variables performance: " << time_iterate_variables
-              << std::endl;
-    std::cout << "Indexed: iterate_variables/raw_array "
-              << time_iterate_variables / time_raw_array << std::endl;
-    std::cout << "Indexed: view_of_views performance: " << time_view_of_views
-              << std::endl;
-    std::cout << "Indexed: view_of_views/raw_array "
-              << time_view_of_views / time_raw_array << std::endl;
-  }
-}
+                vsub(l, k, j, i); // Do something trivial, square each term
+                });
+            });
+      }
+    } // GIVEN
+  } // SECTION
+} // TEST_CASE
