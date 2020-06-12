@@ -28,6 +28,7 @@ if(CODE_COVERAGE)
       message(WARNING "Using code coverage with an optimized build is discouraged, as it may lead to misleading results.")
   endif() 
 
+  message(STATUS "Coverage reports will be placed in ${COVERAGE_PATH}/${COVERAGE_NAME}")
  
   set(OBJECT_DIR ${CMAKE_BINARY_DIR}/obj)
   get_target_property(PARTHENON_SOURCES parthenon SOURCES)
@@ -37,27 +38,26 @@ if(CODE_COVERAGE)
   add_custom_command(TARGET coverage
 
     COMMAND echo "====================== Code Coverage ======================"
-    COMMAND mkdir -p coverage
-    COMMAND mkdir -p coverage/${COVERAGE_NAME}
+    COMMAND mkdir -p ${COVERAGE_PATH}/${COVERAGE_NAME}
     COMMAND ${PATH_LCOV} --version
     # Clean
     COMMAND ${PATH_LCOV} --gcov-tool ${PATH_GCOV} --directory ${CMAKE_BINARY_DIR} -b ${CMAKE_SOURCE_DIR} --zerocounters
     # Base report
     COMMAND ctest -R unit 
-    COMMAND ${PATH_LCOV} --gcov-tool ${PATH_GCOV} -c -i -d ${CMAKE_BINARY_DIR} -b ${CMAKE_SOURCE_DIR} -o ${CMAKE_BINARY_DIR}/coverage/${COVERAGE_NAME}/report.base.old
+    COMMAND ${PATH_LCOV} --gcov-tool ${PATH_GCOV} -c -i -d ${CMAKE_BINARY_DIR} -b ${CMAKE_SOURCE_DIR} -o ${COVERAGE_PATH}/${COVERAGE_NAME}/report.base.old
     # Remove Kokkos info from code coverage
-    COMMAND ${PATH_LCOV} --remove ${CMAKE_BINARY_DIR}/coverage/${COVERAGE_NAME}/report.base.old 'Kokkos/*' -o ${CMAKE_BINARY_DIR}/coverage/${COVERAGE_NAME}/report.base
+    COMMAND ${PATH_LCOV} --remove ${COVERAGE_PATH}/${COVERAGE_NAME}/report.base.old 'Kokkos/*' -o ${COVERAGE_PATH}/${COVERAGE_NAME}/report.base
     # Capture information from test runs
-    COMMAND ${PATH_LCOV} --gcov-tool ${PATH_GCOV} --directory ${CMAKE_BINARY_DIR} -b ${CMAKE_SOURCE_DIR} --capture --output-file ${CMAKE_BINARY_DIR}/coverage/${COVERAGE_NAME}/report.test.old
+    COMMAND ${PATH_LCOV} --gcov-tool ${PATH_GCOV} --directory ${CMAKE_BINARY_DIR} -b ${CMAKE_SOURCE_DIR} --capture --output-file ${COVERAGE_PATH}/${COVERAGE_NAME}/report.test.old
     # Remove Kokkos info from code coverage
-    COMMAND ${PATH_LCOV} --remove ${CMAKE_BINARY_DIR}/coverage/${COVERAGE_NAME}/report.test.old 'Kokkos/*' -o ${CMAKE_BINARY_DIR}/coverage/${COVERAGE_NAME}/report.test
+    COMMAND ${PATH_LCOV} --remove ${COVERAGE_PATH}/${COVERAGE_NAME}/report.test.old 'Kokkos/*' -o ${COVERAGE_PATH}/${COVERAGE_NAME}/report.test
     # Combining base line counters with counters from running tests
-    COMMAND ${PATH_LCOV} --gcov-tool ${PATH_GCOV} -a ${CMAKE_BINARY_DIR}/coverage/${COVERAGE_NAME}/report.base -a ${CMAKE_BINARY_DIR}/coverage/${COVERAGE_NAME}/report.test --output-file ${CMAKE_BINARY_DIR}/coverage/${COVERAGE_NAME}/report.all
+    COMMAND ${PATH_LCOV} --gcov-tool ${PATH_GCOV} -a ${COVERAGE_PATH}/${COVERAGE_NAME}/report.base -a ${COVERAGE_PATH}/${COVERAGE_NAME}/report.test --output-file ${COVERAGE_PATH}/${COVERAGE_NAME}/report.all
     # Remove unneeded reports
-    COMMAND rm ${CMAKE_BINARY_DIR}/coverage/${COVERAGE_NAME}/report.test.old
-    COMMAND rm ${CMAKE_BINARY_DIR}/coverage/${COVERAGE_NAME}/report.base.old
-    COMMAND rm ${CMAKE_BINARY_DIR}/coverage/${COVERAGE_NAME}/report.base
-    COMMAND rm ${CMAKE_BINARY_DIR}/coverage/${COVERAGE_NAME}/report.test
+    COMMAND rm ${COVERAGE_PATH}/${COVERAGE_NAME}/report.test.old
+    COMMAND rm ${COVERAGE_PATH}/${COVERAGE_NAME}/report.base.old
+    COMMAND rm ${COVERAGE_PATH}/${COVERAGE_NAME}/report.base
+    COMMAND rm ${COVERAGE_PATH}/${COVERAGE_NAME}/report.test
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     )
 
@@ -66,12 +66,10 @@ if(CODE_COVERAGE)
   add_custom_command(TARGET coverage-upload
     COMMAND echo "================ Uploading Code Coverage =================="
     # Upload coverage report
-    COMMAND ${CMAKE_SOURCE_DIR}/scripts/combine_coverage.sh ${PATH_LCOV} ${PATH_GCOV}
-    COMMAND cd ${CMAKE_BINARY_DIR}/coverage/CombinedCoverage
-    COMMAND curl -s https://codecov.io/bash\ > script.coverage
-    COMMAND bash script.coverage
-    COMMAND cd ../ 
-    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/coverage
+    COMMAND ${CMAKE_SOURCE_DIR}/scripts/combine_coverage.sh ${PATH_LCOV} ${PATH_GCOV} ${COVERAGE_PATH}
+    COMMAND curl -s https://codecov.io/bash\ > ${COVERAGE_PATH}/CombinedCoverage/script.coverage
+    COMMAND cd ${COVERAGE_PATH}/CombinedCoverage && bash ${COVERAGE_PATH}/CombinedCoverage/script.coverage -p ${CMAKE_BINARY_DIR} -s ${COVERAGE_PATH}/CombinedCoverage
+    WORKING_DIRECTORY ${COVERAGE_PATH}
     )
 
   if(ENABLE_UNIT_TESTS)
@@ -83,7 +81,6 @@ else()
   add_custom_command(TARGET coverage
     COMMAND echo "====================== Code Coverage ======================"
     COMMENT "Code coverage has not been enabled"
-    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/coverage
     )
 endif()
 
