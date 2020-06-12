@@ -77,7 +77,7 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
       }
     }
   }
-  q.DeepCopy(q_h);
+  q.DeepCopy(rc.pmy_block->exec_space, q_h);
 }
 
 void ParthenonManager::SetFillDerivedFunctions() {

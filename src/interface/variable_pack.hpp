@@ -119,9 +119,9 @@ template <typename T>
 using MapToVariableFluxPack = std::map<vpack_types::StringPair, FluxPackIndxPair<T>>;
 
 template <typename T>
-VariableFluxPack<T> MakeFluxPack(const vpack_types::VarList<T> &vars,
-                                 const vpack_types::VarList<T> &flux_vars,
-                                 PackIndexMap *vmap = nullptr) {
+VariableFluxPack<T>
+MakeFluxPack(const DevExecSpace exec_space, const vpack_types::VarList<T> &vars,
+             const vpack_types::VarList<T> &flux_vars, PackIndexMap *vmap = nullptr) {
   using vpack_types::IndexPair;
   // count up the size
   int vsize = 0;
@@ -181,15 +181,16 @@ VariableFluxPack<T> MakeFluxPack(const vpack_types::VarList<T> &vars,
           std::pair<std::string, IndexPair>(v->label(), IndexPair(vstart, vindex - 1)));
     }
   }
-  cv.DeepCopy(host_view);
-  f1.DeepCopy(host_f1);
-  f2.DeepCopy(host_f2);
-  f3.DeepCopy(host_f3);
+  cv.DeepCopy(exec_space, host_view);
+  f1.DeepCopy(exec_space, host_f1);
+  f2.DeepCopy(exec_space, host_f2);
+  f3.DeepCopy(exec_space, host_f3);
   return VariableFluxPack<T>(cv, f1, f2, f3, cv_size, fsize);
 }
 
 template <typename T>
-VariablePack<T> MakePack(const vpack_types::VarList<T> &vars,
+VariablePack<T> MakePack(const DevExecSpace exec_space,
+                         const vpack_types::VarList<T> &vars,
                          PackIndexMap *vmap = nullptr) {
   using vpack_types::IndexPair;
   // count up the size
@@ -234,7 +235,7 @@ VariablePack<T> MakePack(const vpack_types::VarList<T> &vars,
                                                    IndexPair(sparse_start, vindex - 1)));
   }
 
-  cv.DeepCopy(host_view);
+  cv.DeepCopy(exec_space, host_view);
   auto fvar = vars.front()->data;
   std::array<int, 4> cv_size = {fvar.GetDim(1), fvar.GetDim(2), fvar.GetDim(3), vsize};
   return VariablePack<T>(cv, cv_size);

@@ -135,8 +135,8 @@ class ParArrayNDGeneric {
   auto GetDeviceMirror() { return GetMirror(Kokkos::DefaultExecutionSpace()); }
 
   template <typename Other>
-  void DeepCopy(const Other &src) {
-    Kokkos::deep_copy(d6d_, src.Get());
+  void DeepCopy(DevExecSpace exec_space, const Other &src) {
+    Kokkos::deep_copy(exec_space, d6d_, src.Get());
   }
 
   template <typename MemSpace>

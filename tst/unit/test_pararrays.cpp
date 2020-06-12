@@ -217,7 +217,7 @@ TEST_CASE("ParArrayND", "[ParArrayND][Kokkos]") {
         }
       }
       // Kokkos::deep_copy(view,mirror);
-      a.DeepCopy(mirror);
+      a.DeepCopy(DevExecSpace(), mirror);
       THEN("the sum of the lower three indices is correct") {
         int sum_device = 0;
         Kokkos::parallel_reduce(
@@ -322,7 +322,7 @@ TEST_CASE("ParArrayND with LayoutLeft", "[ParArrayND][Kokkos][LayoutLeft]") {
         }
       }
       // Kokkos::deep_copy(view,mirror);
-      a.DeepCopy(mirror);
+      a.DeepCopy(DevExecSpace(), mirror);
       THEN("the sum of the lower three indices is correct") {
         int sum_device = 0;
         Kokkos::parallel_reduce(
@@ -437,7 +437,7 @@ TEST_CASE("Check registry pressure", "[ParArrayND][performance]") {
       }
     }
     Kokkos::deep_copy(views(n), v_h);
-    arrays(n).DeepCopy(a_h);
+    arrays(n).DeepCopy(DevExecSpace(), a_h);
   }
   // perform a compute intensive, non-stencil, task and see
   // performance

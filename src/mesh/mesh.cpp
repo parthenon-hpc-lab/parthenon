@@ -123,7 +123,7 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
         << "Number of Stream must be >= 1, but num_streams=" << num_mesh_streams_
         << std::endl;
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
 
   if (num_mesh_streams_ > 1) {
@@ -580,7 +580,7 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper &resfile, Properties_t &properties,
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
         << "Number of Stream must be >= 1, but num_streams=" << num_mesh_streams_
         << std::endl;
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
 
   if(num_mesh_streams_> 1) {

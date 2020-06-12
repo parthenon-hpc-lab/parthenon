@@ -237,7 +237,7 @@ VariableFluxPack<T> Container<T>::PackVariablesAndFluxesHelper_(
   auto key = std::make_pair(var_names, flx_names);
   auto kvpair = varFluxPackMap_.find(key);
   if (kvpair == varFluxPackMap_.end()) {
-    auto pack = MakeFluxPack(vars, fvars, &vmap);
+    auto pack = MakeFluxPack(pmy_block->exec_space, vars, fvars, &vmap);
     FluxPackIndxPair<T> value;
     value.pack = pack;
     value.map = vmap;
@@ -303,7 +303,7 @@ VariablePack<T> Container<T>::PackVariablesHelper_(const std::vector<std::string
                                                    PackIndexMap &vmap) {
   auto kvpair = varPackMap_.find(names);
   if (kvpair == varPackMap_.end()) {
-    auto pack = MakePack<T>(vars, &vmap);
+    auto pack = MakePack<T>(pmy_block->exec_space, vars, &vmap);
     PackIndxPair<T> value;
     value.pack = pack;
     value.map = vmap;
