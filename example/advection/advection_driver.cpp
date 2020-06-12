@@ -157,12 +157,12 @@ TaskList AdvectionDriver::MakeTaskList(MeshBlock *pmb, int stage) {
     // need to purge the stages and recreate the non-base containers or else there will be
     // bugs, e.g. the containers for rk stages won't have the same variables as the "base"
     // container, likely leading to strange errors and/or segfaults.
-    auto purge_stages = tl.AddTask<BlockTask>(
-        [](MeshBlock *pmb) {
-          pmb->real_containers.PurgeNonBase();
-          return TaskStatus::complete;
-        },
-        fill_derived, pmb);
+    //auto purge_stages = tl.AddTask<BlockTask>(
+    //    [](MeshBlock *pmb) {
+    //      pmb->real_containers.PurgeNonBase();
+    //      return TaskStatus::complete;
+    //    },
+    //    fill_derived, pmb);
   }
   return tl;
 }

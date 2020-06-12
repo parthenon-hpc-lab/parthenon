@@ -26,6 +26,7 @@
 #include <stdexcept>
 
 #include "athena.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
@@ -42,7 +43,7 @@ void ChangeRunDir(const char *pdir) {
   if (chdir(pdir)) {
     msg << "### FATAL ERROR in function [ChangeToRunDir]" << std::endl
         << "Cannot cd to directory '" << pdir << "'";
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
 
   return;
