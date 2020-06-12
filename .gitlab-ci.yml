@@ -204,6 +204,7 @@ parthenon-cpu-coverage:
     paths:
       - build-debug-coverage/CMakeFiles/CMakeOutput.log
   only:
+    - merge-requests
     - master
 
 
