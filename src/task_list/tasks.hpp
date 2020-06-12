@@ -196,7 +196,7 @@ class TaskList {
     return TaskListStatus::running;
   }
   template <typename T, class... Args>
-  TaskID AddTask(Args... args) {
+  TaskID AddTask(Args&&... args) {
     TaskID id(tasks_added_ + 1);
     task_list_.push_back(std::make_unique<T>(id, std::forward<Args>(args)...));
     tasks_added_++;
