@@ -106,11 +106,14 @@ class Swarm {
   }
 
   void printpool() {
+    printf("PRINT POOL!\n");
     ParticleVariable<int> &mask = GetInteger("mask");
     ParticleVariable<Real> &x = GetReal("x");
     ParticleVariable<Real> &y = GetReal("y");
     ParticleVariable<Real> &z = GetReal("z");
+    printf("Got mask, x, y, z\n");
     for (int n = 0; n < nmax_pool_; n++) {
+      printf("n: %i\n", n);
       printf("[%i] (x, y, z) = (%g, %g, %g) mask: %i\n", n, x(n), y(n), z(n), mask(n));
     }
   }
@@ -204,6 +207,7 @@ class Swarm {
   }
 
   std::vector<int> AddEmptyParticles(int num_to_add) {
+    printf("ADD EMPTY PARTICLES!\n");
     while (free_indices_.size() < num_to_add) {
       increasePoolMax();
     }
@@ -216,18 +220,27 @@ class Swarm {
     ParticleVariable<Real> &x = GetReal("x");
     ParticleVariable<Real> &y = GetReal("y");
     ParticleVariable<Real> &z = GetReal("z");
+    printf("got int, x, y, z!\n");
 
     for (int n = 0; n < num_to_add; n++) {
+      printf("n: %i\n", n);
       indices[n] = *free_index;
+      printf("index: %i\n", indices[n]);
       mask(*free_index) = 1;
+      printf("mask?\n");
       nmax_active_ = std::max<int>(nmax_active_, *free_index);
+      printf("nmax_active_ = %i\n", nmax_active_);
 
       x(*free_index) = 0.;
       y(*free_index) = 0.;
       z(*free_index) = 0.;
+      printf("x,y,z\n");
 
       free_index = free_indices_.erase(free_index);
+      printf("done\n");
     }
+
+    printf("out of loop\n");
 
     return indices;
   }

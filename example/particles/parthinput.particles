@@ -53,5 +53,5 @@ tlim = 1.0
 integrator = rk2
 
 <Particles>
-num_particles = 100000
+num_particles = 10
 particle_speed = 1.0

@@ -60,18 +60,27 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
   Swarm &s = sc.Get("my particles");
 
   //ParticleVariable<Real> &x = s.GetReal("x");
+  /*auto &x = s.GetReal("x").Get();
+  auto &y = s.GetReal("y").Get();
+  auto &z = s.GetReal("z").Get();
+  auto &vx = s.GetReal("vx").Get();
+  auto &vy = s.GetReal("vy").Get();
+  auto &vz = s.GetReal("vz").Get();*/
+
+  // Here we demonstrate the different ways to add particles
+
+  // Add the number of empty particles requested in parameter file
+  const int &num_particles_to_add = pkg->Param<int>("num_particles");
+  printf("about to add empty particles\n");
+  std::vector<int> empty_particle_indices = s.AddEmptyParticles(num_particles_to_add);
+  printf("am I here?\n");
+
   auto &x = s.GetReal("x").Get();
   auto &y = s.GetReal("y").Get();
   auto &z = s.GetReal("z").Get();
   auto &vx = s.GetReal("vx").Get();
   auto &vy = s.GetReal("vy").Get();
   auto &vz = s.GetReal("vz").Get();
-
-  // Here we demonstrate the different ways to add particles
-
-  // Add the number of empty particles requested in parameter file
-  const int &num_particles_to_add = pkg->Param<int>("num_particles");
-  std::vector<int> empty_particle_indices = s.AddEmptyParticles(num_particles_to_add);
 
   printf("x.getdim: %i\n", x.GetDim(1));
   printf("y.getdim: %i\n", y.GetDim(1));
