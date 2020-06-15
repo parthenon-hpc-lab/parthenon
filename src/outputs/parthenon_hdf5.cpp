@@ -186,7 +186,7 @@ void PHDF5Output::genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm) {
   int ndims = 5;
 
   // same set of variables for all grids so use only one container
-  auto ciX = ContainerIterator<Real>(pm->pblock.front().real_containers.Get(),
+  auto ciX = ContainerIterator<Real>(pm->block_list.front().real_containers.Get(),
                                      output_params.variables);
   for (int ib = 0; ib < pm->nbtotal; ib++) {
     xdmf << "    <Grid GridType=\"Uniform\" Name=\"" << ib << "\">" << std::endl;
@@ -244,7 +244,7 @@ void PHDF5Output::genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm) {
 #define LOADVARIABLE(dst, var, out_is, out_ie, out_js, out_je, out_ks, out_ke)           \
   {                                                                                      \
     int index = 0;                                                                       \
-    for (auto &block : pm->pblock) {                                                     \
+    for (auto &mb : pm->block_list) {                                                    \
       for (int k = out_ks; k <= out_ke; k++) {                                           \
         for (int j = out_js; j <= out_je; j++) {                                         \
           for (int i = out_is; i <= out_ie; i++) {                                       \
@@ -288,7 +288,7 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   const IndexDomain interior = IndexDomain::interior;
   const IndexDomain entire = IndexDomain::entire;
 
-  auto const &first_block = pm->pblock.front();
+  auto const &first_block = pm->block_list.front();
 
   // shooting a blank just for getting the variable names
   IndexRange out_ib = first_block.cellbounds.GetBoundsI(interior);
@@ -301,7 +301,7 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     out_kb = first_block.cellbounds.GetBoundsK(entire);
   }
 
-  int const num_blocks_local = static_cast<int>(pm->pblock.size());
+  int const num_blocks_local = static_cast<int>(pm->block_list.size());
 
   // set output size
   nx1 = first_block.block_size.nx1;
@@ -410,7 +410,7 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   status = H5Dclose(myDSet);
 
   // allocate space for largest size variable
-  auto ciX = ContainerIterator<Real>(pm->pblock.front().real_containers.Get(),
+  auto ciX = ContainerIterator<Real>(pm->block_list.front().real_containers.Get(),
                                      output_params.variables);
   size_t maxV = 1;
   hsize_t sumDim4AllVars = 0;
@@ -451,21 +451,21 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   local_count[0] = num_blocks_local;
   global_count[0] = max_blocks_global;
 
-  LOADVARIABLE(tmpData, pm->pblock.front().coords.x1f, out_ib.s, out_ib.e + 1, 0, 0, 0,
-               0);
+  LOADVARIABLE(tmpData, pm->block_list.front().coords.x1f, out_ib.s, out_ib.e + 1, 0, 0,
+               0, 0);
   local_count[1] = global_count[1] = nx1 + 1;
   WRITEH5SLAB("x", tmpData, gLocations, local_start, local_count, global_count,
               property_list);
 
   // write Y coordinates
-  LOADVARIABLE(tmpData, pm->pblock.front().coords.x2f, 0, 0, out_jb.s, out_jb.e + 1, 0,
-               0);
+  LOADVARIABLE(tmpData, pm->block_list.front().coords.x2f, 0, 0, out_jb.s, out_jb.e + 1,
+               0, 0);
   local_count[1] = global_count[1] = nx2 + 1;
   WRITEH5SLAB("y", tmpData, gLocations, local_start, local_count, global_count,
               property_list);
 
   // write Z coordinates
-  LOADVARIABLE(tmpData, pm->pblock.front().coords.x3f, 0, 0, 0, 0, out_kb.s,
+  LOADVARIABLE(tmpData, pm->block_list.front().coords.x3f, 0, 0, 0, 0, out_kb.s,
                out_kb.e + 1);
   local_count[1] = global_count[1] = nx3 + 1;
   WRITEH5SLAB("z", tmpData, gLocations, local_start, local_count, global_count,
@@ -515,9 +515,9 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       vGlobalSpace = H5Screate_simple(5, global_count, NULL);
     }
 
-    for (auto &block : pm->pblock) { // for every block1
+    for (auto &mb : pm->block_list) { // for every block1
       auto ci =
-          ContainerIterator<Real>(block.real_containers.Get(), output_params.variables);
+          ContainerIterator<Real>(mb.real_containers.Get(), output_params.variables);
       for (auto &v : ci.vars) {
         std::string name = v->label();
         if (name.compare(vWriteName) != 0) {
@@ -525,7 +525,7 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
           continue;
         }
         auto v_h = (*v).data.GetHostMirrorAndCopy();
-        hsize_t index = block.lid * varSize * vlen;
+        hsize_t index = mb.lid * varSize * vlen;
         if (vlen == 1) {
           for (int k = out_kb.s; k <= out_kb.e; k++) {
             for (int j = out_jb.s; j <= out_jb.e; j++) {

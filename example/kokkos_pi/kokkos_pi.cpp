@@ -123,8 +123,8 @@ static double sumArray(std::list<MeshBlock> &blocks, const int &n_block) {
   double theSum = 0.0;
   // reduce the sum on the device
   // I'm pretty sure I can do this better, but not worried about performance for this
-  for (auto &block : blocks) {
-    Container<Real> &base = block.real_containers.Get();
+  for (auto &mb : blocks) {
+    Container<Real> &base = mb.real_containers.Get();
     auto inOrOut = base.PackVariables({Metadata::Independent});
     double oneSum;
     Kokkos::parallel_reduce(

@@ -49,7 +49,7 @@ void Driver::PostExecute() {
                       static_cast<double>(CLOCKS_PER_SEC);
     std::uint64_t zonecycles =
         pmesh->mbcnt *
-        static_cast<std::uint64_t>(pmesh->pblock.front().GetNumberOfMeshBlockCells());
+        static_cast<std::uint64_t>(pmesh->block_list.front().GetNumberOfMeshBlockCells());
     double zc_cpus = static_cast<double>(zonecycles) / cpu_time;
 
     std::cout << std::endl << "zone-cycles = " << zonecycles << std::endl;
@@ -133,8 +133,8 @@ void EvolutionDriver::PostExecute(DriverStatus status) {
 
 void EvolutionDriver::InitializeBlockTimeSteps() {
   // calculate the first time step
-  for (auto &block : pmesh->pblock) {
-    block.SetBlockTimestep(Update::EstimateTimestep(block.real_containers.Get()));
+  for (auto &mb : pmesh->block_list) {
+    mb.SetBlockTimestep(Update::EstimateTimestep(mb.real_containers.Get()));
   }
 }
 
@@ -145,8 +145,8 @@ void EvolutionDriver::InitializeBlockTimeSteps() {
 void EvolutionDriver::SetGlobalTimeStep() {
   Real dt_max = 2.0 * tm.dt;
   tm.dt = std::numeric_limits<Real>::max();
-  for (auto const &block : pmesh->pblock) {
-    tm.dt = std::min(tm.dt, block.NewDt());
+  for (auto const &mb : pmesh->block_list) {
+    tm.dt = std::min(tm.dt, mb.NewDt());
   }
   tm.dt = std::min(dt_max, tm.dt);
 

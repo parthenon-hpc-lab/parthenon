@@ -462,9 +462,9 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
   for (int i = nbs; i <= nbe; i++) {
     SetBlockSizeAndBoundaries(loclist[i], block_size, block_bcs);
     // create a block and add into the link list
-    pblock.emplace_back(i, i - nbs, loclist[i], block_size, block_bcs, this, pin,
-                        properties, packages, gflag);
-    pblock.front().pbval->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
+    block_list.emplace_back(i, i - nbs, loclist[i], block_size, block_bcs, this, pin,
+                            properties, packages, gflag);
+    block_list.front().pbval->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
   }
 
   ResetLoadBalanceVariables();
@@ -512,7 +512,7 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper &resfile, Properties_t &properties,
       ncycle_out(pin->GetOrAddInteger("parthenon/time", "ncycle_out", 1)),
       dt_diagnostics(pin->GetOrAddInteger("parthenon/time", "dt_diagnostics", -1)),
       nbnew(),
-      nbdel(), step_since_lb(), gflag(), pblock(nullptr), properties(properties),
+      nbdel(), step_since_lb(), gflag(), block_list(nullptr), properties(properties),
       packages(packages),
       // private members:
       next_phys_id_(),
@@ -772,13 +772,13 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper &resfile, Properties_t &properties,
     std::uint64_t buff_os = datasize * (i - nbs);
     SetBlockSizeAndBoundaries(loclist[i], block_size, block_bcs);
     // create a block and add into the link list
-    pblock.emplace_back(i, i - nbs, this, pin, properties, packages, loclist[i],
+    block_list.emplace_back(i, i - nbs, this, pin, properties, packages, loclist[i],
                              block_size, block_bcs, costlist[i], mbdata + buff_os, gflag);
-    pblock.back().pbval->SearchAndSetNeighbors(tree, ranklist, nslist);
+    block_list.back().pbval->SearchAndSetNeighbors(tree, ranklist, nslist);
   }
   delete[] mbdata;
   // check consistency
-  if (datasize != pblock.front().GetBlockSizeInBytes()) {
+  if (datasize != block_list.front().GetBlockSizeInBytes()) {
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
         << "The restart file is broken or input parameters are inconsistent."
         << std::endl;
@@ -1035,8 +1035,8 @@ void Mesh::EnrollUserMetric(MetricFunc my_func) {
 // \brief Apply MeshBlock::UserWorkBeforeOutput
 
 void Mesh::ApplyUserWorkBeforeOutput(ParameterInput *pin) {
-  for (auto &block : pblock) {
-    block.UserWorkBeforeOutput(pin);
+  for (auto &mb : block_list) {
+    mb.UserWorkBeforeOutput(pin);
   }
 }
 
@@ -1060,8 +1060,8 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
     pmb_array.clear();
     pmb_array.reserve(nmb);
 
-    for (auto &block : pblock) {
-      pmb_array.push_back(&block);
+    for (auto &mb : block_list) {
+      pmb_array.push_back(&mb);
     }
 
     if (res_flag == 0) {
@@ -1172,7 +1172,7 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
 /// the search at.
 std::list<MeshBlock>::iterator Mesh::FindMeshBlock(int tgid) {
   // search the rest of the list
-  return std::find_if(pblock.begin(), pblock.end(),
+  return std::find_if(block_list.begin(), block_list.end(),
                       [tgid](MeshBlock const &bl) { return bl.gid == tgid; });
 }
 

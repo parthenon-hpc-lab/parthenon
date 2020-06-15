@@ -312,9 +312,9 @@ class Mesh {
   int GetNumMeshBlocksThisRank(int my_rank) { return nblist[my_rank]; }
   int GetNumMeshThreads() const { return num_mesh_threads_; }
   std::int64_t GetTotalCells() {
-    auto &block = pblock.front();
-    return static_cast<std::int64_t>(nbtotal) * block.block_size.nx1 *
-           block.block_size.nx2 * block.block_size.nx3;
+    auto &mb = block_list.front();
+    return static_cast<std::int64_t>(nbtotal) * mb.block_size.nx1 * mb.block_size.nx2 *
+           mb.block_size.nx3;
   }
 
   // data
@@ -330,7 +330,7 @@ class Mesh {
   int gflag;
 
   // ptr to first MeshBlock (node) in linked list of blocks belonging to this MPI rank:
-  std::list<MeshBlock> pblock;
+  std::list<MeshBlock> block_list;
   Properties_t properties;
   Packages_t packages;
 
