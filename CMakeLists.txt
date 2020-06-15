@@ -164,9 +164,6 @@ endif()
 # Build Tests and download Catch2
 if (${ENABLE_UNIT_TESTS} OR ${ENABLE_INTEGRATION_TESTS} OR ${ENABLE_REGRESSION_TESTS} OR ${ENABLE_PERFORMANCE_TESTS})
 
-  if (${ENABLE_PERFORMANCE_TESTS})
-    add_definitions(-DCATCH_CONFIG_ENABLE_BENCHMARKING)
-  endif()
   # Try finding an installed Catch2 first
   find_package(Catch2 2.11.1 QUIET)
 
