@@ -35,7 +35,6 @@ DriverStatus EvolutionDriver::Execute() {
     if (Globals::my_rank == 0) OutputCycleDiagnostics();
 
     TaskListStatus status = Step();
-    printf("%s %i\n", __FILE__, __LINE__);
     if (status != TaskListStatus::complete) {
       std::cerr << "Step failed to complete all tasks." << std::endl;
       return DriverStatus::failed;

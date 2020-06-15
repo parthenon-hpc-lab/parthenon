@@ -85,8 +85,6 @@ TaskStatus TransportSwarm(Swarm &in, Swarm &out, const Real dt) {
       z_out(n) = z_in(n) + mask(n)*vz(n)*dt;
     });
 
-  //out.printpool();
-
   return TaskStatus::complete;
 }
 

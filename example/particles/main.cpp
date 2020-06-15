@@ -30,26 +30,21 @@ int main(int argc, char *argv[]) {
     pman.ParthenonFinalize();
     return 1;
   }
-  printf("File: %s Line: %i\n", __FILE__, __LINE__);
   // Now that ParthenonInit has been called and setup succeeded, the code can now
   // make use of MPI and Kokkos
 
   // Initialize the driver
   particles_example::ParticleDriver driver(pman.pinput.get(), pman.pmesh.get());
                                             //pman.pouts.get());
-  printf("File: %s Line: %i\n", __FILE__, __LINE__);
 
   // start a timer
   pman.PreDriver();
-  printf("File: %s Line: %i\n", __FILE__, __LINE__);
 
   // This line actually runs the simulation
   auto driver_status = driver.Execute();
-  printf("File: %s Line: %i\n", __FILE__, __LINE__);
 
   // Make final outputs, print diagnostics
   pman.PostDriver(driver_status);
-  printf("File: %s Line: %i\n", __FILE__, __LINE__);
 
   // call MPI_Finalize and Kokkos::finalize if necessary
   pman.ParthenonFinalize();

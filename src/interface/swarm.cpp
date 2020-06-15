@@ -52,8 +52,6 @@ void Swarm::Add(const std::string label, const Metadata &metadata) {
     throw std::invalid_argument ("swarm variable " + label + " already enrolled during Add()!");
   }
 
-  printf("ADDING %s (nmax_pool_ = %i)\n", label.c_str(), nmax_pool_);
-
   if (metadata.Type() == Metadata::Integer) {
     auto var = std::make_shared<ParticleVariable<int>>(label, nmax_pool_, metadata);
     intVector_.push_back(var);
@@ -136,7 +134,6 @@ void Swarm::Remove(const std::string label) {
 }
 
 void Swarm::setPoolMax(const int nmax_pool) {
-  printf("Increasing pool max from %i to %i!\n", nmax_pool_, nmax_pool);
   if (nmax_pool < nmax_pool_) {
     printf("Must increase pool size!\n");
     exit(-1);
@@ -147,8 +144,6 @@ void Swarm::setPoolMax(const int nmax_pool) {
   for (int n = 0; n < n_new; n++) {
     free_indices_.push_back(n + n_new_begin);
   }
-
-  //mask.resize
 
   // Resize and copy data
   for (int n = 0; n < intVector_.size(); n++) {
@@ -165,7 +160,6 @@ void Swarm::setPoolMax(const int nmax_pool) {
 
   for (int n = 0; n < realVector_.size(); n++) {
     auto oldvar = realVector_[n];
-    printf("making newvar (%s) of size %i\n", oldvar->label().c_str(), nmax_pool);
     auto newvar = std::make_shared<ParticleVariable<Real>>(oldvar->label(),
                                                            nmax_pool,
                                                            oldvar->metadata());
@@ -174,11 +168,6 @@ void Swarm::setPoolMax(const int nmax_pool) {
     }
     realVector_[n] = newvar;
     realMap_[oldvar->label()] = newvar;
-  }
-
-  for (int n = 0; n < realVector_.size(); n++) {
-    printf("new var (%s) has size %i\n", realVector_[n]->label().c_str(),
-      realVector_[n]->Get().GetDim(1));
   }
 
   nmax_pool_ = nmax_pool;

@@ -62,7 +62,6 @@ TaskListStatus MultiStageBlockTaskDriver::Step() {
   TaskListStatus status;
   integrator->dt = tm.dt;
   for (int stage = 1; stage <= integrator->nstages; stage++) {
-    printf("stage: %i/%i\n", stage, integrator->nstages);
     status = ConstructAndExecuteBlockTasks<>(this, stage);
     if (status != TaskListStatus::complete) break;
   }

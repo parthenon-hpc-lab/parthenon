@@ -73,11 +73,6 @@ class Swarm {
   void Remove(const std::string label);
 
   ParticleVariable<Real> &GetReal(const std::string label) {
-  for (int n = 0; n < realVector_.size(); n++) {
-    printf("getreal var (%s) has size %i\n", realVector_[n]->label().c_str(),
-      //realVector_[n]->Get().GetDim(1));
-      realMap_.at(realVector_[n]->label())->Get().GetDim(1));
-  }
     return *(realMap_.at(label));
   }
 
@@ -105,69 +100,8 @@ class Swarm {
     setPoolMax(2*nmax_pool_);
   }
 
-  void printpool() {
-    printf("PRINT POOL!\n");
-    ParticleVariable<int> &mask = GetInteger("mask");
-    ParticleVariable<Real> &x = GetReal("x");
-    ParticleVariable<Real> &y = GetReal("y");
-    ParticleVariable<Real> &z = GetReal("z");
-    printf("Got mask, x, y, z\n");
-    for (int n = 0; n < nmax_pool_; n++) {
-      printf("n: %i\n", n);
-      printf("[%i] (x, y, z) = (%g, %g, %g) mask: %i\n", n, x(n), y(n), z(n), mask(n));
-    }
-  }
-
   /// Set max pool size
   void setPoolMax(const int nmax_pool);
-  /*{
-    printf("Increasing pool max from %i to %i!\n", nmax_pool_, nmax_pool);
-    if (nmax_pool < nmax_pool_) {
-      printf("Must increase pool size!\n");
-      exit(-1);
-    }
-    int n_new_begin = nmax_pool_;
-    int n_new = nmax_pool - nmax_pool_;
-
-    for (int n = 0; n < n_new; n++) {
-      free_indices_.push_back(n + n_new_begin);
-    }
-
-    //mask.resize
-
-    // Resize and copy data
-    for (int n = 0; n < intVector_.size(); n++) {
-      auto oldvar = intVector_[n];
-      auto newvar = std::make_shared<ParticleVariable<int>>(oldvar->label(),
-                                                            nmax_pool,
-                                                            oldvar->metadata());
-      for (int m = 0; m < nmax_pool_; m++) {
-        (*newvar)(m) = (*oldvar)(m);
-      }
-      intVector_[n] = newvar;
-      intMap_[oldvar->label()] = newvar;
-    }
-
-    for (int n = 0; n < realVector_.size(); n++) {
-      auto oldvar = realVector_[n];
-      printf("making newvar (%s) of size %i\n", oldvar->label().c_str(), nmax_pool);
-      auto newvar = std::make_shared<ParticleVariable<Real>>(oldvar->label(),
-                                                             nmax_pool,
-                                                             oldvar->metadata());
-      for (int m = 0; m < nmax_pool_; m++) {
-        (*newvar)(m) = (*oldvar)(m);
-      }
-      realVector_[n] = newvar;
-      realMap_[oldvar->label()] = newvar;
-    }
-
-    for (int n = 0; n < realVector_.size(); n++) {
-      printf("new var (%s) has size %i\n", realVector_[n]->label().c_str(),
-        realVector_[n].Get().GetDim(1));
-    }
-
-    nmax_pool_ = nmax_pool;
-  }*/
 
   bool IsSet(const MetadataFlag bit) const { return m_.IsSet(bit); }
 
@@ -178,11 +112,6 @@ class Swarm {
   bool mpiStatus;
 
   int AddEmptyParticle() {
-    printf("AddParticle! swarm name: %s\n", label_.c_str());
-    // Check that particle fits, if not double size of pool via
-    // setPoolMax(2*_nmax_pool);
-    // TODO silly example here
-
     if (free_indices_.size() == 0) {
       increasePoolMax();
     }
@@ -207,7 +136,6 @@ class Swarm {
   }
 
   std::vector<int> AddEmptyParticles(int num_to_add) {
-    printf("ADD EMPTY PARTICLES!\n");
     while (free_indices_.size() < num_to_add) {
       increasePoolMax();
     }
@@ -220,27 +148,18 @@ class Swarm {
     ParticleVariable<Real> &x = GetReal("x");
     ParticleVariable<Real> &y = GetReal("y");
     ParticleVariable<Real> &z = GetReal("z");
-    printf("got int, x, y, z!\n");
 
     for (int n = 0; n < num_to_add; n++) {
-      printf("n: %i\n", n);
       indices[n] = *free_index;
-      printf("index: %i\n", indices[n]);
       mask(*free_index) = 1;
-      printf("mask?\n");
       nmax_active_ = std::max<int>(nmax_active_, *free_index);
-      printf("nmax_active_ = %i\n", nmax_active_);
 
       x(*free_index) = 0.;
       y(*free_index) = 0.;
       z(*free_index) = 0.;
-      printf("x,y,z\n");
 
       free_index = free_indices_.erase(free_index);
-      printf("done\n");
     }
-
-    printf("out of loop\n");
 
     return indices;
   }
@@ -252,8 +171,6 @@ class Swarm {
 
     return std::vector<int>();
   }
-
-  // TODO(BRR) add a bunch of particles at once?
 
   void Defrag() {
     // TODO(BRR) Put a fast algorithm here to defrag memory
