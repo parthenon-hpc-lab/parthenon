@@ -22,7 +22,6 @@
 #include <vector>
 
 #include "Kokkos_Atomic.hpp"
-#include "Kokkos_View.hpp"
 #include "basic_types.hpp"
 #include "globals.hpp"
 #include "kokkos_abstraction.hpp"
@@ -102,23 +101,19 @@ TaskListStatus ConstructAndExecuteBlockTasks(T *driver, Args... args) {
 
   int complete_cnt = 0;
   Kokkos::View<int *, HostMemSpace> mb_locks("mb_locks", nmb);
-  auto f = [&](int partitionId, int numPartitions) {
-    std::cout << "Hello from partition " << partitionId << " numPart " << numPartitions<< std::endl << std::flush;
+  auto f = [&](int, int) {
     while (complete_cnt != nmb) {
       for (auto i = 0; i < nmb; ++i) {
-        if (!task_lists[i].IsComplete()) {
-          // try to obtain lock by changing val from 0 to 1
-          if (Kokkos::atomic_compare_exchange_strong(&mb_locks(i), 0, 1)) {
+        // try to obtain lock by changing val from 0 to 1
+        if (Kokkos::atomic_compare_exchange_strong(&mb_locks(i), 0, 1)) {
+          if (!task_lists[i].IsComplete()) {
             auto status = task_lists[i].DoAvailable();
             if (status == TaskListStatus::complete) {
               // no reset of the lock here so that no other thread may increment the cnt
               Kokkos::atomic_increment(&complete_cnt);
-            } else {
-              // if the task list is not done yet we reset the lock so that
-              // another thread may take up work
-              mb_locks(i) = 0;
             }
           }
+          Kokkos::atomic_decrement(&mb_locks(i));
         }
       }
     }
