@@ -580,7 +580,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
         auto const pob = FindMeshBlock(on);
 
         // Move the block from `block_list` to `new_block_list`
-        block_list.splice(new_block_list.end(), block_list, pob);
+        new_block_list.splice(new_block_list.end(), block_list, pob);
 
         // pob is now the current block
         pob->gid = n;
