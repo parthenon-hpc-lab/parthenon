@@ -20,8 +20,10 @@
 #include <algorithm>
 #include <cstdint>
 #include <iostream>
+#include <numeric>
 #include <sstream>
 #include <string>
+#include <tuple>
 
 #include "parthenon_mpi.hpp"
 
@@ -72,40 +74,42 @@ void Mesh::LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin) {
 
 //----------------------------------------------------------------------------------------
 // \brief Calculate distribution of MeshBlocks based on the cost list
-void Mesh::CalculateLoadBalance(int total_blocks, std::vector<double> const &costlist,
+void Mesh::CalculateLoadBalance(std::vector<double> const &costlist,
                                 std::vector<int> &ranklist, std::vector<int> &nslist,
                                 std::vector<int> &nblist) {
-  std::stringstream msg;
-  double real_max = std::numeric_limits<double>::max();
-  double totalcost = 0, maxcost = 0.0, mincost = (real_max);
+  auto const total_blocks = costlist.size();
 
-  for (int block_id = 0; block_id < total_blocks; block_id++) {
-    totalcost += costlist[block_id];
-    mincost = std::min(mincost, costlist[block_id]);
-    maxcost = std::max(maxcost, costlist[block_id]);
-  }
+  double const total_cost = std::accumulate(costlist.begin(), costlist.end(), 0.0);
+
+  using it = std::vector<double>::const_iterator;
+  std::pair<it, it> const min_max = std::minmax_element(costlist.begin(), costlist.end());
+
+  double const mincost = min_max.first == costlist.begin() ? 0.0 : *min_max.first;
+  double const maxcost = min_max.second == costlist.begin() ? 0.0 : *min_max.second;
 
   {
     // This loop assigns blocks to ranks on a rougly cost-equal basis.
 
     int rank = (Globals::nranks)-1;
-    double targetcost = totalcost / Globals::nranks;
-    double mycost = 0.0;
+    double target_cost = total_cost / Globals::nranks;
+    double my_cost = 0.0;
+    double remaining_cost = total_cost;
     // create rank list from the end: the master MPI rank should have less load
     for (int block_id = total_blocks - 1; block_id >= 0; block_id--) {
-      if (targetcost == 0.0) {
+      if (target_cost == 0.0) {
+        std::stringstream msg;
         msg << "### FATAL ERROR in CalculateLoadBalance" << std::endl
             << "There is at least one process which has no MeshBlock" << std::endl
             << "Decrease the number of processes or use smaller MeshBlocks." << std::endl;
         PARTHENON_FAIL(msg);
       }
-      mycost += costlist[block_id];
+      my_cost += costlist[block_id];
       ranklist[block_id] = rank;
-      if (mycost >= targetcost && rank > 0) {
+      if (my_cost >= target_cost && rank > 0) {
         rank--;
-        totalcost -= mycost;
-        mycost = 0.0;
-        targetcost = totalcost / (rank + 1);
+        remaining_cost -= my_cost;
+        my_cost = 0.0;
+        target_cost = remaining_cost / (rank + 1);
       }
     }
   }
@@ -137,6 +141,7 @@ void Mesh::CalculateLoadBalance(int total_blocks, std::vector<double> const &cos
     if (!adaptive) {
       // mesh is refined statically, treat this an as error (all ranks need to
       // participate)
+      std::stringstream msg;
       msg << "### FATAL ERROR in CalculateLoadBalance" << std::endl
           << "There are fewer MeshBlocks than OpenMP threads on each MPI rank"
           << std::endl
@@ -408,7 +413,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
   int onbe = onbs + nblist[Globals::my_rank] - 1;
 #endif
   // Step 2. Calculate new load balance
-  CalculateLoadBalance(ntot, newcost, newrank, nslist, nblist);
+  CalculateLoadBalance(newcost, newrank, nslist, nblist);
 
   int nbs = nslist[Globals::my_rank];
   int nbe = nbs + nblist[Globals::my_rank] - 1;

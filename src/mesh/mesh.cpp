@@ -445,7 +445,7 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
   // initialize cost array with the simplest estimate; all the blocks are equal
   costlist = std::vector<double>(nbtotal, 1.0);
 
-  CalculateLoadBalance(nbtotal, costlist, ranklist, nslist, nblist);
+  CalculateLoadBalance(costlist, ranklist, nslist, nblist);
 
   // Output some diagnostic information to terminal
 
@@ -745,7 +745,7 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper &resfile, Properties_t &properties,
     bddisp = std::vector<int>(Globals::nranks);
   }
 
-  CalculateLoadBalance(nbtotal, costlist, ranklist, nslist, nblist);
+  CalculateLoadBalance(costlist, ranklist, nslist, nblist);
 
   // Output MeshBlock list and quit (mesh test only); do not create meshes
   if (mesh_test > 0) {

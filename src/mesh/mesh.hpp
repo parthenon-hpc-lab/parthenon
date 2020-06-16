@@ -415,7 +415,7 @@ class Mesh {
   MetricFunc UserMetric_;
 
   void OutputMeshStructure(int dim);
-  void CalculateLoadBalance(int total_blocks, std::vector<double> const &costlist,
+  void CalculateLoadBalance(std::vector<double> const &costlist,
                             std::vector<int> &ranklist, std::vector<int> &nslist,
                             std::vector<int> &nblist);
   void ResetLoadBalanceVariables();
