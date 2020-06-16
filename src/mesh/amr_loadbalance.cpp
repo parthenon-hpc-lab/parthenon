@@ -72,6 +72,61 @@ void Mesh::LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin) {
   return;
 }
 
+// Private routines
+namespace {
+/**
+ * @brief This routine assigns blocks to ranks by attempting to place index-contiguous
+ * blocks of equal total cost on each rank.
+ *
+ * @param costlist (Input) A map of global block ID to a relative weight.
+ * @param ranklist (Output) A map of global block ID to ranks.
+ */
+void AssignBlocks(std::vector<double> const &costlist, std::vector<int> &ranklist) {
+  ranklist.resize(costlist.size());
+
+  double const total_cost = std::accumulate(costlist.begin(), costlist.end(), 0.0);
+
+  int rank = (Globals::nranks)-1;
+  double target_cost = total_cost / Globals::nranks;
+  double my_cost = 0.0;
+  double remaining_cost = total_cost;
+  // create rank list from the end: the master MPI rank should have less load
+  for (int block_id = costlist.size() - 1; block_id >= 0; block_id--) {
+    if (target_cost == 0.0) {
+      std::stringstream msg;
+      msg << "### FATAL ERROR in CalculateLoadBalance" << std::endl
+          << "There is at least one process which has no MeshBlock" << std::endl
+          << "Decrease the number of processes or use smaller MeshBlocks." << std::endl;
+      PARTHENON_FAIL(msg);
+    }
+    my_cost += costlist[block_id];
+    ranklist[block_id] = rank;
+    if (my_cost >= target_cost && rank > 0) {
+      rank--;
+      remaining_cost -= my_cost;
+      my_cost = 0.0;
+      target_cost = remaining_cost / (rank + 1);
+    }
+  }
+}
+
+void UpdateBlockList(std::vector<int> const &ranklist, std::vector<int> &nslist,
+                     std::vector<int> &nblist) {
+  nslist.resize(Globals::nranks);
+  nblist.resize(Globals::nranks);
+
+  nslist[0] = 0;
+  int rank = 0;
+  for (int block_id = 1; block_id < ranklist.size(); block_id++) {
+    if (ranklist[block_id] != ranklist[block_id - 1]) {
+      nblist[rank] = block_id - nslist[rank];
+      nslist[++rank] = block_id;
+    }
+  }
+  nblist[rank] = ranklist.size() - nslist[rank];
+}
+} // namespace
+
 //----------------------------------------------------------------------------------------
 // \brief Calculate distribution of MeshBlocks based on the cost list
 void Mesh::CalculateLoadBalance(std::vector<double> const &costlist,
@@ -79,55 +134,18 @@ void Mesh::CalculateLoadBalance(std::vector<double> const &costlist,
                                 std::vector<int> &nblist) {
   auto const total_blocks = costlist.size();
 
-  double const total_cost = std::accumulate(costlist.begin(), costlist.end(), 0.0);
-
   using it = std::vector<double>::const_iterator;
   std::pair<it, it> const min_max = std::minmax_element(costlist.begin(), costlist.end());
 
   double const mincost = min_max.first == costlist.begin() ? 0.0 : *min_max.first;
   double const maxcost = min_max.second == costlist.begin() ? 0.0 : *min_max.second;
 
-  {
-    // This loop assigns blocks to ranks on a rougly cost-equal basis.
+  // Assigns blocks to ranks on a rougly cost-equal basis.
+  AssignBlocks(costlist, ranklist);
 
-    int rank = (Globals::nranks)-1;
-    double target_cost = total_cost / Globals::nranks;
-    double my_cost = 0.0;
-    double remaining_cost = total_cost;
-    // create rank list from the end: the master MPI rank should have less load
-    for (int block_id = total_blocks - 1; block_id >= 0; block_id--) {
-      if (target_cost == 0.0) {
-        std::stringstream msg;
-        msg << "### FATAL ERROR in CalculateLoadBalance" << std::endl
-            << "There is at least one process which has no MeshBlock" << std::endl
-            << "Decrease the number of processes or use smaller MeshBlocks." << std::endl;
-        PARTHENON_FAIL(msg);
-      }
-      my_cost += costlist[block_id];
-      ranklist[block_id] = rank;
-      if (my_cost >= target_cost && rank > 0) {
-        rank--;
-        remaining_cost -= my_cost;
-        my_cost = 0.0;
-        target_cost = remaining_cost / (rank + 1);
-      }
-    }
-  }
-
-  {
-    // This loop updates nslist with the ID of the starting block on each rank and the
-    // count of blocks on each rank.
-
-    nslist[0] = 0;
-    int rank = 0;
-    for (int block_id = 1; block_id < total_blocks; block_id++) {
-      if (ranklist[block_id] != ranklist[block_id - 1]) {
-        nblist[rank] = block_id - nslist[rank];
-        nslist[++rank] = block_id;
-      }
-    }
-    nblist[rank] = total_blocks - nslist[rank];
-  }
+  // Updates nslist with the ID of the starting block on each rank and the count of blocks
+  // on each rank.
+  UpdateBlockList(ranklist, nslist, nblist);
 
 #ifdef MPI_PARALLEL
   if (total_blocks % (Globals::nranks) != 0 && !adaptive && !lb_flag_ &&
