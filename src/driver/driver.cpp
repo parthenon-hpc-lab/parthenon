@@ -69,6 +69,8 @@ DriverStatus EvolutionDriver::Execute() {
   SetGlobalTimeStep();
   pouts->MakeOutputs(pmesh, pinput, &tm);
   pmesh->mbcnt = 0;
+  int perf_cycle_offset =
+      pinput->GetOrAddInteger("parthenon/time", "perf_cycle_offset", 0);
   while (tm.KeepGoing()) {
     if (Globals::my_rank == 0) OutputCycleDiagnostics();
 
@@ -93,6 +95,13 @@ DriverStatus EvolutionDriver::Execute() {
     // check for signals
     if (SignalHandler::CheckSignalFlags() != 0) {
       return DriverStatus::failed;
+    }
+    if (tm.ncycle == perf_cycle_offset) {
+      tstart_ = clock();
+      pmesh->mbcnt = 0;
+#ifdef OPENMP_PARALLEL
+      omp_start_time_ = omp_get_wtime();
+#endif
     }
   } // END OF MAIN INTEGRATION LOOP ======================================================
 
