@@ -22,6 +22,10 @@ cache:
 
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
+  
+ci_tests:
+  tags:
+    - darwin-slurm-shared
 
 stages:
   - unit
