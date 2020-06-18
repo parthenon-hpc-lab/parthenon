@@ -23,10 +23,6 @@ cache:
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
   
-ci_tests:
-  tags:
-    - darwin-slurm-shared
-
 stages:
   - unit
   - performance_and_regression
@@ -42,6 +38,8 @@ style-check:
 parthenon-cuda-unit:
   tags:
     - cuda
+    - darwin-slurm-shared
+
   stage: unit
   script:
 # mitigate UVM allocations on older multi-GPU systems
