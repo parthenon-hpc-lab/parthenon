@@ -151,18 +151,6 @@ TaskList AdvectionDriver::MakeTaskList(MeshBlock *pmb, int stage) {
           },
           fill_derived, pmb);
     }
-    // Purge stages -- this task isn't really required.  If we don't purge the containers
-    // then the next time we go to add them, they'll already exist and it will be a no-op.
-    // Not purging the stages is more performant, but if the "base" Container changes, we
-    // need to purge the stages and recreate the non-base containers or else there will be
-    // bugs, e.g. the containers for rk stages won't have the same variables as the "base"
-    // container, likely leading to strange errors and/or segfaults.
-    //auto purge_stages = tl.AddTask<BlockTask>(
-    //    [](MeshBlock *pmb) {
-    //      pmb->real_containers.PurgeNonBase();
-    //      return TaskStatus::complete;
-    //    },
-    //    fill_derived, pmb);
   }
   return tl;
 }
