@@ -15,13 +15,16 @@
 #define PARTHENON_DRIVER_HPP_
 
 // Internal Includes
+#include <basic_types.hpp>
 #include <bvals/boundary_conditions.hpp>
 #include <driver/driver.hpp>
 #include <driver/multistage.hpp>
 #include <mesh/mesh.hpp>
 #include <outputs/outputs.hpp>
 #include <parameter_input.hpp>
-#include <task_list/tasks.hpp>
+#include <tasks/task_id.hpp>
+#include <tasks/task_types.hpp>
+#include <tasks/task_list.hpp>
 
 // Local Includes
 #include "prelude.hpp"
@@ -32,8 +35,6 @@ namespace prelude {
 using namespace ::parthenon::prelude;
 
 using ::parthenon::ApplyBoundaryConditions;
-using ::parthenon::BaseTask;
-using ::parthenon::BlockTask;
 using ::parthenon::Driver;
 using ::parthenon::DriverStatus;
 using ::parthenon::Integrator;
@@ -44,7 +45,22 @@ using ::parthenon::Outputs;
 using ::parthenon::ParameterInput;
 using ::parthenon::TaskID;
 using ::parthenon::TaskList;
+using ::parthenon::TaskStatus;
 using ::parthenon::DriverUtils::ConstructAndExecuteBlockTasks;
+// Tasks and associated function types
+using ::parthenon::BaseTask;
+using ::parthenon::BlockStageNamesIntegratorTask;
+using ::parthenon::BlockStageNamesTask;
+using ::parthenon::BlockStageTask;
+using ::parthenon::BlockTask;
+using ::parthenon::ContainerTask;
+using ::parthenon::TwoContainerTask;
+using ::parthenon::BlockStageNamesIntegratorTaskFunc;
+using ::parthenon::BlockStageNamesTaskFunc;
+using ::parthenon::BlockStageTaskFunc;
+using ::parthenon::BlockTaskFunc;
+using ::parthenon::ContainerTaskFunc;
+using ::parthenon::TwoContainerTaskFunc;
 } // namespace prelude
 } // namespace driver
 } // namespace parthenon

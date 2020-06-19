@@ -11,34 +11,40 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef EXAMPLE_FACE_FIELDS_FACE_FIELDS_EXAMPLE_HPP_
-#define EXAMPLE_FACE_FIELDS_FACE_FIELDS_EXAMPLE_HPP_
+#ifndef TASKS_TASK_ID_HPP_
+#define TASKS_TASK_ID_HPP_
 
-#include <memory>
+#include <bitset>
+#include <string>
+#include <vector>
 
-#include "driver/driver.hpp"
-#include "globals.hpp"
-#include "interface/state_descriptor.hpp"
-#include "mesh/mesh.hpp"
-//#include "task_list/tasks.hpp"
+#include "basic_types.hpp"
 
 namespace parthenon {
 
-class FaceFieldExample : public Driver {
+//----------------------------------------------------------------------------------------
+//! \class TaskID
+//  \brief generalization of bit fields for Task IDs, status, and dependencies.
+
+#define BITBLOCK 16
+
+class TaskID {
  public:
-  FaceFieldExample(ParameterInput *pin, Mesh *pm) : Driver(pin, pm) {
-    InitializeOutputs();
-  }
-  TaskList MakeTaskList(MeshBlock *pmb);
-  DriverStatus Execute();
+  TaskID() { Set(0); }
+  explicit TaskID(int id);
+
+  void Set(int id);
+  void clear();
+  bool CheckDependencies(const TaskID &rhs) const;
+  void SetFinished(const TaskID &rhs);
+  bool operator==(const TaskID &rhs) const;
+  TaskID operator|(const TaskID &rhs) const;
+  std::string to_string();
+
+ private:
+  std::vector<std::bitset<BITBLOCK>> bitblocks;
 };
 
 } // namespace parthenon
 
-namespace FaceFields {
-
-parthenon::TaskStatus fill_faces(parthenon::MeshBlock *pmb);
-
-} // namespace FaceFields
-
-#endif // EXAMPLE_FACE_FIELDS_FACE_FIELDS_EXAMPLE_HPP_
+#endif // TASKS_TASK_ID_HPP_

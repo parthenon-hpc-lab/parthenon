@@ -26,7 +26,6 @@
 #include <mesh/mesh.hpp>
 #include <parameter_input.hpp>
 #include <parthenon_manager.hpp>
-#include <task_list/tasks.hpp>
 
 // Local Includes
 #include "prelude.hpp"
