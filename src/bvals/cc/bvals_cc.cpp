@@ -206,13 +206,14 @@ void CellCenteredBoundaryVariable::SendBoundaryBuffers() {
     }
   }
 
-  // ParArray4D<Real> var_cc_ = var_cc.Get<4>(); // automatic template deduction fails
-  auto var_cc_ = var_cc;
+  ParArray4D<Real> var_cc_ = var_cc.Get<4>(); // automatic template deduction fails
   const auto sn = nl_;
   const auto en = nu_;
   Kokkos::parallel_for(
       "CellCenteredVar::SendBoundaryBuffers TeamPolicy",
-      team_policy(pmb->exec_space, num_nmb, Kokkos::AUTO),
+      Kokkos::Experimental::require(
+          team_policy(pmb->exec_space, num_nmb, Kokkos::AUTO),
+          Kokkos::Experimental::WorkItemProperty::HintLightWeight),
       KOKKOS_LAMBDA(team_mbr_t team_member) {
         const int mb = team_member.league_rank();
         const int si = bnd_info_all[mb].si;
@@ -461,12 +462,14 @@ void CellCenteredBoundaryVariable::SetBoundaries() {
     bnd_info_all[n].buf = bd_var_.recv[nb.bufid];
   }
 
-  auto var_cc_ = var_cc;
+  ParArray4D<Real> var_cc_ = var_cc.Get<4>();
   const auto sn = nl_;
   const auto en = nu_;
   Kokkos::parallel_for(
       "CellCenteredVar::SetBoundaries TeamPolicy",
-      team_policy(pmb->exec_space, pmb->pbval->nneighbor, Kokkos::AUTO),
+      Kokkos::Experimental::require(
+          team_policy(pmb->exec_space, pmb->pbval->nneighbor, Kokkos::AUTO),
+          Kokkos::Experimental::WorkItemProperty::HintLightWeight),
       KOKKOS_LAMBDA(team_mbr_t team_member) {
         const int mb = team_member.league_rank();
         const int si = bnd_info_all[mb].si;
