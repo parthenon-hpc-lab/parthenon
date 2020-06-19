@@ -61,20 +61,6 @@ TaskStatus UpdateContainer(MeshBlock *pmb, int stage,
 // See the advection.hpp declaration for a description of how this function gets called.
 TaskList AdvectionDriver::MakeTaskList(MeshBlock *pmb, int stage) {
   TaskList tl;
-  // we're going to populate our list with multiple kinds of tasks
-  // these lambdas just clean up the interface to adding tasks of the relevant kinds
-  auto AddMyTask = [&tl, pmb, stage, this](BlockStageNamesIntegratorTaskFunc func,
-                                           TaskID dep) {
-    return tl.AddTask<BlockStageNamesIntegratorTask>(func, dep, pmb, stage, stage_name,
-                                                     integrator);
-  };
-  auto AddContainerTask = [&tl](ContainerTaskFunc func, TaskID dep, Container<Real> &rc) {
-    return tl.AddTask<ContainerTask>(func, dep, rc);
-  };
-  auto AddTwoContainerTask = [&tl](TwoContainerTaskFunc f, TaskID dep,
-                                   Container<Real> &rc1, Container<Real> &rc2) {
-    return tl.AddTask<TwoContainerTask>(f, dep, rc1, rc2);
-  };
 
   TaskID none(0);
   // first make other useful containers
@@ -94,32 +80,26 @@ TaskList AdvectionDriver::MakeTaskList(MeshBlock *pmb, int stage) {
   // effectively, sc1 = sc0 + dudt*dt
   Container<Real> &sc1 = pmb->real_containers.Get(stage_name[stage]);
 
-  auto start_recv = AddContainerTask(Container<Real>::StartReceivingTask, none, sc1);
+  auto start_recv = tl.AddTask<>(Container<Real>::StartReceivingTask, none, sc1);
 
-  //auto advect_flux = AddContainerTask(advection_package::CalculateFluxes, none, sc0);
-  auto advect_flux = tl.NewAddTask<>(advection_package::CalculateFluxes, none, sc0);
+  auto advect_flux = tl.AddTask<>(advection_package::CalculateFluxes, none, sc0);
 
-  auto send_flux =
-      AddContainerTask(Container<Real>::SendFluxCorrectionTask, advect_flux, sc0);
-  auto recv_flux =
-      AddContainerTask(Container<Real>::ReceiveFluxCorrectionTask, advect_flux, sc0);
+  auto send_flux = tl.AddTask<>(Container<Real>::SendFluxCorrectionTask, advect_flux, sc0);
+  auto recv_flux = tl.AddTask<>(Container<Real>::ReceiveFluxCorrectionTask, advect_flux, sc0);
 
   // compute the divergence of fluxes of conserved variables
-  auto flux_div =
-      AddTwoContainerTask(parthenon::Update::FluxDivergence, recv_flux, sc0, dudt);
+  auto flux_div = tl.AddTask<>(parthenon::Update::FluxDivergence, recv_flux, sc0, dudt);
 
   // apply du/dt to all independent fields in the container
-  auto update_container = AddMyTask(UpdateContainer, flux_div);
+  auto update_container = tl.AddTask<>(UpdateContainer, flux_div, pmb, stage, stage_name, integrator);
 
   // update ghost cells
-  auto send =
-      AddContainerTask(Container<Real>::SendBoundaryBuffersTask, update_container, sc1);
-  auto recv = AddContainerTask(Container<Real>::ReceiveBoundaryBuffersTask, send, sc1);
-  auto fill_from_bufs = AddContainerTask(Container<Real>::SetBoundariesTask, recv, sc1);
-  auto clear_comm_flags =
-      AddContainerTask(Container<Real>::ClearBoundaryTask, fill_from_bufs, sc1);
+  auto send = tl.AddTask<>(Container<Real>::SendBoundaryBuffersTask, update_container, sc1);
+  auto recv = tl.AddTask<>(Container<Real>::ReceiveBoundaryBuffersTask, send, sc1);
+  auto fill_from_bufs = tl.AddTask<>(Container<Real>::SetBoundariesTask, recv, sc1);
+  auto clear_comm_flags = tl.AddTask<>(Container<Real>::ClearBoundaryTask, fill_from_bufs, sc1);
 
-  auto prolongBound = tl.AddTask<BlockTask>(
+  auto prolongBound = tl.AddTask<>(
       [](MeshBlock *pmb) {
         pmb->pbval->ProlongateBoundaries(0.0, 0.0);
         return TaskStatus::complete;
@@ -127,15 +107,14 @@ TaskList AdvectionDriver::MakeTaskList(MeshBlock *pmb, int stage) {
       fill_from_bufs, pmb);
 
   // set physical boundaries
-  auto set_bc = AddContainerTask(parthenon::ApplyBoundaryConditions, prolongBound, sc1);
+  auto set_bc = tl.AddTask<>(parthenon::ApplyBoundaryConditions, prolongBound, sc1);
 
   // fill in derived fields
-  auto fill_derived =
-      AddContainerTask(parthenon::FillDerivedVariables::FillDerived, set_bc, sc1);
+  auto fill_derived = tl.AddTask<>(parthenon::FillDerivedVariables::FillDerived, set_bc, sc1);
 
   // estimate next time step
   if (stage == integrator->nstages) {
-    auto new_dt = AddContainerTask(
+    auto new_dt = tl.AddTask<>(
         [](Container<Real> &rc) {
           MeshBlock *pmb = rc.pmy_block;
           pmb->SetBlockTimestep(parthenon::Update::EstimateTimestep(rc));
@@ -145,7 +124,7 @@ TaskList AdvectionDriver::MakeTaskList(MeshBlock *pmb, int stage) {
 
     // Update refinement
     if (pmesh->adaptive) {
-      auto tag_refine = tl.AddTask<BlockTask>(
+      auto tag_refine = tl.AddTask<>(
           [](MeshBlock *pmb) {
             pmb->pmr->CheckRefinementCondition();
             return TaskStatus::complete;

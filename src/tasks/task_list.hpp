@@ -83,22 +83,18 @@ class TaskList {
     return TaskListStatus::running;
   }
 
-//R( T::*pmf )( ARGS... )
+  template <class F, class... Args>
+  TaskID AddTask(F&& func, TaskID &dep, Args &&... args) {
+    TaskID id(tasks_added_ + 1);
+    task_list_.push_back(
+      std::make_unique<Task>(
+        id, dep, std::bind(func, std::forward<Args>(args)...)
+      )
+    );
+    tasks_added_++;
+    return id;
+  }
 
-  template <class... Args>
-  TaskID NewAddTask(TaskStatus(&func)(Args...), TaskID &dep, Args &&... args) {
-    TaskID id(tasks_added_ + 1);
-    task_list_.push_back(std::make_unique<Task<Args...>>(id, dep, func, std::forward<Args>(args)...));
-    tasks_added_++;
-    return id;
-  }
-  template <typename T, class... Args>
-  TaskID AddTask(Args &&... args) {
-    TaskID id(tasks_added_ + 1);
-    task_list_.push_back(std::make_unique<T>(id, std::forward<Args>(args)...));
-    tasks_added_++;
-    return id;
-  }
   void Print() {
     int i = 0;
     std::cout << "TaskList::Print():" << std::endl;
