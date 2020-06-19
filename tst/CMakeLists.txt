@@ -14,5 +14,3 @@ if(${ENABLE_REGRESSION_TESTS})
   message(STATUS "Building regression tests.")
   add_subdirectory(regression)
 endif()
-
-
