@@ -48,6 +48,7 @@ using ::parthenon::TaskList;
 using ::parthenon::TaskStatus;
 using ::parthenon::DriverUtils::ConstructAndExecuteBlockTasks;
 // Tasks and associated function types
+using ::parthenon::Task;
 using ::parthenon::BaseTask;
 using ::parthenon::BlockStageNamesIntegratorTask;
 using ::parthenon::BlockStageNamesTask;

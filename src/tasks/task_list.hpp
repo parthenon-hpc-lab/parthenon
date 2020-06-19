@@ -82,6 +82,16 @@ class TaskList {
     if (IsComplete()) return TaskListStatus::complete;
     return TaskListStatus::running;
   }
+
+//R( T::*pmf )( ARGS... )
+
+  template <class... Args>
+  TaskID NewAddTask(TaskStatus(&func)(Args...), TaskID &dep, Args &&... args) {
+    TaskID id(tasks_added_ + 1);
+    task_list_.push_back(std::make_unique<Task<Args...>>(id, dep, func, std::forward<Args>(args)...));
+    tasks_added_++;
+    return id;
+  }
   template <typename T, class... Args>
   TaskID AddTask(Args &&... args) {
     TaskID id(tasks_added_ + 1);

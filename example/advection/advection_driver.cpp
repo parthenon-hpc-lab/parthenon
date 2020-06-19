@@ -96,7 +96,8 @@ TaskList AdvectionDriver::MakeTaskList(MeshBlock *pmb, int stage) {
 
   auto start_recv = AddContainerTask(Container<Real>::StartReceivingTask, none, sc1);
 
-  auto advect_flux = AddContainerTask(advection_package::CalculateFluxes, none, sc0);
+  //auto advect_flux = AddContainerTask(advection_package::CalculateFluxes, none, sc0);
+  auto advect_flux = tl.NewAddTask<>(advection_package::CalculateFluxes, none, sc0);
 
   auto send_flux =
       AddContainerTask(Container<Real>::SendFluxCorrectionTask, advect_flux, sc0);

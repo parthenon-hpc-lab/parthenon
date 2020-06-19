@@ -25,19 +25,6 @@
 
 namespace parthenon {
 
-class Integrator;
-
-using SimpleTaskFunc = std::function<TaskStatus()>;
-using BlockTaskFunc = std::function<TaskStatus(MeshBlock *)>;
-using BlockStageTaskFunc = std::function<TaskStatus(MeshBlock *, int)>;
-using BlockStageNamesTaskFunc =
-    std::function<TaskStatus(MeshBlock *, int, std::vector<std::string> &)>;
-using BlockStageNamesIntegratorTaskFunc =
-    std::function<TaskStatus(MeshBlock *, int, std::vector<std::string> &, Integrator *)>;
-using ContainerTaskFunc = std::function<TaskStatus(Container<Real> &)>;
-using TwoContainerTaskFunc =
-    std::function<TaskStatus(Container<Real> &, Container<Real> &)>;
-
 class BaseTask {
  public:
   BaseTask(TaskID id, TaskID dep) : myid_(id), dep_(dep) {}
@@ -52,6 +39,31 @@ class BaseTask {
   TaskID myid_, dep_;
   bool lb_time, complete_ = false;
 };
+
+template <typename... Args>
+class Task : public BaseTask {
+ public:
+  explicit Task(TaskID id, TaskID dep, TaskStatus(&func)(Args...), Args &&... args)
+    : func_( std::bind(func, std::forward<Args>(args)...) ),
+      BaseTask(id,dep) {}
+  TaskStatus operator()() final { return func_(); }
+ private:
+  std::function<TaskStatus()> func_;
+};
+
+class Integrator;
+
+using SimpleTaskFunc = std::function<TaskStatus()>;
+using BlockTaskFunc = std::function<TaskStatus(MeshBlock *)>;
+using BlockStageTaskFunc = std::function<TaskStatus(MeshBlock *, int)>;
+using BlockStageNamesTaskFunc =
+    std::function<TaskStatus(MeshBlock *, int, std::vector<std::string> &)>;
+using BlockStageNamesIntegratorTaskFunc =
+    std::function<TaskStatus(MeshBlock *, int, std::vector<std::string> &, Integrator *)>;
+using ContainerTaskFunc = std::function<TaskStatus(Container<Real> &)>;
+using TwoContainerTaskFunc =
+    std::function<TaskStatus(Container<Real> &, Container<Real> &)>;
+
 
 class SimpleTask : public BaseTask {
  public:
