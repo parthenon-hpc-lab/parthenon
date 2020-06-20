@@ -43,25 +43,11 @@ using ::parthenon::MeshBlock;
 using ::parthenon::MultiStageBlockTaskDriver;
 using ::parthenon::Outputs;
 using ::parthenon::ParameterInput;
+using ::parthenon::Task;
 using ::parthenon::TaskID;
 using ::parthenon::TaskList;
 using ::parthenon::TaskStatus;
 using ::parthenon::DriverUtils::ConstructAndExecuteBlockTasks;
-// Tasks and associated function types
-using ::parthenon::Task;
-using ::parthenon::BaseTask;
-using ::parthenon::BlockStageNamesIntegratorTask;
-using ::parthenon::BlockStageNamesTask;
-using ::parthenon::BlockStageTask;
-using ::parthenon::BlockTask;
-using ::parthenon::ContainerTask;
-using ::parthenon::TwoContainerTask;
-using ::parthenon::BlockStageNamesIntegratorTaskFunc;
-using ::parthenon::BlockStageNamesTaskFunc;
-using ::parthenon::BlockStageTaskFunc;
-using ::parthenon::BlockTaskFunc;
-using ::parthenon::ContainerTaskFunc;
-using ::parthenon::TwoContainerTaskFunc;
 } // namespace prelude
 } // namespace driver
 } // namespace parthenon

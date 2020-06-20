@@ -20,6 +20,7 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -53,7 +54,7 @@ class TaskList {
   void ClearComplete() {
     auto task = task_list_.begin();
     while (task != task_list_.end()) {
-      if ((*task)->IsComplete()) {
+      if (task->IsComplete()) {
         task = task_list_.erase(task);
       } else {
         ++task;
@@ -62,16 +63,16 @@ class TaskList {
   }
   TaskListStatus DoAvailable() {
     for (auto &task : task_list_) {
-      auto dep = task->GetDependency();
+      auto dep = task.GetDependency();
       if (tasks_completed_.CheckDependencies(dep)) {
         /*std::cerr << "Task dependency met:" << std::endl
                   << dep.to_string() << std::endl
                   << tasks_completed_.to_string() << std::endl
                   << task->GetID().to_string() << std::endl << std::endl;*/
-        TaskStatus status = (*task)();
+        TaskStatus status = task();
         if (status == TaskStatus::complete) {
-          task->SetComplete();
-          MarkTaskComplete(task->GetID());
+          task.SetComplete();
+          MarkTaskComplete(task.GetID());
           /*std::cerr << "Task complete:" << std::endl
                     << task->GetID().to_string() << std::endl
                     << tasks_completed_.to_string() << std::endl << std::endl;*/
@@ -84,12 +85,10 @@ class TaskList {
   }
 
   template <class F, class... Args>
-  TaskID AddTask(F&& func, TaskID &dep, Args &&... args) {
+  TaskID AddTask(F func, TaskID &dep, Args &&... args) {
     TaskID id(tasks_added_ + 1);
     task_list_.push_back(
-      std::make_unique<Task>(
-        id, dep, std::bind(func, std::forward<Args>(args)...)
-      )
+      Task(id, dep, std::bind(func, std::forward<Args>(args)...))
     );
     tasks_added_++;
     return id;
@@ -99,14 +98,14 @@ class TaskList {
     int i = 0;
     std::cout << "TaskList::Print():" << std::endl;
     for (auto &t : task_list_) {
-      std::cout << "  " << i << "  " << t->GetID().to_string() << "  "
-                << t->GetDependency().to_string() << std::endl;
+      std::cout << "  " << i << "  " << t.GetID().to_string() << "  "
+                << t.GetDependency().to_string() << std::endl;
       i++;
     }
   }
 
  protected:
-  std::list<std::unique_ptr<BaseTask>> task_list_;
+  std::list<Task> task_list_;
   int tasks_added_ = 0;
   std::vector<TaskList *> dependencies_;
   TaskID tasks_completed_;

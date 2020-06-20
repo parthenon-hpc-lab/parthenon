@@ -24,8 +24,6 @@
 // Preludes
 using namespace parthenon::package::prelude;
 
-using parthenon::BlockTaskFunc;
-
 using pi::PiDriver;
 
 int main(int argc, char *argv[]) {

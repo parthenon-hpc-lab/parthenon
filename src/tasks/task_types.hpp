@@ -20,8 +20,6 @@
 #include <vector>
 
 #include "basic_types.hpp"
-#include "interface/container.hpp"
-#include "mesh/mesh.hpp"
 
 namespace parthenon {
 
@@ -29,7 +27,7 @@ class Task {
  public:
   Task(TaskID id, TaskID dep, std::function<TaskStatus()> func)
     : myid_(id), dep_(dep), func_(func) {}
-  TaskStatus operator()() final { return func_(); }
+  TaskStatus operator()() { return func_(); }
   TaskID GetID() { return myid_; }
   TaskID GetDependency() { return dep_; }
   void SetComplete() { complete_ = true; }

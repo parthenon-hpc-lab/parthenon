@@ -52,7 +52,35 @@ class Container {
   // Public Methods
   //-----------------
   /// Constructor
-  Container<T>() = default;
+  Container<T>() {
+    varVector_ = std::make_shared<CellVariableVector<T>>();
+    faceVector_ = std::make_shared<FaceVector<T>>();
+    sparseVector_ = std::make_shared<SparseVector<T>>();
+    varMap_ = std::make_shared<MapToCellVars<T>>();
+    faceMap_ = std::make_shared<MapToFace<T>>();
+    sparseMap_ = std::make_shared<MapToSparse<T>>();
+    varPackMap_ = std::make_shared<MapToVariablePack<T>>();
+    varFluxPackMap_ = std::make_shared<MapToVariableFluxPack<T>>();
+  }
+/*  Container<T>(const Container<T> &src) {
+    //std::cout << "Copying Container!" << std::endl;
+    pmy_block = src.pmy_block;
+    varVector_ = src.varVector_; ///< the saved variable array
+    faceVector_ = src.faceVector_;        ///< the saved face arrays
+    sparseVector_ = src.sparseVector_;
+
+    varMap_ = src.varMap_;
+    faceMap_ = src.faceMap_;
+    sparseMap_ = src.sparseMap_;
+
+    varPackMap_ = src.varPackMap_;
+    varFluxPackMap_ = src.varFluxPackMap_;
+    for (const auto & m : *varPackMap_) {
+      for (const auto & s : m.first) {
+        std::cout << s << std::endl;
+      }
+    }
+  }*/
   // Constructors for getting sub-containers
   // the variables returned are all shallow copies of the src container.
   // Optionally extract only some of the sparse ids of src variable.
@@ -126,37 +154,37 @@ class Container {
   void Add(const std::vector<std::string> labelVector, const Metadata &metadata);
 
   void Add(std::shared_ptr<CellVariable<T>> var) {
-    varVector_.push_back(var);
-    varMap_[var->label()] = var;
+    varVector_->push_back(var);
+    (*varMap_)[var->label()] = var;
   }
   void Add(std::shared_ptr<FaceVariable<T>> var) {
-    faceVector_.push_back(var);
-    faceMap_[var->label()] = var;
+    faceVector_->push_back(var);
+    (*faceMap_)[var->label()] = var;
   }
   void Add(std::shared_ptr<SparseVariable<T>> var) {
-    sparseVector_.push_back(var);
-    sparseMap_[var->label()] = var;
+    sparseVector_->push_back(var);
+    (*sparseMap_)[var->label()] = var;
   }
 
   //
   // Queries related to CellVariable objects
   //
-  const CellVariableVector<T> &GetCellVariableVector() const { return varVector_; }
-  const MapToCellVars<T> GetCellVariableMap() const { return varMap_; }
+  const CellVariableVector<T> &GetCellVariableVector() const { return *varVector_; }
+  const MapToCellVars<T> GetCellVariableMap() const { return *varMap_; }
   CellVariable<T> &Get(std::string label) {
-    auto it = varMap_.find(label);
-    if (it == varMap_.end()) {
+    auto it = varMap_->find(label);
+    if (it == varMap_->end()) {
       throw std::invalid_argument(std::string("\n") + std::string(label) +
                                   std::string(" array not found in Get()\n"));
     }
     return *(it->second);
   }
 
-  CellVariable<T> &Get(const int index) { return *(varVector_[index]); }
+  CellVariable<T> &Get(const int index) { return *((*varVector_)[index]); }
 
   int Index(const std::string &label) {
-    for (int i = 0; i < varVector_.size(); i++) {
-      if (!varVector_[i]->label().compare(label)) return i;
+    for (int i = 0; i < (*varVector_).size(); i++) {
+      if (!(*varVector_)[i]->label().compare(label)) return i;
     }
     return -1;
   }
@@ -164,11 +192,11 @@ class Container {
   //
   // Queries related to SparseVariable objects
   //
-  const SparseVector<T> GetSparseVector() const { return sparseVector_; }
-  const MapToSparse<T> GetSparseMap() const { return sparseMap_; }
+  const SparseVector<T> GetSparseVector() const { return *sparseVector_; }
+  const MapToSparse<T> GetSparseMap() const { return *sparseMap_; }
   SparseVariable<T> &GetSparseVariable(const std::string &label) {
-    auto it = sparseMap_.find(label);
-    if (it == sparseMap_.end()) {
+    auto it = sparseMap_->find(label);
+    if (it == sparseMap_->end()) {
       throw std::invalid_argument("sparseMap_ does not have " + label);
     }
     return *(it->second);
@@ -193,11 +221,11 @@ class Container {
   //
   // Queries related to FaceVariable objects
   //
-  const FaceVector<T> &GetFaceVector() const { return faceVector_; }
-  const MapToFace<T> GetFaceMap() const { return faceMap_; }
+  const FaceVector<T> &GetFaceVector() const { return *faceVector_; }
+  const MapToFace<T> GetFaceMap() const { return *faceMap_; }
   FaceVariable<T> &GetFace(std::string label) {
-    auto it = faceMap_.find(label);
-    if (it == faceMap_.end()) {
+    auto it = faceMap_->find(label);
+    if (it == faceMap_->end()) {
       throw std::invalid_argument(std::string("\n") + std::string(label) +
                                   std::string(" array not found in Get() Face\n"));
     }
@@ -262,7 +290,7 @@ class Container {
   void Print();
 
   // return number of stored arrays
-  int Size() { return varVector_.size(); }
+  int Size() { return varVector_->size(); }
 
   // Communication routines
   void ResetBoundaryCellVariables();
@@ -309,13 +337,13 @@ class Container {
     // do the two containers contain the same named fields?
     std::vector<std::string> my_keys;
     std::vector<std::string> cmp_keys;
-    for (auto &v : varMap_) {
+    for (auto &v : *varMap_) {
       my_keys.push_back(v.first);
     }
-    for (auto &v : faceMap_) {
+    for (auto &v : *faceMap_) {
       my_keys.push_back(v.first);
     }
-    for (auto &v : sparseMap_) {
+    for (auto &v : *sparseMap_) {
       my_keys.push_back(v.first);
     }
     for (auto &v : cmp.GetCellVariableMap()) {
@@ -333,16 +361,16 @@ class Container {
  private:
   int debug = 0;
 
-  CellVariableVector<T> varVector_ = {}; ///< the saved variable array
-  FaceVector<T> faceVector_ = {};        ///< the saved face arrays
-  SparseVector<T> sparseVector_ = {};
+  std::shared_ptr<CellVariableVector<T>> varVector_; ///< the saved variable array
+  std::shared_ptr<FaceVector<T>> faceVector_;        ///< the saved face arrays
+  std::shared_ptr<SparseVector<T>> sparseVector_;
 
-  MapToCellVars<T> varMap_ = {};
-  MapToFace<T> faceMap_ = {};
-  MapToSparse<T> sparseMap_ = {};
+  std::shared_ptr<MapToCellVars<T>> varMap_;
+  std::shared_ptr<MapToFace<T>> faceMap_;
+  std::shared_ptr<MapToSparse<T>> sparseMap_;
 
-  MapToVariablePack<T> varPackMap_ = {};
-  MapToVariableFluxPack<T> varFluxPackMap_ = {};
+  std::shared_ptr<MapToVariablePack<T>> varPackMap_;
+  std::shared_ptr<MapToVariableFluxPack<T>> varFluxPackMap_;
 
   void calcArrDims_(std::array<int, 6> &arrDims, const std::vector<int> &dims,
                     const Metadata &metadata);
