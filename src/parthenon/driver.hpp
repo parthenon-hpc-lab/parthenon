@@ -23,8 +23,8 @@
 #include <outputs/outputs.hpp>
 #include <parameter_input.hpp>
 #include <tasks/task_id.hpp>
-#include <tasks/task_types.hpp>
 #include <tasks/task_list.hpp>
+#include <tasks/task_types.hpp>
 
 // Local Includes
 #include "prelude.hpp"

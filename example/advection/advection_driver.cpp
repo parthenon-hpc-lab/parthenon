@@ -84,20 +84,25 @@ TaskList AdvectionDriver::MakeTaskList(MeshBlock *pmb, int stage) {
 
   auto advect_flux = tl.AddTask<>(advection_package::CalculateFluxes, none, sc0);
 
-  auto send_flux = tl.AddTask<>(Container<Real>::SendFluxCorrectionTask, advect_flux, sc0);
-  auto recv_flux = tl.AddTask<>(Container<Real>::ReceiveFluxCorrectionTask, advect_flux, sc0);
+  auto send_flux =
+      tl.AddTask<>(Container<Real>::SendFluxCorrectionTask, advect_flux, sc0);
+  auto recv_flux =
+      tl.AddTask<>(Container<Real>::ReceiveFluxCorrectionTask, advect_flux, sc0);
 
   // compute the divergence of fluxes of conserved variables
   auto flux_div = tl.AddTask<>(parthenon::Update::FluxDivergence, recv_flux, sc0, dudt);
 
   // apply du/dt to all independent fields in the container
-  auto update_container = tl.AddTask<>(UpdateContainer, flux_div, pmb, stage, stage_name, integrator);
+  auto update_container =
+      tl.AddTask<>(UpdateContainer, flux_div, pmb, stage, stage_name, integrator);
 
   // update ghost cells
-  auto send = tl.AddTask<>(Container<Real>::SendBoundaryBuffersTask, update_container, sc1);
+  auto send =
+      tl.AddTask<>(Container<Real>::SendBoundaryBuffersTask, update_container, sc1);
   auto recv = tl.AddTask<>(Container<Real>::ReceiveBoundaryBuffersTask, send, sc1);
   auto fill_from_bufs = tl.AddTask<>(Container<Real>::SetBoundariesTask, recv, sc1);
-  auto clear_comm_flags = tl.AddTask<>(Container<Real>::ClearBoundaryTask, fill_from_bufs, sc1);
+  auto clear_comm_flags =
+      tl.AddTask<>(Container<Real>::ClearBoundaryTask, fill_from_bufs, sc1);
 
   auto prolongBound = tl.AddTask<>(
       [](MeshBlock *pmb) {
@@ -110,7 +115,8 @@ TaskList AdvectionDriver::MakeTaskList(MeshBlock *pmb, int stage) {
   auto set_bc = tl.AddTask<>(parthenon::ApplyBoundaryConditions, prolongBound, sc1);
 
   // fill in derived fields
-  auto fill_derived = tl.AddTask<>(parthenon::FillDerivedVariables::FillDerived, set_bc, sc1);
+  auto fill_derived =
+      tl.AddTask<>(parthenon::FillDerivedVariables::FillDerived, set_bc, sc1);
 
   // estimate next time step
   if (stage == integrator->nstages) {

@@ -87,9 +87,7 @@ class TaskList {
   template <class F, class... Args>
   TaskID AddTask(F func, TaskID &dep, Args &&... args) {
     TaskID id(tasks_added_ + 1);
-    task_list_.push_back(
-      Task(id, dep, std::bind(func, std::forward<Args>(args)...))
-    );
+    task_list_.push_back(Task(id, dep, std::bind(func, std::forward<Args>(args)...)));
     tasks_added_++;
     return id;
   }

@@ -62,25 +62,25 @@ class Container {
     varPackMap_ = std::make_shared<MapToVariablePack<T>>();
     varFluxPackMap_ = std::make_shared<MapToVariableFluxPack<T>>();
   }
-/*  Container<T>(const Container<T> &src) {
-    //std::cout << "Copying Container!" << std::endl;
-    pmy_block = src.pmy_block;
-    varVector_ = src.varVector_; ///< the saved variable array
-    faceVector_ = src.faceVector_;        ///< the saved face arrays
-    sparseVector_ = src.sparseVector_;
+  /*  Container<T>(const Container<T> &src) {
+      //std::cout << "Copying Container!" << std::endl;
+      pmy_block = src.pmy_block;
+      varVector_ = src.varVector_; ///< the saved variable array
+      faceVector_ = src.faceVector_;        ///< the saved face arrays
+      sparseVector_ = src.sparseVector_;
 
-    varMap_ = src.varMap_;
-    faceMap_ = src.faceMap_;
-    sparseMap_ = src.sparseMap_;
+      varMap_ = src.varMap_;
+      faceMap_ = src.faceMap_;
+      sparseMap_ = src.sparseMap_;
 
-    varPackMap_ = src.varPackMap_;
-    varFluxPackMap_ = src.varFluxPackMap_;
-    for (const auto & m : *varPackMap_) {
-      for (const auto & s : m.first) {
-        std::cout << s << std::endl;
+      varPackMap_ = src.varPackMap_;
+      varFluxPackMap_ = src.varFluxPackMap_;
+      for (const auto & m : *varPackMap_) {
+        for (const auto & s : m.first) {
+          std::cout << s << std::endl;
+        }
       }
-    }
-  }*/
+    }*/
   // Constructors for getting sub-containers
   // the variables returned are all shallow copies of the src container.
   // Optionally extract only some of the sparse ids of src variable.
