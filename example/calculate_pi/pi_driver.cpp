@@ -106,7 +106,7 @@ parthenon::TaskList PiDriver::MakeTaskList(MeshBlock *pmb) {
   TaskList tl;
 
   TaskID none(0);
-  auto get_area = tl.AddTask<>(ComputeArea, none, pmb);
+  auto get_area = tl.AddTask(ComputeArea, none, pmb);
 
   // could add more tasks like:
   // auto next_task = tl.AddTask(FuncPtr, get_area, pmb);
