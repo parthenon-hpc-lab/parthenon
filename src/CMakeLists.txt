@@ -172,6 +172,9 @@ add_library(parthenon
   refinement/refinement.hpp
 
   tasks/task_id.cpp
+  tasks/task_id.hpp
+  tasks/task_list.hpp
+  tasks/task_types.hpp
 
   utils/buffer_utils.cpp
   utils/buffer_utils.hpp
