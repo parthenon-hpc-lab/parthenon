@@ -29,6 +29,7 @@
 
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
@@ -75,7 +76,7 @@ void BoundaryVariable::InitBoundaryData(BoundaryData<> &bd, BoundaryQuantity typ
       std::stringstream msg;
       msg << "### FATAL ERROR in InitBoundaryData" << std::endl
           << "Invalid boundary type is specified." << std::endl;
-      ATHENA_ERROR(msg);
+      PARTHENON_FAIL(msg);
     }
     bd.send[n] = ParArray1D<Real>("send buf " + std::to_string(n), size);
     bd.recv[n] = ParArray1D<Real>("recv buf " + std::to_string(n), size);

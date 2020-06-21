@@ -43,13 +43,7 @@ int main(int argc, char *argv[]) {
 
   PiDriver driver(pman.pinput.get(), pman.pmesh.get());
 
-  // start a timer
-  pman.PreDriver();
-
   auto driver_status = driver.Execute();
-
-  // Make final outputs, print diagnostics
-  pman.PostDriver(driver_status);
 
   // call MPI_Finalize if necessary
   pman.ParthenonFinalize();
@@ -61,6 +55,7 @@ parthenon::DriverStatus PiDriver::Execute() {
   // this is where the main work is orchestrated
   // No evolution in this driver.  Just calculates something once.
   // For evolution, look at the EvolutionDriver
+  PreExecute();
 
   pouts->MakeOutputs(pmesh, pinput);
 
@@ -91,6 +86,12 @@ parthenon::DriverStatus PiDriver::Execute() {
 #else
   Real pi_val = area;
 #endif
+  pmesh->mbcnt = pmesh->nbtotal; // this is how many blocks were processed
+  PostExecute(pi_val);
+  return DriverStatus::complete;
+}
+
+void PiDriver::PostExecute(Real pi_val) {
   if (my_rank == 0) {
     std::cout << std::endl
               << std::endl
@@ -104,8 +105,7 @@ parthenon::DriverStatus PiDriver::Execute() {
     fs << "rel error = " << (pi_val - M_PI) / M_PI << std::endl;
     fs.close();
   }
-  pmesh->mbcnt = pmesh->nbtotal; // this is how many blocks were processed
-  return DriverStatus::complete;
+  Driver::PostExecute();
 }
 
 parthenon::TaskList PiDriver::MakeTaskList(MeshBlock *pmb) {

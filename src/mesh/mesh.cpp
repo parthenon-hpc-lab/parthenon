@@ -44,6 +44,7 @@
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/buffer_utils.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
@@ -113,7 +114,7 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
         << "Number of OpenMP threads must be >= 1, but num_threads=" << num_mesh_threads_
         << std::endl;
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
 
   // check number of grid cells in root level of mesh from input file.
@@ -121,25 +122,25 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
         << "In mesh block in input file nx1 must be >= 4, but nx1=" << mesh_size.nx1
         << std::endl;
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
   if (mesh_size.nx2 < 1) {
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
         << "In mesh block in input file nx2 must be >= 1, but nx2=" << mesh_size.nx2
         << std::endl;
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
   if (mesh_size.nx3 < 1) {
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
         << "In mesh block in input file nx3 must be >= 1, but nx3=" << mesh_size.nx3
         << std::endl;
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
   if (mesh_size.nx2 == 1 && mesh_size.nx3 > 1) {
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
         << "In mesh block in input file: nx2=1, nx3=" << mesh_size.nx3
         << ", 2D problems in x1-x3 plane not supported" << std::endl;
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
 
   // check physical size of mesh (root level) from input file.
@@ -147,19 +148,19 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
         << "Input x1max must be larger than x1min: x1min=" << mesh_size.x1min
         << " x1max=" << mesh_size.x1max << std::endl;
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
   if (mesh_size.x2max <= mesh_size.x2min) {
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
         << "Input x2max must be larger than x2min: x2min=" << mesh_size.x2min
         << " x2max=" << mesh_size.x2max << std::endl;
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
   if (mesh_size.x3max <= mesh_size.x3min) {
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
         << "Input x3max must be larger than x3min: x3min=" << mesh_size.x3min
         << " x3max=" << mesh_size.x3max << std::endl;
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
 
   // check the consistency of the periodic boundaries
@@ -180,7 +181,7 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
         << "When periodic boundaries are in use, both sides must be periodic."
         << std::endl;
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
 
   // read and set MeshBlock parameters
@@ -202,13 +203,13 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
       mesh_size.nx3 % block_size.nx3 != 0) {
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
         << "the Mesh must be evenly divisible by the MeshBlock" << std::endl;
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
   if (block_size.nx1 < 4 || (block_size.nx2 < 4 && (ndim >= 2)) ||
       (block_size.nx3 < 4 && (ndim >= 3))) {
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
         << "block_size must be larger than or equal to 4 cells." << std::endl;
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
 
   // calculate the number of the blocks
@@ -256,7 +257,7 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
       msg << "### FATAL ERROR in Mesh constructor" << std::endl
           << "The number of the refinement level must be smaller than "
           << 63 - root_level + 1 << "." << std::endl;
-      ATHENA_ERROR(msg);
+      PARTHENON_FAIL(msg);
     }
   } else {
     max_level = 63;
@@ -270,7 +271,7 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
       msg << "### FATAL ERROR in Mesh constructor" << std::endl
           << "The size of MeshBlock must be divisible by 2 in order to use SMR or AMR."
           << std::endl;
-      ATHENA_ERROR(msg);
+      PARTHENON_FAIL(msg);
     }
 
     InputBlock *pib = pin->pfirst_block;
@@ -300,7 +301,7 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
         if (ref_lev < 1) {
           msg << "### FATAL ERROR in Mesh constructor" << std::endl
               << "Refinement level must be larger than 0 (root level = 0)" << std::endl;
-          ATHENA_ERROR(msg);
+          PARTHENON_FAIL(msg);
         }
         if (lrlev > max_level) {
           msg << "### FATAL ERROR in Mesh constructor" << std::endl
@@ -308,20 +309,20 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
               << "'maxlevel' parameter in <parthenon/mesh> input block if adaptive)."
               << std::endl;
 
-          ATHENA_ERROR(msg);
+          PARTHENON_FAIL(msg);
         }
         if (ref_size.x1min > ref_size.x1max || ref_size.x2min > ref_size.x2max ||
             ref_size.x3min > ref_size.x3max) {
           msg << "### FATAL ERROR in Mesh constructor" << std::endl
               << "Invalid refinement region is specified." << std::endl;
-          ATHENA_ERROR(msg);
+          PARTHENON_FAIL(msg);
         }
         if (ref_size.x1min < mesh_size.x1min || ref_size.x1max > mesh_size.x1max ||
             ref_size.x2min < mesh_size.x2min || ref_size.x2max > mesh_size.x2max ||
             ref_size.x3min < mesh_size.x3min || ref_size.x3max > mesh_size.x3max) {
           msg << "### FATAL ERROR in Mesh constructor" << std::endl
               << "Refinement region must be smaller than the whole mesh." << std::endl;
-          ATHENA_ERROR(msg);
+          PARTHENON_FAIL(msg);
         }
         // find the logical range in the ref_level
         // note: if this is too slow, this should be replaced with bi-section search.
@@ -418,7 +419,7 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
       msg << "### FATAL ERROR in Mesh constructor" << std::endl
           << "Too few mesh blocks: nbtotal (" << nbtotal << ") < nranks ("
           << Globals::nranks << ")" << std::endl;
-      ATHENA_ERROR(msg);
+      PARTHENON_FAIL(msg);
     } else { // test
       std::cout << "### Warning in Mesh constructor" << std::endl
                 << "Too few mesh blocks: nbtotal (" << nbtotal << ") < nranks ("
@@ -554,7 +555,7 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper &resfile, Properties_t &properties,
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
         << "Number of OpenMP threads must be >= 1, but num_threads=" << num_mesh_threads_
         << std::endl;
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
 
   // get the end of the header
@@ -568,7 +569,7 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper &resfile, Properties_t &properties,
     if (resfile.Read(headerdata, 1, headersize) != headersize) {
       msg << "### FATAL ERROR in Mesh constructor" << std::endl
           << "The restart file is broken." << std::endl;
-      ATHENA_ERROR(msg);
+      PARTHENON_FAIL(msg);
     }
   }
 #ifdef MPI_PARALLEL
@@ -642,7 +643,7 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper &resfile, Properties_t &properties,
       msg << "### FATAL ERROR in Mesh constructor" << std::endl
           << "The number of the refinement level must be smaller than "
           << 63 - root_level + 1 << "." << std::endl;
-      ATHENA_ERROR(msg);
+      PARTHENON_FAIL(msg);
     }
   } else {
     max_level = 63;
@@ -662,7 +663,7 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper &resfile, Properties_t &properties,
       if (resfile.Read(userdata, 1, udsize) != udsize) {
         msg << "### FATAL ERROR in Mesh constructor" << std::endl
             << "The restart file is broken." << std::endl;
-        ATHENA_ERROR(msg);
+        PARTHENON_FAIL(msg);
       }
     }
 #ifdef MPI_PARALLEL
@@ -692,7 +693,7 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper &resfile, Properties_t &properties,
     if (resfile.Read(idlist, listsize, nbtotal) != static_cast<unsigned int>(nbtotal)) {
       msg << "### FATAL ERROR in Mesh constructor" << std::endl
           << "The restart file is broken." << std::endl;
-      ATHENA_ERROR(msg);
+      PARTHENON_FAIL(msg);
     }
   }
 #ifdef MPI_PARALLEL
@@ -725,7 +726,7 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper &resfile, Properties_t &properties,
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
         << "Tree reconstruction failed. The total numbers of the blocks do not match. ("
         << nbtotal << " != " << nnb << ")" << std::endl;
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
 
 #ifdef MPI_PARALLEL
@@ -734,7 +735,7 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper &resfile, Properties_t &properties,
       msg << "### FATAL ERROR in Mesh constructor" << std::endl
           << "Too few mesh blocks: nbtotal (" << nbtotal << ") < nranks ("
           << Globals::nranks << ")" << std::endl;
-      ATHENA_ERROR(msg);
+      PARTHENON_FAIL(msg);
     } else { // test
       std::cout << "### Warning in Mesh constructor" << std::endl
                 << "Too few mesh blocks: nbtotal (" << nbtotal << ") < nranks ("
@@ -776,7 +777,7 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper &resfile, Properties_t &properties,
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
         << "The restart file is broken or input parameters are inconsistent."
         << std::endl;
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
   for (int i = nbs; i <= nbe; i++) {
     // Match fixed-width integer precision of IOWrapperSizeT datasize
@@ -803,7 +804,7 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper &resfile, Properties_t &properties,
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
         << "The restart file is broken or input parameters are inconsistent."
         << std::endl;
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
 
   ResetLoadBalanceVariables();
@@ -1028,25 +1029,25 @@ void Mesh::EnrollUserMeshGenerator(CoordinateDirection dir, MeshGenFunc my_mg) {
   if (dir < 0 || dir >= 3) {
     msg << "### FATAL ERROR in EnrollUserMeshGenerator function" << std::endl
         << "dirName = " << dir << " not valid" << std::endl;
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
   if (dir == X1DIR && mesh_size.x1rat > 0.0) {
     msg << "### FATAL ERROR in EnrollUserMeshGenerator function" << std::endl
         << "x1rat = " << mesh_size.x1rat
         << " must be negative for user-defined mesh generator in X1DIR " << std::endl;
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
   if (dir == X2DIR && mesh_size.x2rat > 0.0) {
     msg << "### FATAL ERROR in EnrollUserMeshGenerator function" << std::endl
         << "x2rat = " << mesh_size.x2rat
         << " must be negative for user-defined mesh generator in X2DIR " << std::endl;
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
   if (dir == X3DIR && mesh_size.x3rat > 0.0) {
     msg << "### FATAL ERROR in EnrollUserMeshGenerator function" << std::endl
         << "x3rat = " << mesh_size.x3rat
         << " must be negative for user-defined mesh generator in X3DIR " << std::endl;
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
   use_uniform_meshgen_fn_[dir] = false;
   MeshGenerator_[dir] = my_mg;
@@ -1096,7 +1097,7 @@ void Mesh::EnrollUserHistoryOutput(int i, HistoryOutputFunc my_func, const char 
     msg << "### FATAL ERROR in EnrollUserHistoryOutput function" << std::endl
         << "The number of the user-defined history output (" << i << ") "
         << "exceeds the declared number (" << nuser_history_output_ << ")." << std::endl;
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
   user_history_output_names_[i] = name;
   user_history_func_[i] = my_func;

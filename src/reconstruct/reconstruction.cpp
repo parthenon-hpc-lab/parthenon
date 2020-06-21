@@ -28,6 +28,7 @@
 #include <string>
 
 #include "mesh/mesh.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
@@ -76,7 +77,7 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin)
     msg << "### FATAL ERROR in Reconstruction constructor" << std::endl
         << "xorder=" << input_recon << " not valid choice for reconstruction"
         << std::endl;
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
   // Check for incompatible choices with broader solver configuration
   // --------------------------------
@@ -90,7 +91,7 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin)
           << "xorder=" << input_recon
           << " (PPM) reconstruction selected, but nghost=" << NGHOST << std::endl
           << "Reconfigure with --nghost=XXX with XXX > " << req_nghost - 1 << std::endl;
-      ATHENA_ERROR(msg);
+      PARTHENON_FAIL(msg);
     }
   }
 
@@ -111,7 +112,7 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin)
           << "x1rat= " << pmb->block_size.x1rat << std::endl
           << "x2rat= " << pmb->block_size.x2rat << std::endl
           << "x3rat= " << pmb->block_size.x3rat << std::endl;
-      ATHENA_ERROR(msg);
+      PARTHENON_FAIL(msg);
     }
     Real dx_i = pmb->coords.dx1f(cellbounds.is(interior));
     Real dx_j = pmb->coords.dx2f(cellbounds.js(interior));
@@ -142,7 +143,7 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin)
                   << "dx1f=" << dx_i << std::endl
                   << "dx2f=" << dx_j << std::endl
                   << "dx3f=" << dx_k << std::endl;
-        // ATHENA_ERROR(msg);
+        // PARTHENON_FAIL(msg);
       }
     }
     if (pmb->pmy_mesh->multilevel) {
@@ -150,7 +151,7 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin)
       msg << "### FATAL ERROR in Reconstruction constructor" << std::endl
           << "Selected time/xorder=" << input_recon << " flux calculations"
           << " currently does not support SMR/AMR " << std::endl;
-      ATHENA_ERROR(msg);
+      PARTHENON_FAIL(msg);
     }
 
     // check for necessary number of ghost zones for PPM w/ fourth-order flux corrections
@@ -162,7 +163,7 @@ Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin)
           << "time/xorder=" << input_recon
           << " reconstruction selected, but nghost=" << NGHOST << std::endl
           << "Reconfigure with --nghost=XXX with XXX > " << req_nghost - 1 << std::endl;
-      ATHENA_ERROR(msg);
+      PARTHENON_FAIL(msg);
     }
   }
 

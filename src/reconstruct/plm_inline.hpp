@@ -36,19 +36,14 @@ namespace parthenon {
 //----------------------------------------------------------------------------------------
 //! \fn Reconstruction::PiecewiseLinearX1()
 //  \brief
-KOKKOS_FORCEINLINE_FUNCTION
+KOKKOS_INLINE_FUNCTION
 void PiecewiseLinearX1(parthenon::team_mbr_t const &member, const int k, const int j,
                        const int il, const int iu, const Coordinates_t &coords,
                        const ParArrayND<Real> &q, ScratchPad2D<Real> &ql,
-                       ScratchPad2D<Real> &qr) {
+                       ScratchPad2D<Real> &qr, ScratchPad2D<Real> &qc,
+                       ScratchPad2D<Real> &dql, ScratchPad2D<Real> &dqr,
+                       ScratchPad2D<Real> &dqm) {
   const int nu = q.GetDim(4) - 1;
-  const int nx1 = ql.extent(1);
-
-  const int scratch_level = 1; // 0 is actual scratch (tiny); 1 is HBM
-  ScratchPad2D<Real> qc(member.team_scratch(scratch_level), nu + 1, nx1);
-  ScratchPad2D<Real> dql(member.team_scratch(scratch_level), nu + 1, nx1);
-  ScratchPad2D<Real> dqr(member.team_scratch(scratch_level), nu + 1, nx1);
-  ScratchPad2D<Real> dqm(member.team_scratch(scratch_level), nu + 1, nx1);
 
   // compute L/R slopes for each variable
   for (int n = 0; n <= nu; ++n) {
@@ -114,22 +109,18 @@ void PiecewiseLinearX1(parthenon::team_mbr_t const &member, const int k, const i
   }
   return;
 }
+
 //----------------------------------------------------------------------------------------
 //! \fn Reconstruction::PiecewiseLinearX2()
 //  \brief
-KOKKOS_FORCEINLINE_FUNCTION
+KOKKOS_INLINE_FUNCTION
 void PiecewiseLinearX2(parthenon::team_mbr_t const &member, const int k, const int j,
                        const int il, const int iu, const Coordinates_t &coords,
                        const ParArrayND<Real> &q, ScratchPad2D<Real> &ql,
-                       ScratchPad2D<Real> &qr) {
+                       ScratchPad2D<Real> &qr, ScratchPad2D<Real> &qc,
+                       ScratchPad2D<Real> &dql, ScratchPad2D<Real> &dqr,
+                       ScratchPad2D<Real> &dqm) {
   const int nu = q.GetDim(4) - 1;
-  const int nx1 = ql.extent(1);
-
-  const int scratch_level = 1; // 0 is actual scratch (tiny); 1 is HBM
-  ScratchPad2D<Real> qc(member.team_scratch(scratch_level), nu + 1, nx1);
-  ScratchPad2D<Real> dql(member.team_scratch(scratch_level), nu + 1, nx1);
-  ScratchPad2D<Real> dqr(member.team_scratch(scratch_level), nu + 1, nx1);
-  ScratchPad2D<Real> dqm(member.team_scratch(scratch_level), nu + 1, nx1);
 
   // compute L/R slopes for each variable
   for (int n = 0; n <= nu; ++n) {
@@ -197,19 +188,14 @@ void PiecewiseLinearX2(parthenon::team_mbr_t const &member, const int k, const i
 //----------------------------------------------------------------------------------------
 //! \fn Reconstruction::PiecewiseLinearX3()
 //  \brief
-KOKKOS_FORCEINLINE_FUNCTION
+KOKKOS_INLINE_FUNCTION
 void PiecewiseLinearX3(parthenon::team_mbr_t const &member, const int k, const int j,
                        const int il, const int iu, const Coordinates_t &coords,
                        const ParArrayND<Real> &q, ScratchPad2D<Real> &ql,
-                       ScratchPad2D<Real> &qr) {
+                       ScratchPad2D<Real> &qr, ScratchPad2D<Real> &qc,
+                       ScratchPad2D<Real> &dql, ScratchPad2D<Real> &dqr,
+                       ScratchPad2D<Real> &dqm) {
   const int nu = q.GetDim(4) - 1;
-  const int nx1 = ql.extent(1);
-
-  const int scratch_level = 1; // 0 is actual scratch (tiny); 1 is HBM
-  ScratchPad2D<Real> qc(member.team_scratch(scratch_level), nu + 1, nx1);
-  ScratchPad2D<Real> dql(member.team_scratch(scratch_level), nu + 1, nx1);
-  ScratchPad2D<Real> dqr(member.team_scratch(scratch_level), nu + 1, nx1);
-  ScratchPad2D<Real> dqm(member.team_scratch(scratch_level), nu + 1, nx1);
 
   // compute L/R slopes for each variable
   for (int n = 0; n <= nu; ++n) {
@@ -265,6 +251,7 @@ void PiecewiseLinearX3(parthenon::team_mbr_t const &member, const int k, const i
     });
   }
 }
+
 } // namespace parthenon
 
 #endif // RECONSTRUCT_PLM_INLINE_HPP_

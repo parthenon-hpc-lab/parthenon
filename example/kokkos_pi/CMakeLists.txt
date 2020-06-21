@@ -12,13 +12,8 @@
 #=========================================================================================
 
 add_executable(
-    advection-example
-        advection_driver.cpp
-        advection_driver.hpp
-        advection_package.cpp
-        advection_package.hpp
-        main.cpp
-        redefine_parthenon_defaults.cpp
+    kokkos_pi
+        kokkos_pi.cpp
 )
-target_link_libraries(advection-example PRIVATE parthenon)
-lint_target(advection-example)
+target_link_libraries(kokkos_pi PUBLIC parthenon)
+lint_target(kokkos_pi)
