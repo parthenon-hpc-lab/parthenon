@@ -85,69 +85,115 @@ configure_file(defs.hpp.in generated/defs.hpp @ONLY)
 
 add_library(parthenon
   bvals/cc/bvals_cc.cpp
+  bvals/cc/bvals_cc.hpp
   bvals/cc/flux_correction_cc.cpp
 
   bvals/fc/bvals_fc.cpp
+  bvals/fc/bvals_fc.hpp
   bvals/fc/flux_correction_fc.cpp
 
+  bvals/boundary_conditions.cpp
+  bvals/boundary_conditions.hpp
+
   bvals/bvals.cpp
+  bvals/bvals.hpp
   bvals/bvals_base.cpp
+  bvals/bvals_interfaces.hpp
   bvals/boundary_flag.cpp
   bvals/bvals_refine.cpp
   bvals/bvals_var.cpp
 
-  bvals/boundary_conditions.cpp
+  coordinates/coordinates.hpp
+  coordinates/uniform_cartesian.hpp
 
   driver/driver.cpp
+  driver/driver.hpp
   driver/multistage.cpp
+  driver/multistage.hpp
 
   interface/container_collection.cpp
+  interface/container_collection.hpp
+  interface/container_iterator.hpp
   interface/container.cpp
+  interface/container.hpp
   interface/metadata.cpp
+  interface/metadata.hpp
+  interface/params.hpp
   interface/properties_interface.cpp
+  interface/properties_interface.hpp
   interface/sparse_variable.cpp
+  interface/sparse_variable.hpp
   interface/update.cpp
+  interface/update.hpp
+  interface/variable_pack.hpp
   interface/variable.cpp
+  interface/variable.hpp
 
   mesh/amr_loadbalance.cpp
+  mesh/domain.hpp
   mesh/mesh_refinement.cpp
+  mesh/mesh_refinement.hpp
   mesh/mesh.cpp
-  mesh/meshblock.cpp
+  mesh/mesh.hpp
   mesh/meshblock_tree.cpp
+  mesh/meshblock_tree.hpp
+  mesh/meshblock.cpp
   mesh/weighted_ave.cpp
 
   outputs/formatted_table.cpp
   outputs/history.cpp
   outputs/io_wrapper.cpp
+  outputs/io_wrapper.hpp
   outputs/outputs.cpp
+  outputs/outputs.hpp
   outputs/parthenon_hdf5.cpp
   outputs/restart.cpp
   outputs/vtk.cpp
 
+  parthenon/driver.hpp
+  parthenon/package.hpp
+  parthenon/parthenon.hpp
+  parthenon/prelude.hpp
+
   pgen/default_pgen.cpp
 
   reconstruct/characteristic.cpp
+  reconstruct/dc_inline.hpp
   reconstruct/dc.cpp
+  reconstruct/plm_inline.hpp
   reconstruct/plm.cpp
   reconstruct/ppm.cpp
+  reconstruct/reconstruction.hpp
   reconstruct/reconstruction.cpp
 
   refinement/amr_criteria.cpp
+  refinement/amr_criteria.hpp
   refinement/refinement.cpp
+  refinement/refinement.hpp
 
   tasks/task_id.cpp
 
   utils/buffer_utils.cpp
+  utils/buffer_utils.hpp
   utils/change_rundir.cpp
-  #utils/gl_quadrature.cpp
-  #utils/ran2.cpp
+  utils/error_checking.hpp
   utils/show_config.cpp
   utils/signal_handler.cpp
   utils/trim_string.cpp
+  utils/trim_string.hpp
+  utils/utils.hpp
 
+  argument_parser.hpp
+  athena.hpp
+  basic_types.hpp
   globals.cpp
+  globals.hpp
+  kokkos_abstraction.hpp
   parameter_input.cpp
+  parameter_input.hpp
   parthenon_manager.cpp
+  parthenon_manager.hpp
+  parthenon_mpi.hpp
 )
 
 target_compile_features(parthenon PUBLIC cxx_std_14)
@@ -178,3 +224,5 @@ target_include_directories(parthenon PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}
   ${CMAKE_CURRENT_BINARY_DIR}/generated
 )
+
+lint_target(parthenon)

@@ -16,3 +16,4 @@ add_executable(
         kokkos_pi.cpp
 )
 target_link_libraries(kokkos_pi PUBLIC parthenon)
+lint_target(kokkos_pi)
