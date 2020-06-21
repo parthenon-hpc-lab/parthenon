@@ -229,11 +229,11 @@ void BoundaryVariable::SetBoundaries() {
 void BoundaryVariable::ReceiveAndSetBoundariesWithWait() {
   MeshBlock *pmb = pmy_block_;
   int mylevel = pmb->loc.level;
+  pmb->exec_space.fence();
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
 #ifdef MPI_PARALLEL
     if (nb.snb.rank != Globals::my_rank) {
-      pmb->exec_space.fence();
       MPI_Wait(&(bd_var_.req_recv[nb.bufid]), MPI_STATUS_IGNORE);
     }
 #endif
