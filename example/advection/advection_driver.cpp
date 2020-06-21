@@ -84,8 +84,7 @@ TaskList AdvectionDriver::MakeTaskList(MeshBlock *pmb, int stage) {
 
   auto advect_flux = tl.AddTask(advection_package::CalculateFluxes, none, sc0);
 
-  auto send_flux =
-      tl.AddTask(Container<Real>::SendFluxCorrectionTask, advect_flux, sc0);
+  auto send_flux = tl.AddTask(Container<Real>::SendFluxCorrectionTask, advect_flux, sc0);
   auto recv_flux =
       tl.AddTask(Container<Real>::ReceiveFluxCorrectionTask, advect_flux, sc0);
 
@@ -97,8 +96,7 @@ TaskList AdvectionDriver::MakeTaskList(MeshBlock *pmb, int stage) {
       tl.AddTask(UpdateContainer, flux_div, pmb, stage, stage_name, integrator);
 
   // update ghost cells
-  auto send =
-      tl.AddTask(Container<Real>::SendBoundaryBuffersTask, update_container, sc1);
+  auto send = tl.AddTask(Container<Real>::SendBoundaryBuffersTask, update_container, sc1);
   auto recv = tl.AddTask(Container<Real>::ReceiveBoundaryBuffersTask, send, sc1);
   auto fill_from_bufs = tl.AddTask(Container<Real>::SetBoundariesTask, recv, sc1);
   auto clear_comm_flags =
