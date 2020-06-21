@@ -1184,14 +1184,15 @@ void FaceCenteredBoundaryVariable::StartReceiving(BoundaryCommSubset phase) {
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
     if (nb.snb.rank != Globals::my_rank && phase != BoundaryCommSubset::gr_amr) {
-      pmb->MPI_Start(&(bd_var_.req_recv[nb.bufid]));
+      pmb->exec_space.fence();
+      MPI_Start(&(bd_var_.req_recv[nb.bufid]));
       if (phase == BoundaryCommSubset::all &&
           (nb.ni.type == NeighborConnect::face || nb.ni.type == NeighborConnect::edge)) {
         if ((nb.snb.level > mylevel) ||
             ((nb.snb.level == mylevel) &&
              ((nb.ni.type == NeighborConnect::face) ||
               ((nb.ni.type == NeighborConnect::edge) && (edge_flag_[nb.eid])))))
-          pmb->MPI_Start(&(bd_var_flcor_.req_recv[nb.bufid]));
+          MPI_Start(&(bd_var_flcor_.req_recv[nb.bufid]));
       }
     }
   }
@@ -1215,17 +1216,18 @@ void FaceCenteredBoundaryVariable::ClearBoundary(BoundaryCommSubset phase) {
     MeshBlock *pmb = pmy_block_;
     int mylevel = pmb->loc.level;
     if (nb.snb.rank != Globals::my_rank && phase != BoundaryCommSubset::gr_amr) {
+      pmb->exec_space.fence();
       // Wait for Isend
-      pmb->MPI_Wait(&(bd_var_.req_send[nb.bufid]), MPI_STATUS_IGNORE);
+      MPI_Wait(&(bd_var_.req_send[nb.bufid]), MPI_STATUS_IGNORE);
 
       if (phase == BoundaryCommSubset::all) {
         if (nb.ni.type == NeighborConnect::face || nb.ni.type == NeighborConnect::edge) {
           if (nb.snb.level < mylevel)
-            pmb->MPI_Wait(&(bd_var_flcor_.req_send[nb.bufid]), MPI_STATUS_IGNORE);
+            MPI_Wait(&(bd_var_flcor_.req_send[nb.bufid]), MPI_STATUS_IGNORE);
           else if ((nb.snb.level == mylevel) &&
                    ((nb.ni.type == NeighborConnect::face) ||
                     ((nb.ni.type == NeighborConnect::edge) && (edge_flag_[nb.eid]))))
-            pmb->MPI_Wait(&(bd_var_flcor_.req_send[nb.bufid]), MPI_STATUS_IGNORE);
+            MPI_Wait(&(bd_var_flcor_.req_send[nb.bufid]), MPI_STATUS_IGNORE);
         }
       }
     }

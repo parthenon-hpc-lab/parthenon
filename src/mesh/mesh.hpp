@@ -184,17 +184,6 @@ class MeshBlock {
     Kokkos::deep_copy(exec_space, dst, src);
   }
 
-  template <class... Args>
-  void MPI_Start(Args... args) {
-    exec_space.fence();
-    ::MPI_Start(std::forward<Args>(args)...);
-  }
-  template <class... Args>
-  void MPI_Wait(Args... args) {
-    exec_space.fence();
-    ::MPI_Wait(std::forward<Args>(args)...);
-  }
-
   // 1D default loop pattern
   template <typename Function>
   inline void par_for(const std::string &name, const int &il, const int &iu,

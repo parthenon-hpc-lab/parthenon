@@ -151,13 +151,14 @@ void BoundaryVariable::SendBoundaryBuffers() {
       ssize = LoadBoundaryBufferToCoarser(bd_var_.send[nb.bufid], nb);
     else
       ssize = LoadBoundaryBufferToFiner(bd_var_.send[nb.bufid], nb);
+    // fence to make sure buffers are loaded and ready to send
+    pmb->exec_space.fence();
     if (nb.snb.rank == Globals::my_rank) {
       // on the same process
-      pmb->exec_space.fence();
       CopyVariableBufferSameProcess(nb, ssize);
     } else {
 #ifdef MPI_PARALLEL
-      pmb->MPI_Start(&(bd_var_.req_send[nb.bufid]));
+      MPI_Start(&(bd_var_.req_send[nb.bufid]));
 #endif
     }
 
@@ -230,8 +231,10 @@ void BoundaryVariable::ReceiveAndSetBoundariesWithWait() {
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
 #ifdef MPI_PARALLEL
-    if (nb.snb.rank != Globals::my_rank)
-      pmb->MPI_Wait(&(bd_var_.req_recv[nb.bufid]), MPI_STATUS_IGNORE);
+    if (nb.snb.rank != Globals::my_rank) {
+      pmb->exec_space.fence();
+      MPI_Wait(&(bd_var_.req_recv[nb.bufid]), MPI_STATUS_IGNORE);
+    }
 #endif
     if (nb.snb.level == mylevel)
       SetBoundarySameLevel(bd_var_.recv[nb.bufid], nb);

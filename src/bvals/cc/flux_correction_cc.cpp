@@ -179,13 +179,13 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
                   tarea;
             });
       }
+      pmb->exec_space.fence();
       if (nb.snb.rank == Globals::my_rank) { // on the same node
-        pmb->exec_space.fence();
         CopyFluxCorrectionBufferSameProcess(nb, psize);
       }
 #ifdef MPI_PARALLEL
       else
-        pmb->MPI_Start(&(bd_var_flcor_.req_send[nb.bufid]));
+        MPI_Start(&(bd_var_flcor_.req_send[nb.bufid]));
 #endif
       bd_var_flcor_.sflag[nb.bufid] = BoundaryStatus::completed;
     }
