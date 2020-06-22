@@ -24,6 +24,12 @@ option(PARTHENON_SINGLE_PRECISION "Run in single precision" OFF)
 option(PARTHENON_DISABLE_MPI "MPI is enabled by default if found, set this to True to disable MPI" OFF)
 option(PARTHENON_DISABLE_OPENMP "OpenMP is enabled by default if found, set this to True to disable OpenMP" OFF)
 option(PARTHENON_DISABLE_HDF5 "HDF5 is enabled by default if found, set this to True to disable HDF5" OFF)
+option(
+  PARTHENON_LINT_DEFAULT
+  "Sources files are linted when building the default target. Set to OFF to \
+stop linting by default. You can still lint using the \"lint\" target"
+  ON
+)
 
 option(ENABLE_UNIT_TESTS "Enable unit tests" ${BUILD_TESTING})
 option(ENABLE_INTEGRATION_TESTS "Enable integration tests" ${BUILD_TESTING})
@@ -35,6 +41,7 @@ option(TEST_INTEL_OPTIMIZATION "Test intel optimization and vectorization" OFF)
 option(TEST_ERROR_CHECKING "Enables the error checking unit test. This test will FAIL" OFF)
 
 include(cmake/Format.cmake)
+include(cmake/Lint.cmake)
 
 # internal variable for number of ghost cells
 set(NUMBER_GHOST_CELLS ${PARTHENON_NGHOST}) 
@@ -197,10 +204,7 @@ if (TEST_INTEL_OPTIMIZATION)
 endif()	       
 
 add_subdirectory(src)
-add_subdirectory(example/advection)
-add_subdirectory(example/calculate_pi)
-add_subdirectory(example/face_fields)
-add_subdirectory(example/kokkos_pi)
+add_subdirectory(example)
 
 include(cmake/CheckCopyright.cmake)
 

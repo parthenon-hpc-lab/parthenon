@@ -49,6 +49,20 @@ In order for code to be merged into master it must
 The reviewers are expected to look out for the items above before approving a merge
 request.
 
+#### Linting Code
+cpplint will automatically run as part of the cmake build on individual source
+files when building the default target. You can run the lint explicitly by
+building the `lint` target.
+```
+cmake --build . --target lint
+```
+
+If you do not want to the code to be linted as part of the default target, you
+can disable that behavior with the `PARTHENON_LINT_DEFAULT` cmake option.
+```
+cmake -DPARTHENON_LINT_DEFAULT=OFF .
+```
+
 #### Formatting Code
 We use clang-format to automatically format the code. If you have clang-format installed
 locally, you can always execute `make format` or `cmake --build . --target format` from
