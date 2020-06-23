@@ -126,14 +126,14 @@ void Mesh::CalculateLoadBalance(double *clist, int *rlist, int *slist, int *nlis
   }
 
 #ifdef MPI_PARALLEL
-  if (nb % (Globals::nranks * num_mesh_threads_) != 0 && !adaptive && !lb_flag_ &&
-      maxcost == mincost && Globals::my_rank == 0) {
+  if (nb % (Globals::nranks) != 0 && !adaptive && !lb_flag_ && maxcost == mincost &&
+      Globals::my_rank == 0) {
     std::cout << "### Warning in CalculateLoadBalance" << std::endl
               << "The number of MeshBlocks cannot be divided evenly. "
               << "This will result in poor load balancing." << std::endl;
   }
 #endif
-  if (Globals::nranks * num_mesh_threads_ > nb) {
+  if (Globals::nranks > nb) {
     if (!adaptive) {
       // mesh is refined statically, treat this an as error (all ranks need to
       // participate)

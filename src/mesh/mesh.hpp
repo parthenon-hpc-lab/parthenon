@@ -312,7 +312,6 @@ class Mesh {
 
   // accessors
   int GetNumMeshBlocksThisRank(int my_rank) { return nblist[my_rank]; }
-  int GetNumMeshThreads() const { return num_mesh_threads_; }
   std::int64_t GetTotalCells() {
     return static_cast<std::int64_t>(nbtotal) * pblock->block_size.nx1 *
            pblock->block_size.nx2 * pblock->block_size.nx3;
@@ -374,7 +373,6 @@ class Mesh {
   // data
   int next_phys_id_; // next unused value for encoding final component of MPI tag bitfield
   int root_level, max_level, current_level;
-  int num_mesh_threads_;
   int *nslist, *ranklist, *nblist;
   double *costlist;
   // 8x arrays used exclusively for AMR (not SMR):
