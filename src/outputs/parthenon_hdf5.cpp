@@ -46,11 +46,11 @@ namespace parthenon {
 static std::string stringXdmfArrayRef(const std::string &prefix,
                                       const std::string &hdfPath,
                                       const std::string &label, const hsize_t *dims,
-                                      const int &ndims, const std::string &theType,
+                                      const int &len_dims, const std::string &theType,
                                       const int &precision) {
   std::string mystr =
       prefix + R"(<DataItem Format="HDF" Dimensions=")" + std::to_string(dims[0]);
-  for (int i = 1; i < ndims; i++)
+  for (int i = 1; i < len_dims; i++)
     mystr += " " + std::to_string(dims[i]);
   mystr += "\" Name=\"" + label + "\"";
   mystr += " NumberType=\"" + theType + "\"";
@@ -61,15 +61,15 @@ static std::string stringXdmfArrayRef(const std::string &prefix,
 
 static void writeXdmfArrayRef(std::ofstream &fid, const std::string &prefix,
                               const std::string &hdfPath, const std::string &label,
-                              const hsize_t *dims, const int &ndims,
+                              const hsize_t *dims, const int &len_dims,
                               const std::string &theType, const int &precision) {
-  fid << stringXdmfArrayRef(prefix, hdfPath, label, dims, ndims, theType, precision)
+  fid << stringXdmfArrayRef(prefix, hdfPath, label, dims, len_dims, theType, precision)
       << std::flush;
 }
 
 static void writeXdmfSlabVariableRef(std::ofstream &fid, std::string &name,
                                      std::string &hdfFile, int iblock, const int &vlen,
-                                     int &ndims, hsize_t *dims,
+                                     int &len_dims, hsize_t *dims,
                                      const std::string &dims321, bool isVector) {
   // writes a slab reference to file
 
@@ -86,6 +86,9 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, std::string &name,
   }
   if (isVector) vector_size = vlen;
 
+  // set hDims for 2D or 3D
+  std::string hDims = (dims[1] == 1 ? dims321.substr(2, std::string::npos) : dims321);
+
   const std::string prefix = "      ";
   for (int i = 0; i < nentries; i++) {
     fid << prefix << R"(<Attribute Name=")" << names[i] << R"(" Center="Cell")";
@@ -95,13 +98,13 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, std::string &name,
     }
     fid << ">" << std::endl;
     fid << prefix << "  "
-        << R"(<DataItem ItemType="HyperSlab" Dimensions=")" << dims321 << " "
-        << vector_size << R"(">)" << std::endl;
+        << R"(<DataItem ItemType="HyperSlab" Dimensions=")" << hDims << " " << vector_size
+        << R"(">)" << std::endl;
     fid << prefix << "    "
         << R"(<DataItem Dimensions="3 5" NumberType="Int" Format="XML">)" << iblock
         << " 0 0 0 " << i << " 1 1 1 1 1 1 " << dims321 << " " << vector_size
         << "</DataItem>" << std::endl;
-    writeXdmfArrayRef(fid, prefix + "    ", hdfFile + ":/", name, dims, ndims, "Float",
+    writeXdmfArrayRef(fid, prefix + "    ", hdfFile + ":/", name, dims, len_dims, "Float",
                       8);
     fid << prefix << "  "
         << "</DataItem>" << std::endl;
@@ -176,6 +179,12 @@ void PHDF5Output::genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm) {
   std::string blockTopology = R"(      <Topology Type="3DRectMesh" NumberOfElements=")" +
                               std::to_string(nx3 + 1) + " " + std::to_string(nx2 + 1) +
                               " " + std::to_string(nx1 + 1) + R"("/>)" + '\n';
+
+  if (pm->ndim < 3) {
+    blockTopology = R"(      <Topology Type="2DRectMesh" NumberOfElements=")" +
+                    std::to_string(nx2 + 1) + " " + std::to_string(nx1 + 1) + R"("/>)" +
+                    '\n';
+  }
   const std::string slabPreDim = R"(        <DataItem ItemType="HyperSlab" Dimensions=")";
   const std::string slabPreBlock2D =
       R"("><DataItem Dimensions="3 2" NumberType="Int" Format="XML">)";
@@ -187,14 +196,18 @@ void PHDF5Output::genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm) {
   std::string dims321 =
       std::to_string(nx3) + " " + std::to_string(nx2) + " " + std::to_string(nx1);
 
-  int ndims = 5;
+  int len_dims = 5;
 
   // same set of variables for all grids so use only one container
   auto ciX = ContainerIterator<Real>(pmb->real_containers.Get(), output_params.variables);
   for (int ib = 0; ib < pm->nbtotal; ib++) {
     xdmf << "    <Grid GridType=\"Uniform\" Name=\"" << ib << "\">" << std::endl;
     xdmf << blockTopology;
-    xdmf << R"(      <Geometry Type="VXVYVZ">)" << std::endl;
+    if (pm->ndim > 2) {
+      xdmf << R"(      <Geometry Type="VXVYVZ">)" << std::endl;
+    } else {
+      xdmf << R"(      <Geometry Type="VXVY">)" << std::endl;
+    }
     xdmf << slabPreDim << nx1 + 1 << slabPreBlock2D << ib << " 0 1 1 1 " << nx1 + 1
          << slabTrailer << std::endl;
 
@@ -211,14 +224,15 @@ void PHDF5Output::genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm) {
                       8);
     xdmf << "</DataItem>" << std::endl;
 
-    xdmf << slabPreDim << nx3 + 1 << slabPreBlock2D << ib << " 0 1 1 1 " << nx3 + 1
-         << slabTrailer << std::endl;
+    if (pm->ndim > 2) {
+      xdmf << slabPreDim << nx3 + 1 << slabPreBlock2D << ib << " 0 1 1 1 " << nx3 + 1
+           << slabTrailer << std::endl;
 
-    dims[1] = nx3 + 1;
-    writeXdmfArrayRef(xdmf, "          ", hdfFile + ":/Locations/", "z", dims, 2, "Float",
-                      8);
-    xdmf << "</DataItem>" << std::endl;
-
+      dims[1] = nx3 + 1;
+      writeXdmfArrayRef(xdmf, "          ", hdfFile + ":/Locations/", "z", dims, 2,
+                        "Float", 8);
+      xdmf << "</DataItem>" << std::endl;
+    }
     xdmf << "      </Geometry>" << std::endl;
 
     // write graphics variables
@@ -230,7 +244,7 @@ void PHDF5Output::genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm) {
       const int vlen = v->GetDim(4);
       dims[4] = vlen;
       std::string name = v->label();
-      writeXdmfSlabVariableRef(xdmf, name, hdfFile, ib, vlen, ndims, dims, dims321,
+      writeXdmfSlabVariableRef(xdmf, name, hdfFile, ib, vlen, len_dims, dims, dims321,
                                v->IsSet(Metadata::Vector));
     }
     xdmf << "      </Grid>" << std::endl;
