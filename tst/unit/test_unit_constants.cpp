@@ -15,9 +15,9 @@
 
 #include "utils/utils.hpp"
 
+using parthenon::constants::CGS;
 using parthenon::constants::PhysicalConstants;
 using parthenon::constants::SI;
-using parthenon::constants::CGS;
 
 TEST_CASE("Physical constants", "[SI, CGS]") {
   SECTION("SI units") {
