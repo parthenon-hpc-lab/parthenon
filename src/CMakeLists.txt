@@ -185,8 +185,8 @@ add_library(parthenon
   utils/utils.hpp
 
   argument_parser.hpp
-  athena.hpp
   basic_types.hpp
+  defs.hpp
   globals.cpp
   globals.hpp
   kokkos_abstraction.hpp
