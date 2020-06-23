@@ -118,7 +118,7 @@ template <typename UNITSYSTEM> class PhysicalConstants {
     static constexpr double sb = StefanBoltzmann;
 
     // Faraday constant
-    static constexpr double FaradayConstant = Na * qe;
+    static constexpr double FaradayConstant = 96485.33645957 * Capacitance;
     static constexpr double F = FaradayConstant;
 
     // Permeability of free space
@@ -127,16 +127,15 @@ template <typename UNITSYSTEM> class PhysicalConstants {
     static constexpr double mu0 = PermeabilityOfVacuum;
 
     // Permittivity of free space
-    static constexpr double PermittivityOfVacuum = 1.0 / (mu0 * c * c);
+    static constexpr double PermittivityOfVacuum = 8.85418782e-12 * Capacitance / Length;
     static constexpr double eps0 = PermittivityOfVacuum;
 
     // Classical electron radius
-    static constexpr double ClassicalElectronRadius = qe * qe / (4. * M_PI
-      * eps0 * me * c * c);
+    static constexpr double ClassicalElectronRadius = 2.81794033e-15 * Length;
     static constexpr double re = ClassicalElectronRadius;
 
     // Electron volt
-    static constexpr double ElectronVolt = qe;
+    static constexpr double ElectronVolt = 1.602176565e-19 * Energy;
     static constexpr double eV = ElectronVolt;
 
     // Atomic mass unit (CODATA 2010 value)

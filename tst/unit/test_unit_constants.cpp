@@ -77,7 +77,7 @@ TEST_CASE("Physical constants", "[SI, CGS]") {
     REQUIRE(pc.ElectronMass == Approx(9.10938291e-28));
     REQUIRE(pc.ProtonMass == Approx(1.672621777e-24));
     REQUIRE(pc.StefanBoltzmann == Approx(5.67037262e-5));
-    //REQUIRE(pc.FaradayConstant == Approx(8.66742090e16));
+    REQUIRE(pc.FaradayConstant == Approx(8.66742090e16));
     REQUIRE(pc.PermeabilityOfVacuum == Approx(12.56637061));
     REQUIRE(pc.PermittivityOfVacuum == Approx(0.079538483));
     REQUIRE(pc.ClassicalElectronRadius == Approx(2.81794033e-13));
