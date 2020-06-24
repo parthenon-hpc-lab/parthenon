@@ -54,8 +54,8 @@ class CellCenteredBoundaryVariable : public BoundaryVariable {
   // BoundaryVariable:
   int ComputeVariableBufferSize(const NeighborIndexes &ni, int cng) final;
   int ComputeFluxCorrectionBufferSize(const NeighborIndexes &ni, int cng) final;
-  void SendBoundaryBuffers() final;
-  void SetBoundaries() final;
+//  void SendBoundaryBuffers() final;
+//  void SetBoundaries() final;
 
   // BoundaryCommunication:
   void SetupPersistentMPI() final;

@@ -30,7 +30,6 @@
 
 #include "Kokkos_ExecPolicy.hpp"
 #include "Kokkos_Parallel.hpp"
-#include "kokkos_abstraction.hpp"
 #include "parthenon_mpi.hpp"
 
 #include "basic_types.hpp"
@@ -146,6 +145,7 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(ParArray1D<Real> &
   return p;
 }
 
+#ifdef __POC
 struct BndInfo {
   int si = 0;
   int ei = 0;
@@ -180,7 +180,6 @@ void CellCenteredBoundaryVariable::SendBoundaryBuffers() {
     if (bd_var_.sflag[nb.bufid] == BoundaryStatus::completed) {
       continue;
     } else {
-
       IndexDomain interior = IndexDomain::interior;
       const IndexShape &cellbounds = pmb->cellbounds;
       bnd_info_all[mb].si = (nb.ni.ox1 > 0) ? (cellbounds.ie(interior) - NGHOST + 1)
@@ -246,7 +245,7 @@ void CellCenteredBoundaryVariable::SendBoundaryBuffers() {
                   var_cc_(n, k, j, i);
             });
       });
-#if 0
+#ifdef __UNUSED
   Kokkos::parallel_for(
       "CellCenteredVar::SendBoundaryBuffers RangePolicy",
       Kokkos::RangePolicy<>(pmb->exec_space, 0, num_nmb), KOKKOS_LAMBDA(const int mb) {
@@ -292,6 +291,7 @@ void CellCenteredBoundaryVariable::SendBoundaryBuffers() {
   // delete[] bnd_info_all;
   return;
 }
+#endif
 
 //----------------------------------------------------------------------------------------
 //! \fn int CellCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(ParArray1D<Real>
@@ -422,7 +422,7 @@ void CellCenteredBoundaryVariable::SetBoundarySameLevel(ParArray1D<Real> &buf,
   ParArray4D<Real> var_cc_ = var_cc.Get<4>(); // automatic template deduction fails
   BufferUtility::UnpackData(buf, var_cc_, nl_, nu_, si, ei, sj, ej, sk, ek, p, pmb);
 }
-
+#ifdef __POC
 //----------------------------------------------------------------------------------------
 //! \fn void BoundaryVariable::SetBoundaries()
 //  \brief set the boundary data
@@ -510,7 +510,7 @@ void CellCenteredBoundaryVariable::SetBoundaries() {
 
   return;
 }
-
+#endif
 //----------------------------------------------------------------------------------------
 //! \fn void CellCenteredBoundaryVariable::SetBoundaryFromCoarser(ParArray1D<Real> &buf,
 //                                                                const NeighborBlock&

@@ -21,10 +21,9 @@
 #include <utility>
 #include <vector>
 
-#include "Kokkos_Atomic.hpp"
-#include "basic_types.hpp"
 #include "globals.hpp"
 #include "kokkos_abstraction.hpp"
+#include "Kokkos_Atomic.hpp"
 #include "mesh/mesh.hpp"
 #include "outputs/outputs.hpp"
 #include "task_list/tasks.hpp"
