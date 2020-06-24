@@ -97,7 +97,7 @@
 #include <stdexcept>
 #include <string>
 
-#include "athena.hpp"
+#include "defs.hpp"
 #include "mesh/mesh.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"

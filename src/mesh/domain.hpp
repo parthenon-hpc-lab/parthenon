@@ -23,7 +23,7 @@
 #include <type_traits>
 #include <vector>
 
-#include "athena.hpp"
+#include "defs.hpp"
 
 namespace parthenon {
 
