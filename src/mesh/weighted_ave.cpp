@@ -17,7 +17,7 @@
 //! \file weighted_ave.cpp
 //  \brief
 
-#include "athena.hpp"
+#include "defs.hpp"
 #include "mesh/mesh.hpp"
 #include "parthenon_arrays.hpp"
 

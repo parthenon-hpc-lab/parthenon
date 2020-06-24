@@ -19,7 +19,7 @@
 
 #include "utils/buffer_utils.hpp"
 
-#include "athena.hpp"
+#include "defs.hpp"
 #include "kokkos_abstraction.hpp"
 #include "mesh/mesh.hpp"
 #include "parthenon_arrays.hpp"

@@ -21,7 +21,7 @@
 
 #include <Kokkos_Core.hpp>
 
-#include "athena.hpp"
+#include "defs.hpp"
 
 namespace parthenon {
 
