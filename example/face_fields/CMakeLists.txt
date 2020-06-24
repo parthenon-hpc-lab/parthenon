@@ -13,7 +13,9 @@
 
 add_executable(
     face-fields-example
-        face_fields_main.cpp
         face_fields_example.cpp
+        face_fields_example.hpp
+        face_fields_main.cpp
 )
 target_link_libraries(face-fields-example PRIVATE parthenon)
+lint_target(face-fields-example)
