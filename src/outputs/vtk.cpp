@@ -28,8 +28,8 @@
 #include <stdexcept>
 #include <string>
 
-#include "athena.hpp"
 #include "coordinates/coordinates.hpp"
+#include "defs.hpp"
 #include "interface/container_iterator.hpp"
 #include "mesh/mesh.hpp"
 #include "outputs/outputs.hpp"

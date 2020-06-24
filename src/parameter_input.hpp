@@ -26,7 +26,7 @@
 #include <ostream>
 #include <string>
 
-#include "athena.hpp"
+#include "config.hpp"
 #include "defs.hpp"
 #include "outputs/io_wrapper.hpp"
 

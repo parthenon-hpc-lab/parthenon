@@ -25,7 +25,7 @@
 #include <sstream>
 #include <stdexcept>
 
-#include "athena.hpp"
+#include "defs.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {

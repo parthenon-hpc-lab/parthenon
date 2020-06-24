@@ -1082,12 +1082,12 @@ void FaceCenteredBoundaryVariable::SetupPersistentMPI() {
       tag = pmb->pbval->CreateBvalsMPITag(nb.snb.lid, nb.targetid, fc_phys_id_);
       if (bd_var_.req_send[nb.bufid] != MPI_REQUEST_NULL)
         MPI_Request_free(&bd_var_.req_send[nb.bufid]);
-      MPI_Send_init(bd_var_.send[nb.bufid].data(), ssize, MPI_ATHENA_REAL, nb.snb.rank,
+      MPI_Send_init(bd_var_.send[nb.bufid].data(), ssize, MPI_PARTHENON_REAL, nb.snb.rank,
                     tag, MPI_COMM_WORLD, &(bd_var_.req_send[nb.bufid]));
       tag = pmb->pbval->CreateBvalsMPITag(pmb->lid, nb.bufid, fc_phys_id_);
       if (bd_var_.req_recv[nb.bufid] != MPI_REQUEST_NULL)
         MPI_Request_free(&bd_var_.req_recv[nb.bufid]);
-      MPI_Recv_init(bd_var_.recv[nb.bufid].data(), rsize, MPI_ATHENA_REAL, nb.snb.rank,
+      MPI_Recv_init(bd_var_.recv[nb.bufid].data(), rsize, MPI_PARTHENON_REAL, nb.snb.rank,
                     tag, MPI_COMM_WORLD, &(bd_var_.req_recv[nb.bufid]));
 
       // set up flux correction MPI communication buffers
@@ -1143,13 +1143,13 @@ void FaceCenteredBoundaryVariable::SetupPersistentMPI() {
           tag = pmb->pbval->CreateBvalsMPITag(nb.snb.lid, nb.targetid, fc_flx_phys_id_);
           if (bd_var_flcor_.req_send[nb.bufid] != MPI_REQUEST_NULL)
             MPI_Request_free(&bd_var_flcor_.req_send[nb.bufid]);
-          MPI_Send_init(bd_var_flcor_.send[nb.bufid].data(), size, MPI_ATHENA_REAL,
+          MPI_Send_init(bd_var_flcor_.send[nb.bufid].data(), size, MPI_PARTHENON_REAL,
                         nb.snb.rank, tag, MPI_COMM_WORLD,
                         &(bd_var_flcor_.req_send[nb.bufid]));
           tag = pmb->pbval->CreateBvalsMPITag(pmb->lid, nb.bufid, fc_flx_phys_id_);
           if (bd_var_flcor_.req_recv[nb.bufid] != MPI_REQUEST_NULL)
             MPI_Request_free(&bd_var_flcor_.req_recv[nb.bufid]);
-          MPI_Recv_init(bd_var_flcor_.recv[nb.bufid].data(), size, MPI_ATHENA_REAL,
+          MPI_Recv_init(bd_var_flcor_.recv[nb.bufid].data(), size, MPI_PARTHENON_REAL,
                         nb.snb.rank, tag, MPI_COMM_WORLD,
                         &(bd_var_flcor_.req_recv[nb.bufid]));
         }
@@ -1158,7 +1158,7 @@ void FaceCenteredBoundaryVariable::SetupPersistentMPI() {
         tag = pmb->pbval->CreateBvalsMPITag(pmb->lid, nb.bufid, fc_flx_phys_id_);
         if (bd_var_flcor_.req_recv[nb.bufid] != MPI_REQUEST_NULL)
           MPI_Request_free(&bd_var_flcor_.req_recv[nb.bufid]);
-        MPI_Recv_init(bd_var_flcor_.recv[nb.bufid].data(), f2csize, MPI_ATHENA_REAL,
+        MPI_Recv_init(bd_var_flcor_.recv[nb.bufid].data(), f2csize, MPI_PARTHENON_REAL,
                       nb.snb.rank, tag, MPI_COMM_WORLD,
                       &(bd_var_flcor_.req_recv[nb.bufid]));
       }
@@ -1166,7 +1166,7 @@ void FaceCenteredBoundaryVariable::SetupPersistentMPI() {
         tag = pmb->pbval->CreateBvalsMPITag(nb.snb.lid, nb.targetid, fc_flx_phys_id_);
         if (bd_var_flcor_.req_send[nb.bufid] != MPI_REQUEST_NULL)
           MPI_Request_free(&bd_var_flcor_.req_send[nb.bufid]);
-        MPI_Send_init(bd_var_flcor_.send[nb.bufid].data(), f2csize, MPI_ATHENA_REAL,
+        MPI_Send_init(bd_var_flcor_.send[nb.bufid].data(), f2csize, MPI_PARTHENON_REAL,
                       nb.snb.rank, tag, MPI_COMM_WORLD,
                       &(bd_var_flcor_.req_send[nb.bufid]));
       }
