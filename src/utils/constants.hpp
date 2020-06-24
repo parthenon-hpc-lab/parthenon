@@ -15,7 +15,6 @@
 #define UTILS_CONSTANTS_HPP_
 
 #include <cmath>
-#include <string>
 
 namespace parthenon {
 namespace constants {
