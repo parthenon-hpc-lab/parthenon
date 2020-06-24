@@ -22,8 +22,8 @@
 
 #include "parthenon_mpi.hpp"
 
-#include "athena.hpp"
 #include "bvals/bvals.hpp"
+#include "defs.hpp"
 
 namespace parthenon {
 

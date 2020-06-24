@@ -15,7 +15,7 @@
 
 #include <limits>
 
-#include "defs.hpp"
+#include "config.hpp"
 
 namespace parthenon {
 
@@ -23,12 +23,12 @@ namespace parthenon {
 #if SINGLE_PRECISION_ENABLED
 using Real = float;
 #ifdef MPI_PARALLEL
-#define MPI_ATHENA_REAL MPI_FLOAT
+#define MPI_PARTHENON_REAL MPI_FLOAT
 #endif
 #else
 using Real = double;
 #ifdef MPI_PARALLEL
-#define MPI_ATHENA_REAL MPI_DOUBLE
+#define MPI_PARTHENON_REAL MPI_DOUBLE
 #endif
 #endif
 

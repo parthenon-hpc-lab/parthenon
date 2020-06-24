@@ -27,8 +27,8 @@
 #include <stdexcept>
 #include <string>
 
-#include "athena.hpp"
 #include "coordinates/coordinates.hpp"
+#include "defs.hpp"
 #include "mesh/mesh.hpp"
 #include "outputs/outputs.hpp"
 

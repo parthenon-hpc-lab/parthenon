@@ -13,7 +13,7 @@
 #ifndef INTERFACE_UPDATE_HPP_
 #define INTERFACE_UPDATE_HPP_
 
-#include "athena.hpp"
+#include "defs.hpp"
 #include "interface/container.hpp"
 #include "mesh/mesh.hpp"
 

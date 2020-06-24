@@ -13,7 +13,7 @@
 #ifndef COORDINATES_COORDINATES_HPP_
 #define COORDINATES_COORDINATES_HPP_
 
-#include "defs.hpp"
+#include "config.hpp"
 
 #include "uniform_cartesian.hpp"
 

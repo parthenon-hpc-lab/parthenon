@@ -31,7 +31,7 @@
 // architecutres and compilers. In such cases, simply define all 6 of the below class
 // functions in every pgen/*.cpp file (without any function attributes).
 
-#include "athena.hpp"
+#include "defs.hpp"
 #include "mesh/mesh.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"

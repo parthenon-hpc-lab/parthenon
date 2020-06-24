@@ -17,9 +17,9 @@
 //! \file parthenon_mpi.hpp
 //  \brief Helper file to include MPI if it's enabled and otherwise not include it. One
 //         issue was that some header files attempted to include MPI by checking #ifdef
-//         MPI_PARALLEL, but they didn't include defs.hpp, which defined MPI_PARALLEL
+//         MPI_PARALLEL, but they didn't include config.hpp, which defined MPI_PARALLEL
 
-#include "defs.hpp"
+#include "config.hpp"
 
 #ifdef MPI_PARALLEL
 #include <mpi.h>
