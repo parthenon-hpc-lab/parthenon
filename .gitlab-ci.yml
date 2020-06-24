@@ -40,9 +40,6 @@ parthenon-cuda-unit:
     - cuda
   stage: unit
   script:
-# mitigate UVM allocations on older multi-GPU systems
-#    - export CUDA_LAUNCH_BLOCKING=1
-#    - export CUDA_VISIBLE_DEVICES=0
     - mkdir build-cuda-debug
     - cd build-cuda-debug
     - cmake -DCMAKE_BUILD_TYPE=Debug -DHDF5_ROOT=/usr/local/hdf5/parallel
@@ -50,14 +47,14 @@ parthenon-cuda-unit:
       -DKokkos_ENABLE_CUDA=True -DKokkos_ARCH_PASCAL61=True
       -DMPIEXEC_PREFLAGS="--allow-run-as-root"
       -DCMAKE_CXX_COMPILER=${PWD}/../external/Kokkos/bin/nvcc_wrapper
-      ../ && make -j${J} && ctest -j${J} -LE 'performance|regression'
-    - cd ..
+      ../
+    - make -j${J}
+    - ctest -j${J} -LE 'performance|regression'
   artifacts:
     when: always
     expire_in: 3 days
     paths:
       - build-cuda-debug/CMakeFiles/CMakeOutput.log
-      - build-cuda-debug-uvm/CMakeFiles/CMakeOutput.log
 
 # run unit suite on CPUs
 parthenon-cpu-unit:
@@ -70,7 +67,9 @@ parthenon-cpu-unit:
     - cmake -DCMAKE_BUILD_TYPE=Debug -DHDF5_ROOT=/usr/local/hdf5/parallel
       -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
       -DMPIEXEC_PREFLAGS="--allow-run-as-root"
-      ../ && make -j${J} && ctest -j${J} -LE "performance|regression"
+      ../
+    - make -j${J}
+    - ctest -j${J} -LE "performance|regression"
   artifacts:
     when: always
     expire_in: 3 days
@@ -84,63 +83,47 @@ parthenon-cuda-performance_and_regression:
   script:
     - mkdir build-cuda-perf
     - cd build-cuda-perf
-    - cmake -DCMAKE_BUILD_TYPE=Release -DHDF5_ROOT=/usr/local/hdf5/parallel
-      -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
-      -DKokkos_ENABLE_CUDA=True -DKokkos_ARCH_PASCAL61=True
-      -DMPIEXEC_PREFLAGS="--allow-run-as-root"
-      -DCMAKE_CXX_COMPILER=${PWD}/../external/Kokkos/bin/nvcc_wrapper
-      ../ && make -j${J} && ctest -L performance
-# run regression tests with UVM until everything is on the device
-# mitigate UVM allocations on older multi-GPU systems
-    - export CUDA_LAUNCH_BLOCKING=1
-    - export CUDA_VISIBLE_DEVICES=0
-    - cd ..
-    - mkdir build-cuda-perf-uvm
-    - cd build-cuda-perf-uvm
     - cmake -DCMAKE_BUILD_TYPE=Release -DHDF5_ROOT=/usr/local/hdf5/serial
       -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
       -DKokkos_ENABLE_CUDA=True -DKokkos_ARCH_PASCAL61=True
-      -DPARTHENON_DISABLE_MPI=ON
       -DCMAKE_CXX_COMPILER=${PWD}/../external/Kokkos/bin/nvcc_wrapper
-      -DKokkos_ENABLE_CUDA_UVM=ON
-      ../ && make -j${J} && ctest -L regression -LE mpi-yes --timeout 3600
+      -DPARTHENON_DISABLE_MPI=ON
+      ../
+    - make -j${J}
+    - ctest -L "performance|regression" -LE mpi-yes
   allow_failure: true
   artifacts:
     when: always
     expire_in: 3 days
     paths:
       - build-cuda-perf/CMakeFiles/CMakeOutput.log
-      - build-cuda-perf-uvm/CMakeFiles/CMakeOutput.log
-      - build-cuda-perf-uvm/tst/regression/outputs/advection_convergence/advection-errors.dat
-      - build-cuda-perf-uvm/tst/regression/outputs/advection_convergence/advection-errors.png
+      - build-cuda-perf/tst/regression/outputs/advection_convergence/advection-errors.dat
+      - build-cuda-perf/tst/regression/outputs/advection_convergence/advection-errors.png
 
 parthenon-cuda-performance_and_regression-mpi:
   tags:
     - cuda
   stage: performance_and_regression
   script:
-# run regression tests with UVM until everything is on the device
-# mitigate UVM allocations on older multi-GPU systems
-    - export CUDA_LAUNCH_BLOCKING=1
-    - export CUDA_VISIBLE_DEVICES=0
-    - mkdir build-cuda-perf-mpi-uvm
-    - cd build-cuda-perf-mpi-uvm
+    - mkdir build-cuda-perf-mpi
+    - cd build-cuda-perf-mpi
     - cmake -DCMAKE_BUILD_TYPE=Release -DHDF5_ROOT=/usr/local/hdf5/parallel
       -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
       -DKokkos_ENABLE_CUDA=True -DKokkos_ARCH_PASCAL61=True
       -DMPIEXEC_PREFLAGS="--allow-run-as-root"
       -DCMAKE_CXX_COMPILER=${PWD}/../external/Kokkos/bin/nvcc_wrapper
-      -DKokkos_ENABLE_CUDA_UVM=ON
-      ../ && make -j${J} 
+      ../
+    - make -j${J} 
+#    - ctest -L "performance" # no need for performance test as currently none use MPI
     - ctest -L regression -LE mpi-no --timeout 3600
   allow_failure: true
   artifacts:
     when: always
     expire_in: 3 days
     paths:
-      - build-cuda-perf-mpi-uvm/CMakeFiles/CMakeOutput.log
-      - build-cuda-perf-mpi-uvm/tst/regression/outputs/advection_convergence/advection-errors.dat
-      - build-cuda-perf-mpi-uvm/tst/regression/outputs/advection_convergence/advection-errors.png
+      - build-cuda-perf-mpi/CMakeFiles/CMakeOutput.log
+      - build-cuda-perf-mpi/tst/regression/outputs/advection_convergence/advection-errors.dat
+      - build-cuda-perf-mpi/tst/regression/outputs/advection_convergence/advection-errors.png
 
 # run performance and regression on CPUs without MPI
 parthenon-cpu-performance_and_regression:
@@ -153,7 +136,9 @@ parthenon-cpu-performance_and_regression:
     - cmake -DCMAKE_BUILD_TYPE=Release -DHDF5_ROOT=/usr/local/hdf5/serial
       -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
       -DPARTHENON_DISABLE_MPI=ON
-      ../ && make -j${J} && ctest -L "performance|regression" -LE mpi-yes
+      ../
+    - make -j${J}
+    - ctest -L "performance|regression" -LE mpi-yes
   artifacts:
     when: always
     expire_in: 3 days
@@ -173,7 +158,8 @@ parthenon-cpu-performance_and_regression-mpi:
     - cmake -DCMAKE_BUILD_TYPE=Release -DHDF5_ROOT=/usr/local/hdf5/parallel
       -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
       -DMPIEXEC_PREFLAGS="--allow-run-as-root"
-      ../ && make -j${J}
+      ../
+    - make -j${J}
 #    - ctest -L "performance" # no need for performance test as currently none use MPI
     - ctest -L regression -LE mpi-no
   artifacts:
