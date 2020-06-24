@@ -24,8 +24,8 @@
 
 #include <catch2/catch.hpp>
 
-#include "athena.hpp"
 #include "basic_types.hpp"
+#include "defs.hpp"
 #include "interface/container.hpp"
 #include "interface/container_iterator.hpp"
 #include "interface/metadata.hpp"
@@ -68,7 +68,7 @@ void performance_test_wrapper(const std::string test_name, InitFunc init_func,
       }
       Kokkos::fence();
     });
-  }
+  };
 }
 
 static Container<Real> createTestContainer() {
