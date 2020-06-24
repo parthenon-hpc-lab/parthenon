@@ -68,7 +68,7 @@ void performance_test_wrapper(const std::string test_name, InitFunc init_func,
       }
       Kokkos::fence();
     });
-  };
+  }
 }
 
 static Container<Real> createTestContainer() {
