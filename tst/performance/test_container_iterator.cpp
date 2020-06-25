@@ -116,6 +116,21 @@ std::function<void()> createLambdaContainer(Container<Real> &container) {
   };
 }
 
+std::function<void()> createLambdaContainerCellVar(Container<Real> &container, std::vector<std::string> names) {
+  return [&]() {
+    for (int n = 0; n < names.size(); n++) {
+      CellVariable<Real> &v = container.Get(names[n]);
+      par_for(
+          "Initialize variables", DevExecSpace(), 0, v.GetDim(4) - 1, 0, v.GetDim(3) - 1,
+          0, v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
+          KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
+            v.data(l, k, j, i) = static_cast<Real>((l + 1) * (k + 1) * (j + 1) * (i + 1));
+          });
+    }
+    return container;
+  };
+}
+
 std::function<void()>
 createLambdaInitViewOfViews(parthenon::VariablePack<Real> &var_view) {
   return [&]() {
@@ -132,7 +147,7 @@ TEST_CASE("Catch2 Container Iterator Performance", "[ContainerIterator][performa
   SECTION("Raw Array") {
     GIVEN("A raw ParArray4d") {
       // Make a raw ParArray4D for closest to bare metal looping
-      ParArrayND<Real> raw_array("raw_array", Nvar, N, N, N);
+      ParArray4D<Real> raw_array("raw_array", Nvar, N, N, N);
       auto init_raw_array = createLambdaRaw(raw_array);
       // Make a function for initializing the raw ParArray4D
       performance_test_wrapper("Mask: Raw Array Perf", init_raw_array, [&]() {
@@ -144,12 +159,28 @@ TEST_CASE("Catch2 Container Iterator Performance", "[ContainerIterator][performa
             });
       });
     } // GIVEN
+    GIVEN("A ParArrayNd") {
+      // Make a raw ParArray4D for closest to bare metal looping
+      ParArrayND<Real> nd_array("nd_array", Nvar, N, N, N);
+      auto init_nd_array = createLambdaRaw(nd_array);
+      // Make a function for initializing the raw ParArray4D
+      performance_test_wrapper("Mask: Nd Array Perf", init_nd_array, [&]() {
+        par_for(
+            "Nd Array Perf", DevExecSpace(), 0, Nvar - 1, 0, N - 1, 0, N - 1, 0, N - 1,
+            KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
+              nd_array(l, k, j, i) *=
+                  nd_array(l, k, j, i); // Do something trivial, square each term
+            });
+      });
+    } // GIVEN
+
   }   // SECTION
 
   SECTION("Iterate Variables") {
     GIVEN("A container.") {
       Container<Real> container = createTestContainer();
       auto init_container = createLambdaContainer(container);
+
       // Make a function for initializing the container variables
       performance_test_wrapper("Mask: Iterate Variables Perf", init_container, [&]() {
         const CellVariableVector<Real> &cv = container.GetCellVariableVector();
@@ -164,6 +195,25 @@ TEST_CASE("Catch2 Container Iterator Performance", "[ContainerIterator][performa
         }
       });
     } // GIVEN
+    GIVEN("A container cellvar.") {
+      Container<Real> container = createTestContainer();
+      std::vector<std::string> names({"v0", "v1", "v2", "v3", "v4", "v5"});
+      auto init_container = createLambdaContainerCellVar(container, names);
+
+      // Make a function for initializing the container variables
+      performance_test_wrapper("Mask: Iterate Variables Perf", init_container, [&]() {
+        for ( int n = 0; n < names.size(); n++) {
+          CellVariableVector<Real> &v = container.Get(names[n]);
+          par_for(
+              "Iterate CellVariables Perf", DevExecSpace(), 0, v.GetDim(4) - 1, 0,
+              v.GetDim(3) - 1, 0, v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
+              KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
+                v.data(l, k, j, i) *= v.data(l, k, j, i); // Do something trivial, square each term
+              });
+        }
+      });
+    } // GIVEN
+
   }   // SECTION
 
   SECTION("View of Views") {
