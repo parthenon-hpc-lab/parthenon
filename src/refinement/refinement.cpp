@@ -88,7 +88,7 @@ AmrTag CheckAllRefinement(Container<Real> &rc) {
   return delta_level;
 }
 
-AmrTag FirstDerivative(DevExecSpace exec_space, CellVariable<Real> &q,
+AmrTag FirstDerivative(DevExecSpace exec_space, const ParArrayND<Real> &q,
                        const Real refine_criteria, const Real derefine_criteria) {
   const int dim1 = q.GetDim(1);
   const int dim2 = q.GetDim(2);

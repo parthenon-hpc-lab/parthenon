@@ -20,8 +20,8 @@
 //  \brief defines the LogicalLocation structure and MeshBlockTree class
 //======================================================================================
 
-#include "athena.hpp"
 #include "bvals/bvals.hpp"
+#include "defs.hpp"
 
 namespace parthenon {
 

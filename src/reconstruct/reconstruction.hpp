@@ -19,7 +19,7 @@
 //! \file reconstruction.hpp
 //  \brief defines class Reconstruction, data and functions for spatial reconstruction
 
-#include "athena.hpp"
+#include "defs.hpp"
 #include "parthenon_arrays.hpp"
 
 namespace parthenon {

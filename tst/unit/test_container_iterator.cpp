@@ -23,8 +23,8 @@
 
 #include <catch2/catch.hpp>
 
-#include "athena.hpp"
 #include "basic_types.hpp"
+#include "defs.hpp"
 #include "interface/container.hpp"
 #include "interface/container_iterator.hpp"
 #include "interface/metadata.hpp"
@@ -303,6 +303,7 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
 template <typename InitFunc, typename PerfFunc>
 double performance_test_wrapper(const int n_burn, const int n_perf, InitFunc init_func,
                                 PerfFunc perf_func) {
+  Kokkos::fence();
   // Initialize the timer and test
   Kokkos::Timer timer;
   init_func();
@@ -335,7 +336,7 @@ TEST_CASE("Container Iterator Performance", "[ContainerIterator][performance]") 
   const int n_perf = 500; // Num times to run while timing
 
   // Make a raw ParArray4D for closest to bare metal looping
-  ParArrayND<Real> raw_array("raw_array", Nvar, N, N, N);
+  ParArray4D<Real> raw_array("raw_array", Nvar, N, N, N);
 
   // Make a function for initializing the raw ParArray4D
   auto init_raw_array = [&]() {
@@ -354,6 +355,28 @@ TEST_CASE("Container Iterator Performance", "[ContainerIterator][performance]") 
         KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
           raw_array(l, k, j, i) *=
               raw_array(l, k, j, i); // Do something trivial, square each term
+        });
+  });
+
+  // Make a raw ParArrayND for closest to bare metal looping
+  ParArrayND<Real> nd_array("nd_array", Nvar, N, N, N);
+
+  // Make a function for initializing the raw ParArray4D
+  auto init_nd_array = [&]() {
+    par_for(
+        "Initialize ", DevExecSpace(), 0, Nvar - 1, 0, N - 1, 0, N - 1, 0, N - 1,
+        KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
+          nd_array(l, k, j, i) = static_cast<Real>((l + 1) * (k + 1) * (j + 1) * (i + 1));
+        });
+  };
+
+  // Test performance iterating over variables (we should aim for this performance)
+  double time_nd_array = performance_test_wrapper(n_burn, n_perf, init_nd_array, [&]() {
+    par_for(
+        "ND Array Perf", DevExecSpace(), 0, Nvar - 1, 0, N - 1, 0, N - 1, 0, N - 1,
+        KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
+          nd_array(l, k, j, i) *=
+              nd_array(l, k, j, i); // Do something trivial, square each term
         });
   });
 
@@ -400,6 +423,36 @@ TEST_CASE("Container Iterator Performance", "[ContainerIterator][performance]") 
         }
       });
 
+  // Make a function for initializing the container variables as CellVariables
+  auto init_container_cellvar = [&]() {
+    std::vector<std::string> names({"v0", "v1", "v2", "v3", "v4", "v5"});
+    for (int n = 0; n < names.size(); n++) {
+      CellVariable<Real> &v = container.Get(names[n]);
+      par_for(
+          "Initialize variables", DevExecSpace(), 0, v.GetDim(4) - 1, 0, v.GetDim(3) - 1,
+          0, v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
+          KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
+            v.data(l, k, j, i) = static_cast<Real>((l + 1) * (k + 1) * (j + 1) * (i + 1));
+          });
+    }
+  };
+
+  // Test performance iterating over variables in container
+  double time_iterate_cellvar =
+      performance_test_wrapper(n_burn, n_perf, init_container_cellvar, [&]() {
+        std::vector<std::string> names({"v0", "v1", "v2", "v3", "v4", "v5"});
+        for (int n = 0; n < names.size(); n++) {
+          CellVariable<Real> &v = container.Get(names[n]);
+          par_for(
+              "Iterate CellVariables Perf", DevExecSpace(), 0, v.GetDim(4) - 1, 0,
+              v.GetDim(3) - 1, 0, v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
+              KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
+                v.data(l, k, j, i) *=
+                    v.data(l, k, j, i); // Do something trivial, square each term
+              });
+        }
+      });
+
   { // Grab variables by mask and do timing tests
     auto var_view = container.PackVariables({Metadata::Independent});
 
@@ -427,10 +480,17 @@ TEST_CASE("Container Iterator Performance", "[ContainerIterator][performance]") 
         });
 
     std::cout << "Mask: raw_array performance: " << time_raw_array << std::endl;
+    std::cout << "Mask: nd_array performance: " << time_nd_array << std::endl;
+    std::cout << "Mask: nd_array/raw_array " << time_nd_array / time_raw_array
+              << std::endl;
     std::cout << "Mask: iterate_variables performance: " << time_iterate_variables
               << std::endl;
     std::cout << "Mask: iterate_variables/raw_array "
               << time_iterate_variables / time_raw_array << std::endl;
+    std::cout << "Mask: iterate_cellvariables performance: " << time_iterate_cellvar
+              << std::endl;
+    std::cout << "Mask: iterate_cellvar/raw_array "
+              << time_iterate_cellvar / time_raw_array << std::endl;
     std::cout << "Mask: view_of_views performance: " << time_view_of_views << std::endl;
     std::cout << "Mask: view_of_views/raw_array " << time_view_of_views / time_raw_array
               << std::endl;
@@ -479,10 +539,6 @@ TEST_CASE("Container Iterator Performance", "[ContainerIterator][performance]") 
         });
 
     std::cout << "Named: raw_array performance: " << time_raw_array << std::endl;
-    std::cout << "Named: iterate_variables performance: " << time_iterate_variables
-              << std::endl;
-    std::cout << "Named: iterate_variables/raw_array "
-              << time_iterate_variables / time_raw_array << std::endl;
     std::cout << "Named: view_of_views performance: " << time_view_of_views << std::endl;
     std::cout << "Named: view_of_views/raw_array " << time_view_of_views / time_raw_array
               << std::endl;
@@ -519,10 +575,6 @@ TEST_CASE("Container Iterator Performance", "[ContainerIterator][performance]") 
     time_view_of_views *= 2.0;
 
     std::cout << "Indexed: raw_array performance: " << time_raw_array << std::endl;
-    std::cout << "Indexed: iterate_variables performance: " << time_iterate_variables
-              << std::endl;
-    std::cout << "Indexed: iterate_variables/raw_array "
-              << time_iterate_variables / time_raw_array << std::endl;
     std::cout << "Indexed: view_of_views performance: " << time_view_of_views
               << std::endl;
     std::cout << "Indexed: view_of_views/raw_array "

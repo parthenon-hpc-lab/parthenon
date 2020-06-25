@@ -29,10 +29,10 @@
 #include <utility>
 #include <vector>
 
-#include "athena.hpp"
 #include "bvals/bvals.hpp"
 #include "bvals/bvals_interfaces.hpp"
 #include "coordinates/coordinates.hpp"
+#include "defs.hpp"
 #include "domain.hpp"
 #include "interface/container.hpp"
 #include "interface/container_collection.hpp"

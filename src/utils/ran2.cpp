@@ -19,7 +19,7 @@
 #include <cfloat>
 #include <iostream>
 
-#include "athena.hpp"
+#include "defs.hpp"
 
 //----------------------------------------------------------------------------------------
 //! \fn double ran2(std::int64_t *idum)

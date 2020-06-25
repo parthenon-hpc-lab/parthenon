@@ -21,7 +21,7 @@
 //  \brief defines class InterpTable2D
 //  Contains functions that implement an intpolated lookup table
 
-#include "athena.hpp"
+#include "defs.hpp"
 #include "parthenon_arrays.hpp"
 
 namespace parthenon {
