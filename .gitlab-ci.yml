@@ -114,6 +114,7 @@ parthenon-cuda-performance_and_regression-mpi:
       -DCMAKE_CXX_COMPILER=${PWD}/../external/Kokkos/bin/nvcc_wrapper
       ../
     - make -j${J} 
+    - export OMPI_MCA_mpi_common_cuda_event_max=1000
 #    - ctest -L "performance" # no need for performance test as currently none use MPI
     - ctest -L regression -LE mpi-no --timeout 3600
   allow_failure: true
