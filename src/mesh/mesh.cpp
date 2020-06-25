@@ -86,7 +86,9 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
       nbnew(), nbdel(), step_since_lb(), gflag(), pblock(nullptr), properties(properties),
       packages(packages),
       // private members:
-      next_phys_id_(), tree(this), use_uniform_meshgen_fn_{true, true, true, true},
+      next_phys_id_(),
+      num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
+      tree(this), use_uniform_meshgen_fn_{true, true, true, true},
       nuser_history_output_(), lb_flag_(true), lb_automatic_(),
       lb_manual_(), MeshGenerator_{nullptr, UniformMeshGeneratorX1,
                                    UniformMeshGeneratorX2, UniformMeshGeneratorX3},
@@ -106,6 +108,14 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
   next_phys_id_ = 1;
   ReserveMeshBlockPhysIDs();
 #endif
+
+  // check number of OpenMP threads for mesh
+  if (num_mesh_threads_ < 1) {
+    msg << "### FATAL ERROR in Mesh constructor" << std::endl
+        << "Number of OpenMP threads must be >= 1, but num_threads=" << num_mesh_threads_
+        << std::endl;
+    PARTHENON_FAIL(msg);
+  }
 
   // check number of grid cells in root level of mesh from input file.
   if (mesh_size.nx1 < 4) {
@@ -517,6 +527,7 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper &resfile, Properties_t &properties,
       packages(packages),
       // private members:
       next_phys_id_(),
+      num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
       tree(this), use_uniform_meshgen_fn_{true, true, true}, nreal_user_mesh_data_(),
       nint_user_mesh_data_(), nuser_history_output_(), lb_flag_(true), lb_automatic_(),
       lb_manual_(), MeshGenerator_{UniformMeshGeneratorX1, UniformMeshGeneratorX2,
@@ -538,6 +549,14 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper &resfile, Properties_t &properties,
   next_phys_id_ = 1;
   ReserveMeshBlockPhysIDs();
 #endif
+
+  // check the number of OpenMP threads for mesh
+  if (num_mesh_threads_ < 1) {
+    msg << "### FATAL ERROR in Mesh constructor" << std::endl
+        << "Number of OpenMP threads must be >= 1, but num_threads=" << num_mesh_threads_
+        << std::endl;
+    PARTHENON_FAIL(msg);
+  }
 
   // get the end of the header
   headeroffset = resfile.GetPosition();
@@ -1111,15 +1130,13 @@ void Mesh::ApplyUserWorkBeforeOutput(ParameterInput *pin) {
 // \brief  initialization before the main loop
 
 void Mesh::Initialize(int res_flag, ParameterInput *pin) {
-  using Kokkos::parallel_for;
-  using HostRange = Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>;
-
   bool iflag = true;
   int inb = nbtotal;
+#ifdef OPENMP_PARALLEL
+  int nthreads = GetNumMeshThreads();
+#endif
   int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
   std::vector<MeshBlock *> pmb_array(nmb);
-
-  HostRange block_range(0, nmb);
 
   do {
     // initialize a vector of MeshBlock pointers
@@ -1132,64 +1149,83 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
     }
 
     if (res_flag == 0) {
-      parallel_for("Problem Generator", block_range,
-                   [&](int const i) { pmb_array[i]->ProblemGenerator(pin); });
-    }
-
-    parallel_for("Create send/recv MPI_Requests for all BoundaryData objects",
-                 block_range, [&](int const i) {
-                   // BoundaryVariable objects evolved in main TimeIntegratorTaskList:
-                   pmb_array[i]->pbval->SetupPersistentMPI();
-                   pmb_array[i]->real_containers.Get().SetupPersistentMPI();
-                 });
-
-    parallel_for("prepare to receive conserved variables", block_range, [&](int const i) {
-      pmb_array[i]->real_containers.Get().StartReceiving(BoundaryCommSubset::mesh_init);
-    });
-
-    parallel_for("send conserved variables", block_range, [&](int const i) {
-      pmb_array[i]->real_containers.Get().SendBoundaryBuffers();
-    });
-
-    parallel_for("wait to receive conserved variables", block_range, [&](int const i) {
-      pmb_array[i]->real_containers.Get().ReceiveAndSetBoundariesWithWait();
-    });
-
-    parallel_for("clear boundaries", block_range, [&](int const i) {
-      pmb_array[i]->real_containers.Get().ClearBoundary(BoundaryCommSubset::mesh_init);
-    });
-
-    // Now do prolongation, compute primitives, apply BCs
-    for (int i = 0; i < nmb; ++i) {
-      auto &pmb = pmb_array[i];
-      auto &pbval = pmb->pbval;
-      if (multilevel) pbval->ProlongateBoundaries(0.0, 0.0);
-      // TODO(JoshuaSBrown): Dead code left in for possible future extraction of
-      // primitives
-      //        int il = pmb->is, iu = pmb->ie, jl = pmb->js, ju = pmb->je, kl =
-      //        pmb->ks,
-      //           ku = pmb->ke;
-      //        if (pbval->nblevel[1][1][0] != -1) il -= NGHOST;
-      //        if (pbval->nblevel[1][1][2] != -1) iu += NGHOST;
-      //        if (pmb->block_size.nx2 > 1) {
-      //          if (pbval->nblevel[1][0][1] != -1) jl -= NGHOST;
-      //          if (pbval->nblevel[1][2][1] != -1) ju += NGHOST;
-      //        }
-      //        if (pmb->block_size.nx3 > 1) {
-      //          if (pbval->nblevel[0][1][1] != -1) kl -= NGHOST;
-      //          if (pbval->nblevel[2][1][1] != -1) ku += NGHOST;
-      //        }
-
-      ApplyBoundaryConditions(pmb->real_containers.Get());
-      FillDerivedVariables::FillDerived(pmb->real_containers.Get());
-    }
-
-    if (!res_flag && adaptive) {
-      // This loop is not parallelilized since Kokkos parallelizes this internally.
+#pragma omp parallel for num_threads(nthreads)
       for (int i = 0; i < nmb; ++i) {
-        pmb_array[i]->pmr->CheckRefinementCondition();
+        MeshBlock *pmb = pmb_array[i];
+        pmb->ProblemGenerator(pin);
       }
     }
+
+    int call = 0;
+    // Create send/recv MPI_Requests for all BoundaryData objects
+#pragma omp parallel for num_threads(nthreads)
+    for (int i = 0; i < nmb; ++i) {
+      MeshBlock *pmb = pmb_array[i];
+      // BoundaryVariable objects evolved in main TimeIntegratorTaskList:
+      pmb->pbval->SetupPersistentMPI();
+      pmb->real_containers.Get().SetupPersistentMPI();
+    }
+    call++; // 1
+
+#pragma omp parallel num_threads(nthreads)
+    {
+      // prepare to receive conserved variables
+#pragma omp for
+      for (int i = 0; i < nmb; ++i) {
+        pmb_array[i]->real_containers.Get().StartReceiving(BoundaryCommSubset::mesh_init);
+      }
+      call++; // 2
+              // send conserved variables
+#pragma omp for
+      for (int i = 0; i < nmb; ++i) {
+        pmb_array[i]->real_containers.Get().SendBoundaryBuffers();
+      }
+      call++; // 3
+
+      // wait to receive conserved variables
+#pragma omp for
+      for (int i = 0; i < nmb; ++i) {
+        pmb_array[i]->real_containers.Get().ReceiveAndSetBoundariesWithWait();
+      }
+      call++; // 4
+#pragma omp for
+      for (int i = 0; i < nmb; ++i) {
+        pmb_array[i]->real_containers.Get().ClearBoundary(BoundaryCommSubset::mesh_init);
+      }
+      call++;
+      // Now do prolongation, compute primitives, apply BCs
+#pragma omp for
+      for (int i = 0; i < nmb; ++i) {
+        auto &pmb = pmb_array[i];
+        auto &pbval = pmb->pbval;
+        if (multilevel) pbval->ProlongateBoundaries(0.0, 0.0);
+        // TODO(JoshuaSBrown): Dead code left in for possible future extraction of
+        // primitives
+        //        int il = pmb->is, iu = pmb->ie, jl = pmb->js, ju = pmb->je, kl =
+        //        pmb->ks,
+        //           ku = pmb->ke;
+        //        if (pbval->nblevel[1][1][0] != -1) il -= NGHOST;
+        //        if (pbval->nblevel[1][1][2] != -1) iu += NGHOST;
+        //        if (pmb->block_size.nx2 > 1) {
+        //          if (pbval->nblevel[1][0][1] != -1) jl -= NGHOST;
+        //          if (pbval->nblevel[1][2][1] != -1) ju += NGHOST;
+        //        }
+        //        if (pmb->block_size.nx3 > 1) {
+        //          if (pbval->nblevel[0][1][1] != -1) kl -= NGHOST;
+        //          if (pbval->nblevel[2][1][1] != -1) ku += NGHOST;
+        //        }
+
+        ApplyBoundaryConditions(pmb->real_containers.Get());
+        FillDerivedVariables::FillDerived(pmb->real_containers.Get());
+      }
+
+      if (!res_flag && adaptive) {
+#pragma omp for
+        for (int i = 0; i < nmb; ++i) {
+          pmb_array[i]->pmr->CheckRefinementCondition();
+        }
+      }
+    } // omp parallel
 
     if (!res_flag && adaptive) {
       iflag = false;

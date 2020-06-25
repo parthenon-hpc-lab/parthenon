@@ -26,7 +26,6 @@
 #include <map>
 #include <memory>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include "bvals/bvals.hpp"
@@ -312,6 +311,7 @@ class Mesh {
 
   // accessors
   int GetNumMeshBlocksThisRank(int my_rank) { return nblist[my_rank]; }
+  int GetNumMeshThreads() const { return num_mesh_threads_; }
   std::int64_t GetTotalCells() {
     return static_cast<std::int64_t>(nbtotal) * pblock->block_size.nx1 *
            pblock->block_size.nx2 * pblock->block_size.nx3;
@@ -347,8 +347,6 @@ class Mesh {
   // protected access within its class"
   void FillSameRankCoarseToFineAMR(MeshBlock *pob, MeshBlock *pmb,
                                    LogicalLocation &newloc);
-  // step 7: create new MeshBlock list (same MPI rank but diff level: create new block)
-  void FillSameRankFineToCoarseAMR(MeshBlock *pob, MeshBlock *pmb, LogicalLocation &loc);
   int CreateAMRMPITag(int lid, int ox1, int ox2, int ox3);
   MeshBlock *FindMeshBlock(int tgid);
   void ApplyUserWorkBeforeOutput(ParameterInput *pin);
@@ -373,6 +371,7 @@ class Mesh {
   // data
   int next_phys_id_; // next unused value for encoding final component of MPI tag bitfield
   int root_level, max_level, current_level;
+  int num_mesh_threads_;
   int *nslist, *ranklist, *nblist;
   double *costlist;
   // 8x arrays used exclusively for AMR (not SMR):
@@ -429,6 +428,8 @@ class Mesh {
   void PrepareSendCoarseToFineAMR(MeshBlock *pb, ParArray1D<Real> &sendbuf,
                                   LogicalLocation &lloc);
   void PrepareSendFineToCoarseAMR(MeshBlock *pb, ParArray1D<Real> &sendbuf);
+  // step 7: create new MeshBlock list (same MPI rank but diff level: create new block)
+  void FillSameRankFineToCoarseAMR(MeshBlock *pob, MeshBlock *pmb, LogicalLocation &loc);
   // step 8: receive
   void FinishRecvSameLevel(MeshBlock *pb, ParArray1D<Real> &recvbuf);
   void FinishRecvFineToCoarseAMR(MeshBlock *pb, ParArray1D<Real> &recvbuf,
