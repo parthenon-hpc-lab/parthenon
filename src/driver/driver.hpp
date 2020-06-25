@@ -55,6 +55,23 @@ class Driver {
  private:
 };
 
+class IterationDriver : public Driver {
+ public:
+  IterationDriver(ParameterInput *pin, Mesh *pm) : Driver(pin, pm) {
+    nlim = pinput->GetOrAddInteger("parthenon/solver","nlim",-1);
+    target_residual->GetReal("parthenon/solver","max_residual")
+  }
+  DriverStatus Execute() override;
+
+  virtual TaskListStatus Step() = 0;
+  void OutputCycleDiagnostics();
+  Real Residual() = 0;
+
+  int niter = 0;
+  int nlim;
+  Real target_residual;
+};
+
 class EvolutionDriver : public Driver {
  public:
   EvolutionDriver(ParameterInput *pin, Mesh *pm) : Driver(pin, pm) {

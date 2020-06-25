@@ -63,6 +63,43 @@ void Driver::PostExecute() {
   }
 }
 
+DriverStatus IterationDriver::Execute() {
+  Driver::PreExecute();
+  pouts->MakeOutputs(pmesh, pinput);
+  pmesh->mbcnt = 0;
+  while (Residual() > target_residual) {
+    if (Globals::my_rank == 0) OutputCycleDiagnostics();
+
+    TaskListStatus status = Step();
+    if (status != TaskListStatus::complete) {
+      std::cerr << "Step failed to complete all tasks." << std::endl;
+      return DriverStatus::failed;
+    }
+    // pmesh->UserWorkInLoop();
+
+    ncycle++;
+    pmesh->mbcnt += pmesh->nbtotal;
+    pmesh->step_since_lb++;
+
+    pmesh->LoadBalancingAndAdaptiveMeshRefinement(pinput);
+    if (pmesh->modified) InitializeBlockTimeSteps();
+    SetGlobalTimeStep();
+    
+    // check for signals
+    if (SignalHandler::CheckSignalFlags() != 0) {
+      return DriverStatus::failed;
+    }
+  } // END OF MAIN INTEGRATION LOOP ======================================================
+
+  pmesh->UserWorkAfterLoop(pinput);
+
+  DriverStatus status = DriverStatus::complete;
+
+  pouts->MakeOutputs(pmesh, pinput);
+  PostExecute(status);
+  return status;
+}
+
 DriverStatus EvolutionDriver::Execute() {
   Driver::PreExecute();
   InitializeBlockTimeSteps();
