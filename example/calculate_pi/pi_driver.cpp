@@ -72,7 +72,7 @@ parthenon::DriverStatus PiDriver::Execute() {
     // extract area from device memory
     Real block_area;
     Kokkos::deep_copy(pmb->exec_space, block_area, v.Get(0, 0, 0, 0, 0, 0));
-    pmb->exec_space.fence();  // as the deep copy may be async
+    pmb->exec_space.fence(); // as the deep copy may be async
 
     const auto &radius = pmb->packages["calculate_pi"]->Param<Real>("radius");
     // area must be reduced by r^2 to get the block's contribution to PI
