@@ -58,18 +58,21 @@ class Driver {
 class IterationDriver : public Driver {
  public:
   IterationDriver(ParameterInput *pin, Mesh *pm) : Driver(pin, pm) {
-    nlim = pinput->GetOrAddInteger("parthenon/solver","nlim",-1);
-    target_residual->GetReal("parthenon/solver","max_residual")
+    nlim = pinput->GetOrAddInteger("parthenon/iterations","nlim",-1);
+    nout = pinput->GetOrAddInteger("parthenon/iterations", "ncycle_out", 1);
   }
   DriverStatus Execute() override;
+  DriverStatus ExecuteStep() override;
+  void OutputCycleDiagnostics();
 
   virtual TaskListStatus Step() = 0;
-  void OutputCycleDiagnostics();
-  Real Residual() = 0;
+  bool KeepGoing() = 0;
 
-  int niter = 0;
-  int nlim;
-  Real target_residual;
+  int ncycle = 0;
+  int nlim, nout;
+
+ protected:
+  virtual void PostExecute(DriverStatus status);
 };
 
 class EvolutionDriver : public Driver {

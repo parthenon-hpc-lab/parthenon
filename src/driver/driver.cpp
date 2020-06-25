@@ -1,4 +1,3 @@
-
 //========================================================================================
 // (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
 //
@@ -64,11 +63,27 @@ void Driver::PostExecute() {
 }
 
 DriverStatus IterationDriver::Execute() {
+  DriverStatus status;
+
   Driver::PreExecute();
   pouts->MakeOutputs(pmesh, pinput);
   pmesh->mbcnt = 0;
-  while (Residual() > target_residual) {
-    if (Globals::my_rank == 0) OutputCycleDiagnostics();
+  
+  while (KeepGoing()) {
+    status = ExecuteStep();
+    if (status == DriverStatus::failed) return status;
+  } // END OF MAIN INTEGRATION LOOP
+
+  status = DriverStatus::complete;
+  pmesh->UserWorkAfterLoop(pinput);
+  pouts->MakeOutputs(pmesh, pinput);
+  PostExecute(status);
+
+  return status;
+}
+
+DriverStatus IterationDriver::ExecuteStep() {
+  if (Globals::my_rank == 0) OutputCycleDiagnostics();
 
     TaskListStatus status = Step();
     if (status != TaskListStatus::complete) {
@@ -82,22 +97,48 @@ DriverStatus IterationDriver::Execute() {
     pmesh->step_since_lb++;
 
     pmesh->LoadBalancingAndAdaptiveMeshRefinement(pinput);
-    if (pmesh->modified) InitializeBlockTimeSteps();
-    SetGlobalTimeStep();
     
     // check for signals
     if (SignalHandler::CheckSignalFlags() != 0) {
       return DriverStatus::failed;
     }
-  } // END OF MAIN INTEGRATION LOOP ======================================================
+}
 
-  pmesh->UserWorkAfterLoop(pinput);
+void IterationDriver::PostExecute(DriverStatus status) {
+  // Print diagnostic messages related to the end of the simulation
+  if (Globals::my_rank == 0) {
+    OutputCycleDiagnostics();
+    SignalHandler::Report();
+    if (status == DriverStatus::complete) {
+      std::cout << std::endl << "Driver completed." << std::endl;
+    } else if (status == DriverStatus::timeout) {
+      std::cout << std::endl << "Driver timed out.  Restart to continue." << std::endl;
+    } else if (status == DriverStatus::failed) {
+      std::cout << std::endl << "Driver failed." << std::endl;
+    }
 
-  DriverStatus status = DriverStatus::complete;
+    std::cout << "cycle=" << tm.ncycle << std::endl;
 
-  pouts->MakeOutputs(pmesh, pinput);
-  PostExecute(status);
-  return status;
+    if (pmesh->adaptive) {
+      std::cout << std::endl
+                << "Number of MeshBlocks = " << pmesh->nbtotal << "; " << pmesh->nbnew
+                << "  created, " << pmesh->nbdel << " destroyed during this simulation."
+                << std::endl;
+    }
+  }
+  Driver::PostExecute();
+}
+
+void IterationDriver::OutputCycleDiagnostics() {
+  const int ratio_precision = 3;
+  if ((ncycle_out > 0)
+      && (ncycle % ncycle_out == 0)
+      && (Globals::my_rank == 0)) {
+    std::cout << "cycle=" << tm.ncycle;
+    // insert more diagnostics here
+    std::cout << std::endl;
+  }
+  return;
 }
 
 DriverStatus EvolutionDriver::Execute() {
