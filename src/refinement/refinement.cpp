@@ -88,7 +88,7 @@ AmrTag CheckAllRefinement(std::shared_ptr<Container<Real>> &rc) {
   return delta_level;
 }
 
-AmrTag FirstDerivative(CellVariable<Real> &q, const Real refine_criteria,
+AmrTag FirstDerivative(const ParArrayND<Real> &q, const Real refine_criteria,
                        const Real derefine_criteria) {
   Real maxd = 0.0;
   const int dim1 = q.GetDim(1);

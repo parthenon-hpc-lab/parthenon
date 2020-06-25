@@ -96,7 +96,7 @@ AmrTag CheckRefinement(std::shared_ptr<Container<Real>> &rc) {
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
-  CellVariable<Real> &v = rc->Get("in_or_out");
+  ParArrayND<Real> v = rc->Get("in_or_out").data;
   AmrTag delta_level = AmrTag::derefine;
   Real vmin = 1.0;
   Real vmax = 0.0;

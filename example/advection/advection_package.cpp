@@ -295,7 +295,7 @@ TaskStatus CalculateFluxes(std::shared_ptr<Container<Real>> &rc) {
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
 
-  CellVariable<Real> &advected = rc->Get("advected");
+  ParArrayND<Real> advected = rc->Get("advected").data;
   auto pkg = pmb->packages["advection_package"];
   const auto &vx = pkg->Param<Real>("vx");
   const auto &vy = pkg->Param<Real>("vy");
@@ -305,7 +305,7 @@ TaskStatus CalculateFluxes(std::shared_ptr<Container<Real>> &rc) {
   const int nx1 = pmb->cellbounds.ncellsi(IndexDomain::entire);
   const int nvar = advected.GetDim(4);
   size_t scratch_size_in_bytes = parthenon::ScratchPad2D<Real>::shmem_size(nvar, nx1);
-  parthenon::ParArray4D<Real> x1flux = advected.flux[X1DIR].Get<4>();
+  parthenon::ParArray4D<Real> x1flux = rc.Get("advected").flux[X1DIR].Get<4>();
   // get x-fluxes
   pmb->par_for_outer(
       "x1 flux", 2 * scratch_size_in_bytes, scratch_level, kb.s, kb.e, jb.s, jb.e,
@@ -313,7 +313,7 @@ TaskStatus CalculateFluxes(std::shared_ptr<Container<Real>> &rc) {
         parthenon::ScratchPad2D<Real> ql(member.team_scratch(scratch_level), nvar, nx1);
         parthenon::ScratchPad2D<Real> qr(member.team_scratch(scratch_level), nvar, nx1);
         // get reconstructed state on faces
-        parthenon::DonorCellX1(member, k, j, ib.s - 1, ib.e + 1, advected.data, ql, qr);
+        parthenon::DonorCellX1(member, k, j, ib.s - 1, ib.e + 1, advected, ql, qr);
         // Sync all threads in the team so that scratch memory is consistent
         member.team_barrier();
 
@@ -332,7 +332,7 @@ TaskStatus CalculateFluxes(std::shared_ptr<Container<Real>> &rc) {
 
   // get y-fluxes
   if (pmb->pmy_mesh->ndim >= 2) {
-    parthenon::ParArray4D<Real> x2flux = advected.flux[X2DIR].Get<4>();
+    parthenon::ParArray4D<Real> x2flux = rc.Get("advected").flux[X2DIR].Get<4>();
     pmb->par_for_outer(
         "x2 flux", 3 * scratch_size_in_bytes, scratch_level, kb.s, kb.e, jb.s, jb.e + 1,
         KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int k, const int j) {
@@ -346,9 +346,8 @@ TaskStatus CalculateFluxes(std::shared_ptr<Container<Real>> &rc) {
           parthenon::ScratchPad2D<Real> q_unused(member.team_scratch(scratch_level), nvar,
                                                  nx1);
           // get reconstructed state on faces
-          parthenon::DonorCellX2(member, k, j - 1, ib.s, ib.e, advected.data, ql,
-                                 q_unused);
-          parthenon::DonorCellX2(member, k, j, ib.s, ib.e, advected.data, q_unused, qr);
+          parthenon::DonorCellX2(member, k, j - 1, ib.s, ib.e, advected, ql, q_unused);
+          parthenon::DonorCellX2(member, k, j, ib.s, ib.e, advected, q_unused, qr);
           // Sync all threads in the team so that scratch memory is consistent
           member.team_barrier();
           for (int n = 0; n < nvar; n++) {
@@ -367,7 +366,7 @@ TaskStatus CalculateFluxes(std::shared_ptr<Container<Real>> &rc) {
 
   // get z-fluxes
   if (pmb->pmy_mesh->ndim == 3) {
-    parthenon::ParArray4D<Real> x3flux = advected.flux[X3DIR].Get<4>();
+    parthenon::ParArray4D<Real> x3flux = rc.Get("advected").flux[X3DIR].Get<4>();
     pmb->par_for_outer(
         "x3 flux", 3 * scratch_size_in_bytes, scratch_level, kb.s, kb.e + 1, jb.s, jb.e,
         KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int k, const int j) {
@@ -381,9 +380,8 @@ TaskStatus CalculateFluxes(std::shared_ptr<Container<Real>> &rc) {
           parthenon::ScratchPad2D<Real> q_unused(member.team_scratch(scratch_level), nvar,
                                                  nx1);
           // get reconstructed state on faces
-          parthenon::DonorCellX3(member, k - 1, j, ib.s, ib.e, advected.data, ql,
-                                 q_unused);
-          parthenon::DonorCellX3(member, k, j, ib.s, ib.e, advected.data, q_unused, qr);
+          parthenon::DonorCellX3(member, k - 1, j, ib.s, ib.e, advected, ql, q_unused);
+          parthenon::DonorCellX3(member, k, j, ib.s, ib.e, advected, q_unused, qr);
           // Sync all threads in the team so that scratch memory is consistent
           member.team_barrier();
           for (int n = 0; n < nvar; n++) {

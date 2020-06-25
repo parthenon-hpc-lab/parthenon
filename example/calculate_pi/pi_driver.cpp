@@ -65,7 +65,7 @@ parthenon::DriverStatus PiDriver::Execute() {
   MeshBlock *pmb = pmesh->pblock;
   while (pmb != nullptr) {
     auto &rc = pmb->real_containers.Get();
-    CellVariable<Real> &v = rc->Get("in_or_out");
+    ParArrayND<Real> v = rc->Get("in_or_out").data;
     // NOTE: the MeshBlock integrated indicator function, divided
     // by r0^2, was stashed in v(0,0,0) in ComputeArea.
     Real block_area = v(0, 0, 0);
