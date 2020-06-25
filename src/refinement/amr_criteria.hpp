@@ -16,7 +16,7 @@
 #include <memory>
 #include <string>
 
-#include "athena.hpp"
+#include "defs.hpp"
 #include "interface/container.hpp"
 
 namespace parthenon {

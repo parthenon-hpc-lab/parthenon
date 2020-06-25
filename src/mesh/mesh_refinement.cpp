@@ -25,8 +25,8 @@
 #include <string>
 #include <tuple>
 
-#include "athena.hpp"
 #include "coordinates/coordinates.hpp"
+#include "defs.hpp"
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"

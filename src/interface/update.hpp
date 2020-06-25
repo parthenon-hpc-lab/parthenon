@@ -15,7 +15,7 @@
 
 #include <memory>
 
-#include "athena.hpp"
+#include "defs.hpp"
 #include "interface/container.hpp"
 #include "mesh/mesh.hpp"
 

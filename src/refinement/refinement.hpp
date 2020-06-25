@@ -17,7 +17,7 @@
 #include <memory>
 #include <string>
 
-#include "athena.hpp"
+#include "defs.hpp"
 #include "interface/container.hpp"
 #include "interface/state_descriptor.hpp"
 #include "interface/variable.hpp"

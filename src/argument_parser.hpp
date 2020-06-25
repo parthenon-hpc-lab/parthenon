@@ -17,7 +17,7 @@
 #include <iostream>
 #include <string>
 
-#include "athena.hpp"
+#include "defs.hpp"
 #include "globals.hpp"
 #include "utils/utils.hpp"
 
