@@ -17,7 +17,7 @@
 #include <memory>
 #include <string>
 
-#include "athena.hpp"
+#include "defs.hpp"
 #include "interface/container.hpp"
 #include "interface/state_descriptor.hpp"
 #include "interface/variable.hpp"
@@ -32,7 +32,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 
 AmrTag CheckAllRefinement(Container<Real> &rc);
 
-AmrTag FirstDerivative(CellVariable<Real> &q, const Real refine_criteria,
+AmrTag FirstDerivative(const ParArrayND<Real> &q, const Real refine_criteria,
                        const Real derefine_criteria);
 
 } // namespace Refinement

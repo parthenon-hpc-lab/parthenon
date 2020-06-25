@@ -25,8 +25,8 @@
 
 #include "parthenon_mpi.hpp"
 
-#include "athena.hpp"
 #include "bvals/boundary_conditions.hpp"
+#include "defs.hpp"
 #include "globals.hpp"
 #include "interface/update.hpp"
 #include "mesh/mesh.hpp"
@@ -505,8 +505,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
               ox3 = ((lloc.lx3 & 1LL) == 1LL);
           recvbuf[rb_idx] = ParArray1D<Real>("recvbuf" + std::to_string(rb_idx), bsf2c);
           int tag = CreateAMRMPITag(n - nbs, ox1, ox2, ox3);
-          MPI_Irecv(recvbuf[rb_idx].data(), bsf2c, MPI_ATHENA_REAL, ranklist[on + l], tag,
-                    MPI_COMM_WORLD, &(req_recv[rb_idx]));
+          MPI_Irecv(recvbuf[rb_idx].data(), bsf2c, MPI_PARTHENON_REAL, ranklist[on + l],
+                    tag, MPI_COMM_WORLD, &(req_recv[rb_idx]));
           rb_idx++;
         }
       } else { // same level or c2f
@@ -519,7 +519,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
         }
         recvbuf[rb_idx] = ParArray1D<Real>("recvbuf" + std::to_string(rb_idx), size);
         int tag = CreateAMRMPITag(n - nbs, 0, 0, 0);
-        MPI_Irecv(recvbuf[rb_idx].data(), size, MPI_ATHENA_REAL, ranklist[on], tag,
+        MPI_Irecv(recvbuf[rb_idx].data(), size, MPI_PARTHENON_REAL, ranklist[on], tag,
                   MPI_COMM_WORLD, &(req_recv[rb_idx]));
         rb_idx++;
       }
@@ -541,7 +541,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
             ParArray1D<Real>("amr send buf same" + std::to_string(sb_idx), bssame);
         PrepareSendSameLevel(pb, sendbuf[sb_idx]);
         int tag = CreateAMRMPITag(nn - nslist[newrank[nn]], 0, 0, 0);
-        MPI_Isend(sendbuf[sb_idx].data(), bssame, MPI_ATHENA_REAL, newrank[nn], tag,
+        MPI_Isend(sendbuf[sb_idx].data(), bssame, MPI_PARTHENON_REAL, newrank[nn], tag,
                   MPI_COMM_WORLD, &(req_send[sb_idx]));
         sb_idx++;
       } else if (nloc.level > oloc.level) { // c2f
@@ -552,8 +552,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
               ParArray1D<Real>("amr send buf c2f" + std::to_string(sb_idx), bsc2f);
           PrepareSendCoarseToFineAMR(pb, sendbuf[sb_idx], newloc[nn + l]);
           int tag = CreateAMRMPITag(nn + l - nslist[newrank[nn + l]], 0, 0, 0);
-          MPI_Isend(sendbuf[sb_idx].data(), bsc2f, MPI_ATHENA_REAL, newrank[nn + l], tag,
-                    MPI_COMM_WORLD, &(req_send[sb_idx]));
+          MPI_Isend(sendbuf[sb_idx].data(), bsc2f, MPI_PARTHENON_REAL, newrank[nn + l],
+                    tag, MPI_COMM_WORLD, &(req_send[sb_idx]));
           sb_idx++;
         }      // end loop over nleaf (unique to c2f branch in this step 6)
       } else { // f2c: restrict + pack + send
@@ -564,7 +564,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
         int ox1 = ((oloc.lx1 & 1LL) == 1LL), ox2 = ((oloc.lx2 & 1LL) == 1LL),
             ox3 = ((oloc.lx3 & 1LL) == 1LL);
         int tag = CreateAMRMPITag(nn - nslist[newrank[nn]], ox1, ox2, ox3);
-        MPI_Isend(sendbuf[sb_idx].data(), bsf2c, MPI_ATHENA_REAL, newrank[nn], tag,
+        MPI_Isend(sendbuf[sb_idx].data(), bsf2c, MPI_PARTHENON_REAL, newrank[nn], tag,
                   MPI_COMM_WORLD, &(req_send[sb_idx]));
         sb_idx++;
       }

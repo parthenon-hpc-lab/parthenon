@@ -67,7 +67,7 @@ parthenon::DriverStatus PiDriver::Execute() {
   MeshBlock *pmb = pmesh->pblock;
   while (pmb != nullptr) {
     Container<Real> &rc = pmb->real_containers.Get();
-    CellVariable<Real> &v = rc.Get("in_or_out");
+    ParArrayND<Real> v = rc.Get("in_or_out").data;
     // NOTE: the MeshBlock integrated indicator function, divided
     // by r0^2, was stashed in v(0,0,0) in ComputeArea.
     Real block_area = v(0, 0, 0);
@@ -76,7 +76,7 @@ parthenon::DriverStatus PiDriver::Execute() {
   }
 #ifdef MPI_PARALLEL
   Real pi_val;
-  MPI_Reduce(&area, &pi_val, 1, MPI_ATHENA_REAL, MPI_SUM, 0, MPI_COMM_WORLD);
+  MPI_Reduce(&area, &pi_val, 1, MPI_PARTHENON_REAL, MPI_SUM, 0, MPI_COMM_WORLD);
 #else
   Real pi_val = area;
 #endif
