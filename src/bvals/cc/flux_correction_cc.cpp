@@ -75,14 +75,14 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
           pmb->par_for(
               "SendFluxCorrection3D_x1", nl_, nu_, 0, ksize - 1, 0, jsize - 1,
               KOKKOS_LAMBDA(const int nn, const int k, const int j) {
-                int kf = 2 * k + ks;
-                int jf = 2 * j + js;
+                const int kf = 2 * k + ks;
+                const int jf = 2 * j + js;
                 const Real amm = coords.Area(X1DIR, kf, jf, i);
                 const Real amp = coords.Area(X1DIR, kf, jf + 1, i);
                 const Real apm = coords.Area(X1DIR, kf + 1, jf, i);
                 const Real app = coords.Area(X1DIR, kf + 1, jf + 1, i);
                 const Real tarea = amm + amp + apm + app;
-                int p = j + jsize * (k + ksize * (nn - nl));
+                const int p = j + jsize * (k + ksize * (nn - nl));
                 sbuf(p) = (x1flx(nn, kf, jf, i) * amm + x1flx(nn, kf, jf + 1, i) * amp +
                            x1flx(nn, kf + 1, jf, i) * apm +
                            x1flx(nn, kf + 1, jf + 1, i) * app) /
@@ -94,11 +94,11 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
           pmb->par_for(
               "SendFluxCorrection2D_x1", nl_, nu_, 0, jsize - 1,
               KOKKOS_LAMBDA(const int nn, const int j) {
-                int jf = 2 * j + js;
+                const int jf = 2 * j + js;
                 const Real am = coords.Area(X1DIR, k, jf, i);
                 const Real ap = coords.Area(X1DIR, k, jf + 1, i);
                 const Real tarea = am + ap;
-                int p = j + jsize * (nn - nl);
+                const int p = j + jsize * (nn - nl);
                 sbuf(p) =
                     (x1flx(nn, k, jf, i) * am + x1flx(nn, k, jf + 1, i) * ap) / tarea;
               });
@@ -122,14 +122,14 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
           pmb->par_for(
               "SendFluxCorrection3D_x2", nl_, nu_, 0, ksize - 1, 0, isize - 1,
               KOKKOS_LAMBDA(const int nn, const int k, const int i) {
-                int kf = 2 * k + ks;
-                int ii = 2 * i + is;
+                const int kf = 2 * k + ks;
+                const int ii = 2 * i + is;
                 const Real area00 = coords.Area(X2DIR, kf, j, ii);
                 const Real area01 = coords.Area(X2DIR, kf, j, ii + 1);
                 const Real area10 = coords.Area(X2DIR, kf + 1, j, ii);
                 const Real area11 = coords.Area(X2DIR, kf + 1, j, ii + 1);
                 const Real tarea = area00 + area01 + area10 + area11;
-                int p = i + isize * (k + ksize * (nn - nl));
+                const int p = i + isize * (k + ksize * (nn - nl));
                 sbuf(p) =
                     (x2flx(nn, kf, j, ii) * area00 + x2flx(nn, kf, j, ii + 1) * area01 +
                      x2flx(nn, kf + 1, j, ii) * area10 +
@@ -142,11 +142,11 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
           pmb->par_for(
               "SendFluxCorrection2D_x2", nl_, nu_, 0, isize - 1,
               KOKKOS_LAMBDA(const int nn, const int i) {
-                int ii = 2 * i + is;
+                const int ii = 2 * i + is;
                 const Real area0 = coords.Area(X2DIR, k, j, ii);
                 const Real area1 = coords.Area(X2DIR, k, j, ii + 1);
                 const Real tarea = area0 + area1;
-                int p = i + isize * (nn - nl);
+                const int p = i + isize * (nn - nl);
                 sbuf(p) =
                     (x2flx(nn, k, j, ii) * area0 + x2flx(nn, k, j, ii + 1) * area1) /
                     tarea;
@@ -164,14 +164,14 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
         pmb->par_for(
             "SendFluxCorrection3D_x3", nl_, nu_, 0, jsize - 1, 0, isize - 1,
             KOKKOS_LAMBDA(const int nn, const int j, const int i) {
-              int jf = 2 * j + js;
-              int ii = 2 * i + is;
+              const int jf = 2 * j + js;
+              const int ii = 2 * i + is;
               const Real area00 = coords.Area(X3DIR, k, jf, ii);
               const Real area01 = coords.Area(X3DIR, k, jf, ii + 1);
               const Real area10 = coords.Area(X3DIR, k, jf + 1, ii);
               const Real area11 = coords.Area(X3DIR, k, jf + 1, ii + 1);
               const Real tarea = area00 + area01 + area10 + area11;
-              int p = i + isize * (j + jsize * (nn - nl));
+              const int p = i + isize * (j + jsize * (nn - nl));
               sbuf(p) =
                   (x3flx(nn, k, jf, ii) * area00 + x3flx(nn, k, jf, ii + 1) * area01 +
                    x3flx(nn, k, jf + 1, ii) * area10 +
@@ -249,7 +249,7 @@ bool CellCenteredBoundaryVariable::ReceiveFluxCorrection() {
         pmb->par_for(
             "ReceiveFluxCorrection_x1", nl_, nu_, kl, ku, jl, ju,
             KOKKOS_LAMBDA(const int nn, const int k, const int j) {
-              int p = j - jl + jsize * ((k - kl) + ksize * (nn - nl));
+              const int p = j - jl + jsize * ((k - kl) + ksize * (nn - nl));
               x1flx(nn, k, j, il) = rbuf(p);
             });
       } else if (nb.fid == BoundaryFace::inner_x2 || nb.fid == BoundaryFace::outer_x2) {
@@ -269,7 +269,7 @@ bool CellCenteredBoundaryVariable::ReceiveFluxCorrection() {
         pmb->par_for(
             "ReceiveFluxCorrection_x2", nl_, nu_, kl, ku, il, iu,
             KOKKOS_LAMBDA(const int nn, const int k, const int i) {
-              int p = i - il + isize * ((k - kl) + ksize * (nn - nl));
+              const int p = i - il + isize * ((k - kl) + ksize * (nn - nl));
               x2flx(nn, k, jl, i) = rbuf(p);
             });
       } else if (nb.fid == BoundaryFace::inner_x3 || nb.fid == BoundaryFace::outer_x3) {
@@ -289,7 +289,7 @@ bool CellCenteredBoundaryVariable::ReceiveFluxCorrection() {
         pmb->par_for(
             "ReceiveFluxCorrection_x1", nl_, nu_, jl, ju, il, iu,
             KOKKOS_LAMBDA(const int nn, const int j, const int i) {
-              int p = i - il + isize * ((j - jl) + jsize * (nn - nl));
+              const int p = i - il + isize * ((j - jl) + jsize * (nn - nl));
               x3flx(nn, kl, j, i) = rbuf(p);
             });
       }
