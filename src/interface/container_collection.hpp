@@ -13,12 +13,14 @@
 #ifndef INTERFACE_CONTAINER_COLLECTION_HPP_
 #define INTERFACE_CONTAINER_COLLECTION_HPP_
 
+#include <algorithm>
 #include <map>
 #include <memory>
 #include <string>
 
 #include "interface/container.hpp"
 #include "interface/metadata.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
@@ -26,19 +28,16 @@ template <typename T>
 class ContainerCollection {
  public:
   ContainerCollection() {
-    containers_["base"] = std::make_shared<Container<T>>(); // always add "base" container
+    // always add "base" container
+    containers_["base"] = std::make_shared<Container<T>>();
   }
 
   void Add(const std::string &label, Container<T> &src);
 
   Container<T> &Get() { return *containers_["base"]; }
-  Container<T> &Get(const std::string &label) {
-    auto it = containers_.find(label);
-    if (it == containers_.end()) {
-      throw std::runtime_error("Container " + label + " does not exist in collection.");
-    }
-    return *(it->second);
-  }
+  Container<T> &Get(const std::string &label);
+
+  void Swap(const std::string &label1, const std::string &label2);
 
   void PurgeNonBase() {
     auto c = containers_.begin();
@@ -60,7 +59,19 @@ class ContainerCollection {
   }
 
  private:
+
+  auto FindIterator(const std::string &label) {
+    auto it = containers_.find(label);
+    if (it == containers_.end()) {
+      std::string message = ("Container " + label
+                             + " does not exist in collection.");
+      PARTHENON_FAIL(message.c_str());
+    }
+    return it;
+  }
+
   std::map<std::string, std::shared_ptr<Container<T>>> containers_;
+
 };
 
 } // namespace parthenon
