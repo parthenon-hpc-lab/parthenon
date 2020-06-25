@@ -85,9 +85,16 @@ class TaskList {
   }
 
   template <class F, class... Args>
-  TaskID AddTask(F func, TaskID &dep, Args &&... args) {
+  TaskID AddTask(F &&func, TaskID &dep, Args &&... args) {
     TaskID id(tasks_added_ + 1);
-    task_list_.push_back(Task(id, dep, std::bind(func, std::forward<Args>(args)...)));
+    task_list_.push_back(
+        Task(id, dep,
+             [=]() mutable -> TaskStatus {
+               // return func(std::cref(std::forward<Args>(args))...);
+               return func(std::forward<Args>(args)...);
+             }
+             // std::bind(std::forward<F>(func), std::forward<Args>(args)...)
+             ));
     tasks_added_++;
     return id;
   }

@@ -18,20 +18,21 @@
 namespace parthenon {
 
 template <typename T>
-void ContainerCollection<T>::Add(const std::string &name, Container<T> &src) {
+void ContainerCollection<T>::Add(const std::string &name,
+                                 const std::shared_ptr<Container<T>> &src) {
   // error check for duplicate names
   auto it = containers_.find(name);
   if (it != containers_.end()) {
     // check to make sure they are the same
-    if (!(src == *(it->second))) {
+    if (!(*src == *(it->second))) {
       throw std::runtime_error("Error attempting to add a Container to a Collection");
     }
     return;
   }
 
   auto c = std::make_shared<Container<T>>();
-  c->pmy_block = src.pmy_block;
-  for (auto v : src.GetCellVariableVector()) {
+  c->pmy_block = src->pmy_block;
+  for (auto v : src->GetCellVariableVector()) {
     if (v->IsSet(Metadata::OneCopy)) {
       // just copy the (shared) pointer
       c->Add(v);
@@ -41,7 +42,7 @@ void ContainerCollection<T>::Add(const std::string &name, Container<T> &src) {
     }
   }
 
-  for (auto v : src.GetFaceVector()) {
+  for (auto v : src->GetFaceVector()) {
     if (v->IsSet(Metadata::OneCopy)) {
       c->Add(v);
     } else {
@@ -49,7 +50,7 @@ void ContainerCollection<T>::Add(const std::string &name, Container<T> &src) {
     }
   }
 
-  for (auto v : src.GetSparseVector()) {
+  for (auto v : src->GetSparseVector()) {
     if (v->IsSet(Metadata::OneCopy)) {
       // copy the shared pointer
       c->Add(v);

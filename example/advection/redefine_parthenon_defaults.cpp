@@ -36,8 +36,8 @@ Packages_t ParthenonManager::ProcessPackages(std::unique_ptr<ParameterInput> &pi
 }
 
 void MeshBlock::ProblemGenerator(ParameterInput *pin) {
-  Container<Real> &rc = real_containers.Get();
-  auto &q = rc.Get("advected").data;
+  auto &rc = real_containers.Get();
+  auto &q = rc->Get("advected").data;
 
   auto pkg = packages["advection_package"];
   const auto &amp = pkg->Param<Real>("amp");
@@ -116,7 +116,7 @@ void Mesh::UserWorkAfterLoop(ParameterInput *pin, SimTime &tm) {
     IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
 
     // calculate error on host
-    auto q = rc.Get("advected").data.GetHostMirrorAndCopy();
+    auto q = rc->Get("advected").data.GetHostMirrorAndCopy();
     for (int k = kb.s; k <= kb.e; k++) {
       for (int j = jb.s; j <= jb.e; j++) {
         for (int i = ib.s; i <= ib.e; i++) {

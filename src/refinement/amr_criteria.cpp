@@ -53,8 +53,8 @@ AMRFirstDerivative::AMRFirstDerivative(ParameterInput *pin, std::string &block_n
   }
 }
 
-AmrTag AMRFirstDerivative::operator()(Container<Real> &rc) {
-  CellVariable<Real> &q = rc.Get(field);
+AmrTag AMRFirstDerivative::operator()(std::shared_ptr<Container<Real>> &rc) {
+  CellVariable<Real> &q = rc->Get(field);
   return Refinement::FirstDerivative(q, refine_criteria, derefine_criteria);
 }
 

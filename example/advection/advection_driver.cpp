@@ -11,6 +11,7 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -49,10 +50,10 @@ TaskStatus UpdateContainer(MeshBlock *pmb, int stage,
   // const Real beta = stage_wghts[stage-1].beta;
   const Real beta = integrator->beta[stage - 1];
   const Real dt = integrator->dt;
-  Container<Real> &base = pmb->real_containers.Get();
-  Container<Real> &cin = pmb->real_containers.Get(stage_name[stage - 1]);
-  Container<Real> &cout = pmb->real_containers.Get(stage_name[stage]);
-  Container<Real> &dudt = pmb->real_containers.Get("dUdt");
+  auto &base = pmb->real_containers.Get();
+  auto &cin = pmb->real_containers.Get(stage_name[stage - 1]);
+  auto &cout = pmb->real_containers.Get(stage_name[stage]);
+  auto &dudt = pmb->real_containers.Get("dUdt");
   parthenon::Update::AverageContainers(cin, base, beta);
   parthenon::Update::UpdateContainer(cin, dudt, beta * dt, cout);
   return TaskStatus::complete;
@@ -65,20 +66,20 @@ TaskList AdvectionDriver::MakeTaskList(MeshBlock *pmb, int stage) {
   TaskID none(0);
   // first make other useful containers
   if (stage == 1) {
-    Container<Real> &base = pmb->real_containers.Get();
+    auto &base = pmb->real_containers.Get();
     pmb->real_containers.Add("dUdt", base);
     for (int i = 1; i < integrator->nstages; i++)
       pmb->real_containers.Add(stage_name[i], base);
   }
 
   // pull out the container we'll use to get fluxes and/or compute RHSs
-  Container<Real> &sc0 = pmb->real_containers.Get(stage_name[stage - 1]);
+  auto &sc0 = pmb->real_containers.Get(stage_name[stage - 1]);
   // pull out a container we'll use to store dU/dt.
   // This is just -flux_divergence in this example
-  Container<Real> &dudt = pmb->real_containers.Get("dUdt");
+  auto &dudt = pmb->real_containers.Get("dUdt");
   // pull out the container that will hold the updated state
   // effectively, sc1 = sc0 + dudt*dt
-  Container<Real> &sc1 = pmb->real_containers.Get(stage_name[stage]);
+  auto &sc1 = pmb->real_containers.Get(stage_name[stage]);
 
   auto start_recv = tl.AddTask(Container<Real>::StartReceivingTask, none, sc1);
 
@@ -119,8 +120,8 @@ TaskList AdvectionDriver::MakeTaskList(MeshBlock *pmb, int stage) {
   // estimate next time step
   if (stage == integrator->nstages) {
     auto new_dt = tl.AddTask(
-        [](Container<Real> &rc) {
-          MeshBlock *pmb = rc.pmy_block;
+        [](std::shared_ptr<Container<Real>> &rc) {
+          MeshBlock *pmb = rc->pmy_block;
           pmb->SetBlockTimestep(parthenon::Update::EstimateTimestep(rc));
           return TaskStatus::complete;
         },

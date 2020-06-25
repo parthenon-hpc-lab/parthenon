@@ -65,12 +65,12 @@ Packages_t ParthenonManager::ProcessPackages(std::unique_ptr<ParameterInput> &pi
 // pi \approx A/r0^2
 namespace calculate_pi {
 
-void SetInOrOut(Container<Real> &rc) {
-  MeshBlock *pmb = rc.pmy_block;
+void SetInOrOut(std::shared_ptr<Container<Real>> &rc) {
+  MeshBlock *pmb = rc->pmy_block;
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
-  ParArrayND<Real> &v = rc.Get("in_or_out").data;
+  ParArrayND<Real> &v = rc->Get("in_or_out").data;
   const auto &radius = pmb->packages["calculate_pi"]->Param<Real>("radius");
   auto &coords = pmb->coords;
   // Set an indicator function that indicates whether the cell center
@@ -88,15 +88,15 @@ void SetInOrOut(Container<Real> &rc) {
       });
 }
 
-AmrTag CheckRefinement(Container<Real> &rc) {
+AmrTag CheckRefinement(std::shared_ptr<Container<Real>> &rc) {
   // tag cells for refinement or derefinement
   // each package can define its own refinement tagging
   // function and they are all called by parthenon
-  MeshBlock *pmb = rc.pmy_block;
+  MeshBlock *pmb = rc->pmy_block;
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
-  CellVariable<Real> &v = rc.Get("in_or_out");
+  CellVariable<Real> &v = rc->Get("in_or_out");
   AmrTag delta_level = AmrTag::derefine;
   Real vmin = 1.0;
   Real vmax = 0.0;
@@ -142,13 +142,13 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
 TaskStatus ComputeArea(MeshBlock *pmb) {
   // compute 1/r0^2 \int d^2x in_or_out(x,y) over the block's domain
-  Container<Real> &rc = pmb->real_containers.Get();
+  auto &rc = pmb->real_containers.Get();
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
   auto &coords = pmb->coords;
 
-  ParArrayND<Real> &v = rc.Get("in_or_out").data;
+  ParArrayND<Real> &v = rc->Get("in_or_out").data;
   const auto &radius = pmb->packages["calculate_pi"]->Param<Real>("radius");
   Real area = 0.0;
   for (int k = kb.s; k <= kb.e; k++) {

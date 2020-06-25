@@ -21,12 +21,12 @@ namespace advection_package {
 using namespace parthenon::package::prelude;
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
-AmrTag CheckRefinement(Container<Real> &rc);
-void PreFill(Container<Real> &rc);
-void SquareIt(Container<Real> &rc);
-void PostFill(Container<Real> &rc);
-Real EstimateTimestep(Container<Real> &rc);
-TaskStatus CalculateFluxes(Container<Real> &rc);
+AmrTag CheckRefinement(std::shared_ptr<Container<Real>> &rc);
+void PreFill(std::shared_ptr<Container<Real>> &rc);
+void SquareIt(std::shared_ptr<Container<Real>> &rc);
+void PostFill(std::shared_ptr<Container<Real>> &rc);
+Real EstimateTimestep(std::shared_ptr<Container<Real>> &rc);
+TaskStatus CalculateFluxes(std::shared_ptr<Container<Real>> &rc);
 
 } // namespace advection_package
 
