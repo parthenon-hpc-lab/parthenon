@@ -14,20 +14,25 @@
 #ifndef EXAMPLE_POISSON_POISSON_DRIVER_HPP_
 #define EXAMPLE_POISSON_POISSON_DRIVER_HPP_
 
+#include "driver/driver.hpp"
+
+#include "parameter_input.hpp"
+
 namespace poisson {
 using namespace parthenon::driver::prelude
 
-class PoissonDriver : public Driver {
+class PoissonDriver : public IterationDriver {
  public:
   PoissonDriver(ParameterInput *pin, Mesh *pm) : Driver(pin, pm) {
-    InitializeOutputs();
-    // TODO(JMM): Add some check desired
+    max_residual = pinput->GetReal("parthenon/iterations","residual");
+    // TODO(JMM): inputs 
   }
-};
-
+  TaskListStatus Step() {
+    return DriverUtils::ConstructAndExecuteBlockTasks<>(this);
+  }
   TaskList MakeTaskList(MeshBlock *pmb);
-
-  DriverStatus Execute() override;
+  Real max_residual;
+};
 
 } // namespace poisson
 
