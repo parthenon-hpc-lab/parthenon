@@ -41,7 +41,7 @@ TaskList MakeTaskList(MeshBlock *pmb) {
   auto start_recv = AddContainerTask(Container<Real>::StartReceivingTask,
                                      none, update);
 
-  // TODO(JMM): ADD Smoother Task Here
+  auto smooth = AddTwoContainerTask(Smooth, none, base, update);
 
   // update ghost cells
   auto send =
