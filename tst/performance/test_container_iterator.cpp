@@ -89,7 +89,9 @@ static Container<Real> createTestContainer() {
   return container;
 }
 
-std::function<void()> createLambdaRaw(ParArrayND<Real> &raw_array) {
+//std::function<void()> createLambdaRaw(ParArrayND<Real> &raw_array) {
+template<class T>
+std::function<void()> createLambdaRaw(T &raw_array) {
   return [&]() {
     par_for(
         "Initialize ", DevExecSpace(), 0, Nvar - 1, 0, N - 1, 0, N - 1, 0, N - 1,
@@ -116,7 +118,8 @@ std::function<void()> createLambdaContainer(Container<Real> &container) {
   };
 }
 
-std::function<void()> createLambdaContainerCellVar(Container<Real> &container, std::vector<std::string> names) {
+std::function<void()> createLambdaContainerCellVar(Container<Real> &container,
+    std::vector<std::string> & names) {
   return [&]() {
     for (int n = 0; n < names.size(); n++) {
       CellVariable<Real> &v = container.Get(names[n]);
@@ -173,7 +176,6 @@ TEST_CASE("Catch2 Container Iterator Performance", "[ContainerIterator][performa
             });
       });
     } // GIVEN
-
   }   // SECTION
 
   SECTION("Iterate Variables") {
@@ -203,17 +205,17 @@ TEST_CASE("Catch2 Container Iterator Performance", "[ContainerIterator][performa
       // Make a function for initializing the container variables
       performance_test_wrapper("Mask: Iterate Variables Perf", init_container, [&]() {
         for ( int n = 0; n < names.size(); n++) {
-          CellVariableVector<Real> &v = container.Get(names[n]);
+          CellVariable<Real> &v = container.Get(names[n]);
+          // Do something trivial, square each term
           par_for(
               "Iterate CellVariables Perf", DevExecSpace(), 0, v.GetDim(4) - 1, 0,
               v.GetDim(3) - 1, 0, v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
               KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
-                v.data(l, k, j, i) *= v.data(l, k, j, i); // Do something trivial, square each term
+                v.data(l, k, j, i) *= v.data(l, k, j, i);
               });
         }
       });
     } // GIVEN
-
   }   // SECTION
 
   SECTION("View of Views") {
