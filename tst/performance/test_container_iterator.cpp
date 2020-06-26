@@ -89,8 +89,8 @@ static Container<Real> createTestContainer() {
   return container;
 }
 
-//std::function<void()> createLambdaRaw(ParArrayND<Real> &raw_array) {
-template<class T>
+// std::function<void()> createLambdaRaw(ParArrayND<Real> &raw_array) {
+template <class T>
 std::function<void()> createLambdaRaw(T &raw_array) {
   return [&]() {
     par_for(
@@ -119,7 +119,7 @@ std::function<void()> createLambdaContainer(Container<Real> &container) {
 }
 
 std::function<void()> createLambdaContainerCellVar(Container<Real> &container,
-    std::vector<std::string> & names) {
+                                                   std::vector<std::string> &names) {
   return [&]() {
     for (int n = 0; n < names.size(); n++) {
       CellVariable<Real> &v = container.Get(names[n]);
@@ -204,7 +204,7 @@ TEST_CASE("Catch2 Container Iterator Performance", "[ContainerIterator][performa
 
       // Make a function for initializing the container variables
       performance_test_wrapper("Mask: Iterate Variables Perf", init_container, [&]() {
-        for ( int n = 0; n < names.size(); n++) {
+        for (int n = 0; n < names.size(); n++) {
           CellVariable<Real> &v = container.Get(names[n]);
           // Do something trivial, square each term
           par_for(
