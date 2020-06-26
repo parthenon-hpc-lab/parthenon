@@ -94,4 +94,20 @@ TaskList MakeTaskList(MeshBlock *pmb) {
   return tl;
 }
 
+void PoissonDriver::OutputCycleDiagnostics() {
+  const int precision = std::numeric_limits<Real>::max_digits10 - 1;
+  const int ratio_precision = 3;
+  if ((ncycle_out > 0)
+      && (ncycle % ncycle_out == 0)
+      && (Globals::my_rank == 0)) {
+    std::cout << "cycle=" << tm.ncycle << std::scientific
+              << std::setprecision(precision)
+              << " reisidual=" << residual;
+    
+    // insert more diagnostics here
+    std::cout << std::endl;
+  }
+  return;
+}
+
 };

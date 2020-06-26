@@ -66,7 +66,7 @@ class IterationDriver : public Driver {
   void OutputCycleDiagnostics();
 
   virtual TaskListStatus Step() = 0;
-  bool KeepGoing() = 0;
+  virtual bool KeepGoing() = 0;
 
   int ncycle = 0;
   int nlim, nout;
@@ -88,7 +88,7 @@ class EvolutionDriver : public Driver {
   }
   DriverStatus Execute() override;
   void SetGlobalTimeStep();
-  void OutputCycleDiagnostics();
+  void OutputCycleDiagnostics() override;
 
   virtual TaskListStatus Step() = 0;
   SimTime tm;

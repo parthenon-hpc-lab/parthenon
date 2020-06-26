@@ -17,6 +17,8 @@
 #include "driver/driver.hpp"
 
 #include "parameter_input.hpp"
+#include "parthenon_mpi.hpp"
+#include "poisson_package.hpp"
 
 namespace poisson {
 using namespace parthenon::driver::prelude
@@ -30,7 +32,24 @@ class PoissonDriver : public IterationDriver {
   TaskListStatus Step() {
     return DriverUtils::ConstructAndExecuteBlockTasks<>(this);
   }
+  bool KeepGoing() {
+    residual = 0;
+    MeshBlock *pmb pmesh->pblock;
+    while (pmb != nullptr) {
+      Container<Real> &rc = pmb->real_containers.Get();
+      Real block_residual = GetResidual(rc);
+      residual = block_residual > residual? block_residual : residual;
+    }
+
+#ifdef MPI_PARALLEL
+    MPI_Allreduce(MPI_IN_PLACE, &residual, 1,
+                  MPI_PARTHENON_REAL, MPI_MAX, MPI_COMM_WORLD);
+#endif
+    return residual > max_residual;
+  }
   TaskList MakeTaskList(MeshBlock *pmb);
+  void OutputCycleDiagnostics();
+  Real residual = 0;
   Real max_residual;
 };
 

@@ -14,6 +14,7 @@
 #define EXAMPLE_POISSON_POISSON_PACKAGE_HPP_
 
 #include <memory>
+#include "coordinates/coordinates.hpp"
 #include "interface/container.hpp"
 #include "interface/state_descriptor.hpp"
 #include "task_list/tasks.hpp"
@@ -23,8 +24,32 @@ using parthenon::StateDescriptor;
 
 namespace poisson {
 
-  std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
-  TaskStatus Smooth(Container<Real> &rc_in, COntainer<Real> &rc_out);
+std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
+TaskStatus Smooth(Container<Real> &rc_in, COntainer<Real> &rc_out);
+Real GetResidual(Container<Real> &rc);
+
+KOKKOS_INLINE_FUNCTION
+Real residual(ParArrayND<Real>& phi, ParArrayND<Real>& rho,
+              coordinates_t& coords,
+              Real K, int ndim,
+              int k, int j, int i) {
+  Real dx = coords.Dx(X1DIR,k,j,i);
+  Real dy = coords.Dx(X2DIR,k,j,i);
+  Real dz = coords.Dz(X3DIR,k,j,i);
+  Real dx2 = dx*dx;
+  Real dy2 = dy*dy;
+  Real dz2 = dz*dz;
+  Real residual = 0;
+  residual += (phi(k,j,i+1) + phi(k,j,i-1) - 2*phi(k,j,i))/dx2;
+  if (ndim >= 2) {
+    residual += (phi(k,j+1,i) + phi(k,j-1,i) - 2*phi(k,j,i))/dy2;
+  }
+  if (ndim >= 3) {
+    residual += (phi(k+1,j,i) + phi(k-1,j,i) - 2*phi(k,j,i))/dz2;
+  }
+  residual -= K*rho(k,j,i);
+  return residual;
+}
 
 } // namespace poisson_package
 
