@@ -25,9 +25,9 @@ variables:
   CODECOV_TOKEN: f3729c36-5ce7-48a3-b940-92f1cefd85a5
 
 stages:
+  - coverage
   - unit
   - performance_and_regression
-  - coverage
   - style
 
 style-check:
@@ -190,8 +190,4 @@ parthenon-cpu-coverage:
     expire_in: 3 days
     paths:
       - build-debug-coverage/CMakeFiles/CMakeOutput.log
-  only:
-    - merge-requests
-    - master
-
 
