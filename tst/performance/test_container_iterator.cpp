@@ -238,7 +238,7 @@ TEST_CASE("Catch2 Container Iterator Performance", "[ContainerIterator][performa
         });
       } // WHEN
 
-      WHEN("The view of views is implmeneted with names.") {
+      WHEN("The view of views is implemented with names.") {
         std::vector<std::string> names({"v0", "v1", "v2", "v3", "v4", "v5"});
         parthenon::VariablePack<Real> var_view_named = container.PackVariables(names);
         auto init_view_of_views = createLambdaInitViewOfViews(var_view_named);
