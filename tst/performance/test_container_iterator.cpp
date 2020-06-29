@@ -256,7 +256,7 @@ TEST_CASE("Catch2 Container Iterator Performance", "[ContainerIterator][performa
       } // WHEN
 
       // The pack is built every time, tests caching
-      WHEN("The view of views is implmeneted with names and construction of Pack "
+      WHEN("The view of views is implemented with names and construction of Pack "
            "Variables is included in the timing.") {
         std::vector<std::string> names({"v0", "v1", "v2", "v3", "v4", "v5"});
         auto var_view_named = container.PackVariables(names);
