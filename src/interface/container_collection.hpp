@@ -59,7 +59,6 @@ class ContainerCollection {
   }
 
  private:
-
   auto FindIterator(const std::string &label) {
     auto it = containers_.find(label);
     if (it == containers_.end()) {
@@ -71,7 +70,6 @@ class ContainerCollection {
   }
 
   std::map<std::string, std::shared_ptr<Container<T>>> containers_;
-
 };
 
 } // namespace parthenon

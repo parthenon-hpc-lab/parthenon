@@ -68,17 +68,14 @@ DriverStatus IterationDriver::Execute() {
   Driver::PreExecute();
   pouts->MakeOutputs(pmesh, pinput);
   pmesh->mbcnt = 0;
-  
   while (KeepGoing()) {
     status = ExecuteStep();
     if (status == DriverStatus::failed) return status;
   } // END OF MAIN INTEGRATION LOOP
-
   status = DriverStatus::complete;
-  pmesh->UserWorkAfterLoop(pinput);
+  // pmesh->UserWorkAfterLoop(pinput, tm);
   pouts->MakeOutputs(pmesh, pinput);
   PostExecute(status);
-
   return status;
 }
 
@@ -91,13 +88,10 @@ DriverStatus IterationDriver::ExecuteStep() {
       return DriverStatus::failed;
     }
     // pmesh->UserWorkInLoop();
-
     ncycle++;
     pmesh->mbcnt += pmesh->nbtotal;
     pmesh->step_since_lb++;
-
     pmesh->LoadBalancingAndAdaptiveMeshRefinement(pinput);
-    
     // check for signals
     if (SignalHandler::CheckSignalFlags() != 0) {
       return DriverStatus::failed;
@@ -117,7 +111,7 @@ void IterationDriver::PostExecute(DriverStatus status) {
       std::cout << std::endl << "Driver failed." << std::endl;
     }
 
-    std::cout << "cycle=" << tm.ncycle << std::endl;
+    std::cout << "cycle=" << ncycle << std::endl;
 
     if (pmesh->adaptive) {
       std::cout << std::endl
@@ -134,7 +128,7 @@ void IterationDriver::OutputCycleDiagnostics() {
   if ((ncycle_out > 0)
       && (ncycle % ncycle_out == 0)
       && (Globals::my_rank == 0)) {
-    std::cout << "cycle=" << tm.ncycle;
+    std::cout << "cycle=" << ncycle;
     // insert more diagnostics here
     std::cout << std::endl;
   }
