@@ -193,7 +193,7 @@ if (${PARTHENON_ENABLE_UNIT_TESTS} OR ${PARTHENON_ENABLE_INTEGRATION_TESTS} OR $
 endif()
 
 # Globally turn on useful intel and/or nvcc compiler output
-if (${KOKKOS_ENABLE_CUDA})
+if (Kokkos_ENABLE_CUDA)
   if(CHECK_REGISTRY_PRESSURE)
     add_compile_options(-Xptxas=-v)
   endif()

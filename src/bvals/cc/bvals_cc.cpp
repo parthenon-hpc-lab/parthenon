@@ -486,6 +486,7 @@ void CellCenteredBoundaryVariable::StartReceiving(BoundaryCommSubset phase) {
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
     if (nb.snb.rank != Globals::my_rank) {
+      pmb->exec_space.fence();
       MPI_Start(&(bd_var_.req_recv[nb.bufid]));
       if (phase == BoundaryCommSubset::all && nb.ni.type == NeighborConnect::face &&
           nb.snb.level > mylevel) // opposite condition in ClearBoundary()
@@ -510,6 +511,7 @@ void CellCenteredBoundaryVariable::ClearBoundary(BoundaryCommSubset phase) {
     MeshBlock *pmb = pmy_block_;
     int mylevel = pmb->loc.level;
     if (nb.snb.rank != Globals::my_rank) {
+      pmb->exec_space.fence();
       // Wait for Isend
       MPI_Wait(&(bd_var_.req_send[nb.bufid]), MPI_STATUS_IGNORE);
       if (phase == BoundaryCommSubset::all && nb.ni.type == NeighborConnect::face &&
