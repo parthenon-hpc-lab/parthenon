@@ -25,14 +25,15 @@
 #include <string>
 #include <tuple>
 
-#include "athena.hpp"
 #include "coordinates/coordinates.hpp"
+#include "defs.hpp"
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 #include "refinement/refinement.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
@@ -52,7 +53,7 @@ MeshRefinement::MeshRefinement(MeshBlock *pmb, ParameterInput *pin)
     msg << "### FATAL ERROR in MeshRefinement constructor" << std::endl
         << "Selected --nghost=" << NGHOST << " is incompatible with mesh refinement.\n"
         << "Reconfigure with an even number of ghost cells " << std::endl;
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
 }
 

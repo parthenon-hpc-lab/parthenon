@@ -19,7 +19,7 @@
 
 #include "utils/buffer_utils.hpp"
 
-#include "athena.hpp"
+#include "defs.hpp"
 #include "kokkos_abstraction.hpp"
 #include "mesh/mesh.hpp"
 #include "parthenon_arrays.hpp"
@@ -37,10 +37,10 @@ namespace BufferUtility {
 template <typename T>
 void PackData(ParArray4D<T> &src, ParArray1D<T> &buf, int sn, int en, int si, int ei,
               int sj, int ej, int sk, int ek, int &offset, MeshBlock *pmb) {
-  int ni = ei + 1 - si;
-  int nj = ej + 1 - sj;
-  int nk = ek + 1 - sk;
-  int nn = en + 1 - sn;
+  const int ni = ei + 1 - si;
+  const int nj = ej + 1 - sj;
+  const int nk = ek + 1 - sk;
+  const int nn = en + 1 - sn;
 
   pmb->par_for(
       "PackData 4D", sn, en, sk, ek, sj, ej, si, ei,
@@ -61,9 +61,9 @@ void PackData(ParArray4D<T> &src, ParArray1D<T> &buf, int sn, int en, int si, in
 template <typename T>
 void PackData(ParArray3D<T> &src, ParArray1D<T> &buf, int si, int ei, int sj, int ej,
               int sk, int ek, int &offset, MeshBlock *pmb) {
-  int ni = ei + 1 - si;
-  int nj = ej + 1 - sj;
-  int nk = ek + 1 - sk;
+  const int ni = ei + 1 - si;
+  const int nj = ej + 1 - sj;
+  const int nk = ek + 1 - sk;
 
   pmb->par_for(
       "PackData 3D", sk, ek, sj, ej, si, ei, KOKKOS_LAMBDA(int k, int j, int i) {
@@ -83,10 +83,10 @@ void PackData(ParArray3D<T> &src, ParArray1D<T> &buf, int si, int ei, int sj, in
 template <typename T>
 void UnpackData(ParArray1D<T> &buf, ParArray4D<T> &dst, int sn, int en, int si, int ei,
                 int sj, int ej, int sk, int ek, int &offset, MeshBlock *pmb) {
-  int ni = ei + 1 - si;
-  int nj = ej + 1 - sj;
-  int nk = ek + 1 - sk;
-  int nn = en + 1 - sn;
+  const int ni = ei + 1 - si;
+  const int nj = ej + 1 - sj;
+  const int nk = ek + 1 - sk;
+  const int nn = en + 1 - sn;
 
   pmb->par_for(
       "UnpackData 4D", sn, en, sk, ek, sj, ej, si, ei,
@@ -108,9 +108,9 @@ void UnpackData(ParArray1D<T> &buf, ParArray4D<T> &dst, int sn, int en, int si, 
 template <typename T>
 void UnpackData(ParArray1D<T> &buf, ParArray3D<T> &dst, int si, int ei, int sj, int ej,
                 int sk, int ek, int &offset, MeshBlock *pmb) {
-  int ni = ei + 1 - si;
-  int nj = ej + 1 - sj;
-  int nk = ek + 1 - sk;
+  const int ni = ei + 1 - si;
+  const int nj = ej + 1 - sj;
+  const int nk = ek + 1 - sk;
 
   pmb->par_for(
       "UnpackData 3D", sk, ek, sj, ej, si, ei, KOKKOS_LAMBDA(int k, int j, int i) {

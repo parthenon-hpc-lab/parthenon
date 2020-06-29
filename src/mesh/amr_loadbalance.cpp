@@ -25,8 +25,8 @@
 
 #include "parthenon_mpi.hpp"
 
-#include "athena.hpp"
 #include "bvals/boundary_conditions.hpp"
+#include "defs.hpp"
 #include "globals.hpp"
 #include "interface/update.hpp"
 #include "mesh/mesh.hpp"
@@ -34,6 +34,7 @@
 #include "mesh/meshblock_tree.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/buffer_utils.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
@@ -95,7 +96,7 @@ void Mesh::CalculateLoadBalance(double *clist, int *rlist, int *slist, int *nlis
       msg << "### FATAL ERROR in CalculateLoadBalance" << std::endl
           << "There is at least one process which has no MeshBlock" << std::endl
           << "Decrease the number of processes or use smaller MeshBlocks." << std::endl;
-      ATHENA_ERROR(msg);
+      PARTHENON_FAIL(msg);
     }
     mycost += clist[i];
     rlist[i] = j;
@@ -125,14 +126,14 @@ void Mesh::CalculateLoadBalance(double *clist, int *rlist, int *slist, int *nlis
   }
 
 #ifdef MPI_PARALLEL
-  if (nb % (Globals::nranks * num_mesh_threads_) != 0 && !adaptive && !lb_flag_ &&
-      maxcost == mincost && Globals::my_rank == 0) {
+  if (nb % (Globals::nranks) != 0 && !adaptive && !lb_flag_ && maxcost == mincost &&
+      Globals::my_rank == 0) {
     std::cout << "### Warning in CalculateLoadBalance" << std::endl
               << "The number of MeshBlocks cannot be divided evenly. "
               << "This will result in poor load balancing." << std::endl;
   }
 #endif
-  if (Globals::nranks * num_mesh_threads_ > nb) {
+  if (Globals::nranks > nb) {
     if (!adaptive) {
       // mesh is refined statically, treat this an as error (all ranks need to
       // participate)
@@ -140,7 +141,7 @@ void Mesh::CalculateLoadBalance(double *clist, int *rlist, int *slist, int *nlis
           << "There are fewer MeshBlocks than OpenMP threads on each MPI rank"
           << std::endl
           << "Decrease the number of threads or use more MeshBlocks." << std::endl;
-      ATHENA_ERROR(msg);
+      PARTHENON_FAIL(msg);
     } else if (Globals::my_rank == 0) {
       // we have AMR, print warning only on Rank 0
       std::cout << "### WARNING in CalculateLoadBalance" << std::endl
@@ -504,8 +505,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
               ox3 = ((lloc.lx3 & 1LL) == 1LL);
           recvbuf[rb_idx] = ParArray1D<Real>("recvbuf" + std::to_string(rb_idx), bsf2c);
           int tag = CreateAMRMPITag(n - nbs, ox1, ox2, ox3);
-          MPI_Irecv(recvbuf[rb_idx].data(), bsf2c, MPI_ATHENA_REAL, ranklist[on + l], tag,
-                    MPI_COMM_WORLD, &(req_recv[rb_idx]));
+          MPI_Irecv(recvbuf[rb_idx].data(), bsf2c, MPI_PARTHENON_REAL, ranklist[on + l],
+                    tag, MPI_COMM_WORLD, &(req_recv[rb_idx]));
           rb_idx++;
         }
       } else { // same level or c2f
@@ -518,7 +519,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
         }
         recvbuf[rb_idx] = ParArray1D<Real>("recvbuf" + std::to_string(rb_idx), size);
         int tag = CreateAMRMPITag(n - nbs, 0, 0, 0);
-        MPI_Irecv(recvbuf[rb_idx].data(), size, MPI_ATHENA_REAL, ranklist[on], tag,
+        MPI_Irecv(recvbuf[rb_idx].data(), size, MPI_PARTHENON_REAL, ranklist[on], tag,
                   MPI_COMM_WORLD, &(req_recv[rb_idx]));
         rb_idx++;
       }
@@ -540,7 +541,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
             ParArray1D<Real>("amr send buf same" + std::to_string(sb_idx), bssame);
         PrepareSendSameLevel(pb, sendbuf[sb_idx]);
         int tag = CreateAMRMPITag(nn - nslist[newrank[nn]], 0, 0, 0);
-        MPI_Isend(sendbuf[sb_idx].data(), bssame, MPI_ATHENA_REAL, newrank[nn], tag,
+        MPI_Isend(sendbuf[sb_idx].data(), bssame, MPI_PARTHENON_REAL, newrank[nn], tag,
                   MPI_COMM_WORLD, &(req_send[sb_idx]));
         sb_idx++;
       } else if (nloc.level > oloc.level) { // c2f
@@ -551,8 +552,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
               ParArray1D<Real>("amr send buf c2f" + std::to_string(sb_idx), bsc2f);
           PrepareSendCoarseToFineAMR(pb, sendbuf[sb_idx], newloc[nn + l]);
           int tag = CreateAMRMPITag(nn + l - nslist[newrank[nn + l]], 0, 0, 0);
-          MPI_Isend(sendbuf[sb_idx].data(), bsc2f, MPI_ATHENA_REAL, newrank[nn + l], tag,
-                    MPI_COMM_WORLD, &(req_send[sb_idx]));
+          MPI_Isend(sendbuf[sb_idx].data(), bsc2f, MPI_PARTHENON_REAL, newrank[nn + l],
+                    tag, MPI_COMM_WORLD, &(req_send[sb_idx]));
           sb_idx++;
         }      // end loop over nleaf (unique to c2f branch in this step 6)
       } else { // f2c: restrict + pack + send
@@ -563,7 +564,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
         int ox1 = ((oloc.lx1 & 1LL) == 1LL), ox2 = ((oloc.lx2 & 1LL) == 1LL),
             ox3 = ((oloc.lx3 & 1LL) == 1LL);
         int tag = CreateAMRMPITag(nn - nslist[newrank[nn]], ox1, ox2, ox3);
-        MPI_Isend(sendbuf[sb_idx].data(), bsf2c, MPI_ATHENA_REAL, newrank[nn], tag,
+        MPI_Isend(sendbuf[sb_idx].data(), bsf2c, MPI_PARTHENON_REAL, newrank[nn], tag,
                   MPI_COMM_WORLD, &(req_send[sb_idx]));
         sb_idx++;
       }
@@ -654,6 +655,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
       LogicalLocation &oloc = loclist[on];
       LogicalLocation &nloc = newloc[n];
       MeshBlock *pb = FindMeshBlock(n);
+      pb->exec_space.fence();
       if (oloc.level == nloc.level) { // same
         if (ranklist[on] == Globals::my_rank) continue;
         MPI_Wait(&(req_recv[rb_idx]), MPI_STATUS_IGNORE);
@@ -714,7 +716,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
 
 // AMR: step 6, branch 1 (same2same: just pack+send)
 
-void Mesh::PrepareSendSameLevel(MeshBlock *pb, ParArray1D<Real> &sendbuf) {
+void Mesh::PrepareSendSameLevel(MeshBlock *pmb, ParArray1D<Real> &sendbuf) {
   // pack
   int p = 0;
 
@@ -722,38 +724,42 @@ void Mesh::PrepareSendSameLevel(MeshBlock *pb, ParArray1D<Real> &sendbuf) {
   const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
 
   const IndexDomain interior = IndexDomain::interior;
-  IndexRange ib = pb->cellbounds.GetBoundsI(interior);
-  IndexRange jb = pb->cellbounds.GetBoundsJ(interior);
-  IndexRange kb = pb->cellbounds.GetBoundsK(interior);
+  IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
+  IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
+  IndexRange kb = pmb->cellbounds.GetBoundsK(interior);
   // this helper fn is used for AMR and non-refinement load balancing of
   // MeshBlocks. Therefore, unlike PrepareSendCoarseToFineAMR(), etc., it loops over
   // MeshBlock::vars_cc/fc_ containers, not MeshRefinement::pvars_cc/fc_ containers
 
-  // TODO(felker): add explicit check to ensure that elements of pb->vars_cc/fc_ and
-  // pb->pmr->pvars_cc/fc_ v point to the same objects, if adaptive
+  // TODO(felker): add explicit check to ensure that elements of pmb->vars_cc/fc_ and
+  // pmb->pmr->pvars_cc/fc_ v point to the same objects, if adaptive
 
   // (C++11) range-based for loop: (automatic type deduction fails when iterating over
   // container with std::reference_wrapper; could use auto var_cc_r = var_cc.get())
-  for (auto &pvar_cc : pb->vars_cc_) {
+  for (auto &pvar_cc : pmb->vars_cc_) {
     int nu = pvar_cc->GetDim(4) - 1;
     ParArray4D<Real> var_cc = pvar_cc->data.Get<4>();
     BufferUtility::PackData(var_cc, sendbuf, 0, nu, ib.s, ib.e, jb.s, jb.e, kb.s, kb.e, p,
-                            pb);
+                            pmb);
   }
-  for (auto &pvar_fc : pb->vars_fc_) {
+  for (auto &pvar_fc : pmb->vars_fc_) {
     auto &var_fc = *pvar_fc;
     ParArray3D<Real> x1f = var_fc.x1f.Get<3>();
     ParArray3D<Real> x2f = var_fc.x2f.Get<3>();
     ParArray3D<Real> x3f = var_fc.x3f.Get<3>();
-    BufferUtility::PackData(x1f, sendbuf, ib.s, ib.e + 1, jb.s, jb.e, kb.s, kb.e, p, pb);
-    BufferUtility::PackData(x2f, sendbuf, ib.s, ib.e, jb.s, jb.e + f2, kb.s, kb.e, p, pb);
-    BufferUtility::PackData(x3f, sendbuf, ib.s, ib.e, jb.s, jb.e, kb.s, kb.e + f3, p, pb);
+    BufferUtility::PackData(x1f, sendbuf, ib.s, ib.e + 1, jb.s, jb.e, kb.s, kb.e, p, pmb);
+    BufferUtility::PackData(x2f, sendbuf, ib.s, ib.e, jb.s, jb.e + f2, kb.s, kb.e, p,
+                            pmb);
+    BufferUtility::PackData(x3f, sendbuf, ib.s, ib.e, jb.s, jb.e, kb.s, kb.e + f3, p,
+                            pmb);
   }
   // WARNING(felker): casting from "Real *" to "int *" in order to append single integer
   // to send buffer is slightly unsafe (especially if sizeof(int) > sizeof(Real))
   if (adaptive) {
-    int *dcp = reinterpret_cast<int *>(&(sendbuf[p]));
-    *dcp = pb->pmr->deref_count_;
+    Kokkos::deep_copy(pmb->exec_space,
+                      Kokkos::View<int, Kokkos::MemoryUnmanaged>(
+                          reinterpret_cast<int *>(Kokkos::subview(sendbuf, p).data())),
+                      pmb->pmr->deref_count_);
   }
   return;
 }
@@ -886,14 +892,14 @@ void Mesh::FillSameRankFineToCoarseAMR(MeshBlock *pob, MeshBlock *pmb,
     // copy from old/original/other MeshBlock (pob) to newly created block (pmb)
     ParArrayND<Real> src = coarse_cc;
     ParArrayND<Real> dst = std::get<0>(*pmb_cc_it);
-    for (int nv = 0; nv <= nu; nv++) {
-      for (int k = kl, fk = ckb.s; fk <= ckb.e; k++, fk++) {
-        for (int j = jl, fj = cjb.s; fj <= cjb.e; j++, fj++) {
-          for (int i = il, fi = cib.s; fi <= cib.e; i++, fi++)
-            dst(nv, k, j, i) = src(nv, fk, fj, fi);
-        }
-      }
-    }
+    int koff = kl - ckb.s;
+    int joff = jl - cjb.s;
+    int ioff = il - cib.s;
+    pmb->par_for(
+        "FillSameRankFineToCoarseAMR", 0, nu, ckb.s, ckb.e, cjb.s, cjb.e, cib.s, cib.e,
+        KOKKOS_LAMBDA(const int nv, const int k, const int j, const int i) {
+          dst(nv, k + koff, j + joff, i + ioff) = src(nv, k, j, i);
+        });
     pmb_cc_it++;
   }
 
@@ -1060,39 +1066,39 @@ void Mesh::FillSameRankCoarseToFineAMR(MeshBlock *pob, MeshBlock *pmb,
 }
 
 // step 8 (receive and load), branch 1 (same2same: unpack)
-void Mesh::FinishRecvSameLevel(MeshBlock *pb, ParArray1D<Real> &recvbuf) {
+void Mesh::FinishRecvSameLevel(MeshBlock *pmb, ParArray1D<Real> &recvbuf) {
   int p = 0;
 
   const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
   const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
 
   const IndexDomain interior = IndexDomain::interior;
-  IndexRange ib = pb->cellbounds.GetBoundsI(interior);
-  IndexRange jb = pb->cellbounds.GetBoundsJ(interior);
-  IndexRange kb = pb->cellbounds.GetBoundsK(interior);
+  IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
+  IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
+  IndexRange kb = pmb->cellbounds.GetBoundsK(interior);
 
-  for (auto &pvar_cc : pb->vars_cc_) {
+  for (auto &pvar_cc : pmb->vars_cc_) {
     int nu = pvar_cc->GetDim(4) - 1;
     ParArray4D<Real> var_cc_ = pvar_cc->data.Get<4>();
     BufferUtility::UnpackData(recvbuf, var_cc_, 0, nu, ib.s, ib.e, jb.s, jb.e, kb.s, kb.e,
-                              p, pb);
+                              p, pmb);
   }
-  for (auto &pvar_fc : pb->vars_fc_) {
+  for (auto &pvar_fc : pmb->vars_fc_) {
     auto &var_fc = *pvar_fc;
     ParArray3D<Real> x1f = var_fc.x1f.Get<3>();
     ParArray3D<Real> x2f = var_fc.x2f.Get<3>();
     ParArray3D<Real> x3f = var_fc.x3f.Get<3>();
     BufferUtility::UnpackData(recvbuf, x1f, ib.s, ib.e + 1, jb.s, jb.e, kb.s, kb.e, p,
-                              pb);
+                              pmb);
     BufferUtility::UnpackData(recvbuf, x2f, ib.s, ib.e, jb.s, jb.e + f2, kb.s, kb.e, p,
-                              pb);
+                              pmb);
     BufferUtility::UnpackData(recvbuf, x3f, ib.s, ib.e, jb.s, jb.e, kb.s, kb.e + f3, p,
-                              pb);
-    if (pb->block_size.nx2 == 1) {
+                              pmb);
+    if (pmb->block_size.nx2 == 1) {
       for (int i = ib.s; i <= ib.e; i++)
         var_fc.x2f(kb.s, jb.s + 1, i) = var_fc.x2f(kb.s, jb.s, i);
     }
-    if (pb->block_size.nx3 == 1) {
+    if (pmb->block_size.nx3 == 1) {
       for (int j = jb.s; j <= jb.e; j++) {
         for (int i = ib.s; i <= ib.e; i++)
           var_fc.x3f(kb.s + 1, j, i) = var_fc.x3f(kb.s, j, i);
@@ -1102,8 +1108,9 @@ void Mesh::FinishRecvSameLevel(MeshBlock *pb, ParArray1D<Real> &recvbuf) {
   // WARNING(felker): casting from "Real *" to "int *" in order to read single
   // appended integer from received buffer is slightly unsafe
   if (adaptive) {
-    int *dcp = reinterpret_cast<int *>(&(recvbuf[p]));
-    pb->pmr->deref_count_ = *dcp;
+    Kokkos::deep_copy(pmb->exec_space, pmb->pmr->deref_count_,
+                      Kokkos::View<int, Kokkos::MemoryUnmanaged>(
+                          reinterpret_cast<int *>(Kokkos::subview(recvbuf, p).data())));
   }
   return;
 }

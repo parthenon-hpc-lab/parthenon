@@ -38,7 +38,7 @@ TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
   switch (pmb->boundary_flag[BoundaryFace::inner_x1]) {
   case BoundaryFlag::outflow:
     for (int n = 0; n < nvars; n++) {
-      CellVariable<Real> &q = *citer.vars[n];
+      ParArrayND<Real> q = citer.vars[n]->data;
       for (int l = 0; l < q.GetDim(4); l++) {
         for (int k = kb.s; k <= kb.e; k++) {
           for (int j = 0; j < jmax; j++) {
@@ -53,8 +53,8 @@ TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
 
   case BoundaryFlag::reflect:
     for (int n = 0; n < nvars; n++) {
-      CellVariable<Real> &q = *citer.vars[n];
-      bool vec = q.IsSet(Metadata::Vector);
+      ParArrayND<Real> q = citer.vars[n]->data;
+      bool vec = citer.vars[n]->IsSet(Metadata::Vector);
       for (int l = 0; l < q.GetDim(4); l++) {
         Real reflect = (l == 0 && vec ? -1.0 : 1.0);
         for (int k = kb.s; k <= kb.e; k++) {
@@ -75,7 +75,7 @@ TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
   switch (pmb->boundary_flag[BoundaryFace::outer_x1]) {
   case BoundaryFlag::outflow:
     for (int n = 0; n < nvars; n++) {
-      CellVariable<Real> &q = *citer.vars[n];
+      ParArrayND<Real> q = citer.vars[n]->data;
       for (int l = 0; l < q.GetDim(4); l++) {
         for (int k = kb.s; k <= kb.e; k++) {
           for (int j = 0; j < jmax; j++) {
@@ -90,8 +90,8 @@ TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
 
   case BoundaryFlag::reflect:
     for (int n = 0; n < nvars; n++) {
-      CellVariable<Real> &q = *citer.vars[n];
-      bool vec = q.IsSet(Metadata::Vector);
+      ParArrayND<Real> q = citer.vars[n]->data;
+      bool vec = citer.vars[n]->IsSet(Metadata::Vector);
       for (int l = 0; l < q.GetDim(4); l++) {
         Real reflect = (l == 0 && vec ? -1.0 : 1.0);
         for (int k = kb.s; k <= kb.e; k++) {
@@ -113,7 +113,7 @@ TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
     switch (pmb->boundary_flag[BoundaryFace::inner_x2]) {
     case BoundaryFlag::outflow:
       for (int n = 0; n < nvars; n++) {
-        CellVariable<Real> &q = *citer.vars[n];
+        ParArrayND<Real> q = citer.vars[n]->data;
         for (int l = 0; l < q.GetDim(4); l++) {
           for (int k = kb.s; k <= kb.e; k++) {
             for (int j = 0; j < jb.s; j++) {
@@ -128,8 +128,8 @@ TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
 
     case BoundaryFlag::reflect:
       for (int n = 0; n < nvars; n++) {
-        CellVariable<Real> &q = *citer.vars[n];
-        bool vec = q.IsSet(Metadata::Vector);
+        ParArrayND<Real> q = citer.vars[n]->data;
+        bool vec = citer.vars[n]->IsSet(Metadata::Vector);
         for (int l = 0; l < q.GetDim(4); l++) {
           Real reflect = (l == 1 && vec ? -1.0 : 1.0);
           for (int k = kb.s; k <= kb.e; k++) {
@@ -150,7 +150,7 @@ TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
     switch (pmb->boundary_flag[BoundaryFace::outer_x2]) {
     case BoundaryFlag::outflow:
       for (int n = 0; n < nvars; n++) {
-        CellVariable<Real> &q = *citer.vars[n];
+        ParArrayND<Real> q = citer.vars[n]->data;
         for (int l = 0; l < q.GetDim(4); l++) {
           for (int k = kb.s; k <= kb.e; k++) {
             for (int j = jb.e + 1; j < jmax; j++) {
@@ -165,8 +165,8 @@ TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
 
     case BoundaryFlag::reflect:
       for (int n = 0; n < nvars; n++) {
-        CellVariable<Real> &q = *citer.vars[n];
-        bool vec = q.IsSet(Metadata::Vector);
+        ParArrayND<Real> q = citer.vars[n]->data;
+        bool vec = citer.vars[n]->IsSet(Metadata::Vector);
         for (int l = 0; l < q.GetDim(4); l++) {
           Real reflect = (l == 1 && vec ? -1.0 : 1.0);
           for (int k = kb.s; k <= kb.e; k++) {
@@ -189,7 +189,7 @@ TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
     switch (pmb->boundary_flag[BoundaryFace::inner_x3]) {
     case BoundaryFlag::outflow:
       for (int n = 0; n < nvars; n++) {
-        CellVariable<Real> &q = *citer.vars[n];
+        ParArrayND<Real> q = citer.vars[n]->data;
         for (int l = 0; l < q.GetDim(4); l++) {
           for (int k = 0; k < kb.s; k++) {
             for (int j = 0; j < jmax; j++) {
@@ -204,8 +204,8 @@ TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
 
     case BoundaryFlag::reflect:
       for (int n = 0; n < nvars; n++) {
-        CellVariable<Real> &q = *citer.vars[n];
-        bool vec = q.IsSet(Metadata::Vector);
+        ParArrayND<Real> q = citer.vars[n]->data;
+        bool vec = citer.vars[n]->IsSet(Metadata::Vector);
         for (int l = 0; l < q.GetDim(4); l++) {
           Real reflect = (l == 2 && vec ? -1.0 : 1.0);
           for (int k = 0; k < kb.s; k++) {
@@ -226,7 +226,7 @@ TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
     switch (pmb->boundary_flag[BoundaryFace::outer_x3]) {
     case BoundaryFlag::outflow:
       for (int n = 0; n < nvars; n++) {
-        CellVariable<Real> &q = *citer.vars[n];
+        ParArrayND<Real> q = citer.vars[n]->data;
         for (int l = 0; l < q.GetDim(4); l++) {
           for (int k = kb.e + 1; k < kmax; k++) {
             for (int j = 0; j < jmax; j++) {
@@ -241,8 +241,8 @@ TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
 
     case BoundaryFlag::reflect:
       for (int n = 0; n < nvars; n++) {
-        CellVariable<Real> &q = *citer.vars[n];
-        bool vec = q.IsSet(Metadata::Vector);
+        ParArrayND<Real> q = citer.vars[n]->data;
+        bool vec = citer.vars[n]->IsSet(Metadata::Vector);
         for (int l = 0; l < q.GetDim(4); l++) {
           Real reflect = (l == 2 && vec ? -1.0 : 1.0);
           for (int k = kb.e + 1; k < kmax; k++) {

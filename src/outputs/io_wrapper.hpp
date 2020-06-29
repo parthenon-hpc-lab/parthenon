@@ -23,7 +23,7 @@
 
 #include "parthenon_mpi.hpp"
 
-#include "athena.hpp"
+#include "defs.hpp"
 
 namespace parthenon {
 

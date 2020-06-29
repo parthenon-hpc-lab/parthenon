@@ -1,8 +1,4 @@
 #=========================================================================================
-# Athena++ astrophysical MHD code
-# Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
-# Licensed under the 3-clause BSD License, see LICENSE file for details
-#=========================================================================================
 # (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
@@ -15,21 +11,9 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
 
-# Don't search for additional CPPLINT.cfg in parent directories.
-set noparent
-headers=hpp
-linelength=90
-# Don't use 'SRC_' as the cpp header guard prefix
-root=./src/
-extensions=hpp,cpp
-
-# Disable and enable specific categories (filters evaluate from left to right)
-filter=+build/include_alpha # (only category that is disabled by default)
-# As of 2018-12-12:
-filter=-readability/fn_size # 3 errors
-filter=-runtime/references  # 772 errors
-filter=-whitespace/comma  # 6027 errors
-filter=-whitespace/comments  # 881 errors
-filter=-whitespace/operators  # 5240 errors
-filter=-whitespace/parens  # 413 errors
-filter=-build/namespaces
+add_executable(
+    kokkos_pi
+        kokkos_pi.cpp
+)
+target_link_libraries(kokkos_pi PUBLIC parthenon)
+lint_target(kokkos_pi)

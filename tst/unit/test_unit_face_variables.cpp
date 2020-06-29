@@ -22,7 +22,7 @@
 
 #include <catch2/catch.hpp>
 
-#include "athena.hpp"
+#include "defs.hpp"
 #include "interface/metadata.hpp"
 #include "interface/variable.hpp"
 #include "kokkos_abstraction.hpp"

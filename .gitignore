@@ -1,5 +1,5 @@
 # Object and binary directories
-build/
+build*/
 bin/
 debug/
 

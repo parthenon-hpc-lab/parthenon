@@ -14,14 +14,26 @@
 cmake_minimum_required(VERSION 3.10)
 project(parthenon LANGUAGES C CXX)
 
-# Options
 include(CTest)
+
+# Compile time constants
+set(PARTHENON_NGHOST 2 CACHE STRING "Number of ghost cells") 
+
+# Compile Options
+option(PARTHENON_SINGLE_PRECISION "Run in single precision" OFF) 
+option(PARTHENON_DISABLE_MPI "MPI is enabled by default if found, set this to True to disable MPI" OFF)
+option(PARTHENON_DISABLE_OPENMP "OpenMP is enabled by default if found, set this to True to disable OpenMP" OFF)
+option(PARTHENON_DISABLE_HDF5 "HDF5 is enabled by default if found, set this to True to disable HDF5" OFF)
+option(
+  PARTHENON_LINT_DEFAULT
+  "Sources files are linted when building the default target. Set to OFF to \
+stop linting by default. You can still lint using the \"lint\" target"
+  ON
+)
+
 option(ENABLE_UNIT_TESTS "Enable unit tests" ${BUILD_TESTING})
 option(ENABLE_INTEGRATION_TESTS "Enable integration tests" ${BUILD_TESTING})
 option(ENABLE_REGRESSION_TESTS "Enable regression tests" ${BUILD_TESTING})
-option(DISABLE_MPI "MPI is enabled by default if found, set this to True to disable MPI" OFF)
-option(DISABLE_OPENMP "OpenMP is enabled by default if found, set this to True to disable OpenMP" OFF)
-option(DISABLE_HDF5 "HDF5 is enabled by default if found, set this to True to disable HDF5" OFF)
 option(ENABLE_COMPILER_WARNINGS "Enable compiler warnings" OFF)
 option(CHECK_REGISTRY_PRESSURE "Check the registry pressure for Kokkos CUDA kernels" OFF)
 option(TEST_INTEL_OPTIMIZATION "Test intel optimization and vectorization" OFF)
@@ -29,6 +41,17 @@ option(TEST_ERROR_CHECKING "Enables the error checking unit test. This test will
 option(CODE_COVERAGE "Enable code coverage reporting" OFF)
 
 include(cmake/Format.cmake)
+include(cmake/Lint.cmake)
+
+# internal variable for number of ghost cells
+set(NUMBER_GHOST_CELLS ${PARTHENON_NGHOST}) 
+
+# set single precision #define
+if ( PARTHENON_SINGLE_PRECISION )
+  set(SINGLE_PRECISION_ENABLED 1)
+else()
+  set(SINGLE_PRECISION_ENABLED 0)
+endif()  
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -67,21 +90,21 @@ endif()
 
 set(ENABLE_MPI OFF)
 set(NUM_MPI_PROC_TESTING "4" CACHE STRING "Number of mpi processors to use when running tests with MPI")
-if (NOT DISABLE_MPI)
+if (NOT PARTHENON_DISABLE_MPI)
   find_package(MPI COMPONENTS CXX)
   if (NOT MPI_FOUND)
     message(FATAL_ERROR "MPI is required but couldn't be found. "
-    "If you want to build Parthenon without MPI, please rerun CMake with -DDISABLE_MPI=ON")
+    "If you want to build Parthenon without MPI, please rerun CMake with -DPARTHENON_DISABLE_MPI=ON")
   endif()
   set(ENABLE_MPI ON)
 endif()
 
 set(ENABLE_OPENMP OFF)
-if (NOT DISABLE_OPENMP)
+if (NOT PARTHENON_DISABLE_OPENMP)
   find_package(OpenMP COMPONENTS CXX)
   if (NOT OpenMP_FOUND)
     message(FATAL_ERROR "OpenMP is required but couldn't be found. "
-    "If you want to build Parthenon without OpenMP, please rerun CMake with -DDISABLE_OPENMP=ON")
+    "If you want to build Parthenon without OpenMP, please rerun CMake with -DPARTHENON_DISABLE_OPENMP=ON")
   endif()
   set(ENABLE_OPENMP ON)
 endif()
@@ -94,12 +117,12 @@ if (Kokkos_ENABLE_CUDA AND TEST_INTEL_OPTIMIZATION)
 endif()
 
 set(ENABLE_HDF5 OFF)
-if (NOT DISABLE_HDF5)
+if (NOT PARTHENON_DISABLE_HDF5)
   set(HDF5_PREFER_PARALLEL ${ENABLE_MPI})
   find_package(HDF5 COMPONENTS C)
   if (NOT HDF5_FOUND)
     message(FATAL_ERROR "HDF5 is required but couldn't be found. "
-    "If you want to build Parthenon without HDF5, please rerun CMake with -DDISABLE_HDF5=ON")
+    "If you want to build Parthenon without HDF5, please rerun CMake with -DPARTHENON_DISABLE_HDF5=ON")
   endif()
   set(ENABLE_HDF5 ON)
 
@@ -107,7 +130,7 @@ if (NOT DISABLE_HDF5)
     message(FATAL_ERROR "Both MPI and HDF5 are enabled but only a serial version of HDF5 "
     "was found. Please install a parallel version of HDF5 (or point CMake to it by adding its path "
     "to the CMAKE_PREFIX_PATH environment variable), or disable either MPI or HDF5 by rerunning "
-    "CMake with -DDISABLE_MPI=ON or -DDISABLE_HDF5=ON")
+    "CMake with -DPARTHENON_DISABLE_MPI=ON or -DPARTHENON_DISABLE_HDF5=ON")
   endif()
 
   # HDF5 Interface library
@@ -183,7 +206,7 @@ if (${ENABLE_UNIT_TESTS} OR ${ENABLE_INTEGRATION_TESTS} OR ${ENABLE_REGRESSION_T
 endif()
 
 # Globally turn on useful intel and/or nvcc compiler output
-if (${KOKKOS_ENABLE_CUDA})
+if (Kokkos_ENABLE_CUDA)
   if(CHECK_REGISTRY_PRESSURE)
     add_compile_options(-Xptxas=-v)
   endif()
@@ -194,9 +217,7 @@ if (TEST_INTEL_OPTIMIZATION)
 endif()	       
 
 add_subdirectory(src)
-add_subdirectory(example/calculate_pi)
-add_subdirectory(example/face_fields)
-add_subdirectory(example/advection)
+add_subdirectory(example)
 
 include(cmake/CodeCov.cmake)
 include(cmake/CheckCopyright.cmake)

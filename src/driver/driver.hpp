@@ -39,17 +39,20 @@ class Driver {
   Driver(ParameterInput *pin, Mesh *pm) : pinput(pin), pmesh(pm) {}
   virtual DriverStatus Execute() = 0;
   void InitializeOutputs() { pouts = std::make_unique<Outputs>(pmesh, pinput); }
+
   ParameterInput *pinput;
   Mesh *pmesh;
   std::unique_ptr<Outputs> pouts;
 
- private:
-};
+ protected:
+  clock_t tstart_;
+#ifdef OPENMP_PARALLEL
+  double omp_start_time_;
+#endif
+  virtual void PreExecute();
+  virtual void PostExecute();
 
-class SimpleDriver : public Driver {
- public:
-  SimpleDriver(ParameterInput *pin, Mesh *pm) : Driver(pin, pm) {}
-  DriverStatus Execute() override { return DriverStatus::complete; }
+ private:
 };
 
 class EvolutionDriver : public Driver {
@@ -70,18 +73,17 @@ class EvolutionDriver : public Driver {
   virtual TaskListStatus Step() = 0;
   SimTime tm;
 
+ protected:
+  virtual void PostExecute(DriverStatus status);
+
  private:
   void InitializeBlockTimeSteps();
-  void Report(DriverStatus status);
 };
 
 namespace DriverUtils {
 
 template <typename T, class... Args>
 TaskListStatus ConstructAndExecuteBlockTasks(T *driver, Args... args) {
-#ifdef OPENMP_PARALLEL
-  int nthreads = driver->pmesh->GetNumMeshThreads();
-#endif
   int nmb = driver->pmesh->GetNumMeshBlocksThisRank(Globals::my_rank);
   std::vector<TaskList> task_lists;
   MeshBlock *pmb = driver->pmesh->pblock;

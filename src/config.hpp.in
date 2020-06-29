@@ -14,11 +14,11 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef DEFS_HPP_
-#define DEFS_HPP_
-//! \file defs.hpp.in
-//  \brief Template file for defs.hpp.  When the configure.py script is run, a new
-//  defs.hpp file will be created (overwriting the last) from this template. This new
+#ifndef CONFIG_HPP_
+#define CONFIG_HPP_
+//! \file config.hpp.in
+//  \brief Template file for config.hpp.  When the configure.py script is run, a new
+//  config.hpp file will be created (overwriting the last) from this template. This new
 //  file contains Athena++ specific cpp macros and definitions set by configure.
 
 #define COORDINATE_TYPE @COORDINATE_TYPE@
@@ -84,10 +84,4 @@
 #define SQR(x) ( (x) * (x) )
 #define SIGN(x) ( ((x) < 0.0) ? -1.0 : 1.0 )
 
-#ifdef ENABLE_EXCEPTIONS
-#define ATHENA_ERROR(x) throw std::runtime_error(x.str().c_str())
-#else
-#define ATHENA_ERROR(x) std::cout << x.str(); std::exit(EXIT_FAILURE)
-#endif
-
-#endif // DEFS_HPP_
+#endif // CONFIG_HPP_

@@ -28,12 +28,13 @@
 #include <stdexcept>
 #include <string>
 
-#include "athena.hpp"
 #include "coordinates/coordinates.hpp"
+#include "defs.hpp"
 #include "interface/container_iterator.hpp"
 #include "mesh/mesh.hpp"
 #include "outputs/outputs.hpp"
 #include "parthenon_arrays.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
@@ -102,7 +103,7 @@ void VTKOutput::WriteContainer(SimTime &tm, Mesh *pm, ParameterInput *pin, bool 
     if ((pfile = std::fopen(fname.c_str(), "w")) == nullptr) {
       msg << "### FATAL ERROR in function [VTKOutput::WriteOutputFile]" << std::endl
           << "Output file '" << fname << "' could not be opened" << std::endl;
-      ATHENA_ERROR(msg);
+      PARTHENON_FAIL(msg);
     }
 
     // There are five basic parts to the VTK "legacy" file format.
