@@ -27,12 +27,15 @@ class PoissonDriver : public IterationDriver {
  public:
   PoissonDriver(ParameterInput *pin, Mesh *pm) : Driver(pin, pm) {
     max_residual = pinput->GetReal("parthenon/iterations","residual");
+    ncheck = pinput->GetOrAddInt("parthenon/iterations","ncheck",1);
     // TODO(JMM): inputs 
   }
   TaskListStatus Step() {
     return DriverUtils::ConstructAndExecuteBlockTasks<>(this);
   }
   bool KeepGoing() {
+    // only check residual every ncheck iterations
+    if (ncheck % ncycle) return true;
     residual = 0;
     MeshBlock *pmb pmesh->pblock;
     while (pmb != nullptr) {
@@ -49,6 +52,7 @@ class PoissonDriver : public IterationDriver {
   }
   TaskList MakeTaskList(MeshBlock *pmb);
   void OutputCycleDiagnostics();
+  int ncheck = 1;
   Real residual = 0;
   Real max_residual;
 };

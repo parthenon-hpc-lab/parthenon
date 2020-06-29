@@ -24,16 +24,6 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   auto pkg = std::make_shared<StateDescriptor>("poisson_package");
 
-  auto potential_str = pin->GetOrAddString("Poisson","potential_shape","hard_sphere");
-  if (!((potential_str.compare("smooth_gaussian") == 0) ||
-        (potential_str.compare("hard_sphere") == 0))) {
-    PARTHENON_FAIL(("Unknown potential in poisson example: " + potential_str).c_str());
-  }
-  pkg->AddParam<>("potential", potential_str);
-
-  Real amp = pin->GetOrAddReal("Poisson","potential_amp",1);
-  pkg->AddParam<>("amp",amp);
-
   Real K = pin->GetOrAddReal("Poisson","K",1);
   pkg->AddParam<>("K",K);
 
