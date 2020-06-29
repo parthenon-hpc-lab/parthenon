@@ -111,7 +111,7 @@ located in their respective folders in the tst folder.
 Parthenon uses ctest to manage the different tests. Cmake labels are attached
 to each test to provide control over which group of tests should be executed.
 Any test added within the tst/unit, tst/integration, tst/performance or
-tst/regression test folders will automatically be assocaited with the
+tst/regression test folders will automatically be associated with the
 appropriate label.
  
 When possible a test should be designed to fall into only one of these
@@ -237,6 +237,5 @@ regression    =   1.44 sec*proc (1 test)
 
 Total Test time (real) =   1.47 sec
 ```
-
 
 
