@@ -195,10 +195,6 @@ if (Kokkos_ENABLE_CUDA)
   if(CHECK_REGISTRY_PRESSURE)
     add_compile_options(-Xptxas=-v)
   endif()
-
-  if (CMAKE_BUILD_TYPE STREQUAL "Debug" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
-    add_compile_options(-G)
-  endif()
 endif()
 # Note that these options may not play nice with nvcc wrapper
 if (TEST_INTEL_OPTIMIZATION)
