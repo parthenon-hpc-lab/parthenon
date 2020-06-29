@@ -274,7 +274,7 @@ TEST_CASE("Catch2 Container Iterator Performance", "[ContainerIterator][performa
         });
       } // WHEN
 
-      WHEN("The view of views is implemneted with names and indices.") {
+      WHEN("The view of views is implemented with names and indices.") {
         PackIndexMap imap;
         auto vsub = container.PackVariables({"v0", "v1", "v2", "v3", "v4", "v5"}, imap);
         auto init_view_of_views = createLambdaInitViewOfViews(vsub);
