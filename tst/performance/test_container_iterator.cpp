@@ -52,9 +52,9 @@ using parthenon::X2DIR;
 using parthenon::X3DIR;
 
 // File scope variables
-inline constexpr int N = 32; // Dimensions of blocks
-inline constexpr int Nvar = 10;
-inline constexpr int N_kernels_to_launch_per_test = 100;
+constexpr int N = 32; // Dimensions of blocks
+constexpr int Nvar = 10;
+constexpr int N_kernels_to_launch_per_test = 100;
 
 template <typename InitFunc, typename PerfFunc>
 void performance_test_wrapper(const std::string test_name, InitFunc init_func,
