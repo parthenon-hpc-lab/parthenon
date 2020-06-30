@@ -1,5 +1,5 @@
 variables:
-  SCHEDULER_PARAMETERS: "--nodes=1 --partition=power9"
+  SCHEDULER_PARAMETERS: "--nodes=1 --partition=power9 --export=NONE"
   GIT_SUBMODULE_STRATEGY: recursive
 
 stages:
@@ -7,7 +7,6 @@ stages:
 
 # Is performed before the scripts in the stages step
 before_script:
-  - exec bash --noprofile --norc  
   - hello
   - export OMP_PROC_BIND=close
   - export OMP_PLACES=cores
