@@ -17,9 +17,12 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <vector>
+
+#ifndef NDEBUG
 #include <typeindex>
 #include <typeinfo>
-#include <vector>
+#endif // NDEBUG
 
 #include "utils/error_checking.hpp"
 
@@ -94,9 +97,11 @@ class Params {
   template <typename T>
   void typeCheck(const std::string key) {
     // check on return type
+#ifndef NDEBUG
     bool badtype = myTypes_[key].compare(std::string(typeid(T).name()));
     std::string message = "WRONG TYPE FOR KEY '" + key + "'";
     PARTHENON_REQUIRE(!badtype, message.c_str());
+#endif // NDEBUG
   }
 
   std::map<std::string, std::unique_ptr<Params::base_t>> myParams_;

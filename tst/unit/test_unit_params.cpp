@@ -39,27 +39,6 @@ TEST_CASE("Add and Get is called", "[Add,Get]") {
       REQUIRE_THROWS_AS(params.Get<int>(key), std::invalid_argument);
     }
   }
-
-  GIVEN("An empty params structure") {
-    Params params;
-    WHEN(" attempting to get a key that does not exist ") {
-      std::string non_existent_key = "key";
-      REQUIRE_THROWS_AS(params.Get<double>(non_existent_key), std::invalid_argument);
-    }
-  }
-}
-
-TEST_CASE("reset is called", "[reset]") {
-  GIVEN("A key is added") {
-    Params params;
-    std::string key = "test_key";
-    double value = -2.0;
-    params.Add(key, value);
-    WHEN("the params are reset") {
-      params.reset();
-      REQUIRE_THROWS_AS(params.Get<double>(key), std::invalid_argument);
-    }
-  }
 }
 
 TEST_CASE("when hasKey is called", "[hasKey]") {
@@ -74,6 +53,19 @@ TEST_CASE("when hasKey is called", "[hasKey]") {
     WHEN("the params are reset") {
       params.reset();
       REQUIRE(params.hasKey(key) == false);
+    }
+  }
+}
+
+TEST_CASE("reset is called", "[reset]") {
+  GIVEN("A key is added") {
+    Params params;
+    std::string key = "test_key";
+    double value = -2.0;
+    params.Add(key, value);
+    WHEN("the params are reset") {
+      params.reset();
+      REQUIRE(!params.hasKey(key));
     }
   }
 }
