@@ -13,12 +13,12 @@
 
 get_property(LIST_OF_TESTS GLOBAL PROPERTY DRIVER_LIST)
 if( "pi-example" IN_LIST DRIVER_LIST OR PARTHENON_BUILD_EXAMPLES)
-add_executable(
-    face-fields-example
-        face_fields_example.cpp
-        face_fields_example.hpp
-        face_fields_main.cpp
-)
-target_link_libraries(face-fields-example PRIVATE parthenon)
-lint_target(face-fields-example)
+  add_executable(
+      face-fields-example
+          face_fields_example.cpp
+          face_fields_example.hpp
+          face_fields_main.cpp
+  )
+  target_link_libraries(face-fields-example PRIVATE parthenon)
+  lint_target(face-fields-example)
 endif()
