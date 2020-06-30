@@ -73,8 +73,14 @@ DriverStatus EvolutionDriver::Execute() {
     pmesh->mbcnt += pmesh->nbtotal;
     pmesh->step_since_lb++;
 
+    // adding several global fences in order to ensure that the Mesh function,
+    // which may operate (or use results from multiple MeshBlocks), access
+    // the MeshBlock data only after all MeshBlock kernels have finished.
+    Kokkos::fence();
     pmesh->LoadBalancingAndAdaptiveMeshRefinement(pinput);
+    Kokkos::fence();
     if (pmesh->modified) InitializeBlockTimeSteps();
+    Kokkos::fence();
     SetGlobalTimeStep();
     if (tm.time < tm.tlim) // skip the final output as it happens later
       pouts->MakeOutputs(pmesh, pinput, &tm);

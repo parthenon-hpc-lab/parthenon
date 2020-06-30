@@ -541,6 +541,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
             ParArray1D<Real>("amr send buf same" + std::to_string(sb_idx), bssame);
         PrepareSendSameLevel(pb, sendbuf[sb_idx]);
         int tag = CreateAMRMPITag(nn - nslist[newrank[nn]], 0, 0, 0);
+        pb->exec_space.fence(); // ensure buffer filling kernels are done before send
         MPI_Isend(sendbuf[sb_idx].data(), bssame, MPI_PARTHENON_REAL, newrank[nn], tag,
                   MPI_COMM_WORLD, &(req_send[sb_idx]));
         sb_idx++;
@@ -552,6 +553,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
               ParArray1D<Real>("amr send buf c2f" + std::to_string(sb_idx), bsc2f);
           PrepareSendCoarseToFineAMR(pb, sendbuf[sb_idx], newloc[nn + l]);
           int tag = CreateAMRMPITag(nn + l - nslist[newrank[nn + l]], 0, 0, 0);
+          pb->exec_space.fence(); // ensure buffer filling kernels are done before send
           MPI_Isend(sendbuf[sb_idx].data(), bsc2f, MPI_PARTHENON_REAL, newrank[nn + l],
                     tag, MPI_COMM_WORLD, &(req_send[sb_idx]));
           sb_idx++;
@@ -564,6 +566,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
         int ox1 = ((oloc.lx1 & 1LL) == 1LL), ox2 = ((oloc.lx2 & 1LL) == 1LL),
             ox3 = ((oloc.lx3 & 1LL) == 1LL);
         int tag = CreateAMRMPITag(nn - nslist[newrank[nn]], ox1, ox2, ox3);
+        pb->exec_space.fence(); // ensure buffer filling kernels are done before send
         MPI_Isend(sendbuf[sb_idx].data(), bsf2c, MPI_PARTHENON_REAL, newrank[nn], tag,
                   MPI_COMM_WORLD, &(req_send[sb_idx]));
         sb_idx++;

@@ -162,13 +162,13 @@ void BoundaryVariable::SendBoundaryBuffers() {
       ssize = LoadBoundaryBufferToCoarser(bd_var_.send[nb.bufid], nb);
     else
       ssize = LoadBoundaryBufferToFiner(bd_var_.send[nb.bufid], nb);
-    // fence to make sure buffers are loaded and ready to send
-    pmb->exec_space.fence();
     if (nb.snb.rank == Globals::my_rank) {
       // on the same process
       CopyVariableBufferSameProcess(nb, ssize);
     } else {
 #ifdef MPI_PARALLEL
+      // fence to make sure buffers are loaded and ready to send
+      pmb->exec_space.fence();
       MPI_Start(&(bd_var_.req_send[nb.bufid]));
 #endif
     }
