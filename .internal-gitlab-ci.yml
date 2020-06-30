@@ -1,5 +1,6 @@
 variables:
-  SCHEDULER_PARAMETERS: "--nodes=1 --partition=power9 --export=NONE --wrap='--noprofile --norc'"
+  SCHEDULER_PARAMETERS: "--nodes=1 --partition=power9 --export=NONE"
+  SallocDefaultCommand: "srun --nodes=1 --partition=power9 --noprofile --norc $SHELL"
   GIT_SUBMODULE_STRATEGY: recursive
 
 stages:
