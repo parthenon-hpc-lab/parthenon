@@ -1,20 +1,3 @@
-# CMake build flags
-
-CMake build options.
-
-| Flag                     | Default |
-| ------------------------ | ------- |
-| ENABLE_UNIT_TESTS        | ON      |
-| ENABLE_INTEGRATION_TESTS | ON      |
-| ENABLE_REGRESSION_TESTS  | ON      |
-| BUILD_EXAMPLES           | ON      | 
-| DISABLE_MPI              | OFF     |
-| DISABLE_OPENMP           | OFF     |
-| DISABLE_HDF5             | OFF     |
-| ENABLE_COMPILER_WARNINGS | OFF     |
-| CHECK_REGISTRY_PRESSURE  | OFF     |
-| TEST_INTEL_OPTIMIZATION  | OFF     |
-
 # Building Parthenon on Various Systems
 
 ## Ubuntu 20.04 LTS
@@ -55,6 +38,7 @@ ctest -L performance
    |    TEST\_INTEL\_OPTIMIZATION | OFF      | Option | Test intel optimization and vectorization |
    |    CHECK\_REGISTRY\_PRESSURE | OFF      | Option | Check the registry pressure for Kokkos CUDA kernels |
    |               BUILD\_TESTING | ON       | Option | Multi-testing enablement |
+   |   PARTHENON\_BUILD\_EXAMPLES | ON       | Option | Toggle building of examples, if regression tests are on, drivers needed by the tests will still be built |   
    |   ENABLE\_INTEGRATION\_TESTS | ${BUILD\_TESTING} | Option | Enable integration tests |
    |    ENABLE\_REGRESSION\_TESTS | ${BUILD\_TESTING} | Option | Enable regression tests |
    |          ENABLE\_UNIT\_TESTS | ${BUILD\_TESTING} | Option | Enable unit tests |
