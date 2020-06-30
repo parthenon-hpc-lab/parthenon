@@ -206,7 +206,6 @@ if (TEST_INTEL_OPTIMIZATION)
 endif()	       
 
 add_subdirectory(src)
-
 add_subdirectory(example)
 
 include(cmake/CheckCopyright.cmake)
@@ -217,4 +216,3 @@ include(cmake/CheckCopyright.cmake)
 # If you add tests with other binaries, add them to the DEPENDS line
 add_custom_target(checkit COMMAND ${CMAKE_CTEST_COMMAND}
                   DEPENDS unit_tests)
-
