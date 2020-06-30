@@ -54,8 +54,7 @@ class Params {
   template <typename T>
   const T &Get(const std::string key) {
     auto it = myParams_.find(key);
-    PARTHENON_REQUIRE(it != myParams_.end(),
-                      ("Key " + key + " doesn't exist").c_str());
+    PARTHENON_REQUIRE(it != myParams_.end(), ("Key " + key + " doesn't exist").c_str());
     typeCheck<T>(key);
     auto typed_ptr = dynamic_cast<Params::object_t<T> *>((it->second).get());
     if (typed_ptr == nullptr)
