@@ -1,5 +1,5 @@
 variables:
-  SCHEDULER_PARAMETERS: "--nodes=1 --partition=power9 --export=NONE"
+  SCHEDULER_PARAMETERS: "--nodes=1 --partition=power9 --export=NONE --wrap='--noprofile --norc'"
   GIT_SUBMODULE_STRATEGY: recursive
 
 stages:
