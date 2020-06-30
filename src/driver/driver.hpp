@@ -16,11 +16,11 @@
 
 #include <map>
 #include <memory>
-#include <ostream>
 #include <string>
 #include <utility>
 #include <vector>
 
+#include "basic_types.hpp"
 #include "globals.hpp"
 #include "kokkos_abstraction.hpp"
 #include "Kokkos_Atomic.hpp"
@@ -89,7 +89,6 @@ TaskListStatus ConstructAndExecuteBlockTasks(T *driver, Args... args) {
 #ifdef OPENMP_PARALLEL
   int nthreads = driver->pmesh->GetNumMeshThreads();
 #endif
-
   int nmb = driver->pmesh->GetNumMeshBlocksThisRank(Globals::my_rank);
   std::vector<TaskList> task_lists;
   MeshBlock *pmb = driver->pmesh->pblock;
@@ -97,7 +96,6 @@ TaskListStatus ConstructAndExecuteBlockTasks(T *driver, Args... args) {
     task_lists.push_back(driver->MakeTaskList(pmb, std::forward<Args>(args)...));
     pmb = pmb->next;
   }
-
   int complete_cnt = 0;
   Kokkos::View<int *, HostMemSpace> mb_locks("mb_locks", nmb);
   auto f = [&](int, int) {
