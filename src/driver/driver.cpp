@@ -70,6 +70,9 @@ DriverStatus IterationDriver::Execute() {
   pmesh->mbcnt = 0;
   while (KeepGoing()) {
     status = ExecuteStep();
+    if ((ncycle_out > 0) && (ncycle % ncycle_out == 0)) {
+      pouts->MakeOutputs(pmesh, pinput);
+    }
     if (status == DriverStatus::failed) return status;
   } // END OF MAIN INTEGRATION LOOP
   status = DriverStatus::complete;

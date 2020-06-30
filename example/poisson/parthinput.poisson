@@ -19,37 +19,37 @@
 problem_id = poisson
 
 <parthenon/mesh>
-nx1 = 64
+nx1 = 32
 x1min = -0.5
 x1max = 0.5
 ix1_bc = periodic
 ox1_bc = periodic
 
-nx2 = 64
+nx2 = 32
 x2min = -0.5
 x2max = 0.5
 ix2_bc = periodic
 ox2_bc = periodic
 
-nx3 = 64
+nx3 = 1
 x3min = -0.5
 x3max = 0.5
 ix3_bc = periodic
 ox3_bc = periodic
 
 <parthenon/meshblock>
-nx1 = 64
-nx2 = 64
-nx3 = 64
+nx1 = 32
+nx2 = 32
+nx3 = 1
 
 <parthenon/iterations>
 ncycle_out = 1
 residual = 1e-5
-ncheck = 10
+ncheck = 1
 
 <poisson>
 K = 1
 
 <parthenon/output0>
 file_type = hdf5
-variables = field, potential
+variables = field, potential, residual

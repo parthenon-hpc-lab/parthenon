@@ -36,8 +36,10 @@ namespace poisson {
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 TaskStatus Smooth(Container<Real> &rc_in, Container<Real> &rc_out);
-Real GetResidual(Container<Real> &rc);
+void ComputeResidual(Container<Real> &rc);
+Real GetL1Residual(Container<Real> &rc);
 
+/*
 KOKKOS_INLINE_FUNCTION
 Real residual(ParArrayND<Real> &phi, ParArrayND<Real> &rho, Coordinates_t &coords, Real K,
               int ndim, int k, int j, int i) {
@@ -58,6 +60,7 @@ Real residual(ParArrayND<Real> &phi, ParArrayND<Real> &rho, Coordinates_t &coord
   residual -= K * rho(k, j, i);
   return residual;
 }
+*/
 
 } // namespace poisson
 

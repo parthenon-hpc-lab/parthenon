@@ -29,20 +29,19 @@ class PoissonDriver : public IterationDriver {
   PoissonDriver(ParameterInput *pin, Mesh *pm) : IterationDriver(pin, pm) {
     max_residual = pinput->GetReal("parthenon/iterations", "residual");
     ncheck = pinput->GetOrAddInteger("parthenon/iterations", "ncheck", 1);
-    // TODO(JMM): inputs
   }
   TaskListStatus Step() { return ConstructAndExecuteBlockTasks<>(this); }
   bool KeepGoing() {
     // only check residual every ncheck iterations
-    if (ncheck % ncycle) return true;
+    if ((ncycle % ncheck != 0) || (ncycle == 0)) return true;
     residual = 0;
     MeshBlock *pmb = pmesh->pblock;
     while (pmb != nullptr) {
       Container<Real> &rc = pmb->real_containers.Get();
-      Real block_residual = GetResidual(rc);
+      Real block_residual = GetL1Residual(rc);
       residual = block_residual > residual ? block_residual : residual;
+      pmb = pmb->next;
     }
-
 #ifdef MPI_PARALLEL
     MPI_Allreduce(MPI_IN_PLACE, &residual, 1, MPI_PARTHENON_REAL, MPI_MAX,
                   MPI_COMM_WORLD);

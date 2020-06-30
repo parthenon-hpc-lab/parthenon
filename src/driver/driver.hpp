@@ -60,10 +60,11 @@ class IterationDriver : public Driver {
   IterationDriver(ParameterInput *pin, Mesh *pm) : Driver(pin, pm) {
     nlim = pinput->GetOrAddInteger("parthenon/iterations", "nlim", -1);
     ncycle_out = pinput->GetOrAddInteger("parthenon/iterations", "ncycle_out", 1);
+    InitializeOutputs();
   }
   DriverStatus Execute() override;
   DriverStatus ExecuteStep();
-  void OutputCycleDiagnostics();
+  virtual void OutputCycleDiagnostics();
 
   virtual TaskListStatus Step() = 0;
   virtual bool KeepGoing() = 0;
@@ -88,7 +89,7 @@ class EvolutionDriver : public Driver {
   }
   DriverStatus Execute() override;
   void SetGlobalTimeStep();
-  void OutputCycleDiagnostics();
+  virtual void OutputCycleDiagnostics();
 
   virtual TaskListStatus Step() = 0;
   SimTime tm;

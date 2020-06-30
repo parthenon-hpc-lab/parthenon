@@ -97,7 +97,8 @@ void PoissonDriver::OutputCycleDiagnostics() {
   const int ratio_precision = 3;
   if ((ncycle_out > 0) && (ncycle % ncycle_out == 0)
       && (parthenon::Globals::my_rank == 0)) {
-    std::cout << "cycle=" << ncycle << std::scientific << std::setprecision(precision)
+    std::cout << "cycle=" << ncycle
+              << std::scientific << std::setprecision(precision)
               << " reisidual=" << residual;
 
     // insert more diagnostics here
