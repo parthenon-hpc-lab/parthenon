@@ -12,7 +12,7 @@
 #=========================================================================================
 
 get_property(DRIVER_LIST GLOBAL PROPERTY DRIVERS_USED_IN_TESTS)
-if( "pi-example" IN_LIST DRIVER_LIST OR PARTHENON_BUILD_EXAMPLES)
+if( "pi-example" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_BUILD_EXAMPLES)
   add_executable(
       pi-example
           calculate_pi.cpp

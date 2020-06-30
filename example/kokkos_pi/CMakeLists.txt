@@ -12,7 +12,7 @@
 #=========================================================================================
 
 get_property(DRIVER_LIST GLOBAL PROPERTY DRIVERS_USED_IN_TESTS)
-if( "kokkos_pi" IN_LIST DRIVER_LIST OR PARTHENON_BUILD_EXAMPLES)
+if( "kokkos_pi" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_BUILD_EXAMPLES)
   add_executable(
       kokkos_pi
           kokkos_pi.cpp

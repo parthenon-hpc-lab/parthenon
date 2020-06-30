@@ -30,11 +30,16 @@ option(
 stop linting by default. You can still lint using the \"lint\" target"
   ON
 )
+option(
+  PARTHENON_DISABLE_BUILD_EXAMPLES 
+  "Example drivers are built by default, set this to True to diable, note if regression tests are \
+built some, drivers needed by the regression tests will still be built." 
+  OFF
+)
 
 option(ENABLE_UNIT_TESTS "Enable unit tests" ${BUILD_TESTING})
 option(ENABLE_INTEGRATION_TESTS "Enable integration tests" ${BUILD_TESTING})
 option(ENABLE_REGRESSION_TESTS "Enable regression tests" ${BUILD_TESTING})
-option(PARTHENON_BUILD_EXAMPLES "Build example drivers" ON)
 option(ENABLE_COMPILER_WARNINGS "Enable compiler warnings" OFF)
 option(CHECK_REGISTRY_PRESSURE "Check the registry pressure for Kokkos CUDA kernels" OFF)
 option(TEST_INTEL_OPTIMIZATION "Test intel optimization and vectorization" OFF)
