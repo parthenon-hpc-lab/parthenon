@@ -8,7 +8,6 @@ stages:
 
 # Is performed before the scripts in the stages step
 before_script:
-  - export SCHEDULER_PARAMETERS="--nodes=1 --partition=power9"
   - export OMP_PROC_BIND=close
   - export OMP_PLACES=cores
   - export OMP_NUM_THREADS=1
