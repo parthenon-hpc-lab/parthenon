@@ -68,7 +68,7 @@ DriverStatus IterationDriver::Execute() {
   Driver::PreExecute();
   pouts->MakeOutputs(pmesh, pinput);
   pmesh->mbcnt = 0;
-  while (KeepGoing()) {
+  while (KeepGoing() && (nlim < 0 || ncycle < nlim)) {
     status = ExecuteStep();
     if ((ncycle_out > 0) && (ncycle % ncycle_out == 0)) {
       pouts->MakeOutputs(pmesh, pinput);

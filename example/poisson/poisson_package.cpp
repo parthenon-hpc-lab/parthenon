@@ -89,7 +89,6 @@ void ComputeResidual(Container<Real> &rc) {
         Real dx2 = dx * dx;
         Real dy2 = dy * dy;
         Real dz2 = dz * dz;
-        Real ds2 = (dx2 * dy2 * dz2) / (dx2 * dy2 + dx2 * dz2 + dy2 * dz2);
         res(k,j,i) = 0;
         res(k,j,i) += (phi(k, j, i + 1) + phi(k, j, i - 1) - 2 * phi(k, j, i)) / dx2;
         if (ndim >= 2) {
@@ -131,7 +130,14 @@ TaskStatus Smooth(Container<Real> &rc_in, Container<Real> &rc_out) {
         Real dx2 = dx * dx;
         Real dy2 = dy * dy;
         Real dz2 = dz * dz;
-        Real ds2 = (dx2 * dy2 * dz2) / (dx2 * dy2 + dx2 * dz2 + dy2 * dz2);
+        Real ds2;
+        if (ndim >= 3) {
+          ds2 = (dx2 * dy2 * dz2) / (dx2 * dy2 + dx2 * dz2 + dy2 * dz2);
+        } else if (ndim >= 2) {
+          ds2 = (dx2*dy2) / (dx2 + dy2);
+        } else {
+          ds2 = dx2;
+        }
         out(k, j, i) = 0;
         out(k, j, i) += (in(k, j, i + 1) + in(k, j, i - 1)) / dx2;
         if (ndim >= 2) {
@@ -140,8 +146,9 @@ TaskStatus Smooth(Container<Real> &rc_in, Container<Real> &rc_out) {
         if (ndim >= 3) {
           out(k, j, i) += (in(k + 1, j, i) + in(k - 1, j, i)) / dz2;
         }
-        out(k,j,i) -= K * rho(k, j, i);
-        out(k, j, i) *= 2 * ds2;
+        // DEBUG
+        out(k, j, i) -= K * rho(k, j, i);
+        out(k, j, i) *= ds2/2;
       });
   return TaskStatus::complete;
 }

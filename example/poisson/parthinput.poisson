@@ -19,33 +19,41 @@
 problem_id = poisson
 
 <parthenon/mesh>
+# refinement = adaptive
+# numlevel = 3
+
 nx1 = 32
-x1min = -0.5
-x1max = 0.5
+x1min = -1
+x1max = 1
 ix1_bc = periodic
 ox1_bc = periodic
 
 nx2 = 32
-x2min = -0.5
-x2max = 0.5
+x2min = -1
+x2max = 1
 ix2_bc = periodic
 ox2_bc = periodic
 
 nx3 = 1
-x3min = -0.5
-x3max = 0.5
+x3min = -1
+x3max = 1
 ix3_bc = periodic
 ox3_bc = periodic
 
 <parthenon/meshblock>
-nx1 = 32
-nx2 = 32
+nx1 = 8
+nx2 = 8
 nx3 = 1
 
 <parthenon/iterations>
-ncycle_out = 1
-residual = 1e-5
-ncheck = 1
+ncycle_out = 3
+residual = 5e-2
+ncheck = 3
+nlim = 1000
+
+# <parthenon/refinement0>
+# method = derivative_order_1
+# field = potential
 
 <poisson>
 K = 1
