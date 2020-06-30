@@ -89,15 +89,26 @@ TaskListStatus ConstructAndExecuteBlockTasks(T *driver, Args... args) {
   int nmb = driver->pmesh->GetNumMeshBlocksThisRank(Globals::my_rank);
   std::vector<TaskList> task_lists;
   MeshBlock *pmb = driver->pmesh->pblock;
+  int i = 0;
   while (pmb != nullptr) {
     task_lists.push_back(driver->MakeTaskList(pmb, std::forward<Args>(args)...));
+    // reassigning ExecSpaces to account for changing MeshBlocks due to, e.g.,
+    // loadbalance or AMR
+    pmb->exec_space = driver->pmesh->GetExecSpaceFromPool(i);
     pmb = pmb->next;
+    i += 1;
   }
   int complete_cnt = 0;
   Kokkos::View<int *, HostMemSpace> mb_locks("mb_locks", nmb);
-  auto f = [&](int, int) {
+  auto f = [&](int thread_id, int num_threads) {
     while (complete_cnt != nmb) {
       for (auto i = 0; i < nmb; ++i) {
+        // Workaround to ensure that the same thread works on the same MeshBlocks within
+        // a cycle. Trying to circumvent problem in setting scratch pad memory, which is
+        // not thread safe.
+        if (i % num_threads != thread_id) {
+          continue;
+        }
         // try to obtain lock by changing val from 0 to 1
         if (Kokkos::atomic_compare_exchange_strong(&mb_locks(i), 0, 1)) {
           if (!task_lists[i].IsComplete()) {
