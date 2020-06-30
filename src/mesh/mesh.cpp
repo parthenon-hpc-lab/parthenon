@@ -601,6 +601,24 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper &resfile, Properties_t &properties,
     PARTHENON_FAIL(msg);
   }
 
+  // the following two error checks in combination with the driver task list logic
+  // in driver.hpp are a workaround to make scratch pad allocation work in a
+  // multi host thread environment
+  if (num_mesh_threads_ > num_mesh_streams_) {
+    msg << "### FATAL ERROR in Mesh constructor" << std::endl
+        << "Number of threads (" << num_mesh_threads_ << ") must be <= num_streams ("
+        << num_mesh_streams_ << ")" << std::endl;
+    PARTHENON_FAIL(msg);
+  }
+
+  if (num_mesh_streams_ % num_mesh_threads_ != 0) {
+    msg << "### FATAL ERROR in Mesh constructor" << std::endl
+        << "Number of streams (" << num_mesh_streams_
+        << ") must be a multiple of num_threads (" << num_mesh_threads_ << ")"
+        << std::endl;
+    PARTHENON_FAIL(msg);
+  }
+
   if(num_mesh_streams_> 1) {
   for (auto n = 0; n < num_mesh_streams_; n++) {
     exec_spaces.push_back(parthenon::SpaceInstance<DevExecSpace>::create());
