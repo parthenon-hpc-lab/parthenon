@@ -43,7 +43,7 @@ if(CODE_COVERAGE)
     # Clean
     COMMAND ${PATH_LCOV} --gcov-tool ${PATH_GCOV} --directory ${CMAKE_BINARY_DIR} -b ${CMAKE_SOURCE_DIR} --zerocounters
     # Base report
-    COMMAND ctest -R unit 
+    COMMAND ctest -LE performance -R unit --verbose
     COMMAND ${PATH_LCOV} --gcov-tool ${PATH_GCOV} -c -i -d ${CMAKE_BINARY_DIR} -b ${CMAKE_SOURCE_DIR} -o ${COVERAGE_PATH}/${COVERAGE_NAME}/report.base.old
     # Remove Kokkos info from code coverage
     COMMAND ${PATH_LCOV} --remove ${COVERAGE_PATH}/${COVERAGE_NAME}/report.base.old 'Kokkos/*' -o ${COVERAGE_PATH}/${COVERAGE_NAME}/report.base
