@@ -82,20 +82,20 @@ DriverStatus IterationDriver::Execute() {
 DriverStatus IterationDriver::ExecuteStep() {
   if (Globals::my_rank == 0) OutputCycleDiagnostics();
 
-    TaskListStatus status = Step();
-    if (status != TaskListStatus::complete) {
-      std::cerr << "Step failed to complete all tasks." << std::endl;
-      return DriverStatus::failed;
-    }
-    // pmesh->UserWorkInLoop();
-    ncycle++;
-    pmesh->mbcnt += pmesh->nbtotal;
-    pmesh->step_since_lb++;
-    pmesh->LoadBalancingAndAdaptiveMeshRefinement(pinput);
-    // check for signals
-    if (SignalHandler::CheckSignalFlags() != 0) {
-      return DriverStatus::failed;
-    }
+  TaskListStatus status = Step();
+  if (status != TaskListStatus::complete) {
+    std::cerr << "Step failed to complete all tasks." << std::endl;
+    return DriverStatus::failed;
+  }
+  // pmesh->UserWorkInLoop();
+  ncycle++;
+  pmesh->mbcnt += pmesh->nbtotal;
+  pmesh->step_since_lb++;
+  pmesh->LoadBalancingAndAdaptiveMeshRefinement(pinput);
+  // check for signals
+  if (SignalHandler::CheckSignalFlags() != 0) {
+    return DriverStatus::failed;
+  }
 }
 
 void IterationDriver::PostExecute(DriverStatus status) {
@@ -125,9 +125,7 @@ void IterationDriver::PostExecute(DriverStatus status) {
 
 void IterationDriver::OutputCycleDiagnostics() {
   const int ratio_precision = 3;
-  if ((ncycle_out > 0)
-      && (ncycle % ncycle_out == 0)
-      && (Globals::my_rank == 0)) {
+  if ((ncycle_out > 0) && (ncycle % ncycle_out == 0) && (Globals::my_rank == 0)) {
     std::cout << "cycle=" << ncycle;
     // insert more diagnostics here
     std::cout << std::endl;

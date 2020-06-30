@@ -14,39 +14,38 @@
 #ifndef EXAMPLE_POISSON_POISSON_DRIVER_HPP_
 #define EXAMPLE_POISSON_POISSON_DRIVER_HPP_
 
-#include "driver/driver.hpp"
+#include <parthenon/driver.hpp>
 
 #include "parameter_input.hpp"
 #include "parthenon_mpi.hpp"
 #include "poisson_package.hpp"
 
 namespace poisson {
-using namespace parthenon::driver::prelude
+using namespace parthenon::driver::prelude;
 
+// TODO(JMM): figure out how to add IterationDriver to the prelude
 class PoissonDriver : public IterationDriver {
  public:
-  PoissonDriver(ParameterInput *pin, Mesh *pm) : Driver(pin, pm) {
-    max_residual = pinput->GetReal("parthenon/iterations","residual");
-    ncheck = pinput->GetOrAddInt("parthenon/iterations","ncheck",1);
-    // TODO(JMM): inputs 
+  PoissonDriver(ParameterInput *pin, Mesh *pm) : IterationDriver(pin, pm) {
+    max_residual = pinput->GetReal("parthenon/iterations", "residual");
+    ncheck = pinput->GetOrAddInteger("parthenon/iterations", "ncheck", 1);
+    // TODO(JMM): inputs
   }
-  TaskListStatus Step() {
-    return DriverUtils::ConstructAndExecuteBlockTasks<>(this);
-  }
+  TaskListStatus Step() { return ConstructAndExecuteBlockTasks<>(this); }
   bool KeepGoing() {
     // only check residual every ncheck iterations
     if (ncheck % ncycle) return true;
     residual = 0;
-    MeshBlock *pmb pmesh->pblock;
+    MeshBlock *pmb = pmesh->pblock;
     while (pmb != nullptr) {
       Container<Real> &rc = pmb->real_containers.Get();
       Real block_residual = GetResidual(rc);
-      residual = block_residual > residual? block_residual : residual;
+      residual = block_residual > residual ? block_residual : residual;
     }
 
 #ifdef MPI_PARALLEL
-    MPI_Allreduce(MPI_IN_PLACE, &residual, 1,
-                  MPI_PARTHENON_REAL, MPI_MAX, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &residual, 1, MPI_PARTHENON_REAL, MPI_MAX,
+                  MPI_COMM_WORLD);
 #endif
     return residual > max_residual;
   }
@@ -56,6 +55,34 @@ class PoissonDriver : public IterationDriver {
   Real residual = 0;
   Real max_residual;
 };
+
+// demonstrate making a custom Task type
+using ContainerTaskFunc = std::function<TaskStatus(Container<Real> &)>;
+class ContainerTask : public BaseTask {
+ public:
+  ContainerTask(TaskID id, ContainerTaskFunc func, TaskID dep, Container<Real> &rc)
+      : BaseTask(id, dep), _func(func), _cont(&rc) {}
+  TaskStatus operator()() { return _func(*_cont); }
+
+ private:
+  ContainerTaskFunc _func;
+  Container<Real> *_cont;
+};
+using TwoContainerTaskFunc =
+    std::function<TaskStatus(Container<Real> &, Container<Real> &)>;
+class TwoContainerTask : public BaseTask {
+ public:
+  TwoContainerTask(TaskID id, TwoContainerTaskFunc func, TaskID dep, Container<Real> &rc1,
+                   Container<Real> &rc2)
+      : BaseTask(id, dep), _func(func), _cont1(&rc1), _cont2(&rc2) {}
+  TaskStatus operator()() { return _func(*_cont1, *_cont2); }
+
+ private:
+  TwoContainerTaskFunc _func;
+  Container<Real> *_cont1;
+  Container<Real> *_cont2;
+};
+
 
 } // namespace poisson
 

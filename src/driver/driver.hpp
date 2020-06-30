@@ -58,9 +58,8 @@ class Driver {
 class IterationDriver : public Driver {
  public:
   IterationDriver(ParameterInput *pin, Mesh *pm) : Driver(pin, pm) {
-    nlim = pinput->GetOrAddInteger("parthenon/iterations","nlim",-1);
-    ncycle_out = pinput->GetOrAddInteger("parthenon/iterations",
-                                         "ncycle_out", 1);
+    nlim = pinput->GetOrAddInteger("parthenon/iterations", "nlim", -1);
+    ncycle_out = pinput->GetOrAddInteger("parthenon/iterations", "ncycle_out", 1);
   }
   DriverStatus Execute() override;
   DriverStatus ExecuteStep();

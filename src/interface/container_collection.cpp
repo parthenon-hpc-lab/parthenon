@@ -63,18 +63,17 @@ void ContainerCollection<T>::Add(const std::string &name, Container<T> &src) {
   containers_[name] = c;
 }
 
-template<typename T>
+template <typename T>
 Container<T> &ContainerCollection<T>::Get(const std::string &label) {
   auto it = FindIterator(label);
   return *(it->second);
 }
 
-template<typename T>
-void ContainerCollection<T>::Swap(const std::string &label1,
-                                  const std::string &label2) {
+template <typename T>
+void ContainerCollection<T>::Swap(const std::string &label1, const std::string &label2) {
   auto it1 = FindIterator(label1);
   auto it2 = FindIterator(label2);
-  std::swap(it1->second,it2->second);
+  std::swap(it1->second, it2->second);
 }
 
 template class ContainerCollection<Real>;

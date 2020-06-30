@@ -11,8 +11,15 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
 
-add_subdirectory(advection)
-add_subdirectory(calculate_pi)
-add_subdirectory(face_fields)
-add_subdirectory(kokkos_pi)
-add_subdirectory(poisson)
+add_executable(
+  poisson-example
+    main.cpp
+    poisson_driver.cpp
+    poisson_driver.hpp
+    poisson_package.cpp
+    poisson_package.hpp
+    redefine_parthenon_defaults.cpp
+)
+
+target_link_libraries(poisson-example PRIVATE parthenon)
+lint_target(poisson-example)

@@ -62,8 +62,7 @@ class ContainerCollection {
   auto FindIterator(const std::string &label) {
     auto it = containers_.find(label);
     if (it == containers_.end()) {
-      std::string message = ("Container " + label
-                             + " does not exist in collection.");
+      std::string message = ("Container " + label + " does not exist in collection.");
       PARTHENON_FAIL(message.c_str());
     }
     return it;

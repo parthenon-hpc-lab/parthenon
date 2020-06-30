@@ -11,21 +11,26 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+#include <iomanip>
+#include <iostream>
+#include <limits>
+
 #include "poisson_driver.hpp"
+#include "task_list/tasks.hpp"
 
 using namespace parthenon::driver::prelude;
 
 namespace poisson {
-
-TaskList MakeTaskList(MeshBlock *pmb) {
+TaskList PoissonDriver::MakeTaskList(MeshBlock *pmb) {
+  using parthenon::BlockTaskFunc;
+  using parthenon::BlockTask;
 
   TaskList tl;
-  auto AddBlockTask= [&tl, pmb, this](BlockStageNamesIntegratorTaskFunc func,
-                                      TaskID dep) {
-    return tl.AddTask<BlockStageNamesIntegratorTask>(func, dep, pmb);
+  auto AddBlockTask = [&tl, pmb, this](BlockTaskFunc func,
+                                       TaskID dep) {
+    return tl.AddTask<BlockTask>(func, dep, pmb);
   };
-  auto AddContainerTask = [&tl](ContainerTaskFunc func, TaskID dep,
-                                Container<Real> &rc) {
+  auto AddContainerTask = [&tl](ContainerTaskFunc func, TaskID dep, Container<Real> &rc) {
     return tl.AddTask<ContainerTask>(func, dep, rc);
   };
   auto AddTwoContainerTask = [&tl](TwoContainerTaskFunc f, TaskID dep,
@@ -35,26 +40,21 @@ TaskList MakeTaskList(MeshBlock *pmb) {
   TaskID none(0);
 
   Container<Real> &base = pmb->real_containers.Get();
-  pmb->real_containers.Add("update",base);
+  pmb->real_containers.Add("update", base);
   Container<Real> &update = pmb->real_containers.Get("update");
 
-  auto start_recv = AddContainerTask(Container<Real>::StartReceivingTask,
-                                     none, update);
+  auto start_recv = AddContainerTask(Container<Real>::StartReceivingTask, none, update);
 
   auto smooth = AddTwoContainerTask(Smooth, none, base, update);
 
   // update ghost cells
-  auto send =
-      AddContainerTask(Container<Real>::SendBoundaryBuffersTask,
-                       update_container, update);
-  auto recv = AddContainerTask(Container<Real>::ReceiveBoundaryBuffersTask,
-                               send, update);
-  auto fill_from_bufs = AddContainerTask(Container<Real>::SetBoundariesTask,
-                                         recv, update);
+  auto send = AddContainerTask(Container<Real>::SendBoundaryBuffersTask, smooth,
+                               update);
+  auto recv = AddContainerTask(Container<Real>::ReceiveBoundaryBuffersTask, send, update);
+  auto fill_from_bufs =
+      AddContainerTask(Container<Real>::SetBoundariesTask, recv, update);
   auto clear_comm_flags =
-      AddContainerTask(Container<Real>::ClearBoundaryTask,
-                       fill_from_bufs,
-                       update);
+      AddContainerTask(Container<Real>::ClearBoundaryTask, fill_from_bufs, update);
 
   auto prolongBound = AddBlockTask(
       [](MeshBlock *pmb) {
@@ -64,19 +64,17 @@ TaskList MakeTaskList(MeshBlock *pmb) {
       fill_from_bufs);
 
   // set physical boundaries
-  auto set_bc = AddContainerTask(parthenon::ApplyBoundaryConditions,
-                                 prolongBound, update);
+  auto set_bc =
+      AddContainerTask(parthenon::ApplyBoundaryConditions, prolongBound, update);
 
-  
   // fill in derived fields
   auto fill_derived =
-      AddContainerTask(parthenon::FillDerivedVariables::FillDerived,
-                       set_bc, update);
+      AddContainerTask(parthenon::FillDerivedVariables::FillDerived, set_bc, update);
 
   // swap containers
   auto swap = AddBlockTask(
       [](MeshBlock *pmb) {
-        pmb->real_containers.Swap("base","update");
+        pmb->real_containers.Swap("base", "update");
         return TaskStatus::complete;
       },
       fill_derived);
@@ -97,17 +95,15 @@ TaskList MakeTaskList(MeshBlock *pmb) {
 void PoissonDriver::OutputCycleDiagnostics() {
   const int precision = std::numeric_limits<Real>::max_digits10 - 1;
   const int ratio_precision = 3;
-  if ((ncycle_out > 0)
-      && (ncycle % ncycle_out == 0)
-      && (Globals::my_rank == 0)) {
-    std::cout << "cycle=" << tm.ncycle << std::scientific
-              << std::setprecision(precision)
+  if ((ncycle_out > 0) && (ncycle % ncycle_out == 0)
+      && (parthenon::Globals::my_rank == 0)) {
+    std::cout << "cycle=" << ncycle << std::scientific << std::setprecision(precision)
               << " reisidual=" << residual;
-    
+
     // insert more diagnostics here
     std::cout << std::endl;
   }
   return;
 }
 
-};
+}; // namespace poisson
