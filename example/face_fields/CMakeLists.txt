@@ -11,6 +11,8 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
 
+get_property(LIST_OF_TESTS GLOBAL PROPERTY DRIVER_LIST)
+if( "pi-example" IN_LIST DRIVER_LIST OR PARTHENON_BUILD_EXAMPLES)
 add_executable(
     face-fields-example
         face_fields_example.cpp
@@ -19,3 +21,4 @@ add_executable(
 )
 target_link_libraries(face-fields-example PRIVATE parthenon)
 lint_target(face-fields-example)
+endif()

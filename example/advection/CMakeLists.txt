@@ -11,14 +11,17 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
 
-add_executable(
-    advection-example
-        advection_driver.cpp
-        advection_driver.hpp
-        advection_package.cpp
-        advection_package.hpp
-        main.cpp
-        redefine_parthenon_defaults.cpp
-)
-target_link_libraries(advection-example PRIVATE parthenon)
-lint_target(advection-example)
+get_property(DRIVER_LIST GLOBAL PROPERTY DRIVERS_USED_IN_TESTS)
+if( "advection-example" IN_LIST DRIVER_LIST OR PARTHENON_BUILD_EXAMPLES)
+  add_executable(
+      advection-example
+          advection_driver.cpp
+          advection_driver.hpp
+          advection_package.cpp
+          advection_package.hpp
+          main.cpp
+          redefine_parthenon_defaults.cpp
+  )
+  target_link_libraries(advection-example PRIVATE parthenon)
+  lint_target(advection-example)
+endif()

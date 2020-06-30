@@ -34,7 +34,7 @@ stop linting by default. You can still lint using the \"lint\" target"
 option(ENABLE_UNIT_TESTS "Enable unit tests" ${BUILD_TESTING})
 option(ENABLE_INTEGRATION_TESTS "Enable integration tests" ${BUILD_TESTING})
 option(ENABLE_REGRESSION_TESTS "Enable regression tests" ${BUILD_TESTING})
-option(BUILD_EXAMPLES "Build example drivers" ON)
+option(PARTHENON_BUILD_EXAMPLES "Build example drivers" ON)
 option(DISABLE_MPI "MPI is enabled by default if found, set this to True to disable MPI" OFF)
 option(DISABLE_OPENMP "OpenMP is enabled by default if found, set this to True to disable OpenMP" OFF)
 option(DISABLE_HDF5 "HDF5 is enabled by default if found, set this to True to disable HDF5" OFF)
@@ -42,20 +42,6 @@ option(ENABLE_COMPILER_WARNINGS "Enable compiler warnings" OFF)
 option(CHECK_REGISTRY_PRESSURE "Check the registry pressure for Kokkos CUDA kernels" OFF)
 option(TEST_INTEL_OPTIMIZATION "Test intel optimization and vectorization" OFF)
 option(TEST_ERROR_CHECKING "Enables the error checking unit test. This test will FAIL" OFF)
-
-# Check for conflicting options
-if(NOT BUILD_EXAMPLES)
-  if(ENABLE_REGRESSION_TESTS)
-
-    message(FATAL_ERROR "BUILD_EXAMPLES is OFF but ENABLE_REGRESSION_TESTS is "
-    "set to ON! Regression tests cannot be enabled without also building example "
-    "drivers (BUILD_EXAMPLES must be set to ON). If you do not want to enable "
-    "the regression tests and you also do not want to build the example drivers, "
-    "BUILD_EXAMPLES and ENABLE_REGRESSION_TESTS must both be set to OFF. NOTE: "
-    "By default regression tests are enabled.")
-
-  endif()
-endif()
 
 include(cmake/Format.cmake)
 include(cmake/Lint.cmake)
@@ -221,9 +207,7 @@ endif()
 
 add_subdirectory(src)
 
-if(BUILD_EXAMPLES)
 add_subdirectory(example)
-endif()
 
 include(cmake/CheckCopyright.cmake)
 
@@ -233,3 +217,4 @@ include(cmake/CheckCopyright.cmake)
 # If you add tests with other binaries, add them to the DEPENDS line
 add_custom_target(checkit COMMAND ${CMAKE_CTEST_COMMAND}
                   DEPENDS unit_tests)
+

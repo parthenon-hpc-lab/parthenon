@@ -11,9 +11,12 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
 
-add_executable(
-    kokkos_pi
-        kokkos_pi.cpp
-)
-target_link_libraries(kokkos_pi PUBLIC parthenon)
-lint_target(kokkos_pi)
+get_property(DRIVER_LIST GLOBAL PROPERTY DRIVERS_USED_IN_TESTS)
+if( "kokkos_pi" IN_LIST DRIVER_LIST OR PARTHENON_BUILD_EXAMPLES)
+  add_executable(
+      kokkos_pi
+          kokkos_pi.cpp
+  )
+  target_link_libraries(kokkos_pi PUBLIC parthenon)
+  lint_target(kokkos_pi)
+endif()
