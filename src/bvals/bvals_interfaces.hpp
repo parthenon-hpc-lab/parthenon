@@ -264,7 +264,6 @@ class BoundaryVariable : public BoundaryCommunication, public BoundaryBuffer {
   bool ReceiveBoundaryBuffers() override;
   void ReceiveAndSetBoundariesWithWait() override;
   void SetBoundaries() override;
-  auto GetBdVar() { return &bd_var_; }
 
  protected:
   // deferred initialization of BoundaryData objects in derived class constructors

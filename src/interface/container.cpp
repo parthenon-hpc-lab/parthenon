@@ -19,6 +19,7 @@
 #include <vector>
 
 #include "bvals/cc/bvals_cc.hpp"
+#include "kokkos_abstraction.hpp"
 #include "mesh/mesh.hpp"
 
 namespace parthenon {
@@ -237,7 +238,14 @@ VariableFluxPack<T> Container<T>::PackVariablesAndFluxesHelper_(
   auto key = std::make_pair(var_names, flx_names);
   auto kvpair = varFluxPackMap_.find(key);
   if (kvpair == varFluxPackMap_.end()) {
-    auto pack = MakeFluxPack(pmy_block->exec_space, vars, fvars, &vmap);
+    // TODO(pgrete) please shout at me if this ugly piece is still in the code
+    // at the time of review. We need to think of a better way to handle this,
+    // which came only up in the unit tests.
+    DevExecSpace exec_space = DevExecSpace();
+    if (pmy_block) {
+      exec_space = pmy_block->exec_space;
+    }
+    auto pack = MakeFluxPack(exec_space, vars, fvars, &vmap);
     FluxPackIndxPair<T> value;
     value.pack = pack;
     value.map = vmap;
@@ -303,7 +311,14 @@ VariablePack<T> Container<T>::PackVariablesHelper_(const std::vector<std::string
                                                    PackIndexMap &vmap) {
   auto kvpair = varPackMap_.find(names);
   if (kvpair == varPackMap_.end()) {
-    auto pack = MakePack<T>(pmy_block->exec_space, vars, &vmap);
+    // TODO(pgrete) please shout at me if this ugly piece is still in the code
+    // at the time of review. We need to think of a better way to handle this,
+    // which came only up in the unit tests.
+    DevExecSpace exec_space = DevExecSpace();
+    if (pmy_block) {
+      exec_space = pmy_block->exec_space;
+    }
+    auto pack = MakePack<T>(exec_space, vars, &vmap);
     PackIndxPair<T> value;
     value.pack = pack;
     value.map = vmap;
