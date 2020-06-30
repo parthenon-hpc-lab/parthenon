@@ -19,8 +19,8 @@ parthenon-power9:
   stage: unit
   script:
     - echo "Beginning script"
-    - mkdir build-cuda-debug
-    - cd build-cuda-debug
+    - mkdir build-cuda-power9
+    - cd build-cuda-power9
     - cmake -DCMAKE_BUILD_TYPE=Debug -DHDF5_ROOT=/usr/local/hdf5/parallel
       -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
       -DKokkos_ENABLE_CUDA=True -DKokkos_ARCH_PASCAL61=True
