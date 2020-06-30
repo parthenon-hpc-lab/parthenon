@@ -1,5 +1,8 @@
 image: cuda10.0-mpi-hdf5-mpl
 
+variables:
+  SCHEDULER_PARAMETERS: "--nodes=1 --partition=power9"
+
 # Is performed before the scripts in the stages step
 before_script:
     - export OMP_PROC_BIND=close
