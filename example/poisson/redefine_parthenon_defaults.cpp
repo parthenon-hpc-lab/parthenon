@@ -33,7 +33,6 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
   auto &rho = rc.Get("potential").data;
 
   auto pkg = packages["poisson_package"];
-  auto profile = pkg->Param<std::string>("potential");
 
   auto phi_h = phi.GetHostMirror();
   auto rho_h = rho.GetHostMirror();
