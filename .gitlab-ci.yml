@@ -15,6 +15,7 @@ before_script:
       echo "Updating regression Gold standard to ${GOLD_STANDARD_VER}." &&
       wget -qO- https://pgrete.de/dl/parthenon_regression_gold_r${GOLD_STANDARD_VER}.tgz | tar -xz -C tst/regression/gold_standard; fi
     - update-alternatives --install /usr/bin/python python /usr/bin/python3 10
+    - apt-get update && apt-get install -y gcov 
 
 cache:
   paths:
