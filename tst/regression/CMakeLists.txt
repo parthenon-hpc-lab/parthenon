@@ -11,21 +11,7 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
 
-# Adding regression tests
-#
-# To add additional regression tests to ctest, two things must be added to 
-# this file:
-# 
-# 1. there must exist within the regression/test_suites directory a folder associated with the test
-#   * For the calculate_pi example the folder is called 'calculate_pi', This
-#     folder must be added to the cmake variable TEST_DIRS as shown below. 
-
-# 2. the correct arguments to pass to the 'run_test.py' script must be specfied
-#   * This arguments must be added to the CMAKE variable TEST_ARGS as shown below
-#   * The number of mpi processors that should be used when testing the mpi implementation 
-#
-# Note each new test must append exactly 1 item to each of the CMAKE variables
-
+# Adds the drivers used in the regression tests to a global cmake property: DRIVERS_USED_IN_TESTS
 function(record_driver arg)
     list(LENGTH arg len_list)
     math(EXPR list_end "${len_list} - 1")
@@ -50,7 +36,6 @@ function(setup_test dir arg)
 endfunction()
 
 function(setup_test_mpi nproc dir arg)
-
   if( MPI_FOUND )
     separate_arguments(arg) 
     add_test( NAME regression_mpi_test:${dir} COMMAND python ${CMAKE_CURRENT_SOURCE_DIR}/run_test.py
@@ -64,9 +49,25 @@ function(setup_test_mpi nproc dir arg)
   else()
     message(STATUS "MPI not found, not building regression tests with mpi")
   endif()
-
 endfunction()
 
+# Adding regression tests
+#
+# To add additional regression tests to ctest, three things must be added to 
+# this file:
+# 
+# 1. there must exist within the regression/test_suites directory a folder associated with the test
+#   * For the calculate_pi example the folder is called 'calculate_pi', This
+#     folder must be added to the cmake variable TEST_DIRS as shown below. 
+#
+# 2. the correct arguments to pass to the 'run_test.py' script must be specfied
+#   * This arguments must be added to the CMAKE variable TEST_ARGS as shown below
+#
+# 3. the number of mpi processors that should be used when testing the mpi implementation 
+#   * This argument needs to be added to the TEST_PROCS variable
+#
+# NOTE: each new test must append exactly 1 item to each of the CMAKE variables
+#
 # Add additional regression tests to ctest below this line by calling
 #
 # list(APPEND TEST_DIRS name_of_folder )   
