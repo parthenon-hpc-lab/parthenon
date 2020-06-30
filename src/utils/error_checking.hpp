@@ -62,8 +62,8 @@ fail(const char *const message, const char *const filename, int const linenumber
   Kokkos::abort(message);
   // Kokkos::abort ends control flow, but is not marked as `[[noreturn]]`, so we need this
   // loop to supress a warning that the function does not return.
-  while (true)
-    ;
+  while (true) {
+  }
 }
 
 [[noreturn]] inline void fail(std::stringstream const &message,

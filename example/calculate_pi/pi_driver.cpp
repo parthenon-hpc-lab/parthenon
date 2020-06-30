@@ -64,7 +64,7 @@ parthenon::DriverStatus PiDriver::Execute() {
   // All the blocks are done, now do a global reduce and spit out the answer
   // first sum over blocks on this rank
   Real area = 0.0;
-  for (auto &mb : pmesh->pblock) {
+  for (auto &mb : pmesh->block_list) {
     Container<Real> &rc = mb.real_containers.Get();
     ParArrayND<Real> v = rc.Get("in_or_out").data;
 
