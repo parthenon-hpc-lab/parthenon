@@ -20,10 +20,10 @@
 #include <utility>
 #include <vector>
 
+#include "Kokkos_Atomic.hpp"
 #include "basic_types.hpp"
 #include "globals.hpp"
 #include "kokkos_abstraction.hpp"
-#include "Kokkos_Atomic.hpp"
 #include "mesh/mesh.hpp"
 #include "outputs/outputs.hpp"
 #include "task_list/tasks.hpp"
@@ -38,7 +38,7 @@ enum class DriverStatus { complete, timeout, failed };
 
 class Driver {
  public:
-  Driver(ParameterInput *pin, Mesh *pm) : pinput(pin), pmesh(pm) {}
+  Driver(ParameterInput *pin, Mesh *pm) : pinput(pin), pmesh(pm), nmb_cycle() {}
   virtual DriverStatus Execute() = 0;
   void InitializeOutputs() { pouts = std::make_unique<Outputs>(pmesh, pinput); }
 
@@ -47,10 +47,8 @@ class Driver {
   std::unique_ptr<Outputs> pouts;
 
  protected:
-  clock_t tstart_;
-#ifdef OPENMP_PARALLEL
-  double omp_start_time_;
-#endif
+  Kokkos::Timer timer_cycle, timer_main;
+  std::uint64_t nmb_cycle;
   virtual void PreExecute();
   virtual void PostExecute();
 
