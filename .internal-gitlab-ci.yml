@@ -27,8 +27,6 @@ stages:
   - unit
 
 parthenon-cuda-unit:
-  tags:
-    - darwin-slurm-shared
 
   stage: unit
   script:
