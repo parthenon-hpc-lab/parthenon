@@ -24,6 +24,12 @@ option(PARTHENON_SINGLE_PRECISION "Run in single precision" OFF)
 option(PARTHENON_DISABLE_MPI "MPI is enabled by default if found, set this to True to disable MPI" OFF)
 option(PARTHENON_DISABLE_OPENMP "OpenMP is enabled by default if found, set this to True to disable OpenMP" OFF)
 option(PARTHENON_DISABLE_HDF5 "HDF5 is enabled by default if found, set this to True to disable HDF5" OFF)
+option(
+  PARTHENON_LINT_DEFAULT
+  "Sources files are linted when building the default target. Set to OFF to \
+stop linting by default. You can still lint using the \"lint\" target"
+  ON
+)
 
 option(ENABLE_UNIT_TESTS "Enable unit tests" ${BUILD_TESTING})
 option(ENABLE_INTEGRATION_TESTS "Enable integration tests" ${BUILD_TESTING})
@@ -52,6 +58,7 @@ if(NOT BUILD_EXAMPLES)
 endif()
 
 include(cmake/Format.cmake)
+include(cmake/Lint.cmake)
 
 # internal variable for number of ghost cells
 set(NUMBER_GHOST_CELLS ${PARTHENON_NGHOST}) 
@@ -202,7 +209,7 @@ if (${ENABLE_UNIT_TESTS} OR ${ENABLE_INTEGRATION_TESTS} OR ${ENABLE_REGRESSION_T
 endif()
 
 # Globally turn on useful intel and/or nvcc compiler output
-if (${KOKKOS_ENABLE_CUDA})
+if (Kokkos_ENABLE_CUDA)
   if(CHECK_REGISTRY_PRESSURE)
     add_compile_options(-Xptxas=-v)
   endif()
@@ -213,11 +220,9 @@ if (TEST_INTEL_OPTIMIZATION)
 endif()	       
 
 add_subdirectory(src)
+
 if(BUILD_EXAMPLES)
-  add_subdirectory(example/advection)
-  add_subdirectory(example/calculate_pi)
-  add_subdirectory(example/face_fields)
-  add_subdirectory(example/kokkos_pi)
+add_subdirectory(example)
 endif()
 
 include(cmake/CheckCopyright.cmake)

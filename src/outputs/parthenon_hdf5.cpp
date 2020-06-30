@@ -22,8 +22,8 @@
 
 #include "parthenon_mpi.hpp"
 
-#include "athena.hpp"
 #include "coordinates/coordinates.hpp"
+#include "defs.hpp"
 #include "globals.hpp"
 #include "interface/container_iterator.hpp"
 #include "mesh/mesh.hpp"

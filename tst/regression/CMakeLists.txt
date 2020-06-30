@@ -35,7 +35,12 @@ endfunction()
 
 function(setup_test_mpi nproc dir arg)
   if( MPI_FOUND )
+    #message(STATUS "before seperate arguments")
+    #message(${arg})
+    #string(REPLACE " " ";" arg_list ${arg})
     separate_arguments(arg) 
+    #message(STATUS "after seperate arguments")
+    #message(${arg})
     add_test( NAME regression_mpi_test:${dir} COMMAND python ${CMAKE_CURRENT_SOURCE_DIR}/run_test.py
       --mpirun ${MPIEXEC_EXECUTABLE} 
       --mpirun_opts=${MPIEXEC_NUMPROC_FLAG} --mpirun_opts=${nproc}
@@ -43,9 +48,31 @@ function(setup_test_mpi nproc dir arg)
       --test_dir ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}
       --output_dir "${CMAKE_BINARY_DIR}/tst/regression/outputs/${dir}")
     set_tests_properties(regression_mpi_test:${dir} PROPERTIES LABELS "regression;mpi-yes" RUN_SERIAL ON )
+
+
+    list(LENGTH arg len_list)
+    #message("${arg}")
+    message("Length")
+    message("${len_list}")
+
+    math(EXPR end_index2 "${len_list} - 1")
+    foreach(ind RANGE ${end_index2})
+      list(GET arg ${ind} arg2)
+      if("${arg2}" STREQUAL "--driver")
+        MATH(EXPR ind "${ind}+1")
+        list(GET arg ${ind} driver)
+        get_filename_component(driver ${driver} NAME)
+        message("<<${driver}>>")
+      endif()
+    endforeach()
+
+    set_tests_properties(regression_mpi_test:${dir} PROPERTIES VALUE "${arg}")
   else()
     message(STATUS "MPI not found, not building regression tests with mpi")
   endif()
+
+  get_test_property(regression_mpi_test:${dir} VALUE val )
+  message(STATUS ${val})
 endfunction()
 
 list(APPEND TEST_DIRS calculate_pi)
@@ -56,7 +83,7 @@ list(APPEND TEST_ARGS "--driver ${CMAKE_BINARY_DIR}/example/calculate_pi/pi-exam
 setup_test( advection_convergence "--driver ${CMAKE_BINARY_DIR}/example/advection/advection-example \
 --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/advection_convergence/parthinput.advection \
 --num_steps 24")
-setup_test_mpi( 1 advection_convergence "--driver ${CMAKE_BINARY_DIR}/example/advection/advection-example \
+setup_test_mpi( "1" advection_convergence "--driver ${CMAKE_BINARY_DIR}/example/advection/advection-example \
 --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/advection_convergence/parthinput.advection \
 --num_steps 24")
 
@@ -64,7 +91,7 @@ if (ENABLE_HDF5)
 setup_test( output_hdf5 "--driver ${CMAKE_BINARY_DIR}/example/advection/advection-example \
 --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/output_hdf5/parthinput.advection \
 --num_steps 2")
-setup_test_mpi( ${NUM_MPI_PROC_TESTING} output_hdf5
+setup_test_mpi( "${NUM_MPI_PROC_TESTING}" output_hdf5
 "--driver ${CMAKE_BINARY_DIR}/example/advection/advection-example \
 --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/output_hdf5/parthinput.advection \
 --num_steps 2")
@@ -85,5 +112,6 @@ foreach( index RANGE ${end_index})
   list(GET TEST_DIRS ${index} TEST_DIR)
   list(GET TEST_ARGS ${index} TEST_ARG)
   setup_test( ${TEST_DIR} ${TEST_ARG})
-  setup_test_mpi( ${NUM_MPI_PROC_TESTING} ${TEST_DIR} ${TEST_ARG})
+  setup_test_mpi( "${NUM_MPI_PROC_TESTING}" ${TEST_DIR} ${TEST_ARG})
 endforeach()
+

@@ -67,16 +67,23 @@ parthenon::DriverStatus PiDriver::Execute() {
   MeshBlock *pmb = pmesh->pblock;
   while (pmb != nullptr) {
     Container<Real> &rc = pmb->real_containers.Get();
-    CellVariable<Real> &v = rc.Get("in_or_out");
-    // NOTE: the MeshBlock integrated indicator function, divided
-    // by r0^2, was stashed in v(0,0,0) in ComputeArea.
-    Real block_area = v(0, 0, 0);
+    ParArrayND<Real> v = rc.Get("in_or_out").data;
+
+    // extract area from device memory
+    Real block_area;
+    Kokkos::deep_copy(pmb->exec_space, block_area, v.Get(0, 0, 0, 0, 0, 0));
+    pmb->exec_space.fence(); // as the deep copy may be async
+
+    const auto &radius = pmb->packages["calculate_pi"]->Param<Real>("radius");
+    // area must be reduced by r^2 to get the block's contribution to PI
+    block_area /= (radius * radius);
+
     area += block_area;
     pmb = pmb->next;
   }
 #ifdef MPI_PARALLEL
   Real pi_val;
-  MPI_Reduce(&area, &pi_val, 1, MPI_ATHENA_REAL, MPI_SUM, 0, MPI_COMM_WORLD);
+  MPI_Reduce(&area, &pi_val, 1, MPI_PARTHENON_REAL, MPI_SUM, 0, MPI_COMM_WORLD);
 #else
   Real pi_val = area;
 #endif

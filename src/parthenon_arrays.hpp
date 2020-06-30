@@ -41,7 +41,6 @@ class ParArrayNDGeneric {
  public:
   using index_pair_t = std::pair<size_t, size_t>;
 
-  KOKKOS_INLINE_FUNCTION
   ParArrayNDGeneric() = default;
   ParArrayNDGeneric(const std::string &label, int nx6, int nx5, int nx4, int nx3, int nx2,
                     int nx1) {
@@ -102,14 +101,12 @@ class ParArrayNDGeneric {
     d6d_ = Data(label, nx6, nx5, nx4, nx3, nx2, nx1);
   }
 
-  KOKKOS_INLINE_FUNCTION __attribute__((nothrow))
-  ParArrayNDGeneric(const ParArrayNDGeneric<Data> &t) = default;
-  KOKKOS_INLINE_FUNCTION __attribute__((nothrow)) ~ParArrayNDGeneric() = default;
-  KOKKOS_INLINE_FUNCTION __attribute__((nothrow)) ParArrayNDGeneric<Data> &
+  __attribute__((nothrow)) ParArrayNDGeneric(const ParArrayNDGeneric<Data> &t) = default;
+  __attribute__((nothrow)) ~ParArrayNDGeneric() = default;
+  __attribute__((nothrow)) ParArrayNDGeneric<Data> &
   operator=(const ParArrayNDGeneric<Data> &t) = default;
-  KOKKOS_INLINE_FUNCTION __attribute__((nothrow))
-  ParArrayNDGeneric(ParArrayNDGeneric<Data> &&t) = default;
-  KOKKOS_INLINE_FUNCTION __attribute__((nothrow)) ParArrayNDGeneric<Data> &
+  __attribute__((nothrow)) ParArrayNDGeneric(ParArrayNDGeneric<Data> &&t) = default;
+  __attribute__((nothrow)) ParArrayNDGeneric<Data> &
   operator=(ParArrayNDGeneric<Data> &&t) = default;
 
   // function to get the label
@@ -333,7 +330,7 @@ struct FaceArray {
       : x1f(label + "x1f", ncells6, ncells5, ncells4, ncells3, ncells2, ncells1 + 1),
         x2f(label + "x2f", ncells6, ncells5, ncells4, ncells3, ncells2 + 1, ncells1),
         x3f(label + "x3f", ncells6, ncells5, ncells4, ncells3 + 1, ncells2, ncells1) {}
-  KOKKOS_INLINE_FUNCTION __attribute__((nothrow)) ~FaceArray() = default;
+  __attribute__((nothrow)) ~FaceArray() = default;
 
   // TODO(JMM): should this be 0,1,2?
   // Should we return the reference? Or something else?
@@ -383,7 +380,7 @@ struct EdgeArray {
         x2e(label + "x2e", ncells6, ncells5, ncells4, ncells3 + 1, ncells2, ncells1 + 1),
         x3e(label + "x3e", ncells6, ncells5, ncells4, ncells3, ncells2 + 1, ncells1 + 1) {
   }
-  KOKKOS_INLINE_FUNCTION __attribute__((nothrow)) ~EdgeArray() = default;
+  __attribute__((nothrow)) ~EdgeArray() = default;
 };
 
 // backwards compatibility with Athena++ functionality

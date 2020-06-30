@@ -16,8 +16,8 @@
 #include <array>
 #include <cassert>
 
-#include "athena.hpp"
 #include "basic_types.hpp"
+#include "defs.hpp"
 
 #include <Kokkos_Macros.hpp>
 
