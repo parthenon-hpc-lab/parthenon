@@ -17,12 +17,9 @@
 #include <map>
 #include <memory>
 #include <string>
-#include <vector>
-
-#ifndef NDEBUG
 #include <typeindex>
 #include <typeinfo>
-#endif // NDEBUG
+#include <vector>
 
 #include "utils/error_checking.hpp"
 
@@ -56,9 +53,11 @@ class Params {
 
   template <typename T>
   const T &Get(const std::string key) {
-    keyCheck(key, false);
-    typeCheck<T>(key, false);
-    auto typed_ptr = dynamic_cast<Params::object_t<T> *>(myParams_[key].get());
+    auto it = myParams_.find(key);
+    PARTHENON_REQUIRE(it != myParams_.end(),
+                      ("Key " + key + " doesn't exist").c_str());
+    typeCheck<T>(key);
+    auto typed_ptr = dynamic_cast<Params::object_t<T> *>((it->second).get());
     if (typed_ptr == nullptr)
       throw std::invalid_argument("Cannot cast Params[" + key + "] to requested type");
     return *typed_ptr->pValue;
@@ -94,31 +93,11 @@ class Params {
   };
 
   template <typename T>
-  void typeCheck(const std::string key, bool die) {
+  void typeCheck(const std::string key) {
     // check on return type
-    // TODO(JMM): This is really clunky. Should we remove the conditional
-    // and put it in the require statement?
-    if (myTypes_[key].compare(std::string(typeid(T).name()))) {
-      std::string message = "WRONG TYPE FOR KEY '" + key + "'";
-      PARTHENON_REQUIRE(!die, message.c_str());
-    }
-  }
-
-  void keyCheck(const std::string key, bool die) {
-#ifndef NDEBUG
-    if (!hasKey(key)) {
-      // key alread exists, replace
-      std::cout << std::endl;
-      std::cout << "----------------------------------------------" << std::endl;
-      std::cout << "    WARNING: key '" << key << "' not found." << std::endl;
-      std::cout << "             Swift death will follow..." << std::endl;
-      std::cout << "----------------------------------------------" << std::endl;
-      std::cout << std::endl;
-
-      std::string message = "Key " + key + " doesn't exist";
-      PARTHENON_DEBUG_REQUIRE(!die, message.c_str());
-    }
-#endif // NDEBUG
+    bool badtype = myTypes_[key].compare(std::string(typeid(T).name()));
+    std::string message = "WRONG TYPE FOR KEY '" + key + "'";
+    PARTHENON_REQUIRE(!badtype, message.c_str());
   }
 
   std::map<std::string, std::unique_ptr<Params::base_t>> myParams_;
