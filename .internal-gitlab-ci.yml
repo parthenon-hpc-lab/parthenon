@@ -1,5 +1,5 @@
 variables:
-  SCHEDULER_PARAMETERS: '--nodes=1 --partition=power9 --export=NONE --wrap="bash srun --noprofile --norc bash"'
+  SCHEDULER_PARAMETERS: '--wrap="bash srun --noprofile --norc --nodes=1 --partition=power9 --export=NONE bash"'
   GIT_SUBMODULE_STRATEGY: recursive
 
 stages:
