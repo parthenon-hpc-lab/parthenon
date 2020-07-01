@@ -8,9 +8,9 @@ stages:
 # Is performed before the scripts in the stages step
 before_script:
   - echo "Switching to new bash shell"
-  - bash --noprofile --norc 
-  - echo "After switch"
-  - hello
+  - bash --noprofile --norc |
+    echo "After switch" |
+    hello
   - export OMP_PROC_BIND=close
   - export OMP_PLACES=cores
   - export OMP_NUM_THREADS=1
