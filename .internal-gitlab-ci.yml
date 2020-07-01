@@ -1,5 +1,5 @@
 variables:
-  SCHEDULER_PARAMETERS: '--wrap="bash srun --noprofile --norc --nodes=1 --partition=power9 --export=NONE bash"'
+  SCHEDULER_PARAMETERS: '--nodes=1 --partition=power9 --export=NONE'
   GIT_SUBMODULE_STRATEGY: recursive
 
 stages:
@@ -7,6 +7,9 @@ stages:
 
 # Is performed before the scripts in the stages step
 before_script:
+  - echo "Switching to new bash shell"
+  - bash --noprofile --norc bash
+  - echo "After switch"
   - hello
   - export OMP_PROC_BIND=close
   - export OMP_PLACES=cores
