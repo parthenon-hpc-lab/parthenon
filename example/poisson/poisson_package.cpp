@@ -25,8 +25,14 @@ namespace poisson {
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto pkg = std::make_shared<StateDescriptor>("poisson_package");
 
-  Real K = pin->GetOrAddReal("Poisson", "K", 1);
+  Real K = pin->GetOrAddReal("poisson", "K", 1);
   pkg->AddParam<>("K", K);
+
+  Real w = pin->GetOrAddReal("poisson", "weight", 1);
+  pkg->AddParam<>("weight",w);
+
+  int subcycles = pin->GetOrAddInteger("poisson","subcycles",1);
+  pkg->AddParam<>("subcycles",subcycles);
 
   std::string field_name = "field";
   Metadata m({Metadata::Cell, Metadata::Independent, Metadata::FillGhost});
@@ -40,7 +46,11 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy});
   pkg->AddField(field_name, m);
 
-  pkg->FillDerived = ComputeResidual;
+  field_name = "inv_diagonal";
+  m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy});
+  pkg->AddField(field_name, m);
+
+  pkg->FillDerived = ComputeResidualAndDiagonal;
 
   return pkg;
 }
@@ -66,7 +76,7 @@ Real GetL1Residual(Container<Real> &rc) {
   return max;
 }
 
-void ComputeResidual(Container<Real> &rc) {
+void ComputeResidualAndDiagonal(Container<Real> &rc) {
   MeshBlock *pmb = rc.pmy_block;
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
@@ -78,52 +88,12 @@ void ComputeResidual(Container<Real> &rc) {
   ParArrayND<Real> phi = rc.Get("field").data;
   ParArrayND<Real> rho = rc.Get("potential").data;
   ParArrayND<Real> res = rc.Get("residual").data;
+  ParArrayND<Real> Dinv = rc.Get("inv_diagonal").data;
   Real K = pkg->Param<Real>("K");
 
   pmb->par_for(
-      "ComputeResidual", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      "ComputeResidualAndDiagonal", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
-        Real dx = coords.Dx(X1DIR, k, j, i);
-        Real dy = coords.Dx(X2DIR, k, j, i);
-        Real dz = coords.Dx(X3DIR, k, j, i);
-        Real dx2 = dx * dx;
-        Real dy2 = dy * dy;
-        Real dz2 = dz * dz;
-        res(k,j,i) = 0;
-        res(k,j,i) += (phi(k, j, i + 1) + phi(k, j, i - 1) - 2 * phi(k, j, i)) / dx2;
-        if (ndim >= 2) {
-          res(k,j,i) += (phi(k, j + 1, i) + phi(k, j - 1, i) - 2 * phi(k, j, i)) / dy2;
-        }
-        if (ndim >= 3) {
-          res(k,j,i) += (phi(k + 1, j, i) + phi(k - 1, j, i) - 2 * phi(k, j, i)) / dz2;
-        }
-        res(k,j,i) -= K * rho(k, j, i);
-      });
-  return;
-}
-
-TaskStatus Smooth(Container<Real> &rc_in, Container<Real> &rc_out) {
-  MeshBlock *pmb = rc_in.pmy_block;
-  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
-  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
-  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
-
-  auto &coords = pmb->coords;
-  auto pkg = pmb->packages["poisson_package"];
-  int ndim = pmb->pmy_mesh->ndim;
-  ParArrayND<Real> in = rc_in.Get("field").data;
-  ParArrayND<Real> out = rc_out.Get("field").data;
-  ParArrayND<Real> rho = rc_in.Get("potential").data;
-  ParArrayND<Real> res = rc_in.Get("residual").data;
-  Real K = pkg->Param<Real>("K");
-
-  // ParArrayND<Real> in = rc_in.Get("field").data;
-  // ParArrayND<Real> out = rc_out.Get("field").data;
-  // ParArrayND<Real> res = rc_in.Get("residual").data;
-  pmb->par_for(
-      "JacobiSmooth", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int k, const int j, const int i) {
-        // out(k,j,i) = res(k,j,i) + in(k,j,i);
         Real dx = coords.Dx(X1DIR, k, j, i);
         Real dy = coords.Dx(X2DIR, k, j, i);
         Real dz = coords.Dx(X3DIR, k, j, i);
@@ -138,17 +108,37 @@ TaskStatus Smooth(Container<Real> &rc_in, Container<Real> &rc_out) {
         } else {
           ds2 = dx2;
         }
-        out(k, j, i) = 0;
-        out(k, j, i) += (in(k, j, i + 1) + in(k, j, i - 1)) / dx2;
+        Dinv(k,j,i) = -ds2/2;
+        res(k,j,i) = K * rho(k, j, i);
+        res(k,j,i) -= (phi(k, j, i + 1) + phi(k, j, i - 1) - 2 * phi(k, j, i)) / dx2;
         if (ndim >= 2) {
-          out(k, j, i) += (in(k, j + 1, i) + in(k, j - 1, i)) / dy2;
+          res(k,j,i) -= (phi(k, j + 1, i) + phi(k, j - 1, i) - 2 * phi(k, j, i)) / dy2;
         }
         if (ndim >= 3) {
-          out(k, j, i) += (in(k + 1, j, i) + in(k - 1, j, i)) / dz2;
+          res(k,j,i) -= (phi(k + 1, j, i) + phi(k - 1, j, i) - 2 * phi(k, j, i)) / dz2;
         }
-        // DEBUG
-        out(k, j, i) -= K * rho(k, j, i);
-        out(k, j, i) *= ds2/2;
+       });
+  return;
+}
+
+TaskStatus Smooth(Container<Real> &rc_in, Container<Real> &rc_out) {
+  MeshBlock *pmb = rc_in.pmy_block;
+  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
+  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
+  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
+
+  auto pkg = pmb->packages["poisson_package"];
+  ParArrayND<Real> in = rc_in.Get("field").data;
+  ParArrayND<Real> out = rc_out.Get("field").data;
+  ParArrayND<Real> res = rc_in.Get("residual").data;
+  ParArrayND<Real> Dinv = rc_in.Get("inv_diagonal").data;
+  Real w = pkg->Param<Real>("weight");
+  int nsub = pkg->Param<int>("subcycles");
+
+  pmb->par_for(
+      "JacobiSmooth", 1, nsub, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
+        out(k,j,i) = in(k,j,i) + w*Dinv(k,j,i)*res(k,j,i);
       });
   return TaskStatus::complete;
 }

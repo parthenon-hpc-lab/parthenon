@@ -41,13 +41,13 @@ ix3_bc = periodic
 ox3_bc = periodic
 
 <parthenon/meshblock>
-nx1 = 8
-nx2 = 8
+nx1 = 16
+nx2 = 16
 nx3 = 1
 
 <parthenon/iterations>
 ncycle_out = 3
-residual = 5e-2
+residual = 0.1
 ncheck = 3
 nlim = 1000
 
@@ -57,6 +57,8 @@ nlim = 1000
 
 <poisson>
 K = 1
+weight = 0.66
+subcycles = 1
 
 <parthenon/output0>
 file_type = hdf5

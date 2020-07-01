@@ -36,7 +36,7 @@ namespace poisson {
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 TaskStatus Smooth(Container<Real> &rc_in, Container<Real> &rc_out);
-void ComputeResidual(Container<Real> &rc);
+void ComputeResidualAndDiagonal(Container<Real> &rc);
 Real GetL1Residual(Container<Real> &rc);
 
 /*
