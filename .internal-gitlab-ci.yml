@@ -8,7 +8,7 @@ stages:
 # Is performed before the scripts in the stages step
 before_script:
   - echo "Switching to new bash shell"
-  - bash --noprofile --norc bash
+  - bash --noprofile --norc -c bash
   - echo "After switch"
   - hello
   - export OMP_PROC_BIND=close
