@@ -38,7 +38,7 @@ TaskList PoissonDriver::MakeTaskList(MeshBlock *pmb) {
   auto recv = tl.AddTask(Container<Real>::ReceiveBoundaryBuffersTask, send, update);
   auto fill_from_bufs = tl.AddTask(Container<Real>::SetBoundariesTask, recv, update);
   auto clear_comm_flags =
-    tl.AddTask(Container<Real>::ClearBoundaryTask, fill_from_bufs, update);
+      tl.AddTask(Container<Real>::ClearBoundaryTask, fill_from_bufs, update);
 
   auto prolongBound = tl.AddTask(
       [](MeshBlock *pmb) {
@@ -48,12 +48,11 @@ TaskList PoissonDriver::MakeTaskList(MeshBlock *pmb) {
       fill_from_bufs, pmb);
 
   // set physical boundaries
-  auto set_bc =
-    tl.AddTask(parthenon::ApplyBoundaryConditions, prolongBound, update);
+  auto set_bc = tl.AddTask(parthenon::ApplyBoundaryConditions, prolongBound, update);
 
   // fill in derived fields
   auto fill_derived =
-    tl.AddTask(parthenon::FillDerivedVariables::FillDerived, set_bc, update);
+      tl.AddTask(parthenon::FillDerivedVariables::FillDerived, set_bc, update);
 
   // swap containers
   auto swap = tl.AddTask(
@@ -61,7 +60,7 @@ TaskList PoissonDriver::MakeTaskList(MeshBlock *pmb) {
         pmb->real_containers.Swap("base", "update");
         return TaskStatus::complete;
       },
-      fill_derived,pmb);
+      fill_derived, pmb);
 
   // Update refinement
   if (pmesh->adaptive) {
