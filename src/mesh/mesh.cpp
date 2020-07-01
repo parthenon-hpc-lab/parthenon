@@ -119,12 +119,64 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
     PARTHENON_FAIL(msg);
   }
 
+#ifndef KOKKOS_ENABLE_OPENMP
+  if ((num_mesh_threads_ > 1) && (Globals::my_rank == 0)) {
+    std::cout << "### WARNING requesting to run with " << num_mesh_threads_
+              << " host threads, but OpenMP backend is disabled." << std::endl
+              << " Consider setting Kokkos_ENABLE_OPENMP=True." << std::endl
+              << " The simulation will continue but only use a single thread."
+              << std::endl;
+  }
+#else
+  if ((num_mesh_threads_ > 1) &&
+#if _OPENMP >= 201511
+      (omp_get_max_active_levels() <= 1)) {
+#else
+      (!omp_get_nested())) {
+#endif // _OPENMP
+    if (Globals::my_rank == 0) {
+      std::cout << "### WARNING requesting to run with " << num_mesh_threads_
+                << " host threads, but OpenMP nested parallelism is not active."
+                << std::endl
+                << " Consider setting OPENMP_NESTED=TRUE." << std::endl
+                << " The simulation will continue but only use a single thread."
+                << std::endl;
+    }
+  }
+#endif // KOKKOS_ENABLE_OPENMP
+
   if (num_mesh_streams_ < 1) {
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
         << "Number of Stream must be >= 1, but num_streams=" << num_mesh_streams_
         << std::endl;
     PARTHENON_FAIL(msg);
   }
+
+#ifndef KOKKOS_ENABLE_OPENMP
+  if ((num_mesh_threads_ > 1) && (Globals::my_rank == 0)) {
+    std::cout << "### WARNING requesting to run with " << num_mesh_threads_
+              << " host threads, but OpenMP backend is disabled." << std::endl
+              << " Consider setting Kokkos_ENABLE_OPENMP=True." << std::endl
+              << " The simulation will continue but only use a single thread."
+              << std::endl;
+  }
+#else
+  if ((num_mesh_threads_ > 1) &&
+#if _OPENMP >= 201511
+      (omp_get_max_active_levels() <= 1)) {
+#else
+      (!omp_get_nested())) {
+#endif // _OPENMP
+    if (Globals::my_rank == 0) {
+      std::cout << "### WARNING requesting to run with " << num_mesh_threads_
+                << " host threads, but OpenMP nested parallelism is not active."
+                << std::endl
+                << " Consider setting OPENMP_NESTED=TRUE." << std::endl
+                << " The simulation will continue but only use a single thread."
+                << std::endl;
+    }
+  }
+#endif // KOKKOS_ENABLE_OPENMP
 
   // the following two error checks in combination with the driver task list logic
   // in driver.hpp are a workaround to make scratch pad allocation work in a
@@ -1209,7 +1261,7 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
   int inb = nbtotal;
 #ifdef OPENMP_PARALLEL
   // int nthreads = GetNumMeshThreads();
-  int nthreads = 1; // TODO(pgrete) check what's going wrong here
+  int nthreads = 1; // TODO(pgrete) check what's going wrong here. Disable for now.
 #endif
   int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
   std::vector<MeshBlock *> pmb_array(nmb);
