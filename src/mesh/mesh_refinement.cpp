@@ -995,7 +995,7 @@ void MeshRefinement::ProlongateInternalField(FaceField &fine, int si, int ei, in
 
 void MeshRefinement::CheckRefinementCondition() {
   MeshBlock *pmb = pmy_block_;
-  Container<Real> &rc = pmb->real_containers.Get();
+  auto &rc = pmb->real_containers.Get();
   AmrTag ret = Refinement::CheckAllRefinement(rc);
   // if (AMRFlag_ != nullptr) ret = AMRFlag_(pmb);
   SetRefinement(ret);

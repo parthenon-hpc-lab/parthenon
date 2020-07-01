@@ -24,12 +24,11 @@
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
 #include "outputs/outputs.hpp"
-#include "task_list/tasks.hpp"
+#include "parameter_input.hpp"
+#include "tasks/task_list.hpp"
 
 namespace parthenon {
 
-class Mesh;
-class ParameterInput;
 class Outputs;
 
 enum class DriverStatus { complete, timeout, failed };

@@ -16,13 +16,8 @@
 
 #include <parthenon/driver.hpp>
 
-#include "advection_driver.hpp"
-
 namespace advection_example {
 using namespace parthenon::driver::prelude;
-using parthenon::BlockStageNamesIntegratorTask;
-using parthenon::BlockStageNamesIntegratorTaskFunc;
-using parthenon::TaskStatus;
 
 class AdvectionDriver : public MultiStageBlockTaskDriver {
  public:
@@ -35,33 +30,6 @@ class AdvectionDriver : public MultiStageBlockTaskDriver {
   //       DriverUtils::ConstructAndExecuteBlockTasks (driver.hpp)
   //         AdvectionDriver::MakeTaskList (advection.cpp)
   TaskList MakeTaskList(MeshBlock *pmb, int stage);
-};
-
-// demonstrate making a custom Task type
-using ContainerTaskFunc = std::function<TaskStatus(Container<Real> &)>;
-class ContainerTask : public BaseTask {
- public:
-  ContainerTask(TaskID id, ContainerTaskFunc func, TaskID dep, Container<Real> &rc)
-      : BaseTask(id, dep), _func(func), _cont(&rc) {}
-  TaskStatus operator()() { return _func(*_cont); }
-
- private:
-  ContainerTaskFunc _func;
-  Container<Real> *_cont;
-};
-using TwoContainerTaskFunc =
-    std::function<TaskStatus(Container<Real> &, Container<Real> &)>;
-class TwoContainerTask : public BaseTask {
- public:
-  TwoContainerTask(TaskID id, TwoContainerTaskFunc func, TaskID dep, Container<Real> &rc1,
-                   Container<Real> &rc2)
-      : BaseTask(id, dep), _func(func), _cont1(&rc1), _cont2(&rc2) {}
-  TaskStatus operator()() { return _func(*_cont1, *_cont2); }
-
- private:
-  TwoContainerTaskFunc _func;
-  Container<Real> *_cont1;
-  Container<Real> *_cont2;
 };
 
 } // namespace advection_example

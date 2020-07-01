@@ -32,10 +32,10 @@ class ContainerCollection {
     containers_["base"] = std::make_shared<Container<T>>();
   }
 
-  void Add(const std::string &label, Container<T> &src);
+  void Add(const std::string &label, const std::shared_ptr<Container<T>> &src);
 
-  Container<T> &Get() { return *containers_["base"]; }
-  Container<T> &Get(const std::string &label);
+  std::shared_ptr<Container<T>> &Get() { return containers_["base"]; }
+  std::shared_ptr<Container<T>> &Get(const std::string &label);
 
   void Swap(const std::string &label1, const std::string &label2);
 

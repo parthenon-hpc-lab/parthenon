@@ -11,33 +11,34 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef EXAMPLE_FACE_FIELDS_FACE_FIELDS_EXAMPLE_HPP_
-#define EXAMPLE_FACE_FIELDS_FACE_FIELDS_EXAMPLE_HPP_
+#ifndef TASKS_TASK_TYPES_HPP_
+#define TASKS_TASK_TYPES_HPP_
 
-#include <memory>
+#include <functional>
+#include <string>
+#include <utility>
+#include <vector>
 
-#include "driver/driver.hpp"
-#include "globals.hpp"
-#include "interface/state_descriptor.hpp"
-#include "mesh/mesh.hpp"
+#include "basic_types.hpp"
 
 namespace parthenon {
 
-class FaceFieldExample : public Driver {
+class Task {
  public:
-  FaceFieldExample(ParameterInput *pin, Mesh *pm) : Driver(pin, pm) {
-    InitializeOutputs();
-  }
-  TaskList MakeTaskList(MeshBlock *pmb);
-  DriverStatus Execute();
+  Task(TaskID id, TaskID dep, std::function<TaskStatus()> func)
+      : myid_(id), dep_(dep), func_(func) {}
+  TaskStatus operator()() { return func_(); }
+  TaskID GetID() { return myid_; }
+  TaskID GetDependency() { return dep_; }
+  void SetComplete() { complete_ = true; }
+  bool IsComplete() { return complete_; }
+
+ private:
+  TaskID myid_, dep_;
+  bool lb_time, complete_ = false;
+  std::function<TaskStatus()> func_;
 };
 
 } // namespace parthenon
 
-namespace FaceFields {
-
-parthenon::TaskStatus fill_faces(parthenon::MeshBlock *pmb);
-
-} // namespace FaceFields
-
-#endif // EXAMPLE_FACE_FIELDS_FACE_FIELDS_EXAMPLE_HPP_
+#endif // TASKS_TASK_TYPES_HPP_
