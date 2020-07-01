@@ -67,7 +67,8 @@ if(CODE_COVERAGE)
     COMMAND echo "================ Uploading Code Coverage =================="
     # Upload coverage report
     COMMAND ${CMAKE_SOURCE_DIR}/scripts/combine_coverage.sh ${PATH_LCOV} ${PATH_GCOV} ${COVERAGE_PATH}
-    COMMAND curl -s https://codecov.io/bash\ > ${COVERAGE_PATH}/CombinedCoverage/script.coverage
+    COMMAND curl -s https://codecov.io/bash > ${COVERAGE_PATH}/CombinedCoverage/script.coverage
+    COMMAND cat ${COVERAGE_PATH}/CombinedCoverage/script.coverage
     COMMAND cd ${COVERAGE_PATH}/CombinedCoverage && bash ${COVERAGE_PATH}/CombinedCoverage/script.coverage -p ${CMAKE_BINARY_DIR} -s ${COVERAGE_PATH}/CombinedCoverage
     WORKING_DIRECTORY ${COVERAGE_PATH}
     )
