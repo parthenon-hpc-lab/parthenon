@@ -55,33 +55,6 @@ class PoissonDriver : public IterationDriver {
   Real max_residual;
 };
 
-// demonstrate making a custom Task type
-using ContainerTaskFunc = std::function<TaskStatus(Container<Real> &)>;
-class ContainerTask : public BaseTask {
- public:
-  ContainerTask(TaskID id, ContainerTaskFunc func, TaskID dep, Container<Real> &rc)
-      : BaseTask(id, dep), _func(func), _cont(&rc) {}
-  TaskStatus operator()() { return _func(*_cont); }
-
- private:
-  ContainerTaskFunc _func;
-  Container<Real> *_cont;
-};
-using TwoContainerTaskFunc =
-    std::function<TaskStatus(Container<Real> &, Container<Real> &)>;
-class TwoContainerTask : public BaseTask {
- public:
-  TwoContainerTask(TaskID id, TwoContainerTaskFunc func, TaskID dep, Container<Real> &rc1,
-                   Container<Real> &rc2)
-      : BaseTask(id, dep), _func(func), _cont1(&rc1), _cont2(&rc2) {}
-  TaskStatus operator()() { return _func(*_cont1, *_cont2); }
-
- private:
-  TwoContainerTaskFunc _func;
-  Container<Real> *_cont1;
-  Container<Real> *_cont2;
-};
-
 } // namespace poisson
 
 #endif // EXAMPLE_POISSON_POISSON_DRIVER_HPP_

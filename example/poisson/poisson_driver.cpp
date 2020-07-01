@@ -26,56 +26,45 @@ TaskList PoissonDriver::MakeTaskList(MeshBlock *pmb) {
   using parthenon::BlockTaskFunc;
 
   TaskList tl;
-  auto AddBlockTask = [&tl, pmb, this](BlockTaskFunc func, TaskID dep) {
-    return tl.AddTask<BlockTask>(func, dep, pmb);
-  };
-  auto AddContainerTask = [&tl](ContainerTaskFunc func, TaskID dep, Container<Real> &rc) {
-    return tl.AddTask<ContainerTask>(func, dep, rc);
-  };
-  auto AddTwoContainerTask = [&tl](TwoContainerTaskFunc f, TaskID dep,
-                                   Container<Real> &rc1, Container<Real> &rc2) {
-    return tl.AddTask<TwoContainerTask>(f, dep, rc1, rc2);
-  };
   TaskID none(0);
 
-  Container<Real> &base = pmb->real_containers.Get();
+  auto &base = pmb->real_containers.Get();
   pmb->real_containers.Add("update", base);
-  Container<Real> &update = pmb->real_containers.Get("update");
+  auto &update = pmb->real_containers.Get("update");
 
-  auto start_recv = AddContainerTask(Container<Real>::StartReceivingTask, none, update);
+  auto start_recv = tl.AddTask(Container<Real>::StartReceivingTask, none, update);
 
-  auto smooth = AddTwoContainerTask(Smooth, none, base, update);
+  auto smooth = tl.AddTask(Smooth, none, base, update);
 
   // update ghost cells
-  auto send = AddContainerTask(Container<Real>::SendBoundaryBuffersTask, smooth, update);
-  auto recv = AddContainerTask(Container<Real>::ReceiveBoundaryBuffersTask, send, update);
-  auto fill_from_bufs =
-      AddContainerTask(Container<Real>::SetBoundariesTask, recv, update);
+  auto send = tl.AddTask(Container<Real>::SendBoundaryBuffersTask, smooth, update);
+  auto recv = tl.AddTask(Container<Real>::ReceiveBoundaryBuffersTask, send, update);
+  auto fill_from_bufs = tl.AddTask(Container<Real>::SetBoundariesTask, recv, update);
   auto clear_comm_flags =
-      AddContainerTask(Container<Real>::ClearBoundaryTask, fill_from_bufs, update);
+    tl.AddTask(Container<Real>::ClearBoundaryTask, fill_from_bufs, update);
 
-  auto prolongBound = AddBlockTask(
+  auto prolongBound = tl.AddTask(
       [](MeshBlock *pmb) {
         pmb->pbval->ProlongateBoundaries(0.0, 0.0);
         return TaskStatus::complete;
       },
-      fill_from_bufs);
+      fill_from_bufs, pmb);
 
   // set physical boundaries
   auto set_bc =
-      AddContainerTask(parthenon::ApplyBoundaryConditions, prolongBound, update);
+    tl.AddTask(parthenon::ApplyBoundaryConditions, prolongBound, update);
 
   // fill in derived fields
   auto fill_derived =
-      AddContainerTask(parthenon::FillDerivedVariables::FillDerived, set_bc, update);
+    tl.AddTask(parthenon::FillDerivedVariables::FillDerived, set_bc, update);
 
   // swap containers
-  auto swap = AddBlockTask(
+  auto swap = tl.AddTask(
       [](MeshBlock *pmb) {
         pmb->real_containers.Swap("base", "update");
         return TaskStatus::complete;
       },
-      fill_derived);
+      fill_derived,pmb);
 
   // Update refinement
   if (pmesh->adaptive) {
@@ -84,7 +73,7 @@ TaskList PoissonDriver::MakeTaskList(MeshBlock *pmb) {
           pmb->pmr->CheckRefinementCondition();
           return TaskStatus::complete;
         },
-        swap);
+        swap, pmb);
   }
 
   return tl;
