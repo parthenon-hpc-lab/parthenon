@@ -16,6 +16,7 @@
 
 #include "interface/container.hpp"
 #include "interface/variable.hpp"
+#include "mesh/mesh.hpp"
 #include "parameter_input.hpp"
 #include "refinement/refinement.hpp"
 
@@ -55,7 +56,8 @@ AMRFirstDerivative::AMRFirstDerivative(ParameterInput *pin, std::string &block_n
 
 AmrTag AMRFirstDerivative::operator()(Container<Real> &rc) {
   ParArrayND<Real> q = rc.Get(field).data;
-  return Refinement::FirstDerivative(q, refine_criteria, derefine_criteria);
+  return Refinement::FirstDerivative(rc.pmy_block->exec_space, q, refine_criteria,
+                                     derefine_criteria);
 }
 
 } // namespace parthenon
