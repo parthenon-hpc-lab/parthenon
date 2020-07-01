@@ -22,12 +22,11 @@ using namespace parthenon::driver::prelude;
 
 namespace poisson {
 TaskList PoissonDriver::MakeTaskList(MeshBlock *pmb) {
-  using parthenon::BlockTaskFunc;
   using parthenon::BlockTask;
+  using parthenon::BlockTaskFunc;
 
   TaskList tl;
-  auto AddBlockTask = [&tl, pmb, this](BlockTaskFunc func,
-                                       TaskID dep) {
+  auto AddBlockTask = [&tl, pmb, this](BlockTaskFunc func, TaskID dep) {
     return tl.AddTask<BlockTask>(func, dep, pmb);
   };
   auto AddContainerTask = [&tl](ContainerTaskFunc func, TaskID dep, Container<Real> &rc) {
@@ -48,8 +47,7 @@ TaskList PoissonDriver::MakeTaskList(MeshBlock *pmb) {
   auto smooth = AddTwoContainerTask(Smooth, none, base, update);
 
   // update ghost cells
-  auto send = AddContainerTask(Container<Real>::SendBoundaryBuffersTask, smooth,
-                               update);
+  auto send = AddContainerTask(Container<Real>::SendBoundaryBuffersTask, smooth, update);
   auto recv = AddContainerTask(Container<Real>::ReceiveBoundaryBuffersTask, send, update);
   auto fill_from_bufs =
       AddContainerTask(Container<Real>::SetBoundariesTask, recv, update);
@@ -95,10 +93,9 @@ TaskList PoissonDriver::MakeTaskList(MeshBlock *pmb) {
 void PoissonDriver::OutputCycleDiagnostics() {
   const int precision = std::numeric_limits<Real>::max_digits10 - 1;
   const int ratio_precision = 3;
-  if ((ncycle_out > 0) && (ncycle % ncycle_out == 0)
-      && (parthenon::Globals::my_rank == 0)) {
-    std::cout << "cycle=" << ncycle
-              << std::scientific << std::setprecision(precision)
+  if ((ncycle_out > 0) && (ncycle % ncycle_out == 0) &&
+      (parthenon::Globals::my_rank == 0)) {
+    std::cout << "cycle=" << ncycle << std::scientific << std::setprecision(precision)
               << " reisidual=" << residual;
 
     // insert more diagnostics here

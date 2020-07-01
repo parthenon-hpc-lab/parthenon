@@ -82,7 +82,6 @@ class TwoContainerTask : public BaseTask {
   Container<Real> *_cont2;
 };
 
-
 } // namespace poisson
 
 #endif // EXAMPLE_POISSON_POISSON_DRIVER_HPP_

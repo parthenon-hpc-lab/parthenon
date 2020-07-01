@@ -29,10 +29,10 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddParam<>("K", K);
 
   Real w = pin->GetOrAddReal("poisson", "weight", 1);
-  pkg->AddParam<>("weight",w);
+  pkg->AddParam<>("weight", w);
 
-  int subcycles = pin->GetOrAddInteger("poisson","subcycles",1);
-  pkg->AddParam<>("subcycles",subcycles);
+  int subcycles = pin->GetOrAddInteger("poisson", "subcycles", 1);
+  pkg->AddParam<>("subcycles", subcycles);
 
   std::string field_name = "field";
   Metadata m({Metadata::Cell, Metadata::Independent, Metadata::FillGhost});
@@ -66,11 +66,10 @@ Real GetL1Residual(Container<Real> &rc) {
   Real max;
   Kokkos::parallel_reduce(
       "Poisson Get Residual",
-      Kokkos::MDRangePolicy<Kokkos::Rank<3>>(pmb->exec_space,
-                                             {kb.s, jb.s, ib.s},
-                                             {kb.e+1, jb.e+1, ib.e+1}),
+      Kokkos::MDRangePolicy<Kokkos::Rank<3>>(pmb->exec_space, {kb.s, jb.s, ib.s},
+                                             {kb.e + 1, jb.e + 1, ib.e + 1}),
       KOKKOS_LAMBDA(int k, int j, int i, Real &lmax) {
-        lmax = fmax(fabs(res(k,j,i)),lmax);
+        lmax = fmax(fabs(res(k, j, i)), lmax);
       },
       Kokkos::Max<Real>(max));
   return max;
@@ -104,20 +103,20 @@ void ComputeResidualAndDiagonal(Container<Real> &rc) {
         if (ndim >= 3) {
           ds2 = (dx2 * dy2 * dz2) / (dx2 * dy2 + dx2 * dz2 + dy2 * dz2);
         } else if (ndim >= 2) {
-          ds2 = (dx2*dy2) / (dx2 + dy2);
+          ds2 = (dx2 * dy2) / (dx2 + dy2);
         } else {
           ds2 = dx2;
         }
-        Dinv(k,j,i) = -ds2/2;
-        res(k,j,i) = K * rho(k, j, i);
-        res(k,j,i) -= (phi(k, j, i + 1) + phi(k, j, i - 1) - 2 * phi(k, j, i)) / dx2;
+        Dinv(k, j, i) = -ds2 / 2;
+        res(k, j, i) = K * rho(k, j, i);
+        res(k, j, i) -= (phi(k, j, i + 1) + phi(k, j, i - 1) - 2 * phi(k, j, i)) / dx2;
         if (ndim >= 2) {
-          res(k,j,i) -= (phi(k, j + 1, i) + phi(k, j - 1, i) - 2 * phi(k, j, i)) / dy2;
+          res(k, j, i) -= (phi(k, j + 1, i) + phi(k, j - 1, i) - 2 * phi(k, j, i)) / dy2;
         }
         if (ndim >= 3) {
-          res(k,j,i) -= (phi(k + 1, j, i) + phi(k - 1, j, i) - 2 * phi(k, j, i)) / dz2;
+          res(k, j, i) -= (phi(k + 1, j, i) + phi(k - 1, j, i) - 2 * phi(k, j, i)) / dz2;
         }
-       });
+      });
   return;
 }
 
@@ -138,7 +137,7 @@ TaskStatus Smooth(Container<Real> &rc_in, Container<Real> &rc_out) {
   pmb->par_for(
       "JacobiSmooth", 1, nsub, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
-        out(k,j,i) = in(k,j,i) + w*Dinv(k,j,i)*res(k,j,i);
+        out(k, j, i) = in(k, j, i) + w * Dinv(k, j, i) * res(k, j, i);
       });
   return TaskStatus::complete;
 }
