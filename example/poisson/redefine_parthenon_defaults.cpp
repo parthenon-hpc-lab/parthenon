@@ -28,9 +28,9 @@ Packages_t ParthenonManager::ProcessPackages(std::unique_ptr<ParameterInput> &pi
 }
 
 void MeshBlock::ProblemGenerator(ParameterInput *pin) {
-  Container<Real> &rc = real_containers.Get();
-  auto &phi = rc.Get("field").data;
-  auto &rho = rc.Get("potential").data;
+  auto &rc = real_containers.Get();
+  auto &phi = rc->Get("field").data;
+  auto &rho = rc->Get("potential").data;
 
   auto pkg = packages["poisson_package"];
 

@@ -16,15 +16,12 @@
 #include <limits>
 
 #include "poisson_driver.hpp"
-#include "task_list/tasks.hpp"
 
 using namespace parthenon::driver::prelude;
+using namespace parthenon::package::prelude;
 
 namespace poisson {
 TaskList PoissonDriver::MakeTaskList(MeshBlock *pmb) {
-  using parthenon::BlockTask;
-  using parthenon::BlockTaskFunc;
-
   TaskList tl;
   TaskID none(0);
 
@@ -68,7 +65,7 @@ TaskList PoissonDriver::MakeTaskList(MeshBlock *pmb) {
 
   // Update refinement
   if (pmesh->adaptive) {
-    auto tag_regine = AddBlockTask(
+    auto tag_regine = tl.AddTask(
         [](MeshBlock *pmb) {
           pmb->pmr->CheckRefinementCondition();
           return TaskStatus::complete;

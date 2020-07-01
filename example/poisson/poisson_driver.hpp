@@ -15,13 +15,15 @@
 #define EXAMPLE_POISSON_POISSON_DRIVER_HPP_
 
 #include <parthenon/driver.hpp>
+#include <parthenon/package.hpp>
 
-#include "parameter_input.hpp"
-#include "parthenon_mpi.hpp"
 #include "poisson_package.hpp"
+#include "tasks/task_list.hpp"
 
 namespace poisson {
 using namespace parthenon::driver::prelude;
+using namespace parthenon::package::prelude;
+using parthenon::TaskListStatus;
 
 // TODO(JMM): figure out how to add IterationDriver to the prelude
 class PoissonDriver : public IterationDriver {
@@ -37,7 +39,7 @@ class PoissonDriver : public IterationDriver {
     residual = 0;
     MeshBlock *pmb = pmesh->pblock;
     while (pmb != nullptr) {
-      Container<Real> &rc = pmb->real_containers.Get();
+      auto &rc = pmb->real_containers.Get();
       Real block_residual = GetL1Residual(rc);
       residual = block_residual > residual ? block_residual : residual;
       pmb = pmb->next;

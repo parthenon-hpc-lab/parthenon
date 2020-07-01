@@ -56,12 +56,12 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 }
 
 // TODO(JMM): Refactor to reduced repeated code
-Real GetL1Residual(Container<Real> &rc) {
-  MeshBlock *pmb = rc.pmy_block;
+Real GetL1Residual(std::shared_ptr<Container<Real>> &rc) {
+  MeshBlock *pmb = rc->pmy_block;
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
-  ParArrayND<Real> res = rc.Get("residual").data;
+  ParArrayND<Real> res = rc->Get("residual").data;
 
   Real max;
   Kokkos::parallel_reduce(
@@ -75,8 +75,8 @@ Real GetL1Residual(Container<Real> &rc) {
   return max;
 }
 
-void ComputeResidualAndDiagonal(Container<Real> &rc) {
-  MeshBlock *pmb = rc.pmy_block;
+void ComputeResidualAndDiagonal(std::shared_ptr<Container<Real>> &rc) {
+  MeshBlock *pmb = rc->pmy_block;
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
@@ -84,10 +84,10 @@ void ComputeResidualAndDiagonal(Container<Real> &rc) {
   auto &coords = pmb->coords;
   auto pkg = pmb->packages["poisson_package"];
   int ndim = pmb->pmy_mesh->ndim;
-  ParArrayND<Real> phi = rc.Get("field").data;
-  ParArrayND<Real> rho = rc.Get("potential").data;
-  ParArrayND<Real> res = rc.Get("residual").data;
-  ParArrayND<Real> Dinv = rc.Get("inv_diagonal").data;
+  ParArrayND<Real> phi = rc->Get("field").data;
+  ParArrayND<Real> rho = rc->Get("potential").data;
+  ParArrayND<Real> res = rc->Get("residual").data;
+  ParArrayND<Real> Dinv = rc->Get("inv_diagonal").data;
   Real K = pkg->Param<Real>("K");
 
   pmb->par_for(
@@ -120,17 +120,18 @@ void ComputeResidualAndDiagonal(Container<Real> &rc) {
   return;
 }
 
-TaskStatus Smooth(Container<Real> &rc_in, Container<Real> &rc_out) {
-  MeshBlock *pmb = rc_in.pmy_block;
+TaskStatus Smooth(std::shared_ptr<Container<Real>> &rc_in,
+                  std::shared_ptr<Container<Real>> &rc_out) {
+  MeshBlock *pmb = rc_in->pmy_block;
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
 
   auto pkg = pmb->packages["poisson_package"];
-  ParArrayND<Real> in = rc_in.Get("field").data;
-  ParArrayND<Real> out = rc_out.Get("field").data;
-  ParArrayND<Real> res = rc_in.Get("residual").data;
-  ParArrayND<Real> Dinv = rc_in.Get("inv_diagonal").data;
+  ParArrayND<Real> in = rc_in->Get("field").data;
+  ParArrayND<Real> out = rc_out->Get("field").data;
+  ParArrayND<Real> res = rc_in->Get("residual").data;
+  ParArrayND<Real> Dinv = rc_in->Get("inv_diagonal").data;
   Real w = pkg->Param<Real>("weight");
   int nsub = pkg->Param<int>("subcycles");
 
