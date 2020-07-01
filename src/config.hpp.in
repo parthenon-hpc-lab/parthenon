@@ -55,6 +55,9 @@
 // (enabled by default)
 #define @EXCEPTION_HANDLING_OPTION@
 
+// Use lightweight kernels
+constexpr bool PARTHENON_USE_LIGHTWEIGHT = @PAR_LIGHTWEIGHT@;
+
 // compiler options
 #define COMPILED_WITH "@COMPILER_CHOICE@"
 #define COMPILER_COMMAND "@COMPILER_COMMAND@"

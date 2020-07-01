@@ -167,7 +167,6 @@ void EvolutionDriver::SetGlobalTimeStep() {
 
 void EvolutionDriver::OutputCycleDiagnostics() {
   const int dt_precision = std::numeric_limits<Real>::max_digits10 - 1;
-  const int ratio_precision = 3;
   if (tm.ncycle_out != 0) {
     if (tm.ncycle % tm.ncycle_out == 0) {
       if (Globals::my_rank == 0) {

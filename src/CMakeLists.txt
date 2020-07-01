@@ -33,6 +33,12 @@ else()
   set(HDF5_OPTION NO_HDF5OUTPUT)
 endif()
 
+if (PARTHENON_USE_LIGHTWEIGHT_HINT)
+  set(PAR_LIGHTWEIGHT true)
+else()
+  set(PAR_LIGHTWEIGHT false)
+endif()
+
 if (${Kokkos_ENABLE_CUDA})
   set(PAR_LOOP_LAYOUT "MANUAL1D_LOOP" CACHE STRING
     "Default loop layout for parallel_for wrapper")

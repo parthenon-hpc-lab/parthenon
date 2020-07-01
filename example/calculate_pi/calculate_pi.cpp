@@ -123,9 +123,9 @@ TaskStatus ComputeArea(MeshBlock *pmb) {
   Real area;
   Kokkos::parallel_reduce(
       "calculate_pi compute area",
-      Kokkos::MDRangePolicy<Kokkos::Rank<3>>(pmb->exec_space, {kb.s, jb.s, ib.s},
-                                             {kb.e + 1, jb.e + 1, ib.e + 1},
-                                             {1, 1, ib.e + 1 - ib.s}),
+      parthenon::par_policy(Kokkos::MDRangePolicy<Kokkos::Rank<3>>(
+          pmb->exec_space, {kb.s, jb.s, ib.s}, {kb.e + 1, jb.e + 1, ib.e + 1},
+          {1, 1, ib.e + 1 - ib.s})),
       KOKKOS_LAMBDA(int k, int j, int i, Real &larea) {
         larea += v(k, j, i) * coords.Area(parthenon::X3DIR, k, j, i);
       },

@@ -22,6 +22,7 @@
 
 #include <string>
 
+#include "config.hpp"
 #include <Kokkos_Core.hpp>
 
 namespace parthenon {
@@ -51,6 +52,26 @@ template <typename T>
 using ParArray5D = Kokkos::View<T *****, LayoutWrapper, DevMemSpace>;
 template <typename T>
 using ParArray6D = Kokkos::View<T ******, LayoutWrapper, DevMemSpace>;
+
+template <bool>
+struct UseLightweightKernel {};
+
+template <typename PolicyType>
+auto par_policy(PolicyType const &policy_old, UseLightweightKernel<true>) {
+  auto policy_new = Kokkos::Experimental::require(
+      policy_old, Kokkos::Experimental::WorkItemProperty::HintLightWeight);
+  return policy_new;
+}
+
+template <typename PolicyType>
+auto par_policy(PolicyType const &policy_old, UseLightweightKernel<false>) {
+  return policy_old;
+}
+
+template <typename PolicyType>
+auto par_policy(PolicyType const &policy_old) {
+  return par_policy(policy_old, UseLightweightKernel<PARTHENON_USE_LIGHTWEIGHT>{});
+}
 
 using team_policy = Kokkos::TeamPolicy<>;
 using team_mbr_t = Kokkos::TeamPolicy<>::member_type;
@@ -218,10 +239,7 @@ KOKKOS_INLINE_FUNCTION void par_for_inner(team_mbr_t team_member, const int il,
 template <typename Function>
 inline void par_for(LoopPatternMDRange, const std::string &name, DevExecSpace exec_space,
                     const int &il, const int &iu, const Function &function) {
-  Kokkos::parallel_for(name,
-                       Kokkos::Experimental::require(
-                           Kokkos::RangePolicy<>(exec_space, il, iu + 1),
-                           Kokkos::Experimental::WorkItemProperty::HintLightWeight),
+  Kokkos::parallel_for(name, par_policy(Kokkos::RangePolicy<>(exec_space, il, iu + 1)),
                        function);
 }
 
@@ -230,12 +248,10 @@ template <typename Function>
 inline void par_for(LoopPatternMDRange, const std::string &name, DevExecSpace exec_space,
                     const int &jl, const int &ju, const int &il, const int &iu,
                     const Function &function) {
-  Kokkos::parallel_for(
-      name,
-      Kokkos::Experimental::require(
-          Kokkos::MDRangePolicy<Kokkos::Rank<2>>(exec_space, {jl, il}, {ju + 1, iu + 1}),
-          Kokkos::Experimental::WorkItemProperty::HintLightWeight),
-      function);
+  Kokkos::parallel_for(name,
+                       par_policy(Kokkos::MDRangePolicy<Kokkos::Rank<2>>(
+                           exec_space, {jl, il}, {ju + 1, iu + 1}, {1, iu + 1 - il})),
+                       function);
 }
 
 // 3D loop using Kokkos 1D Range
@@ -250,7 +266,8 @@ inline void par_for(LoopPatternFlatRange, const std::string &name,
   const int NkNjNi = Nk * Nj * Ni;
   const int NjNi = Nj * Ni;
   Kokkos::parallel_for(
-      name, Kokkos::RangePolicy<>(exec_space, 0, NkNjNi), KOKKOS_LAMBDA(const int &idx) {
+      name, par_policy(Kokkos::RangePolicy<>(exec_space, 0, NkNjNi)),
+      KOKKOS_LAMBDA(const int &idx) {
         int k = idx / NjNi;
         int j = (idx - k * NjNi) / Ni;
         int i = idx - k * NjNi - j * Ni;
@@ -266,12 +283,11 @@ template <typename Function>
 inline void par_for(LoopPatternMDRange, const std::string &name, DevExecSpace exec_space,
                     const int &kl, const int &ku, const int &jl, const int &ju,
                     const int &il, const int &iu, const Function &function) {
-  Kokkos::parallel_for(name,
-                       Kokkos::Experimental::require(
-                           Kokkos::MDRangePolicy<Kokkos::Rank<3>>(
-                               exec_space, {kl, jl, il}, {ku + 1, ju + 1, iu + 1}),
-                           Kokkos::Experimental::WorkItemProperty::HintLightWeight),
-                       function);
+  Kokkos::parallel_for(
+      name,
+      par_policy(Kokkos::MDRangePolicy<Kokkos::Rank<3>>(
+          exec_space, {kl, jl, il}, {ku + 1, ju + 1, iu + 1}, {1, 1, iu + 1 - il})),
+      function);
 }
 
 // 3D loop using TeamPolicy with single inner TeamThreadRange
@@ -283,7 +299,7 @@ inline void par_for(LoopPatternTPTTR, const std::string &name, DevExecSpace exec
   const int Nj = ju - jl + 1;
   const int NkNj = Nk * Nj;
   Kokkos::parallel_for(
-      name, team_policy(exec_space, NkNj, Kokkos::AUTO),
+      name, par_policy(team_policy(exec_space, NkNj, Kokkos::AUTO)),
       KOKKOS_LAMBDA(team_mbr_t team_member) {
         const int k = team_member.league_rank() / Nj + kl;
         const int j = team_member.league_rank() % Nj + jl;
@@ -302,7 +318,7 @@ inline void par_for(LoopPatternTPTVR, const std::string &name, DevExecSpace exec
   const int Nj = ju - jl + 1;
   const int NkNj = Nk * Nj;
   Kokkos::parallel_for(
-      name, team_policy(exec_space, NkNj, Kokkos::AUTO),
+      name, par_policy(team_policy(exec_space, NkNj, Kokkos::AUTO)),
       KOKKOS_LAMBDA(team_mbr_t team_member) {
         const int k = team_member.league_rank() / Nj + kl;
         const int j = team_member.league_rank() % Nj + jl;
@@ -318,7 +334,7 @@ inline void par_for(LoopPatternTPTTRTVR, const std::string &name, DevExecSpace e
                     const int &il, const int &iu, const Function &function) {
   const int Nk = ku - kl + 1;
   Kokkos::parallel_for(
-      name, team_policy(exec_space, Nk, Kokkos::AUTO),
+      name, par_policy(team_policy(exec_space, Nk, Kokkos::AUTO)),
       KOKKOS_LAMBDA(team_mbr_t team_member) {
         const int k = team_member.league_rank() + kl;
         Kokkos::parallel_for(
@@ -357,7 +373,7 @@ inline void par_for(LoopPatternFlatRange, const std::string &name,
   const int NkNjNi = Nk * Nj * Ni;
   const int NjNi = Nj * Ni;
   Kokkos::parallel_for(
-      name, Kokkos::RangePolicy<>(exec_space, 0, NnNkNjNi),
+      name, par_policy(Kokkos::RangePolicy<>(exec_space, 0, NnNkNjNi)),
       KOKKOS_LAMBDA(const int &idx) {
         int n = idx / NkNjNi;
         int k = (idx - n * NkNjNi) / NjNi;
@@ -376,13 +392,11 @@ template <typename Function>
 inline void par_for(LoopPatternMDRange, const std::string &name, DevExecSpace exec_space,
                     const int nl, const int nu, const int kl, const int ku, const int jl,
                     const int ju, const int il, const int iu, const Function &function) {
-  Kokkos::parallel_for(
-      name,
-      Kokkos::Experimental::require(
-          Kokkos::MDRangePolicy<Kokkos::Rank<4>>(exec_space, {nl, kl, jl, il},
-                                                 {nu + 1, ku + 1, ju + 1, iu + 1}),
-          Kokkos::Experimental::WorkItemProperty::HintLightWeight),
-      function);
+  Kokkos::parallel_for(name,
+                       par_policy(Kokkos::MDRangePolicy<Kokkos::Rank<4>>(
+                           exec_space, {nl, kl, jl, il}, {nu + 1, ku + 1, ju + 1, iu + 1},
+                           {1, 1, 1, iu + 1 - il})),
+                       function);
 }
 
 // 4D loop using TeamPolicy loop with inner TeamThreadRange
@@ -396,7 +410,7 @@ inline void par_for(LoopPatternTPTTR, const std::string &name, DevExecSpace exec
   const int NkNj = Nk * Nj;
   const int NnNkNj = Nn * Nk * Nj;
   Kokkos::parallel_for(
-      name, team_policy(exec_space, NnNkNj, Kokkos::AUTO),
+      name, par_policy(team_policy(exec_space, NnNkNj, Kokkos::AUTO)),
       KOKKOS_LAMBDA(team_mbr_t team_member) {
         int n = team_member.league_rank() / NkNj;
         int k = (team_member.league_rank() - n * NkNj) / Nj;
@@ -420,7 +434,7 @@ inline void par_for(LoopPatternTPTVR, const std::string &name, DevExecSpace exec
   const int NkNj = Nk * Nj;
   const int NnNkNj = Nn * Nk * Nj;
   Kokkos::parallel_for(
-      name, team_policy(exec_space, NnNkNj, Kokkos::AUTO),
+      name, par_policy(team_policy(exec_space, NnNkNj, Kokkos::AUTO)),
       KOKKOS_LAMBDA(team_mbr_t team_member) {
         int n = team_member.league_rank() / NkNj;
         int k = (team_member.league_rank() - n * NkNj) / Nj;
@@ -441,7 +455,7 @@ inline void par_for(LoopPatternTPTTRTVR, const std::string &name, DevExecSpace e
   const int Nk = ku - kl + 1;
   const int NnNk = Nn * Nk;
   Kokkos::parallel_for(
-      name, team_policy(exec_space, NnNk, Kokkos::AUTO),
+      name, par_policy(team_policy(exec_space, NnNk, Kokkos::AUTO)),
       KOKKOS_LAMBDA(team_mbr_t team_member) {
         int n = team_member.league_rank() / Nk + nl;
         int k = team_member.league_rank() % Nk + kl;
@@ -476,7 +490,7 @@ inline void par_for_outer(OuterLoopPatternTeams, const std::string &name,
                           const Function &function) {
   const int Nk = ku + 1 - kl;
 
-  team_policy policy(exec_space, Nk, Kokkos::AUTO);
+  auto policy = par_policy<team_policy>(team_policy(exec_space, Nk, Kokkos::AUTO));
 
   Kokkos::parallel_for(
       name,
@@ -497,7 +511,7 @@ inline void par_for_outer(OuterLoopPatternTeams, const std::string &name,
   const int Nj = ju + 1 - jl;
   const int NkNj = Nk * Nj;
 
-  team_policy policy(exec_space, NkNj, Kokkos::AUTO);
+  auto policy = par_policy<team_policy>(team_policy(exec_space, NkNj, Kokkos::AUTO));
 
   Kokkos::parallel_for(
       name,
@@ -522,7 +536,7 @@ inline void par_for_outer(OuterLoopPatternTeams, const std::string &name,
   const int NkNj = Nk * Nj;
   const int NnNkNj = Nn * Nk * Nj;
 
-  team_policy policy(exec_space, NnNkNj, Kokkos::AUTO);
+  auto policy = par_policy<team_policy>(team_policy(exec_space, NnNkNj, Kokkos::AUTO));
 
   Kokkos::parallel_for(
       name,

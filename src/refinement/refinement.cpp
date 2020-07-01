@@ -110,8 +110,8 @@ AmrTag FirstDerivative(DevExecSpace exec_space, const ParArrayND<Real> &q,
   Real maxd = 0.0;
   Kokkos::parallel_reduce(
       "refinement first derivative",
-      Kokkos::MDRangePolicy<Kokkos::Rank<3>>(
-          exec_space, {kl, jl, il}, {ku + 1, ju + 1, iu + 1}, {1, 1, iu + 1 - il}),
+      parthenon::par_policy(Kokkos::MDRangePolicy<Kokkos::Rank<3>>(
+          exec_space, {kl, jl, il}, {ku + 1, ju + 1, iu + 1}, {1, 1, iu + 1 - il})),
       KOKKOS_LAMBDA(int k, int j, int i, Real &maxd) {
         Real scale = std::abs(q(k, j, i));
         Real d =

@@ -30,6 +30,7 @@ option(
 stop linting by default. You can still lint using the \"lint\" target"
   ON
 )
+option(PARTHENON_USE_LIGHTWEIGHT_HINT "Use Kokkos lightweight hint" OFF)
 
 option(ENABLE_UNIT_TESTS "Enable unit tests" ${BUILD_TESTING})
 option(ENABLE_INTEGRATION_TESTS "Enable integration tests" ${BUILD_TESTING})

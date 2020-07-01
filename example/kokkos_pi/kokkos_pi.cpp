@@ -118,8 +118,8 @@ static double sumArray(MeshBlock *firstBlock, const int &n_block) {
   // This policy is over one block
   const int n_block2 = n_block * n_block;
   const int n_block3 = n_block * n_block * n_block;
-  auto policyBlock = Kokkos::RangePolicy<>(Kokkos::DefaultExecutionSpace(), 0, n_block3,
-                                           Kokkos::ChunkSize(512));
+  auto policyBlock = parthenon::par_policy(Kokkos::RangePolicy<>(
+      Kokkos::DefaultExecutionSpace(), 0, n_block3, Kokkos::ChunkSize(512)));
   double theSum = 0.0;
   // reduce the sum on the device
   // I'm pretty sure I can do this better, but not worried about performance for this
@@ -224,8 +224,8 @@ result_t naiveKokkos(int n_block, int n_mesh, int n_iter, double radius) {
 
   // first A  naive Kokkos loop over the mesh
   // This policy is over one block
-  auto policyBlock = Kokkos::RangePolicy<>(Kokkos::DefaultExecutionSpace(), 0, n_block3,
-                                           Kokkos::ChunkSize(512));
+  auto policyBlock = parthenon::par_policy(Kokkos::RangePolicy<>(
+      Kokkos::DefaultExecutionSpace(), 0, n_block3, Kokkos::ChunkSize(512)));
 
   MeshBlock *pStart = firstBlock;
   double time_basic = kernel_timer_wrapper(0, n_iter, [&]() {
