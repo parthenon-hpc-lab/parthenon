@@ -191,7 +191,7 @@ if (${ENABLE_UNIT_TESTS} OR ${ENABLE_INTEGRATION_TESTS} OR ${ENABLE_REGRESSION_T
 endif()
 
 # Globally turn on useful intel and/or nvcc compiler output
-if (${KOKKOS_ENABLE_CUDA})
+if (Kokkos_ENABLE_CUDA)
   if(CHECK_REGISTRY_PRESSURE)
     add_compile_options(-Xptxas=-v)
   endif()
