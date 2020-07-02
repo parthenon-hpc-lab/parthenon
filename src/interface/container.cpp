@@ -408,8 +408,6 @@ template <typename T>
 vpack_types::VarList<T> Container<T>::MakeList_(const std::vector<std::string> &names,
                                                 std::vector<std::string> &expanded_names,
                                                 const std::vector<int> sparse_ids) {
-  /*auto subcontainer = Container(*this, names, sparse_ids);
-  auto vars = subcontainer.MakeList_(expanded_names);*/
   vpack_types::VarList<T> vars;
   // for (const auto &name : names) {
   for (auto n = names.rbegin(); n != names.rend(); ++n) {
