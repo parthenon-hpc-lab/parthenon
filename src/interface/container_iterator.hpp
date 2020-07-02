@@ -122,7 +122,7 @@ class ContainerIterator {
 
     // 2: fill in the subset of variables that match mask
     for (auto pv : allVars_) {
-      if (pv->metadata().AnyFlagsSet(flags)) {
+      if (pv->metadata().AllFlagsSet(flags)) {
         vars.push_back(pv);
       }
     }

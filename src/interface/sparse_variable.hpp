@@ -105,13 +105,13 @@ class SparseVariable {
     return s;
   }
 
-  CellVariable<T> &Get(const int index) {
+  std::shared_ptr<CellVariable<T>> &Get(const int index) {
     auto it = varMap_.find(index);
     if (it == varMap_.end()) {
       throw std::invalid_argument("index " + std::to_string(index) +
                                   "does not exist in SparseVariable");
     }
-    return *(it->second);
+    return it->second;
   }
 
   int GetIndex(int id) {
@@ -130,6 +130,7 @@ class SparseVariable {
   // void DeleteVariable(const int var_id);
 
   std::string &label() { return label_; }
+  int size() { return indexMap_.size(); }
 
   void print() { std::cout << "hello from sparse variables print" << std::endl; }
 

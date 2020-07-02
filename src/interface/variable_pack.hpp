@@ -57,7 +57,7 @@ class VariablePack {
     return v_(n)(k, j, i);
   }
   KOKKOS_FORCEINLINE_FUNCTION
-  int GetDim(const int i) {
+  int GetDim(const int i) const {
     assert(i > 0 && i < 5);
     return dims_[i - 1];
   }
@@ -148,7 +148,28 @@ VariableFluxPack<T> MakeFluxPack(const vpack_types::VarList<T> &vars,
   auto host_f3 = f3.GetHostMirror();
   // add variables to host view
   int vindex = 0;
+  int sparse_start;
+  std::string sparse_name = "";
   for (const auto &v : vars) {
+    if (v->IsSet(Metadata::Sparse)) {
+      std::string sparse_trim = v->label();
+      sparse_trim.erase(sparse_trim.find_last_of("_"));
+      if (sparse_name == "") {
+        sparse_name = sparse_trim;
+        sparse_start = vindex;
+      }
+      if (sparse_name != sparse_trim) {
+        vmap->insert(std::pair<std::string, IndexPair>(
+          sparse_name, IndexPair(sparse_start, vindex-1)));
+        sparse_name = sparse_trim;
+        sparse_start = vindex;
+      }
+
+    } else if (!(sparse_name == "")) {
+      vmap->insert(std::pair<std::string, IndexPair>(
+          sparse_name, IndexPair(sparse_start, vindex - 1)));
+      sparse_name = "";
+    }
     int vstart = vindex;
     for (int k = 0; k < v->GetDim(6); k++) {
       for (int j = 0; j < v->GetDim(5); j++) {
@@ -162,9 +183,33 @@ VariableFluxPack<T> MakeFluxPack(const vpack_types::VarList<T> &vars,
           std::pair<std::string, IndexPair>(v->label(), IndexPair(vstart, vindex - 1)));
     }
   }
+  if (!(sparse_name == "")) {
+    vmap->insert(std::pair<std::string, IndexPair>(sparse_name,
+                                                   IndexPair(sparse_start, vindex - 1)));
+  }
   // add fluxes to host view
   vindex = 0;
+  sparse_name = "";
   for (const auto &v : flux_vars) {
+    if (v->IsSet(Metadata::Sparse)) {
+      std::string sparse_trim = v->label();
+      sparse_trim.erase(sparse_trim.find_last_of("_"));
+      if (sparse_name == "") {
+        sparse_name = sparse_trim;
+        sparse_start = vindex;
+      }
+      if (sparse_name != sparse_trim) {
+        vmap->insert(std::pair<std::string, IndexPair>(
+          sparse_name, IndexPair(sparse_start, vindex-1)));
+        sparse_name = sparse_trim;
+        sparse_start = vindex;
+      }
+
+    } else if (!(sparse_name == "")) {
+      vmap->insert(std::pair<std::string, IndexPair>(
+          sparse_name, IndexPair(sparse_start, vindex - 1)));
+      sparse_name = "";
+    }
     int vstart = vindex;
     for (int k = 0; k < v->GetDim(6); k++) {
       for (int j = 0; j < v->GetDim(5); j++) {
@@ -180,6 +225,10 @@ VariableFluxPack<T> MakeFluxPack(const vpack_types::VarList<T> &vars,
       vmap->insert(
           std::pair<std::string, IndexPair>(v->label(), IndexPair(vstart, vindex - 1)));
     }
+  }
+  if (!(sparse_name == "")) {
+    vmap->insert(std::pair<std::string, IndexPair>(sparse_name,
+                                                   IndexPair(sparse_start, vindex - 1)));
   }
   cv.DeepCopy(host_view);
   f1.DeepCopy(host_f1);
@@ -206,11 +255,19 @@ VariablePack<T> MakePack(const vpack_types::VarList<T> &vars,
   std::string sparse_name = "";
   for (const auto v : vars) {
     if (v->IsSet(Metadata::Sparse)) {
+      std::string sparse_trim = v->label();
+      sparse_trim.erase(sparse_trim.find_last_of("_"));
       if (sparse_name == "") {
-        sparse_name = v->label();
-        sparse_name.erase(sparse_name.find_last_of("_"));
+        sparse_name = sparse_trim;
         sparse_start = vindex;
       }
+      if (sparse_name != sparse_trim) {
+        vmap->insert(std::pair<std::string, IndexPair>(
+          sparse_name, IndexPair(sparse_start, vindex-1)));
+        sparse_name = sparse_trim;
+        sparse_start = vindex;
+      }
+
     } else if (!(sparse_name == "")) {
       vmap->insert(std::pair<std::string, IndexPair>(
           sparse_name, IndexPair(sparse_start, vindex - 1)));

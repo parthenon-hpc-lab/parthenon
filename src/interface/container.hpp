@@ -19,7 +19,7 @@
 #include <utility>
 #include <vector>
 
-#include "globals.hpp"
+#include "defs.hpp"
 #include "interface/sparse_variable.hpp"
 #include "interface/variable.hpp"
 #include "interface/variable_pack.hpp"
@@ -68,7 +68,7 @@ class Container {
   ///
   /// @param sparse_id The sparse id
   /// @return New container with slices from all variables
-  Container<T> SparseSlice(int sparse_id);
+  std::shared_ptr<Container<T>> SparseSlice(int sparse_id);
 
   ///
   /// Set the pointer to the mesh block for this container
@@ -183,7 +183,7 @@ class Container {
     return GetSparseVariable(label).GetVector();
   }
 
-  CellVariable<T> &Get(const std::string &label, const int sparse_id) {
+  std::shared_ptr<CellVariable<T>> &Get(const std::string &label, const int sparse_id) {
     return GetSparseVariable(label).Get(sparse_id);
   }
 

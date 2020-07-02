@@ -224,6 +224,11 @@ class Metadata {
                        [this](MetadataFlag const &f) { return IsSet(f); });
   }
 
+  bool AllFlagsSet(std::vector<MetadataFlag> const &flags) const {
+    return std::all_of(flags.begin(), flags.end(),
+                       [this](MetadataFlag const &f) { return IsSet(f); });
+  }
+
   /// returns true if bit is set, false otherwise
   bool IsSet(MetadataFlag bit) const {
     return bit.flag_ < bits_.size() && bits_[bit.flag_];
