@@ -97,14 +97,35 @@ run something equivalent to
 `git fetch origin && git reset --hard origin/$(git branch --show-current)` to update your
 local tracking branch.
 
+### Adding Tests
 
-### Adding Regression Tests
+Five categories of tests have been identified in parthenon, and they are
+located in their respective folders in the tst folder. 
 
-Parthenon uses ctest to control all testing from cmake. A python script is also available 
-for help analysing the results of a given test. As such adding regression tests to 
-cmake consists of two parts. 
+1. Unit testing
+2. Integration testing
+3. Performance testing
+4. Regression testing
+5. Style
 
-#### Creating a regression test
+Parthenon uses ctest to manage the different tests. Cmake labels are attached
+to each test to provide control over which group of tests should be executed.
+Any test added within the tst/unit, tst/integration, tst/performance or
+tst/regression test folders will automatically be associated with the
+appropriate label.
+ 
+When possible a test should be designed to fall into only one of these
+categories. For instance a unit test should not also have a performance
+component. If such a case occurs, it is better to split the test into two
+separate tests, one that tests the performance and one that tests the
+correctness.
+
+#### Adding Regression Tests
+
+A python script is available for help analysing the results of each regression
+test. As such adding regression tests to cmake consists of two parts. 
+
+##### Creating a regression test
 
 Each regression test should have its own folder in /tst/regression/test_suites. Lets assume
 we want to add a test which we will call foo_test. We will begin by adding a folder named
@@ -168,7 +189,7 @@ that are supported you can call `run_test.py -h`
 Note that running more than a single test with `run_test.py` is intentinally not supported, Running
 groups of tests will be handled by ctest. 
 
-#### Integrating the regression test with CMake
+##### Integrating the regression test with CMake
 
 At this point CMake and ctest know nothing about your dandy new regression test. To integrate the
 test with cmake it needs to be added to the CMakeLists.txt file in parthenon/tst/regression. 
@@ -191,7 +212,7 @@ with mpi. The number of mpi processors used is by default set to 4. This default
 by changing the cmake variable NUM_MPI_PROC_TESTING. The number of OpenMP threads is by default set
 to 1 but can be adjusted in the driver input file deck. 
 
-#### Running ctest 
+##### Running ctest 
 
 If the above steps have been executed, the tests will automatically be built anytime the code is
 compiled. The tests can be run by calling ctest directly from the build directory. Individual tests 
@@ -216,6 +237,5 @@ regression    =   1.44 sec*proc (1 test)
 
 Total Test time (real) =   1.47 sec
 ```
-
 
 
