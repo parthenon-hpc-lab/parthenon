@@ -66,9 +66,16 @@ parthenon::DriverStatus PiDriver::Execute() {
   while (pmb != nullptr) {
     auto &rc = pmb->real_containers.Get();
     ParArrayND<Real> v = rc->Get("in_or_out").data;
-    // NOTE: the MeshBlock integrated indicator function, divided
-    // by r0^2, was stashed in v(0,0,0) in ComputeArea.
-    Real block_area = v(0, 0, 0);
+
+    // extract area from device memory
+    Real block_area;
+    Kokkos::deep_copy(pmb->exec_space, block_area, v.Get(0, 0, 0, 0, 0, 0));
+    pmb->exec_space.fence(); // as the deep copy may be async
+
+    const auto &radius = pmb->packages["calculate_pi"]->Param<Real>("radius");
+    // area must be reduced by r^2 to get the block's contribution to PI
+    block_area /= (radius * radius);
+
     area += block_area;
     pmb = pmb->next;
   }

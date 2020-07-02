@@ -75,7 +75,8 @@ void SetInOrOut(std::shared_ptr<Container<Real>> &rc) {
   auto &coords = pmb->coords;
   // Set an indicator function that indicates whether the cell center
   // is inside or outside of the circle we're interating the area of.
-  // see the CheckRefinement routine below for an explanation of the loop bounds
+  // Loop bounds are set to catch the case where the edge is between the
+  // cell centers of the first/last real cell and the first ghost cell
   pmb->par_for(
       "SetInOrOut", kb.s, kb.e, jb.s - 1, jb.e + 1, ib.s - 1, ib.e + 1,
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
@@ -86,37 +87,6 @@ void SetInOrOut(std::shared_ptr<Container<Real>> &rc) {
           v(k, j, i) = 0.0;
         }
       });
-}
-
-AmrTag CheckRefinement(std::shared_ptr<Container<Real>> &rc) {
-  // tag cells for refinement or derefinement
-  // each package can define its own refinement tagging
-  // function and they are all called by parthenon
-  MeshBlock *pmb = rc->pmy_block;
-  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
-  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
-  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
-  ParArrayND<Real> v = rc->Get("in_or_out").data;
-  AmrTag delta_level = AmrTag::derefine;
-  Real vmin = 1.0;
-  Real vmax = 0.0;
-  // loop over all real cells and one layer of ghost cells and refine
-  // if the edge of the circle is found.  The one layer of ghost cells
-  // catches the case where the edge is between the cell centers of
-  // the first/last real cell and the first ghost cell
-  for (int k = kb.s; k <= kb.e; k++) {
-    for (int j = jb.s - 1; j <= jb.e + 1; j++) {
-      for (int i = ib.s - 1; i <= ib.e + 1; i++) {
-        vmin = (v(k, j, i) < vmin ? v(k, j, i) : vmin);
-        vmax = (v(k, j, i) > vmax ? v(k, j, i) : vmax);
-      }
-    }
-  }
-  // was the edge of the circle found?
-  if (vmax > 0.95 && vmin < 0.05) { // then yes
-    delta_level = AmrTag::refine;
-  }
-  return delta_level;
 }
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
@@ -133,7 +103,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   // All the package FillDerived and CheckRefinement functions are called by parthenon
   package->FillDerived = SetInOrOut;
-  // could use this package specific refinement tagging routine (above), but
+  // could use package specific refinement tagging routine (see advection example), but
   // instead this example will make use of the parthenon shipped first derivative
   // criteria, as invoked in the input file
   // package->CheckRefinement = CheckRefinement;
@@ -149,19 +119,19 @@ TaskStatus ComputeArea(MeshBlock *pmb) {
   auto &coords = pmb->coords;
 
   ParArrayND<Real> &v = rc->Get("in_or_out").data;
-  const auto &radius = pmb->packages["calculate_pi"]->Param<Real>("radius");
-  Real area = 0.0;
-  for (int k = kb.s; k <= kb.e; k++) {
-    for (int j = jb.s; j <= jb.e; j++) {
-      for (int i = ib.s; i <= ib.e; i++) {
-        area += v(k, j, i) * coords.Area(parthenon::X3DIR, k, j, i);
-      }
-    }
-  }
-  // std::cout << "area = " << area << std::endl;
-  area /= (radius * radius);
-  // just stash the area somewhere for later
-  v(0, 0, 0) = area;
+
+  Real area;
+  Kokkos::parallel_reduce(
+      "calculate_pi compute area",
+      Kokkos::MDRangePolicy<Kokkos::Rank<3>>(pmb->exec_space, {kb.s, jb.s, ib.s},
+                                             {kb.e + 1, jb.e + 1, ib.e + 1},
+                                             {1, 1, ib.e + 1 - ib.s}),
+      KOKKOS_LAMBDA(int k, int j, int i, Real &larea) {
+        larea += v(k, j, i) * coords.Area(parthenon::X3DIR, k, j, i);
+      },
+      area);
+  Kokkos::deep_copy(pmb->exec_space, v.Get(0, 0, 0, 0, 0, 0), area);
+
   return TaskStatus::complete;
 }
 

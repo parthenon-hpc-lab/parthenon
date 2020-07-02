@@ -24,7 +24,6 @@ using namespace parthenon::package::prelude;
 
 // Package Callbacks
 void SetInOrOut(std::shared_ptr<Container<Real>> &rc);
-parthenon::AmrTag CheckRefinement(std::shared_ptr<Container<Real>> &rc);
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 
 // Task Implementations
