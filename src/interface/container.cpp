@@ -203,7 +203,6 @@ std::shared_ptr<Container<T>> Container<T>::SparseSlice(int id) {
     int index = v->GetIndex(id);
     if (index >= 0) {
       auto &vmat = v->Get(id);
-      // auto sv = std::make_shared<CellVariable<T>>(vmat);
       c->Add(vmat);
     }
   }
@@ -373,6 +372,11 @@ Container<T>::MakeList_(std::vector<std::string> &expanded_names) {
   int size = 0;
   vpack_types::VarList<T> vars;
   // reverse iteration through variables to preserve ordering in forward list
+  for (auto it = varVector_.rbegin(); it != varVector_.rend(); ++it) {
+    auto v = *it;
+    vars.push_front(v);
+    size++;
+  }
   for (auto it = sparseVector_.rbegin(); it != sparseVector_.rend(); ++it) {
     auto sv = *it;
     auto varvector = sv->GetVector();
@@ -381,11 +385,6 @@ Container<T>::MakeList_(std::vector<std::string> &expanded_names) {
       vars.push_front(v);
       size++;
     }
-  }
-  for (auto it = varVector_.rbegin(); it != varVector_.rend(); ++it) {
-    auto v = *it;
-    vars.push_front(v);
-    size++;
   }
   // second sweep to get the expanded names in the same order as the list.
   // Resize is faster than insert or push_back, since it requires
