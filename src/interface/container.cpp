@@ -421,9 +421,15 @@ vpack_types::VarList<T> Container<T>::MakeList_(const std::vector<std::string> &
     }
     auto sit = sparseMap_.find(*n);
     if (sit != sparseMap_.end()) {
-      auto &svec = (sit->second)->GetVector();
-      for (auto s = svec.rbegin(); s != svec.rend(); ++s) {
-        vars.push_front(*s);
+      if (sparse_ids.size() > 0) {
+        for (auto s = sparse_ids.rbegin(); s != sparse_ids.rend(); ++s) {
+          vars.push_front(Get(*n,*s));
+        }
+      } else {
+        auto &svec = (sit->second)->GetVector();
+        for (auto s = svec.rbegin(); s != svec.rend(); ++s) {
+          vars.push_front(*s);
+        }
       }
     }
   }
