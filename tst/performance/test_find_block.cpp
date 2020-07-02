@@ -54,7 +54,7 @@ nx3 = 1
 TEST_CASE("FindMeshBlock performance", "[Mesh][performance]") {
   SECTION("Meshes") {
     GIVEN("Square Mesh") {
-      const int block_length[] = {16, 64, 256, 1024, 4096};
+      const int block_length[] = {16, 64, 128, 256, 512};
 
       for (auto &length : block_length) {
         std::stringstream ss;
@@ -72,7 +72,8 @@ TEST_CASE("FindMeshBlock performance", "[Mesh][performance]") {
 
         std::vector<MeshBlock const *> blocks;
         blocks.resize(nb);
-        BENCHMARK(std::string("Find Last Block ") + std::to_string(length)) {
+        BENCHMARK(std::string("Find Last Block ") + std::to_string(length) + "x" +
+                  std::to_string(length)) {
           // Return just forces the compiler not to optimize it out
           return mesh.FindMeshBlock(nb - 1);
         };
