@@ -23,7 +23,7 @@ namespace calculate_pi {
 using namespace parthenon::package::prelude;
 
 // Package Callbacks
-void SetInOrOut(Container<Real> &rc);
+void SetInOrOut(std::shared_ptr<Container<Real>> &rc);
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 
 // Task Implementations

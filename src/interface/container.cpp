@@ -67,8 +67,7 @@ void Container<T>::Add(const std::string label, const Metadata &metadata,
     // add a sparse variable
     if (sparseMap_.find(label) == sparseMap_.end()) {
       auto sv = std::make_shared<SparseVariable<T>>(label, metadata, arrDims);
-      sparseMap_[label] = sv;
-      sparseVector_.push_back(sv);
+      Add(sv);
     }
     int varIndex = metadata.GetSparseId();
     sparseMap_[label]->Add(varIndex);
@@ -94,12 +93,10 @@ void Container<T>::Add(const std::string label, const Metadata &metadata,
     }
     // add a face variable
     auto pfv = std::make_shared<FaceVariable<T>>(label, arrDims, metadata);
-    faceVector_.push_back(pfv);
-    faceMap_[label] = pfv;
+    Add(pfv);
   } else {
     auto sv = std::make_shared<CellVariable<T>>(label, arrDims, metadata);
-    varVector_.push_back(sv);
-    varMap_[label] = sv;
+    Add(sv);
     if (metadata.IsSet(Metadata::FillGhost)) {
       sv->allocateComms(pmy_block);
     }

@@ -119,9 +119,9 @@ class StateDescriptor {
   const std::map<std::string, Metadata> &AllMetadata() { return metadataMap_; }
 
   std::vector<std::shared_ptr<AMRCriteria>> amr_criteria;
-  void (*FillDerived)(Container<Real> &rc);
-  Real (*EstimateTimestep)(Container<Real> &rc);
-  AmrTag (*CheckRefinement)(Container<Real> &rc);
+  void (*FillDerived)(std::shared_ptr<Container<Real>> &rc);
+  Real (*EstimateTimestep)(std::shared_ptr<Container<Real>> &rc);
+  AmrTag (*CheckRefinement)(std::shared_ptr<Container<Real>> &rc);
 
  private:
   Params params_;

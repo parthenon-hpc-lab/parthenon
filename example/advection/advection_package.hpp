@@ -15,38 +15,18 @@
 
 #include <memory>
 
-#include "basic_types.hpp"
-#include "driver/driver.hpp"
-#include "driver/multistage.hpp"
-#include "interface/container.hpp"
-#include "interface/state_descriptor.hpp"
-#include "mesh/mesh.hpp"
-#include "task_list/tasks.hpp"
-
-using parthenon::AmrTag;
-using parthenon::BaseTask;
-using parthenon::Container;
-using parthenon::Mesh;
-using parthenon::MeshBlock;
-using parthenon::MultiStageBlockTaskDriver;
-using parthenon::Outputs;
-using parthenon::ParameterInput;
-using parthenon::Real;
-using parthenon::SimTime;
-using parthenon::StateDescriptor;
-using parthenon::TaskID;
-using parthenon::TaskList;
-using parthenon::TaskStatus;
+#include <parthenon/package.hpp>
 
 namespace advection_package {
+using namespace parthenon::package::prelude;
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
-AmrTag CheckRefinement(Container<Real> &rc);
-void PreFill(Container<Real> &rc);
-void SquareIt(Container<Real> &rc);
-void PostFill(Container<Real> &rc);
-Real EstimateTimestep(Container<Real> &rc);
-TaskStatus CalculateFluxes(Container<Real> &rc);
+AmrTag CheckRefinement(std::shared_ptr<Container<Real>> &rc);
+void PreFill(std::shared_ptr<Container<Real>> &rc);
+void SquareIt(std::shared_ptr<Container<Real>> &rc);
+void PostFill(std::shared_ptr<Container<Real>> &rc);
+Real EstimateTimestep(std::shared_ptr<Container<Real>> &rc);
+TaskStatus CalculateFluxes(std::shared_ptr<Container<Real>> &rc);
 
 } // namespace advection_package
 
