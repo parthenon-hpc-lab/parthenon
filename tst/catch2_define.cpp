@@ -13,21 +13,17 @@
 
 #define CATCH_CONFIG_RUNNER
 
+#include <Kokkos_Core.hpp>
 #include <catch2/catch.hpp>
 
-#include <Kokkos_Core.hpp>
+#include <parthenon/parthenon.hpp>
 
 int main(int argc, char *argv[]) {
-  // global setup...
-  int result;
-  Kokkos::initialize(argc, argv);
+  parthenon::ParthenonManager pman;
+  pman.ParthenonInit(argc, argv);
 
-  {
-    result = Catch::Session().run(argc, argv);
+  int result = Catch::Session().run(argc, argv);
 
-    // global clean-up...
-  }
-
-  Kokkos::finalize();
+  pman.ParthenonFinalize();
   return result;
 }

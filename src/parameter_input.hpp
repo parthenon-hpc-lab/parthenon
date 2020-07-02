@@ -79,6 +79,19 @@ class ParameterInput {
   // constructor/destructor
   ParameterInput();
   explicit ParameterInput(std::string input_filename);
+
+  // NOTE(@AndrewGaspar): If you'd like a copyable or movable ParamterInput, you need to
+  // take a look at pfirst_block - copying it by value is incorrect. You need to copy the
+  // whole list.
+
+  // ParameterInput is not copyable
+  ParameterInput(ParameterInput const &) = delete;
+  ParameterInput &operator=(ParameterInput const &) = delete;
+
+  // ParameterInput is not movable
+  ParameterInput(ParameterInput &&) = delete;
+  ParameterInput &operator=(ParameterInput &&) = delete;
+
   ~ParameterInput();
 
   // data

@@ -51,7 +51,8 @@ namespace parthenon {
 //----------------------------------------------------------------------------------------
 // Mesh constructor, builds mesh at start of calculation using parameters in input file
 
-Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
+Mesh::Mesh(ParameterInput *pin, Properties_t const &properties,
+           Packages_t const &packages,
            int mesh_test)
     : // public members:
       modified(true),
@@ -484,7 +485,7 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
 //----------------------------------------------------------------------------------------
 // Mesh constructor for restarts. Load the restart file
 #if 0
-Mesh::Mesh(ParameterInput *pin, IOWrapper &resfile, Properties_t &properties,
+Mesh::Mesh(ParameterInput *pin, IOWrapper &resfile, Properties_t const &properties,
            Packages_t &packages, int mesh_test)
     : // public members:
       // aggregate initialization of RegionSize struct:

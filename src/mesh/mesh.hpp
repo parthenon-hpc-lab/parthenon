@@ -82,14 +82,15 @@ class MeshBlock {
   MeshBlock(const int n_side, const int ndim); // for Kokkos testing with ghost
   MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_size,
             BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
-            Properties_t &properties, int igflag, bool ref_flag = false);
-  MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin, Properties_t &properties,
-            Packages_t &packages, LogicalLocation iloc, RegionSize input_block,
-            BoundaryFlag *input_bcs, double icost, char *mbdata, int igflag);
+            Properties_t const &properties, int igflag, bool ref_flag = false);
+  MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
+            Properties_t const &properties, Packages_t const &packages,
+            LogicalLocation iloc, RegionSize input_block, BoundaryFlag *input_bcs,
+            double icost, char *mbdata, int igflag);
 
   MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
             BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
-            Properties_t &properties, Packages_t &packages, int igflag,
+            Properties_t const &properties, Packages_t const &packages, int igflag,
             bool ref_flag = false);
   ~MeshBlock();
 
@@ -303,9 +304,9 @@ class Mesh {
 
  public:
   // 2x function overloads of ctor: normal and restarted simulation
-  Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
+  Mesh(ParameterInput *pin, Properties_t const &properties, Packages_t const &packages,
        int test_flag = 0);
-  Mesh(ParameterInput *pin, IOWrapper &resfile, Properties_t &properties,
+  Mesh(ParameterInput *pin, IOWrapper &resfile, Properties_t const &properties,
        Packages_t &packages, int test_flag = 0);
   ~Mesh();
 
