@@ -19,7 +19,6 @@
 #include <utility>
 #include <vector>
 
-//#include "defs.hpp"
 #include "interface/sparse_variable.hpp"
 #include "interface/variable.hpp"
 #include "interface/variable_pack.hpp"
