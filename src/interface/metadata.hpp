@@ -200,6 +200,7 @@ class Metadata {
     return None;
   }
 
+  void SetSparseId(int id) { sparse_id_ = id; }
   int GetSparseId() const { return sparse_id_; }
 
   const std::vector<int> &Shape() const { return shape_; }

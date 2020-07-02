@@ -70,7 +70,7 @@ void Container<T>::Add(const std::string label, const Metadata &metadata,
       Add(sv);
     }
     int varIndex = metadata.GetSparseId();
-    sparseMap_[label]->Add(varIndex);
+    sparseMap_[label]->Add(varIndex, arrDims);
     if (metadata.IsSet(Metadata::FillGhost)) {
       auto &v = sparseMap_[label]->Get(varIndex);
       v->allocateComms(pmy_block);

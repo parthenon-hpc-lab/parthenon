@@ -74,7 +74,7 @@ class SparseVariable {
   // void AddCopy(const std::string& theLabel, SparseVariable<T>& mv);
 
   /// create a new variable
-  void Add(int sparse_index);
+  void Add(int sparse_index, std::array<int, 6> &dims);
 
   // accessors
   inline CellVariable<T> &operator()(const int m) { return *(varMap_[m]); }
@@ -135,6 +135,7 @@ class SparseVariable {
   void print() { std::cout << "hello from sparse variables print" << std::endl; }
 
   const Metadata &metadata() { return metadata_; }
+  const std::string &getAssociated() { return metadata_.getAssociated(); }
 
  private:
   std::array<int, 6> dims_;
