@@ -146,7 +146,7 @@ Container<T>::Container(const Container<T> &src, const std::vector<std::string> 
     if (!found) {
       std::cerr << "Container: " << name << " not found!" << std::endl;
       for (auto nm : names) {
-      std::cerr << nm << std::endl;
+        std::cerr << nm << std::endl;
       }
       std::exit(1);
     }
@@ -206,7 +206,7 @@ std::shared_ptr<Container<T>> Container<T>::SparseSlice(int id) {
     int index = v->GetIndex(id);
     if (index >= 0) {
       auto &vmat = v->Get(id);
-      //auto sv = std::make_shared<CellVariable<T>>(vmat);
+      // auto sv = std::make_shared<CellVariable<T>>(vmat);
       c->Add(vmat);
     }
   }
@@ -411,12 +411,12 @@ vpack_types::VarList<T> Container<T>::MakeList_(const std::vector<std::string> &
   /*auto subcontainer = Container(*this, names, sparse_ids);
   auto vars = subcontainer.MakeList_(expanded_names);*/
   vpack_types::VarList<T> vars;
-  //for (const auto &name : names) {
+  // for (const auto &name : names) {
   for (auto n = names.rbegin(); n != names.rend(); ++n) {
     auto it = varMap_.find(*n);
     if (it != varMap_.end()) {
       vars.push_front(it->second);
-      //expanded_names.push_back(name);
+      // expanded_names.push_back(name);
       continue;
     }
     auto sit = sparseMap_.find(*n);

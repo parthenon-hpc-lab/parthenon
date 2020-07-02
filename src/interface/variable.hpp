@@ -50,10 +50,10 @@ class CellVariable {
   CellVariable<T>(const std::string label, const std::array<int, 6> dims,
                   const Metadata &metadata)
       : data(label, dims[5], dims[4], dims[3], dims[2], dims[1], dims[0]),
-        mpiStatus(false), m_(metadata), label_(label) { 
-      if (m_.getAssociated() == "") {
-        m_.Associate(label);
-      }
+        mpiStatus(false), m_(metadata), label_(label) {
+    if (m_.getAssociated() == "") {
+      m_.Associate(label);
+    }
   }
 
   // make a new CellVariable based on an existing one

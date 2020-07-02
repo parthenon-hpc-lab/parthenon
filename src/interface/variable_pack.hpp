@@ -38,19 +38,20 @@ using IndexPair = std::pair<int, int>;
 using StringPair = std::pair<std::vector<std::string>, std::vector<std::string>>;
 } // namespace vpack_types
 
-//using PackIndexMap = std::map<std::string, vpack_types::IndexPair>;
+// using PackIndexMap = std::map<std::string, vpack_types::IndexPair>;
 class PackIndexMap {
  public:
   PackIndexMap() = default;
-  vpack_types::IndexPair& operator[](const std::string &key) {
+  vpack_types::IndexPair &operator[](const std::string &key) {
     if (!map_.count(key)) {
-      map_[key] = vpack_types::IndexPair(0,-1);
+      map_[key] = vpack_types::IndexPair(0, -1);
     }
     return map_[key];
   }
   void insert(std::pair<std::string, vpack_types::IndexPair> keyval) {
     map_[keyval.first] = keyval.second;
   }
+
  private:
   std::map<std::string, vpack_types::IndexPair> map_;
 };
@@ -95,8 +96,8 @@ class VariableFluxPack : public VariablePack<T> {
   VariableFluxPack() = default;
   VariableFluxPack(const ViewOfParArrays<T> view, const ViewOfParArrays<T> f0,
                    const ViewOfParArrays<T> f1, const ViewOfParArrays<T> f2,
-                   const ParArrayND<int> sparse_ids,
-                   const std::array<int, 4> dims, const int nflux)
+                   const ParArrayND<int> sparse_ids, const std::array<int, 4> dims,
+                   const int nflux)
       : VariablePack<T>(view, sparse_ids, dims), f_({f0, f1, f2}), nflux_(nflux),
         ndim_((dims[2] > 1 ? 3 : (dims[1] > 1 ? 2 : 1))) {}
 
@@ -187,7 +188,7 @@ VariableFluxPack<T> MakeFluxPack(const vpack_types::VarList<T> &vars,
       }
       if (sparse_name != sparse_trim) {
         vmap->insert(std::pair<std::string, IndexPair>(
-          sparse_name, IndexPair(sparse_start, vindex-1)));
+            sparse_name, IndexPair(sparse_start, vindex - 1)));
         sparse_name = sparse_trim;
         sparse_start = vindex;
       }
@@ -228,7 +229,7 @@ VariableFluxPack<T> MakeFluxPack(const vpack_types::VarList<T> &vars,
       }
       if (sparse_name != sparse_trim) {
         vmap->insert(std::pair<std::string, IndexPair>(
-          sparse_name, IndexPair(sparse_start, vindex-1)));
+            sparse_name, IndexPair(sparse_start, vindex - 1)));
         sparse_name = sparse_trim;
         sparse_start = vindex;
       }
@@ -296,7 +297,7 @@ VariablePack<T> MakePack(const vpack_types::VarList<T> &vars,
       }
       if (sparse_name != sparse_trim) {
         vmap->insert(std::pair<std::string, IndexPair>(
-          sparse_name, IndexPair(sparse_start, vindex-1)));
+            sparse_name, IndexPair(sparse_start, vindex - 1)));
         sparse_name = sparse_trim;
         sparse_start = vindex;
       }

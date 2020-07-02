@@ -78,8 +78,9 @@ inline void fail(std::stringstream const &message, const char *const filename,
 
 KOKKOS_INLINE_FUNCTION
 void warn(const char *const message, const char *const filename, int const linenumber) {
-  printf("### PARTHENON WARNING\n  Message:     %s\n  File:        %s\n  Line number: %i\n",
-         message, filename, linenumber);
+  printf(
+      "### PARTHENON WARNING\n  Message:     %s\n  File:        %s\n  Line number: %i\n",
+      message, filename, linenumber);
 }
 
 inline void warn(std::stringstream const &message, const char *const filename,
