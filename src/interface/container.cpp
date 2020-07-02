@@ -145,9 +145,6 @@ Container<T>::Container(const Container<T> &src, const std::vector<std::string> 
     }
     if (!found) {
       std::cerr << "Container: " << name << " not found!" << std::endl;
-      for (auto nm : names) {
-        std::cerr << nm << std::endl;
-      }
       std::exit(1);
     }
   }
