@@ -30,4 +30,10 @@ TaskStatus CalculateFluxes(std::shared_ptr<Container<Real>> &rc);
 
 } // namespace advection_package
 
+namespace parthenon {
+  void SetFillDerivedFunctions();
+}
+
+void SetFillDerivedFunctions();
+
 #endif // EXAMPLE_ADVECTION_ADVECTION_PACKAGE_HPP_

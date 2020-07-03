@@ -126,7 +126,7 @@ ParthenonStatus ParthenonManager::ParthenonFinalize() {
   return ParthenonStatus::complete;
 }
 
-void __attribute__((weak)) ParthenonManager::SetFillDerivedFunctions() {
+void ParthenonManager::SetFillDerivedFunctionsDefault() {
   FillDerivedVariables::SetFillDerivedFunctions(nullptr, nullptr);
 }
 

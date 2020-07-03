@@ -80,7 +80,7 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
   q.DeepCopy(q_h);
 }
 
-void ParthenonManager::SetFillDerivedFunctions() {
+void SetFillDerivedFunctions() {
   FillDerivedVariables::SetFillDerivedFunctions(advection_package::PreFill,
                                                 advection_package::PostFill);
 }

@@ -14,11 +14,15 @@
 #include "parthenon_manager.hpp"
 
 #include "advection_driver.hpp"
+#include "advection_package.hpp"
 
 int main(int argc, char *argv[]) {
   using parthenon::ParthenonManager;
   using parthenon::ParthenonStatus;
   ParthenonManager pman;
+
+  // Redefine parthenon defaults
+  pman.SetFillDerivedFunctions = &(parthenon::SetFillDerivedFunctions);
 
   // call ParthenonInit to initialize MPI and Kokkos, parse the input deck, and set up
   auto manager_status = pman.ParthenonInit(argc, argv);

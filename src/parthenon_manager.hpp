@@ -30,14 +30,18 @@ enum class ParthenonStatus { ok, complete, error };
 
 class ParthenonManager {
  public:
-  ParthenonManager() = default;
+  ParthenonManager() {
+    SetFillDerivedFunctions = &SetFillDerivedFunctionsDefault;
+  }
   ParthenonStatus ParthenonInit(int argc, char *argv[]);
   ParthenonStatus ParthenonFinalize();
 
   bool Restart() { return (arg.restart_filename == nullptr ? false : true); }
   Properties_t ProcessProperties(std::unique_ptr<ParameterInput> &pin);
   Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin);
-  void SetFillDerivedFunctions();
+  static void SetFillDerivedFunctionsDefault();
+
+  std::function<void()> SetFillDerivedFunctions;
 
   // member data
   std::unique_ptr<ParameterInput> pinput;
