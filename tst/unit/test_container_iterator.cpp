@@ -289,6 +289,15 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
         REQUIRE(std::abs(imap["vsparse_42"].first - imap["vsparse_1"].first) == 1);
         REQUIRE(!intervals_intersect(imap["v3"], imap["vsparse"]));
       }
+      AND_THEN("the association with sparse ids is captured") {
+        PackIndexMap imap;
+        auto v = rc.PackVariables({"v3", "v6", "vsparse"}, imap);
+        REQUIRE(v.GetSparse(imap["v3"].first) == -1);
+        REQUIRE(v.GetSparse(imap["v6"].first) == -1);
+        REQUIRE(v.GetSparse(imap["vsparse"].first) == 1);
+        REQUIRE(v.GetSparse(imap["vsparse"].first+1) == 13);
+        REQUIRE(v.GetSparse(imap["vsparse"].second) == 42);
+      }
     }
 
     WHEN("we add a 2d variable") {
