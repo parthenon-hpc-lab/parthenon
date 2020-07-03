@@ -11,6 +11,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+#include <memory>
+
 #include "bvals/boundary_conditions.hpp"
 
 #include "bvals/bvals_interfaces.hpp"
@@ -20,8 +22,8 @@
 
 namespace parthenon {
 
-TaskStatus ApplyBoundaryConditions(Container<Real> &rc) {
-  MeshBlock *pmb = rc.pmy_block;
+TaskStatus ApplyBoundaryConditions(std::shared_ptr<Container<Real>> &rc) {
+  MeshBlock *pmb = rc->pmy_block;
   const IndexDomain interior = IndexDomain::interior;
   const IndexDomain entire = IndexDomain::entire;
   IndexRange ib = pmb->cellbounds.GetBoundsI(interior);

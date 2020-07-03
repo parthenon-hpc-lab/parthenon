@@ -53,6 +53,7 @@ class Container {
   //-----------------
   /// Constructor
   Container<T>() = default;
+
   // Constructors for getting sub-containers
   // the variables returned are all shallow copies of the src container.
   // Optionally extract only some of the sparse ids of src variable.
@@ -155,7 +156,7 @@ class Container {
   CellVariable<T> &Get(const int index) { return *(varVector_[index]); }
 
   int Index(const std::string &label) {
-    for (int i = 0; i < varVector_.size(); i++) {
+    for (int i = 0; i < (varVector_).size(); i++) {
       if (!varVector_[i]->label().compare(label)) return i;
     }
     return -1;
@@ -275,32 +276,32 @@ class Container {
   void ClearBoundary(BoundaryCommSubset phase);
   void SendFluxCorrection();
   bool ReceiveFluxCorrection();
-  static TaskStatus StartReceivingTask(Container<T> &rc) {
-    rc.StartReceiving(BoundaryCommSubset::all);
+  static TaskStatus StartReceivingTask(std::shared_ptr<Container<T>> rc) {
+    rc->StartReceiving(BoundaryCommSubset::all);
     return TaskStatus::complete;
   }
-  static TaskStatus SendFluxCorrectionTask(Container<T> &rc) {
-    rc.SendFluxCorrection();
+  static TaskStatus SendFluxCorrectionTask(std::shared_ptr<Container<T>> rc) {
+    rc->SendFluxCorrection();
     return TaskStatus::complete;
   }
-  static TaskStatus ReceiveFluxCorrectionTask(Container<T> &rc) {
-    if (!rc.ReceiveFluxCorrection()) return TaskStatus::incomplete;
+  static TaskStatus ReceiveFluxCorrectionTask(std::shared_ptr<Container<T>> rc) {
+    if (!rc->ReceiveFluxCorrection()) return TaskStatus::incomplete;
     return TaskStatus::complete;
   }
-  static TaskStatus SendBoundaryBuffersTask(Container<T> &rc) {
-    rc.SendBoundaryBuffers();
+  static TaskStatus SendBoundaryBuffersTask(std::shared_ptr<Container<T>> rc) {
+    rc->SendBoundaryBuffers();
     return TaskStatus::complete;
   }
-  static TaskStatus ReceiveBoundaryBuffersTask(Container<T> &rc) {
-    if (!rc.ReceiveBoundaryBuffers()) return TaskStatus::incomplete;
+  static TaskStatus ReceiveBoundaryBuffersTask(std::shared_ptr<Container<T>> rc) {
+    if (!rc->ReceiveBoundaryBuffers()) return TaskStatus::incomplete;
     return TaskStatus::complete;
   }
-  static TaskStatus SetBoundariesTask(Container<T> &rc) {
-    rc.SetBoundaries();
+  static TaskStatus SetBoundariesTask(std::shared_ptr<Container<T>> rc) {
+    rc->SetBoundaries();
     return TaskStatus::complete;
   }
-  static TaskStatus ClearBoundaryTask(Container<T> &rc) {
-    rc.ClearBoundary(BoundaryCommSubset::all);
+  static TaskStatus ClearBoundaryTask(std::shared_ptr<Container<T>> rc) {
+    rc->ClearBoundary(BoundaryCommSubset::all);
     return TaskStatus::complete;
   }
 
@@ -333,16 +334,16 @@ class Container {
  private:
   int debug = 0;
 
-  CellVariableVector<T> varVector_ = {}; ///< the saved variable array
-  FaceVector<T> faceVector_ = {};        ///< the saved face arrays
-  SparseVector<T> sparseVector_ = {};
+  CellVariableVector<T> varVector_; ///< the saved variable array
+  FaceVector<T> faceVector_;        ///< the saved face arrays
+  SparseVector<T> sparseVector_;
 
-  MapToCellVars<T> varMap_ = {};
-  MapToFace<T> faceMap_ = {};
-  MapToSparse<T> sparseMap_ = {};
+  MapToCellVars<T> varMap_;
+  MapToFace<T> faceMap_;
+  MapToSparse<T> sparseMap_;
 
-  MapToVariablePack<T> varPackMap_ = {};
-  MapToVariableFluxPack<T> varFluxPackMap_ = {};
+  MapToVariablePack<T> varPackMap_;
+  MapToVariableFluxPack<T> varFluxPackMap_;
 
   void calcArrDims_(std::array<int, 6> &arrDims, const std::vector<int> &dims,
                     const Metadata &metadata);

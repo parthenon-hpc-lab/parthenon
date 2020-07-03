@@ -32,9 +32,10 @@ stop linting by default. You can still lint using the \"lint\" target"
 )
 option(PARTHENON_USE_LIGHTWEIGHT_HINT "Use Kokkos lightweight hint" OFF)
 
-option(ENABLE_UNIT_TESTS "Enable unit tests" ${BUILD_TESTING})
-option(ENABLE_INTEGRATION_TESTS "Enable integration tests" ${BUILD_TESTING})
-option(ENABLE_REGRESSION_TESTS "Enable regression tests" ${BUILD_TESTING})
+option(PARTHENON_ENABLE_UNIT_TESTS "Enable unit tests" ${BUILD_TESTING})
+option(PARTHENON_ENABLE_INTEGRATION_TESTS "Enable integration tests" ${BUILD_TESTING})
+option(PARTHENON_ENABLE_PERFORMANCE_TESTS "Enable performance tests" ${BUILD_TESTING})
+option(PARTHENON_ENABLE_REGRESSION_TESTS "Enable regression tests" ${BUILD_TESTING})
 option(ENABLE_COMPILER_WARNINGS "Enable compiler warnings" OFF)
 option(CHECK_REGISTRY_PRESSURE "Check the registry pressure for Kokkos CUDA kernels" OFF)
 option(TEST_INTEL_OPTIMIZATION "Test intel optimization and vectorization" OFF)
@@ -169,7 +170,8 @@ else()
 endif()
 
 # Build Tests and download Catch2
-if (${ENABLE_UNIT_TESTS} OR ${ENABLE_INTEGRATION_TESTS} OR ${ENABLE_REGRESSION_TESTS})
+if (${PARTHENON_ENABLE_UNIT_TESTS} OR ${PARTHENON_ENABLE_INTEGRATION_TESTS} OR ${PARTHENON_ENABLE_REGRESSION_TESTS} OR ${PARTHENON_ENABLE_PERFORMANCE_TESTS})
+
   # Try finding an installed Catch2 first
   find_package(Catch2 2.11.1 QUIET)
 

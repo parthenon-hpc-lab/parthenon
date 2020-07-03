@@ -24,8 +24,6 @@
 // Preludes
 using namespace parthenon::package::prelude;
 
-using parthenon::BlockTaskFunc;
-
 using pi::PiDriver;
 
 int main(int argc, char *argv[]) {
@@ -66,8 +64,8 @@ parthenon::DriverStatus PiDriver::Execute() {
   Real area = 0.0;
   MeshBlock *pmb = pmesh->pblock;
   while (pmb != nullptr) {
-    Container<Real> &rc = pmb->real_containers.Get();
-    ParArrayND<Real> v = rc.Get("in_or_out").data;
+    auto &rc = pmb->real_containers.Get();
+    ParArrayND<Real> v = rc->Get("in_or_out").data;
 
     // extract area from device memory
     Real block_area;
@@ -114,13 +112,8 @@ parthenon::TaskList PiDriver::MakeTaskList(MeshBlock *pmb) {
   using calculate_pi::ComputeArea;
   TaskList tl;
 
-  // make some lambdas that over overkill here but clean things up for more realistic code
-  auto AddBlockTask = [pmb, &tl](BlockTaskFunc func, TaskID dependencies) {
-    return tl.AddTask<BlockTask>(func, dependencies, pmb);
-  };
-
   TaskID none(0);
-  auto get_area = AddBlockTask(ComputeArea, none);
+  auto get_area = tl.AddTask(ComputeArea, none, pmb);
 
   // could add more tasks like:
   // auto next_task = tl.AddTask(FuncPtr, get_area, pmb);
