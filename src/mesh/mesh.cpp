@@ -49,6 +49,68 @@
 
 namespace parthenon {
 
+void CheckThreadAndStreamConfig(int num_threads, int num_streams) {
+  std::stringstream msg;
+  // check number of OpenMP threads for mesh
+  if (num_threads < 1) {
+    msg << "### FATAL ERROR in Mesh constructor" << std::endl
+        << "Number of OpenMP threads must be >= 1, but num_threads=" << num_threads
+        << std::endl;
+    PARTHENON_FAIL(msg);
+  }
+
+#ifndef KOKKOS_ENABLE_OPENMP
+  if ((num_threads > 1) && (Globals::my_rank == 0)) {
+    std::cout << "### WARNING requesting to run with " << num_threads
+              << " host threads, but OpenMP backend is disabled." << std::endl
+              << " Consider setting Kokkos_ENABLE_OPENMP=True." << std::endl
+              << " The simulation will continue but only use a single thread."
+              << std::endl;
+  }
+#else
+  if ((num_threads > 1) &&
+#if _OPENMP >= 201511
+      (omp_get_max_active_levels() <= 1)) {
+#else
+      (!omp_get_nested())) {
+#endif // _OPENMP
+    if (Globals::my_rank == 0) {
+      std::cout << "### WARNING requesting to run with " << num_threads
+                << " host threads, but OpenMP nested parallelism is not active."
+                << std::endl
+                << " Consider setting "
+                <<
+#if _OPENMP >= 201511
+          "OMP_MAX_ACTIVE_LEVELS=2"
+#else
+          "OPENMP_NESTED=TRUE"
+#endif // _OPENMP
+
+                << "." << std::endl
+                << " The simulation will continue but only use a single thread."
+                << std::endl;
+    }
+  }
+#endif // KOKKOS_ENABLE_OPENMP
+
+  // the following two error checks in combination with the driver task list logic
+  // in driver.hpp are a workaround to make scratch pad allocation work in a
+  // multi host thread environment
+  if (num_threads > num_streams) {
+    msg << "### FATAL ERROR in Mesh constructor" << std::endl
+        << "Number of threads (" << num_threads << ") must be <= num_streams ("
+        << num_streams << ")" << std::endl;
+    PARTHENON_FAIL(msg);
+  }
+
+  if (num_streams % num_threads != 0) {
+    msg << "### FATAL ERROR in Mesh constructor" << std::endl
+        << "Number of streams (" << num_streams << ") must be a multiple of num_threads ("
+        << num_threads << ")" << std::endl;
+    PARTHENON_FAIL(msg);
+  }
+}
+
 //----------------------------------------------------------------------------------------
 // Mesh constructor, builds mesh at start of calculation using parameters in input file
 
@@ -111,90 +173,7 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
   ReserveMeshBlockPhysIDs();
 #endif
 
-  // check number of OpenMP threads for mesh
-  if (num_mesh_threads_ < 1) {
-    msg << "### FATAL ERROR in Mesh constructor" << std::endl
-        << "Number of OpenMP threads must be >= 1, but num_threads=" << num_mesh_threads_
-        << std::endl;
-    PARTHENON_FAIL(msg);
-  }
-
-#ifndef KOKKOS_ENABLE_OPENMP
-  if ((num_mesh_threads_ > 1) && (Globals::my_rank == 0)) {
-    std::cout << "### WARNING requesting to run with " << num_mesh_threads_
-              << " host threads, but OpenMP backend is disabled." << std::endl
-              << " Consider setting Kokkos_ENABLE_OPENMP=True." << std::endl
-              << " The simulation will continue but only use a single thread."
-              << std::endl;
-  }
-#else
-  if ((num_mesh_threads_ > 1) &&
-#if _OPENMP >= 201511
-      (omp_get_max_active_levels() <= 1)) {
-#else
-      (!omp_get_nested())) {
-#endif // _OPENMP
-    if (Globals::my_rank == 0) {
-      std::cout << "### WARNING requesting to run with " << num_mesh_threads_
-                << " host threads, but OpenMP nested parallelism is not active."
-                << std::endl
-                << " Consider setting OPENMP_NESTED=TRUE." << std::endl
-                << " The simulation will continue but only use a single thread."
-                << std::endl;
-    }
-  }
-#endif // KOKKOS_ENABLE_OPENMP
-
-  if (num_mesh_streams_ < 1) {
-    msg << "### FATAL ERROR in Mesh constructor" << std::endl
-        << "Number of Stream must be >= 1, but num_streams=" << num_mesh_streams_
-        << std::endl;
-    PARTHENON_FAIL(msg);
-  }
-
-#ifndef KOKKOS_ENABLE_OPENMP
-  if ((num_mesh_threads_ > 1) && (Globals::my_rank == 0)) {
-    std::cout << "### WARNING requesting to run with " << num_mesh_threads_
-              << " host threads, but OpenMP backend is disabled." << std::endl
-              << " Consider setting Kokkos_ENABLE_OPENMP=True." << std::endl
-              << " The simulation will continue but only use a single thread."
-              << std::endl;
-  }
-#else
-  if ((num_mesh_threads_ > 1) &&
-#if _OPENMP >= 201511
-      (omp_get_max_active_levels() <= 1)) {
-#else
-      (!omp_get_nested())) {
-#endif // _OPENMP
-    if (Globals::my_rank == 0) {
-      std::cout << "### WARNING requesting to run with " << num_mesh_threads_
-                << " host threads, but OpenMP nested parallelism is not active."
-                << std::endl
-                << " Consider setting OPENMP_NESTED=TRUE." << std::endl
-                << " The simulation will continue but only use a single thread."
-                << std::endl;
-    }
-  }
-#endif // KOKKOS_ENABLE_OPENMP
-
-  // the following two error checks in combination with the driver task list logic
-  // in driver.hpp are a workaround to make scratch pad allocation work in a
-  // multi host thread environment
-  if (num_mesh_threads_ > num_mesh_streams_) {
-    msg << "### FATAL ERROR in Mesh constructor" << std::endl
-        << "Number of threads (" << num_mesh_threads_ << ") must be <= num_streams ("
-        << num_mesh_streams_ << ")" << std::endl;
-    PARTHENON_FAIL(msg);
-  }
-
-  if (num_mesh_streams_ % num_mesh_threads_ != 0) {
-    msg << "### FATAL ERROR in Mesh constructor" << std::endl
-        << "Number of streams (" << num_mesh_streams_
-        << ") must be a multiple of num_threads (" << num_mesh_threads_ << ")"
-        << std::endl;
-    PARTHENON_FAIL(msg);
-  }
+  CheckThreadAndStreamConfig(num_mesh_threads_, num_mesh_streams_);
 
   if (num_mesh_streams_ > 1) {
     for (auto n = 0; n < num_mesh_streams_; n++) {
@@ -638,38 +617,7 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper &resfile, Properties_t &properties,
   ReserveMeshBlockPhysIDs();
 #endif
 
-  // check the number of OpenMP threads for mesh
-  if (num_mesh_threads_ < 1) {
-    msg << "### FATAL ERROR in Mesh constructor" << std::endl
-        << "Number of OpenMP threads must be >= 1, but num_threads=" << num_mesh_threads_
-        << std::endl;
-    PARTHENON_FAIL(msg);
-  }
-
-  if (num_mesh_streams_ < 1) {
-    msg << "### FATAL ERROR in Mesh constructor" << std::endl
-        << "Number of Stream must be >= 1, but num_streams=" << num_mesh_streams_
-        << std::endl;
-    PARTHENON_FAIL(msg);
-  }
-
-  // the following two error checks in combination with the driver task list logic
-  // in driver.hpp are a workaround to make scratch pad allocation work in a
-  // multi host thread environment
-  if (num_mesh_threads_ > num_mesh_streams_) {
-    msg << "### FATAL ERROR in Mesh constructor" << std::endl
-        << "Number of threads (" << num_mesh_threads_ << ") must be <= num_streams ("
-        << num_mesh_streams_ << ")" << std::endl;
-    PARTHENON_FAIL(msg);
-  }
-
-  if (num_mesh_streams_ % num_mesh_threads_ != 0) {
-    msg << "### FATAL ERROR in Mesh constructor" << std::endl
-        << "Number of streams (" << num_mesh_streams_
-        << ") must be a multiple of num_threads (" << num_mesh_threads_ << ")"
-        << std::endl;
-    PARTHENON_FAIL(msg);
-  }
+  CheckThreadAndStreamConfig(num_mesh_threads_, num_mesh_streams_);
 
   if(num_mesh_streams_> 1) {
   for (auto n = 0; n < num_mesh_streams_; n++) {
