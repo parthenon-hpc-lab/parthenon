@@ -295,7 +295,7 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
         REQUIRE(v.GetSparse(imap["v3"].first) == -1);
         REQUIRE(v.GetSparse(imap["v6"].first) == -1);
         REQUIRE(v.GetSparse(imap["vsparse"].first) == 1);
-        REQUIRE(v.GetSparse(imap["vsparse"].first+1) == 13);
+        REQUIRE(v.GetSparse(imap["vsparse"].first + 1) == 13);
         REQUIRE(v.GetSparse(imap["vsparse"].second) == 42);
       }
     }
