@@ -48,9 +48,10 @@ Examples can be found in the [advection example](../example/advection/advection_
 +  typename Kokkos::MinMax<Real>::value_type minmax;
 +  Kokkos::parallel_reduce(
 +      "advection check refinement",
-+      Kokkos::MDRangePolicy<Kokkos::Rank<3>>(pmb->exec_space, {kb.s, jb.s, ib.s},
++      par_policy(Kokkos::MDRangePolicy<Kokkos::Rank<3>>(pmb->exec_space, 
++                                             {kb.s, jb.s, ib.s},
 +                                             {kb.e + 1, jb.e + 1, ib.e + 1},
-+                                             {1, 1, ib.e + 1 - ib.s}),
++                                             {1, 1, ib.e + 1 - ib.s})),
 +      KOKKOS_LAMBDA(int k, int j, int i,
 +                    typename Kokkos::MinMax<Real>::value_type &lminmax) {
 +        lminmax.min_val = (v(k, j, i) < lminmax.min_val ? v(k, j, i) : lminmax.min_val);
@@ -58,8 +59,11 @@ Examples can be found in the [advection example](../example/advection/advection_
 +      },
 +      Kokkos::MinMax<Real>(minmax));
 ```
-(note the explicit use of `pmb->exec_space` to use to execution space associated with the `MeshBlock`)
-or in the [buffer packing]() functions
+(note the explicit use of `pmb->exec_space` to use to execution space associated with the `MeshBlock`).
+Also note note the `par_policy` function, which is used to control the default behavior of how
+Kokkos launches kernels, see following section.
+
+Another example are the [buffer packing]() functions
 ```diff
 -void PackData(ParArrayND<T> &src, T *buf, int sn, int en, int si, int ei, int sj, int ej,
 -              int sk, int ek, int &offset) {
@@ -90,7 +94,20 @@ or in the [buffer packing]() functions
 ```
 Note the explicit calculation of the offset within the kernel and the explicit increment of the offset by the full extent after the kernel.
 
+### Kernel launch abstraction
 
+In addition to the wrappers to `parallel_for` regions, `Parthenon` also defines a `par_policy` function that
+takes an execution policy as argument and an optional argument of `UseLightweightKernel<bool>`.
+This controls whether Kokkos decorates the Kernel launch with a "lightweight" property.
+Roughly speaking
+
+- without that property (default) kernel launches are effectively blocking as Kokkos optimizes
+the kernels
+- with the property set to true, kernels are not optimized so that the calls are asynchronous,
+which may allow for overlapping kernel execution on a device.
+
+The default behavior for the `par_for` abstractions in Parthenon is controlled through the
+`PARTHENON_USE_LIGHTWEIGHT_HINT` cmake option (default `OFF`).
 
 ### FAQ
 

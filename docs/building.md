@@ -41,5 +41,6 @@ ctest -L performance
    |   ENABLE\_INTEGRATION\_TESTS | ${BUILD\_TESTING} | Option | Enable integration tests |
    |    ENABLE\_REGRESSION\_TESTS | ${BUILD\_TESTING} | Option | Enable regression tests |
    |          ENABLE\_UNIT\_TESTS | ${BUILD\_TESTING} | Option | Enable unit tests |
+   |PARTHENON\_USE\_LIGHTWEIGHT\_HINT | OFF | Option | Decorate default parallel region wrappers to be lightweight kernels |
 
 ### NB: CMake options prefixed with *PARTHENON\_* modify behavior.
