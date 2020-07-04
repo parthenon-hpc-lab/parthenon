@@ -19,7 +19,7 @@
 
 #include <catch2/catch.hpp>
 
-#include "task_list/tasks.hpp"
+#include "tasks/task_id.hpp"
 
 using parthenon::TaskID;
 
