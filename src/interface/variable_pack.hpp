@@ -80,7 +80,7 @@ class VariablePack {
   }
   KOKKOS_FORCEINLINE_FUNCTION
   int GetSparse(const int n) const {
-    assert(n < dims_[4]);
+    assert(n < dims_[3]);
     return sparse_ids_(n);
   }
 
