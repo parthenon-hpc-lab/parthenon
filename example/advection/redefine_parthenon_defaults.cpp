@@ -16,6 +16,7 @@
 
 #include <parthenon/package.hpp>
 
+#include "advection_driver.hpp"
 #include "advection_package.hpp"
 #include "config.hpp"
 #include "utils/error_checking.hpp"
@@ -27,13 +28,6 @@ using namespace parthenon::package::prelude;
 // *************************************************//
 
 namespace parthenon {
-
-Packages_t ParthenonManager::ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
-  Packages_t packages;
-  auto pkg = advection_package::Initialize(pin.get());
-  packages[pkg->label()] = pkg;
-  return packages;
-}
 
 void MeshBlock::ProblemGenerator(ParameterInput *pin) {
   auto &rc = real_containers.Get();
@@ -78,11 +72,6 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
     }
   }
   q.DeepCopy(q_h);
-}
-
-void SetFillDerivedFunctions() {
-  FillDerivedVariables::SetFillDerivedFunctions(advection_package::PreFill,
-                                                advection_package::PostFill);
 }
 
 //========================================================================================
@@ -212,3 +201,12 @@ void Mesh::UserWorkAfterLoop(ParameterInput *pin, SimTime &tm) {
 }
 
 } // namespace parthenon
+
+namespace advection_example {
+
+void SetFillDerivedFunctions() {
+  parthenon::FillDerivedVariables::SetFillDerivedFunctions(advection_package::PreFill,
+                                                advection_package::PostFill);
+}
+
+} // namespace advection_example

@@ -32,6 +32,8 @@ class AdvectionDriver : public MultiStageBlockTaskDriver {
   TaskList MakeTaskList(MeshBlock *pmb, int stage);
 };
 
+void SetFillDerivedFunctions();
+
 } // namespace advection_example
 
 #endif // EXAMPLE_ADVECTION_ADVECTION_DRIVER_HPP_
