@@ -17,12 +17,9 @@
 #include <map>
 #include <memory>
 #include <string>
-#include <vector>
-
-#ifndef NDEBUG
 #include <typeindex>
 #include <typeinfo>
-#endif // NDEBUG
+#include <vector>
 
 #include "utils/error_checking.hpp"
 
@@ -60,8 +57,6 @@ class Params {
     PARTHENON_REQUIRE(it != myParams_.end(), ("Key " + key + " doesn't exist").c_str());
     typeCheck<T>(key);
     auto typed_ptr = dynamic_cast<Params::object_t<T> *>((it->second).get());
-    if (typed_ptr == nullptr)
-      throw std::invalid_argument("Cannot cast Params[" + key + "] to requested type");
     return *typed_ptr->pValue;
   }
 
@@ -97,11 +92,9 @@ class Params {
   template <typename T>
   void typeCheck(const std::string key) {
     // check on return type
-#ifndef NDEBUG
     bool badtype = myTypes_[key].compare(std::string(typeid(T).name()));
     std::string message = "WRONG TYPE FOR KEY '" + key + "'";
     PARTHENON_REQUIRE(!badtype, message.c_str());
-#endif // NDEBUG
   }
 
   std::map<std::string, std::unique_ptr<Params::base_t>> myParams_;

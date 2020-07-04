@@ -34,10 +34,6 @@ TEST_CASE("Add and Get is called", "[Add,Get]") {
     WHEN("the same key is provided a second time") {
       REQUIRE_THROWS_AS(params.Add(key, value), std::invalid_argument);
     }
-
-    WHEN("attempting to get the key but casting to a different type") {
-      REQUIRE_THROWS_AS(params.Get<int>(key), std::invalid_argument);
-    }
   }
 }
 
