@@ -72,10 +72,13 @@ class TestManager:
 
         driver_path = os.path.abspath(parthenon_driver[0])
         driver_input_path = os.path.abspath(parthenon_driver_input[0])
-        if 'output_dir' in list(kwargs.keys()):
-            output_path = os.path.abspath(kwargs.pop("output_dir"))
+
+        output_path = kwargs.pop('output_dir')
+        if output_path == "":
+            output_path = os.path.abspath(test_path + "/output")
         else:
-            output_path = test_path + "/output"
+            output_path = os.path.abspath(output_path)
+
         self.__test_module = 'test_suites.' + test_base_name + '.' + test_base_name
 
         test_module = 'test_suites.' + test_base_name + '.' + test_base_name
