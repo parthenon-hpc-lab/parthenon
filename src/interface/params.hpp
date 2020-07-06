@@ -39,9 +39,7 @@ class Params {
   /// Throws an error if the key is already in use
   template <typename T>
   void Add(const std::string &key, T value) {
-    if (hasKey(key)) {
-      throw std::invalid_argument("Key value pair already exists, cannot add key.");
-    }
+    PARTHENON_REQUIRE_THROWS(!(hasKey(key)), "Key " + key + "already exists");
     myParams_[key] = std::unique_ptr<Params::base_t>(new object_t<T>(value));
     myTypes_[key] = std::string(typeid(value).name());
   }
@@ -54,8 +52,9 @@ class Params {
   template <typename T>
   const T &Get(const std::string key) {
     auto it = myParams_.find(key);
-    PARTHENON_REQUIRE(it != myParams_.end(), ("Key " + key + " doesn't exist").c_str());
-    typeCheck<T>(key);
+    PARTHENON_REQUIRE_THROWS(it != myParams_.end(), "Key " + key + " doesn't exist");
+    PARTHENON_REQUIRE_THROWS(!(myTypes_[key].compare(std::string(typeid(T).name()))),
+                             "WRONG TYPE FOR KEY '" + key + "'");
     auto typed_ptr = dynamic_cast<Params::object_t<T> *>((it->second).get());
     return *typed_ptr->pValue;
   }
@@ -88,14 +87,6 @@ class Params {
     ~object_t() = default;
     const void *address() { return reinterpret_cast<void *>(pValue.get()); }
   };
-
-  template <typename T>
-  void typeCheck(const std::string key) {
-    // check on return type
-    bool badtype = myTypes_[key].compare(std::string(typeid(T).name()));
-    std::string message = "WRONG TYPE FOR KEY '" + key + "'";
-    PARTHENON_REQUIRE(!badtype, message.c_str());
-  }
 
   std::map<std::string, std::unique_ptr<Params::base_t>> myParams_;
   std::map<std::string, std::string> myTypes_;

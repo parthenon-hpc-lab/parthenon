@@ -20,6 +20,8 @@
 //  \brief utility macros for error checking
 
 #include <iostream>
+#include <stdexcept>
+#include <string>
 
 #include <Kokkos_Core.hpp>
 
@@ -28,8 +30,16 @@
     parthenon::ErrorChecking::require(#condition, message, __FILE__, __LINE__);          \
   }
 
+#define PARTHENON_REQUIRE_THROWS(condition, message)                                     \
+  if (!(condition)) {                                                                    \
+    parthenon::ErrorChecking::require_throws(#condition, message, __FILE__, __LINE__);   \
+  }
+
 #define PARTHENON_FAIL(message)                                                          \
   parthenon::ErrorChecking::fail(message, __FILE__, __LINE__);
+
+#define PARTHENON_THROW(message)                                                         \
+  parthenon::ErrorChecking::fail_throws(message, __FILE__, __LINE__);
 
 #ifdef NDEBUG
 #define PARTHENON_DEBUG_REQUIRE(condition, message) ((void)0)
@@ -38,9 +48,22 @@
 #endif
 
 #ifdef NDEBUG
+#define PARTHENON_DEBUG_REQUIRE_THROWS(condition, message) ((void)0)
+#else
+#define PARTHENON_DEBUG_REQUIRE_THROWS(condition, message)                               \
+  PARTHENON_REQUIRE_THROWS(condition, message)
+#endif
+
+#ifdef NDEBUG
 #define PARTHENON_DEBUG_FAIL(message) ((void)0)
 #else
 #define PARTHENON_DEBUG_FAIL(message) PARTHENON_FAIL(message)
+#endif
+
+#ifdef NDEBUG
+#define PARTHENON_DEBUG_THROW(message) ((void)0)
+#else
+#define PARTHENON_DEBUG_THROW(message) PARTHENON_THROW(message)
 #endif
 
 namespace parthenon {
@@ -55,6 +78,37 @@ void require(const char *const condition, const char *const message,
   Kokkos::abort(message);
 }
 
+inline void require(const char *const condition, std::string const &message,
+                    const char *const filename, int const linenumber) {
+  require(condition, message.c_str(), filename, linenumber);
+}
+
+inline void require(const char *const condition, std::stringstream const &message,
+                    const char *const filename, int const linenumber) {
+  require(condition, message.str().c_str(), filename, linenumber);
+}
+
+// TODO(JMM): should we define our own parthenon error class? Or is
+// std::runtime_error good enough?
+inline void require_throws(const char *const condition, const char *const message,
+                           const char *const filename, int const linenumber) {
+  std::stringstream msg;
+  msg << "### PARTHENON ERROR\n  Condition:   " << condition
+      << "\n  Message:     " << message << "\n  File:        " << filename
+      << "\n  Line number: " << linenumber << std::endl;
+  throw std::runtime_error(msg.str().c_str());
+}
+
+inline void require_throws(const char *const condition, std::string const &message,
+                           const char *const filename, int const linenumber) {
+  require_throws(condition, message.c_str(), filename, linenumber);
+}
+
+inline void require_throws(const char *const condition, std::stringstream const &message,
+                           const char *const filename, int const linenumber) {
+  require_throws(condition, message.str().c_str(), filename, linenumber);
+}
+
 KOKKOS_INLINE_FUNCTION
 void fail(const char *const message, const char *const filename, int const linenumber) {
   printf("### PARTHENON ERROR\n  Message:     %s\n  File:        %s\n  Line number: %i\n",
@@ -65,6 +119,25 @@ void fail(const char *const message, const char *const filename, int const linen
 inline void fail(std::stringstream const &message, const char *const filename,
                  int const linenumber) {
   fail(message.str().c_str(), filename, linenumber);
+}
+
+inline void fail_throws(const char *const message, const char *const filename,
+                        int const linenumber) {
+  std::stringstream msg;
+  msg << "### PARTHENON ERROR\n  Message:     " << message
+      << "\n  File:        " << filename << "\n  Line number: " << linenumber
+      << std::endl;
+  throw std::runtime_error(msg.str().c_str());
+}
+
+inline void fail_throws(std::string const &message, const char *const filename,
+                        int const linenumber) {
+  fail_throws(message.c_str(), filename, linenumber);
+}
+
+inline void fail_throws(std::stringstream const &message, const char *const filename,
+                        int const linenumber) {
+  fail_throws(message.str().c_str(), filename, linenumber);
 }
 
 } // namespace ErrorChecking
