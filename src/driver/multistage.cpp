@@ -16,8 +16,8 @@
 
 namespace parthenon {
 
-MultiStageDriver::MultiStageDriver(ParameterInput *pin, Mesh *pm)
-    : EvolutionDriver(pin, pm) {
+MultiStageDriver::MultiStageDriver(ParameterInput *pin, FunctionInput *fin, Mesh *pm)
+    : EvolutionDriver(pin, fin, pm) {
   std::string integrator_name =
       pin->GetOrAddString("parthenon/time", "integrator", "rk2");
   int nstages = 2; // default rk2

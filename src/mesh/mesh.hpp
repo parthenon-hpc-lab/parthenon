@@ -61,6 +61,7 @@ class Reconstruction;
 // template class Container<Real>;
 
 // Opaque pointer to application data
+/*
 class MeshBlockApplicationData {
  public:
   // make this pure virtual so that this class cannot be instantiated
@@ -70,7 +71,7 @@ class MeshBlockApplicationData {
 using pMeshBlockApplicationData_t = std::unique_ptr<MeshBlockApplicationData>;
 
 // we still need to define this somewhere, though
-inline MeshBlockApplicationData::~MeshBlockApplicationData() {}
+inline MeshBlockApplicationData::~MeshBlockApplicationData() {}*/
 
 //----------------------------------------------------------------------------------------
 //! \class MeshBlock
@@ -82,14 +83,15 @@ class MeshBlock {
  public:
   MeshBlock(const int n_side, const int ndim); // for Kokkos testing with ghost
   MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_size,
-            BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
+            BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin, FunctionInput *fin,
             Properties_t &properties, int igflag, bool ref_flag = false);
-  MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin, Properties_t &properties,
-            Packages_t &packages, LogicalLocation iloc, RegionSize input_block,
-            BoundaryFlag *input_bcs, double icost, char *mbdata, int igflag);
+  MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin, FunctionInput *fin,
+            Properties_t &properties, Packages_t &packages, LogicalLocation iloc,
+            RegionSize input_block, BoundaryFlag *input_bcs, double icost, char *mbdata,
+            int igflag);
 
   MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
-            BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
+            BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin, FunctionInput *fin,
             Properties_t &properties, Packages_t &packages, int igflag,
             bool ref_flag = false);
   ~MeshBlock();
@@ -251,7 +253,7 @@ class MeshBlock {
   void WeightedAve(FaceField &b_out, FaceField &b_in1, FaceField &b_in2,
                    const Real wght[3]);
 
-  void ResetToIC() { ProblemGenerator(nullptr); }
+  void ResetToIC() { ProblemGenerator(nullptr, nullptr); }
 
   // inform MeshBlock which arrays contained in member Field, Particles,
   // ... etc. classes are the "primary" representations of a quantity. when registered,
@@ -260,8 +262,12 @@ class MeshBlock {
   void RegisterMeshBlockData(std::shared_ptr<FaceField> pvar_fc);
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/
-  void UserWorkBeforeOutput(ParameterInput *pin); // called in Mesh fn (friend class)
-  void UserWorkInLoop();                          // called in TimeIntegratorTaskList
+  static void
+  UserWorkBeforeOutputDefault(ParameterInput *pin); // called in Mesh fn (friend class)
+  std::function<void(ParameterInput *)> UserWorkBeforeOutput =
+      &UserWorkBeforeOutputDefault;
+  static void UserWorkInLoopDefault(); // called in TimeIntegratorTaskList
+  std::function<void()> UserWorkInLoop = &UserWorkInLoopDefault;
   void SetBlockTimestep(const Real dt) { new_block_dt_ = dt; }
   Real NewDt() { return new_block_dt_; }
 
@@ -277,9 +283,16 @@ class MeshBlock {
   void SetCostForLoadBalancing(double cost);
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/
-  void ProblemGenerator(ParameterInput *pin);
-  pMeshBlockApplicationData_t InitApplicationMeshBlockData(ParameterInput *pin);
-  void InitUserMeshBlockData(ParameterInput *pin);
+  static void ProblemGeneratorDefault(MeshBlock *pmb, ParameterInput *pin);
+  std::function<void(MeshBlock *, ParameterInput *)> ProblemGenerator =
+      &ProblemGeneratorDefault;
+  static pMeshBlockApplicationData_t
+  InitApplicationMeshBlockDataDefault(ParameterInput *pin);
+  std::function<pMeshBlockApplicationData_t(ParameterInput *)>
+      InitApplicationMeshBlockData = &InitApplicationMeshBlockDataDefault;
+  static void InitUserMeshBlockDataDefault(ParameterInput *pin);
+  std::function<void(ParameterInput *)> InitUserMeshBlockData =
+      &InitUserMeshBlockDataDefault;
 
   // functions and variables for automatic load balancing based on timing
   double cost_, lb_time_;
@@ -341,7 +354,7 @@ class Mesh {
                                  BoundaryFlag *block_bcs);
   void NewTimeStep();
   void OutputCycleDiagnostics();
-  void LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin);
+  void LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin, FunctionInput *fin);
   // step 7: create new MeshBlock list (same MPI rank but diff level: create new block)
   // Moved here given Cuda/nvcc restriction:
   // "error: The enclosing parent function ("...")
@@ -359,8 +372,12 @@ class Mesh {
   int ReserveTagPhysIDs(int num_phys);
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/
-  void UserWorkAfterLoop(ParameterInput *pin, SimTime &tm); // called in main loop
-  void UserWorkInLoop(); // called in main after each cycle
+  static void UserWorkAfterLoopDefault(Mesh *mesh, ParameterInput *pin,
+                                       SimTime &tm); // called in main loop
+  std::function<void(Mesh *, ParameterInput *, SimTime &)> UserWorkAfterLoop =
+      &UserWorkAfterLoopDefault;
+  static void UserWorkInLoopDefault(); // called in main after each cycle
+  std::function<void()> UserWorkInLoop = &UserWorkInLoopDefault;
   int GetRootLevel() { return root_level; }
   int GetMaxLevel() { return max_level; }
   int GetCurrentLevel() { return current_level; }
@@ -440,7 +457,8 @@ class Mesh {
   void FinishRecvCoarseToFineAMR(MeshBlock *pb, ParArray1D<Real> &recvbuf);
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/
-  void InitUserMeshData(ParameterInput *pin);
+  static void InitUserMeshDataDefault(ParameterInput *pin);
+  std::function<void(ParameterInput *)> InitUserMeshData = nullptr;
 
   // often used (not defined) in prob file in ../pgen/
   void EnrollUserBoundaryFunction(BoundaryFace face, BValFunc my_func);

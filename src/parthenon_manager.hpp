@@ -19,7 +19,6 @@
 #include "argument_parser.hpp"
 #include "basic_types.hpp"
 #include "driver/driver.hpp"
-#include "function_input.hpp"
 #include "interface/properties_interface.hpp"
 #include "interface/state_descriptor.hpp"
 #include "mesh/mesh.hpp"
@@ -33,7 +32,7 @@ class ParthenonManager {
  public:
   ParthenonManager() {
     finput.reset(new FunctionInput());
-    //SetFillDerivedFunctions = &SetFillDerivedFunctionsDefault;
+    // SetFillDerivedFunctions = &SetFillDerivedFunctionsDefault;
   }
   ParthenonStatus ParthenonInit(int argc, char *argv[]);
   ParthenonStatus ParthenonFinalize();
@@ -43,8 +42,10 @@ class ParthenonManager {
   static Packages_t ProcessPackagesDefault(std::unique_ptr<ParameterInput> &pin);
   static void SetFillDerivedFunctionsDefault();
 
-  std::function<Properties_t(std::unique_ptr<ParameterInput>&)> ProcessProperties;
-  std::function<Packages_t(std::unique_ptr<ParameterInput>&)> ProcessPackages;
+  std::function<Properties_t(std::unique_ptr<ParameterInput> &)> ProcessProperties =
+      ProcessPropertiesDefault;
+  std::function<Packages_t(std::unique_ptr<ParameterInput> &)> ProcessPackages =
+      ProcessPackagesDefault;
   std::function<void()> SetFillDerivedFunctions;
 
   // member data

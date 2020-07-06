@@ -51,7 +51,7 @@ Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   return packages;
 }
 
-void MeshBlock::ProblemGenerator(ParameterInput *pin) {
+void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   // don't do anything here
 }
 

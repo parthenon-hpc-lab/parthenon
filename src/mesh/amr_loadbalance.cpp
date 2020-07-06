@@ -42,7 +42,8 @@ namespace parthenon {
 // \!fn void Mesh::LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin)
 // \brief Main function for adaptive mesh refinement
 
-void Mesh::LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin) {
+void Mesh::LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin,
+                                                  FunctionInput *fin) {
   int nnew = 0, ndel = 0;
 
   if (adaptive) {
@@ -58,11 +59,11 @@ void Mesh::LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin) {
   modified = false;
   if (nnew != 0 || ndel != 0) { // at least one (de)refinement happened
     GatherCostListAndCheckBalance();
-    RedistributeAndRefineMeshBlocks(pin, nbtotal + nnew - ndel);
+    RedistributeAndRefineMeshBlocks(pin, fin, nbtotal + nnew - ndel);
     modified = true;
   } else if (lb_flag_ && step_since_lb >= lb_interval_) {
     if (!GatherCostListAndCheckBalance()) { // load imbalance detected
-      RedistributeAndRefineMeshBlocks(pin, nbtotal);
+      RedistributeAndRefineMeshBlocks(pin, fin, nbtotal);
       modified = true;
     }
     lb_flag_ = false;
@@ -365,7 +366,8 @@ bool Mesh::GatherCostListAndCheckBalance() {
 // \!fn void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot)
 // \brief redistribute MeshBlocks according to the new load balance
 
-void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
+void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, FunctionInput *fin,
+                                           int ntot) {
   // compute nleaf= number of leaf MeshBlocks per refined block
   int nleaf = 2;
   if (mesh_size.nx2 > 1) nleaf = 4;
@@ -607,11 +609,11 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
       // insert new block in singly-linked list of MeshBlocks
       if (n == nbs) { // first node
         newlist = new MeshBlock(n, n - nbs, newloc[n], block_size, block_bcs, this, pin,
-                                properties, packages, gflag, true);
+                                fin, properties, packages, gflag, true);
         pmb = newlist;
       } else {
         pmb->next = new MeshBlock(n, n - nbs, newloc[n], block_size, block_bcs, this, pin,
-                                  properties, packages, gflag, true);
+                                  fin, properties, packages, gflag, true);
         pmb->next->prev = pmb;
         pmb = pmb->next;
       }
@@ -895,11 +897,11 @@ void Mesh::FillSameRankFineToCoarseAMR(MeshBlock *pob, MeshBlock *pmb,
     int koff = kl - ckb.s;
     int joff = jl - cjb.s;
     int ioff = il - cib.s;
-    pmb->par_for(
-        "FillSameRankFineToCoarseAMR", 0, nu, ckb.s, ckb.e, cjb.s, cjb.e, cib.s, cib.e,
-        KOKKOS_LAMBDA(const int nv, const int k, const int j, const int i) {
-          dst(nv, k + koff, j + joff, i + ioff) = src(nv, k, j, i);
-        });
+    pmb->par_for("FillSameRankFineToCoarseAMR", 0, nu, ckb.s, ckb.e, cjb.s, cjb.e, cib.s,
+                 cib.e,
+                 KOKKOS_LAMBDA(const int nv, const int k, const int j, const int i) {
+                   dst(nv, k + koff, j + joff, i + ioff) = src(nv, k, j, i);
+                 });
     pmb_cc_it++;
   }
 
@@ -993,11 +995,10 @@ void Mesh::FillSameRankCoarseToFineAMR(MeshBlock *pob, MeshBlock *pmb,
     // fill the coarse buffer
     // WARNING: potential Cuda stream pitfall (exec space of coarse and fine MB)
     // Need to make sure that both src and dst are done with all other task up to here
-    pob->par_for(
-        "FillSameRankCoarseToFineAMR", 0, nu, kl, ku, jl, ju, il, iu,
-        KOKKOS_LAMBDA(const int nv, const int k, const int j, const int i) {
-          dst(nv, k, j, i) = src(nv, k - kl + cks, j - jl + cjs, i - il + cis);
-        });
+    pob->par_for("FillSameRankCoarseToFineAMR", 0, nu, kl, ku, jl, ju, il, iu,
+                 KOKKOS_LAMBDA(const int nv, const int k, const int j, const int i) {
+                   dst(nv, k, j, i) = src(nv, k - kl + cks, j - jl + cjs, i - il + cis);
+                 });
     // keeping the original, following block for reference to indexing
     // for (int nv = 0; nv <= nu; nv++) {
     //   for (int k = kl, ck = cks; k <= ku; k++, ck++) {

@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef INTERFACE_FUNCTIONS_INTERFACE_HPP_
-#define INTERFACE_FUNCTIONS_INTERFACE_HPP_
+#ifndef FUNCTION_INPUT_HPP_
+#define FUNCTION_INPUT_HPP_
 
 #include <functional>
 #include <map>
@@ -19,24 +19,40 @@
 #include <string>
 #include <vector>
 
+#include "defs.hpp"
 #include "interface/properties_interface.hpp"
 #include "interface/state_descriptor.hpp"
+#include "mesh/mesh.hpp"
+#include "parameter_input.hpp"
+#include "parthenon_arrays.hpp"
 
 namespace parthenon {
 
 class FunctionInput {
 
  public:
-  FunctionInput() : ProcessProperties(nullptr) {}
+  FunctionInput() {}
 
   // ParthenonManager functions
   std::function<void()> SetFillDerivedFunctions = nullptr;
-
   std::function<Properties_t(std::unique_ptr<ParameterInput> &)> ProcessProperties =
       nullptr;
   std::function<Packages_t(std::unique_ptr<ParameterInput> &)> ProcessPackages = nullptr;
+
+  // Mesh functions
+  std::function<void(ParameterInput *)> InitUserMeshData = nullptr;
+  std::function<void()> MeshUserWorkInLoop = nullptr;
+  std::function<void(Mesh *, ParameterInput *, SimTime &)> UserWorkAfterLoop = nullptr;
+
+  // MeshBlock functions
+  std::function<std::unique_ptr<MeshBlockApplicationData>(ParameterInput *)>
+      InitApplicationMeshBlockData = nullptr;
+  std::function<void(ParameterInput *)> InitUserMeshBlockData = nullptr;
+  std::function<void(MeshBlock *, ParameterInput *)> ProblemGenerator = nullptr;
+  std::function<void()> MeshBlockUserWorkInLoop = nullptr;
+  std::function<void(ParameterInput *)> UserWorkBeforeOutput = nullptr;
 };
 
 } // namespace parthenon
 
-#endif // INTERFACE_FUNCTIONS_INTERFACE_HPP_
+#endif // FUNCTION_INPUT_HPP_

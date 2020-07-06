@@ -24,6 +24,7 @@
 namespace parthenon {
 
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin);
+void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin);
 
 class FaceFieldExample : public Driver {
  public:

@@ -164,6 +164,17 @@ Mesh::Mesh(ParameterInput *pin, FunctionInput *fin, Properties_t &properties,
     PARTHENON_FAIL(msg);
   }
 
+  // Allow for user overrides to default Parthenon functions
+  if (fin->InitUserMeshData != nullptr) {
+    InitUserMeshData = fin->InitUserMeshData;
+  }
+  if (fin->MeshUserWorkInLoop != nullptr) {
+    UserWorkInLoop = fin->MeshUserWorkInLoop;
+  }
+  if (fin->UserWorkAfterLoop != nullptr) {
+    UserWorkAfterLoop = fin->UserWorkAfterLoop;
+  }
+
   // check the consistency of the periodic boundaries
   if (((mesh_bcs[BoundaryFace::inner_x1] == BoundaryFlag::periodic &&
         mesh_bcs[BoundaryFace::outer_x1] != BoundaryFlag::periodic) ||
@@ -467,11 +478,11 @@ Mesh::Mesh(ParameterInput *pin, FunctionInput *fin, Properties_t &properties,
     // create a block and add into the link list
     if (i == nbs) {
       pblock = new MeshBlock(i, i - nbs, loclist[i], block_size, block_bcs, this, pin,
-                             properties, packages, gflag);
+                             fin, properties, packages, gflag);
       pfirst = pblock;
     } else {
       pblock->next = new MeshBlock(i, i - nbs, loclist[i], block_size, block_bcs, this,
-                                   pin, properties, packages, gflag);
+                                   pin, fin, properties, packages, gflag);
       pblock->next->prev = pblock;
       pblock = pblock->next;
     }
@@ -786,12 +797,12 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper &resfile, Properties_t &properties,
     SetBlockSizeAndBoundaries(loclist[i], block_size, block_bcs);
     // create a block and add into the link list
     if (i == nbs) {
-      pblock = new MeshBlock(i, i - nbs, this, pin, properties, packages, loclist[i],
+      pblock = new MeshBlock(i, i - nbs, this, pin, fin, properties, packages, loclist[i],
                              block_size, block_bcs, costlist[i], mbdata + buff_os, gflag);
       pfirst = pblock;
     } else {
       pblock->next =
-          new MeshBlock(i, i - nbs, this, pin, properties, packages, loclist[i],
+          new MeshBlock(i, i - nbs, this, pin, fin, properties, packages, loclist[i],
                         block_size, block_bcs, costlist[i], mbdata + buff_os, gflag);
       pblock->next->prev = pblock;
       pblock = pblock->next;
@@ -1130,7 +1141,7 @@ void Mesh::ApplyUserWorkBeforeOutput(ParameterInput *pin) {
 // \!fn void Mesh::Initialize(int res_flag, ParameterInput *pin)
 // \brief  initialization before the main loop
 
-void Mesh::Initialize(int res_flag, ParameterInput *pin) {
+void Mesh::Initialize(int res_flag, ParameterInput *pin, FunctionInput *fin) {
   bool iflag = true;
   int inb = nbtotal;
 #ifdef OPENMP_PARALLEL
@@ -1153,7 +1164,7 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
 #pragma omp parallel for num_threads(nthreads)
       for (int i = 0; i < nmb; ++i) {
         MeshBlock *pmb = pmb_array[i];
-        pmb->ProblemGenerator(pin);
+        pmb->ProblemGenerator(pmb, pin);
       }
     }
 
@@ -1232,7 +1243,7 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
     if (!res_flag && adaptive) {
       iflag = false;
       int onb = nbtotal;
-      LoadBalancingAndAdaptiveMeshRefinement(pin);
+      LoadBalancingAndAdaptiveMeshRefinement(pin, fin);
       if (nbtotal == onb) {
         iflag = true;
       } else if (nbtotal < onb && Globals::my_rank == 0) {

@@ -63,8 +63,8 @@ MeshBlock::MeshBlock(const int n_side, const int ndim)
 
 MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
                      BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
-                     Properties_t &properties, Packages_t &packages, int igflag,
-                     bool ref_flag)
+                     FunctionInput *fin, Properties_t &properties, Packages_t &packages,
+                     int igflag, bool ref_flag)
     : exec_space(DevExecSpace()), pmy_mesh(pm), loc(iloc), block_size(input_block),
       gid(igid), lid(ilid), gflag(igflag), properties(properties), packages(packages),
       prev(nullptr), next(nullptr), new_block_dt_{}, new_block_dt_hyperbolic_{},
@@ -76,6 +76,23 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
     InitializeIndexShapes(block_size.nx1, block_size.nx2, 0);
   } else {
     InitializeIndexShapes(block_size.nx1, 0, 0);
+  }
+
+  // Allow for user overrides to default Parthenon functions
+  if (fin->InitApplicationMeshBlockData != nullptr) {
+    InitApplicationMeshBlockData = fin->InitApplicationMeshBlockData;
+  }
+  if (fin->InitUserMeshBlockData != nullptr) {
+    InitUserMeshBlockData = fin->InitUserMeshBlockData;
+  }
+  if (fin->ProblemGenerator != nullptr) {
+    ProblemGenerator = fin->ProblemGenerator;
+  }
+  if (fin->MeshBlockUserWorkInLoop != nullptr) {
+    UserWorkInLoop = fin->MeshBlockUserWorkInLoop;
+  }
+  if (fin->UserWorkBeforeOutput != nullptr) {
+    UserWorkBeforeOutput = fin->UserWorkBeforeOutput;
   }
 
   auto &real_container = real_containers.Get();

@@ -77,6 +77,17 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
     return ParthenonStatus::complete;
   }
 
+  // Allow for user overrides to default Parthenon functions
+  if (finput->SetFillDerivedFunctions != nullptr) {
+    SetFillDerivedFunctions = finput->SetFillDerivedFunctions;
+  }
+  if (finput->ProcessProperties != nullptr) {
+    ProcessProperties = finput->ProcessProperties;
+  }
+  if (finput->ProcessPackages != nullptr) {
+    ProcessPackages = finput->ProcessPackages;
+  }
+
   // Set up the signal handler
   SignalHandler::SignalHandlerInit();
   if (Globals::my_rank == 0 && arg.wtlim > 0) SignalHandler::SetWallTimeAlarm(arg.wtlim);
@@ -109,15 +120,9 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
     }
   }
 
-  if (finput->SetFillDerivedFunctions == nullptr) {
-    SetFillDerivedFunctions = SetFillDerivedFunctionsDefault;
-  } else {
-    SetFillDerivedFunctions = finput->SetFillDerivedFunctions;
-  }
-
   SetFillDerivedFunctions();
 
-  pmesh->Initialize(Restart(), pinput.get());
+  pmesh->Initialize(Restart(), pinput.get(), finput.get());
 
   ChangeRunDir(arg.prundir);
 
