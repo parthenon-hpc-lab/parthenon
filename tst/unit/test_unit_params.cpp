@@ -23,7 +23,7 @@
 
 using parthenon::Params;
 
-TEST_CASE("Add and Get is called", "[Add,Get]") {
+TEST_CASE("Add and Get is called", "[Add,Get][coverage]") {
   GIVEN("A key") {
     Params params;
     std::string key = "test_key";
