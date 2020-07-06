@@ -50,6 +50,7 @@ class TestCase(utils.test_case.TestCaseAbs):
                 'time/tlim=0.4',
                 'mesh/nx1=400']
         """
+        parameters.coverage_status = "both"
         return parameters
 
     def Analyse(self,parameters):
@@ -71,7 +72,7 @@ class TestCase(utils.test_case.TestCaseAbs):
         hdf5 output and compare them to expected quantities.
 
         """
-
+        
         line1 = ""
         line2 = ""
         try:

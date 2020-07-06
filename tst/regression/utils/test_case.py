@@ -38,6 +38,11 @@ class Parameters():
     mpi_cmd = ""
     mpi_opts = ""
     driver_cmd_line_args = []
+    # Options
+    # only-regression - do not run when coverage is enabled
+    # both - run regardless of whether coverage is enabled or not 
+    # only-coverage - only run if coverage has been enabled
+    coverage_status = "only-regression"
 
 class TestCaseAbs:
     def Prepare(parameters):
@@ -50,6 +55,7 @@ class TestCaseAbs:
 class TestManager:
     def __init__(self,run_test_path,**kwargs):
 
+        self.__run_coverage = kwargs.pop('coverage')
         self.parameters = Parameters()
         self.__run_test_py_path = run_test_path 
         self.__regression_test_suite_path = os.path.join(self.__run_test_py_path,'test_suites')
@@ -149,16 +155,12 @@ class TestManager:
         mpi_exec = mpi_executable[0]
 
         choices=['mpirun', 'mpiexec', 'srun', 'qsub', 'lsrun', 'aprun']
-        print("1")
         sys.stdout.flush()
         for choice in choices:
-            print("2")
             sys.stdout.flush()
             if mpi_exec.endswith(choice):
-                print("3")
                 sys.stdout.flush()
                 if len(mpi_exec) != len(choice):
-                    print("4")
                     sys.stdout.flush()
                     if os.path.isfile(mpi_exec):
                         return
@@ -204,9 +206,18 @@ class TestManager:
         run_command.append(self.parameters.driver_input_path)
         for arg in self.parameters.driver_cmd_line_args:
             run_command.append(arg)
-        print("*****************************************************************")
-        print("Running Driver")
-        print("*****************************************************************")
+
+        if self.__run_coverage and self.parameters.coverage_status != "only-regression":
+            print("*****************************************************************")
+            print("Running Driver with Coverage")
+            print("*****************************************************************")
+        elif not self.__run_coverage and self.parameters.coverage_status != "only-coverage":
+            print("*****************************************************************")
+            print("Running Driver")
+            print("*****************************************************************")
+        else:
+            return 
+
         print("Command to execute driver")
         print(run_command)
         sys.stdout.flush()
@@ -215,10 +226,17 @@ class TestManager:
         except subprocess.CalledProcessError as err:
             raise TestManagerError('\nReturn code {0} from command \'{1}\''
                               .format(err.returncode, ' '.join(err.cmd)))
+        
 
     def Analyse(self):
 
         test_pass = False
+        if self.__run_coverage:
+            print("*****************************************************************")
+            print("Running with Coverage Analysis Ignored")
+            print("*****************************************************************")
+            return True
+
 
         print("*****************************************************************")
         print("Analysing Driver Output")

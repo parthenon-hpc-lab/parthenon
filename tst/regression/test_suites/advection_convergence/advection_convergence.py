@@ -56,6 +56,9 @@ class TestCase(utils.test_case.TestCaseAbs):
                 'mesh/nx1=400']
         """
 
+        if step==1:
+            parameters.coverage_status = "both"
+
         n_res = len(lin_res)
 
         # TEST: Advection only in x-direction 

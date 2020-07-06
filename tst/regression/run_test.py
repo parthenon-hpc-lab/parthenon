@@ -130,6 +130,11 @@ if __name__ == '__main__':
                         action='append',
                         help='add options to mpirun command')
 
+    parser.add_argument('--coverage','-c',
+                        default=False,
+                        action='store_true',
+                        help='Run test cases where coverage has been enabled')
+
     args = parser.parse_args()
     try:
         main(**vars(args))
