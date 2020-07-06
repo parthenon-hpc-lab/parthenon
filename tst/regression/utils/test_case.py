@@ -56,6 +56,8 @@ class TestManager:
     def __init__(self,run_test_path,**kwargs):
 
         self.__run_coverage = kwargs.pop('coverage')
+        print("Popped coverage")
+        print(self.__run_coverage)
         self.parameters = Parameters()
         self.__run_test_py_path = run_test_path 
         self.__regression_test_suite_path = os.path.join(self.__run_test_py_path,'test_suites')
@@ -215,6 +217,11 @@ class TestManager:
             print("*****************************************************************")
             print("Running Driver")
             print("*****************************************************************")
+        elif self.__run_coverage and self.parameters.coverage_status == "only-regression":
+            print("*****************************************************************")
+            print("Test Case Ignored for Calculating Coverage")
+            print("*****************************************************************")
+            return 
         else:
             return 
 
@@ -226,7 +233,8 @@ class TestManager:
         except subprocess.CalledProcessError as err:
             raise TestManagerError('\nReturn code {0} from command \'{1}\''
                               .format(err.returncode, ' '.join(err.cmd)))
-        
+        # Reset parameters
+        self.parameters.coverage_status = "only-regression"
 
     def Analyse(self):
 
@@ -237,7 +245,8 @@ class TestManager:
             print("*****************************************************************")
             return True
 
-
+        print("Running with coverage")
+        print(self.__run_coverage)
         print("*****************************************************************")
         print("Analysing Driver Output")
         print("*****************************************************************")
