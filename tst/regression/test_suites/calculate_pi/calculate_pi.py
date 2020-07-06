@@ -82,9 +82,10 @@ class TestCase(utils.test_case.TestCaseAbs):
 
             f.close()
         except IOError:
-            print("Summary file not accessible")
+            print("Summary file not accessible, path: " + parameters.output_path + "/summary.txt")
 
         words1 = line1.split()
+        print(words1)
         pi_val = float(words1[2])
 
         error_abs_e = math.fabs( math.pi - pi_val ) / math.pi  

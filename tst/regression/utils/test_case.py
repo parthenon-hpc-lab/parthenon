@@ -73,7 +73,7 @@ class TestManager:
         driver_path = os.path.abspath(parthenon_driver[0])
         driver_input_path = os.path.abspath(parthenon_driver_input[0])
         if 'output_dir' in list(kwargs.keys()):
-            output_path = kwargs.pop("output_dir")
+            output_path = os.path.abspath(kwargs.pop("output_dir"))
         else:
             output_path = test_path + "/output"
         self.__test_module = 'test_suites.' + test_base_name + '.' + test_base_name
@@ -176,7 +176,8 @@ class TestManager:
 
     def CleanOutputFolder(self):
         if os.path.isdir(self.parameters.output_path):
-                rmtree(self.parameters.output_path)
+            print(self.parameters.output_path)
+                #rmtree(self.parameters.output_path)
 
         mkdir_p(self.parameters.output_path)
         os.chdir(self.parameters.output_path)
