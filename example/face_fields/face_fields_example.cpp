@@ -67,8 +67,8 @@ DriverStatus FaceFieldExample::Execute() {
     parthenon::IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
     parthenon::IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
     parthenon::IndexRange kb = pmb->cellbounds.GetBoundsK(interior);
-    Container<Real> &rc = pmb->real_containers.Get();
-    auto &summed = rc.Get("c.c.interpolated_sum").data;
+    auto &rc = pmb->real_containers.Get();
+    auto &summed = rc->Get("c.c.interpolated_sum").data;
     for (int k = kb.s; k <= kb.e; k++) {
       for (int j = jb.s; j <= jb.e; j++) {
         for (int i = ib.s; i <= ib.e; i++) {
@@ -101,19 +101,19 @@ TaskList FaceFieldExample::MakeTaskList(MeshBlock *pmb) {
   TaskList tl;
   TaskID none(0);
 
-  auto fill_faces = tl.AddTask<BlockTask>(FaceFields::fill_faces, none, pmb);
+  auto fill_faces = tl.AddTask(FaceFields::fill_faces, none, pmb);
 
-  auto interpolate = tl.AddTask<BlockTask>(
+  auto interpolate = tl.AddTask(
       [](MeshBlock *pmb) -> TaskStatus {
-        Container<Real> &rc = pmb->real_containers.Get();
+        auto &rc = pmb->real_containers.Get();
         parthenon::IndexDomain interior = parthenon::IndexDomain::interior;
         parthenon::IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
         parthenon::IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
         parthenon::IndexRange kb = pmb->cellbounds.GetBoundsK(interior);
-        auto &x1f = rc.GetFace("f.f.face_averaged_value").Get(1);
-        auto &x2f = rc.GetFace("f.f.face_averaged_value").Get(2);
-        auto &x3f = rc.GetFace("f.f.face_averaged_value").Get(3);
-        auto &cell = rc.Get("c.c.interpolated_value").data;
+        auto &x1f = rc->GetFace("f.f.face_averaged_value").Get(1);
+        auto &x2f = rc->GetFace("f.f.face_averaged_value").Get(2);
+        auto &x3f = rc->GetFace("f.f.face_averaged_value").Get(3);
+        auto &cell = rc->Get("c.c.interpolated_value").data;
         // perform interpolation
         for (int e = 0; e < 2; e++) {
           for (int k = kb.s; k <= kb.e; k++) {
@@ -130,15 +130,15 @@ TaskList FaceFieldExample::MakeTaskList(MeshBlock *pmb) {
       },
       fill_faces, pmb);
 
-  auto sum = tl.AddTask<BlockTask>(
+  auto sum = tl.AddTask(
       [](MeshBlock *pmb) -> TaskStatus {
-        Container<Real> &rc = pmb->real_containers.Get();
+        auto &rc = pmb->real_containers.Get();
         parthenon::IndexDomain interior = parthenon::IndexDomain::interior;
         parthenon::IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
         parthenon::IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
         parthenon::IndexRange kb = pmb->cellbounds.GetBoundsK(interior);
-        auto &interped = rc.Get("c.c.interpolated_value").data;
-        auto &summed = rc.Get("c.c.interpolated_sum").data;
+        auto &interped = rc->Get("c.c.interpolated_value").data;
+        auto &summed = rc->Get("c.c.interpolated_sum").data;
         for (int k = kb.s; k <= kb.e; k++) {
           for (int j = jb.s; j <= jb.e; j++) {
             for (int i = ib.s; i <= ib.e; i++) {
@@ -162,15 +162,15 @@ parthenon::TaskStatus FaceFields::fill_faces(parthenon::MeshBlock *pmb) {
   Real px = example->Param<Real>("px");
   Real py = example->Param<Real>("py");
   Real pz = example->Param<Real>("pz");
-  parthenon::Container<Real> &rc = pmb->real_containers.Get();
+  auto &rc = pmb->real_containers.Get();
   auto coords = pmb->coords;
   parthenon::IndexDomain interior = parthenon::IndexDomain::interior;
   parthenon::IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
   parthenon::IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
   parthenon::IndexRange kb = pmb->cellbounds.GetBoundsK(interior);
-  auto &x1f = rc.GetFace("f.f.face_averaged_value").Get(1);
-  auto &x2f = rc.GetFace("f.f.face_averaged_value").Get(2);
-  auto &x3f = rc.GetFace("f.f.face_averaged_value").Get(3);
+  auto &x1f = rc->GetFace("f.f.face_averaged_value").Get(1);
+  auto &x2f = rc->GetFace("f.f.face_averaged_value").Get(2);
+  auto &x3f = rc->GetFace("f.f.face_averaged_value").Get(3);
   // fill faces
   for (int e = 0; e < x1f.GetDim(4); e++) {
     int sign = (e == 0) ? -1 : 1;

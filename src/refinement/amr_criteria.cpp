@@ -54,9 +54,9 @@ AMRFirstDerivative::AMRFirstDerivative(ParameterInput *pin, std::string &block_n
   }
 }
 
-AmrTag AMRFirstDerivative::operator()(Container<Real> &rc) {
-  ParArrayND<Real> q = rc.Get(field).data;
-  return Refinement::FirstDerivative(rc.pmy_block->exec_space, q, refine_criteria,
+AmrTag AMRFirstDerivative::operator()(std::shared_ptr<Container<Real>> &rc) {
+  ParArrayND<Real> q = rc->Get(field).data;
+  return Refinement::FirstDerivative(rc->pmy_block->exec_space, q, refine_criteria,
                                      derefine_criteria);
 }
 
