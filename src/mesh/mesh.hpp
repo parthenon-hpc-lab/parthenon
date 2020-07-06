@@ -60,19 +60,6 @@ class Reconstruction;
 
 // template class Container<Real>;
 
-// Opaque pointer to application data
-/*
-class MeshBlockApplicationData {
- public:
-  // make this pure virtual so that this class cannot be instantiated
-  // (only derived classes can be instantiated)
-  virtual ~MeshBlockApplicationData() = 0;
-};
-using pMeshBlockApplicationData_t = std::unique_ptr<MeshBlockApplicationData>;
-
-// we still need to define this somewhere, though
-inline MeshBlockApplicationData::~MeshBlockApplicationData() {}*/
-
 //----------------------------------------------------------------------------------------
 //! \class MeshBlock
 //  \brief data/functions associated with a single block
@@ -349,7 +336,7 @@ class Mesh {
   Packages_t packages;
 
   // functions
-  void Initialize(int res_flag, ParameterInput *pin);
+  void Initialize(int res_flag, ParameterInput *pin, FunctionInput *fin);
   void SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size,
                                  BoundaryFlag *block_bcs);
   void NewTimeStep();
@@ -440,7 +427,7 @@ class Mesh {
   void UpdateCostList();
   void UpdateMeshBlockTree(int &nnew, int &ndel);
   bool GatherCostListAndCheckBalance();
-  void RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot);
+  void RedistributeAndRefineMeshBlocks(ParameterInput *pin, FunctionInput *fin, int ntot);
 
   // Mesh::RedistributeAndRefineMeshBlocks() helper functions:
   // step 6: send

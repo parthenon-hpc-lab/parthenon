@@ -46,7 +46,7 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  PiDriver driver(pman.pinput.get(), pman.pmesh.get());
+  PiDriver driver(pman.pinput.get(), pman.finput.get(), pman.pmesh.get());
 
   auto driver_status = driver.Execute();
 

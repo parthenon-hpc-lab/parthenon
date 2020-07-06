@@ -24,7 +24,7 @@ int main(int argc, char *argv[]) {
   pman.finput->ProcessPackages = &(advection_example::ProcessPackages);
   pman.finput->ProblemGenerator = &(advection_example::ProblemGenerator);
   pman.finput->UserWorkAfterLoop = &(advection_example::UserWorkAfterLoop);
-  pman.finput->SetFillDerivedFunctions  = &(advection_example::SetFillDerivedFunctions);
+  pman.finput->SetFillDerivedFunctions = &(advection_example::SetFillDerivedFunctions);
 
   // call ParthenonInit to initialize MPI and Kokkos, parse the input deck, and set up
   auto manager_status = pman.ParthenonInit(argc, argv);
@@ -40,7 +40,8 @@ int main(int argc, char *argv[]) {
   // make use of MPI and Kokkos
 
   // Initialize the driver
-  advection_example::AdvectionDriver driver(pman.pinput.get(), pman.pmesh.get());
+  advection_example::AdvectionDriver driver(pman.pinput.get(), pman.finput.get(),
+                                            pman.pmesh.get());
 
   // This line actually runs the simulation
   auto driver_status = driver.Execute();

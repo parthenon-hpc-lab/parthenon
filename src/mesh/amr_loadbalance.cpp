@@ -709,7 +709,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, FunctionInput *f
     pmb->pbval->SearchAndSetNeighbors(tree, ranklist, nslist);
     pmb = pmb->next;
   }
-  Initialize(2, pin);
+  Initialize(2, pin, fin);
 
   ResetLoadBalanceVariables();
 

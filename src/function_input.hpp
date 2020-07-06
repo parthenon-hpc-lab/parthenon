@@ -22,7 +22,6 @@
 #include "defs.hpp"
 #include "interface/properties_interface.hpp"
 #include "interface/state_descriptor.hpp"
-#include "mesh/mesh.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 

@@ -28,8 +28,8 @@ namespace advection_example {
 // that mostly means defining the MakeTaskList     *//
 // function.                                       *//
 // *************************************************//
-AdvectionDriver::AdvectionDriver(ParameterInput *pin, Mesh *pm)
-    : MultiStageBlockTaskDriver(pin, pm) {
+AdvectionDriver::AdvectionDriver(ParameterInput *pin, FunctionInput *fin, Mesh *pm)
+    : MultiStageBlockTaskDriver(pin, fin, pm) {
   // fail if these are not specified in the input file
   pin->CheckRequired("parthenon/mesh", "ix1_bc");
   pin->CheckRequired("parthenon/mesh", "ox1_bc");

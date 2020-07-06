@@ -28,7 +28,8 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin);
 
 class FaceFieldExample : public Driver {
  public:
-  FaceFieldExample(ParameterInput *pin, Mesh *pm) : Driver(pin, pm) {
+  FaceFieldExample(ParameterInput *pin, FunctionInput *fin, Mesh *pm)
+      : Driver(pin, fin, pm) {
     InitializeOutputs();
   }
   TaskList MakeTaskList(MeshBlock *pmb);
