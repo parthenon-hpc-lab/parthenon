@@ -14,12 +14,14 @@
 #ifndef BVALS_BOUNDARY_CONDITIONS_HPP_
 #define BVALS_BOUNDARY_CONDITIONS_HPP_
 
+#include <memory>
+
 #include "basic_types.hpp"
 #include "interface/container.hpp"
 
 namespace parthenon {
 
-TaskStatus ApplyBoundaryConditions(Container<Real> &rc);
+TaskStatus ApplyBoundaryConditions(std::shared_ptr<Container<Real>> &rc);
 
 } // namespace parthenon
 

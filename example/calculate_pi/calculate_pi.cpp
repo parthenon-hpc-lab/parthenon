@@ -65,12 +65,12 @@ Packages_t ParthenonManager::ProcessPackages(std::unique_ptr<ParameterInput> &pi
 // pi \approx A/r0^2
 namespace calculate_pi {
 
-void SetInOrOut(Container<Real> &rc) {
-  MeshBlock *pmb = rc.pmy_block;
+void SetInOrOut(std::shared_ptr<Container<Real>> &rc) {
+  MeshBlock *pmb = rc->pmy_block;
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
-  ParArrayND<Real> &v = rc.Get("in_or_out").data;
+  ParArrayND<Real> &v = rc->Get("in_or_out").data;
   const auto &radius = pmb->packages["calculate_pi"]->Param<Real>("radius");
   auto &coords = pmb->coords;
   // Set an indicator function that indicates whether the cell center
@@ -112,13 +112,13 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
 TaskStatus ComputeArea(MeshBlock *pmb) {
   // compute 1/r0^2 \int d^2x in_or_out(x,y) over the block's domain
-  Container<Real> &rc = pmb->real_containers.Get();
+  auto &rc = pmb->real_containers.Get();
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
   auto &coords = pmb->coords;
 
-  ParArrayND<Real> &v = rc.Get("in_or_out").data;
+  ParArrayND<Real> &v = rc->Get("in_or_out").data;
 
   Real area;
   Kokkos::parallel_reduce(
