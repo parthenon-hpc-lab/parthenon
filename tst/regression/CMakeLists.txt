@@ -86,7 +86,7 @@ list(APPEND TEST_ARGS "--driver ${CMAKE_BINARY_DIR}/example/calculate_pi/pi-exam
 # Advection test 
 list(APPEND TEST_DIRS advection_convergence)
 list(APPEND TEST_PROCS "1")
-list(APPEND TEST_ARGS "${CMAKE_BINARY_DIR}/example/advection/advection-example \
+list(APPEND TEST_ARGS "--driver ${CMAKE_BINARY_DIR}/example/advection/advection-example \
 --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/advection_convergence/parthinput.advection \
 --num_steps 24")
 
