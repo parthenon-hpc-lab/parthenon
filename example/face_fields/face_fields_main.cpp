@@ -20,6 +20,8 @@ int main(int argc, char *argv[]) {
   using parthenon::ParthenonStatus;
   ParthenonManager pman;
 
+  pman.ProcessPackages = &(parthenon::ProcessPackages);
+
   auto status = pman.ParthenonInit(argc, argv);
   if (status == ParthenonStatus::complete || status == ParthenonStatus::error) {
     pman.ParthenonFinalize();

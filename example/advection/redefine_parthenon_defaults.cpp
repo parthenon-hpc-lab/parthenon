@@ -22,6 +22,8 @@
 #include "utils/error_checking.hpp"
 
 using namespace parthenon::package::prelude;
+using parthenon::Packages_t;
+using parthenon::ParameterInput;
 
 // *************************************************//
 // redefine some weakly linked parthenon functions *//
@@ -203,6 +205,13 @@ void Mesh::UserWorkAfterLoop(ParameterInput *pin, SimTime &tm) {
 } // namespace parthenon
 
 namespace advection_example {
+
+Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
+  Packages_t packages;
+  auto pkg = advection_package::Initialize(pin.get());
+  packages[pkg->label()] = pkg;
+  return packages;
+}
 
 void SetFillDerivedFunctions() {
   parthenon::FillDerivedVariables::SetFillDerivedFunctions(advection_package::PreFill,

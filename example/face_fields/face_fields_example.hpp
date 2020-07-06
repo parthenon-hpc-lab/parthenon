@@ -23,6 +23,8 @@
 
 namespace parthenon {
 
+Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin);
+
 class FaceFieldExample : public Driver {
  public:
   FaceFieldExample(ParameterInput *pin, Mesh *pm) : Driver(pin, pm) {

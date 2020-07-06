@@ -14,6 +14,8 @@
 #ifndef EXAMPLE_ADVECTION_ADVECTION_DRIVER_HPP_
 #define EXAMPLE_ADVECTION_ADVECTION_DRIVER_HPP_
 
+#include <memory>
+
 #include <parthenon/driver.hpp>
 
 namespace advection_example {
@@ -32,6 +34,7 @@ class AdvectionDriver : public MultiStageBlockTaskDriver {
   TaskList MakeTaskList(MeshBlock *pmb, int stage);
 };
 
+parthenon::Packages_t ProcessPackages(std::unique_ptr<parthenon::ParameterInput> &pin);
 void SetFillDerivedFunctions();
 
 } // namespace advection_example

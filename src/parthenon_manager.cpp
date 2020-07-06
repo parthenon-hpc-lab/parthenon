@@ -130,16 +130,16 @@ void ParthenonManager::SetFillDerivedFunctionsDefault() {
   FillDerivedVariables::SetFillDerivedFunctions(nullptr, nullptr);
 }
 
-Properties_t __attribute__((weak))
-ParthenonManager::ProcessProperties(std::unique_ptr<ParameterInput> &pin) {
+Properties_t
+ParthenonManager::ProcessPropertiesDefault(std::unique_ptr<ParameterInput> &pin) {
   // In practice, this function should almost always be replaced by a version
   // that sets relevant things for the application.
   Properties_t props;
   return props;
 }
 
-Packages_t __attribute__((weak))
-ParthenonManager::ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
+Packages_t
+ParthenonManager::ProcessPackagesDefault(std::unique_ptr<ParameterInput> &pin) {
   // In practice, this function should almost always be replaced by a version
   // that sets relevant things for the application.
   Packages_t packages;

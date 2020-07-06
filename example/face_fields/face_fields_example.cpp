@@ -23,7 +23,7 @@
 
 namespace parthenon {
 
-Packages_t ParthenonManager::ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
+Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   Packages_t packages;
   auto package = std::make_shared<StateDescriptor>("FaceFieldExample");
 
