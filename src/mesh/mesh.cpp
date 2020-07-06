@@ -51,7 +51,8 @@ namespace parthenon {
 //----------------------------------------------------------------------------------------
 // Mesh constructor, builds mesh at start of calculation using parameters in input file
 
-Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
+Mesh::Mesh(ParameterInput *pin, FunctionInput *fin, Properties_t &properties,
+           Packages_t &packages,
            int mesh_test)
     : // public members:
       modified(true),

@@ -19,6 +19,7 @@
 #include "argument_parser.hpp"
 #include "basic_types.hpp"
 #include "driver/driver.hpp"
+#include "function_input.hpp"
 #include "interface/properties_interface.hpp"
 #include "interface/state_descriptor.hpp"
 #include "mesh/mesh.hpp"
@@ -31,7 +32,8 @@ enum class ParthenonStatus { ok, complete, error };
 class ParthenonManager {
  public:
   ParthenonManager() {
-    SetFillDerivedFunctions = &SetFillDerivedFunctionsDefault;
+    finput.reset(new FunctionInput());
+    //SetFillDerivedFunctions = &SetFillDerivedFunctionsDefault;
   }
   ParthenonStatus ParthenonInit(int argc, char *argv[]);
   ParthenonStatus ParthenonFinalize();
@@ -48,6 +50,7 @@ class ParthenonManager {
   // member data
   std::unique_ptr<ParameterInput> pinput;
   std::unique_ptr<Mesh> pmesh;
+  std::unique_ptr<FunctionInput> finput;
 
  private:
   ArgParse arg;

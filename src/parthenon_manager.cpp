@@ -96,7 +96,8 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
 
   // TODO(jdolence): Deal with restarts
   // if (arg.res_flag == 0) {
-  pmesh = std::make_unique<Mesh>(pinput.get(), properties, packages, arg.mesh_flag);
+  pmesh = std::make_unique<Mesh>(pinput.get(), finput.get(), properties, packages,
+                                 arg.mesh_flag);
   //} else {
   //  pmesh = std::make_unique<Mesh>(pinput.get(), )
   //}
@@ -106,6 +107,12 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
     for (auto &amr : ph.second->amr_criteria) {
       amr->max_level += pmesh->GetRootLevel();
     }
+  }
+
+  if (finput->SetFillDerivedFunctions == nullptr) {
+    SetFillDerivedFunctions = SetFillDerivedFunctionsDefault;
+  } else {
+    SetFillDerivedFunctions = finput->SetFillDerivedFunctions;
   }
 
   SetFillDerivedFunctions();

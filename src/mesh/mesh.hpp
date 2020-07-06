@@ -33,6 +33,7 @@
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
 #include "domain.hpp"
+#include "function_input.hpp"
 #include "interface/container.hpp"
 #include "interface/container_collection.hpp"
 #include "interface/properties_interface.hpp"
@@ -303,8 +304,8 @@ class Mesh {
 
  public:
   // 2x function overloads of ctor: normal and restarted simulation
-  Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
-       int test_flag = 0);
+  Mesh(ParameterInput *pin, FunctionInput *fin, Properties_t &properties,
+       Packages_t &packages, int test_flag = 0);
   Mesh(ParameterInput *pin, IOWrapper &resfile, Properties_t &properties,
        Packages_t &packages, int test_flag = 0);
   ~Mesh();

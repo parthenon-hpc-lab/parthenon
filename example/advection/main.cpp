@@ -23,6 +23,7 @@ int main(int argc, char *argv[]) {
   // Redefine parthenon defaults
   pman.ProcessPackages = &(advection_example::ProcessPackages);
   pman.SetFillDerivedFunctions = &(advection_example::SetFillDerivedFunctions);
+  pman.finput->ProcessPackages = &(advection_example::ProcessPackages);
 
   // call ParthenonInit to initialize MPI and Kokkos, parse the input deck, and set up
   auto manager_status = pman.ParthenonInit(argc, argv);
