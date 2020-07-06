@@ -56,14 +56,14 @@ class TestCase(utils.test_case.TestCaseAbs):
                 'mesh/nx1=400']
         """
 
-        if step==1:
-            parameters.coverage_status = "both"
 
         n_res = len(lin_res)
 
         # TEST: Advection only in x-direction 
         # using nx2 = nx3 = 4 > 1 for identical errors between dimensions
         if step <= n_res:
+
+            parameters.coverage_status = "both"
             parameters.driver_cmd_line_args = [
                 'parthenon/mesh/nx1=%d' % lin_res[step % n_res -1],
                 'parthenon/meshblock/nx1=%d' % lin_res[step % n_res -1],
@@ -254,6 +254,32 @@ class TestCase(utils.test_case.TestCaseAbs):
                 'Advection/profile=smooth_gaussian',
                 'Advection/amp=1.0',
                 ]
+        # TEST: AMR test - diagonal advection low res with AMR shortened time step
+        # Lx != Ly != Lz and dx != dy != dz
+        elif step == 3*n_res + 10:
+            parameters.coverage_status = "only-coverage"
+            parameters.driver_cmd_line_args = [
+                'parthenon/time/tlim=0.01',
+                'parthenon/mesh/refinement=adaptive',
+                'parthenon/mesh/nx1=40',
+                'parthenon/meshblock/nx1=8',
+                'parthenon/mesh/nx2=30',
+                'parthenon/meshblock/nx2=6',
+                'parthenon/mesh/nx3=36',
+                'parthenon/meshblock/nx3=6',
+                'parthenon/mesh/x1min=-1.5',
+                'parthenon/mesh/x1max=1.5',
+                'parthenon/mesh/x2min=-0.75',
+                'parthenon/mesh/x2max=0.75',
+                'parthenon/mesh/x3min=-1.0',
+                'parthenon/mesh/x3max=1.0',
+                'Advection/vx=3.0',
+                'Advection/vy=1.5',
+                'Advection/vz=2.0',
+                'Advection/profile=smooth_gaussian',
+                'Advection/amp=1.0',
+                ]
+
 
         return parameters
 

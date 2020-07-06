@@ -73,13 +73,13 @@ list(APPEND TEST_ARGS "--driver ${CMAKE_BINARY_DIR}/example/calculate_pi/pi-exam
 # Advection test (here added manually to override default nproc for MPI runs)
 setup_test( advection_convergence "--driver ${CMAKE_BINARY_DIR}/example/advection/advection-example \
 --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/advection_convergence/parthinput.advection \
---num_steps 24")
+--num_steps 25")
 setup_test_mpi( 1 advection_convergence "--driver ${CMAKE_BINARY_DIR}/example/advection/advection-example \
 --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/advection_convergence/parthinput.advection \
---num_steps 24")
+--num_steps 25")
 setup_test_mpi_coverage( 1 advection_convergence "--driver ${CMAKE_BINARY_DIR}/example/advection/advection-example \
 --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/advection_convergence/parthinput.advection \
---num_steps 24")
+--num_steps 25")
 
 if (ENABLE_HDF5)
 setup_test( output_hdf5 "--driver ${CMAKE_BINARY_DIR}/example/advection/advection-example \
