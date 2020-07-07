@@ -11,19 +11,20 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
 
-# Adding regression tests
-#
-# To add additional regression tests to ctest, to things must be added to 
-# this file:
-# 
-# 1. there must exist within the regression/test_suites directory a folder associated with the test
-#   * For the calculate_pi example the folder is called 'calculate_pi', This
-#     folder must be added to the cmake variable TEST_DIRS as shown below. 
-
-# 2. the correct arguments to pass to the 'run_test.py' script must be specfied
-#   * This arguments must be added to the CMAKE variable TEST_ARGS as shown below
-#
-# Note each new test must append exactly 1 item to each of the CMAKE variables
+# Adds the drivers used in the regression tests to a global cmake property: DRIVERS_USED_IN_TESTS
+function(record_driver arg)
+    list(LENGTH arg len_list)
+    math(EXPR list_end "${len_list} - 1")
+    foreach(ind RANGE ${list_end})
+      list(GET arg ${ind} arg2)
+      if("${arg2}" STREQUAL "--driver")
+        MATH(EXPR ind "${ind}+1")
+        list(GET arg ${ind} driver)
+        get_filename_component(driver ${driver} NAME)
+        set_property(GLOBAL APPEND PROPERTY DRIVERS_USED_IN_TESTS "${driver}" )
+      endif()
+    endforeach()
+endfunction()
 
 function(setup_test dir arg)
   separate_arguments(arg) 
@@ -31,6 +32,7 @@ function(setup_test dir arg)
     ${arg} --test_dir "${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}"
     --output_dir "${CMAKE_BINARY_DIR}/tst/regression/outputs/${dir}")
   set_tests_properties(regression_test:${dir} PROPERTIES LABELS "regression;mpi-no" )
+  record_driver("${arg}")
 endfunction()
 
 function(setup_test_mpi nproc dir arg)
@@ -43,20 +45,48 @@ function(setup_test_mpi nproc dir arg)
       --test_dir ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}
       --output_dir "${CMAKE_BINARY_DIR}/tst/regression/outputs/${dir}")
     set_tests_properties(regression_mpi_test:${dir} PROPERTIES LABELS "regression;mpi-yes" RUN_SERIAL ON )
+    record_driver("${arg}")
   else()
     message(STATUS "MPI not found, not building regression tests with mpi")
   endif()
 endfunction()
 
+# Adding regression tests
+#
+# To add additional regression tests to ctest, three things must be added to 
+# this file:
+# 
+# 1. there must exist within the regression/test_suites directory a folder associated with the test
+#   * For the calculate_pi example the folder is called 'calculate_pi', This
+#     folder must be added to the cmake variable TEST_DIRS as shown below. 
+#
+# 2. the correct arguments to pass to the 'run_test.py' script must be specfied
+#   * This arguments must be added to the CMAKE variable TEST_ARGS as shown below
+#
+# 3. the number of mpi processors that should be used when testing the mpi implementation 
+#   * This argument needs to be added to the TEST_PROCS variable
+#
+# NOTE: each new test must append exactly 1 item to each of the CMAKE variables
+#
+# Add additional regression tests to ctest below this line by calling
+#
+# list(APPEND TEST_DIRS name_of_folder )   
+# list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+# list(APPEND TEST_ARGS args_to_pass_to_run_test.py )
+#
+# Here name_of_folder should be the test folder located in parthenon/tst/regression/test_suites
+# it is the parameter that is passed to run_test.py with the --test_dir argument
+
+# Calculate pi example
 list(APPEND TEST_DIRS calculate_pi)
+list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
 list(APPEND TEST_ARGS "--driver ${CMAKE_BINARY_DIR}/example/calculate_pi/pi-example \
 --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/calculate_pi/parthinput.regression")
 
-# Advection test (here added manually to override default nproc for MPI runs)
-setup_test( advection_convergence "--driver ${CMAKE_BINARY_DIR}/example/advection/advection-example \
---driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/advection_convergence/parthinput.advection \
---num_steps 24")
-setup_test_mpi( 1 advection_convergence "--driver ${CMAKE_BINARY_DIR}/example/advection/advection-example \
+# Advection test 
+list(APPEND TEST_DIRS advection_convergence)
+list(APPEND TEST_PROCS "1")
+list(APPEND TEST_ARGS "--driver ${CMAKE_BINARY_DIR}/example/advection/advection-example \
 --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/advection_convergence/parthinput.advection \
 --num_steps 24")
 
@@ -64,26 +94,19 @@ if (ENABLE_HDF5)
 setup_test( output_hdf5 "--driver ${CMAKE_BINARY_DIR}/example/advection/advection-example \
 --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/output_hdf5/parthinput.advection \
 --num_steps 2")
-setup_test_mpi( ${NUM_MPI_PROC_TESTING} output_hdf5
+setup_test_mpi( "${NUM_MPI_PROC_TESTING}" output_hdf5
 "--driver ${CMAKE_BINARY_DIR}/example/advection/advection-example \
 --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/output_hdf5/parthinput.advection \
 --num_steps 2")
 endif()
-
-# Add additional regression tests to ctest below this line by calling
-#
-# list(APPEND TEST_DIRS name_of_folder )   
-# list(APPEND TEST_ARGS args_to_pass_to_run_test.py )
-#
-# Here name_of_folder should be the test folder located in parthenon/tst/regression/test_suites
-# it is the, it is the parameter that is passed to run_test.py with the --test_dir argument
 
 list(LENGTH TEST_DIRS len)
 math(EXPR end_index "${len} - 1")
 
 foreach( index RANGE ${end_index})
   list(GET TEST_DIRS ${index} TEST_DIR)
+  list(GET TEST_PROCS ${index} TEST_PROC)
   list(GET TEST_ARGS ${index} TEST_ARG)
-  setup_test( ${TEST_DIR} ${TEST_ARG})
-  setup_test_mpi( ${NUM_MPI_PROC_TESTING} ${TEST_DIR} ${TEST_ARG})
+  setup_test(${TEST_DIR} ${TEST_ARG})
+  setup_test_mpi(${TEST_PROC} ${TEST_DIR} ${TEST_ARG})
 endforeach()
