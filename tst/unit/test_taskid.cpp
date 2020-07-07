@@ -24,7 +24,7 @@
 using parthenon::TaskID;
 
 TEST_CASE("Just check everything",
-    "[CheckDependencies][SetFinished][equal][or][coverage]") {
+          "[CheckDependencies][SetFinished][equal][or][coverage]") {
   GIVEN("Some TaskIDs") {
     TaskID a(1);
     TaskID b(2);
