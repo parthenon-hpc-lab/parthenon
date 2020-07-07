@@ -42,5 +42,6 @@ ctest -L performance
    |   ENABLE\_INTEGRATION\_TESTS | ${BUILD\_TESTING} | Option | Enable integration tests |
    |    ENABLE\_REGRESSION\_TESTS | ${BUILD\_TESTING} | Option | Enable regression tests |
    |          ENABLE\_UNIT\_TESTS | ${BUILD\_TESTING} | Option | Enable unit tests |
+   |               CODE\_COVERAGE | OFF      | Option | Builds with code coverage flags |
 
 ### NB: CMake options prefixed with *PARTHENON\_* modify behavior.

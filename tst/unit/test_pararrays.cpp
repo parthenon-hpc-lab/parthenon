@@ -300,7 +300,7 @@ TEST_CASE("ParArrayND", "[ParArrayND][Kokkos][coverage]") {
   }
 }
 
-TEST_CASE("ParArrayND with LayoutLeft", "[ParArrayND][Kokkos][LayoutLeft]") {
+TEST_CASE("ParArrayND with LayoutLeft", "[ParArrayND][Kokkos][LayoutLeft][coverage]") {
   GIVEN("A ParArrayND with some dimensions") {
     constexpr int N1 = 2;
     constexpr int N2 = 3;

@@ -49,7 +49,7 @@ TEST_CASE("Add and Get is called", "[Add,Get][coverage]") {
   }
 }
 
-TEST_CASE("reset is called", "[reset]") {
+TEST_CASE("reset is called", "[reset][coverage]") {
   GIVEN("A key is added") {
     Params params;
     std::string key = "test_key";
@@ -62,7 +62,7 @@ TEST_CASE("reset is called", "[reset]") {
   }
 }
 
-TEST_CASE("when hasKey is called", "[hasKey]") {
+TEST_CASE("when hasKey is called", "[hasKey][coverage]") {
   GIVEN("A key is added") {
     Params params;
     std::string key = "test_key";
