@@ -46,7 +46,7 @@ class ParthenonManager {
       ProcessPropertiesDefault;
   std::function<Packages_t(std::unique_ptr<ParameterInput> &)> ProcessPackages =
       ProcessPackagesDefault;
-  std::function<void()> SetFillDerivedFunctions;
+  std::function<void()> SetFillDerivedFunctions = SetFillDerivedFunctionsDefault;
 
   // member data
   std::unique_ptr<ParameterInput> pinput;

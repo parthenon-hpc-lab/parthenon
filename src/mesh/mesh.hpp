@@ -445,7 +445,7 @@ class Mesh {
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   static void InitUserMeshDataDefault(ParameterInput *pin);
-  std::function<void(ParameterInput *)> InitUserMeshData = nullptr;
+  std::function<void(ParameterInput *)> InitUserMeshData = InitUserMeshDataDefault;
 
   // often used (not defined) in prob file in ../pgen/
   void EnrollUserBoundaryFunction(BoundaryFace face, BValFunc my_func);
