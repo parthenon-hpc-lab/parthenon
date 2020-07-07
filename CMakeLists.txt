@@ -31,7 +31,7 @@ stop linting by default. You can still lint using the \"lint\" target"
   ON
 )
 option(
-  PARTHENON_DISABLE_BUILD_EXAMPLES 
+  PARTHENON_DISABLE_EXAMPLES 
   "Example drivers are built by default, set this to True to diable, note if regression tests are \
 built some, drivers needed by the regression tests will still be built." 
   OFF
