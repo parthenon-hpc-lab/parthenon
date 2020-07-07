@@ -56,8 +56,6 @@ class TestManager:
     def __init__(self,run_test_path,**kwargs):
 
         self.__run_coverage = kwargs.pop('coverage')
-        print("Popped coverage")
-        print(self.__run_coverage)
         self.parameters = Parameters()
         self.__run_test_py_path = run_test_path 
         self.__regression_test_suite_path = os.path.join(self.__run_test_py_path,'test_suites')
@@ -183,8 +181,7 @@ class TestManager:
 
     def CleanOutputFolder(self):
         if os.path.isdir(self.parameters.output_path):
-            print(self.parameters.output_path)
-                #rmtree(self.parameters.output_path)
+            rmtree(self.parameters.output_path)
 
         mkdir_p(self.parameters.output_path)
         os.chdir(self.parameters.output_path)
@@ -241,7 +238,7 @@ class TestManager:
         test_pass = False
         if self.__run_coverage:
             print("*****************************************************************")
-            print("Running with Coverage Analysis Ignored")
+            print("Running with Coverage, Analysis Section Ignored")
             print("*****************************************************************")
             return True
 

@@ -265,3 +265,22 @@ The coverage status argument can take 3 different settings:
 2. **both** - will run with or without coverage
 3. **only-coverage** - will only run if coverage is specified
 
+##### Creating and Uploading Coverage Report
+
+To create a coverage report cmake should be run with both the CMAKE_BUILD_TYPE
+flag set to debug, and the CODE_COVERAGE flag set to On. 
+
+```
+  mkdir build
+  cd build
+  cmake -DCODE_COVERAGE=On -DCMAKE_BUILD_TYPE=Debug ../
+  make coverage
+  make coverage-upload
+``` 
+
+Fine grained control of where the coverage reports are placed can be specified
+with COVERAGE_PATH, COVERAGE_NAME, which represent the path to the coverage
+reports and the directory where they will be placed. The default location is in
+a folder named coverage in the build directory. 
+
+
