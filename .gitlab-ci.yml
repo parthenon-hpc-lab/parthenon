@@ -25,9 +25,9 @@ variables:
   GIT_SUBMODULE_STRATEGY: recursive
 
 stages:
-  - coverage
   - unit
   - performance_and_regression
+  - coverage
   - style
 
 style-check:
