@@ -26,12 +26,9 @@ The tests currently cover
 - Advection of a smoothed sphere at an angle on a *static* grid, on a *static* grid a twice the resolution, and with *AMR* covering the sphere at the effective higher resolution
 - Advection of a sharp sphere at an angle with *AMR* writing hdf5 output and comparing against a gold standard output.
 
-To execute the tests first obtain the current gold standard output
-```bash
-# from within the main parthenon directory
-wget -qO- https://pgrete.de/dl/parthenon_regression_gold_latest.tgz | tar -xz -C tst/regression/gold_standard
-```
-and afterwards run the tests, e.g., through
+To execute the tests first obtain the current gold standard output using [git lfs](https://git-lfs.github.com/). After running `git lfs install`, you may need to run `git lfs pull` to get the associated gold files. Further branch checkouts should not require `git lfs pull` to get the latest gold files.
+
+After retrieving the gold files, run the tests. For example, execute just the regression tests using the `-R` option.
 ```bash
 # from within the build directory (add -V fore more detailed output)
 ctest -R regression
