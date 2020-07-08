@@ -47,11 +47,17 @@ if(CODE_COVERAGE)
     COMMAND ${PATH_LCOV} --gcov-tool ${PATH_GCOV} -c -i -d ${CMAKE_BINARY_DIR} -b ${CMAKE_SOURCE_DIR} -o ${COVERAGE_PATH}/${COVERAGE_NAME}/report.base.old
     # Remove Kokkos info from code coverage
     COMMAND ${PATH_LCOV} --remove ${COVERAGE_PATH}/${COVERAGE_NAME}/report.base.old 'Kokkos/*' -o ${COVERAGE_PATH}/${COVERAGE_NAME}/report.base
+    # Remove tst info from code coverage
+    COMMAND ${PATH_LCOV} --remove ${COVERAGE_PATH}/${COVERAGE_NAME}/report.base '*/tst/*' -o ${COVERAGE_PATH}/${COVERAGE_NAME}/report.base
+
     # Capture information from test runs
     COMMAND ${PATH_LCOV} --gcov-tool ${PATH_GCOV} --directory ${CMAKE_BINARY_DIR} -b ${CMAKE_SOURCE_DIR} --capture --output-file ${COVERAGE_PATH}/${COVERAGE_NAME}/report.test.old
     # Remove Kokkos info from code coverage
     COMMAND ${PATH_LCOV} --remove ${COVERAGE_PATH}/${COVERAGE_NAME}/report.test.old 'Kokkos/*' -o ${COVERAGE_PATH}/${COVERAGE_NAME}/report.test
+    # Remove tst info from code coverage
+    COMMAND ${PATH_LCOV} --remove ${COVERAGE_PATH}/${COVERAGE_NAME}/report.test '*/tst/*' -o ${COVERAGE_PATH}/${COVERAGE_NAME}/report.test
     # Combining base line counters with counters from running tests
+
     COMMAND ${PATH_LCOV} --gcov-tool ${PATH_GCOV} -a ${COVERAGE_PATH}/${COVERAGE_NAME}/report.base -a ${COVERAGE_PATH}/${COVERAGE_NAME}/report.test --output-file ${COVERAGE_PATH}/${COVERAGE_NAME}/report.all
     # Remove unneeded reports
     COMMAND rm ${COVERAGE_PATH}/${COVERAGE_NAME}/report.test.old
