@@ -76,6 +76,9 @@ class TestCase(utils.test_case.TestCaseAbs):
                 ]
         # TEST: Advection only in y-direction
         elif step <= 2*n_res:
+            # Only run coverage for 32 case
+            if lin_res[step % n_res - 1] == 32:
+                parameters.coverage_status = "both"
             parameters.driver_cmd_line_args = [
                 'parthenon/mesh/nx1=4',
                 'parthenon/meshblock/nx1=4',
@@ -279,8 +282,6 @@ class TestCase(utils.test_case.TestCaseAbs):
                 'Advection/profile=smooth_gaussian',
                 'Advection/amp=1.0',
                 ]
-
-
         return parameters
 
     def Analyse(self,parameters):

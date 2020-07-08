@@ -108,13 +108,17 @@ list(APPEND TEST_ARGS "--driver ${CMAKE_BINARY_DIR}/example/advection/advection-
 --num_steps 25")
 
 if (ENABLE_HDF5)
-setup_test( output_hdf5 "--driver ${CMAKE_BINARY_DIR}/example/advection/advection-example \
---driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/output_hdf5/parthinput.advection \
---num_steps 2")
-setup_test_mpi( "${NUM_MPI_PROC_TESTING}" output_hdf5
-"--driver ${CMAKE_BINARY_DIR}/example/advection/advection-example \
---driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/output_hdf5/parthinput.advection \
---num_steps 2")
+  setup_test( output_hdf5 "--driver ${CMAKE_BINARY_DIR}/example/advection/advection-example \
+  --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/output_hdf5/parthinput.advection \
+  --num_steps 4")
+  setup_test_mpi( "${NUM_MPI_PROC_TESTING}" output_hdf5
+  "--driver ${CMAKE_BINARY_DIR}/example/advection/advection-example \
+  --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/output_hdf5/parthinput.advection \
+  --num_steps 4")
+  setup_test_mpi_coverage("${NUM_MPI_PROC_TESTING}" output_hdf5
+  "--driver ${CMAKE_BINARY_DIR}/example/advection/advection-example \
+  --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/output_hdf5/parthinput.advection \
+  --num_steps 4")
 endif()
 
 list(LENGTH TEST_DIRS len)
