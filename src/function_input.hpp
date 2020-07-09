@@ -27,11 +27,9 @@
 
 namespace parthenon {
 
-class FunctionInput {
+struct FunctionInput {
 
  public:
-  FunctionInput() {}
-
   // ParthenonManager functions
   std::function<void()> SetFillDerivedFunctions = nullptr;
   std::function<Properties_t(std::unique_ptr<ParameterInput> &)> ProcessProperties =

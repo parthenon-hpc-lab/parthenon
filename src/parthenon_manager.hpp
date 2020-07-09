@@ -19,6 +19,7 @@
 #include "argument_parser.hpp"
 #include "basic_types.hpp"
 #include "driver/driver.hpp"
+#include "function_input.hpp"
 #include "interface/properties_interface.hpp"
 #include "interface/state_descriptor.hpp"
 #include "mesh/mesh.hpp"

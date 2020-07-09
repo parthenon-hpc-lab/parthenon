@@ -15,13 +15,13 @@
 #include "parthenon_manager.hpp"
 
 int main(int argc, char *argv[]) {
-  using parthenon::FaceFieldExample;
+  using FaceFields::FaceFieldExample;
   using parthenon::ParthenonManager;
   using parthenon::ParthenonStatus;
   ParthenonManager pman;
 
-  pman.finput->ProcessPackages = &(parthenon::ProcessPackages);
-  pman.finput->ProblemGenerator = &(parthenon::ProblemGenerator);
+  pman.finput->ProcessPackages = FaceFields::ProcessPackages;
+  pman.finput->ProblemGenerator = FaceFields::ProblemGenerator;
 
   auto status = pman.ParthenonInit(argc, argv);
   if (status == ParthenonStatus::complete || status == ParthenonStatus::error) {

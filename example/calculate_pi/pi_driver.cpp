@@ -34,7 +34,7 @@ Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin);
 int main(int argc, char *argv[]) {
   ParthenonManager pman;
 
-  pman.ProcessPackages = &ProcessPackages;
+  pman.finput->ProcessPackages = ProcessPackages;
 
   auto manager_status = pman.ParthenonInit(argc, argv);
   if (manager_status == ParthenonStatus::complete) {

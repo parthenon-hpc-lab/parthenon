@@ -21,10 +21,10 @@ int main(int argc, char *argv[]) {
   ParthenonManager pman;
 
   // Redefine parthenon defaults
-  pman.finput->ProcessPackages = &(advection_example::ProcessPackages);
-  pman.finput->ProblemGenerator = &(advection_example::ProblemGenerator);
-  pman.finput->UserWorkAfterLoop = &(advection_example::UserWorkAfterLoop);
-  pman.finput->SetFillDerivedFunctions = &(advection_example::SetFillDerivedFunctions);
+  pman.finput->ProcessPackages = advection_example::ProcessPackages;
+  pman.finput->ProblemGenerator = advection_example::ProblemGenerator;
+  pman.finput->UserWorkAfterLoop = advection_example::UserWorkAfterLoop;
+  pman.finput->SetFillDerivedFunctions = advection_example::SetFillDerivedFunctions;
 
   // call ParthenonInit to initialize MPI and Kokkos, parse the input deck, and set up
   auto manager_status = pman.ParthenonInit(argc, argv);
