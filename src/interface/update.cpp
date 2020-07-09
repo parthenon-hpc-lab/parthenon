@@ -73,12 +73,11 @@ void UpdateContainer(std::shared_ptr<Container<Real>> &in,
   auto vout = out->PackVariables({Metadata::Independent});
   auto dudt = dudt_cont->PackVariables({Metadata::Independent});
 
-  pmb->par_for(
-      "UpdateContainer", 0, vin.GetDim(4) - 1, 0, vin.GetDim(3) - 1, 0, vin.GetDim(2) - 1,
-      0, vin.GetDim(1) - 1,
-      KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
-        vout(l, k, j, i) = vin(l, k, j, i) + dt * dudt(l, k, j, i);
-      });
+  pmb->par_for("UpdateContainer", 0, vin.GetDim(4) - 1, 0, vin.GetDim(3) - 1, 0,
+               vin.GetDim(2) - 1, 0, vin.GetDim(1) - 1,
+               KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
+                 vout(l, k, j, i) = vin(l, k, j, i) + dt * dudt(l, k, j, i);
+               });
   return;
 }
 
@@ -93,11 +92,10 @@ void AverageContainers(std::shared_ptr<Container<Real>> &c1,
   auto v1 = c1->PackVariables({Metadata::Independent});
   auto v2 = c2->PackVariables({Metadata::Independent});
 
-  pmb->par_for(
-      "AverageContainers", 0, v1.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
-        v1(l, k, j, i) = wgt1 * v1(l, k, j, i) + (1 - wgt1) * v2(l, k, j, i);
-      });
+  pmb->par_for("AverageContainers", 0, v1.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s,
+               ib.e, KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
+                 v1(l, k, j, i) = wgt1 * v1(l, k, j, i) + (1 - wgt1) * v2(l, k, j, i);
+               });
 
   return;
 }

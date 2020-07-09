@@ -216,7 +216,7 @@ Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
 
 void SetFillDerivedFunctions() {
   parthenon::FillDerivedVariables::SetFillDerivedFunctions(advection_package::PreFill,
-                                                advection_package::PostFill);
+                                                           advection_package::PostFill);
 }
 
 } // namespace advection_example

@@ -21,18 +21,18 @@
 
 #include "parthenon_manager.hpp"
 
+using parthenon::DerivedOwnership;
+using parthenon::DriverStatus;
+using parthenon::MeshBlock;
+using parthenon::Metadata;
 using parthenon::Packages_t;
 using parthenon::ParameterInput;
-using parthenon::StateDescriptor;
 using parthenon::Params;
-using parthenon::Metadata;
-using parthenon::MeshBlock;
-using parthenon::DriverStatus;
-using parthenon::DerivedOwnership;
 using parthenon::Real;
+using parthenon::StateDescriptor;
+using parthenon::TaskID;
 using parthenon::TaskList;
 using parthenon::TaskStatus;
-using parthenon::TaskID;
 
 namespace FaceFields {
 
