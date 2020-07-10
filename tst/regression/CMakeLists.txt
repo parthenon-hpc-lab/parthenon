@@ -11,62 +11,8 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
 
-# Adds the drivers used in the regression tests to a global cmake property: DRIVERS_USED_IN_TESTS
-function(record_driver arg)
-    list(LENGTH arg len_list)
-    math(EXPR list_end "${len_list} - 1")
-    foreach(ind RANGE ${list_end})
-      list(GET arg ${ind} arg2)
-      if("${arg2}" STREQUAL "--driver")
-        MATH(EXPR ind "${ind}+1")
-        list(GET arg ${ind} driver)
-        get_filename_component(driver ${driver} NAME)
-        set_property(GLOBAL APPEND PROPERTY DRIVERS_USED_IN_TESTS "${driver}" )
-      endif()
-    endforeach()
-endfunction()
-
-function(setup_test dir arg)
-  separate_arguments(arg) 
-  add_test( NAME regression_test:${dir} COMMAND python "${CMAKE_CURRENT_SOURCE_DIR}/run_test.py" 
-    ${arg} --test_dir "${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}"
-    --output_dir "${CMAKE_BINARY_DIR}/tst/regression/outputs/${dir}")
-  set_tests_properties(regression_test:${dir} PROPERTIES LABELS "regression;mpi-no" )
-  record_driver("${arg}")
-endfunction()
-
-function(setup_test_mpi nproc dir arg)
-  if( MPI_FOUND )
-    separate_arguments(arg) 
-    add_test( NAME regression_mpi_test:${dir} COMMAND python ${CMAKE_CURRENT_SOURCE_DIR}/run_test.py
-      --mpirun ${MPIEXEC_EXECUTABLE} 
-      --mpirun_opts=${MPIEXEC_NUMPROC_FLAG} --mpirun_opts=${nproc}
-      --mpirun_opts=${MPIEXEC_PREFLAGS} ${arg}
-      --test_dir ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}
-      --output_dir "${CMAKE_BINARY_DIR}/tst/regression/outputs/${dir}")
-    set_tests_properties(regression_mpi_test:${dir} PROPERTIES LABELS "regression;mpi-yes" RUN_SERIAL ON )
-    record_driver("${arg}")
-  else()
-    message(STATUS "MPI not found, not building regression tests with mpi")
-  endif()
-endfunction()
-
-function(setup_test_mpi_coverage nproc dir arg)
-  if( MPI_FOUND )
-    separate_arguments(arg) 
-    add_test( NAME regression_mpi_coverage_test:${dir} COMMAND python ${CMAKE_CURRENT_SOURCE_DIR}/run_test.py
-      --coverage
-      --mpirun ${MPIEXEC_EXECUTABLE} 
-      --mpirun_opts=${MPIEXEC_NUMPROC_FLAG} --mpirun_opts=${nproc}
-      --mpirun_opts=${MPIEXEC_PREFLAGS} ${arg}
-      --test_dir ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}
-      --output_dir "${CMAKE_BINARY_DIR}/tst/regression/outputs/${dir}"
-      )
-    set_tests_properties(regression_mpi_coverage_test:${dir} PROPERTIES LABELS "regression;coverage;mpi-yes" RUN_SERIAL ON )
-  else()
-    message(STATUS "MPI not found, not building coverage regression tests with mpi")
-  endif()
-endfunction()
+# Include test setup functions
+include(${CMAKE_SOURCE_DIR}/cmake/TestSetup.cmake)
 
 # Adding regression tests
 #
@@ -111,6 +57,9 @@ if (ENABLE_HDF5)
   setup_test( output_hdf5 "--driver ${CMAKE_BINARY_DIR}/example/advection/advection-example \
   --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/output_hdf5/parthinput.advection \
   --num_steps 4")
+  setup_test_coverage( output_hdf5 "--driver ${CMAKE_BINARY_DIR}/example/advection/advection-example \
+  --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/output_hdf5/parthinput.advection \
+  --num_steps 4")
   setup_test_mpi( "${NUM_MPI_PROC_TESTING}" output_hdf5
   "--driver ${CMAKE_BINARY_DIR}/example/advection/advection-example \
   --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/output_hdf5/parthinput.advection \
@@ -129,6 +78,7 @@ foreach( index RANGE ${end_index})
   list(GET TEST_PROCS ${index} TEST_PROC)
   list(GET TEST_ARGS ${index} TEST_ARG)
   setup_test(${TEST_DIR} ${TEST_ARG})
+  setup_test_coverage(${TEST_DIR} ${TEST_ARG})
   setup_test_mpi(${TEST_PROC} ${TEST_DIR} ${TEST_ARG})
   setup_test_mpi_coverage(${TEST_PROC} ${TEST_DIR} ${TEST_ARG})
 endforeach()
