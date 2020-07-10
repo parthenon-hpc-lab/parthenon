@@ -42,7 +42,7 @@ class SparseVariable {
   SparseVariable() = default;
   // Copies src variable but only including chosen sparse ids.
   SparseVariable(SparseVariable<T> &src, const std::vector<int> &sparse_ids)
-      : dims_(src.dims_), label_(src.label_), metadata_(src.metadata_) {
+      : label_(src.label_), metadata_(src.metadata_) {
     for (int id : sparse_ids) {
       auto var = src.varMap_[id];
       Add(id, var);
@@ -50,17 +50,17 @@ class SparseVariable {
   }
   SparseVariable(std::shared_ptr<SparseVariable<T>> src,
                  const std::vector<int> &sparse_ids)
-      : dims_(src->dims_), label_(src->label_), metadata_(src->metadata_) {
+      : label_(src->label_), metadata_(src->metadata_) {
     for (int id : sparse_ids) {
       auto var = src->varMap_[id];
       Add(id, var);
     }
   }
-  SparseVariable(const std::string &label, const Metadata &m, std::array<int, 6> &dims)
-      : dims_(dims), label_(label), metadata_(m) {}
+  SparseVariable(const std::string &label, const Metadata &m)
+      : label_(label), metadata_(m) {}
 
   std::shared_ptr<SparseVariable<T>> AllocateCopy() {
-    auto sv = std::make_shared<SparseVariable<T>>(label_, metadata_, dims_);
+    auto sv = std::make_shared<SparseVariable<T>>(label_, metadata_);
     for (auto &v : varMap_) {
       sv->Add(v.first, v.second->AllocateCopy());
     }
@@ -130,15 +130,14 @@ class SparseVariable {
   // void DeleteVariable(const int var_id);
 
   std::string &label() { return label_; }
-  int size() { return indexMap_.size(); }
+  int size() const noexcept { return indexMap_.size(); }
 
   void print() { std::cout << "hello from sparse variables print" << std::endl; }
 
   const Metadata &metadata() { return metadata_; }
-  const std::string &getAssociated() { return metadata_.getAssociated(); }
+  const std::string &getAssociated() const { return metadata_.getAssociated(); }
 
  private:
-  std::array<int, 6> dims_;
   std::string label_;
   Metadata metadata_;
   SparseMap<T> varMap_;

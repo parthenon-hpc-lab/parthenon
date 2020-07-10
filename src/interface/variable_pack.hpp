@@ -142,11 +142,111 @@ using MapToVariablePack = std::map<std::vector<std::string>, PackIndxPair<T>>;
 template <typename T>
 using MapToVariableFluxPack = std::map<vpack_types::StringPair, FluxPackIndxPair<T>>;
 
+template <typename T, typename V>
+void FillVarHostView(const vpack_types::VarList<T> &vars, PackIndexMap *vmap,
+                     V &host_view, ParArrayND<int> &host_sp) {
+  using vpack_types::IndexPair;
+  int vindex = 0;
+  int sparse_start;
+  int sparse_id;
+  std::string sparse_name;
+  for (const auto v : vars) {
+    sparse_id = v->metadata().GetSparseId();
+    if (vmap != nullptr) {
+      if (v->IsSet(Metadata::Sparse)) {
+        std::string sparse_trim = v->label();
+        sparse_trim.erase(sparse_trim.find_last_of("_"));
+        if (sparse_name == "") {
+          sparse_name = sparse_trim;
+          sparse_start = vindex;
+        }
+        if (sparse_name != sparse_trim) {
+          vmap->insert(std::pair<std::string, IndexPair>(
+              sparse_name, IndexPair(sparse_start, vindex - 1)));
+          sparse_name = sparse_trim;
+          sparse_start = vindex;
+        }
+      } else if (!(sparse_name == "")) {
+        vmap->insert(std::pair<std::string, IndexPair>(
+            sparse_name, IndexPair(sparse_start, vindex - 1)));
+        sparse_name = "";
+      }
+    }
+    int vstart = vindex;
+    for (int k = 0; k < v->GetDim(6); k++) {
+      for (int j = 0; j < v->GetDim(5); j++) {
+        for (int i = 0; i < v->GetDim(4); i++) {
+          host_sp(vindex) = sparse_id;
+          host_view(vindex++) = v->data.Get(k, j, i);
+        }
+      }
+    }
+    if (vmap != nullptr) {
+      vmap->insert(
+          std::pair<std::string, IndexPair>(v->label(), IndexPair(vstart, vindex - 1)));
+    }
+  }
+  if (vmap != nullptr && sparse_name != "") {
+    vmap->insert(std::pair<std::string, IndexPair>(sparse_name,
+                                                   IndexPair(sparse_start, vindex - 1)));
+  }
+}
+
+template <typename T, typename V>
+void FillFluxHostView(const vpack_types::VarList<T> &vars, PackIndexMap *vmap,
+                      const int ndim, V &host_f1, V &host_f2, V &host_f3) {
+  using vpack_types::IndexPair;
+  int vindex = 0;
+  int sparse_start;
+  int sparse_id;
+  std::string sparse_name;
+  for (const auto &v : vars) {
+    if (vmap != nullptr) {
+      if (v->IsSet(Metadata::Sparse)) {
+        std::string sparse_trim = v->label();
+        sparse_trim.erase(sparse_trim.find_last_of("_"));
+        if (sparse_name == "") {
+          sparse_name = sparse_trim;
+          sparse_start = vindex;
+        }
+        if (sparse_name != sparse_trim) {
+          vmap->insert(std::pair<std::string, IndexPair>(
+            sparse_name, IndexPair(sparse_start, vindex - 1)));
+          sparse_name = sparse_trim;
+          sparse_start = vindex;
+        }
+      } else if (!(sparse_name == "")) {
+        vmap->insert(std::pair<std::string, IndexPair>(
+            sparse_name, IndexPair(sparse_start, vindex - 1)));
+        sparse_name = "";
+      }
+    }
+    int vstart = vindex;
+    for (int k = 0; k < v->GetDim(6); k++) {
+      for (int j = 0; j < v->GetDim(5); j++) {
+        for (int i = 0; i < v->GetDim(4); i++) {
+          host_f1(vindex) = v->flux[X1DIR].Get(k, j, i);
+          if (ndim >= 2) host_f2(vindex) = v->flux[X2DIR].Get(k, j, i);
+          if (ndim >= 3) host_f3(vindex) = v->flux[X3DIR].Get(k, j, i);
+          vindex++;
+        }
+      }
+    }
+    if (vmap != nullptr) {
+      vmap->insert(
+          std::pair<std::string, IndexPair>(v->label(), IndexPair(vstart, vindex - 1)));
+    }
+  }
+  if (vmap != nullptr && sparse_name != "") {
+    vmap->insert(std::pair<std::string, IndexPair>(sparse_name,
+                                                   IndexPair(sparse_start, vindex - 1)));
+  }
+}
+
 template <typename T>
 VariableFluxPack<T> MakeFluxPack(const vpack_types::VarList<T> &vars,
                                  const vpack_types::VarList<T> &flux_vars,
                                  PackIndexMap *vmap = nullptr) {
-  using vpack_types::IndexPair;
   // count up the size
   int vsize = 0;
   for (const auto &v : vars) {
@@ -173,92 +273,10 @@ VariableFluxPack<T> MakeFluxPack(const vpack_types::VarList<T> &vars,
   auto host_f3 = f3.GetHostMirror();
   auto host_sp = sparse_assoc.GetHostMirror();
   // add variables to host view
-  int vindex = 0;
-  int sparse_start;
-  int sparse_id;
-  std::string sparse_name = "";
-  for (const auto &v : vars) {
-    sparse_id = v->metadata().GetSparseId();
-    if (v->IsSet(Metadata::Sparse)) {
-      std::string sparse_trim = v->label();
-      sparse_trim.erase(sparse_trim.find_last_of("_"));
-      if (sparse_name == "") {
-        sparse_name = sparse_trim;
-        sparse_start = vindex;
-      }
-      if (sparse_name != sparse_trim) {
-        vmap->insert(std::pair<std::string, IndexPair>(
-            sparse_name, IndexPair(sparse_start, vindex - 1)));
-        sparse_name = sparse_trim;
-        sparse_start = vindex;
-      }
-
-    } else if (!(sparse_name == "")) {
-      vmap->insert(std::pair<std::string, IndexPair>(
-          sparse_name, IndexPair(sparse_start, vindex - 1)));
-      sparse_name = "";
-    }
-    int vstart = vindex;
-    for (int k = 0; k < v->GetDim(6); k++) {
-      for (int j = 0; j < v->GetDim(5); j++) {
-        for (int i = 0; i < v->GetDim(4); i++) {
-          host_sp(vindex) = sparse_id;
-          host_view(vindex++) = v->data.Get(k, j, i);
-        }
-      }
-    }
-    if (vmap != nullptr) {
-      vmap->insert(
-          std::pair<std::string, IndexPair>(v->label(), IndexPair(vstart, vindex - 1)));
-    }
-  }
-  if (!(sparse_name == "")) {
-    vmap->insert(std::pair<std::string, IndexPair>(sparse_name,
-                                                   IndexPair(sparse_start, vindex - 1)));
-  }
+  FillVarHostView(vars, vmap, host_view, host_sp);
   // add fluxes to host view
-  vindex = 0;
-  sparse_name = "";
-  for (const auto &v : flux_vars) {
-    if (v->IsSet(Metadata::Sparse)) {
-      std::string sparse_trim = v->label();
-      sparse_trim.erase(sparse_trim.find_last_of("_"));
-      if (sparse_name == "") {
-        sparse_name = sparse_trim;
-        sparse_start = vindex;
-      }
-      if (sparse_name != sparse_trim) {
-        vmap->insert(std::pair<std::string, IndexPair>(
-            sparse_name, IndexPair(sparse_start, vindex - 1)));
-        sparse_name = sparse_trim;
-        sparse_start = vindex;
-      }
+  FillFluxHostView(flux_vars, vmap, ndim, host_f1, host_f2, host_f3);
 
-    } else if (!(sparse_name == "")) {
-      vmap->insert(std::pair<std::string, IndexPair>(
-          sparse_name, IndexPair(sparse_start, vindex - 1)));
-      sparse_name = "";
-    }
-    int vstart = vindex;
-    for (int k = 0; k < v->GetDim(6); k++) {
-      for (int j = 0; j < v->GetDim(5); j++) {
-        for (int i = 0; i < v->GetDim(4); i++) {
-          host_f1(vindex) = v->flux[X1DIR].Get(k, j, i);
-          if (ndim >= 2) host_f2(vindex) = v->flux[X2DIR].Get(k, j, i);
-          if (ndim >= 3) host_f3(vindex) = v->flux[X3DIR].Get(k, j, i);
-          vindex++;
-        }
-      }
-    }
-    if (vmap != nullptr) {
-      vmap->insert(
-          std::pair<std::string, IndexPair>(v->label(), IndexPair(vstart, vindex - 1)));
-    }
-  }
-  if (!(sparse_name == "")) {
-    vmap->insert(std::pair<std::string, IndexPair>(sparse_name,
-                                                   IndexPair(sparse_start, vindex - 1)));
-  }
   cv.DeepCopy(host_view);
   f1.DeepCopy(host_f1);
   f2.DeepCopy(host_f2);
@@ -270,7 +288,6 @@ VariableFluxPack<T> MakeFluxPack(const vpack_types::VarList<T> &vars,
 template <typename T>
 VariablePack<T> MakePack(const vpack_types::VarList<T> &vars,
                          PackIndexMap *vmap = nullptr) {
-  using vpack_types::IndexPair;
   // count up the size
   int vsize = 0;
   for (const auto &v : vars) {
@@ -282,49 +299,8 @@ VariablePack<T> MakePack(const vpack_types::VarList<T> &vars,
   ParArrayND<int> sparse_assoc("MakeFluxPack::sparse_assoc", vsize);
   auto host_view = cv.GetHostMirror();
   auto host_sp = sparse_assoc.GetHostMirror();
-  int vindex = 0;
-  int sparse_start;
-  int sparse_id;
-  std::string sparse_name = "";
-  for (const auto v : vars) {
-    sparse_id = v->metadata().GetSparseId();
-    if (v->IsSet(Metadata::Sparse)) {
-      std::string sparse_trim = v->label();
-      sparse_trim.erase(sparse_trim.find_last_of("_"));
-      if (sparse_name == "") {
-        sparse_name = sparse_trim;
-        sparse_start = vindex;
-      }
-      if (sparse_name != sparse_trim) {
-        vmap->insert(std::pair<std::string, IndexPair>(
-            sparse_name, IndexPair(sparse_start, vindex - 1)));
-        sparse_name = sparse_trim;
-        sparse_start = vindex;
-      }
 
-    } else if (!(sparse_name == "")) {
-      vmap->insert(std::pair<std::string, IndexPair>(
-          sparse_name, IndexPair(sparse_start, vindex - 1)));
-      sparse_name = "";
-    }
-    int vstart = vindex;
-    for (int k = 0; k < v->GetDim(6); k++) {
-      for (int j = 0; j < v->GetDim(5); j++) {
-        for (int i = 0; i < v->GetDim(4); i++) {
-          host_sp(vindex) = sparse_id;
-          host_view(vindex++) = v->data.Get(k, j, i);
-        }
-      }
-    }
-    if (vmap != nullptr) {
-      vmap->insert(
-          std::pair<std::string, IndexPair>(v->label(), IndexPair(vstart, vindex - 1)));
-    }
-  }
-  if (!(sparse_name == "")) {
-    vmap->insert(std::pair<std::string, IndexPair>(sparse_name,
-                                                   IndexPair(sparse_start, vindex - 1)));
-  }
+  FillVarHostView(vars, vmap, host_view, host_sp);
 
   cv.DeepCopy(host_view);
   sparse_assoc.DeepCopy(host_sp);
@@ -332,6 +308,7 @@ VariablePack<T> MakePack(const vpack_types::VarList<T> &vars,
   std::array<int, 4> cv_size = {fvar.GetDim(1), fvar.GetDim(2), fvar.GetDim(3), vsize};
   return VariablePack<T>(cv, sparse_assoc, cv_size);
 }
+
 
 } // namespace parthenon
 

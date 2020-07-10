@@ -66,7 +66,7 @@ void Container<T>::Add(const std::string label, const Metadata &metadata,
   if (metadata.IsSet(Metadata::Sparse)) {
     // add a sparse variable
     if (sparseMap_.find(label) == sparseMap_.end()) {
-      auto sv = std::make_shared<SparseVariable<T>>(label, metadata, arrDims);
+      auto sv = std::make_shared<SparseVariable<T>>(label, metadata);
       Add(sv);
     }
     int varIndex = metadata.GetSparseId();
