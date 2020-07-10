@@ -179,11 +179,10 @@ class TestManager:
             error_msg += "\n"
         raise TestManagerError(error_msg)
 
-    def CleanOutputFolder(self):
-        if os.path.isdir(self.parameters.output_path):
-            rmtree(self.parameters.output_path)
+    def MakeOutputFolder(self):
+        if not os.path.isdir(self.parameters.output_path):
+            mkdir_p(self.parameters.output_path)
 
-        mkdir_p(self.parameters.output_path)
         os.chdir(self.parameters.output_path)
 
     def Prepare(self, step):

@@ -58,9 +58,9 @@ def main(**kwargs):
 
     test_manager = tc.TestManager(run_test_py_path,**kwargs)
 
-    print("Cleaning output folder in test")
+    print("Make output folder in test if does not exist")
 
-    test_manager.CleanOutputFolder()
+    test_manager.MakeOutputFolder()
 
     for step in range(1,kwargs['num_steps'] + 1):
         test_manager.Prepare(step)
