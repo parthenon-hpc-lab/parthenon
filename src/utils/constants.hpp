@@ -69,79 +69,79 @@ class PhysicalConstants {
   static constexpr double na = avogadro;
 
   // Fine structure constant (CODATA 2010 value)
-  static constexpr double fineStructure = 7.2973525698e-3;
-  static constexpr double alpha = fineStructure;
+  static constexpr double fine_structure = 7.2973525698e-3;
+  static constexpr double alpha = fine_structure;
 
   // Planck constant (CODATA 2010 value)
   static constexpr double planck = 6.62606957e-34 * energy * time;
   static constexpr double h = planck;
 
   // Reduced Planck constant
-  static constexpr double reducedPlanck = planck / (2.0 * M_PI);
-  static constexpr double hbar = reducedPlanck;
+  static constexpr double reduced_planck = planck / (2.0 * M_PI);
+  static constexpr double hbar = reduced_planck;
 
   // Molar gas constant (CODATA 2010 value)
-  static constexpr double gasConstant = 8.3144621 * energy / temperature;
-  static constexpr double rGas = gasConstant;
+  static constexpr double gas_constant = 8.3144621 * energy / temperature;
+  static constexpr double r_gas = gas_constant;
 
   // Boltzmann constant (CODATA 2010 value)
   static constexpr double boltzmann = 1.380648800e-23 * energy / temperature;
   static constexpr double kb = boltzmann;
 
   // Electron charge (CODATA 2018 exact value)
-  static constexpr double electronCharge = 1.602176565e-19 * charge;
-  static constexpr double qe = electronCharge;
+  static constexpr double electron_charge = 1.602176565e-19 * charge;
+  static constexpr double qe = electron_charge;
 
   // Speed of light (CODATA 2018 exact value)
-  static constexpr double speedOfLight = 2.99792458e8 * length / time;
-  static constexpr double c = speedOfLight;
+  static constexpr double speed_of_light = 2.99792458e8 * length / time;
+  static constexpr double c = speed_of_light;
 
   // Gravitational constant (CODATA 2010 value)
-  static constexpr double gravitationalConstant =
+  static constexpr double gravitational_constant =
       6.67384e-11 * length * length * length / (mass * time * time);
-  static constexpr double gNewt = gravitationalConstant;
+  static constexpr double g_newt = gravitational_constant;
 
   // Standard acceleration of gravity (CODATA 2010 value)
-  static constexpr double accelerationFromGravity = 9.80665 * length / (time * time);
-  static constexpr double gAccel = accelerationFromGravity;
+  static constexpr double acceleration_from_gravity = 9.80665 * length / (time * time);
+  static constexpr double g_accel = acceleration_from_gravity;
 
   // Electron rest mass (CODATA 2010 value)
-  static constexpr double electronMass = 9.10938291e-31 * mass;
-  static constexpr double me = electronMass;
+  static constexpr double electron_mass = 9.10938291e-31 * mass;
+  static constexpr double me = electron_mass;
 
   // Proton rest mass (CODATA 2010 value)
-  static constexpr double protonMass = 1.672621777e-27 * mass;
-  static constexpr double mp = protonMass;
+  static constexpr double proton_mass = 1.672621777e-27 * mass;
+  static constexpr double mp = proton_mass;
 
   // Stefan-Boltzmann constant
-  static constexpr double stefanBoltzmann = 2.0 * M_PI * M_PI * M_PI * M_PI * M_PI * kb *
-                                            kb * kb * kb / (15.0 * h * h * h * c * c);
-  static constexpr double sb = stefanBoltzmann;
+  static constexpr double stefan_boltzmann = 2.0 * M_PI * M_PI * M_PI * M_PI * M_PI * kb *
+                                             kb * kb * kb / (15.0 * h * h * h * c * c);
+  static constexpr double sb = stefan_boltzmann;
 
   // Faraday constant
-  static constexpr double faradayConstant = 96485.33645957 * capacitance;
-  static constexpr double faraday = faradayConstant;
+  static constexpr double faraday_constant = 96485.33645957 * capacitance;
+  static constexpr double faraday = faraday_constant;
 
   // Permeability of free space
-  static constexpr double permeabilityOfVacuum =
+  static constexpr double vacuum_permeability =
       4.0 * M_PI * 1.0e-7 * force / (current * current);
-  static constexpr double mu0 = permeabilityOfVacuum;
+  static constexpr double mu0 = vacuum_permeability;
 
   // Permittivity of free space
-  static constexpr double permittivityOfVacuum = 8.85418782e-12 * capacitance / length;
-  static constexpr double eps0 = permittivityOfVacuum;
+  static constexpr double vacuum_permittivity = 8.85418782e-12 * capacitance / length;
+  static constexpr double eps0 = vacuum_permittivity;
 
   // Classical electron radius
-  static constexpr double classicalElectronRadius = 2.81794033e-15 * length;
-  static constexpr double re = classicalElectronRadius;
+  static constexpr double classical_electron_radius = 2.81794033e-15 * length;
+  static constexpr double re = classical_electron_radius;
 
   // Electron volt
-  static constexpr double electronVolt = 1.602176565e-19 * energy;
-  static constexpr double eV = electronVolt;
+  static constexpr double electron_volt = 1.602176565e-19 * energy;
+  static constexpr double eV = electron_volt;
 
   // Atomic mass unit (CODATA 2010 value)
-  static constexpr double atomicMassUnit = 1.660538921e-27 * mass;
-  static constexpr double amu = atomicMassUnit;
+  static constexpr double atomic_mass_unit = 1.660538921e-27 * mass;
+  static constexpr double amu = atomic_mass_unit;
 };
 
 // These can be removed for C++17 and up
@@ -150,7 +150,7 @@ constexpr double PhysicalConstants<T>::avogadro;
 template <typename T>
 constexpr double PhysicalConstants<T>::na;
 template <typename T>
-constexpr double PhysicalConstants<T>::fineStructure;
+constexpr double PhysicalConstants<T>::fine_structure;
 template <typename T>
 constexpr double PhysicalConstants<T>::alpha;
 template <typename T>
@@ -158,67 +158,67 @@ constexpr double PhysicalConstants<T>::planck;
 template <typename T>
 constexpr double PhysicalConstants<T>::h;
 template <typename T>
-constexpr double PhysicalConstants<T>::reducedPlanck;
+constexpr double PhysicalConstants<T>::reduced_planck;
 template <typename T>
 constexpr double PhysicalConstants<T>::hbar;
 template <typename T>
-constexpr double PhysicalConstants<T>::gasConstant;
+constexpr double PhysicalConstants<T>::gas_constant;
 template <typename T>
-constexpr double PhysicalConstants<T>::rGas;
+constexpr double PhysicalConstants<T>::r_gas;
 template <typename T>
 constexpr double PhysicalConstants<T>::boltzmann;
 template <typename T>
 constexpr double PhysicalConstants<T>::kb;
 template <typename T>
-constexpr double PhysicalConstants<T>::electronCharge;
+constexpr double PhysicalConstants<T>::electron_charge;
 template <typename T>
 constexpr double PhysicalConstants<T>::qe;
 template <typename T>
-constexpr double PhysicalConstants<T>::speedOfLight;
+constexpr double PhysicalConstants<T>::speed_of_light;
 template <typename T>
 constexpr double PhysicalConstants<T>::c;
 template <typename T>
-constexpr double PhysicalConstants<T>::gravitationalConstant;
+constexpr double PhysicalConstants<T>::gravitational_constant;
 template <typename T>
-constexpr double PhysicalConstants<T>::gNewt;
+constexpr double PhysicalConstants<T>::g_newt;
 template <typename T>
-constexpr double PhysicalConstants<T>::accelerationFromGravity;
+constexpr double PhysicalConstants<T>::acceleration_from_gravity;
 template <typename T>
-constexpr double PhysicalConstants<T>::gAccel;
+constexpr double PhysicalConstants<T>::g_accel;
 template <typename T>
-constexpr double PhysicalConstants<T>::electronMass;
+constexpr double PhysicalConstants<T>::electron_mass;
 template <typename T>
 constexpr double PhysicalConstants<T>::me;
 template <typename T>
-constexpr double PhysicalConstants<T>::protonMass;
+constexpr double PhysicalConstants<T>::proton_mass;
 template <typename T>
 constexpr double PhysicalConstants<T>::mp;
 template <typename T>
-constexpr double PhysicalConstants<T>::stefanBoltzmann;
+constexpr double PhysicalConstants<T>::stefan_boltzmann;
 template <typename T>
 constexpr double PhysicalConstants<T>::sb;
 template <typename T>
-constexpr double PhysicalConstants<T>::faradayConstant;
+constexpr double PhysicalConstants<T>::faraday_constant;
 template <typename T>
 constexpr double PhysicalConstants<T>::faraday;
 template <typename T>
-constexpr double PhysicalConstants<T>::permeabilityOfVacuum;
+constexpr double PhysicalConstants<T>::vacuum_permeability;
 template <typename T>
 constexpr double PhysicalConstants<T>::mu0;
 template <typename T>
-constexpr double PhysicalConstants<T>::permittivityOfVacuum;
+constexpr double PhysicalConstants<T>::vacuum_permittivity;
 template <typename T>
 constexpr double PhysicalConstants<T>::eps0;
 template <typename T>
-constexpr double PhysicalConstants<T>::classicalElectronRadius;
+constexpr double PhysicalConstants<T>::classical_electron_radius;
 template <typename T>
 constexpr double PhysicalConstants<T>::re;
 template <typename T>
-constexpr double PhysicalConstants<T>::electronVolt;
+constexpr double PhysicalConstants<T>::electron_volt;
 template <typename T>
 constexpr double PhysicalConstants<T>::eV;
 template <typename T>
-constexpr double PhysicalConstants<T>::atomicMassUnit;
+constexpr double PhysicalConstants<T>::atomic_mass_unit;
 template <typename T>
 constexpr double PhysicalConstants<T>::amu;
 
