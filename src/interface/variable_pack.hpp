@@ -211,7 +211,7 @@ void FillFluxHostView(const vpack_types::VarList<T> &vars, PackIndexMap *vmap,
         }
         if (sparse_name != sparse_trim) {
           vmap->insert(std::pair<std::string, IndexPair>(
-            sparse_name, IndexPair(sparse_start, vindex - 1)));
+              sparse_name, IndexPair(sparse_start, vindex - 1)));
           sparse_name = sparse_trim;
           sparse_start = vindex;
         }
@@ -308,7 +308,6 @@ VariablePack<T> MakePack(const vpack_types::VarList<T> &vars,
   std::array<int, 4> cv_size = {fvar.GetDim(1), fvar.GetDim(2), fvar.GetDim(3), vsize};
   return VariablePack<T>(cv, sparse_assoc, cv_size);
 }
-
 
 } // namespace parthenon
 
