@@ -24,7 +24,9 @@ export CTEST_OUTPUT_ON_FAILURE=1
 export J=$(( $(nproc --all) )) && echo Using ${J} cores during build
 
 # Build
+cd parthenon
 mkdir build-cuda-power9
+cd build-cuda-power9
 
 cmake \
  -DKokkos_ENABLE_CUDA=ON \

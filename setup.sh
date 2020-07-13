@@ -8,6 +8,8 @@ source /etc/profile
 git clone https://github.com/spack/spack.git
 
 echo $HOME
+pwd
+ls
 
 # Setup spack package yaml
 echo "packages:" > $HOME/.spack/packages.yaml
