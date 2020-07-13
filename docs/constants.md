@@ -17,9 +17,40 @@ class.
 Both verbose and terse names are provided for each constant as public (albeit
 constexpr) members.
 
-### Usage
+## Usage
 
 To construct, call this class with PhysicalConstants<UNITSYSTEM>(), where
 UNITSYSTEM is a struct of conversion factors from SI units; both SI and CGS unit
 systems are provided in the parthenon::constants namespace. Then, to access
 constants simply use the public data members.
+
+### Defining a new unit system
+
+To create a custom unit system, create a struct of (ideally constexpr) unit
+system conversion factors from SI to be used by PhysicalConstants as a template
+parameter, e.g.
+
+```C++
+struct SIButKeVTemperatures {
+  static constexpr double length = 1.;      // meter
+  static constexpr double mass = 1.;        // kilogram
+  static constexpr double time = 1.;        // second
+  static constexpr double temperature = 8.6173e-8; // keV
+  static constexpr double current = 1.;     // Amp
+  static constexpr double charge = 1.;      // Coulomb
+  static constexpr double capacitance = 1.; // Farad
+  static constexpr double angle = 1.;       // Radian
+};
+```
+
+### Geting values of physical constants
+
+To get values of constants,  create a PhysicalConstants class with the
+appropriate unit system as template parameter (in this case our custom unit
+system above, but parthenon::constants::SI and parthenon::constants::CGS are
+provided):
+
+```C++
+parthenon::constants::PhysicalConstants<SIButKeVTemperatures> pc();
+std::cout << "Boltzmann constant: " << pc.kb << std::endl;
+```
