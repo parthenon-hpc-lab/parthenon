@@ -3,32 +3,16 @@ variables:
   GIT_SUBMODULE_STRATEGY: recursive
 
 stages:
-  - unit
+  - performance-regression
 
 # Is performed before the scripts in the stages step
 before_script:
-  - echo "Switching to new bash shell"
-  - echo "After switch" 
   - export HOME=${CI_PROJECT_DIR}
-  - echo $HOME
-  - export OMP_PROC_BIND=close
-  - export OMP_PLACES=cores
-  - export OMP_NUM_THREADS=1
-  - export CMAKE_VERSION=3.10.3
-  - export CTEST_OUTPUT_ON_FAILURE=1
-  - export J=$(( $(nproc --all) / 4  + 1 )) && echo Using ${J} cores during build
+  - pwd
+  - env -i bash setup.sh
 
 parthenon-power9:
-  stage: unit
+  stage: performance-regression
   script:
-    - echo "Beginning script"
-    - hello
-    - mkdir build-cuda-power9
-    - cd build-cuda-power9
-    - cmake -DCMAKE_BUILD_TYPE=Debug -DHDF5_ROOT=/usr/local/hdf5/parallel
-      -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
-      -DKokkos_ENABLE_CUDA=True -DKokkos_ARCH_PASCAL61=True
-      -DMPIEXEC_PREFLAGS="--allow-run-as-root"
-      -DCMAKE_CXX_COMPILER=${PWD}/../external/Kokkos/bin/nvcc_wrapper
-      ../ && make -j${J} && ctest -j${J} -LE 'performance|regression'
-    - cd ..
+    - pwd
+    - env -i bash build.sh
