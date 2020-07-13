@@ -4,6 +4,9 @@
 source /etc/bashrc
 source /etc/profile
 
+pwd
+ls
+
 # Load system modules
 module purge
 module load cmake/3.17.0
@@ -24,7 +27,6 @@ export CTEST_OUTPUT_ON_FAILURE=1
 export J=$(( $(nproc --all) )) && echo Using ${J} cores during build
 
 # Build
-cd parthenon
 mkdir build-cuda-power9
 cd build-cuda-power9
 
