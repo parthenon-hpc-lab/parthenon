@@ -54,3 +54,6 @@ provided):
 parthenon::constants::PhysicalConstants<SIButKeVTemperatures> pc();
 std::cout << "Boltzmann constant: " << pc.kb << std::endl;
 ```
+
+See also the unit test in parthenon/tst/unit/test_unit_constants.cpp
+for more examples.
