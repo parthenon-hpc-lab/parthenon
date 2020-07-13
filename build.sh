@@ -4,6 +4,7 @@
 source /etc/bashrc
 source /etc/profile
 
+env
 pwd
 ls
 
@@ -39,8 +40,8 @@ cmake \
  -DCMAKE_CXX_COMPILER=$(pwd)/../external/Kokkos/bin/nvcc_wrapper \
  -DCMAKE_BUILD_TYPE="Debug" ../ \
 
-make -j${J}
+make -j 4 VERBOSE=1
 
-ctest -j${J} -LE 'performance|regression'
+ctest -j 4 -LE 'performance|regression'
  
  

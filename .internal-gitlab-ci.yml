@@ -9,6 +9,7 @@ stages:
 before_script:
   - export HOME=${CI_PROJECT_DIR}
   - pwd
+  - env
   - env -i bash setup.sh
 
 parthenon-power9:
