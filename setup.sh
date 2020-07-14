@@ -12,10 +12,10 @@ pwd
 ls
 
 # Setup spack package yaml
-echo "packages:" > $HOME/.spack/packages.yaml
-echo "  openmpi:" >> $HOME/.spack/packages.yaml
-echo "    modules:" >> $HOME/.spack/packages.yaml
-echo "      openmpi@4.0.2: openmpi/p9/4.0.2-gcc_7.4.0" >> $HOME/.spack/packages.yaml
+#echo "packages:" > packages.yaml
+#echo "  openmpi:" >> packages.yaml
+#echo "    modules:" >> packages.yaml
+#echo "      openmpi@4.0.2: openmpi/p9/4.0.2-gcc_7.4.0" >> packages.yaml
 # Initialize spack env
 . spack/share/spack/setup-env.sh
 

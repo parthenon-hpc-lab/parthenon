@@ -12,6 +12,7 @@ check_for_failure() {
 source /etc/bashrc
 source /etc/profile
 
+echo "Printing build env"
 env
 pwd
 ls
@@ -49,7 +50,7 @@ cmake \
  -DKokkos_ARCH_VOLTA70=ON \
  -DKokkos_ENABLE_CUDA_UVM=OFF \
  -DCMAKE_CXX_COMPILER=$(pwd)/../external/Kokkos/bin/nvcc_wrapper \
- -DCMAKE_BUILD_TYPE="Debug" ../ \
+ -DCMAKE_BUILD_TYPE="Debug" ../
 check_for_failure $? "CMake failed!"
 
 make -j 4 VERBOSE=1
