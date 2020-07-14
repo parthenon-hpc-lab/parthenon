@@ -1,5 +1,13 @@
 #!/bin/bash
 
+# Error functions
+check_for_failure() {
+  if [ $1 -neq 0 ]; then
+    echo $2
+    exit 1
+  fi
+}
+
 # Load system env only
 source /etc/bashrc
 source /etc/profile
@@ -11,13 +19,16 @@ ls
 # Load system modules
 module purge
 module load cmake/3.17.0
-module load gcc/7.3.0
-module load clang/8.0.0
-module load openmpi/p9/4.0.0-gcc_7.3.0
+module load gcc/7.4.0
+module load clang/8.0.1
+module load openmpi/4.0.3-gcc_7.4.0
 module load cuda/10.1
 
 # Initialize spack env
 . spack/share/spack/setup-env.sh
+
+# Find compilers
+spack compiler find
 
 # Load spack modules
 spack load hdf5
@@ -39,9 +50,12 @@ cmake \
  -DKokkos_ENABLE_CUDA_UVM=OFF \
  -DCMAKE_CXX_COMPILER=$(pwd)/../external/Kokkos/bin/nvcc_wrapper \
  -DCMAKE_BUILD_TYPE="Debug" ../ \
+check_for_failure $? "CMake failed!"
 
 make -j 4 VERBOSE=1
+check_for_failure $? "Make failed!"
 
 ctest -j 4 -LE 'performance|regression'
+check_for_failure $? "Tests failed!"
  
  
