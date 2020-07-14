@@ -2,7 +2,7 @@
 
 # Error functions
 check_for_failure() {
-  if [ $1 -neq 0 ]; then
+  if [ $1 -ne 0 ]; then
     echo $2
     exit 1
   fi
