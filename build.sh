@@ -21,7 +21,7 @@ module purge
 module load cmake/3.17.0
 module load gcc/7.4.0
 module load clang/8.0.1
-module load openmpi/4.0.3-gcc_7.4.0
+module load openmpi/p9/4.0.2-gcc_7.4.0
 module load cuda/10.1
 
 # Initialize spack env
@@ -31,7 +31,7 @@ module load cuda/10.1
 spack compiler find
 
 # Load spack modules
-spack load hdf5
+spack load hdf5%gcc@7.4.0
 
 # Setup build env
 export OMP_PROC_BIND=close
