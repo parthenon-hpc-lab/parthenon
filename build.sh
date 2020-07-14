@@ -24,6 +24,7 @@ module load gcc/7.4.0
 module load clang/8.0.1
 module load openmpi/p9/4.0.2-gcc_7.4.0
 module load cuda/10.1
+export NVCC_WRAPPER_DEFAULT_COMPILER=clang++
 
 # Initialize spack env
 . spack/share/spack/setup-env.sh
