@@ -1,0 +1,165 @@
+variables:
+  OMPI_VER: '3.1.6'
+  CMAKE_VER: '3.15.4'
+  HDF5_VER: '1.10.6'
+  UCX_VER: '1.8.1'
+
+# Is performed before the scripts in the stages step
+before_script:
+    - git submodule init
+    - git submodule update
+    - export OMP_PROC_BIND=close
+    - export OMP_PLACES=cores
+    - export OMP_NUM_THREADS=1
+    - export CTEST_OUTPUT_ON_FAILURE=1
+    - export J=$(( $(nproc --all) / 4  + 1 )) && echo Using ${J} cores during build
+    - export PATH=${PWD}/opt/cmake-${CMAKE_VER}-Linux-x86_64/bin:$PATH
+    - export PATH=${PWD}/opt/openmpi-${OMPI_VER}/bin:$PATH
+    - export LD_LIBRARY_PATH=${PWD}/opt/openmpi-${OMPI_VER}/lib:$LD_LIBRARY_PATH
+    - export LD_LIBRARY_PATH=${PWD}/opt/ucx-${UCX_VER}/lib:$LD_LIBRARY_PATH
+    - module load python3
+
+cache: &global_cache
+  key: global-5
+  paths:
+    - opt/
+  policy: pull-push
+
+stages:
+  - prep
+  - build
+  - performance
+
+
+prep-cuda:
+  stage: prep
+  tags:
+    - gpu
+    - springdale7
+  script:
+    - module load cudatoolkit/10.2 gcc/7.3.0
+    - if [ ! -d opt/ucx-${UCX_VER} ]; then
+      mkdir -p tmp;
+      cd tmp;
+      wget https://github.com/openucx/ucx/archive/v${UCX_VER}.tar.gz;
+      tar xzf v${UCX_VER}.tar.gz;
+      cd ucx-${UCX_VER};
+      ./autogen.sh;
+      mkdir build;
+      cd build;
+      ../contrib/configure-release --prefix=${CI_PROJECT_DIR}/opt/ucx-${UCX_VER} --enable-mt --with-cuda=/usr/local/cuda-10.2;
+      make -j16;
+      make install;
+      cd ../../../;
+      fi
+    - if [ ! -d opt/openmpi-${OMPI_VER} ]; then
+      mkdir -p tmp;
+      cd tmp;
+      wget https://download.open-mpi.org/release/open-mpi/v3.1/openmpi-${OMPI_VER}.tar.bz2;
+      tar xjf openmpi-${OMPI_VER}.tar.bz2;
+      cd openmpi-${OMPI_VER};
+      ./configure --prefix=${CI_PROJECT_DIR}/opt/openmpi-${OMPI_VER} --enable-mpi-fortran=none --enable-mpi-cxx --with-cuda --with-ucx=${CI_PROJECT_DIR}/opt/ucx-${UCX_VER};
+      make -j16;
+      make install;
+      cd ../..;
+      fi
+    - if [ ! -d opt/hdf5-${HDF5_VER}/gcc ]; then
+      mkdir -p tmp;
+      cd tmp;
+      wget https://hdf-wordpress-1.s3.amazonaws.com/wp-content/uploads/manual/HDF5/HDF5_1_10_6/source/hdf5-${HDF5_VER}.tar.bz2;
+      tar xjf hdf5-${HDF5_VER}.tar.bz2;
+      cd hdf5-${HDF5_VER};
+      CC=gcc ./configure --prefix=${CI_PROJECT_DIR}/opt/hdf5-${HDF5_VER}/gcc/serial && make -j16 && make install && make clean;
+      CC=mpicc ./configure --prefix=${CI_PROJECT_DIR}/opt/hdf5-${HDF5_VER}/gcc/parallel --enable-parallel && make -j16 && make install && make clean;
+      cd ../..;
+      fi
+    - if [ ! -d opt/cmake-${CMAKE_VER}-Linux-x86_64 ]; then
+      cd opt;
+      wget -qO- http://www.cmake.org/files/v${CMAKE_VER:0:4}/cmake-${CMAKE_VER}-Linux-x86_64.tar.gz | tar -xz;
+      cd ..;
+      fi
+      
+
+
+parthenon-build-cuda:
+  tags:
+    - gpu
+    - springdale7
+  stage: test
+  cache:
+    # inherit all global cache settings
+    <<: *global_cache
+    # override the policy
+    policy: pull
+  script:
+    - module load cudatoolkit/10.2 gcc/7.3.0
+    - ls -lah opt/
+    - echo $PATH
+    - which mpicxx
+    - which cmake
+    - ompi_info --all
+    - lsmod
+    - mkdir bw
+    - cd bw
+    - wget https://pgrete.de/dl/bw.tar
+    - tar xvf bw.tar
+    - mkdir build
+    - cd build
+    - export OMPI_CXX=${CI_PROJECT_DIR}/external/Kokkos/bin/nvcc_wrapper
+    - cmake -DKokkos_ROOT=${CI_PROJECT_DIR}/external/Kokkos -DCMAKE_CXX_COMPILER=mpicxx -DKokkos_ENABLE_CUDA=True ..
+    - make -j10
+    - ldd ./mpi_bandwidth
+#    - export OMPI_MCA_btl_openib_cuda_async_recv=false
+#    - export OMPI_MCA_btl_openib_want_cuda_gdr=true
+#    - mpirun -np 2 -mca btl_openib_allow_ib 1  -mca btl ^uct -x UCX_NET_DEVICES=mlx4_0:1 --mca mpi_common_cuda_verbose 100 --mca btl_smcuda_cuda_ipc_verbose 100 ./mpi_bandwidth --kokkos-ndevices=2
+    - mpirun -np 2 ./mpi_bandwidth --kokkos-ndevices=2
+
+parthenon-build-cuda:
+  tags:
+    - gpu
+    - springdale7
+  stage: build
+  cache:
+    # inherit all global cache settings
+    <<: *global_cache
+    # override the policy
+    policy: pull
+  script:
+    - module load cudatoolkit/10.2 gcc/7.3.0
+    - mkdir build-cuda
+    - cd build-cuda
+    - cmake -DCMAKE_BUILD_TYPE=Release 
+      -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_SKX=True
+      -DKokkos_ENABLE_CUDA=True -DKokkos_ARCH_VOLTA70=True
+      -DCMAKE_CXX_COMPILER=${PWD}/../external/Kokkos/bin/nvcc_wrapper
+      -DHDF5_ROOT=${CI_PROJECT_DIR}/opt/hdf5-${HDF5_VER}/gcc/serial
+      -DPARTHENON_DISABLE_MPI=ON
+      -DPARTHENON_LINT_DEFAULT=OFF
+      ../
+    - make -j${J} advection-example 
+  artifacts:
+    when: always
+    expire_in: 3 days
+    paths:
+      - build-cuda/CMakeFiles/CMakeOutput.log
+      - build-cuda/example/advection/advection-example
+
+parthenon-performance-cuda:
+  tags:
+    - gpu
+    - springdale7
+  stage: performance
+  cache:
+    # inherit all global cache settings
+    <<: *global_cache
+    # override the policy
+    policy: pull
+  script:
+    - module load cudatoolkit/10.2 gcc/7.3.0
+    - cd build-cuda
+    - echo "run test here" 
+  artifacts:
+    when: always
+    expire_in: 3 days
+    paths:
+      - build-cuda/tst/regression/outputs/advection_convergence/tbd.png
