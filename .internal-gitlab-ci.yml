@@ -7,14 +7,10 @@ stages:
 
 # Is performed before the scripts in the stages step
 before_script:
-  - export HOME=${CI_PROJECT_DIR}
-  - pwd
-  - env
-  - mkdir .ci-build
-  - env -i bash setup.sh
+  - git clone https://github.com/lanl/parthenon-buildenv.git
+  - env -i bash ./parthenon-buildenv/internal/scripts/setup.sh
 
 parthenon-power9:
   stage: performance-regression
   script:
-    - pwd
-    - env -i bash build.sh
+    - env -i bash ./parthenon-buildenv/internal/scripts/build.sh
