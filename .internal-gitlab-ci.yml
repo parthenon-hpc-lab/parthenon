@@ -8,7 +8,7 @@ variables:
   Kokkos_ENABLE_CUDA_UVM: "OFF"
   Kokkos_ENABLE_CXX11: "ON" 
   Kokkos_ENABLE_OPENMP: "ON" 
-  PARTHENON_DISABLE_HDF5: "ON" 
+  PARTHENON_DISABLE_HDF5: "OFF" 
 
 stages:
   - performance-regression
