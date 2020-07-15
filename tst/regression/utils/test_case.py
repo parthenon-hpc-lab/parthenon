@@ -19,6 +19,7 @@ import errno
 import os
 from shutil import rmtree
 import subprocess
+from subprocess import PIPE
 import sys
 
 # TODO(pgrete) update CI image to Python 3
@@ -207,7 +208,7 @@ class TestManager:
         print(run_command)
         sys.stdout.flush()
         try:
-            proc = subprocess.run(run_command, capture_output=True, check=True)
+            proc = subprocess.run(run_command, check=True, stdout=PIPE, stderr=PIPE)
             return proc.stdout
         except subprocess.CalledProcessError as err:
             raise TestManagerError('\nReturn code {0} from command \'{1}\''

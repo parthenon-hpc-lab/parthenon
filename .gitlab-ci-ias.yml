@@ -18,7 +18,8 @@ before_script:
     - export LD_LIBRARY_PATH=${PWD}/opt/openmpi-${OMPI_VER}/lib:$LD_LIBRARY_PATH
     - export LD_LIBRARY_PATH=${PWD}/opt/ucx-${UCX_VER}/lib:$LD_LIBRARY_PATH
     - module load anaconda3/2020.02
-    - conda info
+    # required as functions like "activate" are not available in subshells, see
+    # see https://github.com/conda/conda/issues/7980
     - source /opt/sns/anaconda3/2020.02/etc/profile.d/conda.sh
 
 cache: &global_cache
@@ -79,7 +80,8 @@ prep-cuda:
       wget -qO- http://www.cmake.org/files/v${CMAKE_VER:0:4}/cmake-${CMAKE_VER}-Linux-x86_64.tar.gz | tar -xz;
       cd ..;
       fi
-    - rm -rf opt/pyenvdef
+    # create our own python env as the default python3 one is incorrectly linked
+    # (missing libopenblasp-r0-39a31c03.2.18.so in numpy module)
     - if [ ! -d opt/pyenv ]; then
       conda create --prefix=${CI_PROJECT_DIR}/opt/pyenv matplotlib numpy nomkl -y;
       fi
