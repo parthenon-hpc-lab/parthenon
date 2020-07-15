@@ -2,13 +2,13 @@ variables:
   SCHEDULER_PARAMETERS: '--nodes=1 --partition=power9 --export=NONE'
   GIT_SUBMODULE_STRATEGY: recursive
   CMAKE_BUILD_TYPE: "Debug" 
-  Kokkos_ARCH_POWER9: ON 
-  Kokkos_ARCH_VOLTA70: ON 
-  Kokkos_ENABLE_CUDA: ON 
-  Kokkos_ENABLE_CUDA_UVM: OFF 
-  Kokkos_ENABLE_CXX11: On 
-  Kokkos_ENABLE_OPENMP: ON 
-  PARTHENON_DISABLE_HDF5: ON 
+  Kokkos_ARCH_POWER9: "ON" 
+  Kokkos_ARCH_VOLTA70: "ON" 
+  Kokkos_ENABLE_CUDA: "ON" 
+  Kokkos_ENABLE_CUDA_UVM: "OFF"
+  Kokkos_ENABLE_CXX11: "ON" 
+  Kokkos_ENABLE_OPENMP: "ON" 
+  PARTHEN"ON"_DISABLE_HDF5: "ON" 
 
 stages:
   - performance-regression
