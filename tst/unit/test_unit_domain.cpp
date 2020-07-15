@@ -21,7 +21,7 @@
 
 #include <catch2/catch.hpp>
 
-TEST_CASE("Checking IndexShape indices", "[is,ie,js,je,ks,ke]") {
+TEST_CASE("Checking IndexShape indices", "[is,ie,js,je,ks,ke][coverage]") {
   const parthenon::IndexDomain interior = parthenon::IndexDomain::interior;
   const parthenon::IndexDomain entire = parthenon::IndexDomain::entire;
   GIVEN("A 1D Index Shape") {
@@ -134,7 +134,7 @@ TEST_CASE("Checking IndexShape indices", "[is,ie,js,je,ks,ke]") {
   }
 }
 
-TEST_CASE("Checking IndexShape cell counts", "[ncellsi,ncellsj,ncellsk]") {
+TEST_CASE("Checking IndexShape cell counts", "[ncellsi,ncellsj,ncellsk][coverage]") {
   const parthenon::IndexDomain interior = parthenon::IndexDomain::interior;
   const parthenon::IndexDomain entire = parthenon::IndexDomain::entire;
   GIVEN("A 1D Index Shape, check the numbers of cells") {
