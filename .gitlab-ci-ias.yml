@@ -77,7 +77,6 @@ prep-cuda:
       wget -qO- http://www.cmake.org/files/v${CMAKE_VER:0:4}/cmake-${CMAKE_VER}-Linux-x86_64.tar.gz | tar -xz;
       cd ..;
       fi
-    - pip install --user matplotlib
       
 parthenon-build-cuda:
   tags:

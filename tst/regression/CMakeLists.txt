@@ -28,7 +28,7 @@ endfunction()
 
 function(setup_test dir arg)
   separate_arguments(arg) 
-  add_test( NAME regression_test:${dir} COMMAND python "${CMAKE_CURRENT_SOURCE_DIR}/run_test.py" 
+  add_test( NAME regression_test:${dir} COMMAND python3 "${CMAKE_CURRENT_SOURCE_DIR}/run_test.py" 
     ${arg} --test_dir "${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}"
     --output_dir "${CMAKE_BINARY_DIR}/tst/regression/outputs/${dir}")
   set_tests_properties(regression_test:${dir} PROPERTIES LABELS "regression;mpi-no" )
@@ -38,7 +38,7 @@ endfunction()
 function(setup_test_mpi nproc dir arg)
   if( MPI_FOUND )
     separate_arguments(arg) 
-    add_test( NAME regression_mpi_test:${dir} COMMAND python ${CMAKE_CURRENT_SOURCE_DIR}/run_test.py
+    add_test( NAME regression_mpi_test:${dir} COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/run_test.py
       --mpirun ${MPIEXEC_EXECUTABLE} 
       --mpirun_opts=${MPIEXEC_NUMPROC_FLAG} --mpirun_opts=${nproc}
       --mpirun_opts=${MPIEXEC_PREFLAGS} ${arg}
