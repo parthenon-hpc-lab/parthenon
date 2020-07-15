@@ -93,6 +93,8 @@ class TestCase(utils.test_case.TestCaseAbs):
                 ]
         # TEST: Advection only in z-direction
         elif step <= 3*n_res:
+            if lin_res[step % n_res - 1] == 32:
+                parameters.coverage_status = "both"
             parameters.driver_cmd_line_args = [
                 'parthenon/mesh/nx1=4',
                 'parthenon/meshblock/nx1=4',
