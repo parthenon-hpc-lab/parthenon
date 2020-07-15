@@ -18,6 +18,23 @@ and/or allows to pool resources early on.
 
 Use GitHub labels as appropriate and feel free to directly add/tag people to the issue.
 
+### Summary of branching model and versioning
+
+Two main branches exist:
+- `master` contains the latest "stable" release
+- `develop` contains all approved changes since the previous release
+
+We aim at creating a new release everyone 4 to 6 weeks.
+The decision on creating a new release is made during the bi-weekly calls.
+A release consists of of merging `develop` into `master` and create a new tag for that version
+using a YY.MM versioning scheme.
+
+The main idea behind separating `master` from `develop` is to allow for more in-depth nightly testing
+on the latter.
+This specifically applies to downstream codes so that incompatibilities (e.g., due to to an
+updated API) are discovered early.
+
+
 ### Contributing code
 
 In order to keep the main repository in order, everyone is encouraged to create feature
@@ -27,7 +44,7 @@ Working on branches in private forks is also fine but not recommended (as the au
 testing infrastructure will then first work upon opening a pull request).
 
 Once all changes are implemented or feedback by other developers is required/helpful
-open a pull request again the master branch of the main repository.
+open a pull request again the `develop` branch of the main repository.
 
 In that pull request refer to the issue that you have addressed.
 
@@ -36,7 +53,7 @@ implementation), mark it as "work in progress" by prepending "WIP:" to the subje
 
 ### Merging code
 
-In order for code to be merged into master it must
+In order for code to be merged into `develop` it must
 
 - obey the style guide (test with CPPLINT)
 - pass the linting test (test with CPPLINT)
@@ -45,6 +62,7 @@ In order for code to be merged into master it must
 - have at least one approval by one member of each physics/application code
 - include tests that cover the new feature (if applicable)
 - include documentation in the `doc/` folder (feature or developer; if applicable)
+- include a brief summary in `CHANGELOG.md`
 
 The reviewers are expected to look out for the items above before approving a merge
 request.
