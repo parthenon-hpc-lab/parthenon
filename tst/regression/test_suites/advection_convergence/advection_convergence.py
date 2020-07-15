@@ -63,7 +63,8 @@ class TestCase(utils.test_case.TestCaseAbs):
         # using nx2 = nx3 = 4 > 1 for identical errors between dimensions
         if step <= n_res:
 
-            parameters.coverage_status = "both"
+            if lin_res[step - 1] == 32:
+                parameters.coverage_status = "both"
             parameters.driver_cmd_line_args = [
                 'parthenon/mesh/nx1=%d' % lin_res[step % n_res -1],
                 'parthenon/meshblock/nx1=%d' % lin_res[step % n_res -1],
