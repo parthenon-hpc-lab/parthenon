@@ -12,6 +12,9 @@ check_for_failure() {
 source /etc/bashrc
 source /etc/profile
 
+# Make sure home is pointing to current directory
+export HOME=$(pwd)
+
 # Load system modules
 module purge
 module load cmake/3.17.0

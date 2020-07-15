@@ -6,10 +6,11 @@ stages:
   - performance-regression
 
 # Is performed before the scripts in the stages step
+#  - export HOME=${CI_PROJECT_DIR}
 before_script:
-  - export HOME=${CI_PROJECT_DIR}
   - pwd
   - env
+  - mkdir .ci-build
   - env -i bash setup.sh
 
 parthenon-power9:
