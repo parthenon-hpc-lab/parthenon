@@ -17,7 +17,7 @@ export HOME=$(pwd)
 
 # Load system modules
 module purge
-module load cmake/3.17.0
+module load cmake/3.11.1
 module load gcc/6.4.0
 module load clang/8.0.0
 module load openmpi/p9/4.0.0-gcc_6.4.0

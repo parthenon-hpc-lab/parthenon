@@ -32,7 +32,7 @@ echo "      openmpi@4.0.2: openmpi/p9/4.0.2-gcc_7.4.0" >> .spack/packages.yaml
 
 # Load system modules
 module purge
-module load cmake/3.17.0
+module load cmake/3.11.1
 module load gcc/7.4.0
 module load clang/8.0.1
 module load openmpi/p9/4.0.2-gcc_7.4.0
