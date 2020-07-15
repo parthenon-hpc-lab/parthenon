@@ -62,12 +62,13 @@ def main(**kwargs):
 
     test_manager.CleanOutputFolder()
 
+    stdouts = []
     for step in range(1,kwargs['num_steps'] + 1):
         test_manager.Prepare(step)
 
-        test_manager.Run()
+        stdouts.append(test_manager.Run())
 
-    test_result = test_manager.Analyse()
+    test_result = test_manager.Analyse(stdouts)
 
     if test_result == True:
         return 0

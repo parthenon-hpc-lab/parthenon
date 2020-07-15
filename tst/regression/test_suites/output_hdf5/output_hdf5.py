@@ -53,7 +53,7 @@ class TestCase(utils.test_case.TestCaseAbs):
 
         return parameters
 
-    def Analyse(self,parameters):
+    def Analyse(self,parameters,stdouts):
         """
         Analyze the output and determine if the test passes.
         """

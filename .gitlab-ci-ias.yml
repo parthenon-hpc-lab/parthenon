@@ -79,41 +79,6 @@ prep-cuda:
       cd ..;
       fi
       
-
-
-parthenon-build-cuda:
-  tags:
-    - gpu
-    - springdale7
-  stage: test
-  cache:
-    # inherit all global cache settings
-    <<: *global_cache
-    # override the policy
-    policy: pull
-  script:
-    - module load cudatoolkit/10.2 gcc/7.3.0
-    - ls -lah opt/
-    - echo $PATH
-    - which mpicxx
-    - which cmake
-    - ompi_info --all
-    - lsmod
-    - mkdir bw
-    - cd bw
-    - wget https://pgrete.de/dl/bw.tar
-    - tar xvf bw.tar
-    - mkdir build
-    - cd build
-    - export OMPI_CXX=${CI_PROJECT_DIR}/external/Kokkos/bin/nvcc_wrapper
-    - cmake -DKokkos_ROOT=${CI_PROJECT_DIR}/external/Kokkos -DCMAKE_CXX_COMPILER=mpicxx -DKokkos_ENABLE_CUDA=True ..
-    - make -j10
-    - ldd ./mpi_bandwidth
-#    - export OMPI_MCA_btl_openib_cuda_async_recv=false
-#    - export OMPI_MCA_btl_openib_want_cuda_gdr=true
-#    - mpirun -np 2 -mca btl_openib_allow_ib 1  -mca btl ^uct -x UCX_NET_DEVICES=mlx4_0:1 --mca mpi_common_cuda_verbose 100 --mca btl_smcuda_cuda_ipc_verbose 100 ./mpi_bandwidth --kokkos-ndevices=2
-    - mpirun -np 2 ./mpi_bandwidth --kokkos-ndevices=2
-
 parthenon-build-cuda:
   tags:
     - gpu
@@ -132,8 +97,8 @@ parthenon-build-cuda:
       -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_SKX=True
       -DKokkos_ENABLE_CUDA=True -DKokkos_ARCH_VOLTA70=True
       -DCMAKE_CXX_COMPILER=${PWD}/../external/Kokkos/bin/nvcc_wrapper
-      -DHDF5_ROOT=${CI_PROJECT_DIR}/opt/hdf5-${HDF5_VER}/gcc/serial
       -DPARTHENON_DISABLE_MPI=ON
+      -DPARTHENON_DISABLE_HDF5=ON
       -DPARTHENON_LINT_DEFAULT=OFF
       ../
     - make -j${J} advection-example 
@@ -157,9 +122,9 @@ parthenon-performance-cuda:
   script:
     - module load cudatoolkit/10.2 gcc/7.3.0
     - cd build-cuda
-    - echo "run test here" 
+    - ctest -R regression_test:performance
   artifacts:
     when: always
     expire_in: 3 days
     paths:
-      - build-cuda/tst/regression/outputs/advection_convergence/tbd.png
+      - build-cuda/tst/regression/outputs/performance/performance.png

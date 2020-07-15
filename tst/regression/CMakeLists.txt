@@ -90,6 +90,13 @@ list(APPEND TEST_ARGS "--driver ${CMAKE_BINARY_DIR}/example/advection/advection-
 --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/advection_convergence/parthinput.advection \
 --num_steps 24")
 
+# Performance regression test
+list(APPEND TEST_DIRS performance)
+list(APPEND TEST_PROCS "1")
+list(APPEND TEST_ARGS "--driver ${CMAKE_BINARY_DIR}/example/advection/advection-example \
+--driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/performance/parthinput.advection \
+--num_steps 5")
+
 if (ENABLE_HDF5)
 setup_test( output_hdf5 "--driver ${CMAKE_BINARY_DIR}/example/advection/advection-example \
 --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/output_hdf5/parthinput.advection \
