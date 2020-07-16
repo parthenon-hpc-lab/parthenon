@@ -9,7 +9,7 @@ See the [build doc](building.md) for details on building parthenon for specific 
 
 ## Description of examples
 
-- [Calculate &pi](../example/calculate_pi)
+- [Calculate &pi;](../example/calculate_pi)
 - [Average face-centered variables to cell centers](../example/face_fields)
 
 ## Short feature description
