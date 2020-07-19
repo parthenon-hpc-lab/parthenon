@@ -84,7 +84,7 @@ DriverStatus EvolutionDriver::Execute() {
     pmesh->mbcnt += pmesh->nbtotal;
     pmesh->step_since_lb++;
 
-    pmesh->LoadBalancingAndAdaptiveMeshRefinement(pinput, finput);
+    pmesh->LoadBalancingAndAdaptiveMeshRefinement(pinput, app_input);
     if (pmesh->modified) InitializeBlockTimeSteps();
     SetGlobalTimeStep();
     if (tm.time < tm.tlim) // skip the final output as it happens later

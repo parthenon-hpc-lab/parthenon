@@ -34,7 +34,7 @@ Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin);
 int main(int argc, char *argv[]) {
   ParthenonManager pman;
 
-  pman.finput->ProcessPackages = ProcessPackages;
+  pman.app_input->ProcessPackages = ProcessPackages;
 
   auto manager_status = pman.ParthenonInit(argc, argv);
   if (manager_status == ParthenonStatus::complete) {
@@ -46,7 +46,7 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  PiDriver driver(pman.pinput.get(), pman.finput.get(), pman.pmesh.get());
+  PiDriver driver(pman.pinput.get(), pman.app_input.get(), pman.pmesh.get());
 
   auto driver_status = driver.Execute();
 

@@ -63,8 +63,8 @@ MeshBlock::MeshBlock(const int n_side, const int ndim)
 
 MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
                      BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
-                     FunctionInput *fin, Properties_t &properties, Packages_t &packages,
-                     int igflag, bool ref_flag)
+                     ApplicationInput *app_in, Properties_t &properties,
+                     Packages_t &packages, int igflag, bool ref_flag)
     : exec_space(DevExecSpace()), pmy_mesh(pm), loc(iloc), block_size(input_block),
       gid(igid), lid(ilid), gflag(igflag), properties(properties), packages(packages),
       prev(nullptr), next(nullptr), new_block_dt_{}, new_block_dt_hyperbolic_{},
@@ -79,20 +79,20 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
   }
 
   // Allow for user overrides to default Parthenon functions
-  if (fin->InitApplicationMeshBlockData != nullptr) {
-    InitApplicationMeshBlockData = fin->InitApplicationMeshBlockData;
+  if (app_in->InitApplicationMeshBlockData != nullptr) {
+    InitApplicationMeshBlockData = app_in->InitApplicationMeshBlockData;
   }
-  if (fin->InitUserMeshBlockData != nullptr) {
-    InitUserMeshBlockData = fin->InitUserMeshBlockData;
+  if (app_in->InitUserMeshBlockData != nullptr) {
+    InitUserMeshBlockData = app_in->InitUserMeshBlockData;
   }
-  if (fin->ProblemGenerator != nullptr) {
-    ProblemGenerator = fin->ProblemGenerator;
+  if (app_in->ProblemGenerator != nullptr) {
+    ProblemGenerator = app_in->ProblemGenerator;
   }
-  if (fin->MeshBlockUserWorkInLoop != nullptr) {
-    UserWorkInLoop = fin->MeshBlockUserWorkInLoop;
+  if (app_in->MeshBlockUserWorkInLoop != nullptr) {
+    UserWorkInLoop = app_in->MeshBlockUserWorkInLoop;
   }
-  if (fin->UserWorkBeforeOutput != nullptr) {
-    UserWorkBeforeOutput = fin->UserWorkBeforeOutput;
+  if (app_in->UserWorkBeforeOutput != nullptr) {
+    UserWorkBeforeOutput = app_in->UserWorkBeforeOutput;
   }
 
   auto &real_container = real_containers.Get();

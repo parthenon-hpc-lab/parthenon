@@ -15,9 +15,9 @@
 #define PARTHENON_PACKAGE_HPP_
 
 // Internal Includes
+#include <application_input.hpp>
 #include <basic_types.hpp>
 #include <coordinates/coordinates.hpp>
-#include <function_input.hpp>
 #include <interface/container_iterator.hpp>
 #include <interface/metadata.hpp>
 #include <interface/params.hpp>
@@ -40,7 +40,7 @@ using ::parthenon::AmrTag;
 using ::parthenon::Coordinates;
 using ::parthenon::DerivedOwnership;
 using ::parthenon::DevExecSpace;
-using ::parthenon::FunctionInput;
+using ::parthenon::ApplicationInput;
 using ::parthenon::MeshBlock;
 using ::parthenon::Metadata;
 using ::parthenon::PackIndexMap;

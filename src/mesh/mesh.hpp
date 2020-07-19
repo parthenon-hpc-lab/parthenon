@@ -28,12 +28,12 @@
 #include <string>
 #include <vector>
 
+#include "application_input.hpp"
 #include "bvals/bvals.hpp"
 #include "bvals/bvals_interfaces.hpp"
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
 #include "domain.hpp"
-#include "function_input.hpp"
 #include "interface/container.hpp"
 #include "interface/container_collection.hpp"
 #include "interface/properties_interface.hpp"
@@ -70,17 +70,18 @@ class MeshBlock {
  public:
   MeshBlock(const int n_side, const int ndim); // for Kokkos testing with ghost
   MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_size,
-            BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin, FunctionInput *fin,
-            Properties_t &properties, int igflag, bool ref_flag = false);
-  MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin, FunctionInput *fin,
+            BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
+            ApplicationInput *app_in, Properties_t &properties, int igflag,
+            bool ref_flag = false);
+  MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin, ApplicationInput *app_in,
             Properties_t &properties, Packages_t &packages, LogicalLocation iloc,
             RegionSize input_block, BoundaryFlag *input_bcs, double icost, char *mbdata,
             int igflag);
 
   MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
-            BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin, FunctionInput *fin,
-            Properties_t &properties, Packages_t &packages, int igflag,
-            bool ref_flag = false);
+            BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
+            ApplicationInput *app_in, Properties_t &properties, Packages_t &packages,
+            int igflag, bool ref_flag = false);
   ~MeshBlock();
 
   // Kokkos execution space for this MeshBlock
@@ -304,7 +305,7 @@ class Mesh {
 
  public:
   // 2x function overloads of ctor: normal and restarted simulation
-  Mesh(ParameterInput *pin, FunctionInput *fin, Properties_t &properties,
+  Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properties,
        Packages_t &packages, int test_flag = 0);
   Mesh(ParameterInput *pin, IOWrapper &resfile, Properties_t &properties,
        Packages_t &packages, int test_flag = 0);
@@ -336,12 +337,13 @@ class Mesh {
   Packages_t packages;
 
   // functions
-  void Initialize(int res_flag, ParameterInput *pin, FunctionInput *fin);
+  void Initialize(int res_flag, ParameterInput *pin, ApplicationInput *app_in);
   void SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size,
                                  BoundaryFlag *block_bcs);
   void NewTimeStep();
   void OutputCycleDiagnostics();
-  void LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin, FunctionInput *fin);
+  void LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin,
+                                              ApplicationInput *app_in);
   // step 7: create new MeshBlock list (same MPI rank but diff level: create new block)
   // Moved here given Cuda/nvcc restriction:
   // "error: The enclosing parent function ("...")
@@ -427,7 +429,8 @@ class Mesh {
   void UpdateCostList();
   void UpdateMeshBlockTree(int &nnew, int &ndel);
   bool GatherCostListAndCheckBalance();
-  void RedistributeAndRefineMeshBlocks(ParameterInput *pin, FunctionInput *fin, int ntot);
+  void RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput *app_in,
+                                       int ntot);
 
   // Mesh::RedistributeAndRefineMeshBlocks() helper functions:
   // step 6: send

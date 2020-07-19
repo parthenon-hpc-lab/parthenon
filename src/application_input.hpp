@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef FUNCTION_INPUT_HPP_
-#define FUNCTION_INPUT_HPP_
+#ifndef APPLICATION_INPUT_HPP_
+#define APPLICATION_INPUT_HPP_
 
 #include <functional>
 #include <map>
@@ -27,7 +27,7 @@
 
 namespace parthenon {
 
-struct FunctionInput {
+struct ApplicationInput {
 
  public:
   // ParthenonManager functions
@@ -52,4 +52,4 @@ struct FunctionInput {
 
 } // namespace parthenon
 
-#endif // FUNCTION_INPUT_HPP_
+#endif // APPLICATION_INPUT_HPP_

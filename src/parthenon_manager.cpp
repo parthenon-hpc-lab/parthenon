@@ -78,14 +78,14 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
   }
 
   // Allow for user overrides to default Parthenon functions
-  if (finput->SetFillDerivedFunctions != nullptr) {
-    SetFillDerivedFunctions = finput->SetFillDerivedFunctions;
+  if (app_input->SetFillDerivedFunctions != nullptr) {
+    SetFillDerivedFunctions = app_input->SetFillDerivedFunctions;
   }
-  if (finput->ProcessProperties != nullptr) {
-    ProcessProperties = finput->ProcessProperties;
+  if (app_input->ProcessProperties != nullptr) {
+    ProcessProperties = app_input->ProcessProperties;
   }
-  if (finput->ProcessPackages != nullptr) {
-    ProcessPackages = finput->ProcessPackages;
+  if (app_input->ProcessPackages != nullptr) {
+    ProcessPackages = app_input->ProcessPackages;
   }
 
   // Set up the signal handler
@@ -107,7 +107,7 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
 
   // TODO(jdolence): Deal with restarts
   // if (arg.res_flag == 0) {
-  pmesh = std::make_unique<Mesh>(pinput.get(), finput.get(), properties, packages,
+  pmesh = std::make_unique<Mesh>(pinput.get(), app_input.get(), properties, packages,
                                  arg.mesh_flag);
   //} else {
   //  pmesh = std::make_unique<Mesh>(pinput.get(), )
@@ -122,7 +122,7 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
 
   SetFillDerivedFunctions();
 
-  pmesh->Initialize(Restart(), pinput.get(), finput.get());
+  pmesh->Initialize(Restart(), pinput.get(), app_input.get());
 
   ChangeRunDir(arg.prundir);
 

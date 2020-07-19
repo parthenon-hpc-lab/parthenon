@@ -20,8 +20,8 @@ int main(int argc, char *argv[]) {
   using parthenon::ParthenonStatus;
   ParthenonManager pman;
 
-  pman.finput->ProcessPackages = FaceFields::ProcessPackages;
-  pman.finput->ProblemGenerator = FaceFields::ProblemGenerator;
+  pman.app_input->ProcessPackages = FaceFields::ProcessPackages;
+  pman.app_input->ProblemGenerator = FaceFields::ProblemGenerator;
 
   auto status = pman.ParthenonInit(argc, argv);
   if (status == ParthenonStatus::complete || status == ParthenonStatus::error) {
@@ -29,7 +29,7 @@ int main(int argc, char *argv[]) {
     return (status == ParthenonStatus::error) ? 1 : 0;
   }
 
-  FaceFieldExample driver(pman.pinput.get(), pman.finput.get(), pman.pmesh.get());
+  FaceFieldExample driver(pman.pinput.get(), pman.app_input.get(), pman.pmesh.get());
   driver.Execute();
   pman.ParthenonFinalize();
 

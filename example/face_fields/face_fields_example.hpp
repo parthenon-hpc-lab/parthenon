@@ -29,9 +29,9 @@ void ProblemGenerator(parthenon::MeshBlock *pmb, parthenon::ParameterInput *pin)
 
 class FaceFieldExample : public parthenon::Driver {
  public:
-  FaceFieldExample(parthenon::ParameterInput *pin, parthenon::FunctionInput *fin,
+  FaceFieldExample(parthenon::ParameterInput *pin, parthenon::ApplicationInput *app_in,
                    parthenon::Mesh *pm)
-      : parthenon::Driver(pin, fin, pm) {
+      : parthenon::Driver(pin, app_in, pm) {
     InitializeOutputs();
   }
   parthenon::TaskList MakeTaskList(parthenon::MeshBlock *pmb);
