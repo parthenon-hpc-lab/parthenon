@@ -54,10 +54,10 @@ list(APPEND TEST_ARGS "--driver ${CMAKE_BINARY_DIR}/example/advection/advection-
 --num_steps 25")
 
 # Performance regression test
-list(APPEND TEST_DIRS performance)
+list(APPEND TEST_DIRS advection_performance)
 list(APPEND TEST_PROCS "1")
 list(APPEND TEST_ARGS "--driver ${CMAKE_BINARY_DIR}/example/advection/advection-example \
---driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/performance/parthinput.advection \
+--driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/advection_performance/parthinput.advection_performance \
 --num_steps 5")
 
 if (ENABLE_HDF5)
@@ -91,7 +91,7 @@ foreach( index RANGE ${end_index})
 endforeach()
 
 # manually add label to performance regression test (to selectively enable/disable)
-set_tests_properties(regression_test:performance PROPERTIES LABELS "regression;mpi-no;perf-reg" )
+set_tests_properties(regression_test:advection_performance PROPERTIES LABELS "regression;mpi-no;perf-reg" )
 if( MPI_FOUND )
-  set_tests_properties(regression_mpi_test:performance PROPERTIES LABELS "regression;mpi-yes;perf-reg" )
+  set_tests_properties(regression_mpi_test:advection_performance PROPERTIES LABELS "regression;mpi-yes;perf-reg" )
 endif()
