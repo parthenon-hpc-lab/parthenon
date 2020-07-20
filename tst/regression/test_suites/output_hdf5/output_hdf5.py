@@ -50,7 +50,28 @@ class TestCase(utils.test_case.TestCaseAbs):
                 'parthenon/time/integrator=rk1',
                 'Advection/cfl=0.3',
                 ]
-
+        # Same as step 1 but shortened for calculating coverage
+        elif step == 3:
+            parameters.coverage_status = "only-coverage"
+            parameters.driver_cmd_line_args = [
+                'parthenon/time/tlim=0.01',
+                ]
+        # Same as step 2 but shortened for calculating coverage
+        elif step == 4:
+            parameters.coverage_status = "only-coverage"
+            parameters.driver_cmd_line_args = [
+                'parthenon/job/problem_id=advection_3d', # change name for new outputs
+                'parthenon/mesh/numlevel=2', # reduce AMR depth for smaller sim
+                'parthenon/mesh/nx1=32',
+                'parthenon/meshblock/nx1=8',
+                'parthenon/mesh/nx2=32',
+                'parthenon/meshblock/nx2=8',
+                'parthenon/mesh/nx3=32',
+                'parthenon/meshblock/nx3=8',
+                'parthenon/time/integrator=rk1',
+                'Advection/cfl=0.3',
+                'parthenon/time/tlim=0.01',
+                ]
         return parameters
 
     def Analyse(self,parameters,stdouts):

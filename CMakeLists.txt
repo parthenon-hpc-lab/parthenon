@@ -45,6 +45,7 @@ option(ENABLE_COMPILER_WARNINGS "Enable compiler warnings" OFF)
 option(CHECK_REGISTRY_PRESSURE "Check the registry pressure for Kokkos CUDA kernels" OFF)
 option(TEST_INTEL_OPTIMIZATION "Test intel optimization and vectorization" OFF)
 option(TEST_ERROR_CHECKING "Enables the error checking unit test. This test will FAIL" OFF)
+option(CODE_COVERAGE "Enable code coverage reporting" OFF)
 
 include(cmake/Format.cmake)
 include(cmake/Lint.cmake)
@@ -61,6 +62,20 @@ endif()
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+if(CODE_COVERAGE)
+  if( NOT COVERAGE_NAME)
+    SET(COVERAGE_NAME "coverage_reports")
+  endif()
+  if( NOT COVERAGE_PATH)
+    SET(COVERAGE_PATH "${CMAKE_BINARY_DIR}/coverage")
+  endif()
+  SET(GCC_COVERAGE_COMPILE_FLAGS "--coverage")
+  SET(GCC_COVERAGE_LINK_FLAGS    "--coverage")
+endif()
+
+SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} ${GCC_COVERAGE_COMPILE_FLAGS}")
+SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} ${GCC_COVERAGE_LINK_FLAGS}")
+ 
 # Don't allow in-source builds
 file(TO_CMAKE_PATH "${PROJECT_BINARY_DIR}/CMakeLists.txt" LOC_PATH)
 if(EXISTS "${LOC_PATH}")
@@ -212,6 +227,7 @@ endif()
 add_subdirectory(src)
 add_subdirectory(example)
 
+include(cmake/CodeCov.cmake)
 include(cmake/CheckCopyright.cmake)
 
 # Currently Ctest/Cmake doesn't ensure that tests are not stale
@@ -220,3 +236,4 @@ include(cmake/CheckCopyright.cmake)
 # If you add tests with other binaries, add them to the DEPENDS line
 add_custom_target(checkit COMMAND ${CMAKE_CTEST_COMMAND}
                   DEPENDS unit_tests)
+
