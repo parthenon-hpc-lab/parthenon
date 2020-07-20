@@ -39,6 +39,7 @@ class Parameters():
     mpi_cmd = ""
     mpi_opts = ""
     driver_cmd_line_args = []
+    stdouts = []
     # Options
     # only-regression - do not run when coverage is enabled
     # both - run regardless of whether coverage is enabled or not 
@@ -227,14 +228,14 @@ class TestManager:
         sys.stdout.flush()
         try:
             proc = subprocess.run(run_command, check=True, stdout=PIPE, stderr=PIPE)
-            return proc.stdout
+            self.parameters.stdouts.append(proc.stdout)
         except subprocess.CalledProcessError as err:
             raise TestManagerError('\nReturn code {0} from command \'{1}\''
                               .format(err.returncode, ' '.join(err.cmd)))
         # Reset parameters
         self.parameters.coverage_status = "only-regression"
 
-    def Analyse(self, stdouts):
+    def Analyse(self):
 
         test_pass = False
         if self.__run_coverage:
@@ -249,7 +250,7 @@ class TestManager:
         print("Analysing Driver Output")
         print("*****************************************************************")
         sys.stdout.flush()
-        test_pass = self.test_case.Analyse(self.parameters, stdouts)
+        test_pass = self.test_case.Analyse(self.parameters)
 
         return test_pass
 

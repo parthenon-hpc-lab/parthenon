@@ -44,17 +44,17 @@ class TestCase(utils.test_case.TestCaseAbs):
 
         return parameters
 
-    def Analyse(self, parameters, stdouts):
+    def Analyse(self, parameters):
 
         perfs = []
-        for output in stdouts:
+        for output in parameters.stdouts:
             for line in output.decode("utf-8").split('\n'):
                 print(line)
                 if 'zone-cycles/omp_wsecond' in line:
                     perfs.append(float(line.split(' ')[2]))
 
         perfs = np.array(perfs)
-        
+
         # Plot results
 
         fig, p = plt.subplots(2, 1, figsize = (4,8), sharex=True)

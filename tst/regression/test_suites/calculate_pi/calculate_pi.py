@@ -53,7 +53,7 @@ class TestCase(utils.test_case.TestCaseAbs):
         parameters.coverage_status = "both"
         return parameters
 
-    def Analyse(self,parameters,stdouts):
+    def Analyse(self,parameters):
         """
         Analyze the output and determine if the test passes.
 
