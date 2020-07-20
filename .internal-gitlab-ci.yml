@@ -39,20 +39,4 @@ parthenon-power9-gcc:
       ${Kokkos_ENABLE_OPENMP}
       ${PARTHENON_DISABLE_HDF5}
 
-parthenon-power9-xlc:
-  stage: performance-regression
-  script:
-    - export CMAKE_CXX_COMPILER=$(pwd)/external/Kokkos/bin/nvcc_wrapper
-    - >
-      env -i bash ./parthenon-buildenv/internal/scripts/build.sh
-      ${CMAKE_BUILD_TYPE}
-      ${CMAKE_CXX_COMPILER}
-      ${Kokkos_ARCH_POWER9}
-      ${Kokkos_ARCH_VOLTA70}
-      ${Kokkos_ENABLE_CUDA}
-      ${Kokkos_ENABLE_CUDA_UVM}
-      ${Kokkos_ENABLE_CXX11}
-      ${Kokkos_ENABLE_OPENMP}
-      ${PARTHENON_DISABLE_HDF5}
-
 
