@@ -24,8 +24,8 @@
 
 #include "parthenon_mpi.hpp"
 
-#include "athena.hpp"
 #include "coordinates/coordinates.hpp"
+#include "defs.hpp"
 #include "parthenon_arrays.hpp"
 
 namespace parthenon {

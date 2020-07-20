@@ -29,15 +29,15 @@ class ContainerCollection {
     containers_["base"] = std::make_shared<Container<T>>(); // always add "base" container
   }
 
-  void Add(const std::string &label, Container<T> &src);
+  void Add(const std::string &label, const std::shared_ptr<Container<T>> &src);
 
-  Container<T> &Get() { return *containers_["base"]; }
-  Container<T> &Get(const std::string &label) {
+  std::shared_ptr<Container<T>> &Get() { return containers_["base"]; }
+  std::shared_ptr<Container<T>> &Get(const std::string &label) {
     auto it = containers_.find(label);
     if (it == containers_.end()) {
       throw std::runtime_error("Container " + label + " does not exist in collection.");
     }
-    return *(it->second);
+    return it->second;
   }
 
   void PurgeNonBase() {

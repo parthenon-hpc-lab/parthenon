@@ -20,7 +20,7 @@
 #include <cmath>
 #include <stdexcept>
 
-#include "athena.hpp"
+#include "defs.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/interp_table.hpp"
 

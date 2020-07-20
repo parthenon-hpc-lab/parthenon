@@ -38,6 +38,11 @@ class Parameters():
     mpi_cmd = ""
     mpi_opts = ""
     driver_cmd_line_args = []
+    # Options
+    # only-regression - do not run when coverage is enabled
+    # both - run regardless of whether coverage is enabled or not 
+    # only-coverage - only run if coverage has been enabled
+    coverage_status = "only-regression"
 
 class TestCaseAbs:
     def Prepare(parameters):
@@ -50,6 +55,7 @@ class TestCaseAbs:
 class TestManager:
     def __init__(self,run_test_path,**kwargs):
 
+        self.__run_coverage = kwargs.pop('coverage')
         self.parameters = Parameters()
         self.__run_test_py_path = run_test_path 
         self.__regression_test_suite_path = os.path.join(self.__run_test_py_path,'test_suites')
@@ -72,10 +78,13 @@ class TestManager:
 
         driver_path = os.path.abspath(parthenon_driver[0])
         driver_input_path = os.path.abspath(parthenon_driver_input[0])
-        if 'output_dir' in list(kwargs.keys()):
-            output_path = kwargs.pop("output_dir")
+
+        output_path = kwargs.pop('output_dir')
+        if output_path == "":
+            output_path = os.path.abspath(test_path + "/output")
         else:
-            output_path = test_path + "/output"
+            output_path = os.path.abspath(output_path)
+
         self.__test_module = 'test_suites.' + test_base_name + '.' + test_base_name
 
         test_module = 'test_suites.' + test_base_name + '.' + test_base_name
@@ -146,16 +155,12 @@ class TestManager:
         mpi_exec = mpi_executable[0]
 
         choices=['mpirun', 'mpiexec', 'srun', 'qsub', 'lsrun', 'aprun']
-        print("1")
         sys.stdout.flush()
         for choice in choices:
-            print("2")
             sys.stdout.flush()
             if mpi_exec.endswith(choice):
-                print("3")
                 sys.stdout.flush()
                 if len(mpi_exec) != len(choice):
-                    print("4")
                     sys.stdout.flush()
                     if os.path.isfile(mpi_exec):
                         return
@@ -174,11 +179,10 @@ class TestManager:
             error_msg += "\n"
         raise TestManagerError(error_msg)
 
-    def CleanOutputFolder(self):
-        if os.path.isdir(self.parameters.output_path):
-                rmtree(self.parameters.output_path)
+    def MakeOutputFolder(self):
+        if not os.path.isdir(self.parameters.output_path):
+            mkdir_p(self.parameters.output_path)
 
-        mkdir_p(self.parameters.output_path)
         os.chdir(self.parameters.output_path)
 
     def Prepare(self, step):
@@ -200,9 +204,23 @@ class TestManager:
         run_command.append(self.parameters.driver_input_path)
         for arg in self.parameters.driver_cmd_line_args:
             run_command.append(arg)
-        print("*****************************************************************")
-        print("Running Driver")
-        print("*****************************************************************")
+
+        if self.__run_coverage and self.parameters.coverage_status != "only-regression":
+            print("*****************************************************************")
+            print("Running Driver with Coverage")
+            print("*****************************************************************")
+        elif not self.__run_coverage and self.parameters.coverage_status != "only-coverage":
+            print("*****************************************************************")
+            print("Running Driver")
+            print("*****************************************************************")
+        elif self.__run_coverage and self.parameters.coverage_status == "only-regression":
+            print("*****************************************************************")
+            print("Test Case Ignored for Calculating Coverage")
+            print("*****************************************************************")
+            return 
+        else:
+            return 
+
         print("Command to execute driver")
         print(run_command)
         sys.stdout.flush()
@@ -211,11 +229,20 @@ class TestManager:
         except subprocess.CalledProcessError as err:
             raise TestManagerError('\nReturn code {0} from command \'{1}\''
                               .format(err.returncode, ' '.join(err.cmd)))
+        # Reset parameters
+        self.parameters.coverage_status = "only-regression"
 
     def Analyse(self):
 
         test_pass = False
+        if self.__run_coverage:
+            print("*****************************************************************")
+            print("Running with Coverage, Analysis Section Ignored")
+            print("*****************************************************************")
+            return True
 
+        print("Running with coverage")
+        print(self.__run_coverage)
         print("*****************************************************************")
         print("Analysing Driver Output")
         print("*****************************************************************")

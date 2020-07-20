@@ -66,15 +66,14 @@ void Container<T>::Add(const std::string label, const Metadata &metadata,
   if (metadata.IsSet(Metadata::Sparse)) {
     // add a sparse variable
     if (sparseMap_.find(label) == sparseMap_.end()) {
-      auto sv = std::make_shared<SparseVariable<T>>(label, metadata, arrDims);
-      sparseMap_[label] = sv;
-      sparseVector_.push_back(sv);
+      auto sv = std::make_shared<SparseVariable<T>>(label, metadata);
+      Add(sv);
     }
     int varIndex = metadata.GetSparseId();
-    sparseMap_[label]->Add(varIndex);
+    sparseMap_[label]->Add(varIndex, arrDims);
     if (metadata.IsSet(Metadata::FillGhost)) {
-      CellVariable<T> &v = sparseMap_[label]->Get(varIndex);
-      v.allocateComms(pmy_block);
+      auto &v = sparseMap_[label]->Get(varIndex);
+      v->allocateComms(pmy_block);
     }
   } else if (metadata.Where() == Metadata::Edge) {
     // add an edge variable
@@ -94,12 +93,10 @@ void Container<T>::Add(const std::string label, const Metadata &metadata,
     }
     // add a face variable
     auto pfv = std::make_shared<FaceVariable<T>>(label, arrDims, metadata);
-    faceVector_.push_back(pfv);
-    faceMap_[label] = pfv;
+    Add(pfv);
   } else {
     auto sv = std::make_shared<CellVariable<T>>(label, arrDims, metadata);
-    varVector_.push_back(sv);
-    varMap_[label] = sv;
+    Add(sv);
     if (metadata.IsSet(Metadata::FillGhost)) {
       sv->allocateComms(pmy_block);
     }
@@ -182,32 +179,31 @@ Container<T>::Container(const Container<T> &src, const std::vector<MetadataFlag>
 
 // provides a container that has a single sparse slice
 template <typename T>
-Container<T> Container<T>::SparseSlice(int id) {
-  Container<T> c;
+std::shared_ptr<Container<T>> Container<T>::SparseSlice(int id) {
+  auto c = std::make_shared<Container<T>>();
 
   // copy in private data
-  c.pmy_block = pmy_block;
+  c->pmy_block = pmy_block;
 
   // Note that all standard arrays get added
   // add standard arrays
   for (auto v : varVector_) {
-    c.Add(v);
+    c->Add(v);
   }
   // for (auto v : s->_edgeVector) {
   //   EdgeVariable *vNew = new EdgeVariable(v->label(), *v);
   //   c.s->_edgeVector.push_back(vNew);
   // }
   for (auto v : faceVector_) {
-    c.Add(v);
+    c->Add(v);
   }
 
   // Now copy in the specific arrays
   for (auto v : sparseVector_) {
     int index = v->GetIndex(id);
     if (index >= 0) {
-      CellVariable<T> &vmat = v->Get(id);
-      auto sv = std::make_shared<CellVariable<T>>(vmat);
-      c.Add(sv);
+      auto &vmat = v->Get(id);
+      c->Add(vmat);
     }
   }
 
@@ -408,8 +404,32 @@ template <typename T>
 vpack_types::VarList<T> Container<T>::MakeList_(const std::vector<std::string> &names,
                                                 std::vector<std::string> &expanded_names,
                                                 const std::vector<int> sparse_ids) {
-  auto subcontainer = Container(*this, names, sparse_ids);
-  auto vars = subcontainer.MakeList_(expanded_names);
+  vpack_types::VarList<T> vars;
+  // for (const auto &name : names) {
+  for (auto n = names.rbegin(); n != names.rend(); ++n) {
+    auto it = varMap_.find(*n);
+    if (it != varMap_.end()) {
+      vars.push_front(it->second);
+      // expanded_names.push_back(name);
+      continue;
+    }
+    auto sit = sparseMap_.find(*n);
+    if (sit != sparseMap_.end()) {
+      if (sparse_ids.size() > 0) {
+        for (auto s = sparse_ids.rbegin(); s != sparse_ids.rend(); ++s) {
+          vars.push_front(Get(*n, *s));
+        }
+      } else {
+        auto &svec = (sit->second)->GetVector();
+        for (auto s = svec.rbegin(); s != svec.rend(); ++s) {
+          vars.push_front(*s);
+        }
+      }
+    }
+  }
+  for (auto &v : vars) {
+    expanded_names.push_back(v->label());
+  }
   return vars;
 }
 template <typename T>

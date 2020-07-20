@@ -152,6 +152,8 @@ void BoundaryVariable::SendBoundaryBuffers() {
       ssize = LoadBoundaryBufferToCoarser(bd_var_.send[nb.bufid], nb);
     else
       ssize = LoadBoundaryBufferToFiner(bd_var_.send[nb.bufid], nb);
+    // fence to make sure buffers are loaded and ready to send
+    pmb->exec_space.fence();
     if (nb.snb.rank == Globals::my_rank) {
       // on the same process
       CopyVariableBufferSameProcess(nb, ssize);
@@ -227,11 +229,13 @@ void BoundaryVariable::SetBoundaries() {
 void BoundaryVariable::ReceiveAndSetBoundariesWithWait() {
   MeshBlock *pmb = pmy_block_;
   int mylevel = pmb->loc.level;
+  pmb->exec_space.fence();
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
 #ifdef MPI_PARALLEL
-    if (nb.snb.rank != Globals::my_rank)
+    if (nb.snb.rank != Globals::my_rank) {
       MPI_Wait(&(bd_var_.req_recv[nb.bufid]), MPI_STATUS_IGNORE);
+    }
 #endif
     if (nb.snb.level == mylevel)
       SetBoundarySameLevel(bd_var_.recv[nb.bufid], nb);

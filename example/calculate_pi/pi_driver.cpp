@@ -24,8 +24,6 @@
 // Preludes
 using namespace parthenon::package::prelude;
 
-using parthenon::BlockTaskFunc;
-
 using pi::PiDriver;
 
 int main(int argc, char *argv[]) {
@@ -66,17 +64,24 @@ parthenon::DriverStatus PiDriver::Execute() {
   Real area = 0.0;
   MeshBlock *pmb = pmesh->pblock;
   while (pmb != nullptr) {
-    Container<Real> &rc = pmb->real_containers.Get();
-    CellVariable<Real> &v = rc.Get("in_or_out");
-    // NOTE: the MeshBlock integrated indicator function, divided
-    // by r0^2, was stashed in v(0,0,0) in ComputeArea.
-    Real block_area = v(0, 0, 0);
+    auto &rc = pmb->real_containers.Get();
+    ParArrayND<Real> v = rc->Get("in_or_out").data;
+
+    // extract area from device memory
+    Real block_area;
+    Kokkos::deep_copy(pmb->exec_space, block_area, v.Get(0, 0, 0, 0, 0, 0));
+    pmb->exec_space.fence(); // as the deep copy may be async
+
+    const auto &radius = pmb->packages["calculate_pi"]->Param<Real>("radius");
+    // area must be reduced by r^2 to get the block's contribution to PI
+    block_area /= (radius * radius);
+
     area += block_area;
     pmb = pmb->next;
   }
 #ifdef MPI_PARALLEL
   Real pi_val;
-  MPI_Reduce(&area, &pi_val, 1, MPI_ATHENA_REAL, MPI_SUM, 0, MPI_COMM_WORLD);
+  MPI_Reduce(&area, &pi_val, 1, MPI_PARTHENON_REAL, MPI_SUM, 0, MPI_COMM_WORLD);
 #else
   Real pi_val = area;
 #endif
@@ -107,13 +112,8 @@ parthenon::TaskList PiDriver::MakeTaskList(MeshBlock *pmb) {
   using calculate_pi::ComputeArea;
   TaskList tl;
 
-  // make some lambdas that over overkill here but clean things up for more realistic code
-  auto AddBlockTask = [pmb, &tl](BlockTaskFunc func, TaskID dependencies) {
-    return tl.AddTask<BlockTask>(func, dependencies, pmb);
-  };
-
   TaskID none(0);
-  auto get_area = AddBlockTask(ComputeArea, none);
+  auto get_area = tl.AddTask(ComputeArea, none, pmb);
 
   // could add more tasks like:
   // auto next_task = tl.AddTask(FuncPtr, get_area, pmb);

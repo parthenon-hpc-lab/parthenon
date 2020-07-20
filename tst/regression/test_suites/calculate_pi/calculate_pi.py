@@ -50,6 +50,7 @@ class TestCase(utils.test_case.TestCaseAbs):
                 'time/tlim=0.4',
                 'mesh/nx1=400']
         """
+        parameters.coverage_status = "both"
         return parameters
 
     def Analyse(self,parameters):
@@ -71,7 +72,6 @@ class TestCase(utils.test_case.TestCaseAbs):
         hdf5 output and compare them to expected quantities.
 
         """
-
         line1 = ""
         line2 = ""
         try:
@@ -82,7 +82,7 @@ class TestCase(utils.test_case.TestCaseAbs):
 
             f.close()
         except IOError:
-            print("Summary file not accessible")
+            print("Summary file not accessible, path: " + parameters.output_path + "/summary.txt")
 
         words1 = line1.split()
         pi_val = float(words1[2])

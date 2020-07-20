@@ -4,7 +4,7 @@
 The `TaskList` class implements methods to build and execute a set of tasks with associated dependencies.  The main functionality of the class is implemented in two member functions:
 
 ### AddTask
-`AddTask` is a templated variadic function that takes the task type as a template parameter and the function and arguments that define the task as function arguments.  A variety of predefined task types ship with Parthenon (defined in [tasks.hpp](../src/task_list/tasks.hpp)), but applications can define new types as needed.
+`AddTask` is a templated variadic function that takes the task function to be executed, the task dependencies (see `TaskID` below), and the arguments to the task function as it's arguments.  All arguments are captured by value in a lambda for later execution.
 
 ### DoAvailable
 `DoAvailable` loops over the task list once, executing all tasks whose dependencies are satisfied.  The function returns either `TaskListStatus::complete` if all tasks have been executed (and the task list is therefore empty) or `TaskListStatus::running` if tasks remain to be completed.

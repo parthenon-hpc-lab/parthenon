@@ -24,16 +24,31 @@ option(PARTHENON_SINGLE_PRECISION "Run in single precision" OFF)
 option(PARTHENON_DISABLE_MPI "MPI is enabled by default if found, set this to True to disable MPI" OFF)
 option(PARTHENON_DISABLE_OPENMP "OpenMP is enabled by default if found, set this to True to disable OpenMP" OFF)
 option(PARTHENON_DISABLE_HDF5 "HDF5 is enabled by default if found, set this to True to disable HDF5" OFF)
+option(
+  PARTHENON_LINT_DEFAULT
+  "Sources files are linted when building the default target. Set to OFF to \
+stop linting by default. You can still lint using the \"lint\" target"
+  ON
+)
+option(
+  PARTHENON_DISABLE_EXAMPLES 
+  "Example drivers are built by default, set this to True to diable, note if regression tests are \
+built some, drivers needed by the regression tests will still be built." 
+  OFF
+)
 
-option(ENABLE_UNIT_TESTS "Enable unit tests" ${BUILD_TESTING})
-option(ENABLE_INTEGRATION_TESTS "Enable integration tests" ${BUILD_TESTING})
-option(ENABLE_REGRESSION_TESTS "Enable regression tests" ${BUILD_TESTING})
+option(PARTHENON_ENABLE_UNIT_TESTS "Enable unit tests" ${BUILD_TESTING})
+option(PARTHENON_ENABLE_INTEGRATION_TESTS "Enable integration tests" ${BUILD_TESTING})
+option(PARTHENON_ENABLE_PERFORMANCE_TESTS "Enable performance tests" ${BUILD_TESTING})
+option(PARTHENON_ENABLE_REGRESSION_TESTS "Enable regression tests" ${BUILD_TESTING})
 option(ENABLE_COMPILER_WARNINGS "Enable compiler warnings" OFF)
 option(CHECK_REGISTRY_PRESSURE "Check the registry pressure for Kokkos CUDA kernels" OFF)
 option(TEST_INTEL_OPTIMIZATION "Test intel optimization and vectorization" OFF)
 option(TEST_ERROR_CHECKING "Enables the error checking unit test. This test will FAIL" OFF)
+option(CODE_COVERAGE "Enable code coverage reporting" OFF)
 
 include(cmake/Format.cmake)
+include(cmake/Lint.cmake)
 
 # internal variable for number of ghost cells
 set(NUMBER_GHOST_CELLS ${PARTHENON_NGHOST}) 
@@ -47,6 +62,20 @@ endif()
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+if(CODE_COVERAGE)
+  if( NOT COVERAGE_NAME)
+    SET(COVERAGE_NAME "coverage_reports")
+  endif()
+  if( NOT COVERAGE_PATH)
+    SET(COVERAGE_PATH "${CMAKE_BINARY_DIR}/coverage")
+  endif()
+  SET(GCC_COVERAGE_COMPILE_FLAGS "--coverage")
+  SET(GCC_COVERAGE_LINK_FLAGS    "--coverage")
+endif()
+
+SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} ${GCC_COVERAGE_COMPILE_FLAGS}")
+SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} ${GCC_COVERAGE_LINK_FLAGS}")
+ 
 # Don't allow in-source builds
 file(TO_CMAKE_PATH "${PROJECT_BINARY_DIR}/CMakeLists.txt" LOC_PATH)
 if(EXISTS "${LOC_PATH}")
@@ -161,7 +190,8 @@ else()
 endif()
 
 # Build Tests and download Catch2
-if (${ENABLE_UNIT_TESTS} OR ${ENABLE_INTEGRATION_TESTS} OR ${ENABLE_REGRESSION_TESTS})
+if (${PARTHENON_ENABLE_UNIT_TESTS} OR ${PARTHENON_ENABLE_INTEGRATION_TESTS} OR ${PARTHENON_ENABLE_REGRESSION_TESTS} OR ${PARTHENON_ENABLE_PERFORMANCE_TESTS})
+
   # Try finding an installed Catch2 first
   find_package(Catch2 2.11.1 QUIET)
 
@@ -184,7 +214,7 @@ if (${ENABLE_UNIT_TESTS} OR ${ENABLE_INTEGRATION_TESTS} OR ${ENABLE_REGRESSION_T
 endif()
 
 # Globally turn on useful intel and/or nvcc compiler output
-if (${KOKKOS_ENABLE_CUDA})
+if (Kokkos_ENABLE_CUDA)
   if(CHECK_REGISTRY_PRESSURE)
     add_compile_options(-Xptxas=-v)
   endif()
@@ -195,11 +225,9 @@ if (TEST_INTEL_OPTIMIZATION)
 endif()	       
 
 add_subdirectory(src)
-add_subdirectory(example/advection)
-add_subdirectory(example/calculate_pi)
-add_subdirectory(example/face_fields)
-add_subdirectory(example/kokkos_pi)
+add_subdirectory(example)
 
+include(cmake/CodeCov.cmake)
 include(cmake/CheckCopyright.cmake)
 
 # Currently Ctest/Cmake doesn't ensure that tests are not stale
@@ -208,3 +236,4 @@ include(cmake/CheckCopyright.cmake)
 # If you add tests with other binaries, add them to the DEPENDS line
 add_custom_target(checkit COMMAND ${CMAKE_CTEST_COMMAND}
                   DEPENDS unit_tests)
+

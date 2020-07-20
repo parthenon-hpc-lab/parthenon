@@ -22,7 +22,7 @@
 // global variables are wrapped in their own namespace.
 
 #include "globals.hpp"
-#include "athena.hpp"
+#include "defs.hpp"
 
 namespace parthenon {
 namespace Globals {

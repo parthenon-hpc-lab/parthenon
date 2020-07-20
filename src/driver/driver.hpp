@@ -24,12 +24,11 @@
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
 #include "outputs/outputs.hpp"
-#include "task_list/tasks.hpp"
+#include "parameter_input.hpp"
+#include "tasks/task_list.hpp"
 
 namespace parthenon {
 
-class Mesh;
-class ParameterInput;
 class Outputs;
 
 enum class DriverStatus { complete, timeout, failed };
@@ -84,9 +83,6 @@ namespace DriverUtils {
 
 template <typename T, class... Args>
 TaskListStatus ConstructAndExecuteBlockTasks(T *driver, Args... args) {
-#ifdef OPENMP_PARALLEL
-  int nthreads = driver->pmesh->GetNumMeshThreads();
-#endif
   int nmb = driver->pmesh->GetNumMeshBlocksThisRank(Globals::my_rank);
   std::vector<TaskList> task_lists;
   MeshBlock *pmb = driver->pmesh->pblock;
