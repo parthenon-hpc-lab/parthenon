@@ -18,7 +18,7 @@
 namespace parthenon {
 
 template <typename T>
-void SparseVariable<T>::Add(int varIndex) {
+void SparseVariable<T>::Add(int varIndex, std::array<int, 6> &dims) {
   // Now allocate depending on topology
   if ((metadata_.Where() == Metadata::Cell) || (metadata_.Where() == Metadata::Node) ||
       (metadata_.Where() == Metadata::None)) {
@@ -28,7 +28,9 @@ void SparseVariable<T>::Add(int varIndex) {
     }
     // create the variable and add to map
     std::string my_name = label_ + "_" + std::to_string(varIndex);
-    auto v = std::make_shared<CellVariable<T>>(my_name, dims_, metadata_);
+    Metadata metadata = metadata_;
+    metadata.SetSparseId(varIndex);
+    auto v = std::make_shared<CellVariable<T>>(my_name, dims, metadata);
     varArray_.push_back(v);
     indexMap_.push_back(varIndex);
     varMap_[varIndex] = v;

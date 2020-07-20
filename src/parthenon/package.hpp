@@ -38,6 +38,7 @@ using namespace ::parthenon::prelude;
 
 using ::parthenon::AmrTag;
 using ::parthenon::ApplicationInput;
+using ::parthenon::ContainerIterator;
 using ::parthenon::Coordinates;
 using ::parthenon::DerivedOwnership;
 using ::parthenon::DevExecSpace;
@@ -50,6 +51,8 @@ using ::parthenon::Params;
 using ::parthenon::ParthenonManager;
 using ::parthenon::StateDescriptor;
 using ::parthenon::TaskStatus;
+using ::parthenon::VariableFluxPack;
+using ::parthenon::VariablePack;
 using ::parthenon::X1DIR;
 using ::parthenon::X2DIR;
 using ::parthenon::X3DIR;

@@ -124,6 +124,11 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
     for (auto const &q : state.AllFields()) {
       real_container->Add(q.first, q.second);
     }
+    for (auto const &q : state.AllSparseFields()) {
+      for (auto const &m : q.second) {
+        real_container->Add(q.first, m);
+      }
+    }
   }
   // Add physics data
   for (auto const &pkg : packages) {

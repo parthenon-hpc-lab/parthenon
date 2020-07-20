@@ -116,7 +116,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   if (ang_2_vert) lambda = x3;
 
   // Initialize k_parallel
-  Real k_par = 2.0 * (PI) / lambda;
+  Real k_par = 2.0 * (M_PI) / lambda;
 
   pkg->AddParam<>("amp", amp);
   pkg->AddParam<>("vel", vel);
