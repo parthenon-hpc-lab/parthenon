@@ -28,7 +28,6 @@
 namespace parthenon {
 
 struct ApplicationInput {
-
  public:
   // ParthenonManager functions
   std::function<void()> SetFillDerivedFunctions = nullptr;
