@@ -42,12 +42,11 @@ void PackData(ParArray4D<T> &src, ParArray1D<T> &buf, int sn, int en, int si, in
   const int nk = ek + 1 - sk;
   const int nn = en + 1 - sn;
 
-  pmb->par_for(
-      "PackData 4D", sn, en, sk, ek, sj, ej, si, ei,
-      KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
-        buf(offset + i - si + ni * (j - sj + nj * (k - sk + nk * (n - sn)))) =
-            src(n, k, j, i);
-      });
+  pmb->par_for("PackData 4D", sn, en, sk, ek, sj, ej, si, ei,
+               KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
+                 buf(offset + i - si + ni * (j - sj + nj * (k - sk + nk * (n - sn)))) =
+                     src(n, k, j, i);
+               });
   offset += nn * nk * nj * ni;
   return;
 }
@@ -65,10 +64,9 @@ void PackData(ParArray3D<T> &src, ParArray1D<T> &buf, int si, int ei, int sj, in
   const int nj = ej + 1 - sj;
   const int nk = ek + 1 - sk;
 
-  pmb->par_for(
-      "PackData 3D", sk, ek, sj, ej, si, ei, KOKKOS_LAMBDA(int k, int j, int i) {
-        buf(offset + i - si + ni * (j - sj + nj * (k - sk))) = src(k, j, i);
-      });
+  pmb->par_for("PackData 3D", sk, ek, sj, ej, si, ei, KOKKOS_LAMBDA(int k, int j, int i) {
+    buf(offset + i - si + ni * (j - sj + nj * (k - sk))) = src(k, j, i);
+  });
 
   offset += nk * nj * ni;
   return;
@@ -88,12 +86,11 @@ void UnpackData(ParArray1D<T> &buf, ParArray4D<T> &dst, int sn, int en, int si, 
   const int nk = ek + 1 - sk;
   const int nn = en + 1 - sn;
 
-  pmb->par_for(
-      "UnpackData 4D", sn, en, sk, ek, sj, ej, si, ei,
-      KOKKOS_LAMBDA(int n, int k, int j, int i) {
-        dst(n, k, j, i) =
-            buf(offset + i - si + ni * (j - sj + nj * (k - sk + nk * (n - sn))));
-      });
+  pmb->par_for("UnpackData 4D", sn, en, sk, ek, sj, ej, si, ei,
+               KOKKOS_LAMBDA(int n, int k, int j, int i) {
+                 dst(n, k, j, i) =
+                     buf(offset + i - si + ni * (j - sj + nj * (k - sk + nk * (n - sn))));
+               });
 
   offset += nn * nk * nj * ni;
   return;
@@ -112,10 +109,10 @@ void UnpackData(ParArray1D<T> &buf, ParArray3D<T> &dst, int si, int ei, int sj, 
   const int nj = ej + 1 - sj;
   const int nk = ek + 1 - sk;
 
-  pmb->par_for(
-      "UnpackData 3D", sk, ek, sj, ej, si, ei, KOKKOS_LAMBDA(int k, int j, int i) {
-        dst(k, j, i) = buf(offset + i - si + ni * (j - sj + nj * (k - sk)));
-      });
+  pmb->par_for("UnpackData 3D", sk, ek, sj, ej, si, ei,
+               KOKKOS_LAMBDA(int k, int j, int i) {
+                 dst(k, j, i) = buf(offset + i - si + ni * (j - sj + nj * (k - sk)));
+               });
 
   offset += nk * nj * ni;
   return;

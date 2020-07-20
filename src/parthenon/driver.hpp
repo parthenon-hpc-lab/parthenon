@@ -35,10 +35,10 @@ namespace driver {
 namespace prelude {
 using namespace ::parthenon::prelude;
 
+using ::parthenon::ApplicationInput;
 using ::parthenon::ApplyBoundaryConditions;
 using ::parthenon::Driver;
 using ::parthenon::DriverStatus;
-using ::parthenon::ApplicationInput;
 using ::parthenon::Integrator;
 using ::parthenon::Mesh;
 using ::parthenon::MeshBlock;

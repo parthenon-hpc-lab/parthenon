@@ -37,10 +37,10 @@ namespace prelude {
 using namespace ::parthenon::prelude;
 
 using ::parthenon::AmrTag;
+using ::parthenon::ApplicationInput;
 using ::parthenon::Coordinates;
 using ::parthenon::DerivedOwnership;
 using ::parthenon::DevExecSpace;
-using ::parthenon::ApplicationInput;
 using ::parthenon::MeshBlock;
 using ::parthenon::Metadata;
 using ::parthenon::PackIndexMap;
