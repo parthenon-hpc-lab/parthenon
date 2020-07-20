@@ -47,7 +47,9 @@ struct OutputParameters {
   std::string file_type;
   std::string data_format;
   Real next_time, dt;
+  Real next_restart, dt_restart;
   int file_number;
+  int restart_file_number;
   bool output_slicex1, output_slicex2, output_slicex3;
   bool output_sumx1, output_sumx2, output_sumx3;
   bool include_ghost_zones, cartesian_vector;
@@ -55,7 +57,8 @@ struct OutputParameters {
   Real x1_slice, x2_slice, x3_slice;
   // TODO(felker): some of the parameters in this class are not initialized in constructor
   OutputParameters()
-      : block_number(0), next_time(0.0), dt(-1.0), file_number(0), output_slicex1(false),
+      : block_number(0), next_time(0.0), dt(-1.0), next_restart(0.0), dt_restart(-1.0),
+        file_number(0), restart_file_number(0), output_slicex1(false),
         output_slicex2(false), output_slicex3(false), output_sumx1(false),
         output_sumx2(false), output_sumx3(false), include_ghost_zones(false),
         cartesian_vector(false), islice(0), jslice(0), kslice(0) {}
@@ -171,10 +174,14 @@ class RestartOutput : public OutputType {
 
 class PHDF5Output : public OutputType {
  public:
+  // versin for output
+  const int version = 1;
+
   // Function declarations
   explicit PHDF5Output(OutputParameters oparams) : OutputType(oparams) {}
   void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) override;
   void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm);
+  void WriteRestartFile(Mesh *pm, ParameterInput *pin, SimTime *tm);
 
  private:
   // Parameters
