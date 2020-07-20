@@ -897,11 +897,11 @@ void Mesh::FillSameRankFineToCoarseAMR(MeshBlock *pob, MeshBlock *pmb,
     int koff = kl - ckb.s;
     int joff = jl - cjb.s;
     int ioff = il - cib.s;
-    pmb->par_for("FillSameRankFineToCoarseAMR", 0, nu, ckb.s, ckb.e, cjb.s, cjb.e, cib.s,
-                 cib.e,
-                 KOKKOS_LAMBDA(const int nv, const int k, const int j, const int i) {
-                   dst(nv, k + koff, j + joff, i + ioff) = src(nv, k, j, i);
-                 });
+    pmb->par_for(
+        "FillSameRankFineToCoarseAMR", 0, nu, ckb.s, ckb.e, cjb.s, cjb.e, cib.s, cib.e,
+        KOKKOS_LAMBDA(const int nv, const int k, const int j, const int i) {
+          dst(nv, k + koff, j + joff, i + ioff) = src(nv, k, j, i);
+        });
     pmb_cc_it++;
   }
 
@@ -995,10 +995,11 @@ void Mesh::FillSameRankCoarseToFineAMR(MeshBlock *pob, MeshBlock *pmb,
     // fill the coarse buffer
     // WARNING: potential Cuda stream pitfall (exec space of coarse and fine MB)
     // Need to make sure that both src and dst are done with all other task up to here
-    pob->par_for("FillSameRankCoarseToFineAMR", 0, nu, kl, ku, jl, ju, il, iu,
-                 KOKKOS_LAMBDA(const int nv, const int k, const int j, const int i) {
-                   dst(nv, k, j, i) = src(nv, k - kl + cks, j - jl + cjs, i - il + cis);
-                 });
+    pob->par_for(
+        "FillSameRankCoarseToFineAMR", 0, nu, kl, ku, jl, ju, il, iu,
+        KOKKOS_LAMBDA(const int nv, const int k, const int j, const int i) {
+          dst(nv, k, j, i) = src(nv, k - kl + cks, j - jl + cjs, i - il + cis);
+        });
     // keeping the original, following block for reference to indexing
     // for (int nv = 0; nv <= nu; nv++) {
     //   for (int k = kl, ck = cks; k <= ku; k++, ck++) {

@@ -249,16 +249,16 @@ inline void par_for(LoopPatternFlatRange, const std::string &name,
   const int Ni = iu - il + 1;
   const int NkNjNi = Nk * Nj * Ni;
   const int NjNi = Nj * Ni;
-  Kokkos::parallel_for(name, Kokkos::RangePolicy<>(exec_space, 0, NkNjNi),
-                       KOKKOS_LAMBDA(const int &idx) {
-                         int k = idx / NjNi;
-                         int j = (idx - k * NjNi) / Ni;
-                         int i = idx - k * NjNi - j * Ni;
-                         k += kl;
-                         j += jl;
-                         i += il;
-                         function(k, j, i);
-                       });
+  Kokkos::parallel_for(
+      name, Kokkos::RangePolicy<>(exec_space, 0, NkNjNi), KOKKOS_LAMBDA(const int &idx) {
+        int k = idx / NjNi;
+        int j = (idx - k * NjNi) / Ni;
+        int i = idx - k * NjNi - j * Ni;
+        k += kl;
+        j += jl;
+        i += il;
+        function(k, j, i);
+      });
 }
 
 // 3D loop using MDRange loops
@@ -282,14 +282,14 @@ inline void par_for(LoopPatternTPTTR, const std::string &name, DevExecSpace exec
   const int Nk = ku - kl + 1;
   const int Nj = ju - jl + 1;
   const int NkNj = Nk * Nj;
-  Kokkos::parallel_for(name, team_policy(exec_space, NkNj, Kokkos::AUTO),
-                       KOKKOS_LAMBDA(team_mbr_t team_member) {
-                         const int k = team_member.league_rank() / Nj + kl;
-                         const int j = team_member.league_rank() % Nj + jl;
-                         Kokkos::parallel_for(
-                             Kokkos::TeamThreadRange<>(team_member, il, iu + 1),
+  Kokkos::parallel_for(
+      name, team_policy(exec_space, NkNj, Kokkos::AUTO),
+      KOKKOS_LAMBDA(team_mbr_t team_member) {
+        const int k = team_member.league_rank() / Nj + kl;
+        const int j = team_member.league_rank() % Nj + jl;
+        Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, il, iu + 1),
                              [&](const int i) { function(k, j, i); });
-                       });
+      });
 }
 
 // 3D loop using TeamPolicy with single inner ThreadVectorRange
@@ -301,14 +301,14 @@ inline void par_for(LoopPatternTPTVR, const std::string &name, DevExecSpace exec
   const int Nk = ku - kl + 1;
   const int Nj = ju - jl + 1;
   const int NkNj = Nk * Nj;
-  Kokkos::parallel_for(name, team_policy(exec_space, NkNj, Kokkos::AUTO),
-                       KOKKOS_LAMBDA(team_mbr_t team_member) {
-                         const int k = team_member.league_rank() / Nj + kl;
-                         const int j = team_member.league_rank() % Nj + jl;
-                         Kokkos::parallel_for(
-                             Kokkos::TeamVectorRange<>(team_member, il, iu + 1),
+  Kokkos::parallel_for(
+      name, team_policy(exec_space, NkNj, Kokkos::AUTO),
+      KOKKOS_LAMBDA(team_mbr_t team_member) {
+        const int k = team_member.league_rank() / Nj + kl;
+        const int j = team_member.league_rank() % Nj + jl;
+        Kokkos::parallel_for(Kokkos::TeamVectorRange<>(team_member, il, iu + 1),
                              [&](const int i) { function(k, j, i); });
-                       });
+      });
 }
 
 // 3D loop using TeamPolicy with nested TeamThreadRange and ThreadVectorRange
@@ -356,18 +356,19 @@ inline void par_for(LoopPatternFlatRange, const std::string &name,
   const int NnNkNjNi = Nn * Nk * Nj * Ni;
   const int NkNjNi = Nk * Nj * Ni;
   const int NjNi = Nj * Ni;
-  Kokkos::parallel_for(name, Kokkos::RangePolicy<>(exec_space, 0, NnNkNjNi),
-                       KOKKOS_LAMBDA(const int &idx) {
-                         int n = idx / NkNjNi;
-                         int k = (idx - n * NkNjNi) / NjNi;
-                         int j = (idx - n * NkNjNi - k * NjNi) / Ni;
-                         int i = idx - n * NkNjNi - k * NjNi - j * Ni;
-                         n += nl;
-                         k += kl;
-                         j += jl;
-                         i += il;
-                         function(n, k, j, i);
-                       });
+  Kokkos::parallel_for(
+      name, Kokkos::RangePolicy<>(exec_space, 0, NnNkNjNi),
+      KOKKOS_LAMBDA(const int &idx) {
+        int n = idx / NkNjNi;
+        int k = (idx - n * NkNjNi) / NjNi;
+        int j = (idx - n * NkNjNi - k * NjNi) / Ni;
+        int i = idx - n * NkNjNi - k * NjNi - j * Ni;
+        n += nl;
+        k += kl;
+        j += jl;
+        i += il;
+        function(n, k, j, i);
+      });
 }
 
 // 4D loop using MDRange loops
@@ -394,17 +395,17 @@ inline void par_for(LoopPatternTPTTR, const std::string &name, DevExecSpace exec
   const int Nj = ju - jl + 1;
   const int NkNj = Nk * Nj;
   const int NnNkNj = Nn * Nk * Nj;
-  Kokkos::parallel_for(name, team_policy(exec_space, NnNkNj, Kokkos::AUTO),
-                       KOKKOS_LAMBDA(team_mbr_t team_member) {
-                         int n = team_member.league_rank() / NkNj;
-                         int k = (team_member.league_rank() - n * NkNj) / Nj;
-                         int j = team_member.league_rank() - n * NkNj - k * Nj + jl;
-                         n += nl;
-                         k += kl;
-                         Kokkos::parallel_for(
-                             Kokkos::TeamThreadRange<>(team_member, il, iu + 1),
+  Kokkos::parallel_for(
+      name, team_policy(exec_space, NnNkNj, Kokkos::AUTO),
+      KOKKOS_LAMBDA(team_mbr_t team_member) {
+        int n = team_member.league_rank() / NkNj;
+        int k = (team_member.league_rank() - n * NkNj) / Nj;
+        int j = team_member.league_rank() - n * NkNj - k * Nj + jl;
+        n += nl;
+        k += kl;
+        Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, il, iu + 1),
                              [&](const int i) { function(n, k, j, i); });
-                       });
+      });
 }
 
 // 4D loop using TeamPolicy loop with inner ThreadVectorRange
@@ -418,17 +419,17 @@ inline void par_for(LoopPatternTPTVR, const std::string &name, DevExecSpace exec
   const int Nj = ju - jl + 1;
   const int NkNj = Nk * Nj;
   const int NnNkNj = Nn * Nk * Nj;
-  Kokkos::parallel_for(name, team_policy(exec_space, NnNkNj, Kokkos::AUTO),
-                       KOKKOS_LAMBDA(team_mbr_t team_member) {
-                         int n = team_member.league_rank() / NkNj;
-                         int k = (team_member.league_rank() - n * NkNj) / Nj;
-                         int j = team_member.league_rank() - n * NkNj - k * Nj + jl;
-                         n += nl;
-                         k += kl;
-                         Kokkos::parallel_for(
-                             Kokkos::ThreadVectorRange<>(team_member, il, iu + 1),
+  Kokkos::parallel_for(
+      name, team_policy(exec_space, NnNkNj, Kokkos::AUTO),
+      KOKKOS_LAMBDA(team_mbr_t team_member) {
+        int n = team_member.league_rank() / NkNj;
+        int k = (team_member.league_rank() - n * NkNj) / Nj;
+        int j = team_member.league_rank() - n * NkNj - k * Nj + jl;
+        n += nl;
+        k += kl;
+        Kokkos::parallel_for(Kokkos::ThreadVectorRange<>(team_member, il, iu + 1),
                              [&](const int i) { function(n, k, j, i); });
-                       });
+      });
 }
 
 // 4D loop using TeamPolicy with nested TeamThreadRange and ThreadVectorRange

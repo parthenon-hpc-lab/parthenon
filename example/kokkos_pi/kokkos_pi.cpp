@@ -288,20 +288,21 @@ result_t naiveParFor(int n_block, int n_mesh, int n_iter, double radius) {
       auto &base = pmb->real_containers.Get();
       auto inOrOut = base->PackVariables({Metadata::Independent});
       // iops = 0  fops = 11
-      par_for("par_for in or out", DevExecSpace(), 0, inOrOut.GetDim(4) - 1, NGHOST,
-              inOrOut.GetDim(3) - NGHOST - 1, NGHOST, inOrOut.GetDim(2) - NGHOST - 1,
-              NGHOST, inOrOut.GetDim(1) - NGHOST - 1,
-              KOKKOS_LAMBDA(const int l, const int k_grid, const int j_grid,
-                            const int i_grid) {
-                const Real x =
-                    xyz(0, iMesh) + dxyzCell * static_cast<Real>(i_grid); // fops = 2
-                const Real y =
-                    xyz(1, iMesh) + dxyzCell * static_cast<Real>(j_grid); // fops = 2
-                const Real z =
-                    xyz(2, iMesh) + dxyzCell * static_cast<Real>(k_grid); // fops = 2
-                const Real myR2 = x * x + y * y + z * z;                  // fops = 5
-                inOrOut(l, k_grid, j_grid, i_grid) = (myR2 < radius2 ? 1.0 : 0.0);
-              });
+      par_for(
+          "par_for in or out", DevExecSpace(), 0, inOrOut.GetDim(4) - 1, NGHOST,
+          inOrOut.GetDim(3) - NGHOST - 1, NGHOST, inOrOut.GetDim(2) - NGHOST - 1, NGHOST,
+          inOrOut.GetDim(1) - NGHOST - 1,
+          KOKKOS_LAMBDA(const int l, const int k_grid, const int j_grid,
+                        const int i_grid) {
+            const Real x =
+                xyz(0, iMesh) + dxyzCell * static_cast<Real>(i_grid); // fops = 2
+            const Real y =
+                xyz(1, iMesh) + dxyzCell * static_cast<Real>(j_grid); // fops = 2
+            const Real z =
+                xyz(2, iMesh) + dxyzCell * static_cast<Real>(k_grid); // fops = 2
+            const Real myR2 = x * x + y * y + z * z;                  // fops = 5
+            inOrOut(l, k_grid, j_grid, i_grid) = (myR2 < radius2 ? 1.0 : 0.0);
+          });
     }
   });
   Kokkos::fence();

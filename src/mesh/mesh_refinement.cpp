@@ -130,15 +130,16 @@ void MeshRefinement::RestrictCellCenteredValues(const ParArrayND<Real> &fine,
         });
   } else { // 1D
     int j = jb.s, cj = cjb.s, k = kb.s, ck = ckb.s;
-    pmb->par_for("RestrictCellCenteredValues1d", sn, en, csi, cei,
-                 KOKKOS_LAMBDA(const int n, const int ci) {
-                   int i = (ci - cib.s) * 2 + ib.s;
-                   const Real vol0 = coords.Volume(k, j, i);
-                   const Real vol1 = coords.Volume(k, j, i + 1);
-                   Real tvol = vol0 + vol1;
-                   coarse(n, ck, cj, ci) =
-                       (fine(n, k, j, i) * vol0 + fine(n, k, j, i + 1) * vol1) / tvol;
-                 });
+    pmb->par_for(
+        "RestrictCellCenteredValues1d", sn, en, csi, cei,
+        KOKKOS_LAMBDA(const int n, const int ci) {
+          int i = (ci - cib.s) * 2 + ib.s;
+          const Real vol0 = coords.Volume(k, j, i);
+          const Real vol1 = coords.Volume(k, j, i + 1);
+          Real tvol = vol0 + vol1;
+          coarse(n, ck, cj, ci) =
+              (fine(n, k, j, i) * vol0 + fine(n, k, j, i + 1) * vol1) / tvol;
+        });
   }
 }
 
@@ -423,78 +424,80 @@ void MeshRefinement::ProlongateCellCenteredValues(const ParArrayND<Real> &coarse
         });
   } else if (pmb->block_size.nx2 > 1) {
     int k = ckb.s, fk = kb.s;
-    pmb->par_for("ProlongateCellCenteredValues2d", sn, en, sj, ej, si, ei,
-                 KOKKOS_LAMBDA(const int n, const int j, const int i) {
-                   // x2 direction
-                   int fj = (j - cjb.s) * 2 + jb.s;
-                   const Real x2m = coarse_coords.x2v(j - 1);
-                   const Real x2c = coarse_coords.x2v(j);
-                   const Real x2p = coarse_coords.x2v(j + 1);
-                   Real dx2m = x2c - x2m;
-                   Real dx2p = x2p - x2c;
-                   const Real fx2m = coords.x2v(fj);
-                   const Real fx2p = coords.x2v(fj + 1);
-                   Real dx2fm = x2c - fx2m;
-                   Real dx2fp = fx2p - x2c;
+    pmb->par_for(
+        "ProlongateCellCenteredValues2d", sn, en, sj, ej, si, ei,
+        KOKKOS_LAMBDA(const int n, const int j, const int i) {
+          // x2 direction
+          int fj = (j - cjb.s) * 2 + jb.s;
+          const Real x2m = coarse_coords.x2v(j - 1);
+          const Real x2c = coarse_coords.x2v(j);
+          const Real x2p = coarse_coords.x2v(j + 1);
+          Real dx2m = x2c - x2m;
+          Real dx2p = x2p - x2c;
+          const Real fx2m = coords.x2v(fj);
+          const Real fx2p = coords.x2v(fj + 1);
+          Real dx2fm = x2c - fx2m;
+          Real dx2fp = fx2p - x2c;
 
-                   // x1 direction
-                   int fi = (i - cib.s) * 2 + ib.s;
-                   const Real x1m = coarse_coords.x1v(i - 1);
-                   const Real x1c = coarse_coords.x1v(i);
-                   const Real x1p = coarse_coords.x1v(i + 1);
-                   Real dx1m = x1c - x1m;
-                   Real dx1p = x1p - x1c;
-                   const Real fx1m = coords.x1v(fi);
-                   const Real fx1p = coords.x1v(fi + 1);
-                   Real dx1fm = x1c - fx1m;
-                   Real dx1fp = fx1p - x1c;
+          // x1 direction
+          int fi = (i - cib.s) * 2 + ib.s;
+          const Real x1m = coarse_coords.x1v(i - 1);
+          const Real x1c = coarse_coords.x1v(i);
+          const Real x1p = coarse_coords.x1v(i + 1);
+          Real dx1m = x1c - x1m;
+          Real dx1p = x1p - x1c;
+          const Real fx1m = coords.x1v(fi);
+          const Real fx1p = coords.x1v(fi + 1);
+          Real dx1fm = x1c - fx1m;
+          Real dx1fp = fx1p - x1c;
 
-                   Real ccval = coarse(n, k, j, i);
+          Real ccval = coarse(n, k, j, i);
 
-                   // calculate 2D gradients using the minmod limiter
-                   Real gx1m = (ccval - coarse(n, k, j, i - 1)) / dx1m;
-                   Real gx1p = (coarse(n, k, j, i + 1) - ccval) / dx1p;
-                   Real gx1c = 0.5 * (SIGN(gx1m) + SIGN(gx1p)) *
-                               std::min(std::abs(gx1m), std::abs(gx1p));
-                   Real gx2m = (ccval - coarse(n, k, j - 1, i)) / dx2m;
-                   Real gx2p = (coarse(n, k, j + 1, i) - ccval) / dx2p;
-                   Real gx2c = 0.5 * (SIGN(gx2m) + SIGN(gx2p)) *
-                               std::min(std::abs(gx2m), std::abs(gx2p));
+          // calculate 2D gradients using the minmod limiter
+          Real gx1m = (ccval - coarse(n, k, j, i - 1)) / dx1m;
+          Real gx1p = (coarse(n, k, j, i + 1) - ccval) / dx1p;
+          Real gx1c =
+              0.5 * (SIGN(gx1m) + SIGN(gx1p)) * std::min(std::abs(gx1m), std::abs(gx1p));
+          Real gx2m = (ccval - coarse(n, k, j - 1, i)) / dx2m;
+          Real gx2p = (coarse(n, k, j + 1, i) - ccval) / dx2p;
+          Real gx2c =
+              0.5 * (SIGN(gx2m) + SIGN(gx2p)) * std::min(std::abs(gx2m), std::abs(gx2p));
 
-                   // KGF: add the off-centered quantities first to preserve FP symmetry
-                   // interpolate onto the finer grid
-                   fine(n, fk, fj, fi) = ccval - (gx1c * dx1fm + gx2c * dx2fm);
-                   fine(n, fk, fj, fi + 1) = ccval + (gx1c * dx1fp - gx2c * dx2fm);
-                   fine(n, fk, fj + 1, fi) = ccval - (gx1c * dx1fm - gx2c * dx2fp);
-                   fine(n, fk, fj + 1, fi + 1) = ccval + (gx1c * dx1fp + gx2c * dx2fp);
-                 });
+          // KGF: add the off-centered quantities first to preserve FP symmetry
+          // interpolate onto the finer grid
+          fine(n, fk, fj, fi) = ccval - (gx1c * dx1fm + gx2c * dx2fm);
+          fine(n, fk, fj, fi + 1) = ccval + (gx1c * dx1fp - gx2c * dx2fm);
+          fine(n, fk, fj + 1, fi) = ccval - (gx1c * dx1fm - gx2c * dx2fp);
+          fine(n, fk, fj + 1, fi + 1) = ccval + (gx1c * dx1fp + gx2c * dx2fp);
+        });
   } else { // 1D
     int k = ckb.s, fk = kb.s, j = cjb.s, fj = jb.s;
-    pmb->par_for("ProlongateCellCenteredValues1d", sn, en, si, ei,
-                 KOKKOS_LAMBDA(const int n, const int i) {
-                   int fi = (i - cib.s) * 2 + ib.s;
-                   const Real x1m = coarse_coords.x1v(i - 1);
-                   const Real x1c = coarse_coords.x1v(i);
-                   const Real x1p = coarse_coords.x1v(i + 1);
-                   Real dx1m = x1c - x1m;
-                   Real dx1p = x1p - x1c;
-                   const Real fx1m = coords.x1v(fi);
-                   const Real fx1p = coords.x1v(fi + 1);
-                   Real dx1fm = x1c - fx1m;
-                   Real dx1fp = fx1p - x1c;
+    pmb->par_for(
+        "ProlongateCellCenteredValues1d", sn, en, si, ei,
+        KOKKOS_LAMBDA(const int n, const int i) {
+          int fi = (i - cib.s) * 2 + ib.s;
+          const Real x1m = coarse_coords.x1v(i - 1);
+          const Real x1c = coarse_coords.x1v(i);
+          const Real x1p = coarse_coords.x1v(i + 1);
+          Real dx1m = x1c - x1m;
+          Real dx1p = x1p - x1c;
+          const Real fx1m = coords.x1v(fi);
+          const Real fx1p = coords.x1v(fi + 1);
+          Real dx1fm = x1c - fx1m;
+          Real dx1fp = fx1p - x1c;
 
-                   Real ccval = coarse(n, k, j, i);
+          Real ccval = coarse(n, k, j, i);
 
-                   // calculate 1D gradient using the min-mod limiter
-                   Real gx1m = (ccval - coarse(n, k, j, i - 1)) / dx1m;
-                   Real gx1p = (coarse(n, k, j, i + 1) - ccval) / dx1p;
-                   Real gx1c = 0.5 * (SIGN(gx1m) + SIGN(gx1p)) *
-                               std::min(std::abs(gx1m), std::abs(gx1p));
+          // calculate 1D gradient using the min-mod limiter
+          Real gx1m = (ccval - coarse(n, k, j, i - 1)) / dx1m;
+          Real gx1p = (coarse(n, k, j, i + 1) - ccval) / dx1p;
+          Real gx1c =
+              0.5 * (SIGN(gx1m) + SIGN(gx1p)) * std::min(std::abs(gx1m), std::abs(gx1p));
 
-                   // interpolate on to the finer grid
-                   fine(n, fk, fj, fi) = ccval - gx1c * dx1fm;
-                   fine(n, fk, fj, fi + 1) = ccval + gx1c * dx1fp;
-                 });
+          // interpolate on to the finer grid
+          fine(n, fk, fj, fi) = ccval - gx1c * dx1fm;
+          fine(n, fk, fj, fi + 1) = ccval + gx1c * dx1fp;
+        });
   }
   return;
 }
