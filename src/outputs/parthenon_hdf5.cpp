@@ -728,8 +728,9 @@ void PHDF5Output::WriteRestartFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   // All ranks write attributes
 
   // write timestep relevant attributes
-  hid_t localDSpace, myDSet;
+  hid_t localDSpace, localnDSpace, myDSet;
   herr_t status;
+  hsize_t nLen;
 
   { // write input key-value pairs
     std::ostringstream oss;
@@ -751,32 +752,16 @@ void PHDF5Output::WriteRestartFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   myDSet = H5Dcreate(file, "/Info", PREDINT32, localDSpace, H5P_DEFAULT, H5P_DEFAULT,
                      H5P_DEFAULT);
 
-  int max_level = pm->GetCurrentLevel() - pm->GetRootLevel();
+  int rootLevel = pm->GetRootLevel();
+  int max_level = pm->GetCurrentLevel() - rootLevel;
   if (tm != nullptr) {
     status = writeH5AI32("NCycle", &(tm->ncycle), file, localDSpace, myDSet);
     status = writeH5AF64("Time", &(tm->time), file, localDSpace, myDSet);
   }
-  auto &nx1 = pmb->block_size.nx1;
-  auto &nx2 = pmb->block_size.nx2;
-  auto &nx3 = pmb->block_size.nx3;
-  status = writeH5AI32("nx1", &nx1, file, localDSpace, myDSet);
-  status = writeH5AI32("nx2", &nx2, file, localDSpace, myDSet);
-  status = writeH5AI32("nx3", &nx3, file, localDSpace, myDSet);
-  status = writeH5AI32("NumDims", &pm->ndim, file, localDSpace, myDSet);
-  status = writeH5AI32("nbtotal", &pm->nbtotal, file, localDSpace, myDSet);
-  status = writeH5AI32("nbnew", &pm->nbnew, file, localDSpace, myDSet);
-  status = writeH5AI32("nbdel", &pm->nbdel, file, localDSpace, myDSet);
-  status = writeH5AI32("MaxLevel", &max_level, file, localDSpace, myDSet);
   status = writeH5ASTRING("Coordinates", std::string(pmb->coords.Name()), file,
                           localDSpace, myDSet);
 
-  { // refinement flag
-    int refine = (pm->adaptive ? 1 : 0);
-    status = writeH5AI32("refine", &refine, file, localDSpace, myDSet);
-
-    int multilevel = (pm->multilevel ? 1 : 0);
-    status = writeH5AI32("multilevel", &multilevel, file, localDSpace, myDSet);
-  }
+  status = writeH5AI32("NumDims", &pm->ndim, file, localDSpace, myDSet);
 
   status = H5Sclose(localDSpace);
 
@@ -792,30 +777,53 @@ void PHDF5Output::WriteRestartFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   myDSet = H5Dcreate(file, "/Mesh", PREDINT32, localDSpace, H5P_DEFAULT, H5P_DEFAULT,
                      H5P_DEFAULT);
 
+  auto &nx1 = pmb->block_size.nx1;
+  auto &nx2 = pmb->block_size.nx2;
+  auto &nx3 = pmb->block_size.nx3;
+  int bsize[3] = {nx1, nx2, nx3};
+  nLen = 3;
+  localnDSpace = H5Screate_simple(1, &nLen, NULL);
+  status = writeH5AI32("blockSize", bsize, file, localnDSpace, myDSet);
+  status = H5Sclose(localnDSpace);
+
+  status = writeH5AI32("nbtotal", &pm->nbtotal, file, localDSpace, myDSet);
+  status = writeH5AI32("nbnew", &pm->nbnew, file, localDSpace, myDSet);
+  status = writeH5AI32("nbdel", &pm->nbdel, file, localDSpace, myDSet);
+  status = writeH5AI32("rootLevel", &rootLevel, file, localDSpace, myDSet);
+  status = writeH5AI32("MaxLevel", &max_level, file, localDSpace, myDSet);
+
+  { // refinement flag
+    int refine = (pm->adaptive ? 1 : 0);
+    status = writeH5AI32("refine", &refine, file, localDSpace, myDSet);
+
+    int multilevel = (pm->multilevel ? 1 : 0);
+    status = writeH5AI32("multilevel", &multilevel, file, localDSpace, myDSet);
+  }
+
   { // mesh bounds
     const auto &rs = pm->mesh_size;
-    status = writeH5AF64("x1min", &(rs.x1min), file, localDSpace, myDSet);
-    status = writeH5AF64("x2min", &(rs.x2min), file, localDSpace, myDSet);
-    status = writeH5AF64("x3min", &(rs.x3min), file, localDSpace, myDSet);
-    status = writeH5AF64("x1max", &(rs.x1max), file, localDSpace, myDSet);
-    status = writeH5AF64("x2max", &(rs.x2max), file, localDSpace, myDSet);
-    status = writeH5AF64("x3max", &(rs.x3max), file, localDSpace, myDSet);
-    status = writeH5AF64("x1rat", &(rs.x1rat), file, localDSpace, myDSet);
-    status = writeH5AF64("x2rat", &(rs.x2rat), file, localDSpace, myDSet);
-    status = writeH5AF64("x3rat", &(rs.x3rat), file, localDSpace, myDSet);
+    const Real limits[6] = {rs.x1min, rs.x2min, rs.x3min, rs.x1max, rs.x2max, rs.x3max};
+    const Real ratios[3] = {rs.x1rat, rs.x2rat, rs.x3rat};
+    nLen = 6;
+    localnDSpace = H5Screate_simple(1, &nLen, NULL);
+    status = writeH5AF64("bounds", limits, file, localnDSpace, myDSet);
+    status = H5Sclose(localnDSpace);
+
+    nLen = 3;
+    localnDSpace = H5Screate_simple(1, &nLen, NULL);
+    status = writeH5AF64("ratios", limits, file, localnDSpace, myDSet);
+    status = H5Sclose(localnDSpace);
   }
 
   { // boundary conditions
-    std::vector<std::string> bcs;
-    for (auto &bc : pm->mesh_bcs) {
-      bcs.push_back(GetBoundaryString(bc));
+    nLen = 6;
+    localnDSpace = H5Screate_simple(1, &nLen, NULL);
+    int bcsi[6];
+    for (int ib = 0; ib < 6; ib++) {
+      bcsi[ib] = static_cast<int>(pm->mesh_bcs[ib]);
     }
-    status = writeH5ASTRING("ix1_bc", bcs[0], file, localDSpace, myDSet);
-    status = writeH5ASTRING("ox1_bc", bcs[1], file, localDSpace, myDSet);
-    status = writeH5ASTRING("ix2_bc", bcs[2], file, localDSpace, myDSet);
-    status = writeH5ASTRING("ox2_bc", bcs[3], file, localDSpace, myDSet);
-    status = writeH5ASTRING("ix3_bc", bcs[4], file, localDSpace, myDSet);
-    status = writeH5ASTRING("ox3_bc", bcs[5], file, localDSpace, myDSet);
+    status = writeH5AI32("bc", bcsi, file, localnDSpace, myDSet);
+    status = H5Sclose(localnDSpace);
   }
 
   // close space and set
@@ -994,7 +1002,7 @@ void PHDF5Output::WriteRestartFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     }
     // write dataset to file
     WRITEH5SLAB2(vWriteName.c_str(), tmpData, gBlocks, local_start, local_count,
-                vLocalSpace, vGlobalSpace, property_list);
+                 vLocalSpace, vGlobalSpace, property_list);
     //    WRITEH5SLAB(vWriteName.c_str(), tmpData, file, local_start, local_count,
     //    vLocalSpace,
     //           vGlobalSpace, property_list);
