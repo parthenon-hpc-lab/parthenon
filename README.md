@@ -1,5 +1,7 @@
 # parthenon
 
+[![codecov](https://codecov.io/gh/lanl/parthenon/branch/master/graph/badge.svg)](https://codecov.io/gh/lanl/parthenon)
+
 Parthenon AMR infrastructure
 
 # Community

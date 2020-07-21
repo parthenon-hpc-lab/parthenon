@@ -41,6 +41,9 @@
 #define PARTHENON_THROW(message)                                                         \
   parthenon::ErrorChecking::fail_throws(message, __FILE__, __LINE__);
 
+#define PARTHENON_WARN(message)                                                          \
+  parthenon::ErrorChecking::warn(message, __FILE__, __LINE__);
+
 #ifdef NDEBUG
 #define PARTHENON_DEBUG_REQUIRE(condition, message) ((void)0)
 #else
@@ -64,6 +67,12 @@
 #define PARTHENON_DEBUG_THROW(message) ((void)0)
 #else
 #define PARTHENON_DEBUG_THROW(message) PARTHENON_THROW(message)
+#endif
+
+#ifdef NDEBUG
+#define PARTHENON_DEBUG_WARN(message) ((void)0)
+#else
+#define PARTHENON_DEBUG_WARN(message) PARTHENON_WARN(message)
 #endif
 
 namespace parthenon {
@@ -138,6 +147,17 @@ inline void fail_throws(std::string const &message, const char *const filename,
 inline void fail_throws(std::stringstream const &message, const char *const filename,
                         int const linenumber) {
   fail_throws(message.str().c_str(), filename, linenumber);
+
+KOKKOS_INLINE_FUNCTION
+void warn(const char *const message, const char *const filename, int const linenumber) {
+  printf(
+      "### PARTHENON WARNING\n  Message:     %s\n  File:        %s\n  Line number: %i\n",
+      message, filename, linenumber);
+}
+
+inline void warn(std::stringstream const &message, const char *const filename,
+                 int const linenumber) {
+  warn(message.str().c_str(), filename, linenumber);
 }
 
 } // namespace ErrorChecking
