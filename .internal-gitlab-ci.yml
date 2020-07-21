@@ -6,7 +6,7 @@ variables:
   MODULE_COMPILER: "ibm/xlc-16.1.1.7-xlf-16.1.1.7-gcc-7.4.0"
   MODULE_CUDA: "cuda/10.1"
   MODULE_MPI: "openmpi/p9/4.0.1-gcc_7.4.0"
-  CMAKE_BUILD_TYPE: "Debug" 
+  CMAKE_BUILD_TYPE: "Release" 
   Kokkos_ARCH_POWER9: "ON" 
   Kokkos_ARCH_VOLTA70: "ON" 
   Kokkos_ENABLE_CUDA: "ON" 
@@ -23,12 +23,14 @@ before_script:
   - git clone https://github.com/lanl/parthenon-buildenv.git
   - env -i bash ./parthenon-buildenv/internal/scripts/setup.sh
 
-parthenon-power9-gcc:
+parthenon-power9-gcc-mpi-performance-regression:
   stage: performance-regression
   script:
     - export CMAKE_CXX_COMPILER=$(pwd)/external/Kokkos/bin/nvcc_wrapper
+    - export BUILD_DIR=build_power9_perf_regression_gcc_mpi
     - >
       env -i bash ./parthenon-buildenv/internal/scripts/build.sh
+      ${BUILD_DIR}
       ${CMAKE_BUILD_TYPE}
       ${CMAKE_CXX_COMPILER}
       ${Kokkos_ARCH_POWER9}
@@ -38,5 +40,12 @@ parthenon-power9-gcc:
       ${Kokkos_ENABLE_CXX11}
       ${Kokkos_ENABLE_OPENMP}
       ${PARTHENON_DISABLE_HDF5}
+  artifacts:
+    when: always
+    expire_in: 3 days
+    paths:
+      - ${BUILD_DIR}/tst/regression/advection_convergence/advection-errors.dat
+      - ${BUILD_DIR}/tst/regression/outputs/advection_convergence/advection-errors.png
+
 
 
