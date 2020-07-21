@@ -14,7 +14,6 @@ before_script:
     - if [ `cat tst/regression/gold_standard/current_version` != ${GOLD_STANDARD_VER} ]; then
       echo "Updating regression Gold standard to ${GOLD_STANDARD_VER}." &&
       wget -qO- https://pgrete.de/dl/parthenon_regression_gold_r${GOLD_STANDARD_VER}.tgz | tar -xz -C tst/regression/gold_standard; fi
-    - update-alternatives --install /usr/bin/python python /usr/bin/python3 10
 
 cache:
   paths:
@@ -26,6 +25,7 @@ variables:
 stages:
   - unit
   - performance_and_regression
+  - coverage
   - style
 
 style-check:
@@ -123,8 +123,8 @@ parthenon-cuda-performance_and_regression-mpi:
     expire_in: 3 days
     paths:
       - build-cuda-perf-mpi/CMakeFiles/CMakeOutput.log
-      - build-cuda-perf-mpi/tst/regression/outputs/advection_convergence/advection-errors.dat
-      - build-cuda-perf-mpi/tst/regression/outputs/advection_convergence/advection-errors.png
+      - build-cuda-perf-mpi/tst/regression/outputs/advection_convergence_mpi/advection-errors.dat
+      - build-cuda-perf-mpi/tst/regression/outputs/advection_convergence_mpi/advection-errors.png
 
 # run performance and regression on CPUs without MPI
 parthenon-cpu-performance_and_regression:
@@ -168,5 +168,24 @@ parthenon-cpu-performance_and_regression-mpi:
     expire_in: 3 days
     paths:
       - build-perf-mpi/CMakeFiles/CMakeOutput.log
-      - build-perf-mpi/tst/regression/outputs/advection_convergence/advection-errors.dat
-      - build-perf-mpi/tst/regression/outputs/advection_convergence/advection-errors.png
+      - build-perf-mpi/tst/regression/outputs/advection_convergence_mpi/advection-errors.dat
+      - build-perf-mpi/tst/regression/outputs/advection_convergence_mpi/advection-errors.png
+
+# run unit suite on CPUs with code coverage
+parthenon-cpu-coverage:
+  tags:
+    - cpu
+  stage: coverage
+  script:
+    - mkdir build-debug-coverage
+    - cd build-debug-coverage
+    - cmake -DCMAKE_BUILD_TYPE=Debug -DHDF5_ROOT=/usr/local/hdf5/parallel
+      -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
+      -DMPIEXEC_PREFLAGS="--allow-run-as-root" -DCODE_COVERAGE=ON
+      ../ && make -j${J} && make coverage && make coverage-upload
+  artifacts:
+    when: always
+    expire_in: 3 days
+    paths:
+      - build-debug-coverage/CMakeFiles/CMakeOutput.log
+

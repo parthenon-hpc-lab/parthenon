@@ -58,9 +58,9 @@ def main(**kwargs):
 
     test_manager = tc.TestManager(run_test_py_path,**kwargs)
 
-    print("Cleaning output folder in test")
+    print("Make output folder in test if does not exist")
 
-    test_manager.CleanOutputFolder()
+    test_manager.MakeOutputFolder()
 
     for step in range(1,kwargs['num_steps'] + 1):
         test_manager.Prepare(step)
@@ -95,6 +95,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--output_dir','-o',
                         type=str,
+                        default="",
                         help="path to simulation outputs. " +
                              "Defaults to individual \"output\" folders in regression src.")
 
@@ -128,6 +129,10 @@ if __name__ == '__main__':
                         default=[],
                         action='append',
                         help='add options to mpirun command')
+
+    parser.add_argument('--coverage','-c',
+                        action='store_true',
+                        help='Run test cases where coverage has been enabled')
 
     args = parser.parse_args()
     try:
