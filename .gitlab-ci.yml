@@ -21,7 +21,6 @@ cache:
 
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
-  
 stages:
   - unit
   - performance_and_regression
@@ -38,7 +37,6 @@ style-check:
 parthenon-cuda-unit:
   tags:
     - cuda
-
   stage: unit
   script:
     - mkdir build-cuda-debug
