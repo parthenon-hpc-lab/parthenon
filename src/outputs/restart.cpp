@@ -32,7 +32,11 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
   //   /Input: Current input parameter key-value pairs
   //   /Info: information about simulation
   //   /Mesh: Information on mesh
-  //   /Blocks: per block data
+  //   /Blocks: Metadata for blocks
+  //   /var1: variable data
+  //   /var2: variable data
+  //   ....
+  //   /varN: variable data
   //
   // It is expected that on restart global block ID will determine which data set is
   // read.
@@ -308,6 +312,10 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
     delete[] tmpID;
   }
 
+  // close locations tab
+  H5Gclose(gBlocks);
+
+
   // write variables
 
   // write variables
@@ -381,7 +389,7 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
       pmb = pmb->next;
     }
     // write dataset to file
-    WRITEH5SLAB2(vWriteName.c_str(), tmpData, gBlocks, local_start, local_count,
+    WRITEH5SLAB2(vWriteName.c_str(), tmpData, file, local_start, local_count,
                  vLocalSpace, vGlobalSpace, property_list);
     //    WRITEH5SLAB(vWriteName.c_str(), tmpData, file, local_start, local_count,
     //    vLocalSpace,
@@ -395,9 +403,6 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
   // close persistent data spaces
   H5Sclose(local_DSpace);
   H5Sclose(global_DSpace);
-
-  // close locations tab
-  H5Gclose(gBlocks);
 
 #ifdef MPI_PARALLEL
   /* release the file access template */
