@@ -32,11 +32,11 @@ TEST_CASE("Add and Get is called", "[Add,Get][coverage]") {
     double output = params.Get<double>(key);
     REQUIRE(output == Approx(value));
     WHEN("the same key is provided a second time") {
-      REQUIRE_THROWS_AS(params.Add(key, value), std::invalid_argument);
+      REQUIRE_THROWS_AS(params.Add(key, value), std::runtime_error);
     }
 
     WHEN("attempting to get the key but casting to a different type") {
-      REQUIRE_THROWS_AS(params.Get<int>(key), std::invalid_argument);
+      REQUIRE_THROWS_AS(params.Get<int>(key), std::runtime_error);
     }
   }
 
@@ -44,7 +44,7 @@ TEST_CASE("Add and Get is called", "[Add,Get][coverage]") {
     Params params;
     WHEN(" attempting to get a key that does not exist ") {
       std::string non_existent_key = "key";
-      REQUIRE_THROWS_AS(params.Get<double>(non_existent_key), std::invalid_argument);
+      REQUIRE_THROWS_AS(params.Get<double>(non_existent_key), std::runtime_error);
     }
   }
 }
@@ -57,7 +57,7 @@ TEST_CASE("reset is called", "[reset][coverage]") {
     params.Add(key, value);
     WHEN("the params are reset") {
       params.reset();
-      REQUIRE_THROWS_AS(params.Get<double>(key), std::invalid_argument);
+      REQUIRE_THROWS_AS(params.Get<double>(key), std::runtime_error);
     }
   }
 }
