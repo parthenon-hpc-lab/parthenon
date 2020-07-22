@@ -369,21 +369,21 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   global_count[0] = max_blocks_global;
 
   pmb = pm->pblock;
-  LOADVARIABLE(tmpData, pmb, pmb->coords.x1f, out_ib.s, out_ib.e + 1, 0, 0, 0, 0);
+  LOADVARIABLEALL(tmpData, pmb, pmb->coords.x1f, out_ib.s, out_ib.e + 1, 0, 0, 0, 0);
   local_count[1] = global_count[1] = nx1 + 1;
   WRITEH5SLAB("x", tmpData, gLocations, local_start, local_count, global_count,
               property_list);
 
   // write Y coordinates
   pmb = pm->pblock;
-  LOADVARIABLE(tmpData, pmb, pmb->coords.x2f, 0, 0, out_jb.s, out_jb.e + 1, 0, 0);
+  LOADVARIABLEALL(tmpData, pmb, pmb->coords.x2f, 0, 0, out_jb.s, out_jb.e + 1, 0, 0);
   local_count[1] = global_count[1] = nx2 + 1;
   WRITEH5SLAB("y", tmpData, gLocations, local_start, local_count, global_count,
               property_list);
 
   // write Z coordinates
   pmb = pm->pblock;
-  LOADVARIABLE(tmpData, pmb, pmb->coords.x3f, 0, 0, 0, 0, out_kb.s, out_kb.e + 1);
+  LOADVARIABLEALL(tmpData, pmb, pmb->coords.x3f, 0, 0, 0, 0, out_kb.s, out_kb.e + 1);
   local_count[1] = global_count[1] = nx3 + 1;
   WRITEH5SLAB("z", tmpData, gLocations, local_start, local_count, global_count,
               property_list);
@@ -444,25 +444,8 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
         }
         auto v_h = (*v).data.GetHostMirrorAndCopy();
         hsize_t index = pmb->lid * varSize * vlen;
-        if (vlen == 1) {
-          for (int k = out_kb.s; k <= out_kb.e; k++) {
-            for (int j = out_jb.s; j <= out_jb.e; j++) {
-              for (int i = out_ib.s; i <= out_ib.e; i++, index++) {
-                tmpData[index] = v_h(k, j, i);
-              }
-            }
-          }
-        } else { // shuffle and use new dataspace
-          for (int k = out_kb.s; k <= out_kb.e; k++) {
-            for (int j = out_jb.s; j <= out_jb.e; j++) {
-              for (int i = out_ib.s; i <= out_ib.e; i++) {
-                for (int l = 0; l < vlen; l++, index++) {
-                  tmpData[index] = v_h(l, k, j, i);
-                }
-              }
-            }
-          }
-        }
+        LOADVARIABLEONE(index, tmpData, v_h, out_ib.s, out_ib.e, out_jb.s, out_jb.e,
+                        out_kb.s, out_kb.e, vlen)
       }
       pmb = pmb->next;
     }

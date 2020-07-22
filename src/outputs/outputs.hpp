@@ -162,6 +162,7 @@ class RestartOutput : public OutputType {
  public:
   explicit RestartOutput(OutputParameters oparams) : OutputType(oparams) {
 #ifndef HDF5OUTPUT
+    std::stringstream msg;
     msg << "### FATAL ERROR in Restart (Outputs) constructor" << std::endl
         << "Executable not configured for HDF5 outputs, but HDF5 file format "
         << "is requested in output block '" << op.block_name << "'" << std::endl;

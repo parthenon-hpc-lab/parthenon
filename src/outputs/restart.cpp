@@ -17,15 +17,211 @@
 //! \file restart.cpp
 //  \brief writes restart files
 
+#include <memory>
+#include <string>
+#include <utility>
+
+#include "mesh/mesh.hpp"
 #include "outputs/outputs.hpp"
 #include "outputs/parthenon_hdf5.hpp"
+#include "outputs/restart.hpp"
 
 namespace parthenon {
+
+//----------------------------------------------------------------------------------------
+//! \fn void RestartReader::RestartReader(const std::string filename)
+//  \brief Opens the restart file and stores appropriate file handle in fh_
+RestartReader::RestartReader(const char *filename) : filename_(filename) {
+#ifndef HDF5OUTPUT
+  std::stringstream msg;
+  msg << "### FATAL ERROR in Restart (Reader) constructor" << std::endl
+      << "Executable not configured for HDF5 outputs, but HDF5 file format "
+      << "is required for restarts" << std::endl;
+  PARTHENON_FAIL(msg);
+#else
+  // Open the HDF file in read only mode
+  fh_ = H5Fopen(filename, H5F_ACC_RDONLY, H5P_DEFAULT);
+
+  // populate block size from the file
+  std::vector<int32_t> blockSize = ReadAttr1D<int32_t>("Mesh", "blockSize");
+  nx1_ = static_cast<hsize_t>(blockSize[0]);
+  nx2_ = static_cast<hsize_t>(blockSize[1]);
+  nx3_ = static_cast<hsize_t>(blockSize[2]);
+#endif
+}
+
+//! \fn std::vector<T> RestartReader::ReadDataset(const char *name, size_t *count =
+//! nullptr)
+//  \brief Reads an entire dataset and returns as a 1D vector
+template <typename T>
+std::vector<T> RestartReader::ReadDataset(const char *name, size_t *count) {
+  // Returns entire 1D array.
+  // status, never checked.  We should...
+#ifdef HDF5OUTPUT
+  herr_t status;
+
+  T *typepointer;
+  hid_t theHdfType = getHdfType(typepointer);
+
+  hid_t dataset = H5Dopen2(fh_, name, H5P_DEFAULT);
+  hid_t dataspace = H5Dget_space(dataset);
+
+  // Allocate array of correct size
+  hid_t filespace = H5Dget_space(dataset);
+  int rank = H5Sget_simple_extent_ndims(filespace);
+  auto dims = new hsize_t[rank];
+  status = H5Sget_simple_extent_dims(filespace, dims, NULL);
+  hsize_t isize = 1;
+  for (int idir = 0; idir < rank; idir++) {
+    isize = isize * dims[idir];
+  }
+  if (count != nullptr) {
+    *count = isize;
+  }
+  std::vector<T> data(isize);
+
+  /** Define memory dataspace **/
+  hid_t memspace = H5Screate_simple(rank, dims, NULL);
+
+  // Read data from file
+  status = H5Dread(dataset, theHdfType, memspace, dataspace, H5P_DEFAULT,
+                   static_cast<void *>(data.data()));
+
+  // CLose the dataspace and data set.
+  H5Dclose(filespace);
+  H5Dclose(dataspace);
+  H5Dclose(dataset);
+#else
+  std::vector<T> data;
+#endif
+  return std::forward<std::vector<T>>(data);
+}
+
+//! \fn std::vector<T> RestartReader::ReadAttr1D(const char *dataset,
+//! const char *name, size_t *count = nullptr)
+//  \brief Reads a 1D array attribute for given dataset
+template <typename T>
+std::vector<T> RestartReader::ReadAttr1D(const char *dataset, const char *name,
+                                         size_t *count) {
+  // Returns entire 1D array.
+  // status, never checked.  We should...
+#ifdef HDF5OUTPUT
+  herr_t status;
+
+  T *typepointer;
+  hid_t theHdfType = getHdfType(typepointer);
+
+  hid_t dset = H5Dopen2(fh_, dataset, H5P_DEFAULT);
+  hid_t attr = H5Aopen(dset, name, H5P_DEFAULT);
+  hid_t dataspace = H5Aget_space(attr);
+
+  // Allocate array of correct size
+  int rank = H5Sget_simple_extent_ndims(dataspace);
+  auto dims = new hsize_t[rank];
+  status = H5Sget_simple_extent_dims(dataspace, dims, NULL);
+  hsize_t isize = 1;
+  for (int idir = 0; idir < rank; idir++) {
+    isize = isize * dims[idir];
+  }
+  if (count != nullptr) {
+    *count = isize;
+  }
+  std::vector<T> data(isize);
+
+  // Read data from file
+  status = H5Aread(attr, theHdfType, static_cast<void *>(data.data()));
+
+  // CLose the dataspace and data set.
+  H5Sclose(dataspace);
+  H5Aclose(attr);
+  H5Dclose(dset);
+#else
+  std::vector<T> data;
+#endif
+
+  return data;
+}
+
+//! \fn std::shared_ptr<std::vector<T>> RestartReader::ReadAttrString(const char *dataset,
+//! const char *name, size_t *count = nullptr)
+//  \brief Reads a string attribute for given dataset
+std::string RestartReader::ReadAttrString(const char *dataset, const char *name,
+                                          size_t *count) {
+  // Returns entire 1D array.
+  // status, never checked.  We should...
+  herr_t status;
+
+  hid_t theHdfType = H5T_C_S1;
+
+  hid_t dset = H5Dopen2(fh_, dataset, H5P_DEFAULT);
+  hid_t attr = H5Aopen(dset, name, H5P_DEFAULT);
+  hid_t dataspace = H5Aget_space(attr);
+
+  // Allocate array of correct size
+  hid_t filetype = H5Aget_type(attr);
+  hsize_t isize = H5Tget_size(filetype);
+  isize++;
+  if (count != nullptr) {
+    *count = isize;
+  }
+  printf("dims=%lld\n", isize);
+
+  char *s = static_cast<char *>(calloc(isize + 1, sizeof(char)));
+  // Read data from file
+  //  status = H5Aread(attr, theHdfType, static_cast<void *>(s));
+  hid_t memType = H5Tcopy(H5T_C_S1);
+  status = H5Tset_size(memType, isize);
+  status = H5Aread(attr, memType, s);
+  std::string data(s);
+  std::cout << strlen(s) << ":input:" << s << std::endl;
+  free(s);
+
+  // CLose the dataspace and data set.
+  H5Tclose(memType);
+  H5Tclose(filetype);
+  H5Sclose(dataspace);
+  H5Aclose(attr);
+  H5Dclose(dset);
+
+  return data;
+}
+
+//! \fn void RestartReader::ReadBlock(const char *name, const int blockID, T *data)
+//  \brief Reads data for one block from restart file
+template <typename T>
+void RestartReader::ReadBlock(const char *name, const int blockID, T *data) {
+#ifdef HDF5OUTPUT
+  // status, never checked.  We should...
+  herr_t status;
+
+  // compute block size, probaby could cache this.
+  hid_t theHdfType = getHdfType(data);
+
+  hid_t dataset = H5Dopen2(fh_, name, H5P_DEFAULT);
+  hid_t dataspace = H5Dget_space(dataset);
+
+  /** Define hyperslab in dataset **/
+  hsize_t offset[5] = {static_cast<hsize_t>(blockID), 0, 0, 0, 0};
+  hsize_t count[5] = {1, nx3_, nx2_, nx1_, 1};
+  status = H5Sselect_hyperslab(dataspace, H5S_SELECT_SET, offset, NULL, count, NULL);
+
+  /** Define memory dataspace **/
+  hid_t memspace = H5Screate_simple(5, count, NULL);
+
+  // Read data from file
+  status = H5Dread(dataset, H5T_NATIVE_DOUBLE, memspace, dataspace, H5P_DEFAULT, data);
+
+  // CLose the dataspace and data set.
+  H5Dclose(dataspace);
+  H5Dclose(dataset);
+#endif
+}
 
 //----------------------------------------------------------------------------------------
 //! \fn void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag)
 //  \brief Cycles over all MeshBlocks and writes data to a single restart file.
 void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
+  // Restart output is currently only HDF5, so no HDF5 means no restart files
 #ifdef HDF5OUTPUT
   // Writes a restart file in 'rhdf' format
   // This format has:
@@ -315,7 +511,6 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
   // close locations tab
   H5Gclose(gBlocks);
 
-
   // write variables
 
   // write variables
@@ -344,8 +539,9 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
   const hsize_t varSize = nx3 * nx2 * nx1;
 
   // Get an iterator on block 0 for variable listing
-  auto ciX = ContainerIterator<Real>(pm->pblock->real_containers.Get(),
-                                     {parthenon::Metadata::Restart});
+  auto ciX = ContainerIterator<Real>(
+      pm->pblock->real_containers.Get(),
+      {parthenon::Metadata::Independent, parthenon::Metadata::Restart}, true);
   for (auto &vwrite : ciX.vars) { // for each variable we write
     const std::string vWriteName = vwrite->label();
     hid_t vLocalSpace, vGlobalSpace;
@@ -365,32 +561,26 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
 
     // load up data
     while (pmb != nullptr) { // for every block
-      auto ci = ContainerIterator<Real>(pmb->real_containers.Get(),
-                                        {parthenon::Metadata::Restart});
+      auto ci = ContainerIterator<Real>(
+          pmb->real_containers.Get(),
+          {parthenon::Metadata::Independent, parthenon::Metadata::Restart}, true);
       for (auto &v : ci.vars) {
         std::string name = v->label();
         if (name.compare(vWriteName) != 0) {
           // skip, not interested in this variable
           continue;
         }
+        // Note index 4 transposed to interior
         auto v_h = (*v).data.GetHostMirrorAndCopy();
         hsize_t index = pmb->lid * varSize * vlen;
-        // Note index 4 transposed to interior
-        for (int k = out_kb.s; k <= out_kb.e; k++) {
-          for (int j = out_jb.s; j <= out_jb.e; j++) {
-            for (int i = out_ib.s; i <= out_ib.e; i++) {
-              for (int l = 0; l < vlen; l++, index++) {
-                tmpData[index] = v_h(l, k, j, i);
-              }
-            }
-          }
-        }
+        LOADVARIABLEONE(index, tmpData, v_h, out_ib.s, out_ib.e, out_jb.s, out_jb.e,
+                        out_kb.s, out_kb.e, vlen)
       }
       pmb = pmb->next;
     }
     // write dataset to file
-    WRITEH5SLAB2(vWriteName.c_str(), tmpData, file, local_start, local_count,
-                 vLocalSpace, vGlobalSpace, property_list);
+    WRITEH5SLAB2(vWriteName.c_str(), tmpData, file, local_start, local_count, vLocalSpace,
+                 vGlobalSpace, property_list);
     //    WRITEH5SLAB(vWriteName.c_str(), tmpData, file, local_start, local_count,
     //    vLocalSpace,
     //           vGlobalSpace, property_list);
