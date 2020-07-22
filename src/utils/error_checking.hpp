@@ -161,5 +161,6 @@ inline void warn(std::stringstream const &message, const char *const filename,
   warn(message.str().c_str(), filename, linenumber);
 }
 } // namespace ErrorChecking
+} // namespace parthenon
 
 #endif // UTILS_ERROR_CHECKING_HPP_
