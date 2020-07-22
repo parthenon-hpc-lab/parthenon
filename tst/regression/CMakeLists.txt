@@ -12,7 +12,7 @@
 #=========================================================================================
 
 # Include test setup functions
-include(${CMAKE_SOURCE_DIR}/cmake/TestSetup.cmake)
+include(${PROJECT_SOURCE_DIR}/cmake/TestSetup.cmake)
 
 # Adding regression tests
 #
