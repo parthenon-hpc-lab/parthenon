@@ -26,7 +26,7 @@ before_script:
 parthenon-power9-gcc-mpi-performance-regression:
   variables: 
     BUILD_DIR: "build_power9_perf_regression_gcc_mpi"
-    CMAKE_CXX_COMPILER: "$(pwd)/external/Kokkos/bin/nvcc_wrapper"
+    CMAKE_CXX_COMPILER: $CI_PROJECT_DIR/external/Kokkos/bin/nvcc_wrapper
   stage: performance-regression
   script:
     - >
@@ -45,8 +45,8 @@ parthenon-power9-gcc-mpi-performance-regression:
     when: always
     expire_in: 3 days
     paths:
-      - ./${BUILD_DIR}/tst/regression/advection_convergence/advection-errors.dat
-      - ./${BUILD_DIR}/tst/regression/outputs/advection_convergence/advection-errors.png
+      - ${CI_PROJECT_DIR}/${BUILD_DIR}/tst/regression/advection_convergence/advection-errors.dat
+      - ${CI_PROJECT_DIR}/${BUILD_DIR}/tst/regression/outputs/advection_convergence/advection-errors.png
 
 
 
