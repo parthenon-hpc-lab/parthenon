@@ -561,15 +561,8 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
 
     // load up data
     while (pmb != nullptr) { // for every block
-      auto ci = ContainerIterator<Real>(
-          pmb->real_containers.Get(),
-          {parthenon::Metadata::Independent, parthenon::Metadata::Restart}, true);
+      auto ci = ContainerIterator<Real>(pmb->real_containers.Get(), {vWriteName});
       for (auto &v : ci.vars) {
-        std::string name = v->label();
-        if (name.compare(vWriteName) != 0) {
-          // skip, not interested in this variable
-          continue;
-        }
         // Note index 4 transposed to interior
         auto v_h = (*v).data.GetHostMirrorAndCopy();
         hsize_t index = pmb->lid * varSize * vlen;
