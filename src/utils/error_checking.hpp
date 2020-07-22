@@ -147,19 +147,19 @@ inline void fail_throws(std::string const &message, const char *const filename,
 inline void fail_throws(std::stringstream const &message, const char *const filename,
                         int const linenumber) {
   fail_throws(message.str().c_str(), filename, linenumber);
+}
 
-  KOKKOS_INLINE_FUNCTION
-  void warn(const char *const message, const char *const filename, int const linenumber) {
-    printf("### PARTHENON WARNING\n  Message:     %s\n  File:        %s\n  Line number: "
-           "%i\n",
-           message, filename, linenumber);
-  }
+KOKKOS_INLINE_FUNCTION
+void warn(const char *const message, const char *const filename, int const linenumber) {
+  printf("### PARTHENON WARNING\n  Message:     %s\n  File:        %s\n  Line number: "
+         "%i\n",
+         message, filename, linenumber);
+}
 
-  inline void warn(std::stringstream const &message, const char *const filename,
-                   int const linenumber) {
-    warn(message.str().c_str(), filename, linenumber);
-  }
-} // namespace ErrorChecking
+inline void warn(std::stringstream const &message, const char *const filename,
+                 int const linenumber) {
+  warn(message.str().c_str(), filename, linenumber);
+}
 } // namespace ErrorChecking
 
 #endif // UTILS_ERROR_CHECKING_HPP_
