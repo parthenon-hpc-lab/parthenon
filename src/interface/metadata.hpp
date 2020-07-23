@@ -200,6 +200,7 @@ class Metadata {
     return None;
   }
 
+  void SetSparseId(int id) { sparse_id_ = id; }
   int GetSparseId() const { return sparse_id_; }
 
   const std::vector<int> &Shape() const { return shape_; }
@@ -221,6 +222,11 @@ class Metadata {
    */
   bool AnyFlagsSet(std::vector<MetadataFlag> const &flags) const {
     return std::any_of(flags.begin(), flags.end(),
+                       [this](MetadataFlag const &f) { return IsSet(f); });
+  }
+
+  bool AllFlagsSet(std::vector<MetadataFlag> const &flags) const {
+    return std::all_of(flags.begin(), flags.end(),
                        [this](MetadataFlag const &f) { return IsSet(f); });
   }
 

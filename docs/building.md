@@ -38,9 +38,11 @@ ctest -L performance
    |    TEST\_INTEL\_OPTIMIZATION | OFF      | Option | Test intel optimization and vectorization |
    |    CHECK\_REGISTRY\_PRESSURE | OFF      | Option | Check the registry pressure for Kokkos CUDA kernels |
    |               BUILD\_TESTING | ON       | Option | Multi-testing enablement |
+   | PARTHENON\_DISABLE\_EXAMPLES | OFF      | Option | Toggle building of examples, if regression tests are on, drivers needed by the tests will still be built |   
    |   ENABLE\_INTEGRATION\_TESTS | ${BUILD\_TESTING} | Option | Enable integration tests |
    |    ENABLE\_REGRESSION\_TESTS | ${BUILD\_TESTING} | Option | Enable regression tests |
    |          ENABLE\_UNIT\_TESTS | ${BUILD\_TESTING} | Option | Enable unit tests |
    |PARTHENON\_USE\_LIGHTWEIGHT\_HINT | OFF | Option | Decorate default parallel region wrappers to be lightweight kernels |
+   |               CODE\_COVERAGE | OFF      | Option | Builds with code coverage flags |
 
 ### NB: CMake options prefixed with *PARTHENON\_* modify behavior.
