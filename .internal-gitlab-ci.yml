@@ -46,7 +46,7 @@ parthenon-power9-gcc-mpi-performance-regression:
       ${OMP_NUM_THREADS}
       ${PARTHENON_DISABLE_HDF5}
   artifacts:
-    when: always
+    when: manual
     expire_in: 3 days
     paths:
       - ${CI_PROJECT_DIR}/${BUILD_DIR}/tst/regression/advection_convergence/advection-errors.dat
