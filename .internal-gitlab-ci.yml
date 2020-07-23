@@ -24,12 +24,14 @@ stages:
 before_script:
   - git clone https://github.com/lanl/parthenon-buildenv.git
   - env -i bash ./parthenon-buildenv/internal/scripts/setup.sh
+  - env -i bash ./parthenon-buildenv/internal/scripts/build_hdf5_parallel.sh
 
 parthenon-power9-gcc-mpi-performance-regression:
   variables: 
     BUILD_DIR: "build_power9_perf_regression_gcc_mpi"
     CMAKE_CXX_COMPILER: $CI_PROJECT_DIR/external/Kokkos/bin/nvcc_wrapper
   stage: performance-regression
+  when: manual
   script:
     - >
       env -i bash ./parthenon-buildenv/internal/scripts/build.sh
@@ -46,7 +48,6 @@ parthenon-power9-gcc-mpi-performance-regression:
       ${OMP_NUM_THREADS}
       ${PARTHENON_DISABLE_HDF5}
   artifacts:
-    when: manual
     expire_in: 3 days
     paths:
       - ${CI_PROJECT_DIR}/${BUILD_DIR}/tst/regression/advection_convergence/advection-errors.dat
