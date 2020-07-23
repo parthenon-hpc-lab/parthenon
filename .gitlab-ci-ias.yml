@@ -8,9 +8,7 @@ variables:
 before_script:
     - git submodule init
     - git submodule update
-    - export OMP_PROC_BIND=close
-    - export OMP_PLACES=cores
-    - export OMP_NUM_THREADS=8
+    - export OMP_NUM_THREADS=1
     - export OMP_NESTED=True
     - export CTEST_OUTPUT_ON_FAILURE=1
     - export J=$(( $(nproc --all) / 4  + 1 )) && echo Using ${J} cores during build
@@ -111,6 +109,7 @@ parthenon-build-cuda:
       -DPARTHENON_LINT_DEFAULT=OFF
       ../
     - make -j${J} advection-example
+    - nvidia-smi
     - ctest -R regression_test:advection_performance --timeout 3600
   artifacts:
     when: always
