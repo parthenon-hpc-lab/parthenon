@@ -6,8 +6,8 @@ coverage:
       default:
         threshold: 1%
 ignore:
-  - "tst"  # ignore folders and all its contents
-  - "cmake"       # wildcards accepted
-  - "external"  
-  - "scripts"  
+  - "tst"
+  - "cmake"
+  - "external"
+  - "scripts"
   - "docs"
