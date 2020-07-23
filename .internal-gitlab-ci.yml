@@ -33,6 +33,19 @@ parthenon-power9-gcc-mpi-performance-regression:
   stage: performance-regression
   when: manual
   script:
+    -> echo "./parthenon-buildenv/internal/scripts/build.sh
+      ${BUILD_DIR}
+      ${CMAKE_BUILD_TYPE}
+      ${CMAKE_CXX_COMPILER}
+      ${Kokkos_ARCH_POWER9}
+      ${Kokkos_ARCH_VOLTA70}
+      ${Kokkos_ENABLE_CUDA}
+      ${Kokkos_ENABLE_CUDA_UVM}
+      ${Kokkos_ENABLE_CXX11}
+      ${Kokkos_ENABLE_OPENMP}
+      ${NUM_MPI_PROC_TESTING}
+      ${OMP_NUM_THREADS}
+      ${PARTHENON_DISABLE_HDF5}" > build_cmd.txt
     - >
       env -i bash ./parthenon-buildenv/internal/scripts/build.sh
       ${BUILD_DIR}
