@@ -483,7 +483,7 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
 
 //----------------------------------------------------------------------------------------
 // Mesh constructor for restarts. Load the restart file
-Mesh::Mesh(ParameterInput *pin, RestartReader *resfile, Properties_t &properties,
+Mesh::Mesh(ParameterInput *pin, RestartReader *rr, Properties_t &properties,
            Packages_t &packages, int mesh_test)
     : // public members:
       // aggregate initialization of RegionSize struct:
@@ -528,14 +528,10 @@ Mesh::Mesh(ParameterInput *pin, RestartReader *resfile, Properties_t &properties
                                    UniformMeshGeneratorX2, UniformMeshGeneratorX3},
       BoundaryFunction_{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, AMRFlag_{},
       UserSourceTerm_{}, UserTimeStep_{} {
-  std::cout << this->mesh_size.x1min << this->mesh_size.x1max << std::endl;
-#if 0
   std::stringstream msg;
   RegionSize block_size;
-  BoundaryFlag block_bcs[6];
   MeshBlock *pfirst{};
-  IOWrapperSizeT *offset{};
-  IOWrapperSizeT datasize, listsize, headeroffset;
+  BoundaryFlag block_bcs[6];
 
   // mesh test
   if (mesh_test > 0) Globals::nranks = mesh_test;
@@ -554,54 +550,43 @@ Mesh::Mesh(ParameterInput *pin, RestartReader *resfile, Properties_t &properties
     PARTHENON_FAIL(msg);
   }
 
-  // get the end of the header
-  headeroffset = resfile.GetPosition();
   // read the restart file
   // the file is already open and the pointer is set to after <par_end>
-  IOWrapperSizeT headersize =
-      sizeof(int) * 3 + sizeof(Real) * 2 + sizeof(RegionSize) + sizeof(IOWrapperSizeT);
-  char *headerdata = new char[headersize];
-  if (Globals::my_rank == 0) { // the master process reads the header data
-    if (resfile.Read(headerdata, 1, headersize) != headersize) {
-      msg << "### FATAL ERROR in Mesh constructor" << std::endl
-          << "The restart file is broken." << std::endl;
-      PARTHENON_FAIL(msg);
-    }
-  }
-#ifdef MPI_PARALLEL
-  // then broadcast the header data
-  MPI_Bcast(headerdata, headersize, MPI_BYTE, 0, MPI_COMM_WORLD);
-#endif
-  IOWrapperSizeT hdos = 0;
-  std::memcpy(&nbtotal, &(headerdata[hdos]), sizeof(int));
-  hdos += sizeof(int);
-  std::memcpy(&root_level, &(headerdata[hdos]), sizeof(int));
-  hdos += sizeof(int);
-  current_level = root_level;
-  std::memcpy(&mesh_size, &(headerdata[hdos]), sizeof(RegionSize));
-  hdos += sizeof(RegionSize);
-  std::memcpy(&time, &(headerdata[hdos]), sizeof(Real));
-  hdos += sizeof(Real);
-  std::memcpy(&dt, &(headerdata[hdos]), sizeof(Real));
-  hdos += sizeof(Real);
-  std::memcpy(&ncycle, &(headerdata[hdos]), sizeof(int));
-  hdos += sizeof(int);
-  std::memcpy(&datasize, &(headerdata[hdos]), sizeof(IOWrapperSizeT));
-  hdos += sizeof(IOWrapperSizeT); // (this updated value is never used)
 
-  delete[] headerdata;
+  // All ranks read HDF file
+  nbtotal = rr->GetAttr<int>("Mesh", "nbtotal");
+  root_level = rr->GetAttr<int32_t>("Mesh", "rootLevel");
+
+  auto bc = rr->ReadAttr1D<Real>("Mesh", "bc");
+  for (int i=0; i<6; i++) {
+    block_bcs[i] = static_cast<BoundaryFlag>(bc[i]);
+  }
+
+  auto bounds = rr->ReadAttr1D<Real>("Mesh", "bounds");
+  mesh_size.x1min = bounds[0];
+  mesh_size.x2min = bounds[1];
+  mesh_size.x3min = bounds[2];
+  mesh_size.x1max = bounds[3];
+  mesh_size.x2max = bounds[4];
+  mesh_size.x3max = bounds[5];
+
+  auto ratios = rr->ReadAttr1D<Real>("Mesh", "ratios");
+  mesh_size.x1rat = ratios[0];
+  mesh_size.x2rat = ratios[1];
+  mesh_size.x3rat = ratios[2];
+
+  // TODO(sriram): Need to figure out where nCycle, time, and dt should be read
+  //  dt = rr->GetAttr<double>("Info", "dt");
+  //  time = rr->GetAttr<double>("Info", "time");
+  //  ncycle = rr->GetAttr<int32_t>("Info", "nCycle");
 
   // initialize
   loclist = new LogicalLocation[nbtotal];
-  offset = new IOWrapperSizeT[nbtotal];
-  costlist = new double[nbtotal];
-  ranklist = new int[nbtotal];
-  nslist = new int[Globals::nranks];
-  nblist = new int[Globals::nranks];
 
-  block_size.nx1 = pin->GetOrAddInteger("parthenon/meshblock", "nx1", mesh_size.nx1);
-  block_size.nx2 = pin->GetOrAddInteger("parthenon/meshblock", "nx2", mesh_size.nx2);
-  block_size.nx3 = pin->GetOrAddInteger("parthenon/meshblock", "nx3", mesh_size.nx3);
+  auto blockSize = rr->ReadAttr1D<int32_t>("Mesh", "blockSize");
+  block_size.nx1 = blockSize[0];
+  block_size.nx2 = blockSize[1];
+  block_size.nx3 = blockSize[2];
 
   // calculate the number of the blocks
   nrbx1 = mesh_size.nx1 / block_size.nx1;
@@ -634,6 +619,8 @@ Mesh::Mesh(ParameterInput *pin, RestartReader *resfile, Properties_t &properties
 
   // SMR / AMR
   if (adaptive) {
+    // read from file or from input?  input for now.
+    //    max_level = rr->GetAttr<int32_t>("Mesh", "maxLevel");
     max_level = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1) + root_level - 1;
     if (max_level > 63) {
       msg << "### FATAL ERROR in Mesh constructor" << std::endl
@@ -647,6 +634,8 @@ Mesh::Mesh(ParameterInput *pin, RestartReader *resfile, Properties_t &properties
 
   InitUserMeshData(pin);
 
+#if 0
+  //TODO(sriram) : write user mesh data to file
   // read user Mesh data
   IOWrapperSizeT udsize = 0;
   for (int n = 0; n < nint_user_mesh_data_; n++)
@@ -656,7 +645,7 @@ Mesh::Mesh(ParameterInput *pin, RestartReader *resfile, Properties_t &properties
   if (udsize != 0) {
     char *userdata = new char[udsize];
     if (Globals::my_rank == 0) { // only the master process reads the ID list
-      if (resfile.Read(userdata, 1, udsize) != udsize) {
+      if (rr.Read(userdata, 1, udsize) != udsize) {
         msg << "### FATAL ERROR in Mesh constructor" << std::endl
             << "The restart file is broken." << std::endl;
         PARTHENON_FAIL(msg);
@@ -680,41 +669,29 @@ Mesh::Mesh(ParameterInput *pin, RestartReader *resfile, Properties_t &properties
     }
     delete[] userdata;
   }
-
-  // read the ID list
-  listsize = sizeof(LogicalLocation) + sizeof(Real);
-  // allocate the idlist buffer
-  char *idlist = new char[listsize * nbtotal];
-  if (Globals::my_rank == 0) { // only the master process reads the ID list
-    if (resfile.Read(idlist, listsize, nbtotal) != static_cast<unsigned int>(nbtotal)) {
-      msg << "### FATAL ERROR in Mesh constructor" << std::endl
-          << "The restart file is broken." << std::endl;
-      PARTHENON_FAIL(msg);
-    }
-  }
-#ifdef MPI_PARALLEL
-  // then broadcast the ID list
-  MPI_Bcast(idlist, listsize * nbtotal, MPI_BYTE, 0, MPI_COMM_WORLD);
 #endif
 
-  int os = 0;
+  // Populate logical locations
+  auto lx123 = rr->ReadDataset<int64_t>("/Blocks/loc.lx123");
+  auto locLevelGidLidCnghostGflag =
+      rr->ReadDataset<int32_t>("/Blocks/loc.level-gid-lid-cnghost-gflag");
   for (int i = 0; i < nbtotal; i++) {
-    std::memcpy(&(loclist[i]), &(idlist[os]), sizeof(LogicalLocation));
-    os += sizeof(LogicalLocation);
-    std::memcpy(&(costlist[i]), &(idlist[os]), sizeof(double));
-    os += sizeof(double);
-    if (loclist[i].level > current_level) current_level = loclist[i].level;
-  }
-  delete[] idlist;
+    loclist[i].lx1 = lx123[3 * i];
+    loclist[i].lx2 = lx123[3 * i + 1];
+    loclist[i].lx3 = lx123[3 * i + 2];
 
-  // calculate the header offset and seek
-  headeroffset += headersize + udsize + listsize * nbtotal;
-  if (Globals::my_rank != 0) resfile.Seek(headeroffset);
+    loclist[i].level = locLevelGidLidCnghostGflag[5 * i];
+    if (loclist[i].level > current_level) current_level = loclist[i].level;
+    std::cout << std::flush << "rank:" << Globals::my_rank << ":lli=" << loclist[i].level
+              << std::flush << std::endl;
+  }
 
   // rebuild the Block Tree
   tree.CreateRootGrid();
-  for (int i = 0; i < nbtotal; i++)
+  for (int i = 0; i < nbtotal; i++) {
     tree.AddMeshBlockWithoutRefine(loclist[i]);
+  }
+
   int nnb;
   // check the tree structure, and assign GID
   tree.GetMeshBlockList(loclist, nullptr, nnb);
@@ -724,6 +701,8 @@ Mesh::Mesh(ParameterInput *pin, RestartReader *resfile, Properties_t &properties
         << nbtotal << " != " << nnb << ")" << std::endl;
     PARTHENON_FAIL(msg);
   }
+  std::cout << std::flush << "rank:" << Globals::my_rank << ":nnb=" << nnb << std::flush
+            << std::endl;
 
 #ifdef MPI_PARALLEL
   if (nbtotal < Globals::nranks) {
@@ -736,11 +715,15 @@ Mesh::Mesh(ParameterInput *pin, RestartReader *resfile, Properties_t &properties
       std::cout << "### Warning in Mesh constructor" << std::endl
                 << "Too few mesh blocks: nbtotal (" << nbtotal << ") < nranks ("
                 << Globals::nranks << ")" << std::endl;
-      delete[] offset;
       return;
     }
   }
 #endif
+
+  costlist = new double[nbtotal];
+  ranklist = new int[nbtotal];
+  nslist = new int[Globals::nranks];
+  nblist = new int[Globals::nranks];
 
   if (adaptive) { // allocate arrays for AMR
     nref = new int[Globals::nranks];
@@ -753,14 +736,26 @@ Mesh::Mesh(ParameterInput *pin, RestartReader *resfile, Properties_t &properties
     bddisp = new int[Globals::nranks];
   }
 
+  // initialize cost array with the simplest estimate; all the blocks are equal
+  for (int i = 0; i < nbtotal; i++)
+    costlist[i] = 1.0;
+  
   CalculateLoadBalance(costlist, ranklist, nslist, nblist, nbtotal);
+
+  for ( int i=0; i<nbtotal; i++) {
+    std::cout << Globals::my_rank<<":::"<< i<<":"<<ranklist[i] <<std::endl;
+  }
+
+
+  //  if (Globals::my_rank == 0) OutputMeshStructure(ndim);
 
   // Output MeshBlock list and quit (mesh test only); do not create meshes
   if (mesh_test > 0) {
     if (Globals::my_rank == 0) OutputMeshStructure(ndim);
-    delete[] offset;
     return;
   }
+#if 0
+
 
   // allocate data buffer
   int nb = nblist[Globals::my_rank];

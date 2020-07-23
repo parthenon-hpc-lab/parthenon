@@ -106,7 +106,8 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
     pinput->LoadFromStream(is);
     pmesh =
         std::make_unique<Mesh>(pinput.get(), restartReader.get(), properties, packages);
-    PARTHENON_FAIL("Golly!");
+    std::string msg = std::to_string(Globals::my_rank) + " Golly!";
+    PARTHENON_FAIL(msg.c_str());
   }
 
   // add root_level to all max_level
