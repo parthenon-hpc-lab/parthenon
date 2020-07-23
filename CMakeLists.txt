@@ -246,16 +246,3 @@ include(cmake/CheckCopyright.cmake)
 # If you add tests with other binaries, add them to the DEPENDS line
 add_custom_target(checkit COMMAND ${CMAKE_CTEST_COMMAND}
                   DEPENDS unit_tests)
-
-# Generate install targets for make
-#install(
-#  TARGETS parthenon-targets
-#  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-#  PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-#  )
-#install(
-#  TARGETS parthenon
-#  DESTINATION cmake
-#  EXPORT_LINK_INTERFACE_LIBRARIES )
-
-

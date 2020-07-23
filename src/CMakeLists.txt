@@ -83,8 +83,6 @@ set(COORDINATE_TYPE UniformCartesian) # TODO: Make this an option when more are 
 
 configure_file(config.hpp.in generated/config.hpp @ONLY)
 
-# TODO BRR this is an example
-
 file( GLOB base_src *.cpp )
 file( GLOB base_hdr *.hpp )
 file( GLOB bvals_src bvals/*.cpp bvals/fc/*.cpp bvals/cc/*.cpp)
@@ -112,18 +110,19 @@ file( GLOB tasks_hdr tasks/*.hpp )
 file( GLOB utils_src utils/*.cpp )
 file( GLOB utils_hdr utils/*.hpp )
 
-list(APPEND parthenon_subdirs "bvals" "coordinates" "driver" "interface" "mesh" "outputs" "parthenon" "pgen" "reconstruct" "refinement" "tasks" "utils")
-
-#message(STATUS "${parthenon_subdirs}")
-#foreach( subdir ${parthenon_subdirs} )
-#  file(TO_CMAKE_PATH "${subdir}" hdr_subdir)
-#  install(DIRECTORY "${hdr_subdir}" DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-#  FILES_MATCHING PATTERN "*.hpp")
-#  message(STATUS "${hdr_subdir}")
-#  unset(hdr_subdir)
-#endforeach()
-#message(STATUS "done!")
-#return()
+list(APPEND parthenon_subdirs
+  "bvals"
+  "coordinates"
+  "driver"
+  "interface"
+  "mesh"
+  "outputs"
+  "parthenon"
+  "pgen"
+  "reconstruct"
+  "refinement"
+  "tasks"
+  "utils")
 
 list(APPEND parthenon_sources
      "${bvals_src}"
@@ -143,37 +142,8 @@ list(APPEND parthenon_sources
 
 add_library(parthenon SHARED "${parthenon_sources}")
 
-list(APPEND public_headers
-#     "${bvals_hdr}"
-#     "${coordinates_hdr}"
-#     "${driver_hdr}"
-#     "${interface_hdr}"
-#     "${mesh_hdr}"
-#     "${outputs_hdr}"
-#     "${parthenon_hdr}"
-#     "${pgen_hdr}"
-#     "${reconstruct_hdr}"
-#     "${refinement_hdr}"
-#     "${tasks_hdr}"
-#     "${utils_hdr}"
-     "${base_hdr}"
-     )
-
-#set_target_properties(parthenon PROPERTIES PUBLIC_HEADER
-#     "${utils_hdr}"
-#     "${coordinates_hdr}"
-#     "${driver_hdr}"
-#     "${interface_hdr}"
-#     "${mesh_hdr}"
-#     "${outputs_hdr}"
-#     "${parthenon_hdr}"
-#     "${pgen_hdr}"
-#     "${reconstruct_hdr}"
-#     "${refinement_hdr}"
-#     "${tasks_hdr}"
-#     "${utils_hdr}"
-#     "${base_hdr}"
-#     )
+# Other headers will be installed manually later to maintain directory structure
+list(APPEND public_headers "${base_hdr}")
 set_target_properties(parthenon PROPERTIES PUBLIC_HEADER "${public_headers}")
 
 
@@ -212,7 +182,6 @@ install(TARGETS parthenon LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
   PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parthenon")
 
 # Maintain directory structure in installed include files
-#install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR} FILES_MATCHING PATTERN "*.hpp")
 install(FILES ${base_hdr} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 foreach( subdir ${parthenon_subdirs} )
   file(TO_CMAKE_PATH "${subdir}" hdr_subdir)
@@ -222,4 +191,5 @@ foreach( subdir ${parthenon_subdirs} )
 endforeach()
 
 # Install generated config header file
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/generated/config.hpp DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/generated/config.hpp
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
