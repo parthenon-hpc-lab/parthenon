@@ -1,0 +1,120 @@
+variables:
+  OMPI_VER: '3.1.6'
+  CMAKE_VER: '3.11.4'
+  HDF5_VER: '1.10.6'
+  UCX_VER: '1.8.1'
+
+# Is performed before the scripts in the stages step
+before_script:
+    - git submodule init
+    - git submodule update
+    - export OMP_NUM_THREADS=1
+    - export OMP_NESTED=True
+    - export CTEST_OUTPUT_ON_FAILURE=1
+    - export J=$(( $(nproc --all) / 4  + 1 )) && echo Using ${J} cores during build
+    - export PATH=${PWD}/opt/cmake-${CMAKE_VER}-Linux-x86_64/bin:$PATH
+    - export PATH=${PWD}/opt/openmpi-${OMPI_VER}/bin:$PATH
+    - export LD_LIBRARY_PATH=${PWD}/opt/openmpi-${OMPI_VER}/lib:$LD_LIBRARY_PATH
+    - export LD_LIBRARY_PATH=${PWD}/opt/ucx-${UCX_VER}/lib:$LD_LIBRARY_PATH
+    - module load anaconda3/2020.02
+    # required as functions like "activate" are not available in subshells, see
+    # see https://github.com/conda/conda/issues/7980
+    - source /opt/sns/anaconda3/2020.02/etc/profile.d/conda.sh
+
+cache: &global_cache
+  key: global-5
+  paths:
+    - opt/
+  policy: pull-push
+
+stages:
+  - prep
+  - build
+
+
+prep-cuda:
+  stage: prep
+  tags:
+    - gpu
+    - springdale7
+  script:
+    - module load cudatoolkit/10.2 gcc/7.3.0
+    - if [ ! -d opt/ucx-${UCX_VER} ]; then
+      mkdir -p tmp;
+      cd tmp;
+      wget https://github.com/openucx/ucx/archive/v${UCX_VER}.tar.gz;
+      tar xzf v${UCX_VER}.tar.gz;
+      cd ucx-${UCX_VER};
+      ./autogen.sh;
+      mkdir build;
+      cd build;
+      ../contrib/configure-release --prefix=${CI_PROJECT_DIR}/opt/ucx-${UCX_VER} --enable-mt --with-cuda=/usr/local/cuda-10.2;
+      make -j16;
+      make install;
+      cd ../../../;
+      fi
+    - if [ ! -d opt/openmpi-${OMPI_VER} ]; then
+      mkdir -p tmp;
+      cd tmp;
+      wget https://download.open-mpi.org/release/open-mpi/v3.1/openmpi-${OMPI_VER}.tar.bz2;
+      tar xjf openmpi-${OMPI_VER}.tar.bz2;
+      cd openmpi-${OMPI_VER};
+      ./configure --prefix=${CI_PROJECT_DIR}/opt/openmpi-${OMPI_VER} --enable-mpi-fortran=none --enable-mpi-cxx --with-cuda --with-ucx=${CI_PROJECT_DIR}/opt/ucx-${UCX_VER};
+      make -j16;
+      make install;
+      cd ../..;
+      fi
+    - if [ ! -d opt/hdf5-${HDF5_VER}/gcc ]; then
+      mkdir -p tmp;
+      cd tmp;
+      wget https://hdf-wordpress-1.s3.amazonaws.com/wp-content/uploads/manual/HDF5/HDF5_1_10_6/source/hdf5-${HDF5_VER}.tar.bz2;
+      tar xjf hdf5-${HDF5_VER}.tar.bz2;
+      cd hdf5-${HDF5_VER};
+      CC=gcc ./configure --prefix=${CI_PROJECT_DIR}/opt/hdf5-${HDF5_VER}/gcc/serial && make -j16 && make install && make clean;
+      CC=mpicc ./configure --prefix=${CI_PROJECT_DIR}/opt/hdf5-${HDF5_VER}/gcc/parallel --enable-parallel && make -j16 && make install && make clean;
+      cd ../..;
+      fi
+    - if [ ! -d opt/cmake-${CMAKE_VER}-Linux-x86_64 ]; then
+      cd opt;
+      wget -qO- http://www.cmake.org/files/v${CMAKE_VER:0:4}/cmake-${CMAKE_VER}-Linux-x86_64.tar.gz | tar -xz;
+      cd ..;
+      fi
+    # create our own python env as the default python3 one is incorrectly linked
+    # (missing libopenblasp-r0-39a31c03.2.18.so in numpy module)
+    - if [ ! -d opt/pyenv ]; then
+      conda create --prefix=${CI_PROJECT_DIR}/opt/pyenv matplotlib numpy nomkl -y;
+      fi
+
+parthenon-build-cuda:
+  tags:
+    - gpu
+    - springdale7
+  stage: build
+  cache:
+    # inherit all global cache settings
+    <<: *global_cache
+    # override the policy
+    policy: pull
+  script:
+    - module load cudatoolkit/10.2 gcc/7.3.0
+    - conda activate ${CI_PROJECT_DIR}/opt/pyenv
+    - mkdir build-cuda
+    - cd build-cuda
+    - cmake -DCMAKE_BUILD_TYPE=Release
+      -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_SKX=True
+      -DKokkos_ENABLE_CUDA=True -DKokkos_ARCH_VOLTA70=True
+      -DCMAKE_CXX_COMPILER=${PWD}/../external/Kokkos/bin/nvcc_wrapper
+      -DPARTHENON_DISABLE_MPI=ON
+      -DPARTHENON_DISABLE_HDF5=ON
+      -DPARTHENON_LINT_DEFAULT=OFF
+      ../
+    - make -j${J} advection-example
+    - nvidia-smi
+    - ctest -R regression_test:advection_performance --timeout 3600
+  artifacts:
+    when: always
+    expire_in: 3 days
+    paths:
+      - build-cuda/CMakeFiles/CMakeOutput.log
+      - build-cuda/tst/regression/outputs/advection_performance/performance.png
+
