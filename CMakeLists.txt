@@ -36,11 +36,6 @@ option(
 built some, drivers needed by the regression tests will still be built."
   OFF
 )
-option(
-  PARTHENON_BUILD_SHARED_LIB
-  "Build shared library, including dependencies"
-  OFF
-)
 
 option(PARTHENON_ENABLE_UNIT_TESTS "Enable unit tests" ${BUILD_TESTING})
 option(PARTHENON_ENABLE_INTEGRATION_TESTS "Enable integration tests" ${BUILD_TESTING})
@@ -156,9 +151,7 @@ endif()
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Build Kokkos as a shared library if building parthenon as a shared library
-if (PARTHENON_BUILD_SHARED_LIB)
-  SET (BUILD_SHARED_LIBS ON CACHE BOOL "Kokkos shared library option")
-endif()
+SET (BUILD_SHARED_LIBS ON CACHE BOOL "Kokkos shared library option")
 
 # Tell Kokkos to vectorize aggressively
 # Kokkos prefers this capitalization for debugging reasons
