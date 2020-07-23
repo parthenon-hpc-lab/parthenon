@@ -90,8 +90,7 @@ parthenon-cuda-performance_and_regression:
       -DPARTHENON_DISABLE_MPI=ON
       ../
     - make -j${J}
-    - ctest -L "performance|regression" -LE mpi-yes
-  allow_failure: true
+    - ctest -L "performance|regression" -LE "mpi-yes|perf-reg"
   artifacts:
     when: always
     expire_in: 3 days
@@ -116,8 +115,7 @@ parthenon-cuda-performance_and_regression-mpi:
     - make -j${J} 
     - export OMPI_MCA_mpi_common_cuda_event_max=1000
 #    - ctest -L "performance" # no need for performance test as currently none use MPI
-    - ctest -L regression -LE mpi-no --timeout 3600
-  allow_failure: true
+    - ctest -L regression -LE "mpi-no|perf-reg" --timeout 3600
   artifacts:
     when: always
     expire_in: 3 days
@@ -139,7 +137,7 @@ parthenon-cpu-performance_and_regression:
       -DPARTHENON_DISABLE_MPI=ON
       ../
     - make -j${J}
-    - ctest -L "performance|regression" -LE mpi-yes
+    - ctest -L "performance|regression" -LE "mpi-yes|perf-reg"
   artifacts:
     when: always
     expire_in: 3 days
@@ -162,7 +160,7 @@ parthenon-cpu-performance_and_regression-mpi:
       ../
     - make -j${J}
 #    - ctest -L "performance" # no need for performance test as currently none use MPI
-    - ctest -L regression -LE mpi-no
+    - ctest -L regression -LE "mpi-no|perf-reg"
   artifacts:
     when: always
     expire_in: 3 days
