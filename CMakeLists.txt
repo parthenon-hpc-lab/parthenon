@@ -15,6 +15,7 @@ cmake_minimum_required(VERSION 3.10)
 project(parthenon LANGUAGES C CXX)
 
 include(CTest)
+include(${CMAKE_ROOT}/Modules/ExternalProject.cmake)
 
 # Compile time constants
 set(PARTHENON_NGHOST 2 CACHE STRING "Number of ghost cells") 
@@ -52,6 +53,9 @@ include(cmake/Lint.cmake)
 
 # internal variable for number of ghost cells
 set(NUMBER_GHOST_CELLS ${PARTHENON_NGHOST}) 
+
+set(REGRESSION_GOLD_STANDARD 2 CACHE STRING "Version of gold standard to download and use")
+option(REGRESSION_GOLD_STANDARD_SYNC "Automatically sync gold standard files." ON)
 
 # set single precision #define
 if ( PARTHENON_SINGLE_PRECISION )
@@ -191,6 +195,30 @@ endif()
 
 # Build Tests and download Catch2
 if (${PARTHENON_ENABLE_UNIT_TESTS} OR ${PARTHENON_ENABLE_INTEGRATION_TESTS} OR ${PARTHENON_ENABLE_REGRESSION_TESTS} OR ${PARTHENON_ENABLE_PERFORMANCE_TESTS})
+
+  # if running regression test automatically synch gold standard
+  if (${PARTHENON_ENABLE_REGRESSION_TESTS} AND ${REGRESSION_GOLD_STANDARD_SYNC})
+    if (EXISTS ${PROJECT_SOURCE_DIR}/tst/regression/gold_standard/current_version)
+      file(READ ${PROJECT_SOURCE_DIR}/tst/regression/gold_standard/current_version REGRESSION_GOLD_STANDARD_ON_DISK)
+    else()
+      set(REGRESSION_GOLD_STANDARD_ON_DISK 0)
+    endif()
+    if (NOT (${REGRESSION_GOLD_STANDARD_ON_DISK} EQUAL ${REGRESSION_GOLD_STANDARD}))
+      ExternalProject_Add(
+        gold_standard
+        URL https://github.com/lanl/parthenon/releases/download/regression-gold-v${REGRESSION_GOLD_STANDARD}/parthenon_regression_gold_v${REGRESSION_GOLD_STANDARD}.tgz
+        URL_HASH SHA512=45f57d16b76a3a44940e40ea642c1d5a2b3aea681a3064e4c06b031bf264d627f8009e967b92a2cb0fbc08e5cd0ffda381038483f390fa00f47c42a551ca3646
+        SOURCE_DIR "${PROJECT_SOURCE_DIR}/tst/regression/gold_standard"
+        DOWNLOAD_DIR "${PROJECT_SOURCE_DIR}/tst/regression/gold_standard"
+        # just need the extracted data so no configure/build/install
+        CONFIGURE_COMMAND ""
+        BUILD_COMMAND ""
+        INSTALL_COMMAND ""
+        )
+    else()
+      message(STATUS "Gold standard is up-to-date. Not creating a download target.")
+    endif()
+  endif()
 
   # Try finding an installed Catch2 first
   find_package(Catch2 2.11.1 QUIET)

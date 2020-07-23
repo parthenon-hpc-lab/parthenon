@@ -26,16 +26,21 @@ The tests currently cover
 - Advection of a smoothed sphere at an angle on a *static* grid, on a *static* grid a twice the resolution, and with *AMR* covering the sphere at the effective higher resolution
 - Advection of a sharp sphere at an angle with *AMR* writing hdf5 output and comparing against a gold standard output.
 
-To execute the tests first obtain the current gold standard output
-```bash
-# from within the main parthenon directory
-wget -qO- https://pgrete.de/dl/parthenon_regression_gold_latest.tgz | tar -xz -C tst/regression/gold_standard
-```
-and afterwards run the tests, e.g., through
+To execute the tests run, e.g.,
 ```bash
 # from within the build directory (add -V fore more detailed output)
 ctest -R regression
 ```
+The gold standard files (reference solutions) used in the regression tests should automatically be downloaded during the `make` phase.
+Alternatively, you can download them by directly make the appropriate target
+```bash
+make gold_standard
+```
+or download them as a release from [GitHub](https://github.com/lanl/parthenon/releases/).
+Make sure to get the correct version matching your source
+(stored in the `REGRESSION_GOLD_STANDARD` CMake variable).
+Note: If you results are (slightly) different, that may stem from using different
+compiler/optimization options.
 
 ### ParthenonManager
 
