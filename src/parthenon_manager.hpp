@@ -22,6 +22,7 @@
 #include "interface/properties_interface.hpp"
 #include "interface/state_descriptor.hpp"
 #include "mesh/mesh.hpp"
+#include "outputs/restart.hpp"
 #include "parameter_input.hpp"
 
 namespace parthenon {
@@ -42,6 +43,7 @@ class ParthenonManager {
   // member data
   std::unique_ptr<ParameterInput> pinput;
   std::unique_ptr<Mesh> pmesh;
+  std::unique_ptr<RestartReader> restartReader;
 
  private:
   ArgParse arg;

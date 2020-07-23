@@ -40,7 +40,7 @@
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock_tree.hpp"
-#include "outputs/io_wrapper.hpp"
+#include "outputs/restart.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/buffer_utils.hpp"
@@ -483,12 +483,13 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
 
 //----------------------------------------------------------------------------------------
 // Mesh constructor for restarts. Load the restart file
-#if 0
-Mesh::Mesh(ParameterInput *pin, IOWrapper &resfile, Properties_t &properties,
+Mesh::Mesh(ParameterInput *pin, RestartReader *resfile, Properties_t &properties,
            Packages_t &packages, int mesh_test)
     : // public members:
       // aggregate initialization of RegionSize struct:
       // (will be overwritten by memcpy from restart file, in this case)
+      modified(true),
+      // aggregate initialization of RegionSize struct:
       mesh_size{pin->GetReal("parthenon/mesh", "x1min"),
                 pin->GetReal("parthenon/mesh", "x2min"),
                 pin->GetReal("parthenon/mesh", "x3min"),
@@ -501,39 +502,34 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper &resfile, Properties_t &properties,
                 pin->GetInteger("parthenon/mesh", "nx1"),
                 pin->GetInteger("parthenon/mesh", "nx2"),
                 pin->GetInteger("parthenon/mesh", "nx3")},
-      mesh_bcs{GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix1_bc", "none")),
-               GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox1_bc", "none")),
-               GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix2_bc", "none")),
-               GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox2_bc", "none")),
-               GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix3_bc", "none")),
-               GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox3_bc", "none"))},
+      mesh_bcs{
+          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix1_bc", "reflecting")),
+          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox1_bc", "reflecting")),
+          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix2_bc", "reflecting")),
+          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox2_bc", "reflecting")),
+          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix3_bc", "reflecting")),
+          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox3_bc", "reflecting"))},
       ndim((mesh_size.nx3 > 1) ? 3 : ((mesh_size.nx2 > 1) ? 2 : 1)),
-      adaptive(pin->GetOrAddString("parthenon/mesh", "refinement", "none")
-                                                        == "adaptive" ? true : false),
-      multilevel(
-          (adaptive ||
-           pin->GetOrAddString("parthenon/mesh", "refinement", "none") == "static")
-              ? true
-              : false),
-      start_time(pin->GetOrAddReal("parthenon/time", "start_time", 0.0)),
-      time(start_time),
-      tlim(pin->GetReal("parthenon/time", "tlim")), dt(std::numeric_limits<Real>::max()),
-      dt_hyperbolic(dt), dt_parabolic(dt), dt_user(dt),
-      nlim(pin->GetOrAddInteger("parthenon/time", "nlim", -1)), ncycle(),
-      ncycle_out(pin->GetOrAddInteger("parthenon/time", "ncycle_out", 1)),
-      dt_diagnostics(pin->GetOrAddInteger("parthenon/time", "dt_diagnostics", -1)),
-      nbnew(),
-      nbdel(), step_since_lb(), gflag(), pblock(nullptr), properties(properties),
+      adaptive(pin->GetOrAddString("parthenon/mesh", "refinement", "none") == "adaptive"
+                   ? true
+                   : false),
+      multilevel((adaptive ||
+                  pin->GetOrAddString("parthenon/mesh", "refinement", "none") == "static")
+                     ? true
+                     : false),
+      nbnew(), nbdel(), step_since_lb(), gflag(), pblock(nullptr), properties(properties),
       packages(packages),
       // private members:
       next_phys_id_(),
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
-      tree(this), use_uniform_meshgen_fn_{true, true, true}, nreal_user_mesh_data_(),
-      nint_user_mesh_data_(), nuser_history_output_(), lb_flag_(true), lb_automatic_(),
-      lb_manual_(), MeshGenerator_{UniformMeshGeneratorX1, UniformMeshGeneratorX2,
-                                   UniformMeshGeneratorX3},
+      tree(this), use_uniform_meshgen_fn_{true, true, true, true},
+      nuser_history_output_(), lb_flag_(true), lb_automatic_(),
+      lb_manual_(), MeshGenerator_{nullptr, UniformMeshGeneratorX1,
+                                   UniformMeshGeneratorX2, UniformMeshGeneratorX3},
       BoundaryFunction_{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, AMRFlag_{},
-      UserSourceTerm_{}, UserTimeStep_{}, FieldDiffusivity_{} {
+      UserSourceTerm_{}, UserTimeStep_{} {
+  std::cout << this->mesh_size.x1min << this->mesh_size.x1max << std::endl;
+#if 0
   std::stringstream msg;
   RegionSize block_size;
   BoundaryFlag block_bcs[6];
@@ -811,8 +807,8 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper &resfile, Properties_t &properties,
 
   // clean up
   delete[] offset;
-}
 #endif
+}
 
 //----------------------------------------------------------------------------------------
 // destructor
@@ -1005,7 +1001,8 @@ void Mesh::EnrollUserBoundaryFunction(BoundaryFace dir, BValFunc my_bc) {
   throw std::runtime_error("Mesh::EnrollUserBoundaryFunction is not implemented");
 }
 
-// DEPRECATED(felker): provide trivial overloads for old-style BoundaryFace enum argument
+// DEPRECATED(felker): provide trivial overloads for old-style BoundaryFace enum
+// argument
 void Mesh::EnrollUserBoundaryFunction(int dir, BValFunc my_bc) {
   EnrollUserBoundaryFunction(static_cast<BoundaryFace>(dir), my_bc);
   return;
@@ -1241,11 +1238,12 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
                   << "Possibly the refinement criteria have a problem." << std::endl;
       }
       if (nbtotal > 2 * inb && Globals::my_rank == 0) {
-        std::cout
-            << "### Warning in Mesh::Initialize" << std::endl
-            << "The number of MeshBlocks increased more than twice during initialization."
-            << std::endl
-            << "More computing power than you expected may be required." << std::endl;
+        std::cout << "### Warning in Mesh::Initialize" << std::endl
+                  << "The number of MeshBlocks increased more than twice during "
+                     "initialization."
+                  << std::endl
+                  << "More computing power than you expected may be required."
+                  << std::endl;
       }
     }
   } while (!iflag);
@@ -1364,7 +1362,8 @@ void Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size
 // for this "phys" part of the bitfield tag, making 0, ..., 31 legal values
 
 int Mesh::ReserveTagPhysIDs(int num_phys) {
-  // TODO(felker): add safety checks? input, output are positive, obey <= 31= MAX_NUM_PHYS
+  // TODO(felker): add safety checks? input, output are positive, obey <= 31=
+  // MAX_NUM_PHYS
   int start_id = next_phys_id_;
   next_phys_id_ += num_phys;
   return start_id;

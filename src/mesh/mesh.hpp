@@ -56,6 +56,7 @@ class MeshBlockTree;
 class MeshRefinement;
 class ParameterInput;
 class Reconstruction;
+class RestartReader;
 
 // template class Container<Real>;
 
@@ -305,7 +306,7 @@ class Mesh {
   // 2x function overloads of ctor: normal and restarted simulation
   Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
        int test_flag = 0);
-  Mesh(ParameterInput *pin, IOWrapper &resfile, Properties_t &properties,
+  Mesh(ParameterInput *pin, RestartReader *resfile, Properties_t &properties,
        Packages_t &packages, int test_flag = 0);
   ~Mesh();
 

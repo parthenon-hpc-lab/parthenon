@@ -164,7 +164,6 @@ std::string RestartReader::ReadAttrString(const char *dataset, const char *name,
   if (count != nullptr) {
     *count = isize;
   }
-  printf("dims=%lld\n", isize);
 
   char *s = static_cast<char *>(calloc(isize + 1, sizeof(char)));
   // Read data from file
@@ -173,7 +172,6 @@ std::string RestartReader::ReadAttrString(const char *dataset, const char *name,
   status = H5Tset_size(memType, isize);
   status = H5Aread(attr, memType, s);
   std::string data(s);
-  std::cout << strlen(s) << ":input:" << s << std::endl;
   free(s);
 
   // CLose the dataspace and data set.

@@ -13,6 +13,7 @@
 
 #include "parthenon_manager.hpp"
 
+#include <string>
 #include <utility>
 
 #include <Kokkos_Core.hpp>
@@ -84,6 +85,8 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
   // Populate the ParameterInput object
   if (arg.input_filename != nullptr) {
     pinput = std::make_unique<ParameterInput>(arg.input_filename);
+  } else if (arg.res_flag != 0) {
+    pinput = std::make_unique<ParameterInput>();
   }
   pinput->ModifyFromCmdline(argc, argv);
 
@@ -94,12 +97,17 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
   // always add the Refinement package
   packages["ParthenonRefinement"] = Refinement::Initialize(pinput.get());
 
-  // TODO(jdolence): Deal with restarts
-  // if (arg.res_flag == 0) {
-  pmesh = std::make_unique<Mesh>(pinput.get(), properties, packages, arg.mesh_flag);
-  //} else {
-  //  pmesh = std::make_unique<Mesh>(pinput.get(), )
-  //}
+  if (arg.res_flag == 0) {
+    pmesh = std::make_unique<Mesh>(pinput.get(), properties, packages, arg.mesh_flag);
+  } else {
+    restartReader = std::make_unique<RestartReader>(arg.restart_filename);
+    std::string inputString = restartReader->ReadAttrString("Input", "File");
+    std::istringstream is(inputString);
+    pinput->LoadFromStream(is);
+    pmesh =
+        std::make_unique<Mesh>(pinput.get(), restartReader.get(), properties, packages);
+    PARTHENON_FAIL("Golly!");
+  }
 
   // add root_level to all max_level
   for (auto const &ph : packages) {
