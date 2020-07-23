@@ -17,10 +17,10 @@ project(parthenon LANGUAGES C CXX)
 include(CTest)
 
 # Compile time constants
-set(PARTHENON_NGHOST 2 CACHE STRING "Number of ghost cells") 
+set(PARTHENON_NGHOST 2 CACHE STRING "Number of ghost cells")
 
 # Compile Options
-option(PARTHENON_SINGLE_PRECISION "Run in single precision" OFF) 
+option(PARTHENON_SINGLE_PRECISION "Run in single precision" OFF)
 option(PARTHENON_DISABLE_MPI "MPI is enabled by default if found, set this to True to disable MPI" OFF)
 option(PARTHENON_DISABLE_OPENMP "OpenMP is enabled by default if found, set this to True to disable OpenMP" OFF)
 option(PARTHENON_DISABLE_HDF5 "HDF5 is enabled by default if found, set this to True to disable HDF5" OFF)
@@ -31,9 +31,14 @@ stop linting by default. You can still lint using the \"lint\" target"
   ON
 )
 option(
-  PARTHENON_DISABLE_EXAMPLES 
+  PARTHENON_DISABLE_EXAMPLES
   "Example drivers are built by default, set this to True to diable, note if regression tests are \
-built some, drivers needed by the regression tests will still be built." 
+built some, drivers needed by the regression tests will still be built."
+  OFF
+)
+option(
+  PARTHENON_BUILD_SHARED_LIB
+  "Build shared library, including dependencies"
   OFF
 )
 
@@ -51,14 +56,14 @@ include(cmake/Format.cmake)
 include(cmake/Lint.cmake)
 
 # internal variable for number of ghost cells
-set(NUMBER_GHOST_CELLS ${PARTHENON_NGHOST}) 
+set(NUMBER_GHOST_CELLS ${PARTHENON_NGHOST})
 
 # set single precision #define
 if ( PARTHENON_SINGLE_PRECISION )
   set(SINGLE_PRECISION_ENABLED 1)
 else()
   set(SINGLE_PRECISION_ENABLED 0)
-endif()  
+endif()
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -75,7 +80,7 @@ endif()
 
 SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} ${GCC_COVERAGE_COMPILE_FLAGS}")
 SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} ${GCC_COVERAGE_LINK_FLAGS}")
- 
+
 # Don't allow in-source builds
 file(TO_CMAKE_PATH "${PROJECT_BINARY_DIR}/CMakeLists.txt" LOC_PATH)
 if(EXISTS "${LOC_PATH}")
@@ -150,6 +155,11 @@ endif()
 # Kokkos recommendatation resulting in not using default GNU extensions
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# Build Kokkos as a shared library if building parthenon as a shared library
+if (PARTHENON_BUILD_SHARED_LIB)
+  SET (BUILD_SHARED_LIBS ON CACHE BOOL "Kokkos shared library option")
+endif()
+
 # Tell Kokkos to vectorize aggressively
 # Kokkos prefers this capitalization for debugging reasons
 SET (Kokkos_ENABLE_AGGRESSIVE_VECTORIZATION ON CACHE BOOL
@@ -222,7 +232,7 @@ endif()
 # Note that these options may not play nice with nvcc wrapper
 if (TEST_INTEL_OPTIMIZATION)
   add_compile_options(-fp-model fast=2 -qopt_report5 -vec-threshold0 -qopt_report_phase=vec)
-endif()	       
+endif()
 
 add_subdirectory(src)
 add_subdirectory(example)
@@ -236,4 +246,16 @@ include(cmake/CheckCopyright.cmake)
 # If you add tests with other binaries, add them to the DEPENDS line
 add_custom_target(checkit COMMAND ${CMAKE_CTEST_COMMAND}
                   DEPENDS unit_tests)
+
+# Generate install targets for make
+#install(
+#  TARGETS parthenon-targets
+#  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+#  PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+#  )
+#install(
+#  TARGETS parthenon
+#  DESTINATION cmake
+#  EXPORT_LINK_INTERFACE_LIBRARIES )
+
 

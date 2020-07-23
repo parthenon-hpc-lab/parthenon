@@ -83,121 +83,99 @@ set(COORDINATE_TYPE UniformCartesian) # TODO: Make this an option when more are 
 
 configure_file(config.hpp.in generated/config.hpp @ONLY)
 
-add_library(parthenon
-  bvals/cc/bvals_cc.cpp
-  bvals/cc/bvals_cc.hpp
-  bvals/cc/flux_correction_cc.cpp
+# TODO BRR this is an example
 
-  bvals/fc/bvals_fc.cpp
-  bvals/fc/bvals_fc.hpp
-  bvals/fc/flux_correction_fc.cpp
+file( GLOB base_src *.cpp )
+file( GLOB base_hdr *.hpp )
+file( GLOB bvals_src bvals/*.cpp bvals/fc/*.cpp bvals/cc/*.cpp)
+file( GLOB bvals_hdr bvals/*.hpp bvals/fc/*.hpp bvals/cc/*.hpp)
+file( GLOB coordinates_src coordinates/*.cpp )
+file( GLOB coordinates_hdr coordinates/*.hpp )
+file( GLOB driver_src driver/*.cpp )
+file( GLOB driver_hdr driver/*.hpp )
+file( GLOB interface_src interface/*.cpp )
+file( GLOB interface_hdr interface/*.hpp )
+file( GLOB mesh_src mesh/*.cpp )
+file( GLOB mesh_hdr mesh/*.hpp )
+file( GLOB outputs_src outputs/*.cpp )
+file( GLOB outputs_hdr outputs/*.hpp )
+file( GLOB parthenon_src parthenon/*.cpp )
+file( GLOB parthenon_hdr parthenon/*.hpp )
+file( GLOB pgen_src pgen/*.cpp )
+file( GLOB pgen_hdr pgen/*.hpp )
+file( GLOB reconstruct_src reconstruct/*.cpp )
+file( GLOB reconstruct_hdr reconstruct/*.hpp )
+file( GLOB refinement_src refinement/*.cpp )
+file( GLOB refinement_hdr refinement/*.hpp )
+file( GLOB tasks_src tasks/*.cpp )
+file( GLOB tasks_hdr tasks/*.hpp )
+file( GLOB utils_src utils/*.cpp )
+file( GLOB utils_hdr utils/*.hpp )
 
-  bvals/boundary_conditions.cpp
-  bvals/boundary_conditions.hpp
+list(APPEND parthenon_subdirs "bvals" "coordinates" "driver" "interface" "mesh" "outputs" "parthenon" "pgen" "reconstruct" "refinement" "tasks" "utils")
 
-  bvals/bvals.cpp
-  bvals/bvals.hpp
-  bvals/bvals_base.cpp
-  bvals/bvals_interfaces.hpp
-  bvals/boundary_flag.cpp
-  bvals/bvals_refine.cpp
-  bvals/bvals_var.cpp
+#message(STATUS "${parthenon_subdirs}")
+#foreach( subdir ${parthenon_subdirs} )
+#  file(TO_CMAKE_PATH "${subdir}" hdr_subdir)
+#  install(DIRECTORY "${hdr_subdir}" DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+#  FILES_MATCHING PATTERN "*.hpp")
+#  message(STATUS "${hdr_subdir}")
+#  unset(hdr_subdir)
+#endforeach()
+#message(STATUS "done!")
+#return()
 
-  coordinates/coordinates.hpp
-  coordinates/uniform_cartesian.hpp
+list(APPEND parthenon_sources
+     "${bvals_src}"
+     "${coordinates_src}"
+     "${driver_src}"
+     "${interface_src}"
+     "${mesh_src}"
+     "${outputs_src}"
+     "${parthenon_src}"
+     "${pgen_src}"
+     "${reconstruct_src}"
+     "${refinement_src}"
+     "${tasks_src}"
+     "${utils_src}"
+     "${base_src}"
+     )
 
-  driver/driver.cpp
-  driver/driver.hpp
-  driver/multistage.cpp
-  driver/multistage.hpp
+add_library(parthenon SHARED "${parthenon_sources}")
 
-  interface/container_collection.cpp
-  interface/container_collection.hpp
-  interface/container_iterator.hpp
-  interface/container.cpp
-  interface/container.hpp
-  interface/metadata.cpp
-  interface/metadata.hpp
-  interface/params.hpp
-  interface/properties_interface.cpp
-  interface/properties_interface.hpp
-  interface/sparse_variable.cpp
-  interface/sparse_variable.hpp
-  interface/update.cpp
-  interface/update.hpp
-  interface/variable_pack.hpp
-  interface/variable.cpp
-  interface/variable.hpp
+list(APPEND public_headers
+#     "${bvals_hdr}"
+#     "${coordinates_hdr}"
+#     "${driver_hdr}"
+#     "${interface_hdr}"
+#     "${mesh_hdr}"
+#     "${outputs_hdr}"
+#     "${parthenon_hdr}"
+#     "${pgen_hdr}"
+#     "${reconstruct_hdr}"
+#     "${refinement_hdr}"
+#     "${tasks_hdr}"
+#     "${utils_hdr}"
+     "${base_hdr}"
+     )
 
-  mesh/amr_loadbalance.cpp
-  mesh/domain.hpp
-  mesh/mesh_refinement.cpp
-  mesh/mesh_refinement.hpp
-  mesh/mesh.cpp
-  mesh/mesh.hpp
-  mesh/meshblock_tree.cpp
-  mesh/meshblock_tree.hpp
-  mesh/meshblock.cpp
-  mesh/weighted_ave.cpp
+#set_target_properties(parthenon PROPERTIES PUBLIC_HEADER
+#     "${utils_hdr}"
+#     "${coordinates_hdr}"
+#     "${driver_hdr}"
+#     "${interface_hdr}"
+#     "${mesh_hdr}"
+#     "${outputs_hdr}"
+#     "${parthenon_hdr}"
+#     "${pgen_hdr}"
+#     "${reconstruct_hdr}"
+#     "${refinement_hdr}"
+#     "${tasks_hdr}"
+#     "${utils_hdr}"
+#     "${base_hdr}"
+#     )
+set_target_properties(parthenon PROPERTIES PUBLIC_HEADER "${public_headers}")
 
-  outputs/formatted_table.cpp
-  outputs/history.cpp
-  outputs/io_wrapper.cpp
-  outputs/io_wrapper.hpp
-  outputs/outputs.cpp
-  outputs/outputs.hpp
-  outputs/parthenon_hdf5.cpp
-  outputs/restart.cpp
-  outputs/vtk.cpp
-
-  parthenon/driver.hpp
-  parthenon/package.hpp
-  parthenon/parthenon.hpp
-  parthenon/prelude.hpp
-
-  pgen/default_pgen.cpp
-
-  reconstruct/characteristic.cpp
-  reconstruct/dc_inline.hpp
-  reconstruct/dc.cpp
-  reconstruct/plm_inline.hpp
-  reconstruct/plm.cpp
-  reconstruct/ppm.cpp
-  reconstruct/reconstruction.hpp
-  reconstruct/reconstruction.cpp
-
-  refinement/amr_criteria.cpp
-  refinement/amr_criteria.hpp
-  refinement/refinement.cpp
-  refinement/refinement.hpp
-
-  tasks/task_id.cpp
-  tasks/task_id.hpp
-  tasks/task_list.hpp
-  tasks/task_types.hpp
-
-  utils/buffer_utils.cpp
-  utils/buffer_utils.hpp
-  utils/change_rundir.cpp
-  utils/error_checking.hpp
-  utils/show_config.cpp
-  utils/signal_handler.cpp
-  utils/trim_string.cpp
-  utils/trim_string.hpp
-  utils/utils.hpp
-
-  argument_parser.hpp
-  basic_types.hpp
-  defs.hpp
-  globals.cpp
-  globals.hpp
-  kokkos_abstraction.hpp
-  parameter_input.cpp
-  parameter_input.hpp
-  parthenon_manager.cpp
-  parthenon_manager.hpp
-  parthenon_mpi.hpp
-)
 
 target_compile_features(parthenon PUBLIC cxx_std_14)
 if (CMAKE_CXX_COMPILER_ID STREQUAL "XL")
@@ -229,3 +207,19 @@ target_include_directories(parthenon PUBLIC
 )
 
 lint_target(parthenon)
+
+install(TARGETS parthenon LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+  PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parthenon")
+
+# Maintain directory structure in installed include files
+#install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR} FILES_MATCHING PATTERN "*.hpp")
+install(FILES ${base_hdr} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+foreach( subdir ${parthenon_subdirs} )
+  file(TO_CMAKE_PATH "${subdir}" hdr_subdir)
+  install(DIRECTORY "${hdr_subdir}" DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+  FILES_MATCHING PATTERN "*.hpp")
+  unset(hdr_subdir)
+endforeach()
+
+# Install generated config header file
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/generated/config.hpp DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
