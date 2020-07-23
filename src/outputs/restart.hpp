@@ -45,6 +45,11 @@ class RestartReader {
   std::vector<T> ReadAttr1D(const char *dataset, const char *name,
                             size_t *count = nullptr);
 
+  template <typename T>
+  T GetAttr(const char *dataset, const char *name) {
+    auto x = ReadAttr1D<T>(dataset, name);
+    return x[0];
+  }
   // closes out the restart file
   // perhaps belongs in a destructor?
   void Close();

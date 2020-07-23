@@ -197,6 +197,7 @@ static herr_t writeH5ASTRING(const char *name, const std::string pData, hid_t &f
 }
 
 // Static functions to return HDF type
+static hid_t getHdfType(float *x) { return H5T_NATIVE_FLOAT; }
 static hid_t getHdfType(double *x) { return H5T_NATIVE_DOUBLE; }
 static hid_t getHdfType(int32_t *x) { return H5T_NATIVE_INT32; }
 static hid_t getHdfType(int64_t *x) { return H5T_NATIVE_INT64; }

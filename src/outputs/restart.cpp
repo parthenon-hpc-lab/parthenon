@@ -88,8 +88,8 @@ std::vector<T> RestartReader::ReadDataset(const char *name, size_t *count) {
                    static_cast<void *>(data.data()));
 
   // CLose the dataspace and data set.
-  H5Dclose(filespace);
-  H5Dclose(dataspace);
+  H5Sclose(filespace);
+  H5Sclose(dataspace);
   H5Dclose(dataset);
 #else
   std::vector<T> data;
@@ -335,6 +335,7 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
   if (tm != nullptr) {
     status = writeH5AI32("NCycle", &(tm->ncycle), file, localDSpace, myDSet);
     status = writeH5AF64("Time", &(tm->time), file, localDSpace, myDSet);
+    status = writeH5AF64("dt", &(tm->dt), file, localDSpace, myDSet);
   }
   status = writeH5ASTRING("Coordinates", std::string(pmb->coords.Name()), file,
                           localDSpace, myDSet);
@@ -601,5 +602,18 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
   pin->SetReal(output_params.block_name, "next_time", output_params.next_time);
   return;
 #endif
+}
+
+void instantiateRestartReader(RestartReader &rr) {
+  // aroutine to instantiate templated routines so they can be used elsewhere
+  auto funcI32 = rr.ReadAttr1D<int32_t>("xxx", "xxx");
+  auto funcI64 = rr.ReadAttr1D<int64_t>("xxx", "xxx");
+  auto funcFloat = rr.ReadAttr1D<float>("xxx", "xxx");
+  auto funcReal = rr.ReadAttr1D<double>("xxx", "xxx");
+
+  auto dataI32 = rr.ReadDataset<int32_t>("xxx");
+  auto dataI64 = rr.ReadDataset<int64_t>("xxx");
+  auto dataFloat = rr.ReadDataset<float>("xxx");
+  auto dataDouble = rr.ReadDataset<double>("xxx");
 }
 } // namespace parthenon
