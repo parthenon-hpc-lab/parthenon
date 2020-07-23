@@ -19,6 +19,7 @@ import errno
 import os
 from shutil import rmtree
 import subprocess
+from subprocess import PIPE
 import sys
 
 # TODO(pgrete) update CI image to Python 3
@@ -38,6 +39,7 @@ class Parameters():
     mpi_cmd = ""
     mpi_opts = ""
     driver_cmd_line_args = []
+    stdouts = []
     # Options
     # only-regression - do not run when coverage is enabled
     # both - run regardless of whether coverage is enabled or not 
@@ -225,7 +227,8 @@ class TestManager:
         print(run_command)
         sys.stdout.flush()
         try:
-            subprocess.check_call(run_command)
+            proc = subprocess.run(run_command, check=True, stdout=PIPE, stderr=PIPE)
+            self.parameters.stdouts.append(proc.stdout)
         except subprocess.CalledProcessError as err:
             raise TestManagerError('\nReturn code {0} from command \'{1}\''
                               .format(err.returncode, ' '.join(err.cmd)))
