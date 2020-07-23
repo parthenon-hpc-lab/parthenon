@@ -30,7 +30,6 @@ if(CODE_COVERAGE)
 
   message(STATUS "Coverage reports will be placed in ${COVERAGE_PATH}/${COVERAGE_NAME}")
  
-  set(OBJECT_DIR ${CMAKE_BINARY_DIR}/obj)
   get_target_property(PARTHENON_SOURCES parthenon SOURCES)
   get_target_property(UNIT_TEST_SOURCES unit_tests SOURCES)
 
