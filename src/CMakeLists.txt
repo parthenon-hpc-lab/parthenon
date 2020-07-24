@@ -178,18 +178,21 @@ target_include_directories(parthenon PUBLIC
 
 lint_target(parthenon)
 
-install(TARGETS parthenon LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-  PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parthenon")
+# Generate install targets for make if CMAKE_INSTALL_PREFIX has been provided
+if(NOT CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+  install(TARGETS parthenon LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+    PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parthenon")
 
-# Maintain directory structure in installed include files
-install(FILES ${base_hdr} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
-foreach( subdir ${parthenon_subdirs} )
-  file(TO_CMAKE_PATH "${subdir}" hdr_subdir)
-  install(DIRECTORY "${hdr_subdir}" DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-  FILES_MATCHING PATTERN "*.hpp")
-  unset(hdr_subdir)
-endforeach()
+  # Maintain directory structure in installed include files
+  install(FILES ${base_hdr} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+  foreach( subdir ${parthenon_subdirs} )
+    file(TO_CMAKE_PATH "${subdir}" hdr_subdir)
+    install(DIRECTORY "${hdr_subdir}" DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    FILES_MATCHING PATTERN "*.hpp")
+    unset(hdr_subdir)
+  endforeach()
 
-# Install generated config header file
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/generated/config.hpp
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+  # Install generated config header file
+  install(FILES ${CMAKE_CURRENT_BINARY_DIR}/generated/config.hpp
+          DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+endif()
