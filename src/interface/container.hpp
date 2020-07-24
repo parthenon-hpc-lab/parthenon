@@ -267,42 +267,14 @@ class Container {
   // Communication routines
   void ResetBoundaryCellVariables();
   void SetupPersistentMPI();
-  void SetBoundaries();
-  void SendBoundaryBuffers();
-  void ReceiveAndSetBoundariesWithWait();
-  bool ReceiveBoundaryBuffers();
-  void StartReceiving(BoundaryCommSubset phase);
-  void ClearBoundary(BoundaryCommSubset phase);
-  void SendFluxCorrection();
-  bool ReceiveFluxCorrection();
-  static TaskStatus StartReceivingTask(std::shared_ptr<Container<T>> rc) {
-    rc->StartReceiving(BoundaryCommSubset::all);
-    return TaskStatus::complete;
-  }
-  static TaskStatus SendFluxCorrectionTask(std::shared_ptr<Container<T>> rc) {
-    rc->SendFluxCorrection();
-    return TaskStatus::complete;
-  }
-  static TaskStatus ReceiveFluxCorrectionTask(std::shared_ptr<Container<T>> rc) {
-    if (!rc->ReceiveFluxCorrection()) return TaskStatus::incomplete;
-    return TaskStatus::complete;
-  }
-  static TaskStatus SendBoundaryBuffersTask(std::shared_ptr<Container<T>> rc) {
-    rc->SendBoundaryBuffers();
-    return TaskStatus::complete;
-  }
-  static TaskStatus ReceiveBoundaryBuffersTask(std::shared_ptr<Container<T>> rc) {
-    if (!rc->ReceiveBoundaryBuffers()) return TaskStatus::incomplete;
-    return TaskStatus::complete;
-  }
-  static TaskStatus SetBoundariesTask(std::shared_ptr<Container<T>> rc) {
-    rc->SetBoundaries();
-    return TaskStatus::complete;
-  }
-  static TaskStatus ClearBoundaryTask(std::shared_ptr<Container<T>> rc) {
-    rc->ClearBoundary(BoundaryCommSubset::all);
-    return TaskStatus::complete;
-  }
+  TaskStatus SetBoundaries();
+  TaskStatus SendBoundaryBuffers();
+  TaskStatus ReceiveAndSetBoundariesWithWait();
+  TaskStatus ReceiveBoundaryBuffers();
+  TaskStatus StartReceiving(BoundaryCommSubset phase);
+  TaskStatus ClearBoundary(BoundaryCommSubset phase);
+  TaskStatus SendFluxCorrection();
+  TaskStatus ReceiveFluxCorrection();
 
   bool operator==(const Container<T> &cmp) {
     // do some kind of check of equality
