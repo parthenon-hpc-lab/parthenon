@@ -112,7 +112,7 @@ TaskStatus ComputeResidualAndDiagonal(std::shared_ptr<Container<Real>> &div,
         }
         Dinv(k, j, i) = -ds2 / 2;
         res(k, j, i) = K * rho(k, j, i);
-        res(k, j, i) -= dphi(k, j, i);
+        res(k, j, i) += dphi(k, j, i);
       });
   return TaskStatus::complete;
 }
