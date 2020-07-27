@@ -22,9 +22,8 @@ stages:
 
 # Is performed before the scripts in the stages step
 before_script:
-  - git clone https://github.com/lanl/parthenon-buildenv.git
-  - env -i bash ./parthenon-buildenv/internal/scripts/setup.sh
-  - env -i bash ./parthenon-buildenv/internal/scripts/build_hdf5_parallel.sh
+  - env -i bash ./scripts/darwin/setup.sh
+  - env -i bash ./scripts/darwin/build_hdf5_parallel.sh
   - export GOLD_STANDARD_VER=2
   - if [ `cat tst/regression/gold_standard/current_version` != ${GOLD_STANDARD_VER} ]; then
     echo "Updating regression Gold standard to ${GOLD_STANDARD_VER}." &&
@@ -37,7 +36,7 @@ parthenon-power9-gcc-mpi-performance-regression:
   stage: performance-regression
   when: manual
   script:
-    - echo "./parthenon-buildenv/internal/scripts/build.sh" > build_cmd.txt
+    - echo "./scripts/darwin/build.sh" > build_cmd.txt
     - echo ${BUILD_DIR}              >> build_cmd.txt
     - echo ${CMAKE_BUILD_TYPE}       >> build_cmd.txt
     - echo ${CMAKE_CXX_COMPILER}     >> build_cmd.txt
