@@ -25,27 +25,47 @@ TaskList PoissonDriver::MakeTaskList(MeshBlock *pmb) {
   TaskList tl;
   TaskID none(0);
 
-  auto &base = pmb->real_containers.Get();
-  pmb->real_containers.Add("update", base);
+  // weighted Jacobi is:
+  // next = base + w*residual/D
+  // with residual = K*potential - div(grad(field)) and D = diagonal component
+  auto &base = pmb->real_containers.Get(); // last iteration
+  // intermediate container to hold flux divergences
+  pmb->real_containers.Add("div", base);
+  auto &div = pmb->real_containers.Get("div");
+  pmb->real_containers.Add("update", base); // next iteration
   auto &update = pmb->real_containers.Get("update");
 
-  auto start_recv = tl.AddTask(&Container<Real>::StartReceiving,
-                               update.get(), none,
+  auto start_recv = tl.AddTask(&Container<Real>::StartReceiving, update.get(), none,
                                BoundaryCommSubset::all);
 
-  auto smooth = tl.AddTask(Smooth, none, base, update);
+  // calculate flux psi = grad(phi)
+  auto calc_flux = tl.AddTask(poisson::CalculateFluxes, none, base);
+
+  // flux correction
+  auto send_flux =
+      tl.AddTask(&Container<Real>::SendFluxCorrection, update.get(), calc_flux);
+  auto recv_flux =
+      tl.AddTask(&Container<Real>::ReceiveFluxCorrection, update.get(), calc_flux);
+
+  // flux divergence
+  auto flux_div = tl.AddTask(parthenon::Update::FluxDivergence, recv_flux, base, div);
+
+  // compute residual and D^{-1}
+  auto compute_residual =
+    tl.AddTask(ComputeResidualAndDiagonal, flux_div, div, update);
+
+  // u^{n+1}_{i,j,k} = u^{n}_{i,j,k} + w*((1/D^n_{i,j,k}) * residual^{n}_{i,j,k})
+  // depends only on state from previous step
+  auto smooth = tl.AddTask(Smooth, compute_residual, base, update);
 
   // update ghost cells
-  auto send = tl.AddTask(&Container<Real>::SendBoundaryBuffers,
-                         update.get(), smooth);
-  auto recv = tl.AddTask(&Container<Real>::ReceiveBoundaryBuffers,
-                         update.get(), send);
-  auto fill_from_bufs = tl.AddTask(&Container<Real>::SetBoundaries,
-                                   update.get(), recv);
-  auto clear_comm_flags = tl.AddTask(&Container<Real>::ClearBoundary,
-                                     update.get(), fill_from_bufs,
-                                     BoundaryCommSubset::all);
+  auto send = tl.AddTask(&Container<Real>::SendBoundaryBuffers, update.get(), smooth);
+  auto recv = tl.AddTask(&Container<Real>::ReceiveBoundaryBuffers, update.get(), send);
+  auto fill_from_bufs = tl.AddTask(&Container<Real>::SetBoundaries, update.get(), recv);
+  auto clear_comm_flags = tl.AddTask(&Container<Real>::ClearBoundary, update.get(),
+                                     fill_from_bufs, BoundaryCommSubset::all);
 
+  // prolongation and restriction
   auto prolongBound = tl.AddTask(
       [](MeshBlock *pmb) {
         pmb->pbval->ProlongateBoundaries(0.0, 0.0);
@@ -57,8 +77,8 @@ TaskList PoissonDriver::MakeTaskList(MeshBlock *pmb) {
   auto set_bc = tl.AddTask(parthenon::ApplyBoundaryConditions, prolongBound, update);
 
   // fill in derived fields
-  auto fill_derived =
-      tl.AddTask(parthenon::FillDerivedVariables::FillDerived, set_bc, update);
+  auto fill_derived = tl.AddTask(parthenon::FillDerivedVariables::FillDerived,
+                                 set_bc, update);
 
   // swap containers
   auto swap = tl.AddTask(

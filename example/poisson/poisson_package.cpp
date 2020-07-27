@@ -17,6 +17,7 @@
 #include <parthenon/package.hpp>
 
 #include "poisson_package.hpp"
+#include "reconstruct/dc_inline.hpp"
 
 using namespace parthenon::package::prelude;
 
@@ -46,11 +47,12 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy});
   pkg->AddField(field_name, m);
 
+  // For linear systems, inv_diagonal doesn't need to be a grid
+  // variable, it could be an inline function. However, more
+  // generally, it's useful to store on the grid.
   field_name = "inv_diagonal";
   m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy});
   pkg->AddField(field_name, m);
-
-  pkg->FillDerived = ComputeResidualAndDiagonal;
 
   return pkg;
 }
@@ -75,8 +77,9 @@ Real GetL1Residual(std::shared_ptr<Container<Real>> &rc) {
   return max;
 }
 
-void ComputeResidualAndDiagonal(std::shared_ptr<Container<Real>> &rc) {
-  MeshBlock *pmb = rc->pmy_block;
+TaskStatus ComputeResidualAndDiagonal(std::shared_ptr<Container<Real>> &div,
+                                      std::shared_ptr<Container<Real>> &update) {
+  MeshBlock *pmb = div->pmy_block;
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
@@ -84,10 +87,10 @@ void ComputeResidualAndDiagonal(std::shared_ptr<Container<Real>> &rc) {
   auto &coords = pmb->coords;
   auto pkg = pmb->packages["poisson_package"];
   int ndim = pmb->pmy_mesh->ndim;
-  ParArrayND<Real> phi = rc->Get("field").data;
-  ParArrayND<Real> rho = rc->Get("potential").data;
-  ParArrayND<Real> res = rc->Get("residual").data;
-  ParArrayND<Real> Dinv = rc->Get("inv_diagonal").data;
+  ParArrayND<Real> dphi = div->Get("field").data; // div(grad(phi))
+  ParArrayND<Real> rho = update->Get("potential").data;
+  ParArrayND<Real> res = update->Get("residual").data;
+  ParArrayND<Real> Dinv = update->Get("inv_diagonal").data;
   Real K = pkg->Param<Real>("K");
 
   pmb->par_for(
@@ -109,15 +112,9 @@ void ComputeResidualAndDiagonal(std::shared_ptr<Container<Real>> &rc) {
         }
         Dinv(k, j, i) = -ds2 / 2;
         res(k, j, i) = K * rho(k, j, i);
-        res(k, j, i) -= (phi(k, j, i + 1) + phi(k, j, i - 1) - 2 * phi(k, j, i)) / dx2;
-        if (ndim >= 2) {
-          res(k, j, i) -= (phi(k, j + 1, i) + phi(k, j - 1, i) - 2 * phi(k, j, i)) / dy2;
-        }
-        if (ndim >= 3) {
-          res(k, j, i) -= (phi(k + 1, j, i) + phi(k - 1, j, i) - 2 * phi(k, j, i)) / dz2;
-        }
+        res(k, j, i) -= dphi(k, j, i);
       });
-  return;
+  return TaskStatus::complete;
 }
 
 TaskStatus Smooth(std::shared_ptr<Container<Real>> &rc_in,
@@ -130,8 +127,8 @@ TaskStatus Smooth(std::shared_ptr<Container<Real>> &rc_in,
   auto pkg = pmb->packages["poisson_package"];
   ParArrayND<Real> in = rc_in->Get("field").data;
   ParArrayND<Real> out = rc_out->Get("field").data;
-  ParArrayND<Real> res = rc_in->Get("residual").data;
-  ParArrayND<Real> Dinv = rc_in->Get("inv_diagonal").data;
+  ParArrayND<Real> res = rc_out->Get("residual").data;
+  ParArrayND<Real> Dinv = rc_out->Get("inv_diagonal").data;
   Real w = pkg->Param<Real>("weight");
   int nsub = pkg->Param<int>("subcycles");
 
@@ -140,6 +137,88 @@ TaskStatus Smooth(std::shared_ptr<Container<Real>> &rc_in,
       KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
         out(k, j, i) = in(k, j, i) + w * Dinv(k, j, i) * res(k, j, i);
       });
+  return TaskStatus::complete;
+}
+
+TaskStatus CalculateFluxes(std::shared_ptr<Container<Real>> &rc) {
+  MeshBlock *pmb = rc->pmy_block;
+  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
+  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
+  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
+  ParArrayND<Real> field = rc->Get("field").data;
+
+  auto &coords = pmb->coords;
+
+  const int nx1 = pmb->cellbounds.ncellsi(IndexDomain::entire);
+  const int nvar = field.GetDim(4);
+  const int scratch_level = 1; // 0 is actual scratch (tiny); 1 is HBM
+  size_t scratch_size_in_bytes = parthenon::ScratchPad2D<Real>::shmem_size(nvar, nx1);
+
+  auto x1flux = rc->Get("field").flux[X1DIR].Get<4>();
+  pmb->par_for_outer(
+      "X1 flux", 2 * scratch_size_in_bytes, scratch_level, kb.s, kb.e, jb.s, jb.e,
+      KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int k, const int j) {
+        parthenon::ScratchPad2D<Real> ql(member.team_scratch(scratch_level), nvar, nx1);
+        parthenon::ScratchPad2D<Real> qr(member.team_scratch(scratch_level), nvar, nx1);
+        // We're re-using DonorCell but this is *not* a reconstruction.
+        // we simply want to pre-cache phi[i] and phi[i+1] in ql and qr.
+        parthenon::DonorCellX1(member, k, j, ib.s - 1, ib.e + 1, field, ql, qr);
+        member.team_barrier();
+        for (int n = 0; n < nvar; n++) {
+          parthenon::par_for_inner(member, ib.s, ib.e + 1, [&](const int i) {
+            // Flux is forward differences. Extension to higher-order
+            // is a higher-order derivative operator here
+            x1flux(n, k, j, i) = (qr(n, i) - ql(n, i)) / coords.Dx(X1DIR, k, j, i);
+          });
+        }
+      });
+  if (pmb->pmy_mesh->ndim >= 2) {
+    auto x2flux = rc->Get("field").flux[X2DIR].Get<4>();
+    pmb->par_for_outer(
+        "X2 flux", 3 * scratch_size_in_bytes, scratch_level, kb.s, kb.e, jb.s, jb.e + 1,
+        KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int k, const int j) {
+          // We can't re-use reconstructed arrays with different j
+          parthenon::ScratchPad2D<Real> ql(member.team_scratch(scratch_level), nvar, nx1);
+          parthenon::ScratchPad2D<Real> qr(member.team_scratch(scratch_level), nvar, nx1);
+          parthenon::ScratchPad2D<Real> q_unused(member.team_scratch(scratch_level), nvar,
+                                                 nx1);
+          // We're re-using DonorCell but this is *not* a reconstruction.
+          // we simply want to pre-cache phi[j] and phi[j+1] in ql and qr.
+          parthenon::DonorCellX2(member, k, j - 1, ib.s, ib.e, field, ql, q_unused);
+          parthenon::DonorCellX2(member, k, j, ib.s, ib.e, field, q_unused, qr);
+          member.team_barrier();
+          for (int n = 0; n < nvar; n++) {
+            parthenon::par_for_inner(member, ib.s, ib.e, [&](const int i) {
+              // Flux is forward differences. Extension to higher-order
+              // is a higher-order derivative operator here
+              x2flux(n, k, j, i) = (qr(n, i) - ql(n, i)) / coords.Dx(X2DIR, k, j, i);
+            });
+          }
+        });
+  }
+  if (pmb->pmy_mesh->ndim >= 3) {
+    auto x3flux = rc->Get("field").flux[X3DIR].Get<4>();
+    pmb->par_for_outer(
+        "X3 flux", 3 * scratch_size_in_bytes, scratch_level, kb.s, kb.e + 1, jb.s, jb.e,
+        KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int k, const int j) {
+          parthenon::ScratchPad2D<Real> ql(member.team_scratch(scratch_level), nvar, nx1);
+          parthenon::ScratchPad2D<Real> qr(member.team_scratch(scratch_level), nvar, nx1);
+          parthenon::ScratchPad2D<Real> q_unused(member.team_scratch(scratch_level), nvar,
+                                                 nx1);
+          // We're re-using DonorCell but this is *not* a reconstruction.
+          // we simply want to pre-cache phi[k] and phi[k+1] in ql and qr.
+          parthenon::DonorCellX3(member, k - 1, j, ib.s, ib.e, field, ql, q_unused);
+          parthenon::DonorCellX3(member, k, j, ib.s, ib.e, field, q_unused, qr);
+          member.team_barrier();
+          for (int n = 0; n < nvar; n++) {
+            parthenon::par_for_inner(member, ib.s, ib.e, [&](const int i) {
+              // Flux is forward differences. Extension to higher-order
+              // is a higher-order derivative operator here
+              x3flux(n, k, j, i) = (qr(n, i) - ql(n, i)) / coords.Dx(X3DIR, k, j, i);
+            });
+          }
+        });
+  }
   return TaskStatus::complete;
 }
 
