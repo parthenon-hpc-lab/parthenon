@@ -9,7 +9,7 @@ See the [build doc](building.md) for details on building parthenon for specific 
 
 ## Description of examples
 
-- [Calculate &pi](../example/calculate_pi)
+- [Calculate &pi;](../example/calculate_pi)
 - [Average face-centered variables to cell centers](../example/face_fields)
 
 ## Short feature description
@@ -53,15 +53,21 @@ There are several weakly linked member functions that applications can (and ofte
 
 Macros for causing execution to throw an exception are provided [here](../src/utils/error_checking.hpp)
 * PARTHENON_REQUIRE(condition, message) exits if the condition does not evaluate to true.
+* PARTHENON_REQUIRE_THROWS(condition, message) throws a `std::runtime_error` exception if the condition does not evaluate to true.
 * PARTHENON_FAIL(message) always exits.
+* PARTHENON_THROW(message) throws a runtime error.
 * PARTHENON_DEBUG_REQUIRE(condition, message) exits if the condition does not evaluate to true when in debug mode.
+* PARTHENON_DEBUG_REQUIRE_THROWS(condition, message) throws if the condition does not evaluate to true when in debug mode.
 * PARTHENON_DEBUG_FAIL(message) always exits when in debug mode.
+* PARTHENON_DEBUG_THROW(message) throws a runtime error when in debug mode.
 
-Both macros print the message, and filename and line number where the
-macro is called. PARTHENON_REQUIRE also prints the condition. Note
-that these macros take a C style string, not a C++ style string. This
-is a limitation of GPU compatibility. Examples of use can be found
-[here](../tst/unit/test_error_checking.cpp).
+All macros print the message, and filename and line number where the
+macro is called. PARTHENON_REQUIRE also prints the condition. The
+macros take a `std::string`, a `std::stringstream`, or a C-style
+string. As a rule of thumb:
+- Use the exception throwing versions in non-GPU, non-performance critical code.
+- On GPUs and in performance-critical sections, use the non-throwing
+  versions and give them C-style strings.
 
 ### Developer guide
 

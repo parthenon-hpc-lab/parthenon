@@ -1,0 +1,6 @@
+ignore:
+  - "tst"
+  - "cmake"
+  - "external"
+  - "scripts"
+  - "docs"
