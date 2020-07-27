@@ -81,13 +81,15 @@ TaskList AdvectionDriver::MakeTaskList(MeshBlock *pmb, int stage) {
   // effectively, sc1 = sc0 + dudt*dt
   auto &sc1 = pmb->real_containers.Get(stage_name[stage]);
 
-  auto start_recv = tl.AddTask(Container<Real>::StartReceivingTask, none, sc1);
+  auto start_recv = tl.AddTask(&Container<Real>::StartReceiving, sc1.get(), none,
+                               BoundaryCommSubset::all);
 
   auto advect_flux = tl.AddTask(advection_package::CalculateFluxes, none, sc0);
 
-  auto send_flux = tl.AddTask(Container<Real>::SendFluxCorrectionTask, advect_flux, sc0);
+  auto send_flux =
+      tl.AddTask(&Container<Real>::SendFluxCorrection, sc0.get(), advect_flux);
   auto recv_flux =
-      tl.AddTask(Container<Real>::ReceiveFluxCorrectionTask, advect_flux, sc0);
+      tl.AddTask(&Container<Real>::ReceiveFluxCorrection, sc0.get(), advect_flux);
 
   // compute the divergence of fluxes of conserved variables
   auto flux_div = tl.AddTask(parthenon::Update::FluxDivergence, recv_flux, sc0, dudt);
@@ -97,11 +99,12 @@ TaskList AdvectionDriver::MakeTaskList(MeshBlock *pmb, int stage) {
       tl.AddTask(UpdateContainer, flux_div, pmb, stage, stage_name, integrator);
 
   // update ghost cells
-  auto send = tl.AddTask(Container<Real>::SendBoundaryBuffersTask, update_container, sc1);
-  auto recv = tl.AddTask(Container<Real>::ReceiveBoundaryBuffersTask, send, sc1);
-  auto fill_from_bufs = tl.AddTask(Container<Real>::SetBoundariesTask, recv, sc1);
-  auto clear_comm_flags =
-      tl.AddTask(Container<Real>::ClearBoundaryTask, fill_from_bufs, sc1);
+  auto send =
+      tl.AddTask(&Container<Real>::SendBoundaryBuffers, sc1.get(), update_container);
+  auto recv = tl.AddTask(&Container<Real>::ReceiveBoundaryBuffers, sc1.get(), send);
+  auto fill_from_bufs = tl.AddTask(&Container<Real>::SetBoundaries, sc1.get(), recv);
+  auto clear_comm_flags = tl.AddTask(&Container<Real>::ClearBoundary, sc1.get(),
+                                     fill_from_bufs, BoundaryCommSubset::all);
 
   auto prolongBound = tl.AddTask(
       [](MeshBlock *pmb) {
