@@ -29,16 +29,22 @@ TaskList PoissonDriver::MakeTaskList(MeshBlock *pmb) {
   pmb->real_containers.Add("update", base);
   auto &update = pmb->real_containers.Get("update");
 
-  auto start_recv = tl.AddTask(Container<Real>::StartReceivingTask, none, update);
+  auto start_recv = tl.AddTask(&Container<Real>::StartReceiving,
+                               update.get(), none,
+                               BoundaryCommSubset::all);
 
   auto smooth = tl.AddTask(Smooth, none, base, update);
 
   // update ghost cells
-  auto send = tl.AddTask(Container<Real>::SendBoundaryBuffersTask, smooth, update);
-  auto recv = tl.AddTask(Container<Real>::ReceiveBoundaryBuffersTask, send, update);
-  auto fill_from_bufs = tl.AddTask(Container<Real>::SetBoundariesTask, recv, update);
-  auto clear_comm_flags =
-      tl.AddTask(Container<Real>::ClearBoundaryTask, fill_from_bufs, update);
+  auto send = tl.AddTask(&Container<Real>::SendBoundaryBuffers,
+                         update.get(), smooth);
+  auto recv = tl.AddTask(&Container<Real>::ReceiveBoundaryBuffers,
+                         update.get(), send);
+  auto fill_from_bufs = tl.AddTask(&Container<Real>::SetBoundaries,
+                                   update.get(), recv);
+  auto clear_comm_flags = tl.AddTask(&Container<Real>::ClearBoundary,
+                                     update.get(), fill_from_bufs,
+                                     BoundaryCommSubset::all);
 
   auto prolongBound = tl.AddTask(
       [](MeshBlock *pmb) {
