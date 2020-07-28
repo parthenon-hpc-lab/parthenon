@@ -23,7 +23,7 @@ spack compiler find
 
 spack find hdf5
 # Install hdf5
-spack install -j${J} hdf5@1.10.6%gcc@7.4.0 ^openmpi@4.0.2%gcc@7.4.0
+#spack install -j${J} hdf5@1.10.6%gcc@7.4.0 ^openmpi@4.0.2%gcc@7.4.0
 
 spack install -j${J} py-h5py ^hdf5@1.10.6%gcc@7.4.0 ^openmpi@4.0.2%gcc@7.4.0
 
