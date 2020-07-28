@@ -50,7 +50,7 @@ parthenon-power9-gcc-mpi-performance-regression:
     - echo ${OMP_NUM_THREADS}        >> build_cmd.txt
     - echo ${PARTHENON_DISABLE_HDF5} >> build_cmd.txt
     - >
-      env -i bash ./parthenon-buildenv/internal/scripts/build.sh
+      env -i bash ./scripts/darwin/build.sh
       ${BUILD_DIR}
       ${CMAKE_BUILD_TYPE}
       ${CMAKE_CXX_COMPILER}
