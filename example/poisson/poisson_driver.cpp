@@ -43,9 +43,9 @@ TaskList PoissonDriver::MakeTaskList(MeshBlock *pmb) {
 
   // flux correction
   auto send_flux =
-      tl.AddTask(&Container<Real>::SendFluxCorrection, update.get(), calc_flux);
+      tl.AddTask(&Container<Real>::SendFluxCorrection, base.get(), calc_flux);
   auto recv_flux =
-      tl.AddTask(&Container<Real>::ReceiveFluxCorrection, update.get(), calc_flux);
+      tl.AddTask(&Container<Real>::ReceiveFluxCorrection, base.get(), calc_flux);
 
   // flux divergence
   auto flux_div = tl.AddTask(parthenon::Update::FluxDivergence, recv_flux, base, div);
