@@ -1,12 +1,7 @@
 #!/bin/bash
 
-# Error functions
-check_for_failure() {
-  if [ $1 -ne 0 ]; then
-    echo $2
-    exit 1
-  fi
-}
+# exit when any command fails
+set -e
 
 # Load system env only
 source /etc/bashrc
@@ -47,8 +42,7 @@ export CTEST_OUTPUT_ON_FAILURE=1
 # Build
 if [ -d $1 ] 
 then
-  echo "exists"
-  #rm -rf $1/*
+  rm -rf $1/*
 fi
 mkdir $1 
 cd $1 
@@ -79,12 +73,9 @@ cmake \
  -DNUM_MPI_PROC_TESTING=${10} \
  -DOMP_NUM_THREADS=${11} \
  -DPARTHENON_DISABLE_HDF5=${12} ../
-check_for_failure $? "CMake failed!"
 
 make -j $J VERBOSE=1
-check_for_failure $? "Make failed!"
 
-ctest --output-on-failure -j $J -L 'performance|regression'
-check_for_failure $? "Tests failed!"
+ctest --output-on-failure -j $J -LE 'coverage' -L 'performance|regression'
  
  
