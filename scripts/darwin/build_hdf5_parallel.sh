@@ -21,10 +21,14 @@ module load openmpi/p9/4.0.2-gcc_7.4.0
 # Find compilers
 spack compiler find
 
+spack find hdf5
 # Install hdf5
-spack install -j${J} hdf5%gcc@7.4.0 ^openmpi@4.0.2%gcc@7.4.0
-spack load hdf5%gcc@7.4.0 ^openmpi@4.0.2%gcc@7.4.0
+spack install -j${J} hdf5@1.10.6%gcc@7.4.0 ^openmpi@4.0.2%gcc@7.4.0
 
-spack install -j${J} py-h5py ^openmpi@4.0.2%gcc@7.4.0
+spack install -j${J} py-h5py ^hdf5@1.10.6%gcc@7.4.0 ^openmpi@4.0.2%gcc@7.4.0
+
+spack find hdf5
+
+spack load hdf5@1.10.6%gcc@7.4.0 ^openmpi@4.0.2%gcc@7.4.0
 spack load py-h5py ^openmpi@4.0.2%gcc@7.4.0
 

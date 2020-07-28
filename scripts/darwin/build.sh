@@ -35,8 +35,8 @@ spack install py-numpy
 spack install py-matplotlib
 
 # Load Spack Modules
-spack load hdf5%gcc@7.4.0 ^openmpi@4.0.2%gcc@7.4.0
-spack load py-h5py ^openmpi@4.0.2%gcc@7.4.0
+spack load hdf5@1.10.6%gcc@7.4.0 ^openmpi@4.0.2%gcc@7.4.0
+spack load py-h5py ^hdf5@1.10.6%gcc@7.4.0 ^openmpi@4.0.2%gcc@7.4.0
 spack load py-matplotlib
 spack load py-numpy
 
