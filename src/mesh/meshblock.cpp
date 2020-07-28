@@ -147,11 +147,52 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
 
 //----------------------------------------------------------------------------------------
 // MeshBlock constructor for restarts
+// Creates block but loads no data
+MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
+                     Properties_t &properties, Packages_t &packages, LogicalLocation iloc,
+                     RegionSize input_block, BoundaryFlag *input_bcs, double icost,
+                     int igflag, MeshBlock *lastBlock)
+    : exec_space(DevExecSpace()), pmy_mesh(pm), loc(iloc), block_size(input_block),
+      gid(igid), lid(ilid), gflag(igflag), properties(properties), packages(packages),
+      prev(lastBlock), next(nullptr), new_block_dt_{}, new_block_dt_hyperbolic_{},
+      new_block_dt_parabolic_{}, new_block_dt_user_{}, cost_(1.0) {
+
+  // set last block's pointer
+  if (lastBlock != nullptr) {
+    lastBlock->next = this;
+  }
+  // initialize grid indices
+
+  // std::cerr << "WHY AM I HERE???" << std::endl;
+
+  // initialize grid indices
+  InitializeIndexShapes(block_size.nx1, block_size.nx2, block_size.nx3);
+
+  // Set the block pointer for the containers
+  real_containers.Get()->setBlock(this);
+
+  // (re-)create mesh-related objects in MeshBlock
+
+  coords = Coordinates_t(block_size, pin);
+
+  // Boundary
+  pbval = std::make_unique<BoundaryValues>(this, input_bcs, pin);
+
+  // Reconstruction (constructor may implicitly depend on Coordinates)
+  precon = std::make_unique<Reconstruction>(this, pin);
+
+  if (pm->multilevel) pmr = std::make_unique<MeshRefinement>(this, pin);
+
+  app = InitApplicationMeshBlockData(pin);
+  InitUserMeshBlockData(pin);
+
+  return;
+}
 #if 0
 MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
                      Properties_t &properties, Packages_t &packages, LogicalLocation iloc,
                      RegionSize input_block, BoundaryFlag *input_bcs, double icost,
-                     char *mbdata, int igflag)
+                     int igflag)
     : pmy_mesh(pm), loc(iloc), block_size(input_block), gid(igid), lid(ilid),
       gflag(igflag), nuser_out_var(), properties(properties), packages(packages),
       prev(nullptr), next(nullptr), new_block_dt_{}, new_block_dt_hyperbolic_{},

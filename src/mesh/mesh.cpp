@@ -558,7 +558,7 @@ Mesh::Mesh(ParameterInput *pin, RestartReader *rr, Properties_t &properties,
   root_level = rr->GetAttr<int32_t>("Mesh", "rootLevel");
 
   auto bc = rr->ReadAttr1D<Real>("Mesh", "bc");
-  for (int i=0; i<6; i++) {
+  for (int i = 0; i < 6; i++) {
     block_bcs[i] = static_cast<BoundaryFlag>(bc[i]);
   }
 
@@ -719,7 +719,6 @@ Mesh::Mesh(ParameterInput *pin, RestartReader *rr, Properties_t &properties,
     }
   }
 #endif
-
   costlist = new double[nbtotal];
   ranklist = new int[nbtotal];
   nslist = new int[Globals::nranks];
@@ -739,13 +738,12 @@ Mesh::Mesh(ParameterInput *pin, RestartReader *rr, Properties_t &properties,
   // initialize cost array with the simplest estimate; all the blocks are equal
   for (int i = 0; i < nbtotal; i++)
     costlist[i] = 1.0;
-  
+
   CalculateLoadBalance(costlist, ranklist, nslist, nblist, nbtotal);
 
-  for ( int i=0; i<nbtotal; i++) {
-    std::cout << Globals::my_rank<<":::"<< i<<":"<<ranklist[i] <<std::endl;
+  for (int i = 0; i < nbtotal; i++) {
+    std::cout << Globals::my_rank << ":::" << i << ":" << ranklist[i] << std::endl;
   }
-
 
   //  if (Globals::my_rank == 0) OutputMeshStructure(ndim);
 
@@ -754,54 +752,30 @@ Mesh::Mesh(ParameterInput *pin, RestartReader *rr, Properties_t &properties,
     if (Globals::my_rank == 0) OutputMeshStructure(ndim);
     return;
   }
-#if 0
-
 
   // allocate data buffer
   int nb = nblist[Globals::my_rank];
   int nbs = nslist[Globals::my_rank];
   int nbe = nbs + nb - 1;
-  char *mbdata = new char[datasize * nb];
-  // load MeshBlocks (parallel)
-  if (resfile.Read_at_all(mbdata, datasize, nb, headeroffset + nbs * datasize) !=
-      static_cast<unsigned int>(nb)) {
-    msg << "### FATAL ERROR in Mesh constructor" << std::endl
-        << "The restart file is broken or input parameters are inconsistent."
-        << std::endl;
-    PARTHENON_FAIL(msg);
-  }
+  // Create MeshBlocks (parallel)
+  pblock = pfirst = nullptr;
   for (int i = nbs; i <= nbe; i++) {
-    // Match fixed-width integer precision of IOWrapperSizeT datasize
-    std::uint64_t buff_os = datasize * (i - nbs);
     SetBlockSizeAndBoundaries(loclist[i], block_size, block_bcs);
     // create a block and add into the link list
-    if (i == nbs) {
-      pblock = new MeshBlock(i, i - nbs, this, pin, properties, packages, loclist[i],
-                             block_size, block_bcs, costlist[i], mbdata + buff_os, gflag);
+    pblock = new MeshBlock(i, i - nbs, this, pin, properties, packages, loclist[i],
+                           block_size, block_bcs, costlist[i], gflag, pblock);
+
+    if (pfirst == nullptr) {
       pfirst = pblock;
-    } else {
-      pblock->next =
-          new MeshBlock(i, i - nbs, this, pin, properties, packages, loclist[i],
-                        block_size, block_bcs, costlist[i], mbdata + buff_os, gflag);
-      pblock->next->prev = pblock;
-      pblock = pblock->next;
     }
-    pblock->pbval->SearchAndSetNeighbors(tree, ranklist, nslist);
   }
+  pblock->pbval->SearchAndSetNeighbors(tree, ranklist, nslist);
   pblock = pfirst;
-  delete[] mbdata;
-  // check consistency
-  if (datasize != pblock->GetBlockSizeInBytes()) {
-    msg << "### FATAL ERROR in Mesh constructor" << std::endl
-        << "The restart file is broken or input parameters are inconsistent."
-        << std::endl;
-    PARTHENON_FAIL(msg);
-  }
+
+  // Load MeshBlock data (parallel)
 
   ResetLoadBalanceVariables();
-
-  // clean up
-  delete[] offset;
+#if 0
 #endif
 }
 
