@@ -53,6 +53,20 @@ fi
 mkdir $1 
 cd $1 
 
+# Display build command
+echo "cmake \
+ -DCMAKE_BUILD_TYPE=$2 \
+ -DCMAKE_CXX_COMPILER=$3 \
+ -DKokkos_ARCH_POWER9=$4 \
+ -DKokkos_ARCH_VOLTA70=$5 \
+ -DKokkos_ENABLE_CUDA=$6 \
+ -DKokkos_ENABLE_CUDA_UVM=$7 \
+ -DKokkos_ENABLE_CXX11=$8 \
+ -DKokkos_ENABLE_OPENMP=$9 \
+ -DNUM_MPI_PROC_TESTING=${10} \
+ -DOMP_NUM_THREADS=${11} \
+ -DPARTHENON_DISABLE_HDF5=${12} ../"
+
 cmake \
  -DCMAKE_BUILD_TYPE=$2 \
  -DCMAKE_CXX_COMPILER=$3 \
