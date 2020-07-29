@@ -449,7 +449,7 @@ void Container<T>::Remove(const std::string label) {
 }
 
 template <typename T>
-void Container<T>::SendFluxCorrection() {
+TaskStatus Container<T>::SendFluxCorrection() {
   for (auto &v : varVector_) {
     if (v->IsSet(Metadata::Independent)) {
       v->vbvar->SendFluxCorrection();
@@ -463,10 +463,11 @@ void Container<T>::SendFluxCorrection() {
       }
     }
   }
+  return TaskStatus::complete;
 }
 
 template <typename T>
-bool Container<T>::ReceiveFluxCorrection() {
+TaskStatus Container<T>::ReceiveFluxCorrection() {
   int success = 0, total = 0;
   for (auto &v : varVector_) {
     if (v->IsSet(Metadata::Independent)) {
@@ -483,11 +484,12 @@ bool Container<T>::ReceiveFluxCorrection() {
       }
     }
   }
-  return (success == total);
+  if (success == total) return TaskStatus::complete;
+  return TaskStatus::incomplete;
 }
 
 template <typename T>
-void Container<T>::SendBoundaryBuffers() {
+TaskStatus Container<T>::SendBoundaryBuffers() {
   // sends the boundary
   debug = 0;
   //  std::cout << "_________SEND from stage:"<<s->name()<<std::endl;
@@ -507,7 +509,7 @@ void Container<T>::SendBoundaryBuffers() {
     }
   }
 
-  return;
+  return TaskStatus::complete;
 }
 
 template <typename T>
@@ -532,7 +534,7 @@ void Container<T>::SetupPersistentMPI() {
 }
 
 template <typename T>
-bool Container<T>::ReceiveBoundaryBuffers() {
+TaskStatus Container<T>::ReceiveBoundaryBuffers() {
   bool ret;
   //  std::cout << "_________RECV from stage:"<<s->name()<<std::endl;
   ret = true;
@@ -563,11 +565,12 @@ bool Container<T>::ReceiveBoundaryBuffers() {
     }
   }
 
-  return ret;
+  if (ret) return TaskStatus::complete;
+  return TaskStatus::incomplete;
 }
 
 template <typename T>
-void Container<T>::ReceiveAndSetBoundariesWithWait() {
+TaskStatus Container<T>::ReceiveAndSetBoundariesWithWait() {
   //  std::cout << "_________RSET from stage:"<<s->name()<<std::endl;
   for (auto &v : varVector_) {
     if ((!v->mpiStatus) && v->IsSet(Metadata::FillGhost)) {
@@ -588,13 +591,14 @@ void Container<T>::ReceiveAndSetBoundariesWithWait() {
       }
     }
   }
+  return TaskStatus::complete;
 }
 // This really belongs in Container.cpp. However if I put it in there,
 // the meshblock file refuses to compile.  Don't know what's going on
 // there, but for now this is the workaround at the expense of code
 // bloat.
 template <typename T>
-void Container<T>::SetBoundaries() {
+TaskStatus Container<T>::SetBoundaries() {
   //    std::cout << "in set" << std::endl;
   // sets the boundary
   //  std::cout << "_________BSET from stage:"<<s->name()<<std::endl;
@@ -613,6 +617,7 @@ void Container<T>::SetBoundaries() {
       }
     }
   }
+  return TaskStatus::complete;
 }
 
 template <typename T>
@@ -633,7 +638,7 @@ void Container<T>::ResetBoundaryCellVariables() {
 }
 
 template <typename T>
-void Container<T>::StartReceiving(BoundaryCommSubset phase) {
+TaskStatus Container<T>::StartReceiving(BoundaryCommSubset phase) {
   //    std::cout << "in set" << std::endl;
   // sets the boundary
   //  std::cout << "________CLEAR from stage:"<<s->name()<<std::endl;
@@ -654,10 +659,11 @@ void Container<T>::StartReceiving(BoundaryCommSubset phase) {
       }
     }
   }
+  return TaskStatus::complete;
 }
 
 template <typename T>
-void Container<T>::ClearBoundary(BoundaryCommSubset phase) {
+TaskStatus Container<T>::ClearBoundary(BoundaryCommSubset phase) {
   //    std::cout << "in set" << std::endl;
   // sets the boundary
   //  std::cout << "________CLEAR from stage:"<<s->name()<<std::endl;
@@ -674,6 +680,7 @@ void Container<T>::ClearBoundary(BoundaryCommSubset phase) {
       }
     }
   }
+  return TaskStatus::complete;
 }
 
 template <typename T>
