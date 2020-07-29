@@ -9,6 +9,7 @@ before_script:
     - git submodule init
     - git submodule update
     - export OMP_NUM_THREADS=1
+    - export OMP_PROC_BIND=True
     - export OMP_NESTED=True
     - export CTEST_OUTPUT_ON_FAILURE=1
     - export J=$(( $(nproc --all) / 4  + 1 )) && echo Using ${J} cores during build
