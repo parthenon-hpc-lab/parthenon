@@ -206,8 +206,14 @@ if (${PARTHENON_ENABLE_UNIT_TESTS} OR ${PARTHENON_ENABLE_INTEGRATION_TESTS} OR $
     endif()
     if (NOT (${REGRESSION_GOLD_STANDARD_ON_DISK} EQUAL ${REGRESSION_GOLD_STANDARD_VER}))
       message(STATUS "Attempting to download latest gold standard files for regression tests. To disable set REGRESSION_GOLD_STANDARD_SYNC=OFF.")
-      file(DOWNLOAD https://github.com/lanl/parthenon/releases/download/regression-gold-v${REGRESSION_GOLD_STANDARD_VER}/parthenon_regression_gold_v${REGRESSION_GOLD_STANDARD_VER}.tgz ${PROJECT_SOURCE_DIR}/tst/regression/gold_standard/parthenon_regression_gold_v${REGRESSION_GOLD_STANDARD_VER}.tgz EXPECTED_HASH ${REGRESSION_GOLD_STANDARD_HASH})
-      file(ARCHIVE_EXTRACT INPUT ${PROJECT_SOURCE_DIR}/tst/regression/gold_standard/parthenon_regression_gold_v${REGRESSION_GOLD_STANDARD_VER}.tgz DESTINATION ${PROJECT_SOURCE_DIR}/tst/regression/gold_standard/)
+      file(
+        DOWNLOAD https://github.com/lanl/parthenon/releases/download/regression-gold-v${REGRESSION_GOLD_STANDARD_VER}/parthenon_regression_gold_v${REGRESSION_GOLD_STANDARD_VER}.tgz ${PROJECT_SOURCE_DIR}/tst/regression/gold_standard/parthenon_regression_gold_v${REGRESSION_GOLD_STANDARD_VER}.tgz
+        EXPECTED_HASH ${REGRESSION_GOLD_STANDARD_HASH}
+        )
+      execute_process(
+        COMMAND ${CMAKE_COMMAND} -E tar xzf ${PROJECT_SOURCE_DIR}/tst/regression/gold_standard/parthenon_regression_gold_v${REGRESSION_GOLD_STANDARD_VER}.tgz
+        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/tst/regression/gold_standard/
+        )
       message(STATUS "  Download of gold standard successful.")
     else()
       message(STATUS "Gold standard is up-to-date. No download required.")
