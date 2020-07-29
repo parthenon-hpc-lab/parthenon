@@ -31,14 +31,11 @@ To execute the tests run, e.g.,
 # from within the build directory (add -V fore more detailed output)
 ctest -R regression
 ```
-The gold standard files (reference solutions) used in the regression tests should automatically be downloaded during the `make` phase.
-Alternatively, you can download them by directly make the appropriate target
-```bash
-make gold_standard
-```
-or download them as a release from [GitHub](https://github.com/lanl/parthenon/releases/).
+The gold standard files (reference solutions) used in the regression tests should automatically be downloaded during the configure phase.
+Alternatively, you can download them as a release from [GitHub](https://github.com/lanl/parthenon/releases/)
+and extract the contents of the archive to `PARTHENON_ROOT/tst/regression/gold_standard` directory.
 Make sure to get the correct version matching your source
-(stored in the `REGRESSION_GOLD_STANDARD` CMake variable).
+(stored in the `REGRESSION_GOLD_STANDARD_VER` CMake variable).
 Note: If you results are (slightly) different, that may stem from using different
 compiler/optimization options.
 
