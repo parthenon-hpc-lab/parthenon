@@ -11,13 +11,13 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
 
+# Seaches for the python interpreter
 message(STATUS "Searching for python 3.6, required to run regression tests.")
 include(FindPython)
 find_package(Python3 3.6 REQUIRED COMPONENTS Interpreter)
-list(APPEND REQUIRED_MODULES argparse errno h5py math matplotlib numpy os shutil) 
-list(APPEND REQUIRED_MODULES subprocess sys) 
+
 include(${PROJECT_SOURCE_DIR}/cmake/PythonModuleCheck.cmake)
-required_python_modules_found("${REQUIRED_MODULES}")
+required_python_modules_found("${REQUIRED_PYTHON_MODULES}")
 
 # Adds the drivers used in the regression tests to a global cmake property: DRIVERS_USED_IN_TESTS
 function(record_driver arg)

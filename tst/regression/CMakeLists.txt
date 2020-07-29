@@ -11,9 +11,6 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
 
-# Include test setup functions
-include(${PROJECT_SOURCE_DIR}/cmake/TestSetup.cmake)
-
 # Adding regression tests
 #
 # To add additional regression tests to ctest, three things must be added to 
@@ -61,21 +58,26 @@ list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advectio
 --num_steps 5")
 
 if (ENABLE_HDF5)
-  setup_test( output_hdf5 "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
-  --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/output_hdf5/parthinput.advection \
-  --num_steps 4")
-  setup_test_coverage( output_hdf5 "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
-  --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/output_hdf5/parthinput.advection \
-  --num_steps 4")
-  setup_test_mpi( "${NUM_MPI_PROC_TESTING}" output_hdf5
-    "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
-  --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/output_hdf5/parthinput.advection \
-  --num_steps 4")
-  setup_test_mpi_coverage("${NUM_MPI_PROC_TESTING}" output_hdf5
-    "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
-  --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/output_hdf5/parthinput.advection \
-  --num_steps 4")
+  list(APPEND TEST_DIRS output_hdf5)
+  list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
+    --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/output_hdf5/parthinput.advection \
+    --num_steps 4")
+  # h5py is only neeed if hdf5 is enabled
+  list(APPEND REQUIRED_PYTHON_MODULES h5py) 
 endif()
+
+# Any modules that are required by python can be added to REQUIRED_PYTHON_MODULES list variable,
+# before including TestSetup.cmake. 
+list(APPEND REQUIRED_PYTHON_MODULES argparse errno math matplotlib numpy os shutil) 
+list(APPEND REQUIRED_PYTHON_MODULES subprocess sys) 
+
+# Include test setup functions, and check for python interpreter and modules
+#  setup_test
+#  setup_test_coverage
+#  setup_test_mpi
+#  setup_test_mpi_coverage
+include(${PROJECT_SOURCE_DIR}/cmake/TestSetup.cmake)
 
 list(LENGTH TEST_DIRS len)
 math(EXPR end_index "${len} - 1")
