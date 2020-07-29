@@ -60,14 +60,8 @@ ang_3 = 0.0
 ang_2_vert = false
 ang_3_vert = false
 amp = 1e-6
-
+use_scratch = false
 refine_tol = 1.01    # control the package specific refinement tagging function
 derefine_tol = 1.001
 compute_error = true
 
-<parthenon/output0>
-file_type = hdf5
-dt = -1.0
-variables = advected, one_minus_advected, & # comments are ok
-            one_minus_advected_sq, & # on every (& characters are ok in comments)
-            one_minus_sqrt_one_minus_advected_sq # line

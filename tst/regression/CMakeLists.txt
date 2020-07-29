@@ -58,7 +58,7 @@ list(APPEND TEST_DIRS advection_performance)
 list(APPEND TEST_PROCS "1")
 list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
 --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/advection_performance/parthinput.advection_performance \
---num_steps 5")
+--num_steps 20")
 
 if (ENABLE_HDF5)
   setup_test( output_hdf5 "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
