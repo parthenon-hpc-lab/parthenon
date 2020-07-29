@@ -11,6 +11,14 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
 
+message(STATUS "Searching for python 3.6, required to run regression tests.")
+include(FindPython)
+find_package(Python3 3.6 REQUIRED COMPONENTS Interpreter)
+list(APPEND REQUIRED_MODULES argparse errno h5py math matplotlib numpy os shutil) 
+list(APPEND REQUIRED_MODULES subprocess sys) 
+include(${PROJECT_SOURCE_DIR}/cmake/PythonModuleCheck.cmake)
+required_python_modules_found("${REQUIRED_MODULES}")
+
 # Adds the drivers used in the regression tests to a global cmake property: DRIVERS_USED_IN_TESTS
 function(record_driver arg)
     list(LENGTH arg len_list)
@@ -31,7 +39,7 @@ endfunction()
 # test property labels: regression, mpi-no
 function(setup_test dir arg)
   separate_arguments(arg) 
-  add_test( NAME regression_test:${dir} COMMAND python "${CMAKE_CURRENT_SOURCE_DIR}/run_test.py" 
+  add_test( NAME regression_test:${dir} COMMAND ${Python3_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/run_test.py" 
     ${arg} --test_dir "${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}"
     --output_dir "${PROJECT_BINARY_DIR}/tst/regression/outputs/${dir}")
   set_tests_properties(regression_test:${dir} PROPERTIES LABELS "regression;mpi-no" )
@@ -43,7 +51,7 @@ endfunction()
 # test property labels: regression, mpi-no; coverage
 function(setup_test_coverage dir arg)
   separate_arguments(arg) 
-  add_test( NAME regression_coverage_test:${dir} COMMAND python "${CMAKE_CURRENT_SOURCE_DIR}/run_test.py" 
+  add_test( NAME regression_coverage_test:${dir} COMMAND ${Python3_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/run_test.py" 
     ${arg} 
     --coverage
     --test_dir "${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}"
@@ -58,7 +66,7 @@ endfunction()
 function(setup_test_mpi nproc dir arg)
   if( MPI_FOUND )
     separate_arguments(arg) 
-    add_test( NAME regression_mpi_test:${dir} COMMAND python ${CMAKE_CURRENT_SOURCE_DIR}/run_test.py
+    add_test( NAME regression_mpi_test:${dir} COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/run_test.py
       --mpirun ${MPIEXEC_EXECUTABLE} 
       --mpirun_opts=${MPIEXEC_NUMPROC_FLAG} --mpirun_opts=${nproc}
       --mpirun_opts=${MPIEXEC_PREFLAGS} ${arg}
@@ -77,7 +85,7 @@ endfunction()
 function(setup_test_mpi_coverage nproc dir arg)
   if( MPI_FOUND )
     separate_arguments(arg) 
-    add_test( NAME regression_mpi_coverage_test:${dir} COMMAND python ${CMAKE_CURRENT_SOURCE_DIR}/run_test.py
+    add_test( NAME regression_mpi_coverage_test:${dir} COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/run_test.py
       --coverage
       --mpirun ${MPIEXEC_EXECUTABLE} 
       --mpirun_opts=${MPIEXEC_NUMPROC_FLAG} --mpirun_opts=${nproc}
