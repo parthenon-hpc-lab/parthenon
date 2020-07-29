@@ -39,6 +39,14 @@ Make sure to get the correct version matching your source
 Note: If you results are (slightly) different, that may stem from using different
 compiler/optimization options.
 
+In case you adds new tests that require reference data just put all file in the `PARTHENON_ROOT/tst/regression/gold_standard` directory and either
+- increase the version integer by one (both in the `PARTHENON_ROOT/tst/regression/gold_standard/current_version` file and in the
+`PARTHENON_ROOT/CMakeLists.txt` file), or
+- configure with `REGRESSION_GOLD_STANDARD_SYNC=OFF`.
+The former is considered the safer option as it prevents accidental overwriting of those files during configure
+(as `REGRESSION_GOLD_STANDARD_SYNC` is `ON` by default).
+In the pull request of the suggested changes we will then update the official gold standard release file and appropriate hash prior to merging.
+
 ### ParthenonManager
 
 This class provides a streamlined capability to write new applications by providing a simple interface to initialize and finalize a simulation.  It's usage is straightforward and demonstrated in the &pi; [example](../example/calculate_pi/calculate_pi.cpp).
