@@ -21,6 +21,8 @@ problem_id = advection
 <parthenon/mesh>
 refinement = none
 numlevel = 2
+num_threads = 1
+num_streams = 1
 
 nx1 = 64
 x1min = -0.5

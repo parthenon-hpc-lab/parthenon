@@ -60,7 +60,7 @@ Examples can be found in the [advection example](../example/advection/advection_
 +      Kokkos::MinMax<Real>(minmax));
 ```
 (note the explicit use of `pmb->exec_space` to use to execution space associated with the `MeshBlock`).
-Also note note the `par_policy` function, which is used to control the default behavior of how
+Also note the `par_policy` function, which is used to control the default behavior of how
 Kokkos launches kernels, see following section.
 
 Another example are the [buffer packing]() functions
@@ -105,6 +105,7 @@ Roughly speaking
 the kernels
 - with the property set to true, kernels are not optimized so that the calls are asynchronous,
 which may allow for overlapping kernel execution on a device.
+See also discussion [here](https://github.com/kokkos/kokkos/issues/2545).
 
 The default behavior for the `par_for` abstractions in Parthenon is controlled through the
 `PARTHENON_USE_LIGHTWEIGHT_HINT` cmake option (default `OFF`).

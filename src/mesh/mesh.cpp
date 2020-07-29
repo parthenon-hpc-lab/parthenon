@@ -68,6 +68,17 @@ void CheckThreadAndStreamConfig(int num_threads, int num_streams) {
               << std::endl;
   }
 #else
+  // Check if environment and parameter match. Otherwise warn user.
+  if (const char *env_omp_num_threads_str = std::getenv("OMP_NUM_THREADS")) {
+    int env_omp_num_threads = atoi(env_omp_num_threads_str);
+    if ((num_threads != env_omp_num_threads) && (Globals::my_rank == 0)) {
+      std::cout << "### WARNING requesting " << num_threads
+                << " thread(s) from parameter file or command line while "
+                << "environment variable OMP_NUM_THREADS is set to "
+                << env_omp_num_threads << "." << std::endl
+                << "The parameter variable will take precedence!" << std::endl;
+    }
+  }
   if ((num_threads > 1) &&
 #if _OPENMP >= 201511
       (omp_get_max_active_levels() <= 1)) {
@@ -150,6 +161,9 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
       packages(packages),
       // private members:
       next_phys_id_(),
+      // TODO(future us) setting num_threads and num_streams default to 1 is a safe
+      // default options. At some point we should revisit if we can give the user
+      // a better sense of "performant" default depending on the simulation setup.
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
       num_mesh_streams_(pin->GetOrAddInteger("parthenon/mesh", "num_streams", 1)),
       tree(this), use_uniform_meshgen_fn_{true, true, true, true},
