@@ -43,6 +43,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   Real vx = pin->GetOrAddReal("Advection", "vx", 1.0);
   Real vy = pin->GetOrAddReal("Advection", "vy", 1.0);
   Real vz = pin->GetOrAddReal("Advection", "vz", 1.0);
+  bool use_scratch = pin->GetOrAddBoolean("Advection", "use_scratch", true);
+  pkg->AddParam<bool>("use_scratch", use_scratch);
   Real refine_tol = pin->GetOrAddReal("Advection", "refine_tol", 0.3);
   pkg->AddParam<>("refine_tol", refine_tol);
   Real derefine_tol = pin->GetOrAddReal("Advection", "derefine_tol", 0.03);
@@ -289,7 +291,7 @@ Real EstimateTimestep(std::shared_ptr<Container<Real>> &rc) {
 // Compute fluxes at faces given the constant velocity field and
 // some field "advected" that we are pushing around.
 // This routine implements all the "physics" in this example
-TaskStatus CalculateFluxes(std::shared_ptr<Container<Real>> &rc) {
+TaskStatus CalculateFluxesWithScratch(std::shared_ptr<Container<Real>> &rc) {
   MeshBlock *pmb = rc->pmy_block;
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
@@ -395,6 +397,70 @@ TaskStatus CalculateFluxes(std::shared_ptr<Container<Real>> &rc) {
               });
             }
           }
+        });
+  }
+
+  return TaskStatus::complete;
+}
+
+// same as above but not using scratch pad memory
+// also using hard coded reconstruction here
+TaskStatus CalculateFluxesNoScratch(std::shared_ptr<Container<Real>> &rc) {
+  MeshBlock *pmb = rc->pmy_block;
+  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
+  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
+  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
+
+  ParArrayND<Real> advected = rc->Get("advected").data;
+  auto pkg = pmb->packages["advection_package"];
+  const auto &vx = pkg->Param<Real>("vx");
+  const auto &vy = pkg->Param<Real>("vy");
+  const auto &vz = pkg->Param<Real>("vz");
+
+  const int nx1 = pmb->cellbounds.ncellsi(IndexDomain::entire);
+  const int nvar = advected.GetDim(4);
+  parthenon::ParArray4D<Real> x1flux = rc->Get("advected").flux[X1DIR].Get<4>();
+  // offset for implicit donor cell reconstruction
+  int offset = 0;
+  if (vx > 0) {
+    offset = -1;
+  } else {
+    offset = 0;
+  }
+  // get x-fluxes
+  pmb->par_for(
+      "x1 flux", 0, nvar - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e + 1,
+      KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
+        x1flux(n, k, j, i) = advected(n, k, j, i + offset) * vx;
+      });
+
+  if (pmb->pmy_mesh->ndim >= 2) {
+    if (vy > 0) {
+      offset = -1;
+    } else {
+      offset = 0;
+    }
+    // get y-fluxes
+    parthenon::ParArray4D<Real> x2flux = rc->Get("advected").flux[X2DIR].Get<4>();
+    pmb->par_for(
+        "x2 flux", 0, nvar - 1, kb.s, kb.e, jb.s, jb.e + 1, ib.s, ib.e,
+        KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
+          x2flux(n, k, j, i) = advected(n, k, j + offset, i) * vy;
+        });
+  }
+
+  if (pmb->pmy_mesh->ndim == 3) {
+    if (vz > 0) {
+      offset = -1;
+    } else {
+      offset = 0;
+    }
+    // get z-fluxes
+    parthenon::ParArray4D<Real> x3flux = rc->Get("advected").flux[X3DIR].Get<4>();
+    pmb->par_for(
+        "x3 flux", 0, nvar - 1, kb.s, kb.e + 1, jb.s, jb.e, ib.s, ib.e,
+        KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
+          x3flux(n, k, j, i) = advected(n, k + offset, j, i) * vz;
         });
   }
 

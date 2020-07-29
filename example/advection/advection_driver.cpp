@@ -61,6 +61,8 @@ TaskStatus UpdateContainer(MeshBlock *pmb, int stage,
 
 // See the advection.hpp declaration for a description of how this function gets called.
 TaskList AdvectionDriver::MakeTaskList(MeshBlock *pmb, int stage) {
+  auto pkg = pmb->packages["advection_package"];
+
   TaskList tl;
 
   TaskID none(0);
@@ -84,7 +86,12 @@ TaskList AdvectionDriver::MakeTaskList(MeshBlock *pmb, int stage) {
   auto start_recv = tl.AddTask(&Container<Real>::StartReceiving, sc1.get(), none,
                                BoundaryCommSubset::all);
 
-  auto advect_flux = tl.AddTask(advection_package::CalculateFluxes, none, sc0);
+  TaskID advect_flux;
+  if (pkg->Param<bool>("use_scratch")) {
+    advect_flux = tl.AddTask(advection_package::CalculateFluxesWithScratch, none, sc0);
+  } else {
+    advect_flux = tl.AddTask(advection_package::CalculateFluxesNoScratch, none, sc0);
+  }
 
   auto send_flux =
       tl.AddTask(&Container<Real>::SendFluxCorrection, sc0.get(), advect_flux);
