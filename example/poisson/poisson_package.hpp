@@ -24,7 +24,8 @@ using namespace parthenon::package::prelude;
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 TaskStatus Smooth(std::shared_ptr<Container<Real>> &rc_in,
                   std::shared_ptr<Container<Real>> &rc_out);
-Real GetL1Residual(std::shared_ptr<Container<Real>> &rc);
+Real GetInfResidual(std::shared_ptr<Container<Real>> &rc);
+Real GetL2Residual(std::shared_ptr<Container<Real>> &rc);
 // Residual and diagonal coalesced into a single kernel for performance
 TaskStatus ComputeResidualAndDiagonal(std::shared_ptr<Container<Real>> &div,
                                       std::shared_ptr<Container<Real>> &update);

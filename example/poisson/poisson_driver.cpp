@@ -51,8 +51,7 @@ TaskList PoissonDriver::MakeTaskList(MeshBlock *pmb) {
   auto flux_div = tl.AddTask(parthenon::Update::FluxDivergence, recv_flux, base, div);
 
   // compute residual and D^{-1}
-  auto compute_residual =
-    tl.AddTask(ComputeResidualAndDiagonal, flux_div, div, update);
+  auto compute_residual = tl.AddTask(ComputeResidualAndDiagonal, flux_div, div, update);
 
   // u^{n+1}_{i,j,k} = u^{n}_{i,j,k} + w*((1/D^n_{i,j,k}) * residual^{n}_{i,j,k})
   // depends only on state from previous step
@@ -77,8 +76,8 @@ TaskList PoissonDriver::MakeTaskList(MeshBlock *pmb) {
   auto set_bc = tl.AddTask(parthenon::ApplyBoundaryConditions, prolongBound, update);
 
   // fill in derived fields
-  auto fill_derived = tl.AddTask(parthenon::FillDerivedVariables::FillDerived,
-                                 set_bc, update);
+  auto fill_derived =
+      tl.AddTask(parthenon::FillDerivedVariables::FillDerived, set_bc, update);
 
   // swap containers
   auto swap = tl.AddTask(

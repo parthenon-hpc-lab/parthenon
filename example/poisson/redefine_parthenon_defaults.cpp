@@ -33,6 +33,7 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
   auto &rho = rc->Get("potential").data;
 
   auto pkg = packages["poisson_package"];
+  Real r = pkg->Param<Real>("radius");
 
   auto phi_h = phi.GetHostMirror();
   auto rho_h = rho.GetHostMirror();
@@ -47,7 +48,7 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
         phi_h(k, j, i) = 0; // initial guess. TODO(JMM) set it to a random number?
         Real rsq = (coords.x1v(i) * coords.x1v(i) + coords.x2v(j) * coords.x2v(j) +
                     coords.x3v(k) * coords.x3v(k));
-        rho_h(k, j, i) = (rsq < 0.15 * 0.15 ? 1.0 : 0.0);
+        rho_h(k, j, i) = (rsq < r * r ? 1.0 : 0.0);
       }
     }
   }

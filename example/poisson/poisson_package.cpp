@@ -29,6 +29,9 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   Real K = pin->GetOrAddReal("poisson", "K", 1);
   pkg->AddParam<>("K", K);
 
+  Real radius = pin->GetOrAddReal("poisson", "radius", 0.15);
+  pkg->AddParam<>("radius", radius);
+
   Real w = pin->GetOrAddReal("poisson", "weight", 1);
   pkg->AddParam<>("weight", w);
 
@@ -58,7 +61,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 }
 
 // TODO(JMM): Refactor to reduced repeated code
-Real GetL1Residual(std::shared_ptr<Container<Real>> &rc) {
+Real GetInfResidual(std::shared_ptr<Container<Real>> &rc) {
   MeshBlock *pmb = rc->pmy_block;
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
@@ -75,6 +78,25 @@ Real GetL1Residual(std::shared_ptr<Container<Real>> &rc) {
       },
       Kokkos::Max<Real>(max));
   return max;
+}
+Real GetL2Residual(std::shared_ptr<Container<Real>> &rc) {
+  MeshBlock *pmb = rc->pmy_block;
+  auto &coords = pmb->coords;
+  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
+  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
+  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
+  ParArrayND<Real> res = rc->Get("residual").data;
+
+  Real sum = 0;
+  Kokkos::parallel_reduce(
+      "Poisson Get Residual",
+      Kokkos::MDRangePolicy<Kokkos::Rank<3>>(pmb->exec_space, {kb.s, jb.s, ib.s},
+                                             {kb.e + 1, jb.e + 1, ib.e + 1}),
+      KOKKOS_LAMBDA(int k, int j, int i, Real &ltot) {
+        ltot += res(k, j, i) * res(k, j, i) * coords.Volume(k, j, i);
+      },
+      Kokkos::Sum<Real>(sum));
+  return sum;
 }
 
 TaskStatus ComputeResidualAndDiagonal(std::shared_ptr<Container<Real>> &div,
