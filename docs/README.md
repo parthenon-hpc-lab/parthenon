@@ -26,16 +26,26 @@ The tests currently cover
 - Advection of a smoothed sphere at an angle on a *static* grid, on a *static* grid a twice the resolution, and with *AMR* covering the sphere at the effective higher resolution
 - Advection of a sharp sphere at an angle with *AMR* writing hdf5 output and comparing against a gold standard output.
 
-To execute the tests first obtain the current gold standard output
-```bash
-# from within the main parthenon directory
-wget -qO- https://pgrete.de/dl/parthenon_regression_gold_latest.tgz | tar -xz -C tst/regression/gold_standard
-```
-and afterwards run the tests, e.g., through
+To execute the tests run, e.g.,
 ```bash
 # from within the build directory (add -V fore more detailed output)
 ctest -R regression
 ```
+The gold standard files (reference solutions) used in the regression tests should automatically be downloaded during the configure phase.
+Alternatively, you can download them as a release from [GitHub](https://github.com/lanl/parthenon/releases/)
+and extract the contents of the archive to `PARTHENON_ROOT/tst/regression/gold_standard` directory.
+Make sure to get the correct version matching your source
+(stored in the `REGRESSION_GOLD_STANDARD_VER` CMake variable).
+Note: If you results are (slightly) different, that may stem from using different
+compiler/optimization options.
+
+In case you adds new tests that require reference data just put all file in the `PARTHENON_ROOT/tst/regression/gold_standard` directory and either
+- increase the version integer by one (both in the `PARTHENON_ROOT/tst/regression/gold_standard/current_version` file and in the
+`PARTHENON_ROOT/CMakeLists.txt` file), or
+- configure with `REGRESSION_GOLD_STANDARD_SYNC=OFF`.
+The former is considered the safer option as it prevents accidental overwriting of those files during configure
+(as `REGRESSION_GOLD_STANDARD_SYNC` is `ON` by default).
+In the pull request of the suggested changes we will then update the official gold standard release file and appropriate hash prior to merging.
 
 ### ParthenonManager
 
