@@ -81,10 +81,17 @@ class TestCase(utils.test_case.TestCaseAbs):
         analyze_status = True
         print(os.getcwd())
 
-        parthenonPath = os.path.realpath(__file__)
-        idx = parthenonPath.find('/parthenon/')
-        parthenonPath = parthenonPath[:idx]+'/parthenon'
+        # Determine path to parthenon installation
+        # Fallback to relative path on failure
+        try:
+            parthenonPath = os.path.realpath(__file__)
+            idx = parthenonPath.rindex('/parthenonxxx/')
+            parthenonPath = parthenonPath[:idx]+'/parthenon'
+        except ValueError:
+            baseDir = os.path.dirname(__file__)
+            parthenonPath = baseDir + '/../../../..'
         sys.path.insert(1, parthenonPath+'/scripts/python')
+
         try:
             import phdf_diff 
         except ModuleNotFoundError:
