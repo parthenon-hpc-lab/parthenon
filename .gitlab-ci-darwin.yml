@@ -29,12 +29,10 @@ before_script:
     echo "Updating regression Gold standard to ${GOLD_STANDARD_VER}." &&
     wget -qO- https://pgrete.de/dl/parthenon_regression_gold_r${GOLD_STANDARD_VER}.tgz | tar -xz -C tst/regression/gold_standard; fi
 
-parthenon-power9-gcc-mpi-performance-regression:
+.gcc-mpi-cuda-performance-regression:
   variables: 
     BUILD_DIR: "build_power9_perf_regression_gcc_mpi"
     CMAKE_CXX_COMPILER: $CI_PROJECT_DIR/external/Kokkos/bin/nvcc_wrapper
-  stage: performance-regression
-  when: manual
   script:
     - echo "./scripts/darwin/build.sh" > build_cmd.txt
     - echo ${BUILD_DIR}              >> build_cmd.txt
@@ -69,5 +67,17 @@ parthenon-power9-gcc-mpi-performance-regression:
       - ${CI_PROJECT_DIR}/${BUILD_DIR}/tst/regression/advection_convergence/advection-errors.dat
       - ${CI_PROJECT_DIR}/${BUILD_DIR}/tst/regression/outputs/advection_convergence/advection-errors.png
 
+parthenon-power9-gcc-mpi-cuda-perf-manual:
+  extends: .gcc-mpi-cuda-performance-regression
+  stage: performance-regression
+  when: manual
+  except:
+    - schedules
 
+parthenon-power9-gcc-mpi-cuda-perf-schedule:
+  extends: .gcc-mpi-cuda-performance-regression
+  stage: performance-regression
+  only:
+    - schedules
+    - master
 
