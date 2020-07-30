@@ -19,6 +19,9 @@ Parthenon AMR infrastructure
 # Dependencies Other
 
 * catch2
+* python3
+* h5py
+* numpy
 
 # Installation
 
@@ -29,8 +32,8 @@ For detailed instructions for a given system, see our [build doc](docs/building.
     mkdir build
     cd build
     cmake ../
-    make
-    make test
+    cmake --build . -j 8 
+    ctest
 
 ## Import Into Your Code
 ```c++
