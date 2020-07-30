@@ -17,7 +17,7 @@
 #include <parthenon/package.hpp>
 
 #include "advection_package.hpp"
-#include "defs.hpp"
+#include "config.hpp"
 #include "utils/error_checking.hpp"
 
 using namespace parthenon::package::prelude;
@@ -36,8 +36,8 @@ Packages_t ParthenonManager::ProcessPackages(std::unique_ptr<ParameterInput> &pi
 }
 
 void MeshBlock::ProblemGenerator(ParameterInput *pin) {
-  Container<Real> &rc = real_containers.Get();
-  auto &q = rc.Get("advected").data;
+  auto &rc = real_containers.Get();
+  auto &q = rc->Get("advected").data;
 
   auto pkg = packages["advection_package"];
   const auto &amp = pkg->Param<Real>("amp");
@@ -116,7 +116,7 @@ void Mesh::UserWorkAfterLoop(ParameterInput *pin, SimTime &tm) {
     IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
 
     // calculate error on host
-    auto q = rc.Get("advected").data.GetHostMirrorAndCopy();
+    auto q = rc->Get("advected").data.GetHostMirrorAndCopy();
     for (int k = kb.s; k <= kb.e; k++) {
       for (int j = jb.s; j <= jb.e; j++) {
         for (int i = ib.s; i <= ib.e; i++) {
@@ -156,11 +156,11 @@ void Mesh::UserWorkAfterLoop(ParameterInput *pin, SimTime &tm) {
 
 #ifdef MPI_PARALLEL
   if (Globals::my_rank == 0) {
-    MPI_Reduce(MPI_IN_PLACE, &l1_err, 1, MPI_ATHENA_REAL, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(MPI_IN_PLACE, &max_err, 1, MPI_ATHENA_REAL, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(MPI_IN_PLACE, &l1_err, 1, MPI_PARTHENON_REAL, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(MPI_IN_PLACE, &max_err, 1, MPI_PARTHENON_REAL, MPI_MAX, 0, MPI_COMM_WORLD);
   } else {
-    MPI_Reduce(&l1_err, &l1_err, 1, MPI_ATHENA_REAL, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&max_err, &max_err, 1, MPI_ATHENA_REAL, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&l1_err, &l1_err, 1, MPI_PARTHENON_REAL, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&max_err, &max_err, 1, MPI_PARTHENON_REAL, MPI_MAX, 0, MPI_COMM_WORLD);
   }
 #endif
 

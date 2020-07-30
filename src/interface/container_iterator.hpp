@@ -18,6 +18,7 @@
 /// type in the Container itself, but for now we have to do it this
 /// way because Sriram doesn't know enough C++ to do this correctly.
 
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -35,9 +36,10 @@ class ContainerIterator {
   // std::vector<FaceVariable> varsFace; // face vars that match
   // std::vector<EdgeVariable> varsEdge; // edge vars that match
 
-  void MakeList(const Container<T> &c, const std::vector<std::string> &names) {
-    auto var_map = c.GetCellVariableMap();
-    auto sparse_map = c.GetSparseMap();
+  void MakeList(const std::shared_ptr<Container<T>> &c,
+                const std::vector<std::string> &names) {
+    auto var_map = c->GetCellVariableMap();
+    auto sparse_map = c->GetSparseMap();
     // reverse iterator to end up with a list in the same order as requested
     for (const auto &name : names) {
       bool found = false;
@@ -71,9 +73,10 @@ class ContainerIterator {
   /// initializes the iterator with a container and a flag to match
   /// @param c the container on which you want the iterator
   /// @param flags: a vector of Metadata::flags that you want to match
-  ContainerIterator<T>(const Container<T> &c, const std::vector<MetadataFlag> &flags) {
-    allVars_ = c.GetCellVariableVector();
-    for (auto &svar : c.GetSparseVector()) {
+  ContainerIterator<T>(const std::shared_ptr<Container<T>> &c,
+                       const std::vector<MetadataFlag> &flags) {
+    allVars_ = c->GetCellVariableVector();
+    for (auto &svar : c->GetSparseVector()) {
       CellVariableVector<T> &svec = svar->GetVector();
       allVars_.insert(allVars_.end(), svec.begin(), svec.end());
     }
@@ -85,7 +88,8 @@ class ContainerIterator {
   /// initializes the iterator with a container and a flag to match
   /// @param c the container on which you want the iterator
   /// @param names: a vector of std::string with names you want to match
-  ContainerIterator<T>(const Container<T> &c, const std::vector<std::string> &names) {
+  ContainerIterator<T>(const std::shared_ptr<Container<T>> &c,
+                       const std::vector<std::string> &names) {
     MakeList(c, names);
     /*allVars_ = c.GetCellVariableVector();
     for (auto &svar : c.GetSparseVector()) {
@@ -118,7 +122,7 @@ class ContainerIterator {
 
     // 2: fill in the subset of variables that match mask
     for (auto pv : allVars_) {
-      if (pv->metadata().AnyFlagsSet(flags)) {
+      if (pv->metadata().AllFlagsSet(flags)) {
         vars.push_back(pv);
       }
     }

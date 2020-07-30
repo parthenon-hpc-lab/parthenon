@@ -13,7 +13,9 @@
 #ifndef INTERFACE_UPDATE_HPP_
 #define INTERFACE_UPDATE_HPP_
 
-#include "athena.hpp"
+#include <memory>
+
+#include "defs.hpp"
 #include "interface/container.hpp"
 #include "mesh/mesh.hpp"
 
@@ -21,19 +23,22 @@ namespace parthenon {
 
 namespace Update {
 
-TaskStatus FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont);
-void UpdateContainer(Container<Real> &in, Container<Real> &dudt_cont, const Real dt,
-                     Container<Real> &out);
-void AverageContainers(Container<Real> &c1, Container<Real> &c2, const Real wgt1);
-Real EstimateTimestep(Container<Real> &rc);
+TaskStatus FluxDivergence(std::shared_ptr<Container<Real>> &in,
+                          std::shared_ptr<Container<Real>> &dudt_cont);
+void UpdateContainer(std::shared_ptr<Container<Real>> &in,
+                     std::shared_ptr<Container<Real>> &dudt_cont, const Real dt,
+                     std::shared_ptr<Container<Real>> &out);
+void AverageContainers(std::shared_ptr<Container<Real>> &c1,
+                       std::shared_ptr<Container<Real>> &c2, const Real wgt1);
+Real EstimateTimestep(std::shared_ptr<Container<Real>> &rc);
 
 } // namespace Update
 
 namespace FillDerivedVariables {
 
-using FillDerivedFunc = void(Container<Real> &);
+using FillDerivedFunc = void(std::shared_ptr<Container<Real>> &);
 void SetFillDerivedFunctions(FillDerivedFunc *pre, FillDerivedFunc *post);
-TaskStatus FillDerived(Container<Real> &rc);
+TaskStatus FillDerived(std::shared_ptr<Container<Real>> &rc);
 
 } // namespace FillDerivedVariables
 

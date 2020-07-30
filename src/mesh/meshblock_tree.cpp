@@ -27,7 +27,7 @@
 #include <sstream>
 #include <stdexcept>
 
-#include "athena.hpp"
+#include "defs.hpp"
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock_tree.hpp"

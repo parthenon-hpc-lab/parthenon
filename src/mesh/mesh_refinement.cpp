@@ -25,8 +25,8 @@
 #include <string>
 #include <tuple>
 
-#include "athena.hpp"
 #include "coordinates/coordinates.hpp"
+#include "defs.hpp"
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
@@ -995,7 +995,7 @@ void MeshRefinement::ProlongateInternalField(FaceField &fine, int si, int ei, in
 
 void MeshRefinement::CheckRefinementCondition() {
   MeshBlock *pmb = pmy_block_;
-  Container<Real> &rc = pmb->real_containers.Get();
+  auto &rc = pmb->real_containers.Get();
   AmrTag ret = Refinement::CheckAllRefinement(rc);
   // if (AMRFlag_ != nullptr) ret = AMRFlag_(pmb);
   SetRefinement(ret);

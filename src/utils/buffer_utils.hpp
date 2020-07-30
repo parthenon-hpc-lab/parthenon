@@ -19,7 +19,7 @@
 //! \file buffer_utils.hpp
 //  \brief prototypes of utility functions to pack/unpack buffers
 
-#include "athena.hpp"
+#include "defs.hpp"
 #include "parthenon_arrays.hpp"
 
 namespace parthenon {

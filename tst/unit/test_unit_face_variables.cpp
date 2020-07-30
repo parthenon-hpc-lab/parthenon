@@ -22,7 +22,7 @@
 
 #include <catch2/catch.hpp>
 
-#include "athena.hpp"
+#include "defs.hpp"
 #include "interface/metadata.hpp"
 #include "interface/variable.hpp"
 #include "kokkos_abstraction.hpp"
@@ -35,7 +35,7 @@ using parthenon::par_for;
 using parthenon::Real;
 
 TEST_CASE("Can create a vector-valued face-variable",
-          "[FaceVariable][Constructor][Get][Set]") {
+          "[FaceVariable][Constructor][Get][Set][coverage]") {
   GIVEN("One-copy, vector metadata, meshblock size, and vector shape") {
     constexpr int blockShape[] = {14, 12, 10}; // arbitrary
     std::vector<int> array_size({1});          // 1-vector
