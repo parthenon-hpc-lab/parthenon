@@ -36,15 +36,11 @@ if (NOT CURRENT_YEAR STREQUAL LAST_UPDATED)
 endif()
 
 foreach(FILE ${COPYRIGHTABLE})
-  string(REGEX MATCH "FindPython3.cmake" EXTERNAL_FILE ${FILE})
-  if (NOT EXTERNAL_FILE)
     file(READ ${FILE} CONTENTS)
 
     string(REGEX MATCH "\\(C\\) \\(or copyright\\) ${LAST_UPDATED}\\. Triad National Security, LLC\\. All rights reserved\\." HAS_COPYRIGHT ${CONTENTS})
 
     if (NOT HAS_COPYRIGHT)
-      string(REGEX MATCH "\\(C\\) \\(or copyright\\) ${LAST_UPDATED}\\. Triad National Security, LLC\\. All rights reserved\\." HAS_COPYRIGHT ${CONTENTS})
-      message(FATAL_ERROR "File ${FILE} does not contain an up to date copy of the Triad copyright")
+        message(FATAL_ERROR "File ${FILE} does not contain an up to date copy of the Triad copyright")
     endif()
-  endif()
 endforeach()
