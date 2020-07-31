@@ -88,7 +88,7 @@ A `Kokkos::View` with the dimensionality you want can be extracted
 with `ParArrayND.Get<D>();`. This returns a rank-D view. Dimensions
 higher than D are set to zero.
 
-#### Type Subtleties with `ParArrayND.Get`
+#### Type Subtleties
 
 Note that the type returned by `ParArrayND.Get<D>()` is not not a
 simple type. For example, the type returned by `ParArrayND<Real>.Get<4>();` is:
