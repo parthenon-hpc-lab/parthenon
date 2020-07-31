@@ -1,3 +1,25 @@
+# Parthenon Set-Dimensional Arrays
+
+We provide type aliases to `Kokkos::View`. They are
+
+```C++
+template <typename T>
+using ParArray1D = Kokkos::View<T *, LayoutWrapper, DevMemSpace>;
+template <typename T>
+using ParArray2D = Kokkos::View<T **, LayoutWrapper, DevMemSpace>;
+template <typename T>
+using ParArray3D = Kokkos::View<T ***, LayoutWrapper, DevMemSpace>;
+template <typename T>
+using ParArray4D = Kokkos::View<T ****, LayoutWrapper, DevMemSpace>;
+template <typename T>
+using ParArray5D = Kokkos::View<T *****, LayoutWrapper, DevMemSpace>;
+template <typename T>
+using ParArray6D = Kokkos::View<T ******, LayoutWrapper, DevMemSpace>;
+```
+where `LayoutWrapper` is currently hardcoded to `Kokkos::LayoutRight`.
+`DevMemSpace` is the memory space associated with the default execution space.
+If UVM is enabled, it is `Kokkos::CudaUVMSpace`.
+
 # Parthenon Arbitrary-Dimensional Arrays
 
 `ParArrayND` is a wrapper around a rank 6 `Kokkos::View`. It provides
@@ -18,8 +40,8 @@ ParArrayND<Real> myArray("a 3d array", 6, 5, 4);
 ```
 
 If you don't know what to name your array, try using the
-`PARARRAY_TEMP` macro. It is provided to name the array based on the
-file and line where it is created.
+`PARARRAY_TEMP` macro as the name. It is provided to name the array
+based on the file and line where it is created.
 
 ### Rank counting
 
@@ -65,6 +87,39 @@ true for `Get`, and `GetMirror`, which are described below.
 A `Kokkos::View` with the dimensionality you want can be extracted
 with `ParArrayND.Get<D>();`. This returns a rank-D view. Dimensions
 higher than D are set to zero.
+
+#### Type Subtleties with `ParArrayND.Get`
+
+Note that the type returned by `ParArrayND.Get<D>()` is not not a
+simple type. For example, the type returned by `ParArrayND<Real>.Get<4>();` is:
+```C++
+Kokkos::View<double****, Kokkos::LayoutRight, Kokkos::Device<Kokkos::Serial, Kokkos::HostSpace>, Kokkos::MemoryTraits<0> >
+```
+while the type for `ParArray4D<Real>` is
+```C++
+Kokkos::View<double*****, Kokkos::LayoutRight, Kokkos::HostSpace>
+```
+These two types are compatible. So you can set one equal to the other and do implicit casts.
+I.e., the following works:
+```C++
+void doNothingByValue(ParArray4D<Real> array) {}
+ParArrayND<Real> ndarray;
+auto b = ndarray.Get<4>();
+doNothingByValue(b);
+```
+However, implicit casts on reference variables are not performed. So the following fails:
+```C++
+void doNothingByReference(ParArray4D<Real>& array) {}
+ParArrayND<Real> ndarray;
+auto b = ndarray.Get<4>();
+doNothingByReference(b);
+```
+To avoid this issue, you can:
+- Explicitly typecast `ParArrayND` when using it in conjunction with Kokkos views.
+- Pass views by reference
+- Template appropriate functions on array type
+
+For more details, see [here](https://github.com/lanl/parthenon/issues/143).
 
 ### Mirrors and Deep Copies
 
