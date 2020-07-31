@@ -11,11 +11,40 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
 
+
+
 # Seaches for the python interpreter
 message(STATUS "Searching for python 3.6, required to run regression tests.")
-include(FindPython3)
 find_package(Python3 3.6 REQUIRED COMPONENTS Interpreter)
 
+# search executable path
+if ( NOT Python3_EXECUTABLE)
+  message(WARNING "python package not found.  Searching path.")
+  find_program(
+    Python3_EXECUTABLE NAMES
+    python3.7
+    python3.6
+    python3 )
+
+  if ( NOT Python3_EXECUTABLE )
+    message(FATAL "ERROR: python3 not found")
+  endif()
+
+  message(STATUS "FOUND: python=${Python3_EXECUTABLE}, checking version")
+  execute_process(
+    COMMAND ${Python3_EXECUTABLE} --version
+    OUTPUT_VARIABLE Python3_VERSION_OUTPUT)
+
+  if (Python3_VERSION_OUTPUT MATCHES "Python version ([3-9]+\.[0-9]+\.[0-9]+)")
+    set(Python3_VERSION ${CMAKE_MATCH_1})
+    set(Python_Interpreter_FOUND ${Python3_EXECUTABLE})
+    message(STATUS "$Python3_VERSION_OUTPUT")
+  else()
+    message(FATAL "Required version of Python3 not found: ${Python3_VERSION_OUTPUT}")
+  endif()
+endif()
+
+# Ensure all required packages are present
 include(${PROJECT_SOURCE_DIR}/cmake/PythonModuleCheck.cmake)
 required_python_modules_found("${REQUIRED_PYTHON_MODULES}")
 
