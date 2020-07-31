@@ -14,12 +14,12 @@
 
 
 # Seaches for the python interpreter
-message(STATUS "Searching for python 3.6, required to run regression tests.")
-find_package(Python3 3.6  COMPONENTS Interpreter)
+message(STATUS "Searching for python 3.6 or higher, required to run regression tests.")
+find_package(xPython3 3.6 QUIET COMPONENTS Interpreter)
 
 # search executable path
 if ( NOT Python3_FOUND)
-  message(WARNING "python package not found.  Searching path.")
+  message(STATUS "python package not found.  Searching path.")
   find_program(
     Python3_EXECUTABLE NAMES
     python3.7
