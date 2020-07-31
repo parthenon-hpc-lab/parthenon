@@ -13,7 +13,7 @@
 
 # Seaches for the python interpreter
 message(STATUS "Searching for python 3.6, required to run regression tests.")
-include(FindPython)
+include(FindPython3)
 find_package(Python3 3.6 REQUIRED COMPONENTS Interpreter)
 
 include(${PROJECT_SOURCE_DIR}/cmake/PythonModuleCheck.cmake)
