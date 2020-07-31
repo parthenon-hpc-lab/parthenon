@@ -27,7 +27,7 @@ if ( NOT Python3_FOUND)
     python3 )
 
   if ( NOT Python3_EXECUTABLE )
-    message(FATAL "ERROR: python3 not found")
+    message(FATAL_ERROR "ERROR: python3 not found")
   endif()
 
   message(STATUS "FOUND: python=${Python3_EXECUTABLE}, checking version")
@@ -35,12 +35,12 @@ if ( NOT Python3_FOUND)
     COMMAND ${Python3_EXECUTABLE} --version
     OUTPUT_VARIABLE Python3_VERSION_OUTPUT)
 
-  if (Python3_VERSION_OUTPUT MATCHES "Python version ([3-9]+\.[0-9]+\.[0-9]+)")
+  if (Python3_VERSION_OUTPUT MATCHES "Python ([3-9]+\.[0-9]+\.[0-9]+)")
     set(Python3_VERSION ${CMAKE_MATCH_1})
     set(Python_Interpreter_FOUND ${Python3_EXECUTABLE})
-    message(STATUS "$Python3_VERSION_OUTPUT")
+    message(STATUS "${Python3_VERSION_OUTPUT}")
   else()
-    message(FATAL "Required version of Python3 not found: ${Python3_VERSION_OUTPUT}")
+    message(FATAL_ERROR "Required version of Python3 not found: ${Python3_VERSION_OUTPUT}")
   endif()
 endif()
 
