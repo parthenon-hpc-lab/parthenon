@@ -81,7 +81,17 @@ class TestCase(utils.test_case.TestCaseAbs):
         analyze_status = True
         print(os.getcwd())
 
-        sys.path.insert(1, '../../../../../scripts/python')
+        # Determine path to parthenon installation
+        # Fallback to relative path on failure
+        try:
+            parthenonPath = os.path.realpath(__file__)
+            idx = parthenonPath.rindex('/parthenon/')
+            parthenonPath = parthenonPath[:idx]+'/parthenon'
+        except ValueError:
+            baseDir = os.path.dirname(__file__)
+            parthenonPath = baseDir + '/../../../..'
+        sys.path.insert(1, parthenonPath+'/scripts/python')
+
         try:
             import phdf_diff 
         except ModuleNotFoundError:
@@ -91,10 +101,10 @@ class TestCase(utils.test_case.TestCaseAbs):
         # TODO(pgrete) make sure this also works/doesn't fail for the user
         ret_2d = phdf_diff.compare([
             'advection_2d.out0.00001.phdf',
-            '../../../../../tst/regression/gold_standard/advection_2d.out0.00001.phdf'])
+            parthenonPath+'/tst/regression/gold_standard/advection_2d.out0.00001.phdf'])
         ret_3d = phdf_diff.compare([
             'advection_3d.out0.00001.phdf',
-            '../../../../../tst/regression/gold_standard/advection_3d.out0.00001.phdf'])
+            parthenonPath+'/tst/regression/gold_standard/advection_3d.out0.00001.phdf'])
         
         if ret_2d != 0 or ret_3d != 0:
             analyze_status = False
