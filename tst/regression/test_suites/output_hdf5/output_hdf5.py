@@ -85,7 +85,7 @@ class TestCase(utils.test_case.TestCaseAbs):
         # Fallback to relative path on failure
         try:
             parthenonPath = os.path.realpath(__file__)
-            idx = parthenonPath.rindex('/parthenonxxx/')
+            idx = parthenonPath.rindex('/parthenon/')
             parthenonPath = parthenonPath[:idx]+'/parthenon'
         except ValueError:
             baseDir = os.path.dirname(__file__)

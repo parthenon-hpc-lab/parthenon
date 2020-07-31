@@ -13,7 +13,7 @@
 
 
 
-# Seaches for the python interpreter
+# Search for the python interpreter
 message(STATUS "Searching for python 3.6 or higher, required to run regression tests.")
 find_package(Python3 3.6 QUIET COMPONENTS Interpreter)
 
