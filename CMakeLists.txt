@@ -155,12 +155,6 @@ endif()
 # Kokkos recommendatation resulting in not using default GNU extensions
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Build Kokkos as a shared library if building parthenon as a shared library (by
-# providing a custom CMAKE_INSTALL_PREFIX)
-if(NOT CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
-  SET (BUILD_SHARED_LIBS ON CACHE BOOL "Kokkos shared library option")
-endif()
-
 # Tell Kokkos to vectorize aggressively
 # Kokkos prefers this capitalization for debugging reasons
 SET (Kokkos_ENABLE_AGGRESSIVE_VECTORIZATION ON CACHE BOOL

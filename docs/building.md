@@ -57,11 +57,13 @@ is to first build Parthenon separately as a shared library and then link to it
 in the app.
 
 To build Parthenon as a shared library, provide a *CMAKE\_INSTALL\_PREFIX* path
-to the desired install location to the Parthenon cmake call, then call *make install*:
+to the desired install location to the Parthenon cmake call, then build and install
+(note that `--build` and `--install` required CMake 3.15 or greater)
 
 ```bash
 cmake -DCMAKE_INSTALL_PREFIX="$your_install_dir" $parthenon_source_dir
-make -j install
+cmake --build . -- -j
+cmake --install .
 ```
 
 This will also install Kokkos in the same directory; in general, one must be
