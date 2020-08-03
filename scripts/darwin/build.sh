@@ -20,6 +20,9 @@ compiler_package=$(bash $HOME/scripts/darwin/get_package.sh $COMPILER_MODULE)
 mpi_version=$(bash $HOME/scripts/darwin/get_version.sh $MPI_MODULE)
 mpi_package=$(bash $HOME/scripts/darwin/get_package.sh $MPI_MODULE)
 
+wrapper_compiler=$(bash $HOME/scripts/darwin/get_cpp.sh $compiler_package)
+export NVCC_WRAPPER_DEFAULT_COMPILER=${wrapper_compiler}
+
 # Load system modules
 module purge
 module load ${13} # cmake
