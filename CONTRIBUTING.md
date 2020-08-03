@@ -21,15 +21,21 @@ Use GitHub labels as appropriate and feel free to directly add/tag people to the
 ### Summary of branching model and versioning
 
 Two main branches exist:
-- `master` contains the latest "stable" release
+- `stable` contains the latest "stable" release
 - `develop` contains all approved changes since the previous release
 
 We aim at creating a new release everyone 4 to 6 weeks.
 The decision on creating a new release is made during the bi-weekly calls.
-A release consists of of merging `develop` into `master` and create a new tag for that version
-using a YY.MM versioning scheme.
+A release consists of of merging `develop` into `stable` and create a new tag for that version
+using a modified [semantic versioning](https://semver.org/) scheme.
+Releases will be tagged `0.MAJOR.MINOR` given the current rapid development.
 
-The main idea behind separating `master` from `develop` is to allow for more in-depth nightly testing
+- MAJOR is incremented for API incompatible changes
+- MINOR is incremented for backwards compatible changes and bug fixes
+
+This scheme will be reevaluated once a future version is considered to be the first official stable release.
+
+The main idea behind separating `stable` from `develop` is to allow for more in-depth nightly testing
 on the latter.
 This specifically applies to downstream codes so that incompatibilities (e.g., due to to an
 updated API) are discovered early.

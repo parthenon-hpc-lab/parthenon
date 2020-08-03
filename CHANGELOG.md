@@ -12,7 +12,7 @@
 ### Removed
 
 
-## Release YY.MM
+## Release 0.MAJOR.MINOR
 Note:
 - will only contain the subsections of develop that were filled
 - will (ideally) include the PR that introduced the change
