@@ -31,9 +31,6 @@ before_script:
     ${MODULE_COMPILER}
     ${MODULE_MPI}
   - export GOLD_STANDARD_VER=2
-  - if [ `cat tst/regression/gold_standard/current_version` != ${GOLD_STANDARD_VER} ]; then
-    echo "Updating regression Gold standard to ${GOLD_STANDARD_VER}." &&
-    wget -qO- https://pgrete.de/dl/parthenon_regression_gold_r${GOLD_STANDARD_VER}.tgz | tar -xz -C tst/regression/gold_standard; fi
 
 .gcc-mpi-cuda-performance-regression:
   variables: 
@@ -53,6 +50,11 @@ before_script:
     - echo "NUM_MPI_PROC_TESTING   ${NUM_MPI_PROC_TESTING}  " >> build_cmd.txt
     - echo "OMP_NUM_THREADS        ${OMP_NUM_THREADS}       " >> build_cmd.txt
     - echo "PARTHENON_DISABLE_HDF5 ${PARTHENON_DISABLE_HDF5}" >> build_cmd.txt
+    - echo "MODULE_CMAKE           ${MODULE_CMAKE}          " >> build_cmd.txt 
+    - echo "MODULE_CLANG           ${MODULE_CLANG}          " >> build_cmd.txt
+    - echo "MODULE_COMPILER        ${MODULE_COMPILER}       " >> build_cmd.txt
+    - echo "MODULE_CUDA            ${MODULE_CUDA}           " >> build_cmd.txt
+    - echo "MODULE_MPI             ${MODULE_MPI}            " >> build_cmd.txt
     - >
       env -i bash ./scripts/darwin/build.sh
       ${BUILD_DIR}
