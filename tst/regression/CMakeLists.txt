@@ -37,19 +37,6 @@
 # Here name_of_folder should be the test folder located in parthenon/tst/regression/test_suites
 # it is the parameter that is passed to run_test.py with the --test_dir argument
 
-# Calculate pi example
-list(APPEND TEST_DIRS calculate_pi)
-list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
-list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/calculate_pi/pi-example \
---driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/calculate_pi/parthinput.regression")
-
-# Advection test 
-list(APPEND TEST_DIRS advection_convergence)
-list(APPEND TEST_PROCS "1")
-list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
---driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/advection_convergence/parthinput.advection \
---num_steps 25")
-
 # Performance regression test
 list(APPEND TEST_DIRS advection_performance)
 list(APPEND TEST_PROCS "1")
@@ -58,6 +45,20 @@ list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advectio
 --num_steps 5")
 
 if (ENABLE_HDF5)
+
+  # Calculate pi example
+  list(APPEND TEST_DIRS calculate_pi)
+  list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/calculate_pi/pi-example \
+  --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/calculate_pi/parthinput.regression")
+
+  # Advection test 
+  list(APPEND TEST_DIRS advection_convergence)
+  list(APPEND TEST_PROCS "1")
+  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
+  --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/advection_convergence/parthinput.advection \
+  --num_steps 25")
+
   list(APPEND TEST_DIRS output_hdf5)
   list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
   list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
@@ -69,7 +70,7 @@ endif()
 
 # Any external modules that are required by python can be added to REQUIRED_PYTHON_MODULES 
 # list variable, before including TestSetup.cmake. 
-list(APPEND REQUIRED_PYTHON_MODULES  matplotlib numpy) 
+list(APPEND REQUIRED_PYTHON_MODULES matplotlib numpy) 
 
 # Include test setup functions, and check for python interpreter and modules
 #  setup_test
