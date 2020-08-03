@@ -14,34 +14,12 @@
 
 
 # Search for the python interpreter
-message(STATUS "Searching for python 3.6 or higher, required to run regression tests.")
-find_package(Python3 3.6 QUIET COMPONENTS Interpreter)
-
-# search executable path
-if ( NOT Python3_FOUND)
-  message(STATUS "python package not found.  Searching path.")
-  find_program(
-    Python3_EXECUTABLE NAMES
-    python3.7
-    python3.6
-    python3 )
-
-  if ( NOT Python3_EXECUTABLE )
-    message(FATAL_ERROR "ERROR: python3 not found")
-  endif()
-
-  message(STATUS "FOUND: python=${Python3_EXECUTABLE}, checking version")
-  execute_process(
-    COMMAND ${Python3_EXECUTABLE} --version
-    OUTPUT_VARIABLE Python3_VERSION_OUTPUT)
-
-  if (Python3_VERSION_OUTPUT MATCHES "Python ([3-9]+\.[0-9]+\.[0-9]+)")
-    set(Python3_VERSION ${CMAKE_MATCH_1})
-    set(Python_Interpreter_FOUND ${Python3_EXECUTABLE})
-    message(STATUS "${Python3_VERSION_OUTPUT}")
-  else()
-    message(FATAL_ERROR "Required version of Python3 not found: ${Python3_VERSION_OUTPUT}")
-  endif()
+if ( CMAKE_VERSION VERSION_LESS "3.12.4")
+  find_package(PythonInterp 3.6 REQUIRED)
+  set(Python3_Interpreter_FOUND ON)
+  set(Python3_EXECUTABLE ${PYTHON_EXECUTABLE})
+else()
+  find_package(Python3 3.6 REQUIRED COMPONENTS Interpreter)
 endif()
 
 # Ensure all required packages are present
