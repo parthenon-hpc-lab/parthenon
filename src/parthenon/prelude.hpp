@@ -16,6 +16,7 @@
 
 // Internal Includes
 #include <basic_types.hpp>
+#include <defs.hpp>
 #include <globals.hpp>
 #include <interface/container.hpp>
 #include <interface/variable.hpp>
@@ -27,6 +28,7 @@
 
 namespace parthenon {
 namespace prelude {
+using ::parthenon::BoundaryCommSubset;
 using ::parthenon::CellVariable;
 using ::parthenon::Container;
 using ::parthenon::IndexDomain;

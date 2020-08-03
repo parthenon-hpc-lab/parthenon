@@ -93,6 +93,17 @@ class TaskList {
     return id;
   }
 
+  // overload to add member functions of class T to task list
+  // NOTE: we must capture the object pointer
+  template <class F, class T, class... Args>
+  TaskID AddTask(F func, T *obj, TaskID &dep, Args &&... args) {
+    TaskID id(tasks_added_ + 1);
+    task_list_.push_back(
+        Task(id, dep, [=]() mutable -> TaskStatus { return (obj->*func)(args...); }));
+    tasks_added_++;
+    return id;
+  }
+
   void Print() {
     int i = 0;
     std::cout << "TaskList::Print():" << std::endl;

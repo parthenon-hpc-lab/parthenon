@@ -115,10 +115,36 @@ run something equivalent to
 `git fetch origin && git reset --hard origin/$(git branch --show-current)` to update your
 local tracking branch.
 
+## Test suite
+
+### Continuous testing/integration environment
+
+Commits pushed to any branch of this repository is automatically tested by
+two CI pipelines.
+
+The first pipeline focuses on correctness targeting code style, formatting, as well
+as unit and regression tests.
+It is executed through a repository [mirror](https://gitlab.com/pgrete/parthenon) on GitLab
+on a machine with an Intel Xeon E5540 (Broadwell) processor and Nvidia GeForce GTX 1060 (Pascal) GPU.
+The Dockerfile for the CI runner can be found [here](scripts/docker/Dockerfile.nvcc) and the
+pipeline is configured through [.gitlab-ci.yml](.gitlab-ci.yml).
+The current tests span MPI and non-MPI configurations on CPUs (using GCC) and GPUs (using Cuda/nvcc).
+
+The second pipeline focuses on performance regression.
+It is executed through a (different) repository [mirror](https://gitlab.com/theias/hpc/jmstone/athena-parthenon/parthenon-ci-mirror)
+using runners provided by the IAS.
+The runners have Intel Xeon Gold 6148 (Skylake) processors and Nvidia V100 (Volta) GPUs.
+Both the environment and the pipeline are configoures through [.gitlab-ci-ias.yml](.gitlab-ci-ias.yml).
+The current tests span uniform grids on GPUs (using Cuda/nvcc).
+Note, in order to integrate this kind of performance regression test with CMake
+follow the instructions [below](#integrating-the-regression-test-with-cmake) *and* add the
+`perf-reg` label to the test (see bottom of the regression
+[CMakeLists.txt](tst/regression/CMakeLists.txt)).
+
 ### Adding Tests
 
 Five categories of tests have been identified in parthenon, and they are
-located in their respective folders in the tst folder. 
+located in their respective folders in the `tst` folder. 
 
 1. Unit testing
 2. Integration testing
@@ -128,8 +154,8 @@ located in their respective folders in the tst folder.
 
 Parthenon uses ctest to manage the different tests. Cmake labels are attached
 to each test to provide control over which group of tests should be executed.
-Any test added within the tst/unit, tst/integration, tst/performance or
-tst/regression test folders will automatically be associated with the
+Any test added within the `tst/unit`, `tst/integration`, `tst/performance` or
+`tst/regression` test folders will automatically be associated with the
 appropriate label.
  
 When possible a test should be designed to fall into only one of these
@@ -145,25 +171,25 @@ test. As such adding regression tests to cmake consists of two parts.
 
 ##### Creating a regression test
 
-Each regression test should have its own folder in /tst/regression/test_suites. Lets assume
-we want to add a test which we will call foo_test. We will begin by adding a folder named
-foo_test to /tst/regression/test_suites. Within that folder there must exist at least two files.
+Each regression test should have its own folder in /tst/regression/test\_suites. Lets assume
+we want to add a test which we will call foo\_test. We will begin by adding a folder named
+foo\_test to /tst/regression/test\_suites. Within that folder there must exist at least two files.
 
-1. test_suites/foo_test/\__init__.py
-2. test_suites/foo_test/foo_test.py
+1. test\_suites/foo\_test/\_\_init\_\_.py
+2. test\_suites/foo\_test/foo\_test.py
 
-The \__init__.py file is left empty, it is used to notify python that it is allowed to
-import the contents from any python file present in the foo_test folder. 
+The \_\_init\_\_.py file is left empty, it is used to notify python that it is allowed to
+import the contents from any python file present in the foo\_test folder. 
 
-The second file foo_test.py **must** have the same name as the folder it is located in. The
-foo_test.py folder **must** contain a class called TestCase which inherets from TestCaseAbs. The
+The second file foo\_test.py **must** have the same name as the folder it is located in. The
+foo\_test.py folder **must** contain a class called TestCase which inherets from TestCaseAbs. The
 TestCase class **must** contain an Analyze and Prepare method. The prepare method can be used to 
 execute tasks before the driver is called such a file prepartion or overwriting arguments that
 are passed in through the input deck file. The analyze method is responsible for
-checking the output of the driver (foo_driver) and ensuring it has passed. It is called once the 
-foo_driver has been executed. 
+checking the output of the driver (foo\_driver) and ensuring it has passed. It is called once the 
+foo\_driver has been executed. 
 
-Here is a base template for foo_test.py:
+Here is a base template for foo\_test.py:
 
 ```
 import utils.test_case
@@ -189,13 +215,13 @@ The `run_test.py` **requires** three different files be specified:
 
 1. the driver - the binary that is to be executed for the test
 2. the input deck - parthenon input file with run parameters
-3. the test folder - the folder in parthenon/tst/regression/test_suites containing test files 
+3. the test folder - the folder in parthenon/tst/regression/test\_suites containing test files 
 
 ```
 ./run_test.py --test_dir test_suites/foo_test --driver location_of_foo_driver  --driver_input location_of_foo_input_deck
 ```
 
-Assuming parthenon was compiled in parthenon/build one could run the calculate_pi example with the python script `run_test.py` from /tst/regression using
+Assuming parthenon was compiled in parthenon/build one could run the calculate\_pi example with the python script `run_test.py` from /tst/regression using
 
 ```
 ./run_test.py --test_dir test_suites/calculate_pi --driver ../../build/example/calculate_pi/parthenon-example --driver_input test_suites/calculate_pi/parthinput.regression
@@ -227,7 +253,7 @@ list(APPEND TEST_ARGS "--driver ${CMAKE_BINARY_DIR}/example/calculate_pi/parthen
 
 NOTE: By default all regression tests added to these lists will be run in serial and in parallel
 with mpi. The number of mpi processors used is by default set to 4. This default can be adjusted
-by changing the cmake variable NUM_MPI_PROC_TESTING. The number of OpenMP threads is by default set
+by changing the cmake variable NUM\_MPI\_PROC\_TESTING. The number of OpenMP threads is by default set
 to 1 but can be adjusted in the driver input file deck. 
 
 ##### Running ctest 
@@ -238,7 +264,7 @@ or groups of tests can be run by using ctest regular expression matching, or mak
 
 All regression tests have the following name format:
 
-regression_test:foo_test
+regression\_test:foo\_test
 
 So for the pi example we will see the following output:
 
@@ -255,5 +281,50 @@ regression    =   1.44 sec*proc (1 test)
 
 Total Test time (real) =   1.47 sec
 ```
+
+#### Including Tests in Code Coverage Report
+
+Tests are not automatically included in the coverage report. To include a unit or integration test in the coverage
+report the tag [coverage] should be added to the catch2 `TEST_CASE` macro. E.g.
+
+```
+TEST_CASE("test description", "[unit][coverage]"){
+...
+}
+```
+
+To add a regression test to the coverage report an attribute of the parameters argument can be 
+altered. E.g.
+
+```
+class TestCase(utils.test_case.TestCaseAbs):
+    def Prepare(self,parameters):
+        parameters.coverage_status = "only-coverage"
+        return parameters
+```
+
+The coverage status argument can take 3 different settings:
+
+1. **only-regression** - will not run if with coverage, is the default
+2. **both** - will run with or without coverage
+3. **only-coverage** - will only run if coverage is specified
+
+##### Creating and Uploading Coverage Report
+
+To create a coverage report cmake should be run with both the CMAKE_BUILD_TYPE
+flag set to debug, and the CODE_COVERAGE flag set to On. 
+
+```
+  mkdir build
+  cd build
+  cmake -DCODE_COVERAGE=On -DCMAKE_BUILD_TYPE=Debug ../
+  make coverage
+  make coverage-upload
+``` 
+
+Fine grained control of where the coverage reports are placed can be specified
+with COVERAGE_PATH, COVERAGE_NAME, which represent the path to the coverage
+reports and the directory where they will be placed. The default location is in
+a folder named coverage in the build directory. 
 
 
