@@ -12,16 +12,26 @@ export HOME=$(pwd)
 # Calculate number of available cores
 export J=$(( $(nproc --all) )) && echo Using ${J} cores during build
 
+COMPILER_MODULE=${15}
+MPI_MODULE=${17}
+
+compiler_version=$(bash get_version $COMPILER_MODULE)
+compiler_package=$(bash get_package $COMPILER_MODULE)
+mpi_version=$(bash get_version $MPI_MODULE)
+mpi_package=$(bash get_package $MPI_MODULE)
+
 # Load system modules
 module purge
-module load cmake/3.11.1
-module load gcc/7.4.0
-module load clang/8.0.0
-module load openmpi/p9/4.0.2-gcc_7.4.0
-module load cuda/10.1
+module load ${13} # cmake
+module load ${14} # clang for formatting
+module load $COMPILER_MODULE # gcc
+module load $MPI_MODULE # mpi
+module load ${16} # cuda
 
 # Initialize spack env
 . spack/share/spack/setup-env.sh
+
+spack env activate ci
 
 # Find compilers
 spack compiler find
@@ -30,8 +40,13 @@ spack install py-numpy
 spack install py-matplotlib
 
 # Load Spack Modules
-spack load hdf5@1.10.6%gcc@7.4.0 ^openmpi@4.0.2%gcc@7.4.0
-spack load py-h5py ^hdf5@1.10.6%gcc@7.4.0 ^openmpi@4.0.2%gcc@7.4.0
+
+spack load hdf5@1.10.6%${compiler_package}@${compiler_version} \
+  ^${mpi_package}@${mpi_version}%${compiler_package}@${compiler_version}
+
+spack load py-h5py ^hdf5@1.10.6%${compiler_package}@${compiler_version} \
+  ^${mpi_package}@${mpi_version}%${compiler_package}@${compiler_version}
+
 spack load py-matplotlib
 spack load py-numpy
 

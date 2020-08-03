@@ -22,8 +22,14 @@ stages:
 
 # Is performed before the scripts in the stages step
 before_script:
-  - env -i bash ./scripts/darwin/setup.sh
-  - env -i bash ./scripts/darwin/build_hdf5_parallel.sh
+  - >
+    env -i bash ./scripts/darwin/setup.sh
+    ${MODULE_COMPILER}
+    ${MODULE_MPI}
+  - >
+    env -i bash ./scripts/darwin/build_hdf5_parallel.sh
+    ${MODULE_COMPILER}
+    ${MODULE_MPI}
   - export GOLD_STANDARD_VER=2
   - if [ `cat tst/regression/gold_standard/current_version` != ${GOLD_STANDARD_VER} ]; then
     echo "Updating regression Gold standard to ${GOLD_STANDARD_VER}." &&
@@ -35,18 +41,18 @@ before_script:
     CMAKE_CXX_COMPILER: $CI_PROJECT_DIR/external/Kokkos/bin/nvcc_wrapper
   script:
     - echo "./scripts/darwin/build.sh" > build_cmd.txt
-    - echo ${BUILD_DIR}              >> build_cmd.txt
-    - echo ${CMAKE_BUILD_TYPE}       >> build_cmd.txt
-    - echo ${CMAKE_CXX_COMPILER}     >> build_cmd.txt
-    - echo ${Kokkos_ARCH_POWER9}     >> build_cmd.txt
-    - echo ${Kokkos_ARCH_VOLTA70}    >> build_cmd.txt
-    - echo ${Kokkos_ENABLE_CUDA}     >> build_cmd.txt
-    - echo ${Kokkos_ENABLE_CUDA_UVM} >> build_cmd.txt
-    - echo ${Kokkos_ENABLE_CXX11}    >> build_cmd.txt
-    - echo ${Kokkos_ENABLE_OPENMP}   >> build_cmd.txt
-    - echo ${NUM_MPI_PROC_TESTING}   >> build_cmd.txt
-    - echo ${OMP_NUM_THREADS}        >> build_cmd.txt
-    - echo ${PARTHENON_DISABLE_HDF5} >> build_cmd.txt
+    - echo "BUILD_DIR              ${BUILD_DIR}             " >> build_cmd.txt
+    - echo "CMAKE_BUILD_TYPE       ${CMAKE_BUILD_TYPE}      " >> build_cmd.txt
+    - echo "CMAKE_CXX_COMPILER     ${CMAKE_CXX_COMPILER}    " >> build_cmd.txt
+    - echo "Kokkos_ARCH_POWER9     ${Kokkos_ARCH_POWER9}    " >> build_cmd.txt
+    - echo "Kokkos_ARCH_VOLTA70    ${Kokkos_ARCH_VOLTA70}   " >> build_cmd.txt
+    - echo "Kokkos_ENABLE_CUDA     ${Kokkos_ENABLE_CUDA}    " >> build_cmd.txt
+    - echo "Kokkos_ENABLE_CUDA_UVM ${Kokkos_ENABLE_CUDA_UVM}" >> build_cmd.txt
+    - echo "Kokkos_ENABLE_CXX11    ${Kokkos_ENABLE_CXX11}   " >> build_cmd.txt
+    - echo "Kokkos_ENABLE_OPENMP   ${Kokkos_ENABLE_OPENMP}  " >> build_cmd.txt
+    - echo "NUM_MPI_PROC_TESTING   ${NUM_MPI_PROC_TESTING}  " >> build_cmd.txt
+    - echo "OMP_NUM_THREADS        ${OMP_NUM_THREADS}       " >> build_cmd.txt
+    - echo "PARTHENON_DISABLE_HDF5 ${PARTHENON_DISABLE_HDF5}" >> build_cmd.txt
     - >
       env -i bash ./scripts/darwin/build.sh
       ${BUILD_DIR}
@@ -61,6 +67,11 @@ before_script:
       ${NUM_MPI_PROC_TESTING}
       ${OMP_NUM_THREADS}
       ${PARTHENON_DISABLE_HDF5}
+      ${MODULE_CMAKE}
+      ${MODULE_CLANG}
+      ${MODULE_COMPILER}
+      ${MODULE_CUDA}
+      ${MODULE_MPI}
   artifacts:
     expire_in: 3 days
     paths:

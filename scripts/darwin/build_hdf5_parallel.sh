@@ -9,26 +9,38 @@ export HOME=$(pwd)
 # Calculate number of available cores
 export J=$(( $(nproc --all) )) && echo Using ${J} cores during build
 
+COMPILER_MODULE=$1
+MPI_MODULE=$2
+
+compiler_version=$(bash get_version $COMPILER_MODULE)
+compiler_package=$(bash get_package $COMPILER_MODULE)
+mpi_version=$(bash get_version $MPI_MODULE)
+mpi_package=$(bash get_package $MPI_MODULE)
+
 # Load system modules
 module purge
-module load cmake/3.11.1
-module load gcc/7.4.0
-module load openmpi/p9/4.0.2-gcc_7.4.0
+module load $COMPILER_MODULE # gcc
+module load $MPI_MODULE # mpi
 
 # Initialize spack env
 . spack/share/spack/setup-env.sh
+
+spack env activate ci
 
 # Find compilers
 spack compiler find
 
 spack find hdf5
-# Install hdf5
-#spack install -j${J} hdf5@1.10.6%gcc@7.4.0 ^openmpi@4.0.2%gcc@7.4.0
 
-spack install -j${J} py-h5py ^hdf5@1.10.6%gcc@7.4.0 ^openmpi@4.0.2%gcc@7.4.0
+# Install hdf5
+spack install -j${J} py-h5py ^hdf5@1.10.6%${compiler_package}@${compiler_version} \
+  ^${mpi_package}@${mpi_version}%${compiler_package}@${compiler_version}
 
 spack find hdf5
 
-spack load hdf5@1.10.6%gcc@7.4.0 ^openmpi@4.0.2%gcc@7.4.0
-spack load py-h5py ^openmpi@4.0.2%gcc@7.4.0
+spack load hdf5@1.10.6%${compiler_package}@${compiler_version} \
+  ^${mpi_package}@${mpi_version}%${compiler_package}@${compiler_version}
+
+spack load py-h5py \
+  ^${mpi_package}@${mpi_version}%${compiler_package}@${compiler_version}
 
