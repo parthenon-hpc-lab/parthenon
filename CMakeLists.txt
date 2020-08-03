@@ -111,6 +111,16 @@ if (NOT PARTHENON_DISABLE_MPI)
   set(ENABLE_MPI ON)
 endif()
 
+execute_process(
+  COMMAND ${MPIEXEC_EXECUTABLE} --version
+  OUTPUT_VARIABLE MPIEXEC_VERSION_RAW
+)
+
+if (MPIEXEC_VERSION_RAW MATCHES "mpiexec \\(IBM Spectrum MPI\\)")
+  message(STATUS "Using IBM Spectrum MPI")
+  set(MPI_IMPLEMENTATION "Spectrum")
+endif()
+
 set(ENABLE_OPENMP OFF)
 if (NOT PARTHENON_DISABLE_OPENMP)
   find_package(OpenMP COMPONENTS CXX)
@@ -192,6 +202,11 @@ elseif(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/external/Kokkos/CMakeLists.txt)
   add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/external/Kokkos Kokkos)
 else()
   find_package(Kokkos 3 REQUIRED)
+endif()
+
+if (Kokkos_ENABLE_CUDA AND MPI_IMPLEMENTATION STREQUAL "Spectrum")
+  # Cuda awareness must be explicitly enabled for Spectrum builds builds
+  set(MPIEXEC_PREFLAGS "${MPIEXEC_PREFLAGS} -gpu")
 endif()
 
 # Build Tests and download Catch2

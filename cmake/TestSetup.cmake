@@ -30,8 +30,16 @@ endfunction()
 # test output will be sent to /tst/regression/outputs/dir
 # test property labels: regression, mpi-no
 function(setup_test dir arg)
-  separate_arguments(arg) 
-  add_test( NAME regression_test:${dir} COMMAND python "${CMAKE_CURRENT_SOURCE_DIR}/run_test.py" 
+  separate_arguments(arg)
+  if (ENABLE_MPI AND MPI_IMPLEMENTATION STREQUAL "Spectrum")
+    # Spectrum MPI requires all MPI programs to be run under mpiexec
+    set(ADDITIONAL_ARGS
+      --mpirun ${MPIEXEC_EXECUTABLE}
+      --mpirun_opts=${MPIEXEC_NUMPROC_FLAG} --mpirun_opts=1
+      --mpirun_opts=${MPIEXEC_PREFLAGS})
+  endif()
+  add_test( NAME regression_test:${dir} COMMAND python "${CMAKE_CURRENT_SOURCE_DIR}/run_test.py"
+    ${ADDITIONAL_ARGS}
     ${arg} --test_dir "${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}"
     --output_dir "${PROJECT_BINARY_DIR}/tst/regression/outputs/${dir}")
   set_tests_properties(regression_test:${dir} PROPERTIES LABELS "regression;mpi-no" )
