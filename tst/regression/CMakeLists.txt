@@ -67,10 +67,9 @@ if (ENABLE_HDF5)
   list(APPEND REQUIRED_PYTHON_MODULES h5py) 
 endif()
 
-# Any modules that are required by python can be added to REQUIRED_PYTHON_MODULES list variable,
-# before including TestSetup.cmake. 
-list(APPEND REQUIRED_PYTHON_MODULES argparse errno math matplotlib numpy os shutil) 
-list(APPEND REQUIRED_PYTHON_MODULES subprocess sys) 
+# Any external modules that are required by python can be added to REQUIRED_PYTHON_MODULES 
+# list variable, before including TestSetup.cmake. 
+list(APPEND REQUIRED_PYTHON_MODULES  matplotlib numpy) 
 
 # Include test setup functions, and check for python interpreter and modules
 #  setup_test
