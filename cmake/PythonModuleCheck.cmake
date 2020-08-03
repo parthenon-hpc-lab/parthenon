@@ -14,15 +14,22 @@
 # Function will check that the specified modules are available to the python interpreter
 # If they are not cmake will throw an error indicating which module not available
 function(required_python_modules_found module_list)
-  if(Python_Interpreter_FOUND)
+
+  unset(MISSING_MODULES)
+  if(${Python3_Interpreter_FOUND})
+    set(IMPORT_ERROR 0)
     foreach(module IN LISTS module_list )
       execute_process(COMMAND ${Python3_EXECUTABLE} -c "import ${module}"
         RESULT_VARIABLE IMPORT_MODULE ERROR_QUIET)
     
       if(${IMPORT_MODULE} EQUAL 1)
-        message(FATAL_ERROR "Required python module ${module} was not found.") 
+        set(IMPORT_ERROR 1)
+        list(APPEND MISSING_MODULES ${module})
       endif()
     endforeach()
+
+    if(${IMPORT_ERROR})
+      message(FATAL_ERROR "Required python module(s) ${MISSING_MODULES} not found.") 
+    endif()
   endif()
 endfunction()
-
