@@ -77,7 +77,7 @@ before_script:
   artifacts:
     expire_in: 3 days
     paths:
-      - ${CI_PROJECT_DIR}/${BUILD_DIR}/tst/regression/advection_convergence/advection-errors.dat
+      - ${CI_PROJECT_DIR}/${BUILD_DIR}/tst/regression/outputs/advection_convergence/advection-errors.dat
       - ${CI_PROJECT_DIR}/${BUILD_DIR}/tst/regression/outputs/advection_convergence/advection-errors.png
 
 parthenon-power9-gcc-mpi-cuda-perf-manual:
