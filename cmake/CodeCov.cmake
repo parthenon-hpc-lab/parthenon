@@ -30,7 +30,6 @@ if(CODE_COVERAGE)
 
   message(STATUS "Coverage reports will be placed in ${COVERAGE_PATH}/${COVERAGE_NAME}")
  
-  set(OBJECT_DIR ${CMAKE_BINARY_DIR}/obj)
   get_target_property(PARTHENON_SOURCES parthenon SOURCES)
   get_target_property(UNIT_TEST_SOURCES unit_tests SOURCES)
 
@@ -41,15 +40,15 @@ if(CODE_COVERAGE)
     COMMAND mkdir -p ${COVERAGE_PATH}/${COVERAGE_NAME}
     COMMAND ${PATH_LCOV} --version
     # Clean
-    COMMAND ${PATH_LCOV} --gcov-tool ${PATH_GCOV} --directory ${CMAKE_BINARY_DIR} -b ${CMAKE_SOURCE_DIR} --zerocounters
+    COMMAND ${PATH_LCOV} --gcov-tool ${PATH_GCOV} --directory ${PROJECT_BINARY_DIR} -b ${PROJECT_SOURCE_DIR} --zerocounters
     # Base report
     COMMAND ctest -L coverage --verbose
-    COMMAND ${PATH_LCOV} --gcov-tool ${PATH_GCOV} -c -i -d ${CMAKE_BINARY_DIR} -b ${CMAKE_SOURCE_DIR} -o ${COVERAGE_PATH}/${COVERAGE_NAME}/report.base.old
+    COMMAND ${PATH_LCOV} --gcov-tool ${PATH_GCOV} -c -i -d ${PROJECT_BINARY_DIR} -b ${PROJECT_SOURCE_DIR} -o ${COVERAGE_PATH}/${COVERAGE_NAME}/report.base.old
     # Remove Kokkos and tst info from code coverage
     COMMAND ${PATH_LCOV} --remove ${COVERAGE_PATH}/${COVERAGE_NAME}/report.base.old "*/Kokkos/*" "*/tst/*" -o ${COVERAGE_PATH}/${COVERAGE_NAME}/report.base
 
     # Capture information from test runs
-    COMMAND ${PATH_LCOV} --gcov-tool ${PATH_GCOV} --directory ${CMAKE_BINARY_DIR} -b ${CMAKE_SOURCE_DIR} --capture --output-file ${COVERAGE_PATH}/${COVERAGE_NAME}/report.test.old
+    COMMAND ${PATH_LCOV} --gcov-tool ${PATH_GCOV} --directory ${PROJECT_BINARY_DIR} -b ${PROJECT_SOURCE_DIR} --capture --output-file ${COVERAGE_PATH}/${COVERAGE_NAME}/report.test.old
     # Remove Kokkos and tst info from code coverage
     COMMAND ${PATH_LCOV} --remove ${COVERAGE_PATH}/${COVERAGE_NAME}/report.test.old "*/Kokkos/*" "*/tst/*" -o ${COVERAGE_PATH}/${COVERAGE_NAME}/report.test
     
@@ -60,7 +59,7 @@ if(CODE_COVERAGE)
     COMMAND rm ${COVERAGE_PATH}/${COVERAGE_NAME}/report.base.old
     COMMAND rm ${COVERAGE_PATH}/${COVERAGE_NAME}/report.base
     COMMAND rm ${COVERAGE_PATH}/${COVERAGE_NAME}/report.test
-    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
     )
 
   set(UPLOAD_COMMAND "bash <\(curl -s https://codecov.io/bash\) \|\| echo \"code coverage failed to upload\"")
@@ -68,10 +67,10 @@ if(CODE_COVERAGE)
   add_custom_command(TARGET coverage-upload
     COMMAND echo "================ Uploading Code Coverage =================="
     # Upload coverage report
-    COMMAND ${CMAKE_SOURCE_DIR}/scripts/combine_coverage.sh ${PATH_LCOV} ${PATH_GCOV} ${COVERAGE_PATH}
+    COMMAND ${PROJECT_SOURCE_DIR}/scripts/combine_coverage.sh ${PATH_LCOV} ${PATH_GCOV} ${COVERAGE_PATH}
     COMMAND curl -s https://codecov.io/bash > ${COVERAGE_PATH}/CombinedCoverage/script.coverage
     COMMAND cat ${COVERAGE_PATH}/CombinedCoverage/script.coverage
-    COMMAND cd ${COVERAGE_PATH}/CombinedCoverage && bash ${COVERAGE_PATH}/CombinedCoverage/script.coverage -p ${CMAKE_BINARY_DIR} -s ${COVERAGE_PATH}/CombinedCoverage
+    COMMAND cd ${COVERAGE_PATH}/CombinedCoverage && bash ${COVERAGE_PATH}/CombinedCoverage/script.coverage -p ${PROJECT_BINARY_DIR} -s ${COVERAGE_PATH}/CombinedCoverage
     WORKING_DIRECTORY ${COVERAGE_PATH}
     )
 
