@@ -15,10 +15,10 @@ export J=$(( $(nproc --all) )) && echo Using ${J} cores during build
 COMPILER_MODULE=${15}
 MPI_MODULE=${17}
 
-compiler_version=$(bash get_version $COMPILER_MODULE)
-compiler_package=$(bash get_package $COMPILER_MODULE)
-mpi_version=$(bash get_version $MPI_MODULE)
-mpi_package=$(bash get_package $MPI_MODULE)
+compiler_version=$(bash $HOME/scripts/darwin/get_version.sh $COMPILER_MODULE)
+compiler_package=$(bash $HOME/scripts/darwin/get_package.sh $COMPILER_MODULE)
+mpi_version=$(bash $HOME/scripts/darwin/get_version.sh $MPI_MODULE)
+mpi_package=$(bash $HOME/scripts/darwin/get_package.sh $MPI_MODULE)
 
 # Load system modules
 module purge

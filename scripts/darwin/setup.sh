@@ -16,7 +16,7 @@ fi
 . spack/share/spack/setup-env.sh
 
 spack env create ci
-sapck env activate ci
+spack env activate ci
 
 # Create .spack folder
 if [ ! -d ".spack" ]; then
@@ -26,10 +26,10 @@ fi
 COMPILER_MODULE=$1
 MPI_MODULE=$2
 
-compiler_package=$(bash get_package $COMPILER_MODULE)
-compiler_version=$(bash get_version $COMPILER_MODULE)
-mpi_package=$(bash get_package $MPI_MODULE)
-mpi_version=$(bash get_version $MPI_MODULE)
+compiler_package=$(bash $HOME/scripts/darwin/get_package.sh $COMPILER_MODULE)
+compiler_version=$(bash $HOME/scripts/darwin/get_version.sh $COMPILER_MODULE)
+mpi_package=$(bash $HOME/scripts/darwin/get_package.sh $MPI_MODULE)
+mpi_version=$(bash $HOME/scripts/darwin/get_version.sh $MPI_MODULE)
 
 # Setup spack package yaml
 echo "packages:" > .spack/packages.yaml
