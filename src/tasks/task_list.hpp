@@ -62,24 +62,13 @@ class TaskList {
     }
   }
   TaskListStatus DoAvailable() {
-    //    static std::string last_name("");
     for (auto &task : task_list_) {
       auto dep = task.GetDependency();
       if (tasks_completed_.CheckDependencies(dep)) {
-        // if (last_name.compare(task.GetName())) {
-        //   std::cerr << "Task dependency met:" << task.GetName() << ":" <<
-        //   dep.to_string()
-        //             << ":" << tasks_completed_.to_string() << ":"
-        //             << task.GetID().to_string() << std::endl;
-        //   last_name = task.GetName();
-        // }
         TaskStatus status = task();
         if (status == TaskStatus::complete) {
           task.SetComplete();
           MarkTaskComplete(task.GetID());
-          /*std::cerr << "Task complete:" << std::endl
-                    << task->GetID().to_string() << std::endl
-                    << tasks_completed_.to_string() << std::endl << std::endl;*/
         }
       }
     }
@@ -97,11 +86,13 @@ class TaskList {
     return id;
   }
 
-  template <class F, class... Args>
-  TaskID AddTask(std::string name, F func, TaskID &dep, Args &&... args) {
+  // overload to add member functions of class T to task list
+  // NOTE: we must capture the object pointer
+  template <class F, class T, class... Args>
+  TaskID AddTask(F func, T *obj, TaskID &dep, Args &&... args) {
     TaskID id(tasks_added_ + 1);
     task_list_.push_back(
-        Task(id, name, dep, [=]() mutable -> TaskStatus { return func(args...); }));
+        Task(id, dep, [=]() mutable -> TaskStatus { return (obj->*func)(args...); }));
     tasks_added_++;
     return id;
   }

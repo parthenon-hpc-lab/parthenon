@@ -26,21 +26,17 @@ namespace parthenon {
 class Task {
  public:
   Task(TaskID id, TaskID dep, std::function<TaskStatus()> func)
-      : myid_(id), dep_(dep), func_(func), name_(id.to_string()) {}
-  Task(TaskID id, std::string name, TaskID dep, std::function<TaskStatus()> func)
-      : myid_(id), dep_(dep), func_(func), name_(name) {}
+      : myid_(id), dep_(dep), func_(func) {}
   TaskStatus operator()() { return func_(); }
   TaskID GetID() { return myid_; }
   TaskID GetDependency() { return dep_; }
   void SetComplete() { complete_ = true; }
   bool IsComplete() { return complete_; }
-  std::string GetName() { return name_; }
 
  private:
   TaskID myid_, dep_;
   bool lb_time, complete_ = false;
   std::function<TaskStatus()> func_;
-  const std::string name_;
 };
 
 } // namespace parthenon
