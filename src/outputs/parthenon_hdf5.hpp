@@ -87,7 +87,7 @@ using parthenon::Real;
     }                                                                                    \
   }
 
-#define WRITEH5SLAB2(name, pData, theLocation, Starts, Counts, lDSpace, gDSpace, plist)	\
+#define WRITEH5SLAB2(name, pData, theLocation, Starts, Counts, lDSpace, gDSpace, plist)  \
   {                                                                                      \
     hid_t gDSet = H5Dcreate(theLocation, name, H5T_NATIVE_DOUBLE, gDSpace, H5P_DEFAULT,  \
                             H5P_DEFAULT, H5P_DEFAULT);                                   \

@@ -130,8 +130,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddParam<>("sin_a3", sin_a3);
 
   std::string field_name = "advected";
-  Metadata m(
-      {Metadata::Cell, Metadata::Independent, Metadata::FillGhost});
+  Metadata m({Metadata::Cell, Metadata::Independent, Metadata::FillGhost});
   pkg->AddField(field_name, m);
 
   field_name = "one_minus_advected";
