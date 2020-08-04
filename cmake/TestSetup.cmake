@@ -14,7 +14,7 @@
 
 
 # Search for the python interpreter
-if ( CMAKE_VERSION VERSION_LESS "3.12.4")
+if ( CMAKE_VERSION VERSION_LESS "3.12")
   # Version number has been intentionally excluded from find_package call, so that latest version 
   # will be grabbed. Including the version number would prioritise the version provided over more 
   # up to date versions
