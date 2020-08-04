@@ -43,7 +43,7 @@ RestartReader::RestartReader(const char *filename) : filename_(filename) {
   fh_ = H5Fopen(filename, H5F_ACC_RDONLY, H5P_DEFAULT);
 
   // populate block size from the file
-  std::vector<int32_t> blockSize = ReadAttr1D<int32_t>("Mesh", "blockSize");
+  std::vector<int32_t> blockSize = ReadAttr1DI32("Mesh", "blockSize");
   nx1_ = static_cast<hsize_t>(blockSize[0]);
   nx2_ = static_cast<hsize_t>(blockSize[1]);
   nx3_ = static_cast<hsize_t>(blockSize[2]);
@@ -101,8 +101,8 @@ std::vector<T> RestartReader::ReadDataset(const char *name, size_t *count) {
 //! const char *name, size_t *count = nullptr)
 //  \brief Reads a 1D array attribute for given dataset
 template <typename T>
-std::vector<T> RestartReader::ReadAttr1D(const char *dataset, const char *name,
-                                         size_t *count) {
+std::vector<T> RestartReader::ReadAttrBytes_(const char *dataset, const char *name,
+                                             size_t *count) {
   // Returns entire 1D array.
   // status, never checked.  We should...
 #ifdef HDF5OUTPUT
@@ -140,6 +140,16 @@ std::vector<T> RestartReader::ReadAttr1D(const char *dataset, const char *name,
 #endif
 
   return data;
+}
+
+std::vector<Real> RestartReader::ReadAttr1DReal(const char *dataset, const char *name,
+                                                size_t *count) {
+  return ReadAttrBytes_<Real>(dataset, name, count);
+}
+
+std::vector<int32_t> RestartReader::ReadAttr1DI32(const char *dataset, const char *name,
+                                                  size_t *count) {
+  return ReadAttrBytes_<int32_t>(dataset, name, count);
 }
 
 //! \fn std::shared_ptr<std::vector<T>> RestartReader::ReadAttrString(const char *dataset,
@@ -184,35 +194,71 @@ std::string RestartReader::ReadAttrString(const char *dataset, const char *name,
   return data;
 }
 
+// Gets data for all blocks on current rank.
+// Assumes blocks are contiguous
+// fills internal data for given pointer
+template <typename T>
+int RestartReader::ReadBlocks(const char *name, IndexRange range, T *data, size_t vlen) {
+#ifdef HDF5OUTPUT
+  try {
+    herr_t status;
+
+    // compute block size, probaby could cache this.
+    hid_t theHdfType = getHdfType(data);
+
+    hid_t dataset = H5Dopen2(fh_, name, H5P_DEFAULT);
+    if (dataset < 0) {
+      return -1;
+    }
+    hid_t dataspace = H5Dget_space(dataset);
+    if (dataspace < 0) {
+      H5Dclose(dataset);
+      return -2;
+    }
+
+    /** Define hyperslab in dataset **/
+    hsize_t offset[5] = {static_cast<hsize_t>(range.s), 0, 0, 0, 0};
+    hsize_t count[5] = {static_cast<hsize_t>(range.e - range.s + 1), nx3_, nx2_, nx1_,
+                        vlen};
+    status = H5Sselect_hyperslab(dataspace, H5S_SELECT_SET, offset, NULL, count, NULL);
+    if (status < 0) {
+      H5Dclose(dataspace);
+      H5Dclose(dataset);
+      return -3;
+    }
+
+    /** Define memory dataspace **/
+    hid_t memspace = H5Screate_simple(5, count, NULL);
+    hsize_t offsetMem[5] = {0, 0, 0, 0, 0};
+    status = H5Sselect_hyperslab(dataspace, H5S_SELECT_SET, offsetMem, NULL, count, NULL);
+
+    // Read data from file
+    status = H5Dread(dataset, H5T_NATIVE_DOUBLE, memspace, dataspace, H5P_DEFAULT, data);
+
+    // CLose the dataspace and data set.
+    H5Dclose(dataset);
+    H5Sclose(memspace);
+    H5Sclose(dataspace);
+    if (status < 0) {
+      return -4;
+    } else {
+      return static_cast<int>(count[0]);
+    }
+  } catch (const std::exception &e) {
+    std::cout << e.what();
+    return -5;
+  }
+#else
+  return -6;
+#endif
+}
+
 //! \fn void RestartReader::ReadBlock(const char *name, const int blockID, T *data)
 //  \brief Reads data for one block from restart file
 template <typename T>
-void RestartReader::ReadBlock(const char *name, const int blockID, T *data) {
-#ifdef HDF5OUTPUT
-  // status, never checked.  We should...
-  herr_t status;
-
-  // compute block size, probaby could cache this.
-  hid_t theHdfType = getHdfType(data);
-
-  hid_t dataset = H5Dopen2(fh_, name, H5P_DEFAULT);
-  hid_t dataspace = H5Dget_space(dataset);
-
-  /** Define hyperslab in dataset **/
-  hsize_t offset[5] = {static_cast<hsize_t>(blockID), 0, 0, 0, 0};
-  hsize_t count[5] = {1, nx3_, nx2_, nx1_, 1};
-  status = H5Sselect_hyperslab(dataspace, H5S_SELECT_SET, offset, NULL, count, NULL);
-
-  /** Define memory dataspace **/
-  hid_t memspace = H5Screate_simple(5, count, NULL);
-
-  // Read data from file
-  status = H5Dread(dataset, H5T_NATIVE_DOUBLE, memspace, dataspace, H5P_DEFAULT, data);
-
-  // CLose the dataspace and data set.
-  H5Dclose(dataspace);
-  H5Dclose(dataset);
-#endif
+int RestartReader::ReadBlock(const char *name, const int blockID, T *data, size_t vlen) {
+  IndexRange range{blockID, blockID};
+  return ReadBlocks(name, range, data, vlen);
 }
 
 //----------------------------------------------------------------------------------------
@@ -390,7 +436,7 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
 
     nLen = 3;
     localnDSpace = H5Screate_simple(1, &nLen, NULL);
-    status = writeH5AF64("ratios", limits, file, localnDSpace, myDSet);
+    status = writeH5AF64("ratios", ratios, file, localnDSpace, myDSet);
     status = H5Sclose(localnDSpace);
   }
 
@@ -537,7 +583,6 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
 
   const hsize_t varSize = nx3 * nx2 * nx1;
 
-  // Get an iterator on block 0 for variable listing
   auto ciX = ContainerIterator<Real>(
       pm->pblock->real_containers.Get(),
       {parthenon::Metadata::Independent, parthenon::Metadata::Restart}, true);
@@ -603,17 +648,16 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
   return;
 #endif
 }
-
-void instantiateRestartReader(RestartReader &rr) {
+void instantiateReader_(RestartReader &rr) {
   // aroutine to instantiate templated routines so they can be used elsewhere
-  auto funcI32 = rr.ReadAttr1D<int32_t>("xxx", "xxx");
-  auto funcI64 = rr.ReadAttr1D<int64_t>("xxx", "xxx");
-  auto funcFloat = rr.ReadAttr1D<float>("xxx", "xxx");
-  auto funcReal = rr.ReadAttr1D<double>("xxx", "xxx");
-
-  auto dataI32 = rr.ReadDataset<int32_t>("xxx");
-  auto dataI64 = rr.ReadDataset<int64_t>("xxx");
-  auto dataFloat = rr.ReadDataset<float>("xxx");
-  auto dataDouble = rr.ReadDataset<double>("xxx");
+  size_t count;
+  IndexRange myBlocks{0, 0};
+  auto dataI32 = rr.ReadDataset<int32_t>("xxx", &count);
+  auto dataI64 = rr.ReadDataset<int64_t>("xxx", &count);
+  auto dataFloat = rr.ReadDataset<float>("xxx", &count);
+  auto dataDouble = rr.ReadDataset<double>("xxx", &count);
+  double *tmp;
+  int stat = rr.ReadBlocks("xxx", myBlocks, tmp, 1);
 }
+
 } // namespace parthenon

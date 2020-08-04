@@ -21,6 +21,7 @@
 #include "driver/driver.hpp"
 #include "interface/properties_interface.hpp"
 #include "interface/state_descriptor.hpp"
+#include "mesh/domain.hpp"
 #include "mesh/mesh.hpp"
 #include "outputs/restart.hpp"
 #include "parameter_input.hpp"
@@ -38,6 +39,8 @@ class ParthenonManager {
   bool Restart() { return (arg.restart_filename == nullptr ? false : true); }
   Properties_t ProcessProperties(std::unique_ptr<ParameterInput> &pin);
   Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin);
+  void RestartPackages(Mesh &rm, RestartReader &resfile);
+
   void SetFillDerivedFunctions();
 
   // member data

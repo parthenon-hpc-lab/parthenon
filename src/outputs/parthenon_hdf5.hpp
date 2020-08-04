@@ -73,25 +73,21 @@ using parthenon::Real;
     }                                                                                    \
   }
 
-#define INSERTVARIABLE4(dst, pmb, var, is, ie, js, je, ks, ke, vlen)                     \
+#define UNLOADVARIABLEONE(index, src, var, is, ie, js, je, ks, ke, vlen)                 \
   {                                                                                      \
-    int index = 0;                                                                       \
-    while (pmb != nullptr) {                                                             \
-      for (int k = ks; k <= ke; k++) {                                                   \
-        for (int j = js; j <= je; j++) {                                                 \
-          for (int i = is; i <= ie; i++) {                                               \
-            for (int l = 0; l < vlen; l++) {                                             \
-              var(l, k, j, i) = dst[index];                                              \
-              index++;                                                                   \
-            }                                                                            \
+    for (int k = ks; k <= ke; k++) {                                                     \
+      for (int j = js; j <= je; j++) {                                                   \
+        for (int i = is; i <= ie; i++) {                                                 \
+          for (int l = 0; l < vlen; l++) {                                               \
+            var(l, k, j, i) = src[index];                                                \
+            index++;                                                                     \
           }                                                                              \
         }                                                                                \
       }                                                                                  \
-      pmb = pmb->next;                                                                   \
     }                                                                                    \
   }
 
-#define WRITEH5SLAB2(name, pData, theLocation, Starts, Counts, lDSpace, gDSpace, plist)  \
+#define WRITEH5SLAB2(name, pData, theLocation, Starts, Counts, lDSpace, gDSpace, plist)	\
   {                                                                                      \
     hid_t gDSet = H5Dcreate(theLocation, name, H5T_NATIVE_DOUBLE, gDSpace, H5P_DEFAULT,  \
                             H5P_DEFAULT, H5P_DEFAULT);                                   \

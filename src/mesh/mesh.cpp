@@ -483,7 +483,7 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
 
 //----------------------------------------------------------------------------------------
 // Mesh constructor for restarts. Load the restart file
-Mesh::Mesh(ParameterInput *pin, RestartReader *rr, Properties_t &properties,
+Mesh::Mesh(ParameterInput *pin, RestartReader &rr, Properties_t &properties,
            Packages_t &packages, int mesh_test)
     : // public members:
       // aggregate initialization of RegionSize struct:
@@ -554,15 +554,15 @@ Mesh::Mesh(ParameterInput *pin, RestartReader *rr, Properties_t &properties,
   // the file is already open and the pointer is set to after <par_end>
 
   // All ranks read HDF file
-  nbtotal = rr->GetAttr<int>("Mesh", "nbtotal");
-  root_level = rr->GetAttr<int32_t>("Mesh", "rootLevel");
+  nbtotal = rr.GetAttr<int>("Mesh", "nbtotal");
+  root_level = rr.GetAttr<int32_t>("Mesh", "rootLevel");
 
-  auto bc = rr->ReadAttr1D<Real>("Mesh", "bc");
+  auto bc = rr.ReadAttr1DReal("Mesh", "bc");
   for (int i = 0; i < 6; i++) {
     block_bcs[i] = static_cast<BoundaryFlag>(bc[i]);
   }
 
-  auto bounds = rr->ReadAttr1D<Real>("Mesh", "bounds");
+  std::vector<Real> bounds = rr.ReadAttr1DReal("Mesh", "bounds");
   mesh_size.x1min = bounds[0];
   mesh_size.x2min = bounds[1];
   mesh_size.x3min = bounds[2];
@@ -570,20 +570,20 @@ Mesh::Mesh(ParameterInput *pin, RestartReader *rr, Properties_t &properties,
   mesh_size.x2max = bounds[4];
   mesh_size.x3max = bounds[5];
 
-  auto ratios = rr->ReadAttr1D<Real>("Mesh", "ratios");
+  auto ratios = rr.ReadAttr1DReal("Mesh", "ratios");
   mesh_size.x1rat = ratios[0];
   mesh_size.x2rat = ratios[1];
   mesh_size.x3rat = ratios[2];
 
   // TODO(sriram): Need to figure out where nCycle, time, and dt should be read
-  //  dt = rr->GetAttr<double>("Info", "dt");
-  //  time = rr->GetAttr<double>("Info", "time");
-  //  ncycle = rr->GetAttr<int32_t>("Info", "nCycle");
+  //  dt = rr.GetAttr<double>("Info", "dt");
+  //  time = rr.GetAttr<double>("Info", "time");
+  //  ncycle = rr.GetAttr<int32_t>("Info", "nCycle");
 
   // initialize
   loclist = new LogicalLocation[nbtotal];
 
-  auto blockSize = rr->ReadAttr1D<int32_t>("Mesh", "blockSize");
+  auto blockSize = rr.ReadAttr1DI32("Mesh", "blockSize");
   block_size.nx1 = blockSize[0];
   block_size.nx2 = blockSize[1];
   block_size.nx3 = blockSize[2];
@@ -620,7 +620,7 @@ Mesh::Mesh(ParameterInput *pin, RestartReader *rr, Properties_t &properties,
   // SMR / AMR
   if (adaptive) {
     // read from file or from input?  input for now.
-    //    max_level = rr->GetAttr<int32_t>("Mesh", "maxLevel");
+    //    max_level = rr.GetAttr<int32_t>("Mesh", "maxLevel");
     max_level = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1) + root_level - 1;
     if (max_level > 63) {
       msg << "### FATAL ERROR in Mesh constructor" << std::endl
@@ -672,9 +672,9 @@ Mesh::Mesh(ParameterInput *pin, RestartReader *rr, Properties_t &properties,
 #endif
 
   // Populate logical locations
-  auto lx123 = rr->ReadDataset<int64_t>("/Blocks/loc.lx123");
+  auto lx123 = rr.ReadDataset<int64_t>("/Blocks/loc.lx123");
   auto locLevelGidLidCnghostGflag =
-      rr->ReadDataset<int32_t>("/Blocks/loc.level-gid-lid-cnghost-gflag");
+      rr.ReadDataset<int32_t>("/Blocks/loc.level-gid-lid-cnghost-gflag");
   for (int i = 0; i < nbtotal; i++) {
     loclist[i].lx1 = lx123[3 * i];
     loclist[i].lx2 = lx123[3 * i + 1];
@@ -682,12 +682,11 @@ Mesh::Mesh(ParameterInput *pin, RestartReader *rr, Properties_t &properties,
 
     loclist[i].level = locLevelGidLidCnghostGflag[5 * i];
     if (loclist[i].level > current_level) current_level = loclist[i].level;
-    std::cout << std::flush << "rank:" << Globals::my_rank << ":lli=" << loclist[i].level
-              << std::flush << std::endl;
   }
 
   // rebuild the Block Tree
   tree.CreateRootGrid();
+
   for (int i = 0; i < nbtotal; i++) {
     tree.AddMeshBlockWithoutRefine(loclist[i]);
   }
@@ -741,9 +740,9 @@ Mesh::Mesh(ParameterInput *pin, RestartReader *rr, Properties_t &properties,
 
   CalculateLoadBalance(costlist, ranklist, nslist, nblist, nbtotal);
 
-  for (int i = 0; i < nbtotal; i++) {
-    std::cout << Globals::my_rank << ":::" << i << ":" << ranklist[i] << std::endl;
-  }
+  // for (int i = 0; i < nbtotal; i++) {
+  //   std::cout << Globals::my_rank << ":::" << i << ":" << ranklist[i] << std::endl;
+  // }
 
   //  if (Globals::my_rank == 0) OutputMeshStructure(ndim);
 
@@ -757,10 +756,16 @@ Mesh::Mesh(ParameterInput *pin, RestartReader *rr, Properties_t &properties,
   int nb = nblist[Globals::my_rank];
   int nbs = nslist[Globals::my_rank];
   int nbe = nbs + nb - 1;
+
+  // read in xmin from file
+  auto xmin = rr.ReadDataset<double>("/Blocks/xmin");
+
   // Create MeshBlocks (parallel)
   pblock = pfirst = nullptr;
   for (int i = nbs; i <= nbe; i++) {
     SetBlockSizeAndBoundaries(loclist[i], block_size, block_bcs);
+    std::cout << i << ":" << block_size.x1min << ":" << block_size.x1max << ":"
+              << xmin[3 * i] << std::endl;
     // create a block and add into the link list
     pblock = new MeshBlock(i, i - nbs, this, pin, properties, packages, loclist[i],
                            block_size, block_bcs, costlist[i], gflag, pblock);
@@ -769,14 +774,13 @@ Mesh::Mesh(ParameterInput *pin, RestartReader *rr, Properties_t &properties,
       pfirst = pblock;
     }
   }
+  std::cout << "_______________________" << std::endl;
+  std::cout << mesh_size.nx1 << ":" << mesh_size.nx2 << ":" << mesh_size.nx3
+            << ":xyz:" << mesh_size.x1max << ":" << mesh_size.x1min << std::endl;
   pblock->pbval->SearchAndSetNeighbors(tree, ranklist, nslist);
   pblock = pfirst;
 
-  // Load MeshBlock data (parallel)
-
   ResetLoadBalanceVariables();
-#if 0
-#endif
 }
 
 //----------------------------------------------------------------------------------------

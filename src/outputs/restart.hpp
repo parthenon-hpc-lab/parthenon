@@ -15,8 +15,11 @@
 //! \file io_wrapper.hpp
 //  \brief defines a set of small wrapper functions for MPI versus Serial Output.
 #include <cinttypes>
+#ifdef HDF5OUTPUT
 #include <hdf5.h>
+#endif
 #include <vector>
+
 namespace parthenon {
 class Mesh;
 
@@ -26,8 +29,16 @@ class RestartReader {
 
   // Gets single block data for variable name and
   // fills internal data for given pointer
+  // returns 1 on success, negative on failure
   template <typename T>
-  void ReadBlock(const char *name, const int blockID, T *data);
+  int ReadBlock(const char *name, const int blockID, T *data, size_t vlen = 1);
+
+  // Gets data for all blocks on current rank.
+  // Assumes blocks are contiguous
+  // fills internal data for given pointer
+  // returns NBlocks on success, negative on failure
+  template <typename T>
+  int ReadBlocks(const char *name, IndexRange range, T *data, size_t vlen = 1);
 
   // Reads an array dataset from file as a 1D vector.
   // Returns number of items read in count if provided
@@ -39,15 +50,15 @@ class RestartReader {
   std::string ReadAttrString(const char *dataset, const char *name,
                              size_t *count = nullptr);
 
-  // Reads an array attribute from file.
-  // Returns number of items read in count if provided
-  template <typename T>
-  std::vector<T> ReadAttr1D(const char *dataset, const char *name,
-                            size_t *count = nullptr);
+  // Type specific interface
+  std::vector<Real> ReadAttr1DReal(const char *dataset, const char *name,
+                                   size_t *count = nullptr);
+  std::vector<int32_t> ReadAttr1DI32(const char *dataset, const char *name,
+                                     size_t *count = nullptr);
 
   template <typename T>
   T GetAttr(const char *dataset, const char *name) {
-    auto x = ReadAttr1D<T>(dataset, name);
+    auto x = ReadAttrBytes_<T>(dataset, name);
     return x[0];
   }
   // closes out the restart file
@@ -56,6 +67,11 @@ class RestartReader {
 
  private:
   const std::string filename_;
+  // // Reads an array attribute from file.
+  // // Returns number of items read in count if provided
+  template <typename T>
+  std::vector<T> ReadAttrBytes_(const char *dataset, const char *name,
+                                size_t *count = nullptr);
 
 #ifdef HDF5OUTPUT
   // Currently all restarts are HDF5 files
