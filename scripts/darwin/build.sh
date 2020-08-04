@@ -60,8 +60,11 @@ export CTEST_OUTPUT_ON_FAILURE=1
 # Build
 if [ -d $1 ] 
 then
+  echo "Removing $1"
   rm -rf $1/*
+  rmdir $1
 fi
+echo "Creating build folder $1"
 mkdir $1 
 cd $1 
 
