@@ -17,3 +17,4 @@ detail.  Why is this change required?  What problem does it solve?-->
 - [ ] New features are documented.
 - [ ] Adds a test for any bugs fixed. Adds tests for new features.
 - [ ] Code is formatted
+- [ ] Changes are summarized in CHANGELOG.md
