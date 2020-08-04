@@ -103,18 +103,29 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
   if (arg.res_flag == 0) {
     pmesh = std::make_unique<Mesh>(pinput.get(), properties, packages, arg.mesh_flag);
   } else {
+    // Open restart file
     restartReader = std::make_unique<RestartReader>(arg.restart_filename);
+
+    // Load input stream
     std::string inputString = restartReader->ReadAttrString("Input", "File");
     std::istringstream is(inputString);
     pinput->LoadFromStream(is);
+
+    // Read Mesh from restart file and create meshblocks
     pmesh = std::make_unique<Mesh>(pinput.get(), *restartReader, properties, packages);
+
+    // Read simulation time and cycle from restart file and set in input
+    Real tNow = restartReader->GetAttr<Real>("Info", "Time");
+    pinput->SetPrecise("parthenon/time", "start_time", tNow);
+
+    Real dt = restartReader->GetAttr<Real>("Info", "dt");
+    pinput->SetPrecise("parthenon/time", "dt", dt);
+
+    int ncycle = restartReader->GetAttr<int32_t>("Info", "NCycle");
+    pinput->SetInteger("parthenon/time", "ncycle", ncycle);
+
+    // Read package data from restart file
     RestartPackages(*pmesh, *restartReader);
-    SimTime tm(0.0, 1.0, 100000, 1, 1);
-    std::unique_ptr<Outputs> pouts =
-        std::make_unique<Outputs>(pmesh.get(), pinput.get(), &tm);
-    pouts->MakeOutputs(pmesh.get(), pinput.get(), &tm);
-    std::string msg = std::to_string(Globals::my_rank) + " Golly!";
-    PARTHENON_FAIL(msg.c_str());
   }
 
   // add root_level to all max_level

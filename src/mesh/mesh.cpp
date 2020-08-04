@@ -675,15 +675,17 @@ Mesh::Mesh(ParameterInput *pin, RestartReader &rr, Properties_t &properties,
   auto lx123 = rr.ReadDataset<int64_t>("/Blocks/loc.lx123");
   auto locLevelGidLidCnghostGflag =
       rr.ReadDataset<int32_t>("/Blocks/loc.level-gid-lid-cnghost-gflag");
+  current_level = -1;
   for (int i = 0; i < nbtotal; i++) {
     loclist[i].lx1 = lx123[3 * i];
     loclist[i].lx2 = lx123[3 * i + 1];
     loclist[i].lx3 = lx123[3 * i + 2];
 
     loclist[i].level = locLevelGidLidCnghostGflag[5 * i];
-    if (loclist[i].level > current_level) current_level = loclist[i].level;
+    if (loclist[i].level > current_level) {
+      current_level = loclist[i].level;
+    }
   }
-
   // rebuild the Block Tree
   tree.CreateRootGrid();
 
@@ -700,8 +702,6 @@ Mesh::Mesh(ParameterInput *pin, RestartReader &rr, Properties_t &properties,
         << nbtotal << " != " << nnb << ")" << std::endl;
     PARTHENON_FAIL(msg);
   }
-  std::cout << std::flush << "rank:" << Globals::my_rank << ":nnb=" << nnb << std::flush
-            << std::endl;
 
 #ifdef MPI_PARALLEL
   if (nbtotal < Globals::nranks) {
@@ -740,12 +740,6 @@ Mesh::Mesh(ParameterInput *pin, RestartReader &rr, Properties_t &properties,
 
   CalculateLoadBalance(costlist, ranklist, nslist, nblist, nbtotal);
 
-  // for (int i = 0; i < nbtotal; i++) {
-  //   std::cout << Globals::my_rank << ":::" << i << ":" << ranklist[i] << std::endl;
-  // }
-
-  //  if (Globals::my_rank == 0) OutputMeshStructure(ndim);
-
   // Output MeshBlock list and quit (mesh test only); do not create meshes
   if (mesh_test > 0) {
     if (Globals::my_rank == 0) OutputMeshStructure(ndim);
@@ -763,21 +757,24 @@ Mesh::Mesh(ParameterInput *pin, RestartReader &rr, Properties_t &properties,
   // Create MeshBlocks (parallel)
   pblock = pfirst = nullptr;
   for (int i = nbs; i <= nbe; i++) {
-    SetBlockSizeAndBoundaries(loclist[i], block_size, block_bcs);
-    std::cout << i << ":" << block_size.x1min << ":" << block_size.x1max << ":"
-              << xmin[3 * i] << std::endl;
-    // create a block and add into the link list
-    pblock = new MeshBlock(i, i - nbs, this, pin, properties, packages, loclist[i],
-                           block_size, block_bcs, costlist[i], gflag, pblock);
-
-    if (pfirst == nullptr) {
-      pfirst = pblock;
+    for (auto &v : block_bcs) {
+      v = parthenon::BoundaryFlag::undef;
     }
+    SetBlockSizeAndBoundaries(loclist[i], block_size, block_bcs);
+
+    // create a block and add into the link list
+    MeshBlock *newblock =
+        new MeshBlock(i, i - nbs, this, pin, properties, packages, loclist[i], block_size,
+                      block_bcs, costlist[i], gflag);
+    if (pfirst == nullptr) {
+      pfirst = pblock = newblock;
+    } else {
+      pblock->next = newblock;
+      newblock->prev = pblock;
+      pblock = newblock;
+    }
+    pblock->pbval->SearchAndSetNeighbors(tree, ranklist, nslist);
   }
-  std::cout << "_______________________" << std::endl;
-  std::cout << mesh_size.nx1 << ":" << mesh_size.nx2 << ":" << mesh_size.nx3
-            << ":xyz:" << mesh_size.x1max << ":" << mesh_size.x1min << std::endl;
-  pblock->pbval->SearchAndSetNeighbors(tree, ranklist, nslist);
   pblock = pfirst;
 
   ResetLoadBalanceVariables();

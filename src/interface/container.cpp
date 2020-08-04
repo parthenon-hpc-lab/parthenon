@@ -490,7 +490,6 @@ template <typename T>
 void Container<T>::SendBoundaryBuffers() {
   // sends the boundary
   debug = 0;
-  //  std::cout << "_________SEND from stage:"<<s->name()<<std::endl;
   for (auto &v : varVector_) {
     if (v->IsSet(Metadata::FillGhost)) {
       v->resetBoundary();
@@ -534,16 +533,15 @@ void Container<T>::SetupPersistentMPI() {
 template <typename T>
 bool Container<T>::ReceiveBoundaryBuffers() {
   bool ret;
-  //  std::cout << "_________RECV from stage:"<<s->name()<<std::endl;
   ret = true;
   // receives the boundary
   for (auto &v : varVector_) {
-    if (v->IsSet(Metadata::FillGhost)) {
-      // ret = ret & v->vbvar->ReceiveBoundaryBuffers();
-      // In case we have trouble with multiple arrays causing
-      // problems with task status, we should comment one line
-      // above and uncomment the if block below
-      if (!v->mpiStatus) {
+    if (!v->mpiStatus) {
+      if (v->IsSet(Metadata::FillGhost)) {
+        // ret = ret & v->vbvar->ReceiveBoundaryBuffers();
+        // In case we have trouble with multiple arrays causing
+        // problems with task status, we should comment one line
+        // above and uncomment the if block below
         v->resetBoundary();
         v->mpiStatus = v->vbvar->ReceiveBoundaryBuffers();
         ret = (ret & v->mpiStatus);
@@ -568,7 +566,6 @@ bool Container<T>::ReceiveBoundaryBuffers() {
 
 template <typename T>
 void Container<T>::ReceiveAndSetBoundariesWithWait() {
-  //  std::cout << "_________RSET from stage:"<<s->name()<<std::endl;
   for (auto &v : varVector_) {
     if ((!v->mpiStatus) && v->IsSet(Metadata::FillGhost)) {
       v->resetBoundary();
@@ -595,9 +592,6 @@ void Container<T>::ReceiveAndSetBoundariesWithWait() {
 // bloat.
 template <typename T>
 void Container<T>::SetBoundaries() {
-  //    std::cout << "in set" << std::endl;
-  // sets the boundary
-  //  std::cout << "_________BSET from stage:"<<s->name()<<std::endl;
   for (auto &v : varVector_) {
     if (v->IsSet(Metadata::FillGhost)) {
       v->resetBoundary();
@@ -634,9 +628,6 @@ void Container<T>::ResetBoundaryCellVariables() {
 
 template <typename T>
 void Container<T>::StartReceiving(BoundaryCommSubset phase) {
-  //    std::cout << "in set" << std::endl;
-  // sets the boundary
-  //  std::cout << "________CLEAR from stage:"<<s->name()<<std::endl;
   for (auto &v : varVector_) {
     if (v->IsSet(Metadata::FillGhost)) {
       v->resetBoundary();
@@ -658,9 +649,6 @@ void Container<T>::StartReceiving(BoundaryCommSubset phase) {
 
 template <typename T>
 void Container<T>::ClearBoundary(BoundaryCommSubset phase) {
-  //    std::cout << "in set" << std::endl;
-  // sets the boundary
-  //  std::cout << "________CLEAR from stage:"<<s->name()<<std::endl;
   for (auto &v : varVector_) {
     if (v->IsSet(Metadata::FillGhost)) {
       v->vbvar->ClearBoundary(phase);

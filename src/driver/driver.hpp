@@ -14,6 +14,7 @@
 #ifndef DRIVER_DRIVER_HPP_
 #define DRIVER_DRIVER_HPP_
 
+#include <limits>
 #include <map>
 #include <memory>
 #include <string>
@@ -57,12 +58,15 @@ class Driver {
 class EvolutionDriver : public Driver {
  public:
   EvolutionDriver(ParameterInput *pin, Mesh *pm) : Driver(pin, pm) {
-    Real start_time = pinput->GetOrAddReal("parthenon/time", "start_time", 0.0);
-    Real tstop = pinput->GetReal("parthenon/time", "tlim");
+    Real start_time = pinput->GetOrAddPrecise("parthenon/time", "start_time", 0.0);
+    Real tstop = pinput->GetOrAddPrecise("parthenon/time", "tlim",
+                                         std::numeric_limits<Real>::max());
+    Real dt =
+        pinput->GetOrAddPrecise("parthenon/time", "dt", std::numeric_limits<Real>::max());
+    int ncycle = pinput->GetOrAddInteger("parthenon/time", "ncycle", 0);
     int nmax = pinput->GetOrAddInteger("parthenon/time", "nlim", -1);
     int nout = pinput->GetOrAddInteger("parthenon/time", "ncycle_out", 1);
-    // TODO(jcd): the 0 below should be the current cycle number, not necessarily 0
-    tm = SimTime(start_time, tstop, nmax, 0, nout);
+    tm = SimTime(start_time, tstop, nmax, ncycle, nout, dt);
     pouts = std::make_unique<Outputs>(pmesh, pinput, &tm);
   }
   DriverStatus Execute() override;

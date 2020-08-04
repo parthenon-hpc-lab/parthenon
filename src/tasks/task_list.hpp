@@ -62,13 +62,17 @@ class TaskList {
     }
   }
   TaskListStatus DoAvailable() {
+    //    static std::string last_name("");
     for (auto &task : task_list_) {
       auto dep = task.GetDependency();
       if (tasks_completed_.CheckDependencies(dep)) {
-        /*std::cerr << "Task dependency met:" << std::endl
-                  << dep.to_string() << std::endl
-                  << tasks_completed_.to_string() << std::endl
-                  << task->GetID().to_string() << std::endl << std::endl;*/
+        // if (last_name.compare(task.GetName())) {
+        //   std::cerr << "Task dependency met:" << task.GetName() << ":" <<
+        //   dep.to_string()
+        //             << ":" << tasks_completed_.to_string() << ":"
+        //             << task.GetID().to_string() << std::endl;
+        //   last_name = task.GetName();
+        // }
         TaskStatus status = task();
         if (status == TaskStatus::complete) {
           task.SetComplete();
@@ -89,6 +93,15 @@ class TaskList {
     TaskID id(tasks_added_ + 1);
     task_list_.push_back(
         Task(id, dep, [=]() mutable -> TaskStatus { return func(args...); }));
+    tasks_added_++;
+    return id;
+  }
+
+  template <class F, class... Args>
+  TaskID AddTask(std::string name, F func, TaskID &dep, Args &&... args) {
+    TaskID id(tasks_added_ + 1);
+    task_list_.push_back(
+        Task(id, name, dep, [=]() mutable -> TaskStatus { return func(args...); }));
     tasks_added_++;
     return id;
   }

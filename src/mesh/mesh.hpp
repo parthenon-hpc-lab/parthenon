@@ -86,8 +86,8 @@ class MeshBlock {
             Properties_t &properties, int igflag, bool ref_flag = false);
   MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin, Properties_t &properties,
             Packages_t &packages, LogicalLocation iloc, RegionSize input_block,
-            BoundaryFlag *input_bcs, double icost, int igflag, MeshBlock *lastBlock);
-
+            BoundaryFlag *input_bcs, double icost, int igflag,
+            MeshBlock *lastBlock = nullptr);
   MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
             BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
             Properties_t &properties, Packages_t &packages, int igflag,
