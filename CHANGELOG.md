@@ -10,5 +10,6 @@
 - dolor (#911)
 
 ## Release 0.1.0
+Date: 8/4/2020
 
 Initial release of Parthenon AMR infrastructure.
