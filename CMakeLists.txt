@@ -150,6 +150,12 @@ if (NOT PARTHENON_DISABLE_HDF5)
   target_link_libraries(HDF5_C INTERFACE ${HDF5_C_LIBRARIES})
   target_compile_definitions(HDF5_C INTERFACE ${HDF5_C_DEFINITIONS})
   target_include_directories(HDF5_C INTERFACE ${HDF5_C_INCLUDE_DIRS})
+
+  install(TARGETS HDF5_C EXPORT parthenonTargets
+    INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parthenon" 
+    LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+    ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}")
+
 endif()
 
 # Kokkos recommendatation resulting in not using default GNU extensions
@@ -188,11 +194,33 @@ endif()
 set(Kokkos_CXX_STANDARD 14)
 if(EXISTS ${Kokkos_ROOT}/CMakeLists.txt)
   add_subdirectory(${Kokkos_ROOT} Kokkos)
+  
+  #  get_target_property(Kokkos_SOURCES Kokkoscore SOURCES)
 elseif(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/external/Kokkos/CMakeLists.txt)
   add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/external/Kokkos Kokkos)
+  #add_library(lkokkoscore STATIC IMPORTED)
+  #  set_property(TARGET lkokkoscore PROPERTY IMPORTED_LOCATION_RELEASE ${CMAKE_BINARY_DIR}/Kokkos/core/src/libkokkoscore.a)
+
+  #add_library(kokkoscore STATIC IMPORTED)
+  #  get_target_property(Kokkos_SOURCES Kokkoscore SOURCES)
 else()
   find_package(Kokkos 3 REQUIRED)
 endif()
+
+#add_library(Kokkos SHARED IMPORTED)
+#add_library(Kokkos INTERFACE)
+#target_link_libraries(Kokkos INTERFACE ${Kokkos_LIBRARIES})
+#target_compile_definitions(Kokkos INTERFACE ${Kokkos_DEFINITIONS})
+#target_include_directories(Kokkos INTERFACE ${Kokkos_INCLUDE_DIRS})
+#target_sources(Kokkos INTERFACE ${Kokkos_SOURCES})
+#
+#install(EXPORT KokkosTargets NAMESPACE Kokkos:: DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Kokkos)
+
+#install(TARGETS kokkos EXPORT parthenonTargets NAMESPACE Kokkos::
+#  INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parthenon" 
+#  LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+#  ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+#  )
 
 # Build Tests and download Catch2
 if (${PARTHENON_ENABLE_UNIT_TESTS} OR ${PARTHENON_ENABLE_INTEGRATION_TESTS} OR ${PARTHENON_ENABLE_REGRESSION_TESTS} OR ${PARTHENON_ENABLE_PERFORMANCE_TESTS})
