@@ -108,7 +108,7 @@ cmake \
  -DOMP_NUM_THREADS=${11} \
  -DPARTHENON_DISABLE_HDF5=${12} ../
 
-cmake --build . --parallel $j --verbose
+make -j $J VERBOSE=1
 
 ctest --output-on-failure -j $J -LE 'coverage' -L 'performance|regression'
  
