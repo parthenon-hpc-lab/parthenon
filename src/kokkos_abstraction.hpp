@@ -98,40 +98,6 @@ static struct InnerLoopPatternTVR {
 static struct InnerLoopPatternSimdFor {
 } inner_loop_pattern_simdfor_tag;
 
-// TODO(pgrete) I don't like this and would prefer to make the default a
-// parameter that is read from the parameter file rather than a compile time
-// constant. Any suggestions on how to do this elegantly? One could use
-// parthenon::Globals but then this unit here would get a dependcy on the global
-// part whereas right now it's completely encapuslated.
-// Alternatively, I could think of putting all this in the parthenon::wrapper
-// namespace so that the default variable can live there.
-// Again, I'm open for suggestions.
-#ifdef MANUAL1D_LOOP
-#define DEFAULT_LOOP_PATTERN loop_pattern_flatrange_tag
-#elif defined SIMDFOR_LOOP
-#define DEFAULT_LOOP_PATTERN loop_pattern_simdfor_tag
-#elif defined MDRANGE_LOOP
-#define DEFAULT_LOOP_PATTERN loop_pattern_mdrange_tag
-#elif defined TP_TTR_LOOP
-#define DEFAULT_LOOP_PATTERN loop_pattern_tpttr_tag
-#elif defined TP_TVR_LOOP
-#define DEFAULT_LOOP_PATTERN loop_pattern_tptvr_tag
-#elif defined TPTTRTVR_LOOP
-#define DEFAULT_LOOP_PATTERN loop_pattern_tpttrtvr_tag
-#else
-#define DEFAULT_LOOP_PATTERN loop_pattern_undefined_tag
-#endif
-
-#define DEFAULT_OUTER_LOOP_PATTERN outer_loop_pattern_teams_tag
-
-#ifdef TVR_INNER_LOOP
-#define DEFAULT_INNER_LOOP_PATTERN inner_loop_pattern_tvr_tag
-#elif defined SIMDFOR_INNER_LOOP
-#define DEFAULT_INNER_LOOP_PATTERN inner_loop_pattern_simdfor_tag
-#else
-#define DEFAULT_INNER_LOOP_PATTERN loop_pattern_undefined_tag
-#endif
-
 // 1D default loop pattern
 template <typename Function>
 inline void par_for(const std::string &name, DevExecSpace exec_space, const int &il,

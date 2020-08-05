@@ -72,6 +72,30 @@ message(STATUS "PAR_LOOP_LAYOUT='${PAR_LOOP_LAYOUT}' (default par_for wrapper la
 
 message(STATUS "PAR_LOOP_INNER_LAYOUT='${PAR_LOOP_INNER_LAYOUT}' (default par_for_inner wrapper layout)")
 
+if (${PAR_LOOP_LAYOUT} STREQUAL "MANUAL1D_LOOP")
+  set(PAR_LOOP_LAYOUT_TAG loop_pattern_flatrange_tag)
+elseif (${PAR_LOOP_LAYOUT} STREQUAL "SIMDFOR_LOOP")
+  set(PAR_LOOP_LAYOUT_TAG loop_pattern_simdfor_tag)
+elseif (${PAR_LOOP_LAYOUT} STREQUAL "MDRANGE_LOOP")
+  set(PAR_LOOP_LAYOUT_TAG loop_pattern_mdrange_tag)
+elseif (${PAR_LOOP_LAYOUT} STREQUAL "TP_TTR_LOOP")
+  set(PAR_LOOP_LAYOUT_TAG loop_pattern_tpttr_tag)
+elseif (${PAR_LOOP_LAYOUT} STREQUAL "TP_TVR_LOOP")
+  set(PAR_LOOP_LAYOUT_TAG loop_pattern_tptvr_tag)
+elseif (${PAR_LOOP_LAYOUT} STREQUAL "TPTTRTVR_LOOP")
+  set(PAR_LOOP_LAYOUT_TAG loop_pattern_tpttrtvr_tag)
+else()
+  set(PAR_LOOP_LAYOUT_TAG loop_pattern_undefined_tag)
+endif()
+
+if (${PAR_LOOP_INNER_LAYOUT} STREQUAL "TVR_INNER_LOOP")
+  set(PAR_LOOP_INNER_LAYOUT_TAG inner_loop_pattern_tvr_tag)
+elseif (${PAR_LOOP_INNER_LAYOUT} STREQUAL "SIMDFOR_INNER_LOOP")
+  set(PAR_LOOP_INNER_LAYOUT_TAG inner_loop_pattern_simdfor_tag)
+else()
+  set(PAR_LOOP_INNER_LAYOUT_TAG loop_pattern_undefined_tag)
+endif()
+
 set(EXCEPTION_HANDLING_OPTION ENABLE_EXCEPTIONS) # TODO: Add option to disable exceptions
 set(COMPILED_WITH ${CMAKE_CXX_COMPILER})
 set(COMPILER_COMMAND "<not-implemented>") # TODO: Put something more descriptive here
