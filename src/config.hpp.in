@@ -46,11 +46,11 @@
 #define @HDF5_OPTION@
 
 // Kokkos tight loop layout
-#define DEFAULT_LOOP_PATTERN @PAR_LOOP_LAYOUT_TAG@
+#define DEFAULT_LOOP_PATTERN parthenon::@PAR_LOOP_LAYOUT_TAG@
 
 // Kokkos nested loop layout
-#define DEFAULT_OUTER_LOOP_PATTERN outer_loop_pattern_teams_tag
-#define DEFAULT_INNER_LOOP_PATTERN @PAR_LOOP_INNER_LAYOUT_TAG@
+#define DEFAULT_OUTER_LOOP_PATTERN parthenon::outer_loop_pattern_teams_tag
+#define DEFAULT_INNER_LOOP_PATTERN parthenon::@PAR_LOOP_INNER_LAYOUT_TAG@
 
 // try/throw/catch C++ exception handling (ENABLE_EXCEPTIONS or DISABLE_EXCEPTIONS)
 // (enabled by default)

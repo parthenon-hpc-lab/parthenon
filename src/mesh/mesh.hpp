@@ -30,6 +30,7 @@
 
 #include "bvals/bvals.hpp"
 #include "bvals/bvals_interfaces.hpp"
+#include "config.hpp"
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
 #include "domain.hpp"
@@ -187,14 +188,19 @@ class MeshBlock {
   template <typename Function>
   inline void par_for(const std::string &name, const int &il, const int &iu,
                       const Function &function) {
-    parthenon::par_for(name, exec_space, il, iu, function);
+    // using loop_pattern_mdrange_tag instead of DEFAULT_LOOP_PATTERN for now
+    // as the other wrappers are not implemented yet for 1D loops
+    parthenon::par_for(loop_pattern_mdrange_tag, name, exec_space, il, iu, function);
   }
 
   // 2D default loop pattern
   template <typename Function>
   inline void par_for(const std::string &name, const int &jl, const int &ju,
                       const int &il, const int &iu, const Function &function) {
-    parthenon::par_for(name, exec_space, jl, ju, il, iu, function);
+    // using loop_pattern_mdrange_tag instead of DEFAULT_LOOP_PATTERN for now
+    // as the other wrappers are not implemented yet for 1D loops
+    parthenon::par_for(loop_pattern_mdrange_tag, name, exec_space, jl, ju, il, iu,
+                       function);
   }
 
   // 3D default loop pattern
@@ -202,7 +208,8 @@ class MeshBlock {
   inline void par_for(const std::string &name, const int &kl, const int &ku,
                       const int &jl, const int &ju, const int &il, const int &iu,
                       const Function &function) {
-    parthenon::par_for(name, exec_space, kl, ku, jl, ju, il, iu, function);
+    parthenon::par_for(DEFAULT_LOOP_PATTERN, name, exec_space, kl, ku, jl, ju, il, iu,
+                       function);
   }
 
   // 4D default loop pattern
@@ -210,7 +217,8 @@ class MeshBlock {
   inline void par_for(const std::string &name, const int &nl, const int &nu,
                       const int &kl, const int &ku, const int &jl, const int &ju,
                       const int &il, const int &iu, const Function &function) {
-    parthenon::par_for(name, exec_space, nl, nu, kl, ku, jl, ju, il, iu, function);
+    parthenon::par_for(DEFAULT_LOOP_PATTERN, name, exec_space, nl, nu, kl, ku, jl, ju, il,
+                       iu, function);
   }
 
   // 1D Outer default loop pattern
@@ -218,16 +226,17 @@ class MeshBlock {
   inline void par_for_outer(const std::string &name, const size_t &scratch_size_in_bytes,
                             const int &scratch_level, const int &kl, const int &ku,
                             const Function &function) {
-    parthenon::par_for_outer(name, exec_space, scratch_size_in_bytes, scratch_level, kl,
-                             ku, function);
+    parthenon::par_for_outer(DEFAULT_OUTER_LOOP_PATTERN, name, exec_space,
+                             scratch_size_in_bytes, scratch_level, kl, ku, function);
   }
   // 2D Outer default loop pattern
   template <typename Function>
   inline void par_for_outer(const std::string &name, const size_t &scratch_size_in_bytes,
                             const int &scratch_level, const int &kl, const int &ku,
                             const int &jl, const int &ju, const Function &function) {
-    parthenon::par_for_outer(name, exec_space, scratch_size_in_bytes, scratch_level, kl,
-                             ku, jl, ju, function);
+    parthenon::par_for_outer(DEFAULT_OUTER_LOOP_PATTERN, name, exec_space,
+                             scratch_size_in_bytes, scratch_level, kl, ku, jl, ju,
+                             function);
   }
 
   // 3D Outer default loop pattern
@@ -236,8 +245,16 @@ class MeshBlock {
                       const int &scratch_level, const int &nl, const int &nu,
                       const int &kl, const int &ku, const int &jl, const int &ju,
                       const Function &function) {
-    parthenon::par_for_outer(name, exec_space, scratch_size_in_bytes, scratch_level, nl,
-                             nu, kl, ku, jl, ju, function);
+    parthenon::par_for_outer(DEFAULT_OUTER_LOOP_PATTERN, name, exec_space,
+                             scratch_size_in_bytes, scratch_level, nl, nu, kl, ku, jl, ju,
+                             function);
+  }
+
+  // Inner loop default pattern
+  template <typename Function>
+  KOKKOS_INLINE_FUNCTION void par_for_inner(const team_mbr_t &team_member, const int &il,
+                                            const int &iu, const Function &function) {
+    parthenon::par_for_inner(DEFAULT_INNER_LOOP_PATTERN, team_member, il, iu, function);
   }
 
   std::size_t GetBlockSizeInBytes();

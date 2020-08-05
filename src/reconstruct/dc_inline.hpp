@@ -39,7 +39,8 @@ void DonorCellX1(parthenon::team_mbr_t const &member, const int k, const int j,
   // compute L/R states for each variable
   for (int n = 0; n <= nu; ++n) {
     parthenon::par_for_inner(
-        member, il, iu, [&](const int i) { ql(n, i + 1) = qr(n, i) = q(n, k, j, i); });
+        DEFAULT_INNER_LOOP_PATTERN, member, il, iu,
+        [&](const int i) { ql(n, i + 1) = qr(n, i) = q(n, k, j, i); });
   }
   return;
 }
@@ -54,7 +55,7 @@ void DonorCellX2(parthenon::team_mbr_t const &member, const int k, const int j,
   const int nu = q.GetDim(4) - 1;
   // compute L/R states for each variable
   for (int n = 0; n <= nu; ++n) {
-    parthenon::par_for_inner(member, il, iu,
+    parthenon::par_for_inner(DEFAULT_INNER_LOOP_PATTERN, member, il, iu,
                              [&](const int i) { ql(n, i) = qr(n, i) = q(n, k, j, i); });
   }
   return;
@@ -70,7 +71,7 @@ void DonorCellX3(parthenon::team_mbr_t const &member, const int k, const int j,
   const int nu = q.GetDim(4) - 1;
   // compute L/R states for each variable
   for (int n = 0; n <= nu; ++n) {
-    parthenon::par_for_inner(member, il, iu,
+    parthenon::par_for_inner(DEFAULT_INNER_LOOP_PATTERN, member, il, iu,
                              [&](const int i) { ql(n, i) = qr(n, i) = q(n, k, j, i); });
   }
   return;

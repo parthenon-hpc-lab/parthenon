@@ -56,6 +56,7 @@
 #include "Kokkos_Core.hpp"
 
 // Get most commonly used parthenon package includes
+#include "kokkos_abstraction.hpp"
 #include "parthenon/package.hpp"
 using namespace parthenon::package::prelude;
 
@@ -289,9 +290,9 @@ result_t naiveParFor(int n_block, int n_mesh, int n_iter, double radius) {
       auto inOrOut = base->PackVariables({Metadata::Independent});
       // iops = 0  fops = 11
       par_for(
-          "par_for in or out", DevExecSpace(), 0, inOrOut.GetDim(4) - 1, NGHOST,
-          inOrOut.GetDim(3) - NGHOST - 1, NGHOST, inOrOut.GetDim(2) - NGHOST - 1, NGHOST,
-          inOrOut.GetDim(1) - NGHOST - 1,
+          DEFAULT_LOOP_PATTERN, "par_for in or out", DevExecSpace(), 0,
+          inOrOut.GetDim(4) - 1, NGHOST, inOrOut.GetDim(3) - NGHOST - 1, NGHOST,
+          inOrOut.GetDim(2) - NGHOST - 1, NGHOST, inOrOut.GetDim(1) - NGHOST - 1,
           KOKKOS_LAMBDA(const int l, const int k_grid, const int j_grid,
                         const int i_grid) {
             const Real x =
