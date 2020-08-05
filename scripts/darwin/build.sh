@@ -1,7 +1,5 @@
 #!/bin/bash
 
-# exit when any command fails
-#set -e
 
 # Load system env only
 source /etc/bashrc
@@ -80,6 +78,9 @@ echo "Creating build folder $1"
 mkdir $1 
 cd $1 
 
+# exit when any of the following commands fail
+set -e
+
 # Display build command
 echo "cmake \
  -DCMAKE_BUILD_TYPE=$2 \
@@ -107,7 +108,7 @@ cmake \
  -DOMP_NUM_THREADS=${11} \
  -DPARTHENON_DISABLE_HDF5=${12} ../
 
-make -j $J VERBOSE=1
+cmake --build . --parallel $j --verbose
 
 ctest --output-on-failure -j $J -LE 'coverage' -L 'performance|regression'
  
