@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # exit when any command fails
-set -e
+#set -e
 
 # Load system env only
 source /etc/bashrc
