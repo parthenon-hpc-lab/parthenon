@@ -86,7 +86,7 @@ class TestCase(utils.test_case.TestCaseAbs):
         try:
             parthenonPath = os.path.realpath(__file__)
             idx = parthenonPath.rindex('/parthenon/')
-            parthenonPath = parthenonPath[:idx]+'/parthenon'
+            parthenonPath = os.path.join(parthenonPath[:idx],'parthenon')
         except ValueError:
             baseDir = os.path.dirname(__file__)
             parthenonPath = baseDir + '/../../../..'
