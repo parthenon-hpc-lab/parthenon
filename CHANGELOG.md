@@ -6,6 +6,7 @@
 - Introduced CHANGELOG.md
 
 ### Changed (changing behavior/API/variables/...)
+- Moved default `par_for` wrappers to `MeshBlock` [\#68](https://github.com/lanl/parthenon/issues/68)
 
 ### Fixed (not changing behavior/API/variables/...)
 
