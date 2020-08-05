@@ -15,6 +15,18 @@ export J=$(( $(nproc --all) )) && echo Using ${J} cores during build
 COMPILER_MODULE=${15}
 MPI_MODULE=${17}
 
+export TMPDIR=${HOME}/tmp
+
+# Temp directory apparently needed by spack because of OSError: [Errno 18] Invalid cross-device link
+if [ -d ${TMPDIR} ] 
+then
+  echo "Removing ${TMPDIR}"
+  rm -rf ${TMPDIR}/*
+  rmdir ${TMPDIR}
+fi
+echo "Creating tmp directory ${TMPDIR}"
+mkdir ${TMPDIR}
+
 compiler_version=$(bash $HOME/scripts/darwin/get_version.sh $COMPILER_MODULE)
 compiler_package=$(bash $HOME/scripts/darwin/get_package.sh $COMPILER_MODULE)
 mpi_version=$(bash $HOME/scripts/darwin/get_version.sh $MPI_MODULE)
