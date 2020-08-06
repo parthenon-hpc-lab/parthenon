@@ -30,20 +30,33 @@ option(
 stop linting by default. You can still lint using the \"lint\" target"
   ON
 )
+option(
+  PARTHENON_DISABLE_EXAMPLES 
+  "Example drivers are built by default, set this to True to diable, note if regression tests are \
+built some, drivers needed by the regression tests will still be built." 
+  OFF
+)
 
-option(ENABLE_UNIT_TESTS "Enable unit tests" ${BUILD_TESTING})
-option(ENABLE_INTEGRATION_TESTS "Enable integration tests" ${BUILD_TESTING})
-option(ENABLE_REGRESSION_TESTS "Enable regression tests" ${BUILD_TESTING})
+option(PARTHENON_ENABLE_UNIT_TESTS "Enable unit tests" ${BUILD_TESTING})
+option(PARTHENON_ENABLE_INTEGRATION_TESTS "Enable integration tests" ${BUILD_TESTING})
+option(PARTHENON_ENABLE_PERFORMANCE_TESTS "Enable performance tests" ${BUILD_TESTING})
+option(PARTHENON_ENABLE_REGRESSION_TESTS "Enable regression tests" ${BUILD_TESTING})
 option(ENABLE_COMPILER_WARNINGS "Enable compiler warnings" OFF)
 option(CHECK_REGISTRY_PRESSURE "Check the registry pressure for Kokkos CUDA kernels" OFF)
 option(TEST_INTEL_OPTIMIZATION "Test intel optimization and vectorization" OFF)
 option(TEST_ERROR_CHECKING "Enables the error checking unit test. This test will FAIL" OFF)
+option(CODE_COVERAGE "Enable code coverage reporting" OFF)
 
 include(cmake/Format.cmake)
 include(cmake/Lint.cmake)
 
 # internal variable for number of ghost cells
 set(NUMBER_GHOST_CELLS ${PARTHENON_NGHOST}) 
+
+# regression test reference data
+set(REGRESSION_GOLD_STANDARD_VER 2 CACHE STRING "Version of gold standard to download and use")
+set(REGRESSION_GOLD_STANDARD_HASH "SHA512=45f57d16b76a3a44940e40ea642c1d5a2b3aea681a3064e4c06b031bf264d627f8009e967b92a2cb0fbc08e5cd0ffda381038483f390fa00f47c42a551ca3646" CACHE STRING "Hash of default gold standard file to download")
+option(REGRESSION_GOLD_STANDARD_SYNC "Automatically sync gold standard files." ON)
 
 # set single precision #define
 if ( PARTHENON_SINGLE_PRECISION )
@@ -54,6 +67,20 @@ endif()
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+if(CODE_COVERAGE)
+  if( NOT COVERAGE_NAME)
+    SET(COVERAGE_NAME "coverage_reports")
+  endif()
+  if( NOT COVERAGE_PATH)
+    SET(COVERAGE_PATH "${CMAKE_BINARY_DIR}/coverage")
+  endif()
+  SET(GCC_COVERAGE_COMPILE_FLAGS "--coverage")
+  SET(GCC_COVERAGE_LINK_FLAGS    "--coverage")
+endif()
+
+SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} ${GCC_COVERAGE_COMPILE_FLAGS}")
+SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} ${GCC_COVERAGE_LINK_FLAGS}")
+ 
 # Don't allow in-source builds
 file(TO_CMAKE_PATH "${PROJECT_BINARY_DIR}/CMakeLists.txt" LOC_PATH)
 if(EXISTS "${LOC_PATH}")
@@ -168,7 +195,31 @@ else()
 endif()
 
 # Build Tests and download Catch2
-if (${ENABLE_UNIT_TESTS} OR ${ENABLE_INTEGRATION_TESTS} OR ${ENABLE_REGRESSION_TESTS})
+if (${PARTHENON_ENABLE_UNIT_TESTS} OR ${PARTHENON_ENABLE_INTEGRATION_TESTS} OR ${PARTHENON_ENABLE_REGRESSION_TESTS} OR ${PARTHENON_ENABLE_PERFORMANCE_TESTS})
+
+  # if running regression test automatically synch gold standard
+  if (${PARTHENON_ENABLE_REGRESSION_TESTS} AND ${REGRESSION_GOLD_STANDARD_SYNC})
+    if (EXISTS ${PROJECT_SOURCE_DIR}/tst/regression/gold_standard/current_version)
+      file(READ ${PROJECT_SOURCE_DIR}/tst/regression/gold_standard/current_version REGRESSION_GOLD_STANDARD_ON_DISK)
+    else()
+      set(REGRESSION_GOLD_STANDARD_ON_DISK 0)
+    endif()
+    if (NOT (${REGRESSION_GOLD_STANDARD_ON_DISK} EQUAL ${REGRESSION_GOLD_STANDARD_VER}))
+      message(STATUS "Attempting to download latest gold standard files for regression tests. To disable set REGRESSION_GOLD_STANDARD_SYNC=OFF.")
+      file(
+        DOWNLOAD https://github.com/lanl/parthenon/releases/download/regression-gold-v${REGRESSION_GOLD_STANDARD_VER}/parthenon_regression_gold_v${REGRESSION_GOLD_STANDARD_VER}.tgz ${PROJECT_SOURCE_DIR}/tst/regression/gold_standard/parthenon_regression_gold_v${REGRESSION_GOLD_STANDARD_VER}.tgz
+        EXPECTED_HASH ${REGRESSION_GOLD_STANDARD_HASH}
+        )
+      execute_process(
+        COMMAND ${CMAKE_COMMAND} -E tar xzf ${PROJECT_SOURCE_DIR}/tst/regression/gold_standard/parthenon_regression_gold_v${REGRESSION_GOLD_STANDARD_VER}.tgz
+        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/tst/regression/gold_standard/
+        )
+      message(STATUS "  Download of gold standard successful.")
+    else()
+      message(STATUS "Gold standard is up-to-date. No download required.")
+    endif()
+  endif()
+
   # Try finding an installed Catch2 first
   find_package(Catch2 2.11.1 QUIET)
 
@@ -204,6 +255,7 @@ endif()
 add_subdirectory(src)
 add_subdirectory(example)
 
+include(cmake/CodeCov.cmake)
 include(cmake/CheckCopyright.cmake)
 
 # Currently Ctest/Cmake doesn't ensure that tests are not stale
@@ -212,3 +264,4 @@ include(cmake/CheckCopyright.cmake)
 # If you add tests with other binaries, add them to the DEPENDS line
 add_custom_target(checkit COMMAND ${CMAKE_CTEST_COMMAND}
                   DEPENDS unit_tests)
+

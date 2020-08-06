@@ -23,7 +23,7 @@
 
 using parthenon::Params;
 
-TEST_CASE("Add and Get is called", "[Add,Get]") {
+TEST_CASE("Add and Get is called", "[Add,Get][coverage]") {
   GIVEN("A key") {
     Params params;
     std::string key = "test_key";
@@ -32,11 +32,11 @@ TEST_CASE("Add and Get is called", "[Add,Get]") {
     double output = params.Get<double>(key);
     REQUIRE(output == Approx(value));
     WHEN("the same key is provided a second time") {
-      REQUIRE_THROWS_AS(params.Add(key, value), std::invalid_argument);
+      REQUIRE_THROWS_AS(params.Add(key, value), std::runtime_error);
     }
 
     WHEN("attempting to get the key but casting to a different type") {
-      REQUIRE_THROWS_AS(params.Get<int>(key), std::invalid_argument);
+      REQUIRE_THROWS_AS(params.Get<int>(key), std::runtime_error);
     }
   }
 
@@ -44,12 +44,12 @@ TEST_CASE("Add and Get is called", "[Add,Get]") {
     Params params;
     WHEN(" attempting to get a key that does not exist ") {
       std::string non_existent_key = "key";
-      REQUIRE_THROWS_AS(params.Get<double>(non_existent_key), std::invalid_argument);
+      REQUIRE_THROWS_AS(params.Get<double>(non_existent_key), std::runtime_error);
     }
   }
 }
 
-TEST_CASE("reset is called", "[reset]") {
+TEST_CASE("reset is called", "[reset][coverage]") {
   GIVEN("A key is added") {
     Params params;
     std::string key = "test_key";
@@ -57,12 +57,12 @@ TEST_CASE("reset is called", "[reset]") {
     params.Add(key, value);
     WHEN("the params are reset") {
       params.reset();
-      REQUIRE_THROWS_AS(params.Get<double>(key), std::invalid_argument);
+      REQUIRE_THROWS_AS(params.Get<double>(key), std::runtime_error);
     }
   }
 }
 
-TEST_CASE("when hasKey is called", "[hasKey]") {
+TEST_CASE("when hasKey is called", "[hasKey][coverage]") {
   GIVEN("A key is added") {
     Params params;
     std::string key = "test_key";

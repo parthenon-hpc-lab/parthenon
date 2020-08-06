@@ -1079,7 +1079,7 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
       MeshBlock *pmb = pmb_array[i];
       // BoundaryVariable objects evolved in main TimeIntegratorTaskList:
       pmb->pbval->SetupPersistentMPI();
-      pmb->real_containers.Get().SetupPersistentMPI();
+      pmb->real_containers.Get()->SetupPersistentMPI();
     }
     call++; // 1
 
@@ -1088,25 +1088,26 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
       // prepare to receive conserved variables
 #pragma omp for
       for (int i = 0; i < nmb; ++i) {
-        pmb_array[i]->real_containers.Get().StartReceiving(BoundaryCommSubset::mesh_init);
+        pmb_array[i]->real_containers.Get()->StartReceiving(
+            BoundaryCommSubset::mesh_init);
       }
       call++; // 2
               // send conserved variables
 #pragma omp for
       for (int i = 0; i < nmb; ++i) {
-        pmb_array[i]->real_containers.Get().SendBoundaryBuffers();
+        pmb_array[i]->real_containers.Get()->SendBoundaryBuffers();
       }
       call++; // 3
 
       // wait to receive conserved variables
 #pragma omp for
       for (int i = 0; i < nmb; ++i) {
-        pmb_array[i]->real_containers.Get().ReceiveAndSetBoundariesWithWait();
+        pmb_array[i]->real_containers.Get()->ReceiveAndSetBoundariesWithWait();
       }
       call++; // 4
 #pragma omp for
       for (int i = 0; i < nmb; ++i) {
-        pmb_array[i]->real_containers.Get().ClearBoundary(BoundaryCommSubset::mesh_init);
+        pmb_array[i]->real_containers.Get()->ClearBoundary(BoundaryCommSubset::mesh_init);
       }
       call++;
       // Now do prolongation, compute primitives, apply BCs

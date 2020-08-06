@@ -1,5 +1,7 @@
 # parthenon
 
+[![codecov](https://codecov.io/gh/lanl/parthenon/branch/master/graph/badge.svg)](https://codecov.io/gh/lanl/parthenon)
+
 Parthenon AMR infrastructure
 
 # Community
@@ -17,6 +19,9 @@ Parthenon AMR infrastructure
 # Dependencies Other
 
 * catch2
+* python3
+* h5py
+* numpy
 
 # Installation
 
@@ -27,8 +32,8 @@ For detailed instructions for a given system, see our [build doc](docs/building.
     mkdir build
     cd build
     cmake ../
-    make
-    make test
+    cmake --build . -j 8 
+    ctest
 
 ## Import Into Your Code
 ```c++

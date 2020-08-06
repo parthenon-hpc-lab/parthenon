@@ -21,6 +21,7 @@ list(APPEND unit_tests_SOURCES
     test_taskid.cpp
     test_unit_face_variables.cpp
     test_unit_params.cpp
+    test_unit_constants.cpp
     test_unit_domain.cpp
     kokkos_abstraction.cpp
     test_metadata.cpp

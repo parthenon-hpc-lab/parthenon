@@ -24,8 +24,6 @@
 // Preludes
 using namespace parthenon::package::prelude;
 
-using parthenon::BlockTaskFunc;
-
 using pi::PiDriver;
 
 int main(int argc, char *argv[]) {
@@ -112,13 +110,8 @@ parthenon::TaskList PiDriver::MakeTaskList(MeshBlock *pmb) {
   using calculate_pi::ComputeArea;
   TaskList tl;
 
-  // make some lambdas that over overkill here but clean things up for more realistic code
-  auto AddBlockTask = [pmb, &tl](BlockTaskFunc func, TaskID dependencies) {
-    return tl.AddTask<BlockTask>(func, dependencies, pmb);
-  };
-
   TaskID none(0);
-  auto get_area = AddBlockTask(ComputeArea, none);
+  auto get_area = tl.AddTask(ComputeArea, none, pmb);
 
   // could add more tasks like:
   // auto next_task = tl.AddTask(FuncPtr, get_area, pmb);

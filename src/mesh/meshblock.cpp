@@ -77,9 +77,9 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
     InitializeIndexShapes(block_size.nx1, 0, 0);
   }
 
-  Container<Real> &real_container = real_containers.Get();
+  auto &real_container = real_containers.Get();
   // Set the block pointer for the containers
-  real_container.setBlock(this);
+  real_container->setBlock(this);
 
   // (probably don't need to preallocate space for references in these vectors)
   vars_cc_.reserve(3);
@@ -95,9 +95,6 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
   pbval = std::make_unique<BoundaryValues>(this, input_bcs, pin);
   pbval->SetBoundaryFlags(boundary_flag);
 
-  // Set the block for containers
-  real_container.setBlock(this);
-
   // Reconstruction: constructor may implicitly depend on Coordinates, and PPM variable
   // floors depend on EOS, but EOS isn't needed in Reconstruction constructor-> this is
   // ok
@@ -107,17 +104,22 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
   for (int i = 0; i < properties.size(); i++) {
     StateDescriptor &state = properties[i]->State();
     for (auto const &q : state.AllFields()) {
-      real_container.Add(q.first, q.second);
+      real_container->Add(q.first, q.second);
+    }
+    for (auto const &q : state.AllSparseFields()) {
+      for (auto const &m : q.second) {
+        real_container->Add(q.first, m);
+      }
     }
   }
   // Add physics data
   for (auto const &pkg : packages) {
     for (auto const &q : pkg.second->AllFields()) {
-      real_container.Add(q.first, q.second);
+      real_container->Add(q.first, q.second);
     }
     for (auto const &q : pkg.second->AllSparseFields()) {
       for (auto const &m : q.second) {
-        real_container.Add(q.first, m);
+        real_container->Add(q.first, m);
       }
     }
   }
