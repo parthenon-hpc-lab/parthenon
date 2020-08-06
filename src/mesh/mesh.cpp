@@ -464,7 +464,7 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
     // create a block and add into the link list
     block_list.emplace_back(i, i - nbs, loclist[i], block_size, block_bcs, this, pin,
                             properties, packages, gflag);
-    block_list.front().pbval->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
+    block_list.back().pbval->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
   }
 
   ResetLoadBalanceVariables();
@@ -1052,7 +1052,6 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
 #endif
   int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
   std::vector<MeshBlock *> pmb_array;
-
   do {
     // initialize a vector of MeshBlock pointers
     nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
