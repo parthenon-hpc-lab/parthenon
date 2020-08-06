@@ -63,8 +63,8 @@ parthenon::DriverStatus PiDriver::Execute() {
   // first sum over blocks on this rank
   Real area = 0.0;
   for (auto &mb : pmesh->block_list) {
-    Container<Real> &rc = mb.real_containers.Get();
-    ParArrayND<Real> v = rc.Get("in_or_out").data;
+    auto &rc = mb.real_containers.Get();
+    ParArrayND<Real> v = rc->Get("in_or_out").data;
 
     // extract area from device memory
     Real block_area;

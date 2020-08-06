@@ -66,8 +66,8 @@ DriverStatus FaceFieldExample::Execute() {
     parthenon::IndexRange const ib = block.cellbounds.GetBoundsI(interior);
     parthenon::IndexRange const jb = block.cellbounds.GetBoundsJ(interior);
     parthenon::IndexRange const kb = block.cellbounds.GetBoundsK(interior);
-    Container<Real> &rc = block.real_containers.Get();
-    auto &summed = rc.Get("c.c.interpolated_sum").data;
+    auto &rc = block.real_containers.Get();
+    auto &summed = rc->Get("c.c.interpolated_sum").data;
     for (int k = kb.s; k <= kb.e; k++) {
       for (int j = jb.s; j <= jb.e; j++) {
         for (int i = ib.s; i <= ib.e; i++) {

@@ -124,8 +124,8 @@ static double sumArray(std::list<MeshBlock> &blocks, const int &n_block) {
   // reduce the sum on the device
   // I'm pretty sure I can do this better, but not worried about performance for this
   for (auto &mb : blocks) {
-    Container<Real> &base = mb.real_containers.Get();
-    auto inOrOut = base.PackVariables({Metadata::Independent});
+    auto &base = mb.real_containers.Get();
+    auto inOrOut = base->PackVariables({Metadata::Independent});
     double oneSum;
     Kokkos::parallel_reduce(
         "Reduce Sum", policyBlock,
@@ -209,7 +209,7 @@ result_t naiveKokkos(int n_block, int n_mesh, int n_iter, double radius) {
                                            Kokkos::ChunkSize(512));
 
   double time_basic = kernel_timer_wrapper(0, n_iter, [&]() {
-    MeshBlock *pmb = blocks.begin();
+    auto pmb = blocks.begin();
     for (int iMesh = 0; iMesh < n_mesh3; iMesh++, pmb++) {
       auto &base = pmb->real_containers.Get();
       auto inOrOut = base->PackVariables({Metadata::Independent});
