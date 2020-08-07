@@ -12,7 +12,7 @@
 #=========================================================================================
 
 # Include test setup functions
-include(${CMAKE_SOURCE_DIR}/cmake/TestSetup.cmake)
+include(${PROJECT_SOURCE_DIR}/cmake/TestSetup.cmake)
 
 # Adding regression tests
 #
@@ -43,29 +43,36 @@ include(${CMAKE_SOURCE_DIR}/cmake/TestSetup.cmake)
 # Calculate pi example
 list(APPEND TEST_DIRS calculate_pi)
 list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
-list(APPEND TEST_ARGS "--driver ${CMAKE_BINARY_DIR}/example/calculate_pi/pi-example \
+list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/calculate_pi/pi-example \
 --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/calculate_pi/parthinput.regression")
 
 # Advection test 
 list(APPEND TEST_DIRS advection_convergence)
 list(APPEND TEST_PROCS "1")
-list(APPEND TEST_ARGS "--driver ${CMAKE_BINARY_DIR}/example/advection/advection-example \
+list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
 --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/advection_convergence/parthinput.advection \
 --num_steps 25")
 
+# Performance regression test
+list(APPEND TEST_DIRS advection_performance)
+list(APPEND TEST_PROCS "1")
+list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
+--driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/advection_performance/parthinput.advection_performance \
+--num_steps 5")
+
 if (ENABLE_HDF5)
-  setup_test( output_hdf5 "--driver ${CMAKE_BINARY_DIR}/example/advection/advection-example \
+  setup_test( output_hdf5 "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
   --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/output_hdf5/parthinput.advection \
   --num_steps 4")
-  setup_test_coverage( output_hdf5 "--driver ${CMAKE_BINARY_DIR}/example/advection/advection-example \
+  setup_test_coverage( output_hdf5 "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
   --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/output_hdf5/parthinput.advection \
   --num_steps 4")
   setup_test_mpi( "${NUM_MPI_PROC_TESTING}" output_hdf5
-  "--driver ${CMAKE_BINARY_DIR}/example/advection/advection-example \
+    "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
   --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/output_hdf5/parthinput.advection \
   --num_steps 4")
   setup_test_mpi_coverage("${NUM_MPI_PROC_TESTING}" output_hdf5
-  "--driver ${CMAKE_BINARY_DIR}/example/advection/advection-example \
+    "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
   --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/output_hdf5/parthinput.advection \
   --num_steps 4")
 endif()
@@ -82,3 +89,9 @@ foreach( index RANGE ${end_index})
   setup_test_mpi(${TEST_PROC} ${TEST_DIR} ${TEST_ARG})
   setup_test_mpi_coverage(${TEST_PROC} ${TEST_DIR} ${TEST_ARG})
 endforeach()
+
+# manually add label to performance regression test (to selectively enable/disable)
+set_tests_properties(regression_test:advection_performance PROPERTIES LABELS "regression;mpi-no;perf-reg" )
+if( MPI_FOUND )
+  set_tests_properties(regression_mpi_test:advection_performance PROPERTIES LABELS "regression;mpi-yes;perf-reg" )
+endif()

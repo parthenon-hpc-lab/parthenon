@@ -18,6 +18,29 @@ and/or allows to pool resources early on.
 
 Use GitHub labels as appropriate and feel free to directly add/tag people to the issue.
 
+### Summary of branching model and versioning
+
+Two main branches exist:
+- `stable` contains the latest "stable" release
+- `develop` contains all approved changes since the previous release
+
+We aim at creating a new release everyone 4 to 6 weeks.
+The decision on creating a new release is made during the bi-weekly calls.
+A release consists of of merging `develop` into `stable` and create a new tag for that version
+using a modified [semantic versioning](https://semver.org/) scheme.
+Releases will be tagged `0.MAJOR.MINOR` given the current rapid development.
+
+- MAJOR is incremented for API incompatible changes
+- MINOR is incremented for backwards compatible changes and bug fixes
+
+This scheme will be reevaluated once a future version is considered to be the first official stable release.
+
+The main idea behind separating `stable` from `develop` is to allow for more in-depth nightly testing
+on the latter.
+This specifically applies to downstream codes so that incompatibilities (e.g., due to to an
+updated API) are discovered early.
+
+
 ### Contributing code
 
 In order to keep the main repository in order, everyone is encouraged to create feature
@@ -27,7 +50,7 @@ Working on branches in private forks is also fine but not recommended (as the au
 testing infrastructure will then first work upon opening a pull request).
 
 Once all changes are implemented or feedback by other developers is required/helpful
-open a pull request again the master branch of the main repository.
+open a pull request again the `develop` branch of the main repository.
 
 In that pull request refer to the issue that you have addressed.
 
@@ -36,7 +59,7 @@ implementation), mark it as "work in progress" by prepending "WIP:" to the subje
 
 ### Merging code
 
-In order for code to be merged into master it must
+In order for code to be merged into `develop` it must
 
 - obey the style guide (test with CPPLINT)
 - pass the linting test (test with CPPLINT)
@@ -45,6 +68,7 @@ In order for code to be merged into master it must
 - have at least one approval by one member of each physics/application code
 - include tests that cover the new feature (if applicable)
 - include documentation in the `doc/` folder (feature or developer; if applicable)
+- include a brief summary in `CHANGELOG.md`
 
 The reviewers are expected to look out for the items above before approving a merge
 request.
@@ -97,10 +121,36 @@ run something equivalent to
 `git fetch origin && git reset --hard origin/$(git branch --show-current)` to update your
 local tracking branch.
 
+## Test suite
+
+### Continuous testing/integration environment
+
+Commits pushed to any branch of this repository is automatically tested by
+two CI pipelines.
+
+The first pipeline focuses on correctness targeting code style, formatting, as well
+as unit and regression tests.
+It is executed through a repository [mirror](https://gitlab.com/pgrete/parthenon) on GitLab
+on a machine with an Intel Xeon E5540 (Broadwell) processor and Nvidia GeForce GTX 1060 (Pascal) GPU.
+The Dockerfile for the CI runner can be found [here](scripts/docker/Dockerfile.nvcc) and the
+pipeline is configured through [.gitlab-ci.yml](.gitlab-ci.yml).
+The current tests span MPI and non-MPI configurations on CPUs (using GCC) and GPUs (using Cuda/nvcc).
+
+The second pipeline focuses on performance regression.
+It is executed through a (different) repository [mirror](https://gitlab.com/theias/hpc/jmstone/athena-parthenon/parthenon-ci-mirror)
+using runners provided by the IAS.
+The runners have Intel Xeon Gold 6148 (Skylake) processors and Nvidia V100 (Volta) GPUs.
+Both the environment and the pipeline are configoures through [.gitlab-ci-ias.yml](.gitlab-ci-ias.yml).
+The current tests span uniform grids on GPUs (using Cuda/nvcc).
+Note, in order to integrate this kind of performance regression test with CMake
+follow the instructions [below](#integrating-the-regression-test-with-cmake) *and* add the
+`perf-reg` label to the test (see bottom of the regression
+[CMakeLists.txt](tst/regression/CMakeLists.txt)).
+
 ### Adding Tests
 
 Five categories of tests have been identified in parthenon, and they are
-located in their respective folders in the tst folder. 
+located in their respective folders in the `tst` folder. 
 
 1. Unit testing
 2. Integration testing
@@ -110,8 +160,8 @@ located in their respective folders in the tst folder.
 
 Parthenon uses ctest to manage the different tests. Cmake labels are attached
 to each test to provide control over which group of tests should be executed.
-Any test added within the tst/unit, tst/integration, tst/performance or
-tst/regression test folders will automatically be associated with the
+Any test added within the `tst/unit`, `tst/integration`, `tst/performance` or
+`tst/regression` test folders will automatically be associated with the
 appropriate label.
  
 When possible a test should be designed to fall into only one of these
