@@ -62,7 +62,7 @@ to the desired install location to the Parthenon cmake call, then build and inst
 
 ```bash
 cmake -DCMAKE_INSTALL_PREFIX="$your_install_dir" $parthenon_source_dir
-cmake --build . -- -j
+cmake --build . --parallel
 cmake --install .
 ```
 

@@ -150,6 +150,11 @@ if (NOT PARTHENON_DISABLE_HDF5)
   target_link_libraries(HDF5_C INTERFACE ${HDF5_C_LIBRARIES})
   target_compile_definitions(HDF5_C INTERFACE ${HDF5_C_DEFINITIONS})
   target_include_directories(HDF5_C INTERFACE ${HDF5_C_INCLUDE_DIRS})
+
+  install(TARGETS HDF5_C EXPORT parthenonTargets
+    INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parthenon"
+    LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+    ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}")
 endif()
 
 # Kokkos recommendatation resulting in not using default GNU extensions
