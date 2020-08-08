@@ -92,8 +92,13 @@ $ cmake -DKokkos_ARCH_POWER9=ON -DKokkos_ARCH_VOLTA70=True -DKokkos_ENABLE_CUDA=
 $ make -j10
 
 # run all tests (assumes running within a job)
-# "-gpu" is required to enable Cuda aware MPI support
-$ jsrun -n 1 -g 1 --smpiargs="-gpu" ctest
+# NOT WORKING RIGHT NOW
+
+# manually run a simulation (here using 2 nodes with each 6 GPUs and one MPI process per GPU)
+# note the `--smpiargs="-gpu"` which is required to enable Cuda aware MPI
+# also note the `--kokkos-num-devices=6` that ensures that each process on a node uses a different GPU
+$ jsrun -n 2 -a 6 -g 6 -c 42 -r 1 -d packed -b packed:7 --smpiargs="-gpu" example/advection/advection-example -i $PARTHENON_ROOT/tst/regression/test_suites/advection_performance/parthinput.advection_performance parthenon/mesh/nx1=768 parthenon/mesh/nx2=512  parthenon/mesh/nx3=512 parthenon/meshblock/nx1=256 parthenon/meshblock/nx2=256 parthenon/meshblock/nx3=256 --kokkos-num-devices=6
+
 ```
 
 ### Cuda without MPI
@@ -104,10 +109,14 @@ $ mkdir build-cuda && cd build-cuda
 $ cmake -DKokkos_ARCH_POWER9=ON -DKokkos_ARCH_VOLTA70=True -DKokkos_ENABLE_CUDA=True -DKokkos_ENABLE_OPENMP=True -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=${PARTHENON_ROOT}/external/Kokkos/bin/nvcc_wrapper -DPARTHENON_DISABLE_MPI=On ${PARTHENON_ROOT}
 $ make -j10
 
-# run all tests (assumes running within a job)
+# run unit tests (assumes running within a job, e.g., via `bsub -W 1:30 -nnodes 1 -P PROJECTID -Is /bin/bash`)
 # - jsrun is required as the test would otherwise be executed on the scheduler node rather than on a compute node
 # - "off" is required as otherwise the implicit PAMI initialization would fail
-$ jsrun -n 1 -g 1 --smpiargs="off" ctest
+$ jsrun -n 1 -g 1 --smpiargs="off" ctest -L unit
+
+# run convergence test
+$ jsrun -n 1 -g 1 --smpiargs="off" ctest -R regression_test:advection_performance
+
 ```
 
 
