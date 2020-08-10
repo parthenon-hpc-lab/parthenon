@@ -14,6 +14,13 @@
 # Favor using the kokkos package that was built with parthenon, if one has not been specified 
 if ( NOT Kokkos_FOUND )
   find_package(Kokkos 3 REQUIRED PATHS @CMAKE_INSTALL_PREFIX@)
+  set(Kokkos_BUILT_WITH_CUDA @Kokkos_ENABLE_CUDA@)
+  if(${Kokkos_BUILT_WITH_CUDA})
+    string(FIND ${CMAKE_CXX_COMPILER} "nvcc_wrapper" FOUND_WRAPPER)
+    if( ${FOUND_WRAPPER} EQUAL "-1" ) 
+      message(WARNING "Kokkos was built with cuda, recommend setting CMAKE_CXX_COMPILER to @CMAKE_INSTALL_PREFIX@/bin/nvcc_wrapper")
+    endif()
+  endif()
 endif()
 
 include("${CMAKE_CURRENT_LIST_DIR}/parthenonTargets.cmake")
