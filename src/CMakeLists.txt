@@ -220,13 +220,7 @@ if (ENABLE_OPENMP)
 endif()
 
 if (ENABLE_HDF5)
-  #target_link_libraries(parthenon PUBLIC HDF5_C)
   target_link_libraries(parthenon INTERFACE $<TARGET_PROPERTY:HDF5_C,INTERFACE_LINK_LIBRARIES>)
-  target_link_options(parthenon INTERFACE $<TARGET_PROPERTY:HDF5_C,INTERFACE_LINK_OPTIONS>)
-  target_include_directories(parthenon INTERFACE $<TARGET_PROPERTY:HDF5_C,INTERFACE_INCLUDE_DIRECTORIES>)
-  target_compile_options(parthenon INTERFACE $<TARGET_PROPERTY:HDF5_C,INTERFACE_COMPILE_OPTIONS>)
-  target_compile_definitions(parthenon INTERFACE $<TARGET_PROPERTY:HDF5_C,INTERFACE_COMPILE_DEFINITIONS>)
-  target_sources(parthenon INTERFACE $<TARGET_PROPERTY:HDF5_C,INTERFACE_SOURCES>)
 endif()
 
 if (Kokkos_ENABLE_CUDA)
@@ -235,26 +229,13 @@ endif()
 
 target_link_libraries(parthenon PUBLIC Kokkos::kokkos)
 
-#target_include_directories(parthenon PUBLIC
-#  ${CMAKE_CURRENT_SOURCE_DIR}
-#  ${CMAKE_CURRENT_BINARY_DIR}/generated
-#)
+lint_target(parthenon)
+
 target_include_directories(parthenon PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/generated>
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
   )
-
-lint_target(parthenon)
-
-#install(TARGETS parthenon
-#  LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-#  PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parthenon")
-
-#install(TARGETS parthenon HDF5_C EXPORT parthenonConfig
-#  LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-#  PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parthenon"
-#  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
 install(TARGETS parthenon EXPORT parthenonTargets
   INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parthenon"
@@ -267,17 +248,11 @@ install(DIRECTORY . DESTINATION ${CMAKE_INSTALL_INCLUDEDIR} FILES_MATCHING PATTE
 
 # Install generated config header file
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/generated/config.hpp
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
-install(FILES ${PROJECT_SOURCE_DIR}/cmake/parthenonConfig.cmake DESTINATION lib/cmake/parthenon)
+configure_file("${PROJECT_SOURCE_DIR}/cmake/parthenonConfig.cmake.in" "${PROJECT_BINARY_DIR}/cmake/parthenonConfig.cmake" @ONLY)
+install(FILES ${PROJECT_BINARY_DIR}/cmake/parthenonConfig.cmake DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/parthenon")
 
-# Specifying config file that will be used to find a library using find_package().
-#install(EXPORT parthenonTargets
-#    FILE parthenonTargets.cmake
-#    NAMESPACE Parthenon::
-#    DESTINATION lib64/cmake/parthenon
-#    COMPONENT Kokkos::kokkos
-#    )
 install(EXPORT parthenonTargets
     FILE parthenonTargets.cmake
     NAMESPACE Parthenon::
@@ -285,29 +260,3 @@ install(EXPORT parthenonTargets
     COMPONENT Kokkos::kokkos
     )
 
-#install(EXPORT parthenonConfig DESTINATION "${CMAKE_INSTALL_LIBDIR}")
-
-#set ( parthenon_INCLUDE_DIRS "." )
-#configure_package_config_file(
-# "../cmake/ParthenonConfig.cmake.in"
-# "${CMAKE_BINARY_DIR}/export/ParthenonConfig.cmake"
-# INSTALL_DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/cmake"
-# PATH_VARS parthenon_INCLUDE_DIRS)
-#install (
-#  EXPORT export
-#  DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/cmake" FILE "ParthenonTargets.cmake")
-
-
-#install(TARGETS parthenon EXPORT ParthenonConfig
-#    ARCHIVE  DESTINATION ${CMAKE_INSTALL_LIBDIR}
-#    LIBRARY  DESTINATION ${CMAKE_INSTALL_LIBDIR}
-#    RUNTIME  DESTINATION ${CMAKE_INSTALL_BINDIR})
-#export(TARGETS parthenon
-#    FILE "${CMAKE_CURRENT_BINARY_DIR}/ParthenonConfig.cmake")
-#install(EXPORT ParthenonConfig
-#    DESTINATION "${CMAKE_INSTALL_DATADIR}/parthenon/cmake" )
-#install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME})
-
-#install(EXPORT ParthenonConfig DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/cmake")
-
-#export(TARGETS ${PROJECT_NAME} FILE ParthenonConfig.cmake)
