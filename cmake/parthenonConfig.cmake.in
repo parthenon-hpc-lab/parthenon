@@ -11,6 +11,9 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
 
-find_package(Kokkos 3 REQUIRED PATHS ${CMAKE_CURRENT_SOURCE_DIR}/../../)
+# Favor using the kokkos package that was built with parthenon, if one has not been specified 
+if ( NOT Kokkos_FOUND )
+  find_package(Kokkos 3 REQUIRED PATHS @CMAKE_INSTALL_PREFIX@)
+endif()
 
 include("${CMAKE_CURRENT_LIST_DIR}/parthenonTargets.cmake")
