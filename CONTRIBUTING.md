@@ -45,7 +45,7 @@ updated API) are discovered early.
 
 In order to keep the main repository in order, everyone is encouraged to create feature
 branches starting with their username, followed by a "/", and ending with a brief
-description, e.g., "username/add_feature_xyz".
+description, e.g., "username/add\_feature\_xyz".
 Working on branches in private forks is also fine but not recommended (as the automated
 testing infrastructure will then first work upon opening a pull request).
 
@@ -146,6 +146,13 @@ Note, in order to integrate this kind of performance regression test with CMake
 follow the instructions [below](#integrating-the-regression-test-with-cmake) *and* add the
 `perf-reg` label to the test (see bottom of the regression
 [CMakeLists.txt](tst/regression/CMakeLists.txt)).
+
+A third pipeline is run using LANL internal systems and is run manually when
+approved, and is scheduled to run on a dailly basis on the development branch.
+These machines use the newest IBM powerPC processors and the NVIDIA V100
+(Volta) GPUs. Tests run on these systems are primarily aimed at measuring the
+performance of this specific architecture. Compilation and testing details can be found by looking
+in the [.gitlab-ci-darwin.yml](.gitlab-ci-darwin.yml) file *and* the /scripts/darwin folder.. 
 
 ### Adding Tests
 
