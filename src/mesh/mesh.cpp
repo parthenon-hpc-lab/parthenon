@@ -80,7 +80,7 @@ void CheckThreadAndStreamConfig(int num_threads, int num_streams) {
     }
   }
   if ((num_threads > 1) &&
-#if _OPENMP >= 201511
+#if _OPENMP >= 201811
       (omp_get_max_active_levels() <= 1)) {
 #else
       (!omp_get_nested())) {
@@ -91,10 +91,10 @@ void CheckThreadAndStreamConfig(int num_threads, int num_streams) {
                 << std::endl
                 << " Consider setting "
                 <<
-#if _OPENMP >= 201511
+#if _OPENMP >= 201811
           "OMP_MAX_ACTIVE_LEVELS=2"
 #else
-          "OPENMP_NESTED=TRUE"
+          "OMP_NESTED=TRUE"
 #endif // _OPENMP
 
                 << "." << std::endl
