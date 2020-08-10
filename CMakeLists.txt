@@ -55,6 +55,11 @@ include(cmake/Lint.cmake)
 # internal variable for number of ghost cells
 set(NUMBER_GHOST_CELLS ${PARTHENON_NGHOST}) 
 
+# regression test reference data
+set(REGRESSION_GOLD_STANDARD_VER 2 CACHE STRING "Version of gold standard to download and use")
+set(REGRESSION_GOLD_STANDARD_HASH "SHA512=45f57d16b76a3a44940e40ea642c1d5a2b3aea681a3064e4c06b031bf264d627f8009e967b92a2cb0fbc08e5cd0ffda381038483f390fa00f47c42a551ca3646" CACHE STRING "Hash of default gold standard file to download")
+option(REGRESSION_GOLD_STANDARD_SYNC "Automatically sync gold standard files." ON)
+
 # set single precision #define
 if ( PARTHENON_SINGLE_PRECISION )
   set(SINGLE_PRECISION_ENABLED 1)
@@ -193,6 +198,29 @@ endif()
 
 # Build Tests and download Catch2
 if (${PARTHENON_ENABLE_UNIT_TESTS} OR ${PARTHENON_ENABLE_INTEGRATION_TESTS} OR ${PARTHENON_ENABLE_REGRESSION_TESTS} OR ${PARTHENON_ENABLE_PERFORMANCE_TESTS})
+
+  # if running regression test automatically synch gold standard
+  if (${PARTHENON_ENABLE_REGRESSION_TESTS} AND ${REGRESSION_GOLD_STANDARD_SYNC})
+    if (EXISTS ${PROJECT_SOURCE_DIR}/tst/regression/gold_standard/current_version)
+      file(READ ${PROJECT_SOURCE_DIR}/tst/regression/gold_standard/current_version REGRESSION_GOLD_STANDARD_ON_DISK)
+    else()
+      set(REGRESSION_GOLD_STANDARD_ON_DISK 0)
+    endif()
+    if (NOT (${REGRESSION_GOLD_STANDARD_ON_DISK} EQUAL ${REGRESSION_GOLD_STANDARD_VER}))
+      message(STATUS "Attempting to download latest gold standard files for regression tests. To disable set REGRESSION_GOLD_STANDARD_SYNC=OFF.")
+      file(
+        DOWNLOAD https://github.com/lanl/parthenon/releases/download/regression-gold-v${REGRESSION_GOLD_STANDARD_VER}/parthenon_regression_gold_v${REGRESSION_GOLD_STANDARD_VER}.tgz ${PROJECT_SOURCE_DIR}/tst/regression/gold_standard/parthenon_regression_gold_v${REGRESSION_GOLD_STANDARD_VER}.tgz
+        EXPECTED_HASH ${REGRESSION_GOLD_STANDARD_HASH}
+        )
+      execute_process(
+        COMMAND ${CMAKE_COMMAND} -E tar xzf ${PROJECT_SOURCE_DIR}/tst/regression/gold_standard/parthenon_regression_gold_v${REGRESSION_GOLD_STANDARD_VER}.tgz
+        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/tst/regression/gold_standard/
+        )
+      message(STATUS "  Download of gold standard successful.")
+    else()
+      message(STATUS "Gold standard is up-to-date. No download required.")
+    endif()
+  endif()
 
   # Try finding an installed Catch2 first
   find_package(Catch2 2.11.1 QUIET)
