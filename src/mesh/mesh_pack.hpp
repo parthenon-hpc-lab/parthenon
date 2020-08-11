@@ -32,11 +32,9 @@ template <typename T>
 class MeshPack {
  public:
   MeshPack() = default;
-  MeshPack(const ParArray1D<T> view,
-           const IndexShape shape,
-           const ParArray1D<Coordinates_t> coordinates,
-           const std::array<int, 5> dims)
-    : v_(view), cellbounds(shape), coords(coordinates), dims_(dims) {}
+  MeshPack(const ParArray1D<T> view, const IndexShape shape,
+           const ParArray1D<Coordinates_t> coordinates, const std::array<int, 5> dims)
+      : v_(view), cellbounds(shape), coords(coordinates), dims_(dims) {}
   KOKKOS_FORCEINLINE_FUNCTION
   auto &operator()(const int block) const { return v_(block); }
   KOKKOS_FORCEINLINE_FUNCTION
@@ -100,8 +98,8 @@ auto PackMesh(Mesh *pmesh, const std::string &container_name, F &packing_functio
   }
   dims[4] = nblock;
 
-  Kokkos::deep_copy(packs,packs_host);
-  Kokkos::deep_copy(coords,coords_host);
+  Kokkos::deep_copy(packs, packs_host);
+  Kokkos::deep_copy(coords, coords_host);
 
   return MeshPack(packs, pmesh->pblock->cellbounds, coords, dims);
 }

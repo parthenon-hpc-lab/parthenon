@@ -66,8 +66,8 @@ class VariablePack {
   VariablePack() = default;
   VariablePack(const ViewOfParArrays<T> view, const ParArrayND<int> sparse_ids,
                const std::array<int, 4> dims)
-    : v_(view), sparse_ids_(sparse_ids), dims_(dims),
-      ndim_((dims[2] > 1 ? 3 : (dims[1] > 1 ? 2 : 1))){}
+      : v_(view), sparse_ids_(sparse_ids), dims_(dims),
+        ndim_((dims[2] > 1 ? 3 : (dims[1] > 1 ? 2 : 1))) {}
   KOKKOS_FORCEINLINE_FUNCTION
   ParArray3D<T> &operator()(const int n) const { return v_(n); }
   KOKKOS_FORCEINLINE_FUNCTION
