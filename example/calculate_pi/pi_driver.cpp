@@ -13,6 +13,8 @@
 
 // Standard Includes
 #include <fstream>
+#include <string>
+#include <vector>
 
 // Parthenon Includes
 #include <parthenon/package.hpp>
@@ -56,28 +58,32 @@ parthenon::DriverStatus PiDriver::Execute() {
   PreExecute();
 
   pouts->MakeOutputs(pmesh, pinput);
-
-  ConstructAndExecuteBlockTasks<>(this);
-
-  // All the blocks are done, now do a global reduce and spit out the answer
-  // first sum over blocks on this rank
-  Real area = 0.0;
-  MeshBlock *pmb = pmesh->pblock;
-  while (pmb != nullptr) {
-    auto &rc = pmb->real_containers.Get();
-    ParArrayND<Real> v = rc->Get("in_or_out").data;
-
-    // extract area from device memory
-    Real block_area;
-    Kokkos::deep_copy(pmb->exec_space, block_area, v.Get(0, 0, 0, 0, 0, 0));
-    pmb->exec_space.fence(); // as the deep copy may be async
-
-    const auto &radius = pmb->packages["calculate_pi"]->Param<Real>("radius");
-    // area must be reduced by r^2 to get the block's contribution to PI
-    block_area /= (radius * radius);
-
-    area += block_area;
-    pmb = pmb->next;
+  double area = 0.0;
+  if ( pin->GetOrAddBoolean("Pi", "use_mesh_pack", false) ) {
+    // Use the mesh pack and do it all in one step
+    area = calculate_pi::ComputeAreaOnMesh(pmesh);
+  } else {
+    // Task based method
+    ConstructAndExecuteBlockTasks<>(this);
+    // All the blocks are done, now do a global reduce and spit out the answer
+    // first sum over blocks on this rank
+    MeshBlock *pmb = pmesh->pblock;
+    while (pmb != nullptr) {
+      auto &rc = pmb->real_containers.Get();
+      ParArrayND<Real> v = rc->Get("in_or_out").data;
+      
+      // extract area from device memory
+      Real block_area;
+      Kokkos::deep_copy(pmb->exec_space, block_area, v.Get(0, 0, 0, 0, 0, 0));
+      pmb->exec_space.fence(); // as the deep copy may be async
+      
+      const auto &radius = pmb->packages["calculate_pi"]->Param<Real>("radius");
+      // area must be reduced by r^2 to get the block's contribution to PI
+      block_area /= (radius * radius);
+      
+      area += block_area;
+      pmb = pmb->next;
+    }
   }
 #ifdef MPI_PARALLEL
   Real pi_val;

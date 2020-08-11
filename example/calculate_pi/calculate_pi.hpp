@@ -28,6 +28,9 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 
 // Task Implementations
 parthenon::TaskStatus ComputeArea(parthenon::MeshBlock *pmb);
+
+// Run task on the entire mesh at once
+Real ComputeAreaOnMesh(Mesh* mesh);
 } // namespace calculate_pi
 
 #endif // EXAMPLE_CALCULATE_PI_CALCULATE_PI_HPP_
