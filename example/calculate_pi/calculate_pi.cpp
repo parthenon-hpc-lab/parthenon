@@ -149,8 +149,7 @@ Real ComputeAreaOnMesh(parthenon::Mesh *pmesh) {
   using policy = Kokkos::MDRangePolicy<Kokkos::Rank<5>>;
   Kokkos::parallel_reduce(
       "calculate_pi compute area",
-      policy(parthenon::DevExecSpace(),
-             {0, 0, kb.s, jb.s, ib.s},
+      policy(parthenon::DevExecSpace(), {0, 0, kb.s, jb.s, ib.s},
              {pack.GetDim(5), pack.GetDim(4), kb.e + 1, jb.e + 1, ib.e + 1},
              {1, 1, 1, 1, ib.e + 1 - ib.s}),
       KOKKOS_LAMBDA(int b, int v, int k, int j, int i, Real &larea) {
