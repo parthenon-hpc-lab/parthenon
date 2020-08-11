@@ -59,7 +59,7 @@ parthenon::DriverStatus PiDriver::Execute() {
 
   pouts->MakeOutputs(pmesh, pinput);
   double area = 0.0;
-  if (pin->GetOrAddBoolean("Pi", "use_mesh_pack", false)) {
+  if (pinput->GetOrAddBoolean("Pi", "use_mesh_pack", false)) {
     // Use the mesh pack and do it all in one step
     area = calculate_pi::ComputeAreaOnMesh(pmesh);
   } else {

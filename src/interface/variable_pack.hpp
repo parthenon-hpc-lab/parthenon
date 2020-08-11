@@ -105,13 +105,13 @@ class VariableFluxPack : public VariablePack<T> {
 
   KOKKOS_FORCEINLINE_FUNCTION
   ViewOfParArrays<T> &flux(const int dir) const {
-    assert(dir > 0 && dir <= ndim_);
+    assert(dir > 0 && dir <= this->ndim_);
     return f_[dir - 1];
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
   T &flux(const int dir, const int n, const int k, const int j, const int i) const {
-    assert(dir > 0 && dir <= ndim_);
+    assert(dir > 0 && dir <= this->ndim_);
     return f_[dir - 1](n)(k, j, i);
   }
 
@@ -286,7 +286,7 @@ VariableFluxPack<T> MakeFluxPack(const vpack_types::VarList<T> &vars,
   // add fluxes to host view
   FillFluxViews(flux_vars, vmap, ndim, f1, f2, f3);
 
-  return VariableFluxPack<T>(cv, f1, f2, f3, sparse_assoc, cv_size, fsize);
+  return VariableFluxPack<T>(cv, f1, f2, f3, sparse_assoc, cv_size);
 }
 
 template <typename T>

@@ -22,7 +22,8 @@
 
 // Parthenon Includes
 #include <coordinates/coordinates.hpp>
-#include <interface/mesh_pack.hpp>
+#include <kokkos_abstraction.hpp>
+#include <mesh/mesh_pack.hpp>
 #include <parthenon/package.hpp>
 
 using namespace parthenon::package::prelude;
@@ -137,7 +138,7 @@ TaskStatus ComputeArea(MeshBlock *pmb) {
   return TaskStatus::complete;
 }
 
-Real ComputeAreaOnMesh(Mesh *mesh) {
+Real ComputeAreaOnMesh(parthenon::Mesh *pmesh) {
   auto pack = parthenon::PackVariablesOnMesh(pmesh, "base",
                                              std::vector<std::string>{"in_or_out"});
   IndexRange ib = pack.cellbounds.GetBoundsI(IndexDomain::interior);
@@ -145,14 +146,15 @@ Real ComputeAreaOnMesh(Mesh *mesh) {
   IndexRange kb = pack.cellbounds.GetBoundsK(IndexDomain::interior);
 
   Real area = 0.0;
-  using policy_t = Kokkos::MDRangePolicy<Kokkos::Rank<5>>;
-  auto policy = policy_t(pmb->exec_space, {0, 0, kb.s, jb.s, ib.s},
-                         {pack.GetDim(5), pack, GetDim(4), kb.e + 1, jb.e + 1, ib.e + 1},
-                         {1, 1, 1, 1, ib.e + 1 - ib.s});
+  using policy = Kokkos::MDRangePolicy<Kokkos::Rank<5>>;
   Kokkos::parallel_reduce(
-      "calculate_pi compute area", policy,
+      "calculate_pi compute area",
+      policy(parthenon::DevExecSpace(),
+             {0, 0, kb.s, jb.s, ib.s},
+             {pack.GetDim(5), pack.GetDim(4), kb.e + 1, jb.e + 1, ib.e + 1},
+             {1, 1, 1, 1, ib.e + 1 - ib.s}),
       KOKKOS_LAMBDA(int b, int v, int k, int j, int i, Real &larea) {
-        larea += v(k, j, i) * coords.Area(parthenon::X3DIR, k, j, i);
+        larea += pack(b, v, k, j, i) * pack.coords(b).Area(parthenon::X3DIR, k, j, i);
       },
       area);
   // These params are mesh wide. Doesn't matter which meshblock I pull it from.
