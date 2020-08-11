@@ -3,11 +3,12 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
-- lorem (#11)
-- ipsum (#14)
+
+### Changed (changing behavior/API/variables/...)
 
 ### Fixed (not changing behavior/API/variables/...)
-- dolor (#911)
+
+### Removed
 
 ## Release 0.1.0
 Date: 8/4/2020

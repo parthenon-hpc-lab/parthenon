@@ -29,7 +29,6 @@ The decision on creating a new release is made during the bi-weekly calls.
 A release consists of of merging `develop` into `stable` and create a new tag for that version
 using a modified [semantic versioning](https://semver.org/) scheme.
 Releases will be tagged `v0.MAJOR.MINOR` given the current rapid development.
-Release branches named `v0.MAJOR` will track the latest minor release.
 
 - MAJOR is incremented for API incompatible changes
 - MINOR is incremented for backwards compatible changes and bug fixes
