@@ -66,7 +66,8 @@ class VariablePack {
   VariablePack() = default;
   VariablePack(const ViewOfParArrays<T> view, const ParArrayND<int> sparse_ids,
                const std::array<int, 4> dims)
-      : v_(view), sparse_ids_(sparse_ids), dims_(dims) {}
+    : v_(view), sparse_ids_(sparse_ids), dims_(dims),
+      ndim_((dims[2] > 1 ? 3 : (dims[1] > 1 ? 2 : 1))){}
   KOKKOS_FORCEINLINE_FUNCTION
   ParArray3D<T> &operator()(const int n) const { return v_(n); }
   KOKKOS_FORCEINLINE_FUNCTION
@@ -83,11 +84,14 @@ class VariablePack {
     assert(n < dims_[3]);
     return sparse_ids_(n);
   }
+  KOKKOS_FORCEINLINE_FUNCTION
+  int GetNdim() const { return ndim_; }
 
  protected:
   ViewOfParArrays<T> v_;
   ParArrayND<int> sparse_ids_;
   std::array<int, 4> dims_;
+  int ndim_;
 };
 
 template <typename T>
@@ -96,10 +100,8 @@ class VariableFluxPack : public VariablePack<T> {
   VariableFluxPack() = default;
   VariableFluxPack(const ViewOfParArrays<T> view, const ViewOfParArrays<T> f0,
                    const ViewOfParArrays<T> f1, const ViewOfParArrays<T> f2,
-                   const ParArrayND<int> sparse_ids, const std::array<int, 4> dims,
-                   const int nflux)
-      : VariablePack<T>(view, sparse_ids, dims), f_({f0, f1, f2}), nflux_(nflux),
-        ndim_((dims[2] > 1 ? 3 : (dims[1] > 1 ? 2 : 1))) {}
+                   const ParArrayND<int> sparse_ids, const std::array<int, 4> dims)
+      : VariablePack<T>(view, sparse_ids, dims), f_({f0, f1, f2}) {}
 
   KOKKOS_FORCEINLINE_FUNCTION
   ViewOfParArrays<T> &flux(const int dir) const {
@@ -113,12 +115,8 @@ class VariableFluxPack : public VariablePack<T> {
     return f_[dir - 1](n)(k, j, i);
   }
 
-  KOKKOS_FORCEINLINE_FUNCTION
-  int GetNdim() const { return ndim_; }
-
  private:
   std::array<ViewOfParArrays<T>, 3> f_;
-  int nflux_, ndim_;
 };
 
 // Using std::map, not std::unordered_map because the key
