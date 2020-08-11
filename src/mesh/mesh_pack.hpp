@@ -27,21 +27,16 @@ template <typename T>
 class MeshPack {
  public:
   MeshPack() = default;
-  MeshPack(const ParArray1D<T> view,
-           const std::array<int, 5> dims)
-    : v_(view), dims_(dims) {}
+  MeshPack(const ParArray1D<T> view, const std::array<int, 5> dims)
+      : v_(view), dims_(dims) {}
   KOKKOS_FORCEINLINE_FUNCTION
-  auto &operator()(const int block) const {
-    return v_(block);
-  }
+  auto &operator()(const int block) const { return v_(block); }
   KOKKOS_FORCEINLINE_FUNCTION
-  auto &operator()(const int block, const int n) const {
-    return v_(block)(n);
-  }
+  auto &operator()(const int block, const int n) const { return v_(block)(n); }
   KOKKOS_FORCEINLINE_FUNCTION
-  auto &operator()(const int block, const int n,
-                   const int k, const int j, const int i) const {
-    reutrn v_(block)(n)(k,j,i);
+  auto &operator()(const int block, const int n, const int k, const int j,
+                   const int i) const {
+    reutrn v_(block)(n)(k, j, i);
   }
   KOKKOS_FORCEINLINE_FUNCTION
   int GetDim(const int i) const {
@@ -51,9 +46,7 @@ class MeshPack {
   KOKKOS_FORCEINLINE_FUNCTION
   int GetNdim() const { return v_(0).GetNdim(); }
   KOKKOS_FORCEINLINE_FUNCTION
-  int GetSparse(const int n) const {
-    return v_(0).GetSparse(n);
-  }
+  int GetSparse(const int n) const { return v_(0).GetSparse(n); }
 
  private:
   ParArray1D<T> v_;
@@ -69,38 +62,52 @@ using MeshVariablePack = MeshPack<VariablePack<T>>;
 template <typename T>
 using MeshVariableFluxPack = MeshPack<VariableFluxPack<T>>;
 
-// Uses Real only because meshblock only owns real containers
-template <typename... Args>
-auto MakeMeshVariablePack(Mesh* pmesh,
-                          const std::string& container_name,
-                          Args... args,
-                          PackIndexMap &vmap) {
+// TODO(JMM): Should this be cached?
+namespace mesh_pack_impl {
+template <typename T, typename F>
+auto PackMesh(Mesh *pmesh, const std::string &container_name, F &packing_function) {
   int nblocks = pmesh->GetNumMeshBlocksThisRank();
-  ViewOfPacks<T> packs("MakeMeshVariablePack::cv", nblocks);
+  ParArray1D<T> packs("MakeMeshVariablePack::view", nblocks);
   auto packs_host = packs.GetHostMirror();
-  
+
   // TODO(JMM): Update to Andrew's C++ std::list when available
   MeshBlock *pmb = pmesh->pblock;
   int b = 0;
-  while (pmb != nullptr) { 
-    auto &container = pmb->real_containers.Get(container_name);
-    packs_host(b) = container->PackVariables(std::forward<Args>(args)...,vmap);
+  while (pmb != nullptr) {
+    packs_host(b) = packing_function(pmb);
     pmb = pmb->next;
     b++;
   }
-  auto pack = packs_host(0);
-  packs.DeepCopy(packs_host);
 
   std::array<int, 5> dims;
   for (int i = 0; i < 4; i++) {
-    dims[i] = pack.GetDim(i+1);
+    dims[i] = packs_host(0).GetDim(i + 1);
   }
   dims[4] = nblock;
 
-  return MeshVariablePack(packs,pack.GetSparseIDs(),dims);
+  packs.DeepCopy(packs_host);
+
+  return MeshPack(packs, dims);
 }
+} // namespace mesh_pack_impl
 
-
+// Uses Real only because meshblock only owns real containers
+template <typename... Args>
+auto PackVariablesOnMesh(Mesh *pmesh, const std::string &container_name,
+                         Args &&... args) {
+  return PackMesh<VariablePack<Real>>(pmesh, [=](MeshBlock *pmb) {
+    auto container = pmb->real_containers.Get(container_name);
+    return container->PackVariables(std::forward<Args>(args)...);
+  });
+}
+template <typename... Args>
+auto PackVariablesAndFluxesOnMesh(Mesh *pmesh, const std::string &container_name,
+                                  Args &&... args) {
+  return PackMesh<VariableFluxPack<Real>>(pmesh, [=](MeshBlock *pmb) {
+    auto container = pmb->real_containers.Get(container_name);
+    return container->PackVariablesAndFluxes(std::forward<Args>(args)...);
+  });
+}
 
 } // namespace parthenon
 
