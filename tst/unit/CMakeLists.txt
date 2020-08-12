@@ -44,6 +44,5 @@ lint_target(unit_tests)
 ParseAndAddCatchTests(unit_tests)
 
 get_property(ALL_TESTS DIRECTORY . PROPERTY TESTS)
-message("${ALL_TESTS}")
 
 add_coverage_label("${ALL_TESTS}" "performance")
