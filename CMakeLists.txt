@@ -46,6 +46,7 @@ option(CHECK_REGISTRY_PRESSURE "Check the registry pressure for Kokkos CUDA kern
 option(TEST_INTEL_OPTIMIZATION "Test intel optimization and vectorization" OFF)
 option(TEST_ERROR_CHECKING "Enables the error checking unit test. This test will FAIL" OFF)
 option(CODE_COVERAGE "Enable code coverage reporting" OFF)
+option(EXTERNAL_KOKKOS "Path to external Kokkos installation, if using" OFF)
 
 include(cmake/Format.cmake)
 include(cmake/Lint.cmake)
@@ -191,12 +192,12 @@ endif()
 # We want Kokkos to be built with C++14, since that's what we're using in
 # Parthenon.
 set(Kokkos_CXX_STANDARD 14)
-if(EXISTS ${Kokkos_ROOT}/CMakeLists.txt)
+if(EXISTS ${EXTERNAL_KOKKOS})
+  find_package(Kokkos 3 REQUIRED PATHS "${EXTERNAL_KOKKOS}" NO_DEFAULT_PATH)
+elseif(EXISTS ${Kokkos_ROOT}/CMakeLists.txt)
   add_subdirectory(${Kokkos_ROOT} Kokkos)
 elseif(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/external/Kokkos/CMakeLists.txt)
   add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/external/Kokkos Kokkos)
-else()
-  find_package(Kokkos 3 REQUIRED)
 endif()
 
 # Build Tests and download Catch2
