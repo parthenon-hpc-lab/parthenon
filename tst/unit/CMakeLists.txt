@@ -16,8 +16,9 @@
 ## the public, perform publicly and display publicly, and to permit others to do so.
 ##========================================================================================
 
-list(APPEND unit_tests_SOURCES
 
+
+list(APPEND unit_tests_SOURCES_PRECONFIGURED
     test_taskid.cpp
     test_unit_face_variables.cpp
     test_unit_params.cpp
@@ -29,15 +30,25 @@ list(APPEND unit_tests_SOURCES
     test_container_iterator.cpp
     test_required_desired.cpp
     test_error_checking.cpp
-
 )
 
-add_executable(unit_tests ${unit_tests_SOURCES})
+# This is required, to resolve cmake variables that are present in the test files
+# E.g. the @CATCH2_COVERAGE_TAG@
+foreach( TEST_FILE IN LISTS unit_tests_SOURCES_PRECONFIGURED)
+  configure_file(${TEST_FILE} ${CMAKE_CURRENT_BINARY_DIR}/${TEST_FILE} @ONLY)
+  list(APPEND unit_tests_SOURCES "${CMAKE_CURRENT_BINARY_DIR}/${TEST_FILE}")
+endforeach()
+
+add_executable(unit_tests "${unit_tests_SOURCES}")
+
 target_link_libraries(unit_tests PRIVATE parthenon catch2_define Kokkos::kokkos)
+
 if (TEST_ERROR_CHECKING)
    message(WARNING "\tTesting error checking. This test will FAIL.")
    target_compile_definitions(unit_tests PRIVATE PARTHENON_TEST_ERROR_CHECKING)
 endif()
+
 lint_target(unit_tests)
 
 ParseAndAddCatchTests(unit_tests)
+

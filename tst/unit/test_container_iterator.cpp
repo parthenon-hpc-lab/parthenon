@@ -64,7 +64,7 @@ bool intervals_intersect(const std::pair<int, int> &i1, const std::pair<int, int
 }
 
 TEST_CASE("Can pull variables from containers based on Metadata",
-          "[ContainerIterator][coverage]") {
+          "[ContainerIterator]@CATCH2_COVERAGE_TAG@") {
   GIVEN("A Container with a set of variables initialized to zero") {
     Container<Real> rc;
     Metadata m_in({Metadata::Independent, Metadata::FillGhost});

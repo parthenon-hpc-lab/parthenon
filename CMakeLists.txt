@@ -67,7 +67,9 @@ endif()
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+set(CATCH2_COVERAGE_TAG "")
 if(CODE_COVERAGE)
+  set(CATCH2_COVERAGE_TAG "[coverage]")
   if( NOT COVERAGE_NAME)
     SET(COVERAGE_NAME "coverage_reports")
   endif()

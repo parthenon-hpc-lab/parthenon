@@ -23,7 +23,8 @@
 
 using parthenon::Params;
 
-TEST_CASE("Add and Get is called", "[Add,Get][coverage]") {
+TEST_CASE("Add and Get is called", \
+    "[Add,Get]@CATCH2_COVERAGE_TAG@") {
   GIVEN("A key") {
     Params params;
     std::string key = "test_key";
@@ -49,7 +50,7 @@ TEST_CASE("Add and Get is called", "[Add,Get][coverage]") {
   }
 }
 
-TEST_CASE("reset is called", "[reset][coverage]") {
+TEST_CASE("reset is called", "[reset]@CATCH2_COVERAGE_TAG@") {
   GIVEN("A key is added") {
     Params params;
     std::string key = "test_key";
@@ -62,7 +63,7 @@ TEST_CASE("reset is called", "[reset][coverage]") {
   }
 }
 
-TEST_CASE("when hasKey is called", "[hasKey][coverage]") {
+TEST_CASE("when hasKey is called", "[hasKey]@CATCH2_COVERAGE_TAG@") {
   GIVEN("A key is added") {
     Params params;
     std::string key = "test_key";
