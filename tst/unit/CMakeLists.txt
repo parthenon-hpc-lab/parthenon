@@ -16,9 +16,7 @@
 ## the public, perform publicly and display publicly, and to permit others to do so.
 ##========================================================================================
 
-
-
-list(APPEND unit_tests_SOURCES_PRECONFIGURED
+list(APPEND unit_tests_SOURCES
     test_taskid.cpp
     test_unit_face_variables.cpp
     test_unit_params.cpp
@@ -31,13 +29,6 @@ list(APPEND unit_tests_SOURCES_PRECONFIGURED
     test_required_desired.cpp
     test_error_checking.cpp
 )
-
-# This is required, to resolve cmake variables that are present in the test files
-# E.g. the @CATCH2_COVERAGE_TAG@
-foreach( TEST_FILE IN LISTS unit_tests_SOURCES_PRECONFIGURED)
-  configure_file(${TEST_FILE} ${CMAKE_CURRENT_BINARY_DIR}/${TEST_FILE} @ONLY)
-  list(APPEND unit_tests_SOURCES "${CMAKE_CURRENT_BINARY_DIR}/${TEST_FILE}")
-endforeach()
 
 add_executable(unit_tests "${unit_tests_SOURCES}")
 
@@ -52,3 +43,7 @@ lint_target(unit_tests)
 
 ParseAndAddCatchTests(unit_tests)
 
+get_property(ALL_TESTS DIRECTORY . PROPERTY TESTS)
+message("${ALL_TESTS}")
+
+add_coverage_label("${ALL_TESTS}" "performance")

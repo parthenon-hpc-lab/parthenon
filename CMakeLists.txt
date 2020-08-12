@@ -11,7 +11,7 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
 
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.12)
 project(parthenon LANGUAGES C CXX)
 
 include(CTest)
@@ -67,6 +67,7 @@ endif()
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+include(cmake/CodeCov.cmake)
 set(CATCH2_COVERAGE_TAG "")
 if(CODE_COVERAGE)
   set(CATCH2_COVERAGE_TAG "[coverage]")
@@ -257,7 +258,7 @@ endif()
 add_subdirectory(src)
 add_subdirectory(example)
 
-include(cmake/CodeCov.cmake)
+create_pathenon_coverage_targets()
 include(cmake/CheckCopyright.cmake)
 
 # Currently Ctest/Cmake doesn't ensure that tests are not stale
