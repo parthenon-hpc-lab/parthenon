@@ -25,7 +25,7 @@ if ( CMAKE_VERSION VERSION_LESS "3.12")
   set(Python3_Interpreter_FOUND ON)
   set(Python3_EXECUTABLE ${PYTHON_EXECUTABLE})
 else()
-  find_package(Python 3.6 REQUIRED COMPONENTS Interpreter)
+  find_package(Python3 3.6 REQUIRED COMPONENTS Interpreter)
 endif()
 
 # Ensure all required packages are present
