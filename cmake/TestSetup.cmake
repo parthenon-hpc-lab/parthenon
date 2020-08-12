@@ -25,7 +25,13 @@ if ( CMAKE_VERSION VERSION_LESS "3.12")
   set(Python3_Interpreter_FOUND ON)
   set(Python3_EXECUTABLE ${PYTHON_EXECUTABLE})
 else()
-  find_package(Python3 3.6 REQUIRED COMPONENTS Interpreter)
+# Version number has been intentionally excluded from find_package call, so that latest version 
+  # will be grabbed. Including the version number would prioritise the version provided over more 
+  #
+  find_package(Python3 REQUIRED COMPONENTS Interpreter)
+  if( ${Python3_VERSION} VERSION_LESS "3.6")
+    message(FATAL_ERROR "Python version requirements not satisfied")
+  endif()
 endif()
 
 # Ensure all required packages are present
