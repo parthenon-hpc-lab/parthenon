@@ -17,8 +17,7 @@
 
 using parthenon::Metadata;
 
-TEST_CASE("Built-in flags are registered", \
-    "[Metadata]") {
+TEST_CASE("Built-in flags are registered", "[Metadata]") {
   GIVEN("The Built-In Flags") {
 #define PARTHENON_INTERNAL_FOR_FLAG(name) REQUIRE(#name == Metadata::name.Name());
     PARTHENON_INTERNAL_FOREACH_BUILTIN_FLAG
@@ -43,8 +42,7 @@ TEST_CASE("A Metadata flag is allocated", "[Metadata]") {
   }
 }
 
-TEST_CASE("A Metadata struct is created", \
-    "[Metadata]") {
+TEST_CASE("A Metadata struct is created", "[Metadata]") {
   GIVEN("A default Metadata struct") {
     Metadata m;
 

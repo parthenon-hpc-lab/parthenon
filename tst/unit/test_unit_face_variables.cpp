@@ -34,7 +34,7 @@ using parthenon::Metadata;
 using parthenon::par_for;
 using parthenon::Real;
 
-TEST_CASE("Can create a vector-valued face-variable",\
+TEST_CASE("Can create a vector-valued face-variable",
           "[FaceVariable][Constructor][Get][Set]") {
   GIVEN("One-copy, vector metadata, meshblock size, and vector shape") {
     constexpr int blockShape[] = {14, 12, 10}; // arbitrary
