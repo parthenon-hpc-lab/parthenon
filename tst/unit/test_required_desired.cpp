@@ -29,7 +29,7 @@
 using parthenon::ParameterInput;
 
 TEST_CASE("Test required/desired checking from inputs", \
-    "[ParameterInput]@CATCH2_COVERAGE_TAG@") {
+    "[ParameterInput]") {
   GIVEN("A ParameterInput object already populated") {
     ParameterInput in;
     std::stringstream ss;

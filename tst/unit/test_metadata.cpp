@@ -18,7 +18,7 @@
 using parthenon::Metadata;
 
 TEST_CASE("Built-in flags are registered", \
-    "[Metadata]@CATCH2_COVERAGE_TAG@") {
+    "[Metadata]") {
   GIVEN("The Built-In Flags") {
 #define PARTHENON_INTERNAL_FOR_FLAG(name) REQUIRE(#name == Metadata::name.Name());
     PARTHENON_INTERNAL_FOREACH_BUILTIN_FLAG
@@ -26,7 +26,7 @@ TEST_CASE("Built-in flags are registered", \
   }
 }
 
-TEST_CASE("A Metadata flag is allocated", "[Metadata]@CATCH2_COVERAGE_TAG@") {
+TEST_CASE("A Metadata flag is allocated", "[Metadata]") {
   GIVEN("A User Flag") {
     auto const f = Metadata::AllocateNewFlag("TestFlag");
     // Note: `parthenon::internal` is subject to change, and so this test may
@@ -44,7 +44,7 @@ TEST_CASE("A Metadata flag is allocated", "[Metadata]@CATCH2_COVERAGE_TAG@") {
 }
 
 TEST_CASE("A Metadata struct is created", \
-    "[Metadata]@CATCH2_COVERAGE_TAG@") {
+    "[Metadata]") {
   GIVEN("A default Metadata struct") {
     Metadata m;
 

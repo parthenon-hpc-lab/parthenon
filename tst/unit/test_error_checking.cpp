@@ -22,7 +22,7 @@
 #include "utils/error_checking.hpp"
 
 TEST_CASE("Parthenon Error Checking", \
-    "[ErrorChecking][Kokkos]@CATCH2_COVERAGE_TAG@") {
+    "[ErrorChecking][Kokkos]") {
   SECTION("PARTHENON_REQUIRE passes if condition true") {
     PARTHENON_REQUIRE(true, "This shouldn't fail");
   }

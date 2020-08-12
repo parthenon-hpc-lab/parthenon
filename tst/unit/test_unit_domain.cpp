@@ -23,7 +23,7 @@
 #include <catch2/catch.hpp>
 
 TEST_CASE("Checking IndexShape indices", \
-    "[is,ie,js,je,ks,ke]@CATCH2_COVERAGE_TAG@") {
+    "[is,ie,js,je,ks,ke]") {
   const parthenon::IndexDomain interior = parthenon::IndexDomain::interior;
   const parthenon::IndexDomain entire = parthenon::IndexDomain::entire;
   GIVEN("A 1D Index Shape") {
@@ -137,7 +137,7 @@ TEST_CASE("Checking IndexShape indices", \
 }
 
 TEST_CASE("Checking IndexShape cell counts", \
-    "[ncellsi,ncellsj,ncellsk]@CATCH2_COVERAGE_TAG@") {
+    "[ncellsi,ncellsj,ncellsk]") {
   const parthenon::IndexDomain interior = parthenon::IndexDomain::interior;
   const parthenon::IndexDomain entire = parthenon::IndexDomain::entire;
   GIVEN("A 1D Index Shape, check the numbers of cells") {
