@@ -12,7 +12,7 @@
 #=========================================================================================
 
 # Favor using the kokkos package that was built with parthenon, if one has not been specified
-if (NOT @EXTERNAL_KOKKOS@)
+if (EXISTS @EXTERNAL_KOKKOS@)
   find_package(Kokkos 3 REQUIRED PATHS @EXTERNAL_KOKKOS@ NO_DEFAULT_PATH)
 else()
   find_package(Kokkos 3 REQUIRED PATHS @CMAKE_INSTALL_PREFIX@)
