@@ -17,6 +17,7 @@
 #include <string>
 #include <vector>
 
+#include "application_input.hpp"
 #include "driver/driver.hpp"
 #include "mesh/mesh.hpp"
 #include "parameter_input.hpp"
@@ -33,7 +34,7 @@ struct Integrator {
 
 class MultiStageDriver : public EvolutionDriver {
  public:
-  MultiStageDriver(ParameterInput *pin, Mesh *pm);
+  MultiStageDriver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm);
   std::vector<std::string> stage_name;
   Integrator *integrator;
   ~MultiStageDriver() { delete integrator; }
@@ -43,7 +44,8 @@ class MultiStageDriver : public EvolutionDriver {
 
 class MultiStageBlockTaskDriver : public MultiStageDriver {
  public:
-  MultiStageBlockTaskDriver(ParameterInput *pin, Mesh *pm) : MultiStageDriver(pin, pm) {}
+  MultiStageBlockTaskDriver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
+      : MultiStageDriver(pin, app_in, pm) {}
   TaskListStatus Step();
   // An application driver that derives from this class must define this
   // function, which defines the application specific list of tasks and
