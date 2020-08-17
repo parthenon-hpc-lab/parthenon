@@ -35,7 +35,7 @@ class PiDriver : public Driver {
   /// MakeTaskList isn't a virtual routine on `Driver`, but each driver is expected to
   /// implement it.
   TaskList MakeTaskList(MeshBlock *pmb);
-  std::vector<std::shared_ptr<TaskList>> MakeTaskLists(std::vector<MeshBlock *> blocks);
+  TaskCollection MakeTasks(std::vector<MeshBlock *> blocks);
 
   /// `Execute` cylces until simulation completion.
   DriverStatus Execute() override;

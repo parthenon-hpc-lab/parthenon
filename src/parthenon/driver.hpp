@@ -45,8 +45,10 @@ using ::parthenon::Outputs;
 using ::parthenon::ParameterInput;
 using ::parthenon::ParthenonManager;
 using ::parthenon::Task;
+using ::parthenon::TaskCollection;
 using ::parthenon::TaskID;
 using ::parthenon::TaskList;
+using ::parthenon::TaskRegion;
 using ::parthenon::TaskStatus;
 using ::parthenon::DriverUtils::ConstructAndExecuteBlockTasks;
 } // namespace prelude

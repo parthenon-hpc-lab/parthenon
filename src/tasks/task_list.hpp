@@ -125,6 +125,41 @@ class TaskList {
   TaskID tasks_completed_;
 };
 
+struct TaskRegion {
+  TaskRegion() = default;
+  explicit TaskRegion(const int size) : lists(size) {}
+  void SetSize(const int size) { lists.resize(size); }
+  TaskList &operator[](const int i) { return lists[i]; }
+  auto size() { return lists.size(); }
+
+  template <class F, class... Args>
+  TaskID AddTask(F func, Args &&... args) {
+    TaskID id0 = lists[0].AddTask(func, std::forward<Args>(args)...);
+    for (int i = 1; i < size(); i++) {
+      TaskID id = lists[i].AddTask(func, std::forward<Args>(args)...);
+      if (id != id0) {
+        PARTHENON_THROW("Different TaskIDs returned in TaskRegion::AddTask");
+      }
+    }
+    return id0;
+  }
+
+  std::vector<TaskList> lists;
+};
+
+struct TaskCollection {
+  TaskCollection() = default;
+  TaskRegion &AddRegion(const int num_lists) {
+    regions.push_back(TaskRegion(num_lists));
+    return regions.back();
+  }
+  auto begin() { return regions.begin(); }
+  auto end() { return regions.end(); }
+  auto size() { return regions.size(); }
+
+  std::vector<TaskRegion> regions;
+};
+
 } // namespace parthenon
 
 #endif // TASKS_TASK_LIST_HPP_

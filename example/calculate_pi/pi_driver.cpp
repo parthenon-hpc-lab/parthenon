@@ -124,11 +124,11 @@ TaskList PiDriver::MakeTaskList(MeshBlock *pmb) {
   return tl;
 }
 
-std::vector<std::shared_ptr<TaskList>>
-PiDriver::MakeTaskLists(std::vector<MeshBlock *> blocks) {
+TaskCollection PiDriver::MakeTasks(std::vector<MeshBlock *> blocks) {
   using calculate_pi::ComputeAreas;
-  std::vector<std::shared_ptr<TaskList>> lists(1);
+  TaskCollection tc;
+  TaskRegion &tr = tc.AddRegion(1);
   TaskID none(0);
-  auto get_areas = lists[0]->AddTask(ComputeAreas, none, blocks);
-  return lists;
+  auto get_area = tr.AddTask(ComputeAreas, none, blocks);
+  return tc;
 }

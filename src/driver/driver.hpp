@@ -115,16 +115,19 @@ TaskListStatus ConstructAndExecuteTaskLists(T *driver, Args... args) {
     blocks.emplace_back(pmb);
     pmb = pmb->next;
   }
-  std::vector<std::shared_ptr<TaskList>> task_lists =
-      driver->MakeTaskLists(blocks, std::forward<Args>(args)...);
-  int complete_cnt = 0;
-  while (complete_cnt != nmb) {
-    // TODO(pgrete): need to let Kokkos::PartitionManager handle this
-    for (auto i = 0; i < nmb; ++i) {
-      if (!task_lists[i]->IsComplete()) {
-        auto status = task_lists[i]->DoAvailable();
-        if (status == TaskListStatus::complete) {
-          complete_cnt++;
+
+  TaskCollection tc = driver->MakeTasks(blocks, std::forward<Args>(args)...);
+  for (auto region : tc) {
+    int complete_cnt = 0;
+    auto num_lists = region.size();
+    while (complete_cnt != num_lists) {
+      // TODO(pgrete): need to let Kokkos::PartitionManager handle this
+      for (auto i = 0; i < num_lists; ++i) {
+        if (!region[i].IsComplete()) {
+          auto status = region[i].DoAvailable();
+          if (status == TaskListStatus::complete) {
+            complete_cnt++;
+          }
         }
       }
     }
