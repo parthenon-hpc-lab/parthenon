@@ -607,11 +607,12 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
     hsize_t index = 0;
     pmb = pm->pblock;
     while (pmb != nullptr) { // for every block
-      auto ci = ContainerIterator<Real>( pmb->real_containers.Get(),
-        {parthenon::Metadata::Independent, parthenon::Metadata::Restart}, true);
+      auto ci = ContainerIterator<Real>(
+          pmb->real_containers.Get(),
+          {parthenon::Metadata::Independent, parthenon::Metadata::Restart}, true);
       for (auto &v : ci.vars) {
         // Note index 4 transposed to interior
-        if (vWriteName.compare(v->label()) == 0 ) {
+        if (vWriteName.compare(v->label()) == 0) {
           auto v_h = (*v).data.GetHostMirrorAndCopy();
           LOADVARIABLEONE(index, tmpData, v_h, out_ib.s, out_ib.e, out_jb.s, out_jb.e,
                           out_kb.s, out_kb.e, vlen);
