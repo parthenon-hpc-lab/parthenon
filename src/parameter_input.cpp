@@ -109,6 +109,12 @@ InputBlock::~InputBlock() {
   }
 }
 
+void toLower(std::string& name) {
+  std::transform(name.begin(), name.end(), name.begin(), [](unsigned char c) {
+    return std::lower(c);
+  });
+}
+
 //----------------------------------------------------------------------------------------
 //! \fn  void ParameterInput::LoadFromStream(std::istream &is)
 //  \brief Load input parameters from a stream
@@ -154,6 +160,8 @@ void ParameterInput::LoadFromStream(std::istream &is) {
       first_char++;
       last_char = (line.find_first_of(">", first_char));
       block_name.assign(line, first_char, last_char - 1); // extract block name
+      toLower(block_name);
+
 
       if (last_char == std::string::npos) {
         msg << "### FATAL ERROR in function [ParameterInput::LoadFromStream]" << std::endl
@@ -259,6 +267,7 @@ InputBlock *ParameterInput::FindOrAddBlock(std::string name) {
   InputBlock *pib, *plast;
   plast = pfirst_block;
   pib = pfirst_block;
+  toLower(name);
 
   // Search singly linked list of InputBlocks to see if name exists, return if found.
   while (pib != nullptr) {
@@ -315,6 +324,8 @@ bool ParameterInput::ParseLine(InputBlock *pib, std::string line, std::string &n
     line.erase(0, len + 1);
   }
 
+  toLower(name);
+
   cont_char = line.find_first_of("&"); // find "&" continuation character
   // copy substring into value, remove white space at start and end
   len = cont_char;
@@ -351,6 +362,7 @@ void ParameterInput::AddParameter(InputBlock *pb, std::string name, std::string 
   InputLine *pl, *plast;
   // Search singly linked list of InputLines to see if name exists.  This also sets *plast
   // to point to the tail node (but not storing a pointer to the tail node in InputBlock)
+  toLower(name);
   pl = pb->pline;
   plast = pb->pline;
   while (pl != nullptr) {
@@ -446,6 +458,7 @@ void ParameterInput::ModifyFromCmdline(int argc, char *argv[]) {
 
 InputBlock *ParameterInput::GetPtrToBlock(std::string name) {
   InputBlock *pb;
+  toLower(name);
   for (pb = pfirst_block; pb != nullptr; pb = pb->pnext) {
     if (name.compare(pb->block_name) == 0) return pb;
   }
@@ -988,6 +1001,7 @@ void ParameterInput::ParameterDump(std::ostream &os) {
 //  \brief return pointer to InputLine containing specified parameter if it exists
 
 InputLine *InputBlock::GetPtrToLine(std::string name) {
+  toLower(name);
   for (InputLine *pl = pline; pl != nullptr; pl = pl->pnext) {
     if (name.compare(pl->param_name) == 0) return pl;
   }
