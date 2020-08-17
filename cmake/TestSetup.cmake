@@ -14,24 +14,12 @@
 
 
 # Search for the python interpreter
-if ( CMAKE_VERSION VERSION_LESS "3.12")
-  # Version number has been intentionally excluded from find_package call, so that latest version 
-  # will be grabbed. Including the version number would prioritise the version provided over more 
-  # up to date versions
-  find_package(PythonInterp REQUIRED)
-  if( ${PYTHON_VERSION_STRING} VERSION_LESS "3.6")
-    message(FATAL_ERROR "Python version requirements not satisfied")
-  endif()
-  set(Python3_Interpreter_FOUND ON)
-  set(Python3_EXECUTABLE ${PYTHON_EXECUTABLE})
-else()
 # Version number has been intentionally excluded from find_package call, so that latest version 
-  # will be grabbed. Including the version number would prioritise the version provided over more 
-  #
-  find_package(Python3 REQUIRED COMPONENTS Interpreter)
-  if( ${Python3_VERSION} VERSION_LESS "3.6")
-    message(FATAL_ERROR "Python version requirements not satisfied")
-  endif()
+# will be grabbed. Including the version number would prioritise the version provided over more 
+#
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+if( ${Python3_VERSION} VERSION_LESS "3.6")
+  message(FATAL_ERROR "Python version requirements not satisfied")
 endif()
 
 # Ensure all required packages are present
