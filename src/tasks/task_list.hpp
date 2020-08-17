@@ -35,23 +35,12 @@ enum class TaskListStatus { running, stuck, complete, nothing_to_do };
 class TaskList {
  public:
   TaskList() = default;
-  explicit TaskList(std::shared_ptr<TaskList> &dep) : dependencies_({dep}) {}
-  explicit TaskList(std::vector<std::shared_ptr<TaskList>> &deps) : dependencies_(deps) {}
   bool IsComplete() { return task_list_.empty(); }
   int Size() { return task_list_.size(); }
   void Reset() {
     tasks_added_ = 0;
     task_list_.clear();
-    dependencies_.clear();
     tasks_completed_.clear();
-  }
-  bool IsReady() {
-    for (auto &l : dependencies_) {
-      if (!l->IsComplete()) {
-        return false;
-      }
-    }
-    return true;
   }
   void MarkTaskComplete(TaskID id) { tasks_completed_.SetFinished(id); }
   void ClearComplete() {
@@ -65,21 +54,13 @@ class TaskList {
     }
   }
   TaskListStatus DoAvailable() {
-    if (!IsReady()) return TaskListStatus::nothing_to_do;
     for (auto &task : task_list_) {
       auto dep = task.GetDependency();
       if (tasks_completed_.CheckDependencies(dep)) {
-        /*std::cerr << "Task dependency met:" << std::endl
-                  << dep.to_string() << std::endl
-                  << tasks_completed_.to_string() << std::endl
-                  << task->GetID().to_string() << std::endl << std::endl;*/
         TaskStatus status = task();
         if (status == TaskStatus::complete) {
           task.SetComplete();
           MarkTaskComplete(task.GetID());
-          /*std::cerr << "Task complete:" << std::endl
-                    << task->GetID().to_string() << std::endl
-                    << tasks_completed_.to_string() << std::endl << std::endl;*/
         }
       }
     }
@@ -121,31 +102,10 @@ class TaskList {
  protected:
   std::list<Task> task_list_;
   int tasks_added_ = 0;
-  std::vector<std::shared_ptr<TaskList>> dependencies_;
   TaskID tasks_completed_;
 };
 
-struct TaskRegion {
-  TaskRegion() = default;
-  explicit TaskRegion(const int size) : lists(size) {}
-  void SetSize(const int size) { lists.resize(size); }
-  TaskList &operator[](const int i) { return lists[i]; }
-  auto size() { return lists.size(); }
-
-  template <class F, class... Args>
-  TaskID AddTask(F func, Args &&... args) {
-    TaskID id0 = lists[0].AddTask(func, std::forward<Args>(args)...);
-    for (int i = 1; i < size(); i++) {
-      TaskID id = lists[i].AddTask(func, std::forward<Args>(args)...);
-      if (id != id0) {
-        PARTHENON_THROW("Different TaskIDs returned in TaskRegion::AddTask");
-      }
-    }
-    return id0;
-  }
-
-  std::vector<TaskList> lists;
-};
+using TaskRegion = std::vector<TaskList>;
 
 struct TaskCollection {
   TaskCollection() = default;
@@ -153,10 +113,6 @@ struct TaskCollection {
     regions.push_back(TaskRegion(num_lists));
     return regions.back();
   }
-  auto begin() { return regions.begin(); }
-  auto end() { return regions.end(); }
-  auto size() { return regions.size(); }
-
   TaskListStatus Execute() {
     for (auto region : regions) {
       int complete_cnt = 0;

@@ -129,6 +129,6 @@ TaskCollection PiDriver::MakeTasks(std::vector<MeshBlock *> blocks) {
   TaskCollection tc;
   TaskRegion &tr = tc.AddRegion(1);
   TaskID none(0);
-  auto get_area = tr.AddTask(ComputeAreas, none, blocks);
+  auto get_area = tr[0].AddTask(ComputeAreas, none, blocks);
   return tc;
 }
