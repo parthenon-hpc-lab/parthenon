@@ -171,7 +171,7 @@ if (Kokkos_ENABLE_CUDA)
   elseif( "${NUM_GPUS_DETECTED}" EQUAL "1" )
     message(STATUS "Detecting ${NUM_GPUS_DETECTED} GPUs.")
   else()
-    message(NOTE "Detecting ${NUM_GPUS_DETECTED} GPUs, by default only a single GPU will be used "
+    message(STATUS "Detecting ${NUM_GPUS_DETECTED} GPUs, by default only a single GPU will be used "
       "with the regression tests.")
   endif()
 endif()
