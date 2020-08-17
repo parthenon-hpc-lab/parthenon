@@ -59,7 +59,7 @@ parthenon::DriverStatus PiDriver::Execute() {
 
   pouts->MakeOutputs(pmesh, pinput);
 
-  ConstructAndExecuteBlockTasks<>(this);
+  ConstructAndExecuteTaskLists<>(this);
 
   // All the blocks are done, now do a global reduce and spit out the answer
   // first sum over blocks on this rank

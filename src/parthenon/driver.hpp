@@ -51,6 +51,7 @@ using ::parthenon::TaskList;
 using ::parthenon::TaskRegion;
 using ::parthenon::TaskStatus;
 using ::parthenon::DriverUtils::ConstructAndExecuteBlockTasks;
+using ::parthenon::DriverUtils::ConstructAndExecuteTaskLists;
 } // namespace prelude
 } // namespace driver
 } // namespace parthenon

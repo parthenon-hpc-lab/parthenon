@@ -110,9 +110,9 @@ TaskListStatus ConstructAndExecuteTaskLists(T *driver, Args... args) {
   int nmb = driver->pmesh->GetNumMeshBlocksThisRank(Globals::my_rank);
   MeshBlock *pmb = driver->pmesh->pblock;
   std::vector<MeshBlock *> blocks(nmb);
-  while (pmb != nullptr) {
+  for (int i = 0; i < nmb; i++) {
     // task_lists.push_back(driver->MakeTaskList(pmb, std::forward<Args>(args)...));
-    blocks.emplace_back(pmb);
+    blocks[i] = pmb;
     pmb = pmb->next;
   }
 
