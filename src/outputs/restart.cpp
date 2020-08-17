@@ -604,23 +604,25 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
     }
 
     // load up data
+    hsize_t index = 0;
+    pmb = pm->pblock;
     while (pmb != nullptr) { // for every block
-      auto ci = ContainerIterator<Real>(pmb->real_containers.Get(), {vWriteName});
+      auto ci = ContainerIterator<Real>( pmb->real_containers.Get(),
+        {parthenon::Metadata::Independent, parthenon::Metadata::Restart}, true);
       for (auto &v : ci.vars) {
         // Note index 4 transposed to interior
-        auto v_h = (*v).data.GetHostMirrorAndCopy();
-        hsize_t index = pmb->lid * varSize * vlen;
-        LOADVARIABLEONE(index, tmpData, v_h, out_ib.s, out_ib.e, out_jb.s, out_jb.e,
-                        out_kb.s, out_kb.e, vlen)
+        if (vWriteName.compare(v->label()) == 0 ) {
+          auto v_h = (*v).data.GetHostMirrorAndCopy();
+          LOADVARIABLEONE(index, tmpData, v_h, out_ib.s, out_ib.e, out_jb.s, out_jb.e,
+                          out_kb.s, out_kb.e, vlen);
+          break;
+        }
       }
       pmb = pmb->next;
     }
     // write dataset to file
     WRITEH5SLAB2(vWriteName.c_str(), tmpData, file, local_start, local_count, vLocalSpace,
                  vGlobalSpace, property_list);
-    //    WRITEH5SLAB(vWriteName.c_str(), tmpData, file, local_start, local_count,
-    //    vLocalSpace,
-    //           vGlobalSpace, property_list);
     if (vlen > 1) {
       H5Sclose(vLocalSpace);
       H5Sclose(vGlobalSpace);
