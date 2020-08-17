@@ -107,6 +107,6 @@ cmake \
 
 make -j $J VERBOSE=1
 
-ctest --output-on-failure -j $J -LE 'coverage' -L 'performance|regression'
+ctest --output-on-failure -j $J
  
  
