@@ -10,8 +10,8 @@ export HOME=$(pwd)
 # Calculate number of available cores
 export J=$(( $(nproc --all) )) && echo Using ${J} cores during build
 
-COMPILER_MODULE=${15}
-MPI_MODULE=${17}
+COMPILER_MODULE=${14}
+MPI_MODULE=${16}
 
 export TMPDIR=${HOME}/tmp
 
@@ -35,11 +35,11 @@ export NVCC_WRAPPER_DEFAULT_COMPILER=${wrapper_compiler}
 
 # Load system modules
 module purge
-module load ${13} # cmake
-module load ${14} # clang for formatting
+module load ${12} # cmake
+module load ${13} # clang for formatting
 module load $COMPILER_MODULE # gcc
 module load $MPI_MODULE # mpi
-module load ${16} # cuda
+module load ${15} # cuda
 
 # Initialize spack env
 . spack/share/spack/setup-env.sh
@@ -89,11 +89,10 @@ echo "cmake \
  -DKokkos_ARCH_VOLTA70=$5 \
  -DKokkos_ENABLE_CUDA=$6 \
  -DKokkos_ENABLE_CUDA_UVM=$7 \
- -DKokkos_ENABLE_CXX11=$8 \
- -DKokkos_ENABLE_OPENMP=$9 \
- -DNUM_MPI_PROC_TESTING=${10} \
- -DOMP_NUM_THREADS=${11} \
- -DPARTHENON_DISABLE_HDF5=${12} ../"
+ -DKokkos_ENABLE_OPENMP=$8 \
+ -DNUM_MPI_PROC_TESTING=${9} \
+ -DOMP_NUM_THREADS=${10} \
+ -DPARTHENON_DISABLE_HDF5=${11} ../"
 
 cmake \
  -DCMAKE_BUILD_TYPE=$2 \
@@ -102,11 +101,10 @@ cmake \
  -DKokkos_ARCH_VOLTA70=$5 \
  -DKokkos_ENABLE_CUDA=$6 \
  -DKokkos_ENABLE_CUDA_UVM=$7 \
- -DKokkos_ENABLE_CXX11=$8 \
- -DKokkos_ENABLE_OPENMP=$9 \
- -DNUM_MPI_PROC_TESTING=${10} \
- -DOMP_NUM_THREADS=${11} \
- -DPARTHENON_DISABLE_HDF5=${12} ../
+ -DKokkos_ENABLE_OPENMP=$8 \
+ -DNUM_MPI_PROC_TESTING=${9} \
+ -DOMP_NUM_THREADS=${10} \
+ -DPARTHENON_DISABLE_HDF5=${11} ../
 
 make -j $J VERBOSE=1
 
