@@ -19,8 +19,7 @@ export TMPDIR=${HOME}/tmp
 if [ -d ${TMPDIR} ] 
 then
   echo "Removing ${TMPDIR}"
-  rm -rf ${TMPDIR}/*
-  rmdir ${TMPDIR}
+  rm -rf ${TMPDIR}
 fi
 echo "Creating tmp directory ${TMPDIR}"
 mkdir ${TMPDIR}
