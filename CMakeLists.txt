@@ -168,8 +168,11 @@ if (Kokkos_ENABLE_CUDA)
        "Enable lambda expressions in CUDA")
   if( "${NUM_GPUS_DETECTED}" EQUAL "0" )
     message(WARNING "CUDA has been enabled but no GPUs have been detected.")
+  elseif( "${NUM_GPUS_DETECTED}" EQUAL "1" )
+    message(STATUS "Detecting ${NUM_GPUS_DETECTED} GPUs.")
   else()
-    message(STATUS "Detecting ${NUM_GPUS_DETECTED} GPUs")
+    message(NOTE "Detecting ${NUM_GPUS_DETECTED} GPUs, by default only a single GPU will be used "
+      "with the regression tests.")
   endif()
 endif()
 
