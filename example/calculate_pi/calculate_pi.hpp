@@ -15,6 +15,7 @@
 
 // Standard Includes
 #include <memory>
+#include <vector>
 
 // Parthenon Includes
 #include <parthenon/package.hpp>
@@ -28,6 +29,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 
 // Task Implementations
 parthenon::TaskStatus ComputeArea(parthenon::MeshBlock *pmb);
+parthenon::TaskStatus ComputeAreas(std::vector<MeshBlock *> &blocks);
 } // namespace calculate_pi
 
 #endif // EXAMPLE_CALCULATE_PI_CALCULATE_PI_HPP_

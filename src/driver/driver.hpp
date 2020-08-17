@@ -105,6 +105,33 @@ TaskListStatus ConstructAndExecuteBlockTasks(T *driver, Args... args) {
   return TaskListStatus::complete;
 }
 
+template <typename T, class... Args>
+TaskListStatus ConstructAndExecuteTaskLists(T *driver, Args... args) {
+  int nmb = driver->pmesh->GetNumMeshBlocksThisRank(Globals::my_rank);
+  MeshBlock *pmb = driver->pmesh->pblock;
+  std::vector<MeshBlock *> blocks(nmb);
+  while (pmb != nullptr) {
+    // task_lists.push_back(driver->MakeTaskList(pmb, std::forward<Args>(args)...));
+    blocks.emplace_back(pmb);
+    pmb = pmb->next;
+  }
+  std::vector<std::shared_ptr<TaskList>> task_lists =
+      driver->MakeTaskLists(blocks, std::forward<Args>(args)...);
+  int complete_cnt = 0;
+  while (complete_cnt != nmb) {
+    // TODO(pgrete): need to let Kokkos::PartitionManager handle this
+    for (auto i = 0; i < nmb; ++i) {
+      if (!task_lists[i]->IsComplete()) {
+        auto status = task_lists[i]->DoAvailable();
+        if (status == TaskListStatus::complete) {
+          complete_cnt++;
+        }
+      }
+    }
+  }
+  return TaskListStatus::complete;
+}
+
 } // namespace DriverUtils
 
 } // namespace parthenon

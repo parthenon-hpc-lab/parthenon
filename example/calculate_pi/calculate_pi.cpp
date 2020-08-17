@@ -16,8 +16,10 @@
 
 // Standard Includes
 #include <iostream>
+#include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 // Parthenon Includes
 #include <coordinates/coordinates.hpp>
@@ -132,6 +134,30 @@ TaskStatus ComputeArea(MeshBlock *pmb) {
       area);
   Kokkos::deep_copy(pmb->exec_space, v.Get(0, 0, 0, 0, 0, 0), area);
 
+  return TaskStatus::complete;
+}
+
+TaskStatus ComputeAreas(std::vector<MeshBlock *> &blocks) {
+  IndexRange ib = blocks[0]->cellbounds.GetBoundsI(IndexDomain::interior);
+  IndexRange jb = blocks[0]->cellbounds.GetBoundsJ(IndexDomain::interior);
+  IndexRange kb = blocks[0]->cellbounds.GetBoundsK(IndexDomain::interior);
+
+  for (auto pmb : blocks) {
+    auto &rc = pmb->real_containers.Get();
+    auto &coords = pmb->coords;
+    ParArrayND<Real> &v = rc->Get("in_or_out").data;
+    Real area;
+    Kokkos::parallel_reduce(
+        "calculate_pi compute area",
+        Kokkos::MDRangePolicy<Kokkos::Rank<3>>(pmb->exec_space, {kb.s, jb.s, ib.s},
+                                               {kb.e + 1, jb.e + 1, ib.e + 1},
+                                               {1, 1, ib.e + 1 - ib.s}),
+        KOKKOS_LAMBDA(int k, int j, int i, Real &larea) {
+          larea += v(k, j, i) * coords.Area(parthenon::X3DIR, k, j, i);
+        },
+        area);
+    Kokkos::deep_copy(pmb->exec_space, v.Get(0, 0, 0, 0, 0, 0), area);
+  }
   return TaskStatus::complete;
 }
 

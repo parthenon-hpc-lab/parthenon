@@ -43,6 +43,7 @@ using ::parthenon::MeshBlock;
 using ::parthenon::MultiStageBlockTaskDriver;
 using ::parthenon::Outputs;
 using ::parthenon::ParameterInput;
+using ::parthenon::ParthenonManager;
 using ::parthenon::Task;
 using ::parthenon::TaskID;
 using ::parthenon::TaskList;

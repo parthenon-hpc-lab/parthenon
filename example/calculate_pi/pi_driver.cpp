@@ -13,16 +13,18 @@
 
 // Standard Includes
 #include <fstream>
+#include <memory>
+#include <vector>
 
 // Parthenon Includes
-#include <parthenon/package.hpp>
+#include <parthenon/driver.hpp>
 
 // Local Includes
 #include "calculate_pi.hpp"
 #include "pi_driver.hpp"
 
 // Preludes
-using namespace parthenon::package::prelude;
+using namespace parthenon::driver::prelude;
 
 using pi::PiDriver;
 
@@ -107,7 +109,7 @@ void PiDriver::PostExecute(Real pi_val) {
   Driver::PostExecute();
 }
 
-parthenon::TaskList PiDriver::MakeTaskList(MeshBlock *pmb) {
+TaskList PiDriver::MakeTaskList(MeshBlock *pmb) {
   // make a task list for this mesh block
   using calculate_pi::ComputeArea;
   TaskList tl;
@@ -120,4 +122,13 @@ parthenon::TaskList PiDriver::MakeTaskList(MeshBlock *pmb) {
   // for a task that executes the function FuncPtr (with argument MeshBlock *pmb)
   // that depends on task get_area
   return tl;
+}
+
+std::vector<std::shared_ptr<TaskList>>
+PiDriver::MakeTaskLists(std::vector<MeshBlock *> blocks) {
+  using calculate_pi::ComputeAreas;
+  std::vector<std::shared_ptr<TaskList>> lists(1);
+  TaskID none(0);
+  auto get_areas = lists[0]->AddTask(ComputeAreas, none, blocks);
+  return lists;
 }

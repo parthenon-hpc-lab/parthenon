@@ -34,6 +34,9 @@ enum class TaskListStatus { running, stuck, complete, nothing_to_do };
 
 class TaskList {
  public:
+  TaskList() = default;
+  explicit TaskList(std::shared_ptr<TaskList> &dep) : dependencies_({dep}) {}
+  explicit TaskList(std::vector<std::shared_ptr<TaskList>> &deps) : dependencies_(deps) {}
   bool IsComplete() { return task_list_.empty(); }
   int Size() { return task_list_.size(); }
   void Reset() {
@@ -62,6 +65,7 @@ class TaskList {
     }
   }
   TaskListStatus DoAvailable() {
+    if (!IsReady()) return TaskListStatus::nothing_to_do;
     for (auto &task : task_list_) {
       auto dep = task.GetDependency();
       if (tasks_completed_.CheckDependencies(dep)) {
@@ -117,7 +121,7 @@ class TaskList {
  protected:
   std::list<Task> task_list_;
   int tasks_added_ = 0;
-  std::vector<TaskList *> dependencies_;
+  std::vector<std::shared_ptr<TaskList>> dependencies_;
   TaskID tasks_completed_;
 };
 
