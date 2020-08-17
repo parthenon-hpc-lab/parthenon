@@ -157,6 +157,25 @@ struct TaskCollection {
   auto end() { return regions.end(); }
   auto size() { return regions.size(); }
 
+  TaskListStatus Execute() {
+    for (auto region : regions) {
+      int complete_cnt = 0;
+      auto num_lists = region.size();
+      while (complete_cnt != num_lists) {
+        // TODO(pgrete): need to let Kokkos::PartitionManager handle this
+        for (auto i = 0; i < num_lists; ++i) {
+          if (!region[i].IsComplete()) {
+            auto status = region[i].DoAvailable();
+            if (status == TaskListStatus::complete) {
+              complete_cnt++;
+            }
+          }
+        }
+      }
+    }
+    return TaskListStatus::complete;
+  }
+
   std::vector<TaskRegion> regions;
 };
 

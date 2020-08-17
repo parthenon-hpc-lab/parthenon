@@ -84,25 +84,15 @@ namespace DriverUtils {
 template <typename T, class... Args>
 TaskListStatus ConstructAndExecuteBlockTasks(T *driver, Args... args) {
   int nmb = driver->pmesh->GetNumMeshBlocksThisRank(Globals::my_rank);
-  std::vector<TaskList> task_lists;
+  TaskCollection tc;
+  TaskRegion &tr = tc.AddRegion(nmb);
   MeshBlock *pmb = driver->pmesh->pblock;
-  while (pmb != nullptr) {
-    task_lists.push_back(driver->MakeTaskList(pmb, std::forward<Args>(args)...));
+  for (int i = 0; i < nmb; i++) {
+    tr[i] = driver->MakeTaskList(pmb, std::forward<Args>(args)...);
     pmb = pmb->next;
   }
-  int complete_cnt = 0;
-  while (complete_cnt != nmb) {
-    // TODO(pgrete): need to let Kokkos::PartitionManager handle this
-    for (auto i = 0; i < nmb; ++i) {
-      if (!task_lists[i].IsComplete()) {
-        auto status = task_lists[i].DoAvailable();
-        if (status == TaskListStatus::complete) {
-          complete_cnt++;
-        }
-      }
-    }
-  }
-  return TaskListStatus::complete;
+  TaskListStatus status = tc.Execute();
+  return status;
 }
 
 template <typename T, class... Args>
@@ -111,28 +101,13 @@ TaskListStatus ConstructAndExecuteTaskLists(T *driver, Args... args) {
   MeshBlock *pmb = driver->pmesh->pblock;
   std::vector<MeshBlock *> blocks(nmb);
   for (int i = 0; i < nmb; i++) {
-    // task_lists.push_back(driver->MakeTaskList(pmb, std::forward<Args>(args)...));
     blocks[i] = pmb;
     pmb = pmb->next;
   }
 
   TaskCollection tc = driver->MakeTasks(blocks, std::forward<Args>(args)...);
-  for (auto region : tc) {
-    int complete_cnt = 0;
-    auto num_lists = region.size();
-    while (complete_cnt != num_lists) {
-      // TODO(pgrete): need to let Kokkos::PartitionManager handle this
-      for (auto i = 0; i < num_lists; ++i) {
-        if (!region[i].IsComplete()) {
-          auto status = region[i].DoAvailable();
-          if (status == TaskListStatus::complete) {
-            complete_cnt++;
-          }
-        }
-      }
-    }
-  }
-  return TaskListStatus::complete;
+  TaskListStatus status = tc.Execute();
+  return status;
 }
 
 } // namespace DriverUtils
