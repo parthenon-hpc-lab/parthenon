@@ -15,6 +15,7 @@
 #define PARTHENON_DRIVER_HPP_
 
 // Internal Includes
+#include <application_input.hpp>
 #include <basic_types.hpp>
 #include <bvals/boundary_conditions.hpp>
 #include <driver/driver.hpp>
@@ -34,6 +35,7 @@ namespace driver {
 namespace prelude {
 using namespace ::parthenon::prelude;
 
+using ::parthenon::ApplicationInput;
 using ::parthenon::ApplyBoundaryConditions;
 using ::parthenon::Driver;
 using ::parthenon::DriverStatus;

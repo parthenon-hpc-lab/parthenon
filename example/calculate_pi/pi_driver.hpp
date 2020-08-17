@@ -27,7 +27,7 @@ using namespace parthenon::driver::prelude;
  */
 class PiDriver : public Driver {
  public:
-  PiDriver(ParameterInput *pin, Mesh *pm) : Driver(pin, pm) {
+  PiDriver(ParameterInput *pin, ApplicationInput *fin, Mesh *pm) : Driver(pin, fin, pm) {
     InitializeOutputs();
     pin->CheckDesired("Pi", "radius");
   }
