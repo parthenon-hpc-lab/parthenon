@@ -28,7 +28,7 @@
 
 using parthenon::ParameterInput;
 
-TEST_CASE("Test required/desired checking from inputs", "[ParameterInput][coverage]") {
+TEST_CASE("Test required/desired checking from inputs", "[ParameterInput]") {
   GIVEN("A ParameterInput object already populated") {
     ParameterInput in;
     std::stringstream ss;
