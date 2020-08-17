@@ -20,6 +20,7 @@
 #endif
 #include <vector>
 
+#include "outputs/parthenon_hdf5.hpp"
 namespace parthenon {
 class Mesh;
 
@@ -30,15 +31,75 @@ class RestartReader {
   // Gets single block data for variable name and
   // fills internal data for given pointer
   // returns 1 on success, negative on failure
+  //! \fn void RestartReader::ReadBlock(const char *name, const int blockID, T *data)
+  //  \brief Reads data for one block from restart file
   template <typename T>
-  int ReadBlock(const char *name, const int blockID, T *data, size_t vlen = 1);
+  int ReadBlock(const char *name, const int blockID, T *data, size_t vlen) {
+    IndexRange range{blockID, blockID};
+    return ReadBlocks(name, range, data, vlen);
+  }
+
 
   // Gets data for all blocks on current rank.
   // Assumes blocks are contiguous
   // fills internal data for given pointer
   // returns NBlocks on success, negative on failure
   template <typename T>
-  int ReadBlocks(const char *name, IndexRange range, T *data, size_t vlen = 1);
+  int ReadBlocks(const char *name, IndexRange range, T *data, size_t vlen = 1) {
+#ifdef HDF5OUTPUT
+    try {
+      herr_t status;
+
+      // compute block size, probaby could cache this.
+      hid_t theHdfType = getHdfType(data);
+
+      hid_t dataset = H5Dopen2(fh_, name, H5P_DEFAULT);
+      if (dataset < 0) {
+	return -1;
+      }
+      hid_t dataspace = H5Dget_space(dataset);
+      if (dataspace < 0) {
+	H5Dclose(dataset);
+	return -2;
+      }
+
+      /** Define hyperslab in dataset **/
+      hsize_t offset[5] = {static_cast<hsize_t>(range.s), 0, 0, 0, 0};
+      hsize_t count[5] = {static_cast<hsize_t>(range.e - range.s + 1), nx3_, nx2_, nx1_,
+			  vlen};
+      status = H5Sselect_hyperslab(dataspace, H5S_SELECT_SET, offset, NULL, count, NULL);
+      if (status < 0) {
+	H5Dclose(dataspace);
+	H5Dclose(dataset);
+	return -3;
+      }
+
+      /** Define memory dataspace **/
+      hid_t memspace = H5Screate_simple(5, count, NULL);
+      hsize_t offsetMem[5] = {0, 0, 0, 0, 0};
+      status = H5Sselect_hyperslab(dataspace, H5S_SELECT_SET, offsetMem, NULL, count, NULL);
+
+      // Read data from file
+      status = H5Dread(dataset, H5T_NATIVE_DOUBLE, memspace, dataspace, H5P_DEFAULT, data);
+
+      // CLose the dataspace and data set.
+      H5Dclose(dataset);
+      H5Sclose(memspace);
+      H5Sclose(dataspace);
+      if (status < 0) {
+	return -4;
+      } else {
+	return static_cast<int>(count[0]);
+      }
+    } catch (const std::exception &e) {
+      std::cout << e.what();
+      return -5;
+    }
+#else
+    return -6;
+#endif
+  }
+
 
   // Reads an array dataset from file as a 1D vector.
   // Returns number of items read in count if provided
