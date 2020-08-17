@@ -60,7 +60,7 @@ std::vector<T> RestartReader::ReadDataset(const char *name, size_t *count) {
 #ifdef HDF5OUTPUT
   herr_t status;
 
-  T *typepointer;
+  T *typepointer = nullptr;
   hid_t theHdfType = getHdfType(typepointer);
 
   hid_t dataset = H5Dopen2(fh_, name, H5P_DEFAULT);
@@ -108,7 +108,7 @@ std::vector<T> RestartReader::ReadAttrBytes_(const char *dataset, const char *na
 #ifdef HDF5OUTPUT
   herr_t status;
 
-  T *typepointer;
+  T *typepointer= nullptr;
   hid_t theHdfType = getHdfType(typepointer);
 
   hid_t dset = H5Dopen2(fh_, dataset, H5P_DEFAULT);
