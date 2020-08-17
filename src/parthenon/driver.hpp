@@ -44,6 +44,7 @@ using ::parthenon::Mesh;
 using ::parthenon::MeshBlock;
 using ::parthenon::MultiStageBlockTaskDriver;
 using ::parthenon::Outputs;
+using ::parthenon::Packages_t;
 using ::parthenon::ParameterInput;
 using ::parthenon::ParthenonManager;
 using ::parthenon::Task;
