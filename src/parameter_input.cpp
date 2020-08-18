@@ -111,7 +111,7 @@ InputBlock::~InputBlock() {
 
 void toLower(std::string& name) {
   std::transform(name.begin(), name.end(), name.begin(), [](unsigned char c) {
-    return std::lower(c);
+    return std::tolower(c);
   });
 }
 
@@ -624,7 +624,7 @@ bool ParameterInput::GetBoolean(std::string block, std::string name) {
   }
 
   // convert string to all lower case
-  std::transform(val.begin(), val.end(), val.begin(), ::tolower);
+  toLower(val);
   // Convert string to bool and return value
   bool b;
   std::istringstream is(val);
@@ -745,7 +745,7 @@ bool ParameterInput::GetOrAddBoolean(std::string block, std::string name,
     if (val.compare(0, 1, "0") == 0 || val.compare(0, 1, "1") == 0) {
       ret = static_cast<bool>(atoi(val.c_str()));
     } else {
-      std::transform(val.begin(), val.end(), val.begin(), ::tolower);
+      toLower(val);
       std::istringstream is(val);
       is >> std::boolalpha >> ret;
     }
