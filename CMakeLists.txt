@@ -47,6 +47,13 @@ option(TEST_INTEL_OPTIMIZATION "Test intel optimization and vectorization" OFF)
 option(TEST_ERROR_CHECKING "Enables the error checking unit test. This test will FAIL" OFF)
 option(CODE_COVERAGE "Enable code coverage reporting" OFF)
 
+# Default to an external Kokkos package if the submodule is not populated
+if(NOT EXISTS "external/Kokkos/CMakeLists.txt" AND NOT EXISTS "${Kokkos_ROOT}/CMakeLists.txt")
+    option(PARTHENON_EXTERNAL_KOKKOS "Use an external Kokkos" ON)
+else()
+    option(PARTHENON_EXTERNAL_KOKKOS "Use an external Kokkos" OFF)
+endif()
+
 include(cmake/Format.cmake)
 include(cmake/Lint.cmake)
 
@@ -192,14 +199,20 @@ endif()
 # We want Kokkos to be built with C++14, since that's what we're using in
 # Parthenon.
 set(Kokkos_CXX_STANDARD 14)
-if(DEFINED EXTERNAL_KOKKOS AND EXISTS ${EXTERNAL_KOKKOS})
-  find_package(Kokkos 3 REQUIRED PATHS "${EXTERNAL_KOKKOS}" NO_DEFAULT_PATH)
-elseif(EXISTS ${Kokkos_ROOT}/CMakeLists.txt)
-  add_subdirectory(${Kokkos_ROOT} Kokkos)
-elseif(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/external/Kokkos/CMakeLists.txt)
-  add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/external/Kokkos Kokkos)
+if (PARTHENON_EXTERNAL_KOKKOS)
+    find_package(Kokkos 3)
+    if (NOT Kokkos_FOUND)
+        unset(PARTHENON_EXTERNAL_KOKKOS CACHE)
+        message(FATAL_ERROR "Could not find external Kokkos. Consider importing a Kokkos installation into your environment or unsetting PARTHENON_EXTERNAL_KOKKOS")
+    endif()
 else()
-  find_package(Kokkos 3 REQUIRED)
+  if (EXISTS ${Kokkos_ROOT}/CMakeLists.txt)
+    add_subdirectory(${Kokkos_ROOT} Kokkos)
+  elseif(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/external/Kokkos/CMakeLists.txt)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/external/Kokkos Kokkos)
+  else()
+    message(FATAL_ERROR "Could not find Kokkos source. Consider running `git submodule update --init`, providing the path to a Kokkos source directory with Kokkos_ROOT, or setting PARTHENON_EXTERNAL_KOKKOS=ON to link to an external Kokkos installation.")
+  endif()
 endif()
 
 # Build Tests and download Catch2
@@ -265,6 +278,8 @@ add_subdirectory(example)
 
 create_pathenon_coverage_targets()
 include(cmake/CheckCopyright.cmake)
+
+configure_file("${PROJECT_SOURCE_DIR}/cmake/parthenonConfig.cmake.in" "${PROJECT_BINARY_DIR}/cmake/parthenonConfig.cmake" @ONLY)
 
 # Currently Ctest/Cmake doesn't ensure that tests are not stale
 # before running them.

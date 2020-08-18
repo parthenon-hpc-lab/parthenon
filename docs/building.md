@@ -26,19 +26,24 @@ If you come across a disfunctional setup, please report it by open an issue or p
    | REGRESSION\_GOLD\_STANDARD\_SYNC | ON    | Option | Create `gold_standard` target to download gold standard files |
    |          ENABLE\_UNIT\_TESTS | ${BUILD\_TESTING} | Option | Enable unit tests |
    |               CODE\_COVERAGE | OFF      | Option | Builds with code coverage flags |
-   |       CMAKE\_INSTALL\_PREFIX | machine specific | String | Optional path for shared library installation |
+   |       CMAKE\_INSTALL\_PREFIX | machine specific | String | Optional path for library installation |
+   |             EXTERNAL\_KOKKOS | undefined | String | Path to external Kokkos install |
+   |          BUILD\_SHARED\_LIBS | OFF       | Option | If installing Parthenon, whether to build as shared rather than static |
 
 ### NB: CMake options prefixed with *PARTHENON\_* modify behavior.
 
-## Building a shared library
+## Installing Parthenon
 
 An alternative to building Parthenon alongside a custom app (as in the examples)
-is to first build Parthenon separately as a shared library and then link to it
-in the app.
+is to first build Parthenon separately as a library and then link to it
+when building the app. Parthenon can be built as either a static (default) or a shared library.
 
-To build Parthenon as a shared library, provide a *CMAKE\_INSTALL\_PREFIX* path
-to the desired install location to the Parthenon cmake call, then build and install
-(note that `--build` and `--install` required CMake 3.15 or greater)
+To build Parthenon as a library, provide a `CMAKE_INSTALL_PREFIX` path
+to the desired install location to the Parthenon cmake call. To build a shared rather
+than a static library, also set `BUILD_SHARED_LIBS=ON`. Then build and install
+(note that `--build` and `--install` require CMake 3.15 or greater).
+
+### Building as a static library
 
 ```bash
 cmake -DCMAKE_INSTALL_PREFIX="$your_install_dir" $parthenon_source_dir
@@ -46,11 +51,25 @@ cmake --build . --parallel
 cmake --install .
 ```
 
-This will also install Kokkos in the same directory; in general, one must be
-able to call Kokkos functions directly when writing performant Parthenon apps.
+### Building as a shared library
+
+```bash
+cmake -DCMAKE_INSTALL_PREFIX="$your_install_dir" -DBUILD_SHARED_LIBS=ON $parthenon_source_dir
+cmake --build . --parallel
+cmake --install .
+```
+
+When building Parthenon, Kokkos will also be built from source if it exists in
+`parthenon/external` or at a provided `Kokkos_ROOT`. If installing Parthenon, this will also install Kokkos in the same directory. To link Parthenon to a separate Kokkos installation, provide the path to that installation through `EXTERNAL_KOKKOS`
+
+A cmake target, `lib/cmake/parthenon/parthenonConfig.cmake` is created during
+installation. To link to parthenon, one can either specify the include files and
+libraries directly or call `find_package(parthenon)` from cmake.
+
+### Linking an app with *make*
 
 The below example makefile can be used to compile the *calculate\_pi* example by
-linking to a prior shared library installation of Parthenon. Note that library
+linking to a prior library installation of Parthenon. Note that library
 flags must be appropriate for the Parthenon installation; it is not enough to
 simply provide *-lparthenon*.
 
@@ -75,6 +94,25 @@ $(EXE): $(OBJ) $(INC) makefile
   $(CC_LOAD) $(OBJ) $(LIB_FLAGS) -o $(EXE)
 clean:
   $(RM) $(OBJ) $(EXE)
+```
+
+### Linking an app with *cmake*
+The below example `CMakeLists.txt` can be used to compile the *calculate_pi* example with a separate Parthenon installation through *cmake*'s `find_package()` routine.
+```cmake
+cmake_minimum_required(VERSION 3.11)
+
+project(parthenon_linking_example)
+set(Kokkos_CXX_STANDARD "c++14")
+set(CMAKE_CXX_EXTENSIONS OFF)
+find_package(parthenon REQUIRED PATHS "/path/to/parthenon/install")
+add_executable(
+  pi-example
+  pi_driver.cpp
+  pi_driver.hpp
+  calculate_pi.cpp
+  calculate_pi.hpp
+  )
+target_link_libraries(pi-example PRIVATE Parthenon::parthenon)
 ```
 
 ## System specific instructions

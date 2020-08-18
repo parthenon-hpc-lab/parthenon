@@ -216,7 +216,8 @@ if (ENABLE_OPENMP)
 endif()
 
 if (ENABLE_HDF5)
-  target_link_libraries(parthenon INTERFACE $<TARGET_PROPERTY:HDF5_C,INTERFACE_LINK_LIBRARIES>)
+  #target_link_libraries(parthenon INTERFACE $<TARGET_PROPERTY:HDF5_C,INTERFACE_LINK_LIBRARIES>)
+  target_link_libraries(parthenon PUBLIC HDF5_C)
 endif()
 
 if (Kokkos_ENABLE_CUDA)
@@ -246,7 +247,6 @@ install(DIRECTORY . DESTINATION ${CMAKE_INSTALL_INCLUDEDIR} FILES_MATCHING PATTE
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/generated/config.hpp
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
-configure_file("${PROJECT_SOURCE_DIR}/cmake/parthenonConfig.cmake.in" "${PROJECT_BINARY_DIR}/cmake/parthenonConfig.cmake" @ONLY)
 install(FILES ${PROJECT_BINARY_DIR}/cmake/parthenonConfig.cmake DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/parthenon")
 
 install(EXPORT parthenonTargets
