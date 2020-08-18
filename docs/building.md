@@ -27,7 +27,7 @@ If you come across a disfunctional setup, please report it by open an issue or p
    |          ENABLE\_UNIT\_TESTS | ${BUILD\_TESTING} | Option | Enable unit tests |
    |               CODE\_COVERAGE | OFF      | Option | Builds with code coverage flags |
    |       CMAKE\_INSTALL\_PREFIX | machine specific | String | Optional path for library installation |
-   |             EXTERNAL\_KOKKOS | undefined | String | Path to external Kokkos install |
+   |  PARTHENON\_EXTERNAL\_KOKKOS | ON/OFF    | Option | Whether to use external Kokkos installation |
    |          BUILD\_SHARED\_LIBS | OFF       | Option | If installing Parthenon, whether to build as shared rather than static |
 
 ### NB: CMake options prefixed with *PARTHENON\_* modify behavior.
@@ -60,7 +60,10 @@ cmake --install .
 ```
 
 When building Parthenon, Kokkos will also be built from source if it exists in
-`parthenon/external` or at a provided `Kokkos_ROOT`. If installing Parthenon, this will also install Kokkos in the same directory. To link Parthenon to a separate Kokkos installation, provide the path to that installation through `EXTERNAL_KOKKOS`
+`parthenon/external` or at a provided `Kokkos_ROOT` by default. If installing
+Parthenon, this will also install Kokkos in the same directory. If
+`PARTHENON_EXTERNAL_KOKKOS=ON` is provided or no Kokkos/CMakeLists.txt is found,
+the build system will attempt to find a Kokkos installation in the current PATH.
 
 A cmake target, `lib/cmake/parthenon/parthenonConfig.cmake` is created during
 installation. To link to parthenon, one can either specify the include files and

@@ -21,8 +21,8 @@
 // e.g., global constants that are set once and never changed.  To prevent name collisions
 // global variables are wrapped in their own namespace.
 
-#include "defs.hpp"
 #include "globals.hpp"
+#include "defs.hpp"
 
 namespace parthenon {
 namespace Globals {
