@@ -19,7 +19,7 @@ using parthenon::constants::CGS;
 using parthenon::constants::PhysicalConstants;
 using parthenon::constants::SI;
 
-TEST_CASE("Physical constants", "[SI, CGS]") {
+TEST_CASE("Physical constants", "[SI][CGS]") {
   SECTION("SI units") {
     PhysicalConstants<SI> pc;
     REQUIRE(pc.avogadro == Approx(6.02214129e23));
