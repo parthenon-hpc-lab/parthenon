@@ -83,7 +83,7 @@ set(COORDINATE_TYPE UniformCartesian) # TODO: Make this an option when more are 
 
 configure_file(config.hpp.in generated/config.hpp @ONLY)
 
-list(APPEND parthenon_sources
+add_library(parthenon
   bvals/cc/bvals_cc.cpp
   bvals/cc/bvals_cc.hpp
   bvals/cc/flux_correction_cc.cpp
@@ -199,11 +199,7 @@ list(APPEND parthenon_sources
   parthenon_mpi.hpp
 )
 
-add_library(parthenon "${parthenon_sources}")
-
-if (BUILD_SHARED_LIBS)
-  set_target_properties(parthenon PROPERTIES SOVERSION 1)
-endif()
+set_target_properties(parthenon PROPERTIES SOVERSION ${parthenon_VERSION})
 
 target_compile_features(parthenon PUBLIC cxx_std_14)
 if (CMAKE_CXX_COMPILER_ID STREQUAL "XL")
