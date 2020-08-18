@@ -142,21 +142,6 @@ void PiDriver::PostExecute(Real pi_val) {
   Driver::PostExecute();
 }
 
-TaskList PiDriver::MakeTaskList(MeshBlock *pmb) {
-  // make a task list for this mesh block
-  using calculate_pi::ComputeArea;
-  TaskList tl;
-
-  TaskID none(0);
-  auto get_area = tl.AddTask(ComputeArea, none, pmb);
-
-  // could add more tasks like:
-  // auto next_task = tl.AddTask(FuncPtr, get_area, pmb);
-  // for a task that executes the function FuncPtr (with argument MeshBlock *pmb)
-  // that depends on task get_area
-  return tl;
-}
-
 TaskCollection PiDriver::MakeTasks(std::vector<MeshBlock *> blocks) {
   using calculate_pi::ComputeAreas;
   TaskCollection tc;
