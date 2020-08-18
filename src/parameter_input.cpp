@@ -205,6 +205,14 @@ void ParameterInput::LoadFromStream(std::istream &is) {
 
     if (!continuing) {
       if (param_name != "") {
+        if (DoesParameterExist(block_name, param_name)) {
+          msg << "### FATAL ERROR in function [ParameterInput::LoadFromStream]"
+              << std::endl << "Block/parameter " << block_name << "/" << param_name
+              << " appears more than once in input" << std::endl
+              << "NOTE: input block and parameter names are NOT case sensitive"
+              << std::endl;
+          PARTHENON_FAIL(msg);
+        }
         AddParameter(pib, param_name, param_value, param_comment);
       }
     }
