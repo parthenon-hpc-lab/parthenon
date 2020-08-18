@@ -109,10 +109,9 @@ InputBlock::~InputBlock() {
   }
 }
 
-void toLower(std::string& name) {
-  std::transform(name.begin(), name.end(), name.begin(), [](unsigned char c) {
-    return std::tolower(c);
-  });
+void toLower(std::string &name) {
+  std::transform(name.begin(), name.end(), name.begin(),
+                 [](unsigned char c) { return std::tolower(c); });
 }
 
 //----------------------------------------------------------------------------------------
@@ -161,7 +160,6 @@ void ParameterInput::LoadFromStream(std::istream &is) {
       last_char = (line.find_first_of(">", first_char));
       block_name.assign(line, first_char, last_char - 1); // extract block name
       toLower(block_name);
-
 
       if (last_char == std::string::npos) {
         msg << "### FATAL ERROR in function [ParameterInput::LoadFromStream]" << std::endl
