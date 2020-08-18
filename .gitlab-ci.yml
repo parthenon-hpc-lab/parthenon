@@ -5,7 +5,7 @@ before_script:
     - export OMP_PROC_BIND=close
     - export OMP_PLACES=cores
     - export OMP_NUM_THREADS=1
-    - export CMAKE_VERSION=3.10.3
+    - export CMAKE_VERSION=3.12.4
     - export CTEST_OUTPUT_ON_FAILURE=1
     - export J=$(( $(nproc --all) / 4  + 1 )) && echo Using ${J} cores during build
     - wget -qO- http://www.cmake.org/files/v${CMAKE_VERSION:0:4}/cmake-${CMAKE_VERSION}-Linux-x86_64.tar.gz | tar -xz
