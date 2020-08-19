@@ -1,7 +1,7 @@
 variables:
   SCHEDULER_PARAMETERS: '--nodes=1 --partition=power9 --export=NONE'
   GIT_SUBMODULE_STRATEGY: recursive
-  MODULE_CMAKE: "cmake/3.11.1"
+  MODULE_CMAKE: "cmake/3.12.4"
   MODULE_CLANG: "clang/8.0.1"
   MODULE_COMPILER: "gcc/7.4.0"
   MODULE_CUDA: "cuda/10.1"
