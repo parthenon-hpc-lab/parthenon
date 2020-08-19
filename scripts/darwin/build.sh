@@ -91,7 +91,8 @@ echo "cmake \
  -DKokkos_ENABLE_OPENMP=$8 \
  -DNUM_MPI_PROC_TESTING=${9} \
  -DOMP_NUM_THREADS=${10} \
- -DPARTHENON_DISABLE_HDF5=${11} ../"
+ -DPARTHENON_DISABLE_HDF5=${11} \
+ -DMPIEXEC_PREFLAGS='../external/Kokkos/bin/hpcbind --distribute=2 --visible-gpus=0,1 --' ../"
 
 cmake \
  -DCMAKE_BUILD_TYPE=$2 \
@@ -103,7 +104,8 @@ cmake \
  -DKokkos_ENABLE_OPENMP=$8 \
  -DNUM_MPI_PROC_TESTING=${9} \
  -DOMP_NUM_THREADS=${10} \
- -DPARTHENON_DISABLE_HDF5=${11} ../
+ -DPARTHENON_DISABLE_HDF5=${11} \
+ -DMPIEXEC_PREFLAGS="../external/Kokkos/bin/hpcbind --distribute=2 --visible-gpus=0,1 --" ../
 
 make -j $J VERBOSE=1
 

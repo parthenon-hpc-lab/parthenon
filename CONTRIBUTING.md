@@ -148,11 +148,16 @@ follow the instructions [below](#integrating-the-regression-test-with-cmake) *an
 [CMakeLists.txt](tst/regression/CMakeLists.txt)).
 
 A third pipeline is run using LANL internal systems and is run manually when
-approved, and is scheduled to run on a dailly basis on the development branch.
-These machines use the newest IBM powerPC processors and the NVIDIA V100
-(Volta) GPUs. Tests run on these systems are primarily aimed at measuring the
-performance of this specific architecture. Compilation and testing details can be found by looking
-in the [.gitlab-ci-darwin.yml](.gitlab-ci-darwin.yml) file *and* the /scripts/darwin folder.. 
+approved, it is also scheduled to run on a dailly basis on the development
+branch.  The internal machines use the newest IBM powerPC processors and the
+NVIDIA V100 (Volta) GPUs. Tests run on these systems are primarily aimed at
+measuring the performance of this specific architecture. Compilation and
+testing details can be found by looking in the
+[.gitlab-ci-darwin.yml](.gitlab-ci-darwin.yml) file *and* the /scripts/darwin
+folder. In summary, the ci is built in release mode, with OpenMP, MPI, HDF5 and
+Cuda enabled. All tests are run with access to a single Volta GPU. In addition
+the regression tests are run in parallel with two mpi processors each of which
+have access to their own Volta gpu. 
 
 ### Adding Tests
 

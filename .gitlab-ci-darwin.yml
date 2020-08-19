@@ -6,7 +6,7 @@ variables:
   MODULE_COMPILER: "gcc/7.4.0"
   MODULE_CUDA: "cuda/10.1"
   MODULE_MPI: "openmpi/p9/4.0.2-gcc_7.4.0"
-  NUM_MPI_PROC_TESTING: 4
+  NUM_MPI_PROC_TESTING: 2
   OMP_NUM_THREADS: 40
   CMAKE_BUILD_TYPE: "Release" 
   Kokkos_ARCH_POWER9: "ON" 
