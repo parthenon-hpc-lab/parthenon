@@ -107,7 +107,7 @@ std::vector<T> RestartReader::ReadAttrBytes_(const char *dataset, const char *na
 #ifdef HDF5OUTPUT
   herr_t status;
 
-  T *typepointer= nullptr;
+  T *typepointer = nullptr;
   hid_t theHdfType = getHdfType(typepointer);
 
   hid_t dset = H5Dopen2(fh_, dataset, H5P_DEFAULT);
