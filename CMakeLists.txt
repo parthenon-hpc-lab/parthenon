@@ -48,7 +48,7 @@ option(TEST_ERROR_CHECKING "Enables the error checking unit test. This test will
 option(CODE_COVERAGE "Enable code coverage reporting" OFF)
 
 # Default to an external Kokkos package if the submodule is not populated
-if(NOT EXISTS "external/Kokkos/CMakeLists.txt" AND NOT EXISTS "${Kokkos_ROOT}/CMakeLists.txt")
+if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/external/Kokkos/CMakeLists.txt" AND NOT EXISTS "${Kokkos_ROOT}/CMakeLists.txt")
     option(PARTHENON_EXTERNAL_KOKKOS "Use an external Kokkos" ON)
 else()
     option(PARTHENON_EXTERNAL_KOKKOS "Use an external Kokkos" OFF)
