@@ -7,6 +7,7 @@
 ### Changed (changing behavior/API/variables/...)
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[#256]](https://github.com/lanl/parthenon/issues/256): Fix setting default CXX standard.
 
 ### Removed
 
