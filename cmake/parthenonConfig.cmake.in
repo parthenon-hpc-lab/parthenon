@@ -12,10 +12,10 @@
 #=========================================================================================
 
 # Favor using the kokkos package that was built with parthenon, if one has not been specified
-if (EXISTS @EXTERNAL_KOKKOS@)
-  find_package(Kokkos 3 REQUIRED PATHS @EXTERNAL_KOKKOS@ NO_DEFAULT_PATH)
+if (@PARTHENON_EXTERNAL_KOKKOS@)
+  find_package(Kokkos 3 REQUIRED PATHS @Kokkos_DIR@ NO_DEFAULT_PATH)
 else()
-  find_package(Kokkos 3 REQUIRED PATHS @CMAKE_INSTALL_PREFIX@)
+  find_package(Kokkos 3 REQUIRED PATHS @CMAKE_INSTALL_PREFIX@ NO_DEFAULT_PATH)
 endif()
 
 set(Kokkos_BUILT_WITH_CUDA @Kokkos_ENABLE_CUDA@)
