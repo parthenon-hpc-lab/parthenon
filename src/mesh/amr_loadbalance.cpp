@@ -610,8 +610,10 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
         BoundaryFlag block_bcs[6];
         SetBlockSizeAndBoundaries(newloc[n], block_size, block_bcs);
         // append new block to list of MeshBlocks
-        new_block_list.emplace_back(n, n - nbs, newloc[n], block_size, block_bcs, this,
-                                    pin, properties, packages, gflag, true);
+        new_block_list.emplace_back(n, n - nbs, newloc[n], block_size, block_bcs,
+                                    this,
+                                    pin, app_in,
+                                    properties, packages, gflag, true);
         // fill the conservative variables
         if ((loclist[on].level > newloc[n].level)) { // fine to coarse (f2c)
           for (int ll = 0; ll < nleaf; ll++) {

@@ -475,7 +475,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properti
     SetBlockSizeAndBoundaries(loclist[i], block_size, block_bcs);
     // create a block and add into the link list
     block_list.emplace_back(i, i - nbs, loclist[i], block_size, block_bcs, this, pin,
-                            properties, packages, gflag);
+                            app_in, properties, packages, gflag);
     block_list.back().pbval->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
   }
 
