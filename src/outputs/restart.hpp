@@ -33,7 +33,7 @@ class RestartReader {
 
   // Gets single block data for variable name and
   // fills internal data for given pointer
-  // returns 1 on success, negative on failure
+  // returns 1 on success, -1 on failure
   //! \fn void RestartReader::ReadBlock(const char *name, const int blockID, T *data)
   //  \brief Reads data for one block from restart file
   template <typename T>
@@ -45,7 +45,7 @@ class RestartReader {
   // Gets data for all blocks on current rank.
   // Assumes blocks are contiguous
   // fills internal data for given pointer
-  // returns NBlocks on success, negative on failure
+  // returns NBlocks on success, -1 on failure
   template <typename T>
   int ReadBlocks(const char *name, IndexRange range, T *data, size_t vlen = 1) {
 #ifdef HDF5OUTPUT
@@ -62,7 +62,7 @@ class RestartReader {
       hid_t dataspace = H5Dget_space(dataset);
       if (dataspace < 0) {
         H5Dclose(dataset);
-        return -2;
+        return -1;
       }
 
       /** Define hyperslab in dataset **/
@@ -73,7 +73,7 @@ class RestartReader {
       if (status < 0) {
         H5Dclose(dataspace);
         H5Dclose(dataset);
-        return -3;
+        return -1;
       }
 
       /** Define memory dataspace **/
@@ -91,16 +91,16 @@ class RestartReader {
       H5Sclose(memspace);
       H5Sclose(dataspace);
       if (status < 0) {
-        return -4;
+        return -1;
       } else {
         return static_cast<int>(count[0]);
       }
     } catch (const std::exception &e) {
       std::cout << e.what();
-      return -5;
+      return -1;
     }
 #else
-    return -6;
+    return -1;
 #endif
   }
 
