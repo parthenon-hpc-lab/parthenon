@@ -241,10 +241,10 @@ void PHDF5Output::genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm) {
 }
 
 // loads a variable
-#define LOADVARIABLE(dst, var, out_is, out_ie, out_js, out_je, out_ks, out_ke)           \
+#define LOADVARIABLE(dst, pm, var, out_is, out_ie, out_js, out_je, out_ks, out_ke) \
   {                                                                                      \
     int index = 0;                                                                       \
-    for (auto &mb : pm->block_list) {                                                    \
+    for (auto &pmb : pm->block_list) {                                                   \
       for (int k = out_ks; k <= out_ke; k++) {                                           \
         for (int j = out_js; j <= out_je; j++) {                                         \
           for (int i = out_is; i <= out_ie; i++) {                                       \
@@ -451,21 +451,21 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   local_count[0] = num_blocks_local;
   global_count[0] = max_blocks_global;
 
-  LOADVARIABLE(tmpData, pm->block_list.front().coords.x1f, out_ib.s, out_ib.e + 1, 0, 0,
-               0, 0);
+  LOADVARIABLE(tmpData, pm, pmb.coords.x1f, out_ib.s, out_ib.e + 1,
+               0, 0, 0, 0);
   local_count[1] = global_count[1] = nx1 + 1;
   WRITEH5SLAB("x", tmpData, gLocations, local_start, local_count, global_count,
               property_list);
 
   // write Y coordinates
-  LOADVARIABLE(tmpData, pm->block_list.front().coords.x2f, 0, 0, out_jb.s, out_jb.e + 1,
-               0, 0);
+  LOADVARIABLE(tmpData, pm, pmb.coords.x2f, 0, 0, out_jb.s,
+               out_jb.e + 1, 0, 0);
   local_count[1] = global_count[1] = nx2 + 1;
   WRITEH5SLAB("y", tmpData, gLocations, local_start, local_count, global_count,
               property_list);
 
   // write Z coordinates
-  LOADVARIABLE(tmpData, pm->block_list.front().coords.x3f, 0, 0, 0, 0, out_kb.s,
+  LOADVARIABLE(tmpData, pm, pmb.coords.x3f, 0, 0, 0, 0, out_kb.s,
                out_kb.e + 1);
   local_count[1] = global_count[1] = nx3 + 1;
   WRITEH5SLAB("z", tmpData, gLocations, local_start, local_count, global_count,
