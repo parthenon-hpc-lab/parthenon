@@ -495,7 +495,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properti
 
 //----------------------------------------------------------------------------------------
 // Mesh constructor for restarts. Load the restart file
-Mesh::Mesh(ParameterInput *pin, , ApplicationInput *app_in, RestartReader &rr,
+Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
            Properties_t &properties, Packages_t &packages, int mesh_test)
     : // public members:
       // aggregate initialization of RegionSize struct:

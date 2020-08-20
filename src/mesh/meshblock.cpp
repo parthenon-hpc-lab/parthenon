@@ -166,9 +166,10 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
 // MeshBlock constructor for restarts
 // Creates block but loads no data
 MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
-                     Properties_t &properties, Packages_t &packages, LogicalLocation iloc,
-                     RegionSize input_block, BoundaryFlag *input_bcs, double icost,
-                     int igflag, MeshBlock *lastBlock)
+                     ApplicationInput *app_in, Properties_t &properties,
+                     Packages_t &packages, LogicalLocation iloc, RegionSize input_block,
+                     BoundaryFlag *input_bcs, double icost, int igflag,
+                     MeshBlock *lastBlock)
     : exec_space(DevExecSpace()), pmy_mesh(pm), loc(iloc), block_size(input_block),
       gid(igid), lid(ilid), gflag(igflag), properties(properties), packages(packages),
       prev(lastBlock), next(nullptr), new_block_dt_{}, new_block_dt_hyperbolic_{},
@@ -179,6 +180,22 @@ MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
     lastBlock->next = this;
   }
   // initialize grid indices
+  // Allow for user overrides to default Parthenon functions
+  if (app_in->InitApplicationMeshBlockData != nullptr) {
+    InitApplicationMeshBlockData = app_in->InitApplicationMeshBlockData;
+  }
+  if (app_in->InitUserMeshBlockData != nullptr) {
+    InitUserMeshBlockData = app_in->InitUserMeshBlockData;
+  }
+  if (app_in->ProblemGenerator != nullptr) {
+    ProblemGenerator = app_in->ProblemGenerator;
+  }
+  if (app_in->MeshBlockUserWorkInLoop != nullptr) {
+    UserWorkInLoop = app_in->MeshBlockUserWorkInLoop;
+  }
+  if (app_in->UserWorkBeforeOutput != nullptr) {
+    UserWorkBeforeOutput = app_in->UserWorkBeforeOutput;
+  }
 
   // std::cerr << "WHY AM I HERE???" << std::endl;
 

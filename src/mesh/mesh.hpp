@@ -307,7 +307,7 @@ class Mesh {
   // 2x function overloads of ctor: normal and restarted simulation
   Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properties,
        Packages_t &packages, int test_flag = 0);
-  Mesh(ParameterInput *pin, ApplicationInput *app_in, IOWrapper &resfile,
+  Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &resfile,
        Properties_t &properties, Packages_t &packages, int test_flag = 0);
   ~Mesh();
 
