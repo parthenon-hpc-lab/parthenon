@@ -592,7 +592,7 @@ void instantiateReader_(RestartReader &rr) {
   auto dataDouble = rr.ReadDataset<double>("xxx", &count);
   double *tmp;
   int stat = rr.ReadBlocks("xxx", myBlocks, tmp, 1);
-  std::cout << "dummy routine"<<count << tmp[0];
+  std::cout << "dummy routine" << count << tmp[0];
 }
 
 } // namespace parthenon
