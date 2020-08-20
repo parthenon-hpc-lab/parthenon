@@ -25,6 +25,7 @@
 #include "basic_types.hpp"
 #include "io_wrapper.hpp"
 #include "parthenon_arrays.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
@@ -165,7 +166,8 @@ class RestartOutput : public OutputType {
     std::stringstream msg;
     msg << "### FATAL ERROR in Restart (Outputs) constructor" << std::endl
         << "Executable not configured for HDF5 outputs, but HDF5 file format "
-        << "is requested in output block '" << op.block_name << "'" << std::endl;
+        << "is requested in output block '" << output_params.block_name << "'"
+        << std::endl;
     PARTHENON_FAIL(msg);
 #endif
   }

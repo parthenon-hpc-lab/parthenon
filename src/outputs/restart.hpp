@@ -144,5 +144,22 @@ class RestartReader {
   hsize_t nx1_, nx2_, nx3_;
 #endif
 };
+
+#ifndef HDF5OUTPUT
+template <typename T>
+std::vector<T> RestartReader::ReadDataset(const char *name, size_t *count) {
+  std::vector<T> dummy;
+  PARTHENON_FAIL("Restart reader required HDF to be compiled in");
+  return dummy;
+}
+template <typename T>
+std::vector<T> RestartReader::ReadAttrBytes_(const char *dataset, const char *name,
+                                             size_t *count) {
+  std::vector<T> dummy;
+  PARTHENON_FAIL("Restart reader required HDF to be compiled in");
+  return dummy;
+}
+#endif
+
 } // namespace parthenon
 #endif // OUTPUTS_RESTART_HPP_

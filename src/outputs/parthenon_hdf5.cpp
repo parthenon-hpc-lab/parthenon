@@ -15,9 +15,10 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+// Only proceed if HDF5 output enabled
+
 #include "outputs/parthenon_hdf5.hpp"
 
-// Only proceed if HDF5 output enabled
 #ifdef HDF5OUTPUT
 
 namespace parthenon {

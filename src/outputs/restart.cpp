@@ -49,6 +49,7 @@ RestartReader::RestartReader(const char *filename) : filename_(filename) {
 #endif
 }
 
+#ifdef HDF5OUTPUT
 //! \fn std::vector<T> RestartReader::ReadDataset(const char *name, size_t *count =
 //! nullptr)
 //  \brief Reads an entire dataset and returns as a 1D vector
@@ -56,7 +57,6 @@ template <typename T>
 std::vector<T> RestartReader::ReadDataset(const char *name, size_t *count) {
   // Returns entire 1D array.
   // status, never checked.  We should...
-#ifdef HDF5OUTPUT
   herr_t status;
 
   T *typepointer = nullptr;
@@ -90,12 +90,11 @@ std::vector<T> RestartReader::ReadDataset(const char *name, size_t *count) {
   H5Sclose(filespace);
   H5Sclose(dataspace);
   H5Dclose(dataset);
-#else
-  std::vector<T> data;
-#endif
-  return std::forward<std::vector<T>>(data);
+  return data;
 }
+#endif
 
+#ifdef HDF5OUTPUT
 //! \fn std::vector<T> RestartReader::ReadAttr1D(const char *dataset,
 //! const char *name, size_t *count = nullptr)
 //  \brief Reads a 1D array attribute for given dataset
@@ -104,7 +103,6 @@ std::vector<T> RestartReader::ReadAttrBytes_(const char *dataset, const char *na
                                              size_t *count) {
   // Returns entire 1D array.
   // status, never checked.  We should...
-#ifdef HDF5OUTPUT
   herr_t status;
 
   T *typepointer = nullptr;
@@ -134,12 +132,9 @@ std::vector<T> RestartReader::ReadAttrBytes_(const char *dataset, const char *na
   H5Sclose(dataspace);
   H5Aclose(attr);
   H5Dclose(dset);
-#else
-  std::vector<T> data;
-#endif
-
   return data;
 }
+#endif
 
 std::vector<Real> RestartReader::ReadAttr1DReal(const char *dataset, const char *name,
                                                 size_t *count) {
@@ -158,6 +153,7 @@ std::string RestartReader::ReadAttrString(const char *dataset, const char *name,
                                           size_t *count) {
   // Returns entire 1D array.
   // status, never checked.  We should...
+#ifdef HDF5OUTPUT
   herr_t status;
 
   hid_t theHdfType = H5T_C_S1;
@@ -191,6 +187,9 @@ std::string RestartReader::ReadAttrString(const char *dataset, const char *name,
   H5Dclose(dset);
 
   return data;
+#else
+  return std::string("HDF5 NOT COMPILED IN");
+#endif
 }
 
 //----------------------------------------------------------------------------------------
@@ -593,6 +592,7 @@ void instantiateReader_(RestartReader &rr) {
   auto dataDouble = rr.ReadDataset<double>("xxx", &count);
   double *tmp;
   int stat = rr.ReadBlocks("xxx", myBlocks, tmp, 1);
+  std::cout << "dummy routine"<<count << tmp[0];
 }
 
 } // namespace parthenon

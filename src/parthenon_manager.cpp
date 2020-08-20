@@ -211,7 +211,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
       {parthenon::Metadata::Independent, parthenon::Metadata::Restart}, true);
 
   // Allocate space based on largest vector
-  hsize_t vlen = 1;
+  size_t vlen = 1;
   for (auto &v : ciX.vars) {
     if (v->GetDim(4) > vlen) {
       vlen = v->GetDim(4);
@@ -221,7 +221,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   std::cout << "SIZES:" << nb << ":" << vlen << ":"
             << static_cast<size_t>(nb) * nCells * vlen << std::endl;
   for (auto &v : ciX.vars) {
-    const hsize_t v4 = v->GetDim(4);
+    const size_t v4 = v->GetDim(4);
     const std::string vName = v->label();
 
     std::cout << "Var:" << vName << ":" << v4 << std::endl;
@@ -233,7 +233,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
     }
 
     auto pmb = rm.pblock;
-    hsize_t index = 0;
+    size_t index = 0;
     while (pmb != nullptr) {
       // std::cout << pmb->gid << ":" << pmb->real_containers.Get() << std::endl;
       auto cX = ContainerIterator<Real>(pmb->real_containers.Get(), {vName});

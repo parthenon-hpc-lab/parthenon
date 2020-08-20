@@ -9,19 +9,23 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef OUTPUTS_PAETHENON_HDF5_HPP_
-#define OUTPUTS_PAETHENON_HDF5_HPP_
+#ifndef OUTPUTS_PARTHENON_HDF5_HPP_
+#define OUTPUTS_PARTHENON_HDF5_HPP_
 // Definitions common to parthenon restart and parthenon output for HDF5
+
+// options for building
+#include "config.hpp"
+
+#ifdef HDF5OUTPUT
+#include <hdf5.h>
+#endif
 
 #include <cstdlib>
 #include <fstream>
-#include <hdf5.h>
 #include <iomanip>
 #include <sstream>
 #include <string>
 #include <vector>
-
-#include "outputs/outputs.hpp"
 
 #include "basic_types.hpp"
 #include "coordinates/coordinates.hpp"
@@ -40,7 +44,11 @@
 #define PREDCHAR H5T_NATIVE_CHAR
 
 using parthenon::Real;
-#ifdef HDF5OUTPUT
+#ifndef HDF5OUTPUT
+#define LOADVARIABLEALL(dst, pmb, var, is, ie, js, je, ks, ke)
+#define LOADVARIABLEONE(index, dst, var, is, ie, js, je, ks, ke, vlen)
+#define UNLOADVARIABLEONE(index, src, var, is, ie, js, je, ks, ke, vlen)
+#else
 
 // loads a variable
 #define LOADVARIABLEALL(dst, pmb, var, is, ie, js, je, ks, ke)                           \
@@ -200,4 +208,4 @@ static hid_t getHdfType(int64_t *x) { return H5T_NATIVE_INT64; }
 static hid_t getHdfType(std::string *x) { return H5T_C_S1; }
 
 #endif
-#endif
+#endif // OUTPUTS_PARTHENON_HDF5_HPP_
