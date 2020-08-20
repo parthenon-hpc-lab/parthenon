@@ -14,10 +14,13 @@
 #define OUTPUTS_RESTART_HPP_
 //! \file io_wrapper.hpp
 //  \brief defines a set of small wrapper functions for MPI versus Serial Output.
-#include <cinttypes>
+
 #ifdef HDF5OUTPUT
 #include <hdf5.h>
 #endif
+
+#include <cinttypes>
+#include <string>
 #include <vector>
 
 #include "outputs/parthenon_hdf5.hpp"
@@ -142,4 +145,4 @@ class RestartReader {
 #endif
 };
 } // namespace parthenon
-#endif
+#endif // OUTPUTS_RESTART_HPP_
