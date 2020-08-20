@@ -46,6 +46,16 @@ list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advectio
 
 if (ENABLE_HDF5)
 
+  # Restart
+  list(APPEND TEST_DIRS restart)
+  list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
+    --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/restart/parthinput.restart \
+    --num_steps 2")
+  
+  # h5py is only neeed if hdf5 is enabled
+  list(APPEND REQUIRED_PYTHON_MODULES h5py) 
+
   # Calculate pi example
   list(APPEND TEST_DIRS calculate_pi)
   list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
