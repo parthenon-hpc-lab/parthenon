@@ -120,7 +120,7 @@ if (NOT PARTHENON_DISABLE_OPENMP)
     "If you want to build Parthenon without OpenMP, please rerun CMake with -DPARTHENON_DISABLE_OPENMP=ON")
   endif()
   set(ENABLE_OPENMP ON)
-  set(Kokkos_ENABLE_OPENMP ON CACHE BOOL "Build Kokkos with OpenMP")
+  set(Kokkos_ENABLE_OPENMP ON CACHE BOOL "Allow Kokkos to use OpenMP")
 endif()
 
 if (Kokkos_ENABLE_CUDA AND TEST_INTEL_OPTIMIZATION)
