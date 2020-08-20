@@ -49,9 +49,9 @@ option(CODE_COVERAGE "Enable code coverage reporting" OFF)
 
 # Default to an external Kokkos package if the submodule is not populated
 if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/external/Kokkos/CMakeLists.txt" AND NOT EXISTS "${Kokkos_ROOT}/CMakeLists.txt")
-    option(PARTHENON_EXTERNAL_KOKKOS "Use an external Kokkos" ON)
+    option(PARTHENON_EXTERNAL_KOKKOS "If ON, attempt to link to an external Kokkos library. If OFF, build Kokkos from source and package with Parthenon" ON)
 else()
-    option(PARTHENON_EXTERNAL_KOKKOS "Use an external Kokkos" OFF)
+    option(PARTHENON_EXTERNAL_KOKKOS "If ON, attempt to link to an external Kokkos library. If OFF, build Kokkos from source and package with Parthenon" OFF)
 endif()
 
 include(cmake/Format.cmake)
@@ -159,10 +159,7 @@ if (NOT PARTHENON_DISABLE_HDF5)
   target_compile_definitions(HDF5_C INTERFACE ${HDF5_C_DEFINITIONS})
   target_include_directories(HDF5_C INTERFACE ${HDF5_C_INCLUDE_DIRS})
 
-  install(TARGETS HDF5_C EXPORT parthenonTargets
-    INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parthenon"
-    LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-    ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}")
+  install(TARGETS HDF5_C EXPORT parthenonTargets)
 endif()
 
 # Kokkos recommendatation resulting in not using default GNU extensions

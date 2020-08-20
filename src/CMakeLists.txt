@@ -253,6 +253,4 @@ install(EXPORT parthenonTargets
     FILE parthenonTargets.cmake
     NAMESPACE Parthenon::
     DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/parthenon"
-    COMPONENT Kokkos::kokkos
     )
-
