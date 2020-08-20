@@ -92,7 +92,7 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
   Real l1_err = 0.0;
   Real max_err = 0.0;
 
-  for (auto pmb = block_list.begin(); pmb != block_list.end(); pmb++) {
+  for (auto pmb = mesh->block_list.begin(); pmb != mesh->block_list.end(); pmb++) {
     auto pkg = pmb->packages["advection_package"];
 
     auto rc = pmb->real_containers.Get(); // get base container
