@@ -21,6 +21,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <memory>
 
 #include "basic_types.hpp"
 #include "config.hpp"
@@ -136,6 +137,19 @@ using MetricFunc = void (*)(Real x1, Real x2, Real x3, ParameterInput *pin,
 using MGBoundaryFunc = void (*)(ParArrayND<Real> &dst, Real time, int nvar, int is,
                                 int ie, int js, int je, int ks, int ke, int ngh, Real x0,
                                 Real y0, Real z0, Real dx, Real dy, Real dz);
+
+//----------------------------------------------------------------------------------------
+// Opaque pointer to application data
+class MeshBlockApplicationData {
+ public:
+  // make this pure virtual so that this class cannot be instantiated
+  // (only derived classes can be instantiated)
+  virtual ~MeshBlockApplicationData() = 0;
+};
+using pMeshBlockApplicationData_t = std::unique_ptr<MeshBlockApplicationData>;
+
+// we still need to define this somewhere, though
+inline MeshBlockApplicationData::~MeshBlockApplicationData() {}
 
 } // namespace parthenon
 

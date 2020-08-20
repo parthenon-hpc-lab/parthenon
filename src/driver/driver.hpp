@@ -21,6 +21,7 @@
 #include <utility>
 #include <vector>
 
+#include "application_input.hpp"
 #include "basic_types.hpp"
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
@@ -36,11 +37,13 @@ enum class DriverStatus { complete, timeout, failed };
 
 class Driver {
  public:
-  Driver(ParameterInput *pin, Mesh *pm) : pinput(pin), pmesh(pm) {}
+  Driver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
+      : pinput(pin), app_input(app_in), pmesh(pm) {}
   virtual DriverStatus Execute() = 0;
   void InitializeOutputs() { pouts = std::make_unique<Outputs>(pmesh, pinput); }
 
   ParameterInput *pinput;
+  ApplicationInput *app_input;
   Mesh *pmesh;
   std::unique_ptr<Outputs> pouts;
 
@@ -57,7 +60,8 @@ class Driver {
 
 class EvolutionDriver : public Driver {
  public:
-  EvolutionDriver(ParameterInput *pin, Mesh *pm) : Driver(pin, pm) {
+  EvolutionDriver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
+      : Driver(pin, app_in, pm) {
     Real start_time = pinput->GetOrAddPrecise("parthenon/time", "start_time", 0.0);
     Real tstop = pinput->GetOrAddPrecise("parthenon/time", "tlim",
                                          std::numeric_limits<Real>::max());

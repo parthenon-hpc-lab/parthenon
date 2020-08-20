@@ -22,6 +22,7 @@ Parthenon AMR infrastructure
 * python3
 * h5py
 * numpy
+* matplotlib
 
 # Installation
 
