@@ -150,7 +150,7 @@ void profile_wrapper_3d(T loop_pattern) {
             << std::endl;
 }
 
-TEST_CASE("ParArrayND", "[ParArrayND][Kokkos][coverage]") {
+TEST_CASE("ParArrayND", "[ParArrayND][Kokkos]") {
   GIVEN("A ParArrayND allocated with no label") {
     ParArrayND<Real> a(PARARRAY_TEMP, 5, 4, 3, 2);
     THEN("The label is the correct default") {
@@ -300,7 +300,7 @@ TEST_CASE("ParArrayND", "[ParArrayND][Kokkos][coverage]") {
   }
 }
 
-TEST_CASE("ParArrayND with LayoutLeft", "[ParArrayND][Kokkos][LayoutLeft][coverage]") {
+TEST_CASE("ParArrayND with LayoutLeft", "[ParArrayND][Kokkos][LayoutLeft]") {
   GIVEN("A ParArrayND with some dimensions") {
     constexpr int N1 = 2;
     constexpr int N2 = 3;
