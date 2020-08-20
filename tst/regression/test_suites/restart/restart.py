@@ -36,6 +36,11 @@ class TestCase(utils.test_case.TestCaseAbs):
                 'gold.out0.00001.rhdf',
                 'parthenon/job/problem_id=silver'
             ]
+
+            # enable coverage testing on pass where restart
+            # files are both read and written
+            parameters.coverage_status = "both"
+        
         return parameters
 
     def Analyse(self, parameters):
