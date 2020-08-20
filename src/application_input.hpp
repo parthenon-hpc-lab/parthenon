@@ -10,54 +10,45 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+#ifndef APPLICATION_INPUT_HPP_
+#define APPLICATION_INPUT_HPP_
 
-#ifndef PARTHENON_MANAGER_HPP_
-#define PARTHENON_MANAGER_HPP_
-
+#include <functional>
+#include <map>
 #include <memory>
+#include <string>
+#include <vector>
 
-#include "application_input.hpp"
-#include "argument_parser.hpp"
-#include "basic_types.hpp"
-#include "driver/driver.hpp"
+#include "defs.hpp"
 #include "interface/properties_interface.hpp"
 #include "interface/state_descriptor.hpp"
-#include "mesh/mesh.hpp"
 #include "parameter_input.hpp"
+#include "parthenon_arrays.hpp"
 
 namespace parthenon {
 
-enum class ParthenonStatus { ok, complete, error };
-
-class ParthenonManager {
+struct ApplicationInput {
  public:
-  ParthenonManager() {
-    app_input.reset(new ApplicationInput());
-    // SetFillDerivedFunctions = &SetFillDerivedFunctionsDefault;
-  }
-  ParthenonStatus ParthenonInit(int argc, char *argv[]);
-  ParthenonStatus ParthenonFinalize();
-
-  bool Restart() { return (arg.restart_filename == nullptr ? false : true); }
-  static Properties_t ProcessPropertiesDefault(std::unique_ptr<ParameterInput> &pin);
-  static Packages_t ProcessPackagesDefault(std::unique_ptr<ParameterInput> &pin);
-  static void SetFillDerivedFunctionsDefault();
-
+  // ParthenonManager functions
+  std::function<void()> SetFillDerivedFunctions = nullptr;
   std::function<Properties_t(std::unique_ptr<ParameterInput> &)> ProcessProperties =
-      ProcessPropertiesDefault;
-  std::function<Packages_t(std::unique_ptr<ParameterInput> &)> ProcessPackages =
-      ProcessPackagesDefault;
-  std::function<void()> SetFillDerivedFunctions = SetFillDerivedFunctionsDefault;
+      nullptr;
+  std::function<Packages_t(std::unique_ptr<ParameterInput> &)> ProcessPackages = nullptr;
 
-  // member data
-  std::unique_ptr<ParameterInput> pinput;
-  std::unique_ptr<Mesh> pmesh;
-  std::unique_ptr<ApplicationInput> app_input;
+  // Mesh functions
+  std::function<void(ParameterInput *)> InitUserMeshData = nullptr;
+  std::function<void()> MeshUserWorkInLoop = nullptr;
+  std::function<void(Mesh *, ParameterInput *, SimTime &)> UserWorkAfterLoop = nullptr;
 
- private:
-  ArgParse arg;
+  // MeshBlock functions
+  std::function<std::unique_ptr<MeshBlockApplicationData>(ParameterInput *)>
+      InitApplicationMeshBlockData = nullptr;
+  std::function<void(ParameterInput *)> InitUserMeshBlockData = nullptr;
+  std::function<void(MeshBlock *, ParameterInput *)> ProblemGenerator = nullptr;
+  std::function<void()> MeshBlockUserWorkInLoop = nullptr;
+  std::function<void(ParameterInput *)> UserWorkBeforeOutput = nullptr;
 };
 
 } // namespace parthenon
 
-#endif // PARTHENON_MANAGER_HPP_
+#endif // APPLICATION_INPUT_HPP_

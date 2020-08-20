@@ -44,7 +44,8 @@ namespace parthenon {
 // \!fn void Mesh::LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin)
 // \brief Main function for adaptive mesh refinement
 
-void Mesh::LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin) {
+void Mesh::LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin,
+                                                  ApplicationInput *app_in) {
   int nnew = 0, ndel = 0;
 
   if (adaptive) {
@@ -60,11 +61,11 @@ void Mesh::LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin) {
   modified = false;
   if (nnew != 0 || ndel != 0) { // at least one (de)refinement happened
     GatherCostListAndCheckBalance();
-    RedistributeAndRefineMeshBlocks(pin, nbtotal + nnew - ndel);
+    RedistributeAndRefineMeshBlocks(pin, app_in, nbtotal + nnew - ndel);
     modified = true;
   } else if (lb_flag_ && step_since_lb >= lb_interval_) {
     if (!GatherCostListAndCheckBalance()) { // load imbalance detected
-      RedistributeAndRefineMeshBlocks(pin, nbtotal);
+      RedistributeAndRefineMeshBlocks(pin, app_in, nbtotal);
       modified = true;
     }
     lb_flag_ = false;
@@ -378,7 +379,8 @@ bool Mesh::GatherCostListAndCheckBalance() {
 // \!fn void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot)
 // \brief redistribute MeshBlocks according to the new load balance
 
-void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
+void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput *app_in,
+                                           int ntot) {
   // compute nleaf= number of leaf MeshBlocks per refined block
   int nleaf = 2;
   if (mesh_size.nx2 > 1) nleaf = 4;
@@ -690,7 +692,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot) {
   for (auto &mb : block_list) {
     mb.pbval->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
   }
-  Initialize(2, pin);
+  Initialize(2, pin, app_in);
 
   ResetLoadBalanceVariables();
 

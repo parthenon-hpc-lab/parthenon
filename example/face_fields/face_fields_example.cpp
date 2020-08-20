@@ -21,9 +21,22 @@
 
 #include "parthenon_manager.hpp"
 
-namespace parthenon {
+using parthenon::DerivedOwnership;
+using parthenon::DriverStatus;
+using parthenon::MeshBlock;
+using parthenon::Metadata;
+using parthenon::Packages_t;
+using parthenon::ParameterInput;
+using parthenon::Params;
+using parthenon::Real;
+using parthenon::StateDescriptor;
+using parthenon::TaskID;
+using parthenon::TaskList;
+using parthenon::TaskStatus;
 
-Packages_t ParthenonManager::ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
+namespace FaceFields {
+
+Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   Packages_t packages;
   auto package = std::make_shared<StateDescriptor>("FaceFieldExample");
 
@@ -51,13 +64,13 @@ Packages_t ParthenonManager::ProcessPackages(std::unique_ptr<ParameterInput> &pi
   return packages;
 }
 
-void MeshBlock::ProblemGenerator(ParameterInput *pin) {
+void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   // don't do anything here
 }
 
 DriverStatus FaceFieldExample::Execute() {
   Driver::PreExecute();
-  DriverUtils::ConstructAndExecuteBlockTasks<>(this);
+  parthenon::DriverUtils::ConstructAndExecuteBlockTasks<>(this);
 
   // post-evolution analysis
   Real rank_sum = 0.0;
@@ -151,9 +164,7 @@ TaskList FaceFieldExample::MakeTaskList(MeshBlock *pmb) {
   return tl;
 }
 
-} // namespace parthenon
-
-parthenon::TaskStatus FaceFields::fill_faces(parthenon::MeshBlock *pmb) {
+parthenon::TaskStatus fill_faces(parthenon::MeshBlock *pmb) {
   using parthenon::Real;
 
   auto example = pmb->packages["FaceFieldExample"];
@@ -211,3 +222,5 @@ parthenon::TaskStatus FaceFields::fill_faces(parthenon::MeshBlock *pmb) {
   }
   return parthenon::TaskStatus::complete;
 }
+
+} // namespace FaceFields
