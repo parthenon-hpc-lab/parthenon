@@ -657,43 +657,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
 
   InitUserMeshData(pin);
 
-#if 0
-  //TODO(sriram) : write user mesh data to file
-  // read user Mesh data
-  IOWrapperSizeT udsize = 0;
-  for (int n = 0; n < nint_user_mesh_data_; n++)
-    udsize += iuser_mesh_data[n].GetSizeInBytes();
-  for (int n = 0; n < nreal_user_mesh_data_; n++)
-    udsize += ruser_mesh_data[n].GetSizeInBytes();
-  if (udsize != 0) {
-    char *userdata = new char[udsize];
-    if (Globals::my_rank == 0) { // only the master process reads the ID list
-      if (rr.Read(userdata, 1, udsize) != udsize) {
-        msg << "### FATAL ERROR in Mesh constructor" << std::endl
-            << "The restart file is broken." << std::endl;
-        PARTHENON_FAIL(msg);
-      }
-    }
-#ifdef MPI_PARALLEL
-    // then broadcast the ID list
-    MPI_Bcast(userdata, udsize, MPI_BYTE, 0, MPI_COMM_WORLD);
-#endif
-
-    IOWrapperSizeT udoffset = 0;
-    for (int n = 0; n < nint_user_mesh_data_; n++) {
-      std::memcpy(iuser_mesh_data[n].data(), &(userdata[udoffset]),
-                  iuser_mesh_data[n].GetSizeInBytes());
-      udoffset += iuser_mesh_data[n].GetSizeInBytes();
-    }
-    for (int n = 0; n < nreal_user_mesh_data_; n++) {
-      std::memcpy(ruser_mesh_data[n].data(), &(userdata[udoffset]),
-                  ruser_mesh_data[n].GetSizeInBytes());
-      udoffset += ruser_mesh_data[n].GetSizeInBytes();
-    }
-    delete[] userdata;
-  }
-#endif
-
   // Populate logical locations
   auto lx123 = rr.ReadDataset<int64_t>("/Blocks/loc.lx123");
   auto locLevelGidLidCnghostGflag =
