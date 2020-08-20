@@ -64,7 +64,7 @@ class EvolutionDriver : public Driver {
       : Driver(pin, app_in, pm) {
     Real start_time = pinput->GetOrAddPrecise("parthenon/time", "start_time", 0.0);
     Real tstop = pinput->GetOrAddPrecise("parthenon/time", "tlim",
-                                         std::numeric_limits<Real>::max());
+                                         std::numeric_limits<Real>::infinity());
     Real dt =
         pinput->GetOrAddPrecise("parthenon/time", "dt", std::numeric_limits<Real>::max());
     int ncycle = pinput->GetOrAddInteger("parthenon/time", "ncycle", 0);
