@@ -10,6 +10,9 @@
 ### Fixed (not changing behavior/API/variables/...)
 - [[PR 262]](https://github.com/lanl/parthenon/pull/262) Fix setting of "coverage" label in testing. Automatically applies coverage tag to all tests not containing "performance" label.
 
+### Changed (changing behavior/API/variables/...)
+- [[PR 276]](https://github.com/lanl/parthenon/pull/276) Decrease required Python version from 3.6 to 3.5.
+
 ### Removed
 
 ## Release 0.1.0
