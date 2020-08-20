@@ -100,8 +100,17 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
   if (arg.input_filename != nullptr) {
     pinput = std::make_unique<ParameterInput>(arg.input_filename);
   } else if (arg.res_flag != 0) {
+    // Read input from restart file
+    restartReader = std::make_unique<RestartReader>(arg.restart_filename);
+
+    // Load input stream
     pinput = std::make_unique<ParameterInput>();
+    std::string inputString = restartReader->ReadAttrString("Input", "File");
+    std::istringstream is(inputString);
+    pinput->LoadFromStream(is);
   }
+
+  // Modify based on command line inputs
   pinput->ModifyFromCmdline(argc, argv);
 
   // read in/set up application specific properties
@@ -116,13 +125,6 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
                                    arg.mesh_flag);
   } else {
     // Open restart file
-    restartReader = std::make_unique<RestartReader>(arg.restart_filename);
-
-    // Load input stream
-    std::string inputString = restartReader->ReadAttrString("Input", "File");
-    std::istringstream is(inputString);
-    pinput->LoadFromStream(is);
-
     // Read Mesh from restart file and create meshblocks
     pmesh = std::make_unique<Mesh>(pinput.get(), app_input.get(), *restartReader,
                                    properties, packages);
