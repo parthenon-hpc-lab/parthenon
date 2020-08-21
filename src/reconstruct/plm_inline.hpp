@@ -47,13 +47,12 @@ void PiecewiseLinearX1(parthenon::team_mbr_t const &member, const int k, const i
 
   // compute L/R slopes for each variable
   for (int n = 0; n <= nu; ++n) {
-    parthenon::par_for_inner(DEFAULT_INNER_LOOP_PATTERN, member, il, iu,
-                             [&](const int i) {
-                               // renamed dw* -> dq* from plm.cpp
-                               dql(n, i) = (q(n, k, j, i) - q(n, k, j, i - 1));
-                               dqr(n, i) = (q(n, k, j, i + 1) - q(n, k, j, i));
-                               qc(n, i) = q(n, k, j, i);
-                             });
+    parthenon::par_for_inner(member, il, iu, [&](const int i) {
+      // renamed dw* -> dq* from plm.cpp
+      dql(n, i) = (q(n, k, j, i) - q(n, k, j, i - 1));
+      dqr(n, i) = (q(n, k, j, i + 1) - q(n, k, j, i));
+      qc(n, i) = q(n, k, j, i);
+    });
   }
   member.team_barrier();
 
@@ -62,12 +61,11 @@ void PiecewiseLinearX1(parthenon::team_mbr_t const &member, const int k, const i
   //  if (uniform[X1DIR]) {
   if (true) { // TODO(pgrete) make this work again
     for (int n = 0; n <= nu; ++n) {
-      parthenon::par_for_inner(DEFAULT_INNER_LOOP_PATTERN, member, il, iu,
-                               [&](const int i) {
-                                 Real dq2 = dql(n, i) * dqr(n, i);
-                                 dqm(n, i) = 2.0 * dq2 / (dql(n, i) + dqr(n, i));
-                                 if (dq2 <= 0.0) dqm(n, i) = 0.0;
-                               });
+      parthenon::par_for_inner(member, il, iu, [&](const int i) {
+        Real dq2 = dql(n, i) * dqr(n, i);
+        dqm(n, i) = 2.0 * dq2 / (dql(n, i) + dqr(n, i));
+        if (dq2 <= 0.0) dqm(n, i) = 0.0;
+      });
     }
     member.team_barrier();
 
@@ -75,44 +73,39 @@ void PiecewiseLinearX1(parthenon::team_mbr_t const &member, const int k, const i
     // coordinate with nonuniform mesh spacing
   } else {
     for (int n = 0; n <= nu; ++n) {
-      parthenon::par_for_inner(
-          DEFAULT_INNER_LOOP_PATTERN, member, il, iu, [&](const int i) {
-            Real dqF = dqr(n, i) * coords.dx1f(i) / coords.dx1v(i);
-            Real dqB = dql(n, i) * coords.dx1f(i) / coords.dx1v(i - 1);
-            Real dq2 = dqF * dqB;
-            // cf, cb -> 2 (uniform Cartesian mesh / original VL value) w/ vanishing
-            // curvature (may not exactly hold for nonuniform meshes, but converges w/
-            // smooth nonuniformity)
-            Real cf =
-                coords.dx1v(i) / (coords.x1f(i + 1) - coords.x1v(i)); // (Mignone eq 33)
-            Real cb = coords.dx1v(i - 1) / (coords.x1v(i) - coords.x1f(i));
-            // (modified) VL limiter (Mignone eq 37)
-            // (dQ^F term from eq 31 pulled into eq 37, then multiply by (dQ^F/dQ^F)^2)
-            dqm(n, i) = (dq2 * (cf * dqB + cb * dqF) /
-                         (SQR(dqB) + SQR(dqF) + dq2 * (cf + cb - 2.0)));
-            if (dq2 <= 0.0)
-              dqm(n, i) = 0.0; // ---> no concern for divide-by-0 in above line
+      parthenon::par_for_inner(member, il, iu, [&](const int i) {
+        Real dqF = dqr(n, i) * coords.dx1f(i) / coords.dx1v(i);
+        Real dqB = dql(n, i) * coords.dx1f(i) / coords.dx1v(i - 1);
+        Real dq2 = dqF * dqB;
+        // cf, cb -> 2 (uniform Cartesian mesh / original VL value) w/ vanishing
+        // curvature (may not exactly hold for nonuniform meshes, but converges w/
+        // smooth nonuniformity)
+        Real cf = coords.dx1v(i) / (coords.x1f(i + 1) - coords.x1v(i)); // (Mignone eq 33)
+        Real cb = coords.dx1v(i - 1) / (coords.x1v(i) - coords.x1f(i));
+        // (modified) VL limiter (Mignone eq 37)
+        // (dQ^F term from eq 31 pulled into eq 37, then multiply by (dQ^F/dQ^F)^2)
+        dqm(n, i) =
+            (dq2 * (cf * dqB + cb * dqF) / (SQR(dqB) + SQR(dqF) + dq2 * (cf + cb - 2.0)));
+        if (dq2 <= 0.0) dqm(n, i) = 0.0; // ---> no concern for divide-by-0 in above line
 
-            // Real v = dqB/dqF;
-            // monotoniced central (MC) limiter (Mignone eq 38)
-            // (std::min calls should avoid issue if divide-by-zero causes v=Inf)
-            // dqm(n,i) = dqF*std::max(0.0, std::min(0.5*(1.0 + v), std::min(cf, cb*v)));
-          });
+        // Real v = dqB/dqF;
+        // monotoniced central (MC) limiter (Mignone eq 38)
+        // (std::min calls should avoid issue if divide-by-zero causes v=Inf)
+        // dqm(n,i) = dqF*std::max(0.0, std::min(0.5*(1.0 + v), std::min(cf, cb*v)));
+      });
     }
     member.team_barrier();
   }
 
   // compute ql_(i+1/2) and qr_(i-1/2) using limited slopes
   for (int n = 0; n <= nu; ++n) {
-    parthenon::par_for_inner(
-        DEFAULT_INNER_LOOP_PATTERN, member, il, iu, [&](const int i) {
-          // Mignone equation 30
-          ql(n, i + 1) =
-              qc(n, i) +
-              ((coords.x1f(i + 1) - coords.x1v(i)) / coords.dx1f(i)) * dqm(n, i);
-          qr(n, i) =
-              qc(n, i) - ((coords.x1v(i) - coords.x1f(i)) / coords.dx1f(i)) * dqm(n, i);
-        });
+    parthenon::par_for_inner(member, il, iu, [&](const int i) {
+      // Mignone equation 30
+      ql(n, i + 1) =
+          qc(n, i) + ((coords.x1f(i + 1) - coords.x1v(i)) / coords.dx1f(i)) * dqm(n, i);
+      qr(n, i) =
+          qc(n, i) - ((coords.x1v(i) - coords.x1f(i)) / coords.dx1f(i)) * dqm(n, i);
+    });
   }
   return;
 }
@@ -131,13 +124,12 @@ void PiecewiseLinearX2(parthenon::team_mbr_t const &member, const int k, const i
 
   // compute L/R slopes for each variable
   for (int n = 0; n <= nu; ++n) {
-    parthenon::par_for_inner(DEFAULT_INNER_LOOP_PATTERN, member, il, iu,
-                             [&](const int i) {
-                               // renamed dw* -> dq* from plm.cpp
-                               dql(n, i) = (q(n, k, j, i) - q(n, k, j - 1, i));
-                               dqr(n, i) = (q(n, k, j + 1, i) - q(n, k, j, i));
-                               qc(n, i) = q(n, k, j, i);
-                             });
+    parthenon::par_for_inner(member, il, iu, [&](const int i) {
+      // renamed dw* -> dq* from plm.cpp
+      dql(n, i) = (q(n, k, j, i) - q(n, k, j - 1, i));
+      dqr(n, i) = (q(n, k, j + 1, i) - q(n, k, j, i));
+      qc(n, i) = q(n, k, j, i);
+    });
   }
   member.team_barrier();
 
@@ -146,12 +138,11 @@ void PiecewiseLinearX2(parthenon::team_mbr_t const &member, const int k, const i
   // if (uniform[X2DIR]) {
   if (true) { // TODO(pgrete) make work again
     for (int n = 0; n <= nu; ++n) {
-      parthenon::par_for_inner(DEFAULT_INNER_LOOP_PATTERN, member, il, iu,
-                               [&](const int i) {
-                                 Real dq2 = dql(n, i) * dqr(n, i);
-                                 dqm(n, i) = 2.0 * dq2 / (dql(n, i) + dqr(n, i));
-                                 if (dq2 <= 0.0) dqm(n, i) = 0.0;
-                               });
+      parthenon::par_for_inner(member, il, iu, [&](const int i) {
+        Real dq2 = dql(n, i) * dqr(n, i);
+        dqm(n, i) = 2.0 * dq2 / (dql(n, i) + dqr(n, i));
+        if (dq2 <= 0.0) dqm(n, i) = 0.0;
+      });
     }
     member.team_barrier();
 
@@ -164,22 +155,20 @@ void PiecewiseLinearX2(parthenon::team_mbr_t const &member, const int k, const i
         coords.dx2f(j) / coords.dx2v(j); // dimensionless, not technically a dx quantity
     Real dxB = coords.dx2f(j) / coords.dx2v(j - 1);
     for (int n = 0; n <= nu; ++n) {
-      parthenon::par_for_inner(
-          DEFAULT_INNER_LOOP_PATTERN, member, il, iu, [&](const int i) {
-            Real dqF = dqr(n, i) * dxF;
-            Real dqB = dql(n, i) * dxB;
-            Real dq2 = dqF * dqB;
-            // (modified) VL limiter (Mignone eq 37)
-            dqm(n, i) = (dq2 * (cf * dqB + cb * dqF) /
-                         (SQR(dqB) + SQR(dqF) + dq2 * (cf + cb - 2.0)));
-            if (dq2 <= 0.0)
-              dqm(n, i) = 0.0; // ---> no concern for divide-by-0 in above line
+      parthenon::par_for_inner(member, il, iu, [&](const int i) {
+        Real dqF = dqr(n, i) * dxF;
+        Real dqB = dql(n, i) * dxB;
+        Real dq2 = dqF * dqB;
+        // (modified) VL limiter (Mignone eq 37)
+        dqm(n, i) =
+            (dq2 * (cf * dqB + cb * dqF) / (SQR(dqB) + SQR(dqF) + dq2 * (cf + cb - 2.0)));
+        if (dq2 <= 0.0) dqm(n, i) = 0.0; // ---> no concern for divide-by-0 in above line
 
-            // Real v = dqB/dqF;
-            // // monotoniced central (MC) limiter (Mignone eq 38)
-            // // (std::min calls should avoid issue if divide-by-zero causes v=Inf)
-            // dqm(n,i) = dqF*std::max(0.0, std::min(0.5*(1.0 + v), std::min(cf, cb*v)));
-          });
+        // Real v = dqB/dqF;
+        // // monotoniced central (MC) limiter (Mignone eq 38)
+        // // (std::min calls should avoid issue if divide-by-zero causes v=Inf)
+        // dqm(n,i) = dqF*std::max(0.0, std::min(0.5*(1.0 + v), std::min(cf, cb*v)));
+      });
     }
     member.team_barrier();
   }
@@ -189,11 +178,10 @@ void PiecewiseLinearX2(parthenon::team_mbr_t const &member, const int k, const i
   Real dxp = (coords.x2f(j + 1) - coords.x2v(j)) / coords.dx2f(j);
   Real dxm = (coords.x2v(j) - coords.x2f(j)) / coords.dx2f(j);
   for (int n = 0; n <= nu; ++n) {
-    parthenon::par_for_inner(DEFAULT_INNER_LOOP_PATTERN, member, il, iu,
-                             [&](const int i) {
-                               ql(n, i) = qc(n, i) + dxp * dqm(n, i);
-                               qr(n, i) = qc(n, i) - dxm * dqm(n, i);
-                             });
+    parthenon::par_for_inner(member, il, iu, [&](const int i) {
+      ql(n, i) = qc(n, i) + dxp * dqm(n, i);
+      qr(n, i) = qc(n, i) - dxm * dqm(n, i);
+    });
   }
 }
 
@@ -211,13 +199,12 @@ void PiecewiseLinearX3(parthenon::team_mbr_t const &member, const int k, const i
 
   // compute L/R slopes for each variable
   for (int n = 0; n <= nu; ++n) {
-    parthenon::par_for_inner(DEFAULT_INNER_LOOP_PATTERN, member, il, iu,
-                             [&](const int i) {
-                               // renamed dw* -> dq* from plm.cpp
-                               dql(n, i) = (q(n, k, j, i) - q(n, k - 1, j, i));
-                               dqr(n, i) = (q(n, k + 1, j, i) - q(n, k, j, i));
-                               qc(n, i) = q(n, k, j, i);
-                             });
+    parthenon::par_for_inner(member, il, iu, [&](const int i) {
+      // renamed dw* -> dq* from plm.cpp
+      dql(n, i) = (q(n, k, j, i) - q(n, k - 1, j, i));
+      dqr(n, i) = (q(n, k + 1, j, i) - q(n, k, j, i));
+      qc(n, i) = q(n, k, j, i);
+    });
   }
   member.team_barrier();
 
@@ -226,12 +213,11 @@ void PiecewiseLinearX3(parthenon::team_mbr_t const &member, const int k, const i
   // if (uniform[X3DIR]) {
   if (true) { // TODO(pgrete) make conditional work again
     for (int n = 0; n <= nu; ++n) {
-      parthenon::par_for_inner(DEFAULT_INNER_LOOP_PATTERN, member, il, iu,
-                               [&](const int i) {
-                                 Real dq2 = dql(n, i) * dqr(n, i);
-                                 dqm(n, i) = 2.0 * dq2 / (dql(n, i) + dqr(n, i));
-                                 if (dq2 <= 0.0) dqm(n, i) = 0.0;
-                               });
+      parthenon::par_for_inner(member, il, iu, [&](const int i) {
+        Real dq2 = dql(n, i) * dqr(n, i);
+        dqm(n, i) = 2.0 * dq2 / (dql(n, i) + dqr(n, i));
+        if (dq2 <= 0.0) dqm(n, i) = 0.0;
+      });
     }
     member.team_barrier();
 
@@ -241,18 +227,17 @@ void PiecewiseLinearX3(parthenon::team_mbr_t const &member, const int k, const i
     Real dxF = coords.dx3f(k) / coords.dx3v(k);
     Real dxB = coords.dx3f(k) / coords.dx3v(k - 1);
     for (int n = 0; n <= nu; ++n) {
-      parthenon::par_for_inner(DEFAULT_INNER_LOOP_PATTERN, member, il, iu,
-                               [&](const int i) {
-                                 Real dqF = dqr(n, i) * dxF;
-                                 Real dqB = dql(n, i) * dxB;
-                                 Real dq2 = dqF * dqB;
-                                 // original VL limiter (Mignone eq 36)
-                                 dqm(n, i) = 2.0 * dq2 / (dqF + dqB);
-                                 // dq2 > 0 ---> dqF, dqB are nonzero and have the same
-                                 // sign ----> no risk for (dqF + dqB) = 0 cancellation
-                                 // causing a divide-by-0 in the above line
-                                 if (dq2 <= 0.0) dqm(n, i) = 0.0;
-                               });
+      parthenon::par_for_inner(member, il, iu, [&](const int i) {
+        Real dqF = dqr(n, i) * dxF;
+        Real dqB = dql(n, i) * dxB;
+        Real dq2 = dqF * dqB;
+        // original VL limiter (Mignone eq 36)
+        dqm(n, i) = 2.0 * dq2 / (dqF + dqB);
+        // dq2 > 0 ---> dqF, dqB are nonzero and have the same
+        // sign ----> no risk for (dqF + dqB) = 0 cancellation
+        // causing a divide-by-0 in the above line
+        if (dq2 <= 0.0) dqm(n, i) = 0.0;
+      });
     }
     member.team_barrier();
   }
@@ -261,11 +246,10 @@ void PiecewiseLinearX3(parthenon::team_mbr_t const &member, const int k, const i
   Real dxp = (coords.x3f(k + 1) - coords.x3v(k)) / coords.dx3f(k);
   Real dxm = (coords.x3v(k) - coords.x3f(k)) / coords.dx3f(k);
   for (int n = 0; n <= nu; ++n) {
-    parthenon::par_for_inner(DEFAULT_INNER_LOOP_PATTERN, member, il, iu,
-                             [&](const int i) {
-                               ql(n, i) = qc(n, i) + dxp * dqm(n, i);
-                               qr(n, i) = qc(n, i) - dxm * dqm(n, i);
-                             });
+    parthenon::par_for_inner(member, il, iu, [&](const int i) {
+      ql(n, i) = qc(n, i) + dxp * dqm(n, i);
+      qr(n, i) = qc(n, i) - dxm * dqm(n, i);
+    });
   }
 }
 

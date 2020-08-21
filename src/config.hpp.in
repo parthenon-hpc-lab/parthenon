@@ -45,6 +45,8 @@
 // HDF5 output (HDF5OUTPUT or NO_HDF5OUTPUT)
 #define @HDF5_OPTION@
 
+// Default loop patterns for MeshBlock par_for() wrappers,
+// see kokkos_abstraction.hpp for available tags.
 // Kokkos tight loop layout
 #define DEFAULT_LOOP_PATTERN parthenon::@PAR_LOOP_LAYOUT_TAG@
 

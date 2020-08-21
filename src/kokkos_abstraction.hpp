@@ -75,33 +75,54 @@ using ScratchPad6D = Kokkos::View<T ******, LayoutWrapper, ScratchMemSpace,
                                   Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
 
 // Defining tags to determine loop_patterns using a tag dispatch design pattern
+
+// Translates a non-Kokkos standard C++ nested `for` loop where the innermost `for` is
+// decorated with a #pragma omp simd
+// IMPORTANT: This only works on CPUs
 static struct LoopPatternSimdFor {
 } loop_pattern_simdfor_tag;
+// Translates to a Kokkos 1D range (Kokkos::RangePolicy) where the wrapper takes care
+// of the (hidden) 1D index to `n`, `k`, `j`, `i indices conversion
 static struct LoopPatternFlatRange {
 } loop_pattern_flatrange_tag;
+// Translates to a Kokkos multi dimensional  range (Kokkos::MDRangePolicy) with
+// a 1:1 indices matching
 static struct LoopPatternMDRange {
 } loop_pattern_mdrange_tag;
+// Translates to a Kokkos::TeamPolicy with a single inner Kokkos::TeamThreadRange
 static struct LoopPatternTPTTR {
 } loop_pattern_tpttr_tag;
+// Translates to a Kokkos::TeamPolicy with a single inner Kokkos::ThreadVectorRange
 static struct LoopPatternTPTVR {
 } loop_pattern_tptvr_tag;
+// Translates to a Kokkos::TeamPolicy with a middle Kokkos::TeamThreadRange and
+// inner Kokkos::ThreadVectorRange
 static struct LoopPatternTPTTRTVR {
 } loop_pattern_tpttrtvr_tag;
+// Used to catch undefined behavior as it results in throwing an error
 static struct LoopPatternUndefined {
 } loop_pattern_undefined_tag;
 
-// Tags for Nested parallelism
+// Tags for Nested parallelism where the outermost layer supports 1, 2, or 3 indices
+
+// Translates to outermost loop being a Kokkos::TeamPolicy
+// Currently the only available option.
 static struct OuterLoopPatternTeams {
 } outer_loop_pattern_teams_tag;
+// Translate to a Kokkos::TeamVectorRange as innermost loop (single index)
 static struct InnerLoopPatternTVR {
 } inner_loop_pattern_tvr_tag;
+// Translate to a non-Kokkos plain C++ innermost loop (single index)
+// decorated with #pragma omp simd
+// IMPORTANT: currently only supported on CPUs
 static struct InnerLoopPatternSimdFor {
 } inner_loop_pattern_simdfor_tag;
 
-// 1D loop using MDRange loops
+// 1D loop using RangePolicy loops
 template <typename Function>
-inline void par_for(LoopPatternMDRange, const std::string &name, DevExecSpace exec_space,
-                    const int &il, const int &iu, const Function &function) {
+inline void par_for(LoopPatternFlatRange, const std::string &name,
+                    DevExecSpace exec_space, const int &il, const int &iu,
+                    const Function &function) {
   Kokkos::parallel_for(name,
                        Kokkos::Experimental::require(
                            Kokkos::RangePolicy<>(exec_space, il, iu + 1),
@@ -421,7 +442,7 @@ inline void par_for_outer(OuterLoopPatternTeams, const std::string &name,
       });
 }
 
-// Inner parallel loop using TeamThreamRange
+// Inner parallel loop using TeamVectorRange
 template <typename Function>
 KOKKOS_INLINE_FUNCTION void par_for_inner(InnerLoopPatternTVR, team_mbr_t team_member,
                                           const int il, const int iu,

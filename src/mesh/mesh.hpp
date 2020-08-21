@@ -59,7 +59,15 @@ class MeshRefinement;
 class ParameterInput;
 class Reconstruction;
 
-// template class Container<Real>;
+// Inner loop default pattern
+// - Defined outside of the MeshBlock class because it does not require an exec space
+// - Not defined in kokkos_abstraction.hpp because it requires the compile time option
+//   DEFAULT_INNER_LOOP_PATTERN to be set.
+template <typename Function>
+KOKKOS_INLINE_FUNCTION void par_for_inner(const team_mbr_t &team_member, const int &il,
+                                          const int &iu, const Function &function) {
+  parthenon::par_for_inner(DEFAULT_INNER_LOOP_PATTERN, team_member, il, iu, function);
+}
 
 //----------------------------------------------------------------------------------------
 //! \class MeshBlock
@@ -179,9 +187,9 @@ class MeshBlock {
   template <typename Function>
   inline void par_for(const std::string &name, const int &il, const int &iu,
                       const Function &function) {
-    // using loop_pattern_mdrange_tag instead of DEFAULT_LOOP_PATTERN for now
+    // using loop_pattern_flatrange_tag instead of DEFAULT_LOOP_PATTERN for now
     // as the other wrappers are not implemented yet for 1D loops
-    parthenon::par_for(loop_pattern_mdrange_tag, name, exec_space, il, iu, function);
+    parthenon::par_for(loop_pattern_flatrange_tag, name, exec_space, il, iu, function);
   }
 
   // 2D default loop pattern
