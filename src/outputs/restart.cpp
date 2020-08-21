@@ -68,8 +68,8 @@ std::vector<T> RestartReader::ReadDataset(const char *name, size_t *count) {
   // Allocate array of correct size
   hid_t filespace = H5Dget_space(dataset);
   int rank = H5Sget_simple_extent_ndims(filespace);
-  auto dims = new hsize_t[rank];
-  status = H5Sget_simple_extent_dims(filespace, dims, NULL);
+  std::vector<hsize_t> dims(rank);
+  status = H5Sget_simple_extent_dims(filespace, dims.data(), NULL);
   hsize_t isize = 1;
   for (int idir = 0; idir < rank; idir++) {
     isize = isize * dims[idir];
@@ -77,10 +77,10 @@ std::vector<T> RestartReader::ReadDataset(const char *name, size_t *count) {
   if (count != nullptr) {
     *count = isize;
   }
-  std::vector<T> data(isize);
 
+  std::vector<T> data(isize);
   /** Define memory dataspace **/
-  hid_t memspace = H5Screate_simple(rank, dims, NULL);
+  hid_t memspace = H5Screate_simple(rank, dims.data(), NULL);
 
   // Read data from file
   status = H5Dread(dataset, theHdfType, memspace, dataspace, H5P_DEFAULT,
@@ -114,8 +114,8 @@ std::vector<T> RestartReader::ReadAttrBytes_(const char *dataset, const char *na
 
   // Allocate array of correct size
   int rank = H5Sget_simple_extent_ndims(dataspace);
-  auto dims = new hsize_t[rank];
-  status = H5Sget_simple_extent_dims(dataspace, dims, NULL);
+  std::vector<hsize_t> dims(rank);
+  status = H5Sget_simple_extent_dims(dataspace, dims.data(), NULL);
   hsize_t isize = 1;
   for (int idir = 0; idir < rank; idir++) {
     isize = isize * dims[idir];
@@ -415,7 +415,7 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
 
   // write Xmin[ndim] for blocks
   {
-    Real *tmpData = new Real[num_blocks_local * 3];
+    std::vector<Real> tmpData(num_blocks_local * 3);
     local_count[0] = num_blocks_local;
     global_count[0] = max_blocks_global;
     pmb = pm->pblock;
@@ -435,9 +435,8 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
       pmb = pmb->next;
     }
     local_count[1] = global_count[1] = pm->ndim;
-    WRITEH5SLABDOUBLE("xmin", tmpData, gBlocks, local_start, local_count, global_count,
-                      property_list);
-    delete[] tmpData;
+    WRITEH5SLABDOUBLE("xmin", tmpData.data(), gBlocks, local_start, local_count,
+                      global_count, property_list);
   }
 
   // write Block ID
@@ -447,7 +446,7 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
     int i;
 
     n = 3;
-    auto *tmpLoc = new int64_t[num_blocks_local * n];
+    std::vector<int64_t> tmpLoc(num_blocks_local * n);
     local_count[1] = global_count[1] = n;
     local_count[0] = num_blocks_local;
     global_count[0] = max_blocks_global;
@@ -459,13 +458,12 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
       tmpLoc[i++] = pmb->loc.lx3;
       pmb = pmb->next;
     }
-    WRITEH5SLABI64("loc.lx123", tmpLoc, gBlocks, local_start, local_count, global_count,
-                   property_list);
-    delete[] tmpLoc;
+    WRITEH5SLABI64("loc.lx123", tmpLoc.data(), gBlocks, local_start, local_count,
+                   global_count, property_list);
 
     // (LOC.)level, GID, LID, cnghost, gflag
     n = 5;
-    auto *tmpID = new int[num_blocks_local * n];
+    std::vector<int> tmpID(num_blocks_local * n);
     local_count[1] = global_count[1] = n;
     local_count[0] = num_blocks_local;
     global_count[0] = max_blocks_global;
@@ -479,9 +477,8 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
       tmpID[i++] = pmb->gflag;
       pmb = pmb->next;
     }
-    WRITEH5SLABI32("loc.level-gid-lid-cnghost-gflag", tmpID, gBlocks, local_start,
+    WRITEH5SLABI32("loc.level-gid-lid-cnghost-gflag", tmpID.data(), gBlocks, local_start,
                    local_count, global_count, property_list);
-    delete[] tmpID;
   }
 
   // close locations tab
@@ -523,7 +520,7 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
     pmb = pm->pblock;
     const hsize_t vlen = vwrite->GetDim(4);
     local_count[4] = global_count[4] = vlen;
-    Real *tmpData = new Real[varSize * vlen * num_blocks_local];
+    std::vector<Real> tmpData(varSize * vlen * num_blocks_local);
 
     // create spaces if required
     if (vlen == 1) {
@@ -545,21 +542,20 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
         // Note index 4 transposed to interior
         if (vWriteName.compare(v->label()) == 0) {
           auto v_h = (*v).data.GetHostMirrorAndCopy();
-          LOADVARIABLEONE(index, tmpData, v_h, out_ib.s, out_ib.e, out_jb.s, out_jb.e,
-                          out_kb.s, out_kb.e, vlen);
+          LOADVARIABLEONE(index, tmpData.data(), v_h, out_ib.s, out_ib.e, out_jb.s,
+                          out_jb.e, out_kb.s, out_kb.e, vlen);
           break;
         }
       }
       pmb = pmb->next;
     }
     // write dataset to file
-    WRITEH5SLAB2(vWriteName.c_str(), tmpData, file, local_start, local_count, vLocalSpace,
-                 vGlobalSpace, property_list);
+    WRITEH5SLAB2(vWriteName.c_str(), tmpData.data(), file, local_start, local_count,
+                 vLocalSpace, vGlobalSpace, property_list);
     if (vlen > 1) {
       H5Sclose(vLocalSpace);
       H5Sclose(vGlobalSpace);
     }
-    delete[] tmpData;
   }
   // close persistent data spaces
   H5Sclose(local_DSpace);
