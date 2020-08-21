@@ -34,12 +34,14 @@ class RestartReader {
   // Gets single block data for variable name and
   // fills internal data for given pointer
   // returns 1 on success, -1 on failure
-  //! \fn void RestartReader::ReadBlock(const char *name, const int blockID, T *data)
+  //! \fn void RestartReader::ReadBlock(const char *name, const int blockID,
+  //! std::vector<T>data)
   //  \brief Reads data for one block from restart file
   template <typename T>
-  int ReadBlock(const char *name, const int blockID, T *data, size_t vlen) {
+  int ReadBlock(const char *name, const int blockID, std::vector<T> &dataVec,
+                size_t vlen) {
     IndexRange range{blockID, blockID};
-    return ReadBlocks(name, range, data, vlen);
+    return ReadBlocks(name, range, dataVec, vlen);
   }
 
   // Gets data for all blocks on current rank.
@@ -47,10 +49,14 @@ class RestartReader {
   // fills internal data for given pointer
   // returns NBlocks on success, -1 on failure
   template <typename T>
-  int ReadBlocks(const char *name, IndexRange range, T *data, size_t vlen = 1) {
+  int ReadBlocks(const char *name, IndexRange range, std::vector<T> &dataVec,
+                 size_t vlen = 1) {
 #ifdef HDF5OUTPUT
     try {
       herr_t status;
+
+      // dataVec is assumed to be of the correct size
+      T *data = dataVec.data();
 
       // compute block size, probaby could cache this.
       hid_t theHdfType = getHdfType(data);

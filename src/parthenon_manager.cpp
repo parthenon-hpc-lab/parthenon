@@ -15,6 +15,7 @@
 
 #include <string>
 #include <utility>
+#include <vector>
 
 #include <Kokkos_Core.hpp>
 
@@ -219,7 +220,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
       vlen = v->GetDim(4);
     }
   }
-  Real *tmp = new Real[static_cast<size_t>(nb) * nCells * vlen];
+  std::vector<Real> tmp(static_cast<size_t>(nb) * nCells * vlen);
   std::cout << "SIZES:" << nb << ":" << vlen << ":"
             << static_cast<size_t>(nb) * nCells * vlen << std::endl;
   for (auto &v : ciX.vars) {
@@ -247,6 +248,5 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
       pmb = pmb->next;
     }
   }
-  delete[] tmp;
 }
 } // namespace parthenon
