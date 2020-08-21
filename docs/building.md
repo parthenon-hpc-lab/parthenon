@@ -79,11 +79,14 @@ simply provide *-lparthenon*.
 
 ```bash
 PARTHENON_INSTALL=/path/to/your/parthenon/install
+KOKKOS_INSTALL=/path/to/your/Kokkos/install
 CC=g++
 CCFLAGS = -g -std=c++14 -L${PARTHENON_INSTALL}/lib \
  -I${PARTHENON_INSTALL}/include/ \
- -I${PARTHENON_INSTALL}/include/kokkos/
-LIB_FLAGS = -Wl,-rpath,${PARTHENON_INSTALL}/lib -lparthenon -lmpi -lkokkoscore -lhdf5 -ldl -lkokkoscontainers -lz -lpthread -lgomp -lmpi_cxx
+ -I${KOKKOS_INSTALL}/include/ -L${KOKKOS_INSTALL}/lib
+LIB_FLAGS = -Wl,-rpath,${PARTHENON_INSTALL}/lib -lparthenon \
+ -Wl,-rpath,${KOKKOS_INSTALL}/lib -lmpi -lkokkoscore -lhdf5 -ldl \
+ -lkokkoscontainers -lz -lpthread -lgomp -lmpi_cxx
 CC_COMPILE = $(CC) $(CCFLAGS) -c
 CC_LOAD = $(CC) $(CCFLAGS)
 .cpp.o:
