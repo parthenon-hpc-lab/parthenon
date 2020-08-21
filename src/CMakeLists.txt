@@ -216,7 +216,6 @@ if (ENABLE_OPENMP)
 endif()
 
 if (ENABLE_HDF5)
-  #target_link_libraries(parthenon INTERFACE $<TARGET_PROPERTY:HDF5_C,INTERFACE_LINK_LIBRARIES>)
   target_link_libraries(parthenon PUBLIC HDF5_C)
 endif()
 
