@@ -305,7 +305,7 @@ It is advisable not to add the coverage tag to performance tests especially if t
 take a long time to run, as adding code coverage will make them even slower. It is 
 better to reserve coverage for tests that show correct behavior. 
 
-Unlike unit tests, regression tests are not automatically added the coverage report. 
+Unlike unit tests, regression tests are not automatically added to the coverage report. 
 To add a regression test to the coverage report an attribute of the parameters argument
 can be altered. E.g.
 
