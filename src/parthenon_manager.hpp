@@ -22,7 +22,9 @@
 #include "driver/driver.hpp"
 #include "interface/properties_interface.hpp"
 #include "interface/state_descriptor.hpp"
+#include "mesh/domain.hpp"
 #include "mesh/mesh.hpp"
+#include "outputs/restart.hpp"
 #include "parameter_input.hpp"
 
 namespace parthenon {
@@ -42,6 +44,7 @@ class ParthenonManager {
   static Properties_t ProcessPropertiesDefault(std::unique_ptr<ParameterInput> &pin);
   static Packages_t ProcessPackagesDefault(std::unique_ptr<ParameterInput> &pin);
   static void SetFillDerivedFunctionsDefault();
+  void RestartPackages(Mesh &rm, RestartReader &resfile);
 
   std::function<Properties_t(std::unique_ptr<ParameterInput> &)> ProcessProperties =
       ProcessPropertiesDefault;
@@ -52,6 +55,7 @@ class ParthenonManager {
   // member data
   std::unique_ptr<ParameterInput> pinput;
   std::unique_ptr<Mesh> pmesh;
+  std::unique_ptr<RestartReader> restartReader;
   std::unique_ptr<ApplicationInput> app_input;
 
  private:

@@ -1,8 +1,4 @@
 # ========================================================================================
-#  Athena++ astrophysical MHD code
-#  Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
-#  Licensed under the 3-clause BSD License, see LICENSE file for details
-# ========================================================================================
 #  (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
 #
 #  This program was produced under U.S. Government contract 89233218CNA000001 for Los
@@ -16,7 +12,7 @@
 # ========================================================================================
 
 <parthenon/job>
-problem_id = advection
+problem_id = restart
 
 <parthenon/mesh>
 refinement = adaptive
@@ -46,7 +42,7 @@ nx2 = 16
 nx3 = 1
 
 <parthenon/time>
-tlim = 1.0
+tlim = 0.5
 integrator = rk2
 
 <Advection>
@@ -60,13 +56,6 @@ refine_tol = 0.3    # control the package specific refinement tagging function
 derefine_tol = 0.03
 compute_error = false
 
-<parthenon/output1>
-file_type = rst
-dt = 0.05
-
 <parthenon/output0>
-file_type = hdf5
-dt = 0.05
-variables = advected, one_minus_advected, & # comments are ok
-            one_minus_advected_sq, & # on every (& characters are ok in comments)
-            one_minus_sqrt_one_minus_advected_sq # line
+file_type = rst
+dt = 0.25
