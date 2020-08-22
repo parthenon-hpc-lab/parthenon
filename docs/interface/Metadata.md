@@ -5,6 +5,7 @@
 Variables can be tagged with a variety of `MetadataFlag` values. These flags
 primarily allow an application to tell Parthenon to apply certain behaviors to
 each field.
+
 ### Variable Topology
 
 Topology essentially specifies on which place on the finite volume
@@ -89,6 +90,22 @@ variables are copied or not in multiple stages.
   this.
 
 - `Metadata::SharedComms` TODO(JMM): not sure this variable is used
+
+### Ghost Zones, Communication, and Fluxes
+
+Depending on a combination of flags, extra communication buffers and
+classes may be allocated. The behaviours are the following:
+
+- If `Metadata::FillGhosts` is set, boundary conditions data is set,
+  MPI communication buffers are allocated, and buffers for a coarse
+  grid are allocated. These buffers are *one-copy*, meaning they are
+  shared between all instances of a variable in all `Containers` in a
+  `ContainerCollection`.
+
+- If, in addition to `Metadata::FillGhosts`, `Metadata::Independent`
+  is set, the flux vector for the variable is allocated. In the
+  current design, the flux is fundamental to communication, since flux
+  corrections accross meshblocks utilize the flux buffer.
 
 ### Application Metadata Flags
 
