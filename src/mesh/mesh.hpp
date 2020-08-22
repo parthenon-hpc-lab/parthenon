@@ -57,6 +57,7 @@ class MeshBlockTree;
 class MeshRefinement;
 class ParameterInput;
 class Reconstruction;
+class RestartReader;
 
 // template class Container<Real>;
 
@@ -73,15 +74,14 @@ class MeshBlock {
             BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
             ApplicationInput *app_in, Properties_t &properties, int igflag,
             bool ref_flag = false);
-  MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin, ApplicationInput *app_in,
-            Properties_t &properties, Packages_t &packages, LogicalLocation iloc,
-            RegionSize input_block, BoundaryFlag *input_bcs, double icost, char *mbdata,
-            int igflag);
-
   MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
             BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
             ApplicationInput *app_in, Properties_t &properties, Packages_t &packages,
             int igflag, bool ref_flag = false);
+  MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin, ApplicationInput *app_in,
+            Properties_t &properties, Packages_t &packages, LogicalLocation iloc,
+            RegionSize input_block, BoundaryFlag *input_bcs, double icost, int igflag,
+            MeshBlock *lastBlock = nullptr);
   ~MeshBlock();
 
   // Kokkos execution space for this MeshBlock
@@ -307,8 +307,8 @@ class Mesh {
   // 2x function overloads of ctor: normal and restarted simulation
   Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properties,
        Packages_t &packages, int test_flag = 0);
-  Mesh(ParameterInput *pin, IOWrapper &resfile, Properties_t &properties,
-       Packages_t &packages, int test_flag = 0);
+  Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &resfile,
+       Properties_t &properties, Packages_t &packages, int test_flag = 0);
   ~Mesh();
 
   // accessors
