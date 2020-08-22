@@ -208,7 +208,7 @@ TEST_CASE("par_for loops", "[wrapper]") {
   auto default_exec_space = DevExecSpace();
 
   SECTION("1D loops") {
-    REQUIRE(test_wrapper_1d(parthenon::loop_pattern_mdrange_tag, default_exec_space) ==
+    REQUIRE(test_wrapper_1d(parthenon::loop_pattern_flatrange_tag, default_exec_space) ==
             true);
   }
 

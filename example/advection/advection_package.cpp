@@ -322,13 +322,11 @@ TaskStatus CalculateFluxes(std::shared_ptr<Container<Real>> &rc) {
 
         for (int n = 0; n < nvar; n++) {
           if (vx > 0.0) {
-            parthenon::par_for_inner(member, ib.s, ib.e + 1, [&](const int i) {
-              x1flux(n, k, j, i) = ql(n, i) * vx;
-            });
+            pmb->par_for_inner(member, ib.s, ib.e + 1,
+                               [&](const int i) { x1flux(n, k, j, i) = ql(n, i) * vx; });
           } else {
-            parthenon::par_for_inner(member, ib.s, ib.e + 1, [&](const int i) {
-              x1flux(n, k, j, i) = qr(n, i) * vx;
-            });
+            pmb->par_for_inner(member, ib.s, ib.e + 1,
+                               [&](const int i) { x1flux(n, k, j, i) = qr(n, i) * vx; });
           }
         }
       });
@@ -355,11 +353,11 @@ TaskStatus CalculateFluxes(std::shared_ptr<Container<Real>> &rc) {
           member.team_barrier();
           for (int n = 0; n < nvar; n++) {
             if (vy > 0.0) {
-              parthenon::par_for_inner(member, ib.s, ib.e, [&](const int i) {
+              pmb->par_for_inner(member, ib.s, ib.e, [&](const int i) {
                 x2flux(n, k, j, i) = ql(n, i) * vy;
               });
             } else {
-              parthenon::par_for_inner(member, ib.s, ib.e, [&](const int i) {
+              pmb->par_for_inner(member, ib.s, ib.e, [&](const int i) {
                 x2flux(n, k, j, i) = qr(n, i) * vy;
               });
             }
@@ -389,11 +387,11 @@ TaskStatus CalculateFluxes(std::shared_ptr<Container<Real>> &rc) {
           member.team_barrier();
           for (int n = 0; n < nvar; n++) {
             if (vz > 0.0) {
-              parthenon::par_for_inner(member, ib.s, ib.e, [&](const int i) {
+              pmb->par_for_inner(member, ib.s, ib.e, [&](const int i) {
                 x3flux(n, k, j, i) = ql(n, i) * vz;
               });
             } else {
-              parthenon::par_for_inner(member, ib.s, ib.e, [&](const int i) {
+              pmb->par_for_inner(member, ib.s, ib.e, [&](const int i) {
                 x3flux(n, k, j, i) = qr(n, i) * vz;
               });
             }
