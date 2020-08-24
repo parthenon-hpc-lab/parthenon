@@ -169,14 +169,14 @@ static std::list<MeshBlock> setupMesh(const int &n_block, const int &n_mesh,
       for (int i_mesh = 0; i_mesh < n_mesh; i_mesh++, idx++) {
         // get a new meshblock and insert into chain
         block_list.emplace_back(n_block, 3);
-        auto &pmb = block_list.back();
+        auto &mb = block_list.back();
         // set coordinates of first cell center
         h_xyz(0, idx) = dxyzCell * (static_cast<Real>(i_mesh * n_block) + 0.5) - delta;
         h_xyz(1, idx) = dxyzCell * (static_cast<Real>(j_mesh * n_block) + 0.5) - delta;
         h_xyz(2, idx) = dxyzCell * (static_cast<Real>(k_mesh * n_block) + 0.5) - delta;
         // Add variable for in_or_out
-        auto &base = pmb.real_containers.Get();
-        base->setBlock(&pmb);
+        auto &base = mb.real_containers.Get();
+        base->setBlock(&mb);
         base->Add("in_or_out", myMetadata);
       }
     }
