@@ -226,6 +226,8 @@ add_library(parthenon
   parthenon_mpi.hpp
 )
 
+set_target_properties(parthenon PROPERTIES SOVERSION ${parthenon_VERSION})
+
 target_compile_features(parthenon PUBLIC cxx_std_14)
 if (CMAKE_CXX_COMPILER_ID STREQUAL "XL")
   target_compile_options(parthenon PUBLIC -std=c++1y -qxflag=disable__cplusplusOverride)
@@ -250,9 +252,31 @@ endif()
 
 target_link_libraries(parthenon PUBLIC Kokkos::kokkos)
 
-target_include_directories(parthenon PUBLIC
-  ${CMAKE_CURRENT_SOURCE_DIR}
-  ${CMAKE_CURRENT_BINARY_DIR}/generated
-)
-
 lint_target(parthenon)
+
+target_include_directories(parthenon PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/generated>
+  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/parthenon>
+  )
+
+install(TARGETS parthenon EXPORT parthenonTargets
+  INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parthenon"
+  LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+  ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+    )
+
+# Maintain directory structure in installed include files
+install(DIRECTORY . DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parthenon" FILES_MATCHING PATTERN "*.hpp")
+
+# Install generated config header file
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/generated/config.hpp
+  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parthenon")
+
+install(FILES ${PROJECT_BINARY_DIR}/cmake/parthenonConfig.cmake DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/parthenon")
+
+install(EXPORT parthenonTargets
+    FILE parthenonTargets.cmake
+    NAMESPACE Parthenon::
+    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/parthenon"
+    )
