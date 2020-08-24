@@ -77,6 +77,17 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
     return ParthenonStatus::complete;
   }
 
+  // Allow for user overrides to default Parthenon functions
+  if (app_input->SetFillDerivedFunctions != nullptr) {
+    SetFillDerivedFunctions = app_input->SetFillDerivedFunctions;
+  }
+  if (app_input->ProcessProperties != nullptr) {
+    ProcessProperties = app_input->ProcessProperties;
+  }
+  if (app_input->ProcessPackages != nullptr) {
+    ProcessPackages = app_input->ProcessPackages;
+  }
+
   // Set up the signal handler
   SignalHandler::SignalHandlerInit();
   if (Globals::my_rank == 0 && arg.wtlim > 0) SignalHandler::SetWallTimeAlarm(arg.wtlim);
@@ -96,7 +107,8 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
 
   // TODO(jdolence): Deal with restarts
   // if (arg.res_flag == 0) {
-  pmesh = std::make_unique<Mesh>(pinput.get(), properties, packages, arg.mesh_flag);
+  pmesh = std::make_unique<Mesh>(pinput.get(), app_input.get(), properties, packages,
+                                 arg.mesh_flag);
   //} else {
   //  pmesh = std::make_unique<Mesh>(pinput.get(), )
   //}
@@ -110,7 +122,7 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
 
   SetFillDerivedFunctions();
 
-  pmesh->Initialize(Restart(), pinput.get());
+  pmesh->Initialize(Restart(), pinput.get(), app_input.get());
 
   ChangeRunDir(arg.prundir);
 
@@ -126,20 +138,20 @@ ParthenonStatus ParthenonManager::ParthenonFinalize() {
   return ParthenonStatus::complete;
 }
 
-void __attribute__((weak)) ParthenonManager::SetFillDerivedFunctions() {
+void ParthenonManager::SetFillDerivedFunctionsDefault() {
   FillDerivedVariables::SetFillDerivedFunctions(nullptr, nullptr);
 }
 
-Properties_t __attribute__((weak))
-ParthenonManager::ProcessProperties(std::unique_ptr<ParameterInput> &pin) {
+Properties_t
+ParthenonManager::ProcessPropertiesDefault(std::unique_ptr<ParameterInput> &pin) {
   // In practice, this function should almost always be replaced by a version
   // that sets relevant things for the application.
   Properties_t props;
   return props;
 }
 
-Packages_t __attribute__((weak))
-ParthenonManager::ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
+Packages_t
+ParthenonManager::ProcessPackagesDefault(std::unique_ptr<ParameterInput> &pin) {
   // In practice, this function should almost always be replaced by a version
   // that sets relevant things for the application.
   Packages_t packages;

@@ -15,6 +15,7 @@
 
 // Standard Includes
 #include <memory>
+#include <vector>
 
 // Parthenon Includes
 #include <parthenon/package.hpp>
@@ -31,6 +32,7 @@ parthenon::TaskStatus ComputeArea(parthenon::MeshBlock *pmb);
 
 // Run task on the entire mesh at once
 Real ComputeAreaOnMesh(parthenon::Mesh *pmesh);
+parthenon::TaskStatus ComputeAreas(std::vector<MeshBlock *> &blocks);
 } // namespace calculate_pi
 
 #endif // EXAMPLE_CALCULATE_PI_CALCULATE_PI_HPP_

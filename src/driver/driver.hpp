@@ -20,6 +20,7 @@
 #include <utility>
 #include <vector>
 
+#include "application_input.hpp"
 #include "basic_types.hpp"
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
@@ -35,11 +36,13 @@ enum class DriverStatus { complete, timeout, failed };
 
 class Driver {
  public:
-  Driver(ParameterInput *pin, Mesh *pm) : pinput(pin), pmesh(pm) {}
+  Driver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
+      : pinput(pin), app_input(app_in), pmesh(pm) {}
   virtual DriverStatus Execute() = 0;
   void InitializeOutputs() { pouts = std::make_unique<Outputs>(pmesh, pinput); }
 
   ParameterInput *pinput;
+  ApplicationInput *app_input;
   Mesh *pmesh;
   std::unique_ptr<Outputs> pouts;
 
@@ -56,7 +59,8 @@ class Driver {
 
 class EvolutionDriver : public Driver {
  public:
-  EvolutionDriver(ParameterInput *pin, Mesh *pm) : Driver(pin, pm) {
+  EvolutionDriver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
+      : Driver(pin, app_in, pm) {
     Real start_time = pinput->GetOrAddReal("parthenon/time", "start_time", 0.0);
     Real tstop = pinput->GetReal("parthenon/time", "tlim");
     int nmax = pinput->GetOrAddInteger("parthenon/time", "nlim", -1);
@@ -84,25 +88,30 @@ namespace DriverUtils {
 template <typename T, class... Args>
 TaskListStatus ConstructAndExecuteBlockTasks(T *driver, Args... args) {
   int nmb = driver->pmesh->GetNumMeshBlocksThisRank(Globals::my_rank);
-  std::vector<TaskList> task_lists;
+  TaskCollection tc;
+  TaskRegion &tr = tc.AddRegion(nmb);
   MeshBlock *pmb = driver->pmesh->pblock;
-  while (pmb != nullptr) {
-    task_lists.push_back(driver->MakeTaskList(pmb, std::forward<Args>(args)...));
+  for (int i = 0; i < nmb; i++) {
+    tr[i] = driver->MakeTaskList(pmb, std::forward<Args>(args)...);
     pmb = pmb->next;
   }
-  int complete_cnt = 0;
-  while (complete_cnt != nmb) {
-    // TODO(pgrete): need to let Kokkos::PartitionManager handle this
-    for (auto i = 0; i < nmb; ++i) {
-      if (!task_lists[i].IsComplete()) {
-        auto status = task_lists[i].DoAvailable();
-        if (status == TaskListStatus::complete) {
-          complete_cnt++;
-        }
-      }
-    }
+  TaskListStatus status = tc.Execute();
+  return status;
+}
+
+template <typename T, class... Args>
+TaskListStatus ConstructAndExecuteTaskLists(T *driver, Args... args) {
+  int nmb = driver->pmesh->GetNumMeshBlocksThisRank(Globals::my_rank);
+  MeshBlock *pmb = driver->pmesh->pblock;
+  std::vector<MeshBlock *> blocks(nmb);
+  for (int i = 0; i < nmb; i++) {
+    blocks[i] = pmb;
+    pmb = pmb->next;
   }
-  return TaskListStatus::complete;
+
+  TaskCollection tc = driver->MakeTasks(blocks, std::forward<Args>(args)...);
+  TaskListStatus status = tc.Execute();
+  return status;
 }
 
 } // namespace DriverUtils

@@ -117,6 +117,8 @@ bool TaskID::operator==(const TaskID &rhs) const {
   return true;
 }
 
+bool TaskID::operator!=(const TaskID &rhs) const { return !operator==(rhs); }
+
 TaskID TaskID::operator|(const TaskID &rhs) const {
   TaskID res;
   const int n_myblocks = bitblocks.size();

@@ -16,6 +16,7 @@
 
 // Standard Includes
 #include <iostream>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -27,39 +28,6 @@
 #include <parthenon/package.hpp>
 
 using namespace parthenon::package::prelude;
-
-namespace parthenon {
-
-// can be used to set global properties that all meshblocks want to know about
-// no need in this app so use the weak version that ships with parthenon
-// Properties_t ParthenonManager::ProcessProperties(std::unique_ptr<ParameterInput>& pin)
-// {
-//  Properties_t props;
-//  return props;
-//}
-
-Packages_t ParthenonManager::ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
-  Packages_t packages;
-  // only have one package for this app, but will typically have more things added to
-  packages["calculate_pi"] = calculate_pi::Initialize(pin.get());
-  return packages;
-}
-
-// this should set up initial conditions of independent variables on the block
-// this app only has one variable of derived type, so nothing to do here.
-// in this case, just use the weak version
-// void MeshBlock::ProblemGenerator(ParameterInput *pin) {
-//  // nothing to do here for this app
-//}
-
-// applications can register functions to fill shared derived quantities
-// before and/or after all the package FillDerived call backs
-// in this case, just use the weak version that sets these to nullptr
-// void ParthenonManager::SetFillDerivedFunctions() {
-//  FillDerivedVariables::SetFillDerivedFunctions(nullptr,nullptr);
-//}
-
-} // namespace parthenon
 
 // This defines a "physics" package
 // In this case, calculate_pi provides the functions required to set up
@@ -113,28 +81,27 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   return package;
 }
 
-TaskStatus ComputeArea(MeshBlock *pmb) {
-  // compute 1/r0^2 \int d^2x in_or_out(x,y) over the block's domain
-  auto &rc = pmb->real_containers.Get();
-  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
-  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
-  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
-  auto &coords = pmb->coords;
+TaskStatus ComputeAreas(std::vector<MeshBlock *> &blocks) {
+  IndexRange ib = blocks[0]->cellbounds.GetBoundsI(IndexDomain::interior);
+  IndexRange jb = blocks[0]->cellbounds.GetBoundsJ(IndexDomain::interior);
+  IndexRange kb = blocks[0]->cellbounds.GetBoundsK(IndexDomain::interior);
 
-  ParArrayND<Real> &v = rc->Get("in_or_out").data;
-
-  Real area;
-  Kokkos::parallel_reduce(
-      "calculate_pi compute area",
-      Kokkos::MDRangePolicy<Kokkos::Rank<3>>(pmb->exec_space, {kb.s, jb.s, ib.s},
-                                             {kb.e + 1, jb.e + 1, ib.e + 1},
-                                             {1, 1, ib.e + 1 - ib.s}),
-      KOKKOS_LAMBDA(int k, int j, int i, Real &larea) {
-        larea += v(k, j, i) * coords.Area(parthenon::X3DIR, k, j, i);
-      },
-      area);
-  Kokkos::deep_copy(pmb->exec_space, v.Get(0, 0, 0, 0, 0, 0), area);
-
+  for (auto pmb : blocks) {
+    auto &rc = pmb->real_containers.Get();
+    auto &coords = pmb->coords;
+    ParArrayND<Real> &v = rc->Get("in_or_out").data;
+    Real area;
+    Kokkos::parallel_reduce(
+        "calculate_pi compute area",
+        Kokkos::MDRangePolicy<Kokkos::Rank<3>>(pmb->exec_space, {kb.s, jb.s, ib.s},
+                                               {kb.e + 1, jb.e + 1, ib.e + 1},
+                                               {1, 1, ib.e + 1 - ib.s}),
+        KOKKOS_LAMBDA(int k, int j, int i, Real &larea) {
+          larea += v(k, j, i) * coords.Area(parthenon::X3DIR, k, j, i);
+        },
+        area);
+    Kokkos::deep_copy(pmb->exec_space, v.Get(0, 0, 0, 0, 0, 0), area);
+  }
   return TaskStatus::complete;
 }
 

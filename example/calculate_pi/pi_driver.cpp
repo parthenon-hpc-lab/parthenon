@@ -14,22 +14,27 @@
 // Standard Includes
 #include <fstream>
 #include <string>
+#include <memory>
 #include <vector>
 
 // Parthenon Includes
-#include <parthenon/package.hpp>
+#include <parthenon/driver.hpp>
 
 // Local Includes
 #include "calculate_pi.hpp"
 #include "pi_driver.hpp"
 
 // Preludes
-using namespace parthenon::package::prelude;
+using namespace parthenon::driver::prelude;
 
 using pi::PiDriver;
 
+Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin);
+
 int main(int argc, char *argv[]) {
   ParthenonManager pman;
+
+  pman.app_input->ProcessPackages = ProcessPackages;
 
   auto manager_status = pman.ParthenonInit(argc, argv);
   if (manager_status == ParthenonStatus::complete) {
@@ -41,7 +46,7 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  PiDriver driver(pman.pinput.get(), pman.pmesh.get());
+  PiDriver driver(pman.pinput.get(), pman.app_input.get(), pman.pmesh.get());
 
   auto driver_status = driver.Execute();
 
@@ -51,12 +56,42 @@ int main(int argc, char *argv[]) {
   return 0;
 }
 
+// can be used to set global properties that all meshblocks want to know about
+// no need in this app so use the weak version that ships with parthenon
+// Properties_t ParthenonManager::ProcessProperties(std::unique_ptr<ParameterInput>& pin)
+// {
+//  Properties_t props;
+//  return props;
+//}
+
+Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
+  Packages_t packages;
+  // only have one package for this app, but will typically have more things added to
+  packages["calculate_pi"] = calculate_pi::Initialize(pin.get());
+  return packages;
+}
+
+// this should set up initial conditions of independent variables on the block
+// this app only has one variable of derived type, so nothing to do here.
+// in this case, just use the weak version
+// void MeshBlock::ProblemGenerator(ParameterInput *pin) {
+//  // nothing to do here for this app
+//}
+
+// applications can register functions to fill shared derived quantities
+// before and/or after all the package FillDerived call backs
+// in this case, just use the weak version that sets these to nullptr
+// void ParthenonManager::SetFillDerivedFunctions() {
+//  FillDerivedVariables::SetFillDerivedFunctions(nullptr,nullptr);
+//}
+
 parthenon::DriverStatus PiDriver::Execute() {
   // this is where the main work is orchestrated
   // No evolution in this driver.  Just calculates something once.
   // For evolution, look at the EvolutionDriver
   PreExecute();
 
+  // TODO(JMM): Clean this up once tasking is merged with MeshBlockPack
   pouts->MakeOutputs(pmesh, pinput);
   double area = 0.0;
   if (pinput->GetOrAddBoolean("Pi", "use_mesh_pack", false)) {
@@ -113,17 +148,11 @@ void PiDriver::PostExecute(Real pi_val) {
   Driver::PostExecute();
 }
 
-parthenon::TaskList PiDriver::MakeTaskList(MeshBlock *pmb) {
-  // make a task list for this mesh block
-  using calculate_pi::ComputeArea;
-  TaskList tl;
-
+TaskCollection PiDriver::MakeTasks(std::vector<MeshBlock *> blocks) {
+  using calculate_pi::ComputeAreas;
+  TaskCollection tc;
+  TaskRegion &tr = tc.AddRegion(1);
   TaskID none(0);
-  auto get_area = tl.AddTask(ComputeArea, none, pmb);
-
-  // could add more tasks like:
-  // auto next_task = tl.AddTask(FuncPtr, get_area, pmb);
-  // for a task that executes the function FuncPtr (with argument MeshBlock *pmb)
-  // that depends on task get_area
-  return tl;
+  auto get_area = tr[0].AddTask(ComputeAreas, none, blocks);
+  return tc;
 }

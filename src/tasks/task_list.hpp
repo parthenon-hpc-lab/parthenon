@@ -34,21 +34,13 @@ enum class TaskListStatus { running, stuck, complete, nothing_to_do };
 
 class TaskList {
  public:
+  TaskList() = default;
   bool IsComplete() { return task_list_.empty(); }
   int Size() { return task_list_.size(); }
   void Reset() {
     tasks_added_ = 0;
     task_list_.clear();
-    dependencies_.clear();
     tasks_completed_.clear();
-  }
-  bool IsReady() {
-    for (auto &l : dependencies_) {
-      if (!l->IsComplete()) {
-        return false;
-      }
-    }
-    return true;
   }
   void MarkTaskComplete(TaskID id) { tasks_completed_.SetFinished(id); }
   void ClearComplete() {
@@ -65,17 +57,10 @@ class TaskList {
     for (auto &task : task_list_) {
       auto dep = task.GetDependency();
       if (tasks_completed_.CheckDependencies(dep)) {
-        /*std::cerr << "Task dependency met:" << std::endl
-                  << dep.to_string() << std::endl
-                  << tasks_completed_.to_string() << std::endl
-                  << task->GetID().to_string() << std::endl << std::endl;*/
         TaskStatus status = task();
         if (status == TaskStatus::complete) {
           task.SetComplete();
           MarkTaskComplete(task.GetID());
-          /*std::cerr << "Task complete:" << std::endl
-                    << task->GetID().to_string() << std::endl
-                    << tasks_completed_.to_string() << std::endl << std::endl;*/
         }
       }
     }
@@ -117,8 +102,37 @@ class TaskList {
  protected:
   std::list<Task> task_list_;
   int tasks_added_ = 0;
-  std::vector<TaskList *> dependencies_;
   TaskID tasks_completed_;
+};
+
+using TaskRegion = std::vector<TaskList>;
+
+struct TaskCollection {
+  TaskCollection() = default;
+  TaskRegion &AddRegion(const int num_lists) {
+    regions.push_back(TaskRegion(num_lists));
+    return regions.back();
+  }
+  TaskListStatus Execute() {
+    for (auto region : regions) {
+      int complete_cnt = 0;
+      auto num_lists = region.size();
+      while (complete_cnt != num_lists) {
+        // TODO(pgrete): need to let Kokkos::PartitionManager handle this
+        for (auto i = 0; i < num_lists; ++i) {
+          if (!region[i].IsComplete()) {
+            auto status = region[i].DoAvailable();
+            if (status == TaskListStatus::complete) {
+              complete_cnt++;
+            }
+          }
+        }
+      }
+    }
+    return TaskListStatus::complete;
+  }
+
+  std::vector<TaskRegion> regions;
 };
 
 } // namespace parthenon

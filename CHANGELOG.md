@@ -3,7 +3,6 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
-- Introduced CHANGELOG.md
 
 ### Changed (changing behavior/API/variables/...)
 
@@ -11,17 +10,10 @@
 
 ### Removed
 
+## Release 0.1.0
+Date: 8/4/2020
 
-## Release 0.MAJOR.MINOR
-Note:
-- will only contain the subsections of develop that were filled
-- will (ideally) include the PR that introduced the change
+Initial release of Parthenon AMR infrastructure.
 
-### Added (new features/APIs/variables/...)
-- lorem (#11)
-- ipsum (#14)
-
-### Fixed (not changing behavior/API/variables/...)
-
-- dolor (#911)
-
+### Changed
+[[PR 214]](https://github.com/lanl/parthenon/pull/214): The weak linked routines for user-specified parthenon behavior have been removed in favor of a more portable approach. See [the documentation](docs/README.md#user-specified-internal-functions).
