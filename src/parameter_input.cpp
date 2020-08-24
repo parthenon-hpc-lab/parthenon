@@ -52,7 +52,9 @@
 #include <cmath>
 #include <cstdlib>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
+#include <limits>
 #include <sstream>
 #include <stdexcept>
 
@@ -712,6 +714,32 @@ Real ParameterInput::GetOrAddReal(std::string block, std::string name, Real def_
 }
 
 //----------------------------------------------------------------------------------------
+//! \fn Real ParameterInput::GetOrAddPrecise(std::string block, std::string name,
+//    Real def_value)
+//  \brief returns real value stored in block/name if it exists, or creates and sets
+//  value to def_value if it does not exist.  Value is read with full precision.
+
+Real ParameterInput::GetOrAddPrecise(std::string block, std::string name,
+                                     Real def_value) {
+  InputBlock *pb;
+  InputLine *pl;
+  std::stringstream ss_value;
+  Real ret;
+
+  if (DoesParameterExist(block, name)) {
+    Lock();
+    pb = GetPtrToBlock(block);
+    pl = pb->GetPtrToLine(name);
+    std::string val = pl->param_value;
+    ret = static_cast<Real>(atof(val.c_str()));
+    Unlock();
+  } else {
+    ret = SetPrecise(block, name, def_value);
+  }
+  return ret;
+}
+
+//----------------------------------------------------------------------------------------
 //! \fn bool ParameterInput::GetOrAddBoolean(std::string block, std::string name,
 //    bool def_value)
 //  \brief returns boolean value stored in block/name if it exists, or creates and sets
@@ -799,6 +827,23 @@ Real ParameterInput::SetReal(std::string block, std::string name, Real value) {
 
   Lock();
   pb = FindOrAddBlock(block);
+  ss_value << value;
+  AddParameter(pb, name, ss_value.str(), "# Updated during run time");
+  Unlock();
+  return value;
+}
+
+//----------------------------------------------------------------------------------------
+//! \fn Real ParameterInput::SetPrecise(std::string block, std::string name, Real value)
+//  \brief updates a real parameter with full precision; creates it if it does not exist
+
+Real ParameterInput::SetPrecise(std::string block, std::string name, Real value) {
+  InputBlock *pb;
+  std::stringstream ss_value;
+
+  Lock();
+  pb = FindOrAddBlock(block);
+  ss_value.precision(std::numeric_limits<double>::max_digits10);
   ss_value << value;
   AddParameter(pb, name, ss_value.str(), "# Updated during run time");
   Unlock();

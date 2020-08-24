@@ -138,16 +138,19 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddField(field_name, m);
 
   field_name = "one_minus_advected_sq";
+  m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy});
   pkg->AddField(field_name, m);
 
   // for fun make this last one a multi-component field using SparseVariable
   field_name = "one_minus_sqrt_one_minus_advected_sq";
-  m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy, Metadata::Sparse},
+  m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy, Metadata::Sparse,
+                Metadata::Restart},
                12 // just picking a sparse_id out of a hat for demonstration
   );
   pkg->AddField(field_name, m);
   // add another component
-  m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy, Metadata::Sparse},
+  m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy, Metadata::Sparse,
+                Metadata::Restart},
                37 // just picking a sparse_id out of a hat for demonstration
   );
   pkg->AddField(field_name, m);
@@ -319,13 +322,11 @@ TaskStatus CalculateFluxes(std::shared_ptr<Container<Real>> &rc) {
 
         for (int n = 0; n < nvar; n++) {
           if (vx > 0.0) {
-            parthenon::par_for_inner(member, ib.s, ib.e + 1, [&](const int i) {
-              x1flux(n, k, j, i) = ql(n, i) * vx;
-            });
+            pmb->par_for_inner(member, ib.s, ib.e + 1,
+                               [&](const int i) { x1flux(n, k, j, i) = ql(n, i) * vx; });
           } else {
-            parthenon::par_for_inner(member, ib.s, ib.e + 1, [&](const int i) {
-              x1flux(n, k, j, i) = qr(n, i) * vx;
-            });
+            pmb->par_for_inner(member, ib.s, ib.e + 1,
+                               [&](const int i) { x1flux(n, k, j, i) = qr(n, i) * vx; });
           }
         }
       });
@@ -352,11 +353,11 @@ TaskStatus CalculateFluxes(std::shared_ptr<Container<Real>> &rc) {
           member.team_barrier();
           for (int n = 0; n < nvar; n++) {
             if (vy > 0.0) {
-              parthenon::par_for_inner(member, ib.s, ib.e, [&](const int i) {
+              pmb->par_for_inner(member, ib.s, ib.e, [&](const int i) {
                 x2flux(n, k, j, i) = ql(n, i) * vy;
               });
             } else {
-              parthenon::par_for_inner(member, ib.s, ib.e, [&](const int i) {
+              pmb->par_for_inner(member, ib.s, ib.e, [&](const int i) {
                 x2flux(n, k, j, i) = qr(n, i) * vy;
               });
             }
@@ -386,11 +387,11 @@ TaskStatus CalculateFluxes(std::shared_ptr<Container<Real>> &rc) {
           member.team_barrier();
           for (int n = 0; n < nvar; n++) {
             if (vz > 0.0) {
-              parthenon::par_for_inner(member, ib.s, ib.e, [&](const int i) {
+              pmb->par_for_inner(member, ib.s, ib.e, [&](const int i) {
                 x3flux(n, k, j, i) = ql(n, i) * vz;
               });
             } else {
-              parthenon::par_for_inner(member, ib.s, ib.e, [&](const int i) {
+              pmb->par_for_inner(member, ib.s, ib.e, [&](const int i) {
                 x3flux(n, k, j, i) = qr(n, i) * vz;
               });
             }
