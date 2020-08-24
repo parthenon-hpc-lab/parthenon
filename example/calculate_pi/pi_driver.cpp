@@ -13,8 +13,8 @@
 
 // Standard Includes
 #include <fstream>
-#include <string>
 #include <memory>
+#include <string>
 #include <vector>
 
 // Parthenon Includes
@@ -99,7 +99,7 @@ parthenon::DriverStatus PiDriver::Execute() {
     area = calculate_pi::ComputeAreaOnMesh(pmesh);
   } else {
     // Task based method
-    ConstructAndExecuteBlockTasks<>(this);
+    ConstructAndExecuteTaskLists<>(this);
     // All the blocks are done, now do a global reduce and spit out the answer
     // first sum over blocks on this rank
     MeshBlock *pmb = pmesh->pblock;
