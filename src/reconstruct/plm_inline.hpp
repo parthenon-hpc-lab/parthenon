@@ -77,9 +77,9 @@ void PiecewiseLinearX1(parthenon::team_mbr_t const &member, const int k, const i
         Real dqF = dqr(n, i) * coords.dx1f(i) / coords.dx1v(i);
         Real dqB = dql(n, i) * coords.dx1f(i) / coords.dx1v(i - 1);
         Real dq2 = dqF * dqB;
-        // cf, cb -> 2 (uniform Cartesian mesh / original VL value) w/ vanishing curvature
-        // (may not exactly hold for nonuniform meshes, but converges w/ smooth
-        // nonuniformity)
+        // cf, cb -> 2 (uniform Cartesian mesh / original VL value) w/ vanishing
+        // curvature (may not exactly hold for nonuniform meshes, but converges w/
+        // smooth nonuniformity)
         Real cf = coords.dx1v(i) / (coords.x1f(i + 1) - coords.x1v(i)); // (Mignone eq 33)
         Real cb = coords.dx1v(i - 1) / (coords.x1v(i) - coords.x1f(i));
         // (modified) VL limiter (Mignone eq 37)
@@ -233,8 +233,9 @@ void PiecewiseLinearX3(parthenon::team_mbr_t const &member, const int k, const i
         Real dq2 = dqF * dqB;
         // original VL limiter (Mignone eq 36)
         dqm(n, i) = 2.0 * dq2 / (dqF + dqB);
-        // dq2 > 0 ---> dqF, dqB are nonzero and have the same sign ----> no risk for
-        // (dqF + dqB) = 0 cancellation causing a divide-by-0 in the above line
+        // dq2 > 0 ---> dqF, dqB are nonzero and have the same
+        // sign ----> no risk for (dqF + dqB) = 0 cancellation
+        // causing a divide-by-0 in the above line
         if (dq2 <= 0.0) dqm(n, i) = 0.0;
       });
     }
