@@ -217,8 +217,8 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
     status = writeH5AF64("Time", &(tm->time), file, localDSpace, myDSet);
     status = writeH5AF64("dt", &(tm->dt), file, localDSpace, myDSet);
   }
-  status = writeH5ASTRING("Coordinates", std::string(mb.coords.Name()), file,
-                          localDSpace, myDSet);
+  status = writeH5ASTRING("Coordinates", std::string(mb.coords.Name()), file, localDSpace,
+                          myDSet);
 
   status = writeH5AI32("NumDims", &pm->ndim, file, localDSpace, myDSet);
 

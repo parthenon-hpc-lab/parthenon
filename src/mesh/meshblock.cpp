@@ -169,8 +169,8 @@ MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
                      Packages_t &packages, LogicalLocation iloc, RegionSize input_block,
                      BoundaryFlag *input_bcs, double icost, int igflag)
     : exec_space(DevExecSpace()), pmy_mesh(pm), loc(iloc), block_size(input_block),
-      gid(igid), lid(ilid), gflag(igflag), properties(properties), packages(packages),
-      new_block_dt_{}, new_block_dt_hyperbolic_{},
+      gid(igid), lid(ilid), gflag(igflag), properties(properties),
+      packages(packages), new_block_dt_{}, new_block_dt_hyperbolic_{},
       new_block_dt_parabolic_{}, new_block_dt_user_{}, cost_(1.0) {
 
   // initialize grid indices
