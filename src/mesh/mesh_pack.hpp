@@ -15,6 +15,7 @@
 
 #include <array>
 #include <utility>
+#include <vector>
 
 #include "coordinates/coordinates.hpp"
 #include "interface/container.hpp"
@@ -74,21 +75,21 @@ using MeshVariableFluxPack = MeshPack<VariableFluxPack<T>>;
 
 // TODO(JMM): Should this be cached?
 namespace mesh_pack_impl {
+using blocks_t = std::vector<MeshBlock *>;
+
+// TODO(JMM): blocks data type might change
 template <typename T, typename F>
-auto PackMesh(const Mesh *pmesh, F &packing_function) {
-  int nblocks = pmesh->GetNumMeshBlocksThisRank();
+auto PackMeshBlocks(const blocks_t &blocks, F &packing_function) {
+  int nblocks = blocks.size();
   ParArray1D<T> packs("MakeMeshVariablePack::view", nblocks);
   auto packs_host = Kokkos::create_mirror_view(packs);
   ParArray1D<Coordinates_t> coords("MakeMeshPackVariable::coords", nblocks);
   auto coords_host = Kokkos::create_mirror_view(coords);
 
-  // TODO(JMM): Update to Andrew's C++ std::list when available
-  MeshBlock *pmb = pmesh->pblock;
   int b = 0;
-  while (pmb != nullptr) {
+  for (auto &pmb : blocks) {
     coords_host(b) = pmb->coords;
     packs_host(b) = packing_function(pmb);
-    pmb = pmb->next;
     b++;
   }
 
@@ -101,30 +102,47 @@ auto PackMesh(const Mesh *pmesh, F &packing_function) {
   Kokkos::deep_copy(packs, packs_host);
   Kokkos::deep_copy(coords, coords_host);
 
-  return MeshPack<T>(packs, pmesh->pblock->cellbounds, coords, dims);
+  auto cellbounds = blocks[0]->cellbounds;
+
+  return MeshPack<T>(packs, cellbounds, coords, dims);
+}
+
+template <typename T, typename F>
+auto PackMesh(const Mesh *pmesh, F &packing_function) {
+  int nblocks = pmesh->GetNumMeshBlocksThisRank();
+  blocks_t blocks;
+  blocks.reserve(nblocks);
+
+  // TODO(JMM): Update to Andrew's C++ std::list when available
+  MeshBlock *pmb = pmesh->pblock;
+  while (pmb != nullptr) {
+    blocks.push_back(pmb);
+    pmb = pmb->next;
+  }
+  return PackMeshBlocks<T,F>(blocks, packing_function);
 }
 } // namespace mesh_pack_impl
 
 // Uses Real only because meshblock only owns real containers
-template <typename... Args>
-auto PackVariablesOnMesh(const Mesh *pmesh, const std::string &container_name,
+template <typename T, typename... Args>
+auto PackVariablesOnMesh(const T &blocks, const std::string &container_name,
                          Args &&... args) {
   using namespace mesh_pack_impl;
   auto pack_function = [&](MeshBlock *pmb) {
     auto container = pmb->real_containers.Get(container_name);
     return container->PackVariables(std::forward<Args>(args)...);
   };
-  return PackMesh<VariablePack<Real>>(pmesh, pack_function);
+  return PackMesh<VariablePack<Real>>(blocks, pack_function);
 }
-template <typename... Args>
-auto PackVariablesAndFluxesOnMesh(const Mesh *pmesh, const std::string &container_name,
+template <typename T, typename... Args>
+auto PackVariablesAndFluxesOnMesh(const T &blocks, const std::string &container_name,
                                   Args &&... args) {
   using namespace mesh_pack_impl;
   auto pack_function = [&](MeshBlock *pmb) {
     auto container = pmb->real_containers.Get(container_name);
     return container->PackVariablesAndFluxes(std::forward<Args>(args)...);
   };
-  return PackMesh<VariableFluxPack<Real>>(pmesh, pack_function);
+  return PackMesh<VariableFluxPack<Real>>(blocks, pack_function);
 }
 
 } // namespace parthenon
