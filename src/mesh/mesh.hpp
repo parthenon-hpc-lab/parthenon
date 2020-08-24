@@ -393,10 +393,10 @@ class Mesh {
       &UserWorkAfterLoopDefault;
   static void UserWorkInLoopDefault(); // called in main after each cycle
   std::function<void()> UserWorkInLoop = &UserWorkInLoopDefault;
-  int GetRootLevel() { return root_level; }
-  int GetMaxLevel() { return max_level; }
-  int GetCurrentLevel() { return current_level; }
-  std::vector<int> GetNbList() { return nblist; }
+  int GetRootLevel() const noexcept { return root_level; }
+  int GetMaxLevel() const noexcept { return max_level; }
+  int GetCurrentLevel() const noexcept { return current_level; }
+  std::vector<int> GetNbList() const noexcept { return nblist; }
 
  private:
   // data
