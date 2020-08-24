@@ -44,27 +44,32 @@ endfunction()
 # Adds test that will run in serial
 # test output will be sent to /tst/regression/outputs/dir
 # test property labels: regression, mpi-no
-function(setup_test dir arg)
+function(setup_test dir arg extra_labels)
   separate_arguments(arg) 
+  list(APPEND labels "regression;mpi-no")
+  list(APPEND labels "${extra_labels}")
   add_test( NAME regression_test:${dir} COMMAND ${Python3_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/run_test.py" 
     ${arg} --test_dir "${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}"
     --output_dir "${PROJECT_BINARY_DIR}/tst/regression/outputs/${dir}")
-  set_tests_properties(regression_test:${dir} PROPERTIES LABELS "regression;mpi-no" )
+  set_tests_properties(regression_test:${dir} PROPERTIES LABELS "${labels}" )
   record_driver("${arg}")
 endfunction()
 
 # Adds test that will run in serial with code coverage
 # test output will be sent to /tst/regression/outputs/dir_cov
 # test property labels: regression, mpi-no; coverage
-function(setup_test_coverage dir arg)
+function(setup_test_coverage dir arg extra_labels)
   if( CODE_COVERAGE )
     separate_arguments(arg) 
+
+    list(APPEND labels "regression;coverage;mpi-no")
+    list(APPEND labels "${extra_labels}")
     add_test( NAME regression_coverage_test:${dir} COMMAND ${Python3_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/run_test.py" 
       ${arg} 
       --coverage
       --test_dir "${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}"
       --output_dir "${PROJECT_BINARY_DIR}/tst/regression/outputs/${dir}_cov")
-    set_tests_properties(regression_coverage_test:${dir} PROPERTIES LABELS "regression;coverage;mpi-no" )
+    set_tests_properties(regression_coverage_test:${dir} PROPERTIES LABELS "${labels}" )
     record_driver("${arg}")
   endif()
 endfunction()
@@ -72,16 +77,36 @@ endfunction()
 # Adds test that will run in parallel with mpi
 # test output will be sent to /tst/regression/outputs/dir_mpi
 # test property labels: regression, mpi-yes
-function(setup_test_mpi nproc dir arg)
+function(setup_test_mpi nproc dir arg extra_labels)
   if( MPI_FOUND )
     separate_arguments(arg) 
+    list(APPEND labels "regression;mpi-yes")
+    list(APPEND labels "${extra_labels}")
+
+    if( "${Kokkos_ENABLE_CUDA}" )
+      if( "${NUM_MPI_PROC_TESTING}" GREATER "${NUM_GPUS_DETECTED}" OR (NOT "${NUM_MPI_PROC_TESTING}" EQUAL "${NUM_GPU_DEVICES_TESTING}"))
+        message(FATAL_ERROR "You are trying to build the parthenon regression "
+          "tests with CUDA enabled kokkos, with the following settings:\n"
+          "Number of MPI processors set to: ${NUM_MPI_PROC_TESTING}\n"
+          "Number of CUDA devices set to: ${NUM_GPU_DEVICES_TESTING}\n"
+          "Number of CUDA devices available: ${NUM_GPUS_DETECTED}\n"
+          "\nEach mpi processor must have access to a single gpu. Consider setting:\n"
+          "NUM_GPU_DEVICES_TESTING=${NUM_GPUS_DETECTED}\n"
+          "NUM_MPI_PROC_TESTING=${NUM_GPUS_DETECTED}\n"
+          "\nOr consider building without CUDA")
+      else()
+        set(PARTHENON_KOKKOS_TEST_ARGS "--kokkos-num-devices=${NUM_GPU_DEVICES_TESTING}")
+        list(APPEND labels "cuda")
+      endif()
+    endif()
     add_test( NAME regression_mpi_test:${dir} COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/run_test.py
       --mpirun ${MPIEXEC_EXECUTABLE} 
       --mpirun_opts=${MPIEXEC_NUMPROC_FLAG} --mpirun_opts=${nproc}
       --mpirun_opts=${MPIEXEC_PREFLAGS} ${arg}
       --test_dir ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}
-      --output_dir "${PROJECT_BINARY_DIR}/tst/regression/outputs/${dir}_mpi")
-    set_tests_properties(regression_mpi_test:${dir} PROPERTIES LABELS "regression;mpi-yes" RUN_SERIAL ON )
+      --output_dir "${PROJECT_BINARY_DIR}/tst/regression/outputs/${dir}_mpi"
+      --kokkos_args=${PARTHENON_KOKKOS_TEST_ARGS})
+    set_tests_properties(regression_mpi_test:${dir} PROPERTIES LABELS "${labels}" RUN_SERIAL ON )
     record_driver("${arg}")
   else()
     message(STATUS "MPI not found, not building regression tests with mpi")
@@ -91,9 +116,12 @@ endfunction()
 # Adds test that will run in parallel with mpi and code coverage
 # test output will be sent to /tst/regression/outputs/dir_mpi_cov
 # test property labels: regression, mpi-yes, coverage
-function(setup_test_mpi_coverage nproc dir arg)
+function(setup_test_mpi_coverage nproc dir arg extra_labels)
   if( MPI_FOUND )
     if( CODE_COVERAGE )
+
+      list(APPEND labels "regression;coverage;mpi-yes")
+      list(APPEND labels "${extra_labels}")
       separate_arguments(arg) 
       add_test( NAME regression_mpi_coverage_test:${dir} COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/run_test.py
         --coverage
@@ -103,7 +131,7 @@ function(setup_test_mpi_coverage nproc dir arg)
         --test_dir ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}
         --output_dir "${PROJECT_BINARY_DIR}/tst/regression/outputs/${dir}_mpi_cov"
         )
-      set_tests_properties(regression_mpi_coverage_test:${dir} PROPERTIES LABELS "regression;coverage;mpi-yes" RUN_SERIAL ON )
+      set_tests_properties(regression_mpi_coverage_test:${dir} PROPERTIES LABELS "${labels}" RUN_SERIAL ON )
     endif()
   else()
     message(STATUS "MPI not found, not building coverage regression tests with mpi")

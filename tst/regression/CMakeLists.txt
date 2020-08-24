@@ -39,10 +39,11 @@
 
 # Performance regression test
 list(APPEND TEST_DIRS advection_performance)
-list(APPEND TEST_PROCS "1")
+list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
 list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
 --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/advection_performance/parthinput.advection_performance \
 --num_steps 5")
+list(APPEND EXTRA_TEST_LABELS "perf-reg")
 
 if (ENABLE_HDF5)
 
@@ -55,25 +56,29 @@ if (ENABLE_HDF5)
   list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
     --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/restart/parthinput.restart \
     --num_steps 2")
+  list(APPEND EXTRA_TEST_LABELS "")
   
   # Calculate pi example
   list(APPEND TEST_DIRS calculate_pi)
   list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
   list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/calculate_pi/pi-example \
   --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/calculate_pi/parthinput.regression")
+  list(APPEND EXTRA_TEST_LABELS "")
 
   # Advection test 
   list(APPEND TEST_DIRS advection_convergence)
-  list(APPEND TEST_PROCS "1")
+  list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
   list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
   --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/advection_convergence/parthinput.advection \
   --num_steps 25")
+  list(APPEND EXTRA_TEST_LABELS "")
 
   list(APPEND TEST_DIRS output_hdf5)
   list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
   list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
     --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/output_hdf5/parthinput.advection \
     --num_steps 4")
+  list(APPEND EXTRA_TEST_LABELS "")
 endif()
 
 # Any external modules that are required by python can be added to REQUIRED_PYTHON_MODULES 
@@ -90,18 +95,21 @@ include(${PROJECT_SOURCE_DIR}/cmake/TestSetup.cmake)
 list(LENGTH TEST_DIRS len)
 math(EXPR end_index "${len} - 1")
 
+message("List contnts ${EXTRA_TEST_LABELS}")
 foreach( index RANGE ${end_index})
   list(GET TEST_DIRS ${index} TEST_DIR)
   list(GET TEST_PROCS ${index} TEST_PROC)
   list(GET TEST_ARGS ${index} TEST_ARG)
-  setup_test(${TEST_DIR} ${TEST_ARG})
-  setup_test_coverage(${TEST_DIR} ${TEST_ARG})
-  setup_test_mpi(${TEST_PROC} ${TEST_DIR} ${TEST_ARG})
-  setup_test_mpi_coverage(${TEST_PROC} ${TEST_DIR} ${TEST_ARG})
+  list(GET EXTRA_TEST_LABELS ${index} TEST_LABELS )
+  message(STATUS "Label ${TEST_LABELS}")
+  setup_test(${TEST_DIR} ${TEST_ARG} "${TEST_LABELS}")
+  setup_test_coverage(${TEST_DIR} ${TEST_ARG} "${TEST_LABELS}")
+  setup_test_mpi(${TEST_PROC} ${TEST_DIR} ${TEST_ARG} "${TEST_LABELS}")
+  setup_test_mpi_coverage(${TEST_PROC} ${TEST_DIR} ${TEST_ARG} "${TEST_LABELS}")
 endforeach()
 
 # manually add label to performance regression test (to selectively enable/disable)
-set_tests_properties(regression_test:advection_performance PROPERTIES LABELS "regression;mpi-no;perf-reg" )
-if( MPI_FOUND )
-  set_tests_properties(regression_mpi_test:advection_performance PROPERTIES LABELS "regression;mpi-yes;perf-reg" )
-endif()
+#set_tests_properties(regression_test:advection_performance PROPERTIES LABELS "regression;mpi-no;perf-reg" )
+#if( MPI_FOUND )
+#  set_tests_properties(regression_mpi_test:advection_performance PROPERTIES LABELS "regression;mpi-yes;perf-reg" )
+#endif()

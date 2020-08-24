@@ -165,6 +165,7 @@ SET (Kokkos_ENABLE_AGGRESSIVE_VECTORIZATION ON CACHE BOOL
 include(cmake/DetectGPUs.cmake)
 # Tell Kokkos we need lambdas in Cuda.
 # Check that gpu devices are actually detected
+set(NUM_GPU_DEVICES_TESTING "${NUM_MPI_PROC_TESTING}")
 if (Kokkos_ENABLE_CUDA)
   SET (Kokkos_ENABLE_CUDA_LAMBDA ON CACHE BOOL
        "Enable lambda expressions in CUDA")

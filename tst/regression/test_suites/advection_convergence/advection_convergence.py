@@ -66,7 +66,7 @@ class TestCase(utils.test_case.TestCaseAbs):
             if lin_res[step - 1] == 32:
                 parameters.coverage_status = "both"
             parameters.driver_cmd_line_args = [
-                'parthenon/mesh/nx1=%d' % lin_res[step % n_res -1],
+                'parthenon/mesh/nx1=%d' % (lin_res[step % n_res -1] * parameters.num_ranks),
                 'parthenon/meshblock/nx1=%d' % lin_res[step % n_res -1],
                 'parthenon/mesh/nx2=1',
                 'parthenon/meshblock/nx2=1',
@@ -83,7 +83,7 @@ class TestCase(utils.test_case.TestCaseAbs):
             parameters.driver_cmd_line_args = [
                 'parthenon/mesh/nx1=4',
                 'parthenon/meshblock/nx1=4',
-                'parthenon/mesh/nx2=%d' % lin_res[step % n_res -1],
+                'parthenon/mesh/nx2=%d' % (lin_res[step % n_res -1] * parameters.num_ranks),
                 'parthenon/meshblock/nx2=%d' % lin_res[step % n_res -1],
                 'parthenon/mesh/nx3=1',
                 'parthenon/meshblock/nx3=1',
@@ -100,7 +100,7 @@ class TestCase(utils.test_case.TestCaseAbs):
                 'parthenon/meshblock/nx1=4',
                 'parthenon/mesh/nx2=4',
                 'parthenon/meshblock/nx2=4',
-                'parthenon/mesh/nx3=%d' % lin_res[step % n_res -1],
+                'parthenon/mesh/nx3=%d' % (lin_res[step % n_res -1] * parameters.num_ranks),
                 'parthenon/meshblock/nx3=%d' % lin_res[step % n_res -1],
                 'Advection/vx=0.0',
                 'Advection/vy=0.0',
@@ -109,7 +109,7 @@ class TestCase(utils.test_case.TestCaseAbs):
         # TEST: Advection only in x at highest res with identical params
         elif step == 3*n_res + 1:
             parameters.driver_cmd_line_args = [
-                'parthenon/mesh/nx1=%d' % lin_res[-1],
+                'parthenon/mesh/nx1=%d' % (lin_res[-1] * parameters.num_ranks),
                 'parthenon/meshblock/nx1=%d' % lin_res[-1],
                 'parthenon/mesh/nx2=4',
                 'parthenon/meshblock/nx2=4',
@@ -130,7 +130,7 @@ class TestCase(utils.test_case.TestCaseAbs):
             parameters.driver_cmd_line_args = [
                 'parthenon/mesh/nx1=4',
                 'parthenon/meshblock/nx1=4',
-                'parthenon/mesh/nx2=%d' % lin_res[-1],
+                'parthenon/mesh/nx2=%d' % (lin_res[-1] * parameters.num_ranks),
                 'parthenon/meshblock/nx2=%d' % lin_res[-1],
                 'parthenon/mesh/nx3=4',
                 'parthenon/meshblock/nx3=4',
@@ -152,7 +152,7 @@ class TestCase(utils.test_case.TestCaseAbs):
                 'parthenon/meshblock/nx1=4',
                 'parthenon/mesh/nx2=4',
                 'parthenon/meshblock/nx2=4',
-                'parthenon/mesh/nx3=%d' % lin_res[-1],
+                'parthenon/mesh/nx3=%d' % (lin_res[-1] * parameters.num_ranks),
                 'parthenon/meshblock/nx3=%d' % lin_res[-1],
                 'parthenon/mesh/x1min=-0.5',
                 'parthenon/mesh/x1max=0.5',
@@ -168,7 +168,7 @@ class TestCase(utils.test_case.TestCaseAbs):
         # TEST: Advection at along diagonal with dx != dy != dz and Lx != Ly != Lz (half res)
         elif step == 3*n_res + 4:
             parameters.driver_cmd_line_args = [
-                'parthenon/mesh/nx1=32',
+                'parthenon/mesh/nx1=%d' % (32 * parameters.num_ranks),
                 'parthenon/meshblock/nx1=32',
                 'parthenon/mesh/nx2=32',
                 'parthenon/meshblock/nx2=32',
@@ -180,6 +180,7 @@ class TestCase(utils.test_case.TestCaseAbs):
         # TEST: Advection at along diagonal with dx != dy != dz and Lx != Ly != Lz (def res)
         elif step == 3*n_res + 5:
             parameters.driver_cmd_line_args = [
+                'parthenon/mesh/nx1=%d' % (64 * parameters.num_ranks),
                 'Advection/ang_2=-999.9',
                 'Advection/ang_3=-999.9',
                 ]
@@ -187,6 +188,7 @@ class TestCase(utils.test_case.TestCaseAbs):
         # using multiple MeshBlocks
         elif step == 3*n_res + 6:
             parameters.driver_cmd_line_args = [
+                'parthenon/mesh/nx1=%d' % (64 * parameters.num_ranks),
                 'parthenon/meshblock/nx1=8',
                 'parthenon/meshblock/nx2=16',
                 'parthenon/meshblock/nx3=8',
@@ -197,7 +199,7 @@ class TestCase(utils.test_case.TestCaseAbs):
         # Lx != Ly != Lz and dx != dy != dz
         elif step == 3*n_res + 7:
             parameters.driver_cmd_line_args = [
-                'parthenon/mesh/nx1=40',
+                'parthenon/mesh/nx1=%d' % (40 * parameters.num_ranks),
                 'parthenon/meshblock/nx1=20',
                 'parthenon/mesh/nx2=30',
                 'parthenon/meshblock/nx2=15',
@@ -219,7 +221,7 @@ class TestCase(utils.test_case.TestCaseAbs):
         # Lx != Ly != Lz and dx != dy != dz
         elif step == 3*n_res + 8:
             parameters.driver_cmd_line_args = [
-                'parthenon/mesh/nx1=80',
+                'parthenon/mesh/nx1=%d' % (80 * parameters.num_ranks),
                 'parthenon/meshblock/nx1=40',
                 'parthenon/mesh/nx2=60',
                 'parthenon/meshblock/nx2=30',
@@ -242,7 +244,7 @@ class TestCase(utils.test_case.TestCaseAbs):
         elif step == 3*n_res + 9:
             parameters.driver_cmd_line_args = [
                 'parthenon/mesh/refinement=adaptive',
-                'parthenon/mesh/nx1=40',
+                'parthenon/mesh/nx1=%d' % (40 * parameters.num_ranks),
                 'parthenon/meshblock/nx1=8',
                 'parthenon/mesh/nx2=30',
                 'parthenon/meshblock/nx2=6',
@@ -267,7 +269,7 @@ class TestCase(utils.test_case.TestCaseAbs):
             parameters.driver_cmd_line_args = [
                 'parthenon/time/tlim=0.01',
                 'parthenon/mesh/refinement=adaptive',
-                'parthenon/mesh/nx1=40',
+                'parthenon/mesh/nx1=%d' % (40 * parameters.num_ranks),
                 'parthenon/meshblock/nx1=8',
                 'parthenon/mesh/nx2=30',
                 'parthenon/meshblock/nx2=6',
