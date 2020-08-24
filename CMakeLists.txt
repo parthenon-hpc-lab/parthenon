@@ -231,6 +231,16 @@ if (${PARTHENON_ENABLE_UNIT_TESTS} OR ${PARTHENON_ENABLE_INTEGRATION_TESTS} OR $
     else()
       message(STATUS "Gold standard is up-to-date. No download required.")
     endif()
+
+
+    # Throw a warning if the number of processors available is less than 4
+    include(ProcessorCount)
+    ProcessorCount(N)
+    if( "${NUM_MPI_PROC_TESTING}" GREATER "${N}") 
+      message(WARNING "Consider changing the number of MPI processors used in testing, currently "
+        "NUM_MPI_PROC_TESTING is set to ${NUM_MPI_PROC_TESTING} but cmake has only detected a"
+        " total of ${N} available processors")
+    endif()
   endif()
 
   # Try finding an installed Catch2 first
