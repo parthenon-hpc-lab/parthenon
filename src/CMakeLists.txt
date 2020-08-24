@@ -33,6 +33,9 @@ else()
   set(HDF5_OPTION NO_HDF5OUTPUT)
 endif()
 
+# The following lines determine the default loop pattern by setting the
+# default defines to the appropriate "tags" in the config.hpp file.
+# See `kokkos_abstraction.hpp` for available tags and what they translate to.
 if (${Kokkos_ENABLE_CUDA})
   set(PAR_LOOP_LAYOUT "MANUAL1D_LOOP" CACHE STRING
     "Default loop layout for parallel_for wrapper")
@@ -71,6 +74,30 @@ set_property(CACHE PAR_LOOP_INNER_LAYOUT PROPERTY STRINGS ${PAR_LOOP_INNER_LAYOU
 message(STATUS "PAR_LOOP_LAYOUT='${PAR_LOOP_LAYOUT}' (default par_for wrapper layout)")
 
 message(STATUS "PAR_LOOP_INNER_LAYOUT='${PAR_LOOP_INNER_LAYOUT}' (default par_for_inner wrapper layout)")
+
+if (${PAR_LOOP_LAYOUT} STREQUAL "MANUAL1D_LOOP")
+  set(PAR_LOOP_LAYOUT_TAG loop_pattern_flatrange_tag)
+elseif (${PAR_LOOP_LAYOUT} STREQUAL "SIMDFOR_LOOP")
+  set(PAR_LOOP_LAYOUT_TAG loop_pattern_simdfor_tag)
+elseif (${PAR_LOOP_LAYOUT} STREQUAL "MDRANGE_LOOP")
+  set(PAR_LOOP_LAYOUT_TAG loop_pattern_mdrange_tag)
+elseif (${PAR_LOOP_LAYOUT} STREQUAL "TP_TTR_LOOP")
+  set(PAR_LOOP_LAYOUT_TAG loop_pattern_tpttr_tag)
+elseif (${PAR_LOOP_LAYOUT} STREQUAL "TP_TVR_LOOP")
+  set(PAR_LOOP_LAYOUT_TAG loop_pattern_tptvr_tag)
+elseif (${PAR_LOOP_LAYOUT} STREQUAL "TPTTRTVR_LOOP")
+  set(PAR_LOOP_LAYOUT_TAG loop_pattern_tpttrtvr_tag)
+else()
+  set(PAR_LOOP_LAYOUT_TAG loop_pattern_undefined_tag)
+endif()
+
+if (${PAR_LOOP_INNER_LAYOUT} STREQUAL "TVR_INNER_LOOP")
+  set(PAR_LOOP_INNER_LAYOUT_TAG inner_loop_pattern_tvr_tag)
+elseif (${PAR_LOOP_INNER_LAYOUT} STREQUAL "SIMDFOR_INNER_LOOP")
+  set(PAR_LOOP_INNER_LAYOUT_TAG inner_loop_pattern_simdfor_tag)
+else()
+  set(PAR_LOOP_INNER_LAYOUT_TAG loop_pattern_undefined_tag)
+endif()
 
 set(EXCEPTION_HANDLING_OPTION ENABLE_EXCEPTIONS) # TODO: Add option to disable exceptions
 set(COMPILED_WITH ${CMAKE_CXX_COMPILER})
@@ -199,6 +226,8 @@ add_library(parthenon
   parthenon_mpi.hpp
 )
 
+set_target_properties(parthenon PROPERTIES SOVERSION ${parthenon_VERSION})
+
 target_compile_features(parthenon PUBLIC cxx_std_14)
 if (CMAKE_CXX_COMPILER_ID STREQUAL "XL")
   target_compile_options(parthenon PUBLIC -std=c++1y -qxflag=disable__cplusplusOverride)
@@ -223,9 +252,31 @@ endif()
 
 target_link_libraries(parthenon PUBLIC Kokkos::kokkos)
 
-target_include_directories(parthenon PUBLIC
-  ${CMAKE_CURRENT_SOURCE_DIR}
-  ${CMAKE_CURRENT_BINARY_DIR}/generated
-)
-
 lint_target(parthenon)
+
+target_include_directories(parthenon PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/generated>
+  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/parthenon>
+  )
+
+install(TARGETS parthenon EXPORT parthenonTargets
+  INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parthenon"
+  LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+  ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+    )
+
+# Maintain directory structure in installed include files
+install(DIRECTORY . DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parthenon" FILES_MATCHING PATTERN "*.hpp")
+
+# Install generated config header file
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/generated/config.hpp
+  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parthenon")
+
+install(FILES ${PROJECT_BINARY_DIR}/cmake/parthenonConfig.cmake DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/parthenon")
+
+install(EXPORT parthenonTargets
+    FILE parthenonTargets.cmake
+    NAMESPACE Parthenon::
+    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/parthenon"
+    )
