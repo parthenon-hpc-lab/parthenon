@@ -17,6 +17,24 @@ This will produce an hdf5 (`.phdf`) output file every 1 units of
 simulation time containing the density, velocity, and energy of each
 cell.
 
+## Restart Files
+
+Parthenon allows users to output restart files for restarting a simulation.  The restart file captures the input file, so no input file is required to be specified.  At a future date we will allow for users to change parameters on restart. 
+
+In the input file, include a ```<parthenon/output*>``` block and specify ```file_type = rst```.  A ```dt``` parameter controls the frequency of outputs for simulations involving evolution. A ```<parthenon/output*>``` block might look like
+```
+<parthenon/output7>
+file_type = rst
+dt = 1.0
+```
+This will produce an hdf5 (`.rhdf`) output file every 1 units of
+simulation time that can be used for restarting the simulation.
+
+To use this restart file, simply specify the restart file with a ```-r <restart.rhdf>``` at the command line.  It is an error to specify an input file with the ```-i``` flag when using the restart option.
+
+For physics developers: The fields to be output are automatically selected as all the variables that have either the ```Independent``` or ```Restart``` ```Metadata``` flags specifiec.  No other intervention is required by the developer.
+
+
 ## Python scripts
 
 The ```scripts/python``` folder includes scripts that may be useful for visualizing or analyzing data in the ```.phdf``` files.  The ```phdf.py``` file defines a class to read in and query data.  The ```movie2d.py``` script shows an example of using this class, and also provides a convenient means of making movies of 2D simulations.  The script can be invoked as

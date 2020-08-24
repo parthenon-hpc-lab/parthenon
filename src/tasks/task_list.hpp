@@ -65,17 +65,10 @@ class TaskList {
     for (auto &task : task_list_) {
       auto dep = task.GetDependency();
       if (tasks_completed_.CheckDependencies(dep)) {
-        /*std::cerr << "Task dependency met:" << std::endl
-                  << dep.to_string() << std::endl
-                  << tasks_completed_.to_string() << std::endl
-                  << task->GetID().to_string() << std::endl << std::endl;*/
         TaskStatus status = task();
         if (status == TaskStatus::complete) {
           task.SetComplete();
           MarkTaskComplete(task.GetID());
-          /*std::cerr << "Task complete:" << std::endl
-                    << task->GetID().to_string() << std::endl
-                    << tasks_completed_.to_string() << std::endl << std::endl;*/
         }
       }
     }
