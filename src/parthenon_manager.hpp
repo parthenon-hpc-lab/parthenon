@@ -16,12 +16,15 @@
 
 #include <memory>
 
+#include "application_input.hpp"
 #include "argument_parser.hpp"
 #include "basic_types.hpp"
 #include "driver/driver.hpp"
 #include "interface/properties_interface.hpp"
 #include "interface/state_descriptor.hpp"
+#include "mesh/domain.hpp"
 #include "mesh/mesh.hpp"
+#include "outputs/restart.hpp"
 #include "parameter_input.hpp"
 
 namespace parthenon {
@@ -30,18 +33,30 @@ enum class ParthenonStatus { ok, complete, error };
 
 class ParthenonManager {
  public:
-  ParthenonManager() = default;
+  ParthenonManager() {
+    app_input.reset(new ApplicationInput());
+    // SetFillDerivedFunctions = &SetFillDerivedFunctionsDefault;
+  }
   ParthenonStatus ParthenonInit(int argc, char *argv[]);
   ParthenonStatus ParthenonFinalize();
 
   bool Restart() { return (arg.restart_filename == nullptr ? false : true); }
-  Properties_t ProcessProperties(std::unique_ptr<ParameterInput> &pin);
-  Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin);
-  void SetFillDerivedFunctions();
+  static Properties_t ProcessPropertiesDefault(std::unique_ptr<ParameterInput> &pin);
+  static Packages_t ProcessPackagesDefault(std::unique_ptr<ParameterInput> &pin);
+  static void SetFillDerivedFunctionsDefault();
+  void RestartPackages(Mesh &rm, RestartReader &resfile);
+
+  std::function<Properties_t(std::unique_ptr<ParameterInput> &)> ProcessProperties =
+      ProcessPropertiesDefault;
+  std::function<Packages_t(std::unique_ptr<ParameterInput> &)> ProcessPackages =
+      ProcessPackagesDefault;
+  std::function<void()> SetFillDerivedFunctions = SetFillDerivedFunctionsDefault;
 
   // member data
   std::unique_ptr<ParameterInput> pinput;
   std::unique_ptr<Mesh> pmesh;
+  std::unique_ptr<RestartReader> restartReader;
+  std::unique_ptr<ApplicationInput> app_input;
 
  private:
   ArgParse arg;

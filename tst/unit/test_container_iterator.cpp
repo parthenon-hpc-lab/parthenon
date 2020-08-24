@@ -24,6 +24,7 @@
 #include <catch2/catch.hpp>
 
 #include "basic_types.hpp"
+#include "config.hpp"
 #include "defs.hpp"
 #include "interface/container.hpp"
 #include "interface/container_iterator.hpp"
@@ -63,8 +64,7 @@ bool intervals_intersect(const std::pair<int, int> &i1, const std::pair<int, int
   return false;
 }
 
-TEST_CASE("Can pull variables from containers based on Metadata",
-          "[ContainerIterator][coverage]") {
+TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIterator]") {
   GIVEN("A Container with a set of variables initialized to zero") {
     Container<Real> rc;
     Metadata m_in({Metadata::Independent, Metadata::FillGhost});
@@ -91,8 +91,8 @@ TEST_CASE("Can pull variables from containers based on Metadata",
 
     auto v = rc.PackVariables();
     par_for(
-        "Initialize variables", DevExecSpace(), 0, v.GetDim(4) - 1, 0, v.GetDim(3) - 1, 0,
-        v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
+        DEFAULT_LOOP_PATTERN, "Initialize variables", DevExecSpace(), 0, v.GetDim(4) - 1,
+        0, v.GetDim(3) - 1, 0, v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
         KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
           v(l, k, j, i) = 0.0;
         });
@@ -103,8 +103,8 @@ TEST_CASE("Can pull variables from containers based on Metadata",
       for (int n = 0; n < cv.size(); n++) {
         ParArrayND<Real> v = cv[n]->data;
         par_for(
-            "Initialize variables", DevExecSpace(), 0, v.GetDim(4) - 1, 0,
-            v.GetDim(3) - 1, 0, v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
+            DEFAULT_LOOP_PATTERN, "Initialize variables", DevExecSpace(), 0,
+            v.GetDim(4) - 1, 0, v.GetDim(3) - 1, 0, v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
             KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
               v(l, k, j, i) = 0.0;
             });
@@ -141,8 +141,8 @@ TEST_CASE("Can pull variables from containers based on Metadata",
       // set "Independent" variables to one
       auto v = rc.PackVariables({Metadata::Independent});
       par_for(
-          "Set independent variables", DevExecSpace(), 0, v.GetDim(4) - 1, 0,
-          v.GetDim(3) - 1, 0, v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
+          DEFAULT_LOOP_PATTERN, "Set independent variables", DevExecSpace(), 0,
+          v.GetDim(4) - 1, 0, v.GetDim(3) - 1, 0, v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
           KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
             v(l, k, j, i) = 1.0;
           });
@@ -187,8 +187,9 @@ TEST_CASE("Can pull variables from containers based on Metadata",
         if (iv6 > iv3lo) REQUIRE(iv6 > iv3hi);
       }
       par_for(
-          "Initialize variables", DevExecSpace(), 0, v.GetDim(3) - 1, 0, v.GetDim(2) - 1,
-          0, v.GetDim(1) - 1, KOKKOS_LAMBDA(const int k, const int j, const int i) {
+          DEFAULT_LOOP_PATTERN, "Initialize variables", DevExecSpace(), 0,
+          v.GetDim(3) - 1, 0, v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
+          KOKKOS_LAMBDA(const int k, const int j, const int i) {
             v(iv3lo + 1, k, j, i) = 1.0;
             v(iv6, k, j, i) = 3.0;
           });
@@ -232,8 +233,8 @@ TEST_CASE("Can pull variables from containers based on Metadata",
     WHEN("we set fluxes of independent variables") {
       auto vf = rc.PackVariablesAndFluxes({Metadata::Independent, Metadata::FillGhost});
       par_for(
-          "Set fluxes", DevExecSpace(), 0, vf.GetDim(4) - 1, 0, vf.GetDim(3) - 1, 0,
-          vf.GetDim(2) - 1, 0, vf.GetDim(1) - 1,
+          DEFAULT_LOOP_PATTERN, "Set fluxes", DevExecSpace(), 0, vf.GetDim(4) - 1, 0,
+          vf.GetDim(3) - 1, 0, vf.GetDim(2) - 1, 0, vf.GetDim(1) - 1,
           KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
             vf(l, k, j, i) = 0.0;
             vf.flux(X1DIR, l, k, j, i) = 16.0 - i;
@@ -242,8 +243,8 @@ TEST_CASE("Can pull variables from containers based on Metadata",
           });
       THEN("adding in the fluxes should change the values appropriately") {
         par_for(
-            "Update vars", DevExecSpace(), 0, vf.GetDim(4) - 1, 0, vf.GetDim(3) - 2, 0,
-            vf.GetDim(2) - 2, 0, vf.GetDim(1) - 2,
+            DEFAULT_LOOP_PATTERN, "Update vars", DevExecSpace(), 0, vf.GetDim(4) - 1, 0,
+            vf.GetDim(3) - 2, 0, vf.GetDim(2) - 2, 0, vf.GetDim(1) - 2,
             KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
               vf(l, k, j, i) -=
                   ((vf.flux(X1DIR, l, k, j, i + 1) - vf.flux(X1DIR, l, k, j, i)) +

@@ -11,8 +11,8 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
 
-cmake_minimum_required(VERSION 3.10)
-project(parthenon LANGUAGES C CXX)
+cmake_minimum_required(VERSION 3.12)
+project(parthenon VERSION 0.1.0 LANGUAGES C CXX)
 
 include(CTest)
 
@@ -67,6 +67,7 @@ endif()
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+include(cmake/CodeCov.cmake)
 if(CODE_COVERAGE)
   if( NOT COVERAGE_NAME)
     SET(COVERAGE_NAME "coverage_reports")
@@ -119,6 +120,7 @@ if (NOT PARTHENON_DISABLE_OPENMP)
     "If you want to build Parthenon without OpenMP, please rerun CMake with -DPARTHENON_DISABLE_OPENMP=ON")
   endif()
   set(ENABLE_OPENMP ON)
+  set(Kokkos_ENABLE_OPENMP ON CACHE BOOL "Allow Kokkos to use OpenMP")
 endif()
 
 if (Kokkos_ENABLE_CUDA AND TEST_INTEL_OPTIMIZATION)
@@ -195,7 +197,7 @@ endif()
 
 # We want Kokkos to be built with C++14, since that's what we're using in
 # Parthenon.
-set(Kokkos_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 14)
 if(EXISTS ${Kokkos_ROOT}/CMakeLists.txt)
   add_subdirectory(${Kokkos_ROOT} Kokkos)
 elseif(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/external/Kokkos/CMakeLists.txt)
@@ -265,7 +267,7 @@ endif()
 add_subdirectory(src)
 add_subdirectory(example)
 
-include(cmake/CodeCov.cmake)
+create_pathenon_coverage_targets()
 include(cmake/CheckCopyright.cmake)
 
 # Currently Ctest/Cmake doesn't ensure that tests are not stale

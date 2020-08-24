@@ -85,10 +85,10 @@ Currently Loaded Modules:
 #### Cuda with MPI
 
 ```bash
-# configure and build. Make sure to build in an directory on the GPFS filesystem as the home directory is not writeable from the compute nodes (which will result in the regression tests failing)
+# configure and build. Make sure to build in an directory on the GPFS filesystem if you want to run the regression tests because the home directory is not writeable from the compute nodes (which will result in the regression tests failing)
 $ mkdir build-cuda-mpi && cd build-cuda-mpi
-$ export OMPI_CXX=${PARTHENON_ROOT}/external/Kokkos/bin/nvcc_wrapper
-$ cmake -DKokkos_ARCH_POWER9=ON -DKokkos_ARCH_VOLTA70=True -DKokkos_ENABLE_CUDA=True -DKokkos_ENABLE_OPENMP=True -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=mpic++ ${PARTHENON_ROOT}
+# note that we do not specify the mpicxx wrapper in the following as cmake automatically extracts the required include and linker options
+$ cmake -DKokkos_ARCH_POWER9=ON -DKokkos_ARCH_VOLTA70=True -DKokkos_ENABLE_CUDA=True -DKokkos_ENABLE_OPENMP=True -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=${PARTHENON_ROOT}/external/Kokkos/bin/nvcc_wrapper ${PARTHENON_ROOT}
 $ make -j10
 
 # run all tests (assumes running within a job)

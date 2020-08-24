@@ -201,9 +201,10 @@ class TestManager:
             run_command.extend(self.parameters.mpi_cmd)
         for opt in self.parameters.mpi_opts:
             run_command.extend(opt.split()) 
-        run_command.append(self.parameters.driver_path)  
-        run_command.append('-i')
-        run_command.append(self.parameters.driver_input_path)
+        run_command.append(self.parameters.driver_path)
+        if not '-r' in self.parameters.driver_cmd_line_args:
+            run_command.append('-i')
+            run_command.append(self.parameters.driver_input_path)
         for arg in self.parameters.driver_cmd_line_args:
             run_command.append(arg)
 
