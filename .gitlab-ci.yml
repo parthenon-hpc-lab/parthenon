@@ -75,6 +75,7 @@ parthenon-cpu-unit:
 parthenon-cuda-performance_and_regression:
   only:
     - schedules
+    - web
   tags:
     - cuda
   stage: performance_and_regression
@@ -100,6 +101,7 @@ parthenon-cuda-performance_and_regression:
 parthenon-cuda-performance_and_regression-mpi:
   only:
     - schedules
+    - web
   tags:
     - cuda
   stage: performance_and_regression
@@ -128,6 +130,7 @@ parthenon-cuda-performance_and_regression-mpi:
 parthenon-cpu-performance_and_regression:
   only:
     - schedules
+    - web
   tags:
     - cpu
   stage: performance_and_regression
@@ -152,6 +155,7 @@ parthenon-cpu-performance_and_regression:
 parthenon-cpu-performance_and_regression-mpi:
   only:
     - schedules
+    - web
   tags:
     - cpu
   stage: performance_and_regression
@@ -177,6 +181,7 @@ parthenon-cpu-performance_and_regression-mpi:
 parthenon-cpu-coverage:
   only:
     - schedules
+    - web
   tags:
     - cpu
   stage: coverage
