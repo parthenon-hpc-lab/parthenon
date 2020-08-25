@@ -74,13 +74,12 @@ DriverStatus FaceFieldExample::Execute() {
 
   // post-evolution analysis
   Real rank_sum = 0.0;
-  MeshBlock *pmb = pmesh->pblock;
-  while (pmb != nullptr) {
-    parthenon::IndexDomain interior = parthenon::IndexDomain::interior;
-    parthenon::IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
-    parthenon::IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
-    parthenon::IndexRange kb = pmb->cellbounds.GetBoundsK(interior);
-    auto &rc = pmb->real_containers.Get();
+  for (auto &block : pmesh->block_list) {
+    parthenon::IndexDomain const interior = parthenon::IndexDomain::interior;
+    parthenon::IndexRange const ib = block.cellbounds.GetBoundsI(interior);
+    parthenon::IndexRange const jb = block.cellbounds.GetBoundsJ(interior);
+    parthenon::IndexRange const kb = block.cellbounds.GetBoundsK(interior);
+    auto &rc = block.real_containers.Get();
     auto &summed = rc->Get("c.c.interpolated_sum").data;
     for (int k = kb.s; k <= kb.e; k++) {
       for (int j = jb.s; j <= jb.e; j++) {
@@ -89,7 +88,6 @@ DriverStatus FaceFieldExample::Execute() {
         }
       }
     }
-    pmb = pmb->next;
   }
 #ifdef MPI_PARALLEL
   Real global_sum;

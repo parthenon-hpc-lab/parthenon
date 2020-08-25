@@ -19,7 +19,7 @@ cell.
 
 ## Restart Files
 
-Parthenon allows users to output restart files for restarting a simulation.  The restart file captures the input file, so no input file is required to be specified.  At a future date we will allow for users to change parameters on restart. 
+Parthenon allows users to output restart files for restarting a simulation.  The restart file captures the input file, so no input file is required to be specified.  Parameters for the input can be overriden in the usual way from teh command line.  At a future date we will allow for users the ability to extensively edit the parameters stored within the restart file. 
 
 In the input file, include a ```<parthenon/output*>``` block and specify ```file_type = rst```.  A ```dt``` parameter controls the frequency of outputs for simulations involving evolution. A ```<parthenon/output*>``` block might look like
 ```

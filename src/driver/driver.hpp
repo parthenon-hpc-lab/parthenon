@@ -93,10 +93,8 @@ template <typename T, class... Args>
 TaskListStatus ConstructAndExecuteBlockTasks(T *driver, Args... args) {
   int nmb = driver->pmesh->GetNumMeshBlocksThisRank(Globals::my_rank);
   std::vector<TaskList> task_lists;
-  MeshBlock *pmb = driver->pmesh->pblock;
-  while (pmb != nullptr) {
-    task_lists.push_back(driver->MakeTaskList(pmb, std::forward<Args>(args)...));
-    pmb = pmb->next;
+  for (auto &mb : driver->pmesh->block_list) {
+    task_lists.push_back(driver->MakeTaskList(&mb, std::forward<Args>(args)...));
   }
   int complete_cnt = 0;
   while (complete_cnt != nmb) {
