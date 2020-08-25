@@ -73,6 +73,8 @@ parthenon-cpu-unit:
       - build-debug/CMakeFiles/CMakeOutput.log
 
 parthenon-cuda-performance_and_regression:
+  only:
+    - schedules
   tags:
     - cuda
   stage: performance_and_regression
@@ -96,6 +98,8 @@ parthenon-cuda-performance_and_regression:
       - build-cuda-perf/tst/regression/outputs/advection_convergence/advection-errors.png
 
 parthenon-cuda-performance_and_regression-mpi:
+  only:
+    - schedules
   tags:
     - cuda
   stage: performance_and_regression
@@ -122,6 +126,8 @@ parthenon-cuda-performance_and_regression-mpi:
 
 # run performance and regression on CPUs without MPI
 parthenon-cpu-performance_and_regression:
+  only:
+    - schedules
   tags:
     - cpu
   stage: performance_and_regression
@@ -144,6 +150,8 @@ parthenon-cpu-performance_and_regression:
 
 # run performance and regression on CPUs with MPI
 parthenon-cpu-performance_and_regression-mpi:
+  only:
+    - schedules
   tags:
     - cpu
   stage: performance_and_regression
