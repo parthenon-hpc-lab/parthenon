@@ -15,6 +15,7 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+#include <iostream>
 #include <string>
 
 #include "mesh/domain.hpp"

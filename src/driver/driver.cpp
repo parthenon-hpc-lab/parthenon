@@ -26,7 +26,45 @@
 
 namespace parthenon {
 
+void Driver::PreExecute() {
+  if (Globals::my_rank == 0) {
+    std::cout << std::endl << "Setup complete, executing driver...\n" << std::endl;
+  }
+
+  tstart_ = clock();
+#ifdef OPENMP_PARALLEL
+  omp_start_time_ = omp_get_wtime();
+#endif
+}
+
+void Driver::PostExecute() {
+  if (Globals::my_rank == 0) {
+    SignalHandler::CancelWallTimeAlarm();
+    // Calculate and print the zone-cycles/cpu-second and wall-second
+#ifdef OPENMP_PARALLEL
+    double omp_time = omp_get_wtime() - omp_start_time_;
+#endif
+    clock_t tstop = clock();
+    double cpu_time = (tstop > tstart_ ? static_cast<double>(tstop - tstart_) : 1.0) /
+                      static_cast<double>(CLOCKS_PER_SEC);
+    std::uint64_t zonecycles =
+        pmesh->mbcnt *
+        static_cast<std::uint64_t>(pmesh->pblock->GetNumberOfMeshBlockCells());
+    double zc_cpus = static_cast<double>(zonecycles) / cpu_time;
+
+    std::cout << std::endl << "zone-cycles = " << zonecycles << std::endl;
+    std::cout << "cpu time used  = " << cpu_time << std::endl;
+    std::cout << "zone-cycles/cpu_second = " << zc_cpus << std::endl;
+#ifdef OPENMP_PARALLEL
+    double zc_omps = static_cast<double>(zonecycles) / omp_time;
+    std::cout << std::endl << "omp wtime used = " << omp_time << std::endl;
+    std::cout << "zone-cycles/omp_wsecond = " << zc_omps << std::endl;
+#endif
+  }
+}
+
 DriverStatus EvolutionDriver::Execute() {
+  Driver::PreExecute();
   InitializeBlockTimeSteps();
   SetGlobalTimeStep();
   pouts->MakeOutputs(pmesh, pinput, &tm);
@@ -40,13 +78,12 @@ DriverStatus EvolutionDriver::Execute() {
       return DriverStatus::failed;
     }
     // pmesh->UserWorkInLoop();
-
     tm.ncycle++;
     tm.time += tm.dt;
     pmesh->mbcnt += pmesh->nbtotal;
     pmesh->step_since_lb++;
 
-    pmesh->LoadBalancingAndAdaptiveMeshRefinement(pinput);
+    pmesh->LoadBalancingAndAdaptiveMeshRefinement(pinput, app_input);
     if (pmesh->modified) InitializeBlockTimeSteps();
     SetGlobalTimeStep();
     if (tm.time < tm.tlim) // skip the final output as it happens later
@@ -58,28 +95,16 @@ DriverStatus EvolutionDriver::Execute() {
     }
   } // END OF MAIN INTEGRATION LOOP ======================================================
 
-  pmesh->UserWorkAfterLoop(pinput, tm);
+  pmesh->UserWorkAfterLoop(pmesh, pinput, tm);
 
   DriverStatus status = DriverStatus::complete;
 
   pouts->MakeOutputs(pmesh, pinput, &tm);
-  Report(status);
-
+  PostExecute(status);
   return status;
 }
 
-void EvolutionDriver::InitializeBlockTimeSteps() {
-  // calculate the first time step
-  MeshBlock *pmb = pmesh->pblock;
-  while (pmb != nullptr) {
-    pmb->SetBlockTimestep(Update::EstimateTimestep(pmb->real_containers.Get()));
-    pmb = pmb->next;
-  }
-}
-
-void EvolutionDriver::Report(DriverStatus status) {
-  if (Globals::my_rank == 0) SignalHandler::CancelWallTimeAlarm();
-
+void EvolutionDriver::PostExecute(DriverStatus status) {
   // Print diagnostic messages related to the end of the simulation
   if (Globals::my_rank == 0) {
     OutputCycleDiagnostics();
@@ -102,6 +127,16 @@ void EvolutionDriver::Report(DriverStatus status) {
                 << std::endl;
     }
   }
+  Driver::PostExecute();
+}
+
+void EvolutionDriver::InitializeBlockTimeSteps() {
+  // calculate the first time step
+  MeshBlock *pmb = pmesh->pblock;
+  while (pmb != nullptr) {
+    pmb->SetBlockTimestep(Update::EstimateTimestep(pmb->real_containers.Get()));
+    pmb = pmb->next;
+  }
 }
 
 //----------------------------------------------------------------------------------------
@@ -120,7 +155,7 @@ void EvolutionDriver::SetGlobalTimeStep() {
   tm.dt = std::min(dt_max, tm.dt);
 
 #ifdef MPI_PARALLEL
-  MPI_Allreduce(MPI_IN_PLACE, &tm.dt, 1, MPI_ATHENA_REAL, MPI_MIN, MPI_COMM_WORLD);
+  MPI_Allreduce(MPI_IN_PLACE, &tm.dt, 1, MPI_PARTHENON_REAL, MPI_MIN, MPI_COMM_WORLD);
 #endif
 
   if (tm.time < tm.tlim &&

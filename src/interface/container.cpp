@@ -66,15 +66,14 @@ void Container<T>::Add(const std::string label, const Metadata &metadata,
   if (metadata.IsSet(Metadata::Sparse)) {
     // add a sparse variable
     if (sparseMap_.find(label) == sparseMap_.end()) {
-      auto sv = std::make_shared<SparseVariable<T>>(label, metadata, arrDims);
-      sparseMap_[label] = sv;
-      sparseVector_.push_back(sv);
+      auto sv = std::make_shared<SparseVariable<T>>(label, metadata);
+      Add(sv);
     }
     int varIndex = metadata.GetSparseId();
-    sparseMap_[label]->Add(varIndex);
+    sparseMap_[label]->Add(varIndex, arrDims);
     if (metadata.IsSet(Metadata::FillGhost)) {
-      CellVariable<T> &v = sparseMap_[label]->Get(varIndex);
-      v.allocateComms(pmy_block);
+      auto &v = sparseMap_[label]->Get(varIndex);
+      v->allocateComms(pmy_block);
     }
   } else if (metadata.Where() == Metadata::Edge) {
     // add an edge variable
@@ -94,12 +93,10 @@ void Container<T>::Add(const std::string label, const Metadata &metadata,
     }
     // add a face variable
     auto pfv = std::make_shared<FaceVariable<T>>(label, arrDims, metadata);
-    faceVector_.push_back(pfv);
-    faceMap_[label] = pfv;
+    Add(pfv);
   } else {
     auto sv = std::make_shared<CellVariable<T>>(label, arrDims, metadata);
-    varVector_.push_back(sv);
-    varMap_[label] = sv;
+    Add(sv);
     if (metadata.IsSet(Metadata::FillGhost)) {
       sv->allocateComms(pmy_block);
     }
@@ -182,32 +179,31 @@ Container<T>::Container(const Container<T> &src, const std::vector<MetadataFlag>
 
 // provides a container that has a single sparse slice
 template <typename T>
-Container<T> Container<T>::SparseSlice(int id) {
-  Container<T> c;
+std::shared_ptr<Container<T>> Container<T>::SparseSlice(int id) {
+  auto c = std::make_shared<Container<T>>();
 
   // copy in private data
-  c.pmy_block = pmy_block;
+  c->pmy_block = pmy_block;
 
   // Note that all standard arrays get added
   // add standard arrays
   for (auto v : varVector_) {
-    c.Add(v);
+    c->Add(v);
   }
   // for (auto v : s->_edgeVector) {
   //   EdgeVariable *vNew = new EdgeVariable(v->label(), *v);
   //   c.s->_edgeVector.push_back(vNew);
   // }
   for (auto v : faceVector_) {
-    c.Add(v);
+    c->Add(v);
   }
 
   // Now copy in the specific arrays
   for (auto v : sparseVector_) {
     int index = v->GetIndex(id);
     if (index >= 0) {
-      CellVariable<T> &vmat = v->Get(id);
-      auto sv = std::make_shared<CellVariable<T>>(vmat);
-      c.Add(sv);
+      auto &vmat = v->Get(id);
+      c->Add(vmat);
     }
   }
 
@@ -408,8 +404,32 @@ template <typename T>
 vpack_types::VarList<T> Container<T>::MakeList_(const std::vector<std::string> &names,
                                                 std::vector<std::string> &expanded_names,
                                                 const std::vector<int> sparse_ids) {
-  auto subcontainer = Container(*this, names, sparse_ids);
-  auto vars = subcontainer.MakeList_(expanded_names);
+  vpack_types::VarList<T> vars;
+  // for (const auto &name : names) {
+  for (auto n = names.rbegin(); n != names.rend(); ++n) {
+    auto it = varMap_.find(*n);
+    if (it != varMap_.end()) {
+      vars.push_front(it->second);
+      // expanded_names.push_back(name);
+      continue;
+    }
+    auto sit = sparseMap_.find(*n);
+    if (sit != sparseMap_.end()) {
+      if (sparse_ids.size() > 0) {
+        for (auto s = sparse_ids.rbegin(); s != sparse_ids.rend(); ++s) {
+          vars.push_front(Get(*n, *s));
+        }
+      } else {
+        auto &svec = (sit->second)->GetVector();
+        for (auto s = svec.rbegin(); s != svec.rend(); ++s) {
+          vars.push_front(*s);
+        }
+      }
+    }
+  }
+  for (auto &v : vars) {
+    expanded_names.push_back(v->label());
+  }
   return vars;
 }
 template <typename T>
@@ -429,7 +449,7 @@ void Container<T>::Remove(const std::string label) {
 }
 
 template <typename T>
-void Container<T>::SendFluxCorrection() {
+TaskStatus Container<T>::SendFluxCorrection() {
   for (auto &v : varVector_) {
     if (v->IsSet(Metadata::Independent)) {
       v->vbvar->SendFluxCorrection();
@@ -443,10 +463,11 @@ void Container<T>::SendFluxCorrection() {
       }
     }
   }
+  return TaskStatus::complete;
 }
 
 template <typename T>
-bool Container<T>::ReceiveFluxCorrection() {
+TaskStatus Container<T>::ReceiveFluxCorrection() {
   int success = 0, total = 0;
   for (auto &v : varVector_) {
     if (v->IsSet(Metadata::Independent)) {
@@ -463,14 +484,14 @@ bool Container<T>::ReceiveFluxCorrection() {
       }
     }
   }
-  return (success == total);
+  if (success == total) return TaskStatus::complete;
+  return TaskStatus::incomplete;
 }
 
 template <typename T>
-void Container<T>::SendBoundaryBuffers() {
+TaskStatus Container<T>::SendBoundaryBuffers() {
   // sends the boundary
   debug = 0;
-  //  std::cout << "_________SEND from stage:"<<s->name()<<std::endl;
   for (auto &v : varVector_) {
     if (v->IsSet(Metadata::FillGhost)) {
       v->resetBoundary();
@@ -487,7 +508,7 @@ void Container<T>::SendBoundaryBuffers() {
     }
   }
 
-  return;
+  return TaskStatus::complete;
 }
 
 template <typename T>
@@ -512,18 +533,17 @@ void Container<T>::SetupPersistentMPI() {
 }
 
 template <typename T>
-bool Container<T>::ReceiveBoundaryBuffers() {
+TaskStatus Container<T>::ReceiveBoundaryBuffers() {
   bool ret;
-  //  std::cout << "_________RECV from stage:"<<s->name()<<std::endl;
   ret = true;
   // receives the boundary
   for (auto &v : varVector_) {
-    if (v->IsSet(Metadata::FillGhost)) {
-      // ret = ret & v->vbvar->ReceiveBoundaryBuffers();
-      // In case we have trouble with multiple arrays causing
-      // problems with task status, we should comment one line
-      // above and uncomment the if block below
-      if (!v->mpiStatus) {
+    if (!v->mpiStatus) {
+      if (v->IsSet(Metadata::FillGhost)) {
+        // ret = ret & v->vbvar->ReceiveBoundaryBuffers();
+        // In case we have trouble with multiple arrays causing
+        // problems with task status, we should comment one line
+        // above and uncomment the if block below
         v->resetBoundary();
         v->mpiStatus = v->vbvar->ReceiveBoundaryBuffers();
         ret = (ret & v->mpiStatus);
@@ -543,11 +563,12 @@ bool Container<T>::ReceiveBoundaryBuffers() {
     }
   }
 
-  return ret;
+  if (ret) return TaskStatus::complete;
+  return TaskStatus::incomplete;
 }
 
 template <typename T>
-void Container<T>::ReceiveAndSetBoundariesWithWait() {
+TaskStatus Container<T>::ReceiveAndSetBoundariesWithWait() {
   //  std::cout << "_________RSET from stage:"<<s->name()<<std::endl;
   for (auto &v : varVector_) {
     if ((!v->mpiStatus) && v->IsSet(Metadata::FillGhost)) {
@@ -568,13 +589,14 @@ void Container<T>::ReceiveAndSetBoundariesWithWait() {
       }
     }
   }
+  return TaskStatus::complete;
 }
 // This really belongs in Container.cpp. However if I put it in there,
 // the meshblock file refuses to compile.  Don't know what's going on
 // there, but for now this is the workaround at the expense of code
 // bloat.
 template <typename T>
-void Container<T>::SetBoundaries() {
+TaskStatus Container<T>::SetBoundaries() {
   //    std::cout << "in set" << std::endl;
   // sets the boundary
   //  std::cout << "_________BSET from stage:"<<s->name()<<std::endl;
@@ -593,6 +615,7 @@ void Container<T>::SetBoundaries() {
       }
     }
   }
+  return TaskStatus::complete;
 }
 
 template <typename T>
@@ -613,7 +636,7 @@ void Container<T>::ResetBoundaryCellVariables() {
 }
 
 template <typename T>
-void Container<T>::StartReceiving(BoundaryCommSubset phase) {
+TaskStatus Container<T>::StartReceiving(BoundaryCommSubset phase) {
   //    std::cout << "in set" << std::endl;
   // sets the boundary
   //  std::cout << "________CLEAR from stage:"<<s->name()<<std::endl;
@@ -634,10 +657,11 @@ void Container<T>::StartReceiving(BoundaryCommSubset phase) {
       }
     }
   }
+  return TaskStatus::complete;
 }
 
 template <typename T>
-void Container<T>::ClearBoundary(BoundaryCommSubset phase) {
+TaskStatus Container<T>::ClearBoundary(BoundaryCommSubset phase) {
   //    std::cout << "in set" << std::endl;
   // sets the boundary
   //  std::cout << "________CLEAR from stage:"<<s->name()<<std::endl;
@@ -654,6 +678,7 @@ void Container<T>::ClearBoundary(BoundaryCommSubset phase) {
       }
     }
   }
+  return TaskStatus::complete;
 }
 
 template <typename T>

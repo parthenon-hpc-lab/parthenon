@@ -26,7 +26,7 @@
 #include <ostream>
 #include <string>
 
-#include "athena.hpp"
+#include "config.hpp"
 #include "defs.hpp"
 #include "outputs/io_wrapper.hpp"
 
@@ -98,7 +98,9 @@ class ParameterInput {
   int SetInteger(std::string block, std::string name, int value);
   Real GetReal(std::string block, std::string name);
   Real GetOrAddReal(std::string block, std::string name, Real value);
+  Real GetOrAddPrecise(std::string block, std::string name, Real value);
   Real SetReal(std::string block, std::string name, Real value);
+  Real SetPrecise(std::string block, std::string name, Real value);
   bool GetBoolean(std::string block, std::string name);
   bool GetOrAddBoolean(std::string block, std::string name, bool value);
   bool SetBoolean(std::string block, std::string name, bool value);

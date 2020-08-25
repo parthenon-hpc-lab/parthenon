@@ -15,30 +15,11 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#include <cstdlib>
-#include <fstream>
-#include <iomanip>
-#include <sstream>
-
-#include "parthenon_mpi.hpp"
-
-#include "athena.hpp"
-#include "coordinates/coordinates.hpp"
-#include "globals.hpp"
-#include "interface/container_iterator.hpp"
-#include "mesh/mesh.hpp"
-#include "outputs/outputs.hpp"
-#include "parameter_input.hpp"
-#include "parthenon_arrays.hpp"
-
 // Only proceed if HDF5 output enabled
+
+#include "outputs/parthenon_hdf5.hpp"
+
 #ifdef HDF5OUTPUT
-
-#include <hdf5.h>
-
-#define PREDINT32 H5T_NATIVE_INT32
-#define PREDFLOAT64 H5T_NATIVE_DOUBLE
-#define PREDCHAR H5T_NATIVE_CHAR
 
 namespace parthenon {
 
@@ -108,39 +89,6 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, std::string &name,
     fid << prefix << "</Attribute>" << std::endl;
   }
   return;
-}
-
-static herr_t writeH5AI32(const char *name, const int *pData, hid_t &file,
-                          const hid_t &dSpace, const hid_t &dSet) {
-  // write an attribute to file
-  herr_t status; // assumption that multiple errors are stacked in calls.
-  hid_t attribute;
-  attribute = H5Acreate(dSet, name, PREDINT32, dSpace, H5P_DEFAULT, H5P_DEFAULT);
-  status = H5Awrite(attribute, PREDINT32, pData);
-  status = H5Aclose(attribute);
-  return status;
-}
-
-static herr_t writeH5AF64(const char *name, const Real *pData, hid_t &file,
-                          const hid_t &dSpace, const hid_t &dSet) {
-  // write an attribute to file
-  herr_t status; // assumption that multiple errors are stacked in calls.
-  hid_t attribute;
-  attribute = H5Acreate(dSet, name, PREDFLOAT64, dSpace, H5P_DEFAULT, H5P_DEFAULT);
-  status = H5Awrite(attribute, PREDFLOAT64, pData);
-  status = H5Aclose(attribute);
-  return status;
-}
-
-static herr_t writeH5ASTRING(const char *name, const std::string pData, hid_t &file,
-                             const hid_t &dSpace, const hid_t &dSet) {
-  auto atype = H5Tcopy(H5T_C_S1);
-  auto status = H5Tset_size(atype, pData.length());
-  status = H5Tset_strpad(atype, H5T_STR_NULLTERM);
-  auto attribute = H5Acreate(dSet, name, atype, dSpace, H5P_DEFAULT, H5P_DEFAULT);
-  status = H5Awrite(attribute, atype, pData.c_str());
-  status = H5Aclose(attribute);
-  return status;
 }
 
 void PHDF5Output::genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm) {
@@ -242,42 +190,6 @@ void PHDF5Output::genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm) {
 
   return;
 }
-
-// loads a variable
-#define LOADVARIABLE(dst, pmb, var, out_is, out_ie, out_js, out_je, out_ks, out_ke)      \
-  {                                                                                      \
-    int index = 0;                                                                       \
-    while (pmb != nullptr) {                                                             \
-      for (int k = out_ks; k <= out_ke; k++) {                                           \
-        for (int j = out_js; j <= out_je; j++) {                                         \
-          for (int i = out_is; i <= out_ie; i++) {                                       \
-            tmpData[index] = var(k, j, i);                                               \
-            index++;                                                                     \
-          }                                                                              \
-        }                                                                                \
-      }                                                                                  \
-      pmb = pmb->next;                                                                   \
-    }                                                                                    \
-  }
-
-#define WRITEH5SLAB2(name, pData, theLocation, Starts, Counts, lDSpace, gDSpace, plist)  \
-  {                                                                                      \
-    hid_t gDSet = H5Dcreate(theLocation, name, H5T_NATIVE_DOUBLE, gDSpace, H5P_DEFAULT,  \
-                            H5P_DEFAULT, H5P_DEFAULT);                                   \
-    H5Sselect_hyperslab(gDSpace, H5S_SELECT_SET, Starts, NULL, Counts, NULL);            \
-    H5Dwrite(gDSet, H5T_NATIVE_DOUBLE, lDSpace, gDSpace, plist, pData);                  \
-    H5Dclose(gDSet);                                                                     \
-  }
-#define WRITEH5SLAB(name, pData, theLocation, localStart, localCount, globalCount,       \
-                    plist)                                                               \
-  {                                                                                      \
-    hid_t lDSpace = H5Screate_simple(2, localCount, NULL);                               \
-    hid_t gDSpace = H5Screate_simple(2, globalCount, NULL);                              \
-    WRITEH5SLAB2(name, pData, theLocation, localStart, localCount, lDSpace, gDSpace,     \
-                 plist);                                                                 \
-    H5Sclose(gDSpace);                                                                   \
-    H5Sclose(lDSpace);                                                                   \
-  }
 
 //----------------------------------------------------------------------------------------
 //! \fn void PHDF5Output:::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag)
@@ -458,21 +370,21 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   global_count[0] = max_blocks_global;
 
   pmb = pm->pblock;
-  LOADVARIABLE(tmpData, pmb, pmb->coords.x1f, out_ib.s, out_ib.e + 1, 0, 0, 0, 0);
+  LOADVARIABLEALL(tmpData, pmb, pmb->coords.x1f, out_ib.s, out_ib.e + 1, 0, 0, 0, 0);
   local_count[1] = global_count[1] = nx1 + 1;
   WRITEH5SLAB("x", tmpData, gLocations, local_start, local_count, global_count,
               property_list);
 
   // write Y coordinates
   pmb = pm->pblock;
-  LOADVARIABLE(tmpData, pmb, pmb->coords.x2f, 0, 0, out_jb.s, out_jb.e + 1, 0, 0);
+  LOADVARIABLEALL(tmpData, pmb, pmb->coords.x2f, 0, 0, out_jb.s, out_jb.e + 1, 0, 0);
   local_count[1] = global_count[1] = nx2 + 1;
   WRITEH5SLAB("y", tmpData, gLocations, local_start, local_count, global_count,
               property_list);
 
   // write Z coordinates
   pmb = pm->pblock;
-  LOADVARIABLE(tmpData, pmb, pmb->coords.x3f, 0, 0, 0, 0, out_kb.s, out_kb.e + 1);
+  LOADVARIABLEALL(tmpData, pmb, pmb->coords.x3f, 0, 0, 0, 0, out_kb.s, out_kb.e + 1);
   local_count[1] = global_count[1] = nx3 + 1;
   WRITEH5SLAB("z", tmpData, gLocations, local_start, local_count, global_count,
               property_list);
@@ -533,25 +445,8 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
         }
         auto v_h = (*v).data.GetHostMirrorAndCopy();
         hsize_t index = pmb->lid * varSize * vlen;
-        if (vlen == 1) {
-          for (int k = out_kb.s; k <= out_kb.e; k++) {
-            for (int j = out_jb.s; j <= out_jb.e; j++) {
-              for (int i = out_ib.s; i <= out_ib.e; i++, index++) {
-                tmpData[index] = v_h(k, j, i);
-              }
-            }
-          }
-        } else { // shuffle and use new dataspace
-          for (int k = out_kb.s; k <= out_kb.e; k++) {
-            for (int j = out_jb.s; j <= out_jb.e; j++) {
-              for (int i = out_ib.s; i <= out_ib.e; i++) {
-                for (int l = 0; l < vlen; l++, index++) {
-                  tmpData[index] = v_h(l, k, j, i);
-                }
-              }
-            }
-          }
-        }
+        LOADVARIABLEONE(index, tmpData, v_h, out_ib.s, out_ib.e, out_jb.s, out_jb.e,
+                        out_kb.s, out_kb.e, vlen)
       }
       pmb = pmb->next;
     }

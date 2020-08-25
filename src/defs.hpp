@@ -14,16 +14,17 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef ATHENA_HPP_
-#define ATHENA_HPP_
-//! \file athena.hpp
+#ifndef DEFS_HPP_
+#define DEFS_HPP_
+//! \file defs.hpp
 //  \brief contains Athena++ general purpose types, structures, enums, etc.
 
 #include <cmath>
 #include <cstdint>
+#include <memory>
 
 #include "basic_types.hpp"
-#include "defs.hpp"
+#include "config.hpp"
 #include "parthenon_arrays.hpp"
 
 namespace parthenon {
@@ -137,6 +138,19 @@ using MGBoundaryFunc = void (*)(ParArrayND<Real> &dst, Real time, int nvar, int 
                                 int ie, int js, int je, int ks, int ke, int ngh, Real x0,
                                 Real y0, Real z0, Real dx, Real dy, Real dz);
 
+//----------------------------------------------------------------------------------------
+// Opaque pointer to application data
+class MeshBlockApplicationData {
+ public:
+  // make this pure virtual so that this class cannot be instantiated
+  // (only derived classes can be instantiated)
+  virtual ~MeshBlockApplicationData() = 0;
+};
+using pMeshBlockApplicationData_t = std::unique_ptr<MeshBlockApplicationData>;
+
+// we still need to define this somewhere, though
+inline MeshBlockApplicationData::~MeshBlockApplicationData() {}
+
 } // namespace parthenon
 
-#endif // ATHENA_HPP_
+#endif // DEFS_HPP_

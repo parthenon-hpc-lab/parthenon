@@ -15,7 +15,7 @@
 
 #include <limits>
 
-#include "defs.hpp"
+#include "config.hpp"
 
 namespace parthenon {
 
@@ -23,12 +23,12 @@ namespace parthenon {
 #if SINGLE_PRECISION_ENABLED
 using Real = float;
 #ifdef MPI_PARALLEL
-#define MPI_ATHENA_REAL MPI_FLOAT
+#define MPI_PARTHENON_REAL MPI_FLOAT
 #endif
 #else
 using Real = double;
 #ifdef MPI_PARALLEL
-#define MPI_ATHENA_REAL MPI_DOUBLE
+#define MPI_PARTHENON_REAL MPI_DOUBLE
 #endif
 #endif
 
@@ -38,10 +38,9 @@ enum class AmrTag : int { derefine = -1, same = 0, refine = 1 };
 struct SimTime {
   SimTime() = default;
   SimTime(const Real tstart, const Real tstop, const int nmax, const int ncurr,
-          const int nout)
-      : start_time(tstart), time(tstart), tlim(tstop),
-        dt(std::numeric_limits<Real>::max()), nlim(nmax), ncycle(ncurr),
-        ncycle_out(nout) {}
+          const int nout, const Real dt_in = std::numeric_limits<Real>::max())
+      : start_time(tstart), time(tstart), tlim(tstop), dt(dt_in), nlim(nmax),
+        ncycle(ncurr), ncycle_out(nout) {}
   // beginning time, current time, maximum time, time step
   Real start_time, time, tlim, dt;
   // current cycle number, maximum number of cycles, cycles between diagnostic output

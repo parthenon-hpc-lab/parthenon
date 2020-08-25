@@ -11,8 +11,8 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
 
-cmake_minimum_required(VERSION 3.10)
-project(parthenon LANGUAGES C CXX)
+cmake_minimum_required(VERSION 3.12)
+project(parthenon VERSION 0.1.0 LANGUAGES C CXX)
 
 include(CTest)
 
@@ -24,19 +24,49 @@ option(PARTHENON_SINGLE_PRECISION "Run in single precision" OFF)
 option(PARTHENON_DISABLE_MPI "MPI is enabled by default if found, set this to True to disable MPI" OFF)
 option(PARTHENON_DISABLE_OPENMP "OpenMP is enabled by default if found, set this to True to disable OpenMP" OFF)
 option(PARTHENON_DISABLE_HDF5 "HDF5 is enabled by default if found, set this to True to disable HDF5" OFF)
+option(
+  PARTHENON_LINT_DEFAULT
+  "Sources files are linted when building the default target. Set to OFF to \
+stop linting by default. You can still lint using the \"lint\" target"
+  ON
+)
+option(
+  PARTHENON_DISABLE_EXAMPLES
+  "Example drivers are built by default, set this to True to diable, note if regression tests are \
+built some, drivers needed by the regression tests will still be built."
+  OFF
+)
 
-option(ENABLE_UNIT_TESTS "Enable unit tests" ${BUILD_TESTING})
-option(ENABLE_INTEGRATION_TESTS "Enable integration tests" ${BUILD_TESTING})
-option(ENABLE_REGRESSION_TESTS "Enable regression tests" ${BUILD_TESTING})
+option(PARTHENON_ENABLE_UNIT_TESTS "Enable unit tests" ${BUILD_TESTING})
+option(PARTHENON_ENABLE_INTEGRATION_TESTS "Enable integration tests" ${BUILD_TESTING})
+option(PARTHENON_ENABLE_PERFORMANCE_TESTS "Enable performance tests" ${BUILD_TESTING})
+option(PARTHENON_ENABLE_REGRESSION_TESTS "Enable regression tests" ${BUILD_TESTING})
 option(ENABLE_COMPILER_WARNINGS "Enable compiler warnings" OFF)
 option(CHECK_REGISTRY_PRESSURE "Check the registry pressure for Kokkos CUDA kernels" OFF)
 option(TEST_INTEL_OPTIMIZATION "Test intel optimization and vectorization" OFF)
 option(TEST_ERROR_CHECKING "Enables the error checking unit test. This test will FAIL" OFF)
+option(CODE_COVERAGE "Enable code coverage reporting" OFF)
+
+# Default to an external Kokkos package if the submodule is not populated
+if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/external/Kokkos/CMakeLists.txt" AND NOT EXISTS "${Kokkos_ROOT}/CMakeLists.txt")
+    option(PARTHENON_IMPORT_KOKKOS "If ON, attempt to link to an external Kokkos library. If OFF, build Kokkos from source and package with Parthenon" ON)
+else()
+    option(PARTHENON_IMPORT_KOKKOS "If ON, attempt to link to an external Kokkos library. If OFF, build Kokkos from source and package with Parthenon" OFF)
+endif()
 
 include(cmake/Format.cmake)
+include(cmake/Lint.cmake)
 
 # internal variable for number of ghost cells
 set(NUMBER_GHOST_CELLS ${PARTHENON_NGHOST})
+<<<<<<< HEAD
+=======
+
+# regression test reference data
+set(REGRESSION_GOLD_STANDARD_VER 2 CACHE STRING "Version of gold standard to download and use")
+set(REGRESSION_GOLD_STANDARD_HASH "SHA512=45f57d16b76a3a44940e40ea642c1d5a2b3aea681a3064e4c06b031bf264d627f8009e967b92a2cb0fbc08e5cd0ffda381038483f390fa00f47c42a551ca3646" CACHE STRING "Hash of default gold standard file to download")
+option(REGRESSION_GOLD_STANDARD_SYNC "Automatically sync gold standard files." ON)
+>>>>>>> upstream/develop
 
 # set single precision #define
 if ( PARTHENON_SINGLE_PRECISION )
@@ -46,6 +76,21 @@ else()
 endif()
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+include(cmake/CodeCov.cmake)
+if(CODE_COVERAGE)
+  if( NOT COVERAGE_NAME)
+    SET(COVERAGE_NAME "coverage_reports")
+  endif()
+  if( NOT COVERAGE_PATH)
+    SET(COVERAGE_PATH "${CMAKE_BINARY_DIR}/coverage")
+  endif()
+  SET(GCC_COVERAGE_COMPILE_FLAGS "--coverage")
+  SET(GCC_COVERAGE_LINK_FLAGS    "--coverage")
+endif()
+
+SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} ${GCC_COVERAGE_COMPILE_FLAGS}")
+SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} ${GCC_COVERAGE_LINK_FLAGS}")
 
 # Don't allow in-source builds
 file(TO_CMAKE_PATH "${PROJECT_BINARY_DIR}/CMakeLists.txt" LOC_PATH)
@@ -85,6 +130,7 @@ if (NOT PARTHENON_DISABLE_OPENMP)
     "If you want to build Parthenon without OpenMP, please rerun CMake with -DPARTHENON_DISABLE_OPENMP=ON")
   endif()
   set(ENABLE_OPENMP ON)
+  set(Kokkos_ENABLE_OPENMP ON CACHE BOOL "Allow Kokkos to use OpenMP")
 endif()
 
 if (Kokkos_ENABLE_CUDA AND TEST_INTEL_OPTIMIZATION)
@@ -116,6 +162,8 @@ if (NOT PARTHENON_DISABLE_HDF5)
   target_link_libraries(HDF5_C INTERFACE ${HDF5_C_LIBRARIES})
   target_compile_definitions(HDF5_C INTERFACE ${HDF5_C_DEFINITIONS})
   target_include_directories(HDF5_C INTERFACE ${HDF5_C_INCLUDE_DIRS})
+
+  install(TARGETS HDF5_C EXPORT parthenonTargets)
 endif()
 
 # Kokkos recommendatation resulting in not using default GNU extensions
@@ -151,17 +199,49 @@ endif()
 
 # We want Kokkos to be built with C++14, since that's what we're using in
 # Parthenon.
-set(Kokkos_CXX_STANDARD 14)
-if(EXISTS ${Kokkos_ROOT}/CMakeLists.txt)
-  add_subdirectory(${Kokkos_ROOT} Kokkos)
-elseif(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/external/Kokkos/CMakeLists.txt)
-  add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/external/Kokkos Kokkos)
+set(CMAKE_CXX_STANDARD 14)
+if (PARTHENON_IMPORT_KOKKOS)
+  find_package(Kokkos 3)
+  if (NOT Kokkos_FOUND)
+    unset(PARTHENON_IMPORT_KOKKOS CACHE)
+    message(FATAL_ERROR "Could not find external Kokkos. Consider importing a Kokkos installation into your environment or disabling external Kokkos with e.g. -DPARTHENON_IMPORT_KOKKOS=OFF")
+  endif()
 else()
-  find_package(Kokkos 3 REQUIRED)
+  if (EXISTS ${Kokkos_ROOT}/CMakeLists.txt)
+    add_subdirectory(${Kokkos_ROOT} Kokkos)
+  elseif(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/external/Kokkos/CMakeLists.txt)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/external/Kokkos Kokkos)
+  else()
+    message(FATAL_ERROR "Could not find Kokkos source. Consider running `git submodule update --init`, providing the path to a Kokkos source directory with Kokkos_ROOT, or setting PARTHENON_IMPORT_KOKKOS=ON to link to an external Kokkos installation.")
+  endif()
 endif()
 
 # Build Tests and download Catch2
-if (${ENABLE_UNIT_TESTS} OR ${ENABLE_INTEGRATION_TESTS} OR ${ENABLE_REGRESSION_TESTS})
+if (${PARTHENON_ENABLE_UNIT_TESTS} OR ${PARTHENON_ENABLE_INTEGRATION_TESTS} OR ${PARTHENON_ENABLE_REGRESSION_TESTS} OR ${PARTHENON_ENABLE_PERFORMANCE_TESTS})
+
+  # if running regression test automatically synch gold standard
+  if (${PARTHENON_ENABLE_REGRESSION_TESTS} AND ${REGRESSION_GOLD_STANDARD_SYNC})
+    if (EXISTS ${PROJECT_SOURCE_DIR}/tst/regression/gold_standard/current_version)
+      file(READ ${PROJECT_SOURCE_DIR}/tst/regression/gold_standard/current_version REGRESSION_GOLD_STANDARD_ON_DISK)
+    else()
+      set(REGRESSION_GOLD_STANDARD_ON_DISK 0)
+    endif()
+    if (NOT (${REGRESSION_GOLD_STANDARD_ON_DISK} EQUAL ${REGRESSION_GOLD_STANDARD_VER}))
+      message(STATUS "Attempting to download latest gold standard files for regression tests. To disable set REGRESSION_GOLD_STANDARD_SYNC=OFF.")
+      file(
+        DOWNLOAD https://github.com/lanl/parthenon/releases/download/regression-gold-v${REGRESSION_GOLD_STANDARD_VER}/parthenon_regression_gold_v${REGRESSION_GOLD_STANDARD_VER}.tgz ${PROJECT_SOURCE_DIR}/tst/regression/gold_standard/parthenon_regression_gold_v${REGRESSION_GOLD_STANDARD_VER}.tgz
+        EXPECTED_HASH ${REGRESSION_GOLD_STANDARD_HASH}
+        )
+      execute_process(
+        COMMAND ${CMAKE_COMMAND} -E tar xzf ${PROJECT_SOURCE_DIR}/tst/regression/gold_standard/parthenon_regression_gold_v${REGRESSION_GOLD_STANDARD_VER}.tgz
+        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/tst/regression/gold_standard/
+        )
+      message(STATUS "  Download of gold standard successful.")
+    else()
+      message(STATUS "Gold standard is up-to-date. No download required.")
+    endif()
+  endif()
+
   # Try finding an installed Catch2 first
   find_package(Catch2 2.11.1 QUIET)
 
@@ -184,7 +264,7 @@ if (${ENABLE_UNIT_TESTS} OR ${ENABLE_INTEGRATION_TESTS} OR ${ENABLE_REGRESSION_T
 endif()
 
 # Globally turn on useful intel and/or nvcc compiler output
-if (${KOKKOS_ENABLE_CUDA})
+if (Kokkos_ENABLE_CUDA)
   if(CHECK_REGISTRY_PRESSURE)
     add_compile_options(-Xptxas=-v)
   endif()
@@ -195,13 +275,12 @@ if (TEST_INTEL_OPTIMIZATION)
 endif()
 
 add_subdirectory(src)
-add_subdirectory(example/advection)
-add_subdirectory(example/calculate_pi)
-add_subdirectory(example/face_fields)
-add_subdirectory(example/particles)
-add_subdirectory(example/kokkos_pi)
+add_subdirectory(example)
 
+create_pathenon_coverage_targets()
 include(cmake/CheckCopyright.cmake)
+
+configure_file("${PROJECT_SOURCE_DIR}/cmake/parthenonConfig.cmake.in" "${PROJECT_BINARY_DIR}/cmake/parthenonConfig.cmake" @ONLY)
 
 # Currently Ctest/Cmake doesn't ensure that tests are not stale
 # before running them.

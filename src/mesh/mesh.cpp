@@ -33,24 +33,26 @@
 
 #include "parthenon_mpi.hpp"
 
-#include "athena.hpp"
 #include "bvals/boundary_conditions.hpp"
 #include "bvals/bvals.hpp"
+#include "defs.hpp"
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock_tree.hpp"
-#include "outputs/io_wrapper.hpp"
+#include "outputs/restart.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/buffer_utils.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
 //----------------------------------------------------------------------------------------
 // Mesh constructor, builds mesh at start of calculation using parameters in input file
 
-Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
+Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properties,
+           Packages_t &packages,
            int mesh_test)
     : // public members:
       modified(true),
@@ -113,7 +115,7 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
         << "Number of OpenMP threads must be >= 1, but num_threads=" << num_mesh_threads_
         << std::endl;
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
 
   // check number of grid cells in root level of mesh from input file.
@@ -121,25 +123,25 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
         << "In mesh block in input file nx1 must be >= 1, but nx1=" << mesh_size.nx1
         << std::endl;
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
   if (mesh_size.nx2 < 1) {
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
         << "In mesh block in input file nx2 must be >= 1, but nx2=" << mesh_size.nx2
         << std::endl;
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
   if (mesh_size.nx3 < 1) {
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
         << "In mesh block in input file nx3 must be >= 1, but nx3=" << mesh_size.nx3
         << std::endl;
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
   if (mesh_size.nx2 == 1 && mesh_size.nx3 > 1) {
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
         << "In mesh block in input file: nx2=1, nx3=" << mesh_size.nx3
         << ", 2D problems in x1-x3 plane not supported" << std::endl;
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
 
   // check physical size of mesh (root level) from input file.
@@ -147,19 +149,30 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
         << "Input x1max must be larger than x1min: x1min=" << mesh_size.x1min
         << " x1max=" << mesh_size.x1max << std::endl;
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
   if (mesh_size.x2max <= mesh_size.x2min) {
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
         << "Input x2max must be larger than x2min: x2min=" << mesh_size.x2min
         << " x2max=" << mesh_size.x2max << std::endl;
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
   if (mesh_size.x3max <= mesh_size.x3min) {
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
         << "Input x3max must be larger than x3min: x3min=" << mesh_size.x3min
         << " x3max=" << mesh_size.x3max << std::endl;
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
+  }
+
+  // Allow for user overrides to default Parthenon functions
+  if (app_in->InitUserMeshData != nullptr) {
+    InitUserMeshData = app_in->InitUserMeshData;
+  }
+  if (app_in->MeshUserWorkInLoop != nullptr) {
+    UserWorkInLoop = app_in->MeshUserWorkInLoop;
+  }
+  if (app_in->UserWorkAfterLoop != nullptr) {
+    UserWorkAfterLoop = app_in->UserWorkAfterLoop;
   }
 
   // check the consistency of the periodic boundaries
@@ -180,7 +193,7 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
         << "When periodic boundaries are in use, both sides must be periodic."
         << std::endl;
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
 
   // read and set MeshBlock parameters
@@ -202,13 +215,13 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
       mesh_size.nx3 % block_size.nx3 != 0) {
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
         << "the Mesh must be evenly divisible by the MeshBlock" << std::endl;
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
   if (block_size.nx1 < 4 || (block_size.nx2 < 4 && (ndim >= 2)) ||
       (block_size.nx3 < 4 && (ndim >= 3))) {
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
         << "block_size must be larger than or equal to 4 cells." << std::endl;
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
 
   // calculate the number of the blocks
@@ -256,7 +269,7 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
       msg << "### FATAL ERROR in Mesh constructor" << std::endl
           << "The number of the refinement level must be smaller than "
           << 63 - root_level + 1 << "." << std::endl;
-      ATHENA_ERROR(msg);
+      PARTHENON_FAIL(msg);
     }
   } else {
     max_level = 63;
@@ -270,7 +283,7 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
       msg << "### FATAL ERROR in Mesh constructor" << std::endl
           << "The size of MeshBlock must be divisible by 2 in order to use SMR or AMR."
           << std::endl;
-      ATHENA_ERROR(msg);
+      PARTHENON_FAIL(msg);
     }
 
     InputBlock *pib = pin->pfirst_block;
@@ -300,7 +313,7 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
         if (ref_lev < 1) {
           msg << "### FATAL ERROR in Mesh constructor" << std::endl
               << "Refinement level must be larger than 0 (root level = 0)" << std::endl;
-          ATHENA_ERROR(msg);
+          PARTHENON_FAIL(msg);
         }
         if (lrlev > max_level) {
           msg << "### FATAL ERROR in Mesh constructor" << std::endl
@@ -308,20 +321,20 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
               << "'maxlevel' parameter in <parthenon/mesh> input block if adaptive)."
               << std::endl;
 
-          ATHENA_ERROR(msg);
+          PARTHENON_FAIL(msg);
         }
         if (ref_size.x1min > ref_size.x1max || ref_size.x2min > ref_size.x2max ||
             ref_size.x3min > ref_size.x3max) {
           msg << "### FATAL ERROR in Mesh constructor" << std::endl
               << "Invalid refinement region is specified." << std::endl;
-          ATHENA_ERROR(msg);
+          PARTHENON_FAIL(msg);
         }
         if (ref_size.x1min < mesh_size.x1min || ref_size.x1max > mesh_size.x1max ||
             ref_size.x2min < mesh_size.x2min || ref_size.x2max > mesh_size.x2max ||
             ref_size.x3min < mesh_size.x3min || ref_size.x3max > mesh_size.x3max) {
           msg << "### FATAL ERROR in Mesh constructor" << std::endl
               << "Refinement region must be smaller than the whole mesh." << std::endl;
-          ATHENA_ERROR(msg);
+          PARTHENON_FAIL(msg);
         }
         // find the logical range in the ref_level
         // note: if this is too slow, this should be replaced with bi-section search.
@@ -418,7 +431,7 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
       msg << "### FATAL ERROR in Mesh constructor" << std::endl
           << "Too few mesh blocks: nbtotal (" << nbtotal << ") < nranks ("
           << Globals::nranks << ")" << std::endl;
-      ATHENA_ERROR(msg);
+      PARTHENON_FAIL(msg);
     } else { // test
       std::cout << "### Warning in Mesh constructor" << std::endl
                 << "Too few mesh blocks: nbtotal (" << nbtotal << ") < nranks ("
@@ -465,11 +478,11 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
     // create a block and add into the link list
     if (i == nbs) {
       pblock = new MeshBlock(i, i - nbs, loclist[i], block_size, block_bcs, this, pin,
-                             properties, packages, gflag);
+                             app_in, properties, packages, gflag);
       pfirst = pblock;
     } else {
       pblock->next = new MeshBlock(i, i - nbs, loclist[i], block_size, block_bcs, this,
-                                   pin, properties, packages, gflag);
+                                   pin, app_in, properties, packages, gflag);
       pblock->next->prev = pblock;
       pblock = pblock->next;
     }
@@ -482,12 +495,13 @@ Mesh::Mesh(ParameterInput *pin, Properties_t &properties, Packages_t &packages,
 
 //----------------------------------------------------------------------------------------
 // Mesh constructor for restarts. Load the restart file
-#if 0
-Mesh::Mesh(ParameterInput *pin, IOWrapper &resfile, Properties_t &properties,
-           Packages_t &packages, int mesh_test)
+Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
+           Properties_t &properties, Packages_t &packages, int mesh_test)
     : // public members:
       // aggregate initialization of RegionSize struct:
       // (will be overwritten by memcpy from restart file, in this case)
+      modified(true),
+      // aggregate initialization of RegionSize struct:
       mesh_size{pin->GetReal("parthenon/mesh", "x1min"),
                 pin->GetReal("parthenon/mesh", "x2min"),
                 pin->GetReal("parthenon/mesh", "x3min"),
@@ -500,45 +514,36 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper &resfile, Properties_t &properties,
                 pin->GetInteger("parthenon/mesh", "nx1"),
                 pin->GetInteger("parthenon/mesh", "nx2"),
                 pin->GetInteger("parthenon/mesh", "nx3")},
-      mesh_bcs{GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix1_bc", "none")),
-               GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox1_bc", "none")),
-               GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix2_bc", "none")),
-               GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox2_bc", "none")),
-               GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix3_bc", "none")),
-               GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox3_bc", "none"))},
+      mesh_bcs{
+          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix1_bc", "reflecting")),
+          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox1_bc", "reflecting")),
+          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix2_bc", "reflecting")),
+          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox2_bc", "reflecting")),
+          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix3_bc", "reflecting")),
+          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox3_bc", "reflecting"))},
       ndim((mesh_size.nx3 > 1) ? 3 : ((mesh_size.nx2 > 1) ? 2 : 1)),
-      adaptive(pin->GetOrAddString("parthenon/mesh", "refinement", "none")
-                                                        == "adaptive" ? true : false),
-      multilevel(
-          (adaptive ||
-           pin->GetOrAddString("parthenon/mesh", "refinement", "none") == "static")
-              ? true
-              : false),
-      start_time(pin->GetOrAddReal("parthenon/time", "start_time", 0.0)),
-      time(start_time),
-      tlim(pin->GetReal("parthenon/time", "tlim")), dt(std::numeric_limits<Real>::max()),
-      dt_hyperbolic(dt), dt_parabolic(dt), dt_user(dt),
-      nlim(pin->GetOrAddInteger("parthenon/time", "nlim", -1)), ncycle(),
-      ncycle_out(pin->GetOrAddInteger("parthenon/time", "ncycle_out", 1)),
-      dt_diagnostics(pin->GetOrAddInteger("parthenon/time", "dt_diagnostics", -1)),
-      nbnew(),
-      nbdel(), step_since_lb(), gflag(), pblock(nullptr), properties(properties),
+      adaptive(pin->GetOrAddString("parthenon/mesh", "refinement", "none") == "adaptive"
+                   ? true
+                   : false),
+      multilevel((adaptive ||
+                  pin->GetOrAddString("parthenon/mesh", "refinement", "none") == "static")
+                     ? true
+                     : false),
+      nbnew(), nbdel(), step_since_lb(), gflag(), pblock(nullptr), properties(properties),
       packages(packages),
       // private members:
       next_phys_id_(),
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
-      tree(this), use_uniform_meshgen_fn_{true, true, true}, nreal_user_mesh_data_(),
-      nint_user_mesh_data_(), nuser_history_output_(), lb_flag_(true), lb_automatic_(),
-      lb_manual_(), MeshGenerator_{UniformMeshGeneratorX1, UniformMeshGeneratorX2,
-                                   UniformMeshGeneratorX3},
+      tree(this), use_uniform_meshgen_fn_{true, true, true, true},
+      nuser_history_output_(), lb_flag_(true), lb_automatic_(),
+      lb_manual_(), MeshGenerator_{nullptr, UniformMeshGeneratorX1,
+                                   UniformMeshGeneratorX2, UniformMeshGeneratorX3},
       BoundaryFunction_{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, AMRFlag_{},
-      UserSourceTerm_{}, UserTimeStep_{}, FieldDiffusivity_{} {
+      UserSourceTerm_{}, UserTimeStep_{} {
   std::stringstream msg;
   RegionSize block_size;
-  BoundaryFlag block_bcs[6];
   MeshBlock *pfirst{};
-  IOWrapperSizeT *offset{};
-  IOWrapperSizeT datasize, listsize, headeroffset;
+  BoundaryFlag block_bcs[6];
 
   // mesh test
   if (mesh_test > 0) Globals::nranks = mesh_test;
@@ -554,57 +559,57 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper &resfile, Properties_t &properties,
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
         << "Number of OpenMP threads must be >= 1, but num_threads=" << num_mesh_threads_
         << std::endl;
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
 
-  // get the end of the header
-  headeroffset = resfile.GetPosition();
   // read the restart file
   // the file is already open and the pointer is set to after <par_end>
-  IOWrapperSizeT headersize =
-      sizeof(int) * 3 + sizeof(Real) * 2 + sizeof(RegionSize) + sizeof(IOWrapperSizeT);
-  char *headerdata = new char[headersize];
-  if (Globals::my_rank == 0) { // the master process reads the header data
-    if (resfile.Read(headerdata, 1, headersize) != headersize) {
-      msg << "### FATAL ERROR in Mesh constructor" << std::endl
-          << "The restart file is broken." << std::endl;
-      ATHENA_ERROR(msg);
-    }
-  }
-#ifdef MPI_PARALLEL
-  // then broadcast the header data
-  MPI_Bcast(headerdata, headersize, MPI_BYTE, 0, MPI_COMM_WORLD);
-#endif
-  IOWrapperSizeT hdos = 0;
-  std::memcpy(&nbtotal, &(headerdata[hdos]), sizeof(int));
-  hdos += sizeof(int);
-  std::memcpy(&root_level, &(headerdata[hdos]), sizeof(int));
-  hdos += sizeof(int);
-  current_level = root_level;
-  std::memcpy(&mesh_size, &(headerdata[hdos]), sizeof(RegionSize));
-  hdos += sizeof(RegionSize);
-  std::memcpy(&time, &(headerdata[hdos]), sizeof(Real));
-  hdos += sizeof(Real);
-  std::memcpy(&dt, &(headerdata[hdos]), sizeof(Real));
-  hdos += sizeof(Real);
-  std::memcpy(&ncycle, &(headerdata[hdos]), sizeof(int));
-  hdos += sizeof(int);
-  std::memcpy(&datasize, &(headerdata[hdos]), sizeof(IOWrapperSizeT));
-  hdos += sizeof(IOWrapperSizeT); // (this updated value is never used)
 
-  delete[] headerdata;
+  // All ranks read HDF file
+  nbtotal = rr.GetAttr<int>("Mesh", "nbtotal");
+  root_level = rr.GetAttr<int32_t>("Mesh", "rootLevel");
+
+  auto bc = rr.ReadAttr1DReal("Mesh", "bc");
+  for (int i = 0; i < 6; i++) {
+    block_bcs[i] = static_cast<BoundaryFlag>(bc[i]);
+  }
+
+  // Allow for user overrides to default Parthenon functions
+  if (app_in->InitUserMeshData != nullptr) {
+    InitUserMeshData = app_in->InitUserMeshData;
+  }
+  if (app_in->MeshUserWorkInLoop != nullptr) {
+    UserWorkInLoop = app_in->MeshUserWorkInLoop;
+  }
+  if (app_in->UserWorkAfterLoop != nullptr) {
+    UserWorkAfterLoop = app_in->UserWorkAfterLoop;
+  }
+
+  std::vector<Real> bounds = rr.ReadAttr1DReal("Mesh", "bounds");
+  mesh_size.x1min = bounds[0];
+  mesh_size.x2min = bounds[1];
+  mesh_size.x3min = bounds[2];
+  mesh_size.x1max = bounds[3];
+  mesh_size.x2max = bounds[4];
+  mesh_size.x3max = bounds[5];
+
+  auto ratios = rr.ReadAttr1DReal("Mesh", "ratios");
+  mesh_size.x1rat = ratios[0];
+  mesh_size.x2rat = ratios[1];
+  mesh_size.x3rat = ratios[2];
+
+  // TODO(sriram): Need to figure out where nCycle, time, and dt should be read
+  //  dt = rr.GetAttr<double>("Info", "dt");
+  //  time = rr.GetAttr<double>("Info", "time");
+  //  ncycle = rr.GetAttr<int32_t>("Info", "nCycle");
 
   // initialize
   loclist = new LogicalLocation[nbtotal];
-  offset = new IOWrapperSizeT[nbtotal];
-  costlist = new double[nbtotal];
-  ranklist = new int[nbtotal];
-  nslist = new int[Globals::nranks];
-  nblist = new int[Globals::nranks];
 
-  block_size.nx1 = pin->GetOrAddInteger("parthenon/meshblock", "nx1", mesh_size.nx1);
-  block_size.nx2 = pin->GetOrAddInteger("parthenon/meshblock", "nx2", mesh_size.nx2);
-  block_size.nx3 = pin->GetOrAddInteger("parthenon/meshblock", "nx3", mesh_size.nx3);
+  auto blockSize = rr.ReadAttr1DI32("Mesh", "blockSize");
+  block_size.nx1 = blockSize[0];
+  block_size.nx2 = blockSize[1];
+  block_size.nx3 = blockSize[2];
 
   // calculate the number of the blocks
   nrbx1 = mesh_size.nx1 / block_size.nx1;
@@ -637,12 +642,14 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper &resfile, Properties_t &properties,
 
   // SMR / AMR
   if (adaptive) {
+    // read from file or from input?  input for now.
+    //    max_level = rr.GetAttr<int32_t>("Mesh", "maxLevel");
     max_level = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1) + root_level - 1;
     if (max_level > 63) {
       msg << "### FATAL ERROR in Mesh constructor" << std::endl
           << "The number of the refinement level must be smaller than "
           << 63 - root_level + 1 << "." << std::endl;
-      ATHENA_ERROR(msg);
+      PARTHENON_FAIL(msg);
     }
   } else {
     max_level = 63;
@@ -650,74 +657,28 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper &resfile, Properties_t &properties,
 
   InitUserMeshData(pin);
 
-  // read user Mesh data
-  IOWrapperSizeT udsize = 0;
-  for (int n = 0; n < nint_user_mesh_data_; n++)
-    udsize += iuser_mesh_data[n].GetSizeInBytes();
-  for (int n = 0; n < nreal_user_mesh_data_; n++)
-    udsize += ruser_mesh_data[n].GetSizeInBytes();
-  if (udsize != 0) {
-    char *userdata = new char[udsize];
-    if (Globals::my_rank == 0) { // only the master process reads the ID list
-      if (resfile.Read(userdata, 1, udsize) != udsize) {
-        msg << "### FATAL ERROR in Mesh constructor" << std::endl
-            << "The restart file is broken." << std::endl;
-        ATHENA_ERROR(msg);
-      }
-    }
-#ifdef MPI_PARALLEL
-    // then broadcast the ID list
-    MPI_Bcast(userdata, udsize, MPI_BYTE, 0, MPI_COMM_WORLD);
-#endif
-
-    IOWrapperSizeT udoffset = 0;
-    for (int n = 0; n < nint_user_mesh_data_; n++) {
-      std::memcpy(iuser_mesh_data[n].data(), &(userdata[udoffset]),
-                  iuser_mesh_data[n].GetSizeInBytes());
-      udoffset += iuser_mesh_data[n].GetSizeInBytes();
-    }
-    for (int n = 0; n < nreal_user_mesh_data_; n++) {
-      std::memcpy(ruser_mesh_data[n].data(), &(userdata[udoffset]),
-                  ruser_mesh_data[n].GetSizeInBytes());
-      udoffset += ruser_mesh_data[n].GetSizeInBytes();
-    }
-    delete[] userdata;
-  }
-
-  // read the ID list
-  listsize = sizeof(LogicalLocation) + sizeof(Real);
-  // allocate the idlist buffer
-  char *idlist = new char[listsize * nbtotal];
-  if (Globals::my_rank == 0) { // only the master process reads the ID list
-    if (resfile.Read(idlist, listsize, nbtotal) != static_cast<unsigned int>(nbtotal)) {
-      msg << "### FATAL ERROR in Mesh constructor" << std::endl
-          << "The restart file is broken." << std::endl;
-      ATHENA_ERROR(msg);
-    }
-  }
-#ifdef MPI_PARALLEL
-  // then broadcast the ID list
-  MPI_Bcast(idlist, listsize * nbtotal, MPI_BYTE, 0, MPI_COMM_WORLD);
-#endif
-
-  int os = 0;
+  // Populate logical locations
+  auto lx123 = rr.ReadDataset<int64_t>("/Blocks/loc.lx123");
+  auto locLevelGidLidCnghostGflag =
+      rr.ReadDataset<int32_t>("/Blocks/loc.level-gid-lid-cnghost-gflag");
+  current_level = -1;
   for (int i = 0; i < nbtotal; i++) {
-    std::memcpy(&(loclist[i]), &(idlist[os]), sizeof(LogicalLocation));
-    os += sizeof(LogicalLocation);
-    std::memcpy(&(costlist[i]), &(idlist[os]), sizeof(double));
-    os += sizeof(double);
-    if (loclist[i].level > current_level) current_level = loclist[i].level;
+    loclist[i].lx1 = lx123[3 * i];
+    loclist[i].lx2 = lx123[3 * i + 1];
+    loclist[i].lx3 = lx123[3 * i + 2];
+
+    loclist[i].level = locLevelGidLidCnghostGflag[5 * i];
+    if (loclist[i].level > current_level) {
+      current_level = loclist[i].level;
+    }
   }
-  delete[] idlist;
-
-  // calculate the header offset and seek
-  headeroffset += headersize + udsize + listsize * nbtotal;
-  if (Globals::my_rank != 0) resfile.Seek(headeroffset);
-
   // rebuild the Block Tree
   tree.CreateRootGrid();
-  for (int i = 0; i < nbtotal; i++)
+
+  for (int i = 0; i < nbtotal; i++) {
     tree.AddMeshBlockWithoutRefine(loclist[i]);
+  }
+
   int nnb;
   // check the tree structure, and assign GID
   tree.GetMeshBlockList(loclist, nullptr, nnb);
@@ -725,7 +686,7 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper &resfile, Properties_t &properties,
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
         << "Tree reconstruction failed. The total numbers of the blocks do not match. ("
         << nbtotal << " != " << nnb << ")" << std::endl;
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
 
 #ifdef MPI_PARALLEL
@@ -734,16 +695,19 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper &resfile, Properties_t &properties,
       msg << "### FATAL ERROR in Mesh constructor" << std::endl
           << "Too few mesh blocks: nbtotal (" << nbtotal << ") < nranks ("
           << Globals::nranks << ")" << std::endl;
-      ATHENA_ERROR(msg);
+      PARTHENON_FAIL(msg);
     } else { // test
       std::cout << "### Warning in Mesh constructor" << std::endl
                 << "Too few mesh blocks: nbtotal (" << nbtotal << ") < nranks ("
                 << Globals::nranks << ")" << std::endl;
-      delete[] offset;
       return;
     }
   }
 #endif
+  costlist = new double[nbtotal];
+  ranklist = new int[nbtotal];
+  nslist = new int[Globals::nranks];
+  nblist = new int[Globals::nranks];
 
   if (adaptive) { // allocate arrays for AMR
     nref = new int[Globals::nranks];
@@ -756,12 +720,15 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper &resfile, Properties_t &properties,
     bddisp = new int[Globals::nranks];
   }
 
+  // initialize cost array with the simplest estimate; all the blocks are equal
+  for (int i = 0; i < nbtotal; i++)
+    costlist[i] = 1.0;
+
   CalculateLoadBalance(costlist, ranklist, nslist, nblist, nbtotal);
 
   // Output MeshBlock list and quit (mesh test only); do not create meshes
   if (mesh_test > 0) {
     if (Globals::my_rank == 0) OutputMeshStructure(ndim);
-    delete[] offset;
     return;
   }
 
@@ -769,49 +736,35 @@ Mesh::Mesh(ParameterInput *pin, IOWrapper &resfile, Properties_t &properties,
   int nb = nblist[Globals::my_rank];
   int nbs = nslist[Globals::my_rank];
   int nbe = nbs + nb - 1;
-  char *mbdata = new char[datasize * nb];
-  // load MeshBlocks (parallel)
-  if (resfile.Read_at_all(mbdata, datasize, nb, headeroffset + nbs * datasize) !=
-      static_cast<unsigned int>(nb)) {
-    msg << "### FATAL ERROR in Mesh constructor" << std::endl
-        << "The restart file is broken or input parameters are inconsistent."
-        << std::endl;
-    ATHENA_ERROR(msg);
-  }
+
+  // read in xmin from file
+  auto xmin = rr.ReadDataset<double>("/Blocks/xmin");
+
+  // Create MeshBlocks (parallel)
+  pblock = pfirst = nullptr;
   for (int i = nbs; i <= nbe; i++) {
-    // Match fixed-width integer precision of IOWrapperSizeT datasize
-    std::uint64_t buff_os = datasize * (i - nbs);
+    for (auto &v : block_bcs) {
+      v = parthenon::BoundaryFlag::undef;
+    }
     SetBlockSizeAndBoundaries(loclist[i], block_size, block_bcs);
+
     // create a block and add into the link list
-    if (i == nbs) {
-      pblock = new MeshBlock(i, i - nbs, this, pin, properties, packages, loclist[i],
-                             block_size, block_bcs, costlist[i], mbdata + buff_os, gflag);
-      pfirst = pblock;
+    MeshBlock *newblock =
+        new MeshBlock(i, i - nbs, this, pin, app_in, properties, packages, loclist[i],
+                      block_size, block_bcs, costlist[i], gflag);
+    if (pfirst == nullptr) {
+      pfirst = pblock = newblock;
     } else {
-      pblock->next =
-          new MeshBlock(i, i - nbs, this, pin, properties, packages, loclist[i],
-                        block_size, block_bcs, costlist[i], mbdata + buff_os, gflag);
-      pblock->next->prev = pblock;
-      pblock = pblock->next;
+      pblock->next = newblock;
+      newblock->prev = pblock;
+      pblock = newblock;
     }
     pblock->pbval->SearchAndSetNeighbors(tree, ranklist, nslist);
   }
   pblock = pfirst;
-  delete[] mbdata;
-  // check consistency
-  if (datasize != pblock->GetBlockSizeInBytes()) {
-    msg << "### FATAL ERROR in Mesh constructor" << std::endl
-        << "The restart file is broken or input parameters are inconsistent."
-        << std::endl;
-    ATHENA_ERROR(msg);
-  }
 
   ResetLoadBalanceVariables();
-
-  // clean up
-  delete[] offset;
 }
-#endif
 
 //----------------------------------------------------------------------------------------
 // destructor
@@ -1004,7 +957,8 @@ void Mesh::EnrollUserBoundaryFunction(BoundaryFace dir, BValFunc my_bc) {
   throw std::runtime_error("Mesh::EnrollUserBoundaryFunction is not implemented");
 }
 
-// DEPRECATED(felker): provide trivial overloads for old-style BoundaryFace enum argument
+// DEPRECATED(felker): provide trivial overloads for old-style BoundaryFace enum
+// argument
 void Mesh::EnrollUserBoundaryFunction(int dir, BValFunc my_bc) {
   EnrollUserBoundaryFunction(static_cast<BoundaryFace>(dir), my_bc);
   return;
@@ -1028,25 +982,25 @@ void Mesh::EnrollUserMeshGenerator(CoordinateDirection dir, MeshGenFunc my_mg) {
   if (dir < 0 || dir >= 3) {
     msg << "### FATAL ERROR in EnrollUserMeshGenerator function" << std::endl
         << "dirName = " << dir << " not valid" << std::endl;
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
   if (dir == X1DIR && mesh_size.x1rat > 0.0) {
     msg << "### FATAL ERROR in EnrollUserMeshGenerator function" << std::endl
         << "x1rat = " << mesh_size.x1rat
         << " must be negative for user-defined mesh generator in X1DIR " << std::endl;
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
   if (dir == X2DIR && mesh_size.x2rat > 0.0) {
     msg << "### FATAL ERROR in EnrollUserMeshGenerator function" << std::endl
         << "x2rat = " << mesh_size.x2rat
         << " must be negative for user-defined mesh generator in X2DIR " << std::endl;
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
   if (dir == X3DIR && mesh_size.x3rat > 0.0) {
     msg << "### FATAL ERROR in EnrollUserMeshGenerator function" << std::endl
         << "x3rat = " << mesh_size.x3rat
         << " must be negative for user-defined mesh generator in X3DIR " << std::endl;
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
   use_uniform_meshgen_fn_[dir] = false;
   MeshGenerator_[dir] = my_mg;
@@ -1096,7 +1050,7 @@ void Mesh::EnrollUserHistoryOutput(int i, HistoryOutputFunc my_func, const char 
     msg << "### FATAL ERROR in EnrollUserHistoryOutput function" << std::endl
         << "The number of the user-defined history output (" << i << ") "
         << "exceeds the declared number (" << nuser_history_output_ << ")." << std::endl;
-    ATHENA_ERROR(msg);
+    PARTHENON_FAIL(msg);
   }
   user_history_output_names_[i] = name;
   user_history_func_[i] = my_func;
@@ -1128,7 +1082,7 @@ void Mesh::ApplyUserWorkBeforeOutput(ParameterInput *pin) {
 // \!fn void Mesh::Initialize(int res_flag, ParameterInput *pin)
 // \brief  initialization before the main loop
 
-void Mesh::Initialize(int res_flag, ParameterInput *pin) {
+void Mesh::Initialize(int res_flag, ParameterInput *pin, ApplicationInput *app_in) {
   bool iflag = true;
   int inb = nbtotal;
 #ifdef OPENMP_PARALLEL
@@ -1151,7 +1105,7 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
 #pragma omp parallel for num_threads(nthreads)
       for (int i = 0; i < nmb; ++i) {
         MeshBlock *pmb = pmb_array[i];
-        pmb->ProblemGenerator(pin);
+        pmb->ProblemGenerator(pmb, pin);
       }
     }
 
@@ -1162,7 +1116,7 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
       MeshBlock *pmb = pmb_array[i];
       // BoundaryVariable objects evolved in main TimeIntegratorTaskList:
       pmb->pbval->SetupPersistentMPI();
-      pmb->real_containers.Get().SetupPersistentMPI();
+      pmb->real_containers.Get()->SetupPersistentMPI();
     }
     call++; // 1
 
@@ -1171,25 +1125,26 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
       // prepare to receive conserved variables
 #pragma omp for
       for (int i = 0; i < nmb; ++i) {
-        pmb_array[i]->real_containers.Get().StartReceiving(BoundaryCommSubset::mesh_init);
+        pmb_array[i]->real_containers.Get()->StartReceiving(
+            BoundaryCommSubset::mesh_init);
       }
       call++; // 2
               // send conserved variables
 #pragma omp for
       for (int i = 0; i < nmb; ++i) {
-        pmb_array[i]->real_containers.Get().SendBoundaryBuffers();
+        pmb_array[i]->real_containers.Get()->SendBoundaryBuffers();
       }
       call++; // 3
 
       // wait to receive conserved variables
 #pragma omp for
       for (int i = 0; i < nmb; ++i) {
-        pmb_array[i]->real_containers.Get().ReceiveAndSetBoundariesWithWait();
+        pmb_array[i]->real_containers.Get()->ReceiveAndSetBoundariesWithWait();
       }
       call++; // 4
 #pragma omp for
       for (int i = 0; i < nmb; ++i) {
-        pmb_array[i]->real_containers.Get().ClearBoundary(BoundaryCommSubset::mesh_init);
+        pmb_array[i]->real_containers.Get()->ClearBoundary(BoundaryCommSubset::mesh_init);
       }
       call++;
       // Now do prolongation, compute primitives, apply BCs
@@ -1229,7 +1184,7 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
     if (!res_flag && adaptive) {
       iflag = false;
       int onb = nbtotal;
-      LoadBalancingAndAdaptiveMeshRefinement(pin);
+      LoadBalancingAndAdaptiveMeshRefinement(pin, app_in);
       if (nbtotal == onb) {
         iflag = true;
       } else if (nbtotal < onb && Globals::my_rank == 0) {
@@ -1239,11 +1194,12 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin) {
                   << "Possibly the refinement criteria have a problem." << std::endl;
       }
       if (nbtotal > 2 * inb && Globals::my_rank == 0) {
-        std::cout
-            << "### Warning in Mesh::Initialize" << std::endl
-            << "The number of MeshBlocks increased more than twice during initialization."
-            << std::endl
-            << "More computing power than you expected may be required." << std::endl;
+        std::cout << "### Warning in Mesh::Initialize" << std::endl
+                  << "The number of MeshBlocks increased more than twice during "
+                     "initialization."
+                  << std::endl
+                  << "More computing power than you expected may be required."
+                  << std::endl;
       }
     }
   } while (!iflag);
@@ -1362,7 +1318,8 @@ void Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size
 // for this "phys" part of the bitfield tag, making 0, ..., 31 legal values
 
 int Mesh::ReserveTagPhysIDs(int num_phys) {
-  // TODO(felker): add safety checks? input, output are positive, obey <= 31= MAX_NUM_PHYS
+  // TODO(felker): add safety checks? input, output are positive, obey <= 31=
+  // MAX_NUM_PHYS
   int start_id = next_phys_id_;
   next_phys_id_ += num_phys;
   return start_id;

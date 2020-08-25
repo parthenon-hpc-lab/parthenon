@@ -20,7 +20,7 @@
 
 #include "utils/gl_quadrature.hpp"
 
-#include "athena.hpp"
+#include "defs.hpp"
 
 namespace parthenon {
 namespace GaussLegendre {

@@ -15,6 +15,7 @@
 
 #include <algorithm>
 #include <limits>
+#include <memory>
 
 #include "coordinates/coordinates.hpp"
 #include "interface/container.hpp"
@@ -26,16 +27,17 @@ namespace parthenon {
 
 namespace Update {
 
-TaskStatus FluxDivergence(Container<Real> &in, Container<Real> &dudt_cont) {
-  MeshBlock *pmb = in.pmy_block;
+TaskStatus FluxDivergence(std::shared_ptr<Container<Real>> &in,
+                          std::shared_ptr<Container<Real>> &dudt_cont) {
+  MeshBlock *pmb = in->pmy_block;
 
   const IndexDomain interior = IndexDomain::interior;
   IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
   IndexRange kb = pmb->cellbounds.GetBoundsK(interior);
 
-  auto vin = in.PackVariablesAndFluxes({Metadata::Independent});
-  auto dudt = dudt_cont.PackVariables({Metadata::Independent});
+  auto vin = in->PackVariablesAndFluxes({Metadata::Independent});
+  auto dudt = dudt_cont->PackVariables({Metadata::Independent});
 
   auto &coords = pmb->coords;
   int ndim = pmb->pmy_mesh->ndim;
@@ -88,13 +90,14 @@ TaskStatus TransportSwarm(Swarm &in, Swarm &out, const Real dt) {
   return TaskStatus::complete;
 }
 
-void UpdateContainer(Container<Real> &in, Container<Real> &dudt_cont, const Real dt,
-                     Container<Real> &out) {
-  MeshBlock *pmb = in.pmy_block;
+void UpdateContainer(std::shared_ptr<Container<Real>> &in,
+                     std::shared_ptr<Container<Real>> &dudt_cont, const Real dt,
+                     std::shared_ptr<Container<Real>> &out) {
+  MeshBlock *pmb = in->pmy_block;
 
-  auto vin = in.PackVariables({Metadata::Independent});
-  auto vout = out.PackVariables({Metadata::Independent});
-  auto dudt = dudt_cont.PackVariables({Metadata::Independent});
+  auto vin = in->PackVariables({Metadata::Independent});
+  auto vout = out->PackVariables({Metadata::Independent});
+  auto dudt = dudt_cont->PackVariables({Metadata::Independent});
 
   pmb->par_for(
       "UpdateContainer", 0, vin.GetDim(4) - 1, 0, vin.GetDim(3) - 1, 0, vin.GetDim(2) - 1,
@@ -105,15 +108,16 @@ void UpdateContainer(Container<Real> &in, Container<Real> &dudt_cont, const Real
   return;
 }
 
-void AverageContainers(Container<Real> &c1, Container<Real> &c2, const Real wgt1) {
-  MeshBlock *pmb = c1.pmy_block;
+void AverageContainers(std::shared_ptr<Container<Real>> &c1,
+                       std::shared_ptr<Container<Real>> &c2, const Real wgt1) {
+  MeshBlock *pmb = c1->pmy_block;
   const IndexDomain interior = IndexDomain::interior;
   IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
   IndexRange kb = pmb->cellbounds.GetBoundsK(interior);
 
-  auto v1 = c1.PackVariables({Metadata::Independent});
-  auto v2 = c2.PackVariables({Metadata::Independent});
+  auto v1 = c1->PackVariables({Metadata::Independent});
+  auto v2 = c2->PackVariables({Metadata::Independent});
 
   pmb->par_for(
       "AverageContainers", 0, v1.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
@@ -124,8 +128,8 @@ void AverageContainers(Container<Real> &c1, Container<Real> &c2, const Real wgt1
   return;
 }
 
-Real EstimateTimestep(Container<Real> &rc) {
-  MeshBlock *pmb = rc.pmy_block;
+Real EstimateTimestep(std::shared_ptr<Container<Real>> &rc) {
+  MeshBlock *pmb = rc->pmy_block;
   Real dt_min = std::numeric_limits<Real>::max();
   for (auto &pkg : pmb->packages) {
     auto &desc = pkg.second;
@@ -148,11 +152,11 @@ void FillDerivedVariables::SetFillDerivedFunctions(FillDerivedFunc *pre,
   post_package_fill_ = post;
 }
 
-TaskStatus FillDerivedVariables::FillDerived(Container<Real> &rc) {
+TaskStatus FillDerivedVariables::FillDerived(std::shared_ptr<Container<Real>> &rc) {
   if (pre_package_fill_ != nullptr) {
     pre_package_fill_(rc);
   }
-  for (auto &pkg : rc.pmy_block->packages) {
+  for (auto &pkg : rc->pmy_block->packages) {
     auto &desc = pkg.second;
     if (desc->FillDerived != nullptr) {
       desc->FillDerived(rc);

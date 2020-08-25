@@ -28,7 +28,8 @@
 #include <string>
 
 // Athena++ headers
-#include "athena.hpp"
+#include "defs.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
@@ -50,7 +51,7 @@ int IOWrapper::Open(const char *fname, FileMode rw) {
     {
       msg << "### FATAL ERROR in function [IOWrapper:Open]" << std::endl
           << "Input file '" << fname << "' could not be opened" << std::endl;
-      ATHENA_ERROR(msg);
+      PARTHENON_FAIL(msg);
       return false;
     }
 
@@ -66,7 +67,7 @@ int IOWrapper::Open(const char *fname, FileMode rw) {
     {
       msg << "### FATAL ERROR in function [IOWrapper:Open]" << std::endl
           << "Output file '" << fname << "' could not be opened" << std::endl;
-      ATHENA_ERROR(msg);
+      PARTHENON_FAIL(msg);
       return false;
     }
   } else {

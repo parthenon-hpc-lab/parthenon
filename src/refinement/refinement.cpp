@@ -43,7 +43,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   return ref;
 }
 
-AmrTag CheckAllRefinement(Container<Real> &rc) {
+AmrTag CheckAllRefinement(std::shared_ptr<Container<Real>> &rc) {
   // Check all refinement criteria and return the maximum recommended change in
   // refinement level:
   //   delta_level = -1 => recommend derefinement
@@ -55,7 +55,7 @@ AmrTag CheckAllRefinement(Container<Real> &rc) {
   //    2) the code must maintain proper nesting, which sometimes means a block that is
   //       tagged as "derefine" must be left alone (or possibly refined?) because of
   //       neighboring blocks.  Similarly for "do nothing"
-  MeshBlock *pmb = rc.pmy_block;
+  MeshBlock *pmb = rc->pmy_block;
   // delta_level holds the max over all criteria.  default to derefining.
   AmrTag delta_level = AmrTag::derefine;
   for (auto &pkg : pmb->packages) {
@@ -73,7 +73,7 @@ AmrTag CheckAllRefinement(Container<Real> &rc) {
     for (auto &amr : desc->amr_criteria) {
       // get the recommended change in refinement level from this criteria
       AmrTag temp_delta = (*amr)(rc);
-      if ((temp_delta == AmrTag::refine) && rc.pmy_block->loc.level >= amr->max_level) {
+      if ((temp_delta == AmrTag::refine) && rc->pmy_block->loc.level >= amr->max_level) {
         // don't refine if we're at the max level
         temp_delta = AmrTag::same;
       }
@@ -88,9 +88,8 @@ AmrTag CheckAllRefinement(Container<Real> &rc) {
   return delta_level;
 }
 
-AmrTag FirstDerivative(CellVariable<Real> &q, const Real refine_criteria,
-                       const Real derefine_criteria) {
-  Real maxd = 0.0;
+AmrTag FirstDerivative(DevExecSpace exec_space, const ParArrayND<Real> &q,
+                       const Real refine_criteria, const Real derefine_criteria) {
   const int dim1 = q.GetDim(1);
   const int dim2 = q.GetDim(2);
   const int dim3 = q.GetDim(3);
@@ -107,9 +106,13 @@ AmrTag FirstDerivative(CellVariable<Real> &q, const Real refine_criteria,
     il = 1;
     iu = dim1 - 2;
   }
-  for (int k = kl; k <= ku; k++) {
-    for (int j = jl; j <= ju; j++) {
-      for (int i = il; i <= iu; i++) {
+
+  Real maxd = 0.0;
+  Kokkos::parallel_reduce(
+      "refinement first derivative",
+      Kokkos::MDRangePolicy<Kokkos::Rank<3>>(
+          exec_space, {kl, jl, il}, {ku + 1, ju + 1, iu + 1}, {1, 1, iu + 1 - il}),
+      KOKKOS_LAMBDA(int k, int j, int i, Real &maxd) {
         Real scale = std::abs(q(k, j, i));
         Real d =
             0.5 * std::abs((q(k, j, i + 1) - q(k, j, i - 1))) / (scale + TINY_NUMBER);
@@ -122,9 +125,8 @@ AmrTag FirstDerivative(CellVariable<Real> &q, const Real refine_criteria,
           d = 0.5 * std::abs((q(k + 1, j, i) - q(k - 1, j, i))) / (scale + TINY_NUMBER);
           maxd = (d > maxd ? d : maxd);
         }
-      }
-    }
-  }
+      },
+      Kokkos::Max<Real>(maxd));
 
   if (maxd > refine_criteria) return AmrTag::refine;
   if (maxd < derefine_criteria) return AmrTag::derefine;

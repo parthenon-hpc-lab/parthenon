@@ -16,30 +16,26 @@
 
 #include <parthenon/package.hpp>
 
+#include "advection_driver.hpp"
 #include "advection_package.hpp"
+#include "config.hpp"
 #include "defs.hpp"
 #include "utils/error_checking.hpp"
 
 using namespace parthenon::package::prelude;
+using namespace parthenon;
 
 // *************************************************//
 // redefine some weakly linked parthenon functions *//
 // *************************************************//
 
-namespace parthenon {
+namespace advection_example {
 
-Packages_t ParthenonManager::ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
-  Packages_t packages;
-  auto pkg = advection_package::Initialize(pin.get());
-  packages[pkg->label()] = pkg;
-  return packages;
-}
+void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
+  auto &rc = pmb->real_containers.Get();
+  auto &q = rc->Get("advected").data;
 
-void MeshBlock::ProblemGenerator(ParameterInput *pin) {
-  Container<Real> &rc = real_containers.Get();
-  auto &q = rc.Get("advected").data;
-
-  auto pkg = packages["advection_package"];
+  auto pkg = pmb->packages["advection_package"];
   const auto &amp = pkg->Param<Real>("amp");
   const auto &vel = pkg->Param<Real>("vel");
   const auto &k_par = pkg->Param<Real>("k_par");
@@ -51,9 +47,13 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
 
   auto q_h = q.GetHostMirror();
 
+  auto cellbounds = pmb->cellbounds;
+
   IndexRange ib = cellbounds.GetBoundsI(IndexDomain::entire);
   IndexRange jb = cellbounds.GetBoundsJ(IndexDomain::entire);
   IndexRange kb = cellbounds.GetBoundsK(IndexDomain::entire);
+
+  auto coords = pmb->coords;
 
   for (int k = kb.s; k <= kb.e; k++) {
     for (int j = jb.s; j <= jb.e; j++) {
@@ -80,24 +80,19 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
   q.DeepCopy(q_h);
 }
 
-void ParthenonManager::SetFillDerivedFunctions() {
-  FillDerivedVariables::SetFillDerivedFunctions(advection_package::PreFill,
-                                                advection_package::PostFill);
-}
-
 //========================================================================================
 //! \fn void Mesh::UserWorkAfterLoop(ParameterInput *pin, SimTime &tm)
 //  \brief Compute L1 error in advection test and output to file
 //========================================================================================
 
-void Mesh::UserWorkAfterLoop(ParameterInput *pin, SimTime &tm) {
+void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
   if (!pin->GetOrAddBoolean("Advection", "compute_error", false)) return;
 
   // Initialize errors to zero
   Real l1_err = 0.0;
   Real max_err = 0.0;
 
-  MeshBlock *pmb = pblock;
+  MeshBlock *pmb = mesh->pblock;
   while (pmb != nullptr) {
     auto pkg = pmb->packages["advection_package"];
 
@@ -116,7 +111,7 @@ void Mesh::UserWorkAfterLoop(ParameterInput *pin, SimTime &tm) {
     IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
 
     // calculate error on host
-    auto q = rc.Get("advected").data.GetHostMirrorAndCopy();
+    auto q = rc->Get("advected").data.GetHostMirrorAndCopy();
     for (int k = kb.s; k <= kb.e; k++) {
       for (int j = jb.s; j <= jb.e; j++) {
         for (int i = ib.s; i <= ib.e; i++) {
@@ -156,17 +151,18 @@ void Mesh::UserWorkAfterLoop(ParameterInput *pin, SimTime &tm) {
 
 #ifdef MPI_PARALLEL
   if (Globals::my_rank == 0) {
-    MPI_Reduce(MPI_IN_PLACE, &l1_err, 1, MPI_ATHENA_REAL, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(MPI_IN_PLACE, &max_err, 1, MPI_ATHENA_REAL, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(MPI_IN_PLACE, &l1_err, 1, MPI_PARTHENON_REAL, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(MPI_IN_PLACE, &max_err, 1, MPI_PARTHENON_REAL, MPI_MAX, 0, MPI_COMM_WORLD);
   } else {
-    MPI_Reduce(&l1_err, &l1_err, 1, MPI_ATHENA_REAL, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&max_err, &max_err, 1, MPI_ATHENA_REAL, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&l1_err, &l1_err, 1, MPI_PARTHENON_REAL, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&max_err, &max_err, 1, MPI_PARTHENON_REAL, MPI_MAX, 0, MPI_COMM_WORLD);
   }
 #endif
 
   // only the root process outputs the data
   if (Globals::my_rank == 0) {
     // normalize errors by number of cells
+    auto mesh_size = mesh->mesh_size;
     Real vol = (mesh_size.x1max - mesh_size.x1min) * (mesh_size.x2max - mesh_size.x2min) *
                (mesh_size.x3max - mesh_size.x3min);
     l1_err /= vol;
@@ -211,4 +207,16 @@ void Mesh::UserWorkAfterLoop(ParameterInput *pin, SimTime &tm) {
   return;
 }
 
-} // namespace parthenon
+Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
+  Packages_t packages;
+  auto pkg = advection_package::Initialize(pin.get());
+  packages[pkg->label()] = pkg;
+  return packages;
+}
+
+void SetFillDerivedFunctions() {
+  parthenon::FillDerivedVariables::SetFillDerivedFunctions(advection_package::PreFill,
+                                                           advection_package::PostFill);
+}
+
+} // namespace advection_example

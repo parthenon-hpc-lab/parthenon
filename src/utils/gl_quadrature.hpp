@@ -22,7 +22,7 @@
 
 // TODO(felker): add other Gaussian quadratures, or alternative approaches for computing
 // the initial condition that outperform GL quadrature for a discontinuous function
-#include "athena.hpp"
+#include "defs.hpp"
 
 namespace parthenon {
 namespace GaussLegendre {

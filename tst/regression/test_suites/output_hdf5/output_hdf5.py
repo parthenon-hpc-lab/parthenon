@@ -50,7 +50,28 @@ class TestCase(utils.test_case.TestCaseAbs):
                 'parthenon/time/integrator=rk1',
                 'Advection/cfl=0.3',
                 ]
-
+        # Same as step 1 but shortened for calculating coverage
+        elif step == 3:
+            parameters.coverage_status = "only-coverage"
+            parameters.driver_cmd_line_args = [
+                'parthenon/time/tlim=0.01',
+                ]
+        # Same as step 2 but shortened for calculating coverage
+        elif step == 4:
+            parameters.coverage_status = "only-coverage"
+            parameters.driver_cmd_line_args = [
+                'parthenon/job/problem_id=advection_3d', # change name for new outputs
+                'parthenon/mesh/numlevel=2', # reduce AMR depth for smaller sim
+                'parthenon/mesh/nx1=32',
+                'parthenon/meshblock/nx1=8',
+                'parthenon/mesh/nx2=32',
+                'parthenon/meshblock/nx2=8',
+                'parthenon/mesh/nx3=32',
+                'parthenon/meshblock/nx3=8',
+                'parthenon/time/integrator=rk1',
+                'Advection/cfl=0.3',
+                'parthenon/time/tlim=0.01',
+                ]
         return parameters
 
     def Analyse(self,parameters):
@@ -60,7 +81,17 @@ class TestCase(utils.test_case.TestCaseAbs):
         analyze_status = True
         print(os.getcwd())
 
-        sys.path.insert(1, '../../../../../scripts/python')
+        # Determine path to parthenon installation
+        # Fallback to relative path on failure
+        try:
+            parthenonPath = os.path.realpath(__file__)
+            idx = parthenonPath.rindex('/parthenon/')
+            parthenonPath = os.path.join(parthenonPath[:idx],'parthenon')
+        except ValueError:
+            baseDir = os.path.dirname(__file__)
+            parthenonPath = baseDir + '/../../../..'
+        sys.path.insert(1, parthenonPath+'/scripts/python')
+
         try:
             import phdf_diff 
         except ModuleNotFoundError:
@@ -70,10 +101,10 @@ class TestCase(utils.test_case.TestCaseAbs):
         # TODO(pgrete) make sure this also works/doesn't fail for the user
         ret_2d = phdf_diff.compare([
             'advection_2d.out0.00001.phdf',
-            '../../../../../tst/regression/gold_standard/advection_2d.out0.00001.phdf'])
+            parthenonPath+'/tst/regression/gold_standard/advection_2d.out0.00001.phdf'])
         ret_3d = phdf_diff.compare([
             'advection_3d.out0.00001.phdf',
-            '../../../../../tst/regression/gold_standard/advection_3d.out0.00001.phdf'])
+            parthenonPath+'/tst/regression/gold_standard/advection_3d.out0.00001.phdf'])
         
         if ret_2d != 0 or ret_3d != 0:
             analyze_status = False

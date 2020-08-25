@@ -33,9 +33,9 @@
 #include <utility>
 #include <vector>
 
-#include "athena.hpp"
 #include "basic_types.hpp"
 #include "bvals/cc/bvals_cc.hpp"
+#include "defs.hpp"
 #include "interface/metadata.hpp"
 #include "parthenon_arrays.hpp"
 
@@ -50,7 +50,11 @@ class CellVariable {
   CellVariable<T>(const std::string label, const std::array<int, 6> dims,
                   const Metadata &metadata)
       : data(label, dims[5], dims[4], dims[3], dims[2], dims[1], dims[0]),
-        mpiStatus(false), m_(metadata) {}
+        mpiStatus(false), m_(metadata), label_(label) {
+    if (m_.getAssociated() == "") {
+      m_.Associate(label);
+    }
+  }
 
   // make a new CellVariable based on an existing one
   std::shared_ptr<CellVariable<T>> AllocateCopy(const bool allocComms = false,
@@ -67,7 +71,7 @@ class CellVariable {
   auto GetDim(const int i) const { return data.GetDim(i); }
 
   ///< retrieve label for variable
-  const std::string label() const { return data.label(); }
+  const std::string label() const { return label_; }
 
   ///< retrieve metadata for variable
   Metadata metadata() const { return m_; }
@@ -94,6 +98,7 @@ class CellVariable {
 
  private:
   Metadata m_;
+  std::string label_;
 };
 
 ///

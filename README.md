@@ -1,5 +1,7 @@
 # parthenon
 
+[![codecov](https://codecov.io/gh/lanl/parthenon/branch/master/graph/badge.svg)](https://codecov.io/gh/lanl/parthenon)
+
 Parthenon AMR infrastructure
 
 # Community
@@ -17,6 +19,10 @@ Parthenon AMR infrastructure
 # Dependencies Other
 
 * catch2
+* python3
+* h5py
+* numpy
+* matplotlib
 
 # Installation
 
@@ -27,8 +33,8 @@ For detailed instructions for a given system, see our [build doc](docs/building.
     mkdir build
     cd build
     cmake ../
-    make
-    make test
+    cmake --build . -j 8 
+    ctest
 
 ## Import Into Your Code
 ```c++
@@ -58,6 +64,13 @@ Following options are available to configure the default behavior of the `par_fo
   - `TPTTR_LOOP` maps to double nested loop with `Kokkos::TeamPolicy` and `Kokkos::ThreadVectorRange`
   - `TPTVR_LOOP` maps to double nested loop with `Kokkos::TeamPolicy` and `Kokkos::ThreadVectorRange`
   - `TPTTRTVR_LOOP` maps to triple nested loop with `Kokkos::TeamPolicy`, `Kokkos::TeamThreadRange` and `Kokkos::ThreadVectorRange`
+
+Similarly, for explicit nested paralellism the `par_for_outer` and `par_for_inner` wrappers are available.
+`par_for_outer` always maps to a `Kokkos::TeamPolicy` and the `par_for_inner` mapping is controlled by the
+- `PAR_LOOP_INNER_LAYOUT` (sets default innermost loop layout for `par_for_inner`)
+  - `SIMDFOR_INNER_LOOP` maps to standard `for` loops with `#pragma omp simd` (default for OpenMP backend)
+  - `TVR_INNER_LOOP` maps to `Kokkos::TeamVectorRange` (default for CUDA backend)
+
 
 ## Kokkos options
 Kokkos can be configured through `cmake` options, see https://github.com/kokkos/kokkos/wiki/Compiling

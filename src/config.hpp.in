@@ -14,11 +14,11 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef DEFS_HPP_
-#define DEFS_HPP_
-//! \file defs.hpp.in
-//  \brief Template file for defs.hpp.  When the configure.py script is run, a new
-//  defs.hpp file will be created (overwriting the last) from this template. This new
+#ifndef CONFIG_HPP_
+#define CONFIG_HPP_
+//! \file config.hpp.in
+//  \brief Template file for config.hpp.  When the configure.py script is run, a new
+//  config.hpp file will be created (overwriting the last) from this template. This new
 //  file contains Athena++ specific cpp macros and definitions set by configure.
 
 #define COORDINATE_TYPE @COORDINATE_TYPE@
@@ -45,11 +45,14 @@
 // HDF5 output (HDF5OUTPUT or NO_HDF5OUTPUT)
 #define @HDF5_OPTION@
 
+// Default loop patterns for MeshBlock par_for() wrappers,
+// see kokkos_abstraction.hpp for available tags.
 // Kokkos tight loop layout
-#define @PAR_LOOP_LAYOUT@
+#define DEFAULT_LOOP_PATTERN parthenon::@PAR_LOOP_LAYOUT_TAG@
 
-// Kokkos nested loop layout (inner)
-#define @PAR_LOOP_INNER_LAYOUT@
+// Kokkos nested loop layout
+#define DEFAULT_OUTER_LOOP_PATTERN parthenon::outer_loop_pattern_teams_tag
+#define DEFAULT_INNER_LOOP_PATTERN parthenon::@PAR_LOOP_INNER_LAYOUT_TAG@
 
 // try/throw/catch C++ exception handling (ENABLE_EXCEPTIONS or DISABLE_EXCEPTIONS)
 // (enabled by default)
@@ -73,8 +76,6 @@
 // general purpose macros (never modified)
 
 // all constants specified to 17 total digits of precision = max_digits10 for "double"
-#define PI 3.1415926535897932
-#define TWO_PI 6.2831853071795862
 #define SQRT2 1.4142135623730951
 #define ONE_OVER_SQRT2 0.70710678118654752
 #define ONE_3RD 0.33333333333333333
@@ -84,10 +85,4 @@
 #define SQR(x) ( (x) * (x) )
 #define SIGN(x) ( ((x) < 0.0) ? -1.0 : 1.0 )
 
-#ifdef ENABLE_EXCEPTIONS
-#define ATHENA_ERROR(x) throw std::runtime_error(x.str().c_str())
-#else
-#define ATHENA_ERROR(x) std::cout << x.str(); std::exit(EXIT_FAILURE)
-#endif
-
-#endif // DEFS_HPP_
+#endif // CONFIG_HPP_

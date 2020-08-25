@@ -56,6 +56,7 @@
 #include "Kokkos_Core.hpp"
 
 // Get most commonly used parthenon package includes
+#include "kokkos_abstraction.hpp"
 #include "parthenon/package.hpp"
 using namespace parthenon::package::prelude;
 
@@ -125,8 +126,8 @@ static double sumArray(MeshBlock *firstBlock, const int &n_block) {
   // I'm pretty sure I can do this better, but not worried about performance for this
   MeshBlock *pmb = firstBlock;
   while (pmb) {
-    Container<Real> &base = pmb->real_containers.Get();
-    auto inOrOut = base.PackVariables({Metadata::Independent});
+    auto &base = pmb->real_containers.Get();
+    auto inOrOut = base->PackVariables({Metadata::Independent});
     double oneSum;
     Kokkos::parallel_reduce(
         "Reduce Sum", policyBlock,
@@ -181,9 +182,9 @@ static MeshBlock *setupMesh(const int &n_block, const int &n_mesh, const double 
         h_xyz(1, idx) = dxyzCell * (static_cast<Real>(j_mesh * n_block) + 0.5) - delta;
         h_xyz(2, idx) = dxyzCell * (static_cast<Real>(k_mesh * n_block) + 0.5) - delta;
         // Add variable for in_or_out
-        Container<Real> &base = pmb->real_containers.Get();
-        base.setBlock(pmb);
-        base.Add("in_or_out", myMetadata);
+        auto &base = pmb->real_containers.Get();
+        base->setBlock(pmb);
+        base->Add("in_or_out", myMetadata);
         // repoint lastBlock for next iteration
         lastBlock = pmb;
       }
@@ -231,8 +232,8 @@ result_t naiveKokkos(int n_block, int n_mesh, int n_iter, double radius) {
   double time_basic = kernel_timer_wrapper(0, n_iter, [&]() {
     MeshBlock *pmb = pStart;
     for (int iMesh = 0; iMesh < n_mesh3; iMesh++, pmb = pmb->next) {
-      Container<Real> &base = pmb->real_containers.Get();
-      auto inOrOut = base.PackVariables({Metadata::Independent});
+      auto &base = pmb->real_containers.Get();
+      auto inOrOut = base->PackVariables({Metadata::Independent});
       // iops = 8  fops = 11
       Kokkos::parallel_for(
           "Compute In Or Out", policyBlock, KOKKOS_LAMBDA(const int &idx) {
@@ -285,13 +286,13 @@ result_t naiveParFor(int n_block, int n_mesh, int n_iter, double radius) {
   double time_basic = kernel_timer_wrapper(0, n_iter, [&]() {
     MeshBlock *pmb = pStart;
     for (int iMesh = 0; iMesh < n_mesh3; iMesh++, pmb = pmb->next) {
-      Container<Real> &base = pmb->real_containers.Get();
-      auto inOrOut = base.PackVariables({Metadata::Independent});
+      auto &base = pmb->real_containers.Get();
+      auto inOrOut = base->PackVariables({Metadata::Independent});
       // iops = 0  fops = 11
       par_for(
-          "par_for in or out", DevExecSpace(), 0, inOrOut.GetDim(4) - 1, NGHOST,
-          inOrOut.GetDim(3) - NGHOST - 1, NGHOST, inOrOut.GetDim(2) - NGHOST - 1, NGHOST,
-          inOrOut.GetDim(1) - NGHOST - 1,
+          DEFAULT_LOOP_PATTERN, "par_for in or out", DevExecSpace(), 0,
+          inOrOut.GetDim(4) - 1, NGHOST, inOrOut.GetDim(3) - NGHOST - 1, NGHOST,
+          inOrOut.GetDim(2) - NGHOST - 1, NGHOST, inOrOut.GetDim(1) - NGHOST - 1,
           KOKKOS_LAMBDA(const int l, const int k_grid, const int j_grid,
                         const int i_grid) {
             const Real x =
