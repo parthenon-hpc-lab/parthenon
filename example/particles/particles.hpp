@@ -15,14 +15,17 @@
 
 #include <memory>
 
-#include "driver/driver.hpp"
+/*#include "driver/driver.hpp"
 #include "driver/multistage.hpp"
 #include "interface/container.hpp"
 #include "interface/state_descriptor.hpp"
 #include "mesh/mesh.hpp"
-#include "task_list/tasks.hpp"
+#include "tasks/task_list.hpp"*/
 
-using parthenon::AmrTag;
+#include <parthenon/driver.hpp>
+#include <parthenon/package.hpp>
+
+/*using parthenon::AmrTag;
 using parthenon::BaseTask;
 using parthenon::Container;
 using parthenon::SwarmContainer;
@@ -37,7 +40,9 @@ using parthenon::StateDescriptor;
 using parthenon::TaskID;
 using parthenon::TaskList;
 using parthenon::TaskStatus;
-using parthenon::Integrator;
+using parthenon::Integrator;*/
+using namespace parthenon::driver::prelude;
+using namespace parthenon::package::prelude;
 
 namespace particles_example {
 

@@ -20,7 +20,7 @@
 #include <utility>
 #include <vector>
 
-#include "bvals/boundary_conditions.hpp"
+/*#include "bvals/boundary_conditions.hpp"
 #include "bvals/bvals.hpp"
 #include "driver/multistage.hpp"
 #include "interface/params.hpp"
@@ -28,9 +28,9 @@
 #include "mesh/mesh.hpp"
 #include "parthenon_manager.hpp"
 #include "reconstruct/reconstruction.hpp"
-#include "refinement/refinement.hpp"
+#include "refinement/refinement.hpp"*/
 
-using parthenon::BlockStageNamesIntegratorTask;
+/*using parthenon::BlockStageNamesIntegratorTask;
 using parthenon::BlockStageNamesIntegratorTaskFunc;
 using parthenon::BlockTask;
 using parthenon::CellVariable;
@@ -38,7 +38,7 @@ using parthenon::Integrator;
 using parthenon::Metadata;
 using parthenon::Params;
 using parthenon::ParArrayND;
-using parthenon::ParthenonManager;
+using parthenon::ParthenonManager;*/
 
 // *************************************************//
 // redefine some weakly linked parthenon functions *//

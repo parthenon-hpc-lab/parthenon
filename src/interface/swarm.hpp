@@ -25,7 +25,7 @@
 #include <string>
 #include <utility>
 #include <vector>
-#include "athena.hpp"
+#include "basic_types.hpp"
 #include "parthenon_arrays.hpp"
 #include "variable.hpp"
 #include "metadata.hpp"

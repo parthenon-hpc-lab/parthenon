@@ -90,17 +90,17 @@ class SwarmContainer {
   /// Get a swarm from the container
   /// @param label the name of the swarm
   /// @return the Swarm if found or throw exception
-  Swarm& Get(std::string label) {
+  std::shared_ptr<Swarm> &Get(std::string label) {
     if (swarmMap_.count(label) == 0) {
       throw std::invalid_argument (std::string("\n") +
                                    std::string(label) +
                                    std::string(" swarm not found in Get()\n") );
     }
-    return *swarmMap_[label];
+    return swarmMap_[label];
   }
 
-  Swarm& Get(const int index) {
-    return *(swarmVector_[index]);
+  std::shared_ptr<Swarm> &Get(const int index) {
+    return swarmVector_[index];
   }
 
   int Index(const std::string& label) {

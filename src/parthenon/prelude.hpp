@@ -19,6 +19,7 @@
 #include <defs.hpp>
 #include <globals.hpp>
 #include <interface/container.hpp>
+#include <interface/swarm_container.hpp>
 #include <interface/variable.hpp>
 #include <mesh/domain.hpp>
 #include <mesh/mesh.hpp>
@@ -31,6 +32,8 @@ namespace prelude {
 using ::parthenon::BoundaryCommSubset;
 using ::parthenon::CellVariable;
 using ::parthenon::Container;
+using ::parthenon::SwarmContainer;
+using ::parthenon::Swarm;
 using ::parthenon::IndexDomain;
 using ::parthenon::IndexRange;
 using ::parthenon::MeshBlock;

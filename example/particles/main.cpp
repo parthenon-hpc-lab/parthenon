@@ -37,14 +37,8 @@ int main(int argc, char *argv[]) {
   particles_example::ParticleDriver driver(pman.pinput.get(), pman.pmesh.get());
                                             //pman.pouts.get());
 
-  // start a timer
-  pman.PreDriver();
-
   // This line actually runs the simulation
   auto driver_status = driver.Execute();
-
-  // Make final outputs, print diagnostics
-  pman.PostDriver(driver_status);
 
   // call MPI_Finalize and Kokkos::finalize if necessary
   pman.ParthenonFinalize();

@@ -32,6 +32,8 @@ class ContainerCollection {
     swarmContainers_["base"] = std::make_shared<SwarmContainer>();
   }
 
+  void Add(const std::string &label, const std::shared_ptr<SwarmContainer> &src);
+
   void Add(const std::string &label, const std::shared_ptr<Container<T>> &src);
 
   std::shared_ptr<Container<T>> &Get() { return containers_["base"]; }
@@ -43,13 +45,13 @@ class ContainerCollection {
     return it->second;
   }
 
-  SwarmContainer &GetSwarmContainer() { return *swarmContainers_["base"]; }
-  SwarmContainer &GetSwarmContainer(const std::string &label) {
+  std::shared_ptr<SwarmContainer> &GetSwarmContainer() { return swarmContainers_["base"]; }
+  std::shared_ptr<SwarmContainer> &GetSwarmContainer(const std::string &label) {
     auto it = swarmContainers_.find(label);
     if (it == swarmContainers_.end()) {
       throw std::runtime_error("SwarmContainer " + label + " does not exist in collection.");
     }
-    return *(it->second);
+    return it->second;
   }
 
   void PurgeNonBase() {
