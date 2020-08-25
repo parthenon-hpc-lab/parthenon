@@ -13,7 +13,7 @@
 
 # Adding regression tests
 #
-# To add additional regression tests to ctest, three things must be added to 
+# To add additional regression tests to ctest, four things must be added to 
 # this file:
 # 
 # 1. there must exist within the regression/test_suites directory a folder associated with the test
@@ -26,6 +26,8 @@
 # 3. the number of mpi processors that should be used when testing the mpi implementation 
 #   * This argument needs to be added to the TEST_PROCS variable
 #
+# 4. any extra labels that need to be appended to a test
+#
 # NOTE: each new test must append exactly 1 item to each of the CMAKE variables
 #
 # Add additional regression tests to ctest below this line by calling
@@ -33,6 +35,7 @@
 # list(APPEND TEST_DIRS name_of_folder )   
 # list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
 # list(APPEND TEST_ARGS args_to_pass_to_run_test.py )
+# list(APPEND EXTRA_TEST_LABELS "my-awesome-test")
 #
 # Here name_of_folder should be the test folder located in parthenon/tst/regression/test_suites
 # it is the parameter that is passed to run_test.py with the --test_dir argument
@@ -108,8 +111,3 @@ foreach( index RANGE ${end_index})
   setup_test_mpi_coverage(${TEST_PROC} ${TEST_DIR} ${TEST_ARG} "${TEST_LABELS}")
 endforeach()
 
-# manually add label to performance regression test (to selectively enable/disable)
-#set_tests_properties(regression_test:advection_performance PROPERTIES LABELS "regression;mpi-no;perf-reg" )
-#if( MPI_FOUND )
-#  set_tests_properties(regression_mpi_test:advection_performance PROPERTIES LABELS "regression;mpi-yes;perf-reg" )
-#endif()
