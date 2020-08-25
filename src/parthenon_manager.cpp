@@ -195,22 +195,23 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   const IndexDomain interior = IndexDomain::interior;
   auto &packages = rm.packages;
   // Get block list and temp array size
+  auto &mb = rm.block_list.front();
   int nb = rm.GetNumMeshBlocksThisRank(Globals::my_rank);
-  int nbs = rm.pblock->gid;
+  int nbs = mb.gid;
   int nbe = nbs + nb - 1;
   IndexRange myBlocks{nbs, nbe};
 
   // Get an iterator on block 0 for variable listing
-  IndexRange out_ib = rm.pblock->cellbounds.GetBoundsI(interior);
-  IndexRange out_jb = rm.pblock->cellbounds.GetBoundsJ(interior);
-  IndexRange out_kb = rm.pblock->cellbounds.GetBoundsK(interior);
+  IndexRange out_ib = mb.cellbounds.GetBoundsI(interior);
+  IndexRange out_jb = mb.cellbounds.GetBoundsJ(interior);
+  IndexRange out_kb = mb.cellbounds.GetBoundsK(interior);
 
   size_t nCells = static_cast<size_t>(out_ib.e - out_ib.s + 1) *
                   static_cast<size_t>(out_jb.e - out_jb.s + 1) *
                   static_cast<size_t>(out_kb.e - out_kb.s + 1);
   // Get list of variables, assumed same for all blocks
   auto ciX = ContainerIterator<Real>(
-      rm.pblock->real_containers.Get(),
+      mb.real_containers.Get(),
       {parthenon::Metadata::Independent, parthenon::Metadata::Restart}, true);
 
   // Allocate space based on largest vector
@@ -235,17 +236,26 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
       continue;
     }
 
-    auto pmb = rm.pblock;
     size_t index = 0;
-    while (pmb != nullptr) {
-      // std::cout << pmb->gid << ":" << pmb->real_containers.Get() << std::endl;
-      auto cX = ContainerIterator<Real>(pmb->real_containers.Get(), {vName});
+    for (auto &pmb : rm.block_list) {
+      bool found = false;
+      auto cX = ContainerIterator<Real>(
+          pmb.real_containers.Get(),
+          {parthenon::Metadata::Independent, parthenon::Metadata::Restart}, true);
       for (auto &v : cX.vars) {
-        auto v_h = (*v).data.GetHostMirrorAndCopy();
-        UNLOADVARIABLEONE(index, tmp, v_h, out_ib.s, out_ib.e, out_jb.s, out_jb.e,
-                          out_kb.s, out_kb.e, v4)
+        if (vName.compare(v->label()) == 0) {
+          auto v_h = (*v).data.GetHostMirrorAndCopy();
+          UNLOADVARIABLEONE(index, tmp, v_h, out_ib.s, out_ib.e, out_jb.s, out_jb.e,
+                            out_kb.s, out_kb.e, v4)
+          found = true;
+          break;
+        }
       }
-      pmb = pmb->next;
+      if (!found) {
+        std::stringstream msg;
+        msg << "### ERROR: Unable to find variable " << vName << std::endl;
+        PARTHENON_FAIL(msg);
+      }
     }
   }
 }
