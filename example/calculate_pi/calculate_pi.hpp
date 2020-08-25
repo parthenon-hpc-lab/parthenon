@@ -28,11 +28,13 @@ void SetInOrOut(std::shared_ptr<Container<Real>> &rc);
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 
 // Task Implementations
+// task per meshblock
 parthenon::TaskStatus ComputeArea(parthenon::MeshBlock *pmb);
+// Task over whole mesh, no packs
+parthenon::TaskStatus RetrieveAreas(std::vector<parthenon::MeshBlock *> &blocks);
 
 // Run task on the entire mesh at once
-Real ComputeAreaOnMesh(parthenon::Mesh *pmesh);
-parthenon::TaskStatus ComputeAreas(std::vector<MeshBlock *> &blocks);
+parthenon::TaskStatus ComputeAreaOnMesh(std::vector<parthenon::MeshBlock *> &blocks);
 } // namespace calculate_pi
 
 #endif // EXAMPLE_CALCULATE_PI_CALCULATE_PI_HPP_

@@ -79,7 +79,7 @@ using blocks_t = std::vector<MeshBlock *>;
 
 // TODO(JMM): blocks data type might change
 template <typename T, typename F>
-auto PackMeshBlocks(const blocks_t &blocks, F &packing_function) {
+auto PackMesh(const blocks_t &blocks, F &packing_function) {
   int nblocks = blocks.size();
   ParArray1D<T> packs("MakeMeshVariablePack::view", nblocks);
   auto packs_host = Kokkos::create_mirror_view(packs);
@@ -119,7 +119,7 @@ auto PackMesh(const Mesh *pmesh, F &packing_function) {
     blocks.push_back(pmb);
     pmb = pmb->next;
   }
-  return PackMeshBlocks<T,F>(blocks, packing_function);
+  return PackMesh<T, F>(blocks, packing_function);
 }
 } // namespace mesh_pack_impl
 
