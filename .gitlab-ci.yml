@@ -175,6 +175,8 @@ parthenon-cpu-performance_and_regression-mpi:
 
 # run unit suite on CPUs with code coverage
 parthenon-cpu-coverage:
+  only:
+    - schedules
   tags:
     - cpu
   stage: coverage
