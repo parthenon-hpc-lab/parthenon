@@ -40,38 +40,44 @@ using parthenon::Params;
 using parthenon::ParArrayND;
 using parthenon::ParthenonManager;*/
 
-// *************************************************//
-// redefine some weakly linked parthenon functions *//
-// *************************************************//
+#include <parthenon/package.hpp>
+#include <parthenon/driver.hpp>
 
-namespace parthenon {
+using namespace parthenon::package::prelude;
+using namespace parthenon;
 
-Packages_t ParthenonManager::ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
+// *************************************************//
+// redefine some internal parthenon functions      *//
+// *************************************************//
+namespace particles_example {
+
+Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   Packages_t packages;
   packages["Particles"] = particles_example::Particles::Initialize(pin.get());
   return packages;
 }
 
-void MeshBlock::ProblemGenerator(ParameterInput *pin) {
-  auto pkg = packages["Particles"];
+void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
+  auto &rc = pmb->real_containers.Get();
+  auto pkg = pmb->packages["Particles"];
 
-  SwarmContainer &sc = real_containers.GetSwarmContainer();
-  Swarm &s = sc.Get("my particles");
+  auto &sc = pmb->real_containers.GetSwarmContainer();
+  auto &s = sc->Get("my particles");
 
   // Here we demonstrate the different ways to add particles
 
   // Add the number of empty particles requested in parameter file
   const int &num_particles_to_add = pkg->Param<int>("num_particles");
-  std::vector<int> empty_particle_indices = s.AddEmptyParticles(num_particles_to_add);
+  std::vector<int> empty_particle_indices = s->AddEmptyParticles(num_particles_to_add);
 
   // WARNING do not get these references before resizing the swarm -- you'll get
   // segfaults
-  auto &x = s.GetReal("x").Get();
-  auto &y = s.GetReal("y").Get();
-  auto &z = s.GetReal("z").Get();
-  auto &vx = s.GetReal("vx").Get();
-  auto &vy = s.GetReal("vy").Get();
-  auto &vz = s.GetReal("vz").Get();
+  auto &x = s->GetReal("x").Get();
+  auto &y = s->GetReal("y").Get();
+  auto &z = s->GetReal("z").Get();
+  auto &vx = s->GetReal("vx").Get();
+  auto &vy = s->GetReal("vy").Get();
+  auto &vz = s->GetReal("vz").Get();
 
   for (int n : empty_particle_indices) {
     x(n) = 1.e-1*n;
@@ -91,8 +97,6 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
   //}
 }
 
-} // namespace parthenon
-
 // *************************************************//
 // define the "physics" package Particles, which   *//
 // includes defining various functions that control*//
@@ -100,7 +104,6 @@ void MeshBlock::ProblemGenerator(ParameterInput *pin) {
 // implement the "physics"                         *//
 // *************************************************//
 
-namespace particles_example {
 namespace Particles {
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
@@ -129,12 +132,12 @@ AmrTag CheckRefinement(Container<Real> &rc) {
   return AmrTag::same;
 }
 
-Real EstimateTimestep(Container<Real> &rc) {
+Real EstimateTimestep(std::shared_ptr<Container<Real>> &rc) {
   return 0.5;
 }
 
-TaskStatus SetTimestepTask(Container<Real> &rc) {
-  MeshBlock *pmb = rc.pmy_block;
+TaskStatus SetTimestepTask(std::shared_ptr<Container<Real>> &rc) {
+  MeshBlock *pmb = rc->pmy_block;
   pmb->SetBlockTimestep(parthenon::Update::EstimateTimestep(rc));
   return TaskStatus::complete;
 }
@@ -154,10 +157,10 @@ TaskStatus UpdateContainer(MeshBlock *pmb, int stage,
   // const Real beta = stage_wghts[stage-1].beta;
   const Real beta = integrator->beta[stage - 1];
   const Real dt = integrator->dt;
-  Container<Real> &base = pmb->real_containers.Get();
-  Container<Real> &cin = pmb->real_containers.Get(stage_name[stage - 1]);
-  Container<Real> &cout = pmb->real_containers.Get(stage_name[stage]);
-  Container<Real> &dudt = pmb->real_containers.Get("dUdt");
+  auto &base = pmb->real_containers.Get();
+  auto &cin = pmb->real_containers.Get(stage_name[stage - 1]);
+  auto &cout = pmb->real_containers.Get(stage_name[stage]);
+  auto &dudt = pmb->real_containers.Get("dUdt");
   parthenon::Update::AverageContainers(cin, base, beta);
   parthenon::Update::UpdateContainer(cin, dudt, beta * dt, cout);
   return TaskStatus::complete;
@@ -166,12 +169,12 @@ TaskStatus UpdateContainer(MeshBlock *pmb, int stage,
 TaskStatus UpdateSwarm(MeshBlock *pmb, int stage,
                        std::vector<std::string> &stage_name,
                        Integrator *integrator) {
-  Swarm &swarm = pmb->real_containers.GetSwarmContainer().Get("my particles");
+  auto swarm = pmb->real_containers.GetSwarmContainer()->Get("my particles");
   parthenon::Update::TransportSwarm(swarm, swarm, integrator->dt);
   return TaskStatus::complete;
 }
 
-TaskStatus MyContainerTask(Container<Real> container) {
+TaskStatus MyContainerTask(std::shared_ptr<Container<Real>> container) {
   return TaskStatus::complete;
 }
 
@@ -182,21 +185,21 @@ TaskList ParticleDriver::MakeTaskList(MeshBlock *pmb, int stage) {
   TaskID none(0);
   // first make other useful containers
   if (stage == 1) {
-    Container<Real> &container = pmb->real_containers.Get();
+    auto container = pmb->real_containers.Get();
     pmb->real_containers.Add("my container", container);
-    SwarmContainer &base = pmb->real_containers.GetSwarmContainer();
+    auto base = pmb->real_containers.GetSwarmContainer();
   }
 
-  SwarmContainer sc = pmb->real_containers.GetSwarmContainer();
+  auto sc = pmb->real_containers.GetSwarmContainer();
 
-  Swarm &swarm = sc.Get("my particles");
+  auto swarm = sc->Get("my particles");
 
-  auto update_swarm = tl.AddTask<SwarmTask>(UpdateSwarm, none, pmb, stage,
+  auto update_swarm = tl.AddTask(UpdateSwarm, none, pmb, stage,
                                             stage_name, integrator);
 
-  Container<Real> container = pmb->real_containers.Get("my container");
+  auto container = pmb->real_containers.Get("my container");
 
-  auto update_container = tl.AddTask<ContainerTask>(MyContainerTask, none, container);
+  auto update_container = tl.AddTask(MyContainerTask, none, container);
 
   // estimate next time step
   if (stage == integrator->nstages) {

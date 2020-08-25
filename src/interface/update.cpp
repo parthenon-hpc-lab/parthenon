@@ -64,21 +64,21 @@ TaskStatus FluxDivergence(std::shared_ptr<Container<Real>> &in,
   return TaskStatus::complete;
 }
 
-TaskStatus TransportSwarm(Swarm &in, Swarm &out, const Real dt) {
-  int nmax_active = in.get_nmax_active();
+TaskStatus TransportSwarm(SP_Swarm &in, SP_Swarm &out, const Real dt) {
+  int nmax_active = in->get_nmax_active();
 
-  MeshBlock *pmb = in.pmy_block;
+  MeshBlock *pmb = in->pmy_block;
 
-  auto &x_in = in.GetReal("x").Get();
-  auto &y_in = in.GetReal("y").Get();
-  auto &z_in = in.GetReal("z").Get();
-  auto &x_out = out.GetReal("x").Get();
-  auto &y_out = out.GetReal("y").Get();
-  auto &z_out = out.GetReal("z").Get();
-  auto &vx = in.GetReal("vx").Get();
-  auto &vy = in.GetReal("vy").Get();
-  auto &vz = in.GetReal("vz").Get();
-  auto &mask = in.GetInteger("mask").Get();
+  auto &x_in = in->GetReal("x").Get();
+  auto &y_in = in->GetReal("y").Get();
+  auto &z_in = in->GetReal("z").Get();
+  auto &x_out = out->GetReal("x").Get();
+  auto &y_out = out->GetReal("y").Get();
+  auto &z_out = out->GetReal("z").Get();
+  auto &vx = in->GetReal("vx").Get();
+  auto &vy = in->GetReal("vy").Get();
+  auto &vz = in->GetReal("vz").Get();
+  auto &mask = in->GetInteger("mask").Get();
 
   pmb->par_for("TransportSwarm", 0, nmax_active,
     KOKKOS_LAMBDA(const int n) {

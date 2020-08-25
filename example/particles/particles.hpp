@@ -43,13 +43,14 @@ using parthenon::TaskStatus;
 using parthenon::Integrator;*/
 using namespace parthenon::driver::prelude;
 using namespace parthenon::package::prelude;
+using namespace parthenon;
 
 namespace particles_example {
 
 class ParticleDriver : public MultiStageBlockTaskDriver {
  public:
-  ParticleDriver(ParameterInput *pin, Mesh *pm)//, Outputs *pout)
-      : MultiStageBlockTaskDriver(pin, pm) {//, pout) {}
+  ParticleDriver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
+      : MultiStageBlockTaskDriver(pin, app_in, pm) {//, pout) {}
     //pin->CheckRequired("parthenon/mesh", "ix1_bc");
   }
   // This next function essentially defines the driver.
@@ -62,7 +63,10 @@ class ParticleDriver : public MultiStageBlockTaskDriver {
   TaskList MakeTaskList(MeshBlock *pmb, int stage);
 };
 
-using EmptyTaskFunc = std::function<TaskStatus()>;
+void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin);
+Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin);
+
+/*using EmptyTaskFunc = std::function<TaskStatus()>;
 class EmptyTask: public BaseTask {
   public:
     EmptyTask(TaskID id, EmptyTaskFunc func, TaskID dep)
@@ -120,13 +124,13 @@ class TwoSwarmTask : public BaseTask {
   TwoSwarmTaskFunc _func;
   Swarm _swarm1;
   Swarm _swarm2;
-};
+};*/
 
 namespace Particles {
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 AmrTag CheckRefinement(Container<Real> &rc);
-Real EstimateTimestep(Container<Real> &rc);
+Real EstimateTimestep(std::shared_ptr<Container<Real>> &rc);
 
 } // namespace Particles
 

@@ -20,6 +20,10 @@ int main(int argc, char *argv[]) {
   using parthenon::ParthenonStatus;
   ParthenonManager pman;
 
+  // Redefine parthenon defaults
+  pman.app_input->ProcessPackages = particles_example::ProcessPackages;
+  pman.app_input->ProblemGenerator = particles_example::ProblemGenerator;
+
   // call ParthenonInit to initialize MPI and Kokkos, parse the input deck, and set up
   auto manager_status = pman.ParthenonInit(argc, argv);
   if (manager_status == ParthenonStatus::complete) {
@@ -34,8 +38,8 @@ int main(int argc, char *argv[]) {
   // make use of MPI and Kokkos
 
   // Initialize the driver
-  particles_example::ParticleDriver driver(pman.pinput.get(), pman.pmesh.get());
-                                            //pman.pouts.get());
+  particles_example::ParticleDriver driver(pman.pinput.get(), pman.app_input.get(),
+                                           pman.pmesh.get());
 
   // This line actually runs the simulation
   auto driver_status = driver.Execute();
