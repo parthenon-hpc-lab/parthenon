@@ -15,32 +15,9 @@
 
 #include <memory>
 
-/*#include "driver/driver.hpp"
-#include "driver/multistage.hpp"
-#include "interface/container.hpp"
-#include "interface/state_descriptor.hpp"
-#include "mesh/mesh.hpp"
-#include "tasks/task_list.hpp"*/
-
 #include <parthenon/driver.hpp>
 #include <parthenon/package.hpp>
 
-/*using parthenon::AmrTag;
-using parthenon::BaseTask;
-using parthenon::Container;
-using parthenon::SwarmContainer;
-using parthenon::Swarm;
-using parthenon::Mesh;
-using parthenon::MeshBlock;
-using parthenon::MultiStageBlockTaskDriver;
-using parthenon::Outputs;
-using parthenon::ParameterInput;
-using parthenon::Real;
-using parthenon::StateDescriptor;
-using parthenon::TaskID;
-using parthenon::TaskList;
-using parthenon::TaskStatus;
-using parthenon::Integrator;*/
 using namespace parthenon::driver::prelude;
 using namespace parthenon::package::prelude;
 using namespace parthenon;
@@ -65,66 +42,6 @@ class ParticleDriver : public MultiStageBlockTaskDriver {
 
 void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin);
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin);
-
-/*using EmptyTaskFunc = std::function<TaskStatus()>;
-class EmptyTask: public BaseTask {
-  public:
-    EmptyTask(TaskID id, EmptyTaskFunc func, TaskID dep)
-      : BaseTask(id, dep), func_(func) {}
-    TaskStatus operator()() { return func_(); }
-
-  private:
-    EmptyTaskFunc func_;
-};
-
-using ContainerTaskFunc = std::function<TaskStatus(Container<Real> &)>;
-class ContainerTask: public BaseTask {
-  public:
-    ContainerTask(TaskID id, ContainerTaskFunc func, TaskID dep, Container<Real> c)
-      : BaseTask(id, dep), func_(func), container_(c) {}
-    TaskStatus operator()() { return func_(container_); }
-
-  private:
-   ContainerTaskFunc func_;
-   Container<Real> container_;
-};
-
-using SwarmTaskFunc = std::function<TaskStatus(MeshBlock *, int,
-                                               std::vector<std::string> &,
-                                               Integrator *)>;
-class SwarmTask : public BaseTask {
-  public:
-    //SwarmTask(TaskID id, SwarmTaskFunc func, MeshBlock *pblock, TaskID dep, Swarm swarm) :
-    //  BaseTask(id, dep), func_(func), pblock_(pblock), swarm_(swarm) {}
-    SwarmTask(TaskID id, SwarmTaskFunc func, TaskID dep, MeshBlock *pblock,
-      int stage, std::vector<std::string> stage_name, Integrator *integrator) :
-      BaseTask(id, dep), func_(func), pblock_(pblock), stage_(stage),
-      stage_name_(stage_name), integrator_(integrator) {}
-    TaskStatus operator()() { return func_(pblock_, stage_, stage_name_, integrator_); }
-
-  private:
-    MeshBlock *pblock_;
-    SwarmTaskFunc func_;
-    int stage_;
-    std::vector<std::string> stage_name_;
-    Integrator *integrator_;
-    //Swarm swarm_;
-};
-
-using TwoSwarmTaskFunc =
-    std::function<TaskStatus(Swarm &, Swarm &)>;
-class TwoSwarmTask : public BaseTask {
- public:
-  TwoSwarmTask(TaskID id, TwoSwarmTaskFunc func, TaskID dep, Swarm s1,
-                   Swarm s2)
-      : BaseTask(id, dep), _func(func), _swarm1(s1), _swarm2(s2) {}
-  TaskStatus operator()() { return _func(_swarm1, _swarm2); }
-
- private:
-  TwoSwarmTaskFunc _func;
-  Swarm _swarm1;
-  Swarm _swarm2;
-};*/
 
 namespace Particles {
 
