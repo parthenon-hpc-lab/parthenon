@@ -18,7 +18,7 @@
 # will be grabbed. Including the version number would prioritise the version provided over more 
 #
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
-if( ${Python3_VERSION} VERSION_LESS "3.6")
+if( ${Python3_VERSION} VERSION_LESS "3.5")
   message(FATAL_ERROR "Python version requirements not satisfied")
 endif()
 
