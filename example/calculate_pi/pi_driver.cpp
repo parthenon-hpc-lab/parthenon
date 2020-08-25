@@ -128,8 +128,8 @@ void PiDriver::PostExecute(Real pi_val) {
 }
 
 TaskCollection PiDriver::MakeTasks(std::vector<MeshBlock *> blocks) {
-  using calculate_pi::ComputeAreaOnMesh;
   using calculate_pi::ComputeArea;
+  using calculate_pi::ComputeAreaOnMesh;
   using calculate_pi::RetrieveAreas;
   TaskCollection tc;
   if (pinput->GetOrAddBoolean("Pi", "use_mesh_pack", false)) {
