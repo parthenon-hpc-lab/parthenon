@@ -115,22 +115,22 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
   // It is expected that on restart global block ID will determine which data set is
   // read.
   //
-  MeshBlock *pmb = pm->pblock;
   hsize_t max_blocks_global = pm->nbtotal;
   hsize_t num_blocks_local = 0;
 
   const IndexDomain interior = IndexDomain::interior;
 
-  // shooting a blank just for getting the variable names
-  const IndexRange out_ib = pmb->cellbounds.GetBoundsI(interior);
-  const IndexRange out_jb = pmb->cellbounds.GetBoundsJ(interior);
-  const IndexRange out_kb = pmb->cellbounds.GetBoundsK(interior);
+  auto &mb = pm->block_list.front();
 
-  while (pmb != nullptr) {
+  // shooting a blank just for getting the variable names
+  const IndexRange out_ib = mb.cellbounds.GetBoundsI(interior);
+  const IndexRange out_jb = mb.cellbounds.GetBoundsJ(interior);
+  const IndexRange out_kb = mb.cellbounds.GetBoundsK(interior);
+
+  // Should this just be pm->block_list.size()?
+  for (auto &pmb : pm->block_list) {
     num_blocks_local++;
-    pmb = pmb->next;
   }
-  pmb = pm->pblock;
   // set output size
 
   // open HDF5 file
@@ -217,8 +217,8 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
     status = writeH5AF64("Time", &(tm->time), file, localDSpace, myDSet);
     status = writeH5AF64("dt", &(tm->dt), file, localDSpace, myDSet);
   }
-  status = writeH5ASTRING("Coordinates", std::string(pmb->coords.Name()), file,
-                          localDSpace, myDSet);
+  status = writeH5ASTRING("Coordinates", std::string(mb.coords.Name()), file, localDSpace,
+                          myDSet);
 
   status = writeH5AI32("NumDims", &pm->ndim, file, localDSpace, myDSet);
 
@@ -236,9 +236,9 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
   myDSet = H5Dcreate(file, "/Mesh", PREDINT32, localDSpace, H5P_DEFAULT, H5P_DEFAULT,
                      H5P_DEFAULT);
 
-  auto &nx1 = pmb->block_size.nx1;
-  auto &nx2 = pmb->block_size.nx2;
-  auto &nx3 = pmb->block_size.nx3;
+  auto &nx1 = mb.block_size.nx1;
+  auto &nx2 = mb.block_size.nx2;
+  auto &nx3 = mb.block_size.nx3;
   int bsize[3] = {nx1, nx2, nx3};
   nLen = 3;
   localnDSpace = H5Screate_simple(1, &nLen, NULL);
@@ -321,10 +321,9 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
     std::vector<Real> tmpData(num_blocks_local * 3);
     local_count[0] = num_blocks_local;
     global_count[0] = max_blocks_global;
-    pmb = pm->pblock;
     int i = 0;
-    while (pmb != nullptr) {
-      auto xmin = pmb->coords.GetXmin();
+    for (auto &pmb : pm->block_list) {
+      auto xmin = pmb.coords.GetXmin();
       tmpData[i] = xmin[0];
       i++;
       if (pm->ndim > 1) {
@@ -335,7 +334,6 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
         tmpData[i] = xmin[2];
         i++;
       }
-      pmb = pmb->next;
     }
     local_count[1] = global_count[1] = pm->ndim;
     WRITEH5SLABDOUBLE("xmin", tmpData.data(), gBlocks, local_start, local_count,
@@ -353,13 +351,11 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
     local_count[1] = global_count[1] = n;
     local_count[0] = num_blocks_local;
     global_count[0] = max_blocks_global;
-    pmb = pm->pblock;
     i = 0;
-    while (pmb != nullptr) {
-      tmpLoc[i++] = pmb->loc.lx1;
-      tmpLoc[i++] = pmb->loc.lx2;
-      tmpLoc[i++] = pmb->loc.lx3;
-      pmb = pmb->next;
+    for (auto &pmb : pm->block_list) {
+      tmpLoc[i++] = pmb.loc.lx1;
+      tmpLoc[i++] = pmb.loc.lx2;
+      tmpLoc[i++] = pmb.loc.lx3;
     }
     WRITEH5SLABI64("loc.lx123", tmpLoc.data(), gBlocks, local_start, local_count,
                    global_count, property_list);
@@ -370,15 +366,13 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
     local_count[1] = global_count[1] = n;
     local_count[0] = num_blocks_local;
     global_count[0] = max_blocks_global;
-    pmb = pm->pblock;
     i = 0;
-    while (pmb != nullptr) {
-      tmpID[i++] = pmb->loc.level;
-      tmpID[i++] = pmb->gid;
-      tmpID[i++] = pmb->lid;
-      tmpID[i++] = pmb->cnghost;
-      tmpID[i++] = pmb->gflag;
-      pmb = pmb->next;
+    for (auto &pmb : pm->block_list) {
+      tmpID[i++] = pmb.loc.level;
+      tmpID[i++] = pmb.gid;
+      tmpID[i++] = pmb.lid;
+      tmpID[i++] = pmb.cnghost;
+      tmpID[i++] = pmb.gflag;
     }
     WRITEH5SLABI32("loc.level-gid-lid-cnghost-gflag", tmpID.data(), gBlocks, local_start,
                    local_count, global_count, property_list);
@@ -415,12 +409,12 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
   const hsize_t varSize = nx3 * nx2 * nx1;
 
   auto ciX = ContainerIterator<Real>(
-      pm->pblock->real_containers.Get(),
+      mb.real_containers.Get(),
       {parthenon::Metadata::Independent, parthenon::Metadata::Restart}, true);
   for (auto &vwrite : ciX.vars) { // for each variable we write
     const std::string vWriteName = vwrite->label();
     hid_t vLocalSpace, vGlobalSpace;
-    pmb = pm->pblock;
+    auto &mb = pm->block_list.front();
     const hsize_t vlen = vwrite->GetDim(4);
     local_count[4] = global_count[4] = vlen;
     std::vector<Real> tmpData(varSize * vlen * num_blocks_local);
@@ -436,10 +430,10 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
 
     // load up data
     hsize_t index = 0;
-    pmb = pm->pblock;
-    while (pmb != nullptr) { // for every block
+    for (auto &pmb : pm->block_list) {
+      bool found = false;
       auto ci = ContainerIterator<Real>(
-          pmb->real_containers.Get(),
+          pmb.real_containers.Get(),
           {parthenon::Metadata::Independent, parthenon::Metadata::Restart}, true);
       for (auto &v : ci.vars) {
         // Note index 4 transposed to interior
@@ -447,10 +441,15 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
           auto v_h = (*v).data.GetHostMirrorAndCopy();
           LOADVARIABLEONE(index, tmpData.data(), v_h, out_ib.s, out_ib.e, out_jb.s,
                           out_jb.e, out_kb.s, out_kb.e, vlen);
+          found = true;
           break;
         }
       }
-      pmb = pmb->next;
+      if (!found) {
+        std::stringstream msg;
+        msg << "### ERROR: Unable to find variable " << vWriteName << std::endl;
+        PARTHENON_FAIL(msg);
+      }
     }
     // write dataset to file
     WRITEH5SLAB2(vWriteName.c_str(), tmpData.data(), file, local_start, local_count,

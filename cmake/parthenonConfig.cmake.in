@@ -1,0 +1,40 @@
+#=========================================================================================
+# (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+#
+# This program was produced under U.S. Government contract 89233218CNA000001 for Los
+# Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
+# for the U.S. Department of Energy/National Nuclear Security Administration. All rights
+# in the program are reserved by Triad National Security, LLC, and the U.S. Department
+# of Energy/National Nuclear Security Administration. The Government is granted for
+# itself and others acting on its behalf a nonexclusive, paid-up, irrevocable worldwide
+# license in this material to reproduce, prepare derivative works, distribute copies to
+# the public, perform publicly and display publicly, and to permit others to do so.
+#=========================================================================================
+
+# Favor using the kokkos package that was built with parthenon, if one has not been specified
+if (@PARTHENON_IMPORT_KOKKOS@)
+  find_package(Kokkos 3 REQUIRED PATHS @Kokkos_DIR@ NO_DEFAULT_PATH)
+else()
+  find_package(Kokkos 3 REQUIRED PATHS @CMAKE_INSTALL_PREFIX@ NO_DEFAULT_PATH)
+endif()
+
+set(Kokkos_BUILT_WITH_CUDA @Kokkos_ENABLE_CUDA@)
+if(${Kokkos_BUILT_WITH_CUDA})
+  string(FIND ${CMAKE_CXX_COMPILER} "nvcc_wrapper" FOUND_WRAPPER)
+  if( ${FOUND_WRAPPER} EQUAL "-1" )
+    if (NOT @PARTHENON_IMPORT_KOKKOS@)
+      message(WARNING "Kokkos was built with cuda, recommend setting CMAKE_CXX_COMPILER to @CMAKE_INSTALL_PREFIX@/bin/nvcc_wrapper")
+    else()
+      message(WARNING "Kokkos was built with cuda, recommend setting CMAKE_CXX_COMPILER to @Kokkos_DIR@/bin/nvcc_wrapper")
+    endif()
+  endif()
+endif()
+
+if(@MPI_FOUND@)
+  find_package(MPI REQUIRED COMPONENTS CXX)
+endif()
+if(@OpenMP_FOUND@)
+  find_package(OpenMP REQUIRED COMPONENTS CXX)
+endif()
+
+include("${CMAKE_CURRENT_LIST_DIR}/parthenonTargets.cmake")

@@ -50,23 +50,6 @@ using parthenon::Real;
 #define UNLOADVARIABLEONE(index, src, var, is, ie, js, je, ks, ke, vlen)
 #else
 
-// loads a variable
-#define LOADVARIABLEALL(dst, pmb, var, is, ie, js, je, ks, ke)                           \
-  {                                                                                      \
-    int index = 0;                                                                       \
-    while (pmb != nullptr) {                                                             \
-      for (int k = ks; k <= ke; k++) {                                                   \
-        for (int j = js; j <= je; j++) {                                                 \
-          for (int i = is; i <= ie; i++) {                                               \
-            dst[index] = var(k, j, i);                                                   \
-            index++;                                                                     \
-          }                                                                              \
-        }                                                                                \
-      }                                                                                  \
-      pmb = pmb->next;                                                                   \
-    }                                                                                    \
-  }
-
 #define LOADVARIABLEONE(index, dst, var, is, ie, js, je, ks, ke, vlen)                   \
   {                                                                                      \
     for (int k = ks; k <= ke; k++) {                                                     \
@@ -74,6 +57,22 @@ using parthenon::Real;
         for (int i = is; i <= ie; i++) {                                                 \
           for (int l = 0; l < vlen; l++) {                                               \
             dst[index] = var(l, k, j, i);                                                \
+            index++;                                                                     \
+          }                                                                              \
+        }                                                                                \
+      }                                                                                  \
+    }                                                                                    \
+  }
+
+// loads a variable
+#define LOADVARIABLEALL(dst, pm, var, is, ie, js, je, ks, ke)                            \
+  {                                                                                      \
+    int index = 0;                                                                       \
+    for (auto &mb : pm->block_list) {                                                    \
+      for (int k = ks; k <= ke; k++) {                                                   \
+        for (int j = js; j <= je; j++) {                                                 \
+          for (int i = is; i <= ie; i++) {                                               \
+            dst[index] = var(k, j, i);                                                   \
             index++;                                                                     \
           }                                                                              \
         }                                                                                \
