@@ -23,7 +23,7 @@
 #include <cmath>
 #include <iterator>
 
-#include "fc/bvals_fc.hpp"
+#include "bvals/fc/bvals_fc.hpp"
 #include "mesh/mesh.hpp"
 
 namespace parthenon {

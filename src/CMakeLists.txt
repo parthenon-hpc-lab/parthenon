@@ -108,15 +108,13 @@ set(NFIELD_VARIABLES 0) # TODO: Remove
 set(NWAVE_VALUE 5) # TODO: Remove
 set(COORDINATE_TYPE UniformCartesian) # TODO: Make this an option when more are available
 
-configure_file(config.hpp.in ${PROJECT_SOURCE_DIR}/include/parthenon/generated/config.hpp @ONLY)
+configure_file(${PROJECT_SOURCE_DIR}/src/config.hpp.in ${PROJECT_SOURCE_DIR}/include/parthenon/config.hpp @ONLY)
 
 add_library(parthenon
   bvals/cc/bvals_cc.cpp
-  bvals/cc/bvals_cc.hpp
   bvals/cc/flux_correction_cc.cpp
 
   bvals/fc/bvals_fc.cpp
-  bvals/fc/bvals_fc.hpp
   bvals/fc/flux_correction_fc.cpp
 
   bvals/boundary_conditions.cpp
