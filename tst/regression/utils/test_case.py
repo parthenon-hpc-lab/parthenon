@@ -110,16 +110,16 @@ class TestManager:
        
         #if "-np " in self.parameters.mpi_opts:
         print("MPI options %s" % self.parameters.mpi_opts)
-        try:
-          index = self.parameters.mpi_opts.index("-np")
-          self.parameters.num_ranks = int(self.parameters.mpi_opts[index+1])
-        except ValueError:
-          pass
-        try:
-          index = self.parameters.mpi_opts.index("-n")
-          self.parameters.num_ranks = int(self.parameters.mpi_opts[index+1])
-        except:
-          pass
+        argstrings = ['-np','-n']
+        if len(set(argstrings) & set(self.parameters.mpi_opts)) > 1:
+          print('Warning! You have set both "-n" and "-np" in your MPI options.")
+        for s in argstrings:
+          index = self.parameters.mpi_opts.index(s)
+          if index < len(self.parameters.mpi_opts) - 1:
+            try:
+              self.parameters.num_ranks = int(self.parameters.mpi_opts[index+1])
+            except ValueError:
+              pass
 
         module = __import__(self.__test_module, globals(), locals(),
                 fromlist=['TestCase'])
@@ -284,6 +284,5 @@ class TestManager:
 # Exception for unexpected behavior by individual tests
 class TestManagerError(RuntimeError):
     pass
-
 
 
