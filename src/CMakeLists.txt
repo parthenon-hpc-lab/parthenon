@@ -108,7 +108,7 @@ set(NFIELD_VARIABLES 0) # TODO: Remove
 set(NWAVE_VALUE 5) # TODO: Remove
 set(COORDINATE_TYPE UniformCartesian) # TODO: Make this an option when more are available
 
-configure_file(config.hpp.in generated/config.hpp @ONLY)
+configure_file(config.hpp.in ${PROJECT_SOURCE_DIR}/include/parthenon/generated/config.hpp @ONLY)
 
 add_library(parthenon
   bvals/cc/bvals_cc.cpp
@@ -120,110 +120,61 @@ add_library(parthenon
   bvals/fc/flux_correction_fc.cpp
 
   bvals/boundary_conditions.cpp
-  bvals/boundary_conditions.hpp
 
   bvals/bvals.cpp
-  bvals/bvals.hpp
   bvals/bvals_base.cpp
-  bvals/bvals_interfaces.hpp
   bvals/boundary_flag.cpp
   bvals/bvals_refine.cpp
   bvals/bvals_var.cpp
 
-  coordinates/coordinates.hpp
-  coordinates/uniform_cartesian.hpp
-
   driver/driver.cpp
-  driver/driver.hpp
   driver/multistage.cpp
-  driver/multistage.hpp
 
   interface/container_collection.cpp
-  interface/container_collection.hpp
-  interface/container_iterator.hpp
   interface/container.cpp
-  interface/container.hpp
   interface/metadata.cpp
-  interface/metadata.hpp
-  interface/params.hpp
   interface/properties_interface.cpp
-  interface/properties_interface.hpp
   interface/sparse_variable.cpp
-  interface/sparse_variable.hpp
   interface/update.cpp
-  interface/update.hpp
-  interface/variable_pack.hpp
   interface/variable.cpp
-  interface/variable.hpp
 
   mesh/amr_loadbalance.cpp
-  mesh/domain.hpp
   mesh/mesh_refinement.cpp
-  mesh/mesh_refinement.hpp
   mesh/mesh.cpp
-  mesh/mesh.hpp
   mesh/meshblock_tree.cpp
-  mesh/meshblock_tree.hpp
   mesh/meshblock.cpp
   mesh/weighted_ave.cpp
 
   outputs/formatted_table.cpp
   outputs/history.cpp
   outputs/io_wrapper.cpp
-  outputs/io_wrapper.hpp
   outputs/outputs.cpp
-  outputs/outputs.hpp
   outputs/parthenon_hdf5.cpp
   outputs/restart.cpp
   outputs/vtk.cpp
 
-  parthenon/driver.hpp
-  parthenon/package.hpp
-  parthenon/parthenon.hpp
-  parthenon/prelude.hpp
-
   pgen/default_pgen.cpp
 
   reconstruct/characteristic.cpp
-  reconstruct/dc_inline.hpp
   reconstruct/dc.cpp
-  reconstruct/plm_inline.hpp
   reconstruct/plm.cpp
   reconstruct/ppm.cpp
-  reconstruct/reconstruction.hpp
   reconstruct/reconstruction.cpp
 
   refinement/amr_criteria.cpp
-  refinement/amr_criteria.hpp
   refinement/refinement.cpp
-  refinement/refinement.hpp
 
   tasks/task_id.cpp
-  tasks/task_id.hpp
-  tasks/task_list.hpp
-  tasks/task_types.hpp
 
   utils/buffer_utils.cpp
-  utils/buffer_utils.hpp
   utils/change_rundir.cpp
-  utils/error_checking.hpp
   utils/show_config.cpp
   utils/signal_handler.cpp
   utils/trim_string.cpp
-  utils/trim_string.hpp
-  utils/utils.hpp
 
-  argument_parser.hpp
-  basic_types.hpp
-  defs.hpp
   globals.cpp
-  globals.hpp
-  kokkos_abstraction.hpp
   parameter_input.cpp
-  parameter_input.hpp
   parthenon_manager.cpp
-  parthenon_manager.hpp
-  parthenon_mpi.hpp
 )
 
 set_target_properties(parthenon PROPERTIES SOVERSION ${parthenon_VERSION})
@@ -254,29 +205,31 @@ target_link_libraries(parthenon PUBLIC Kokkos::kokkos)
 
 lint_target(parthenon)
 
-target_include_directories(parthenon PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/generated>
-  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/parthenon>
-  )
+#target_include_directories(parthenon PUBLIC
+#  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+#  $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/generated>
+#  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/parthenon>
+#  )
+#
+#install(TARGETS parthenon EXPORT parthenonTargets
+#  INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parthenon"
+#  LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+#  ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+#    )
+#
+## Maintain directory structure in installed include files
+#install(DIRECTORY . DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parthenon" FILES_MATCHING PATTERN "*.hpp")
+#
+## Install generated config header file
+#install(FILES ${CMAKE_CURRENT_BINARY_DIR}/generated/config.hpp
+#  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parthenon")
+#
+#install(FILES ${PROJECT_BINARY_DIR}/cmake/parthenonConfig.cmake DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/parthenon")
+#
+#install(EXPORT parthenonTargets
+#    FILE parthenonTargets.cmake
+#    NAMESPACE Parthenon::
+#    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/parthenon"
+#    )
 
-install(TARGETS parthenon EXPORT parthenonTargets
-  INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parthenon"
-  LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-  ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-    )
-
-# Maintain directory structure in installed include files
-install(DIRECTORY . DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parthenon" FILES_MATCHING PATTERN "*.hpp")
-
-# Install generated config header file
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/generated/config.hpp
-  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parthenon")
-
-install(FILES ${PROJECT_BINARY_DIR}/cmake/parthenonConfig.cmake DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/parthenon")
-
-install(EXPORT parthenonTargets
-    FILE parthenonTargets.cmake
-    NAMESPACE Parthenon::
-    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/parthenon"
-    )
+include(${PROJECT_SOURCE_DIR}/cmake/ParthenonInstall.cmake)
