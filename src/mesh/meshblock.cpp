@@ -49,8 +49,7 @@ namespace parthenon {
 // MeshBlock constructor: constructs coordinate, boundary condition, field
 //                        and mesh refinement objects.
 MeshBlock::MeshBlock(const int n_side, const int ndim)
-    : exec_space(DevExecSpace()), pmy_mesh(nullptr), prev(nullptr), next(nullptr),
-      cost_(1.0) {
+    : exec_space(DevExecSpace()), pmy_mesh(nullptr), cost_(1.0) {
   // initialize grid indices
   if (ndim == 1) {
     InitializeIndexShapes(n_side, 0, 0);
@@ -63,11 +62,11 @@ MeshBlock::MeshBlock(const int n_side, const int ndim)
 
 MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
                      BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
-                     Properties_t &properties, Packages_t &packages, int igflag,
-                     bool ref_flag)
+                     ApplicationInput *app_in, Properties_t &properties,
+                     Packages_t &packages, int igflag, bool ref_flag)
     : exec_space(DevExecSpace()), pmy_mesh(pm), loc(iloc), block_size(input_block),
-      gid(igid), lid(ilid), gflag(igflag), properties(properties), packages(packages),
-      prev(nullptr), next(nullptr), new_block_dt_{}, new_block_dt_hyperbolic_{},
+      gid(igid), lid(ilid), gflag(igflag), properties(properties),
+      packages(packages), new_block_dt_{}, new_block_dt_hyperbolic_{},
       new_block_dt_parabolic_{}, new_block_dt_user_{}, cost_(1.0) {
   // initialize grid indices
   if (pmy_mesh->ndim >= 3) {
@@ -76,6 +75,23 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
     InitializeIndexShapes(block_size.nx1, block_size.nx2, 0);
   } else {
     InitializeIndexShapes(block_size.nx1, 0, 0);
+  }
+
+  // Allow for user overrides to default Parthenon functions
+  if (app_in->InitApplicationMeshBlockData != nullptr) {
+    InitApplicationMeshBlockData = app_in->InitApplicationMeshBlockData;
+  }
+  if (app_in->InitUserMeshBlockData != nullptr) {
+    InitUserMeshBlockData = app_in->InitUserMeshBlockData;
+  }
+  if (app_in->ProblemGenerator != nullptr) {
+    ProblemGenerator = app_in->ProblemGenerator;
+  }
+  if (app_in->MeshBlockUserWorkInLoop != nullptr) {
+    UserWorkInLoop = app_in->MeshBlockUserWorkInLoop;
+  }
+  if (app_in->UserWorkBeforeOutput != nullptr) {
+    UserWorkBeforeOutput = app_in->UserWorkBeforeOutput;
   }
 
   auto &real_container = real_containers.Get();
@@ -147,14 +163,117 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
 
 //----------------------------------------------------------------------------------------
 // MeshBlock constructor for restarts
+// Creates block but loads no data
+MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
+                     ApplicationInput *app_in, Properties_t &properties,
+                     Packages_t &packages, LogicalLocation iloc, RegionSize input_block,
+                     BoundaryFlag *input_bcs, double icost, int igflag)
+    : exec_space(DevExecSpace()), pmy_mesh(pm), loc(iloc), block_size(input_block),
+      gid(igid), lid(ilid), gflag(igflag), properties(properties),
+      packages(packages), new_block_dt_{}, new_block_dt_hyperbolic_{},
+      new_block_dt_parabolic_{}, new_block_dt_user_{}, cost_(1.0) {
+
+  // initialize grid indices
+  // Allow for user overrides to default Parthenon functions
+  if (app_in->InitApplicationMeshBlockData != nullptr) {
+    InitApplicationMeshBlockData = app_in->InitApplicationMeshBlockData;
+  }
+  if (app_in->InitUserMeshBlockData != nullptr) {
+    InitUserMeshBlockData = app_in->InitUserMeshBlockData;
+  }
+  if (app_in->ProblemGenerator != nullptr) {
+    ProblemGenerator = app_in->ProblemGenerator;
+  }
+  if (app_in->MeshBlockUserWorkInLoop != nullptr) {
+    UserWorkInLoop = app_in->MeshBlockUserWorkInLoop;
+  }
+  if (app_in->UserWorkBeforeOutput != nullptr) {
+    UserWorkBeforeOutput = app_in->UserWorkBeforeOutput;
+  }
+
+  // std::cerr << "WHY AM I HERE???" << std::endl;
+
+  // initialize grid indices
+  if (pmy_mesh->ndim >= 3) {
+    InitializeIndexShapes(block_size.nx1, block_size.nx2, block_size.nx3);
+  } else if (pmy_mesh->ndim >= 2) {
+    InitializeIndexShapes(block_size.nx1, block_size.nx2, 0);
+  } else {
+    InitializeIndexShapes(block_size.nx1, 0, 0);
+  }
+
+  auto &real_container = real_containers.Get();
+  // Set the block pointer for the containers
+  real_container->setBlock(this);
+
+  // (probably don't need to preallocate space for references in these vectors)
+  vars_cc_.reserve(3);
+  vars_fc_.reserve(3);
+
+  // (re-)create mesh-related objects in MeshBlock
+  coords = Coordinates_t(block_size, pin);
+  auto xmin = coords.GetXmin();
+  // std::cout << "XY:" << igid << ":" << iloc.lx1 << ":" << iloc.lx2 << ":" << iloc.level
+  //           << ":" << xmin[0] << ":" << xmin[1] << std::endl;
+
+  // Boundary
+  pbval = std::make_unique<BoundaryValues>(this, input_bcs, pin);
+
+  // Reconstruction (constructor may implicitly depend on Coordinates)
+  precon = std::make_unique<Reconstruction>(this, pin);
+
+  // Add field properties data
+  for (int i = 0; i < properties.size(); i++) {
+    StateDescriptor &state = properties[i]->State();
+    for (auto const &q : state.AllFields()) {
+      real_container->Add(q.first, q.second);
+    }
+    for (auto const &q : state.AllSparseFields()) {
+      for (auto const &m : q.second) {
+        real_container->Add(q.first, m);
+      }
+    }
+  }
+  // Add physics data
+  for (auto const &pkg : packages) {
+    for (auto const &q : pkg.second->AllFields()) {
+      real_container->Add(q.first, q.second);
+    }
+    for (auto const &q : pkg.second->AllSparseFields()) {
+      for (auto const &m : q.second) {
+        real_container->Add(q.first, m);
+      }
+    }
+  }
+
+  // TODO(jdolence): Should these loops be moved to Variable creation
+  ContainerIterator<Real> ci(real_container, {Metadata::Independent});
+  int nindependent = ci.vars.size();
+  for (int n = 0; n < nindependent; n++) {
+    RegisterMeshBlockData(ci.vars[n]);
+  }
+
+  if (pm->multilevel) {
+    pmr = std::make_unique<MeshRefinement>(this, pin);
+    // This is very redundant, I think, but necessary for now
+    for (int n = 0; n < nindependent; n++) {
+      pmr->AddToRefinement(ci.vars[n]->data, ci.vars[n]->coarse_s);
+    }
+  }
+
+  // Create user mesh data
+  // InitUserMeshBlockData(pin);
+  app = InitApplicationMeshBlockData(pin);
+  return;
+}
 #if 0
 MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
                      Properties_t &properties, Packages_t &packages, LogicalLocation iloc,
                      RegionSize input_block, BoundaryFlag *input_bcs, double icost,
-                     char *mbdata, int igflag)
+                     int igflag)
     : pmy_mesh(pm), loc(iloc), block_size(input_block), gid(igid), lid(ilid),
       gflag(igflag), nuser_out_var(), properties(properties), packages(packages),
-      prev(nullptr), next(nullptr), new_block_dt_{}, new_block_dt_hyperbolic_{},
+      new_block_dt_{}, new_block_dt_hyperbolic_{},
       new_block_dt_parabolic_{}, new_block_dt_user_{}, nreal_user_meshblock_data_(),
       nint_user_meshblock_data_(), cost_(icost), exec_space(DevExecSpace()) {
   // initialize grid indices
@@ -203,10 +322,7 @@ MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
 //----------------------------------------------------------------------------------------
 // MeshBlock destructor
 
-MeshBlock::~MeshBlock() {
-  if (prev != nullptr) prev->next = next;
-  if (next != nullptr) next->prev = prev;
-}
+MeshBlock::~MeshBlock() = default;
 
 void MeshBlock::InitializeIndexShapes(const int nx1, const int nx2, const int nx3) {
   cellbounds = IndexShape(nx3, nx2, nx1, NGHOST);

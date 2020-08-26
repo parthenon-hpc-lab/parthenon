@@ -75,149 +75,54 @@ using ScratchPad6D = Kokkos::View<T ******, LayoutWrapper, ScratchMemSpace,
                                   Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
 
 // Defining tags to determine loop_patterns using a tag dispatch design pattern
+
+// Translates a non-Kokkos standard C++ nested `for` loop where the innermost `for` is
+// decorated with a #pragma omp simd
+// IMPORTANT: This only works on CPUs
 static struct LoopPatternSimdFor {
 } loop_pattern_simdfor_tag;
+// Translates to a Kokkos 1D range (Kokkos::RangePolicy) where the wrapper takes care
+// of the (hidden) 1D index to `n`, `k`, `j`, `i indices conversion
 static struct LoopPatternFlatRange {
 } loop_pattern_flatrange_tag;
+// Translates to a Kokkos multi dimensional  range (Kokkos::MDRangePolicy) with
+// a 1:1 indices matching
 static struct LoopPatternMDRange {
 } loop_pattern_mdrange_tag;
+// Translates to a Kokkos::TeamPolicy with a single inner Kokkos::TeamThreadRange
 static struct LoopPatternTPTTR {
 } loop_pattern_tpttr_tag;
+// Translates to a Kokkos::TeamPolicy with a single inner Kokkos::ThreadVectorRange
 static struct LoopPatternTPTVR {
 } loop_pattern_tptvr_tag;
+// Translates to a Kokkos::TeamPolicy with a middle Kokkos::TeamThreadRange and
+// inner Kokkos::ThreadVectorRange
 static struct LoopPatternTPTTRTVR {
 } loop_pattern_tpttrtvr_tag;
+// Used to catch undefined behavior as it results in throwing an error
 static struct LoopPatternUndefined {
 } loop_pattern_undefined_tag;
 
-// Tags for Nested parallelism
+// Tags for Nested parallelism where the outermost layer supports 1, 2, or 3 indices
+
+// Translates to outermost loop being a Kokkos::TeamPolicy
+// Currently the only available option.
 static struct OuterLoopPatternTeams {
 } outer_loop_pattern_teams_tag;
+// Translate to a Kokkos::TeamVectorRange as innermost loop (single index)
 static struct InnerLoopPatternTVR {
 } inner_loop_pattern_tvr_tag;
+// Translate to a non-Kokkos plain C++ innermost loop (single index)
+// decorated with #pragma omp simd
+// IMPORTANT: currently only supported on CPUs
 static struct InnerLoopPatternSimdFor {
 } inner_loop_pattern_simdfor_tag;
 
-// TODO(pgrete) I don't like this and would prefer to make the default a
-// parameter that is read from the parameter file rather than a compile time
-// constant. Any suggestions on how to do this elegantly? One could use
-// parthenon::Globals but then this unit here would get a dependcy on the global
-// part whereas right now it's completely encapuslated.
-// Alternatively, I could think of putting all this in the parthenon::wrapper
-// namespace so that the default variable can live there.
-// Again, I'm open for suggestions.
-#ifdef MANUAL1D_LOOP
-#define DEFAULT_LOOP_PATTERN loop_pattern_flatrange_tag
-#elif defined SIMDFOR_LOOP
-#define DEFAULT_LOOP_PATTERN loop_pattern_simdfor_tag
-#elif defined MDRANGE_LOOP
-#define DEFAULT_LOOP_PATTERN loop_pattern_mdrange_tag
-#elif defined TP_TTR_LOOP
-#define DEFAULT_LOOP_PATTERN loop_pattern_tpttr_tag
-#elif defined TP_TVR_LOOP
-#define DEFAULT_LOOP_PATTERN loop_pattern_tptvr_tag
-#elif defined TPTTRTVR_LOOP
-#define DEFAULT_LOOP_PATTERN loop_pattern_tpttrtvr_tag
-#else
-#define DEFAULT_LOOP_PATTERN loop_pattern_undefined_tag
-#endif
-
-#define DEFAULT_OUTER_LOOP_PATTERN outer_loop_pattern_teams_tag
-
-#ifdef TVR_INNER_LOOP
-#define DEFAULT_INNER_LOOP_PATTERN inner_loop_pattern_tvr_tag
-#elif defined SIMDFOR_INNER_LOOP
-#define DEFAULT_INNER_LOOP_PATTERN inner_loop_pattern_simdfor_tag
-#else
-#define DEFAULT_INNER_LOOP_PATTERN loop_pattern_undefined_tag
-#endif
-
-// 1D default loop pattern
+// 1D loop using RangePolicy loops
 template <typename Function>
-inline void par_for(const std::string &name, DevExecSpace exec_space, const int &il,
-                    const int &iu, const Function &function) {
-  // using loop_pattern_mdrange_tag instead of DEFAULT_LOOP_PATTERN for now
-  // as the other wrappers are not implemented yet for 1D loops
-  par_for(loop_pattern_mdrange_tag, name, exec_space, il, iu, function);
-}
-
-// 2D default loop pattern
-template <typename Function>
-inline void par_for(const std::string &name, DevExecSpace exec_space, const int &jl,
-                    const int &ju, const int &il, const int &iu,
+inline void par_for(LoopPatternFlatRange, const std::string &name,
+                    DevExecSpace exec_space, const int &il, const int &iu,
                     const Function &function) {
-  // using loop_pattern_mdrange_tag instead of DEFAULT_LOOP_PATTERN for now
-  // as the other wrappers are not implemented yet for 2D loops
-  par_for(loop_pattern_mdrange_tag, name, exec_space, jl, ju, il, iu, function);
-}
-
-// 3D default loop pattern
-template <typename Function>
-inline void par_for(const std::string &name, DevExecSpace exec_space, const int &kl,
-                    const int &ku, const int &jl, const int &ju, const int &il,
-                    const int &iu, const Function &function) {
-  par_for(DEFAULT_LOOP_PATTERN, name, exec_space, kl, ku, jl, ju, il, iu, function);
-}
-
-// 4D default loop pattern
-template <typename Function>
-inline void par_for(const std::string &name, DevExecSpace exec_space, const int &nl,
-                    const int &nu, const int &kl, const int &ku, const int &jl,
-                    const int &ju, const int &il, const int &iu,
-                    const Function &function) {
-  par_for(DEFAULT_LOOP_PATTERN, name, exec_space, nl, nu, kl, ku, jl, ju, il, iu,
-          function);
-}
-
-// 1D Outer loop default pattern
-template <typename Function>
-inline void par_for_outer(const std::string &name, DevExecSpace exec_space,
-                          size_t scratch_size_in_bytes, const int scratch_level,
-                          const int kl, const int ku, const Function &function) {
-  par_for_outer(DEFAULT_OUTER_LOOP_PATTERN, name, exec_space, scratch_size_in_bytes,
-                scratch_level, kl, ku, function);
-}
-
-// 2D Outer loop default pattern
-template <typename Function>
-inline void par_for_outer(const std::string &name, DevExecSpace exec_space,
-                          size_t scratch_size_in_bytes, const int scratch_level,
-                          const int kl, const int ku, const int jl, const int ju,
-                          const Function &function) {
-  par_for_outer(DEFAULT_OUTER_LOOP_PATTERN, name, exec_space, scratch_size_in_bytes,
-                scratch_level, kl, ku, jl, ju, function);
-}
-
-// 3D Outer loop default pattern
-template <typename Function>
-inline void par_for_outer(const std::string &name, DevExecSpace exec_space,
-                          size_t scratch_size_in_bytes, const int scratch_level,
-                          const int nl, const int nu, const int kl, const int ku,
-                          const int jl, const int ju, const Function &function) {
-  par_for_outer(DEFAULT_OUTER_LOOP_PATTERN, name, exec_space, scratch_size_in_bytes,
-                scratch_level, nl, nu, kl, ku, jl, ju, function);
-}
-
-// Inner loop default pattern
-template <typename Function>
-KOKKOS_INLINE_FUNCTION void par_for_inner(team_mbr_t team_member, const int il,
-                                          const int iu, const Function &function) {
-#ifdef TVR_INNER_LOOP
-  Kokkos::parallel_for(Kokkos::TeamVectorRange(team_member, il, iu + 1), function);
-#elif defined SIMDFOR_INNER_LOOP
-#pragma omp simd
-  for (int i = il; i <= iu; i++) {
-    function(i);
-  }
-#else
-  par_for_inner(DEFAULT_INNER_LOOP_PATTERN, team_member, il, iu, function);
-#endif
-}
-
-// 1D loop using MDRange loops
-template <typename Function>
-inline void par_for(LoopPatternMDRange, const std::string &name, DevExecSpace exec_space,
-                    const int &il, const int &iu, const Function &function) {
   Kokkos::parallel_for(name,
                        Kokkos::Experimental::require(
                            Kokkos::RangePolicy<>(exec_space, il, iu + 1),
@@ -537,7 +442,7 @@ inline void par_for_outer(OuterLoopPatternTeams, const std::string &name,
       });
 }
 
-// Inner parallel loop using TeamThreamRange
+// Inner parallel loop using TeamVectorRange
 template <typename Function>
 KOKKOS_INLINE_FUNCTION void par_for_inner(InnerLoopPatternTVR, team_mbr_t team_member,
                                           const int il, const int iu,

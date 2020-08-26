@@ -21,9 +21,22 @@
 
 #include "parthenon_manager.hpp"
 
-namespace parthenon {
+using parthenon::DerivedOwnership;
+using parthenon::DriverStatus;
+using parthenon::MeshBlock;
+using parthenon::Metadata;
+using parthenon::Packages_t;
+using parthenon::ParameterInput;
+using parthenon::Params;
+using parthenon::Real;
+using parthenon::StateDescriptor;
+using parthenon::TaskID;
+using parthenon::TaskList;
+using parthenon::TaskStatus;
 
-Packages_t ParthenonManager::ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
+namespace FaceFields {
+
+Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   Packages_t packages;
   auto package = std::make_shared<StateDescriptor>("FaceFieldExample");
 
@@ -51,23 +64,22 @@ Packages_t ParthenonManager::ProcessPackages(std::unique_ptr<ParameterInput> &pi
   return packages;
 }
 
-void MeshBlock::ProblemGenerator(ParameterInput *pin) {
+void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   // don't do anything here
 }
 
 DriverStatus FaceFieldExample::Execute() {
   Driver::PreExecute();
-  DriverUtils::ConstructAndExecuteBlockTasks<>(this);
+  parthenon::DriverUtils::ConstructAndExecuteBlockTasks<>(this);
 
   // post-evolution analysis
   Real rank_sum = 0.0;
-  MeshBlock *pmb = pmesh->pblock;
-  while (pmb != nullptr) {
-    parthenon::IndexDomain interior = parthenon::IndexDomain::interior;
-    parthenon::IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
-    parthenon::IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
-    parthenon::IndexRange kb = pmb->cellbounds.GetBoundsK(interior);
-    auto &rc = pmb->real_containers.Get();
+  for (auto &block : pmesh->block_list) {
+    parthenon::IndexDomain const interior = parthenon::IndexDomain::interior;
+    parthenon::IndexRange const ib = block.cellbounds.GetBoundsI(interior);
+    parthenon::IndexRange const jb = block.cellbounds.GetBoundsJ(interior);
+    parthenon::IndexRange const kb = block.cellbounds.GetBoundsK(interior);
+    auto &rc = block.real_containers.Get();
     auto &summed = rc->Get("c.c.interpolated_sum").data;
     for (int k = kb.s; k <= kb.e; k++) {
       for (int j = jb.s; j <= jb.e; j++) {
@@ -76,7 +88,6 @@ DriverStatus FaceFieldExample::Execute() {
         }
       }
     }
-    pmb = pmb->next;
   }
 #ifdef MPI_PARALLEL
   Real global_sum;
@@ -153,9 +164,7 @@ TaskList FaceFieldExample::MakeTaskList(MeshBlock *pmb) {
   return tl;
 }
 
-} // namespace parthenon
-
-parthenon::TaskStatus FaceFields::fill_faces(parthenon::MeshBlock *pmb) {
+parthenon::TaskStatus fill_faces(parthenon::MeshBlock *pmb) {
   using parthenon::Real;
 
   auto example = pmb->packages["FaceFieldExample"];
@@ -213,3 +222,5 @@ parthenon::TaskStatus FaceFields::fill_faces(parthenon::MeshBlock *pmb) {
   }
   return parthenon::TaskStatus::complete;
 }
+
+} // namespace FaceFields

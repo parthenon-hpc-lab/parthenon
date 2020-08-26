@@ -28,7 +28,7 @@ We aim at creating a new release everyone 4 to 6 weeks.
 The decision on creating a new release is made during the bi-weekly calls.
 A release consists of of merging `develop` into `stable` and create a new tag for that version
 using a modified [semantic versioning](https://semver.org/) scheme.
-Releases will be tagged `0.MAJOR.MINOR` given the current rapid development.
+Releases will be tagged `v0.MAJOR.MINOR` given the current rapid development.
 
 - MAJOR is incremented for API incompatible changes
 - MINOR is incremented for backwards compatible changes and bug fixes
@@ -290,17 +290,24 @@ Total Test time (real) =   1.47 sec
 
 #### Including Tests in Code Coverage Report
 
-Tests are not automatically included in the coverage report. To include a unit or integration test in the coverage
-report the tag [coverage] should be added to the catch2 `TEST_CASE` macro. E.g.
+Unit tests that are not performance tests (Do not have the [performance] tag) are 
+automatically included in the coverage report. If you want to include a performance 
+unit test in the coverage report the tag [coverage] should be added to the catch2 
+`TEST_CASE` macro. E.g.
 
 ```
-TEST_CASE("test description", "[unit][coverage]"){
+TEST_CASE("test description", "[unit][performance][coverage]"){
 ...
 }
 ```
 
-To add a regression test to the coverage report an attribute of the parameters argument can be 
-altered. E.g.
+It is advisable not to add the coverage tag to performance tests especially if they 
+take a long time to run, as adding code coverage will make them even slower. It is 
+better to reserve coverage for tests that show correct behavior. 
+
+Unlike unit tests, regression tests are not automatically added to the coverage report. 
+To add a regression test to the coverage report an attribute of the parameters argument
+can be altered. E.g.
 
 ```
 class TestCase(utils.test_case.TestCaseAbs):

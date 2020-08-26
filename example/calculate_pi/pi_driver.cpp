@@ -13,6 +13,7 @@
 
 // Standard Includes
 #include <fstream>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -25,11 +26,17 @@
 
 // Preludes
 using namespace parthenon::package::prelude;
+using parthenon::Packages_t;
+using parthenon::ParameterInput;
 
 using pi::PiDriver;
 
+Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin);
+
 int main(int argc, char *argv[]) {
   ParthenonManager pman;
+
+  pman.app_input->ProcessPackages = ProcessPackages;
 
   auto manager_status = pman.ParthenonInit(argc, argv);
   if (manager_status == ParthenonStatus::complete) {
@@ -41,7 +48,7 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  PiDriver driver(pman.pinput.get(), pman.pmesh.get());
+  PiDriver driver(pman.pinput.get(), pman.app_input.get(), pman.pmesh.get());
 
   auto driver_status = driver.Execute();
 
@@ -50,6 +57,35 @@ int main(int argc, char *argv[]) {
 
   return 0;
 }
+
+// can be used to set global properties that all meshblocks want to know about
+// no need in this app so use the weak version that ships with parthenon
+// Properties_t ParthenonManager::ProcessProperties(std::unique_ptr<ParameterInput>& pin)
+// {
+//  Properties_t props;
+//  return props;
+//}
+
+Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
+  Packages_t packages;
+  // only have one package for this app, but will typically have more things added to
+  packages["calculate_pi"] = calculate_pi::Initialize(pin.get());
+  return packages;
+}
+
+// this should set up initial conditions of independent variables on the block
+// this app only has one variable of derived type, so nothing to do here.
+// in this case, just use the weak version
+// void MeshBlock::ProblemGenerator(ParameterInput *pin) {
+//  // nothing to do here for this app
+//}
+
+// applications can register functions to fill shared derived quantities
+// before and/or after all the package FillDerived call backs
+// in this case, just use the weak version that sets these to nullptr
+// void ParthenonManager::SetFillDerivedFunctions() {
+//  FillDerivedVariables::SetFillDerivedFunctions(nullptr,nullptr);
+//}
 
 parthenon::DriverStatus PiDriver::Execute() {
   // this is where the main work is orchestrated
@@ -67,22 +103,20 @@ parthenon::DriverStatus PiDriver::Execute() {
     ConstructAndExecuteBlockTasks<>(this);
     // All the blocks are done, now do a global reduce and spit out the answer
     // first sum over blocks on this rank
-    MeshBlock *pmb = pmesh->pblock;
-    while (pmb != nullptr) {
-      auto &rc = pmb->real_containers.Get();
+    for (auto &mb : pmesh->block_list) {
+      auto &rc = mb.real_containers.Get();
       ParArrayND<Real> v = rc->Get("in_or_out").data;
 
       // extract area from device memory
       Real block_area;
-      Kokkos::deep_copy(pmb->exec_space, block_area, v.Get(0, 0, 0, 0, 0, 0));
+      Kokkos::deep_copy(mb.exec_space, block_area, v.Get(0, 0, 0, 0, 0, 0));
       pmb->exec_space.fence(); // as the deep copy may be async
 
-      const auto &radius = pmb->packages["calculate_pi"]->Param<Real>("radius");
+      const auto &radius = mb.packages["calculate_pi"]->Param<Real>("radius");
       // area must be reduced by r^2 to get the block's contribution to PI
       block_area /= (radius * radius);
 
       area += block_area;
-      pmb = pmb->next;
     }
   }
 #ifdef MPI_PARALLEL

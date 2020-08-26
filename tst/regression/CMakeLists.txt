@@ -11,9 +11,6 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
 
-# Include test setup functions
-include(${PROJECT_SOURCE_DIR}/cmake/TestSetup.cmake)
-
 # Adding regression tests
 #
 # To add additional regression tests to ctest, three things must be added to 
@@ -40,19 +37,6 @@ include(${PROJECT_SOURCE_DIR}/cmake/TestSetup.cmake)
 # Here name_of_folder should be the test folder located in parthenon/tst/regression/test_suites
 # it is the parameter that is passed to run_test.py with the --test_dir argument
 
-# Calculate pi example
-list(APPEND TEST_DIRS calculate_pi)
-list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
-list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/calculate_pi/pi-example \
---driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/calculate_pi/parthinput.regression")
-
-# Advection test 
-list(APPEND TEST_DIRS advection_convergence)
-list(APPEND TEST_PROCS "1")
-list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
---driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/advection_convergence/parthinput.advection \
---num_steps 25")
-
 # Performance regression test
 list(APPEND TEST_DIRS advection_performance)
 list(APPEND TEST_PROCS "1")
@@ -61,21 +45,47 @@ list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advectio
 --num_steps 5")
 
 if (ENABLE_HDF5)
-  setup_test( output_hdf5 "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
-  --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/output_hdf5/parthinput.advection \
-  --num_steps 4")
-  setup_test_coverage( output_hdf5 "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
-  --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/output_hdf5/parthinput.advection \
-  --num_steps 4")
-  setup_test_mpi( "${NUM_MPI_PROC_TESTING}" output_hdf5
-    "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
-  --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/output_hdf5/parthinput.advection \
-  --num_steps 4")
-  setup_test_mpi_coverage("${NUM_MPI_PROC_TESTING}" output_hdf5
-    "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
-  --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/output_hdf5/parthinput.advection \
-  --num_steps 4")
+
+  # h5py is needed for restart and hdff5 test
+  list(APPEND REQUIRED_PYTHON_MODULES h5py) 
+
+  # Restart
+  list(APPEND TEST_DIRS restart)
+  list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
+    --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/restart/parthinput.restart \
+    --num_steps 2")
+  
+  # Calculate pi example
+  list(APPEND TEST_DIRS calculate_pi)
+  list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/calculate_pi/pi-example \
+  --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/calculate_pi/parthinput.regression")
+
+  # Advection test 
+  list(APPEND TEST_DIRS advection_convergence)
+  list(APPEND TEST_PROCS "1")
+  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
+  --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/advection_convergence/parthinput.advection \
+  --num_steps 25")
+
+  list(APPEND TEST_DIRS output_hdf5)
+  list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
+    --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/output_hdf5/parthinput.advection \
+    --num_steps 4")
 endif()
+
+# Any external modules that are required by python can be added to REQUIRED_PYTHON_MODULES 
+# list variable, before including TestSetup.cmake. 
+list(APPEND REQUIRED_PYTHON_MODULES matplotlib numpy) 
+
+# Include test setup functions, and check for python interpreter and modules
+#  setup_test
+#  setup_test_coverage
+#  setup_test_mpi
+#  setup_test_mpi_coverage
+include(${PROJECT_SOURCE_DIR}/cmake/TestSetup.cmake)
 
 list(LENGTH TEST_DIRS len)
 math(EXPR end_index "${len} - 1")

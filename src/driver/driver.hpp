@@ -14,12 +14,14 @@
 #ifndef DRIVER_DRIVER_HPP_
 #define DRIVER_DRIVER_HPP_
 
+#include <limits>
 #include <map>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
+#include "application_input.hpp"
 #include "basic_types.hpp"
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
@@ -35,11 +37,13 @@ enum class DriverStatus { complete, timeout, failed };
 
 class Driver {
  public:
-  Driver(ParameterInput *pin, Mesh *pm) : pinput(pin), pmesh(pm) {}
+  Driver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
+      : pinput(pin), app_input(app_in), pmesh(pm) {}
   virtual DriverStatus Execute() = 0;
   void InitializeOutputs() { pouts = std::make_unique<Outputs>(pmesh, pinput); }
 
   ParameterInput *pinput;
+  ApplicationInput *app_input;
   Mesh *pmesh;
   std::unique_ptr<Outputs> pouts;
 
@@ -56,13 +60,17 @@ class Driver {
 
 class EvolutionDriver : public Driver {
  public:
-  EvolutionDriver(ParameterInput *pin, Mesh *pm) : Driver(pin, pm) {
-    Real start_time = pinput->GetOrAddReal("parthenon/time", "start_time", 0.0);
-    Real tstop = pinput->GetReal("parthenon/time", "tlim");
+  EvolutionDriver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
+      : Driver(pin, app_in, pm) {
+    Real start_time = pinput->GetOrAddPrecise("parthenon/time", "start_time", 0.0);
+    Real tstop = pinput->GetOrAddPrecise("parthenon/time", "tlim",
+                                         std::numeric_limits<Real>::infinity());
+    Real dt =
+        pinput->GetOrAddPrecise("parthenon/time", "dt", std::numeric_limits<Real>::max());
+    int ncycle = pinput->GetOrAddInteger("parthenon/time", "ncycle", 0);
     int nmax = pinput->GetOrAddInteger("parthenon/time", "nlim", -1);
     int nout = pinput->GetOrAddInteger("parthenon/time", "ncycle_out", 1);
-    // TODO(jcd): the 0 below should be the current cycle number, not necessarily 0
-    tm = SimTime(start_time, tstop, nmax, 0, nout);
+    tm = SimTime(start_time, tstop, nmax, ncycle, nout, dt);
     pouts = std::make_unique<Outputs>(pmesh, pinput, &tm);
   }
   DriverStatus Execute() override;
@@ -85,10 +93,8 @@ template <typename T, class... Args>
 TaskListStatus ConstructAndExecuteBlockTasks(T *driver, Args... args) {
   int nmb = driver->pmesh->GetNumMeshBlocksThisRank(Globals::my_rank);
   std::vector<TaskList> task_lists;
-  MeshBlock *pmb = driver->pmesh->pblock;
-  while (pmb != nullptr) {
-    task_lists.push_back(driver->MakeTaskList(pmb, std::forward<Args>(args)...));
-    pmb = pmb->next;
+  for (auto &mb : driver->pmesh->block_list) {
+    task_lists.push_back(driver->MakeTaskList(&mb, std::forward<Args>(args)...));
   }
   int complete_cnt = 0;
   while (complete_cnt != nmb) {

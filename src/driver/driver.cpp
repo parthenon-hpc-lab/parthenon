@@ -49,7 +49,7 @@ void Driver::PostExecute() {
                       static_cast<double>(CLOCKS_PER_SEC);
     std::uint64_t zonecycles =
         pmesh->mbcnt *
-        static_cast<std::uint64_t>(pmesh->pblock->GetNumberOfMeshBlockCells());
+        static_cast<std::uint64_t>(pmesh->block_list.front().GetNumberOfMeshBlockCells());
     double zc_cpus = static_cast<double>(zonecycles) / cpu_time;
 
     std::cout << std::endl << "zone-cycles = " << zonecycles << std::endl;
@@ -78,13 +78,12 @@ DriverStatus EvolutionDriver::Execute() {
       return DriverStatus::failed;
     }
     // pmesh->UserWorkInLoop();
-
     tm.ncycle++;
     tm.time += tm.dt;
     pmesh->mbcnt += pmesh->nbtotal;
     pmesh->step_since_lb++;
 
-    pmesh->LoadBalancingAndAdaptiveMeshRefinement(pinput);
+    pmesh->LoadBalancingAndAdaptiveMeshRefinement(pinput, app_input);
     if (pmesh->modified) InitializeBlockTimeSteps();
     SetGlobalTimeStep();
     if (tm.time < tm.tlim) // skip the final output as it happens later
@@ -96,7 +95,7 @@ DriverStatus EvolutionDriver::Execute() {
     }
   } // END OF MAIN INTEGRATION LOOP ======================================================
 
-  pmesh->UserWorkAfterLoop(pinput, tm);
+  pmesh->UserWorkAfterLoop(pmesh, pinput, tm);
 
   DriverStatus status = DriverStatus::complete;
 
@@ -133,10 +132,8 @@ void EvolutionDriver::PostExecute(DriverStatus status) {
 
 void EvolutionDriver::InitializeBlockTimeSteps() {
   // calculate the first time step
-  MeshBlock *pmb = pmesh->pblock;
-  while (pmb != nullptr) {
-    pmb->SetBlockTimestep(Update::EstimateTimestep(pmb->real_containers.Get()));
-    pmb = pmb->next;
+  for (auto &mb : pmesh->block_list) {
+    mb.SetBlockTimestep(Update::EstimateTimestep(mb.real_containers.Get()));
   }
 }
 
@@ -145,13 +142,10 @@ void EvolutionDriver::InitializeBlockTimeSteps() {
 // \brief function that loops over all MeshBlocks and find new timestep
 
 void EvolutionDriver::SetGlobalTimeStep() {
-  MeshBlock *pmb = pmesh->pblock;
-
   Real dt_max = 2.0 * tm.dt;
   tm.dt = std::numeric_limits<Real>::max();
-  while (pmb != nullptr) {
-    tm.dt = std::min(tm.dt, pmb->NewDt());
-    pmb = pmb->next;
+  for (auto const &mb : pmesh->block_list) {
+    tm.dt = std::min(tm.dt, mb.NewDt());
   }
   tm.dt = std::min(dt_max, tm.dt);
 

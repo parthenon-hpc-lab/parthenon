@@ -74,7 +74,7 @@ class ContainerIterator {
   /// @param c the container on which you want the iterator
   /// @param flags: a vector of Metadata::flags that you want to match
   ContainerIterator<T>(const std::shared_ptr<Container<T>> &c,
-                       const std::vector<MetadataFlag> &flags) {
+                       const std::vector<MetadataFlag> &flags, bool matchAny = false) {
     allVars_ = c->GetCellVariableVector();
     for (auto &svar : c->GetSparseVector()) {
       CellVariableVector<T> &svec = svar->GetVector();
@@ -82,7 +82,7 @@ class ContainerIterator {
     }
     // faces not active yet    allFaceVars_ = c.faceVars();
     // edges not active yet    allEdgeVars_ = c.edgeVars();
-    resetVars(flags); // fill subset based on mask vector
+    resetVars(flags, matchAny); // fill subset based on mask vector
   }
 
   /// initializes the iterator with a container and a flag to match
@@ -116,13 +116,14 @@ class ContainerIterator {
 
   /// Changes the mask for the iterator and resets the iterator
   /// @param flags: a vector of MetadataFlag that you want to match
-  void resetVars(const std::vector<MetadataFlag> &flags) {
+  void resetVars(const std::vector<MetadataFlag> &flags, bool matchAny = false) {
     // 1: clear out variables stored so far
     emptyVars_();
 
     // 2: fill in the subset of variables that match mask
     for (auto pv : allVars_) {
-      if (pv->metadata().AllFlagsSet(flags)) {
+      if ((matchAny && pv->metadata().AnyFlagsSet(flags)) ||
+          ((!matchAny) && pv->metadata().AllFlagsSet(flags))) {
         vars.push_back(pv);
       }
     }

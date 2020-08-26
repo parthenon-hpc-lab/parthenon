@@ -28,39 +28,6 @@
 
 using namespace parthenon::package::prelude;
 
-namespace parthenon {
-
-// can be used to set global properties that all meshblocks want to know about
-// no need in this app so use the weak version that ships with parthenon
-// Properties_t ParthenonManager::ProcessProperties(std::unique_ptr<ParameterInput>& pin)
-// {
-//  Properties_t props;
-//  return props;
-//}
-
-Packages_t ParthenonManager::ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
-  Packages_t packages;
-  // only have one package for this app, but will typically have more things added to
-  packages["calculate_pi"] = calculate_pi::Initialize(pin.get());
-  return packages;
-}
-
-// this should set up initial conditions of independent variables on the block
-// this app only has one variable of derived type, so nothing to do here.
-// in this case, just use the weak version
-// void MeshBlock::ProblemGenerator(ParameterInput *pin) {
-//  // nothing to do here for this app
-//}
-
-// applications can register functions to fill shared derived quantities
-// before and/or after all the package FillDerived call backs
-// in this case, just use the weak version that sets these to nullptr
-// void ParthenonManager::SetFillDerivedFunctions() {
-//  FillDerivedVariables::SetFillDerivedFunctions(nullptr,nullptr);
-//}
-
-} // namespace parthenon
-
 // This defines a "physics" package
 // In this case, calculate_pi provides the functions required to set up
 // an indicator function in_or_out(x,y) = (r < r0 ? 1 : 0), and compute the area
