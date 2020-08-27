@@ -25,6 +25,7 @@
 #include <catch2/catch.hpp>
 
 #include "basic_types.hpp"
+#include "config.hpp"
 #include "defs.hpp"
 #include "interface/container.hpp"
 #include "interface/container_iterator.hpp"
@@ -94,7 +95,8 @@ template <class T>
 std::function<void()> createLambdaRaw(T &raw_array) {
   return [&]() {
     par_for(
-        "Initialize ", DevExecSpace(), 0, Nvar - 1, 0, N - 1, 0, N - 1, 0, N - 1,
+        DEFAULT_LOOP_PATTERN, "Initialize ", DevExecSpace(), 0, Nvar - 1, 0, N - 1, 0,
+        N - 1, 0, N - 1,
         KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
           raw_array(l, k, j, i) =
               static_cast<Real>((l + 1) * (k + 1) * (j + 1) * (i + 1));
@@ -108,8 +110,8 @@ std::function<void()> createLambdaContainer(Container<Real> &container) {
     for (int n = 0; n < cv.size(); n++) {
       ParArrayND<Real> v = cv[n]->data;
       par_for(
-          "Initialize variables", DevExecSpace(), 0, v.GetDim(4) - 1, 0, v.GetDim(3) - 1,
-          0, v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
+          DEFAULT_LOOP_PATTERN, "Initialize variables", DevExecSpace(), 0,
+          v.GetDim(4) - 1, 0, v.GetDim(3) - 1, 0, v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
           KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
             v(l, k, j, i) = static_cast<Real>((l + 1) * (k + 1) * (j + 1) * (i + 1));
           });
@@ -124,8 +126,8 @@ std::function<void()> createLambdaContainerCellVar(Container<Real> &container,
     for (int n = 0; n < names.size(); n++) {
       CellVariable<Real> &v = container.Get(names[n]);
       par_for(
-          "Initialize variables", DevExecSpace(), 0, v.GetDim(4) - 1, 0, v.GetDim(3) - 1,
-          0, v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
+          DEFAULT_LOOP_PATTERN, "Initialize variables", DevExecSpace(), 0,
+          v.GetDim(4) - 1, 0, v.GetDim(3) - 1, 0, v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
           KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
             v.data(l, k, j, i) = static_cast<Real>((l + 1) * (k + 1) * (j + 1) * (i + 1));
           });
@@ -138,7 +140,7 @@ std::function<void()>
 createLambdaInitViewOfViews(parthenon::VariablePack<Real> &var_view) {
   return [&]() {
     par_for(
-        "Initialize ", DevExecSpace(), 0, var_view.GetDim(4) - 1, 0,
+        DEFAULT_LOOP_PATTERN, "Initialize ", DevExecSpace(), 0, var_view.GetDim(4) - 1, 0,
         var_view.GetDim(3) - 1, 0, var_view.GetDim(2) - 1, 0, var_view.GetDim(1) - 1,
         KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
           var_view(l, k, j, i) = static_cast<Real>((l + 1) * (k + 1) * (j + 1) * (i + 1));
@@ -155,7 +157,8 @@ TEST_CASE("Catch2 Container Iterator Performance", "[ContainerIterator][performa
       // Make a function for initializing the raw ParArray4D
       performance_test_wrapper("Mask: Raw Array Perf", init_raw_array, [&]() {
         par_for(
-            "Raw Array Perf", DevExecSpace(), 0, Nvar - 1, 0, N - 1, 0, N - 1, 0, N - 1,
+            DEFAULT_LOOP_PATTERN, "Raw Array Perf", DevExecSpace(), 0, Nvar - 1, 0, N - 1,
+            0, N - 1, 0, N - 1,
             KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
               raw_array(l, k, j, i) *=
                   raw_array(l, k, j, i); // Do something trivial, square each term
@@ -169,7 +172,8 @@ TEST_CASE("Catch2 Container Iterator Performance", "[ContainerIterator][performa
       // Make a function for initializing the raw ParArray4D
       performance_test_wrapper("Mask: Nd Array Perf", init_nd_array, [&]() {
         par_for(
-            "Nd Array Perf", DevExecSpace(), 0, Nvar - 1, 0, N - 1, 0, N - 1, 0, N - 1,
+            DEFAULT_LOOP_PATTERN, "Nd Array Perf", DevExecSpace(), 0, Nvar - 1, 0, N - 1,
+            0, N - 1, 0, N - 1,
             KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
               nd_array(l, k, j, i) *=
                   nd_array(l, k, j, i); // Do something trivial, square each term
@@ -189,8 +193,8 @@ TEST_CASE("Catch2 Container Iterator Performance", "[ContainerIterator][performa
         for (int n = 0; n < cv.size(); n++) {
           ParArrayND<Real> v = cv[n]->data;
           par_for(
-              "Iterate Variables Perf", DevExecSpace(), 0, v.GetDim(4) - 1, 0,
-              v.GetDim(3) - 1, 0, v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
+              DEFAULT_LOOP_PATTERN, "Iterate Variables Perf", DevExecSpace(), 0,
+              v.GetDim(4) - 1, 0, v.GetDim(3) - 1, 0, v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
               KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
                 v(l, k, j, i) *= v(l, k, j, i); // Do something trivial, square each term
               });
@@ -208,8 +212,8 @@ TEST_CASE("Catch2 Container Iterator Performance", "[ContainerIterator][performa
           CellVariable<Real> &v = container.Get(names[n]);
           // Do something trivial, square each term
           par_for(
-              "Iterate CellVariables Perf", DevExecSpace(), 0, v.GetDim(4) - 1, 0,
-              v.GetDim(3) - 1, 0, v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
+              DEFAULT_LOOP_PATTERN, "Iterate CellVariables Perf", DevExecSpace(), 0,
+              v.GetDim(4) - 1, 0, v.GetDim(3) - 1, 0, v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
               KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
                 v.data(l, k, j, i) *= v.data(l, k, j, i);
               });
@@ -228,9 +232,9 @@ TEST_CASE("Catch2 Container Iterator Performance", "[ContainerIterator][performa
         // Test performance of view of views VariablePack implementation
         performance_test_wrapper("Mask: View of Views Perf", init_view_of_views, [&]() {
           par_for(
-              "Flat Container Array Perf", DevExecSpace(), 0, var_view.GetDim(4) - 1, 0,
-              var_view.GetDim(3) - 1, 0, var_view.GetDim(2) - 1, 0,
-              var_view.GetDim(1) - 1,
+              DEFAULT_LOOP_PATTERN, "Flat Container Array Perf", DevExecSpace(), 0,
+              var_view.GetDim(4) - 1, 0, var_view.GetDim(3) - 1, 0,
+              var_view.GetDim(2) - 1, 0, var_view.GetDim(1) - 1,
               KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
                 auto &var = var_view(l);
                 var(k, j, i) *= var(k, j, i); // Do something trivial, square each term
@@ -245,7 +249,7 @@ TEST_CASE("Catch2 Container Iterator Performance", "[ContainerIterator][performa
         // Test performance of view of views VariablePack implementation
         performance_test_wrapper("Named: View of views", init_view_of_views, [&]() {
           par_for(
-              "Flat Container Array Perf", DevExecSpace(), 0,
+              DEFAULT_LOOP_PATTERN, "Flat Container Array Perf", DevExecSpace(), 0,
               var_view_named.GetDim(4) - 1, 0, var_view_named.GetDim(3) - 1, 0,
               var_view_named.GetDim(2) - 1, 0, var_view_named.GetDim(1) - 1,
               KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
@@ -264,9 +268,9 @@ TEST_CASE("Catch2 Container Iterator Performance", "[ContainerIterator][performa
         performance_test_wrapper("View of views", init_view_of_views, [&]() {
           auto var_view_named = container.PackVariables(names);
           par_for(
-              "Always pack Perf", DevExecSpace(), 0, var_view_named.GetDim(4) - 1, 0,
-              var_view_named.GetDim(3) - 1, 0, var_view_named.GetDim(2) - 1, 0,
-              var_view_named.GetDim(1) - 1,
+              DEFAULT_LOOP_PATTERN, "Always pack Perf", DevExecSpace(), 0,
+              var_view_named.GetDim(4) - 1, 0, var_view_named.GetDim(3) - 1, 0,
+              var_view_named.GetDim(2) - 1, 0, var_view_named.GetDim(1) - 1,
               KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
                 var_view_named(l, k, j, i) *=
                     var_view_named(l, k, j, i); // Do something trivial, square each term
@@ -280,8 +284,9 @@ TEST_CASE("Catch2 Container Iterator Performance", "[ContainerIterator][performa
         auto init_view_of_views = createLambdaInitViewOfViews(vsub);
         performance_test_wrapper("View of views", init_view_of_views, [&]() {
           par_for(
-              "Flat Container Array Perf", DevExecSpace(), 0, vsub.GetDim(4) - 1, 0,
-              vsub.GetDim(3) - 1, 0, vsub.GetDim(2) - 1, 0, vsub.GetDim(1) - 1,
+              DEFAULT_LOOP_PATTERN, "Flat Container Array Perf", DevExecSpace(), 0,
+              vsub.GetDim(4) - 1, 0, vsub.GetDim(3) - 1, 0, vsub.GetDim(2) - 1, 0,
+              vsub.GetDim(1) - 1,
               KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
                 vsub(l, k, j, i) *=
                     vsub(l, k, j, i); // Do something trivial, square each term
