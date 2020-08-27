@@ -34,11 +34,28 @@ If you come across a disfunctional setup, please report it by open an issue or p
 
 ### NB: CMake options prefixed with *PARTHENON\_* modify behavior.
 
+## Using Parthenon as a Subdirectory
+
+For simple applications, Parthenon can be added as a subdirectory to your
+project. For example, you can add parthenon as a git submodule:
+```
+git submodule add https://github.com/lanl/parthenon.git
+```
+
+And then you can use parthenon in your CMake project by adding it as a
+subdirectory:
+```cmake
+add_subdirectory(path/to/parthenon)
+
+add_executable(myapp ...)
+target_link_libraries(myapp PRIVATE Parthenon::parthenon)
+```
+
 ## Installing Parthenon
 
-An alternative to building Parthenon alongside a custom app (as in the examples)
-is to first build Parthenon separately as a library and then link to it
-when building the app. Parthenon can be built as either a static (default) or a shared library.
+An alternative to building Parthenon as a subdirectory is to first build
+Parthenon separately as a library and then link to it when building the app.
+Parthenon can be built as either a static (default) or a shared library.
 
 To build Parthenon as a library, provide a `CMAKE_INSTALL_PREFIX` path
 to the desired install location to the Parthenon cmake call. To build a shared rather
