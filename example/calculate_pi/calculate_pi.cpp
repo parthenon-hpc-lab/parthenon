@@ -67,9 +67,6 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   Real radius = pin->GetOrAddReal("Pi", "radius", 1.0);
   params.Add("radius", radius);
 
-  // This variable is where we store the answer
-  params.Add("area", 0.0);
-
   // add a variable called in_or_out that will hold the value of the indicator function
   std::string field_name("in_or_out");
   Metadata m({Metadata::Cell, Metadata::Derived});
@@ -113,10 +110,9 @@ TaskStatus RetrieveAreas(std::vector<MeshBlock *> &blocks) {
   // available for the whole mesh. The state is shared, as it is
   // a shared pointer to a single underlying StateDescriptor object.
   // hence it doesn't matter what meshblock we use.
-  auto &area = blocks[0]->packages["calculate_pi"]->Param("area", 0.0);
   const auto &radius = blocks[0]->packages["calculate_pi"]->Param<Real>("radius");
 
-  area = 0.0;
+  Real area = 0.0;
   for (auto pmb : blocks) {
     auto &rc = pmb->real_containers.Get();
     ParArrayND<Real> v = rc->Get("in_or_out").data;
@@ -129,6 +125,8 @@ TaskStatus RetrieveAreas(std::vector<MeshBlock *> &blocks) {
     // accumulate
     area += block_area;
   }
+
+  blocks[0]->packages["calculate_pi"]->AddParam("area",area);
   return TaskStatus::complete;
 }
 
@@ -141,10 +139,9 @@ TaskStatus ComputeAreaOnMesh(std::vector<MeshBlock *> &blocks) {
 
   // These params are mesh wide.
   // area is a reference because we plan to modify it.
-  auto &area = blocks[0]->packages["calculate_pi"]->Param("area", 0.0);
   const auto &radius = blocks[0]->packages["calculate_pi"]->Param<Real>("radius");
 
-  area = 0.0;
+  Real area = 0.0;
   using policy = Kokkos::MDRangePolicy<Kokkos::Rank<5>>;
   Kokkos::parallel_reduce(
       "calculate_pi compute area",
@@ -156,6 +153,8 @@ TaskStatus ComputeAreaOnMesh(std::vector<MeshBlock *> &blocks) {
       },
       area);
   area /= (radius * radius);
+
+  blocks[0]->packages["calculate_pi"]->AddParam("area",area);
   return TaskStatus::complete;
 }
 

@@ -49,14 +49,14 @@ class StateDescriptor {
   }
 
   template <typename T>
-  T &Param(const std::string &key) {
+  const T &Param(const std::string &key) {
     return params_.Get<T>(key);
   }
 
   // Set (if not set) and get simultaneously.
   // infers type correctly.
   template <typename T>
-  T &Param(const std::string &key, T value) {
+  const T &Param(const std::string &key, T value) {
     params_.Get(key, value);
   }
 
