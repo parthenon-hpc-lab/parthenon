@@ -225,6 +225,7 @@ add_library(parthenon
   parthenon_manager.hpp
   parthenon_mpi.hpp
 )
+add_library(Parthenon::parthenon ALIAS parthenon)
 
 set_target_properties(parthenon PROPERTIES SOVERSION ${parthenon_VERSION})
 
@@ -264,7 +265,7 @@ install(TARGETS parthenon EXPORT parthenonTargets
   INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parthenon"
   LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
   ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-    )
+)
 
 # Maintain directory structure in installed include files
 install(DIRECTORY . DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parthenon" FILES_MATCHING PATTERN "*.hpp")
@@ -279,4 +280,4 @@ install(EXPORT parthenonTargets
     FILE parthenonTargets.cmake
     NAMESPACE Parthenon::
     DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/parthenon"
-    )
+)
