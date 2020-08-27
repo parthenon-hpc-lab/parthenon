@@ -105,12 +105,9 @@ TaskStatus ComputeArea(MeshBlock *pmb) {
   return TaskStatus::complete;
 }
 
-TaskStatus RetrieveAreas(std::vector<MeshBlock *> &blocks) {
-  // JMM: while params is available per-meshblock, it is also
-  // available for the whole mesh. The state is shared, as it is
-  // a shared pointer to a single underlying StateDescriptor object.
-  // hence it doesn't matter what meshblock we use.
-  const auto &radius = blocks[0]->packages["calculate_pi"]->Param<Real>("radius");
+TaskStatus RetrieveAreas(std::vector<MeshBlock *> &blocks,
+                         parthenon::Packages_t &packages) {
+  const auto &radius = packages["calculate_pi"]->Param<Real>("radius");
 
   Real area = 0.0;
   for (auto pmb : blocks) {
@@ -126,20 +123,19 @@ TaskStatus RetrieveAreas(std::vector<MeshBlock *> &blocks) {
     area += block_area;
   }
 
-  blocks[0]->packages["calculate_pi"]->AddParam("area",area);
+  packages["calculate_pi"]->AddParam("area",area);
   return TaskStatus::complete;
 }
 
-TaskStatus ComputeAreaOnMesh(std::vector<MeshBlock *> &blocks) {
+TaskStatus ComputeAreaOnMesh(std::vector<MeshBlock *> &blocks,
+                             parthenon::Packages_t &packages) {
   auto pack = parthenon::PackVariablesOnMesh(blocks, "base",
                                              std::vector<std::string>{"in_or_out"});
   IndexRange ib = pack.cellbounds.GetBoundsI(IndexDomain::interior);
   IndexRange jb = pack.cellbounds.GetBoundsJ(IndexDomain::interior);
   IndexRange kb = pack.cellbounds.GetBoundsK(IndexDomain::interior);
 
-  // These params are mesh wide.
-  // area is a reference because we plan to modify it.
-  const auto &radius = blocks[0]->packages["calculate_pi"]->Param<Real>("radius");
+  const auto &radius = packages["calculate_pi"]->Param<Real>("radius");
 
   Real area = 0.0;
   using policy = Kokkos::MDRangePolicy<Kokkos::Rank<5>>;
@@ -154,7 +150,7 @@ TaskStatus ComputeAreaOnMesh(std::vector<MeshBlock *> &blocks) {
       area);
   area /= (radius * radius);
 
-  blocks[0]->packages["calculate_pi"]->AddParam("area",area);
+  packages["calculate_pi"]->AddParam("area",area);
   return TaskStatus::complete;
 }
 

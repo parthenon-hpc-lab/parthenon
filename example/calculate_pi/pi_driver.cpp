@@ -138,7 +138,8 @@ TaskCollection PiDriver::MakeTasks(std::vector<MeshBlock *> blocks) {
     {
       // tasks should be local per region. Be sure to scope them appropriately.
       TaskID none(0);
-      auto get_area = tr[0].AddTask(ComputeAreaOnMesh, none, blocks);
+      auto get_area = tr[0].AddTask(ComputeAreaOnMesh, none, blocks,
+                                    pmesh->packages);
     }
   } else {
     // asynchronous region where area is computed per block
@@ -152,7 +153,8 @@ TaskCollection PiDriver::MakeTasks(std::vector<MeshBlock *> blocks) {
     TaskRegion &sync_region = tc.AddRegion(1);
     {
       TaskID none(0);
-      auto get_area = sync_region[0].AddTask(RetrieveAreas, none, blocks);
+      auto get_area = sync_region[0].AddTask(RetrieveAreas, none, blocks,
+                                             pmesh->packages);
     }
   }
   return tc;
