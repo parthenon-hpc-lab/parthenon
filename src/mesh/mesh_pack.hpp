@@ -110,12 +110,12 @@ auto PackMesh(blocks_t &blocks, F &packing_function) {
 // TODO(JMM): Should we merge block_list and the vector of meshblock pointers
 // in some way? What's the right thing to do here?
 template <typename T, typename F>
-auto PackMesh(const Mesh *pmesh, F &packing_function) {
+auto PackMesh(Mesh *pmesh, F &packing_function) {
   int nblocks = pmesh->GetNumMeshBlocksThisRank();
   blocks_t blocks;
   blocks.reserve(nblocks);
 
-  for (auto & mb : pmesh->block_list) {
+  for (auto &mb : pmesh->block_list) {
     blocks.push_back(&mb);
   }
   return PackMesh<T, F>(blocks, packing_function);
@@ -124,8 +124,7 @@ auto PackMesh(const Mesh *pmesh, F &packing_function) {
 
 // Uses Real only because meshblock only owns real containers
 template <typename T, typename... Args>
-auto PackVariablesOnMesh(T &blocks, const std::string &container_name,
-                         Args &&... args) {
+auto PackVariablesOnMesh(T &blocks, const std::string &container_name, Args &&... args) {
   using namespace mesh_pack_impl;
   auto pack_function = [&](MeshBlock *pmb) {
     auto container = pmb->real_containers.Get(container_name);
