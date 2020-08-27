@@ -123,7 +123,7 @@ TaskStatus RetrieveAreas(std::vector<MeshBlock *> &blocks,
     area += block_area;
   }
 
-  packages["calculate_pi"]->AddParam("area",area);
+  packages["calculate_pi"]->AddParam("area", area);
   return TaskStatus::complete;
 }
 
@@ -150,7 +150,7 @@ TaskStatus ComputeAreaOnMesh(std::vector<MeshBlock *> &blocks,
       area);
   area /= (radius * radius);
 
-  packages["calculate_pi"]->AddParam("area",area);
+  packages["calculate_pi"]->AddParam("area", area);
   return TaskStatus::complete;
 }
 
