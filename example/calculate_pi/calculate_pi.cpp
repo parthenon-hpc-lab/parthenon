@@ -124,7 +124,8 @@ Real ComputeAreaOnMesh(parthenon::Mesh *pmesh) {
       },
       area);
   // These params are mesh wide. Doesn't matter which meshblock I pull it from.
-  const auto &radius = pmesh->pblock->packages["calculate_pi"]->Param<Real>("radius");
+  const auto &radius =
+    pmesh->block_list.front().packages["calculate_pi"]->Param<Real>("radius");
   return area / (radius * radius);
 }
 

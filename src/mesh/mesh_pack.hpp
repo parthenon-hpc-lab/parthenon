@@ -75,20 +75,17 @@ using MeshVariableFluxPack = MeshPack<VariableFluxPack<T>>;
 // TODO(JMM): Should this be cached?
 namespace mesh_pack_impl {
 template <typename T, typename F>
-auto PackMesh(const Mesh *pmesh, F &packing_function) {
+auto PackMesh(Mesh *pmesh, F &packing_function) {
   int nblocks = pmesh->GetNumMeshBlocksThisRank();
   ParArray1D<T> packs("MakeMeshVariablePack::view", nblocks);
   auto packs_host = Kokkos::create_mirror_view(packs);
   ParArray1D<Coordinates_t> coords("MakeMeshPackVariable::coords", nblocks);
   auto coords_host = Kokkos::create_mirror_view(coords);
 
-  // TODO(JMM): Update to Andrew's C++ std::list when available
-  MeshBlock *pmb = pmesh->pblock;
   int b = 0;
-  while (pmb != nullptr) {
-    coords_host(b) = pmb->coords;
-    packs_host(b) = packing_function(pmb);
-    pmb = pmb->next;
+  for (auto & mb : pmesh->block_list) {
+    coords_host(b) = mb.coords;
+    packs_host(b) = packing_function(&mb);
     b++;
   }
 
@@ -101,13 +98,13 @@ auto PackMesh(const Mesh *pmesh, F &packing_function) {
   Kokkos::deep_copy(packs, packs_host);
   Kokkos::deep_copy(coords, coords_host);
 
-  return MeshPack<T>(packs, pmesh->pblock->cellbounds, coords, dims);
+  return MeshPack<T>(packs, pmesh->block_list.front().cellbounds, coords, dims);
 }
 } // namespace mesh_pack_impl
 
 // Uses Real only because meshblock only owns real containers
 template <typename... Args>
-auto PackVariablesOnMesh(const Mesh *pmesh, const std::string &container_name,
+auto PackVariablesOnMesh(Mesh *pmesh, const std::string &container_name,
                          Args &&... args) {
   using namespace mesh_pack_impl;
   auto pack_function = [&](MeshBlock *pmb) {
@@ -117,7 +114,7 @@ auto PackVariablesOnMesh(const Mesh *pmesh, const std::string &container_name,
   return PackMesh<VariablePack<Real>>(pmesh, pack_function);
 }
 template <typename... Args>
-auto PackVariablesAndFluxesOnMesh(const Mesh *pmesh, const std::string &container_name,
+auto PackVariablesAndFluxesOnMesh(Mesh *pmesh, const std::string &container_name,
                                   Args &&... args) {
   using namespace mesh_pack_impl;
   auto pack_function = [&](MeshBlock *pmb) {
