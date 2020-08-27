@@ -99,6 +99,7 @@ parthenon::DriverStatus PiDriver::Execute() {
 
   // Retrive and MPI reduce the area from mesh params
   auto &area = pmesh->packages["calculate_pi"]->Param<Real>("area");
+
 #ifdef MPI_PARALLEL
   Real pi_val;
   MPI_Reduce(&area, &pi_val, 1, MPI_PARTHENON_REAL, MPI_SUM, 0, MPI_COMM_WORLD);

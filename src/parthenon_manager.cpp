@@ -13,12 +13,17 @@
 
 #include "parthenon_manager.hpp"
 
+#include <string>
 #include <utility>
+#include <vector>
 
 #include <Kokkos_Core.hpp>
 
 #include "driver/driver.hpp"
+#include "globals.hpp"
 #include "interface/update.hpp"
+#include "mesh/domain.hpp"
+#include "outputs/parthenon_hdf5.hpp"
 #include "refinement/refinement.hpp"
 
 namespace parthenon {
@@ -95,7 +100,18 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
   // Populate the ParameterInput object
   if (arg.input_filename != nullptr) {
     pinput = std::make_unique<ParameterInput>(arg.input_filename);
+  } else if (arg.res_flag != 0) {
+    // Read input from restart file
+    restartReader = std::make_unique<RestartReader>(arg.restart_filename);
+
+    // Load input stream
+    pinput = std::make_unique<ParameterInput>();
+    std::string inputString = restartReader->ReadAttrString("Input", "File");
+    std::istringstream is(inputString);
+    pinput->LoadFromStream(is);
   }
+
+  // Modify based on command line inputs
   pinput->ModifyFromCmdline(argc, argv);
 
   // read in/set up application specific properties
@@ -105,13 +121,28 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
   // always add the Refinement package
   packages["ParthenonRefinement"] = Refinement::Initialize(pinput.get());
 
-  // TODO(jdolence): Deal with restarts
-  // if (arg.res_flag == 0) {
-  pmesh = std::make_unique<Mesh>(pinput.get(), app_input.get(), properties, packages,
-                                 arg.mesh_flag);
-  //} else {
-  //  pmesh = std::make_unique<Mesh>(pinput.get(), )
-  //}
+  if (arg.res_flag == 0) {
+    pmesh = std::make_unique<Mesh>(pinput.get(), app_input.get(), properties, packages,
+                                   arg.mesh_flag);
+  } else {
+    // Open restart file
+    // Read Mesh from restart file and create meshblocks
+    pmesh = std::make_unique<Mesh>(pinput.get(), app_input.get(), *restartReader,
+                                   properties, packages);
+
+    // Read simulation time and cycle from restart file and set in input
+    Real tNow = restartReader->GetAttr<Real>("Info", "Time");
+    pinput->SetPrecise("parthenon/time", "start_time", tNow);
+
+    Real dt = restartReader->GetAttr<Real>("Info", "dt");
+    pinput->SetPrecise("parthenon/time", "dt", dt);
+
+    int ncycle = restartReader->GetAttr<int32_t>("Info", "NCycle");
+    pinput->SetInteger("parthenon/time", "ncycle", ncycle);
+
+    // Read package data from restart file
+    RestartPackages(*pmesh, *restartReader);
+  }
 
   // add root_level to all max_level
   for (auto const &ph : packages) {
@@ -158,4 +189,74 @@ ParthenonManager::ProcessPackagesDefault(std::unique_ptr<ParameterInput> &pin) {
   return packages;
 }
 
+void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
+  // Restart packages with information for blocks in ids from the restart file
+  // Assumption: blocks are contiguous in restart file, may have to revisit this.
+  const IndexDomain interior = IndexDomain::interior;
+  auto &packages = rm.packages;
+  // Get block list and temp array size
+  auto &mb = rm.block_list.front();
+  int nb = rm.GetNumMeshBlocksThisRank(Globals::my_rank);
+  int nbs = mb.gid;
+  int nbe = nbs + nb - 1;
+  IndexRange myBlocks{nbs, nbe};
+
+  // Get an iterator on block 0 for variable listing
+  IndexRange out_ib = mb.cellbounds.GetBoundsI(interior);
+  IndexRange out_jb = mb.cellbounds.GetBoundsJ(interior);
+  IndexRange out_kb = mb.cellbounds.GetBoundsK(interior);
+
+  size_t nCells = static_cast<size_t>(out_ib.e - out_ib.s + 1) *
+                  static_cast<size_t>(out_jb.e - out_jb.s + 1) *
+                  static_cast<size_t>(out_kb.e - out_kb.s + 1);
+  // Get list of variables, assumed same for all blocks
+  auto ciX = ContainerIterator<Real>(
+      mb.real_containers.Get(),
+      {parthenon::Metadata::Independent, parthenon::Metadata::Restart}, true);
+
+  // Allocate space based on largest vector
+  size_t vlen = 1;
+  for (auto &v : ciX.vars) {
+    if (v->GetDim(4) > vlen) {
+      vlen = v->GetDim(4);
+    }
+  }
+  std::vector<Real> tmp(static_cast<size_t>(nb) * nCells * vlen);
+  std::cout << "SIZES:" << nb << ":" << vlen << ":"
+            << static_cast<size_t>(nb) * nCells * vlen << std::endl;
+  for (auto &v : ciX.vars) {
+    const size_t v4 = v->GetDim(4);
+    const std::string vName = v->label();
+
+    std::cout << "Var:" << vName << ":" << v4 << std::endl;
+    // Read relevant data from the hdf file
+    int stat = resfile.ReadBlocks(vName.c_str(), myBlocks, tmp, v4);
+    if (stat < 0) {
+      std::cout << " WARNING: Variable " << v->label() << " Not found in restart file";
+      continue;
+    }
+
+    size_t index = 0;
+    for (auto &pmb : rm.block_list) {
+      bool found = false;
+      auto cX = ContainerIterator<Real>(
+          pmb.real_containers.Get(),
+          {parthenon::Metadata::Independent, parthenon::Metadata::Restart}, true);
+      for (auto &v : cX.vars) {
+        if (vName.compare(v->label()) == 0) {
+          auto v_h = (*v).data.GetHostMirrorAndCopy();
+          UNLOADVARIABLEONE(index, tmp, v_h, out_ib.s, out_ib.e, out_jb.s, out_jb.e,
+                            out_kb.s, out_kb.e, v4)
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        std::stringstream msg;
+        msg << "### ERROR: Unable to find variable " << vName << std::endl;
+        PARTHENON_FAIL(msg);
+      }
+    }
+  }
+}
 } // namespace parthenon

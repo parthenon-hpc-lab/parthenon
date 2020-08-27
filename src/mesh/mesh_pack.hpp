@@ -79,7 +79,7 @@ using blocks_t = std::vector<MeshBlock *>;
 
 // TODO(JMM): blocks data type might change
 template <typename T, typename F>
-auto PackMesh(const blocks_t &blocks, F &packing_function) {
+auto PackMesh(blocks_t &blocks, F &packing_function) {
   int nblocks = blocks.size();
   ParArray1D<T> packs("MakeMeshVariablePack::view", nblocks);
   auto packs_host = Kokkos::create_mirror_view(packs);
@@ -107,17 +107,16 @@ auto PackMesh(const blocks_t &blocks, F &packing_function) {
   return MeshPack<T>(packs, cellbounds, coords, dims);
 }
 
+// TODO(JMM): Should we merge block_list and the vector of meshblock pointers
+// in some way? What's the right thing to do here?
 template <typename T, typename F>
 auto PackMesh(const Mesh *pmesh, F &packing_function) {
   int nblocks = pmesh->GetNumMeshBlocksThisRank();
   blocks_t blocks;
   blocks.reserve(nblocks);
 
-  // TODO(JMM): Update to Andrew's C++ std::list when available
-  MeshBlock *pmb = pmesh->pblock;
-  while (pmb != nullptr) {
-    blocks.push_back(pmb);
-    pmb = pmb->next;
+  for (auto & mb : pmesh->block_list) {
+    blocks.push_back(&mb);
   }
   return PackMesh<T, F>(blocks, packing_function);
 }
@@ -125,7 +124,7 @@ auto PackMesh(const Mesh *pmesh, F &packing_function) {
 
 // Uses Real only because meshblock only owns real containers
 template <typename T, typename... Args>
-auto PackVariablesOnMesh(const T &blocks, const std::string &container_name,
+auto PackVariablesOnMesh(T &blocks, const std::string &container_name,
                          Args &&... args) {
   using namespace mesh_pack_impl;
   auto pack_function = [&](MeshBlock *pmb) {
@@ -135,7 +134,7 @@ auto PackVariablesOnMesh(const T &blocks, const std::string &container_name,
   return PackMesh<VariablePack<Real>>(blocks, pack_function);
 }
 template <typename T, typename... Args>
-auto PackVariablesAndFluxesOnMesh(const T &blocks, const std::string &container_name,
+auto PackVariablesAndFluxesOnMesh(T &blocks, const std::string &container_name,
                                   Args &&... args) {
   using namespace mesh_pack_impl;
   auto pack_function = [&](MeshBlock *pmb) {

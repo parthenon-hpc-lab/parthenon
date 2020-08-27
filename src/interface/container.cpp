@@ -492,7 +492,6 @@ template <typename T>
 TaskStatus Container<T>::SendBoundaryBuffers() {
   // sends the boundary
   debug = 0;
-  //  std::cout << "_________SEND from stage:"<<s->name()<<std::endl;
   for (auto &v : varVector_) {
     if (v->IsSet(Metadata::FillGhost)) {
       v->resetBoundary();
@@ -536,16 +535,15 @@ void Container<T>::SetupPersistentMPI() {
 template <typename T>
 TaskStatus Container<T>::ReceiveBoundaryBuffers() {
   bool ret;
-  //  std::cout << "_________RECV from stage:"<<s->name()<<std::endl;
   ret = true;
   // receives the boundary
   for (auto &v : varVector_) {
-    if (v->IsSet(Metadata::FillGhost)) {
-      // ret = ret & v->vbvar->ReceiveBoundaryBuffers();
-      // In case we have trouble with multiple arrays causing
-      // problems with task status, we should comment one line
-      // above and uncomment the if block below
-      if (!v->mpiStatus) {
+    if (!v->mpiStatus) {
+      if (v->IsSet(Metadata::FillGhost)) {
+        // ret = ret & v->vbvar->ReceiveBoundaryBuffers();
+        // In case we have trouble with multiple arrays causing
+        // problems with task status, we should comment one line
+        // above and uncomment the if block below
         v->resetBoundary();
         v->mpiStatus = v->vbvar->ReceiveBoundaryBuffers();
         ret = (ret & v->mpiStatus);
