@@ -15,7 +15,7 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #========================================================================================
 
-message(STATUS "Loading machine configuration for default CI machine."
+message(STATUS "Loading machine configuration for default CI machine. "
   "Supported MACHINE_VARIANT includes 'cuda', 'mpi', and 'cuda-mpi'")
 
 # common options
@@ -29,4 +29,8 @@ if (${MACHINE_VARIANT} MATCHES "cuda")
   set(CMAKE_CXX_COMPILER ${CMAKE_CURRENT_SOURCE_DIR}/external/Kokkos/bin/nvcc_wrapper CACHE STRING "Use nvcc_wrapper")
 endif()
 
-#set(MACHINE_MPIEXEC srun CACHE STRING "Command to launch MPI applications")
+if (${MACHINE_VARIANT} MATCHES "mpi")
+  # not using the following as the default is determined correctly
+  #set(TEST_MPIEXEC mpiexec CACHE STRING "Command to launch MPI applications")
+  list(APPEND TEST_MPIOPTS "--allow-run-as-root")
+endif()

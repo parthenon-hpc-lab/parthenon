@@ -40,7 +40,6 @@ parthenon-cuda-unit:
     - mkdir build-cuda-debug
     - cd build-cuda-debug
     - cmake -DCMAKE_BUILD_TYPE=Debug
-      -DMPIEXEC_PREFLAGS="--allow-run-as-root"
       -DMACHINE_VARIANT=cuda-mpi
       ../
     - make -j${J}
@@ -60,7 +59,6 @@ parthenon-cpu-unit:
     - mkdir build-debug
     - cd build-debug
     - cmake -DCMAKE_BUILD_TYPE=Debug
-      -DMPIEXEC_PREFLAGS="--allow-run-as-root"
       -DMACHINE_VARIANT=mpi
       ../
     - make -j${J}
@@ -79,7 +77,6 @@ parthenon-cuda-short:
     - mkdir build-cuda-perf-mpi
     - cd build-cuda-perf-mpi
     - cmake -DCMAKE_BUILD_TYPE=Release
-      -DMPIEXEC_PREFLAGS="--allow-run-as-root"
       -DMACHINE_VARIANT=cuda-mpi
       ../
     - make -j${J}
@@ -99,7 +96,6 @@ parthenon-cpu-short:
     - mkdir build-perf-mpi
     - cd build-perf-mpi
     - cmake -DCMAKE_BUILD_TYPE=Release
-      -DMPIEXEC_PREFLAGS="--allow-run-as-root"
       -DMACHINE_VARIANT=mpi
       ../
     - make -j${J}
@@ -147,7 +143,6 @@ parthenon-cuda-performance_and_regression-mpi:
     - mkdir -p build-cuda-perf-mpi
     - cd build-cuda-perf-mpi
     - cmake -DCMAKE_BUILD_TYPE=Release
-      -DMPIEXEC_PREFLAGS="--allow-run-as-root"
       -DMACHINE_VARIANT=cuda-mpi
       ../
     - make -j${J}
@@ -201,7 +196,6 @@ parthenon-cpu-performance_and_regression-mpi:
     - cd build-perf-mpi
     - cmake -DCMAKE_BUILD_TYPE=Release -DHDF5_ROOT=/usr/local/hdf5/parallel
       -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
-      -DMPIEXEC_PREFLAGS="--allow-run-as-root"
       ../
     - make -j${J}
 #    - ctest -L "performance" # no need for performance test as currently none use MPI
@@ -227,7 +221,7 @@ parthenon-cpu-coverage:
     - mkdir build-debug-coverage
     - cd build-debug-coverage
     - cmake -DCMAKE_BUILD_TYPE=Debug
-      -DMPIEXEC_PREFLAGS="--allow-run-as-root" -DCODE_COVERAGE=ON
+      -DCODE_COVERAGE=ON
       -DMACHINE_VARIANT=mpi
       ../ && make -j${J} && make coverage && make coverage-upload
   artifacts:
