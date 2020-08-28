@@ -203,11 +203,11 @@ void Swarm::Defrag() {
   for (int n = 0; n <= nmax_active_; n++) {
     printf("mask[%i] = %i\n", n, mask_(n));
   }
+
+  free_indices_.sort();
   for (auto index : free_indices_) {
     printf("free: %i\n", index);
   }
-
-  free_indices_.sort();
 
   std::list<std::pair<int, int>> from_to_indices;
 
@@ -222,7 +222,15 @@ void Swarm::Defrag() {
     int index_to_move_to = free_indices_.front();
     free_indices_.pop_front();
 
+    // index_to_move_to isn't always correct... some of the "moved" particles
+    // should actually stay in place
+    if (index_to_move_from < num_active_) {
+      break;
+    }
+    //  printf("not moving %i to %i!\n", index_to_move_from, index_to_move_to);
+    //} else {
     from_to_indices.push_back(std::pair<int, int>(index_to_move_from, index_to_move_to));
+    //}
 
   }
 
