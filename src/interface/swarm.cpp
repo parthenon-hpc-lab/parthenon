@@ -198,16 +198,8 @@ void Swarm::Defrag() {
   // TODO(BRR) Could this algorithm be more efficient?
   // Add 1 to convert max index to max number
   int num_free = (nmax_active_ + 1) - num_active_;
-  printf("num free: %i nmax_active_: %i num_active: %i\n", num_free,
-  nmax_active_, num_active_);
-  for (int n = 0; n <= nmax_active_; n++) {
-    printf("mask[%i] = %i\n", n, mask_(n));
-  }
 
   free_indices_.sort();
-  for (auto index : free_indices_) {
-    printf("free: %i\n", index);
-  }
 
   std::list<std::pair<int, int>> from_to_indices;
 
@@ -227,18 +219,13 @@ void Swarm::Defrag() {
     if (index_to_move_from < num_active_) {
       break;
     }
-    //  printf("not moving %i to %i!\n", index_to_move_from, index_to_move_to);
-    //} else {
     from_to_indices.push_back(std::pair<int, int>(index_to_move_from, index_to_move_to));
-    //}
-
   }
 
   // Swap straggler particles into empty slots at lower indices
   for (auto pair : from_to_indices) {
     int from = pair.first;
     int to = pair.second;
-    printf("from: %i to: %i\n", from, to);
 
     // Update swarm variables
     for (int n = 0; n < intVector_.size(); n++) {
