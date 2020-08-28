@@ -158,7 +158,7 @@ ctest -L performance
 
 ### OLCF Summit (Power9+Volta)
 
-Last verified 7 Aug 2020.
+Last verified 28 Aug 2020.
 
 #### Common environment
 
@@ -167,7 +167,7 @@ Last verified 7 Aug 2020.
 $ module restore system
 $ module load cuda gcc cmake/3.14.2 python hdf5
 
-# on 7 Aug 2020 that results the following version
+# on 28 Aug 2020 that results the following version
 $ module list
 
 Currently Loaded Modules:
@@ -182,11 +182,16 @@ Currently Loaded Modules:
 # configure and build. Make sure to build in an directory on the GPFS filesystem if you want to run the regression tests because the home directory is not writeable from the compute nodes (which will result in the regression tests failing)
 $ mkdir build-cuda-mpi && cd build-cuda-mpi
 # note that we do not specify the mpicxx wrapper in the following as cmake automatically extracts the required include and linker options
-$ cmake -DKokkos_ARCH_POWER9=ON -DKokkos_ARCH_VOLTA70=True -DKokkos_ENABLE_CUDA=True -DKokkos_ENABLE_OPENMP=True -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=${PARTHENON_ROOT}/external/Kokkos/bin/nvcc_wrapper ${PARTHENON_ROOT}
+$ cmake -DCMAKE_BUILD_TYPE=Release -DMACHINE_CFG=${PARTHENON_ROOT}/cmake/machinecfg/Summit.cmake -DMACHINE_VARIANT=cuda-mpi ${PARTHENON_ROOT}
 $ make -j10
 
-# run all tests (assumes running within a job)
-# NOT WORKING RIGHT NOW
+# The following commands are exepected to be run within job (interactive or scheduled)
+
+# Make sure that GPUs are assigned round robin to MPI processes
+$ export KOKKOS_NUM_DEVICES=6
+
+# run all MPI regression tests
+$ ctest -L regression -LE mpi-no
 
 # manually run a simulation (here using 2 nodes with each 6 GPUs and one MPI process per GPU)
 # note the `--smpiargs="-gpu"` which is required to enable Cuda aware MPI
@@ -200,7 +205,8 @@ $ jsrun -n 2 -a 6 -g 6 -c 42 -r 1 -d packed -b packed:7 --smpiargs="-gpu" exampl
 ```bash
 # configure and build
 $ mkdir build-cuda && cd build-cuda
-$ cmake -DKokkos_ARCH_POWER9=ON -DKokkos_ARCH_VOLTA70=True -DKokkos_ENABLE_CUDA=True -DKokkos_ENABLE_OPENMP=True -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=${PARTHENON_ROOT}/external/Kokkos/bin/nvcc_wrapper -DPARTHENON_DISABLE_MPI=On ${PARTHENON_ROOT}
+$ cmake -DCMAKE_BUILD_TYPE=Release -DMACHINE_CFG=${PARTHENON_ROOT}/cmake/machinecfg/Summit.cma
+ke -DMACHINE_VARIANT=cuda -DPARTHENON_DISABLE_MPI=On ${PARTHENON_ROOT}
 $ make -j10
 
 # run unit tests (assumes running within a job, e.g., via `bsub -W 1:30 -nnodes 1 -P PROJECTID -Is /bin/bash`)
