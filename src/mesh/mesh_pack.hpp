@@ -83,7 +83,7 @@ auto PackMesh(Mesh *pmesh, F &packing_function) {
   auto coords_host = Kokkos::create_mirror_view(coords);
 
   int b = 0;
-  for (auto & mb : pmesh->block_list) {
+  for (auto &mb : pmesh->block_list) {
     coords_host(b) = mb.coords;
     packs_host(b) = packing_function(&mb);
     b++;
