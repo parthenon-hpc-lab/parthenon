@@ -18,6 +18,7 @@
 #include "swarm.hpp"
 #include "globals.hpp" // my_rank
 #include "mesh/mesh.hpp"
+#include <utility>
 
 namespace parthenon {
 
@@ -129,7 +130,7 @@ void Swarm::Remove(const std::string label) {
   }
 
   if (found == false) {
-    throw std::invalid_argument ("swarm not found in Remove()");
+    throw std::invalid_argument ("swarm variable not found in Remove()");
   }
 }
 
@@ -146,6 +147,14 @@ void Swarm::setPoolMax(const int nmax_pool) {
   }
 
   // Resize and copy data
+
+  auto oldvar = mask_;
+  auto newvar = ParticleVariable<int>(oldvar.label(), nmax_pool, oldvar.metadata());
+  for (int m = 0; m < nmax_pool_; m++) {
+    newvar(m) = oldvar(m);
+  }
+  mask_ = newvar;
+
   for (int n = 0; n < intVector_.size(); n++) {
     auto oldvar = intVector_[n];
     auto newvar = std::make_shared<ParticleVariable<int>>(oldvar->label(),
@@ -170,7 +179,94 @@ void Swarm::setPoolMax(const int nmax_pool) {
     realMap_[oldvar->label()] = newvar;
   }
 
+  for (int n = 0; n < stringVector_.size(); n++) {
+    auto oldvar = stringVector_[n];
+    auto newvar = std::make_shared<ParticleVariable<std::string>>(oldvar->label(),
+                                                           nmax_pool,
+                                                           oldvar->metadata());
+    for (int m = 0; m < nmax_pool_; m++) {
+      (*newvar)(m) = (*oldvar)(m);
+    }
+    stringVector_[n] = newvar;
+    stringMap_[oldvar->label()] = newvar;
+  }
+
   nmax_pool_ = nmax_pool;
+}
+
+void Swarm::Defrag() {
+  // TODO(BRR) Put a fast algorithm here to defrag memory
+  // Add 1 to convert max index to max number
+  int num_free = (nmax_active_ + 1) - num_active_;
+  printf("num_free: %i\n", num_free);
+
+  printf("BEFORE\n");
+  for (auto index: free_indices_) {
+    printf("free index: %i\n", index);
+  }
+
+  free_indices_.sort();
+  printf("AFTER\n");
+  for (auto index: free_indices_) {
+    printf("free index: %i\n", index);
+  }
+
+  //ParticleVariable<int> &mask = GetInteger("mask");
+
+  std::list<std::pair<int, int>> from_to_indices;
+
+  int index = nmax_active_;
+  for (int n = 0; n < num_free; n++) {
+    while (mask_(index) == 0) {
+      printf("mask(%i) == 0!\n", index, mask_(index));
+      index--;
+    }
+    printf("index to move! %i\n", index);
+    int index_to_move_from = index;
+    index--;
+
+    int index_to_move_to = free_indices_.front();
+    free_indices_.pop_front();
+    printf("index to move to! %i\n", index_to_move_to);
+
+    from_to_indices.push_back(std::pair<int, int>(index_to_move_from, index_to_move_to));
+
+  }
+
+  for (int n = nmax_active_; n > 0; n--) {
+    printf("mask[%i]: %i\n", n, mask_(n));
+  }
+
+  for ( auto pair : from_to_indices) {
+    printf("from: %i to: %i\n", pair.first, pair.second);
+  }
+
+  // Update mask
+  for (auto pair : from_to_indices) {
+    int from = pair.first;
+    int to = pair.second;
+
+    // Update swarm variables
+    for (int n = 0; n < intVector_.size(); n++) {
+      auto var = *(intVector_[n]);
+      var(to) = var(from);
+    }
+    for (int n = 0; n < realVector_.size(); n++) {
+      auto var = *(realVector_[n]);
+      var(to) = var(from);
+    }
+    for (int n = 0; n < stringVector_.size(); n++) {
+      auto var = *(stringVector_[n]);
+      var(to) = var(from);
+    }
+
+    // Update mask
+    mask_(from) = 0;
+    mask_(to) = 1;
+  }
+
+  // Update nmax_active_
+  nmax_active_ = num_active_ - 1;
 }
 
 } // namespace parthenon
