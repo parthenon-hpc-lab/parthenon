@@ -195,50 +195,27 @@ void Swarm::setPoolMax(const int nmax_pool) {
 }
 
 void Swarm::Defrag() {
-  // TODO(BRR) Put a fast algorithm here to defrag memory
+  // TODO(BRR) Could this algorithm be more efficient?
   // Add 1 to convert max index to max number
   int num_free = (nmax_active_ + 1) - num_active_;
-  printf("num_free: %i\n", num_free);
-
-  printf("BEFORE\n");
-  for (auto index: free_indices_) {
-    printf("free index: %i\n", index);
-  }
 
   free_indices_.sort();
-  printf("AFTER\n");
-  for (auto index: free_indices_) {
-    printf("free index: %i\n", index);
-  }
-
-  //ParticleVariable<int> &mask = GetInteger("mask");
 
   std::list<std::pair<int, int>> from_to_indices;
 
   int index = nmax_active_;
   for (int n = 0; n < num_free; n++) {
     while (mask_(index) == 0) {
-      printf("mask(%i) == 0!\n", index, mask_(index));
       index--;
     }
-    printf("index to move! %i\n", index);
     int index_to_move_from = index;
     index--;
 
     int index_to_move_to = free_indices_.front();
     free_indices_.pop_front();
-    printf("index to move to! %i\n", index_to_move_to);
 
     from_to_indices.push_back(std::pair<int, int>(index_to_move_from, index_to_move_to));
 
-  }
-
-  for (int n = nmax_active_; n > 0; n--) {
-    printf("mask[%i]: %i\n", n, mask_(n));
-  }
-
-  for ( auto pair : from_to_indices) {
-    printf("from: %i to: %i\n", pair.first, pair.second);
   }
 
   // Update mask
