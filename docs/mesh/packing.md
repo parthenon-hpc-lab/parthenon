@@ -39,9 +39,9 @@ For example:
 // pack all variables on the base container accross the whole mesh
 auto meshpack = PackVariablesAndFluxes(pmesh, "base");
 auto variablepack = meshpack(m); // Indexes into the m'th meshblock
-auto auto var = mesh(m,l); // Indexes into the k'th variable on the m'th MB
+auto var = meshpack(m,l); // Indexes into the k'th variable on the m'th MB
 // The l'th variable in the i,j,k'th cell of the m'th meshblock
-Real r = mesh(m,l,k,j,i); 
+Real r = meshpack(m,l,k,j,i); 
 ```
 
 For convenience, `MeshPack` also includes the following methods and fields:
