@@ -134,6 +134,26 @@ export PARTHENON_ROOT=$(pwd)/parthenon
 ```
 We set the latter variable for easier reference in out-of-source builds.
 
+### Default machine configurations
+
+To make the default configuration on widely used systems easier, Parthenon provides machine configuration files that contain default options.
+Defaults options include, but are not limited to setting
+- the compiler (e.g., `nvcc_wrapper` for Cuda builds), or
+- paths to non default package locations (e.g., for a custom HDF5 install), or 
+- custom MPI related commands used in the Parthenon test suite (e.g., the launch command).
+
+The machine configurations shipped with Parthenon are located in [`PARTHENON_ROOT/cmake/machinecfg`](../cmake/machinecfg) and are named by the machine name.
+In order to use them either
+- set the `MACHINE_CFG` environment variable to the appropriate file, or
+- set the `MACHINE_CFG` CMake variable to the appropriate file.
+In addition, you can set the `MACHINE_VARIANT` CMake variable to pick a specific configuration, e.g., one with Cuda and MPI enabled.
+
+We suggest to inspect the corresponding file for available options on a specific machine.
+
+In general, a typical workflow is expected to create your own machine file, e.g., on your develop system.
+We suggest to start with a copy of a machine file that matches closely with your target machine.
+Custom machine files should not be pushed to the main repository.
+
 ### Ubuntu 20.04 LTS
 
 The following procedure has been tested for an Ubuntu 20.04 LTS system:
