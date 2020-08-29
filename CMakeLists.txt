@@ -33,7 +33,8 @@ elseif (DEFINED ENV{MACHINE_CFG})
 else()
   message(WARNING "Not using any machine configuration. Consider creating a configuration "
     "file following the examples in ${PROJECT_SOURCE_DIR}/cmake/machine_cfgs/ and then "
-    "point the MACHINE_CFG variable to your custom file.")
+    "point the MACHINE_CFG variable to your custom file."
+    "Note, that the machine file can be placed in any directory (also outside the repo).")
 endif()
 
 project(parthenon VERSION 0.1.0 LANGUAGES C CXX)
