@@ -32,7 +32,7 @@ list(APPEND unit_tests_SOURCES
 
 add_executable(unit_tests "${unit_tests_SOURCES}")
 
-target_link_libraries(unit_tests PRIVATE parthenon catch2_define Kokkos::kokkos)
+target_link_libraries(unit_tests PRIVATE Parthenon::parthenon catch2_define Kokkos::kokkos)
 
 if (TEST_ERROR_CHECKING)
    message(WARNING "\tTesting error checking. This test will FAIL.")
