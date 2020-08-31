@@ -40,7 +40,7 @@
 # Performance regression test
 list(APPEND TEST_DIRS advection_performance)
 list(APPEND TEST_PROCS "1")
-list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
+list(APPEND TEST_ARGS "--driver ${parthenon_BINARY_DIR}/example/advection/advection-example \
 --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/advection_performance/parthinput.advection_performance \
 --num_steps 5")
 
@@ -52,26 +52,26 @@ if (ENABLE_HDF5)
   # Restart
   list(APPEND TEST_DIRS restart)
   list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
-  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
+  list(APPEND TEST_ARGS "--driver ${parthenon_BINARY_DIR}/example/advection/advection-example \
     --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/restart/parthinput.restart \
     --num_steps 2")
   
   # Calculate pi example
   list(APPEND TEST_DIRS calculate_pi)
   list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
-  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/calculate_pi/pi-example \
+  list(APPEND TEST_ARGS "--driver ${parthenon_BINARY_DIR}/example/calculate_pi/pi-example \
   --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/calculate_pi/parthinput.regression")
 
   # Advection test 
   list(APPEND TEST_DIRS advection_convergence)
   list(APPEND TEST_PROCS "1")
-  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
+  list(APPEND TEST_ARGS "--driver ${parthenon_BINARY_DIR}/example/advection/advection-example \
   --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/advection_convergence/parthinput.advection \
   --num_steps 25")
 
   list(APPEND TEST_DIRS output_hdf5)
   list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
-  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
+  list(APPEND TEST_ARGS "--driver ${parthenon_BINARY_DIR}/example/advection/advection-example \
     --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/output_hdf5/parthinput.advection \
     --num_steps 4")
 endif()
