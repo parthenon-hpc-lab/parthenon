@@ -44,12 +44,17 @@ using ::parthenon::Mesh;
 using ::parthenon::MeshBlock;
 using ::parthenon::MultiStageBlockTaskDriver;
 using ::parthenon::Outputs;
+using ::parthenon::Packages_t;
 using ::parthenon::ParameterInput;
+using ::parthenon::ParthenonManager;
 using ::parthenon::Task;
+using ::parthenon::TaskCollection;
 using ::parthenon::TaskID;
 using ::parthenon::TaskList;
+using ::parthenon::TaskRegion;
 using ::parthenon::TaskStatus;
 using ::parthenon::DriverUtils::ConstructAndExecuteBlockTasks;
+using ::parthenon::DriverUtils::ConstructAndExecuteTaskLists;
 } // namespace prelude
 } // namespace driver
 } // namespace parthenon

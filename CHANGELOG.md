@@ -5,6 +5,7 @@
 ### Added (new features/APIs/variables/...)
 - [[PR250]] Feature::Restart. If output file format 'rst' is specified restart files are written using independent variables and those marked with Restart metadata flag.  Simulations can be restarted with a '-r \<restartFile\>' argument to the code.
 - [[PR 263]](https://github.com/lanl/parthenon/pull/263) Added MeshPack, a mechanism for looping over the whole mesh at once within a `Kokkos` kernel. See [documentation](docs/mesh/packing.md)
+- [[PR 267]](https://github.com/lanl/parthenon/pull/267) Introduced TaskRegions and TaskCollections to allow for task launches on multiple blocks.
 - [[PR 287]]((https://github.com/lanl/parthenon/pull/287) Added machine configuration file for compile options, see [documentation](https://github.com/lanl/parthenon/blob/develop/docs/building.md#default-machine-configurations)
 
 ### Changed (changing behavior/API/variables/...)
@@ -17,6 +18,7 @@
 - [[PR 262]](https://github.com/lanl/parthenon/pull/262) Fix setting of "coverage" label in testing. Automatically applies coverage tag to all tests not containing "performance" label.
 - [[PR 276]](https://github.com/lanl/parthenon/pull/276) Decrease required Python version from 3.6 to 3.5.
 - [[PR 283]](https://github.com/lanl/parthenon/pull/283) Change CI to extended nightly develop tests and short push tests.
+- [[PR 282]](https://github.com/lanl/parthenon/pull/282) Integrated meshpack and tasking in pi example
 
 ### Removed
 

@@ -92,23 +92,30 @@ namespace DriverUtils {
 template <typename T, class... Args>
 TaskListStatus ConstructAndExecuteBlockTasks(T *driver, Args... args) {
   int nmb = driver->pmesh->GetNumMeshBlocksThisRank(Globals::my_rank);
-  std::vector<TaskList> task_lists;
+  TaskCollection tc;
+  TaskRegion &tr = tc.AddRegion(nmb);
+
+  int i = 0;
   for (auto &mb : driver->pmesh->block_list) {
-    task_lists.push_back(driver->MakeTaskList(&mb, std::forward<Args>(args)...));
+    tr[i++] = driver->MakeTaskList(&mb, std::forward<Args>(args)...);
   }
-  int complete_cnt = 0;
-  while (complete_cnt != nmb) {
-    // TODO(pgrete): need to let Kokkos::PartitionManager handle this
-    for (auto i = 0; i < nmb; ++i) {
-      if (!task_lists[i].IsComplete()) {
-        auto status = task_lists[i].DoAvailable();
-        if (status == TaskListStatus::complete) {
-          complete_cnt++;
-        }
-      }
-    }
+  TaskListStatus status = tc.Execute();
+  return status;
+}
+
+template <typename T, class... Args>
+TaskListStatus ConstructAndExecuteTaskLists(T *driver, Args... args) {
+  int nmb = driver->pmesh->GetNumMeshBlocksThisRank(Globals::my_rank);
+  std::vector<MeshBlock *> blocks(nmb);
+
+  int i = 0;
+  for (auto &mb : driver->pmesh->block_list) {
+    blocks[i++] = &mb;
   }
-  return TaskListStatus::complete;
+
+  TaskCollection tc = driver->MakeTasks(blocks, std::forward<Args>(args)...);
+  TaskListStatus status = tc.Execute();
+  return status;
 }
 
 } // namespace DriverUtils
