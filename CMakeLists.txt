@@ -80,7 +80,7 @@ if(CODE_COVERAGE)
     SET(COVERAGE_NAME "coverage_reports")
   endif()
   if( NOT COVERAGE_PATH)
-    SET(COVERAGE_PATH "${CMAKE_BINARY_DIR}/coverage")
+    SET(COVERAGE_PATH "${parthenon_BINARY_DIR}/coverage")
   endif()
   SET(GCC_COVERAGE_COMPILE_FLAGS "--coverage")
   SET(GCC_COVERAGE_LINK_FLAGS    "--coverage")
@@ -281,7 +281,7 @@ endif()
 create_pathenon_coverage_targets()
 include(cmake/CheckCopyright.cmake)
 
-configure_file("${parthenon_SOURCE_DIR}/cmake/parthenonConfig.cmake.in" "${PROJECT_BINARY_DIR}/cmake/parthenonConfig.cmake" @ONLY)
+configure_file("${parthenon_SOURCE_DIR}/cmake/parthenonConfig.cmake.in" "${parthenon_BINARY_DIR}/cmake/parthenonConfig.cmake" @ONLY)
 
 # Currently Ctest/Cmake doesn't ensure that tests are not stale
 # before running them.

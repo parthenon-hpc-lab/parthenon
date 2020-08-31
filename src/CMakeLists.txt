@@ -108,7 +108,7 @@ set(NFIELD_VARIABLES 0) # TODO: Remove
 set(NWAVE_VALUE 5) # TODO: Remove
 set(COORDINATE_TYPE UniformCartesian) # TODO: Make this an option when more are available
 
-configure_file(${PROJECT_SOURCE_DIR}/src/config.hpp.in ${PROJECT_SOURCE_DIR}/include/parthenon/config.hpp @ONLY)
+configure_file(${parthenon_SOURCE_DIR}/src/config.hpp.in ${parthenon_BINARY_DIR}/include/parthenon/generated/config.hpp @ONLY)
 
 list(APPEND PARTHENON_SOURCES
   bvals/cc/bvals_cc.cpp
@@ -206,7 +206,7 @@ target_link_libraries(parthenon PUBLIC Kokkos::kokkos)
 
 target_include_directories(parthenon PUBLIC
   $<BUILD_INTERFACE:${parthenon_SOURCE_DIR}/include/parthenon>
-  $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include/parthenon/generated>
+  $<BUILD_INTERFACE:${parthenon_BINARY_DIR}/include/parthenon/generated>
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/parthenon>
   )
 

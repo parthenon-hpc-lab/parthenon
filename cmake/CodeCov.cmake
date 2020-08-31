@@ -91,15 +91,15 @@ function(create_pathenon_coverage_targets)
       COMMAND mkdir -p ${COVERAGE_PATH}/${COVERAGE_NAME}
       COMMAND ${PATH_LCOV} --version
       # Clean
-      COMMAND ${PATH_LCOV} --gcov-tool ${PATH_GCOV} --directory ${PROJECT_BINARY_DIR} -b ${parthenon_SOURCE_DIR} --zerocounters
+      COMMAND ${PATH_LCOV} --gcov-tool ${PATH_GCOV} --directory ${parthenon_BINARY_DIR} -b ${parthenon_SOURCE_DIR} --zerocounters
       # Base report
       COMMAND ctest -L coverage --verbose
-      COMMAND ${PATH_LCOV} --gcov-tool ${PATH_GCOV} -c -i -d ${PROJECT_BINARY_DIR} -b ${parthenon_SOURCE_DIR} -o ${COVERAGE_PATH}/${COVERAGE_NAME}/report.base.old
+      COMMAND ${PATH_LCOV} --gcov-tool ${PATH_GCOV} -c -i -d ${parthenon_BINARY_DIR} -b ${parthenon_SOURCE_DIR} -o ${COVERAGE_PATH}/${COVERAGE_NAME}/report.base.old
       # Remove Kokkos and tst info from code coverage
       COMMAND ${PATH_LCOV} --remove ${COVERAGE_PATH}/${COVERAGE_NAME}/report.base.old "*/Kokkos/*" "*/tst/*" -o ${COVERAGE_PATH}/${COVERAGE_NAME}/report.base
 
       # Capture information from test runs
-      COMMAND ${PATH_LCOV} --gcov-tool ${PATH_GCOV} --directory ${PROJECT_BINARY_DIR} -b ${parthenon_SOURCE_DIR} --capture --output-file ${COVERAGE_PATH}/${COVERAGE_NAME}/report.test.old
+      COMMAND ${PATH_LCOV} --gcov-tool ${PATH_GCOV} --directory ${parthenon_BINARY_DIR} -b ${parthenon_SOURCE_DIR} --capture --output-file ${COVERAGE_PATH}/${COVERAGE_NAME}/report.test.old
       # Remove Kokkos and tst info from code coverage
       COMMAND ${PATH_LCOV} --remove ${COVERAGE_PATH}/${COVERAGE_NAME}/report.test.old "*/Kokkos/*" "*/tst/*" -o ${COVERAGE_PATH}/${COVERAGE_NAME}/report.test
       
@@ -110,7 +110,7 @@ function(create_pathenon_coverage_targets)
       COMMAND rm ${COVERAGE_PATH}/${COVERAGE_NAME}/report.base.old
       COMMAND rm ${COVERAGE_PATH}/${COVERAGE_NAME}/report.base
       COMMAND rm ${COVERAGE_PATH}/${COVERAGE_NAME}/report.test
-      WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
+      WORKING_DIRECTORY ${parthenon_BINARY_DIR}
       )
 
     set(UPLOAD_COMMAND "bash <\(curl -s https://codecov.io/bash\) \|\| echo \"code coverage failed to upload\"")
@@ -121,7 +121,7 @@ function(create_pathenon_coverage_targets)
       COMMAND ${parthenon_SOURCE_DIR}/scripts/combine_coverage.sh ${PATH_LCOV} ${PATH_GCOV} ${COVERAGE_PATH}
       COMMAND curl -s https://codecov.io/bash > ${COVERAGE_PATH}/CombinedCoverage/script.coverage
       COMMAND cat ${COVERAGE_PATH}/CombinedCoverage/script.coverage
-      COMMAND cd ${COVERAGE_PATH}/CombinedCoverage && bash ${COVERAGE_PATH}/CombinedCoverage/script.coverage -p ${PROJECT_BINARY_DIR} -s ${COVERAGE_PATH}/CombinedCoverage
+      COMMAND cd ${COVERAGE_PATH}/CombinedCoverage && bash ${COVERAGE_PATH}/CombinedCoverage/script.coverage -p ${parthenon_BINARY_DIR} -s ${COVERAGE_PATH}/CombinedCoverage
       WORKING_DIRECTORY ${COVERAGE_PATH}
       )
 

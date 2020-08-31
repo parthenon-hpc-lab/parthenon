@@ -23,10 +23,10 @@ install(TARGETS parthenon EXPORT parthenonTargets
 install(DIRECTORY ${parthenon_SOURCE_DIR}/include/parthenon DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}" FILES_MATCHING PATTERN "*.hpp")
 
 # Install generated config header file
-install(FILES ${parthenon_SOURCE_DIR}/include/parthenon/config.hpp
+install(FILES ${parthenon_BINARY_DIR}/include/parthenon/generated/config.hpp
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
 
-install(FILES ${PROJECT_BINARY_DIR}/cmake/parthenonConfig.cmake DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/parthenon")
+install(FILES ${parthenon_BINARY_DIR}/cmake/parthenonConfig.cmake DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/parthenon")
 
 install(EXPORT parthenonTargets
     FILE parthenonTargets.cmake

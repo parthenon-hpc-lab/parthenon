@@ -48,7 +48,7 @@ function(setup_test dir arg)
   separate_arguments(arg) 
   add_test( NAME regression_test:${dir} COMMAND ${Python3_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/run_test.py" 
     ${arg} --test_dir "${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}"
-    --output_dir "${PROJECT_BINARY_DIR}/tst/regression/outputs/${dir}")
+    --output_dir "${parthenon_BINARY_DIR}/tst/regression/outputs/${dir}")
   set_tests_properties(regression_test:${dir} PROPERTIES LABELS "regression;mpi-no" )
   record_driver("${arg}")
 endfunction()
@@ -63,7 +63,7 @@ function(setup_test_coverage dir arg)
       ${arg} 
       --coverage
       --test_dir "${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}"
-      --output_dir "${PROJECT_BINARY_DIR}/tst/regression/outputs/${dir}_cov")
+      --output_dir "${parthenon_BINARY_DIR}/tst/regression/outputs/${dir}_cov")
     set_tests_properties(regression_coverage_test:${dir} PROPERTIES LABELS "regression;coverage;mpi-no" )
     record_driver("${arg}")
   endif()
@@ -80,7 +80,7 @@ function(setup_test_mpi nproc dir arg)
       --mpirun_opts=${MPIEXEC_NUMPROC_FLAG} --mpirun_opts=${nproc}
       --mpirun_opts=${MPIEXEC_PREFLAGS} ${arg}
       --test_dir ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}
-      --output_dir "${PROJECT_BINARY_DIR}/tst/regression/outputs/${dir}_mpi")
+      --output_dir "${parthenon_BINARY_DIR}/tst/regression/outputs/${dir}_mpi")
     set_tests_properties(regression_mpi_test:${dir} PROPERTIES LABELS "regression;mpi-yes" RUN_SERIAL ON )
     record_driver("${arg}")
   else()
@@ -101,7 +101,7 @@ function(setup_test_mpi_coverage nproc dir arg)
         --mpirun_opts=${MPIEXEC_NUMPROC_FLAG} --mpirun_opts=${nproc}
         --mpirun_opts=${MPIEXEC_PREFLAGS} ${arg}
         --test_dir ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}
-        --output_dir "${PROJECT_BINARY_DIR}/tst/regression/outputs/${dir}_mpi_cov"
+        --output_dir "${parthenon_BINARY_DIR}/tst/regression/outputs/${dir}_mpi_cov"
         )
       set_tests_properties(regression_mpi_coverage_test:${dir} PROPERTIES LABELS "regression;coverage;mpi-yes" RUN_SERIAL ON )
     endif()
