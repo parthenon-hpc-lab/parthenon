@@ -28,17 +28,9 @@ Swarm::Swarm(const std::string label, const Metadata &metadata, const int nmax_p
   Add("x", Metadata({Metadata::Real}));
   Add("y", Metadata({Metadata::Real}));
   Add("z", Metadata({Metadata::Real}));
-  // TODO BRR should this actually be a private variable so users can't
-  // mess with it? Have to update other variables when this changes
-  // Add("mask", Metadata({Metadata::Integer}));
-  // auto &mask = GetInteger("mask");
   for (int n = 0; n < nmax_pool_; n++) {
     mask_(n) = 0;
     free_indices_.push_back(n);
-    //printf("free_index: %i (%i)\n", free_indices_.last(), n);
-  }
-  for (auto index : free_indices_) {
-    printf("begin index: %i\n", index);
   }
 }
 
@@ -162,11 +154,6 @@ void Swarm::setPoolMax(const int nmax_pool) {
   int n_new_begin = nmax_pool_;
   int n_new = nmax_pool - nmax_pool_;
 
-  printf("Increasing pool max! %i\n", nmax_pool);
-  for (auto index : free_indices_) {
-    printf("index: %i\n", index);
-  }
-
   for (int n = 0; n < n_new; n++) {
     free_indices_.push_back(n + n_new_begin);
   }
@@ -221,80 +208,55 @@ void Swarm::setPoolMax(const int nmax_pool) {
 
 int Swarm::AddEmptyParticle()
 {
-  printf("B\n");
   if (free_indices_.size() == 0) {
     increasePoolMax();
   }
-  printf("B\n");
 
   auto free_index_iter = free_indices_.begin();
   int free_index = *free_index_iter;
   free_indices_.erase(free_index_iter);
-  printf("B\n");
 
   // ParticleVariable<int> &mask = GetInteger("mask");
   ParticleVariable<Real> &x = GetReal("x");
   ParticleVariable<Real> &y = GetReal("y");
   ParticleVariable<Real> &z = GetReal("z");
-  printf("B\n");
 
   mask_(free_index) = 1;
   nmax_active_ = std::max<int>(nmax_active_, free_index);
   num_active_ += 1;
-  printf("B\n");
 
   x(free_index) = 0.;
   y(free_index) = 0.;
   z(free_index) = 0.;
-  printf("B\n");
 
   return free_index;
 }
 
 std::vector<int> Swarm::AddEmptyParticles(int num_to_add) {
-  printf("C\n");
   while (free_indices_.size() < num_to_add) {
     increasePoolMax();
   }
 
-  printf("C\n");
   std::vector<int> indices(num_to_add);
-
-  printf("free_indices_.size: %i\n", free_indices_.size());
-  for (auto &index: free_indices_) {
-    printf("  index: %i\n", index);
-  }
 
   auto free_index = free_indices_.begin();
 
-  printf("C\n");
   // ParticleVariable<int> &mask = GetInteger("mask");
   ParticleVariable<Real> &x = GetReal("x");
   ParticleVariable<Real> &y = GetReal("y");
   ParticleVariable<Real> &z = GetReal("z");
 
-  printf("C\n");
   for (int n = 0; n < num_to_add; n++) {
-    printf("n: %i\n", n);
     indices[n] = *free_index;
-    printf("free_index: %i\n", *free_index);
-    printf("D\n");
     mask_(*free_index) = 1;
-    printf("D\n");
     nmax_active_ = std::max<int>(nmax_active_, *free_index);
-    printf("D\n");
 
     x(*free_index) = 0.;
-    printf("D\n");
     y(*free_index) = 0.;
-    printf("D\n");
     z(*free_index) = 0.;
-    printf("D\n");
 
     free_index = free_indices_.erase(free_index);
-    printf("D\n");
   }
-  printf("C\n");
 
   num_active_ += num_to_add;
 

@@ -40,31 +40,11 @@ class Swarm {
  public:
   MeshBlock *pmy_block = nullptr; // ptr to MeshBlock
 
-  //Swarm(const std::string label, const Metadata &metadata, const int nmax_pool_in = 3);
   Swarm(const std::string label, const Metadata &metadata, const int nmax_pool_in = 3);
-  /*    : label_(label), m_(metadata), nmax_pool_(nmax_pool_in),
-        mask_("mask", nmax_pool_, Metadata({Metadata::Integer})), mpiStatus(true) {
-    Add("x", Metadata({Metadata::Real}));
-    Add("y", Metadata({Metadata::Real}));
-    Add("z", Metadata({Metadata::Real}));
-    // TODO BRR should this actually be a private variable so users can't
-    // mess with it? Have to update other variables when this changes
-    // Add("mask", Metadata({Metadata::Integer}));
-    // auto &mask = GetInteger("mask");
-    for (int n = 0; n < nmax_pool_; n++) {
-      mask_(n) = 0;
-      free_indices_.push_back(n);
-      //printf("free_index: %i (%i)\n", free_indices_.last(), n);
-    }
-    for (auto index : free_indices_) {
-      printf("begin index: %i\n", index);
-    }
-  }*/
 
   /// Whether particle at index is active
   int IsActive(int index) {
-    // JAYBENNE_DEBUG_REQUIRE(index <= nmax_active_, "Requesting particle index outside of
-    // allocated data!");
+    PARTHENON_DEBUG_REQUIRE(index <= nmax_active_, "Requesting particle index outside of allocated data!");
     return mask_(index);
   }
 
@@ -120,82 +100,12 @@ class Swarm {
   bool mpiStatus;
 
   int AddEmptyParticle();
-  /*{
-    if (free_indices_.size() == 0) {
-      increasePoolMax();
-    }
 
-    auto free_index_iter = free_indices_.begin();
-    int free_index = *free_index_iter;
-    free_indices_.erase(free_index_iter);
+  void RemoveParticle(int index);
 
-    // ParticleVariable<int> &mask = GetInteger("mask");
-    ParticleVariable<Real> &x = GetReal("x");
-    ParticleVariable<Real> &y = GetReal("y");
-    ParticleVariable<Real> &z = GetReal("z");
+  std::vector<int> AddEmptyParticles(int num_to_add);
 
-    mask_(free_index) = 1;
-    nmax_active_ = std::max<int>(nmax_active_, free_index);
-    num_active_ += 1;
-
-    x(free_index) = 0.;
-    y(free_index) = 0.;
-    z(free_index) = 0.;
-
-    return free_index;
-  }*/
-
-  void RemoveParticle(int index); /*{
-    // ParticleVariable<int> &mask = GetInteger("mask");
-    mask_(index) = 0;
-    free_indices_.push_back(index);
-    num_active_ -= 1;
-    if (index == nmax_active_) {
-      // TODO BRR this isn't actually right
-      nmax_active_ -= 1;
-    }
-  }*/
-
-  std::vector<int> AddEmptyParticles(int num_to_add); /*{
-    while (free_indices_.size() < num_to_add) {
-      increasePoolMax();
-    }
-
-    std::vector<int> indices(num_to_add);
-
-    auto free_index = free_indices_.begin();
-
-    // ParticleVariable<int> &mask = GetInteger("mask");
-    ParticleVariable<Real> &x = GetReal("x");
-    ParticleVariable<Real> &y = GetReal("y");
-    ParticleVariable<Real> &z = GetReal("z");
-
-    for (int n = 0; n < num_to_add; n++) {
-      indices[n] = *free_index;
-      mask_(*free_index) = 1;
-      nmax_active_ = std::max<int>(nmax_active_, *free_index);
-
-      x(*free_index) = 0.;
-      y(*free_index) = 0.;
-      z(*free_index) = 0.;
-
-      free_index = free_indices_.erase(free_index);
-    }
-
-    num_active_ += num_to_add;
-
-    return indices;
-  }*/
-
-  std::vector<int> AddUniformParticles(int num_to_add); /*{
-    while (free_indices_.size() < num_to_add) {
-      increasePoolMax();
-    }
-
-    num_active_ += num_to_add;
-
-    return std::vector<int>();
-  }*/
+  std::vector<int> AddUniformParticles(int num_to_add);
 
   void Defrag();
 
@@ -225,4 +135,4 @@ using SwarmMap = std::map<std::string, SP_Swarm>;
 
 } // namespace parthenon
 
-#endif // INTERFACE_VARIABLE_HPP_
+#endif // INTERFACE_SWARM_HPP_
