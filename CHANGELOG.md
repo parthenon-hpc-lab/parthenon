@@ -8,6 +8,7 @@
 - [[PR 285]](https://github.com/lanl/parthenon/pull/285) Parthenon can now be linked in CMake as `Parthenon::parthenon` when used as a subdirectory, matching install.
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 284]](https://github.com/lanl/parthenon/pull/284) Separated public header files by placing them in separate include folder.
 - [[PR 252]](https://github.com/lanl/parthenon/pull/252) Moved default `par_for` wrappers to `MeshBlock` 
 - [[PR 243]](https://github.com/lanl/parthenon/pull/243) Automatically find/check Python version used in regression tests. Bumps CMake minimum version to 3.12
 - [[PR 266]](https://github.com/lanl/parthenon/pull/266): It is no longer necessary to specify Kokkos_ENABLE_OPENMP this is by default enabled, to turn off one can specify PARTHENON_DISABLE_OPENMP.
