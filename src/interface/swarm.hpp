@@ -40,8 +40,9 @@ class Swarm {
  public:
   MeshBlock *pmy_block = nullptr; // ptr to MeshBlock
 
-  Swarm(const std::string label, const Metadata &metadata, const int nmax_pool_in = 3)
-      : label_(label), m_(metadata), nmax_pool_(nmax_pool_in),
+  //Swarm(const std::string label, const Metadata &metadata, const int nmax_pool_in = 3);
+  Swarm(const std::string label, const Metadata &metadata, const int nmax_pool_in = 3);
+  /*    : label_(label), m_(metadata), nmax_pool_(nmax_pool_in),
         mask_("mask", nmax_pool_, Metadata({Metadata::Integer})), mpiStatus(true) {
     Add("x", Metadata({Metadata::Real}));
     Add("y", Metadata({Metadata::Real}));
@@ -53,8 +54,12 @@ class Swarm {
     for (int n = 0; n < nmax_pool_; n++) {
       mask_(n) = 0;
       free_indices_.push_back(n);
+      //printf("free_index: %i (%i)\n", free_indices_.last(), n);
     }
-  }
+    for (auto index : free_indices_) {
+      printf("begin index: %i\n", index);
+    }
+  }*/
 
   /// Whether particle at index is active
   int IsActive(int index) {
@@ -114,7 +119,8 @@ class Swarm {
 
   bool mpiStatus;
 
-  int AddEmptyParticle() {
+  int AddEmptyParticle();
+  /*{
     if (free_indices_.size() == 0) {
       increasePoolMax();
     }
@@ -137,9 +143,9 @@ class Swarm {
     z(free_index) = 0.;
 
     return free_index;
-  }
+  }*/
 
-  void RemoveParticle(int index) {
+  void RemoveParticle(int index); /*{
     // ParticleVariable<int> &mask = GetInteger("mask");
     mask_(index) = 0;
     free_indices_.push_back(index);
@@ -148,9 +154,9 @@ class Swarm {
       // TODO BRR this isn't actually right
       nmax_active_ -= 1;
     }
-  }
+  }*/
 
-  std::vector<int> AddEmptyParticles(int num_to_add) {
+  std::vector<int> AddEmptyParticles(int num_to_add); /*{
     while (free_indices_.size() < num_to_add) {
       increasePoolMax();
     }
@@ -179,9 +185,9 @@ class Swarm {
     num_active_ += num_to_add;
 
     return indices;
-  }
+  }*/
 
-  std::vector<int> AddUniformParticles(int num_to_add) {
+  std::vector<int> AddUniformParticles(int num_to_add); /*{
     while (free_indices_.size() < num_to_add) {
       increasePoolMax();
     }
@@ -189,7 +195,7 @@ class Swarm {
     num_active_ += num_to_add;
 
     return std::vector<int>();
-  }
+  }*/
 
   void Defrag();
 
