@@ -13,6 +13,9 @@ Running a Weak Scaling Test in Parthenon
 
 ### To Build
 
+- Note that depending on your system you may need to disable HDF5 with
+  `-DPARTHENON_DISABLE_HDF5=On`.
+
 ```bash
 module purge
 module load cmake gcc/7.4.0 cuda/10.2 openmpi/p9/4.0.1-gcc_7.4.0 anaconda/Anaconda3.2019.10
@@ -20,13 +23,17 @@ git clone git@github.com:lanl/parthenon.git
 cd parthenon
 git checkout develop && git pull
 mkdir -p bin && cd bin
-cmake -DPARTHENON_DISABLE_HDF5=ON -DCMAKE_BUILD_TYPE=Release -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_POWER9=True -DKokkos_ENABLE_CUDA=True -DKokkos_ARCH_VOLTA70=True -DCMAKE_CXX_COMPILER=${PWD}/../external/Kokkos/bin/nvcc_wrapper ..
+cmake -DCMAKE_BUILD_TYPE=Release -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_POWER9=True -DKokkos_ENABLE_CUDA=True -DKokkos_ARCH_VOLTA70=True -DCMAKE_CXX_COMPILER=${PWD}/../external/Kokkos/bin/nvcc_wrapper ..
 make -j
 ```
 
 ### To Run
 
-Place the following in your job script.
+- Note that if you disabled HDF5 in the previous step, you mest open
+  up the `parthinput.advection` file and comment out all blocks
+  beginning with `<parthenon/output*>`.
+
+- Place the following in your job script.
 ```bash
 N=1
 mpirun -np ${N} ./example/advection/advection-example -i ../example/advection/parthinput.advection parthenon/time/nlim=10 parthenon/mesh/nx1=64 parthenon/mesh/nx2=64 parthenon/mesh/
