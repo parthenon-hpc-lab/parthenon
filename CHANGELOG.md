@@ -3,7 +3,8 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
-- [[PR250]](https://github.com/lanl/parthenon/pull/250) Feature::Restart. If output file format 'rst' is specified restart files are written using independent variables and those marked with Restart metadata flag.  Simulations can be restarted with a '-r \<restartFile\>' argument to the code.
+- [[PR250]] Feature::Restart. If output file format 'rst' is specified restart files are written using independent variables and those marked with Restart metadata flag.  Simulations can be restarted with a '-r \<restartFile\>' argument to the code.
+- [[PR 263]](https://github.com/lanl/parthenon/pull/263) Added MeshPack, a mechanism for looping over the whole mesh at once within a `Kokkos` kernel. See [documentation](docs/mesh/packing.md)
 - [[PR 287]]((https://github.com/lanl/parthenon/pull/287) Added machine configuration file for compile options, see [documentation](https://github.com/lanl/parthenon/blob/develop/docs/building.md#default-machine-configurations)
 
 ### Changed (changing behavior/API/variables/...)
