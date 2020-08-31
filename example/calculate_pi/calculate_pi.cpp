@@ -16,6 +16,7 @@
 
 // Standard Includes
 #include <iostream>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -83,13 +84,12 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 TaskStatus ComputeArea(MeshBlock *pmb) {
   // compute 1/r0^2 \int d^2x in_or_out(x,y) over the block's domain
   auto &rc = pmb->real_containers.Get();
-  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
-  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
-  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
+  const IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
+  const IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
+  const IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
   auto &coords = pmb->coords;
 
   ParArrayND<Real> &v = rc->Get("in_or_out").data;
-
   Real area;
   Kokkos::parallel_reduce(
       "calculate_pi compute area",
@@ -105,12 +105,37 @@ TaskStatus ComputeArea(MeshBlock *pmb) {
   return TaskStatus::complete;
 }
 
-Real ComputeAreaOnMesh(parthenon::Mesh *pmesh) {
-  auto pack = parthenon::PackVariablesOnMesh(pmesh, "base",
+TaskStatus RetrieveAreas(std::vector<MeshBlock *> &blocks,
+                         parthenon::Packages_t &packages) {
+  const auto &radius = packages["calculate_pi"]->Param<Real>("radius");
+
+  Real area = 0.0;
+  for (auto pmb : blocks) {
+    auto &rc = pmb->real_containers.Get();
+    ParArrayND<Real> v = rc->Get("in_or_out").data;
+    // extract area from device memory
+    Real block_area;
+    Kokkos::deep_copy(pmb->exec_space, block_area, v.Get(0, 0, 0, 0, 0, 0));
+    pmb->exec_space.fence(); // as the deep copy may be async
+    // area must be reduced by r^2 to get the block's contribution to PI
+    block_area /= (radius * radius);
+    // accumulate
+    area += block_area;
+  }
+
+  packages["calculate_pi"]->AddParam("area", area);
+  return TaskStatus::complete;
+}
+
+TaskStatus ComputeAreaOnMesh(std::vector<MeshBlock *> &blocks,
+                             parthenon::Packages_t &packages) {
+  auto pack = parthenon::PackVariablesOnMesh(blocks, "base",
                                              std::vector<std::string>{"in_or_out"});
-  IndexRange ib = pack.cellbounds.GetBoundsI(IndexDomain::interior);
-  IndexRange jb = pack.cellbounds.GetBoundsJ(IndexDomain::interior);
-  IndexRange kb = pack.cellbounds.GetBoundsK(IndexDomain::interior);
+  const IndexRange ib = pack.cellbounds.GetBoundsI(IndexDomain::interior);
+  const IndexRange jb = pack.cellbounds.GetBoundsJ(IndexDomain::interior);
+  const IndexRange kb = pack.cellbounds.GetBoundsK(IndexDomain::interior);
+
+  const auto &radius = packages["calculate_pi"]->Param<Real>("radius");
 
   Real area = 0.0;
   using policy = Kokkos::MDRangePolicy<Kokkos::Rank<5>>;
@@ -123,10 +148,10 @@ Real ComputeAreaOnMesh(parthenon::Mesh *pmesh) {
         larea += pack(b, v, k, j, i) * pack.coords(b).Area(parthenon::X3DIR, k, j, i);
       },
       area);
-  // These params are mesh wide. Doesn't matter which meshblock I pull it from.
-  const auto &radius =
-      pmesh->block_list.front().packages["calculate_pi"]->Param<Real>("radius");
-  return area / (radius * radius);
+  area /= (radius * radius);
+
+  packages["calculate_pi"]->AddParam("area", area);
+  return TaskStatus::complete;
 }
 
 } // namespace calculate_pi
