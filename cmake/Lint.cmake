@@ -11,6 +11,8 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
 
+include_guard(GLOBAL)
+
 if (PARTHENON_LINT_DEFAULT)
     set(ALL "ALL")
 endif()
@@ -36,7 +38,7 @@ function(lint_file SOURCE_DIR INPUT OUTPUT)
     add_custom_command(
         OUTPUT ${OUTPUT}
         COMMAND
-            ${PROJECT_SOURCE_DIR}/tst/style/cpplint.py
+        ${parthenon_SOURCE_DIR}/tst/style/cpplint.py
                 --counting=detailed
                 --quiet ${FILE_TO_LINT}
         ${MKDIR_COMMAND}

@@ -23,5 +23,7 @@ if( "advection-example" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_EXAMPLES)
           parthenon_app_inputs.cpp
   )
   target_link_libraries(advection-example PRIVATE Parthenon::parthenon)
-  lint_target(advection-example)
+  if( PROJECT_SOURCE_DIR STREQUAL parthenon_SOURCE_DIR)
+    lint_target(advection-example)
+  endif()
 endif()

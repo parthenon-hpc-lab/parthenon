@@ -218,20 +218,20 @@ if (${PARTHENON_ENABLE_UNIT_TESTS} OR ${PARTHENON_ENABLE_INTEGRATION_TESTS} OR $
 
   # if running regression test automatically synch gold standard
   if (${PARTHENON_ENABLE_REGRESSION_TESTS} AND ${REGRESSION_GOLD_STANDARD_SYNC})
-    if (EXISTS ${PROJECT_SOURCE_DIR}/tst/regression/gold_standard/current_version)
-      file(READ ${PROJECT_SOURCE_DIR}/tst/regression/gold_standard/current_version REGRESSION_GOLD_STANDARD_ON_DISK)
+    if (EXISTS ${parthenon_SOURCE_DIR}/tst/regression/gold_standard/current_version)
+      file(READ ${parthenon_SOURCE_DIR}/tst/regression/gold_standard/current_version REGRESSION_GOLD_STANDARD_ON_DISK)
     else()
       set(REGRESSION_GOLD_STANDARD_ON_DISK 0)
     endif()
     if (NOT (${REGRESSION_GOLD_STANDARD_ON_DISK} EQUAL ${REGRESSION_GOLD_STANDARD_VER}))
       message(STATUS "Attempting to download latest gold standard files for regression tests. To disable set REGRESSION_GOLD_STANDARD_SYNC=OFF.")
       file(
-        DOWNLOAD https://github.com/lanl/parthenon/releases/download/regression-gold-v${REGRESSION_GOLD_STANDARD_VER}/parthenon_regression_gold_v${REGRESSION_GOLD_STANDARD_VER}.tgz ${PROJECT_SOURCE_DIR}/tst/regression/gold_standard/parthenon_regression_gold_v${REGRESSION_GOLD_STANDARD_VER}.tgz
+        DOWNLOAD https://github.com/lanl/parthenon/releases/download/regression-gold-v${REGRESSION_GOLD_STANDARD_VER}/parthenon_regression_gold_v${REGRESSION_GOLD_STANDARD_VER}.tgz ${parthenon_SOURCE_DIR}/tst/regression/gold_standard/parthenon_regression_gold_v${REGRESSION_GOLD_STANDARD_VER}.tgz
         EXPECTED_HASH ${REGRESSION_GOLD_STANDARD_HASH}
         )
       execute_process(
-        COMMAND ${CMAKE_COMMAND} -E tar xzf ${PROJECT_SOURCE_DIR}/tst/regression/gold_standard/parthenon_regression_gold_v${REGRESSION_GOLD_STANDARD_VER}.tgz
-        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/tst/regression/gold_standard/
+        COMMAND ${CMAKE_COMMAND} -E tar xzf ${parthenon_SOURCE_DIR}/tst/regression/gold_standard/parthenon_regression_gold_v${REGRESSION_GOLD_STANDARD_VER}.tgz
+        WORKING_DIRECTORY ${parthenon_SOURCE_DIR}/tst/regression/gold_standard/
         )
       message(STATUS "  Download of gold standard successful.")
     else()
@@ -272,12 +272,15 @@ if (TEST_INTEL_OPTIMIZATION)
 endif()
 
 add_subdirectory(src)
-add_subdirectory(example)
+
+if (NOT CMAKE_CURRENT_SOURCE_DIR STREQUAL parthenon_SOURCE_DIR)
+  add_subdirectory(example)
+endif()
 
 create_pathenon_coverage_targets()
 include(cmake/CheckCopyright.cmake)
 
-configure_file("${PROJECT_SOURCE_DIR}/cmake/parthenonConfig.cmake.in" "${PROJECT_BINARY_DIR}/cmake/parthenonConfig.cmake" @ONLY)
+configure_file("${parthenon_SOURCE_DIR}/cmake/parthenonConfig.cmake.in" "${PROJECT_BINARY_DIR}/cmake/parthenonConfig.cmake" @ONLY)
 
 # Currently Ctest/Cmake doesn't ensure that tests are not stale
 # before running them.

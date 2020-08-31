@@ -11,6 +11,7 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
 
+include_guard(GLOBAL)
 find_program(
     CLANG_FORMAT
     NAMES
@@ -50,9 +51,9 @@ endif()
 # Specifically trying to exclude external here - I'm not sure if there's a better way
 set(
     GLOBS
-    ${PROJECT_SOURCE_DIR}/src/[^\.]*.cpp     ${PROJECT_SOURCE_DIR}/src/[^\.]*.hpp
-    ${PROJECT_SOURCE_DIR}/tst/[^\.]*.cpp     ${PROJECT_SOURCE_DIR}/tst/[^\.]*.hpp
-    ${PROJECT_SOURCE_DIR}/example/[^\.]*.cpp ${PROJECT_SOURCE_DIR}/example/[^\.]*.hpp
+    ${parthenon_SOURCE_DIR}/src/[^\.]*.cpp     ${parthenon_SOURCE_DIR}/src/[^\.]*.hpp
+    ${parthenon_SOURCE_DIR}/tst/[^\.]*.cpp     ${parthenon_SOURCE_DIR}/tst/[^\.]*.hpp
+    ${parthenon_SOURCE_DIR}/example/[^\.]*.cpp ${parthenon_SOURCE_DIR}/example/[^\.]*.hpp
 )
 
 if (CMAKE_VERSION VERSION_LESS "3.12.0")

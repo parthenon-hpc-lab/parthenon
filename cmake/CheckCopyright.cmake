@@ -13,6 +13,7 @@
 
 # TODO: Probably shouldn't be done at configure time - instead we should have a separate
 # build task that does this.
+include_guard(GLOBAL)
 
 file(GLOB_RECURSE COPYRIGHTABLE_SOURCES src/[^\.]*.cpp example/[^\.]*.cpp)
 file(GLOB_RECURSE COPYRIGHTABLE_HEADERS src/[^\.]*.hpp example/[^\.]*.hpp)

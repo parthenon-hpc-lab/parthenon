@@ -18,5 +18,7 @@ if( "kokkos_pi" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_EXAMPLES)
           kokkos_pi.cpp
   )
   target_link_libraries(kokkos_pi PUBLIC Parthenon::parthenon)
-  lint_target(kokkos_pi)
+  if(PROJECT_SOURCE_DIR STREQUAL parthenon_SOURCE_DIR)
+    lint_target(kokkos_pi)
+  endif()
 endif()

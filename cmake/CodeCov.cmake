@@ -11,6 +11,7 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
 
+include_guard(GLOBAL)
 # Function will add the coverage label to all tests provided
 # The function can be called by invoking
 #
@@ -90,15 +91,15 @@ function(create_pathenon_coverage_targets)
       COMMAND mkdir -p ${COVERAGE_PATH}/${COVERAGE_NAME}
       COMMAND ${PATH_LCOV} --version
       # Clean
-      COMMAND ${PATH_LCOV} --gcov-tool ${PATH_GCOV} --directory ${PROJECT_BINARY_DIR} -b ${PROJECT_SOURCE_DIR} --zerocounters
+      COMMAND ${PATH_LCOV} --gcov-tool ${PATH_GCOV} --directory ${PROJECT_BINARY_DIR} -b ${parthenon_SOURCE_DIR} --zerocounters
       # Base report
       COMMAND ctest -L coverage --verbose
-      COMMAND ${PATH_LCOV} --gcov-tool ${PATH_GCOV} -c -i -d ${PROJECT_BINARY_DIR} -b ${PROJECT_SOURCE_DIR} -o ${COVERAGE_PATH}/${COVERAGE_NAME}/report.base.old
+      COMMAND ${PATH_LCOV} --gcov-tool ${PATH_GCOV} -c -i -d ${PROJECT_BINARY_DIR} -b ${parthenon_SOURCE_DIR} -o ${COVERAGE_PATH}/${COVERAGE_NAME}/report.base.old
       # Remove Kokkos and tst info from code coverage
       COMMAND ${PATH_LCOV} --remove ${COVERAGE_PATH}/${COVERAGE_NAME}/report.base.old "*/Kokkos/*" "*/tst/*" -o ${COVERAGE_PATH}/${COVERAGE_NAME}/report.base
 
       # Capture information from test runs
-      COMMAND ${PATH_LCOV} --gcov-tool ${PATH_GCOV} --directory ${PROJECT_BINARY_DIR} -b ${PROJECT_SOURCE_DIR} --capture --output-file ${COVERAGE_PATH}/${COVERAGE_NAME}/report.test.old
+      COMMAND ${PATH_LCOV} --gcov-tool ${PATH_GCOV} --directory ${PROJECT_BINARY_DIR} -b ${parthenon_SOURCE_DIR} --capture --output-file ${COVERAGE_PATH}/${COVERAGE_NAME}/report.test.old
       # Remove Kokkos and tst info from code coverage
       COMMAND ${PATH_LCOV} --remove ${COVERAGE_PATH}/${COVERAGE_NAME}/report.test.old "*/Kokkos/*" "*/tst/*" -o ${COVERAGE_PATH}/${COVERAGE_NAME}/report.test
       
@@ -117,7 +118,7 @@ function(create_pathenon_coverage_targets)
     add_custom_command(TARGET coverage-upload
       COMMAND echo "================ Uploading Code Coverage =================="
       # Upload coverage report
-      COMMAND ${PROJECT_SOURCE_DIR}/scripts/combine_coverage.sh ${PATH_LCOV} ${PATH_GCOV} ${COVERAGE_PATH}
+      COMMAND ${parthenon_SOURCE_DIR}/scripts/combine_coverage.sh ${PATH_LCOV} ${PATH_GCOV} ${COVERAGE_PATH}
       COMMAND curl -s https://codecov.io/bash > ${COVERAGE_PATH}/CombinedCoverage/script.coverage
       COMMAND cat ${COVERAGE_PATH}/CombinedCoverage/script.coverage
       COMMAND cd ${COVERAGE_PATH}/CombinedCoverage && bash ${COVERAGE_PATH}/CombinedCoverage/script.coverage -p ${PROJECT_BINARY_DIR} -s ${COVERAGE_PATH}/CombinedCoverage

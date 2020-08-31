@@ -11,7 +11,7 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
 
-
+include_guard(GLOBAL)
 
 # Search for the python interpreter
 # Version number has been intentionally excluded from find_package call, so that latest version 
@@ -23,7 +23,7 @@ if( ${Python3_VERSION} VERSION_LESS "3.5")
 endif()
 
 # Ensure all required packages are present
-include(${PROJECT_SOURCE_DIR}/cmake/PythonModuleCheck.cmake)
+include(${parthenon_SOURCE_DIR}/cmake/PythonModuleCheck.cmake)
 required_python_modules_found("${REQUIRED_PYTHON_MODULES}")
 
 # Adds the drivers used in the regression tests to a global cmake property: DRIVERS_USED_IN_TESTS

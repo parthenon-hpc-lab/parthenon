@@ -204,4 +204,4 @@ target_link_libraries(parthenon PUBLIC Kokkos::kokkos)
 
 lint_target(parthenon)
 
-include(${PROJECT_SOURCE_DIR}/cmake/ParthenonInstall.cmake)
+include(${parthenon_SOURCE_DIR}/cmake/ParthenonInstall.cmake)

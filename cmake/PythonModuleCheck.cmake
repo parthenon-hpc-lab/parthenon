@@ -11,6 +11,7 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
 
+include_guard(GLOBAL)
 # Function will check that the specified modules are available to the python interpreter
 # If they are not cmake will throw an error indicating which module not available
 function(required_python_modules_found module_list)

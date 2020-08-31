@@ -85,7 +85,7 @@ list(APPEND REQUIRED_PYTHON_MODULES matplotlib numpy)
 #  setup_test_coverage
 #  setup_test_mpi
 #  setup_test_mpi_coverage
-include(${PROJECT_SOURCE_DIR}/cmake/TestSetup.cmake)
+include(${parthenon_SOURCE_DIR}/cmake/TestSetup.cmake)
 
 list(LENGTH TEST_DIRS len)
 math(EXPR end_index "${len} - 1")
