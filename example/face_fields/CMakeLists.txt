@@ -20,7 +20,7 @@ if( "pi-example" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_EXAMPLES)
           face_fields_main.cpp
   )
   target_link_libraries(face-fields-example PRIVATE Parthenon::parthenon)
-  if( PROJECT_SOURCE_DIR STREQUAL parthenon_SOURCE_DIR)
+  if( CMAKE_SOURCE_DIR STREQUAL parthenon_SOURCE_DIR)
     lint_target(face-fields-example)
   endif()
 endif()
