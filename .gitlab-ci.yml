@@ -169,6 +169,34 @@ parthenon-cuda-performance_and_regression-mpi:
       - build-cuda-perf-mpi/tst/regression/outputs/advection_convergence_mpi/advection-errors.dat
       - build-cuda-perf-mpi/tst/regression/outputs/advection_convergence_mpi/advection-errors.png
 
+parthenon-cuda-mpi-examples-library:
+  only:
+    - schedules
+    - develop
+    - web
+  tags:
+    - cuda
+  stage: short
+  script:
+    - mkdir -p build-library
+    - cd build-cuda-perf-mpi
+    - cmake -DCMAKE_BUILD_TYPE=Release -DHDF5_ROOT=/usr/local/hdf5/parallel
+      -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
+      -DKokkos_ENABLE_CUDA=True -DKokkos_ARCH_PASCAL61=True
+      -DMPIEXEC_PREFLAGS="--allow-run-as-root"
+      -DCMAKE_CXX_COMPILER=${PWD}/../external/Kokkos/bin/nvcc_wrapper
+      -DBUILD_TESTING=OFF
+      -DINSTALL_PREFIX=${PWD}/../../parthenon_library
+      ../
+    - make -j${J}
+    - cd ..
+    - mkdir -p build-examples
+    - cd build-examples
+    - cmake -DPARTHENON_EXAMPLE_FIND_PARTHENON=ON
+      -Dparthenon_DIR=../../parthenon_library/lib64/cmake/parthenon 
+      -DCMAKE_CXX_COMPILER=../../parthenon_library/bin/nvcc_wrapper
+      ../example/ 
+
 # run performance and regression on CPUs without MPI
 parthenon-cpu-performance_and_regression:
   only:
