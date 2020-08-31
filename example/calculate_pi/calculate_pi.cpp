@@ -23,6 +23,8 @@
 
 // Parthenon Includes
 #include <coordinates/coordinates.hpp>
+#include <kokkos_abstraction.hpp>
+#include <mesh/mesh_pack.hpp>
 #include <parthenon/package.hpp>
 
 using namespace parthenon::package::prelude;
@@ -79,27 +81,76 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   return package;
 }
 
-TaskStatus ComputeAreas(std::vector<MeshBlock *> &blocks) {
-  IndexRange ib = blocks[0]->cellbounds.GetBoundsI(IndexDomain::interior);
-  IndexRange jb = blocks[0]->cellbounds.GetBoundsJ(IndexDomain::interior);
-  IndexRange kb = blocks[0]->cellbounds.GetBoundsK(IndexDomain::interior);
+TaskStatus ComputeArea(MeshBlock *pmb) {
+  // compute 1/r0^2 \int d^2x in_or_out(x,y) over the block's domain
+  auto &rc = pmb->real_containers.Get();
+  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
+  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
+  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
+  auto &coords = pmb->coords;
 
+  ParArrayND<Real> &v = rc->Get("in_or_out").data;
+  Real area;
+  Kokkos::parallel_reduce(
+      "calculate_pi compute area",
+      Kokkos::MDRangePolicy<Kokkos::Rank<3>>(pmb->exec_space, {kb.s, jb.s, ib.s},
+                                             {kb.e + 1, jb.e + 1, ib.e + 1},
+                                             {1, 1, ib.e + 1 - ib.s}),
+      KOKKOS_LAMBDA(int k, int j, int i, Real &larea) {
+        larea += v(k, j, i) * coords.Area(parthenon::X3DIR, k, j, i);
+      },
+      area);
+  Kokkos::deep_copy(pmb->exec_space, v.Get(0, 0, 0, 0, 0, 0), area);
+
+  return TaskStatus::complete;
+}
+
+TaskStatus RetrieveAreas(std::vector<MeshBlock *> &blocks,
+                         parthenon::Packages_t &packages) {
+  const auto &radius = packages["calculate_pi"]->Param<Real>("radius");
+
+  Real area = 0.0;
   for (auto pmb : blocks) {
     auto &rc = pmb->real_containers.Get();
-    auto &coords = pmb->coords;
-    ParArrayND<Real> &v = rc->Get("in_or_out").data;
-    Real area;
-    Kokkos::parallel_reduce(
-        "calculate_pi compute area",
-        Kokkos::MDRangePolicy<Kokkos::Rank<3>>(pmb->exec_space, {kb.s, jb.s, ib.s},
-                                               {kb.e + 1, jb.e + 1, ib.e + 1},
-                                               {1, 1, ib.e + 1 - ib.s}),
-        KOKKOS_LAMBDA(int k, int j, int i, Real &larea) {
-          larea += v(k, j, i) * coords.Area(parthenon::X3DIR, k, j, i);
-        },
-        area);
-    Kokkos::deep_copy(pmb->exec_space, v.Get(0, 0, 0, 0, 0, 0), area);
+    ParArrayND<Real> v = rc->Get("in_or_out").data;
+    // extract area from device memory
+    Real block_area;
+    Kokkos::deep_copy(pmb->exec_space, block_area, v.Get(0, 0, 0, 0, 0, 0));
+    pmb->exec_space.fence(); // as the deep copy may be async
+    // area must be reduced by r^2 to get the block's contribution to PI
+    block_area /= (radius * radius);
+    // accumulate
+    area += block_area;
   }
+
+  packages["calculate_pi"]->AddParam("area", area);
+  return TaskStatus::complete;
+}
+
+TaskStatus ComputeAreaOnMesh(std::vector<MeshBlock *> &blocks,
+                             parthenon::Packages_t &packages) {
+  auto pack = parthenon::PackVariablesOnMesh(blocks, "base",
+                                             std::vector<std::string>{"in_or_out"});
+  IndexRange ib = pack.cellbounds.GetBoundsI(IndexDomain::interior);
+  IndexRange jb = pack.cellbounds.GetBoundsJ(IndexDomain::interior);
+  IndexRange kb = pack.cellbounds.GetBoundsK(IndexDomain::interior);
+
+  const auto &radius = packages["calculate_pi"]->Param<Real>("radius");
+
+  Real area = 0.0;
+  using policy = Kokkos::MDRangePolicy<Kokkos::Rank<5>>;
+  Kokkos::parallel_reduce(
+      "calculate_pi compute area",
+      policy(parthenon::DevExecSpace(), {0, 0, kb.s, jb.s, ib.s},
+             {pack.GetDim(5), pack.GetDim(4), kb.e + 1, jb.e + 1, ib.e + 1},
+             {1, 1, 1, 1, ib.e + 1 - ib.s}),
+      KOKKOS_LAMBDA(int b, int v, int k, int j, int i, Real &larea) {
+        larea += pack(b, v, k, j, i) * pack.coords(b).Area(parthenon::X3DIR, k, j, i);
+      },
+      area);
+  area /= (radius * radius);
+
+  packages["calculate_pi"]->AddParam("area", area);
   return TaskStatus::complete;
 }
 
