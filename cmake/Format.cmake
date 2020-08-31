@@ -54,6 +54,7 @@ set(
     ${parthenon_SOURCE_DIR}/src/[^\.]*.cpp     ${parthenon_SOURCE_DIR}/src/[^\.]*.hpp
     ${parthenon_SOURCE_DIR}/tst/[^\.]*.cpp     ${parthenon_SOURCE_DIR}/tst/[^\.]*.hpp
     ${parthenon_SOURCE_DIR}/example/[^\.]*.cpp ${parthenon_SOURCE_DIR}/example/[^\.]*.hpp
+    ${parthenon_SOURCE_DIR}/include/parthenon/[^\.]*.hpp
 )
 
 if (CMAKE_VERSION VERSION_LESS "3.12.0")
