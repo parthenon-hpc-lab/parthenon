@@ -306,7 +306,8 @@ class MeshBlock {
       &InitUserMeshBlockDataDefault;
 
   // functions and variables for automatic load balancing based on timing
-  double cost_, lb_time_;
+  Kokkos::Timer lb_timer;
+  double cost_;
   void ResetTimeMeasurement();
   void StartTimeMeasurement();
   void StopTimeMeasurement();
