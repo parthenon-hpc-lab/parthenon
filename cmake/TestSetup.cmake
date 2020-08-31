@@ -84,20 +84,29 @@ function(setup_test_mpi nproc dir arg extra_labels)
     list(APPEND labels "${extra_labels}")
 
     if( "${Kokkos_ENABLE_CUDA}" )
-      if( "${NUM_MPI_PROC_TESTING}" GREATER "${NUM_GPUS_DETECTED}" OR (NOT "${NUM_MPI_PROC_TESTING}" EQUAL "${NUM_GPU_DEVICES_TESTING}"))
+      if( NOT "${NUM_MPI_PROC_TESTING}" EQUAL "${NUM_GPU_DEVICES_TESTING}")
         message(FATAL_ERROR "You are trying to build the parthenon regression "
           "tests with CUDA enabled kokkos, with the following settings:\n"
           "Number of MPI processors set to: ${NUM_MPI_PROC_TESTING}\n"
           "Number of CUDA devices set to: ${NUM_GPU_DEVICES_TESTING}\n"
-          "Number of CUDA devices available: ${NUM_GPUS_DETECTED}\n"
           "\nEach mpi processor must have access to a single gpu. Consider setting:\n"
+          "NUM_GPU_DEVICES_TESTING= == NUM_MPI_PROC_TESTING\n"
+          "\nOr consider building without CUDA")
+      endif() 
+      if( "${NUM_GPU_DEVICES_TESTING}" GREATER "${NUM_GPUS_DETECTED}")
+        message(WARNING "You are trying to build the parthenon regression "
+          "tests with CUDA enabled kokkos, with the following settings:\n"
+          "Number of MPI processors set to: ${NUM_MPI_PROC_TESTING}\n"
+          "Number of CUDA devices set to: ${NUM_GPU_DEVICES_TESTING}\n"
+          "Number of CUDA devices available: ${NUM_GPUS_DETECTED}\n"
+          "\nThe number of gpus detected is less than then the number of devices requested,"
+          "if you are planning on running tests on this host consider changing:\n"
           "NUM_GPU_DEVICES_TESTING=${NUM_GPUS_DETECTED}\n"
           "NUM_MPI_PROC_TESTING=${NUM_GPUS_DETECTED}\n"
-          "\nOr consider building without CUDA")
-      else()
-        set(PARTHENON_KOKKOS_TEST_ARGS "--kokkos-num-devices=${NUM_GPU_DEVICES_TESTING}")
-        list(APPEND labels "cuda")
+          "\nOr consider building without CUDA.")
       endif()
+      set(PARTHENON_KOKKOS_TEST_ARGS "--kokkos-num-devices=${NUM_GPU_DEVICES_TESTING}")
+      list(APPEND labels "cuda")
     endif()
     add_test( NAME regression_mpi_test:${dir} COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/run_test.py
       --mpirun ${MPIEXEC_EXECUTABLE} 
