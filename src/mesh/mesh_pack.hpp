@@ -14,6 +14,7 @@
 #define MESH_MESH_PACK_HPP_
 
 #include <array>
+#include <string>
 #include <utility>
 #include <vector>
 
