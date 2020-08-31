@@ -18,9 +18,12 @@
 #include <iostream>
 #include <string>
 #include <utility>
+#include <vector>
 
 // Parthenon Includes
 #include <coordinates/coordinates.hpp>
+#include <kokkos_abstraction.hpp>
+#include <mesh/mesh_pack.hpp>
 #include <parthenon/package.hpp>
 
 using namespace parthenon::package::prelude;
@@ -100,6 +103,30 @@ TaskStatus ComputeArea(MeshBlock *pmb) {
   Kokkos::deep_copy(pmb->exec_space, v.Get(0, 0, 0, 0, 0, 0), area);
 
   return TaskStatus::complete;
+}
+
+Real ComputeAreaOnMesh(parthenon::Mesh *pmesh) {
+  auto pack = parthenon::PackVariablesOnMesh(pmesh, "base",
+                                             std::vector<std::string>{"in_or_out"});
+  IndexRange ib = pack.cellbounds.GetBoundsI(IndexDomain::interior);
+  IndexRange jb = pack.cellbounds.GetBoundsJ(IndexDomain::interior);
+  IndexRange kb = pack.cellbounds.GetBoundsK(IndexDomain::interior);
+
+  Real area = 0.0;
+  using policy = Kokkos::MDRangePolicy<Kokkos::Rank<5>>;
+  Kokkos::parallel_reduce(
+      "calculate_pi compute area",
+      policy(parthenon::DevExecSpace(), {0, 0, kb.s, jb.s, ib.s},
+             {pack.GetDim(5), pack.GetDim(4), kb.e + 1, jb.e + 1, ib.e + 1},
+             {1, 1, 1, 1, ib.e + 1 - ib.s}),
+      KOKKOS_LAMBDA(int b, int v, int k, int j, int i, Real &larea) {
+        larea += pack(b, v, k, j, i) * pack.coords(b).Area(parthenon::X3DIR, k, j, i);
+      },
+      area);
+  // These params are mesh wide. Doesn't matter which meshblock I pull it from.
+  const auto &radius =
+      pmesh->block_list.front().packages["calculate_pi"]->Param<Real>("radius");
+  return area / (radius * radius);
 }
 
 } // namespace calculate_pi
