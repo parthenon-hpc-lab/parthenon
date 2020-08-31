@@ -335,7 +335,9 @@ class Mesh {
   ~Mesh();
 
   // accessors
-  int GetNumMeshBlocksThisRank(int my_rank) { return nblist[my_rank]; }
+  int GetNumMeshBlocksThisRank(int my_rank = Globals::my_rank) const {
+    return nblist[my_rank];
+  }
   int GetNumMeshThreads() const { return num_mesh_threads_; }
   std::int64_t GetTotalCells() {
     auto &mb = block_list.front();
