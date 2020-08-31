@@ -12,31 +12,17 @@
 #=========================================================================================
 
 include_guard(GLOBAL)
-target_include_directories(parthenon PUBLIC
-  $<BUILD_INTERFACE:${parthenon_SOURCE_DIR}/include/parthenon>
-  $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include/parthenon/generated>
-  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/parthenon>
-  )
 
 install(TARGETS parthenon EXPORT parthenonTargets
   INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
   LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
   ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
     )
-#install(TARGETS parthenon EXPORT parthenonTargets
-#  INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parthenon"
-#  LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-#  ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-#    )
-
 
 # Maintain directory structure in installed include files
-#install(DIRECTORY ${parthenon_SOURCE_DIR}/include/parthenon DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parthenon" FILES_MATCHING PATTERN "*.hpp")
 install(DIRECTORY ${parthenon_SOURCE_DIR}/include/parthenon DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}" FILES_MATCHING PATTERN "*.hpp")
 
 # Install generated config header file
-#install(FILES ${parthenon_SOURCE_DIR}/include/parthenon/config.hpp
-#  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parthenon")
 install(FILES ${parthenon_SOURCE_DIR}/include/parthenon/config.hpp
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
 

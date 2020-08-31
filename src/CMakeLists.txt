@@ -110,7 +110,7 @@ set(COORDINATE_TYPE UniformCartesian) # TODO: Make this an option when more are 
 
 configure_file(${PROJECT_SOURCE_DIR}/src/config.hpp.in ${PROJECT_SOURCE_DIR}/include/parthenon/config.hpp @ONLY)
 
-add_library(parthenon
+list(APPEND PARTHENON_SOURCES
   bvals/cc/bvals_cc.cpp
   bvals/cc/flux_correction_cc.cpp
 
@@ -174,6 +174,8 @@ add_library(parthenon
   parameter_input.cpp
   parthenon_manager.cpp
 )
+
+add_library(parthenon ${PARTHENON_SOURCES} ${PARTHENON_PUBLIC_HEADERS})
 add_library(Parthenon::parthenon ALIAS parthenon)
 
 set_target_properties(parthenon PROPERTIES SOVERSION ${parthenon_VERSION})
@@ -201,6 +203,12 @@ if (Kokkos_ENABLE_CUDA)
 endif()
 
 target_link_libraries(parthenon PUBLIC Kokkos::kokkos)
+
+target_include_directories(parthenon PUBLIC
+  $<BUILD_INTERFACE:${parthenon_SOURCE_DIR}/include/parthenon>
+  $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include/parthenon/generated>
+  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/parthenon>
+  )
 
 lint_target(parthenon)
 
