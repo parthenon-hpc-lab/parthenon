@@ -114,7 +114,7 @@ struct TaskCollection {
     return regions.back();
   }
   TaskListStatus Execute() {
-    for (auto region : regions) {
+    for (auto & region : regions) {
       int complete_cnt = 0;
       auto num_lists = region.size();
       while (complete_cnt != num_lists) {

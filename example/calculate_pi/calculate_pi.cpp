@@ -84,9 +84,9 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 TaskStatus ComputeArea(MeshBlock *pmb) {
   // compute 1/r0^2 \int d^2x in_or_out(x,y) over the block's domain
   auto &rc = pmb->real_containers.Get();
-  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
-  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
-  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
+  const IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
+  const IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
+  const IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
   auto &coords = pmb->coords;
 
   ParArrayND<Real> &v = rc->Get("in_or_out").data;
@@ -131,9 +131,9 @@ TaskStatus ComputeAreaOnMesh(std::vector<MeshBlock *> &blocks,
                              parthenon::Packages_t &packages) {
   auto pack = parthenon::PackVariablesOnMesh(blocks, "base",
                                              std::vector<std::string>{"in_or_out"});
-  IndexRange ib = pack.cellbounds.GetBoundsI(IndexDomain::interior);
-  IndexRange jb = pack.cellbounds.GetBoundsJ(IndexDomain::interior);
-  IndexRange kb = pack.cellbounds.GetBoundsK(IndexDomain::interior);
+  const IndexRange ib = pack.cellbounds.GetBoundsI(IndexDomain::interior);
+  const IndexRange jb = pack.cellbounds.GetBoundsJ(IndexDomain::interior);
+  const IndexRange kb = pack.cellbounds.GetBoundsK(IndexDomain::interior);
 
   const auto &radius = packages["calculate_pi"]->Param<Real>("radius");
 
