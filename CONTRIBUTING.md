@@ -121,6 +121,21 @@ run something equivalent to
 `git fetch origin && git reset --hard origin/$(git branch --show-current)` to update your
 local tracking branch.
 
+## Public and Private Headers
+
+Header files are separated into public or private category. 
+
+* If the header file is meant to be part of the api it should reside in
+include/parthenon. Files in this folder should be less flexible and serve to
+provide a stable interface to downstream code.
+
+* Header files that are only used internally may reside in the src/ directory
+and changes to them are not under the same constraints as they are not meant to
+be used outside of parthenon. 
+
+* For names that must be published but are ultimately implementation details,
+they should go into the parthenon::internal namespace.
+
 ## Test suite
 
 ### Continuous testing/integration environment
