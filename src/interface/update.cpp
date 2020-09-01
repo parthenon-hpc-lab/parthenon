@@ -65,7 +65,7 @@ TaskStatus FluxDivergence(std::shared_ptr<Container<Real>> &in,
 }
 
 TaskStatus TransportSwarm(SP_Swarm &in, SP_Swarm &out, const Real dt) {
-  int nmax_active = in->get_nmax_active();
+  int nmax_active_index = in->get_max_active_index();
 
   MeshBlock *pmb = in->pmy_block;
 
@@ -80,7 +80,7 @@ TaskStatus TransportSwarm(SP_Swarm &in, SP_Swarm &out, const Real dt) {
   auto &vz = in->GetReal("vz").Get();
   //auto &mask = in->GetInteger("mask").Get();
 
-  pmb->par_for("TransportSwarm", 0, nmax_active,
+  pmb->par_for("TransportSwarm", 0, nmax_active_index,
     KOKKOS_LAMBDA(const int n) {
       int mask = in->IsActive(n);
       x_out(n) = x_in(n) + mask*vx(n)*dt;

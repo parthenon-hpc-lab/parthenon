@@ -222,7 +222,7 @@ int Swarm::AddEmptyParticle()
   ParticleVariable<Real> &z = GetReal("z");
 
   mask_(free_index) = 1;
-  nmax_active_ = std::max<int>(nmax_active_, free_index);
+  max_active_index_ = std::max<int>(max_active_index_, free_index);
   num_active_ += 1;
 
   x(free_index) = 0.;
@@ -232,12 +232,13 @@ int Swarm::AddEmptyParticle()
   return free_index;
 }
 
-std::vector<int> Swarm::AddEmptyParticles(int num_to_add) {
+std::vector<bool> Swarm::AddEmptyParticles(int num_to_add) {
   while (free_indices_.size() < num_to_add) {
     increasePoolMax();
   }
 
   std::vector<int> indices(num_to_add);
+  std::vector<bool> mask(nmax_pool_, 0);
 
   auto free_index = free_indices_.begin();
 
@@ -249,18 +250,19 @@ std::vector<int> Swarm::AddEmptyParticles(int num_to_add) {
   for (int n = 0; n < num_to_add; n++) {
     indices[n] = *free_index;
     mask_(*free_index) = 1;
-    nmax_active_ = std::max<int>(nmax_active_, *free_index);
+    max_active_index_ = std::max<int>(max_active_index_, *free_index);
 
     x(*free_index) = 0.;
     y(*free_index) = 0.;
     z(*free_index) = 0.;
+    mask[*free_index] = 1;
 
     free_index = free_indices_.erase(free_index);
   }
 
   num_active_ += num_to_add;
 
-  return indices;
+  return mask;
 }
 
 void Swarm::RemoveParticle(int index) {
@@ -268,22 +270,22 @@ void Swarm::RemoveParticle(int index) {
   mask_(index) = 0;
   free_indices_.push_back(index);
   num_active_ -= 1;
-  if (index == nmax_active_) {
+  if (index == max_active_index_) {
     // TODO BRR this isn't actually right
-    nmax_active_ -= 1;
+    max_active_index_ -= 1;
   }
 }
 
 void Swarm::Defrag() {
   // TODO(BRR) Could this algorithm be more efficient?
   // Add 1 to convert max index to max number
-  int num_free = (nmax_active_ + 1) - num_active_;
+  int num_free = (max_active_index_ + 1) - num_active_;
 
   free_indices_.sort();
 
   std::list<std::pair<int, int>> from_to_indices;
 
-  int index = nmax_active_;
+  int index = max_active_index_;
   for (int n = 0; n < num_free; n++) {
     while (mask_(index) == 0) {
       index--;
@@ -329,8 +331,8 @@ void Swarm::Defrag() {
     free_indices_.push_back(from);
   }
 
-  // Update nmax_active_
-  nmax_active_ = num_active_ - 1;
+  // Update max_active_index_
+  max_active_index_ = num_active_ - 1;
 }
 
 std::vector<int> Swarm::AddUniformParticles(int num_to_add) {

@@ -44,7 +44,7 @@ class Swarm {
 
   /// Whether particle at index is active
   int IsActive(int index) {
-    PARTHENON_DEBUG_REQUIRE(index <= nmax_active_, "Requesting particle index outside of allocated data!");
+    PARTHENON_DEBUG_REQUIRE(index <= max_active_index_, "Requesting particle index outside of allocated data!");
     return mask_(index);
   }
 
@@ -93,7 +93,8 @@ class Swarm {
   bool IsSet(const MetadataFlag bit) const { return m_.IsSet(bit); }
 
   /// Get the last index of active particles
-  int get_nmax_active() { return nmax_active_; }
+  //int get_nmax_active() { return nmax_active_; }
+  int get_max_active_index() { return max_active_index_; }
 
   int get_num_active() { return num_active_; }
 
@@ -103,7 +104,7 @@ class Swarm {
 
   void RemoveParticle(int index);
 
-  std::vector<int> AddEmptyParticles(int num_to_add);
+  std::vector<bool> AddEmptyParticles(int num_to_add);
 
   std::vector<int> AddUniformParticles(int num_to_add);
 
@@ -111,7 +112,8 @@ class Swarm {
 
  private:
   int nmax_pool_;
-  int nmax_active_ = 0;
+  //int nmax_active_ = 0;
+  int max_active_index_ = 0;
   int num_active_ = 0;
   Metadata m_;
   std::string label_;

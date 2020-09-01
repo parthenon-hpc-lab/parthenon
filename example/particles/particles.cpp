@@ -48,7 +48,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
 
   // Add the number of empty particles requested in parameter file
   const int &num_particles_to_add = pkg->Param<int>("num_particles");
-  std::vector<int> empty_particle_indices = s->AddEmptyParticles(num_particles_to_add);
+  std::vector<bool> empty_particle_mask = s->AddEmptyParticles(num_particles_to_add);
 
   // WARNING do not get these references before resizing the swarm -- you'll get
   // segfaults
@@ -59,13 +59,16 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   auto &vy = s->GetReal("vy").Get();
   auto &vz = s->GetReal("vz").Get();
 
-  for (int n : empty_particle_indices) {
-    x(n) = 1.e-1*n;
-    y(n) = 1.e-2*n;
-    z(n) = 1.e-3*n;
-    vx(n) = 0.1;
-    vy(n) = 1.e-5;
-    vz(n) = 1.e-4*n;
+//  for (int n : empty_particle_indices) {
+  for (int n = 0; n <= s->get_max_active_index(); n++) {
+    if (empty_particle_mask[n]) {
+      x(n) = 1.e-1*n;
+      y(n) = 1.e-2*n;
+      z(n) = 1.e-3*n;
+      vx(n) = 0.1;
+      vy(n) = 1.e-5;
+      vz(n) = 1.e-4*n;
+    }
   }
 
   // Add 2 uniformly spaced particles
