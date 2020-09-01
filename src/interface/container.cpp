@@ -437,17 +437,17 @@ vpack_types::VarList<T>
 Container<T>::MakeList_(const std::vector<MetadataFlag> &flags,
                         std::vector<std::string> &expanded_names) {
   vpack_types::VarList<T> vars;
-  for (auto & vpair : varMap_) {
-    auto & var = vpair.second;
+  for (auto &vpair : varMap_) {
+    auto &var = vpair.second;
     if (var->metadata().AllFlagsSet(flags)) {
       vars.push_front(var);
     }
   }
   for (auto &vpair : sparseMap_) {
-    auto & svar = vpair.second;
+    auto &svar = vpair.second;
     if (svar->metadata().AllFlagsSet(flags)) {
-      auto & varvec = svar->GetVector();
-      for (auto & var : varvec) {
+      auto &varvec = svar->GetVector();
+      for (auto &var : varvec) {
         vars.push_front(var);
       }
     }
