@@ -170,10 +170,10 @@ class IndexShape {
     int total = 1;
     if (domain == IndexDomain::entire) {
       for (int i = 0; i < NDIM; ++i)
-        total *= x_[i].e - x_[i].s + 1;
+        total *= entire_ncells_[i];
     } else {
       for (int i = 0; i < NDIM; ++i)
-        total *= entire_ncells_[i];
+        total *= x_[i].e - x_[i].s + 1;
     }
     return total;
   }

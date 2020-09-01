@@ -36,6 +36,7 @@ TEST_CASE("Checking IndexShape indices", "[is,ie,js,je,ks,ke]") {
     REQUIRE(shape.je(interior) == 0);
     REQUIRE(shape.ks(interior) == 0);
     REQUIRE(shape.ke(interior) == 0);
+    REQUIRE(shape.GetTotal(interior) == 6);
 
     REQUIRE(shape.is(entire) == 0);
     REQUIRE(shape.ie(entire) == 2 * num_ghost + nx1 - 1);
@@ -43,6 +44,7 @@ TEST_CASE("Checking IndexShape indices", "[is,ie,js,je,ks,ke]") {
     REQUIRE(shape.je(entire) == 0);
     REQUIRE(shape.ks(entire) == 0);
     REQUIRE(shape.ke(entire) == 0);
+    REQUIRE(shape.GetTotal(entire) == 8);
   }
 
   GIVEN("A 2D Index Shape") {
@@ -57,6 +59,7 @@ TEST_CASE("Checking IndexShape indices", "[is,ie,js,je,ks,ke]") {
     REQUIRE(shape.je(interior) == num_ghost + nx2 - 1);
     REQUIRE(shape.ks(interior) == 0);
     REQUIRE(shape.ke(interior) == 0);
+    REQUIRE(shape.GetTotal(interior) == 6);
 
     REQUIRE(shape.is(entire) == 0);
     REQUIRE(shape.ie(entire) == 2 * num_ghost + nx1 - 1);
@@ -64,6 +67,7 @@ TEST_CASE("Checking IndexShape indices", "[is,ie,js,je,ks,ke]") {
     REQUIRE(shape.je(entire) == 2 * num_ghost + nx2 - 1);
     REQUIRE(shape.ks(entire) == 0);
     REQUIRE(shape.ke(entire) == 0);
+    REQUIRE(shape.GetTotal(entire) == 24);
   }
 
   GIVEN("A 3D Index Shape") {
@@ -79,6 +83,7 @@ TEST_CASE("Checking IndexShape indices", "[is,ie,js,je,ks,ke]") {
     REQUIRE(shape.je(interior) == num_ghost + nx2 - 1);
     REQUIRE(shape.ks(interior) == num_ghost);
     REQUIRE(shape.ke(interior) == num_ghost + nx3 - 1);
+    REQUIRE(shape.GetTotal(interior) == 24);
 
     REQUIRE(shape.is(entire) == 0);
     REQUIRE(shape.ie(entire) == 2 * num_ghost + nx1 - 1);
@@ -86,6 +91,7 @@ TEST_CASE("Checking IndexShape indices", "[is,ie,js,je,ks,ke]") {
     REQUIRE(shape.je(entire) == 2 * num_ghost + nx2 - 1);
     REQUIRE(shape.ks(entire) == 0);
     REQUIRE(shape.ke(entire) == 2 * num_ghost + nx3 - 1);
+    REQUIRE(shape.GetTotal(entire) == 144);
   }
 
   GIVEN("A 3D Index Shape initialize with vector") {
@@ -102,6 +108,7 @@ TEST_CASE("Checking IndexShape indices", "[is,ie,js,je,ks,ke]") {
     REQUIRE(shape.je(interior) == num_ghost + nx2 - 1);
     REQUIRE(shape.ks(interior) == num_ghost);
     REQUIRE(shape.ke(interior) == num_ghost + nx3 - 1);
+    REQUIRE(shape.GetTotal(interior) == 24);
 
     REQUIRE(shape.is(entire) == 0);
     REQUIRE(shape.ie(entire) == 2 * num_ghost + nx1 - 1);
@@ -109,6 +116,7 @@ TEST_CASE("Checking IndexShape indices", "[is,ie,js,je,ks,ke]") {
     REQUIRE(shape.je(entire) == 2 * num_ghost + nx2 - 1);
     REQUIRE(shape.ks(entire) == 0);
     REQUIRE(shape.ke(entire) == 2 * num_ghost + nx3 - 1);
+    REQUIRE(shape.GetTotal(entire) == 144);
   }
 
   GIVEN("A 3D Index Shape 0 dim in nx3") {
@@ -125,6 +133,7 @@ TEST_CASE("Checking IndexShape indices", "[is,ie,js,je,ks,ke]") {
     REQUIRE(shape.je(interior) == num_ghost + nx2 - 1);
     REQUIRE(shape.ks(interior) == 0);
     REQUIRE(shape.ke(interior) == 0);
+    REQUIRE(shape.GetTotal(interior) == 6);
 
     REQUIRE(shape.is(entire) == 0);
     REQUIRE(shape.ie(entire) == 2 * num_ghost + nx1 - 1);
@@ -132,6 +141,7 @@ TEST_CASE("Checking IndexShape indices", "[is,ie,js,je,ks,ke]") {
     REQUIRE(shape.je(entire) == 2 * num_ghost + nx2 - 1);
     REQUIRE(shape.ks(entire) == 0);
     REQUIRE(shape.ke(entire) == 0);
+    REQUIRE(shape.GetTotal(entire) == 24);
   }
 }
 
