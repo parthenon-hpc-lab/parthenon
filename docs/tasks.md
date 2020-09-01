@@ -39,11 +39,17 @@ The `TaskID` class implements methods that allow Parthenon to keep track of task
  }
  ```
 
+A diagram illustrating the relationship between these different classes is shown below.
+ 
+![Task Diagram](TaskDiagram.png)
+
  `TaskCollection` provides two member functions, `AddRegion` and `Execute`.
 
  ### AddRegion
 
  `AddRegion` simply adds a new `TaskRegion` to the back of the collection and returns it as a reference.  The integer argument determines how many task lists make up the region.
+
+
 
  ### Execute
 
