@@ -370,11 +370,7 @@ void MeshBlock::ResetTimeMeasurement() {
 
 void MeshBlock::StartTimeMeasurement() {
   if (pmy_mesh->lb_automatic_) {
-#ifdef OPENMP_PARALLEL
-    lb_time_ = omp_get_wtime();
-#else
-    lb_time_ = static_cast<double>(clock());
-#endif
+    lb_timer.reset();
   }
 }
 
@@ -384,12 +380,7 @@ void MeshBlock::StartTimeMeasurement() {
 
 void MeshBlock::StopTimeMeasurement() {
   if (pmy_mesh->lb_automatic_) {
-#ifdef OPENMP_PARALLEL
-    lb_time_ = omp_get_wtime() - lb_time_;
-#else
-    lb_time_ = static_cast<double>(clock()) - lb_time_;
-#endif
-    cost_ += lb_time_;
+    cost_ += lb_timer.seconds();
   }
 }
 
