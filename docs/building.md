@@ -196,27 +196,47 @@ Currently Loaded Modules:
   3) lsf-tools/2.0   6) cuda/10.1.243           9) spectrum-mpi/10.3.1.2-20200121
 ```
 
+### LLNL RZAnsel (Power9+Volta)
+
+Last verified 02 Sept 2020.
+
+#### Common environment
+
+```bash
+# setup environment
+$ module restore system
+$ module load cuda gcc/7.3.1 
+
+# on 02 Sept 2020 that results the following version
+$ module list
+
+Currently Loaded Modules:
+  1) StdEnv (S)   2) cuda/10.1.243   3) gcc/7.3.1   4) spectrum-mpi/rolling-release
+
+  Where:
+   S:  Module is Sticky, requires --force to unload or purge
+
 #### Cuda with MPI
 
 ```bash
 # configure and build. Make sure to build in an directory on the GPFS filesystem if you want to run the regression tests because the home directory is not writeable from the compute nodes (which will result in the regression tests failing)
 $ mkdir build-cuda-mpi && cd build-cuda-mpi
 # note that we do not specify the mpicxx wrapper in the following as cmake automatically extracts the required include and linker options
-$ cmake -DCMAKE_BUILD_TYPE=Release -DMACHINE_CFG=${PARTHENON_ROOT}/cmake/machinecfg/Summit.cmake -DMACHINE_VARIANT=cuda-mpi ${PARTHENON_ROOT}
-$ make -j10
+$ cmake -DPARTHENON_DISABLE_HDF5=On -DCMAKE_BUILD_TYPE=Release -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_POWER9=True -DKokkos_ENABLE_CUDA=True -DKokkos_ARCH_VOLTA70=True -DCMAKE_CXX_COMPILER=${PWD}/../external/Kokkos/bin/nvcc_wrapper ..
+$ make -j
 
 # The following commands are exepected to be run within job (interactive or scheduled)
 
 # Make sure that GPUs are assigned round robin to MPI processes
-$ export KOKKOS_NUM_DEVICES=6
+$ export KOKKOS_NUM_DEVICES=4
 
 # run all MPI regression tests
 $ ctest -L regression -LE mpi-no
 
-# manually run a simulation (here using 2 nodes with each 6 GPUs and one MPI process per GPU)
-# note the `--smpiargs="-gpu"` which is required to enable Cuda aware MPI
+# manually run a simulation (here using 1 node with 4 GPUs and 1 MPI processes per GPU and a total of 2 processes (ranks))
+# note the `-M "-gpu"` which is required to enable Cuda aware MPI
 # also note the `--kokkos-num-devices=6` that ensures that each process on a node uses a different GPU
-$ jsrun -n 2 -a 6 -g 6 -c 42 -r 1 -d packed -b packed:7 --smpiargs="-gpu" example/advection/advection-example -i $PARTHENON_ROOT/tst/regression/test_suites/advection_performance/parthinput.advection_performance parthenon/mesh/nx1=768 parthenon/mesh/nx2=512  parthenon/mesh/nx3=512 parthenon/meshblock/nx1=256 parthenon/meshblock/nx2=256 parthenon/meshblock/nx3=256 --kokkos-num-devices=6
+$ jsrun -p 2 -g 1 -c 20 -M "-gpu" ./example/advection/advection-example -i ../example/advection/parthinput.advection parthenon/time/nlim=10 parthenon/mesh/nx1=128 parthenon/mesh/nx2=64 parthenon/mesh/nx3=64 parthenon/meshblock/nx1=32 parthenon/meshblock/nx2=32 parthenon/meshblock/nx3=32 --kokkos-num-devices=1 | tee 2.out
 
 ```
 
