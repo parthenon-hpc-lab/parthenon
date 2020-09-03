@@ -23,8 +23,8 @@
 
 #include "utils/partition_stl_containers.hpp"
 
-using parthenon::Partition::Partition_t;
 using parthenon::Partition::IntCeil;
+using parthenon::Partition::Partition_t;
 
 inline void check_partitions_even(Partition_t<int> partitions, int nelements, int nparts,
                                   int elements_per_part) {
@@ -83,26 +83,26 @@ TEST_CASE("Check that partitioning a container works", "[Partition]") {
     int psize = 4;
     THEN("The partition attempt throws an error") {
       Partition_t<int> partitions;
-      REQUIRE_THROWS_AS(parthenon::Partition::ToSizeN(v,psize,partitions),
+      REQUIRE_THROWS_AS(parthenon::Partition::ToSizeN(v, psize, partitions),
                         std::runtime_error);
     }
   }
   GIVEN("An attempt to partition into zero partitions") {
-    std::vector<int> v = {1,2,3};
+    std::vector<int> v = {1, 2, 3};
     int psize = 0;
     THEN("The partition attempt throws an error") {
       Partition_t<int> partitions;
-      REQUIRE_THROWS_AS(parthenon::Partition::ToSizeN(v,psize,partitions),
+      REQUIRE_THROWS_AS(parthenon::Partition::ToSizeN(v, psize, partitions),
                         std::runtime_error);
     }
   }
   GIVEN("An attempt to partition 3 elements into partitions of size 4") {
     constexpr int nelements = 3;
     constexpr int psize = 4;
-    std::vector<int> v = {1,2,3};
+    std::vector<int> v = {1, 2, 3};
     THEN("The partition attempt throws an error") {
       Partition_t<int> partitions;
-      REQUIRE_THROWS_AS(parthenon::Partition::ToSizeN(v,psize,partitions),
+      REQUIRE_THROWS_AS(parthenon::Partition::ToSizeN(v, psize, partitions),
                         std::runtime_error);
     }
   }

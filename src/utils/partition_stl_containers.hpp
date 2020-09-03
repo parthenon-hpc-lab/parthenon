@@ -72,8 +72,7 @@ void ToSizeN(Container_t &container, const int N, Partition_t<T> &partitions) {
 // with pointers to elements.
 // Assumes Container_t has STL-style iterators defined
 template <typename Container_t, typename T>
-void ToNPartitions(Container_t &container,
-                   const int N, Partition_t<T> &partitions) {
+void ToNPartitions(Container_t &container, const int N, Partition_t<T> &partitions) {
   int nelements = container.size();
   int partition_size = IntCeil(nelements, N);
   ToSizeN(container, partition_size, partitions);
