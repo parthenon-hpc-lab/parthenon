@@ -42,12 +42,15 @@ template <typename Container_t, typename T>
 void ToSizeN(Container_t &container, const int N, Partition_t<T> &partitions) {
   using std::to_string;
 
+  PARTHENON_REQUIRE_THROWS(N > 0, "You must have at least 1 partition");
   int nelements = container.size();
-  int npartitions = IntCeil(nelements, N);
+  PARTHENON_REQUIRE_THROWS(nelements > 0,
+                           "You must have at least 1 element to partition");
   std::string msg = ("Cannot partition " + to_string(nelements) +
                      " elements into partitions of size " + to_string(N) + ".");
   PARTHENON_REQUIRE_THROWS(nelements >= N, msg);
 
+  int npartitions = IntCeil(nelements, N);
   partitions.resize(npartitions);
   for (auto &p : partitions) {
     p.reserve(N);

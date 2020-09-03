@@ -16,6 +16,7 @@
 //========================================================================================
 
 #include <list>
+#include <stdexcept>
 #include <vector>
 
 #include <catch2/catch.hpp>
@@ -77,6 +78,35 @@ TEST_CASE("Check that integer division, rounded up, works", "[IntCeil]") {
 }
 
 TEST_CASE("Check that partitioning a container works", "[Partition]") {
+  GIVEN("An attempt to partition an empty container") {
+    std::vector<int> v(0);
+    int psize = 4;
+    THEN("The partition attempt throws an error") {
+      Partition_t<int> partitions;
+      REQUIRE_THROWS_AS(parthenon::Partition::ToSizeN(v,psize,partitions),
+                        std::runtime_error);
+    }
+  }
+  GIVEN("An attempt to partition into zero partitions") {
+    std::vector<int> v = {1,2,3};
+    int psize = 0;
+    THEN("The partition attempt throws an error") {
+      Partition_t<int> partitions;
+      REQUIRE_THROWS_AS(parthenon::Partition::ToSizeN(v,psize,partitions),
+                        std::runtime_error);
+    }
+  }
+  GIVEN("An attempt to partition 3 elements into partitions of size 4") {
+    constexpr int nelements = 3;
+    constexpr int psize = 4;
+    std::vector<int> v = {1,2,3};
+    THEN("The partition attempt throws an error") {
+      Partition_t<int> partitions;
+      REQUIRE_THROWS_AS(parthenon::Partition::ToSizeN(v,psize,partitions),
+                        std::runtime_error);
+    }
+  }
+
   GIVEN("A list of integers of size 15") {
     constexpr int nelements = 15;
     constexpr int nparts = 3;
