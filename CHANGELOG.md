@@ -20,6 +20,7 @@
 - [[PR 276]](https://github.com/lanl/parthenon/pull/276) Decrease required Python version from 3.6 to 3.5.
 - [[PR 283]](https://github.com/lanl/parthenon/pull/283) Change CI to extended nightly develop tests and short push tests.
 - [[PR 282]](https://github.com/lanl/parthenon/pull/282) Integrated meshpack and tasking in pi example
+- [[PR 294]](https://github.com/lanl/parthenon/pull/294) Fix `IndexShape::GetTotal(IndexDomain)` - previously was returning opposite of expected domain result.
 
 ### Removed
 
