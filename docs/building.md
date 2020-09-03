@@ -240,7 +240,7 @@ $ ctest -L regression -LE mpi-no
 $ jsrun -p 2 -g 1 -c 20 -M "-gpu" ./example/advection/advection-example -i ../example/advection/parthinput.advection parthenon/time/nlim=10 parthenon/mesh/nx1=128 parthenon/mesh/nx2=64 parthenon/mesh/nx3=64 parthenon/meshblock/nx1=32 parthenon/meshblock/nx2=32 parthenon/meshblock/nx3=32 --kokkos-num-devices=1 | tee 2.out
 ```
 
-### Cuda without MPI
+#### Cuda without MPI
 
 ```bash
 # configure and build
@@ -256,7 +256,6 @@ $ jsrun -n 1 -g 1 --smpiargs="off" ctest -L unit
 
 # run convergence test
 $ jsrun -n 1 -g 1 --smpiargs="off" ctest -R regression_test:advection_performance
-
 ```
 
 
