@@ -74,9 +74,13 @@ using MeshVariablePack = MeshPack<VariablePack<T>>;
 template <typename T>
 using MeshVariableFluxPack = MeshPack<VariableFluxPack<T>>;
 
+namespace meshpack {
+using blocks_t = std::vector<MeshBlock *>;
+} // namespace meshpack
+
 // TODO(JMM): Should this be cached?
 namespace mesh_pack_impl {
-using blocks_t = std::vector<MeshBlock *>;
+using meshpack::blocks_t;
 
 // TODO(JMM): blocks data type might change
 template <typename T, typename F>
