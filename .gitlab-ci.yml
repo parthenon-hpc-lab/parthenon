@@ -194,8 +194,8 @@ parthenon-cpu-performance_and_regression-mpi:
   script:
     - mkdir -p build-perf-mpi
     - cd build-perf-mpi
-    - cmake -DCMAKE_BUILD_TYPE=Release -DHDF5_ROOT=/usr/local/hdf5/parallel
-      -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
+    - cmake -DCMAKE_BUILD_TYPE=Release
+      -DMACHINE_VARIANT=mpi
       ../
     - make -j${J}
 #    - ctest -L "performance" # no need for performance test as currently none use MPI
