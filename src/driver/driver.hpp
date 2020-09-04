@@ -111,7 +111,7 @@ TaskListStatus ConstructAndExecuteTaskLists(T *driver, Args... args) {
     blocks[i++] = &mb;
   }
 
-  TaskCollection tc = driver->MakeTasks(blocks, std::forward<Args>(args)...);
+  TaskCollection tc = driver->MakeTaskCollection(blocks, std::forward<Args>(args)...);
   TaskListStatus status = tc.Execute();
   return status;
 }
