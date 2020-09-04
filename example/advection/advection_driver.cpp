@@ -103,13 +103,26 @@ TaskCollection AdvectionDriver::MakeTaskCollection(std::vector<MeshBlock *> bloc
         tl.AddTask(&Container<Real>::SendFluxCorrection, sc0.get(), advect_flux);
     auto recv_flux =
         tl.AddTask(&Container<Real>::ReceiveFluxCorrection, sc0.get(), advect_flux);
+  }
 
+  // note that task within this region that contains only a single task list
+  // could still be executed in parallel
+  TaskRegion &single_tasklist_region = tc.AddRegion(1);
+  {
+    auto &tl = single_tasklist_region[0];
     // compute the divergence of fluxes of conserved variables
-    auto flux_div = tl.AddTask(parthenon::Update::FluxDivergence, recv_flux, sc0, dudt);
+    auto flux_div = tl.AddTask(parthenon::Update::FluxDivergenceMesh, none, blocks,
+                               stage_name[stage - 1], "dUdt");
+  }
+  TaskRegion &async_region2 = tc.AddRegion(num_task_lists_executed_independently);
 
+  for (int i = 0; i < blocks.size(); i++) {
+    auto *pmb = blocks[i];
+    auto &tl = async_region2[i];
+    auto &sc1 = pmb->real_containers.Get(stage_name[stage]);
     // apply du/dt to all independent fields in the container
     auto update_container =
-        tl.AddTask(UpdateContainer, flux_div, pmb, stage, stage_name, integrator);
+        tl.AddTask(UpdateContainer, none, pmb, stage, stage_name, integrator);
 
     // update ghost cells
     auto send =

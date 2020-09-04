@@ -17,11 +17,14 @@
 #include <limits>
 #include <memory>
 
+#include "config.hpp"
 #include "coordinates/coordinates.hpp"
 #include "interface/container.hpp"
+#include "interface/metadata.hpp"
 #include "mesh/mesh.hpp"
 
 #include "kokkos_abstraction.hpp"
+#include "mesh/mesh_pack.hpp"
 
 namespace parthenon {
 
@@ -44,6 +47,46 @@ TaskStatus FluxDivergence(std::shared_ptr<Container<Real>> &in,
   pmb->par_for(
       "flux divergence", 0, vin.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
+        dudt(l, k, j, i) = 0.0;
+        dudt(l, k, j, i) +=
+            (coords.Area(X1DIR, k, j, i + 1) * vin.flux(X1DIR, l, k, j, i + 1) -
+             coords.Area(X1DIR, k, j, i) * vin.flux(X1DIR, l, k, j, i));
+        if (ndim >= 2) {
+          dudt(l, k, j, i) +=
+              (coords.Area(X2DIR, k, j + 1, i) * vin.flux(X2DIR, l, k, j + 1, i) -
+               coords.Area(X2DIR, k, j, i) * vin.flux(X2DIR, l, k, j, i));
+        }
+        if (ndim == 3) {
+          dudt(l, k, j, i) +=
+              (coords.Area(X3DIR, k + 1, j, i) * vin.flux(X3DIR, l, k + 1, j, i) -
+               coords.Area(X3DIR, k, j, i) * vin.flux(X3DIR, l, k, j, i));
+        }
+        dudt(l, k, j, i) /= -coords.Volume(k, j, i);
+      });
+
+  return TaskStatus::complete;
+}
+
+auto FluxDivergenceMesh(std::vector<MeshBlock *> &blocks, const std::string &in_cont,
+                        const std::string &dudt_cont) -> TaskStatus {
+  auto pack_in = parthenon::PackVariablesAndFluxesOnMesh(
+      blocks, in_cont, std::vector<MetadataFlag>{Metadata::Independent});
+  auto pack_dudt = parthenon::PackVariablesOnMesh(
+      blocks, dudt_cont, std::vector<MetadataFlag>{Metadata::Independent});
+
+  const IndexDomain interior = IndexDomain::interior;
+  const IndexRange ib = pack_in.cellbounds.GetBoundsI(interior);
+  const IndexRange jb = pack_in.cellbounds.GetBoundsJ(interior);
+  const IndexRange kb = pack_in.cellbounds.GetBoundsK(interior);
+
+  int ndim = blocks[0]->pmy_mesh->ndim;
+  parthenon::par_for(
+      DEFAULT_LOOP_PATTERN, "flux divergence", DevExecSpace(), 0, blocks.size() - 1, 0,
+      pack_in.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
+        const auto coords = pack_in.coords(b);
+        auto dudt = pack_dudt(b);
+        const auto vin = pack_in(b);
         dudt(l, k, j, i) = 0.0;
         dudt(l, k, j, i) +=
             (coords.Area(X1DIR, k, j, i + 1) * vin.flux(X1DIR, l, k, j, i + 1) -

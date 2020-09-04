@@ -373,6 +373,55 @@ inline void par_for(LoopPatternSimdFor, const std::string &name, DevExecSpace ex
   Kokkos::Profiling::popRegion();
 }
 
+// 5D loop using Kokkos 1D Range
+template <typename Function>
+inline void par_for(LoopPatternFlatRange, const std::string &name,
+                    DevExecSpace exec_space, const int bl, const int bu, const int nl,
+                    const int nu, const int kl, const int ku, const int jl, const int ju,
+                    const int il, const int iu, const Function &function) {
+  const int Nb = bu - bl + 1;
+  const int Nn = nu - nl + 1;
+  const int Nk = ku - kl + 1;
+  const int Nj = ju - jl + 1;
+  const int Ni = iu - il + 1;
+  const int NbNnNkNjNi = Nb * Nn * Nk * Nj * Ni;
+  const int NnNkNjNi = Nn * Nk * Nj * Ni;
+  const int NkNjNi = Nk * Nj * Ni;
+  const int NjNi = Nj * Ni;
+  Kokkos::parallel_for(
+      name, Kokkos::RangePolicy<>(exec_space, 0, NbNnNkNjNi),
+      KOKKOS_LAMBDA(const int &idx) {
+        int b = idx / NnNkNjNi;
+        int n = (idx - b * NnNkNjNi) / NkNjNi;
+        int k = (idx - b * NnNkNjNi - n * NkNjNi) / NjNi;
+        int j = (idx - b * NnNkNjNi - n * NkNjNi - k * NjNi) / Ni;
+        int i = idx - b * NnNkNjNi - n * NkNjNi - k * NjNi - j * Ni;
+        b += bl;
+        n += nl;
+        k += kl;
+        j += jl;
+        i += il;
+        function(b, n, k, j, i);
+      });
+}
+
+// 5D loop using SIMD FOR loops
+template <typename Function>
+inline void par_for(LoopPatternSimdFor, const std::string &name, DevExecSpace exec_space,
+                    const int bl, const int bu, const int nl, const int nu, const int kl,
+                    const int ku, const int jl, const int ju, const int il, const int iu,
+                    const Function &function) {
+  Kokkos::Profiling::pushRegion(name);
+  for (auto b = bl; b <= bu; b++)
+    for (auto n = nl; n <= nu; n++)
+      for (auto k = kl; k <= ku; k++)
+        for (auto j = jl; j <= ju; j++)
+#pragma omp simd
+          for (auto i = il; i <= iu; i++)
+            function(b, n, k, j, i);
+  Kokkos::Profiling::popRegion();
+}
+
 // 1D  outer parallel loop using Kokkos Teams
 template <typename Function>
 inline void par_for_outer(OuterLoopPatternTeams, const std::string &name,

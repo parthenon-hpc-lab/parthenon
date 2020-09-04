@@ -14,6 +14,8 @@
 #define INTERFACE_UPDATE_HPP_
 
 #include <memory>
+#include <string>
+#include <vector>
 
 #include "defs.hpp"
 #include "interface/container.hpp"
@@ -25,6 +27,8 @@ namespace Update {
 
 TaskStatus FluxDivergence(std::shared_ptr<Container<Real>> &in,
                           std::shared_ptr<Container<Real>> &dudt_cont);
+TaskStatus FluxDivergenceMesh(std::vector<MeshBlock *> &blocks,
+                              const std::string &in_cont, const std::string &dudt_cont);
 void UpdateContainer(std::shared_ptr<Container<Real>> &in,
                      std::shared_ptr<Container<Real>> &dudt_cont, const Real dt,
                      std::shared_ptr<Container<Real>> &out);

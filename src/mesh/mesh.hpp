@@ -218,6 +218,16 @@ class MeshBlock {
                        iu, function);
   }
 
+  // 5D default loop pattern
+  template <typename Function>
+  inline void par_for(const std::string &name, const int &bl, const int &bu,
+                      const int &nl, const int &nu, const int &kl, const int &ku,
+                      const int &jl, const int &ju, const int &il, const int &iu,
+                      const Function &function) {
+    parthenon::par_for(DEFAULT_LOOP_PATTERN, name, exec_space, bl, bu, nl, nu, kl, ku, jl,
+                       ju, il, iu, function);
+  }
+
   // 1D Outer default loop pattern
   template <typename Function>
   inline void par_for_outer(const std::string &name, const size_t &scratch_size_in_bytes,

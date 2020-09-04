@@ -45,7 +45,7 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
     // MPI_Finalize();
     return ParthenonStatus::error;
   }
-#else  // no OpenMP
+#else // no OpenMP
   if (MPI_SUCCESS != MPI_Init(&argc, &argv)) {
     std::cout << "### FATAL ERROR in ParthenonInit" << std::endl
               << "MPI Initialization failed." << std::endl;
@@ -67,7 +67,7 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
     // MPI_Finalize();
     return ParthenonStatus::error;
   }
-#else  // no MPI
+#else // no MPI
   Globals::my_rank = 0;
   Globals::nranks = 1;
 #endif // MPI_PARALLEL
