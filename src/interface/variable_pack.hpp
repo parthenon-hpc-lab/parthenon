@@ -66,7 +66,8 @@ class VariablePack {
   VariablePack() = default;
   VariablePack(const ViewOfParArrays<T> view, const ParArrayND<int> sparse_ids,
                const std::array<int, 4> dims)
-      : v_(view), dims_(dims), ndim_((dims[2] > 1 ? 3 : (dims[1] > 1 ? 2 : 1))) {}
+      : v_(view), sparse_ids_(sparse_ids), dims_(dims),
+        ndim_((dims[2] > 1 ? 3 : (dims[1] > 1 ? 2 : 1))) {}
   KOKKOS_FORCEINLINE_FUNCTION
   ParArray3D<T> &operator()(const int n) const { return v_(n); }
   KOKKOS_FORCEINLINE_FUNCTION
@@ -81,17 +82,14 @@ class VariablePack {
   KOKKOS_FORCEINLINE_FUNCTION
   int GetSparse(const int n) const {
     assert(n < dims_[3]);
-    // return sparse_ids_(n);
-    return 0; // sparse_ids_(n);
+    return sparse_ids_(n);
   }
   KOKKOS_FORCEINLINE_FUNCTION
   int GetNdim() const { return ndim_; }
 
  protected:
   ViewOfParArrays<T> v_;
-  // VERY DIRTY FIX WHICH BREAKS SPARSE VARS
-  // IF THIS ENDS UP IN A REVIEW, DONT MERGE!!!
-  // ParArrayND<int> sparse_ids_;
+  ParArrayND<int> sparse_ids_;
   std::array<int, 4> dims_;
   int ndim_;
 };
