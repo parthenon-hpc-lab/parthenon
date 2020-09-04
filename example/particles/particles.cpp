@@ -48,7 +48,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
 
   // Add the number of empty particles requested in parameter file
   const int &num_particles_to_add = pkg->Param<int>("num_particles");
-  std::vector<bool> empty_particle_mask = s->AddEmptyParticles(num_particles_to_add);
+  std::vector<int> empty_particle_mask = s->AddEmptyParticles(num_particles_to_add);
 
   // WARNING do not get these references before resizing the swarm -- you'll get
   // segfaults

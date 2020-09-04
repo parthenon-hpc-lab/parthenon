@@ -104,7 +104,7 @@ class Swarm {
 
   void RemoveParticle(int index);
 
-  std::vector<bool> AddEmptyParticles(int num_to_add);
+  std::vector<int> AddEmptyParticles(int num_to_add);
 
   std::vector<int> AddUniformParticles(int num_to_add);
 

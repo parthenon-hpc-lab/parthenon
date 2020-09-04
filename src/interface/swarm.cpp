@@ -165,6 +165,10 @@ void Swarm::setPoolMax(const int nmax_pool) {
   for (int m = 0; m < nmax_pool_; m++) {
     newvar(m) = oldvar(m);
   }
+  // Fill new data with false
+  for (int m = nmax_pool_; m < nmax_pool; m++) {
+    newvar(m) = 0;
+  }
   mask_ = newvar;
 
   for (int n = 0; n < intVector_.size(); n++) {
@@ -232,13 +236,13 @@ int Swarm::AddEmptyParticle()
   return free_index;
 }
 
-std::vector<bool> Swarm::AddEmptyParticles(int num_to_add) {
+std::vector<int> Swarm::AddEmptyParticles(int num_to_add) {
   while (free_indices_.size() < num_to_add) {
     increasePoolMax();
   }
 
   std::vector<int> indices(num_to_add);
-  std::vector<bool> mask(nmax_pool_, 0);
+  std::vector<int> mask(nmax_pool_, 0);
 
   auto free_index = free_indices_.begin();
 
