@@ -33,7 +33,7 @@ class AdvectionDriver : public MultiStageBlockTaskDriver {
   //     MultiStageBlockTaskDriver::Step (multistage.cpp)
   //       DriverUtils::ConstructAndExecuteBlockTasks (driver.hpp)
   //         AdvectionDriver::MakeTaskCollection (advection.cpp)
-  TaskCollection MakeTaskCollection(std::vector<MeshBlock *> blocks, int stage);
+  TaskCollection MakeTaskCollection(std::vector<MeshBlock *> &blocks, int stage);
 };
 
 void ProblemGenerator(MeshBlock *pmb, parthenon::ParameterInput *pin);

@@ -61,8 +61,8 @@ TaskStatus UpdateContainer(MeshBlock *pmb, int stage,
 }
 
 // See the advection.hpp declaration for a description of how this function gets called.
-TaskCollection AdvectionDriver::MakeTaskCollection(std::vector<MeshBlock *> blocks,
-                                                   int stage) {
+TaskCollection AdvectionDriver::MakeTaskCollection(std::vector<MeshBlock *> &blocks,
+                                                   const int stage) {
   TaskCollection tc;
 
   TaskID none(0);
