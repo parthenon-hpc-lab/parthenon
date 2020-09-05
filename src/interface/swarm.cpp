@@ -24,12 +24,15 @@ namespace parthenon {
 
 Swarm::Swarm(const std::string label, const Metadata &metadata, const int nmax_pool_in)
     : label_(label), m_(metadata), nmax_pool_(nmax_pool_in),
-      mask_("mask", nmax_pool_, Metadata({Metadata::Integer})), mpiStatus(true) {
+      mask_("mask", nmax_pool_, Metadata({Metadata::Integer})),
+      marked_for_removal_("marked_for_removal", nmax_pool_, Metadata({Metadata::Integer})),
+      mpiStatus(true) {
   Add("x", Metadata({Metadata::Real}));
   Add("y", Metadata({Metadata::Real}));
   Add("z", Metadata({Metadata::Real}));
   for (int n = 0; n < nmax_pool_; n++) {
     mask_(n) = 0;
+    marked_for_removal_(n) = false;
     free_indices_.push_back(n);
   }
 }
@@ -171,6 +174,17 @@ void Swarm::setPoolMax(const int nmax_pool) {
   }
   mask_ = newvar;
 
+  auto oldvar_bool = marked_for_removal_;
+  auto newvar_bool = ParticleVariable<bool>(oldvar_bool.label(), nmax_pool, oldvar_bool.metadata());
+  for (int m = 0; m < nmax_pool_; m++) {
+    newvar_bool(m) = oldvar_bool(m);
+  }
+  // Fill new data with false
+  for (int m = nmax_pool_; m < nmax_pool; m++) {
+    newvar_bool(m) = false;
+  }
+  marked_for_removal_ = newvar_bool;
+
   for (int n = 0; n < intVector_.size(); n++) {
     auto oldvar = intVector_[n];
     auto newvar = std::make_shared<ParticleVariable<int>>(oldvar->label(),
@@ -269,16 +283,32 @@ std::vector<int> Swarm::AddEmptyParticles(int num_to_add) {
   return mask;
 }
 
-/*void Swarm::RemoveParticle(int index) {
+// TODO BRR this should be Kokkosified
+void Swarm::RemoveMarkedParticles() {
+  for (int n = 0; n <= max_active_index_; n++) {
+    if (marked_for_removal_(n)) {
+      mask_(n) = 0;
+      free_indices_.push_back(n);
+      num_active_ -= 1;
+      if (n == max_active_index_) {
+        max_active_index_ -= 1;
+      }
+      marked_for_removal_(n) = false;
+    }
+  }
+}
+
+void Swarm::RemoveParticle(int index) {
   // ParticleVariable<int> &mask = GetInteger("mask");
   mask_(index) = 0;
   free_indices_.push_back(index);
   num_active_ -= 1;
   if (index == max_active_index_) {
     // TODO BRR this isn't actually right
+    // TODO BRR this looks right now...?
     max_active_index_ -= 1;
   }
-}*/
+}
 
 void Swarm::Defrag() {
   // TODO(BRR) Could this algorithm be more efficient?
