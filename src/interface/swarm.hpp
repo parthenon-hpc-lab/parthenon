@@ -102,7 +102,24 @@ class Swarm {
 
   int AddEmptyParticle();
 
-  void RemoveParticle(int index);
+  // TODO BRR need to clean up after this, fix max_active_index_ and free_indices_?
+  //KOKKOS_INLINE_FUNCTION
+  void RemoveParticleInline(int index) {
+    mask_(index) = 0;
+  }
+
+  //void RemoveParticle(int index);
+  //KOKKOS_INLINE_FUNCTION
+  void RemoveParticle(int index) {
+    // ParticleVariable<int> &mask = GetInteger("mask");
+    mask_(index) = 0;
+    free_indices_.push_back(index);
+    num_active_ -= 1;
+    if (index == max_active_index_) {
+      // TODO BRR this isn't actually right
+      max_active_index_ -= 1;
+    }
+  }
 
   std::vector<int> AddEmptyParticles(int num_to_add);
 

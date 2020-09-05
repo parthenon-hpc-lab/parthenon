@@ -269,7 +269,7 @@ std::vector<int> Swarm::AddEmptyParticles(int num_to_add) {
   return mask;
 }
 
-void Swarm::RemoveParticle(int index) {
+/*void Swarm::RemoveParticle(int index) {
   // ParticleVariable<int> &mask = GetInteger("mask");
   mask_(index) = 0;
   free_indices_.push_back(index);
@@ -278,7 +278,7 @@ void Swarm::RemoveParticle(int index) {
     // TODO BRR this isn't actually right
     max_active_index_ -= 1;
   }
-}
+}*/
 
 void Swarm::Defrag() {
   // TODO(BRR) Could this algorithm be more efficient?
