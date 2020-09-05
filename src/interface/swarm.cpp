@@ -30,6 +30,8 @@ Swarm::Swarm(const std::string label, const Metadata &metadata, const int nmax_p
   Add("x", Metadata({Metadata::Real}));
   Add("y", Metadata({Metadata::Real}));
   Add("z", Metadata({Metadata::Real}));
+  num_active_ = 0;
+  max_active_index_ = 0;
   for (int n = 0; n < nmax_pool_; n++) {
     mask_(n) = 0;
     marked_for_removal_(n) = false;
@@ -285,17 +287,23 @@ std::vector<int> Swarm::AddEmptyParticles(int num_to_add) {
 
 // TODO BRR this should be Kokkosified
 void Swarm::RemoveMarkedParticles() {
+  int new_max_active_index = -1; // TODO BRR this is a magic number, needed for Defrag()
   for (int n = 0; n <= max_active_index_; n++) {
-    if (marked_for_removal_(n)) {
-      mask_(n) = 0;
-      free_indices_.push_back(n);
-      num_active_ -= 1;
-      if (n == max_active_index_) {
-        max_active_index_ -= 1;
+    if (mask_(n)) {
+      if (marked_for_removal_(n)) {
+        mask_(n) = 0;
+        free_indices_.push_back(n);
+        num_active_ -= 1;
+        if (n == max_active_index_) {
+          max_active_index_ -= 1;
+        }
+        marked_for_removal_(n) = false;
+      } else {
+        new_max_active_index = n;
       }
-      marked_for_removal_(n) = false;
     }
   }
+  max_active_index_ = new_max_active_index;
 }
 
 void Swarm::RemoveParticle(int index) {
@@ -305,7 +313,6 @@ void Swarm::RemoveParticle(int index) {
   num_active_ -= 1;
   if (index == max_active_index_) {
     // TODO BRR this isn't actually right
-    // TODO BRR this looks right now...?
     max_active_index_ -= 1;
   }
 }
