@@ -45,18 +45,16 @@ AdvectionDriver::AdvectionDriver(ParameterInput *pin, ApplicationInput *app_in, 
   pin->CheckDesired("Advection", "refine_tol");
   pin->CheckDesired("Advection", "derefine_tol");
 }
+
 // first some helper tasks
-TaskStatus UpdateContainer(MeshBlock *pmb, int stage,
-                           std::vector<std::string> &stage_name, Integrator *integrator) {
+TaskStatus UpdateContainer(std::vector<MeshBlock *> &blocks, const int stage,
+                           std::vector<std::string> stage_name, Integrator *integrator) {
   // const Real beta = stage_wghts[stage-1].beta;
   const Real beta = integrator->beta[stage - 1];
   const Real dt = integrator->dt;
-  auto &base = pmb->real_containers.Get();
-  auto &cin = pmb->real_containers.Get(stage_name[stage - 1]);
-  auto &cout = pmb->real_containers.Get(stage_name[stage]);
-  auto &dudt = pmb->real_containers.Get("dUdt");
-  parthenon::Update::AverageContainers(cin, base, beta);
-  parthenon::Update::UpdateContainer(cin, dudt, beta * dt, cout);
+  parthenon::Update::AverageContainers(blocks, stage_name[stage - 1], "base", beta);
+  parthenon::Update::UpdateContainer(blocks, stage_name[stage - 1], "dUdt", beta * dt,
+                                     stage_name[stage]);
   return TaskStatus::complete;
 }
 
@@ -113,6 +111,9 @@ TaskCollection AdvectionDriver::MakeTaskCollection(std::vector<MeshBlock *> &blo
     // compute the divergence of fluxes of conserved variables
     auto flux_div = tl.AddTask(parthenon::Update::FluxDivergenceMesh, none, blocks,
                                stage_name[stage - 1], "dUdt");
+    // apply du/dt to all independent fields in the container
+    auto update_container =
+        tl.AddTask(UpdateContainer, flux_div, blocks, stage, stage_name, integrator);
   }
   TaskRegion &async_region2 = tc.AddRegion(num_task_lists_executed_independently);
 
@@ -120,13 +121,9 @@ TaskCollection AdvectionDriver::MakeTaskCollection(std::vector<MeshBlock *> &blo
     auto *pmb = blocks[i];
     auto &tl = async_region2[i];
     auto &sc1 = pmb->real_containers.Get(stage_name[stage]);
-    // apply du/dt to all independent fields in the container
-    auto update_container =
-        tl.AddTask(UpdateContainer, none, pmb, stage, stage_name, integrator);
 
     // update ghost cells
-    auto send =
-        tl.AddTask(&Container<Real>::SendBoundaryBuffers, sc1.get(), update_container);
+    auto send = tl.AddTask(&Container<Real>::SendBoundaryBuffers, sc1.get(), none);
     auto recv = tl.AddTask(&Container<Real>::ReceiveBoundaryBuffers, sc1.get(), send);
     auto fill_from_bufs = tl.AddTask(&Container<Real>::SetBoundaries, sc1.get(), recv);
     auto clear_comm_flags = tl.AddTask(&Container<Real>::ClearBoundary, sc1.get(),

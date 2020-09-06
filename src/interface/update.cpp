@@ -107,42 +107,44 @@ auto FluxDivergenceMesh(std::vector<MeshBlock *> &blocks, const std::string &in_
   return TaskStatus::complete;
 }
 
-void UpdateContainer(std::shared_ptr<Container<Real>> &in,
-                     std::shared_ptr<Container<Real>> &dudt_cont, const Real dt,
-                     std::shared_ptr<Container<Real>> &out) {
-  MeshBlock *pmb = in->pmy_block;
+void UpdateContainer(std::vector<MeshBlock *> &blocks, const std::string &in_cont_name,
+                     const std::string &dudt_cont_name, const Real dt,
+                     const std::string &out_cont_name) {
+  auto in_pack = parthenon::PackVariablesOnMesh(
+      blocks, in_cont_name, std::vector<MetadataFlag>{Metadata::Independent});
+  auto out_pack = parthenon::PackVariablesOnMesh(
+      blocks, out_cont_name, std::vector<MetadataFlag>{Metadata::Independent});
+  auto dudt_pack = parthenon::PackVariablesOnMesh(
+      blocks, dudt_cont_name, std::vector<MetadataFlag>{Metadata::Independent});
 
-  auto vin = in->PackVariables({Metadata::Independent});
-  auto vout = out->PackVariables({Metadata::Independent});
-  auto dudt = dudt_cont->PackVariables({Metadata::Independent});
-
-  pmb->par_for(
-      "UpdateContainer", 0, vin.GetDim(4) - 1, 0, vin.GetDim(3) - 1, 0, vin.GetDim(2) - 1,
-      0, vin.GetDim(1) - 1,
-      KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
-        vout(l, k, j, i) = vin(l, k, j, i) + dt * dudt(l, k, j, i);
+  parthenon::par_for(
+      DEFAULT_LOOP_PATTERN, "UpdateContainer", DevExecSpace(), 0, blocks.size() - 1, 0,
+      in_pack.GetDim(4) - 1, 0, in_pack.GetDim(3) - 1, 0, in_pack.GetDim(2) - 1, 0,
+      in_pack.GetDim(1) - 1,
+      KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
+        out_pack(b, l, k, j, i) = in_pack(b, l, k, j, i) + dt * dudt_pack(b, l, k, j, i);
       });
-  return;
 }
 
-void AverageContainers(std::shared_ptr<Container<Real>> &c1,
-                       std::shared_ptr<Container<Real>> &c2, const Real wgt1) {
-  MeshBlock *pmb = c1->pmy_block;
+void AverageContainers(std::vector<MeshBlock *> &blocks, const std::string &c1_cont_name,
+                       const std::string &c2_cont_name, const Real wgt1) {
+  auto c1_pack = parthenon::PackVariablesOnMesh(
+      blocks, c1_cont_name, std::vector<MetadataFlag>{Metadata::Independent});
+  auto c2_pack = parthenon::PackVariablesOnMesh(
+      blocks, c2_cont_name, std::vector<MetadataFlag>{Metadata::Independent});
+
   const IndexDomain interior = IndexDomain::interior;
-  IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
-  IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
-  IndexRange kb = pmb->cellbounds.GetBoundsK(interior);
+  IndexRange ib = c1_pack.cellbounds.GetBoundsI(interior);
+  IndexRange jb = c1_pack.cellbounds.GetBoundsJ(interior);
+  IndexRange kb = c1_pack.cellbounds.GetBoundsK(interior);
 
-  auto v1 = c1->PackVariables({Metadata::Independent});
-  auto v2 = c2->PackVariables({Metadata::Independent});
-
-  pmb->par_for(
-      "AverageContainers", 0, v1.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
-        v1(l, k, j, i) = wgt1 * v1(l, k, j, i) + (1 - wgt1) * v2(l, k, j, i);
+  parthenon::par_for(
+      DEFAULT_LOOP_PATTERN, "AverageContainer", DevExecSpace(), 0, blocks.size() - 1, 0,
+      c1_pack.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
+        c1_pack(b, l, k, j, i) =
+            wgt1 * c1_pack(b, l, k, j, i) + (1 - wgt1) * c2_pack(b, l, k, j, i);
       });
-
-  return;
 }
 
 Real EstimateTimestep(std::shared_ptr<Container<Real>> &rc) {
