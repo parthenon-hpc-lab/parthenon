@@ -11,34 +11,40 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef TASKS_TASK_TYPES_HPP_
-#define TASKS_TASK_TYPES_HPP_
+// STL Includes
+#include <memory>
 
-#include <functional>
-#include <string>
-#include <utility>
-#include <vector>
+// Third Party Includes
+#include <catch2/catch.hpp>
 
+// Internal Includes
 #include "basic_types.hpp"
+#include "tasks/task_list.hpp"
 
-namespace parthenon {
+using parthenon::TaskID;
+using parthenon::TaskList;
+using parthenon::TaskStatus;
 
-class Task {
- public:
-  Task(TaskID id, TaskID dep, std::function<TaskStatus()> func)
-      : myid_(id), dep_(dep), func_(std::move(func)) {}
-  TaskStatus operator()() { return func_(); }
-  TaskID GetID() { return myid_; }
-  TaskID GetDependency() { return dep_; }
-  void SetComplete() { complete_ = true; }
-  bool IsComplete() { return complete_; }
+TEST_CASE("Task Object Lifecycle", "[TaskList][AddTask]") {
+  GIVEN("A TaskList") {
+    // This weak_ptr is just used to make sure TaskList destroys its objects when it
+    // goes out of scope.
+    std::weak_ptr<int> track_destruction;
 
- private:
-  TaskID myid_, dep_;
-  bool lb_time, complete_ = false;
-  std::function<TaskStatus()> func_;
-};
+    {
+      auto obj = std::make_shared<int>(0);
 
-} // namespace parthenon
+      // A weak ptr is taken to the shared ptr to check that it is destroyed later.
+      track_destruction = obj;
 
-#endif // TASKS_TASK_TYPES_HPP_
+      TaskList task_list;
+      task_list.AddTask([obj] { return TaskStatus::complete; }, TaskID{});
+
+      // Task objects should still be alive here.
+      REQUIRE(!track_destruction.expired());
+    }
+
+    // Task objects are now destroyed
+    REQUIRE(track_destruction.expired());
+  }
+}

@@ -70,23 +70,23 @@ class TaskList {
   }
 
   template <class F, class... Args>
-  TaskID AddTask(F func, TaskID &dep, Args &&... args) {
+  TaskID AddTask(F &&func, TaskID const &dep, Args &&... args) {
     TaskID id(tasks_added_ + 1);
     task_list_.push_back(
-        Task(id, dep, [=]() mutable -> TaskStatus { return func(args...); }));
+        Task(id, dep, [=, func{std::forward<F>(func)}]() mutable -> TaskStatus {
+          return func(args...);
+        }));
     tasks_added_++;
     return id;
   }
 
   // overload to add member functions of class T to task list
   // NOTE: we must capture the object pointer
-  template <class F, class T, class... Args>
-  TaskID AddTask(F func, T *obj, TaskID &dep, Args &&... args) {
-    TaskID id(tasks_added_ + 1);
-    task_list_.push_back(
-        Task(id, dep, [=]() mutable -> TaskStatus { return (obj->*func)(args...); }));
-    tasks_added_++;
-    return id;
+  template <class T, class... Args>
+  TaskID AddTask(TaskStatus (T::*func)(Args...), T *obj, TaskID const &dep,
+                 Args &&... args) {
+    return this->AddTask([=]() mutable -> TaskStatus { return (obj->*func)(args...); },
+                         dep);
   }
 
   void Print() {
