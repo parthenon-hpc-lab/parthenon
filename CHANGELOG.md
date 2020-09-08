@@ -13,6 +13,7 @@
 - [\#68](https://github.com/lanl/parthenon/issues/68) Moved default `par_for` wrappers to `MeshBlock` 
 - [[PR 243]](https://github.com/lanl/parthenon/pull/243) Automatically find/check Python version used in regression tests. Bumps CMake minimum version to 3.12
 - [[PR 266]](https://github.com/lanl/parthenon/pull/266): It is no longer necessary to specify Kokkos_ENABLE_OPENMP this is by default enabled, to turn off one can specify PARTHENON_DISABLE_OPENMP.
+- [[PR 300]](https://github.com/lanl/parthenon/pull/300): Slight changes to `AddTask` function signature. Should not impact typical usages.
 
 ### Fixed (not changing behavior/API/variables/...)
 - [[PR 271]](https://github.com/lanl/parthenon/issues/256): Fix setting default CXX standard.
