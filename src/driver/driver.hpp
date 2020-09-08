@@ -38,7 +38,7 @@ enum class DriverStatus { complete, timeout, failed };
 class Driver {
  public:
   Driver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
-      : pinput(pin), app_input(app_in), pmesh(pm) {}
+      : pinput(pin), app_input(app_in), pmesh(pm), mbcnt_prev() {}
   virtual DriverStatus Execute() = 0;
   void InitializeOutputs() { pouts = std::make_unique<Outputs>(pmesh, pinput); }
 
@@ -48,10 +48,8 @@ class Driver {
   std::unique_ptr<Outputs> pouts;
 
  protected:
-  clock_t tstart_;
-#ifdef OPENMP_PARALLEL
-  double omp_start_time_;
-#endif
+  Kokkos::Timer timer_cycle, timer_main;
+  std::uint64_t mbcnt_prev;
   virtual void PreExecute();
   virtual void PostExecute();
 
