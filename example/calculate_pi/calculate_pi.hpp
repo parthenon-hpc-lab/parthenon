@@ -15,6 +15,7 @@
 
 // Standard Includes
 #include <memory>
+#include <vector>
 
 // Parthenon Includes
 #include <parthenon/package.hpp>
@@ -27,7 +28,15 @@ void SetInOrOut(std::shared_ptr<Container<Real>> &rc);
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 
 // Task Implementations
+// task per meshblock
 parthenon::TaskStatus ComputeArea(parthenon::MeshBlock *pmb);
+// Task over whole mesh, no packs
+parthenon::TaskStatus RetrieveAreas(std::vector<parthenon::MeshBlock *> &blocks,
+                                    parthenon::Packages_t &packages);
+
+// Run task on the entire mesh at once
+parthenon::TaskStatus ComputeAreaOnMesh(std::vector<parthenon::MeshBlock *> &blocks,
+                                        parthenon::Packages_t &packages);
 } // namespace calculate_pi
 
 #endif // EXAMPLE_CALCULATE_PI_CALCULATE_PI_HPP_

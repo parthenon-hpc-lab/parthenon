@@ -48,7 +48,6 @@ using ::parthenon::PackIndexMap;
 using ::parthenon::par_for;
 using ::parthenon::ParameterInput;
 using ::parthenon::Params;
-using ::parthenon::ParthenonManager;
 using ::parthenon::StateDescriptor;
 using ::parthenon::TaskStatus;
 using ::parthenon::VariableFluxPack;
