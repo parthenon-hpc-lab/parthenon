@@ -27,6 +27,35 @@ can pass in a metadata vector, a vector of names, and optionally IDs
 and a map from names to indices. See
 [here](../interface/containers.md) for more details.
 
+## Packing over a piece of the mesh
+
+Instead of packing over the whole mesh, you can pack over only a piece
+of it by using the `Partition` machinery found in
+`utils/partition_stl_containers.hpp`. For example, to break the mesh
+into four evenly spaced meshpacks, do
+```C++
+using parthenon::MeshBlock;
+using parthenon::Partition::Partition_t;
+Partition_t<MeshBlock> partitions;
+parthenon::Partition::ToNPartitions(mesh->block, 4, partitions);
+MeshPack<VariablePack<Real>> packs[4];
+for (int i = 0; i < partitions.size() {
+  packs[i] = PackVariablesOnMesh(partitions[i], "base");
+}
+```
+
+There are two partitioning functions:
+```C++
+// Splits container into N equally sized partitions
+template <typename Container_t, typename T>
+void ToNPartitions(Container_t &container, const int N, Partition_t<T> &partitions);
+
+// Splits container into partitions of size N
+template <typename Container_t, typename T>
+void ToSizeN(Container_t &container, const int N, Partition_t<T> &partitions);
+```
+Both functions live within the namespace `parthenon::Partition`.
+
 ## Data Layout
 
 The Mesh Pack is indexable as a five-dimensional `Kokkos` view. The
