@@ -8,6 +8,7 @@
 - [[PR 267]](https://github.com/lanl/parthenon/pull/267) Introduced TaskRegions and TaskCollections to allow for task launches on multiple blocks.
 - [[PR 287]](https://github.com/lanl/parthenon/pull/287) Added machine configuration file for compile options, see [documentation](https://github.com/lanl/parthenon/blob/develop/docs/building.md#default-machine-configurations)
 - [[PR 290]](https://github.com/lanl/parthenon/pull/290) Added per cycle performance output diagnostic.
+- [[PR 298]](https://github.com/lanl/parthenon/pull/298) Introduced Partition, a tiny utility for partitioning STL containers. Used for MeshPacks, to enable packing over a fraction of the mesh.
 
 ### Changed (changing behavior/API/variables/...)
 - [\#68](https://github.com/lanl/parthenon/issues/68) Moved default `par_for` wrappers to `MeshBlock` 
