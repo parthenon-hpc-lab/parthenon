@@ -26,7 +26,7 @@ namespace calculate_pi {
 using namespace parthenon::package::prelude;
 using parthenon::Packages_t;
 using parthenon::ParArrayHost;
-using Pack_t = parthenon::MeshBlockPack<VariablePack<Real>>;
+using Pack_t = parthenon::MeshBlockVarPack<Real>;
 
 // Package Callbacks
 void SetInOrOut(std::shared_ptr<Container<Real>> &rc);

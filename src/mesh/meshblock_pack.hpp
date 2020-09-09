@@ -112,6 +112,10 @@ auto PackMesh(blocks_t &blocks, F &packing_function) {
 
   return MeshBlockPack<T>(packs, cellbounds, coords, dims);
 }
+template<typename T>
+using MeshBlockVarPack = MeshBlockPack<VariablePack<T>>;
+template<typename T>
+using MeshBlockVarFluxPack = MeshBlockPack<VariableAndFluxPack<T>>;
 
 // TODO(JMM): Should we merge block_list and the vector of meshblock pointers
 // in some way? What's the right thing to do here?
@@ -148,7 +152,6 @@ auto PackVariablesAndFluxesOnMesh(T &blocks, const std::string &container_name,
   };
   return PackMesh<VariableFluxPack<Real>>(blocks, pack_function);
 }
-
 } // namespace parthenon
 
 #endif // MESH_MESHBLOCK_PACK_HPP_

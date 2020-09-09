@@ -95,3 +95,16 @@ int sparse = meshpack.GetSparse(n);
 // The size of the n'th dimension of the pack
 int dim = meshpack.GetDim(n);
 ```
+
+## Type
+
+The types for packs are:
+```C++
+MeshBlockVarPack<T>
+```
+and
+```C++
+MeshBlockVarFluxPack<T>
+```
+which correspond to packs over meshblocks that contain just variables
+or contain variables and fluxes.
