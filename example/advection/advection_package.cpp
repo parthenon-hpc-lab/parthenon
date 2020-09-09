@@ -51,6 +51,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   // temporary use in package until interface is sorted out
   bool use_pack_in_one = pin->GetOrAddBoolean("Advection", "use_pack_in_one", false);
   pkg->AddParam<>("use_pack_in_one", use_pack_in_one);
+  int refine_interval = pin->GetOrAddInteger("Advection", "refine_interval", 1);
+  pkg->AddParam<>("refine_interval", refine_interval);
 
   auto profile_str = pin->GetOrAddString("Advection", "profile", "wave");
   if (!((profile_str.compare("wave") == 0) ||

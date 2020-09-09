@@ -202,7 +202,9 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
           sc1);
 
       // Update refinement
-      if (pmesh->adaptive) {
+      if (pmesh->adaptive && (tm.ncycle % pmb->packages["advection_package"]->Param<int>(
+                                              "refine_interval") ==
+                              0)) {
         auto tag_refine = tl.AddTask(
             fill_derived,
             [](std::shared_ptr<MeshBlock> pmb) {
