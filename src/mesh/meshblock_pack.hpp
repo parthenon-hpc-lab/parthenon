@@ -70,10 +70,11 @@ template <typename T>
 using ViewOfPacks = ParArray1D<VariablePack<T>>;
 template <typename T>
 using ViewOfFluxPacks = ParArray1D<VariableFluxPack<T>>;
+
 template <typename T>
-using MeshVariablePack = MeshBlockPack<VariablePack<T>>;
+using MeshBlockVarPack = MeshBlockPack<VariablePack<T>>;
 template <typename T>
-using MeshVariableFluxPack = MeshBlockPack<VariableFluxPack<T>>;
+using MeshBlockVarFluxPack = MeshBlockPack<VariableFluxPack<T>>;
 
 namespace meshpack {
 using blocks_t = std::vector<MeshBlock *>;
@@ -112,10 +113,6 @@ auto PackMesh(blocks_t &blocks, F &packing_function) {
 
   return MeshBlockPack<T>(packs, cellbounds, coords, dims);
 }
-template<typename T>
-using MeshBlockVarPack = MeshBlockPack<VariablePack<T>>;
-template<typename T>
-using MeshBlockVarFluxPack = MeshBlockPack<VariableAndFluxPack<T>>;
 
 // TODO(JMM): Should we merge block_list and the vector of meshblock pointers
 // in some way? What's the right thing to do here?

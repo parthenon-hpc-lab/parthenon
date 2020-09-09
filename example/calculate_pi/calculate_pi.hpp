@@ -19,7 +19,6 @@
 
 // Parthenon Includes
 #include <interface/state_descriptor.hpp>
-#include <mesh/meshblock_pack.hpp>
 #include <parthenon/package.hpp>
 
 namespace calculate_pi {

@@ -19,7 +19,6 @@
 
 // Parthenon Includes
 #include <parthenon/driver.hpp>
-#include <utils/partition_stl_containers.hpp>
 
 // Local Includes
 #include "calculate_pi.hpp"
@@ -131,17 +130,17 @@ TaskCollection PiDriver::MakeTasks(T &blocks) {
   int pack_size = pinput->GetOrAddInteger("Pi", "pack_size", 1);
   if (pack_size < 1) pack_size = blocks.size();
 
-  parthenon::Partition::Partition_t<MeshBlock> partitions;
-  parthenon::Partition::ToSizeN(blocks, pack_size, partitions);
-  parthenon::ParArrayHost<Real> areas("areas", partitions.size());
+  Partition::Partition_t<MeshBlock> partitions;
+  Partition::ToSizeN(blocks, pack_size, partitions);
+  ParArrayHost<Real> areas("areas", partitions.size());
 
   TaskRegion &async_region = tc.AddRegion(partitions.size());
   {
     // asynchronous region where area is computed per mesh pack
     for (int i = 0; i < partitions.size(); i++) {
       TaskID none(0);
-      auto pack = parthenon::PackVariablesOnMesh(partitions[i], "base",
-                                                 std::vector<std::string>{"in_or_out"});
+      auto pack = PackVariablesOnMesh(partitions[i], "base",
+                                      std::vector<std::string>{"in_or_out"});
       auto get_area = async_region[i].AddTask(ComputeArea, none, pack, areas, i);
     }
   }
