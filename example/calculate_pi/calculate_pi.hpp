@@ -18,25 +18,28 @@
 #include <vector>
 
 // Parthenon Includes
+#include <interface/state_descriptor.hpp>
+#include <mesh/mesh_pack.hpp>
 #include <parthenon/package.hpp>
 
 namespace calculate_pi {
 using namespace parthenon::package::prelude;
+using parthenon::Packages_t;
+using parthenon::ParArrayHost;
+using Pack_t = parthenon::MeshPack<VariablePack<Real>>;
 
 // Package Callbacks
 void SetInOrOut(std::shared_ptr<Container<Real>> &rc);
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 
 // Task Implementations
-// task per meshblock
-parthenon::TaskStatus ComputeArea(parthenon::MeshBlock *pmb);
-// Task over whole mesh, no packs
-parthenon::TaskStatus RetrieveAreas(std::vector<parthenon::MeshBlock *> &blocks,
-                                    parthenon::Packages_t &packages);
-
-// Run task on the entire mesh at once
-parthenon::TaskStatus ComputeAreaOnMesh(std::vector<parthenon::MeshBlock *> &blocks,
-                                        parthenon::Packages_t &packages);
+// Note pass by value here. Required for capture.
+// All objects here have reference semantics, so capture by value is ok.
+// TODO(JMM) A std::shared_ptr might be better.
+// Computes area on a given meshpack
+parthenon::TaskStatus ComputeArea(Pack_t pack, ParArrayHost<Real> areas, int i);
+// Sums up areas accross packs.
+parthenon::TaskStatus AccumulateAreas(ParArrayHost<Real> areas, Packages_t &packages);
 } // namespace calculate_pi
 
 #endif // EXAMPLE_CALCULATE_PI_CALCULATE_PI_HPP_
