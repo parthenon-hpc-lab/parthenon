@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //=======================================================================================
-#ifndef UTILS_PARTITION_CONTAINERS_HPP_
-#define UTILS_PARTITION_CONTAINERS_HPP_
+#ifndef UTILS_PARTITION_STL_CONTAINERS_HPP_
+#define UTILS_PARTITION_STL_CONTAINERS_HPP_
 
 #include <string>
 #include <vector>
@@ -80,4 +80,4 @@ void ToNPartitions(Container_t &container, const int N, Partition_t<T> &partitio
 } // namespace Partition
 } // namespace parthenon
 
-#endif // UTILS_PARTITION_CONTAINERS_HPP_
+#endif // UTILS_PARTITION_STL_CONTAINERS_HPP_

@@ -4,22 +4,25 @@
 kernels that perform little work, this can be a perforamnce bottleneck
 when each kernel is launched per meshblock. Parthenon therefore
 provides the capability to combine variables into a single data
-structure that spans all meshblocks, the `MeshPack`. 
+structure that spans some number of meshblocks, the `MeshBlockPack`.
 
-## Creating a Mesh Pack
+## Creating a MeshBlockPack
 
 There are two methods for creating mesh packs, which are analogous to the `VariablePack` and `VariableFluxPack` available in [containers](../interface/containers.md).
 ```C++
-template <typename... Args>
-auto PackVariablesOnMesh(Mesh *pmesh, const std::string &container_name,
+template <typename T, typename... Args>
+auto PackVariablesOnMesh(T &blocks, const std::string &container_name,
                          Args &&... args)
 ```
 and
 ```C++
-auto PackVariablesAndFluxesOnMesh(Mesh *pmesh, const std::string &container_name,
+template <typename T, typename... Args>
+auto PackVariablesAndFluxesOnMesh(T &blocks, const std::string &container_name,
                                   Args &&... args)
 ```
 The former packs only the variables, the latter packs in the variables and associated flux vectors.
+
+Here `T` can be the mesh or any standard template container that contains meshblocks.
 
 The variatic arguments take exactly the same arguments as
 `container.PackVariables` and `container.PackVariablesAndFluxes`. You
@@ -38,7 +41,7 @@ using parthenon::MeshBlock;
 using parthenon::Partition::Partition_t;
 Partition_t<MeshBlock> partitions;
 parthenon::Partition::ToNPartitions(mesh->block, 4, partitions);
-MeshPack<VariablePack<Real>> packs[4];
+MeshBlockPack<VariablePack<Real>> packs[4];
 for (int i = 0; i < partitions.size() {
   packs[i] = PackVariablesOnMesh(partitions[i], "base");
 }
@@ -73,7 +76,7 @@ auto var = meshpack(m,l); // Indexes into the k'th variable on the m'th MB
 Real r = meshpack(m,l,k,j,i); 
 ```
 
-For convenience, `MeshPack` also includes the following methods and fields:
+For convenience, `MeshBlockPack` also includes the following methods and fields:
 ```C++
 // the IndexShape object describing the bounds of all blocks in the pack
 IndexShape bounds = meshpack.cellbounds; 

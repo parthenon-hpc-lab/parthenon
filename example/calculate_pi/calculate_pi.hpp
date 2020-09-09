@@ -19,14 +19,14 @@
 
 // Parthenon Includes
 #include <interface/state_descriptor.hpp>
-#include <mesh/mesh_pack.hpp>
+#include <mesh/meshblock_pack.hpp>
 #include <parthenon/package.hpp>
 
 namespace calculate_pi {
 using namespace parthenon::package::prelude;
 using parthenon::Packages_t;
 using parthenon::ParArrayHost;
-using Pack_t = parthenon::MeshPack<VariablePack<Real>>;
+using Pack_t = parthenon::MeshBlockPack<VariablePack<Real>>;
 
 // Package Callbacks
 void SetInOrOut(std::shared_ptr<Container<Real>> &rc);
