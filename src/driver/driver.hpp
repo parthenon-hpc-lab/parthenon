@@ -38,7 +38,7 @@ enum class DriverStatus { complete, timeout, failed };
 class Driver {
  public:
   Driver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
-      : pinput(pin), app_input(app_in), pmesh(pm) {}
+      : pinput(pin), app_input(app_in), pmesh(pm), mbcnt_prev() {}
   virtual DriverStatus Execute() = 0;
   void InitializeOutputs() { pouts = std::make_unique<Outputs>(pmesh, pinput); }
 
@@ -48,10 +48,8 @@ class Driver {
   std::unique_ptr<Outputs> pouts;
 
  protected:
-  clock_t tstart_;
-#ifdef OPENMP_PARALLEL
-  double omp_start_time_;
-#endif
+  Kokkos::Timer timer_cycle, timer_main;
+  std::uint64_t mbcnt_prev;
   virtual void PreExecute();
   virtual void PostExecute();
 
@@ -92,25 +90,30 @@ namespace DriverUtils {
 template <typename T, class... Args>
 TaskListStatus ConstructAndExecuteBlockTasks(T *driver, Args... args) {
   int nmb = driver->pmesh->GetNumMeshBlocksThisRank(Globals::my_rank);
-  std::vector<TaskList> task_lists;
-  MeshBlock *pmb = driver->pmesh->pblock;
-  while (pmb != nullptr) {
-    task_lists.push_back(driver->MakeTaskList(pmb, std::forward<Args>(args)...));
-    pmb = pmb->next;
+  TaskCollection tc;
+  TaskRegion &tr = tc.AddRegion(nmb);
+
+  int i = 0;
+  for (auto &mb : driver->pmesh->block_list) {
+    tr[i++] = driver->MakeTaskList(&mb, std::forward<Args>(args)...);
   }
-  int complete_cnt = 0;
-  while (complete_cnt != nmb) {
-    // TODO(pgrete): need to let Kokkos::PartitionManager handle this
-    for (auto i = 0; i < nmb; ++i) {
-      if (!task_lists[i].IsComplete()) {
-        auto status = task_lists[i].DoAvailable();
-        if (status == TaskListStatus::complete) {
-          complete_cnt++;
-        }
-      }
-    }
+  TaskListStatus status = tc.Execute();
+  return status;
+}
+
+template <typename T, class... Args>
+TaskListStatus ConstructAndExecuteTaskLists(T *driver, Args... args) {
+  int nmb = driver->pmesh->GetNumMeshBlocksThisRank(Globals::my_rank);
+  std::vector<MeshBlock *> blocks(nmb);
+
+  int i = 0;
+  for (auto &mb : driver->pmesh->block_list) {
+    blocks[i++] = &mb;
   }
-  return TaskListStatus::complete;
+
+  TaskCollection tc = driver->MakeTasks(blocks, std::forward<Args>(args)...);
+  TaskListStatus status = tc.Execute();
+  return status;
 }
 
 } // namespace DriverUtils
