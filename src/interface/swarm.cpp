@@ -78,10 +78,10 @@ void Swarm::Add(const std::string label, const Metadata &metadata) {
     auto var = std::make_shared<ParticleVariable<Real>>(label, nmax_pool_, metadata);
     realVector_.push_back(var);
     realMap_[label] = var;
-  } else if (metadata.Type() == Metadata::String) {
-    auto var = std::make_shared<ParticleVariable<std::string>>(label, nmax_pool_, metadata);
-    stringVector_.push_back(var);
-    stringMap_[label] = var;
+  //} else if (metadata.Type() == Metadata::String) {
+    //auto var = std::make_shared<ParticleVariable<std::string>>(label, nmax_pool_, metadata);
+    //stringVector_.push_back(var);
+    //stringMap_[label] = var;
   } else {
     throw std::invalid_argument ("swarm variable " + label + " does not have a valid type during Add()");
   }
@@ -211,7 +211,7 @@ void Swarm::setPoolMax(const int nmax_pool) {
     realMap_[oldvar->label()] = newvar;
   }
 
-  for (int n = 0; n < stringVector_.size(); n++) {
+  /*for (int n = 0; n < stringVector_.size(); n++) {
     auto oldvar = stringVector_[n];
     auto newvar = std::make_shared<ParticleVariable<std::string>>(oldvar->label(),
                                                            nmax_pool,
@@ -221,7 +221,7 @@ void Swarm::setPoolMax(const int nmax_pool) {
     }
     stringVector_[n] = newvar;
     stringMap_[oldvar->label()] = newvar;
-  }
+  }*/
 
   nmax_pool_ = nmax_pool;
 }

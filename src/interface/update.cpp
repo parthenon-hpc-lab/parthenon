@@ -78,14 +78,15 @@ TaskStatus TransportSwarm(SP_Swarm &in, SP_Swarm &out, const Real dt) {
   auto &vx = in->GetReal("vx").Get();
   auto &vy = in->GetReal("vy").Get();
   auto &vz = in->GetReal("vz").Get();
-  //auto &mask = in->GetInteger("mask").Get();
+  auto &mask = in->GetMask().Get();
 
   pmb->par_for("TransportSwarm", 0, nmax_active_index,
     KOKKOS_LAMBDA(const int n) {
-      int mask = in->IsActive(n);
-      x_out(n) = x_in(n) + mask*vx(n)*dt;
-      y_out(n) = y_in(n) + mask*vy(n)*dt;
-      z_out(n) = z_in(n) + mask*vz(n)*dt;
+      if (mask(n)) {
+        x_out(n) = x_in(n) + vx(n)*dt;
+        y_out(n) = y_in(n) + vy(n)*dt;
+        z_out(n) = z_in(n) + vz(n)*dt;
+      }
     });
 
   return TaskStatus::complete;
