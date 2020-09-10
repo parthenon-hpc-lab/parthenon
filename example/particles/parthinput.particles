@@ -50,7 +50,7 @@ variables = prim
 
 <parthenon/time>
 tlim = 1.0
-integrator = rk2
+integrator = rk1
 
 <Particles>
 num_particles = 10000000

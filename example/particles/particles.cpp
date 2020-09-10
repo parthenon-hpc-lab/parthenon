@@ -20,12 +20,6 @@
 #include <utility>
 #include <vector>
 
-#include <parthenon/package.hpp>
-#include <parthenon/driver.hpp>
-
-using namespace parthenon::package::prelude;
-using namespace parthenon;
-
 // *************************************************//
 // redefine some internal parthenon functions      *//
 // *************************************************//
@@ -33,64 +27,57 @@ namespace particles_example {
 
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   Packages_t packages;
-  packages["Particles"] = particles_example::Particles::Initialize(pin.get());
+  packages["particles_package"] = particles_example::Particles::Initialize(pin.get());
   return packages;
 }
 
 void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   auto &rc = pmb->real_containers.Get();
-  auto pkg = pmb->packages["Particles"];
+  auto pkg = pmb->packages["particles_package"];
 
   auto &sc = pmb->real_containers.GetSwarmContainer();
   auto &s = sc->Get("my particles");
-
-  // Here we demonstrate the different ways to add particles
 
   // Add the number of empty particles requested in parameter file
   const int &num_particles_to_add = pkg->Param<int>("num_particles");
   std::vector<int> empty_particle_mask = s->AddEmptyParticles(num_particles_to_add);
 
-  // WARNING do not get these references before resizing the swarm -- you'll get
-  // segfaults
+  // WARNING do not get these references before resizing the swarm. Otherwise,
+  // you'll get segfaults
   auto &x = s->GetReal("x").Get();
   auto &y = s->GetReal("y").Get();
   auto &z = s->GetReal("z").Get();
   auto &vx = s->GetReal("vx").Get();
   auto &vy = s->GetReal("vy").Get();
   auto &vz = s->GetReal("vz").Get();
+  auto &weight = s->GetReal("weight").Get();
+  auto &mask = s->GetMask().Get();
 
-//  for (int n : empty_particle_indices) {
-  for (int n = 0; n <= s->get_max_active_index(); n++) {
-    if (empty_particle_mask[n]) {
-      x(n) = 1.e-1*n;
-      y(n) = 1.e-2*n;
-      z(n) = 1.e-3*n;
-      vx(n) = 0.1;
-      vy(n) = 1.e-5;
-      vz(n) = 1.e-4*n;
-    }
-  }
-
-  // Add 2 uniformly spaced particles
-  //auto uniform_particle_indices = s.AddUniformParticles(2);
-  //for (auto n : empty_particle_indices) {
-  //  vx(n) = 0.1;
-  //  vy(n) = 0.;
-  //  vz(n) = 0.;
-  //}
+  pmb->par_for("particles_package::ProblemGenerator", 0, s->get_max_active_index(),
+    KOKKOS_LAMBDA(const int n) {
+      if (mask(n)) {
+        x(n) = 1.e-1*n;
+        y(n) = 1.e-2*n;
+        z(n) = 1.e-3*n;
+        vx(n) = 0.1;
+        vy(n) = 1.e-5;
+        vz(n) = 1.e-4*n;
+        weight(n) = 1.0;
+      }
+    });
 }
 
 // *************************************************//
-// define the "physics" package Particles, which   *//
-// includes defining various functions that control*//
-// how parthenon functions and any tasks needed to *//
-// implement the "physics"                         *//
+// define the "physics" package particles_package, *//
+// which includes defining various functions that  *//
+// control how parthenon functions and any tasks   *//
+// needed to implement the "physics"               *//
 // *************************************************//
 
 namespace Particles {
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
-  auto pkg = std::make_shared<StateDescriptor>("Particles");
+  auto pkg = std::make_shared<StateDescriptor>("particles_package");
 
   int num_particles = pin->GetOrAddInteger("Particles", "num_particles", 100);
   pkg->AddParam<>("num_particles", num_particles);
@@ -161,7 +148,7 @@ TaskStatus MyContainerTask(std::shared_ptr<Container<Real>> container) {
   return TaskStatus::complete;
 }
 
-// See the advection.hpp declaration for a description of how this function gets called.
+// See the advection_driver.hpp declaration for a description of how this function gets called.
 TaskList ParticleDriver::MakeTaskList(MeshBlock *pmb, int stage) {
   TaskList tl;
 
@@ -184,12 +171,6 @@ TaskList ParticleDriver::MakeTaskList(MeshBlock *pmb, int stage) {
 
   auto update_container = tl.AddTask(MyContainerTask, none, container);
 
-  // estimate next time step
-  if (stage == integrator->nstages) {
-    // Do nothing
-    //AddContainerTask();
-    //pmb->SetBlockTimestep(0.25);
-  }
   return tl;
 }
 

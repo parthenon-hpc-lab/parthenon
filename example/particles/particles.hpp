@@ -27,16 +27,9 @@ namespace particles_example {
 class ParticleDriver : public MultiStageBlockTaskDriver {
  public:
   ParticleDriver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
-      : MultiStageBlockTaskDriver(pin, app_in, pm) {//, pout) {}
+      : MultiStageBlockTaskDriver(pin, app_in, pm) {
     //pin->CheckRequired("parthenon/mesh", "ix1_bc");
   }
-  // This next function essentially defines the driver.
-  // Call graph looks like
-  // main()
-  //   MultiStageBlockTaskDriver::Execute (driver.cpp)
-  //     MultiStageBlockTaskDriver::Step (driver.cpp)
-  //       DriverUtils::ConstructAndExecuteBlockTasks (driver.hpp)
-  //         AdvectionDriver::MakeTaskList (advection.cpp)
   TaskList MakeTaskList(MeshBlock *pmb, int stage);
 };
 

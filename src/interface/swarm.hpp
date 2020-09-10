@@ -48,6 +48,10 @@ class Swarm {
     return mask_(index);
   }
 
+  // TODO BRR This should really be const... mask_ is managed internally
+  ///< Get mask array for active particles
+  ParticleVariable<int>& GetMask() { return mask_; }
+
   ///< Make a new Swarm based on an existing one
   std::shared_ptr<Swarm> AllocateCopy(const bool allocComms = false,
                                       MeshBlock *pmb = nullptr);
@@ -93,7 +97,6 @@ class Swarm {
   bool IsSet(const MetadataFlag bit) const { return m_.IsSet(bit); }
 
   /// Get the last index of active particles
-  //int get_nmax_active() { return nmax_active_; }
   int get_max_active_index() { return max_active_index_; }
 
   int get_num_active() { return num_active_; }
@@ -119,7 +122,6 @@ class Swarm {
 
  private:
   int nmax_pool_;
-  //int nmax_active_ = 0;
   int max_active_index_ = 0;
   int num_active_ = 0;
   Metadata m_;
