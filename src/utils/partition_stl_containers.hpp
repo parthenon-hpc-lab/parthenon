@@ -19,21 +19,24 @@
 #include "error_checking.hpp"
 
 namespace parthenon {
-namespace Partition {
+namespace partition {
 // TODO(JMM): The templated type safety with T* and T may need to be
 // changed if we move to sufficiently general container objects.
 template <typename T>
 using Partition_t = std::vector<std::vector<T *>>;
 
+namespace partition_impl {
 // x/y rounded up
 // See discussion here for limitations and alternatives
 // https://stackoverflow.com/questions/2745074/fast-ceiling-of-an-integer-division-in-c-c
 KOKKOS_INLINE_FUNCTION
 int IntCeil(int x, int y) {
-  PARTHENON_DEBUG_REQUIRE(x > 0 && y > 0, "ceil only works for x,y > 0");
+  PARTHENON_DEBUG_REQUIRE(x >= 0, "ceil only works for x >= 0");
+  PARTHENON_DEBUG_REQUIRE(y > 0, "ceil only works for y > 0");
   // avoids overflow in x+y
-  return 1 + ((x - 1) / y);
+  return x > 0 ? 1 + ((x - 1) / y) : 0;
 }
+} // namespace partition_impl
 
 // Takes container of elements and fills partitions
 // of size N with pointers to elements.
@@ -41,16 +44,13 @@ int IntCeil(int x, int y) {
 template <typename Container_t, typename T>
 void ToSizeN(Container_t &container, const int N, Partition_t<T> &partitions) {
   using std::to_string;
+  using namespace partition_impl;
 
   PARTHENON_REQUIRE_THROWS(N > 0, "You must have at least 1 partition");
-  int nelements = container.size();
-  PARTHENON_REQUIRE_THROWS(nelements > 0,
-                           "You must have at least 1 element to partition");
-  std::string msg = ("Cannot partition " + to_string(nelements) +
-                     " elements into partitions of size " + to_string(N) + ".");
-  PARTHENON_REQUIRE_THROWS(nelements >= N, msg);
 
+  int nelements = container.size();
   int npartitions = IntCeil(nelements, N);
+
   partitions.resize(npartitions);
   for (auto &p : partitions) {
     p.reserve(N);
@@ -73,11 +73,12 @@ void ToSizeN(Container_t &container, const int N, Partition_t<T> &partitions) {
 // Assumes Container_t has STL-style iterators defined
 template <typename Container_t, typename T>
 void ToNPartitions(Container_t &container, const int N, Partition_t<T> &partitions) {
+  using namespace partition_impl;
   int nelements = container.size();
   int partition_size = IntCeil(nelements, N);
   ToSizeN(container, partition_size, partitions);
 }
-} // namespace Partition
+} // namespace partition
 } // namespace parthenon
 
 #endif // UTILS_PARTITION_STL_CONTAINERS_HPP_

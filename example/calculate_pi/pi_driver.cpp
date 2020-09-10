@@ -130,8 +130,8 @@ TaskCollection PiDriver::MakeTasks(T &blocks) {
   int pack_size = pinput->GetOrAddInteger("Pi", "pack_size", 1);
   if (pack_size < 1) pack_size = blocks.size();
 
-  Partition::Partition_t<MeshBlock> partitions;
-  Partition::ToSizeN(blocks, pack_size, partitions);
+  partition::Partition_t<MeshBlock> partitions;
+  partition::ToSizeN(blocks, pack_size, partitions);
   ParArrayHost<Real> areas("areas", partitions.size());
 
   TaskRegion &async_region = tc.AddRegion(partitions.size());

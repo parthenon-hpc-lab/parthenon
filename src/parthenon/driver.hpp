@@ -63,11 +63,11 @@ using ::parthenon::TaskStatus;
 using ::parthenon::DriverUtils::ConstructAndExecuteBlockTasks;
 using ::parthenon::DriverUtils::ConstructAndExecuteTaskLists;
 
-namespace Partition {
-using ::parthenon::Partition::Partition_t;
-using ::parthenon::Partition::ToNPartitions;
-using ::parthenon::Partition::ToSizeN;
-} // namespace Partition
+namespace partition {
+using ::parthenon::partition::Partition_t;
+using ::parthenon::partition::ToNPartitions;
+using ::parthenon::partition::ToSizeN;
+} // namespace partition
 } // namespace prelude
 } // namespace driver
 } // namespace parthenon
