@@ -35,7 +35,7 @@ and a map from names to indices. See
 Instead of packing over the whole mesh, you can pack over only a piece
 of it by using the `Partition` machinery found in
 `utils/partition_stl_containers.hpp`. For example, to break the mesh
-into four evenly spaced meshpacks, do
+into four evenly sized meshpacks, do
 ```C++
 using parthenon::MeshBlock;
 using parthenon::Partition::Partition_t;
