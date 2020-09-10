@@ -40,7 +40,7 @@ into four evenly sized meshpacks, do
 using parthenon::MeshBlock;
 using parthenon::Partition::Partition_t;
 Partition_t<MeshBlock> partitions;
-parthenon::Partition::ToNPartitions(mesh->block, 4, partitions);
+parthenon::Partition::ToNPartitions(mesh->block_list, 4, partitions);
 MeshBlockPack<VariablePack<Real>> packs[4];
 for (int i = 0; i < partitions.size() {
   packs[i] = PackVariablesOnMesh(partitions[i], "base");
