@@ -77,6 +77,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
 namespace Particles {
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
+  printf("Initializing particles package!");
   auto pkg = std::make_shared<StateDescriptor>("particles_package");
 
   int num_particles = pin->GetOrAddInteger("Particles", "num_particles", 100);
@@ -94,6 +95,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddSwarmValue("vz", swarm_name, real_swarmvalue_metadata);
 
   pkg->EstimateTimestep = EstimateTimestep;
+  printf("Done initializing particles package!");
 
   return pkg;
 }

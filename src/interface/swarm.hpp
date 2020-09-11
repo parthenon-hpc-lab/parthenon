@@ -130,15 +130,13 @@ class Swarm {
   std::shared_ptr<ParArrayND<PARTICLE_STATUS>> pstatus_;
   ParticleVariableVector<int> intVector_;
   ParticleVariableVector<Real> realVector_;
-  ParticleVariableVector<std::string> stringVector_;
 
   MapToParticle<int> intMap_;
   MapToParticle<Real> realMap_;
-  MapToParticle<std::string> stringMap_;
 
   std::list<int> free_indices_;
   ParticleVariable<int> mask_;
-  ParticleVariable<bool> marked_for_removal_;
+  ParticleVariable<int> marked_for_removal_;
 };
 
 using SP_Swarm = std::shared_ptr<Swarm>;

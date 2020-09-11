@@ -25,18 +25,31 @@ namespace parthenon {
 Swarm::Swarm(const std::string label, const Metadata &metadata, const int nmax_pool_in)
     : label_(label), m_(metadata), nmax_pool_(nmax_pool_in),
       mask_("mask", nmax_pool_, Metadata({Metadata::Integer})),
-      marked_for_removal_("marked_for_removal", nmax_pool_, Metadata({Metadata::Integer})),
+      marked_for_removal_("mfr", nmax_pool_, Metadata({Metadata::Integer})),
       mpiStatus(true) {
+        printf("A!\n");
   Add("x", Metadata({Metadata::Real}));
+  printf("B");
   Add("y", Metadata({Metadata::Real}));
+  printf("C");
   Add("z", Metadata({Metadata::Real}));
   num_active_ = 0;
   max_active_index_ = 0;
+  printf("here!");
+
+  auto mask_h = mask_.data.GetHostMirror();
+  auto marked_for_removal_h = marked_for_removal_.data.GetHostMirror();
+
   for (int n = 0; n < nmax_pool_; n++) {
-    mask_(n) = 0;
-    marked_for_removal_(n) = false;
+    mask_h(n) = 0;
+    marked_for_removal_h(n) = 0;
+    //mask_(n) = 0;
+    //marked_for_removal_(n) = false;
     free_indices_.push_back(n);
   }
+
+  mask_.data.DeepCopy(mask_h);
+  marked_for_removal_.data.DeepCopy(marked_for_removal_h);
 }
 
 void Swarm::Add(const std::vector<std::string> labelArray,
@@ -64,18 +77,22 @@ std::shared_ptr<Swarm> Swarm::AllocateCopy(const bool allocComms,
 /// @param metadata the metadata associated with the particle
 void Swarm::Add(const std::string label, const Metadata &metadata) {
   // labels must be unique, even between different types of data
+  printf("AISUDHASIUDH\n");
   if (intMap_.count(label) > 0 ||
-      realMap_.count(label) > 0 ||
-      stringMap_.count(label) > 0) {
+      realMap_.count(label) > 0) {
+      //stringMap_.count(label) > 0) {
     throw std::invalid_argument ("swarm variable " + label + " already enrolled during Add()!");
   }
+  printf("CC!");
 
   if (metadata.Type() == Metadata::Integer) {
     auto var = std::make_shared<ParticleVariable<int>>(label, nmax_pool_, metadata);
     intVector_.push_back(var);
     intMap_[label] = var;
   } else if (metadata.Type() == Metadata::Real) {
+    printf("DD!");
     auto var = std::make_shared<ParticleVariable<Real>>(label, nmax_pool_, metadata);
+    printf("EE!");
     realVector_.push_back(var);
     realMap_[label] = var;
   //} else if (metadata.Type() == Metadata::String) {
@@ -129,7 +146,7 @@ void Swarm::Remove(const std::string label) {
     realMap_.erase(label);
   }
 
-  if (found == false) {
+  /*if (found == false) {
     idx = 0;
     for (auto v : stringVector_) {
       if ( label == v->label() ) {
@@ -144,7 +161,7 @@ void Swarm::Remove(const std::string label) {
     if ( stringVector_.size() > 1) stringVector_[idx] = std::move(stringVector_.back());
     stringVector_.pop_back();
     stringMap_.erase(label);
-  }
+  }*/
 
   if (found == false) {
     throw std::invalid_argument ("swarm variable not found in Remove()");
@@ -152,6 +169,7 @@ void Swarm::Remove(const std::string label) {
 }
 
 void Swarm::setPoolMax(const int nmax_pool) {
+  printf("Setting swarm pool max!");
   if (nmax_pool < nmax_pool_) {
     printf("Must increase pool size!\n");
     exit(-1);
@@ -167,34 +185,66 @@ void Swarm::setPoolMax(const int nmax_pool) {
 
   auto oldvar = mask_;
   auto newvar = ParticleVariable<int>(oldvar.label(), nmax_pool, oldvar.metadata());
-  for (int m = 0; m < nmax_pool_; m++) {
+  auto oldvar_data = oldvar.data;
+  auto newvar_data = newvar.data;
+
+  pmy_block->par_for("setPoolMax_mask", 0, nmax_pool - 1,
+    KOKKOS_LAMBDA(const int n) {
+      newvar_data(n) = 0;
+      if (n < nmax_pool_) {
+        newvar_data(n) = oldvar_data(n);
+      } else {
+        newvar_data(n) = 0;
+      }
+    });
+
+  /*for (int m = 0; m < nmax_pool_; m++) {
     newvar(m) = oldvar(m);
   }
   // Fill new data with false
   for (int m = nmax_pool_; m < nmax_pool; m++) {
     newvar(m) = 0;
-  }
+  }*/
+
   mask_ = newvar;
 
   auto oldvar_bool = marked_for_removal_;
-  auto newvar_bool = ParticleVariable<bool>(oldvar_bool.label(), nmax_pool, oldvar_bool.metadata());
-  for (int m = 0; m < nmax_pool_; m++) {
+  auto newvar_bool = ParticleVariable<int>(oldvar_bool.label(), nmax_pool, oldvar_bool.metadata());
+  auto oldvar_bool_data = oldvar_bool.data;
+  auto newvar_bool_data = newvar_bool.data;
+  pmy_block->par_for("setPoolMax_marked_for_removal", 0, nmax_pool - 1,
+    KOKKOS_LAMBDA(const int n) {
+      if (n < nmax_pool_) {
+        newvar_data(n) = oldvar_data(n);
+      } else {
+        newvar_data(n) = false;
+      }
+    });
+  /*for (int m = 0; m < nmax_pool_; m++) {
     newvar_bool(m) = oldvar_bool(m);
   }
   // Fill new data with false
   for (int m = nmax_pool_; m < nmax_pool; m++) {
     newvar_bool(m) = false;
-  }
+  }*/
   marked_for_removal_ = newvar_bool;
 
+  // TODO this is not an efficient loop ordering, probably
   for (int n = 0; n < intVector_.size(); n++) {
     auto oldvar = intVector_[n];
     auto newvar = std::make_shared<ParticleVariable<int>>(oldvar->label(),
                                                           nmax_pool,
                                                           oldvar->metadata());
-    for (int m = 0; m < nmax_pool_; m++) {
-      (*newvar)(m) = (*oldvar)(m);
-    }
+    auto oldvar_data = oldvar->data;
+    auto newvar_data = newvar->data;
+    pmy_block->par_for("setPoolMax_int", 0, nmax_pool_ - 1,
+      KOKKOS_LAMBDA(const int m) {
+        newvar_data(m) = oldvar_data(m);
+      });
+
+    //for (int m = 0; m < nmax_pool_; m++) {
+    //  (*newvar)(m) = (*oldvar)(m);
+    //}
     intVector_[n] = newvar;
     intMap_[oldvar->label()] = newvar;
   }
@@ -204,9 +254,15 @@ void Swarm::setPoolMax(const int nmax_pool) {
     auto newvar = std::make_shared<ParticleVariable<Real>>(oldvar->label(),
                                                            nmax_pool,
                                                            oldvar->metadata());
-    for (int m = 0; m < nmax_pool_; m++) {
-      (*newvar)(m) = (*oldvar)(m);
-    }
+    auto oldvar_data = oldvar->data;
+    auto newvar_data = newvar->data;
+    pmy_block->par_for("setPoolMax_real", 0, nmax_pool_ - 1,
+      KOKKOS_LAMBDA(const int m) {
+        newvar_data(m) = oldvar_data(m);
+      });
+    //for (int m = 0; m < nmax_pool_; m++) {
+    //  (*newvar)(m) = (*oldvar)(m);
+    //}
     realVector_[n] = newvar;
     realMap_[oldvar->label()] = newvar;
   }
@@ -224,6 +280,7 @@ void Swarm::setPoolMax(const int nmax_pool) {
   }*/
 
   nmax_pool_ = nmax_pool;
+  printf("Done setting swarm pool max!");
 }
 
 int Swarm::AddEmptyParticle()
@@ -253,6 +310,7 @@ int Swarm::AddEmptyParticle()
 }
 
 std::vector<int> Swarm::AddEmptyParticles(int num_to_add) {
+  printf("Adding empty particles!");
   while (free_indices_.size() < num_to_add) {
     increasePoolMax();
   }
@@ -281,12 +339,14 @@ std::vector<int> Swarm::AddEmptyParticles(int num_to_add) {
   }
 
   num_active_ += num_to_add;
+  printf("Done adding empty particles!");
 
   return mask;
 }
 
 // TODO BRR this should be Kokkosified
 void Swarm::RemoveMarkedParticles() {
+  printf("Removing marked particles!");
   int new_max_active_index = -1; // TODO BRR this is a magic number, needed for Defrag()
   for (int n = 0; n <= max_active_index_; n++) {
     if (mask_(n)) {
@@ -304,6 +364,7 @@ void Swarm::RemoveMarkedParticles() {
     }
   }
   max_active_index_ = new_max_active_index;
+  printf("Done removing marked particles!");
 }
 
 void Swarm::RemoveParticle(int index) {
@@ -318,6 +379,7 @@ void Swarm::RemoveParticle(int index) {
 }
 
 void Swarm::Defrag() {
+  printf("Defragging!");
   // TODO(BRR) Could this algorithm be more efficient?
   // Add 1 to convert max index to max number
   int num_free = (max_active_index_ + 1) - num_active_;
@@ -359,10 +421,10 @@ void Swarm::Defrag() {
       auto var = *(realVector_[n]);
       var(to) = var(from);
     }
-    for (int n = 0; n < stringVector_.size(); n++) {
-      auto var = *(stringVector_[n]);
-      var(to) = var(from);
-    }
+    //for (int n = 0; n < stringVector_.size(); n++) {
+    //  auto var = *(stringVector_[n]);
+    //  var(to) = var(from);
+    //}
 
     // Update mask
     mask_(from) = 0;
@@ -374,6 +436,7 @@ void Swarm::Defrag() {
 
   // Update max_active_index_
   max_active_index_ = num_active_ - 1;
+  printf("Done defragging!");
 }
 
 std::vector<int> Swarm::AddUniformParticles(int num_to_add) {

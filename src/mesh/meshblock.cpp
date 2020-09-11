@@ -154,6 +154,7 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
       }
     }
   }
+  printf("ALL SWARMS ADDED!!!");
 
   // TODO(jdolence): Should these loops be moved to Variable creation
   ContainerIterator<Real> ci(real_container, {Metadata::Independent});

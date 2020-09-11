@@ -71,6 +71,8 @@
   PARTHENON_INTERNAL_FOR_FLAG(FillGhost)                                                 \
   /** Communication arrays are a copy: hint to destructor */                             \
   PARTHENON_INTERNAL_FOR_FLAG(SharedComms)                                               \
+  /** Boolean-valued quantity */                                                         \
+  PARTHENON_INTERNAL_FOR_FLAG(Boolean)                                                   \
   /** Integer-valued quantity */                                                         \
   PARTHENON_INTERNAL_FOR_FLAG(Integer)                                                   \
   /** Real-valued quantity */                                                            \

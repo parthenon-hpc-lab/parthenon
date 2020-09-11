@@ -42,10 +42,15 @@ void SwarmContainer::Add(const std::string label,
     throw std::invalid_argument ("swarm " + label  +" already enrolled during Add()!");
   }
 
+  printf("about to make shared!");
   auto swarm = std::make_shared<Swarm>(label, metadata);
+  printf("2\n");
   swarm->pmy_block = pmy_block;
+  printf("3\n");
   swarmVector_.push_back(swarm);
+  printf("4\n");
   swarmMap_[label] = swarm;
+  printf("done!");
 }
 
 void SwarmContainer::Remove(const std::string label) {
