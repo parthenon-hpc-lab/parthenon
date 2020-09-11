@@ -172,8 +172,6 @@ void Swarm::setPoolMax(const int nmax_pool) {
   auto newvar = ParticleVariable<bool>(oldvar.label(), nmax_pool, oldvar.metadata());
   auto &oldvar_data = oldvar.Get();
   auto &newvar_data = newvar.Get();
-  printf("dims: %i %i\n", oldvar_data.GetDim(1), newvar_data.GetDim(1));
-  printf("nmax_pool: %i nmax_pool_: %i\n", nmax_pool, nmax_pool_);
   
   pmy_block->par_for("setPoolMax_mask_1", 0, nmax_pool_ - 1,
     KOKKOS_LAMBDA(const int n) {
@@ -374,7 +372,6 @@ void Swarm::RemoveMarkedParticles() {
   //for (int n = 0; n <= max_active_index_; n++) {
   // loop backwards to keep free_indices_ updated correctly
   for (int n = max_active_index_; n >= 0; n--) {
-    printf("n: %i mask: %i marked: %i\n", n, mask_h(n), marked_for_removal_h(n));
     if (mask_h(n)) {
       if (marked_for_removal_h(n)) {
         mask_h(n) = false;
@@ -390,14 +387,9 @@ void Swarm::RemoveMarkedParticles() {
     }
   }
  
-  printf("new max active index: %i\n", max_active_index_);
   mask_.data.DeepCopy(mask_h);
   marked_for_removal_.data.DeepCopy(marked_for_removal_h);
   printf("Done removing marked particles!\n");
-
-  for (auto index : free_indices_) {
-    printf("free index: %i\n", index);
-  }
 }
 
 /*void Swarm::RemoveParticle(int index) {

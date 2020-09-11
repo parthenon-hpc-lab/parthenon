@@ -59,7 +59,6 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
 
   pmb->par_for("particles_package::ProblemGenerator", 0, s->get_max_active_index(),
     KOKKOS_LAMBDA(const int n) {
-      printf("mask(%i): %i\n", n, mask(n));
       if (new_particle_mask(n)) {
         x(n) = 1.e-1*n;
         y(n) = 1.e-2*n;
@@ -192,11 +191,11 @@ TaskStatus AddTwoParticles(MeshBlock *pmb, int stage,
 
   auto new_particle_mask = s->AddEmptyParticles(2);
 
-  auto npmh = new_particle_mask.GetHostMirror();
+  /*auto npmh = new_particle_mask.GetHostMirror();
   npmh.DeepCopy(new_particle_mask);
   for (int n = 0; n <= s->get_max_active_index(); n++) {
     printf("[%i] new?: %i\n", n, npmh(n));
-  }
+  }*/
 
   auto &x = s->GetReal("x").Get();
   auto &y = s->GetReal("y").Get();
