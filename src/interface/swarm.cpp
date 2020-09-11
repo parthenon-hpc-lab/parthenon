@@ -24,7 +24,7 @@ namespace parthenon {
 
 Swarm::Swarm(const std::string label, const Metadata &metadata, const int nmax_pool_in)
     : label_(label), m_(metadata), nmax_pool_(nmax_pool_in),
-      mask_("mask", nmax_pool_, Metadata({Metadata::Integer})),
+      mask_("mask", nmax_pool_, Metadata({Metadata::Boolean})),
       marked_for_removal_("mfr", nmax_pool_, Metadata({Metadata::Integer})),
       mpiStatus(true) {
         printf("A!\n");
@@ -41,7 +41,7 @@ Swarm::Swarm(const std::string label, const Metadata &metadata, const int nmax_p
   auto marked_for_removal_h = marked_for_removal_.data.GetHostMirror();
 
   for (int n = 0; n < nmax_pool_; n++) {
-    mask_h(n) = 0;
+    mask_h(n) = false;
     marked_for_removal_h(n) = 0;
     //mask_(n) = 0;
     //marked_for_removal_(n) = false;
@@ -184,7 +184,7 @@ void Swarm::setPoolMax(const int nmax_pool) {
   // Resize and copy data
 
   auto oldvar = mask_;
-  auto newvar = ParticleVariable<int>(oldvar.label(), nmax_pool, oldvar.metadata());
+  auto newvar = ParticleVariable<bool>(oldvar.label(), nmax_pool, oldvar.metadata());
   auto &oldvar_data = oldvar.Get();
   auto &newvar_data = newvar.Get();
   printf("dims: %i %i\n", oldvar_data.GetDim(1), newvar_data.GetDim(1));
@@ -302,7 +302,7 @@ void Swarm::setPoolMax(const int nmax_pool) {
   printf("Done setting swarm pool max!");
 }
 
-int Swarm::AddEmptyParticle()
+/*int Swarm::AddEmptyParticle()
 {
   if (free_indices_.size() == 0) {
     increasePoolMax();
@@ -326,33 +326,40 @@ int Swarm::AddEmptyParticle()
   z(free_index) = 0.;
 
   return free_index;
-}
+}*/
 
-std::vector<int> Swarm::AddEmptyParticles(int num_to_add) {
+ParArrayND<bool> Swarm::AddEmptyParticles(int num_to_add) {
   printf("Adding empty particles!");
   while (free_indices_.size() < num_to_add) {
     increasePoolMax();
   }
 
-  std::vector<int> indices(num_to_add);
-  std::vector<int> mask(nmax_pool_, 0);
+  //std::vector<int> indices(num_to_add);
+  //std::vector<int> mask(nmax_pool_, 0);
+  ParArrayND<bool> new_mask("Newly created particles", nmax_pool_);
+  auto new_mask_h = new_mask.GetHostMirror();
+  for (int n = 0; n < nmax_pool_; n++) {
+    new_mask_h(n) = false;
+  }
+
+  auto mask_h = mask_.data.GetHostMirror();
 
   auto free_index = free_indices_.begin();
 
   // ParticleVariable<int> &mask = GetInteger("mask");
-  ParticleVariable<Real> &x = GetReal("x");
-  ParticleVariable<Real> &y = GetReal("y");
-  ParticleVariable<Real> &z = GetReal("z");
+  //ParticleVariable<Real> &x = GetReal("x");
+  //ParticleVariable<Real> &y = GetReal("y");
+  //ParticleVariable<Real> &z = GetReal("z");
 
   for (int n = 0; n < num_to_add; n++) {
-    indices[n] = *free_index;
-    mask_(*free_index) = 1;
+    //indices[n] = *free_index;
+    mask_h(*free_index) = true;
+    new_mask_h(*free_index) = true;
     max_active_index_ = std::max<int>(max_active_index_, *free_index);
 
-    x(*free_index) = 0.;
-    y(*free_index) = 0.;
-    z(*free_index) = 0.;
-    mask[*free_index] = 1;
+    //x(*free_index) = 0.;
+    //y(*free_index) = 0.;
+    //z(*free_index) = 0.;
 
     free_index = free_indices_.erase(free_index);
   }
@@ -360,7 +367,10 @@ std::vector<int> Swarm::AddEmptyParticles(int num_to_add) {
   num_active_ += num_to_add;
   printf("Done adding empty particles!");
 
-  return mask;
+  new_mask.DeepCopy(new_mask_h);
+  mask_.data.DeepCopy(mask_h);
+
+  return new_mask;
 }
 
 // TODO BRR this should be Kokkosified
@@ -370,7 +380,7 @@ void Swarm::RemoveMarkedParticles() {
   for (int n = 0; n <= max_active_index_; n++) {
     if (mask_(n)) {
       if (marked_for_removal_(n)) {
-        mask_(n) = 0;
+        mask_(n) = false;
         free_indices_.push_back(n);
         num_active_ -= 1;
         if (n == max_active_index_) {
@@ -388,7 +398,7 @@ void Swarm::RemoveMarkedParticles() {
 
 void Swarm::RemoveParticle(int index) {
   // ParticleVariable<int> &mask = GetInteger("mask");
-  mask_(index) = 0;
+  mask_(index) = false;
   free_indices_.push_back(index);
   num_active_ -= 1;
   if (index == max_active_index_) {
@@ -409,7 +419,7 @@ void Swarm::Defrag() {
 
   int index = max_active_index_;
   for (int n = 0; n < num_free; n++) {
-    while (mask_(index) == 0) {
+    while (mask_(index) == false) {
       index--;
     }
     int index_to_move_from = index;
@@ -446,8 +456,8 @@ void Swarm::Defrag() {
     //}
 
     // Update mask
-    mask_(from) = 0;
-    mask_(to) = 1;
+    mask_(from) = false;
+    mask_(to) = true;
 
     // Update free indices
     free_indices_.push_back(from);

@@ -43,14 +43,14 @@ class Swarm {
   Swarm(const std::string label, const Metadata &metadata, const int nmax_pool_in = 3);
 
   /// Whether particle at index is active
-  int IsActive(int index) {
+  bool IsActive(int index) {
     PARTHENON_DEBUG_REQUIRE(index <= max_active_index_, "Requesting particle index outside of allocated data!");
     return mask_(index);
   }
 
   // TODO BRR This should really be const... mask_ is managed internally
   ///< Get mask array for active particles
-  ParticleVariable<int>& GetMask() { return mask_; }
+  ParticleVariable<bool>& GetMask() { return mask_; }
 
   ///< Make a new Swarm based on an existing one
   std::shared_ptr<Swarm> AllocateCopy(const bool allocComms = false,
@@ -103,7 +103,7 @@ class Swarm {
 
   bool mpiStatus;
 
-  int AddEmptyParticle();
+  //int AddEmptyParticle();
 
   KOKKOS_INLINE_FUNCTION
   void MarkParticleForRemoval(int index) {
@@ -114,7 +114,7 @@ class Swarm {
 
   void RemoveParticle(int index);
 
-  std::vector<int> AddEmptyParticles(int num_to_add);
+  ParArrayND<bool> AddEmptyParticles(int num_to_add);
 
   std::vector<int> AddUniformParticles(int num_to_add);
 
@@ -135,7 +135,7 @@ class Swarm {
   MapToParticle<Real> realMap_;
 
   std::list<int> free_indices_;
-  ParticleVariable<int> mask_;
+  ParticleVariable<bool> mask_;
   ParticleVariable<int> marked_for_removal_;
 };
 
