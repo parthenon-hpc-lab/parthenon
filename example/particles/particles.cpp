@@ -52,6 +52,8 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   auto &vz = s->GetReal("vz").Get();
   auto &weight = s->GetReal("weight").Get();
   auto &mask = s->GetMask().Get();
+  
+  const Real &v = pkg->Param<Real>("particle_speed");
 
   printf("Problem generator!");
 
@@ -62,9 +64,9 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
         x(n) = 1.e-1*n;
         y(n) = 1.e-2*n;
         z(n) = 1.e-3*n;
-        vx(n) = 0.1;
-        vy(n) = 1.e-5;
-        vz(n) = 1.e-4*n;
+        vx(n) = v;
+        vy(n) = 0.;
+        vz(n) = 0.;
         weight(n) = 1.0;
       }
     });
@@ -87,6 +89,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddParam<>("num_particles", num_particles);
   Real particle_speed = pin->GetOrAddReal("Particles", "particle_speed", 1.0);
   pkg->AddParam<>("particle_speed", particle_speed);
+  Real const_dt = pin->GetOrAddReal("Particles", "const_dt", 1.0);
+  pkg->AddParam<>("const_dt", const_dt);
 
   std::string swarm_name = "my particles";
   Metadata swarm_metadata;
@@ -108,7 +112,10 @@ AmrTag CheckRefinement(Container<Real> &rc) {
 }
 
 Real EstimateTimestep(std::shared_ptr<Container<Real>> &rc) {
-  return 0.5;
+  auto pmb = rc->pmy_block;
+  auto pkg = pmb->packages["particles_package"];
+  const Real &dt = pkg->Param<Real>("const_dt");
+  return dt;
 }
 
 TaskStatus SetTimestepTask(std::shared_ptr<Container<Real>> &rc) {
@@ -169,18 +176,19 @@ TaskStatus RemoveSecondParticle(MeshBlock *pmb, int stage,
   return TaskStatus::complete;
 }
 
-TaskStatus Defrag(MeshBlock *pmb, int stage,
+/*TaskStatus Defrag(MeshBlock *pmb, int stage,
   std::vector<std::string> &stage_name, Integrator *integrator) {
 
   auto s = pmb->real_containers.GetSwarmContainer()->Get("my particles");
   s->Defrag();
   return TaskStatus::complete;
-}
+}*/
 
 TaskStatus AddTwoParticles(MeshBlock *pmb, int stage,
   std::vector<std::string> &stage_name, Integrator *integrator) {
 
   auto s = pmb->real_containers.GetSwarmContainer()->Get("my particles");
+  auto pkg = pmb->packages["particles_package"];
 
   auto new_particle_mask = s->AddEmptyParticles(2);
 
@@ -197,6 +205,8 @@ TaskStatus AddTwoParticles(MeshBlock *pmb, int stage,
   auto &vy = s->GetReal("vy").Get();
   auto &vz = s->GetReal("vz").Get();
   auto &weight = s->GetReal("weight").Get();
+  
+  const Real &v = pkg->Param<Real>("particle_speed");
 
   pmb->par_for("particles_package::AddTwoParticles", 0, s->get_max_active_index(),
     KOKKOS_LAMBDA(const int n) {
@@ -204,9 +214,9 @@ TaskStatus AddTwoParticles(MeshBlock *pmb, int stage,
         x(n) = 1.e-1*n;
         y(n) = 1.e-2*n;
         z(n) = 1.e-3*n;
-        vx(n) = 0.1;
-        vy(n) = 1.e-5;
-        vz(n) = 1.e-4*n;
+        vx(n) = v;
+        vy(n) = 0.;//1.e-5;
+        vz(n) = 0.;//1.e-4*n;
         weight(n) = 1.0;
       }
   });
@@ -243,8 +253,8 @@ TaskList ParticleDriver::MakeTaskList(MeshBlock *pmb, int stage) {
   auto add_two_particles = tl.AddTask(AddTwoParticles, remove_second_particle, pmb, stage,
                                       stage_name, integrator);
 
-  auto defrag = tl.AddTask(Defrag, add_two_particles, pmb, stage,
-                           stage_name, integrator);
+  //auto defrag = tl.AddTask(Defrag, add_two_particles, pmb, stage,
+  //                         stage_name, integrator);
 
   auto container = pmb->real_containers.Get("my container");
 

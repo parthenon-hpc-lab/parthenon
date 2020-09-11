@@ -67,7 +67,6 @@ TaskStatus FluxDivergence(std::shared_ptr<Container<Real>> &in,
 TaskStatus TransportSwarm(SP_Swarm &in, SP_Swarm &out, const Real dt) {
   int nmax_active_index = in->get_max_active_index();
   int nmax_active = nmax_active_index + 1;
-printf("nmax_active: %i\n", nmax_active);
 
   MeshBlock *pmb = in->pmy_block;
 

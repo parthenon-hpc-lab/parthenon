@@ -413,18 +413,24 @@ void Swarm::RemoveMarkedParticles() {
 
 void Swarm::Defrag() {
   printf("Defragging!");
-  // TODO(BRR) Could this algorithm be more efficient?
+/*  // TODO(BRR) Could this algorithm be more efficient?
   // Add 1 to convert max index to max number
   int num_free = (max_active_index_ + 1) - num_active_;
 
   // This should always be properly sorted based on how we update it
   //free_indices_.sort();
 
-  std::list<std::pair<int, int>> from_to_indices;
+  //std::list<std::pair<int, int>> from_to_indices;
+  ParArrayND<int> from_to_indices(max_ative_index_ + 1);
+  from_to_indices_h = from_to_indices.GetHostMirror();
+
+  auto mask_h = mask_.data.GetHostMirror();
+  mask_h.DeepCopy(mask_.data);
 
   int index = max_active_index_;
   for (int n = 0; n < num_free; n++) {
-    while (mask_(index) == false) {
+    while (mask_h(index) == false) {
+      from_to_indices_h(index) = -1;
       index--;
     }
     int index_to_move_from = index;
@@ -438,39 +444,30 @@ void Swarm::Defrag() {
     if (index_to_move_from < num_active_) {
       break;
     }
-    from_to_indices.push_back(std::pair<int, int>(index_to_move_from, index_to_move_to));
+    from_to_indices_h(index_to_move_from) = index_to_move_to;
+    //from_to_indices.push_back(std::pair<int, int>(index_to_move_from, index_to_move_to));
   }
+
+  from_to_indices.DeepCopy(from_to_indices_h);
 
   // Swap straggler particles into empty slots at lower indices
-  for (auto pair : from_to_indices) {
-    int from = pair.first;
-    int to = pair.second;
-
-    // Update swarm variables
-    for (int n = 0; n < intVector_.size(); n++) {
-      auto var = *(intVector_[n]);
-      var(to) = var(from);
-    }
-    for (int n = 0; n < realVector_.size(); n++) {
-      auto var = *(realVector_[n]);
-      var(to) = var(from);
-    }
-    //for (int n = 0; n < stringVector_.size(); n++) {
-    //  auto var = *(stringVector_[n]);
-    //  var(to) = var(from);
-    //}
-
-    // Update mask
-    mask_(from) = false;
-    mask_(to) = true;
-
-    // Update free indices
-    free_indices_.push_back(from);
-  }
+  // TODO BRR pack all variables here
+  pmb->par_for("Swarm::Defrag", 0, max_active_index_,
+    KOKKOS_LAMBDA(const int n) {
+      if (from_to_indices(n) >= 0) {
+        // TODO BRR copy variable data here
+        //for (vecs) {
+        //  auto var = vec;
+        //  var(from_to_indices(n)) = var(n);
+        //}
+      }
+      
+  });
 
   // Update max_active_index_
   max_active_index_ = num_active_ - 1;
   printf("Done defragging!");
+  */
 }
 
 std::vector<int> Swarm::AddUniformParticles(int num_to_add) {
