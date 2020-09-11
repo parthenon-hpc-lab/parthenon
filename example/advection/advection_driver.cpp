@@ -184,8 +184,7 @@ auto SendBoundaryBuffers(std::vector<MeshBlock *> &blocks,
       });
 
   Kokkos::fence();
-  for (int b = 0; b < blocks.size(); b++) {
-    auto *pmb = blocks[b];
+  for (auto *pmb : blocks) {
     auto &rc = pmb->real_containers.Get(container_name);
 
     int mylevel = pmb->loc.level;
@@ -216,12 +215,10 @@ auto SendBoundaryBuffers(std::vector<MeshBlock *> &blocks,
   return TaskStatus::complete;
 }
 
-TaskStatus ReceiveBoundaryBuffers(std::vector<MeshBlock *> &blocks,
-                                  const std::string &container_name) {
-  bool ret;
-  ret = true;
-  for (int i = 0; i < blocks.size(); i++) {
-    auto *pmb = blocks[i];
+auto ReceiveBoundaryBuffers(std::vector<MeshBlock *> &blocks,
+                            const std::string &container_name) -> TaskStatus {
+  bool ret = true;
+  for (auto *pmb : blocks) {
     auto &rc = pmb->real_containers.Get(container_name);
     // receives the boundary
     for (auto &v : rc->GetCellVariableVector()) {
@@ -243,6 +240,109 @@ TaskStatus ReceiveBoundaryBuffers(std::vector<MeshBlock *> &blocks,
   // TODO(?) reintroduce sparse logic (or merge with above)
   if (ret) return TaskStatus::complete;
   return TaskStatus::incomplete;
+}
+
+// set boundaries from buffers with MeshBlockPack support
+// TODO(pgrete) should probaly be moved to the bvals or interface folders
+auto SetBoundaries(std::vector<MeshBlock *> &blocks, const std::string &container_name)
+    -> TaskStatus {
+  auto var_pack = parthenon::PackVariablesOnMesh(
+      blocks, container_name,
+      std::vector<parthenon::MetadataFlag>{parthenon::Metadata::FillGhost});
+
+  // TODO(?) talk about whether the number of buffers should be a compile time const
+  const int num_buffers = 56;
+  parthenon::ParArray2D<BndInfo> boundary_info("boundary_info", blocks.size(),
+                                               num_buffers);
+  auto boundary_info_h = Kokkos::create_mirror_view(boundary_info);
+
+  auto CalcIndices = [](int ox, int &s, int &e, const IndexRange &bounds) {
+    if (ox == 0) {
+      s = bounds.s;
+      e = bounds.e;
+    } else if (ox > 0) {
+      s = bounds.e + 1;
+      e = bounds.e + NGHOST;
+    } else {
+      s = bounds.s - NGHOST;
+      e = bounds.s - 1;
+    }
+  };
+
+  for (int b = 0; b < blocks.size(); b++) {
+    auto *pmb = blocks[b];
+    auto &rc = pmb->real_containers.Get(container_name);
+
+    int mylevel = pmb->loc.level;
+    for (int n = 0; n < pmb->pbval->nneighbor; n++) {
+      parthenon::NeighborBlock &nb = pmb->pbval->neighbor[n];
+      // TODO(?) currently this only works for a single "Variable" per container.
+      // Need to update the buffer sizes so that it matches the packed Variables.
+      auto *bd_var_ = rc->GetCellVariableVector()[0]->vbvar->GetBdVar();
+
+      if (nb.snb.level == mylevel) {
+        IndexDomain interior = IndexDomain::interior;
+        const parthenon::IndexShape &cellbounds = pmb->cellbounds;
+        CalcIndices(nb.ni.ox1, boundary_info_h(b, n).si, boundary_info_h(b, n).ei,
+                    cellbounds.GetBoundsI(interior));
+        CalcIndices(nb.ni.ox2, boundary_info_h(b, n).sj, boundary_info_h(b, n).ej,
+                    cellbounds.GetBoundsJ(interior));
+        CalcIndices(nb.ni.ox3, boundary_info_h(b, n).sk, boundary_info_h(b, n).ek,
+                    cellbounds.GetBoundsK(interior));
+      } else if (nb.snb.level < mylevel) {
+        // SetBoundaryFromCoarser(bd_var_.recv[nb.bufid], nb);
+      } else {
+        // SetBoundaryFromFiner(bd_var_.recv[nb.bufid], nb);
+      }
+      boundary_info_h(b, n).buf = bd_var_->recv[nb.bufid];
+      boundary_info_h(b, n).is_used = true;
+      // safe to set completed here as the kernel updating all buffers is
+      // called immediately afterwards
+      bd_var_->flag[nb.bufid] = parthenon::BoundaryStatus::completed;
+    }
+  }
+  Kokkos::deep_copy(boundary_info, boundary_info_h);
+
+  const int NbNb = blocks.size() * num_buffers;
+  const int Nv = var_pack.GetDim(4);
+
+  Kokkos::parallel_for(
+      "SetBoundaries",
+      Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), NbNb, Kokkos::AUTO),
+      KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
+        const int b = team_member.league_rank() / num_buffers;
+        const int n = team_member.league_rank() - b * num_buffers;
+        if (boundary_info(b, n).is_used) {
+          const int si = boundary_info(b, n).si;
+          const int ei = boundary_info(b, n).ei;
+          const int sj = boundary_info(b, n).sj;
+          const int ej = boundary_info(b, n).ej;
+          const int sk = boundary_info(b, n).sk;
+          const int ek = boundary_info(b, n).ek;
+          const int Ni = ei + 1 - si;
+          const int Nj = ej + 1 - sj;
+          const int Nk = ek + 1 - sk;
+          const int NvNkNj = Nv * Nk * Nj;
+          const int NkNj = Nk * Nj;
+          Kokkos::parallel_for(
+              Kokkos::TeamThreadRange<>(team_member, NvNkNj), [&](const int idx) {
+                const int v = idx / NkNj;
+                int k = (idx - v * NkNj) / Nj;
+                int j = idx - v * NkNj - k * Nj;
+                k += sk;
+                j += sj;
+
+                Kokkos::parallel_for(
+                    Kokkos::ThreadVectorRange(team_member, si, ei + 1), [&](const int i) {
+                      var_pack(b, v, k, j, i) = boundary_info(b, n).buf(
+                          i - si + Ni * (j - sj + Nj * (k - sk + Nk * v)));
+                    });
+              });
+        }
+      });
+
+  // TODO(?) reintroduce sparse logic (or merge with above)
+  return TaskStatus::complete;
 }
 
 // See the advection.hpp declaration for a description of how this function gets called.
@@ -301,6 +401,13 @@ TaskCollection AdvectionDriver::MakeTaskCollection(std::vector<MeshBlock *> &blo
     // apply du/dt to all independent fields in the container
     auto update_container =
         tl.AddTask(UpdateContainer, flux_div, blocks, stage, stage_name, integrator);
+
+    // update ghost cells
+    auto send =
+        tl.AddTask(SendBoundaryBuffers, update_container, blocks, stage_name[stage]);
+
+    auto recv = tl.AddTask(ReceiveBoundaryBuffers, send, blocks, stage_name[stage]);
+    auto fill_from_bufs = tl.AddTask(SetBoundaries, recv, blocks, stage_name[stage]);
   }
   TaskRegion &async_region2 = tc.AddRegion(num_task_lists_executed_independently);
 
@@ -309,19 +416,15 @@ TaskCollection AdvectionDriver::MakeTaskCollection(std::vector<MeshBlock *> &blo
     auto &tl = async_region2[i];
     auto &sc1 = pmb->real_containers.Get(stage_name[stage]);
 
-    // update ghost cells
-    // auto send = tl.AddTask(&Container<Real>::SendBoundaryBuffers, sc1.get(), none);
-    // auto recv = tl.AddTask(&Container<Real>::ReceiveBoundaryBuffers, sc1.get(), send);
-    auto fill_from_bufs = tl.AddTask(&Container<Real>::SetBoundaries, sc1.get(), none);
-    auto clear_comm_flags = tl.AddTask(&Container<Real>::ClearBoundary, sc1.get(),
-                                       fill_from_bufs, BoundaryCommSubset::all);
+    auto clear_comm_flags = tl.AddTask(&Container<Real>::ClearBoundary, sc1.get(), none,
+                                       BoundaryCommSubset::all);
 
     auto prolongBound = tl.AddTask(
         [](MeshBlock *pmb) {
           pmb->pbval->ProlongateBoundaries(0.0, 0.0);
           return TaskStatus::complete;
         },
-        fill_from_bufs, pmb);
+        none, pmb);
 
     // set physical boundaries
     auto set_bc = tl.AddTask(parthenon::ApplyBoundaryConditions, prolongBound, sc1);
