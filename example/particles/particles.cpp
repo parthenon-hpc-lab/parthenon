@@ -145,6 +145,26 @@ TaskStatus UpdateSwarm(MeshBlock *pmb, int stage,
   return TaskStatus::complete;
 }
 
+TaskStatus RemoveSecondParticle(MeshBlock *pmb, int stage,
+ std::vector<std::string> &stage_name, Integrator *integrator) {
+
+  auto swarm = pmb->real_containers.GetSwarmContainer()->Get("my particles");
+
+  auto &mask = swarm->GetMask().Get();
+  auto &marked_for_removal = swarm->GetMarkedForRemoval().Get();
+
+  pmb->par_for("RemoveSecondParticle", 0, swarm->get_max_active_index(),
+    KOKKOS_LAMBDA(const int n) {
+      if (mask(n) && n == 1) {
+        marked_for_removal(n) = true;
+      }
+    });
+
+  swarm->RemoveMarkedParticles();
+
+  return TaskStatus::complete;
+}
+
 TaskStatus MyContainerTask(std::shared_ptr<Container<Real>> container) {
   return TaskStatus::complete;
 }
@@ -167,6 +187,9 @@ TaskList ParticleDriver::MakeTaskList(MeshBlock *pmb, int stage) {
 
   auto update_swarm = tl.AddTask(UpdateSwarm, none, pmb, stage,
                                             stage_name, integrator);
+
+  auto remove_second_particle = tl.AddTask(RemoveSecondParticle, update_swarm, pmb, stage,
+                                           stage_name, integrator);
 
   auto container = pmb->real_containers.Get("my container");
 

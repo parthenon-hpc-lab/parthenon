@@ -25,26 +25,20 @@ namespace parthenon {
 Swarm::Swarm(const std::string label, const Metadata &metadata, const int nmax_pool_in)
     : label_(label), m_(metadata), nmax_pool_(nmax_pool_in),
       mask_("mask", nmax_pool_, Metadata({Metadata::Boolean})),
-      marked_for_removal_("mfr", nmax_pool_, Metadata({Metadata::Integer})),
+      marked_for_removal_("mfr", nmax_pool_, Metadata({Metadata::Boolean})),
       mpiStatus(true) {
-        printf("A!\n");
   Add("x", Metadata({Metadata::Real}));
-  printf("B");
   Add("y", Metadata({Metadata::Real}));
-  printf("C");
   Add("z", Metadata({Metadata::Real}));
   num_active_ = 0;
   max_active_index_ = 0;
-  printf("here!");
 
   auto mask_h = mask_.data.GetHostMirror();
   auto marked_for_removal_h = marked_for_removal_.data.GetHostMirror();
 
   for (int n = 0; n < nmax_pool_; n++) {
     mask_h(n) = false;
-    marked_for_removal_h(n) = 0;
-    //mask_(n) = 0;
-    //marked_for_removal_(n) = false;
+    marked_for_removal_h(n) = false;
     free_indices_.push_back(n);
   }
 
@@ -77,28 +71,19 @@ std::shared_ptr<Swarm> Swarm::AllocateCopy(const bool allocComms,
 /// @param metadata the metadata associated with the particle
 void Swarm::Add(const std::string label, const Metadata &metadata) {
   // labels must be unique, even between different types of data
-  printf("AISUDHASIUDH\n");
   if (intMap_.count(label) > 0 ||
       realMap_.count(label) > 0) {
-      //stringMap_.count(label) > 0) {
     throw std::invalid_argument ("swarm variable " + label + " already enrolled during Add()!");
   }
-  printf("CC!");
 
   if (metadata.Type() == Metadata::Integer) {
     auto var = std::make_shared<ParticleVariable<int>>(label, nmax_pool_, metadata);
     intVector_.push_back(var);
     intMap_[label] = var;
   } else if (metadata.Type() == Metadata::Real) {
-    printf("DD!");
     auto var = std::make_shared<ParticleVariable<Real>>(label, nmax_pool_, metadata);
-    printf("EE!");
     realVector_.push_back(var);
     realMap_[label] = var;
-  //} else if (metadata.Type() == Metadata::String) {
-    //auto var = std::make_shared<ParticleVariable<std::string>>(label, nmax_pool_, metadata);
-    //stringVector_.push_back(var);
-    //stringMap_[label] = var;
   } else {
     throw std::invalid_argument ("swarm variable " + label + " does not have a valid type during Add()");
   }
@@ -220,7 +205,7 @@ void Swarm::setPoolMax(const int nmax_pool) {
   mask_ = newvar;
 
   auto oldvar_bool = marked_for_removal_;
-  auto newvar_bool = ParticleVariable<int>(oldvar_bool.label(), nmax_pool, oldvar_bool.metadata());
+  auto newvar_bool = ParticleVariable<bool>(oldvar_bool.label(), nmax_pool, oldvar_bool.metadata());
   auto oldvar_bool_data = oldvar_bool.data;
   auto newvar_bool_data = newvar_bool.data;
   /*pmy_block->par_for("setPoolMax_marked_for_removal", 0, nmax_pool - 1,
@@ -377,22 +362,29 @@ ParArrayND<bool> Swarm::AddEmptyParticles(int num_to_add) {
 void Swarm::RemoveMarkedParticles() {
   printf("Removing marked particles!");
   int new_max_active_index = -1; // TODO BRR this is a magic number, needed for Defrag()
+
+  auto mask_h = mask_.data.GetHostMirror();
+  auto marked_for_removal_h = marked_for_removal_.data.GetHostMirror();
+
   for (int n = 0; n <= max_active_index_; n++) {
-    if (mask_(n)) {
-      if (marked_for_removal_(n)) {
-        mask_(n) = false;
+    if (mask_h(n)) {
+      if (marked_for_removal_h(n)) {
+        mask_h(n) = false;
         free_indices_.push_back(n);
         num_active_ -= 1;
         if (n == max_active_index_) {
           max_active_index_ -= 1;
         }
-        marked_for_removal_(n) = false;
+        marked_for_removal_h(n) = false;
       } else {
         new_max_active_index = n;
       }
     }
   }
+  
   max_active_index_ = new_max_active_index;
+  mask_.data.DeepCopy(mask_h);
+  marked_for_removal_.data.DeepCopy(marked_for_removal_h);
   printf("Done removing marked particles!");
 }
 

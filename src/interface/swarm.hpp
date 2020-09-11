@@ -52,6 +52,8 @@ class Swarm {
   ///< Get mask array for active particles
   ParticleVariable<bool>& GetMask() { return mask_; }
 
+  ParticleVariable<bool>& GetMarkedForRemoval() { return marked_for_removal_; }
+
   ///< Make a new Swarm based on an existing one
   std::shared_ptr<Swarm> AllocateCopy(const bool allocComms = false,
                                       MeshBlock *pmb = nullptr);
@@ -136,7 +138,7 @@ class Swarm {
 
   std::list<int> free_indices_;
   ParticleVariable<bool> mask_;
-  ParticleVariable<int> marked_for_removal_;
+  ParticleVariable<bool> marked_for_removal_;
 };
 
 using SP_Swarm = std::shared_ptr<Swarm>;
