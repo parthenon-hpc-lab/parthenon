@@ -185,18 +185,29 @@ void Swarm::setPoolMax(const int nmax_pool) {
 
   auto oldvar = mask_;
   auto newvar = ParticleVariable<int>(oldvar.label(), nmax_pool, oldvar.metadata());
-  auto oldvar_data = oldvar.data;
-  auto newvar_data = newvar.data;
-
-  pmy_block->par_for("setPoolMax_mask", 0, nmax_pool - 1,
+  auto &oldvar_data = oldvar.Get();
+  auto &newvar_data = newvar.Get();
+  printf("dims: %i %i\n", oldvar_data.GetDim(1), newvar_data.GetDim(1));
+  printf("nmax_pool: %i nmax_pool_: %i\n", nmax_pool, nmax_pool_);
+  
+  pmy_block->par_for("setPoolMax_mask_1", 0, nmax_pool_ - 1,
     KOKKOS_LAMBDA(const int n) {
-      newvar_data(n) = 0;
+        newvar_data(n) = oldvar_data(n);
+    });
+  pmy_block->par_for("setPoolMax_mask_2", nmax_pool_, nmax_pool - 1,
+    KOKKOS_LAMBDA(const int n) {
+        newvar_data(n) = 0;
+    });
+
+  /*pmy_block->par_for("setPoolMax_mask", 0, nmax_pool - 1,
+    KOKKOS_LAMBDA(const int n) {
+      printf("n: %i\n", n);
       if (n < nmax_pool_) {
         newvar_data(n) = oldvar_data(n);
       } else {
         newvar_data(n) = 0;
       }
-    });
+    });*/
 
   /*for (int m = 0; m < nmax_pool_; m++) {
     newvar(m) = oldvar(m);
@@ -212,13 +223,21 @@ void Swarm::setPoolMax(const int nmax_pool) {
   auto newvar_bool = ParticleVariable<int>(oldvar_bool.label(), nmax_pool, oldvar_bool.metadata());
   auto oldvar_bool_data = oldvar_bool.data;
   auto newvar_bool_data = newvar_bool.data;
-  pmy_block->par_for("setPoolMax_marked_for_removal", 0, nmax_pool - 1,
+  /*pmy_block->par_for("setPoolMax_marked_for_removal", 0, nmax_pool - 1,
     KOKKOS_LAMBDA(const int n) {
       if (n < nmax_pool_) {
         newvar_data(n) = oldvar_data(n);
       } else {
         newvar_data(n) = false;
       }
+    });*/
+  pmy_block->par_for("setPoolMax_mark_1", 0, nmax_pool_ - 1,
+    KOKKOS_LAMBDA(const int n) {
+        newvar_bool_data(n) = oldvar_bool_data(n);
+    });
+  pmy_block->par_for("setPoolMax_mark_2", nmax_pool_, nmax_pool - 1,
+    KOKKOS_LAMBDA(const int n) {
+        newvar_bool_data(n) = 0;
     });
   /*for (int m = 0; m < nmax_pool_; m++) {
     newvar_bool(m) = oldvar_bool(m);
