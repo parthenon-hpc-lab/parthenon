@@ -28,6 +28,7 @@ list(APPEND unit_tests_SOURCES
     test_container_iterator.cpp
     test_required_desired.cpp
     test_error_checking.cpp
+    test_partitioning.cpp
 )
 
 add_executable(unit_tests "${unit_tests_SOURCES}")
