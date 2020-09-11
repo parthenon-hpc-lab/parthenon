@@ -358,15 +358,20 @@ ParArrayND<bool> Swarm::AddEmptyParticles(int num_to_add) {
   return new_mask;
 }
 
-// TODO BRR this should be Kokkosified
+// No active particles: nmax_active_index = -1
+// No particles removed: nmax_active_index unchanged
+// Particles removed: nmax_active_index is new max active index
 void Swarm::RemoveMarkedParticles() {
   printf("Removing marked particles!");
   int new_max_active_index = -1; // TODO BRR this is a magic number, needed for Defrag()
 
   auto mask_h = mask_.data.GetHostMirror();
+  mask_h.DeepCopy(mask_.data);
   auto marked_for_removal_h = marked_for_removal_.data.GetHostMirror();
+  marked_for_removal_h.DeepCopy(marked_for_removal_.data);
 
   for (int n = 0; n <= max_active_index_; n++) {
+    printf("n: %i mask: %i marked: %i\n", n, mask_h(n), marked_for_removal_h(n));
     if (mask_h(n)) {
       if (marked_for_removal_h(n)) {
         mask_h(n) = false;
@@ -381,8 +386,8 @@ void Swarm::RemoveMarkedParticles() {
       }
     }
   }
-  
-  max_active_index_ = new_max_active_index;
+ 
+  printf("new max active index: %i\n", max_active_index_);
   mask_.data.DeepCopy(mask_h);
   marked_for_removal_.data.DeepCopy(marked_for_removal_h);
   printf("Done removing marked particles!");

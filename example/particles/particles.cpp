@@ -51,9 +51,13 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   auto &vy = s->GetReal("vy").Get();
   auto &vz = s->GetReal("vz").Get();
   auto &weight = s->GetReal("weight").Get();
+  auto &mask = s->GetMask().Get();
+
+  printf("Problem generator!");
 
   pmb->par_for("particles_package::ProblemGenerator", 0, s->get_max_active_index(),
     KOKKOS_LAMBDA(const int n) {
+      printf("mask(%i): %i\n", n, mask(n));
       if (new_particle_mask(n)) {
         x(n) = 1.e-1*n;
         y(n) = 1.e-2*n;

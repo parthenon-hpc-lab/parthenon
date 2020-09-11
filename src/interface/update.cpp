@@ -66,6 +66,8 @@ TaskStatus FluxDivergence(std::shared_ptr<Container<Real>> &in,
 
 TaskStatus TransportSwarm(SP_Swarm &in, SP_Swarm &out, const Real dt) {
   int nmax_active_index = in->get_max_active_index();
+  int nmax_active = nmax_active_index + 1;
+printf("nmax_active: %i\n", nmax_active);
 
   MeshBlock *pmb = in->pmy_block;
 
@@ -80,12 +82,67 @@ TaskStatus TransportSwarm(SP_Swarm &in, SP_Swarm &out, const Real dt) {
   auto &vz = in->GetReal("vz").Get();
   auto &mask = in->GetMask().Get();
 
+  Real dx_i = pmb->coords.dx1f(pmb->cellbounds.is(IndexDomain::interior));       
+  Real dx_j = pmb->coords.dx2f(pmb->cellbounds.js(IndexDomain::interior));       
+  Real dx_k = pmb->coords.dx3f(pmb->cellbounds.ks(IndexDomain::interior));       
+  Real dx_push = std::min<Real>(dx_i, std::min<Real>(dx_j, dx_k));
+
+  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);             
+  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);             
+  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);             
+                                                                                 
+  Real x_min = pmb->coords.x1v(ib.s) - dx_i / 2.;                                
+  Real y_min = pmb->coords.x2v(jb.s) - dx_j / 2.;                                
+  Real z_min = pmb->coords.x3v(kb.s) - dx_k / 2.;                                
+  Real x_max = pmb->coords.x1v(ib.e) + dx_i / 2.;                                
+  Real y_max = pmb->coords.x2v(jb.e) + dx_j / 2.;                                
+  Real z_max = pmb->coords.x3v(kb.e) + dx_k / 2.;
+
+  ParArrayND<Real> t("time", nmax_active);
+
   pmb->par_for("TransportSwarm", 0, nmax_active_index,
     KOKKOS_LAMBDA(const int n) {
       if (mask(n)) {
-        x_out(n) = x_in(n) + vx(n)*dt;
-        y_out(n) = y_in(n) + vy(n)*dt;
-        z_out(n) = z_in(n) + vz(n)*dt;
+        t(n) = 0.;
+        Real v = sqrt(vx(n)*vx(n) + vy(n)*vy(n) + vz(n)*vz(n));
+        x_out(n) = x_in(n);
+        y_out(n) = y_in(n);
+        z_out(n) = z_in(n);
+        while (t(n) < dt) {
+          Real dt_cell = dx_push / v;
+          Real dt_end = dt - t(n);
+          Real dt_push = dt_cell;
+          if (dt_end < dt_cell) {
+            dt_push = dt_end;
+          }
+
+          x_out(n) = x_out(n) + vx(n)*dt_push;
+          y_out(n) = y_out(n) + vy(n)*dt_push;
+          z_out(n) = z_out(n) + vz(n)*dt_push;
+          t(n) += dt_push;
+
+          // Reflecting boundaries
+          if (x_out(n) < x_min) {
+            x_out(n) = x_min + (x_min - x_out(n));
+            vx(n) = -vx(n);
+          }
+          if (x_out(n) > x_max) {                                                    
+            x_out(n) = x_max - (x_out(n) - x_max);                                       
+            vx(n) = -vx(n);                                                      
+          }                                                                      
+          if (y_out(n) < y_min) {                                                    
+            y_out(n) = y_max - (y_min - y_out(n));                                       
+          }                                                                      
+          if (y_out(n) > y_max) {                                                    
+            y_out(n) = y_min + (y_out(n) - y_max);                                       
+          }                                                                      
+          if (z_out(n) < z_min) {                                                    
+            z_out(n) = z_max - (z_min - z_out(n));                                       
+          }                                                                      
+          if (z_out(n) > z_max) {                                                    
+            z_out(n) = z_min + (z_out(n) - z_max);                                       
+          }
+        }
       }
     });
 
