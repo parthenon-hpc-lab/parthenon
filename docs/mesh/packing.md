@@ -48,8 +48,9 @@ for (int i = 0; i < partitions.size() {
 ```
 To pack only the variables "var1" and "var2" in the container named "mycontainer", do:
 ```C++
+std::vector<std::string>> vars = {"var1", "var2"};
 for (int i = 0; i < partitions.size() {
-  packs[i] = PackVariablesOnMesh(partitions[i], "myContainer", {"var1","var2"});
+  packs[i] = PackVariablesOnMesh(partitions[i], "myContainer", vars);
 }
 ```
 
