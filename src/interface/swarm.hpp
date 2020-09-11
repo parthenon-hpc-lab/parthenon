@@ -114,7 +114,7 @@ class Swarm {
 
   void RemoveMarkedParticles();
 
-  void RemoveParticle(int index);
+  //void RemoveParticle(int index);
 
   ParArrayND<bool> AddEmptyParticles(int num_to_add);
 

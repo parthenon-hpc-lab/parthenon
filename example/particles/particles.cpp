@@ -169,6 +169,51 @@ TaskStatus RemoveSecondParticle(MeshBlock *pmb, int stage,
   return TaskStatus::complete;
 }
 
+TaskStatus Defrag(MeshBlock *pmb, int stage,
+  std::vector<std::string> &stage_name, Integrator *integrator) {
+
+  auto s = pmb->real_containers.GetSwarmContainer()->Get("my particles");
+  s->Defrag();
+  return TaskStatus::complete;
+}
+
+TaskStatus AddTwoParticles(MeshBlock *pmb, int stage,
+  std::vector<std::string> &stage_name, Integrator *integrator) {
+
+  auto s = pmb->real_containers.GetSwarmContainer()->Get("my particles");
+
+  auto new_particle_mask = s->AddEmptyParticles(2);
+
+  auto npmh = new_particle_mask.GetHostMirror();
+  npmh.DeepCopy(new_particle_mask);
+  for (int n = 0; n <= s->get_max_active_index(); n++) {
+    printf("[%i] new?: %i\n", n, npmh(n));
+  }
+
+  auto &x = s->GetReal("x").Get();
+  auto &y = s->GetReal("y").Get();
+  auto &z = s->GetReal("z").Get();
+  auto &vx = s->GetReal("vx").Get();
+  auto &vy = s->GetReal("vy").Get();
+  auto &vz = s->GetReal("vz").Get();
+  auto &weight = s->GetReal("weight").Get();
+
+  pmb->par_for("particles_package::AddTwoParticles", 0, s->get_max_active_index(),
+    KOKKOS_LAMBDA(const int n) {
+      if (new_particle_mask(n)) {
+        x(n) = 1.e-1*n;
+        y(n) = 1.e-2*n;
+        z(n) = 1.e-3*n;
+        vx(n) = 0.1;
+        vy(n) = 1.e-5;
+        vz(n) = 1.e-4*n;
+        weight(n) = 1.0;
+      }
+  });
+
+  return TaskStatus::complete;
+}
+
 TaskStatus MyContainerTask(std::shared_ptr<Container<Real>> container) {
   return TaskStatus::complete;
 }
@@ -194,6 +239,12 @@ TaskList ParticleDriver::MakeTaskList(MeshBlock *pmb, int stage) {
 
   auto remove_second_particle = tl.AddTask(RemoveSecondParticle, update_swarm, pmb, stage,
                                            stage_name, integrator);
+
+  auto add_two_particles = tl.AddTask(AddTwoParticles, remove_second_particle, pmb, stage,
+                                      stage_name, integrator);
+
+  auto defrag = tl.AddTask(Defrag, add_two_particles, pmb, stage,
+                           stage_name, integrator);
 
   auto container = pmb->real_containers.Get("my container");
 

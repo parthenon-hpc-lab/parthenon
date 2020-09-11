@@ -328,6 +328,7 @@ ParArrayND<bool> Swarm::AddEmptyParticles(int num_to_add) {
   }
 
   auto mask_h = mask_.data.GetHostMirror();
+  mask_h.DeepCopy(mask_.data);
 
   auto free_index = free_indices_.begin();
 
@@ -362,7 +363,7 @@ ParArrayND<bool> Swarm::AddEmptyParticles(int num_to_add) {
 // No particles removed: nmax_active_index unchanged
 // Particles removed: nmax_active_index is new max active index
 void Swarm::RemoveMarkedParticles() {
-  printf("Removing marked particles!");
+  printf("Removing marked particles!\n");
   int new_max_active_index = -1; // TODO BRR this is a magic number, needed for Defrag()
 
   auto mask_h = mask_.data.GetHostMirror();
@@ -370,12 +371,14 @@ void Swarm::RemoveMarkedParticles() {
   auto marked_for_removal_h = marked_for_removal_.data.GetHostMirror();
   marked_for_removal_h.DeepCopy(marked_for_removal_.data);
 
-  for (int n = 0; n <= max_active_index_; n++) {
+  //for (int n = 0; n <= max_active_index_; n++) {
+  // loop backwards to keep free_indices_ updated correctly
+  for (int n = max_active_index_; n >= 0; n--) {
     printf("n: %i mask: %i marked: %i\n", n, mask_h(n), marked_for_removal_h(n));
     if (mask_h(n)) {
       if (marked_for_removal_h(n)) {
         mask_h(n) = false;
-        free_indices_.push_back(n);
+        free_indices_.push_front(n);
         num_active_ -= 1;
         if (n == max_active_index_) {
           max_active_index_ -= 1;
@@ -390,10 +393,14 @@ void Swarm::RemoveMarkedParticles() {
   printf("new max active index: %i\n", max_active_index_);
   mask_.data.DeepCopy(mask_h);
   marked_for_removal_.data.DeepCopy(marked_for_removal_h);
-  printf("Done removing marked particles!");
+  printf("Done removing marked particles!\n");
+
+  for (auto index : free_indices_) {
+    printf("free index: %i\n", index);
+  }
 }
 
-void Swarm::RemoveParticle(int index) {
+/*void Swarm::RemoveParticle(int index) {
   // ParticleVariable<int> &mask = GetInteger("mask");
   mask_(index) = false;
   free_indices_.push_back(index);
@@ -402,7 +409,7 @@ void Swarm::RemoveParticle(int index) {
     // TODO BRR this isn't actually right
     max_active_index_ -= 1;
   }
-}
+}*/
 
 void Swarm::Defrag() {
   printf("Defragging!");
@@ -410,7 +417,8 @@ void Swarm::Defrag() {
   // Add 1 to convert max index to max number
   int num_free = (max_active_index_ + 1) - num_active_;
 
-  free_indices_.sort();
+  // This should always be properly sorted based on how we update it
+  //free_indices_.sort();
 
   std::list<std::pair<int, int>> from_to_indices;
 
