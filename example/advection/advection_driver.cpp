@@ -203,7 +203,7 @@ auto SendBoundaryBuffers(std::vector<MeshBlock *> &blocks,
             parthenon::BoundaryStatus::arrived;
       } else {
 #ifdef MPI_PARALLEL
-        MPI_Start(&(bd_var_.req_send[nb.bufid]));
+        MPI_Start(&(bd_var_->req_send[nb.bufid]));
 #endif
       }
 
