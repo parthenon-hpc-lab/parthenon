@@ -160,7 +160,7 @@ static std::list<MeshBlock> setupMesh(const int &n_block, const int &n_mesh,
   // Set up our mesh.
   Metadata myMetadata({Metadata::Independent, Metadata::Cell});
   BlockList_t block_list;
-  block_list.reserve(n_mesh*n_mesh*n_mesh);
+  block_list.reserve(n_mesh * n_mesh * n_mesh);
 
   // compute an offset due to ghost cells
   double delta = dxyzCell * static_cast<Real>(NG);

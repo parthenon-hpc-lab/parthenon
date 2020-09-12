@@ -350,9 +350,7 @@ class Mesh {
   int GetNumberOfMeshBlockCells() const {
     return block_list.front()->GetNumberOfMeshBlockCells();
   }
-  const RegionSize& GetBlockSize() const {
-    return block_list.front()->block_size;
-  }
+  const RegionSize &GetBlockSize() const { return block_list.front()->block_size; }
 
   // data
   bool modified;

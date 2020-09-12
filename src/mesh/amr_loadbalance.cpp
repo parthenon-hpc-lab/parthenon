@@ -620,7 +620,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
             if (ranklist[on + ll] != Globals::my_rank) continue;
             // fine to coarse on the same MPI rank (different AMR level) - restriction
             auto pob = FindMeshBlock(on + ll);
-            FillSameRankFineToCoarseAMR(pob.get(), new_block_list.back().get(), loclist[on + ll]);
+            FillSameRankFineToCoarseAMR(pob.get(), new_block_list.back().get(),
+                                        loclist[on + ll]);
           }
         } else if ((loclist[on].level < newloc[n].level) && // coarse to fine (c2f)
                    (ranklist[on] == Globals::my_rank)) {
