@@ -312,7 +312,7 @@ class MeshBlock {
   void StartTimeMeasurement();
   void StopTimeMeasurement();
 };
-using BlockList_t = std::vector<std::shared_ptd<MeshBlock>>;
+using BlockList_t = std::vector<std::shared_ptr<MeshBlock>>;
 
 //----------------------------------------------------------------------------------------
 //! \class Mesh
