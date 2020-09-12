@@ -79,7 +79,6 @@ using MeshBlockVarFluxPack = MeshBlockPack<VariableFluxPack<T>>;
 
 // TODO(JMM): Should this be cached?
 namespace mesh_pack_impl {
-using meshpack::BlockList_t;
 
 // TODO(JMM): blocks data type might change
 template <typename T, typename F>

@@ -29,15 +29,15 @@ static std::string stringXdmfArrayRef(const std::string &prefix,
                                       const std::string &label, const hsize_t *dims,
                                       const int &ndims, const std::string &theType,
                                       const int &precision) {
-  std::string mystr =
-      prefix + R"(<DataItem Format="HDF" Dimensions=")" + std::to_string(dims[0]);
-  for (int i = 1; i < ndims; i++)
-    mystr += " " + std::to_string(dims[i]);
-  mystr += "\" Name=\"" + label + "\"";
-  mystr += " NumberType=\"" + theType + "\"";
-  mystr += R"( Precision=")" + std::to_string(precision) + R"(">)" + '\n';
-  mystr += prefix + "  " + hdfPath + label + "</DataItem>" + '\n';
-  return mystr;
+  //   std::string mystr =
+  //       prefix + R"(<DataItem Format="HDF" Dimensions=")" + std::to_string(dims[0]);
+  //   for (int i = 1; i < ndims; i++)
+  //     mystr += " " + std::to_string(dims[i]);
+  //   mystr += "\" Name=\"" + label + "\"";
+  //   mystr += " NumberType=\"" + theType + "\"";
+  //   mystr += R"( Precision=")" + std::to_string(precision) + R"(">)" + '\n';
+  //   mystr += prefix + "  " + hdfPath + label + "</DataItem>" + '\n';
+  //   return mystr;
 }
 
 static void writeXdmfArrayRef(std::ofstream &fid, const std::string &prefix,
@@ -364,19 +364,20 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   local_count[0] = num_blocks_local;
   global_count[0] = max_blocks_global;
 
-  LOADVARIABLEALL(tmpData, pm, mb.coords.x1f, out_ib.s, out_ib.e + 1, 0, 0, 0, 0);
+  // These macros are defined in parthenon_hdf5.hpp, which establishes relevant scope
+  LOADVARIABLEALL(tmpData, pm, pmb->coords.x1f, out_ib.s, out_ib.e + 1, 0, 0, 0, 0);
   local_count[1] = global_count[1] = nx1 + 1;
   WRITEH5SLAB("x", tmpData, gLocations, local_start, local_count, global_count,
               property_list);
 
   // write Y coordinates
-  LOADVARIABLEALL(tmpData, pm, mb.coords.x2f, 0, 0, out_jb.s, out_jb.e + 1, 0, 0);
+  LOADVARIABLEALL(tmpData, pm, pmb->coords.x2f, 0, 0, out_jb.s, out_jb.e + 1, 0, 0);
   local_count[1] = global_count[1] = nx2 + 1;
   WRITEH5SLAB("y", tmpData, gLocations, local_start, local_count, global_count,
               property_list);
 
   // write Z coordinates
-  LOADVARIABLEALL(tmpData, pm, mb.coords.x3f, 0, 0, 0, 0, out_kb.s, out_kb.e + 1);
+  LOADVARIABLEALL(tmpData, pm, pmb->coords.x3f, 0, 0, 0, 0, out_kb.s, out_kb.e + 1);
 
   local_count[1] = global_count[1] = nx3 + 1;
   WRITEH5SLAB("z", tmpData, gLocations, local_start, local_count, global_count,

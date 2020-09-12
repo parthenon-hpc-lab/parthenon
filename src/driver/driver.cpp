@@ -123,7 +123,7 @@ void EvolutionDriver::PostExecute(DriverStatus status) {
 void EvolutionDriver::InitializeBlockTimeSteps() {
   // calculate the first time step
   for (auto &pmb : pmesh->block_list) {
-    pmb->SetBlockTimestep(Update::EstimateTimestep(mb.real_containers.Get()));
+    pmb->SetBlockTimestep(Update::EstimateTimestep(pmb->real_containers.Get()));
   }
 }
 

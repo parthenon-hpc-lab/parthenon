@@ -188,8 +188,8 @@ void Mesh::CalculateLoadBalance(std::vector<double> const &costlist,
 void Mesh::ResetLoadBalanceVariables() {
   if (lb_automatic_) {
     for (auto &pmb : block_list) {
-      costlist[mb->gid] = TINY_NUMBER;
-      mb->ResetTimeMeasurement();
+      costlist[pmb->gid] = TINY_NUMBER;
+      pmb->ResetTimeMeasurement();
     }
   }
   lb_flag_ = false;

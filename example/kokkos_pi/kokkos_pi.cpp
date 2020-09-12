@@ -58,8 +58,10 @@
 
 // Get most commonly used parthenon package includes
 #include "kokkos_abstraction.hpp"
+#include "parthenon/driver.hpp"
 #include "parthenon/package.hpp"
 using namespace parthenon::package::prelude;
+using namespace parthenon::driver::prelude;
 
 using View2D = Kokkos::View<Real **, Kokkos::LayoutRight, Kokkos::DefaultExecutionSpace>;
 
@@ -116,7 +118,7 @@ static void usage(std::string program) {
             << std::endl;
 }
 
-static double sumArray(std::list<MeshBlock> &blocks, const int &n_block) {
+static double sumArray(BlockList_t &blocks, const int &n_block) {
   // This policy is over one block
   const int n_block2 = n_block * n_block;
   const int n_block3 = n_block * n_block * n_block;
@@ -125,8 +127,8 @@ static double sumArray(std::list<MeshBlock> &blocks, const int &n_block) {
   double theSum = 0.0;
   // reduce the sum on the device
   // I'm pretty sure I can do this better, but not worried about performance for this
-  for (auto &mb : blocks) {
-    auto &base = mb.real_containers.Get();
+  for (auto &pmb : blocks) {
+    auto &base = pmb->real_containers.Get();
     auto inOrOut = base->PackVariables({Metadata::Independent});
     double oneSum;
     Kokkos::parallel_reduce(
@@ -145,9 +147,8 @@ static double sumArray(std::list<MeshBlock> &blocks, const int &n_block) {
   return theSum;
 }
 
-static std::list<MeshBlock> setupMesh(const int &n_block, const int &n_mesh,
-                                      const double &radius, View2D &xyz,
-                                      const int NG = 0) {
+static BlockList_t setupMesh(const int &n_block, const int &n_mesh, const double &radius,
+                             View2D &xyz, const int NG = 0) {
   // *** Kludge warning ***
   // Since our mesh is not GPU friendly we set up a hacked up
   // collection of mesh blocks.  The hope is that when our mesh is
@@ -214,7 +215,7 @@ result_t naiveKokkos(int n_block, int n_mesh, int n_iter, double radius) {
   double time_basic = kernel_timer_wrapper(0, n_iter, [&]() {
     auto pmb = blocks.begin();
     for (int iMesh = 0; iMesh < n_mesh3; iMesh++, pmb++) {
-      auto &base = pmb->real_containers.Get();
+      auto &base = (*pmb)->real_containers.Get();
       auto inOrOut = base->PackVariables({Metadata::Independent});
       // iops = 8  fops = 11
       Kokkos::parallel_for(
@@ -263,7 +264,7 @@ result_t naiveParFor(int n_block, int n_mesh, int n_iter, double radius) {
   double time_basic = kernel_timer_wrapper(0, n_iter, [&]() {
     auto pmb = blocks.begin();
     for (int iMesh = 0; iMesh < n_mesh3; iMesh++, pmb++) {
-      auto &base = pmb->real_containers.Get();
+      auto &base = (*pmb)->real_containers.Get();
       auto inOrOut = base->PackVariables({Metadata::Independent});
       // iops = 0  fops = 11
       par_for(

@@ -1008,7 +1008,7 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin, ApplicationInput *app_i
 #pragma omp parallel for num_threads(nthreads)
       for (int i = 0; i < nmb; ++i) {
         auto &pmb = block_list[i];
-        pmb->ProblemGenerator(pmb, pin);
+        pmb->ProblemGenerator(pmb.get(), pin);
       }
     }
 

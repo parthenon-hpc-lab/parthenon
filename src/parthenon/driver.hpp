@@ -39,6 +39,7 @@ using namespace ::parthenon::prelude;
 
 using ::parthenon::ApplicationInput;
 using ::parthenon::ApplyBoundaryConditions;
+using ::parthenon::BlockList_t;
 using ::parthenon::Driver;
 using ::parthenon::DriverStatus;
 using ::parthenon::Integrator;
