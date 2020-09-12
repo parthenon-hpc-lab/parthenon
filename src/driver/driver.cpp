@@ -1,4 +1,3 @@
-
 //========================================================================================
 // (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
 //
@@ -39,8 +38,7 @@ void Driver::PostExecute() {
     SignalHandler::CancelWallTimeAlarm();
     // Calculate and print the zone-cycles/cpu-second and wall-second
     std::uint64_t zonecycles =
-        pmesh->mbcnt *
-        static_cast<std::uint64_t>(pmesh->block_list.front().GetNumberOfMeshBlockCells());
+        pmesh->mbcnt * static_cast<std::uint64_t>(pmesh->GetNumberOfMeshBlockCells());
 
     auto wtime = timer_main.seconds();
     std::cout << std::endl << "walltime used = " << wtime << std::endl;
@@ -124,8 +122,8 @@ void EvolutionDriver::PostExecute(DriverStatus status) {
 
 void EvolutionDriver::InitializeBlockTimeSteps() {
   // calculate the first time step
-  for (auto &mb : pmesh->block_list) {
-    mb.SetBlockTimestep(Update::EstimateTimestep(mb.real_containers.Get()));
+  for (auto &pmb : pmesh->block_list) {
+    pmb->SetBlockTimestep(Update::EstimateTimestep(mb.real_containers.Get()));
   }
 }
 
@@ -136,8 +134,8 @@ void EvolutionDriver::InitializeBlockTimeSteps() {
 void EvolutionDriver::SetGlobalTimeStep() {
   Real dt_max = 2.0 * tm.dt;
   tm.dt = std::numeric_limits<Real>::max();
-  for (auto const &mb : pmesh->block_list) {
-    tm.dt = std::min(tm.dt, mb.NewDt());
+  for (auto const &pmb : pmesh->block_list) {
+    tm.dt = std::min(tm.dt, pmb->NewDt());
   }
   tm.dt = std::min(dt_max, tm.dt);
 
@@ -159,8 +157,7 @@ void EvolutionDriver::OutputCycleDiagnostics() {
       if (Globals::my_rank == 0) {
         std::uint64_t zonecycles =
             (pmesh->mbcnt - mbcnt_prev) *
-            static_cast<std::uint64_t>(
-                pmesh->block_list.front().GetNumberOfMeshBlockCells());
+            static_cast<std::uint64_t>(pmesh->GetNumberOfMeshBlockCells());
         std::cout << "cycle=" << tm.ncycle << std::scientific
                   << std::setprecision(dt_precision) << " time=" << tm.time
                   << " dt=" << tm.dt << std::setprecision(2) << " zone-cycles/wsec = "

@@ -50,6 +50,7 @@
 #include <stdio.h>
 
 #include <iostream>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -158,7 +159,8 @@ static std::list<MeshBlock> setupMesh(const int &n_block, const int &n_mesh,
 
   // Set up our mesh.
   Metadata myMetadata({Metadata::Independent, Metadata::Cell});
-  std::list<MeshBlock> block_list;
+  BlockList_t block_list;
+  block_list.reserve(n_mesh*n_mesh*n_mesh);
 
   // compute an offset due to ghost cells
   double delta = dxyzCell * static_cast<Real>(NG);
@@ -168,15 +170,15 @@ static std::list<MeshBlock> setupMesh(const int &n_block, const int &n_mesh,
     for (int j_mesh = 0; j_mesh < n_mesh; j_mesh++) {
       for (int i_mesh = 0; i_mesh < n_mesh; i_mesh++, idx++) {
         // get a new meshblock and insert into chain
-        block_list.emplace_back(n_block, 3);
-        auto &mb = block_list.back();
+        block_list.push_back(std::make_shared<MeshBlock>(n_block, 3));
+        auto &pmb = block_list.back();
         // set coordinates of first cell center
         h_xyz(0, idx) = dxyzCell * (static_cast<Real>(i_mesh * n_block) + 0.5) - delta;
         h_xyz(1, idx) = dxyzCell * (static_cast<Real>(j_mesh * n_block) + 0.5) - delta;
         h_xyz(2, idx) = dxyzCell * (static_cast<Real>(k_mesh * n_block) + 0.5) - delta;
         // Add variable for in_or_out
-        auto &base = mb.real_containers.Get();
-        base->setBlock(&mb);
+        auto &base = pmb->real_containers.Get();
+        base->setBlock(pmb.get());
         base->Add("in_or_out", myMetadata);
       }
     }

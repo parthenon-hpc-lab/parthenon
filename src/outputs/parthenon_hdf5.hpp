@@ -68,7 +68,7 @@ using parthenon::Real;
 #define LOADVARIABLEALL(dst, pm, var, is, ie, js, je, ks, ke)                            \
   {                                                                                      \
     int index = 0;                                                                       \
-    for (auto &mb : pm->block_list) {                                                    \
+    for (auto &pmb : pm->block_list) {                                                   \
       for (int k = ks; k <= ke; k++) {                                                   \
         for (int j = js; j <= je; j++) {                                                 \
           for (int i = is; i <= ie; i++) {                                               \

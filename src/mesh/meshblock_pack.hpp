@@ -14,6 +14,7 @@
 #define MESH_MESHBLOCK_PACK_HPP_
 
 #include <array>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -76,17 +77,13 @@ using MeshBlockVarPack = MeshBlockPack<VariablePack<T>>;
 template <typename T>
 using MeshBlockVarFluxPack = MeshBlockPack<VariableFluxPack<T>>;
 
-namespace meshpack {
-using blocks_t = std::vector<MeshBlock *>;
-} // namespace meshpack
-
 // TODO(JMM): Should this be cached?
 namespace mesh_pack_impl {
-using meshpack::blocks_t;
+using meshpack::BlockList_t;
 
 // TODO(JMM): blocks data type might change
 template <typename T, typename F>
-auto PackMesh(blocks_t &blocks, F &packing_function) {
+auto PackMesh(BlockList_t &blocks, F &packing_function) {
   int nblocks = blocks.size();
   ParArray1D<T> packs("MakeMeshVariablePack::view", nblocks);
   auto packs_host = Kokkos::create_mirror_view(packs);
@@ -109,23 +106,14 @@ auto PackMesh(blocks_t &blocks, F &packing_function) {
   Kokkos::deep_copy(packs, packs_host);
   Kokkos::deep_copy(coords, coords_host);
 
-  auto cellbounds = blocks[0]->cellbounds;
+  auto cellbounds = blocks.front()->cellbounds;
 
   return MeshBlockPack<T>(packs, cellbounds, coords, dims);
 }
 
-// TODO(JMM): Should we merge block_list and the vector of meshblock pointers
-// in some way? What's the right thing to do here?
 template <typename T, typename F>
 auto PackMesh(Mesh *pmesh, F &packing_function) {
-  int nblocks = pmesh->GetNumMeshBlocksThisRank();
-  blocks_t blocks;
-  blocks.reserve(nblocks);
-
-  for (auto &mb : pmesh->block_list) {
-    blocks.push_back(&mb);
-  }
-  return PackMesh<T, F>(blocks, packing_function);
+  return PackMesh<T, F>(pmesh->block_list, packing_function);
 }
 } // namespace mesh_pack_impl
 
@@ -133,7 +121,7 @@ auto PackMesh(Mesh *pmesh, F &packing_function) {
 template <typename T, typename... Args>
 auto PackVariablesOnMesh(T &blocks, const std::string &container_name, Args &&... args) {
   using namespace mesh_pack_impl;
-  auto pack_function = [&](MeshBlock *pmb) {
+  auto pack_function = [&](std::shared_ptr<MeshBlock> &pmb) {
     auto container = pmb->real_containers.Get(container_name);
     return container->PackVariables(std::forward<Args>(args)...);
   };
@@ -143,7 +131,7 @@ template <typename T, typename... Args>
 auto PackVariablesAndFluxesOnMesh(T &blocks, const std::string &container_name,
                                   Args &&... args) {
   using namespace mesh_pack_impl;
-  auto pack_function = [&](MeshBlock *pmb) {
+  auto pack_function = [&](std::shared_ptr<MeshBlock> &pmb) {
     auto container = pmb->real_containers.Get(container_name);
     return container->PackVariablesAndFluxes(std::forward<Args>(args)...);
   };
