@@ -154,7 +154,7 @@ void Swarm::Remove(const std::string label) {
 }
 
 void Swarm::setPoolMax(const int nmax_pool) {
-  printf("Setting swarm pool max!");
+  printf("Setting swarm pool max!\n");
   if (nmax_pool < nmax_pool_) {
     printf("Must increase pool size!\n");
     exit(-1);
@@ -282,7 +282,7 @@ void Swarm::setPoolMax(const int nmax_pool) {
   }*/
 
   nmax_pool_ = nmax_pool;
-  printf("Done setting swarm pool max!");
+  printf("Done setting swarm pool max!\n");
 }
 
 /*int Swarm::AddEmptyParticle()
@@ -312,7 +312,7 @@ void Swarm::setPoolMax(const int nmax_pool) {
 }*/
 
 ParArrayND<bool> Swarm::AddEmptyParticles(int num_to_add) {
-  printf("Adding empty particles!");
+  printf("Adding empty particles!\n");
   while (free_indices_.size() < num_to_add) {
     increasePoolMax();
   }
@@ -349,7 +349,7 @@ ParArrayND<bool> Swarm::AddEmptyParticles(int num_to_add) {
   }
 
   num_active_ += num_to_add;
-  printf("Done adding empty particles!");
+  printf("Done adding empty particles!\n");
 
   new_mask.DeepCopy(new_mask_h);
   mask_.data.DeepCopy(mask_h);
@@ -364,8 +364,8 @@ void Swarm::RemoveMarkedParticles() {
   printf("Removing marked particles!\n");
   int new_max_active_index = -1; // TODO BRR this is a magic number, needed for Defrag()
 
-  auto mask_h = mask_.data.GetHostMirror();
-  mask_h.DeepCopy(mask_.data);
+  auto mask_h = mask_.data.GetHostMirrorAndCopy();
+  //mask_h.DeepCopy(mask_.data);
   auto marked_for_removal_h = marked_for_removal_.data.GetHostMirror();
   marked_for_removal_h.DeepCopy(marked_for_removal_.data);
 
@@ -404,8 +404,8 @@ void Swarm::RemoveMarkedParticles() {
 }*/
 
 void Swarm::Defrag() {
-  printf("Defragging!");
 /*  // TODO(BRR) Could this algorithm be more efficient?
+  printf("Defragging!\n");
   // Add 1 to convert max index to max number
   int num_free = (max_active_index_ + 1) - num_active_;
 
