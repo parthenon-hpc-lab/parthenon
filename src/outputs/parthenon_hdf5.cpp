@@ -29,15 +29,15 @@ static std::string stringXdmfArrayRef(const std::string &prefix,
                                       const std::string &label, const hsize_t *dims,
                                       const int &ndims, const std::string &theType,
                                       const int &precision) {
-  //   std::string mystr =
-  //       prefix + R"(<DataItem Format="HDF" Dimensions=")" + std::to_string(dims[0]);
-  //   for (int i = 1; i < ndims; i++)
-  //     mystr += " " + std::to_string(dims[i]);
-  //   mystr += "\" Name=\"" + label + "\"";
-  //   mystr += " NumberType=\"" + theType + "\"";
-  //   mystr += R"( Precision=")" + std::to_string(precision) + R"(">)" + '\n';
-  //   mystr += prefix + "  " + hdfPath + label + "</DataItem>" + '\n';
-  //   return mystr;
+  std::string mystr =
+      prefix + R"(<DataItem Format="HDF" Dimensions=")" + std::to_string(dims[0]);
+  for (int i = 1; i < ndims; i++)
+    mystr += " " + std::to_string(dims[i]);
+  mystr += "\" Name=\"" + label + "\"";
+  mystr += " NumberType=\"" + theType + "\"";
+  mystr += R"( Precision=")" + std::to_string(precision) + R"(">)" + '\n';
+  mystr += prefix + "  " + hdfPath + label + "</DataItem>" + '\n';
+  return mystr;
 }
 
 static void writeXdmfArrayRef(std::ofstream &fid, const std::string &prefix,
