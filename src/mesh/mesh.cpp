@@ -1117,15 +1117,21 @@ std::shared_ptr<MeshBlock> Mesh::FindMeshBlock(int tgid) {
   // Attempt to simply index into the block list.
   int nbs = nslist[Globals::my_rank];
   int i = tgid - nbs;
-  if (block_list[i]->gid == tgid) {
+  if (0 <= i && i < block_list.size() && block_list[i]->gid == tgid) {
     return block_list[i];
   } else {
     // Fall back to brute force search.
     // TODO(JMM): If I forget to remove the fallback method, yell at me.
-    PARTHENON_WARN("Block not found by simple index! Attempting to search...");
+    // PARTHENON_WARN("Block not found via indexing. Searching...");
     auto it = std::find_if(
         block_list.begin(), block_list.end(),
         [tgid](std::shared_ptr<MeshBlock> const &pmb) { return pmb->gid == tgid; });
+    if (it == block_list.end()) {
+      PARTHENON_THROW("Block not found. tgid,nbs,list_size="
+                      + std::to_string(tgid) + ", " + std::to_string(nbs)
+                      + ", " + std::to_string(block_list.size())
+                      );
+    }
     return *it;
   }
 }
