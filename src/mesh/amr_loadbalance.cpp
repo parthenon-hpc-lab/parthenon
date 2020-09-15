@@ -592,9 +592,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   {
     RegionSize block_size = GetBlockSize();
 
-    BlockList_t new_block_list;
-    new_block_list.clear();
-    new_block_list.resize(nbe - nbs + 1);
+    BlockList_t new_block_list(nbe - nbs + 1);
     for (int n = nbs; n <= nbe; n++) {
       int on = newtoold[n];
       if ((ranklist[on] == Globals::my_rank) && (loclist[on].level == newloc[n].level)) {
