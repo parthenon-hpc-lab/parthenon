@@ -471,13 +471,16 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properti
   int nbs = nslist[Globals::my_rank];
   int nbe = nbs + nblist[Globals::my_rank] - 1;
   // create MeshBlock list for this process
+  block_list.clear();
+  block_list.resize(nbe - nbs + 1);
   for (int i = nbs; i <= nbe; i++) {
     SetBlockSizeAndBoundaries(loclist[i], block_size, block_bcs);
     // create a block and add into the link list
-    block_list.push_back(std::make_shared<MeshBlock>(i, i - nbs, loclist[i], block_size,
-                                                     block_bcs, this, pin, app_in,
-                                                     properties, packages, gflag));
-    block_list.back()->pbval->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
+    block_list[i - nbs] =
+        std::make_shared<MeshBlock>(i, i - nbs, loclist[i], block_size, block_bcs, this,
+                                    pin, app_in, properties, packages, gflag);
+    block_list[i - nbs]->pbval->SearchAndSetNeighbors(tree, ranklist.data(),
+                                                      nslist.data());
   }
 
   ResetLoadBalanceVariables();
@@ -727,6 +730,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   auto xmin = rr.ReadDataset<double>("/Blocks/xmin");
 
   // Create MeshBlocks (parallel)
+  block_list.clear();
+  block_list.resize(nbe - nbs + 1);
   for (int i = nbs; i <= nbe; i++) {
     for (auto &v : block_bcs) {
       v = parthenon::BoundaryFlag::undef;
@@ -734,10 +739,11 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
     SetBlockSizeAndBoundaries(loclist[i], block_size, block_bcs);
 
     // create a block and add into the link list
-    block_list.push_back(std::make_shared<MeshBlock>(
+    block_list[i - nbs] = std::make_shared<MeshBlock>(
         i, i - nbs, this, pin, app_in, properties, packages, loclist[i], block_size,
-        block_bcs, costlist[i], gflag));
-    block_list.back()->pbval->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
+        block_bcs, costlist[i], gflag);
+    block_list[i - nbs]->pbval->SearchAndSetNeighbors(tree, ranklist.data(),
+                                                      nslist.data());
   }
 
   ResetLoadBalanceVariables();
@@ -1002,8 +1008,9 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin, ApplicationInput *app_i
 #ifdef OPENMP_PARALLEL
   int nthreads = GetNumMeshThreads();
 #endif
-  int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
   do {
+    int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
+
     if (res_flag == 0) {
 #pragma omp parallel for num_threads(nthreads)
       for (int i = 0; i < nmb; ++i) {
@@ -1115,25 +1122,12 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin, ApplicationInput *app_i
 /// the search at.
 std::shared_ptr<MeshBlock> Mesh::FindMeshBlock(int tgid) {
   // Attempt to simply index into the block list.
-  int nbs = nslist[Globals::my_rank];
+  int nbs = block_list[0]->gid;
   int i = tgid - nbs;
-  if (0 <= i && i < block_list.size() && block_list[i]->gid == tgid) {
-    return block_list[i];
-  } else {
-    // Fall back to brute force search.
-    // TODO(JMM): If I forget to remove the fallback method, yell at me.
-    // PARTHENON_WARN("Block not found via indexing. Searching...");
-    auto it = std::find_if(
-        block_list.begin(), block_list.end(),
-        [tgid](std::shared_ptr<MeshBlock> const &pmb) { return pmb->gid == tgid; });
-    if (it == block_list.end()) {
-      PARTHENON_THROW("Block not found. tgid,nbs,list_size="
-                      + std::to_string(tgid) + ", " + std::to_string(nbs)
-                      + ", " + std::to_string(block_list.size())
-                      );
-    }
-    return *it;
-  }
+  PARTHENON_DEBUG_REQUIRE(0 <= i && i < block_list.size(),
+                          "MeshBlock local index out of bounds.");
+  PARTHENON_DEBUG_REQUIRE(block_list[i]->gid == tgid, "MeshBlock not found!");
+  return block_list[i];
 }
 
 //----------------------------------------------------------------------------------------
