@@ -46,6 +46,7 @@ nx2 = 16
 nx3 = 1
 
 <parthenon/time>
+nlim = -1
 tlim = 1.0
 integrator = rk2
 
