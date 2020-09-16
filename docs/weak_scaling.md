@@ -30,7 +30,7 @@ make -j
 
 ### To Run
 
-- Note that if you disabled HDF5 in the previous step, you mest open
+- Note that if you disabled HDF5 in the previous step, you must open
   up the `parthinput.advection` file and comment out all blocks
   beginning with `<parthenon/output*>`.
 
