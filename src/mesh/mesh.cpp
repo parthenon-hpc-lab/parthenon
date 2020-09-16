@@ -1122,8 +1122,8 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin, ApplicationInput *app_i
 /// the search at.
 std::shared_ptr<MeshBlock> Mesh::FindMeshBlock(int tgid) {
   // Attempt to simply index into the block list.
-  int nbs = block_list[0]->gid;
-  int i = tgid - nbs;
+  const int nbs = block_list[0]->gid;
+  const int i = tgid - nbs;
   PARTHENON_DEBUG_REQUIRE(0 <= i && i < block_list.size(),
                           "MeshBlock local index out of bounds.");
   PARTHENON_DEBUG_REQUIRE(block_list[i]->gid == tgid, "MeshBlock not found!");
