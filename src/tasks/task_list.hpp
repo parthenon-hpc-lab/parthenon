@@ -73,7 +73,7 @@ class TaskList {
   TaskID AddTask(F &&func, TaskID const &dep, Args &&... args) {
     TaskID id(tasks_added_ + 1);
     task_list_.push_back(
-        Task(id, dep, [=, func{std::forward<F>(func)}]() mutable -> TaskStatus {
+        Task(id, dep, [=, func = std::forward<F>(func)]() mutable -> TaskStatus {
           return func(args...);
         }));
     tasks_added_++;
