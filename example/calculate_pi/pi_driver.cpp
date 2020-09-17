@@ -130,7 +130,7 @@ TaskCollection PiDriver::MakeTasks(T &blocks) {
   int pack_size = pinput->GetOrAddInteger("Pi", "pack_size", 1);
   if (pack_size < 1) pack_size = blocks.size();
 
-  partition::Partition_t<MeshBlock> partitions;
+  std::vector<BlockList_t> partitions;
   partition::ToSizeN(blocks, pack_size, partitions);
   ParArrayHost<Real> areas("areas", partitions.size());
 

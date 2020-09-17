@@ -20,10 +20,11 @@
 
 namespace parthenon {
 namespace partition {
-// TODO(JMM): The templated type safety with T* and T may need to be
-// changed if we move to sufficiently general container objects.
+// Note the interface here has objects in partition are now
+// COPIED, not pointed at.
+// Change is due to using std::shared_ptr<MeshBlock>
 template <typename T>
-using Partition_t = std::vector<std::vector<T *>>;
+using Partition_t = std::vector<std::vector<T>>;
 
 namespace partition_impl {
 // x/y rounded up
@@ -60,7 +61,7 @@ void ToSizeN(Container_t &container, const int N, Partition_t<T> &partitions) {
   int p = 0;
   int b = 0;
   for (auto &element : container) {
-    partitions[p].push_back(&element);
+    partitions[p].push_back(element);
     if (++b >= N) {
       ++p;
       b = 0;

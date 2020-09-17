@@ -36,7 +36,7 @@ inline void check_partitions_even(Partition_t<int> partitions, int nelements, in
   int n_incorrect = 0;
   for (int p = 0; p < partitions.size(); p++) {
     for (int i = 0; i < elements_per_part; i++) {
-      if (*partitions[p][i] != p * elements_per_part + i) {
+      if (partitions[p][i] != p * elements_per_part + i) {
         n_incorrect++;
       }
     }
@@ -156,7 +156,7 @@ TEST_CASE("Check that partitioning a container works", "[Partition]") {
         int n_incorrect = 0;
         for (int p = 0; p < partitions.size() - 1; p++) {
           for (int i = 0; i < elements_per_part; i++) {
-            if (*partitions[p][i] != p * elements_per_part + i) {
+            if (partitions[p][i] != p * elements_per_part + i) {
               n_incorrect++;
             }
           }
@@ -165,7 +165,7 @@ TEST_CASE("Check that partitioning a container works", "[Partition]") {
         AND_THEN("The elements are correct for the final partition") {
           const int p = partitions.size() - 1;
           for (int i = 0; i < leftover; i++) {
-            REQUIRE(*partitions[p][i] == p * elements_per_part + i);
+            REQUIRE(partitions[p][i] == p * elements_per_part + i);
           }
         }
       }
@@ -179,7 +179,7 @@ TEST_CASE("Check that partitioning a container works", "[Partition]") {
         int n_incorrect = 0;
         for (int p = 0; p < partitions.size(); p++) {
           for (int i = 0; i < partitions[p].size(); i++) {
-            if (*partitions[p][i] != *partitions_v2[p][i]) {
+            if (partitions[p][i] != partitions_v2[p][i]) {
               n_incorrect++;
             }
           }
