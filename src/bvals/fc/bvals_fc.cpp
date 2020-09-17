@@ -25,6 +25,7 @@
 #include <cstring>
 #include <iomanip>
 #include <iostream>
+#include <memory>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -39,7 +40,8 @@
 
 namespace parthenon {
 
-FaceCenteredBoundaryVariable::FaceCenteredBoundaryVariable(MeshBlock *pmb, FaceField *var,
+FaceCenteredBoundaryVariable::FaceCenteredBoundaryVariable(std::weak_ptr<MeshBlock> pmb,
+                                                           FaceField *var,
                                                            FaceField &coarse_buf,
                                                            EdgeField &var_flux)
     : BoundaryVariable(pmb), var_fc(var), coarse_buf(coarse_buf) {
@@ -51,7 +53,7 @@ FaceCenteredBoundaryVariable::FaceCenteredBoundaryVariable(MeshBlock *pmb, FaceF
 #ifdef MPI_PARALLEL
   // KGF: dead code, leaving for now:
   // fc_phys_id_ = pmb->pbval->ReserveTagVariableIDs(2);
-  fc_phys_id_ = pmb->pbval->bvars_next_phys_id_;
+  fc_phys_id_ = pmb.lock()->pbval->bvars_next_phys_id_;
   fc_flx_phys_id_ = fc_phys_id_ + 1;
 #endif
 }
@@ -65,7 +67,7 @@ FaceCenteredBoundaryVariable::~FaceCenteredBoundaryVariable() {
 
 int FaceCenteredBoundaryVariable::ComputeVariableBufferSize(const NeighborIndexes &ni,
                                                             int cng) {
-  MeshBlock *pmb = pmy_block_;
+  std::shared_ptr<MeshBlock> pmb = pmy_block_.lock();
   int nx1 = pmb->block_size.nx1;
   int nx2 = pmb->block_size.nx2;
   int nx3 = pmb->block_size.nx3;
@@ -122,7 +124,7 @@ int FaceCenteredBoundaryVariable::ComputeVariableBufferSize(const NeighborIndexe
 
 int FaceCenteredBoundaryVariable::ComputeFluxCorrectionBufferSize(
     const NeighborIndexes &ni, int cng) {
-  MeshBlock *pmb = pmy_block_;
+  std::shared_ptr<MeshBlock> pmb = pmy_block_.lock();
   int nx1 = pmb->block_size.nx1;
   int nx2 = pmb->block_size.nx2;
   int nx3 = pmb->block_size.nx3;
@@ -164,7 +166,7 @@ int FaceCenteredBoundaryVariable::ComputeFluxCorrectionBufferSize(
 
 int FaceCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(ParArray1D<Real> &buf,
                                                               const NeighborBlock &nb) {
-  MeshBlock *pmb = pmy_block_;
+  std::shared_ptr<MeshBlock> pmb = pmy_block_.lock();
   int si, sj, sk, ei, ej, ek;
   int p = 0;
 
@@ -239,7 +241,7 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(ParArray1D<Real> &
 
 int FaceCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(ParArray1D<Real> &buf,
                                                               const NeighborBlock &nb) {
-  MeshBlock *pmb = pmy_block_;
+  std::shared_ptr<MeshBlock> pmb = pmy_block_.lock();
   auto &pmr = pmb->pmr;
   int si, sj, sk, ei, ej, ek;
   int cng = NGHOST;
@@ -335,7 +337,7 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(ParArray1D<Real> &
 
 int FaceCenteredBoundaryVariable::LoadBoundaryBufferToFiner(ParArray1D<Real> &buf,
                                                             const NeighborBlock &nb) {
-  MeshBlock *pmb = pmy_block_;
+  std::shared_ptr<MeshBlock> pmb = pmy_block_.lock();
   int nx1 = pmb->block_size.nx1;
   int nx2 = pmb->block_size.nx2;
   int nx3 = pmb->block_size.nx3;
@@ -501,7 +503,7 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToFiner(ParArray1D<Real> &bu
 
 void FaceCenteredBoundaryVariable::SetBoundarySameLevel(ParArray1D<Real> &buf,
                                                         const NeighborBlock &nb) {
-  MeshBlock *pmb = pmy_block_;
+  std::shared_ptr<MeshBlock> pmb = pmy_block_.lock();
   int si, sj, sk, ei, ej, ek;
 
   int p = 0;
@@ -614,7 +616,7 @@ void FaceCenteredBoundaryVariable::SetBoundarySameLevel(ParArray1D<Real> &buf,
 
 void FaceCenteredBoundaryVariable::SetBoundaryFromCoarser(ParArray1D<Real> &buf,
                                                           const NeighborBlock &nb) {
-  MeshBlock *pmb = pmy_block_;
+  std::shared_ptr<MeshBlock> pmb = pmy_block_.lock();
   int si, sj, sk, ei, ej, ek;
   int cng = pmb->cnghost;
   int p = 0;
@@ -754,7 +756,7 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromCoarser(ParArray1D<Real> &buf,
 
 void FaceCenteredBoundaryVariable::SetBoundaryFromFiner(ParArray1D<Real> &buf,
                                                         const NeighborBlock &nb) {
-  MeshBlock *pmb = pmy_block_;
+  std::shared_ptr<MeshBlock> pmb = pmy_block_.lock();
   // receive already restricted data
   int si, sj, sk, ei, ej, ek;
   int p = 0;
@@ -944,7 +946,7 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromFiner(ParArray1D<Real> &buf,
 }
 
 void FaceCenteredBoundaryVariable::CountFineEdges() {
-  MeshBlock *pmb = pmy_block_;
+  std::shared_ptr<MeshBlock> pmb = pmy_block_.lock();
   int &mylevel = pmb->loc.level;
 
   // count the number of the fine meshblocks contacting on each edge
@@ -1009,7 +1011,7 @@ void FaceCenteredBoundaryVariable::SetupPersistentMPI() {
   CountFineEdges();
 
 #ifdef MPI_PARALLEL
-  MeshBlock *pmb = pmy_block_;
+  std::shared_ptr<MeshBlock> pmb = pmy_block_.lock();
   int nx1 = pmb->block_size.nx1;
   int nx2 = pmb->block_size.nx2;
   int nx3 = pmb->block_size.nx3;
@@ -1179,7 +1181,7 @@ void FaceCenteredBoundaryVariable::SetupPersistentMPI() {
 void FaceCenteredBoundaryVariable::StartReceiving(BoundaryCommSubset phase) {
   if (phase == BoundaryCommSubset::all) recv_flx_same_lvl_ = true;
 #ifdef MPI_PARALLEL
-  MeshBlock *pmb = pmy_block_;
+  std::shared_ptr<MeshBlock> pmb = pmy_block_.lock();
   int mylevel = pmb->loc.level;
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
@@ -1202,8 +1204,9 @@ void FaceCenteredBoundaryVariable::StartReceiving(BoundaryCommSubset phase) {
 
 void FaceCenteredBoundaryVariable::ClearBoundary(BoundaryCommSubset phase) {
   // Clear non-polar boundary communications
-  for (int n = 0; n < pmy_block_->pbval->nneighbor; n++) {
-    NeighborBlock &nb = pmy_block_->pbval->neighbor[n];
+  std::shared_ptr<MeshBlock> pmb = pmy_block_.lock();
+  for (int n = 0; n < pmb->pbval->nneighbor; n++) {
+    NeighborBlock &nb = pmb->pbval->neighbor[n];
     bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
     bd_var_.sflag[nb.bufid] = BoundaryStatus::waiting;
     if (((nb.ni.type == NeighborConnect::face) ||
@@ -1213,7 +1216,6 @@ void FaceCenteredBoundaryVariable::ClearBoundary(BoundaryCommSubset phase) {
       bd_var_flcor_.sflag[nb.bufid] = BoundaryStatus::waiting;
     }
 #ifdef MPI_PARALLEL
-    MeshBlock *pmb = pmy_block_;
     int mylevel = pmb->loc.level;
     if (nb.snb.rank != Globals::my_rank && phase != BoundaryCommSubset::gr_amr) {
       pmb->exec_space.fence();

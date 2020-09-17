@@ -19,6 +19,8 @@
 //! \file buffer_utils.hpp
 //  \brief prototypes of utility functions to pack/unpack buffers
 
+#include <memory>
+
 #include "defs.hpp"
 #include "parthenon_arrays.hpp"
 
@@ -29,19 +31,21 @@ namespace BufferUtility {
 // 4D
 template <typename T>
 void PackData(ParArray4D<T> &src, ParArray1D<T> &buf, int sn, int en, int si, int ei,
-              int sj, int ej, int sk, int ek, int &offset, MeshBlock *pmb);
+              int sj, int ej, int sk, int ek, int &offset,
+              std::shared_ptr<MeshBlock> pmb);
 // 3D
 template <typename T>
 void PackData(ParArray3D<T> &src, ParArray1D<T> &buf, int si, int ei, int sj, int ej,
-              int sk, int ek, int &offset, MeshBlock *pmb);
+              int sk, int ek, int &offset, std::shared_ptr<MeshBlock> pmb);
 // 4D
 template <typename T>
 void UnpackData(ParArray1D<T> &buf, ParArray4D<T> &dst, int sn, int en, int si, int ei,
-                int sj, int ej, int sk, int ek, int &offset, MeshBlock *pmb);
+                int sj, int ej, int sk, int ek, int &offset,
+                std::shared_ptr<MeshBlock> pmb);
 // 3D
 template <typename T>
 void UnpackData(ParArray1D<T> &buf, ParArray3D<T> &dst, int si, int ei, int sj, int ej,
-                int sk, int ek, int &offset, MeshBlock *pmb);
+                int sk, int ek, int &offset, std::shared_ptr<MeshBlock> pmb);
 
 } // namespace BufferUtility
 } // namespace parthenon

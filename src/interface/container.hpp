@@ -45,7 +45,7 @@ class Container {
   //-----------------
   // Public Variables
   //-----------------
-  MeshBlock *pmy_block = nullptr; // ptr to MeshBlock
+  std::weak_ptr<MeshBlock> pmy_block;
 
   //-----------------
   // Public Methods
@@ -71,7 +71,7 @@ class Container {
 
   ///
   /// Set the pointer to the mesh block for this container
-  void setBlock(MeshBlock *pmb) { pmy_block = pmb; }
+  void setBlock(std::weak_ptr<MeshBlock> pmb) { pmy_block = pmb; }
 
   ///
   /// Allocate and add a variable<T> to the container

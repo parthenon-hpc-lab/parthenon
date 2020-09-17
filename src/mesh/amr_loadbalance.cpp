@@ -555,7 +555,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
         if (newrank[nn] == Globals::my_rank) continue;
         sendbuf[sb_idx] =
             ParArray1D<Real>("amr send buf same" + std::to_string(sb_idx), bssame);
-        PrepareSendSameLevel(&*pb, sendbuf[sb_idx]);
+        PrepareSendSameLevel(pb, sendbuf[sb_idx]);
         int tag = CreateAMRMPITag(nn - nslist[newrank[nn]], 0, 0, 0);
         MPI_Isend(sendbuf[sb_idx].data(), bssame, MPI_PARTHENON_REAL, newrank[nn], tag,
                   MPI_COMM_WORLD, &(req_send[sb_idx]));
@@ -566,7 +566,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
           if (newrank[nn + l] == Globals::my_rank) continue;
           sendbuf[sb_idx] =
               ParArray1D<Real>("amr send buf c2f" + std::to_string(sb_idx), bsc2f);
-          PrepareSendCoarseToFineAMR(&*pb, sendbuf[sb_idx], newloc[nn + l]);
+          PrepareSendCoarseToFineAMR(pb, sendbuf[sb_idx], newloc[nn + l]);
           int tag = CreateAMRMPITag(nn + l - nslist[newrank[nn + l]], 0, 0, 0);
           MPI_Isend(sendbuf[sb_idx].data(), bsc2f, MPI_PARTHENON_REAL, newrank[nn + l],
                     tag, MPI_COMM_WORLD, &(req_send[sb_idx]));
@@ -576,7 +576,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
         if (newrank[nn] == Globals::my_rank) continue;
         sendbuf[sb_idx] =
             ParArray1D<Real>("amr send buf f2c" + std::to_string(sb_idx), bsf2c);
-        PrepareSendFineToCoarseAMR(&*pb, sendbuf[sb_idx]);
+        PrepareSendFineToCoarseAMR(pb, sendbuf[sb_idx]);
         int ox1 = ((oloc.lx1 & 1LL) == 1LL), ox2 = ((oloc.lx2 & 1LL) == 1LL),
             ox3 = ((oloc.lx3 & 1LL) == 1LL);
         int tag = CreateAMRMPITag(nn - nslist[newrank[nn]], ox1, ox2, ox3);
@@ -651,19 +651,19 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       if (oloc.level == nloc.level) { // same
         if (ranklist[on] == Globals::my_rank) continue;
         MPI_Wait(&(req_recv[rb_idx]), MPI_STATUS_IGNORE);
-        FinishRecvSameLevel(&*pb, recvbuf[rb_idx]);
+        FinishRecvSameLevel(pb, recvbuf[rb_idx]);
         rb_idx++;
       } else if (oloc.level > nloc.level) { // f2c
         for (int l = 0; l < nleaf; l++) {
           if (ranklist[on + l] == Globals::my_rank) continue;
           MPI_Wait(&(req_recv[rb_idx]), MPI_STATUS_IGNORE);
-          FinishRecvFineToCoarseAMR(&*pb, recvbuf[rb_idx], loclist[on + l]);
+          FinishRecvFineToCoarseAMR(pb, recvbuf[rb_idx], loclist[on + l]);
           rb_idx++;
         }
       } else { // c2f
         if (ranklist[on] == Globals::my_rank) continue;
         MPI_Wait(&(req_recv[rb_idx]), MPI_STATUS_IGNORE);
-        FinishRecvCoarseToFineAMR(&*pb, recvbuf[rb_idx]);
+        FinishRecvCoarseToFineAMR(pb, recvbuf[rb_idx]);
         rb_idx++;
       }
     }
@@ -703,7 +703,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
 
 // AMR: step 6, branch 1 (same2same: just pack+send)
 
-void Mesh::PrepareSendSameLevel(MeshBlock *pmb, ParArray1D<Real> &sendbuf) {
+void Mesh::PrepareSendSameLevel(std::shared_ptr<MeshBlock> pmb,
+                                ParArray1D<Real> &sendbuf) {
   // pack
   int p = 0;
 
@@ -753,8 +754,8 @@ void Mesh::PrepareSendSameLevel(MeshBlock *pmb, ParArray1D<Real> &sendbuf) {
 
 // step 6, branch 2 (c2f: just pack+send)
 
-void Mesh::PrepareSendCoarseToFineAMR(MeshBlock *pb, ParArray1D<Real> &sendbuf,
-                                      LogicalLocation &lloc) {
+void Mesh::PrepareSendCoarseToFineAMR(std::shared_ptr<MeshBlock> pb,
+                                      ParArray1D<Real> &sendbuf, LogicalLocation &lloc) {
   const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
   const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
   int ox1 = ((lloc.lx1 & 1LL) == 1LL), ox2 = ((lloc.lx2 & 1LL) == 1LL),
@@ -803,7 +804,8 @@ void Mesh::PrepareSendCoarseToFineAMR(MeshBlock *pb, ParArray1D<Real> &sendbuf,
 
 // step 6, branch 3 (f2c: restrict, pack, send)
 
-void Mesh::PrepareSendFineToCoarseAMR(MeshBlock *pb, ParArray1D<Real> &sendbuf) {
+void Mesh::PrepareSendFineToCoarseAMR(std::shared_ptr<MeshBlock> pb,
+                                      ParArray1D<Real> &sendbuf) {
   // restrict and pack
   const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
   const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
@@ -1053,7 +1055,8 @@ void Mesh::FillSameRankCoarseToFineAMR(MeshBlock *pob, MeshBlock *pmb,
 }
 
 // step 8 (receive and load), branch 1 (same2same: unpack)
-void Mesh::FinishRecvSameLevel(MeshBlock *pmb, ParArray1D<Real> &recvbuf) {
+void Mesh::FinishRecvSameLevel(std::shared_ptr<MeshBlock> pmb,
+                               ParArray1D<Real> &recvbuf) {
   int p = 0;
 
   const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
@@ -1103,8 +1106,8 @@ void Mesh::FinishRecvSameLevel(MeshBlock *pmb, ParArray1D<Real> &recvbuf) {
 }
 
 // step 8 (receive and load), branch 2 (f2c: unpack)
-void Mesh::FinishRecvFineToCoarseAMR(MeshBlock *pb, ParArray1D<Real> &recvbuf,
-                                     LogicalLocation &lloc) {
+void Mesh::FinishRecvFineToCoarseAMR(std::shared_ptr<MeshBlock> pb,
+                                     ParArray1D<Real> &recvbuf, LogicalLocation &lloc) {
   const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
   const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
 
@@ -1159,7 +1162,8 @@ void Mesh::FinishRecvFineToCoarseAMR(MeshBlock *pb, ParArray1D<Real> &recvbuf,
 }
 
 // step 8 (receive and load), branch 2 (c2f: unpack+prolongate)
-void Mesh::FinishRecvCoarseToFineAMR(MeshBlock *pb, ParArray1D<Real> &recvbuf) {
+void Mesh::FinishRecvCoarseToFineAMR(std::shared_ptr<MeshBlock> pb,
+                                     ParArray1D<Real> &recvbuf) {
   const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
   const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
   auto &pmr = pb->pmr;

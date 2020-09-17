@@ -19,6 +19,7 @@
 //! \file mesh_refinement.hpp
 //  \brief defines MeshRefinement class used for static/adaptive mesh refinement
 
+#include <memory>
 #include <tuple>
 #include <vector>
 
@@ -45,7 +46,7 @@ class MeshRefinement {
   friend class Mesh;
 
  public:
-  MeshRefinement(MeshBlock *pmb, ParameterInput *pin);
+  MeshRefinement(std::weak_ptr<MeshBlock> pmb, ParameterInput *pin);
 
   // functions
   void RestrictCellCenteredValues(const ParArrayND<Real> &fine, ParArrayND<Real> &coarse,
@@ -78,7 +79,7 @@ class MeshRefinement {
 
  private:
   // data
-  MeshBlock *pmy_block_;
+  std::weak_ptr<MeshBlock> pmy_block_;
   Coordinates_t coarse_coords;
 
   int refine_flag_, neighbor_rflag_, deref_count_, deref_threshold_;

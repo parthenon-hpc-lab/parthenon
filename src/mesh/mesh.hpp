@@ -73,7 +73,7 @@ KOKKOS_INLINE_FUNCTION void par_for_inner(const team_mbr_t &team_member, const i
 //----------------------------------------------------------------------------------------
 //! \class MeshBlock
 //  \brief data/functions associated with a single block
-class MeshBlock {
+class MeshBlock : std::enable_shared_from_this<MeshBlock> {
   friend class RestartOutput;
   friend class Mesh;
 
@@ -469,17 +469,19 @@ class Mesh {
 
   // Mesh::RedistributeAndRefineMeshBlocks() helper functions:
   // step 6: send
-  void PrepareSendSameLevel(MeshBlock *pb, ParArray1D<Real> &sendbuf);
-  void PrepareSendCoarseToFineAMR(MeshBlock *pb, ParArray1D<Real> &sendbuf,
-                                  LogicalLocation &lloc);
-  void PrepareSendFineToCoarseAMR(MeshBlock *pb, ParArray1D<Real> &sendbuf);
+  void PrepareSendSameLevel(std::shared_ptr<MeshBlock> pb, ParArray1D<Real> &sendbuf);
+  void PrepareSendCoarseToFineAMR(std::shared_ptr<MeshBlock> pb,
+                                  ParArray1D<Real> &sendbuf, LogicalLocation &lloc);
+  void PrepareSendFineToCoarseAMR(std::shared_ptr<MeshBlock> pb,
+                                  ParArray1D<Real> &sendbuf);
   // step 7: create new MeshBlock list (same MPI rank but diff level: create new block)
   // moved public to be called from device
   // step 8: receive
-  void FinishRecvSameLevel(MeshBlock *pb, ParArray1D<Real> &recvbuf);
-  void FinishRecvFineToCoarseAMR(MeshBlock *pb, ParArray1D<Real> &recvbuf,
+  void FinishRecvSameLevel(std::shared_ptr<MeshBlock> pb, ParArray1D<Real> &recvbuf);
+  void FinishRecvFineToCoarseAMR(std::shared_ptr<MeshBlock> pb, ParArray1D<Real> &recvbuf,
                                  LogicalLocation &lloc);
-  void FinishRecvCoarseToFineAMR(MeshBlock *pb, ParArray1D<Real> &recvbuf);
+  void FinishRecvCoarseToFineAMR(std::shared_ptr<MeshBlock> pb,
+                                 ParArray1D<Real> &recvbuf);
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   static void InitUserMeshDataDefault(ParameterInput *pin);

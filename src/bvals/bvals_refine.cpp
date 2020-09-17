@@ -75,7 +75,7 @@ namespace parthenon {
 // (automatically switches back to conserved variables at the end of fn)
 
 void BoundaryValues::ProlongateBoundaries(const Real time, const Real dt) {
-  MeshBlock *pmb = pmy_block_;
+  std::shared_ptr<MeshBlock> pmb = pmy_block_.lock();
   int &mylevel = pmb->loc.level;
 
   // This hardcoded technique is also used to manually specify the coupling between
@@ -202,7 +202,7 @@ void BoundaryValues::ProlongateBoundaries(const Real time, const Real dt) {
 
 void BoundaryValues::RestrictGhostCellsOnSameLevel(const NeighborBlock &nb, int nk,
                                                    int nj, int ni) {
-  MeshBlock *pmb = pmy_block_;
+  std::shared_ptr<MeshBlock> pmb = pmy_block_.lock();
   MeshRefinement *pmr = pmb->pmr.get();
 
   const IndexDomain interior = IndexDomain::interior;
@@ -294,7 +294,7 @@ void BoundaryValues::ApplyPhysicalBoundariesOnCoarseLevel(const NeighborBlock &n
 
 void BoundaryValues::ProlongateGhostCells(const NeighborBlock &nb, int si, int ei, int sj,
                                           int ej, int sk, int ek) {
-  MeshBlock *pmb = pmy_block_;
+  std::shared_ptr<MeshBlock> pmb = pmy_block_.lock();
   auto &pmr = pmb->pmr;
 
   for (auto cc_pair : pmr->pvars_cc_) {

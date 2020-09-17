@@ -19,6 +19,8 @@
 //! \file reconstruction.hpp
 //  \brief defines class Reconstruction, data and functions for spatial reconstruction
 
+#include <memory>
+
 #include "defs.hpp"
 #include "parthenon_arrays.hpp"
 
@@ -34,7 +36,7 @@ class Reconstruction {
  public:
   enum VelocityIndex { IVX = 1, IVY = 2, IVZ = 3 };
 
-  Reconstruction(MeshBlock *pmb, ParameterInput *pin);
+  Reconstruction(std::weak_ptr<MeshBlock> pmb, ParameterInput *pin);
 
   // data
   // switches for reconstruction method variants:
@@ -135,7 +137,8 @@ class Reconstruction {
                             ParArrayND<Real> &qr);
 
  private:
-  MeshBlock *pmy_block_; // ptr to MeshBlock containing this Reconstruction
+  // ptr to MeshBlock containing this Reconstruction
+  std::weak_ptr<MeshBlock> pmy_block_;
 
   // scratch arrays used in PLM and PPM reconstruction functions
   ParArrayND<Real> scr01_i_, scr02_i_, scr03_i_, scr04_i_, scr05_i_;

@@ -55,7 +55,7 @@ AmrTag CheckAllRefinement(std::shared_ptr<Container<Real>> &rc) {
   //    2) the code must maintain proper nesting, which sometimes means a block that is
   //       tagged as "derefine" must be left alone (or possibly refined?) because of
   //       neighboring blocks.  Similarly for "do nothing"
-  MeshBlock *pmb = rc->pmy_block;
+  std::shared_ptr<MeshBlock> pmb = rc->pmy_block.lock();
   // delta_level holds the max over all criteria.  default to derefining.
   AmrTag delta_level = AmrTag::derefine;
   for (auto &pkg : pmb->packages) {
@@ -73,7 +73,7 @@ AmrTag CheckAllRefinement(std::shared_ptr<Container<Real>> &rc) {
     for (auto &amr : desc->amr_criteria) {
       // get the recommended change in refinement level from this criteria
       AmrTag temp_delta = (*amr)(rc);
-      if ((temp_delta == AmrTag::refine) && rc->pmy_block->loc.level >= amr->max_level) {
+      if ((temp_delta == AmrTag::refine) && pmb->loc.level >= amr->max_level) {
         // don't refine if we're at the max level
         temp_delta = AmrTag::same;
       }

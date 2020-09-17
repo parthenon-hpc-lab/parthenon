@@ -33,15 +33,15 @@
 
 namespace parthenon {
 
-BoundaryVariable::BoundaryVariable(MeshBlock *pmb)
-    : bvar_index(), pmy_block_(pmb), pmy_mesh_(pmb->pmy_mesh) {}
+BoundaryVariable::BoundaryVariable(std::weak_ptr<MeshBlock> pmb)
+    : bvar_index(), pmy_block_(pmb), pmy_mesh_(pmb.lock()->pmy_mesh) {}
 
 //----------------------------------------------------------------------------------------
 //! \fn void BoundaryVariable::InitBoundaryData(BoundaryData<> &bd, BoundaryQuantity type)
 //  \brief Initialize BoundaryData structure
 
 void BoundaryVariable::InitBoundaryData(BoundaryData<> &bd, BoundaryQuantity type) {
-  MeshBlock *pmb = pmy_block_;
+  auto pmb = pmy_block_.lock();
   NeighborIndexes *ni = pmb->pbval->ni;
   int cng = pmb->cnghost;
   int size = 0;
@@ -138,7 +138,7 @@ void BoundaryVariable::CopyFluxCorrectionBufferSameProcess(NeighborBlock &nb, in
 //  \brief Send boundary buffers of variables
 
 void BoundaryVariable::SendBoundaryBuffers() {
-  MeshBlock *pmb = pmy_block_;
+  auto pmb = pmy_block_.lock();
   int mylevel = pmb->loc.level;
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
@@ -173,8 +173,9 @@ void BoundaryVariable::SendBoundaryBuffers() {
 bool BoundaryVariable::ReceiveBoundaryBuffers() {
   bool bflag = true;
 
-  for (int n = 0; n < pmy_block_->pbval->nneighbor; n++) {
-    NeighborBlock &nb = pmy_block_->pbval->neighbor[n];
+  auto pmb = pmy_block_.lock();
+  for (int n = 0; n < pmb->pbval->nneighbor; n++) {
+    NeighborBlock &nb = pmb->pbval->neighbor[n];
     if (bd_var_.flag[nb.bufid] == BoundaryStatus::arrived) continue;
     if (bd_var_.flag[nb.bufid] == BoundaryStatus::waiting) {
       if (nb.snb.rank == Globals::my_rank) { // on the same process
@@ -203,7 +204,7 @@ bool BoundaryVariable::ReceiveBoundaryBuffers() {
 //  \brief set the boundary data
 
 void BoundaryVariable::SetBoundaries() {
-  MeshBlock *pmb = pmy_block_;
+  auto pmb = pmy_block_.lock();
   int mylevel = pmb->loc.level;
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
@@ -225,7 +226,7 @@ void BoundaryVariable::SetBoundaries() {
 //  \brief receive and set the boundary data for initialization
 
 void BoundaryVariable::ReceiveAndSetBoundariesWithWait() {
-  MeshBlock *pmb = pmy_block_;
+  auto pmb = pmy_block_.lock();
   int mylevel = pmb->loc.level;
   pmb->exec_space.fence();
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {

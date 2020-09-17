@@ -98,7 +98,8 @@ class BoundaryBase {
 class BoundaryValues : public BoundaryBase, // public BoundaryPhysics,
                        public BoundaryCommunication {
  public:
-  BoundaryValues(MeshBlock *pmb, BoundaryFlag *input_bcs, ParameterInput *pin);
+  BoundaryValues(std::weak_ptr<MeshBlock> pmb, BoundaryFlag *input_bcs,
+                 ParameterInput *pin);
 
   // variable-length arrays of references to BoundaryVariable instances
   // containing all BoundaryVariable instances:
@@ -128,8 +129,9 @@ class BoundaryValues : public BoundaryBase, // public BoundaryPhysics,
   int AdvanceCounterPhysID(int num_phys);
 
  private:
-  MeshBlock *pmy_block_; // ptr to MeshBlock containing this BoundaryValues
-  int nface_, nedge_;    // used only in fc/flux_correction_fc.cpp calculations
+  // ptr to MeshBlock containing this BoundaryValues
+  std::weak_ptr<MeshBlock> pmy_block_;
+  int nface_, nedge_; // used only in fc/flux_correction_fc.cpp calculations
 
   // if a BoundaryPhysics or user fn should be applied at each MeshBlock boundary
   // false --> e.g. block, polar, periodic boundaries

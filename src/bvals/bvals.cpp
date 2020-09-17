@@ -46,9 +46,11 @@ namespace parthenon {
 // BoundaryValues constructor (the first object constructed inside the MeshBlock()
 // constructor): sets functions for the appropriate boundary conditions at each of the 6
 // dirs of a MeshBlock
-BoundaryValues::BoundaryValues(MeshBlock *pmb, BoundaryFlag *input_bcs,
+BoundaryValues::BoundaryValues(std::weak_ptr<MeshBlock> wpmb, BoundaryFlag *input_bcs,
                                ParameterInput *pin)
-    : BoundaryBase(pmb->pmy_mesh, pmb->loc, pmb->block_size, input_bcs), pmy_block_(pmb) {
+    : BoundaryBase(wpmb.lock()->pmy_mesh, wpmb.lock()->loc, wpmb.lock()->block_size,
+                   input_bcs),
+      pmy_block_(wpmb) {
   // Check BC functions for each of the 6 boundaries in turn ---------------------
   for (int i = 0; i < 6; i++) {
     switch (block_bcs[i]) {
@@ -66,6 +68,7 @@ BoundaryValues::BoundaryValues(MeshBlock *pmb, BoundaryFlag *input_bcs,
   CheckBoundaryFlag(block_bcs[BoundaryFace::inner_x1], CoordinateDirection::X1DIR);
   CheckBoundaryFlag(block_bcs[BoundaryFace::outer_x1], CoordinateDirection::X1DIR);
 
+  std::shared_ptr<MeshBlock> pmb;
   if (pmb->block_size.nx2 > 1) {
     nface_ = 4;
     nedge_ = 4;
