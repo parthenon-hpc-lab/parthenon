@@ -93,19 +93,11 @@ parthenon::DriverStatus PiDriver::Execute() {
 
   pouts->MakeOutputs(pmesh, pinput);
 
-  // The task lists constructed depends on whether we're doing local tasking
-  // or a global meshpack.
+  // The tasks compute pi and store it in the param "pi_val"
   ConstructAndExecuteTaskLists<>(this);
 
-  // Retrive and MPI reduce the area from mesh params
-  auto &area = pmesh->packages["calculate_pi"]->Param<Real>("area");
-
-#ifdef MPI_PARALLEL
-  Real pi_val;
-  MPI_Reduce(&area, &pi_val, 1, MPI_PARTHENON_REAL, MPI_SUM, 0, MPI_COMM_WORLD);
-#else
-  Real pi_val = area;
-#endif
+  // retrieve "pi_val" and post execute.
+  auto &pi_val = pmesh->packages["calculate_pi"]->Param<Real>("pi_val");
   pmesh->mbcnt = pmesh->nbtotal; // this is how many blocks were processed
   PostExecute(pi_val);
   return DriverStatus::complete;
@@ -128,33 +120,36 @@ void PiDriver::PostExecute(Real pi_val) {
   Driver::PostExecute();
 }
 
-TaskCollection PiDriver::MakeTaskCollection(std::vector<MeshBlock *> &blocks) {
+template <typename T>
+TaskCollection PiDriver::MakeTasks(T &blocks) {
+  using calculate_pi::AccumulateAreas;
   using calculate_pi::ComputeArea;
-  using calculate_pi::ComputeAreaOnMesh;
-  using calculate_pi::RetrieveAreas;
   TaskCollection tc;
-  if (pinput->GetOrAddBoolean("Pi", "use_mesh_pack", false)) {
-    TaskRegion &tr = tc.AddRegion(1);
-    {
-      // tasks should be local per region. Be sure to scope them appropriately.
+
+  // 1 means pack is 1 meshblock, <1 means use entire mesh
+  int pack_size = pinput->GetOrAddInteger("Pi", "pack_size", 1);
+  if (pack_size < 1) pack_size = blocks.size();
+
+  std::vector<BlockList_t> partitions;
+  partition::ToSizeN(blocks, pack_size, partitions);
+  ParArrayHost<Real> areas("areas", partitions.size());
+
+  TaskRegion &async_region = tc.AddRegion(partitions.size());
+  {
+    // asynchronous region where area is computed per mesh pack
+    for (int i = 0; i < partitions.size(); i++) {
       TaskID none(0);
-      auto get_area = tr[0].AddTask(ComputeAreaOnMesh, none, blocks, pmesh->packages);
-    }
-  } else {
-    // asynchronous region where area is computed per block
-    TaskRegion &async_region = tc.AddRegion(blocks.size());
-    for (int i = 0; i < blocks.size(); i++) {
-      TaskID none(0);
-      auto get_area = async_region[i].AddTask(ComputeArea, none, blocks[i]);
-    }
-    // synchronous region where the area is retrieved and accumulated
-    // and stored in params
-    TaskRegion &sync_region = tc.AddRegion(1);
-    {
-      TaskID none(0);
-      auto get_area =
-          sync_region[0].AddTask(RetrieveAreas, none, blocks, pmesh->packages);
+      auto pack = PackVariablesOnMesh(partitions[i], "base",
+                                      std::vector<std::string>{"in_or_out"});
+      auto get_area = async_region[i].AddTask(ComputeArea, none, pack, areas, i);
     }
   }
+  TaskRegion &sync_region = tc.AddRegion(1);
+  {
+    TaskID none(0);
+    auto accumulate_areas =
+        sync_region[0].AddTask(AccumulateAreas, none, areas, pmesh->packages);
+  }
+
   return tc;
 }

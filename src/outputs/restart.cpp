@@ -120,7 +120,7 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
 
   const IndexDomain interior = IndexDomain::interior;
 
-  auto &mb = pm->block_list.front();
+  auto &mb = *(pm->block_list.front());
 
   // shooting a blank just for getting the variable names
   const IndexRange out_ib = mb.cellbounds.GetBoundsI(interior);
@@ -323,7 +323,7 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
     global_count[0] = max_blocks_global;
     int i = 0;
     for (auto &pmb : pm->block_list) {
-      auto xmin = pmb.coords.GetXmin();
+      auto xmin = pmb->coords.GetXmin();
       tmpData[i] = xmin[0];
       i++;
       if (pm->ndim > 1) {
@@ -353,9 +353,9 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
     global_count[0] = max_blocks_global;
     i = 0;
     for (auto &pmb : pm->block_list) {
-      tmpLoc[i++] = pmb.loc.lx1;
-      tmpLoc[i++] = pmb.loc.lx2;
-      tmpLoc[i++] = pmb.loc.lx3;
+      tmpLoc[i++] = pmb->loc.lx1;
+      tmpLoc[i++] = pmb->loc.lx2;
+      tmpLoc[i++] = pmb->loc.lx3;
     }
     WRITEH5SLABI64("loc.lx123", tmpLoc.data(), gBlocks, local_start, local_count,
                    global_count, property_list);
@@ -368,11 +368,11 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
     global_count[0] = max_blocks_global;
     i = 0;
     for (auto &pmb : pm->block_list) {
-      tmpID[i++] = pmb.loc.level;
-      tmpID[i++] = pmb.gid;
-      tmpID[i++] = pmb.lid;
-      tmpID[i++] = pmb.cnghost;
-      tmpID[i++] = pmb.gflag;
+      tmpID[i++] = pmb->loc.level;
+      tmpID[i++] = pmb->gid;
+      tmpID[i++] = pmb->lid;
+      tmpID[i++] = pmb->cnghost;
+      tmpID[i++] = pmb->gflag;
     }
     WRITEH5SLABI32("loc.level-gid-lid-cnghost-gflag", tmpID.data(), gBlocks, local_start,
                    local_count, global_count, property_list);
@@ -414,7 +414,7 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
   for (auto &vwrite : ciX.vars) { // for each variable we write
     const std::string vWriteName = vwrite->label();
     hid_t vLocalSpace, vGlobalSpace;
-    auto &mb = pm->block_list.front();
+    auto &mb = *(pm->block_list.front());
     const hsize_t vlen = vwrite->GetDim(4);
     local_count[4] = global_count[4] = vlen;
     std::vector<Real> tmpData(varSize * vlen * num_blocks_local);
@@ -433,7 +433,7 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
     for (auto &pmb : pm->block_list) {
       bool found = false;
       auto ci = ContainerIterator<Real>(
-          pmb.real_containers.Get(),
+          pmb->real_containers.Get(),
           {parthenon::Metadata::Independent, parthenon::Metadata::Restart}, true);
       for (auto &v : ci.vars) {
         // Note index 4 transposed to interior
