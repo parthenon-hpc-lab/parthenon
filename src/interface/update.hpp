@@ -24,15 +24,18 @@
 namespace parthenon {
 
 namespace Update {
+// this does not belong here and should be moved to a better place
+// currently causes problems from recursive includes (from mesh.hpp)
+using BlockList_t = std::vector<std::shared_ptr<MeshBlock>>;
 
 TaskStatus FluxDivergence(std::shared_ptr<Container<Real>> &in,
                           std::shared_ptr<Container<Real>> &dudt_cont);
-TaskStatus FluxDivergenceMesh(std::vector<MeshBlock *> &blocks,
-                              const std::string &in_cont, const std::string &dudt_cont);
-void UpdateContainer(std::vector<MeshBlock *> &blocks, const std::string &in_cont_name,
+TaskStatus FluxDivergenceMesh(BlockList_t &blocks, const std::string &in_cont,
+                              const std::string &dudt_cont);
+void UpdateContainer(BlockList_t &blocks, const std::string &in_cont_name,
                      const std::string &dudt_cont_name, Real dt,
                      const std::string &out_cont_name);
-void AverageContainers(std::vector<MeshBlock *> &blocks, const std::string &c1_cont_name,
+void AverageContainers(BlockList_t &blocks, const std::string &c1_cont_name,
                        const std::string &c2_cont_name, const Real wgt1);
 Real EstimateTimestep(std::shared_ptr<Container<Real>> &rc);
 

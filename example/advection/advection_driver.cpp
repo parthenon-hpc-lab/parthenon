@@ -18,7 +18,7 @@
 // Local Includes
 #include "advection_driver.hpp"
 #include "advection_package.hpp"
-#include "mesh/mesh_pack.hpp"
+#include "mesh/meshblock_pack.hpp"
 #include "parthenon/driver.hpp"
 
 using namespace parthenon::driver::prelude;
@@ -48,7 +48,7 @@ AdvectionDriver::AdvectionDriver(ParameterInput *pin, ApplicationInput *app_in, 
 }
 
 // first some helper tasks
-TaskStatus UpdateContainer(std::vector<MeshBlock *> &blocks, const int stage,
+TaskStatus UpdateContainer(BlockList_t &blocks, const int stage,
                            std::vector<std::string> stage_name, Integrator *integrator) {
   // const Real beta = stage_wghts[stage-1].beta;
   const Real beta = integrator->beta[stage - 1];
@@ -72,8 +72,8 @@ struct BndInfo {
 
 // send boundary buffers with MeshBlockPack support
 // TODO(pgrete) should probaly be moved to the bvals or interface folders
-auto SendBoundaryBuffers(std::vector<MeshBlock *> &blocks,
-                         const std::string &container_name) -> TaskStatus {
+auto SendBoundaryBuffers(BlockList_t &blocks, const std::string &container_name)
+    -> TaskStatus {
   auto var_pack = parthenon::PackVariablesOnMesh(
       blocks, container_name,
       std::vector<parthenon::MetadataFlag>{parthenon::Metadata::FillGhost});
@@ -85,7 +85,7 @@ auto SendBoundaryBuffers(std::vector<MeshBlock *> &blocks,
   auto boundary_info_h = Kokkos::create_mirror_view(boundary_info);
 
   for (int b = 0; b < blocks.size(); b++) {
-    auto *pmb = blocks[b];
+    auto &pmb = blocks[b];
     auto &rc = pmb->real_containers.Get(container_name);
 
     for (auto &v : rc->GetCellVariableVector()) {
@@ -184,7 +184,7 @@ auto SendBoundaryBuffers(std::vector<MeshBlock *> &blocks,
       });
 
   Kokkos::fence();
-  for (auto *pmb : blocks) {
+  for (auto &pmb : blocks) {
     auto &rc = pmb->real_containers.Get(container_name);
 
     int mylevel = pmb->loc.level;
@@ -215,10 +215,10 @@ auto SendBoundaryBuffers(std::vector<MeshBlock *> &blocks,
   return TaskStatus::complete;
 }
 
-auto ReceiveBoundaryBuffers(std::vector<MeshBlock *> &blocks,
-                            const std::string &container_name) -> TaskStatus {
+auto ReceiveBoundaryBuffers(BlockList_t &blocks, const std::string &container_name)
+    -> TaskStatus {
   bool ret = true;
-  for (auto *pmb : blocks) {
+  for (auto &pmb : blocks) {
     auto &rc = pmb->real_containers.Get(container_name);
     // receives the boundary
     for (auto &v : rc->GetCellVariableVector()) {
@@ -244,8 +244,7 @@ auto ReceiveBoundaryBuffers(std::vector<MeshBlock *> &blocks,
 
 // set boundaries from buffers with MeshBlockPack support
 // TODO(pgrete) should probaly be moved to the bvals or interface folders
-auto SetBoundaries(std::vector<MeshBlock *> &blocks, const std::string &container_name)
-    -> TaskStatus {
+auto SetBoundaries(BlockList_t &blocks, const std::string &container_name) -> TaskStatus {
   auto var_pack = parthenon::PackVariablesOnMesh(
       blocks, container_name,
       std::vector<parthenon::MetadataFlag>{parthenon::Metadata::FillGhost});
@@ -270,7 +269,7 @@ auto SetBoundaries(std::vector<MeshBlock *> &blocks, const std::string &containe
   };
 
   for (int b = 0; b < blocks.size(); b++) {
-    auto *pmb = blocks[b];
+    auto &pmb = blocks[b];
     auto &rc = pmb->real_containers.Get(container_name);
 
     int mylevel = pmb->loc.level;
@@ -346,8 +345,7 @@ auto SetBoundaries(std::vector<MeshBlock *> &blocks, const std::string &containe
 }
 
 // See the advection.hpp declaration for a description of how this function gets called.
-TaskCollection AdvectionDriver::MakeTaskCollection(std::vector<MeshBlock *> &blocks,
-                                                   const int stage) {
+TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const int stage) {
   TaskCollection tc;
 
   TaskID none(0);
@@ -360,7 +358,7 @@ TaskCollection AdvectionDriver::MakeTaskCollection(std::vector<MeshBlock *> &blo
   TaskRegion &async_region1 = tc.AddRegion(num_task_lists_executed_independently);
 
   for (int i = 0; i < blocks.size(); i++) {
-    auto *pmb = blocks[i];
+    auto &pmb = blocks[i];
     auto &tl = async_region1[i];
     // first make other useful containers
     if (stage == 1) {
@@ -412,7 +410,7 @@ TaskCollection AdvectionDriver::MakeTaskCollection(std::vector<MeshBlock *> &blo
   TaskRegion &async_region2 = tc.AddRegion(num_task_lists_executed_independently);
 
   for (int i = 0; i < blocks.size(); i++) {
-    auto *pmb = blocks[i];
+    auto &pmb = blocks[i];
     auto &tl = async_region2[i];
     auto &sc1 = pmb->real_containers.Get(stage_name[stage]);
 
@@ -420,7 +418,7 @@ TaskCollection AdvectionDriver::MakeTaskCollection(std::vector<MeshBlock *> &blo
                                        BoundaryCommSubset::all);
 
     auto prolongBound = tl.AddTask(
-        [](MeshBlock *pmb) {
+        [](std::shared_ptr<MeshBlock> pmb) {
           pmb->pbval->ProlongateBoundaries(0.0, 0.0);
           return TaskStatus::complete;
         },
@@ -437,7 +435,7 @@ TaskCollection AdvectionDriver::MakeTaskCollection(std::vector<MeshBlock *> &blo
     if (stage == integrator->nstages) {
       auto new_dt = tl.AddTask(
           [](std::shared_ptr<Container<Real>> &rc) {
-            MeshBlock *pmb = rc->pmy_block;
+            auto &pmb = rc->pmy_block;
             pmb->SetBlockTimestep(parthenon::Update::EstimateTimestep(rc));
             return TaskStatus::complete;
           },
@@ -446,7 +444,7 @@ TaskCollection AdvectionDriver::MakeTaskCollection(std::vector<MeshBlock *> &blo
       // Update refinement
       if (pmesh->adaptive) {
         auto tag_refine = tl.AddTask(
-            [](MeshBlock *pmb) {
+            [](std::shared_ptr<MeshBlock> pmb) {
               pmb->pmr->CheckRefinementCondition();
               return TaskStatus::complete;
             },

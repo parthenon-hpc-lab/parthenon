@@ -121,7 +121,7 @@ void PiDriver::PostExecute(Real pi_val) {
 }
 
 template <typename T>
-TaskCollection PiDriver::MakeTasks(T &blocks) {
+TaskCollection PiDriver::MakeTaskCollection(T &blocks) {
   using calculate_pi::AccumulateAreas;
   using calculate_pi::ComputeArea;
   TaskCollection tc;

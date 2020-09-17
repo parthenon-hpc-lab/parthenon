@@ -24,7 +24,7 @@
 #include "mesh/mesh.hpp"
 
 #include "kokkos_abstraction.hpp"
-#include "mesh/mesh_pack.hpp"
+#include "mesh/meshblock_pack.hpp"
 
 namespace parthenon {
 
@@ -67,7 +67,7 @@ TaskStatus FluxDivergence(std::shared_ptr<Container<Real>> &in,
   return TaskStatus::complete;
 }
 
-auto FluxDivergenceMesh(std::vector<MeshBlock *> &blocks, const std::string &in_cont,
+auto FluxDivergenceMesh(BlockList_t &blocks, const std::string &in_cont,
                         const std::string &dudt_cont) -> TaskStatus {
   auto pack_in = parthenon::PackVariablesAndFluxesOnMesh(
       blocks, in_cont, std::vector<MetadataFlag>{Metadata::Independent});
@@ -107,7 +107,7 @@ auto FluxDivergenceMesh(std::vector<MeshBlock *> &blocks, const std::string &in_
   return TaskStatus::complete;
 }
 
-void UpdateContainer(std::vector<MeshBlock *> &blocks, const std::string &in_cont_name,
+void UpdateContainer(BlockList_t &blocks, const std::string &in_cont_name,
                      const std::string &dudt_cont_name, const Real dt,
                      const std::string &out_cont_name) {
   auto in_pack = parthenon::PackVariablesOnMesh(
@@ -126,7 +126,7 @@ void UpdateContainer(std::vector<MeshBlock *> &blocks, const std::string &in_con
       });
 }
 
-void AverageContainers(std::vector<MeshBlock *> &blocks, const std::string &c1_cont_name,
+void AverageContainers(BlockList_t &blocks, const std::string &c1_cont_name,
                        const std::string &c2_cont_name, const Real wgt1) {
   auto c1_pack = parthenon::PackVariablesOnMesh(
       blocks, c1_cont_name, std::vector<MetadataFlag>{Metadata::Independent});
