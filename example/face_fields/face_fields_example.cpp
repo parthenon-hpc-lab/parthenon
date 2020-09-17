@@ -74,12 +74,12 @@ DriverStatus FaceFieldExample::Execute() {
 
   // post-evolution analysis
   Real rank_sum = 0.0;
-  for (auto &block : pmesh->block_list) {
+  for (auto &pmb : pmesh->block_list) {
     parthenon::IndexDomain const interior = parthenon::IndexDomain::interior;
-    parthenon::IndexRange const ib = block.cellbounds.GetBoundsI(interior);
-    parthenon::IndexRange const jb = block.cellbounds.GetBoundsJ(interior);
-    parthenon::IndexRange const kb = block.cellbounds.GetBoundsK(interior);
-    auto &rc = block.real_containers.Get();
+    parthenon::IndexRange const ib = pmb->cellbounds.GetBoundsI(interior);
+    parthenon::IndexRange const jb = pmb->cellbounds.GetBoundsJ(interior);
+    parthenon::IndexRange const kb = pmb->cellbounds.GetBoundsK(interior);
+    auto &rc = pmb->real_containers.Get();
     auto &summed = rc->Get("c.c.interpolated_sum").data;
     for (int k = kb.s; k <= kb.e; k++) {
       for (int j = jb.s; j <= jb.e; j++) {

@@ -5,6 +5,7 @@
 ### Added (new features/APIs/variables/...)
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 303]](https://github.com/lanl/parthenon/pull/303) Changed `Mesh::BlockList` from a `std::list<MeshBlock>` to a `std::vector<std::shared_ptr<MeshBlock>>`, making `FindMeshBlock` run in constant, rather than linear, time. Loops over `block_list` in application drivers must be cahnged accordingly.
 
 ### Fixed (not changing behavior/API/variables/...)
 
