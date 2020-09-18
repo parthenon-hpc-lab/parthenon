@@ -45,13 +45,15 @@ nx2 = 16
 
 #<parthenon/output0>
 #file_type = hdf5
-#dt = 0.05
-#variables = prim
+#dt = 1.0
+#variables = particle_deposition
 
 <parthenon/time>
 tlim = 1.0e2
 integrator = rk1
 
 <Particles>
-num_particles = 1000000
+num_particles = 1
 particle_speed = 1.0
+rng_seed = 23487
+const_dt = 0.5

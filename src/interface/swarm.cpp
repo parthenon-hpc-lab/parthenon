@@ -172,7 +172,7 @@ void Swarm::setPoolMax(const int nmax_pool) {
   auto newvar = ParticleVariable<bool>(oldvar.label(), nmax_pool, oldvar.metadata());
   auto &oldvar_data = oldvar.Get();
   auto &newvar_data = newvar.Get();
-  
+
   pmy_block->par_for("setPoolMax_mask_1", 0, nmax_pool_ - 1,
     KOKKOS_LAMBDA(const int n) {
         newvar_data(n) = oldvar_data(n);
@@ -386,7 +386,7 @@ void Swarm::RemoveMarkedParticles() {
       }
     }
   }
- 
+
   mask_.data.DeepCopy(mask_h);
   marked_for_removal_.data.DeepCopy(marked_for_removal_h);
   printf("Done removing marked particles!\n");
@@ -404,7 +404,7 @@ void Swarm::RemoveMarkedParticles() {
 }*/
 
 void Swarm::Defrag() {
-/*  // TODO(BRR) Could this algorithm be more efficient?
+  // TODO(BRR) Could this algorithm be more efficient?
   printf("Defragging!\n");
   // Add 1 to convert max index to max number
   int num_free = (max_active_index_ + 1) - num_active_;
@@ -412,9 +412,13 @@ void Swarm::Defrag() {
   // This should always be properly sorted based on how we update it
   //free_indices_.sort();
 
+  for (index : free_indices_) {
+    printf("free index: %i\n", index);
+  }
+
   //std::list<std::pair<int, int>> from_to_indices;
-  ParArrayND<int> from_to_indices(max_ative_index_ + 1);
-  from_to_indices_h = from_to_indices.GetHostMirror();
+  ParArrayND<int> from_to_indices("from_to_indices", max_active_index_ + 1);
+  auto from_to_indices_h = from_to_indices.GetHostMirror();
 
   auto mask_h = mask_.data.GetHostMirror();
   mask_h.DeepCopy(mask_.data);
@@ -443,8 +447,8 @@ void Swarm::Defrag() {
   from_to_indices.DeepCopy(from_to_indices_h);
 
   // Swap straggler particles into empty slots at lower indices
-  // TODO BRR pack all variables here
-  pmb->par_for("Swarm::Defrag", 0, max_active_index_,
+  // TODO BRR pack all variables here instead of what is done below
+  /*pmy_block->par_for("Swarm::Defrag", 0, max_active_index_,
     KOKKOS_LAMBDA(const int n) {
       if (from_to_indices(n) >= 0) {
         // TODO BRR copy variable data here
@@ -453,13 +457,32 @@ void Swarm::Defrag() {
         //  var(from_to_indices(n)) = var(n);
         //}
       }
-      
-  });
+
+  });*/
+
+  for (int m = 0; m < intVector_.size(); m++) {
+    auto &vec = intVector_[m]->Get();
+    pmy_block->par_for("Swarm::DefragInt", 0, max_active_index_,
+      KOKKOS_LAMBDA(const int n) {
+        if (from_to_indices(n) >= 0) {
+          vec(from_to_indices(n)) = vec(n);
+        }
+      });
+  }
+
+  for (int m = 0; m < realVector_.size(); m++) {
+    auto &vec = realVector_[m]->Get();
+    pmy_block->par_for("Swarm::DefragReal", 0, max_active_index_,
+      KOKKOS_LAMBDA(const int n) {
+        if (from_to_indices(n) >= 0) {
+          vec(from_to_indices(n)) = vec(n);
+        }
+      });
+  }
 
   // Update max_active_index_
   max_active_index_ = num_active_ - 1;
   printf("Done defragging!");
-  */
 }
 
 std::vector<int> Swarm::AddUniformParticles(int num_to_add) {
