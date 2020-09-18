@@ -30,8 +30,6 @@
 #include "domain.hpp"
 #include "interface/container.hpp"
 #include "interface/container_collection.hpp"
-#include "interface/properties_interface.hpp"
-#include "interface/state_descriptor.hpp"
 #include "interface/update.hpp"
 #include "kokkos_abstraction.hpp"
 #include "outputs/io_wrapper.hpp"
@@ -41,12 +39,19 @@
 namespace parthenon {
 
 // Forward declarations
+class ApplicationInput;
 class BoundaryValues;
 class Mesh;
 class MeshBlockTree;
 class MeshRefinement;
 class ParameterInput;
 class Reconstruction;
+
+// These Forward declarations need duplicated using statements.
+class StateDescriptor;
+using Packages_t = std::map<std::string, std::shared_ptr<StateDescriptor>>;
+class PropertiesInterface;
+using Properties_t = std::vector<std::shared_ptr<PropertiesInterface>>;
 
 // Inner loop default pattern
 // - Defined outside of the MeshBlock class because it does not require an exec space
