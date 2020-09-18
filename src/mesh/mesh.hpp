@@ -89,7 +89,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
                   BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
                   ApplicationInput *app_in, Properties_t &properties,
                   Packages_t &packages, int igflag, double icost = 1.0);
-  // Factory method with deals with initialization for you
+  // Factory method deals with initialization for you
   static std::shared_ptr<MeshBlock>
   Make(int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
        BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin, ApplicationInput *app_in,
