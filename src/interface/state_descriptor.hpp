@@ -18,12 +18,20 @@
 #include <string>
 #include <vector>
 
-#include "interface/container.hpp"
 #include "interface/metadata.hpp"
 #include "interface/params.hpp"
+#include "mesh/meshblock_pack.hpp"
 #include "refinement/amr_criteria.hpp"
 
 namespace parthenon {
+
+// Forward declarations
+template <typename T>
+class Container;
+// template <typename T>
+// class VarPackingFunc;
+// template <typename T>
+// class FluxPackingFunc;
 
 enum class DerivedOwnership { shared, unique };
 
@@ -99,6 +107,13 @@ class StateDescriptor {
     return true;
   }
 
+  void AddMeshBlockPack(const std::string &pack_name, VarPackingFunc<Real> &func) {
+    realVarPackerMap_[pack_name] = func;
+  }
+  void AddMeshBlockPack(const std::string &pack_name, FluxPackingFunc<Real> &func) {
+    realFluxPackerMap_[pack_name] = func;
+  }
+
   // retrieve number of fields
   int size() const { return metadataMap_.size(); }
 
@@ -125,6 +140,14 @@ class StateDescriptor {
   // get all metadata for this physics
   const std::map<std::string, Metadata> &AllMetadata() { return metadataMap_; }
 
+  // Get all MeshBlockPacker functions
+  const std::map<std::string, VarPackingFunc<Real>> &AllMeshBlockVarPackers() {
+    return realVarPackerMap_;
+  }
+  const std::map<std::string, FluxPackingFunc<Real>> &AllMeshBlockFluxPackers() {
+    return realFluxPackerMap_;
+  }
+
   std::vector<std::shared_ptr<AMRCriteria>> amr_criteria;
   void (*FillDerived)(std::shared_ptr<Container<Real>> &rc);
   Real (*EstimateTimestep)(std::shared_ptr<Container<Real>> &rc);
@@ -135,6 +158,8 @@ class StateDescriptor {
   const std::string label_;
   std::map<std::string, Metadata> metadataMap_;
   std::map<std::string, std::vector<Metadata>> sparseMetadataMap_;
+  std::map<std::string, VarPackingFunc<Real>> realVarPackerMap_;
+  std::map<std::string, FluxPackingFunc<Real>> realFluxPackerMap_;
 };
 
 using Packages_t = std::map<std::string, std::shared_ptr<StateDescriptor>>;

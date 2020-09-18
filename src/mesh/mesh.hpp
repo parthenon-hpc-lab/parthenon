@@ -42,6 +42,7 @@
 #include "interface/update.hpp"
 #include "kokkos_abstraction.hpp"
 #include "mesh/mesh_refinement.hpp"
+#include "mesh/meshblock_pack.hpp"
 #include "mesh/meshblock_tree.hpp"
 #include "outputs/io_wrapper.hpp"
 #include "parameter_input.hpp"
@@ -367,12 +368,24 @@ class Mesh {
   Properties_t properties;
   Packages_t packages;
 
+  // MeshBlockPacks
+  // TODO(JMM): Should these be private with a getter function?
+  std::map<std::string, std::map<std::string, std::vector<MeshBlockVarPack<Real>>>>
+      real_varpacks;
+  std::map<std::string, std::map<std::string, std::vector<MeshBlockVarFluxPack<Real>>>>
+      real_fluxpacks;
+
   // functions
   void Initialize(int res_flag, ParameterInput *pin, ApplicationInput *app_in);
   void SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size,
                                  BoundaryFlag *block_bcs);
   void NewTimeStep();
   void OutputCycleDiagnostics();
+  void RegisterMeshBlockPack(const std::string &package, const std::string &name,
+                             const VarPackingFunc<Real> &func);
+  void RegisterMeshBlockPack(const std::string &package, const std::string &name,
+                             const FluxPackingFunc<Real> &func);
+  void BuildMeshBlockPacks();
   void LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin,
                                               ApplicationInput *app_in);
   // step 7: create new MeshBlock list (same MPI rank but diff level: create new block)
@@ -451,6 +464,10 @@ class Mesh {
   SrcTermFunc UserSourceTerm_;
   TimeStepFunc UserTimeStep_;
   MetricFunc UserMetric_;
+
+  std::map<std::string, std::map<std::string, VarPackingFunc<Real>>> real_varpackers_;
+  std::map<std::string, std::map<std::string, FluxPackingFunc<Real>>> real_fluxpackers_;
+  void RegisterAllMeshBlockPackers(Packages_t &packages, int default_pack_size = -1);
 
   void OutputMeshStructure(int dim);
   void CalculateLoadBalance(std::vector<double> const &costlist,
