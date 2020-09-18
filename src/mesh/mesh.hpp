@@ -73,20 +73,43 @@ KOKKOS_INLINE_FUNCTION void par_for_inner(const team_mbr_t &team_member, const i
 //----------------------------------------------------------------------------------------
 //! \class MeshBlock
 //  \brief data/functions associated with a single block
-class MeshBlock : std::enable_shared_from_this<MeshBlock> {
+class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   friend class RestartOutput;
   friend class Mesh;
 
  public:
+  MeshBlock() = default;
   MeshBlock(const int n_side, const int ndim); // for Kokkos testing with ghost
-  MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
-            BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
-            ApplicationInput *app_in, Properties_t &properties, Packages_t &packages,
-            int igflag, bool ref_flag = false);
-  MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin, ApplicationInput *app_in,
-            Properties_t &properties, Packages_t &packages, LogicalLocation iloc,
-            RegionSize input_block, BoundaryFlag *input_bcs, double icost, int igflag);
   ~MeshBlock();
+
+  // Initializer to set up a meshblock called with the default constructor
+  // This is necessary because the back pointers can't be set up until
+  // the block is allocated.
+  void Initialize(int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
+                  BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
+                  ApplicationInput *app_in, Properties_t &properties,
+                  Packages_t &packages, int igflag, double icost = 1.0);
+  // Factory method with deals with initialization for you
+  static std::shared_ptr<MeshBlock>
+  Make(int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
+       BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin, ApplicationInput *app_in,
+       Properties_t &properties, Packages_t &packages, int igflag, double icost = 1.0) {
+    auto pmb = std::make_shared<MeshBlock>();
+    pmb->Initialize(igid, ilid, iloc, input_block, input_bcs, pm, pin, app_in, properties,
+                    packages, igflag, icost);
+    return pmb;
+  }
+  static std::shared_ptr<MeshBlock> MakeAndSetNeighbors(
+      int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
+      BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin, ApplicationInput *app_in,
+      Properties_t &properties, Packages_t &packages, int igflag, MeshBlockTree &tree,
+      std::vector<int> &ranklist, std::vector<int> &nslist, double icost = 1.0) {
+    auto pmb = std::make_shared<MeshBlock>();
+    pmb->Initialize(igid, ilid, iloc, input_block, input_bcs, pm, pin, app_in, properties,
+                    packages, igflag, icost);
+    pmb->pbval->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
+    return pmb;
+  }
 
   // Kokkos execution space for this MeshBlock
   DevExecSpace exec_space;

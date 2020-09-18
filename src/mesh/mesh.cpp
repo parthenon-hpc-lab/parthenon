@@ -476,11 +476,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properti
   for (int i = nbs; i <= nbe; i++) {
     SetBlockSizeAndBoundaries(loclist[i], block_size, block_bcs);
     // create a block and add into the link list
-    block_list[i - nbs] =
-        std::make_shared<MeshBlock>(i, i - nbs, loclist[i], block_size, block_bcs, this,
-                                    pin, app_in, properties, packages, gflag);
-    block_list[i - nbs]->pbval->SearchAndSetNeighbors(tree, ranklist.data(),
-                                                      nslist.data());
+    block_list[i - nbs] = MeshBlock::MakeAndSetNeighbors(
+        i, i - nbs, loclist[i], block_size, block_bcs, this, pin, app_in, properties,
+        packages, gflag, tree, ranklist, nslist);
   }
 
   ResetLoadBalanceVariables();
@@ -739,11 +737,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
     SetBlockSizeAndBoundaries(loclist[i], block_size, block_bcs);
 
     // create a block and add into the link list
-    block_list[i - nbs] = std::make_shared<MeshBlock>(
-        i, i - nbs, this, pin, app_in, properties, packages, loclist[i], block_size,
-        block_bcs, costlist[i], gflag);
-    block_list[i - nbs]->pbval->SearchAndSetNeighbors(tree, ranklist.data(),
-                                                      nslist.data());
+    block_list[i - nbs] = MeshBlock::MakeAndSetNeighbors(
+        i, i - nbs, loclist[i], block_size, block_bcs, this, pin, app_in, properties,
+        packages, gflag, tree, ranklist, nslist, costlist[i]);
   }
 
   ResetLoadBalanceVariables();
