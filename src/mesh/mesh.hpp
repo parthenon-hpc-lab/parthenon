@@ -79,10 +79,6 @@ class MeshBlock : std::enable_shared_from_this<MeshBlock> {
 
  public:
   MeshBlock(const int n_side, const int ndim); // for Kokkos testing with ghost
-  MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_size,
-            BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
-            ApplicationInput *app_in, Properties_t &properties, int igflag,
-            bool ref_flag = false);
   MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
             BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
             ApplicationInput *app_in, Properties_t &properties, Packages_t &packages,

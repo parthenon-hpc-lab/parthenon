@@ -267,58 +267,6 @@ MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
   app = InitApplicationMeshBlockData(pin);
   return;
 }
-#if 0
-MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
-                     Properties_t &properties, Packages_t &packages, LogicalLocation iloc,
-                     RegionSize input_block, BoundaryFlag *input_bcs, double icost,
-                     int igflag)
-    : pmy_mesh(pm), loc(iloc), block_size(input_block), gid(igid), lid(ilid),
-      gflag(igflag), nuser_out_var(), properties(properties), packages(packages),
-      new_block_dt_{}, new_block_dt_hyperbolic_{},
-      new_block_dt_parabolic_{}, new_block_dt_user_{}, nreal_user_meshblock_data_(),
-      nint_user_meshblock_data_(), cost_(icost), exec_space(DevExecSpace()) {
-  // initialize grid indices
-
-  // std::cerr << "WHY AM I HERE???" << std::endl;
-
-  // initialize grid indices
-  InitializeIndexShapes(block_size.nx1, block_size.nx2, block_size.nx3);
-
-  // Set the block pointer for the containers
-  real_containers.Get().setBlock(shared_from_this());
-
-  // (re-)create mesh-related objects in MeshBlock
-
-  coords = Coordinates_t(block_size, pin);
-
-  // Boundary
-  pbval = std::make_unique<BoundaryValues>(shared_from_this(), input_bcs, pin);
-
-  // Reconstruction (constructor may implicitly depend on Coordinates)
-  precon = std::make_unique<Reconstruction>(shared_from_this(), pin);
-
-  if (pm->multilevel) pmr = std::make_unique<MeshRefinement>(shared_from_this(), pin);
-
-  app = InitApplicationMeshBlockData(pin);
-  InitUserMeshBlockData(pin);
-
-  std::size_t os = 0;
-
-  // load user MeshBlock data
-  for (int n = 0; n < nint_user_meshblock_data_; n++) {
-    std::memcpy(iuser_meshblock_data[n].data(), &(mbdata[os]),
-                iuser_meshblock_data[n].GetSizeInBytes());
-    os += iuser_meshblock_data[n].GetSizeInBytes();
-  }
-  for (int n = 0; n < nreal_user_meshblock_data_; n++) {
-    std::memcpy(ruser_meshblock_data[n].data(), &(mbdata[os]),
-                ruser_meshblock_data[n].GetSizeInBytes());
-    os += ruser_meshblock_data[n].GetSizeInBytes();
-  }
-
-  return;
-}
-#endif
 
 //----------------------------------------------------------------------------------------
 // MeshBlock destructor
