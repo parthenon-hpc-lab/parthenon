@@ -29,8 +29,6 @@
 #include <vector>
 
 #include "application_input.hpp"
-#include "bvals/bvals.hpp"
-#include "bvals/bvals_interfaces.hpp"
 #include "config.hpp"
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
@@ -47,15 +45,11 @@
 #include "outputs/io_wrapper.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
-#include "reconstruct/reconstruction.hpp"
-#include "utils/interp_table.hpp"
 
 namespace parthenon {
 
 // Forward declarations
 class BoundaryValues;
-class MeshBlockTree;
-class MeshRefinement;
 class ParameterInput;
 class RestartReader;
 

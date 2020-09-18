@@ -19,14 +19,11 @@
 
 #include <cstdint>
 #include <functional>
-#include <map>
 #include <memory>
 #include <string>
 #include <vector>
 
 #include "application_input.hpp"
-#include "bvals/bvals.hpp"
-#include "bvals/bvals_interfaces.hpp"
 #include "config.hpp"
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
@@ -37,14 +34,9 @@
 #include "interface/state_descriptor.hpp"
 #include "interface/update.hpp"
 #include "kokkos_abstraction.hpp"
-#include "mesh/mesh_refinement.hpp"
-#include "mesh/meshblock.hpp"
-#include "mesh/meshblock_tree.hpp"
 #include "outputs/io_wrapper.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
-#include "reconstruct/reconstruction.hpp"
-#include "utils/interp_table.hpp"
 
 namespace parthenon {
 
