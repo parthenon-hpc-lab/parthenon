@@ -47,7 +47,7 @@ void ToSizeN(Container_t &container, const int N, Partition_t<T> &partitions) {
   using std::to_string;
   using namespace partition_impl;
 
-  PARTHENON_REQUIRE_THROWS(N > 0, "You must have at least 1 partition");
+  PARTHENON_REQUIRE_THROWS(N > 0, "Your partition must be at least size 1");
 
   int nelements = container.size();
   int npartitions = IntCeil(nelements, N);
