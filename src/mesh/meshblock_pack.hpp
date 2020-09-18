@@ -24,7 +24,7 @@
 #include "interface/variable_pack.hpp"
 #include "kokkos_abstraction.hpp"
 #include "mesh/domain.hpp"
-#include "mesh/mesh.hpp" // TODO(JMM): Replace with forward declaration?
+#include "mesh/meshblock.hpp" // TODO(JMM): Replace with forward declaration?
 
 namespace parthenon {
 
@@ -108,11 +108,6 @@ auto PackMesh(BlockList_t &blocks, F &packing_function) {
   auto cellbounds = blocks.front()->cellbounds;
 
   return MeshBlockPack<T>(packs, cellbounds, coords, dims);
-}
-
-template <typename T, typename F>
-auto PackMesh(Mesh *pmesh, F &packing_function) {
-  return PackMesh<T, F>(pmesh->block_list, packing_function);
 }
 } // namespace mesh_pack_impl
 
