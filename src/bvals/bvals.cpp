@@ -68,7 +68,7 @@ BoundaryValues::BoundaryValues(std::weak_ptr<MeshBlock> wpmb, BoundaryFlag *inpu
   CheckBoundaryFlag(block_bcs[BoundaryFace::inner_x1], CoordinateDirection::X1DIR);
   CheckBoundaryFlag(block_bcs[BoundaryFace::outer_x1], CoordinateDirection::X1DIR);
 
-  std::shared_ptr<MeshBlock> pmb;
+  std::shared_ptr<MeshBlock> pmb = pmy_block_.lock();
   if (pmb->block_size.nx2 > 1) {
     nface_ = 4;
     nedge_ = 4;
