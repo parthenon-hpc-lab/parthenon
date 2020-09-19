@@ -71,12 +71,29 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   Metadata m({Metadata::Cell, Metadata::Derived});
   package->AddField(field_name, m, DerivedOwnership::unique);
 
+  // Add a named MeshPack by registering a function that packs it
+  package->AddMeshBlockPack("in_or_out", [](Mesh *pmesh) {
+    // 1 means pack is 1 meshblock, <1 means use entire mesh
+    int pack_size = pmesh->DefaultPackSize();
+    if (pack_size < 1) pack_size = pmesh->block_list.size();
+    std::vector<BlockList_t> partitions;
+    std::vector<MeshBlockVarPack<Real>> packs;
+    partition::ToSizeN(pmesh->block_list, pack_size, partitions);
+    packs.resize(partitions.size());
+    for (int i = 0; i < partitions.size(); i++) {
+      packs[i] = PackVariablesOnMesh(partitions[i], "base",
+                                     std::vector<std::string>{"in_or_out"});
+    }
+    return packs;
+  });
+
   // All the package FillDerived and CheckRefinement functions are called by parthenon
   package->FillDerived = SetInOrOut;
   // could use package specific refinement tagging routine (see advection example), but
   // instead this example will make use of the parthenon shipped first derivative
   // criteria, as invoked in the input file
   // package->CheckRefinement = CheckRefinement;
+
   return package;
 }
 
