@@ -159,14 +159,14 @@ class StateDescriptor {
   }
 
   bool FlagsPresent(std::vector<MetadataFlag> &flags, bool matchAny = false) {
-    for (auto & pair : metadataMap_) {
+    for (auto &pair : metadataMap_) {
       auto &metadata = pair.second;
-      if (metadata.FlagsSet(flags,matchAny)) return true;
+      if (metadata.FlagsSet(flags, matchAny)) return true;
     }
-    for (auto & pair : sparseMetadataMap_) {
+    for (auto &pair : sparseMetadataMap_) {
       auto &sparsevec = pair.second;
       for (auto &metadata : sparsevec) {
-        if (metadata.FlagsSet(flags,matchAny)) return true;
+        if (metadata.FlagsSet(flags, matchAny)) return true;
       }
     }
     return false;

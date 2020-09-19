@@ -13,6 +13,7 @@ The ```StateDescriptor``` class is intended to be used to inform Parthenon about
 Provides the means to add new variables to a Parthenon-based application with associated ```Metadata```.  This function does not allocate any storage or create any of the objects below, it simply adds the name and ```Metadata``` to a list so that those objects can be populated at the appropriate time.
 * ```void AddParam<T>(const std::string& key, T& value)``` adds a parameter (e.g. a timestep control coefficient, refinement tolerance, etc.) with name ```key``` and value ```value```.
 * ```const T& Param(const std::string& key)``` provides the getter to access parameters previously added by ```AddParam```.
+* ```void AddMeshBlockPack(const std::string &pack_name, const Function &packer)``` adds a function that generates `MeshBlockPack`s on the `Mesh` as described [here](../mesh/packing.md)
 * ```std::vector<std::shared_ptr<AMRCriteria>> amr_criteria``` holds a vector of criteria that Parthenon will make use of when tagging cells for refinement and derefinement.
 * ```void (*FillDerived)(Container<Real>& rc)``` is a function pointer (defaults to ```nullptr``` and therefore a no-op) that allows an application to provide a function that fills in derived quantities from independent state.
 * ```Real (*EstimateTimestep)(Container<Real>& rc)``` is a function pointer (defaults to ```nullptr``` and therefore a no-op) that allows an application to provide a means of computing stable/accurate timesteps.
