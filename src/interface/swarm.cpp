@@ -419,6 +419,7 @@ void Swarm::Defrag() {
   // This should always be properly sorted based on how we update it
   //free_indices_.sort();
 
+  printf("nmax_pool: %i\n", nmax_pool_);
   printf("num free indices: %i\n", free_indices_.size());
   printf("num_free: %i max_active_index_: %i num_active_: %i\n", num_free,
     max_active_index_, num_active_);
@@ -431,9 +432,14 @@ void Swarm::Defrag() {
   auto from_to_indices_h = from_to_indices.GetHostMirror();
 
   auto mask_h = mask_.data.GetHostMirrorAndCopy();
-  mask_h.DeepCopy(mask_.data);
-  for (int n = 0; n < nmax_pool_; n++) {
-    printf("  [%i] mask: %i\n", n, mask_h(n));
+  //mask_h.DeepCopy(mask_.data);
+
+  // TODO GET RID OF THIS
+  auto marked_for_removal_h = marked_for_removal_.data.GetHostMirrorAndCopy();
+
+  //for (int n = 0; n < nmax_pool_; n++) {
+  for (int n = 0; n < max_active_index_; n++) {
+    printf("  [%i] mask: %i marked: %i\n", n, mask_h(n), marked_for_removal_h(n));
     from_to_indices_h(n) = -1;
   }
 
@@ -450,6 +456,11 @@ void Swarm::Defrag() {
     int index_to_move_from = index;
     index--;
 
+  //printf("test free indices:\n");
+  //for (auto index : free_indices_) {
+  //  printf("  free index: %i\n", index);
+  //}
+
     //int index_to_move_to = free_indices_.front();
     //free_indices_.pop_front();
 
@@ -461,7 +472,7 @@ void Swarm::Defrag() {
     }
     printf("PUSH BACK %i!!!!\n\n\n", index_to_move_from);
     int index_to_move_to = free_indices_.front();
-    printf("popping index %i\n", free_indices_.front();
+    printf("popping index %i\n", free_indices_.front());
     free_indices_.pop_front();
     new_free_indices.push_back(index_to_move_from);
     from_to_indices_h(index_to_move_from) = index_to_move_to;
@@ -469,7 +480,7 @@ void Swarm::Defrag() {
   }
   printf("free indices:\n");
   for (auto index : free_indices_) {
-    printf("free index: %i\n", index);
+    printf("  free index: %i\n", index);
   }
   printf("about to sort!\n");
 
@@ -532,11 +543,11 @@ void Swarm::Defrag() {
   mask_h.DeepCopy(mask_.data);
   for (int n = 0; n < nmax_pool_; n++) {
     printf("  [%i] mask: %i\n", n, mask_h(n));
-    from_to_indices_h(n) = -1;
   }
 
   // Update max_active_index_
   max_active_index_ = num_active_ - 1;
+  printf("new max active index: %i\n", max_active_index_);
   printf("Done defragging!\n");
 }
 

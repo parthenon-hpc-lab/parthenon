@@ -409,6 +409,8 @@ TaskList ParticleDriver::MakeTaskList(MeshBlock *pmb, int stage) {
   auto defrag = tl.AddTask(Defrag, deposit_particles, pmb, stage,
                            stage_name, integrator);
 
+  printf("done with tasks!\n");
+
   //auto container = pmb->real_containers.Get("my container");
 
   //auto update_container = tl.AddTask(MyContainerTask, none, container);
