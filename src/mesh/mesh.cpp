@@ -246,7 +246,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properti
     use_uniform_meshgen_fn_[X3DIR] = false;
     MeshGenerator_[X3DIR] = DefaultMeshGeneratorX3;
   }
-  default_pack_size_ = pin->GetOrAddReal("parthenon/mesh", "default_pack_size", -1);
+  default_pack_size_ = pin->GetOrAddReal("parthenon/mesh", "pack_size", -1);
   RegisterAllMeshBlockPackers(packages, default_pack_size_);
 
   // calculate the logical root level and maximum level
@@ -629,7 +629,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
     use_uniform_meshgen_fn_[X3DIR] = false;
     MeshGenerator_[X3DIR] = DefaultMeshGeneratorX3;
   }
-  default_pack_size_ = pin->GetOrAddReal("parthenon/mesh", "default_pack_size", -1);
+  default_pack_size_ = pin->GetOrAddReal("parthenon/mesh", "pack_size", -1);
   RegisterAllMeshBlockPackers(packages, default_pack_size_);
 
   // Load balancing flag and parameters
@@ -957,7 +957,7 @@ void Mesh::RegisterAllMeshBlockPackers(Packages_t &packages, int pack_size) {
     register_pack = register_pack && package->FlagsPresent(metadata);
   }
   if (register_pack) {
-    RegisterMeshBlockPack("Default", "FillGhost", [pack_size, metadata](Mesh *pmesh) {
+    RegisterMeshBlockPack("default", "fill_ghost", [pack_size, metadata](Mesh *pmesh) {
       std::vector<BlockList_t> partitions;
       std::vector<MeshBlockVarPack<Real>> packs;
       partition::ToSizeN(pmesh->block_list,

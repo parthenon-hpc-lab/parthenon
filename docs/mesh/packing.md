@@ -224,7 +224,7 @@ can be set in a `parthenon` input file under the `parthenon/mesh`
 input block. e.g.,
 ```
 <parthenon/mesh>
-default_pack_size = 6
+pack_size = 6
 ```
 A `default_pack_size < 1` indicates the entire mesh (per MPI rank)
 should be contained within a single pack. This can be accessed within
