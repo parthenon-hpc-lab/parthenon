@@ -128,6 +128,7 @@ class Mesh {
   void BuildMeshBlockPacks();
   void LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin,
                                               ApplicationInput *app_in);
+  int DefaultPackSize() { return default_pack_size_; }
   // step 7: create new MeshBlock list (same MPI rank but diff level: create new block)
   // Moved here given Cuda/nvcc restriction:
   // "error: The enclosing parent function ("...")
@@ -196,6 +197,9 @@ class Mesh {
   bool lb_flag_, lb_automatic_, lb_manual_;
   double lb_tolerance_;
   int lb_interval_;
+
+  // size of default MeshBlockPacks
+  int default_pack_size_;
 
   // functions
   MeshGenFunc MeshGenerator_[4];

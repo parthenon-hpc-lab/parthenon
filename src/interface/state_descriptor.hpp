@@ -13,6 +13,7 @@
 #ifndef INTERFACE_STATE_DESCRIPTOR_HPP_
 #define INTERFACE_STATE_DESCRIPTOR_HPP_
 
+#include <functional>
 #include <map>
 #include <memory>
 #include <string>
@@ -20,7 +21,6 @@
 
 #include "interface/metadata.hpp"
 #include "interface/params.hpp"
-#include "mesh/meshblock_pack.hpp"
 #include "refinement/amr_criteria.hpp"
 
 namespace parthenon {
@@ -28,10 +28,20 @@ namespace parthenon {
 // Forward declarations
 template <typename T>
 class Container;
-// template <typename T>
-// class VarPackingFunc;
-// template <typename T>
-// class FluxPackingFunc;
+template <typename T>
+class VariablePack;
+template <typename T>
+class VariableFluxPack;
+template <typename T>
+class MeshBlockPack;
+template <typename T>
+using MeshBlockVarPack = MeshBlockPack<VariablePack<T>>;
+template <typename T>
+using MeshBlockVarFluxPack = MeshBlockPack<VariableFluxPack<T>>;
+template <typename T>
+using VarPackingFunc = std::function<std::vector<MeshBlockVarPack<T>>(Mesh *)>;
+template <typename T>
+using FluxPackingFunc = std::function<std::vector<MeshBlockVarFluxPack<T>>(Mesh *)>;
 
 enum class DerivedOwnership { shared, unique };
 
@@ -107,10 +117,10 @@ class StateDescriptor {
     return true;
   }
 
-  void AddMeshBlockPack(const std::string &pack_name, VarPackingFunc<Real> &func) {
+  void AddMeshBlockPack(const std::string &pack_name, const VarPackingFunc<Real> &func) {
     realVarPackerMap_[pack_name] = func;
   }
-  void AddMeshBlockPack(const std::string &pack_name, FluxPackingFunc<Real> &func) {
+  void AddMeshBlockPack(const std::string &pack_name, const FluxPackingFunc<Real> &func) {
     realFluxPackerMap_[pack_name] = func;
   }
 
@@ -146,6 +156,20 @@ class StateDescriptor {
   }
   const std::map<std::string, FluxPackingFunc<Real>> &AllMeshBlockFluxPackers() {
     return realFluxPackerMap_;
+  }
+
+  bool FlagsPresent(std::vector<MetadataFlag> &flags, bool matchAny = false) {
+    for (auto & pair : metadataMap_) {
+      auto &metadata = pair.second;
+      if (metadata.FlagsSet(flags,matchAny)) return true;
+    }
+    for (auto & pair : sparseMetadataMap_) {
+      auto &sparsevec = pair.second;
+      for (auto &metadata : sparsevec) {
+        if (metadata.FlagsSet(flags,matchAny)) return true;
+      }
+    }
+    return false;
   }
 
   std::vector<std::shared_ptr<AMRCriteria>> amr_criteria;

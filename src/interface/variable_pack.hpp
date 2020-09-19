@@ -22,9 +22,12 @@
 #include <vector>
 
 #include "interface/metadata.hpp"
-#include "interface/variable.hpp"
 
 namespace parthenon {
+
+// Forward declarations
+template <typename T>
+class CellVariable;
 
 // some convenience aliases
 namespace vpack_types {
