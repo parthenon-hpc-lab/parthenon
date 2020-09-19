@@ -461,14 +461,22 @@ void Swarm::Defrag() {
     }
     printf("PUSH BACK %i!!!!\n\n\n", index_to_move_from);
     int index_to_move_to = free_indices_.front();
+    printf("popping index %i\n", free_indices_.front();
     free_indices_.pop_front();
     new_free_indices.push_back(index_to_move_from);
     from_to_indices_h(index_to_move_from) = index_to_move_to;
     //from_to_indices.push_back(std::pair<int, int>(index_to_move_from, index_to_move_to));
   }
+  printf("free indices:\n");
+  for (auto index : free_indices_) {
+    printf("free index: %i\n", index);
+  }
+  printf("about to sort!\n");
 
   free_indices_.sort();
+  printf("about to sort new indices!\n");
   new_free_indices.sort();
+  printf("about to merge indices!\n");
   free_indices_.merge(new_free_indices);
 
   from_to_indices.DeepCopy(from_to_indices_h);

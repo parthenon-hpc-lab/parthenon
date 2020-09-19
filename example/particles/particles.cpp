@@ -318,8 +318,12 @@ TaskStatus Defrag(MeshBlock *pmb, int stage,
   std::vector<std::string> &stage_name, Integrator *integrator) {
 
   auto s = pmb->real_containers.GetSwarmContainer()->Get("my particles");
-  // Don't need to do this every timestep
-  s->Defrag();
+
+  // Only do this if list is getting too sparse. This criterion (whether there
+  // are *any* gaps in the list) is very aggressive
+  if (s->get_num_active() <= s->get_max_active_index()) {
+    s->Defrag();
+  }
 
   printf("num active: %i max index: %i\n", s->get_num_active(),
     s->get_max_active_index());

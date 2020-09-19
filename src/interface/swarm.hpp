@@ -103,6 +103,12 @@ class Swarm {
 
   int get_num_active() { return num_active_; }
 
+  /// Get the quality of the data layout. 1 is perfectly organized, < 1
+  /// indicates gaps in the list.
+  Real get_packing_efficiency() {
+    return num_active_ / ( max_active_index_ + 1);
+  }
+
   bool mpiStatus;
 
   //int AddEmptyParticle();

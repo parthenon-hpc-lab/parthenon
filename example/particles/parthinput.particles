@@ -49,7 +49,7 @@ nx2 = 16
 #variables = particle_deposition
 
 <parthenon/time>
-tlim = 47
+tlim = 1.e2
 integrator = rk1
 
 <Particles>
