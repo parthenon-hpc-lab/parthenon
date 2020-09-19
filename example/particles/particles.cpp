@@ -170,6 +170,7 @@ TaskStatus DestroySomeParticles(MeshBlock *pmb, int stage,
         auto rng_gen = rng_pool.get_state();
         // Randomly remove 10% of particles
         if (rng_gen.drand() > 0.9) {
+          printf("Removing particle %i!\n", n);
           marked_for_removal(n) = true;
         }
         rng_pool.free_state(rng_gen);
@@ -261,6 +262,7 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, int stage,
   pmb->par_for("CreateSomeParticles", 0, swarm->get_max_active_index(),
     KOKKOS_LAMBDA(const int n) {
       if (new_particles_mask(n)) {
+        printf("Creating particle %i!\n", n);
         auto rng_gen = rng_pool.get_state();
 
         // Randomly sample in space in this meshblock

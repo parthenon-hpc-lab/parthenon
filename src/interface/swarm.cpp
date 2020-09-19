@@ -166,6 +166,11 @@ void Swarm::setPoolMax(const int nmax_pool) {
     free_indices_.push_back(n + n_new_begin);
   }
 
+  printf("NEW FREE INDICES!!!!\n");
+  for (auto index : free_indices_) {
+    printf("  %i\n", index);
+  }
+
   // Resize and copy data
 
   auto oldvar = mask_;
@@ -374,6 +379,7 @@ void Swarm::RemoveMarkedParticles() {
   for (int n = max_active_index_; n >= 0; n--) {
     if (mask_h(n)) {
       if (marked_for_removal_h(n)) {
+        printf("removing particle %i!\n", n);
         mask_h(n) = false;
         free_indices_.push_front(n);
         num_active_ -= 1;
@@ -409,10 +415,14 @@ void Swarm::Defrag() {
   // Add 1 to convert max index to max number
   int num_free = (max_active_index_ + 1) - num_active_;
 
+
   // This should always be properly sorted based on how we update it
   //free_indices_.sort();
 
-  for (index : free_indices_) {
+  printf("num free indices: %i\n", free_indices_.size());
+  printf("num_free: %i max_active_index_: %i num_active_: %i\n", num_free,
+    max_active_index_, num_active_);
+  for (auto index : free_indices_) {
     printf("free index: %i\n", index);
   }
 
@@ -420,29 +430,46 @@ void Swarm::Defrag() {
   ParArrayND<int> from_to_indices("from_to_indices", max_active_index_ + 1);
   auto from_to_indices_h = from_to_indices.GetHostMirror();
 
-  auto mask_h = mask_.data.GetHostMirror();
+  auto mask_h = mask_.data.GetHostMirrorAndCopy();
   mask_h.DeepCopy(mask_.data);
+  for (int n = 0; n < nmax_pool_; n++) {
+    printf("  [%i] mask: %i\n", n, mask_h(n));
+    from_to_indices_h(n) = -1;
+  }
+
+  std::list<int> new_free_indices;
+
 
   int index = max_active_index_;
   for (int n = 0; n < num_free; n++) {
     while (mask_h(index) == false) {
-      from_to_indices_h(index) = -1;
+      //from_to_indices_h(index) = -1;
       index--;
     }
+    printf("Moving index %i!\n", index);
     int index_to_move_from = index;
     index--;
 
-    int index_to_move_to = free_indices_.front();
-    free_indices_.pop_front();
+    //int index_to_move_to = free_indices_.front();
+    //free_indices_.pop_front();
 
     // index_to_move_to isn't always correct... some of the "moved" particles
     // should actually stay in place
     if (index_to_move_from < num_active_) {
+      printf("index_to_move_from: %i < num_active_: %i !\n", index_to_move_from, num_active_);
       break;
     }
+    printf("PUSH BACK %i!!!!\n\n\n", index_to_move_from);
+    int index_to_move_to = free_indices_.front();
+    free_indices_.pop_front();
+    new_free_indices.push_back(index_to_move_from);
     from_to_indices_h(index_to_move_from) = index_to_move_to;
     //from_to_indices.push_back(std::pair<int, int>(index_to_move_from, index_to_move_to));
   }
+
+  free_indices_.sort();
+  new_free_indices.sort();
+  free_indices_.merge(new_free_indices);
 
   from_to_indices.DeepCopy(from_to_indices_h);
 
@@ -459,6 +486,17 @@ void Swarm::Defrag() {
       }
 
   });*/
+
+  // update mask as wel??
+
+  pmy_block->par_for("Swarm::DefragMask", 0, max_active_index_,
+    KOKKOS_LAMBDA(const int n) {
+      if (from_to_indices(n) >= 0) {
+        printf("%i -> %i\n", n, from_to_indices(n));
+        mask_(from_to_indices(n)) = mask_(n);
+        mask_(n) = false;
+      }
+    });
 
   for (int m = 0; m < intVector_.size(); m++) {
     auto &vec = intVector_[m]->Get();
@@ -480,9 +518,18 @@ void Swarm::Defrag() {
       });
   }
 
+  for (auto index : free_indices_) {
+    printf("free index: %i\n", index);
+  }
+  mask_h.DeepCopy(mask_.data);
+  for (int n = 0; n < nmax_pool_; n++) {
+    printf("  [%i] mask: %i\n", n, mask_h(n));
+    from_to_indices_h(n) = -1;
+  }
+
   // Update max_active_index_
   max_active_index_ = num_active_ - 1;
-  printf("Done defragging!");
+  printf("Done defragging!\n");
 }
 
 std::vector<int> Swarm::AddUniformParticles(int num_to_add) {
