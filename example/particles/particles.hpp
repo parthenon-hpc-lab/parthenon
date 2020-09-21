@@ -27,7 +27,6 @@ using namespace parthenon;
 namespace particles_example {
 
 typedef Kokkos::Random_XorShift64_Pool<> RNGPool;
-typedef
 
 class ParticleDriver : public MultiStageBlockTaskDriver {
  public:

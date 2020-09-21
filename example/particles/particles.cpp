@@ -195,8 +195,10 @@ TaskStatus DepositParticles(MeshBlock *pmb, int stage,
   Real dx_j = pmb->coords.dx2f(pmb->cellbounds.js(IndexDomain::interior));
   Real dx_k = pmb->coords.dx3f(pmb->cellbounds.ks(IndexDomain::interior));
   Real minx_i = pmb->coords.x1v(ib.s);
-  Real minx_j = pmb->coords.x1v(jb.s);
-  Real minx_k = pmb->coords.x1v(kb.s);
+  Real minx_j = pmb->coords.x2v(jb.s);
+  Real minx_k = pmb->coords.x3v(kb.s);
+
+  printf("mink: %e dxk: %e\n", minx_k, dx_k);
 
   auto &x = swarm->GetReal("x").Get();
   auto &y = swarm->GetReal("y").Get();
@@ -218,7 +220,14 @@ TaskStatus DepositParticles(MeshBlock *pmb, int stage,
         int j = static_cast<int>((y(n) - minx_j)/dx_j) + jb.s;
         int k = static_cast<int>((z(n) - minx_k)/dx_k) + kb.s;
 
-        Kokkos::atomic_add(&particle_dep(k,j,i), weight(n));
+        printf("i j k : %i %i %i\n", i, j, k);
+        printf("x y z : %e %e %e\n", x(n), y(n), z(n));
+        printf("[%i %i] [%i %i] [%i %i]\n",
+          ib.s, ib.e, jb.s, jb.e, kb.s, kb.e);
+
+        if (i >= ib.s && i <= ib.e && j >= jb.s && j <= jb.e && k >= kb.s && k <= kb.e) {
+          Kokkos::atomic_add(&particle_dep(k,j,i), weight(n));
+        }
       }
     });
 
@@ -248,8 +257,8 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, int stage,
   Real dx_j = pmb->coords.dx2f(pmb->cellbounds.js(IndexDomain::interior));
   Real dx_k = pmb->coords.dx3f(pmb->cellbounds.ks(IndexDomain::interior));
   Real minx_i = pmb->coords.x1v(ib.s);
-  Real minx_j = pmb->coords.x1v(jb.s);
-  Real minx_k = pmb->coords.x1v(kb.s);
+  Real minx_j = pmb->coords.x2v(jb.s);
+  Real minx_k = pmb->coords.x3v(kb.s);
 
   auto &x = swarm->GetReal("x").Get();
   auto &y = swarm->GetReal("y").Get();
@@ -286,33 +295,87 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, int stage,
   return TaskStatus::complete;
 }
 
-TaskStatus UpdateSwarm(MeshBlock *pmb, int stage,
+TaskStatus TransportSwarm(MeshBlock *pmb, int stage,
                        std::vector<std::string> &stage_name,
                        Integrator *integrator) {
   auto swarm = pmb->real_containers.GetSwarmContainer()->Get("my particles");
   //parthenon::Update::TransportSwarm(swarm, swarm, integrator->dt);
-  return TaskStatus::complete;
-}
 
-/*TaskStatus RemoveSecondParticle(MeshBlock *pmb, int stage,
- std::vector<std::string> &stage_name, Integrator *integrator) {
+  int max_active_index = swarm->get_max_active_index();
+  printf("max active index: %i num active: %i\n", max_active_index, swarm->get_num_active());
 
-  auto swarm = pmb->real_containers.GetSwarmContainer()->Get("my particles");
+  Real dt = integrator->dt;
 
+  auto &x = swarm->GetReal("x").Get();
+  auto &y = swarm->GetReal("y").Get();
+  auto &z = swarm->GetReal("z").Get();
+  auto &vx = swarm->GetReal("vx").Get();
+  auto &vy = swarm->GetReal("vy").Get();
+  auto &vz = swarm->GetReal("vz").Get();
   auto &mask = swarm->GetMask().Get();
-  auto &marked_for_removal = swarm->GetMarkedForRemoval().Get();
 
-  pmb->par_for("RemoveSecondParticle", 0, swarm->get_max_active_index(),
+  Real dx_i = pmb->coords.dx1f(pmb->cellbounds.is(IndexDomain::interior));
+  Real dx_j = pmb->coords.dx2f(pmb->cellbounds.js(IndexDomain::interior));
+  Real dx_k = pmb->coords.dx3f(pmb->cellbounds.ks(IndexDomain::interior));
+  Real dx_push = std::min<Real>(dx_i, std::min<Real>(dx_j, dx_k));
+
+  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
+  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
+  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
+
+  Real x_min = pmb->coords.x1v(ib.s) - dx_i / 2.;
+  Real y_min = pmb->coords.x2v(jb.s) - dx_j / 2.;
+  Real z_min = pmb->coords.x3v(kb.s) - dx_k / 2.;
+  Real x_max = pmb->coords.x1v(ib.e) + dx_i / 2.;
+  Real y_max = pmb->coords.x2v(jb.e) + dx_j / 2.;
+  Real z_max = pmb->coords.x3v(kb.e) + dx_k / 2.;
+
+  ParArrayND<Real> t("time", max_active_index+1);
+
+  // Simple particle push: push particles half a zone width until they have
+  // traveled one integrator timestep's worth of time
+  pmb->par_for("TransportSwarm", 0, max_active_index,
     KOKKOS_LAMBDA(const int n) {
-      if (mask(n) && n == 1) {
-        marked_for_removal(n) = true;
+
+
+      if (mask(n)) {
+        t(n) = 0.;
+        Real v = sqrt(vx(n)*vx(n) + vy(n)*vy(n) + vz(n)*vz(n));
+        while (t(n) < dt) {
+          Real dt_cell = dx_push / v;
+          Real dt_end = dt - t(n);
+          Real dt_push = std::min<Real>(dt_cell, dt_end);
+
+          x(n) += vx(n)*dt_push;
+          y(n) += vy(n)*dt_push;
+          z(n) += vz(n)*dt_push;
+          t(n) += dt_push;
+
+          // Periodic boundaries
+          if (x(n) < x_min) {
+            x(n) = x_max - (x_min - x(n));
+          }
+          if (x(n) > x_max) {
+            x(n) = x_min + (x(n) - x_max);
+          }
+          if (y(n) < y_min) {
+            y(n) = y_max - (y_min - y(n));
+          }
+          if (y(n) > y_max) {
+            y(n) = y_min + (y(n) - y_max);
+          }
+          if (z(n) < z_min) {
+            z(n) = z_max - (z_min - z(n));
+          }
+          if (z(n) > z_max) {
+            z(n) = z_min + (z(n) - z_max);
+          }
+        }
       }
     });
 
-  swarm->RemoveMarkedParticles();
-
   return TaskStatus::complete;
-}*/
+}
 
 TaskStatus Defrag(MeshBlock *pmb, int stage,
   std::vector<std::string> &stage_name, Integrator *integrator) {
@@ -325,95 +388,31 @@ TaskStatus Defrag(MeshBlock *pmb, int stage,
     s->Defrag();
   }
 
-  printf("num active: %i max index: %i\n", s->get_num_active(),
-    s->get_max_active_index());
-
   return TaskStatus::complete;
 }
-
-/*TaskStatus AddTwoParticles(MeshBlock *pmb, int stage,
-  std::vector<std::string> &stage_name, Integrator *integrator) {
-
-  auto s = pmb->real_containers.GetSwarmContainer()->Get("my particles");
-  auto pkg = pmb->packages["particles_package"];
-
-  auto new_particle_mask = s->AddEmptyParticles(2);
-
-  auto &x = s->GetReal("x").Get();
-  auto &y = s->GetReal("y").Get();
-  auto &z = s->GetReal("z").Get();
-  auto &vx = s->GetReal("vx").Get();
-  auto &vy = s->GetReal("vy").Get();
-  auto &vz = s->GetReal("vz").Get();
-  auto &weight = s->GetReal("weight").Get();
-
-  const Real &v = pkg->Param<Real>("particle_speed");
-
-  pmb->par_for("particles_package::AddTwoParticles", 0, s->get_max_active_index(),
-    KOKKOS_LAMBDA(const int n) {
-      if (new_particle_mask(n)) {
-        x(n) = 1.e-1*n;
-        y(n) = 1.e-2*n;
-        z(n) = 1.e-3*n;
-        vx(n) = v;
-        vy(n) = 0.;//1.e-5;
-        vz(n) = 0.;//1.e-4*n;
-        weight(n) = 1.0;
-      }
-  });
-
-  return TaskStatus::complete;
-}
-
-TaskStatus MyContainerTask(std::shared_ptr<Container<Real>> container) {
-  return TaskStatus::complete;
-}*/
 
 // See the advection_driver.hpp declaration for a description of how this function gets called.
 TaskList ParticleDriver::MakeTaskList(MeshBlock *pmb, int stage) {
   TaskList tl;
 
   TaskID none(0);
-  // first make other useful containers
-  if (stage == 1) {
-    auto container = pmb->real_containers.Get();
-    pmb->real_containers.Add("my container", container);
-    auto base = pmb->real_containers.GetSwarmContainer();
-  }
 
   auto sc = pmb->real_containers.GetSwarmContainer();
 
   auto swarm = sc->Get("my particles");
 
-  printf("update swarm\n");
-  auto update_swarm = tl.AddTask(UpdateSwarm, none, pmb, stage,
+  auto transport_swarm = tl.AddTask(TransportSwarm, none, pmb, stage,
                                             stage_name, integrator);
 
-  printf("destroy some particles\n");
-  auto destroy_some_particles = tl.AddTask(DestroySomeParticles, update_swarm, pmb, stage,
+  auto destroy_some_particles = tl.AddTask(DestroySomeParticles, transport_swarm, pmb, stage,
     stage_name, integrator);
 
-  printf("create some particles\n");
   auto create_some_particles = tl.AddTask(CreateSomeParticles, destroy_some_particles, pmb, stage, stage_name, integrator);
 
-  printf("deposit particles\n");
   auto deposit_particles = tl.AddTask(DepositParticles, create_some_particles, pmb, stage, stage_name, integrator);
 
-  //auto remove_second_particle = tl.AddTask(RemoveSecondParticle, update_swarm, pmb, stage,
-  //                                         stage_name, integrator);
-
-  //auto add_two_particles = tl.AddTask(AddTwoParticles, remove_second_particle, pmb, stage,
-  //                                    stage_name, integrator);
-
-  printf("defrag\n");
   auto defrag = tl.AddTask(Defrag, deposit_particles, pmb, stage,
                            stage_name, integrator);
-
-  printf("done with tasks!\n");
-
-  //auto container = pmb->real_containers.Get("my container");
-
-  //auto update_container = tl.AddTask(MyContainerTask, none, container);
 
   return tl;
 }
