@@ -194,11 +194,9 @@ TaskStatus DepositParticles(MeshBlock *pmb, int stage,
   Real dx_i = pmb->coords.dx1f(pmb->cellbounds.is(IndexDomain::interior));
   Real dx_j = pmb->coords.dx2f(pmb->cellbounds.js(IndexDomain::interior));
   Real dx_k = pmb->coords.dx3f(pmb->cellbounds.ks(IndexDomain::interior));
-  Real minx_i = pmb->coords.x1v(ib.s);
-  Real minx_j = pmb->coords.x2v(jb.s);
-  Real minx_k = pmb->coords.x3v(kb.s);
-
-  printf("mink: %e dxk: %e\n", minx_k, dx_k);
+  Real minx_i = pmb->coords.x1f(ib.s);
+  Real minx_j = pmb->coords.x2f(jb.s);
+  Real minx_k = pmb->coords.x3f(kb.s);
 
   auto &x = swarm->GetReal("x").Get();
   auto &y = swarm->GetReal("y").Get();
@@ -219,11 +217,6 @@ TaskStatus DepositParticles(MeshBlock *pmb, int stage,
         int i = static_cast<int>((x(n) - minx_i)/dx_i) + ib.s;
         int j = static_cast<int>((y(n) - minx_j)/dx_j) + jb.s;
         int k = static_cast<int>((z(n) - minx_k)/dx_k) + kb.s;
-
-        printf("i j k : %i %i %i\n", i, j, k);
-        printf("x y z : %e %e %e\n", x(n), y(n), z(n));
-        printf("[%i %i] [%i %i] [%i %i]\n",
-          ib.s, ib.e, jb.s, jb.e, kb.s, kb.e);
 
         if (i >= ib.s && i <= ib.e && j >= jb.s && j <= jb.e && k >= kb.s && k <= kb.e) {
           Kokkos::atomic_add(&particle_dep(k,j,i), weight(n));
@@ -256,9 +249,9 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, int stage,
   Real dx_i = pmb->coords.dx1f(pmb->cellbounds.is(IndexDomain::interior));
   Real dx_j = pmb->coords.dx2f(pmb->cellbounds.js(IndexDomain::interior));
   Real dx_k = pmb->coords.dx3f(pmb->cellbounds.ks(IndexDomain::interior));
-  Real minx_i = pmb->coords.x1v(ib.s);
-  Real minx_j = pmb->coords.x2v(jb.s);
-  Real minx_k = pmb->coords.x3v(kb.s);
+  Real minx_i = pmb->coords.x1f(ib.s);
+  Real minx_j = pmb->coords.x2f(jb.s);
+  Real minx_k = pmb->coords.x3f(kb.s);
 
   auto &x = swarm->GetReal("x").Get();
   auto &y = swarm->GetReal("y").Get();
@@ -323,12 +316,12 @@ TaskStatus TransportSwarm(MeshBlock *pmb, int stage,
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
 
-  Real x_min = pmb->coords.x1v(ib.s) - dx_i / 2.;
-  Real y_min = pmb->coords.x2v(jb.s) - dx_j / 2.;
-  Real z_min = pmb->coords.x3v(kb.s) - dx_k / 2.;
-  Real x_max = pmb->coords.x1v(ib.e) + dx_i / 2.;
-  Real y_max = pmb->coords.x2v(jb.e) + dx_j / 2.;
-  Real z_max = pmb->coords.x3v(kb.e) + dx_k / 2.;
+  Real x_min = pmb->coords.x1f(ib.s);
+  Real y_min = pmb->coords.x2f(jb.s);
+  Real z_min = pmb->coords.x3f(kb.s);
+  Real x_max = pmb->coords.x1f(ib.e + 1);
+  Real y_max = pmb->coords.x2f(jb.e + 1);
+  Real z_max = pmb->coords.x3f(kb.e + 1);
 
   ParArrayND<Real> t("time", max_active_index+1);
 
