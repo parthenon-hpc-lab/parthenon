@@ -42,13 +42,6 @@ class Swarm {
 
   Swarm(const std::string label, const Metadata &metadata, const int nmax_pool_in = 3);
 
-  /// Whether particle at index is active
-  bool IsActive(int index) {
-    PARTHENON_DEBUG_REQUIRE(index <= max_active_index_,
-                            "Requesting particle index outside of allocated data!");
-    return mask_(index);
-  }
-
   // TODO BRR This should really be const... mask_ is managed internally
   /// Get mask array for active particles
   ParticleVariable<bool> &GetMask() { return mask_; }
