@@ -56,7 +56,7 @@ class PackIndexMap {
   std::map<std::string, vpack_types::IndexPair> map_;
 };
 template <typename T>
-using ViewOfParArrays = ParArrayND<ParArray3D<T>>;
+using ViewOfParArrays = ParArray1D<ParArray3D<T>>;
 
 // Try to keep these Variable*Pack classes as lightweight as possible.
 // They go to the device.
@@ -64,7 +64,7 @@ template <typename T>
 class VariablePack {
  public:
   VariablePack() = default;
-  VariablePack(const ViewOfParArrays<T> view, const ParArrayND<int> sparse_ids,
+  VariablePack(const ViewOfParArrays<T> view, const ParArray1D<int> sparse_ids,
                const std::array<int, 4> dims)
       : v_(view), sparse_ids_(sparse_ids), dims_(dims),
         ndim_((dims[2] > 1 ? 3 : (dims[1] > 1 ? 2 : 1))) {}
@@ -89,7 +89,7 @@ class VariablePack {
 
  protected:
   ViewOfParArrays<T> v_;
-  ParArrayND<int> sparse_ids_;
+  ParArray1D<int> sparse_ids_;
   std::array<int, 4> dims_;
   int ndim_;
 };
@@ -100,7 +100,7 @@ class VariableFluxPack : public VariablePack<T> {
   VariableFluxPack() = default;
   VariableFluxPack(const ViewOfParArrays<T> view, const ViewOfParArrays<T> f0,
                    const ViewOfParArrays<T> f1, const ViewOfParArrays<T> f2,
-                   const ParArrayND<int> sparse_ids, const std::array<int, 4> dims)
+                   const ParArray1D<int> sparse_ids, const std::array<int, 4> dims)
       : VariablePack<T>(view, sparse_ids, dims), f_({f0, f1, f2}) {}
 
   KOKKOS_FORCEINLINE_FUNCTION
@@ -142,11 +142,11 @@ using MapToVariableFluxPack = std::map<vpack_types::StringPair, FluxPackIndxPair
 
 template <typename T>
 void FillVarView(const vpack_types::VarList<T> &vars, PackIndexMap *vmap,
-                 ViewOfParArrays<T> &cv, ParArrayND<int> &sparse_assoc) {
+                 ViewOfParArrays<T> &cv, ParArray1D<int> &sparse_assoc) {
   using vpack_types::IndexPair;
 
-  auto host_view = cv.GetHostMirror();
-  auto host_sp = sparse_assoc.GetHostMirror();
+  auto host_view = Kokkos::create_mirror_view(Kokkos::HostSpace(),cv);
+  auto host_sp = Kokkos::create_mirror_view(Kokkos::HostSpace(), sparse_assoc);
 
   int vindex = 0;
   int sparse_start;
@@ -193,8 +193,8 @@ void FillVarView(const vpack_types::VarList<T> &vars, PackIndexMap *vmap,
                                                    IndexPair(sparse_start, vindex - 1)));
   }
 
-  cv.DeepCopy(host_view);
-  sparse_assoc.DeepCopy(host_sp);
+  Kokkos::deep_copy(cv, host_view);
+  Kokkos::deep_copy(sparse_assoc, host_sp);
 }
 
 template <typename T>
@@ -203,9 +203,9 @@ void FillFluxViews(const vpack_types::VarList<T> &vars, PackIndexMap *vmap,
                    ViewOfParArrays<T> &f3) {
   using vpack_types::IndexPair;
 
-  auto host_f1 = f1.GetHostMirror();
-  auto host_f2 = f2.GetHostMirror();
-  auto host_f3 = f3.GetHostMirror();
+  auto host_f1 = Kokkos::create_mirror_view(Kokkos::HostSpace(), f1);
+  auto host_f2 = Kokkos::create_mirror_view(Kokkos::HostSpace(), f2);
+  auto host_f3 = Kokkos::create_mirror_view(Kokkos::HostSpace(), f3);
 
   int vindex = 0;
   int sparse_start;
@@ -252,9 +252,9 @@ void FillFluxViews(const vpack_types::VarList<T> &vars, PackIndexMap *vmap,
                                                    IndexPair(sparse_start, vindex - 1)));
   }
 
-  f1.DeepCopy(host_f1);
-  f2.DeepCopy(host_f2);
-  f3.DeepCopy(host_f3);
+  Kokkos::deep_copy(f1, host_f1);
+  Kokkos::deep_copy(f2, host_f2);
+  Kokkos::deep_copy(f3, host_f3);
 }
 
 template <typename T>
@@ -280,7 +280,7 @@ VariableFluxPack<T> MakeFluxPack(const vpack_types::VarList<T> &vars,
   ViewOfParArrays<T> f1("MakeFluxPack::f1", fsize);
   ViewOfParArrays<T> f2("MakeFluxPack::f2", fsize);
   ViewOfParArrays<T> f3("MakeFluxPack::f3", fsize);
-  ParArrayND<int> sparse_assoc("MakeFluxPack::sparse_assoc", vsize);
+  ParArray1D<int> sparse_assoc("MakeFluxPack::sparse_assoc", vsize);
   // add variables to host view
   FillVarView(vars, vmap, cv, sparse_assoc);
   // add fluxes to host view
@@ -300,7 +300,7 @@ VariablePack<T> MakePack(const vpack_types::VarList<T> &vars,
 
   // make the outer view
   ViewOfParArrays<T> cv("MakePack::cv", vsize);
-  ParArrayND<int> sparse_assoc("MakeFluxPack::sparse_assoc", vsize);
+  ParArray1D<int> sparse_assoc("MakeFluxPack::sparse_assoc", vsize);
 
   FillVarView(vars, vmap, cv, sparse_assoc);
 
