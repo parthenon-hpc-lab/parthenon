@@ -18,8 +18,8 @@
 #include <string>
 
 #include "interface/container.hpp"
-#include "interface/swarm_container.hpp"
 #include "interface/metadata.hpp"
+#include "interface/swarm_container.hpp"
 
 namespace parthenon {
 
@@ -45,11 +45,14 @@ class ContainerCollection {
     return it->second;
   }
 
-  std::shared_ptr<SwarmContainer> &GetSwarmContainer() { return swarmContainers_["base"]; }
+  std::shared_ptr<SwarmContainer> &GetSwarmContainer() {
+    return swarmContainers_["base"];
+  }
   std::shared_ptr<SwarmContainer> &GetSwarmContainer(const std::string &label) {
     auto it = swarmContainers_.find(label);
     if (it == swarmContainers_.end()) {
-      throw std::runtime_error("SwarmContainer " + label + " does not exist in collection.");
+      throw std::runtime_error("SwarmContainer " + label +
+                               " does not exist in collection.");
     }
     return it->second;
   }

@@ -25,13 +25,14 @@ void ContainerCollection<T>::Add(const std::string &name,
   if (it != swarmContainers_.end()) {
     // check to make sure they are the same
     if (!(*src == *(it->second))) {
-      throw std::runtime_error("Error attempting to add a SwarmContainer to a Collection");
+      throw std::runtime_error(
+          "Error attempting to add a SwarmContainer to a Collection");
     }
     return;
   }
 
   auto sc = std::make_shared<SwarmContainer>();
-  //sc->pmy_block = src.pmy_block;
+  // sc->pmy_block = src.pmy_block;
   for (auto v : src->GetSwarmVector()) {
     if (v->IsSet(Metadata::OneCopy)) {
       sc->Add(v);

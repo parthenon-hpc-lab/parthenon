@@ -209,16 +209,13 @@ class ParticleVariable {
  public:
   /// Initialize a particle variable
   ParticleVariable(const std::string label, const int npool, const Metadata &metadata)
-      : data(label, npool),
-        npool_(npool), m_(metadata), label_(label) {}
+      : data(label, npool), npool_(npool), m_(metadata), label_(label) {}
 
   // accessors
   KOKKOS_FORCEINLINE_FUNCTION
-  ParArrayND<T> &Get() {
-    return data;
-  }
+  ParArrayND<T> &Get() { return data; }
   template <typename... Args>
-  KOKKOS_FORCEINLINE_FUNCTION T &operator()(Args... args) { //const {
+  KOKKOS_FORCEINLINE_FUNCTION T &operator()(Args... args) { // const {
     return data(std::forward<Args>(args)...);
   }
 

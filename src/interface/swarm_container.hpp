@@ -13,13 +13,13 @@
 #ifndef INTERFACE_SWARM_CONTAINER_HPP_
 #define INTERFACE_SWARM_CONTAINER_HPP_
 
+#include "globals.hpp"
+#include "swarm.hpp"
 #include <map>
 #include <memory>
 #include <string>
 #include <utility> // <pair>
 #include <vector>
-#include "globals.hpp"
-#include "swarm.hpp"
 
 namespace parthenon {
 ///
@@ -41,14 +41,13 @@ class SwarmContainer {
   //-----------------
   // Public Variables
   //-----------------
-  MeshBlock* pmy_block = nullptr; // ptr to MeshBlock
+  MeshBlock *pmy_block = nullptr; // ptr to MeshBlock
 
   //-----------------
-  //Public Methods
+  // Public Methods
   //-----------------
   // Constructor does nothing
-  SwarmContainer() {
-  }
+  SwarmContainer() {}
 
   ///
   /// Set the pointer to the mesh block for this container
@@ -92,20 +91,17 @@ class SwarmContainer {
   /// @return the Swarm if found or throw exception
   std::shared_ptr<Swarm> &Get(std::string label) {
     if (swarmMap_.count(label) == 0) {
-      throw std::invalid_argument (std::string("\n") +
-                                   std::string(label) +
-                                   std::string(" swarm not found in Get()\n") );
+      throw std::invalid_argument(std::string("\n") + std::string(label) +
+                                  std::string(" swarm not found in Get()\n"));
     }
     return swarmMap_[label];
   }
 
-  std::shared_ptr<Swarm> &Get(const int index) {
-    return swarmVector_[index];
-  }
+  std::shared_ptr<Swarm> &Get(const int index) { return swarmVector_[index]; }
 
-  int Index(const std::string& label) {
+  int Index(const std::string &label) {
     for (int i = 0; i < swarmVector_.size(); i++) {
-      if (! swarmVector_[i]->label().compare(label)) return i;
+      if (!swarmVector_[i]->label().compare(label)) return i;
     }
     return -1;
   }
@@ -115,9 +111,8 @@ class SwarmContainer {
   /// @param indexCount a map of names to std::pair<index,count> for each name
   /// @param sparse_ids if specified is list of sparse ids we are interested in.  Note
   ///        that non-sparse variables specified are aliased in as is.
-  int GetSwarms(const std::vector<std::string>& names,
-                std::vector<Swarm>& sRet,
-                std::map<std::string,std::pair<int,int>>& indexCount);
+  int GetSwarms(const std::vector<std::string> &names, std::vector<Swarm> &sRet,
+                std::map<std::string, std::pair<int, int>> &indexCount);
 
   const SwarmVector &GetSwarmVector() const { return swarmVector_; }
   const SwarmMap &GetSwarmMap() const { return swarmMap_; }
@@ -134,12 +129,10 @@ class SwarmContainer {
   void Print();
 
   // return number of stored arrays
-  int Size() {return swarmVector_.size();}
+  int Size() { return swarmVector_.size(); }
 
   // Element accessor functions
-  std::vector<std::shared_ptr<Swarm>>& allSwarms() {
-    return swarmVector_;
-  }
+  std::vector<std::shared_ptr<Swarm>> &allSwarms() { return swarmVector_; }
 
   // Communication routines
   void SetupPersistentMPI();
@@ -164,7 +157,7 @@ class SwarmContainer {
   }
 
  private:
-  int debug=0;
+  int debug = 0;
 
   SwarmVector swarmVector_ = {};
   SwarmMap swarmMap_ = {};

@@ -10,15 +10,14 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+#include "swarm.hpp"
+#include "bvals/cc/bvals_cc.hpp"
+#include "globals.hpp" // my_rank
+#include "mesh/mesh.hpp"
 #include <cstdlib>
 #include <memory>
 #include <utility>
 #include <vector>
-#include "bvals/cc/bvals_cc.hpp"
-#include "swarm.hpp"
-#include "globals.hpp" // my_rank
-#include "mesh/mesh.hpp"
-#include <utility>
 
 namespace parthenon {
 
@@ -46,16 +45,14 @@ Swarm::Swarm(const std::string label, const Metadata &metadata, const int nmax_p
   marked_for_removal_.data.DeepCopy(marked_for_removal_h);
 }
 
-void Swarm::Add(const std::vector<std::string> labelArray,
-                       const Metadata &metadata) {
+void Swarm::Add(const std::vector<std::string> labelArray, const Metadata &metadata) {
   // generate the vector and call Add
   for (auto label : labelArray) {
     Add(label, metadata);
   }
 }
 
-std::shared_ptr<Swarm> Swarm::AllocateCopy(const bool allocComms,
-                                    MeshBlock *pmb) {
+std::shared_ptr<Swarm> Swarm::AllocateCopy(const bool allocComms, MeshBlock *pmb) {
   Metadata m = m_;
 
   auto swarm = std::make_shared<Swarm>(label(), m, nmax_pool_);
@@ -71,9 +68,9 @@ std::shared_ptr<Swarm> Swarm::AllocateCopy(const bool allocComms,
 /// @param metadata the metadata associated with the particle
 void Swarm::Add(const std::string label, const Metadata &metadata) {
   // labels must be unique, even between different types of data
-  if (intMap_.count(label) > 0 ||
-      realMap_.count(label) > 0) {
-    throw std::invalid_argument ("swarm variable " + label + " already enrolled during Add()!");
+  if (intMap_.count(label) > 0 || realMap_.count(label) > 0) {
+    throw std::invalid_argument("swarm variable " + label +
+                                " already enrolled during Add()!");
   }
 
   if (metadata.Type() == Metadata::Integer) {
@@ -85,7 +82,8 @@ void Swarm::Add(const std::string label, const Metadata &metadata) {
     realVector_.push_back(var);
     realMap_[label] = var;
   } else {
-    throw std::invalid_argument ("swarm variable " + label + " does not have a valid type during Add()");
+    throw std::invalid_argument("swarm variable " + label +
+                                " does not have a valid type during Add()");
   }
 }
 
@@ -96,7 +94,7 @@ void Swarm::Remove(const std::string label) {
   // Find index of variable
   idx = 0;
   for (auto v : intVector_) {
-    if ( label == v->label() ) {
+    if (label == v->label()) {
       found = true;
       break;
     }
@@ -107,7 +105,7 @@ void Swarm::Remove(const std::string label) {
     intVector_[idx].reset();
 
     // Next move the last element into idx and pop last entry
-    if ( intVector_.size() > 1) intVector_[idx] = std::move(intVector_.back());
+    if (intVector_.size() > 1) intVector_[idx] = std::move(intVector_.back());
     intVector_.pop_back();
 
     // Also remove variable from map
@@ -117,7 +115,7 @@ void Swarm::Remove(const std::string label) {
   if (found == false) {
     idx = 0;
     for (auto v : realVector_) {
-      if ( label == v->label() ) {
+      if (label == v->label()) {
         found = true;
         break;
       }
@@ -126,13 +124,13 @@ void Swarm::Remove(const std::string label) {
   }
   if (found == true) {
     realVector_[idx].reset();
-    if ( realVector_.size() > 1) realVector_[idx] = std::move(realVector_.back());
+    if (realVector_.size() > 1) realVector_[idx] = std::move(realVector_.back());
     realVector_.pop_back();
     realMap_.erase(label);
   }
 
   if (found == false) {
-    throw std::invalid_argument ("swarm variable not found in Remove()");
+    throw std::invalid_argument("swarm variable not found in Remove()");
   }
 }
 
@@ -152,43 +150,38 @@ void Swarm::setPoolMax(const int nmax_pool) {
   auto &oldvar_data = oldvar.Get();
   auto &newvar_data = newvar.Get();
 
-  pmy_block->par_for("setPoolMax_mask_1", 0, nmax_pool_ - 1,
-    KOKKOS_LAMBDA(const int n) {
-        newvar_data(n) = oldvar_data(n);
-    });
-  pmy_block->par_for("setPoolMax_mask_2", nmax_pool_, nmax_pool - 1,
-    KOKKOS_LAMBDA(const int n) {
-        newvar_data(n) = 0;
-    });
+  pmy_block->par_for(
+      "setPoolMax_mask_1", 0, nmax_pool_ - 1,
+      KOKKOS_LAMBDA(const int n) { newvar_data(n) = oldvar_data(n); });
+  pmy_block->par_for(
+      "setPoolMax_mask_2", nmax_pool_, nmax_pool - 1,
+      KOKKOS_LAMBDA(const int n) { newvar_data(n) = 0; });
 
   mask_ = newvar;
 
   auto oldvar_bool = marked_for_removal_;
-  auto newvar_bool = ParticleVariable<bool>(oldvar_bool.label(), nmax_pool, oldvar_bool.metadata());
+  auto newvar_bool =
+      ParticleVariable<bool>(oldvar_bool.label(), nmax_pool, oldvar_bool.metadata());
   auto oldvar_bool_data = oldvar_bool.data;
   auto newvar_bool_data = newvar_bool.data;
-  pmy_block->par_for("setPoolMax_mark_1", 0, nmax_pool_ - 1,
-    KOKKOS_LAMBDA(const int n) {
-        newvar_bool_data(n) = oldvar_bool_data(n);
-    });
-  pmy_block->par_for("setPoolMax_mark_2", nmax_pool_, nmax_pool - 1,
-    KOKKOS_LAMBDA(const int n) {
-        newvar_bool_data(n) = 0;
-    });
+  pmy_block->par_for(
+      "setPoolMax_mark_1", 0, nmax_pool_ - 1,
+      KOKKOS_LAMBDA(const int n) { newvar_bool_data(n) = oldvar_bool_data(n); });
+  pmy_block->par_for(
+      "setPoolMax_mark_2", nmax_pool_, nmax_pool - 1,
+      KOKKOS_LAMBDA(const int n) { newvar_bool_data(n) = 0; });
   marked_for_removal_ = newvar_bool;
 
   // TODO this is not an efficient loop ordering, probably
   for (int n = 0; n < intVector_.size(); n++) {
     auto oldvar = intVector_[n];
-    auto newvar = std::make_shared<ParticleVariable<int>>(oldvar->label(),
-                                                          nmax_pool,
+    auto newvar = std::make_shared<ParticleVariable<int>>(oldvar->label(), nmax_pool,
                                                           oldvar->metadata());
     auto oldvar_data = oldvar->data;
     auto newvar_data = newvar->data;
-    pmy_block->par_for("setPoolMax_int", 0, nmax_pool_ - 1,
-      KOKKOS_LAMBDA(const int m) {
-        newvar_data(m) = oldvar_data(m);
-      });
+    pmy_block->par_for(
+        "setPoolMax_int", 0, nmax_pool_ - 1,
+        KOKKOS_LAMBDA(const int m) { newvar_data(m) = oldvar_data(m); });
 
     intVector_[n] = newvar;
     intMap_[oldvar->label()] = newvar;
@@ -196,15 +189,13 @@ void Swarm::setPoolMax(const int nmax_pool) {
 
   for (int n = 0; n < realVector_.size(); n++) {
     auto oldvar = realVector_[n];
-    auto newvar = std::make_shared<ParticleVariable<Real>>(oldvar->label(),
-                                                           nmax_pool,
+    auto newvar = std::make_shared<ParticleVariable<Real>>(oldvar->label(), nmax_pool,
                                                            oldvar->metadata());
     auto oldvar_data = oldvar->data;
     auto newvar_data = newvar->data;
-    pmy_block->par_for("setPoolMax_real", 0, nmax_pool_ - 1,
-      KOKKOS_LAMBDA(const int m) {
-        newvar_data(m) = oldvar_data(m);
-      });
+    pmy_block->par_for(
+        "setPoolMax_real", 0, nmax_pool_ - 1,
+        KOKKOS_LAMBDA(const int m) { newvar_data(m) = oldvar_data(m); });
     realVector_[n] = newvar;
     realMap_[oldvar->label()] = newvar;
   }
@@ -317,32 +308,32 @@ void Swarm::Defrag() {
 
   from_to_indices.DeepCopy(from_to_indices_h);
 
-  pmy_block->par_for("Swarm::DefragMask", 0, max_active_index_,
-    KOKKOS_LAMBDA(const int n) {
-      if (from_to_indices(n) >= 0) {
-        mask_(from_to_indices(n)) = mask_(n);
-        mask_(n) = false;
-      }
-    });
+  pmy_block->par_for(
+      "Swarm::DefragMask", 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
+        if (from_to_indices(n) >= 0) {
+          mask_(from_to_indices(n)) = mask_(n);
+          mask_(n) = false;
+        }
+      });
 
   for (int m = 0; m < intVector_.size(); m++) {
     auto &vec = intVector_[m]->Get();
-    pmy_block->par_for("Swarm::DefragInt", 0, max_active_index_,
-      KOKKOS_LAMBDA(const int n) {
-        if (from_to_indices(n) >= 0) {
-          vec(from_to_indices(n)) = vec(n);
-        }
-      });
+    pmy_block->par_for(
+        "Swarm::DefragInt", 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
+          if (from_to_indices(n) >= 0) {
+            vec(from_to_indices(n)) = vec(n);
+          }
+        });
   }
 
   for (int m = 0; m < realVector_.size(); m++) {
     auto &vec = realVector_[m]->Get();
-    pmy_block->par_for("Swarm::DefragReal", 0, max_active_index_,
-      KOKKOS_LAMBDA(const int n) {
-        if (from_to_indices(n) >= 0) {
-          vec(from_to_indices(n)) = vec(n);
-        }
-      });
+    pmy_block->par_for(
+        "Swarm::DefragReal", 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
+          if (from_to_indices(n) >= 0) {
+            vec(from_to_indices(n)) = vec(n);
+          }
+        });
   }
 
   mask_h.DeepCopy(mask_.data);

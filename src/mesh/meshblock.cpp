@@ -145,7 +145,7 @@ MeshBlock::MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_
 
   // Add swarms from packages
   for (auto const &pkg : packages) {
-    for (auto const &q: pkg.second->AllSwarms()) {
+    for (auto const &q : pkg.second->AllSwarms()) {
       swarm_container->Add(q.first, q.second);
       // Populate swarm values
       auto &swarm = swarm_container->Get(q.first);
