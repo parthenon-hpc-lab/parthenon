@@ -145,7 +145,7 @@ void FillVarView(const vpack_types::VarList<T> &vars, PackIndexMap *vmap,
                  ViewOfParArrays<T> &cv, ParArray1D<int> &sparse_assoc) {
   using vpack_types::IndexPair;
 
-  auto host_view = Kokkos::create_mirror_view(Kokkos::HostSpace(),cv);
+  auto host_view = Kokkos::create_mirror_view(Kokkos::HostSpace(), cv);
   auto host_sp = Kokkos::create_mirror_view(Kokkos::HostSpace(), sparse_assoc);
 
   int vindex = 0;
