@@ -53,6 +53,14 @@ swarm.pmy_block->par_for("Simple loop", 0, swarm.get_max_active_index(),
   });
 ```
 
+## Defragmenting
+
+Because one typically loops over particles from 0 to `max_active_index`, if only a small
+fraction of particles in that range are active, significant effort will be wasted. To
+clean up these situations, `Swarm` provides a `Defrag` method which, when called, will
+copy all active particles to be contiguous starting from the 0 index. `Defrag` is not
+fully parallelized so should be called only sparingly.
+
 ## SwarmContainer
 
 A `SwarmContainer` contains a set of related `Swarm`s, such as the different stages used

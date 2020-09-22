@@ -37,20 +37,14 @@ void SwarmContainer::Add(const std::vector<std::string> labelArray,
 /// @param label the name of the variable
 /// @param metadata the metadata associated with the particle
 void SwarmContainer::Add(const std::string label, const Metadata &metadata) {
-  printf("Adding swarm to SwarmContainer!\n");
   if (swarmMap_.find(label) != swarmMap_.end()) {
     throw std::invalid_argument("swarm " + label + " already enrolled during Add()!");
   }
 
-  printf("about to make shared!");
   auto swarm = std::make_shared<Swarm>(label, metadata);
-  printf("2\n");
   swarm->pmy_block = pmy_block;
-  printf("3\n");
   swarmVector_.push_back(swarm);
-  printf("4\n");
   swarmMap_[label] = swarm;
-  printf("done!");
 }
 
 void SwarmContainer::Remove(const std::string label) {
