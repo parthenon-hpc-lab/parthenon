@@ -160,20 +160,16 @@ std::string EdgeVariable<T>::info() {
 
 template <typename T>
 std::string ParticleVariable<T>::info() {
-  char tmp[100] = "";
+  std::stringstream ss;
 
   // first add label
   std::string s = this->label();
   s.resize(20, '.');
 
-  // now append size
-  snprintf(tmp, sizeof(tmp), "%d", data.GetDim(1));
-  s += std::string(tmp);
+  // combine
+  ss << s << data.GetDim(1) << ":" << this->metadata().MaskAsString();
 
-  // now append flag
-  s += " : " + this->metadata().MaskAsString();
-
-  return s;
+  return ss.str();
 }
 
 template class CellVariable<Real>;
