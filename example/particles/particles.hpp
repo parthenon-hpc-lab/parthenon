@@ -31,8 +31,7 @@ typedef Kokkos::Random_XorShift64_Pool<> RNGPool;
 class ParticleDriver : public MultiStageBlockTaskDriver {
  public:
   ParticleDriver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
-      : MultiStageBlockTaskDriver(pin, app_in, pm) {
-  }
+      : MultiStageBlockTaskDriver(pin, app_in, pm) {}
   TaskList MakeTaskList(MeshBlock *pmb, int stage);
 };
 
