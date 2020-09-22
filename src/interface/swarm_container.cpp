@@ -10,14 +10,15 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#include "swarm_container.hpp"
-#include "bvals/cc/bvals_cc.hpp"
-#include "globals.hpp" // my_rank
-#include "mesh/mesh.hpp"
 #include <cstdlib>
 #include <memory>
 #include <utility>
 #include <vector>
+
+#include "bvals/cc/bvals_cc.hpp"
+#include "globals.hpp" // my_rank
+#include "mesh/mesh.hpp"
+#include "swarm_container.hpp"
 
 namespace parthenon {
 

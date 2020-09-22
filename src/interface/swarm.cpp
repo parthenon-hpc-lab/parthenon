@@ -10,14 +10,16 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#include "swarm.hpp"
-#include "bvals/cc/bvals_cc.hpp"
-#include "globals.hpp" // my_rank
-#include "mesh/mesh.hpp"
+#include <algorithm>
 #include <cstdlib>
 #include <memory>
 #include <utility>
 #include <vector>
+
+#include "bvals/cc/bvals_cc.hpp"
+#include "globals.hpp" // my_rank
+#include "mesh/mesh.hpp"
+#include "swarm.hpp"
 
 namespace parthenon {
 
@@ -172,7 +174,7 @@ void Swarm::setPoolMax(const int nmax_pool) {
       KOKKOS_LAMBDA(const int n) { newvar_bool_data(n) = 0; });
   marked_for_removal_ = newvar_bool;
 
-  // TODO this is not an efficient loop ordering, probably
+  // TODO(BRR) this is not an efficient loop ordering, probably
   for (int n = 0; n < intVector_.size(); n++) {
     auto oldvar = intVector_[n];
     auto newvar = std::make_shared<ParticleVariable<int>>(oldvar->label(), nmax_pool,
@@ -240,7 +242,7 @@ ParArrayND<bool> Swarm::AddEmptyParticles(int num_to_add) {
 // No particles removed: nmax_active_index unchanged
 // Particles removed: nmax_active_index is new max active index
 void Swarm::RemoveMarkedParticles() {
-  int new_max_active_index = -1; // TODO BRR this is a magic number, needed for Defrag()
+  int new_max_active_index = -1; // TODO(BRR) this is a magic number, needed for Defrag()
 
   auto mask_h = mask_.data.GetHostMirrorAndCopy();
   auto marked_for_removal_h = marked_for_removal_.data.GetHostMirror();

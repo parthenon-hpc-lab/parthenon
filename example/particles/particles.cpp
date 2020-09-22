@@ -182,7 +182,6 @@ TaskStatus DepositParticles(MeshBlock *pmb, int stage,
 TaskStatus CreateSomeParticles(MeshBlock *pmb, int stage,
                                std::vector<std::string> &stage_name,
                                Integrator *integrator) {
-
   auto pkg = pmb->packages["particles_package"];
   auto swarm = pmb->real_containers.GetSwarmContainer()->Get("my particles");
   auto rng_pool = pkg->Param<RNGPool>("rng_pool");
@@ -319,7 +318,6 @@ TaskStatus TransportSwarm(MeshBlock *pmb, int stage, std::vector<std::string> &s
 
 TaskStatus Defrag(MeshBlock *pmb, int stage, std::vector<std::string> &stage_name,
                   Integrator *integrator) {
-
   auto s = pmb->real_containers.GetSwarmContainer()->Get("my particles");
 
   // Only do this if list is getting too sparse. This criterion (whether there
