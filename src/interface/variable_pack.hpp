@@ -21,8 +21,11 @@
 #include <utility>
 #include <vector>
 
+#include <Kokkos_Core.hpp>
+
 #include "interface/metadata.hpp"
 #include "interface/variable.hpp"
+#include "kokkos_abstraction.hpp"
 
 namespace parthenon {
 
