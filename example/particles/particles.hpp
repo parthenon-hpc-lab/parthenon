@@ -32,7 +32,6 @@ class ParticleDriver : public MultiStageBlockTaskDriver {
  public:
   ParticleDriver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
       : MultiStageBlockTaskDriver(pin, app_in, pm) {
-    //pin->CheckRequired("parthenon/mesh", "ix1_bc");
   }
   TaskList MakeTaskList(MeshBlock *pmb, int stage);
 };

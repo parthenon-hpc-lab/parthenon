@@ -131,44 +131,18 @@ void Swarm::Remove(const std::string label) {
     realMap_.erase(label);
   }
 
-  /*if (found == false) {
-    idx = 0;
-    for (auto v : stringVector_) {
-      if ( label == v->label() ) {
-        found = true;
-        break;
-      }
-      idx++;
-    }
-  }
-  if (found == true) {
-    stringVector_[idx].reset();
-    if ( stringVector_.size() > 1) stringVector_[idx] = std::move(stringVector_.back());
-    stringVector_.pop_back();
-    stringMap_.erase(label);
-  }*/
-
   if (found == false) {
     throw std::invalid_argument ("swarm variable not found in Remove()");
   }
 }
 
 void Swarm::setPoolMax(const int nmax_pool) {
-  printf("Setting swarm pool max!\n");
-  if (nmax_pool < nmax_pool_) {
-    printf("Must increase pool size!\n");
-    exit(-1);
-  }
+  PARTHENON_REQUIRE(nmax_pool > nmax_pool_, "Must request larger pool size!");
   int n_new_begin = nmax_pool_;
   int n_new = nmax_pool - nmax_pool_;
 
   for (int n = 0; n < n_new; n++) {
     free_indices_.push_back(n + n_new_begin);
-  }
-
-  printf("NEW FREE INDICES!!!!\n");
-  for (auto index : free_indices_) {
-    printf("  %i\n", index);
   }
 
   // Resize and copy data
@@ -187,38 +161,12 @@ void Swarm::setPoolMax(const int nmax_pool) {
         newvar_data(n) = 0;
     });
 
-  /*pmy_block->par_for("setPoolMax_mask", 0, nmax_pool - 1,
-    KOKKOS_LAMBDA(const int n) {
-      printf("n: %i\n", n);
-      if (n < nmax_pool_) {
-        newvar_data(n) = oldvar_data(n);
-      } else {
-        newvar_data(n) = 0;
-      }
-    });*/
-
-  /*for (int m = 0; m < nmax_pool_; m++) {
-    newvar(m) = oldvar(m);
-  }
-  // Fill new data with false
-  for (int m = nmax_pool_; m < nmax_pool; m++) {
-    newvar(m) = 0;
-  }*/
-
   mask_ = newvar;
 
   auto oldvar_bool = marked_for_removal_;
   auto newvar_bool = ParticleVariable<bool>(oldvar_bool.label(), nmax_pool, oldvar_bool.metadata());
   auto oldvar_bool_data = oldvar_bool.data;
   auto newvar_bool_data = newvar_bool.data;
-  /*pmy_block->par_for("setPoolMax_marked_for_removal", 0, nmax_pool - 1,
-    KOKKOS_LAMBDA(const int n) {
-      if (n < nmax_pool_) {
-        newvar_data(n) = oldvar_data(n);
-      } else {
-        newvar_data(n) = false;
-      }
-    });*/
   pmy_block->par_for("setPoolMax_mark_1", 0, nmax_pool_ - 1,
     KOKKOS_LAMBDA(const int n) {
         newvar_bool_data(n) = oldvar_bool_data(n);
@@ -227,13 +175,6 @@ void Swarm::setPoolMax(const int nmax_pool) {
     KOKKOS_LAMBDA(const int n) {
         newvar_bool_data(n) = 0;
     });
-  /*for (int m = 0; m < nmax_pool_; m++) {
-    newvar_bool(m) = oldvar_bool(m);
-  }
-  // Fill new data with false
-  for (int m = nmax_pool_; m < nmax_pool; m++) {
-    newvar_bool(m) = false;
-  }*/
   marked_for_removal_ = newvar_bool;
 
   // TODO this is not an efficient loop ordering, probably
@@ -249,9 +190,6 @@ void Swarm::setPoolMax(const int nmax_pool) {
         newvar_data(m) = oldvar_data(m);
       });
 
-    //for (int m = 0; m < nmax_pool_; m++) {
-    //  (*newvar)(m) = (*oldvar)(m);
-    //}
     intVector_[n] = newvar;
     intMap_[oldvar->label()] = newvar;
   }
@@ -267,63 +205,18 @@ void Swarm::setPoolMax(const int nmax_pool) {
       KOKKOS_LAMBDA(const int m) {
         newvar_data(m) = oldvar_data(m);
       });
-    //for (int m = 0; m < nmax_pool_; m++) {
-    //  (*newvar)(m) = (*oldvar)(m);
-    //}
     realVector_[n] = newvar;
     realMap_[oldvar->label()] = newvar;
   }
 
-  /*for (int n = 0; n < stringVector_.size(); n++) {
-    auto oldvar = stringVector_[n];
-    auto newvar = std::make_shared<ParticleVariable<std::string>>(oldvar->label(),
-                                                           nmax_pool,
-                                                           oldvar->metadata());
-    for (int m = 0; m < nmax_pool_; m++) {
-      (*newvar)(m) = (*oldvar)(m);
-    }
-    stringVector_[n] = newvar;
-    stringMap_[oldvar->label()] = newvar;
-  }*/
-
   nmax_pool_ = nmax_pool;
-  printf("Done setting swarm pool max!\n");
 }
 
-/*int Swarm::AddEmptyParticle()
-{
-  if (free_indices_.size() == 0) {
-    increasePoolMax();
-  }
-
-  auto free_index_iter = free_indices_.begin();
-  int free_index = *free_index_iter;
-  free_indices_.erase(free_index_iter);
-
-  // ParticleVariable<int> &mask = GetInteger("mask");
-  ParticleVariable<Real> &x = GetReal("x");
-  ParticleVariable<Real> &y = GetReal("y");
-  ParticleVariable<Real> &z = GetReal("z");
-
-  mask_(free_index) = 1;
-  max_active_index_ = std::max<int>(max_active_index_, free_index);
-  num_active_ += 1;
-
-  x(free_index) = 0.;
-  y(free_index) = 0.;
-  z(free_index) = 0.;
-
-  return free_index;
-}*/
-
 ParArrayND<bool> Swarm::AddEmptyParticles(int num_to_add) {
-  printf("Adding empty particles!\n");
   while (free_indices_.size() < num_to_add) {
     increasePoolMax();
   }
 
-  //std::vector<int> indices(num_to_add);
-  //std::vector<int> mask(nmax_pool_, 0);
   ParArrayND<bool> new_mask("Newly created particles", nmax_pool_);
   auto new_mask_h = new_mask.GetHostMirror();
   for (int n = 0; n < nmax_pool_; n++) {
@@ -335,26 +228,16 @@ ParArrayND<bool> Swarm::AddEmptyParticles(int num_to_add) {
 
   auto free_index = free_indices_.begin();
 
-  // ParticleVariable<int> &mask = GetInteger("mask");
-  //ParticleVariable<Real> &x = GetReal("x");
-  //ParticleVariable<Real> &y = GetReal("y");
-  //ParticleVariable<Real> &z = GetReal("z");
-
+  // Don't bother sanitizing the memory
   for (int n = 0; n < num_to_add; n++) {
-    //indices[n] = *free_index;
     mask_h(*free_index) = true;
     new_mask_h(*free_index) = true;
     max_active_index_ = std::max<int>(max_active_index_, *free_index);
-
-    //x(*free_index) = 0.;
-    //y(*free_index) = 0.;
-    //z(*free_index) = 0.;
 
     free_index = free_indices_.erase(free_index);
   }
 
   num_active_ += num_to_add;
-  printf("Done adding empty particles!\n");
 
   new_mask.DeepCopy(new_mask_h);
   mask_.data.DeepCopy(mask_h);
@@ -366,20 +249,16 @@ ParArrayND<bool> Swarm::AddEmptyParticles(int num_to_add) {
 // No particles removed: nmax_active_index unchanged
 // Particles removed: nmax_active_index is new max active index
 void Swarm::RemoveMarkedParticles() {
-  printf("Removing marked particles!\n");
   int new_max_active_index = -1; // TODO BRR this is a magic number, needed for Defrag()
 
   auto mask_h = mask_.data.GetHostMirrorAndCopy();
-  //mask_h.DeepCopy(mask_.data);
   auto marked_for_removal_h = marked_for_removal_.data.GetHostMirror();
   marked_for_removal_h.DeepCopy(marked_for_removal_.data);
 
-  //for (int n = 0; n <= max_active_index_; n++) {
   // loop backwards to keep free_indices_ updated correctly
   for (int n = max_active_index_; n >= 0; n--) {
     if (mask_h(n)) {
       if (marked_for_removal_h(n)) {
-        printf("removing particle %i!\n", n);
         mask_h(n) = false;
         free_indices_.push_front(n);
         num_active_ -= 1;
@@ -395,123 +274,52 @@ void Swarm::RemoveMarkedParticles() {
 
   mask_.data.DeepCopy(mask_h);
   marked_for_removal_.data.DeepCopy(marked_for_removal_h);
-  printf("Done removing marked particles!\n");
 }
 
-/*void Swarm::RemoveParticle(int index) {
-  // ParticleVariable<int> &mask = GetInteger("mask");
-  mask_(index) = false;
-  free_indices_.push_back(index);
-  num_active_ -= 1;
-  if (index == max_active_index_) {
-    // TODO BRR this isn't actually right
-    max_active_index_ -= 1;
-  }
-}*/
-
 void Swarm::Defrag() {
-  // TODO(BRR) Could this algorithm be more efficient?
-  printf("Defragging!\n");
+  // TODO(BRR) Could this algorithm be more efficient? Does it matter?
   // Add 1 to convert max index to max number
   int num_free = (max_active_index_ + 1) - num_active_;
 
-
-  // This should always be properly sorted based on how we update it
-  //free_indices_.sort();
-
-  printf("nmax_pool: %i\n", nmax_pool_);
-  printf("num free indices: %i\n", free_indices_.size());
-  printf("num_free: %i max_active_index_: %i num_active_: %i\n", num_free,
-    max_active_index_, num_active_);
-  for (auto index : free_indices_) {
-    printf("free index: %i\n", index);
-  }
-
-  //std::list<std::pair<int, int>> from_to_indices;
   ParArrayND<int> from_to_indices("from_to_indices", max_active_index_ + 1);
   auto from_to_indices_h = from_to_indices.GetHostMirror();
 
   auto mask_h = mask_.data.GetHostMirrorAndCopy();
-  //mask_h.DeepCopy(mask_.data);
 
-  // TODO GET RID OF THIS
-  auto marked_for_removal_h = marked_for_removal_.data.GetHostMirrorAndCopy();
-
-  //for (int n = 0; n < nmax_pool_; n++) {
   for (int n = 0; n < max_active_index_; n++) {
-    printf("  [%i] mask: %i marked: %i\n", n, mask_h(n), marked_for_removal_h(n));
     from_to_indices_h(n) = -1;
   }
 
   std::list<int> new_free_indices;
 
-
   int index = max_active_index_;
   for (int n = 0; n < num_free; n++) {
     while (mask_h(index) == false) {
-      //from_to_indices_h(index) = -1;
       index--;
     }
-    printf("Moving index %i!\n", index);
     int index_to_move_from = index;
     index--;
 
-  //printf("test free indices:\n");
-  //for (auto index : free_indices_) {
-  //  printf("  free index: %i\n", index);
-  //}
-
-    //int index_to_move_to = free_indices_.front();
-    //free_indices_.pop_front();
-
-    // index_to_move_to isn't always correct... some of the "moved" particles
-    // should actually stay in place
+    // Below this number "moved" particles should actually stay in place
     if (index_to_move_from < num_active_) {
-      printf("index_to_move_from: %i < num_active_: %i !\n", index_to_move_from, num_active_);
       break;
     }
-    printf("PUSH BACK %i!!!!\n\n\n", index_to_move_from);
     int index_to_move_to = free_indices_.front();
-    printf("popping index %i\n", free_indices_.front());
     free_indices_.pop_front();
     new_free_indices.push_back(index_to_move_from);
     from_to_indices_h(index_to_move_from) = index_to_move_to;
-    //from_to_indices.push_back(std::pair<int, int>(index_to_move_from, index_to_move_to));
   }
-  printf("free indices:\n");
-  for (auto index : free_indices_) {
-    printf("  free index: %i\n", index);
-  }
-  printf("about to sort!\n");
 
+  // Not all these sorts may be necessary
   free_indices_.sort();
-  printf("about to sort new indices!\n");
   new_free_indices.sort();
-  printf("about to merge indices!\n");
   free_indices_.merge(new_free_indices);
 
   from_to_indices.DeepCopy(from_to_indices_h);
 
-  // Swap straggler particles into empty slots at lower indices
-  // TODO BRR pack all variables here instead of what is done below
-  /*pmy_block->par_for("Swarm::Defrag", 0, max_active_index_,
-    KOKKOS_LAMBDA(const int n) {
-      if (from_to_indices(n) >= 0) {
-        // TODO BRR copy variable data here
-        //for (vecs) {
-        //  auto var = vec;
-        //  var(from_to_indices(n)) = var(n);
-        //}
-      }
-
-  });*/
-
-  // update mask as wel??
-
   pmy_block->par_for("Swarm::DefragMask", 0, max_active_index_,
     KOKKOS_LAMBDA(const int n) {
       if (from_to_indices(n) >= 0) {
-        printf("%i -> %i\n", n, from_to_indices(n));
         mask_(from_to_indices(n)) = mask_(n);
         mask_(n) = false;
       }
@@ -537,28 +345,10 @@ void Swarm::Defrag() {
       });
   }
 
-  for (auto index : free_indices_) {
-    printf("free index: %i\n", index);
-  }
   mask_h.DeepCopy(mask_.data);
-  for (int n = 0; n < nmax_pool_; n++) {
-    printf("  [%i] mask: %i\n", n, mask_h(n));
-  }
 
   // Update max_active_index_
   max_active_index_ = num_active_ - 1;
-  printf("new max active index: %i\n", max_active_index_);
-  printf("Done defragging!\n");
-}
-
-std::vector<int> Swarm::AddUniformParticles(int num_to_add) {
-  while (free_indices_.size() < num_to_add) {
-    increasePoolMax();
-  }
-
-  num_active_ += num_to_add;
-
-  return std::vector<int>();
 }
 
 } // namespace parthenon

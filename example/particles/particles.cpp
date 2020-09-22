@@ -32,43 +32,7 @@ Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
 }
 
 void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
-  /*auto &rc = pmb->real_containers.Get();
-  auto pkg = pmb->packages["particles_package"];
-
-  auto &sc = pmb->real_containers.GetSwarmContainer();
-  auto &s = sc->Get("my particles");
-
-  // Add the number of empty particles requested in parameter file
-  const int &num_particles_to_add = pkg->Param<int>("num_particles");
-  auto new_particle_mask = s->AddEmptyParticles(num_particles_to_add);
-
-  // WARNING do not get these references before resizing the swarm. Otherwise,
-  // you'll get segfaults
-  auto &x = s->GetReal("x").Get();
-  auto &y = s->GetReal("y").Get();
-  auto &z = s->GetReal("z").Get();
-  auto &vx = s->GetReal("vx").Get();
-  auto &vy = s->GetReal("vy").Get();
-  auto &vz = s->GetReal("vz").Get();
-  auto &weight = s->GetReal("weight").Get();
-  auto &mask = s->GetMask().Get();
-
-  const Real &v = pkg->Param<Real>("particle_speed");
-
-  printf("Problem generator!");
-
-  pmb->par_for("particles_package::ProblemGenerator", 0, s->get_max_active_index(),
-    KOKKOS_LAMBDA(const int n) {
-      if (new_particle_mask(n)) {
-        x(n) = 1.e-1*n;
-        y(n) = 1.e-2*n;
-        z(n) = 1.e-3*n;
-        vx(n) = v;
-        vy(n) = 0.;
-        vz(n) = 0.;
-        weight(n) = 1.0;
-      }
-    });*/
+  // Don't do anything for now
 }
 
 // *************************************************//
@@ -141,20 +105,6 @@ TaskStatus SetTimestepTask(std::shared_ptr<Container<Real>> &rc) {
 // function.                                       *//
 // *************************************************//
 // first some helper tasks
-/*TaskStatus UpdateContainer(MeshBlock *pmb, int stage,
-                           std::vector<std::string> &stage_name, Integrator *integrator) {
-  // const Real beta = stage_wghts[stage-1].beta;
-  const Real beta = integrator->beta[stage - 1];
-  const Real dt = integrator->dt;
-  auto &base = pmb->real_containers.Get();
-  auto &cin = pmb->real_containers.Get(stage_name[stage - 1]);
-  auto &cout = pmb->real_containers.Get(stage_name[stage]);
-  auto &dudt = pmb->real_containers.Get("dUdt");
-  parthenon::Update::AverageContainers(cin, base, beta);
-  parthenon::Update::UpdateContainer(cin, dudt, beta * dt, cout);
-  return TaskStatus::complete;
-}*/
-
 TaskStatus DestroySomeParticles(MeshBlock *pmb, int stage,
   std::vector<std::string> &stage_name, Integrator *integrator) {
   auto pkg = pmb->packages["particles_package"];
@@ -164,20 +114,19 @@ TaskStatus DestroySomeParticles(MeshBlock *pmb, int stage,
   auto &mask = swarm->GetMask().Get();
   auto &marked_for_removal = swarm->GetMarkedForRemoval().Get();
 
+  // Randomly mark 10% of particles each timestep for removal
   pmb->par_for("DestroySomeParticles", 0, swarm->get_max_active_index(),
     KOKKOS_LAMBDA(const int n) {
       if (mask(n)) {
         auto rng_gen = rng_pool.get_state();
-        // Randomly remove 10% of particles
         if (rng_gen.drand() > 0.9) {
-          printf("Removing particle %i!\n", n);
           marked_for_removal(n) = true;
         }
         rng_pool.free_state(rng_gen);
       }
     });
 
-  printf("removing marked particles after destruction!\n");
+  // Remove marked particles
   swarm->RemoveMarkedParticles();
 
   return TaskStatus::complete;
@@ -264,7 +213,6 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, int stage,
   pmb->par_for("CreateSomeParticles", 0, swarm->get_max_active_index(),
     KOKKOS_LAMBDA(const int n) {
       if (new_particles_mask(n)) {
-        printf("Creating particle %i!\n", n);
         auto rng_gen = rng_pool.get_state();
 
         // Randomly sample in space in this meshblock
@@ -292,10 +240,8 @@ TaskStatus TransportSwarm(MeshBlock *pmb, int stage,
                        std::vector<std::string> &stage_name,
                        Integrator *integrator) {
   auto swarm = pmb->real_containers.GetSwarmContainer()->Get("my particles");
-  //parthenon::Update::TransportSwarm(swarm, swarm, integrator->dt);
 
   int max_active_index = swarm->get_max_active_index();
-  printf("max active index: %i num active: %i\n", max_active_index, swarm->get_num_active());
 
   Real dt = integrator->dt;
 
@@ -329,8 +275,6 @@ TaskStatus TransportSwarm(MeshBlock *pmb, int stage,
   // traveled one integrator timestep's worth of time
   pmb->par_for("TransportSwarm", 0, max_active_index,
     KOKKOS_LAMBDA(const int n) {
-
-
       if (mask(n)) {
         t(n) = 0.;
         Real v = sqrt(vx(n)*vx(n) + vy(n)*vy(n) + vz(n)*vz(n));

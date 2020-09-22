@@ -28,8 +28,6 @@ TaskStatus FluxDivergence(std::shared_ptr<Container<Real>> &in,
 void UpdateContainer(std::shared_ptr<Container<Real>> &in,
                      std::shared_ptr<Container<Real>> &dudt_cont, const Real dt,
                      std::shared_ptr<Container<Real>> &out);
-TaskStatus TransportSwarm(std::shared_ptr<Swarm> &in, std::shared_ptr<Swarm> &out,
-                          const Real dt);
 void AverageContainers(std::shared_ptr<Container<Real>> &c1,
                        std::shared_ptr<Container<Real>> &c2, const Real wgt1);
 Real EstimateTimestep(std::shared_ptr<Container<Real>> &rc);

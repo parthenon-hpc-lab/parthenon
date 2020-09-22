@@ -49,39 +49,42 @@ class Swarm {
   }
 
   // TODO BRR This should really be const... mask_ is managed internally
-  ///< Get mask array for active particles
+  /// Get mask array for active particles
   ParticleVariable<bool>& GetMask() { return mask_; }
 
+  /// Get the mask array of active particles that are marked for removal
   ParticleVariable<bool>& GetMarkedForRemoval() { return marked_for_removal_; }
 
-  ///< Make a new Swarm based on an existing one
+  /// Make a new Swarm based on an existing one
   std::shared_ptr<Swarm> AllocateCopy(const bool allocComms = false,
                                       MeshBlock *pmb = nullptr);
 
-  ///< Add variable to swarm
+  /// Add variable to swarm
   void Add(const std::string label, const Metadata &metadata);
 
-  ///< Add multiple variables with common metadata to swarm
+  /// Add multiple variables with common metadata to swarm
   void Add(const std::vector<std::string> labelVector, const Metadata &metadata);
 
-  ///< Remote a variable from swarm
+  /// Remote a variable from swarm
   void Remove(const std::string label);
 
+  /// Get real particle variable
   ParticleVariable<Real> &GetReal(const std::string label) {
     return *(realMap_.at(label));
   }
 
+  /// Get integer particle variable
   ParticleVariable<int> &GetInteger(const std::string label) {
     return *(intMap_.at(label));
   }
 
-  ///< Assign label for swarm
+  /// Assign label for swarm
   void setLabel(const std::string label) { label_ = label; }
 
-  ///< retrieve label for swarm
+  /// retrieve label for swarm
   std::string label() const { return label_; }
 
-  ///< retrieve metadata for swarm
+  /// retrieve metadata for swarm
   const Metadata metadata() const { return m_; }
 
   /// Assign info for swarm
@@ -96,11 +99,13 @@ class Swarm {
   /// Set max pool size
   void setPoolMax(const int nmax_pool);
 
+  /// Check whether metadata bit is set
   bool IsSet(const MetadataFlag bit) const { return m_.IsSet(bit); }
 
   /// Get the last index of active particles
   int get_max_active_index() { return max_active_index_; }
 
+  /// Get number of active particles
   int get_num_active() { return num_active_; }
 
   /// Get the quality of the data layout. 1 is perfectly organized, < 1
@@ -111,21 +116,20 @@ class Swarm {
 
   bool mpiStatus;
 
-  //int AddEmptyParticle();
-
+  /// Mark particle for removal (usually during a parallel dispatch)
   KOKKOS_INLINE_FUNCTION
   void MarkParticleForRemoval(int index) {
     marked_for_removal_(index) = true;
   }
 
+  /// Remove particles marked for removal and update internal indexing
   void RemoveMarkedParticles();
 
-  //void RemoveParticle(int index);
-
+  /// Open up memory for new empty particles, return a mask to these particles
   ParArrayND<bool> AddEmptyParticles(int num_to_add);
 
-  std::vector<int> AddUniformParticles(int num_to_add);
-
+  /// Defragment the list by moving active particles so they are contiguous in
+  /// memory
   void Defrag();
 
  private:
