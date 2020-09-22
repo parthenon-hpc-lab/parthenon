@@ -25,6 +25,7 @@
 #include <interface/variable_pack.hpp>
 #include <kokkos_abstraction.hpp>
 #include <mesh/mesh.hpp>
+#include <mesh/meshblock_pack.hpp>
 #include <parameter_input.hpp>
 #include <parthenon_manager.hpp>
 
@@ -43,6 +44,9 @@ using ::parthenon::Coordinates;
 using ::parthenon::DerivedOwnership;
 using ::parthenon::DevExecSpace;
 using ::parthenon::MeshBlock;
+using ::parthenon::MeshBlockPack;
+using ::parthenon::MeshBlockVarFluxPack;
+using ::parthenon::MeshBlockVarPack;
 using ::parthenon::Metadata;
 using ::parthenon::PackIndexMap;
 using ::parthenon::par_for;

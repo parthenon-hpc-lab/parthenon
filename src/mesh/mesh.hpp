@@ -23,7 +23,6 @@
 
 #include <cstdint>
 #include <functional>
-#include <list>
 #include <map>
 #include <memory>
 #include <string>
@@ -255,7 +254,7 @@ class MeshBlock {
   }
 
   std::size_t GetBlockSizeInBytes();
-  int GetNumberOfMeshBlockCells() {
+  int GetNumberOfMeshBlockCells() const {
     return block_size.nx1 * block_size.nx2 * block_size.nx3;
   }
   void SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist, int *nslist);
@@ -306,11 +305,13 @@ class MeshBlock {
       &InitUserMeshBlockDataDefault;
 
   // functions and variables for automatic load balancing based on timing
-  double cost_, lb_time_;
+  Kokkos::Timer lb_timer;
+  double cost_;
   void ResetTimeMeasurement();
   void StartTimeMeasurement();
   void StopTimeMeasurement();
 };
+using BlockList_t = std::vector<std::shared_ptr<MeshBlock>>;
 
 //----------------------------------------------------------------------------------------
 //! \class Mesh
@@ -340,10 +341,15 @@ class Mesh {
   }
   int GetNumMeshThreads() const { return num_mesh_threads_; }
   std::int64_t GetTotalCells() {
-    auto &mb = block_list.front();
-    return static_cast<std::int64_t>(nbtotal) * mb.block_size.nx1 * mb.block_size.nx2 *
-           mb.block_size.nx3;
+    auto &pmb = block_list.front();
+    return static_cast<std::int64_t>(nbtotal) * pmb->block_size.nx1 *
+           pmb->block_size.nx2 * pmb->block_size.nx3;
   }
+  // TODO(JMM): Move block_size into mesh.
+  int GetNumberOfMeshBlockCells() const {
+    return block_list.front()->GetNumberOfMeshBlockCells();
+  }
+  const RegionSize &GetBlockSize() const { return block_list.front()->block_size; }
 
   // data
   bool modified;
@@ -357,8 +363,7 @@ class Mesh {
   int step_since_lb;
   int gflag;
 
-  // ptr to first MeshBlock (node) in linked list of blocks belonging to this MPI rank:
-  std::list<MeshBlock> block_list;
+  BlockList_t block_list;
   Properties_t properties;
   Packages_t packages;
 
@@ -380,7 +385,7 @@ class Mesh {
   void FillSameRankFineToCoarseAMR(MeshBlock *pob, MeshBlock *pmb, LogicalLocation &loc);
   int CreateAMRMPITag(int lid, int ox1, int ox2, int ox3);
 
-  std::list<MeshBlock>::iterator FindMeshBlock(int tgid);
+  std::shared_ptr<MeshBlock> FindMeshBlock(int tgid);
 
   void ApplyUserWorkBeforeOutput(ParameterInput *pin);
 
