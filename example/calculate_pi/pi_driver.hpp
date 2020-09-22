@@ -32,10 +32,11 @@ class PiDriver : public Driver {
     pin->CheckDesired("Pi", "radius");
   }
 
-  /// MakeTaskList isn't a virtual routine on `Driver`, but each driver is expected to
-  /// implement it.
-  TaskList MakeTaskList(MeshBlock *pmb);
-  TaskCollection MakeTasks(std::vector<MeshBlock *> blocks);
+  /// MakeTaskList and MakeTasks aren't virtual routines on `Driver`,
+  // but each driver is expected to implement at least one of them.
+  /// TaskList MakeTaskList(MeshBlock *pmb);
+  template <typename T>
+  TaskCollection MakeTasks(T &blocks);
 
   /// `Execute` cylces until simulation completion.
   DriverStatus Execute() override;

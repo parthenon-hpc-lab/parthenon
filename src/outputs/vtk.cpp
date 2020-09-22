@@ -71,8 +71,7 @@ void VTKOutput::WriteContainer(SimTime &tm, Mesh *pm, ParameterInput *pin, bool 
   int big_end = IsBigEndian(); // =1 on big endian machine
 
   // Loop over MeshBlocks
-  for (std::list<MeshBlock>::iterator pmb = pm->block_list.begin();
-       pmb != pm->block_list.end(); pmb++) {
+  for (auto &pmb : pm->block_list) {
     // set start/end array indices depending on whether ghost zones are included
     IndexDomain domain = IndexDomain::interior;
     if (output_params.include_ghost_zones) {
