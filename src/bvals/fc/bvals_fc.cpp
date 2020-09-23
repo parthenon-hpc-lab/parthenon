@@ -193,7 +193,7 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(ParArray1D<Real> &
     else if (nb.ni.ox1 < 0) si--;
   }
   ParArray3D<Real> x1f = (*var_fc).x1f.Get<3>();
-  BufferUtility::PackData(x1f, buf, si, ei, sj, ej, sk, ek, p, pmb);
+  BufferUtility::PackData(x1f, buf, si, ei, sj, ej, sk, ek, p, pmb.get());
 
   // bx2
   if      (nb.ni.ox1 == 0)      si = ib.s,              ei = ib.e;
@@ -210,7 +210,7 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(ParArray1D<Real> &
     else if (nb.ni.ox2 < 0) sj--;
   }
   ParArray3D<Real> x2f = (*var_fc).x2f.Get<3>();
-  BufferUtility::PackData(x2f, buf, si, ei, sj, ej, sk, ek, p, pmb);
+  BufferUtility::PackData(x2f, buf, si, ei, sj, ej, sk, ek, p, pmb.get());
 
   // bx3
   if      (nb.ni.ox2 == 0)      sj = jb.s,              ej = jb.e;
@@ -228,7 +228,7 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(ParArray1D<Real> &
   }
   // clang-format on
   ParArray3D<Real> x3f = (*var_fc).x3f.Get<3>();
-  BufferUtility::PackData(x3f, buf, si, ei, sj, ej, sk, ek, p, pmb);
+  BufferUtility::PackData(x3f, buf, si, ei, sj, ej, sk, ek, p, pmb.get());
 
   return p;
 }
@@ -275,7 +275,7 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(ParArray1D<Real> &
   }
   pmr->RestrictFieldX1((*var_fc).x1f, coarse_buf.x1f, si, ei, sj, ej, sk, ek);
   ParArray3D<Real> x1f = coarse_buf.x1f.Get<3>();
-  BufferUtility::PackData(x1f, buf, si, ei, sj, ej, sk, ek, p, pmb);
+  BufferUtility::PackData(x1f, buf, si, ei, sj, ej, sk, ek, p, pmb.get());
 
   // bx2
   // clang-format off
@@ -299,7 +299,7 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(ParArray1D<Real> &
       coarse_buf.x2f(sk, sj + 1, i) = coarse_buf.x2f(sk, sj, i);
   }
   ParArray3D<Real> x2f = coarse_buf.x2f.Get<3>();
-  BufferUtility::PackData(x2f, buf, si, ei, sj, ej, sk, ek, p, pmb);
+  BufferUtility::PackData(x2f, buf, si, ei, sj, ej, sk, ek, p, pmb.get());
 
   // bx3
   // clang-format off
@@ -325,7 +325,7 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(ParArray1D<Real> &
     }
   }
   ParArray3D<Real> x3f = coarse_buf.x3f.Get<3>();
-  BufferUtility::PackData(x3f, buf, si, ei, sj, ej, sk, ek, p, pmb);
+  BufferUtility::PackData(x3f, buf, si, ei, sj, ej, sk, ek, p, pmb.get());
 
   return p;
 }
@@ -407,7 +407,7 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToFiner(ParArray1D<Real> &bu
   }
 
   ParArray3D<Real> x1f = (*var_fc).x1f.Get<3>();
-  BufferUtility::PackData(x1f, buf, si, ei, sj, ej, sk, ek, p, pmb);
+  BufferUtility::PackData(x1f, buf, si, ei, sj, ej, sk, ek, p, pmb.get());
 
   // bx2
   if (nb.ni.ox1 == 0) {
@@ -444,7 +444,7 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToFiner(ParArray1D<Real> &bu
   }
 
   ParArray3D<Real> x2f = (*var_fc).x2f.Get<3>();
-  BufferUtility::PackData(x2f, buf, si, ei, sj, ej, sk, ek, p, pmb);
+  BufferUtility::PackData(x2f, buf, si, ei, sj, ej, sk, ek, p, pmb.get());
 
   // bx3
   if (nb.ni.ox2 == 0) {
@@ -491,7 +491,7 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToFiner(ParArray1D<Real> &bu
   }
 
   ParArray3D<Real> x3f = (*var_fc).x3f.Get<3>();
-  BufferUtility::PackData(x3f, buf, si, ei, sj, ej, sk, ek, p, pmb);
+  BufferUtility::PackData(x3f, buf, si, ei, sj, ej, sk, ek, p, pmb.get());
 
   return p;
 }
@@ -538,7 +538,7 @@ void FaceCenteredBoundaryVariable::SetBoundarySameLevel(ParArray1D<Real> &buf,
   }
 
   ParArray3D<Real> x1f = (*var_fc).x1f.Get<3>();
-  BufferUtility::UnpackData(buf, x1f, si, ei, sj, ej, sk, ek, p, pmb);
+  BufferUtility::UnpackData(buf, x1f, si, ei, sj, ej, sk, ek, p, pmb.get());
 
   // bx2
   if (nb.ni.ox1 == 0)
@@ -564,7 +564,7 @@ void FaceCenteredBoundaryVariable::SetBoundarySameLevel(ParArray1D<Real> &buf,
   }
 
   ParArray3D<Real> x2f = (*var_fc).x2f.Get<3>();
-  BufferUtility::UnpackData(buf, x2f, si, ei, sj, ej, sk, ek, p, pmb);
+  BufferUtility::UnpackData(buf, x2f, si, ei, sj, ej, sk, ek, p, pmb.get());
 
   if (pmb->block_size.nx2 == 1) { // 1D
 #pragma omp simd
@@ -596,7 +596,7 @@ void FaceCenteredBoundaryVariable::SetBoundarySameLevel(ParArray1D<Real> &buf,
   }
 
   ParArray3D<Real> x3f = (*var_fc).x3f.Get<3>();
-  BufferUtility::UnpackData(buf, x3f, si, ei, sj, ej, sk, ek, p, pmb);
+  BufferUtility::UnpackData(buf, x3f, si, ei, sj, ej, sk, ek, p, pmb.get());
 
   if (pmb->block_size.nx3 == 1) { // 1D or 2D
     for (int j = sj; j <= ej; ++j) {
@@ -668,7 +668,7 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromCoarser(ParArray1D<Real> &buf,
   }
 
   ParArray3D<Real> x1f = coarse_buf.x1f.Get<3>();
-  BufferUtility::UnpackData(buf, x1f, si, ei, sj, ej, sk, ek, p, pmb);
+  BufferUtility::UnpackData(buf, x1f, si, ei, sj, ej, sk, ek, p, pmb.get());
 
   // bx2
   if (nb.ni.ox1 == 0) {
@@ -699,7 +699,7 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromCoarser(ParArray1D<Real> &buf,
   }
 
   ParArray3D<Real> x2f = coarse_buf.x2f.Get<3>();
-  BufferUtility::UnpackData(buf, x2f, si, ei, sj, ej, sk, ek, p, pmb);
+  BufferUtility::UnpackData(buf, x2f, si, ei, sj, ej, sk, ek, p, pmb.get());
   if (pmb->block_size.nx2 == 1) { // 1D
 #pragma omp simd
     for (int i = si; i <= ei; ++i)
@@ -737,7 +737,7 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromCoarser(ParArray1D<Real> &buf,
   }
 
   ParArray3D<Real> x3f = coarse_buf.x3f.Get<3>();
-  BufferUtility::UnpackData(buf, x3f, si, ei, sj, ej, sk, ek, p, pmb);
+  BufferUtility::UnpackData(buf, x3f, si, ei, sj, ej, sk, ek, p, pmb.get());
 
   if (pmb->block_size.nx3 == 1) { // 2D
     for (int j = sj; j <= ej; ++j) {
@@ -826,7 +826,7 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromFiner(ParArray1D<Real> &buf,
     sk = cellbounds.ks(interior) - NGHOST, ek = cellbounds.ks(interior) - 1;
   }
   ParArray3D<Real> x1f = (*var_fc).x1f.Get<3>();
-  BufferUtility::UnpackData(buf, x1f, si, ei, sj, ej, sk, ek, p, pmb);
+  BufferUtility::UnpackData(buf, x1f, si, ei, sj, ej, sk, ek, p, pmb.get());
 
   // bx2
   if (nb.ni.ox1 == 0) {
@@ -872,7 +872,7 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromFiner(ParArray1D<Real> &buf,
   }
 
   ParArray3D<Real> x2f = (*var_fc).x2f.Get<3>();
-  BufferUtility::UnpackData(buf, x2f, si, ei, sj, ej, sk, ek, p, pmb);
+  BufferUtility::UnpackData(buf, x2f, si, ei, sj, ej, sk, ek, p, pmb.get());
 
   if (pmb->block_size.nx2 == 1) { // 1D
 #pragma omp simd
@@ -933,7 +933,7 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromFiner(ParArray1D<Real> &buf,
   }
 
   ParArray3D<Real> x3f = (*var_fc).x3f.Get<3>();
-  BufferUtility::UnpackData(buf, x3f, si, ei, sj, ej, sk, ek, p, pmb);
+  BufferUtility::UnpackData(buf, x3f, si, ei, sj, ej, sk, ek, p, pmb.get());
 
   if (pmb->block_size.nx3 == 1) { // 1D or 2D
     for (int j = sj; j <= ej; ++j) {
