@@ -38,9 +38,7 @@ of it by using the `Partition` machinery found in
 into four evenly sized meshpacks, do
 ```C++
 using parthenon::MeshBlock;
-using parthenon::Partition::Partition_t;
-Partition_t<MeshBlock> partitions;
-parthenon::Partition::ToNPartitions(mesh->block_list, 4, partitions);
+auto partitions = parthenon::Partition::ToNPartitions(mesh->block_list, 4);
 MeshBlockPack<VariablePack<Real>> packs[4];
 for (int i = 0; i < partitions.size() {
   packs[i] = PackVariablesOnMesh(partitions[i], "base");
@@ -57,14 +55,19 @@ for (int i = 0; i < partitions.size() {
 There are two partitioning functions:
 ```C++
 // Splits container into N equally sized partitions
-template <typename Container_t, typename T>
-void ToNPartitions(Container_t &container, const int N, Partition_t<T> &partitions);
+template <typename T, typename Container_t>
+Partition_t<T> ToNPartitions(Container_t<T> &container, const int N);
 
 // Splits container into partitions of size N
-template <typename Container_t, typename T>
-void ToSizeN(Container_t &container, const int N, Partition_t<T> &partitions);
+template <typename T, typename Container_t>
+std::vector<std::vector<T>> ToSizeN(Container_t<T> &container, const int N);
 ```
-Both functions live within the namespace `parthenon::Partition`.
+Both functions live within the namespace `parthenon::Partition` and `Partition_t` 
+is defined as:
+```C++
+templat<typename T>
+using Parition_t = std::vector<std::vector<T>>
+```
 
 ### Data Layout
 
@@ -153,9 +156,8 @@ pmesh->RegisterMeshBlockPack("default", "fill_ghost", [pack_size, metadata](Mesh
         pmb->real_containers.Add("new",base);
     }
     // Partition mesh block list
-    std::vector<BlockList_t> partitions;
     std::vector<MeshBlockVarPack<Real>> packs;
-    partition::ToSizeN(pmesh->block_list, pack_size, partitions);
+    auto partitions = partition::ToSizeN(pmesh->block_list, pack_size);
     packs.resize(partitions.size());
     // Generate packs
     for (int i = 0; i < partitions.size(); i++) {
