@@ -162,6 +162,8 @@ add_library(parthenon
   mesh/mesh_refinement.hpp
   mesh/mesh.cpp
   mesh/mesh.hpp
+  mesh/meshblock.hpp
+  mesh/meshblock_pack.hpp
   mesh/meshblock_tree.cpp
   mesh/meshblock_tree.hpp
   mesh/meshblock.cpp

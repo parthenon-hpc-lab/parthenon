@@ -219,14 +219,14 @@ For an example of this in use, see the `MakeTasks` function in the
 
 The `Mesh` automatically generates some commonly used `MeshBlockPacks`
 based on `Metadata`. These live in the "default" namespace. These
-packs contain `default_pack_size` `MeshBlocks` per pack. This variable
+packs contain `pack_size` `MeshBlocks` per pack. This variable
 can be set in a `parthenon` input file under the `parthenon/mesh`
 input block. e.g.,
 ```
 <parthenon/mesh>
 pack_size = 6
 ```
-A `default_pack_size < 1` indicates the entire mesh (per MPI rank)
+A `pack_size < 1` in the input file indicates the entire mesh (per MPI rank)
 should be contained within a single pack. This can be accessed within
 the program via
 ```C++
