@@ -35,7 +35,7 @@ namespace parthenon {
 void Reconstruction::PiecewiseLinearX1(const int k, const int j, const int il,
                                        const int iu, const ParArrayND<Real> &q,
                                        ParArrayND<Real> &ql, ParArrayND<Real> &qr) {
-  auto pmb = pmy_block_.lock();
+  auto pmb = GetBlockPointer();
   auto &coords = pmb->coords;
   // set work arrays to shallow copies of scratch arrays
   ParArrayND<Real> &qc = scr1_ni_, &dql = scr2_ni_, &dqr = scr3_ni_, &dqm = scr4_ni_;
@@ -113,7 +113,7 @@ void Reconstruction::PiecewiseLinearX1(const int k, const int j, const int il,
 void Reconstruction::PiecewiseLinearX2(const int k, const int j, const int il,
                                        const int iu, const ParArrayND<Real> &q,
                                        ParArrayND<Real> &ql, ParArrayND<Real> &qr) {
-  auto pmb = pmy_block_.lock();
+  auto pmb = GetBlockPointer();
   auto &coords = pmb->coords;
   // set work arrays to shallow copies of scratch arrays
   ParArrayND<Real> &qc = scr1_ni_, &dql = scr2_ni_, &dqr = scr3_ni_, &dqm = scr4_ni_;
@@ -189,7 +189,7 @@ void Reconstruction::PiecewiseLinearX2(const int k, const int j, const int il,
 void Reconstruction::PiecewiseLinearX3(const int k, const int j, const int il,
                                        const int iu, const ParArrayND<Real> &q,
                                        ParArrayND<Real> &ql, ParArrayND<Real> &qr) {
-  auto pmb = pmy_block_.lock();
+  auto pmb = GetBlockPointer();
   auto &coords = pmb->coords;
   // set work arrays to shallow copies of scratch arrays
   ParArrayND<Real> &qc = scr1_ni_, &dql = scr2_ni_, &dqr = scr3_ni_, &dqm = scr4_ni_;

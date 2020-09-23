@@ -30,6 +30,7 @@
 
 #include "defs.hpp"
 #include "parthenon_arrays.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
@@ -274,6 +275,14 @@ class BoundaryVariable : public BoundaryCommunication, public BoundaryBuffer {
   // ptr to MeshBlock containing this BoundaryVariable
   std::weak_ptr<MeshBlock> pmy_block_;
   Mesh *pmy_mesh_;
+
+  /// Returns shared pointer to a block
+  std::shared_ptr<MeshBlock> GetBlockPointer() {
+    if (pmy_block_.expired()) {
+      PARTHENON_THROW("Invalid pointer to MeshBlock!");
+    }
+    return pmy_block_.lock();
+  }
 
   void CopyVariableBufferSameProcess(NeighborBlock &nb, int ssize);
   void CopyFluxCorrectionBufferSameProcess(NeighborBlock &nb, int ssize);

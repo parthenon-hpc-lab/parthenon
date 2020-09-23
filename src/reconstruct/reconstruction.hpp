@@ -23,6 +23,7 @@
 
 #include "defs.hpp"
 #include "parthenon_arrays.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
@@ -146,6 +147,14 @@ class Reconstruction {
   ParArrayND<Real> scr11_i_, scr12_i_, scr13_i_, scr14_i_;
   ParArrayND<Real> scr1_ni_, scr2_ni_, scr3_ni_, scr4_ni_, scr5_ni_;
   ParArrayND<Real> scr6_ni_, scr7_ni_, scr8_ni_;
+
+  // Returns shared pointer to a block
+  std::shared_ptr<MeshBlock> GetBlockPointer() {
+    if (pmy_block_.expired()) {
+      PARTHENON_THROW("Invalid pointer to MeshBlock!");
+    }
+    return pmy_block_.lock();
+  }
 };
 
 } // namespace parthenon

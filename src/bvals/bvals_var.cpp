@@ -41,7 +41,7 @@ BoundaryVariable::BoundaryVariable(std::weak_ptr<MeshBlock> pmb)
 //  \brief Initialize BoundaryData structure
 
 void BoundaryVariable::InitBoundaryData(BoundaryData<> &bd, BoundaryQuantity type) {
-  auto pmb = pmy_block_.lock();
+  auto pmb = GetBlockPointer();
   NeighborIndexes *ni = pmb->pbval->ni;
   int cng = pmb->cnghost;
   int size = 0;
@@ -138,7 +138,7 @@ void BoundaryVariable::CopyFluxCorrectionBufferSameProcess(NeighborBlock &nb, in
 //  \brief Send boundary buffers of variables
 
 void BoundaryVariable::SendBoundaryBuffers() {
-  auto pmb = pmy_block_.lock();
+  auto pmb = GetBlockPointer();
   int mylevel = pmb->loc.level;
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
@@ -173,7 +173,7 @@ void BoundaryVariable::SendBoundaryBuffers() {
 bool BoundaryVariable::ReceiveBoundaryBuffers() {
   bool bflag = true;
 
-  auto pmb = pmy_block_.lock();
+  auto pmb = GetBlockPointer();
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
     if (bd_var_.flag[nb.bufid] == BoundaryStatus::arrived) continue;
@@ -204,7 +204,7 @@ bool BoundaryVariable::ReceiveBoundaryBuffers() {
 //  \brief set the boundary data
 
 void BoundaryVariable::SetBoundaries() {
-  auto pmb = pmy_block_.lock();
+  auto pmb = GetBlockPointer();
   int mylevel = pmb->loc.level;
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
@@ -226,7 +226,7 @@ void BoundaryVariable::SetBoundaries() {
 //  \brief receive and set the boundary data for initialization
 
 void BoundaryVariable::ReceiveAndSetBoundariesWithWait() {
-  auto pmb = pmy_block_.lock();
+  auto pmb = GetBlockPointer();
   int mylevel = pmb->loc.level;
   pmb->exec_space.fence();
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {

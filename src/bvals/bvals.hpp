@@ -28,6 +28,7 @@
 #include "bvals/bvals_interfaces.hpp"
 #include "defs.hpp"
 #include "parthenon_arrays.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
@@ -150,6 +151,14 @@ class BoundaryValues : public BoundaryBase, // public BoundaryPhysics,
                                             int sk, int ek);
   void ProlongateGhostCells(const NeighborBlock &nb, int si, int ei, int sj, int ej,
                             int sk, int ek);
+
+  /// Returns shared pointer to a block
+  std::shared_ptr<MeshBlock> GetBlockPointer() {
+    if (pmy_block_.expired()) {
+      PARTHENON_THROW("Invalid pointer to MeshBlock!");
+    }
+    return pmy_block_.lock();
+  }
 
   // temporary--- Added by @tomidakn on 2015-11-27 in f0f989f85f
   // TODO(KGF): consider removing this friendship designation

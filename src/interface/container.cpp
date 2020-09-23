@@ -708,7 +708,7 @@ void Container<T>::calcArrDims_(std::array<int, 6> &arrDims, const std::vector<i
     // direction, NOT the size of the arrays
     assert(N >= 0 && N <= 3);
     const IndexDomain entire = IndexDomain::entire;
-    std::shared_ptr<MeshBlock> pmb = pmy_block.lock();
+    std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
     arrDims[0] = pmb->cellbounds.ncellsi(entire);
     arrDims[1] = pmb->cellbounds.ncellsj(entire);
     arrDims[2] = pmb->cellbounds.ncellsk(entire);

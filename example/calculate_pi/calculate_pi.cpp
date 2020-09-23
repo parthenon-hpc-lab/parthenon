@@ -36,7 +36,7 @@ using namespace parthenon::package::prelude;
 namespace calculate_pi {
 
 void SetInOrOut(std::shared_ptr<Container<Real>> &rc) {
-  auto pmb = rc->pmy_block.lock();
+  auto pmb = rc->GetBlockPointer();
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);

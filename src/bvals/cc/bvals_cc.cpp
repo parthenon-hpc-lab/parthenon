@@ -81,7 +81,7 @@ CellCenteredBoundaryVariable::~CellCenteredBoundaryVariable() {
 
 int CellCenteredBoundaryVariable::ComputeVariableBufferSize(const NeighborIndexes &ni,
                                                             int cng) {
-  std::shared_ptr<MeshBlock> pmb = pmy_block_.lock();
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int cng1, cng2, cng3;
   cng1 = cng;
   cng2 = cng * (pmb->block_size.nx2 > 1 ? 1 : 0);
@@ -106,7 +106,7 @@ int CellCenteredBoundaryVariable::ComputeVariableBufferSize(const NeighborIndexe
 
 int CellCenteredBoundaryVariable::ComputeFluxCorrectionBufferSize(
     const NeighborIndexes &ni, int cng) {
-  std::shared_ptr<MeshBlock> pmb = pmy_block_.lock();
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int size = 0;
   if (ni.ox1 != 0)
     size = (pmb->block_size.nx2 + 1) / 2 * (pmb->block_size.nx3 + 1) / 2 * (nu_ + 1);
@@ -125,7 +125,7 @@ int CellCenteredBoundaryVariable::ComputeFluxCorrectionBufferSize(
 
 int CellCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(ParArray1D<Real> &buf,
                                                               const NeighborBlock &nb) {
-  std::shared_ptr<MeshBlock> pmb = pmy_block_.lock();
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int si, sj, sk, ei, ej, ek;
 
   IndexDomain interior = IndexDomain::interior;
@@ -152,7 +152,7 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(ParArray1D<Real> &
 
 int CellCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(ParArray1D<Real> &buf,
                                                               const NeighborBlock &nb) {
-  std::shared_ptr<MeshBlock> pmb = pmy_block_.lock();
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int si, sj, sk, ei, ej, ek;
   int cn = NGHOST - 1;
 
@@ -180,7 +180,7 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(ParArray1D<Real> &
 
 int CellCenteredBoundaryVariable::LoadBoundaryBufferToFiner(ParArray1D<Real> &buf,
                                                             const NeighborBlock &nb) {
-  std::shared_ptr<MeshBlock> pmb = pmy_block_.lock();
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int si, sj, sk, ei, ej, ek;
   int cn = pmb->cnghost - 1;
 
@@ -241,7 +241,7 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferToFiner(ParArray1D<Real> &bu
 
 void CellCenteredBoundaryVariable::SetBoundarySameLevel(ParArray1D<Real> &buf,
                                                         const NeighborBlock &nb) {
-  std::shared_ptr<MeshBlock> pmb = pmy_block_.lock();
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int si, sj, sk, ei, ej, ek;
 
   const IndexShape &cellbounds = pmb->cellbounds;
@@ -277,7 +277,7 @@ void CellCenteredBoundaryVariable::SetBoundarySameLevel(ParArray1D<Real> &buf,
 
 void CellCenteredBoundaryVariable::SetBoundaryFromCoarser(ParArray1D<Real> &buf,
                                                           const NeighborBlock &nb) {
-  std::shared_ptr<MeshBlock> pmb = pmy_block_.lock();
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int si, sj, sk, ei, ej, ek;
   int cng = pmb->cnghost;
 
@@ -324,7 +324,7 @@ void CellCenteredBoundaryVariable::SetBoundaryFromCoarser(ParArray1D<Real> &buf,
 
 void CellCenteredBoundaryVariable::SetBoundaryFromFiner(ParArray1D<Real> &buf,
                                                         const NeighborBlock &nb) {
-  std::shared_ptr<MeshBlock> pmb = pmy_block_.lock();
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   // receive already restricted data
   int si, sj, sk, ei, ej, ek;
 
@@ -401,7 +401,7 @@ void CellCenteredBoundaryVariable::SetBoundaryFromFiner(ParArray1D<Real> &buf,
 
 void CellCenteredBoundaryVariable::SetupPersistentMPI() {
 #ifdef MPI_PARALLEL
-  std::shared_ptr<MeshBlock> pmb = pmy_block_.lock();
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int &mylevel = pmb->loc.level;
 
   int cng, cng1, cng2, cng3;
@@ -482,7 +482,7 @@ void CellCenteredBoundaryVariable::SetupPersistentMPI() {
 
 void CellCenteredBoundaryVariable::StartReceiving(BoundaryCommSubset phase) {
 #ifdef MPI_PARALLEL
-  std::shared_ptr<MeshBlock> pmb = pmy_block_.lock();
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int mylevel = pmb->loc.level;
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
@@ -499,7 +499,7 @@ void CellCenteredBoundaryVariable::StartReceiving(BoundaryCommSubset phase) {
 }
 
 void CellCenteredBoundaryVariable::ClearBoundary(BoundaryCommSubset phase) {
-  std::shared_ptr<MeshBlock> pmb = pmy_block_.lock();
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
     bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;

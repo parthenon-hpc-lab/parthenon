@@ -67,7 +67,7 @@ FaceCenteredBoundaryVariable::~FaceCenteredBoundaryVariable() {
 
 int FaceCenteredBoundaryVariable::ComputeVariableBufferSize(const NeighborIndexes &ni,
                                                             int cng) {
-  std::shared_ptr<MeshBlock> pmb = pmy_block_.lock();
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int nx1 = pmb->block_size.nx1;
   int nx2 = pmb->block_size.nx2;
   int nx3 = pmb->block_size.nx3;
@@ -124,7 +124,7 @@ int FaceCenteredBoundaryVariable::ComputeVariableBufferSize(const NeighborIndexe
 
 int FaceCenteredBoundaryVariable::ComputeFluxCorrectionBufferSize(
     const NeighborIndexes &ni, int cng) {
-  std::shared_ptr<MeshBlock> pmb = pmy_block_.lock();
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int nx1 = pmb->block_size.nx1;
   int nx2 = pmb->block_size.nx2;
   int nx3 = pmb->block_size.nx3;
@@ -166,7 +166,7 @@ int FaceCenteredBoundaryVariable::ComputeFluxCorrectionBufferSize(
 
 int FaceCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(ParArray1D<Real> &buf,
                                                               const NeighborBlock &nb) {
-  std::shared_ptr<MeshBlock> pmb = pmy_block_.lock();
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int si, sj, sk, ei, ej, ek;
   int p = 0;
 
@@ -241,7 +241,7 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(ParArray1D<Real> &
 
 int FaceCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(ParArray1D<Real> &buf,
                                                               const NeighborBlock &nb) {
-  std::shared_ptr<MeshBlock> pmb = pmy_block_.lock();
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   auto &pmr = pmb->pmr;
   int si, sj, sk, ei, ej, ek;
   int cng = NGHOST;
@@ -337,7 +337,7 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(ParArray1D<Real> &
 
 int FaceCenteredBoundaryVariable::LoadBoundaryBufferToFiner(ParArray1D<Real> &buf,
                                                             const NeighborBlock &nb) {
-  std::shared_ptr<MeshBlock> pmb = pmy_block_.lock();
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int nx1 = pmb->block_size.nx1;
   int nx2 = pmb->block_size.nx2;
   int nx3 = pmb->block_size.nx3;
@@ -503,7 +503,7 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToFiner(ParArray1D<Real> &bu
 
 void FaceCenteredBoundaryVariable::SetBoundarySameLevel(ParArray1D<Real> &buf,
                                                         const NeighborBlock &nb) {
-  std::shared_ptr<MeshBlock> pmb = pmy_block_.lock();
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int si, sj, sk, ei, ej, ek;
 
   int p = 0;
@@ -616,7 +616,7 @@ void FaceCenteredBoundaryVariable::SetBoundarySameLevel(ParArray1D<Real> &buf,
 
 void FaceCenteredBoundaryVariable::SetBoundaryFromCoarser(ParArray1D<Real> &buf,
                                                           const NeighborBlock &nb) {
-  std::shared_ptr<MeshBlock> pmb = pmy_block_.lock();
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int si, sj, sk, ei, ej, ek;
   int cng = pmb->cnghost;
   int p = 0;
@@ -756,7 +756,7 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromCoarser(ParArray1D<Real> &buf,
 
 void FaceCenteredBoundaryVariable::SetBoundaryFromFiner(ParArray1D<Real> &buf,
                                                         const NeighborBlock &nb) {
-  std::shared_ptr<MeshBlock> pmb = pmy_block_.lock();
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   // receive already restricted data
   int si, sj, sk, ei, ej, ek;
   int p = 0;
@@ -946,7 +946,7 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromFiner(ParArray1D<Real> &buf,
 }
 
 void FaceCenteredBoundaryVariable::CountFineEdges() {
-  std::shared_ptr<MeshBlock> pmb = pmy_block_.lock();
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int &mylevel = pmb->loc.level;
 
   // count the number of the fine meshblocks contacting on each edge
@@ -1011,7 +1011,7 @@ void FaceCenteredBoundaryVariable::SetupPersistentMPI() {
   CountFineEdges();
 
 #ifdef MPI_PARALLEL
-  std::shared_ptr<MeshBlock> pmb = pmy_block_.lock();
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int nx1 = pmb->block_size.nx1;
   int nx2 = pmb->block_size.nx2;
   int nx3 = pmb->block_size.nx3;
@@ -1181,7 +1181,7 @@ void FaceCenteredBoundaryVariable::SetupPersistentMPI() {
 void FaceCenteredBoundaryVariable::StartReceiving(BoundaryCommSubset phase) {
   if (phase == BoundaryCommSubset::all) recv_flx_same_lvl_ = true;
 #ifdef MPI_PARALLEL
-  std::shared_ptr<MeshBlock> pmb = pmy_block_.lock();
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int mylevel = pmb->loc.level;
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
@@ -1204,7 +1204,7 @@ void FaceCenteredBoundaryVariable::StartReceiving(BoundaryCommSubset phase) {
 
 void FaceCenteredBoundaryVariable::ClearBoundary(BoundaryCommSubset phase) {
   // Clear non-polar boundary communications
-  std::shared_ptr<MeshBlock> pmb = pmy_block_.lock();
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
     bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;

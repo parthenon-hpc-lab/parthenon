@@ -124,7 +124,7 @@ TaskList AdvectionDriver::MakeTaskList(MeshBlock *pmb, int stage) {
   if (stage == integrator->nstages) {
     auto new_dt = tl.AddTask(
         [](std::shared_ptr<Container<Real>> &rc) {
-          auto pmb = rc->pmy_block.lock();
+          auto pmb = rc->GetBlockPointer();
           pmb->SetBlockTimestep(parthenon::Update::EstimateTimestep(rc));
           return TaskStatus::complete;
         },
