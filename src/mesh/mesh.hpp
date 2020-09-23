@@ -82,13 +82,6 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   MeshBlock(const int n_side, const int ndim); // for Kokkos testing with ghost
   ~MeshBlock();
 
-  // Initializer to set up a meshblock called with the default constructor
-  // This is necessary because the back pointers can't be set up until
-  // the block is allocated.
-  void Initialize(int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
-                  BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
-                  ApplicationInput *app_in, Properties_t &properties,
-                  Packages_t &packages, int igflag, double icost = 1.0);
   // Factory method deals with initialization for you
   static std::shared_ptr<MeshBlock>
   Make(int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
@@ -97,17 +90,6 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
     auto pmb = std::make_shared<MeshBlock>();
     pmb->Initialize(igid, ilid, iloc, input_block, input_bcs, pm, pin, app_in, properties,
                     packages, igflag, icost);
-    return pmb;
-  }
-  static std::shared_ptr<MeshBlock> MakeAndSetNeighbors(
-      int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
-      BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin, ApplicationInput *app_in,
-      Properties_t &properties, Packages_t &packages, int igflag, MeshBlockTree &tree,
-      std::vector<int> &ranklist, std::vector<int> &nslist, double icost = 1.0) {
-    auto pmb = std::make_shared<MeshBlock>();
-    pmb->Initialize(igid, ilid, iloc, input_block, input_bcs, pm, pin, app_in, properties,
-                    packages, igflag, icost);
-    pmb->pbval->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
     return pmb;
   }
 
@@ -276,7 +258,9 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   int GetNumberOfMeshBlockCells() const {
     return block_size.nx1 * block_size.nx2 * block_size.nx3;
   }
-  void SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist, int *nslist);
+  void SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist, int *nslist) {
+    pbval->SearchAndSetNeighbors(tree,ranklist,nslist);
+  }
   void WeightedAve(ParArrayND<Real> &u_out, ParArrayND<Real> &u_in1,
                    ParArrayND<Real> &u_in2, const Real wght[3]);
   void WeightedAve(FaceField &b_out, FaceField &b_in1, FaceField &b_in2,
@@ -306,6 +290,14 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
       new_block_dt_user_;
   std::vector<std::shared_ptr<CellVariable<Real>>> vars_cc_;
   std::vector<std::shared_ptr<FaceField>> vars_fc_;
+
+  // Initializer to set up a meshblock called with the default constructor
+  // This is necessary because the back pointers can't be set up until
+  // the block is allocated.
+  void Initialize(int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
+                  BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
+                  ApplicationInput *app_in, Properties_t &properties,
+                  Packages_t &packages, int igflag, double icost = 1.0);
 
   void InitializeIndexShapes(const int nx1, const int nx2, const int nx3);
   // functions
