@@ -734,8 +734,7 @@ void Mesh::PrepareSendSameLevel(MeshBlock *pmb, ParArray1D<Real> &sendbuf) {
     ParArray3D<Real> x1f = var_fc.x1f.Get<3>();
     ParArray3D<Real> x2f = var_fc.x2f.Get<3>();
     ParArray3D<Real> x3f = var_fc.x3f.Get<3>();
-    BufferUtility::PackData(x1f, sendbuf, ib.s, ib.e + 1, jb.s, jb.e, kb.s, kb.e, p,
-                            pmb);
+    BufferUtility::PackData(x1f, sendbuf, ib.s, ib.e + 1, jb.s, jb.e, kb.s, kb.e, p, pmb);
     BufferUtility::PackData(x2f, sendbuf, ib.s, ib.e, jb.s, jb.e + f2, kb.s, kb.e, p,
                             pmb);
     BufferUtility::PackData(x3f, sendbuf, ib.s, ib.e, jb.s, jb.e, kb.s, kb.e + f3, p,
