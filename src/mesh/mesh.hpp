@@ -259,7 +259,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
     return block_size.nx1 * block_size.nx2 * block_size.nx3;
   }
   void SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist, int *nslist) {
-    pbval->SearchAndSetNeighbors(tree,ranklist,nslist);
+    pbval->SearchAndSetNeighbors(tree, ranklist, nslist);
   }
   void WeightedAve(ParArrayND<Real> &u_out, ParArrayND<Real> &u_in1,
                    ParArrayND<Real> &u_in2, const Real wght[3]);
