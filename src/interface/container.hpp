@@ -149,7 +149,7 @@ class Container {
   // Queries related to CellVariable objects
   //
   const CellVariableVector<T> &GetCellVariableVector() const { return varVector_; }
-  const MapToCellVars<T> GetCellVariableMap() const { return varMap_; }
+  const MapToCellVars<T> &GetCellVariableMap() const { return varMap_; }
   CellVariable<T> &Get(std::string label) {
     auto it = varMap_.find(label);
     if (it == varMap_.end()) {
@@ -171,8 +171,8 @@ class Container {
   //
   // Queries related to SparseVariable objects
   //
-  const SparseVector<T> GetSparseVector() const { return sparseVector_; }
-  const MapToSparse<T> GetSparseMap() const { return sparseMap_; }
+  const SparseVector<T> &GetSparseVector() const { return sparseVector_; }
+  const MapToSparse<T> &GetSparseMap() const { return sparseMap_; }
   SparseVariable<T> &GetSparseVariable(const std::string &label) {
     auto it = sparseMap_.find(label);
     if (it == sparseMap_.end()) {
@@ -201,7 +201,7 @@ class Container {
   // Queries related to FaceVariable objects
   //
   const FaceVector<T> &GetFaceVector() const { return faceVector_; }
-  const MapToFace<T> GetFaceMap() const { return faceMap_; }
+  const MapToFace<T> &GetFaceMap() const { return faceMap_; }
   FaceVariable<T> &GetFace(std::string label) {
     auto it = faceMap_.find(label);
     if (it == faceMap_.end()) {
