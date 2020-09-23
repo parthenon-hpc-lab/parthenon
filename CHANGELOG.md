@@ -9,6 +9,7 @@
 - [[PR 307]](https://github.com/lanl/parthenon/pull/307) Changed back-pointers in mesh structure to weak pointers. Cleaned up `MeshBlock` constructor and implemented `MeshBlock` factory function.
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 310]](https://github.com/lanl/parthenon/pull/310) Fix Cuda 11 builds.
 
 ### Removed (removing behavior/API/varaibles/...)
 
