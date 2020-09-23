@@ -247,7 +247,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properti
     MeshGenerator_[X3DIR] = DefaultMeshGeneratorX3;
   }
   default_pack_size_ = pin->GetOrAddReal("parthenon/mesh", "pack_size", -1);
-  RegisterAllMeshBlockPackers(packages, default_pack_size_);
+  RegisterAllMeshBlockPackers(packages);
 
   // calculate the logical root level and maximum level
   for (root_level = 0; (1 << root_level) < nbmax; root_level++) {
@@ -630,7 +630,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
     MeshGenerator_[X3DIR] = DefaultMeshGeneratorX3;
   }
   default_pack_size_ = pin->GetOrAddReal("parthenon/mesh", "pack_size", -1);
-  RegisterAllMeshBlockPackers(packages, default_pack_size_);
+  RegisterAllMeshBlockPackers(packages);
 
   // Load balancing flag and parameters
 #ifdef MPI_PARALLEL
@@ -947,7 +947,7 @@ void Mesh::BuildMeshBlockPacks() {
     }
   }
 }
-void Mesh::RegisterAllMeshBlockPackers(Packages_t &packages, int pack_size) {
+void Mesh::RegisterAllMeshBlockPackers(Packages_t &packages) {
   // Register packs everyone will use like this
   // Add more as needed
   bool register_pack = true;
@@ -957,12 +957,9 @@ void Mesh::RegisterAllMeshBlockPackers(Packages_t &packages, int pack_size) {
     register_pack = register_pack && package->FlagsPresent(metadata);
   }
   if (register_pack) {
-    RegisterMeshBlockPack("default", "fill_ghost", [pack_size, metadata](Mesh *pmesh) {
-      std::vector<BlockList_t> partitions;
+    RegisterMeshBlockPack("default", "fill_ghost", [metadata](Mesh *pmesh) {
       std::vector<MeshBlockVarPack<Real>> packs;
-      partition::ToSizeN(pmesh->block_list,
-                         pack_size < 1 ? pmesh->block_list.size() : pack_size,
-                         partitions);
+      auto partitions = partition::ToSizeN(pmesh->block_list, pmesh->DefaultPackSize());
       packs.resize(partitions.size());
       for (int i = 0; i < partitions.size(); i++) {
         packs[i] = PackVariablesOnMesh(partitions[i], "base", metadata);

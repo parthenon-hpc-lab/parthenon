@@ -74,9 +74,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   // Add a named MeshPack by registering a function that packs it
   package->AddMeshBlockPack("in_or_out", [](Mesh *pmesh) {
     int pack_size = pmesh->DefaultPackSize();
-    std::vector<BlockList_t> partitions;
     std::vector<MeshBlockVarPack<Real>> packs;
-    partition::ToSizeN(pmesh->block_list, pack_size, partitions);
+    auto partitions = partition::ToSizeN(pmesh->block_list, pack_size);
     packs.resize(partitions.size());
     for (int i = 0; i < partitions.size(); i++) {
       packs[i] = PackVariablesOnMesh(partitions[i], "base",

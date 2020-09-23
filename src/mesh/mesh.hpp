@@ -213,7 +213,7 @@ class Mesh {
 
   std::map<std::string, std::map<std::string, VarPackingFunc<Real>>> real_varpackers_;
   std::map<std::string, std::map<std::string, FluxPackingFunc<Real>>> real_fluxpackers_;
-  void RegisterAllMeshBlockPackers(Packages_t &packages, int default_pack_size = -1);
+  void RegisterAllMeshBlockPackers(Packages_t &packages);
 
   void OutputMeshStructure(int dim);
   void CalculateLoadBalance(std::vector<double> const &costlist,

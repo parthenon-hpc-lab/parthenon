@@ -13,6 +13,7 @@
 #ifndef UTILS_PARTITION_STL_CONTAINERS_HPP_
 #define UTILS_PARTITION_STL_CONTAINERS_HPP_
 
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -42,8 +43,8 @@ int IntCeil(int x, int y) {
 // Takes container of elements and fills partitions
 // of size N with pointers to elements.
 // Assumes Container_t has STL-style iterators defined
-template <typename Container_t, typename T>
-void ToSizeN(Container_t &container, const int N, Partition_t<T> &partitions) {
+template <typename T, template <class, class> typename Container_t>
+auto ToSizeN(Container_t<T, std::allocator<T>> &container, const int N) {
   using std::to_string;
   using namespace partition_impl;
 
@@ -52,7 +53,7 @@ void ToSizeN(Container_t &container, const int N, Partition_t<T> &partitions) {
   int nelements = container.size();
   int npartitions = IntCeil(nelements, N);
 
-  partitions.resize(npartitions);
+  Partition_t<T> partitions(npartitions);
   for (auto &p : partitions) {
     p.reserve(N);
     p.clear();
@@ -67,17 +68,18 @@ void ToSizeN(Container_t &container, const int N, Partition_t<T> &partitions) {
       b = 0;
     }
   }
+  return partitions;
 }
 
 // Takes container of elements and fills N partitions
 // with pointers to elements.
 // Assumes Container_t has STL-style iterators defined
-template <typename Container_t, typename T>
-void ToNPartitions(Container_t &container, const int N, Partition_t<T> &partitions) {
+template <typename T, template <class, class> typename Container_t>
+auto ToNPartitions(Container_t<T, std::allocator<T>> &container, const int N) {
   using namespace partition_impl;
   int nelements = container.size();
   int partition_size = IntCeil(nelements, N);
-  ToSizeN(container, partition_size, partitions);
+  return ToSizeN(container, partition_size);
 }
 } // namespace partition
 } // namespace parthenon
