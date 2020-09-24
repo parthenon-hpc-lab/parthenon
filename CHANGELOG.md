@@ -8,6 +8,7 @@
 - [[PR 303]](https://github.com/lanl/parthenon/pull/303) Changed `Mesh::BlockList` from a `std::list<MeshBlock>` to a `std::vector<std::shared_ptr<MeshBlock>>`, making `FindMeshBlock` run in constant, rather than linear, time. Loops over `block_list` in application drivers must be cahnged accordingly.
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 293]](https://github.com/lanl/parthenon/pull/293) Changed `VariablePack` and related objects to use `ParArray1D` objects instead of `ParArrayND` objects under the hood to reduce the size of the captured objects.
 - [[PR 310]](https://github.com/lanl/parthenon/pull/310) Fix Cuda 11 builds.
 
 ### Removed (removing behavior/API/varaibles/...)
