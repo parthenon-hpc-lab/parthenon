@@ -6,7 +6,7 @@
 
 ### Changed (changing behavior/API/variables/...)
 - [[PR 303]](https://github.com/lanl/parthenon/pull/303) Changed `Mesh::BlockList` from a `std::list<MeshBlock>` to a `std::vector<std::shared_ptr<MeshBlock>>`, making `FindMeshBlock` run in constant, rather than linear, time. Loops over `block_list` in application drivers must be cahnged accordingly.
-- [[PR 300]](https://github.com/lanl/parthenon/pull/300): Slight changes to `AddTask` function signature. Should not impact typical usages.
+- [[PR 300]](https://github.com/lanl/parthenon/pull/300): Changes to `AddTask` function signature. Requires re-ordering task dependency argument to front.
 
 ### Fixed (not changing behavior/API/variables/...)
 

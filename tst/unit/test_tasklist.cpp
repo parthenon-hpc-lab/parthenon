@@ -38,7 +38,7 @@ TEST_CASE("Task Object Lifecycle", "[TaskList][AddTask]") {
       track_destruction = obj;
 
       TaskList task_list;
-      task_list.AddTask([obj] { return TaskStatus::complete; }, TaskID{});
+      task_list.AddTask(TaskID{}, [obj] { return TaskStatus::complete; });
 
       // Task objects should still be alive here.
       REQUIRE(!track_destruction.expired());
