@@ -75,8 +75,8 @@ class Container {
 
   ///
   /// Set the pointer to the mesh block for this container
-  void setBlock(std::weak_ptr<MeshBlock> pmb) { pmy_block = pmb; }
-  void setBlock(const std::shared_ptr<Container<T>> &other) {
+  void SetBlockPointer(std::weak_ptr<MeshBlock> pmb) { pmy_block = pmb; }
+  void SetBlockPointer(const std::shared_ptr<Container<T>> &other) {
     pmy_block = other->GetBlockPointer();
   }
 

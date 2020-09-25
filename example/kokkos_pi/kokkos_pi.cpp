@@ -179,7 +179,7 @@ static BlockList_t setupMesh(const int &n_block, const int &n_mesh, const double
         h_xyz(2, idx) = dxyzCell * (static_cast<Real>(k_mesh * n_block) + 0.5) - delta;
         // Add variable for in_or_out
         auto &base = pmb->real_containers.Get();
-        base->setBlock(pmb);
+        base->SetBlockPointer(pmb);
         base->Add("in_or_out", myMetadata);
       }
     }

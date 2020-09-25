@@ -104,7 +104,7 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
 
   auto &real_container = real_containers.Get();
   // Set the block pointer for the containers
-  real_container->setBlock(shared_from_this());
+  real_container->SetBlockPointer(shared_from_this());
 
   // (probably don't need to preallocate space for references in these vectors)
   vars_cc_.reserve(3);
