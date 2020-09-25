@@ -17,8 +17,6 @@
 //! \file buffer_utils.cpp
 //  \brief namespace containing buffer utilities.
 
-#include <memory>
-
 #include "utils/buffer_utils.hpp"
 
 #include "defs.hpp"
