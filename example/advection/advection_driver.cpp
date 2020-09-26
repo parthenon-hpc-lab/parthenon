@@ -126,7 +126,7 @@ TaskList AdvectionDriver::MakeTaskList(MeshBlock *pmb, int stage) {
     auto new_dt = tl.AddTask(
         fill_derived,
         [](std::shared_ptr<Container<Real>> &rc) {
-          MeshBlock *pmb = rc->pmy_block;
+          auto pmb = rc->GetBlockPointer();
           pmb->SetBlockTimestep(parthenon::Update::EstimateTimestep(rc));
           return TaskStatus::complete;
         },

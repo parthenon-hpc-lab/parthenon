@@ -23,6 +23,7 @@
 #include <cstring>
 #include <iomanip>
 #include <limits>
+#include <memory>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -41,15 +42,17 @@ void DoolittleLUPSolve(Real **lu, int *pivot, Real *b, int n, Real *x);
 
 } // anonymous namespace
 
-Reconstruction::Reconstruction(MeshBlock *pmb, ParameterInput *pin)
+Reconstruction::Reconstruction(std::weak_ptr<MeshBlock> wpmb, ParameterInput *pin)
     : characteristic_projection{false}, uniform{true, true, true, true},
       // read fourth-order solver switches
       correct_ic{pin->GetOrAddBoolean("parthenon/time", "correct_ic", false)},
       correct_err{pin->GetOrAddBoolean("parthenon/time", "correct_err", false)},
-      pmy_block_{pmb} {
+      pmy_block_{wpmb} {
   // Read and set type of spatial reconstruction
   // --------------------------------
   std::string input_recon = pin->GetOrAddString("parthenon/mesh", "xorder", "2");
+  // meshblock
+  std::shared_ptr<MeshBlock> pmb = wpmb.lock();
   // Avoid pmb indirection
   const IndexDomain entire = IndexDomain::entire;
   const IndexDomain interior = IndexDomain::interior;

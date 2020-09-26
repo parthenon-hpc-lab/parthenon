@@ -22,6 +22,7 @@
 #include "interface/sparse_variable.hpp"
 #include "interface/variable.hpp"
 #include "interface/variable_pack.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
@@ -43,11 +44,6 @@ template <typename T>
 class Container {
  public:
   //-----------------
-  // Public Variables
-  //-----------------
-  MeshBlock *pmy_block = nullptr; // ptr to MeshBlock
-
-  //-----------------
   // Public Methods
   //-----------------
   /// Constructor
@@ -60,6 +56,14 @@ class Container {
                const std::vector<int> sparse_ids = {});
   Container<T>(const Container<T> &src, const std::vector<MetadataFlag> &flags);
 
+  /// Returns shared pointer to a block
+  std::shared_ptr<MeshBlock> GetBlockPointer() {
+    if (pmy_block.expired()) {
+      PARTHENON_THROW("Invalid pointer to MeshBlock!");
+    }
+    return pmy_block.lock();
+  }
+
   /// We can initialize a container with slices from a different
   /// container.  For variables that have the sparse tag, this will
   /// return the sparse slice.  All other variables are added as
@@ -71,7 +75,10 @@ class Container {
 
   ///
   /// Set the pointer to the mesh block for this container
-  void setBlock(MeshBlock *pmb) { pmy_block = pmb; }
+  void SetBlockPointer(std::weak_ptr<MeshBlock> pmb) { pmy_block = pmb; }
+  void SetBlockPointer(const std::shared_ptr<Container<T>> &other) {
+    pmy_block = other->GetBlockPointer();
+  }
 
   ///
   /// Allocate and add a variable<T> to the container
@@ -304,6 +311,7 @@ class Container {
 
  private:
   int debug = 0;
+  std::weak_ptr<MeshBlock> pmy_block;
 
   CellVariableVector<T> varVector_; ///< the saved variable array
   FaceVector<T> faceVector_;        ///< the saved face arrays
