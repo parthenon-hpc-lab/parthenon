@@ -29,7 +29,7 @@ namespace Update {
 
 TaskStatus FluxDivergence(std::shared_ptr<Container<Real>> &in,
                           std::shared_ptr<Container<Real>> &dudt_cont) {
-  MeshBlock *pmb = in->pmy_block;
+  std::shared_ptr<MeshBlock> pmb = in->GetBlockPointer();
 
   const IndexDomain interior = IndexDomain::interior;
   IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
@@ -67,7 +67,7 @@ TaskStatus FluxDivergence(std::shared_ptr<Container<Real>> &in,
 void UpdateContainer(std::shared_ptr<Container<Real>> &in,
                      std::shared_ptr<Container<Real>> &dudt_cont, const Real dt,
                      std::shared_ptr<Container<Real>> &out) {
-  MeshBlock *pmb = in->pmy_block;
+  std::shared_ptr<MeshBlock> pmb = in->GetBlockPointer();
 
   auto vin = in->PackVariables({Metadata::Independent});
   auto vout = out->PackVariables({Metadata::Independent});
@@ -84,7 +84,7 @@ void UpdateContainer(std::shared_ptr<Container<Real>> &in,
 
 void AverageContainers(std::shared_ptr<Container<Real>> &c1,
                        std::shared_ptr<Container<Real>> &c2, const Real wgt1) {
-  MeshBlock *pmb = c1->pmy_block;
+  std::shared_ptr<MeshBlock> pmb = c1->GetBlockPointer();
   const IndexDomain interior = IndexDomain::interior;
   IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
@@ -103,7 +103,7 @@ void AverageContainers(std::shared_ptr<Container<Real>> &c1,
 }
 
 Real EstimateTimestep(std::shared_ptr<Container<Real>> &rc) {
-  MeshBlock *pmb = rc->pmy_block;
+  std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
   Real dt_min = std::numeric_limits<Real>::max();
   for (auto &pkg : pmb->packages) {
     auto &desc = pkg.second;
@@ -130,7 +130,8 @@ TaskStatus FillDerivedVariables::FillDerived(std::shared_ptr<Container<Real>> &r
   if (pre_package_fill_ != nullptr) {
     pre_package_fill_(rc);
   }
-  for (auto &pkg : rc->pmy_block->packages) {
+  std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
+  for (auto &pkg : pmb->packages) {
     auto &desc = pkg.second;
     if (desc->FillDerived != nullptr) {
       desc->FillDerived(rc);
