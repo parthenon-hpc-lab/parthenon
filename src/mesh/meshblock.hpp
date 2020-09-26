@@ -36,6 +36,7 @@
 #include "outputs/io_wrapper.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
+#include "reconstruct/reconstruction.hpp"
 
 namespace parthenon {
 
@@ -46,7 +47,6 @@ class Mesh;
 class MeshBlockTree;
 class MeshRefinement;
 class ParameterInput;
-class Reconstruction;
 
 // These Forward declarations need duplicated using statements.
 class StateDescriptor;
