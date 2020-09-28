@@ -74,6 +74,32 @@ function(setup_test_coverage dir arg extra_labels)
   endif()
 endfunction()
 
+function(process_mpi_args nproc)
+  list(APPEND TMPARGS "--mpirun")
+  # use custom mpiexec
+  if (TEST_MPIEXEC)
+    list(APPEND TMPARGS "${TEST_MPIEXEC}")
+  # use CMake determined mpiexec
+  else()
+    list(APPEND TMPARGS "${MPIEXEC_EXECUTABLE}")
+  endif()
+  # use custom numproc flag
+  if (TEST_NUMPROC_FLAG)
+    list(APPEND TMPARGS "--mpirun_opts=${TEST_NUMPROC_FLAG}")
+  # use CMake determined numproc flag
+  else()
+    list(APPEND TMPARGS "--mpirun_opts=${MPIEXEC_NUMPROC_FLAG}")
+  endif()
+  list(APPEND TMPARGS "--mpirun_opts=${nproc}")
+  # set additional options from machine configuration
+  foreach(MPIARG ${TEST_MPIOPTS})
+    list(APPEND TMPARGS "--mpirun_opts=${MPIARG}")
+  endforeach()
+
+  # make the result accessible in the calling function
+  set(MPIARGS ${TMPARGS} PARENT_SCOPE)
+endfunction()
+
 # Adds test that will run in parallel with mpi
 # test output will be sent to /tst/regression/outputs/dir_mpi
 # test property labels: regression, mpi-yes
@@ -96,10 +122,9 @@ function(setup_test_mpi nproc dir arg extra_labels)
       set(PARTHENON_KOKKOS_TEST_ARGS "--kokkos-num-devices=${NUM_GPU_DEVICES_TESTING}")
       list(APPEND labels "cuda")
     endif()
+    process_mpi_args(${nproc})
     add_test( NAME regression_mpi_test:${dir} COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/run_test.py
-      --mpirun ${MPIEXEC_EXECUTABLE} 
-      --mpirun_opts=${MPIEXEC_NUMPROC_FLAG} --mpirun_opts=${nproc}
-      --mpirun_opts=${MPIEXEC_PREFLAGS} ${arg}
+      ${MPIARGS} ${arg}
       --test_dir ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}
       --output_dir "${PROJECT_BINARY_DIR}/tst/regression/outputs/${dir}_mpi"
       --kokkos_args=${PARTHENON_KOKKOS_TEST_ARGS})
@@ -120,11 +145,10 @@ function(setup_test_mpi_coverage nproc dir arg extra_labels)
       list(APPEND labels "regression;coverage;mpi-yes")
       list(APPEND labels "${extra_labels}")
       separate_arguments(arg) 
+      process_mpi_args(${nproc})
       add_test( NAME regression_mpi_coverage_test:${dir} COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/run_test.py
         --coverage
-        --mpirun ${MPIEXEC_EXECUTABLE} 
-        --mpirun_opts=${MPIEXEC_NUMPROC_FLAG} --mpirun_opts=${nproc}
-        --mpirun_opts=${MPIEXEC_PREFLAGS} ${arg}
+        ${MPIARGS} ${arg}
         --test_dir ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}
         --output_dir "${PROJECT_BINARY_DIR}/tst/regression/outputs/${dir}_mpi_cov"
         )

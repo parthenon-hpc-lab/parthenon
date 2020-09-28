@@ -14,6 +14,9 @@
 #ifndef EXAMPLE_CALCULATE_PI_PI_DRIVER_HPP_
 #define EXAMPLE_CALCULATE_PI_PI_DRIVER_HPP_
 
+#include <memory>
+#include <vector>
+
 #include <parthenon/driver.hpp>
 
 namespace pi {
@@ -29,9 +32,11 @@ class PiDriver : public Driver {
     pin->CheckDesired("Pi", "radius");
   }
 
-  /// MakeTaskList isn't a virtual routine on `Driver`, but each driver is expected to
-  /// implement it.
-  TaskList MakeTaskList(MeshBlock *pmb);
+  /// MakeTaskList and MakeTasks aren't virtual routines on `Driver`,
+  // but each driver is expected to implement at least one of them.
+  /// TaskList MakeTaskList(MeshBlock *pmb);
+  template <typename T>
+  TaskCollection MakeTasks(T &blocks);
 
   /// `Execute` cylces until simulation completion.
   DriverStatus Execute() override;

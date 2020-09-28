@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -163,7 +164,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 }
 
 AmrTag CheckRefinement(std::shared_ptr<Container<Real>> &rc) {
-  MeshBlock *pmb = rc->pmy_block;
+  auto pmb = rc->GetBlockPointer();
   // refine on advected, for example.  could also be a derived quantity
   auto v = rc->Get("advected").data;
 
@@ -195,7 +196,7 @@ AmrTag CheckRefinement(std::shared_ptr<Container<Real>> &rc) {
 
 // demonstrate usage of a "pre" fill derived routine
 void PreFill(std::shared_ptr<Container<Real>> &rc) {
-  MeshBlock *pmb = rc->pmy_block;
+  auto pmb = rc->GetBlockPointer();
 
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
@@ -215,7 +216,7 @@ void PreFill(std::shared_ptr<Container<Real>> &rc) {
 
 // this is the package registered function to fill derived
 void SquareIt(std::shared_ptr<Container<Real>> &rc) {
-  MeshBlock *pmb = rc->pmy_block;
+  auto pmb = rc->GetBlockPointer();
 
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
@@ -235,7 +236,7 @@ void SquareIt(std::shared_ptr<Container<Real>> &rc) {
 
 // demonstrate usage of a "post" fill derived routine
 void PostFill(std::shared_ptr<Container<Real>> &rc) {
-  MeshBlock *pmb = rc->pmy_block;
+  auto pmb = rc->GetBlockPointer();
 
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
@@ -258,7 +259,7 @@ void PostFill(std::shared_ptr<Container<Real>> &rc) {
 
 // provide the routine that estimates a stable timestep for this package
 Real EstimateTimestep(std::shared_ptr<Container<Real>> &rc) {
-  MeshBlock *pmb = rc->pmy_block;
+  auto pmb = rc->GetBlockPointer();
   auto pkg = pmb->packages["advection_package"];
   const auto &cfl = pkg->Param<Real>("cfl");
   const auto &vx = pkg->Param<Real>("vx");
@@ -293,7 +294,7 @@ Real EstimateTimestep(std::shared_ptr<Container<Real>> &rc) {
 // some field "advected" that we are pushing around.
 // This routine implements all the "physics" in this example
 TaskStatus CalculateFluxes(std::shared_ptr<Container<Real>> &rc) {
-  MeshBlock *pmb = rc->pmy_block;
+  auto pmb = rc->GetBlockPointer();
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);

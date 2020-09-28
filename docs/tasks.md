@@ -15,3 +15,36 @@ Examples of both `AddTask` calls can be found in the advection example [here](..
 
 ## TaskID
 The `TaskID` class implements methods that allow Parthenon to keep track of tasks, their dependencies, and what remains to be completed.  The main way application code will interact with this object is as a returned object from `TaskList::AddTask` and as an argument to subsequent calls to `TaskList::AddTask` as a dependency for other tasks.  When used as a dependency, `TaskID` objects can be combined with the bitwise or operator (`|`) to specify multiple dependencies.
+
+ ## TaskRegion
+ `TaskRegion` is defined via a simple using statement as a `std::vector<TaskList>`.  During task execution (described below), all task lists in a `TaskRegion` can be operated on concurrently.  For example, a `TaskRegion` can be used to construct independent task lists for each `MeshBlock`.
+
+ ## TaskCollection
+ A `TaskCollection` contains a `std::vector<TaskRegion>`, i.e. an ordered list of `TaskRegion`s.  Importantly, each `TaskRegion` will be executed to completion before subsequent `TaskRegion`s, introducing a notion of sequential execution and enabling flexibility in task granularity.  For example, the following code fragment uses the `TaskCollection` and `TaskRegion` abstractions to express work that can be done asynchronously across blocks, followed by a bulk synchronous task involving all blocks, and finally another round of asynchronous work.
+ ```c++
+ TaskCollection tc;
+ TaskRegion &tr1 = tc.AddRegion(nmb);
+ for (int i = 0; i < nmb; i++) {
+   auto task_id = tr1[i].AddTask(dep, foo, args, blocks[i]);
+ }
+
+ {
+   TaskRegion &tr2 = tc.AddRegion(1);
+   auto sync_task = tr2[0].AddTask(dep, bar, args, blocks);
+ }
+
+ TaskRegion &tr3 = tc.AddRegion(nmb);
+ for (int i = 0; i < nmb; i++) {
+     auto task_id = tr3[i].AddTask(dep, foo, args, blocks[i]);
+ }
+ ```
+
+ `TaskCollection` provides two member functions, `AddRegion` and `Execute`.
+
+ ### AddRegion
+
+ `AddRegion` simply adds a new `TaskRegion` to the back of the collection and returns it as a reference.  The integer argument determines how many task lists make up the region.
+
+ ### Execute
+
+ Calling the `Execute` method on the `TaskCollection` executes all the tasks that have been added to the collection, processing each `TaskRegion` in the order they were added, and allowing tasks in different `TaskList`s but the same `TaskRegion` to be executed concurrently.

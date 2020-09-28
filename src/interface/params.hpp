@@ -50,7 +50,7 @@ class Params {
   }
 
   template <typename T>
-  const T &Get(const std::string key) {
+  const T &Get(const std::string &key) {
     auto it = myParams_.find(key);
     PARTHENON_REQUIRE_THROWS(it != myParams_.end(), "Key " + key + " doesn't exist");
     PARTHENON_REQUIRE_THROWS(!(myTypes_[key].compare(std::string(typeid(T).name()))),
@@ -59,8 +59,18 @@ class Params {
     return *typed_ptr->pValue;
   }
 
-  bool hasKey(const std::string key) const {
+  bool hasKey(const std::string &key) const {
     return (myParams_.find(key) != myParams_.end());
+  }
+
+  // Overload Get to return value if available,
+  // otherwise add default value to params and return it.
+  template <typename T>
+  const T &Get(const std::string &key, T default_value) {
+    if (!hasKey(key)) {
+      Add(key, default_value);
+    }
+    return Get<T>(key);
   }
 
   // void Params::
