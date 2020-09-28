@@ -112,9 +112,10 @@ TaskList FaceFieldExample::MakeTaskList(MeshBlock *pmb) {
   TaskList tl;
   TaskID none(0);
 
-  auto fill_faces = tl.AddTask(FaceFields::fill_faces, none, pmb);
+  auto fill_faces = tl.AddTask(none, FaceFields::fill_faces, pmb);
 
   auto interpolate = tl.AddTask(
+      fill_faces,
       [](MeshBlock *pmb) -> TaskStatus {
         auto &rc = pmb->real_containers.Get();
         parthenon::IndexDomain interior = parthenon::IndexDomain::interior;
@@ -139,9 +140,10 @@ TaskList FaceFieldExample::MakeTaskList(MeshBlock *pmb) {
         }
         return TaskStatus::complete;
       },
-      fill_faces, pmb);
+      pmb);
 
   auto sum = tl.AddTask(
+      interpolate,
       [](MeshBlock *pmb) -> TaskStatus {
         auto &rc = pmb->real_containers.Get();
         parthenon::IndexDomain interior = parthenon::IndexDomain::interior;
@@ -159,7 +161,7 @@ TaskList FaceFieldExample::MakeTaskList(MeshBlock *pmb) {
         }
         return TaskStatus::complete;
       },
-      interpolate, pmb);
+      pmb);
 
   return tl;
 }

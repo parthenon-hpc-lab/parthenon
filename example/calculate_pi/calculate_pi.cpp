@@ -36,7 +36,7 @@ using namespace parthenon::package::prelude;
 namespace calculate_pi {
 
 void SetInOrOut(std::shared_ptr<Container<Real>> &rc) {
-  MeshBlock *pmb = rc->pmy_block;
+  auto pmb = rc->GetBlockPointer();
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
@@ -71,12 +71,26 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   Metadata m({Metadata::Cell, Metadata::Derived});
   package->AddField(field_name, m, DerivedOwnership::unique);
 
+  // Add a named MeshPack by registering a function that packs it
+  package->AddMeshBlockPack("in_or_out", [](Mesh *pmesh) {
+    int pack_size = pmesh->DefaultPackSize();
+    std::vector<MeshBlockVarPack<Real>> packs;
+    auto partitions = partition::ToSizeN(pmesh->block_list, pack_size);
+    packs.resize(partitions.size());
+    for (int i = 0; i < partitions.size(); i++) {
+      packs[i] = PackVariablesOnMesh(partitions[i], "base",
+                                     std::vector<std::string>{"in_or_out"});
+    }
+    return packs;
+  });
+
   // All the package FillDerived and CheckRefinement functions are called by parthenon
   package->FillDerived = SetInOrOut;
   // could use package specific refinement tagging routine (see advection example), but
   // instead this example will make use of the parthenon shipped first derivative
   // criteria, as invoked in the input file
   // package->CheckRefinement = CheckRefinement;
+
   return package;
 }
 

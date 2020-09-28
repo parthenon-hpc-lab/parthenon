@@ -32,7 +32,7 @@ namespace Update {
 
 TaskStatus FluxDivergence(std::shared_ptr<Container<Real>> &in,
                           std::shared_ptr<Container<Real>> &dudt_cont) {
-  MeshBlock *pmb = in->pmy_block;
+  std::shared_ptr<MeshBlock> pmb = in->GetBlockPointer();
 
   const IndexDomain interior = IndexDomain::interior;
   IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
@@ -148,7 +148,7 @@ void AverageContainers(BlockList_t &blocks, const std::string &c1_cont_name,
 }
 
 Real EstimateTimestep(std::shared_ptr<Container<Real>> &rc) {
-  MeshBlock *pmb = rc->pmy_block;
+  std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
   Real dt_min = std::numeric_limits<Real>::max();
   for (auto &pkg : pmb->packages) {
     auto &desc = pkg.second;

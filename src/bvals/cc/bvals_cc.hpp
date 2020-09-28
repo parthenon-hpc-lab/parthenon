@@ -20,6 +20,8 @@
 //  \brief handle boundaries for any ParArrayND type variable that represents a physical
 //         quantity indexed along / located around cell-centers
 
+#include <memory>
+
 #include "parthenon_mpi.hpp"
 
 #include "bvals/bvals.hpp"
@@ -33,7 +35,7 @@ namespace parthenon {
 
 class CellCenteredBoundaryVariable : public BoundaryVariable {
  public:
-  CellCenteredBoundaryVariable(MeshBlock *pmb, ParArrayND<Real> var,
+  CellCenteredBoundaryVariable(std::weak_ptr<MeshBlock> pmb, ParArrayND<Real> var,
                                ParArrayND<Real> coarse_var, ParArrayND<Real> *var_flux);
   ~CellCenteredBoundaryVariable();
 

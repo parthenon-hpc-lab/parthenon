@@ -10,47 +10,41 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef INTERFACE_PROPERTIES_INTERFACE_HPP_
-#define INTERFACE_PROPERTIES_INTERFACE_HPP_
 
-#include <map>
+// STL Includes
 #include <memory>
-#include <string>
-#include <vector>
 
-namespace parthenon {
+// Third Party Includes
+#include <catch2/catch.hpp>
 
-class StateDescriptor;
+// Internal Includes
+#include "basic_types.hpp"
+#include "tasks/task_list.hpp"
 
-class PropertiesInterface {
- public:
-  virtual ~PropertiesInterface() {}
+using parthenon::TaskID;
+using parthenon::TaskList;
+using parthenon::TaskStatus;
 
-  virtual StateDescriptor &State() = 0;
+TEST_CASE("Task Object Lifecycle", "[TaskList][AddTask]") {
+  GIVEN("A TaskList") {
+    // This weak_ptr is just used to make sure TaskList destroys its objects when it
+    // goes out of scope.
+    std::weak_ptr<int> track_destruction;
 
-  static int GetIDFromLabel(std::string &label) {
-    return PropertiesInterface::label_to_id_[label];
-  }
+    {
+      auto obj = std::make_shared<int>(0);
 
-  static std::string GetLabelFromID(int id) {
-    for (auto &x : PropertiesInterface::label_to_id_) {
-      if (x.second == id) return x.first;
+      // A weak ptr is taken to the shared ptr to check that it is destroyed later.
+      track_destruction = obj;
+
+      TaskList task_list;
+      task_list.AddTask(TaskID{}, [obj] { return TaskStatus::complete; });
+
+      // Task objects should still be alive here.
+      REQUIRE(!track_destruction.expired());
     }
-    return "UNKNOWN";
+
+    // Task objects are now destroyed
+    REQUIRE(track_destruction.expired());
   }
-
-  static void InsertID(const std::string &label, const int &id) {
-    PropertiesInterface::label_to_id_[label] = id;
-  }
-
- private:
-  // label_to_id_ is declared here and defined in
-  // PropertiesInterface.cpp
-  static std::map<std::string, int> label_to_id_;
-};
-
-using Properties_t = std::vector<std::shared_ptr<PropertiesInterface>>;
-
-} // namespace parthenon
-
-#endif // INTERFACE_PROPERTIES_INTERFACE_HPP_
+}

@@ -22,6 +22,7 @@
 // TODO(felker): deduplicate forward declarations
 // TODO(felker): consider moving enums and structs in a new file? bvals_structs.hpp?
 
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -29,6 +30,7 @@
 
 #include "defs.hpp"
 #include "parthenon_arrays.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
@@ -250,7 +252,7 @@ class BoundaryBuffer {
 
 class BoundaryVariable : public BoundaryCommunication, public BoundaryBuffer {
  public:
-  explicit BoundaryVariable(MeshBlock *pmb);
+  explicit BoundaryVariable(std::weak_ptr<MeshBlock> pmb);
   virtual ~BoundaryVariable() = default;
 
   // (usuallly the std::size_t unsigned integer type)
@@ -271,8 +273,17 @@ class BoundaryVariable : public BoundaryCommunication, public BoundaryBuffer {
   BoundaryData<> bd_var_, bd_var_flcor_;
   // derived class dtors are also responsible for calling DestroyBoundaryData(bd_var_)
 
-  MeshBlock *pmy_block_; // ptr to MeshBlock containing this BoundaryVariable
+  // ptr to MeshBlock containing this BoundaryVariable
+  std::weak_ptr<MeshBlock> pmy_block_;
   Mesh *pmy_mesh_;
+
+  /// Returns shared pointer to a block
+  std::shared_ptr<MeshBlock> GetBlockPointer() {
+    if (pmy_block_.expired()) {
+      PARTHENON_THROW("Invalid pointer to MeshBlock!");
+    }
+    return pmy_block_.lock();
+  }
 
   void CopyVariableBufferSameProcess(NeighborBlock &nb, int ssize);
   void CopyFluxCorrectionBufferSameProcess(NeighborBlock &nb, int ssize);

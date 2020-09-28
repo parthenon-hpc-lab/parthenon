@@ -126,29 +126,21 @@ TaskCollection PiDriver::MakeTaskCollection(T &blocks) {
   using calculate_pi::ComputeArea;
   TaskCollection tc;
 
-  // 1 means pack is 1 meshblock, <1 means use entire mesh
-  int pack_size = pinput->GetOrAddInteger("Pi", "pack_size", 1);
-  if (pack_size < 1) pack_size = blocks.size();
-
-  std::vector<BlockList_t> partitions;
-  partition::ToSizeN(blocks, pack_size, partitions);
-  ParArrayHost<Real> areas("areas", partitions.size());
-
-  TaskRegion &async_region = tc.AddRegion(partitions.size());
+  auto &packs = pmesh->real_varpacks["calculate_pi"]["in_or_out"];
+  ParArrayHost<Real> areas("areas", packs.size());
+  TaskRegion &async_region = tc.AddRegion(packs.size());
   {
     // asynchronous region where area is computed per mesh pack
-    for (int i = 0; i < partitions.size(); i++) {
+    for (int i = 0; i < packs.size(); i++) {
       TaskID none(0);
-      auto pack = PackVariablesOnMesh(partitions[i], "base",
-                                      std::vector<std::string>{"in_or_out"});
-      auto get_area = async_region[i].AddTask(ComputeArea, none, pack, areas, i);
+      auto get_area = async_region[i].AddTask(none, ComputeArea, packs[i], areas, i);
     }
   }
   TaskRegion &sync_region = tc.AddRegion(1);
   {
     TaskID none(0);
     auto accumulate_areas =
-        sync_region[0].AddTask(AccumulateAreas, none, areas, pmesh->packages);
+        sync_region[0].AddTask(none, AccumulateAreas, areas, pmesh->packages);
   }
 
   return tc;
