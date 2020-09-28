@@ -1,5 +1,13 @@
 #!/bin/bash
 
+# This script is designed to detect the number of gpu devices that are available before the
+# ctest suite is run. It does this by using the nvidia-smi. The script is only called if
+# parthenon is built with kokkos_ENABLE_CUDA.
+#
+# The script takes a single argument the number of GPUs that are meant to be used with the 
+# tests. The script then checks that the number of GPUs that are actually avaliable on the
+# system are enough to satisfy this requirement. 
+
 if [ "$#" -ne 1 ]; then
   printf "You must enter exactly 1 command line arguments, which should indicate
 the number of GPUs to be used with the tests.\n"
