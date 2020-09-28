@@ -43,7 +43,7 @@ tests with CUDA enabled kokkos, with the following settings:\n
 Number of CUDA devices set to: ${NUM_GPUS_ASSIGNED_FOR_TEST}
 Number of CUDA devices available: ${GPUS_DETECTED}\n
 The number of gpus detected is less than then the number of devices requested,
-if you are planning on running tests on this host consider changing:\n
+consider changing:\n
 NUM_GPU_DEVICES_TESTING=${GPUS_DETECTED}
 NUM_MPI_PROC_TESTING=${GPUS_DETECTED}\n
 Or consider building without CUDA.\n"
