@@ -175,7 +175,7 @@ TaskStatus FillDerivedVariables::FillDerived(std::shared_ptr<Container<Real>> &r
   if (pre_package_fill_ != nullptr) {
     pre_package_fill_(rc);
   }
-  for (auto &pkg : rc->pmy_block->packages) {
+  for (auto &pkg : rc->GetBlockPointer()->packages) {
     auto &desc = pkg.second;
     if (desc->FillDerived != nullptr) {
       desc->FillDerived(rc);
