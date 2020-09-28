@@ -40,7 +40,7 @@ list(APPEND PARTHENON_PUBLIC_HEADERS
   ${CMAKE_CURRENT_SOURCE_DIR}/interface/variable.hpp
 
   ${CMAKE_CURRENT_SOURCE_DIR}/mesh/domain.hpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/mesh/mesh_pack.hpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/mesh/meshblock_pack.hpp
   ${CMAKE_CURRENT_SOURCE_DIR}/mesh/mesh_refinement.hpp
   ${CMAKE_CURRENT_SOURCE_DIR}/mesh/mesh.hpp
   ${CMAKE_CURRENT_SOURCE_DIR}/mesh/meshblock_tree.hpp
