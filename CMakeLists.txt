@@ -171,21 +171,13 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 SET (Kokkos_ENABLE_AGGRESSIVE_VECTORIZATION ON CACHE BOOL
      "Kokkos aggressive vectorization")
 
-include(cmake/DetectGPUs.cmake)
 # Tell Kokkos we need lambdas in Cuda.
 # Check that gpu devices are actually detected
-set(NUM_GPU_DEVICES_TESTING "${NUM_MPI_PROC_TESTING}")
+set(NUM_GPU_DEVICES_TESTING "${NUM_MPI_PROC_TESTING}" CACHE STRING "Number of gpu devices to use when testing if built with Kokkos_ENABLE_CUDA")
 if (Kokkos_ENABLE_CUDA)
   SET (Kokkos_ENABLE_CUDA_LAMBDA ON CACHE BOOL
        "Enable lambda expressions in CUDA")
-  if( "${NUM_GPUS_DETECTED}" EQUAL "0" )
-    message(WARNING "CUDA has been enabled but no GPUs have been detected.")
-  elseif( "${NUM_GPUS_DETECTED}" EQUAL "1" )
-    message(STATUS "Detecting ${NUM_GPUS_DETECTED} GPUs.")
-  else()
-    message(STATUS "Detecting ${NUM_GPUS_DETECTED} GPUs, by default only a single GPU will be used "
-      "with the regression tests.")
-  endif()
+     configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/CTestCustom.cmake.in ${CMAKE_BINARY_DIR}/CTestCustom.cmake @ONLY)
 endif()
 
 # If this is a debug build, set kokkos debug on
