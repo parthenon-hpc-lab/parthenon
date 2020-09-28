@@ -66,6 +66,7 @@ list(APPEND PARTHENON_PUBLIC_HEADERS
 
   ${CMAKE_CURRENT_SOURCE_DIR}/utils/buffer_utils.hpp
   ${CMAKE_CURRENT_SOURCE_DIR}/utils/error_checking.hpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/utils/partition_stl_containers.hpp
   ${CMAKE_CURRENT_SOURCE_DIR}/utils/trim_string.hpp
   ${CMAKE_CURRENT_SOURCE_DIR}/utils/utils.hpp
 
