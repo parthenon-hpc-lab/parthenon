@@ -106,12 +106,13 @@ class TestManager:
         if len(set(argstrings) & set(self.parameters.mpi_opts)) > 1:
           print('Warning! You have set both "-n" and "-np" in your MPI options.')
         for s in argstrings:
-          index = self.parameters.mpi_opts.index(s)
-          if index < len(self.parameters.mpi_opts) - 1:
-            try:
-              self.parameters.num_ranks = int(self.parameters.mpi_opts[index+1])
-            except ValueError:
-              pass
+          if s in self.parameters.mpi_opts:
+            index = self.parameters.mpi_opts.index(s)
+            if index < len(self.parameters.mpi_opts) - 1:
+              try:
+                self.parameters.num_ranks = int(self.parameters.mpi_opts[index+1])
+              except ValueError:
+                pass
 
         module = __import__(self.__test_module, globals(), locals(),
                 fromlist=['TestCase'])
