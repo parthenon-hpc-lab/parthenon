@@ -18,6 +18,7 @@
 
 list(APPEND unit_tests_SOURCES
     test_taskid.cpp
+    test_tasklist.cpp
     test_unit_face_variables.cpp
     test_unit_params.cpp
     test_unit_constants.cpp
@@ -28,6 +29,7 @@ list(APPEND unit_tests_SOURCES
     test_container_iterator.cpp
     test_required_desired.cpp
     test_error_checking.cpp
+    test_partitioning.cpp
 )
 
 add_executable(unit_tests "${unit_tests_SOURCES}")

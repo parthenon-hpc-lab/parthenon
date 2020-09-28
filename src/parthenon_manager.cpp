@@ -195,7 +195,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   const IndexDomain interior = IndexDomain::interior;
   auto &packages = rm.packages;
   // Get block list and temp array size
-  auto &mb = rm.block_list.front();
+  auto &mb = *(rm.block_list.front());
   int nb = rm.GetNumMeshBlocksThisRank(Globals::my_rank);
   int nbs = mb.gid;
   int nbe = nbs + nb - 1;
@@ -240,7 +240,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
     for (auto &pmb : rm.block_list) {
       bool found = false;
       auto cX = ContainerIterator<Real>(
-          pmb.real_containers.Get(),
+          pmb->real_containers.Get(),
           {parthenon::Metadata::Independent, parthenon::Metadata::Restart}, true);
       for (auto &v : cX.vars) {
         if (vName.compare(v->label()) == 0) {

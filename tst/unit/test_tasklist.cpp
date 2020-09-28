@@ -11,36 +11,40 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef PARTHENON_PRELUDE_HPP_
-#define PARTHENON_PRELUDE_HPP_
+// STL Includes
+#include <memory>
+
+// Third Party Includes
+#include <catch2/catch.hpp>
 
 // Internal Includes
-#include <basic_types.hpp>
-#include <defs.hpp>
-#include <globals.hpp>
-#include <interface/container.hpp>
-#include <interface/variable.hpp>
-#include <mesh/domain.hpp>
-#include <mesh/mesh.hpp>
-#include <parthenon_arrays.hpp>
-#include <parthenon_manager.hpp>
-#include <parthenon_mpi.hpp>
+#include "basic_types.hpp"
+#include "tasks/task_list.hpp"
 
-namespace parthenon {
-namespace prelude {
-using ::parthenon::BoundaryCommSubset;
-using ::parthenon::CellVariable;
-using ::parthenon::Container;
-using ::parthenon::IndexDomain;
-using ::parthenon::IndexRange;
-using ::parthenon::MeshBlock;
-using ::parthenon::ParArrayHost;
-using ::parthenon::ParArrayND;
-using ::parthenon::ParthenonStatus;
-using ::parthenon::Real;
-using ::parthenon::Globals::my_rank;
-using ::parthenon::Globals::nranks;
-} // namespace prelude
-} // namespace parthenon
+using parthenon::TaskID;
+using parthenon::TaskList;
+using parthenon::TaskStatus;
 
-#endif // PARTHENON_PRELUDE_HPP_
+TEST_CASE("Task Object Lifecycle", "[TaskList][AddTask]") {
+  GIVEN("A TaskList") {
+    // This weak_ptr is just used to make sure TaskList destroys its objects when it
+    // goes out of scope.
+    std::weak_ptr<int> track_destruction;
+
+    {
+      auto obj = std::make_shared<int>(0);
+
+      // A weak ptr is taken to the shared ptr to check that it is destroyed later.
+      track_destruction = obj;
+
+      TaskList task_list;
+      task_list.AddTask(TaskID{}, [obj] { return TaskStatus::complete; });
+
+      // Task objects should still be alive here.
+      REQUIRE(!track_destruction.expired());
+    }
+
+    // Task objects are now destroyed
+    REQUIRE(track_destruction.expired());
+  }
+}

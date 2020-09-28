@@ -471,12 +471,14 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properti
   int nbs = nslist[Globals::my_rank];
   int nbe = nbs + nblist[Globals::my_rank] - 1;
   // create MeshBlock list for this process
+  block_list.clear();
+  block_list.resize(nbe - nbs + 1);
   for (int i = nbs; i <= nbe; i++) {
     SetBlockSizeAndBoundaries(loclist[i], block_size, block_bcs);
     // create a block and add into the link list
-    block_list.emplace_back(i, i - nbs, loclist[i], block_size, block_bcs, this, pin,
-                            app_in, properties, packages, gflag);
-    block_list.back().pbval->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
+    block_list[i - nbs] = MeshBlock::Make(i, i - nbs, loclist[i], block_size, block_bcs,
+                                          this, pin, app_in, properties, packages, gflag);
+    block_list[i - nbs]->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
   }
 
   ResetLoadBalanceVariables();
@@ -726,6 +728,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   auto xmin = rr.ReadDataset<double>("/Blocks/xmin");
 
   // Create MeshBlocks (parallel)
+  block_list.clear();
+  block_list.resize(nbe - nbs + 1);
   for (int i = nbs; i <= nbe; i++) {
     for (auto &v : block_bcs) {
       v = parthenon::BoundaryFlag::undef;
@@ -733,9 +737,10 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
     SetBlockSizeAndBoundaries(loclist[i], block_size, block_bcs);
 
     // create a block and add into the link list
-    block_list.emplace_back(i, i - nbs, this, pin, app_in, properties, packages,
-                            loclist[i], block_size, block_bcs, costlist[i], gflag);
-    block_list.back().pbval->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
+    block_list[i - nbs] =
+        MeshBlock::Make(i, i - nbs, loclist[i], block_size, block_bcs, this, pin, app_in,
+                        properties, packages, gflag, costlist[i]);
+    block_list[i - nbs]->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
   }
 
   ResetLoadBalanceVariables();
@@ -985,8 +990,8 @@ void Mesh::EnrollUserMetric(MetricFunc my_func) {
 // \brief Apply MeshBlock::UserWorkBeforeOutput
 
 void Mesh::ApplyUserWorkBeforeOutput(ParameterInput *pin) {
-  for (auto &mb : block_list) {
-    mb.UserWorkBeforeOutput(pin);
+  for (auto &pmb : block_list) {
+    pmb->UserWorkBeforeOutput(pin);
   }
 }
 
@@ -1000,24 +1005,14 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin, ApplicationInput *app_i
 #ifdef OPENMP_PARALLEL
   int nthreads = GetNumMeshThreads();
 #endif
-  int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
-  std::vector<MeshBlock *> pmb_array;
   do {
-    // initialize a vector of MeshBlock pointers
-    nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
-
-    pmb_array.clear();
-    pmb_array.reserve(nmb);
-
-    for (auto &mb : block_list) {
-      pmb_array.push_back(&mb);
-    }
+    int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
 
     if (res_flag == 0) {
 #pragma omp parallel for num_threads(nthreads)
       for (int i = 0; i < nmb; ++i) {
-        MeshBlock *pmb = pmb_array[i];
-        pmb->ProblemGenerator(pmb, pin);
+        auto &pmb = block_list[i];
+        pmb->ProblemGenerator(pmb.get(), pin);
       }
     }
 
@@ -1025,7 +1020,7 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin, ApplicationInput *app_i
     // Create send/recv MPI_Requests for all BoundaryData objects
 #pragma omp parallel for num_threads(nthreads)
     for (int i = 0; i < nmb; ++i) {
-      MeshBlock *pmb = pmb_array[i];
+      auto &pmb = block_list[i];
       // BoundaryVariable objects evolved in main TimeIntegratorTaskList:
       pmb->pbval->SetupPersistentMPI();
       pmb->real_containers.Get()->SetupPersistentMPI();
@@ -1037,32 +1032,33 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin, ApplicationInput *app_i
       // prepare to receive conserved variables
 #pragma omp for
       for (int i = 0; i < nmb; ++i) {
-        pmb_array[i]->real_containers.Get()->StartReceiving(
+        block_list[i]->real_containers.Get()->StartReceiving(
             BoundaryCommSubset::mesh_init);
       }
       call++; // 2
               // send conserved variables
 #pragma omp for
       for (int i = 0; i < nmb; ++i) {
-        pmb_array[i]->real_containers.Get()->SendBoundaryBuffers();
+        block_list[i]->real_containers.Get()->SendBoundaryBuffers();
       }
       call++; // 3
 
       // wait to receive conserved variables
 #pragma omp for
       for (int i = 0; i < nmb; ++i) {
-        pmb_array[i]->real_containers.Get()->ReceiveAndSetBoundariesWithWait();
+        block_list[i]->real_containers.Get()->ReceiveAndSetBoundariesWithWait();
       }
       call++; // 4
 #pragma omp for
       for (int i = 0; i < nmb; ++i) {
-        pmb_array[i]->real_containers.Get()->ClearBoundary(BoundaryCommSubset::mesh_init);
+        block_list[i]->real_containers.Get()->ClearBoundary(
+            BoundaryCommSubset::mesh_init);
       }
       call++;
       // Now do prolongation, compute primitives, apply BCs
 #pragma omp for
       for (int i = 0; i < nmb; ++i) {
-        auto &pmb = pmb_array[i];
+        auto &pmb = block_list[i];
         auto &pbval = pmb->pbval;
         if (multilevel) pbval->ProlongateBoundaries(0.0, 0.0);
         // TODO(JoshuaSBrown): Dead code left in for possible future extraction of
@@ -1088,7 +1084,7 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin, ApplicationInput *app_i
       if (!res_flag && adaptive) {
 #pragma omp for
         for (int i = 0; i < nmb; ++i) {
-          pmb_array[i]->pmr->CheckRefinementCondition();
+          block_list[i]->pmr->CheckRefinementCondition();
         }
       }
     } // omp parallel
@@ -1121,10 +1117,14 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin, ApplicationInput *app_i
 
 /// Finds location of a block with ID `tgid`. Can provide an optional "hint" to start
 /// the search at.
-std::list<MeshBlock>::iterator Mesh::FindMeshBlock(int tgid) {
-  // search the rest of the list
-  return std::find_if(block_list.begin(), block_list.end(),
-                      [tgid](MeshBlock const &bl) { return bl.gid == tgid; });
+std::shared_ptr<MeshBlock> Mesh::FindMeshBlock(int tgid) {
+  // Attempt to simply index into the block list.
+  const int nbs = block_list[0]->gid;
+  const int i = tgid - nbs;
+  PARTHENON_DEBUG_REQUIRE(0 <= i && i < block_list.size(),
+                          "MeshBlock local index out of bounds.");
+  PARTHENON_DEBUG_REQUIRE(block_list[i]->gid == tgid, "MeshBlock not found!");
+  return block_list[i];
 }
 
 //----------------------------------------------------------------------------------------

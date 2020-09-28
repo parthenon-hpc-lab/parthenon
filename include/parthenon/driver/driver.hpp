@@ -38,7 +38,7 @@ enum class DriverStatus { complete, timeout, failed };
 class Driver {
  public:
   Driver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
-      : pinput(pin), app_input(app_in), pmesh(pm) {}
+      : pinput(pin), app_input(app_in), pmesh(pm), mbcnt_prev() {}
   virtual DriverStatus Execute() = 0;
   void InitializeOutputs() { pouts = std::make_unique<Outputs>(pmesh, pinput); }
 
@@ -48,10 +48,8 @@ class Driver {
   std::unique_ptr<Outputs> pouts;
 
  protected:
-  clock_t tstart_;
-#ifdef OPENMP_PARALLEL
-  double omp_start_time_;
-#endif
+  Kokkos::Timer timer_cycle, timer_main;
+  std::uint64_t mbcnt_prev;
   virtual void PreExecute();
   virtual void PostExecute();
 
@@ -96,8 +94,8 @@ TaskListStatus ConstructAndExecuteBlockTasks(T *driver, Args... args) {
   TaskRegion &tr = tc.AddRegion(nmb);
 
   int i = 0;
-  for (auto &mb : driver->pmesh->block_list) {
-    tr[i++] = driver->MakeTaskList(&mb, std::forward<Args>(args)...);
+  for (auto &pmb : driver->pmesh->block_list) {
+    tr[i++] = driver->MakeTaskList(pmb.get(), std::forward<Args>(args)...);
   }
   TaskListStatus status = tc.Execute();
   return status;
@@ -105,15 +103,8 @@ TaskListStatus ConstructAndExecuteBlockTasks(T *driver, Args... args) {
 
 template <typename T, class... Args>
 TaskListStatus ConstructAndExecuteTaskLists(T *driver, Args... args) {
-  int nmb = driver->pmesh->GetNumMeshBlocksThisRank(Globals::my_rank);
-  std::vector<MeshBlock *> blocks(nmb);
-
-  int i = 0;
-  for (auto &mb : driver->pmesh->block_list) {
-    blocks[i++] = &mb;
-  }
-
-  TaskCollection tc = driver->MakeTasks(blocks, std::forward<Args>(args)...);
+  TaskCollection tc =
+      driver->MakeTasks(driver->pmesh->block_list, std::forward<Args>(args)...);
   TaskListStatus status = tc.Execute();
   return status;
 }

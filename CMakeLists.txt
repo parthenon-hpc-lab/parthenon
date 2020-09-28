@@ -12,7 +12,32 @@
 #=========================================================================================
 
 cmake_minimum_required(VERSION 3.12)
-project(parthenon VERSION 0.1.0 LANGUAGES C CXX)
+
+# Load machine specific defaults such as architecture and mpi launch command.
+# Command line argument takes precedence over environment variable.
+# Loading this before project definition to allow setting the compiler.
+if (MACHINE_CFG)
+  if(EXISTS "${MACHINE_CFG}")
+    include(${MACHINE_CFG})
+  else()
+    message(FATAL_ERROR "Given machine configuration at "
+      "${MACHINE_CFG} not found.")
+  endif()
+elseif (DEFINED ENV{MACHINE_CFG})
+  if(EXISTS "$ENV{MACHINE_CFG}")
+    include($ENV{MACHINE_CFG})
+  else()
+    message(FATAL_ERROR "Given machine configuration from environment variable "
+      "MACHINE_CFG at $ENV{MACHINE_CFG} not found.")
+  endif()
+else()
+  message(WARNING "Not using any machine configuration. Consider creating a configuration "
+    "file following the examples in ${PROJECT_SOURCE_DIR}/cmake/machine_cfgs/ and then "
+    "point the MACHINE_CFG variable to your custom file."
+    "Note, that the machine file can be placed in any directory (also outside the repo).")
+endif()
+
+project(parthenon VERSION 0.2.0 LANGUAGES C CXX)
 
 include(CTest)
 
