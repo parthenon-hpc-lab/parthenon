@@ -228,7 +228,7 @@ void SquareIt(std::shared_ptr<Container<Real>> &rc) {
   const int in = imap["one_minus_advected"].first;
   const int out = imap["one_minus_advected_sq"].first;
   pmb->par_for(
-      "advection_package::PreFill", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      "advection_package::SquareIt", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
         v(out, k, j, i) = v(in, k, j, i) * v(in, k, j, i);
       });
@@ -250,7 +250,7 @@ void PostFill(std::shared_ptr<Container<Real>> &rc) {
   const int out12 = imap["one_minus_sqrt_one_minus_advected_sq_12"].first;
   const int out37 = imap["one_minus_sqrt_one_minus_advected_sq_37"].first;
   pmb->par_for(
-      "advection_package::PreFill", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      "advection_package::PostFill", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
         v(out12, k, j, i) = 1.0 - sqrt(v(in, k, j, i));
         v(out37, k, j, i) = 1.0 - v(out12, k, j, i);
