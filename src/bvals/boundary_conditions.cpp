@@ -23,7 +23,7 @@
 namespace parthenon {
 
 TaskStatus ApplyBoundaryConditions(std::shared_ptr<Container<Real>> &rc) {
-  MeshBlock *pmb = rc->pmy_block;
+  std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
   const IndexDomain interior = IndexDomain::interior;
   const IndexDomain entire = IndexDomain::entire;
   IndexRange ib = pmb->cellbounds.GetBoundsI(interior);

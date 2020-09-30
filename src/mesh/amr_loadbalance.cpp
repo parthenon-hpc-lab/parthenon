@@ -555,7 +555,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
         if (newrank[nn] == Globals::my_rank) continue;
         sendbuf[sb_idx] =
             ParArray1D<Real>("amr send buf same" + std::to_string(sb_idx), bssame);
-        PrepareSendSameLevel(&*pb, sendbuf[sb_idx]);
+        PrepareSendSameLevel(pb.get(), sendbuf[sb_idx]);
         int tag = CreateAMRMPITag(nn - nslist[newrank[nn]], 0, 0, 0);
         MPI_Isend(sendbuf[sb_idx].data(), bssame, MPI_PARTHENON_REAL, newrank[nn], tag,
                   MPI_COMM_WORLD, &(req_send[sb_idx]));
@@ -566,7 +566,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
           if (newrank[nn + l] == Globals::my_rank) continue;
           sendbuf[sb_idx] =
               ParArray1D<Real>("amr send buf c2f" + std::to_string(sb_idx), bsc2f);
-          PrepareSendCoarseToFineAMR(&*pb, sendbuf[sb_idx], newloc[nn + l]);
+          PrepareSendCoarseToFineAMR(pb.get(), sendbuf[sb_idx], newloc[nn + l]);
           int tag = CreateAMRMPITag(nn + l - nslist[newrank[nn + l]], 0, 0, 0);
           MPI_Isend(sendbuf[sb_idx].data(), bsc2f, MPI_PARTHENON_REAL, newrank[nn + l],
                     tag, MPI_COMM_WORLD, &(req_send[sb_idx]));
@@ -576,7 +576,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
         if (newrank[nn] == Globals::my_rank) continue;
         sendbuf[sb_idx] =
             ParArray1D<Real>("amr send buf f2c" + std::to_string(sb_idx), bsf2c);
-        PrepareSendFineToCoarseAMR(&*pb, sendbuf[sb_idx]);
+        PrepareSendFineToCoarseAMR(pb.get(), sendbuf[sb_idx]);
         int ox1 = ((oloc.lx1 & 1LL) == 1LL), ox2 = ((oloc.lx2 & 1LL) == 1LL),
             ox3 = ((oloc.lx3 & 1LL) == 1LL);
         int tag = CreateAMRMPITag(nn - nslist[newrank[nn]], ox1, ox2, ox3);
@@ -603,9 +603,9 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
         BoundaryFlag block_bcs[6];
         SetBlockSizeAndBoundaries(newloc[n], block_size, block_bcs);
         // append new block to list of MeshBlocks
-        new_block_list[n - nbs] = std::make_shared<MeshBlock>(
-            n, n - nbs, newloc[n], block_size, block_bcs, this, pin, app_in, properties,
-            packages, gflag, true);
+        new_block_list[n - nbs] =
+            MeshBlock::Make(n, n - nbs, newloc[n], block_size, block_bcs, this, pin,
+                            app_in, properties, packages, gflag);
         // fill the conservative variables
         if ((loclist[on].level > newloc[n].level)) { // fine to coarse (f2c)
           for (int ll = 0; ll < nleaf; ll++) {
@@ -651,19 +651,19 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       if (oloc.level == nloc.level) { // same
         if (ranklist[on] == Globals::my_rank) continue;
         MPI_Wait(&(req_recv[rb_idx]), MPI_STATUS_IGNORE);
-        FinishRecvSameLevel(&*pb, recvbuf[rb_idx]);
+        FinishRecvSameLevel(pb.get(), recvbuf[rb_idx]);
         rb_idx++;
       } else if (oloc.level > nloc.level) { // f2c
         for (int l = 0; l < nleaf; l++) {
           if (ranklist[on + l] == Globals::my_rank) continue;
           MPI_Wait(&(req_recv[rb_idx]), MPI_STATUS_IGNORE);
-          FinishRecvFineToCoarseAMR(&*pb, recvbuf[rb_idx], loclist[on + l]);
+          FinishRecvFineToCoarseAMR(pb.get(), recvbuf[rb_idx], loclist[on + l]);
           rb_idx++;
         }
       } else { // c2f
         if (ranklist[on] == Globals::my_rank) continue;
         MPI_Wait(&(req_recv[rb_idx]), MPI_STATUS_IGNORE);
-        FinishRecvCoarseToFineAMR(&*pb, recvbuf[rb_idx]);
+        FinishRecvCoarseToFineAMR(pb.get(), recvbuf[rb_idx]);
         rb_idx++;
       }
     }

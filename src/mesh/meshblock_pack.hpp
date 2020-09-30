@@ -92,7 +92,7 @@ auto PackMesh(BlockList_t &blocks, F &packing_function) {
   int b = 0;
   for (auto &pmb : blocks) {
     coords_host(b) = pmb->coords;
-    packs_host(b) = packing_function(pmb);
+    packs_host(b) = packing_function(pmb.get());
     b++;
   }
 
@@ -120,7 +120,7 @@ auto PackMesh(Mesh *pmesh, F &packing_function) {
 template <typename T, typename... Args>
 auto PackVariablesOnMesh(T &blocks, const std::string &container_name, Args &&... args) {
   using namespace mesh_pack_impl;
-  auto pack_function = [&](std::shared_ptr<MeshBlock> &pmb) {
+  auto pack_function = [&](MeshBlock *pmb) {
     auto container = pmb->real_containers.Get(container_name);
     return container->PackVariables(std::forward<Args>(args)...);
   };
@@ -130,7 +130,7 @@ template <typename T, typename... Args>
 auto PackVariablesAndFluxesOnMesh(T &blocks, const std::string &container_name,
                                   Args &&... args) {
   using namespace mesh_pack_impl;
-  auto pack_function = [&](std::shared_ptr<MeshBlock> &pmb) {
+  auto pack_function = [&](MeshBlock *pmb) {
     auto container = pmb->real_containers.Get(container_name);
     return container->PackVariablesAndFluxes(std::forward<Args>(args)...);
   };

@@ -58,7 +58,7 @@ void ContainerCollection<T>::Add(const std::string &name,
   }
 
   auto c = std::make_shared<Container<T>>();
-  c->pmy_block = src->pmy_block;
+  c->SetBlockPointer(src);
   for (auto v : src->GetCellVariableVector()) {
     if (v->IsSet(Metadata::OneCopy)) {
       // just copy the (shared) pointer

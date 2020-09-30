@@ -58,7 +58,7 @@ class CellVariable {
 
   // make a new CellVariable based on an existing one
   std::shared_ptr<CellVariable<T>> AllocateCopy(const bool allocComms = false,
-                                                MeshBlock *pmb = nullptr);
+                                                std::weak_ptr<MeshBlock> wpmb = {});
 
   // accessors
 
@@ -82,7 +82,7 @@ class CellVariable {
   std::string info();
 
   /// allocate communication space based on info in MeshBlock
-  void allocateComms(MeshBlock *pmb);
+  void allocateComms(std::weak_ptr<MeshBlock> wpmb);
 
   /// Repoint vbvar's var_cc array at the current variable
   void resetBoundary() { vbvar->var_cc = data; }
