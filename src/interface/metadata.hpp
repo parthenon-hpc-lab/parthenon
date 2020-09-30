@@ -212,8 +212,6 @@ class Metadata {
       return Integer;
     } else if (IsSet(Real)) {
       return Real;
-    } else if (IsSet(String)) {
-      return String;
     }
     /// by default return Metadata::None
     return None;

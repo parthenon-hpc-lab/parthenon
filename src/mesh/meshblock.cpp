@@ -106,7 +106,7 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   auto &swarm_container = real_containers.GetSwarmContainer();
   // Set the block pointer for the containers
   real_container->SetBlockPointer(shared_from_this());
-  swarm_container->SetBlockPointer(shared_from_this());
+  swarm_container->setBlock(this);
 
   // (probably don't need to preallocate space for references in these vectors)
   vars_cc_.reserve(3);
@@ -171,7 +171,7 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   }
 
   if (pm->multilevel) {
-    pmr = std::make_unique<MeshRefinement>(this, pin);
+    pmr = std::make_unique<MeshRefinement>(shared_from_this(), pin);
     // This is very redundant, I think, but necessary for now
     for (int n = 0; n < nindependent; n++) {
       pmr->AddToRefinement(ci.vars[n]->data, ci.vars[n]->coarse_s);
@@ -181,12 +181,13 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   // Create user mesh data
   // InitUserMeshBlockData(pin);
   app = InitApplicationMeshBlockData(pin);
+  return;
 }
 
 //----------------------------------------------------------------------------------------
 // MeshBlock constructor for restarts
 // Creates block but loads no data
-MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
+/*MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
                      ApplicationInput *app_in, Properties_t &properties,
                      Packages_t &packages, LogicalLocation iloc, RegionSize input_block,
                      BoundaryFlag *input_bcs, double icost, int igflag)
@@ -287,7 +288,7 @@ MeshBlock::MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin,
   // InitUserMeshBlockData(pin);
   app = InitApplicationMeshBlockData(pin);
   return;
-}
+}*/
 
 //----------------------------------------------------------------------------------------
 // MeshBlock destructor
