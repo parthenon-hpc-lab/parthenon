@@ -77,8 +77,6 @@
   PARTHENON_INTERNAL_FOR_FLAG(Integer)                                                   \
   /** Real-valued quantity */                                                            \
   PARTHENON_INTERNAL_FOR_FLAG(Real)                                                      \
-  /** String-valued quantity */                                                          \
-  PARTHENON_INTERNAL_FOR_FLAG(String)
 
 namespace parthenon {
 
