@@ -81,14 +81,15 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 AmrTag CheckRefinement(Container<Real> &rc) { return AmrTag::same; }
 
 Real EstimateTimestep(std::shared_ptr<Container<Real>> &rc) {
-  auto pmb = rc->pmy_block;
+  //auto pmb = rc->pmy_block;
+  auto pmb = rc->GetBlockPointer();
   auto pkg = pmb->packages["particles_package"];
   const Real &dt = pkg->Param<Real>("const_dt");
   return dt;
 }
 
 TaskStatus SetTimestepTask(std::shared_ptr<Container<Real>> &rc) {
-  MeshBlock *pmb = rc->pmy_block;
+  auto pmb = rc->GetBlockPointer();//rc->pmy_block;
   pmb->SetBlockTimestep(parthenon::Update::EstimateTimestep(rc));
   return TaskStatus::complete;
 }
@@ -341,18 +342,18 @@ TaskList ParticleDriver::MakeTaskList(MeshBlock *pmb, int stage) {
   auto swarm = sc->Get("my particles");
 
   auto transport_swarm =
-      tl.AddTask(TransportSwarm, none, pmb, stage, stage_name, integrator);
+      tl.AddTask(none, TransportSwarm, pmb, stage, stage_name, integrator);
 
-  auto destroy_some_particles = tl.AddTask(DestroySomeParticles, transport_swarm, pmb,
+  auto destroy_some_particles = tl.AddTask(transport_swarm, DestroySomeParticles, pmb,
                                            stage, stage_name, integrator);
 
-  auto create_some_particles = tl.AddTask(CreateSomeParticles, destroy_some_particles,
+  auto create_some_particles = tl.AddTask(destroy_some_particles, CreateSomeParticles,
                                           pmb, stage, stage_name, integrator);
 
-  auto deposit_particles = tl.AddTask(DepositParticles, create_some_particles, pmb, stage,
+  auto deposit_particles = tl.AddTask(create_some_particles, DepositParticles, pmb, stage,
                                       stage_name, integrator);
 
-  auto defrag = tl.AddTask(Defrag, deposit_particles, pmb, stage, stage_name, integrator);
+  auto defrag = tl.AddTask(deposit_particles, Defrag, pmb, stage, stage_name, integrator);
 
   return tl;
 }
