@@ -214,7 +214,6 @@ add_library(parthenon
   utils/trim_string.cpp
   utils/trim_string.hpp
   utils/utils.hpp
-  utils/ran2.cpp
 
   argument_parser.hpp
   basic_types.hpp
