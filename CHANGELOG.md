@@ -12,6 +12,7 @@
 ### Fixed (not changing behavior/API/variables/...)
 - [[PR 293]](https://github.com/lanl/parthenon/pull/293) Changed `VariablePack` and related objects to use `ParArray1D` objects instead of `ParArrayND` objects under the hood to reduce the size of the captured objects.
 - [[PR 310]](https://github.com/lanl/parthenon/pull/310) Fix Cuda 11 builds.
+- [[PR 313]](https://github.com/lanl/parthenon/pull/313) Add include guards for Kokkos in cmake.
 
 ### Removed (removing behavior/API/varaibles/...)
 
