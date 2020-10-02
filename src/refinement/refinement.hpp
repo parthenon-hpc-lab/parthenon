@@ -19,9 +19,6 @@
 
 #include "defs.hpp"
 #include "parthenon_arrays.hpp"
-//#include "interface/container.hpp"
-//#include "interface/state_descriptor.hpp"
-//#include "interface/variable.hpp"
 
 namespace parthenon {
 
