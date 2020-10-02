@@ -139,9 +139,8 @@ template <typename Function, class... Args>
 inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
 par_for(LoopPatternFlatRange, const std::string &name, DevExecSpace exec_space,
         const int &il, const int &iu, const Function &function, Args &&... args) {
-  typedef typename std::conditional<sizeof...(Args) == 0, ParallelForDispatch,
-                                    ParallelReduceDispatch>::type dispatch_type;
-  dispatch_type tag;
+  typename std::conditional<sizeof...(Args) == 0, ParallelForDispatch,
+                            ParallelReduceDispatch>::type tag;
   kokkos_dispatch(tag, name,
                   Kokkos::Experimental::require(
                       Kokkos::RangePolicy<>(exec_space, il, iu + 1),
@@ -155,9 +154,8 @@ inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
 par_for(LoopPatternMDRange, const std::string &name, DevExecSpace exec_space,
         const int jl, const int ju, const int il, const int iu, const Function &function,
         Args &&... args) {
-  typedef typename std::conditional<sizeof...(Args) == 0, ParallelForDispatch,
-                                    ParallelReduceDispatch>::type dispatch_type;
-  dispatch_type tag;
+  typename std::conditional<sizeof...(Args) == 0, ParallelForDispatch,
+                            ParallelReduceDispatch>::type tag;
   kokkos_dispatch(
       tag, name,
       Kokkos::Experimental::require(
@@ -172,9 +170,8 @@ inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
 par_for(LoopPatternFlatRange, const std::string &name, DevExecSpace exec_space,
         const int kl, const int ku, const int jl, const int ju, const int il,
         const int iu, const Function &function, Args &&... args) {
-  typedef typename std::conditional<sizeof...(Args) == 0, ParallelForDispatch,
-                                    ParallelReduceDispatch>::type dispatch_type;
-  dispatch_type tag;
+  typename std::conditional<sizeof...(Args) == 0, ParallelForDispatch,
+                            ParallelReduceDispatch>::type tag;
   const int Nk = ku - kl + 1;
   const int Nj = ju - jl + 1;
   const int Ni = iu - il + 1;
@@ -200,9 +197,8 @@ inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
 par_for(LoopPatternMDRange, const std::string &name, DevExecSpace exec_space,
         const int &kl, const int &ku, const int &jl, const int &ju, const int &il,
         const int &iu, const Function &function, Args &&... args) {
-  typedef typename std::conditional<sizeof...(Args) == 0, ParallelForDispatch,
-                                    ParallelReduceDispatch>::type dispatch_type;
-  dispatch_type tag;
+  typename std::conditional<sizeof...(Args) == 0, ParallelForDispatch,
+                            ParallelReduceDispatch>::type tag;
   kokkos_dispatch(tag, name,
                   Kokkos::Experimental::require(
                       Kokkos::MDRangePolicy<Kokkos::Rank<3>>(exec_space, {kl, jl, il},
@@ -287,9 +283,8 @@ par_for(LoopPatternFlatRange, const std::string &name, DevExecSpace exec_space,
         const int nl, const int nu, const int kl, const int ku, const int jl,
         const int ju, const int il, const int iu, const Function &function,
         Args &&... args) {
-  typedef typename std::conditional<sizeof...(Args) == 0, ParallelForDispatch,
-                                    ParallelReduceDispatch>::type dispatch_type;
-  dispatch_type tag;
+  typename std::conditional<sizeof...(Args) == 0, ParallelForDispatch,
+                            ParallelReduceDispatch>::type tag;
   const int Nn = nu - nl + 1;
   const int Nk = ku - kl + 1;
   const int Nj = ju - jl + 1;
@@ -320,9 +315,8 @@ par_for(LoopPatternMDRange, const std::string &name, DevExecSpace exec_space,
         const int nl, const int nu, const int kl, const int ku, const int jl,
         const int ju, const int il, const int iu, const Function &function,
         Args &&... args) {
-  typedef typename std::conditional<sizeof...(Args) == 0, ParallelForDispatch,
-                                    ParallelReduceDispatch>::type dispatch_type;
-  dispatch_type tag;
+  typename std::conditional<sizeof...(Args) == 0, ParallelForDispatch,
+                            ParallelReduceDispatch>::type tag;
   kokkos_dispatch(tag, name,
                   Kokkos::Experimental::require(
                       Kokkos::MDRangePolicy<Kokkos::Rank<4>>(
@@ -421,9 +415,8 @@ par_for(LoopPatternMDRange, const std::string &name, DevExecSpace exec_space,
         const int ml, const int mu, const int nl, const int nu, const int kl,
         const int ku, const int jl, const int ju, const int il, const int iu,
         const Function &function, Args &&... args) {
-  typedef typename std::conditional<sizeof...(Args) == 0, ParallelForDispatch,
-                                    ParallelReduceDispatch>::type dispatch_type;
-  dispatch_type tag;
+  typename std::conditional<sizeof...(Args) == 0, ParallelForDispatch,
+                            ParallelReduceDispatch>::type tag;
   kokkos_dispatch(
       tag, name,
       Kokkos::Experimental::require(
