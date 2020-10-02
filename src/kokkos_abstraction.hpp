@@ -21,6 +21,8 @@
 #define KOKKOS_ABSTRACTION_HPP_
 
 #include <string>
+#include <type_traits>
+#include <utility>
 
 #include <Kokkos_Core.hpp>
 
@@ -118,44 +120,69 @@ static struct InnerLoopPatternTVR {
 static struct InnerLoopPatternSimdFor {
 } inner_loop_pattern_simdfor_tag;
 
+static struct ParallelForDispatch {
+} parallel_for_dispatch_tag;
+static struct ParallelReduceDispatch {
+} parallel_reduce_dispatch_tag;
+
+template <class... Args>
+inline void kokkos_dispatch(ParallelForDispatch, Args &&... args) {
+  Kokkos::parallel_for(std::forward<Args>(args)...);
+}
+template <class... Args>
+inline void kokkos_dispatch(ParallelReduceDispatch, Args &&... args) {
+  Kokkos::parallel_reduce(std::forward<Args>(args)...);
+}
+
 // 1D loop using RangePolicy loops
-template <typename Function>
-inline void par_for(LoopPatternFlatRange, const std::string &name,
-                    DevExecSpace exec_space, const int &il, const int &iu,
-                    const Function &function) {
-  Kokkos::parallel_for(name,
-                       Kokkos::Experimental::require(
-                           Kokkos::RangePolicy<>(exec_space, il, iu + 1),
-                           Kokkos::Experimental::WorkItemProperty::HintLightWeight),
-                       function);
+template <typename Function, class... Args>
+inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
+par_for(LoopPatternFlatRange, const std::string &name, DevExecSpace exec_space,
+        const int &il, const int &iu, const Function &function, Args &&... args) {
+  typedef typename std::conditional<sizeof...(Args) == 0, ParallelForDispatch,
+                                    ParallelReduceDispatch>::type dispatch_type;
+  dispatch_type tag;
+  kokkos_dispatch(tag, name,
+                  Kokkos::Experimental::require(
+                      Kokkos::RangePolicy<>(exec_space, il, iu + 1),
+                      Kokkos::Experimental::WorkItemProperty::HintLightWeight),
+                  function, std::forward<Args>(args)...);
 }
 
 // 2D loop using MDRange loops
-template <typename Function>
-inline void par_for(LoopPatternMDRange, const std::string &name, DevExecSpace exec_space,
-                    const int &jl, const int &ju, const int &il, const int &iu,
-                    const Function &function) {
-  Kokkos::parallel_for(
-      name,
+template <typename Function, class... Args>
+inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
+par_for(LoopPatternMDRange, const std::string &name, DevExecSpace exec_space,
+        const int jl, const int ju, const int il, const int iu, const Function &function,
+        Args &&... args) {
+  typedef typename std::conditional<sizeof...(Args) == 0, ParallelForDispatch,
+                                    ParallelReduceDispatch>::type dispatch_type;
+  dispatch_type tag;
+  kokkos_dispatch(
+      tag, name,
       Kokkos::Experimental::require(
           Kokkos::MDRangePolicy<Kokkos::Rank<2>>(exec_space, {jl, il}, {ju + 1, iu + 1}),
           Kokkos::Experimental::WorkItemProperty::HintLightWeight),
-      function);
+      function, std::forward<Args>(args)...);
 }
 
 // 3D loop using Kokkos 1D Range
-template <typename Function>
-inline void par_for(LoopPatternFlatRange, const std::string &name,
-                    DevExecSpace exec_space, const int &kl, const int &ku, const int &jl,
-                    const int &ju, const int &il, const int &iu,
-                    const Function &function) {
+template <typename Function, class... Args>
+inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
+par_for(LoopPatternFlatRange, const std::string &name, DevExecSpace exec_space,
+        const int kl, const int ku, const int jl, const int ju, const int il,
+        const int iu, const Function &function, Args &&... args) {
+  typedef typename std::conditional<sizeof...(Args) == 0, ParallelForDispatch,
+                                    ParallelReduceDispatch>::type dispatch_type;
+  dispatch_type tag;
   const int Nk = ku - kl + 1;
   const int Nj = ju - jl + 1;
   const int Ni = iu - il + 1;
   const int NkNjNi = Nk * Nj * Ni;
   const int NjNi = Nj * Ni;
-  Kokkos::parallel_for(
-      name, Kokkos::RangePolicy<>(exec_space, 0, NkNjNi), KOKKOS_LAMBDA(const int &idx) {
+  kokkos_dispatch(
+      tag, name, Kokkos::RangePolicy<>(exec_space, 0, NkNjNi),
+      KOKKOS_LAMBDA(const int &idx) {
         int k = idx / NjNi;
         int j = (idx - k * NjNi) / Ni;
         int i = idx - k * NjNi - j * Ni;
@@ -163,20 +190,25 @@ inline void par_for(LoopPatternFlatRange, const std::string &name,
         j += jl;
         i += il;
         function(k, j, i);
-      });
+      },
+      std::forward<Args>(args)...);
 }
 
 // 3D loop using MDRange loops
-template <typename Function>
-inline void par_for(LoopPatternMDRange, const std::string &name, DevExecSpace exec_space,
-                    const int &kl, const int &ku, const int &jl, const int &ju,
-                    const int &il, const int &iu, const Function &function) {
-  Kokkos::parallel_for(name,
-                       Kokkos::Experimental::require(
-                           Kokkos::MDRangePolicy<Kokkos::Rank<3>>(
-                               exec_space, {kl, jl, il}, {ku + 1, ju + 1, iu + 1}),
-                           Kokkos::Experimental::WorkItemProperty::HintLightWeight),
-                       function);
+template <typename Function, class... Args>
+inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
+par_for(LoopPatternMDRange, const std::string &name, DevExecSpace exec_space,
+        const int &kl, const int &ku, const int &jl, const int &ju, const int &il,
+        const int &iu, const Function &function, Args &&... args) {
+  typedef typename std::conditional<sizeof...(Args) == 0, ParallelForDispatch,
+                                    ParallelReduceDispatch>::type dispatch_type;
+  dispatch_type tag;
+  kokkos_dispatch(tag, name,
+                  Kokkos::Experimental::require(
+                      Kokkos::MDRangePolicy<Kokkos::Rank<3>>(exec_space, {kl, jl, il},
+                                                             {ku + 1, ju + 1, iu + 1}),
+                      Kokkos::Experimental::WorkItemProperty::HintLightWeight),
+                  function, std::forward<Args>(args)...);
 }
 
 // 3D loop using TeamPolicy with single inner TeamThreadRange
@@ -249,11 +281,15 @@ inline void par_for(LoopPatternSimdFor, const std::string &name, DevExecSpace ex
 }
 
 // 4D loop using Kokkos 1D Range
-template <typename Function>
-inline void par_for(LoopPatternFlatRange, const std::string &name,
-                    DevExecSpace exec_space, const int nl, const int nu, const int kl,
-                    const int ku, const int jl, const int ju, const int il, const int iu,
-                    const Function &function) {
+template <typename Function, class... Args>
+inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
+par_for(LoopPatternFlatRange, const std::string &name, DevExecSpace exec_space,
+        const int nl, const int nu, const int kl, const int ku, const int jl,
+        const int ju, const int il, const int iu, const Function &function,
+        Args &&... args) {
+  typedef typename std::conditional<sizeof...(Args) == 0, ParallelForDispatch,
+                                    ParallelReduceDispatch>::type dispatch_type;
+  dispatch_type tag;
   const int Nn = nu - nl + 1;
   const int Nk = ku - kl + 1;
   const int Nj = ju - jl + 1;
@@ -261,8 +297,8 @@ inline void par_for(LoopPatternFlatRange, const std::string &name,
   const int NnNkNjNi = Nn * Nk * Nj * Ni;
   const int NkNjNi = Nk * Nj * Ni;
   const int NjNi = Nj * Ni;
-  Kokkos::parallel_for(
-      name, Kokkos::RangePolicy<>(exec_space, 0, NnNkNjNi),
+  kokkos_dispatch(
+      tag, name, Kokkos::RangePolicy<>(exec_space, 0, NnNkNjNi),
       KOKKOS_LAMBDA(const int &idx) {
         int n = idx / NkNjNi;
         int k = (idx - n * NkNjNi) / NjNi;
@@ -273,21 +309,26 @@ inline void par_for(LoopPatternFlatRange, const std::string &name,
         j += jl;
         i += il;
         function(n, k, j, i);
-      });
+      },
+      std::forward<Args>(args)...);
 }
 
 // 4D loop using MDRange loops
-template <typename Function>
-inline void par_for(LoopPatternMDRange, const std::string &name, DevExecSpace exec_space,
-                    const int nl, const int nu, const int kl, const int ku, const int jl,
-                    const int ju, const int il, const int iu, const Function &function) {
-  Kokkos::parallel_for(
-      name,
-      Kokkos::Experimental::require(
-          Kokkos::MDRangePolicy<Kokkos::Rank<4>>(exec_space, {nl, kl, jl, il},
-                                                 {nu + 1, ku + 1, ju + 1, iu + 1}),
-          Kokkos::Experimental::WorkItemProperty::HintLightWeight),
-      function);
+template <typename Function, class... Args>
+inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
+par_for(LoopPatternMDRange, const std::string &name, DevExecSpace exec_space,
+        const int nl, const int nu, const int kl, const int ku, const int jl,
+        const int ju, const int il, const int iu, const Function &function,
+        Args &&... args) {
+  typedef typename std::conditional<sizeof...(Args) == 0, ParallelForDispatch,
+                                    ParallelReduceDispatch>::type dispatch_type;
+  dispatch_type tag;
+  kokkos_dispatch(tag, name,
+                  Kokkos::Experimental::require(
+                      Kokkos::MDRangePolicy<Kokkos::Rank<4>>(
+                          exec_space, {nl, kl, jl, il}, {nu + 1, ku + 1, ju + 1, iu + 1}),
+                      Kokkos::Experimental::WorkItemProperty::HintLightWeight),
+                  function, std::forward<Args>(args)...);
 }
 
 // 4D loop using TeamPolicy loop with inner TeamThreadRange
@@ -371,6 +412,25 @@ inline void par_for(LoopPatternSimdFor, const std::string &name, DevExecSpace ex
         for (auto i = il; i <= iu; i++)
           function(n, k, j, i);
   Kokkos::Profiling::popRegion();
+}
+
+// 5D loop using MDRange loops
+template <typename Function, class... Args>
+inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
+par_for(LoopPatternMDRange, const std::string &name, DevExecSpace exec_space,
+        const int ml, const int mu, const int nl, const int nu, const int kl,
+        const int ku, const int jl, const int ju, const int il, const int iu,
+        const Function &function, Args &&... args) {
+  typedef typename std::conditional<sizeof...(Args) == 0, ParallelForDispatch,
+                                    ParallelReduceDispatch>::type dispatch_type;
+  dispatch_type tag;
+  kokkos_dispatch(
+      tag, name,
+      Kokkos::Experimental::require(
+          Kokkos::MDRangePolicy<Kokkos::Rank<5>>(
+              exec_space, {ml, nl, kl, jl, il}, {mu + 1, nu + 1, ku + 1, ju + 1, iu + 1}),
+          Kokkos::Experimental::WorkItemProperty::HintLightWeight),
+      function, std::forward<Args>(args)...);
 }
 
 // 1D  outer parallel loop using Kokkos Teams

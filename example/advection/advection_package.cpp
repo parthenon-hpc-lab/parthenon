@@ -173,11 +173,8 @@ AmrTag CheckRefinement(std::shared_ptr<Container<Real>> &rc) {
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
 
   typename Kokkos::MinMax<Real>::value_type minmax;
-  Kokkos::parallel_reduce(
-      "advection check refinement",
-      Kokkos::MDRangePolicy<Kokkos::Rank<3>>(pmb->exec_space, {kb.s, jb.s, ib.s},
-                                             {kb.e + 1, jb.e + 1, ib.e + 1},
-                                             {1, 1, ib.e + 1 - ib.s}),
+  pmb->par_for(
+      "advection check refinement", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(int k, int j, int i,
                     typename Kokkos::MinMax<Real>::value_type &lminmax) {
         lminmax.min_val = (v(k, j, i) < lminmax.min_val ? v(k, j, i) : lminmax.min_val);
