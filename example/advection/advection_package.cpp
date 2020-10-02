@@ -271,15 +271,17 @@ Real EstimateTimestep(std::shared_ptr<Container<Real>> &rc) {
 
   // this is obviously overkill for this constant velocity problem
   Real min_dt;
-  pmb->par_for("advection_package::EstimateTimestep", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-    KOKKOS_LAMBDA(const int k, const int j, const int i, Real &lmin_dt) {
+  pmb->par_for(
+      "advection_package::EstimateTimestep", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int k, const int j, const int i, Real &lmin_dt) {
         if (vx != 0.0)
           lmin_dt = std::min(lmin_dt, coords.Dx(X1DIR, k, j, i) / std::abs(vx));
         if (vy != 0.0)
           lmin_dt = std::min(lmin_dt, coords.Dx(X2DIR, k, j, i) / std::abs(vy));
         if (vz != 0.0)
           lmin_dt = std::min(lmin_dt, coords.Dx(X3DIR, k, j, i) / std::abs(vz));
-    }, Kokkos::Min<Real>(min_dt));
+      },
+      Kokkos::Min<Real>(min_dt));
 
   return cfl * min_dt;
 }
