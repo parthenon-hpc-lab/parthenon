@@ -49,7 +49,6 @@
 // see kokkos_abstraction.hpp for available tags.
 // Kokkos tight loop layout
 #define DEFAULT_LOOP_PATTERN parthenon::@PAR_LOOP_LAYOUT_TAG@
-#define DEFAULT_REDUCE_PATTERN parthenon::@PAR_REDUCE_LAYOUT_TAG@
 
 // Kokkos nested loop layout
 #define DEFAULT_OUTER_LOOP_PATTERN parthenon::outer_loop_pattern_teams_tag
