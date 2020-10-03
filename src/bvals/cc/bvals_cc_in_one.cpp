@@ -39,10 +39,12 @@ struct BndInfo {
 // TODO(pgrete) should probaly be moved to the bvals or interface folders
 auto SendBoundaryBuffers(BlockList_t &blocks, const std::string &container_name)
     -> TaskStatus {
+  Kokkos::Profiling::pushRegion("SendBoundaryBuffers");
   auto var_pack = parthenon::PackVariablesOnMesh(
       blocks, container_name,
       std::vector<parthenon::MetadataFlag>{parthenon::Metadata::FillGhost});
 
+  Kokkos::Profiling::pushRegion("Create bndinfo array");
   // TODO(?) talk about whether the number of buffers should be a compile time const
   const int num_buffers = 56;
   parthenon::ParArray2D<BndInfo> boundary_info("boundary_info", blocks.size(),
@@ -105,12 +107,15 @@ auto SendBoundaryBuffers(BlockList_t &blocks, const std::string &container_name)
       }
     }
   }
+
   // TODO(?) track which buffers are actually used, extract subview, and only
   // copy/loop over that
   Kokkos::deep_copy(boundary_info, boundary_info_h);
 
-  const int NbNb = blocks.size() * num_buffers;
-  const int Nv = var_pack.GetDim(4);
+  Kokkos::Profiling::popRegion(); // Create bndinfo array
+
+  const auto NbNb = blocks.size() * num_buffers;
+  const auto Nv = var_pack.GetDim(4);
 
   Kokkos::parallel_for(
       "SendBoundaryBuffers",
@@ -149,6 +154,7 @@ auto SendBoundaryBuffers(BlockList_t &blocks, const std::string &container_name)
       });
 
   Kokkos::fence();
+  Kokkos::Profiling::pushRegion("Set complete and/or start sending via MPI");
   for (auto &pmb : blocks) {
     auto &rc = pmb->real_containers.Get(container_name);
 
@@ -175,7 +181,9 @@ auto SendBoundaryBuffers(BlockList_t &blocks, const std::string &container_name)
       bd_var_->sflag[nb.bufid] = parthenon::BoundaryStatus::completed;
     }
   }
+  Kokkos::Profiling::popRegion(); // Set complete and/or start sending via MPI
 
+  Kokkos::Profiling::popRegion(); // SendBoundaryBuffers
   // TODO(?) reintroduce sparse logic (or merge with above)
   return TaskStatus::complete;
 }
@@ -210,10 +218,12 @@ auto ReceiveBoundaryBuffers(BlockList_t &blocks, const std::string &container_na
 // set boundaries from buffers with MeshBlockPack support
 // TODO(pgrete) should probaly be moved to the bvals or interface folders
 auto SetBoundaries(BlockList_t &blocks, const std::string &container_name) -> TaskStatus {
+  Kokkos::Profiling::pushRegion("SetBoundaries");
   auto var_pack = parthenon::PackVariablesOnMesh(
       blocks, container_name,
       std::vector<parthenon::MetadataFlag>{parthenon::Metadata::FillGhost});
 
+  Kokkos::Profiling::pushRegion("Create bndinfo array");
   // TODO(?) talk about whether the number of buffers should be a compile time const
   const int num_buffers = 56;
   parthenon::ParArray2D<BndInfo> boundary_info("boundary_info", blocks.size(),
@@ -267,6 +277,8 @@ auto SetBoundaries(BlockList_t &blocks, const std::string &container_name) -> Ta
   }
   Kokkos::deep_copy(boundary_info, boundary_info_h);
 
+  Kokkos::Profiling::popRegion(); // Create bndinfo array
+
   const auto NbNb = blocks.size() * num_buffers;
   const auto Nv = var_pack.GetDim(4);
 
@@ -305,6 +317,7 @@ auto SetBoundaries(BlockList_t &blocks, const std::string &container_name) -> Ta
         }
       });
 
+  Kokkos::Profiling::popRegion(); // SetBoundaries
   // TODO(?) reintroduce sparse logic (or merge with above)
   return TaskStatus::complete;
 }
