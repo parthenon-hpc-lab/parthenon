@@ -107,6 +107,24 @@ auto FluxDivergenceMesh(BlockList_t &blocks, const std::string &in_cont,
   return TaskStatus::complete;
 }
 
+void UpdateContainer(std::shared_ptr<Container<Real>> &in,
+                     std::shared_ptr<Container<Real>> &dudt_cont, const Real dt,
+                     std::shared_ptr<Container<Real>> &out) {
+  std::shared_ptr<MeshBlock> pmb = in->GetBlockPointer();
+
+  auto vin = in->PackVariables({Metadata::Independent});
+  auto vout = out->PackVariables({Metadata::Independent});
+  auto dudt = dudt_cont->PackVariables({Metadata::Independent});
+
+  pmb->par_for(
+      "UpdateContainer", 0, vin.GetDim(4) - 1, 0, vin.GetDim(3) - 1, 0, vin.GetDim(2) - 1,
+      0, vin.GetDim(1) - 1,
+      KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
+        vout(l, k, j, i) = vin(l, k, j, i) + dt * dudt(l, k, j, i);
+      });
+  return;
+}
+
 void UpdateContainer(BlockList_t &blocks, const std::string &in_cont_name,
                      const std::string &dudt_cont_name, const Real dt,
                      const std::string &out_cont_name) {

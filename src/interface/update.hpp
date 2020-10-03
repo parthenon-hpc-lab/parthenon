@@ -32,6 +32,9 @@ TaskStatus FluxDivergence(std::shared_ptr<Container<Real>> &in,
                           std::shared_ptr<Container<Real>> &dudt_cont);
 TaskStatus FluxDivergenceMesh(BlockList_t &blocks, const std::string &in_cont,
                               const std::string &dudt_cont);
+void UpdateContainer(std::shared_ptr<Container<Real>> &in,
+                     std::shared_ptr<Container<Real>> &dudt_cont, const Real dt,
+                     std::shared_ptr<Container<Real>> &out);
 void UpdateContainer(BlockList_t &blocks, const std::string &in_cont_name,
                      const std::string &dudt_cont_name, Real dt,
                      const std::string &out_cont_name);
