@@ -67,22 +67,17 @@ TaskStatus FluxDivergence(std::shared_ptr<Container<Real>> &in,
   return TaskStatus::complete;
 }
 
-auto FluxDivergenceMesh(BlockList_t &blocks, const std::string &in_cont,
-                        const std::string &dudt_cont) -> TaskStatus {
-  auto pack_in = parthenon::PackVariablesAndFluxesOnMesh(
-      blocks, in_cont, std::vector<MetadataFlag>{Metadata::Independent});
-  auto pack_dudt = parthenon::PackVariablesOnMesh(
-      blocks, dudt_cont, std::vector<MetadataFlag>{Metadata::Independent});
-
+auto FluxDivergenceMesh(const MeshBlockVarFluxPack<Real> &pack_in,
+                        MeshBlockVarPack<Real> &pack_dudt) -> TaskStatus {
   const IndexDomain interior = IndexDomain::interior;
   const IndexRange ib = pack_in.cellbounds.GetBoundsI(interior);
   const IndexRange jb = pack_in.cellbounds.GetBoundsJ(interior);
   const IndexRange kb = pack_in.cellbounds.GetBoundsK(interior);
 
-  int ndim = blocks[0]->pmy_mesh->ndim;
+  auto ndim = pack_in.GetNdim();
   parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, "flux divergence", DevExecSpace(), 0, blocks.size() - 1, 0,
-      pack_in.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      DEFAULT_LOOP_PATTERN, "flux divergence", DevExecSpace(), 0, pack_in.GetDim(5) - 1,
+      0, pack_in.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
         const auto coords = pack_in.coords(b);
         auto dudt = pack_dudt(b);

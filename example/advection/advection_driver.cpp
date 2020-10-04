@@ -19,6 +19,7 @@
 #include "advection_driver.hpp"
 #include "advection_package.hpp"
 #include "bvals/cc/bvals_cc_in_one.hpp"
+#include "interface/metadata.hpp"
 #include "mesh/meshblock_pack.hpp"
 #include "parthenon/driver.hpp"
 
@@ -104,14 +105,35 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
         tl.AddTask(advect_flux, &Container<Real>::ReceiveFluxCorrection, sc0.get());
   }
 
+  const auto pack_size = 1; // pmesh->DefaultPackSize();
+  auto partitions = parthenon::partition::ToSizeN(pmesh->block_list, pack_size);
+  std::vector<MeshBlockVarFluxPack<Real>> sc0_pack;
+  std::vector<MeshBlockVarPack<Real>> sc1_pack;
+  std::vector<MeshBlockVarPack<Real>> dudt_pack;
+  sc0_pack.resize(partitions.size());
+  sc1_pack.resize(partitions.size());
+  dudt_pack.resize(partitions.size());
+  // toto make packs for proper containers
+  for (int i = 0; i < partitions.size(); i++) {
+    sc0_pack[i] = PackVariablesAndFluxesOnMesh(
+        partitions[i], stage_name[stage - 1],
+        std::vector<parthenon::MetadataFlag>{parthenon::Metadata::Independent});
+    sc1_pack[i] = PackVariablesOnMesh(
+        partitions[i], stage_name[stage],
+        std::vector<parthenon::MetadataFlag>{parthenon::Metadata::Independent});
+    dudt_pack[i] = PackVariablesOnMesh(
+        partitions[i], "dUdt",
+        std::vector<parthenon::MetadataFlag>{parthenon::Metadata::Independent});
+  }
   // note that task within this region that contains only a single task list
   // could still be executed in parallel
   TaskRegion &single_tasklist_region = tc.AddRegion(1);
   {
-    auto &tl = single_tasklist_region[0];
+    const int i = 0;
+    auto &tl = single_tasklist_region[i];
     // compute the divergence of fluxes of conserved variables
-    auto flux_div = tl.AddTask(none, parthenon::Update::FluxDivergenceMesh, blocks,
-                               stage_name[stage - 1], "dUdt");
+    auto flux_div = tl.AddTask(none, parthenon::Update::FluxDivergenceMesh, sc0_pack[i],
+                               dudt_pack[i]);
     // apply du/dt to all independent fields in the container
     auto update_container =
         tl.AddTask(flux_div, UpdateContainer, blocks, stage, stage_name, integrator);

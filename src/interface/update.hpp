@@ -30,8 +30,8 @@ using BlockList_t = std::vector<std::shared_ptr<MeshBlock>>;
 
 TaskStatus FluxDivergence(std::shared_ptr<Container<Real>> &in,
                           std::shared_ptr<Container<Real>> &dudt_cont);
-TaskStatus FluxDivergenceMesh(BlockList_t &blocks, const std::string &in_cont,
-                              const std::string &dudt_cont);
+auto FluxDivergenceMesh(const MeshBlockVarFluxPack<Real> &pack_in,
+                        MeshBlockVarPack<Real> &pack_dudt) -> TaskStatus;
 void UpdateContainer(std::shared_ptr<Container<Real>> &in,
                      std::shared_ptr<Container<Real>> &dudt_cont, const Real dt,
                      std::shared_ptr<Container<Real>> &out);
