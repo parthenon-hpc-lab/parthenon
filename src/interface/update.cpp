@@ -120,40 +120,28 @@ void UpdateContainer(std::shared_ptr<Container<Real>> &in,
   return;
 }
 
-void UpdateContainer(BlockList_t &blocks, const std::string &in_cont_name,
-                     const std::string &dudt_cont_name, const Real dt,
-                     const std::string &out_cont_name) {
-  auto in_pack = parthenon::PackVariablesOnMesh(
-      blocks, in_cont_name, std::vector<MetadataFlag>{Metadata::Independent});
-  auto out_pack = parthenon::PackVariablesOnMesh(
-      blocks, out_cont_name, std::vector<MetadataFlag>{Metadata::Independent});
-  auto dudt_pack = parthenon::PackVariablesOnMesh(
-      blocks, dudt_cont_name, std::vector<MetadataFlag>{Metadata::Independent});
-
+void UpdateContainer(const MeshBlockVarPack<Real> &in_pack,
+                     const MeshBlockVarPack<Real> &dudt_pack, const Real dt,
+                     MeshBlockVarPack<Real> &out_pack) {
   parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, "UpdateContainer", DevExecSpace(), 0, blocks.size() - 1, 0,
-      in_pack.GetDim(4) - 1, 0, in_pack.GetDim(3) - 1, 0, in_pack.GetDim(2) - 1, 0,
+      DEFAULT_LOOP_PATTERN, "UpdateContainer", DevExecSpace(), 0, in_pack.GetDim(5) - 1,
+      0, in_pack.GetDim(4) - 1, 0, in_pack.GetDim(3) - 1, 0, in_pack.GetDim(2) - 1, 0,
       in_pack.GetDim(1) - 1,
       KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
         out_pack(b, l, k, j, i) = in_pack(b, l, k, j, i) + dt * dudt_pack(b, l, k, j, i);
       });
 }
 
-void AverageContainers(BlockList_t &blocks, const std::string &c1_cont_name,
-                       const std::string &c2_cont_name, const Real wgt1) {
-  auto c1_pack = parthenon::PackVariablesOnMesh(
-      blocks, c1_cont_name, std::vector<MetadataFlag>{Metadata::Independent});
-  auto c2_pack = parthenon::PackVariablesOnMesh(
-      blocks, c2_cont_name, std::vector<MetadataFlag>{Metadata::Independent});
-
+void AverageContainers(MeshBlockVarPack<Real> &c1_pack,
+                       const MeshBlockVarPack<Real> &c2_pack, const Real wgt1) {
   const IndexDomain interior = IndexDomain::interior;
   IndexRange ib = c1_pack.cellbounds.GetBoundsI(interior);
   IndexRange jb = c1_pack.cellbounds.GetBoundsJ(interior);
   IndexRange kb = c1_pack.cellbounds.GetBoundsK(interior);
 
   parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, "AverageContainer", DevExecSpace(), 0, blocks.size() - 1, 0,
-      c1_pack.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      DEFAULT_LOOP_PATTERN, "AverageContainer", DevExecSpace(), 0, c1_pack.GetDim(5) - 1,
+      0, c1_pack.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
         c1_pack(b, l, k, j, i) =
             wgt1 * c1_pack(b, l, k, j, i) + (1 - wgt1) * c2_pack(b, l, k, j, i);

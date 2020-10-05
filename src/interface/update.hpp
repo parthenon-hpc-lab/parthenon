@@ -35,11 +35,11 @@ auto FluxDivergenceMesh(const MeshBlockVarFluxPack<Real> &pack_in,
 void UpdateContainer(std::shared_ptr<Container<Real>> &in,
                      std::shared_ptr<Container<Real>> &dudt_cont, const Real dt,
                      std::shared_ptr<Container<Real>> &out);
-void UpdateContainer(BlockList_t &blocks, const std::string &in_cont_name,
-                     const std::string &dudt_cont_name, Real dt,
-                     const std::string &out_cont_name);
-void AverageContainers(BlockList_t &blocks, const std::string &c1_cont_name,
-                       const std::string &c2_cont_name, const Real wgt1);
+void UpdateContainer(const MeshBlockVarPack<Real> &in_pack,
+                     const MeshBlockVarPack<Real> &dudt_pack, const Real dt,
+                     MeshBlockVarPack<Real> &out_pack);
+void AverageContainers(MeshBlockVarPack<Real> &c1_pack,
+                       const MeshBlockVarPack<Real> &c2_pack, const Real wgt1);
 Real EstimateTimestep(std::shared_ptr<Container<Real>> &rc);
 
 } // namespace Update

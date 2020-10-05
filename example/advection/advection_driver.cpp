@@ -50,14 +50,15 @@ AdvectionDriver::AdvectionDriver(ParameterInput *pin, ApplicationInput *app_in, 
 }
 
 // first some helper tasks
-TaskStatus UpdateContainer(BlockList_t &blocks, const int stage,
-                           std::vector<std::string> stage_name, Integrator *integrator) {
-  // const Real beta = stage_wghts[stage-1].beta;
+auto UpdateContainer(const int stage, Integrator *integrator,
+                     MeshBlockVarPack<Real> &in_pack,
+                     const MeshBlockVarPack<Real> &base_pack,
+                     const MeshBlockVarPack<Real> &dudt_pack,
+                     MeshBlockVarPack<Real> &out_pack) -> TaskStatus {
   const Real beta = integrator->beta[stage - 1];
   const Real dt = integrator->dt;
-  parthenon::Update::AverageContainers(blocks, stage_name[stage - 1], "base", beta);
-  parthenon::Update::UpdateContainer(blocks, stage_name[stage - 1], "dUdt", beta * dt,
-                                     stage_name[stage]);
+  parthenon::Update::AverageContainers(in_pack, base_pack, beta);
+  parthenon::Update::UpdateContainer(in_pack, dudt_pack, beta * dt, out_pack);
   return TaskStatus::complete;
 }
 
@@ -107,22 +108,27 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
 
   const auto pack_size = 1; // pmesh->DefaultPackSize();
   auto partitions = parthenon::partition::ToSizeN(pmesh->block_list, pack_size);
-  std::vector<MeshBlockVarFluxPack<Real>> sc0_pack;
-  std::vector<MeshBlockVarPack<Real>> sc1_pack;
-  std::vector<MeshBlockVarPack<Real>> dudt_pack;
-  sc0_pack.resize(partitions.size());
-  sc1_pack.resize(partitions.size());
-  dudt_pack.resize(partitions.size());
+  std::vector<MeshBlockVarFluxPack<Real>> sc0_packs;
+  std::vector<MeshBlockVarPack<Real>> sc1_packs;
+  std::vector<MeshBlockVarPack<Real>> dudt_packs;
+  std::vector<MeshBlockVarPack<Real>> base_packs;
+  sc0_packs.resize(partitions.size());
+  sc1_packs.resize(partitions.size());
+  dudt_packs.resize(partitions.size());
+  base_packs.resize(partitions.size());
   // toto make packs for proper containers
   for (int i = 0; i < partitions.size(); i++) {
-    sc0_pack[i] = PackVariablesAndFluxesOnMesh(
+    sc0_packs[i] = PackVariablesAndFluxesOnMesh(
         partitions[i], stage_name[stage - 1],
         std::vector<parthenon::MetadataFlag>{parthenon::Metadata::Independent});
-    sc1_pack[i] = PackVariablesOnMesh(
+    sc1_packs[i] = PackVariablesOnMesh(
         partitions[i], stage_name[stage],
         std::vector<parthenon::MetadataFlag>{parthenon::Metadata::Independent});
-    dudt_pack[i] = PackVariablesOnMesh(
+    dudt_packs[i] = PackVariablesOnMesh(
         partitions[i], "dUdt",
+        std::vector<parthenon::MetadataFlag>{parthenon::Metadata::Independent});
+    base_packs[i] = PackVariablesOnMesh(
+        partitions[i], "base",
         std::vector<parthenon::MetadataFlag>{parthenon::Metadata::Independent});
   }
   // note that task within this region that contains only a single task list
@@ -132,11 +138,12 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     const int i = 0;
     auto &tl = single_tasklist_region[i];
     // compute the divergence of fluxes of conserved variables
-    auto flux_div = tl.AddTask(none, parthenon::Update::FluxDivergenceMesh, sc0_pack[i],
-                               dudt_pack[i]);
+    auto flux_div = tl.AddTask(none, parthenon::Update::FluxDivergenceMesh, sc0_packs[i],
+                               dudt_packs[i]);
     // apply du/dt to all independent fields in the container
     auto update_container =
-        tl.AddTask(flux_div, UpdateContainer, blocks, stage, stage_name, integrator);
+        tl.AddTask(flux_div, UpdateContainer, stage, integrator, sc0_packs[i],
+                   base_packs[i], dudt_packs[i], sc1_packs[i]);
 
     // update ghost cells
     auto send =
