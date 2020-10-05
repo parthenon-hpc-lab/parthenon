@@ -41,7 +41,6 @@ parthenon-cuda-unit:
     - cd build-cuda-debug
     - cmake -DCMAKE_BUILD_TYPE=Debug
       -DMACHINE_VARIANT=cuda-mpi
-      -DNUM_MPI_PROC_TESTING=1
       ../
     - make -j${J}
     - ctest -LE 'performance|regression'
@@ -61,7 +60,6 @@ parthenon-cpu-unit:
     - cd build-debug
     - cmake -DCMAKE_BUILD_TYPE=Debug
       -DMACHINE_VARIANT=mpi
-      -DNUM_MPI_PROC_TESTING=1
       ../
     - make -j${J}
     - ctest -LE "performance|regression"
@@ -80,7 +78,6 @@ parthenon-cuda-short:
     - cd build-cuda-perf-mpi
     - cmake -DCMAKE_BUILD_TYPE=Release
       -DMACHINE_VARIANT=cuda-mpi
-      -DNUM_MPI_PROC_TESTING=1
       ../
     - make -j${J}
     - export OMPI_MCA_mpi_common_cuda_event_max=1000
@@ -100,7 +97,6 @@ parthenon-cpu-short:
     - cd build-perf-mpi
     - cmake -DCMAKE_BUILD_TYPE=Release
       -DMACHINE_VARIANT=mpi
-      -DNUM_MPI_PROC_TESTING=1
       ../
     - make -j${J}
     - ctest -R regression_mpi_test:output_hdf5
@@ -124,7 +120,6 @@ parthenon-cuda-performance_and_regression:
     - cmake -DCMAKE_BUILD_TYPE=Release
       -DPARTHENON_DISABLE_MPI=ON
       -DMACHINE_VARIANT=cuda
-      -DNUM_MPI_PROC_TESTING=1
       ../
     - make -j${J}
     - ctest -L "performance|regression" -LE "mpi-yes|perf-reg"
@@ -149,7 +144,6 @@ parthenon-cuda-performance_and_regression-mpi:
     - cd build-cuda-perf-mpi
     - cmake -DCMAKE_BUILD_TYPE=Release
       -DMACHINE_VARIANT=cuda-mpi
-      -DNUM_MPI_PROC_TESTING=1
       ../
     - make -j${J}
     - export OMPI_MCA_mpi_common_cuda_event_max=1000
@@ -177,7 +171,6 @@ parthenon-cpu-performance_and_regression:
     - cd build-perf
     - cmake -DCMAKE_BUILD_TYPE=Release
       -DPARTHENON_DISABLE_MPI=ON
-      -DNUM_MPI_PROC_TESTING=1
       ../
     - make -j${J}
     - ctest -L "performance|regression" -LE "mpi-yes|perf-reg"
@@ -203,7 +196,6 @@ parthenon-cpu-performance_and_regression-mpi:
     - cd build-perf-mpi
     - cmake -DCMAKE_BUILD_TYPE=Release
       -DMACHINE_VARIANT=mpi
-      -DNUM_MPI_PROC_TESTING=1
       ../
     - make -j${J}
 #    - ctest -L "performance" # no need for performance test as currently none use MPI
@@ -231,7 +223,6 @@ parthenon-cpu-coverage:
     - cmake -DCMAKE_BUILD_TYPE=Debug
       -DCODE_COVERAGE=ON
       -DMACHINE_VARIANT=mpi
-      -DNUM_MPI_PROC_TESTING=1
       ../ && make -j${J} && make coverage && make coverage-upload
   artifacts:
     when: always

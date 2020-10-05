@@ -20,13 +20,12 @@ message(STATUS "Loading machine configuration for default CI machine. "
 
 # common options
 set(Kokkos_ARCH_WSM ON CACHE BOOL "CPU architecture")
-
+set(NUM_MPI_PROC_TESTING ON CACHE STRING "1")
 # variants
 if (${MACHINE_VARIANT} MATCHES "cuda")
   set(Kokkos_ARCH_PASCAL61 ON CACHE BOOL "GPU architecture")
   set(Kokkos_ENABLE_CUDA ON CACHE BOOL "Enable Cuda")
   set(CMAKE_CXX_COMPILER ${CMAKE_CURRENT_SOURCE_DIR}/external/Kokkos/bin/nvcc_wrapper CACHE STRING "Use nvcc_wrapper")
-  set(NUM_MPI_PROC_TESTING CACHE STRING "1")
 endif()
 
 if (${MACHINE_VARIANT} MATCHES "mpi")
