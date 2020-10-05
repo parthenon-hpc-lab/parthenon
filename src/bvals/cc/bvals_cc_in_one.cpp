@@ -37,12 +37,9 @@ struct BndInfo {
 
 // send boundary buffers with MeshBlockPack support
 // TODO(pgrete) should probaly be moved to the bvals or interface folders
-auto SendBoundaryBuffers(BlockList_t &blocks, const std::string &container_name)
-    -> TaskStatus {
+auto SendBoundaryBuffers(BlockList_t &blocks, const std::string &container_name,
+                         const MeshBlockVarPack<Real> &var_pack) -> TaskStatus {
   Kokkos::Profiling::pushRegion("SendBoundaryBuffers");
-  auto var_pack = parthenon::PackVariablesOnMesh(
-      blocks, container_name,
-      std::vector<parthenon::MetadataFlag>{parthenon::Metadata::FillGhost});
 
   Kokkos::Profiling::pushRegion("Create bndinfo array");
   // TODO(?) talk about whether the number of buffers should be a compile time const
@@ -217,11 +214,9 @@ auto ReceiveBoundaryBuffers(BlockList_t &blocks, const std::string &container_na
 
 // set boundaries from buffers with MeshBlockPack support
 // TODO(pgrete) should probaly be moved to the bvals or interface folders
-auto SetBoundaries(BlockList_t &blocks, const std::string &container_name) -> TaskStatus {
+auto SetBoundaries(BlockList_t &blocks, const std::string &container_name,
+                   MeshBlockVarPack<Real> &var_pack) -> TaskStatus {
   Kokkos::Profiling::pushRegion("SetBoundaries");
-  auto var_pack = parthenon::PackVariablesOnMesh(
-      blocks, container_name,
-      std::vector<parthenon::MetadataFlag>{parthenon::Metadata::FillGhost});
 
   Kokkos::Profiling::pushRegion("Create bndinfo array");
   // TODO(?) talk about whether the number of buffers should be a compile time const

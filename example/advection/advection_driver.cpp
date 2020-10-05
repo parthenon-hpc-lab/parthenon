@@ -148,12 +148,12 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     // update ghost cells
     auto send =
         tl.AddTask(update_container, parthenon::cell_centered_bvars::SendBoundaryBuffers,
-                   blocks, stage_name[stage]);
+                   blocks, stage_name[stage], sc1_packs[i]);
 
     auto recv = tl.AddTask(send, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers,
                            blocks, stage_name[stage]);
     auto fill_from_bufs = tl.AddTask(recv, parthenon::cell_centered_bvars::SetBoundaries,
-                                     blocks, stage_name[stage]);
+                                     blocks, stage_name[stage], sc1_packs[i]);
   }
   TaskRegion &async_region2 = tc.AddRegion(num_task_lists_executed_independently);
 

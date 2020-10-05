@@ -25,11 +25,12 @@
 
 namespace parthenon {
 namespace cell_centered_bvars {
-auto SendBoundaryBuffers(BlockList_t &blocks, const std::string &container_name)
-    -> TaskStatus;
+auto SendBoundaryBuffers(BlockList_t &blocks, const std::string &container_name,
+                         const MeshBlockVarPack<Real> &var_pack) -> TaskStatus;
 auto ReceiveBoundaryBuffers(BlockList_t &blocks, const std::string &container_name)
     -> TaskStatus;
-auto SetBoundaries(BlockList_t &blocks, const std::string &container_name) -> TaskStatus;
+auto SetBoundaries(BlockList_t &blocks, const std::string &container_name,
+                   MeshBlockVarPack<Real> &var_pack) -> TaskStatus;
 } // namespace cell_centered_bvars
 } // namespace parthenon
 
