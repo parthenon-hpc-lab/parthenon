@@ -105,6 +105,7 @@ class TestManager:
         argstrings = ['-np','-n']
         if len(set(argstrings) & set(self.parameters.mpi_opts)) > 1:
           print('Warning! You have set both "-n" and "-np" in your MPI options.')
+          print(self.parameters.mpi_opts)
         for s in argstrings:
           if s in self.parameters.mpi_opts:
             index = self.parameters.mpi_opts.index(s)
