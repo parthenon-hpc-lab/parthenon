@@ -9,7 +9,7 @@
 # system are enough to satisfy this requirement. 
 
 if [ "$#" -ne 1 ]; then
-  printf "You must enter exactly 1 command line arguments, which should indicate
+  printf "You must enter exactly 1 command line argument, which should indicate
 the number of GPUs to be used with the tests.\n"
   exit 1
 fi

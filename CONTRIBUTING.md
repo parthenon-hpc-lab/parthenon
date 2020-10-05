@@ -261,8 +261,8 @@ list(APPEND TEST_ARGS "--driver ${CMAKE_BINARY_DIR}/example/calculate_pi/parthen
 list(APPEND EXTRA_TEST_LABELS "perf")
 ```
 
-NOTE: The TEST_PROCS list indicates how many processors to use when running
-mpi. The cmake variable NUM_MPI_PROC_TESTING can be used if you do not want to
+NOTE: The TEST\_PROCS list indicates how many processors to use when running
+mpi. The cmake variable NUM\_MPI\_PROC\_TESTING can be used if you do not want to
 hardcode a value, and is recommended.  By default all regression tests added to
 these lists will be run in serial and in parallel with mpi. The number of mpi
 processors used is by default set to 4. This default can be adjusted by
@@ -348,5 +348,3 @@ Fine grained control of where the coverage reports are placed can be specified
 with COVERAGE_PATH, COVERAGE_NAME, which represent the path to the coverage
 reports and the directory where they will be placed. The default location is in
 a folder named coverage in the build directory. 
-
-

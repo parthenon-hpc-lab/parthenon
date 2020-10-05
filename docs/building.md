@@ -22,7 +22,7 @@ If you come across a disfunctional setup, please report it by open an issue or p
    |   ENABLE\_INTEGRATION\_TESTS | ${BUILD\_TESTING}          | Option | Enable integration tests |
    |    ENABLE\_REGRESSION\_TESTS | ${BUILD\_TESTING}          | Option | Enable regression tests |
    |      NUM\_MPI\_PROC\_TESTING | 4                          | String | Number of MPI ranks used for MPI-enabled regression tests |
-   |   NUM\_GPU\_DEVICES\_TESTING | ${NUM\_MPI\_PROC\_TESTING} | String | Number of GPUs to use if buildt with kokkos_ENABLE_CUDA |
+   |   NUM\_GPU\_DEVICES\_TESTING | ${NUM\_MPI\_PROC\_TESTING} | String | Number of GPUs to use if built with Kokkos_ENABLE_CUDA |
    |  REGRESSION\_GOLD\_STANDARD\_VER | #                      | Int    | Version of current gold standard file used in regression tests. Default is set to latest version matching the source. |
    | REGRESSION\_GOLD\_STANDARD\_HASH | SHA512=...             | String | Hash value of gold standard file to be downloaded. Used to ensure that the download is not corrupted. |
    | REGRESSION\_GOLD\_STANDARD\_SYNC | ON                     | Option | Create `gold_standard` target to download gold standard files |
@@ -258,4 +258,3 @@ $ jsrun -n 1 -g 1 --smpiargs="off" ctest -L unit
 # run convergence test
 $ jsrun -n 1 -g 1 --smpiargs="off" ctest -R regression_test:advection_performance
 ```
-
