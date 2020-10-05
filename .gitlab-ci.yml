@@ -41,6 +41,7 @@ parthenon-cuda-unit:
     - cd build-cuda-debug
     - cmake -DCMAKE_BUILD_TYPE=Debug
       -DMACHINE_VARIANT=cuda-mpi
+      -DNUM_MPI_PROC_TESTING=1
       ../
     - make -j${J}
     - ctest -LE 'performance|regression'
@@ -78,6 +79,7 @@ parthenon-cuda-short:
     - cd build-cuda-perf-mpi
     - cmake -DCMAKE_BUILD_TYPE=Release
       -DMACHINE_VARIANT=cuda-mpi
+      -DNUM_MPI_PROC_TESTING=1
       ../
     - make -j${J}
     - export OMPI_MCA_mpi_common_cuda_event_max=1000
@@ -120,6 +122,7 @@ parthenon-cuda-performance_and_regression:
     - cmake -DCMAKE_BUILD_TYPE=Release
       -DPARTHENON_DISABLE_MPI=ON
       -DMACHINE_VARIANT=cuda
+      -DNUM_MPI_PROC_TESTING=1
       ../
     - make -j${J}
     - ctest -L "performance|regression" -LE "mpi-yes|perf-reg"
@@ -144,6 +147,7 @@ parthenon-cuda-performance_and_regression-mpi:
     - cd build-cuda-perf-mpi
     - cmake -DCMAKE_BUILD_TYPE=Release
       -DMACHINE_VARIANT=cuda-mpi
+      -DNUM_MPI_PROC_TESTING=1
       ../
     - make -j${J}
     - export OMPI_MCA_mpi_common_cuda_event_max=1000
