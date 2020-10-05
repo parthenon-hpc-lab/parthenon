@@ -74,12 +74,12 @@ DriverStatus FaceFieldExample::Execute() {
 
   // post-evolution analysis
   Real rank_sum = 0.0;
-  for (auto &block : pmesh->block_list) {
+  for (auto &pmb : pmesh->block_list) {
     parthenon::IndexDomain const interior = parthenon::IndexDomain::interior;
-    parthenon::IndexRange const ib = block.cellbounds.GetBoundsI(interior);
-    parthenon::IndexRange const jb = block.cellbounds.GetBoundsJ(interior);
-    parthenon::IndexRange const kb = block.cellbounds.GetBoundsK(interior);
-    auto &rc = block.real_containers.Get();
+    parthenon::IndexRange const ib = pmb->cellbounds.GetBoundsI(interior);
+    parthenon::IndexRange const jb = pmb->cellbounds.GetBoundsJ(interior);
+    parthenon::IndexRange const kb = pmb->cellbounds.GetBoundsK(interior);
+    auto &rc = pmb->real_containers.Get();
     auto &summed = rc->Get("c.c.interpolated_sum").data;
     for (int k = kb.s; k <= kb.e; k++) {
       for (int j = jb.s; j <= jb.e; j++) {
@@ -112,9 +112,10 @@ TaskList FaceFieldExample::MakeTaskList(MeshBlock *pmb) {
   TaskList tl;
   TaskID none(0);
 
-  auto fill_faces = tl.AddTask(FaceFields::fill_faces, none, pmb);
+  auto fill_faces = tl.AddTask(none, FaceFields::fill_faces, pmb);
 
   auto interpolate = tl.AddTask(
+      fill_faces,
       [](MeshBlock *pmb) -> TaskStatus {
         auto &rc = pmb->real_containers.Get();
         parthenon::IndexDomain interior = parthenon::IndexDomain::interior;
@@ -139,9 +140,10 @@ TaskList FaceFieldExample::MakeTaskList(MeshBlock *pmb) {
         }
         return TaskStatus::complete;
       },
-      fill_faces, pmb);
+      pmb);
 
   auto sum = tl.AddTask(
+      interpolate,
       [](MeshBlock *pmb) -> TaskStatus {
         auto &rc = pmb->real_containers.Get();
         parthenon::IndexDomain interior = parthenon::IndexDomain::interior;
@@ -159,7 +161,7 @@ TaskList FaceFieldExample::MakeTaskList(MeshBlock *pmb) {
         }
         return TaskStatus::complete;
       },
-      interpolate, pmb);
+      pmb);
 
   return tl;
 }

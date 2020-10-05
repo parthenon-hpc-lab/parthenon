@@ -23,7 +23,6 @@
 
 #include <cstdint>
 #include <functional>
-#include <list>
 #include <map>
 #include <memory>
 #include <string>
@@ -74,24 +73,25 @@ KOKKOS_INLINE_FUNCTION void par_for_inner(const team_mbr_t &team_member, const i
 //----------------------------------------------------------------------------------------
 //! \class MeshBlock
 //  \brief data/functions associated with a single block
-class MeshBlock {
+class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   friend class RestartOutput;
   friend class Mesh;
 
  public:
+  MeshBlock() = default;
   MeshBlock(const int n_side, const int ndim); // for Kokkos testing with ghost
-  MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_size,
-            BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
-            ApplicationInput *app_in, Properties_t &properties, int igflag,
-            bool ref_flag = false);
-  MeshBlock(int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
-            BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
-            ApplicationInput *app_in, Properties_t &properties, Packages_t &packages,
-            int igflag, bool ref_flag = false);
-  MeshBlock(int igid, int ilid, Mesh *pm, ParameterInput *pin, ApplicationInput *app_in,
-            Properties_t &properties, Packages_t &packages, LogicalLocation iloc,
-            RegionSize input_block, BoundaryFlag *input_bcs, double icost, int igflag);
   ~MeshBlock();
+
+  // Factory method deals with initialization for you
+  static std::shared_ptr<MeshBlock>
+  Make(int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
+       BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin, ApplicationInput *app_in,
+       Properties_t &properties, Packages_t &packages, int igflag, double icost = 1.0) {
+    auto pmb = std::make_shared<MeshBlock>();
+    pmb->Initialize(igid, ilid, iloc, input_block, input_bcs, pm, pin, app_in, properties,
+                    packages, igflag, icost);
+    return pmb;
+  }
 
   // Kokkos execution space for this MeshBlock
   DevExecSpace exec_space;
@@ -255,10 +255,12 @@ class MeshBlock {
   }
 
   std::size_t GetBlockSizeInBytes();
-  int GetNumberOfMeshBlockCells() {
+  int GetNumberOfMeshBlockCells() const {
     return block_size.nx1 * block_size.nx2 * block_size.nx3;
   }
-  void SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist, int *nslist);
+  void SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist, int *nslist) {
+    pbval->SearchAndSetNeighbors(tree, ranklist, nslist);
+  }
   void WeightedAve(ParArrayND<Real> &u_out, ParArrayND<Real> &u_in1,
                    ParArrayND<Real> &u_in2, const Real wght[3]);
   void WeightedAve(FaceField &b_out, FaceField &b_in1, FaceField &b_in2,
@@ -289,6 +291,14 @@ class MeshBlock {
   std::vector<std::shared_ptr<CellVariable<Real>>> vars_cc_;
   std::vector<std::shared_ptr<FaceField>> vars_fc_;
 
+  // Initializer to set up a meshblock called with the default constructor
+  // This is necessary because the back pointers can't be set up until
+  // the block is allocated.
+  void Initialize(int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
+                  BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
+                  ApplicationInput *app_in, Properties_t &properties,
+                  Packages_t &packages, int igflag, double icost = 1.0);
+
   void InitializeIndexShapes(const int nx1, const int nx2, const int nx3);
   // functions
   void SetCostForLoadBalancing(double cost);
@@ -306,11 +316,13 @@ class MeshBlock {
       &InitUserMeshBlockDataDefault;
 
   // functions and variables for automatic load balancing based on timing
-  double cost_, lb_time_;
+  Kokkos::Timer lb_timer;
+  double cost_;
   void ResetTimeMeasurement();
   void StartTimeMeasurement();
   void StopTimeMeasurement();
 };
+using BlockList_t = std::vector<std::shared_ptr<MeshBlock>>;
 
 //----------------------------------------------------------------------------------------
 //! \class Mesh
@@ -340,10 +352,15 @@ class Mesh {
   }
   int GetNumMeshThreads() const { return num_mesh_threads_; }
   std::int64_t GetTotalCells() {
-    auto &mb = block_list.front();
-    return static_cast<std::int64_t>(nbtotal) * mb.block_size.nx1 * mb.block_size.nx2 *
-           mb.block_size.nx3;
+    auto &pmb = block_list.front();
+    return static_cast<std::int64_t>(nbtotal) * pmb->block_size.nx1 *
+           pmb->block_size.nx2 * pmb->block_size.nx3;
   }
+  // TODO(JMM): Move block_size into mesh.
+  int GetNumberOfMeshBlockCells() const {
+    return block_list.front()->GetNumberOfMeshBlockCells();
+  }
+  const RegionSize &GetBlockSize() const { return block_list.front()->block_size; }
 
   // data
   bool modified;
@@ -357,8 +374,7 @@ class Mesh {
   int step_since_lb;
   int gflag;
 
-  // ptr to first MeshBlock (node) in linked list of blocks belonging to this MPI rank:
-  std::list<MeshBlock> block_list;
+  BlockList_t block_list;
   Properties_t properties;
   Packages_t packages;
 
@@ -380,7 +396,7 @@ class Mesh {
   void FillSameRankFineToCoarseAMR(MeshBlock *pob, MeshBlock *pmb, LogicalLocation &loc);
   int CreateAMRMPITag(int lid, int ox1, int ox2, int ox3);
 
-  std::list<MeshBlock>::iterator FindMeshBlock(int tgid);
+  std::shared_ptr<MeshBlock> FindMeshBlock(int tgid);
 
   void ApplyUserWorkBeforeOutput(ParameterInput *pin);
 

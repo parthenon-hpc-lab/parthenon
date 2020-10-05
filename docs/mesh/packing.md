@@ -4,28 +4,67 @@
 kernels that perform little work, this can be a perforamnce bottleneck
 when each kernel is launched per meshblock. Parthenon therefore
 provides the capability to combine variables into a single data
-structure that spans all meshblocks, the `MeshPack`. 
+structure that spans some number of meshblocks, the `MeshBlockPack`.
 
-## Creating a Mesh Pack
+## Creating a MeshBlockPack
 
 There are two methods for creating mesh packs, which are analogous to the `VariablePack` and `VariableFluxPack` available in [containers](../interface/containers.md).
 ```C++
-template <typename... Args>
-auto PackVariablesOnMesh(Mesh *pmesh, const std::string &container_name,
+template <typename T, typename... Args>
+auto PackVariablesOnMesh(T &blocks, const std::string &container_name,
                          Args &&... args)
 ```
 and
 ```C++
-auto PackVariablesAndFluxesOnMesh(Mesh *pmesh, const std::string &container_name,
+template <typename T, typename... Args>
+auto PackVariablesAndFluxesOnMesh(T &blocks, const std::string &container_name,
                                   Args &&... args)
 ```
 The former packs only the variables, the latter packs in the variables and associated flux vectors.
+
+Here `T` can be the mesh or any standard template container that contains meshblocks.
 
 The variatic arguments take exactly the same arguments as
 `container.PackVariables` and `container.PackVariablesAndFluxes`. You
 can pass in a metadata vector, a vector of names, and optionally IDs
 and a map from names to indices. See
 [here](../interface/containers.md) for more details.
+
+## Packing over a piece of the mesh
+
+Instead of packing over the whole mesh, you can pack over only a piece
+of it by using the `Partition` machinery found in
+`utils/partition_stl_containers.hpp`. For example, to break the mesh
+into four evenly sized meshpacks, do
+```C++
+using parthenon::MeshBlock;
+using parthenon::Partition::Partition_t;
+Partition_t<MeshBlock> partitions;
+parthenon::Partition::ToNPartitions(mesh->block_list, 4, partitions);
+MeshBlockPack<VariablePack<Real>> packs[4];
+for (int i = 0; i < partitions.size() {
+  packs[i] = PackVariablesOnMesh(partitions[i], "base");
+}
+```
+To pack only the variables "var1" and "var2" in the container named "mycontainer", do:
+```C++
+std::vector<std::string>> vars = {"var1", "var2"};
+for (int i = 0; i < partitions.size() {
+  packs[i] = PackVariablesOnMesh(partitions[i], "myContainer", vars);
+}
+```
+
+There are two partitioning functions:
+```C++
+// Splits container into N equally sized partitions
+template <typename Container_t, typename T>
+void ToNPartitions(Container_t &container, const int N, Partition_t<T> &partitions);
+
+// Splits container into partitions of size N
+template <typename Container_t, typename T>
+void ToSizeN(Container_t &container, const int N, Partition_t<T> &partitions);
+```
+Both functions live within the namespace `parthenon::Partition`.
 
 ## Data Layout
 
@@ -44,7 +83,7 @@ auto var = meshpack(m,l); // Indexes into the k'th variable on the m'th MB
 Real r = meshpack(m,l,k,j,i); 
 ```
 
-For convenience, `MeshPack` also includes the following methods and fields:
+For convenience, `MeshBlockPack` also includes the following methods and fields:
 ```C++
 // the IndexShape object describing the bounds of all blocks in the pack
 IndexShape bounds = meshpack.cellbounds; 
@@ -63,3 +102,16 @@ int sparse = meshpack.GetSparse(n);
 // The size of the n'th dimension of the pack
 int dim = meshpack.GetDim(n);
 ```
+
+## Type
+
+The types for packs are:
+```C++
+MeshBlockVarPack<T>
+```
+and
+```C++
+MeshBlockVarFluxPack<T>
+```
+which correspond to packs over meshblocks that contain just variables
+or contain variables and fluxes.
