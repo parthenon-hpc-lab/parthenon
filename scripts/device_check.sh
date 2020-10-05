@@ -48,13 +48,6 @@ NUM_GPU_DEVICES_TESTING=${GPUS_DETECTED}
 NUM_MPI_PROC_TESTING=${GPUS_DETECTED}\n
 Or consider building without CUDA.\n"
   exit 1
-elif [ "$NUM_GPUS_ASSIGNED_FOR_TEST" -lt "$GPUS_DETECTED" ]
-then
-  printf "\nNumber of GPUs detected: $GPUS_DETECTED
-Number of GPUs using in tests: $NUM_GPUS_ASSIGNED_FOR_TEST\n
-If this is not the intended behavior consider changing NUM_GPU_DEVICES_TESTING 
-to a different value. By default it is made equal to NUM_MPI_PROC_TESTING.\n\n"
-  exit 0
 else
   printf "\nNumber of GPUs detected: $GPUS_DETECTED
 Number of GPUs using in tests: $NUM_GPUS_ASSIGNED_FOR_TEST\n\n"
