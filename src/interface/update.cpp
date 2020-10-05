@@ -67,21 +67,21 @@ TaskStatus FluxDivergence(std::shared_ptr<Container<Real>> &in,
   return TaskStatus::complete;
 }
 
-auto FluxDivergenceMesh(const MeshBlockVarFluxPack<Real> &pack_in,
-                        MeshBlockVarPack<Real> &pack_dudt) -> TaskStatus {
+auto FluxDivergenceMesh(const MeshBlockVarFluxPack<Real> &in_pack,
+                        MeshBlockVarPack<Real> &dudt_pack) -> TaskStatus {
   const IndexDomain interior = IndexDomain::interior;
-  const IndexRange ib = pack_in.cellbounds.GetBoundsI(interior);
-  const IndexRange jb = pack_in.cellbounds.GetBoundsJ(interior);
-  const IndexRange kb = pack_in.cellbounds.GetBoundsK(interior);
+  const IndexRange ib = in_pack.cellbounds.GetBoundsI(interior);
+  const IndexRange jb = in_pack.cellbounds.GetBoundsJ(interior);
+  const IndexRange kb = in_pack.cellbounds.GetBoundsK(interior);
 
-  auto ndim = pack_in.GetNdim();
+  auto ndim = in_pack.GetNdim();
   parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, "flux divergence", DevExecSpace(), 0, pack_in.GetDim(5) - 1,
-      0, pack_in.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      DEFAULT_LOOP_PATTERN, "flux divergence", DevExecSpace(), 0, in_pack.GetDim(5) - 1,
+      0, in_pack.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
-        const auto coords = pack_in.coords(b);
-        auto dudt = pack_dudt(b);
-        const auto vin = pack_in(b);
+        const auto coords = in_pack.coords(b);
+        auto dudt = dudt_pack(b);
+        const auto vin = in_pack(b);
         dudt(l, k, j, i) = 0.0;
         dudt(l, k, j, i) +=
             (coords.Area(X1DIR, k, j, i + 1) * vin.flux(X1DIR, l, k, j, i + 1) -
