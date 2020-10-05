@@ -14,7 +14,6 @@
 - [[PR 310]](https://github.com/lanl/parthenon/pull/310) Fix Cuda 11 builds.
 - [[PR 313]](https://github.com/lanl/parthenon/pull/313) Add include guards for Kokkos in cmake.
 - [[PR 281]](https://github.com/lanl/parthenon/pull/281) Allows one to run regression tests with more than one cuda device, Also improves readability of regression tests output.
->>>>>>> develop
 
 ## Release 0.2.0
 Date: 9/12/2020
