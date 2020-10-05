@@ -21,16 +21,8 @@ from shutil import rmtree
 import subprocess
 from subprocess import PIPE
 import sys
+from shutil import which
 
-# TODO(pgrete) update CI image to Python 3
-def mkdir_p(path):
-    try:
-        os.makedirs(path)
-    except OSError as exc:  # Python >= 2.5
-        if exc.errno == errno.EEXIST and os.path.isdir(path):
-            pass
-        else:
-            raise
 class Parameters():
     driver_path = ""
     driver_input_path = ""
@@ -156,34 +148,14 @@ class TestManager:
 
         mpi_exec = mpi_executable[0]
 
-        choices=['mpirun', 'mpiexec', 'srun', 'qsub', 'lsrun', 'aprun']
-        sys.stdout.flush()
-        for choice in choices:
-            sys.stdout.flush()
-            if mpi_exec.endswith(choice):
-                sys.stdout.flush()
-                if len(mpi_exec) != len(choice):
-                    sys.stdout.flush()
-                    if os.path.isfile(mpi_exec):
-                        return
-                    else:
-                        error_msg = "mpi executable path provided, but no file found "
-                        error_msg += mpi_exec 
-                        raise TestManagerError(error_msg)
-                else:
-                    return
-
-        error_msg = "Invalid mpi executable specified "
-        error_msg += mpi_exec 
-        error_msg += "\nExpected choices are:"
-        for choice in choices:
-            error_msg += choice
-            error_msg += "\n"
-        raise TestManagerError(error_msg)
+        if which(mpi_exec) is None:
+            error_msg = "mpi executable path provided, but no file found: "
+            error_msg += mpi_exec
+            raise TestManagerError(error_msg)
 
     def MakeOutputFolder(self):
         if not os.path.isdir(self.parameters.output_path):
-            mkdir_p(self.parameters.output_path)
+            os.makedirs(self.parameters.output_path)
 
         os.chdir(self.parameters.output_path)
 
@@ -201,9 +173,10 @@ class TestManager:
             run_command.extend(self.parameters.mpi_cmd)
         for opt in self.parameters.mpi_opts:
             run_command.extend(opt.split()) 
-        run_command.append(self.parameters.driver_path)  
-        run_command.append('-i')
-        run_command.append(self.parameters.driver_input_path)
+        run_command.append(self.parameters.driver_path)
+        if not '-r' in self.parameters.driver_cmd_line_args:
+            run_command.append('-i')
+            run_command.append(self.parameters.driver_input_path)
         for arg in self.parameters.driver_cmd_line_args:
             run_command.append(arg)
 

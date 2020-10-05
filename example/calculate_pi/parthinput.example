@@ -52,6 +52,8 @@ max_level = 2                   # if set, limits refinement level from this crit
 
 <Pi>
 radius = 1.5
+# How many meshblocks to use in a kernel. A value of -1 means use the whole mesh.
+pack_size = 4
 
 <parthenon/output0>
 file_type = hdf5

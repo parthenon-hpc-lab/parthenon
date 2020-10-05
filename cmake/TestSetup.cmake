@@ -11,6 +11,21 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
 
+
+
+# Search for the python interpreter
+# Version number has been intentionally excluded from find_package call, so that latest version 
+# will be grabbed. Including the version number would prioritise the version provided over more 
+#
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+if( ${Python3_VERSION} VERSION_LESS "3.5")
+  message(FATAL_ERROR "Python version requirements not satisfied")
+endif()
+
+# Ensure all required packages are present
+include(${PROJECT_SOURCE_DIR}/cmake/PythonModuleCheck.cmake)
+required_python_modules_found("${REQUIRED_PYTHON_MODULES}")
+
 # Adds the drivers used in the regression tests to a global cmake property: DRIVERS_USED_IN_TESTS
 function(record_driver arg)
     list(LENGTH arg len_list)
@@ -31,7 +46,7 @@ endfunction()
 # test property labels: regression, mpi-no
 function(setup_test dir arg)
   separate_arguments(arg) 
-  add_test( NAME regression_test:${dir} COMMAND python "${CMAKE_CURRENT_SOURCE_DIR}/run_test.py" 
+  add_test( NAME regression_test:${dir} COMMAND ${Python3_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/run_test.py" 
     ${arg} --test_dir "${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}"
     --output_dir "${PROJECT_BINARY_DIR}/tst/regression/outputs/${dir}")
   set_tests_properties(regression_test:${dir} PROPERTIES LABELS "regression;mpi-no" )
@@ -42,14 +57,42 @@ endfunction()
 # test output will be sent to /tst/regression/outputs/dir_cov
 # test property labels: regression, mpi-no; coverage
 function(setup_test_coverage dir arg)
-  separate_arguments(arg) 
-  add_test( NAME regression_coverage_test:${dir} COMMAND python "${CMAKE_CURRENT_SOURCE_DIR}/run_test.py" 
-    ${arg} 
-    --coverage
-    --test_dir "${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}"
-    --output_dir "${PROJECT_BINARY_DIR}/tst/regression/outputs/${dir}_cov")
-  set_tests_properties(regression_coverage_test:${dir} PROPERTIES LABELS "regression;coverage;mpi-no" )
-  record_driver("${arg}")
+  if( CODE_COVERAGE )
+    separate_arguments(arg) 
+    add_test( NAME regression_coverage_test:${dir} COMMAND ${Python3_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/run_test.py" 
+      ${arg} 
+      --coverage
+      --test_dir "${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}"
+      --output_dir "${PROJECT_BINARY_DIR}/tst/regression/outputs/${dir}_cov")
+    set_tests_properties(regression_coverage_test:${dir} PROPERTIES LABELS "regression;coverage;mpi-no" )
+    record_driver("${arg}")
+  endif()
+endfunction()
+
+function(process_mpi_args nproc)
+  list(APPEND TMPARGS "--mpirun")
+  # use custom mpiexec
+  if (TEST_MPIEXEC)
+    list(APPEND TMPARGS "${TEST_MPIEXEC}")
+  # use CMake determined mpiexec
+  else()
+    list(APPEND TMPARGS "${MPIEXEC_EXECUTABLE}")
+  endif()
+  # use custom numproc flag
+  if (TEST_NUMPROC_FLAG)
+    list(APPEND TMPARGS "--mpirun_opts=${TEST_NUMPROC_FLAG}")
+  # use CMake determined numproc flag
+  else()
+    list(APPEND TMPARGS "--mpirun_opts=${MPIEXEC_NUMPROC_FLAG}")
+  endif()
+  list(APPEND TMPARGS "--mpirun_opts=${nproc}")
+  # set additional options from machine configuration
+  foreach(MPIARG ${TEST_MPIOPTS})
+    list(APPEND TMPARGS "--mpirun_opts=${MPIARG}")
+  endforeach()
+
+  # make the result accessible in the calling function
+  set(MPIARGS ${TMPARGS} PARENT_SCOPE)
 endfunction()
 
 # Adds test that will run in parallel with mpi
@@ -58,10 +101,9 @@ endfunction()
 function(setup_test_mpi nproc dir arg)
   if( MPI_FOUND )
     separate_arguments(arg) 
-    add_test( NAME regression_mpi_test:${dir} COMMAND python ${CMAKE_CURRENT_SOURCE_DIR}/run_test.py
-      --mpirun ${MPIEXEC_EXECUTABLE} 
-      --mpirun_opts=${MPIEXEC_NUMPROC_FLAG} --mpirun_opts=${nproc}
-      --mpirun_opts=${MPIEXEC_PREFLAGS} ${arg}
+    process_mpi_args(${nproc})
+    add_test( NAME regression_mpi_test:${dir} COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/run_test.py
+      ${MPIARGS} ${arg}
       --test_dir ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}
       --output_dir "${PROJECT_BINARY_DIR}/tst/regression/outputs/${dir}_mpi")
     set_tests_properties(regression_mpi_test:${dir} PROPERTIES LABELS "regression;mpi-yes" RUN_SERIAL ON )
@@ -76,16 +118,17 @@ endfunction()
 # test property labels: regression, mpi-yes, coverage
 function(setup_test_mpi_coverage nproc dir arg)
   if( MPI_FOUND )
-    separate_arguments(arg) 
-    add_test( NAME regression_mpi_coverage_test:${dir} COMMAND python ${CMAKE_CURRENT_SOURCE_DIR}/run_test.py
-      --coverage
-      --mpirun ${MPIEXEC_EXECUTABLE} 
-      --mpirun_opts=${MPIEXEC_NUMPROC_FLAG} --mpirun_opts=${nproc}
-      --mpirun_opts=${MPIEXEC_PREFLAGS} ${arg}
-      --test_dir ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}
-      --output_dir "${PROJECT_BINARY_DIR}/tst/regression/outputs/${dir}_mpi_cov"
-      )
-    set_tests_properties(regression_mpi_coverage_test:${dir} PROPERTIES LABELS "regression;coverage;mpi-yes" RUN_SERIAL ON )
+    if( CODE_COVERAGE )
+      separate_arguments(arg) 
+      process_mpi_args(${nproc})
+      add_test( NAME regression_mpi_coverage_test:${dir} COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/run_test.py
+        --coverage
+        ${MPIARGS} ${arg}
+        --test_dir ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}
+        --output_dir "${PROJECT_BINARY_DIR}/tst/regression/outputs/${dir}_mpi_cov"
+        )
+      set_tests_properties(regression_mpi_coverage_test:${dir} PROPERTIES LABELS "regression;coverage;mpi-yes" RUN_SERIAL ON )
+    endif()
   else()
     message(STATUS "MPI not found, not building coverage regression tests with mpi")
   endif()

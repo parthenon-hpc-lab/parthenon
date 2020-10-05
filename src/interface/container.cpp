@@ -436,8 +436,27 @@ template <typename T>
 vpack_types::VarList<T>
 Container<T>::MakeList_(const std::vector<MetadataFlag> &flags,
                         std::vector<std::string> &expanded_names) {
-  auto subcontainer = Container(*this, flags);
-  auto vars = subcontainer.MakeList_(expanded_names);
+  vpack_types::VarList<T> vars;
+  for (auto &vpair : varMap_) {
+    auto &var = vpair.second;
+    if (var->metadata().AllFlagsSet(flags)) {
+      vars.push_front(var);
+    }
+  }
+  for (auto &vpair : sparseMap_) {
+    auto &svar = vpair.second;
+    if (svar->metadata().AllFlagsSet(flags)) {
+      auto &varvec = svar->GetVector();
+      for (auto &var : varvec) {
+        vars.push_front(var);
+      }
+    }
+  }
+
+  for (auto &v : vars) {
+    expanded_names.push_back(v->label());
+  }
+
   return vars;
 }
 
@@ -492,7 +511,6 @@ template <typename T>
 TaskStatus Container<T>::SendBoundaryBuffers() {
   // sends the boundary
   debug = 0;
-  //  std::cout << "_________SEND from stage:"<<s->name()<<std::endl;
   for (auto &v : varVector_) {
     if (v->IsSet(Metadata::FillGhost)) {
       v->resetBoundary();
@@ -536,16 +554,15 @@ void Container<T>::SetupPersistentMPI() {
 template <typename T>
 TaskStatus Container<T>::ReceiveBoundaryBuffers() {
   bool ret;
-  //  std::cout << "_________RECV from stage:"<<s->name()<<std::endl;
   ret = true;
   // receives the boundary
   for (auto &v : varVector_) {
-    if (v->IsSet(Metadata::FillGhost)) {
-      // ret = ret & v->vbvar->ReceiveBoundaryBuffers();
-      // In case we have trouble with multiple arrays causing
-      // problems with task status, we should comment one line
-      // above and uncomment the if block below
-      if (!v->mpiStatus) {
+    if (!v->mpiStatus) {
+      if (v->IsSet(Metadata::FillGhost)) {
+        // ret = ret & v->vbvar->ReceiveBoundaryBuffers();
+        // In case we have trouble with multiple arrays causing
+        // problems with task status, we should comment one line
+        // above and uncomment the if block below
         v->resetBoundary();
         v->mpiStatus = v->vbvar->ReceiveBoundaryBuffers();
         ret = (ret & v->mpiStatus);
@@ -710,9 +727,10 @@ void Container<T>::calcArrDims_(std::array<int, 6> &arrDims, const std::vector<i
     // direction, NOT the size of the arrays
     assert(N >= 0 && N <= 3);
     const IndexDomain entire = IndexDomain::entire;
-    arrDims[0] = pmy_block->cellbounds.ncellsi(entire);
-    arrDims[1] = pmy_block->cellbounds.ncellsj(entire);
-    arrDims[2] = pmy_block->cellbounds.ncellsk(entire);
+    std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
+    arrDims[0] = pmb->cellbounds.ncellsi(entire);
+    arrDims[1] = pmb->cellbounds.ncellsj(entire);
+    arrDims[2] = pmb->cellbounds.ncellsk(entire);
     for (int i = 0; i < N; i++)
       arrDims[i + 3] = dims[i];
     for (int i = N; i < 3; i++)

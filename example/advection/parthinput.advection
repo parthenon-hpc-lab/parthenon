@@ -46,6 +46,7 @@ nx2 = 16
 nx3 = 1
 
 <parthenon/time>
+nlim = -1
 tlim = 1.0
 integrator = rk2
 
@@ -59,6 +60,10 @@ profile = hard_sphere
 refine_tol = 0.3    # control the package specific refinement tagging function
 derefine_tol = 0.03
 compute_error = false
+
+<parthenon/output1>
+file_type = rst
+dt = 0.05
 
 <parthenon/output0>
 file_type = hdf5

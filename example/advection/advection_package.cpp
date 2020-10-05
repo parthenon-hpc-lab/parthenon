@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -138,16 +139,19 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddField(field_name, m);
 
   field_name = "one_minus_advected_sq";
+  m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy});
   pkg->AddField(field_name, m);
 
   // for fun make this last one a multi-component field using SparseVariable
   field_name = "one_minus_sqrt_one_minus_advected_sq";
-  m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy, Metadata::Sparse},
+  m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy, Metadata::Sparse,
+                Metadata::Restart},
                12 // just picking a sparse_id out of a hat for demonstration
   );
   pkg->AddField(field_name, m);
   // add another component
-  m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy, Metadata::Sparse},
+  m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy, Metadata::Sparse,
+                Metadata::Restart},
                37 // just picking a sparse_id out of a hat for demonstration
   );
   pkg->AddField(field_name, m);
@@ -160,7 +164,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 }
 
 AmrTag CheckRefinement(std::shared_ptr<Container<Real>> &rc) {
-  MeshBlock *pmb = rc->pmy_block;
+  auto pmb = rc->GetBlockPointer();
   // refine on advected, for example.  could also be a derived quantity
   auto v = rc->Get("advected").data;
 
@@ -192,7 +196,7 @@ AmrTag CheckRefinement(std::shared_ptr<Container<Real>> &rc) {
 
 // demonstrate usage of a "pre" fill derived routine
 void PreFill(std::shared_ptr<Container<Real>> &rc) {
-  MeshBlock *pmb = rc->pmy_block;
+  auto pmb = rc->GetBlockPointer();
 
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
@@ -212,7 +216,7 @@ void PreFill(std::shared_ptr<Container<Real>> &rc) {
 
 // this is the package registered function to fill derived
 void SquareIt(std::shared_ptr<Container<Real>> &rc) {
-  MeshBlock *pmb = rc->pmy_block;
+  auto pmb = rc->GetBlockPointer();
 
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
@@ -232,7 +236,7 @@ void SquareIt(std::shared_ptr<Container<Real>> &rc) {
 
 // demonstrate usage of a "post" fill derived routine
 void PostFill(std::shared_ptr<Container<Real>> &rc) {
-  MeshBlock *pmb = rc->pmy_block;
+  auto pmb = rc->GetBlockPointer();
 
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
@@ -255,7 +259,7 @@ void PostFill(std::shared_ptr<Container<Real>> &rc) {
 
 // provide the routine that estimates a stable timestep for this package
 Real EstimateTimestep(std::shared_ptr<Container<Real>> &rc) {
-  MeshBlock *pmb = rc->pmy_block;
+  auto pmb = rc->GetBlockPointer();
   auto pkg = pmb->packages["advection_package"];
   const auto &cfl = pkg->Param<Real>("cfl");
   const auto &vx = pkg->Param<Real>("vx");
@@ -290,7 +294,7 @@ Real EstimateTimestep(std::shared_ptr<Container<Real>> &rc) {
 // some field "advected" that we are pushing around.
 // This routine implements all the "physics" in this example
 TaskStatus CalculateFluxes(std::shared_ptr<Container<Real>> &rc) {
-  MeshBlock *pmb = rc->pmy_block;
+  auto pmb = rc->GetBlockPointer();
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
@@ -319,13 +323,11 @@ TaskStatus CalculateFluxes(std::shared_ptr<Container<Real>> &rc) {
 
         for (int n = 0; n < nvar; n++) {
           if (vx > 0.0) {
-            parthenon::par_for_inner(member, ib.s, ib.e + 1, [&](const int i) {
-              x1flux(n, k, j, i) = ql(n, i) * vx;
-            });
+            pmb->par_for_inner(member, ib.s, ib.e + 1,
+                               [&](const int i) { x1flux(n, k, j, i) = ql(n, i) * vx; });
           } else {
-            parthenon::par_for_inner(member, ib.s, ib.e + 1, [&](const int i) {
-              x1flux(n, k, j, i) = qr(n, i) * vx;
-            });
+            pmb->par_for_inner(member, ib.s, ib.e + 1,
+                               [&](const int i) { x1flux(n, k, j, i) = qr(n, i) * vx; });
           }
         }
       });
@@ -352,11 +354,11 @@ TaskStatus CalculateFluxes(std::shared_ptr<Container<Real>> &rc) {
           member.team_barrier();
           for (int n = 0; n < nvar; n++) {
             if (vy > 0.0) {
-              parthenon::par_for_inner(member, ib.s, ib.e, [&](const int i) {
+              pmb->par_for_inner(member, ib.s, ib.e, [&](const int i) {
                 x2flux(n, k, j, i) = ql(n, i) * vy;
               });
             } else {
-              parthenon::par_for_inner(member, ib.s, ib.e, [&](const int i) {
+              pmb->par_for_inner(member, ib.s, ib.e, [&](const int i) {
                 x2flux(n, k, j, i) = qr(n, i) * vy;
               });
             }
@@ -386,11 +388,11 @@ TaskStatus CalculateFluxes(std::shared_ptr<Container<Real>> &rc) {
           member.team_barrier();
           for (int n = 0; n < nvar; n++) {
             if (vz > 0.0) {
-              parthenon::par_for_inner(member, ib.s, ib.e, [&](const int i) {
+              pmb->par_for_inner(member, ib.s, ib.e, [&](const int i) {
                 x3flux(n, k, j, i) = ql(n, i) * vz;
               });
             } else {
-              parthenon::par_for_inner(member, ib.s, ib.e, [&](const int i) {
+              pmb->par_for_inner(member, ib.s, ib.e, [&](const int i) {
                 x3flux(n, k, j, i) = qr(n, i) * vz;
               });
             }

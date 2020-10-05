@@ -68,11 +68,10 @@ inline void Swap4Bytes(void *vdat) {
 //         MeshBlock per file
 
 void VTKOutput::WriteContainer(SimTime &tm, Mesh *pm, ParameterInput *pin, bool flag) {
-  MeshBlock *pmb = pm->pblock;
   int big_end = IsBigEndian(); // =1 on big endian machine
 
   // Loop over MeshBlocks
-  while (pmb != nullptr) {
+  for (auto &pmb : pm->block_list) {
     // set start/end array indices depending on whether ghost zones are included
     IndexDomain domain = IndexDomain::interior;
     if (output_params.include_ghost_zones) {
@@ -219,7 +218,6 @@ void VTKOutput::WriteContainer(SimTime &tm, Mesh *pm, ParameterInput *pin, bool 
     // don't forget to close the output file and clean up ptrs to data in OutputData
     std::fclose(pfile);
     delete[] data;
-    pmb = pmb->next;
   } // end loop over MeshBlocks
 
   // increment counters

@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <memory>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -41,12 +42,12 @@ namespace parthenon {
 //! \fn MeshRefinement::MeshRefinement(MeshBlock *pmb, ParameterInput *pin)
 //  \brief constructor
 
-MeshRefinement::MeshRefinement(MeshBlock *pmb, ParameterInput *pin)
+MeshRefinement::MeshRefinement(std::weak_ptr<MeshBlock> pmb, ParameterInput *pin)
     : pmy_block_(pmb), deref_count_(0),
       deref_threshold_(pin->GetOrAddInteger("parthenon/mesh", "derefine_count", 10)),
-      AMRFlag_(pmb->pmy_mesh->AMRFlag_) {
+      AMRFlag_(pmb.lock()->pmy_mesh->AMRFlag_) {
   // Create coarse mesh object for parent grid
-  coarse_coords = Coordinates_t(pmb->coords, 2);
+  coarse_coords = Coordinates_t(pmb.lock()->coords, 2);
 
   if (NGHOST % 2) {
     std::stringstream msg;
@@ -67,7 +68,7 @@ void MeshRefinement::RestrictCellCenteredValues(const ParArrayND<Real> &fine,
                                                 ParArrayND<Real> &coarse, int sn, int en,
                                                 int csi, int cei, int csj, int cej,
                                                 int csk, int cek) {
-  MeshBlock *pmb = pmy_block_;
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
 
   auto coords = pmb->coords;
   const IndexDomain interior = IndexDomain::interior;
@@ -151,7 +152,7 @@ void MeshRefinement::RestrictCellCenteredValues(const ParArrayND<Real> &fine,
 void MeshRefinement::RestrictFieldX1(const ParArrayND<Real> &fine,
                                      ParArrayND<Real> &coarse, int csi, int cei, int csj,
                                      int cej, int csk, int cek) {
-  MeshBlock *pmb = pmy_block_;
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   auto &coords = pmb->coords;
   const IndexDomain interior = IndexDomain::interior;
   int si = (csi - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
@@ -209,7 +210,7 @@ void MeshRefinement::RestrictFieldX1(const ParArrayND<Real> &fine,
 void MeshRefinement::RestrictFieldX2(const ParArrayND<Real> &fine,
                                      ParArrayND<Real> &coarse, int csi, int cei, int csj,
                                      int cej, int csk, int cek) {
-  MeshBlock *pmb = pmy_block_;
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   auto &coords = pmb->coords;
   const IndexDomain interior = IndexDomain::interior;
   int si = (csi - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
@@ -272,7 +273,7 @@ void MeshRefinement::RestrictFieldX2(const ParArrayND<Real> &fine,
 void MeshRefinement::RestrictFieldX3(const ParArrayND<Real> &fine,
                                      ParArrayND<Real> &coarse, int csi, int cei, int csj,
                                      int cej, int csk, int cek) {
-  MeshBlock *pmb = pmy_block_;
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   auto &coords = pmb->coords;
   const IndexDomain interior = IndexDomain::interior;
   int si = (csi - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior),
@@ -341,7 +342,7 @@ void MeshRefinement::ProlongateCellCenteredValues(const ParArrayND<Real> &coarse
                                                   ParArrayND<Real> &fine, int sn, int en,
                                                   int si, int ei, int sj, int ej, int sk,
                                                   int ek) {
-  MeshBlock *pmb = pmy_block_;
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   auto coords = pmb->coords;
   auto coarse_coords = this->coarse_coords;
   const IndexDomain interior = IndexDomain::interior;
@@ -510,7 +511,7 @@ void MeshRefinement::ProlongateCellCenteredValues(const ParArrayND<Real> &coarse
 void MeshRefinement::ProlongateSharedFieldX1(const ParArrayND<Real> &coarse,
                                              ParArrayND<Real> &fine, int si, int ei,
                                              int sj, int ej, int sk, int ek) {
-  MeshBlock *pmb = pmy_block_;
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   auto &coords = pmb->coords;
   const IndexDomain interior = IndexDomain::interior;
   if (pmb->block_size.nx3 > 1) {
@@ -594,7 +595,7 @@ void MeshRefinement::ProlongateSharedFieldX1(const ParArrayND<Real> &coarse,
 void MeshRefinement::ProlongateSharedFieldX2(const ParArrayND<Real> &coarse,
                                              ParArrayND<Real> &fine, int si, int ei,
                                              int sj, int ej, int sk, int ek) {
-  MeshBlock *pmb = pmy_block_;
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   const IndexDomain interior = IndexDomain::interior;
   auto &coords = pmb->coords;
   if (pmb->block_size.nx3 > 1) {
@@ -684,7 +685,7 @@ void MeshRefinement::ProlongateSharedFieldX2(const ParArrayND<Real> &coarse,
 void MeshRefinement::ProlongateSharedFieldX3(const ParArrayND<Real> &coarse,
                                              ParArrayND<Real> &fine, int si, int ei,
                                              int sj, int ej, int sk, int ek) {
-  MeshBlock *pmb = pmy_block_;
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   const IndexDomain interior = IndexDomain::interior;
   auto &coords = pmb->coords;
   if (pmb->block_size.nx3 > 1) {
@@ -797,7 +798,7 @@ void MeshRefinement::ProlongateSharedFieldX3(const ParArrayND<Real> &coarse,
 
 void MeshRefinement::ProlongateInternalField(FaceField &fine, int si, int ei, int sj,
                                              int ej, int sk, int ek) {
-  MeshBlock *pmb = pmy_block_;
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   auto &coords = pmb->coords;
   const IndexDomain interior = IndexDomain::interior;
   int fsi = (si - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior),
@@ -994,7 +995,7 @@ void MeshRefinement::ProlongateInternalField(FaceField &fine, int si, int ei, in
 //  \brief Check refinement criteria
 
 void MeshRefinement::CheckRefinementCondition() {
-  MeshBlock *pmb = pmy_block_;
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   auto &rc = pmb->real_containers.Get();
   AmrTag ret = Refinement::CheckAllRefinement(rc);
   // if (AMRFlag_ != nullptr) ret = AMRFlag_(pmb);
@@ -1002,7 +1003,7 @@ void MeshRefinement::CheckRefinementCondition() {
 }
 
 void MeshRefinement::SetRefinement(AmrTag flag) {
-  MeshBlock *pmb = pmy_block_;
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int aret = std::max(-1, static_cast<int>(flag));
 
   if (aret == 0) refine_flag_ = 0;

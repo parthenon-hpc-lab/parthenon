@@ -118,15 +118,19 @@ inline void require_throws(const char *const condition, std::stringstream const 
   require_throws(condition, message.str().c_str(), filename, linenumber);
 }
 
-KOKKOS_INLINE_FUNCTION
-void fail(const char *const message, const char *const filename, int const linenumber) {
+[[noreturn]] KOKKOS_INLINE_FUNCTION void
+fail(const char *const message, const char *const filename, int const linenumber) {
   printf("### PARTHENON ERROR\n  Message:     %s\n  File:        %s\n  Line number: %i\n",
          message, filename, linenumber);
   Kokkos::abort(message);
+  // Kokkos::abort ends control flow, but is not marked as `[[noreturn]]`, so we need this
+  // loop to supress a warning that the function does not return.
+  while (true) {
+  }
 }
 
-inline void fail(std::stringstream const &message, const char *const filename,
-                 int const linenumber) {
+[[noreturn]] inline void fail(std::stringstream const &message,
+                              const char *const filename, int const linenumber) {
   fail(message.str().c_str(), filename, linenumber);
 }
 
