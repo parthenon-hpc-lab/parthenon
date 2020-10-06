@@ -173,7 +173,7 @@ AmrTag CheckRefinement(std::shared_ptr<Container<Real>> &rc) {
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
 
   typename Kokkos::MinMax<Real>::value_type minmax;
-  pmb->par_for(
+  pmb->par_reduce(
       "advection check refinement", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(int k, int j, int i,
                     typename Kokkos::MinMax<Real>::value_type &lminmax) {
@@ -271,7 +271,7 @@ Real EstimateTimestep(std::shared_ptr<Container<Real>> &rc) {
 
   // this is obviously overkill for this constant velocity problem
   Real min_dt;
-  pmb->par_for(
+  pmb->par_reduce(
       "advection_package::EstimateTimestep", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int k, const int j, const int i, Real &lmin_dt) {
         if (vx != 0.0)

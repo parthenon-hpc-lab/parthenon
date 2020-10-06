@@ -86,7 +86,7 @@ TaskStatus ComputeArea(Pack_t pack, ParArrayHost<Real> areas, int i) {
   const IndexRange kb = pack.cellbounds.GetBoundsK(IndexDomain::interior);
 
   Real area = 0.0;
-  par_for(
+  par_reduce(
       parthenon::loop_pattern_mdrange_tag, "calculate_pi compute area",
       parthenon::DevExecSpace(), 0, pack.GetDim(5) - 1, 0, pack.GetDim(4) - 1, kb.s, kb.e,
       jb.s, jb.e, ib.s, ib.e,
