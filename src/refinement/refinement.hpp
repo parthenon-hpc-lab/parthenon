@@ -18,13 +18,15 @@
 #include <string>
 
 #include "defs.hpp"
-#include "interface/container.hpp"
-#include "interface/state_descriptor.hpp"
-#include "interface/variable.hpp"
+#include "parthenon_arrays.hpp"
 
 namespace parthenon {
 
 class ParameterInput;
+class MeshBlock;
+template <typename T>
+class Container;
+class StateDescriptor;
 
 namespace Refinement {
 
@@ -32,7 +34,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 
 AmrTag CheckAllRefinement(std::shared_ptr<Container<Real>> &rc);
 
-AmrTag FirstDerivative(DevExecSpace exec_space, const ParArrayND<Real> &q,
+AmrTag FirstDerivative(MeshBlock *pmb, const ParArrayND<Real> &q,
                        const Real refine_criteria, const Real derefine_criteria);
 
 } // namespace Refinement
