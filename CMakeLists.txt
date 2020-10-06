@@ -198,7 +198,7 @@ SET (Kokkos_ENABLE_AGGRESSIVE_VECTORIZATION ON CACHE BOOL
 
 # Tell Kokkos we need lambdas in Cuda.
 # Check that gpu devices are actually detected
-set(NUM_GPU_DEVICES_TESTING "${NUM_MPI_PROC_TESTING}" CACHE STRING "Number of gpu devices to use when testing if built with Kokkos_ENABLE_CUDA")
+set(NUM_GPU_DEVICES_PER_NODE "1" CACHE STRING "Number of gpu devices to use when testing if built with Kokkos_ENABLE_CUDA")
 if (Kokkos_ENABLE_CUDA)
   SET (Kokkos_ENABLE_CUDA_LAMBDA ON CACHE BOOL
        "Enable lambda expressions in CUDA")

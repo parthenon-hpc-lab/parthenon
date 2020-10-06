@@ -14,7 +14,7 @@ the number of GPUs to be used with the tests.\n"
   exit 1
 fi
 
-NUM_GPUS_ASSIGNED_FOR_TEST=$1
+NUM_GPUS_PER_NODE_REQUESTED=$1
 
 if ! command -v nvidia-smi &> /dev/null
 then
@@ -36,20 +36,19 @@ if [ "$GPUS_DETECTED" -eq "0" ]
 then
   printf "CUDA has been enabled but no GPUs have been detected.\n"
   exit 1
-elif [ "$NUM_GPUS_ASSIGNED_FOR_TEST" -gt "$GPUS_DETECTED" ]
+elif [ "$NUM_GPUS_PER_NODE_REQUESTED" -gt "$GPUS_DETECTED" ]
 then
   printf "You are trying to build the parthenon regression 
 tests with CUDA enabled kokkos, with the following settings:\n
-Number of CUDA devices set to: ${NUM_GPUS_ASSIGNED_FOR_TEST}
-Number of CUDA devices available: ${GPUS_DETECTED}\n
+Number of CUDA devices per node set to: ${NUM_GPUS_PER_NODE_REQUESTED}
+Number of CUDA devices per node available: ${GPUS_DETECTED}\n
 The number of gpus detected is less than then the number of devices requested,
 consider changing:\n
-NUM_GPU_DEVICES_TESTING=${GPUS_DETECTED}
-NUM_MPI_PROC_TESTING=${GPUS_DETECTED}\n
+NUM_GPU_DEVICES_PER_NODE=${GPUS_DETECTED}
 Or consider building without CUDA.\n"
   exit 1
 else
-  printf "\nNumber of GPUs detected: $GPUS_DETECTED
-Number of GPUs using in tests: $NUM_GPUS_ASSIGNED_FOR_TEST\n\n"
+  printf "\nNumber of GPUs detected per node: $GPUS_DETECTED
+Number of GPUs per node, requested in tests: $NUM_GPUS_PER_NODE_REQUESTED\n\n"
   exit 0
 fi
