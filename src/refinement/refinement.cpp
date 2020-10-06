@@ -107,7 +107,7 @@ AmrTag FirstDerivative(MeshBlock *pmb, const ParArrayND<Real> &q,
     iu = dim1 - 2;
   }
   Real maxd = 0.0;
-  pmb->par_for(
+  pmb->par_reduce(
       "refinement first derivative", kl, ku, jl, ju, il, iu,
       KOKKOS_LAMBDA(int k, int j, int i, Real &maxd) {
         Real scale = std::abs(q(k, j, i));
