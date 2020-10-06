@@ -31,7 +31,7 @@ Therefore, a `parallel_reduce` needs to be used instead of a `parallel_for`.
 
 A strong hint where this is in order are places where a single variable is incremented within a kernel or where another reduction over MPI processes follows the preceding computations.
 
-Parthenon provides overloads for a subset of the `par_for` loop abstractions that provide the ability to perform reductions.  In particular, reductions are available for `par_for` abstractions from 1D to 5D, but not for any of the nested parallelism abstractions.  The interface is identical for the abstracted `parallel_for` and `parallel_reduce` executions, with the exception that an additional argument is supplied when a reduction is desired.  That additional argument should be a Kokkos Reducer, for example one of the built-in [Reducers](https://github.com/kokkos/kokkos/wiki/Custom-Reductions%3A-Built-In-Reducers) that ship with Kokkos.
+Parthenon provides abstractions that provide the ability to perform reductions.  In particular, reductions are available for loops from 1D to 5D, but do not include any nested parallel patterns.  The interface for the abstracted `parallel_for` and `parallel_reduce` executions are nearly identical, with calls to `par_reduce` having one additional final argument compared to `par_for`.  The additional argument should be a Kokkos Reducer, for example one of the built-in [Reducers](https://github.com/kokkos/kokkos/wiki/Custom-Reductions%3A-Built-In-Reducers) that ship with Kokkos.
 
 Examples can be found in the [advection example](../example/advection/advection_package.cpp)
 ```diff
@@ -46,7 +46,7 @@ Examples can be found in the [advection example](../example/advection/advection_
 -    }
 -  }
 + typename Kokkos::MinMax<Real>::value_type minmax;
-+ pmb->par_for(
++ pmb->par_reduce(
 +     "advection check refinement", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
 +     KOKKOS_LAMBDA(int k, int j, int i,
 +                   typename Kokkos::MinMax<Real>::value_type &lminmax) {
