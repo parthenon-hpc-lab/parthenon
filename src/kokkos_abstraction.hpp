@@ -146,8 +146,8 @@ inline void kokkos_dispatch(ParallelReduceDispatch, Args &&... args) {
 // 1D loop using RangePolicy loops
 template <typename Function, class... Args>
 inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
-par_for(LoopPatternFlatRange, const std::string &name, DevExecSpace exec_space,
-        const int &il, const int &iu, const Function &function, Args &&... args) {
+par_dispatch(LoopPatternFlatRange, const std::string &name, DevExecSpace exec_space,
+             const int &il, const int &iu, const Function &function, Args &&... args) {
   using namespace dispatch_impl;
   typename DispatchType<Args...>::type tag;
   kokkos_dispatch(tag, name,
@@ -160,9 +160,9 @@ par_for(LoopPatternFlatRange, const std::string &name, DevExecSpace exec_space,
 // 2D loop using MDRange loops
 template <typename Function, class... Args>
 inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
-par_for(LoopPatternMDRange, const std::string &name, DevExecSpace exec_space,
-        const int jl, const int ju, const int il, const int iu, const Function &function,
-        Args &&... args) {
+par_dispatch(LoopPatternMDRange, const std::string &name, DevExecSpace exec_space,
+             const int jl, const int ju, const int il, const int iu,
+             const Function &function, Args &&... args) {
   using namespace dispatch_impl;
   typename DispatchType<Args...>::type tag;
   kokkos_dispatch(
@@ -176,9 +176,9 @@ par_for(LoopPatternMDRange, const std::string &name, DevExecSpace exec_space,
 // 3D loop using Kokkos 1D Range
 template <typename Function, class... Args>
 inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
-par_for(LoopPatternFlatRange, const std::string &name, DevExecSpace exec_space,
-        const int kl, const int ku, const int jl, const int ju, const int il,
-        const int iu, const Function &function, Args &&... args) {
+par_dispatch(LoopPatternFlatRange, const std::string &name, DevExecSpace exec_space,
+             const int kl, const int ku, const int jl, const int ju, const int il,
+             const int iu, const Function &function, Args &&... args) {
   using namespace dispatch_impl;
   typename DispatchType<Args...>::type tag;
   const int Nk = ku - kl + 1;
@@ -203,9 +203,9 @@ par_for(LoopPatternFlatRange, const std::string &name, DevExecSpace exec_space,
 // 3D loop using MDRange loops
 template <typename Function, class... Args>
 inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
-par_for(LoopPatternMDRange, const std::string &name, DevExecSpace exec_space,
-        const int &kl, const int &ku, const int &jl, const int &ju, const int &il,
-        const int &iu, const Function &function, Args &&... args) {
+par_dispatch(LoopPatternMDRange, const std::string &name, DevExecSpace exec_space,
+             const int &kl, const int &ku, const int &jl, const int &ju, const int &il,
+             const int &iu, const Function &function, Args &&... args) {
   using namespace dispatch_impl;
   typename DispatchType<Args...>::type tag;
   kokkos_dispatch(tag, name,
@@ -218,9 +218,10 @@ par_for(LoopPatternMDRange, const std::string &name, DevExecSpace exec_space,
 
 // 3D loop using TeamPolicy with single inner TeamThreadRange
 template <typename Function>
-inline void par_for(LoopPatternTPTTR, const std::string &name, DevExecSpace exec_space,
-                    const int &kl, const int &ku, const int &jl, const int &ju,
-                    const int &il, const int &iu, const Function &function) {
+inline void par_dispatch(LoopPatternTPTTR, const std::string &name,
+                         DevExecSpace exec_space, const int &kl, const int &ku,
+                         const int &jl, const int &ju, const int &il, const int &iu,
+                         const Function &function) {
   const int Nk = ku - kl + 1;
   const int Nj = ju - jl + 1;
   const int NkNj = Nk * Nj;
@@ -236,9 +237,10 @@ inline void par_for(LoopPatternTPTTR, const std::string &name, DevExecSpace exec
 
 // 3D loop using TeamPolicy with single inner ThreadVectorRange
 template <typename Function>
-inline void par_for(LoopPatternTPTVR, const std::string &name, DevExecSpace exec_space,
-                    const int &kl, const int &ku, const int &jl, const int &ju,
-                    const int &il, const int &iu, const Function &function) {
+inline void par_dispatch(LoopPatternTPTVR, const std::string &name,
+                         DevExecSpace exec_space, const int &kl, const int &ku,
+                         const int &jl, const int &ju, const int &il, const int &iu,
+                         const Function &function) {
   // TODO(pgrete) if exec space is Cuda,throw error
   const int Nk = ku - kl + 1;
   const int Nj = ju - jl + 1;
@@ -255,9 +257,10 @@ inline void par_for(LoopPatternTPTVR, const std::string &name, DevExecSpace exec
 
 // 3D loop using TeamPolicy with nested TeamThreadRange and ThreadVectorRange
 template <typename Function>
-inline void par_for(LoopPatternTPTTRTVR, const std::string &name, DevExecSpace exec_space,
-                    const int &kl, const int &ku, const int &jl, const int &ju,
-                    const int &il, const int &iu, const Function &function) {
+inline void par_dispatch(LoopPatternTPTTRTVR, const std::string &name,
+                         DevExecSpace exec_space, const int &kl, const int &ku,
+                         const int &jl, const int &ju, const int &il, const int &iu,
+                         const Function &function) {
   const int Nk = ku - kl + 1;
   Kokkos::parallel_for(
       name, team_policy(exec_space, Nk, Kokkos::AUTO),
@@ -273,9 +276,10 @@ inline void par_for(LoopPatternTPTTRTVR, const std::string &name, DevExecSpace e
 
 // 3D loop using SIMD FOR loops
 template <typename Function>
-inline void par_for(LoopPatternSimdFor, const std::string &name, DevExecSpace exec_space,
-                    const int &kl, const int &ku, const int &jl, const int &ju,
-                    const int &il, const int &iu, const Function &function) {
+inline void par_dispatch(LoopPatternSimdFor, const std::string &name,
+                         DevExecSpace exec_space, const int &kl, const int &ku,
+                         const int &jl, const int &ju, const int &il, const int &iu,
+                         const Function &function) {
   Kokkos::Profiling::pushRegion(name);
   for (auto k = kl; k <= ku; k++)
     for (auto j = jl; j <= ju; j++)
@@ -288,10 +292,10 @@ inline void par_for(LoopPatternSimdFor, const std::string &name, DevExecSpace ex
 // 4D loop using Kokkos 1D Range
 template <typename Function, class... Args>
 inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
-par_for(LoopPatternFlatRange, const std::string &name, DevExecSpace exec_space,
-        const int nl, const int nu, const int kl, const int ku, const int jl,
-        const int ju, const int il, const int iu, const Function &function,
-        Args &&... args) {
+par_dispatch(LoopPatternFlatRange, const std::string &name, DevExecSpace exec_space,
+             const int nl, const int nu, const int kl, const int ku, const int jl,
+             const int ju, const int il, const int iu, const Function &function,
+             Args &&... args) {
   using namespace dispatch_impl;
   typename DispatchType<Args...>::type tag;
   const int Nn = nu - nl + 1;
@@ -320,10 +324,10 @@ par_for(LoopPatternFlatRange, const std::string &name, DevExecSpace exec_space,
 // 4D loop using MDRange loops
 template <typename Function, class... Args>
 inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
-par_for(LoopPatternMDRange, const std::string &name, DevExecSpace exec_space,
-        const int nl, const int nu, const int kl, const int ku, const int jl,
-        const int ju, const int il, const int iu, const Function &function,
-        Args &&... args) {
+par_dispatch(LoopPatternMDRange, const std::string &name, DevExecSpace exec_space,
+             const int nl, const int nu, const int kl, const int ku, const int jl,
+             const int ju, const int il, const int iu, const Function &function,
+             Args &&... args) {
   using namespace dispatch_impl;
   typename DispatchType<Args...>::type tag;
   kokkos_dispatch(tag, name,
@@ -336,9 +340,10 @@ par_for(LoopPatternMDRange, const std::string &name, DevExecSpace exec_space,
 
 // 4D loop using TeamPolicy loop with inner TeamThreadRange
 template <typename Function>
-inline void par_for(LoopPatternTPTTR, const std::string &name, DevExecSpace exec_space,
-                    const int nl, const int nu, const int kl, const int ku, const int jl,
-                    const int ju, const int il, const int iu, const Function &function) {
+inline void par_dispatch(LoopPatternTPTTR, const std::string &name,
+                         DevExecSpace exec_space, const int nl, const int nu,
+                         const int kl, const int ku, const int jl, const int ju,
+                         const int il, const int iu, const Function &function) {
   const int Nn = nu - nl + 1;
   const int Nk = ku - kl + 1;
   const int Nj = ju - jl + 1;
@@ -359,9 +364,10 @@ inline void par_for(LoopPatternTPTTR, const std::string &name, DevExecSpace exec
 
 // 4D loop using TeamPolicy loop with inner ThreadVectorRange
 template <typename Function>
-inline void par_for(LoopPatternTPTVR, const std::string &name, DevExecSpace exec_space,
-                    const int nl, const int nu, const int kl, const int ku, const int jl,
-                    const int ju, const int il, const int iu, const Function &function) {
+inline void par_dispatch(LoopPatternTPTVR, const std::string &name,
+                         DevExecSpace exec_space, const int nl, const int nu,
+                         const int kl, const int ku, const int jl, const int ju,
+                         const int il, const int iu, const Function &function) {
   // TODO(pgrete) if exec space is Cuda,throw error
   const int Nn = nu - nl + 1;
   const int Nk = ku - kl + 1;
@@ -383,9 +389,10 @@ inline void par_for(LoopPatternTPTVR, const std::string &name, DevExecSpace exec
 
 // 4D loop using TeamPolicy with nested TeamThreadRange and ThreadVectorRange
 template <typename Function>
-inline void par_for(LoopPatternTPTTRTVR, const std::string &name, DevExecSpace exec_space,
-                    const int nl, const int nu, const int kl, const int ku, const int jl,
-                    const int ju, const int il, const int iu, const Function &function) {
+inline void par_dispatch(LoopPatternTPTTRTVR, const std::string &name,
+                         DevExecSpace exec_space, const int nl, const int nu,
+                         const int kl, const int ku, const int jl, const int ju,
+                         const int il, const int iu, const Function &function) {
   const int Nn = nu - nl + 1;
   const int Nk = ku - kl + 1;
   const int NnNk = Nn * Nk;
@@ -404,9 +411,10 @@ inline void par_for(LoopPatternTPTTRTVR, const std::string &name, DevExecSpace e
 
 // 4D loop using SIMD FOR loops
 template <typename Function>
-inline void par_for(LoopPatternSimdFor, const std::string &name, DevExecSpace exec_space,
-                    const int nl, const int nu, const int kl, const int ku, const int jl,
-                    const int ju, const int il, const int iu, const Function &function) {
+inline void par_dispatch(LoopPatternSimdFor, const std::string &name,
+                         DevExecSpace exec_space, const int nl, const int nu,
+                         const int kl, const int ku, const int jl, const int ju,
+                         const int il, const int iu, const Function &function) {
   Kokkos::Profiling::pushRegion(name);
   for (auto n = nl; n <= nu; n++)
     for (auto k = kl; k <= ku; k++)
@@ -420,10 +428,10 @@ inline void par_for(LoopPatternSimdFor, const std::string &name, DevExecSpace ex
 // 5D loop using MDRange loops
 template <typename Function, class... Args>
 inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
-par_for(LoopPatternMDRange, const std::string &name, DevExecSpace exec_space,
-        const int ml, const int mu, const int nl, const int nu, const int kl,
-        const int ku, const int jl, const int ju, const int il, const int iu,
-        const Function &function, Args &&... args) {
+par_dispatch(LoopPatternMDRange, const std::string &name, DevExecSpace exec_space,
+             const int ml, const int mu, const int nl, const int nu, const int kl,
+             const int ku, const int jl, const int ju, const int il, const int iu,
+             const Function &function, Args &&... args) {
   using namespace dispatch_impl;
   typename DispatchType<Args...>::type tag;
   kokkos_dispatch(
@@ -433,6 +441,16 @@ par_for(LoopPatternMDRange, const std::string &name, DevExecSpace exec_space,
               exec_space, {ml, nl, kl, jl, il}, {mu + 1, nu + 1, ku + 1, ju + 1, iu + 1}),
           Kokkos::Experimental::WorkItemProperty::HintLightWeight),
       function, std::forward<Args>(args)...);
+}
+
+template <class... Args>
+inline void par_for(Args &&... args) {
+  par_dispatch(std::forward<Args>(args)...);
+}
+
+template <class... Args>
+inline void par_reduce(Args &&... args) {
+  par_dispatch(std::forward<Args>(args)...);
 }
 
 // 1D  outer parallel loop using Kokkos Teams
