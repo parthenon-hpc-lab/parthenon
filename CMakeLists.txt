@@ -301,7 +301,7 @@ if (TEST_INTEL_OPTIMIZATION)
 endif()
 
 add_subdirectory(src)
-add_subdirectory(include/parthenon)
+add_subdirectory(include)
 
 if (CMAKE_SOURCE_DIR STREQUAL parthenon_SOURCE_DIR)
   add_subdirectory(example)
