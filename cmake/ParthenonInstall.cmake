@@ -19,8 +19,6 @@ install(TARGETS parthenon EXPORT parthenonTargets
   ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
     )
 
-# Maintain directory structure in installed include files
-install(DIRECTORY ${parthenon_SOURCE_DIR}/include/parthenon DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}" FILES_MATCHING PATTERN "*.hpp")
 
 # Install generated config header file
 install(FILES ${parthenon_BINARY_DIR}/include/parthenon/generated/config.hpp

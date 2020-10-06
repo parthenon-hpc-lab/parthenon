@@ -80,3 +80,6 @@ list(APPEND PARTHENON_PUBLIC_HEADERS
   ${CMAKE_CURRENT_SOURCE_DIR}/parthenon_mpi.hpp
 )
 
+# Maintain directory structure in installed include files
+install(DIRECTORY . DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}" FILES_MATCHING PATTERN "*.hpp")
+
