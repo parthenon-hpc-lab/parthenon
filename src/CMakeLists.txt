@@ -207,7 +207,7 @@ target_link_libraries(parthenon PUBLIC Kokkos::kokkos)
 target_include_directories(parthenon PUBLIC
   $<BUILD_INTERFACE:${parthenon_SOURCE_DIR}/include>
   $<BUILD_INTERFACE:${parthenon_BINARY_DIR}/include/parthenon/generated>
-  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/parthenon>
+  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
   )
 
 lint_target(parthenon)
