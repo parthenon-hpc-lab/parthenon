@@ -67,10 +67,12 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   x_h(0) = 0.5;
   i_h(1) = 2;
 
-  x_d.data.DeepCopy(x_h);
-  i_d.data.DeepCopy(i_h);
+  x_d.DeepCopy(x_h);
+  i_d.DeepCopy(i_h);
 
   new_mask = swarm.AddEmptyParticles(11);
+  x_d = swarm.GetReal("x").Get();
+  i_d = swarm.GetInteger("i").Get();
   mask = swarm.GetMask().Get().GetHostMirrorAndCopy();
   // Check that swarm pool doubled in size
   REQUIRE(mask.GetDim(1) == 2 * NUMINIT);
@@ -106,7 +108,7 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   x_h = swarm.GetReal("x").Get().GetHostMirrorAndCopy();
   x_h(10) = 1.1;
   x_h(11) = 1.2;
-  x_d.data.DeepCopy(x_h);
+  x_d.DeepCopy(x_h);
 
   // Defragment the list
   swarm.Defrag();

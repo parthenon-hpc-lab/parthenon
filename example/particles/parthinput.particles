@@ -20,7 +20,6 @@ problem_id = particles
 
 <parthenon/mesh>
 refinement = none
-#numlevel = 3
 
 nx1 = 16
 x1min = -0.5
@@ -41,7 +40,6 @@ x3max = 0.5
 <parthenon/meshblock>
 nx1 = 16
 nx2 = 16
-#nx3 = 1
 
 <parthenon/output0>
 file_type = hdf5
