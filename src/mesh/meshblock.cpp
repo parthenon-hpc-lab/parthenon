@@ -106,7 +106,7 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   auto &swarm_container = real_containers.GetSwarmContainer();
   // Set the block pointer for the containers
   real_container->SetBlockPointer(shared_from_this());
-  swarm_container->setBlock(this);
+  swarm_container->SetBlockPointer(shared_from_this());
 
   // (probably don't need to preallocate space for references in these vectors)
   vars_cc_.reserve(3);

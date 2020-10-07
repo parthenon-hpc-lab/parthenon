@@ -81,7 +81,6 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 AmrTag CheckRefinement(Container<Real> &rc) { return AmrTag::same; }
 
 Real EstimateTimestep(std::shared_ptr<Container<Real>> &rc) {
-  //auto pmb = rc->pmy_block;
   auto pmb = rc->GetBlockPointer();
   auto pkg = pmb->packages["particles_package"];
   const Real &dt = pkg->Param<Real>("const_dt");
@@ -89,7 +88,7 @@ Real EstimateTimestep(std::shared_ptr<Container<Real>> &rc) {
 }
 
 TaskStatus SetTimestepTask(std::shared_ptr<Container<Real>> &rc) {
-  auto pmb = rc->GetBlockPointer();//rc->pmy_block;
+  auto pmb = rc->GetBlockPointer();
   pmb->SetBlockTimestep(parthenon::Update::EstimateTimestep(rc));
   return TaskStatus::complete;
 }
@@ -104,15 +103,14 @@ TaskStatus SetTimestepTask(std::shared_ptr<Container<Real>> &rc) {
 // function.                                       *//
 // *************************************************//
 // first some helper tasks
-TaskStatus DestroySomeParticles(MeshBlock *pmb, int stage,
-                                std::vector<std::string> &stage_name,
-                                Integrator *integrator) {
+TaskStatus DestroySomeParticles(MeshBlock *pmb) {
   auto pkg = pmb->packages["particles_package"];
   auto swarm = pmb->real_containers.GetSwarmContainer()->Get("my particles");
   auto rng_pool = pkg->Param<RNGPool>("rng_pool");
 
-  auto &mask = swarm->GetMask().Get();
-  auto &marked_for_removal = swarm->GetMarkedForRemoval().Get();
+  // The swarm mask is managed internally and should always be treated as constant. This
+  // may be enforced later.
+  const auto &mask = swarm->GetMask().Get();
 
   // Randomly mark 10% of particles each timestep for removal
   pmb->par_for(
@@ -121,7 +119,7 @@ TaskStatus DestroySomeParticles(MeshBlock *pmb, int stage,
         if (mask(n)) {
           auto rng_gen = rng_pool.get_state();
           if (rng_gen.drand() > 0.9) {
-            marked_for_removal(n) = true;
+            swarm->MarkParticleForRemoval(n);
           }
           rng_pool.free_state(rng_gen);
         }
@@ -133,27 +131,25 @@ TaskStatus DestroySomeParticles(MeshBlock *pmb, int stage,
   return TaskStatus::complete;
 }
 
-TaskStatus DepositParticles(MeshBlock *pmb, int stage,
-                            std::vector<std::string> &stage_name,
-                            Integrator *integrator) {
+TaskStatus DepositParticles(MeshBlock *pmb) {
   auto swarm = pmb->real_containers.GetSwarmContainer()->Get("my particles");
 
   // Meshblock geometry
-  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
-  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
-  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
-  Real dx_i = pmb->coords.dx1f(pmb->cellbounds.is(IndexDomain::interior));
-  Real dx_j = pmb->coords.dx2f(pmb->cellbounds.js(IndexDomain::interior));
-  Real dx_k = pmb->coords.dx3f(pmb->cellbounds.ks(IndexDomain::interior));
-  Real minx_i = pmb->coords.x1f(ib.s);
-  Real minx_j = pmb->coords.x2f(jb.s);
-  Real minx_k = pmb->coords.x3f(kb.s);
+  const IndexRange &ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
+  const IndexRange &jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
+  const IndexRange &kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
+  const Real &dx_i = pmb->coords.dx1f(pmb->cellbounds.is(IndexDomain::interior));
+  const Real &dx_j = pmb->coords.dx2f(pmb->cellbounds.js(IndexDomain::interior));
+  const Real &dx_k = pmb->coords.dx3f(pmb->cellbounds.ks(IndexDomain::interior));
+  const Real &minx_i = pmb->coords.x1f(ib.s);
+  const Real &minx_j = pmb->coords.x2f(jb.s);
+  const Real &minx_k = pmb->coords.x3f(kb.s);
 
-  auto &x = swarm->GetReal("x").Get();
-  auto &y = swarm->GetReal("y").Get();
-  auto &z = swarm->GetReal("z").Get();
-  auto &weight = swarm->GetReal("weight").Get();
-  auto &mask = swarm->GetMask().Get();
+  const auto &x = swarm->GetReal("x").Get();
+  const auto &y = swarm->GetReal("y").Get();
+  const auto &z = swarm->GetReal("z").Get();
+  const auto &weight = swarm->GetReal("weight").Get();
+  const auto &mask = swarm->GetMask().Get();
 
   auto &particle_dep = pmb->real_containers.Get()->Get("particle_deposition").data;
   // Reset particle count
@@ -180,30 +176,28 @@ TaskStatus DepositParticles(MeshBlock *pmb, int stage,
   return TaskStatus::complete;
 }
 
-TaskStatus CreateSomeParticles(MeshBlock *pmb, int stage,
-                               std::vector<std::string> &stage_name,
-                               Integrator *integrator) {
+TaskStatus CreateSomeParticles(MeshBlock *pmb) {
   auto pkg = pmb->packages["particles_package"];
   auto swarm = pmb->real_containers.GetSwarmContainer()->Get("my particles");
   auto rng_pool = pkg->Param<RNGPool>("rng_pool");
   auto num_particles = pkg->Param<int>("num_particles");
   auto v = pkg->Param<Real>("particle_speed");
 
-  auto new_particles_mask = swarm->AddEmptyParticles(num_particles);
+  const auto new_particles_mask = swarm->AddEmptyParticles(num_particles);
 
   // Meshblock geometry
-  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
-  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
-  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
-  int nx_i = pmb->cellbounds.ncellsi(IndexDomain::interior);
-  int nx_j = pmb->cellbounds.ncellsj(IndexDomain::interior);
-  int nx_k = pmb->cellbounds.ncellsk(IndexDomain::interior);
-  Real dx_i = pmb->coords.dx1f(pmb->cellbounds.is(IndexDomain::interior));
-  Real dx_j = pmb->coords.dx2f(pmb->cellbounds.js(IndexDomain::interior));
-  Real dx_k = pmb->coords.dx3f(pmb->cellbounds.ks(IndexDomain::interior));
-  Real minx_i = pmb->coords.x1f(ib.s);
-  Real minx_j = pmb->coords.x2f(jb.s);
-  Real minx_k = pmb->coords.x3f(kb.s);
+  const IndexRange &ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
+  const IndexRange &jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
+  const IndexRange &kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
+  const int &nx_i = pmb->cellbounds.ncellsi(IndexDomain::interior);
+  const int &nx_j = pmb->cellbounds.ncellsj(IndexDomain::interior);
+  const int &nx_k = pmb->cellbounds.ncellsk(IndexDomain::interior);
+  const Real &dx_i = pmb->coords.dx1f(pmb->cellbounds.is(IndexDomain::interior));
+  const Real &dx_j = pmb->coords.dx2f(pmb->cellbounds.js(IndexDomain::interior));
+  const Real &dx_k = pmb->coords.dx3f(pmb->cellbounds.ks(IndexDomain::interior));
+  const Real &minx_i = pmb->coords.x1f(ib.s);
+  const Real &minx_j = pmb->coords.x2f(jb.s);
+  const Real &minx_k = pmb->coords.x3f(kb.s);
 
   auto &x = swarm->GetReal("x").Get();
   auto &y = swarm->GetReal("y").Get();
@@ -240,8 +234,7 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, int stage,
   return TaskStatus::complete;
 }
 
-TaskStatus TransportSwarm(MeshBlock *pmb, int stage, std::vector<std::string> &stage_name,
-                          Integrator *integrator) {
+TaskStatus TransportParticles(MeshBlock *pmb, Integrator *integrator) {
   auto swarm = pmb->real_containers.GetSwarmContainer()->Get("my particles");
 
   int max_active_index = swarm->get_max_active_index();
@@ -251,33 +244,33 @@ TaskStatus TransportSwarm(MeshBlock *pmb, int stage, std::vector<std::string> &s
   auto &x = swarm->GetReal("x").Get();
   auto &y = swarm->GetReal("y").Get();
   auto &z = swarm->GetReal("z").Get();
-  auto &vx = swarm->GetReal("vx").Get();
-  auto &vy = swarm->GetReal("vy").Get();
-  auto &vz = swarm->GetReal("vz").Get();
-  auto &mask = swarm->GetMask().Get();
+  const auto &vx = swarm->GetReal("vx").Get();
+  const auto &vy = swarm->GetReal("vy").Get();
+  const auto &vz = swarm->GetReal("vz").Get();
+  const auto &mask = swarm->GetMask().Get();
 
-  Real dx_i = pmb->coords.dx1f(pmb->cellbounds.is(IndexDomain::interior));
-  Real dx_j = pmb->coords.dx2f(pmb->cellbounds.js(IndexDomain::interior));
-  Real dx_k = pmb->coords.dx3f(pmb->cellbounds.ks(IndexDomain::interior));
-  Real dx_push = std::min<Real>(dx_i, std::min<Real>(dx_j, dx_k));
+  const Real &dx_i = pmb->coords.dx1f(pmb->cellbounds.is(IndexDomain::interior));
+  const Real &dx_j = pmb->coords.dx2f(pmb->cellbounds.js(IndexDomain::interior));
+  const Real &dx_k = pmb->coords.dx3f(pmb->cellbounds.ks(IndexDomain::interior));
+  const Real &dx_push = std::min<Real>(dx_i, std::min<Real>(dx_j, dx_k));
 
-  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
-  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
-  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
+  const IndexRange &ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
+  const IndexRange &jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
+  const IndexRange &kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
 
-  Real x_min = pmb->coords.x1f(ib.s);
-  Real y_min = pmb->coords.x2f(jb.s);
-  Real z_min = pmb->coords.x3f(kb.s);
-  Real x_max = pmb->coords.x1f(ib.e + 1);
-  Real y_max = pmb->coords.x2f(jb.e + 1);
-  Real z_max = pmb->coords.x3f(kb.e + 1);
+  const Real &x_min = pmb->coords.x1f(ib.s);
+  const Real &y_min = pmb->coords.x2f(jb.s);
+  const Real &z_min = pmb->coords.x3f(kb.s);
+  const Real &x_max = pmb->coords.x1f(ib.e + 1);
+  const Real &y_max = pmb->coords.x2f(jb.e + 1);
+  const Real &z_max = pmb->coords.x3f(kb.e + 1);
 
   ParArrayND<Real> t("time", max_active_index + 1);
 
   // Simple particle push: push particles half a zone width until they have
   // traveled one integrator timestep's worth of time
   pmb->par_for(
-      "TransportSwarm", 0, max_active_index, KOKKOS_LAMBDA(const int n) {
+      "TransportParticles", 0, max_active_index, KOKKOS_LAMBDA(const int n) {
         if (mask(n)) {
           t(n) = 0.;
           Real v = sqrt(vx(n) * vx(n) + vy(n) * vy(n) + vz(n) * vz(n));
@@ -317,8 +310,9 @@ TaskStatus TransportSwarm(MeshBlock *pmb, int stage, std::vector<std::string> &s
   return TaskStatus::complete;
 }
 
-TaskStatus Defrag(MeshBlock *pmb, int stage, std::vector<std::string> &stage_name,
-                  Integrator *integrator) {
+// TaskStatus Defrag(MeshBlock *pmb, int stage, std::vector<std::string> &stage_name,
+//                  Integrator *integrator) {
+TaskStatus Defrag(MeshBlock *pmb) {
   auto s = pmb->real_containers.GetSwarmContainer()->Get("my particles");
 
   // Only do this if list is getting too sparse. This criterion (whether there
@@ -341,19 +335,17 @@ TaskList ParticleDriver::MakeTaskList(MeshBlock *pmb, int stage) {
 
   auto swarm = sc->Get("my particles");
 
-  auto transport_swarm =
-      tl.AddTask(none, TransportSwarm, pmb, stage, stage_name, integrator);
+  auto transport_particles = tl.AddTask(none, TransportParticles, pmb, integrator);
 
-  auto destroy_some_particles = tl.AddTask(transport_swarm, DestroySomeParticles, pmb,
-                                           stage, stage_name, integrator);
+  auto destroy_some_particles =
+      tl.AddTask(transport_particles, DestroySomeParticles, pmb);
 
-  auto create_some_particles = tl.AddTask(destroy_some_particles, CreateSomeParticles,
-                                          pmb, stage, stage_name, integrator);
+  auto create_some_particles =
+      tl.AddTask(destroy_some_particles, CreateSomeParticles, pmb);
 
-  auto deposit_particles = tl.AddTask(create_some_particles, DepositParticles, pmb, stage,
-                                      stage_name, integrator);
+  auto deposit_particles = tl.AddTask(create_some_particles, DepositParticles, pmb);
 
-  auto defrag = tl.AddTask(deposit_particles, Defrag, pmb, stage, stage_name, integrator);
+  auto defrag = tl.AddTask(deposit_particles, Defrag, pmb);
 
   return tl;
 }

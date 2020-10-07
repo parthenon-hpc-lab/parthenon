@@ -39,21 +39,23 @@ class MeshBlock;
 class SwarmContainer {
  public:
   //-----------------
-  // Public Variables
-  //-----------------
-  MeshBlock *pmy_block = nullptr; // ptr to MeshBlock
-
-  //-----------------
   // Public Methods
   //-----------------
   // Constructor does nothing
   SwarmContainer() {}
 
-  ///
-  /// Set the pointer to the mesh block for this container
-  void setBlock(MeshBlock *pmb) { pmy_block = pmb; }
+  /// Returns a shared pointer to a block
+  std::shared_ptr<MeshBlock> GetBlockPointer() {
+    if (pmy_block.expired()) {
+      PARTHENON_THROW("Invalid pointer to MeshBlock!");
+    }
+    return pmy_block.lock();
+  }
 
-  // TODO BRR also add Add() functions for setting single int, real, string
+  /// Set the pointer to the mesh block for this swarm container
+  void SetBlockPointer(std::weak_ptr<MeshBlock> pmb) { pmy_block = pmb; }
+
+  // TODO(BRR) also add Add() functions for setting single int, real, string
   // values?
 
   ///
@@ -66,7 +68,7 @@ class SwarmContainer {
   /// @param label the name of the variable
   /// @param metadata the metadata associated with the variable
   ///
-  void Add(const std::string label, const Metadata &metadata);
+  void Add(const std::string &label, const Metadata &metadata);
 
   ///
   /// Allocate and add a variable<T> to the container
@@ -78,7 +80,7 @@ class SwarmContainer {
   /// @param labelArray the array of names of variables
   /// @param metadata the metadata associated with the variable
   ///
-  void Add(const std::vector<std::string> labelArray, const Metadata &metadata);
+  void Add(const std::vector<std::string> &labelArray, const Metadata &metadata);
 
   void Add(std::shared_ptr<Swarm> swarm) {
     swarmVector_.push_back(swarm);
@@ -89,7 +91,7 @@ class SwarmContainer {
   /// Get a swarm from the container
   /// @param label the name of the swarm
   /// @return the Swarm if found or throw exception
-  std::shared_ptr<Swarm> &Get(std::string label) {
+  std::shared_ptr<Swarm> &Get(const std::string &label) {
     if (swarmMap_.count(label) == 0) {
       throw std::invalid_argument(std::string("\n") + std::string(label) +
                                   std::string(" swarm not found in Get()\n"));
@@ -99,20 +101,12 @@ class SwarmContainer {
 
   std::shared_ptr<Swarm> &Get(const int index) { return swarmVector_[index]; }
 
-  int Index(const std::string &label) {
+  int Index(const std::string &label) const {
     for (int i = 0; i < swarmVector_.size(); i++) {
       if (!swarmVector_[i]->label().compare(label)) return i;
     }
     return -1;
   }
-
-  /// Gets an array of real variables from container.
-  /// @param names is the variables we want
-  /// @param indexCount a map of names to std::pair<index,count> for each name
-  /// @param sparse_ids if specified is list of sparse ids we are interested in.  Note
-  ///        that non-sparse variables specified are aliased in as is.
-  int GetSwarms(const std::vector<std::string> &names, std::vector<Swarm> &sRet,
-                std::map<std::string, std::pair<int, int>> &indexCount);
 
   const SwarmVector &GetSwarmVector() const { return swarmVector_; }
   const SwarmMap &GetSwarmMap() const { return swarmMap_; }
@@ -126,38 +120,44 @@ class SwarmContainer {
   // Temporary functions till we implement a *real* iterator
 
   /// Print list of labels in container
-  void Print();
+  void Print() const;
 
   // return number of stored arrays
-  int Size() { return swarmVector_.size(); }
+  int Size() const { return swarmVector_.size(); }
 
   // Element accessor functions
   std::vector<std::shared_ptr<Swarm>> &allSwarms() { return swarmVector_; }
 
   // Communication routines
-  void SetupPersistentMPI();
-  void SetBoundaries();
-  void SendBoundaryBuffers();
-  void ReceiveAndSetBoundariesWithWait();
-  bool ReceiveBoundaryBuffers();
-  void StartReceiving(BoundaryCommSubset phase);
-  void ClearBoundary(BoundaryCommSubset phase);
+  [[deprecated("Not yet implemented")]] void SetupPersistentMPI();
+  [[deprecated("Not yet implemented")]] void SetBoundaries();
+  [[deprecated("Not yet implemented")]] void SendBoundaryBuffers();
+  [[deprecated("Not yet implemented")]] void ReceiveAndSetBoundariesWithWait();
+  [[deprecated("Not yet implemented")]] bool ReceiveBoundaryBuffers();
+  [[deprecated("Not yet implemented")]] void StartReceiving(BoundaryCommSubset phase);
+  [[deprecated("Not yet implemented")]] void ClearBoundary(BoundaryCommSubset phase);
 
   bool operator==(const SwarmContainer &cmp) {
     // Test that labels of swarms are the same
-    std::vector<std::string> my_keys;
-    std::vector<std::string> cmp_keys;
+    std::vector<std::string> my_keys(swarmMap_.size());
+    auto &cmpMap = cmp.GetSwarmMap();
+    std::vector<std::string> cmp_keys(cmpMap.size());
+    size_t i = 0;
     for (auto &s : swarmMap_) {
-      my_keys.push_back(s.first);
+      my_keys[i] = s.first;
+      i++;
     }
-    for (auto &s : cmp.GetSwarmMap()) {
-      cmp_keys.push_back(s.first);
+    i = 0;
+    for (auto &s : cmpMap) {
+      cmp_keys[i] = s.first;
+      i++;
     }
     return my_keys == cmp_keys;
   }
 
  private:
   int debug = 0;
+  std::weak_ptr<MeshBlock> pmy_block;
 
   SwarmVector swarmVector_ = {};
   SwarmMap swarmMap_ = {};

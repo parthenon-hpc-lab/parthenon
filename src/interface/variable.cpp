@@ -160,7 +160,7 @@ std::string EdgeVariable<T>::info() {
 }
 
 template <typename T>
-std::string ParticleVariable<T>::info() {
+std::string ParticleVariable<T>::info() const {
   std::stringstream ss;
 
   // first add label

@@ -25,7 +25,7 @@
 #include <array>
 #include <cstdint>
 #include <list>
-#include <map>
+#include <unordered_map>
 #include <memory>
 #include <string>
 #include <utility>
@@ -38,9 +38,18 @@ enum class PARTICLE_STATUS { UNALLOCATED, ALIVE, DEAD };
 
 class Swarm {
  public:
-  MeshBlock *pmy_block = nullptr; // ptr to MeshBlock
+  Swarm(const std::string &label, const Metadata &metadata, const int nmax_pool_in = 3);
 
-  Swarm(const std::string label, const Metadata &metadata, const int nmax_pool_in = 3);
+  /// Returns shared pointer to a block
+  std::shared_ptr<MeshBlock> GetBlockPointer() {
+    if (pmy_block.expired()) {
+      PARTHENON_THROW("Invalid pointer to MeshBlock!");
+    }
+    return pmy_block.lock();
+  }
+
+  // Set the pointer to the mesh block for this swarm
+  void SetBlockPointer(std::weak_ptr<MeshBlock> pmb) { pmy_block = pmb; }
 
   // TODO BRR This should really be const... mask_ is managed internally
   /// Get mask array for active particles
@@ -54,26 +63,26 @@ class Swarm {
                                       MeshBlock *pmb = nullptr);
 
   /// Add variable to swarm
-  void Add(const std::string label, const Metadata &metadata);
+  void Add(const std::string &label, const Metadata &metadata);
 
   /// Add multiple variables with common metadata to swarm
-  void Add(const std::vector<std::string> labelVector, const Metadata &metadata);
+  void Add(const std::vector<std::string> &labelVector, const Metadata &metadata);
 
   /// Remote a variable from swarm
-  void Remove(const std::string label);
+  void Remove(const std::string &label);
 
   /// Get real particle variable
-  ParticleVariable<Real> &GetReal(const std::string label) {
+  ParticleVariable<Real> &GetReal(const std::string &label) {
     return *(realMap_.at(label));
   }
 
   /// Get integer particle variable
-  ParticleVariable<int> &GetInteger(const std::string label) {
+  ParticleVariable<int> &GetInteger(const std::string &label) {
     return *(intMap_.at(label));
   }
 
   /// Assign label for swarm
-  void setLabel(const std::string label) { label_ = label; }
+  void setLabel(const std::string &label) { label_ = label; }
 
   /// retrieve label for swarm
   std::string label() const { return label_; }
@@ -82,10 +91,10 @@ class Swarm {
   const Metadata metadata() const { return m_; }
 
   /// Assign info for swarm
-  void setInfo(const std::string info) { info_ = info; }
+  void setInfo(const std::string &info) { info_ = info; }
 
   /// return information string
-  std::string info() { return info_; }
+  std::string info() const { return info_; }
 
   /// Expand pool size geometrically as necessary
   void increasePoolMax() { setPoolMax(2 * nmax_pool_); }
@@ -97,32 +106,35 @@ class Swarm {
   bool IsSet(const MetadataFlag bit) const { return m_.IsSet(bit); }
 
   /// Get the last index of active particles
-  int get_max_active_index() { return max_active_index_; }
+  int get_max_active_index() const { return max_active_index_; }
 
   /// Get number of active particles
-  int get_num_active() { return num_active_; }
+  int get_num_active() const { return num_active_; }
 
   /// Get the quality of the data layout. 1 is perfectly organized, < 1
   /// indicates gaps in the list.
-  Real get_packing_efficiency() { return num_active_ / (max_active_index_ + 1); }
+  Real get_packing_efficiency() const { return num_active_ / (max_active_index_ + 1); }
 
   bool mpiStatus;
 
   /// Mark particle for removal (usually during a parallel dispatch)
   KOKKOS_INLINE_FUNCTION
-  void MarkParticleForRemoval(int index) { marked_for_removal_(index) = true; }
+  void MarkParticleForRemoval(const int index) { marked_for_removal_(index) = true; }
 
   /// Remove particles marked for removal and update internal indexing
   void RemoveMarkedParticles();
 
   /// Open up memory for new empty particles, return a mask to these particles
-  ParArrayND<bool> AddEmptyParticles(int num_to_add);
+  ParArrayND<bool> AddEmptyParticles(const int num_to_add);
 
   /// Defragment the list by moving active particles so they are contiguous in
   /// memory
   void Defrag();
 
  private:
+  int debug = 0;
+  std::weak_ptr<MeshBlock> pmy_block;
+
   int nmax_pool_;
   int max_active_index_ = 0;
   int num_active_ = 0;
@@ -143,7 +155,7 @@ class Swarm {
 
 using SP_Swarm = std::shared_ptr<Swarm>;
 using SwarmVector = std::vector<SP_Swarm>;
-using SwarmMap = std::map<std::string, SP_Swarm>;
+using SwarmMap = std::unordered_map<std::string, SP_Swarm>;
 
 } // namespace parthenon
 

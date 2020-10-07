@@ -35,12 +35,14 @@ using parthenon::Swarm;
 constexpr int NUMINIT = 10;
 
 TEST_CASE("Swarm memory management", "[Swarm]") {
-  MeshBlock meshblock(1, 1);
+  auto meshblock = std::make_shared<MeshBlock>(1, 1);// meshblock(1, 1);
   Metadata m;
+  //auto std::make_shared<Swarm>("test swarm", m, NUMINIT);
   Swarm swarm("test swarm", m, NUMINIT);
-  swarm.pmy_block = &meshblock;
+  swarm.SetBlockPointer(meshblock);
   REQUIRE(swarm.get_num_active() == 0);
   REQUIRE(swarm.get_max_active_index() == 0);
+  //const auto mask = swarm.GetMask().Get().GetHostMirrorAndCopy();
   auto mask = swarm.GetMask().Get().GetHostMirrorAndCopy();
   REQUIRE(mask.GetDim(1) == NUMINIT);
   for (int n = 0; n < NUMINIT; n++) {

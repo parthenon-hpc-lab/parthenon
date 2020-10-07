@@ -208,14 +208,14 @@ template <typename T>
 class ParticleVariable {
  public:
   /// Initialize a particle variable
-  ParticleVariable(const std::string label, const int npool, const Metadata &metadata)
+  ParticleVariable(const std::string &label, const int npool, const Metadata &metadata)
       : data(label, npool), npool_(npool), m_(metadata), label_(label) {}
 
   // accessors
   KOKKOS_FORCEINLINE_FUNCTION
   ParArrayND<T> &Get() { return data; }
-  template <typename... Args>
-  KOKKOS_FORCEINLINE_FUNCTION T &operator()(Args... args) { // const {
+  template <class... Args>
+  KOKKOS_FORCEINLINE_FUNCTION auto &operator()(Args... args) {
     return data(std::forward<Args>(args)...);
   }
 
@@ -225,10 +225,10 @@ class ParticleVariable {
   bool IsSet(const MetadataFlag bit) const { return m_.IsSet(bit); }
 
   ///< retrieve label for variable
-  std::string label() { return label_; }
+  const std::string label() const { return label_; }
 
   /// return information string
-  std::string info();
+  std::string info() const;
 
   ParArrayND<T> data;
 

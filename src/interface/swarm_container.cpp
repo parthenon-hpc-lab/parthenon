@@ -22,10 +22,10 @@
 
 namespace parthenon {
 
-void SwarmContainer::Add(const std::vector<std::string> labelArray,
+void SwarmContainer::Add(const std::vector<std::string> &labelArray,
                          const Metadata &metadata) {
   // generate the vector and call Add
-  for (auto label : labelArray) {
+  for (const auto &label : labelArray) {
     Add(label, metadata);
   }
 }
@@ -36,24 +36,22 @@ void SwarmContainer::Add(const std::vector<std::string> labelArray,
 ///
 /// @param label the name of the variable
 /// @param metadata the metadata associated with the particle
-void SwarmContainer::Add(const std::string label, const Metadata &metadata) {
+void SwarmContainer::Add(const std::string &label, const Metadata &metadata) {
   if (swarmMap_.find(label) != swarmMap_.end()) {
     throw std::invalid_argument("swarm " + label + " already enrolled during Add()!");
   }
 
   auto swarm = std::make_shared<Swarm>(label, metadata);
-  swarm->pmy_block = pmy_block;
+  swarm->SetBlockPointer(GetBlockPointer());
   swarmVector_.push_back(swarm);
   swarmMap_[label] = swarm;
 }
 
 void SwarmContainer::Remove(const std::string label) {
-  int idx, isize;
-
   // Find index of swarm
-  isize = swarmVector_.size();
-  idx = 0;
-  for (auto s : swarmVector_) {
+  int isize = swarmVector_.size();
+  int idx = 0;
+  for (const auto &s : swarmVector_) {
     if (!label.compare(s->label())) {
       break;
     }
@@ -89,9 +87,9 @@ void SwarmContainer::StartReceiving(BoundaryCommSubset phase) {}
 
 void SwarmContainer::ClearBoundary(BoundaryCommSubset phase) {}
 
-void SwarmContainer::Print() {
+void SwarmContainer::Print() const {
   std::cout << "Swarms are:\n";
-  for (auto s : swarmMap_) {
+  for (const auto &s : swarmMap_) {
     std::cout << "  " << s.second->info() << std::endl;
   }
 }
