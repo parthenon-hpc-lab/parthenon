@@ -58,11 +58,17 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   Metadata m_integer({Metadata::Integer});
   swarm.Add(labelVector, m_integer);
 
-  auto x = swarm.GetReal("x").Get().GetHostMirrorAndCopy();
+  auto x_d = swarm.GetReal("x").Get();
+  auto x_h = x_d.GetHostMirrorAndCopy();
+  auto i_d = swarm.GetInteger("i").Get();
+  auto i_h = i_d.GetHostMirrorAndCopy();
+
   auto new_mask = swarm.AddEmptyParticles(1);
-  x(0) = 0.5;
-  auto i = swarm.GetInteger("i").Get().GetHostMirrorAndCopy();
-  i(1) = 2;
+  x_h(0) = 0.5;
+  i_h(1) = 2;
+
+  x_d.data.DeepCopy(x_h);
+  i_d.data.DeepCopy(i_h);
 
   new_mask = swarm.AddEmptyParticles(11);
   mask = swarm.GetMask().Get().GetHostMirrorAndCopy();
@@ -77,8 +83,8 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
     }
   }
   // Check that existing data was successfully copied during pool resize
-  x = swarm.GetReal("x").Get().GetHostMirrorAndCopy();
-  REQUIRE(x(0) == 0.5);
+  x_h = swarm.GetReal("x").Get().GetHostMirrorAndCopy();
+  REQUIRE(x_h(0) == 0.5);
 
   // Remove particles 3 and 5
   swarm.MarkParticleForRemoval(2);
@@ -97,9 +103,10 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   }
 
   // Enter some data to be moved during defragment
-  x = swarm.GetReal("x").Get().GetHostMirrorAndCopy();
-  x(10) = 1.1;
-  x(11) = 1.2;
+  x_h = swarm.GetReal("x").Get().GetHostMirrorAndCopy();
+  x_h(10) = 1.1;
+  x_h(11) = 1.2;
+  x_d.data.DeepCopy(x_h);
 
   // Defragment the list
   swarm.Defrag();
@@ -114,9 +121,9 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   }
 
   // Check that data was moved during defrag
-  x = swarm.GetReal("x").Get().GetHostMirrorAndCopy();
-  REQUIRE(x(2) == 1.2);
-  REQUIRE(x(4) == 1.1);
-  i = swarm.GetInteger("i").Get().GetHostMirrorAndCopy();
-  REQUIRE(i(1) == 2);
+  x_h = swarm.GetReal("x").Get().GetHostMirrorAndCopy();
+  REQUIRE(x_h(2) == 1.2);
+  REQUIRE(x_h(4) == 1.1);
+  i_h = swarm.GetInteger("i").Get().GetHostMirrorAndCopy();
+  REQUIRE(i_h(1) == 2);
 }
