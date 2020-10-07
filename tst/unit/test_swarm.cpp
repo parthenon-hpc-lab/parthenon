@@ -41,10 +41,10 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   swarm.SetBlockPointer(meshblock);
   REQUIRE(swarm.get_num_active() == 0);
   REQUIRE(swarm.get_max_active_index() == 0);
-  auto mask = swarm.GetMask().Get().GetHostMirrorAndCopy();
-  REQUIRE(mask.GetDim(1) == NUMINIT);
+  auto mask_h = swarm.GetMask().Get().GetHostMirrorAndCopy();
+  REQUIRE(mask_h.GetDim(1) == NUMINIT);
   for (int n = 0; n < NUMINIT; n++) {
-    REQUIRE(mask(n) == false);
+    REQUIRE(mask_h(n) == false);
   }
 
   REQUIRE(swarm.label() == "test swarm");
@@ -58,12 +58,12 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   Metadata m_integer({Metadata::Integer});
   swarm.Add(labelVector, m_integer);
 
+  auto new_mask = swarm.AddEmptyParticles(1);
   auto x_d = swarm.GetReal("x").Get();
   auto x_h = x_d.GetHostMirrorAndCopy();
   auto i_d = swarm.GetInteger("i").Get();
   auto i_h = i_d.GetHostMirrorAndCopy();
 
-  auto new_mask = swarm.AddEmptyParticles(1);
   x_h(0) = 0.5;
   i_h(1) = 2;
 
@@ -73,15 +73,17 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   new_mask = swarm.AddEmptyParticles(11);
   x_d = swarm.GetReal("x").Get();
   i_d = swarm.GetInteger("i").Get();
-  mask = swarm.GetMask().Get().GetHostMirrorAndCopy();
+  x_h = x_d.GetHostMirrorAndCopy();
+  i_h = i_d.GetHostMirrorAndCopy();
+  mask_h = swarm.GetMask().Get().GetHostMirrorAndCopy();
   // Check that swarm pool doubled in size
-  REQUIRE(mask.GetDim(1) == 2 * NUMINIT);
+  REQUIRE(mask_h.GetDim(1) == 2 * NUMINIT);
   // Check that only the added particles have a true mask
   for (int n = 0; n < 2 * NUMINIT; n++) {
     if (n < 12) {
-      REQUIRE(mask(n) == true);
+      REQUIRE(mask_h(n) == true);
     } else {
-      REQUIRE(mask(n) == false);
+      REQUIRE(mask_h(n) == false);
     }
   }
   // Check that existing data was successfully copied during pool resize
@@ -94,13 +96,13 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   swarm.RemoveMarkedParticles();
 
   // Check that partiles 3 and 5 were removed
-  mask = swarm.GetMask().Get().GetHostMirrorAndCopy();
+  mask_h = swarm.GetMask().Get().GetHostMirrorAndCopy();
   // Check that only the added particles have a true mask
   for (int n = 0; n < 2 * NUMINIT; n++) {
     if (n < 12 && n != 2 && n != 4) {
-      REQUIRE(mask(n) == true);
+      REQUIRE(mask_h(n) == true);
     } else {
-      REQUIRE(mask(n) == false);
+      REQUIRE(mask_h(n) == false);
     }
   }
 
@@ -112,13 +114,13 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
 
   // Defragment the list
   swarm.Defrag();
-  mask = swarm.GetMask().Get().GetHostMirrorAndCopy();
+  mask_h = swarm.GetMask().Get().GetHostMirrorAndCopy();
   // Check that the list is defragmented
   for (int n = 0; n < 2 * NUMINIT; n++) {
     if (n < 10) {
-      REQUIRE(mask(n) == true);
+      REQUIRE(mask_h(n) == true);
     } else {
-      REQUIRE(mask(n) == false);
+      REQUIRE(mask_h(n) == false);
     }
   }
 
