@@ -41,10 +41,10 @@ x3max = 0.5
 nx1 = 16
 nx2 = 16
 
-<parthenon/output0>
-file_type = hdf5
-dt = 1.e1
-variables = particle_deposition
+#<parthenon/output0>
+#file_type = hdf5
+#dt = 1.e1
+#variables = particle_deposition
 
 <parthenon/time>
 tlim = 1.e2

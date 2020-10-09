@@ -37,45 +37,53 @@ constexpr int NUMINIT = 10;
 TEST_CASE("Swarm memory management", "[Swarm]") {
   auto meshblock = std::make_shared<MeshBlock>(1, 1);
   Metadata m;
-  Swarm swarm("test swarm", m, NUMINIT);
-  swarm.SetBlockPointer(meshblock);
-  REQUIRE(swarm.get_num_active() == 0);
-  REQUIRE(swarm.get_max_active_index() == 0);
-  auto mask_h = swarm.GetMask().Get().GetHostMirrorAndCopy();
+  //Swarm swarm("test swarm", m, NUMINIT);
+  auto swarm = std::make_shared<Swarm>("test swarm", m, NUMINIT);
+  printf("1\n");
+  swarm->SetBlockPointer(meshblock);
+  REQUIRE(swarm->get_num_active() == 0);
+  REQUIRE(swarm->get_max_active_index() == 0);
+  printf("1\n");
+  auto mask_h = swarm->GetMask().Get().GetHostMirrorAndCopy();
   REQUIRE(mask_h.GetDim(1) == NUMINIT);
   for (int n = 0; n < NUMINIT; n++) {
     REQUIRE(mask_h(n) == false);
   }
+  printf("1\n");
 
-  REQUIRE(swarm.label() == "test swarm");
-  REQUIRE(swarm.info().length() == 0);
-  REQUIRE(swarm.metadata() == m);
+  REQUIRE(swarm->label() == "test swarm");
+  REQUIRE(swarm->info().length() == 0);
+  REQUIRE(swarm->metadata() == m);
+  printf("1\n");
 
   // Add multiple variables
   std::vector<std::string> labelVector(2);
   labelVector[0] = "i";
   labelVector[1] = "j";
   Metadata m_integer({Metadata::Integer});
-  swarm.Add(labelVector, m_integer);
+  swarm->Add(labelVector, m_integer);
+  printf("1\n");
 
-  auto new_mask = swarm.AddEmptyParticles(1);
-  auto x_d = swarm.GetReal("x").Get();
+  auto new_mask = swarm->AddEmptyParticles(1);
+  auto x_d = swarm->GetReal("x").Get();
   auto x_h = x_d.GetHostMirrorAndCopy();
-  auto i_d = swarm.GetInteger("i").Get();
+  auto i_d = swarm->GetInteger("i").Get();
   auto i_h = i_d.GetHostMirrorAndCopy();
+  printf("1\n");
 
   x_h(0) = 0.5;
   i_h(1) = 2;
 
   x_d.DeepCopy(x_h);
   i_d.DeepCopy(i_h);
+  printf("1\n");
 
-  new_mask = swarm.AddEmptyParticles(11);
-  x_d = swarm.GetReal("x").Get();
-  i_d = swarm.GetInteger("i").Get();
+  new_mask = swarm->AddEmptyParticles(11);
+  x_d = swarm->GetReal("x").Get();
+  i_d = swarm->GetInteger("i").Get();
   x_h = x_d.GetHostMirrorAndCopy();
   i_h = i_d.GetHostMirrorAndCopy();
-  mask_h = swarm.GetMask().Get().GetHostMirrorAndCopy();
+  mask_h = swarm->GetMask().Get().GetHostMirrorAndCopy();
   // Check that swarm pool doubled in size
   REQUIRE(mask_h.GetDim(1) == 2 * NUMINIT);
   // Check that only the added particles have a true mask
@@ -86,17 +94,28 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
       REQUIRE(mask_h(n) == false);
     }
   }
+  printf("1\n");
   // Check that existing data was successfully copied during pool resize
-  x_h = swarm.GetReal("x").Get().GetHostMirrorAndCopy();
+  x_h = swarm->GetReal("x").Get().GetHostMirrorAndCopy();
+  printf("2\n");
   REQUIRE(x_h(0) == 0.5);
+  printf("2\n");
 
   // Remove particles 3 and 5
-  swarm.MarkParticleForRemoval(2);
-  swarm.MarkParticleForRemoval(4);
-  swarm.RemoveMarkedParticles();
+  /*meshblock->par_for("Remove particles", 0, 0,
+    KOKKOS_LAMBDA(const int n) {
+      swarm->MarkParticleForRemoval(2);
+      swarm->MarkParticleForRemoval(4);
+    });*/
+  //swarm.MarkParticleForRemoval(2);
+  printf("2\n");
+  //swarm.MarkParticleForRemoval(4);
+  printf("2\n");
+  swarm->RemoveMarkedParticles();
+  printf("1\n");
 
   // Check that partiles 3 and 5 were removed
-  mask_h = swarm.GetMask().Get().GetHostMirrorAndCopy();
+  mask_h = swarm->GetMask().Get().GetHostMirrorAndCopy();
   // Check that only the added particles have a true mask
   for (int n = 0; n < 2 * NUMINIT; n++) {
     if (n < 12 && n != 2 && n != 4) {
@@ -105,16 +124,17 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
       REQUIRE(mask_h(n) == false);
     }
   }
+  printf("1\n");
 
   // Enter some data to be moved during defragment
-  x_h = swarm.GetReal("x").Get().GetHostMirrorAndCopy();
+  x_h = swarm->GetReal("x").Get().GetHostMirrorAndCopy();
   x_h(10) = 1.1;
   x_h(11) = 1.2;
   x_d.DeepCopy(x_h);
 
   // Defragment the list
-  swarm.Defrag();
-  mask_h = swarm.GetMask().Get().GetHostMirrorAndCopy();
+  swarm->Defrag();
+  mask_h = swarm->GetMask().Get().GetHostMirrorAndCopy();
   // Check that the list is defragmented
   for (int n = 0; n < 2 * NUMINIT; n++) {
     if (n < 10) {
@@ -123,11 +143,13 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
       REQUIRE(mask_h(n) == false);
     }
   }
+  printf("1\n");
 
   // Check that data was moved during defrag
-  x_h = swarm.GetReal("x").Get().GetHostMirrorAndCopy();
+  x_h = swarm->GetReal("x").Get().GetHostMirrorAndCopy();
   REQUIRE(x_h(2) == 1.2);
   REQUIRE(x_h(4) == 1.1);
-  i_h = swarm.GetInteger("i").Get().GetHostMirrorAndCopy();
+  printf("1\n");
+  i_h = swarm->GetInteger("i").Get().GetHostMirrorAndCopy();
   REQUIRE(i_h(1) == 2);
 }

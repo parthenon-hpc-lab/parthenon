@@ -103,6 +103,13 @@ TaskStatus SetTimestepTask(std::shared_ptr<Container<Real>> &rc) {
 // function.                                       *//
 // *************************************************//
 // first some helper tasks
+//
+class Test {
+  public:
+  KOKKOS_FUNCTION
+  void print() { printf("A\n"); }
+};
+
 TaskStatus DestroySomeParticles(MeshBlock *pmb) {
   auto pkg = pmb->packages["particles_package"];
   auto swarm = pmb->real_containers.GetSwarmContainer()->Get("my particles");
@@ -111,6 +118,11 @@ TaskStatus DestroySomeParticles(MeshBlock *pmb) {
   // The swarm mask is managed internally and should always be treated as constant. This
   // may be enforced later.
   const auto &mask = swarm->GetMask().Get();
+  //auto swarm_d = swarm->GetDeviceContext();
+  Test test();
+  //Test *test = static_cast<Test*>(Kokkos::kokkos_malloc<>(sizeof(Test)));
+  //Kokkos::parallel_for(1, KOKKOS_LAMBDA(const int i) { new (test) Test(); });
+  //Kokkos::fence();
 
   // Randomly mark 10% of particles each timestep for removal
   pmb->par_for(
@@ -119,7 +131,9 @@ TaskStatus DestroySomeParticles(MeshBlock *pmb) {
         if (mask(n)) {
           auto rng_gen = rng_pool.get_state();
           if (rng_gen.drand() > 0.9) {
-            swarm->MarkParticleForRemoval(n);
+    //test->print();
+            test.print();
+    //        swarm_d.MarkParticleForRemoval(n);
           }
           rng_pool.free_state(rng_gen);
         }

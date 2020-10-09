@@ -36,6 +36,32 @@ class MeshBlock;
 
 enum class PARTICLE_STATUS { UNALLOCATED, ALIVE, DEAD };
 
+class SwarmDeviceContext {
+public:
+  SwarmDeviceContext(ParArrayND<bool> m) : marked_for_removal_(m) {}
+
+  KOKKOS_FUNCTION
+  void MarkParticleForRemoval(int n) {
+    printf("hi\n");
+    //marked_for_removal_(n) = true;
+  }
+
+  //KOKKOS_FUNCTION
+  //bool IsMarkedForRemoval(const int n) {
+  //  return marked_for_removal_(n);
+  //}
+
+  //ParArrayND<bool> GetMarkedForRemoval() {
+  //  return marked_for_removal_;
+  //}
+
+private:
+  ParArrayND<bool> marked_for_removal_; 
+  //ParticleVariable<bool> marked_for_removal_;
+  //Kokkos::View<bool*> marked_for_removal_;
+  //friend class Swarm;
+};
+
 class Swarm {
  public:
   Swarm(const std::string &label, const Metadata &metadata, const int nmax_pool_in = 3);
@@ -46,6 +72,15 @@ class Swarm {
       PARTHENON_THROW("Invalid pointer to MeshBlock!");
     }
     return pmy_block.lock();
+  }
+
+  SwarmDeviceContext GetDeviceContext() const {
+    ParArrayND<bool> m;
+    SwarmDeviceContext context(m);
+    //context.marked_for_removal_ = marked_for_removal_;
+    //context.marked_for_removal_ = m;
+    return context;
+    //return SwarmDeviceContext {marked_for_removal_};
   }
 
   // Set the pointer to the mesh block for this swarm
