@@ -38,28 +38,25 @@ enum class PARTICLE_STATUS { UNALLOCATED, ALIVE, DEAD };
 
 class SwarmDeviceContext {
 public:
-  SwarmDeviceContext(ParArrayND<bool> m) : marked_for_removal_(m) {}
-
   KOKKOS_FUNCTION
-  void MarkParticleForRemoval(int n) {
-    printf("hi\n");
-    //marked_for_removal_(n) = true;
+  bool IsActive(int n) const {
+    return mask_(n);
   }
 
-  //KOKKOS_FUNCTION
-  //bool IsMarkedForRemoval(const int n) {
-  //  return marked_for_removal_(n);
-  //}
+  KOKKOS_FUNCTION
+  void MarkParticleForRemoval(int n) const {
+    marked_for_removal_(n) = true;
+  }
 
-  //ParArrayND<bool> GetMarkedForRemoval() {
-  //  return marked_for_removal_;
-  //}
+  KOKKOS_FUNCTION
+  bool IsMarkedForRemoval(const int n) const {
+    return marked_for_removal_(n);
+  }
 
 private:
   ParArrayND<bool> marked_for_removal_; 
-  //ParticleVariable<bool> marked_for_removal_;
-  //Kokkos::View<bool*> marked_for_removal_;
-  //friend class Swarm;
+  ParArrayND<bool> mask_;
+  friend class Swarm;
 };
 
 class Swarm {
@@ -75,23 +72,14 @@ class Swarm {
   }
 
   SwarmDeviceContext GetDeviceContext() const {
-    ParArrayND<bool> m;
-    SwarmDeviceContext context(m);
-    //context.marked_for_removal_ = marked_for_removal_;
-    //context.marked_for_removal_ = m;
+    SwarmDeviceContext context;
+    context.marked_for_removal_ = marked_for_removal_.data;
+    context.mask_ = mask_.data;
     return context;
-    //return SwarmDeviceContext {marked_for_removal_};
   }
 
   // Set the pointer to the mesh block for this swarm
   void SetBlockPointer(std::weak_ptr<MeshBlock> pmb) { pmy_block = pmb; }
-
-  // TODO BRR This should really be const... mask_ is managed internally
-  /// Get mask array for active particles
-  ParticleVariable<bool> &GetMask() { return mask_; }
-
-  /// Get the mask array of active particles that are marked for removal
-  ParticleVariable<bool> &GetMarkedForRemoval() { return marked_for_removal_; }
 
   /// Make a new Swarm based on an existing one
   std::shared_ptr<Swarm> AllocateCopy(const bool allocComms = false,
@@ -151,10 +139,6 @@ class Swarm {
   Real get_packing_efficiency() const { return num_active_ / (max_active_index_ + 1); }
 
   bool mpiStatus;
-
-  /// Mark particle for removal (usually during a parallel dispatch)
-  KOKKOS_INLINE_FUNCTION
-  void MarkParticleForRemoval(const int index) { marked_for_removal_(index) = true; }
 
   /// Remove particles marked for removal and update internal indexing
   void RemoveMarkedParticles();

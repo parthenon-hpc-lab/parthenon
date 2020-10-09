@@ -93,8 +93,6 @@ TaskStatus SetTimestepTask(std::shared_ptr<Container<Real>> &rc) {
   return TaskStatus::complete;
 }
 
-//}
-
 } // namespace Particles
 
 // *************************************************//
@@ -103,12 +101,6 @@ TaskStatus SetTimestepTask(std::shared_ptr<Container<Real>> &rc) {
 // function.                                       *//
 // *************************************************//
 // first some helper tasks
-//
-class Test {
-  public:
-  KOKKOS_FUNCTION
-  void print() { printf("A\n"); }
-};
 
 TaskStatus DestroySomeParticles(MeshBlock *pmb) {
   auto pkg = pmb->packages["particles_package"];
@@ -117,23 +109,16 @@ TaskStatus DestroySomeParticles(MeshBlock *pmb) {
 
   // The swarm mask is managed internally and should always be treated as constant. This
   // may be enforced later.
-  const auto &mask = swarm->GetMask().Get();
-  //auto swarm_d = swarm->GetDeviceContext();
-  Test test();
-  //Test *test = static_cast<Test*>(Kokkos::kokkos_malloc<>(sizeof(Test)));
-  //Kokkos::parallel_for(1, KOKKOS_LAMBDA(const int i) { new (test) Test(); });
-  //Kokkos::fence();
+  auto swarm_d = swarm->GetDeviceContext();
 
   // Randomly mark 10% of particles each timestep for removal
   pmb->par_for(
       "DestroySomeParticles", 0, swarm->get_max_active_index(),
       KOKKOS_LAMBDA(const int n) {
-        if (mask(n)) {
+        if (swarm_d.IsActive(n)) {
           auto rng_gen = rng_pool.get_state();
           if (rng_gen.drand() > 0.9) {
-    //test->print();
-            test.print();
-    //        swarm_d.MarkParticleForRemoval(n);
+            swarm_d.MarkParticleForRemoval(n);
           }
           rng_pool.free_state(rng_gen);
         }
@@ -163,7 +148,7 @@ TaskStatus DepositParticles(MeshBlock *pmb) {
   const auto &y = swarm->GetReal("y").Get();
   const auto &z = swarm->GetReal("z").Get();
   const auto &weight = swarm->GetReal("weight").Get();
-  const auto &mask = swarm->GetMask().Get();
+  auto swarm_d = swarm->GetDeviceContext();
 
   auto &particle_dep = pmb->real_containers.Get()->Get("particle_deposition").data;
   // Reset particle count
@@ -175,7 +160,7 @@ TaskStatus DepositParticles(MeshBlock *pmb) {
 
   pmb->par_for(
       "DepositParticles", 0, swarm->get_max_active_index(), KOKKOS_LAMBDA(const int n) {
-        if (mask(n)) {
+        if (swarm_d.IsActive(n)) {
           int i = static_cast<int>((x(n) - minx_i) / dx_i) + ib.s;
           int j = static_cast<int>((y(n) - minx_j) / dx_j) + jb.s;
           int k = static_cast<int>((z(n) - minx_k) / dx_k) + kb.s;
@@ -261,7 +246,6 @@ TaskStatus TransportParticles(MeshBlock *pmb, Integrator *integrator) {
   const auto &vx = swarm->GetReal("vx").Get();
   const auto &vy = swarm->GetReal("vy").Get();
   const auto &vz = swarm->GetReal("vz").Get();
-  const auto &mask = swarm->GetMask().Get();
 
   const Real &dx_i = pmb->coords.dx1f(pmb->cellbounds.is(IndexDomain::interior));
   const Real &dx_j = pmb->coords.dx2f(pmb->cellbounds.js(IndexDomain::interior));
@@ -278,6 +262,8 @@ TaskStatus TransportParticles(MeshBlock *pmb, Integrator *integrator) {
   const Real &x_max = pmb->coords.x1f(ib.e + 1);
   const Real &y_max = pmb->coords.x2f(jb.e + 1);
   const Real &z_max = pmb->coords.x3f(kb.e + 1);
+  
+  auto swarm_d = swarm->GetDeviceContext();
 
   ParArrayND<Real> t("time", max_active_index + 1);
 
@@ -285,7 +271,7 @@ TaskStatus TransportParticles(MeshBlock *pmb, Integrator *integrator) {
   // traveled one integrator timestep's worth of time
   pmb->par_for(
       "TransportParticles", 0, max_active_index, KOKKOS_LAMBDA(const int n) {
-        if (mask(n)) {
+        if (swarm_d.IsActive(n)) {
           t(n) = 0.;
           Real v = sqrt(vx(n) * vx(n) + vy(n) * vy(n) + vz(n) * vz(n));
           while (t(n) < dt) {
