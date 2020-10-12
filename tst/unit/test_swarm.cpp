@@ -30,13 +30,11 @@
 #include <parthenon/driver.hpp>
 #include <parthenon/package.hpp>
 
-//#include "Kokkos_Core.hpp"
-
 using Real = double;
 using parthenon::MeshBlock;
 using parthenon::Metadata;
-using parthenon::Swarm;
 using parthenon::ParArrayND;
+using parthenon::Swarm;
 
 constexpr int NUMINIT = 10;
 
@@ -49,13 +47,14 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   REQUIRE(swarm->get_num_active() == 0);
   REQUIRE(swarm->get_max_active_index() == 0);
   ParArrayND<int> failures_d("Number of failures", 1);
-  meshblock->par_for("Reset", 0, 0, KOKKOS_LAMBDA(const int n) { failures_d(n) = 0; });
-  meshblock->par_for("Check mask", 0, NUMINIT-1,
-    KOKKOS_LAMBDA(const int n) {
-      if (swarm_d.IsActive(n) == true) {
-        Kokkos::atomic_add(&failures_d(0), 1);
-      }
-    });
+  meshblock->par_for(
+      "Reset", 0, 0, KOKKOS_LAMBDA(const int n) { failures_d(n) = 0; });
+  meshblock->par_for(
+      "Check mask", 0, NUMINIT - 1, KOKKOS_LAMBDA(const int n) {
+        if (swarm_d.IsActive(n) == true) {
+          Kokkos::atomic_add(&failures_d(0), 1);
+        }
+      });
   auto failures_h = failures_d.GetHostMirrorAndCopy();
   REQUIRE(failures_h(0) == 0);
 
@@ -89,18 +88,18 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   i_d = swarm->GetInteger("i").Get();
   x_h = x_d.GetHostMirrorAndCopy();
   i_h = i_d.GetHostMirrorAndCopy();
-  meshblock->par_for("Check mask", 0, 2*NUMINIT-1,
-    KOKKOS_LAMBDA(const int n) {
-    if (n < 12) {
-      if (swarm_d.IsActive(n) == false) {
-        Kokkos::atomic_add(&failures_d(0), 1);
-      }
-    } else {
-      if (swarm_d.IsActive(n) == true) {
-        Kokkos::atomic_add(&failures_d(0), 1);
-      }
-    }
-  });
+  meshblock->par_for(
+      "Check mask", 0, 2 * NUMINIT - 1, KOKKOS_LAMBDA(const int n) {
+        if (n < 12) {
+          if (swarm_d.IsActive(n) == false) {
+            Kokkos::atomic_add(&failures_d(0), 1);
+          }
+        } else {
+          if (swarm_d.IsActive(n) == true) {
+            Kokkos::atomic_add(&failures_d(0), 1);
+          }
+        }
+      });
   failures_h = failures_d.GetHostMirrorAndCopy();
   REQUIRE(failures_h(0) == 0);
   // Check that existing data was successfully copied during pool resize
@@ -108,26 +107,26 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   REQUIRE(x_h(0) == 0.5);
 
   // Remove particles 3 and 5
-  meshblock->par_for("Remove particles", 0, 0,
-    KOKKOS_LAMBDA(const int n) {
-      swarm_d.MarkParticleForRemoval(2);
-      swarm_d.MarkParticleForRemoval(4);
-    });
+  meshblock->par_for(
+      "Remove particles", 0, 0, KOKKOS_LAMBDA(const int n) {
+        swarm_d.MarkParticleForRemoval(2);
+        swarm_d.MarkParticleForRemoval(4);
+      });
   swarm->RemoveMarkedParticles();
 
   // Check that partiles 3 and 5 were removed
-  meshblock->par_for("Check mask", 0, 2*NUMINIT-1,
-    KOKKOS_LAMBDA(const int n) {
-    if (n < 12 && n != 2 && n != 4) {
-      if (swarm_d.IsActive(n) == false) {
-        Kokkos::atomic_add(&failures_d(0), 1);
-      }
-    } else {
-      if (swarm_d.IsActive(n) == true) {
-        Kokkos::atomic_add(&failures_d(0), 1);
-      }
-    }
-  });
+  meshblock->par_for(
+      "Check mask", 0, 2 * NUMINIT - 1, KOKKOS_LAMBDA(const int n) {
+        if (n < 12 && n != 2 && n != 4) {
+          if (swarm_d.IsActive(n) == false) {
+            Kokkos::atomic_add(&failures_d(0), 1);
+          }
+        } else {
+          if (swarm_d.IsActive(n) == true) {
+            Kokkos::atomic_add(&failures_d(0), 1);
+          }
+        }
+      });
   failures_h = failures_d.GetHostMirrorAndCopy();
   REQUIRE(failures_h(0) == 0);
 
@@ -140,18 +139,18 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   // Defragment the list
   swarm->Defrag();
   // Check that the list is defragmented
-  meshblock->par_for("Check mask", 0, 2*NUMINIT-1,
-    KOKKOS_LAMBDA(const int n) {
-    if (n < 10) {
-      if (swarm_d.IsActive(n) == false) {
-        Kokkos::atomic_add(&failures_d(0), 1);
-      }
-    } else {
-      if (swarm_d.IsActive(n) == true) {
-        Kokkos::atomic_add(&failures_d(0), 1);
-      }
-    }
-  });
+  meshblock->par_for(
+      "Check mask", 0, 2 * NUMINIT - 1, KOKKOS_LAMBDA(const int n) {
+        if (n < 10) {
+          if (swarm_d.IsActive(n) == false) {
+            Kokkos::atomic_add(&failures_d(0), 1);
+          }
+        } else {
+          if (swarm_d.IsActive(n) == true) {
+            Kokkos::atomic_add(&failures_d(0), 1);
+          }
+        }
+      });
   failures_h = failures_d.GetHostMirrorAndCopy();
   REQUIRE(failures_h(0) == 0);
 

@@ -74,13 +74,6 @@ if (ENABLE_HDF5)
   list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
     --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/output_hdf5/parthinput.advection \
     --num_steps 4")
-
-  # Particles test
-  list(APPEND TEST_DIRS particles)
-  list(APPEND TEST_PROCS "1")
-  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/particles/particle-example \
-  --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/particles/parthinput.particles \
-  --num_steps 10")
 endif()
 
 # Any external modules that are required by python can be added to REQUIRED_PYTHON_MODULES

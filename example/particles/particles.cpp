@@ -310,8 +310,6 @@ TaskStatus TransportParticles(MeshBlock *pmb, Integrator *integrator) {
   return TaskStatus::complete;
 }
 
-// TaskStatus Defrag(MeshBlock *pmb, int stage, std::vector<std::string> &stage_name,
-//                  Integrator *integrator) {
 TaskStatus Defrag(MeshBlock *pmb) {
   auto s = pmb->real_containers.GetSwarmContainer()->Get("my particles");
 
