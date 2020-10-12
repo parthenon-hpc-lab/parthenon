@@ -21,6 +21,13 @@ import argparse
 import os
 import sys
 
+try:
+    # Configure mpi4py to not initialize MPI automatically
+    # See: https://github.com/lanl/parthenon/pull/320
+    import mpi4py
+    mpi4py.rc(initialize=False)
+except ImportError: ()
+
 """ To prevent littering up imported folders with .pyc files"""
 sys.dont_write_bytecode = True
 
