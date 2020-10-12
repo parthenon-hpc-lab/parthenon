@@ -100,8 +100,6 @@ class TestManager:
         self.parameters.mpi_cmd = mpi_executable
         self.parameters.mpi_opts = kwargs.pop('mpirun_opts')
        
-        #if "-np " in self.parameters.mpi_opts:
-        print("MPI options %s" % self.parameters.mpi_opts)
         argstrings = ['-np','-n']
         if len(set(argstrings) & set(self.parameters.mpi_opts)) > 1:
           print('Warning! You have set both "-n" and "-np" in your MPI options.')

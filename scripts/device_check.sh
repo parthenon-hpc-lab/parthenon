@@ -4,9 +4,15 @@
 # ctest suite is run. It does this by using the nvidia-smi. The script is only called if
 # parthenon is built with kokkos_ENABLE_CUDA.
 #
-# The script takes a single argument the number of GPUs that are meant to be used with the 
-# tests. The script then checks that the number of GPUs that are actually avaliable on the
-# system are enough to satisfy this requirement. 
+# The script takes 3 arguments the number of GPUs per node, that are meant to be used with the 
+# tests. The name of the mpi binary and the number of mpi procs to be used. 
+#
+# The script then checks:
+#
+# 1. That the mpi binary is mpiexec (does not run otherwise) 
+# 2. That the number of GPUs that are actually avaliable on the node are enough to satisfy 
+# requirements specified by the user
+# 3. That more than a single gpu is not assigned to each mpi proc
 
 if [ "$#" -ne 3 ]; then
   printf "You must enter exactly 3 command line arguments, which should indicate:

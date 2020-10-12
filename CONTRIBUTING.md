@@ -262,14 +262,14 @@ list(APPEND EXTRA_TEST_LABELS "perf")
 ```
 
 NOTE: The TEST\_PROCS list indicates how many processors to use when running
-mpi. The cmake variable NUM\_MPI\_PROC\_TESTING can be used if you do not want to
-hardcode a value, and is recommended.  By default all regression tests added to
-these lists will be run in serial and in parallel with mpi. The number of mpi
-processors used is by default set to 4. This default can be adjusted by
+mpi. The cmake variable NUM\_MPI\_PROC\_TESTING can be used if you do not want
+to hardcode a value, and is recommended.  By default all regression tests added
+to these lists will be run in serial and in parallel with mpi. The number of
+mpi processors used is by default set to 4. This default can be adjusted by
 changing the cmake variable NUM\_MPI\_PROC\_TESTING. The number of OpenMP
 threads is by default set to 1 but can be adjusted in the driver input file
-deck. If parthenon is compiled with CUDA enabled each mpi processor will be
-assigned its own cuda capable device.  
+deck. If parthenon is compiled with CUDA enabled, by default a single GPU will
+be assigned to each node..  
 
 ##### Running ctest 
 

@@ -197,10 +197,10 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 SET (Kokkos_ENABLE_AGGRESSIVE_VECTORIZATION ON CACHE BOOL
      "Kokkos aggressive vectorization")
 
-# Tell Kokkos we need lambdas in Cuda.
 # Check that gpu devices are actually detected
 set(NUM_GPU_DEVICES_PER_NODE "1" CACHE STRING "Number of gpu devices to use when testing if built with Kokkos_ENABLE_CUDA")
 if (Kokkos_ENABLE_CUDA)
+  # Tell Kokkos we need lambdas in Cuda.
   SET (Kokkos_ENABLE_CUDA_LAMBDA ON CACHE BOOL
        "Enable lambda expressions in CUDA")
   if ( "${PARTHENON_ENABLE_GPU_MPI_CHECKS}" )
@@ -274,7 +274,7 @@ if (${PARTHENON_ENABLE_UNIT_TESTS} OR ${PARTHENON_ENABLE_INTEGRATION_TESTS} OR $
     endif()
 
 
-    # Throw a warning if the number of processors available is less than 4
+    # Throw a warning if the number of processors available is less than the number specified for running the tests.
     include(ProcessorCount)
     ProcessorCount(N)
     if( "${NUM_MPI_PROC_TESTING}" GREATER "${N}") 
