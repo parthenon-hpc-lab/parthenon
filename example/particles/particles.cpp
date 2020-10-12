@@ -262,7 +262,7 @@ TaskStatus TransportParticles(MeshBlock *pmb, Integrator *integrator) {
   const Real &x_max = pmb->coords.x1f(ib.e + 1);
   const Real &y_max = pmb->coords.x2f(jb.e + 1);
   const Real &z_max = pmb->coords.x3f(kb.e + 1);
-  
+
   auto swarm_d = swarm->GetDeviceContext();
 
   ParArrayND<Real> t("time", max_active_index + 1);

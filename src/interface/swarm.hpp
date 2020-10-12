@@ -37,24 +37,18 @@ class MeshBlock;
 enum class PARTICLE_STATUS { UNALLOCATED, ALIVE, DEAD };
 
 class SwarmDeviceContext {
-public:
+ public:
   KOKKOS_FUNCTION
-  bool IsActive(int n) const {
-    return mask_(n);
-  }
+  bool IsActive(int n) const { return mask_(n); }
 
   KOKKOS_FUNCTION
-  void MarkParticleForRemoval(int n) const {
-    marked_for_removal_(n) = true;
-  }
+  void MarkParticleForRemoval(int n) const { marked_for_removal_(n) = true; }
 
   KOKKOS_FUNCTION
-  bool IsMarkedForRemoval(const int n) const {
-    return marked_for_removal_(n);
-  }
+  bool IsMarkedForRemoval(const int n) const { return marked_for_removal_(n); }
 
-private:
-  ParArrayND<bool> marked_for_removal_; 
+ private:
+  ParArrayND<bool> marked_for_removal_;
   ParArrayND<bool> mask_;
   friend class Swarm;
 };
