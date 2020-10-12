@@ -110,16 +110,7 @@ function(setup_test_mpi nproc dir arg extra_labels)
     list(APPEND labels "${extra_labels}")
 
     if( "${Kokkos_ENABLE_CUDA}" )
-      if( NOT "${NUM_MPI_PROC_TESTING}" EQUAL "${NUM_GPU_DEVICES_TESTING}")
-        message(FATAL_ERROR "You are trying to build the parthenon regression "
-        "tests with CUDA enabled kokkos, with the following settings:\n"
-        "Number of MPI processors set to: ${NUM_MPI_PROC_TESTING}\n"
-        "Number of CUDA devices set to: ${NUM_GPU_DEVICES_TESTING}\n"
-        "Each mpi processor must have access to a single gpu. Consider setting:\n"
-        "NUM_MPI_PROC_TESTING == NUM_GPU_DEVICES_TESTING\n"
-        "Or consider building without CUDA")
-      endif() 
-      set(PARTHENON_KOKKOS_TEST_ARGS "--kokkos-num-devices=${NUM_GPU_DEVICES_TESTING}")
+      set(PARTHENON_KOKKOS_TEST_ARGS "--kokkos-num-devices=${NUM_GPU_DEVICES_PER_NODE}")
       list(APPEND labels "cuda")
     endif()
     process_mpi_args(${nproc})

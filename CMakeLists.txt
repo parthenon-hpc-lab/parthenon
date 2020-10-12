@@ -62,6 +62,7 @@ built some, drivers needed by the regression tests will still be built."
   OFF
 )
 
+option(PARTHENON_ENABLE_GPU_MPI_CHECKS "Checks if possible that the mpi num of procs and the number of gpu devices detected are appropriate." ${BUILD_TESTING})
 option(PARTHENON_ENABLE_UNIT_TESTS "Enable unit tests" ${BUILD_TESTING})
 option(PARTHENON_ENABLE_INTEGRATION_TESTS "Enable integration tests" ${BUILD_TESTING})
 option(PARTHENON_ENABLE_PERFORMANCE_TESTS "Enable performance tests" ${BUILD_TESTING})
@@ -202,7 +203,9 @@ set(NUM_GPU_DEVICES_PER_NODE "1" CACHE STRING "Number of gpu devices to use when
 if (Kokkos_ENABLE_CUDA)
   SET (Kokkos_ENABLE_CUDA_LAMBDA ON CACHE BOOL
        "Enable lambda expressions in CUDA")
+  if ( "${PARTHENON_ENABLE_GPU_MPI_CHECKS}" )
      configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/CTestCustom.cmake.in ${CMAKE_BINARY_DIR}/CTestCustom.cmake @ONLY)
+  endif()
 endif()
 
 # If this is a debug build, set kokkos debug on

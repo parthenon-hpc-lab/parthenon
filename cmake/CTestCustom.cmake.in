@@ -11,4 +11,4 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
 
-SET(CTEST_CUSTOM_PRE_TEST "bash @CMAKE_CURRENT_SOURCE_DIR@/scripts/device_check.sh @NUM_GPU_DEVICES_TESTING@")
+SET(CTEST_CUSTOM_PRE_TEST "bash @CMAKE_CURRENT_SOURCE_DIR@/scripts/device_check.sh @NUM_GPU_DEVICES_PER_NODE@ @MPIEXEC_EXECUTABLE@ @NUM_MPI_PROC_TESTING@")
