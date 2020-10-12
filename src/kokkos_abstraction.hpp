@@ -111,14 +111,15 @@ static struct LoopPatternUndefined {
 // Currently the only available option.
 static struct OuterLoopPatternTeams {
 } outer_loop_pattern_teams_tag;
+// Inner loop pattern tags must be constexpr so they're available on device
 // Translate to a Kokkos::TeamVectorRange as innermost loop (single index)
-static struct InnerLoopPatternTVR {
-} inner_loop_pattern_tvr_tag;
+struct InnerLoopPatternTVR {};
+constexpr InnerLoopPatternTVR inner_loop_pattern_tvr_tag;
 // Translate to a non-Kokkos plain C++ innermost loop (single index)
 // decorated with #pragma omp simd
 // IMPORTANT: currently only supported on CPUs
-static struct InnerLoopPatternSimdFor {
-} inner_loop_pattern_simdfor_tag;
+struct InnerLoopPatternSimdFor {};
+constexpr InnerLoopPatternSimdFor inner_loop_pattern_simdfor_tag;
 
 namespace dispatch_impl {
 static struct ParallelForDispatch {
