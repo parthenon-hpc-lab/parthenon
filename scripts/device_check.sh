@@ -31,7 +31,35 @@ printf "\n****************************************** Beginning Precheck ********
 if [[ "${MPI_EXEC_NAME}" = *mpiexec ]]
 then
 
-  NODE_COUNT=$(${MPI_EXEC_NAME} --display-allocation bash -c "exit 0" | grep -o ': flags=' | wc -l)
+  
+  DATA=$(${MPI_EXEC_NAME} --display-allocation bash -c "exit 0")
+
+  NODE_COUNT=0
+  START_COUNT=0
+  while IFS= read -r line
+  do 
+    if [[ "$line" =~ "=================================================================" ]]
+    then
+      break
+    fi
+    if [[ $START_COUNT == 1 ]]
+    then
+      NODE_COUNT=$(( $NODE_COUNT + 1 ))
+    fi
+    if [[ "$line" =~ "======================   ALLOCATED NODES   ======================" ]]
+    then
+      START_COUNT=1
+    fi
+  done <<< "$DATA"
+
+  if [[ $NODE_COUNT == 0 ]]
+  then
+    printf "There was a problem detecting the node count using mpiexec"
+    printf $DATA
+    printf "Skipping precheck\n\n"
+    printf "******************************************  Ending Precheck   ******************************************\n\n"
+    exit 0
+  fi
 
   REMAINDER=$(( $NUM_MPI_PROCS_REQUESTED % $NODE_COUNT ))
   if [ "$REMAINDER" -ne "0" ] 
