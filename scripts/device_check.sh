@@ -32,7 +32,7 @@ if [[ "${MPI_EXEC_NAME}" = *mpiexec ]]
 then
 
   
-  DATA=$(${MPI_EXEC_NAME} --display-allocation bash -c "exit 0")
+  DATA=$(${MPI_EXEC_NAME} --display-allocation --allow-run-as-root bash -c "exit 0")
 
   NODE_COUNT=0
   START_COUNT=0
@@ -54,9 +54,9 @@ then
 
   if [[ $NODE_COUNT == 0 ]]
   then
-    printf "There was a problem detecting the node count using mpiexec"
+    printf "There was a problem detecting the node count using mpiexec\n"
     printf $DATA
-    printf "Skipping precheck\n\n"
+    printf "\nSkipping precheck\n\n"
     printf "******************************************  Ending Precheck   ******************************************\n\n"
     exit 0
   fi
