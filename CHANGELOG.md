@@ -14,7 +14,10 @@
 - [[PR 293]](https://github.com/lanl/parthenon/pull/293) Changed `VariablePack` and related objects to use `ParArray1D` objects instead of `ParArrayND` objects under the hood to reduce the size of the captured objects.
 - [[PR 310]](https://github.com/lanl/parthenon/pull/310) Fix Cuda 11 builds.
 - [[PR 313]](https://github.com/lanl/parthenon/pull/313) Add include guards for Kokkos in cmake.
+- [[PR 321]](https://github.com/lanl/parthenon/pull/321) Make inner loop pattern tags constexpr
 - [[PR 281]](https://github.com/lanl/parthenon/pull/281) Allows one to run regression tests with more than one cuda device, Also improves readability of regression tests output.
+
+### Removed (removing behavior/API/varaibles/...)
 
 ## Release 0.2.0
 Date: 9/12/2020
