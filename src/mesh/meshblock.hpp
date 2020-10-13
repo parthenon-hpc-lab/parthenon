@@ -175,41 +175,14 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
     Kokkos::deep_copy(exec_space, dst, src);
   }
 
-  // 1D default loop pattern
-  template <typename Function>
-  inline void par_for(const std::string &name, const int &il, const int &iu,
-                      const Function &function) {
-    // using loop_pattern_flatrange_tag instead of DEFAULT_LOOP_PATTERN for now
-    // as the other wrappers are not implemented yet for 1D loops
-    parthenon::par_for(loop_pattern_flatrange_tag, name, exec_space, il, iu, function);
+  template <class... Args>
+  inline void par_for(Args &&... args) {
+    par_dispatch_(std::forward<Args>(args)...);
   }
 
-  // 2D default loop pattern
-  template <typename Function>
-  inline void par_for(const std::string &name, const int &jl, const int &ju,
-                      const int &il, const int &iu, const Function &function) {
-    // using loop_pattern_mdrange_tag instead of DEFAULT_LOOP_PATTERN for now
-    // as the other wrappers are not implemented yet for 1D loops
-    parthenon::par_for(loop_pattern_mdrange_tag, name, exec_space, jl, ju, il, iu,
-                       function);
-  }
-
-  // 3D default loop pattern
-  template <typename Function>
-  inline void par_for(const std::string &name, const int &kl, const int &ku,
-                      const int &jl, const int &ju, const int &il, const int &iu,
-                      const Function &function) {
-    parthenon::par_for(DEFAULT_LOOP_PATTERN, name, exec_space, kl, ku, jl, ju, il, iu,
-                       function);
-  }
-
-  // 4D default loop pattern
-  template <typename Function>
-  inline void par_for(const std::string &name, const int &nl, const int &nu,
-                      const int &kl, const int &ku, const int &jl, const int &ju,
-                      const int &il, const int &iu, const Function &function) {
-    parthenon::par_for(DEFAULT_LOOP_PATTERN, name, exec_space, nl, nu, kl, ku, jl, ju, il,
-                       iu, function);
+  template <class... Args>
+  inline void par_reduce(Args &&... args) {
+    par_dispatch_(std::forward<Args>(args)...);
   }
 
   // 1D Outer default loop pattern
@@ -277,6 +250,53 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   std::function<void()> UserWorkInLoop = &UserWorkInLoopDefault;
   void SetBlockTimestep(const Real dt) { new_block_dt_ = dt; }
   Real NewDt() const { return new_block_dt_; }
+
+  // It would be nice for these par_dispatch_ functions to be private, but they can't be
+  // 1D default loop pattern
+  template <typename Function, class... Args>
+  inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
+  par_dispatch_(const std::string &name, const int &il, const int &iu,
+                const Function &function, Args &&... args) {
+    // using loop_pattern_flatrange_tag instead of DEFAULT_LOOP_PATTERN for now
+    // as the other wrappers are not implemented yet for 1D loops
+    parthenon::par_dispatch(loop_pattern_flatrange_tag, name, exec_space, il, iu,
+                            function, std::forward<Args>(args)...);
+  }
+
+  // 2D default loop pattern
+  template <typename Function, class... Args>
+  inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
+  par_dispatch_(const std::string &name, const int &jl, const int &ju, const int &il,
+                const int &iu, const Function &function, Args &&... args) {
+    // using loop_pattern_mdrange_tag instead of DEFAULT_LOOP_PATTERN for now
+    // as the other wrappers are not implemented yet for 1D loops
+    parthenon::par_dispatch(loop_pattern_mdrange_tag, name, exec_space, jl, ju, il, iu,
+                            function, std::forward<Args>(args)...);
+  }
+
+  // 3D default loop pattern
+  template <typename Function, class... Args>
+  inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
+  par_dispatch_(const std::string &name, const int &kl, const int &ku, const int &jl,
+                const int &ju, const int &il, const int &iu, const Function &function,
+                Args &&... args) {
+    typename std::conditional<sizeof...(Args) == 0, decltype(DEFAULT_LOOP_PATTERN),
+                              LoopPatternMDRange>::type loop_type;
+    parthenon::par_dispatch(loop_type, name, exec_space, kl, ku, jl, ju, il, iu, function,
+                            std::forward<Args>(args)...);
+  }
+
+  // 4D default loop pattern
+  template <typename Function, class... Args>
+  inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
+  par_dispatch_(const std::string &name, const int &nl, const int &nu, const int &kl,
+                const int &ku, const int &jl, const int &ju, const int &il, const int &iu,
+                const Function &function, Args &&... args) {
+    typename std::conditional<sizeof...(Args) == 0, decltype(DEFAULT_LOOP_PATTERN),
+                              LoopPatternMDRange>::type loop_type;
+    parthenon::par_dispatch(loop_type, name, exec_space, nl, nu, kl, ku, jl, ju, il, iu,
+                            function, std::forward<Args>(args)...);
+  }
 
  private:
   // data

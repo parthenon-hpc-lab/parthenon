@@ -100,12 +100,10 @@ TaskStatus ComputeArea(Pack_t pack, ParArrayHost<Real> areas, int i) {
   const IndexRange kb = pack.cellbounds.GetBoundsK(IndexDomain::interior);
 
   Real area = 0.0;
-  using policy = Kokkos::MDRangePolicy<Kokkos::Rank<5>>;
-  Kokkos::parallel_reduce(
-      "calculate_pi compute area",
-      policy(parthenon::DevExecSpace(), {0, 0, kb.s, jb.s, ib.s},
-             {pack.GetDim(5), pack.GetDim(4), kb.e + 1, jb.e + 1, ib.e + 1},
-             {1, 1, 1, 1, ib.e + 1 - ib.s}),
+  par_reduce(
+      parthenon::loop_pattern_mdrange_tag, "calculate_pi compute area",
+      parthenon::DevExecSpace(), 0, pack.GetDim(5) - 1, 0, pack.GetDim(4) - 1, kb.s, kb.e,
+      jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(int b, int v, int k, int j, int i, Real &larea) {
         larea += pack(b, v, k, j, i) * pack.coords(b).Area(parthenon::X3DIR, k, j, i);
       },
