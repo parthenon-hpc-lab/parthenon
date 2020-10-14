@@ -38,7 +38,7 @@ of it by using the `Partition` machinery found in
 into four evenly sized meshpacks, do
 ```C++
 using parthenon::MeshBlock;
-auto partitions = parthenon::Partition::ToNPartitions(mesh->block_list, 4);
+auto partitions = parthenon::partition::ToNPartitions(mesh->block_list, 4);
 MeshBlockPack<VariablePack<Real>> packs[4];
 for (int i = 0; i < partitions.size() {
   packs[i] = PackVariablesOnMesh(partitions[i], "base");
