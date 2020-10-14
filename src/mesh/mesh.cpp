@@ -940,7 +940,7 @@ void Mesh::BuildMeshBlockPacks() {
     for (auto &pair : packers) {
       auto &name = pair.first;
       auto &func = pair.second;
-      real_fluxpacks[package][name] = std::move(func(this));
+      real_fluxpacks[package][name] = func(this);
     }
   }
 }
