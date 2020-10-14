@@ -931,7 +931,7 @@ void Mesh::BuildMeshBlockPacks() {
       auto &name = pair.first;
       auto &func = pair.second;
       // avoid unnecessary copies
-      real_varpacks[package][name] = std::move(func(this));
+      real_varpacks[package][name] = func(this);
     }
   }
   for (auto &outer : real_fluxpackers_) {
