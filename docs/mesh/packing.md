@@ -62,7 +62,7 @@ Partition_t<T> ToNPartitions(Container_t<T> &container, const int N);
 template <typename T, typename Container_t>
 std::vector<std::vector<T>> ToSizeN(Container_t<T> &container, const int N);
 ```
-Both functions live within the namespace `parthenon::Partition` and `Partition_t` 
+Both functions live within the namespace `parthenon::partition` and `Partition_t` 
 is defined as:
 ```C++
 templat<typename T>
