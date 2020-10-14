@@ -238,4 +238,4 @@ The default packs available are:
 
 | Namespace | Name        | Contains Fluxes | Metadata Condition     |
 | --------- | ----------- | --------------- | ---------------------- |
-| default   | fill_ghosts | No              | `Metadata::FillGhosts` |
+| default   | fill_ghosts | No              | `Metadata::FillGhost` |
