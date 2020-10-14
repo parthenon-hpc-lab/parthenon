@@ -171,7 +171,7 @@ for a `Mesh* pmesh`.
 Note that the packing function expects you to prepare the state of the
 mesh for the pack. This may mean you need to create new containers if
 they are not available in your container collection. It may also mean
-you must partition the your meshblocks if you want to pack over a
+you must partition your meshblocks if you want to pack over a
 piece of the mesh, as in the example above.
 
 The user can also register these functions from within an individual
