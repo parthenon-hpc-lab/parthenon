@@ -65,7 +65,7 @@ std::vector<std::vector<T>> ToSizeN(Container_t<T> &container, const int N);
 Both functions live within the namespace `parthenon::partition` and `Partition_t` 
 is defined as:
 ```C++
-templat<typename T>
+template<typename T>
 using Parition_t = std::vector<std::vector<T>>
 ```
 
