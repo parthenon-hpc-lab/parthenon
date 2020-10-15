@@ -259,20 +259,29 @@ Essentially, the command for running `run_test.py` must be called from within cm
 
 ```
 list(APPEND TEST_DIRS foo_test)
+list(APPEND TEST_PROCS "5")
 list(APPEND TEST_ARGS "--driver location_of_foo_driver --driver_input Location_of_foo_input_deck")
+list(APPEND EXTRA_TEST_LABELS "")
 ```
 
-For the calculate pi example shown above this consists of adding parameters to two cmake lists
+For the calculate pi example shown above this consists of adding parameters to four cmake lists
 
 ```
 list(APPEND TEST_DIRS calculate_pi)
+list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
 list(APPEND TEST_ARGS "--driver ${CMAKE_BINARY_DIR}/example/calculate_pi/parthenon-example --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/calculate_pi/parthinput.regression")
+list(APPEND EXTRA_TEST_LABELS "perf")
 ```
 
-NOTE: By default all regression tests added to these lists will be run in serial and in parallel
-with mpi. The number of mpi processors used is by default set to 4. This default can be adjusted
-by changing the cmake variable NUM\_MPI\_PROC\_TESTING. The number of OpenMP threads is by default set
-to 1 but can be adjusted in the driver input file deck. 
+NOTE: The TEST\_PROCS list indicates how many processors to use when running
+mpi. The cmake variable NUM\_MPI\_PROC\_TESTING can be used if you do not want
+to hardcode a value, and is recommended.  By default all regression tests added
+to these lists will be run in serial and in parallel with mpi. The number of
+mpi processors used is by default set to 4. This default can be adjusted by
+changing the cmake variable NUM\_MPI\_PROC\_TESTING. The number of OpenMP
+threads is by default set to 1 but can be adjusted in the driver input file
+deck. If parthenon is compiled with CUDA enabled, by default a single GPU will
+be assigned to each node..  
 
 ##### Running ctest 
 
@@ -351,5 +360,3 @@ Fine grained control of where the coverage reports are placed can be specified
 with COVERAGE_PATH, COVERAGE_NAME, which represent the path to the coverage
 reports and the directory where they will be placed. The default location is in
 a folder named coverage in the build directory. 
-
-

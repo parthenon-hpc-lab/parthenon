@@ -34,7 +34,7 @@ class TestCase(utils.test_case.TestCaseAbs):
     def Prepare(self, parameters, step):
 
         parameters.driver_cmd_line_args = [
-            'parthenon/mesh/nx1=256',
+            'parthenon/mesh/nx1=%d' % (parameters.num_ranks * 256),
             'parthenon/meshblock/nx1=%d' % mb_sizes[step - 1],
             'parthenon/mesh/nx2=256',
             'parthenon/meshblock/nx2=%d' % mb_sizes[step - 1],
