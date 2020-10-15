@@ -62,7 +62,8 @@ built some, drivers needed by the regression tests will still be built."
   OFF
 )
 
-option(PARTHENON_ENABLE_GPU_MPI_CHECKS "Checks if possible that the mpi num of procs and the number of gpu devices detected are appropriate." ${BUILD_TESTING})
+option(PARTHENON_ENABLE_GPU_MPI_CHECKS "Checks if possible that the mpi num of procs and the number\
+of gpu devices detected are appropriate." ${BUILD_TESTING})
 option(PARTHENON_ENABLE_UNIT_TESTS "Enable unit tests" ${BUILD_TESTING})
 option(PARTHENON_ENABLE_INTEGRATION_TESTS "Enable integration tests" ${BUILD_TESTING})
 option(PARTHENON_ENABLE_PERFORMANCE_TESTS "Enable performance tests" ${BUILD_TESTING})
