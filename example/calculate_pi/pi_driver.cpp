@@ -14,18 +14,18 @@
 // Standard Includes
 #include <fstream>
 #include <memory>
+#include <string>
+#include <vector>
 
 // Parthenon Includes
-#include <parthenon/package.hpp>
+#include <parthenon/driver.hpp>
 
 // Local Includes
 #include "calculate_pi.hpp"
 #include "pi_driver.hpp"
 
 // Preludes
-using namespace parthenon::package::prelude;
-using parthenon::Packages_t;
-using parthenon::ParameterInput;
+using namespace parthenon::driver::prelude;
 
 using pi::PiDriver;
 
@@ -93,34 +93,11 @@ parthenon::DriverStatus PiDriver::Execute() {
 
   pouts->MakeOutputs(pmesh, pinput);
 
-  ConstructAndExecuteBlockTasks<>(this);
+  // The tasks compute pi and store it in the param "pi_val"
+  ConstructAndExecuteTaskLists<>(this);
 
-  // All the blocks are done, now do a global reduce and spit out the answer
-  // first sum over blocks on this rank
-  Real area = 0.0;
-  MeshBlock *pmb = pmesh->pblock;
-  while (pmb != nullptr) {
-    auto &rc = pmb->real_containers.Get();
-    ParArrayND<Real> v = rc->Get("in_or_out").data;
-
-    // extract area from device memory
-    Real block_area;
-    Kokkos::deep_copy(pmb->exec_space, block_area, v.Get(0, 0, 0, 0, 0, 0));
-    pmb->exec_space.fence(); // as the deep copy may be async
-
-    const auto &radius = pmb->packages["calculate_pi"]->Param<Real>("radius");
-    // area must be reduced by r^2 to get the block's contribution to PI
-    block_area /= (radius * radius);
-
-    area += block_area;
-    pmb = pmb->next;
-  }
-#ifdef MPI_PARALLEL
-  Real pi_val;
-  MPI_Reduce(&area, &pi_val, 1, MPI_PARTHENON_REAL, MPI_SUM, 0, MPI_COMM_WORLD);
-#else
-  Real pi_val = area;
-#endif
+  // retrieve "pi_val" and post execute.
+  auto &pi_val = pmesh->packages["calculate_pi"]->Param<Real>("pi_val");
   pmesh->mbcnt = pmesh->nbtotal; // this is how many blocks were processed
   PostExecute(pi_val);
   return DriverStatus::complete;
@@ -143,17 +120,36 @@ void PiDriver::PostExecute(Real pi_val) {
   Driver::PostExecute();
 }
 
-parthenon::TaskList PiDriver::MakeTaskList(MeshBlock *pmb) {
-  // make a task list for this mesh block
+template <typename T>
+TaskCollection PiDriver::MakeTasks(T &blocks) {
+  using calculate_pi::AccumulateAreas;
   using calculate_pi::ComputeArea;
-  TaskList tl;
+  TaskCollection tc;
 
-  TaskID none(0);
-  auto get_area = tl.AddTask(ComputeArea, none, pmb);
+  // 1 means pack is 1 meshblock, <1 means use entire mesh
+  int pack_size = pinput->GetOrAddInteger("Pi", "pack_size", 1);
+  if (pack_size < 1) pack_size = blocks.size();
 
-  // could add more tasks like:
-  // auto next_task = tl.AddTask(FuncPtr, get_area, pmb);
-  // for a task that executes the function FuncPtr (with argument MeshBlock *pmb)
-  // that depends on task get_area
-  return tl;
+  std::vector<BlockList_t> partitions;
+  partition::ToSizeN(blocks, pack_size, partitions);
+  ParArrayHost<Real> areas("areas", partitions.size());
+
+  TaskRegion &async_region = tc.AddRegion(partitions.size());
+  {
+    // asynchronous region where area is computed per mesh pack
+    for (int i = 0; i < partitions.size(); i++) {
+      TaskID none(0);
+      auto pack = PackVariablesOnMesh(partitions[i], "base",
+                                      std::vector<std::string>{"in_or_out"});
+      auto get_area = async_region[i].AddTask(none, ComputeArea, pack, areas, i);
+    }
+  }
+  TaskRegion &sync_region = tc.AddRegion(1);
+  {
+    TaskID none(0);
+    auto accumulate_areas =
+        sync_region[0].AddTask(none, AccumulateAreas, areas, pmesh->packages);
+  }
+
+  return tc;
 }

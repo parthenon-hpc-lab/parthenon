@@ -92,8 +92,7 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
   Real l1_err = 0.0;
   Real max_err = 0.0;
 
-  MeshBlock *pmb = mesh->pblock;
-  while (pmb != nullptr) {
+  for (auto &pmb : mesh->block_list) {
     auto pkg = pmb->packages["advection_package"];
 
     auto rc = pmb->real_containers.Get(); // get base container
@@ -144,7 +143,6 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
         }
       }
     }
-    pmb = pmb->next;
   }
 
   Real max_max_over_l1 = 0.0;

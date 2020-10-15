@@ -29,3 +29,8 @@ debug/
 # User editor files
 .vscode
 compile_commands.jsonbin
+
+# HDF5/Output Files
+*.phdf
+*.phdf.xdmf
+*.dat
