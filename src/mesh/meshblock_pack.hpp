@@ -14,17 +14,17 @@
 #define MESH_MESHBLOCK_PACK_HPP_
 
 #include <array>
+#include <functional>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "coordinates/coordinates.hpp"
-#include "interface/container.hpp"
 #include "interface/variable_pack.hpp"
 #include "kokkos_abstraction.hpp"
 #include "mesh/domain.hpp"
-#include "mesh/mesh.hpp" // TODO(JMM): Replace with forward declaration?
+#include "mesh/meshblock.hpp" // TODO(JMM): Replace with forward declaration?
 
 namespace parthenon {
 
@@ -77,6 +77,11 @@ using MeshBlockVarPack = MeshBlockPack<VariablePack<T>>;
 template <typename T>
 using MeshBlockVarFluxPack = MeshBlockPack<VariableFluxPack<T>>;
 
+template <typename T>
+using VarPackingFunc = std::function<std::vector<MeshBlockVarPack<T>>(Mesh *)>;
+template <typename T>
+using FluxPackingFunc = std::function<std::vector<MeshBlockVarFluxPack<T>>(Mesh *)>;
+
 // TODO(JMM): Should this be cached?
 namespace mesh_pack_impl {
 
@@ -108,11 +113,6 @@ auto PackMesh(BlockList_t &blocks, F &packing_function) {
   auto cellbounds = blocks.front()->cellbounds;
 
   return MeshBlockPack<T>(packs, cellbounds, coords, dims);
-}
-
-template <typename T, typename F>
-auto PackMesh(Mesh *pmesh, F &packing_function) {
-  return PackMesh<T, F>(pmesh->block_list, packing_function);
 }
 } // namespace mesh_pack_impl
 
