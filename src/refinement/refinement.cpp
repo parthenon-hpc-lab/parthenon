@@ -88,7 +88,7 @@ AmrTag CheckAllRefinement(std::shared_ptr<Container<Real>> &rc) {
   return delta_level;
 }
 
-AmrTag FirstDerivative(DevExecSpace exec_space, const ParArrayND<Real> &q,
+AmrTag FirstDerivative(MeshBlock *pmb, const ParArrayND<Real> &q,
                        const Real refine_criteria, const Real derefine_criteria) {
   const int dim1 = q.GetDim(1);
   const int dim2 = q.GetDim(2);
@@ -106,12 +106,9 @@ AmrTag FirstDerivative(DevExecSpace exec_space, const ParArrayND<Real> &q,
     il = 1;
     iu = dim1 - 2;
   }
-
   Real maxd = 0.0;
-  Kokkos::parallel_reduce(
-      "refinement first derivative",
-      Kokkos::MDRangePolicy<Kokkos::Rank<3>>(
-          exec_space, {kl, jl, il}, {ku + 1, ju + 1, iu + 1}, {1, 1, iu + 1 - il}),
+  pmb->par_reduce(
+      "refinement first derivative", kl, ku, jl, ju, il, iu,
       KOKKOS_LAMBDA(int k, int j, int i, Real &maxd) {
         Real scale = std::abs(q(k, j, i));
         Real d =
