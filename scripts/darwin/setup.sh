@@ -7,6 +7,7 @@ source /etc/profile
 # Make sure home is pointing to current directory
 export HOME=$(pwd)
 
+cd ../
 # Download spack
 if [ ! -d "spack" ]; then
   git clone https://github.com/spack/spack.git
@@ -32,9 +33,11 @@ mpi_package=$(bash $HOME/scripts/darwin/get_package.sh $MPI_MODULE)
 mpi_version=$(bash $HOME/scripts/darwin/get_version.sh $MPI_MODULE)
 
 # Setup spack package yaml
-echo "packages:" > .spack/packages.yaml
-echo "  python:" >> .spack/packages.yaml
-echo "    version: ['3:']" >> .spack/packages.yaml
-echo "  openmpi:" >> .spack/packages.yaml
-echo "    modules:" >> .spack/packages.yaml
-echo "      ${mpi_package}@${mpi_version}: $MPI_MODULE" >> .spack/packages.yaml
+echo "packages:" > $HOME/.spack/packages.yaml
+echo "  python:" >> $HOME/.spack/packages.yaml
+echo "    version: ['3:']" >> $HOME/.spack/packages.yaml
+echo "  openmpi:" >> $HOME/.spack/packages.yaml
+echo "    modules:" >> $HOME/.spack/packages.yaml
+echo "      ${mpi_package}@${mpi_version}: $MPI_MODULE" >> $HOME/.spack/packages.yaml
+
+cd $HOME

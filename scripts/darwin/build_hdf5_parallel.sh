@@ -23,7 +23,7 @@ module load $COMPILER_MODULE # gcc
 module load $MPI_MODULE # mpi
 
 # Initialize spack env
-. spack/share/spack/setup-env.sh
+. ../spack/share/spack/setup-env.sh
 
 spack env activate ci
 

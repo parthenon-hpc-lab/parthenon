@@ -41,7 +41,7 @@ module load $MPI_MODULE # mpi
 module load ${15} # cuda
 
 # Initialize spack env
-. spack/share/spack/setup-env.sh
+. ../spack/share/spack/setup-env.sh
 
 spack env activate ci
 
