@@ -273,6 +273,7 @@ void Swarm::RemoveMarkedParticles() {
 void Swarm::Defrag() {
   // TODO(BRR) Could this algorithm be more efficient? Does it matter?
   // Add 1 to convert max index to max number
+  printf("%s:%i\n", __FILE__, __LINE__);
   int num_free = (max_active_index_ + 1) - num_active_;
   printf("%s:%i\n", __FILE__, __LINE__);
   auto pmb = GetBlockPointer();

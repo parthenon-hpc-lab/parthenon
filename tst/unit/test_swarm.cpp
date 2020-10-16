@@ -185,6 +185,7 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   printf("%s:%i\n", __FILE__, __LINE__);
 
   // Defragment the list
+  printf("%s:%i\n", __FILE__, __LINE__);
   swarm->Defrag();
   printf("%s:%i\n", __FILE__, __LINE__);
   // Check that the list is defragmented
