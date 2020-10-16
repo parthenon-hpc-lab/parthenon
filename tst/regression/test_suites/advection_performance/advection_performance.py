@@ -73,7 +73,7 @@ class TestCase(utils.test_case.TestCaseAbs):
         for output in parameters.stdouts:
             for line in output.decode("utf-8").split('\n'):
                 print(line)
-                if 'zone-cycles/omp_wsecond' in line:
+                if 'zone-cycles/wallsecond' in line:
                     perfs.append(float(line.split(' ')[2]))
 
         perfs = np.array(perfs)
