@@ -341,7 +341,7 @@ void Swarm::Defrag() {
 
   for (int m = 0; m < intVector_.size(); m++) {
     printf("%s:%i\n", __FILE__, __LINE__);
-    //auto &vec = intVector_[m]->Get();
+    // auto &vec = intVector_[m]->Get();
     auto vec = intVector_[m]->Get();
     printf("%s:%i\n", __FILE__, __LINE__);
     pmb->par_for(
