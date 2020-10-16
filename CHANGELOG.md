@@ -18,6 +18,7 @@
 - [[PR 313]](https://github.com/lanl/parthenon/pull/313) Add include guards for Kokkos in cmake.
 - [[PR 321]](https://github.com/lanl/parthenon/pull/321) Make inner loop pattern tags constexpr
 - [[PR 281]](https://github.com/lanl/parthenon/pull/281) Allows one to run regression tests with more than one cuda device, Also improves readability of regression tests output.
+- [[PR 325]](https://github.com/lanl/parthenon/pull/325) Fixes regression in convergence tests with multiple MPI ranks.
 
 ### Removed (removing behavior/API/varaibles/...)
 
