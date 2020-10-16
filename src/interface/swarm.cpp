@@ -340,24 +340,31 @@ void Swarm::Defrag() {
   printf("%s:%i\n", __FILE__, __LINE__);
 
   for (int m = 0; m < intVector_.size(); m++) {
-    auto &vec = intVector_[m]->Get();
+    printf("%s:%i\n", __FILE__, __LINE__);
+    //auto &vec = intVector_[m]->Get();
+    auto vec = intVector_[m]->Get();
+    printf("%s:%i\n", __FILE__, __LINE__);
     pmb->par_for(
         "Swarm::DefragInt", 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
           if (from_to_indices(n) >= 0) {
             vec(from_to_indices(n)) = vec(n);
           }
         });
+    printf("%s:%i\n", __FILE__, __LINE__);
   }
   printf("%s:%i\n", __FILE__, __LINE__);
 
   for (int m = 0; m < realVector_.size(); m++) {
+    printf("%s:%i\n", __FILE__, __LINE__);
     auto &vec = realVector_[m]->Get();
+    printf("%s:%i\n", __FILE__, __LINE__);
     pmb->par_for(
         "Swarm::DefragReal", 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
           if (from_to_indices(n) >= 0) {
             vec(from_to_indices(n)) = vec(n);
           }
         });
+    printf("%s:%i\n", __FILE__, __LINE__);
   }
   printf("%s:%i\n", __FILE__, __LINE__);
 
