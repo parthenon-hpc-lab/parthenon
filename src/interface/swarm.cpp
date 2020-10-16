@@ -300,21 +300,21 @@ void Swarm::Defrag() {
     }
     int index_to_move_from = index;
     index--;
-  printf("%s:%i\n", __FILE__, __LINE__);
+    printf("%s:%i\n", __FILE__, __LINE__);
 
     // Below this number "moved" particles should actually stay in place
     if (index_to_move_from < num_active_) {
       break;
     }
-  printf("%s:%i\n", __FILE__, __LINE__);
+    printf("%s:%i\n", __FILE__, __LINE__);
     int index_to_move_to = free_indices_.front();
-  printf("%s:%i\n", __FILE__, __LINE__);
+    printf("%s:%i\n", __FILE__, __LINE__);
     free_indices_.pop_front();
-  printf("%s:%i\n", __FILE__, __LINE__);
+    printf("%s:%i\n", __FILE__, __LINE__);
     new_free_indices.push_back(index_to_move_from);
-  printf("%s:%i\n", __FILE__, __LINE__);
+    printf("%s:%i\n", __FILE__, __LINE__);
     from_to_indices_h(index_to_move_from) = index_to_move_to;
-  printf("%s:%i\n", __FILE__, __LINE__);
+    printf("%s:%i\n", __FILE__, __LINE__);
   }
   printf("%s:%i\n", __FILE__, __LINE__);
 
