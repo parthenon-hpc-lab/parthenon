@@ -108,7 +108,6 @@ parthenon-build-cuda:
       -DPARTHENON_DISABLE_MPI=ON
       -DPARTHENON_DISABLE_HDF5=ON
       -DPARTHENON_LINT_DEFAULT=OFF
-      -DNUM_MPI_PROC_TESTING=1
       ../
     - make -j${J} advection-example
     - nvidia-smi

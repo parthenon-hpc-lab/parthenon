@@ -49,15 +49,14 @@ def checkRunScriptLocation(run_test_py_path):
 # Main function
 def main(**kwargs):
 
-    print('\n')
-    print('\n'.join(['{}={!r}'.format(k, v) for k, v in kwargs.items()]))
+    print(kwargs)
     if hasattr(kwargs,'mpirun_opts'):
         if kwargs.mpirun == "":
             raise TestError("Cannot provide --mpirun_opts without specifying --mpirun")
 
     print("*****************************************************************")
     print("Beginning Python regression testing script")
-    print("*****************************************************************\n")
+    print("*****************************************************************")
 
     run_test_py_path = os.path.dirname(os.path.realpath(__file__))
     checkRunScriptLocation(run_test_py_path) 
@@ -120,11 +119,6 @@ if __name__ == '__main__':
                         nargs=1,
                         required=True,
                         help='path to input file, to pass to driver')
-
-    parser.add_argument("--kokkos_args", "-k_a",
-                        default=[],
-                        action='append',
-                        help='kokkos arguments to pass to driver')
 
     parser.add_argument("--num_steps", "-n",
                         type=int,
