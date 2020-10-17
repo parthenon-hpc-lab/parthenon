@@ -60,9 +60,10 @@ class TestCase(utils.test_case.TestCaseAbs):
 
         n_res = len(lin_res)
         # make sure we can evenly distribute the MeshBlock sizes
-        assert parameters.num_ranks % 2 == 0, "Num ranks must be multiples of 2 for convergence test."
+        err_msg = "Num ranks must be multiples of 2 for convergence test."
+        assert parameters.num_ranks == 1 or parameters.num_ranks % 2 == 0, err_msg
         # ensure a minimum block size of 4
-        assert lin_res[0] / parameters.num_ranks <= 8, "Use <= 8 ranks for convergence test."
+        assert lin_res[0] / parameters.num_ranks >= 4, "Use <= 8 ranks for convergence test."
 
         # TEST: Advection only in x-direction 
         # using nx2 = nx3 = 4 > 1 for identical errors between dimensions
