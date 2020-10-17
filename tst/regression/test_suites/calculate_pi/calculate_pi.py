@@ -50,7 +50,6 @@ class TestCase(utils.test_case.TestCaseAbs):
                 'time/tlim=0.4',
                 'mesh/nx1=400']
         """
-        parameters.driver_cmd_line_args = ['parthenon/mesh/nx1=%d' % (parameters.num_ranks *64)]
         parameters.coverage_status = "both"
         return parameters
 

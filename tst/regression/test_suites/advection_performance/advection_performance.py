@@ -33,12 +33,35 @@ mb_sizes = [256, 128, 64, 32, 16] # meshblock sizes
 class TestCase(utils.test_case.TestCaseAbs):
     def Prepare(self, parameters, step):
 
+        # splits integer n into the three largest factors
+        def get_split(n):
+            i = 2
+            factors = []
+            while i*i <= n:
+                if n % i != 0:
+                    i += 1
+                else:
+                    n //= i
+                    factors.append(i)
+            # always append remainder, could also be 1
+            factors.append(n)
+
+            # fill to 3 dims
+            while len(factors) < 3:
+                factors.append(1)
+            # split to 3 dims
+            while len(factors) > 3:
+                factors = sorted(factors[:-2] + [factors[-2]*factors[-1]], reverse=True)
+            return sorted(factors, reverse=True)
+
+        num_proc_x, num_proc_y, num_proc_z = get_split(parameters.num_ranks)
+
         parameters.driver_cmd_line_args = [
-            'parthenon/mesh/nx1=%d' % (parameters.num_ranks * 256),
+            'parthenon/mesh/nx1=%d' % (num_proc_x * 256),
             'parthenon/meshblock/nx1=%d' % mb_sizes[step - 1],
-            'parthenon/mesh/nx2=256',
+            'parthenon/mesh/nx2=%d' % (num_proc_y * 256),
             'parthenon/meshblock/nx2=%d' % mb_sizes[step - 1],
-            'parthenon/mesh/nx3=256',
+            'parthenon/mesh/nx3=%d' % (num_proc_z * 256),
             'parthenon/meshblock/nx3=%d' % mb_sizes[step - 1],
         ]
 
@@ -50,7 +73,7 @@ class TestCase(utils.test_case.TestCaseAbs):
         for output in parameters.stdouts:
             for line in output.decode("utf-8").split('\n'):
                 print(line)
-                if 'zone-cycles/omp_wsecond' in line:
+                if 'zone-cycles/wallsecond' in line:
                     perfs.append(float(line.split(' ')[2]))
 
         perfs = np.array(perfs)
