@@ -286,7 +286,7 @@ void Swarm::Defrag() {
   auto mask_h = mask_.data.GetHostMirrorAndCopy();
   printf("%s:%i\n", __FILE__, __LINE__);
 
-  for (int n = 0; n < max_active_index_; n++) {
+  for (int n = 0; n <= max_active_index_; n++) {
     from_to_indices_h(n) = -1;
   }
   printf("%s:%i\n", __FILE__, __LINE__);
@@ -319,6 +319,10 @@ void Swarm::Defrag() {
   }
   printf("%s:%i\n", __FILE__, __LINE__);
 
+  for (int n = 0; n <= max_active_index_; n++) {
+    printf("[%i] from_to_indices_h = %i\n", n, from_to_indices_h(n));
+  }
+
   // Not all these sorts may be necessary
   free_indices_.sort();
   printf("%s:%i\n", __FILE__, __LINE__);
@@ -344,6 +348,7 @@ void Swarm::Defrag() {
     // auto &vec = intVector_[m]->Get();
     auto vec = intVector_[m]->Get();
     printf("%s:%i\n", __FILE__, __LINE__);
+    printf("Defragging %s\n", intVector_[m].label());
     pmb->par_for(
         "Swarm::DefragInt", 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
           if (from_to_indices(n) >= 0) {
@@ -358,6 +363,7 @@ void Swarm::Defrag() {
     printf("%s:%i\n", __FILE__, __LINE__);
     auto &vec = realVector_[m]->Get();
     printf("%s:%i\n", __FILE__, __LINE__);
+    printf("Defragging %s\n", realVector_[m].label());
     pmb->par_for(
         "Swarm::DefragReal", 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
           if (from_to_indices(n) >= 0) {
