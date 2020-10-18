@@ -354,7 +354,7 @@ void Swarm::Defrag() {
         "Swarm::DefragInt", 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
           if (from_to_indices(n) >= 0) {
             printf("%i -> %i!\n", n, from_to_indices(n));
-            vec(from_to_indices(n)) = vec(n);
+            //    vec(from_to_indices(n)) = vec(n);
           }
         });
     printf("%s:%i\n", __FILE__, __LINE__);
