@@ -334,7 +334,7 @@ void Swarm::Defrag() {
   from_to_indices.DeepCopy(from_to_indices_h);
   printf("%s:%i\n", __FILE__, __LINE__);
 
-  auto mask_copy = mask_;
+  auto mask_copy = mask_.Get();
   pmb->par_for(
       "Swarm::DefragMask", 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
         if (from_to_indices(n) >= 0) {
