@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef INTERFACE_CONTAINER_HPP_
-#define INTERFACE_CONTAINER_HPP_
+#ifndef INTERFACE_MESHBLOCK_DATA_HPP_
+#define INTERFACE_MESHBLOCK_DATA_HPP_
 
 #include <map>
 #include <memory>
@@ -349,4 +349,4 @@ class MeshBlockData {
 
 } // namespace parthenon
 
-#endif // INTERFACE_CONTAINER_HPP_
+#endif // INTERFACE_MESHBLOCK_DATA_HPP_

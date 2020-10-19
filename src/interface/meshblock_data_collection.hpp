@@ -10,22 +10,22 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef INTERFACE_CONTAINER_COLLECTION_HPP_
-#define INTERFACE_CONTAINER_COLLECTION_HPP_
+#ifndef INTERFACE_MESHBLOCK_DATA_COLLECTION_HPP_
+#define INTERFACE_MESHBLOCK_DATA_COLLECTION_HPP_
 
 #include <map>
 #include <memory>
 #include <string>
 
-#include "interface/container.hpp"
+#include "interface/meshblock_data.hpp"
 #include "interface/metadata.hpp"
 
 namespace parthenon {
 
 template <typename T>
-class ContainerCollection {
+class MeshBlockDataCollection {
  public:
-  ContainerCollection() {
+  MeshBlockDataCollection() {
     containers_["base"] =
         std::make_shared<MeshBlockData<T>>(); // always add "base" container
   }
@@ -66,4 +66,4 @@ class ContainerCollection {
 
 } // namespace parthenon
 
-#endif // INTERFACE_CONTAINER_COLLECTION_HPP_
+#endif // INTERFACE_MESHBLOCK_DATA_COLLECTION_HPP_

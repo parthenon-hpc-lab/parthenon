@@ -65,4 +65,4 @@ container.PackVariables(map)
 If you do not care about indexing into variables by name, 
 you can ommit the `map` argument in any of the above calls.
 
-For examples of use, see [here](../../tst/unit/test_container_iterator.cpp).
+For examples of use, see [here](../../tst/unit/test_meshblock_data_iterator.cpp).

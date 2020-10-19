@@ -11,7 +11,7 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#include "interface/container.hpp"
+#include "interface/meshblock_data.hpp"
 
 #include <cstdlib>
 #include <memory>
@@ -108,8 +108,8 @@ void MeshBlockData<T>::Add(const std::string label, const Metadata &metadata,
 // Optionally extract only some of the sparse ids of src variable.
 template <typename T>
 MeshBlockData<T>::MeshBlockData(const MeshBlockData<T> &src,
-                            const std::vector<std::string> &names,
-                            const std::vector<int> sparse_ids) {
+                                const std::vector<std::string> &names,
+                                const std::vector<int> sparse_ids) {
   auto var_map = src.GetCellVariableMap();
   auto sparse_map = src.GetSparseMap();
   auto face_map = src.GetFaceMap();
@@ -152,7 +152,7 @@ MeshBlockData<T>::MeshBlockData(const MeshBlockData<T> &src,
 }
 template <typename T>
 MeshBlockData<T>::MeshBlockData(const MeshBlockData<T> &src,
-                            const std::vector<MetadataFlag> &flags) {
+                                const std::vector<MetadataFlag> &flags) {
   auto var_map = src.GetCellVariableMap();
   auto sparse_map = src.GetSparseMap();
   auto face_map = src.GetFaceMap();

@@ -16,8 +16,8 @@
 #include "bvals/boundary_conditions.hpp"
 
 #include "bvals/bvals_interfaces.hpp"
-#include "interface/container.hpp"
-#include "interface/container_iterator.hpp"
+#include "interface/meshblock_data.hpp"
+#include "interface/meshblock_data_iterator.hpp"
 #include "mesh/mesh.hpp"
 
 namespace parthenon {
@@ -34,7 +34,7 @@ TaskStatus ApplyBoundaryConditions(std::shared_ptr<MeshBlockData<Real>> &rc) {
   const int kmax = pmb->cellbounds.ncellsk(entire);
 
   Metadata m;
-  ContainerIterator<Real> citer(rc, {Metadata::Independent});
+  MeshBlockDataIterator<Real> citer(rc, {Metadata::Independent});
   const int nvars = citer.vars.size();
 
   switch (pmb->boundary_flag[BoundaryFace::inner_x1]) {

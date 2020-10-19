@@ -18,7 +18,7 @@
 #include <vector>
 
 #include "defs.hpp"
-#include "interface/container.hpp"
+#include "interface/meshblock_data.hpp"
 #include "mesh/mesh.hpp"
 
 namespace parthenon {

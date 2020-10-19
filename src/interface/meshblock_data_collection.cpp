@@ -11,15 +11,15 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#include "interface/container_collection.hpp"
+#include "interface/meshblock_data_collection.hpp"
 
 #include <string>
 
 namespace parthenon {
 
 template <typename T>
-void ContainerCollection<T>::Add(const std::string &name,
-                                 const std::shared_ptr<MeshBlockData<T>> &src) {
+void MeshBlockDataCollection<T>::Add(const std::string &name,
+                                     const std::shared_ptr<MeshBlockData<T>> &src) {
   // error check for duplicate names
   auto it = containers_.find(name);
   if (it != containers_.end()) {
@@ -62,6 +62,6 @@ void ContainerCollection<T>::Add(const std::string &name,
   containers_[name] = c;
 }
 
-template class ContainerCollection<Real>;
+template class MeshBlockDataCollection<Real>;
 
 } // namespace parthenon

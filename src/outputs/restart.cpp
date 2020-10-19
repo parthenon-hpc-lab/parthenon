@@ -408,7 +408,7 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
 
   const hsize_t varSize = nx3 * nx2 * nx1;
 
-  auto ciX = ContainerIterator<Real>(
+  auto ciX = MeshBlockDataIterator<Real>(
       mb.real_containers.Get(),
       {parthenon::Metadata::Independent, parthenon::Metadata::Restart}, true);
   for (auto &vwrite : ciX.vars) { // for each variable we write
@@ -432,7 +432,7 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
     hsize_t index = 0;
     for (auto &pmb : pm->block_list) {
       bool found = false;
-      auto ci = ContainerIterator<Real>(
+      auto ci = MeshBlockDataIterator<Real>(
           pmb->real_containers.Get(),
           {parthenon::Metadata::Independent, parthenon::Metadata::Restart}, true);
       for (auto &v : ci.vars) {

@@ -26,8 +26,8 @@
 #include "basic_types.hpp"
 #include "config.hpp"
 #include "defs.hpp"
-#include "interface/container.hpp"
-#include "interface/container_iterator.hpp"
+#include "interface/meshblock_data.hpp"
+#include "interface/meshblock_data_iterator.hpp"
 #include "interface/metadata.hpp"
 #include "interface/variable.hpp"
 #include "interface/variable_pack.hpp"
@@ -36,10 +36,10 @@
 
 using parthenon::CellVariable;
 using parthenon::CellVariableVector;
-using parthenon::MeshBlockData;
-using parthenon::ContainerIterator;
 using parthenon::DevExecSpace;
 using parthenon::loop_pattern_mdrange_tag;
+using parthenon::MeshBlockData;
+using parthenon::MeshBlockDataIterator;
 using parthenon::Metadata;
 using parthenon::MetadataFlag;
 using parthenon::PackIndexMap;
@@ -64,7 +64,8 @@ bool intervals_intersect(const std::pair<int, int> &i1, const std::pair<int, int
   return false;
 }
 
-TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIterator]") {
+TEST_CASE("Can pull variables from containers based on Metadata",
+          "[MeshBlockDataIterator]") {
   GIVEN("A Container with a set of variables initialized to zero") {
     MeshBlockData<Real> rc;
     Metadata m_in({Metadata::Independent, Metadata::FillGhost});

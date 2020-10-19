@@ -17,7 +17,7 @@
 #include <memory>
 
 #include "basic_types.hpp"
-#include "interface/container.hpp"
+#include "interface/meshblock_data.hpp"
 
 namespace parthenon {
 

@@ -32,7 +32,7 @@
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
 #include "globals.hpp"
-#include "interface/container_iterator.hpp"
+#include "interface/meshblock_data_iterator.hpp"
 #include "interface/metadata.hpp"
 #include "interface/variable.hpp"
 #include "kokkos_abstraction.hpp"
@@ -152,7 +152,7 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   }
 
   // TODO(jdolence): Should these loops be moved to Variable creation
-  ContainerIterator<Real> ci(real_container, {Metadata::Independent});
+  MeshBlockDataIterator<Real> ci(real_container, {Metadata::Independent});
   int nindependent = ci.vars.size();
   for (int n = 0; n < nindependent; n++) {
     RegisterMeshBlockData(ci.vars[n]);

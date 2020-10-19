@@ -27,8 +27,8 @@
 #include "basic_types.hpp"
 #include "config.hpp"
 #include "defs.hpp"
-#include "interface/container.hpp"
-#include "interface/container_iterator.hpp"
+#include "interface/meshblock_data.hpp"
+#include "interface/meshblock_data_iterator.hpp"
 #include "interface/metadata.hpp"
 #include "interface/variable.hpp"
 #include "interface/variable_pack.hpp"
@@ -37,10 +37,10 @@
 
 using parthenon::CellVariable;
 using parthenon::CellVariableVector;
-using parthenon::MeshBlockData;
-using parthenon::ContainerIterator;
 using parthenon::DevExecSpace;
 using parthenon::loop_pattern_mdrange_tag;
+using parthenon::MeshBlockData;
+using parthenon::MeshBlockDataIterator;
 using parthenon::Metadata;
 using parthenon::MetadataFlag;
 using parthenon::PackIndexMap;
@@ -148,7 +148,8 @@ createLambdaInitViewOfViews(parthenon::VariablePack<Real> &var_view) {
   };
 }
 
-TEST_CASE("Catch2 Container Iterator Performance", "[ContainerIterator][performance]") {
+TEST_CASE("Catch2 Container Iterator Performance",
+          "[MeshBlockDataIterator][performance]") {
   SECTION("Raw Array") {
     GIVEN("A raw ParArray4d") {
       // Make a raw ParArray4D for closest to bare metal looping
