@@ -106,54 +106,43 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
         tl.AddTask(advect_flux, &Container<Real>::ReceiveFluxCorrection, sc0.get());
   }
 
-  const auto pack_size = 1; // pmesh->DefaultPackSize();
-  auto partitions = parthenon::partition::ToSizeN(pmesh->block_list, pack_size);
-  std::vector<MeshBlockVarFluxPack<Real>> sc0_packs;
-  std::vector<MeshBlockVarPack<Real>> sc1_packs;
-  std::vector<MeshBlockVarPack<Real>> dudt_packs;
-  std::vector<MeshBlockVarPack<Real>> base_packs;
-  sc0_packs.resize(partitions.size());
-  sc1_packs.resize(partitions.size());
-  dudt_packs.resize(partitions.size());
-  base_packs.resize(partitions.size());
-  // toto make packs for proper containers
-  for (int i = 0; i < partitions.size(); i++) {
-    sc0_packs[i] = PackVariablesAndFluxesOnMesh(
-        partitions[i], stage_name[stage - 1],
-        std::vector<parthenon::MetadataFlag>{parthenon::Metadata::Independent});
-    sc1_packs[i] = PackVariablesOnMesh(
-        partitions[i], stage_name[stage],
-        std::vector<parthenon::MetadataFlag>{parthenon::Metadata::Independent});
-    dudt_packs[i] = PackVariablesOnMesh(
-        partitions[i], "dUdt",
-        std::vector<parthenon::MetadataFlag>{parthenon::Metadata::Independent});
-    base_packs[i] = PackVariablesOnMesh(
-        partitions[i], "base",
-        std::vector<parthenon::MetadataFlag>{parthenon::Metadata::Independent});
-  }
-  // note that task within this region that contains only a single task list
+  auto &sc0flux_packs =
+      pmesh->real_fluxpacks["advection_package"][stage_name[stage - 1] + "_varflux"];
+  auto &sc0_packs =
+      pmesh->real_varpacks["advection_package"][stage_name[stage - 1] + "_var"];
+  auto &sc1_packs = pmesh->real_varpacks["advection_package"][stage_name[stage] + "_var"];
+  auto &dudt_packs = pmesh->real_varpacks["Hydro"]["dudt_var"];
+  auto &base_packs = pmesh->real_varpacks["Hydro"]["base_var"];
+
+  const auto use_pack_in_one =
+      blocks[0]->packages["advection_package"]->Param<bool>("use_pack_in_one");
+
+  // note that task within this region that contains one tasklist per pack
   // could still be executed in parallel
-  TaskRegion &single_tasklist_region = tc.AddRegion(1);
-  {
-    const int i = 0;
-    auto &tl = single_tasklist_region[i];
+  TaskRegion &single_tasklist_per_pack_region = tc.AddRegion(base_packs.size());
+  for (int i = 0; i < base_packs.size(); i++) {
+    auto &tl = single_tasklist_per_pack_region[i];
+
     // compute the divergence of fluxes of conserved variables
-    auto flux_div = tl.AddTask(none, parthenon::Update::FluxDivergenceMesh, sc0_packs[i],
-                               dudt_packs[i]);
+    auto flux_div = tl.AddTask(none, parthenon::Update::FluxDivergenceMesh,
+                               sc0flux_packs[i], dudt_packs[i]);
     // apply du/dt to all independent fields in the container
     auto update_container =
         tl.AddTask(flux_div, UpdateContainer, stage, integrator, sc0_packs[i],
                    base_packs[i], dudt_packs[i], sc1_packs[i]);
 
-    // update ghost cells
-    auto send =
-        tl.AddTask(update_container, parthenon::cell_centered_bvars::SendBoundaryBuffers,
-                   blocks, stage_name[stage], sc1_packs[i]);
+    if (use_pack_in_one) {
+      // update ghost cells
+      auto send = tl.AddTask(update_container,
+                             parthenon::cell_centered_bvars::SendBoundaryBuffers, blocks,
+                             stage_name[stage], sc1_packs[i]);
 
-    auto recv = tl.AddTask(send, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers,
-                           blocks, stage_name[stage]);
-    auto fill_from_bufs = tl.AddTask(recv, parthenon::cell_centered_bvars::SetBoundaries,
-                                     blocks, stage_name[stage], sc1_packs[i]);
+      auto recv = tl.AddTask(send, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers,
+                             blocks, stage_name[stage]);
+      auto fill_from_bufs =
+          tl.AddTask(recv, parthenon::cell_centered_bvars::SetBoundaries, blocks,
+                     stage_name[stage], sc1_packs[i]);
+    }
   }
   TaskRegion &async_region2 = tc.AddRegion(num_task_lists_executed_independently);
 
@@ -162,8 +151,17 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     auto &tl = async_region2[i];
     auto &sc1 = pmb->real_containers.Get(stage_name[stage]);
 
-    auto clear_comm_flags = tl.AddTask(none, &Container<Real>::ClearBoundary, sc1.get(),
-                                       BoundaryCommSubset::all);
+    auto prev_task = none;
+    if (!use_pack_in_one) {
+      // update ghost cells
+      auto send = tl.AddTask(none, &Container<Real>::SendBoundaryBuffers, sc1.get());
+      auto recv = tl.AddTask(send, &Container<Real>::ReceiveBoundaryBuffers, sc1.get());
+      auto fill_from_bufs = tl.AddTask(recv, &Container<Real>::SetBoundaries, sc1.get());
+      prev_task = fill_from_bufs;
+    }
+
+    auto clear_comm_flags = tl.AddTask(prev_task, &Container<Real>::ClearBoundary,
+                                       sc1.get(), BoundaryCommSubset::all);
 
     auto prolongBound = tl.AddTask(
         none,

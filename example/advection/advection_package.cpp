@@ -48,6 +48,9 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddParam<>("refine_tol", refine_tol);
   Real derefine_tol = pin->GetOrAddReal("Advection", "derefine_tol", 0.03);
   pkg->AddParam<>("derefine_tol", derefine_tol);
+  // temporary use in package until interface is sorted out
+  bool use_pack_in_one = pin->GetOrAddBoolean("Advection", "use_pack_in_one", false);
+  pkg->AddParam<>("use_pack_in_one", use_pack_in_one);
 
   auto profile_str = pin->GetOrAddString("Advection", "profile", "wave");
   if (!((profile_str.compare("wave") == 0) ||
@@ -155,6 +158,88 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
                37 // just picking a sparse_id out of a hat for demonstration
   );
   pkg->AddField(field_name, m);
+
+  // all the follwing will go away/be streamline with future caching
+  pkg->AddMeshBlockPack("base_var", [](Mesh *pmesh) {
+    int pack_size = pmesh->DefaultPackSize();
+    std::vector<MeshBlockVarPack<Real>> packs;
+    auto partitions = partition::ToSizeN(pmesh->block_list, pack_size);
+    packs.resize(partitions.size());
+    for (int i = 0; i < partitions.size(); i++) {
+      packs[i] = PackVariablesOnMesh(
+          partitions[i], "base",
+          std::vector<parthenon::MetadataFlag>{parthenon::Metadata::Independent});
+    }
+    return packs;
+  });
+
+  pkg->AddMeshBlockPack("base_varflux", [](Mesh *pmesh) {
+    int pack_size = pmesh->DefaultPackSize();
+    std::vector<MeshBlockVarFluxPack<Real>> packs;
+    auto partitions = partition::ToSizeN(pmesh->block_list, pack_size);
+    packs.resize(partitions.size());
+    for (int i = 0; i < partitions.size(); i++) {
+      packs[i] = PackVariablesAndFluxesOnMesh(
+          partitions[i], "base",
+          std::vector<parthenon::MetadataFlag>{parthenon::Metadata::Independent});
+    }
+    return packs;
+  });
+
+  pkg->AddMeshBlockPack("1_var", [](Mesh *pmesh) {
+    // Add containers if not already present
+    for (auto &pmb : pmesh->block_list) {
+      auto &base = pmb->real_containers.Get();
+      pmb->real_containers.Add("1", base);
+    }
+    int pack_size = pmesh->DefaultPackSize();
+    std::vector<MeshBlockVarPack<Real>> packs;
+    auto partitions = partition::ToSizeN(pmesh->block_list, pack_size);
+    packs.resize(partitions.size());
+    for (int i = 0; i < partitions.size(); i++) {
+      packs[i] = PackVariablesOnMesh(
+          partitions[i], "1",
+          std::vector<parthenon::MetadataFlag>{parthenon::Metadata::Independent});
+    }
+    return packs;
+  });
+
+  pkg->AddMeshBlockPack("1_varflux", [](Mesh *pmesh) {
+    // Add containers if not already present
+    for (auto &pmb : pmesh->block_list) {
+      auto &base = pmb->real_containers.Get();
+      pmb->real_containers.Add("1", base);
+    }
+    int pack_size = pmesh->DefaultPackSize();
+    std::vector<MeshBlockVarFluxPack<Real>> packs;
+    auto partitions = partition::ToSizeN(pmesh->block_list, pack_size);
+    packs.resize(partitions.size());
+    for (int i = 0; i < partitions.size(); i++) {
+      packs[i] = PackVariablesAndFluxesOnMesh(
+          partitions[i], "1",
+          std::vector<parthenon::MetadataFlag>{parthenon::Metadata::Independent});
+    }
+    return packs;
+  });
+
+  pkg->AddMeshBlockPack("dudt_var", [](Mesh *pmesh) {
+    // Add containers if not already present
+    for (auto &pmb : pmesh->block_list) {
+      auto &base = pmb->real_containers.Get();
+      pmb->real_containers.Add("dUdt", base);
+    }
+    int pack_size = pmesh->DefaultPackSize();
+    std::vector<MeshBlockVarPack<Real>> packs;
+    auto partitions = partition::ToSizeN(pmesh->block_list, pack_size);
+    packs.resize(partitions.size());
+    for (int i = 0; i < partitions.size(); i++) {
+      packs[i] = PackVariablesOnMesh(
+          partitions[i], "dUdt",
+          std::vector<parthenon::MetadataFlag>{Metadata::Independent});
+    }
+    return packs;
+  });
+
 
   pkg->FillDerived = SquareIt;
   pkg->CheckRefinement = CheckRefinement;
