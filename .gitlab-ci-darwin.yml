@@ -6,6 +6,7 @@ variables:
   MODULE_COMPILER: "gcc/7.4.0"
   MODULE_CUDA: "cuda/10.1"
   MODULE_MPI: "openmpi/p9/4.0.2-gcc_7.4.0"
+  NUM_GPU_DEVICES_PER_NODE: 2
   NUM_MPI_PROC_TESTING: 2
   OMP_NUM_THREADS: 40
   CMAKE_BUILD_TYPE: "Release" 
@@ -36,22 +37,23 @@ before_script:
     CMAKE_CXX_COMPILER: $CI_PROJECT_DIR/external/Kokkos/bin/nvcc_wrapper
   script:
     - echo "./scripts/darwin/build.sh" > build_cmd.txt
-    - echo "BUILD_DIR              ${BUILD_DIR}             " >> build_cmd.txt
-    - echo "CMAKE_BUILD_TYPE       ${CMAKE_BUILD_TYPE}      " >> build_cmd.txt
-    - echo "CMAKE_CXX_COMPILER     ${CMAKE_CXX_COMPILER}    " >> build_cmd.txt
-    - echo "Kokkos_ARCH_POWER9     ${Kokkos_ARCH_POWER9}    " >> build_cmd.txt
-    - echo "Kokkos_ARCH_VOLTA70    ${Kokkos_ARCH_VOLTA70}   " >> build_cmd.txt
-    - echo "Kokkos_ENABLE_CUDA     ${Kokkos_ENABLE_CUDA}    " >> build_cmd.txt
-    - echo "Kokkos_ENABLE_CUDA_UVM ${Kokkos_ENABLE_CUDA_UVM}" >> build_cmd.txt
-    - echo "Kokkos_ENABLE_OPENMP   ${Kokkos_ENABLE_OPENMP}  " >> build_cmd.txt
-    - echo "NUM_MPI_PROC_TESTING   ${NUM_MPI_PROC_TESTING}  " >> build_cmd.txt
-    - echo "OMP_NUM_THREADS        ${OMP_NUM_THREADS}       " >> build_cmd.txt
-    - echo "PARTHENON_DISABLE_HDF5 ${PARTHENON_DISABLE_HDF5}" >> build_cmd.txt
-    - echo "MODULE_CMAKE           ${MODULE_CMAKE}          " >> build_cmd.txt 
-    - echo "MODULE_CLANG           ${MODULE_CLANG}          " >> build_cmd.txt
-    - echo "MODULE_COMPILER        ${MODULE_COMPILER}       " >> build_cmd.txt
-    - echo "MODULE_CUDA            ${MODULE_CUDA}           " >> build_cmd.txt
-    - echo "MODULE_MPI             ${MODULE_MPI}            " >> build_cmd.txt
+    - echo "BUILD_DIR                  ${BUILD_DIR}               " >> build_cmd.txt
+    - echo "CMAKE_BUILD_TYPE           ${CMAKE_BUILD_TYPE}        " >> build_cmd.txt
+    - echo "CMAKE_CXX_COMPILER         ${CMAKE_CXX_COMPILER}      " >> build_cmd.txt
+    - echo "Kokkos_ARCH_POWER9         ${Kokkos_ARCH_POWER9}      " >> build_cmd.txt
+    - echo "Kokkos_ARCH_VOLTA70        ${Kokkos_ARCH_VOLTA70}     " >> build_cmd.txt
+    - echo "Kokkos_ENABLE_CUDA         ${Kokkos_ENABLE_CUDA}      " >> build_cmd.txt
+    - echo "Kokkos_ENABLE_CUDA_UVM     ${Kokkos_ENABLE_CUDA_UVM}  " >> build_cmd.txt
+    - echo "Kokkos_ENABLE_OPENMP       ${Kokkos_ENABLE_OPENMP}    " >> build_cmd.txt
+    - echo "NUM_GPU_DEVICES_PER_NODE   ${NUM_GPU_DEVICES_PER_NODE}" >> build_cmd.txt
+    - echo "NUM_MPI_PROC_TESTING       ${NUM_MPI_PROC_TESTING}    " >> build_cmd.txt
+    - echo "OMP_NUM_THREADS            ${OMP_NUM_THREADS}         " >> build_cmd.txt
+    - echo "PARTHENON_DISABLE_HDF5     ${PARTHENON_DISABLE_HDF5}  " >> build_cmd.txt
+    - echo "MODULE_CMAKE               ${MODULE_CMAKE}            " >> build_cmd.txt 
+    - echo "MODULE_CLANG               ${MODULE_CLANG}            " >> build_cmd.txt
+    - echo "MODULE_COMPILER            ${MODULE_COMPILER}         " >> build_cmd.txt
+    - echo "MODULE_CUDA                ${MODULE_CUDA}             " >> build_cmd.txt
+    - echo "MODULE_MPI                 ${MODULE_MPI}              " >> build_cmd.txt
     - >
       env -i bash ./scripts/darwin/build.sh
       ${BUILD_DIR}
@@ -62,6 +64,7 @@ before_script:
       ${Kokkos_ENABLE_CUDA}
       ${Kokkos_ENABLE_CUDA_UVM}
       ${Kokkos_ENABLE_OPENMP}
+      ${NUM_GPU_DEVICES_PER_NODE}
       ${NUM_MPI_PROC_TESTING}
       ${OMP_NUM_THREADS}
       ${PARTHENON_DISABLE_HDF5}

@@ -89,9 +89,10 @@ echo "cmake \
  -DKokkos_ENABLE_CUDA=$6 \
  -DKokkos_ENABLE_CUDA_UVM=$7 \
  -DKokkos_ENABLE_OPENMP=$8 \
- -DNUM_MPI_PROC_TESTING=${9} \
- -DOMP_NUM_THREADS=${10} \
- -DPARTHENON_DISABLE_HDF5=${11} \
+ -DNUM_GPU_DEVICES_PER_NODE=${9} \
+ -DNUM_MPI_PROC_TESTING=${10} \
+ -DOMP_NUM_THREADS=${11} \
+ -DPARTHENON_DISABLE_HDF5=${12} \
  -DMPIEXEC_PREFLAGS='../external/Kokkos/bin/hpcbind --distribute=2 --visible-gpus=0,1 --' ../"
 
 cmake \
@@ -102,9 +103,10 @@ cmake \
  -DKokkos_ENABLE_CUDA=$6 \
  -DKokkos_ENABLE_CUDA_UVM=$7 \
  -DKokkos_ENABLE_OPENMP=$8 \
- -DNUM_MPI_PROC_TESTING=${9} \
- -DOMP_NUM_THREADS=${10} \
- -DPARTHENON_DISABLE_HDF5=${11} \
+ -DNUM_GPU_DEVICES_PER_NODE=${9} \
+ -DNUM_MPI_PROC_TESTING=${10} \
+ -DOMP_NUM_THREADS=${11} \
+ -DPARTHENON_DISABLE_HDF5=${12} \
  -DMPIEXEC_PREFLAGS="../external/Kokkos/bin/hpcbind --distribute=2 --visible-gpus=0,1 --" ../
 fail_or_pass=$?
 if [ ${fail_or_pass} -ne 0 ] exit 1
