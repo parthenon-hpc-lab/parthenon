@@ -21,25 +21,19 @@ from shutil import rmtree
 import subprocess
 from subprocess import PIPE
 import sys
+from shutil import which
 
-# TODO(pgrete) update CI image to Python 3
-def mkdir_p(path):
-    try:
-        os.makedirs(path)
-    except OSError as exc:  # Python >= 2.5
-        if exc.errno == errno.EEXIST and os.path.isdir(path):
-            pass
-        else:
-            raise
 class Parameters():
     driver_path = ""
     driver_input_path = ""
     test_path = ""
     output_path = ""
     mpi_cmd = ""
+    num_ranks = 1
     mpi_opts = ""
     driver_cmd_line_args = []
     stdouts = []
+    kokkos_args = []
     # Options
     # only-regression - do not run when coverage is enabled
     # both - run regardless of whether coverage is enabled or not 
@@ -64,6 +58,7 @@ class TestManager:
         test_dir = kwargs.pop('test_dir')
         parthenon_driver = kwargs.pop('driver')
         parthenon_driver_input = kwargs.pop('driver_input')
+        self.parameters.kokkos_args = ' '.join(kwargs.pop('kokkos_args')).split() 
         mpi_executable = kwargs.pop('mpirun')
 
         self.__initial_working_dir = os.getcwd()
@@ -104,6 +99,19 @@ class TestManager:
         self.parameters.test_path = test_path
         self.parameters.mpi_cmd = mpi_executable
         self.parameters.mpi_opts = kwargs.pop('mpirun_opts')
+       
+        argstrings = ['-np','-n']
+        if len(set(argstrings) & set(self.parameters.mpi_opts)) > 1:
+          print('Warning! You have set both "-n" and "-np" in your MPI options.')
+          print(self.parameters.mpi_opts)
+        for s in argstrings:
+          if s in self.parameters.mpi_opts:
+            index = self.parameters.mpi_opts.index(s)
+            if index < len(self.parameters.mpi_opts) - 1:
+              try:
+                self.parameters.num_ranks = int(self.parameters.mpi_opts[index+1])
+              except ValueError:
+                pass
 
         module = __import__(self.__test_module, globals(), locals(),
                 fromlist=['TestCase'])
@@ -156,41 +164,21 @@ class TestManager:
 
         mpi_exec = mpi_executable[0]
 
-        choices=['mpirun', 'mpiexec', 'srun', 'qsub', 'lsrun', 'aprun']
-        sys.stdout.flush()
-        for choice in choices:
-            sys.stdout.flush()
-            if mpi_exec.endswith(choice):
-                sys.stdout.flush()
-                if len(mpi_exec) != len(choice):
-                    sys.stdout.flush()
-                    if os.path.isfile(mpi_exec):
-                        return
-                    else:
-                        error_msg = "mpi executable path provided, but no file found "
-                        error_msg += mpi_exec 
-                        raise TestManagerError(error_msg)
-                else:
-                    return
-
-        error_msg = "Invalid mpi executable specified "
-        error_msg += mpi_exec 
-        error_msg += "\nExpected choices are:"
-        for choice in choices:
-            error_msg += choice
-            error_msg += "\n"
-        raise TestManagerError(error_msg)
+        if which(mpi_exec) is None:
+            error_msg = "mpi executable path provided, but no file found: "
+            error_msg += mpi_exec
+            raise TestManagerError(error_msg)
 
     def MakeOutputFolder(self):
         if not os.path.isdir(self.parameters.output_path):
-            mkdir_p(self.parameters.output_path)
+            os.makedirs(self.parameters.output_path)
 
         os.chdir(self.parameters.output_path)
 
     def Prepare(self, step):
         print("*****************************************************************")
         print("Preparing Test Case Step %d" % step)
-        print("*****************************************************************")
+        print("*****************************************************************\n")
         sys.stdout.flush()
         self.parameters = self.test_case.Prepare(self.parameters, step)
 
@@ -207,30 +195,39 @@ class TestManager:
             run_command.append(self.parameters.driver_input_path)
         for arg in self.parameters.driver_cmd_line_args:
             run_command.append(arg)
+        for arg in self.parameters.kokkos_args:
+            run_command.append(arg)
 
         if self.__run_coverage and self.parameters.coverage_status != "only-regression":
             print("*****************************************************************")
             print("Running Driver with Coverage")
-            print("*****************************************************************")
+            print("*****************************************************************\n")
         elif not self.__run_coverage and self.parameters.coverage_status != "only-coverage":
             print("*****************************************************************")
             print("Running Driver")
-            print("*****************************************************************")
+            print("*****************************************************************\n")
         elif self.__run_coverage and self.parameters.coverage_status == "only-regression":
             print("*****************************************************************")
             print("Test Case Ignored for Calculating Coverage")
-            print("*****************************************************************")
+            print("*****************************************************************\n")
             return 
         else:
             return 
 
         print("Command to execute driver")
-        print(run_command)
+        print(' '.join(run_command))
         sys.stdout.flush()
         try:
             proc = subprocess.run(run_command, check=True, stdout=PIPE, stderr=PIPE)
             self.parameters.stdouts.append(proc.stdout)
         except subprocess.CalledProcessError as err:
+            print("\n*****************************************************************")
+            print("Subprocess error message")
+            print("*****************************************************************\n")
+            print(str(repr(err.output)).replace('\\n',os.linesep))
+            print("\n*****************************************************************")
+            print("Error detected while running subprocess command")
+            print("*****************************************************************\n")
             raise TestManagerError('\nReturn code {0} from command \'{1}\''
                               .format(err.returncode, ' '.join(err.cmd)))
         # Reset parameters
@@ -242,14 +239,14 @@ class TestManager:
         if self.__run_coverage:
             print("*****************************************************************")
             print("Running with Coverage, Analysis Section Ignored")
-            print("*****************************************************************")
+            print("*****************************************************************\n")
             return True
 
         print("Running with coverage")
         print(self.__run_coverage)
         print("*****************************************************************")
         print("Analysing Driver Output")
-        print("*****************************************************************")
+        print("*****************************************************************\n")
         sys.stdout.flush()
         test_pass = self.test_case.Analyse(self.parameters)
 
@@ -259,6 +256,5 @@ class TestManager:
 # Exception for unexpected behavior by individual tests
 class TestManagerError(RuntimeError):
     pass
-
 
 

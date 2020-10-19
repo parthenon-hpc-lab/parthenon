@@ -25,8 +25,11 @@
 #include <interface/variable_pack.hpp>
 #include <kokkos_abstraction.hpp>
 #include <mesh/mesh.hpp>
+#include <mesh/meshblock.hpp>
+#include <mesh/meshblock_pack.hpp>
 #include <parameter_input.hpp>
 #include <parthenon_manager.hpp>
+#include <utils/partition_stl_containers.hpp>
 
 // Local Includes
 #include "prelude.hpp"
@@ -38,17 +41,21 @@ using namespace ::parthenon::prelude;
 
 using ::parthenon::AmrTag;
 using ::parthenon::ApplicationInput;
+using ::parthenon::BlockList_t;
 using ::parthenon::ContainerIterator;
 using ::parthenon::Coordinates;
 using ::parthenon::DerivedOwnership;
 using ::parthenon::DevExecSpace;
+using ::parthenon::Mesh;
 using ::parthenon::MeshBlock;
+using ::parthenon::MeshBlockPack;
+using ::parthenon::MeshBlockVarFluxPack;
+using ::parthenon::MeshBlockVarPack;
 using ::parthenon::Metadata;
 using ::parthenon::PackIndexMap;
 using ::parthenon::par_for;
 using ::parthenon::ParameterInput;
 using ::parthenon::Params;
-using ::parthenon::ParthenonManager;
 using ::parthenon::StateDescriptor;
 using ::parthenon::TaskStatus;
 using ::parthenon::VariableFluxPack;
@@ -56,6 +63,12 @@ using ::parthenon::VariablePack;
 using ::parthenon::X1DIR;
 using ::parthenon::X2DIR;
 using ::parthenon::X3DIR;
+
+namespace partition {
+using ::parthenon::partition::Partition_t;
+using ::parthenon::partition::ToNPartitions;
+using ::parthenon::partition::ToSizeN;
+} // namespace partition
 } // namespace prelude
 } // namespace package
 } // namespace parthenon

@@ -134,7 +134,7 @@ void PHDF5Output::genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm) {
   int ndims = 5;
 
   // same set of variables for all grids so use only one container
-  auto ciX = ContainerIterator<Real>(pm->block_list.front().real_containers.Get(),
+  auto ciX = ContainerIterator<Real>(pm->block_list.front()->real_containers.Get(),
                                      output_params.variables);
   for (int ib = 0; ib < pm->nbtotal; ib++) {
     xdmf << "    <Grid GridType=\"Uniform\" Name=\"" << ib << "\">" << std::endl;
@@ -201,7 +201,7 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   const IndexDomain interior = IndexDomain::interior;
   const IndexDomain entire = IndexDomain::entire;
 
-  auto const &first_block = pm->block_list.front();
+  auto const &first_block = *(pm->block_list.front());
 
   // shooting a blank just for getting the variable names
   IndexRange out_ib = first_block.cellbounds.GetBoundsI(interior);
@@ -323,7 +323,7 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   status = H5Dclose(myDSet);
 
   // allocate space for largest size variable
-  auto ciX = ContainerIterator<Real>(pm->block_list.front().real_containers.Get(),
+  auto ciX = ContainerIterator<Real>(pm->block_list.front()->real_containers.Get(),
                                      output_params.variables);
   size_t maxV = 1;
   hsize_t sumDim4AllVars = 0;
@@ -364,19 +364,20 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   local_count[0] = num_blocks_local;
   global_count[0] = max_blocks_global;
 
-  LOADVARIABLEALL(tmpData, pm, mb.coords.x1f, out_ib.s, out_ib.e + 1, 0, 0, 0, 0);
+  // These macros are defined in parthenon_hdf5.hpp, which establishes relevant scope
+  LOADVARIABLEALL(tmpData, pm, pmb->coords.x1f, out_ib.s, out_ib.e + 1, 0, 0, 0, 0);
   local_count[1] = global_count[1] = nx1 + 1;
   WRITEH5SLAB("x", tmpData, gLocations, local_start, local_count, global_count,
               property_list);
 
   // write Y coordinates
-  LOADVARIABLEALL(tmpData, pm, mb.coords.x2f, 0, 0, out_jb.s, out_jb.e + 1, 0, 0);
+  LOADVARIABLEALL(tmpData, pm, pmb->coords.x2f, 0, 0, out_jb.s, out_jb.e + 1, 0, 0);
   local_count[1] = global_count[1] = nx2 + 1;
   WRITEH5SLAB("y", tmpData, gLocations, local_start, local_count, global_count,
               property_list);
 
   // write Z coordinates
-  LOADVARIABLEALL(tmpData, pm, mb.coords.x3f, 0, 0, 0, 0, out_kb.s, out_kb.e + 1);
+  LOADVARIABLEALL(tmpData, pm, pmb->coords.x3f, 0, 0, 0, 0, out_kb.s, out_kb.e + 1);
 
   local_count[1] = global_count[1] = nx3 + 1;
   WRITEH5SLAB("z", tmpData, gLocations, local_start, local_count, global_count,
@@ -429,7 +430,7 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     hsize_t index = 0;
     for (auto &pmb : pm->block_list) { // for every block1
       auto ci =
-          ContainerIterator<Real>(pmb.real_containers.Get(), output_params.variables);
+          ContainerIterator<Real>(pmb->real_containers.Get(), output_params.variables);
       for (auto &v : ci.vars) {
         std::string name = v->label();
         if (name.compare(vWriteName) == 0) {

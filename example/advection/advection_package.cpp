@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -163,7 +164,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 }
 
 AmrTag CheckRefinement(std::shared_ptr<Container<Real>> &rc) {
-  MeshBlock *pmb = rc->pmy_block;
+  auto pmb = rc->GetBlockPointer();
   // refine on advected, for example.  could also be a derived quantity
   auto v = rc->Get("advected").data;
 
@@ -172,11 +173,8 @@ AmrTag CheckRefinement(std::shared_ptr<Container<Real>> &rc) {
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
 
   typename Kokkos::MinMax<Real>::value_type minmax;
-  Kokkos::parallel_reduce(
-      "advection check refinement",
-      Kokkos::MDRangePolicy<Kokkos::Rank<3>>(pmb->exec_space, {kb.s, jb.s, ib.s},
-                                             {kb.e + 1, jb.e + 1, ib.e + 1},
-                                             {1, 1, ib.e + 1 - ib.s}),
+  pmb->par_reduce(
+      "advection check refinement", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(int k, int j, int i,
                     typename Kokkos::MinMax<Real>::value_type &lminmax) {
         lminmax.min_val = (v(k, j, i) < lminmax.min_val ? v(k, j, i) : lminmax.min_val);
@@ -195,7 +193,7 @@ AmrTag CheckRefinement(std::shared_ptr<Container<Real>> &rc) {
 
 // demonstrate usage of a "pre" fill derived routine
 void PreFill(std::shared_ptr<Container<Real>> &rc) {
-  MeshBlock *pmb = rc->pmy_block;
+  auto pmb = rc->GetBlockPointer();
 
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
@@ -215,7 +213,7 @@ void PreFill(std::shared_ptr<Container<Real>> &rc) {
 
 // this is the package registered function to fill derived
 void SquareIt(std::shared_ptr<Container<Real>> &rc) {
-  MeshBlock *pmb = rc->pmy_block;
+  auto pmb = rc->GetBlockPointer();
 
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
@@ -235,7 +233,7 @@ void SquareIt(std::shared_ptr<Container<Real>> &rc) {
 
 // demonstrate usage of a "post" fill derived routine
 void PostFill(std::shared_ptr<Container<Real>> &rc) {
-  MeshBlock *pmb = rc->pmy_block;
+  auto pmb = rc->GetBlockPointer();
 
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
@@ -258,7 +256,7 @@ void PostFill(std::shared_ptr<Container<Real>> &rc) {
 
 // provide the routine that estimates a stable timestep for this package
 Real EstimateTimestep(std::shared_ptr<Container<Real>> &rc) {
-  MeshBlock *pmb = rc->pmy_block;
+  auto pmb = rc->GetBlockPointer();
   auto pkg = pmb->packages["advection_package"];
   const auto &cfl = pkg->Param<Real>("cfl");
   const auto &vx = pkg->Param<Real>("vx");
@@ -269,22 +267,21 @@ Real EstimateTimestep(std::shared_ptr<Container<Real>> &rc) {
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
 
-  Real min_dt = std::numeric_limits<Real>::max();
   auto &coords = pmb->coords;
 
   // this is obviously overkill for this constant velocity problem
-  for (int k = kb.s; k <= kb.e; k++) {
-    for (int j = jb.s; j <= jb.e; j++) {
-      for (int i = ib.s; i <= ib.e; i++) {
+  Real min_dt;
+  pmb->par_reduce(
+      "advection_package::EstimateTimestep", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int k, const int j, const int i, Real &lmin_dt) {
         if (vx != 0.0)
-          min_dt = std::min(min_dt, coords.Dx(X1DIR, k, j, i) / std::abs(vx));
+          lmin_dt = std::min(lmin_dt, coords.Dx(X1DIR, k, j, i) / std::abs(vx));
         if (vy != 0.0)
-          min_dt = std::min(min_dt, coords.Dx(X2DIR, k, j, i) / std::abs(vy));
+          lmin_dt = std::min(lmin_dt, coords.Dx(X2DIR, k, j, i) / std::abs(vy));
         if (vz != 0.0)
-          min_dt = std::min(min_dt, coords.Dx(X3DIR, k, j, i) / std::abs(vz));
-      }
-    }
-  }
+          lmin_dt = std::min(lmin_dt, coords.Dx(X3DIR, k, j, i) / std::abs(vz));
+      },
+      Kokkos::Min<Real>(min_dt));
 
   return cfl * min_dt;
 }
@@ -293,7 +290,7 @@ Real EstimateTimestep(std::shared_ptr<Container<Real>> &rc) {
 // some field "advected" that we are pushing around.
 // This routine implements all the "physics" in this example
 TaskStatus CalculateFluxes(std::shared_ptr<Container<Real>> &rc) {
-  MeshBlock *pmb = rc->pmy_block;
+  auto pmb = rc->GetBlockPointer();
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);

@@ -56,8 +56,8 @@ AMRFirstDerivative::AMRFirstDerivative(ParameterInput *pin, std::string &block_n
 
 AmrTag AMRFirstDerivative::operator()(std::shared_ptr<Container<Real>> &rc) {
   ParArrayND<Real> q = rc->Get(field).data;
-  return Refinement::FirstDerivative(rc->pmy_block->exec_space, q, refine_criteria,
-                                     derefine_criteria);
+  std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
+  return Refinement::FirstDerivative(pmb.get(), q, refine_criteria, derefine_criteria);
 }
 
 } // namespace parthenon

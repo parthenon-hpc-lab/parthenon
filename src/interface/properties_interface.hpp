@@ -18,9 +18,9 @@
 #include <string>
 #include <vector>
 
-#include "interface/state_descriptor.hpp"
-
 namespace parthenon {
+
+class StateDescriptor;
 
 class PropertiesInterface {
  public:

@@ -7,6 +7,7 @@ before_script:
     - export OMP_NUM_THREADS=1
     - export CMAKE_VERSION=3.12.4
     - export CTEST_OUTPUT_ON_FAILURE=1
+    - export MACHINE_CFG=${PWD}/cmake/machinecfg/CI.cmake
     - export J=$(( $(nproc --all) / 4  + 1 )) && echo Using ${J} cores during build
     - wget -qO- http://www.cmake.org/files/v${CMAKE_VERSION:0:4}/cmake-${CMAKE_VERSION}-Linux-x86_64.tar.gz | tar -xz
     - export PATH=${PWD}/cmake-${CMAKE_VERSION}-Linux-x86_64/bin:$PATH
@@ -38,11 +39,8 @@ parthenon-cuda-unit:
   script:
     - mkdir build-cuda-debug
     - cd build-cuda-debug
-    - cmake -DCMAKE_BUILD_TYPE=Debug -DHDF5_ROOT=/usr/local/hdf5/parallel
-      -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
-      -DKokkos_ENABLE_CUDA=True -DKokkos_ARCH_PASCAL61=True
-      -DMPIEXEC_PREFLAGS="--allow-run-as-root"
-      -DCMAKE_CXX_COMPILER=${PWD}/../external/Kokkos/bin/nvcc_wrapper
+    - cmake -DCMAKE_BUILD_TYPE=Debug
+      -DMACHINE_VARIANT=cuda-mpi
       ../
     - make -j${J}
     - ctest -LE 'performance|regression'
@@ -60,9 +58,8 @@ parthenon-cpu-unit:
   script:
     - mkdir build-debug
     - cd build-debug
-    - cmake -DCMAKE_BUILD_TYPE=Debug -DHDF5_ROOT=/usr/local/hdf5/parallel
-      -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
-      -DMPIEXEC_PREFLAGS="--allow-run-as-root"
+    - cmake -DCMAKE_BUILD_TYPE=Debug
+      -DMACHINE_VARIANT=mpi
       ../
     - make -j${J}
     - ctest -LE "performance|regression"
@@ -79,11 +76,8 @@ parthenon-cuda-short:
   script:
     - mkdir build-cuda-perf-mpi
     - cd build-cuda-perf-mpi
-    - cmake -DCMAKE_BUILD_TYPE=Release -DHDF5_ROOT=/usr/local/hdf5/parallel
-      -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
-      -DKokkos_ENABLE_CUDA=True -DKokkos_ARCH_PASCAL61=True
-      -DMPIEXEC_PREFLAGS="--allow-run-as-root"
-      -DCMAKE_CXX_COMPILER=${PWD}/../external/Kokkos/bin/nvcc_wrapper
+    - cmake -DCMAKE_BUILD_TYPE=Release
+      -DMACHINE_VARIANT=cuda-mpi
       ../
     - make -j${J}
     - export OMPI_MCA_mpi_common_cuda_event_max=1000
@@ -101,9 +95,8 @@ parthenon-cpu-short:
   script:
     - mkdir build-perf-mpi
     - cd build-perf-mpi
-    - cmake -DCMAKE_BUILD_TYPE=Release -DHDF5_ROOT=/usr/local/hdf5/parallel
-      -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
-      -DMPIEXEC_PREFLAGS="--allow-run-as-root"
+    - cmake -DCMAKE_BUILD_TYPE=Release
+      -DMACHINE_VARIANT=mpi
       ../
     - make -j${J}
     - ctest -R regression_mpi_test:output_hdf5
@@ -124,11 +117,9 @@ parthenon-cuda-performance_and_regression:
   script:
     - mkdir build-cuda-perf
     - cd build-cuda-perf
-    - cmake -DCMAKE_BUILD_TYPE=Release -DHDF5_ROOT=/usr/local/hdf5/serial
-      -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
-      -DKokkos_ENABLE_CUDA=True -DKokkos_ARCH_PASCAL61=True
-      -DCMAKE_CXX_COMPILER=${PWD}/../external/Kokkos/bin/nvcc_wrapper
+    - cmake -DCMAKE_BUILD_TYPE=Release
       -DPARTHENON_DISABLE_MPI=ON
+      -DMACHINE_VARIANT=cuda
       ../
     - make -j${J}
     - ctest -L "performance|regression" -LE "mpi-yes|perf-reg"
@@ -151,11 +142,8 @@ parthenon-cuda-performance_and_regression-mpi:
   script:
     - mkdir -p build-cuda-perf-mpi
     - cd build-cuda-perf-mpi
-    - cmake -DCMAKE_BUILD_TYPE=Release -DHDF5_ROOT=/usr/local/hdf5/parallel
-      -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
-      -DKokkos_ENABLE_CUDA=True -DKokkos_ARCH_PASCAL61=True
-      -DMPIEXEC_PREFLAGS="--allow-run-as-root"
-      -DCMAKE_CXX_COMPILER=${PWD}/../external/Kokkos/bin/nvcc_wrapper
+    - cmake -DCMAKE_BUILD_TYPE=Release
+      -DMACHINE_VARIANT=cuda-mpi
       ../
     - make -j${J}
     - export OMPI_MCA_mpi_common_cuda_event_max=1000
@@ -181,8 +169,7 @@ parthenon-cpu-performance_and_regression:
   script:
     - mkdir build-perf
     - cd build-perf
-    - cmake -DCMAKE_BUILD_TYPE=Release -DHDF5_ROOT=/usr/local/hdf5/serial
-      -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
+    - cmake -DCMAKE_BUILD_TYPE=Release
       -DPARTHENON_DISABLE_MPI=ON
       ../
     - make -j${J}
@@ -207,9 +194,8 @@ parthenon-cpu-performance_and_regression-mpi:
   script:
     - mkdir -p build-perf-mpi
     - cd build-perf-mpi
-    - cmake -DCMAKE_BUILD_TYPE=Release -DHDF5_ROOT=/usr/local/hdf5/parallel
-      -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
-      -DMPIEXEC_PREFLAGS="--allow-run-as-root"
+    - cmake -DCMAKE_BUILD_TYPE=Release
+      -DMACHINE_VARIANT=mpi
       ../
     - make -j${J}
 #    - ctest -L "performance" # no need for performance test as currently none use MPI
@@ -234,9 +220,9 @@ parthenon-cpu-coverage:
   script:
     - mkdir build-debug-coverage
     - cd build-debug-coverage
-    - cmake -DCMAKE_BUILD_TYPE=Debug -DHDF5_ROOT=/usr/local/hdf5/parallel
-      -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_WSM=True
-      -DMPIEXEC_PREFLAGS="--allow-run-as-root" -DCODE_COVERAGE=ON
+    - cmake -DCMAKE_BUILD_TYPE=Debug
+      -DCODE_COVERAGE=ON
+      -DMACHINE_VARIANT=mpi
       ../ && make -j${J} && make coverage && make coverage-upload
   artifacts:
     when: always

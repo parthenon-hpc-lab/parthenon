@@ -38,6 +38,10 @@ nx3 = 1
 x3min = -0.5
 x3max = 0.5
 
+# How many meshblocks to use in a premade default kernel.
+# A value of <1 means use the whole mesh.
+pack_size = 4
+
 <parthenon/meshblock>
 nx1 = 8
 nx2 = 8
@@ -52,10 +56,6 @@ max_level = 2                   # if set, limits refinement level from this crit
 
 <Pi>
 radius = 1.5
-# Whether or not to use mesh-wide kernel calls
-# A value of 0 is default task-based mechanism, where kernels are per meshblock
-# A value of 1 makes a single global kernel call over all meshblocks on a rank
-use_mesh_pack = 0
 
 <parthenon/output0>
 file_type = hdf5
