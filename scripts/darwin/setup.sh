@@ -9,10 +9,10 @@ export HOME=$(pwd)
 
 cd ../
 # Download spack
-if [ ! -d "spack" ]; then
-  git clone --branch v0.14.2 https://github.com/spack/spack.git
-
+if [ -d "spack" ]; then
+  rm -rf spack
 fi
+git clone --branch v0.14.2 https://github.com/spack/spack.git
 
 # Initialize spack env
 . spack/share/spack/setup-env.sh
@@ -21,9 +21,10 @@ spack env create ci
 spack env activate ci
 
 # Create .spack folder
-if [ ! -d ".spack" ]; then
-  mkdir -p .spack
+if [ -d ".spack" ]; then
+  rm -rf .spack
 fi
+mkdir -p .spack
 
 COMPILER_MODULE=$1
 MPI_MODULE=$2
