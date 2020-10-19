@@ -10,7 +10,8 @@ export HOME=$(pwd)
 cd ../
 # Download spack
 if [ ! -d "spack" ]; then
-  git clone https://github.com/spack/spack.git
+  git clone --branch v0.14.2 https://github.com/spack/spack.git
+
 fi
 
 # Initialize spack env
