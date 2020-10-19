@@ -37,7 +37,7 @@
 
 using parthenon::CellVariable;
 using parthenon::CellVariableVector;
-using parthenon::Container;
+using parthenon::MeshBlockData;
 using parthenon::ContainerIterator;
 using parthenon::DevExecSpace;
 using parthenon::loop_pattern_mdrange_tag;
@@ -72,9 +72,9 @@ void performance_test_wrapper(const std::string test_name, InitFunc init_func,
   };
 }
 
-static Container<Real> createTestContainer() {
+static MeshBlockData<Real> createTestContainer() {
   // Make a container for testing performance
-  Container<Real> container;
+  MeshBlockData<Real> container;
   Metadata m_in({Metadata::Independent});
   Metadata m_out;
   std::vector<int> scalar_block_size{N, N, N};
@@ -104,7 +104,7 @@ std::function<void()> createLambdaRaw(T &raw_array) {
   };
 }
 
-std::function<void()> createLambdaContainer(Container<Real> &container) {
+std::function<void()> createLambdaContainer(MeshBlockData<Real> &container) {
   return [&]() {
     const CellVariableVector<Real> &cv = container.GetCellVariableVector();
     for (int n = 0; n < cv.size(); n++) {
@@ -120,7 +120,7 @@ std::function<void()> createLambdaContainer(Container<Real> &container) {
   };
 }
 
-std::function<void()> createLambdaContainerCellVar(Container<Real> &container,
+std::function<void()> createLambdaContainerCellVar(MeshBlockData<Real> &container,
                                                    std::vector<std::string> &names) {
   return [&]() {
     for (int n = 0; n < names.size(); n++) {
@@ -184,7 +184,7 @@ TEST_CASE("Catch2 Container Iterator Performance", "[ContainerIterator][performa
 
   SECTION("Iterate Variables") {
     GIVEN("A container.") {
-      Container<Real> container = createTestContainer();
+      MeshBlockData<Real> container = createTestContainer();
       auto init_container = createLambdaContainer(container);
 
       // Make a function for initializing the container variables
@@ -202,7 +202,7 @@ TEST_CASE("Catch2 Container Iterator Performance", "[ContainerIterator][performa
       });
     } // GIVEN
     GIVEN("A container cellvar.") {
-      Container<Real> container = createTestContainer();
+      MeshBlockData<Real> container = createTestContainer();
       std::vector<std::string> names({"v0", "v1", "v2", "v3", "v4", "v5"});
       auto init_container = createLambdaContainerCellVar(container, names);
 
@@ -224,7 +224,7 @@ TEST_CASE("Catch2 Container Iterator Performance", "[ContainerIterator][performa
 
   SECTION("View of Views") {
     GIVEN("A container.") {
-      Container<Real> container = createTestContainer();
+      MeshBlockData<Real> container = createTestContainer();
       WHEN("The view of views does not have any names.") {
         parthenon::VariablePack<Real> var_view =
             container.PackVariables({Metadata::Independent});

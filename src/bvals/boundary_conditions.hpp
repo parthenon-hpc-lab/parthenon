@@ -21,7 +21,7 @@
 
 namespace parthenon {
 
-TaskStatus ApplyBoundaryConditions(std::shared_ptr<Container<Real>> &rc);
+TaskStatus ApplyBoundaryConditions(std::shared_ptr<MeshBlockData<Real>> &rc);
 
 } // namespace parthenon
 

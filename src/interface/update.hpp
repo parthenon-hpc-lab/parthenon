@@ -28,27 +28,27 @@ namespace Update {
 // currently causes problems from recursive includes (from mesh.hpp)
 using BlockList_t = std::vector<std::shared_ptr<MeshBlock>>;
 
-TaskStatus FluxDivergence(std::shared_ptr<Container<Real>> &in,
-                          std::shared_ptr<Container<Real>> &dudt_cont);
+TaskStatus FluxDivergenceBlock(std::shared_ptr<MeshBlockData<Real>> &in,
+                               std::shared_ptr<MeshBlockData<Real>> &dudt_cont);
 auto FluxDivergenceMesh(const MeshBlockVarFluxPack<Real> &in_pack,
                         MeshBlockVarPack<Real> &dudt_pack) -> TaskStatus;
-void UpdateContainer(std::shared_ptr<Container<Real>> &in,
-                     std::shared_ptr<Container<Real>> &dudt_cont, const Real dt,
-                     std::shared_ptr<Container<Real>> &out);
+void UpdateContainer(std::shared_ptr<MeshBlockData<Real>> &in,
+                     std::shared_ptr<MeshBlockData<Real>> &dudt_cont, const Real dt,
+                     std::shared_ptr<MeshBlockData<Real>> &out);
 void UpdateContainer(const MeshBlockVarPack<Real> &in_pack,
                      const MeshBlockVarPack<Real> &dudt_pack, const Real dt,
                      MeshBlockVarPack<Real> &out_pack);
 void AverageContainers(MeshBlockVarPack<Real> &c1_pack,
                        const MeshBlockVarPack<Real> &c2_pack, const Real wgt1);
-Real EstimateTimestep(std::shared_ptr<Container<Real>> &rc);
+Real EstimateTimestep(std::shared_ptr<MeshBlockData<Real>> &rc);
 
 } // namespace Update
 
 namespace FillDerivedVariables {
 
-using FillDerivedFunc = void(std::shared_ptr<Container<Real>> &);
+using FillDerivedFunc = void(std::shared_ptr<MeshBlockData<Real>> &);
 void SetFillDerivedFunctions(FillDerivedFunc *pre, FillDerivedFunc *post);
-TaskStatus FillDerived(std::shared_ptr<Container<Real>> &rc);
+TaskStatus FillDerived(std::shared_ptr<MeshBlockData<Real>> &rc);
 
 } // namespace FillDerivedVariables
 

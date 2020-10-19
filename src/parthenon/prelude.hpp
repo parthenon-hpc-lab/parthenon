@@ -30,7 +30,7 @@ namespace parthenon {
 namespace prelude {
 using ::parthenon::BoundaryCommSubset;
 using ::parthenon::CellVariable;
-using ::parthenon::Container;
+using ::parthenon::MeshBlockData;
 using ::parthenon::IndexDomain;
 using ::parthenon::IndexRange;
 using ::parthenon::MeshBlock;

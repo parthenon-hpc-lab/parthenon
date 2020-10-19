@@ -95,15 +95,15 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     // effectively, sc1 = sc0 + dudt*dt
     auto &sc1 = pmb->real_containers.Get(stage_name[stage]);
 
-    auto start_recv = tl.AddTask(none, &Container<Real>::StartReceiving, sc1.get(),
+    auto start_recv = tl.AddTask(none, &MeshBlockData<Real>::StartReceiving, sc1.get(),
                                  BoundaryCommSubset::all);
 
     auto advect_flux = tl.AddTask(none, advection_package::CalculateFluxes, sc0);
 
     auto send_flux =
-        tl.AddTask(advect_flux, &Container<Real>::SendFluxCorrection, sc0.get());
+        tl.AddTask(advect_flux, &MeshBlockData<Real>::SendFluxCorrection, sc0.get());
     auto recv_flux =
-        tl.AddTask(advect_flux, &Container<Real>::ReceiveFluxCorrection, sc0.get());
+        tl.AddTask(advect_flux, &MeshBlockData<Real>::ReceiveFluxCorrection, sc0.get());
   }
 
   auto &sc0flux_packs =
@@ -154,13 +154,15 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     auto prev_task = none;
     if (!use_pack_in_one) {
       // update ghost cells
-      auto send = tl.AddTask(none, &Container<Real>::SendBoundaryBuffers, sc1.get());
-      auto recv = tl.AddTask(send, &Container<Real>::ReceiveBoundaryBuffers, sc1.get());
-      auto fill_from_bufs = tl.AddTask(recv, &Container<Real>::SetBoundaries, sc1.get());
+      auto send = tl.AddTask(none, &MeshBlockData<Real>::SendBoundaryBuffers, sc1.get());
+      auto recv =
+          tl.AddTask(send, &MeshBlockData<Real>::ReceiveBoundaryBuffers, sc1.get());
+      auto fill_from_bufs =
+          tl.AddTask(recv, &MeshBlockData<Real>::SetBoundaries, sc1.get());
       prev_task = fill_from_bufs;
     }
 
-    auto clear_comm_flags = tl.AddTask(prev_task, &Container<Real>::ClearBoundary,
+    auto clear_comm_flags = tl.AddTask(prev_task, &MeshBlockData<Real>::ClearBoundary,
                                        sc1.get(), BoundaryCommSubset::all);
 
     auto prolongBound = tl.AddTask(
@@ -182,7 +184,7 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     if (stage == integrator->nstages) {
       auto new_dt = tl.AddTask(
           fill_derived,
-          [](std::shared_ptr<Container<Real>> &rc) {
+          [](std::shared_ptr<MeshBlockData<Real>> &rc) {
             auto pmb = rc->GetBlockPointer();
             pmb->SetBlockTimestep(parthenon::Update::EstimateTimestep(rc));
             return TaskStatus::complete;

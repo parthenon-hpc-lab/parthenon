@@ -29,9 +29,47 @@
 namespace parthenon {
 
 namespace Update {
+/*
+template <typename T>
+TaskStatus FluxDivergence(T *in_obj, T *dudt_obj) {
 
-TaskStatus FluxDivergence(std::shared_ptr<Container<Real>> &in,
-                          std::shared_ptr<Container<Real>> &dudt_cont) {
+  const IndexDomain interior = IndexDomain::interior;
+  const IndexRange ib = in_obj.cellbounds.GetBoundsI(interior);
+  const IndexRange jb = in_obj.cellbounds.GetBoundsJ(interior);
+  const IndexRange kb = in_obj.cellbounds.GetBoundsK(interior);
+
+  auto vin = in_obj->PackVariablesAndFluxes({Metadata::Independent});
+  auto dudt = dudt_obj->PackVariables({Metadata::Independent});
+
+  auto &coords_array = in_obj->GetCoords();
+  const int ndim = in_obj->GetNdim();
+
+  parthenon::par_for(DEFAULT_LOOP_PATTERN, "flux divergence", in_obj->exec_space,
+    0, vin.GetDim(5) - 1, 0, vin.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+    KOKKOS_LAMBDA(const int m, const int l, const int k, const int j, const int i) {
+      const auto coords = coords_array(m);
+      const auto v = vin(m);
+      dudt(m, l, k, j, i) =
+          (coords.Area(X1DIR, k, j, i + 1) * v.flux(X1DIR, l, k, j, i + 1) -
+           coords.Area(X1DIR, k, j, i) * v.flux(X1DIR, l, k, j, i));
+      if (ndim >= 2) {
+        dudt(m, l, k, j, i) +=
+            (coords.Area(X2DIR, k, j + 1, i) * v.flux(X2DIR, l, k, j + 1, i) -
+             coords.Area(X2DIR, k, j, i) * v.flux(X2DIR, l, k, j, i));
+      }
+      if (ndim == 3) {
+        dudt(m, l, k, j, i) +=
+            (coords.Area(X3DIR, k + 1, j, i) * v.flux(X3DIR, l, k + 1, j, i) -
+             coords.Area(X3DIR, k, j, i) * v.flux(X3DIR, l, k, j, i));
+      }
+      dudt(m, l, k, j, i) /= -coords.Volume(k, j, i);
+    });
+  return TaskStatus::complete;
+}
+*/
+
+TaskStatus FluxDivergenceBlock(std::shared_ptr<MeshBlockData<Real>> &in,
+                               std::shared_ptr<MeshBlockData<Real>> &dudt_cont) {
   std::shared_ptr<MeshBlock> pmb = in->GetBlockPointer();
 
   const IndexDomain interior = IndexDomain::interior;
@@ -102,9 +140,9 @@ auto FluxDivergenceMesh(const MeshBlockVarFluxPack<Real> &in_pack,
   return TaskStatus::complete;
 }
 
-void UpdateContainer(std::shared_ptr<Container<Real>> &in,
-                     std::shared_ptr<Container<Real>> &dudt_cont, const Real dt,
-                     std::shared_ptr<Container<Real>> &out) {
+void UpdateContainer(std::shared_ptr<MeshBlockData<Real>> &in,
+                     std::shared_ptr<MeshBlockData<Real>> &dudt_cont, const Real dt,
+                     std::shared_ptr<MeshBlockData<Real>> &out) {
   std::shared_ptr<MeshBlock> pmb = in->GetBlockPointer();
 
   auto vin = in->PackVariables({Metadata::Independent});
@@ -148,7 +186,7 @@ void AverageContainers(MeshBlockVarPack<Real> &c1_pack,
       });
 }
 
-Real EstimateTimestep(std::shared_ptr<Container<Real>> &rc) {
+Real EstimateTimestep(std::shared_ptr<MeshBlockData<Real>> &rc) {
   std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
   Real dt_min = std::numeric_limits<Real>::max();
   for (auto &pkg : pmb->packages) {
@@ -172,7 +210,7 @@ void FillDerivedVariables::SetFillDerivedFunctions(FillDerivedFunc *pre,
   post_package_fill_ = post;
 }
 
-TaskStatus FillDerivedVariables::FillDerived(std::shared_ptr<Container<Real>> &rc) {
+TaskStatus FillDerivedVariables::FillDerived(std::shared_ptr<MeshBlockData<Real>> &rc) {
   if (pre_package_fill_ != nullptr) {
     pre_package_fill_(rc);
   }

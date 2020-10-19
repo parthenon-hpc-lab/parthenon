@@ -41,20 +41,20 @@ namespace parthenon {
 class MeshBlock;
 
 template <typename T>
-class Container {
+class MeshBlockData {
  public:
   //-----------------
   // Public Methods
   //-----------------
   /// Constructor
-  Container<T>() = default;
+  MeshBlockData<T>() = default;
 
   // Constructors for getting sub-containers
   // the variables returned are all shallow copies of the src container.
   // Optionally extract only some of the sparse ids of src variable.
-  Container<T>(const Container<T> &src, const std::vector<std::string> &names,
-               const std::vector<int> sparse_ids = {});
-  Container<T>(const Container<T> &src, const std::vector<MetadataFlag> &flags);
+  MeshBlockData<T>(const MeshBlockData<T> &src, const std::vector<std::string> &names,
+                   const std::vector<int> sparse_ids = {});
+  MeshBlockData<T>(const MeshBlockData<T> &src, const std::vector<MetadataFlag> &flags);
 
   /// Returns shared pointer to a block
   std::shared_ptr<MeshBlock> GetBlockPointer() {
@@ -71,12 +71,12 @@ class Container {
   ///
   /// @param sparse_id The sparse id
   /// @return New container with slices from all variables
-  std::shared_ptr<Container<T>> SparseSlice(int sparse_id);
+  std::shared_ptr<MeshBlockData<T>> SparseSlice(int sparse_id);
 
   ///
   /// Set the pointer to the mesh block for this container
   void SetBlockPointer(std::weak_ptr<MeshBlock> pmb) { pmy_block = pmb; }
-  void SetBlockPointer(const std::shared_ptr<Container<T>> &other) {
+  void SetBlockPointer(const std::shared_ptr<MeshBlockData<T>> &other) {
     pmy_block = other->GetBlockPointer();
   }
 
@@ -283,7 +283,7 @@ class Container {
   TaskStatus SendFluxCorrection();
   TaskStatus ReceiveFluxCorrection();
 
-  bool operator==(const Container<T> &cmp) {
+  bool operator==(const MeshBlockData<T> &cmp) {
     // do some kind of check of equality
     // do the two containers contain the same named fields?
     std::vector<std::string> my_keys;

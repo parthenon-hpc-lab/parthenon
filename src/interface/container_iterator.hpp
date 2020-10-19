@@ -36,7 +36,7 @@ class ContainerIterator {
   // std::vector<FaceVariable> varsFace; // face vars that match
   // std::vector<EdgeVariable> varsEdge; // edge vars that match
 
-  void MakeList(const std::shared_ptr<Container<T>> &c,
+  void MakeList(const std::shared_ptr<MeshBlockData<T>> &c,
                 const std::vector<std::string> &names) {
     auto var_map = c->GetCellVariableMap();
     auto sparse_map = c->GetSparseMap();
@@ -73,7 +73,7 @@ class ContainerIterator {
   /// initializes the iterator with a container and a flag to match
   /// @param c the container on which you want the iterator
   /// @param flags: a vector of Metadata::flags that you want to match
-  ContainerIterator<T>(const std::shared_ptr<Container<T>> &c,
+  ContainerIterator<T>(const std::shared_ptr<MeshBlockData<T>> &c,
                        const std::vector<MetadataFlag> &flags, bool matchAny = false) {
     allVars_ = c->GetCellVariableVector();
     for (auto &svar : c->GetSparseVector()) {
@@ -88,7 +88,7 @@ class ContainerIterator {
   /// initializes the iterator with a container and a flag to match
   /// @param c the container on which you want the iterator
   /// @param names: a vector of std::string with names you want to match
-  ContainerIterator<T>(const std::shared_ptr<Container<T>> &c,
+  ContainerIterator<T>(const std::shared_ptr<MeshBlockData<T>> &c,
                        const std::vector<std::string> &names) {
     MakeList(c, names);
     /*allVars_ = c.GetCellVariableVector();

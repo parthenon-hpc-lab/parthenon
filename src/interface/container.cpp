@@ -26,15 +26,15 @@ namespace parthenon {
 /// The new version of Add that takes the fourth dimension from
 /// the metadata structure
 template <typename T>
-void Container<T>::Add(const std::string label, const Metadata &metadata) {
+void MeshBlockData<T>::Add(const std::string label, const Metadata &metadata) {
   // generate the vector and call Add
   const std::vector<int> &dims = metadata.Shape();
   Add(label, metadata, dims);
 }
 
 template <typename T>
-void Container<T>::Add(const std::vector<std::string> labelArray,
-                       const Metadata &metadata) {
+void MeshBlockData<T>::Add(const std::vector<std::string> labelArray,
+                           const Metadata &metadata) {
   // generate the vector and call Add
   for (auto label : labelArray) {
     Add(label, metadata);
@@ -42,8 +42,8 @@ void Container<T>::Add(const std::vector<std::string> labelArray,
 }
 
 template <typename T>
-void Container<T>::Add(const std::vector<std::string> labelArray,
-                       const Metadata &metadata, const std::vector<int> dims) {
+void MeshBlockData<T>::Add(const std::vector<std::string> labelArray,
+                           const Metadata &metadata, const std::vector<int> dims) {
   for (auto label : labelArray) {
     Add(label, metadata, dims);
   }
@@ -57,8 +57,8 @@ void Container<T>::Add(const std::vector<std::string> labelArray,
 /// @param dims the size of each element
 /// @param metadata the metadata associated with the variable
 template <typename T>
-void Container<T>::Add(const std::string label, const Metadata &metadata,
-                       const std::vector<int> dims) {
+void MeshBlockData<T>::Add(const std::string label, const Metadata &metadata,
+                           const std::vector<int> dims) {
   std::array<int, 6> arrDims;
   calcArrDims_(arrDims, dims, metadata);
 
@@ -107,8 +107,9 @@ void Container<T>::Add(const std::string label, const Metadata &metadata,
 // the variables returned are all shallow copies of the src container.
 // Optionally extract only some of the sparse ids of src variable.
 template <typename T>
-Container<T>::Container(const Container<T> &src, const std::vector<std::string> &names,
-                        const std::vector<int> sparse_ids) {
+MeshBlockData<T>::MeshBlockData(const MeshBlockData<T> &src,
+                            const std::vector<std::string> &names,
+                            const std::vector<int> sparse_ids) {
   auto var_map = src.GetCellVariableMap();
   auto sparse_map = src.GetSparseMap();
   auto face_map = src.GetFaceMap();
@@ -122,7 +123,7 @@ Container<T>::Container(const Container<T> &src, const std::vector<std::string> 
     auto sv = sparse_map.find(name);
     if (sv != sparse_map.end()) {
       if (found) {
-        std::cerr << "Container: " << name << " found more than once!" << std::endl;
+        std::cerr << "MeshBlockData: " << name << " found more than once!" << std::endl;
         std::exit(1);
       }
       found = true;
@@ -137,20 +138,21 @@ Container<T>::Container(const Container<T> &src, const std::vector<std::string> 
     auto fv = face_map.find(name);
     if (fv != face_map.end()) {
       if (found) {
-        std::cerr << "Container: " << name << " found more than once!" << std::endl;
+        std::cerr << "MeshBlockData: " << name << " found more than once!" << std::endl;
         std::exit(1);
       }
       found = true;
       Add(fv->second);
     }
     if (!found) {
-      std::cerr << "Container: " << name << " not found!" << std::endl;
+      std::cerr << "MeshBlockData: " << name << " not found!" << std::endl;
       std::exit(1);
     }
   }
 }
 template <typename T>
-Container<T>::Container(const Container<T> &src, const std::vector<MetadataFlag> &flags) {
+MeshBlockData<T>::MeshBlockData(const MeshBlockData<T> &src,
+                            const std::vector<MetadataFlag> &flags) {
   auto var_map = src.GetCellVariableMap();
   auto sparse_map = src.GetSparseMap();
   auto face_map = src.GetFaceMap();
@@ -179,8 +181,8 @@ Container<T>::Container(const Container<T> &src, const std::vector<MetadataFlag>
 
 // provides a container that has a single sparse slice
 template <typename T>
-std::shared_ptr<Container<T>> Container<T>::SparseSlice(int id) {
-  auto c = std::make_shared<Container<T>>();
+std::shared_ptr<MeshBlockData<T>> MeshBlockData<T>::SparseSlice(int id) {
+  auto c = std::make_shared<MeshBlockData<T>>();
 
   // copy in private data
   c->pmy_block = pmy_block;
@@ -226,7 +228,7 @@ std::shared_ptr<Container<T>> Container<T>::SparseSlice(int id) {
 ///        indices represent inclusive bounds for, e.g., a sparse or tensor-valued
 ///        variable.
 template <typename T>
-VariableFluxPack<T> Container<T>::PackVariablesAndFluxesHelper_(
+VariableFluxPack<T> MeshBlockData<T>::PackVariablesAndFluxesHelper_(
     const std::vector<std::string> &var_names, const std::vector<std::string> &flx_names,
     const vpack_types::VarList<T> &vars, const vpack_types::VarList<T> &fvars,
     PackIndexMap &vmap) {
@@ -249,9 +251,9 @@ VariableFluxPack<T> Container<T>::PackVariablesAndFluxesHelper_(
 
 template <typename T>
 VariableFluxPack<T>
-Container<T>::PackVariablesAndFluxes(const std::vector<std::string> &var_names,
-                                     const std::vector<std::string> &flx_names,
-                                     PackIndexMap &vmap) {
+MeshBlockData<T>::PackVariablesAndFluxes(const std::vector<std::string> &var_names,
+                                         const std::vector<std::string> &flx_names,
+                                         PackIndexMap &vmap) {
   // expanded names expands sparse variables to varname_idx, where idx is the sparse index
   // this is required since not all sparse indices of a variable are necessarily
   // included in a pack.
@@ -263,22 +265,22 @@ Container<T>::PackVariablesAndFluxes(const std::vector<std::string> &var_names,
 }
 template <typename T>
 VariableFluxPack<T>
-Container<T>::PackVariablesAndFluxes(const std::vector<std::string> &var_names,
-                                     const std::vector<std::string> &flx_names) {
+MeshBlockData<T>::PackVariablesAndFluxes(const std::vector<std::string> &var_names,
+                                         const std::vector<std::string> &flx_names) {
   PackIndexMap vmap;
   return PackVariablesAndFluxes(var_names, flx_names, vmap);
 }
 template <typename T>
 VariableFluxPack<T>
-Container<T>::PackVariablesAndFluxes(const std::vector<MetadataFlag> &flags,
-                                     PackIndexMap &vmap) {
+MeshBlockData<T>::PackVariablesAndFluxes(const std::vector<MetadataFlag> &flags,
+                                         PackIndexMap &vmap) {
   std::vector<std::string> vnams;
   vpack_types::VarList<T> vars = MakeList_(flags, vnams);
   return PackVariablesAndFluxesHelper_(vnams, vnams, vars, vars, vmap);
 }
 template <typename T>
 VariableFluxPack<T>
-Container<T>::PackVariablesAndFluxes(const std::vector<MetadataFlag> &flags) {
+MeshBlockData<T>::PackVariablesAndFluxes(const std::vector<MetadataFlag> &flags) {
   PackIndexMap vmap;
   return PackVariablesAndFluxes(flags, vmap);
 }
@@ -294,9 +296,10 @@ Container<T>::PackVariablesAndFluxes(const std::vector<MetadataFlag> &flags) {
 ///        indices represent inclusive bounds for, e.g., a sparse or tensor-valued
 ///        variable.
 template <typename T>
-VariablePack<T> Container<T>::PackVariablesHelper_(const std::vector<std::string> &names,
-                                                   const vpack_types::VarList<T> &vars,
-                                                   PackIndexMap &vmap) {
+VariablePack<T>
+MeshBlockData<T>::PackVariablesHelper_(const std::vector<std::string> &names,
+                                       const vpack_types::VarList<T> &vars,
+                                       PackIndexMap &vmap) {
   auto kvpair = varPackMap_.find(names);
   if (kvpair == varPackMap_.end()) {
     auto pack = MakePack<T>(vars, &vmap);
@@ -313,49 +316,49 @@ VariablePack<T> Container<T>::PackVariablesHelper_(const std::vector<std::string
   // return std::get<0>(kvpair->second);
 }
 template <typename T>
-VariablePack<T> Container<T>::PackVariables(const std::vector<std::string> &names,
-                                            const std::vector<int> &sparse_ids,
-                                            PackIndexMap &vmap) {
+VariablePack<T> MeshBlockData<T>::PackVariables(const std::vector<std::string> &names,
+                                                const std::vector<int> &sparse_ids,
+                                                PackIndexMap &vmap) {
   std::vector<std::string> expanded_names;
   vpack_types::VarList<T> vars = MakeList_(names, expanded_names, sparse_ids);
   return PackVariablesHelper_(expanded_names, vars, vmap);
 }
 template <typename T>
-VariablePack<T> Container<T>::PackVariables(const std::vector<std::string> &names,
-                                            const std::vector<int> &sparse_ids) {
+VariablePack<T> MeshBlockData<T>::PackVariables(const std::vector<std::string> &names,
+                                                const std::vector<int> &sparse_ids) {
   PackIndexMap vmap;
   return PackVariables(names, sparse_ids, vmap);
 }
 template <typename T>
-VariablePack<T> Container<T>::PackVariables(const std::vector<std::string> &names,
-                                            PackIndexMap &vmap) {
+VariablePack<T> MeshBlockData<T>::PackVariables(const std::vector<std::string> &names,
+                                                PackIndexMap &vmap) {
   return PackVariables(names, {}, vmap);
 }
 template <typename T>
-VariablePack<T> Container<T>::PackVariables(const std::vector<std::string> &names) {
+VariablePack<T> MeshBlockData<T>::PackVariables(const std::vector<std::string> &names) {
   PackIndexMap vmap;
   return PackVariables(names, {}, vmap);
 }
 template <typename T>
-VariablePack<T> Container<T>::PackVariables(const std::vector<MetadataFlag> &flags,
-                                            PackIndexMap &vmap) {
+VariablePack<T> MeshBlockData<T>::PackVariables(const std::vector<MetadataFlag> &flags,
+                                                PackIndexMap &vmap) {
   std::vector<std::string> vnams;
   vpack_types::VarList<T> vars = MakeList_(flags, vnams);
   return PackVariablesHelper_(vnams, vars, vmap);
 }
 template <typename T>
-VariablePack<T> Container<T>::PackVariables(const std::vector<MetadataFlag> &flags) {
+VariablePack<T> MeshBlockData<T>::PackVariables(const std::vector<MetadataFlag> &flags) {
   PackIndexMap vmap;
   return PackVariables(flags, vmap);
 }
 template <typename T>
-VariablePack<T> Container<T>::PackVariables(PackIndexMap &vmap) {
+VariablePack<T> MeshBlockData<T>::PackVariables(PackIndexMap &vmap) {
   std::vector<std::string> vnams;
   vpack_types::VarList<T> vars = MakeList_(vnams);
   return PackVariablesHelper_(vnams, vars, vmap);
 }
 template <typename T>
-VariablePack<T> Container<T>::PackVariables() {
+VariablePack<T> MeshBlockData<T>::PackVariables() {
   PackIndexMap vmap;
   return PackVariables(vmap);
 }
@@ -368,7 +371,7 @@ VariablePack<T> Container<T>::PackVariables() {
 // the pack cache.
 template <typename T>
 vpack_types::VarList<T>
-Container<T>::MakeList_(std::vector<std::string> &expanded_names) {
+MeshBlockData<T>::MakeList_(std::vector<std::string> &expanded_names) {
   int size = 0;
   vpack_types::VarList<T> vars;
   // reverse iteration through variables to preserve ordering in forward list
@@ -401,9 +404,10 @@ Container<T>::MakeList_(std::vector<std::string> &expanded_names) {
 // or by metadata flags. In the case of names, the list can optionally only contain
 // some subset of the sparse ids in a sparse variable.
 template <typename T>
-vpack_types::VarList<T> Container<T>::MakeList_(const std::vector<std::string> &names,
-                                                std::vector<std::string> &expanded_names,
-                                                const std::vector<int> sparse_ids) {
+vpack_types::VarList<T>
+MeshBlockData<T>::MakeList_(const std::vector<std::string> &names,
+                            std::vector<std::string> &expanded_names,
+                            const std::vector<int> sparse_ids) {
   vpack_types::VarList<T> vars;
   // for (const auto &name : names) {
   for (auto n = names.rbegin(); n != names.rend(); ++n) {
@@ -434,8 +438,8 @@ vpack_types::VarList<T> Container<T>::MakeList_(const std::vector<std::string> &
 }
 template <typename T>
 vpack_types::VarList<T>
-Container<T>::MakeList_(const std::vector<MetadataFlag> &flags,
-                        std::vector<std::string> &expanded_names) {
+MeshBlockData<T>::MakeList_(const std::vector<MetadataFlag> &flags,
+                            std::vector<std::string> &expanded_names) {
   vpack_types::VarList<T> vars;
   for (auto &vpair : varMap_) {
     auto &var = vpair.second;
@@ -463,12 +467,12 @@ Container<T>::MakeList_(const std::vector<MetadataFlag> &flags,
 // TODO(JMM): this could be cleaned up, I think.
 // Maybe do only one loop, or do the cleanup at the end.
 template <typename T>
-void Container<T>::Remove(const std::string label) {
-  throw std::runtime_error("Container<T>::Remove not yet implemented");
+void MeshBlockData<T>::Remove(const std::string label) {
+  throw std::runtime_error("MeshBlockData<T>::Remove not yet implemented");
 }
 
 template <typename T>
-TaskStatus Container<T>::SendFluxCorrection() {
+TaskStatus MeshBlockData<T>::SendFluxCorrection() {
   for (auto &v : varVector_) {
     if (v->IsSet(Metadata::Independent)) {
       v->vbvar->SendFluxCorrection();
@@ -486,7 +490,7 @@ TaskStatus Container<T>::SendFluxCorrection() {
 }
 
 template <typename T>
-TaskStatus Container<T>::ReceiveFluxCorrection() {
+TaskStatus MeshBlockData<T>::ReceiveFluxCorrection() {
   int success = 0, total = 0;
   for (auto &v : varVector_) {
     if (v->IsSet(Metadata::Independent)) {
@@ -508,7 +512,7 @@ TaskStatus Container<T>::ReceiveFluxCorrection() {
 }
 
 template <typename T>
-TaskStatus Container<T>::SendBoundaryBuffers() {
+TaskStatus MeshBlockData<T>::SendBoundaryBuffers() {
   // sends the boundary
   debug = 0;
   for (auto &v : varVector_) {
@@ -531,7 +535,7 @@ TaskStatus Container<T>::SendBoundaryBuffers() {
 }
 
 template <typename T>
-void Container<T>::SetupPersistentMPI() {
+void MeshBlockData<T>::SetupPersistentMPI() {
   // setup persistent MPI
   for (auto &v : varVector_) {
     if (v->IsSet(Metadata::FillGhost)) {
@@ -552,7 +556,7 @@ void Container<T>::SetupPersistentMPI() {
 }
 
 template <typename T>
-TaskStatus Container<T>::ReceiveBoundaryBuffers() {
+TaskStatus MeshBlockData<T>::ReceiveBoundaryBuffers() {
   bool ret;
   ret = true;
   // receives the boundary
@@ -587,7 +591,7 @@ TaskStatus Container<T>::ReceiveBoundaryBuffers() {
 }
 
 template <typename T>
-TaskStatus Container<T>::ReceiveAndSetBoundariesWithWait() {
+TaskStatus MeshBlockData<T>::ReceiveAndSetBoundariesWithWait() {
   //  std::cout << "_________RSET from stage:"<<s->name()<<std::endl;
   for (auto &v : varVector_) {
     if ((!v->mpiStatus) && v->IsSet(Metadata::FillGhost)) {
@@ -610,12 +614,12 @@ TaskStatus Container<T>::ReceiveAndSetBoundariesWithWait() {
   }
   return TaskStatus::complete;
 }
-// This really belongs in Container.cpp. However if I put it in there,
+// This really belongs in MeshBlockData.cpp. However if I put it in there,
 // the meshblock file refuses to compile.  Don't know what's going on
 // there, but for now this is the workaround at the expense of code
 // bloat.
 template <typename T>
-TaskStatus Container<T>::SetBoundaries() {
+TaskStatus MeshBlockData<T>::SetBoundaries() {
   //    std::cout << "in set" << std::endl;
   // sets the boundary
   //  std::cout << "_________BSET from stage:"<<s->name()<<std::endl;
@@ -638,7 +642,7 @@ TaskStatus Container<T>::SetBoundaries() {
 }
 
 template <typename T>
-void Container<T>::ResetBoundaryCellVariables() {
+void MeshBlockData<T>::ResetBoundaryCellVariables() {
   for (auto &v : varVector_) {
     if (v->IsSet(Metadata::FillGhost)) {
       v->vbvar->var_cc = v->data;
@@ -655,7 +659,7 @@ void Container<T>::ResetBoundaryCellVariables() {
 }
 
 template <typename T>
-TaskStatus Container<T>::StartReceiving(BoundaryCommSubset phase) {
+TaskStatus MeshBlockData<T>::StartReceiving(BoundaryCommSubset phase) {
   //    std::cout << "in set" << std::endl;
   // sets the boundary
   //  std::cout << "________CLEAR from stage:"<<s->name()<<std::endl;
@@ -680,7 +684,7 @@ TaskStatus Container<T>::StartReceiving(BoundaryCommSubset phase) {
 }
 
 template <typename T>
-TaskStatus Container<T>::ClearBoundary(BoundaryCommSubset phase) {
+TaskStatus MeshBlockData<T>::ClearBoundary(BoundaryCommSubset phase) {
   //    std::cout << "in set" << std::endl;
   // sets the boundary
   //  std::cout << "________CLEAR from stage:"<<s->name()<<std::endl;
@@ -701,7 +705,7 @@ TaskStatus Container<T>::ClearBoundary(BoundaryCommSubset phase) {
 }
 
 template <typename T>
-void Container<T>::Print() {
+void MeshBlockData<T>::Print() {
   std::cout << "Variables are:\n";
   for (auto v : varVector_) {
     std::cout << " cell: " << v->info() << std::endl;
@@ -715,8 +719,9 @@ void Container<T>::Print() {
 }
 
 template <typename T>
-void Container<T>::calcArrDims_(std::array<int, 6> &arrDims, const std::vector<int> &dims,
-                                const Metadata &metadata) {
+void MeshBlockData<T>::calcArrDims_(std::array<int, 6> &arrDims,
+                                    const std::vector<int> &dims,
+                                    const Metadata &metadata) {
   const int N = dims.size();
 
   if (metadata.Where() == Metadata::Cell || metadata.Where() == Metadata::Face ||
@@ -747,6 +752,6 @@ void Container<T>::calcArrDims_(std::array<int, 6> &arrDims, const std::vector<i
   }
 }
 
-template class Container<double>;
+template class MeshBlockData<double>;
 
 } // namespace parthenon

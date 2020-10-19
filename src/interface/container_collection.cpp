@@ -19,7 +19,7 @@ namespace parthenon {
 
 template <typename T>
 void ContainerCollection<T>::Add(const std::string &name,
-                                 const std::shared_ptr<Container<T>> &src) {
+                                 const std::shared_ptr<MeshBlockData<T>> &src) {
   // error check for duplicate names
   auto it = containers_.find(name);
   if (it != containers_.end()) {
@@ -30,7 +30,7 @@ void ContainerCollection<T>::Add(const std::string &name,
     return;
   }
 
-  auto c = std::make_shared<Container<T>>();
+  auto c = std::make_shared<MeshBlockData<T>>();
   c->SetBlockPointer(src);
   for (auto v : src->GetCellVariableVector()) {
     if (v->IsSet(Metadata::OneCopy)) {

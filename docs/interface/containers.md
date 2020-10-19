@@ -10,7 +10,7 @@ or dense data. (For more details on anonymous variables, see
 shapes, e.g., scalar, tensor, etc.A variable can be added to a
 container as:
 ```C++
-parthenon::Container.Add(name, metadata, shape)
+parthenon::MeshBlockData.Add(name, metadata, shape)
 ```
 where the name is a string, the metadata is a `std::vector` of
 metadata flags, and the shape is a `std::vector` of integers

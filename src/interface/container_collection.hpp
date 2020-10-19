@@ -26,13 +26,14 @@ template <typename T>
 class ContainerCollection {
  public:
   ContainerCollection() {
-    containers_["base"] = std::make_shared<Container<T>>(); // always add "base" container
+    containers_["base"] =
+        std::make_shared<MeshBlockData<T>>(); // always add "base" container
   }
 
-  void Add(const std::string &label, const std::shared_ptr<Container<T>> &src);
+  void Add(const std::string &label, const std::shared_ptr<MeshBlockData<T>> &src);
 
-  std::shared_ptr<Container<T>> &Get() { return containers_["base"]; }
-  std::shared_ptr<Container<T>> &Get(const std::string &label) {
+  std::shared_ptr<MeshBlockData<T>> &Get() { return containers_["base"]; }
+  std::shared_ptr<MeshBlockData<T>> &Get(const std::string &label) {
     auto it = containers_.find(label);
     if (it == containers_.end()) {
       throw std::runtime_error("Container " + label + " does not exist in collection.");
@@ -60,7 +61,7 @@ class ContainerCollection {
   }
 
  private:
-  std::map<std::string, std::shared_ptr<Container<T>>> containers_;
+  std::map<std::string, std::shared_ptr<MeshBlockData<T>>> containers_;
 };
 
 } // namespace parthenon
