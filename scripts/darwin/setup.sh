@@ -11,7 +11,7 @@ cd ../
 ls -a
 # Download spack
 if [ -d "${HOME}/spack" ]; then
-  rm -rf ${HOME}/spack
+  rm -rf ${HOME}/../spack
 fi
 git clone --branch v0.14.2 https://github.com/spack/spack.git
 ls -a
@@ -23,7 +23,7 @@ spack env activate ci
 
 # Create .spack folder
 if [ -d ".spack" ]; then
-  rm -rf ${HOME}/.spack
+  rm -rf ${HOME}/../.spack
 fi
 mkdir -p ${HOME}/.spack
 
