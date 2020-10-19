@@ -240,7 +240,6 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
     return packs;
   });
 
-
   pkg->FillDerived = SquareIt;
   pkg->CheckRefinement = CheckRefinement;
   pkg->EstimateTimestep = EstimateTimestep;

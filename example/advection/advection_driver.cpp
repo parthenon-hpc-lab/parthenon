@@ -164,7 +164,7 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
                                        sc1.get(), BoundaryCommSubset::all);
 
     auto prolongBound = tl.AddTask(
-        none,
+        prev_task,
         [](std::shared_ptr<MeshBlock> pmb) {
           pmb->pbval->ProlongateBoundaries(0.0, 0.0);
           return TaskStatus::complete;
