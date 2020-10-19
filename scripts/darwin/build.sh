@@ -6,7 +6,10 @@ source /etc/bashrc
 source /etc/profile
 
 # Make sure home is pointing to current directory
+export PARTHENON=$(pwd)
+cd ../
 export HOME=$(pwd)
+cd $PARTHENON
 # Calculate number of available cores
 export J=$(( $(nproc --all) )) && echo Using ${J} cores during build
 
@@ -24,12 +27,12 @@ fi
 echo "Creating tmp directory ${TMPDIR}"
 mkdir ${TMPDIR}
 
-compiler_version=$(bash $HOME/scripts/darwin/get_version.sh $COMPILER_MODULE)
-compiler_package=$(bash $HOME/scripts/darwin/get_package.sh $COMPILER_MODULE)
-mpi_version=$(bash $HOME/scripts/darwin/get_version.sh $MPI_MODULE)
-mpi_package=$(bash $HOME/scripts/darwin/get_package.sh $MPI_MODULE)
+compiler_version=$(bash $PARTHENON/scripts/darwin/get_version.sh $COMPILER_MODULE)
+compiler_package=$(bash $PARTHENON/scripts/darwin/get_package.sh $COMPILER_MODULE)
+mpi_version=$(bash $PARTHENON/scripts/darwin/get_version.sh $MPI_MODULE)
+mpi_package=$(bash $PARTHENON/scripts/darwin/get_package.sh $MPI_MODULE)
 
-wrapper_compiler=$(bash $HOME/scripts/darwin/get_cpp.sh $compiler_package)
+wrapper_compiler=$(bash $PARTHENON/scripts/darwin/get_cpp.sh $compiler_package)
 export NVCC_WRAPPER_DEFAULT_COMPILER=${wrapper_compiler}
 
 # Load system modules
@@ -41,7 +44,7 @@ module load $MPI_MODULE # mpi
 module load ${15} # cuda
 
 # Initialize spack env
-. ../spack/share/spack/setup-env.sh
+. .${HOME}/spack/share/spack/setup-env.sh
 
 spack env activate ci
 

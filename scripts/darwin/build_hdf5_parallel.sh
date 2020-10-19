@@ -5,17 +5,20 @@ source /etc/bashrc
 source /etc/profile
 
 # Make sure home is pointing to current directory
+export PARTHENON=$(pwd)
+cd ../
 export HOME=$(pwd)
+cd ${PARTHENON}
 # Calculate number of available cores
 export J=$(( $(nproc --all) )) && echo Using ${J} cores during build
 
 COMPILER_MODULE=$1
 MPI_MODULE=$2
 
-compiler_version=$(bash $HOME/scripts/darwin/get_version.sh $COMPILER_MODULE)
-compiler_package=$(bash $HOME/scripts/darwin/get_package.sh $COMPILER_MODULE)
-mpi_version=$(bash $HOME/scripts/darwin/get_version.sh $MPI_MODULE)
-mpi_package=$(bash $HOME/scripts/darwin/get_package.sh $MPI_MODULE)
+compiler_version=$(bash $PARTHENON/scripts/darwin/get_version.sh $COMPILER_MODULE)
+compiler_package=$(bash $PARTHENON/scripts/darwin/get_package.sh $COMPILER_MODULE)
+mpi_version=$(bash $PARTHENON/scripts/darwin/get_version.sh $MPI_MODULE)
+mpi_package=$(bash $PARTHENON/scripts/darwin/get_package.sh $MPI_MODULE)
 
 # Load system modules
 module purge
