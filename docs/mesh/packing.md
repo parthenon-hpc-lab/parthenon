@@ -38,7 +38,7 @@ of it by using the `Partition` machinery found in
 into four evenly sized meshpacks, do
 ```C++
 using parthenon::MeshBlock;
-auto partitions = parthenon::Partition::ToNPartitions(mesh->block_list, 4);
+auto partitions = parthenon::partition::ToNPartitions(mesh->block_list, 4);
 MeshBlockPack<VariablePack<Real>> packs[4];
 for (int i = 0; i < partitions.size() {
   packs[i] = PackVariablesOnMesh(partitions[i], "base");
@@ -62,10 +62,10 @@ Partition_t<T> ToNPartitions(Container_t<T> &container, const int N);
 template <typename T, typename Container_t>
 std::vector<std::vector<T>> ToSizeN(Container_t<T> &container, const int N);
 ```
-Both functions live within the namespace `parthenon::Partition` and `Partition_t` 
+Both functions live within the namespace `parthenon::partition` and `Partition_t` 
 is defined as:
 ```C++
-templat<typename T>
+template<typename T>
 using Parition_t = std::vector<std::vector<T>>
 ```
 
@@ -171,7 +171,7 @@ for a `Mesh* pmesh`.
 Note that the packing function expects you to prepare the state of the
 mesh for the pack. This may mean you need to create new containers if
 they are not available in your container collection. It may also mean
-you must partition the your meshblocks if you want to pack over a
+you must partition your meshblocks if you want to pack over a
 piece of the mesh, as in the example above.
 
 The user can also register these functions from within an individual
@@ -238,4 +238,4 @@ The default packs available are:
 
 | Namespace | Name        | Contains Fluxes | Metadata Condition     |
 | --------- | ----------- | --------------- | ---------------------- |
-| default   | fill_ghosts | No              | `Metadata::FillGhosts` |
+| default   | fill_ghosts | No              | `Metadata::FillGhost` |

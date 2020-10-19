@@ -158,7 +158,7 @@ class StateDescriptor {
     return realFluxPackerMap_;
   }
 
-  bool FlagsPresent(std::vector<MetadataFlag> &flags, bool matchAny = false) {
+  bool FlagsPresent(std::vector<MetadataFlag> const &flags, bool matchAny = false) {
     for (auto &pair : metadataMap_) {
       auto &metadata = pair.second;
       if (metadata.FlagsSet(flags, matchAny)) return true;
