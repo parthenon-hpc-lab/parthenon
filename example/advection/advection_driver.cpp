@@ -111,8 +111,8 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
   auto &sc0_packs =
       pmesh->real_varpacks["advection_package"][stage_name[stage - 1] + "_var"];
   auto &sc1_packs = pmesh->real_varpacks["advection_package"][stage_name[stage] + "_var"];
-  auto &dudt_packs = pmesh->real_varpacks["Hydro"]["dudt_var"];
-  auto &base_packs = pmesh->real_varpacks["Hydro"]["base_var"];
+  auto &dudt_packs = pmesh->real_varpacks["advection_package"]["dudt_var"];
+  auto &base_packs = pmesh->real_varpacks["advection_package"]["base_var"];
 
   const auto use_pack_in_one =
       blocks[0]->packages["advection_package"]->Param<bool>("use_pack_in_one");
