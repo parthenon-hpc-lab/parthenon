@@ -38,8 +38,7 @@ class TestCase(utils.test_case.TestCaseAbs):
             parameters.driver_cmd_line_args = [
                 '-r',
                 'gold.out0.00001.rhdf',
-                'parthenon/job/problem_id=silver',
-                'parthenon/mesh/nx1=%d' % (64 * parameters.num_ranks)
+                'parthenon/job/problem_id=silver'
             ]
             
         return parameters

@@ -41,7 +41,7 @@ class TestCase(utils.test_case.TestCaseAbs):
             parameters.driver_cmd_line_args = [
                 'parthenon/job/problem_id=advection_3d', # change name for new outputs
                 'parthenon/mesh/numlevel=2', # reduce AMR depth for smaller sim
-                'parthenon/mesh/nx1=%d' % (32 * parameters.num_ranks ),
+                'parthenon/mesh/nx1=32',
                 'parthenon/meshblock/nx1=8',
                 'parthenon/mesh/nx2=32',
                 'parthenon/meshblock/nx2=8',
@@ -62,7 +62,7 @@ class TestCase(utils.test_case.TestCaseAbs):
             parameters.driver_cmd_line_args = [
                 'parthenon/job/problem_id=advection_3d', # change name for new outputs
                 'parthenon/mesh/numlevel=2', # reduce AMR depth for smaller sim
-                'parthenon/mesh/nx1=%d' % (32 * parameters.num_ranks),
+                'parthenon/mesh/nx1=32',
                 'parthenon/meshblock/nx1=8',
                 'parthenon/mesh/nx2=32',
                 'parthenon/meshblock/nx2=8',

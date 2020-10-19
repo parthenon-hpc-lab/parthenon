@@ -31,8 +31,6 @@
 #include <vector>
 
 #include "application_input.hpp"
-#include "bvals/bvals.hpp"
-#include "bvals/bvals_interfaces.hpp"
 #include "config.hpp"
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
@@ -44,307 +42,19 @@
 #include "interface/update.hpp"
 #include "kokkos_abstraction.hpp"
 #include "mesh/mesh_refinement.hpp"
+#include "mesh/meshblock.hpp"
+#include "mesh/meshblock_pack.hpp"
 #include "mesh/meshblock_tree.hpp"
 #include "outputs/io_wrapper.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
-#include "reconstruct/reconstruction.hpp"
-#include "utils/interp_table.hpp"
 
 namespace parthenon {
 
 // Forward declarations
 class BoundaryValues;
-class Mesh;
-class MeshBlockTree;
-class MeshRefinement;
 class ParameterInput;
-class Reconstruction;
 class RestartReader;
-
-// Inner loop default pattern
-// - Defined outside of the MeshBlock class because it does not require an exec space
-// - Not defined in kokkos_abstraction.hpp because it requires the compile time option
-//   DEFAULT_INNER_LOOP_PATTERN to be set.
-template <typename Function>
-KOKKOS_INLINE_FUNCTION void par_for_inner(const team_mbr_t &team_member, const int &il,
-                                          const int &iu, const Function &function) {
-  parthenon::par_for_inner(DEFAULT_INNER_LOOP_PATTERN, team_member, il, iu, function);
-}
-
-//----------------------------------------------------------------------------------------
-//! \class MeshBlock
-//  \brief data/functions associated with a single block
-class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
-  friend class RestartOutput;
-  friend class Mesh;
-
- public:
-  MeshBlock() = default;
-  MeshBlock(const int n_side, const int ndim); // for Kokkos testing with ghost
-  ~MeshBlock();
-
-  // Factory method deals with initialization for you
-  static std::shared_ptr<MeshBlock>
-  Make(int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
-       BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin, ApplicationInput *app_in,
-       Properties_t &properties, Packages_t &packages, int igflag, double icost = 1.0) {
-    auto pmb = std::make_shared<MeshBlock>();
-    pmb->Initialize(igid, ilid, iloc, input_block, input_bcs, pm, pin, app_in, properties,
-                    packages, igflag, icost);
-    return pmb;
-  }
-
-  // Kokkos execution space for this MeshBlock
-  DevExecSpace exec_space;
-
-  // data
-  Mesh *pmy_mesh = nullptr; // ptr to Mesh containing this MeshBlock
-  LogicalLocation loc;
-  RegionSize block_size;
-  // for convenience: "max" # of real+ghost cells along each dir for allocating "standard"
-  // sized MeshBlock arrays, depending on ndim i.e.
-  //
-  // cellbounds.nx2 =    nx2      + 2*NGHOST if   nx2 > 1
-  // (entire)         (interior)               (interior)
-  //
-  // Assuming we have a block cells, and nx2 = 6, and NGHOST = 1
-  //
-  // <----- nx1 = 8 ---->
-  //       (entire)
-  //
-  //     <- nx1 = 6 ->
-  //       (interior)
-  //
-  //  - - - - - - - - - -   ^
-  //  |  |  ghost    |  |   |
-  //  - - - - - - - - - -   |         ^
-  //  |  |     ^     |  |   |         |
-  //  |  |     |     |  |  nx2 = 8    nx2 = 6
-  //  |  | interior  |  | (entire)   (interior)
-  //  |  |     |     |  |             |
-  //  |  |     v     |  |   |         v
-  //  - - - - - - - - - -   |
-  //  |  |           |  |   |
-  //  - - - - - - - - - -   v
-  //
-  IndexShape cellbounds;
-  // on 1x coarser level MeshBlock i.e.
-  //
-  // c_cellbounds.nx2 = cellbounds.nx2 * 1/2 + 2*NGHOST, if  cellbounds.nx2 >1
-  //   (entire)             (interior)                          (interior)
-  //
-  // Assuming we have a block cells, and nx2 = 6, and NGHOST = 1
-  //
-  //          cells                              c_cells
-  //
-  //  - - - - - - - - - -   ^              - - - - - - - - - -     ^
-  //  |  |           |  |   |              |  |           |  |     |
-  //  - - - - - - - - - -   |              - - - - - - - - - -     |
-  //  |  |     ^     |  |   |              |  |      ^    |  |     |
-  //  |  |     |     |  |   |              |  |      |    |  |     |
-  //  |  |  nx2 = 6  |  |  nx2 = 8  ====>  |  |   nx2 = 3 |  |   nx2 = 5
-  //  |  |(interior) |  |  (entire)        |  | (interior)|  |  (entire)
-  //  |  |     v     |  |   |              |  |      v    |  |     |
-  //  - - - - - - - - - -   |              - - - - - - - - - -     |
-  //  |  |           |  |   |              |  |           |  |     |
-  //  - - - - - - - - - -   v              - - - - - - - - - -     v
-  //
-  IndexShape c_cellbounds;
-  int gid, lid;
-  int cnghost;
-  int gflag;
-
-  // The User defined containers
-  ContainerCollection<Real> real_containers;
-
-  Properties_t properties;
-  Packages_t packages;
-
-  std::unique_ptr<MeshBlockApplicationData> app;
-
-  Coordinates_t coords;
-
-  // mesh-related objects
-  // TODO(jcd): remove all these?
-  std::unique_ptr<BoundaryValues> pbval;
-  std::unique_ptr<MeshRefinement> pmr;
-  std::unique_ptr<Reconstruction> precon;
-
-  BoundaryFlag boundary_flag[6];
-
-  // functions
-
-  //----------------------------------------------------------------------------------------
-  //! \fn void MeshBlock::DeepCopy(const DstType& dst, const SrcType& src)
-  //  \brief Deep copy between views using the exec space of the MeshBlock
-  template <class DstType, class SrcType>
-  void deep_copy(const DstType &dst, const SrcType &src) {
-    Kokkos::deep_copy(exec_space, dst, src);
-  }
-
-  template <class... Args>
-  inline void par_for(Args &&... args) {
-    par_dispatch_(std::forward<Args>(args)...);
-  }
-
-  template <class... Args>
-  inline void par_reduce(Args &&... args) {
-    par_dispatch_(std::forward<Args>(args)...);
-  }
-
-  // 1D Outer default loop pattern
-  template <typename Function>
-  inline void par_for_outer(const std::string &name, const size_t &scratch_size_in_bytes,
-                            const int &scratch_level, const int &kl, const int &ku,
-                            const Function &function) {
-    parthenon::par_for_outer(DEFAULT_OUTER_LOOP_PATTERN, name, exec_space,
-                             scratch_size_in_bytes, scratch_level, kl, ku, function);
-  }
-  // 2D Outer default loop pattern
-  template <typename Function>
-  inline void par_for_outer(const std::string &name, const size_t &scratch_size_in_bytes,
-                            const int &scratch_level, const int &kl, const int &ku,
-                            const int &jl, const int &ju, const Function &function) {
-    parthenon::par_for_outer(DEFAULT_OUTER_LOOP_PATTERN, name, exec_space,
-                             scratch_size_in_bytes, scratch_level, kl, ku, jl, ju,
-                             function);
-  }
-
-  // 3D Outer default loop pattern
-  template <typename Function>
-  inline void par_for_outer(const std::string &name, size_t &scratch_size_in_bytes,
-                            const int &scratch_level, const int &nl, const int &nu,
-                            const int &kl, const int &ku, const int &jl, const int &ju,
-                            const Function &function) {
-    parthenon::par_for_outer(DEFAULT_OUTER_LOOP_PATTERN, name, exec_space,
-                             scratch_size_in_bytes, scratch_level, nl, nu, kl, ku, jl, ju,
-                             function);
-  }
-
-  // Inner loop default pattern
-  template <typename Function>
-  KOKKOS_INLINE_FUNCTION void par_for_inner(const team_mbr_t &team_member, const int &il,
-                                            const int &iu, const Function &function) {
-    parthenon::par_for_inner(DEFAULT_INNER_LOOP_PATTERN, team_member, il, iu, function);
-  }
-
-  std::size_t GetBlockSizeInBytes();
-  int GetNumberOfMeshBlockCells() const {
-    return block_size.nx1 * block_size.nx2 * block_size.nx3;
-  }
-  void SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist, int *nslist) {
-    pbval->SearchAndSetNeighbors(tree, ranklist, nslist);
-  }
-  void WeightedAve(ParArrayND<Real> &u_out, ParArrayND<Real> &u_in1,
-                   ParArrayND<Real> &u_in2, const Real wght[3]);
-  void WeightedAve(FaceField &b_out, FaceField &b_in1, FaceField &b_in2,
-                   const Real wght[3]);
-
-  void ResetToIC() { ProblemGenerator(nullptr, nullptr); }
-
-  // inform MeshBlock which arrays contained in member Field, Particles,
-  // ... etc. classes are the "primary" representations of a quantity. when registered,
-  // that data are used for (1) load balancing (2) (future) dumping to restart file
-  void RegisterMeshBlockData(std::shared_ptr<CellVariable<Real>> pvar_cc);
-  void RegisterMeshBlockData(std::shared_ptr<FaceField> pvar_fc);
-
-  // defined in either the prob file or default_pgen.cpp in ../pgen/
-  static void
-  UserWorkBeforeOutputDefault(ParameterInput *pin); // called in Mesh fn (friend class)
-  std::function<void(ParameterInput *)> UserWorkBeforeOutput =
-      &UserWorkBeforeOutputDefault;
-  static void UserWorkInLoopDefault(); // called in TimeIntegratorTaskList
-  std::function<void()> UserWorkInLoop = &UserWorkInLoopDefault;
-  void SetBlockTimestep(const Real dt) { new_block_dt_ = dt; }
-  Real NewDt() const { return new_block_dt_; }
-
-  // It would be nice for these par_dispatch_ functions to be private, but they can't be
-  // 1D default loop pattern
-  template <typename Function, class... Args>
-  inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
-  par_dispatch_(const std::string &name, const int &il, const int &iu,
-                const Function &function, Args &&... args) {
-    // using loop_pattern_flatrange_tag instead of DEFAULT_LOOP_PATTERN for now
-    // as the other wrappers are not implemented yet for 1D loops
-    parthenon::par_dispatch(loop_pattern_flatrange_tag, name, exec_space, il, iu,
-                            function, std::forward<Args>(args)...);
-  }
-
-  // 2D default loop pattern
-  template <typename Function, class... Args>
-  inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
-  par_dispatch_(const std::string &name, const int &jl, const int &ju, const int &il,
-                const int &iu, const Function &function, Args &&... args) {
-    // using loop_pattern_mdrange_tag instead of DEFAULT_LOOP_PATTERN for now
-    // as the other wrappers are not implemented yet for 1D loops
-    parthenon::par_dispatch(loop_pattern_mdrange_tag, name, exec_space, jl, ju, il, iu,
-                            function, std::forward<Args>(args)...);
-  }
-
-  // 3D default loop pattern
-  template <typename Function, class... Args>
-  inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
-  par_dispatch_(const std::string &name, const int &kl, const int &ku, const int &jl,
-                const int &ju, const int &il, const int &iu, const Function &function,
-                Args &&... args) {
-    typename std::conditional<sizeof...(Args) == 0, decltype(DEFAULT_LOOP_PATTERN),
-                              LoopPatternMDRange>::type loop_type;
-    parthenon::par_dispatch(loop_type, name, exec_space, kl, ku, jl, ju, il, iu, function,
-                            std::forward<Args>(args)...);
-  }
-
-  // 4D default loop pattern
-  template <typename Function, class... Args>
-  inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
-  par_dispatch_(const std::string &name, const int &nl, const int &nu, const int &kl,
-                const int &ku, const int &jl, const int &ju, const int &il, const int &iu,
-                const Function &function, Args &&... args) {
-    typename std::conditional<sizeof...(Args) == 0, decltype(DEFAULT_LOOP_PATTERN),
-                              LoopPatternMDRange>::type loop_type;
-    parthenon::par_dispatch(loop_type, name, exec_space, nl, nu, kl, ku, jl, ju, il, iu,
-                            function, std::forward<Args>(args)...);
-  }
-
- private:
-  // data
-  Real new_block_dt_, new_block_dt_hyperbolic_, new_block_dt_parabolic_,
-      new_block_dt_user_;
-  std::vector<std::shared_ptr<CellVariable<Real>>> vars_cc_;
-  std::vector<std::shared_ptr<FaceField>> vars_fc_;
-
-  // Initializer to set up a meshblock called with the default constructor
-  // This is necessary because the back pointers can't be set up until
-  // the block is allocated.
-  void Initialize(int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
-                  BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
-                  ApplicationInput *app_in, Properties_t &properties,
-                  Packages_t &packages, int igflag, double icost = 1.0);
-
-  void InitializeIndexShapes(const int nx1, const int nx2, const int nx3);
-  // functions
-  void SetCostForLoadBalancing(double cost);
-
-  // defined in either the prob file or default_pgen.cpp in ../pgen/
-  static void ProblemGeneratorDefault(MeshBlock *pmb, ParameterInput *pin);
-  std::function<void(MeshBlock *, ParameterInput *)> ProblemGenerator =
-      &ProblemGeneratorDefault;
-  static pMeshBlockApplicationData_t
-  InitApplicationMeshBlockDataDefault(ParameterInput *pin);
-  std::function<pMeshBlockApplicationData_t(ParameterInput *)>
-      InitApplicationMeshBlockData = &InitApplicationMeshBlockDataDefault;
-  static void InitUserMeshBlockDataDefault(ParameterInput *pin);
-  std::function<void(ParameterInput *)> InitUserMeshBlockData =
-      &InitUserMeshBlockDataDefault;
-
-  // functions and variables for automatic load balancing based on timing
-  Kokkos::Timer lb_timer;
-  double cost_;
-  void ResetTimeMeasurement();
-  void StartTimeMeasurement();
-  void StopTimeMeasurement();
-};
-using BlockList_t = std::vector<std::shared_ptr<MeshBlock>>;
 
 //----------------------------------------------------------------------------------------
 //! \class Mesh
@@ -400,14 +110,29 @@ class Mesh {
   Properties_t properties;
   Packages_t packages;
 
+  // MeshBlockPacks
+  // TODO(JMM): Should these be private with a getter function?
+  std::map<std::string, std::map<std::string, std::vector<MeshBlockVarPack<Real>>>>
+      real_varpacks;
+  std::map<std::string, std::map<std::string, std::vector<MeshBlockVarFluxPack<Real>>>>
+      real_fluxpacks;
+
   // functions
   void Initialize(int res_flag, ParameterInput *pin, ApplicationInput *app_in);
   void SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size,
                                  BoundaryFlag *block_bcs);
   void NewTimeStep();
   void OutputCycleDiagnostics();
+  void RegisterMeshBlockPack(const std::string &package, const std::string &name,
+                             const VarPackingFunc<Real> &func);
+  void RegisterMeshBlockPack(const std::string &package, const std::string &name,
+                             const FluxPackingFunc<Real> &func);
+  void BuildMeshBlockPacks();
   void LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin,
                                               ApplicationInput *app_in);
+  int DefaultPackSize() {
+    return default_pack_size_ < 1 ? block_list.size() : default_pack_size_;
+  }
   // step 7: create new MeshBlock list (same MPI rank but diff level: create new block)
   // Moved here given Cuda/nvcc restriction:
   // "error: The enclosing parent function ("...")
@@ -477,6 +202,9 @@ class Mesh {
   double lb_tolerance_;
   int lb_interval_;
 
+  // size of default MeshBlockPacks
+  int default_pack_size_;
+
   // functions
   MeshGenFunc MeshGenerator_[4];
   BValFunc BoundaryFunction_[6];
@@ -484,6 +212,10 @@ class Mesh {
   SrcTermFunc UserSourceTerm_;
   TimeStepFunc UserTimeStep_;
   MetricFunc UserMetric_;
+
+  std::map<std::string, std::map<std::string, VarPackingFunc<Real>>> real_varpackers_;
+  std::map<std::string, std::map<std::string, FluxPackingFunc<Real>>> real_fluxpackers_;
+  void RegisterAllMeshBlockPackers(Packages_t &packages);
 
   void OutputMeshStructure(int dim);
   void CalculateLoadBalance(std::vector<double> const &costlist,
