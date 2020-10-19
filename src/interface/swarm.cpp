@@ -341,7 +341,7 @@ void Swarm::Defrag() {
         });
   }
 
-  //mask_h.DeepCopy(mask_.data);
+  // mask_h.DeepCopy(mask_.data);
 
   // Update max_active_index_
   max_active_index_ = num_active_ - 1;
