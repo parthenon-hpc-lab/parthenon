@@ -106,9 +106,15 @@ cmake \
  -DOMP_NUM_THREADS=${10} \
  -DPARTHENON_DISABLE_HDF5=${11} \
  -DMPIEXEC_PREFLAGS="../external/Kokkos/bin/hpcbind --distribute=2 --visible-gpus=0,1 --" ../
+fail_or_pass=$?
+if [ ${fail_or_pass} -ne 0 ] exit 1
 
 make -j $J VERBOSE=1
+fail_or_pass=$?
+if [ ${fail_or_pass} -ne 0 ] exit 1
 
 ctest --output-on-failure -j $J
+fail_or_pass=$?
+if [ ${fail_or_pass} -ne 0 ] exit 1
  
  
