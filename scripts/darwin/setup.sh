@@ -8,12 +8,13 @@ source /etc/profile
 export HOME=$(pwd)
 
 cd ../
+ls -a
 # Download spack
-if [ -d "spack" ]; then
-  rm -rf spack
+if [ -d "${HOME}/spack" ]; then
+  rm -rf ${HOME}/spack
 fi
 git clone --branch v0.14.2 https://github.com/spack/spack.git
-
+ls -a
 # Initialize spack env
 . spack/share/spack/setup-env.sh
 
@@ -22,9 +23,9 @@ spack env activate ci
 
 # Create .spack folder
 if [ -d ".spack" ]; then
-  rm -rf .spack
+  rm -rf ${HOME}/.spack
 fi
-mkdir -p .spack
+mkdir -p ${HOME}/.spack
 
 COMPILER_MODULE=$1
 MPI_MODULE=$2
@@ -35,11 +36,12 @@ mpi_package=$(bash $HOME/scripts/darwin/get_package.sh $MPI_MODULE)
 mpi_version=$(bash $HOME/scripts/darwin/get_version.sh $MPI_MODULE)
 
 # Setup spack package yaml
-echo "packages:" > $HOME/.spack/packages.yaml
-echo "  python:" >> $HOME/.spack/packages.yaml
-echo "    version: ['3:']" >> $HOME/.spack/packages.yaml
-echo "  openmpi:" >> $HOME/.spack/packages.yaml
-echo "    modules:" >> $HOME/.spack/packages.yaml
-echo "      ${mpi_package}@${mpi_version}: $MPI_MODULE" >> $HOME/.spack/packages.yaml
+echo "packages:" > ${HOME}/.spack/packages.yaml
+echo "  python:" >> ${HOME}/.spack/packages.yaml
+echo "    version: ['3:']" >> ${HOME}/.spack/packages.yaml
+echo "  openmpi:" >> ${HOME}/.spack/packages.yaml
+echo "    modules:" >> ${HOME}/.spack/packages.yaml
+echo "      ${mpi_package}@${mpi_version}: $MPI_MODULE" >> ${HOME}/.spack/packages.yaml
 
+ls -a
 cd $HOME
