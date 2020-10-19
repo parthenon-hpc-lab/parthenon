@@ -273,26 +273,19 @@ void Swarm::RemoveMarkedParticles() {
 void Swarm::Defrag() {
   // TODO(BRR) Could this algorithm be more efficient? Does it matter?
   // Add 1 to convert max index to max number
-  printf("%s:%i\n", __FILE__, __LINE__);
   int num_free = (max_active_index_ + 1) - num_active_;
-  printf("%s:%i\n", __FILE__, __LINE__);
   auto pmb = GetBlockPointer();
-  printf("%s:%i\n", __FILE__, __LINE__);
 
   ParArrayND<int> from_to_indices("from_to_indices", max_active_index_ + 1);
   auto from_to_indices_h = from_to_indices.GetHostMirror();
-  printf("%s:%i\n", __FILE__, __LINE__);
 
   auto mask_h = mask_.data.GetHostMirrorAndCopy();
-  printf("%s:%i\n", __FILE__, __LINE__);
 
   for (int n = 0; n <= max_active_index_; n++) {
     from_to_indices_h(n) = -1;
   }
-  printf("%s:%i\n", __FILE__, __LINE__);
 
   std::list<int> new_free_indices;
-  printf("%s:%i\n", __FILE__, __LINE__);
 
   int index = max_active_index_;
   for (int n = 0; n < num_free; n++) {
@@ -301,92 +294,57 @@ void Swarm::Defrag() {
     }
     int index_to_move_from = index;
     index--;
-    printf("%s:%i\n", __FILE__, __LINE__);
 
     // Below this number "moved" particles should actually stay in place
     if (index_to_move_from < num_active_) {
       break;
     }
-    printf("%s:%i\n", __FILE__, __LINE__);
     int index_to_move_to = free_indices_.front();
-    printf("%s:%i\n", __FILE__, __LINE__);
     free_indices_.pop_front();
-    printf("%s:%i\n", __FILE__, __LINE__);
     new_free_indices.push_back(index_to_move_from);
-    printf("%s:%i\n", __FILE__, __LINE__);
     from_to_indices_h(index_to_move_from) = index_to_move_to;
-    printf("%s:%i\n", __FILE__, __LINE__);
-  }
-  printf("%s:%i\n", __FILE__, __LINE__);
-
-  for (int n = 0; n <= max_active_index_; n++) {
-    printf("[%i] from_to_indices_h = %i\n", n, from_to_indices_h(n));
   }
 
   // Not all these sorts may be necessary
   free_indices_.sort();
-  printf("%s:%i\n", __FILE__, __LINE__);
   new_free_indices.sort();
-  printf("%s:%i\n", __FILE__, __LINE__);
   free_indices_.merge(new_free_indices);
-  printf("%s:%i\n", __FILE__, __LINE__);
 
   from_to_indices.DeepCopy(from_to_indices_h);
-  printf("%s:%i\n", __FILE__, __LINE__);
 
-  auto mask_copy = mask_.Get();
+  auto mask = mask_.Get();
   pmb->par_for(
       "Swarm::DefragMask", 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
         if (from_to_indices(n) >= 0) {
-          // mask_(from_to_indices(n)) = mask_(n);
-          // mask_(n) = false;
-          mask_copy(from_to_indices(n)) = mask_copy(n);
-          mask_copy(n) = false;
+          mask(from_to_indices(n)) = mask(n);
+          mask(n) = false;
         }
       });
-  printf("%s:%i\n", __FILE__, __LINE__);
 
   for (int m = 0; m < intVector_.size(); m++) {
-    printf("%s:%i\n", __FILE__, __LINE__);
-    // auto &vec = intVector_[m]->Get();
-    auto vec = intVector_[m]->Get();
-    printf("%s:%i\n", __FILE__, __LINE__);
-    printf("Defragging %s (size: %i) (%i) (%i)\n", intVector_[m]->label().c_str(),
-           intVector_[m]->data.GetSize(), max_active_index_, from_to_indices.GetSize());
+    auto &vec = intVector_[m]->Get();
     pmb->par_for(
         "Swarm::DefragInt", 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
-          printf("%i?\n", n);
-          printf("fromto? %i\n", from_to_indices(n));
           if (from_to_indices(n) >= 0) {
-            printf("%i -> %i!\n", n, from_to_indices(n));
-            //    vec(from_to_indices(n)) = vec(n);
+            vec(from_to_indices(n)) = vec(n);
           }
         });
-    printf("%s:%i\n", __FILE__, __LINE__);
   }
-  printf("%s:%i\n", __FILE__, __LINE__);
 
   for (int m = 0; m < realVector_.size(); m++) {
-    printf("%s:%i\n", __FILE__, __LINE__);
     auto &vec = realVector_[m]->Get();
-    printf("%s:%i\n", __FILE__, __LINE__);
-    printf("Defragging %s\n", realVector_[m]->label().c_str());
     pmb->par_for(
         "Swarm::DefragReal", 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
           if (from_to_indices(n) >= 0) {
             vec(from_to_indices(n)) = vec(n);
           }
         });
-    printf("%s:%i\n", __FILE__, __LINE__);
   }
-  printf("%s:%i\n", __FILE__, __LINE__);
 
-  mask_h.DeepCopy(mask_.data);
-  printf("%s:%i\n", __FILE__, __LINE__);
+  //mask_h.DeepCopy(mask_.data);
 
   // Update max_active_index_
   max_active_index_ = num_active_ - 1;
-  printf("%s:%i\n", __FILE__, __LINE__);
 }
 
 } // namespace parthenon

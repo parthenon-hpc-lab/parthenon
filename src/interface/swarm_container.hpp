@@ -13,13 +13,13 @@
 #ifndef INTERFACE_SWARM_CONTAINER_HPP_
 #define INTERFACE_SWARM_CONTAINER_HPP_
 
-#include "globals.hpp"
-#include "swarm.hpp"
 #include <map>
 #include <memory>
 #include <string>
-#include <utility> // <pair>
 #include <vector>
+
+#include "globals.hpp"
+#include "swarm.hpp"
 
 namespace parthenon {
 ///

@@ -17,11 +17,6 @@
 /// A swarm contains all particles of a particular species
 /// Date: August 21, 2019
 
-#include "basic_types.hpp"
-#include "bvals/cc/bvals_cc.hpp"
-#include "metadata.hpp"
-#include "parthenon_arrays.hpp"
-#include "variable.hpp"
 #include <array>
 #include <cstdint>
 #include <list>
@@ -30,6 +25,12 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+
+#include "basic_types.hpp"
+#include "bvals/cc/bvals_cc.hpp"
+#include "metadata.hpp"
+#include "parthenon_arrays.hpp"
+#include "variable.hpp"
 
 namespace parthenon {
 class MeshBlock;
