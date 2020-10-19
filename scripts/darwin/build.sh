@@ -46,10 +46,10 @@ module load ${15} # cuda
 spack env activate ci
 
 # Find compilers
-spack -dd compiler find
+spack compiler find
 
-spack -dd install py-numpy
-spack install py-matplotlib
+#spack -dd install py-numpy
+#spack install py-matplotlib
 
 # Load Spack Modules
 
