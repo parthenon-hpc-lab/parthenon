@@ -100,7 +100,7 @@ classes may be allocated. The behaviours are the following:
   MPI communication buffers are allocated, and buffers for a coarse
   grid are allocated. These buffers are *one-copy*, meaning they are
   shared between all instances of a variable in all `Containers` in a
-  `MeshBlockDataCollection`.
+  `DataCollection`.
 
 - If, in addition to `Metadata::FillGhosts`, `Metadata::Independent`
   is set, the flux vector for the variable is allocated. In the

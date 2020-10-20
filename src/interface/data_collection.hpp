@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef INTERFACE_MESHBLOCK_DATA_COLLECTION_HPP_
-#define INTERFACE_MESHBLOCK_DATA_COLLECTION_HPP_
+#ifndef INTERFACE_DATA_COLLECTION_HPP_
+#define INTERFACE_DATA_COLLECTION_HPP_
 
 #include <map>
 #include <memory>
@@ -23,17 +23,17 @@
 namespace parthenon {
 
 template <typename T>
-class MeshBlockDataCollection {
+class DataCollection {
  public:
-  MeshBlockDataCollection() {
+  DataCollection() {
     containers_["base"] =
-        std::make_shared<MeshBlockData<T>>(); // always add "base" container
+        std::make_shared<T>(); // always add "base" container
   }
 
-  void Add(const std::string &label, const std::shared_ptr<MeshBlockData<T>> &src);
+  void Add(const std::string &label, const std::shared_ptr<T> &src);
 
-  std::shared_ptr<MeshBlockData<T>> &Get() { return containers_["base"]; }
-  std::shared_ptr<MeshBlockData<T>> &Get(const std::string &label) {
+  std::shared_ptr<T> &Get() { return containers_["base"]; }
+  std::shared_ptr<T> &Get(const std::string &label) {
     auto it = containers_.find(label);
     if (it == containers_.end()) {
       throw std::runtime_error("Container " + label + " does not exist in collection.");
@@ -61,9 +61,9 @@ class MeshBlockDataCollection {
   }
 
  private:
-  std::map<std::string, std::shared_ptr<MeshBlockData<T>>> containers_;
+  std::map<std::string, std::shared_ptr<T>> containers_;
 };
 
 } // namespace parthenon
 
-#endif // INTERFACE_MESHBLOCK_DATA_COLLECTION_HPP_
+#endif // INTERFACE_DATA_COLLECTION_HPP_

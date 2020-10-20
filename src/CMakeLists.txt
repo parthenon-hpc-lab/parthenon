@@ -140,8 +140,8 @@ add_library(parthenon
   driver/multistage.cpp
   driver/multistage.hpp
 
-  interface/meshblock_data_collection.cpp
-  interface/meshblock_data_collection.hpp
+  interface/data_collection.cpp
+  interface/data_collection.hpp
   interface/meshblock_data_iterator.hpp
   interface/meshblock_data.cpp
   interface/meshblock_data.hpp

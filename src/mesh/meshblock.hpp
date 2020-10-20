@@ -30,8 +30,8 @@
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
 #include "domain.hpp"
+#include "interface/data_collection.hpp"
 #include "interface/meshblock_data.hpp"
-#include "interface/meshblock_data_collection.hpp"
 #include "interface/update.hpp"
 #include "kokkos_abstraction.hpp"
 #include "outputs/io_wrapper.hpp"
@@ -149,7 +149,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   int gflag;
 
   // The User defined containers
-  MeshBlockDataCollection<Real> real_containers;
+  DataCollection<MeshBlockData<Real>> real_containers;
 
   Properties_t properties;
   Packages_t packages;
