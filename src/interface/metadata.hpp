@@ -247,6 +247,10 @@ class Metadata {
                        [this](MetadataFlag const &f) { return IsSet(f); });
   }
 
+  bool FlagsSet(std::vector<MetadataFlag> const &flags, bool matchAny = false) {
+    return ((matchAny && AnyFlagsSet(flags)) || ((!matchAny) && AllFlagsSet(flags)));
+  }
+
   /// returns true if bit is set, false otherwise
   bool IsSet(MetadataFlag bit) const {
     return bit.flag_ < bits_.size() && bits_[bit.flag_];

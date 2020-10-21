@@ -38,9 +38,11 @@
 #include "kokkos_abstraction.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
+#include "mesh/meshblock.hpp"
 #include "mesh/meshblock_tree.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
+#include "reconstruct/reconstruction.hpp"
 #include "utils/buffer_utils.hpp"
 
 namespace parthenon {

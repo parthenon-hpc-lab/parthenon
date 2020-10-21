@@ -20,7 +20,7 @@ message(STATUS "Loading machine configuration for default CI machine. "
 
 # common options
 set(Kokkos_ARCH_WSM ON CACHE BOOL "CPU architecture")
-
+set(NUM_MPI_PROC_TESTING "2" CACHE STRING "CI runs tests with 2 MPI ranks")
 # variants
 if (${MACHINE_VARIANT} MATCHES "cuda")
   set(Kokkos_ARCH_PASCAL61 ON CACHE BOOL "GPU architecture")

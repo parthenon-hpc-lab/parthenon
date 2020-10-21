@@ -62,6 +62,8 @@ built some, drivers needed by the regression tests will still be built."
   OFF
 )
 
+option(PARTHENON_ENABLE_GPU_MPI_CHECKS "Checks if possible that the mpi num of procs and the number\
+of gpu devices detected are appropriate." ${BUILD_TESTING})
 option(PARTHENON_ENABLE_UNIT_TESTS "Enable unit tests" ${BUILD_TESTING})
 option(PARTHENON_ENABLE_INTEGRATION_TESTS "Enable integration tests" ${BUILD_TESTING})
 option(PARTHENON_ENABLE_PERFORMANCE_TESTS "Enable performance tests" ${BUILD_TESTING})
@@ -196,10 +198,15 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 SET (Kokkos_ENABLE_AGGRESSIVE_VECTORIZATION ON CACHE BOOL
      "Kokkos aggressive vectorization")
 
-# Tell Kokkos we need lambdas in Cuda.
+# Check that gpu devices are actually detected
+set(NUM_GPU_DEVICES_PER_NODE "1" CACHE STRING "Number of gpu devices to use when testing if built with Kokkos_ENABLE_CUDA")
 if (Kokkos_ENABLE_CUDA)
+  # Tell Kokkos we need lambdas in Cuda.
   SET (Kokkos_ENABLE_CUDA_LAMBDA ON CACHE BOOL
        "Enable lambda expressions in CUDA")
+  if ( "${PARTHENON_ENABLE_GPU_MPI_CHECKS}" )
+     configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/CTestCustom.cmake.in ${CMAKE_BINARY_DIR}/CTestCustom.cmake @ONLY)
+  endif()
 endif()
 
 # If this is a debug build, set kokkos debug on
@@ -265,6 +272,16 @@ if (${PARTHENON_ENABLE_UNIT_TESTS} OR ${PARTHENON_ENABLE_INTEGRATION_TESTS} OR $
       message(STATUS "  Download of gold standard successful.")
     else()
       message(STATUS "Gold standard is up-to-date. No download required.")
+    endif()
+
+
+    # Throw a warning if the number of processors available is less than the number specified for running the tests.
+    include(ProcessorCount)
+    ProcessorCount(N)
+    if( "${NUM_MPI_PROC_TESTING}" GREATER "${N}") 
+      message(WARNING "Consider changing the number of MPI processors used in testing, currently "
+        "NUM_MPI_PROC_TESTING is set to ${NUM_MPI_PROC_TESTING} but cmake has only detected a"
+        " total of ${N} available processors")
     endif()
   endif()
 

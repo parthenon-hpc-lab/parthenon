@@ -164,6 +164,8 @@ add_library(parthenon
   mesh/mesh_refinement.hpp
   mesh/mesh.cpp
   mesh/mesh.hpp
+  mesh/meshblock.hpp
+  mesh/meshblock_pack.hpp
   mesh/meshblock_tree.cpp
   mesh/meshblock_tree.hpp
   mesh/meshblock.cpp
@@ -209,6 +211,7 @@ add_library(parthenon
   utils/buffer_utils.hpp
   utils/change_rundir.cpp
   utils/error_checking.hpp
+  utils/partition_stl_containers.hpp
   utils/show_config.cpp
   utils/signal_handler.cpp
   utils/trim_string.cpp
