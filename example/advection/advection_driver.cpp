@@ -128,7 +128,7 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
 
   // note that task within this region that contains one tasklist per pack
   // could still be executed in parallel
-  TaskRegion &single_tasklist_per_pack_region = tc.AddRegion(1);
+  TaskRegion &single_tasklist_per_pack_region = tc.AddRegion(partitions.size());
   for (int i = 0; i < partitions.size(); i++) {
     auto &tl = single_tasklist_per_pack_region[i];
     auto &mbase = pmesh->mesh_data.Get("base" + std::to_string(i));
