@@ -30,8 +30,6 @@ template <typename T>
 class MeshData;
 
 namespace cell_centered_bvars {
-// TaskStatus SendBoundaryBuffers(BlockList_t &blocks, const std::string &container_name,
-//                         const MeshBlockVarPack<Real> &var_pack);
 TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus ReceiveBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md);

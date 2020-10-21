@@ -119,25 +119,7 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
         sm->Set(partitions[i], stage_name[stage]);
       }
     }
-    auto mesh_base = pmesh->mesh_data.Get();
-    mesh_base->Set(pmesh->block_list, "base");
-    auto mesh_dudt = pmesh->mesh_data.Add("dUdt");
-    mesh_dudt->Set(pmesh->block_list, "dUdt");
-    for (int i = 1; i < integrator->nstages; i++) {
-      auto sm = pmesh->mesh_data.Add(stage_name[stage]);
-      sm->Set(pmesh->block_list, stage_name[stage]);
-    }
   }
-
-
-  /*auto &sc0flux_packs =
-      pmesh->real_fluxpacks["advection_package"][stage_name[stage - 1] + "_varflux"];
-  auto &sc0_packs =
-      pmesh->real_varpacks["advection_package"][stage_name[stage - 1] + "_var"];
-  auto &sc1_packs = pmesh->real_varpacks["advection_package"][stage_name[stage] + "_var"];
-  auto &dudt_packs = pmesh->real_varpacks["advection_package"]["dudt_var"];
-  auto &base_packs = pmesh->real_varpacks["advection_package"]["base_var"];
-  */
 
   const auto use_pack_in_one =
       blocks[0]->packages["advection_package"]->Param<bool>("use_pack_in_one");
@@ -153,14 +135,9 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     auto &mdudt = pmesh->mesh_data.Get("dUdt"+std::to_string(i));
 
     // compute the divergence of fluxes of conserved variables
-    // auto flux_div = tl.AddTask(none, parthenon::Update::FluxDivergenceMesh,
-    //                           sc0flux_packs[i], dudt_packs[i]);
     auto flux_div = tl.AddTask(none, parthenon::Update::FluxDivergenceMesh, mc0, mdudt);
 
     // apply du/dt to all independent fields in the container
-    // auto update_container =
-    //    tl.AddTask(flux_div, UpdateContainer, stage, integrator, sc0_packs[i],
-    //               base_packs[i], dudt_packs[i], sc1_packs[i]);
     auto update_container =
         tl.AddTask(flux_div, UpdateContainer, stage, integrator, mc0, mbase, mdudt, mc1);
 
