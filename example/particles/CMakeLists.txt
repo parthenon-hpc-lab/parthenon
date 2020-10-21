@@ -11,8 +11,13 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
 
-add_subdirectory(advection)
-add_subdirectory(calculate_pi)
-add_subdirectory(face_fields)
-add_subdirectory(kokkos_pi)
-add_subdirectory(particles)
+get_property(DRIVER_LIST GLOBAL PROPERTY DRIVERS_USED_IN_TESTS)
+if( "particles-example" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_EXAMPLE)
+  add_executable(
+      particles-example
+          main.cpp
+          particles.cpp
+  )
+  target_link_libraries(particles-example PRIVATE parthenon)
+  lint_target(particles-example)
+endif()

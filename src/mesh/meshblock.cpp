@@ -105,8 +105,10 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   }
 
   auto &real_container = real_containers.Get();
+  auto &swarm_container = real_containers.GetSwarmContainer();
   // Set the block pointer for the containers
   real_container->SetBlockPointer(shared_from_this());
+  swarm_container->SetBlockPointer(shared_from_this());
 
   // (probably don't need to preallocate space for references in these vectors)
   vars_cc_.reserve(3);
@@ -147,6 +149,18 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
     for (auto const &q : pkg.second->AllSparseFields()) {
       for (auto const &m : q.second) {
         real_container->Add(q.first, m);
+      }
+    }
+  }
+
+  // Add swarms from packages
+  for (auto const &pkg : packages) {
+    for (auto const &q : pkg.second->AllSwarms()) {
+      swarm_container->Add(q.first, q.second);
+      // Populate swarm values
+      auto &swarm = swarm_container->Get(q.first);
+      for (auto const &m : pkg.second->AllSwarmValues(q.first)) {
+        swarm->Add(m.first, m.second);
       }
     }
   }

@@ -19,6 +19,7 @@
 
 #include "interface/container.hpp"
 #include "interface/metadata.hpp"
+#include "interface/swarm_container.hpp"
 
 namespace parthenon {
 
@@ -26,8 +27,12 @@ template <typename T>
 class ContainerCollection {
  public:
   ContainerCollection() {
-    containers_["base"] = std::make_shared<Container<T>>(); // always add "base" container
+    // Always add "base" containers
+    containers_["base"] = std::make_shared<Container<T>>();
+    swarmContainers_["base"] = std::make_shared<SwarmContainer>();
   }
+
+  void Add(const std::string &label, const std::shared_ptr<SwarmContainer> &src);
 
   void Add(const std::string &label, const std::shared_ptr<Container<T>> &src);
 
@@ -36,6 +41,18 @@ class ContainerCollection {
     auto it = containers_.find(label);
     if (it == containers_.end()) {
       throw std::runtime_error("Container " + label + " does not exist in collection.");
+    }
+    return it->second;
+  }
+
+  std::shared_ptr<SwarmContainer> &GetSwarmContainer() {
+    return swarmContainers_["base"];
+  }
+  std::shared_ptr<SwarmContainer> &GetSwarmContainer(const std::string &label) {
+    auto it = swarmContainers_.find(label);
+    if (it == swarmContainers_.end()) {
+      throw std::runtime_error("SwarmContainer " + label +
+                               " does not exist in collection.");
     }
     return it->second;
   }
@@ -49,6 +66,14 @@ class ContainerCollection {
         ++c;
       }
     }
+    auto sc = swarmContainers_.begin();
+    while (sc != swarmContainers_.end()) {
+      if (sc->first != "base") {
+        sc = swarmContainers_.erase(sc);
+      } else {
+        ++sc;
+      }
+    }
   }
 
   void Print() {
@@ -57,10 +82,16 @@ class ContainerCollection {
       c.second->Print();
       std::cout << std::endl;
     }
+    for (auto &sc : swarmContainers_) {
+      std::cout << "SwarmContainer " << sc.first << " has:" << std::endl;
+      sc.second->Print();
+      std::cout << std::endl;
+    }
   }
 
  private:
   std::map<std::string, std::shared_ptr<Container<T>>> containers_;
+  std::map<std::string, std::shared_ptr<SwarmContainer>> swarmContainers_;
 };
 
 } // namespace parthenon

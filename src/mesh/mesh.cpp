@@ -121,9 +121,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properti
   }
 
   // check number of grid cells in root level of mesh from input file.
-  if (mesh_size.nx1 < 4) {
+  if (mesh_size.nx1 < 1) {
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
-        << "In mesh block in input file nx1 must be >= 4, but nx1=" << mesh_size.nx1
+        << "In mesh block in input file nx1 must be >= 1, but nx1=" << mesh_size.nx1
         << std::endl;
     PARTHENON_FAIL(msg);
   }

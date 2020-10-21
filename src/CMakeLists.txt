@@ -143,6 +143,8 @@ add_library(parthenon
   interface/container_iterator.hpp
   interface/container.cpp
   interface/container.hpp
+  interface/swarm_container.cpp
+  interface/swarm.cpp
   interface/metadata.cpp
   interface/metadata.hpp
   interface/params.hpp
