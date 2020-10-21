@@ -59,7 +59,13 @@ class MeshData {
     }
   }
 
-  void Copy(const std::shared_ptr<MeshData<T>> src) { return; }
+  void Copy(const std::shared_ptr<MeshData<T>> src) {
+    const int nblocks = src->NumBlocks();
+    block_data_.resize(nblocks);
+    for (int i = 0; i < nblocks; i++) {
+      block_data_[i]->Copy(src->GetBlockData(i));
+    }
+  }
 
   std::shared_ptr<MeshBlockData<T>> &GetBlockData(int n) {
     assert(n >= 0 && n < block_data_.size());
@@ -137,7 +143,16 @@ class MeshData {
 
   int NumBlocks() const { return block_data_.size(); }
 
-  bool operator==(const MeshData<T> &cmp) { return true; }
+  bool operator==(MeshData<T> &cmp) const {
+    const int nblocks = block_data_.size();
+    const int nblocks_cmp = cmp.NumBlocks();
+    if (nblocks != nblocks_cmp) return false;
+
+    for (int i = 0; i < nblocks; i++) {
+      if (!(*block_data_[i] == *(cmp.GetBlockData(i)))) return false;
+    }
+    return true;
+  }
 
  private:
   Mesh *pmy_mesh_;
