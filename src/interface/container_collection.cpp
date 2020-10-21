@@ -32,7 +32,7 @@ void ContainerCollection<T>::Add(const std::string &name,
   }
 
   auto sc = std::make_shared<SwarmContainer>();
-  // sc->pmy_block = src.pmy_block;
+  sc->SetBlockPointer(src);
   for (auto v : src->GetSwarmVector()) {
     if (v->IsSet(Metadata::OneCopy)) {
       sc->Add(v);
