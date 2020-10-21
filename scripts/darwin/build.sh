@@ -13,8 +13,8 @@ cd $PARTHENON
 # Calculate number of available cores
 export J=$(( $(nproc --all) )) && echo Using ${J} cores during build
 
-COMPILER_MODULE=${14}
-MPI_MODULE=${16}
+COMPILER_MODULE=${15}
+MPI_MODULE=${17}
 
 export TMPDIR=${HOME}/tmp
 
@@ -37,11 +37,11 @@ export NVCC_WRAPPER_DEFAULT_COMPILER=${wrapper_compiler}
 
 # Load system modules
 module purge
-module load ${12} # cmake
-module load ${13} # clang for formatting
+module load ${13} # cmake
+module load ${14} # clang for formatting
 module load $COMPILER_MODULE # gcc
 module load $MPI_MODULE # mpi
-module load ${15} # cuda
+module load ${16} # cuda
 
 # Initialize spack env
 . ${HOME}/spack/share/spack/setup-env.sh
