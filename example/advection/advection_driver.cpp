@@ -109,14 +109,22 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
   int pack_size = pmesh->DefaultPackSize();
   auto partitions = partition::ToSizeN(pmesh->block_list, pack_size);
   if (stage == 1) {
+    auto setup_mesh_data = [=](const std::string &name, BlockList_t partition,
+                              const std::string &mb_name) {
+      auto md = pmesh->mesh_data.Add(name);
+      md->Set(partition, mb_name);
+    };
     for (int i = 0; i < partitions.size(); i++) {
-      auto s0 = pmesh->mesh_data.Add("base"+std::to_string(i));
-      s0->Set(partitions[i], "base");
-      auto ddt = pmesh->mesh_data.Add("dUdt"+std::to_string(i));
-      ddt->Set(partitions[i], "dUdt");
+      setup_mesh_data("base" + std::to_string(i), partitions[i], "base");
+      setup_mesh_data("dUdt" + std::to_string(i), partitions[i], "dUdt");
+      // auto s0 = pmesh->mesh_data.Add("base"+std::to_string(i));
+      // s0->Set(partitions[i], "base");
+      // auto ddt = pmesh->mesh_data.Add("dUdt"+std::to_string(i));
+      // ddt->Set(partitions[i], "dUdt");
       for (int j = 1; j < integrator->nstages; j++) {
-        auto sm = pmesh->mesh_data.Add(stage_name[stage]+std::to_string(i));
-        sm->Set(partitions[i], stage_name[stage]);
+        setup_mesh_data(stage_name[j] + std::to_string(i), partitions[i], stage_name[j]);
+        // auto sm = pmesh->mesh_data.Add(stage_name[stage]+std::to_string(i));
+        // sm->Set(partitions[i], stage_name[stage]);
       }
     }
   }
@@ -129,10 +137,10 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
   TaskRegion &single_tasklist_per_pack_region = tc.AddRegion(1);
   for (int i = 0; i < partitions.size(); i++) {
     auto &tl = single_tasklist_per_pack_region[i];
-    auto &mbase = pmesh->mesh_data.Get("base"+std::to_string(i));
-    auto &mc0 = pmesh->mesh_data.Get(stage_name[stage - 1]+std::to_string(i));
-    auto &mc1 = pmesh->mesh_data.Get(stage_name[stage]+std::to_string(i));
-    auto &mdudt = pmesh->mesh_data.Get("dUdt"+std::to_string(i));
+    auto &mbase = pmesh->mesh_data.Get("base" + std::to_string(i));
+    auto &mc0 = pmesh->mesh_data.Get(stage_name[stage - 1] + std::to_string(i));
+    auto &mc1 = pmesh->mesh_data.Get(stage_name[stage] + std::to_string(i));
+    auto &mdudt = pmesh->mesh_data.Get("dUdt" + std::to_string(i));
 
     // compute the divergence of fluxes of conserved variables
     auto flux_div = tl.AddTask(none, parthenon::Update::FluxDivergenceMesh, mc0, mdudt);
@@ -146,8 +154,8 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
       auto send = tl.AddTask(update_container,
                              parthenon::cell_centered_bvars::SendBoundaryBuffers, mc1);
 
-      auto recv = tl.AddTask(send, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers,
-                             mc1);
+      auto recv =
+          tl.AddTask(send, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, mc1);
       auto fill_from_bufs =
           tl.AddTask(recv, parthenon::cell_centered_bvars::SetBoundaries, mc1);
     }

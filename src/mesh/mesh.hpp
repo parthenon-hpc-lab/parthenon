@@ -122,7 +122,6 @@ class Mesh {
                              const VarPackingFunc<Real> &func);
   void RegisterMeshBlockPack(const std::string &package, const std::string &name,
                              const FluxPackingFunc<Real> &func);
-  void BuildMeshBlockPacks();
   void LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin,
                                               ApplicationInput *app_in);
   int DefaultPackSize() {
@@ -207,10 +206,6 @@ class Mesh {
   SrcTermFunc UserSourceTerm_;
   TimeStepFunc UserTimeStep_;
   MetricFunc UserMetric_;
-
-  std::map<std::string, std::map<std::string, VarPackingFunc<Real>>> real_varpackers_;
-  std::map<std::string, std::map<std::string, FluxPackingFunc<Real>>> real_fluxpackers_;
-  void RegisterAllMeshBlockPackers(Packages_t &packages);
 
   void OutputMeshStructure(int dim);
   void CalculateLoadBalance(std::vector<double> const &costlist,

@@ -53,6 +53,7 @@ class MeshData {
   void Set(BlockList_t blocks, const std::string &name) {
     const int nblocks = blocks.size();
     block_data_.resize(nblocks);
+    SetMeshPointer(blocks[0]->pmy_mesh);
     for (int i = 0; i < nblocks; i++) {
       block_data_[i] = blocks[i]->meshblock_data.Get(name);
     }

@@ -701,8 +701,6 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   }
   Initialize(2, pin, app_in);
 
-  BuildMeshBlockPacks();
-
   ResetLoadBalanceVariables();
 
   return;

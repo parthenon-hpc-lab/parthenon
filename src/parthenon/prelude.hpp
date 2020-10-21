@@ -18,6 +18,7 @@
 #include <basic_types.hpp>
 #include <defs.hpp>
 #include <globals.hpp>
+#include <interface/mesh_data.hpp>
 #include <interface/meshblock_data.hpp>
 #include <interface/variable.hpp>
 #include <mesh/domain.hpp>
@@ -34,6 +35,7 @@ using ::parthenon::IndexDomain;
 using ::parthenon::IndexRange;
 using ::parthenon::MeshBlock;
 using ::parthenon::MeshBlockData;
+using ::parthenon::MeshData;
 using ::parthenon::ParArrayHost;
 using ::parthenon::ParArrayND;
 using ::parthenon::ParthenonStatus;

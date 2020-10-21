@@ -53,8 +53,6 @@ using ::parthenon::MeshBlockVarPack;
 using ::parthenon::MultiStageBlockTaskDriver;
 using ::parthenon::Outputs;
 using ::parthenon::Packages_t;
-using ::parthenon::PackVariablesAndFluxesOnMesh;
-using ::parthenon::PackVariablesOnMesh;
 using ::parthenon::ParameterInput;
 using ::parthenon::ParthenonManager;
 using ::parthenon::Task;

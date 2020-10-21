@@ -249,7 +249,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properti
     MeshGenerator_[X3DIR] = DefaultMeshGeneratorX3;
   }
   default_pack_size_ = pin->GetOrAddReal("parthenon/mesh", "pack_size", -1);
-  RegisterAllMeshBlockPackers(packages);
 
   // calculate the logical root level and maximum level
   for (root_level = 0; (1 << root_level) < nbmax; root_level++) {
@@ -488,10 +487,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properti
     block_list[i - nbs]->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
   }
 
-  auto &md = mesh_data.Get();
-  md->SetMeshPointer(this);
-  BuildMeshBlockPacks();
-
   ResetLoadBalanceVariables();
 }
 
@@ -632,7 +627,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
     MeshGenerator_[X3DIR] = DefaultMeshGeneratorX3;
   }
   default_pack_size_ = pin->GetOrAddReal("parthenon/mesh", "pack_size", -1);
-  RegisterAllMeshBlockPackers(packages);
 
   // Load balancing flag and parameters
 #ifdef MPI_PARALLEL
@@ -755,10 +749,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
                         properties, packages, gflag, costlist[i]);
     block_list[i - nbs]->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
   }
-
-  auto &md = mesh_data.Get();
-  md->SetMeshPointer(this);
-  BuildMeshBlockPacks();
 
   ResetLoadBalanceVariables();
 }
@@ -915,79 +905,6 @@ void Mesh::OutputMeshStructure(int ndim) {
   delete[] cost_per_rank;
 
   return;
-}
-
-//----------------------------------------------------------------------------------------
-// MeshBlockPack caching
-
-void Mesh::RegisterMeshBlockPack(const std::string &package, const std::string &name,
-                                 const VarPackingFunc<Real> &func) {
-  real_varpackers_[package][name] = func;
-}
-void Mesh::RegisterMeshBlockPack(const std::string &package, const std::string &name,
-                                 const FluxPackingFunc<Real> &func) {
-  real_fluxpackers_[package][name] = func;
-}
-void Mesh::BuildMeshBlockPacks() {
-  // JMM: I want C++17 structured bindings...
-  for (auto &outer : real_varpackers_) {
-    auto &package = outer.first;
-    auto &packers = outer.second;
-    for (auto &pair : packers) {
-      auto &name = pair.first;
-      auto &func = pair.second;
-      // avoid unnecessary copies
-      real_varpacks[package][name] = func(this);
-    }
-  }
-  for (auto &outer : real_fluxpackers_) {
-    auto &package = outer.first;
-    auto &packers = outer.second;
-    for (auto &pair : packers) {
-      auto &name = pair.first;
-      auto &func = pair.second;
-      real_fluxpacks[package][name] = func(this);
-    }
-  }
-}
-void Mesh::RegisterAllMeshBlockPackers(Packages_t &packages) {
-  // Register packs everyone will use like this
-  // Add more as needed
-  bool register_pack = true;
-  std::vector<MetadataFlag> metadata = {Metadata::FillGhost};
-  for (auto &pair : packages) {
-    auto &package = pair.second;
-    register_pack = register_pack && package->FlagsPresent(metadata);
-  }
-  if (register_pack) {
-    RegisterMeshBlockPack("default", "fill_ghost", [metadata](Mesh *pmesh) {
-      std::vector<MeshBlockVarPack<Real>> packs;
-      auto partitions = partition::ToSizeN(pmesh->block_list, pmesh->DefaultPackSize());
-      packs.resize(partitions.size());
-      for (int i = 0; i < partitions.size(); i++) {
-        packs[i] = PackVariablesOnMesh(partitions[i], "base", metadata);
-      }
-      return packs;
-    });
-  }
-
-  // Register package specific packs
-  for (auto &outer : packages) {
-    auto &package_name = outer.first;
-    auto &package = outer.second;
-    auto varpackers = package->AllMeshBlockVarPackers();
-    auto fluxpackers = package->AllMeshBlockFluxPackers();
-    for (auto &pair : varpackers) {
-      auto &packer_name = pair.first;
-      auto &packer_func = pair.second;
-      RegisterMeshBlockPack(package_name, packer_name, packer_func);
-    }
-    for (auto &pair : fluxpackers) {
-      auto &packer_name = pair.first;
-      auto &packer_func = pair.second;
-      RegisterMeshBlockPack(package_name, packer_name, packer_func);
-    }
-  }
 }
 
 //----------------------------------------------------------------------------------------
