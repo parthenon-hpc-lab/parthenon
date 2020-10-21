@@ -133,30 +133,36 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddParam<>("sin_a2", sin_a2);
   pkg->AddParam<>("sin_a3", sin_a3);
 
+  // number of variable in variable vector
+  const auto num_vars = pin->GetOrAddInteger("Advection", "num_vars", 1);
+
   std::string field_name = "advected";
-  Metadata m({Metadata::Cell, Metadata::Independent, Metadata::FillGhost});
+  Metadata m({Metadata::Cell, Metadata::Independent, Metadata::FillGhost},
+             std::vector<int>({num_vars}));
   pkg->AddField(field_name, m);
 
   field_name = "one_minus_advected";
-  m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy});
+  m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy},
+               std::vector<int>({num_vars}));
   pkg->AddField(field_name, m);
 
   field_name = "one_minus_advected_sq";
-  m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy});
+  m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy},
+               std::vector<int>({num_vars}));
   pkg->AddField(field_name, m);
 
   // for fun make this last one a multi-component field using SparseVariable
   field_name = "one_minus_sqrt_one_minus_advected_sq";
   m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy, Metadata::Sparse,
                 Metadata::Restart},
-               12 // just picking a sparse_id out of a hat for demonstration
-  );
+               12, // just picking a sparse_id out of a hat for demonstration
+               std::vector<int>({num_vars}));
   pkg->AddField(field_name, m);
   // add another component
   m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy, Metadata::Sparse,
                 Metadata::Restart},
-               37 // just picking a sparse_id out of a hat for demonstration
-  );
+               37, // just picking a sparse_id out of a hat for demonstration
+               std::vector<int>({num_vars}));
   pkg->AddField(field_name, m);
 
   pkg->FillDerived = SquareIt;
@@ -177,11 +183,14 @@ AmrTag CheckRefinement(std::shared_ptr<MeshBlockData<Real>> &rc) {
 
   typename Kokkos::MinMax<Real>::value_type minmax;
   pmb->par_reduce(
-      "advection check refinement", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(int k, int j, int i,
+      "advection check refinement", 0, v.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s,
+      ib.e,
+      KOKKOS_LAMBDA(const int n, const int k, const int j, const int i,
                     typename Kokkos::MinMax<Real>::value_type &lminmax) {
-        lminmax.min_val = (v(k, j, i) < lminmax.min_val ? v(k, j, i) : lminmax.min_val);
-        lminmax.max_val = (v(k, j, i) > lminmax.max_val ? v(k, j, i) : lminmax.max_val);
+        lminmax.min_val =
+            (v(n, k, j, i) < lminmax.min_val ? v(n, k, j, i) : lminmax.min_val);
+        lminmax.max_val =
+            (v(n, k, j, i) > lminmax.max_val ? v(n, k, j, i) : lminmax.max_val);
       },
       Kokkos::MinMax<Real>(minmax));
 
@@ -202,15 +211,17 @@ void PreFill(std::shared_ptr<MeshBlockData<Real>> &rc) {
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
 
+  // packing in principle unnecessary/convoluted here and just done for demonstration
   PackIndexMap imap;
   std::vector<std::string> vars({"advected", "one_minus_advected"});
   auto v = rc->PackVariables(vars, imap);
   const int in = imap["advected"].first;
   const int out = imap["one_minus_advected"].first;
+  const auto num_vars = rc->Get("advected").data.GetDim(4);
   pmb->par_for(
-      "advection_package::PreFill", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int k, const int j, const int i) {
-        v(out, k, j, i) = 1.0 - v(in, k, j, i);
+      "advection_package::PreFill", 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
+        v(out + n, k, j, i) = 1.0 - v(in + n, k, j, i);
       });
 }
 
@@ -222,15 +233,17 @@ void SquareIt(std::shared_ptr<MeshBlockData<Real>> &rc) {
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
 
+  // packing in principle unnecessary/convoluted here and just done for demonstration
   PackIndexMap imap;
   std::vector<std::string> vars({"one_minus_advected", "one_minus_advected_sq"});
   auto v = rc->PackVariables(vars, imap);
   const int in = imap["one_minus_advected"].first;
   const int out = imap["one_minus_advected_sq"].first;
+  const auto num_vars = rc->Get("advected").data.GetDim(4);
   pmb->par_for(
-      "advection_package::SquareIt", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int k, const int j, const int i) {
-        v(out, k, j, i) = v(in, k, j, i) * v(in, k, j, i);
+      "advection_package::SquareIt", 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
+        v(out + n, k, j, i) = v(in + n, k, j, i) * v(in + n, k, j, i);
       });
 }
 
@@ -242,6 +255,7 @@ void PostFill(std::shared_ptr<MeshBlockData<Real>> &rc) {
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
 
+  // packing in principle unnecessary/convoluted here and just done for demonstration
   PackIndexMap imap;
   std::vector<std::string> vars(
       {"one_minus_advected_sq", "one_minus_sqrt_one_minus_advected_sq"});
@@ -249,11 +263,12 @@ void PostFill(std::shared_ptr<MeshBlockData<Real>> &rc) {
   const int in = imap["one_minus_advected_sq"].first;
   const int out12 = imap["one_minus_sqrt_one_minus_advected_sq_12"].first;
   const int out37 = imap["one_minus_sqrt_one_minus_advected_sq_37"].first;
+  const auto num_vars = rc->Get("advected").data.GetDim(4);
   pmb->par_for(
-      "advection_package::PostFill", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int k, const int j, const int i) {
-        v(out12, k, j, i) = 1.0 - sqrt(v(in, k, j, i));
-        v(out37, k, j, i) = 1.0 - v(out12, k, j, i);
+      "advection_package::PostFill", 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
+        v(out12 + n, k, j, i) = 1.0 - sqrt(v(in + n, k, j, i));
+        v(out37 + n, k, j, i) = 1.0 - v(out12 + n, k, j, i);
       });
 }
 
