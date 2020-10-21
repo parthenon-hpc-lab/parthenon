@@ -51,8 +51,8 @@ spack env activate ci
 # Find compilers
 spack compiler find
 
-#spack -dd install py-numpy
-#spack install py-matplotlib
+spack install py-numpy
+spack install py-matplotlib
 
 # Load Spack Modules
 
@@ -62,6 +62,7 @@ spack load hdf5@1.10.6%${compiler_package}@${compiler_version} \
 spack load py-h5py ^hdf5@1.10.6%${compiler_package}@${compiler_version} \
   ^${mpi_package}@${mpi_version}%${compiler_package}@${compiler_version}
 
+spack load py-mpi4py
 spack load py-matplotlib
 spack load py-numpy
 
@@ -96,7 +97,7 @@ echo "cmake \
  -DNUM_MPI_PROC_TESTING=${10} \
  -DOMP_NUM_THREADS=${11} \
  -DPARTHENON_DISABLE_HDF5=${12} \
- -DMPIEXEC_PREFLAGS='../external/Kokkos/bin/hpcbind --distribute=2 --visible-gpus=0,1 --' ../"
+ ../"
 
 cmake \
  -DCMAKE_BUILD_TYPE=$2 \
@@ -110,16 +111,15 @@ cmake \
  -DNUM_MPI_PROC_TESTING=${10} \
  -DOMP_NUM_THREADS=${11} \
  -DPARTHENON_DISABLE_HDF5=${12} \
- -DMPIEXEC_PREFLAGS="../external/Kokkos/bin/hpcbind --distribute=2 --visible-gpus=0,1 --" ../
+ ../
 fail_or_pass=$?
-if [ ${fail_or_pass} -ne 0 ] exit 1
+[ ${fail_or_pass} -ne 0 ] && exit 1
 
 make -j $J VERBOSE=1
 fail_or_pass=$?
-if [ ${fail_or_pass} -ne 0 ] exit 1
+[ ${fail_or_pass} -ne 0 ] && exit 1
 
 ctest --output-on-failure -j $J
 fail_or_pass=$?
-if [ ${fail_or_pass} -ne 0 ] exit 1
- 
+[ ${fail_or_pass} -ne 0 ] && exit 1
  
