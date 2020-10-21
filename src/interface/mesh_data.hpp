@@ -67,13 +67,13 @@ class MeshData {
   }
 
   template <class... Args>
-  MeshBlockPack<VariablePack<T>> PackVariables(Args &&... args) {
+  MeshBlockVarPack<T> PackVariables(Args &&... args) {
     std::vector<std::string> key;
     auto vpack = block_data_[0]->PackVariables(std::forward<Args>(args)..., key);
     auto kvpair = varPackMap_.find(key);
     if (kvpair == varPackMap_.end()) {
       int nblocks = block_data_.size();
-      ParArray1D<VariablePack<T>> packs("MeshData::PackVariables::packs", nblocks);
+      ViewOfPacks<T> packs("MeshData::PackVariables::packs", nblocks);
       auto packs_host = Kokkos::create_mirror_view(packs);
       ParArray1D<Coordinates_t> coords("MeshData::PackVariables::coords", nblocks);
       auto coords_host = Kokkos::create_mirror_view(coords);
@@ -91,20 +91,20 @@ class MeshData {
       Kokkos::deep_copy(coords, coords_host);
 
       auto cellbounds = block_data_[0]->GetBlockPointer()->cellbounds;
-      auto mbp = MeshBlockPack<VariablePack<T>>(packs, cellbounds, coords, dims);
+      auto mbp = MeshBlockVarPack<T>(packs, cellbounds, coords, dims);
       varPackMap_[key] = mbp;
       return mbp;
     }
     return kvpair->second;
   }
   template <class... Args>
-  MeshBlockPack<VariableFluxPack<T>> PackVariablesAndFluxes(Args &&... args) {
+  MeshBlockVarFluxPack<T> PackVariablesAndFluxes(Args &&... args) {
     vpack_types::StringPair key;
     auto vpack = block_data_[0]->PackVariablesAndFluxes(std::forward<Args>(args)..., key);
     auto kvpair = varFluxPackMap_.find(key);
     if (kvpair == varFluxPackMap_.end()) {
       int nblocks = block_data_.size();
-      ParArray1D<VariableFluxPack<T>> packs("MeshData::PackVariables::packs", nblocks);
+      ViewOfFluxPacks<T> packs("MeshData::PackVariables::packs", nblocks);
       auto packs_host = Kokkos::create_mirror_view(packs);
       ParArray1D<Coordinates_t> coords("MeshData::PackVariables::coords", nblocks);
       auto coords_host = Kokkos::create_mirror_view(coords);
@@ -123,7 +123,7 @@ class MeshData {
       Kokkos::deep_copy(coords, coords_host);
 
       auto cellbounds = block_data_[0]->GetBlockPointer()->cellbounds;
-      auto mbp = MeshBlockPack<VariableFluxPack<T>>(packs, cellbounds, coords, dims);
+      auto mbp = MeshBlockVarFluxPack<T>(packs, cellbounds, coords, dims);
       varFluxPackMap_[key] = mbp;
       return mbp;
     }

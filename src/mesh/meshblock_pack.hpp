@@ -73,63 +73,6 @@ class MeshBlockPack {
   int ndim_;
 };
 
-// TODO(JMM): Should this be cached?
-namespace mesh_pack_impl {
-
-// TODO(JMM): blocks data type might change
-template <typename T, typename F>
-auto PackMesh(BlockList_t &blocks, F &packing_function) {
-  int nblocks = blocks.size();
-  ParArray1D<T> packs("MakeMeshVariablePack::view", nblocks);
-  auto packs_host = Kokkos::create_mirror_view(packs);
-  ParArray1D<Coordinates_t> coords("MakeMeshBlockPackVariable::coords", nblocks);
-  auto coords_host = Kokkos::create_mirror_view(coords);
-
-  int b = 0;
-  for (auto &pmb : blocks) {
-    coords_host(b) = pmb->coords;
-    packs_host(b) = packing_function(pmb.get());
-    b++;
-  }
-
-  std::array<int, 5> dims;
-  for (int i = 0; i < 4; i++) {
-    dims[i] = packs_host(0).GetDim(i + 1);
-  }
-  dims[4] = nblocks;
-
-  Kokkos::deep_copy(packs, packs_host);
-  Kokkos::deep_copy(coords, coords_host);
-
-  auto cellbounds = blocks.front()->cellbounds;
-
-  return MeshBlockPack<T>(packs, cellbounds, coords, dims);
-}
-} // namespace mesh_pack_impl
-
-// Uses Real only because meshblock only owns real containers
-template <typename T, typename... Args>
-MeshBlockPack<VariablePack<Real>>
-PackVariablesOnMesh(T &blocks, const std::string &container_name, Args &&... args) {
-  using namespace mesh_pack_impl;
-  auto pack_function = [&](MeshBlock *pmb) {
-    auto container = pmb->meshblock_data.Get(container_name);
-    return container->PackVariables(std::forward<Args>(args)...);
-  };
-  return PackMesh<VariablePack<Real>>(blocks, pack_function);
-}
-template <typename T, typename... Args>
-MeshBlockPack<VariableFluxPack<Real>>
-PackVariablesAndFluxesOnMesh(T &blocks, const std::string &container_name,
-                             Args &&... args) {
-  using namespace mesh_pack_impl;
-  auto pack_function = [&](MeshBlock *pmb) {
-    auto container = pmb->meshblock_data.Get(container_name);
-    return container->PackVariablesAndFluxes(std::forward<Args>(args)...);
-  };
-  return PackMesh<VariableFluxPack<Real>>(blocks, pack_function);
-}
-
 template <typename T>
 using ViewOfPacks = ParArray1D<VariablePack<T>>;
 template <typename T>

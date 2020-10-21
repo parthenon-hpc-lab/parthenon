@@ -106,7 +106,7 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
         tl.AddTask(advect_flux, &MeshBlockData<Real>::ReceiveFluxCorrection, sc0.get());
   }
 
-  int pack_size = pmesh->DefaultPackSize();
+  const int pack_size = pmesh->DefaultPackSize();
   auto partitions = partition::ToSizeN(pmesh->block_list, pack_size);
   if (stage == 1) {
     auto setup_mesh_data = [=](const std::string &name, BlockList_t partition,
@@ -117,14 +117,8 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     for (int i = 0; i < partitions.size(); i++) {
       setup_mesh_data("base" + std::to_string(i), partitions[i], "base");
       setup_mesh_data("dUdt" + std::to_string(i), partitions[i], "dUdt");
-      // auto s0 = pmesh->mesh_data.Add("base"+std::to_string(i));
-      // s0->Set(partitions[i], "base");
-      // auto ddt = pmesh->mesh_data.Add("dUdt"+std::to_string(i));
-      // ddt->Set(partitions[i], "dUdt");
       for (int j = 1; j < integrator->nstages; j++) {
         setup_mesh_data(stage_name[j] + std::to_string(i), partitions[i], stage_name[j]);
-        // auto sm = pmesh->mesh_data.Add(stage_name[stage]+std::to_string(i));
-        // sm->Set(partitions[i], stage_name[stage]);
       }
     }
   }
