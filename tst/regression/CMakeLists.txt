@@ -13,17 +13,17 @@
 
 # Adding regression tests
 #
-# To add additional regression tests to ctest, four things must be added to 
+# To add additional regression tests to ctest, four things must be added to
 # this file:
-# 
+#
 # 1. there must exist within the regression/test_suites directory a folder associated with the test
 #   * For the calculate_pi example the folder is called 'calculate_pi', This
-#     folder must be added to the cmake variable TEST_DIRS as shown below. 
+#     folder must be added to the cmake variable TEST_DIRS as shown below.
 #
 # 2. the correct arguments to pass to the 'run_test.py' script must be specfied
 #   * This arguments must be added to the CMAKE variable TEST_ARGS as shown below
 #
-# 3. the number of mpi processors that should be used when testing the mpi implementation 
+# 3. the number of mpi processors that should be used when testing the mpi implementation
 #   * This argument needs to be added to the TEST_PROCS variable
 #
 # 4. any extra labels that need to be appended to a test
@@ -32,7 +32,7 @@
 #
 # Add additional regression tests to ctest below this line by calling
 #
-# list(APPEND TEST_DIRS name_of_folder )   
+# list(APPEND TEST_DIRS name_of_folder )
 # list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
 # list(APPEND TEST_ARGS args_to_pass_to_run_test.py )
 # list(APPEND EXTRA_TEST_LABELS "my-awesome-test")
@@ -51,7 +51,7 @@ list(APPEND EXTRA_TEST_LABELS "perf-reg")
 if (ENABLE_HDF5)
 
   # h5py is needed for restart and hdff5 test
-  list(APPEND REQUIRED_PYTHON_MODULES h5py) 
+  list(APPEND REQUIRED_PYTHON_MODULES h5py)
 
   # Restart
   list(APPEND TEST_DIRS restart)
@@ -60,7 +60,7 @@ if (ENABLE_HDF5)
     --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/restart/parthinput.restart \
     --num_steps 2")
   list(APPEND EXTRA_TEST_LABELS "")
-  
+
   # Calculate pi example
   list(APPEND TEST_DIRS calculate_pi)
   list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
@@ -68,7 +68,7 @@ if (ENABLE_HDF5)
   --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/calculate_pi/parthinput.regression")
   list(APPEND EXTRA_TEST_LABELS "")
 
-  # Advection test 
+  # Advection test
   list(APPEND TEST_DIRS advection_convergence)
   list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
   list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
@@ -84,9 +84,9 @@ if (ENABLE_HDF5)
   list(APPEND EXTRA_TEST_LABELS "")
 endif()
 
-# Any external modules that are required by python can be added to REQUIRED_PYTHON_MODULES 
-# list variable, before including TestSetup.cmake. 
-list(APPEND REQUIRED_PYTHON_MODULES matplotlib numpy) 
+# Any external modules that are required by python can be added to REQUIRED_PYTHON_MODULES
+# list variable, before including TestSetup.cmake.
+list(APPEND REQUIRED_PYTHON_MODULES matplotlib numpy)
 
 # Include test setup functions, and check for python interpreter and modules
 #  setup_test
