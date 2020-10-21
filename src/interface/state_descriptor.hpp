@@ -21,6 +21,7 @@
 
 #include "interface/metadata.hpp"
 #include "interface/params.hpp"
+#include "interface/swarm.hpp"
 #include "refinement/amr_criteria.hpp"
 
 namespace parthenon {
@@ -82,6 +83,28 @@ class StateDescriptor {
   // retrieve label
   const std::string &label() { return label_; }
 
+  bool AddSwarm(const std::string &swarm_name, Metadata &m) {
+    if (swarmMetadataMap_.count(swarm_name) > 0) {
+      throw std::invalid_argument("Swarm " + swarm_name + " already exists!");
+    }
+    swarmMetadataMap_[swarm_name] = m;
+
+    return true;
+  }
+
+  bool AddSwarmValue(const std::string &value_name, const std::string &swarm_name,
+                     Metadata &m) {
+    if (swarmMetadataMap_.count(swarm_name) == 0) {
+      throw std::invalid_argument("Swarm " + swarm_name + " does not exist!");
+    }
+    if (swarmValueMetadataMap_[swarm_name].count(value_name) > 0) {
+      throw std::invalid_argument("Swarm value " + value_name + " already exists!");
+    }
+    swarmValueMetadataMap_[swarm_name][value_name] = m;
+
+    return true;
+  }
+
   // field addition / retrieval routines
   // add a field with associated metadata
   bool AddField(const std::string &field_name, Metadata &m,
@@ -137,14 +160,33 @@ class StateDescriptor {
     return names;
   }
 
+  // retrieve all swarm names
+  std::vector<std::string> Swarms() {
+    std::vector<std::string> names;
+    names.reserve(swarmMetadataMap_.size());
+    for (auto &x : swarmMetadataMap_) {
+      names.push_back(x.first);
+    }
+    return names;
+  }
+
   std::map<std::string, Metadata> &AllFields() { return metadataMap_; }
   std::map<std::string, std::vector<Metadata>> &AllSparseFields() {
     return sparseMetadataMap_;
+  }
+  const std::map<std::string, Metadata> &AllSwarms() { return swarmMetadataMap_; }
+  const std::map<std::string, Metadata> &AllSwarmValues(const std::string swarm_name) {
+    return swarmValueMetadataMap_.at(swarm_name);
   }
 
   // retrieve metadata for a specific field
   Metadata &FieldMetadata(const std::string &field_name) {
     return metadataMap_[field_name];
+  }
+
+  // retrieve metadata for a specific swarm
+  Metadata &SwarmMetadata(const std::string &swarm_name) {
+    return swarmMetadataMap_[swarm_name];
   }
 
   // get all metadata for this physics
@@ -182,6 +224,8 @@ class StateDescriptor {
   const std::string label_;
   std::map<std::string, Metadata> metadataMap_;
   std::map<std::string, std::vector<Metadata>> sparseMetadataMap_;
+  std::map<std::string, Metadata> swarmMetadataMap_;
+  std::map<std::string, std::map<std::string, Metadata>> swarmValueMetadataMap_;
   std::map<std::string, VarPackingFunc<Real>> realVarPackerMap_;
   std::map<std::string, FluxPackingFunc<Real>> realFluxPackerMap_;
 };

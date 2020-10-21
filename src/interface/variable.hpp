@@ -205,6 +205,40 @@ class EdgeVariable {
 };
 
 template <typename T>
+class ParticleVariable {
+ public:
+  /// Initialize a particle variable
+  ParticleVariable(const std::string &label, const int npool, const Metadata &metadata)
+      : data(label, npool), npool_(npool), m_(metadata), label_(label) {}
+
+  // accessors
+  KOKKOS_FORCEINLINE_FUNCTION
+  ParArrayND<T> &Get() { return data; }
+  template <class... Args>
+  KOKKOS_FORCEINLINE_FUNCTION auto &operator()(Args... args) {
+    return data(std::forward<Args>(args)...);
+  }
+
+  ///< retrieve metadata for variable
+  const Metadata metadata() const { return m_; }
+
+  bool IsSet(const MetadataFlag bit) const { return m_.IsSet(bit); }
+
+  ///< retrieve label for variable
+  const std::string label() const { return label_; }
+
+  /// return information string
+  std::string info() const;
+
+  ParArrayND<T> data;
+
+ private:
+  int npool_;
+  Metadata m_;
+  std::string label_;
+};
+
+template <typename T>
 using CellVariableVector = std::vector<std::shared_ptr<CellVariable<T>>>;
 template <typename T>
 using FaceVector = std::vector<std::shared_ptr<FaceVariable<T>>>;
@@ -213,6 +247,11 @@ template <typename T>
 using MapToCellVars = std::map<std::string, std::shared_ptr<CellVariable<T>>>;
 template <typename T>
 using MapToFace = std::map<std::string, std::shared_ptr<FaceVariable<T>>>;
+
+template <typename T>
+using ParticleVariableVector = std::vector<std::shared_ptr<ParticleVariable<T>>>;
+template <typename T>
+using MapToParticle = std::map<std::string, std::shared_ptr<ParticleVariable<T>>>;
 
 } // namespace parthenon
 
