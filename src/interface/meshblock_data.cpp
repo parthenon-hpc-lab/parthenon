@@ -20,6 +20,7 @@
 
 #include "bvals/cc/bvals_cc.hpp"
 #include "mesh/mesh.hpp"
+#include "mesh/meshblock.hpp"
 
 namespace parthenon {
 
@@ -231,8 +232,8 @@ template <typename T>
 VariableFluxPack<T> MeshBlockData<T>::PackVariablesAndFluxesHelper_(
     const std::vector<std::string> &var_names, const std::vector<std::string> &flx_names,
     const vpack_types::VarList<T> &vars, const vpack_types::VarList<T> &fvars,
-    PackIndexMap &vmap) {
-  auto key = std::make_pair(var_names, flx_names);
+    PackIndexMap &vmap, vpack_types::StringPair &key) {
+  key = std::make_pair(var_names, flx_names);
   auto kvpair = varFluxPackMap_.find(key);
   if (kvpair == varFluxPackMap_.end()) {
     auto pack = MakeFluxPack(vars, fvars, &vmap);
@@ -250,10 +251,9 @@ VariableFluxPack<T> MeshBlockData<T>::PackVariablesAndFluxesHelper_(
 }
 
 template <typename T>
-VariableFluxPack<T>
-MeshBlockData<T>::PackVariablesAndFluxes(const std::vector<std::string> &var_names,
-                                         const std::vector<std::string> &flx_names,
-                                         PackIndexMap &vmap) {
+VariableFluxPack<T> MeshBlockData<T>::PackVariablesAndFluxes(
+    const std::vector<std::string> &var_names, const std::vector<std::string> &flx_names,
+    PackIndexMap &vmap, vpack_types::StringPair &key) {
   // expanded names expands sparse variables to varname_idx, where idx is the sparse index
   // this is required since not all sparse indices of a variable are necessarily
   // included in a pack.
@@ -261,28 +261,65 @@ MeshBlockData<T>::PackVariablesAndFluxes(const std::vector<std::string> &var_nam
   std::vector<std::string> all_flux_names;
   vpack_types::VarList<T> vars = MakeList_(var_names, expanded_names);
   vpack_types::VarList<T> fvars = MakeList_(flx_names, all_flux_names);
-  return PackVariablesAndFluxesHelper_(expanded_names, all_flux_names, vars, fvars, vmap);
+  return PackVariablesAndFluxesHelper_(expanded_names, all_flux_names, vars, fvars, vmap,
+                                       key);
+}
+/* Names interfaces */
+template <typename T>
+VariableFluxPack<T>
+MeshBlockData<T>::PackVariablesAndFluxes(const std::vector<std::string> &var_names,
+                                         const std::vector<std::string> &flx_names,
+                                         PackIndexMap &vmap) {
+  vpack_types::StringPair key;
+  return PackVariablesAndFluxes(var_names, flx_names, vmap, key);
+}
+template <typename T>
+VariableFluxPack<T>
+MeshBlockData<T>::PackVariablesAndFluxes(const std::vector<std::string> &var_names,
+                                         const std::vector<std::string> &flx_names,
+                                         vpack_types::StringPair &key) {
+  PackIndexMap vmap;
+  return PackVariablesAndFluxes(var_names, flx_names, vmap, key);
 }
 template <typename T>
 VariableFluxPack<T>
 MeshBlockData<T>::PackVariablesAndFluxes(const std::vector<std::string> &var_names,
                                          const std::vector<std::string> &flx_names) {
   PackIndexMap vmap;
-  return PackVariablesAndFluxes(var_names, flx_names, vmap);
+  vpack_types::StringPair key;
+  return PackVariablesAndFluxes(var_names, flx_names, vmap, key);
+}
+
+/* Metadata interfaces */
+template <typename T>
+VariableFluxPack<T>
+MeshBlockData<T>::PackVariablesAndFluxes(const std::vector<MetadataFlag> &flags,
+                                         PackIndexMap &vmap,
+                                         vpack_types::StringPair &key) {
+  std::vector<std::string> vnams;
+  vpack_types::VarList<T> vars = MakeList_(flags, vnams);
+  return PackVariablesAndFluxesHelper_(vnams, vnams, vars, vars, vmap, key);
 }
 template <typename T>
 VariableFluxPack<T>
 MeshBlockData<T>::PackVariablesAndFluxes(const std::vector<MetadataFlag> &flags,
                                          PackIndexMap &vmap) {
-  std::vector<std::string> vnams;
-  vpack_types::VarList<T> vars = MakeList_(flags, vnams);
-  return PackVariablesAndFluxesHelper_(vnams, vnams, vars, vars, vmap);
+  vpack_types::StringPair key;
+  return PackVariablesAndFluxes(flags, vmap, key);
+}
+template <typename T>
+VariableFluxPack<T>
+MeshBlockData<T>::PackVariablesAndFluxes(const std::vector<MetadataFlag> &flags,
+                                         vpack_types::StringPair &key) {
+  PackIndexMap vmap;
+  return PackVariablesAndFluxes(flags, vmap, key);
 }
 template <typename T>
 VariableFluxPack<T>
 MeshBlockData<T>::PackVariablesAndFluxes(const std::vector<MetadataFlag> &flags) {
   PackIndexMap vmap;
-  return PackVariablesAndFluxes(flags, vmap);
+  vpack_types::StringPair key;
+  return PackVariablesAndFluxes(flags, vmap, key);
 }
 
 /// This is a helper function that queries the cache for the given pack.
@@ -315,52 +352,122 @@ MeshBlockData<T>::PackVariablesHelper_(const std::vector<std::string> &names,
   // vmap = std::get<1>(kvpair->second);
   // return std::get<0>(kvpair->second);
 }
+
+/***********************************/
+/* Names and sparse ids interfaces */
+/***********************************/
+template <typename T>
+VariablePack<T> MeshBlockData<T>::PackVariables(const std::vector<std::string> &names,
+                                                const std::vector<int> &sparse_ids,
+                                                PackIndexMap &vmap,
+                                                std::vector<std::string> &key) {
+  vpack_types::VarList<T> vars = MakeList_(names, key, sparse_ids);
+  return PackVariablesHelper_(key, vars, vmap);
+}
 template <typename T>
 VariablePack<T> MeshBlockData<T>::PackVariables(const std::vector<std::string> &names,
                                                 const std::vector<int> &sparse_ids,
                                                 PackIndexMap &vmap) {
-  std::vector<std::string> expanded_names;
-  vpack_types::VarList<T> vars = MakeList_(names, expanded_names, sparse_ids);
-  return PackVariablesHelper_(expanded_names, vars, vmap);
+  std::vector<std::string> key;
+  return PackVariables(names, sparse_ids, vmap, key);
+}
+template <typename T>
+VariablePack<T> MeshBlockData<T>::PackVariables(const std::vector<std::string> &names,
+                                                const std::vector<int> &sparse_ids,
+                                                std::vector<std::string> &key) {
+  PackIndexMap vmap;
+  return PackVariables(names, sparse_ids, vmap, key);
 }
 template <typename T>
 VariablePack<T> MeshBlockData<T>::PackVariables(const std::vector<std::string> &names,
                                                 const std::vector<int> &sparse_ids) {
   PackIndexMap vmap;
-  return PackVariables(names, sparse_ids, vmap);
+  std::vector<std::string> key;
+  return PackVariables(names, sparse_ids, vmap, key);
+}
+
+/********************/
+/* Names interfaces */
+/********************/
+template <typename T>
+VariablePack<T> MeshBlockData<T>::PackVariables(const std::vector<std::string> &names,
+                                                PackIndexMap &vmap,
+                                                std::vector<std::string> &key) {
+  return PackVariables(names, {}, vmap, key);
 }
 template <typename T>
 VariablePack<T> MeshBlockData<T>::PackVariables(const std::vector<std::string> &names,
                                                 PackIndexMap &vmap) {
-  return PackVariables(names, {}, vmap);
+  std::vector<std::string> key;
+  return PackVariables(names, {}, vmap, key);
+}
+template <typename T>
+VariablePack<T> MeshBlockData<T>::PackVariables(const std::vector<std::string> &names,
+                                                std::vector<std::string> &key) {
+  PackIndexMap vmap;
+  return PackVariables(names, {}, vmap, key);
 }
 template <typename T>
 VariablePack<T> MeshBlockData<T>::PackVariables(const std::vector<std::string> &names) {
   PackIndexMap vmap;
-  return PackVariables(names, {}, vmap);
+  std::vector<std::string> key;
+  return PackVariables(names, {}, vmap, key);
+}
+
+/*****************************/
+/* Metadata flags interfaces */
+/*****************************/
+template <typename T>
+VariablePack<T> MeshBlockData<T>::PackVariables(const std::vector<MetadataFlag> &flags,
+                                                PackIndexMap &vmap,
+                                                std::vector<std::string> &key) {
+  vpack_types::VarList<T> vars = MakeList_(flags, key);
+  return PackVariablesHelper_(key, vars, vmap);
 }
 template <typename T>
 VariablePack<T> MeshBlockData<T>::PackVariables(const std::vector<MetadataFlag> &flags,
                                                 PackIndexMap &vmap) {
-  std::vector<std::string> vnams;
-  vpack_types::VarList<T> vars = MakeList_(flags, vnams);
-  return PackVariablesHelper_(vnams, vars, vmap);
+  std::vector<std::string> key;
+  return PackVariables(flags, vmap, key);
+}
+template <typename T>
+VariablePack<T> MeshBlockData<T>::PackVariables(const std::vector<MetadataFlag> &flags,
+                                                std::vector<std::string> &key) {
+  PackIndexMap vmap;
+  return PackVariables(flags, vmap, key);
 }
 template <typename T>
 VariablePack<T> MeshBlockData<T>::PackVariables(const std::vector<MetadataFlag> &flags) {
   PackIndexMap vmap;
-  return PackVariables(flags, vmap);
+  std::vector<std::string> key;
+  return PackVariables(flags, vmap, key);
+}
+
+/*********************************/
+/* Include everything interfaces */
+/*********************************/
+template <typename T>
+VariablePack<T> MeshBlockData<T>::PackVariables(PackIndexMap &vmap,
+                                                std::vector<std::string> &key) {
+  vpack_types::VarList<T> vars = MakeList_(key);
+  return PackVariablesHelper_(key, vars, vmap);
 }
 template <typename T>
 VariablePack<T> MeshBlockData<T>::PackVariables(PackIndexMap &vmap) {
-  std::vector<std::string> vnams;
-  vpack_types::VarList<T> vars = MakeList_(vnams);
-  return PackVariablesHelper_(vnams, vars, vmap);
+  std::vector<std::string> key;
+  vpack_types::VarList<T> vars = MakeList_(key);
+  return PackVariablesHelper_(key, vars, vmap);
 }
+// template <typename T>
+// VariablePack<T> MeshBlockData<T>::PackVariables(std::vector<std::string> &key) {
+//  PackIndexMap vmap;
+//  return PackVariables(vmap, key);
+//}
 template <typename T>
 VariablePack<T> MeshBlockData<T>::PackVariables() {
   PackIndexMap vmap;
-  return PackVariables(vmap);
+  std::vector<std::string> key;
+  return PackVariables(vmap, key);
 }
 
 // From a given container, extract all variables and all fields in sparse variables

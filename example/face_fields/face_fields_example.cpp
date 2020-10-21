@@ -79,7 +79,7 @@ DriverStatus FaceFieldExample::Execute() {
     parthenon::IndexRange const ib = pmb->cellbounds.GetBoundsI(interior);
     parthenon::IndexRange const jb = pmb->cellbounds.GetBoundsJ(interior);
     parthenon::IndexRange const kb = pmb->cellbounds.GetBoundsK(interior);
-    auto &rc = pmb->real_containers.Get();
+    auto &rc = pmb->meshblock_data.Get();
     auto &summed = rc->Get("c.c.interpolated_sum").data;
     for (int k = kb.s; k <= kb.e; k++) {
       for (int j = jb.s; j <= jb.e; j++) {
@@ -117,7 +117,7 @@ TaskList FaceFieldExample::MakeTaskList(MeshBlock *pmb) {
   auto interpolate = tl.AddTask(
       fill_faces,
       [](MeshBlock *pmb) -> TaskStatus {
-        auto &rc = pmb->real_containers.Get();
+        auto &rc = pmb->meshblock_data.Get();
         parthenon::IndexDomain interior = parthenon::IndexDomain::interior;
         parthenon::IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
         parthenon::IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
@@ -145,7 +145,7 @@ TaskList FaceFieldExample::MakeTaskList(MeshBlock *pmb) {
   auto sum = tl.AddTask(
       interpolate,
       [](MeshBlock *pmb) -> TaskStatus {
-        auto &rc = pmb->real_containers.Get();
+        auto &rc = pmb->meshblock_data.Get();
         parthenon::IndexDomain interior = parthenon::IndexDomain::interior;
         parthenon::IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
         parthenon::IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
@@ -173,7 +173,7 @@ parthenon::TaskStatus fill_faces(parthenon::MeshBlock *pmb) {
   Real px = example->Param<Real>("px");
   Real py = example->Param<Real>("py");
   Real pz = example->Param<Real>("pz");
-  auto &rc = pmb->real_containers.Get();
+  auto &rc = pmb->meshblock_data.Get();
   auto coords = pmb->coords;
   parthenon::IndexDomain interior = parthenon::IndexDomain::interior;
   parthenon::IndexRange ib = pmb->cellbounds.GetBoundsI(interior);

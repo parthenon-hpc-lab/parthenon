@@ -19,6 +19,7 @@
 #include "interface/meshblock_data.hpp"
 #include "interface/meshblock_data_iterator.hpp"
 #include "mesh/mesh.hpp"
+#include "mesh/meshblock.hpp"
 
 namespace parthenon {
 

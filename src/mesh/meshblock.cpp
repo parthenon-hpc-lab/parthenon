@@ -62,6 +62,19 @@ MeshBlock::MeshBlock(const int n_side, const int ndim)
   }
 }
 
+// Factory method deals with initialization for you
+std::shared_ptr<MeshBlock> MeshBlock::Make(int igid, int ilid, LogicalLocation iloc,
+                                           RegionSize input_block,
+                                           BoundaryFlag *input_bcs, Mesh *pm,
+                                           ParameterInput *pin, ApplicationInput *app_in,
+                                           Properties_t &properties, Packages_t &packages,
+                                           int igflag, double icost) {
+  auto pmb = std::make_shared<MeshBlock>();
+  pmb->Initialize(igid, ilid, iloc, input_block, input_bcs, pm, pin, app_in, properties,
+                  packages, igflag, icost);
+  return pmb;
+}
+
 void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
                            RegionSize input_block, BoundaryFlag *input_bcs, Mesh *pm,
                            ParameterInput *pin, ApplicationInput *app_in,
@@ -104,7 +117,7 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
     UserWorkBeforeOutput = app_in->UserWorkBeforeOutput;
   }
 
-  auto &real_container = real_containers.Get();
+  auto &real_container = meshblock_data.Get();
   // Set the block pointer for the containers
   real_container->SetBlockPointer(shared_from_this());
 

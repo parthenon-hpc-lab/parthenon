@@ -20,7 +20,9 @@
 #include <bvals/boundary_conditions.hpp>
 #include <driver/driver.hpp>
 #include <driver/multistage.hpp>
+#include <interface/update.hpp>
 #include <mesh/mesh.hpp>
+#include <mesh/mesh_refinement.hpp>
 #include <mesh/meshblock_pack.hpp>
 #include <outputs/outputs.hpp>
 #include <parameter_input.hpp>

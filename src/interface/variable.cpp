@@ -17,6 +17,7 @@
 
 #include "bvals/cc/bvals_cc.hpp"
 #include "mesh/mesh.hpp"
+#include "mesh/meshblock.hpp"
 #include "parthenon_arrays.hpp"
 
 namespace parthenon {

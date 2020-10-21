@@ -142,6 +142,7 @@ add_library(parthenon
 
   interface/data_collection.cpp
   interface/data_collection.hpp
+  interface/mesh_data.hpp
   interface/meshblock_data_iterator.hpp
   interface/meshblock_data.cpp
   interface/meshblock_data.hpp

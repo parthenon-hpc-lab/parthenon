@@ -24,6 +24,7 @@
 //========================================================================================
 
 #include "mesh/mesh.hpp"
+#include "mesh/meshblock.hpp"
 #include "reconstruct/reconstruction.hpp"
 
 namespace parthenon {

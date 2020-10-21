@@ -39,8 +39,10 @@
 #include "defs.hpp"
 #include "globals.hpp"
 #include "interface/state_descriptor.hpp"
+#include "interface/update.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
+#include "mesh/meshblock.hpp"
 #include "mesh/meshblock_tree.hpp"
 #include "outputs/restart.hpp"
 #include "parameter_input.hpp"
@@ -486,6 +488,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properti
     block_list[i - nbs]->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
   }
 
+  auto &md = mesh_data.Get();
+  md->SetMeshPointer(this);
   BuildMeshBlockPacks();
 
   ResetLoadBalanceVariables();
@@ -752,6 +756,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
     block_list[i - nbs]->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
   }
 
+  auto &md = mesh_data.Get();
+  md->SetMeshPointer(this);
   BuildMeshBlockPacks();
 
   ResetLoadBalanceVariables();
@@ -1107,7 +1113,7 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin, ApplicationInput *app_i
       auto &pmb = block_list[i];
       // BoundaryVariable objects evolved in main TimeIntegratorTaskList:
       pmb->pbval->SetupPersistentMPI();
-      pmb->real_containers.Get()->SetupPersistentMPI();
+      pmb->meshblock_data.Get()->SetupPersistentMPI();
     }
     call++; // 1
 
@@ -1116,27 +1122,26 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin, ApplicationInput *app_i
       // prepare to receive conserved variables
 #pragma omp for
       for (int i = 0; i < nmb; ++i) {
-        block_list[i]->real_containers.Get()->StartReceiving(
+        block_list[i]->meshblock_data.Get()->StartReceiving(
             BoundaryCommSubset::mesh_init);
       }
       call++; // 2
               // send conserved variables
 #pragma omp for
       for (int i = 0; i < nmb; ++i) {
-        block_list[i]->real_containers.Get()->SendBoundaryBuffers();
+        block_list[i]->meshblock_data.Get()->SendBoundaryBuffers();
       }
       call++; // 3
 
       // wait to receive conserved variables
 #pragma omp for
       for (int i = 0; i < nmb; ++i) {
-        block_list[i]->real_containers.Get()->ReceiveAndSetBoundariesWithWait();
+        block_list[i]->meshblock_data.Get()->ReceiveAndSetBoundariesWithWait();
       }
       call++; // 4
 #pragma omp for
       for (int i = 0; i < nmb; ++i) {
-        block_list[i]->real_containers.Get()->ClearBoundary(
-            BoundaryCommSubset::mesh_init);
+        block_list[i]->meshblock_data.Get()->ClearBoundary(BoundaryCommSubset::mesh_init);
       }
       call++;
       // Now do prolongation, compute primitives, apply BCs
@@ -1161,8 +1166,8 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin, ApplicationInput *app_i
         //          if (pbval->nblevel[2][1][1] != -1) ku += NGHOST;
         //        }
 
-        ApplyBoundaryConditions(pmb->real_containers.Get());
-        FillDerivedVariables::FillDerived(pmb->real_containers.Get());
+        ApplyBoundaryConditions(pmb->meshblock_data.Get());
+        FillDerivedVariables::FillDerived(pmb->meshblock_data.Get());
       }
 
       if (!res_flag && adaptive) {
@@ -1325,5 +1330,16 @@ int Mesh::ReserveTagPhysIDs(int num_phys) {
 // TODO(felker): deduplicate this logic, which combines conditionals in MeshBlock ctor
 
 void Mesh::ReserveMeshBlockPhysIDs() { return; }
+
+std::int64_t Mesh::GetTotalCells() {
+  auto &pmb = block_list.front();
+  return static_cast<std::int64_t>(nbtotal) * pmb->block_size.nx1 * pmb->block_size.nx2 *
+         pmb->block_size.nx3;
+}
+// TODO(JMM): Move block_size into mesh.
+int Mesh::GetNumberOfMeshBlockCells() const {
+  return block_list.front()->GetNumberOfMeshBlockCells();
+}
+const RegionSize &Mesh::GetBlockSize() const { return block_list.front()->block_size; }
 
 } // namespace parthenon

@@ -20,6 +20,7 @@
 
 #include "interface/state_descriptor.hpp"
 #include "mesh/mesh.hpp"
+#include "mesh/meshblock.hpp"
 #include "parameter_input.hpp"
 #include "refinement/amr_criteria.hpp"
 

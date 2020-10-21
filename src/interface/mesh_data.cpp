@@ -1,8 +1,4 @@
 //========================================================================================
-// Parthenon performance portable AMR framework
-// Copyright(C) 2020 The Parthenon collaboration
-// Licensed under the 3-clause BSD License, see LICENSE file for details
-//========================================================================================
 // (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
@@ -15,27 +11,22 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef BVALS_CC_BVALS_CC_IN_ONE_HPP_
-#define BVALS_CC_BVALS_CC_IN_ONE_HPP_
+#include "interface/mesh_data.hpp"
 
-#include <memory>
-#include <string>
-
-#include "basic_types.hpp"
 #include "mesh/mesh.hpp"
+
+#include <string>
 
 namespace parthenon {
 
-template <typename T>
-class MeshData;
+/*template <typename T>
+MeshData<T>::MeshData(const Mesh *pmesh, const std::string &name) : pmy_mesh(pmesh) {
+  const int size = pmesh->block_list.size();
+  block_data_.resize(size);
+  for (int i = 0; i < size; i++) {
+    block_data_[i] = pmesh->block_list[i]->meshblock_data.Get(name);
+  }
+}
+*/
 
-namespace cell_centered_bvars {
-// TaskStatus SendBoundaryBuffers(BlockList_t &blocks, const std::string &container_name,
-//                         const MeshBlockVarPack<Real> &var_pack);
-TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
-TaskStatus ReceiveBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
-TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md);
-} // namespace cell_centered_bvars
 } // namespace parthenon
-
-#endif // BVALS_CC_BVALS_CC_IN_ONE_HPP_

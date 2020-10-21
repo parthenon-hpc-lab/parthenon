@@ -152,8 +152,8 @@ int pack_size = 4; // The number of meshblocks in a pack
 pmesh->RegisterMeshBlockPack("default", "fill_ghost", [pack_size, metadata](Mesh *pmesh) {
     // Add containers if not already present
     for (auto &pmb : pmesh->block_list) {
-        auto &base = pmb->real_containers.Get();
-        pmb->real_containers.Add("new",base);
+        auto &base = pmb->meshblock_data.Get();
+        pmb->meshblock_data.Add("new",base);
     }
     // Partition mesh block list
     std::vector<MeshBlockVarPack<Real>> packs;

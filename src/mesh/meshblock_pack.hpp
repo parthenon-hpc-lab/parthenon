@@ -15,6 +15,7 @@
 
 #include <array>
 #include <functional>
+#include <map>
 #include <memory>
 #include <string>
 #include <utility>
@@ -27,6 +28,9 @@
 #include "mesh/meshblock.hpp" // TODO(JMM): Replace with forward declaration?
 
 namespace parthenon {
+
+class Mesh;
+// class MeshBlock;
 
 // a separate dims array removes a branch case in `GetDim`
 // TODO(JMM): Using one IndexShape because its the same for all
@@ -69,21 +73,6 @@ class MeshBlockPack {
   int ndim_;
 };
 
-template <typename T>
-using ViewOfPacks = ParArray1D<VariablePack<T>>;
-template <typename T>
-using ViewOfFluxPacks = ParArray1D<VariableFluxPack<T>>;
-
-template <typename T>
-using MeshBlockVarPack = MeshBlockPack<VariablePack<T>>;
-template <typename T>
-using MeshBlockVarFluxPack = MeshBlockPack<VariableFluxPack<T>>;
-
-template <typename T>
-using VarPackingFunc = std::function<std::vector<MeshBlockVarPack<T>>(Mesh *)>;
-template <typename T>
-using FluxPackingFunc = std::function<std::vector<MeshBlockVarFluxPack<T>>(Mesh *)>;
-
 // TODO(JMM): Should this be cached?
 namespace mesh_pack_impl {
 
@@ -120,24 +109,51 @@ auto PackMesh(BlockList_t &blocks, F &packing_function) {
 
 // Uses Real only because meshblock only owns real containers
 template <typename T, typename... Args>
-auto PackVariablesOnMesh(T &blocks, const std::string &container_name, Args &&... args) {
+MeshBlockPack<VariablePack<Real>>
+PackVariablesOnMesh(T &blocks, const std::string &container_name, Args &&... args) {
   using namespace mesh_pack_impl;
   auto pack_function = [&](MeshBlock *pmb) {
-    auto container = pmb->real_containers.Get(container_name);
+    auto container = pmb->meshblock_data.Get(container_name);
     return container->PackVariables(std::forward<Args>(args)...);
   };
   return PackMesh<VariablePack<Real>>(blocks, pack_function);
 }
 template <typename T, typename... Args>
-auto PackVariablesAndFluxesOnMesh(T &blocks, const std::string &container_name,
-                                  Args &&... args) {
+MeshBlockPack<VariableFluxPack<Real>>
+PackVariablesAndFluxesOnMesh(T &blocks, const std::string &container_name,
+                             Args &&... args) {
   using namespace mesh_pack_impl;
   auto pack_function = [&](MeshBlock *pmb) {
-    auto container = pmb->real_containers.Get(container_name);
+    auto container = pmb->meshblock_data.Get(container_name);
     return container->PackVariablesAndFluxes(std::forward<Args>(args)...);
   };
   return PackMesh<VariableFluxPack<Real>>(blocks, pack_function);
 }
+
+template <typename T>
+using ViewOfPacks = ParArray1D<VariablePack<T>>;
+template <typename T>
+using ViewOfFluxPacks = ParArray1D<VariableFluxPack<T>>;
+
+template <typename T>
+using MeshBlockVarPack = MeshBlockPack<VariablePack<T>>;
+template <typename T>
+using MeshBlockVarFluxPack = MeshBlockPack<VariableFluxPack<T>>;
+
+template <typename T>
+using VarPackingFunc = std::function<std::vector<MeshBlockVarPack<T>>(Mesh *)>;
+template <typename T>
+using FluxPackingFunc = std::function<std::vector<MeshBlockVarFluxPack<T>>(Mesh *)>;
+
+template <typename T>
+using MeshPackIndxPair = PackAndIndexMap<MeshBlockPack<T>>;
+template <typename T>
+using MapToMeshBlockPack =
+    std::map<std::vector<std::string>, MeshBlockPack<VariablePack<T>>>;
+template <typename T>
+using MapToMeshBlockFluxPack =
+    std::map<vpack_types::StringPair, MeshBlockPack<VariableFluxPack<T>>>;
+
 } // namespace parthenon
 
 #endif // MESH_MESHBLOCK_PACK_HPP_

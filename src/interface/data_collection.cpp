@@ -11,15 +11,17 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#include "interface/data_collection.hpp"
-
 #include <string>
+
+#include "interface/data_collection.hpp"
+#include "interface/mesh_data.hpp"
+#include "interface/meshblock_data.hpp"
 
 namespace parthenon {
 
 template <typename T>
-void DataCollection<T>::Add(const std::string &name,
-                                     const std::shared_ptr<T> &src) {
+std::shared_ptr<T> DataCollection<T>::Add(const std::string &name,
+                                          const std::shared_ptr<T> &src) {
   // error check for duplicate names
   auto it = containers_.find(name);
   if (it != containers_.end()) {
@@ -27,41 +29,17 @@ void DataCollection<T>::Add(const std::string &name,
     if (!(*src == *(it->second))) {
       throw std::runtime_error("Error attempting to add a Container to a Collection");
     }
-    return;
+    return it->second;
   }
 
   auto c = std::make_shared<T>();
-  c->SetBlockPointer(src);
-  for (auto v : src->GetCellVariableVector()) {
-    if (v->IsSet(Metadata::OneCopy)) {
-      // just copy the (shared) pointer
-      c->Add(v);
-    } else {
-      // allocate new storage
-      c->Add(v->AllocateCopy());
-    }
-  }
-
-  for (auto v : src->GetFaceVector()) {
-    if (v->IsSet(Metadata::OneCopy)) {
-      c->Add(v);
-    } else {
-      throw std::runtime_error("Non-oneCopy face variables are not yet supported");
-    }
-  }
-
-  for (auto v : src->GetSparseVector()) {
-    if (v->IsSet(Metadata::OneCopy)) {
-      // copy the shared pointer
-      c->Add(v);
-    } else {
-      c->Add(v->AllocateCopy());
-    }
-  }
+  c->Copy(src);
 
   containers_[name] = c;
+  return containers_[name];
 }
 
+template class DataCollection<MeshData<Real>>;
 template class DataCollection<MeshBlockData<Real>>;
 
 } // namespace parthenon

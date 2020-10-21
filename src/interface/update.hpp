@@ -18,28 +18,28 @@
 #include <vector>
 
 #include "defs.hpp"
+#include "interface/mesh_data.hpp"
 #include "interface/meshblock_data.hpp"
 #include "mesh/mesh.hpp"
+
+#include "kokkos_abstraction.hpp"
 
 namespace parthenon {
 
 namespace Update {
-// this does not belong here and should be moved to a better place
-// currently causes problems from recursive includes (from mesh.hpp)
-using BlockList_t = std::vector<std::shared_ptr<MeshBlock>>;
 
 TaskStatus FluxDivergenceBlock(std::shared_ptr<MeshBlockData<Real>> &in,
                                std::shared_ptr<MeshBlockData<Real>> &dudt_cont);
-auto FluxDivergenceMesh(const MeshBlockVarFluxPack<Real> &in_pack,
-                        MeshBlockVarPack<Real> &dudt_pack) -> TaskStatus;
+TaskStatus FluxDivergenceMesh(std::shared_ptr<MeshData<Real>> &in_pack,
+                              std::shared_ptr<MeshData<Real>> &dudt_pack);
 void UpdateContainer(std::shared_ptr<MeshBlockData<Real>> &in,
                      std::shared_ptr<MeshBlockData<Real>> &dudt_cont, const Real dt,
                      std::shared_ptr<MeshBlockData<Real>> &out);
-void UpdateContainer(const MeshBlockVarPack<Real> &in_pack,
-                     const MeshBlockVarPack<Real> &dudt_pack, const Real dt,
-                     MeshBlockVarPack<Real> &out_pack);
-void AverageContainers(MeshBlockVarPack<Real> &c1_pack,
-                       const MeshBlockVarPack<Real> &c2_pack, const Real wgt1);
+void UpdateContainer(std::shared_ptr<MeshData<Real>> &in,
+                     std::shared_ptr<MeshData<Real>> &dudt, const Real dt,
+                     std::shared_ptr<MeshData<Real>> &out);
+void AverageContainers(std::shared_ptr<MeshData<Real>> &c1_pack,
+                       std::shared_ptr<MeshData<Real>> &c2_pack, const Real wgt1);
 Real EstimateTimestep(std::shared_ptr<MeshBlockData<Real>> &rc);
 
 } // namespace Update

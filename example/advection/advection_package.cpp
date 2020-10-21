@@ -189,8 +189,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddMeshBlockPack("1_var", [](Mesh *pmesh) {
     // Add containers if not already present
     for (auto &pmb : pmesh->block_list) {
-      auto &base = pmb->real_containers.Get();
-      pmb->real_containers.Add("1", base);
+      auto &base = pmb->meshblock_data.Get();
+      pmb->meshblock_data.Add("1", base);
     }
     int pack_size = pmesh->DefaultPackSize();
     std::vector<MeshBlockVarPack<Real>> packs;
@@ -207,8 +207,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddMeshBlockPack("1_varflux", [](Mesh *pmesh) {
     // Add containers if not already present
     for (auto &pmb : pmesh->block_list) {
-      auto &base = pmb->real_containers.Get();
-      pmb->real_containers.Add("1", base);
+      auto &base = pmb->meshblock_data.Get();
+      pmb->meshblock_data.Add("1", base);
     }
     int pack_size = pmesh->DefaultPackSize();
     std::vector<MeshBlockVarFluxPack<Real>> packs;
@@ -225,8 +225,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddMeshBlockPack("dudt_var", [](Mesh *pmesh) {
     // Add containers if not already present
     for (auto &pmb : pmesh->block_list) {
-      auto &base = pmb->real_containers.Get();
-      pmb->real_containers.Add("dUdt", base);
+      auto &base = pmb->meshblock_data.Get();
+      pmb->meshblock_data.Add("dUdt", base);
     }
     int pack_size = pmesh->DefaultPackSize();
     std::vector<MeshBlockVarPack<Real>> packs;

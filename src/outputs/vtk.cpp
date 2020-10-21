@@ -32,6 +32,7 @@
 #include "defs.hpp"
 #include "interface/meshblock_data_iterator.hpp"
 #include "mesh/mesh.hpp"
+#include "mesh/meshblock.hpp"
 #include "outputs/outputs.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/error_checking.hpp"
@@ -192,7 +193,7 @@ void VTKOutput::WriteContainer(SimTime &tm, Mesh *pm, ParameterInput *pin, bool 
     std::fprintf(pfile, "\nCELL_DATA %d", pmb->cellbounds.GetTotal(domain));
     // reset container iterator to point to current block data
     auto ci =
-        MeshBlockDataIterator<Real>(pmb->real_containers.Get(), {Metadata::Graphics});
+        MeshBlockDataIterator<Real>(pmb->meshblock_data.Get(), {Metadata::Graphics});
     for (auto &v : ci.vars) {
       if (!data) {
         std::cout << "____________________SKIPPPING:" << v->label() << std::endl;

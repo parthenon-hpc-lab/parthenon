@@ -64,6 +64,36 @@ class MeshBlockData {
     return pmy_block.lock();
   }
 
+  void Copy(const std::shared_ptr<MeshBlockData<T>> src) {
+    SetBlockPointer(src);
+    for (auto v : src->GetCellVariableVector()) {
+      if (v->IsSet(Metadata::OneCopy)) {
+        // just copy the (shared) pointer
+        Add(v);
+      } else {
+        // allocate new storage
+        Add(v->AllocateCopy());
+      }
+    }
+
+    for (auto v : src->GetFaceVector()) {
+      if (v->IsSet(Metadata::OneCopy)) {
+        Add(v);
+      } else {
+        throw std::runtime_error("Non-oneCopy face variables are not yet supported");
+      }
+    }
+
+    for (auto v : src->GetSparseVector()) {
+      if (v->IsSet(Metadata::OneCopy)) {
+        // copy the shared pointer
+        Add(v);
+      } else {
+        Add(v->AllocateCopy());
+      }
+    }
+  }
+
   /// We can initialize a container with slices from a different
   /// container.  For variables that have the sparse tag, this will
   /// return the sparse slice.  All other variables are added as
@@ -247,6 +277,18 @@ class MeshBlockData {
   VariableFluxPack<T> PackVariablesAndFluxes(const std::vector<MetadataFlag> &flags,
                                              PackIndexMap &vmap);
   VariableFluxPack<T> PackVariablesAndFluxes(const std::vector<MetadataFlag> &flags);
+  VariableFluxPack<T> PackVariablesAndFluxes(const std::vector<std::string> &var_names,
+                                             const std::vector<std::string> &flx_names,
+                                             PackIndexMap &vmap,
+                                             vpack_types::StringPair &key);
+  VariableFluxPack<T> PackVariablesAndFluxes(const std::vector<std::string> &var_names,
+                                             const std::vector<std::string> &flx_names,
+                                             vpack_types::StringPair &key);
+  VariableFluxPack<T> PackVariablesAndFluxes(const std::vector<MetadataFlag> &flags,
+                                             PackIndexMap &vmap,
+                                             vpack_types::StringPair &key);
+  VariableFluxPack<T> PackVariablesAndFluxes(const std::vector<MetadataFlag> &flags,
+                                             vpack_types::StringPair &key);
   VariablePack<T> PackVariables(const std::vector<std::string> &names,
                                 const std::vector<int> &sparse_ids, PackIndexMap &vmap);
   VariablePack<T> PackVariables(const std::vector<std::string> &names,
@@ -259,6 +301,22 @@ class MeshBlockData {
   VariablePack<T> PackVariables(const std::vector<MetadataFlag> &flags);
   VariablePack<T> PackVariables(PackIndexMap &vmap);
   VariablePack<T> PackVariables();
+  VariablePack<T> PackVariables(const std::vector<std::string> &names,
+                                const std::vector<int> &sparse_ids, PackIndexMap &vmap,
+                                std::vector<std::string> &key);
+  VariablePack<T> PackVariables(const std::vector<std::string> &names,
+                                const std::vector<int> &sparse_ids,
+                                std::vector<std::string> &key);
+  VariablePack<T> PackVariables(const std::vector<std::string> &names, PackIndexMap &vmap,
+                                std::vector<std::string> &key);
+  VariablePack<T> PackVariables(const std::vector<std::string> &names,
+                                std::vector<std::string> &key);
+  VariablePack<T> PackVariables(const std::vector<MetadataFlag> &flags,
+                                PackIndexMap &vmap, std::vector<std::string> &key);
+  VariablePack<T> PackVariables(const std::vector<MetadataFlag> &flags,
+                                std::vector<std::string> &key);
+  VariablePack<T> PackVariables(PackIndexMap &vmap, std::vector<std::string> &key);
+  // VariablePack<T> PackVariables(std::vector<std::string> &key);
 
   /// Remove a variable from the container or throw exception if not
   /// found.
@@ -341,7 +399,8 @@ class MeshBlockData {
   PackVariablesAndFluxesHelper_(const std::vector<std::string> &var_names,
                                 const std::vector<std::string> &flx_names,
                                 const vpack_types::VarList<T> &vars,
-                                const vpack_types::VarList<T> &fvars, PackIndexMap &vmap);
+                                const vpack_types::VarList<T> &fvars, PackIndexMap &vmap,
+                                vpack_types::StringPair &key);
   VariablePack<T> PackVariablesHelper_(const std::vector<std::string> &names,
                                        const vpack_types::VarList<T> &vars,
                                        PackIndexMap &vmap);

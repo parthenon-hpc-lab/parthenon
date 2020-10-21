@@ -36,13 +36,10 @@
 #include "defs.hpp"
 #include "domain.hpp"
 #include "interface/data_collection.hpp"
-#include "interface/meshblock_data.hpp"
+#include "interface/mesh_data.hpp"
 #include "interface/properties_interface.hpp"
 #include "interface/state_descriptor.hpp"
-#include "interface/update.hpp"
 #include "kokkos_abstraction.hpp"
-#include "mesh/mesh_refinement.hpp"
-#include "mesh/meshblock.hpp"
 #include "mesh/meshblock_pack.hpp"
 #include "mesh/meshblock_tree.hpp"
 #include "outputs/io_wrapper.hpp"
@@ -53,6 +50,8 @@ namespace parthenon {
 
 // Forward declarations
 class BoundaryValues;
+class MeshBlock;
+class MeshRefinement;
 class ParameterInput;
 class RestartReader;
 
@@ -83,16 +82,10 @@ class Mesh {
     return nblist[my_rank];
   }
   int GetNumMeshThreads() const { return num_mesh_threads_; }
-  std::int64_t GetTotalCells() {
-    auto &pmb = block_list.front();
-    return static_cast<std::int64_t>(nbtotal) * pmb->block_size.nx1 *
-           pmb->block_size.nx2 * pmb->block_size.nx3;
-  }
+  std::int64_t GetTotalCells();
   // TODO(JMM): Move block_size into mesh.
-  int GetNumberOfMeshBlockCells() const {
-    return block_list.front()->GetNumberOfMeshBlockCells();
-  }
-  const RegionSize &GetBlockSize() const { return block_list.front()->block_size; }
+  int GetNumberOfMeshBlockCells() const;
+  const RegionSize &GetBlockSize() const;
 
   // data
   bool modified;
@@ -109,6 +102,8 @@ class Mesh {
   BlockList_t block_list;
   Properties_t properties;
   Packages_t packages;
+
+  DataCollection<MeshData<Real>> mesh_data;
 
   // MeshBlockPacks
   // TODO(JMM): Should these be private with a getter function?

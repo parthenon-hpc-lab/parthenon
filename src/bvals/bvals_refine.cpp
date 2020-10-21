@@ -25,6 +25,8 @@
 
 #include "fc/bvals_fc.hpp"
 #include "mesh/mesh.hpp"
+#include "mesh/mesh_refinement.hpp"
+#include "mesh/meshblock.hpp"
 
 namespace parthenon {
 

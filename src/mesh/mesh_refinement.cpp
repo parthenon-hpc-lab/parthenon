@@ -31,6 +31,7 @@
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
+#include "mesh/meshblock.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 #include "refinement/refinement.hpp"
@@ -996,7 +997,7 @@ void MeshRefinement::ProlongateInternalField(FaceField &fine, int si, int ei, in
 
 void MeshRefinement::CheckRefinementCondition() {
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
-  auto &rc = pmb->real_containers.Get();
+  auto &rc = pmb->meshblock_data.Get();
   AmrTag ret = Refinement::CheckAllRefinement(rc);
   // if (AMRFlag_ != nullptr) ret = AMRFlag_(pmb);
   SetRefinement(ret);

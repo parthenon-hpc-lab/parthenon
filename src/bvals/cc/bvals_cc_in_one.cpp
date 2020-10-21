@@ -15,11 +15,13 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+#include <memory>
 #include <string>
 #include <vector>
 
 #include "bvals_cc_in_one.hpp"
 #include "mesh/mesh.hpp"
+#include "mesh/meshblock.hpp"
 
 namespace parthenon {
 namespace cell_centered_bvars {
@@ -37,20 +39,19 @@ struct BndInfo {
 
 // send boundary buffers with MeshBlockPack support
 // TODO(pgrete) should probaly be moved to the bvals or interface folders
-auto SendBoundaryBuffers(BlockList_t &blocks, const std::string &container_name,
-                         const MeshBlockVarPack<Real> &var_pack) -> TaskStatus {
+TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("SendBoundaryBuffers");
 
   Kokkos::Profiling::pushRegion("Create bndinfo array");
   // TODO(?) talk about whether the number of buffers should be a compile time const
   const int num_buffers = 56;
-  parthenon::ParArray2D<BndInfo> boundary_info("boundary_info", blocks.size(),
+  parthenon::ParArray2D<BndInfo> boundary_info("boundary_info", md->NumBlocks(),
                                                num_buffers);
   auto boundary_info_h = Kokkos::create_mirror_view(boundary_info);
 
-  for (int b = 0; b < blocks.size(); b++) {
-    auto &pmb = blocks[b];
-    auto &rc = pmb->real_containers.Get(container_name);
+  for (int b = 0; b < md->NumBlocks(); b++) {
+    auto &rc = md->GetBlockData(b);
+    auto pmb = rc->GetBlockPointer();
 
     for (auto &v : rc->GetCellVariableVector()) {
       if (v->IsSet(parthenon::Metadata::FillGhost)) {
@@ -111,7 +112,8 @@ auto SendBoundaryBuffers(BlockList_t &blocks, const std::string &container_name,
 
   Kokkos::Profiling::popRegion(); // Create bndinfo array
 
-  const auto NbNb = blocks.size() * num_buffers;
+  const auto NbNb = md->NumBlocks() * num_buffers;
+  auto var_pack = md->PackVariables(std::vector<MetadataFlag>({Metadata::FillGhost}));
   const auto Nv = var_pack.GetDim(4);
 
   Kokkos::parallel_for(
@@ -152,8 +154,9 @@ auto SendBoundaryBuffers(BlockList_t &blocks, const std::string &container_name,
 
   Kokkos::fence();
   Kokkos::Profiling::pushRegion("Set complete and/or start sending via MPI");
-  for (auto &pmb : blocks) {
-    auto &rc = pmb->real_containers.Get(container_name);
+  for (int b = 0; b < md->NumBlocks(); b++) {
+    auto &rc = md->GetBlockData(b);
+    auto pmb = rc->GetBlockPointer();
 
     int mylevel = pmb->loc.level;
     for (int n = 0; n < pmb->pbval->nneighbor; n++) {
@@ -185,11 +188,10 @@ auto SendBoundaryBuffers(BlockList_t &blocks, const std::string &container_name,
   return TaskStatus::complete;
 }
 
-auto ReceiveBoundaryBuffers(BlockList_t &blocks, const std::string &container_name)
-    -> TaskStatus {
+TaskStatus ReceiveBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   bool ret = true;
-  for (auto &pmb : blocks) {
-    auto &rc = pmb->real_containers.Get(container_name);
+  for (int i = 0; i < md->NumBlocks(); i++) {
+    auto &rc = md->GetBlockData(i);
     // receives the boundary
     for (auto &v : rc->GetCellVariableVector()) {
       if (!v->mpiStatus) {
@@ -214,14 +216,13 @@ auto ReceiveBoundaryBuffers(BlockList_t &blocks, const std::string &container_na
 
 // set boundaries from buffers with MeshBlockPack support
 // TODO(pgrete) should probaly be moved to the bvals or interface folders
-auto SetBoundaries(BlockList_t &blocks, const std::string &container_name,
-                   MeshBlockVarPack<Real> &var_pack) -> TaskStatus {
+TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("SetBoundaries");
 
   Kokkos::Profiling::pushRegion("Create bndinfo array");
   // TODO(?) talk about whether the number of buffers should be a compile time const
   const int num_buffers = 56;
-  parthenon::ParArray2D<BndInfo> boundary_info("boundary_info", blocks.size(),
+  parthenon::ParArray2D<BndInfo> boundary_info("boundary_info", md->NumBlocks(),
                                                num_buffers);
   auto boundary_info_h = Kokkos::create_mirror_view(boundary_info);
 
@@ -238,9 +239,9 @@ auto SetBoundaries(BlockList_t &blocks, const std::string &container_name,
     }
   };
 
-  for (int b = 0; b < blocks.size(); b++) {
-    auto &pmb = blocks[b];
-    auto &rc = pmb->real_containers.Get(container_name);
+  for (int b = 0; b < md->NumBlocks(); b++) {
+    auto &rc = md->GetBlockData(b);
+    auto pmb = rc->GetBlockPointer();
 
     int mylevel = pmb->loc.level;
     for (int n = 0; n < pmb->pbval->nneighbor; n++) {
@@ -274,7 +275,8 @@ auto SetBoundaries(BlockList_t &blocks, const std::string &container_name,
 
   Kokkos::Profiling::popRegion(); // Create bndinfo array
 
-  const auto NbNb = blocks.size() * num_buffers;
+  const auto NbNb = md->NumBlocks() * num_buffers;
+  auto var_pack = md->PackVariables(std::vector<MetadataFlag>({Metadata::FillGhost}));
   const auto Nv = var_pack.GetDim(4);
 
   Kokkos::parallel_for(

@@ -17,20 +17,25 @@
 #include <memory>
 #include <string>
 
-#include "interface/meshblock_data.hpp"
-#include "interface/metadata.hpp"
-
 namespace parthenon {
 
 template <typename T>
 class DataCollection {
  public:
   DataCollection() {
-    containers_["base"] =
-        std::make_shared<T>(); // always add "base" container
+    containers_["base"] = std::make_shared<T>(); // always add "base" container
   }
 
-  void Add(const std::string &label, const std::shared_ptr<T> &src);
+  std::shared_ptr<T> Add(const std::string &label, const std::shared_ptr<T> &src);
+  std::shared_ptr<T> Add(const std::string &label) {
+    // error check for duplicate names
+    auto it = containers_.find(label);
+    if (it != containers_.end()) {
+      return it->second;
+    }
+    containers_[label] = std::make_shared<T>();
+    return containers_[label];
+  }
 
   std::shared_ptr<T> &Get() { return containers_["base"]; }
   std::shared_ptr<T> &Get(const std::string &label) {
@@ -49,14 +54,6 @@ class DataCollection {
       } else {
         ++c;
       }
-    }
-  }
-
-  void Print() {
-    for (auto &c : containers_) {
-      std::cout << "Container " << c.first << " has:" << std::endl;
-      c.second->Print();
-      std::cout << std::endl;
     }
   }
 
