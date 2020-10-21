@@ -81,8 +81,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   return package;
 }
 
-TaskStatus ComputeArea(std::shared_ptr<MeshData<Real>> &md,
-                       ParArrayHost<Real> areas, int i) {
+TaskStatus ComputeArea(std::shared_ptr<MeshData<Real>> &md, ParArrayHost<Real> areas,
+                       int i) {
   auto pack = md->PackVariables(std::vector<std::string>({"in_or_out"}));
   const IndexRange ib = pack.cellbounds.GetBoundsI(IndexDomain::interior);
   const IndexRange jb = pack.cellbounds.GetBoundsJ(IndexDomain::interior);

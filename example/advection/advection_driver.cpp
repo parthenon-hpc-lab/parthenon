@@ -110,7 +110,7 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
   auto partitions = partition::ToSizeN(pmesh->block_list, pack_size);
   if (stage == 1) {
     auto setup_mesh_data = [=](const std::string &name, BlockList_t partition,
-                              const std::string &mb_name) {
+                               const std::string &mb_name) {
       auto md = pmesh->mesh_data.Add(name);
       md->Set(partition, mb_name);
     };

@@ -84,11 +84,6 @@ template <typename T>
 using MeshBlockVarFluxPack = MeshBlockPack<VariableFluxPack<T>>;
 
 template <typename T>
-using VarPackingFunc = std::function<std::vector<MeshBlockVarPack<T>>(Mesh *)>;
-template <typename T>
-using FluxPackingFunc = std::function<std::vector<MeshBlockVarFluxPack<T>>(Mesh *)>;
-
-template <typename T>
 using MeshPackIndxPair = PackAndIndexMap<MeshBlockPack<T>>;
 template <typename T>
 using MapToMeshBlockPack =
