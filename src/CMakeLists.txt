@@ -143,8 +143,6 @@ add_library(parthenon
   interface/container_iterator.hpp
   interface/container.cpp
   interface/container.hpp
-  interface/swarm_container.cpp
-  interface/swarm.cpp
   interface/metadata.cpp
   interface/metadata.hpp
   interface/params.hpp
@@ -164,8 +162,6 @@ add_library(parthenon
   mesh/mesh_refinement.hpp
   mesh/mesh.cpp
   mesh/mesh.hpp
-  mesh/meshblock.hpp
-  mesh/meshblock_pack.hpp
   mesh/meshblock_tree.cpp
   mesh/meshblock_tree.hpp
   mesh/meshblock.cpp
@@ -210,8 +206,8 @@ add_library(parthenon
   utils/buffer_utils.cpp
   utils/buffer_utils.hpp
   utils/change_rundir.cpp
+  utils/dict_anytype.hpp
   utils/error_checking.hpp
-  utils/partition_stl_containers.hpp
   utils/show_config.cpp
   utils/signal_handler.cpp
   utils/trim_string.cpp
@@ -230,7 +226,6 @@ add_library(parthenon
   parthenon_manager.hpp
   parthenon_mpi.hpp
 )
-add_library(Parthenon::parthenon ALIAS parthenon)
 
 set_target_properties(parthenon PROPERTIES SOVERSION ${parthenon_VERSION})
 
@@ -270,7 +265,7 @@ install(TARGETS parthenon EXPORT parthenonTargets
   INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parthenon"
   LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
   ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-)
+    )
 
 # Maintain directory structure in installed include files
 install(DIRECTORY . DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parthenon" FILES_MATCHING PATTERN "*.hpp")
@@ -285,4 +280,4 @@ install(EXPORT parthenonTargets
     FILE parthenonTargets.cmake
     NAMESPACE Parthenon::
     DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/parthenon"
-)
+    )

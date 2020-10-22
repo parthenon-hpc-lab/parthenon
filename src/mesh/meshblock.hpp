@@ -166,6 +166,10 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
 
   BoundaryFlag boundary_flag[6];
 
+  // user parameters
+  DictAnyType user_data;
+  DictAnyType application_data;
+
   // functions
 
   //----------------------------------------------------------------------------------------

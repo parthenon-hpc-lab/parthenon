@@ -110,6 +110,9 @@ class Mesh {
   Properties_t properties;
   Packages_t packages;
 
+  // user data
+  DictAnyType user_data;
+
   // MeshBlockPacks
   // TODO(JMM): Should these be private with a getter function?
   std::map<std::string, std::map<std::string, std::vector<MeshBlockVarPack<Real>>>>
