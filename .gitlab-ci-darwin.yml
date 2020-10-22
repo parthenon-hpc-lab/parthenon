@@ -23,11 +23,11 @@ stages:
 # Is performed before the scripts in the stages step
 before_script:
   - >
-    env -i bash ./scripts/darwin/setup.sh
+    env -i bash --norc --noprofile ./scripts/darwin/setup.sh
     ${MODULE_COMPILER}
     ${MODULE_MPI}
   - >
-    env -i bash ./scripts/darwin/build_hdf5_parallel.sh
+    env -i bash --norc --noprofile ./scripts/darwin/build_hdf5_parallel.sh
     ${MODULE_COMPILER}
     ${MODULE_MPI}
 
@@ -55,7 +55,7 @@ before_script:
     - echo "MODULE_CUDA                ${MODULE_CUDA}             " >> build_cmd.txt
     - echo "MODULE_MPI                 ${MODULE_MPI}              " >> build_cmd.txt
     - >
-      env -i bash ./scripts/darwin/build.sh
+      env -i bash --norc --noprofile ./scripts/darwin/build.sh
       ${BUILD_DIR}
       ${CMAKE_BUILD_TYPE}
       ${CMAKE_CXX_COMPILER}
