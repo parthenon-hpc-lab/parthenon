@@ -44,13 +44,15 @@ class Params {
     return myParams_.Get<T>(std::forward<Args>(args)...);
   }
 
-  bool hasKey(const std::string &key) const { return myParams.hasKey(key); }
+  bool hasKey(const std::string &key) const { return myParams_.hasKey(key); }
 
   // void Params::
   void list() { myParams_.list(); }
 
  private:
   DictAnyType myParams_;
+};
+
 } // namespace parthenon
 
 #endif // INTERFACE_PARAMS_HPP_
