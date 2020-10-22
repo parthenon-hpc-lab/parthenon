@@ -5,7 +5,7 @@
 ### Added (new features/APIs/variables/...)
 - [[PR 314]](https://github.com/lanl/parthenon/pull/314) Generalized `par_for` abstractions to provide for reductions with a consistent interface.
 - [[PR 308]](https://github.com/lanl/parthenon/pull/308) Added the ability to register and name `MeshBlockPack`s in the `Mesh` or in package initialization.
-
+- [[PR 285]](https://github.com/lanl/parthenon/pull/285) Parthenon can now be linked in CMake as `Parthenon::parthenon` when used as a subdirectory, matching install.
 
 ### Changed (changing behavior/API/variables/...)
 - [[PR 303]](https://github.com/lanl/parthenon/pull/303) Changed `Mesh::BlockList` from a `std::list<MeshBlock>` to a `std::vector<std::shared_ptr<MeshBlock>>`, making `FindMeshBlock` run in constant, rather than linear, time. Loops over `block_list` in application drivers must be cahnged accordingly.
