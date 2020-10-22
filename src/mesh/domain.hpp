@@ -127,44 +127,16 @@ class IndexShape {
   KOKKOS_INLINE_FUNCTION const IndexRange GetBoundsI(const IndexDomain &domain) const
       noexcept {
     return (domain == IndexDomain::interior) ? x_[0] : IndexRange{is(domain), ie(domain)};
-    switch (domain) {
-    case IndexDomain::interior:
-      return x_[0];
-    case IndexDomain::inner_x1:
-      return IndexRange{0, x_[0].s - 1};
-    case IndexDomain::outer_x1:
-      return IndexRange{x_[0].e + 1, entire_ncells_[0] - 1};
-    default: // entire, inner/outer_x2, inner/outer_x3
-      return IndexRange{0, entire_ncells_[0] - 1};
-    }
   }
 
   KOKKOS_INLINE_FUNCTION const IndexRange GetBoundsJ(const IndexDomain &domain) const
       noexcept {
-    switch (domain) {
-    case IndexDomain::interior:
-      return x_[1];
-    case IndexDomain::inner_x2:
-      return IndexRange{0, x_[1].s - 1};
-    case IndexDomain::outer_x2:
-      return IndexRange{x_[1].e + 1, entire_ncells_[1] - 1};
-    default: // entire, inner/outer_x1, inner/outer_x3
-      return IndexRange{0, entire_ncells_[1] - 1};
-    }
+    return (domain == IndexDomain::interior) ? x_[1] : IndexRange{js(domain), je(domain)};
   }
 
   KOKKOS_INLINE_FUNCTION const IndexRange GetBoundsK(const IndexDomain &domain) const
       noexcept {
-    switch (domain) {
-    case IndexDomain::interior:
-      return x_[2];
-    case IndexDomain::inner_x3:
-      return IndexRange{0, x_[2].s - 1};
-    case IndexDomain::outer_x3:
-      return IndexRange{x_[2].e + 1, entire_ncells_[2] - 1};
-    default:
-      return IndexRange{0, entire_ncells_[2] - 1};
-    }
+    return (domain == IndexDomain::interior) ? x_[2] : IndexRange{ks(domain), ke(domain)};
   }
 
   KOKKOS_INLINE_FUNCTION int is(const IndexDomain &domain) const noexcept {
@@ -229,7 +201,7 @@ class IndexShape {
     case IndexDomain::inner_x3:
       return x_[2].s - 1;
     default:
-      return entire_ncells_[1] - 1;
+      return entire_ncells_[2] - 1;
     }
   }
 

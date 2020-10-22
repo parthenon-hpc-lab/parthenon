@@ -22,7 +22,7 @@
 
 #include <catch2/catch.hpp>
 
-TEST_CASE("Checking IndexShape indices", "[is,ie,js,je,ks,ke]") {
+TEST_CASE("Checking IndexShape indices", "[IndexShape]") {
   const parthenon::IndexDomain interior = parthenon::IndexDomain::interior;
   const parthenon::IndexDomain entire = parthenon::IndexDomain::entire;
   const parthenon::IndexDomain inner_x1 = parthenon::IndexDomain::inner_x1;
@@ -58,7 +58,7 @@ TEST_CASE("Checking IndexShape indices", "[is,ie,js,je,ks,ke]") {
     REQUIRE(shape.je(inner_x1) == 0);
     REQUIRE(shape.ks(inner_x1) == 0);
     REQUIRE(shape.ke(inner_x1) == 0);
-    REQUIRE(shape.GetTotal(entire) == 1);
+    REQUIRE(shape.GetTotal(inner_x1) == 1);
   }
 
   GIVEN("A 2D Index Shape") {
@@ -159,7 +159,7 @@ TEST_CASE("Checking IndexShape indices", "[is,ie,js,je,ks,ke]") {
   }
 }
 
-TEST_CASE("Checking IndexShape cell counts", "[ncellsi,ncellsj,ncellsk]") {
+TEST_CASE("Checking IndexShape cell counts", "[IndexShape]") {
   const parthenon::IndexDomain interior = parthenon::IndexDomain::interior;
   const parthenon::IndexDomain entire = parthenon::IndexDomain::entire;
   GIVEN("A 1D Index Shape, check the numbers of cells") {
