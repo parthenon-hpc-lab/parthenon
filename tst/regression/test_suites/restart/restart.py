@@ -55,7 +55,7 @@ class TestCase(utils.test_case.TestCaseAbs):
       goldData = np.zeros(gold[varName].shape, dtype=np.single)
       gold[varName].read_direct(goldData)
       silverData = np.zeros(gold[varName].shape, dtype=np.single)
-      gold[varName].read_direct(silverData)
+      silver[varName].read_direct(silverData)
 
     goldData = goldData.flatten()
     silverData = silverData.flatten()
