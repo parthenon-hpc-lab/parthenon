@@ -69,10 +69,12 @@ template <typename T>
 class VariablePack {
  public:
   VariablePack() = default;
-  VariablePack(const ViewOfParArrays<T> view, const ParArray1D<int> sparse_ids,
+  VariablePack(const ViewOfParArrays<T> view,
+               const ParArray1D<int> sparse_ids,
+               const ParArray1D<bool> is_vector,
                const std::array<int, 4> dims)
-      : v_(view), sparse_ids_(sparse_ids), dims_(dims),
-        ndim_((dims[2] > 1 ? 3 : (dims[1] > 1 ? 2 : 1))) {}
+    : v_(view), sparse_ids_(sparse_ids), si_vector_(is_vector), dims_(dims),
+      ndim_((dims[2] > 1 ? 3 : (dims[1] > 1 ? 2 : 1))) {}
   KOKKOS_FORCEINLINE_FUNCTION
   ParArray3D<T> &operator()(const int n) const { return v_(n); }
   KOKKOS_FORCEINLINE_FUNCTION
@@ -86,8 +88,13 @@ class VariablePack {
   }
   KOKKOS_FORCEINLINE_FUNCTION
   int GetSparse(const int n) const {
-    assert(n < dims_[3]);
+    assert(0 <= n && n < dims_[3]);
     return sparse_ids_(n);
+  }
+  KOKKOS_FORCEINLINE_FUNCTION
+  bool IsVector(const int n) const {
+    assert(0 <= n && n < dims_[3]);
+    return is_vector_(n);
   }
   KOKKOS_FORCEINLINE_FUNCTION
   int GetNdim() const { return ndim_; }
@@ -95,6 +102,7 @@ class VariablePack {
  protected:
   ViewOfParArrays<T> v_;
   ParArray1D<int> sparse_ids_;
+  ParArray1D<bool> is_vector_;
   std::array<int, 4> dims_;
   int ndim_;
 };
@@ -105,8 +113,10 @@ class VariableFluxPack : public VariablePack<T> {
   VariableFluxPack() = default;
   VariableFluxPack(const ViewOfParArrays<T> view, const ViewOfParArrays<T> f0,
                    const ViewOfParArrays<T> f1, const ViewOfParArrays<T> f2,
-                   const ParArray1D<int> sparse_ids, const std::array<int, 4> dims)
-      : VariablePack<T>(view, sparse_ids, dims), f_({f0, f1, f2}) {}
+                   const ParArray1D<int> sparse_ids,
+                   const ParArray1D<int> is_vector,
+                   const std::array<int, 4> dims)
+    : VariablePack<T>(view, sparse_ids, is_vector, dims), f_({f0, f1, f2}) {}
 
   KOKKOS_FORCEINLINE_FUNCTION
   ViewOfParArrays<T> &flux(const int dir) const {
@@ -147,11 +157,13 @@ using MapToVariableFluxPack = std::map<vpack_types::StringPair, FluxPackIndxPair
 
 template <typename T>
 void FillVarView(const vpack_types::VarList<T> &vars, PackIndexMap *vmap,
-                 ViewOfParArrays<T> &cv, ParArray1D<int> &sparse_assoc) {
+                 ViewOfParArrays<T> &cv, ParArray1D<int> &sparse_assoc,
+                 ParArray1D<bool> &is_vector) {
   using vpack_types::IndexPair;
 
   auto host_view = Kokkos::create_mirror_view(Kokkos::HostSpace(), cv);
   auto host_sp = Kokkos::create_mirror_view(Kokkos::HostSpace(), sparse_assoc);
+  auto host_iv = Kokkos::create_mirror_view(Kokkos::HostSPace, is_vector);
 
   int vindex = 0;
   int sparse_start;
@@ -184,7 +196,9 @@ void FillVarView(const vpack_types::VarList<T> &vars, PackIndexMap *vmap,
       for (int j = 0; j < v->GetDim(5); j++) {
         for (int i = 0; i < v->GetDim(4); i++) {
           host_sp(vindex) = sparse_id;
-          host_view(vindex++) = v->data.Get(k, j, i);
+          host_iv(vindex) = v->IsSet(Metadata::Vector);
+          host_view(vindex) = v->data.Get(k, j, i);
+          vindex++;
         }
       }
     }
@@ -200,6 +214,7 @@ void FillVarView(const vpack_types::VarList<T> &vars, PackIndexMap *vmap,
 
   Kokkos::deep_copy(cv, host_view);
   Kokkos::deep_copy(sparse_assoc, host_sp);
+  Kokkos::deep_copy(is_vector, host_iv);
 }
 
 template <typename T>
@@ -286,12 +301,13 @@ VariableFluxPack<T> MakeFluxPack(const vpack_types::VarList<T> &vars,
   ViewOfParArrays<T> f2("MakeFluxPack::f2", fsize);
   ViewOfParArrays<T> f3("MakeFluxPack::f3", fsize);
   ParArray1D<int> sparse_assoc("MakeFluxPack::sparse_assoc", vsize);
+  ParArray1D<bool> is_vector("MakeFluxPack::is_vector", vsize);
   // add variables to host view
-  FillVarView(vars, vmap, cv, sparse_assoc);
+  FillVarView(vars, vmap, cv, sparse_assoc, is_vector);
   // add fluxes to host view
   FillFluxViews(flux_vars, vmap, ndim, f1, f2, f3);
 
-  return VariableFluxPack<T>(cv, f1, f2, f3, sparse_assoc, cv_size);
+  return VariableFluxPack<T>(cv, f1, f2, f3, sparse_assoc, is_vector, cv_size);
 }
 
 template <typename T>
@@ -305,13 +321,14 @@ VariablePack<T> MakePack(const vpack_types::VarList<T> &vars,
 
   // make the outer view
   ViewOfParArrays<T> cv("MakePack::cv", vsize);
-  ParArray1D<int> sparse_assoc("MakeFluxPack::sparse_assoc", vsize);
+  ParArray1D<int> sparse_assoc("MakePack::sparse_assoc", vsize);
+  ParArray1D<int> is_vector("MakePack::is_vector", vsize);
 
-  FillVarView(vars, vmap, cv, sparse_assoc);
+  FillVarView(vars, vmap, cv, sparse_assoc, is_vector);
 
   auto fvar = vars.front()->data;
   std::array<int, 4> cv_size = {fvar.GetDim(1), fvar.GetDim(2), fvar.GetDim(3), vsize};
-  return VariablePack<T>(cv, sparse_assoc, cv_size);
+  return VariablePack<T>(cv, sparse_assoc, is_vector, cv_size);
 }
 
 } // namespace parthenon
