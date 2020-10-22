@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef UTILS_DICT_ANYTYPE_
-#define UTILS_DICT_ANYTYPE_
+#ifndef UTILS_DICT_ANYTYPE_HPP_
+#define UTILS_DICT_ANYTYPE_HPP_
 
 #include <iostream>
 #include <map>
@@ -103,4 +103,4 @@ class DictAnyType {
 
 } // namespace parthenon
 
-#endif // UTILS_DICT_ANYTYPE_
+#endif // UTILS_DICT_ANYTYPE_HPP_

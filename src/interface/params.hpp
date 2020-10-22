@@ -13,6 +13,9 @@
 #ifndef INTERFACE_PARAMS_HPP_
 #define INTERFACE_PARAMS_HPP_
 
+#include <string>
+#include <utility>
+
 #include "utils/dict_anytype.hpp"
 
 namespace parthenon {
@@ -31,30 +34,23 @@ class Params {
   /// Throws an error if the key is already in use
   template <typename T>
   void Add(const std::string &key, T value) {
-    myParams_.Add(key,value);
+    myParams_.Add(key, value);
   }
 
-  void reset() {
-    myParams_.reset();
-  }
+  void reset() { myParams_.reset(); }
 
-  template <typename T, typename...Args>
+  template <typename T, typename... Args>
   const T &Get(Args... args) {
     return myParams_.Get<T>(std::forward<Args>(args)...);
   }
 
-  bool hasKey(const std::string &key) const {
-    return myParams.hasKey(key);
-  }
+  bool hasKey(const std::string &key) const { return myParams.hasKey(key); }
 
   // void Params::
-  void list() {
-    myParams_.list();
-  }
+  void list() { myParams_.list(); }
 
  private:
   DictAnyType myParams_;
-
 } // namespace parthenon
 
 #endif // INTERFACE_PARAMS_HPP_
