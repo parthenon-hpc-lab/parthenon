@@ -49,7 +49,9 @@ class TestCase(utils.test_case.TestCaseAbs):
         silverFile = 'silver.out0.00002.rhdf'
 
         gold = h5py.File(goldFile,'r')
+        gold.close()
         silver = h5py.File(silverFile,'r')
+        silver.close()
 
         varName = "/advected"
         goldData = gold[varName][:].flatten()
