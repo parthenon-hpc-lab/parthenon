@@ -68,13 +68,14 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
   GIVEN("A Container with a set of variables initialized to zero") {
     Container<Real> rc;
     Metadata m_in({Metadata::Independent, Metadata::FillGhost});
+    Metadata m_in_vector({Metadata::Independent, Metadata::FillGhost, Metadata::Vector});
     Metadata m_out;
     std::vector<int> scalar_block_size{16, 16, 16};
     std::vector<int> vector_block_size{16, 16, 16, 3};
     // Make some variables
     rc.Add("v1", m_in, scalar_block_size);
     rc.Add("v2", m_out, scalar_block_size);
-    rc.Add("v3", m_in, vector_block_size);
+    rc.Add("v3", m_in_vector, vector_block_size);
     rc.Add("v4", m_out, vector_block_size);
     rc.Add("v5", m_in, scalar_block_size);
     rc.Add("v6", m_out, scalar_block_size);
@@ -171,6 +172,20 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
             sum);
         total += sum;
         REQUIRE(std::abs(total - 16384.0) < 1.e-14);
+      }
+      AND_THEN("Summing over only the X2DIR vector components should work") {
+        int total = 0;
+        int sum = 1;
+        par_reduce(
+            loop_pattern_mdrange_tag, "test_container_iterator::X2DIR vec reduce",
+            DevExecSpace(), 0, v.GetDim(4) - 1, 0, v.GetDim(3) - 1, 0, v.GetDim(2) - 1, 0,
+            v.GetDim(1) - 1,
+            KOKKOS_LAMBDA(const int l, const int k, const int j, const int i, int &vsum) {
+              vsum += v.VectorComponent(l) == X2DIR ? 1 : 0;
+            },
+            Kokkos::Sum<int>(sum));
+        total += sum;
+        REQUIRE(total == 16 * 16 * 16);
       }
     }
 
