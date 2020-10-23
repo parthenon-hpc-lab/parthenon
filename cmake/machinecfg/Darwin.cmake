@@ -1,0 +1,157 @@
+#========================================================================================
+# Parthenon performance portable AMR framework
+# Copyright(C) 2020 The Parthenon collaboration
+# Licensed under the 3-clause BSD License, see LICENSE file for details
+#========================================================================================
+# (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+#
+# This program was produced under U.S. Government contract 89233218CNA000001 for Los
+# Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
+# for the U.S. Department of Energy/National Nuclear Security Administration. All rights
+# in the program are reserved by Triad National Security, LLC, and the U.S. Department
+# of Energy/National Nuclear Security Administration. The Government is granted for
+# itself and others acting on its behalf a nonexclusive, paid-up, irrevocable worldwide
+# license in this material to reproduce, prepare derivative works, distribute copies to
+# the public, perform publicly and display publicly, and to permit others to do so.
+#========================================================================================
+
+# OPTIONS:
+# - `DARWIN_ARCH` - define which processor is being used
+#       Default:
+#           `DARWIN_ARCH` environment variable, if it exists, otherwise
+#           the result of `uname -m`.
+#       Possible Values:
+#           `x86_64` (assumes at least haswell)
+#           `ppc64le` (assumes power9 + volta gpus)
+# - `DARWIN_VIEW_DATE` - The date the dependencies were installed.
+#       Default:
+#           unset, which results in using the view associated with your
+#           current commit. See `DARWIN_VIEW_DATE_LATEST`
+# - `DARWIN_COMPILER` - Compiler family to use
+#       Default: "GCC"
+#       Possible Values: "GCC", "GCC9"
+
+# This little bit picks up the target architecture, which determines the
+# target environment and system modules.
+if (DEFINED ENV{DARWIN_ARCH})
+    set(DARWIN_ARCH_INIT $ENV{DARWIN_ARCH})
+else()
+    execute_process(COMMAND uname -m OUTPUT_VARIABLE DARWIN_ARCH_INIT)
+    string(STRIP "${DARWIN_ARCH_INIT}" DARWIN_ARCH_INIT)
+endif()
+
+set(DARWIN_ARCH ${DARWIN_ARCH_INIT} CACHE STRING "Target Darwin architecture")
+
+# NOTE: When updating dependencies with new compilers or packages, you should
+# ideally only need to update these variables to change the default behavior.
+if (DARWIN_ARCH STREQUAL "x86_64")
+    set(DARWIN_VIEW_DATE_LATEST "2020-10-23")
+    set(DARWIN_GCC_PREFERRED "GCC9")
+    set(DARWIN_COMPILER_PREFERRED "GCC")
+
+    set(DARWIN_GCC9_VERSION "9.3.0")
+
+    set(DARWIN_MPI_VERSION "4.0.3")
+elseif (DARWIN_ARCH STREQUAL "ppc64le")
+    set(DARWIN_VIEW_DATE_LATEST "2020-10-23")
+    set(DARWIN_GCC_PREFERRED "GCC9")
+    set(DARWIN_COMPILER_PREFERRED "GCC")
+
+    set(DARWIN_GCC9_VERSION "9.2.0")
+    set(DARWIN_MICROARCH_PATH "/p9")
+
+    set(DARWIN_MPI_VERSION "4.0.2")
+endif()
+
+# It would be nice if we could let this variable float with the current code
+# checkout, but unfortunately CMake caches enough other stuff (like find
+# packages), that it's easier to just issue a warning if the view date is
+# different from the "latest" date.
+set(DARWIN_VIEW_DATE ${DARWIN_VIEW_DATE_LATEST} CACHE STRING "Darwin dependency view being used")
+if (NOT DARWIN_VIEW_DATE_LATEST STREQUAL DARWIN_VIEW_DATE)
+    message(WARNING "Your current build directory was configured with a \
+        set of Darwin dependencies from ${DARWIN_VIEW_DATE}, but your current \
+        code checkout prefers a set of Darwin dependencies from \
+        ${DARWIN_VIEW_DATE_LATEST}. Consider configuring a new build \
+        directory.")
+endif()
+
+if (NOT DEFINED DARWIN_COMPILER)
+    set(DARWIN_COMPILER ${DARWIN_COMPILER_PREFERRED})
+endif()
+
+if (DARWIN_COMPILER STREQUAL "GCC")
+    set(DARWIN_COMPILER ${DARWIN_GCC_PREFERRED})
+endif()
+
+set(DARWIN_PROJECT_PREFIX /projects/parthenon-int/parthenon-project
+    CACHE STRING "Path to parthenon-project checkout")
+set(DARWIN_ARCH_PREFIX ${DARWIN_PROJECT_PREFIX}/views/darwin/${DARWIN_ARCH})
+
+if (NOT EXISTS ${DARWIN_ARCH_PREFIX})
+    message(WARNING "No dependencies detected for \
+        DARWIN_ARCH=\"${DARWIN_ARCH}\" at ${DARWIN_ARCH_PREFIX}")
+    return()
+endif()
+
+string(TOLOWER "${DARWIN_COMPILER}" DARWIN_COMPILER_LOWER)
+set(DARWIN_COMPILER_PREFIX ${DARWIN_ARCH_PREFIX}/${DARWIN_COMPILER_LOWER})
+
+if (NOT EXISTS ${DARWIN_COMPILER_PREFIX})
+    message(WARNING "No dependencies detected for \
+        DARWIN_COMPILER=\"${DARWIN_COMPILER}\" at ${DARWIN_COMPILER_PREFIX}")
+    return()
+endif()
+
+set(DARWIN_VIEW_PREFIX ${DARWIN_COMPILER_PREFIX}/${DARWIN_VIEW_DATE})
+if (NOT EXISTS ${DARWIN_VIEW_PREFIX})
+    message(WARNING "No view detected for \
+        DARWIN_VIEW_DATE=\"${DARWIN_VIEW_DATE}\" at ${DARWIN_VIEW_PREFIX}")
+    return()
+endif()
+
+# Let the user specify the compiler if they really want to. Otherwise, point
+# to the compilers specified by the DARWIN_ options
+if (NOT DEFINED CMAKE_CXX_COMPILER)
+    if (DARWIN_COMPILER MATCHES "GCC")
+        set(GCC_VERSION ${DARWIN_${DARWIN_COMPILER}_VERSION})
+        set(GCC_PREFIX /projects/opt/${DARWIN_ARCH}${DARWIN_MICROARCH_PATH}/gcc/${GCC_VERSION})
+
+        if (DEFINED GCC_VERSION)
+            set(CMAKE_C_COMPILER ${GCC_PREFIX}/bin/gcc
+                CACHE STRING "gcc ${GCC_VERSION}")
+            set(CMAKE_CXX_COMPILER ${GCC_PREFIX}/bin/g++
+                CACHE STRING "gcc ${GCC_VERSION}")
+            set(CMAKE_BUILD_RPATH ${GCC_PREFIX}/lib64
+                CACHE STRING "rpath libs")
+        endif()
+    endif()
+
+    if (NOT DEFINED CMAKE_CXX_COMPILER)
+        message(
+            FATAL_ERROR
+            "Found view on Darwin for compiler version ${DARWIN_COMPILER}, but \
+            don't know how to map it to a specific compiler. Either update \
+            your Parthenon checkout or explicitly set CMAKE_C_COMPILER and \
+            CMAKE_CXX_COMPILER")
+    endif()
+endif()
+
+# MPI - We use the system modules since replicating them in spack can be
+# difficult.
+if (DARWIN_COMPILER MATCHES "GCC")
+    set(MPI_ROOT
+        /projects/opt/${DARWIN_ARCH}${DARWIN_MICROARCH_PATH}/openmpi/${DARWIN_MPI_VERSION}-gcc_${DARWIN_${DARWIN_COMPILER}_VERSION}
+        CACHE STRING "MPI Location")
+endif()
+
+# Kokkos settings
+if (DARWIN_ARCH STREQUAL "x86_64")
+    set(Kokkos_ARCH_HSW ON CACHE BOOL "Target Haswell")
+elseif(DARWIN_ARCH STREQUAL "ppc64le")
+    # set(Kokkos_ENABLE_CUDA ON CACHE BOOL "Cuda")
+    set(Kokkos_ARCH_POWER9 ON CACHE BOOL "Target Power9")
+    # set(Kokkos_ARCH_VOLTA70 ON CACHE BOOL "Target V100s")
+endif()
+list(PREPEND CMAKE_PREFIX_PATH ${DARWIN_VIEW_PREFIX})
+set(NUM_MPI_PROC_TESTING "2" CACHE STRING "CI runs tests with 2 MPI ranks")

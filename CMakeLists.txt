@@ -17,23 +17,37 @@ cmake_minimum_required(VERSION 3.12)
 # Command line argument takes precedence over environment variable.
 # Loading this before project definition to allow setting the compiler.
 if (MACHINE_CFG)
-  if(EXISTS "${MACHINE_CFG}")
-    include(${MACHINE_CFG})
-  else()
-    message(FATAL_ERROR "Given machine configuration at "
-      "${MACHINE_CFG} not found.")
-  endif()
+  set(USE_MACHINE_CFG ${MACHINE_CFG})
 elseif (DEFINED ENV{MACHINE_CFG})
-  if(EXISTS "$ENV{MACHINE_CFG}")
-    include($ENV{MACHINE_CFG})
-  else()
-    message(FATAL_ERROR "Given machine configuration from environment variable "
-      "MACHINE_CFG at $ENV{MACHINE_CFG} not found.")
+  set(USE_MACHINE_CFG $ENV{MACHINE_CFG})
+endif()
+
+if (USE_MACHINE_CFG)
+  # Allow `$PAR_ROOT` to specify a relative path to the project directory.
+  # Allows an environment variable to specify a machine cfg that is 
+  string(
+    REPLACE ":PAR_ROOT:" ${CMAKE_CURRENT_SOURCE_DIR}
+      USE_MACHINE_CFG ${USE_MACHINE_CFG})
+
+  # Resolve path to absolute and cache it
+  # file(REAL_PATH ${USE_MACHINE_CFG} MACHINE_CFG_FULL)
+  get_filename_component(MACHINE_CFG_FULL ${USE_MACHINE_CFG} ABSOLUTE)
+
+  if (NOT EXISTS ${MACHINE_CFG_FULL})
+    message(FATAL_ERROR
+      "Given machine configuration at ${MACHINE_CFG_FULL} not found.")
   endif()
+
+  # Cache this in-case of environment variable being unset later
+  set(MACHINE_CFG_FULL ${MACHINE_CFG_FULL} CACHE INTERNAL "Full path to machine configuration")
+endif()
+
+if (MACHINE_CFG_FULL)
+  include(${MACHINE_CFG_FULL})
 else()
   message(WARNING "Not using any machine configuration. Consider creating a configuration "
     "file following the examples in ${PROJECT_SOURCE_DIR}/cmake/machine_cfgs/ and then "
-    "point the MACHINE_CFG variable to your custom file."
+    "point the MACHINE_CFG cmake or environment variable to your custom file."
     "Note, that the machine file can be placed in any directory (also outside the repo).")
 endif()
 
