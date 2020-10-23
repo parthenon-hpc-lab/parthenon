@@ -144,7 +144,7 @@ class IndexShape {
     case IndexDomain::interior:
       return x_[0].s;
     case IndexDomain::outer_x1:
-      return x_[0].s - 1;
+      return x_[0].e + 1;
     default:
       return 0;
     }
@@ -155,7 +155,7 @@ class IndexShape {
     case IndexDomain::interior:
       return x_[1].s;
     case IndexDomain::outer_x2:
-      return x_[1].s - 1;
+      return x_[1].e + 1;
     default:
       return 0;
     }
@@ -166,7 +166,7 @@ class IndexShape {
     case IndexDomain::interior:
       return x_[2].s;
     case IndexDomain::outer_x3:
-      return x_[2].s - 1;
+      return x_[2].e + 1;
     default:
       return 0;
     }
@@ -206,16 +206,28 @@ class IndexShape {
   }
 
   KOKKOS_INLINE_FUNCTION int ncellsi(const IndexDomain &domain) const noexcept {
+    if (entire_ncells_[0] == 1 &&
+        (domain == IndexDomain::inner_x1 || domain == IndexDomain::outer_x1)) {
+      return 0; // if x1 is zero-dimensional, there are no ghost zones
+    }
     auto bnds = GetBoundsI(domain);
     return bnds.e - bnds.s + 1;
   }
 
   KOKKOS_INLINE_FUNCTION int ncellsj(const IndexDomain &domain) const noexcept {
+    if (entire_ncells_[1] == 1 &&
+        (domain == IndexDomain::inner_x2 || domain == IndexDomain::outer_x2)) {
+      return 0; // if x2 is zero-dimensional, there are no ghost zones
+    }
     auto bnds = GetBoundsJ(domain);
     return bnds.e - bnds.s + 1;
   }
 
   KOKKOS_INLINE_FUNCTION int ncellsk(const IndexDomain &domain) const noexcept {
+    if (entire_ncells_[2] == 1 &&
+        (domain == IndexDomain::inner_x3 || domain == IndexDomain::outer_x3)) {
+      return 0; // if x3 is zero-dimensional, there are no ghost zones
+    }
     auto bnds = GetBoundsK(domain);
     return bnds.e - bnds.s + 1;
   }
