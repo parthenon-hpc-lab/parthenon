@@ -53,7 +53,7 @@ class TestCase(utils.test_case.TestCaseAbs):
 
         varName = "/advected"
         goldData = gold[varName][:].flatten()
-        silverData = gold[varName][:].flatten()
+        silverData = silver[varName][:].flatten()
 
         # spot check on one variable
         maxdiff = max(abs(goldData-silverData))
