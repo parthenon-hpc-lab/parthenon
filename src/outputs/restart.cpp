@@ -439,7 +439,7 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
       for (auto &v : ci.vars) {
         // Note index 4 transposed to interior
         if (vWriteName.compare(v->label()) == 0) {
-          auto v_h = (*v).data.GetHostMirrorAndCopy();
+          auto v_h = v->data.GetHostMirrorAndCopy();
           LOADVARIABLEONE(index, tmpData.data(), v_h, out_ib.s, out_ib.e, out_jb.s,
                           out_jb.e, out_kb.s, out_kb.e, vlen);
           found = true;

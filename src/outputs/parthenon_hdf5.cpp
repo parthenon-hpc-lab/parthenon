@@ -423,7 +423,7 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
         std::string name = v->label();
         if (name.compare(vWriteName) == 0) {
           // hsize_t index = pmb->lid * varSize * vlen;
-          auto v_h = (*v).data.GetHostMirrorAndCopy();
+          auto v_h = v->data.GetHostMirrorAndCopy();
           LOADVARIABLEONE(index, tmpData, v_h, out_ib.s, out_ib.e, out_jb.s, out_jb.e,
                           out_kb.s, out_kb.e, vlen);
           break;
