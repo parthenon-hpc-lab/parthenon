@@ -23,8 +23,8 @@ elseif (DEFINED ENV{MACHINE_CFG})
 endif()
 
 if (USE_MACHINE_CFG)
-  # Allow `$PAR_ROOT` to specify a relative path to the project directory.
-  # Allows an environment variable to specify a machine cfg that is 
+  # The `:PAR_ROOT:` string allows the devleper to specify a relative path to
+  # the project directory via an environment variable.
   string(
     REPLACE ":PAR_ROOT:" ${CMAKE_CURRENT_SOURCE_DIR}
       USE_MACHINE_CFG ${USE_MACHINE_CFG})
