@@ -203,7 +203,8 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   int nbe = nbs + nb - 1;
   IndexRange myBlocks{nbs, nbe};
 
-  std::cout << "Blocks assigned to rank:" << Globals::my_rank << ":" << nbs << ":" << nbe << std::endl;
+  std::cout << "Blocks assigned to rank:" << Globals::my_rank << ":" << nbs << ":" << nbe
+            << std::endl;
   // Get an iterator on block 0 for variable listing
   IndexRange out_ib = mb.cellbounds.GetBoundsI(theDomain);
   IndexRange out_jb = mb.cellbounds.GetBoundsJ(theDomain);
@@ -249,9 +250,10 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
           {parthenon::Metadata::Independent, parthenon::Metadata::Restart}, true);
       for (auto &v : cX.vars) {
         if (vName.compare(v->label()) == 0) {
-          auto v_h = (*v).data.GetHostMirrorAndCopy();
+          auto v_h = (*v).data.GetHostMirror();
           UNLOADVARIABLEONE(index, tmp, v_h, out_ib.s, out_ib.e, out_jb.s, out_jb.e,
                             out_kb.s, out_kb.e, v4)
+          (*v).data.DeepCopy(v_h);
           found = true;
           break;
         }
