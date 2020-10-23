@@ -50,7 +50,7 @@ class RestartReader {
   // returns NBlocks on success, -1 on failure
   template <typename T>
   int ReadBlocks(const char *name, IndexRange range, std::vector<T> &dataVec,
-		 std::vector<size_t> bsize, size_t vlen = 1) {
+                 std::vector<size_t> bsize, size_t vlen = 1) {
 #ifdef HDF5OUTPUT
     try {
       herr_t status;
@@ -73,8 +73,8 @@ class RestartReader {
 
       /** Define hyperslab in dataset **/
       hsize_t offset[5] = {static_cast<hsize_t>(range.s), 0, 0, 0, 0};
-      hsize_t count[5] = {static_cast<hsize_t>(range.e - range.s + 1), bsize[2], bsize[1], bsize[0],
-                          vlen};
+      hsize_t count[5] = {static_cast<hsize_t>(range.e - range.s + 1), bsize[2], bsize[1],
+                          bsize[0], vlen};
       status = H5Sselect_hyperslab(dataspace, H5S_SELECT_SET, offset, NULL, count, NULL);
       if (status < 0) {
         H5Dclose(dataspace);
@@ -85,8 +85,7 @@ class RestartReader {
       /** Define memory dataspace **/
       hid_t memspace = H5Screate_simple(5, count, NULL);
       hsize_t offsetMem[5] = {0, 0, 0, 0, 0};
-      status =
-          H5Sselect_hyperslab(dataspace, H5S_SELECT_SET, offset, NULL, count, NULL);
+      status = H5Sselect_hyperslab(dataspace, H5S_SELECT_SET, offset, NULL, count, NULL);
 
       // Read data from file
       status =
@@ -182,6 +181,7 @@ class RestartReader {
 
   // Does file have ghost cells?
   int hasGhost;
+
  private:
   const std::string filename_;
   // // Reads an array attribute from file.

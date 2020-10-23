@@ -598,7 +598,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   mesh_size.x2rat = ratios[1];
   mesh_size.x3rat = ratios[2];
 
-
   // initialize
   loclist = std::vector<LogicalLocation>(nbtotal);
 

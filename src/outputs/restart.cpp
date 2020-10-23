@@ -119,10 +119,10 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
   hsize_t max_blocks_global = pm->nbtotal;
   hsize_t num_blocks_local = 0;
 
-  //SSconst IndexDomain interior = IndexDomain::interior;
+  // SSconst IndexDomain interior = IndexDomain::interior;
   int iGhost = (output_params.include_ghost_zones ? 1 : 0);
 
-  const IndexDomain theDomain = (iGhost?IndexDomain::entire:IndexDomain::interior);
+  const IndexDomain theDomain = (iGhost ? IndexDomain::entire : IndexDomain::interior);
 
   auto &mb = *(pm->block_list.front());
 
@@ -240,9 +240,9 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
   myDSet = H5Dcreate(file, "/Mesh", PREDINT32, localDSpace, H5P_DEFAULT, H5P_DEFAULT,
                      H5P_DEFAULT);
 
-  auto nx1 = out_ib.e - out_ib.s + 1; //SS mb.block_size.nx1;
-  auto nx2 = out_jb.e - out_jb.s + 1; //SS mb.block_size.nx2;
-  auto nx3 = out_kb.e - out_kb.s + 1; //SS mb.block_size.nx3;
+  auto nx1 = out_ib.e - out_ib.s + 1; // SS mb.block_size.nx1;
+  auto nx2 = out_jb.e - out_jb.s + 1; // SS mb.block_size.nx2;
+  auto nx3 = out_kb.e - out_kb.s + 1; // SS mb.block_size.nx3;
   int bsize[3] = {mb.block_size.nx1, mb.block_size.nx2, mb.block_size.nx3};
   nLen = 3;
   localnDSpace = H5Screate_simple(1, &nLen, NULL);
