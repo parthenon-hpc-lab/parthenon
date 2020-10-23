@@ -33,7 +33,7 @@ For detailed instructions for a given system, see our [build doc](docs/building.
     mkdir build
     cd build
     cmake ../
-    cmake --build . -j 8 
+    cmake --build . -j 8
     ctest
 
 ## Import Into Your Code
@@ -109,5 +109,6 @@ how to use them.
 | Christoph Junghans | @junghans | LANL Computer Science |
 | Sriram Swaminarayan | @nmsriram | LANL Computer Science |
 | Daniel Holladay | @dholladay00 | LANL Computer Science |
-| Galen Shipman | @gshipman | LANL Computer Science | 
+| Galen Shipman | @gshipman | LANL Computer Science |
+| Ben Ryan | @brryan | LANL Physics |
 

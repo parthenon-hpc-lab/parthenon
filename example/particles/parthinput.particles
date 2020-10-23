@@ -16,47 +16,42 @@
 # ========================================================================================
 
 <parthenon/job>
-problem_id = pi_calculator
+problem_id = particles
 
 <parthenon/mesh>
-refinement = adaptive
-numlevel = 5
+refinement = none
 
-nx1 = 64
-x1min = -2.0
-x1max = 2.0
-ix1_bc = outflow
-ox1_bc = outflow
+nx1 = 16
+x1min = -0.5
+x1max = 0.5
+ix1_bc = periodic
+ox1_bc = periodic
 
-nx2 = 64
-x2min = -2.0
-x2max = 2.0
-ix2_bc = outflow
-ox2_bc = outflow
+nx2 = 16
+x2min = -0.5
+x2max = 0.5
+ix2_bc = periodic
+ox2_bc = periodic
 
 nx3 = 1
 x3min = -0.5
 x3max = 0.5
 
-# How many meshblocks to use in a premade default kernel.
-# A value of <1 means use the whole mesh.
-pack_size = 4
-
 <parthenon/meshblock>
-nx1 = 8
-nx2 = 8
-nx3 = 1
-
-<parthenon/refinement0>
-field = in_or_out               # the name of the variable we want to refine on
-method = derivative_order_1     # selects the first derivative method
-refine_tol = 0.5                # tag for refinement if |(dfield/dx)/field| > refine_tol
-derefine_tol = 0.05             # tag for derefinement if |(dfield/dx)/field| < derefine_tol
-max_level = 2                   # if set, limits refinement level from this criteria to no greater than max_level
-
-<Pi>
-radius = 1.5
+nx1 = 16
+nx2 = 16
 
 <parthenon/output0>
 file_type = hdf5
-variables = in_or_out
+dt = 1.e1
+variables = particle_deposition
+
+<parthenon/time>
+tlim = 1.e2
+integrator = rk1
+
+<Particles>
+num_particles = 1
+particle_speed = 1.0
+rng_seed = 23487
+const_dt = 0.5

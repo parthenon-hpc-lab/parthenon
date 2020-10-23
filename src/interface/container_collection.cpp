@@ -19,6 +19,33 @@ namespace parthenon {
 
 template <typename T>
 void ContainerCollection<T>::Add(const std::string &name,
+                                 const std::shared_ptr<SwarmContainer> &src) {
+  // error check for duplicate names
+  auto it = swarmContainers_.find(name);
+  if (it != swarmContainers_.end()) {
+    // check to make sure they are the same
+    if (!(*src == *(it->second))) {
+      throw std::runtime_error(
+          "Error attempting to add a SwarmContainer to a Collection");
+    }
+    return;
+  }
+
+  auto sc = std::make_shared<SwarmContainer>();
+  sc->SetBlockPointer(src);
+  for (auto v : src->GetSwarmVector()) {
+    if (v->IsSet(Metadata::OneCopy)) {
+      sc->Add(v);
+    } else {
+      sc->Add(v->AllocateCopy());
+    }
+  }
+
+  swarmContainers_[name] = sc;
+}
+
+template <typename T>
+void ContainerCollection<T>::Add(const std::string &name,
                                  const std::shared_ptr<Container<T>> &src) {
   // error check for duplicate names
   auto it = containers_.find(name);
