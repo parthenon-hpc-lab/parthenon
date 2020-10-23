@@ -76,6 +76,15 @@ if (ENABLE_HDF5)
   --num_steps 25")
   list(APPEND EXTRA_TEST_LABELS "")
 
+  # Particles example
+  list(APPEND TEST_DIRS particles)
+  list(APPEND TEST_PROCS 1) # Temporarily force scalar testing
+  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/particles/particles-example \
+    --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/particles/parthinput.particles \
+    --num_steps 1")
+  list(APPEND EXTRA_TEST_LABELS "")
+
+  # HDF5 output
   list(APPEND TEST_DIRS output_hdf5)
   list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
   list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
