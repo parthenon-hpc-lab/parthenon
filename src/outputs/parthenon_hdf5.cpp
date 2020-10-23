@@ -198,7 +198,8 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   // Also writes companion xdmf file
   int max_blocks_global = pm->nbtotal;
 
-  const IndexDomain theDomain = (output_params.include_ghost_zones?IndexDomain::entire:IndexDomain::interior);
+  const IndexDomain theDomain =
+      (output_params.include_ghost_zones ? IndexDomain::entire : IndexDomain::interior);
 
   auto const &first_block = *(pm->block_list.front());
 
@@ -210,9 +211,9 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   int const num_blocks_local = static_cast<int>(pm->block_list.size());
 
   // set output size
-  nx1 = out_ib.e - out_ib.s + 1; //SS first_block.block_size.nx1;
-  nx2 = out_jb.e - out_jb.s + 1; //SS first_block.block_size.nx2;
-  nx3 = out_kb.e - out_kb.s + 1; //SS first_block.block_size.nx3;
+  nx1 = out_ib.e - out_ib.s + 1; // SS first_block.block_size.nx1;
+  nx2 = out_jb.e - out_jb.s + 1; // SS first_block.block_size.nx2;
+  nx3 = out_kb.e - out_kb.s + 1; // SS first_block.block_size.nx3;
 
   // open HDF5 file
   // Define output filename

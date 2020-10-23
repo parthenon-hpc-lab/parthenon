@@ -42,9 +42,8 @@ namespace parthenon {
 // boundary conditions in the boundary condition refactor code
 void applyBounds(std::shared_ptr<MeshBlock> pmb, ParArrayND<Real> &a,
                  const IndexRange &ib, const IndexRange &jb) {
-
   // applyBounds() is a Hack.  This needs to go, see TODO above.
-  
+
   if (pmb->boundary_flag[BoundaryFace::outer_x1] == BoundaryFlag::reflect) {
     for (int n = 0; n < a.GetDim(4); n++) {
       for (int j = 0; j <= jb.e + NGHOST; j++) {
@@ -228,7 +227,6 @@ void MeshRefinement::RestrictFieldX1(const ParArrayND<Real> &fine,
       }
     }
   } else if (pmb->block_size.nx2 > 1) { // 2D
-
     int k = pmb->cellbounds.ks(interior);
     for (int cj = csj; cj <= cej; cj++) {
       int j = (cj - pmb->c_cellbounds.js(interior)) * 2 + pmb->cellbounds.js(interior);
