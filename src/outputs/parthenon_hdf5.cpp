@@ -198,33 +198,21 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   // Also writes companion xdmf file
   int max_blocks_global = pm->nbtotal;
 
-  const IndexDomain interior = IndexDomain::interior;
-  const IndexDomain entire = IndexDomain::entire;
+  const IndexDomain theDomain = (output_params.include_ghost_zones?IndexDomain::entire:IndexDomain::interior);
 
   auto const &first_block = *(pm->block_list.front());
 
   // shooting a blank just for getting the variable names
-  IndexRange out_ib = first_block.cellbounds.GetBoundsI(interior);
-  IndexRange out_jb = first_block.cellbounds.GetBoundsJ(interior);
-  IndexRange out_kb = first_block.cellbounds.GetBoundsK(interior);
-
-  if (output_params.include_ghost_zones) {
-    out_ib = first_block.cellbounds.GetBoundsI(entire);
-    out_jb = first_block.cellbounds.GetBoundsJ(entire);
-    out_kb = first_block.cellbounds.GetBoundsK(entire);
-  }
+  IndexRange out_ib = first_block.cellbounds.GetBoundsI(theDomain);
+  IndexRange out_jb = first_block.cellbounds.GetBoundsJ(theDomain);
+  IndexRange out_kb = first_block.cellbounds.GetBoundsK(theDomain);
 
   int const num_blocks_local = static_cast<int>(pm->block_list.size());
 
   // set output size
-  nx1 = first_block.block_size.nx1;
-  nx2 = first_block.block_size.nx2;
-  nx3 = first_block.block_size.nx3;
-  if (output_params.include_ghost_zones) {
-    nx1 += 2 * NGHOST;
-    if (nx2 > 1) nx2 += 2 * NGHOST;
-    if (nx3 > 1) nx3 += 2 * NGHOST;
-  }
+  nx1 = out_ib.e - out_ib.s + 1; //SS first_block.block_size.nx1;
+  nx2 = out_jb.e - out_jb.s + 1; //SS first_block.block_size.nx2;
+  nx3 = out_kb.e - out_kb.s + 1; //SS first_block.block_size.nx3;
 
   // open HDF5 file
   // Define output filename
