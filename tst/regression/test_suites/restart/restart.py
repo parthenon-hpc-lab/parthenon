@@ -56,10 +56,7 @@ class TestCase(utils.test_case.TestCaseAbs):
         silverData = np.zeros(silver[varName].shape, dtype=np.float64)
         silver[varName].read_direct(silverData)
 
-      goldData = goldData.flatten()
       maxdiff = np.abs(goldData-silverData).max()
-      silverData = silverData.flatten()
-      maxdiff = max(abs(goldData-silverData))
       print('Variable: %s, diff=%g, N=%d'%(varName,maxdiff,len(goldData)))
       return (maxdiff == 0.0)
 
