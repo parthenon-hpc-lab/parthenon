@@ -52,7 +52,7 @@ class TestCase(utils.test_case.TestCaseAbs):
 
     varName = "advected"
     with h5py.File(goldFile,'r') as gold, h5py.File(silverFile,'r') as silver:
-      goldData = np.zeros(gold[varName].shape, dtype=np.single)
+      goldData = np.zeros(gold[varName].shape, dtype=np.float64)
       gold[varName].read_direct(goldData)
       silverData = np.zeros(silver[varName].shape, dtype=np.single)
       silver[varName].read_direct(silverData)
