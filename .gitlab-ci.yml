@@ -92,8 +92,8 @@ parthenon-cuda-short:
       parthenon/mesh/nx1=128 parthenon/mesh/nx2=128  parthenon/mesh/nx3=128
       parthenon/meshblock/nx1=64 parthenon/meshblock/nx2=64 parthenon/meshblock/nx3=64
       parthenon/time/nlim=1000 |& tee profile.txt
-    - [ $(grep HtoD profile.txt |wc -l) == 0 ]
-    - [ $(grep DtoH profile.txt |wc -l) == 0 ]
+    - test $(grep HtoD profile.txt |wc -l) == 0
+    - test $(grep DtoH profile.txt |wc -l) == 0
   artifacts:
     when: always
     expire_in: 3 days
