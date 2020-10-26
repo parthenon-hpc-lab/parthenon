@@ -84,7 +84,7 @@ class MeshData {
       ParArray1D<Coordinates_t> coords("MeshData::PackVariables::coords", nblocks);
       auto coords_host = Kokkos::create_mirror_view(coords);
       for (int i = 0; i < nblocks; i++) {
-        packs_host(i) = block_data_[i]->PackVariables(std::forward<Args>(args)..., key);
+        packs_host(i) = block_data_[i]->PackVariables(std::forward<Args>(args)...);
         coords_host(i) = block_data_[i]->GetBlockPointer()->coords;
       }
       std::array<int, 5> dims;
@@ -116,7 +116,7 @@ class MeshData {
       auto coords_host = Kokkos::create_mirror_view(coords);
       for (int i = 0; i < nblocks; i++) {
         packs_host(i) =
-            block_data_[i]->PackVariablesAndFluxes(std::forward<Args>(args)..., key);
+            block_data_[i]->PackVariablesAndFluxes(std::forward<Args>(args)...);
         coords_host(i) = block_data_[i]->GetBlockPointer()->coords;
       }
       std::array<int, 5> dims;
