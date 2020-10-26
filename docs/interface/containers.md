@@ -1,14 +1,14 @@
-# Containers, Container Iterators, and Variable Packs
+# MeshBlockDatas, MeshBlockData Iterators, and Variable Packs
 
-## Containers
+## MeshBlockDatas
 
-A *container* owns *variables.* Each variable is named, and the
-container knows about various types of variables, such as whether the
+A *meshblock data container* owns *variables.* Each variable is named, and the
+meshblock data container knows about various types of variables, such as whether the
 variable is for cell-centered data, face-centered data, sparse data,
 or dense data. (For more details on anonymous variables, see
-[here](Metadata.md).) Variables in a container can be different
+[here](Metadata.md).) Variables in a meshblock data container can be different
 shapes, e.g., scalar, tensor, etc.A variable can be added to a
-container as:
+meshblock data container as:
 ```C++
 parthenon::MeshBlockData.Add(name, metadata, shape)
 ```
@@ -34,7 +34,7 @@ lives, then shape is the shape of the full array. I.e., a
 shape = std::vector<int>({11,12,13,14});
 ```
 
-It is often desirable to extract from a container a specific set of
+It is often desirable to extract from a meshblock data container a specific set of
 variables that have desired names, sparse ids, or conform to specific
 metadata flags. This set of variables must be collected in such a way
 that it can be accessed easily and performantly on a GPU, and such
@@ -57,7 +57,7 @@ Similar methods are available for metadata and sparse IDs:
 container.PackVariables(metadata, ids, map)
 container.PackVariables(metadata, map)
 ```
-If you would like all variables in a container, 
+If you would like all variables in a meshblock data container, 
 you can ommit the metadata or name arguments:
 ```C++
 container.PackVariables(map)
