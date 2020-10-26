@@ -1,6 +1,7 @@
 # Changelog
 
 ## Current develop
+- [[PR 311]](https://github.com/lanl/parthenon/pull/250) Bugfix::Restart. Fixed restart parallel bug and also restart bug for simulations with reflecting boundary conditions.  Added ability to write restart files with or without ghost cells by setting `ghost_zones` in the output block similar to other output formats.
 
 ### Added (new features/APIs/variables/...)
 - [[PR 314]](https://github.com/lanl/parthenon/pull/314) Generalized `par_for` abstractions to provide for reductions with a consistent interface.
