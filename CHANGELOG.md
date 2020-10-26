@@ -1,6 +1,7 @@
 # Changelog
 
 ## Current develop
+- [[PR 311]](https://github.com/lanl/parthenon/pull/250) Bugfix::Restart. Fixed restart parallel bug and also restart bug for simulations with reflecting boundary conditions.  Added ability to write restart files with or without ghost cells by setting `ghost_zones` in the output block similar to other output formats.
 
 ### Added (new features/APIs/variables/...)
 - [[PR 336]](https://github.com/lanl/parthenon/pull/336) Automated testing now checks for extraneous HtoD or DtoH copies.
