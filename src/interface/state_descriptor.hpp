@@ -13,10 +13,12 @@
 #ifndef INTERFACE_STATE_DESCRIPTOR_HPP_
 #define INTERFACE_STATE_DESCRIPTOR_HPP_
 
+#include <forward_list>
 #include <functional>
 #include <map>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "interface/metadata.hpp"
@@ -140,6 +142,24 @@ class StateDescriptor {
     return true;
   }
 
+  // Add an alias for a field
+  // TODO(JMM): Should this work for swarms too? Ben?
+  void AddFieldAlias(const std::string &alias_name, const std::string &field_name) {
+    bool found = false;
+    for (auto &pair in metadataMap_) {
+      auto &name = pair.first;
+      if (pair.first == field_name) found = true;
+    }
+    for (auto &pair in sparseMetadataMap_) {
+      auto &name = pair.first;
+      if (pair.first == field_name) found = true;
+    }
+    if (!found) {
+      PARTHENON_THROW("You cannot create an alias for a field that doesn't exist");
+    }
+    aliasMap_[field_name].push_front(alias_name);
+  }
+
   void AddMeshBlockPack(const std::string &pack_name, const VarPackingFunc<Real> &func) {
     realVarPackerMap_[pack_name] = func;
   }
@@ -214,6 +234,14 @@ class StateDescriptor {
     return false;
   }
 
+  bool AliasPresent(const std::string &name) {
+    return aliasMap_.count(name) > 0;
+  }
+
+  const auto& GetAlias(const std::string &name) {
+    return aliasMap_[name];
+  }
+
   std::vector<std::shared_ptr<AMRCriteria>> amr_criteria;
   void (*FillDerived)(std::shared_ptr<Container<Real>> &rc);
   Real (*EstimateTimestep)(std::shared_ptr<Container<Real>> &rc);
@@ -222,6 +250,7 @@ class StateDescriptor {
  private:
   Params params_;
   const std::string label_;
+  std::unordered_map<std::string, std::forward_list<std::string>> aliasMap_;
   std::map<std::string, Metadata> metadataMap_;
   std::map<std::string, std::vector<Metadata>> sparseMetadataMap_;
   std::map<std::string, Metadata> swarmMetadataMap_;

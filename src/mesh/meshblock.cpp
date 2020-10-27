@@ -133,11 +133,22 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   for (int i = 0; i < properties.size(); i++) {
     StateDescriptor &state = properties[i]->State();
     for (auto const &q : state.AllFields()) {
-      real_container->Add(q.first, q.second);
+      const auto &label = q.first;
+      const auto &m = q.second;
+      real_container->Add(label, m);
+      auto aliases = state.GetAliases(label);
+      for (auto const &alias : aliases) {
+        real_container->Add(alias,label,m);
+      }
     }
     for (auto const &q : state.AllSparseFields()) {
+      auto aliases = state.GetAliases(q.first);
       for (auto const &m : q.second) {
-        real_container->Add(q.first, m);
+        const auto &label = q.first;
+        real_container->Add(label, m);
+        for (auto const &alias : aliases) {
+          real_container->Add(alias,label,m);
+        }
       }
     }
   }
