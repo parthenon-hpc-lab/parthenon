@@ -30,7 +30,6 @@ if (USE_MACHINE_CFG)
       USE_MACHINE_CFG ${USE_MACHINE_CFG})
 
   # Resolve path to absolute and cache it
-  # file(REAL_PATH ${USE_MACHINE_CFG} MACHINE_CFG_FULL)
   get_filename_component(MACHINE_CFG_FULL ${USE_MACHINE_CFG} ABSOLUTE)
 
   if (NOT EXISTS ${MACHINE_CFG_FULL})
