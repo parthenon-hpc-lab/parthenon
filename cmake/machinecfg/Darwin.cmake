@@ -61,13 +61,21 @@ elseif (DARWIN_ARCH STREQUAL "ppc64le")
     set(DARWIN_MICROARCH_PATH "/p9")
 
     set(DARWIN_MPI_VERSION "4.0.2")
+    set(DARWIN_CUDA_VERSION "11.0")
+
+    set(DARWIN_USE_NVCC ON)
+else()
+    message(
+        FATAL_ERROR
+        "Darwin does not have any configuration for arch ${DARWIN_ARCH}")
 endif()
 
 # It would be nice if we could let this variable float with the current code
 # checkout, but unfortunately CMake caches enough other stuff (like find
 # packages), that it's easier to just issue a warning if the view date is
 # different from the "latest" date.
-set(DARWIN_VIEW_DATE ${DARWIN_VIEW_DATE_LATEST} CACHE STRING "Darwin dependency view being used")
+set(DARWIN_VIEW_DATE ${DARWIN_VIEW_DATE_LATEST}
+    CACHE STRING "Darwin dependency view being used")
 if (NOT DARWIN_VIEW_DATE_LATEST STREQUAL DARWIN_VIEW_DATE)
     message(WARNING "Your current build directory was configured with a \
         set of Darwin dependencies from ${DARWIN_VIEW_DATE}, but your current \
@@ -110,31 +118,80 @@ if (NOT EXISTS ${DARWIN_VIEW_PREFIX})
     return()
 endif()
 
+if (DARWIN_USE_NVCC)
+    # Location of CUDA
+    set(CUDAToolkit_ROOT /usr/local/cuda-${DARWIN_CUDA_VERSION}
+        CACHE STRING "CUDA Location")
+
+    # All of this code ensures that the CUDA build uses the correct nvcc, and
+    # that we don't have to depend on the user's environment. As of this
+    # writing, nvcc_wrapper can only find nvcc by way of the PATH variable -
+    # there's no way to specify it in the command line. Therefore, we need to
+    # make sure that the expected nvcc is in the PATH when nvcc_wrapper is
+    # executed.
+
+    # This only holds for the length of the cmake process, but is necessary
+    # for making sure the compiler checks pass
+    set(ENV{PATH} "${CUDAToolkit_ROOT}/bin:$ENV{PATH}")
+
+    # We must make sure nvcc is in the path for the compilation and link stages,
+    # so these launch rules add it to the path. This unfortunately caches the
+    # PATH environment variable at the time of configuration. I couldn't figure
+    # out how to evaluate the PATH variable at build time. Ideally, changing
+    # your PATH shouldn't change the build anyway, so I think this is low
+    # impact, but it does differ from typical CMake usage.
+
+    # CMAKE_CXX_COMPILER_LAUNCHER expects a list of command line arguments
+    set(CMAKE_CXX_COMPILER_LAUNCHER ${CMAKE_COMMAND} -E env "PATH=$ENV{PATH}")
+    # RULE_LAUNCH_LINK expects a space separated string
+    set_property(
+        GLOBAL PROPERTY
+        RULE_LAUNCH_LINK "${CMAKE_COMMAND} -E env PATH=$ENV{PATH}")
+
+    # nvcc_wrapper must be the CXX compiler for CUDA builds. Ideally this would
+    # go in "CMAKE_CXX_COMPILER_LAUNCHER", but that interferes with Kokkos'
+    # compiler detection.
+    
+    # Resolve path and set it as the CMAKE_CXX_COMPILER
+    get_filename_component(
+        NVCC_WRAPPER
+        ${CMAKE_CURRENT_LIST_DIR}/../../external/Kokkos/bin/nvcc_wrapper
+        ABSOLUTE)
+    set(CMAKE_CXX_COMPILER ${NVCC_WRAPPER} CACHE STRING "nvcc_wrapper")
+endif()
+
 # Let the user specify the compiler if they really want to. Otherwise, point
 # to the compilers specified by the DARWIN_ options
-if (NOT DEFINED CMAKE_CXX_COMPILER)
-    if (DARWIN_COMPILER MATCHES "GCC")
-        set(GCC_VERSION ${DARWIN_${DARWIN_COMPILER}_VERSION})
-        set(GCC_PREFIX /projects/opt/${DARWIN_ARCH}${DARWIN_MICROARCH_PATH}/gcc/${GCC_VERSION})
+if (DARWIN_COMPILER MATCHES "GCC")
+    set(GCC_VERSION ${DARWIN_${DARWIN_COMPILER}_VERSION})
+    set(GCC_PREFIX
+        /projects/opt/${DARWIN_ARCH}${DARWIN_MICROARCH_PATH}/gcc/${GCC_VERSION})
 
-        if (DEFINED GCC_VERSION)
-            set(CMAKE_C_COMPILER ${GCC_PREFIX}/bin/gcc
-                CACHE STRING "gcc ${GCC_VERSION}")
-            set(CMAKE_CXX_COMPILER ${GCC_PREFIX}/bin/g++
-                CACHE STRING "gcc ${GCC_VERSION}")
-            set(CMAKE_BUILD_RPATH ${GCC_PREFIX}/lib64
-                CACHE STRING "rpath libs")
+
+    if (GCC_VERSION)
+        set(CMAKE_C_COMPILER ${GCC_PREFIX}/bin/gcc
+            CACHE STRING "gcc ${GCC_VERSION}")
+
+        set(DARWIN_CXX_COMPILER ${GCC_PREFIX}/bin/g++)
+        if (DARWIN_USE_NVCC)
+            set(CMAKE_CXX_FLAGS "-ccbin ${DARWIN_CXX_COMPILER}")
+        else()
+            set(CMAKE_CXX_COMPILER ${DARWIN_CXX_COMPILER}
+            CACHE STRING "gcc ${GCC_VERSION}")
         endif()
-    endif()
 
-    if (NOT DEFINED CMAKE_CXX_COMPILER)
-        message(
-            FATAL_ERROR
-            "Found view on Darwin for compiler version ${DARWIN_COMPILER}, but \
-            don't know how to map it to a specific compiler. Either update \
-            your Parthenon checkout or explicitly set CMAKE_C_COMPILER and \
-            CMAKE_CXX_COMPILER")
+        set(CMAKE_BUILD_RPATH ${GCC_PREFIX}/lib64
+            CACHE STRING "rpath libs")
     endif()
+endif()
+
+if (NOT DEFINED CMAKE_CXX_COMPILER)
+    message(
+        FATAL_ERROR
+        "Found view on Darwin for compiler version ${DARWIN_COMPILER}, but \
+        don't know how to map it to a specific compiler. Either update \
+        your Parthenon checkout or explicitly set CMAKE_C_COMPILER and \
+        CMAKE_CXX_COMPILER")
 endif()
 
 # MPI - We use the system modules since replicating them in spack can be
@@ -149,9 +206,17 @@ endif()
 if (DARWIN_ARCH STREQUAL "x86_64")
     set(Kokkos_ARCH_HSW ON CACHE BOOL "Target Haswell")
 elseif(DARWIN_ARCH STREQUAL "ppc64le")
-    # set(Kokkos_ENABLE_CUDA ON CACHE BOOL "Cuda")
     set(Kokkos_ARCH_POWER9 ON CACHE BOOL "Target Power9")
-    # set(Kokkos_ARCH_VOLTA70 ON CACHE BOOL "Target V100s")
 endif()
+
+if (DARWIN_USE_NVCC)
+    set(Kokkos_ENABLE_CUDA ON CACHE BOOL "Cuda")
+    set(Kokkos_ARCH_VOLTA70 ON CACHE BOOL "Target V100s")
+endif()
+
+# Add dependencies into `CMAKE_PREFIX_PATH`
 list(PREPEND CMAKE_PREFIX_PATH ${DARWIN_VIEW_PREFIX})
+
+# Testing parameters
 set(NUM_MPI_PROC_TESTING "2" CACHE STRING "CI runs tests with 2 MPI ranks")
+set(NUM_GPU_DEVICES_PER_NODE "2" CACHE STRING "Number of gpu devices to use when testing if built with Kokkos_ENABLE_CUDA")
