@@ -146,11 +146,11 @@ class StateDescriptor {
   // TODO(JMM): Should this work for swarms too? Ben?
   void AddFieldAlias(const std::string &alias_name, const std::string &field_name) {
     bool found = false;
-    for (auto &pair in metadataMap_) {
+    for (auto &pair : metadataMap_) {
       auto &name = pair.first;
       if (pair.first == field_name) found = true;
     }
-    for (auto &pair in sparseMetadataMap_) {
+    for (auto &pair : sparseMetadataMap_) {
       auto &name = pair.first;
       if (pair.first == field_name) found = true;
     }
