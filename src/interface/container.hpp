@@ -145,6 +145,9 @@ class Container {
     sparseMap_[var->label()] = var;
   }
 
+  // Adds the alias to variable label
+  void Add(const std::string &alias, const std::string &label, const Metadata &metadata);
+
   //
   // Queries related to CellVariable objects
   //

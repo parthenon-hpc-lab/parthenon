@@ -50,15 +50,15 @@ void Container<T>::Add(const std::vector<std::string> labelArray,
 }
 
 template <typename T>
-void Container::Add(const std::string &alias, const std::string &label,
-                    const Metadata &metadata) {
+void Container<T>::Add(const std::string &alias, const std::string &label,
+                       const Metadata &metadata) {
   // TODO(JMM): Edge, etc
   if (metadata.IsSet(Metadata::Sparse)) {
     if (sparseMap_.count(label) == 0) Add(label, metadata);
     sparseMap_[alias] = sparseMap_[label];
-  } else if (metadata.where() == Metadata::Face) {
+  } else if (metadata.Where() == Metadata::Face) {
     if (faceMap_.count(label) == 0) Add(label, metadata);
-    faceMap_[alias] = sparseMap_[label];
+    faceMap_[alias] = faceMap_[label];
   } else {
     if (varMap_.count(label) == 0) Add(label, metadata);
     varMap_[alias] = varMap_[label];

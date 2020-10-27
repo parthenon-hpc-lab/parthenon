@@ -236,7 +236,7 @@ class StateDescriptor {
 
   bool AliasPresent(const std::string &name) { return aliasMap_.count(name) > 0; }
 
-  const auto &GetAlias(const std::string &name) { return aliasMap_[name]; }
+  const auto &GetAliases(const std::string &name) { return aliasMap_[name]; }
 
   std::vector<std::shared_ptr<AMRCriteria>> amr_criteria;
   void (*FillDerived)(std::shared_ptr<Container<Real>> &rc);
