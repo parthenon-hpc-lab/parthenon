@@ -138,7 +138,7 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
       real_container->Add(label, m);
       auto aliases = state.GetAliases(label);
       for (auto const &alias : aliases) {
-        real_container->Add(alias,label,m);
+        real_container->Add(alias, label, m);
       }
     }
     for (auto const &q : state.AllSparseFields()) {
@@ -147,7 +147,7 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
         const auto &label = q.first;
         real_container->Add(label, m);
         for (auto const &alias : aliases) {
-          real_container->Add(alias,label,m);
+          real_container->Add(alias, label, m);
         }
       }
     }
