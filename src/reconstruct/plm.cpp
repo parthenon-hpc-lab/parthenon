@@ -44,14 +44,12 @@ struct DataInternal {
   ParArrayND<Real> &dqm;
   const Coordinates_t &coords;
   DataInternal(const int k, const int j, const int il, const int iu, const int nu,
-      const ParArrayND<Real> &q, ParArrayND<Real> &qc, ParArrayND<Real> &ql,
+               const ParArrayND<Real> &q, ParArrayND<Real> &qc, ParArrayND<Real> &ql,
                ParArrayND<Real> &qr, ParArrayND<Real> &dql, ParArrayND<Real> &dqr,
                ParArrayND<Real> &dqm, const Coordinates_t &coords)
-    : k(k), j(j), il(il), iu(iu), nu(nu),
-    q(q), qc(qc), ql(ql), qr(qr), dql(dql),
-    dqr(dqr), dqm(dqm), coords(coords){}
+      : k(k), j(j), il(il), iu(iu), nu(nu), q(q), qc(qc), ql(ql), qr(qr), dql(dql),
+        dqr(dqr), dqm(dqm), coords(coords) {}
 };
-
 
 void init_dql_and_dqr_and_qc_(DataInternal &data, const Dimension dimension) {
   int delta_i = 0;
