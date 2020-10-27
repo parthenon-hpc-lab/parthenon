@@ -26,228 +26,247 @@
 #include "mesh/mesh.hpp"
 #include "reconstruct/reconstruction.hpp"
 
+namespace {
+
+  class enum Dimension {
+    X1,
+    X2,
+    X3
+  };
+    
+  struct DataInternal {
+
+    const int k, j, il, iu, nu;
+    ParArrayND<Real> &q;
+    ParArrayND<Real> &qc;
+    ParArrayND<Real> &ql;
+    ParArrayND<Real> &qr;
+
+    ParArrayND<Real> &dql;
+    ParArrayND<Real> &dqr;
+    ParArrayND<Real> &dqm;
+    const Coordinates_t & coords;
+    DataInternal(
+        const int k, const int j, const int il, const int iu, const int nu,
+        ParArrayND<Real> & q, ParArrayND<Real> & qc, ParArrayND<Real> & ql, ParArrayND<Real> & qr,
+        ParArrayND<Real> & dql, ParArrayND<Real> & dqr, ParArrayND<Real> & dqm, const Coordinates_t & coords) :
+        k(k), j(j), il(il), iu(iu), nu(nu),
+        q(q), qc(qc), ql(ql), qr(qr),
+        dql(dql), dqr(dqr), dqm(dqm), coords(coords) {};
+  };
+
+  void init_dql_and_dqr_and_qc_(DataInternal & data,const Dimension dimension) {
+
+    int delta_i = 0;
+    int delta_j = 0;
+    int delta_k = 0;
+    if ( dimension == Dimension::X1 ){
+      delta_i = 1;
+    }else if (dimension == Dimension::X2 ) {
+      delta_j = 1;
+    }else {
+      delta_k = 1;
+    }
+
+    // compute L/R slopes for each variable
+    const int j = data.j;
+    const int k = data.k;
+    for (int n = 0; n <= data.nu; ++n) {
+#pragma omp simd
+      for (int i = data.il; i <= data.iu; ++i) {
+        // renamed dw* -> dq* from plm.cpp
+        data.dql(n, i) = (data.q(n, k, j, i) - data.q(n, k - delta_k, j - delta_j, i - delta_i));
+        data.dqr(n, i) = (data.q(n, k + delta_k, j + delta_j, i + delta_i) - data.q(n, k, j, i));
+        data.qc(n, i) = data.q(n, k, j, i);
+      }
+    }
+  }
+
+  void apply_simplified_van_leer_(DataInternal & data){
+    for (int n = 0; n <= data.nu; ++n) {
+#pragma omp simd simdlen(SIMD_WIDTH)
+      for (int i = data.il; i <= data.iu; ++i) {
+        const Real dq2 = data.dql(n, i) * data.dqr(n, i);
+        data.dqm(n, i) = 2.0 * data.dq2 / (data.dql(n, i) + data.dqr(n, i));
+        if (dq2 <= 0.0) data.dqm(n, i) = 0.0;
+      }
+    }
+  }
+
+  void apply_general_van_leer_(DataInternal & data, const Dimension dimension) {
+
+      const int j = data.j;
+      const int k = data.k;
+      if( dimension == Dimension::X1 ) {
+        for (int n = 0; n <= data.nu; ++n) {
+#pragma omp simd simdlen(SIMD_WIDTH)
+          for (int i = data.il; i <= data.iu; ++i) {
+            const Real dqF = dqr(n, i) * data.coords.dx1f(i) / data.coords.dx1v(i);
+            const Real dqB = dql(n, i) * data.coords.dx1f(i) / data.coords.dx1v(i - 1);
+            const Real dq2 = dqF * dqB;
+            // cf, cb -> 2 (uniform Cartesian mesh / original VL value) w/ vanishing curvature
+            // (may not exactly hold for nonuniform meshes, but converges w/ smooth
+            // nonuniformity)
+            const Real cf = data.coords.dx1v(i) / (data.coords.x1f(i + 1) - data.coords.x1v(i)); // (Mignone eq 33)
+            const Real cb = data.coords.dx1v(i - 1) / (data.coords.x1v(i) - data.coords.x1f(i));
+            // (modified) VL limiter (Mignone eq 37)
+            // (dQ^F term from eq 31 pulled into eq 37, then multiply by (dQ^F/dQ^F)^2)
+            data.dqm(n, i) =
+              (dq2 * (cf * dqB + cb * dqF) / (SQR(dqB) + SQR(dqF) + dq2 * (cf + cb - 2.0)));
+            if (dq2 <= 0.0) data.dqm(n, i) = 0.0; // ---> no concern for divide-by-0 in above line
+
+            // Real v = dqB/dqF;
+            // monotoniced central (MC) limiter (Mignone eq 38)
+            // (std::min calls should avoid issue if divide-by-zero causes v=Inf)
+            // dqm(n,i) = dqF*std::max(0.0, std::min(0.5*(1.0 + v), std::min(cf, cb*v)));
+          }
+        }
+      } else if ( dimension == Dimension::X2 ) {
+        const Real cf = data.coords.dx2v(j) / (data.coords.x2f(j + 1) - data.coords.x2v(j));
+        const Real cb = data.coords.dx2v(j - 1) / (data.coords.x2v(j) - data.coords.x2f(j));
+        const Real dxF =
+          data.coords.dx2f(j) / data.coords.dx2v(j); // dimensionless, not technically a dx quantity
+        const Real dxB = data.coords.dx2f(j) / data.coords.dx2v(j - 1);
+        for (int n = 0; n <= data.nu; ++n) {
+#pragma omp simd simdlen(SIMD_WIDTH)
+          for (int i = data.il; i <= data.iu; ++i) {
+            const Real dqF = data.dqr(n, i) * dxF;
+            const Real dqB = data.dql(n, i) * dxB;
+            const Real dq2 = dqF * dqB;
+            // (modified) VL limiter (Mignone eq 37)
+            data.dqm(n, i) =
+              (dq2 * (cf * dqB + cb * dqF) / (SQR(dqB) + SQR(dqF) + dq2 * (cf + cb - 2.0)));
+            if (dq2 <= 0.0) data.dqm(n, i) = 0.0; // ---> no concern for divide-by-0 in above line
+
+            // Real v = dqB/dqF;
+            // // monotoniced central (MC) limiter (Mignone eq 38)
+            // // (std::min calls should avoid issue if divide-by-zero causes v=Inf)
+            // dqm(n,i) = dqF*std::max(0.0, std::min(0.5*(1.0 + v), std::min(cf, cb*v)));
+          }
+        }
+      } else {
+        const Real dxF = data.coords.dx3f(k) / data.coords.dx3v(k);
+        const Real dxB = data.coords.dx3f(k) / data.coords.dx3v(k - 1);
+        for (int n = 0; n <= data.nu; ++n) {
+#pragma omp simd simdlen(SIMD_WIDTH)
+          for (int i = data.il; i <= data.iu; ++i) {
+            const Real dqF = data.dqr(n, i) * dxF;
+            const Real dqB = data.dql(n, i) * dxB;
+            const Real dq2 = dqF * dqB;
+            // original VL limiter (Mignone eq 36)
+            data.dqm(n, i) = 2.0 * dq2 / (dqF + dqB);
+            // dq2 > 0 ---> dqF, dqB are nonzero and have the same sign ----> no risk for
+            // (dqF + dqB) = 0 cancellation causing a divide-by-0 in the above line
+            if (dq2 <= 0.0) data.dqm(n, i) = 0.0;
+          }
+        }
+      }
+  }
+
+  void compute_ql_and_qr_using_limited_slopes_( DataInternal & data, const Dimension dimension) {
+
+    if( dimension == Dimension::X1 ){
+      // compute ql_(i+1/2) and qr_(i-1/2) using limited slopes
+      for (int n = 0; n <= data.nu; ++n) { // Same
+#pragma omp simd simdlen(SIMD_WIDTH) // Same
+        for (int i = data.il; i <= data.iu; ++i) { // Same
+          // Mignone equation 30
+          data.ql(n, i + 1) =
+            data.qc(n, i) + ((data.coords.x1f(i + 1) - data.coords.x1v(i)) / data.coords.dx1f(i)) * data.dqm(n, i);// Different 1D
+          data.qr(n, i) =
+            data.qc(n, i) - ((data.coords.x1v(i) - data.coords.x1f(i)) / data.coords.dx1f(i)) * data.dqm(n, i); // Different 1D
+        }
+      }
+    } else { // If X2 or X3
+
+      const int j = data.j;
+      const int k = data.k;
+      // compute ql_(j+1/2) and qr_(j-1/2) using limited slopes or
+      // compute ql_(k+1/2) and qr_(k-1/2) using limited slopes 
+      Real dxp = (data.coords.x2f(j + 1) - data.coords.x2v(j)) / data.coords.dx2f(j);
+      Real dxm = (data.coords.x2v(j) - data.coords.x2f(j)) / data.coords.dx2f(j);
+      if ( dimension == 3D ){
+        dxp = (data.coords.x3f(k + 1) - data.coords.x3v(k)) / data.coords.dx3f(k);
+        dxm = (data.coords.x3v(k) - data.coords.x3f(k)) / data.coords.dx3f(k);
+      }
+
+      for (int n = 0; n <= data.nu; ++n) {
+#pragma omp simd simdlen(SIMD_WIDTH)
+        for (int i = data.il; i <= data.iu; ++i) {
+          data.ql(n, i) = data.qc(n, i) + data.dxp * data.dqm(n, i);
+          data.qr(n, i) = data.qc(n, i) - data.dxm * data.dqm(n, i);
+        }
+      }
+    }
+    return;
+  }
+
+  void piecewiseLinear_(DataInternal & data, const Dimension dimension) {
+
+    init_dql_and_dqr_and_qc_(data, dimension)
+
+    auto XDIR = X1DIR;
+    if( dimension == Dimension::X2 ) {
+      XDIR = X2DIR;
+    } else if (dimension == Dimension::X3 ) {
+      XDIR = X3DIR;
+    }
+
+    if (uniform[XDIR]) { 
+      // Apply simplified van Leer (VL) limiter expression for a Cartesian-like coordinate
+      // with uniform mesh spacing
+      apply_simplified_van_leer_(data);
+    } else {
+      // Apply general VL limiter expression w/ the Mignone correction for a Cartesian-like
+      // coordinate with nonuniform mesh spacing
+      apply_general_van_leer_(data, dimension);
+    }
+    compute_ql_and_qr_using_limited_slopes_(data, dimension);
+  }
+} // Local namespace
+
 namespace parthenon {
 
-//----------------------------------------------------------------------------------------
-//! \fn Reconstruction::PiecewiseLinearX1()
-//  \brief
+  //----------------------------------------------------------------------------------------
+  //! \fn Reconstruction::PiecewiseLinearX1()
+  //  \brief
+  void Reconstruction::PiecewiseLinearX1(const int k, const int j, const int il,
+      const int iu, const ParArrayND<Real> &q,
+      ParArrayND<Real> &ql, ParArrayND<Real> &qr) {
 
-void Reconstruction::PiecewiseLinearX1(const int k, const int j, const int il,
-                                       const int iu, const ParArrayND<Real> &q,
-                                       ParArrayND<Real> &ql, ParArrayND<Real> &qr) {
-  auto pmb = GetBlockPointer();
-  auto &coords = pmb->coords;
-  // set work arrays to shallow copies of scratch arrays
-  ParArrayND<Real> &qc = scr1_ni_, &dql = scr2_ni_, &dqr = scr3_ni_, &dqm = scr4_ni_;
-  const int nu = q.GetDim(4) - 1;
-
-  // compute L/R slopes for each variable
-  for (int n = 0; n <= nu; ++n) {
-#pragma omp simd
-    for (int i = il; i <= iu; ++i) {
-      // renamed dw* -> dq* from plm.cpp
-      dql(n, i) = (q(n, k, j, i) - q(n, k, j, i - 1));
-      dqr(n, i) = (q(n, k, j, i + 1) - q(n, k, j, i));
-      qc(n, i) = q(n, k, j, i);
-    }
+    auto pmb = GetBlockPointer();
+    const int nu = q.GetDim(4) - 1;
+    ParArrayND<Real> &qc = scr1_ni_, &dql = scr2_ni_, &dqr = scr3_ni_, &dqm = scr4_ni_;
+    DataInternal data(k, j, il, iu, nu, q, qc, ql, qr, dql, dqr, dqm, pmb->coords);
+    piecewiseLinear(data, Dimension::X1);
   }
 
-  // Apply simplified van Leer (VL) limiter expression for a Cartesian-like coordinate
-  // with uniform mesh spacing
-  if (uniform[X1DIR]) {
-    for (int n = 0; n <= nu; ++n) {
-#pragma omp simd simdlen(SIMD_WIDTH)
-      for (int i = il; i <= iu; ++i) {
-        Real dq2 = dql(n, i) * dqr(n, i);
-        dqm(n, i) = 2.0 * dq2 / (dql(n, i) + dqr(n, i));
-        if (dq2 <= 0.0) dqm(n, i) = 0.0;
-      }
-    }
+  //----------------------------------------------------------------------------------------
+  //! \fn Reconstruction::PiecewiseLinearX2()
+  //  \brief
+  void Reconstruction::PiecewiseLinearX2(const int k, const int j, const int il,
+      const int iu, const ParArrayND<Real> &q,
+      ParArrayND<Real> &ql, ParArrayND<Real> &qr) {
 
-    // Apply general VL limiter expression w/ the Mignone correction for a Cartesian-like
-    // coordinate with nonuniform mesh spacing
-  } else {
-    for (int n = 0; n <= nu; ++n) {
-#pragma omp simd simdlen(SIMD_WIDTH)
-      for (int i = il; i <= iu; ++i) {
-        Real dqF = dqr(n, i) * coords.dx1f(i) / coords.dx1v(i);
-        Real dqB = dql(n, i) * coords.dx1f(i) / coords.dx1v(i - 1);
-        Real dq2 = dqF * dqB;
-        // cf, cb -> 2 (uniform Cartesian mesh / original VL value) w/ vanishing curvature
-        // (may not exactly hold for nonuniform meshes, but converges w/ smooth
-        // nonuniformity)
-        Real cf = coords.dx1v(i) / (coords.x1f(i + 1) - coords.x1v(i)); // (Mignone eq 33)
-        Real cb = coords.dx1v(i - 1) / (coords.x1v(i) - coords.x1f(i));
-        // (modified) VL limiter (Mignone eq 37)
-        // (dQ^F term from eq 31 pulled into eq 37, then multiply by (dQ^F/dQ^F)^2)
-        dqm(n, i) =
-            (dq2 * (cf * dqB + cb * dqF) / (SQR(dqB) + SQR(dqF) + dq2 * (cf + cb - 2.0)));
-        if (dq2 <= 0.0) dqm(n, i) = 0.0; // ---> no concern for divide-by-0 in above line
-
-        // Real v = dqB/dqF;
-        // monotoniced central (MC) limiter (Mignone eq 38)
-        // (std::min calls should avoid issue if divide-by-zero causes v=Inf)
-        // dqm(n,i) = dqF*std::max(0.0, std::min(0.5*(1.0 + v), std::min(cf, cb*v)));
-      }
-    }
+    auto pmb = GetBlockPointer();
+    const int nu = q.GetDim(4) - 1;
+    ParArrayND<Real> &qc = scr1_ni_, &dql = scr2_ni_, &dqr = scr3_ni_, &dqm = scr4_ni_;
+    DataInternal data(k, j, il, iu, nu, q, qc, ql, qr, dql, dqr, dqm, pmb->coords);
+    piecewiseLinear(data, Dimension::X2);
   }
 
-  // compute ql_(i+1/2) and qr_(i-1/2) using limited slopes
-  for (int n = 0; n <= nu; ++n) {
-#pragma omp simd simdlen(SIMD_WIDTH)
-    for (int i = il; i <= iu; ++i) {
-      // Mignone equation 30
-      ql(n, i + 1) =
-          qc(n, i) + ((coords.x1f(i + 1) - coords.x1v(i)) / coords.dx1f(i)) * dqm(n, i);
-      qr(n, i) =
-          qc(n, i) - ((coords.x1v(i) - coords.x1f(i)) / coords.dx1f(i)) * dqm(n, i);
-    }
+  //----------------------------------------------------------------------------------------
+  //! \fn Reconstruction::PiecewiseLinearX2()
+  //  \brief
+  void Reconstruction::PiecewiseLinearX3(const int k, const int j, const int il,
+      const int iu, const ParArrayND<Real> &q,
+      ParArrayND<Real> &ql, ParArrayND<Real> &qr) {
+
+    auto pmb = GetBlockPointer();
+    const int nu = q.GetDim(4) - 1;
+    ParArrayND<Real> &qc = scr1_ni_, &dql = scr2_ni_, &dqr = scr3_ni_, &dqm = scr4_ni_;
+    DataInternal data(k, j, il, iu, nu, q, qc, ql, qr, dql, dqr, dqm, pmb->coords);
+    piecewiseLinear(data, Dimension::X3);
   }
-  return;
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn Reconstruction::PiecewiseLinearX2()
-//  \brief
-
-void Reconstruction::PiecewiseLinearX2(const int k, const int j, const int il,
-                                       const int iu, const ParArrayND<Real> &q,
-                                       ParArrayND<Real> &ql, ParArrayND<Real> &qr) {
-  auto pmb = GetBlockPointer();
-  auto &coords = pmb->coords;
-  // set work arrays to shallow copies of scratch arrays
-  ParArrayND<Real> &qc = scr1_ni_, &dql = scr2_ni_, &dqr = scr3_ni_, &dqm = scr4_ni_;
-  const int nu = q.GetDim(4) - 1;
-
-  // compute L/R slopes for each variable
-  for (int n = 0; n <= nu; ++n) {
-#pragma omp simd
-    for (int i = il; i <= iu; ++i) {
-      // renamed dw* -> dq* from plm.cpp
-      dql(n, i) = (q(n, k, j, i) - q(n, k, j - 1, i));
-      dqr(n, i) = (q(n, k, j + 1, i) - q(n, k, j, i));
-      qc(n, i) = q(n, k, j, i);
-    }
-  }
-
-  // Apply simplified van Leer (VL) limiter expression for a Cartesian-like coordinate
-  // with uniform mesh spacing
-  if (uniform[X2DIR]) {
-    for (int n = 0; n <= nu; ++n) {
-#pragma omp simd simdlen(SIMD_WIDTH)
-      for (int i = il; i <= iu; ++i) {
-        Real dq2 = dql(n, i) * dqr(n, i);
-        dqm(n, i) = 2.0 * dq2 / (dql(n, i) + dqr(n, i));
-        if (dq2 <= 0.0) dqm(n, i) = 0.0;
-      }
-    }
-
-    // Apply general VL limiter expression w/ the Mignone correction for a Cartesian-like
-    // coordinate with nonuniform mesh spacing
-  } else {
-    Real cf = coords.dx2v(j) / (coords.x2f(j + 1) - coords.x2v(j));
-    Real cb = coords.dx2v(j - 1) / (coords.x2v(j) - coords.x2f(j));
-    Real dxF =
-        coords.dx2f(j) / coords.dx2v(j); // dimensionless, not technically a dx quantity
-    Real dxB = coords.dx2f(j) / coords.dx2v(j - 1);
-    for (int n = 0; n <= nu; ++n) {
-#pragma omp simd simdlen(SIMD_WIDTH)
-      for (int i = il; i <= iu; ++i) {
-        Real dqF = dqr(n, i) * dxF;
-        Real dqB = dql(n, i) * dxB;
-        Real dq2 = dqF * dqB;
-        // (modified) VL limiter (Mignone eq 37)
-        dqm(n, i) =
-            (dq2 * (cf * dqB + cb * dqF) / (SQR(dqB) + SQR(dqF) + dq2 * (cf + cb - 2.0)));
-        if (dq2 <= 0.0) dqm(n, i) = 0.0; // ---> no concern for divide-by-0 in above line
-
-        // Real v = dqB/dqF;
-        // // monotoniced central (MC) limiter (Mignone eq 38)
-        // // (std::min calls should avoid issue if divide-by-zero causes v=Inf)
-        // dqm(n,i) = dqF*std::max(0.0, std::min(0.5*(1.0 + v), std::min(cf, cb*v)));
-      }
-    }
-  }
-
-  // compute ql_(j+1/2) and qr_(j-1/2) using limited slopes
-  // dimensionless, not technically a "dx" quantity
-  Real dxp = (coords.x2f(j + 1) - coords.x2v(j)) / coords.dx2f(j);
-  Real dxm = (coords.x2v(j) - coords.x2f(j)) / coords.dx2f(j);
-  for (int n = 0; n <= nu; ++n) {
-#pragma omp simd simdlen(SIMD_WIDTH)
-    for (int i = il; i <= iu; ++i) {
-      ql(n, i) = qc(n, i) + dxp * dqm(n, i);
-      qr(n, i) = qc(n, i) - dxm * dqm(n, i);
-    }
-  }
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn Reconstruction::PiecewiseLinearX3()
-//  \brief
-
-void Reconstruction::PiecewiseLinearX3(const int k, const int j, const int il,
-                                       const int iu, const ParArrayND<Real> &q,
-                                       ParArrayND<Real> &ql, ParArrayND<Real> &qr) {
-  auto pmb = GetBlockPointer();
-  auto &coords = pmb->coords;
-  // set work arrays to shallow copies of scratch arrays
-  ParArrayND<Real> &qc = scr1_ni_, &dql = scr2_ni_, &dqr = scr3_ni_, &dqm = scr4_ni_;
-  const int nu = q.GetDim(4) - 1;
-
-  // compute L/R slopes for each variable
-  for (int n = 0; n <= nu; ++n) {
-#pragma omp simd
-    for (int i = il; i <= iu; ++i) {
-      // renamed dw* -> dq* from plm.cpp
-      dql(n, i) = (q(n, k, j, i) - q(n, k - 1, j, i));
-      dqr(n, i) = (q(n, k + 1, j, i) - q(n, k, j, i));
-      qc(n, i) = q(n, k, j, i);
-    }
-  }
-
-  // Apply simplified van Leer (VL) limiter expression for a Cartesian-like coordinate
-  // with uniform mesh spacing
-  if (uniform[X3DIR]) {
-    for (int n = 0; n <= nu; ++n) {
-#pragma omp simd simdlen(SIMD_WIDTH)
-      for (int i = il; i <= iu; ++i) {
-        Real dq2 = dql(n, i) * dqr(n, i);
-        dqm(n, i) = 2.0 * dq2 / (dql(n, i) + dqr(n, i));
-        if (dq2 <= 0.0) dqm(n, i) = 0.0;
-      }
-    }
-
-    // Apply original VL limiter's general expression for a Cartesian-like coordinate with
-    // nonuniform mesh spacing
-  } else {
-    Real dxF = coords.dx3f(k) / coords.dx3v(k);
-    Real dxB = coords.dx3f(k) / coords.dx3v(k - 1);
-    for (int n = 0; n <= nu; ++n) {
-#pragma omp simd simdlen(SIMD_WIDTH)
-      for (int i = il; i <= iu; ++i) {
-        Real dqF = dqr(n, i) * dxF;
-        Real dqB = dql(n, i) * dxB;
-        Real dq2 = dqF * dqB;
-        // original VL limiter (Mignone eq 36)
-        dqm(n, i) = 2.0 * dq2 / (dqF + dqB);
-        // dq2 > 0 ---> dqF, dqB are nonzero and have the same sign ----> no risk for
-        // (dqF + dqB) = 0 cancellation causing a divide-by-0 in the above line
-        if (dq2 <= 0.0) dqm(n, i) = 0.0;
-      }
-    }
-  }
-
-  // compute ql_(k+1/2) and qr_(k-1/2) using limited slopes
-  Real dxp = (coords.x3f(k + 1) - coords.x3v(k)) / coords.dx3f(k);
-  Real dxm = (coords.x3v(k) - coords.x3f(k)) / coords.dx3f(k);
-  for (int n = 0; n <= nu; ++n) {
-#pragma omp simd simdlen(SIMD_WIDTH)
-    for (int i = il; i <= iu; ++i) {
-      ql(n, i) = qc(n, i) + dxp * dqm(n, i);
-      qr(n, i) = qc(n, i) - dxm * dqm(n, i);
-    }
-  }
-}
 
 } // namespace parthenon
