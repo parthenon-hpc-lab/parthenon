@@ -202,6 +202,11 @@ if (DARWIN_COMPILER MATCHES "GCC")
         CACHE STRING "MPI Location")
 endif()
 
+# clang-format
+set(CLANG_FORMAT
+    ${DARWIN_PROJECT_PREFIX}/tools/${DARWIN_ARCH}/bin/clang-format-8
+    CACHE STRING "clang-format-8")
+
 # Kokkos settings
 if (DARWIN_ARCH STREQUAL "x86_64")
     set(Kokkos_ARCH_HSW ON CACHE BOOL "Target Haswell")
