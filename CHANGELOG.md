@@ -23,6 +23,7 @@
 - [[PR 325]](https://github.com/lanl/parthenon/pull/325) Fixes regression in convergence tests with multiple MPI ranks.
 - [[PR 310]](https://github.com/lanl/parthenon/pull/310) Fix Cuda 11 builds.
 - [[PR 281]](https://github.com/lanl/parthenon/pull/281) Allows one to run regression tests with more than one cuda device, Also improves readability of regression tests output.
+- [[PR 330]](https://github.com/lanl/parthenon/pull/330) Fixes restart regression test.
 
 ### Removed (removing behavior/API/varaibles/...)
 
