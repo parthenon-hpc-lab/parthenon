@@ -17,7 +17,7 @@
 ##========================================================================================
 
 add_executable(performance_tests test_container_iterator.cpp)
-target_link_libraries(performance_tests PRIVATE parthenon catch2_define Kokkos::kokkos)
+target_link_libraries(performance_tests PRIVATE Parthenon::parthenon catch2_define Kokkos::kokkos)
 lint_target(performance_tests)
 
 ParseAndAddCatchTests(performance_tests)

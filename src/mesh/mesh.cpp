@@ -564,6 +564,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   // the file is already open and the pointer is set to after <par_end>
 
   // All ranks read HDF file
+  nbnew = rr.GetAttr<int>("Mesh", "nbnew");
+  nbdel = rr.GetAttr<int>("Mesh", "nbdel");
   nbtotal = rr.GetAttr<int>("Mesh", "nbtotal");
   root_level = rr.GetAttr<int32_t>("Mesh", "rootLevel");
 
@@ -595,11 +597,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   mesh_size.x1rat = ratios[0];
   mesh_size.x2rat = ratios[1];
   mesh_size.x3rat = ratios[2];
-
-  // TODO(sriram): Need to figure out where nCycle, time, and dt should be read
-  //  dt = rr.GetAttr<double>("Info", "dt");
-  //  time = rr.GetAttr<double>("Info", "time");
-  //  ncycle = rr.GetAttr<int32_t>("Info", "nCycle");
 
   // initialize
   loclist = std::vector<LogicalLocation>(nbtotal);
