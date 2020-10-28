@@ -213,6 +213,7 @@ SET (Kokkos_ENABLE_AGGRESSIVE_VECTORIZATION ON CACHE BOOL
 
 # Check that gpu devices are actually detected
 set(NUM_GPU_DEVICES_PER_NODE "1" CACHE STRING "Number of gpu devices to use when testing if built with Kokkos_ENABLE_CUDA")
+set(NUM_OMP_THREADS_PER_RANK "1" CACHE STRING "Number of threads to use when testing if built with Kokkos_ENABLE_OPENMP")
 if (Kokkos_ENABLE_CUDA)
   # Tell Kokkos we need lambdas in Cuda.
   SET (Kokkos_ENABLE_CUDA_LAMBDA ON CACHE BOOL

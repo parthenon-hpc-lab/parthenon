@@ -225,3 +225,4 @@ list(PREPEND CMAKE_PREFIX_PATH ${DARWIN_VIEW_PREFIX})
 # Testing parameters
 set(NUM_MPI_PROC_TESTING "2" CACHE STRING "CI runs tests with 2 MPI ranks")
 set(NUM_GPU_DEVICES_PER_NODE "2" CACHE STRING "Number of gpu devices to use when testing if built with Kokkos_ENABLE_CUDA")
+set(NUM_OMP_THREADS_PER_RANK "1" CACHE STRING "Number of threads to use when testing if built with Kokkos_ENABLE_OPENMP")
