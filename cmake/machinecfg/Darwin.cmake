@@ -30,8 +30,11 @@
 # - `DARWIN_COMPILER` - Compiler family to use
 #       Default: "GCC"
 #       Possible Values: "GCC", "GCC9"
-# - `DARWIN_USE_NVCC` -
-#       Default: OFF on x86_64, ON on ppc64le
+# - `DARWIN_CUDA` - Build for CUDA
+#       Default: ON if nvidia-smi finds at least one GPU, OFF otherwise
+# - `DARWIN_PROJECT_PREFIX`
+#   Description: [ADVANCED] Point to an alternative parthenon-project path
+#       Default: /projects/parthenon-int/parthenon-project
 
 # This little bit picks up the target architecture, which determines the
 # target environment and system modules.
@@ -54,8 +57,9 @@ if (DARWIN_ARCH STREQUAL "x86_64")
     set(DARWIN_GCC9_VERSION "9.3.0")
 
     set(DARWIN_MPI_VERSION "4.0.3")
+    set(DARWIN_CUDA_VERSION "11.0")
 
-    set(DARWIN_USE_NVCC_DEFAULT OFF)
+    set(DARWIN_CUDA_DEFAULT OFF)
 elseif (DARWIN_ARCH STREQUAL "ppc64le")
     set(DARWIN_VIEW_DATE_LATEST "2020-10-28")
     set(DARWIN_GCC_PREFERRED "GCC9")
@@ -67,14 +71,24 @@ elseif (DARWIN_ARCH STREQUAL "ppc64le")
     set(DARWIN_MPI_VERSION "4.0.2")
     set(DARWIN_CUDA_VERSION "11.0")
 
-    set(DARWIN_USE_NVCC_DEFAULT ON)
+    set(DARWIN_CUDA_DEFAULT ON)
 else()
     message(
         FATAL_ERROR
         "Darwin does not have any configuration for arch ${DARWIN_ARCH}")
 endif()
 
-set(DARWIN_USE_NVCC ${DARWIN_USE_NVCC_DEFAULT} CACHE BOOL "Use NVCC")
+execute_process(
+    COMMAND nvidia-smi -L
+    OUTPUT_VARIABLE FOUND_GPUS)
+
+if (FOUND_GPUS MATCHES "GPU [0-9]")
+    set(DARWIN_CUDA_DEFAULT ON)
+else()
+    set(DARWIN_CUDA_DEFAULT OFF)
+endif()
+
+set(DARWIN_CUDA ${DARWIN_CUDA_DEFAULT} CACHE BOOL "Build for CUDA")
 
 # It would be nice if we could let this variable float with the current code
 # checkout, but unfortunately CMake caches enough other stuff (like find
@@ -100,6 +114,16 @@ endif()
 
 set(DARWIN_PROJECT_PREFIX /projects/parthenon-int/parthenon-project
     CACHE STRING "Path to parthenon-project checkout")
+mark_as_advanced(DARWIN_PROJECT_PREFIX)
+
+message(STATUS "Darwin Build Settings
+              DARWIN_ARCH: ${DARWIN_ARCH}
+         DARWIN_VIEW_DATE: ${DARWIN_VIEW_DATE}
+          DARWIN_COMPILER: ${DARWIN_COMPILER}
+              DARWIN_CUDA: ${DARWIN_CUDA}
+    DARWIN_PROJECT_PREFIX: ${DARWIN_PROJECT_PREFIX}
+")
+
 set(DARWIN_ARCH_PREFIX ${DARWIN_PROJECT_PREFIX}/views/darwin/${DARWIN_ARCH})
 
 if (NOT EXISTS ${DARWIN_ARCH_PREFIX})
@@ -124,7 +148,7 @@ if (NOT EXISTS ${DARWIN_VIEW_PREFIX})
     return()
 endif()
 
-if (DARWIN_USE_NVCC)
+if (DARWIN_CUDA)
     # Location of CUDA
     set(CUDAToolkit_ROOT /usr/local/cuda-${DARWIN_CUDA_VERSION}
         CACHE STRING "CUDA Location")
@@ -179,7 +203,7 @@ if (DARWIN_COMPILER MATCHES "GCC")
             CACHE STRING "gcc ${GCC_VERSION}")
 
         set(DARWIN_CXX_COMPILER ${GCC_PREFIX}/bin/g++)
-        if (DARWIN_USE_NVCC)
+        if (DARWIN_CUDA)
             set(CMAKE_CXX_FLAGS "-ccbin ${DARWIN_CXX_COMPILER}")
         else()
             set(CMAKE_CXX_COMPILER ${DARWIN_CXX_COMPILER}
@@ -220,7 +244,7 @@ elseif(DARWIN_ARCH STREQUAL "ppc64le")
     set(Kokkos_ARCH_POWER9 ON CACHE BOOL "Target Power9")
 endif()
 
-if (DARWIN_USE_NVCC)
+if (DARWIN_CUDA)
     set(Kokkos_ENABLE_CUDA ON CACHE BOOL "Cuda")
     set(Kokkos_ARCH_VOLTA70 ON CACHE BOOL "Target V100s")
 endif()
