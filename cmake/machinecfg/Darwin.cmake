@@ -30,6 +30,8 @@
 # - `DARWIN_COMPILER` - Compiler family to use
 #       Default: "GCC"
 #       Possible Values: "GCC", "GCC9"
+# - `DARWIN_USE_NVCC` -
+#       Default: OFF on x86_64, ON on ppc64le
 
 # This little bit picks up the target architecture, which determines the
 # target environment and system modules.
@@ -52,6 +54,8 @@ if (DARWIN_ARCH STREQUAL "x86_64")
     set(DARWIN_GCC9_VERSION "9.3.0")
 
     set(DARWIN_MPI_VERSION "4.0.3")
+
+    set(DARWIN_USE_NVCC_DEFAULT OFF)
 elseif (DARWIN_ARCH STREQUAL "ppc64le")
     set(DARWIN_VIEW_DATE_LATEST "2020-10-28")
     set(DARWIN_GCC_PREFERRED "GCC9")
@@ -63,12 +67,14 @@ elseif (DARWIN_ARCH STREQUAL "ppc64le")
     set(DARWIN_MPI_VERSION "4.0.2")
     set(DARWIN_CUDA_VERSION "11.0")
 
-    set(DARWIN_USE_NVCC ON)
+    set(DARWIN_USE_NVCC_DEFAULT ON)
 else()
     message(
         FATAL_ERROR
         "Darwin does not have any configuration for arch ${DARWIN_ARCH}")
 endif()
+
+set(DARWIN_USE_NVCC ${DARWIN_USE_NVCC_DEFAULT} CACHE BOOL "Use NVCC")
 
 # It would be nice if we could let this variable float with the current code
 # checkout, but unfortunately CMake caches enough other stuff (like find
