@@ -18,7 +18,6 @@
 // Local Includes
 #include "advection_driver.hpp"
 #include "advection_package.hpp"
-#include "bvals/cc/bvals_cc_in_one.hpp"
 #include "interface/metadata.hpp"
 #include "mesh/meshblock_pack.hpp"
 #include "parthenon/driver.hpp"
@@ -123,9 +122,6 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     }
   }
 
-  const auto use_pack_in_one =
-      blocks[0]->packages["advection_package"]->Param<bool>("use_pack_in_one");
-
   // note that task within this region that contains one tasklist per pack
   // could still be executed in parallel
   TaskRegion &single_tasklist_per_pack_region = tc.AddRegion(partitions.size());
@@ -142,17 +138,6 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     // apply du/dt to all independent fields in the container
     auto update_container =
         tl.AddTask(flux_div, UpdateContainer, stage, integrator, mc0, mbase, mdudt, mc1);
-
-    if (use_pack_in_one) {
-      // update ghost cells
-      auto send = tl.AddTask(update_container,
-                             parthenon::cell_centered_bvars::SendBoundaryBuffers, mc1);
-
-      auto recv =
-          tl.AddTask(send, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, mc1);
-      auto fill_from_bufs =
-          tl.AddTask(recv, parthenon::cell_centered_bvars::SetBoundaries, mc1);
-    }
   }
   TaskRegion &async_region2 = tc.AddRegion(num_task_lists_executed_independently);
 
@@ -162,15 +147,12 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     auto &sc1 = pmb->meshblock_data.Get(stage_name[stage]);
 
     auto prev_task = none;
-    if (!use_pack_in_one) {
-      // update ghost cells
-      auto send = tl.AddTask(none, &MeshBlockData<Real>::SendBoundaryBuffers, sc1.get());
-      auto recv =
-          tl.AddTask(send, &MeshBlockData<Real>::ReceiveBoundaryBuffers, sc1.get());
-      auto fill_from_bufs =
-          tl.AddTask(recv, &MeshBlockData<Real>::SetBoundaries, sc1.get());
-      prev_task = fill_from_bufs;
-    }
+    // update ghost cells
+    auto send = tl.AddTask(none, &MeshBlockData<Real>::SendBoundaryBuffers, sc1.get());
+    auto recv = tl.AddTask(send, &MeshBlockData<Real>::ReceiveBoundaryBuffers, sc1.get());
+    auto fill_from_bufs =
+        tl.AddTask(recv, &MeshBlockData<Real>::SetBoundaries, sc1.get());
+    prev_task = fill_from_bufs;
 
     auto clear_comm_flags = tl.AddTask(prev_task, &MeshBlockData<Real>::ClearBoundary,
                                        sc1.get(), BoundaryCommSubset::all);
@@ -202,9 +184,7 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
           sc1);
 
       // Update refinement
-      if (pmesh->adaptive && (tm.ncycle % pmb->packages["advection_package"]->Param<int>(
-                                              "refine_interval") ==
-                              0)) {
+      if (pmesh->adaptive) {
         auto tag_refine = tl.AddTask(
             fill_derived,
             [](std::shared_ptr<MeshBlock> pmb) {
