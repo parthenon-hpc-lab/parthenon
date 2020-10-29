@@ -14,7 +14,7 @@ ls -a
 if [ -d "${HOME}/spack" ]; then
   rm -rf ${HOME}/spack
 fi
-git clone --branch v0.14.2 https://github.com/spack/spack.git
+git clone --branch v0.15.4 https://github.com/spack/spack.git
 ls -a
 # Initialize spack env
 . spack/share/spack/setup-env.sh
@@ -41,8 +41,9 @@ echo "packages:" > ${HOME}/.spack/packages.yaml
 echo "  python:" >> ${HOME}/.spack/packages.yaml
 echo "    version: ['3:']" >> ${HOME}/.spack/packages.yaml
 echo "  openmpi:" >> ${HOME}/.spack/packages.yaml
-echo "    modules:" >> ${HOME}/.spack/packages.yaml
-echo "      ${mpi_package}@${mpi_version}: $MPI_MODULE" >> ${HOME}/.spack/packages.yaml
+echo "    externals:" >> ${HOME}/.spack/packages.yaml
+echo "    - spec: $MPI_MODULE" >> ${HOME}/.spack/packages.yaml
+echo "    prefix: ${mpi_package}@${mpi_version}: $MPI_MODULE" >> ${HOME}/.spack/packages.yaml
 
 ls -a
 cd $PARTHENON
