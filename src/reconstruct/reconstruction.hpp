@@ -148,6 +148,10 @@ class Reconstruction {
   ParArrayND<Real> scr1_ni_, scr2_ni_, scr3_ni_, scr4_ni_, scr5_ni_;
   ParArrayND<Real> scr6_ni_, scr7_ni_, scr8_ni_;
 
+  void PiecewiseLinear_(const int k, const int j, const int il, const int iu, 
+      const ParArrayND<Real> &q,P arArrayND<Real> &ql, ParArrayND<Real> &qr,
+      const CoordinateDirection direction);
+
   // Returns shared pointer to a block
   std::shared_ptr<MeshBlock> GetBlockPointer() {
     if (pmy_block_.expired()) {

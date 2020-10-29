@@ -23,14 +23,14 @@
 // methods in cylindrical and spherical coordinates", JCP, 270, 784 (2014)
 //========================================================================================
 
-#include "mesh/mesh.hpp"
 #include "reconstruct/reconstruction.hpp"
+
+#include "defs.hpp"
+#include "mesh/mesh.hpp"
 
 namespace parthenon {
 
 namespace {
-
-enum class Dimension { X1, X2, X3 };
 
 struct DataInternal {
   const int k, j, il, iu, nu;
@@ -51,13 +51,13 @@ struct DataInternal {
         dqr(dqr), dqm(dqm), coords(coords) {}
 };
 
-void init_dql_and_dqr_and_qc_(DataInternal &data, const Dimension dimension) {
+void init_dql_and_dqr_and_qc_(DataInternal &data, const CoordinateDirection direction) {
   int delta_i = 0;
   int delta_j = 0;
   int delta_k = 0;
-  if (dimension == Dimension::X1) {
+  if (direction == X1DIR ) {
     delta_i = 1;
-  } else if (dimension == Dimension::X2) {
+  } else if (direction == X2DIR) {
     delta_j = 1;
   } else {
     delta_k = 1;
@@ -90,10 +90,10 @@ void apply_simplified_van_leer_(DataInternal &data) {
   }
 }
 
-void apply_general_van_leer_(DataInternal &data, const Dimension dimension) {
+void apply_general_van_leer_(DataInternal &data, const CoordinateDirection direction) {
   const int j = data.j;
   const int k = data.k;
-  if (dimension == Dimension::X1) {
+  if (direction == X1DIR) {
     for (int n = 0; n <= data.nu; ++n) {
 #pragma omp simd simdlen(SIMD_WIDTH)
       for (int i = data.il; i <= data.iu; ++i) {
@@ -120,11 +120,11 @@ void apply_general_van_leer_(DataInternal &data, const Dimension dimension) {
         // dqm(n,i) = dqF*std::max(0.0, std::min(0.5*(1.0 + v), std::min(cf, cb*v)));
       }
     }
-  } else if (dimension == Dimension::X2) {
+  } else if (direction == X2DIR) {
     const Real cf = data.coords.dx2v(j) / (data.coords.x2f(j + 1) - data.coords.x2v(j));
     const Real cb = data.coords.dx2v(j - 1) / (data.coords.x2v(j) - data.coords.x2f(j));
     const Real dxF = data.coords.dx2f(j) /
-                     data.coords.dx2v(j); // dimensionless, not technically a dx quantity
+                     data.coords.dx2v(j); // directionless, not technically a dx quantity
     const Real dxB = data.coords.dx2f(j) / data.coords.dx2v(j - 1);
     for (int n = 0; n <= data.nu; ++n) {
 #pragma omp simd simdlen(SIMD_WIDTH)
@@ -164,8 +164,8 @@ void apply_general_van_leer_(DataInternal &data, const Dimension dimension) {
 }
 
 void compute_ql_and_qr_using_limited_slopes_(DataInternal &data,
-                                             const Dimension dimension) {
-  if (dimension == Dimension::X1) {
+                                             const CoordinateDirection direction) {
+  if (direction == X1DIR) {
     // compute ql_(i+1/2) and qr_(i-1/2) using limited slopes
     for (int n = 0; n <= data.nu; ++n) {         // Same
 #pragma omp simd simdlen(SIMD_WIDTH)             // Same
@@ -187,7 +187,7 @@ void compute_ql_and_qr_using_limited_slopes_(DataInternal &data,
     // compute ql_(k+1/2) and qr_(k-1/2) using limited slopes
     Real dxp = (data.coords.x2f(j + 1) - data.coords.x2v(j)) / data.coords.dx2f(j);
     Real dxm = (data.coords.x2v(j) - data.coords.x2f(j)) / data.coords.dx2f(j);
-    if (dimension == Dimension::X3) {
+    if (direction == X3DIR) {
       dxp = (data.coords.x3f(k + 1) - data.coords.x3v(k)) / data.coords.dx3f(k);
       dxm = (data.coords.x3v(k) - data.coords.x3f(k)) / data.coords.dx3f(k);
     }
@@ -203,19 +203,26 @@ void compute_ql_and_qr_using_limited_slopes_(DataInternal &data,
   return;
 }
 
-void piecewiseLinear_(DataInternal &data, bool uniform, const Dimension dimension) {
-  init_dql_and_dqr_and_qc_(data, dimension);
+void Reconstruction::PiecewiseLinear_(const int k, const int j, const int il, const int iu,
+    const ParArrayND<Real> &q, ParArrayND<Real> &ql, ParArrayND<Real> &qr, 
+    const CoordinateDirection direction) {
+  auto pmb = GetBlockPointer();
+  const int nu = q.GetDim(4) - 1;
+  ParArrayND<Real> &qc = scr1_ni_, &dql = scr2_ni_, &dqr = scr3_ni_, &dqm = scr4_ni_;
+  DataInternal data(k, j, il, iu, nu, q, qc, ql, qr, dql, dqr, dqm, pmb->coords);
 
-  if (uniform) {
+  init_dql_and_dqr_and_qc_(data, direction);
+
+  if (uniform[direction]) {
     // Apply simplified van Leer (VL) limiter expression for a Cartesian-like coordinate
     // with uniform mesh spacing
     apply_simplified_van_leer_(data);
   } else {
     // Apply general VL limiter expression w/ the Mignone correction for a Cartesian-like
     // coordinate with nonuniform mesh spacing
-    apply_general_van_leer_(data, dimension);
+    apply_general_van_leer_(data, direction);
   }
-  compute_ql_and_qr_using_limited_slopes_(data, dimension);
+  compute_ql_and_qr_using_limited_slopes_(data, direction);
 }
 } // namespace
 
@@ -225,11 +232,7 @@ void piecewiseLinear_(DataInternal &data, bool uniform, const Dimension dimensio
 void Reconstruction::PiecewiseLinearX1(const int k, const int j, const int il,
                                        const int iu, const ParArrayND<Real> &q,
                                        ParArrayND<Real> &ql, ParArrayND<Real> &qr) {
-  auto pmb = GetBlockPointer();
-  const int nu = q.GetDim(4) - 1;
-  ParArrayND<Real> &qc = scr1_ni_, &dql = scr2_ni_, &dqr = scr3_ni_, &dqm = scr4_ni_;
-  DataInternal data(k, j, il, iu, nu, q, qc, ql, qr, dql, dqr, dqm, pmb->coords);
-  piecewiseLinear_(data, uniform[X1DIR], Dimension::X1);
+  PiecewiseLinear_(k, j, il, iu, q, ql, qr, X1DIR);
 }
 
 //----------------------------------------------------------------------------------------
@@ -238,11 +241,7 @@ void Reconstruction::PiecewiseLinearX1(const int k, const int j, const int il,
 void Reconstruction::PiecewiseLinearX2(const int k, const int j, const int il,
                                        const int iu, const ParArrayND<Real> &q,
                                        ParArrayND<Real> &ql, ParArrayND<Real> &qr) {
-  auto pmb = GetBlockPointer();
-  const int nu = q.GetDim(4) - 1;
-  ParArrayND<Real> &qc = scr1_ni_, &dql = scr2_ni_, &dqr = scr3_ni_, &dqm = scr4_ni_;
-  DataInternal data(k, j, il, iu, nu, q, qc, ql, qr, dql, dqr, dqm, pmb->coords);
-  piecewiseLinear_(data, uniform[X2DIR], Dimension::X2);
+  PiecewiseLinear_(k, j, il, iu, q, ql, qr, X2DIR);
 }
 
 //----------------------------------------------------------------------------------------
@@ -251,11 +250,7 @@ void Reconstruction::PiecewiseLinearX2(const int k, const int j, const int il,
 void Reconstruction::PiecewiseLinearX3(const int k, const int j, const int il,
                                        const int iu, const ParArrayND<Real> &q,
                                        ParArrayND<Real> &ql, ParArrayND<Real> &qr) {
-  auto pmb = GetBlockPointer();
-  const int nu = q.GetDim(4) - 1;
-  ParArrayND<Real> &qc = scr1_ni_, &dql = scr2_ni_, &dqr = scr3_ni_, &dqm = scr4_ni_;
-  DataInternal data(k, j, il, iu, nu, q, qc, ql, qr, dql, dqr, dqm, pmb->coords);
-  piecewiseLinear_(data, uniform[X3DIR], Dimension::X3);
+  PiecewiseLinear_(k, j, il, iu, q, ql, qr, X3DIR);
 }
 
 } // namespace parthenon
