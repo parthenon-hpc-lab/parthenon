@@ -37,7 +37,7 @@ else()
     "Note, that the machine file can be placed in any directory (also outside the repo).")
 endif()
 
-project(parthenon VERSION 0.2.0 LANGUAGES C CXX)
+project(parthenon VERSION 0.3.0 LANGUAGES C CXX)
 
 include(CTest)
 
