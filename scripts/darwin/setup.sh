@@ -43,7 +43,8 @@ echo "    version: ['3:']" >> ${HOME}/.spack/packages.yaml
 echo "  openmpi:" >> ${HOME}/.spack/packages.yaml
 echo "    externals:" >> ${HOME}/.spack/packages.yaml
 echo "    - spec: \"${mpi_package}@${mpi_version}%${compiler_package}@${compiler_version}\"" >> ${HOME}/.spack/packages.yaml
-echo "    prefix: $MPI_MODULE" >> ${HOME}/.spack/packages.yaml
+echo "      modules:" >> ${HOME}/.spack/packages.yaml
+echo "      - $MPI_MODULE" >> ${HOME}/.spack/packages.yaml
 
 ls -a
 cd $PARTHENON
