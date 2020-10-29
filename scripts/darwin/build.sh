@@ -119,7 +119,9 @@ make -j $J VERBOSE=1
 fail_or_pass=$?
 [ ${fail_or_pass} -ne 0 ] && exit 1
 
-ctest --output-on-failure -j $J
+# Build in serial
+ctest --output-on-failure 
 fail_or_pass=$?
 [ ${fail_or_pass} -ne 0 ] && exit 1
- 
+
+exit 0
