@@ -59,7 +59,7 @@ spack install py-matplotlib
 spack load hdf5@1.10.6%${compiler_package}@${compiler_version} \
   ^${mpi_package}@${mpi_version}%${compiler_package}@${compiler_version}
 
-spack load py-h5py ^hdf5@1.10.6%${compiler_package}@${compiler_version} \
+spack load py-h5py@2.10.0 ^hdf5@1.10.6%${compiler_package}@${compiler_version} \
   ^${mpi_package}@${mpi_version}%${compiler_package}@${compiler_version}
 
 spack load py-mpi4py
