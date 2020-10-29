@@ -49,15 +49,15 @@ AdvectionDriver::AdvectionDriver(ParameterInput *pin, ApplicationInput *app_in, 
 }
 
 // first some helper tasks
-TaskStatus UpdateContainer(const int stage, Integrator *integrator,
-                           std::shared_ptr<parthenon::MeshData<Real>> &in,
-                           std::shared_ptr<parthenon::MeshData<Real>> &base,
-                           std::shared_ptr<parthenon::MeshData<Real>> &dudt,
-                           std::shared_ptr<parthenon::MeshData<Real>> &out) {
+TaskStatus UpdateMeshData(const int stage, Integrator *integrator,
+                          std::shared_ptr<parthenon::MeshData<Real>> &in,
+                          std::shared_ptr<parthenon::MeshData<Real>> &base,
+                          std::shared_ptr<parthenon::MeshData<Real>> &dudt,
+                          std::shared_ptr<parthenon::MeshData<Real>> &out) {
   const Real beta = integrator->beta[stage - 1];
   const Real dt = integrator->dt;
-  parthenon::Update::AverageContainers(in, base, beta);
-  parthenon::Update::UpdateContainer(in, dudt, beta * dt, out);
+  parthenon::Update::AverageMeshData(in, base, beta);
+  parthenon::Update::UpdateMeshData(in, dudt, beta * dt, out);
   return TaskStatus::complete;
 }
 
@@ -136,8 +136,8 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     auto flux_div = tl.AddTask(none, parthenon::Update::FluxDivergenceMesh, mc0, mdudt);
 
     // apply du/dt to all independent fields in the container
-    auto update_container =
-        tl.AddTask(flux_div, UpdateContainer, stage, integrator, mc0, mbase, mdudt, mc1);
+    auto update =
+        tl.AddTask(flux_div, UpdateMeshData, stage, integrator, mc0, mbase, mdudt, mc1);
   }
   TaskRegion &async_region2 = tc.AddRegion(num_task_lists_executed_independently);
 

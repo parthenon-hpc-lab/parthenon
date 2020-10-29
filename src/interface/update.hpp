@@ -32,14 +32,14 @@ TaskStatus FluxDivergenceBlock(std::shared_ptr<MeshBlockData<Real>> &in,
                                std::shared_ptr<MeshBlockData<Real>> &dudt_cont);
 TaskStatus FluxDivergenceMesh(std::shared_ptr<MeshData<Real>> &in_pack,
                               std::shared_ptr<MeshData<Real>> &dudt_pack);
-void UpdateContainer(std::shared_ptr<MeshBlockData<Real>> &in,
-                     std::shared_ptr<MeshBlockData<Real>> &dudt_cont, const Real dt,
-                     std::shared_ptr<MeshBlockData<Real>> &out);
-void UpdateContainer(std::shared_ptr<MeshData<Real>> &in,
-                     std::shared_ptr<MeshData<Real>> &dudt, const Real dt,
-                     std::shared_ptr<MeshData<Real>> &out);
-void AverageContainers(std::shared_ptr<MeshData<Real>> &c1_pack,
-                       std::shared_ptr<MeshData<Real>> &c2_pack, const Real wgt1);
+void UpdateMeshBlockData(std::shared_ptr<MeshBlockData<Real>> &in,
+                         std::shared_ptr<MeshBlockData<Real>> &dudt_cont, const Real dt,
+                         std::shared_ptr<MeshBlockData<Real>> &out);
+void UpdateMeshData(std::shared_ptr<MeshData<Real>> &in,
+                    std::shared_ptr<MeshData<Real>> &dudt, const Real dt,
+                    std::shared_ptr<MeshData<Real>> &out);
+void AverageMeshData(std::shared_ptr<MeshData<Real>> &c1_pack,
+                     std::shared_ptr<MeshData<Real>> &c2_pack, const Real wgt1);
 Real EstimateTimestep(std::shared_ptr<MeshBlockData<Real>> &rc);
 
 } // namespace Update

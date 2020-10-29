@@ -46,7 +46,7 @@ TaskStatus FluxDivergenceBlock(std::shared_ptr<MeshBlockData<Real>> &in,
   auto &coords = pmb->coords;
   int ndim = pmb->pmy_mesh->ndim;
   pmb->par_for(
-      "flux divergence", 0, vin.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      "FluxDivergenceBlock", 0, vin.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
         dudt(l, k, j, i) = 0.0;
         dudt(l, k, j, i) +=
@@ -81,7 +81,7 @@ TaskStatus FluxDivergenceMesh(std::shared_ptr<MeshData<Real>> &in_obj,
 
   const int ndim = vin.GetNdim();
   parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, "flux divergence", DevExecSpace(), 0, vin.GetDim(5) - 1, 0,
+      DEFAULT_LOOP_PATTERN, "FluxDivergenceMesh", DevExecSpace(), 0, vin.GetDim(5) - 1, 0,
       vin.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int m, const int l, const int k, const int j, const int i) {
         const auto coords = vin.coords(m);
@@ -104,9 +104,9 @@ TaskStatus FluxDivergenceMesh(std::shared_ptr<MeshData<Real>> &in_obj,
   return TaskStatus::complete;
 }
 
-void UpdateContainer(std::shared_ptr<MeshBlockData<Real>> &in,
-                     std::shared_ptr<MeshBlockData<Real>> &dudt_cont, const Real dt,
-                     std::shared_ptr<MeshBlockData<Real>> &out) {
+void UpdateMeshBlockData(std::shared_ptr<MeshBlockData<Real>> &in,
+                         std::shared_ptr<MeshBlockData<Real>> &dudt_cont, const Real dt,
+                         std::shared_ptr<MeshBlockData<Real>> &out) {
   std::shared_ptr<MeshBlock> pmb = in->GetBlockPointer();
 
   std::vector<MetadataFlag> flags({Metadata::Independent});
@@ -115,32 +115,32 @@ void UpdateContainer(std::shared_ptr<MeshBlockData<Real>> &in,
   auto dudt = dudt_cont->PackVariables(flags);
 
   pmb->par_for(
-      "UpdateContainer", 0, vin.GetDim(4) - 1, 0, vin.GetDim(3) - 1, 0, vin.GetDim(2) - 1,
-      0, vin.GetDim(1) - 1,
+      "UpdateMeshBlockData", 0, vin.GetDim(4) - 1, 0, vin.GetDim(3) - 1, 0,
+      vin.GetDim(2) - 1, 0, vin.GetDim(1) - 1,
       KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
         vout(l, k, j, i) = vin(l, k, j, i) + dt * dudt(l, k, j, i);
       });
   return;
 }
 
-void UpdateContainer(std::shared_ptr<MeshData<Real>> &in,
-                     std::shared_ptr<MeshData<Real>> &dudt, const Real dt,
-                     std::shared_ptr<MeshData<Real>> &out) {
+void UpdateMeshData(std::shared_ptr<MeshData<Real>> &in,
+                    std::shared_ptr<MeshData<Real>> &dudt, const Real dt,
+                    std::shared_ptr<MeshData<Real>> &out) {
   std::vector<MetadataFlag> flags({Metadata::Independent});
   auto in_pack = in->PackVariables(flags);
   auto out_pack = out->PackVariables(flags);
   auto dudt_pack = dudt->PackVariables(flags);
   parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, "UpdateContainer", DevExecSpace(), 0, in_pack.GetDim(5) - 1,
-      0, in_pack.GetDim(4) - 1, 0, in_pack.GetDim(3) - 1, 0, in_pack.GetDim(2) - 1, 0,
+      DEFAULT_LOOP_PATTERN, "UpdateMeshData", DevExecSpace(), 0, in_pack.GetDim(5) - 1, 0,
+      in_pack.GetDim(4) - 1, 0, in_pack.GetDim(3) - 1, 0, in_pack.GetDim(2) - 1, 0,
       in_pack.GetDim(1) - 1,
       KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
         out_pack(b, l, k, j, i) = in_pack(b, l, k, j, i) + dt * dudt_pack(b, l, k, j, i);
       });
 }
 
-void AverageContainers(std::shared_ptr<MeshData<Real>> &c1,
-                       std::shared_ptr<MeshData<Real>> &c2, const Real wgt1) {
+void AverageMeshData(std::shared_ptr<MeshData<Real>> &c1,
+                     std::shared_ptr<MeshData<Real>> &c2, const Real wgt1) {
   std::vector<MetadataFlag> flags({Metadata::Independent});
   auto c1_pack = c1->PackVariables(flags);
   auto c2_pack = c2->PackVariables(flags);
@@ -151,7 +151,7 @@ void AverageContainers(std::shared_ptr<MeshData<Real>> &c1,
   IndexRange kb = c1_pack.cellbounds.GetBoundsK(interior);
 
   parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, "AverageContainer", DevExecSpace(), 0, c1_pack.GetDim(5) - 1,
+      DEFAULT_LOOP_PATTERN, "AverageMeshData", DevExecSpace(), 0, c1_pack.GetDim(5) - 1,
       0, c1_pack.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
         c1_pack(b, l, k, j, i) =
