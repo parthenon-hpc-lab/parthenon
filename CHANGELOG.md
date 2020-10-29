@@ -3,6 +3,20 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+
+### Changed (changing behavior/API/variables/...)
+
+### Fixed (not changing behavior/API/variables/...)
+
+### Infrastructure (changes irrelevant to downstream codes)
+
+### Removed (removing behavior/API/varaibles/...)
+
+## Release 0.3.0
+Date: 10/29/2020
+
+### Added (new features/APIs/variables/...)
+- [[PR 317]](https://github.com/lanl/parthenon/pull/317) Add initial support for particles (no MPI support)
 - [[PR 311]](https://github.com/lanl/parthenon/pull/311) Bugfix::Restart. Fixed restart parallel bug and also restart bug for simulations with reflecting boundary conditions.  Added ability to write restart files with or without ghost cells by setting `ghost_zones` in the output block similar to other output formats.
 - [[PR 314]](https://github.com/lanl/parthenon/pull/314) Generalized `par_for` abstractions to provide for reductions with a consistent interface.
 - [[PR 308]](https://github.com/lanl/parthenon/pull/308) Added the ability to register and name `MeshBlockPack`s in the `Mesh` or in package initialization.
@@ -25,7 +39,6 @@
 - [[PR 281]](https://github.com/lanl/parthenon/pull/281) Allows one to run regression tests with more than one cuda device, Also improves readability of regression tests output.
 - [[PR 330]](https://github.com/lanl/parthenon/pull/330) Fixes restart regression test.
 
-### Removed (removing behavior/API/varaibles/...)
 
 ## Release 0.2.0
 Date: 9/12/2020
