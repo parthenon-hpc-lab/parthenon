@@ -81,11 +81,15 @@ endif()
 execute_process(
     COMMAND nvidia-smi -L
     OUTPUT_VARIABLE FOUND_GPUS)
+string(REPLACE "\n" ";" FOUND_GPUS ${FOUND_GPUS})
 
-if (FOUND_GPUS MATCHES "GPU [0-9]")
-    set(DARWIN_CUDA_DEFAULT ON)
-else()
+list(FILTER FOUND_GPUS INCLUDE REGEX "GPU [0-9]")
+list(LENGTH FOUND_GPUS GPU_COUNT)
+
+if (GPU_COUNT EQUAL 0)
     set(DARWIN_CUDA_DEFAULT OFF)
+else()
+    set(DARWIN_CUDA_DEFAULT ON)
 endif()
 
 set(DARWIN_CUDA ${DARWIN_CUDA_DEFAULT} CACHE BOOL "Build for CUDA")
@@ -122,6 +126,7 @@ message(STATUS "Darwin Build Settings
           DARWIN_COMPILER: ${DARWIN_COMPILER}
               DARWIN_CUDA: ${DARWIN_CUDA}
     DARWIN_PROJECT_PREFIX: ${DARWIN_PROJECT_PREFIX}
+                GPU_COUNT: ${GPU_COUNT}
 ")
 
 set(DARWIN_ARCH_PREFIX ${DARWIN_PROJECT_PREFIX}/views/darwin/${DARWIN_ARCH})
@@ -253,6 +258,12 @@ endif()
 list(PREPEND CMAKE_PREFIX_PATH ${DARWIN_VIEW_PREFIX})
 
 # Testing parameters
-set(NUM_MPI_PROC_TESTING "2" CACHE STRING "CI runs tests with 2 MPI ranks")
-set(NUM_GPU_DEVICES_PER_NODE "2" CACHE STRING "Number of gpu devices to use when testing if built with Kokkos_ENABLE_CUDA")
-set(NUM_OMP_THREADS_PER_RANK "1" CACHE STRING "Number of threads to use when testing if built with Kokkos_ENABLE_OPENMP")
+if (DARWIN_CUDA AND GPU_COUNT LESS 2)
+    set(NUM_RANKS ${GPU_COUNT})
+else()
+    set(NUM_RANKS 2)
+endif()
+
+set(NUM_MPI_PROC_TESTING ${NUM_RANKS} CACHE STRING "CI runs tests with 2 MPI ranks")
+set(NUM_GPU_DEVICES_PER_NODE ${NUM_RANKS} CACHE STRING "Number of gpu devices to use when testing if built with Kokkos_ENABLE_CUDA")
+set(NUM_OMP_THREADS_PER_RANK 1 CACHE STRING "Number of threads to use when testing if built with Kokkos_ENABLE_OPENMP")
