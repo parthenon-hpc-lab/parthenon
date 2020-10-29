@@ -267,7 +267,8 @@ Once you've configured your build directory, you can build with
 `cmake --build build`.
 
 #### Advanced
-TODO
+LANL Employees - to understand how the project space is built out, see
+https://xcp-gitlab.lanl.gov/eap-oss/parthenon-project
 
 ### LLNL RZAnsel (Power9+Volta)
 
