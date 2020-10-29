@@ -14,7 +14,7 @@ ls -a
 if [ -d "${HOME}/spack" ]; then
   rm -rf ${HOME}/spack
 fi
-git clone --branch v0.15.4 https://github.com/spack/spack.git
+git clone https://github.com/spack/spack.git
 ls -a
 # Initialize spack env
 . spack/share/spack/setup-env.sh
