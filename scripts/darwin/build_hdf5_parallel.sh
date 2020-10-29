@@ -45,9 +45,3 @@ spack add py-matplotlib
 
 spack concretize -f
 
-spack load hdf5@1.10.6%${compiler_package}@${compiler_version} \
-  ^${mpi_package}@${mpi_version}%${compiler_package}@${compiler_version}
-
-spack load py-h5py@2.10.0 \
-  ^${mpi_package}@${mpi_version}%${compiler_package}@${compiler_version}
-
