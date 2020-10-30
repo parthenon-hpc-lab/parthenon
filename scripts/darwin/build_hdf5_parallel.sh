@@ -37,6 +37,9 @@ spack compiler find
 spack install  -y --overwrite -j ${J} py-h5py@2.10.0 ^hdf5@1.10.6%${compiler_package}@${compiler_version} \
   ^${mpi_package}@${mpi_version}%${compiler_package}@${compiler_version}
 
+# Run garbage collection
+spack gc -y
+
 spack install  -y --overwrite -j ${J} py-matplotlib
 
 
