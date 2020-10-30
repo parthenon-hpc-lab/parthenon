@@ -71,6 +71,11 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   Metadata m({Metadata::Cell, Metadata::Derived});
   package->AddField(field_name, m, DerivedOwnership::unique);
 
+  // You can add an alias for a field name. You can access the field
+  // by this name as well as its original name. However, they point to
+  // the same field.
+  package->AddFieldAlias("in_or_out_alias", "in_or_out");
+
   // Add a named MeshPack by registering a function that packs it
   package->AddMeshBlockPack("in_or_out", [](Mesh *pmesh) {
     int pack_size = pmesh->DefaultPackSize();

@@ -15,6 +15,7 @@
 
 #include <cstdlib>
 #include <memory>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -421,17 +422,18 @@ vpack_types::VarList<T> Container<T>::MakeList_(const std::vector<std::string> &
   vpack_types::VarList<T> vars;
   // for (const auto &name : names) {
   for (auto n = names.rbegin(); n != names.rend(); ++n) {
-    auto it = varMap_.find(*n);
+    auto &name = aliasMap_.count(*n) > 0 ? aliasMap_[*n] : *n;
+    auto it = varMap_.find(name);
     if (it != varMap_.end()) {
       vars.push_front(it->second);
       // expanded_names.push_back(name);
       continue;
     }
-    auto sit = sparseMap_.find(*n);
+    auto sit = sparseMap_.find(name);
     if (sit != sparseMap_.end()) {
       if (sparse_ids.size() > 0) {
         for (auto s = sparse_ids.rbegin(); s != sparse_ids.rend(); ++s) {
-          vars.push_front(Get(*n, *s));
+          vars.push_front(Get(name, *s));
         }
       } else {
         auto &svec = (sit->second)->GetVector();
@@ -441,8 +443,14 @@ vpack_types::VarList<T> Container<T>::MakeList_(const std::vector<std::string> &
       }
     }
   }
+  std::unordered_set<std::string> duplicates;
   for (auto &v : vars) {
-    expanded_names.push_back(v->label());
+    auto &label = v->label();
+    if (duplicates.count(label) > 0) {
+      PARTHENON_THROW("Variable " + label + " duplicated in pack. Do you have an alias?");
+    }
+    duplicates.insert(label);
+    expanded_names.push_back(label);
   }
   return vars;
 }

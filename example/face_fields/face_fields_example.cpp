@@ -60,6 +60,9 @@ Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
                array_size);
   package->AddField("f.f.face_averaged_value", m, DerivedOwnership::unique);
 
+  // You can alias face-centered objects too
+  package->AddFieldAlias("face_centered_alias", "f.f.face_averaged_value");
+
   packages["FaceFieldExample"] = package;
   return packages;
 }

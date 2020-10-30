@@ -15,7 +15,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#invlude < vector>
+#include <string>
+#include <vector>
 
 #include <catch2/catch.hpp>
 
@@ -31,12 +32,13 @@
 
 using parthenon::Container;
 using parthenon::Metadata;
+using parthenon::Real;
 
 TEST_CASE("We can add an alias to a variable in a container", "[ContainerAlias]") {
   GIVEN("A container with a variable in it") {
     Container<Real> rc;
     std::vector<int> block_size = {16, 16, 16};
-    Metadata m({Metdata::Independent, Metadata::FillGhost}, block_size);
+    Metadata m({Metadata::Independent, Metadata::FillGhost}, block_size);
     rc.Add("var", m);
 
     WHEN("We add an alias") {
@@ -48,6 +50,17 @@ TEST_CASE("We can add an alias to a variable in a container", "[ContainerAlias]"
       THEN("The variable is only counted once in a variable pack") {
         auto pack = rc.PackVariables();
         REQUIRE(pack.GetDim(4) == 1);
+      }
+      THEN("We can pack based on the original name") {
+        auto pack = rc.PackVariables(std::vector<std::string>{"var"});
+        REQUIRE(pack.GetDim(4) == 1);
+      }
+      THEN("We can pack based on the aliased name") {
+        auto pack = rc.PackVariables(std::vector<std::string>{"alias"});
+        REQUIRE(pack.GetDim(4) == 1);
+      }
+      THEN("Packing both alias and the original names throws an error") {
+        REQUIRE_THROWS(rc.PackVariables(std::vector<std::string>{"var","alias"}));
       }
     }
   }
