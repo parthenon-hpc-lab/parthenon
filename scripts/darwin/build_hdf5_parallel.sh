@@ -33,15 +33,10 @@ spack env activate ci
 # Find compilers
 spack compiler find
 
-#spack add hdf5@1.10.6%${compiler_package}@${compiler_version} \
-#  ^${mpi_package}@${mpi_version}%${compiler_package}@${compiler_version}
-
-# Install hdf5
-spack install py-h5py@2.10.0 ^hdf5@1.10.6%${compiler_package}@${compiler_version} \
+# Install hdf5, will install numpy mpi4py and hdf5
+spack install -j ${J} py-h5py@2.10.0 ^hdf5@1.10.6%${compiler_package}@${compiler_version} \
   ^${mpi_package}@${mpi_version}%${compiler_package}@${compiler_version}
 
-spack add py-numpy
-spack add py-matplotlib
+spack install -j ${J} py-matplotlib
 
-spack concretize -f
 

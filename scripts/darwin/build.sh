@@ -51,9 +51,6 @@ spack env activate ci
 # Find compilers
 spack compiler find
 
-spack install py-numpy
-spack install py-matplotlib
-
 # Load Spack Modules
 
 spack load hdf5@1.10.6%${compiler_package}@${compiler_version} \
