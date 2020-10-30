@@ -40,7 +40,7 @@ spack install  -y --overwrite -j ${J} py-h5py@2.10.0 ^hdf5@1.10.6%${compiler_pac
 # Run garbage collection
 spack gc -y
 
-spack install  -y --overwrite -j ${J} py-matplotlib
+spack install  -y  --dont-restage  -j ${J} py-matplotlib
 
 # Run garbage collection
 spack gc -y
