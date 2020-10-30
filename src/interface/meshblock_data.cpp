@@ -139,15 +139,17 @@ MeshBlockData<T>::MeshBlockData(const MeshBlockData<T> &src,
     auto fv = face_map.find(name);
     if (fv != face_map.end()) {
       if (found) {
-        std::cerr << "MeshBlockData: " << name << " found more than once!" << std::endl;
-        std::exit(1);
+        std::stringstream msg;
+        msg << "MeshBlockData: " << name << " found more than once!" << std::endl;
+        PARTHENON_TRHOW(msg);
       }
       found = true;
       Add(fv->second);
     }
     if (!found) {
-      std::cerr << "MeshBlockData: " << name << " not found!" << std::endl;
-      std::exit(1);
+      std::stringstream msg;
+      msg << "MeshBlockData: " << name << " found more than once!" << std::endl;
+      PARTHENON_TRHOW(msg);
     }
   }
 }
