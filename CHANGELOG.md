@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 339](https://github.com/lanl/parthenon/pull/339) Add support for variable aliases, allowing the user to have two names for the same variable.
 
 ### Changed (changing behavior/API/variables/...)
 

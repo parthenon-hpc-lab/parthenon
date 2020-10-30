@@ -60,7 +60,7 @@ TEST_CASE("We can add an alias to a variable in a container", "[ContainerAlias]"
         REQUIRE(pack.GetDim(4) == 1);
       }
       THEN("Packing both alias and the original names throws an error") {
-        REQUIRE_THROWS(rc.PackVariables(std::vector<std::string>{"var","alias"}));
+        REQUIRE_THROWS(rc.PackVariables(std::vector<std::string>{"var", "alias"}));
       }
     }
   }

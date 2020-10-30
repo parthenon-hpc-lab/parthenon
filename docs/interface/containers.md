@@ -10,7 +10,7 @@ or dense data. (For more details on anonymous variables, see
 shapes, e.g., scalar, tensor, etc.A variable can be added to a
 container as:
 ```C++
-parthenon::Container.Add(name, metadata, shape)
+parthenon::Container.Add(name, metadata, shape);
 ```
 where the name is a string, the metadata is a `std::vector` of
 metadata flags, and the shape is a `std::vector` of integers
@@ -32,6 +32,12 @@ lives, then shape is the shape of the full array. I.e., a
 `11x12x13x14` array would be added with a shape of
 ```C++
 shape = std::vector<int>({11,12,13,14});
+```
+
+You can also add an *alias* to a variable, which is a second name by
+which it can be referred via
+```C++
+parthenon::Container.Add(alias, name, metadata);
 ```
 
 It is often desirable to extract from a container a specific set of
