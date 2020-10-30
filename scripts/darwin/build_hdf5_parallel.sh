@@ -42,4 +42,6 @@ spack gc -y
 
 spack install  -y --overwrite -j ${J} py-matplotlib
 
+# Run garbage collection
+spack gc -y
 
