@@ -16,6 +16,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -154,6 +155,9 @@ class Container {
   const CellVariableVector<T> &GetCellVariableVector() const { return varVector_; }
   const MapToCellVars<T> &GetCellVariableMap() const { return varMap_; }
   CellVariable<T> &Get(std::string label) {
+    if (aliasMap_.count(label) > 0) {
+      label = aliasMap_[label];
+    }
     auto it = varMap_.find(label);
     if (it == varMap_.end()) {
       throw std::invalid_argument(std::string("\n") + std::string(label) +
@@ -176,7 +180,10 @@ class Container {
   //
   const SparseVector<T> &GetSparseVector() const { return sparseVector_; }
   const MapToSparse<T> &GetSparseMap() const { return sparseMap_; }
-  SparseVariable<T> &GetSparseVariable(const std::string &label) {
+  SparseVariable<T> &GetSparseVariable(std::string label) {
+    if (aliasMap_.count(label) > 0) {
+      label = aliasMap_[label];
+    }
     auto it = sparseMap_.find(label);
     if (it == sparseMap_.end()) {
       throw std::invalid_argument("sparseMap_ does not have " + label);
@@ -206,6 +213,9 @@ class Container {
   const FaceVector<T> &GetFaceVector() const { return faceVector_; }
   const MapToFace<T> &GetFaceMap() const { return faceMap_; }
   FaceVariable<T> &GetFace(std::string label) {
+    if (aliasMap_.count(label) > 0) {
+      label = aliasMap_[label];
+    }
     auto it = faceMap_.find(label);
     if (it == faceMap_.end()) {
       throw std::invalid_argument(std::string("\n") + std::string(label) +
@@ -239,7 +249,9 @@ class Container {
   int GetCellVariables(const std::vector<std::string> &names,
                        std::vector<CellVariable<T>> &vRet,
                        std::map<std::string, std::pair<int, int>> &indexCount,
-                       const std::vector<int> &sparse_ids = {});
+                       const std::vector<int> &sparse_ids = {}) {
+    PARTHENON_THROW("Not implemented\n");
+  }
 
   /// Queries related to variable packs
   VariableFluxPack<T> PackVariablesAndFluxes(const std::vector<std::string> &var_names,
@@ -315,6 +327,8 @@ class Container {
  private:
   int debug = 0;
   std::weak_ptr<MeshBlock> pmy_block;
+
+  std::unordered_map<std::string, std::string> aliasMap_;
 
   CellVariableVector<T> varVector_; ///< the saved variable array
   FaceVector<T> faceVector_;        ///< the saved face arrays

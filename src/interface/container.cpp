@@ -55,14 +55,12 @@ void Container<T>::Add(const std::string &alias, const std::string &label,
   // TODO(JMM): Edge, etc
   if (metadata.IsSet(Metadata::Sparse)) {
     if (sparseMap_.count(label) == 0) Add(label, metadata);
-    sparseMap_[alias] = sparseMap_[label];
   } else if (metadata.Where() == Metadata::Face) {
     if (faceMap_.count(label) == 0) Add(label, metadata);
-    faceMap_[alias] = faceMap_[label];
   } else {
     if (varMap_.count(label) == 0) Add(label, metadata);
-    varMap_[alias] = varMap_[label];
   }
+  aliasMap_[alias] = label;
 }
 
 ///
