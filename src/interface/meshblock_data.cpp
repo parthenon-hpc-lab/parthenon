@@ -15,6 +15,7 @@
 
 #include <cstdlib>
 #include <memory>
+#include <sstream>
 #include <utility>
 #include <vector>
 
@@ -124,8 +125,9 @@ MeshBlockData<T>::MeshBlockData(const MeshBlockData<T> &src,
     auto sv = sparse_map.find(name);
     if (sv != sparse_map.end()) {
       if (found) {
-        std::cerr << "MeshBlockData: " << name << " found more than once!" << std::endl;
-        std::exit(1);
+        std::stringstream msg;
+        msg << "MeshBlockData: " << name << " found more than once!" << std::endl;
+        PARTHENON_THROW(msg);
       }
       found = true;
       std::shared_ptr<SparseVariable<T>> newvar;
@@ -141,7 +143,7 @@ MeshBlockData<T>::MeshBlockData(const MeshBlockData<T> &src,
       if (found) {
         std::stringstream msg;
         msg << "MeshBlockData: " << name << " found more than once!" << std::endl;
-        PARTHENON_TRHOW(msg);
+        PARTHENON_THROW(msg);
       }
       found = true;
       Add(fv->second);
@@ -149,7 +151,7 @@ MeshBlockData<T>::MeshBlockData(const MeshBlockData<T> &src,
     if (!found) {
       std::stringstream msg;
       msg << "MeshBlockData: " << name << " found more than once!" << std::endl;
-      PARTHENON_TRHOW(msg);
+      PARTHENON_THROW(msg);
     }
   }
 }
