@@ -105,32 +105,16 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
         tl.AddTask(advect_flux, &MeshBlockData<Real>::ReceiveFluxCorrection, sc0.get());
   }
 
-  const int pack_size = pmesh->DefaultPackSize();
-  auto partitions = partition::ToSizeN(pmesh->block_list, pack_size);
-  if (stage == 1) {
-    auto setup_mesh_data = [=](const std::string &name, BlockList_t partition,
-                               const std::string &mb_name) {
-      auto md = pmesh->mesh_data.Add(name);
-      md->Set(partition, mb_name);
-    };
-    for (int i = 0; i < partitions.size(); i++) {
-      setup_mesh_data("base" + std::to_string(i), partitions[i], "base");
-      setup_mesh_data("dUdt" + std::to_string(i), partitions[i], "dUdt");
-      for (int j = 1; j < integrator->nstages; j++) {
-        setup_mesh_data(stage_name[j] + std::to_string(i), partitions[i], stage_name[j]);
-      }
-    }
-  }
-
+  const int num_partitions = pmesh->DefaultNumPartitions();
   // note that task within this region that contains one tasklist per pack
   // could still be executed in parallel
-  TaskRegion &single_tasklist_per_pack_region = tc.AddRegion(partitions.size());
-  for (int i = 0; i < partitions.size(); i++) {
+  TaskRegion &single_tasklist_per_pack_region = tc.AddRegion(num_partitions);
+  for (int i = 0; i < num_partitions; i++) {
     auto &tl = single_tasklist_per_pack_region[i];
-    auto &mbase = pmesh->mesh_data.Get("base" + std::to_string(i));
-    auto &mc0 = pmesh->mesh_data.Get(stage_name[stage - 1] + std::to_string(i));
-    auto &mc1 = pmesh->mesh_data.Get(stage_name[stage] + std::to_string(i));
-    auto &mdudt = pmesh->mesh_data.Get("dUdt" + std::to_string(i));
+    auto &mbase = pmesh->mesh_data.GetOrAdd("base", i);
+    auto &mc0 = pmesh->mesh_data.GetOrAdd(stage_name[stage - 1], i);
+    auto &mc1 = pmesh->mesh_data.GetOrAdd(stage_name[stage], i);
+    auto &mdudt = pmesh->mesh_data.GetOrAdd("dUdt", i);
 
     // compute the divergence of fluxes of conserved variables
     auto flux_div = tl.AddTask(none, parthenon::Update::FluxDivergenceMesh, mc0, mdudt);

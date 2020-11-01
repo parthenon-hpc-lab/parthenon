@@ -19,13 +19,17 @@
 #include <string>
 
 namespace parthenon {
+class Mesh;
 
 template <typename T>
 class DataCollection {
  public:
   DataCollection() {
     containers_["base"] = std::make_shared<T>(); // always add "base" container
+    pmy_mesh_ = nullptr;
   }
+
+  void SetMeshPointer(Mesh *pmesh) { pmy_mesh_ = pmesh; }
 
   std::shared_ptr<T> Add(const std::string &label, const std::shared_ptr<T> &src);
   std::shared_ptr<T> Add(const std::string &label) {
@@ -47,6 +51,8 @@ class DataCollection {
     return it->second;
   }
 
+  std::shared_ptr<T> &GetOrAdd(const std::string &mbd_label, const int &partition_id);
+
   void PurgeNonBase() {
     auto c = containers_.begin();
     while (c != containers_.end()) {
@@ -59,6 +65,7 @@ class DataCollection {
   }
 
  private:
+  Mesh *pmy_mesh_;
   std::map<std::string, std::shared_ptr<T>> containers_;
 };
 

@@ -45,6 +45,7 @@
 #include "outputs/io_wrapper.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
+#include "utils/partition_stl_containers.hpp"
 
 namespace parthenon {
 
@@ -104,6 +105,7 @@ class Mesh {
   Packages_t packages;
 
   DataCollection<MeshData<Real>> mesh_data;
+  Kokkos::View<int[1], HostMemSpace> meshdata_lock;
 
   // functions
   void Initialize(int res_flag, ParameterInput *pin, ApplicationInput *app_in);
@@ -115,6 +117,9 @@ class Mesh {
                                               ApplicationInput *app_in);
   int DefaultPackSize() {
     return default_pack_size_ < 1 ? block_list.size() : default_pack_size_;
+  }
+  int DefaultNumPartitions() {
+    return partition::partition_impl::IntCeil(block_list.size(), DefaultPackSize());
   }
   // step 7: create new MeshBlock list (same MPI rank but diff level: create new block)
   // Moved here given Cuda/nvcc restriction:

@@ -90,7 +90,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properti
                      ? true
                      : false),
       nbnew(), nbdel(), step_since_lb(), gflag(), properties(properties),
-      packages(packages),
+      packages(packages), meshdata_lock("meshdata_lock"),
       // private members:
       next_phys_id_(),
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
@@ -473,6 +473,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properti
     return;
   }
 
+  mesh_data.SetMeshPointer(this);
+
   // create MeshBlock list for this process
   int nbs = nslist[Globals::my_rank];
   int nbe = nbs + nblist[Globals::my_rank] - 1;
@@ -527,7 +529,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
                      ? true
                      : false),
       nbnew(), nbdel(), step_since_lb(), gflag(), properties(properties),
-      packages(packages),
+      packages(packages), meshdata_lock("meshdata_lock"),
       // private members:
       next_phys_id_(),
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
@@ -733,6 +735,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
 
   // read in xmin from file
   auto xmin = rr.ReadDataset<double>("/Blocks/xmin");
+
+  mesh_data.SetMeshPointer(this);
 
   // Create MeshBlocks (parallel)
   block_list.clear();
