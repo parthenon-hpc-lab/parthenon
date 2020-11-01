@@ -105,23 +105,12 @@ class Mesh {
 
   DataCollection<MeshData<Real>> mesh_data;
 
-  // MeshBlockPacks
-  // TODO(JMM): Should these be private with a getter function?
-  std::map<std::string, std::map<std::string, std::vector<MeshBlockVarPack<Real>>>>
-      real_varpacks;
-  std::map<std::string, std::map<std::string, std::vector<MeshBlockVarFluxPack<Real>>>>
-      real_fluxpacks;
-
   // functions
   void Initialize(int res_flag, ParameterInput *pin, ApplicationInput *app_in);
   void SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size,
                                  BoundaryFlag *block_bcs);
   void NewTimeStep();
   void OutputCycleDiagnostics();
-  void RegisterMeshBlockPack(const std::string &package, const std::string &name,
-                             const VarPackingFunc<Real> &func);
-  void RegisterMeshBlockPack(const std::string &package, const std::string &name,
-                             const FluxPackingFunc<Real> &func);
   void LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin,
                                               ApplicationInput *app_in);
   int DefaultPackSize() {

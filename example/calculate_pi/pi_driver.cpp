@@ -136,7 +136,7 @@ TaskCollection PiDriver::MakeTaskCollection(T &blocks) {
   ParArrayHost<Real> areas("areas", partitions.size());
   TaskRegion &async_region = tc.AddRegion(partitions.size());
   {
-    // asynchronous region where area is computed per MeshBlockPack
+    // asynchronous region where area is computed per partition
     for (int i = 0; i < partitions.size(); i++) {
       TaskID none(0);
       auto &md = pmesh->mesh_data.Get(std::to_string(i));
