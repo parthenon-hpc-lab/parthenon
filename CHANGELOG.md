@@ -3,12 +3,14 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 335]](https://github.com/lanl/parthenon/pull/335) Support for project-relative `MACHINE_CFG` with `@PAR_ROOT@`
 
 ### Changed (changing behavior/API/variables/...)
 
 ### Fixed (not changing behavior/API/variables/...)
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 335]](https://github.com/lanl/parthenon/pull/335) New machine configuration file for LANL's Darwin cluster
 
 ### Removed (removing behavior/API/varaibles/...)
 

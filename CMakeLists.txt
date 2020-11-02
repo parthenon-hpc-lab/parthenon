@@ -13,29 +13,8 @@
 
 cmake_minimum_required(VERSION 3.12)
 
-# Load machine specific defaults such as architecture and mpi launch command.
-# Command line argument takes precedence over environment variable.
-# Loading this before project definition to allow setting the compiler.
-if (MACHINE_CFG)
-  if(EXISTS "${MACHINE_CFG}")
-    include(${MACHINE_CFG})
-  else()
-    message(FATAL_ERROR "Given machine configuration at "
-      "${MACHINE_CFG} not found.")
-  endif()
-elseif (DEFINED ENV{MACHINE_CFG})
-  if(EXISTS "$ENV{MACHINE_CFG}")
-    include($ENV{MACHINE_CFG})
-  else()
-    message(FATAL_ERROR "Given machine configuration from environment variable "
-      "MACHINE_CFG at $ENV{MACHINE_CFG} not found.")
-  endif()
-else()
-  message(WARNING "Not using any machine configuration. Consider creating a configuration "
-    "file following the examples in ${PROJECT_SOURCE_DIR}/cmake/machine_cfgs/ and then "
-    "point the MACHINE_CFG variable to your custom file."
-    "Note, that the machine file can be placed in any directory (also outside the repo).")
-endif()
+# Imports machine-specific configuration
+include(cmake/MachineCfg.cmake)
 
 project(parthenon VERSION 0.3.0 LANGUAGES C CXX)
 
@@ -200,6 +179,7 @@ SET (Kokkos_ENABLE_AGGRESSIVE_VECTORIZATION ON CACHE BOOL
 
 # Check that gpu devices are actually detected
 set(NUM_GPU_DEVICES_PER_NODE "1" CACHE STRING "Number of gpu devices to use when testing if built with Kokkos_ENABLE_CUDA")
+set(NUM_OMP_THREADS_PER_RANK "1" CACHE STRING "Number of threads to use when testing if built with Kokkos_ENABLE_OPENMP")
 if (Kokkos_ENABLE_CUDA)
   # Tell Kokkos we need lambdas in Cuda.
   SET (Kokkos_ENABLE_CUDA_LAMBDA ON CACHE BOOL
