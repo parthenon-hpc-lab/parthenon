@@ -75,7 +75,11 @@ void SwarmContainer::Remove(const std::string label) {
 
 void SwarmContainer::SendBoundaryBuffers() {}
 
-void SwarmContainer::SetupPersistentMPI() {}
+void SwarmContainer::SetupPersistentMPI() {
+  for (auto &s : swarmVector_) {
+    s->SetupPersistentMPI();
+  }
+}
 
 bool SwarmContainer::ReceiveBoundaryBuffers() { return true; }
 

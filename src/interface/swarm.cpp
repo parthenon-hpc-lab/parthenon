@@ -345,4 +345,22 @@ void Swarm::Defrag() {
   max_active_index_ = num_active_ - 1;
 }
 
+void Swarm::SetupPersistentMPI() {
+#ifdef MPI_PARALLEL
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
+  int &mylevel = pmb->loc.level;
+
+  // Initialize neighbor communications to other ranks
+  for (int n = 0; n < pmb->pbval->nneighbor; n++) {
+    NeighborBlock &nb = pmb->pbval->neighbor[n];
+
+    printf("rank: %i Neighbor: %i Neighbor rank: %i\n", Globals::my_rank, n, nb.snb.rank);
+
+    // Neighbor on different MPI process
+    if (nb.snb.rank != Globals::my_rank) {
+    }
+  }
+#endif
+}
+
 } // namespace parthenon

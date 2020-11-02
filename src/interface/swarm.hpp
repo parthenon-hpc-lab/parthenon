@@ -145,6 +145,8 @@ class Swarm {
   /// memory
   void Defrag();
 
+  void SetupPersistentMPI();
+
  private:
   int debug = 0;
   std::weak_ptr<MeshBlock> pmy_block;

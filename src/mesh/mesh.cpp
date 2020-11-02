@@ -1108,6 +1108,7 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin, ApplicationInput *app_i
       // BoundaryVariable objects evolved in main TimeIntegratorTaskList:
       pmb->pbval->SetupPersistentMPI();
       pmb->real_containers.Get()->SetupPersistentMPI();
+      pmb->real_containers.GetSwarmContainer()->SetupPersistentMPI();
     }
     call++; // 1
 
