@@ -46,13 +46,6 @@ std::shared_ptr<MeshData<Real>> &
 DataCollection<MeshData<Real>>::GetOrAdd(const std::string &mbd_label,
                                          const int &partition_id) {
   const std::string label = mbd_label + "_part-" + std::to_string(partition_id);
-  // Ensure only one thread tries to access the cache as partitioning may occur.
-  // This is likely overly varefuly at the moment but hopefully prevents
-  // bugs down the road when host side threading is implemented.
-  // Note, this may actually not be that safe after all given that other threads
-  // may call Get().
-  // TODO(pgrete?) this needs more thinking!
-  // while (Kokkos::atomic_compare_exchange_strong(&pmy_mesh_->meshdata_lock(0), 0, 1)) {
   auto it = containers_.find(label);
   if (it == containers_.end()) {
     // TODO(someone) add caching of partitions to Mesh at some point
@@ -64,10 +57,9 @@ DataCollection<MeshData<Real>>::GetOrAdd(const std::string &mbd_label,
       containers_[md_label]->Set(partitions[i], mbd_label);
     }
   }
-  // Kokkos::atomic_decrement(&pmy_mesh_->meshdata_lock(0));
-  // }
   return containers_[label];
 }
+
 template class DataCollection<MeshData<Real>>;
 template class DataCollection<MeshBlockData<Real>>;
 

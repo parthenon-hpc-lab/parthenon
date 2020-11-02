@@ -105,7 +105,6 @@ class Mesh {
   Packages_t packages;
 
   DataCollection<MeshData<Real>> mesh_data;
-  Kokkos::View<int[1], HostMemSpace> meshdata_lock;
 
   // functions
   void Initialize(int res_flag, ParameterInput *pin, ApplicationInput *app_in);

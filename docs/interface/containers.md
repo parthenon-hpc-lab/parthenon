@@ -66,3 +66,170 @@ If you do not care about indexing into variables by name,
 you can ommit the `map` argument in any of the above calls.
 
 For examples of use, see [here](../../tst/unit/test_meshblock_data_iterator.cpp).
+
+# `MeshData` and `MeshBlockPack`s
+
+`Kokkos` kernel launches come with an overhead (e.g., about 6 microsecond on a V100).
+For small kernels that perform little work (e.g., because of the simplicity of the kernel
+itself or the small number of cells per `MeshBlock`, say 16<sup>3</sup> or smaller),
+this can be a performance bottleneck when each kernel is launched per `MeshBlock`.
+Parthenon therefore provides the capability to combine variables into a single data
+structure that spans some number of meshblocks, the `MeshBlockPack`.
+
+`MeshBlockPack`s created automatically and accessed transparently through `MeshData` objects.
+These `MeshData` objects are stored as a `DataCollection` of shared pointers
+in the `Mesh` object.
+
+*IMPORTANT*, `MeshData` and `MeshBlockPack` are considered to be higher level
+representations of lower level data, i.e., the data used in the simulation itself always
+needs to be registered as `MeshBlockData` first before it can be accessed through
+`MeshData` and `MeshBlockPacks`.
+
+## Registering `MeshData`
+
+`MeshData` is a lightweight object that aggregates multiple `MeshBlock`s.
+Therefore, it needs to be setup/registered with some number of `MeshBlock`s
+(at least one and at most all), which is referred to as partitioning.
+
+The `Partition` machinery found in [`utils/partition_stl_containers.hpp`](../../src/utils/partition_stl_containers.hpp).
+
+Registration and partitioning can be controlled manually or automatically
+(recommended in multi-stage drivers).
+
+### Manual registration
+
+The following steps (used in the `calculate_pi` example [here](../../example/calculate_pi/pi_driver.cpp) ) are need to manually register and fill a `MeshData` object.
+
+```c++
+// Number of MeshBlocks per Partition
+const int pack_size = pmesh->DefaultPackSize();
+// Partition all blocks of the Mesh into separate partitions containing pack_size MeshBlocks
+auto partitions = partition::ToSizeN(pmesh->block_list, pack_size);
+// Register a MeshData object for each partition (collection of blocks) using the partition
+// number as label and containing references to the data stored in the "base" MeshBlockPack
+for (int i = 0; i < partitions.size(); i++) {
+  const std::string label = std::to_string(i);
+  auto mest_data = pmesh->mesh_data.Add(label);
+  // assign MeshBlocks of partitions[i] and data stored in "base" MeshBlockPack to MeshData object
+  mesh_data->Set(partitions[i], "base");
+}
+```
+
+There are two partitioning functions:
+```C++
+// Splits container into N equally sized partitions
+template <typename T, typename Container_t>
+Partition_t<T> ToNPartitions(Container_t<T> &container, const int N);
+
+// Splits container into partitions of size N
+template <typename T, typename Container_t>
+std::vector<std::vector<T>> ToSizeN(Container_t<T> &container, const int N);
+```
+Both functions live within the namespace `parthenon::partition` and `Partition_t`
+is defined as:
+```C++
+template<typename T>
+using Parition_t = std::vector<std::vector<T>>
+```
+
+The `pmesh->DefaultPackSize()` is controlled via the `pack_size` variable
+in a `parthenon` input file under the `parthenon/mesh` input block. e.g.,
+```
+<parthenon/mesh>
+pack_size = 6
+```
+A `pack_size < 1` in the input file indicates the entire mesh (per MPI rank)
+should be contained within a single pack.
+
+The registered `MeshData` can then later be accessed, for example, via the `Get(label)` function:
+```c++
+auto &md = pmesh->mesh_data.Get(std::to_string(i));
+```
+
+### Automatic registration
+
+For ease of use, the steps illustrated in the manual registration are automated in the
+`mesh_data.GetOrAdd(string MeshBlockData_label, int partition_id)` function (e.g., used
+in the `advection` example [here](../../example/advection/advection_driver.cpp) ).
+Here, the partitioning in the background uses the default Mesh partition size (`pack_size`)
+and the the total number of partition is accesse through `pmesh->DefaultNumPartitions();`.
+Thus, a sample usage in a driver that executes Tasks on multiple partitions in parallel may
+look like
+```c++
+TaskID no_dependency(0); // no dependency
+const int num_partitions = pmesh->DefaultNumPartitions();
+TaskRegion &single_tasklist_per_partition = tc.AddRegion(num_partitions);
+for (int i = 0; i < num_partitions; i++) {
+  auto &tl = single_tasklist_per_partition[i];
+  // "base" MeshBlockData of blocks in partition i
+  auto &mbase = pmesh->mesh_data.GetOrAdd("base", i);
+  // MeshBlockData of the previous stage of blocks in partition i
+  auto &mc0 = pmesh->mesh_data.GetOrAdd(stage_name[stage - 1], i);
+  // MeshBlockData of the current stage of blocks in partition i
+  auto &mc1 = pmesh->mesh_data.GetOrAdd(stage_name[stage], i);
+
+  auto my_task = tl.AddTask(no_dependency, MyTaskFunction, mbase, mc0, mc1);
+}
+```
+
+## `MeshBlockPack` Access and Data Layout
+
+The `MeshBlockPack` is indexable as a five-dimensional `Kokkos::View`. The
+slowest moving index indexes into a 4-dimensional `VariablePack`. The
+next slowest indexes into a `Variable`. The fastest three index into the
+cells on a meshblock.
+They are accessed from existing `MeshData` objects.
+
+For example:
+```C++
+// MeshData object must exists (see Registering above)
+auto &meshdata_base = pmesh->mesh_data.Get("base");
+
+// Pack all "independent" variables (of MeshBlockData)
+std::vector<MetadataFlag> flags({Metadata::Independent});
+auto meshblockpack = in_obj->PackVariables(flags);
+
+// If access to the "fluxes" of the Variable is required use PackVariableAndFluxes
+//auto meshblockpack = in_obj->PackVariablesAndFluxes(flags);
+
+auto variablepack = meshblockpack(b); // Indexes into the b'th meshblock
+auto var = meshblockpack(b,n); // Indexes into the n'th variable on the b'th MB
+// The n'th variable in the i,j,k'th cell of the b'th meshblock
+Real r = meshblockpack(b,n,k,j,i);
+```
+
+For convenience, `MeshBlockPack` also includes the following methods and fields:
+```C++
+// the IndexShape object describing the bounds of all blocks in the pack
+IndexShape bounds = meshblockpack.cellbounds;
+
+// a 1D array of coords objects
+auto coords = meshblockpack.coords(m); // gets the Coordinates_t object on the m'th MB
+
+// The dimensionality of the simulation. Will be 1, 2, or 3.
+// This is needed because components of the flux vector
+// are only allocated for dimensions in use.
+int ndim = meshblockpack.GetNdim();
+
+// Get the sparse index of the n'th sparse variable in the pack.
+int sparse = meshblockpack.GetSparse(n);
+
+// The size of the n'th dimension of the pack
+int dim = meshblockpack.GetDim(n);
+```
+
+For an example using all these methods see the `FluxDivergence` function in
+[update.cpp](../../src/interface/update.cpp).
+
+### Type
+
+The types for packs are:
+```C++
+MeshBlockVarPack<T>
+```
+and
+```C++
+MeshBlockVarFluxPack<T>
+```
+which correspond to packs over meshblocks that contain just variables
+or contain variables and fluxes.

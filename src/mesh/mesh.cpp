@@ -90,7 +90,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properti
                      ? true
                      : false),
       nbnew(), nbdel(), step_since_lb(), gflag(), properties(properties),
-      packages(packages), meshdata_lock("meshdata_lock"),
+      packages(packages),
       // private members:
       next_phys_id_(),
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
@@ -529,7 +529,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
                      ? true
                      : false),
       nbnew(), nbdel(), step_since_lb(), gflag(), properties(properties),
-      packages(packages), meshdata_lock("meshdata_lock"),
+      packages(packages),
       // private members:
       next_phys_id_(),
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
