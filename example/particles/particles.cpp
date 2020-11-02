@@ -344,7 +344,8 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
 
     auto swarm = sc->Get("my particles");
 
-    auto transport_particles = tl.AddTask(none, TransportParticles, pmb.get(), integrator);
+    auto transport_particles =
+        tl.AddTask(none, TransportParticles, pmb.get(), integrator);
 
     auto destroy_some_particles =
         tl.AddTask(transport_particles, DestroySomeParticles, pmb.get());
@@ -352,7 +353,8 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
     auto create_some_particles =
         tl.AddTask(destroy_some_particles, CreateSomeParticles, pmb.get());
 
-    auto deposit_particles = tl.AddTask(create_some_particles, DepositParticles, pmb.get());
+    auto deposit_particles =
+        tl.AddTask(create_some_particles, DepositParticles, pmb.get());
 
     auto defrag = tl.AddTask(deposit_particles, Defrag, pmb.get());
   }
