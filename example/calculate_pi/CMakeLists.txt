@@ -20,6 +20,6 @@ if( "pi-example" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_EXAMPLES)
           pi_driver.cpp
           pi_driver.hpp
   )
-  target_link_libraries(pi-example PRIVATE parthenon)
+  target_link_libraries(pi-example PRIVATE Parthenon::parthenon)
   lint_target(pi-example)
 endif()

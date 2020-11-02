@@ -44,6 +44,7 @@ RestartReader::RestartReader(const char *filename) : filename_(filename) {
 
   // populate block size from the file
   std::vector<int32_t> blockSize = ReadAttr1DI32("Mesh", "blockSize");
+  hasGhost = GetAttr<int>("Mesh", "includesGhost");
   nx1_ = static_cast<hsize_t>(blockSize[0]);
   nx2_ = static_cast<hsize_t>(blockSize[1]);
   nx3_ = static_cast<hsize_t>(blockSize[2]);
@@ -119,14 +120,17 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
   hsize_t max_blocks_global = pm->nbtotal;
   hsize_t num_blocks_local = 0;
 
-  const IndexDomain interior = IndexDomain::interior;
+  // SSconst IndexDomain interior = IndexDomain::interior;
+  int iGhost = (output_params.include_ghost_zones ? 1 : 0);
+
+  const IndexDomain theDomain = (iGhost ? IndexDomain::entire : IndexDomain::interior);
 
   auto &mb = *(pm->block_list.front());
 
   // shooting a blank just for getting the variable names
-  const IndexRange out_ib = mb.cellbounds.GetBoundsI(interior);
-  const IndexRange out_jb = mb.cellbounds.GetBoundsJ(interior);
-  const IndexRange out_kb = mb.cellbounds.GetBoundsK(interior);
+  const IndexRange out_ib = mb.cellbounds.GetBoundsI(theDomain);
+  const IndexRange out_jb = mb.cellbounds.GetBoundsJ(theDomain);
+  const IndexRange out_kb = mb.cellbounds.GetBoundsK(theDomain);
 
   // Should this just be pm->block_list.size()?
   for (auto &pmb : pm->block_list) {
@@ -237,13 +241,14 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
   myDSet = H5Dcreate(file, "/Mesh", PREDINT32, localDSpace, H5P_DEFAULT, H5P_DEFAULT,
                      H5P_DEFAULT);
 
-  auto &nx1 = mb.block_size.nx1;
-  auto &nx2 = mb.block_size.nx2;
-  auto &nx3 = mb.block_size.nx3;
-  int bsize[3] = {nx1, nx2, nx3};
+  auto nx1 = out_ib.e - out_ib.s + 1; // SS mb.block_size.nx1;
+  auto nx2 = out_jb.e - out_jb.s + 1; // SS mb.block_size.nx2;
+  auto nx3 = out_kb.e - out_kb.s + 1; // SS mb.block_size.nx3;
+  int bsize[3] = {mb.block_size.nx1, mb.block_size.nx2, mb.block_size.nx3};
   nLen = 3;
   localnDSpace = H5Screate_simple(1, &nLen, NULL);
   status = writeH5AI32("blockSize", bsize, file, localnDSpace, myDSet);
+  status = writeH5AI32("includesGhost", &iGhost, file, localDSpace, myDSet);
   status = H5Sclose(localnDSpace);
 
   status = writeH5AI32("nbtotal", &pm->nbtotal, file, localDSpace, myDSet);
@@ -439,7 +444,7 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
       for (auto &v : ci.vars) {
         // Note index 4 transposed to interior
         if (vWriteName.compare(v->label()) == 0) {
-          auto v_h = (*v).data.GetHostMirrorAndCopy();
+          auto v_h = v->data.GetHostMirrorAndCopy();
           LOADVARIABLEONE(index, tmpData.data(), v_h, out_ib.s, out_ib.e, out_jb.s,
                           out_jb.e, out_kb.s, out_kb.e, vlen);
           found = true;

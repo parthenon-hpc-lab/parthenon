@@ -70,7 +70,13 @@
   /** Do boundary communication */                                                       \
   PARTHENON_INTERNAL_FOR_FLAG(FillGhost)                                                 \
   /** Communication arrays are a copy: hint to destructor */                             \
-  PARTHENON_INTERNAL_FOR_FLAG(SharedComms)
+  PARTHENON_INTERNAL_FOR_FLAG(SharedComms)                                               \
+  /** Boolean-valued quantity */                                                         \
+  PARTHENON_INTERNAL_FOR_FLAG(Boolean)                                                   \
+  /** Integer-valued quantity */                                                         \
+  PARTHENON_INTERNAL_FOR_FLAG(Integer)                                                   \
+  /** Real-valued quantity */                                                            \
+  PARTHENON_INTERNAL_FOR_FLAG(Real)
 
 namespace parthenon {
 
@@ -195,6 +201,17 @@ class Metadata {
       return Edge;
     } else if (IsSet(Node)) {
       return Node;
+    }
+    /// by default return Metadata::None
+    return None;
+  }
+
+  /// returns the type of the variable
+  MetadataFlag Type() const {
+    if (IsSet(Integer)) {
+      return Integer;
+    } else if (IsSet(Real)) {
+      return Real;
     }
     /// by default return Metadata::None
     return None;

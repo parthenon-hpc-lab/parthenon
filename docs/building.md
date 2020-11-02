@@ -36,11 +36,28 @@ If you come across a disfunctional setup, please report it by open an issue or p
 
 ### NB: CMake options prefixed with *PARTHENON\_* modify behavior.
 
+## Using Parthenon as a Subdirectory
+
+For simple applications, Parthenon can be added as a subdirectory to your
+project. For example, you can add parthenon as a git submodule:
+```
+git submodule add https://github.com/lanl/parthenon.git
+```
+
+And then you can use parthenon in your CMake project by adding it as a
+subdirectory:
+```cmake
+add_subdirectory(path/to/parthenon)
+
+add_executable(myapp ...)
+target_link_libraries(myapp PRIVATE Parthenon::parthenon)
+```
+
 ## Installing Parthenon
 
-An alternative to building Parthenon alongside a custom app (as in the examples)
-is to first build Parthenon separately as a library and then link to it
-when building the app. Parthenon can be built as either a static (default) or a shared library.
+An alternative to building Parthenon as a subdirectory is to first build
+Parthenon separately as a library and then link to it when building the app.
+Parthenon can be built as either a static (default) or a shared library.
 
 To build Parthenon as a library, provide a `CMAKE_INSTALL_PREFIX` path
 to the desired install location to the Parthenon cmake call. To build a shared rather
@@ -198,6 +215,61 @@ Currently Loaded Modules:
   3) lsf-tools/2.0   6) cuda/10.1.243           9) spectrum-mpi/10.3.1.2-20200121
 ```
 
+### LANL Darwin (Heterogeneous)
+
+#### Allocate Node
+
+Darwin is a heterogeneous cluster, giving LANL developers easy access to a
+wide variety of architectures. Therefore, before you do anything else, you
+should allocate a node in the partition you intend to work in. Currently any
+partition with either Haswell or newer x86-64 nodes (e.g. `general`,
+`skylake-gold`, `skylake-platinum`), or the `power9` partition will do.
+
+E.g.
+```bash
+$ salloc -p power9
+```
+
+#### Set-Up Environment (Optional, but Still Recommended, for Non-CUDA Builds)
+
+You can import all tools you need to start building with by sourcing the
+project `.bashrc`:
+
+```bash
+$ source /projects/parthenon-int/parthenon-project/.bashrc
+```
+
+This .bashrc will set the correct `MACHINE_CFG` file in your environment, import
+an architecture-specific set of recent build tools (currently cmake and ninja),
+and set Ninja as the default CMake generator.
+
+This step is required if you intend to build for CUDA (the default on Power9).
+
+#### Build the Code
+If you followed the "Set-Up Environment" section, configuration requires 0
+additional arguments:
+```bash
+$ cmake -S. -Bbuild
+```
+
+If you didn't follow the "Set-Up Environment" section, you need to specify the
+`MACHINE_CFG` file, as well.
+
+```bash
+$ cmake -S. -Bbuild -DMACHINE_CFG=cmake/machinecfg/Darwin.cmake
+```
+
+The Darwin-specific dependencies, including compilers, system dependencies, and
+python packages, are hard coded in `Darwin.cmake`, so you don't need anything
+else in your environment.
+
+Once you've configured your build directory, you can build with
+`cmake --build build`.
+
+#### Advanced
+LANL Employees - to understand how the project space is built out, see
+https://xcp-gitlab.lanl.gov/eap-oss/parthenon-project
+
 ### LLNL RZAnsel (Power9+Volta)
 
 Last verified 02 Sept 2020.
@@ -247,8 +319,7 @@ $ jsrun -p 2 -g 1 -c 20 -M "-gpu" ./example/advection/advection-example -i ../ex
 ```bash
 # configure and build
 $ mkdir build-cuda && cd build-cuda
-$ cmake -DCMAKE_BUILD_TYPE=Release -DMACHINE_CFG=${PARTHENON_ROOT}/cmake/machinecfg/Summit.cma
-ke -DMACHINE_VARIANT=cuda -DPARTHENON_DISABLE_MPI=On ${PARTHENON_ROOT}
+$ cmake -DCMAKE_BUILD_TYPE=Release -DMACHINE_CFG=${PARTHENON_ROOT}/cmake/machinecfg/Summit.cmake -DMACHINE_VARIANT=cuda -DPARTHENON_DISABLE_MPI=On ${PARTHENON_ROOT}
 $ make -j10
 
 # run unit tests (assumes running within a job, e.g., via `bsub -W 1:30 -nnodes 1 -P PROJECTID -Is /bin/bash`)

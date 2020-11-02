@@ -18,14 +18,18 @@
 #include <stdexcept>
 #include <string>
 
+#include "interface/swarm_container.hpp"
+
 namespace parthenon {
 class Mesh;
 
 template <typename T>
 class DataCollection {
  public:
+<<<<<<< HEAD:src/interface/data_collection.hpp
   DataCollection() {
     containers_["base"] = std::make_shared<T>(); // always add "base" container
+    swarmContainers_["base"] = std::make_shared<SwarmContainer>();
     pmy_mesh_ = nullptr;
   }
 
@@ -41,6 +45,7 @@ class DataCollection {
     containers_[label] = std::make_shared<T>();
     return containers_[label];
   }
+  void Add(const std::string &label, const std::shared_ptr<SwarmContainer> &src);
 
   std::shared_ptr<T> &Get() { return containers_["base"]; }
   std::shared_ptr<T> &Get(const std::string &label) {
@@ -52,6 +57,17 @@ class DataCollection {
   }
 
   std::shared_ptr<T> &GetOrAdd(const std::string &mbd_label, const int &partition_id);
+  std::shared_ptr<SwarmContainer> &GetSwarmContainer() {
+    return swarmContainers_["base"];
+  }
+  std::shared_ptr<SwarmContainer> &GetSwarmContainer(const std::string &label) {
+    auto it = swarmContainers_.find(label);
+    if (it == swarmContainers_.end()) {
+      throw std::runtime_error("SwarmContainer " + label +
+                               " does not exist in collection.");
+    }
+    return it->second;
+  }
 
   void PurgeNonBase() {
     auto c = containers_.begin();
@@ -62,11 +78,20 @@ class DataCollection {
         ++c;
       }
     }
+    auto sc = swarmContainers_.begin();
+    while (sc != swarmContainers_.end()) {
+      if (sc->first != "base") {
+        sc = swarmContainers_.erase(sc);
+      } else {
+        ++sc;
+      }
+    }
   }
 
  private:
   Mesh *pmy_mesh_;
   std::map<std::string, std::shared_ptr<T>> containers_;
+  std::map<std::string, std::shared_ptr<SwarmContainer>> swarmContainers_;
 };
 
 } // namespace parthenon
