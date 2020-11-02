@@ -118,7 +118,7 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   }
 
   auto &real_container = meshblock_data.Get();
-  auto &swarm_container = real_containers.GetSwarmContainer();
+  auto &swarm_container = meshblock_data.GetSwarmContainer();
   // Set the block pointer for the containers
   real_container->SetBlockPointer(shared_from_this());
   swarm_container->SetBlockPointer(shared_from_this());

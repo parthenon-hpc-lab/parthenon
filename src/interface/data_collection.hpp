@@ -26,7 +26,6 @@ class Mesh;
 template <typename T>
 class DataCollection {
  public:
-<<<<<<< HEAD:src/interface/data_collection.hpp
   DataCollection() {
     containers_["base"] = std::make_shared<T>(); // always add "base" container
     swarmContainers_["base"] = std::make_shared<SwarmContainer>();

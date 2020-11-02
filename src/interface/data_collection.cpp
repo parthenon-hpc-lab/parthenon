@@ -41,7 +41,7 @@ std::shared_ptr<T> DataCollection<T>::Add(const std::string &name,
   return containers_[name];
 }
 
-
+template <typename T>
 void DataCollection<T>::Add(const std::string &name,
                                  const std::shared_ptr<SwarmContainer> &src) {
   // error check for duplicate names
