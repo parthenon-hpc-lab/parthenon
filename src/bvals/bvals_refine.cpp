@@ -357,44 +357,6 @@ void BoundaryValues::ProlongateGhostCells(const NeighborBlock &nb, int si, int e
     // step 4. calculate the internal finer fields using the Toth & Roe method
     pmr->ProlongateInternalField((*var_fc), si, ei, sj, ej, sk, ek);
   }
-
-  // now that the ghost-ghost zones are filled and prolongated,
-  // calculate the loop limits for the finer grid
-  int fsi, fei, fsj, fej, fsk, fek;
-
-  const IndexDomain interior = IndexDomain::interior;
-  IndexRange cib = pmb->c_cellbounds.GetBoundsI(interior);
-  IndexRange cjb = pmb->c_cellbounds.GetBoundsJ(interior);
-  IndexRange ckb = pmb->c_cellbounds.GetBoundsK(interior);
-
-  fsi = (si - cib.s) * 2 + pmb->cellbounds.is(interior);
-  fei = (ei - cib.s) * 2 + pmb->cellbounds.is(interior) + 1;
-  if (pmb->block_size.nx2 > 1) {
-    fsj = (sj - cjb.s) * 2 + pmb->cellbounds.js(interior);
-    fej = (ej - cjb.s) * 2 + pmb->cellbounds.js(interior) + 1;
-  } else {
-    fsj = pmb->cellbounds.js(interior);
-    fej = pmb->cellbounds.je(interior);
-  }
-
-  if (pmb->block_size.nx3 > 1) {
-    fsk = (sk - ckb.s) * 2 + pmb->cellbounds.ks(interior);
-    fek = (ek - ckb.s) * 2 + pmb->cellbounds.ks(interior) + 1;
-  } else {
-    fsk = pmb->cellbounds.ks(interior);
-    fek = pmb->cellbounds.ke(interior);
-  }
-
-  // KGF: COUPLING OF QUANTITIES (must be manually specified)
-  // Field prolongation completed, calculate cell centered fields
-  // TODO(KGF): passing nullptrs (pf) if no MHD (coarse_* no longer in MeshRefinement)
-  // (may be fine to unconditionally directly set to pmb->pfield now. see above comment)
-
-  // KGF: COUPLING OF QUANTITIES (must be manually specified)
-  // calculate conservative variables
-  // pmb->peos->PrimitiveToConserved(ph->w, pf->bcc, ph->u, pmb->pcoord,
-  //                                fsi, fei, fsj, fej, fsk, fek);
-  return;
 }
 
 } // namespace parthenon
