@@ -195,7 +195,6 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   //  const IndexDomain interior = IndexDomain::interior;
   const IndexDomain theDomain =
       (resfile.hasGhost ? IndexDomain::entire : IndexDomain::interior);
-  auto &packages = rm.packages;
   // Get block list and temp array size
   auto &mb = *(rm.block_list.front());
   int nb = rm.GetNumMeshBlocksThisRank(Globals::my_rank);

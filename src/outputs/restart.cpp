@@ -58,8 +58,6 @@ std::string RestartReader::ReadAttrString(const char *dataset, const char *name,
   // Returns entire 1D array.
   // status, never checked.  We should...
 #ifdef HDF5OUTPUT
-  herr_t status;
-
   hid_t theHdfType = H5T_C_S1;
 
   hid_t dset = H5Dopen2(fh_, dataset, H5P_DEFAULT);
@@ -76,10 +74,10 @@ std::string RestartReader::ReadAttrString(const char *dataset, const char *name,
 
   char *s = static_cast<char *>(calloc(isize + 1, sizeof(char)));
   // Read data from file
-  //  status = H5Aread(attr, theHdfType, static_cast<void *>(s));
+  //  H5Aread(attr, theHdfType, static_cast<void *>(s));
   hid_t memType = H5Tcopy(H5T_C_S1);
-  status = H5Tset_size(memType, isize);
-  status = H5Aread(attr, memType, s);
+  H5Tset_size(memType, isize);
+  H5Aread(attr, memType, s);
   std::string data(s);
   free(s);
 
@@ -167,20 +165,18 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
   /* create an MPI_INFO object -- on some platforms it is useful to
      pass some information onto the underlying MPI_File_open call */
   MPI_Info FILE_INFO_TEMPLATE;
-  int ierr;
-  MPI_Status stat;
-  ierr = MPI_Info_create(&FILE_INFO_TEMPLATE);
-  ierr = H5Pset_sieve_buf_size(acc_file, 262144);
-  ierr = H5Pset_alignment(acc_file, 524288, 262144);
+  MPI_Info_create(&FILE_INFO_TEMPLATE);
+  H5Pset_sieve_buf_size(acc_file, 262144);
+  H5Pset_alignment(acc_file, 524288, 262144);
 
-  ierr = MPI_Info_set(FILE_INFO_TEMPLATE, "access_style", "write_once");
-  ierr = MPI_Info_set(FILE_INFO_TEMPLATE, "collective_buffering", "true");
-  ierr = MPI_Info_set(FILE_INFO_TEMPLATE, "cb_block_size", "1048576");
-  ierr = MPI_Info_set(FILE_INFO_TEMPLATE, "cb_buffer_size", "4194304");
+  MPI_Info_set(FILE_INFO_TEMPLATE, "access_style", "write_once");
+  MPI_Info_set(FILE_INFO_TEMPLATE, "collective_buffering", "true");
+  MPI_Info_set(FILE_INFO_TEMPLATE, "cb_block_size", "1048576");
+  MPI_Info_set(FILE_INFO_TEMPLATE, "cb_buffer_size", "4194304");
 
   /* tell the HDF5 library that we want to use MPI-IO to do the writing */
-  ierr = H5Pset_fapl_mpio(acc_file, MPI_COMM_WORLD, FILE_INFO_TEMPLATE);
-  ierr = H5Pset_fapl_mpio(acc_file, MPI_COMM_WORLD, MPI_INFO_NULL);
+  H5Pset_fapl_mpio(acc_file, MPI_COMM_WORLD, FILE_INFO_TEMPLATE);
+  H5Pset_fapl_mpio(acc_file, MPI_COMM_WORLD, MPI_INFO_NULL);
 #endif
 
   // now open the file
@@ -191,7 +187,6 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
 
   // write timestep relevant attributes
   hid_t localDSpace, localnDSpace, myDSet;
-  herr_t status;
   hsize_t nLen;
 
   { // write input key-value pairs
@@ -203,11 +198,11 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
     myDSet = H5Dcreate(file, "/Input", PREDINT32, localDSpace, H5P_DEFAULT, H5P_DEFAULT,
                        H5P_DEFAULT);
 
-    status = writeH5ASTRING("File", oss.str(), file, localDSpace, myDSet);
+    writeH5ASTRING("File", oss.str(), file, localDSpace, myDSet);
 
     // close space and set
-    status = H5Sclose(localDSpace);
-    status = H5Dclose(myDSet);
+    H5Sclose(localDSpace);
+    H5Dclose(myDSet);
   }
 
   localDSpace = H5Screate(H5S_SCALAR);
@@ -217,23 +212,22 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
   int rootLevel = pm->GetRootLevel();
   int max_level = pm->GetCurrentLevel() - rootLevel;
   if (tm != nullptr) {
-    status = writeH5AI32("NCycle", &(tm->ncycle), file, localDSpace, myDSet);
-    status = writeH5AF64("Time", &(tm->time), file, localDSpace, myDSet);
-    status = writeH5AF64("dt", &(tm->dt), file, localDSpace, myDSet);
+    writeH5AI32("NCycle", &(tm->ncycle), file, localDSpace, myDSet);
+    writeH5AF64("Time", &(tm->time), file, localDSpace, myDSet);
+    writeH5AF64("dt", &(tm->dt), file, localDSpace, myDSet);
   }
-  status = writeH5ASTRING("Coordinates", std::string(mb.coords.Name()), file, localDSpace,
-                          myDSet);
+  writeH5ASTRING("Coordinates", std::string(mb.coords.Name()), file, localDSpace, myDSet);
 
-  status = writeH5AI32("NumDims", &pm->ndim, file, localDSpace, myDSet);
+  writeH5AI32("NumDims", &pm->ndim, file, localDSpace, myDSet);
 
-  status = H5Sclose(localDSpace);
+  H5Sclose(localDSpace);
 
   hsize_t nPE = Globals::nranks;
   localDSpace = H5Screate_simple(1, &nPE, NULL);
   auto nblist = pm->GetNbList();
-  status = writeH5AI32("BlocksPerPE", nblist.data(), file, localDSpace, myDSet);
-  status = H5Sclose(localDSpace);
-  status = H5Dclose(myDSet);
+  writeH5AI32("BlocksPerPE", nblist.data(), file, localDSpace, myDSet);
+  H5Sclose(localDSpace);
+  H5Dclose(myDSet);
 
   // Mesh information
   localDSpace = H5Screate(H5S_SCALAR);
@@ -246,22 +240,22 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
   int bsize[3] = {mb.block_size.nx1, mb.block_size.nx2, mb.block_size.nx3};
   nLen = 3;
   localnDSpace = H5Screate_simple(1, &nLen, NULL);
-  status = writeH5AI32("blockSize", bsize, file, localnDSpace, myDSet);
-  status = writeH5AI32("includesGhost", &iGhost, file, localDSpace, myDSet);
-  status = H5Sclose(localnDSpace);
+  writeH5AI32("blockSize", bsize, file, localnDSpace, myDSet);
+  writeH5AI32("includesGhost", &iGhost, file, localDSpace, myDSet);
+  H5Sclose(localnDSpace);
 
-  status = writeH5AI32("nbtotal", &pm->nbtotal, file, localDSpace, myDSet);
-  status = writeH5AI32("nbnew", &pm->nbnew, file, localDSpace, myDSet);
-  status = writeH5AI32("nbdel", &pm->nbdel, file, localDSpace, myDSet);
-  status = writeH5AI32("rootLevel", &rootLevel, file, localDSpace, myDSet);
-  status = writeH5AI32("MaxLevel", &max_level, file, localDSpace, myDSet);
+  writeH5AI32("nbtotal", &pm->nbtotal, file, localDSpace, myDSet);
+  writeH5AI32("nbnew", &pm->nbnew, file, localDSpace, myDSet);
+  writeH5AI32("nbdel", &pm->nbdel, file, localDSpace, myDSet);
+  writeH5AI32("rootLevel", &rootLevel, file, localDSpace, myDSet);
+  writeH5AI32("MaxLevel", &max_level, file, localDSpace, myDSet);
 
   { // refinement flag
     int refine = (pm->adaptive ? 1 : 0);
-    status = writeH5AI32("refine", &refine, file, localDSpace, myDSet);
+    writeH5AI32("refine", &refine, file, localDSpace, myDSet);
 
     int multilevel = (pm->multilevel ? 1 : 0);
-    status = writeH5AI32("multilevel", &multilevel, file, localDSpace, myDSet);
+    writeH5AI32("multilevel", &multilevel, file, localDSpace, myDSet);
   }
 
   { // mesh bounds
@@ -270,13 +264,13 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
     const Real ratios[3] = {rs.x1rat, rs.x2rat, rs.x3rat};
     nLen = 6;
     localnDSpace = H5Screate_simple(1, &nLen, NULL);
-    status = writeH5AF64("bounds", limits, file, localnDSpace, myDSet);
-    status = H5Sclose(localnDSpace);
+    writeH5AF64("bounds", limits, file, localnDSpace, myDSet);
+    H5Sclose(localnDSpace);
 
     nLen = 3;
     localnDSpace = H5Screate_simple(1, &nLen, NULL);
-    status = writeH5AF64("ratios", ratios, file, localnDSpace, myDSet);
-    status = H5Sclose(localnDSpace);
+    writeH5AF64("ratios", ratios, file, localnDSpace, myDSet);
+    H5Sclose(localnDSpace);
   }
 
   { // boundary conditions
@@ -286,13 +280,13 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
     for (int ib = 0; ib < 6; ib++) {
       bcsi[ib] = static_cast<int>(pm->mesh_bcs[ib]);
     }
-    status = writeH5AI32("bc", bcsi, file, localnDSpace, myDSet);
-    status = H5Sclose(localnDSpace);
+    writeH5AI32("bc", bcsi, file, localnDSpace, myDSet);
+    H5Sclose(localnDSpace);
   }
 
   // close space and set
-  status = H5Sclose(localDSpace);
-  status = H5Dclose(myDSet);
+  H5Sclose(localDSpace);
+  H5Dclose(myDSet);
 
   // end mesh section
 
@@ -300,7 +294,6 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
   // MeshBlock information
   // Write mesh coordinates to file
   hsize_t local_start[5], global_count[5], local_count[5];
-  hid_t gLocations;
 
   local_start[0] = 0;
   local_start[1] = 0;
@@ -466,8 +459,8 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
 
 #ifdef MPI_PARALLEL
   /* release the file access template */
-  ierr = H5Pclose(acc_file);
-  ierr = MPI_Info_free(&FILE_INFO_TEMPLATE);
+  H5Pclose(acc_file);
+  MPI_Info_free(&FILE_INFO_TEMPLATE);
 #endif
 
   H5Pclose(property_list);
@@ -484,7 +477,6 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
 void instantiateReader_(RestartReader &rr) {
   // aroutine to instantiate templated routines so they can be used elsewhere
   size_t count;
-  IndexRange myBlocks{0, 0};
   auto dataI32 = rr.ReadDataset<int32_t>("xxx", &count);
   auto dataI64 = rr.ReadDataset<int64_t>("xxx", &count);
   auto dataFloat = rr.ReadDataset<float>("xxx", &count);
