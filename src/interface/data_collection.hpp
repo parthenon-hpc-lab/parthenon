@@ -18,8 +18,6 @@
 #include <stdexcept>
 #include <string>
 
-#include "interface/swarm_container.hpp"
-
 namespace parthenon {
 class Mesh;
 
