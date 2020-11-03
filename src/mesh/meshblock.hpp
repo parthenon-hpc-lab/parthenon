@@ -32,7 +32,6 @@
 #include "domain.hpp"
 #include "interface/data_collection.hpp"
 #include "interface/meshblock_data.hpp"
-//#include "interface/update.hpp"
 #include "kokkos_abstraction.hpp"
 #include "outputs/io_wrapper.hpp"
 #include "parameter_input.hpp"

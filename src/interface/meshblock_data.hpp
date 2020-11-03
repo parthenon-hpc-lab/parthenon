@@ -19,6 +19,7 @@
 #include <utility>
 #include <vector>
 
+#include "interface/data_collection.hpp"
 #include "interface/sparse_variable.hpp"
 #include "interface/variable.hpp"
 #include "interface/variable_pack.hpp"
@@ -64,7 +65,7 @@ class MeshBlockData {
     return pmy_block.lock();
   }
 
-  void Copy(const std::shared_ptr<MeshBlockData<T>> src) {
+  void Copy(const std::shared_ptr<MeshBlockData<T>> &src) {
     SetBlockPointer(src);
     for (auto v : src->GetCellVariableVector()) {
       if (v->IsSet(Metadata::OneCopy)) {
@@ -405,6 +406,8 @@ class MeshBlockData {
                                        const vpack_types::VarList<T> &vars,
                                        PackIndexMap &vmap);
 };
+
+using MeshBlockDataCollection = DataCollection<MeshBlockData<Real>>;
 
 } // namespace parthenon
 

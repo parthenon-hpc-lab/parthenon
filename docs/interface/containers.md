@@ -1,14 +1,14 @@
-# MeshBlockDatas, MeshBlockData Iterators, and Variable Packs
+# MeshBlockData, MeshBlockData Iterators, and Variable Packs
 
-## MeshBlockDatas
+## MeshBlockData
 
-A *meshblock data container* owns *variables.* Each variable is named, and the
-meshblock data container knows about various types of variables, such as whether the
-variable is for cell-centered data, face-centered data, sparse data,
+A *`MeshBlockData` container* owns *`Variable`s.* Each `Variable` is named, and the
+`MeshBlockData` container knows about various types of `Variable`s, such as whether the
+`Variable` is for cell-centered data, face-centered data, sparse data,
 or dense data. (For more details on anonymous variables, see
-[here](Metadata.md).) Variables in a meshblock data container can be different
-shapes, e.g., scalar, tensor, etc.A variable can be added to a
-meshblock data container as:
+[here](Metadata.md).) `Variable`s in a `MeshBlockData` container can be different
+shapes, e.g., scalar, tensor, etc. A `Variable` can be added to a
+`MeshBlockData` container as:
 ```C++
 parthenon::MeshBlockData.Add(name, metadata, shape)
 ```
@@ -34,35 +34,35 @@ lives, then shape is the shape of the full array. I.e., a
 shape = std::vector<int>({11,12,13,14});
 ```
 
-It is often desirable to extract from a meshblock data container a specific set of
-variables that have desired names, sparse ids, or conform to specific
-metadata flags. This set of variables must be collected in such a way
+It is often desirable to extract from a `MeshBlockData` container a specific set of
+`Variable`s that have desired names, sparse ids, or conform to specific
+metadata flags. This set of `Variable`s must be collected in such a way
 that it can be accessed easily and performantly on a GPU, and such
 that one can index into the collection in a known way. This capability
-is provided by *variable packs*.
+is provided by *`VariablePack`s*.
 
-To extract a variable pack for variables with a set of names, call 
+To extract a `VariablePack` for `Variable`s with a set of names, call
 ```C++
-container.PackVariables(names, map)
+meshblock_data.PackVariables(names, map)
 ```
 where `names` is a `std::vector` of strings and `map` is an 
 instance of a `parthenon::PackIndexMap`. 
 This will return a `VariablePack` object, which 
-is essentially a `Kokkos::view` of `parthenon::ParArray3D`s. 
+is essentially a `Kokkos::View` of `parthenon::ParArray3D`s.
 The map will be filled by reference as a map from 
-variable names to indices in the `VariablePack`.
+`Variable` names to indices in the `VariablePack`.
 
 Similar methods are available for metadata and sparse IDs:
 ```C++
-container.PackVariables(metadata, ids, map)
-container.PackVariables(metadata, map)
+meshblock_data.PackVariables(metadata, ids, map)
+meshblock_data.PackVariables(metadata, map)
 ```
-If you would like all variables in a meshblock data container, 
+If you would like all `Variable`s in a `MeshBlockData` container,
 you can ommit the metadata or name arguments:
 ```C++
-container.PackVariables(map)
+meshblock_data.PackVariables(map)
 ```
-If you do not care about indexing into variables by name, 
+If you do not care about indexing into `Variable`s by name,
 you can ommit the `map` argument in any of the above calls.
 
 For examples of use, see [here](../../tst/unit/test_meshblock_data_iterator.cpp).
@@ -91,14 +91,14 @@ needs to be registered as `MeshBlockData` first before it can be accessed throug
 Therefore, it needs to be setup/registered with some number of `MeshBlock`s
 (at least one and at most all), which is referred to as partitioning.
 
-The `Partition` machinery found in [`utils/partition_stl_containers.hpp`](../../src/utils/partition_stl_containers.hpp).
+The `Partition` machinery is implemented in [`utils/partition_stl_containers.hpp`](../../src/utils/partition_stl_containers.hpp).
 
 Registration and partitioning can be controlled manually or automatically
 (recommended in multi-stage drivers).
 
 ### Manual registration
 
-The following steps (used in the `calculate_pi` example [here](../../example/calculate_pi/pi_driver.cpp) ) are need to manually register and fill a `MeshData` object.
+The following steps (used in the `calculate_pi` example [here](../../example/calculate_pi/pi_driver.cpp) ) are needed to manually register and fill a `MeshData` object.
 
 ```c++
 // Number of MeshBlocks per Partition
@@ -109,7 +109,7 @@ auto partitions = partition::ToSizeN(pmesh->block_list, pack_size);
 // number as label and containing references to the data stored in the "base" MeshBlockPack
 for (int i = 0; i < partitions.size(); i++) {
   const std::string label = std::to_string(i);
-  auto mest_data = pmesh->mesh_data.Add(label);
+  auto mesh_data = pmesh->mesh_data.Add(label);
   // assign MeshBlocks of partitions[i] and data stored in "base" MeshBlockPack to MeshData object
   mesh_data->Set(partitions[i], "base");
 }
@@ -129,7 +129,7 @@ Both functions live within the namespace `parthenon::partition` and `Partition_t
 is defined as:
 ```C++
 template<typename T>
-using Parition_t = std::vector<std::vector<T>>
+using Partition_t = std::vector<std::vector<T>>
 ```
 
 The `pmesh->DefaultPackSize()` is controlled via the `pack_size` variable
@@ -231,5 +231,5 @@ and
 ```C++
 MeshBlockVarFluxPack<T>
 ```
-which correspond to packs over meshblocks that contain just variables
+which correspond to packs over `MeshBlock`s that contain just variables
 or contain variables and fluxes.
