@@ -22,13 +22,13 @@ function(required_python_modules_found module_list)
       execute_process(COMMAND ${Python3_EXECUTABLE} -c "import ${module}"
         RESULT_VARIABLE IMPORT_MODULE ERROR_QUIET)
     
-      if(${IMPORT_MODULE} EQUAL 1)
+      if(NOT ${IMPORT_MODULE} EQUAL 0)
         set(IMPORT_ERROR 1)
         list(APPEND MISSING_MODULES ${module})
       endif()
     endforeach()
 
-    if(${IMPORT_ERROR})
+    if (IMPORT_ERROR)
       message(FATAL_ERROR "Required python module(s) ${MISSING_MODULES} not found.") 
     endif()
   endif()
