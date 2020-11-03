@@ -125,11 +125,12 @@ std::function<void()> createLambdaContainerCellVar(Container<Real> &container,
   return [&]() {
     for (int n = 0; n < names.size(); n++) {
       CellVariable<Real> &v = container.Get(names[n]);
+      auto data = v.data;
       par_for(
           DEFAULT_LOOP_PATTERN, "Initialize variables", DevExecSpace(), 0,
           v.GetDim(4) - 1, 0, v.GetDim(3) - 1, 0, v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
           KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
-            v.data(l, k, j, i) = static_cast<Real>((l + 1) * (k + 1) * (j + 1) * (i + 1));
+            data(l, k, j, i) = static_cast<Real>((l + 1) * (k + 1) * (j + 1) * (i + 1));
           });
     }
     return container;
