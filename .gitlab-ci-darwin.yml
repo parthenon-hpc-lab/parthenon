@@ -8,7 +8,7 @@ variables:
   MODULE_MPI: "openmpi/p9/4.0.2-gcc_7.4.0"
   NUM_GPU_DEVICES_PER_NODE: 2
   NUM_MPI_PROC_TESTING: 2
-  OMP_NUM_THREADS: 40
+  OMP_NUM_THREADS: 1
   CMAKE_BUILD_TYPE: "Release" 
   Kokkos_ARCH_POWER9: "ON" 
   Kokkos_ARCH_VOLTA70: "ON" 
