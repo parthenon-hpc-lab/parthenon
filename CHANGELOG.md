@@ -5,6 +5,7 @@
 ### Added (new features/APIs/variables/...)
 - [[PR 335]](https://github.com/lanl/parthenon/pull/335) Support for project-relative `MACHINE_CFG` with `@PAR_ROOT@`
 - [[PR 200]](https://github.com/lanl/parthenon/pull/200) Adds support for running ci on power9 nodes. 
+- [[PR 347]](https://github.com/lanl/parthenon/pull/347) Sped up darwin ci by using pre installed spack packages from project space
 
 ### Changed (changing behavior/API/variables/...)
 
