@@ -18,7 +18,6 @@ cache:
 
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
-
 stages:
   - short
   - performance_and_regression
