@@ -29,5 +29,5 @@ parthenon-power9-gcc-mpi-cuda-perf-schedule:
   stage: performance-regression
   only:
     - schedules
-    - master
+    - develop
 
