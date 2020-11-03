@@ -160,6 +160,8 @@ class MeshData {
   MapToMeshBlockFluxPack<T> varFluxPackMap_;
 };
 
+using MeshDataCollection = DataCollection<MeshData<Real>>;
+
 } // namespace parthenon
 
 #endif // INTERFACE_MESH_DATA_HPP_

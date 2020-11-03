@@ -51,7 +51,7 @@ class MultiStageBlockTaskDriver : public MultiStageDriver {
   // An application driver that derives from this class must define this
   // function, which defines the application specific list of tasks and
   // there dependencies that must be executed.
-  virtual auto MakeTaskCollection(BlockList_t &blocks, int stage) -> TaskCollection = 0;
+  virtual TaskCollection MakeTaskCollection(BlockList_t &blocks, int stage) = 0;
 };
 
 } // namespace parthenon
