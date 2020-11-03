@@ -33,8 +33,6 @@ template <typename T>
 class MeshData {
  public:
   MeshData() = default;
-  // MeshData(const Mesh *pmesh, const std::string &name);
-  // explicit MeshData(const Mesh *pmesh) : MeshData(pmesh, "base") { }
 
   Mesh *GetMeshPointer() const { return pmy_mesh_; }
 

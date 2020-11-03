@@ -64,7 +64,7 @@ class MeshBlockData {
     return pmy_block.lock();
   }
 
-  void Copy(const std::shared_ptr<MeshBlockData<T>> src) {
+  void Copy(const std::shared_ptr<MeshBlockData<T>> &src) {
     SetBlockPointer(src);
     for (auto v : src->GetCellVariableVector()) {
       if (v->IsSet(Metadata::OneCopy)) {

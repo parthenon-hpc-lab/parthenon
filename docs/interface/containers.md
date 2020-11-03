@@ -1,6 +1,6 @@
-# MeshBlockDatas, MeshBlockData Iterators, and Variable Packs
+# MeshBlockData, MeshBlockData Iterators, and Variable Packs
 
-## MeshBlockDatas
+## MeshBlockData
 
 A *meshblock data container* owns *variables.* Each variable is named, and the
 meshblock data container knows about various types of variables, such as whether the
@@ -98,7 +98,7 @@ Registration and partitioning can be controlled manually or automatically
 
 ### Manual registration
 
-The following steps (used in the `calculate_pi` example [here](../../example/calculate_pi/pi_driver.cpp) ) are need to manually register and fill a `MeshData` object.
+The following steps (used in the `calculate_pi` example [here](../../example/calculate_pi/pi_driver.cpp) ) are needed to manually register and fill a `MeshData` object.
 
 ```c++
 // Number of MeshBlocks per Partition
@@ -109,7 +109,7 @@ auto partitions = partition::ToSizeN(pmesh->block_list, pack_size);
 // number as label and containing references to the data stored in the "base" MeshBlockPack
 for (int i = 0; i < partitions.size(); i++) {
   const std::string label = std::to_string(i);
-  auto mest_data = pmesh->mesh_data.Add(label);
+  auto mesh_data = pmesh->mesh_data.Add(label);
   // assign MeshBlocks of partitions[i] and data stored in "base" MeshBlockPack to MeshData object
   mesh_data->Set(partitions[i], "base");
 }
@@ -129,7 +129,7 @@ Both functions live within the namespace `parthenon::partition` and `Partition_t
 is defined as:
 ```C++
 template<typename T>
-using Parition_t = std::vector<std::vector<T>>
+using Partition_t = std::vector<std::vector<T>>
 ```
 
 The `pmesh->DefaultPackSize()` is controlled via the `pack_size` variable
