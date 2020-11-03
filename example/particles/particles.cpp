@@ -104,7 +104,7 @@ TaskStatus SetTimestepTask(std::shared_ptr<MeshBlockData<Real>> &rc) {
 
 TaskStatus DestroySomeParticles(MeshBlock *pmb) {
   auto pkg = pmb->packages["particles_package"];
-  auto swarm = pmb->meshblock_data.GetSwarmContainer()->Get("my particles");
+  auto swarm = pmb->swarm_data.Get()->Get("my particles");
   auto rng_pool = pkg->Param<RNGPool>("rng_pool");
 
   // The swarm mask is managed internally and should always be treated as constant. This
@@ -131,7 +131,7 @@ TaskStatus DestroySomeParticles(MeshBlock *pmb) {
 }
 
 TaskStatus DepositParticles(MeshBlock *pmb) {
-  auto swarm = pmb->meshblock_data.GetSwarmContainer()->Get("my particles");
+  auto swarm = pmb->swarm_data.Get()->Get("my particles");
 
   // Meshblock geometry
   const IndexRange &ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
@@ -177,7 +177,7 @@ TaskStatus DepositParticles(MeshBlock *pmb) {
 
 TaskStatus CreateSomeParticles(MeshBlock *pmb) {
   auto pkg = pmb->packages["particles_package"];
-  auto swarm = pmb->meshblock_data.GetSwarmContainer()->Get("my particles");
+  auto swarm = pmb->swarm_data.Get()->Get("my particles");
   auto rng_pool = pkg->Param<RNGPool>("rng_pool");
   auto num_particles = pkg->Param<int>("num_particles");
   auto v = pkg->Param<Real>("particle_speed");
@@ -234,7 +234,7 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb) {
 }
 
 TaskStatus TransportParticles(MeshBlock *pmb, Integrator *integrator) {
-  auto swarm = pmb->meshblock_data.GetSwarmContainer()->Get("my particles");
+  auto swarm = pmb->swarm_data.Get()->Get("my particles");
 
   int max_active_index = swarm->get_max_active_index();
 
@@ -311,7 +311,7 @@ TaskStatus TransportParticles(MeshBlock *pmb, Integrator *integrator) {
 }
 
 TaskStatus Defrag(MeshBlock *pmb) {
-  auto s = pmb->meshblock_data.GetSwarmContainer()->Get("my particles");
+  auto s = pmb->swarm_data.Get()->Get("my particles");
 
   // Only do this if list is getting too sparse. This criterion (whether there
   // are *any* gaps in the list) is very aggressive
@@ -340,7 +340,7 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
     auto &pmb = blocks[i];
     auto &tl = async_region1[i];
 
-    auto sc = pmb->meshblock_data.GetSwarmContainer();
+    auto sc = pmb->swarm_data.Get();
 
     auto swarm = sc->Get("my particles");
 

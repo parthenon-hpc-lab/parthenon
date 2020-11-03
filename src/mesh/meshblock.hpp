@@ -32,6 +32,7 @@
 #include "domain.hpp"
 #include "interface/data_collection.hpp"
 #include "interface/meshblock_data.hpp"
+#include "interface/swarm_container.hpp"
 #include "kokkos_abstraction.hpp"
 #include "outputs/io_wrapper.hpp"
 #include "parameter_input.hpp"
@@ -144,6 +145,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
 
   // The User defined containers
   DataCollection<MeshBlockData<Real>> meshblock_data;
+  DataCollection<SwarmContainer> swarm_data;
 
   Properties_t properties;
   Packages_t packages;

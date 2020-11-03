@@ -41,33 +41,6 @@ std::shared_ptr<T> DataCollection<T>::Add(const std::string &name,
   return containers_[name];
 }
 
-template <typename T>
-void DataCollection<T>::Add(const std::string &name,
-                            const std::shared_ptr<SwarmContainer> &src) {
-  // error check for duplicate names
-  auto it = swarmContainers_.find(name);
-  if (it != swarmContainers_.end()) {
-    // check to make sure they are the same
-    if (!(*src == *(it->second))) {
-      throw std::runtime_error(
-          "Error attempting to add a SwarmContainer to a Collection");
-    }
-    return;
-  }
-
-  auto sc = std::make_shared<SwarmContainer>();
-  sc->SetBlockPointer(src);
-  for (auto v : src->GetSwarmVector()) {
-    if (v->IsSet(Metadata::OneCopy)) {
-      sc->Add(v);
-    } else {
-      sc->Add(v->AllocateCopy());
-    }
-  }
-
-  swarmContainers_[name] = sc;
-}
-
 template <>
 std::shared_ptr<MeshData<Real>> &
 DataCollection<MeshData<Real>>::GetOrAdd(const std::string &mbd_label,
