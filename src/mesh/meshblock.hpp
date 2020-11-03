@@ -48,6 +48,7 @@ class Mesh;
 class MeshBlockTree;
 class MeshRefinement;
 class ParameterInput;
+class MeshBlockDevice;
 
 // These Forward declarations need duplicated using statements.
 class StateDescriptor;
@@ -65,9 +66,22 @@ KOKKOS_INLINE_FUNCTION void par_for_inner(const team_mbr_t &team_member, const i
   parthenon::par_for_inner(DEFAULT_INNER_LOOP_PATTERN, team_member, il, iu, function);
 }
 
+//! \class MeshBlockDevice
+//! \brief "device" view of MeshBlock for use in Kokkos contexts
+class MeshBlockDevice {
+ public:
+  // Inner loop default pattern
+  template <typename Function>
+  KOKKOS_INLINE_FUNCTION void par_for_inner(const team_mbr_t &team_member, const int &il,
+                                            const int &iu, const Function &function) const
+      noexcept {
+    parthenon::par_for_inner(DEFAULT_INNER_LOOP_PATTERN, team_member, il, iu, function);
+  }
+};
+
 //----------------------------------------------------------------------------------------
 //! \class MeshBlock
-//  \brief data/functions associated with a single block
+//! \brief data/functions associated with a single block
 class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   friend class RestartOutput;
   friend class Mesh;
@@ -191,17 +205,25 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   inline void par_for_outer(const std::string &name, const size_t &scratch_size_in_bytes,
                             const int &scratch_level, const int &kl, const int &ku,
                             const Function &function) {
-    parthenon::par_for_outer(DEFAULT_OUTER_LOOP_PATTERN, name, exec_space,
-                             scratch_size_in_bytes, scratch_level, kl, ku, function);
+    MeshBlockDevice mbd;
+    parthenon::par_for_outer(
+        DEFAULT_OUTER_LOOP_PATTERN, name, exec_space, scratch_size_in_bytes,
+        scratch_level, kl, ku, KOKKOS_LAMBDA(parthenon::team_mbr_t const &member, int k) {
+          return function(member, mbd, k);
+        });
   }
   // 2D Outer default loop pattern
   template <typename Function>
   inline void par_for_outer(const std::string &name, const size_t &scratch_size_in_bytes,
                             const int &scratch_level, const int &kl, const int &ku,
                             const int &jl, const int &ju, const Function &function) {
-    parthenon::par_for_outer(DEFAULT_OUTER_LOOP_PATTERN, name, exec_space,
-                             scratch_size_in_bytes, scratch_level, kl, ku, jl, ju,
-                             function);
+    MeshBlockDevice mbd;
+    parthenon::par_for_outer(
+        DEFAULT_OUTER_LOOP_PATTERN, name, exec_space, scratch_size_in_bytes,
+        scratch_level, kl, ku, jl, ju,
+        KOKKOS_LAMBDA(parthenon::team_mbr_t const &member, int k, int j) {
+          return function(member, mbd, k, j);
+        });
   }
 
   // 3D Outer default loop pattern
@@ -213,13 +235,6 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
     parthenon::par_for_outer(DEFAULT_OUTER_LOOP_PATTERN, name, exec_space,
                              scratch_size_in_bytes, scratch_level, nl, nu, kl, ku, jl, ju,
                              function);
-  }
-
-  // Inner loop default pattern
-  template <typename Function>
-  KOKKOS_INLINE_FUNCTION void par_for_inner(const team_mbr_t &team_member, const int &il,
-                                            const int &iu, const Function &function) {
-    parthenon::par_for_inner(DEFAULT_INNER_LOOP_PATTERN, team_member, il, iu, function);
   }
 
   std::size_t GetBlockSizeInBytes();
