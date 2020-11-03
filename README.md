@@ -2,6 +2,7 @@
 
 [![codecov](https://codecov.io/gh/lanl/parthenon/branch/master/graph/badge.svg)](https://codecov.io/gh/lanl/parthenon)
 [![testing](https://gitlab.com/theias/hpc/jmstone/athena-parthenon/parthenon-ci-mirror/badges/develop/pipeline.svg)](https://gitlab.com/theias/hpc/jmstone/athena-parthenon/parthenon-ci-mirror/-/commits/develop)
+[![darwin](https://xcp-gitlab.lanl.gov/eap-oss/parthenon/badges/develop/pipeline.svg)](https://xcp-gitlab.lanl.gov/eap-oss/parthenon/-/commits/develop)
 
 Parthenon performance portable AMR framework
 
