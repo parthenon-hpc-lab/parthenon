@@ -86,10 +86,10 @@ using MeshBlockVarFluxPack = MeshBlockPack<VariableFluxPack<T>>;
 template <typename T>
 using MeshPackIndxPair = PackAndIndexMap<MeshBlockPack<T>>;
 template <typename T>
-using MapToMeshBlockPack =
+using MapToMeshBlockVarPack =
     std::map<std::vector<std::string>, MeshBlockPack<VariablePack<T>>>;
 template <typename T>
-using MapToMeshBlockFluxPack =
+using MapToMeshBlockVarFluxPack =
     std::map<vpack_types::StringPair, MeshBlockPack<VariableFluxPack<T>>>;
 
 } // namespace parthenon

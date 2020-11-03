@@ -30,6 +30,42 @@ template <typename T>
 class MeshBlockData;
 
 template <typename T>
+using BlockDataList_t = std::vector<std::shared_ptr<MeshBlockData<T>>>;
+
+namespace pack_on_mesh_impl {
+template <typename T, typename K, typename M, typename F>
+MeshBlockPack<T> PackOnMesh(K &key, M &map, BlockDataList_t<Real> &block_data_,
+                            F &packing_function) {
+  auto kvpair = map.find(key);
+  if (kvpair == map.end()) {
+    int nblocks = block_data_.size();
+    ParArray1D<T> packs("MeshData::PackVariables::packs", nblocks);
+    auto packs_host = Kokkos::create_mirror_view(packs);
+    ParArray1D<Coordinates_t> coords("MeshData::PackVariables::coords", nblocks);
+    auto coords_host = Kokkos::create_mirror_view(coords);
+    for (int i = 0; i < nblocks; i++) {
+      packs_host(i) = packing_function(block_data_[i]);
+      coords_host(i) = block_data_[i]->GetBlockPointer()->coords;
+    }
+    std::array<int, 5> dims;
+    for (int i = 0; i < 4; i++) {
+      dims[i] = packs_host(0).GetDim(i + 1);
+    }
+    dims[4] = nblocks;
+
+    Kokkos::deep_copy(packs, packs_host);
+    Kokkos::deep_copy(coords, coords_host);
+
+    auto cellbounds = block_data_[0]->GetBlockPointer()->cellbounds;
+    auto mbp = MeshBlockPack<T>(packs, cellbounds, coords, dims);
+    map[key] = mbp;
+    return mbp;
+  }
+  return kvpair->second;
+}
+} // namespace pack_on_mesh_impl
+
+template <typename T>
 class MeshData {
  public:
   MeshData() = default;
@@ -70,68 +106,26 @@ class MeshData {
     return block_data_[n];
   }
 
-  template <class... Args>
-  MeshBlockVarPack<T> PackVariables(Args &&... args) {
+  template <typename... Args>
+  auto PackVariables(Args &&... args) {
+    auto pack_function = [&](std::shared_ptr<MeshBlockData<T>> meshblock_data) {
+      return meshblock_data->PackVariables(std::forward<Args>(args)...);
+    };
     std::vector<std::string> key;
     auto vpack = block_data_[0]->PackVariables(std::forward<Args>(args)..., key);
-    auto kvpair = varPackMap_.find(key);
-    if (kvpair == varPackMap_.end()) {
-      int nblocks = block_data_.size();
-      ViewOfPacks<T> packs("MeshData::PackVariables::packs", nblocks);
-      auto packs_host = Kokkos::create_mirror_view(packs);
-      ParArray1D<Coordinates_t> coords("MeshData::PackVariables::coords", nblocks);
-      auto coords_host = Kokkos::create_mirror_view(coords);
-      for (int i = 0; i < nblocks; i++) {
-        packs_host(i) = block_data_[i]->PackVariables(std::forward<Args>(args)...);
-        coords_host(i) = block_data_[i]->GetBlockPointer()->coords;
-      }
-      std::array<int, 5> dims;
-      for (int i = 0; i < 4; i++) {
-        dims[i] = packs_host(0).GetDim(i + 1);
-      }
-      dims[4] = nblocks;
-
-      Kokkos::deep_copy(packs, packs_host);
-      Kokkos::deep_copy(coords, coords_host);
-
-      auto cellbounds = block_data_[0]->GetBlockPointer()->cellbounds;
-      auto mbp = MeshBlockVarPack<T>(packs, cellbounds, coords, dims);
-      varPackMap_[key] = mbp;
-      return mbp;
-    }
-    return kvpair->second;
+    return pack_on_mesh_impl::PackOnMesh<VariablePack<T>>(key, varPackMap_, block_data_,
+                                                          pack_function);
   }
-  template <class... Args>
-  MeshBlockVarFluxPack<T> PackVariablesAndFluxes(Args &&... args) {
+
+  template <typename... Args>
+  auto PackVariablesAndFluxes(Args &&... args) {
+    auto pack_function = [&](std::shared_ptr<MeshBlockData<T>> meshblock_data) {
+      return meshblock_data->PackVariablesAndFluxes(std::forward<Args>(args)...);
+    };
     vpack_types::StringPair key;
     auto vpack = block_data_[0]->PackVariablesAndFluxes(std::forward<Args>(args)..., key);
-    auto kvpair = varFluxPackMap_.find(key);
-    if (kvpair == varFluxPackMap_.end()) {
-      int nblocks = block_data_.size();
-      ViewOfFluxPacks<T> packs("MeshData::PackVariables::packs", nblocks);
-      auto packs_host = Kokkos::create_mirror_view(packs);
-      ParArray1D<Coordinates_t> coords("MeshData::PackVariables::coords", nblocks);
-      auto coords_host = Kokkos::create_mirror_view(coords);
-      for (int i = 0; i < nblocks; i++) {
-        packs_host(i) =
-            block_data_[i]->PackVariablesAndFluxes(std::forward<Args>(args)...);
-        coords_host(i) = block_data_[i]->GetBlockPointer()->coords;
-      }
-      std::array<int, 5> dims;
-      for (int i = 0; i < 4; i++) {
-        dims[i] = packs_host(0).GetDim(i + 1);
-      }
-      dims[4] = nblocks;
-
-      Kokkos::deep_copy(packs, packs_host);
-      Kokkos::deep_copy(coords, coords_host);
-
-      auto cellbounds = block_data_[0]->GetBlockPointer()->cellbounds;
-      auto mbp = MeshBlockVarFluxPack<T>(packs, cellbounds, coords, dims);
-      varFluxPackMap_[key] = mbp;
-      return mbp;
-    }
-    return kvpair->second;
+    return pack_on_mesh_impl::PackOnMesh<VariableFluxPack<T>>(key, varFluxPackMap_,
+                                                              block_data_, pack_function);
   }
 
   void ClearCaches() {
@@ -154,10 +148,10 @@ class MeshData {
 
  private:
   Mesh *pmy_mesh_;
-  std::vector<std::shared_ptr<MeshBlockData<T>>> block_data_;
+  BlockDataList_t<T> block_data_;
   // caches for packs
-  MapToMeshBlockPack<T> varPackMap_;
-  MapToMeshBlockFluxPack<T> varFluxPackMap_;
+  MapToMeshBlockVarPack<T> varPackMap_;
+  MapToMeshBlockVarFluxPack<T> varFluxPackMap_;
 };
 
 using MeshDataCollection = DataCollection<MeshData<Real>>;
