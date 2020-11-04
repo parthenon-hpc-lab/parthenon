@@ -157,7 +157,7 @@ void BoundaryVariable::SendBoundaryBuffers() {
       CopyVariableBufferSameProcess(nb, ssize);
     } else {
 #ifdef MPI_PARALLEL
-      MPI_Start(&(bd_var_.req_send[nb.bufid]));
+      PARTHENON_MPI_CHECK(MPI_Start(&(bd_var_.req_send[nb.bufid])));
 #endif
     }
 
@@ -185,8 +185,10 @@ bool BoundaryVariable::ReceiveBoundaryBuffers() {
 #ifdef MPI_PARALLEL
       else { // NOLINT // MPI boundary
         int test;
-        MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &test, MPI_STATUS_IGNORE);
-        MPI_Test(&(bd_var_.req_recv[nb.bufid]), &test, MPI_STATUS_IGNORE);
+        PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &test,
+                                       MPI_STATUS_IGNORE));
+        PARTHENON_MPI_CHECK(
+            MPI_Test(&(bd_var_.req_recv[nb.bufid]), &test, MPI_STATUS_IGNORE));
         if (!static_cast<bool>(test)) {
           bflag = false;
           continue;
@@ -233,7 +235,7 @@ void BoundaryVariable::ReceiveAndSetBoundariesWithWait() {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
 #ifdef MPI_PARALLEL
     if (nb.snb.rank != Globals::my_rank) {
-      MPI_Wait(&(bd_var_.req_recv[nb.bufid]), MPI_STATUS_IGNORE);
+      PARTHENON_MPI_CHECK(MPI_Wait(&(bd_var_.req_recv[nb.bufid]), MPI_STATUS_IGNORE));
     }
 #endif
     if (nb.snb.level == mylevel)

@@ -91,7 +91,8 @@ DriverStatus FaceFieldExample::Execute() {
   }
 #ifdef MPI_PARALLEL
   Real global_sum;
-  MPI_Reduce(&rank_sum, &global_sum, 1, MPI_PARTHENON_REAL, MPI_SUM, 0, MPI_COMM_WORLD);
+  PARTHENON_MPI_CHECK(MPI_Reduce(&rank_sum, &global_sum, 1, MPI_PARTHENON_REAL, MPI_SUM,
+                                 0, MPI_COMM_WORLD));
 #else
   Real global_sum = rank_sum;
 #endif

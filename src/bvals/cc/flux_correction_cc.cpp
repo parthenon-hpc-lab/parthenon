@@ -185,7 +185,7 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
       }
 #ifdef MPI_PARALLEL
       else
-        MPI_Start(&(bd_var_flcor_.req_send[nb.bufid]));
+        PARTHENON_MPI_CHECK(MPI_Start(&(bd_var_flcor_.req_send[nb.bufid])));
 #endif
       bd_var_flcor_.sflag[nb.bufid] = BoundaryStatus::completed;
     }
@@ -214,9 +214,10 @@ bool CellCenteredBoundaryVariable::ReceiveFluxCorrection() {
 #ifdef MPI_PARALLEL
         else { // NOLINT
           int test;
-          MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &test,
-                     MPI_STATUS_IGNORE);
-          MPI_Test(&(bd_var_flcor_.req_recv[nb.bufid]), &test, MPI_STATUS_IGNORE);
+          PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD,
+                                         &test, MPI_STATUS_IGNORE));
+          PARTHENON_MPI_CHECK(
+              MPI_Test(&(bd_var_flcor_.req_recv[nb.bufid]), &test, MPI_STATUS_IGNORE));
           if (!static_cast<bool>(test)) {
             bflag = false;
             continue;

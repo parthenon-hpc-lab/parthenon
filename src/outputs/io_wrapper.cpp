@@ -202,7 +202,7 @@ int IOWrapper::Seek(IOWrapperSizeT offset) {
 IOWrapperSizeT IOWrapper::GetPosition() {
 #ifdef MPI_PARALLEL
   MPI_Offset position;
-  MPI_File_get_position(fh_, &position);
+  PARTHENON_MPI_CHECK(MPI_File_get_position(fh_, &position));
   return position;
 #else
   return ftell(fh_);

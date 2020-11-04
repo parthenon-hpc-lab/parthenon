@@ -443,13 +443,15 @@ void CellCenteredBoundaryVariable::SetupPersistentMPI() {
       tag = pmb->pbval->CreateBvalsMPITag(nb.snb.lid, nb.targetid, cc_phys_id_);
       if (bd_var_.req_send[nb.bufid] != MPI_REQUEST_NULL)
         MPI_Request_free(&bd_var_.req_send[nb.bufid]);
-      MPI_Send_init(bd_var_.send[nb.bufid].data(), ssize, MPI_PARTHENON_REAL, nb.snb.rank,
-                    tag, MPI_COMM_WORLD, &(bd_var_.req_send[nb.bufid]));
+      PARTHENON_MPI_CHECK(MPI_Send_init(bd_var_.send[nb.bufid].data(), ssize,
+                                        MPI_PARTHENON_REAL, nb.snb.rank, tag,
+                                        MPI_COMM_WORLD, &(bd_var_.req_send[nb.bufid])));
       tag = pmb->pbval->CreateBvalsMPITag(pmb->lid, nb.bufid, cc_phys_id_);
       if (bd_var_.req_recv[nb.bufid] != MPI_REQUEST_NULL)
         MPI_Request_free(&bd_var_.req_recv[nb.bufid]);
-      MPI_Recv_init(bd_var_.recv[nb.bufid].data(), rsize, MPI_PARTHENON_REAL, nb.snb.rank,
-                    tag, MPI_COMM_WORLD, &(bd_var_.req_recv[nb.bufid]));
+      PARTHENON_MPI_CHECK(MPI_Recv_init(bd_var_.recv[nb.bufid].data(), rsize,
+                                        MPI_PARTHENON_REAL, nb.snb.rank, tag,
+                                        MPI_COMM_WORLD, &(bd_var_.req_recv[nb.bufid])));
 
       if (pmy_mesh_->multilevel && nb.ni.type == NeighborConnect::face) {
         int size;
@@ -464,16 +466,16 @@ void CellCenteredBoundaryVariable::SetupPersistentMPI() {
           tag = pmb->pbval->CreateBvalsMPITag(nb.snb.lid, nb.targetid, cc_flx_phys_id_);
           if (bd_var_flcor_.req_send[nb.bufid] != MPI_REQUEST_NULL)
             MPI_Request_free(&bd_var_flcor_.req_send[nb.bufid]);
-          MPI_Send_init(bd_var_flcor_.send[nb.bufid].data(), size, MPI_PARTHENON_REAL,
-                        nb.snb.rank, tag, MPI_COMM_WORLD,
-                        &(bd_var_flcor_.req_send[nb.bufid]));
+          PARTHENON_MPI_CHECK(MPI_Send_init(
+              bd_var_flcor_.send[nb.bufid].data(), size, MPI_PARTHENON_REAL, nb.snb.rank,
+              tag, MPI_COMM_WORLD, &(bd_var_flcor_.req_send[nb.bufid])));
         } else if (nb.snb.level > mylevel) { // receive from finer
           tag = pmb->pbval->CreateBvalsMPITag(pmb->lid, nb.bufid, cc_flx_phys_id_);
           if (bd_var_flcor_.req_recv[nb.bufid] != MPI_REQUEST_NULL)
             MPI_Request_free(&bd_var_flcor_.req_recv[nb.bufid]);
-          MPI_Recv_init(bd_var_flcor_.recv[nb.bufid].data(), size, MPI_PARTHENON_REAL,
-                        nb.snb.rank, tag, MPI_COMM_WORLD,
-                        &(bd_var_flcor_.req_recv[nb.bufid]));
+          PARTHENON_MPI_CHECK(MPI_Recv_init(
+              bd_var_flcor_.recv[nb.bufid].data(), size, MPI_PARTHENON_REAL, nb.snb.rank,
+              tag, MPI_COMM_WORLD, &(bd_var_flcor_.req_recv[nb.bufid])));
         }
       }
     }
@@ -490,10 +492,10 @@ void CellCenteredBoundaryVariable::StartReceiving(BoundaryCommSubset phase) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
     if (nb.snb.rank != Globals::my_rank) {
       pmb->exec_space.fence();
-      MPI_Start(&(bd_var_.req_recv[nb.bufid]));
+      PARTHENON_MPI_CHECK(MPI_Start(&(bd_var_.req_recv[nb.bufid])));
       if (phase == BoundaryCommSubset::all && nb.ni.type == NeighborConnect::face &&
           nb.snb.level > mylevel) // opposite condition in ClearBoundary()
-        MPI_Start(&(bd_var_flcor_.req_recv[nb.bufid]));
+        PARTHENON_MPI_CHECK(MPI_Start(&(bd_var_flcor_.req_recv[nb.bufid])));
     }
   }
 #endif
@@ -516,10 +518,11 @@ void CellCenteredBoundaryVariable::ClearBoundary(BoundaryCommSubset phase) {
     if (nb.snb.rank != Globals::my_rank) {
       pmb->exec_space.fence();
       // Wait for Isend
-      MPI_Wait(&(bd_var_.req_send[nb.bufid]), MPI_STATUS_IGNORE);
+      PARTHENON_MPI_CHECK(MPI_Wait(&(bd_var_.req_send[nb.bufid]), MPI_STATUS_IGNORE));
       if (phase == BoundaryCommSubset::all && nb.ni.type == NeighborConnect::face &&
           nb.snb.level < mylevel)
-        MPI_Wait(&(bd_var_flcor_.req_send[nb.bufid]), MPI_STATUS_IGNORE);
+        PARTHENON_MPI_CHECK(
+            MPI_Wait(&(bd_var_flcor_.req_send[nb.bufid]), MPI_STATUS_IGNORE));
     }
 #endif
   }

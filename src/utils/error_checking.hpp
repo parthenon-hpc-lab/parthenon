@@ -41,6 +41,13 @@
 #define PARTHENON_THROW(message)                                                         \
   parthenon::ErrorChecking::fail_throws(message, __FILE__, __LINE__);
 
+#define PARTHENON_MPI_CHECK(expr)                                                        \
+  do {                                                                                   \
+    if (MPI_SUCCESS != (expr)) {                                                         \
+      ::parthenon::ErrorChecking::fail_throws_mpi(#expr, __FILE__, __LINE__);            \
+    }                                                                                    \
+  } while (false)
+
 #define PARTHENON_WARN(message)                                                          \
   parthenon::ErrorChecking::warn(message, __FILE__, __LINE__);
 
@@ -134,8 +141,8 @@ fail(const char *const message, const char *const filename, int const linenumber
   fail(message.str().c_str(), filename, linenumber);
 }
 
-inline void fail_throws(const char *const message, const char *const filename,
-                        int const linenumber) {
+[[noreturn]] inline void fail_throws(const char *const message,
+                                     const char *const filename, int const linenumber) {
   std::stringstream msg;
   msg << "### PARTHENON ERROR\n  Message:     " << message
       << "\n  File:        " << filename << "\n  Line number: " << linenumber
@@ -143,13 +150,13 @@ inline void fail_throws(const char *const message, const char *const filename,
   throw std::runtime_error(msg.str().c_str());
 }
 
-inline void fail_throws(std::string const &message, const char *const filename,
-                        int const linenumber) {
+[[noreturn]] inline void fail_throws(std::string const &message,
+                                     const char *const filename, int const linenumber) {
   fail_throws(message.c_str(), filename, linenumber);
 }
 
-inline void fail_throws(std::stringstream const &message, const char *const filename,
-                        int const linenumber) {
+[[noreturn]] inline void fail_throws(std::stringstream const &message,
+                                     const char *const filename, int const linenumber) {
   fail_throws(message.str().c_str(), filename, linenumber);
 }
 
@@ -164,6 +171,9 @@ inline void warn(std::stringstream const &message, const char *const filename,
                  int const linenumber) {
   warn(message.str().c_str(), filename, linenumber);
 }
+
+[[noreturn]] void fail_throws_mpi(char const *const expr, char const *const filename,
+                                  int const linenumber);
 } // namespace ErrorChecking
 } // namespace parthenon
 

@@ -245,14 +245,21 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   /* create an MPI_INFO object -- on some platforms it is useful to
      pass some information onto the underlying MPI_File_open call */
   MPI_Info FILE_INFO_TEMPLATE;
-  MPI_Info_create(&FILE_INFO_TEMPLATE);
+  PARTHENON_MPI_CHECK(MPI_Info_create(&FILE_INFO_TEMPLATE));
+
+  // Free MPI_Info on error on return or throw
+  struct MPI_InfoDeleter {
+    MPI_Info info;
+    ~MPI_InfoDeleter() { MPI_Info_free(&info); }
+  } delete_info{FILE_INFO_TEMPLATE};
+
   H5Pset_sieve_buf_size(acc_file, 262144);
   H5Pset_alignment(acc_file, 524288, 262144);
 
-  MPI_Info_set(FILE_INFO_TEMPLATE, "access_style", "write_once");
-  MPI_Info_set(FILE_INFO_TEMPLATE, "collective_buffering", "true");
-  MPI_Info_set(FILE_INFO_TEMPLATE, "cb_block_size", "1048576");
-  MPI_Info_set(FILE_INFO_TEMPLATE, "cb_buffer_size", "4194304");
+  PARTHENON_MPI_CHECK(MPI_Info_set(FILE_INFO_TEMPLATE, "access_style", "write_once"));
+  PARTHENON_MPI_CHECK(MPI_Info_set(FILE_INFO_TEMPLATE, "collective_buffering", "true"));
+  PARTHENON_MPI_CHECK(MPI_Info_set(FILE_INFO_TEMPLATE, "cb_block_size", "1048576"));
+  PARTHENON_MPI_CHECK(MPI_Info_set(FILE_INFO_TEMPLATE, "cb_buffer_size", "4194304"));
 
   /* tell the HDF5 library that we want to use MPI-IO to do the writing */
   H5Pset_fapl_mpio(acc_file, MPI_COMM_WORLD, FILE_INFO_TEMPLATE);
@@ -441,7 +448,6 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
 #ifdef MPI_PARALLEL
   /* release the file access template */
   H5Pclose(acc_file);
-  MPI_Info_free(&FILE_INFO_TEMPLATE);
 #endif
 
   H5Pclose(property_list);

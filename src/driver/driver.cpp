@@ -140,7 +140,8 @@ void EvolutionDriver::SetGlobalTimeStep() {
   tm.dt = std::min(dt_max, tm.dt);
 
 #ifdef MPI_PARALLEL
-  MPI_Allreduce(MPI_IN_PLACE, &tm.dt, 1, MPI_PARTHENON_REAL, MPI_MIN, MPI_COMM_WORLD);
+  PARTHENON_MPI_CHECK(MPI_Allreduce(MPI_IN_PLACE, &tm.dt, 1, MPI_PARTHENON_REAL, MPI_MIN,
+                                    MPI_COMM_WORLD));
 #endif
 
   if (tm.time < tm.tlim &&
