@@ -13,6 +13,7 @@
 - [[PR 335]](https://github.com/lanl/parthenon/pull/335) New machine configuration file for LANL's Darwin cluster
 - [[PR 200]](https://github.com/lanl/parthenon/pull/200) Adds support for running ci on power9 nodes. 
 - [[PR 347]](https://github.com/lanl/parthenon/pull/347) Speed up darwin ci by using pre installed spack packages from project space
+- [[PR 353]](https://github.com/lanl/parthenon/pull/353) Fixed small error in input_parameter logic
 
 ### Removed (removing behavior/API/varaibles/...)
 
