@@ -993,9 +993,8 @@ void ParameterInput::CheckDesired(std::string block, std::string name) {
   }
   if (defaulted) {
     std::cout << std::endl
-      << "Defaulting to <" << block << ">/" << name << " = "
-      << GetString(block, name)
-      << std::endl;
+              << "Defaulting to <" << block << ">/" << name << " = "
+              << GetString(block, name) << std::endl;
   }
   std::cout << std::endl;
 }
