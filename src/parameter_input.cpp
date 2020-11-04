@@ -982,19 +982,22 @@ void ParameterInput::CheckDesired(std::string block, std::string name) {
   bool missing = true;
   bool defaulted = false;
   if (DoesParameterExist(block, name)) {
-    missing = (GetComment(block, name) == "# Default value added at run time");
+    missing = false;
+    defaulted = (GetComment(block, name) == "# Default value added at run time");
   }
   if (missing) {
     std::cout << std::endl
               << "### WARNING in CheckDesired:" << std::endl
-              << "Parameter file missing desired field <" << block << ">/" << name;
-    if (defaulted) {
-      std::cout << std::endl
-                << "Defaulting to <" << block << ">/" << name << " = "
-                << GetString(block, name);
-    }
-    std::cout << std::endl << std::endl;
+              << "Parameter file missing desired field <" << block << ">/" << name
+              << std::endl;
   }
+  if (defaulted) {
+    std::cout << std::endl
+      << "Defaulting to <" << block << ">/" << name << " = "
+      << GetString(block, name)
+      << std::endl;
+  }
+  std::cout << std::endl;
 }
 
 //----------------------------------------------------------------------------------------
