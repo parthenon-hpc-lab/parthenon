@@ -22,6 +22,7 @@
 #include <utility>
 
 #include "mesh/mesh.hpp"
+#include "mesh/meshblock.hpp"
 #include "outputs/outputs.hpp"
 #include "outputs/restart.hpp"
 
@@ -412,8 +413,10 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
   // Sriram
 
   const hsize_t varSize = nx3 * nx2 * nx1;
-  auto m = {parthenon::Metadata::Independent, parthenon::Metadata::Restart};
-  auto ciX = ContainerIterator<Real>(mb.real_containers.Get(), m, true);
+
+  auto ciX = MeshBlockDataIterator<Real>(
+      mb.meshblock_data.Get(),
+      {parthenon::Metadata::Independent, parthenon::Metadata::Restart}, true);
   for (auto &vwrite : ciX.vars) { // for each variable we write
     const std::string vWriteName = vwrite->label();
     hid_t vLocalSpace, vGlobalSpace;
@@ -435,7 +438,9 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
     hsize_t index = 0;
     for (auto &pmb : pm->block_list) {
       bool found = false;
-      auto ci = ContainerIterator<Real>(pmb->real_containers.Get(), m, true);
+      auto ci = MeshBlockDataIterator<Real>(
+          pmb->meshblock_data.Get(),
+          {parthenon::Metadata::Independent, parthenon::Metadata::Restart}, true);
       for (auto &v : ci.vars) {
         // Note index 4 transposed to interior
         if (vWriteName.compare(v->label()) == 0) {

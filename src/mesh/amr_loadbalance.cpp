@@ -33,6 +33,7 @@
 #include "interface/update.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
+#include "mesh/meshblock.hpp"
 #include "mesh/meshblock_tree.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/buffer_utils.hpp"
@@ -381,6 +382,10 @@ bool Mesh::GatherCostListAndCheckBalance() {
 
 void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput *app_in,
                                            int ntot) {
+  // kill any cached packs
+  mesh_data.PurgeNonBase();
+  mesh_data.Get()->ClearCaches();
+
   // compute nleaf= number of leaf MeshBlocks per refined block
   int nleaf = 2;
   if (mesh_size.nx2 > 1) nleaf = 4;
@@ -622,8 +627,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
           FillSameRankCoarseToFineAMR(pob.get(), new_block_list[n - nbs].get(),
                                       newloc[n]);
         }
-        ApplyBoundaryConditions(new_block_list[n - nbs]->real_containers.Get());
-        FillDerivedVariables::FillDerived(new_block_list[n - nbs]->real_containers.Get());
+        ApplyBoundaryConditions(new_block_list[n - nbs]->meshblock_data.Get());
+        FillDerivedVariables::FillDerived(new_block_list[n - nbs]->meshblock_data.Get());
       }
     }
 
@@ -695,8 +700,6 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     pmb->pbval->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
   }
   Initialize(2, pin, app_in);
-
-  BuildMeshBlockPacks();
 
   ResetLoadBalanceVariables();
 

@@ -121,19 +121,26 @@ void PiDriver::PostExecute(Real pi_val) {
 }
 
 template <typename T>
-TaskCollection PiDriver::MakeTasks(T &blocks) {
+TaskCollection PiDriver::MakeTaskCollection(T &blocks) {
   using calculate_pi::AccumulateAreas;
   using calculate_pi::ComputeArea;
   TaskCollection tc;
 
-  auto &packs = pmesh->real_varpacks["calculate_pi"]["in_or_out"];
-  ParArrayHost<Real> areas("areas", packs.size());
-  TaskRegion &async_region = tc.AddRegion(packs.size());
+  const int pack_size = pmesh->DefaultPackSize();
+  auto partitions = partition::ToSizeN(blocks, pack_size);
+  for (int i = 0; i < partitions.size(); i++) {
+    auto md = pmesh->mesh_data.Add(std::to_string(i));
+    md->Set(partitions[i], "base");
+  }
+
+  ParArrayHost<Real> areas("areas", partitions.size());
+  TaskRegion &async_region = tc.AddRegion(partitions.size());
   {
-    // asynchronous region where area is computed per mesh pack
-    for (int i = 0; i < packs.size(); i++) {
+    // asynchronous region where area is computed per partition
+    for (int i = 0; i < partitions.size(); i++) {
       TaskID none(0);
-      auto get_area = async_region[i].AddTask(none, ComputeArea, packs[i], areas, i);
+      auto &md = pmesh->mesh_data.Get(std::to_string(i));
+      auto get_area = async_region[i].AddTask(none, ComputeArea, md, areas, i);
     }
   }
   TaskRegion &sync_region = tc.AddRegion(1);

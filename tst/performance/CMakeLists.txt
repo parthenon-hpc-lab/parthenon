@@ -16,7 +16,7 @@
 ## the public, perform publicly and display publicly, and to permit others to do so.
 ##========================================================================================
 
-add_executable(performance_tests test_container_iterator.cpp)
+add_executable(performance_tests test_meshblock_data_iterator.cpp)
 target_link_libraries(performance_tests PRIVATE Parthenon::parthenon catch2_define Kokkos::kokkos)
 lint_target(performance_tests)
 

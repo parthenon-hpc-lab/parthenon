@@ -29,6 +29,7 @@
 #include <string>
 
 #include "mesh/mesh.hpp"
+#include "mesh/meshblock.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {

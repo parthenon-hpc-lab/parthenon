@@ -34,6 +34,7 @@
 #include "defs.hpp"
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
+#include "mesh/meshblock.hpp"
 #include "parameter_input.hpp"
 #include "utils/buffer_utils.hpp"
 
