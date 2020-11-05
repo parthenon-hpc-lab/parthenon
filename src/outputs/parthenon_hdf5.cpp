@@ -19,6 +19,8 @@
 
 #include "outputs/parthenon_hdf5.hpp"
 
+#include "mesh/meshblock.hpp"
+
 #ifdef HDF5OUTPUT
 
 namespace parthenon {
@@ -134,8 +136,8 @@ void PHDF5Output::genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm) {
   int ndims = 5;
 
   // same set of variables for all grids so use only one container
-  auto ciX = ContainerIterator<Real>(pm->block_list.front()->real_containers.Get(),
-                                     output_params.variables);
+  auto ciX = MeshBlockDataIterator<Real>(pm->block_list.front()->meshblock_data.Get(),
+                                         output_params.variables);
   for (int ib = 0; ib < pm->nbtotal; ib++) {
     xdmf << "    <Grid GridType=\"Uniform\" Name=\"" << ib << "\">" << std::endl;
     xdmf << blockTopology;
@@ -198,33 +200,22 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   // Also writes companion xdmf file
   int max_blocks_global = pm->nbtotal;
 
-  const IndexDomain interior = IndexDomain::interior;
-  const IndexDomain entire = IndexDomain::entire;
+  const IndexDomain theDomain =
+      (output_params.include_ghost_zones ? IndexDomain::entire : IndexDomain::interior);
 
   auto const &first_block = *(pm->block_list.front());
 
   // shooting a blank just for getting the variable names
-  IndexRange out_ib = first_block.cellbounds.GetBoundsI(interior);
-  IndexRange out_jb = first_block.cellbounds.GetBoundsJ(interior);
-  IndexRange out_kb = first_block.cellbounds.GetBoundsK(interior);
-
-  if (output_params.include_ghost_zones) {
-    out_ib = first_block.cellbounds.GetBoundsI(entire);
-    out_jb = first_block.cellbounds.GetBoundsJ(entire);
-    out_kb = first_block.cellbounds.GetBoundsK(entire);
-  }
+  IndexRange out_ib = first_block.cellbounds.GetBoundsI(theDomain);
+  IndexRange out_jb = first_block.cellbounds.GetBoundsJ(theDomain);
+  IndexRange out_kb = first_block.cellbounds.GetBoundsK(theDomain);
 
   int const num_blocks_local = static_cast<int>(pm->block_list.size());
 
   // set output size
-  nx1 = first_block.block_size.nx1;
-  nx2 = first_block.block_size.nx2;
-  nx3 = first_block.block_size.nx3;
-  if (output_params.include_ghost_zones) {
-    nx1 += 2 * NGHOST;
-    if (nx2 > 1) nx2 += 2 * NGHOST;
-    if (nx3 > 1) nx3 += 2 * NGHOST;
-  }
+  nx1 = out_ib.e - out_ib.s + 1; // SS first_block.block_size.nx1;
+  nx2 = out_jb.e - out_jb.s + 1; // SS first_block.block_size.nx2;
+  nx3 = out_kb.e - out_kb.s + 1; // SS first_block.block_size.nx3;
 
   // open HDF5 file
   // Define output filename
@@ -323,8 +314,8 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   status = H5Dclose(myDSet);
 
   // allocate space for largest size variable
-  auto ciX = ContainerIterator<Real>(pm->block_list.front()->real_containers.Get(),
-                                     output_params.variables);
+  auto ciX = MeshBlockDataIterator<Real>(pm->block_list.front()->meshblock_data.Get(),
+                                         output_params.variables);
   size_t maxV = 1;
   hsize_t sumDim4AllVars = 0;
   for (auto &v : ciX.vars) {
@@ -430,12 +421,12 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     hsize_t index = 0;
     for (auto &pmb : pm->block_list) { // for every block1
       auto ci =
-          ContainerIterator<Real>(pmb->real_containers.Get(), output_params.variables);
+          MeshBlockDataIterator<Real>(pmb->meshblock_data.Get(), output_params.variables);
       for (auto &v : ci.vars) {
         std::string name = v->label();
         if (name.compare(vWriteName) == 0) {
           // hsize_t index = pmb->lid * varSize * vlen;
-          auto v_h = (*v).data.GetHostMirrorAndCopy();
+          auto v_h = v->data.GetHostMirrorAndCopy();
           LOADVARIABLEONE(index, tmpData, v_h, out_ib.s, out_ib.e, out_jb.s, out_jb.e,
                           out_kb.s, out_kb.e, vlen);
           break;

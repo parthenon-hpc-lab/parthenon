@@ -169,7 +169,7 @@ void FillVarView(const vpack_types::VarList<T> &vars, PackIndexMap *vmap,
   auto host_vc = Kokkos::create_mirror_view(Kokkos::HostSpace(), vector_component);
 
   int vindex = 0;
-  int sparse_start;
+  int sparse_start = -22000; // Initialize to an obviously wrong number
   int sparse_id;
   std::string sparse_name;
   for (const auto v : vars) {
@@ -236,7 +236,7 @@ void FillFluxViews(const vpack_types::VarList<T> &vars, PackIndexMap *vmap,
   auto host_f3 = Kokkos::create_mirror_view(Kokkos::HostSpace(), f3);
 
   int vindex = 0;
-  int sparse_start;
+  int sparse_start = -22000; // Initialize to an obviously wrong number
   std::string sparse_name;
   for (const auto &v : vars) {
     if (vmap != nullptr) {

@@ -28,7 +28,7 @@ namespace parthenon {
 
 // Forward declarations
 template <typename T>
-class Container;
+class MeshBlockData;
 template <typename T>
 class VariablePack;
 template <typename T>
@@ -215,9 +215,9 @@ class StateDescriptor {
   }
 
   std::vector<std::shared_ptr<AMRCriteria>> amr_criteria;
-  void (*FillDerived)(std::shared_ptr<Container<Real>> &rc);
-  Real (*EstimateTimestep)(std::shared_ptr<Container<Real>> &rc);
-  AmrTag (*CheckRefinement)(std::shared_ptr<Container<Real>> &rc);
+  void (*FillDerived)(std::shared_ptr<MeshBlockData<Real>> &rc);
+  Real (*EstimateTimestep)(std::shared_ptr<MeshBlockData<Real>> &rc);
+  AmrTag (*CheckRefinement)(std::shared_ptr<MeshBlockData<Real>> &rc);
 
  private:
   Params params_;
