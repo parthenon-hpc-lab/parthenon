@@ -144,7 +144,7 @@ class IndexShape {
     case IndexDomain::interior:
       return x_[0].s;
     case IndexDomain::outer_x1:
-      return x_[0].e + 1;
+      return entire_ncells_[0] == 1 ? 0 : x_[0].e + 1;
     default:
       return 0;
     }
@@ -155,7 +155,7 @@ class IndexShape {
     case IndexDomain::interior:
       return x_[1].s;
     case IndexDomain::outer_x2:
-      return x_[1].e + 1;
+      return entire_ncells_[1] == 1 ? 0 : x_[1].e + 1;
     default:
       return 0;
     }
@@ -166,7 +166,7 @@ class IndexShape {
     case IndexDomain::interior:
       return x_[2].s;
     case IndexDomain::outer_x3:
-      return x_[2].e + 1;
+      return entire_ncells_[2] == 1 ? 0 : x_[2].e + 1;
     default:
       return 0;
     }
@@ -177,7 +177,7 @@ class IndexShape {
     case IndexDomain::interior:
       return x_[0].e;
     case IndexDomain::inner_x1:
-      return x_[0].s - 1;
+      return x_[0].s == 0 ? 0 : x_[0].s - 1;
     default:
       return entire_ncells_[0] - 1;
     }
@@ -188,7 +188,7 @@ class IndexShape {
     case IndexDomain::interior:
       return x_[1].e;
     case IndexDomain::inner_x2:
-      return x_[1].s - 1;
+      return x_[1].s == 0 ? 0 : x_[1].s - 1;
     default:
       return entire_ncells_[1] - 1;
     }
@@ -199,7 +199,7 @@ class IndexShape {
     case IndexDomain::interior:
       return x_[2].e;
     case IndexDomain::inner_x3:
-      return x_[2].s - 1;
+      return x_[2].s == 0 ? 0 : x_[2].s - 1;
     default:
       return entire_ncells_[2] - 1;
     }
