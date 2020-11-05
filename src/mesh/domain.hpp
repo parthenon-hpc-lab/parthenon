@@ -163,12 +163,14 @@ class IndexShape {
 
   KOKKOS_INLINE_FUNCTION int ks(const IndexDomain &domain) const noexcept {
     switch (domain) {
-    case IndexDomain::interior:
-      return x_[2].s;
+    case IndexDomain::entire:
+      return 0;
+    case IndexDomain::inner_x3:
+      return 0;
     case IndexDomain::outer_x3:
       return entire_ncells_[2] == 1 ? 0 : x_[2].e + 1;
-    default:
-      return 0;
+    default: // interior+
+      return x_[2].s;
     }
   }
 
@@ -196,12 +198,14 @@ class IndexShape {
 
   KOKKOS_INLINE_FUNCTION int ke(const IndexDomain &domain) const noexcept {
     switch (domain) {
-    case IndexDomain::interior:
-      return x_[2].e;
+    case IndexDomain::entire:
+      return entire_ncells_[2] - 1;
     case IndexDomain::inner_x3:
       return x_[2].s == 0 ? 0 : x_[2].s - 1;
-    default:
+    case IndexDomain::outer_x3:
       return entire_ncells_[2] - 1;
+    default: // interior+
+      return x_[2].e;
     }
   }
 

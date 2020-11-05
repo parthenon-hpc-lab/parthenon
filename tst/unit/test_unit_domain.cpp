@@ -122,6 +122,54 @@ TEST_CASE("Checking IndexShape indices", "[IndexShape]") {
     REQUIRE(shape.ks(entire) == 0);
     REQUIRE(shape.ke(entire) == 0);
     REQUIRE(shape.GetTotal(entire) == 24);
+
+    REQUIRE(shape.is(inner_x1) == 0);
+    REQUIRE(shape.ie(inner_x1) == 0);
+    REQUIRE(shape.js(inner_x1) == 0);
+    REQUIRE(shape.je(inner_x1) == 2);
+    REQUIRE(shape.ks(inner_x1) == 0);
+    REQUIRE(shape.ke(inner_x1) == 0);
+    REQUIRE(shape.GetTotal(inner_x1) == 3);
+
+    REQUIRE(shape.is(outer_x1) == 7);
+    REQUIRE(shape.ie(outer_x1) == 7);
+    REQUIRE(shape.js(outer_x1) == 0);
+    REQUIRE(shape.je(outer_x1) == 2);
+    REQUIRE(shape.ks(outer_x1) == 0);
+    REQUIRE(shape.ke(outer_x1) == 0);
+    REQUIRE(shape.GetTotal(outer_x1) == 3);
+
+    REQUIRE(shape.is(inner_x2) == 0);
+    REQUIRE(shape.ie(inner_x2) == 7);
+    REQUIRE(shape.js(inner_x2) == 0);
+    REQUIRE(shape.je(inner_x2) == 0);
+    REQUIRE(shape.ks(inner_x2) == 0);
+    REQUIRE(shape.ke(inner_x2) == 0);
+    REQUIRE(shape.GetTotal(inner_x2) == 8);
+
+    REQUIRE(shape.is(outer_x2) == 0);
+    REQUIRE(shape.ie(outer_x2) == 7);
+    REQUIRE(shape.js(outer_x2) == 2);
+    REQUIRE(shape.je(outer_x2) == 2);
+    REQUIRE(shape.ks(outer_x2) == 0);
+    REQUIRE(shape.ke(outer_x2) == 0);
+    REQUIRE(shape.GetTotal(outer_x2) == 8);
+
+    REQUIRE(shape.is(inner_x3) == 0);
+    REQUIRE(shape.ie(inner_x3) == 7);
+    REQUIRE(shape.js(inner_x3) == 0);
+    REQUIRE(shape.je(inner_x3) == 2);
+    REQUIRE(shape.ks(inner_x3) == 0);
+    REQUIRE(shape.ke(inner_x3) == 0);
+    REQUIRE(shape.GetTotal(inner_x3) == 0);
+
+    REQUIRE(shape.is(outer_x3) == 0);
+    REQUIRE(shape.ie(outer_x3) == 7);
+    REQUIRE(shape.js(outer_x3) == 0);
+    REQUIRE(shape.je(outer_x3) == 2);
+    REQUIRE(shape.ks(outer_x3) == 0);
+    REQUIRE(shape.ke(outer_x3) == 0);
+    REQUIRE(shape.GetTotal(outer_x3) == 0);
   }
 
   GIVEN("A 3D Index Shape") {
@@ -146,6 +194,54 @@ TEST_CASE("Checking IndexShape indices", "[IndexShape]") {
     REQUIRE(shape.ks(entire) == 0);
     REQUIRE(shape.ke(entire) == 5);
     REQUIRE(shape.GetTotal(entire) == 144);
+
+    REQUIRE(shape.is(inner_x1) == 0);
+    REQUIRE(shape.ie(inner_x1) == 0);
+    REQUIRE(shape.js(inner_x1) == 0);
+    REQUIRE(shape.je(inner_x1) == 2);
+    REQUIRE(shape.ks(inner_x1) == 1);
+    REQUIRE(shape.ke(inner_x1) == 4);
+    REQUIRE(shape.GetTotal(inner_x1) == 12);
+
+    REQUIRE(shape.is(outer_x1) == 7);
+    REQUIRE(shape.ie(outer_x1) == 7);
+    REQUIRE(shape.js(outer_x1) == 0);
+    REQUIRE(shape.je(outer_x1) == 2);
+    REQUIRE(shape.ks(outer_x1) == 1);
+    REQUIRE(shape.ke(outer_x1) == 4);
+    REQUIRE(shape.GetTotal(outer_x1) == 12);
+
+    REQUIRE(shape.is(inner_x2) == 0);
+    REQUIRE(shape.ie(inner_x2) == 7);
+    REQUIRE(shape.js(inner_x2) == 0);
+    REQUIRE(shape.je(inner_x2) == 0);
+    REQUIRE(shape.ks(inner_x2) == 1);
+    REQUIRE(shape.ke(inner_x2) == 4);
+    REQUIRE(shape.GetTotal(inner_x2) == 32);
+
+    REQUIRE(shape.is(outer_x2) == 0);
+    REQUIRE(shape.ie(outer_x2) == 7);
+    REQUIRE(shape.js(outer_x2) == 2);
+    REQUIRE(shape.je(outer_x2) == 2);
+    REQUIRE(shape.ks(outer_x2) == 1);
+    REQUIRE(shape.ke(outer_x2) == 4);
+    REQUIRE(shape.GetTotal(outer_x2) == 32);
+
+    REQUIRE(shape.is(inner_x3) == 0);
+    REQUIRE(shape.ie(inner_x3) == 7);
+    REQUIRE(shape.js(inner_x3) == 0);
+    REQUIRE(shape.je(inner_x3) == 2);
+    REQUIRE(shape.ks(inner_x3) == 0);
+    REQUIRE(shape.ke(inner_x3) == 0);
+    REQUIRE(shape.GetTotal(inner_x3) == 24);
+
+    REQUIRE(shape.is(outer_x3) == 0);
+    REQUIRE(shape.ie(outer_x3) == 7);
+    REQUIRE(shape.js(outer_x3) == 0);
+    REQUIRE(shape.je(outer_x3) == 2);
+    REQUIRE(shape.ks(outer_x3) == 5);
+    REQUIRE(shape.ke(outer_x3) == 5);
+    REQUIRE(shape.GetTotal(outer_x3) == 24);
   }
 
   GIVEN("A 3D Index Shape initialize with vector") {
