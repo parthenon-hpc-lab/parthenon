@@ -298,6 +298,12 @@ TEST_CASE("Checking IndexShape indices", "[IndexShape]") {
 TEST_CASE("Checking IndexShape cell counts", "[IndexShape]") {
   const parthenon::IndexDomain interior = parthenon::IndexDomain::interior;
   const parthenon::IndexDomain entire = parthenon::IndexDomain::entire;
+  const parthenon::IndexDomain inner_x1 = parthenon::IndexDomain::inner_x1;
+  const parthenon::IndexDomain outer_x1 = parthenon::IndexDomain::outer_x1;
+  const parthenon::IndexDomain inner_x2 = parthenon::IndexDomain::inner_x2;
+  const parthenon::IndexDomain outer_x2 = parthenon::IndexDomain::outer_x2;
+  const parthenon::IndexDomain inner_x3 = parthenon::IndexDomain::inner_x3;
+  const parthenon::IndexDomain outer_x3 = parthenon::IndexDomain::outer_x3;
   GIVEN("A 1D Index Shape, check the numbers of cells") {
     int nx1 = 6;
     int num_ghost = 1;
@@ -310,6 +316,30 @@ TEST_CASE("Checking IndexShape cell counts", "[IndexShape]") {
     REQUIRE(shape.ncellsi(entire) == 8);
     REQUIRE(shape.ncellsj(entire) == 1);
     REQUIRE(shape.ncellsk(entire) == 1);
+
+    REQUIRE(shape.ncellsi(inner_x1) == 1);
+    REQUIRE(shape.ncellsj(inner_x1) == 1);
+    REQUIRE(shape.ncellsk(inner_x1) == 1);
+
+    REQUIRE(shape.ncellsi(outer_x1) == 1);
+    REQUIRE(shape.ncellsj(outer_x1) == 1);
+    REQUIRE(shape.ncellsk(outer_x1) == 1);
+
+    REQUIRE(shape.ncellsi(inner_x2) == 8);
+    REQUIRE(shape.ncellsj(inner_x2) == 0);
+    REQUIRE(shape.ncellsk(inner_x2) == 1);
+
+    REQUIRE(shape.ncellsi(outer_x2) == 8);
+    REQUIRE(shape.ncellsj(outer_x2) == 0);
+    REQUIRE(shape.ncellsk(outer_x2) == 1);
+
+    REQUIRE(shape.ncellsi(inner_x3) == 8);
+    REQUIRE(shape.ncellsj(inner_x3) == 1);
+    REQUIRE(shape.ncellsk(inner_x3) == 0);
+
+    REQUIRE(shape.ncellsi(outer_x3) == 8);
+    REQUIRE(shape.ncellsj(outer_x3) == 1);
+    REQUIRE(shape.ncellsk(outer_x3) == 0);
   }
 
   GIVEN("A 2D Index Shape, check the numbers of cells") {
@@ -325,6 +355,30 @@ TEST_CASE("Checking IndexShape cell counts", "[IndexShape]") {
     REQUIRE(shape.ncellsi(entire) == 8);
     REQUIRE(shape.ncellsj(entire) == 3);
     REQUIRE(shape.ncellsk(entire) == 1);
+
+    REQUIRE(shape.ncellsi(inner_x1) == 1);
+    REQUIRE(shape.ncellsj(inner_x1) == 3);
+    REQUIRE(shape.ncellsk(inner_x1) == 1);
+
+    REQUIRE(shape.ncellsi(outer_x1) == 1);
+    REQUIRE(shape.ncellsj(outer_x1) == 3);
+    REQUIRE(shape.ncellsk(outer_x1) == 1);
+
+    REQUIRE(shape.ncellsi(inner_x2) == 8);
+    REQUIRE(shape.ncellsj(inner_x2) == 1);
+    REQUIRE(shape.ncellsk(inner_x2) == 1);
+
+    REQUIRE(shape.ncellsi(outer_x2) == 8);
+    REQUIRE(shape.ncellsj(outer_x2) == 1);
+    REQUIRE(shape.ncellsk(outer_x2) == 1);
+
+    REQUIRE(shape.ncellsi(inner_x3) == 8);
+    REQUIRE(shape.ncellsj(inner_x3) == 3);
+    REQUIRE(shape.ncellsk(inner_x3) == 0);
+
+    REQUIRE(shape.ncellsi(outer_x3) == 8);
+    REQUIRE(shape.ncellsj(outer_x3) == 3);
+    REQUIRE(shape.ncellsk(outer_x3) == 0);
   }
 
   GIVEN("A 3D Index Shape, check the numbers of cells") {
@@ -341,6 +395,30 @@ TEST_CASE("Checking IndexShape cell counts", "[IndexShape]") {
     REQUIRE(shape.ncellsi(entire) == 8);
     REQUIRE(shape.ncellsj(entire) == 3);
     REQUIRE(shape.ncellsk(entire) == 6);
+
+    REQUIRE(shape.ncellsi(inner_x1) == 1);
+    REQUIRE(shape.ncellsj(inner_x1) == 3);
+    REQUIRE(shape.ncellsk(inner_x1) == 4);
+
+    REQUIRE(shape.ncellsi(outer_x1) == 1);
+    REQUIRE(shape.ncellsj(outer_x1) == 3);
+    REQUIRE(shape.ncellsk(outer_x1) == 4);
+
+    REQUIRE(shape.ncellsi(inner_x2) == 8);
+    REQUIRE(shape.ncellsj(inner_x2) == 1);
+    REQUIRE(shape.ncellsk(inner_x2) == 4);
+
+    REQUIRE(shape.ncellsi(outer_x2) == 8);
+    REQUIRE(shape.ncellsj(outer_x2) == 1);
+    REQUIRE(shape.ncellsk(outer_x2) == 4);
+
+    REQUIRE(shape.ncellsi(inner_x3) == 8);
+    REQUIRE(shape.ncellsj(inner_x3) == 3);
+    REQUIRE(shape.ncellsk(inner_x3) == 1);
+
+    REQUIRE(shape.ncellsi(outer_x3) == 8);
+    REQUIRE(shape.ncellsj(outer_x3) == 3);
+    REQUIRE(shape.ncellsk(outer_x3) == 1);
   }
 
   GIVEN("A 3D Index Shape, check the numbers of cells after initializing with a vector") {
