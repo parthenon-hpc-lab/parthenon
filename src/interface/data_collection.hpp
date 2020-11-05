@@ -21,6 +21,12 @@
 namespace parthenon {
 class Mesh;
 
+/// The DataCollection class is an abstract container that contains at least a
+/// "base" container of some type (e.g., of MeshData or MeshBlockData) plus
+/// additional containers identified by string labels.
+/// Current usage includes (but is not limited to) storing MeshBlockData for different
+/// stages in multi-stage drivers or the corresponding MeshBlockPacks in a
+/// DataCollection of MeshData.
 template <typename T>
 class DataCollection {
  public:

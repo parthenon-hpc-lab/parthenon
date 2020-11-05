@@ -31,12 +31,12 @@ namespace parthenon {
 /// Date: August 22, 2019
 ///
 ///
-/// The container class is a container for the variables that make up
+/// The MeshBlockData class is a container for the variables that make up
 /// the simulation.  At this point it is expected that this includes
 /// both simulation parameters and state variables, but that could
 /// change in the future.
 ///
-/// The container class will provide the following methods:
+/// The MeshBlockData class will provide the following methods:
 ///
 
 class MeshBlock;
