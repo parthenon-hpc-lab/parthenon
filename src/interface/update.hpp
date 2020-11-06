@@ -13,10 +13,14 @@
 #ifndef INTERFACE_UPDATE_HPP_
 #define INTERFACE_UPDATE_HPP_
 
+#include <algorithm>
+#include <limits>
 #include <memory>
 #include <string>
+#include <type_traits>
 #include <vector>
 
+#include "coordinates/coordinates.hpp"
 #include "defs.hpp"
 #include "interface/mesh_data.hpp"
 #include "interface/meshblock_data.hpp"
@@ -28,11 +32,9 @@ namespace parthenon {
 
 namespace Update {
 
-TaskStatus FluxDivergenceBlock(std::shared_ptr<MeshBlockData<Real>> &in,
-                               std::shared_ptr<MeshBlockData<Real>> &dudt_cont);
-TaskStatus FluxDivergenceMesh(std::shared_ptr<MeshData<Real>> &in_pack,
-                              std::shared_ptr<MeshData<Real>> &dudt_pack);
-Real EstimateTimestep(std::shared_ptr<MeshBlockData<Real>> &rc);
+template <typename T>
+TaskStatus FluxDivergence(std::shared_ptr<T> &in,
+                          std::shared_ptr<T> &dudt_obj);
 
 template <typename T>
 void UpdateIndependentData(T &in, T &dudt, const Real dt, T &out) {
@@ -62,6 +64,20 @@ void AverageIndependentData(T &c1, T &c2, const Real wgt1) {
         c1_pack(b, l, k, j, i) =
             wgt1 * c1_pack(b, l, k, j, i) + (1 - wgt1) * c2_pack(b, l, k, j, i);
       });
+}
+
+template <typename T>
+Real EstimateTimestep(T &rc) {
+  auto pm = rc->GetGridPointer();
+  Real dt_min = std::numeric_limits<Real>::max();
+  for (auto &pkg : pm->packages) {
+    auto &desc = pkg.second;
+    if (desc->EstimateTimestep != nullptr) {
+      Real dt = desc->EstimateTimestep(rc);
+      dt_min = std::min(dt_min, dt);
+    }
+  }
+  return dt_min;
 }
 
 } // namespace Update

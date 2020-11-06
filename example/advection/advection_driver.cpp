@@ -19,6 +19,7 @@
 #include "advection_driver.hpp"
 #include "advection_package.hpp"
 #include "interface/metadata.hpp"
+#include "interface/update.hpp"
 #include "mesh/meshblock_pack.hpp"
 #include "parthenon/driver.hpp"
 
@@ -117,7 +118,9 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     auto &mdudt = pmesh->mesh_data.GetOrAdd("dUdt", i);
 
     // compute the divergence of fluxes of conserved variables
-    auto flux_div = tl.AddTask(none, parthenon::Update::FluxDivergenceMesh, mc0, mdudt);
+    auto flux_div = tl.AddTask(none,
+      parthenon::Update::FluxDivergence<MeshData<Real>>,
+      mc0, mdudt);
 
     // apply du/dt to all independent fields in the container
     auto update =

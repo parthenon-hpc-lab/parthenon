@@ -77,6 +77,7 @@ class MeshData {
   MeshData() = default;
 
   Mesh *GetMeshPointer() const { return pmy_mesh_; }
+  auto GetGridPointer() { return GetMeshPointer(); }
 
   void SetMeshPointer(Mesh *pmesh) { pmy_mesh_ = pmesh; }
   void SetMeshPointer(const std::shared_ptr<MeshData<T>> &other) {

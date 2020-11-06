@@ -65,6 +65,7 @@ class MeshBlockData {
     }
     return pmy_block.lock();
   }
+  auto GetGridPointer() { return GetBlockPointer(); }
 
   IndexRange GetBoundsI(const IndexDomain &domain) {
     return GetBlockPointer()->cellbounds.GetBoundsI(domain);
