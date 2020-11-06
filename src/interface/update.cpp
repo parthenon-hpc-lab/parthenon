@@ -104,41 +104,6 @@ TaskStatus FluxDivergenceMesh(std::shared_ptr<MeshData<Real>> &in_obj,
   return TaskStatus::complete;
 }
 
-void UpdateMeshBlockData(std::shared_ptr<MeshBlockData<Real>> &in,
-                         std::shared_ptr<MeshBlockData<Real>> &dudt_cont, const Real dt,
-                         std::shared_ptr<MeshBlockData<Real>> &out) {
-  std::shared_ptr<MeshBlock> pmb = in->GetBlockPointer();
-
-  std::vector<MetadataFlag> flags({Metadata::Independent});
-  auto vin = in->PackVariables(flags);
-  auto vout = out->PackVariables(flags);
-  auto dudt = dudt_cont->PackVariables(flags);
-
-  pmb->par_for(
-      "UpdateMeshBlockData", 0, vin.GetDim(4) - 1, 0, vin.GetDim(3) - 1, 0,
-      vin.GetDim(2) - 1, 0, vin.GetDim(1) - 1,
-      KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
-        vout(l, k, j, i) = vin(l, k, j, i) + dt * dudt(l, k, j, i);
-      });
-  return;
-}
-void AverageMeshBlockData(std::shared_ptr<MeshBlockData<Real>> &c1,
-                          std::shared_ptr<MeshBlockData<Real>> &c2, const Real wgt) {
-  std::shared_ptr<MeshBlock> pmb = c1->GetBlockPointer();
-
-  std::vector<MetadataFlag> flags({Metadata::Independent});
-  auto c1_pack = c1->PackVariables(flags);
-  auto c2_pack = c2->PackVariables(flags);
-
-  pmb->par_for(
-      "UpdateMeshBlockData", 0, c1_pack.GetDim(4) - 1, 0, c1_pack.GetDim(3) - 1, 0,
-      c1_pack.GetDim(2) - 1, 0, c1_pack.GetDim(1) - 1,
-      KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
-        c1_pack(l, k, j, i) = wgt * c1_pack(l, k, j, i) + (1 - wgt) * c2_pack(l, k, j, i);
-      });
-  return;
-}
-
 Real EstimateTimestep(std::shared_ptr<MeshBlockData<Real>> &rc) {
   std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
   Real dt_min = std::numeric_limits<Real>::max();
