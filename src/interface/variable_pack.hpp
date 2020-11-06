@@ -86,7 +86,7 @@ class VariablePack {
   KOKKOS_FORCEINLINE_FUNCTION
   int GetDim(const int i) const {
     assert(i > 0 && i < 6);
-    return (i == 5 ? 1 : dims_[i-1]);
+    return (i == 5 ? 1 : dims_[i - 1]);
   }
   KOKKOS_FORCEINLINE_FUNCTION
   int GetSparse(const int n) const {

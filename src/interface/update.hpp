@@ -36,7 +36,7 @@ void UpdateMeshBlockData(std::shared_ptr<MeshBlockData<Real>> &in,
                          std::shared_ptr<MeshBlockData<Real>> &dudt_cont, const Real dt,
                          std::shared_ptr<MeshBlockData<Real>> &out);
 void AverageMeshBlockData(std::shared_ptr<MeshBlockData<Real>> &c1,
-                         std::shared_ptr<MeshBlockData<Real>> &c2, const Real wgt);
+                          std::shared_ptr<MeshBlockData<Real>> &c2, const Real wgt);
 Real EstimateTimestep(std::shared_ptr<MeshBlockData<Real>> &rc);
 
 template <typename T>

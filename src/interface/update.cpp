@@ -123,7 +123,7 @@ void UpdateMeshBlockData(std::shared_ptr<MeshBlockData<Real>> &in,
   return;
 }
 void AverageMeshBlockData(std::shared_ptr<MeshBlockData<Real>> &c1,
-                         std::shared_ptr<MeshBlockData<Real>> &c2, const Real wgt) {
+                          std::shared_ptr<MeshBlockData<Real>> &c2, const Real wgt) {
   std::shared_ptr<MeshBlock> pmb = c1->GetBlockPointer();
 
   std::vector<MetadataFlag> flags({Metadata::Independent});
@@ -134,11 +134,10 @@ void AverageMeshBlockData(std::shared_ptr<MeshBlockData<Real>> &c1,
       "UpdateMeshBlockData", 0, c1_pack.GetDim(4) - 1, 0, c1_pack.GetDim(3) - 1, 0,
       c1_pack.GetDim(2) - 1, 0, c1_pack.GetDim(1) - 1,
       KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
-        c1_pack(l, k, j, i) = wgt*c1_pack(l, k, j, i) + (1-wgt) * c2_pack(l, k, j, i);
+        c1_pack(l, k, j, i) = wgt * c1_pack(l, k, j, i) + (1 - wgt) * c2_pack(l, k, j, i);
       });
   return;
 }
-
 
 Real EstimateTimestep(std::shared_ptr<MeshBlockData<Real>> &rc) {
   std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
