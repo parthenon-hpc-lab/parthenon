@@ -233,11 +233,6 @@ class Mesh {
   static void InitUserMeshDataDefault(ParameterInput *pin);
   std::function<void(ParameterInput *)> InitUserMeshData = InitUserMeshDataDefault;
 
-  // often used (not defined) in prob file in ../pgen/
-  void EnrollUserBoundaryFunction(BoundaryFace face, BValFunc my_func);
-  // DEPRECATED(felker): provide trivial overload for old-style BoundaryFace enum argument
-  void EnrollUserBoundaryFunction(int face, BValFunc my_func);
-
   void EnrollUserRefinementCondition(AMRFlagFunc amrflag);
   void EnrollUserMeshGenerator(CoordinateDirection dir, MeshGenFunc my_mg);
   void EnrollUserExplicitSourceFunction(SrcTermFunc my_func);

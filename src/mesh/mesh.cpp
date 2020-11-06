@@ -909,21 +909,6 @@ void Mesh::OutputMeshStructure(int ndim) {
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void Mesh::EnrollUserBoundaryFunction(BoundaryFace dir, BValFunc my_bc)
-//  \brief Enroll a user-defined boundary function
-
-void Mesh::EnrollUserBoundaryFunction(BoundaryFace dir, BValFunc my_bc) {
-  throw std::runtime_error("Mesh::EnrollUserBoundaryFunction is not implemented");
-}
-
-// DEPRECATED(felker): provide trivial overloads for old-style BoundaryFace enum
-// argument
-void Mesh::EnrollUserBoundaryFunction(int dir, BValFunc my_bc) {
-  EnrollUserBoundaryFunction(static_cast<BoundaryFace>(dir), my_bc);
-  return;
-}
-
-//----------------------------------------------------------------------------------------
 //! \fn void Mesh::EnrollUserRefinementCondition(AMRFlagFunc amrflag)
 //  \brief Enroll a user-defined function for checking refinement criteria
 

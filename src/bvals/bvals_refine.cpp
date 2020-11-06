@@ -30,53 +30,6 @@
 
 namespace parthenon {
 
-// TODO(Yurlunger) Identify an idiomatic way of applying reflective
-// boundary conditions in the boundary condition refactor code
-void applyBounds(std::shared_ptr<MeshBlock> pmb, ParArrayND<Real> &a,
-                 const IndexRange &ib, const IndexRange &jb) {
-  // applyBounds() is a Hack.  This needs to go, see TODO above.
-
-  if (pmb->boundary_flag[BoundaryFace::outer_x1] == BoundaryFlag::reflect) {
-    for (int n = 0; n < a.GetDim(4); n++) {
-      for (int j = 0; j <= jb.e + NGHOST; j++) {
-        for (int i = ib.e + 1; i <= ib.e + NGHOST; i++) {
-          a(n, 0, j, i) = a(n, 0, j, 2 * ib.e - i + 1);
-        }
-      }
-    }
-  }
-
-  if (pmb->boundary_flag[BoundaryFace::inner_x1] == BoundaryFlag::reflect) {
-    for (int n = 0; n < a.GetDim(4); n++) {
-      for (int j = 0; j <= jb.e + NGHOST; j++) {
-        for (int i = 0; i < ib.s; i++) {
-          a(n, 0, j, i) = a(n, 0, j, 2 * ib.s - i - 1);
-        }
-      }
-    }
-  }
-
-  if (pmb->boundary_flag[BoundaryFace::outer_x2] == BoundaryFlag::reflect) {
-    for (int n = 0; n < a.GetDim(4); n++) {
-      for (int j = jb.e + 1; j <= jb.e + NGHOST; j++) {
-        for (int i = 0; i <= ib.e + NGHOST; i++) {
-          a(n, 0, j, i) = a(n, 0, 2 * jb.e - j + 1, i);
-        }
-      }
-    }
-  }
-
-  if (pmb->boundary_flag[BoundaryFace::inner_x2] == BoundaryFlag::reflect) {
-    for (int n = 0; n < a.GetDim(4); n++) {
-      for (int j = 0; j < jb.s; j++) {
-        for (int i = 0; i <= ib.e + NGHOST; i++) {
-          a(n, 0, j, i) = a(n, 0, 2 * jb.s - j - 1, i);
-        }
-      }
-    }
-  }
-}
-
 // -----------
 // NOTE ON SWITCHING BETWEEN PRIMITIVE VS. CONSERVED AND STANDARD VS. COARSE BUFFERS HERE:
 // -----------
@@ -289,10 +242,6 @@ void BoundaryValues::RestrictGhostCellsOnSameLevel(const NeighborBlock &nb, int 
     int nu = var_cc.GetDim(4) - 1;
     pmb->pmr->RestrictCellCenteredValues(var_cc, coarse_cc, 0, nu, ris, rie, rjs, rje,
                                          rks, rke);
-    if (ndim == 2) { // TODO(JMM): This is a hack. fix me.
-      // note this ends up applying bounds PER NEIGHBOR FOR EVERY NEIGHBOR
-      applyBounds(pmb, coarse_cc, cib, cjb);
-    }
   }
 
   for (auto fc_pair : pmr->pvars_fc_) {
@@ -353,19 +302,12 @@ void BoundaryValues::ProlongateGhostCells(const NeighborBlock &nb, int si, int e
 
   int ndim = pmb->pmy_mesh->ndim;
   const IndexDomain interior = IndexDomain::interior;
-  const IndexRange kb = pmb->cellbounds.GetBoundsK(interior);
-  const IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
-  const IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
 
   for (auto cc_pair : pmr->pvars_cc_) {
     ParArrayND<Real> var_cc = std::get<0>(cc_pair);
     ParArrayND<Real> coarse_cc = std::get<1>(cc_pair);
     int nu = var_cc.GetDim(4) - 1;
     pmr->ProlongateCellCenteredValues(coarse_cc, var_cc, 0, nu, si, ei, sj, ej, sk, ek);
-    // boundary conditions again
-    if (ndim == 2) { // TODO(JMM): This is a hack. fix me.
-      applyBounds(pmb, var_cc, ib, jb);
-    }
   }
 
   // prolongate face-centered S/AMR-enrolled quantities (magnetic fields)
