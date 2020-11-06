@@ -41,9 +41,9 @@ void UpdateIndependentData(T &in, T &dudt, const Real dt, T &out) {
   auto out_pack = out->PackVariables(flags);
   auto dudt_pack = dudt->PackVariables(flags);
   parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, "UpdateMeshData", DevExecSpace(),
-      0, in_pack.GetDim(5) - 1, 0, in_pack.GetDim(4) - 1,
-      0, in_pack.GetDim(3) - 1, 0, in_pack.GetDim(2) - 1, 0, in_pack.GetDim(1) - 1,
+      DEFAULT_LOOP_PATTERN, "UpdateMeshData", DevExecSpace(), 0, in_pack.GetDim(5) - 1, 0,
+      in_pack.GetDim(4) - 1, 0, in_pack.GetDim(3) - 1, 0, in_pack.GetDim(2) - 1, 0,
+      in_pack.GetDim(1) - 1,
       KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
         out_pack(b, l, k, j, i) = in_pack(b, l, k, j, i) + dt * dudt_pack(b, l, k, j, i);
       });
@@ -55,9 +55,9 @@ void AverageIndependentData(T &c1, T &c2, const Real wgt1) {
   auto c1_pack = c1->PackVariables(flags);
   auto c2_pack = c2->PackVariables(flags);
   parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, "AverageMeshData", DevExecSpace(),
-      0, c1_pack.GetDim(5) - 1, 0, c1_pack.GetDim(4) - 1,
-      0, c1_pack.GetDim(3) - 1, 0, c1_pack.GetDim(2) - 1, 0, c1_pack.GetDim(1) - 1,
+      DEFAULT_LOOP_PATTERN, "AverageMeshData", DevExecSpace(), 0, c1_pack.GetDim(5) - 1,
+      0, c1_pack.GetDim(4) - 1, 0, c1_pack.GetDim(3) - 1, 0, c1_pack.GetDim(2) - 1, 0,
+      c1_pack.GetDim(1) - 1,
       KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
         c1_pack(b, l, k, j, i) =
             wgt1 * c1_pack(b, l, k, j, i) + (1 - wgt1) * c2_pack(b, l, k, j, i);

@@ -527,7 +527,7 @@ void MeshRefinement::ProlongateCellCenteredValues(const ParArrayND<Real> &coarse
           fine(n, fk, fj + 1, fi + 1) = ccval + (gx1c * dx1fp + gx2c * dx2fp);
         });
     applyBounds(pmb, fine, ib, jb); // TODO(JMM): Delete me
-  } else {                            // 1D
+  } else {                          // 1D
     int k = ckb.s, fk = kb.s, j = cjb.s, fj = jb.s;
     pmb->par_for(
         "ProlongateCellCenteredValues1d", sn, en, si, ei,
