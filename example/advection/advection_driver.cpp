@@ -56,8 +56,8 @@ TaskStatus UpdateMeshData(const int stage, Integrator *integrator,
                           std::shared_ptr<parthenon::MeshData<Real>> &out) {
   const Real beta = integrator->beta[stage - 1];
   const Real dt = integrator->dt;
-  parthenon::Update::AverageMeshData(in, base, beta);
-  parthenon::Update::UpdateMeshData(in, dudt, beta * dt, out);
+  parthenon::Update::AverageIndependentData(in, base, beta);
+  parthenon::Update::UpdateIndependentData(in, dudt, beta * dt, out);
   return TaskStatus::complete;
 }
 
