@@ -23,14 +23,14 @@
 #include <catch2/catch.hpp>
 
 TEST_CASE("Checking IndexShape indices", "[IndexShape]") {
-  const parthenon::IndexDomain interior = parthenon::IndexDomain::interior;
-  const parthenon::IndexDomain entire = parthenon::IndexDomain::entire;
-  const parthenon::IndexDomain inner_x1 = parthenon::IndexDomain::inner_x1;
-  const parthenon::IndexDomain outer_x1 = parthenon::IndexDomain::outer_x1;
-  const parthenon::IndexDomain inner_x2 = parthenon::IndexDomain::inner_x2;
-  const parthenon::IndexDomain outer_x2 = parthenon::IndexDomain::outer_x2;
-  const parthenon::IndexDomain inner_x3 = parthenon::IndexDomain::inner_x3;
-  const parthenon::IndexDomain outer_x3 = parthenon::IndexDomain::outer_x3;
+  const auto interior = parthenon::IndexDomain::interior;
+  const auto entire = parthenon::IndexDomain::entire;
+  const auto inner_x1 = parthenon::IndexDomain::inner_x1;
+  const auto outer_x1 = parthenon::IndexDomain::outer_x1;
+  const auto inner_x2 = parthenon::IndexDomain::inner_x2;
+  const auto outer_x2 = parthenon::IndexDomain::outer_x2;
+  const auto inner_x3 = parthenon::IndexDomain::inner_x3;
+  const auto outer_x3 = parthenon::IndexDomain::outer_x3;
   GIVEN("A 1D Index Shape") {
     int nx1 = 6;
     int num_ghost = 1;
@@ -296,14 +296,14 @@ TEST_CASE("Checking IndexShape indices", "[IndexShape]") {
 }
 
 TEST_CASE("Checking IndexShape cell counts", "[IndexShape]") {
-  const parthenon::IndexDomain interior = parthenon::IndexDomain::interior;
-  const parthenon::IndexDomain entire = parthenon::IndexDomain::entire;
-  const parthenon::IndexDomain inner_x1 = parthenon::IndexDomain::inner_x1;
-  const parthenon::IndexDomain outer_x1 = parthenon::IndexDomain::outer_x1;
-  const parthenon::IndexDomain inner_x2 = parthenon::IndexDomain::inner_x2;
-  const parthenon::IndexDomain outer_x2 = parthenon::IndexDomain::outer_x2;
-  const parthenon::IndexDomain inner_x3 = parthenon::IndexDomain::inner_x3;
-  const parthenon::IndexDomain outer_x3 = parthenon::IndexDomain::outer_x3;
+  const auto interior = parthenon::IndexDomain::interior;
+  const auto entire = parthenon::IndexDomain::entire;
+  const auto inner_x1 = parthenon::IndexDomain::inner_x1;
+  const auto outer_x1 = parthenon::IndexDomain::outer_x1;
+  const auto inner_x2 = parthenon::IndexDomain::inner_x2;
+  const auto outer_x2 = parthenon::IndexDomain::outer_x2;
+  const auto inner_x3 = parthenon::IndexDomain::inner_x3;
+  const auto outer_x3 = parthenon::IndexDomain::outer_x3;
   GIVEN("A 1D Index Shape, check the numbers of cells") {
     int nx1 = 6;
     int num_ghost = 1;
