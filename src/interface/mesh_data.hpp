@@ -19,6 +19,7 @@
 #include <utility>
 #include <vector>
 
+#include "mesh/domain.hpp"
 #include "mesh/meshblock.hpp"
 #include "mesh/meshblock_pack.hpp"
 #include "utils/error_checking.hpp"
@@ -80,6 +81,16 @@ class MeshData {
   void SetMeshPointer(Mesh *pmesh) { pmy_mesh_ = pmesh; }
   void SetMeshPointer(const std::shared_ptr<MeshData<T>> &other) {
     pmy_mesh_ = other->GetMeshPointer();
+  }
+
+  IndexRange GetBoundsI(const IndexDomain &domain) const {
+    return block_data_[0]->GetBoundsI(domain);
+  }
+  IndexRange GetBoundsJ(const IndexDomain &domain) const {
+    return block_data_[0]->GetBoundsJ(domain);
+  }
+  IndexRange GetBoundsK(const IndexDomain &domain) const {
+    return block_data_[0]->GetBoundsK(domain);
   }
 
   template <class... Args>

@@ -122,42 +122,23 @@ void UpdateMeshBlockData(std::shared_ptr<MeshBlockData<Real>> &in,
       });
   return;
 }
+void AverageMeshBlockData(std::shared_ptr<MeshBlockData<Real>> &c1,
+                         std::shared_ptr<MeshBlockData<Real>> &c2, const Real wgt) {
+  std::shared_ptr<MeshBlock> pmb = c1->GetBlockPointer();
 
-void UpdateMeshData(std::shared_ptr<MeshData<Real>> &in,
-                    std::shared_ptr<MeshData<Real>> &dudt, const Real dt,
-                    std::shared_ptr<MeshData<Real>> &out) {
-  std::vector<MetadataFlag> flags({Metadata::Independent});
-  auto in_pack = in->PackVariables(flags);
-  auto out_pack = out->PackVariables(flags);
-  auto dudt_pack = dudt->PackVariables(flags);
-  parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, "UpdateMeshData", DevExecSpace(), 0, in_pack.GetDim(5) - 1, 0,
-      in_pack.GetDim(4) - 1, 0, in_pack.GetDim(3) - 1, 0, in_pack.GetDim(2) - 1, 0,
-      in_pack.GetDim(1) - 1,
-      KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
-        out_pack(b, l, k, j, i) = in_pack(b, l, k, j, i) + dt * dudt_pack(b, l, k, j, i);
-      });
-}
-
-void AverageMeshData(std::shared_ptr<MeshData<Real>> &c1,
-                     std::shared_ptr<MeshData<Real>> &c2, const Real wgt1) {
   std::vector<MetadataFlag> flags({Metadata::Independent});
   auto c1_pack = c1->PackVariables(flags);
   auto c2_pack = c2->PackVariables(flags);
 
-  const IndexDomain interior = IndexDomain::interior;
-  IndexRange ib = c1_pack.cellbounds.GetBoundsI(interior);
-  IndexRange jb = c1_pack.cellbounds.GetBoundsJ(interior);
-  IndexRange kb = c1_pack.cellbounds.GetBoundsK(interior);
-
-  parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, "AverageMeshData", DevExecSpace(), 0, c1_pack.GetDim(5) - 1,
-      0, c1_pack.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
-        c1_pack(b, l, k, j, i) =
-            wgt1 * c1_pack(b, l, k, j, i) + (1 - wgt1) * c2_pack(b, l, k, j, i);
+  pmb->par_for(
+      "UpdateMeshBlockData", 0, c1_pack.GetDim(4) - 1, 0, c1_pack.GetDim(3) - 1, 0,
+      c1_pack.GetDim(2) - 1, 0, c1_pack.GetDim(1) - 1,
+      KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
+        c1_pack(l, k, j, i) = wgt*c1_pack(l, k, j, i) + (1-wgt) * c2_pack(l, k, j, i);
       });
+  return;
 }
+
 
 Real EstimateTimestep(std::shared_ptr<MeshBlockData<Real>> &rc) {
   std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
