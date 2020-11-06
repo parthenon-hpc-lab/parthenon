@@ -291,33 +291,37 @@ class MeshBlockData {
   VariableFluxPack<T> PackVariablesAndFluxes(const std::vector<MetadataFlag> &flags,
                                              vpack_types::StringPair &key);
   VariablePack<T> PackVariables(const std::vector<std::string> &names,
-                                const std::vector<int> &sparse_ids, PackIndexMap &vmap);
+                                const std::vector<int> &sparse_ids, PackIndexMap &vmap,
+                                bool coarse = false);
   VariablePack<T> PackVariables(const std::vector<std::string> &names,
-                                const std::vector<int> &sparse_ids);
+                                const std::vector<int> &sparse_ids, bool coarse = false);
+  VariablePack<T> PackVariables(const std::vector<std::string> &names, PackIndexMap &vmap,
+                                bool coarse = false);
   VariablePack<T> PackVariables(const std::vector<std::string> &names,
-                                PackIndexMap &vmap);
-  VariablePack<T> PackVariables(const std::vector<std::string> &names);
+                                bool coarse = false);
   VariablePack<T> PackVariables(const std::vector<MetadataFlag> &flags,
-                                PackIndexMap &vmap);
-  VariablePack<T> PackVariables(const std::vector<MetadataFlag> &flags);
-  VariablePack<T> PackVariables(PackIndexMap &vmap);
-  VariablePack<T> PackVariables();
+                                PackIndexMap &vmap, bool coarse = false);
+  VariablePack<T> PackVariables(const std::vector<MetadataFlag> &flags,
+                                bool coarse = false);
+  VariablePack<T> PackVariables(PackIndexMap &vmap, bool coarse = false);
+  VariablePack<T> PackVariables(bool coarse = false);
   VariablePack<T> PackVariables(const std::vector<std::string> &names,
                                 const std::vector<int> &sparse_ids, PackIndexMap &vmap,
-                                std::vector<std::string> &key);
+                                std::vector<std::string> &key, bool coarse = false);
   VariablePack<T> PackVariables(const std::vector<std::string> &names,
                                 const std::vector<int> &sparse_ids,
-                                std::vector<std::string> &key);
+                                std::vector<std::string> &key, bool coarse = false);
   VariablePack<T> PackVariables(const std::vector<std::string> &names, PackIndexMap &vmap,
-                                std::vector<std::string> &key);
+                                std::vector<std::string> &key, bool coarse = false);
   VariablePack<T> PackVariables(const std::vector<std::string> &names,
-                                std::vector<std::string> &key);
+                                std::vector<std::string> &key, bool coarse = false);
   VariablePack<T> PackVariables(const std::vector<MetadataFlag> &flags,
-                                PackIndexMap &vmap, std::vector<std::string> &key);
+                                PackIndexMap &vmap, std::vector<std::string> &key,
+                                bool coarse = false);
   VariablePack<T> PackVariables(const std::vector<MetadataFlag> &flags,
-                                std::vector<std::string> &key);
-  VariablePack<T> PackVariables(PackIndexMap &vmap, std::vector<std::string> &key);
-  // VariablePack<T> PackVariables(std::vector<std::string> &key);
+                                std::vector<std::string> &key, bool coarse = false);
+  VariablePack<T> PackVariables(PackIndexMap &vmap, std::vector<std::string> &key,
+                                bool coarse = false);
 
   /// Remove a variable from the container or throw exception if not
   /// found.
@@ -404,7 +408,7 @@ class MeshBlockData {
                                 vpack_types::StringPair &key);
   VariablePack<T> PackVariablesHelper_(const std::vector<std::string> &names,
                                        const vpack_types::VarList<T> &vars,
-                                       PackIndexMap &vmap);
+                                       PackIndexMap &vmap, bool coarse = false);
 };
 
 using MeshBlockDataCollection = DataCollection<MeshBlockData<Real>>;

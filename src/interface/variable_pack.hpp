@@ -161,7 +161,7 @@ using MapToVariableFluxPack = std::map<vpack_types::StringPair, FluxPackIndxPair
 template <typename T>
 void FillVarView(const vpack_types::VarList<T> &vars, PackIndexMap *vmap,
                  ViewOfParArrays<T> &cv, ParArray1D<int> &sparse_assoc,
-                 ParArray1D<int> &vector_component) {
+                 ParArray1D<int> &vector_component, bool coarse = false) {
   using vpack_types::IndexPair;
 
   auto host_view = Kokkos::create_mirror_view(Kokkos::HostSpace(), cv);
@@ -205,7 +205,7 @@ void FillVarView(const vpack_types::VarList<T> &vars, PackIndexMap *vmap,
           // for scalar-objects, returns NODIR.
           bool is_vec = v->IsSet(Metadata::Vector) || v->IsSet(Metadata::Tensor);
           host_vc(vindex) = is_vec ? vindex - vstart + 1 : NODIR;
-          host_view(vindex) = v->data.Get(k, j, i);
+          host_view(vindex) = coarse ? v->coarse_s.Get(k, j, i) : v->data.Get(k, j, i);
           vindex++;
         }
       }
@@ -320,7 +320,7 @@ VariableFluxPack<T> MakeFluxPack(const vpack_types::VarList<T> &vars,
 
 template <typename T>
 VariablePack<T> MakePack(const vpack_types::VarList<T> &vars,
-                         PackIndexMap *vmap = nullptr) {
+                         PackIndexMap *vmap = nullptr, bool coarse = false) {
   // count up the size
   int vsize = 0;
   for (const auto &v : vars) {
@@ -332,7 +332,7 @@ VariablePack<T> MakePack(const vpack_types::VarList<T> &vars,
   ParArray1D<int> sparse_assoc("MakePack::sparse_assoc", vsize);
   ParArray1D<int> vector_component("MakePack::vector_component", vsize);
 
-  FillVarView(vars, vmap, cv, sparse_assoc, vector_component);
+  FillVarView(vars, vmap, cv, sparse_assoc, vector_component, coarse);
 
   auto fvar = vars.front()->data;
   std::array<int, 4> cv_size = {fvar.GetDim(1), fvar.GetDim(2), fvar.GetDim(3), vsize};

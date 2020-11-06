@@ -150,7 +150,10 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
         pmb);
 
     // set physical boundaries
-    auto set_bc = tl.AddTask(prolongBound, parthenon::ApplyBoundaryConditions, sc1);
+    // note "false" in call to ApplyBoundaryConditions.
+    // AddTask is not smart enough to resolve function overloads or default arguments.
+    auto set_bc =
+        tl.AddTask(prolongBound, parthenon::ApplyBoundaryConditions, sc1, false);
 
     // fill in derived fields
     auto fill_derived =

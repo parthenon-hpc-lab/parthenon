@@ -23,15 +23,16 @@
 
 namespace parthenon {
 
-TaskStatus ApplyBoundaryConditions(std::shared_ptr<MeshBlockData<Real>> &rc) {
+TaskStatus ApplyBoundaryConditions(std::shared_ptr<MeshBlockData<Real>> &rc,
+                                   bool coarse) {
   std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
 
   switch (pmb->boundary_flag[BoundaryFace::inner_x1]) {
   case BoundaryFlag::outflow:
-    BoundaryFunction::OutflowInnerX1(rc);
+    BoundaryFunction::OutflowInnerX1(rc, coarse);
     break;
   case BoundaryFlag::reflect:
-    BoundaryFunction::ReflectInnerX1(rc);
+    BoundaryFunction::ReflectInnerX1(rc, coarse);
     break;
   default:
     break;
@@ -39,10 +40,10 @@ TaskStatus ApplyBoundaryConditions(std::shared_ptr<MeshBlockData<Real>> &rc) {
 
   switch (pmb->boundary_flag[BoundaryFace::outer_x1]) {
   case BoundaryFlag::outflow:
-    BoundaryFunction::OutflowOuterX1(rc);
+    BoundaryFunction::OutflowOuterX1(rc, coarse);
     break;
   case BoundaryFlag::reflect:
-    BoundaryFunction::ReflectOuterX1(rc);
+    BoundaryFunction::ReflectOuterX1(rc, coarse);
     break;
   default:
     break;
@@ -51,10 +52,10 @@ TaskStatus ApplyBoundaryConditions(std::shared_ptr<MeshBlockData<Real>> &rc) {
   if (pmb->pmy_mesh->ndim >= 2) {
     switch (pmb->boundary_flag[BoundaryFace::inner_x2]) {
     case BoundaryFlag::outflow:
-      BoundaryFunction::OutflowInnerX2(rc);
+      BoundaryFunction::OutflowInnerX2(rc, coarse);
       break;
     case BoundaryFlag::reflect:
-      BoundaryFunction::ReflectInnerX2(rc);
+      BoundaryFunction::ReflectInnerX2(rc, coarse);
       break;
     default:
       break;
@@ -62,10 +63,10 @@ TaskStatus ApplyBoundaryConditions(std::shared_ptr<MeshBlockData<Real>> &rc) {
 
     switch (pmb->boundary_flag[BoundaryFace::outer_x2]) {
     case BoundaryFlag::outflow:
-      BoundaryFunction::OutflowOuterX2(rc);
+      BoundaryFunction::OutflowOuterX2(rc, coarse);
       break;
     case BoundaryFlag::reflect:
-      BoundaryFunction::ReflectOuterX2(rc);
+      BoundaryFunction::ReflectOuterX2(rc, coarse);
       break;
     default:
       break;
@@ -75,10 +76,10 @@ TaskStatus ApplyBoundaryConditions(std::shared_ptr<MeshBlockData<Real>> &rc) {
   if (pmb->pmy_mesh->ndim >= 3) {
     switch (pmb->boundary_flag[BoundaryFace::inner_x3]) {
     case BoundaryFlag::outflow:
-      BoundaryFunction::OutflowInnerX3(rc);
+      BoundaryFunction::OutflowInnerX3(rc, coarse);
       break;
     case BoundaryFlag::reflect:
-      BoundaryFunction::ReflectInnerX3(rc);
+      BoundaryFunction::ReflectInnerX3(rc, coarse);
       break;
     default:
       break;
@@ -86,10 +87,10 @@ TaskStatus ApplyBoundaryConditions(std::shared_ptr<MeshBlockData<Real>> &rc) {
 
     switch (pmb->boundary_flag[BoundaryFace::outer_x3]) {
     case BoundaryFlag::outflow:
-      BoundaryFunction::OutflowOuterX3(rc);
+      BoundaryFunction::OutflowOuterX3(rc, coarse);
       break;
     case BoundaryFlag::reflect:
-      BoundaryFunction::ReflectOuterX3(rc);
+      BoundaryFunction::ReflectOuterX3(rc, coarse);
       break;
     default:
       break;
@@ -101,10 +102,10 @@ TaskStatus ApplyBoundaryConditions(std::shared_ptr<MeshBlockData<Real>> &rc) {
 
 namespace BoundaryFunction {
 
-void OutflowInnerX1(std::shared_ptr<MeshBlockData<Real>> &rc) {
+void OutflowInnerX1(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
   std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
   int ref = pmb->cellbounds.GetBoundsI(IndexDomain::interior).s;
-  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::Independent});
+  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::Independent}, coarse);
   pmb->par_for_4D(
       "OutflowInnerX1", 0, q.GetDim(4), IndexDomain::inner_x1,
       KOKKOS_LAMBDA(const int &l, const int &k, const int &j, const int &i) {
@@ -112,10 +113,10 @@ void OutflowInnerX1(std::shared_ptr<MeshBlockData<Real>> &rc) {
       });
 }
 
-void OutflowOuterX1(std::shared_ptr<MeshBlockData<Real>> &rc) {
+void OutflowOuterX1(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
   std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
   int ref = pmb->cellbounds.GetBoundsI(IndexDomain::interior).e;
-  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::Independent});
+  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::Independent}, coarse);
   pmb->par_for_4D(
       "OutflowOuterX1", 0, q.GetDim(4), IndexDomain::outer_x1,
       KOKKOS_LAMBDA(const int &l, const int &k, const int &j, const int &i) {
@@ -123,10 +124,10 @@ void OutflowOuterX1(std::shared_ptr<MeshBlockData<Real>> &rc) {
       });
 }
 
-void OutflowInnerX2(std::shared_ptr<MeshBlockData<Real>> &rc) {
+void OutflowInnerX2(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
   std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
   int ref = pmb->cellbounds.GetBoundsJ(IndexDomain::interior).s;
-  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::Independent});
+  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::Independent}, coarse);
   pmb->par_for_4D(
       "OutflowInnerX2", 0, q.GetDim(4), IndexDomain::inner_x2,
       KOKKOS_LAMBDA(const int &l, const int &k, const int &j, const int &i) {
@@ -134,10 +135,10 @@ void OutflowInnerX2(std::shared_ptr<MeshBlockData<Real>> &rc) {
       });
 }
 
-void OutflowOuterX2(std::shared_ptr<MeshBlockData<Real>> &rc) {
+void OutflowOuterX2(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
   std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
   int ref = pmb->cellbounds.GetBoundsJ(IndexDomain::interior).e;
-  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::Independent});
+  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::Independent}, coarse);
   pmb->par_for_4D(
       "OutflowOuterX2", 0, q.GetDim(4), IndexDomain::outer_x2,
       KOKKOS_LAMBDA(const int &l, const int &k, const int &j, const int &i) {
@@ -145,10 +146,10 @@ void OutflowOuterX2(std::shared_ptr<MeshBlockData<Real>> &rc) {
       });
 }
 
-void OutflowInnerX3(std::shared_ptr<MeshBlockData<Real>> &rc) {
+void OutflowInnerX3(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
   std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
   int ref = pmb->cellbounds.GetBoundsJ(IndexDomain::interior).s;
-  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::Independent});
+  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::Independent}, coarse);
   pmb->par_for_4D(
       "OutflowInnerX3", 0, q.GetDim(4), IndexDomain::inner_x3,
       KOKKOS_LAMBDA(const int &l, const int &k, const int &j, const int &i) {
@@ -156,10 +157,10 @@ void OutflowInnerX3(std::shared_ptr<MeshBlockData<Real>> &rc) {
       });
 }
 
-void OutflowOuterX3(std::shared_ptr<MeshBlockData<Real>> &rc) {
+void OutflowOuterX3(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
   std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
   int ref = pmb->cellbounds.GetBoundsJ(IndexDomain::interior).e;
-  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::Independent});
+  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::Independent}, coarse);
   pmb->par_for_4D(
       "OutflowOuterX3", 0, q.GetDim(4), IndexDomain::outer_x3,
       KOKKOS_LAMBDA(const int &l, const int &k, const int &j, const int &i) {
@@ -167,10 +168,10 @@ void OutflowOuterX3(std::shared_ptr<MeshBlockData<Real>> &rc) {
       });
 }
 
-void ReflectInnerX1(std::shared_ptr<MeshBlockData<Real>> &rc) {
+void ReflectInnerX1(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
   std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
   int ref = pmb->cellbounds.GetBoundsI(IndexDomain::interior).s;
-  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::Independent});
+  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::Independent}, coarse);
   pmb->par_for_4D(
       "ReflectInnerX1", 0, q.GetDim(4), IndexDomain::inner_x1,
       KOKKOS_LAMBDA(const int &l, const int &k, const int &j, const int &i) {
@@ -179,10 +180,10 @@ void ReflectInnerX1(std::shared_ptr<MeshBlockData<Real>> &rc) {
       });
 }
 
-void ReflectOuterX1(std::shared_ptr<MeshBlockData<Real>> &rc) {
+void ReflectOuterX1(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
   std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
   int ref = pmb->cellbounds.GetBoundsI(IndexDomain::interior).e;
-  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::Independent});
+  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::Independent}, coarse);
   pmb->par_for_4D(
       "ReflectOuterX1", 0, q.GetDim(4), IndexDomain::outer_x1,
       KOKKOS_LAMBDA(const int &l, const int &k, const int &j, const int &i) {
@@ -191,10 +192,10 @@ void ReflectOuterX1(std::shared_ptr<MeshBlockData<Real>> &rc) {
       });
 }
 
-void ReflectInnerX2(std::shared_ptr<MeshBlockData<Real>> &rc) {
+void ReflectInnerX2(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
   std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
   int ref = pmb->cellbounds.GetBoundsJ(IndexDomain::interior).s;
-  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::Independent});
+  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::Independent}, coarse);
   pmb->par_for_4D(
       "ReflectInnerX2", 0, q.GetDim(4), IndexDomain::inner_x2,
       KOKKOS_LAMBDA(const int &l, const int &k, const int &j, const int &i) {
@@ -203,10 +204,10 @@ void ReflectInnerX2(std::shared_ptr<MeshBlockData<Real>> &rc) {
       });
 }
 
-void ReflectOuterX2(std::shared_ptr<MeshBlockData<Real>> &rc) {
+void ReflectOuterX2(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
   std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
   int ref = pmb->cellbounds.GetBoundsJ(IndexDomain::interior).e;
-  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::Independent});
+  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::Independent}, coarse);
   pmb->par_for_4D(
       "ReflectOuterX2", 0, q.GetDim(4), IndexDomain::outer_x2,
       KOKKOS_LAMBDA(const int &l, const int &k, const int &j, const int &i) {
@@ -215,10 +216,10 @@ void ReflectOuterX2(std::shared_ptr<MeshBlockData<Real>> &rc) {
       });
 }
 
-void ReflectInnerX3(std::shared_ptr<MeshBlockData<Real>> &rc) {
+void ReflectInnerX3(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
   std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
   int ref = pmb->cellbounds.GetBoundsK(IndexDomain::interior).s;
-  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::Independent});
+  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::Independent}, coarse);
   pmb->par_for_4D(
       "ReflectInnerX3", 0, q.GetDim(4), IndexDomain::inner_x3,
       KOKKOS_LAMBDA(const int &l, const int &k, const int &j, const int &i) {
@@ -227,10 +228,10 @@ void ReflectInnerX3(std::shared_ptr<MeshBlockData<Real>> &rc) {
       });
 }
 
-void ReflectOuterX3(std::shared_ptr<MeshBlockData<Real>> &rc) {
+void ReflectOuterX3(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
   std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
   int ref = pmb->cellbounds.GetBoundsK(IndexDomain::interior).e;
-  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::Independent});
+  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::Independent}, coarse);
   pmb->par_for_4D(
       "ReflectOuterX3", 0, q.GetDim(4), IndexDomain::outer_x3,
       KOKKOS_LAMBDA(const int &l, const int &k, const int &j, const int &i) {
