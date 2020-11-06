@@ -187,11 +187,11 @@ int IOWrapper::Close() {
 //! \fn int IOWrapper::Seek(IOWrapperSizeT offset)
 //  \brief wrapper for {MPI_File_seek} versus {std::fseek}
 
-int IOWrapper::Seek(IOWrapperSizeT offset) {
+void IOWrapper::Seek(IOWrapperSizeT offset) {
 #ifdef MPI_PARALLEL
-  return MPI_File_seek(fh_, offset, MPI_SEEK_SET);
+  PARTHENON_MPI_CHECK(MPI_File_seek(fh_, offset, MPI_SEEK_SET));
 #else
-  return std::fseek(fh_, offset, SEEK_SET);
+  PARTHENON_REQUIRE_THROWS(0 == std::fseek(fh_, offset, SEEK_SET), "Could not seek file");
 #endif
 }
 
