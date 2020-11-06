@@ -58,7 +58,7 @@ class IOWrapper {
   std::ptrdiff_t Write(const void *buf, IOWrapperSizeT size, IOWrapperSizeT count);
   std::ptrdiff_t Write_at_all(const void *buf, IOWrapperSizeT size, IOWrapperSizeT cnt,
                               IOWrapperSizeT offset);
-  int Close();
+  void Close();
   void Seek(IOWrapperSizeT offset);
   IOWrapperSizeT GetPosition();
 

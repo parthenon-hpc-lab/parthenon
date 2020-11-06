@@ -175,11 +175,11 @@ std::ptrdiff_t IOWrapper::Write_at_all(const void *buf, IOWrapperSizeT size,
 //! \fn void IOWrapper::Close()
 //  \brief wrapper for {MPI_File_close} versus {std::fclose}
 
-int IOWrapper::Close() {
+void IOWrapper::Close() {
 #ifdef MPI_PARALLEL
-  return MPI_File_close(&fh_);
+  PARTHENON_MPI_CHECK(MPI_File_close(&fh_));
 #else
-  return std::fclose(fh_);
+  PARTHENON_REQUIRE_THROWS(0 == std::fclose(fh_), "Could not close file");
 #endif
 }
 
