@@ -17,12 +17,35 @@
 #include <memory>
 
 #include "basic_types.hpp"
+#include "bvals/bvals_interfaces.hpp"
 #include "interface/meshblock_data.hpp"
+#include "mesh/domain.hpp"
 
 namespace parthenon {
 
 TaskStatus ApplyBoundaryConditions(std::shared_ptr<MeshBlockData<Real>> &rc);
 
+namespace BoundaryFunction {
+
+void OutflowInnerX1(std::shared_ptr<MeshBlockData<Real>> &rc);
+void OutflowOuterX1(std::shared_ptr<MeshBlockData<Real>> &rc);
+
+void OutflowInnerX2(std::shared_ptr<MeshBlockData<Real>> &rc);
+void OutflowOuterX2(std::shared_ptr<MeshBlockData<Real>> &rc);
+
+void OutflowInnerX3(std::shared_ptr<MeshBlockData<Real>> &rc);
+void OutflowOuterX3(std::shared_ptr<MeshBlockData<Real>> &rc);
+
+void ReflectInnerX1(std::shared_ptr<MeshBlockData<Real>> &rc);
+void ReflectOuterX1(std::shared_ptr<MeshBlockData<Real>> &rc);
+
+void ReflectInnerX2(std::shared_ptr<MeshBlockData<Real>> &rc);
+void ReflectOuterX2(std::shared_ptr<MeshBlockData<Real>> &rc);
+
+void ReflectInnerX3(std::shared_ptr<MeshBlockData<Real>> &rc);
+void ReflectOuterX3(std::shared_ptr<MeshBlockData<Real>> &rc);
+
+} // namespace BoundaryFunction
 } // namespace parthenon
 
 #endif // BVALS_BOUNDARY_CONDITIONS_HPP_
