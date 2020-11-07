@@ -42,7 +42,7 @@ Real FluxDiv_(const int l, const int k, const int j, const int i, const int ndim
     du += (coords.Area(X3DIR, k + 1, j, i) * v.flux(X3DIR, l, k + 1, j, i) -
            coords.Area(X3DIR, k, j, i) * v.flux(X3DIR, l, k, j, i));
   }
-  return -du/coords.Volume(k,j,i);
+  return -du / coords.Volume(k, j, i);
 }
 
 template <>

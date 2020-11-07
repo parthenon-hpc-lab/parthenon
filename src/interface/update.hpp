@@ -83,7 +83,7 @@ Real EstimateTimestep(T &rc) {
 }
 
 template <typename T>
-using DeriveFuncType = void(std::shared_ptr<T>&);
+using DeriveFuncType = void(std::shared_ptr<T> &);
 
 template <typename T>
 TaskStatus FillDerived(std::shared_ptr<T> &rc) {
@@ -96,7 +96,7 @@ TaskStatus FillDerived(std::shared_ptr<T> &rc) {
   }
   auto gp = rc->GetGridPointer();
   // type deduction fails if auto is used below
-  for (const std::pair<std::string,Desc_t> &pkg : gp->packages) {
+  for (const std::pair<std::string, Desc_t> &pkg : gp->packages) {
     auto &p = pkg.second->AllParams();
     if (p.hasKey("FillDerived")) {
       pkg.second->Param<DeriveFunc_t *>("FillDerived")(rc);
