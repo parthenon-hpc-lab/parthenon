@@ -84,9 +84,9 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
   }
 
   // Allow for user overrides to default Parthenon functions
-  if (app_input->SetFillDerivedFunctions != nullptr) {
-    SetFillDerivedFunctions = app_input->SetFillDerivedFunctions;
-  }
+  //if (app_input->SetFillDerivedFunctions != nullptr) {
+  //  SetFillDerivedFunctions = app_input->SetFillDerivedFunctions;
+  //}
   if (app_input->ProcessProperties != nullptr) {
     ProcessProperties = app_input->ProcessProperties;
   }
@@ -152,7 +152,7 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
     }
   }
 
-  SetFillDerivedFunctions();
+  //SetFillDerivedFunctions();
 
   pmesh->Initialize(Restart(), pinput.get(), app_input.get());
 
@@ -171,7 +171,7 @@ ParthenonStatus ParthenonManager::ParthenonFinalize() {
 }
 
 void ParthenonManager::SetFillDerivedFunctionsDefault() {
-  FillDerivedVariables::SetFillDerivedFunctions(nullptr, nullptr);
+  //FillDerivedVariables::SetFillDerivedFunctions(nullptr, nullptr);
 }
 
 Properties_t

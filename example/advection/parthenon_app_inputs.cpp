@@ -209,12 +209,20 @@ Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   Packages_t packages;
   auto pkg = advection_package::Initialize(pin.get());
   packages[pkg->label()] = pkg;
+
+  auto app = std::make_shared<StateDescriptor>("AppInput");
+  app->AddParam("PreFillDerived", advection_package::PreFill);
+  app->AddParam("PostFillDerived", advection_package::PostFill);
+  packages[app->label()] = app;
+
   return packages;
 }
 
 void SetFillDerivedFunctions() {
-  parthenon::FillDerivedVariables::SetFillDerivedFunctions(advection_package::PreFill,
-                                                           advection_package::PostFill);
+  //parthenon::FillDerivedVariables::SetFillDerivedFunctions(advection_package::PreFill,
+  //                                                         advection_package::PostFill);
 }
+
+
 
 } // namespace advection_example

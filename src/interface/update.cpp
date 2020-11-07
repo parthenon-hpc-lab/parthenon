@@ -42,8 +42,7 @@ Real FluxDiv_(const int l, const int k, const int j, const int i, const int ndim
     du += (coords.Area(X3DIR, k + 1, j, i) * v.flux(X3DIR, l, k + 1, j, i) -
            coords.Area(X3DIR, k, j, i) * v.flux(X3DIR, l, k, j, i));
   }
-  du /= -coords.Volume(k, j, i);
-  return du;
+  return -du/coords.Volume(k,j,i);
 }
 
 template <>
@@ -95,30 +94,5 @@ TaskStatus FluxDivergence(std::shared_ptr<MeshData<Real>> &in_obj,
 }
 
 } // namespace Update
-
-static FillDerivedVariables::FillDerivedFunc *pre_package_fill_ = nullptr;
-static FillDerivedVariables::FillDerivedFunc *post_package_fill_ = nullptr;
-
-void FillDerivedVariables::SetFillDerivedFunctions(FillDerivedFunc *pre,
-                                                   FillDerivedFunc *post) {
-  pre_package_fill_ = pre;
-  post_package_fill_ = post;
-}
-
-TaskStatus FillDerivedVariables::FillDerived(std::shared_ptr<MeshBlockData<Real>> &rc) {
-  if (pre_package_fill_ != nullptr) {
-    pre_package_fill_(rc);
-  }
-  for (auto &pkg : rc->GetBlockPointer()->packages) {
-    auto &desc = pkg.second;
-    if (desc->FillDerived != nullptr) {
-      desc->FillDerived(rc);
-    }
-  }
-  if (post_package_fill_ != nullptr) {
-    post_package_fill_(rc);
-  }
-  return TaskStatus::complete;
-}
 
 } // namespace parthenon

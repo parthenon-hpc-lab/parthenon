@@ -14,13 +14,17 @@
 #define INTERFACE_UPDATE_HPP_
 
 #include <algorithm>
+#include <functional>
 #include <limits>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "defs.hpp"
 #include "interface/metadata.hpp"
+#include "interface/params.hpp"
+#include "interface/state_descriptor.hpp"
 
 #include "kokkos_abstraction.hpp"
 
@@ -78,14 +82,40 @@ Real EstimateTimestep(T &rc) {
   return dt_min;
 }
 
+template <typename T>
+using DeriveFuncType = void(std::shared_ptr<T>&);
+
+template <typename T>
+TaskStatus FillDerived(std::shared_ptr<T> &rc) {
+  using DeriveFunc_t = DeriveFuncType<T>;
+  using Desc_t = std::shared_ptr<StateDescriptor>;
+  Desc_t &app_pkg = rc->GetGridPointer()->packages["AppInput"];
+  auto &params = app_pkg->AllParams();
+  if (params.hasKey("PreFillDerived")) {
+    app_pkg->Param<DeriveFunc_t *>("PreFillDerived")(rc);
+  }
+  auto gp = rc->GetGridPointer();
+  // type deduction fails if auto is used below
+  for (const std::pair<std::string,Desc_t> &pkg : gp->packages) {
+    auto &p = pkg.second->AllParams();
+    if (p.hasKey("FillDerived")) {
+      pkg.second->Param<DeriveFunc_t *>("FillDerived")(rc);
+    }
+  }
+  if (params.hasKey("PostFillDerived")) {
+    app_pkg->Param<DeriveFunc_t *>("PostFillDerived")(rc);
+  }
+  return TaskStatus::complete;
+}
+
 } // namespace Update
 
 namespace FillDerivedVariables {
-
+/*
 using FillDerivedFunc = void(std::shared_ptr<MeshBlockData<Real>> &);
 void SetFillDerivedFunctions(FillDerivedFunc *pre, FillDerivedFunc *post);
 TaskStatus FillDerived(std::shared_ptr<MeshBlockData<Real>> &rc);
-
+*/
 } // namespace FillDerivedVariables
 
 } // namespace parthenon

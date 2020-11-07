@@ -1070,7 +1070,7 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin, ApplicationInput *app_i
         //        }
 
         ApplyBoundaryConditions(pmb->meshblock_data.Get());
-        FillDerivedVariables::FillDerived(pmb->meshblock_data.Get());
+        Update::FillDerived(pmb->meshblock_data.Get());
       }
 
       if (!res_flag && adaptive) {

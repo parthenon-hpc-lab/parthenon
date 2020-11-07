@@ -156,7 +156,7 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
 
     // fill in derived fields
     auto fill_derived =
-        tl.AddTask(set_bc, parthenon::FillDerivedVariables::FillDerived, sc1);
+        tl.AddTask(set_bc, parthenon::Update::FillDerived<MeshBlockData<Real>>, sc1);
 
     // estimate next time step
     if (stage == integrator->nstages) {
