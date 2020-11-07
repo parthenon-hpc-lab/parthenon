@@ -46,7 +46,7 @@ Real FluxDiv_(const int l, const int k, const int j, const int i, const int ndim
   return du;
 }
 
-template<>
+template <>
 TaskStatus FluxDivergence(std::shared_ptr<MeshBlockData<Real>> &in,
                           std::shared_ptr<MeshBlockData<Real>> &dudt_cont) {
   std::shared_ptr<MeshBlock> pmb = in->GetBlockPointer();
@@ -64,7 +64,7 @@ TaskStatus FluxDivergence(std::shared_ptr<MeshBlockData<Real>> &in,
   pmb->par_for(
       "FluxDivergenceBlock", 0, vin.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
-        dudt(l,k,j,i) = FluxDiv_(l, k, j, i, ndim, coords, vin);
+        dudt(l, k, j, i) = FluxDiv_(l, k, j, i, ndim, coords, vin);
       });
 
   return TaskStatus::complete;

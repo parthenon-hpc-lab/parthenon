@@ -17,24 +17,22 @@
 #include <limits>
 #include <memory>
 #include <string>
-#include <type_traits>
 #include <vector>
 
-#include "coordinates/coordinates.hpp"
 #include "defs.hpp"
-#include "interface/mesh_data.hpp"
-#include "interface/meshblock_data.hpp"
-#include "mesh/mesh.hpp"
+#include "interface/metadata.hpp"
 
 #include "kokkos_abstraction.hpp"
 
 namespace parthenon {
 
+template <typename T>
+class MeshBlockData;
+
 namespace Update {
 
 template <typename T>
-TaskStatus FluxDivergence(std::shared_ptr<T> &in,
-                          std::shared_ptr<T> &dudt_obj);
+TaskStatus FluxDivergence(std::shared_ptr<T> &in, std::shared_ptr<T> &dudt_obj);
 
 template <typename T>
 void UpdateIndependentData(T &in, T &dudt, const Real dt, T &out) {
