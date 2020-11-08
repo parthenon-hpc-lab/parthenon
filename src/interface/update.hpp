@@ -94,18 +94,18 @@ TaskStatus FillDerived(std::shared_ptr<T> &rc) {
   std::string mytype = typeid(rc).name();
   std::string suffix = (mytype.find("Block") != std::string::npos ? "Block" : "Mesh");
   if (params.hasKey("PreFillDerived" + suffix)) {
-    params.Get<DeriveFunc_t *>("PreFillDerived"+suffix)(rc);
+    params.Get<DeriveFunc_t *>("PreFillDerived" + suffix)(rc);
   }
   auto gp = rc->GetGridPointer();
   // type deduction fails if auto is used below
   for (const std::pair<std::string, Desc_t> &pkg : gp->packages) {
     auto &p = pkg.second->AllParams();
-    if (p.hasKey("FillDerived"+suffix)) {
-      p.Get<DeriveFunc_t *>("FillDerived"+suffix)(rc);
+    if (p.hasKey("FillDerived" + suffix)) {
+      p.Get<DeriveFunc_t *>("FillDerived" + suffix)(rc);
     }
   }
-  if (params.hasKey("PostFillDerived"+suffix)) {
-    params.Get<DeriveFunc_t *>("PostFillDerived"+suffix)(rc);
+  if (params.hasKey("PostFillDerived" + suffix)) {
+    params.Get<DeriveFunc_t *>("PostFillDerived" + suffix)(rc);
   }
   return TaskStatus::complete;
 }
