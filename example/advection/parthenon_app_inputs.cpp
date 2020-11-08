@@ -211,8 +211,8 @@ Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   packages[pkg->label()] = pkg;
 
   auto app = std::make_shared<StateDescriptor>("AppInput");
-  app->AddParam("PreFillDerived", advection_package::PreFill);
-  app->AddParam("PostFillDerived", advection_package::PostFill);
+  app->AddParam("PreFillDerivedBlock", advection_package::PreFill);
+  app->AddParam("PostFillDerivedBlock", advection_package::PostFill);
   packages[app->label()] = app;
 
   return packages;

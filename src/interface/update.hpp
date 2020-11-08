@@ -91,19 +91,21 @@ TaskStatus FillDerived(std::shared_ptr<T> &rc) {
   using Desc_t = std::shared_ptr<StateDescriptor>;
   Desc_t &app_pkg = rc->GetGridPointer()->packages["AppInput"];
   auto &params = app_pkg->AllParams();
-  if (params.hasKey("PreFillDerived")) {
-    app_pkg->Param<DeriveFunc_t *>("PreFillDerived")(rc);
+  std::string mytype = typeid(rc).name();
+  std::string suffix = (mytype.find("Block") != std::string::npos ? "Block" : "Mesh");
+  if (params.hasKey("PreFillDerived" + suffix)) {
+    params.Get<DeriveFunc_t *>("PreFillDerived"+suffix)(rc);
   }
   auto gp = rc->GetGridPointer();
   // type deduction fails if auto is used below
   for (const std::pair<std::string, Desc_t> &pkg : gp->packages) {
     auto &p = pkg.second->AllParams();
-    if (p.hasKey("FillDerived")) {
-      pkg.second->Param<DeriveFunc_t *>("FillDerived")(rc);
+    if (p.hasKey("FillDerived"+suffix)) {
+      p.Get<DeriveFunc_t *>("FillDerived"+suffix)(rc);
     }
   }
-  if (params.hasKey("PostFillDerived")) {
-    app_pkg->Param<DeriveFunc_t *>("PostFillDerived")(rc);
+  if (params.hasKey("PostFillDerived"+suffix)) {
+    params.Get<DeriveFunc_t *>("PostFillDerived"+suffix)(rc);
   }
   return TaskStatus::complete;
 }
