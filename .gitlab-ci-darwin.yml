@@ -6,7 +6,6 @@ stages:
 
 .gcc-mpi-cuda-performance-regression:
   variables: 
-    BUILD_DIR: "build_power9_perf_regression_gcc_mpi"
     CMAKE_CXX_COMPILER: $CI_PROJECT_DIR/external/Kokkos/bin/nvcc_wrapper
   script:
     - env -i bash --norc --noprofile ./scripts/darwin/build_fast.sh
@@ -14,8 +13,8 @@ stages:
   artifacts:
     expire_in: 3 days
     paths:
-      - ${CI_PROJECT_DIR}/${BUILD_DIR}/tst/regression/outputs/advection_performance/performance.png
-      - ${CI_PROJECT_DIR}/${BUILD_DIR}/tst/regression/outputs/advection_performance_mpi/performance.png
+      - ${CI_PROJECT_DIR}/build/tst/regression/outputs/advection_performance/performance.png
+      - ${CI_PROJECT_DIR}/build/tst/regression/outputs/advection_performance_mpi/performance.png
 
 parthenon-power9-gcc-mpi-cuda-perf-manual:
   extends: .gcc-mpi-cuda-performance-regression
