@@ -27,7 +27,7 @@
 #include <vector>
 
 #include "basic_types.hpp"
-#include "bvals/cc/bvals_cc.hpp"
+#include "bvals/swarm/bvals_swarm.hpp"
 #include "metadata.hpp"
 #include "parthenon_arrays.hpp"
 #include "variable.hpp"
@@ -133,8 +133,6 @@ class Swarm {
   /// indicates gaps in the list.
   Real get_packing_efficiency() const { return num_active_ / (max_active_index_ + 1); }
 
-  bool mpiStatus;
-
   /// Remove particles marked for removal and update internal indexing
   void RemoveMarkedParticles();
 
@@ -145,7 +143,11 @@ class Swarm {
   /// memory
   void Defrag();
 
-  void SetupPersistentMPI();
+  // used in case of swarm boundary communication
+  //void SetupPersistentMPI();
+  std::shared_ptr<BoundarySwarm> vbvar;
+  bool mpiStatus;
+  void allocateComms(std::weak_ptr<MeshBlock> wpmb);
 
  private:
   int debug = 0;

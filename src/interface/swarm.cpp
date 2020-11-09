@@ -345,7 +345,8 @@ void Swarm::Defrag() {
   max_active_index_ = num_active_ - 1;
 }
 
-void Swarm::SetupPersistentMPI() {
+// TODO(BRR) move to BoundarySwarm
+/*void Swarm::SetupPersistentMPI() {
 #ifdef MPI_PARALLEL
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int &mylevel = pmb->loc.level;
@@ -361,6 +362,16 @@ void Swarm::SetupPersistentMPI() {
     }
   }
 #endif
+}*/
+void Swarm::allocateComms(std::weak_ptr<MeshBlock> wpmb) {
+  if (wpmb.expired()) return;
+
+  std::shared_ptr<MeshBlock> pmb = wpmb.lock();
+
+  // Create the boundary object
+  vbvar = std::make_shared<BoundarySwarm>(pmb);
+
+  // Enroll SwarmVariables
 }
 
 } // namespace parthenon

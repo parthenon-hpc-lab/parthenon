@@ -119,6 +119,9 @@ add_library(parthenon
   bvals/fc/bvals_fc.hpp
   bvals/fc/flux_correction_fc.cpp
 
+  bvals/swarm/bvals_swarm.cpp
+  bvals/swarm/bvals_swarm.hpp
+
   bvals/boundary_conditions.cpp
   bvals/boundary_conditions.hpp
 
