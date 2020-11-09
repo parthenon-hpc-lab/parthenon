@@ -17,10 +17,30 @@
 
 #include "error_checking.hpp"
 
-[[noreturn]] void parthenon::ErrorChecking::fail_throws_mpi(char const *const expr,
+#ifdef MPI_PARALLEL
+[[noreturn]] void parthenon::ErrorChecking::fail_throws_mpi(int const status,
+                                                            char const *const expr,
                                                             char const *const filename,
                                                             int const linenumber) {
+  int err_length = 0;
+  char err_string_buf[MPI_MAX_ERROR_STRING];
+  MPI_Error_string(status, err_string_buf, &err_length);
+
+  std::string const err_string(err_string_buf, err_length);
+
   std::stringstream ss;
-  ss << "MPI failure: `" << expr << "`";
+  ss << "MPI failure: `" << expr << "`, MPI error: \"" << err_string << "\"";
   fail_throws(ss, filename, linenumber);
 }
+#endif
+
+#ifdef HDF5OUTPUT
+[[noreturn]] void parthenon::ErrorChecking::fail_throws_hdf5(herr_t err,
+                                                             char const *const expr,
+                                                             char const *const filename,
+                                                             int const linenumber) {
+  std::stringstream ss;
+  ss << "HDF5 failure: `" << expr << "`, Code: 0x" << std::hex << err;
+  fail_throws(ss, filename, linenumber);
+}
+#endif

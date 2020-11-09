@@ -23,7 +23,14 @@
 #include <stdexcept>
 #include <string>
 
+#include <config.hpp>
+
 #include <Kokkos_Core.hpp>
+#ifdef HDF5OUTPUT
+#include <hdf5.h>
+#endif
+
+#include <parthenon_mpi.hpp>
 
 #define PARTHENON_REQUIRE(condition, message)                                            \
   if (!(condition)) {                                                                    \
@@ -41,12 +48,27 @@
 #define PARTHENON_THROW(message)                                                         \
   parthenon::ErrorChecking::fail_throws(message, __FILE__, __LINE__);
 
+#ifdef MPI_PARALLEL
 #define PARTHENON_MPI_CHECK(expr)                                                        \
   do {                                                                                   \
-    if (MPI_SUCCESS != (expr)) {                                                         \
-      ::parthenon::ErrorChecking::fail_throws_mpi(#expr, __FILE__, __LINE__);            \
+    int parthenon_mpi_check_status = (expr);                                             \
+    if (MPI_SUCCESS != parthenon_mpi_check_status) {                                     \
+      ::parthenon::ErrorChecking::fail_throws_mpi(parthenon_mpi_check_status, #expr,     \
+                                                  __FILE__, __LINE__);                   \
     }                                                                                    \
   } while (false)
+#endif
+
+#ifdef HDF5OUTPUT
+#define PARTHENON_HDF5_CHECK(expr)                                                       \
+  do {                                                                                   \
+    herr_t parthenon_hdf5_check_err = (expr);                                            \
+    if (parthenon_hdf5_check_err < 0) {                                                  \
+      ::parthenon::ErrorChecking::fail_throws_hdf5(parthenon_hdf5_check_err, #expr,      \
+                                                   __FILE__, __LINE__);                  \
+    }                                                                                    \
+  } while (false)
+#endif
 
 #define PARTHENON_WARN(message)                                                          \
   parthenon::ErrorChecking::warn(message, __FILE__, __LINE__);
@@ -172,8 +194,15 @@ inline void warn(std::stringstream const &message, const char *const filename,
   warn(message.str().c_str(), filename, linenumber);
 }
 
-[[noreturn]] void fail_throws_mpi(char const *const expr, char const *const filename,
-                                  int const linenumber);
+#ifdef MPI_PARALLEL
+[[noreturn]] void fail_throws_mpi(int const status, char const *const expr,
+                                  char const *const filename, int const linenumber);
+#endif
+
+#ifdef HDF5OUTPUT
+[[noreturn]] void fail_throws_hdf5(herr_t err, char const *const expr,
+                                   char const *const filename, int const linenumber);
+#endif
 } // namespace ErrorChecking
 } // namespace parthenon
 
