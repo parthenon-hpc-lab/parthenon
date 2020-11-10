@@ -219,11 +219,12 @@ class Packages_t {
     std::string name("Parthenon::AppInput");
     pkgs_[name] = std::make_shared<StateDescriptor>(name);
   }
-  std::shared_ptr<StateDescriptor> & operator[](const std::string &label) {
+  std::shared_ptr<StateDescriptor> &operator[](const std::string &label) {
     return pkgs_[label];
   }
   auto begin() { return pkgs_.begin(); }
   auto end() { return pkgs_.end(); }
+
  private:
   std::map<std::string, std::shared_ptr<StateDescriptor>> pkgs_;
 };
