@@ -47,6 +47,8 @@ TaskStatus ProlongateBoundaries(std::shared_ptr<MeshBlockData<Real>> &rc) {
 
   // Step 3. Finally, the ghost-ghost zones are ready for prolongation:
   rc->ProlongateBoundaries();
+
+  return TaskStatus::complete;
 }
 
 TaskStatus ApplyBoundaryConditions(std::shared_ptr<MeshBlockData<Real>> &rc,
