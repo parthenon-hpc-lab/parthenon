@@ -816,6 +816,50 @@ TaskStatus MeshBlockData<T>::ClearBoundary(BoundaryCommSubset phase) {
 }
 
 template <typename T>
+void MeshBlockData<T>::RestrictBoundaries() {
+  auto pmb = GetBlockPointer();
+  pmb->pbval->RestrictBoundaries();
+  // TODO(JMM): once we have variable-level pbvals we can do this
+  /*
+  for (auto &v : varVector_) {
+    if (v->IsSet(Metadata::FillGhost)) {
+      v->pbvals->RestrictBoundaries();
+    }
+  }
+  for (auto &sv : sparseVector_) {
+    if (sv->IsSet(Metadata::FillGhost)) {
+      CellVariableVector<T> vvec = sv->GetVector();
+      for (auto &v : vvec) {
+        v->pbvals->RestrictBoundaries();
+      }
+    }
+  }
+  */
+}
+
+template <typename T>
+void MeshBlockData<T>::ProlongateBoundaries() {
+  auto pmb = GetBlockPointer();
+  pmb->pbval->ProlongateBoundaries();
+  // TODO(JMM): once we have variable-level pbvals we can do this
+  /*
+  for (auto &v : varVector_) {
+    if (v->IsSet(Metadata::FillGhost)) {
+      v->pbvals->ProlongateBoundaries();
+    }
+  }
+  for (auto &sv : sparseVector_) {
+    if (sv->IsSet(Metadata::FillGhost)) {
+      CellVariableVector<T> vvec = sv->GetVector();
+      for (auto &v : vvec) {
+        v->pbvals->ProlongateBoundaries();
+      }
+    }
+  }
+  */
+}
+
+template <typename T>
 void MeshBlockData<T>::Print() {
   std::cout << "Variables are:\n";
   for (auto v : varVector_) {

@@ -23,79 +23,46 @@
 
 namespace parthenon {
 
+namespace boundary_cond_impl {
+bool DoPhysicalBoundary_(BoundaryFlag flag, BoundaryFace face, int ndim);
+} // namespace boundary_cond_impl
+
+TaskStatus ProlongateBoundaries(std::shared_ptr<MeshBlockData<Real>> &rc) {
+  // This hardcoded technique is also used to manually specify the coupling between
+  // physical variables in:
+  // - step 2, ApplyPhysicalBoundariesOnCoarseLevel(): calls to W(U) and user BoundaryFunc
+  // - step 3, ProlongateGhostCells(): calls to calculate bcc and U(W)
+
+  // downcast BoundaryVariable pointers to known derived class pointer types:
+  // RTTI via dynamic_case
+
+  // For each finer neighbor, to prolongate a boundary we need to fill one more cell
+  // surrounding the boundary zone to calculate the slopes ("ghost-ghost zone"). 3x steps:
+
+  // Step 1. Apply necessary variable restrictions when ghost-ghost zone is on same lvl
+  rc->RestrictBoundaries(); // Step 1: restrict physical boundaries
+
+  // Step 2. Re-apply physical boundaries on the coarse boundary,
+  ApplyBoundaryConditions(rc, true);
+
+  // Step 3. Finally, the ghost-ghost zones are ready for prolongation:
+  rc->ProlongateBoundaries();
+}
+
 TaskStatus ApplyBoundaryConditions(std::shared_ptr<MeshBlockData<Real>> &rc,
                                    bool coarse) {
+  using namespace boundary_cond_impl;
   std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
+  Mesh *pmesh = pmb->pmy_mesh;
+  int ndim = pmesh->ndim;
 
-  switch (pmb->boundary_flag[BoundaryFace::inner_x1]) {
-  case BoundaryFlag::outflow:
-    BoundaryFunction::OutflowInnerX1(rc, coarse);
-    break;
-  case BoundaryFlag::reflect:
-    BoundaryFunction::ReflectInnerX1(rc, coarse);
-    break;
-  default:
-    break;
+  for (int i = 0; i < BOUNDARY_NFACES; i++) {
+    if (DoPhysicalBoundary_(pmb->boundary_flag[i], static_cast<BoundaryFace>(i), ndim)) {
+      PARTHENON_DEBUG_REQUIRE(pmesh->MeshBndryFnctn[i] != nullptr,
+                              "boundary function must not be null");
+      pmesh->MeshBndryFnctn[i](rc, coarse);
+    }
   }
-
-  switch (pmb->boundary_flag[BoundaryFace::outer_x1]) {
-  case BoundaryFlag::outflow:
-    BoundaryFunction::OutflowOuterX1(rc, coarse);
-    break;
-  case BoundaryFlag::reflect:
-    BoundaryFunction::ReflectOuterX1(rc, coarse);
-    break;
-  default:
-    break;
-  }
-
-  if (pmb->pmy_mesh->ndim >= 2) {
-    switch (pmb->boundary_flag[BoundaryFace::inner_x2]) {
-    case BoundaryFlag::outflow:
-      BoundaryFunction::OutflowInnerX2(rc, coarse);
-      break;
-    case BoundaryFlag::reflect:
-      BoundaryFunction::ReflectInnerX2(rc, coarse);
-      break;
-    default:
-      break;
-    }
-
-    switch (pmb->boundary_flag[BoundaryFace::outer_x2]) {
-    case BoundaryFlag::outflow:
-      BoundaryFunction::OutflowOuterX2(rc, coarse);
-      break;
-    case BoundaryFlag::reflect:
-      BoundaryFunction::ReflectOuterX2(rc, coarse);
-      break;
-    default:
-      break;
-    }
-  } // if ndim>=2
-
-  if (pmb->pmy_mesh->ndim >= 3) {
-    switch (pmb->boundary_flag[BoundaryFace::inner_x3]) {
-    case BoundaryFlag::outflow:
-      BoundaryFunction::OutflowInnerX3(rc, coarse);
-      break;
-    case BoundaryFlag::reflect:
-      BoundaryFunction::ReflectInnerX3(rc, coarse);
-      break;
-    default:
-      break;
-    }
-
-    switch (pmb->boundary_flag[BoundaryFace::outer_x3]) {
-    case BoundaryFlag::outflow:
-      BoundaryFunction::OutflowOuterX3(rc, coarse);
-      break;
-    case BoundaryFlag::reflect:
-      BoundaryFunction::ReflectOuterX3(rc, coarse);
-      break;
-    default:
-      break;
-    }
-  } // if ndim >= 3
 
   return TaskStatus::complete;
 }
@@ -241,4 +208,22 @@ void ReflectOuterX3(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
 }
 
 } // namespace BoundaryFunction
+
+namespace boundary_cond_impl {
+bool DoPhysicalBoundary_(BoundaryFlag flag, BoundaryFace face, int ndim) {
+  if (flag == BoundaryFlag::block) return false;
+  if (flag == BoundaryFlag::undef) return false;
+  if (flag == BoundaryFlag::periodic) return false;
+
+  if (ndim < 3 && (face == BoundaryFace::inner_x3 || face == BoundaryFace::outer_x3)) {
+    return false;
+  }
+  if (ndim < 2 && (face == BoundaryFace::inner_x2 || face == BoundaryFace::outer_x2)) {
+    return false;
+  } // ndim always at least 1
+
+  return true; // reflect, outflow, user, dims correct
+}
+} // namespace boundary_cond_impl
+
 } // namespace parthenon

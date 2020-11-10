@@ -120,9 +120,6 @@ enum class UserHistoryOperation { sum, max, min };
 //----------------------------------------------------------------------------------------
 // function pointer prototypes for user-defined modules set at runtime
 
-using BValFunc = void (*)(MeshBlock *pmb, Coordinates *pco, ParArrayND<Real> &prim,
-                          FaceField &b, Real time, Real dt, int is, int ie, int js,
-                          int je, int ks, int ke, int ngh);
 using AMRFlagFunc = int (*)(MeshBlock *pmb);
 using MeshGenFunc = Real (*)(Real x, RegionSize rs);
 using SrcTermFunc = void (*)(MeshBlock *pmb, const Real time, const Real dt,
@@ -130,10 +127,6 @@ using SrcTermFunc = void (*)(MeshBlock *pmb, const Real time, const Real dt,
                              ParArrayND<Real> &cons);
 using TimeStepFunc = Real (*)(MeshBlock *pmb);
 using HistoryOutputFunc = Real (*)(MeshBlock *pmb, int iout);
-using MetricFunc = void (*)(Real x1, Real x2, Real x3, ParameterInput *pin,
-                            ParArrayND<Real> &g, ParArrayND<Real> &g_inv,
-                            ParArrayND<Real> &dg_dx1, ParArrayND<Real> &dg_dx2,
-                            ParArrayND<Real> &dg_dx3);
 using MGBoundaryFunc = void (*)(ParArrayND<Real> &dst, Real time, int nvar, int is,
                                 int ie, int js, int je, int ks, int ke, int ngh, Real x0,
                                 Real y0, Real z0, Real dx, Real dy, Real dz);

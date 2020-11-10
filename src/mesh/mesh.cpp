@@ -75,12 +75,12 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properti
                 pin->GetInteger("parthenon/mesh", "nx2"),
                 pin->GetInteger("parthenon/mesh", "nx3")},
       mesh_bcs{
-          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix1_bc", "reflecting")),
-          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox1_bc", "reflecting")),
-          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix2_bc", "reflecting")),
-          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox2_bc", "reflecting")),
-          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix3_bc", "reflecting")),
-          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox3_bc", "reflecting"))},
+          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix1_bc", "periodic")),
+          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox1_bc", "periodic")),
+          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix2_bc", "periodic")),
+          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox2_bc", "periodic")),
+          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix3_bc", "periodic")),
+          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox3_bc", "periodic"))},
       ndim((mesh_size.nx3 > 1) ? 3 : ((mesh_size.nx2 > 1) ? 2 : 1)),
       adaptive(pin->GetOrAddString("parthenon/mesh", "refinement", "none") == "adaptive"
                    ? true
@@ -98,7 +98,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properti
       lb_automatic_(),
       lb_manual_(), MeshGenerator_{nullptr, UniformMeshGeneratorX1,
                                    UniformMeshGeneratorX2, UniformMeshGeneratorX3},
-      BoundaryFunction_{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, AMRFlag_{},
+      MeshBndryFnctn{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, AMRFlag_{},
       UserSourceTerm_{}, UserTimeStep_{} {
   std::stringstream msg;
   RegionSize block_size;
@@ -199,6 +199,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properti
         << std::endl;
     PARTHENON_FAIL(msg);
   }
+
+  EnrollBndryFncts_(app_in);
 
   // read and set MeshBlock parameters
   block_size.x1rat = mesh_size.x1rat;
@@ -537,7 +539,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
       lb_automatic_(),
       lb_manual_(), MeshGenerator_{nullptr, UniformMeshGeneratorX1,
                                    UniformMeshGeneratorX2, UniformMeshGeneratorX3},
-      BoundaryFunction_{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, AMRFlag_{},
+      MeshBndryFnctn{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, AMRFlag_{},
       UserSourceTerm_{}, UserTimeStep_{} {
   std::stringstream msg;
   RegionSize block_size;
@@ -585,6 +587,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   if (app_in->UserWorkAfterLoop != nullptr) {
     UserWorkAfterLoop = app_in->UserWorkAfterLoop;
   }
+  EnrollBndryFncts_(app_in);
 
   std::vector<Real> bounds = rr.ReadAttr1DReal("Mesh", "bounds");
   mesh_size.x1min = bounds[0];
@@ -909,18 +912,39 @@ void Mesh::OutputMeshStructure(int ndim) {
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void Mesh::EnrollUserBoundaryFunction(BoundaryFace dir, BValFunc my_bc)
-//  \brief Enroll a user-defined boundary function
+//  Enroll user-defined functions for boundary conditions
+void Mesh::EnrollBndryFncts_(ApplicationInput *app_in) {
+  static const BValFunc outflow[6] = {
+      BoundaryFunction::OutflowInnerX1, BoundaryFunction::OutflowOuterX1,
+      BoundaryFunction::OutflowInnerX2, BoundaryFunction::OutflowOuterX2,
+      BoundaryFunction::OutflowInnerX3, BoundaryFunction::OutflowOuterX3};
+  static const BValFunc reflect[6] = {
+      BoundaryFunction::ReflectInnerX1, BoundaryFunction::ReflectOuterX1,
+      BoundaryFunction::ReflectInnerX2, BoundaryFunction::ReflectOuterX2,
+      BoundaryFunction::ReflectInnerX3, BoundaryFunction::ReflectOuterX3};
 
-void Mesh::EnrollUserBoundaryFunction(BoundaryFace dir, BValFunc my_bc) {
-  throw std::runtime_error("Mesh::EnrollUserBoundaryFunction is not implemented");
-}
-
-// DEPRECATED(felker): provide trivial overloads for old-style BoundaryFace enum
-// argument
-void Mesh::EnrollUserBoundaryFunction(int dir, BValFunc my_bc) {
-  EnrollUserBoundaryFunction(static_cast<BoundaryFace>(dir), my_bc);
-  return;
+  for (int f = 0; f < BOUNDARY_NFACES; f++) {
+    switch (mesh_bcs[f]) {
+    case BoundaryFlag::reflect:
+      MeshBndryFnctn[f] = reflect[f];
+      break;
+    case BoundaryFlag::outflow:
+      MeshBndryFnctn[f] = outflow[f];
+      break;
+    case BoundaryFlag::user:
+      if (app_in->boundary_conditions[f] != nullptr) {
+        MeshBndryFnctn[f] = app_in->boundary_conditions[f];
+      } else {
+        std::stringstream msg;
+        msg << "A user boundary condition for face " << f
+            << " was requested. but no condition was enrolled." << std::endl;
+        PARTHENON_THROW(msg);
+      }
+      break;
+    default: // periodic/block BCs handled elsewhere.
+      break;
+    }
+  }
 }
 
 //----------------------------------------------------------------------------------------
@@ -981,15 +1005,6 @@ void Mesh::EnrollUserExplicitSourceFunction(SrcTermFunc my_func) {
 
 void Mesh::EnrollUserTimeStepFunction(TimeStepFunc my_func) {
   UserTimeStep_ = my_func;
-  return;
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void Mesh::EnrollUserMetric(MetricFunc my_func)
-//  \brief Enroll a user-defined metric for arbitrary GR coordinates
-
-void Mesh::EnrollUserMetric(MetricFunc my_func) {
-  UserMetric_ = my_func;
   return;
 }
 
@@ -1066,24 +1081,9 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin, ApplicationInput *app_i
 #pragma omp for
       for (int i = 0; i < nmb; ++i) {
         auto &pmb = block_list[i];
-        auto &pbval = pmb->pbval;
-        if (multilevel) pbval->ProlongateBoundaries(0.0, 0.0);
-        // TODO(JoshuaSBrown): Dead code left in for possible future extraction of
-        // primitives
-        //        int il = pmb->is, iu = pmb->ie, jl = pmb->js, ju = pmb->je, kl =
-        //        pmb->ks,
-        //           ku = pmb->ke;
-        //        if (pbval->nblevel[1][1][0] != -1) il -= NGHOST;
-        //        if (pbval->nblevel[1][1][2] != -1) iu += NGHOST;
-        //        if (pmb->block_size.nx2 > 1) {
-        //          if (pbval->nblevel[1][0][1] != -1) jl -= NGHOST;
-        //          if (pbval->nblevel[1][2][1] != -1) ju += NGHOST;
-        //        }
-        //        if (pmb->block_size.nx3 > 1) {
-        //          if (pbval->nblevel[0][1][1] != -1) kl -= NGHOST;
-        //          if (pbval->nblevel[2][1][1] != -1) ku += NGHOST;
-        //        }
-
+        if (multilevel) {
+          ProlongateBoundaries(pmb->meshblock_data.Get());
+        }
         ApplyBoundaryConditions(pmb->meshblock_data.Get());
         FillDerivedVariables::FillDerived(pmb->meshblock_data.Get());
       }

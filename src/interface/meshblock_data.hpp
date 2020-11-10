@@ -346,6 +346,10 @@ class MeshBlockData {
   TaskStatus SendFluxCorrection();
   TaskStatus ReceiveFluxCorrection();
 
+  // physical boundary routines
+  void RestrictBoundaries();
+  void ProlongateBoundaries();
+
   bool operator==(const MeshBlockData<T> &cmp) {
     // do some kind of check of equality
     // do the two containers contain the same named fields?

@@ -14,6 +14,7 @@
 #ifndef BVALS_BOUNDARY_CONDITIONS_HPP_
 #define BVALS_BOUNDARY_CONDITIONS_HPP_
 
+#include <functional>
 #include <memory>
 
 #include "basic_types.hpp"
@@ -21,23 +22,29 @@
 
 namespace parthenon {
 
+// Physical boundary conditions
+
+using BValFunc = std::function<void(std::shared_ptr<MeshBlockData<Real>> &, bool)>;
+
+TaskStatus ProlongateBoundaries(std::shared_ptr<MeshBlockData<Real>> &rc);
+
 TaskStatus ApplyBoundaryConditions(std::shared_ptr<MeshBlockData<Real>> &rc,
                                    bool coarse = false);
 
 namespace BoundaryFunction {
 
-void OutflowInnerX1(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse = false);
-void OutflowOuterX1(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse = false);
-void OutflowInnerX2(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse = false);
-void OutflowOuterX2(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse = false);
-void OutflowInnerX3(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse = false);
-void OutflowOuterX3(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse = false);
-void ReflectInnerX1(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse = false);
-void ReflectOuterX1(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse = false);
-void ReflectInnerX2(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse = false);
-void ReflectOuterX2(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse = false);
-void ReflectInnerX3(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse = false);
-void ReflectOuterX3(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse = false);
+void OutflowInnerX1(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse);
+void OutflowOuterX1(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse);
+void OutflowInnerX2(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse);
+void OutflowOuterX2(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse);
+void OutflowInnerX3(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse);
+void OutflowOuterX3(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse);
+void ReflectInnerX1(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse);
+void ReflectOuterX1(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse);
+void ReflectInnerX2(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse);
+void ReflectOuterX2(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse);
+void ReflectInnerX3(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse);
+void ReflectOuterX3(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse);
 
 } // namespace BoundaryFunction
 } // namespace parthenon

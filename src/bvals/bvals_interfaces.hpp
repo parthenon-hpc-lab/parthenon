@@ -83,6 +83,7 @@ enum {
 #endif
 
 // identifiers for all 6 faces of a MeshBlock
+constexpr int BOUNDARY_NFACES = 6;
 enum BoundaryFace {
   undef = -1,
   inner_x1 = 0,
@@ -96,7 +97,8 @@ enum BoundaryFace {
 // int to index raw arrays (not ParArrayNDs)--> enumerator vals are explicitly specified
 
 // identifiers for boundary conditions
-enum class BoundaryFlag { block = -1, undef, reflect, outflow, periodic };
+// TODO(JMM): Can BoundaryFlag be removed?
+enum class BoundaryFlag { block = -1, undef, reflect, outflow, periodic, user };
 
 // identifiers for types of neighbor blocks (connectivity with current MeshBlock)
 enum class NeighborConnect {
