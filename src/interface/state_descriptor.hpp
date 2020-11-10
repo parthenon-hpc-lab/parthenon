@@ -140,13 +140,6 @@ class StateDescriptor {
     return true;
   }
 
-  void AddMeshBlockPack(const std::string &pack_name, const VarPackingFunc<Real> &func) {
-    realVarPackerMap_[pack_name] = func;
-  }
-  void AddMeshBlockPack(const std::string &pack_name, const FluxPackingFunc<Real> &func) {
-    realFluxPackerMap_[pack_name] = func;
-  }
-
   // retrieve number of fields
   int size() const { return metadataMap_.size(); }
 
@@ -192,14 +185,6 @@ class StateDescriptor {
   // get all metadata for this physics
   const std::map<std::string, Metadata> &AllMetadata() { return metadataMap_; }
 
-  // Get all MeshBlockPacker functions
-  const std::map<std::string, VarPackingFunc<Real>> &AllMeshBlockVarPackers() {
-    return realVarPackerMap_;
-  }
-  const std::map<std::string, FluxPackingFunc<Real>> &AllMeshBlockFluxPackers() {
-    return realFluxPackerMap_;
-  }
-
   bool FlagsPresent(std::vector<MetadataFlag> const &flags, bool matchAny = false) {
     for (auto &pair : metadataMap_) {
       auto &metadata = pair.second;
@@ -226,11 +211,22 @@ class StateDescriptor {
   std::map<std::string, std::vector<Metadata>> sparseMetadataMap_;
   std::map<std::string, Metadata> swarmMetadataMap_;
   std::map<std::string, std::map<std::string, Metadata>> swarmValueMetadataMap_;
-  std::map<std::string, VarPackingFunc<Real>> realVarPackerMap_;
-  std::map<std::string, FluxPackingFunc<Real>> realFluxPackerMap_;
 };
 
-using Packages_t = std::map<std::string, std::shared_ptr<StateDescriptor>>;
+class Packages_t {
+ public:
+  Packages_t() {
+    std::string name("Parthenon::AppInput");
+    pkgs_[name] = std::make_shared<StateDescriptor>(name);
+  }
+  std::shared_ptr<StateDescriptor> & operator[](const std::string &label) {
+    return pkgs_[label];
+  }
+  auto begin() { return pkgs_.begin(); }
+  auto end() { return pkgs_.end(); }
+ private:
+  std::map<std::string, std::shared_ptr<StateDescriptor>> pkgs_;
+};
 
 } // namespace parthenon
 

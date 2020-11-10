@@ -32,6 +32,7 @@
 #include "domain.hpp"
 #include "interface/data_collection.hpp"
 #include "interface/meshblock_data.hpp"
+#include "interface/state_descriptor.hpp"
 #include "interface/swarm_container.hpp"
 #include "kokkos_abstraction.hpp"
 #include "outputs/io_wrapper.hpp"
@@ -50,8 +51,6 @@ class MeshRefinement;
 class ParameterInput;
 
 // These Forward declarations need duplicated using statements.
-class StateDescriptor;
-using Packages_t = std::map<std::string, std::shared_ptr<StateDescriptor>>;
 class PropertiesInterface;
 using Properties_t = std::vector<std::shared_ptr<PropertiesInterface>>;
 

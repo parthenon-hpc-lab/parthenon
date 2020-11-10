@@ -18,6 +18,7 @@
 #include <limits>
 #include <memory>
 #include <string>
+#include <typeinfo>
 #include <utility>
 #include <vector>
 
@@ -29,9 +30,6 @@
 #include "kokkos_abstraction.hpp"
 
 namespace parthenon {
-
-template <typename T>
-class MeshBlockData;
 
 namespace Update {
 
@@ -89,7 +87,7 @@ template <typename T>
 TaskStatus FillDerived(std::shared_ptr<T> &rc) {
   using DeriveFunc_t = DeriveFuncType<T>;
   using Desc_t = std::shared_ptr<StateDescriptor>;
-  Desc_t &app_pkg = rc->GetGridPointer()->packages["AppInput"];
+  Desc_t &app_pkg = rc->GetGridPointer()->packages["Parthenon::AppInput"];
   auto &params = app_pkg->AllParams();
   std::string mytype = typeid(rc).name();
   std::string suffix = (mytype.find("Block") != std::string::npos ? "Block" : "Mesh");
@@ -111,14 +109,6 @@ TaskStatus FillDerived(std::shared_ptr<T> &rc) {
 }
 
 } // namespace Update
-
-namespace FillDerivedVariables {
-/*
-using FillDerivedFunc = void(std::shared_ptr<MeshBlockData<Real>> &);
-void SetFillDerivedFunctions(FillDerivedFunc *pre, FillDerivedFunc *post);
-TaskStatus FillDerived(std::shared_ptr<MeshBlockData<Real>> &rc);
-*/
-} // namespace FillDerivedVariables
 
 } // namespace parthenon
 
