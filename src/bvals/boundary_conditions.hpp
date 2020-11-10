@@ -16,9 +16,11 @@
 
 #include <functional>
 #include <memory>
+#include <string>
 
 #include "basic_types.hpp"
 #include "interface/meshblock_data.hpp"
+#include "mesh/domain.hpp"
 
 namespace parthenon {
 
