@@ -85,7 +85,6 @@ class ContainerIterator {
       : allFaceVars_(c->GetFaceVector()) {
     allVars_ = c->GetCellVariableVector();
     for (auto &svar : c->GetSparseVector()) {
-      for (auto &v : allFaceVars_) std::cout << v->label() << "__________________" << std::endl;
       CellVariableVector<T> &svec = svar->GetVector();
       allVars_.insert(allVars_.end(), svec.begin(), svec.end());
     }

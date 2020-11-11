@@ -464,7 +464,7 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   for (auto &v : ciX.varsFace) {
     const size_t vlen = v->Get(1).GetDim(4);
     maxVF = (maxVF < vlen ? vlen : maxVF);
-    std::cout << "FOUND FACE: " << v->label() << std::endl;
+    //    std::cout << "FOUND FACE: " << v->label() << std::endl;
   }
   std::vector<Real> tmpDataF(pm->ndim*(nx1 + 1) * (nx2 + 1) * (nx3 + 1) * maxV * num_blocks_local,0);
   Real *dataF = tmpDataF.data();
