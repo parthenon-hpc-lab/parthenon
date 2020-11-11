@@ -40,7 +40,7 @@ struct BndInfo {
 // send boundary buffers with MeshBlockPack support
 // TODO(pgrete) should probaly be moved to the bvals or interface folders
 TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
-  Kokkos::Profiling::pushRegion("SendBoundaryBuffers");
+  Kokkos::Profiling::pushRegion("SendBoundaryBuffersInOne");
 
   Kokkos::Profiling::pushRegion("Create bndinfo array");
   // TODO(?) talk about whether the number of buffers should be a compile time const
@@ -183,7 +183,7 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   }
   Kokkos::Profiling::popRegion(); // Set complete and/or start sending via MPI
 
-  Kokkos::Profiling::popRegion(); // SendBoundaryBuffers
+  Kokkos::Profiling::popRegion(); // SendBoundaryBuffersInOne
   // TODO(?) reintroduce sparse logic (or merge with above)
   return TaskStatus::complete;
 }
@@ -217,7 +217,7 @@ TaskStatus ReceiveBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
 // set boundaries from buffers with MeshBlockPack support
 // TODO(pgrete) should probaly be moved to the bvals or interface folders
 TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) {
-  Kokkos::Profiling::pushRegion("SetBoundaries");
+  Kokkos::Profiling::pushRegion("SetBoundariesInOne");
 
   Kokkos::Profiling::pushRegion("Create bndinfo array");
   // TODO(?) talk about whether the number of buffers should be a compile time const
@@ -314,7 +314,7 @@ TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) {
         }
       });
 
-  Kokkos::Profiling::popRegion(); // SetBoundaries
+  Kokkos::Profiling::popRegion(); // SetBoundariesInOne
   // TODO(?) reintroduce sparse logic (or merge with above)
   return TaskStatus::complete;
 }
