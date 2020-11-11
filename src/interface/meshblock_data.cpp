@@ -341,13 +341,14 @@ VariablePack<T>
 MeshBlockData<T>::PackVariablesHelper_(const std::vector<std::string> &names,
                                        const vpack_types::VarList<T> &vars,
                                        PackIndexMap &vmap, bool coarse) {
-  auto kvpair = varPackMap_.find(names);
-  if (kvpair == varPackMap_.end()) {
+  auto &packmap = coarse ? coarseVarPackMap_ : varPackMap_;
+  auto kvpair = packmap.find(names);
+  if (kvpair == packmap.end()) {
     auto pack = MakePack<T>(vars, &vmap, coarse);
     PackIndxPair<T> value;
     value.pack = pack;
     value.map = vmap;
-    varPackMap_[names] = value;
+    packmap[names] = value;
     return pack;
   }
   vmap = (kvpair->second).map;

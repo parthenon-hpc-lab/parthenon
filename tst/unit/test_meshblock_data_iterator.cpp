@@ -347,6 +347,7 @@ TEST_CASE("Coarse variable from meshblock_data for cell variable",
 
   GIVEN("MeshBlockData, with a variable with coarse data") {
     constexpr int nside = 16;
+    auto cellbounds = IndexShape(nside, nside, nside, NGHOST);
     auto c_cellbounds = IndexShape(nside / 2, nside / 2, nside / 2, NGHOST);
 
     MeshBlockData<Real> rc;
@@ -373,13 +374,20 @@ TEST_CASE("Coarse variable from meshblock_data for cell variable",
       REQUIRE(var.coarse_s.GetDim(3) == nside / 2 + 2 * NGHOST);
       REQUIRE(var.coarse_s.GetDim(2) == nside / 2 + 2 * NGHOST);
       REQUIRE(var.coarse_s.GetDim(1) == nside / 2 + 2 * NGHOST);
-      AND_THEN("We can extract the coarse object") {
-        auto pack = rc.PackVariables(std::vector<std::string>{"var"}, true);
-        AND_THEN("The pack has the coarse dimensions") {
-          REQUIRE(pack.GetDim(4) == 1);
-          REQUIRE(pack.GetDim(3) == c_cellbounds.ncellsk(IndexDomain::entire));
-          REQUIRE(pack.GetDim(2) == c_cellbounds.ncellsj(IndexDomain::entire));
-          REQUIRE(pack.GetDim(1) == c_cellbounds.ncellsi(IndexDomain::entire));
+      AND_THEN("We can extract the fine object") {
+        auto pack = rc.PackVariables(std::vector<std::string>{"var"}, false);
+        REQUIRE(pack.GetDim(4) == 1);
+        REQUIRE(pack.GetDim(3) == cellbounds.ncellsk(IndexDomain::entire));
+        REQUIRE(pack.GetDim(2) == cellbounds.ncellsj(IndexDomain::entire));
+        REQUIRE(pack.GetDim(1) == cellbounds.ncellsi(IndexDomain::entire));
+        AND_THEN("We can extract the coarse object") {
+          auto pack = rc.PackVariables(std::vector<std::string>{"var"}, true);
+          AND_THEN("The pack has the coarse dimensions") {
+            REQUIRE(pack.GetDim(4) == 1);
+            REQUIRE(pack.GetDim(3) == c_cellbounds.ncellsk(IndexDomain::entire));
+            REQUIRE(pack.GetDim(2) == c_cellbounds.ncellsj(IndexDomain::entire));
+            REQUIRE(pack.GetDim(1) == c_cellbounds.ncellsi(IndexDomain::entire));
+          }
         }
       }
     }

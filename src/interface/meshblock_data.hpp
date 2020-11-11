@@ -388,7 +388,9 @@ class MeshBlockData {
   MapToFace<T> faceMap_;
   MapToSparse<T> sparseMap_;
 
+  // variable packing
   MapToVariablePack<T> varPackMap_;
+  MapToVariablePack<T> coarseVarPackMap_; // cache for varpacks over coarse arrays
   MapToVariableFluxPack<T> varFluxPackMap_;
 
   void calcArrDims_(std::array<int, 6> &arrDims, const std::vector<int> &dims,
