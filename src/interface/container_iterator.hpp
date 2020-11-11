@@ -32,8 +32,8 @@ template <typename T>
 class ContainerIterator {
  public:
   /// the subset of variables that match this iterator
-  CellVariableVector<T> vars;
-  // std::vector<FaceVariable> varsFace; // face vars that match
+  CellVariableVector<T> vars; // cell vars that match
+  FaceVector<T> varsFace;     // face vars that match
   // std::vector<EdgeVariable> varsEdge; // edge vars that match
 
   void MakeList(const std::shared_ptr<Container<T>> &c,
@@ -67,6 +67,13 @@ class ContainerIterator {
         std::exit(1);
       }*/
     }
+    auto &face_map = c->GetFaceMap();
+    for (const auto &name : names) {
+      auto v = face_map.find(name);
+      if (v != face_map.end()) {
+        varsFace.push_back(v->second);
+      }
+    }
     return;
   }
 
@@ -74,13 +81,14 @@ class ContainerIterator {
   /// @param c the container on which you want the iterator
   /// @param flags: a vector of Metadata::flags that you want to match
   ContainerIterator<T>(const std::shared_ptr<Container<T>> &c,
-                       const std::vector<MetadataFlag> &flags, bool matchAny = false) {
+                       const std::vector<MetadataFlag> &flags, bool matchAny = false)
+      : allFaceVars_(c->GetFaceVector()) {
     allVars_ = c->GetCellVariableVector();
     for (auto &svar : c->GetSparseVector()) {
+      for (auto &v : allFaceVars_) std::cout << v->label() << "__________________" << std::endl;
       CellVariableVector<T> &svec = svar->GetVector();
       allVars_.insert(allVars_.end(), svec.begin(), svec.end());
     }
-    // faces not active yet    allFaceVars_ = c.faceVars();
     // edges not active yet    allEdgeVars_ = c.edgeVars();
     resetVars(flags, matchAny); // fill subset based on mask vector
   }
@@ -103,16 +111,16 @@ class ContainerIterator {
 
   /// Changes the mask for the iterator and resets the iterator
   /// @param names: a vector of MetadataFlag that you want to match
-  void resetVars(const std::vector<std::string> &names) {
-    // 1: clear out variables stored so far
-    emptyVars_();
+  // void resetVars(const std::vector<std::string> &names) {
+  //   // 1: clear out variables stored so far
+  //   emptyVars_();
 
-    // 2: fill in the subset of variables that match at least one entry in names
-    for (auto pv : allVars_) {
-      if (std::find(names.begin(), names.end(), pv->label()) != names.end())
-        vars.push_back(pv);
-    }
-  }
+  //   // 2: fill in the subset of variables that match at least one entry in names
+  //   for (auto pv : allVars_) {
+  //     if (std::find(names.begin(), names.end(), pv->label()) != names.end())
+  //       vars.push_back(pv);
+  //   }
+  // }
 
   /// Changes the mask for the iterator and resets the iterator
   /// @param flags: a vector of MetadataFlag that you want to match
@@ -132,11 +140,11 @@ class ContainerIterator {
  private:
   uint64_t mask_;
   CellVariableVector<T> allVars_;
-  // FaceVector<T> allFaceVars_ = {};
+  const FaceVector<T> &allFaceVars_ = {};
   // EdgeVector<T> allEdgeVars_ = {};
   void emptyVars_() {
     vars.clear();
-    //  varsFace.clear();
+    varsFace.clear();
     //  varsEdge.clear();
   }
 };
