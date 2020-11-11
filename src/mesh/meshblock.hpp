@@ -229,7 +229,6 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
     parthenon::par_for_inner(DEFAULT_INNER_LOOP_PATTERN, team_member, il, iu, function);
   }
 
-  std::size_t GetBlockSizeInBytes();
   int GetNumberOfMeshBlockCells() const {
     return block_size.nx1 * block_size.nx2 * block_size.nx3;
   }
