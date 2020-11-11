@@ -32,6 +32,8 @@
 #include "interface/variable.hpp"
 #include "interface/variable_pack.hpp"
 #include "kokkos_abstraction.hpp"
+#include "mesh/domain.hpp"
+#include "mesh/meshblock.hpp"
 #include "parthenon_arrays.hpp"
 
 using parthenon::CellVariable;
@@ -334,6 +336,52 @@ TEST_CASE("Can pull variables from containers based on Metadata",
       rc.Add("v2d", m_in, twod_block_size);
       auto packw2d = rc.PackVariablesAndFluxes({"v2d"}, {"v2d"});
       THEN("The pack knows it is 2d") { REQUIRE(packw2d.GetNdim() == 2); }
+    }
+  }
+}
+
+TEST_CASE("Coarse variable from meshblock_data for cell variable",
+          "[MeshBlockDataIterator]") {
+  using parthenon::IndexDomain;
+  using parthenon::IndexShape;
+
+  GIVEN("MeshBlockData, with a variable with coarse data") {
+    constexpr int nside = 16;
+    auto c_cellbounds = IndexShape(nside / 2, nside / 2, nside / 2, NGHOST);
+
+    MeshBlockData<Real> rc;
+    Metadata m({Metadata::Independent});
+    std::vector<int> block_size{nside + 2 * NGHOST, nside + 2 * NGHOST,
+                                nside + 2 * NGHOST};
+    rc.Add("var", m, block_size);
+    auto &var = rc.Get("var");
+
+    auto coarse_s =
+        ParArrayND<Real>("var.coarse", var.GetDim(6), var.GetDim(5), var.GetDim(4),
+                         c_cellbounds.ncellsk(IndexDomain::entire),
+                         c_cellbounds.ncellsj(IndexDomain::entire),
+                         c_cellbounds.ncellsi(IndexDomain::entire));
+
+    THEN("The variable is allocated") { REQUIRE(var.data.GetSize() > 0); }
+    var.coarse_s = coarse_s;
+
+    THEN("The coarse object is available") {
+      REQUIRE(var.coarse_s.GetSize() > 0);
+      REQUIRE(var.coarse_s.GetDim(6) == 1);
+      REQUIRE(var.coarse_s.GetDim(5) == 1);
+      REQUIRE(var.coarse_s.GetDim(4) == 1);
+      REQUIRE(var.coarse_s.GetDim(3) == nside / 2 + 2 * NGHOST);
+      REQUIRE(var.coarse_s.GetDim(2) == nside / 2 + 2 * NGHOST);
+      REQUIRE(var.coarse_s.GetDim(1) == nside / 2 + 2 * NGHOST);
+      AND_THEN("We can extract the coarse object") {
+        auto pack = rc.PackVariables(std::vector<std::string>{"var"}, true);
+        AND_THEN("The pack has the coarse dimensions") {
+          REQUIRE(pack.GetDim(4) == 1);
+          REQUIRE(pack.GetDim(3) == c_cellbounds.ncellsk(IndexDomain::entire));
+          REQUIRE(pack.GetDim(2) == c_cellbounds.ncellsj(IndexDomain::entire));
+          REQUIRE(pack.GetDim(1) == c_cellbounds.ncellsi(IndexDomain::entire));
+        }
+      }
     }
   }
 }

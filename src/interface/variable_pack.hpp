@@ -334,7 +334,7 @@ VariablePack<T> MakePack(const vpack_types::VarList<T> &vars,
 
   FillVarView(vars, vmap, cv, sparse_assoc, vector_component, coarse);
 
-  auto fvar = vars.front()->data;
+  auto fvar = coarse ? vars.front()->coarse_s : vars.front()->data;
   std::array<int, 4> cv_size = {fvar.GetDim(1), fvar.GetDim(2), fvar.GetDim(3), vsize};
   return VariablePack<T>(cv, sparse_assoc, vector_component, cv_size);
 }
