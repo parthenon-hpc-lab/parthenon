@@ -454,6 +454,115 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   H5Sclose(local_DSpace);
   H5Sclose(global_DSpace);
 
+  // Write Face Variables
+
+  // Sriram's hack for faces writes scalar face variables
+  // Vector face variables will be written as _n
+  // this is a stupidly complicated multi-pass through the variable
+  // list, but again will revisit when the time comes to redo
+  hsize_t maxVF = 1;
+  for (auto &v : ciX.varsFace) {
+    const size_t vlen = v->Get(1).GetDim(4);
+    maxVF = (maxVF < vlen ? vlen : maxVF);
+    std::cout << "FOUND FACE: " << v->label() << std::endl;
+  }
+  std::vector<Real> tmpDataF(pm->ndim*(nx1 + 1) * (nx2 + 1) * (nx3 + 1) * maxV * num_blocks_local,0);
+  Real *dataF = tmpDataF.data();
+  for (auto &vwrite : ciX.varsFace) { // for each Face variable we write
+    const std::string vWriteName = vwrite->label();
+    const hsize_t vlen = vwrite->Get(1).GetDim(4);
+    local_count[4] = global_count[4] = vlen;
+    
+    local_count[3] += 1;
+    global_count[3] += 1;
+    auto vLocalSpaceX = H5Screate_simple(5, local_count, NULL);
+    auto vGlobalSpaceX = H5Screate_simple(5, global_count, NULL);
+    local_count[3] -= 1;
+    global_count[3] -= 1;
+
+    local_count[2] += 1;
+    global_count[2] += 1;
+    auto vLocalSpaceY = H5Screate_simple(5, local_count, NULL);
+    auto vGlobalSpaceY = H5Screate_simple(5, global_count, NULL);
+    local_count[2] -= 1;
+    global_count[2] -= 1;
+
+    local_count[1] += 1;
+    global_count[1] += 1;
+    auto vLocalSpaceZ = H5Screate_simple(5, local_count, NULL);
+    auto vGlobalSpaceZ = H5Screate_simple(5, global_count, NULL);
+    local_count[1] -= 1;
+    global_count[1] -= 1;
+
+
+    hsize_t offset = (nx1+1)*(nx2+1)*(nx3+1);
+    hsize_t index1 = 0;
+    hsize_t index2 = offset;
+    hsize_t index3 = 2*offset;
+    for (auto &pmb : pm->block_list) { // for every block1
+      auto ci =
+          ContainerIterator<Real>(pmb->real_containers.Get(), output_params.variables);
+      for (auto &v : ci.varsFace) {
+        std::string name = v->label();
+        if (name.compare(vWriteName) == 0) {
+	  // copy data to host
+
+	  // Load x direction
+          auto v_x = v->Get(1).GetHostMirrorAndCopy();
+          LOADVARIABLEONE(index1, dataF, v_x, out_ib.s, out_ib.e+1, out_jb.s, out_jb.e,
+                          out_kb.s, out_kb.e, vlen);
+	  if ( pm->ndim > 1 ) {
+	    // Load y direction
+	    auto v_y = v->Get(2).GetHostMirrorAndCopy();
+	    LOADVARIABLEONE(index2, dataF, v_y, out_ib.s, out_ib.e, out_jb.s, out_jb.e+1,
+			    out_kb.s, out_kb.e, vlen);
+	  }
+	  if ( pm->ndim > 2 ) {
+	    // Load z direction
+	    auto v_z = v->Get(3).GetHostMirrorAndCopy();
+	    LOADVARIABLEONE(index3, dataF, v_z, out_ib.s, out_ib.e, out_jb.s, out_jb.e,
+			    out_kb.s, out_kb.e+1, vlen);
+	  }
+          break;
+        }
+      }
+    }
+    // write datasets to file
+    // X direction
+    {
+      std::string nameX = vWriteName + "_x";
+      local_count[3] += 1;
+      WRITEH5SLAB2(nameX.c_str(), dataF, file, local_start, local_count, vLocalSpaceX,
+		   vGlobalSpaceX, property_list);
+      local_count[3] -= 1;
+    }   
+    if (pm->ndim > 1) {
+      dataF += offset;
+      std::string nameX = vWriteName + "_y";
+      local_count[2] += 1;
+      WRITEH5SLAB2(nameX.c_str(), dataF, file, local_start, local_count, vLocalSpaceY,
+		   vGlobalSpaceY, property_list);
+      local_count[2] -= 1;
+    }   
+    if (pm->ndim > 2) {
+      dataF += offset;
+      std::string nameX = vWriteName + "_z";
+      local_count[1] += 1;
+      WRITEH5SLAB2(nameX.c_str(), dataF, file, local_start, local_count, vLocalSpaceZ,
+		   vGlobalSpaceZ, property_list);
+      local_count[1] -= 1;
+    }   
+    // close data spaces
+    H5Sclose(vLocalSpaceX);
+    H5Sclose(vGlobalSpaceX);
+    H5Sclose(vLocalSpaceY);
+    H5Sclose(vGlobalSpaceY);
+    H5Sclose(vLocalSpaceZ);
+    H5Sclose(vGlobalSpaceZ);
+  }
+
+
+
 #ifdef MPI_PARALLEL
   /* release the file access template */
   ierr = H5Pclose(acc_file);
