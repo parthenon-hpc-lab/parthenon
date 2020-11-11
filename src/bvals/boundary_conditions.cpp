@@ -28,6 +28,8 @@ bool DoPhysicalBoundary_(BoundaryFlag flag, BoundaryFace face, int ndim);
 } // namespace boundary_cond_impl
 
 TaskStatus ProlongateBoundaries(std::shared_ptr<MeshBlockData<Real>> &rc) {
+  if (!(rc->GetBlockPointer()->pmy_mesh->multilevel)) return TaskStatus::complete;
+
   // This hardcoded technique is also used to manually specify the coupling between
   // physical variables in:
   // - step 2, ApplyPhysicalBoundariesOnCoarseLevel(): calls to W(U) and user BoundaryFunc
