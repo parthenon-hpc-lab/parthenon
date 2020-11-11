@@ -91,7 +91,7 @@ TaskStatus EstimateTimestep(std::shared_ptr<T> &rc) {
   }
   pm->SetAllowedDt(dt_min);
   return TaskStatus::complete;
-} // namespace Update
+}
 
 template <typename T>
 using DeriveFuncType = void(std::shared_ptr<T> &);
