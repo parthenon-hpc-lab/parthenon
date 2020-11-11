@@ -92,7 +92,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properti
       nbnew(), nbdel(), step_since_lb(), gflag(), properties(properties),
       packages(packages),
       // private members:
-      next_phys_id_(),
+      max_allowed_dt_(std::numeric_limits<Real>::max()), next_phys_id_(),
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
       tree(this), use_uniform_meshgen_fn_{true, true, true, true}, lb_flag_(true),
       lb_automatic_(),
@@ -531,7 +531,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
       nbnew(), nbdel(), step_since_lb(), gflag(), properties(properties),
       packages(packages),
       // private members:
-      next_phys_id_(),
+      max_allowed_dt_(std::numeric_limits<Real>::max()), next_phys_id_(),
       num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
       tree(this), use_uniform_meshgen_fn_{true, true, true, true}, lb_flag_(true),
       lb_automatic_(),

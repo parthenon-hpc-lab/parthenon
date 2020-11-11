@@ -125,7 +125,7 @@ void EvolutionDriver::PostExecute(DriverStatus status) {
 void EvolutionDriver::InitializeBlockTimeSteps() {
   // calculate the first time step
   for (auto &pmb : pmesh->block_list) {
-    pmb->SetBlockTimestep(Update::EstimateTimestep(pmb->meshblock_data.Get()));
+    Update::EstimateTimestep(pmb->meshblock_data.Get());
   }
 }
 
@@ -135,11 +135,14 @@ void EvolutionDriver::InitializeBlockTimeSteps() {
 
 void EvolutionDriver::SetGlobalTimeStep() {
   Real dt_max = 2.0 * tm.dt;
-  tm.dt = std::numeric_limits<Real>::max();
+  tm.dt = pmesh->NewDt();
+  Real big = std::numeric_limits<Real>::max();
   for (auto const &pmb : pmesh->block_list) {
     tm.dt = std::min(tm.dt, pmb->NewDt());
+    pmb->SetAllowedDt(big);
   }
   tm.dt = std::min(dt_max, tm.dt);
+  pmesh->SetAllowedDt(big);
 
 #ifdef MPI_PARALLEL
   MPI_Allreduce(MPI_IN_PLACE, &tm.dt, 1, MPI_PARTHENON_REAL, MPI_MIN, MPI_COMM_WORLD);

@@ -42,7 +42,7 @@ namespace Particles {
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 AmrTag CheckRefinement(MeshBlockData<Real> &rc);
-Real EstimateTimestep(std::shared_ptr<MeshBlockData<Real>> &rc);
+Real EstimateTimestepBlock(std::shared_ptr<MeshBlockData<Real>> &rc);
 
 } // namespace Particles
 

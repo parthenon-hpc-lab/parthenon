@@ -255,6 +255,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   static void UserWorkInLoopDefault(); // called in TimeIntegratorTaskList
   std::function<void()> UserWorkInLoop = &UserWorkInLoopDefault;
   void SetBlockTimestep(const Real dt) { new_block_dt_ = dt; }
+  void SetAllowedDt(const Real dt) { new_block_dt_ = dt; }
   Real NewDt() const { return new_block_dt_; }
 
   // It would be nice for these par_dispatch_ functions to be private, but they can't be

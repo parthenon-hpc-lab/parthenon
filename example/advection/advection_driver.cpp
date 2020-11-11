@@ -161,13 +161,7 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     // estimate next time step
     if (stage == integrator->nstages) {
       auto new_dt = tl.AddTask(
-          fill_derived,
-          [](std::shared_ptr<MeshBlockData<Real>> &rc) {
-            auto pmb = rc->GetBlockPointer();
-            pmb->SetBlockTimestep(parthenon::Update::EstimateTimestep(rc));
-            return TaskStatus::complete;
-          },
-          sc1);
+          fill_derived, parthenon::Update::EstimateTimestep<MeshBlockData<Real>>, sc1);
 
       // Update refinement
       if (pmesh->adaptive) {

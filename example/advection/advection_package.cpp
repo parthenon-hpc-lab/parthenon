@@ -164,7 +164,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   pkg->AddParam("FillDerivedBlock", SquareIt);
   pkg->CheckRefinement = CheckRefinement;
-  pkg->EstimateTimestep = EstimateTimestep;
+  pkg->AddParam("EstimateTimestepBlock", EstimateTimestepBlock);
 
   return pkg;
 }
@@ -270,7 +270,7 @@ void PostFill(std::shared_ptr<MeshBlockData<Real>> &rc) {
 }
 
 // provide the routine that estimates a stable timestep for this package
-Real EstimateTimestep(std::shared_ptr<MeshBlockData<Real>> &rc) {
+Real EstimateTimestepBlock(std::shared_ptr<MeshBlockData<Real>> &rc) {
   auto pmb = rc->GetBlockPointer();
   auto pkg = pmb->packages["advection_package"];
   const auto &cfl = pkg->Param<Real>("cfl");

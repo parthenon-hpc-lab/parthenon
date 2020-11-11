@@ -67,18 +67,31 @@ void AverageIndependentData(T &c1, T &c2, const Real wgt1) {
 }
 
 template <typename T>
-Real EstimateTimestep(T &rc) {
+std::string TypeSuffix(std::shared_ptr<T> &rc) {
+  std::string mytype = typeid(rc).name();
+  return (mytype.find("Block") != std::string::npos ? "Block" : "Mesh");
+}
+
+template <typename T>
+using TimeStepFuncType = Real(std::shared_ptr<T> &);
+
+template <typename T>
+TaskStatus EstimateTimestep(std::shared_ptr<T> &rc) {
+  using Tstep_t = TimeStepFuncType<T>;
+  using Desc_t = std::shared_ptr<StateDescriptor>;
   auto pm = rc->GetGridPointer();
   Real dt_min = std::numeric_limits<Real>::max();
-  for (auto &pkg : pm->packages) {
-    auto &desc = pkg.second;
-    if (desc->EstimateTimestep != nullptr) {
-      Real dt = desc->EstimateTimestep(rc);
+  std::string fname = "EstimateTimestep" + TypeSuffix(rc);
+  for (const std::pair<std::string, Desc_t> &pkg : pm->packages) {
+    auto &p = pkg.second->AllParams();
+    if (p.hasKey(fname)) {
+      Real dt = p.Get<Tstep_t *>(fname)(rc);
       dt_min = std::min(dt_min, dt);
     }
   }
-  return dt_min;
-}
+  pm->SetAllowedDt(dt_min);
+  return TaskStatus::complete;
+} // namespace Update
 
 template <typename T>
 using DeriveFuncType = void(std::shared_ptr<T> &);
@@ -88,9 +101,8 @@ TaskStatus FillDerived(std::shared_ptr<T> &rc) {
   using DeriveFunc_t = DeriveFuncType<T>;
   using Desc_t = std::shared_ptr<StateDescriptor>;
   Desc_t &app_pkg = rc->GetGridPointer()->packages["Parthenon::AppInput"];
+  auto suffix = TypeSuffix(rc);
   auto &params = app_pkg->AllParams();
-  std::string mytype = typeid(rc).name();
-  std::string suffix = (mytype.find("Block") != std::string::npos ? "Block" : "Mesh");
   if (params.hasKey("PreFillDerived" + suffix)) {
     params.Get<DeriveFunc_t *>("PreFillDerived" + suffix)(rc);
   }
