@@ -179,7 +179,7 @@ void MeshRefinement::RestrictCellCenteredValues(const ParArrayND<Real> &fine,
                (fine(n, 0, j, i + 1) * vol01 + fine(n, 0, j + 1, i + 1) * vol11)) /
               tvol;
         });
-    //applyBounds(pmb, coarse, cib, cjb);
+    // applyBounds(pmb, coarse, cib, cjb);
   } else { // 1D
     int j = jb.s, cj = cjb.s, k = kb.s, ck = ckb.s;
     pmb->par_for(
@@ -523,7 +523,7 @@ void MeshRefinement::ProlongateCellCenteredValues(const ParArrayND<Real> &coarse
           fine(n, fk, fj + 1, fi) = ccval - (gx1c * dx1fm - gx2c * dx2fp);
           fine(n, fk, fj + 1, fi + 1) = ccval + (gx1c * dx1fp + gx2c * dx2fp);
         });
-    //applyBounds(pmb, fine, cib, cjb);
+    // applyBounds(pmb, fine, cib, cjb);
   } else { // 1D
     int k = ckb.s, fk = kb.s, j = cjb.s, fj = jb.s;
     pmb->par_for(
