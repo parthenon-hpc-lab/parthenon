@@ -469,10 +469,10 @@ VariablePack<T> MeshBlockData<T>::PackVariables(PackIndexMap &vmap, bool coarse)
   return PackVariablesHelper_(key, vars, vmap, coarse);
 }
 template <typename T>
-VariablePack<T> MeshBlockData<T>::PackVariables(bool coarse) {
+VariablePack<T> MeshBlockData<T>::PackVariables() {
   PackIndexMap vmap;
   std::vector<std::string> key;
-  return PackVariables(vmap, key, coarse);
+  return PackVariables(vmap, key, false);
 }
 
 // From a given container, extract all variables and all fields in sparse variables
