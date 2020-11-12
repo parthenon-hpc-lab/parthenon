@@ -22,6 +22,7 @@ import subprocess
 from subprocess import PIPE
 import sys
 from shutil import which
+import glob
 
 class Parameters():
     driver_path = ""
@@ -182,6 +183,9 @@ class TestManager:
         if not os.path.isdir(self.parameters.output_path):
             os.makedirs(self.parameters.output_path)
 
+        files = glob.glob(self.parameters.output_path + "/*")
+        for f in files:
+          os.remove(f)
         os.chdir(self.parameters.output_path)
 
     def Prepare(self, step):
