@@ -185,7 +185,7 @@ class TestManager:
 
         files = glob.glob(self.parameters.output_path + "/*")
         for f in files:
-          os.remove(f)
+            os.remove(f)
         os.chdir(self.parameters.output_path)
 
     def Prepare(self, step):
