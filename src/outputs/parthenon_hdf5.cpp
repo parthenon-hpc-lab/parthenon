@@ -173,7 +173,7 @@ void PHDF5Output::genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm) {
     dims[2] = nx2;
     dims[3] = nx1;
     dims[4] = 1;
-    for (auto &v : ciX.vars) {
+    for (auto &v : ciX.varsCell) {
       const int vlen = v->GetDim(4);
       dims[4] = vlen;
       std::string name = v->label();
@@ -318,7 +318,7 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
                                          output_params.variables);
   size_t maxV = 1;
   hsize_t sumDim4AllVars = 0;
-  for (auto &v : ciX.vars) {
+  for (auto &v : ciX.varsCell) {
     const size_t vlen = v->GetDim(4);
     sumDim4AllVars += vlen;
     maxV = (maxV < vlen ? vlen : maxV);
@@ -404,7 +404,7 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
 
   // this is a stupidly complicated multi-pass through the variable
   // list, but again will revisit when the time comes to redo
-  for (auto &vwrite : ciX.vars) { // for each variable we write
+  for (auto &vwrite : ciX.varsCell) { // for each variable we write
     const std::string vWriteName = vwrite->label();
     hid_t vLocalSpace, vGlobalSpace;
     const hsize_t vlen = vwrite->GetDim(4);
@@ -422,7 +422,7 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     for (auto &pmb : pm->block_list) { // for every block1
       auto ci =
           MeshBlockDataIterator<Real>(pmb->meshblock_data.Get(), output_params.variables);
-      for (auto &v : ci.vars) {
+      for (auto &v : ci.varsCell) {
         std::string name = v->label();
         if (name.compare(vWriteName) == 0) {
           // hsize_t index = pmb->lid * varSize * vlen;
@@ -457,13 +457,14 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     maxVF = (maxVF < vlen ? vlen : maxVF);
     //    std::cout << "FOUND FACE: " << v->label() << std::endl;
   }
-  std::vector<Real> tmpDataF(pm->ndim*(nx1 + 1) * (nx2 + 1) * (nx3 + 1) * maxV * num_blocks_local,0);
+  std::vector<Real> tmpDataF(
+      pm->ndim * (nx1 + 1) * (nx2 + 1) * (nx3 + 1) * maxVF * num_blocks_local, 0);
   Real *dataF = tmpDataF.data();
   for (auto &vwrite : ciX.varsFace) { // for each Face variable we write
     const std::string vWriteName = vwrite->label();
     const hsize_t vlen = vwrite->Get(1).GetDim(4);
     local_count[4] = global_count[4] = vlen;
-    
+
     local_count[3] += 1;
     global_count[3] += 1;
     auto vLocalSpaceX = H5Screate_simple(5, local_count, NULL);
@@ -485,35 +486,34 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     local_count[1] -= 1;
     global_count[1] -= 1;
 
-
-    hsize_t offset = (nx1+1)*(nx2+1)*(nx3+1);
+    hsize_t offset = (nx1 + 1) * (nx2 + 1) * (nx3 + 1);
     hsize_t index1 = 0;
     hsize_t index2 = offset;
-    hsize_t index3 = 2*offset;
+    hsize_t index3 = 2 * offset;
     for (auto &pmb : pm->block_list) { // for every block1
-      auto ci =
-          ContainerIterator<Real>(pmb->real_containers.Get(), output_params.variables);
+      auto ci = MeshBlockDataIterator<Real>(pmb->meshblock_data.Get(),
+                                            output_params.variables);
       for (auto &v : ci.varsFace) {
         std::string name = v->label();
         if (name.compare(vWriteName) == 0) {
-	  // copy data to host
+          // copy data to host
 
-	  // Load x direction
+          // Load x direction
           auto v_x = v->Get(1).GetHostMirrorAndCopy();
-          LOADVARIABLEONE(index1, dataF, v_x, out_ib.s, out_ib.e+1, out_jb.s, out_jb.e,
+          LOADVARIABLEONE(index1, dataF, v_x, out_ib.s, out_ib.e + 1, out_jb.s, out_jb.e,
                           out_kb.s, out_kb.e, vlen);
-	  if ( pm->ndim > 1 ) {
-	    // Load y direction
-	    auto v_y = v->Get(2).GetHostMirrorAndCopy();
-	    LOADVARIABLEONE(index2, dataF, v_y, out_ib.s, out_ib.e, out_jb.s, out_jb.e+1,
-			    out_kb.s, out_kb.e, vlen);
-	  }
-	  if ( pm->ndim > 2 ) {
-	    // Load z direction
-	    auto v_z = v->Get(3).GetHostMirrorAndCopy();
-	    LOADVARIABLEONE(index3, dataF, v_z, out_ib.s, out_ib.e, out_jb.s, out_jb.e,
-			    out_kb.s, out_kb.e+1, vlen);
-	  }
+          if (pm->ndim > 1) {
+            // Load y direction
+            auto v_y = v->Get(2).GetHostMirrorAndCopy();
+            LOADVARIABLEONE(index2, dataF, v_y, out_ib.s, out_ib.e, out_jb.s,
+                            out_jb.e + 1, out_kb.s, out_kb.e, vlen);
+          }
+          if (pm->ndim > 2) {
+            // Load z direction
+            auto v_z = v->Get(3).GetHostMirrorAndCopy();
+            LOADVARIABLEONE(index3, dataF, v_z, out_ib.s, out_ib.e, out_jb.s, out_jb.e,
+                            out_kb.s, out_kb.e + 1, vlen);
+          }
           break;
         }
       }
@@ -521,28 +521,28 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     // write datasets to file
     // X direction
     {
-      std::string nameX = vWriteName + "_x";
+      std::string nameX = vWriteName + "_x1";
       local_count[3] += 1;
       WRITEH5SLAB2(nameX.c_str(), dataF, file, local_start, local_count, vLocalSpaceX,
-		   vGlobalSpaceX, property_list);
+                   vGlobalSpaceX, property_list);
       local_count[3] -= 1;
-    }   
+    }
     if (pm->ndim > 1) {
       dataF += offset;
-      std::string nameX = vWriteName + "_y";
+      std::string nameX = vWriteName + "_x2";
       local_count[2] += 1;
       WRITEH5SLAB2(nameX.c_str(), dataF, file, local_start, local_count, vLocalSpaceY,
-		   vGlobalSpaceY, property_list);
+                   vGlobalSpaceY, property_list);
       local_count[2] -= 1;
-    }   
+    }
     if (pm->ndim > 2) {
       dataF += offset;
-      std::string nameX = vWriteName + "_z";
+      std::string nameX = vWriteName + "_x3";
       local_count[1] += 1;
       WRITEH5SLAB2(nameX.c_str(), dataF, file, local_start, local_count, vLocalSpaceZ,
-		   vGlobalSpaceZ, property_list);
+                   vGlobalSpaceZ, property_list);
       local_count[1] -= 1;
-    }   
+    }
     // close data spaces
     H5Sclose(vLocalSpaceX);
     H5Sclose(vGlobalSpaceX);
@@ -551,8 +551,6 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     H5Sclose(vLocalSpaceZ);
     H5Sclose(vGlobalSpaceZ);
   }
-
-
 
 #ifdef MPI_PARALLEL
   /* release the file access template */

@@ -32,9 +32,8 @@ template <typename T>
 class MeshBlockDataIterator {
  public:
   /// the subset of variables that match this iterator
-  CellVariableVector<T> vars; // cell vars that match
-  FaceVector<T> varsFace;     // face vars that match
-  // std::vector<EdgeVariable> varsEdge; // edge vars that match
+  CellVariableVector<T> varsCell; // cell vars that match
+  FaceVector<T> varsFace;         // face vars that match
 
   void MakeList(const std::shared_ptr<MeshBlockData<T>> &c,
                 const std::vector<std::string> &names) {
@@ -45,7 +44,7 @@ class MeshBlockDataIterator {
       bool found = false;
       auto v = var_map.find(name);
       if (v != var_map.end()) {
-        vars.push_back(v->second);
+        varsCell.push_back(v->second);
         found = true;
       }
       auto sv = sparse_map.find(name);
@@ -58,7 +57,7 @@ class MeshBlockDataIterator {
         }
         found = true;
         for (const auto &svar : sv->second->GetVector()) {
-          vars.push_back(svar);
+          varsCell.push_back(svar);
         }
       }
       /*if (!found) {
@@ -81,15 +80,13 @@ class MeshBlockDataIterator {
   /// @param c the container on which you want the iterator
   /// @param flags: a vector of Metadata::flags that you want to match
   MeshBlockDataIterator<T>(const std::shared_ptr<MeshBlockData<T>> &c,
-                           const std::vector<MetadataFlag> &flags,
-                           bool matchAny = false) 
-      : allFaceVars_(c->GetFaceVector()) {
+                           const std::vector<MetadataFlag> &flags, bool matchAny = false)
+      : allVarsFace_(c->GetFaceVector()) {
     allVars_ = c->GetCellVariableVector();
     for (auto &svar : c->GetSparseVector()) {
       CellVariableVector<T> &svec = svar->GetVector();
       allVars_.insert(allVars_.end(), svec.begin(), svec.end());
     }
-    // edges not active yet    allEdgeVars_ = c.edgeVars();
     resetVars(flags, matchAny); // fill subset based on mask vector
   }
 
@@ -97,30 +94,10 @@ class MeshBlockDataIterator {
   /// @param c the container on which you want the iterator
   /// @param names: a vector of std::string with names you want to match
   MeshBlockDataIterator<T>(const std::shared_ptr<MeshBlockData<T>> &c,
-                           const std::vector<std::string> &names) {
+                           const std::vector<std::string> &names)
+      : allVarsFace_(c->GetFaceVector()) {
     MakeList(c, names);
-    /*allVars_ = c.GetCellVariableVector();
-    for (auto &svar : c.GetSparseVector()) {
-      CellVariableVector<T> &svec = svar->GetVector();
-      allVars_.insert(allVars_.end(), svec.begin(), svec.end());
-    }
-    // faces not active yet    allFaceVars_ = c.faceVars();
-    // edges not active yet    allEdgeVars_ = c.edgeVars();
-    resetVars(names); // fill subset based on mask vector*/
   }
-
-  /// Changes the mask for the iterator and resets the iterator
-  /// @param names: a vector of MetadataFlag that you want to match
-  // void resetVars(const std::vector<std::string> &names) {
-  //   // 1: clear out variables stored so far
-  //   emptyVars_();
-
-  //   // 2: fill in the subset of variables that match at least one entry in names
-  //   for (auto pv : allVars_) {
-  //     if (std::find(names.begin(), names.end(), pv->label()) != names.end())
-  //       vars.push_back(pv);
-  //   }
-  // }
 
   /// Changes the mask for the iterator and resets the iterator
   /// @param flags: a vector of MetadataFlag that you want to match
@@ -132,7 +109,13 @@ class MeshBlockDataIterator {
     for (auto pv : allVars_) {
       if ((matchAny && pv->metadata().AnyFlagsSet(flags)) ||
           ((!matchAny) && pv->metadata().AllFlagsSet(flags))) {
-        vars.push_back(pv);
+        varsCell.push_back(pv);
+      }
+    }
+    for (auto pf : allVarsFace_) {
+      if ((matchAny && pf->metadata().AnyFlagsSet(flags)) ||
+          ((!matchAny) && pf->metadata().AllFlagsSet(flags))) {
+        varsFace.push_back(pf);
       }
     }
   }
@@ -140,12 +123,10 @@ class MeshBlockDataIterator {
  private:
   uint64_t mask_;
   CellVariableVector<T> allVars_;
-  const FaceVector<T> &allFaceVars_ = {};
-  // EdgeVector<T> allEdgeVars_ = {};
+  const FaceVector<T> &allVarsFace_ = {};
   void emptyVars_() {
-    vars.clear();
+    varsCell.clear();
     varsFace.clear();
-    //  varsEdge.clear();
   }
 };
 

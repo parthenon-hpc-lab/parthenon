@@ -225,13 +225,13 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
 
   // Allocate space based on largest vector
   size_t vlen = 1;
-  for (auto &v : ciX.vars) {
+  for (auto &v : ciX.varsCell) {
     if (v->GetDim(4) > vlen) {
       vlen = v->GetDim(4);
     }
   }
   std::vector<Real> tmp(static_cast<size_t>(nb) * nCells * vlen);
-  for (auto &v : ciX.vars) {
+  for (auto &v : ciX.varsCell) {
     const size_t v4 = v->GetDim(4);
     const std::string vName = v->label();
 
@@ -249,7 +249,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
       auto cX = MeshBlockDataIterator<Real>(
           pmb->meshblock_data.Get(),
           {parthenon::Metadata::Independent, parthenon::Metadata::Restart}, true);
-      for (auto &v : cX.vars) {
+      for (auto &v : cX.varsCell) {
         if (vName.compare(v->label()) == 0) {
           auto v_h = v->data.GetHostMirror();
           UNLOADVARIABLEONE(index, tmp, v_h, out_ib.s, out_ib.e, out_jb.s, out_jb.e,

@@ -194,7 +194,7 @@ void VTKOutput::WriteContainer(SimTime &tm, Mesh *pm, ParameterInput *pin, bool 
     // reset container iterator to point to current block data
     auto ci =
         MeshBlockDataIterator<Real>(pmb->meshblock_data.Get(), {Metadata::Graphics});
-    for (auto &v : ci.vars) {
+    for (auto &v : ci.varsCell) {
       if (!data) {
         std::cout << "____________________SKIPPPING:" << v->label() << std::endl;
         continue;

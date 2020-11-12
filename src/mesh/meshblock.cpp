@@ -180,16 +180,16 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
 
   // TODO(jdolence): Should these loops be moved to Variable creation
   MeshBlockDataIterator<Real> ci(real_container, {Metadata::Independent});
-  int nindependent = ci.vars.size();
+  int nindependent = ci.varsCell.size();
   for (int n = 0; n < nindependent; n++) {
-    RegisterMeshBlockData(ci.vars[n]);
+    RegisterMeshBlockData(ci.varsCell[n]);
   }
 
   if (pm->multilevel) {
     pmr = std::make_unique<MeshRefinement>(shared_from_this(), pin);
     // This is very redundant, I think, but necessary for now
     for (int n = 0; n < nindependent; n++) {
-      pmr->AddToRefinement(ci.vars[n]->data, ci.vars[n]->coarse_s);
+      pmr->AddToRefinement(ci.varsCell[n]->data, ci.varsCell[n]->coarse_s);
     }
   }
 
