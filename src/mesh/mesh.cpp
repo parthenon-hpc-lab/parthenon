@@ -29,6 +29,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "parthenon_mpi.hpp"
@@ -37,14 +38,18 @@
 #include "bvals/bvals.hpp"
 #include "defs.hpp"
 #include "globals.hpp"
+#include "interface/state_descriptor.hpp"
+#include "interface/update.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
+#include "mesh/meshblock.hpp"
 #include "mesh/meshblock_tree.hpp"
 #include "outputs/restart.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/buffer_utils.hpp"
 #include "utils/error_checking.hpp"
+#include "utils/partition_stl_containers.hpp"
 
 namespace parthenon {
 
@@ -118,9 +123,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properti
   }
 
   // check number of grid cells in root level of mesh from input file.
-  if (mesh_size.nx1 < 4) {
+  if (mesh_size.nx1 < 1) {
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
-        << "In mesh block in input file nx1 must be >= 4, but nx1=" << mesh_size.nx1
+        << "In mesh block in input file nx1 must be >= 1, but nx1=" << mesh_size.nx1
         << std::endl;
     PARTHENON_FAIL(msg);
   }
@@ -243,6 +248,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properti
     use_uniform_meshgen_fn_[X3DIR] = false;
     MeshGenerator_[X3DIR] = DefaultMeshGeneratorX3;
   }
+  default_pack_size_ = pin->GetOrAddReal("parthenon/mesh", "pack_size", -1);
 
   // calculate the logical root level and maximum level
   for (root_level = 0; (1 << root_level) < nbmax; root_level++) {
@@ -467,6 +473,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properti
     return;
   }
 
+  mesh_data.SetMeshPointer(this);
+
   // create MeshBlock list for this process
   int nbs = nslist[Globals::my_rank];
   int nbe = nbs + nblist[Globals::my_rank] - 1;
@@ -557,6 +565,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   // the file is already open and the pointer is set to after <par_end>
 
   // All ranks read HDF file
+  nbnew = rr.GetAttr<int>("Mesh", "nbnew");
+  nbdel = rr.GetAttr<int>("Mesh", "nbdel");
   nbtotal = rr.GetAttr<int>("Mesh", "nbtotal");
   root_level = rr.GetAttr<int32_t>("Mesh", "rootLevel");
 
@@ -589,11 +599,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   mesh_size.x2rat = ratios[1];
   mesh_size.x3rat = ratios[2];
 
-  // TODO(sriram): Need to figure out where nCycle, time, and dt should be read
-  //  dt = rr.GetAttr<double>("Info", "dt");
-  //  time = rr.GetAttr<double>("Info", "time");
-  //  ncycle = rr.GetAttr<int32_t>("Info", "nCycle");
-
   // initialize
   loclist = std::vector<LogicalLocation>(nbtotal);
 
@@ -620,6 +625,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
     use_uniform_meshgen_fn_[X3DIR] = false;
     MeshGenerator_[X3DIR] = DefaultMeshGeneratorX3;
   }
+  default_pack_size_ = pin->GetOrAddReal("parthenon/mesh", "pack_size", -1);
 
   // Load balancing flag and parameters
 #ifdef MPI_PARALLEL
@@ -726,6 +732,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
 
   // read in xmin from file
   auto xmin = rr.ReadDataset<double>("/Blocks/xmin");
+
+  mesh_data.SetMeshPointer(this);
 
   // Create MeshBlocks (parallel)
   block_list.clear();
@@ -1023,7 +1031,7 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin, ApplicationInput *app_i
       auto &pmb = block_list[i];
       // BoundaryVariable objects evolved in main TimeIntegratorTaskList:
       pmb->pbval->SetupPersistentMPI();
-      pmb->real_containers.Get()->SetupPersistentMPI();
+      pmb->meshblock_data.Get()->SetupPersistentMPI();
     }
     call++; // 1
 
@@ -1032,27 +1040,26 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin, ApplicationInput *app_i
       // prepare to receive conserved variables
 #pragma omp for
       for (int i = 0; i < nmb; ++i) {
-        block_list[i]->real_containers.Get()->StartReceiving(
+        block_list[i]->meshblock_data.Get()->StartReceiving(
             BoundaryCommSubset::mesh_init);
       }
       call++; // 2
               // send conserved variables
 #pragma omp for
       for (int i = 0; i < nmb; ++i) {
-        block_list[i]->real_containers.Get()->SendBoundaryBuffers();
+        block_list[i]->meshblock_data.Get()->SendBoundaryBuffers();
       }
       call++; // 3
 
       // wait to receive conserved variables
 #pragma omp for
       for (int i = 0; i < nmb; ++i) {
-        block_list[i]->real_containers.Get()->ReceiveAndSetBoundariesWithWait();
+        block_list[i]->meshblock_data.Get()->ReceiveAndSetBoundariesWithWait();
       }
       call++; // 4
 #pragma omp for
       for (int i = 0; i < nmb; ++i) {
-        block_list[i]->real_containers.Get()->ClearBoundary(
-            BoundaryCommSubset::mesh_init);
+        block_list[i]->meshblock_data.Get()->ClearBoundary(BoundaryCommSubset::mesh_init);
       }
       call++;
       // Now do prolongation, compute primitives, apply BCs
@@ -1077,8 +1084,8 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin, ApplicationInput *app_i
         //          if (pbval->nblevel[2][1][1] != -1) ku += NGHOST;
         //        }
 
-        ApplyBoundaryConditions(pmb->real_containers.Get());
-        FillDerivedVariables::FillDerived(pmb->real_containers.Get());
+        ApplyBoundaryConditions(pmb->meshblock_data.Get());
+        FillDerivedVariables::FillDerived(pmb->meshblock_data.Get());
       }
 
       if (!res_flag && adaptive) {
@@ -1241,5 +1248,16 @@ int Mesh::ReserveTagPhysIDs(int num_phys) {
 // TODO(felker): deduplicate this logic, which combines conditionals in MeshBlock ctor
 
 void Mesh::ReserveMeshBlockPhysIDs() { return; }
+
+std::int64_t Mesh::GetTotalCells() {
+  auto &pmb = block_list.front();
+  return static_cast<std::int64_t>(nbtotal) * pmb->block_size.nx1 * pmb->block_size.nx2 *
+         pmb->block_size.nx3;
+}
+// TODO(JMM): Move block_size into mesh.
+int Mesh::GetNumberOfMeshBlockCells() const {
+  return block_list.front()->GetNumberOfMeshBlockCells();
+}
+const RegionSize &Mesh::GetBlockSize() const { return block_list.front()->block_size; }
 
 } // namespace parthenon

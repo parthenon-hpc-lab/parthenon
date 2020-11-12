@@ -70,7 +70,13 @@
   /** Do boundary communication */                                                       \
   PARTHENON_INTERNAL_FOR_FLAG(FillGhost)                                                 \
   /** Communication arrays are a copy: hint to destructor */                             \
-  PARTHENON_INTERNAL_FOR_FLAG(SharedComms)
+  PARTHENON_INTERNAL_FOR_FLAG(SharedComms)                                               \
+  /** Boolean-valued quantity */                                                         \
+  PARTHENON_INTERNAL_FOR_FLAG(Boolean)                                                   \
+  /** Integer-valued quantity */                                                         \
+  PARTHENON_INTERNAL_FOR_FLAG(Integer)                                                   \
+  /** Real-valued quantity */                                                            \
+  PARTHENON_INTERNAL_FOR_FLAG(Real)
 
 namespace parthenon {
 
@@ -200,6 +206,17 @@ class Metadata {
     return None;
   }
 
+  /// returns the type of the variable
+  MetadataFlag Type() const {
+    if (IsSet(Integer)) {
+      return Integer;
+    } else if (IsSet(Real)) {
+      return Real;
+    }
+    /// by default return Metadata::None
+    return None;
+  }
+
   void SetSparseId(int id) { sparse_id_ = id; }
   int GetSparseId() const { return sparse_id_; }
 
@@ -228,6 +245,10 @@ class Metadata {
   bool AllFlagsSet(std::vector<MetadataFlag> const &flags) const {
     return std::all_of(flags.begin(), flags.end(),
                        [this](MetadataFlag const &f) { return IsSet(f); });
+  }
+
+  bool FlagsSet(std::vector<MetadataFlag> const &flags, bool matchAny = false) {
+    return ((matchAny && AnyFlagsSet(flags)) || ((!matchAny) && AllFlagsSet(flags)));
   }
 
   /// returns true if bit is set, false otherwise

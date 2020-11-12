@@ -28,10 +28,13 @@ class Parameters():
     driver_input_path = ""
     test_path = ""
     output_path = ""
+    parthenon_path = ""
     mpi_cmd = ""
+    num_ranks = 1
     mpi_opts = ""
     driver_cmd_line_args = []
     stdouts = []
+    kokkos_args = []
     # Options
     # only-regression - do not run when coverage is enabled
     # both - run regardless of whether coverage is enabled or not 
@@ -56,6 +59,7 @@ class TestManager:
         test_dir = kwargs.pop('test_dir')
         parthenon_driver = kwargs.pop('driver')
         parthenon_driver_input = kwargs.pop('driver_input')
+        self.parameters.kokkos_args = ' '.join(kwargs.pop('kokkos_args')).split() 
         mpi_executable = kwargs.pop('mpirun')
 
         self.__initial_working_dir = os.getcwd()
@@ -79,6 +83,14 @@ class TestManager:
         else:
             output_path = os.path.abspath(output_path)
 
+        try:
+            parthenon_path = os.path.realpath(__file__)
+            idx = parthenon_path.rindex('/parthenon/')
+            self.parameters.parthenon_path = os.path.join(parthenon_path[:idx],'parthenon')
+        except ValueError:
+            baseDir = os.path.dirname(__file__)
+            self.parameters.parthenon_path = os.path.abspath(baseDir + '/../../../')
+
         self.__test_module = 'test_suites.' + test_base_name + '.' + test_base_name
 
         test_module = 'test_suites.' + test_base_name + '.' + test_base_name
@@ -96,6 +108,19 @@ class TestManager:
         self.parameters.test_path = test_path
         self.parameters.mpi_cmd = mpi_executable
         self.parameters.mpi_opts = kwargs.pop('mpirun_opts')
+       
+        argstrings = ['-np','-n']
+        if len(set(argstrings) & set(self.parameters.mpi_opts)) > 1:
+          print('Warning! You have set both "-n" and "-np" in your MPI options.')
+          print(self.parameters.mpi_opts)
+        for s in argstrings:
+          if s in self.parameters.mpi_opts:
+            index = self.parameters.mpi_opts.index(s)
+            if index < len(self.parameters.mpi_opts) - 1:
+              try:
+                self.parameters.num_ranks = int(self.parameters.mpi_opts[index+1])
+              except ValueError:
+                pass
 
         module = __import__(self.__test_module, globals(), locals(),
                 fromlist=['TestCase'])
@@ -162,7 +187,7 @@ class TestManager:
     def Prepare(self, step):
         print("*****************************************************************")
         print("Preparing Test Case Step %d" % step)
-        print("*****************************************************************")
+        print("*****************************************************************\n")
         sys.stdout.flush()
         self.parameters = self.test_case.Prepare(self.parameters, step)
 
@@ -179,30 +204,39 @@ class TestManager:
             run_command.append(self.parameters.driver_input_path)
         for arg in self.parameters.driver_cmd_line_args:
             run_command.append(arg)
+        for arg in self.parameters.kokkos_args:
+            run_command.append(arg)
 
         if self.__run_coverage and self.parameters.coverage_status != "only-regression":
             print("*****************************************************************")
             print("Running Driver with Coverage")
-            print("*****************************************************************")
+            print("*****************************************************************\n")
         elif not self.__run_coverage and self.parameters.coverage_status != "only-coverage":
             print("*****************************************************************")
             print("Running Driver")
-            print("*****************************************************************")
+            print("*****************************************************************\n")
         elif self.__run_coverage and self.parameters.coverage_status == "only-regression":
             print("*****************************************************************")
             print("Test Case Ignored for Calculating Coverage")
-            print("*****************************************************************")
+            print("*****************************************************************\n")
             return 
         else:
             return 
 
         print("Command to execute driver")
-        print(run_command)
+        print(' '.join(run_command))
         sys.stdout.flush()
         try:
             proc = subprocess.run(run_command, check=True, stdout=PIPE, stderr=PIPE)
             self.parameters.stdouts.append(proc.stdout)
         except subprocess.CalledProcessError as err:
+            print("\n*****************************************************************")
+            print("Subprocess error message")
+            print("*****************************************************************\n")
+            print(str(repr(err.output)).replace('\\n',os.linesep))
+            print("\n*****************************************************************")
+            print("Error detected while running subprocess command")
+            print("*****************************************************************\n")
             raise TestManagerError('\nReturn code {0} from command \'{1}\''
                               .format(err.returncode, ' '.join(err.cmd)))
         # Reset parameters
@@ -214,14 +248,14 @@ class TestManager:
         if self.__run_coverage:
             print("*****************************************************************")
             print("Running with Coverage, Analysis Section Ignored")
-            print("*****************************************************************")
+            print("*****************************************************************\n")
             return True
 
         print("Running with coverage")
         print(self.__run_coverage)
         print("*****************************************************************")
         print("Analysing Driver Output")
-        print("*****************************************************************")
+        print("*****************************************************************\n")
         sys.stdout.flush()
         test_pass = self.test_case.Analyse(self.parameters)
 
@@ -231,6 +265,5 @@ class TestManager:
 # Exception for unexpected behavior by individual tests
 class TestManagerError(RuntimeError):
     pass
-
 
 

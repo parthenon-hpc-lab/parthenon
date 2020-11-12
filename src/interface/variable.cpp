@@ -17,6 +17,7 @@
 
 #include "bvals/cc/bvals_cc.hpp"
 #include "mesh/mesh.hpp"
+#include "mesh/meshblock.hpp"
 #include "parthenon_arrays.hpp"
 
 namespace parthenon {
@@ -157,6 +158,20 @@ std::string EdgeVariable<T>::info() {
   s += " : " + this->metadata().MaskAsString();
 
   return s;
+}
+
+template <typename T>
+std::string ParticleVariable<T>::info() const {
+  std::stringstream ss;
+
+  // first add label
+  std::string s = this->label();
+  s.resize(20, '.');
+
+  // combine
+  ss << s << data.GetDim(1) << ":" << this->metadata().MaskAsString();
+
+  return ss.str();
 }
 
 template class CellVariable<Real>;

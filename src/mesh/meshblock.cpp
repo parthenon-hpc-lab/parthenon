@@ -32,15 +32,17 @@
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
 #include "globals.hpp"
-#include "interface/container_iterator.hpp"
+#include "interface/meshblock_data_iterator.hpp"
 #include "interface/metadata.hpp"
 #include "interface/variable.hpp"
 #include "kokkos_abstraction.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
+#include "mesh/meshblock.hpp"
 #include "mesh/meshblock_tree.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
+#include "reconstruct/reconstruction.hpp"
 #include "utils/buffer_utils.hpp"
 
 namespace parthenon {
@@ -58,6 +60,19 @@ MeshBlock::MeshBlock(const int n_side, const int ndim)
   } else {
     InitializeIndexShapes(n_side, n_side, n_side);
   }
+}
+
+// Factory method deals with initialization for you
+std::shared_ptr<MeshBlock> MeshBlock::Make(int igid, int ilid, LogicalLocation iloc,
+                                           RegionSize input_block,
+                                           BoundaryFlag *input_bcs, Mesh *pm,
+                                           ParameterInput *pin, ApplicationInput *app_in,
+                                           Properties_t &properties, Packages_t &packages,
+                                           int igflag, double icost) {
+  auto pmb = std::make_shared<MeshBlock>();
+  pmb->Initialize(igid, ilid, iloc, input_block, input_bcs, pm, pin, app_in, properties,
+                  packages, igflag, icost);
+  return pmb;
 }
 
 void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
@@ -102,9 +117,11 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
     UserWorkBeforeOutput = app_in->UserWorkBeforeOutput;
   }
 
-  auto &real_container = real_containers.Get();
+  auto &real_container = meshblock_data.Get();
+  auto &swarm_container = swarm_data.Get();
   // Set the block pointer for the containers
   real_container->SetBlockPointer(shared_from_this());
+  swarm_container->SetBlockPointer(shared_from_this());
 
   // (probably don't need to preallocate space for references in these vectors)
   vars_cc_.reserve(3);
@@ -149,8 +166,20 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
     }
   }
 
+  // Add swarms from packages
+  for (auto const &pkg : packages) {
+    for (auto const &q : pkg.second->AllSwarms()) {
+      swarm_container->Add(q.first, q.second);
+      // Populate swarm values
+      auto &swarm = swarm_container->Get(q.first);
+      for (auto const &m : pkg.second->AllSwarmValues(q.first)) {
+        swarm->Add(m.first, m.second);
+      }
+    }
+  }
+
   // TODO(jdolence): Should these loops be moved to Variable creation
-  ContainerIterator<Real> ci(real_container, {Metadata::Independent});
+  MeshBlockDataIterator<Real> ci(real_container, {Metadata::Independent});
   int nindependent = ci.vars.size();
   for (int n = 0; n < nindependent; n++) {
     RegisterMeshBlockData(ci.vars[n]);

@@ -24,10 +24,12 @@
 #include <Kokkos_Core.hpp>
 
 #include "interface/metadata.hpp"
-#include "interface/variable.hpp"
-#include "kokkos_abstraction.hpp"
 
 namespace parthenon {
+
+// Forward declarations
+template <typename T>
+class CellVariable;
 
 // some convenience aliases
 namespace vpack_types {
@@ -152,7 +154,7 @@ void FillVarView(const vpack_types::VarList<T> &vars, PackIndexMap *vmap,
   auto host_sp = Kokkos::create_mirror_view(Kokkos::HostSpace(), sparse_assoc);
 
   int vindex = 0;
-  int sparse_start;
+  int sparse_start = -22000; // Initialize to an obviously wrong number
   int sparse_id;
   std::string sparse_name;
   for (const auto v : vars) {
@@ -211,7 +213,7 @@ void FillFluxViews(const vpack_types::VarList<T> &vars, PackIndexMap *vmap,
   auto host_f3 = Kokkos::create_mirror_view(Kokkos::HostSpace(), f3);
 
   int vindex = 0;
-  int sparse_start;
+  int sparse_start = -22000; // Initialize to an obviously wrong number
   std::string sparse_name;
   for (const auto &v : vars) {
     if (vmap != nullptr) {

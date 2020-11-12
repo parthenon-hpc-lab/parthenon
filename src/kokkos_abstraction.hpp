@@ -111,14 +111,15 @@ static struct LoopPatternUndefined {
 // Currently the only available option.
 static struct OuterLoopPatternTeams {
 } outer_loop_pattern_teams_tag;
+// Inner loop pattern tags must be constexpr so they're available on device
 // Translate to a Kokkos::TeamVectorRange as innermost loop (single index)
-static struct InnerLoopPatternTVR {
-} inner_loop_pattern_tvr_tag;
+struct InnerLoopPatternTVR {};
+constexpr InnerLoopPatternTVR inner_loop_pattern_tvr_tag;
 // Translate to a non-Kokkos plain C++ innermost loop (single index)
 // decorated with #pragma omp simd
 // IMPORTANT: currently only supported on CPUs
-static struct InnerLoopPatternSimdFor {
-} inner_loop_pattern_simdfor_tag;
+struct InnerLoopPatternSimdFor {};
+constexpr InnerLoopPatternSimdFor inner_loop_pattern_simdfor_tag;
 
 namespace dispatch_impl {
 static struct ParallelForDispatch {
@@ -441,6 +442,57 @@ par_dispatch(LoopPatternMDRange, const std::string &name, DevExecSpace exec_spac
               exec_space, {ml, nl, kl, jl, il}, {mu + 1, nu + 1, ku + 1, ju + 1, iu + 1}),
           Kokkos::Experimental::WorkItemProperty::HintLightWeight),
       function, std::forward<Args>(args)...);
+}
+
+// 5D loop using Kokkos 1D Range
+template <typename Function>
+inline void par_dispatch(LoopPatternFlatRange, const std::string &name,
+                         DevExecSpace exec_space, const int bl, const int bu,
+                         const int nl, const int nu, const int kl, const int ku,
+                         const int jl, const int ju, const int il, const int iu,
+                         const Function &function) {
+  const int Nb = bu - bl + 1;
+  const int Nn = nu - nl + 1;
+  const int Nk = ku - kl + 1;
+  const int Nj = ju - jl + 1;
+  const int Ni = iu - il + 1;
+  const int NbNnNkNjNi = Nb * Nn * Nk * Nj * Ni;
+  const int NnNkNjNi = Nn * Nk * Nj * Ni;
+  const int NkNjNi = Nk * Nj * Ni;
+  const int NjNi = Nj * Ni;
+  Kokkos::parallel_for(
+      name, Kokkos::RangePolicy<>(exec_space, 0, NbNnNkNjNi),
+      KOKKOS_LAMBDA(const int &idx) {
+        int b = idx / NnNkNjNi;
+        int n = (idx - b * NnNkNjNi) / NkNjNi;
+        int k = (idx - b * NnNkNjNi - n * NkNjNi) / NjNi;
+        int j = (idx - b * NnNkNjNi - n * NkNjNi - k * NjNi) / Ni;
+        int i = idx - b * NnNkNjNi - n * NkNjNi - k * NjNi - j * Ni;
+        b += bl;
+        n += nl;
+        k += kl;
+        j += jl;
+        i += il;
+        function(b, n, k, j, i);
+      });
+}
+
+// 5D loop using SIMD FOR loops
+template <typename Function>
+inline void par_dispatch(LoopPatternSimdFor, const std::string &name,
+                         DevExecSpace exec_space, const int bl, const int bu,
+                         const int nl, const int nu, const int kl, const int ku,
+                         const int jl, const int ju, const int il, const int iu,
+                         const Function &function) {
+  Kokkos::Profiling::pushRegion(name);
+  for (auto b = bl; b <= bu; b++)
+    for (auto n = nl; n <= nu; n++)
+      for (auto k = kl; k <= ku; k++)
+        for (auto j = jl; j <= ju; j++)
+#pragma omp simd
+          for (auto i = il; i <= iu; i++)
+            function(b, n, k, j, i);
+  Kokkos::Profiling::popRegion();
 }
 
 template <class... Args>

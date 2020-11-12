@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef INTERFACE_CONTAINER_HPP_
-#define INTERFACE_CONTAINER_HPP_
+#ifndef INTERFACE_MESHBLOCK_DATA_HPP_
+#define INTERFACE_MESHBLOCK_DATA_HPP_
 
 #include <map>
 #include <memory>
@@ -19,6 +19,7 @@
 #include <utility>
 #include <vector>
 
+#include "interface/data_collection.hpp"
 #include "interface/sparse_variable.hpp"
 #include "interface/variable.hpp"
 #include "interface/variable_pack.hpp"
@@ -30,31 +31,31 @@ namespace parthenon {
 /// Date: August 22, 2019
 ///
 ///
-/// The container class is a container for the variables that make up
+/// The MeshBlockData class is a container for the variables that make up
 /// the simulation.  At this point it is expected that this includes
 /// both simulation parameters and state variables, but that could
 /// change in the future.
 ///
-/// The container class will provide the following methods:
+/// The MeshBlockData class will provide the following methods:
 ///
 
 class MeshBlock;
 
 template <typename T>
-class Container {
+class MeshBlockData {
  public:
   //-----------------
   // Public Methods
   //-----------------
   /// Constructor
-  Container<T>() = default;
+  MeshBlockData<T>() = default;
 
   // Constructors for getting sub-containers
   // the variables returned are all shallow copies of the src container.
   // Optionally extract only some of the sparse ids of src variable.
-  Container<T>(const Container<T> &src, const std::vector<std::string> &names,
-               const std::vector<int> sparse_ids = {});
-  Container<T>(const Container<T> &src, const std::vector<MetadataFlag> &flags);
+  MeshBlockData<T>(const MeshBlockData<T> &src, const std::vector<std::string> &names,
+                   const std::vector<int> sparse_ids = {});
+  MeshBlockData<T>(const MeshBlockData<T> &src, const std::vector<MetadataFlag> &flags);
 
   /// Returns shared pointer to a block
   std::shared_ptr<MeshBlock> GetBlockPointer() {
@@ -64,6 +65,36 @@ class Container {
     return pmy_block.lock();
   }
 
+  void Copy(const std::shared_ptr<MeshBlockData<T>> &src) {
+    SetBlockPointer(src);
+    for (auto v : src->GetCellVariableVector()) {
+      if (v->IsSet(Metadata::OneCopy)) {
+        // just copy the (shared) pointer
+        Add(v);
+      } else {
+        // allocate new storage
+        Add(v->AllocateCopy());
+      }
+    }
+
+    for (auto v : src->GetFaceVector()) {
+      if (v->IsSet(Metadata::OneCopy)) {
+        Add(v);
+      } else {
+        throw std::runtime_error("Non-oneCopy face variables are not yet supported");
+      }
+    }
+
+    for (auto v : src->GetSparseVector()) {
+      if (v->IsSet(Metadata::OneCopy)) {
+        // copy the shared pointer
+        Add(v);
+      } else {
+        Add(v->AllocateCopy());
+      }
+    }
+  }
+
   /// We can initialize a container with slices from a different
   /// container.  For variables that have the sparse tag, this will
   /// return the sparse slice.  All other variables are added as
@@ -71,12 +102,12 @@ class Container {
   ///
   /// @param sparse_id The sparse id
   /// @return New container with slices from all variables
-  std::shared_ptr<Container<T>> SparseSlice(int sparse_id);
+  std::shared_ptr<MeshBlockData<T>> SparseSlice(int sparse_id);
 
   ///
   /// Set the pointer to the mesh block for this container
   void SetBlockPointer(std::weak_ptr<MeshBlock> pmb) { pmy_block = pmb; }
-  void SetBlockPointer(const std::shared_ptr<Container<T>> &other) {
+  void SetBlockPointer(const std::shared_ptr<MeshBlockData<T>> &other) {
     pmy_block = other->GetBlockPointer();
   }
 
@@ -247,6 +278,18 @@ class Container {
   VariableFluxPack<T> PackVariablesAndFluxes(const std::vector<MetadataFlag> &flags,
                                              PackIndexMap &vmap);
   VariableFluxPack<T> PackVariablesAndFluxes(const std::vector<MetadataFlag> &flags);
+  VariableFluxPack<T> PackVariablesAndFluxes(const std::vector<std::string> &var_names,
+                                             const std::vector<std::string> &flx_names,
+                                             PackIndexMap &vmap,
+                                             vpack_types::StringPair &key);
+  VariableFluxPack<T> PackVariablesAndFluxes(const std::vector<std::string> &var_names,
+                                             const std::vector<std::string> &flx_names,
+                                             vpack_types::StringPair &key);
+  VariableFluxPack<T> PackVariablesAndFluxes(const std::vector<MetadataFlag> &flags,
+                                             PackIndexMap &vmap,
+                                             vpack_types::StringPair &key);
+  VariableFluxPack<T> PackVariablesAndFluxes(const std::vector<MetadataFlag> &flags,
+                                             vpack_types::StringPair &key);
   VariablePack<T> PackVariables(const std::vector<std::string> &names,
                                 const std::vector<int> &sparse_ids, PackIndexMap &vmap);
   VariablePack<T> PackVariables(const std::vector<std::string> &names,
@@ -259,6 +302,22 @@ class Container {
   VariablePack<T> PackVariables(const std::vector<MetadataFlag> &flags);
   VariablePack<T> PackVariables(PackIndexMap &vmap);
   VariablePack<T> PackVariables();
+  VariablePack<T> PackVariables(const std::vector<std::string> &names,
+                                const std::vector<int> &sparse_ids, PackIndexMap &vmap,
+                                std::vector<std::string> &key);
+  VariablePack<T> PackVariables(const std::vector<std::string> &names,
+                                const std::vector<int> &sparse_ids,
+                                std::vector<std::string> &key);
+  VariablePack<T> PackVariables(const std::vector<std::string> &names, PackIndexMap &vmap,
+                                std::vector<std::string> &key);
+  VariablePack<T> PackVariables(const std::vector<std::string> &names,
+                                std::vector<std::string> &key);
+  VariablePack<T> PackVariables(const std::vector<MetadataFlag> &flags,
+                                PackIndexMap &vmap, std::vector<std::string> &key);
+  VariablePack<T> PackVariables(const std::vector<MetadataFlag> &flags,
+                                std::vector<std::string> &key);
+  VariablePack<T> PackVariables(PackIndexMap &vmap, std::vector<std::string> &key);
+  // VariablePack<T> PackVariables(std::vector<std::string> &key);
 
   /// Remove a variable from the container or throw exception if not
   /// found.
@@ -283,7 +342,7 @@ class Container {
   TaskStatus SendFluxCorrection();
   TaskStatus ReceiveFluxCorrection();
 
-  bool operator==(const Container<T> &cmp) {
+  bool operator==(const MeshBlockData<T> &cmp) {
     // do some kind of check of equality
     // do the two containers contain the same named fields?
     std::vector<std::string> my_keys;
@@ -341,12 +400,15 @@ class Container {
   PackVariablesAndFluxesHelper_(const std::vector<std::string> &var_names,
                                 const std::vector<std::string> &flx_names,
                                 const vpack_types::VarList<T> &vars,
-                                const vpack_types::VarList<T> &fvars, PackIndexMap &vmap);
+                                const vpack_types::VarList<T> &fvars, PackIndexMap &vmap,
+                                vpack_types::StringPair &key);
   VariablePack<T> PackVariablesHelper_(const std::vector<std::string> &names,
                                        const vpack_types::VarList<T> &vars,
                                        PackIndexMap &vmap);
 };
 
+using MeshBlockDataCollection = DataCollection<MeshBlockData<Real>>;
+
 } // namespace parthenon
 
-#endif // INTERFACE_CONTAINER_HPP_
+#endif // INTERFACE_MESHBLOCK_DATA_HPP_

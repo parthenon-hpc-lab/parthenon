@@ -10,35 +10,54 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef INTERFACE_CONTAINER_COLLECTION_HPP_
-#define INTERFACE_CONTAINER_COLLECTION_HPP_
+#ifndef INTERFACE_DATA_COLLECTION_HPP_
+#define INTERFACE_DATA_COLLECTION_HPP_
 
 #include <map>
 #include <memory>
+#include <stdexcept>
 #include <string>
 
-#include "interface/container.hpp"
-#include "interface/metadata.hpp"
-
 namespace parthenon {
+class Mesh;
 
+/// The DataCollection class is an abstract container that contains at least a
+/// "base" container of some type (e.g., of MeshData or MeshBlockData) plus
+/// additional containers identified by string labels.
+/// Current usage includes (but is not limited to) storing MeshBlockData for different
+/// stages in multi-stage drivers or the corresponding MeshBlockPacks in a
+/// DataCollection of MeshData.
 template <typename T>
-class ContainerCollection {
+class DataCollection {
  public:
-  ContainerCollection() {
-    containers_["base"] = std::make_shared<Container<T>>(); // always add "base" container
+  DataCollection() {
+    containers_["base"] = std::make_shared<T>(); // always add "base" container
+    pmy_mesh_ = nullptr;
   }
 
-  void Add(const std::string &label, const std::shared_ptr<Container<T>> &src);
+  void SetMeshPointer(Mesh *pmesh) { pmy_mesh_ = pmesh; }
 
-  std::shared_ptr<Container<T>> &Get() { return containers_["base"]; }
-  std::shared_ptr<Container<T>> &Get(const std::string &label) {
+  std::shared_ptr<T> Add(const std::string &label, const std::shared_ptr<T> &src);
+  std::shared_ptr<T> Add(const std::string &label) {
+    // error check for duplicate names
+    auto it = containers_.find(label);
+    if (it != containers_.end()) {
+      return it->second;
+    }
+    containers_[label] = std::make_shared<T>();
+    return containers_[label];
+  }
+
+  std::shared_ptr<T> &Get() { return containers_["base"]; }
+  std::shared_ptr<T> &Get(const std::string &label) {
     auto it = containers_.find(label);
     if (it == containers_.end()) {
       throw std::runtime_error("Container " + label + " does not exist in collection.");
     }
     return it->second;
   }
+
+  std::shared_ptr<T> &GetOrAdd(const std::string &mbd_label, const int &partition_id);
 
   void PurgeNonBase() {
     auto c = containers_.begin();
@@ -51,18 +70,11 @@ class ContainerCollection {
     }
   }
 
-  void Print() {
-    for (auto &c : containers_) {
-      std::cout << "Container " << c.first << " has:" << std::endl;
-      c.second->Print();
-      std::cout << std::endl;
-    }
-  }
-
  private:
-  std::map<std::string, std::shared_ptr<Container<T>>> containers_;
+  Mesh *pmy_mesh_;
+  std::map<std::string, std::shared_ptr<T>> containers_;
 };
 
 } // namespace parthenon
 
-#endif // INTERFACE_CONTAINER_COLLECTION_HPP_
+#endif // INTERFACE_DATA_COLLECTION_HPP_

@@ -20,6 +20,7 @@
 
 #include "interface/state_descriptor.hpp"
 #include "mesh/mesh.hpp"
+#include "mesh/meshblock.hpp"
 #include "parameter_input.hpp"
 #include "refinement/amr_criteria.hpp"
 
@@ -43,7 +44,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   return ref;
 }
 
-AmrTag CheckAllRefinement(std::shared_ptr<Container<Real>> &rc) {
+AmrTag CheckAllRefinement(std::shared_ptr<MeshBlockData<Real>> &rc) {
   // Check all refinement criteria and return the maximum recommended change in
   // refinement level:
   //   delta_level = -1 => recommend derefinement

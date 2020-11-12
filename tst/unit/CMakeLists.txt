@@ -26,7 +26,8 @@ list(APPEND unit_tests_SOURCES
     kokkos_abstraction.cpp
     test_metadata.cpp
     test_pararrays.cpp
-    test_container_iterator.cpp
+    test_meshblock_data_iterator.cpp
+    test_swarm.cpp
     test_required_desired.cpp
     test_error_checking.cpp
     test_partitioning.cpp
@@ -34,7 +35,7 @@ list(APPEND unit_tests_SOURCES
 
 add_executable(unit_tests "${unit_tests_SOURCES}")
 
-target_link_libraries(unit_tests PRIVATE parthenon catch2_define Kokkos::kokkos)
+target_link_libraries(unit_tests PRIVATE Parthenon::parthenon catch2_define Kokkos::kokkos)
 
 if (TEST_ERROR_CHECKING)
    message(WARNING "\tTesting error checking. This test will FAIL.")

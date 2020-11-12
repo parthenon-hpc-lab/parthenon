@@ -35,7 +35,7 @@ using namespace parthenon::package::prelude;
 // pi \approx A/r0^2
 namespace calculate_pi {
 
-void SetInOrOut(std::shared_ptr<Container<Real>> &rc) {
+void SetInOrOut(std::shared_ptr<MeshBlockData<Real>> &rc) {
   auto pmb = rc->GetBlockPointer();
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
@@ -77,10 +77,13 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   // instead this example will make use of the parthenon shipped first derivative
   // criteria, as invoked in the input file
   // package->CheckRefinement = CheckRefinement;
+
   return package;
 }
 
-TaskStatus ComputeArea(Pack_t pack, ParArrayHost<Real> areas, int i) {
+TaskStatus ComputeArea(std::shared_ptr<MeshData<Real>> &md, ParArrayHost<Real> areas,
+                       int i) {
+  auto pack = md->PackVariables(std::vector<std::string>({"in_or_out"}));
   const IndexRange ib = pack.cellbounds.GetBoundsI(IndexDomain::interior);
   const IndexRange jb = pack.cellbounds.GetBoundsJ(IndexDomain::interior);
   const IndexRange kb = pack.cellbounds.GetBoundsK(IndexDomain::interior);
