@@ -307,7 +307,7 @@ class MeshBlockData {
   // no coarse flag because you need to be able to specify non one-copy variables
   // and also because the C++ compiler automatically typecasts initializer lists
   // to bool if you let it.
-  VariablePack<T> PackVariables(); 
+  VariablePack<T> PackVariables();
   VariablePack<T> PackVariables(const std::vector<std::string> &names,
                                 const std::vector<int> &sparse_ids, PackIndexMap &vmap,
                                 std::vector<std::string> &key, bool coarse = false);
