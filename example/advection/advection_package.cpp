@@ -163,7 +163,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddField(field_name, m);
 
   pkg->AddParam("FillDerivedBlock", SquareIt);
-  pkg->CheckRefinement = CheckRefinement;
+  pkg->AddParam("CheckRefinement", CheckRefinement);
   pkg->AddParam("EstimateTimestepBlock", EstimateTimestepBlock);
 
   return pkg;

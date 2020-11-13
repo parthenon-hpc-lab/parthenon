@@ -18,8 +18,11 @@
 #include <memory>
 #include <utility>
 
+#include "interface/mesh_data.hpp"
+#include "interface/meshblock_data.hpp"
 #include "interface/state_descriptor.hpp"
 #include "mesh/mesh.hpp"
+#include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
 #include "parameter_input.hpp"
 #include "refinement/amr_criteria.hpp"
@@ -61,10 +64,12 @@ AmrTag CheckAllRefinement(std::shared_ptr<MeshBlockData<Real>> &rc) {
   AmrTag delta_level = AmrTag::derefine;
   for (auto &pkg : pmb->packages) {
     auto &desc = pkg.second;
+    auto &p = desc->AllParams();
     // call package specific function, if set
-    if (desc->CheckRefinement != nullptr) {
+    if (p.hasKey("CheckRefinement")) {
       // keep the max over all criteria up to date
-      delta_level = std::max(delta_level, desc->CheckRefinement(rc));
+      using tag_type = AmrTag(std::shared_ptr<MeshBlockData<Real>>&);
+      delta_level = std::max(delta_level, p.Get<tag_type*>("CheckRefinement")(rc));
       if (delta_level == AmrTag::refine) {
         // since 1 is the max, we can return without having to look at anything else
         return AmrTag::refine;
@@ -129,6 +134,21 @@ AmrTag FirstDerivative(MeshBlock *pmb, const ParArrayND<Real> &q,
   if (maxd > refine_criteria) return AmrTag::refine;
   if (maxd < derefine_criteria) return AmrTag::derefine;
   return AmrTag::same;
+}
+
+TaskStatus Tag(std::shared_ptr<MeshBlockData<Real>> &rc) {
+  auto pmb = rc->GetBlockPointer();
+  pmb->pmr->SetRefinement(CheckAllRefinement(rc));
+  return TaskStatus::complete;
+}
+
+TaskStatus Tag(std::shared_ptr<MeshData<Real>> &rc) {
+  auto pm = rc->GetMeshPointer();
+  for (int i = 0; i < rc->NumBlocks(); i++) {
+    auto &pbd = rc->GetBlockData(i);
+    auto status = Tag(pbd);
+  }
+  return TaskStatus::complete;
 }
 
 } // namespace Refinement

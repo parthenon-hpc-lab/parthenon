@@ -86,8 +86,8 @@ TaskStatus FluxDivergence(std::shared_ptr<MeshData<Real>> &in_obj,
       DEFAULT_LOOP_PATTERN, "FluxDivergenceMesh", DevExecSpace(), 0, vin.GetDim(5) - 1, 0,
       vin.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int m, const int l, const int k, const int j, const int i) {
-        const auto coords = vin.coords(m);
-        const auto v = vin(m);
+        const auto &coords = vin.coords(m);
+        const auto &v = vin(m);
         dudt(m, l, k, j, i) = FluxDiv_(l, k, j, i, ndim, coords, v);
       });
   return TaskStatus::complete;

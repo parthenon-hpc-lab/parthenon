@@ -22,6 +22,7 @@
 #include "interface/update.hpp"
 #include "mesh/meshblock_pack.hpp"
 #include "parthenon/driver.hpp"
+#include "refinement/refinement.hpp"
 
 using namespace parthenon::driver::prelude;
 
@@ -165,13 +166,9 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
 
       // Update refinement
       if (pmesh->adaptive) {
+        using tag_type = TaskStatus(std::shared_ptr<MeshBlockData<Real>> &);
         auto tag_refine = tl.AddTask(
-            fill_derived,
-            [](std::shared_ptr<MeshBlock> pmb) {
-              pmb->pmr->CheckRefinementCondition();
-              return TaskStatus::complete;
-            },
-            pmb);
+            fill_derived, static_cast<tag_type *>(parthenon::Refinement::Tag), sc1);
       }
     }
   }
