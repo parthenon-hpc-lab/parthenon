@@ -45,7 +45,7 @@ TaskStatus ProlongateBoundaries(std::shared_ptr<MeshBlockData<Real>> &rc) {
   rc->RestrictBoundaries(); // Step 1: restrict physical boundaries
 
   // Step 2. Re-apply physical boundaries on the coarse boundary,
-  ApplyBoundaryConditions(rc, true);
+  ApplyBoundaryConditionsOnCoarseOrFine(rc, true);
 
   // Step 3. Finally, the ghost-ghost zones are ready for prolongation:
   rc->ProlongateBoundaries();
@@ -53,8 +53,8 @@ TaskStatus ProlongateBoundaries(std::shared_ptr<MeshBlockData<Real>> &rc) {
   return TaskStatus::complete;
 }
 
-TaskStatus ApplyBoundaryConditions(std::shared_ptr<MeshBlockData<Real>> &rc,
-                                   bool coarse) {
+TaskStatus ApplyBoundaryConditionsOnCoarseOrFine(std::shared_ptr<MeshBlockData<Real>> &rc,
+                                                 bool coarse) {
   using namespace boundary_cond_impl;
   std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
   Mesh *pmesh = pmb->pmy_mesh;

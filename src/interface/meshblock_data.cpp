@@ -818,46 +818,16 @@ TaskStatus MeshBlockData<T>::ClearBoundary(BoundaryCommSubset phase) {
 
 template <typename T>
 void MeshBlockData<T>::RestrictBoundaries() {
+  // TODO(JMM): Change this upon refactor of BoundaryValues
   auto pmb = GetBlockPointer();
   pmb->pbval->RestrictBoundaries();
-  // TODO(JMM): once we have variable-level pbvals we can do this
-  /*
-  for (auto &v : varVector_) {
-    if (v->IsSet(Metadata::FillGhost)) {
-      v->pbvals->RestrictBoundaries();
-    }
-  }
-  for (auto &sv : sparseVector_) {
-    if (sv->IsSet(Metadata::FillGhost)) {
-      CellVariableVector<T> vvec = sv->GetVector();
-      for (auto &v : vvec) {
-        v->pbvals->RestrictBoundaries();
-      }
-    }
-  }
-  */
 }
 
 template <typename T>
 void MeshBlockData<T>::ProlongateBoundaries() {
+  // TODO(JMM): Change this upon refactor of BoundaryValues
   auto pmb = GetBlockPointer();
   pmb->pbval->ProlongateBoundaries();
-  // TODO(JMM): once we have variable-level pbvals we can do this
-  /*
-  for (auto &v : varVector_) {
-    if (v->IsSet(Metadata::FillGhost)) {
-      v->pbvals->ProlongateBoundaries();
-    }
-  }
-  for (auto &sv : sparseVector_) {
-    if (sv->IsSet(Metadata::FillGhost)) {
-      CellVariableVector<T> vvec = sv->GetVector();
-      for (auto &v : vvec) {
-        v->pbvals->ProlongateBoundaries();
-      }
-    }
-  }
-  */
 }
 
 template <typename T>

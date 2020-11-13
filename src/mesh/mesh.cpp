@@ -75,12 +75,12 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properti
                 pin->GetInteger("parthenon/mesh", "nx2"),
                 pin->GetInteger("parthenon/mesh", "nx3")},
       mesh_bcs{
-          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix1_bc", "periodic")),
-          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox1_bc", "periodic")),
-          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix2_bc", "periodic")),
-          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox2_bc", "periodic")),
-          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix3_bc", "periodic")),
-          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox3_bc", "periodic"))},
+          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix1_bc", "reflecting")),
+          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox1_bc", "reflecting")),
+          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix2_bc", "reflecting")),
+          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox2_bc", "reflecting")),
+          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix3_bc", "reflecting")),
+          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox3_bc", "reflecting"))},
       ndim((mesh_size.nx3 > 1) ? 3 : ((mesh_size.nx2 > 1) ? 2 : 1)),
       adaptive(pin->GetOrAddString("parthenon/mesh", "refinement", "none") == "adaptive"
                    ? true

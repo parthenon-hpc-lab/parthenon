@@ -30,8 +30,12 @@ using BValFunc = std::function<void(std::shared_ptr<MeshBlockData<Real>> &, bool
 
 TaskStatus ProlongateBoundaries(std::shared_ptr<MeshBlockData<Real>> &rc);
 
-TaskStatus ApplyBoundaryConditions(std::shared_ptr<MeshBlockData<Real>> &rc,
-                                   bool coarse = false);
+TaskStatus ApplyBoundaryConditionsOnCoarseOrFine(std::shared_ptr<MeshBlockData<Real>> &rc,
+                                                 bool coarse);
+
+inline TaskStatus ApplyBoundaryConditions(std::shared_ptr<MeshBlockData<Real>> &rc) {
+  return ApplyBoundaryConditionsOnCoarseOrFine(rc, false);
+}
 
 namespace BoundaryFunction {
 
