@@ -230,6 +230,9 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
       vlen = v->GetDim(4);
     }
   }
+  // Define face reading helpers
+  const std::vector<std::array<size_t, 3>> f_delta({{1, 0, 0}, {0, 1, 0}, {0, 0, 1}});
+  const std::vector<std::string> f_suffix({"_x1", "_x2", "_x3"});
   std::vector<Real> tmp(static_cast<size_t>(nb) * nCells * vlen);
   for (auto &v : ciX.varsCell) {
     const size_t v4 = v->GetDim(4);
@@ -244,6 +247,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
     }
 
     size_t index = 0;
+    std::array<size_t, 3> f_index({0, 0, 0});
     for (auto &pmb : rm.block_list) {
       bool found = false;
       auto cX = MeshBlockDataIterator<Real>(
@@ -257,6 +261,34 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
           v->data.DeepCopy(v_h);
           found = true;
           break;
+        }
+      }
+      if (!found) {
+        for (auto &v : cX.varsFace) {
+          if (vName.compare(v->label()) == 0) {
+            // Read in nDim components
+            for (int i = 0; i < rm.ndim; i++) {
+              std::string faceName = vName + f_suffix[i];
+              auto v_h = v->Get(i + 1).GetHostMirror();
+              auto &tmpIndex = f_index[i];
+
+              // adjust size of domain for face
+              out_ib.e += f_delta[i][0];
+              out_jb.e += f_delta[i][1];
+              out_kb.e += f_delta[i][2];
+
+              UNLOADVARIABLEONE(tmpIndex, tmp, v_h, out_ib.s, out_ib.e, out_jb.s,
+                                out_jb.e, out_kb.s, out_kb.e, v4)
+              v->Get(i + 1).DeepCopy(v_h);
+
+              // set domain sizes back to original
+              out_ib.e -= f_delta[i][0];
+              out_jb.e -= f_delta[i][1];
+              out_kb.e -= f_delta[i][2];
+            }
+            found = true;
+            break;
+          }
         }
       }
       if (!found) {
