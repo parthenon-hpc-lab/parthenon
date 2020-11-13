@@ -491,8 +491,8 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     hsize_t index2 = offset;
     hsize_t index3 = 2 * offset;
     for (auto &pmb : pm->block_list) { // for every block1
-      auto ci = MeshBlockDataIterator<Real>(pmb->meshblock_data.Get(),
-                                            output_params.variables);
+      auto ci =
+          MeshBlockDataIterator<Real>(pmb->meshblock_data.Get(), output_params.variables);
       for (auto &v : ci.varsFace) {
         std::string name = v->label();
         if (name.compare(vWriteName) == 0) {
