@@ -73,7 +73,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   Metadata m({Metadata::Cell, Metadata::Independent});
   pkg->AddField(field_name, m);
 
-  pkg->AddParam("EstimateTimestepBlock", EstimateTimestepBlock);
+  pkg->AddParam(magic::estimate_dt_block, EstimateTimestepBlock);
 
   return pkg;
 }

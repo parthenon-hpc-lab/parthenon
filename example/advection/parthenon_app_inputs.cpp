@@ -210,9 +210,9 @@ Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   auto pkg = advection_package::Initialize(pin.get());
   packages[pkg->label()] = pkg;
 
-  auto &app = packages["Parthenon::AppInput"];
-  app->AddParam("PreFillDerivedBlock", advection_package::PreFill);
-  app->AddParam("PostFillDerivedBlock", advection_package::PostFill);
+  auto &app = packages[magic::app_input];
+  app->AddParam(magic::pre_fill_derived_block, advection_package::PreFill);
+  app->AddParam(magic::post_fill_derived_block, advection_package::PostFill);
 
   return packages;
 }

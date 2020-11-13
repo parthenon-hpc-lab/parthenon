@@ -67,9 +67,9 @@ void AverageIndependentData(T &c1, T &c2, const Real wgt1) {
 }
 
 template <typename T>
-std::string TypeSuffix(std::shared_ptr<T> &rc) {
+bool IsBlock(std::shared_ptr<T> &rc) {
   std::string mytype = typeid(rc).name();
-  return (mytype.find("Block") != std::string::npos ? "Block" : "Mesh");
+  return (mytype.find("MeshBlockData") != std::string::npos);
 }
 
 template <typename T>
@@ -81,7 +81,7 @@ TaskStatus EstimateTimestep(std::shared_ptr<T> &rc) {
   using Desc_t = std::shared_ptr<StateDescriptor>;
   auto pm = rc->GetGridPointer();
   Real dt_min = std::numeric_limits<Real>::max();
-  std::string fname = "EstimateTimestep" + TypeSuffix(rc);
+  std::string fname = (IsBlock(rc) ? magic::estimate_dt_block : magic::estimate_dt_mesh);
   for (const std::pair<std::string, Desc_t> &pkg : pm->packages) {
     auto &p = pkg.second->AllParams();
     if (p.hasKey(fname)) {
@@ -100,22 +100,27 @@ template <typename T>
 TaskStatus FillDerived(std::shared_ptr<T> &rc) {
   using DeriveFunc_t = DeriveFuncType<T>;
   using Desc_t = std::shared_ptr<StateDescriptor>;
-  Desc_t &app_pkg = rc->GetGridPointer()->packages["Parthenon::AppInput"];
-  auto suffix = TypeSuffix(rc);
+  Desc_t &app_pkg = rc->GetGridPointer()->packages[magic::app_input];
+  auto is_block = IsBlock(rc);
+  std::string pre_name =
+      (is_block ? magic::pre_fill_derived_block : magic::pre_fill_derived_mesh);
+  std::string post_name =
+      (is_block ? magic::post_fill_derived_block : magic::post_fill_derived_mesh);
+  std::string name = (is_block ? magic::fill_derived_block : magic::fill_derived_mesh);
   auto &params = app_pkg->AllParams();
-  if (params.hasKey("PreFillDerived" + suffix)) {
-    params.Get<DeriveFunc_t *>("PreFillDerived" + suffix)(rc);
+  if (params.hasKey(pre_name)) {
+    params.Get<DeriveFunc_t *>(pre_name)(rc);
   }
   auto gp = rc->GetGridPointer();
   // type deduction fails if auto is used below
   for (const std::pair<std::string, Desc_t> &pkg : gp->packages) {
     auto &p = pkg.second->AllParams();
-    if (p.hasKey("FillDerived" + suffix)) {
-      p.Get<DeriveFunc_t *>("FillDerived" + suffix)(rc);
+    if (p.hasKey(name)) {
+      p.Get<DeriveFunc_t *>(name)(rc);
     }
   }
-  if (params.hasKey("PostFillDerived" + suffix)) {
-    params.Get<DeriveFunc_t *>("PostFillDerived" + suffix)(rc);
+  if (params.hasKey(post_name)) {
+    params.Get<DeriveFunc_t *>(post_name)(rc);
   }
   return TaskStatus::complete;
 }

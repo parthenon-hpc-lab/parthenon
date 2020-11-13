@@ -162,9 +162,9 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
                std::vector<int>({num_vars}));
   pkg->AddField(field_name, m);
 
-  pkg->AddParam("FillDerivedBlock", SquareIt);
-  pkg->AddParam("CheckRefinement", CheckRefinement);
-  pkg->AddParam("EstimateTimestepBlock", EstimateTimestepBlock);
+  pkg->AddParam(parthenon::magic::fill_derived_block, SquareIt);
+  pkg->AddParam(parthenon::magic::check_refinement, CheckRefinement);
+  pkg->AddParam(parthenon::magic::estimate_dt_block, EstimateTimestepBlock);
 
   return pkg;
 }

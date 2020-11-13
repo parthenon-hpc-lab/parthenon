@@ -26,6 +26,38 @@
 
 namespace parthenon {
 
+namespace magic {
+// some "magic" strings
+constexpr char app_input[] = "A Parthenon package, provided by default in a Packages_t "
+                             "object, in which special functions can be registered to "
+                             "allow downstream applications to specialize functionality";
+constexpr char pre_fill_derived_block[] = "Functions associated with this name operate "
+                                          "on std::shared_ptr<MeshBlockData<Real>> & "
+                                          "objects to fill in derived fields. This is "
+                                          "called before the package specific functions "
+                                          "to fill derived fields.";
+constexpr char post_fill_derived_block[] = "Same as pre_fill_derived_block, but is "
+                                           "called after the package functions.";
+constexpr char pre_fill_derived_mesh[] = "Same as pre_fill_derived_block, but operates "
+                                         "on a std::shared_ptr<MeshData<Real>> &.";
+constexpr char post_fill_derived_mesh[] = "Same as pre_fill_derived_mesh, but is called "
+                                          "after the package specific functions.";
+constexpr char fill_derived_block[] = "Package specific function to fill in derived "
+                                      "variables associated with a "
+                                      "std::shared_ptr<MeshBlockData<Real>> &";
+constexpr char fill_derived_mesh[] = "Same as fill_derived_block, but operates on a "
+                                     "std::shared_ptr<MeshData<Real>> &";
+constexpr char check_refinement[] = "Package specific function to tag blocks for "
+                                    "changes in refinement.Operates on a "
+                                    "std::shared_ptr<MeshBlockData<Real>> &";
+constexpr char estimate_dt_block[] = "Package specific function that should return an "
+                                     "appropriately limited time step based on the "
+                                     "methods in the package and data in a "
+                                     "std::shared_ptr<MeshBlockData<Real>> & ";
+constexpr char estimate_dt_mesh[] = "Same as estimate_dt_block, but for data in the "
+                                    "input std::shared_ptr<MeshData<Real>> &";
+} // namespace magic
+
 // Forward declarations
 template <typename T>
 class MeshBlockData;
@@ -35,14 +67,6 @@ template <typename T>
 class VariableFluxPack;
 template <typename T>
 class MeshBlockPack;
-template <typename T>
-using MeshBlockVarPack = MeshBlockPack<VariablePack<T>>;
-template <typename T>
-using MeshBlockVarFluxPack = MeshBlockPack<VariableFluxPack<T>>;
-template <typename T>
-using VarPackingFunc = std::function<std::vector<MeshBlockVarPack<T>>(Mesh *)>;
-template <typename T>
-using FluxPackingFunc = std::function<std::vector<MeshBlockVarFluxPack<T>>(Mesh *)>;
 
 enum class DerivedOwnership { shared, unique };
 
@@ -216,7 +240,7 @@ class StateDescriptor {
 class Packages_t {
  public:
   Packages_t() {
-    std::string name("Parthenon::AppInput");
+    std::string name(magic::app_input);
     pkgs_[name] = std::make_shared<StateDescriptor>(name);
   }
   std::shared_ptr<StateDescriptor> &operator[](const std::string &label) {
