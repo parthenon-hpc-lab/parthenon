@@ -107,6 +107,18 @@ struct RegionSize { // aggregate and POD type; do NOT reorder member declaration
 // X3DIR z, phi, etc...
 enum CoordinateDirection { NODIR = -1, X0DIR = 0, X1DIR = 1, X2DIR = 2, X3DIR = 3 };
 
+// identifiers for all 6 faces of a MeshBlock
+constexpr int BOUNDARY_NFACES = 6;
+enum BoundaryFace {
+  undef = -1,
+  inner_x1 = 0,
+  outer_x1 = 1,
+  inner_x2 = 2,
+  outer_x2 = 3,
+  inner_x3 = 4,
+  outer_x3 = 5
+};
+
 //------------------
 // strongly typed / scoped enums (C++11):
 //------------------

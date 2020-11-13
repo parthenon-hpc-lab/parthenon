@@ -49,6 +49,23 @@ struct IndexRange {
 // inner/outer_x* are ranges for boundaries
 // and cover the ghost zones on each side of the
 // meshblock
+// as per this diagram
+//
+//  - - - - - - - - -  --
+//  |     outer_x2      |
+//  - i- - - - - - - -o -
+//  | n |     ^     | u |
+//  | n |     |     | t |
+//  | e | interior  | e |
+//  | r |     |     | r |
+//  | x |     v     | x |
+//  - 1 - - - - - - - 1 -
+//  |    inner_x2       |
+//  - - - - - - - - -  --
+// with inner and outer x3 the slabs
+// containing the ghost zones above
+// and below the interior
+//
 enum class IndexDomain {
   entire,
   interior,
