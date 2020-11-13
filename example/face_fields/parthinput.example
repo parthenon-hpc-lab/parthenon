@@ -46,3 +46,18 @@ nx3 = 8
 px = 1.0
 py = 1.0
 pz = 1.0
+
+<parthenon/time>
+nlim = 0
+
+# Following two output blocks don't do anything yet, 
+# but will be used in future to do answer checking.
+<parthenon/output0>
+file_type = hdf5
+dt = 0.05
+variables = c.c.interpolated_value, &
+            f.f.face_averaged_value
+
+<parthenon/output1>
+file_type = rst
+dt = 0.05

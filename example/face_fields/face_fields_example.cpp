@@ -70,6 +70,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
 
 DriverStatus FaceFieldExample::Execute() {
   Driver::PreExecute();
+  pouts->MakeOutputs(pmesh, pinput);
   parthenon::DriverUtils::ConstructAndExecuteBlockTasks<>(this);
 
   // post-evolution analysis
@@ -103,6 +104,7 @@ DriverStatus FaceFieldExample::Execute() {
   }
 
   pmesh->mbcnt = pmesh->nbtotal;
+  pouts->MakeOutputs(pmesh, pinput);
   Driver::PostExecute();
   return DriverStatus::complete;
 }
