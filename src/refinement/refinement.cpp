@@ -68,8 +68,8 @@ AmrTag CheckAllRefinement(std::shared_ptr<MeshBlockData<Real>> &rc) {
     // call package specific function, if set
     if (p.hasKey("CheckRefinement")) {
       // keep the max over all criteria up to date
-      using tag_type = AmrTag(std::shared_ptr<MeshBlockData<Real>>&);
-      delta_level = std::max(delta_level, p.Get<tag_type*>("CheckRefinement")(rc));
+      using tag_type = AmrTag(std::shared_ptr<MeshBlockData<Real>> &);
+      delta_level = std::max(delta_level, p.Get<tag_type *>("CheckRefinement")(rc));
       if (delta_level == AmrTag::refine) {
         // since 1 is the max, we can return without having to look at anything else
         return AmrTag::refine;
