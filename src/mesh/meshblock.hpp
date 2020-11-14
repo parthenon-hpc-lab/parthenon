@@ -270,8 +270,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
                             function, std::forward<Args>(args)...);
   }
 
-  // The index domain versions need dimension specified
-  // to avoid incorrect template specialization.
+  // index domain version
   template <typename Function, class... Args>
   inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
   par_dispatch_(const std::string &name, const IndexRange &ib, const Function &function,
@@ -293,6 +292,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
                             function, std::forward<Args>(args)...);
   }
 
+  // index domain version
   template <typename Function, class... Args>
   inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
   par_dispatch_(const std::string &name, const IndexRange &jb, const IndexRange &ib,
@@ -315,6 +315,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
                             std::forward<Args>(args)...);
   }
 
+  // index domain version
   template <typename Function, class... Args>
   inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
   par_dispatch_(const std::string &name, const IndexRange &kb, const IndexRange &jb,
