@@ -16,13 +16,7 @@
 #========================================================================================
 
 # Modules
-import math
-import numpy as np
-import matplotlib
-matplotlib.use('agg')
-import matplotlib.pylab as plt
 import sys
-import os
 import utils.test_case
 
 """ To prevent littering up imported folders with .pyc files or __pycache_ folder"""
@@ -49,5 +43,3 @@ class TestCase(utils.test_case.TestCaseAbs):
             parameters.parthenon_path + '/tst/regression/gold_standard/outflow.out0.00001.phdf'])
 
         return delta == 0
-
-        return True
