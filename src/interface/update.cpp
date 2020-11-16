@@ -47,7 +47,7 @@ TaskStatus FluxDivergenceBlock(std::shared_ptr<MeshBlockData<Real>> &in,
   int ndim = pmb->pmy_mesh->ndim;
   pmb->par_for(
       "FluxDivergenceBlock", 0, vin.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) noexcept {
+      KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
         dudt(l, k, j, i) = 0.0;
         dudt(l, k, j, i) +=
             (coords.Area(X1DIR, k, j, i + 1) * vin.flux(X1DIR, l, k, j, i + 1) -
@@ -83,8 +83,7 @@ TaskStatus FluxDivergenceMesh(std::shared_ptr<MeshData<Real>> &in_obj,
   parthenon::par_for(
       DEFAULT_LOOP_PATTERN, "FluxDivergenceMesh", DevExecSpace(), 0, vin.GetDim(5) - 1, 0,
       vin.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int m, const int l, const int k, const int j,
-                    const int i) noexcept {
+      KOKKOS_LAMBDA(const int m, const int l, const int k, const int j, const int i) {
         const auto &coords = vin.coords(m);
         const auto &v = vin(m);
         dudt(m, l, k, j, i) =
@@ -134,8 +133,7 @@ void UpdateMeshData(std::shared_ptr<MeshData<Real>> &in,
       DEFAULT_LOOP_PATTERN, "UpdateMeshData", DevExecSpace(), 0, in_pack.GetDim(5) - 1, 0,
       in_pack.GetDim(4) - 1, 0, in_pack.GetDim(3) - 1, 0, in_pack.GetDim(2) - 1, 0,
       in_pack.GetDim(1) - 1,
-      KOKKOS_LAMBDA(const int b, const int l, const int k, const int j,
-                    const int i) noexcept {
+      KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
         out_pack(b, l, k, j, i) = in_pack(b, l, k, j, i) + dt * dudt_pack(b, l, k, j, i);
       });
 }
@@ -154,8 +152,7 @@ void AverageMeshData(std::shared_ptr<MeshData<Real>> &c1,
   parthenon::par_for(
       DEFAULT_LOOP_PATTERN, "AverageMeshData", DevExecSpace(), 0, c1_pack.GetDim(5) - 1,
       0, c1_pack.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int b, const int l, const int k, const int j,
-                    const int i) noexcept {
+      KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
         c1_pack(b, l, k, j, i) =
             wgt1 * c1_pack(b, l, k, j, i) + (1 - wgt1) * c2_pack(b, l, k, j, i);
       });
