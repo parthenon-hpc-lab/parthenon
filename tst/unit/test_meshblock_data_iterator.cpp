@@ -337,6 +337,11 @@ TEST_CASE("Can pull variables from containers based on Metadata",
       auto packw2d = rc.PackVariablesAndFluxes({"v2d"}, {"v2d"});
       THEN("The pack knows it is 2d") { REQUIRE(packw2d.GetNdim() == 2); }
     }
+
+    WHEN("We extract a pack over an empty set") {
+      auto pack = rc.PackVariables(std::vector<std::string>{"doesnt exist"});
+      THEN("The pack is empty") { REQUIRE(pack.GetDim(4) == 0); }
+    }
   }
 }
 

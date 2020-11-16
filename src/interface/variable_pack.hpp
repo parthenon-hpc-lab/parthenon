@@ -299,10 +299,6 @@ VariableFluxPack<T> MakeFluxPack(const vpack_types::VarList<T> &vars,
     fsize += v->GetDim(6) * v->GetDim(5) * v->GetDim(4);
   }
 
-  auto fvar = vars.front()->data;
-  std::array<int, 4> cv_size = {fvar.GetDim(1), fvar.GetDim(2), fvar.GetDim(3), vsize};
-  const int ndim = (cv_size[2] > 1 ? 3 : (cv_size[1] > 1 ? 2 : 1));
-
   // make the outer view
   ViewOfParArrays<T> cv("MakeFluxPack::cv", vsize);
   ViewOfParArrays<T> f1("MakeFluxPack::f1", fsize);
@@ -310,12 +306,22 @@ VariableFluxPack<T> MakeFluxPack(const vpack_types::VarList<T> &vars,
   ViewOfParArrays<T> f3("MakeFluxPack::f3", fsize);
   ParArray1D<int> sparse_assoc("MakeFluxPack::sparse_assoc", vsize);
   ParArray1D<int> vector_component("MakeFluxPack::vector_component", vsize);
-  // add variables to host view
-  FillVarView(vars, vmap, cv, sparse_assoc, vector_component);
-  // add fluxes to host view
-  FillFluxViews(flux_vars, vmap, ndim, f1, f2, f3);
 
-  return VariableFluxPack<T>(cv, f1, f2, f3, sparse_assoc, vector_component, cv_size);
+  if (vsize > 0) {
+    // add variables to host view
+    auto fvar = vars.front()->data;
+    std::array<int, 4> cv_size = {fvar.GetDim(1), fvar.GetDim(2), fvar.GetDim(3), vsize};
+    FillVarView(vars, vmap, cv, sparse_assoc, vector_component);
+    if (fsize > 0) {
+      // add fluxes to host view
+      const int ndim = (cv_size[2] > 1 ? 3 : (cv_size[1] > 1 ? 2 : 1));
+      FillFluxViews(flux_vars, vmap, ndim, f1, f2, f3);
+    }
+    return VariableFluxPack<T>(cv, f1, f2, f3, sparse_assoc, vector_component, cv_size);
+  } else {
+    std::array<int, 4> cv_size = {0, 0, 0, 0};
+    return VariableFluxPack<T>(cv, f1, f2, f3, sparse_assoc, vector_component, cv_size);
+  }
 }
 
 template <typename T>
@@ -332,11 +338,15 @@ VariablePack<T> MakePack(const vpack_types::VarList<T> &vars,
   ParArray1D<int> sparse_assoc("MakePack::sparse_assoc", vsize);
   ParArray1D<int> vector_component("MakePack::vector_component", vsize);
 
-  FillVarView(vars, vmap, cv, sparse_assoc, vector_component, coarse);
-
-  auto fvar = coarse ? vars.front()->coarse_s : vars.front()->data;
-  std::array<int, 4> cv_size = {fvar.GetDim(1), fvar.GetDim(2), fvar.GetDim(3), vsize};
-  return VariablePack<T>(cv, sparse_assoc, vector_component, cv_size);
+  if (vsize > 0) {
+    auto fvar = coarse ? vars.front()->coarse_s : vars.front()->data;
+    std::array<int, 4> cv_size = {fvar.GetDim(1), fvar.GetDim(2), fvar.GetDim(3), vsize};
+    FillVarView(vars, vmap, cv, sparse_assoc, vector_component, coarse);
+    return VariablePack<T>(cv, sparse_assoc, vector_component, cv_size);
+  } else {
+    std::array<int, 4> cv_size = {0, 0, 0, vsize};
+    return VariablePack<T>(cv, sparse_assoc, vector_component, cv_size);
+  }
 }
 
 } // namespace parthenon
