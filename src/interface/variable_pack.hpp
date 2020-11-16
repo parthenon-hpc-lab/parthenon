@@ -70,8 +70,8 @@ template <typename T>
 class VariablePack {
  public:
   VariablePack() = default;
-  VariablePack(const ViewOfParArrays<T> view, const ParArray1D<int> sparse_ids,
-               const ParArray1D<int> vector_component, const std::array<int, 4> dims)
+  VariablePack(const ViewOfParArrays<T> &view, const ParArray1D<int> &sparse_ids,
+               const ParArray1D<int> &vector_component, const std::array<int, 4> &dims)
       : v_(view), sparse_ids_(sparse_ids), vector_component_(vector_component),
         dims_(dims), ndim_((dims[2] > 1 ? 3 : (dims[1] > 1 ? 2 : 1))) {}
   KOKKOS_FORCEINLINE_FUNCTION
@@ -115,10 +115,11 @@ template <typename T>
 class VariableFluxPack : public VariablePack<T> {
  public:
   VariableFluxPack() = default;
-  VariableFluxPack(const ViewOfParArrays<T> view, const ViewOfParArrays<T> f0,
-                   const ViewOfParArrays<T> f1, const ViewOfParArrays<T> f2,
-                   const ParArray1D<int> sparse_ids,
-                   const ParArray1D<int> vector_component, const std::array<int, 4> dims)
+  VariableFluxPack(const ViewOfParArrays<T> &view, const ViewOfParArrays<T> &f0,
+                   const ViewOfParArrays<T> &f1, const ViewOfParArrays<T> &f2,
+                   const ParArray1D<int> &sparse_ids,
+                   const ParArray1D<int> &vector_component,
+                   const std::array<int, 4> &dims)
       : VariablePack<T>(view, sparse_ids, vector_component, dims), f_({f0, f1, f2}) {}
 
   KOKKOS_FORCEINLINE_FUNCTION
@@ -203,7 +204,7 @@ void FillVarView(const vpack_types::VarList<T> &vars, PackIndexMap *vmap,
           // returns 1 for X1DIR, 2 for X2DIR, 3 for X3DIR
           // for tensors, returns flattened index.
           // for scalar-objects, returns NODIR.
-          bool is_vec = v->IsSet(Metadata::Vector) || v->IsSet(Metadata::Tensor);
+          const bool is_vec = v->IsSet(Metadata::Vector) || v->IsSet(Metadata::Tensor);
           host_vc(vindex) = is_vec ? vindex - vstart + 1 : NODIR;
           host_view(vindex) = coarse ? v->coarse_s.Get(k, j, i) : v->data.Get(k, j, i);
           vindex++;
