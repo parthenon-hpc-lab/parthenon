@@ -9,6 +9,7 @@
 ### Changed (changing behavior/API/variables/...)
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 365]](https://github.com/lanl/parthenon/pull/365) Fix performance regression in FluxDivergence and template inline reconstruction functions.
 - [[PR 353]](https://github.com/lanl/parthenon/pull/353) Fixed small error in input\_parameter logic
 
 ### Infrastructure (changes irrelevant to downstream codes)
