@@ -3,7 +3,7 @@
 # IndexShape Class
 
 The index shape class provides access to the index bounds of a mesh block. The
-bounds are split into two domains which can be accessed using a class enum
+bounds are split into several domains which can be accessed using a class enum
 **IndexDomain**. The **IndexDomain** can be:
 - **entire,** which allows one to access the starting indices of the
 full meshblock including ghost zones
