@@ -62,7 +62,7 @@ class IndexShape {
     return dim <= interior_dims.size();
   }
 
-  void MakeZeroDimensional_(int index) {
+  void MakeZeroDimensional_(int const index) {
     x_[index] = IndexRange{0, 0};
     entire_ncells_[index] = 1;
   }
