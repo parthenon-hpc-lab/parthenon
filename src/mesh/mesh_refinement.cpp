@@ -156,8 +156,8 @@ void MeshRefinement::RestrictFieldX1(const ParArrayND<Real> &fine,
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   auto &coords = pmb->coords;
   const IndexDomain interior = IndexDomain::interior;
-  int si = (csi - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
-  int ei = (cei - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
+  // int si = (csi - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
+  // int ei = (cei - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
 
   // store the restricted data in the prolongation buffer for later use
   if (pmb->block_size.nx3 > 1) { // 3D
