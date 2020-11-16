@@ -234,8 +234,7 @@ class IndexShape {
         (domain == IndexDomain::inner_x1 || domain == IndexDomain::outer_x1)) {
       return 0; // if x1 is zero-dimensional, there are no ghost zones
     }
-    auto bnds = GetBoundsI(domain);
-    return bnds.e - bnds.s + 1;
+    return ie(domain) - is(domain) + 1;
   }
 
   KOKKOS_INLINE_FUNCTION int ncellsj(const IndexDomain &domain) const noexcept {
@@ -243,8 +242,7 @@ class IndexShape {
         (domain == IndexDomain::inner_x2 || domain == IndexDomain::outer_x2)) {
       return 0; // if x2 is zero-dimensional, there are no ghost zones
     }
-    auto bnds = GetBoundsJ(domain);
-    return bnds.e - bnds.s + 1;
+    return je(domain) - js(domain) + 1;
   }
 
   KOKKOS_INLINE_FUNCTION int ncellsk(const IndexDomain &domain) const noexcept {
@@ -252,8 +250,7 @@ class IndexShape {
         (domain == IndexDomain::inner_x3 || domain == IndexDomain::outer_x3)) {
       return 0; // if x3 is zero-dimensional, there are no ghost zones
     }
-    auto bnds = GetBoundsK(domain);
-    return bnds.e - bnds.s + 1;
+    return ke(domain) - ks(domain) + 1;
   }
 
   // Kept basic for kokkos
