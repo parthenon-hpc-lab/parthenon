@@ -24,7 +24,8 @@
 namespace parthenon {
 
 namespace boundary_cond_impl {
-bool DoPhysicalBoundary_(BoundaryFlag flag, BoundaryFace face, int ndim);
+bool DoPhysicalBoundary_(const BoundaryFlag flag, const BoundaryFace face,
+                         const int ndim);
 } // namespace boundary_cond_impl
 
 TaskStatus ProlongateBoundaries(std::shared_ptr<MeshBlockData<Real>> &rc) {
@@ -58,7 +59,7 @@ TaskStatus ApplyBoundaryConditionsOnCoarseOrFine(std::shared_ptr<MeshBlockData<R
   using namespace boundary_cond_impl;
   std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
   Mesh *pmesh = pmb->pmy_mesh;
-  int ndim = pmesh->ndim;
+  const int ndim = pmesh->ndim;
 
   for (int i = 0; i < BOUNDARY_NFACES; i++) {
     if (DoPhysicalBoundary_(pmb->boundary_flag[i], static_cast<BoundaryFace>(i), ndim)) {
@@ -240,7 +241,8 @@ void ReflectOuterX3(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
 } // namespace BoundaryFunction
 
 namespace boundary_cond_impl {
-bool DoPhysicalBoundary_(BoundaryFlag flag, BoundaryFace face, int ndim) {
+bool DoPhysicalBoundary_(const BoundaryFlag flag, const BoundaryFace face,
+                         const int ndim) {
   if (flag == BoundaryFlag::block) return false;
   if (flag == BoundaryFlag::undef) return false;
   if (flag == BoundaryFlag::periodic) return false;
