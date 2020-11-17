@@ -35,6 +35,7 @@ using ::parthenon::Container;
 using ::parthenon::IndexDomain;
 using ::parthenon::IndexRange;
 using ::parthenon::MeshBlock;
+using ::parthenon::par_for_inner;
 using ::parthenon::ParArrayHost;
 using ::parthenon::ParArrayND;
 using ::parthenon::ParthenonStatus;

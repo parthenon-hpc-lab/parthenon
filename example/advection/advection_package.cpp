@@ -309,8 +309,7 @@ TaskStatus CalculateFluxes(std::shared_ptr<Container<Real>> &rc) {
   // get x-fluxes
   pmb->par_for_outer(
       "x1 flux", 2 * scratch_size_in_bytes, scratch_level, kb.s, kb.e, jb.s, jb.e,
-      KOKKOS_LAMBDA(parthenon::team_mbr_t member, parthenon::MeshBlockDevice const &mb,
-                    const int k, const int j) {
+      KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int k, const int j) {
         parthenon::ScratchPad2D<Real> ql(member.team_scratch(scratch_level), nvar, nx1);
         parthenon::ScratchPad2D<Real> qr(member.team_scratch(scratch_level), nvar, nx1);
         // get reconstructed state on faces
@@ -320,11 +319,11 @@ TaskStatus CalculateFluxes(std::shared_ptr<Container<Real>> &rc) {
 
         for (int n = 0; n < nvar; n++) {
           if (vx > 0.0) {
-            mb.par_for_inner(member, ib.s, ib.e + 1,
-                             [&](const int i) { x1flux(n, k, j, i) = ql(n, i) * vx; });
+            par_for_inner(member, ib.s, ib.e + 1,
+                          [&](const int i) { x1flux(n, k, j, i) = ql(n, i) * vx; });
           } else {
-            mb.par_for_inner(member, ib.s, ib.e + 1,
-                             [&](const int i) { x1flux(n, k, j, i) = qr(n, i) * vx; });
+            par_for_inner(member, ib.s, ib.e + 1,
+                          [&](const int i) { x1flux(n, k, j, i) = qr(n, i) * vx; });
           }
         }
       });
@@ -334,8 +333,7 @@ TaskStatus CalculateFluxes(std::shared_ptr<Container<Real>> &rc) {
     parthenon::ParArray4D<Real> x2flux = rc->Get("advected").flux[X2DIR].Get<4>();
     pmb->par_for_outer(
         "x2 flux", 3 * scratch_size_in_bytes, scratch_level, kb.s, kb.e, jb.s, jb.e + 1,
-        KOKKOS_LAMBDA(parthenon::team_mbr_t member, parthenon::MeshBlockDevice const &mb,
-                      const int k, const int j) {
+        KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int k, const int j) {
           // the overall algorithm/use of scratch pad here is clear inefficient and kept
           // just for demonstrating purposes. The key point is that we cannot reuse
           // reconstructed arrays for different `j` with `j` being part of the outer
@@ -352,11 +350,11 @@ TaskStatus CalculateFluxes(std::shared_ptr<Container<Real>> &rc) {
           member.team_barrier();
           for (int n = 0; n < nvar; n++) {
             if (vy > 0.0) {
-              mb.par_for_inner(member, ib.s, ib.e,
-                               [&](const int i) { x2flux(n, k, j, i) = ql(n, i) * vy; });
+              par_for_inner(member, ib.s, ib.e,
+                            [&](const int i) { x2flux(n, k, j, i) = ql(n, i) * vy; });
             } else {
-              mb.par_for_inner(member, ib.s, ib.e,
-                               [&](const int i) { x2flux(n, k, j, i) = qr(n, i) * vy; });
+              par_for_inner(member, ib.s, ib.e,
+                            [&](const int i) { x2flux(n, k, j, i) = qr(n, i) * vy; });
             }
           }
         });
@@ -367,8 +365,7 @@ TaskStatus CalculateFluxes(std::shared_ptr<Container<Real>> &rc) {
     parthenon::ParArray4D<Real> x3flux = rc->Get("advected").flux[X3DIR].Get<4>();
     pmb->par_for_outer(
         "x3 flux", 3 * scratch_size_in_bytes, scratch_level, kb.s, kb.e + 1, jb.s, jb.e,
-        KOKKOS_LAMBDA(parthenon::team_mbr_t member, parthenon::MeshBlockDevice const &mb,
-                      const int k, const int j) {
+        KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int k, const int j) {
           // the overall algorithm/use of scratch pad here is clear inefficient and kept
           // just for demonstrating purposes. The key point is that we cannot reuse
           // reconstructed arrays for different `j` with `j` being part of the outer
@@ -385,11 +382,11 @@ TaskStatus CalculateFluxes(std::shared_ptr<Container<Real>> &rc) {
           member.team_barrier();
           for (int n = 0; n < nvar; n++) {
             if (vz > 0.0) {
-              mb.par_for_inner(member, ib.s, ib.e,
-                               [&](const int i) { x3flux(n, k, j, i) = ql(n, i) * vz; });
+              par_for_inner(member, ib.s, ib.e,
+                            [&](const int i) { x3flux(n, k, j, i) = ql(n, i) * vz; });
             } else {
-              mb.par_for_inner(member, ib.s, ib.e,
-                               [&](const int i) { x3flux(n, k, j, i) = qr(n, i) * vz; });
+              par_for_inner(member, ib.s, ib.e,
+                            [&](const int i) { x3flux(n, k, j, i) = qr(n, i) * vz; });
             }
           }
         });
