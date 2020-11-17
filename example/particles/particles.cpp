@@ -333,15 +333,24 @@ TaskList ParticleDriver::MakeTaskList(MeshBlock *pmb, int stage) {
 
   auto swarm = sc->Get("my particles");
 
-  auto transport_particles = tl.AddTask(none, TransportParticles, pmb, integrator);
+  auto start_comm = tl.AddTask(none, &SwarmContainer::StartCommunication, sc.get(),
+    BoundaryCommSubset::all);
+
+  auto create_some_particles =
+      tl.AddTask(start_comm, CreateSomeParticles, pmb);
+
+  auto transport_particles = tl.AddTask(create_some_particles, TransportParticles, pmb, integrator);
 
   auto destroy_some_particles =
       tl.AddTask(transport_particles, DestroySomeParticles, pmb);
 
-  auto create_some_particles =
-      tl.AddTask(destroy_some_particles, CreateSomeParticles, pmb);
+  auto silly_update = tl.AddTask(destroy_some_particles, &SwarmContainer::SillyUpdate,
+  sc.get());
 
-  auto deposit_particles = tl.AddTask(create_some_particles, DepositParticles, pmb);
+  auto finalize_comm = tl.AddTask(destroy_some_particles, &SwarmContainer::FinishCommunication,
+    sc.get(), BoundaryCommSubset::all);
+
+  auto deposit_particles = tl.AddTask(finalize_comm, DepositParticles, pmb);
 
   auto defrag = tl.AddTask(deposit_particles, Defrag, pmb);
 

@@ -1119,8 +1119,6 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin, ApplicationInput *app_i
       for (int i = 0; i < nmb; ++i) {
         block_list[i]->real_containers.Get()->StartReceiving(
             BoundaryCommSubset::mesh_init);
-        block_list[i]->real_containers.GetSwarmContainer()->StartReceiving(
-            BoundaryCommSubset::mesh_init);
       }
       call++; // 2
               // send conserved variables

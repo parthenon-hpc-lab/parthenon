@@ -28,8 +28,10 @@
 
 #include "basic_types.hpp"
 #include "bvals/swarm/bvals_swarm.hpp"
+#include "globals.hpp" // my_rank
 #include "metadata.hpp"
 #include "parthenon_arrays.hpp"
+#include "parthenon_mpi.hpp"
 #include "variable.hpp"
 
 namespace parthenon {
@@ -149,9 +151,62 @@ class Swarm {
   bool mpiStatus;
   void allocateComms(std::weak_ptr<MeshBlock> wpmb);
 
+  bool StartCommunication(BoundaryCommSubset phase) {
+    printf("[%i] Starting comm!\n", Globals::my_rank);
+    mpiStatus = false;
+
+    global_num_incomplete_ = 3;
+    local_num_completed_ = 0;
+
+    #ifdef MPI_PARALLEL
+    MPI_Allreduce(MPI_IN_PLACE, &global_num_incomplete_, 1, MPI_INT,
+      MPI_SUM, MPI_COMM_WORLD);
+    #endif
+
+    printf("global_num_incomplete_: %i\n", global_num_incomplete_);
+
+    return true;
+  }
+  bool SillyUpdate() {
+    printf("[%i] SillyUpdate!\n", Globals::my_rank);
+    if (mpiStatus == true) {
+      return true;
+    }
+
+    local_num_completed_ += 1;
+
+    return false;
+  }
+  bool FinishCommunication(BoundaryCommSubset phase) {
+
+    // Check that global_num_incomplete = 0
+    // TODO(BRR) if splitting particles during a push, just add 1 to global_num_incomplete update
+
+    //int num_completed = 0;
+    //int global_num_completed = num_completed;
+    int global_num_completed;
+    MPI_Allreduce(&local_num_completed_, &global_num_completed, 1, MPI_INT,
+      MPI_SUM, MPI_COMM_WORLD);
+    //global_num_incomplete_ -= global_num_completed;
+
+    printf("[%i] incomplete: %i completed: %i\n", Globals::my_rank, global_num_incomplete_, global_num_completed);
+
+    if (global_num_incomplete_ > global_num_completed) {
+      return false;
+    }
+
+    mpiStatus = true;
+
+    printf("[%i] Finishing comm!\n", Globals::my_rank);
+    return true;
+  }
+
  private:
   int debug = 0;
   std::weak_ptr<MeshBlock> pmy_block;
+
+  int global_num_incomplete_;
+  int local_num_completed_;
 
   int nmax_pool_;
   int max_active_index_ = 0;
