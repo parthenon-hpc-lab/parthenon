@@ -73,14 +73,15 @@ void BoundaryValues::RestrictBoundaries() {
   for (int n = 0; n < nneighbor; n++) {
     NeighborBlock &nb = neighbor[n];
     if (nb.snb.level >= mylevel) continue;
+
     // fill the required ghost-ghost zone
-    int nis, nie, njs, nje, nks, nke;
-    ComputeRestrictionBounds_(nb, nis, nie, njs, nje, nks, nke);
+    IndexRange bni, bnj, bnk;
+    ComputeRestrictionBounds_(nb, bni, bnj, bnk);
 
     // TODO(JMM): this loop should probably be a kokkos loop
-    for (int nk = nks; nk <= nke; nk++) {
-      for (int nj = njs; nj <= nje; nj++) {
-        for (int ni = nis; ni <= nie; ni++) {
+    for (int nk = bnk.s; nk <= bnk.e; nk++) {
+      for (int nj = bnj.s; nj <= bnj.e; nj++) {
+        for (int ni = bni.s; ni <= bni.e; ni++) {
           int ntype = std::abs(ni) + std::abs(nj) + std::abs(nk);
           // skip myself or coarse levels; only the same level must be restricted
           if (ntype == 0 || nblevel[nk + 1][nj + 1][ni + 1] != mylevel) continue;
@@ -101,10 +102,9 @@ void BoundaryValues::ProlongateBoundaries() {
     NeighborBlock &nb = neighbor[n];
     if (nb.snb.level >= mylevel) continue;
     // calculate the loop limits for the ghost zones
-    int si, ei, sj, ej, sk, ek;
-    ComputeProlongationBounds_(nb, si, ei, sj, ej, sk, ek);
-
-    ProlongateGhostCells(nb, si, ei, sj, ej, sk, ek);
+    IndexRange bi, bj, bk;
+    ComputeProlongationBounds_(nb, bi, bj, bk);
+    ProlongateGhostCells(nb, bi.s, bi.e, bj.s, bj.e, bk.s, bk.e);
   } // end loop over nneighbor
 }
 
@@ -305,88 +305,56 @@ void BoundaryValues::ProlongateGhostCells(const NeighborBlock &nb, int si, int e
   return;
 }
 
-void BoundaryValues::ComputeRestrictionBounds_(const NeighborBlock &nb, int &nis,
-                                               int &nie, int &njs, int &nje, int &nks,
-                                               int &nke) {
+void BoundaryValues::ComputeRestrictionBounds_(const NeighborBlock &nb, IndexRange &ni,
+                                               IndexRange &nj, IndexRange &nk) {
+  auto getbounds = [](const int nbx, IndexRange &n) {
+    n.s = std::max(nbx - 1, -1);
+    n.e = std::min(nbx + 1, 1);
+  };
+
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
-  nis = std::max(nb.ni.ox1 - 1, -1);
-  nie = std::min(nb.ni.ox1 + 1, 1);
+  getbounds(nb.ni.ox1, ni);
   if (pmb->block_size.nx2 == 1) {
-    njs = 0;
-    nje = 0;
+    nj.s = nj.e = 0;
   } else {
-    njs = std::max(nb.ni.ox2 - 1, -1);
-    nje = std::min(nb.ni.ox2 + 1, 1);
+    getbounds(nb.ni.ox2, nj);
   }
 
   if (pmb->block_size.nx3 == 1) {
-    nks = 0;
-    nke = 0;
+    nk.s = nk.e = 0;
   } else {
-    nks = std::max(nb.ni.ox3 - 1, -1);
-    nke = std::min(nb.ni.ox3 + 1, 1);
+    getbounds(nb.ni.ox3, nk);
   }
 }
 
-void BoundaryValues::ComputeProlongationBounds_(const NeighborBlock &nb, int &si, int &ei,
-                                                int &sj, int &ej, int &sk, int &ek) {
+void BoundaryValues::ComputeProlongationBounds_(const NeighborBlock &nb, IndexRange &bi,
+                                                IndexRange &bj, IndexRange &bk) {
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   const IndexDomain interior = IndexDomain::interior;
   int cn = pmb->cnghost - 1;
-  if (nb.ni.ox1 == 0) {
-    std::int64_t &lx1 = pmb->loc.lx1;
-    si = pmb->c_cellbounds.is(interior);
-    ei = pmb->c_cellbounds.ie(interior);
-    if ((lx1 & 1LL) == 0LL) {
-      ei += cn;
+
+  auto getbounds = [=](const int nbx, const std::int64_t &lx, const IndexRange bblock,
+                       IndexRange &bprol) {
+    if (nbx == 0) {
+      bprol.s = bblock.s;
+      bprol.e = bblock.e;
+      if ((lx & 1LL) == 0LL) {
+        bprol.e += cn;
+      } else {
+        bprol.s -= cn;
+      }
+    } else if (nbx > 0) {
+      bprol.s = bblock.e + 1;
+      bprol.e = bblock.e + cn;
     } else {
-      si -= cn;
+      bprol.s = bblock.s - cn;
+      bprol.e = bblock.s - 1;
     }
-  } else if (nb.ni.ox1 > 0) {
-    si = pmb->c_cellbounds.ie(interior) + 1;
-    ei = pmb->c_cellbounds.ie(interior) + cn;
-  } else {
-    si = pmb->c_cellbounds.is(interior) - cn;
-    ei = pmb->c_cellbounds.is(interior) - 1;
-  }
+  };
 
-  if (nb.ni.ox2 == 0) {
-    sj = pmb->c_cellbounds.js(interior);
-    ej = pmb->c_cellbounds.je(interior);
-    if (pmb->block_size.nx2 > 1) {
-      std::int64_t &lx2 = pmb->loc.lx2;
-      if ((lx2 & 1LL) == 0LL) {
-        ej += cn;
-      } else {
-        sj -= cn;
-      }
-    }
-  } else if (nb.ni.ox2 > 0) {
-    sj = pmb->c_cellbounds.je(interior) + 1;
-    ej = pmb->c_cellbounds.je(interior) + cn;
-  } else {
-    sj = pmb->c_cellbounds.js(interior) - cn;
-    ej = pmb->c_cellbounds.js(interior) - 1;
-  }
-
-  if (nb.ni.ox3 == 0) {
-    sk = pmb->c_cellbounds.ks(interior);
-    ek = pmb->c_cellbounds.ke(interior);
-    if (pmb->block_size.nx3 > 1) {
-      std::int64_t &lx3 = pmb->loc.lx3;
-      if ((lx3 & 1LL) == 0LL) {
-        ek += cn;
-      } else {
-        sk -= cn;
-      }
-    }
-  } else if (nb.ni.ox3 > 0) {
-    sk = pmb->c_cellbounds.ke(interior) + 1;
-    ek = pmb->c_cellbounds.ke(interior) + cn;
-  } else {
-    sk = pmb->c_cellbounds.ks(interior) - cn;
-    ek = pmb->c_cellbounds.ks(interior) - 1;
-  }
+  getbounds(nb.ni.ox1, pmb->loc.lx1, pmb->c_cellbounds.GetBoundsI(interior), bi);
+  getbounds(nb.ni.ox2, pmb->loc.lx2, pmb->c_cellbounds.GetBoundsJ(interior), bj);
+  getbounds(nb.ni.ox3, pmb->loc.lx3, pmb->c_cellbounds.GetBoundsK(interior), bk);
 }
 
 } // namespace parthenon
