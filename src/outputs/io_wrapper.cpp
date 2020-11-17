@@ -37,7 +37,7 @@ namespace parthenon {
 //! \fn int IOWrapper::Open(const char* fname, FileMode rw)
 //  \brief wrapper for {MPI_File_open} versus {std::fopen} including error check
 
-int IOWrapper::Open(const char *fname, FileMode rw) {
+int IOWrapper::Open(const char *const fname, FileMode const rw) {
   std::stringstream msg;
 
   if (rw == FileMode::read) {
@@ -81,7 +81,8 @@ int IOWrapper::Open(const char *fname, FileMode rw) {
 //! \fn int IOWrapper::Read(void *buf, IOWrapperSizeT size, IOWrapperSizeT count)
 //  \brief wrapper for {MPI_File_read} versus {std::fread}
 
-std::ptrdiff_t IOWrapper::Read(void *buf, IOWrapperSizeT size, IOWrapperSizeT count) {
+std::ptrdiff_t IOWrapper::Read(void *const buf, IOWrapperSizeT const size,
+                               IOWrapperSizeT const count) {
 #ifdef MPI_PARALLEL
   MPI_Status status;
   int nread;
@@ -97,7 +98,8 @@ std::ptrdiff_t IOWrapper::Read(void *buf, IOWrapperSizeT size, IOWrapperSizeT co
 //! \fn int IOWrapper::Read_all(void *buf, IOWrapperSizeT size, IOWrapperSizeT count)
 //  \brief wrapper for {MPI_File_read_all} versus {std::fread}
 
-std::ptrdiff_t IOWrapper::Read_all(void *buf, IOWrapperSizeT size, IOWrapperSizeT count) {
+std::ptrdiff_t IOWrapper::Read_all(void *const buf, IOWrapperSizeT const size,
+                                   IOWrapperSizeT const count) {
 #ifdef MPI_PARALLEL
   MPI_Status status;
   int nread;
@@ -115,8 +117,9 @@ std::ptrdiff_t IOWrapper::Read_all(void *buf, IOWrapperSizeT size, IOWrapperSize
 //                             IOWrapperSizeT count, IOWrapperSizeT offset)
 //  \brief wrapper for {MPI_File_read_at_all} versus {std::fseek+std::fread}
 
-std::ptrdiff_t IOWrapper::Read_at_all(void *buf, IOWrapperSizeT size,
-                                      IOWrapperSizeT count, IOWrapperSizeT offset) {
+std::ptrdiff_t IOWrapper::Read_at_all(void *const buf, IOWrapperSizeT const size,
+                                      IOWrapperSizeT const count,
+                                      IOWrapperSizeT const offset) {
 #ifdef MPI_PARALLEL
   MPI_Status status;
   int nread;
@@ -135,8 +138,8 @@ std::ptrdiff_t IOWrapper::Read_at_all(void *buf, IOWrapperSizeT size,
 //! \fn int IOWrapper::Write(const void *buf, IOWrapperSizeT size, IOWrapperSizeT cnt)
 //  \brief wrapper for {MPI_File_write} versus {std::fwrite}
 
-std::ptrdiff_t IOWrapper::Write(const void *buf, IOWrapperSizeT size,
-                                IOWrapperSizeT cnt) {
+std::ptrdiff_t IOWrapper::Write(const void *const buf, IOWrapperSizeT const size,
+                                IOWrapperSizeT const cnt) {
 #ifdef MPI_PARALLEL
   MPI_Status status;
   int nwrite;
@@ -155,8 +158,9 @@ std::ptrdiff_t IOWrapper::Write(const void *buf, IOWrapperSizeT size,
 //                                  IOWrapperSizeT cnt, IOWrapperSizeT offset)
 //  \brief wrapper for {MPI_File_write_at_all} versus {std::fseek+std::fwrite}.
 
-std::ptrdiff_t IOWrapper::Write_at_all(const void *buf, IOWrapperSizeT size,
-                                       IOWrapperSizeT cnt, IOWrapperSizeT offset) {
+std::ptrdiff_t IOWrapper::Write_at_all(const void *const buf, IOWrapperSizeT const size,
+                                       IOWrapperSizeT const cnt,
+                                       IOWrapperSizeT const offset) {
 #ifdef MPI_PARALLEL
   MPI_Status status;
   int nwrite;
@@ -187,7 +191,7 @@ void IOWrapper::Close() {
 //! \fn int IOWrapper::Seek(IOWrapperSizeT offset)
 //  \brief wrapper for {MPI_File_seek} versus {std::fseek}
 
-void IOWrapper::Seek(IOWrapperSizeT offset) {
+void IOWrapper::Seek(IOWrapperSizeT const offset) {
 #ifdef MPI_PARALLEL
   PARTHENON_MPI_CHECK(MPI_File_seek(fh_, offset, MPI_SEEK_SET));
 #else
