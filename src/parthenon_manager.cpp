@@ -161,6 +161,8 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
 }
 
 ParthenonStatus ParthenonManager::ParthenonFinalize() {
+  // close restart file before finalizing MPI
+  this->restartReader = nullptr;
   pmesh.reset();
   Kokkos::finalize();
 #ifdef MPI_PARALLEL
