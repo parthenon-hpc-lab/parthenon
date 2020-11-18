@@ -446,6 +446,7 @@ void CellCenteredBoundaryVariable::SetupPersistentMPI() {
       MPI_Send_init(bd_var_.send[nb.bufid].data(), ssize, MPI_PARTHENON_REAL, nb.snb.rank,
                     tag, MPI_COMM_WORLD, &(bd_var_.req_send[nb.bufid]));
       tag = pmb->pbval->CreateBvalsMPITag(pmb->lid, nb.bufid, cc_phys_id_);
+      printf("[%i] lid: %i bufid: %i cc_phys_id: %i tag: %i\n", Globals::my_rank, pmb->lid, nb.bufid, cc_phys_id_, tag);
       if (bd_var_.req_recv[nb.bufid] != MPI_REQUEST_NULL)
         MPI_Request_free(&bd_var_.req_recv[nb.bufid]);
       MPI_Recv_init(bd_var_.recv[nb.bufid].data(), rsize, MPI_PARTHENON_REAL, nb.snb.rank,

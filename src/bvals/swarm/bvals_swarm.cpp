@@ -78,6 +78,7 @@ int BoundarySwarm::ComputeVariableBufferSize(const NeighborIndexes &ni, int cng)
 }
 
 void BoundarySwarm::SetupPersistentMPI() {
+  // TODO(BRR) don't actually need this?
 #ifdef MPI_PARALLEL
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int &mylevel = pmb->loc.level;
@@ -93,36 +94,106 @@ void BoundarySwarm::SetupPersistentMPI() {
 
     // Neighbor on different MPI process
     if (nb.snb.rank != Globals::my_rank) {
-      printf("%s:%i\n", __FILE__, __LINE__);
-      tag = pmb->pbval->CreateBvalsMPITag(nb.snb.lid, nb.targetid, swarm_id_);
-      printf("%s:%i\n", __FILE__, __LINE__);
+      send_tag[n] = pmb->pbval->CreateBvalsMPITag(nb.snb.lid, nb.targetid, swarm_id_);
+      recv_tag[n] = pmb->pbval->CreateBvalsMPITag(pmb->lid, nb.targetid, swarm_id_);
       if (bd_var_.req_send[nb.bufid] != MPI_REQUEST_NULL) {
-      printf("%s:%i\n", __FILE__, __LINE__);
         MPI_Request_free(&bd_var_.req_send[nb.bufid]);
       }
-      printf("%s:%i\n", __FILE__, __LINE__);
-      MPI_Send_init(bd_var_.send[nb.bufid].data(), ssize, MPI_PARTHENON_REAL, nb.snb.rank,
-                    tag, MPI_COMM_WORLD, &(bd_var_.req_recv[nb.bufid]));
-      printf("%s:%i\n", __FILE__, __LINE__);
-      //tag = pmb->pbval->CreateBvalsMPITag(pmb->lid, nb.bufid, swarm_id_);
-      //if (bd_var_.req_recv[nb.bufid] != MPI_REQUEST_NULL) {
-      //  MPI_Request_free(&bd_var_.req_recv[nb.bufid]);
-     // }
-      //MPI_Recv
-
+      if (bd_var_.req_recv[nb.bufid] != MPI_REQUEST_NULL) {
+        MPI_Request_free(&bd_var_.req_recv[nb.bufid]);
+      }
     }
+    printf("Done!\n");
   }
 #endif
 }
 
+// TODO(BRR) is this necessary?
 void BoundarySwarm::StartReceiving(BoundaryCommSubset phase) {
-  printf("BoundarySwarm::StartReceiving\n");
+  printf("Start receiving!\n");
+  //for (int n = 0; n < pmb->pbval->nneighbor; n++) {
+  //  NeighborBlock &nb = pmb->pbval->neighbor[n];
+  //}
+}
+
+/*void BoundarySwarm::Receive() {
+  printf("[%i] BoundarySwarm::Receive\n\n\n", Globals::my_rank);
+#ifdef MPI_PARALLEL
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
+  int &mylevel = pmb->loc.level;
+
+  // Check to see what messages have been received
+  int tag;
+  int ssize = 0;
+  int rsize = 0;
+  for (int n = 0; n < pmb->pbval->nneighbor; n++) {
+    NeighborBlock &nb = pmb->pbval->neighbor[n];
+
+    tag = pmb->pbval->CreateBvalsMPITag(pmb->lid, nb.bufid, swarm_id_);
+    printf("[%i] (%i %i %i) tag: %i\n", Globals::my_rank, pmb->lid, nb.bufid, swarm_id_, tag);
+
+    printf("rank: %i Neighbor: %i Neighbor rank: %i\n", Globals::my_rank, n, nb.snb.rank);
+    int test;
+    MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &test, MPI_STATUS_IGNORE);
+    MPI_Test(&(bd_var_.req_recv[nb.bufid]), &test, MPI_STATUS_IGNORE);
+    if (!static_cast<bool>(test)) {
+      bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
+    } else {
+      bd_var_.flag[nb.bufid] = BoundaryStatus::arrived;
+    }
+  }
+#endif
+}*/
+
+void BoundarySwarm::Send(BoundaryCommSubset phase) {
+  printf("BoundarySwarm::Send\n");
 #ifdef MPI_PARALLEL
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int &mylevel = pmb->loc.level;
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
     if (nb.snb.rank != Globals::my_rank) {
+      // Send a message to different rank neighbor just for fun
+      printf("[%i] Sending a message!\n", Globals::my_rank);
+      Real buffer[1] = {1.0};
+      MPI_Request request;
+      MPI_Isend(buffer, 1, MPI_PARTHENON_REAL, nb.snb.rank, 0,
+        MPI_COMM_WORLD, &request);
+    }
+  }
+#endif
+}
+
+void BoundarySwarm::Receive(BoundaryCommSubset phase) {
+  printf("BoundarySwarm::Receive\n");
+#ifdef MPI_PARALLEL
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
+  int &mylevel = pmb->loc.level;
+  for (int n = 0; n < pmb->pbval->nneighbor; n++) {
+    NeighborBlock &nb = pmb->pbval->neighbor[n];
+    if (nb.snb.rank != Globals::my_rank) {
+      pmb->exec_space.fence();
+      //MPI_Start(&(bd_var_.req_recv[nb.bufid]));
+      //MPI_Irecv(
+      // Check to see if we got a message
+      int test;
+      MPI_Status status;
+      MPI_Iprobe(nb.snb.rank, MPI_ANY_TAG, MPI_COMM_WORLD, &test, &status);
+      printf("[%i] n: %i test; %i\n", Globals::my_rank, n, test);
+      if (!static_cast<bool>(test)) {
+        bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
+      } else {
+        bd_var_.flag[nb.bufid] = BoundaryStatus::arrived;
+
+        // If message is available, receive it
+        int nbytes;
+        MPI_Get_count(&status, MPI_CHAR, &nbytes);
+        printf("Message is this many bytes: %i!", nbytes);
+        double *buf = (double*)malloc(nbytes);
+        MPI_Recv(buf, nbytes, MPI_CHAR, nb.snb.rank, MPI_ANY_TAG,
+          MPI_COMM_WORLD, &status);
+        printf("Message received! %e\n", buf[0]);
+      }
     }
   }
 #endif

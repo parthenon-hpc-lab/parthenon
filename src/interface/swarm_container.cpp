@@ -109,6 +109,29 @@ TaskStatus SwarmContainer::SillyUpdate() {
   return TaskStatus::incomplete;
 }
 
+TaskStatus SwarmContainer::Send(BoundaryCommSubset phase) {
+  int success = 0, total = 0;
+  for (auto &s : swarmVector_) {
+    if (s->Send(phase)) {
+      success++;
+    }
+    total++;
+  }
+  if (success == total) return TaskStatus::complete;
+  return TaskStatus::incomplete;
+}
+TaskStatus SwarmContainer::Receive(BoundaryCommSubset phase) {
+  int success = 0, total = 0;
+  for (auto &s : swarmVector_) {
+    if (s->Receive(phase)) {
+      success++;
+    }
+    total++;
+  }
+  if (success == total) return TaskStatus::complete;
+  return TaskStatus::incomplete;
+}
+
 TaskStatus SwarmContainer::FinishCommunication(BoundaryCommSubset phase) {
   int success = 0, total = 0;
   for (auto &s : swarmVector_) {

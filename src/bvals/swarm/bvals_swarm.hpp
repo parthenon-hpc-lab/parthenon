@@ -50,10 +50,13 @@ class BoundarySwarm : public BoundaryCommunication {
   void SetupPersistentMPI() final;
   void StartReceiving(BoundaryCommSubset phase) final;
   void ClearBoundary(BoundaryCommSubset phase) final;
+  void Receive(BoundaryCommSubset phase);
+  void Send(BoundaryCommSubset phase);
 
   BoundaryData<> bd_var_;
   std::weak_ptr<MeshBlock> pmy_block;
   Mesh *pmy_mesh_;
+  int send_tag[56], recv_tag[56];
 
  protected:
    int nl_, nu_;

@@ -151,6 +151,22 @@ class Swarm {
   bool mpiStatus;
   void allocateComms(std::weak_ptr<MeshBlock> wpmb);
 
+  bool Send(BoundaryCommSubset phase) {
+    if (mpiStatus == true) {
+      return true;
+    }
+    vbvar->Send(phase);
+    return false;
+  }
+
+  bool Receive(BoundaryCommSubset phase) {
+    if (mpiStatus == true) {
+      return true;
+    }
+    vbvar->Receive(phase);
+    return false;
+  }
+
   bool StartCommunication(BoundaryCommSubset phase) {
     printf("[%i] Starting comm!\n", Globals::my_rank);
     mpiStatus = false;
@@ -165,6 +181,8 @@ class Swarm {
 
     printf("global_num_incomplete_: %i\n", global_num_incomplete_);
 
+    vbvar->StartReceiving(phase);
+
     return true;
   }
   bool SillyUpdate() {
@@ -172,6 +190,8 @@ class Swarm {
     if (mpiStatus == true) {
       return true;
     }
+
+    //vbvar->Receive();
 
     local_num_completed_ += 1;
 

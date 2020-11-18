@@ -131,6 +131,8 @@ TaskStatus DestroySomeParticles(MeshBlock *pmb) {
 }
 
 TaskStatus DepositParticles(MeshBlock *pmb) {
+  fflush(stdout);
+  MPI_Barrier(MPI_COMM_WORLD);
   auto swarm = pmb->real_containers.GetSwarmContainer()->Get("my particles");
 
   // Meshblock geometry
@@ -346,6 +348,9 @@ TaskList ParticleDriver::MakeTaskList(MeshBlock *pmb, int stage) {
 
   auto silly_update = tl.AddTask(destroy_some_particles, &SwarmContainer::SillyUpdate,
   sc.get());
+
+  auto send = tl.AddTask(destroy_some_particles, &SwarmContainer::Send, sc.get(), BoundaryCommSubset::all);
+  auto receive = tl.AddTask(destroy_some_particles, &SwarmContainer::Receive, sc.get(), BoundaryCommSubset::all);
 
   auto finalize_comm = tl.AddTask(destroy_some_particles, &SwarmContainer::FinishCommunication,
     sc.get(), BoundaryCommSubset::all);
