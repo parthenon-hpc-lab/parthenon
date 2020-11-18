@@ -52,6 +52,11 @@ using parthenon::Real;
 #else
 
 namespace parthenon {
+/**
+ * @brief RAII handles for HDF5. Use the typedefs directly (e.g. `H5A`, `H5D`, etc.)
+ *
+ * @tparam CloseFn - function pointer to destructor for HDF5 object
+ */
 template <herr_t (*CloseFn)(hid_t)>
 class H5Handle {
  public:
