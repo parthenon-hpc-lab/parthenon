@@ -8,7 +8,7 @@ source /projects/parthenon-int/parthenon-project/.bashrc
 function exit_on_error() {
   local error_code=$?
   echo "Error code is $error_code"
-  if [[ $error_code != 0 ]] then
+  if [[ $error_code != 0 ]]; then
     exit 1
   fi
 }
