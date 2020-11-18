@@ -5,6 +5,8 @@ source /etc/bashrc
 source /etc/profile
 source /projects/parthenon-int/parthenon-project/.bashrc
 
+# Exit on error
+set -e
 # Calculate number of available cores
 export J=$(( $(nproc --all) )) && echo Using ${J} cores during build
 
