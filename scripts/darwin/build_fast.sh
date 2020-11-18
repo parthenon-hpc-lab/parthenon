@@ -10,9 +10,6 @@ set -e
 # Calculate number of available cores
 export J=$(( $(nproc --all) )) && echo Using ${J} cores during build
 
-# Ensure the submodules are pulled in
-git submodule update --init --recursive
-
 cmake -S. -Bbuild
 
 cmake --build build

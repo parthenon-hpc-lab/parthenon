@@ -1,5 +1,6 @@
 variables:
   SCHEDULER_PARAMETERS: '--nodes=1 --partition=power9 --export=NONE'
+  GIT_SUBMODULE_STRATEGY: recursive
 
 stages:
   - performance-regression
