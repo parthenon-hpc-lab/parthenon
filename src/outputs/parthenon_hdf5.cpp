@@ -328,7 +328,6 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
 
     // Write mesh coordinates to file
     hsize_t local_start[5], global_count[5], local_count[5];
-    hid_t gLocations;
 
     local_start[0] = 0;
     local_start[1] = 0;
