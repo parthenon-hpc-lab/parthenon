@@ -35,24 +35,24 @@
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
 #include "domain.hpp"
-#include "interface/container.hpp"
-#include "interface/container_collection.hpp"
+#include "interface/data_collection.hpp"
+#include "interface/mesh_data.hpp"
 #include "interface/properties_interface.hpp"
 #include "interface/state_descriptor.hpp"
-#include "interface/update.hpp"
 #include "kokkos_abstraction.hpp"
-#include "mesh/mesh_refinement.hpp"
-#include "mesh/meshblock.hpp"
 #include "mesh/meshblock_pack.hpp"
 #include "mesh/meshblock_tree.hpp"
 #include "outputs/io_wrapper.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
+#include "utils/partition_stl_containers.hpp"
 
 namespace parthenon {
 
 // Forward declarations
 class BoundaryValues;
+class MeshBlock;
+class MeshRefinement;
 class ParameterInput;
 class RestartReader;
 
@@ -83,16 +83,10 @@ class Mesh {
     return nblist[my_rank];
   }
   int GetNumMeshThreads() const { return num_mesh_threads_; }
-  std::int64_t GetTotalCells() {
-    auto &pmb = block_list.front();
-    return static_cast<std::int64_t>(nbtotal) * pmb->block_size.nx1 *
-           pmb->block_size.nx2 * pmb->block_size.nx3;
-  }
+  std::int64_t GetTotalCells();
   // TODO(JMM): Move block_size into mesh.
-  int GetNumberOfMeshBlockCells() const {
-    return block_list.front()->GetNumberOfMeshBlockCells();
-  }
-  const RegionSize &GetBlockSize() const { return block_list.front()->block_size; }
+  int GetNumberOfMeshBlockCells() const;
+  const RegionSize &GetBlockSize() const;
 
   // data
   bool modified;
@@ -110,12 +104,7 @@ class Mesh {
   Properties_t properties;
   Packages_t packages;
 
-  // MeshBlockPacks
-  // TODO(JMM): Should these be private with a getter function?
-  std::map<std::string, std::map<std::string, std::vector<MeshBlockVarPack<Real>>>>
-      real_varpacks;
-  std::map<std::string, std::map<std::string, std::vector<MeshBlockVarFluxPack<Real>>>>
-      real_fluxpacks;
+  DataCollection<MeshData<Real>> mesh_data;
 
   // functions
   void Initialize(int res_flag, ParameterInput *pin, ApplicationInput *app_in);
@@ -123,15 +112,13 @@ class Mesh {
                                  BoundaryFlag *block_bcs);
   void NewTimeStep();
   void OutputCycleDiagnostics();
-  void RegisterMeshBlockPack(const std::string &package, const std::string &name,
-                             const VarPackingFunc<Real> &func);
-  void RegisterMeshBlockPack(const std::string &package, const std::string &name,
-                             const FluxPackingFunc<Real> &func);
-  void BuildMeshBlockPacks();
   void LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin,
                                               ApplicationInput *app_in);
   int DefaultPackSize() {
     return default_pack_size_ < 1 ? block_list.size() : default_pack_size_;
+  }
+  int DefaultNumPartitions() {
+    return partition::partition_impl::IntCeil(block_list.size(), DefaultPackSize());
   }
   // step 7: create new MeshBlock list (same MPI rank but diff level: create new block)
   // Moved here given Cuda/nvcc restriction:
@@ -212,10 +199,6 @@ class Mesh {
   SrcTermFunc UserSourceTerm_;
   TimeStepFunc UserTimeStep_;
   MetricFunc UserMetric_;
-
-  std::map<std::string, std::map<std::string, VarPackingFunc<Real>>> real_varpackers_;
-  std::map<std::string, std::map<std::string, FluxPackingFunc<Real>>> real_fluxpackers_;
-  void RegisterAllMeshBlockPackers(Packages_t &packages);
 
   void OutputMeshStructure(int dim);
   void CalculateLoadBalance(std::vector<double> const &costlist,

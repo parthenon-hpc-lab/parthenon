@@ -19,6 +19,8 @@
 
 #include "outputs/parthenon_hdf5.hpp"
 
+#include "mesh/meshblock.hpp"
+
 #ifdef HDF5OUTPUT
 
 namespace parthenon {
@@ -134,8 +136,8 @@ void PHDF5Output::genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm) {
   int ndims = 5;
 
   // same set of variables for all grids so use only one container
-  auto ciX = ContainerIterator<Real>(pm->block_list.front()->real_containers.Get(),
-                                     output_params.variables);
+  auto ciX = MeshBlockDataIterator<Real>(pm->block_list.front()->meshblock_data.Get(),
+                                         output_params.variables);
   for (int ib = 0; ib < pm->nbtotal; ib++) {
     xdmf << "    <Grid GridType=\"Uniform\" Name=\"" << ib << "\">" << std::endl;
     xdmf << blockTopology;
@@ -296,13 +298,11 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       writeH5ASTRING("Coordinates", std::string(first_block.coords.Name()), localDSpace,
                      myDSet);
 
-      // close scalar space
       hsize_t nPE = Globals::nranks;
       writeH5AI32("BlocksPerPE", nblist.data(),
                   H5S::FromHIDCheck(H5Screate_simple(1, &nPE, NULL)), myDSet);
 
       // open vector space
-      // close data spaces and data set
       // write mesh block size
       int meshblock_size[3] = {nx1, nx2, nx3};
       const hsize_t xDims[1] = {3};
@@ -311,8 +311,8 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     }
 
     // allocate space for largest size variable
-    auto ciX = ContainerIterator<Real>(pm->block_list.front()->real_containers.Get(),
-                                       output_params.variables);
+    auto ciX = MeshBlockDataIterator<Real>(pm->block_list.front()->meshblock_data.Get(),
+                                           output_params.variables);
     size_t maxV = 1;
     hsize_t sumDim4AllVars = 0;
     for (auto &v : ciX.vars) {
@@ -417,8 +417,8 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
 
       hsize_t index = 0;
       for (auto &pmb : pm->block_list) { // for every block1
-        auto ci =
-            ContainerIterator<Real>(pmb->real_containers.Get(), output_params.variables);
+        auto ci = MeshBlockDataIterator<Real>(pmb->meshblock_data.Get(),
+                                              output_params.variables);
         for (auto &v : ci.vars) {
           std::string name = v->label();
           if (name.compare(vWriteName) == 0) {

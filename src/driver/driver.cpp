@@ -17,7 +17,9 @@
 
 #include "driver/driver.hpp"
 
+#include "interface/update.hpp"
 #include "mesh/mesh.hpp"
+#include "mesh/meshblock.hpp"
 #include "outputs/outputs.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_mpi.hpp"
@@ -123,7 +125,7 @@ void EvolutionDriver::PostExecute(DriverStatus status) {
 void EvolutionDriver::InitializeBlockTimeSteps() {
   // calculate the first time step
   for (auto &pmb : pmesh->block_list) {
-    pmb->SetBlockTimestep(Update::EstimateTimestep(pmb->real_containers.Get()));
+    pmb->SetBlockTimestep(Update::EstimateTimestep(pmb->meshblock_data.Get()));
   }
 }
 

@@ -32,7 +32,7 @@ using namespace parthenon;
 namespace advection_example {
 
 void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
-  auto &rc = pmb->real_containers.Get();
+  auto &rc = pmb->meshblock_data.Get();
   auto &q = rc->Get("advected").data;
 
   auto pkg = pmb->packages["advection_package"];
@@ -95,7 +95,7 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
   for (auto &pmb : mesh->block_list) {
     auto pkg = pmb->packages["advection_package"];
 
-    auto rc = pmb->real_containers.Get(); // get base container
+    auto rc = pmb->meshblock_data.Get(); // get base container
     const auto &amp = pkg->Param<Real>("amp");
     const auto &vel = pkg->Param<Real>("vel");
     const auto &k_par = pkg->Param<Real>("k_par");

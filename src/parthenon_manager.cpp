@@ -23,6 +23,7 @@
 #include "globals.hpp"
 #include "interface/update.hpp"
 #include "mesh/domain.hpp"
+#include "mesh/meshblock.hpp"
 #include "outputs/parthenon_hdf5.hpp"
 #include "refinement/refinement.hpp"
 
@@ -219,8 +220,8 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   size_t nCells = bsize[0] * bsize[1] * bsize[2];
 
   // Get list of variables, assumed same for all blocks
-  auto ciX = ContainerIterator<Real>(
-      mb.real_containers.Get(),
+  auto ciX = MeshBlockDataIterator<Real>(
+      mb.meshblock_data.Get(),
       {parthenon::Metadata::Independent, parthenon::Metadata::Restart}, true);
 
   // Allocate space based on largest vector
@@ -246,8 +247,8 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
     size_t index = 0;
     for (auto &pmb : rm.block_list) {
       bool found = false;
-      auto cX = ContainerIterator<Real>(
-          pmb->real_containers.Get(),
+      auto cX = MeshBlockDataIterator<Real>(
+          pmb->meshblock_data.Get(),
           {parthenon::Metadata::Independent, parthenon::Metadata::Restart}, true);
       for (auto &v : cX.vars) {
         if (vName.compare(v->label()) == 0) {

@@ -30,9 +30,9 @@
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
 #include "domain.hpp"
-#include "interface/container.hpp"
-#include "interface/container_collection.hpp"
-#include "interface/update.hpp"
+#include "interface/data_collection.hpp"
+#include "interface/meshblock_data.hpp"
+#include "interface/swarm_container.hpp"
 #include "kokkos_abstraction.hpp"
 #include "outputs/io_wrapper.hpp"
 #include "parameter_input.hpp"
@@ -81,12 +81,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   static std::shared_ptr<MeshBlock>
   Make(int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
        BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin, ApplicationInput *app_in,
-       Properties_t &properties, Packages_t &packages, int igflag, double icost = 1.0) {
-    auto pmb = std::make_shared<MeshBlock>();
-    pmb->Initialize(igid, ilid, iloc, input_block, input_bcs, pm, pin, app_in, properties,
-                    packages, igflag, icost);
-    return pmb;
-  }
+       Properties_t &properties, Packages_t &packages, int igflag, double icost = 1.0);
 
   // Kokkos execution space for this MeshBlock
   DevExecSpace exec_space;
@@ -149,7 +144,8 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   int gflag;
 
   // The User defined containers
-  ContainerCollection<Real> real_containers;
+  DataCollection<MeshBlockData<Real>> meshblock_data;
+  DataCollection<SwarmContainer> swarm_data;
 
   Properties_t properties;
   Packages_t packages;
@@ -184,6 +180,16 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   template <class... Args>
   inline void par_reduce(Args &&... args) {
     par_dispatch_(std::forward<Args>(args)...);
+  }
+
+  // 5D default loop pattern
+  template <typename Function>
+  inline void par_for(const std::string &name, const int &bl, const int &bu,
+                      const int &nl, const int &nu, const int &kl, const int &ku,
+                      const int &jl, const int &ju, const int &il, const int &iu,
+                      const Function &function) {
+    parthenon::par_for(DEFAULT_LOOP_PATTERN, name, exec_space, bl, bu, nl, nu, kl, ku, jl,
+                       ju, il, iu, function);
   }
 
   // 1D Outer default loop pattern
@@ -330,6 +336,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   void StartTimeMeasurement();
   void StopTimeMeasurement();
 };
+
 using BlockList_t = std::vector<std::shared_ptr<MeshBlock>>;
 
 } // namespace parthenon

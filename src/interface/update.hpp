@@ -14,31 +14,41 @@
 #define INTERFACE_UPDATE_HPP_
 
 #include <memory>
+#include <string>
+#include <vector>
 
 #include "defs.hpp"
-#include "interface/container.hpp"
+#include "interface/mesh_data.hpp"
+#include "interface/meshblock_data.hpp"
 #include "mesh/mesh.hpp"
+
+#include "kokkos_abstraction.hpp"
 
 namespace parthenon {
 
 namespace Update {
 
-TaskStatus FluxDivergence(std::shared_ptr<Container<Real>> &in,
-                          std::shared_ptr<Container<Real>> &dudt_cont);
-void UpdateContainer(std::shared_ptr<Container<Real>> &in,
-                     std::shared_ptr<Container<Real>> &dudt_cont, const Real dt,
-                     std::shared_ptr<Container<Real>> &out);
-void AverageContainers(std::shared_ptr<Container<Real>> &c1,
-                       std::shared_ptr<Container<Real>> &c2, const Real wgt1);
-Real EstimateTimestep(std::shared_ptr<Container<Real>> &rc);
+TaskStatus FluxDivergenceBlock(std::shared_ptr<MeshBlockData<Real>> &in,
+                               std::shared_ptr<MeshBlockData<Real>> &dudt_cont);
+TaskStatus FluxDivergenceMesh(std::shared_ptr<MeshData<Real>> &in_pack,
+                              std::shared_ptr<MeshData<Real>> &dudt_pack);
+void UpdateMeshBlockData(std::shared_ptr<MeshBlockData<Real>> &in,
+                         std::shared_ptr<MeshBlockData<Real>> &dudt_cont, const Real dt,
+                         std::shared_ptr<MeshBlockData<Real>> &out);
+void UpdateMeshData(std::shared_ptr<MeshData<Real>> &in,
+                    std::shared_ptr<MeshData<Real>> &dudt, const Real dt,
+                    std::shared_ptr<MeshData<Real>> &out);
+void AverageMeshData(std::shared_ptr<MeshData<Real>> &c1_pack,
+                     std::shared_ptr<MeshData<Real>> &c2_pack, const Real wgt1);
+Real EstimateTimestep(std::shared_ptr<MeshBlockData<Real>> &rc);
 
 } // namespace Update
 
 namespace FillDerivedVariables {
 
-using FillDerivedFunc = void(std::shared_ptr<Container<Real>> &);
+using FillDerivedFunc = void(std::shared_ptr<MeshBlockData<Real>> &);
 void SetFillDerivedFunctions(FillDerivedFunc *pre, FillDerivedFunc *post);
-TaskStatus FillDerived(std::shared_ptr<Container<Real>> &rc);
+TaskStatus FillDerived(std::shared_ptr<MeshBlockData<Real>> &rc);
 
 } // namespace FillDerivedVariables
 

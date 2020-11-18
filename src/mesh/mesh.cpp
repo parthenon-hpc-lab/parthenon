@@ -39,8 +39,10 @@
 #include "defs.hpp"
 #include "globals.hpp"
 #include "interface/state_descriptor.hpp"
+#include "interface/update.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
+#include "mesh/meshblock.hpp"
 #include "mesh/meshblock_tree.hpp"
 #include "outputs/restart.hpp"
 #include "parameter_input.hpp"
@@ -247,7 +249,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properti
     MeshGenerator_[X3DIR] = DefaultMeshGeneratorX3;
   }
   default_pack_size_ = pin->GetOrAddReal("parthenon/mesh", "pack_size", -1);
-  RegisterAllMeshBlockPackers(packages);
 
   // calculate the logical root level and maximum level
   for (root_level = 0; (1 << root_level) < nbmax; root_level++) {
@@ -472,6 +473,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properti
     return;
   }
 
+  mesh_data.SetMeshPointer(this);
+
   // create MeshBlock list for this process
   int nbs = nslist[Globals::my_rank];
   int nbe = nbs + nblist[Globals::my_rank] - 1;
@@ -485,8 +488,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properti
                                           this, pin, app_in, properties, packages, gflag);
     block_list[i - nbs]->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
   }
-
-  BuildMeshBlockPacks();
 
   ResetLoadBalanceVariables();
 }
@@ -624,7 +625,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
     MeshGenerator_[X3DIR] = DefaultMeshGeneratorX3;
   }
   default_pack_size_ = pin->GetOrAddReal("parthenon/mesh", "pack_size", -1);
-  RegisterAllMeshBlockPackers(packages);
 
   // Load balancing flag and parameters
 #ifdef MPI_PARALLEL
@@ -732,6 +732,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   // read in xmin from file
   auto xmin = rr.ReadDataset<double>("/Blocks/xmin");
 
+  mesh_data.SetMeshPointer(this);
+
   // Create MeshBlocks (parallel)
   block_list.clear();
   block_list.resize(nbe - nbs + 1);
@@ -747,8 +749,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
                         properties, packages, gflag, costlist[i]);
     block_list[i - nbs]->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
   }
-
-  BuildMeshBlockPacks();
 
   ResetLoadBalanceVariables();
 }
@@ -908,79 +908,6 @@ void Mesh::OutputMeshStructure(int ndim) {
 }
 
 //----------------------------------------------------------------------------------------
-// MeshBlockPack caching
-
-void Mesh::RegisterMeshBlockPack(const std::string &package, const std::string &name,
-                                 const VarPackingFunc<Real> &func) {
-  real_varpackers_[package][name] = func;
-}
-void Mesh::RegisterMeshBlockPack(const std::string &package, const std::string &name,
-                                 const FluxPackingFunc<Real> &func) {
-  real_fluxpackers_[package][name] = func;
-}
-void Mesh::BuildMeshBlockPacks() {
-  // JMM: I want C++17 structured bindings...
-  for (auto &outer : real_varpackers_) {
-    auto &package = outer.first;
-    auto &packers = outer.second;
-    for (auto &pair : packers) {
-      auto &name = pair.first;
-      auto &func = pair.second;
-      // avoid unnecessary copies
-      real_varpacks[package][name] = func(this);
-    }
-  }
-  for (auto &outer : real_fluxpackers_) {
-    auto &package = outer.first;
-    auto &packers = outer.second;
-    for (auto &pair : packers) {
-      auto &name = pair.first;
-      auto &func = pair.second;
-      real_fluxpacks[package][name] = func(this);
-    }
-  }
-}
-void Mesh::RegisterAllMeshBlockPackers(Packages_t &packages) {
-  // Register packs everyone will use like this
-  // Add more as needed
-  bool register_pack = true;
-  std::vector<MetadataFlag> metadata = {Metadata::FillGhost};
-  for (auto &pair : packages) {
-    auto &package = pair.second;
-    register_pack = register_pack && package->FlagsPresent(metadata);
-  }
-  if (register_pack) {
-    RegisterMeshBlockPack("default", "fill_ghost", [metadata](Mesh *pmesh) {
-      std::vector<MeshBlockVarPack<Real>> packs;
-      auto partitions = partition::ToSizeN(pmesh->block_list, pmesh->DefaultPackSize());
-      packs.resize(partitions.size());
-      for (int i = 0; i < partitions.size(); i++) {
-        packs[i] = PackVariablesOnMesh(partitions[i], "base", metadata);
-      }
-      return packs;
-    });
-  }
-
-  // Register package specific packs
-  for (auto &outer : packages) {
-    auto &package_name = outer.first;
-    auto &package = outer.second;
-    auto varpackers = package->AllMeshBlockVarPackers();
-    auto fluxpackers = package->AllMeshBlockFluxPackers();
-    for (auto &pair : varpackers) {
-      auto &packer_name = pair.first;
-      auto &packer_func = pair.second;
-      RegisterMeshBlockPack(package_name, packer_name, packer_func);
-    }
-    for (auto &pair : fluxpackers) {
-      auto &packer_name = pair.first;
-      auto &packer_func = pair.second;
-      RegisterMeshBlockPack(package_name, packer_name, packer_func);
-    }
-  }
-}
-
-//----------------------------------------------------------------------------------------
 //! \fn void Mesh::EnrollUserBoundaryFunction(BoundaryFace dir, BValFunc my_bc)
 //  \brief Enroll a user-defined boundary function
 
@@ -1103,7 +1030,7 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin, ApplicationInput *app_i
       auto &pmb = block_list[i];
       // BoundaryVariable objects evolved in main TimeIntegratorTaskList:
       pmb->pbval->SetupPersistentMPI();
-      pmb->real_containers.Get()->SetupPersistentMPI();
+      pmb->meshblock_data.Get()->SetupPersistentMPI();
     }
     call++; // 1
 
@@ -1112,27 +1039,26 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin, ApplicationInput *app_i
       // prepare to receive conserved variables
 #pragma omp for
       for (int i = 0; i < nmb; ++i) {
-        block_list[i]->real_containers.Get()->StartReceiving(
+        block_list[i]->meshblock_data.Get()->StartReceiving(
             BoundaryCommSubset::mesh_init);
       }
       call++; // 2
               // send conserved variables
 #pragma omp for
       for (int i = 0; i < nmb; ++i) {
-        block_list[i]->real_containers.Get()->SendBoundaryBuffers();
+        block_list[i]->meshblock_data.Get()->SendBoundaryBuffers();
       }
       call++; // 3
 
       // wait to receive conserved variables
 #pragma omp for
       for (int i = 0; i < nmb; ++i) {
-        block_list[i]->real_containers.Get()->ReceiveAndSetBoundariesWithWait();
+        block_list[i]->meshblock_data.Get()->ReceiveAndSetBoundariesWithWait();
       }
       call++; // 4
 #pragma omp for
       for (int i = 0; i < nmb; ++i) {
-        block_list[i]->real_containers.Get()->ClearBoundary(
-            BoundaryCommSubset::mesh_init);
+        block_list[i]->meshblock_data.Get()->ClearBoundary(BoundaryCommSubset::mesh_init);
       }
       call++;
       // Now do prolongation, compute primitives, apply BCs
@@ -1157,8 +1083,8 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin, ApplicationInput *app_i
         //          if (pbval->nblevel[2][1][1] != -1) ku += NGHOST;
         //        }
 
-        ApplyBoundaryConditions(pmb->real_containers.Get());
-        FillDerivedVariables::FillDerived(pmb->real_containers.Get());
+        ApplyBoundaryConditions(pmb->meshblock_data.Get());
+        FillDerivedVariables::FillDerived(pmb->meshblock_data.Get());
       }
 
       if (!res_flag && adaptive) {
@@ -1321,5 +1247,16 @@ int Mesh::ReserveTagPhysIDs(int num_phys) {
 // TODO(felker): deduplicate this logic, which combines conditionals in MeshBlock ctor
 
 void Mesh::ReserveMeshBlockPhysIDs() { return; }
+
+std::int64_t Mesh::GetTotalCells() {
+  auto &pmb = block_list.front();
+  return static_cast<std::int64_t>(nbtotal) * pmb->block_size.nx1 * pmb->block_size.nx2 *
+         pmb->block_size.nx3;
+}
+// TODO(JMM): Move block_size into mesh.
+int Mesh::GetNumberOfMeshBlockCells() const {
+  return block_list.front()->GetNumberOfMeshBlockCells();
+}
+const RegionSize &Mesh::GetBlockSize() const { return block_list.front()->block_size; }
 
 } // namespace parthenon

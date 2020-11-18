@@ -36,7 +36,7 @@ class PiDriver : public Driver {
   // but each driver is expected to implement at least one of them.
   /// TaskList MakeTaskList(MeshBlock *pmb);
   template <typename T>
-  TaskCollection MakeTasks(T &blocks);
+  TaskCollection MakeTaskCollection(T &blocks);
 
   /// `Execute` cylces until simulation completion.
   DriverStatus Execute() override;
