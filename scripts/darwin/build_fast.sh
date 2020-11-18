@@ -11,18 +11,20 @@ function exit_on_error() {
     exit 1
   fi
 }
+
+set -e
 # Calculate number of available cores
 export J=$(( $(nproc --all) )) && echo Using ${J} cores during build
 
 cmake -S. -Bbuild
-exit_on_error
+#exit_on_error
 
 cmake --build build
-exit_on_error
+#exit_on_error
 
 cd build
 
 ctest 
-exit_on_error
+#exit_on_error
 
 exit 0
