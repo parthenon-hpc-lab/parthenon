@@ -39,7 +39,7 @@ RestartReader::RestartReader(const char *filename) : filename_(filename) {
   PARTHENON_FAIL(msg);
 #else
   // Open the HDF file in read only mode
-  fh_ = H5Fopen(filename, H5F_ACC_RDONLY, H5P_DEFAULT);
+  fh_ = H5F::FromHIDCheck(H5Fopen(filename, H5F_ACC_RDONLY, H5P_DEFAULT));
 
   // populate block size from the file
   std::vector<int32_t> blockSize = ReadAttr1DI32("Mesh", "blockSize");
@@ -76,8 +76,8 @@ std::string RestartReader::ReadAttrString(const char *dataset, const char *name,
   // Read data from file
   //  H5Aread(attr, theHdfType, static_cast<void *>(s));
   H5T const memType = H5T::FromHIDCheck(H5Tcopy(H5T_C_S1));
-  H5Tset_size(memType, isize);
-  H5Aread(attr, memType, s.data());
+  PARTHENON_HDF5_CHECK(H5Tset_size(memType, isize));
+  PARTHENON_HDF5_CHECK(H5Aread(attr, memType, s.data()));
 
   return std::string(s.data());
 #else

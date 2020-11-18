@@ -61,13 +61,14 @@
 
 #ifdef HDF5OUTPUT
 #define PARTHENON_HDF5_CHECK(expr)                                                       \
-  do {                                                                                   \
-    herr_t parthenon_hdf5_check_err = (expr);                                            \
+  ([&]() -> herr_t {                                                                     \
+    herr_t const parthenon_hdf5_check_err = (expr);                                      \
     if (parthenon_hdf5_check_err < 0) {                                                  \
       ::parthenon::ErrorChecking::fail_throws_hdf5(parthenon_hdf5_check_err, #expr,      \
                                                    __FILE__, __LINE__);                  \
     }                                                                                    \
-  } while (false)
+    return parthenon_hdf5_check_err;                                                     \
+  })()
 #endif
 
 #define PARTHENON_WARN(message)                                                          \
