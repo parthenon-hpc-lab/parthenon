@@ -263,6 +263,8 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     /* tell the HDF5 library that we want to use MPI-IO to do the writing */
     PARTHENON_HDF5_CHECK(H5Pset_fapl_mpio(acc_file, MPI_COMM_WORLD, FILE_INFO_TEMPLATE));
     PARTHENON_HDF5_CHECK(H5Pset_fapl_mpio(acc_file, MPI_COMM_WORLD, MPI_INFO_NULL));
+#else
+    hid_t const acc_file = H5P_DEFAULT;
 #endif
 
     // now open the file
