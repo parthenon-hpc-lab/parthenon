@@ -11,7 +11,7 @@ set -e
 export J=$(( $(nproc --all) )) && echo Using ${J} cores during build
 
 # Ensure the submodules are pulled in
-git submodule update --init
+git submodule update --init --recursive
 
 cmake -S. -Bbuild
 
