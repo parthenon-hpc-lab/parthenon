@@ -191,23 +191,17 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   inline void par_for_outer(const std::string &name, const size_t &scratch_size_in_bytes,
                             const int &scratch_level, const int &kl, const int &ku,
                             const Function &function) {
-    parthenon::par_for_outer(
-        DEFAULT_OUTER_LOOP_PATTERN, name, exec_space, scratch_size_in_bytes,
-        scratch_level, kl, ku, KOKKOS_LAMBDA(parthenon::team_mbr_t const &member, int k) {
-          return function(member, k);
-        });
+    parthenon::par_for_outer(DEFAULT_OUTER_LOOP_PATTERN, name, exec_space,
+                             scratch_size_in_bytes, scratch_level, kl, ku, function);
   }
   // 2D Outer default loop pattern
   template <typename Function>
   inline void par_for_outer(const std::string &name, const size_t &scratch_size_in_bytes,
                             const int &scratch_level, const int &kl, const int &ku,
                             const int &jl, const int &ju, const Function &function) {
-    parthenon::par_for_outer(
-        DEFAULT_OUTER_LOOP_PATTERN, name, exec_space, scratch_size_in_bytes,
-        scratch_level, kl, ku, jl, ju,
-        KOKKOS_LAMBDA(parthenon::team_mbr_t const &member, int k, int j) {
-          return function(member, k, j);
-        });
+    parthenon::par_for_outer(DEFAULT_OUTER_LOOP_PATTERN, name, exec_space,
+                             scratch_size_in_bytes, scratch_level, kl, ku, jl, ju,
+                             function);
   }
 
   // 3D Outer default loop pattern
