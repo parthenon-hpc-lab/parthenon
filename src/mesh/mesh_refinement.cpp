@@ -80,8 +80,6 @@ void MeshRefinement::RestrictCellCenteredValues(const ParArrayND<Real> &fine,
   const IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
   const IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
 
-  int si = (csi - cib.s) * 2 + ib.s;
-  int ei = (cei - cib.s) * 2 + ib.s + 1;
   // store the restricted data in the prolongation buffer for later use
   if (pmb->block_size.nx3 > 1) { // 3D
     pmb->par_for(
@@ -111,7 +109,7 @@ void MeshRefinement::RestrictCellCenteredValues(const ParArrayND<Real> &fine,
               tvol;
         });
   } else if (pmb->block_size.nx2 > 1) { // 2D
-    int k = kb.s, ck = ckb.s;
+    int k = kb.s;
     pmb->par_for(
         "RestrictCellCenteredValues2d", sn, en, csj, cej, csi, cei,
         KOKKOS_LAMBDA(const int n, const int cj, const int ci) {

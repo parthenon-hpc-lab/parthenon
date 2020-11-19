@@ -209,7 +209,7 @@ if (DARWIN_COMPILER MATCHES "GCC")
 
         set(DARWIN_CXX_COMPILER ${GCC_PREFIX}/bin/g++)
         if (DARWIN_CUDA)
-            set(CMAKE_CXX_FLAGS "-ccbin ${DARWIN_CXX_COMPILER}")
+            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ccbin ${DARWIN_CXX_COMPILER}")
         else()
             set(CMAKE_CXX_COMPILER ${DARWIN_CXX_COMPILER}
             CACHE STRING "gcc ${GCC_VERSION}")

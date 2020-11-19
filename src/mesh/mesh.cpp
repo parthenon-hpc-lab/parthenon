@@ -543,7 +543,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
       UserSourceTerm_{}, UserTimeStep_{} {
   std::stringstream msg;
   RegionSize block_size;
-  MeshBlock *pfirst{};
   BoundaryFlag block_bcs[6];
 
   // mesh test
