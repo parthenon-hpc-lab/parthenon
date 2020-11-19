@@ -10,6 +10,7 @@
 
 ### Fixed (not changing behavior/API/variables/...)
 - [[PR 353]](https://github.com/lanl/parthenon/pull/353) Fixed small error in input\_parameter logic
+- [[PR 352]](https://github.com/lanl/parthenon/pull/352) Code compiles cleanly (no warnings) with nvcc_wrapper
 
 ### Infrastructure (changes irrelevant to downstream codes)
 - [[PR 335]](https://github.com/lanl/parthenon/pull/335) New machine configuration file for LANL's Darwin cluster
