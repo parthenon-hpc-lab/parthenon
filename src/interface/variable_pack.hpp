@@ -24,6 +24,7 @@
 #include <Kokkos_Core.hpp>
 
 #include "interface/metadata.hpp"
+#include "utils/kokkos.hpp"
 
 namespace parthenon {
 
@@ -66,7 +67,7 @@ using ViewOfParArrays = ParArray1D<ParArray3D<T>>;
 // Try to keep these Variable*Pack classes as lightweight as possible.
 // They go to the device.
 template <typename T>
-class VariablePack {
+class VariablePack : private KokkosDisableDeviceCopy {
  public:
   VariablePack() = default;
   VariablePack(const ViewOfParArrays<T> view, const ParArray1D<int> sparse_ids,

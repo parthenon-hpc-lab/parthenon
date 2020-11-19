@@ -26,6 +26,7 @@
 #include "kokkos_abstraction.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/meshblock.hpp" // TODO(JMM): Replace with forward declaration?
+#include "utils/kokkos.hpp"
 
 namespace parthenon {
 
@@ -36,7 +37,7 @@ class Mesh;
 // TODO(JMM): Using one IndexShape because its the same for all
 // meshblocks. This needs careful thought before sticking with it.
 template <typename T>
-class MeshBlockPack {
+class MeshBlockPack : private KokkosDisableDeviceCopy {
  public:
   MeshBlockPack() = default;
   MeshBlockPack(const ParArray1D<T> view, const IndexShape shape,
