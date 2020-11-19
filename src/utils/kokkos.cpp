@@ -27,9 +27,8 @@
 using namespace parthenon;
 
 KOKKOS_IMPL_HOST_FUNCTION
-KokkosDisableDeviceCopy::KokkosDisableDeviceCopy(KokkosDisableDeviceCopy const &) {}
+KokkosDisableDeviceCopy::KokkosDisableDeviceCopy(KokkosDisableDeviceCopy const &) =
+    default;
 
 KOKKOS_IMPL_HOST_FUNCTION KokkosDisableDeviceCopy &KokkosDisableDeviceCopy::
-operator=(KokkosDisableDeviceCopy const &) {
-  return *this;
-}
+operator=(KokkosDisableDeviceCopy const &) = default;
