@@ -58,12 +58,11 @@ class IndexShape {
   std::array<IndexRange, NDIM> x_;
   std::array<int, NDIM> entire_ncells_;
 
-  KOKKOS_INLINE_FUNCTION bool DimensionProvided_(const std::vector<int> &interior_dims,
-                                                 int dim) {
+  bool DimensionProvided_(const std::vector<int> &interior_dims, int dim) {
     return dim <= interior_dims.size();
   }
 
-  KOKKOS_INLINE_FUNCTION void MakeZeroDimensional_(int index) {
+  void MakeZeroDimensional_(int const index) {
     x_[index] = IndexRange{0, 0};
     entire_ncells_[index] = 1;
   }
