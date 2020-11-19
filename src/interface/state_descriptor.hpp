@@ -31,42 +31,13 @@ namespace magic {
 constexpr char app_input[] = "A Parthenon package, provided by default in a Packages_t "
                              "object, in which special functions can be registered to "
                              "allow downstream applications to specialize functionality";
-constexpr char pre_fill_derived_block[] = "Functions associated with this name operate "
-                                          "on std::shared_ptr<MeshBlockData<Real>> & "
-                                          "objects to fill in derived fields. This is "
-                                          "called before the package specific functions "
-                                          "to fill derived fields.";
-constexpr char post_fill_derived_block[] = "Same as pre_fill_derived_block, but is "
-                                           "called after the package functions.";
-constexpr char pre_fill_derived_mesh[] = "Same as pre_fill_derived_block, but operates "
-                                         "on a std::shared_ptr<MeshData<Real>> &.";
-constexpr char post_fill_derived_mesh[] = "Same as pre_fill_derived_mesh, but is called "
-                                          "after the package specific functions.";
-constexpr char fill_derived_block[] = "Package specific function to fill in derived "
-                                      "variables associated with a "
-                                      "std::shared_ptr<MeshBlockData<Real>> &";
-constexpr char fill_derived_mesh[] = "Same as fill_derived_block, but operates on a "
-                                     "std::shared_ptr<MeshData<Real>> &";
-constexpr char check_refinement[] = "Package specific function to tag blocks for "
-                                    "changes in refinement.Operates on a "
-                                    "std::shared_ptr<MeshBlockData<Real>> &";
-constexpr char estimate_dt_block[] = "Package specific function that should return an "
-                                     "appropriately limited time step based on the "
-                                     "methods in the package and data in a "
-                                     "std::shared_ptr<MeshBlockData<Real>> & ";
-constexpr char estimate_dt_mesh[] = "Same as estimate_dt_block, but for data in the "
-                                    "input std::shared_ptr<MeshData<Real>> &";
 } // namespace magic
 
 // Forward declarations
 template <typename T>
 class MeshBlockData;
 template <typename T>
-class VariablePack;
-template <typename T>
-class VariableFluxPack;
-template <typename T>
-class MeshBlockPack;
+class MeshData;
 
 enum class DerivedOwnership { shared, unique };
 
@@ -81,9 +52,15 @@ class StateDescriptor {
 
   // Preferred constructor
   explicit StateDescriptor(std::string label) : label_(label) {
-    FillDerived = nullptr;
-    EstimateTimestep = nullptr;
-    CheckRefinement = nullptr;
+    PostFillDerivedBlock = nullptr;
+    PostFillDerivedMesh = nullptr;
+    PreFillDerivedBlock = nullptr;
+    PreFillDerivedMesh = nullptr;
+    FillDerivedBlock = nullptr;
+    FillDerivedMesh = nullptr;
+    EstimateTimestepBlock = nullptr;
+    EstimateTimestepMesh = nullptr;
+    CheckRefinementBlock = nullptr;
   }
 
   template <typename T>
@@ -223,10 +200,51 @@ class StateDescriptor {
     return false;
   }
 
+
+  void PreFillDerived(std::shared_ptr<MeshBlockData<Real>> &rc) {
+    if (PreFillDerivedBlock != NULL) PreFillDerivedBlock(rc);
+  }
+  void PreFillDerived(std::shared_ptr<MeshData<Real>> &rc) {
+    if (PreFillDerivedMesh != NULL) PreFillDerivedMesh(rc);
+  }
+  void PostFillDerived(std::shared_ptr<MeshBlockData<Real>> &rc) {
+    if (PostFillDerivedBlock != NULL) PostFillDerivedBlock(rc);
+  }
+  void PostFillDerived(std::shared_ptr<MeshData<Real>> &rc) {
+    if (PostFillDerivedMesh != NULL) PostFillDerivedMesh(rc);
+  }
+  void FillDerived(std::shared_ptr<MeshBlockData<Real>> &rc) {
+    if (FillDerivedBlock != NULL) FillDerivedBlock(rc);
+  }
+  void FillDerived(std::shared_ptr<MeshData<Real>> &rc) {
+    if (FillDerivedMesh != NULL) FillDerivedMesh(rc);
+  }
+
+  Real EstimateTimestep(std::shared_ptr<MeshBlockData<Real>> &rc) {
+    if (EstimateTimestepBlock != NULL) return EstimateTimestepBlock(rc);
+    return std::numeric_limits<Real>::max();
+  }
+  Real EstimateTimestep(std::shared_ptr<MeshData<Real>> &rc) {
+    if (EstimateTimestepMesh != NULL) return EstimateTimestepMesh(rc);
+    return std::numeric_limits<Real>::max();
+  }
+
+  AmrTag CheckRefinement(std::shared_ptr<MeshBlockData<Real>> &rc) {
+    if (CheckRefinementBlock != NULL) return CheckRefinementBlock(rc);
+    return AmrTag::derefine;
+  }
+
+
   std::vector<std::shared_ptr<AMRCriteria>> amr_criteria;
-  void (*FillDerived)(std::shared_ptr<MeshBlockData<Real>> &rc);
-  Real (*EstimateTimestep)(std::shared_ptr<MeshBlockData<Real>> &rc);
-  AmrTag (*CheckRefinement)(std::shared_ptr<MeshBlockData<Real>> &rc);
+  void (*PreFillDerivedBlock)(std::shared_ptr<MeshBlockData<Real>> &rc);
+  void (*PreFillDerivedMesh)(std::shared_ptr<MeshData<Real>> &rc);
+  void (*PostFillDerivedBlock)(std::shared_ptr<MeshBlockData<Real>> &rc);
+  void (*PostFillDerivedMesh)(std::shared_ptr<MeshData<Real>> &rc);
+  void (*FillDerivedBlock)(std::shared_ptr<MeshBlockData<Real>> &rc);
+  void (*FillDerivedMesh)(std::shared_ptr<MeshData<Real>> &rc);
+  Real (*EstimateTimestepBlock)(std::shared_ptr<MeshBlockData<Real>> &rc);
+  Real (*EstimateTimestepMesh)(std::shared_ptr<MeshData<Real>> &rc);
+  AmrTag (*CheckRefinementBlock)(std::shared_ptr<MeshBlockData<Real>> &rc);
 
  private:
   Params params_;

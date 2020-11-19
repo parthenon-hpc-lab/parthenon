@@ -211,8 +211,8 @@ Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   packages[pkg->label()] = pkg;
 
   auto &app = packages[magic::app_input];
-  app->AddParam(magic::pre_fill_derived_block, advection_package::PreFill);
-  app->AddParam(magic::post_fill_derived_block, advection_package::PostFill);
+  app->PreFillDerivedBlock = advection_package::PreFill;
+  app->PostFillDerivedBlock = advection_package::PostFill;
 
   return packages;
 }

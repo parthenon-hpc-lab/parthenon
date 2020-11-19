@@ -67,60 +67,30 @@ void AverageIndependentData(T &c1, T &c2, const Real wgt1) {
 }
 
 template <typename T>
-bool IsBlock(std::shared_ptr<T> &rc) {
-  std::string mytype = typeid(rc).name();
-  return (mytype.find("MeshBlockData") != std::string::npos);
-}
-
-template <typename T>
-using TimeStepFuncType = Real(std::shared_ptr<T> &);
-
-template <typename T>
 TaskStatus EstimateTimestep(std::shared_ptr<T> &rc) {
-  using Tstep_t = TimeStepFuncType<T>;
   using Desc_t = std::shared_ptr<StateDescriptor>;
-  auto pm = rc->GetGridPointer();
   Real dt_min = std::numeric_limits<Real>::max();
-  std::string fname = (IsBlock(rc) ? magic::estimate_dt_block : magic::estimate_dt_mesh);
+  auto pm = rc->GetGridPointer();
   for (const std::pair<std::string, Desc_t> &pkg : pm->packages) {
-    auto &p = pkg.second->AllParams();
-    if (p.hasKey(fname)) {
-      Real dt = p.Get<Tstep_t *>(fname)(rc);
-      dt_min = std::min(dt_min, dt);
-    }
+    Real dt = pkg.second->EstimateTimestep(rc);
+    dt_min = std::min(dt_min, dt);
   }
   pm->SetAllowedDt(dt_min);
   return TaskStatus::complete;
 }
 
 template <typename T>
-using DeriveFuncType = void(std::shared_ptr<T> &);
-
-template <typename T>
 TaskStatus FillDerived(std::shared_ptr<T> &rc) {
-  using DeriveFunc_t = DeriveFuncType<T>;
   using Desc_t = std::shared_ptr<StateDescriptor>;
-  Desc_t &app_pkg = rc->GetGridPointer()->packages[magic::app_input];
-  auto is_block = IsBlock(rc);
-  std::string pre_name =
-      (is_block ? magic::pre_fill_derived_block : magic::pre_fill_derived_mesh);
-  std::string post_name =
-      (is_block ? magic::post_fill_derived_block : magic::post_fill_derived_mesh);
-  std::string name = (is_block ? magic::fill_derived_block : magic::fill_derived_mesh);
-  auto &params = app_pkg->AllParams();
-  if (params.hasKey(pre_name)) {
-    params.Get<DeriveFunc_t *>(pre_name)(rc);
+  auto pm = rc->GetGridPointer();
+  for (const std::pair<std::string, Desc_t> &pkg : pm->packages) {
+    pkg.second->PreFillDerived(rc);
   }
-  auto gp = rc->GetGridPointer();
-  // type deduction fails if auto is used below
-  for (const std::pair<std::string, Desc_t> &pkg : gp->packages) {
-    auto &p = pkg.second->AllParams();
-    if (p.hasKey(name)) {
-      p.Get<DeriveFunc_t *>(name)(rc);
-    }
+  for (const std::pair<std::string, Desc_t> &pkg : pm->packages) {
+    pkg.second->FillDerived(rc);
   }
-  if (params.hasKey(post_name)) {
-    params.Get<DeriveFunc_t *>(post_name)(rc);
+  for (const std::pair<std::string, Desc_t> &pkg : pm->packages) {
+    pkg.second->PostFillDerived(rc);
   }
   return TaskStatus::complete;
 }

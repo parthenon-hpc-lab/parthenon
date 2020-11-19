@@ -72,11 +72,11 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   package->AddField(field_name, m, DerivedOwnership::unique);
 
   // All the package FillDerived and CheckRefinement functions are called by parthenon
-  params.Add(parthenon::magic::fill_derived_block, SetInOrOut);
+  package->FillDerivedBlock = SetInOrOut;
   // could use package specific refinement tagging routine (see advection example), but
   // instead this example will make use of the parthenon shipped first derivative
   // criteria, as invoked in the input file
-  // package->CheckRefinement = CheckRefinement;
+  // package->CheckRefinementBlock = CheckRefinement;
 
   return package;
 }
