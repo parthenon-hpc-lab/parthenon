@@ -13,11 +13,13 @@ The ```StateDescriptor``` class is intended to be used to inform Parthenon about
 Provides the means to add new variables to a Parthenon-based application with associated ```Metadata```.  This function does not allocate any storage or create any of the objects below, it simply adds the name and ```Metadata``` to a list so that those objects can be populated at the appropriate time.
 * ```void AddParam<T>(const std::string& key, T& value)``` adds a parameter (e.g. a timestep control coefficient, refinement tolerance, etc.) with name ```key``` and value ```value```.
 * ```const T& Param(const std::string& key)``` provides the getter to access parameters previously added by ```AddParam```.
-* ```void (*FillDerived)(MeshBlockData<Real>& rc)``` is a function pointer (defaults to ```nullptr``` and therefore a no-op) that allows an application to provide a function that fills in derived quantities from independent state.
-* ```Real (*EstimateTimestep)(MeshBlockData<Real>& rc)``` is a function pointer (defaults to ```nullptr``` and therefore a no-op) that allows an application to provide a means of computing stable/accurate timesteps.
-* ```AmrTag (*CheckRefinement)(MeshBlockData<Real>& rc)``` is a function pointer (defaults to ```nullptr``` and therefore a no-op) that allows an application to define an application-specific refinement/de-refinement tagging function. 
+* ```void (*FillDerivedBlock)(std::shared_ptr<MeshBlockData<Real>>& rc)``` is a function pointer (defaults to ```nullptr``` and therefore a no-op) that allows an application to provide a function that fills in derived quantities from independent state.
+* ```void (*FillDerivedMesh)(std::shared_ptr<MeshData<Real>>& rc)``` is identical to the previous function but operates on a `MeshData<Real>` object.
+* ```Real (*EstimateTimestepBlock)(std::shared_ptr<MeshBlockData<Real>>& rc)``` is a function pointer (defaults to ```nullptr``` and therefore a no-op) that allows an application to provide a means of computing stable/accurate timesteps.
+* ```Real (*EstimateTimestepMesh)(std::shared_ptr<MeshData<Real>>& rc)``` is identical to the previous function but operates on a `MeshData<Real>` object.
+* ```AmrTag (*CheckRefinement)(std::shared_ptr<MeshBlockData<Real>>& rc)``` is a function pointer (defaults to ```nullptr``` and therefore a no-op) that allows an application to define an application-specific refinement/de-refinement tagging function. 
 
-In Parthenon, each ```MeshBlock``` owns a ```Packages_t``` object, which is a ```std::map<std::string, std::shared_ptr<StateDescriptor>>```.  The object is intended to be populated with a ```StateDescriptor``` object per package via an ```Initialize``` function as in the advection example [here](../example/advection/advection.cpp).  When Parthenon makes use of the ```Packages_t``` object, it iterates over all entries in the ```std::map```.
+In Parthenon, each ```Mesh``` and ```MeshBlock``` owns a ```Packages_t``` object, which is a ```std::map<std::string, std::shared_ptr<StateDescriptor>>```.  The object is intended to be populated with a ```StateDescriptor``` object per package via an ```Initialize``` function as in the advection example [here](../example/advection/advection.cpp).  When Parthenon makes use of the ```Packages_t``` object, it iterates over all entries in the ```std::map```.  A special package accessible via the key `parthenon::app::inputs` is provided by default in each `Packages_t` object and is intended for use at the application level.
 
 
 
