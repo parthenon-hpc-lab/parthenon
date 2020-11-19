@@ -200,7 +200,6 @@ class StateDescriptor {
     return false;
   }
 
-
   void PreFillDerived(std::shared_ptr<MeshBlockData<Real>> &rc) {
     if (PreFillDerivedBlock != NULL) PreFillDerivedBlock(rc);
   }
@@ -233,7 +232,6 @@ class StateDescriptor {
     if (CheckRefinementBlock != NULL) return CheckRefinementBlock(rc);
     return AmrTag::derefine;
   }
-
 
   std::vector<std::shared_ptr<AMRCriteria>> amr_criteria;
   void (*PreFillDerivedBlock)(std::shared_ptr<MeshBlockData<Real>> &rc);
