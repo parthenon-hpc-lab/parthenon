@@ -66,7 +66,7 @@ KOKKOS_INLINE_FUNCTION void par_for_inner(const team_mbr_t &team_member, const i
 
 //----------------------------------------------------------------------------------------
 //! \class MeshBlock
-//  \brief data/functions associated with a single block
+//! \brief data/functions associated with a single block
 class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   friend class RestartOutput;
   friend class Mesh;
@@ -218,13 +218,6 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
     parthenon::par_for_outer(DEFAULT_OUTER_LOOP_PATTERN, name, exec_space,
                              scratch_size_in_bytes, scratch_level, nl, nu, kl, ku, jl, ju,
                              function);
-  }
-
-  // Inner loop default pattern
-  template <typename Function>
-  KOKKOS_INLINE_FUNCTION void par_for_inner(const team_mbr_t &team_member, const int &il,
-                                            const int &iu, const Function &function) {
-    parthenon::par_for_inner(DEFAULT_INNER_LOOP_PATTERN, team_member, il, iu, function);
   }
 
   std::size_t GetBlockSizeInBytes();

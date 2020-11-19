@@ -159,6 +159,8 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
 }
 
 ParthenonStatus ParthenonManager::ParthenonFinalize() {
+  // close restart file before finalizing MPI
+  this->restartReader = nullptr;
   pmesh.reset();
   Kokkos::finalize();
 #ifdef MPI_PARALLEL
@@ -193,7 +195,6 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   //  const IndexDomain interior = IndexDomain::interior;
   const IndexDomain theDomain =
       (resfile.hasGhost ? IndexDomain::entire : IndexDomain::interior);
-  auto &packages = rm.packages;
   // Get block list and temp array size
   auto &mb = *(rm.block_list.front());
   int nb = rm.GetNumMeshBlocksThisRank(Globals::my_rank);
@@ -250,7 +251,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
         if (vName.compare(v->label()) == 0) {
           auto v_h = v->data.GetHostMirror();
           UNLOADVARIABLEONE(index, tmp, v_h, out_ib.s, out_ib.e, out_jb.s, out_jb.e,
-                            out_kb.s, out_kb.e, v4)
+                            out_kb.s, out_kb.e, v4);
           v->data.DeepCopy(v_h);
           found = true;
           break;

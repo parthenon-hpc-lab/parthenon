@@ -113,7 +113,8 @@ TaskStatus AccumulateAreas(ParArrayHost<Real> areas, Packages_t &packages) {
 
 #ifdef MPI_PARALLEL
   Real pi_val;
-  MPI_Reduce(&area, &pi_val, 1, MPI_PARTHENON_REAL, MPI_SUM, 0, MPI_COMM_WORLD);
+  PARTHENON_MPI_CHECK(
+      MPI_Reduce(&area, &pi_val, 1, MPI_PARTHENON_REAL, MPI_SUM, 0, MPI_COMM_WORLD));
 #else
   Real pi_val = area;
 #endif
