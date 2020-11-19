@@ -26,12 +26,12 @@
 
 namespace parthenon {
 
-namespace magic {
+namespace app {
 // some "magic" strings
-constexpr char app_input[] = "A Parthenon package, provided by default in a Packages_t "
-                             "object, in which special functions can be registered to "
-                             "allow downstream applications to specialize functionality";
-} // namespace magic
+constexpr char inputs[] = "A Parthenon package, provided by default in a Packages_t "
+                          "object, in which special functions can be registered to "
+                          "allow downstream applications to specialize functionality";
+} // namespace app
 
 // Forward declarations
 template <typename T>
@@ -256,7 +256,7 @@ class StateDescriptor {
 class Packages_t {
  public:
   Packages_t() {
-    std::string name(magic::app_input);
+    std::string name(app::inputs);
     pkgs_[name] = std::make_shared<StateDescriptor>(name);
   }
   std::shared_ptr<StateDescriptor> &operator[](const std::string &label) {

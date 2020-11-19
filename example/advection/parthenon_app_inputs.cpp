@@ -210,7 +210,7 @@ Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   auto pkg = advection_package::Initialize(pin.get());
   packages[pkg->label()] = pkg;
 
-  auto &app = packages[magic::app_input];
+  auto &app = packages[app::inputs];
   app->PreFillDerivedBlock = advection_package::PreFill;
   app->PostFillDerivedBlock = advection_package::PostFill;
 

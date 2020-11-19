@@ -68,10 +68,9 @@ void AverageIndependentData(T &c1, T &c2, const Real wgt1) {
 
 template <typename T>
 TaskStatus EstimateTimestep(std::shared_ptr<T> &rc) {
-  using Desc_t = std::shared_ptr<StateDescriptor>;
   Real dt_min = std::numeric_limits<Real>::max();
   auto pm = rc->GetGridPointer();
-  for (const std::pair<std::string, Desc_t> &pkg : pm->packages) {
+  for (const auto &pkg : pm->packages) {
     Real dt = pkg.second->EstimateTimestep(rc);
     dt_min = std::min(dt_min, dt);
   }
@@ -81,15 +80,14 @@ TaskStatus EstimateTimestep(std::shared_ptr<T> &rc) {
 
 template <typename T>
 TaskStatus FillDerived(std::shared_ptr<T> &rc) {
-  using Desc_t = std::shared_ptr<StateDescriptor>;
   auto pm = rc->GetGridPointer();
-  for (const std::pair<std::string, Desc_t> &pkg : pm->packages) {
+  for (const auto &pkg : pm->packages) {
     pkg.second->PreFillDerived(rc);
   }
-  for (const std::pair<std::string, Desc_t> &pkg : pm->packages) {
+  for (const auto &pkg : pm->packages) {
     pkg.second->FillDerived(rc);
   }
-  for (const std::pair<std::string, Desc_t> &pkg : pm->packages) {
+  for (const auto &pkg : pm->packages) {
     pkg.second->PostFillDerived(rc);
   }
   return TaskStatus::complete;
