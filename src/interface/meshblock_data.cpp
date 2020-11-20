@@ -670,8 +670,7 @@ void MeshBlockData<T>::SetupPersistentMPI() {
 
 template <typename T>
 TaskStatus MeshBlockData<T>::ReceiveBoundaryBuffers() {
-  bool ret;
-  ret = true;
+  bool ret = true;
   // receives the boundary
   for (auto &v : varVector_) {
     if (!v->mpiStatus) {

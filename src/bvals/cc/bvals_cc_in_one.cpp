@@ -64,6 +64,7 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
       parthenon::NeighborBlock &nb = pmb->pbval->neighbor[n];
       // TODO(?) currently this only works for a single "Variable" per container.
       // Need to update the buffer sizes so that it matches the packed Variables.
+      assert(rc->GetCellVariableVector().size() == 1);
       auto *bd_var_ = rc->GetCellVariableVector()[0]->vbvar->GetPBdVar();
       if (bd_var_->sflag[nb.bufid] == parthenon::BoundaryStatus::completed) continue;
       boundary_info_h(b, n).is_used = true;
@@ -201,8 +202,7 @@ TaskStatus ReceiveBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
           // problems with task status, we should comment one line
           // above and uncomment the if block below
           v->resetBoundary();
-          // v->mpiStatus = v->vbvar->ReceiveBoundaryBuffers();
-          v->mpiStatus = true;
+          v->mpiStatus = v->vbvar->ReceiveBoundaryBuffers();
           ret = (ret & v->mpiStatus);
         }
       }
@@ -248,6 +248,7 @@ TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) {
       parthenon::NeighborBlock &nb = pmb->pbval->neighbor[n];
       // TODO(?) currently this only works for a single "Variable" per container.
       // Need to update the buffer sizes so that it matches the packed Variables.
+      assert(rc->GetCellVariableVector().size() == 1);
       auto *bd_var_ = rc->GetCellVariableVector()[0]->vbvar->GetPBdVar();
 
       if (nb.snb.level == mylevel) {
