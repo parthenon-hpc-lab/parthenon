@@ -30,7 +30,6 @@ namespace parthenon {
 struct ApplicationInput {
  public:
   // ParthenonManager functions
-  std::function<void()> SetFillDerivedFunctions = nullptr;
   std::function<Properties_t(std::unique_ptr<ParameterInput> &)> ProcessProperties =
       nullptr;
   std::function<Packages_t(std::unique_ptr<ParameterInput> &)> ProcessPackages = nullptr;

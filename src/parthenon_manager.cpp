@@ -149,8 +149,6 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
     }
   }
 
-  // SetFillDerivedFunctions();
-
   pmesh->Initialize(Restart(), pinput.get(), app_input.get());
 
   ChangeRunDir(arg.prundir);
@@ -167,10 +165,6 @@ ParthenonStatus ParthenonManager::ParthenonFinalize() {
   MPI_Finalize();
 #endif
   return ParthenonStatus::complete;
-}
-
-void ParthenonManager::SetFillDerivedFunctionsDefault() {
-  // FillDerivedVariables::SetFillDerivedFunctions(nullptr, nullptr);
 }
 
 Properties_t
