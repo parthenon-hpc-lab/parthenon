@@ -14,6 +14,7 @@
 #define INTERFACE_STATE_DESCRIPTOR_HPP_
 
 #include <functional>
+#include <limits>
 #include <map>
 #include <memory>
 #include <string>
