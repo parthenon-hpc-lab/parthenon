@@ -214,9 +214,10 @@ Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   auto pkg = advection_package::Initialize(pin.get());
   packages[pkg->label()] = pkg;
 
-  auto &app = packages[app::inputs];
+  auto app = std::make_shared<StateDescriptor>("advection_app");
   app->PreFillDerivedBlock = advection_package::PreFill;
   app->PostFillDerivedBlock = advection_package::PostFill;
+  packages[app->label()] = app;
 
   return packages;
 }

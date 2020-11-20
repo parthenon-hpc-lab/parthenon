@@ -26,13 +26,6 @@
 
 namespace parthenon {
 
-namespace app {
-// some "magic" strings
-constexpr char inputs[] = "A Parthenon package, provided by default in a Packages_t "
-                          "object, in which special functions can be registered to "
-                          "allow downstream applications to specialize functionality";
-} // namespace app
-
 // Forward declarations
 template <typename T>
 class MeshBlockData;
@@ -200,35 +193,35 @@ class StateDescriptor {
     return false;
   }
 
-  void PreFillDerived(std::shared_ptr<MeshBlockData<Real>> &rc) {
+  void PreFillDerived(std::shared_ptr<MeshBlockData<Real>> &rc) const {
     if (PreFillDerivedBlock != nullptr) PreFillDerivedBlock(rc);
   }
-  void PreFillDerived(std::shared_ptr<MeshData<Real>> &rc) {
+  void PreFillDerived(std::shared_ptr<MeshData<Real>> &rc) const {
     if (PreFillDerivedMesh != nullptr) PreFillDerivedMesh(rc);
   }
-  void PostFillDerived(std::shared_ptr<MeshBlockData<Real>> &rc) {
+  void PostFillDerived(std::shared_ptr<MeshBlockData<Real>> &rc) const {
     if (PostFillDerivedBlock != nullptr) PostFillDerivedBlock(rc);
   }
-  void PostFillDerived(std::shared_ptr<MeshData<Real>> &rc) {
+  void PostFillDerived(std::shared_ptr<MeshData<Real>> &rc) const {
     if (PostFillDerivedMesh != nullptr) PostFillDerivedMesh(rc);
   }
-  void FillDerived(std::shared_ptr<MeshBlockData<Real>> &rc) {
+  void FillDerived(std::shared_ptr<MeshBlockData<Real>> &rc) const {
     if (FillDerivedBlock != nullptr) FillDerivedBlock(rc);
   }
-  void FillDerived(std::shared_ptr<MeshData<Real>> &rc) {
+  void FillDerived(std::shared_ptr<MeshData<Real>> &rc) const {
     if (FillDerivedMesh != nullptr) FillDerivedMesh(rc);
   }
 
-  Real EstimateTimestep(std::shared_ptr<MeshBlockData<Real>> &rc) {
+  Real EstimateTimestep(std::shared_ptr<MeshBlockData<Real>> &rc) const {
     if (EstimateTimestepBlock != nullptr) return EstimateTimestepBlock(rc);
     return std::numeric_limits<Real>::max();
   }
-  Real EstimateTimestep(std::shared_ptr<MeshData<Real>> &rc) {
+  Real EstimateTimestep(std::shared_ptr<MeshData<Real>> &rc) const {
     if (EstimateTimestepMesh != nullptr) return EstimateTimestepMesh(rc);
     return std::numeric_limits<Real>::max();
   }
 
-  AmrTag CheckRefinement(std::shared_ptr<MeshBlockData<Real>> &rc) {
+  AmrTag CheckRefinement(std::shared_ptr<MeshBlockData<Real>> &rc) const {
     if (CheckRefinementBlock != nullptr) return CheckRefinementBlock(rc);
     return AmrTag::derefine;
   }
@@ -253,21 +246,7 @@ class StateDescriptor {
   std::map<std::string, std::map<std::string, Metadata>> swarmValueMetadataMap_;
 };
 
-class Packages_t {
- public:
-  Packages_t() {
-    std::string name(app::inputs);
-    pkgs_[name] = std::make_shared<StateDescriptor>(name);
-  }
-  std::shared_ptr<StateDescriptor> &operator[](const std::string &label) {
-    return pkgs_[label];
-  }
-  auto begin() { return pkgs_.begin(); }
-  auto end() { return pkgs_.end(); }
-
- private:
-  std::map<std::string, std::shared_ptr<StateDescriptor>> pkgs_;
-};
+using Packages_t = std::map<std::string, std::shared_ptr<StateDescriptor>>;
 
 } // namespace parthenon
 

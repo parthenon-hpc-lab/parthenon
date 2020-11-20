@@ -58,7 +58,7 @@ be redefined by an application. Currently, these functions are, by class:
 
 #### ParthenonManager
 * `ProcessProperties` Constructs and returns a Properties_t object that is often filled with runtime specified (i. e. determined from the input file) settings and parameters.  For example, this might hold an equation of state.
-* `ProcessPackages` Constructs and returns a `Packages_t` object that contains a listing of all the variables and their metadata associated with each package.  Every `Packages_t` object has a special package accessible via the name `parthenon::app::inputs` that allows applications to specify application-level parameters and function pointers.
+* `ProcessPackages` Constructs and returns a `Packages_t` object that contains a listing of all the variables and their metadata associated with each package.
 
 #### Mesh
 * `InitUserMeshData`

@@ -68,6 +68,7 @@ void AverageData(const std::vector<F> &flags, T &c1, T &c2, const Real wgt1) {
             wgt1 * c1_pack(b, l, k, j, i) + (1 - wgt1) * c2_pack(b, l, k, j, i);
       });
 }
+
 template <typename T>
 void AverageIndependentData(T &c1, T &c2, const Real wgt1) {
   AverageData(std::vector<MetadataFlag>({Metadata::Independent}), c1, c2, wgt1);

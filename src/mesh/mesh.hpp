@@ -149,8 +149,8 @@ class Mesh {
   int GetMaxLevel() const noexcept { return max_level; }
   int GetCurrentLevel() const noexcept { return current_level; }
   std::vector<int> GetNbList() const noexcept { return nblist; }
-  void SetAllowedDt(const Real dt) { max_allowed_dt_ = dt; }
-  Real NewDt() { return max_allowed_dt_; }
+  void SetAllowedDt(const Real dt) const noexcept { max_allowed_dt_ = dt; }
+  Real NewDt() const noexcept { return max_allowed_dt_; }
 
  private:
   // data
