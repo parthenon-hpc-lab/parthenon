@@ -56,6 +56,8 @@ vy = 1.0
 vz = 1.0
 profile = hard_sphere
 
+buffer_set_pack = true
+
 refine_tol = 0.3    # control the package specific refinement tagging function
 derefine_tol = 0.03
 compute_error = true
