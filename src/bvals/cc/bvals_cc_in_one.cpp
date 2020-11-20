@@ -20,6 +20,8 @@
 #include <vector>
 
 #include "bvals_cc_in_one.hpp"
+#include "config.hpp"
+#include "kokkos_abstraction.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
 
@@ -400,25 +402,25 @@ TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) {
           const int &ej = boundary_info(b, n).ej;
           const int &sk = boundary_info(b, n).sk;
           const int &ek = boundary_info(b, n).ek;
+
           const int Ni = ei + 1 - si;
           const int Nj = ej + 1 - sj;
           const int Nk = ek + 1 - sk;
-          const int NvNkNj = Nv * Nk * Nj;
-          const int NkNj = Nk * Nj;
-          Kokkos::parallel_for(
-              Kokkos::TeamThreadRange<>(team_member, NvNkNj), [&](const int idx) {
-                const int &v = idx / NkNj;
-                int k = (idx - v * NkNj) / Nj;
-                int j = idx - v * NkNj - k * Nj;
-                k += sk;
-                j += sj;
 
-                Kokkos::parallel_for(
-                    Kokkos::ThreadVectorRange(team_member, si, ei + 1), [&](const int i) {
+          for (auto v = 0; v < Nv; v++) {
+            for (auto k = sk; k <= ek; k++) {
+              for (auto j = sj; j <= ej; j++) {
+                parthenon::par_for_inner(
+                    DEFAULT_INNER_LOOP_PATTERN, team_member, si, ei,
+                    [&](const int i) {
                       boundary_info(b, n).var(v, k, j, i) = boundary_info(b, n).buf(
                           i - si + Ni * (j - sj + Nj * (k - sk + Nk * v)));
-                    });
-              });
+                    }
+
+                );
+              }
+            }
+          }
         }
       });
 
