@@ -126,7 +126,7 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
   }
 
   const auto &buffer_send_pack =
-      blocks[0]->packages["Advection"]->Param<bool>("buffer_send_pack");
+      blocks[0]->packages["advection_package"]->Param<bool>("buffer_send_pack");
   if (buffer_send_pack) {
     TaskRegion &tr = tc.AddRegion(num_partitions);
     for (int i = 0; i < num_partitions; i++) {
@@ -142,7 +142,7 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
   }
 
   const auto &buffer_recv_pack =
-      blocks[0]->packages["Advection"]->Param<bool>("buffer_recv_pack");
+      blocks[0]->packages["advection_package"]->Param<bool>("buffer_recv_pack");
   if (buffer_recv_pack) {
     TaskRegion &tr = tc.AddRegion(num_partitions);
     for (int i = 0; i < num_partitions; i++) {
@@ -158,7 +158,7 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
   }
 
   const auto &buffer_set_pack =
-      blocks[0]->packages["Advection"]->Param<bool>("buffer_set_pack");
+      blocks[0]->packages["advection_package"]->Param<bool>("buffer_set_pack");
   if (buffer_set_pack) {
     TaskRegion &tr = tc.AddRegion(num_partitions);
     for (int i = 0; i < num_partitions; i++) {
