@@ -34,7 +34,8 @@ struct BndInfo {
   int ej = 0;
   int sk = 0;
   int ek = 0;
-  parthenon::ParArray1D<Real> buf;
+  parthenon::ParArray1D<Real> buf; // comm buffer
+  parthenon::ParArray4D<Real> var; // data variable (could also be coarse array)
 };
 
 // send boundary buffers with MeshBlockPack support
@@ -266,6 +267,8 @@ TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) {
         // SetBoundaryFromFiner(bd_var_.recv[nb.bufid], nb);
       }
       boundary_info_h(b, n).buf = bd_var_->recv[nb.bufid];
+      boundary_info_h(b, n).var = rc->GetCellVariableVector()[0]->data.Get<4>();
+      assert(rc->GetCellVariableVector().size() == 1);
       boundary_info_h(b, n).is_used = true;
       // safe to set completed here as the kernel updating all buffers is
       // called immediately afterwards
@@ -277,6 +280,8 @@ TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::popRegion(); // Create bndinfo array
 
   const auto NbNb = md->NumBlocks() * num_buffers;
+
+  // TODO(pgrete) this var pack can probably go. Currently only needed for 4th dim.
   auto var_pack = md->PackVariables(std::vector<MetadataFlag>({Metadata::FillGhost}));
   const auto Nv = var_pack.GetDim(4);
 
@@ -308,7 +313,7 @@ TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) {
 
                 Kokkos::parallel_for(
                     Kokkos::ThreadVectorRange(team_member, si, ei + 1), [&](const int i) {
-                      var_pack(b, v, k, j, i) = boundary_info(b, n).buf(
+                      boundary_info(b, n).var(v, k, j, i) = boundary_info(b, n).buf(
                           i - si + Ni * (j - sj + Nj * (k - sk + Nk * v)));
                     });
               });
