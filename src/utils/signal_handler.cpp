@@ -64,9 +64,9 @@ int CheckSignalFlags() {
   int ret = 0;
   sigprocmask(SIG_BLOCK, &mask, nullptr);
 #ifdef MPI_PARALLEL
-  MPI_Allreduce(MPI_IN_PLACE,
-                const_cast<void *>(reinterpret_cast<volatile void *>(signalflag)),
-                nsignal, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+  PARTHENON_MPI_CHECK(MPI_Allreduce(
+      MPI_IN_PLACE, const_cast<void *>(reinterpret_cast<volatile void *>(signalflag)),
+      nsignal, MPI_INT, MPI_MAX, MPI_COMM_WORLD));
 #endif
   for (int n = 0; n < nsignal; n++)
     ret += signalflag[n];
