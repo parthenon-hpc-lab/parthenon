@@ -55,11 +55,11 @@ TaskStatus FluxDivergence(std::shared_ptr<MeshBlockData<Real>> &in,
   IndexRange jb = in->GetBoundsJ(interior);
   IndexRange kb = in->GetBoundsK(interior);
 
-  auto vin = in->PackVariablesAndFluxes({Metadata::Independent});
-  auto dudt = dudt_cont->PackVariables({Metadata::Independent});
+  const auto &vin = in->PackVariablesAndFluxes({Metadata::Independent});
+  const auto &dudt = dudt_cont->PackVariables({Metadata::Independent});
 
   auto &coords = pmb->coords;
-  int ndim = pmb->pmy_mesh->ndim;
+  const int ndim = pmb->pmy_mesh->ndim;
   pmb->par_for(
       "FluxDivergenceBlock", 0, vin.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
@@ -75,8 +75,8 @@ TaskStatus FluxDivergence(std::shared_ptr<MeshData<Real>> &in_obj,
   const IndexDomain interior = IndexDomain::interior;
 
   std::vector<MetadataFlag> flags({Metadata::Independent});
-  auto vin = in_obj->PackVariablesAndFluxes(flags);
-  auto dudt = dudt_obj->PackVariables(flags);
+  const auto &vin = in_obj->PackVariablesAndFluxes(flags);
+  const auto &dudt = dudt_obj->PackVariables(flags);
   const IndexRange ib = in_obj->GetBoundsI(interior);
   const IndexRange jb = in_obj->GetBoundsJ(interior);
   const IndexRange kb = in_obj->GetBoundsK(interior);

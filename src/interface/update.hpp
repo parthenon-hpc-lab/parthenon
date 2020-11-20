@@ -39,9 +39,9 @@ TaskStatus FluxDivergence(std::shared_ptr<T> &in, std::shared_ptr<T> &dudt_obj);
 template <typename T>
 void UpdateIndependentData(T &in, T &dudt, const Real dt, T &out) {
   std::vector<MetadataFlag> flags({Metadata::Independent});
-  auto in_pack = in->PackVariables(flags);
-  auto out_pack = out->PackVariables(flags);
-  auto dudt_pack = dudt->PackVariables(flags);
+  const auto &in_pack = in->PackVariables(flags);
+  const auto &out_pack = out->PackVariables(flags);
+  const auto &dudt_pack = dudt->PackVariables(flags);
   parthenon::par_for(
       DEFAULT_LOOP_PATTERN, "UpdateMeshData", DevExecSpace(), 0, in_pack.GetDim(5) - 1, 0,
       in_pack.GetDim(4) - 1, 0, in_pack.GetDim(3) - 1, 0, in_pack.GetDim(2) - 1, 0,
@@ -54,8 +54,8 @@ void UpdateIndependentData(T &in, T &dudt, const Real dt, T &out) {
 template <typename T>
 void AverageIndependentData(T &c1, T &c2, const Real wgt1) {
   std::vector<MetadataFlag> flags({Metadata::Independent});
-  auto c1_pack = c1->PackVariables(flags);
-  auto c2_pack = c2->PackVariables(flags);
+  const auto &c1_pack = c1->PackVariables(flags);
+  const auto &c2_pack = c2->PackVariables(flags);
   parthenon::par_for(
       DEFAULT_LOOP_PATTERN, "AverageMeshData", DevExecSpace(), 0, c1_pack.GetDim(5) - 1,
       0, c1_pack.GetDim(4) - 1, 0, c1_pack.GetDim(3) - 1, 0, c1_pack.GetDim(2) - 1, 0,
