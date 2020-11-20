@@ -243,8 +243,6 @@ ParArrayND<bool> Swarm::AddEmptyParticles(const int num_to_add) {
 // No particles removed: nmax_active_index unchanged
 // Particles removed: nmax_active_index is new max active index
 void Swarm::RemoveMarkedParticles() {
-  int new_max_active_index = -1; // TODO(BRR) this is a magic number, needed for Defrag()
-
   auto mask_h = mask_.data.GetHostMirrorAndCopy();
   auto marked_for_removal_h = marked_for_removal_.data.GetHostMirror();
   marked_for_removal_h.DeepCopy(marked_for_removal_.data);
@@ -260,8 +258,6 @@ void Swarm::RemoveMarkedParticles() {
           max_active_index_ -= 1;
         }
         marked_for_removal_h(n) = false;
-      } else {
-        new_max_active_index = n;
       }
     }
   }

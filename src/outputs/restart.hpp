@@ -53,53 +53,32 @@ class RestartReader {
                  std::vector<size_t> bsize, size_t vlen = 1) {
 #ifdef HDF5OUTPUT
     try {
-      herr_t status;
-
       // dataVec is assumed to be of the correct size
       T *data = dataVec.data();
 
       // compute block size, probaby could cache this.
-      hid_t theHdfType = getHdfType(data);
+      hid_t const theHdfType = getHdfType(data);
 
-      hid_t dataset = H5Dopen2(fh_, name, H5P_DEFAULT);
-      if (dataset < 0) {
-        return -1;
-      }
-      hid_t dataspace = H5Dget_space(dataset);
-      if (dataspace < 0) {
-        H5Dclose(dataset);
-        return -1;
-      }
+      H5D const dataset = H5D::FromHIDCheck(H5Dopen2(fh_, name, H5P_DEFAULT));
+      H5S const dataspace = H5S::FromHIDCheck(H5Dget_space(dataset));
 
       /** Define hyperslab in dataset **/
       hsize_t offset[5] = {static_cast<hsize_t>(range.s), 0, 0, 0, 0};
       hsize_t count[5] = {static_cast<hsize_t>(range.e - range.s + 1), bsize[2], bsize[1],
                           bsize[0], vlen};
-      status = H5Sselect_hyperslab(dataspace, H5S_SELECT_SET, offset, NULL, count, NULL);
-      if (status < 0) {
-        H5Dclose(dataspace);
-        H5Dclose(dataset);
-        return -1;
-      }
+      PARTHENON_HDF5_CHECK(
+          H5Sselect_hyperslab(dataspace, H5S_SELECT_SET, offset, NULL, count, NULL));
 
       /** Define memory dataspace **/
-      hid_t memspace = H5Screate_simple(5, count, NULL);
-      hsize_t offsetMem[5] = {0, 0, 0, 0, 0};
-      status = H5Sselect_hyperslab(dataspace, H5S_SELECT_SET, offset, NULL, count, NULL);
+      H5S const memspace = H5S::FromHIDCheck(H5Screate_simple(5, count, NULL));
+      PARTHENON_HDF5_CHECK(
+          H5Sselect_hyperslab(dataspace, H5S_SELECT_SET, offset, NULL, count, NULL));
 
       // Read data from file
-      status =
-          H5Dread(dataset, H5T_NATIVE_DOUBLE, memspace, dataspace, H5P_DEFAULT, data);
+      PARTHENON_HDF5_CHECK(
+          H5Dread(dataset, H5T_NATIVE_DOUBLE, memspace, dataspace, H5P_DEFAULT, data));
 
-      // CLose the dataspace and data set.
-      H5Dclose(dataset);
-      H5Sclose(memspace);
-      H5Sclose(dataspace);
-      if (status < 0) {
-        return -1;
-      } else {
-        return static_cast<int>(count[0]);
-      }
+      return static_cast<int>(count[0]);
     } catch (const std::exception &e) {
       std::cout << e.what();
       return -1;
@@ -116,19 +95,19 @@ class RestartReader {
     // Returns entire 1D array.
     // status, never checked.  We should...
 #ifdef HDF5OUTPUT
-    herr_t status;
-
     T *typepointer = nullptr;
-    hid_t theHdfType = getHdfType(typepointer);
+    hid_t const theHdfType = getHdfType(typepointer);
 
-    hid_t dataset = H5Dopen2(fh_, name, H5P_DEFAULT);
-    hid_t dataspace = H5Dget_space(dataset);
+    H5D const dataset = H5D::FromHIDCheck(H5Dopen2(fh_, name, H5P_DEFAULT));
+    H5S const dataspace = H5S::FromHIDCheck(H5Dget_space(dataset));
 
     // Allocate array of correct size
-    hid_t filespace = H5Dget_space(dataset);
-    int rank = H5Sget_simple_extent_ndims(filespace);
+    H5S const filespace = H5S::FromHIDCheck(H5Dget_space(dataset));
+
+    int rank = PARTHENON_HDF5_CHECK(H5Sget_simple_extent_ndims(filespace));
+
     std::vector<hsize_t> dims(rank);
-    status = H5Sget_simple_extent_dims(filespace, dims.data(), NULL);
+    PARTHENON_HDF5_CHECK(H5Sget_simple_extent_dims(filespace, dims.data(), NULL));
     hsize_t isize = 1;
     for (int idir = 0; idir < rank; idir++) {
       isize = isize * dims[idir];
@@ -139,16 +118,11 @@ class RestartReader {
 
     std::vector<T> data(isize);
     /** Define memory dataspace **/
-    hid_t memspace = H5Screate_simple(rank, dims.data(), NULL);
+    H5S const memspace = H5S::FromHIDCheck(H5Screate_simple(rank, dims.data(), NULL));
 
     // Read data from file
-    status = H5Dread(dataset, theHdfType, memspace, dataspace, H5P_DEFAULT,
-                     static_cast<void *>(data.data()));
-
-    // CLose the dataspace and data set.
-    H5Sclose(filespace);
-    H5Sclose(dataspace);
-    H5Dclose(dataset);
+    PARTHENON_HDF5_CHECK(H5Dread(dataset, theHdfType, memspace, dataspace, H5P_DEFAULT,
+                                 static_cast<void *>(data.data())));
 #else
     std::vector<T> data;
 #endif
@@ -195,19 +169,17 @@ class RestartReader {
     // Returns entire 1D array.
     // status, never checked.  We should...
 #ifdef HDF5OUTPUT
-    herr_t status;
-
     T *typepointer = nullptr;
-    hid_t theHdfType = getHdfType(typepointer);
+    hid_t const theHdfType = getHdfType(typepointer);
 
-    hid_t dset = H5Dopen2(fh_, dataset, H5P_DEFAULT);
-    hid_t attr = H5Aopen(dset, name, H5P_DEFAULT);
-    hid_t dataspace = H5Aget_space(attr);
+    H5D const dset = H5D::FromHIDCheck(H5Dopen2(fh_, dataset, H5P_DEFAULT));
+    H5A const attr = H5A::FromHIDCheck(H5Aopen(dset, name, H5P_DEFAULT));
+    H5S const dataspace = H5S::FromHIDCheck(H5Aget_space(attr));
 
     // Allocate array of correct size
-    int rank = H5Sget_simple_extent_ndims(dataspace);
+    int rank = PARTHENON_HDF5_CHECK(H5Sget_simple_extent_ndims(dataspace));
     std::vector<hsize_t> dims(rank);
-    status = H5Sget_simple_extent_dims(dataspace, dims.data(), NULL);
+    PARTHENON_HDF5_CHECK(H5Sget_simple_extent_dims(dataspace, dims.data(), NULL));
     hsize_t isize = 1;
     for (int idir = 0; idir < rank; idir++) {
       isize = isize * dims[idir];
@@ -219,12 +191,7 @@ class RestartReader {
     std::vector<T> data(isize);
 
     // Read data from file
-    status = H5Aread(attr, theHdfType, static_cast<void *>(data.data()));
-
-    // CLose the dataspace and data set.
-    H5Sclose(dataspace);
-    H5Aclose(attr);
-    H5Dclose(dset);
+    PARTHENON_HDF5_CHECK(H5Aread(attr, theHdfType, static_cast<void *>(data.data())));
 #else
     std::vector<T> data;
 #endif
@@ -234,7 +201,7 @@ class RestartReader {
 #ifdef HDF5OUTPUT
   // Currently all restarts are HDF5 files
   // when that changes, this will be revisited
-  hid_t fh_;
+  H5F fh_;
   hsize_t nx1_, nx2_, nx3_;
 #endif
 };

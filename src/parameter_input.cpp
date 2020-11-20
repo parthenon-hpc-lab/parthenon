@@ -225,8 +225,9 @@ void ParameterInput::LoadFromFile(IOWrapper &input) {
       ret = input.Read(buf, sizeof(char), kBufSize);
 #ifdef MPI_PARALLEL
     // then broadcasts it
-    MPI_Bcast(&ret, sizeof(IOWrapperSizeT), MPI_BYTE, 0, MPI_COMM_WORLD);
-    MPI_Bcast(buf, ret, MPI_BYTE, 0, MPI_COMM_WORLD);
+    PARTHENON_MPI_CHECK(
+        MPI_Bcast(&ret, sizeof(IOWrapperSizeT), MPI_BYTE, 0, MPI_COMM_WORLD));
+    PARTHENON_MPI_CHECK(MPI_Bcast(buf, ret, MPI_BYTE, 0, MPI_COMM_WORLD));
 #endif
     par.write(buf, ret); // add the buffer into the stream
     header += ret;

@@ -42,7 +42,7 @@ int IntCeil(int x, int y) {
 // Takes container of elements and fills partitions
 // of size N with pointers to elements.
 // Assumes Container_t has STL-style iterators defined
-template <typename T, template <class...> typename Container_t, class... extra>
+template <typename T, template <class...> class Container_t, class... extra>
 auto ToSizeN(Container_t<T, extra...> &container, const int N) {
   using std::to_string;
   using namespace partition_impl;
@@ -73,7 +73,7 @@ auto ToSizeN(Container_t<T, extra...> &container, const int N) {
 // Takes container of elements and fills N partitions
 // with pointers to elements.
 // Assumes Container_t has STL-style iterators defined
-template <typename T, template <class...> typename Container_t, class... extra>
+template <typename T, template <class...> class Container_t, class... extra>
 auto ToNPartitions(Container_t<T, extra...> &container, const int N) {
   using namespace partition_impl;
   int nelements = container.size();
