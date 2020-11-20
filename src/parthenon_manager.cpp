@@ -149,7 +149,6 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
     }
   }
 
-  // SetFillDerivedFunctions();
 
   pmesh->Initialize(Restart(), pinput.get(), app_input.get());
 
