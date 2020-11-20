@@ -15,11 +15,11 @@ excluding ghost cells
   a meshblock in the `x1` direction
 - **inner_x2,** which accesses the ghost zones for "inner" face of
   a meshblock in the `x2` direction
-- **outer_x2,** which accesses the ghost zones for "outer"` face of
+- **outer_x2,** which accesses the ghost zones for "outer" face of
   a meshblock in the `x2` direction
 - **inner_x3,** which accesses the ghost zones for "inner" face of
   a meshblock in the `x3` direction
-- **outer_x3,** which accesses the ghost zones for "outer"` face of
+- **outer_x3,** which accesses the ghost zones for "outer" face of
   a meshblock in the `x3` direction
 
 The starting and ending indices of each dimension of the index shape can be

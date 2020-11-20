@@ -86,7 +86,6 @@ enum {
 // int to index raw arrays (not ParArrayNDs)--> enumerator vals are explicitly specified
 
 // identifiers for boundary conditions
-// TODO(JMM): Can BoundaryFlag be removed?
 enum class BoundaryFlag { block = -1, undef, reflect, outflow, periodic, user };
 
 // identifiers for types of neighbor blocks (connectivity with current MeshBlock)
