@@ -36,9 +36,8 @@ namespace Update {
 template <typename T>
 TaskStatus FluxDivergence(std::shared_ptr<T> &in, std::shared_ptr<T> &dudt_obj);
 
-template <typename T>
-void UpdateIndependentData(T &in, T &dudt, const Real dt, T &out) {
-  std::vector<MetadataFlag> flags({Metadata::Independent});
+template <typename F, typename T>
+void UpdateData(const std::vector<F> &flags, T &in, T &dudt, const Real dt, T &out) {
   const auto &in_pack = in->PackVariables(flags);
   const auto &out_pack = out->PackVariables(flags);
   const auto &dudt_pack = dudt->PackVariables(flags);
@@ -52,8 +51,12 @@ void UpdateIndependentData(T &in, T &dudt, const Real dt, T &out) {
 }
 
 template <typename T>
-void AverageIndependentData(T &c1, T &c2, const Real wgt1) {
-  std::vector<MetadataFlag> flags({Metadata::Independent});
+void UpdateIndependentData(T &in, T &dudt, const Real dt, T &out) {
+  UpdateData(std::vector<MetadataFlag>({Metadata::Independent}), in, dudt, dt, out);
+}
+
+template <typename F, typename T>
+void AverageData(const std::vector<F> &flags, T &c1, T &c2, const Real wgt1) {
   const auto &c1_pack = c1->PackVariables(flags);
   const auto &c2_pack = c2->PackVariables(flags);
   parthenon::par_for(
@@ -64,6 +67,10 @@ void AverageIndependentData(T &c1, T &c2, const Real wgt1) {
         c1_pack(b, l, k, j, i) =
             wgt1 * c1_pack(b, l, k, j, i) + (1 - wgt1) * c2_pack(b, l, k, j, i);
       });
+}
+template <typename T>
+void AverageIndependentData(T &c1, T &c2, const Real wgt1) {
+  AverageData(std::vector<MetadataFlag>({Metadata::Independent}), c1, c2, wgt1);
 }
 
 template <typename T>
