@@ -137,7 +137,6 @@ TaskStatus Tag(std::shared_ptr<MeshBlockData<Real>> &rc) {
 }
 
 TaskStatus Tag(std::shared_ptr<MeshData<Real>> &rc) {
-  auto pm = rc->GetMeshPointer();
   for (int i = 0; i < rc->NumBlocks(); i++) {
     auto &pbd = rc->GetBlockData(i);
     auto status = Tag(pbd);

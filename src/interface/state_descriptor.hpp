@@ -201,35 +201,35 @@ class StateDescriptor {
   }
 
   void PreFillDerived(std::shared_ptr<MeshBlockData<Real>> &rc) {
-    if (PreFillDerivedBlock != NULL) PreFillDerivedBlock(rc);
+    if (PreFillDerivedBlock != nullptr) PreFillDerivedBlock(rc);
   }
   void PreFillDerived(std::shared_ptr<MeshData<Real>> &rc) {
-    if (PreFillDerivedMesh != NULL) PreFillDerivedMesh(rc);
+    if (PreFillDerivedMesh != nullptr) PreFillDerivedMesh(rc);
   }
   void PostFillDerived(std::shared_ptr<MeshBlockData<Real>> &rc) {
-    if (PostFillDerivedBlock != NULL) PostFillDerivedBlock(rc);
+    if (PostFillDerivedBlock != nullptr) PostFillDerivedBlock(rc);
   }
   void PostFillDerived(std::shared_ptr<MeshData<Real>> &rc) {
-    if (PostFillDerivedMesh != NULL) PostFillDerivedMesh(rc);
+    if (PostFillDerivedMesh != nullptr) PostFillDerivedMesh(rc);
   }
   void FillDerived(std::shared_ptr<MeshBlockData<Real>> &rc) {
-    if (FillDerivedBlock != NULL) FillDerivedBlock(rc);
+    if (FillDerivedBlock != nullptr) FillDerivedBlock(rc);
   }
   void FillDerived(std::shared_ptr<MeshData<Real>> &rc) {
-    if (FillDerivedMesh != NULL) FillDerivedMesh(rc);
+    if (FillDerivedMesh != nullptr) FillDerivedMesh(rc);
   }
 
   Real EstimateTimestep(std::shared_ptr<MeshBlockData<Real>> &rc) {
-    if (EstimateTimestepBlock != NULL) return EstimateTimestepBlock(rc);
+    if (EstimateTimestepBlock != nullptr) return EstimateTimestepBlock(rc);
     return std::numeric_limits<Real>::max();
   }
   Real EstimateTimestep(std::shared_ptr<MeshData<Real>> &rc) {
-    if (EstimateTimestepMesh != NULL) return EstimateTimestepMesh(rc);
+    if (EstimateTimestepMesh != nullptr) return EstimateTimestepMesh(rc);
     return std::numeric_limits<Real>::max();
   }
 
   AmrTag CheckRefinement(std::shared_ptr<MeshBlockData<Real>> &rc) {
-    if (CheckRefinementBlock != NULL) return CheckRefinementBlock(rc);
+    if (CheckRefinementBlock != nullptr) return CheckRefinementBlock(rc);
     return AmrTag::derefine;
   }
 
