@@ -27,6 +27,7 @@
 
 #include "bvals/bvals_interfaces.hpp"
 #include "defs.hpp"
+#include "mesh/domain.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/error_checking.hpp"
 
@@ -125,7 +126,8 @@ class BoundaryValues : public BoundaryBase, // public BoundaryPhysics,
   // non-inhertied / unique functions (do not exist in BoundaryVariable objects):
   // (these typically involve a coupled interaction of boundary variable/quantities)
   // ------
-  void ProlongateBoundaries(const Real time, const Real dt);
+  void RestrictBoundaries();
+  void ProlongateBoundaries();
 
   int AdvanceCounterPhysID(int num_phys);
 
@@ -151,6 +153,10 @@ class BoundaryValues : public BoundaryBase, // public BoundaryPhysics,
                                             int sk, int ek);
   void ProlongateGhostCells(const NeighborBlock &nb, int si, int ei, int sj, int ej,
                             int sk, int ek);
+  void ComputeRestrictionBounds_(const NeighborBlock &nb, IndexRange &ni, IndexRange &nj,
+                                 IndexRange &nk);
+  void ComputeProlongationBounds_(const NeighborBlock &nb, IndexRange &bi, IndexRange &bj,
+                                  IndexRange &bk);
 
   /// Returns shared pointer to a block
   std::shared_ptr<MeshBlock> GetBlockPointer() {

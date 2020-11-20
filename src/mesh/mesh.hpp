@@ -31,6 +31,7 @@
 #include <vector>
 
 #include "application_input.hpp"
+#include "bvals/boundary_conditions.hpp"
 #include "config.hpp"
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
@@ -91,7 +92,7 @@ class Mesh {
   // data
   bool modified;
   RegionSize mesh_size;
-  BoundaryFlag mesh_bcs[6];
+  BoundaryFlag mesh_bcs[BOUNDARY_NFACES];
   const int ndim; // number of dimensions
   const bool adaptive, multilevel;
   int nbtotal, nbnew, nbdel;
@@ -137,6 +138,9 @@ class Mesh {
   // function for distributing unique "phys" bitfield IDs to BoundaryVariable objects and
   // other categories of MPI communication for generating unique MPI_TAGs
   int ReserveTagPhysIDs(int num_phys);
+
+  // Boundary Functions
+  BValFunc MeshBndryFnctn[6];
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   static void UserWorkAfterLoopDefault(Mesh *mesh, ParameterInput *pin,
@@ -194,11 +198,9 @@ class Mesh {
 
   // functions
   MeshGenFunc MeshGenerator_[4];
-  BValFunc BoundaryFunction_[6];
   AMRFlagFunc AMRFlag_;
   SrcTermFunc UserSourceTerm_;
   TimeStepFunc UserTimeStep_;
-  MetricFunc UserMetric_;
 
   void OutputMeshStructure(int dim);
   void CalculateLoadBalance(std::vector<double> const &costlist,
@@ -233,16 +235,12 @@ class Mesh {
   static void InitUserMeshDataDefault(ParameterInput *pin);
   std::function<void(ParameterInput *)> InitUserMeshData = InitUserMeshDataDefault;
 
-  // often used (not defined) in prob file in ../pgen/
-  void EnrollUserBoundaryFunction(BoundaryFace face, BValFunc my_func);
-  // DEPRECATED(felker): provide trivial overload for old-style BoundaryFace enum argument
-  void EnrollUserBoundaryFunction(int face, BValFunc my_func);
+  void EnrollBndryFncts_(ApplicationInput *app_in);
 
   void EnrollUserRefinementCondition(AMRFlagFunc amrflag);
   void EnrollUserMeshGenerator(CoordinateDirection dir, MeshGenFunc my_mg);
   void EnrollUserExplicitSourceFunction(SrcTermFunc my_func);
   void EnrollUserTimeStepFunction(TimeStepFunc my_func);
-  void EnrollUserMetric(MetricFunc my_func);
 };
 
 //----------------------------------------------------------------------------------------
