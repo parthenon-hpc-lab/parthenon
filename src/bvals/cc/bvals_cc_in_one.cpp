@@ -125,12 +125,12 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
         const int b = team_member.league_rank() / num_buffers;
         const int n = team_member.league_rank() - b * num_buffers;
         if (boundary_info(b, n).is_used) {
-          const int si = boundary_info(b, n).si;
-          const int ei = boundary_info(b, n).ei;
-          const int sj = boundary_info(b, n).sj;
-          const int ej = boundary_info(b, n).ej;
-          const int sk = boundary_info(b, n).sk;
-          const int ek = boundary_info(b, n).ek;
+          const int &si = boundary_info(b, n).si;
+          const int &ei = boundary_info(b, n).ei;
+          const int &sj = boundary_info(b, n).sj;
+          const int &ej = boundary_info(b, n).ej;
+          const int &sk = boundary_info(b, n).sk;
+          const int &ek = boundary_info(b, n).ek;
           const int Ni = ei + 1 - si;
           const int Nj = ej + 1 - sj;
           const int Nk = ek + 1 - sk;
@@ -394,12 +394,12 @@ TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) {
         const int b = team_member.league_rank() / num_buffers;
         const int n = team_member.league_rank() - b * num_buffers;
         if (boundary_info(b, n).is_used) {
-          const int si = boundary_info(b, n).si;
-          const int ei = boundary_info(b, n).ei;
-          const int sj = boundary_info(b, n).sj;
-          const int ej = boundary_info(b, n).ej;
-          const int sk = boundary_info(b, n).sk;
-          const int ek = boundary_info(b, n).ek;
+          const int &si = boundary_info(b, n).si;
+          const int &ei = boundary_info(b, n).ei;
+          const int &sj = boundary_info(b, n).sj;
+          const int &ej = boundary_info(b, n).ej;
+          const int &sk = boundary_info(b, n).sk;
+          const int &ek = boundary_info(b, n).ek;
           const int Ni = ei + 1 - si;
           const int Nj = ej + 1 - sj;
           const int Nk = ek + 1 - sk;
@@ -407,7 +407,7 @@ TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) {
           const int NkNj = Nk * Nj;
           Kokkos::parallel_for(
               Kokkos::TeamThreadRange<>(team_member, NvNkNj), [&](const int idx) {
-                const int v = idx / NkNj;
+                const int &v = idx / NkNj;
                 int k = (idx - v * NkNj) / Nj;
                 int j = idx - v * NkNj - k * Nj;
                 k += sk;
