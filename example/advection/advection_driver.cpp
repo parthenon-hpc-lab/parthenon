@@ -144,13 +144,10 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     auto clear_comm_flags = tl.AddTask(prev_task, &MeshBlockData<Real>::ClearBoundary,
                                        sc1.get(), BoundaryCommSubset::all);
 
-    auto prolongBound = tl.AddTask(
-        prev_task,
-        [](std::shared_ptr<MeshBlock> pmb) {
-          pmb->pbval->ProlongateBoundaries(0.0, 0.0);
-          return TaskStatus::complete;
-        },
-        pmb);
+    auto prolongBound = prev_task;
+    if (pmesh->multilevel) {
+      prolongBound = tl.AddTask(prev_task, parthenon::ProlongateBoundaries, sc1);
+    }
 
     // set physical boundaries
     auto set_bc = tl.AddTask(prolongBound, parthenon::ApplyBoundaryConditions, sc1);

@@ -8,6 +8,7 @@
 - [[PR 328]](https://github.com/lanl/parthenon/pull/328) New `MeshBlock` packing interface using `DataCollection`s of `MeshData` and `MeshBlockData`.
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 332]](https://github.com/lanl/parthenon/pull/332) Rewrote boundary conditions to work on GPUs with variable packs. Re-enabled user-defined boundary conditions via `ApplicationInput`.
 
 ### Fixed (not changing behavior/API/variables/...)
 - [[PR 353]](https://github.com/lanl/parthenon/pull/353) Fixed small error in input\_parameter logic

@@ -35,6 +35,7 @@ template <typename T>
 using BlockDataList_t = std::vector<std::shared_ptr<MeshBlockData<T>>>;
 
 namespace pack_on_mesh_impl {
+// TODO(JMM): pass the coarse/fine option through the meshblockpack machinery
 template <typename T, typename K, typename M, typename F>
 MeshBlockPack<T> PackOnMesh(K &key, M &map, BlockDataList_t<Real> &block_data_,
                             F &packing_function) {

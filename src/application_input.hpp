@@ -19,6 +19,7 @@
 #include <string>
 #include <vector>
 
+#include "bvals/boundary_conditions.hpp"
 #include "defs.hpp"
 #include "interface/properties_interface.hpp"
 #include "interface/state_descriptor.hpp"
@@ -38,6 +39,8 @@ struct ApplicationInput {
   std::function<void(ParameterInput *)> InitUserMeshData = nullptr;
   std::function<void()> MeshUserWorkInLoop = nullptr;
   std::function<void(Mesh *, ParameterInput *, SimTime &)> UserWorkAfterLoop = nullptr;
+  BValFunc boundary_conditions[BOUNDARY_NFACES] = {nullptr, nullptr, nullptr,
+                                                   nullptr, nullptr, nullptr};
 
   // MeshBlock functions
   std::function<std::unique_ptr<MeshBlockApplicationData>(ParameterInput *)>

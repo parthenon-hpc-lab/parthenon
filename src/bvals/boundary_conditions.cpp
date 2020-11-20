@@ -12,9 +12,9 @@
 //========================================================================================
 
 #include <memory>
+#include <vector>
 
 #include "bvals/boundary_conditions.hpp"
-
 #include "bvals/bvals_interfaces.hpp"
 #include "interface/meshblock_data.hpp"
 #include "interface/meshblock_data_iterator.hpp"
@@ -23,248 +23,239 @@
 
 namespace parthenon {
 
-TaskStatus ApplyBoundaryConditions(std::shared_ptr<MeshBlockData<Real>> &rc) {
-  std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
-  const IndexDomain interior = IndexDomain::interior;
-  const IndexDomain entire = IndexDomain::entire;
-  IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
-  IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
-  IndexRange kb = pmb->cellbounds.GetBoundsK(interior);
-  const int imax = pmb->cellbounds.ncellsi(entire);
-  const int jmax = pmb->cellbounds.ncellsj(entire);
-  const int kmax = pmb->cellbounds.ncellsk(entire);
+namespace boundary_cond_impl {
+bool DoPhysicalBoundary_(const BoundaryFlag flag, const BoundaryFace face,
+                         const int ndim);
+} // namespace boundary_cond_impl
 
-  Metadata m;
-  MeshBlockDataIterator<Real> citer(rc, {Metadata::Independent});
-  const int nvars = citer.vars.size();
+TaskStatus ProlongateBoundaries(std::shared_ptr<MeshBlockData<Real>> &rc) {
+  if (!(rc->GetBlockPointer()->pmy_mesh->multilevel)) return TaskStatus::complete;
 
-  switch (pmb->boundary_flag[BoundaryFace::inner_x1]) {
-  case BoundaryFlag::outflow:
-    for (int n = 0; n < nvars; n++) {
-      ParArrayND<Real> q = citer.vars[n]->data;
-      for (int l = 0; l < q.GetDim(4); l++) {
-        for (int k = kb.s; k <= kb.e; k++) {
-          for (int j = 0; j < jmax; j++) {
-            for (int i = 0; i < ib.s; i++) {
-              q(l, k, j, i) = q(l, k, j, ib.s);
-            }
-          }
-        }
-      }
-    }
-    break;
+  // This hardcoded technique is also used to manually specify the coupling between
+  // physical variables in:
+  // - step 2, ApplyPhysicalBoundariesOnCoarseLevel(): calls to W(U) and user BoundaryFunc
+  // - step 3, ProlongateGhostCells(): calls to calculate bcc and U(W)
 
-  case BoundaryFlag::reflect:
-    for (int n = 0; n < nvars; n++) {
-      ParArrayND<Real> q = citer.vars[n]->data;
-      bool vec = citer.vars[n]->IsSet(Metadata::Vector);
-      for (int l = 0; l < q.GetDim(4); l++) {
-        Real reflect = (l == 0 && vec ? -1.0 : 1.0);
-        for (int k = kb.s; k <= kb.e; k++) {
-          for (int j = 0; j < jmax; j++) {
-            for (int i = 0; i < ib.s; i++) {
-              q(l, k, j, i) = reflect * q(l, k, j, 2 * ib.s - i - 1);
-            }
-          }
-        }
-      }
-    }
-    break;
+  // downcast BoundaryVariable pointers to known derived class pointer types:
+  // RTTI via dynamic_case
 
-  default:
-    break;
-  }
+  // For each finer neighbor, to prolongate a boundary we need to fill one more cell
+  // surrounding the boundary zone to calculate the slopes ("ghost-ghost zone"). 3x steps:
 
-  switch (pmb->boundary_flag[BoundaryFace::outer_x1]) {
-  case BoundaryFlag::outflow:
-    for (int n = 0; n < nvars; n++) {
-      ParArrayND<Real> q = citer.vars[n]->data;
-      for (int l = 0; l < q.GetDim(4); l++) {
-        for (int k = kb.s; k <= kb.e; k++) {
-          for (int j = 0; j < jmax; j++) {
-            for (int i = ib.e + 1; i < imax; i++) {
-              q(l, k, j, i) = q(l, k, j, ib.e);
-            }
-          }
-        }
-      }
-    }
-    break;
+  // Step 1. Apply necessary variable restrictions when ghost-ghost zone is on same lvl
+  rc->RestrictBoundaries(); // Step 1: restrict physical boundaries
 
-  case BoundaryFlag::reflect:
-    for (int n = 0; n < nvars; n++) {
-      ParArrayND<Real> q = citer.vars[n]->data;
-      bool vec = citer.vars[n]->IsSet(Metadata::Vector);
-      for (int l = 0; l < q.GetDim(4); l++) {
-        Real reflect = (l == 0 && vec ? -1.0 : 1.0);
-        for (int k = kb.s; k <= kb.e; k++) {
-          for (int j = 0; j < jmax; j++) {
-            for (int i = ib.e + 1; i < imax; i++) {
-              q(l, k, j, i) = reflect * q(l, k, j, 2 * ib.e - i + 1);
-            }
-          }
-        }
-      }
-    }
-    break;
+  // Step 2. Re-apply physical boundaries on the coarse boundary,
+  ApplyBoundaryConditionsOnCoarseOrFine(rc, true);
 
-  default:
-    break;
-  }
-
-  if (pmb->pmy_mesh->ndim >= 2) {
-    switch (pmb->boundary_flag[BoundaryFace::inner_x2]) {
-    case BoundaryFlag::outflow:
-      for (int n = 0; n < nvars; n++) {
-        ParArrayND<Real> q = citer.vars[n]->data;
-        for (int l = 0; l < q.GetDim(4); l++) {
-          for (int k = kb.s; k <= kb.e; k++) {
-            for (int j = 0; j < jb.s; j++) {
-              for (int i = 0; i < imax; i++) {
-                q(l, k, j, i) = q(l, k, jb.s, i);
-              }
-            }
-          }
-        }
-      }
-      break;
-
-    case BoundaryFlag::reflect:
-      for (int n = 0; n < nvars; n++) {
-        ParArrayND<Real> q = citer.vars[n]->data;
-        bool vec = citer.vars[n]->IsSet(Metadata::Vector);
-        for (int l = 0; l < q.GetDim(4); l++) {
-          Real reflect = (l == 1 && vec ? -1.0 : 1.0);
-          for (int k = kb.s; k <= kb.e; k++) {
-            for (int j = 0; j < jb.s; j++) {
-              for (int i = 0; i < imax; i++) {
-                q(l, k, j, i) = reflect * q(l, k, 2 * jb.s - j - 1, i);
-              }
-            }
-          }
-        }
-      }
-      break;
-
-    default:
-      break;
-    }
-
-    switch (pmb->boundary_flag[BoundaryFace::outer_x2]) {
-    case BoundaryFlag::outflow:
-      for (int n = 0; n < nvars; n++) {
-        ParArrayND<Real> q = citer.vars[n]->data;
-        for (int l = 0; l < q.GetDim(4); l++) {
-          for (int k = kb.s; k <= kb.e; k++) {
-            for (int j = jb.e + 1; j < jmax; j++) {
-              for (int i = 0; i < imax; i++) {
-                q(l, k, j, i) = q(l, k, jb.e, i);
-              }
-            }
-          }
-        }
-      }
-      break;
-
-    case BoundaryFlag::reflect:
-      for (int n = 0; n < nvars; n++) {
-        ParArrayND<Real> q = citer.vars[n]->data;
-        bool vec = citer.vars[n]->IsSet(Metadata::Vector);
-        for (int l = 0; l < q.GetDim(4); l++) {
-          Real reflect = (l == 1 && vec ? -1.0 : 1.0);
-          for (int k = kb.s; k <= kb.e; k++) {
-            for (int j = jb.e + 1; j < jmax; j++) {
-              for (int i = 0; i < imax; i++) {
-                q(l, k, j, i) = reflect * q(l, k, 2 * jb.e - j + 1, i);
-              }
-            }
-          }
-        }
-      }
-      break;
-
-    default:
-      break;
-    }
-  } // if ndim>=2
-
-  if (pmb->pmy_mesh->ndim >= 3) {
-    switch (pmb->boundary_flag[BoundaryFace::inner_x3]) {
-    case BoundaryFlag::outflow:
-      for (int n = 0; n < nvars; n++) {
-        ParArrayND<Real> q = citer.vars[n]->data;
-        for (int l = 0; l < q.GetDim(4); l++) {
-          for (int k = 0; k < kb.s; k++) {
-            for (int j = 0; j < jmax; j++) {
-              for (int i = 0; i < imax; i++) {
-                q(l, k, j, i) = q(l, kb.s, j, i);
-              }
-            }
-          }
-        }
-      }
-      break;
-
-    case BoundaryFlag::reflect:
-      for (int n = 0; n < nvars; n++) {
-        ParArrayND<Real> q = citer.vars[n]->data;
-        bool vec = citer.vars[n]->IsSet(Metadata::Vector);
-        for (int l = 0; l < q.GetDim(4); l++) {
-          Real reflect = (l == 2 && vec ? -1.0 : 1.0);
-          for (int k = 0; k < kb.s; k++) {
-            for (int j = 0; j < jmax; j++) {
-              for (int i = 0; i < imax; i++) {
-                q(l, k, j, i) = reflect * q(l, 2 * kb.s - k - 1, j, i);
-              }
-            }
-          }
-        }
-      }
-      break;
-
-    default:
-      break;
-    }
-
-    switch (pmb->boundary_flag[BoundaryFace::outer_x3]) {
-    case BoundaryFlag::outflow:
-      for (int n = 0; n < nvars; n++) {
-        ParArrayND<Real> q = citer.vars[n]->data;
-        for (int l = 0; l < q.GetDim(4); l++) {
-          for (int k = kb.e + 1; k < kmax; k++) {
-            for (int j = 0; j < jmax; j++) {
-              for (int i = 0; i < imax; i++) {
-                q(l, k, j, i) = q(l, kb.e, j, i);
-              }
-            }
-          }
-        }
-      }
-      break;
-
-    case BoundaryFlag::reflect:
-      for (int n = 0; n < nvars; n++) {
-        ParArrayND<Real> q = citer.vars[n]->data;
-        bool vec = citer.vars[n]->IsSet(Metadata::Vector);
-        for (int l = 0; l < q.GetDim(4); l++) {
-          Real reflect = (l == 2 && vec ? -1.0 : 1.0);
-          for (int k = kb.e + 1; k < kmax; k++) {
-            for (int j = 0; j < jmax; j++) {
-              for (int i = 0; i < imax; i++) {
-                q(l, k, j, i) = reflect * q(l, 2 * kb.e - k + 1, j, i);
-              }
-            }
-          }
-        }
-      }
-      break;
-
-    default:
-      break;
-    }
-  } // if ndim >= 3
+  // Step 3. Finally, the ghost-ghost zones are ready for prolongation:
+  rc->ProlongateBoundaries();
 
   return TaskStatus::complete;
 }
+
+TaskStatus ApplyBoundaryConditionsOnCoarseOrFine(std::shared_ptr<MeshBlockData<Real>> &rc,
+                                                 bool coarse) {
+  using namespace boundary_cond_impl;
+  std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
+  Mesh *pmesh = pmb->pmy_mesh;
+  const int ndim = pmesh->ndim;
+
+  for (int i = 0; i < BOUNDARY_NFACES; i++) {
+    if (DoPhysicalBoundary_(pmb->boundary_flag[i], static_cast<BoundaryFace>(i), ndim)) {
+      PARTHENON_DEBUG_REQUIRE(pmesh->MeshBndryFnctn[i] != nullptr,
+                              "boundary function must not be null");
+      pmesh->MeshBndryFnctn[i](rc, coarse);
+    }
+  }
+
+  return TaskStatus::complete;
+}
+
+namespace BoundaryFunction {
+
+// TODO(JMM): These are all awfully similar. There's gotta be a way to
+// save some code here.
+void OutflowInnerX1(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
+  std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
+  auto bounds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
+  int ref = bounds.GetBoundsI(IndexDomain::interior).s;
+  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::FillGhost}, coarse);
+  auto nb = IndexRange{0, q.GetDim(4) - 1};
+  pmb->par_for_bndry(
+      "OutflowInnerX1", nb, IndexDomain::inner_x1, coarse,
+      KOKKOS_LAMBDA(const int &l, const int &k, const int &j, const int &i) {
+        q(l, k, j, i) = q(l, k, j, ref);
+      });
+}
+
+void OutflowOuterX1(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
+  std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
+  auto bounds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
+  int ref = bounds.GetBoundsI(IndexDomain::interior).e;
+  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::FillGhost}, coarse);
+  auto nb = IndexRange{0, q.GetDim(4) - 1};
+  pmb->par_for_bndry(
+      "OutflowOuterX1", nb, IndexDomain::outer_x1, coarse,
+      KOKKOS_LAMBDA(const int &l, const int &k, const int &j, const int &i) {
+        q(l, k, j, i) = q(l, k, j, ref);
+      });
+}
+
+void OutflowInnerX2(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
+  std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
+  auto bounds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
+  int ref = bounds.GetBoundsJ(IndexDomain::interior).s;
+  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::FillGhost}, coarse);
+  auto nb = IndexRange{0, q.GetDim(4) - 1};
+  pmb->par_for_bndry(
+      "OutflowInnerX2", nb, IndexDomain::inner_x2, coarse,
+      KOKKOS_LAMBDA(const int &l, const int &k, const int &j, const int &i) {
+        q(l, k, j, i) = q(l, k, ref, i);
+      });
+}
+
+void OutflowOuterX2(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
+  std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
+  auto bounds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
+  int ref = bounds.GetBoundsJ(IndexDomain::interior).e;
+  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::FillGhost}, coarse);
+  auto nb = IndexRange{0, q.GetDim(4) - 1};
+  pmb->par_for_bndry(
+      "OutflowOuterX2", nb, IndexDomain::outer_x2, coarse,
+      KOKKOS_LAMBDA(const int &l, const int &k, const int &j, const int &i) {
+        q(l, k, j, i) = q(l, k, ref, i);
+      });
+}
+
+void OutflowInnerX3(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
+  std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
+  auto bounds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
+  int ref = bounds.GetBoundsJ(IndexDomain::interior).s;
+  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::FillGhost}, coarse);
+  auto nb = IndexRange{0, q.GetDim(4) - 1};
+  pmb->par_for_bndry(
+      "OutflowInnerX3", nb, IndexDomain::inner_x3, coarse,
+      KOKKOS_LAMBDA(const int &l, const int &k, const int &j, const int &i) {
+        q(l, k, j, i) = q(l, ref, j, i);
+      });
+}
+
+void OutflowOuterX3(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
+  std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
+  auto bounds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
+  int ref = bounds.GetBoundsJ(IndexDomain::interior).e;
+  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::FillGhost}, coarse);
+  auto nb = IndexRange{0, q.GetDim(4) - 1};
+  pmb->par_for_bndry(
+      "OutflowOuterX3", nb, IndexDomain::outer_x3, coarse,
+      KOKKOS_LAMBDA(const int &l, const int &k, const int &j, const int &i) {
+        q(l, k, j, i) = q(l, ref, j, i);
+      });
+}
+
+void ReflectInnerX1(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
+  std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
+  auto bounds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
+  int ref = bounds.GetBoundsI(IndexDomain::interior).s;
+  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::FillGhost}, coarse);
+  auto nb = IndexRange{0, q.GetDim(4) - 1};
+  pmb->par_for_bndry(
+      "ReflectInnerX1", nb, IndexDomain::inner_x1, coarse,
+      KOKKOS_LAMBDA(const int &l, const int &k, const int &j, const int &i) {
+        Real reflect = q.VectorComponent(l) == X1DIR ? -1.0 : 1.0;
+        q(l, k, j, i) = reflect * q(l, k, j, 2 * ref - i - 1);
+      });
+}
+
+void ReflectOuterX1(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
+  std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
+  auto bounds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
+  int ref = bounds.GetBoundsI(IndexDomain::interior).e;
+  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::FillGhost}, coarse);
+  auto nb = IndexRange{0, q.GetDim(4) - 1};
+  pmb->par_for_bndry(
+      "ReflectOuterX1", nb, IndexDomain::outer_x1, coarse,
+      KOKKOS_LAMBDA(const int &l, const int &k, const int &j, const int &i) {
+        Real reflect = q.VectorComponent(l) == X1DIR ? -1.0 : 1.0;
+        q(l, k, j, i) = reflect * q(l, k, j, 2 * ref - i + 1);
+      });
+}
+
+void ReflectInnerX2(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
+  std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
+  auto bounds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
+  int ref = bounds.GetBoundsJ(IndexDomain::interior).s;
+  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::FillGhost}, coarse);
+  auto nb = IndexRange{0, q.GetDim(4) - 1};
+  pmb->par_for_bndry(
+      "ReflectInnerX2", nb, IndexDomain::inner_x2, coarse,
+      KOKKOS_LAMBDA(const int &l, const int &k, const int &j, const int &i) {
+        Real reflect = q.VectorComponent(l) == X2DIR ? -1.0 : 1.0;
+        q(l, k, j, i) = reflect * q(l, k, 2 * ref - j - 1, i);
+      });
+}
+
+void ReflectOuterX2(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
+  std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
+  auto bounds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
+  int ref = bounds.GetBoundsJ(IndexDomain::interior).e;
+  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::FillGhost}, coarse);
+  auto nb = IndexRange{0, q.GetDim(4) - 1};
+  pmb->par_for_bndry(
+      "ReflectOuterX2", nb, IndexDomain::outer_x2, coarse,
+      KOKKOS_LAMBDA(const int &l, const int &k, const int &j, const int &i) {
+        Real reflect = q.VectorComponent(l) == X2DIR ? -1.0 : 1.0;
+        q(l, k, j, i) = reflect * q(l, k, 2 * ref - j + 1, i);
+      });
+}
+
+void ReflectInnerX3(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
+  std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
+  auto bounds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
+  int ref = bounds.GetBoundsK(IndexDomain::interior).s;
+  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::FillGhost}, coarse);
+  auto nb = IndexRange{0, q.GetDim(4) - 1};
+  pmb->par_for_bndry(
+      "ReflectInnerX3", nb, IndexDomain::inner_x3, coarse,
+      KOKKOS_LAMBDA(const int &l, const int &k, const int &j, const int &i) {
+        Real reflect = q.VectorComponent(l) == X3DIR ? -1.0 : 1.0;
+        q(l, k, j, i) = reflect * q(l, 2 * ref - k - 1, j, i);
+      });
+}
+
+void ReflectOuterX3(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) {
+  std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
+  auto bounds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
+  int ref = bounds.GetBoundsK(IndexDomain::interior).e;
+  auto q = rc->PackVariables(std::vector<MetadataFlag>{Metadata::FillGhost}, coarse);
+  auto nb = IndexRange{0, q.GetDim(4) - 1};
+  pmb->par_for_bndry(
+      "ReflectOuterX3", nb, IndexDomain::outer_x3, coarse,
+      KOKKOS_LAMBDA(const int &l, const int &k, const int &j, const int &i) {
+        Real reflect = q.VectorComponent(l) == X3DIR ? -1.0 : 1.0;
+        q(l, k, j, i) = reflect * q(l, 2 * ref - k + 1, j, i);
+      });
+}
+
+} // namespace BoundaryFunction
+
+namespace boundary_cond_impl {
+bool DoPhysicalBoundary_(const BoundaryFlag flag, const BoundaryFace face,
+                         const int ndim) {
+  if (flag == BoundaryFlag::block) return false;
+  if (flag == BoundaryFlag::undef) return false;
+  if (flag == BoundaryFlag::periodic) return false;
+
+  if (ndim < 3 && (face == BoundaryFace::inner_x3 || face == BoundaryFace::outer_x3)) {
+    return false;
+  }
+  if (ndim < 2 && (face == BoundaryFace::inner_x2 || face == BoundaryFace::outer_x2)) {
+    return false;
+  } // ndim always at least 1
+
+  return true; // reflect, outflow, user, dims correct
+}
+} // namespace boundary_cond_impl
 
 } // namespace parthenon

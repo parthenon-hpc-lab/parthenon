@@ -67,8 +67,10 @@ include(cmake/Lint.cmake)
 set(NUMBER_GHOST_CELLS ${PARTHENON_NGHOST})
 
 # regression test reference data
-set(REGRESSION_GOLD_STANDARD_VER 2 CACHE STRING "Version of gold standard to download and use")
-set(REGRESSION_GOLD_STANDARD_HASH "SHA512=45f57d16b76a3a44940e40ea642c1d5a2b3aea681a3064e4c06b031bf264d627f8009e967b92a2cb0fbc08e5cd0ffda381038483f390fa00f47c42a551ca3646" CACHE STRING "Hash of default gold standard file to download")
+set(REGRESSION_GOLD_STANDARD_VER 3 CACHE STRING "Version of gold standard to download and use")
+set(REGRESSION_GOLD_STANDARD_HASH
+  "SHA512=2445000a031aafc9a85a684aa7e82fb5ccda05530c5652ab432a8fb254642c7b18252ff55d8306b1120aba898713712b28b804eb30272b06278698046a6461cc"
+  CACHE STRING "Hash of default gold standard file to download")
 option(REGRESSION_GOLD_STANDARD_SYNC "Automatically sync gold standard files." ON)
 
 # set single precision #define

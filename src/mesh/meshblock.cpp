@@ -218,14 +218,6 @@ void MeshBlock::InitializeIndexShapes(const int nx1, const int nx2, const int nx
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn std::size_t MeshBlock::GetBlockSizeInBytes()
-//  \brief Calculate the block data size required for restart.
-
-std::size_t MeshBlock::GetBlockSizeInBytes() {
-  throw std::runtime_error("MeshBlock::GetBlockSizeInBytes not yet implemented.");
-}
-
-//----------------------------------------------------------------------------------------
 //! \fn void MeshBlock::SetCostForLoadBalancing(double cost)
 //  \brief stop time measurement and accumulate it in the MeshBlock cost
 

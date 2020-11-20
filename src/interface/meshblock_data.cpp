@@ -60,7 +60,7 @@ void MeshBlockData<T>::Add(const std::vector<std::string> labelArray,
 /// @param metadata the metadata associated with the variable
 template <typename T>
 void MeshBlockData<T>::Add(const std::string label, const Metadata &metadata,
-                           const std::vector<int> dims) {
+                           const std::vector<int> &dims) {
   std::array<int, 6> arrDims;
   calcArrDims_(arrDims, dims, metadata);
 
@@ -340,82 +340,84 @@ template <typename T>
 VariablePack<T>
 MeshBlockData<T>::PackVariablesHelper_(const std::vector<std::string> &names,
                                        const vpack_types::VarList<T> &vars,
-                                       PackIndexMap &vmap) {
-  auto kvpair = varPackMap_.find(names);
-  if (kvpair == varPackMap_.end()) {
-    auto pack = MakePack<T>(vars, &vmap);
+                                       PackIndexMap &vmap, const bool coarse) {
+  auto &packmap = coarse ? coarseVarPackMap_ : varPackMap_;
+  auto kvpair = packmap.find(names);
+  if (kvpair == packmap.end()) {
+    auto pack = MakePack<T>(vars, &vmap, coarse);
     PackIndxPair<T> value;
     value.pack = pack;
     value.map = vmap;
-    varPackMap_[names] = value;
-    // varPackMap_[names] = std::make_pair(pack,vmap);
+    packmap[names] = value;
     return pack;
   }
   vmap = (kvpair->second).map;
   return (kvpair->second).pack;
-  // vmap = std::get<1>(kvpair->second);
-  // return std::get<0>(kvpair->second);
 }
 
 /***********************************/
 /* Names and sparse ids interfaces */
 /***********************************/
 template <typename T>
-VariablePack<T> MeshBlockData<T>::PackVariables(const std::vector<std::string> &names,
-                                                const std::vector<int> &sparse_ids,
-                                                PackIndexMap &vmap,
-                                                std::vector<std::string> &key) {
+VariablePack<T>
+MeshBlockData<T>::PackVariables(const std::vector<std::string> &names,
+                                const std::vector<int> &sparse_ids, PackIndexMap &vmap,
+                                std::vector<std::string> &key, const bool coarse) {
   vpack_types::VarList<T> vars = MakeList_(names, key, sparse_ids);
-  return PackVariablesHelper_(key, vars, vmap);
+  return PackVariablesHelper_(key, vars, vmap, coarse);
 }
 template <typename T>
 VariablePack<T> MeshBlockData<T>::PackVariables(const std::vector<std::string> &names,
                                                 const std::vector<int> &sparse_ids,
-                                                PackIndexMap &vmap) {
+                                                PackIndexMap &vmap, const bool coarse) {
   std::vector<std::string> key;
-  return PackVariables(names, sparse_ids, vmap, key);
+  return PackVariables(names, sparse_ids, vmap, key, coarse);
 }
 template <typename T>
 VariablePack<T> MeshBlockData<T>::PackVariables(const std::vector<std::string> &names,
                                                 const std::vector<int> &sparse_ids,
-                                                std::vector<std::string> &key) {
+                                                std::vector<std::string> &key,
+                                                const bool coarse) {
   PackIndexMap vmap;
-  return PackVariables(names, sparse_ids, vmap, key);
+  return PackVariables(names, sparse_ids, vmap, key, coarse);
 }
 template <typename T>
 VariablePack<T> MeshBlockData<T>::PackVariables(const std::vector<std::string> &names,
-                                                const std::vector<int> &sparse_ids) {
+                                                const std::vector<int> &sparse_ids,
+                                                const bool coarse) {
   PackIndexMap vmap;
   std::vector<std::string> key;
-  return PackVariables(names, sparse_ids, vmap, key);
+  return PackVariables(names, sparse_ids, vmap, key, coarse);
 }
 
 /********************/
 /* Names interfaces */
 /********************/
 template <typename T>
-VariablePack<T> MeshBlockData<T>::PackVariables(const std::vector<std::string> &names,
-                                                PackIndexMap &vmap,
-                                                std::vector<std::string> &key) {
-  return PackVariables(names, {}, vmap, key);
+VariablePack<T>
+MeshBlockData<T>::PackVariables(const std::vector<std::string> &names, PackIndexMap &vmap,
+                                std::vector<std::string> &key, const bool coarse) {
+  return PackVariables(names, {}, vmap, key, coarse);
 }
 template <typename T>
 VariablePack<T> MeshBlockData<T>::PackVariables(const std::vector<std::string> &names,
-                                                PackIndexMap &vmap) {
+                                                PackIndexMap &vmap, const bool coarse) {
   std::vector<std::string> key;
-  return PackVariables(names, {}, vmap, key);
+  return PackVariables(names, {}, vmap, key, coarse);
 }
 template <typename T>
 VariablePack<T> MeshBlockData<T>::PackVariables(const std::vector<std::string> &names,
-                                                std::vector<std::string> &key) {
+                                                std::vector<std::string> &key,
+                                                const bool coarse) {
   PackIndexMap vmap;
-  return PackVariables(names, {}, vmap, key);
+  return PackVariables(names, {}, vmap, key, coarse);
 }
 template <typename T>
-VariablePack<T> MeshBlockData<T>::PackVariables(const std::vector<std::string> &names) {
+VariablePack<T> MeshBlockData<T>::PackVariables(const std::vector<std::string> &names,
+                                                const bool coarse) {
   PackIndexMap vmap;
   std::vector<std::string> key;
-  return PackVariables(names, {}, vmap, key);
+  return PackVariables(names, {}, vmap, key, coarse);
 }
 
 /*****************************/
@@ -424,27 +426,30 @@ VariablePack<T> MeshBlockData<T>::PackVariables(const std::vector<std::string> &
 template <typename T>
 VariablePack<T> MeshBlockData<T>::PackVariables(const std::vector<MetadataFlag> &flags,
                                                 PackIndexMap &vmap,
-                                                std::vector<std::string> &key) {
+                                                std::vector<std::string> &key,
+                                                const bool coarse) {
   vpack_types::VarList<T> vars = MakeList_(flags, key);
-  return PackVariablesHelper_(key, vars, vmap);
+  return PackVariablesHelper_(key, vars, vmap, coarse);
 }
 template <typename T>
 VariablePack<T> MeshBlockData<T>::PackVariables(const std::vector<MetadataFlag> &flags,
-                                                PackIndexMap &vmap) {
+                                                PackIndexMap &vmap, const bool coarse) {
   std::vector<std::string> key;
-  return PackVariables(flags, vmap, key);
+  return PackVariables(flags, vmap, key, coarse);
 }
 template <typename T>
 VariablePack<T> MeshBlockData<T>::PackVariables(const std::vector<MetadataFlag> &flags,
-                                                std::vector<std::string> &key) {
+                                                std::vector<std::string> &key,
+                                                const bool coarse) {
   PackIndexMap vmap;
-  return PackVariables(flags, vmap, key);
+  return PackVariables(flags, vmap, key, coarse);
 }
 template <typename T>
-VariablePack<T> MeshBlockData<T>::PackVariables(const std::vector<MetadataFlag> &flags) {
+VariablePack<T> MeshBlockData<T>::PackVariables(const std::vector<MetadataFlag> &flags,
+                                                const bool coarse) {
   PackIndexMap vmap;
   std::vector<std::string> key;
-  return PackVariables(flags, vmap, key);
+  return PackVariables(flags, vmap, key, coarse);
 }
 
 /*********************************/
@@ -452,26 +457,22 @@ VariablePack<T> MeshBlockData<T>::PackVariables(const std::vector<MetadataFlag> 
 /*********************************/
 template <typename T>
 VariablePack<T> MeshBlockData<T>::PackVariables(PackIndexMap &vmap,
-                                                std::vector<std::string> &key) {
+                                                std::vector<std::string> &key,
+                                                const bool coarse) {
   vpack_types::VarList<T> vars = MakeList_(key);
-  return PackVariablesHelper_(key, vars, vmap);
+  return PackVariablesHelper_(key, vars, vmap, coarse);
 }
 template <typename T>
-VariablePack<T> MeshBlockData<T>::PackVariables(PackIndexMap &vmap) {
+VariablePack<T> MeshBlockData<T>::PackVariables(PackIndexMap &vmap, const bool coarse) {
   std::vector<std::string> key;
   vpack_types::VarList<T> vars = MakeList_(key);
-  return PackVariablesHelper_(key, vars, vmap);
+  return PackVariablesHelper_(key, vars, vmap, coarse);
 }
-// template <typename T>
-// VariablePack<T> MeshBlockData<T>::PackVariables(std::vector<std::string> &key) {
-//  PackIndexMap vmap;
-//  return PackVariables(vmap, key);
-//}
 template <typename T>
 VariablePack<T> MeshBlockData<T>::PackVariables() {
   PackIndexMap vmap;
   std::vector<std::string> key;
-  return PackVariables(vmap, key);
+  return PackVariables(vmap, key, false);
 }
 
 // From a given container, extract all variables and all fields in sparse variables
@@ -575,10 +576,8 @@ MeshBlockData<T>::MakeList_(const std::vector<MetadataFlag> &flags,
   return vars;
 }
 
-// TODO(JMM): this could be cleaned up, I think.
-// Maybe do only one loop, or do the cleanup at the end.
 template <typename T>
-void MeshBlockData<T>::Remove(const std::string label) {
+void MeshBlockData<T>::Remove(const std::string &label) {
   throw std::runtime_error("MeshBlockData<T>::Remove not yet implemented");
 }
 
@@ -813,6 +812,20 @@ TaskStatus MeshBlockData<T>::ClearBoundary(BoundaryCommSubset phase) {
     }
   }
   return TaskStatus::complete;
+}
+
+template <typename T>
+void MeshBlockData<T>::RestrictBoundaries() {
+  // TODO(JMM): Change this upon refactor of BoundaryValues
+  auto pmb = GetBlockPointer();
+  pmb->pbval->RestrictBoundaries();
+}
+
+template <typename T>
+void MeshBlockData<T>::ProlongateBoundaries() {
+  // TODO(JMM): Change this upon refactor of BoundaryValues
+  auto pmb = GetBlockPointer();
+  pmb->pbval->ProlongateBoundaries();
 }
 
 template <typename T>

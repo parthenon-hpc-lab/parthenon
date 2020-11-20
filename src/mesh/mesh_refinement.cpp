@@ -39,58 +39,6 @@
 
 namespace parthenon {
 
-// TODO(Yurlunger) Identify an idiomatic way of applying reflective
-// boundary conditions in the boundary condition refactor code
-void applyBounds(std::shared_ptr<MeshBlock> pmb, ParArrayND<Real> &a,
-                 const IndexRange &ib, const IndexRange &jb) {
-  // applyBounds() is a Hack.  This needs to go, see TODO above.
-
-  bool vec = a.GetDim(4) == 3;
-  if (pmb->boundary_flag[BoundaryFace::outer_x1] == BoundaryFlag::reflect) {
-    for (int n = 0; n < a.GetDim(4); n++) {
-      Real reflect = (n == 0 && vec ? -1.0 : 1.0);
-      for (int j = 0; j <= jb.e + NGHOST; j++) {
-        for (int i = ib.e + 1; i <= ib.e + NGHOST; i++) {
-          a(n, 0, j, i) = reflect * a(n, 0, j, 2 * ib.e - i + 1);
-        }
-      }
-    }
-  }
-
-  if (pmb->boundary_flag[BoundaryFace::inner_x1] == BoundaryFlag::reflect) {
-    for (int n = 0; n < a.GetDim(4); n++) {
-      Real reflect = (n == 0 && vec ? -1.0 : 1.0);
-      for (int j = 0; j <= jb.e + NGHOST; j++) {
-        for (int i = 0; i < ib.s; i++) {
-          a(n, 0, j, i) = reflect * a(n, 0, j, 2 * ib.s - i - 1);
-        }
-      }
-    }
-  }
-
-  if (pmb->boundary_flag[BoundaryFace::outer_x2] == BoundaryFlag::reflect) {
-    for (int n = 0; n < a.GetDim(4); n++) {
-      Real reflect = (n == 1 && vec ? -1.0 : 1.0);
-      for (int j = jb.e + 1; j <= jb.e + NGHOST; j++) {
-        for (int i = 0; i <= ib.e + NGHOST; i++) {
-          a(n, 0, j, i) = reflect * a(n, 0, 2 * jb.e - j + 1, i);
-        }
-      }
-    }
-  }
-
-  if (pmb->boundary_flag[BoundaryFace::inner_x2] == BoundaryFlag::reflect) {
-    for (int n = 0; n < a.GetDim(4); n++) {
-      Real reflect = (n == 1 && vec ? -1.0 : 1.0);
-      for (int j = 0; j < jb.s; j++) {
-        for (int i = 0; i <= ib.e + NGHOST; i++) {
-          a(n, 0, j, i) = reflect * a(n, 0, 2 * jb.s - j - 1, i);
-        }
-      }
-    }
-  }
-}
-
 //----------------------------------------------------------------------------------------
 //! \fn MeshRefinement::MeshRefinement(MeshBlock *pmb, ParameterInput *pin)
 //  \brief constructor
@@ -180,8 +128,7 @@ void MeshRefinement::RestrictCellCenteredValues(const ParArrayND<Real> &fine,
                (fine(n, 0, j, i + 1) * vol01 + fine(n, 0, j + 1, i + 1) * vol11)) /
               tvol;
         });
-    applyBounds(pmb, coarse, cib, cjb); // TODO(JMM): delete me
-  } else {                              // 1D
+  } else { // 1D
     int j = jb.s, cj = cjb.s, k = kb.s, ck = ckb.s;
     pmb->par_for(
         "RestrictCellCenteredValues1d", sn, en, csi, cei,
@@ -207,8 +154,8 @@ void MeshRefinement::RestrictFieldX1(const ParArrayND<Real> &fine,
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   auto &coords = pmb->coords;
   const IndexDomain interior = IndexDomain::interior;
-  int si = (csi - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
-  int ei = (cei - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
+  // int si = (csi - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
+  // int ei = (cei - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
 
   // store the restricted data in the prolongation buffer for later use
   if (pmb->block_size.nx3 > 1) { // 3D
@@ -524,8 +471,7 @@ void MeshRefinement::ProlongateCellCenteredValues(const ParArrayND<Real> &coarse
           fine(n, fk, fj + 1, fi) = ccval - (gx1c * dx1fm - gx2c * dx2fp);
           fine(n, fk, fj + 1, fi + 1) = ccval + (gx1c * dx1fp + gx2c * dx2fp);
         });
-    applyBounds(pmb, fine, ib, jb); // TODO(JMM): Delete me
-  } else {                          // 1D
+  } else { // 1D
     int k = ckb.s, fk = kb.s, j = cjb.s, fj = jb.s;
     pmb->par_for(
         "ProlongateCellCenteredValues1d", sn, en, si, ei,
