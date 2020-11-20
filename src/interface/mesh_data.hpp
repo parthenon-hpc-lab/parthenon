@@ -13,6 +13,7 @@
 #ifndef INTERFACE_MESH_DATA_HPP_
 #define INTERFACE_MESH_DATA_HPP_
 
+#include <limits>
 #include <map>
 #include <memory>
 #include <string>
@@ -82,6 +83,12 @@ class MeshData {
   void SetMeshPointer(Mesh *pmesh) { pmy_mesh_ = pmesh; }
   void SetMeshPointer(const std::shared_ptr<MeshData<T>> &other) {
     pmy_mesh_ = other->GetMeshPointer();
+  }
+
+  void SetAllowedDt(const Real dt) {
+    for (const auto &pbd : block_data_) {
+      pbd->SetAllowedDt(dt);
+    }
   }
 
   IndexRange GetBoundsI(const IndexDomain &domain) const {

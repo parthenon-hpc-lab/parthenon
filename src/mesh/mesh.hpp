@@ -149,12 +149,9 @@ class Mesh {
   int GetMaxLevel() const noexcept { return max_level; }
   int GetCurrentLevel() const noexcept { return current_level; }
   std::vector<int> GetNbList() const noexcept { return nblist; }
-  void SetAllowedDt(const Real dt) { max_allowed_dt_ = dt; }
-  Real NewDt() const noexcept { return max_allowed_dt_; }
 
  private:
   // data
-  Real max_allowed_dt_;
   int next_phys_id_; // next unused value for encoding final component of MPI tag bitfield
   int root_level, max_level, current_level;
   int num_mesh_threads_;

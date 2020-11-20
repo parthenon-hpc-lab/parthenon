@@ -13,6 +13,7 @@
 #ifndef INTERFACE_MESHBLOCK_DATA_HPP_
 #define INTERFACE_MESHBLOCK_DATA_HPP_
 
+#include <limits>
 #include <map>
 #include <memory>
 #include <string>
@@ -66,6 +67,7 @@ class MeshBlockData {
     return pmy_block.lock();
   }
   auto GetGridPointer() { return GetBlockPointer(); }
+  void SetAllowedDt(const Real dt) { GetBlockPointer()->SetAllowedDt(dt); }
 
   IndexRange GetBoundsI(const IndexDomain &domain) {
     return GetBlockPointer()->cellbounds.GetBoundsI(domain);

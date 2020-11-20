@@ -134,15 +134,14 @@ void EvolutionDriver::InitializeBlockTimeSteps() {
 // \brief function that loops over all MeshBlocks and find new timestep
 
 void EvolutionDriver::SetGlobalTimeStep() {
-  Real dt_max = 2.0 * tm.dt;
-  tm.dt = pmesh->NewDt();
+  // don't allow dt to grow by more than 2x
+  // consider making this configurable in the input
+  tm.dt *= 2.0;
   Real big = std::numeric_limits<Real>::max();
   for (auto const &pmb : pmesh->block_list) {
     tm.dt = std::min(tm.dt, pmb->NewDt());
     pmb->SetAllowedDt(big);
   }
-  tm.dt = std::min(dt_max, tm.dt);
-  pmesh->SetAllowedDt(big);
 
 #ifdef MPI_PARALLEL
   PARTHENON_MPI_CHECK(MPI_Allreduce(MPI_IN_PLACE, &tm.dt, 1, MPI_PARTHENON_REAL, MPI_MIN,
