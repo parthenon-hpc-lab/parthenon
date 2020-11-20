@@ -18,6 +18,7 @@
 // Local Includes
 #include "advection_driver.hpp"
 #include "advection_package.hpp"
+#include "bvals/cc/bvals_cc_in_one.hpp"
 #include "interface/metadata.hpp"
 #include "mesh/meshblock_pack.hpp"
 #include "parthenon/driver.hpp"
@@ -123,26 +124,66 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     auto update =
         tl.AddTask(flux_div, UpdateMeshData, stage, integrator, mc0, mbase, mdudt, mc1);
   }
-  TaskRegion &async_region2 = tc.AddRegion(num_task_lists_executed_independently);
 
+  const auto &buffer_send_pack =
+      blocks[0]->packages["Advection"]->Param<bool>("buffer_send_pack");
+  if (buffer_send_pack) {
+    TaskRegion &tr = tc.AddRegion(num_partitions);
+    for (int i = 0; i < num_partitions; i++) {
+      auto &mc1 = pmesh->mesh_data.GetOrAdd(stage_name[stage], i);
+      tr[i].AddTask(none, parthenon::cell_centered_bvars::SendBoundaryBuffers, mc1);
+    }
+  } else {
+    TaskRegion &tr = tc.AddRegion(num_task_lists_executed_independently);
+    for (int i = 0; i < blocks.size(); i++) {
+      auto &sc1 = blocks[i]->meshblock_data.Get(stage_name[stage]);
+      tr[i].AddTask(none, &MeshBlockData<Real>::SendBoundaryBuffers, sc1.get());
+    }
+  }
+
+  const auto &buffer_recv_pack =
+      blocks[0]->packages["Advection"]->Param<bool>("buffer_recv_pack");
+  if (buffer_recv_pack) {
+    TaskRegion &tr = tc.AddRegion(num_partitions);
+    for (int i = 0; i < num_partitions; i++) {
+      auto &mc1 = pmesh->mesh_data.GetOrAdd(stage_name[stage], i);
+      tr[i].AddTask(none, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, mc1);
+    }
+  } else {
+    TaskRegion &tr = tc.AddRegion(num_task_lists_executed_independently);
+    for (int i = 0; i < blocks.size(); i++) {
+      auto &sc1 = blocks[i]->meshblock_data.Get(stage_name[stage]);
+      tr[i].AddTask(none, &MeshBlockData<Real>::ReceiveBoundaryBuffers, sc1.get());
+    }
+  }
+
+  const auto &buffer_set_pack =
+      blocks[0]->packages["Advection"]->Param<bool>("buffer_set_pack");
+  if (buffer_set_pack) {
+    TaskRegion &tr = tc.AddRegion(num_partitions);
+    for (int i = 0; i < num_partitions; i++) {
+      auto &mc1 = pmesh->mesh_data.GetOrAdd(stage_name[stage], i);
+      tr[i].AddTask(none, parthenon::cell_centered_bvars::SetBoundaries, mc1);
+    }
+  } else {
+    TaskRegion &tr = tc.AddRegion(num_task_lists_executed_independently);
+    for (int i = 0; i < blocks.size(); i++) {
+      auto &sc1 = blocks[i]->meshblock_data.Get(stage_name[stage]);
+      tr[i].AddTask(none, &MeshBlockData<Real>::SetBoundaries, sc1.get());
+    }
+  }
+
+  TaskRegion &async_region2 = tc.AddRegion(num_task_lists_executed_independently);
   for (int i = 0; i < blocks.size(); i++) {
     auto &pmb = blocks[i];
     auto &tl = async_region2[i];
     auto &sc1 = pmb->meshblock_data.Get(stage_name[stage]);
 
-    auto prev_task = none;
-    // update ghost cells
-    auto send = tl.AddTask(none, &MeshBlockData<Real>::SendBoundaryBuffers, sc1.get());
-    auto recv = tl.AddTask(send, &MeshBlockData<Real>::ReceiveBoundaryBuffers, sc1.get());
-    auto fill_from_bufs =
-        tl.AddTask(recv, &MeshBlockData<Real>::SetBoundaries, sc1.get());
-    prev_task = fill_from_bufs;
-
-    auto clear_comm_flags = tl.AddTask(prev_task, &MeshBlockData<Real>::ClearBoundary,
+    auto clear_comm_flags = tl.AddTask(none, &MeshBlockData<Real>::ClearBoundary,
                                        sc1.get(), BoundaryCommSubset::all);
 
     auto prolongBound = tl.AddTask(
-        prev_task,
+        none,
         [](std::shared_ptr<MeshBlock> pmb) {
           pmb->pbval->ProlongateBoundaries(0.0, 0.0);
           return TaskStatus::complete;
