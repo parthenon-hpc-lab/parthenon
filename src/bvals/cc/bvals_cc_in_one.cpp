@@ -301,7 +301,6 @@ TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) {
         CalcIndicesFromCoarser(nb.ni.ox3, sk, ek, c_cellbounds.GetBoundsK(interior),
                                pmb->loc.lx3, cng, pmb->block_size.nx3 > 1);
 
-        // coarse_buf?
         boundary_info_h(b, n).var =
             rc->GetCellVariableVector()[0]->vbvar->coarse_buf.Get<4>();
       } else {
@@ -396,6 +395,8 @@ TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) {
         const int b = team_member.league_rank() / num_buffers;
         const int n = team_member.league_rank() - b * num_buffers;
         if (boundary_info(b, n).is_used) {
+          // TODO(pgrete) profile perf implication of using reference.
+          // Test in two jobs indicted a 10% difference, but were also run on diff. nodes
           const int &si = boundary_info(b, n).si;
           const int &ei = boundary_info(b, n).ei;
           const int &sj = boundary_info(b, n).sj;
