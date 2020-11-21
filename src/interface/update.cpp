@@ -29,7 +29,7 @@ namespace parthenon {
 
 namespace Update {
 
-KOKKOS_INLINE_FUNCTION
+KOKKOS_FORCEINLINE_FUNCTION
 Real FluxDiv_(const int l, const int k, const int j, const int i, const int ndim,
               const Coordinates_t &coords, const VariableFluxPack<Real> &v) {
   Real du = (coords.Area(X1DIR, k, j, i + 1) * v.flux(X1DIR, l, k, j, i + 1) -
@@ -51,14 +51,14 @@ TaskStatus FluxDivergence(std::shared_ptr<MeshBlockData<Real>> &in,
   std::shared_ptr<MeshBlock> pmb = in->GetBlockPointer();
 
   const IndexDomain interior = IndexDomain::interior;
-  IndexRange ib = in->GetBoundsI(interior);
-  IndexRange jb = in->GetBoundsJ(interior);
-  IndexRange kb = in->GetBoundsK(interior);
+  const IndexRange ib = in->GetBoundsI(interior);
+  const IndexRange jb = in->GetBoundsJ(interior);
+  const IndexRange kb = in->GetBoundsK(interior);
 
   const auto &vin = in->PackVariablesAndFluxes({Metadata::Independent});
-  const auto &dudt = dudt_cont->PackVariables({Metadata::Independent});
+  auto dudt = dudt_cont->PackVariables({Metadata::Independent});
 
-  auto &coords = pmb->coords;
+  const auto &coords = pmb->coords;
   const int ndim = pmb->pmy_mesh->ndim;
   pmb->par_for(
       "FluxDivergenceBlock", 0, vin.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
@@ -76,7 +76,7 @@ TaskStatus FluxDivergence(std::shared_ptr<MeshData<Real>> &in_obj,
 
   std::vector<MetadataFlag> flags({Metadata::Independent});
   const auto &vin = in_obj->PackVariablesAndFluxes(flags);
-  const auto &dudt = dudt_obj->PackVariables(flags);
+  auto dudt = dudt_obj->PackVariables(flags);
   const IndexRange ib = in_obj->GetBoundsI(interior);
   const IndexRange jb = in_obj->GetBoundsJ(interior);
   const IndexRange kb = in_obj->GetBoundsK(interior);
