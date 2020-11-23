@@ -19,8 +19,10 @@
 #include "advection_driver.hpp"
 #include "advection_package.hpp"
 #include "interface/metadata.hpp"
+#include "interface/update.hpp"
 #include "mesh/meshblock_pack.hpp"
 #include "parthenon/driver.hpp"
+#include "refinement/refinement.hpp"
 
 using namespace parthenon::driver::prelude;
 
@@ -56,8 +58,8 @@ TaskStatus UpdateMeshData(const int stage, Integrator *integrator,
                           std::shared_ptr<parthenon::MeshData<Real>> &out) {
   const Real beta = integrator->beta[stage - 1];
   const Real dt = integrator->dt;
-  parthenon::Update::AverageMeshData(in, base, beta);
-  parthenon::Update::UpdateMeshData(in, dudt, beta * dt, out);
+  parthenon::Update::AverageIndependentData(in, base, beta);
+  parthenon::Update::UpdateIndependentData(in, dudt, beta * dt, out);
   return TaskStatus::complete;
 }
 
@@ -117,7 +119,8 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     auto &mdudt = pmesh->mesh_data.GetOrAdd("dUdt", i);
 
     // compute the divergence of fluxes of conserved variables
-    auto flux_div = tl.AddTask(none, parthenon::Update::FluxDivergenceMesh, mc0, mdudt);
+    auto flux_div =
+        tl.AddTask(none, parthenon::Update::FluxDivergence<MeshData<Real>>, mc0, mdudt);
 
     // apply du/dt to all independent fields in the container
     auto update =
@@ -151,28 +154,18 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
 
     // fill in derived fields
     auto fill_derived =
-        tl.AddTask(set_bc, parthenon::FillDerivedVariables::FillDerived, sc1);
+        tl.AddTask(set_bc, parthenon::Update::FillDerived<MeshBlockData<Real>>, sc1);
 
     // estimate next time step
     if (stage == integrator->nstages) {
       auto new_dt = tl.AddTask(
-          fill_derived,
-          [](std::shared_ptr<MeshBlockData<Real>> &rc) {
-            auto pmb = rc->GetBlockPointer();
-            pmb->SetBlockTimestep(parthenon::Update::EstimateTimestep(rc));
-            return TaskStatus::complete;
-          },
-          sc1);
+          fill_derived, parthenon::Update::EstimateTimestep<MeshBlockData<Real>>, sc1);
 
       // Update refinement
       if (pmesh->adaptive) {
+        using tag_type = TaskStatus(std::shared_ptr<MeshBlockData<Real>> &);
         auto tag_refine = tl.AddTask(
-            fill_derived,
-            [](std::shared_ptr<MeshBlock> pmb) {
-              pmb->pmr->CheckRefinementCondition();
-              return TaskStatus::complete;
-            },
-            pmb);
+            fill_derived, static_cast<tag_type *>(parthenon::Refinement::Tag), sc1);
       }
     }
   }

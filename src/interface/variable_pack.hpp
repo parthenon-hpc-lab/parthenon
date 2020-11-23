@@ -81,9 +81,13 @@ class VariablePack {
     return v_(n)(k, j, i);
   }
   KOKKOS_FORCEINLINE_FUNCTION
+  T &operator()(const int m, const int n, const int k, const int j, const int i) const {
+    return v_(n)(k, j, i);
+  }
+  KOKKOS_FORCEINLINE_FUNCTION
   int GetDim(const int i) const {
-    assert(i > 0 && i < 5);
-    return dims_[i - 1];
+    assert(i > 0 && i < 6);
+    return (i == 5 ? 1 : dims_[i - 1]);
   }
   KOKKOS_FORCEINLINE_FUNCTION
   int GetSparse(const int n) const {

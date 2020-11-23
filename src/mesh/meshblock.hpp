@@ -32,6 +32,7 @@
 #include "domain.hpp"
 #include "interface/data_collection.hpp"
 #include "interface/meshblock_data.hpp"
+#include "interface/state_descriptor.hpp"
 #include "interface/swarm_container.hpp"
 #include "kokkos_abstraction.hpp"
 #include "outputs/io_wrapper.hpp"
@@ -50,8 +51,6 @@ class MeshRefinement;
 class ParameterInput;
 
 // These Forward declarations need duplicated using statements.
-class StateDescriptor;
-using Packages_t = std::map<std::string, std::shared_ptr<StateDescriptor>>;
 class PropertiesInterface;
 using Properties_t = std::vector<std::shared_ptr<PropertiesInterface>>;
 
@@ -249,6 +248,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   static void UserWorkInLoopDefault(); // called in TimeIntegratorTaskList
   std::function<void()> UserWorkInLoop = &UserWorkInLoopDefault;
   void SetBlockTimestep(const Real dt) { new_block_dt_ = dt; }
+  void SetAllowedDt(const Real dt) { new_block_dt_ = dt; }
   Real NewDt() const { return new_block_dt_; }
 
   // It would be nice for these par_dispatch_ functions to be private, but they can't be
