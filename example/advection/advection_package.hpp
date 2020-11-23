@@ -25,11 +25,9 @@ AmrTag CheckRefinement(std::shared_ptr<MeshBlockData<Real>> &rc);
 void PreFill(std::shared_ptr<MeshBlockData<Real>> &rc);
 void SquareIt(std::shared_ptr<MeshBlockData<Real>> &rc);
 void PostFill(std::shared_ptr<MeshBlockData<Real>> &rc);
-Real EstimateTimestep(std::shared_ptr<MeshBlockData<Real>> &rc);
+Real EstimateTimestepBlock(std::shared_ptr<MeshBlockData<Real>> &rc);
 TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc);
 
 } // namespace advection_package
-
-void SetFillDerivedFunctions();
 
 #endif // EXAMPLE_ADVECTION_ADVECTION_PACKAGE_HPP_

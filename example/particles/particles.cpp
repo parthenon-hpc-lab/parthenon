@@ -73,24 +73,18 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   Metadata m({Metadata::Cell, Metadata::Independent});
   pkg->AddField(field_name, m);
 
-  pkg->EstimateTimestep = EstimateTimestep;
+  pkg->EstimateTimestepBlock = EstimateTimestepBlock;
 
   return pkg;
 }
 
 AmrTag CheckRefinement(MeshBlockData<Real> &rc) { return AmrTag::same; }
 
-Real EstimateTimestep(std::shared_ptr<MeshBlockData<Real>> &rc) {
+Real EstimateTimestepBlock(std::shared_ptr<MeshBlockData<Real>> &rc) {
   auto pmb = rc->GetBlockPointer();
   auto pkg = pmb->packages["particles_package"];
   const Real &dt = pkg->Param<Real>("const_dt");
   return dt;
-}
-
-TaskStatus SetTimestepTask(std::shared_ptr<MeshBlockData<Real>> &rc) {
-  auto pmb = rc->GetBlockPointer();
-  pmb->SetBlockTimestep(parthenon::Update::EstimateTimestep(rc));
-  return TaskStatus::complete;
 }
 
 } // namespace Particles

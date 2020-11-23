@@ -14,6 +14,7 @@
 #define INTERFACE_STATE_DESCRIPTOR_HPP_
 
 #include <functional>
+#include <limits>
 #include <map>
 #include <memory>
 #include <string>
@@ -30,19 +31,7 @@ namespace parthenon {
 template <typename T>
 class MeshBlockData;
 template <typename T>
-class VariablePack;
-template <typename T>
-class VariableFluxPack;
-template <typename T>
-class MeshBlockPack;
-template <typename T>
-using MeshBlockVarPack = MeshBlockPack<VariablePack<T>>;
-template <typename T>
-using MeshBlockVarFluxPack = MeshBlockPack<VariableFluxPack<T>>;
-template <typename T>
-using VarPackingFunc = std::function<std::vector<MeshBlockVarPack<T>>(Mesh *)>;
-template <typename T>
-using FluxPackingFunc = std::function<std::vector<MeshBlockVarFluxPack<T>>(Mesh *)>;
+class MeshData;
 
 enum class DerivedOwnership { shared, unique };
 
@@ -57,9 +46,15 @@ class StateDescriptor {
 
   // Preferred constructor
   explicit StateDescriptor(std::string label) : label_(label) {
-    FillDerived = nullptr;
-    EstimateTimestep = nullptr;
-    CheckRefinement = nullptr;
+    PostFillDerivedBlock = nullptr;
+    PostFillDerivedMesh = nullptr;
+    PreFillDerivedBlock = nullptr;
+    PreFillDerivedMesh = nullptr;
+    FillDerivedBlock = nullptr;
+    FillDerivedMesh = nullptr;
+    EstimateTimestepBlock = nullptr;
+    EstimateTimestepMesh = nullptr;
+    CheckRefinementBlock = nullptr;
   }
 
   template <typename T>
@@ -140,13 +135,6 @@ class StateDescriptor {
     return true;
   }
 
-  void AddMeshBlockPack(const std::string &pack_name, const VarPackingFunc<Real> &func) {
-    realVarPackerMap_[pack_name] = func;
-  }
-  void AddMeshBlockPack(const std::string &pack_name, const FluxPackingFunc<Real> &func) {
-    realFluxPackerMap_[pack_name] = func;
-  }
-
   // retrieve number of fields
   int size() const { return metadataMap_.size(); }
 
@@ -192,14 +180,6 @@ class StateDescriptor {
   // get all metadata for this physics
   const std::map<std::string, Metadata> &AllMetadata() { return metadataMap_; }
 
-  // Get all MeshBlockPacker functions
-  const std::map<std::string, VarPackingFunc<Real>> &AllMeshBlockVarPackers() {
-    return realVarPackerMap_;
-  }
-  const std::map<std::string, FluxPackingFunc<Real>> &AllMeshBlockFluxPackers() {
-    return realFluxPackerMap_;
-  }
-
   bool FlagsPresent(std::vector<MetadataFlag> const &flags, bool matchAny = false) {
     for (auto &pair : metadataMap_) {
       auto &metadata = pair.second;
@@ -214,10 +194,49 @@ class StateDescriptor {
     return false;
   }
 
+  void PreFillDerived(std::shared_ptr<MeshBlockData<Real>> &rc) const {
+    if (PreFillDerivedBlock != nullptr) PreFillDerivedBlock(rc);
+  }
+  void PreFillDerived(std::shared_ptr<MeshData<Real>> &rc) const {
+    if (PreFillDerivedMesh != nullptr) PreFillDerivedMesh(rc);
+  }
+  void PostFillDerived(std::shared_ptr<MeshBlockData<Real>> &rc) const {
+    if (PostFillDerivedBlock != nullptr) PostFillDerivedBlock(rc);
+  }
+  void PostFillDerived(std::shared_ptr<MeshData<Real>> &rc) const {
+    if (PostFillDerivedMesh != nullptr) PostFillDerivedMesh(rc);
+  }
+  void FillDerived(std::shared_ptr<MeshBlockData<Real>> &rc) const {
+    if (FillDerivedBlock != nullptr) FillDerivedBlock(rc);
+  }
+  void FillDerived(std::shared_ptr<MeshData<Real>> &rc) const {
+    if (FillDerivedMesh != nullptr) FillDerivedMesh(rc);
+  }
+
+  Real EstimateTimestep(std::shared_ptr<MeshBlockData<Real>> &rc) const {
+    if (EstimateTimestepBlock != nullptr) return EstimateTimestepBlock(rc);
+    return std::numeric_limits<Real>::max();
+  }
+  Real EstimateTimestep(std::shared_ptr<MeshData<Real>> &rc) const {
+    if (EstimateTimestepMesh != nullptr) return EstimateTimestepMesh(rc);
+    return std::numeric_limits<Real>::max();
+  }
+
+  AmrTag CheckRefinement(std::shared_ptr<MeshBlockData<Real>> &rc) const {
+    if (CheckRefinementBlock != nullptr) return CheckRefinementBlock(rc);
+    return AmrTag::derefine;
+  }
+
   std::vector<std::shared_ptr<AMRCriteria>> amr_criteria;
-  void (*FillDerived)(std::shared_ptr<MeshBlockData<Real>> &rc);
-  Real (*EstimateTimestep)(std::shared_ptr<MeshBlockData<Real>> &rc);
-  AmrTag (*CheckRefinement)(std::shared_ptr<MeshBlockData<Real>> &rc);
+  void (*PreFillDerivedBlock)(std::shared_ptr<MeshBlockData<Real>> &rc);
+  void (*PreFillDerivedMesh)(std::shared_ptr<MeshData<Real>> &rc);
+  void (*PostFillDerivedBlock)(std::shared_ptr<MeshBlockData<Real>> &rc);
+  void (*PostFillDerivedMesh)(std::shared_ptr<MeshData<Real>> &rc);
+  void (*FillDerivedBlock)(std::shared_ptr<MeshBlockData<Real>> &rc);
+  void (*FillDerivedMesh)(std::shared_ptr<MeshData<Real>> &rc);
+  Real (*EstimateTimestepBlock)(std::shared_ptr<MeshBlockData<Real>> &rc);
+  Real (*EstimateTimestepMesh)(std::shared_ptr<MeshData<Real>> &rc);
+  AmrTag (*CheckRefinementBlock)(std::shared_ptr<MeshBlockData<Real>> &rc);
 
  private:
   Params params_;
@@ -226,8 +245,6 @@ class StateDescriptor {
   std::map<std::string, std::vector<Metadata>> sparseMetadataMap_;
   std::map<std::string, Metadata> swarmMetadataMap_;
   std::map<std::string, std::map<std::string, Metadata>> swarmValueMetadataMap_;
-  std::map<std::string, VarPackingFunc<Real>> realVarPackerMap_;
-  std::map<std::string, FluxPackingFunc<Real>> realFluxPackerMap_;
 };
 
 using Packages_t = std::map<std::string, std::shared_ptr<StateDescriptor>>;

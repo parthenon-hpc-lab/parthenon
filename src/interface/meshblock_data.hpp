@@ -13,6 +13,7 @@
 #ifndef INTERFACE_MESHBLOCK_DATA_HPP_
 #define INTERFACE_MESHBLOCK_DATA_HPP_
 
+#include <limits>
 #include <map>
 #include <memory>
 #include <string>
@@ -23,6 +24,7 @@
 #include "interface/sparse_variable.hpp"
 #include "interface/variable.hpp"
 #include "interface/variable_pack.hpp"
+#include "mesh/domain.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
@@ -63,6 +65,18 @@ class MeshBlockData {
       PARTHENON_THROW("Invalid pointer to MeshBlock!");
     }
     return pmy_block.lock();
+  }
+  auto GetParentPointer() { return GetBlockPointer(); }
+  void SetAllowedDt(const Real dt) { GetBlockPointer()->SetAllowedDt(dt); }
+
+  IndexRange GetBoundsI(const IndexDomain &domain) {
+    return GetBlockPointer()->cellbounds.GetBoundsI(domain);
+  }
+  IndexRange GetBoundsJ(const IndexDomain &domain) {
+    return GetBlockPointer()->cellbounds.GetBoundsJ(domain);
+  }
+  IndexRange GetBoundsK(const IndexDomain &domain) {
+    return GetBlockPointer()->cellbounds.GetBoundsK(domain);
   }
 
   void Copy(const std::shared_ptr<MeshBlockData<T>> &src) {
