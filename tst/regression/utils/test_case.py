@@ -180,12 +180,15 @@ class TestManager:
             raise TestManagerError(error_msg)
 
     def MakeOutputFolder(self):
+        if os.path.isdir(self.parameters.output_path):
+            try:
+                rmtree(self.parameters.output_path)
+            except OSError as e:
+                print ("Error: %s - %s." % (e.filename, e.strerror))
+
         if not os.path.isdir(self.parameters.output_path):
             os.makedirs(self.parameters.output_path)
 
-        files = glob.glob(self.parameters.output_path + "/*")
-        for f in files:
-            os.remove(f)
         os.chdir(self.parameters.output_path)
 
     def Prepare(self, step):
