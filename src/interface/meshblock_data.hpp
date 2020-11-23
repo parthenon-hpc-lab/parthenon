@@ -66,7 +66,7 @@ class MeshBlockData {
     }
     return pmy_block.lock();
   }
-  auto GetGridPointer() { return GetBlockPointer(); }
+  auto GetParentPointer() { return GetBlockPointer(); }
   void SetAllowedDt(const Real dt) { GetBlockPointer()->SetAllowedDt(dt); }
 
   IndexRange GetBoundsI(const IndexDomain &domain) {
