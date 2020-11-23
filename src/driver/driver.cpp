@@ -57,6 +57,7 @@ DriverStatus EvolutionDriver::Execute() {
   pmesh->mbcnt = 0;
   int perf_cycle_offset =
       pinput->GetOrAddInteger("parthenon/time", "perf_cycle_offset", 0);
+  Kokkos::Profiling::pushRegion("Driver_Main");
   while (tm.KeepGoing()) {
     if (Globals::my_rank == 0) OutputCycleDiagnostics();
 
@@ -86,6 +87,7 @@ DriverStatus EvolutionDriver::Execute() {
       timer_main.reset();
     }
   } // END OF MAIN INTEGRATION LOOP ======================================================
+  Kokkos::Profiling::popRegion(); // Driver_Main
 
   pmesh->UserWorkAfterLoop(pmesh, pinput, tm);
 
