@@ -50,9 +50,47 @@ class SwarmDeviceContext {
   KOKKOS_FUNCTION
   bool IsMarkedForRemoval(const int n) const { return marked_for_removal_(n); }
 
+  KOKKOS_INLINE_FUNCTION
+  int GetNeighborBlockIndex(const int &n, const double &x, const double &y, const double &z) {
+
+    int i = static_cast<int>((x - x_min_)/(2*(x_max_ - x_min_))) + 1;
+    int j = static_cast<int>((y - y_min_)/(2*(y_max_ - y_min_))) + 1;
+    int k = static_cast<int>((z - z_min_)/(2*(z_max_ - z_min_))) + 1;
+    printf("[%i %i %i] %e %e %e\n", i,j,k,x,y,z);
+/*
+    int i = 0;
+    int j = 0;
+    int k = 0;
+    if (x < x_min_) {
+      i = -1
+    } else if (x > x_max_) {
+      i = 1;
+    }
+    if (y < y_min_) {
+      j = -1
+    } else if (y > y_max_) {
+      j = 1;
+    }
+    if (z < z_min_) {
+      k = -1
+    } else if (z > z_max_) {
+      k = 1;
+    }
+    return neighborIndices_(k, j, i);*/
+    return 0;
+  }
+
  private:
+  Real x_min_;
+  Real x_max_;
+  Real y_min_;
+  Real y_max_;
+  Real z_min_;
+  Real z_max_;
   ParArrayND<bool> marked_for_removal_;
   ParArrayND<bool> mask_;
+  ParArrayND<int> neighbor_send_index_;
+  ParArrayND<int> neighborIndices_;
   friend class Swarm;
 };
 
@@ -61,19 +99,14 @@ class Swarm {
   Swarm(const std::string &label, const Metadata &metadata, const int nmax_pool_in = 3);
 
   /// Returns shared pointer to a block
-  std::shared_ptr<MeshBlock> GetBlockPointer() {
+  std::shared_ptr<MeshBlock> GetBlockPointer() const {
     if (pmy_block.expired()) {
       PARTHENON_THROW("Invalid pointer to MeshBlock!");
     }
     return pmy_block.lock();
   }
 
-  SwarmDeviceContext GetDeviceContext() const {
-    SwarmDeviceContext context;
-    context.marked_for_removal_ = marked_for_removal_.data;
-    context.mask_ = mask_.data;
-    return context;
-  }
+  SwarmDeviceContext GetDeviceContext() const;
 
   // Set the pointer to the mesh block for this swarm
   void SetBlockPointer(std::weak_ptr<MeshBlock> pmb) { pmy_block = pmb; }
@@ -244,6 +277,7 @@ class Swarm {
   std::list<int> free_indices_;
   ParticleVariable<bool> mask_;
   ParticleVariable<bool> marked_for_removal_;
+  ParticleVariable<int> neighbor_send_index_; // -1 means no send
 };
 
 using SP_Swarm = std::shared_ptr<Swarm>;

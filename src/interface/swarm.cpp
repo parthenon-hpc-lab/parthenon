@@ -22,10 +22,31 @@
 
 namespace parthenon {
 
+  SwarmDeviceContext Swarm::GetDeviceContext() const {
+    SwarmDeviceContext context;
+    context.marked_for_removal_ = marked_for_removal_.data;
+    context.mask_ = mask_.data;
+    //context.neighbor_send_index_ = neighbor_send_index.data;
+
+    auto pmb = GetBlockPointer();
+
+    const IndexRange &ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
+    const IndexRange &jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
+    const IndexRange &kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
+    context.x_min_ = pmb->coords.x1f(ib.s);
+    context.x_max_ = pmb->coords.x2f(jb.s);
+    context.y_min_ = pmb->coords.x3f(kb.s);
+    context.y_max_ = pmb->coords.x1f(ib.e + 1);
+    context.z_min_ = pmb->coords.x2f(jb.e + 1);
+    context.z_max_ = pmb->coords.x3f(kb.e + 1);
+    return context;
+  }
+
 Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_pool_in)
     : label_(label), m_(metadata), nmax_pool_(nmax_pool_in),
       mask_("mask", nmax_pool_, Metadata({Metadata::Boolean})),
       marked_for_removal_("mfr", nmax_pool_, Metadata({Metadata::Boolean})),
+      neighbor_send_index_("nsi", nmax_pool_, Metadata({Metadata::Integer})),
       mpiStatus(true) {
   Add("x", Metadata({Metadata::Real}));
   Add("y", Metadata({Metadata::Real}));
@@ -173,6 +194,15 @@ void Swarm::setPoolMax(const int nmax_pool) {
       "setPoolMax_mark_2", nmax_pool_, nmax_pool - 1,
       KOKKOS_LAMBDA(const int n) { newvar_bool_data(n) = 0; });
   marked_for_removal_ = newvar_bool;
+
+  // TODO(BRR) make this operation a private member function for reuse
+  auto oldvar_int = neighbor_send_index_;
+  auto newvar_int = ParticleVariable<int>(oldvar_int.label(), nmax_pool, oldvar_int.metadata());
+  auto oldvar_int_data = oldvar_int.data;
+  auto newvar_int_data = newvar_int.data;
+  pmb->par_for("setPoolMax_neighbor_send_index", 0, nmax_pool_ - 1,
+      KOKKOS_LAMBDA(const int n) { newvar_int_data(n) = oldvar_int_data(n); });
+  neighbor_send_index_ = newvar_int;
 
   // TODO(BRR) this is not an efficient loop ordering, probably
   for (int n = 0; n < intVector_.size(); n++) {

@@ -64,6 +64,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   Metadata swarm_metadata;
   pkg->AddSwarm(swarm_name, swarm_metadata);
   Metadata real_swarmvalue_metadata({Metadata::Real});
+  pkg->AddSwarmValue("t", swarm_name, real_swarmvalue_metadata);
   pkg->AddSwarmValue("vx", swarm_name, real_swarmvalue_metadata);
   pkg->AddSwarmValue("vy", swarm_name, real_swarmvalue_metadata);
   pkg->AddSwarmValue("vz", swarm_name, real_swarmvalue_metadata);
@@ -177,7 +178,7 @@ TaskStatus DepositParticles(MeshBlock *pmb) {
   return TaskStatus::complete;
 }
 
-TaskStatus CreateSomeParticles(MeshBlock *pmb) {
+TaskStatus CreateSomeParticles(MeshBlock *pmb, double t0) {
   auto pkg = pmb->packages["particles_package"];
   auto swarm = pmb->real_containers.GetSwarmContainer()->Get("my particles");
   auto rng_pool = pkg->Param<RNGPool>("rng_pool");
@@ -200,6 +201,7 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb) {
   const Real &minx_j = pmb->coords.x2f(jb.s);
   const Real &minx_k = pmb->coords.x3f(kb.s);
 
+  auto &t = swarm->GetReal("t").Get();
   auto &x = swarm->GetReal("x").Get();
   auto &y = swarm->GetReal("y").Get();
   auto &z = swarm->GetReal("z").Get();
@@ -226,6 +228,8 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb) {
           vy(n) = v * sin(theta) * sin(phi);
           vz(n) = v * cos(theta);
 
+          t(n) = t0;
+
           weight(n) = 1.0;
 
           rng_pool.free_state(rng_gen);
@@ -235,13 +239,14 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb) {
   return TaskStatus::complete;
 }
 
-TaskStatus TransportParticles(MeshBlock *pmb, Integrator *integrator) {
+TaskStatus TransportParticles(MeshBlock *pmb, double t0, Integrator *integrator) {
   auto swarm = pmb->real_containers.GetSwarmContainer()->Get("my particles");
 
   int max_active_index = swarm->get_max_active_index();
 
   Real dt = integrator->dt;
 
+  auto &t = swarm->GetReal("t").Get();
   auto &x = swarm->GetReal("x").Get();
   auto &y = swarm->GetReal("y").Get();
   auto &z = swarm->GetReal("z").Get();
@@ -265,20 +270,21 @@ TaskStatus TransportParticles(MeshBlock *pmb, Integrator *integrator) {
   const Real &y_max = pmb->coords.x2f(jb.e + 1);
   const Real &z_max = pmb->coords.x3f(kb.e + 1);
 
+  //const Real x_min_global = pmb->pmy_mesh->mesh_size.x1min;
+
   auto swarm_d = swarm->GetDeviceContext();
 
-  ParArrayND<Real> t("time", max_active_index + 1);
+  //ParArrayND<Real> t("time", max_active_index + 1);
 
   // Simple particle push: push particles half a zone width until they have
   // traveled one integrator timestep's worth of time
   pmb->par_for(
       "TransportParticles", 0, max_active_index, KOKKOS_LAMBDA(const int n) {
         if (swarm_d.IsActive(n)) {
-          t(n) = 0.;
           Real v = sqrt(vx(n) * vx(n) + vy(n) * vy(n) + vz(n) * vz(n));
-          while (t(n) < dt) {
+          while (t(n) < t0 + dt) {
             Real dt_cell = dx_push / v;
-            Real dt_end = dt - t(n);
+            Real dt_end = t0 + dt - t(n);
             Real dt_push = std::min<Real>(dt_cell, dt_end);
 
             x(n) += vx(n) * dt_push;
@@ -286,8 +292,10 @@ TaskStatus TransportParticles(MeshBlock *pmb, Integrator *integrator) {
             z(n) += vz(n) * dt_push;
             t(n) += dt_push;
 
-            // Periodic boundaries
-            if (x(n) < x_min) {
+            // If outside of meshblock, get neighbor index
+
+            // Periodic boundaries (handled by MPI)
+            /*if (x(n) < x_min) {
               x(n) = x_max - (x_min - x(n));
             }
             if (x(n) > x_max) {
@@ -304,11 +312,17 @@ TaskStatus TransportParticles(MeshBlock *pmb, Integrator *integrator) {
             }
             if (z(n) > z_max) {
               z(n) = z_min + (z(n) - z_max);
-            }
+            }*/
           }
         }
       });
 
+  // Only mark as finished if mpiStatus is complete
+  //if (swarm->mpiStatus) {
+  //  return TaskStatus::complete;
+  //} else {
+  //  return TaskStatus::incomplete;
+  //}
   return TaskStatus::complete;
 }
 
@@ -331,17 +345,19 @@ TaskList ParticleDriver::MakeTaskList(MeshBlock *pmb, int stage) {
 
   TaskID none(0);
 
+  double t0 = tm.time;
+
   auto sc = pmb->real_containers.GetSwarmContainer();
 
   auto swarm = sc->Get("my particles");
 
-  auto start_comm = tl.AddTask(none, &SwarmContainer::StartCommunication, sc.get(),
-    BoundaryCommSubset::all);
+  //auto start_comm = tl.AddTask(none, &SwarmContainer::StartCommunication, sc.get(),
+  //  BoundaryCommSubset::all);
 
   auto create_some_particles =
-      tl.AddTask(start_comm, CreateSomeParticles, pmb);
+      tl.AddTask(none, CreateSomeParticles, pmb, t0);
 
-  auto transport_particles = tl.AddTask(create_some_particles, TransportParticles, pmb, integrator);
+  auto transport_particles = tl.AddTask(create_some_particles, TransportParticles, pmb, t0, integrator);
 
   auto destroy_some_particles =
       tl.AddTask(transport_particles, DestroySomeParticles, pmb);

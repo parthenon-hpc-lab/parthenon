@@ -111,6 +111,8 @@ void BoundarySwarm::SetupPersistentMPI() {
 // TODO(BRR) is this necessary?
 void BoundarySwarm::StartReceiving(BoundaryCommSubset phase) {
   printf("Start receiving!\n");
+
+  // TODO(BRR) Reset tags? This is just MPI_Start for cc vars
   //for (int n = 0; n < pmb->pbval->nneighbor; n++) {
   //  NeighborBlock &nb = pmb->pbval->neighbor[n];
   //}
