@@ -249,8 +249,8 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
     tnref += nref[n];
     tnderef += nderef[n];
   }
-  if (tnref == 0 && tnderef < nleaf) {// nothing to do
-    Kokkos::Profiling::popRegion(); // UpdateMeshBlockTree
+  if (tnref == 0 && tnderef < nleaf) { // nothing to do
+    Kokkos::Profiling::popRegion();    // UpdateMeshBlockTree
     return;
   }
 
@@ -617,9 +617,9 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
         sb_idx++;
       }
     }
-  }    // if (nsend !=0)
+  }                               // if (nsend !=0)
   Kokkos::Profiling::popRegion(); // Step 6
-#endif // MPI_PARALLEL
+#endif                            // MPI_PARALLEL
 
   // Step 7. construct a new MeshBlock list (moving the data within the MPI rank)
   Kokkos::Profiling::pushRegion("Step 7: Construct new MeshBlockList");
