@@ -58,8 +58,8 @@ TaskStatus UpdateMeshData(const int stage, Integrator *integrator,
                           std::shared_ptr<parthenon::MeshData<Real>> &out) {
   const Real beta = integrator->beta[stage - 1];
   const Real dt = integrator->dt;
-  parthenon::Update::AverageIndependentData(in, base, beta);
-  parthenon::Update::UpdateIndependentData(in, dudt, beta * dt, out);
+  parthenon::Update::AverageIndependentData(in.get(), base.get(), beta);
+  parthenon::Update::UpdateIndependentData(in.get(), dudt.get(), beta * dt, out.get());
   return TaskStatus::complete;
 }
 
@@ -153,18 +153,19 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     auto set_bc = tl.AddTask(prolongBound, parthenon::ApplyBoundaryConditions, sc1);
 
     // fill in derived fields
-    auto fill_derived =
-        tl.AddTask(set_bc, parthenon::Update::FillDerived<MeshBlockData<Real>>, sc1);
+    auto fill_derived = tl.AddTask(
+        set_bc, parthenon::Update::FillDerived<MeshBlockData<Real>>, sc1.get());
 
     // estimate next time step
     if (stage == integrator->nstages) {
-      auto new_dt = tl.AddTask(
-          fill_derived, parthenon::Update::EstimateTimestep<MeshBlockData<Real>>, sc1);
+      auto new_dt = tl.AddTask(fill_derived,
+                               parthenon::Update::EstimateTimestep<MeshBlockData<Real>>,
+                               sc1.get());
 
       // Update refinement
       if (pmesh->adaptive) {
-        auto tag_refine =
-            tl.AddTask(fill_derived, parthenon::Refinement::Block::Tag, sc1);
+        auto tag_refine = tl.AddTask(
+            fill_derived, parthenon::Refinement::Tag<MeshBlockData<Real>>, sc1.get());
       }
     }
   }

@@ -169,7 +169,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   return pkg;
 }
 
-AmrTag CheckRefinement(std::shared_ptr<MeshBlockData<Real>> &rc) {
+AmrTag CheckRefinement(MeshBlockData<Real> *rc) {
   auto pmb = rc->GetBlockPointer();
   // refine on advected, for example.  could also be a derived quantity
   auto v = rc->Get("advected").data;
@@ -201,7 +201,7 @@ AmrTag CheckRefinement(std::shared_ptr<MeshBlockData<Real>> &rc) {
 }
 
 // demonstrate usage of a "pre" fill derived routine
-void PreFill(std::shared_ptr<MeshBlockData<Real>> &rc) {
+void PreFill(MeshBlockData<Real> *rc) {
   auto pmb = rc->GetBlockPointer();
 
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
@@ -211,7 +211,7 @@ void PreFill(std::shared_ptr<MeshBlockData<Real>> &rc) {
   // packing in principle unnecessary/convoluted here and just done for demonstration
   PackIndexMap imap;
   std::vector<std::string> vars({"advected", "one_minus_advected"});
-  auto v = rc->PackVariables(vars, imap);
+  const auto &v = rc->PackVariables(vars, imap);
   const int in = imap["advected"].first;
   const int out = imap["one_minus_advected"].first;
   const auto num_vars = rc->Get("advected").data.GetDim(4);
@@ -223,7 +223,7 @@ void PreFill(std::shared_ptr<MeshBlockData<Real>> &rc) {
 }
 
 // this is the package registered function to fill derived
-void SquareIt(std::shared_ptr<MeshBlockData<Real>> &rc) {
+void SquareIt(MeshBlockData<Real> *rc) {
   auto pmb = rc->GetBlockPointer();
 
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
@@ -245,7 +245,7 @@ void SquareIt(std::shared_ptr<MeshBlockData<Real>> &rc) {
 }
 
 // demonstrate usage of a "post" fill derived routine
-void PostFill(std::shared_ptr<MeshBlockData<Real>> &rc) {
+void PostFill(MeshBlockData<Real> *rc) {
   auto pmb = rc->GetBlockPointer();
 
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
@@ -270,7 +270,7 @@ void PostFill(std::shared_ptr<MeshBlockData<Real>> &rc) {
 }
 
 // provide the routine that estimates a stable timestep for this package
-Real EstimateTimestepBlock(std::shared_ptr<MeshBlockData<Real>> &rc) {
+Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
   auto pmb = rc->GetBlockPointer();
   auto pkg = pmb->packages["advection_package"];
   const auto &cfl = pkg->Param<Real>("cfl");

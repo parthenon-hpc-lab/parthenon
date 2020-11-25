@@ -60,14 +60,14 @@ class MeshBlockData {
   MeshBlockData<T>(const MeshBlockData<T> &src, const std::vector<MetadataFlag> &flags);
 
   /// Returns shared pointer to a block
-  std::shared_ptr<MeshBlock> GetBlockPointer() {
+  std::shared_ptr<MeshBlock> GetBlockPointer() const {
     if (pmy_block.expired()) {
       PARTHENON_THROW("Invalid pointer to MeshBlock!");
     }
     return pmy_block.lock();
   }
-  auto GetParentPointer() { return GetBlockPointer(); }
-  void SetAllowedDt(const Real dt) { GetBlockPointer()->SetAllowedDt(dt); }
+  auto GetParentPointer() const { return GetBlockPointer(); }
+  void SetAllowedDt(const Real dt) const { GetBlockPointer()->SetAllowedDt(dt); }
 
   IndexRange GetBoundsI(const IndexDomain &domain) {
     return GetBlockPointer()->cellbounds.GetBoundsI(domain);
@@ -197,7 +197,7 @@ class MeshBlockData {
   //
   const CellVariableVector<T> &GetCellVariableVector() const { return varVector_; }
   const MapToCellVars<T> &GetCellVariableMap() const { return varMap_; }
-  CellVariable<T> &Get(std::string label) {
+  CellVariable<T> &Get(std::string label) const {
     auto it = varMap_.find(label);
     if (it == varMap_.end()) {
       throw std::invalid_argument(std::string("\n") + std::string(label) +
@@ -206,7 +206,7 @@ class MeshBlockData {
     return *(it->second);
   }
 
-  CellVariable<T> &Get(const int index) { return *(varVector_[index]); }
+  CellVariable<T> &Get(const int index) const { return *(varVector_[index]); }
 
   int Index(const std::string &label) {
     for (int i = 0; i < (varVector_).size(); i++) {

@@ -35,7 +35,7 @@ using namespace parthenon::package::prelude;
 // pi \approx A/r0^2
 namespace calculate_pi {
 
-void SetInOrOut(std::shared_ptr<MeshBlockData<Real>> &rc) {
+void SetInOrOut(MeshBlockData<Real> *rc) {
   auto pmb = rc->GetBlockPointer();
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);

@@ -79,14 +79,14 @@ class MeshData {
   MeshData() = default;
 
   Mesh *GetMeshPointer() const { return pmy_mesh_; }
-  auto GetParentPointer() { return GetMeshPointer(); }
+  auto GetParentPointer() const { return GetMeshPointer(); }
 
   void SetMeshPointer(Mesh *pmesh) { pmy_mesh_ = pmesh; }
   void SetMeshPointer(const std::shared_ptr<MeshData<T>> &other) {
     pmy_mesh_ = other->GetMeshPointer();
   }
 
-  void SetAllowedDt(const Real dt) {
+  void SetAllowedDt(const Real dt) const {
     for (const auto &pbd : block_data_) {
       pbd->SetAllowedDt(dt);
     }
@@ -126,7 +126,7 @@ class MeshData {
     }
   }
 
-  std::shared_ptr<MeshBlockData<T>> &GetBlockData(int n) {
+  const std::shared_ptr<MeshBlockData<T>> &GetBlockData(int n) const {
     assert(n >= 0 && n < block_data_.size());
     return block_data_[n];
   }

@@ -47,7 +47,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   return ref;
 }
 
-AmrTag CheckAllRefinement(std::shared_ptr<MeshBlockData<Real>> &rc) {
+AmrTag CheckAllRefinement(MeshBlockData<Real> *rc) {
   // Check all refinement criteria and return the maximum recommended change in
   // refinement level:
   //   delta_level = -1 => recommend derefinement
@@ -130,22 +130,24 @@ AmrTag FirstDerivative(MeshBlock *pmb, const ParArrayND<Real> &q,
   return AmrTag::same;
 }
 
-namespace Block {
-TaskStatus Tag(std::shared_ptr<MeshBlockData<Real>> &rc) {
+void SetRefinement_(MeshBlockData<Real> *rc) {
   auto pmb = rc->GetBlockPointer();
   pmb->pmr->SetRefinement(CheckAllRefinement(rc));
+}
+
+template <>
+TaskStatus Tag(MeshBlockData<Real> *rc) {
+  SetRefinement_(rc);
   return TaskStatus::complete;
 }
-} // namespace Block
-namespace Mesh {
-TaskStatus Tag(std::shared_ptr<MeshData<Real>> &rc) {
+
+template <>
+TaskStatus Tag(MeshData<Real> *rc) {
   for (int i = 0; i < rc->NumBlocks(); i++) {
-    auto &pbd = rc->GetBlockData(i);
-    auto status = Block::Tag(pbd);
+    SetRefinement_(rc->GetBlockData(i).get());
   }
   return TaskStatus::complete;
 }
-} // namespace Mesh
 
 } // namespace Refinement
 } // namespace parthenon
