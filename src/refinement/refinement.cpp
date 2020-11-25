@@ -130,19 +130,22 @@ AmrTag FirstDerivative(MeshBlock *pmb, const ParArrayND<Real> &q,
   return AmrTag::same;
 }
 
+namespace Block {
 TaskStatus Tag(std::shared_ptr<MeshBlockData<Real>> &rc) {
   auto pmb = rc->GetBlockPointer();
   pmb->pmr->SetRefinement(CheckAllRefinement(rc));
   return TaskStatus::complete;
 }
-
+} // namespace Block
+namespace Mesh {
 TaskStatus Tag(std::shared_ptr<MeshData<Real>> &rc) {
   for (int i = 0; i < rc->NumBlocks(); i++) {
     auto &pbd = rc->GetBlockData(i);
-    auto status = Tag(pbd);
+    auto status = Block::Tag(pbd);
   }
   return TaskStatus::complete;
 }
+} // namespace Mesh
 
 } // namespace Refinement
 } // namespace parthenon

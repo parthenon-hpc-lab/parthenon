@@ -163,9 +163,8 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
 
       // Update refinement
       if (pmesh->adaptive) {
-        using tag_type = TaskStatus(std::shared_ptr<MeshBlockData<Real>> &);
-        auto tag_refine = tl.AddTask(
-            fill_derived, static_cast<tag_type *>(parthenon::Refinement::Tag), sc1);
+        auto tag_refine =
+            tl.AddTask(fill_derived, parthenon::Refinement::Block::Tag, sc1);
       }
     }
   }

@@ -33,9 +33,12 @@ class StateDescriptor;
 namespace Refinement {
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
-
+namespace Block {
 TaskStatus Tag(std::shared_ptr<MeshBlockData<Real>> &rc);
+}
+namespace Mesh {
 TaskStatus Tag(std::shared_ptr<MeshData<Real>> &rc);
+}
 
 AmrTag CheckAllRefinement(std::shared_ptr<MeshBlockData<Real>> &rc);
 
