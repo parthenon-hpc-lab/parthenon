@@ -37,41 +37,41 @@ template <typename T>
 TaskStatus FluxDivergence(std::shared_ptr<T> &in, std::shared_ptr<T> &dudt_obj);
 
 template <typename F, typename T>
-void UpdateData(const std::vector<F> &flags, T &in, T &dudt, const Real dt, T &out) {
-  const auto &in_pack = in->PackVariables(flags);
-  auto out_pack = out->PackVariables(flags);
-  const auto &dudt_pack = dudt->PackVariables(flags);
+TaskStatus SumData(const std::vector<F> &flags, const T &in1, const T &in2, const Real w1,
+                   const Real w2, const T &out) {
+  const auto &x = in1->PackVariables(flags);
+  const auto &y = in2->PackVariables(flags);
+  const auto &z = out->PackVariables(flags);
   parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, "UpdateMeshData", DevExecSpace(), 0, in_pack.GetDim(5) - 1, 0,
-      in_pack.GetDim(4) - 1, 0, in_pack.GetDim(3) - 1, 0, in_pack.GetDim(2) - 1, 0,
-      in_pack.GetDim(1) - 1,
+      DEFAULT_LOOP_PATTERN, "AverageMeshData", DevExecSpace(), 0, x.GetDim(5) - 1, 0,
+      x.GetDim(4) - 1, 0, x.GetDim(3) - 1, 0, x.GetDim(2) - 1, 0, x.GetDim(1) - 1,
       KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
-        out_pack(b, l, k, j, i) = in_pack(b, l, k, j, i) + dt * dudt_pack(b, l, k, j, i);
+        z(b, l, k, j, i) = w1 * x(b, l, k, j, i) + w2 * y(b, l, k, j, i);
       });
-}
-
-template <typename T>
-void UpdateIndependentData(T &in, T &dudt, const Real dt, T &out) {
-  UpdateData(std::vector<MetadataFlag>({Metadata::Independent}), in, dudt, dt, out);
+  return TaskStatus::complete;
 }
 
 template <typename F, typename T>
-void AverageData(const std::vector<F> &flags, T &c1, T &c2, const Real wgt1) {
-  auto c1_pack = c1->PackVariables(flags);
-  const auto &c2_pack = c2->PackVariables(flags);
-  parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, "AverageMeshData", DevExecSpace(), 0, c1_pack.GetDim(5) - 1,
-      0, c1_pack.GetDim(4) - 1, 0, c1_pack.GetDim(3) - 1, 0, c1_pack.GetDim(2) - 1, 0,
-      c1_pack.GetDim(1) - 1,
-      KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
-        c1_pack(b, l, k, j, i) =
-            wgt1 * c1_pack(b, l, k, j, i) + (1 - wgt1) * c2_pack(b, l, k, j, i);
-      });
+TaskStatus UpdateData(const std::vector<F> &flags, T &in, T &dudt, const Real dt,
+                      T &out) {
+  return SumData(flags, in, dudt, 1.0, dt, out);
 }
 
 template <typename T>
-void AverageIndependentData(T &c1, T &c2, const Real wgt1) {
-  AverageData(std::vector<MetadataFlag>({Metadata::Independent}), c1, c2, wgt1);
+TaskStatus UpdateIndependentData(T &in, T &dudt, const Real dt, T &out) {
+  return SumData(std::vector<MetadataFlag>({Metadata::Independent}), in, dudt, 1.0, dt,
+                 out);
+}
+
+template <typename F, typename T>
+TaskStatus AverageData(const std::vector<F> &flags, T &c1, T &c2, const Real wgt1) {
+  return SumData(flags, c1, c2, wgt1, (1.0 - wgt1), c1);
+}
+
+template <typename T>
+TaskStatus AverageIndependentData(T &c1, T &c2, const Real wgt1) {
+  return SumData(std::vector<MetadataFlag>({Metadata::Independent}), c1, c2, wgt1,
+                 (1.0 - wgt1), c1);
 }
 
 template <typename T>
