@@ -158,9 +158,9 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
 
     // estimate next time step
     if (stage == integrator->nstages) {
-      auto new_dt = tl.AddTask(fill_derived,
-                               parthenon::Update::EstimateTimestep<MeshBlockData<Real>>,
-                               sc1.get());
+      auto new_dt =
+          tl.AddTask(fill_derived,
+                     parthenon::Update::EstimateTimestep<MeshBlockData<Real>>, sc1.get());
 
       // Update refinement
       if (pmesh->adaptive) {

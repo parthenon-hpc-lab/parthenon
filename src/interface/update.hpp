@@ -52,8 +52,8 @@ TaskStatus SumData(const std::vector<F> &flags, T *in1, T *in2, const Real w1,
 }
 
 template <typename F, typename T>
-TaskStatus UpdateData(const std::vector<F> &flags, T *in, T *dudt,
-                      const Real dt, T *out) {
+TaskStatus UpdateData(const std::vector<F> &flags, T *in, T *dudt, const Real dt,
+                      T *out) {
   return SumData(flags, in, dudt, 1.0, dt, out);
 }
 
@@ -64,8 +64,7 @@ TaskStatus UpdateIndependentData(T *in, T *dudt, const Real dt, T *out) {
 }
 
 template <typename F, typename T>
-TaskStatus AverageData(const std::vector<F> &flags, T *c1, T *c2,
-                       const Real wgt1) {
+TaskStatus AverageData(const std::vector<F> &flags, T *c1, T *c2, const Real wgt1) {
   return SumData(flags, c1, c2, wgt1, (1.0 - wgt1), c1);
 }
 

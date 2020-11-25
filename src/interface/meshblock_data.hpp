@@ -79,6 +79,33 @@ class MeshBlockData {
     return GetBlockPointer()->cellbounds.GetBoundsK(domain);
   }
 
+  void Copy(const std::shared_ptr<MeshBlockData<T>> &src,
+            const std::vector<std::string> &names) {
+    SetBlockPointer(src);
+    for (const auto &name : names) {
+      bool found = false;
+      auto vit = varMap_.find(name);
+      if (vit != varMap_.end()) {
+        auto &v = vit->second;
+        if (v->IsSet(Metadata::OneCopy)) {
+          Add(v);
+        } else {
+          Add(v->AllocateCopy());
+        }
+        found = true;
+      }
+      auto sit = sparseMap_.find(name);
+      if (sit != sparseMap_.end()) {
+        auto &v = sit->second;
+        if (v->IsSet(Metadata::OneCopy)) {
+          Add(v);
+        } else {
+          Add(v->AllocateCopy());
+        }
+      }
+    }
+  }
+
   void Copy(const std::shared_ptr<MeshBlockData<T>> &src) {
     SetBlockPointer(src);
     for (auto v : src->GetCellVariableVector()) {

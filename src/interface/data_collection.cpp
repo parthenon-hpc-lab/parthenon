@@ -22,6 +22,24 @@
 namespace parthenon {
 
 template <typename T>
+template <typename F>
+std::shared_ptr<T> DataCollection<T>::Add(const std::string &name,
+                                          const std::shared_ptr<T> &src,
+                                          const std::vector<F> &flags) {
+  auto it = containers_.find(name);
+  if (it != containers_.end()) {
+    // TODO(jcd): figure out how to do error checking here
+    return it->second;
+  }
+
+  auto c = std::make_shared<T>();
+  c->Copy(src, flags);
+
+  containers_[name] = c;
+  return containers_[name];
+}
+
+template <typename T>
 std::shared_ptr<T> DataCollection<T>::Add(const std::string &name,
                                           const std::shared_ptr<T> &src) {
   // error check for duplicate names
