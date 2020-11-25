@@ -37,8 +37,8 @@ template <typename T>
 TaskStatus FluxDivergence(std::shared_ptr<T> &in, std::shared_ptr<T> &dudt_obj);
 
 template <typename F, typename T>
-TaskStatus SumData(const std::vector<F> &flags, T &&in1, T &&in2, const Real w1,
-                   const Real w2, T &&out) {
+TaskStatus SumData(const std::vector<F> &flags, const T in1, const T in2, const Real w1,
+                   const Real w2, const T out) {
   const auto &x = in1->PackVariables(flags);
   const auto &y = in2->PackVariables(flags);
   const auto &z = out->PackVariables(flags);
@@ -52,24 +52,24 @@ TaskStatus SumData(const std::vector<F> &flags, T &&in1, T &&in2, const Real w1,
 }
 
 template <typename F, typename T>
-TaskStatus UpdateData(const std::vector<F> &flags, T &&in, T &&dudt, const Real dt,
-                      T &&out) {
+TaskStatus UpdateData(const std::vector<F> &flags, const T in, const T dudt, const Real dt,
+                      const T out) {
   return SumData(flags, in, dudt, 1.0, dt, out);
 }
 
 template <typename T>
-TaskStatus UpdateIndependentData(T &&in, T &&dudt, const Real dt, T &&out) {
+TaskStatus UpdateIndependentData(const T in, const T dudt, const Real dt, const T out) {
   return SumData(std::vector<MetadataFlag>({Metadata::Independent}), in, dudt, 1.0, dt,
                  out);
 }
 
 template <typename F, typename T>
-TaskStatus AverageData(const std::vector<F> &flags, T &&c1, T &&c2, const Real wgt1) {
+TaskStatus AverageData(const std::vector<F> &flags, const T c1, const T c2, const Real wgt1) {
   return SumData(flags, c1, c2, wgt1, (1.0 - wgt1), c1);
 }
 
 template <typename T>
-TaskStatus AverageIndependentData(T &&c1, T &&c2, const Real wgt1) {
+TaskStatus AverageIndependentData(const T c1, const T c2, const Real wgt1) {
   return SumData(std::vector<MetadataFlag>({Metadata::Independent}), c1, c2, wgt1,
                  (1.0 - wgt1), c1);
 }
