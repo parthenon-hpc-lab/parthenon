@@ -84,8 +84,9 @@ class MeshBlockData {
     SetBlockPointer(src);
     for (const auto &name : names) {
       bool found = false;
-      auto vit = varMap_.find(name);
-      if (vit != varMap_.end()) {
+      const auto &vMap = src->GetCellVariableMap();
+      auto vit = vMap.find(name);
+      if (vit != vMap.end()) {
         auto &v = vit->second;
         if (v->IsSet(Metadata::OneCopy)) {
           Add(v);
@@ -94,8 +95,9 @@ class MeshBlockData {
         }
         found = true;
       }
-      auto sit = sparseMap_.find(name);
-      if (sit != sparseMap_.end()) {
+      const auto &sMap = src->GetSparseMap();
+      auto sit = sMap.find(name);
+      if (sit != sMap.end()) {
         auto &v = sit->second;
         if (v->IsSet(Metadata::OneCopy)) {
           Add(v);
