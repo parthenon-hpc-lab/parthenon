@@ -56,6 +56,7 @@ vy = 1.0
 vz = 1.0
 profile = hard_sphere
 
+buffer_send_pack = true
 buffer_recv_pack = true
 buffer_set_pack = true
 

@@ -25,9 +25,11 @@
 #include "config.hpp"
 #include "kokkos_abstraction.hpp"
 #include "mesh/mesh.hpp"
+#include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
 
 namespace parthenon {
+
 namespace cell_centered_bvars {
 
 //----------------------------------------------------------------------------------------
@@ -244,6 +246,9 @@ struct BndInfo {
 TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_SendBoundaryBuffers_MeshData");
 
+  auto var_pack = md->PackVariables(std::vector<MetadataFlag>({Metadata::FillGhost}));
+  const auto Nv = var_pack.GetDim(4);
+
   Kokkos::Profiling::pushRegion("Create bndinfo array");
   // TODO(?) talk about whether the number of buffers should be a compile time const
   const int num_buffers = 56;
@@ -278,28 +283,32 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
       auto &sk = boundary_info_h(b, n).sk;
       auto &ek = boundary_info_h(b, n).ek;
 
+      IndexDomain interior = IndexDomain::interior;
+      auto &var_cc = rc->GetCellVariableVector()[0]->data;
       if (nb.snb.level == mylevel) {
-        IndexDomain interior = IndexDomain::interior;
         const parthenon::IndexShape &cellbounds = pmb->cellbounds;
-        si = (nb.ni.ox1 > 0) ? (cellbounds.ie(interior) - NGHOST + 1)
-                             : cellbounds.is(interior);
-        ei = (nb.ni.ox1 < 0) ? (cellbounds.is(interior) + NGHOST - 1)
-                             : cellbounds.ie(interior);
-        sj = (nb.ni.ox2 > 0) ? (cellbounds.je(interior) - NGHOST + 1)
-                             : cellbounds.js(interior);
-        ej = (nb.ni.ox2 < 0) ? (cellbounds.js(interior) + NGHOST - 1)
-                             : cellbounds.je(interior);
-        sk = (nb.ni.ox3 > 0) ? (cellbounds.ke(interior) - NGHOST + 1)
-                             : cellbounds.ks(interior);
-        ek = (nb.ni.ox3 < 0) ? (cellbounds.ks(interior) + NGHOST - 1)
-                             : cellbounds.ke(interior);
+        CalcIndicesLoadSame(nb.ni.ox1, si, ei, cellbounds.GetBoundsI(interior));
+        CalcIndicesLoadSame(nb.ni.ox2, sj, ej, cellbounds.GetBoundsJ(interior));
+        CalcIndicesLoadSame(nb.ni.ox3, sk, ek, cellbounds.GetBoundsK(interior));
+        boundary_info_h(b, n).var = var_cc.Get<4>();
 
-        boundary_info_h(b, n).var =
-            rc->GetCellVariableVector()[0]->vbvar->coarse_buf.Get<4>();
       } else if (nb.snb.level < mylevel) {
-        // ssize = LoadBoundaryBufferToCoarser(bd_var_.send[nb.bufid], nb);
+        const IndexShape &c_cellbounds = pmb->c_cellbounds;
+        // "Same" logic is the same for loading to a coarse buffer, just using
+        // c_cellbounds
+        CalcIndicesLoadSame(nb.ni.ox1, si, ei, c_cellbounds.GetBoundsI(interior));
+        CalcIndicesLoadSame(nb.ni.ox2, sj, ej, c_cellbounds.GetBoundsJ(interior));
+        CalcIndicesLoadSame(nb.ni.ox3, sk, ek, c_cellbounds.GetBoundsK(interior));
+
+        auto &coarse_buf = rc->GetCellVariableVector()[0]->vbvar->coarse_buf;
+        pmb->pmr->RestrictCellCenteredValues(var_cc, coarse_buf, 0, Nv - 1, si, ei, sj,
+                                             ej, sk, ek);
+
+        boundary_info_h(b, n).var = coarse_buf.Get<4>();
+
       } else {
-        // ssize = LoadBoundaryBufferToFiner(bd_var_.send[nb.bufid], nb);
+        CalcIndicesLoadToFiner(si, ei, sj, ej, sk, ek, nb, pmb.get());
+        boundary_info_h(b, n).var = var_cc.Get<4>();
       }
       // on the same process fill the target buffer directly
       if (nb.snb.rank == parthenon::Globals::my_rank) {
@@ -320,8 +329,6 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::popRegion(); // Create bndinfo array
 
   const auto NbNb = md->NumBlocks() * num_buffers;
-  auto var_pack = md->PackVariables(std::vector<MetadataFlag>({Metadata::FillGhost}));
-  const auto Nv = var_pack.GetDim(4);
 
   Kokkos::parallel_for(
       "SendBoundaryBuffers",
@@ -353,7 +360,7 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
                     Kokkos::ThreadVectorRange(team_member, si, ei + 1), [&](const int i) {
                       boundary_info(b, n).buf(i - si +
                                               Ni * (j - sj + Nj * (k - sk + Nk * v))) =
-                          var_pack(b, v, k, j, i);
+                          boundary_info(b, n).var(v, k, j, i);
                     });
               });
         }
