@@ -102,6 +102,10 @@ class MeshBlockData {
         } else {
           Add(v->AllocateCopy());
         }
+        found = true;
+      }
+      if (!found) {
+        PARTHENON_THROW("MeshBlockData::Copy did not find " + name);
       }
     }
   }
