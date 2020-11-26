@@ -19,6 +19,7 @@
 #include <string>
 #include <vector>
 
+#include "basic_types.hpp"
 #include "bvals/bvals_interfaces.hpp"
 #include "bvals_cc_in_one.hpp"
 #include "config.hpp"
@@ -321,19 +322,9 @@ TaskStatus ReceiveBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   bool ret = true;
   for (int i = 0; i < md->NumBlocks(); i++) {
     auto &rc = md->GetBlockData(i);
-    // receives the boundary
-    for (auto &v : rc->GetCellVariableVector()) {
-      if (!v->mpiStatus) {
-        if (v->IsSet(parthenon::Metadata::FillGhost)) {
-          // ret = ret & v->vbvar->ReceiveBoundaryBuffers();
-          // In case we have trouble with multiple arrays causing
-          // problems with task status, we should comment one line
-          // above and uncomment the if block below
-          v->resetBoundary();
-          v->mpiStatus = v->vbvar->ReceiveBoundaryBuffers();
-          ret = (ret & v->mpiStatus);
-        }
-      }
+    auto task_status = rc->ReceiveBoundaryBuffers();
+    if (task_status == TaskStatus::incomplete) {
+      ret = false;
     }
   }
 

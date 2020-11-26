@@ -673,7 +673,7 @@ void MeshBlockData<T>::SetupPersistentMPI() {
 
 template <typename T>
 TaskStatus MeshBlockData<T>::ReceiveBoundaryBuffers() {
-  Kokkos::Profiling::pushRegion("Task_ReceiveBoundaryBuffers");
+  Kokkos::Profiling::pushRegion("Task_ReceiveBoundaryBuffers_MeshBlockData");
   bool ret = true;
   // receives the boundary
   for (auto &v : varVector_) {
@@ -702,7 +702,7 @@ TaskStatus MeshBlockData<T>::ReceiveBoundaryBuffers() {
     }
   }
 
-  Kokkos::Profiling::popRegion(); // Task_ReceiveBoundaryBuffers
+  Kokkos::Profiling::popRegion(); // Task_ReceiveBoundaryBuffers_MeshBlockData
   if (ret) return TaskStatus::complete;
   return TaskStatus::incomplete;
 }
