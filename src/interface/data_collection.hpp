@@ -38,9 +38,8 @@ class DataCollection {
 
   void SetMeshPointer(Mesh *pmesh) { pmy_mesh_ = pmesh; }
 
-  template <typename F>
   std::shared_ptr<T> Add(const std::string &label, const std::shared_ptr<T> &src,
-                         const std::vector<F> &flags);
+                         const std::vector<std::string> &flags);
   std::shared_ptr<T> Add(const std::string &label, const std::shared_ptr<T> &src);
   std::shared_ptr<T> Add(const std::string &label) {
     // error check for duplicate names

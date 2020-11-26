@@ -22,10 +22,9 @@
 namespace parthenon {
 
 template <typename T>
-template <typename F>
 std::shared_ptr<T> DataCollection<T>::Add(const std::string &name,
                                           const std::shared_ptr<T> &src,
-                                          const std::vector<F> &flags) {
+                                          const std::vector<std::string> &flags) {
   auto it = containers_.find(name);
   if (it != containers_.end()) {
     // TODO(jcd): figure out how to do error checking here

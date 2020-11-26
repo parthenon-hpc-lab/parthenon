@@ -118,11 +118,12 @@ class MeshData {
     }
   }
 
-  void Copy(const std::shared_ptr<MeshData<T>> src) {
+  template <typename... Args>
+  void Copy(const std::shared_ptr<MeshData<T>> src, Args &&... args) {
     const int nblocks = src->NumBlocks();
     block_data_.resize(nblocks);
     for (int i = 0; i < nblocks; i++) {
-      block_data_[i]->Copy(src->GetBlockData(i));
+      block_data_[i]->Copy(src->GetBlockData(i), std::forward<Args>(args)...);
     }
   }
 
