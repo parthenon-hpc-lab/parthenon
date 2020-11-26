@@ -19,6 +19,7 @@
 #include <string>
 #include <vector>
 
+#include "bvals/bvals_interfaces.hpp"
 #include "bvals_cc_in_one.hpp"
 #include "config.hpp"
 #include "kokkos_abstraction.hpp"
@@ -27,6 +28,129 @@
 
 namespace parthenon {
 namespace cell_centered_bvars {
+
+//----------------------------------------------------------------------------------------
+//! \fn void cell_centered_bvars::CalcIndicesSame(int ox, int &s, int &e,
+//                                                const IndexRange &bounds)
+//  \brief Calculate indices for SetBoundary routines for buffers on the same level
+
+void CalcIndicesSame(int ox, int &s, int &e, const IndexRange &bounds) {
+  if (ox == 0) {
+    s = bounds.s;
+    e = bounds.e;
+  } else if (ox > 0) {
+    s = bounds.e + 1;
+    e = bounds.e + NGHOST;
+  } else {
+    s = bounds.s - NGHOST;
+    e = bounds.s - 1;
+  }
+}
+
+//----------------------------------------------------------------------------------------
+//! \fn void cell_centered_bvars::CalcIndicesFomCoarser(const int &ox, int &s, int &e,
+//                                                      const IndexRange &bounds,
+//                                                      const std::int64_t &lx,
+//                                                      const int &cng,
+//                                                      const bool include_dim)
+//  \brief Calculate indices for SetBoundary routines for buffers from coarser levels
+
+void CalcIndicesFromCoarser(const int &ox, int &s, int &e, const IndexRange &bounds,
+                            const std::int64_t &lx, const int &cng,
+                            const bool include_dim) {
+  if (ox == 0) {
+    s = bounds.s;
+    e = bounds.e;
+    if (include_dim) {
+      if ((lx & 1LL) == 0LL) {
+        e += cng;
+      } else {
+        s -= cng;
+      }
+    }
+  } else if (ox > 0) {
+    s = bounds.e + 1;
+    e = bounds.e + cng;
+  } else {
+    s = bounds.s - cng;
+    e = bounds.s - 1;
+  }
+}
+
+//----------------------------------------------------------------------------------------
+//! \fn void cell_centered_bvars::CalcIndicesFromFiner(int &si, int &ei, int &sj, int &ej,
+//                                                     int &sk, int &ek,
+//                                                     const NeighborBlock &nb,
+//                                                     MeshBlock *pmb)
+//  \brief Calculate indices for SetBoundary routines for buffers from finer levels
+
+void CalcIndicesFromFiner(int &si, int &ei, int &sj, int &ej, int &sk, int &ek,
+                          const NeighborBlock &nb, MeshBlock *pmb) {
+  IndexDomain interior = IndexDomain::interior;
+  const IndexShape &cellbounds = pmb->cellbounds;
+  if (nb.ni.ox1 == 0) {
+    si = cellbounds.is(interior);
+    ei = cellbounds.ie(interior);
+    if (nb.ni.fi1 == 1)
+      si += pmb->block_size.nx1 / 2;
+    else
+      ei -= pmb->block_size.nx1 / 2;
+  } else if (nb.ni.ox1 > 0) {
+    si = cellbounds.ie(interior) + 1;
+    ei = cellbounds.ie(interior) + NGHOST;
+  } else {
+    si = cellbounds.is(interior) - NGHOST;
+    ei = cellbounds.is(interior) - 1;
+  }
+
+  if (nb.ni.ox2 == 0) {
+    sj = cellbounds.js(interior);
+    ej = cellbounds.je(interior);
+    if (pmb->block_size.nx2 > 1) {
+      if (nb.ni.ox1 != 0) {
+        if (nb.ni.fi1 == 1)
+          sj += pmb->block_size.nx2 / 2;
+        else
+          ej -= pmb->block_size.nx2 / 2;
+      } else {
+        if (nb.ni.fi2 == 1)
+          sj += pmb->block_size.nx2 / 2;
+        else
+          ej -= pmb->block_size.nx2 / 2;
+      }
+    }
+  } else if (nb.ni.ox2 > 0) {
+    sj = cellbounds.je(interior) + 1;
+    ej = cellbounds.je(interior) + NGHOST;
+  } else {
+    sj = cellbounds.js(interior) - NGHOST;
+    ej = cellbounds.js(interior) - 1;
+  }
+
+  if (nb.ni.ox3 == 0) {
+    sk = cellbounds.ks(interior);
+    ek = cellbounds.ke(interior);
+    if (pmb->block_size.nx3 > 1) {
+      if (nb.ni.ox1 != 0 && nb.ni.ox2 != 0) {
+        if (nb.ni.fi1 == 1)
+          sk += pmb->block_size.nx3 / 2;
+        else
+          ek -= pmb->block_size.nx3 / 2;
+      } else {
+        if (nb.ni.fi2 == 1)
+          sk += pmb->block_size.nx3 / 2;
+        else
+          ek -= pmb->block_size.nx3 / 2;
+      }
+    }
+  } else if (nb.ni.ox3 > 0) {
+    sk = cellbounds.ke(interior) + 1;
+    ek = cellbounds.ke(interior) + NGHOST;
+  } else {
+    sk = cellbounds.ks(interior) - NGHOST;
+    ek = cellbounds.ks(interior) - 1;
+  }
+}
 
 struct BndInfo {
   bool is_used = false;
@@ -229,41 +353,6 @@ TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) {
                                                num_buffers);
   auto boundary_info_h = Kokkos::create_mirror_view(boundary_info);
 
-  auto CalcIndicesSame = [](int ox, int &s, int &e, const IndexRange &bounds) {
-    if (ox == 0) {
-      s = bounds.s;
-      e = bounds.e;
-    } else if (ox > 0) {
-      s = bounds.e + 1;
-      e = bounds.e + NGHOST;
-    } else {
-      s = bounds.s - NGHOST;
-      e = bounds.s - 1;
-    }
-  };
-
-  auto CalcIndicesFromCoarser = [](const int &ox, int &s, int &e,
-                                   const IndexRange &bounds, const std::int64_t &lx,
-                                   const int &cng, const bool include_dim) {
-    if (ox == 0) {
-      s = bounds.s;
-      e = bounds.e;
-      if (include_dim) {
-        if ((lx & 1LL) == 0LL) {
-          e += cng;
-        } else {
-          s -= cng;
-        }
-      }
-    } else if (ox > 0) {
-      s = bounds.e + 1;
-      e = bounds.e + cng;
-    } else {
-      s = bounds.s - cng;
-      e = bounds.s - 1;
-    }
-  };
-
   IndexDomain interior = IndexDomain::interior;
 
   for (int b = 0; b < md->NumBlocks(); b++) {
@@ -304,70 +393,7 @@ TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) {
         boundary_info_h(b, n).var =
             rc->GetCellVariableVector()[0]->vbvar->coarse_buf.Get<4>();
       } else {
-        const IndexShape &cellbounds = pmb->cellbounds;
-
-        if (nb.ni.ox1 == 0) {
-          si = cellbounds.is(interior);
-          ei = cellbounds.ie(interior);
-          if (nb.ni.fi1 == 1)
-            si += pmb->block_size.nx1 / 2;
-          else
-            ei -= pmb->block_size.nx1 / 2;
-        } else if (nb.ni.ox1 > 0) {
-          si = cellbounds.ie(interior) + 1;
-          ei = cellbounds.ie(interior) + NGHOST;
-        } else {
-          si = cellbounds.is(interior) - NGHOST;
-          ei = cellbounds.is(interior) - 1;
-        }
-
-        if (nb.ni.ox2 == 0) {
-          sj = cellbounds.js(interior);
-          ej = cellbounds.je(interior);
-          if (pmb->block_size.nx2 > 1) {
-            if (nb.ni.ox1 != 0) {
-              if (nb.ni.fi1 == 1)
-                sj += pmb->block_size.nx2 / 2;
-              else
-                ej -= pmb->block_size.nx2 / 2;
-            } else {
-              if (nb.ni.fi2 == 1)
-                sj += pmb->block_size.nx2 / 2;
-              else
-                ej -= pmb->block_size.nx2 / 2;
-            }
-          }
-        } else if (nb.ni.ox2 > 0) {
-          sj = cellbounds.je(interior) + 1;
-          ej = cellbounds.je(interior) + NGHOST;
-        } else {
-          sj = cellbounds.js(interior) - NGHOST;
-          ej = cellbounds.js(interior) - 1;
-        }
-
-        if (nb.ni.ox3 == 0) {
-          sk = cellbounds.ks(interior);
-          ek = cellbounds.ke(interior);
-          if (pmb->block_size.nx3 > 1) {
-            if (nb.ni.ox1 != 0 && nb.ni.ox2 != 0) {
-              if (nb.ni.fi1 == 1)
-                sk += pmb->block_size.nx3 / 2;
-              else
-                ek -= pmb->block_size.nx3 / 2;
-            } else {
-              if (nb.ni.fi2 == 1)
-                sk += pmb->block_size.nx3 / 2;
-              else
-                ek -= pmb->block_size.nx3 / 2;
-            }
-          }
-        } else if (nb.ni.ox3 > 0) {
-          sk = cellbounds.ke(interior) + 1;
-          ek = cellbounds.ke(interior) + NGHOST;
-        } else {
-          sk = cellbounds.ks(interior) - NGHOST;
-          ek = cellbounds.ks(interior) - 1;
-        }
+        CalcIndicesFromFiner(si, ei, sj, ej, sk, ek, nb, pmb.get());
         boundary_info_h(b, n).var = rc->GetCellVariableVector()[0]->data.Get<4>();
       }
       boundary_info_h(b, n).buf = bd_var_->recv[nb.bufid];

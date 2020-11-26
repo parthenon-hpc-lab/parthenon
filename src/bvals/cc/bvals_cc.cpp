@@ -19,6 +19,7 @@
 //  \brief functions that apply BCs for CELL_CENTERED variables
 
 #include "bvals/cc/bvals_cc.hpp"
+#include "bvals/cc/bvals_cc_in_one.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -249,23 +250,13 @@ void CellCenteredBoundaryVariable::SetBoundarySameLevel(ParArray1D<Real> &buf,
 
   const IndexShape &cellbounds = pmb->cellbounds;
 
-  auto CalcIndices = [](int ox, int &s, int &e, const IndexRange &bounds) {
-    if (ox == 0) {
-      s = bounds.s;
-      e = bounds.e;
-    } else if (ox > 0) {
-      s = bounds.e + 1;
-      e = bounds.e + NGHOST;
-    } else {
-      s = bounds.s - NGHOST;
-      e = bounds.s - 1;
-    }
-  };
-
   IndexDomain interior = IndexDomain::interior;
-  CalcIndices(nb.ni.ox1, si, ei, cellbounds.GetBoundsI(interior));
-  CalcIndices(nb.ni.ox2, sj, ej, cellbounds.GetBoundsJ(interior));
-  CalcIndices(nb.ni.ox3, sk, ek, cellbounds.GetBoundsK(interior));
+  cell_centered_bvars::CalcIndicesSame(nb.ni.ox1, si, ei,
+                                       cellbounds.GetBoundsI(interior));
+  cell_centered_bvars::CalcIndicesSame(nb.ni.ox2, sj, ej,
+                                       cellbounds.GetBoundsJ(interior));
+  cell_centered_bvars::CalcIndicesSame(nb.ni.ox3, sk, ek,
+                                       cellbounds.GetBoundsK(interior));
 
   int p = 0;
 
@@ -286,34 +277,15 @@ void CellCenteredBoundaryVariable::SetBoundaryFromCoarser(ParArray1D<Real> &buf,
 
   const IndexShape &c_cellbounds = pmb->c_cellbounds;
 
-  auto CalcIndices = [](const int &ox, int &s, int &e, const IndexRange &bounds,
-                        const std::int64_t &lx, const int &cng, const bool include_dim) {
-    if (ox == 0) {
-      s = bounds.s;
-      e = bounds.e;
-      if (include_dim) {
-        if ((lx & 1LL) == 0LL) {
-          e += cng;
-        } else {
-          s -= cng;
-        }
-      }
-    } else if (ox > 0) {
-      s = bounds.e + 1;
-      e = bounds.e + cng;
-    } else {
-      s = bounds.s - cng;
-      e = bounds.s - 1;
-    }
-  };
-
   IndexDomain interior = IndexDomain::interior;
-  CalcIndices(nb.ni.ox1, si, ei, c_cellbounds.GetBoundsI(interior), pmb->loc.lx1, cng,
-              true);
-  CalcIndices(nb.ni.ox2, sj, ej, c_cellbounds.GetBoundsJ(interior), pmb->loc.lx2, cng,
-              pmb->block_size.nx2 > 1);
-  CalcIndices(nb.ni.ox3, sk, ek, c_cellbounds.GetBoundsK(interior), pmb->loc.lx3, cng,
-              pmb->block_size.nx3 > 1);
+  cell_centered_bvars::CalcIndicesFromCoarser(
+      nb.ni.ox1, si, ei, c_cellbounds.GetBoundsI(interior), pmb->loc.lx1, cng, true);
+  cell_centered_bvars::CalcIndicesFromCoarser(nb.ni.ox2, sj, ej,
+                                              c_cellbounds.GetBoundsJ(interior),
+                                              pmb->loc.lx2, cng, pmb->block_size.nx2 > 1);
+  cell_centered_bvars::CalcIndicesFromCoarser(nb.ni.ox3, sk, ek,
+                                              c_cellbounds.GetBoundsK(interior),
+                                              pmb->loc.lx3, cng, pmb->block_size.nx3 > 1);
 
   int p = 0;
   ParArray4D<Real> coarse_buf_ = coarse_buf.Get<4>(); // auto template deduction fails
@@ -332,72 +304,7 @@ void CellCenteredBoundaryVariable::SetBoundaryFromFiner(ParArray1D<Real> &buf,
   // receive already restricted data
   int si, sj, sk, ei, ej, ek;
 
-  const IndexShape &cellbounds = pmb->cellbounds;
-  IndexDomain interior = IndexDomain::interior;
-
-  if (nb.ni.ox1 == 0) {
-    si = cellbounds.is(interior);
-    ei = cellbounds.ie(interior);
-    if (nb.ni.fi1 == 1)
-      si += pmb->block_size.nx1 / 2;
-    else
-      ei -= pmb->block_size.nx1 / 2;
-  } else if (nb.ni.ox1 > 0) {
-    si = cellbounds.ie(interior) + 1;
-    ei = cellbounds.ie(interior) + NGHOST;
-  } else {
-    si = cellbounds.is(interior) - NGHOST;
-    ei = cellbounds.is(interior) - 1;
-  }
-
-  if (nb.ni.ox2 == 0) {
-    sj = cellbounds.js(interior);
-    ej = cellbounds.je(interior);
-    if (pmb->block_size.nx2 > 1) {
-      if (nb.ni.ox1 != 0) {
-        if (nb.ni.fi1 == 1)
-          sj += pmb->block_size.nx2 / 2;
-        else
-          ej -= pmb->block_size.nx2 / 2;
-      } else {
-        if (nb.ni.fi2 == 1)
-          sj += pmb->block_size.nx2 / 2;
-        else
-          ej -= pmb->block_size.nx2 / 2;
-      }
-    }
-  } else if (nb.ni.ox2 > 0) {
-    sj = cellbounds.je(interior) + 1;
-    ej = cellbounds.je(interior) + NGHOST;
-  } else {
-    sj = cellbounds.js(interior) - NGHOST;
-    ej = cellbounds.js(interior) - 1;
-  }
-
-  if (nb.ni.ox3 == 0) {
-    sk = cellbounds.ks(interior);
-    ek = cellbounds.ke(interior);
-    if (pmb->block_size.nx3 > 1) {
-      if (nb.ni.ox1 != 0 && nb.ni.ox2 != 0) {
-        if (nb.ni.fi1 == 1)
-          sk += pmb->block_size.nx3 / 2;
-        else
-          ek -= pmb->block_size.nx3 / 2;
-      } else {
-        if (nb.ni.fi2 == 1)
-          sk += pmb->block_size.nx3 / 2;
-        else
-          ek -= pmb->block_size.nx3 / 2;
-      }
-    }
-  } else if (nb.ni.ox3 > 0) {
-    sk = cellbounds.ke(interior) + 1;
-    ek = cellbounds.ke(interior) + NGHOST;
-  } else {
-    sk = cellbounds.ks(interior) - NGHOST;
-    ek = cellbounds.ks(interior) - 1;
-  }
-
+  cell_centered_bvars::CalcIndicesFromFiner(si, ei, sj, ej, sk, ek, nb, pmb.get());
   int p = 0;
   ParArray4D<Real> var_cc_ = var_cc.Get<4>(); // automatic template deduction fails
   BufferUtility::UnpackData(buf, var_cc_, nl_, nu_, si, ei, sj, ej, sk, ek, p, pmb.get());
