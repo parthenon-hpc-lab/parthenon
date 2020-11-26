@@ -305,6 +305,7 @@ Real EstimateTimestepBlock(std::shared_ptr<MeshBlockData<Real>> &rc) {
 // some field "advected" that we are pushing around.
 // This routine implements all the "physics" in this example
 TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
+  Kokkos::Profiling::pushRegion("Task_Advection_CalculateFluxes");
   auto pmb = rc->GetBlockPointer();
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
@@ -407,6 +408,7 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
         });
   }
 
+  Kokkos::Profiling::popRegion(); // Task_Advection_CalculateFluxes
   return TaskStatus::complete;
 }
 

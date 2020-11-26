@@ -131,16 +131,20 @@ AmrTag FirstDerivative(MeshBlock *pmb, const ParArrayND<Real> &q,
 }
 
 TaskStatus Tag(std::shared_ptr<MeshBlockData<Real>> &rc) {
+  Kokkos::Profiling::pushRegion("Task_Tag_Block");
   auto pmb = rc->GetBlockPointer();
   pmb->pmr->SetRefinement(CheckAllRefinement(rc));
+  Kokkos::Profiling::popRegion(); // Task_Tag_Block
   return TaskStatus::complete;
 }
 
 TaskStatus Tag(std::shared_ptr<MeshData<Real>> &rc) {
+  Kokkos::Profiling::pushRegion("Task_Tag_Mesh");
   for (int i = 0; i < rc->NumBlocks(); i++) {
     auto &pbd = rc->GetBlockData(i);
     auto status = Tag(pbd);
   }
+  Kokkos::Profiling::popRegion(); // Task_Tag_Mesh
   return TaskStatus::complete;
 }
 

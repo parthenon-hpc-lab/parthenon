@@ -56,10 +56,12 @@ TaskStatus UpdateMeshData(const int stage, Integrator *integrator,
                           std::shared_ptr<parthenon::MeshData<Real>> &base,
                           std::shared_ptr<parthenon::MeshData<Real>> &dudt,
                           std::shared_ptr<parthenon::MeshData<Real>> &out) {
+  Kokkos::Profiling::pushRegion("Task_Advection_UpdateMeshData");
   const Real beta = integrator->beta[stage - 1];
   const Real dt = integrator->dt;
   parthenon::Update::AverageIndependentData(in, base, beta);
   parthenon::Update::UpdateIndependentData(in, dudt, beta * dt, out);
+  Kokkos::Profiling::popRegion(); // Task_Advection_UpdateMeshData
   return TaskStatus::complete;
 }
 
