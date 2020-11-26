@@ -167,7 +167,7 @@ struct BndInfo {
 // send boundary buffers with MeshBlockPack support
 // TODO(pgrete) should probaly be moved to the bvals or interface folders
 TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
-  Kokkos::Profiling::pushRegion("SendBoundaryBuffersInOne");
+  Kokkos::Profiling::pushRegion("Task_SendBoundaryBuffers_MeshData");
 
   Kokkos::Profiling::pushRegion("Create bndinfo array");
   // TODO(?) talk about whether the number of buffers should be a compile time const
@@ -311,12 +311,13 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   }
   Kokkos::Profiling::popRegion(); // Set complete and/or start sending via MPI
 
-  Kokkos::Profiling::popRegion(); // SendBoundaryBuffersInOne
+  Kokkos::Profiling::popRegion(); // Task_SendBoundaryBuffers_MeshData
   // TODO(?) reintroduce sparse logic (or merge with above)
   return TaskStatus::complete;
 }
 
 TaskStatus ReceiveBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
+  Kokkos::Profiling::pushRegion("Task_ReceiveBoundaryBuffers_MeshData");
   bool ret = true;
   for (int i = 0; i < md->NumBlocks(); i++) {
     auto &rc = md->GetBlockData(i);
@@ -337,6 +338,7 @@ TaskStatus ReceiveBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   }
 
   // TODO(?) reintroduce sparse logic (or merge with above)
+  Kokkos::Profiling::popRegion(); // Task_ReceiveBoundaryBuffers_MeshData
   if (ret) return TaskStatus::complete;
   return TaskStatus::incomplete;
 }
@@ -344,7 +346,7 @@ TaskStatus ReceiveBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
 // set boundaries from buffers with MeshBlockPack support
 // TODO(pgrete) should probaly be moved to the bvals or interface folders
 TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) {
-  Kokkos::Profiling::pushRegion("SetBoundariesInOne");
+  Kokkos::Profiling::pushRegion("Task_SetBoundaries_MeshData");
 
   Kokkos::Profiling::pushRegion("Create bndinfo array");
   // TODO(?) talk about whether the number of buffers should be a compile time const
@@ -451,7 +453,7 @@ TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) {
         }
       });
 
-  Kokkos::Profiling::popRegion(); // SetBoundariesInOne
+  Kokkos::Profiling::popRegion(); // Task_SetBoundaries_MeshData
   // TODO(?) reintroduce sparse logic (or merge with above)
   return TaskStatus::complete;
 }

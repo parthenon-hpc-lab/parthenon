@@ -627,7 +627,7 @@ TaskStatus MeshBlockData<T>::ReceiveFluxCorrection() {
 
 template <typename T>
 TaskStatus MeshBlockData<T>::SendBoundaryBuffers() {
-  Kokkos::Profiling::pushRegion("Task_SendBoundaryBuffers");
+  Kokkos::Profiling::pushRegion("Task_SendBoundaryBuffers_MeshBlockData");
   // sends the boundary
   debug = 0;
   for (auto &v : varVector_) {
@@ -646,7 +646,7 @@ TaskStatus MeshBlockData<T>::SendBoundaryBuffers() {
     }
   }
 
-  Kokkos::Profiling::popRegion(); // Task_SendBoundaryBuffers
+  Kokkos::Profiling::popRegion(); // Task_SendBoundaryBuffers_MeshBlockData
   return TaskStatus::complete;
 }
 
@@ -738,7 +738,7 @@ TaskStatus MeshBlockData<T>::ReceiveAndSetBoundariesWithWait() {
 // bloat.
 template <typename T>
 TaskStatus MeshBlockData<T>::SetBoundaries() {
-  Kokkos::Profiling::pushRegion("Task_SetBoundaries");
+  Kokkos::Profiling::pushRegion("Task_SetBoundaries_MeshBlockData");
   // sets the boundary
   for (auto &v : varVector_) {
     if (v->IsSet(Metadata::FillGhost)) {
@@ -755,7 +755,7 @@ TaskStatus MeshBlockData<T>::SetBoundaries() {
       }
     }
   }
-  Kokkos::Profiling::popRegion(); // Task_SetBoundaries
+  Kokkos::Profiling::popRegion(); // Task_SetBoundaries_MeshBlockData
   return TaskStatus::complete;
 }
 
