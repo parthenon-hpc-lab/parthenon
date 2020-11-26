@@ -30,11 +30,14 @@ template <typename T>
 class MeshData;
 
 namespace cell_centered_bvars {
-void CalcIndicesSame(int ox, int &s, int &e, const IndexRange &bounds);
-void CalcIndicesFromCoarser(const int &ox, int &s, int &e, const IndexRange &bounds,
-                            const std::int64_t &lx, const int &cng, bool include_dim);
-void CalcIndicesFromFiner(int &si, int &ei, int &sj, int &ej, int &sk, int &ek,
-                          const NeighborBlock &nb, MeshBlock *pmb);
+void CalcIndicesSetSame(int ox, int &s, int &e, const IndexRange &bounds);
+void CalcIndicesSetFromCoarser(const int &ox, int &s, int &e, const IndexRange &bounds,
+                               const std::int64_t &lx, const int &cng, bool include_dim);
+void CalcIndicesSetFromFiner(int &si, int &ei, int &sj, int &ej, int &sk, int &ek,
+                             const NeighborBlock &nb, MeshBlock *pmb);
+void CalcIndicesLoadSame(int ox, int &s, int &e, const IndexRange &bounds);
+void CalcIndicesLoadToFiner(int &si, int &ei, int &sj, int &ej, int &sk, int &ek,
+                            const NeighborBlock &nb, MeshBlock *pmb);
 TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus ReceiveBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md);

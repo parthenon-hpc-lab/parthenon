@@ -31,11 +31,11 @@ namespace parthenon {
 namespace cell_centered_bvars {
 
 //----------------------------------------------------------------------------------------
-//! \fn void cell_centered_bvars::CalcIndicesSame(int ox, int &s, int &e,
-//                                                const IndexRange &bounds)
+//! \fn void cell_centered_bvars::CalcIndicesSetSame(int ox, int &s, int &e,
+//                                                   const IndexRange &bounds)
 //  \brief Calculate indices for SetBoundary routines for buffers on the same level
 
-void CalcIndicesSame(int ox, int &s, int &e, const IndexRange &bounds) {
+void CalcIndicesSetSame(int ox, int &s, int &e, const IndexRange &bounds) {
   if (ox == 0) {
     s = bounds.s;
     e = bounds.e;
@@ -49,16 +49,16 @@ void CalcIndicesSame(int ox, int &s, int &e, const IndexRange &bounds) {
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void cell_centered_bvars::CalcIndicesFomCoarser(const int &ox, int &s, int &e,
-//                                                      const IndexRange &bounds,
-//                                                      const std::int64_t &lx,
-//                                                      const int &cng,
-//                                                      const bool include_dim)
+//! \fn void cell_centered_bvars::CalcIndicesSetFomCoarser(const int &ox, int &s, int &e,
+//                                                         const IndexRange &bounds,
+//                                                         const std::int64_t &lx,
+//                                                         const int &cng,
+//                                                         const bool include_dim)
 //  \brief Calculate indices for SetBoundary routines for buffers from coarser levels
 
-void CalcIndicesFromCoarser(const int &ox, int &s, int &e, const IndexRange &bounds,
-                            const std::int64_t &lx, const int &cng,
-                            const bool include_dim) {
+void CalcIndicesSetFromCoarser(const int &ox, int &s, int &e, const IndexRange &bounds,
+                               const std::int64_t &lx, const int &cng,
+                               const bool include_dim) {
   if (ox == 0) {
     s = bounds.s;
     e = bounds.e;
@@ -79,14 +79,14 @@ void CalcIndicesFromCoarser(const int &ox, int &s, int &e, const IndexRange &bou
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void cell_centered_bvars::CalcIndicesFromFiner(int &si, int &ei, int &sj, int &ej,
-//                                                     int &sk, int &ek,
-//                                                     const NeighborBlock &nb,
-//                                                     MeshBlock *pmb)
+//! \fn void cell_centered_bvars::CalcIndicesSetFromFiner(int &si, int &ei, int &sj,
+//                                                        int &ej, int &sk, int &ek,
+//                                                        const NeighborBlock &nb,
+//                                                        MeshBlock *pmb)
 //  \brief Calculate indices for SetBoundary routines for buffers from finer levels
 
-void CalcIndicesFromFiner(int &si, int &ei, int &sj, int &ej, int &sk, int &ek,
-                          const NeighborBlock &nb, MeshBlock *pmb) {
+void CalcIndicesSetFromFiner(int &si, int &ei, int &sj, int &ej, int &sk, int &ek,
+                             const NeighborBlock &nb, MeshBlock *pmb) {
   IndexDomain interior = IndexDomain::interior;
   const IndexShape &cellbounds = pmb->cellbounds;
   if (nb.ni.ox1 == 0) {
@@ -153,6 +153,80 @@ void CalcIndicesFromFiner(int &si, int &ei, int &sj, int &ej, int &sk, int &ek,
   }
 }
 
+//----------------------------------------------------------------------------------------
+//! \fn void cell_centered_bvars::CalcIndicesLoadSame(int ox, int &s, int &e,
+//                                                    const IndexRange &bounds)
+//  \brief Calculate indices for LoadBoundary routines for buffers on the same level
+//         and to coarser.
+
+void CalcIndicesLoadSame(int ox, int &s, int &e, const IndexRange &bounds) {
+  if (ox == 0) {
+    s = bounds.s;
+    e = bounds.e;
+  } else if (ox > 0) {
+    s = bounds.e - NGHOST + 1;
+    e = bounds.e;
+  } else {
+    s = bounds.s;
+    e = bounds.s + NGHOST - 1;
+  }
+}
+
+//----------------------------------------------------------------------------------------
+//! \fn void cell_centered_bvars::CalcIndicesLoadToFiner(int &si, int &ei, int &sj,
+//                                                       int &ej, int &sk, int &ek,
+//                                                       const NeighborBlock &nb,
+//                                                       MeshBlock *pmb)
+//  \brief Calculate indices for LoadBoundary routines for buffers to finer levels
+
+void CalcIndicesLoadToFiner(int &si, int &ei, int &sj, int &ej, int &sk, int &ek,
+                            const NeighborBlock &nb, MeshBlock *pmb) {
+  int cn = pmb->cnghost - 1;
+
+  IndexDomain interior = IndexDomain::interior;
+  const IndexShape &cellbounds = pmb->cellbounds;
+  si = (nb.ni.ox1 > 0) ? (cellbounds.ie(interior) - cn) : cellbounds.is(interior);
+  ei = (nb.ni.ox1 < 0) ? (cellbounds.is(interior) + cn) : cellbounds.ie(interior);
+  sj = (nb.ni.ox2 > 0) ? (cellbounds.je(interior) - cn) : cellbounds.js(interior);
+  ej = (nb.ni.ox2 < 0) ? (cellbounds.js(interior) + cn) : cellbounds.je(interior);
+  sk = (nb.ni.ox3 > 0) ? (cellbounds.ke(interior) - cn) : cellbounds.ks(interior);
+  ek = (nb.ni.ox3 < 0) ? (cellbounds.ks(interior) + cn) : cellbounds.ke(interior);
+
+  // send the data first and later prolongate on the target block
+  // need to add edges for faces, add corners for edges
+  if (nb.ni.ox1 == 0) {
+    if (nb.ni.fi1 == 1)
+      si += pmb->block_size.nx1 / 2 - pmb->cnghost;
+    else
+      ei -= pmb->block_size.nx1 / 2 - pmb->cnghost;
+  }
+  if (nb.ni.ox2 == 0 && pmb->block_size.nx2 > 1) {
+    if (nb.ni.ox1 != 0) {
+      if (nb.ni.fi1 == 1)
+        sj += pmb->block_size.nx2 / 2 - pmb->cnghost;
+      else
+        ej -= pmb->block_size.nx2 / 2 - pmb->cnghost;
+    } else {
+      if (nb.ni.fi2 == 1)
+        sj += pmb->block_size.nx2 / 2 - pmb->cnghost;
+      else
+        ej -= pmb->block_size.nx2 / 2 - pmb->cnghost;
+    }
+  }
+  if (nb.ni.ox3 == 0 && pmb->block_size.nx3 > 1) {
+    if (nb.ni.ox1 != 0 && nb.ni.ox2 != 0) {
+      if (nb.ni.fi1 == 1)
+        sk += pmb->block_size.nx3 / 2 - pmb->cnghost;
+      else
+        ek -= pmb->block_size.nx3 / 2 - pmb->cnghost;
+    } else {
+      if (nb.ni.fi2 == 1)
+        sk += pmb->block_size.nx3 / 2 - pmb->cnghost;
+      else
+        ek -= pmb->block_size.nx3 / 2 - pmb->cnghost;
+    }
+  }
+}
 struct BndInfo {
   bool is_used = false;
   int si = 0;
@@ -197,27 +271,31 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
       if (bd_var_->sflag[nb.bufid] == parthenon::BoundaryStatus::completed) continue;
       boundary_info_h(b, n).is_used = true;
 
+      auto &si = boundary_info_h(b, n).si;
+      auto &ei = boundary_info_h(b, n).ei;
+      auto &sj = boundary_info_h(b, n).sj;
+      auto &ej = boundary_info_h(b, n).ej;
+      auto &sk = boundary_info_h(b, n).sk;
+      auto &ek = boundary_info_h(b, n).ek;
+
       if (nb.snb.level == mylevel) {
         IndexDomain interior = IndexDomain::interior;
         const parthenon::IndexShape &cellbounds = pmb->cellbounds;
-        boundary_info_h(b, n).si = (nb.ni.ox1 > 0)
-                                       ? (cellbounds.ie(interior) - NGHOST + 1)
-                                       : cellbounds.is(interior);
-        boundary_info_h(b, n).ei = (nb.ni.ox1 < 0)
-                                       ? (cellbounds.is(interior) + NGHOST - 1)
-                                       : cellbounds.ie(interior);
-        boundary_info_h(b, n).sj = (nb.ni.ox2 > 0)
-                                       ? (cellbounds.je(interior) - NGHOST + 1)
-                                       : cellbounds.js(interior);
-        boundary_info_h(b, n).ej = (nb.ni.ox2 < 0)
-                                       ? (cellbounds.js(interior) + NGHOST - 1)
-                                       : cellbounds.je(interior);
-        boundary_info_h(b, n).sk = (nb.ni.ox3 > 0)
-                                       ? (cellbounds.ke(interior) - NGHOST + 1)
-                                       : cellbounds.ks(interior);
-        boundary_info_h(b, n).ek = (nb.ni.ox3 < 0)
-                                       ? (cellbounds.ks(interior) + NGHOST - 1)
-                                       : cellbounds.ke(interior);
+        si = (nb.ni.ox1 > 0) ? (cellbounds.ie(interior) - NGHOST + 1)
+                             : cellbounds.is(interior);
+        ei = (nb.ni.ox1 < 0) ? (cellbounds.is(interior) + NGHOST - 1)
+                             : cellbounds.ie(interior);
+        sj = (nb.ni.ox2 > 0) ? (cellbounds.je(interior) - NGHOST + 1)
+                             : cellbounds.js(interior);
+        ej = (nb.ni.ox2 < 0) ? (cellbounds.js(interior) + NGHOST - 1)
+                             : cellbounds.je(interior);
+        sk = (nb.ni.ox3 > 0) ? (cellbounds.ke(interior) - NGHOST + 1)
+                             : cellbounds.ks(interior);
+        ek = (nb.ni.ox3 < 0) ? (cellbounds.ks(interior) + NGHOST - 1)
+                             : cellbounds.ke(interior);
+
+        boundary_info_h(b, n).var =
+            rc->GetCellVariableVector()[0]->vbvar->coarse_buf.Get<4>();
       } else if (nb.snb.level < mylevel) {
         // ssize = LoadBoundaryBufferToCoarser(bd_var_.send[nb.bufid], nb);
       } else {
@@ -369,24 +447,24 @@ TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) {
 
       if (nb.snb.level == mylevel) {
         const parthenon::IndexShape &cellbounds = pmb->cellbounds;
-        CalcIndicesSame(nb.ni.ox1, si, ei, cellbounds.GetBoundsI(interior));
-        CalcIndicesSame(nb.ni.ox2, sj, ej, cellbounds.GetBoundsJ(interior));
-        CalcIndicesSame(nb.ni.ox3, sk, ek, cellbounds.GetBoundsK(interior));
+        CalcIndicesSetSame(nb.ni.ox1, si, ei, cellbounds.GetBoundsI(interior));
+        CalcIndicesSetSame(nb.ni.ox2, sj, ej, cellbounds.GetBoundsJ(interior));
+        CalcIndicesSetSame(nb.ni.ox3, sk, ek, cellbounds.GetBoundsK(interior));
         boundary_info_h(b, n).var = rc->GetCellVariableVector()[0]->data.Get<4>();
       } else if (nb.snb.level < mylevel) {
         const IndexShape &c_cellbounds = pmb->c_cellbounds;
         const auto &cng = pmb->cnghost;
-        CalcIndicesFromCoarser(nb.ni.ox1, si, ei, c_cellbounds.GetBoundsI(interior),
-                               pmb->loc.lx1, cng, true);
-        CalcIndicesFromCoarser(nb.ni.ox2, sj, ej, c_cellbounds.GetBoundsJ(interior),
-                               pmb->loc.lx2, cng, pmb->block_size.nx2 > 1);
-        CalcIndicesFromCoarser(nb.ni.ox3, sk, ek, c_cellbounds.GetBoundsK(interior),
-                               pmb->loc.lx3, cng, pmb->block_size.nx3 > 1);
+        CalcIndicesSetFromCoarser(nb.ni.ox1, si, ei, c_cellbounds.GetBoundsI(interior),
+                                  pmb->loc.lx1, cng, true);
+        CalcIndicesSetFromCoarser(nb.ni.ox2, sj, ej, c_cellbounds.GetBoundsJ(interior),
+                                  pmb->loc.lx2, cng, pmb->block_size.nx2 > 1);
+        CalcIndicesSetFromCoarser(nb.ni.ox3, sk, ek, c_cellbounds.GetBoundsK(interior),
+                                  pmb->loc.lx3, cng, pmb->block_size.nx3 > 1);
 
         boundary_info_h(b, n).var =
             rc->GetCellVariableVector()[0]->vbvar->coarse_buf.Get<4>();
       } else {
-        CalcIndicesFromFiner(si, ei, sj, ej, sk, ek, nb, pmb.get());
+        CalcIndicesSetFromFiner(si, ei, sj, ej, sk, ek, nb, pmb.get());
         boundary_info_h(b, n).var = rc->GetCellVariableVector()[0]->data.Get<4>();
       }
       boundary_info_h(b, n).buf = bd_var_->recv[nb.bufid];

@@ -133,12 +133,13 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(ParArray1D<Real> &
 
   IndexDomain interior = IndexDomain::interior;
   const IndexShape &cellbounds = pmb->cellbounds;
-  si = (nb.ni.ox1 > 0) ? (cellbounds.ie(interior) - NGHOST + 1) : cellbounds.is(interior);
-  ei = (nb.ni.ox1 < 0) ? (cellbounds.is(interior) + NGHOST - 1) : cellbounds.ie(interior);
-  sj = (nb.ni.ox2 > 0) ? (cellbounds.je(interior) - NGHOST + 1) : cellbounds.js(interior);
-  ej = (nb.ni.ox2 < 0) ? (cellbounds.js(interior) + NGHOST - 1) : cellbounds.je(interior);
-  sk = (nb.ni.ox3 > 0) ? (cellbounds.ke(interior) - NGHOST + 1) : cellbounds.ks(interior);
-  ek = (nb.ni.ox3 < 0) ? (cellbounds.ks(interior) + NGHOST - 1) : cellbounds.ke(interior);
+
+  cell_centered_bvars::CalcIndicesLoadSame(nb.ni.ox1, si, ei,
+                                           cellbounds.GetBoundsI(interior));
+  cell_centered_bvars::CalcIndicesLoadSame(nb.ni.ox2, sj, ej,
+                                           cellbounds.GetBoundsJ(interior));
+  cell_centered_bvars::CalcIndicesLoadSame(nb.ni.ox3, sk, ek,
+                                           cellbounds.GetBoundsK(interior));
   int p = 0;
 
   ParArray4D<Real> var_cc_ = var_cc.Get<4>(); // automatic template deduction fails
@@ -157,16 +158,16 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(ParArray1D<Real> &
                                                               const NeighborBlock &nb) {
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int si, sj, sk, ei, ej, ek;
-  int cn = NGHOST - 1;
 
   IndexDomain interior = IndexDomain::interior;
   const IndexShape &c_cellbounds = pmb->c_cellbounds;
-  si = (nb.ni.ox1 > 0) ? (c_cellbounds.ie(interior) - cn) : c_cellbounds.is(interior);
-  ei = (nb.ni.ox1 < 0) ? (c_cellbounds.is(interior) + cn) : c_cellbounds.ie(interior);
-  sj = (nb.ni.ox2 > 0) ? (c_cellbounds.je(interior) - cn) : c_cellbounds.js(interior);
-  ej = (nb.ni.ox2 < 0) ? (c_cellbounds.js(interior) + cn) : c_cellbounds.je(interior);
-  sk = (nb.ni.ox3 > 0) ? (c_cellbounds.ke(interior) - cn) : c_cellbounds.ks(interior);
-  ek = (nb.ni.ox3 < 0) ? (c_cellbounds.ks(interior) + cn) : c_cellbounds.ke(interior);
+  // "Same" logic is the same for loading to a coarse buffer, just using c_cellbounds
+  cell_centered_bvars::CalcIndicesLoadSame(nb.ni.ox1, si, ei,
+                                           c_cellbounds.GetBoundsI(interior));
+  cell_centered_bvars::CalcIndicesLoadSame(nb.ni.ox2, sj, ej,
+                                           c_cellbounds.GetBoundsJ(interior));
+  cell_centered_bvars::CalcIndicesLoadSame(nb.ni.ox3, sk, ek,
+                                           c_cellbounds.GetBoundsK(interior));
 
   int p = 0;
   pmb->pmr->RestrictCellCenteredValues(var_cc, coarse_buf, nl_, nu_, si, ei, sj, ej, sk,
@@ -186,51 +187,8 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferToFiner(ParArray1D<Real> &bu
                                                             const NeighborBlock &nb) {
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int si, sj, sk, ei, ej, ek;
-  int cn = pmb->cnghost - 1;
 
-  IndexDomain interior = IndexDomain::interior;
-  const IndexShape &cellbounds = pmb->cellbounds;
-  si = (nb.ni.ox1 > 0) ? (cellbounds.ie(interior) - cn) : cellbounds.is(interior);
-  ei = (nb.ni.ox1 < 0) ? (cellbounds.is(interior) + cn) : cellbounds.ie(interior);
-  sj = (nb.ni.ox2 > 0) ? (cellbounds.je(interior) - cn) : cellbounds.js(interior);
-  ej = (nb.ni.ox2 < 0) ? (cellbounds.js(interior) + cn) : cellbounds.je(interior);
-  sk = (nb.ni.ox3 > 0) ? (cellbounds.ke(interior) - cn) : cellbounds.ks(interior);
-  ek = (nb.ni.ox3 < 0) ? (cellbounds.ks(interior) + cn) : cellbounds.ke(interior);
-
-  // send the data first and later prolongate on the target block
-  // need to add edges for faces, add corners for edges
-  if (nb.ni.ox1 == 0) {
-    if (nb.ni.fi1 == 1)
-      si += pmb->block_size.nx1 / 2 - pmb->cnghost;
-    else
-      ei -= pmb->block_size.nx1 / 2 - pmb->cnghost;
-  }
-  if (nb.ni.ox2 == 0 && pmb->block_size.nx2 > 1) {
-    if (nb.ni.ox1 != 0) {
-      if (nb.ni.fi1 == 1)
-        sj += pmb->block_size.nx2 / 2 - pmb->cnghost;
-      else
-        ej -= pmb->block_size.nx2 / 2 - pmb->cnghost;
-    } else {
-      if (nb.ni.fi2 == 1)
-        sj += pmb->block_size.nx2 / 2 - pmb->cnghost;
-      else
-        ej -= pmb->block_size.nx2 / 2 - pmb->cnghost;
-    }
-  }
-  if (nb.ni.ox3 == 0 && pmb->block_size.nx3 > 1) {
-    if (nb.ni.ox1 != 0 && nb.ni.ox2 != 0) {
-      if (nb.ni.fi1 == 1)
-        sk += pmb->block_size.nx3 / 2 - pmb->cnghost;
-      else
-        ek -= pmb->block_size.nx3 / 2 - pmb->cnghost;
-    } else {
-      if (nb.ni.fi2 == 1)
-        sk += pmb->block_size.nx3 / 2 - pmb->cnghost;
-      else
-        ek -= pmb->block_size.nx3 / 2 - pmb->cnghost;
-    }
-  }
+  cell_centered_bvars::CalcIndicesLoadToFiner(si, ei, sj, ej, sk, ek, nb, pmb.get());
 
   int p = 0;
   ParArray4D<Real> var_cc_ = var_cc.Get<4>(); // auto template deduction fails
@@ -251,12 +209,12 @@ void CellCenteredBoundaryVariable::SetBoundarySameLevel(ParArray1D<Real> &buf,
   const IndexShape &cellbounds = pmb->cellbounds;
 
   IndexDomain interior = IndexDomain::interior;
-  cell_centered_bvars::CalcIndicesSame(nb.ni.ox1, si, ei,
-                                       cellbounds.GetBoundsI(interior));
-  cell_centered_bvars::CalcIndicesSame(nb.ni.ox2, sj, ej,
-                                       cellbounds.GetBoundsJ(interior));
-  cell_centered_bvars::CalcIndicesSame(nb.ni.ox3, sk, ek,
-                                       cellbounds.GetBoundsK(interior));
+  cell_centered_bvars::CalcIndicesSetSame(nb.ni.ox1, si, ei,
+                                          cellbounds.GetBoundsI(interior));
+  cell_centered_bvars::CalcIndicesSetSame(nb.ni.ox2, sj, ej,
+                                          cellbounds.GetBoundsJ(interior));
+  cell_centered_bvars::CalcIndicesSetSame(nb.ni.ox3, sk, ek,
+                                          cellbounds.GetBoundsK(interior));
 
   int p = 0;
 
@@ -278,14 +236,14 @@ void CellCenteredBoundaryVariable::SetBoundaryFromCoarser(ParArray1D<Real> &buf,
   const IndexShape &c_cellbounds = pmb->c_cellbounds;
 
   IndexDomain interior = IndexDomain::interior;
-  cell_centered_bvars::CalcIndicesFromCoarser(
+  cell_centered_bvars::CalcIndicesSetFromCoarser(
       nb.ni.ox1, si, ei, c_cellbounds.GetBoundsI(interior), pmb->loc.lx1, cng, true);
-  cell_centered_bvars::CalcIndicesFromCoarser(nb.ni.ox2, sj, ej,
-                                              c_cellbounds.GetBoundsJ(interior),
-                                              pmb->loc.lx2, cng, pmb->block_size.nx2 > 1);
-  cell_centered_bvars::CalcIndicesFromCoarser(nb.ni.ox3, sk, ek,
-                                              c_cellbounds.GetBoundsK(interior),
-                                              pmb->loc.lx3, cng, pmb->block_size.nx3 > 1);
+  cell_centered_bvars::CalcIndicesSetFromCoarser(
+      nb.ni.ox2, sj, ej, c_cellbounds.GetBoundsJ(interior), pmb->loc.lx2, cng,
+      pmb->block_size.nx2 > 1);
+  cell_centered_bvars::CalcIndicesSetFromCoarser(
+      nb.ni.ox3, sk, ek, c_cellbounds.GetBoundsK(interior), pmb->loc.lx3, cng,
+      pmb->block_size.nx3 > 1);
 
   int p = 0;
   ParArray4D<Real> coarse_buf_ = coarse_buf.Get<4>(); // auto template deduction fails
@@ -304,7 +262,7 @@ void CellCenteredBoundaryVariable::SetBoundaryFromFiner(ParArray1D<Real> &buf,
   // receive already restricted data
   int si, sj, sk, ei, ej, ek;
 
-  cell_centered_bvars::CalcIndicesFromFiner(si, ei, sj, ej, sk, ek, nb, pmb.get());
+  cell_centered_bvars::CalcIndicesSetFromFiner(si, ei, sj, ej, sk, ek, nb, pmb.get());
   int p = 0;
   ParArray4D<Real> var_cc_ = var_cc.Get<4>(); // automatic template deduction fails
   BufferUtility::UnpackData(buf, var_cc_, nl_, nu_, si, ei, sj, ej, sk, ek, p, pmb.get());
