@@ -169,9 +169,9 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
                std::vector<int>({num_vars}));
   pkg->AddField(field_name, m);
 
-  pkg->FillDerived = SquareIt;
-  pkg->CheckRefinement = CheckRefinement;
-  pkg->EstimateTimestep = EstimateTimestep;
+  pkg->FillDerivedBlock = SquareIt;
+  pkg->CheckRefinementBlock = CheckRefinement;
+  pkg->EstimateTimestepBlock = EstimateTimestepBlock;
 
   return pkg;
 }
@@ -277,7 +277,7 @@ void PostFill(std::shared_ptr<MeshBlockData<Real>> &rc) {
 }
 
 // provide the routine that estimates a stable timestep for this package
-Real EstimateTimestep(std::shared_ptr<MeshBlockData<Real>> &rc) {
+Real EstimateTimestepBlock(std::shared_ptr<MeshBlockData<Real>> &rc) {
   auto pmb = rc->GetBlockPointer();
   auto pkg = pmb->packages["advection_package"];
   const auto &cfl = pkg->Param<Real>("cfl");
@@ -312,6 +312,7 @@ Real EstimateTimestep(std::shared_ptr<MeshBlockData<Real>> &rc) {
 // some field "advected" that we are pushing around.
 // This routine implements all the "physics" in this example
 TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
+  Kokkos::Profiling::pushRegion("Task_Advection_CalculateFluxes");
   auto pmb = rc->GetBlockPointer();
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
@@ -414,6 +415,7 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
         });
   }
 
+  Kokkos::Profiling::popRegion(); // Task_Advection_CalculateFluxes
   return TaskStatus::complete;
 }
 

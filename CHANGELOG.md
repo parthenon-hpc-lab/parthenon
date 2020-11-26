@@ -3,10 +3,14 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 359]](https://github.com/lanl/parthenon/pull/359) MeshBlockPack support for buffer un-/pack of CellCentered Variables
+- [[PR 378]](https://github.com/lanl/parthenon/pull/378) Add Kokkos profiling regions throughout the code to allow the collection characteristic application profiles
+- [[PR 358]](https://github.com/lanl/parthenon/pull/358) Generalize code that interfaces with downstream apps to work with both `MeshData` and `MeshBlockData`.
 - [[PR 335]](https://github.com/lanl/parthenon/pull/335) Support for project-relative `MACHINE_CFG` with `@PAR_ROOT@`
 - [[PR 328]](https://github.com/lanl/parthenon/pull/328) New `MeshBlock` packing interface using `DataCollection`s of `MeshData` and `MeshBlockData`.
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 332]](https://github.com/lanl/parthenon/pull/332) Rewrote boundary conditions to work on GPUs with variable packs. Re-enabled user-defined boundary conditions via `ApplicationInput`.
 
 ### Fixed (not changing behavior/API/variables/...)
 - [[PR 365]](https://github.com/lanl/parthenon/pull/365) Fix performance regression in FluxDivergence and template inline reconstruction functions.
@@ -18,6 +22,7 @@
 - [[PR 200]](https://github.com/lanl/parthenon/pull/200) Adds support for running ci on power9 nodes. 
 - [[PR 347]](https://github.com/lanl/parthenon/pull/347) Speed up darwin ci by using pre installed spack packages from project space
 - [[PR 368]](https://github.com/lanl/parthenon/pull/368) Fixes false positive in ci.
+- [[PR 369]](https://github.com/lanl/parthenon/pull/369) Initializes submodules when running on darwin ci.
 
 ### Removed (removing behavior/API/varaibles/...)
 

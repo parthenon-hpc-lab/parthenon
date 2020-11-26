@@ -78,13 +78,6 @@ Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
 //  // nothing to do here for this app
 //}
 
-// applications can register functions to fill shared derived quantities
-// before and/or after all the package FillDerived call backs
-// in this case, just use the weak version that sets these to nullptr
-// void ParthenonManager::SetFillDerivedFunctions() {
-//  FillDerivedVariables::SetFillDerivedFunctions(nullptr,nullptr);
-//}
-
 parthenon::DriverStatus PiDriver::Execute() {
   // this is where the main work is orchestrated
   // No evolution in this driver.  Just calculates something once.

@@ -13,12 +13,14 @@
 #ifndef INTERFACE_MESH_DATA_HPP_
 #define INTERFACE_MESH_DATA_HPP_
 
+#include <limits>
 #include <map>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
+#include "mesh/domain.hpp"
 #include "mesh/meshblock.hpp"
 #include "mesh/meshblock_pack.hpp"
 #include "utils/error_checking.hpp"
@@ -33,6 +35,7 @@ template <typename T>
 using BlockDataList_t = std::vector<std::shared_ptr<MeshBlockData<T>>>;
 
 namespace pack_on_mesh_impl {
+// TODO(JMM): pass the coarse/fine option through the meshblockpack machinery
 template <typename T, typename K, typename M, typename F>
 MeshBlockPack<T> PackOnMesh(K &key, M &map, BlockDataList_t<Real> &block_data_,
                             F &packing_function) {
@@ -76,10 +79,27 @@ class MeshData {
   MeshData() = default;
 
   Mesh *GetMeshPointer() const { return pmy_mesh_; }
+  auto GetParentPointer() { return GetMeshPointer(); }
 
   void SetMeshPointer(Mesh *pmesh) { pmy_mesh_ = pmesh; }
   void SetMeshPointer(const std::shared_ptr<MeshData<T>> &other) {
     pmy_mesh_ = other->GetMeshPointer();
+  }
+
+  void SetAllowedDt(const Real dt) {
+    for (const auto &pbd : block_data_) {
+      pbd->SetAllowedDt(dt);
+    }
+  }
+
+  IndexRange GetBoundsI(const IndexDomain &domain) const {
+    return block_data_[0]->GetBoundsI(domain);
+  }
+  IndexRange GetBoundsJ(const IndexDomain &domain) const {
+    return block_data_[0]->GetBoundsJ(domain);
+  }
+  IndexRange GetBoundsK(const IndexDomain &domain) const {
+    return block_data_[0]->GetBoundsK(domain);
   }
 
   template <class... Args>

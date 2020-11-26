@@ -32,6 +32,7 @@
 #include "domain.hpp"
 #include "interface/data_collection.hpp"
 #include "interface/meshblock_data.hpp"
+#include "interface/state_descriptor.hpp"
 #include "interface/swarm_container.hpp"
 #include "kokkos_abstraction.hpp"
 #include "outputs/io_wrapper.hpp"
@@ -50,8 +51,6 @@ class MeshRefinement;
 class ParameterInput;
 
 // These Forward declarations need duplicated using statements.
-class StateDescriptor;
-using Packages_t = std::map<std::string, std::shared_ptr<StateDescriptor>>;
 class PropertiesInterface;
 using Properties_t = std::vector<std::shared_ptr<PropertiesInterface>>;
 
@@ -182,14 +181,15 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
     par_dispatch_(std::forward<Args>(args)...);
   }
 
-  // 5D default loop pattern
   template <typename Function>
-  inline void par_for(const std::string &name, const int &bl, const int &bu,
-                      const int &nl, const int &nu, const int &kl, const int &ku,
-                      const int &jl, const int &ju, const int &il, const int &iu,
-                      const Function &function) {
-    parthenon::par_for(DEFAULT_LOOP_PATTERN, name, exec_space, bl, bu, nl, nu, kl, ku, jl,
-                       ju, il, iu, function);
+  inline void par_for_bndry(const std::string &name, const IndexRange &nb,
+                            const IndexDomain &domain, const bool coarse,
+                            const Function &function) {
+    auto bounds = coarse ? c_cellbounds : cellbounds;
+    auto ib = bounds.GetBoundsI(domain);
+    auto jb = bounds.GetBoundsJ(domain);
+    auto kb = bounds.GetBoundsK(domain);
+    par_for(name, nb, kb, jb, ib, function);
   }
 
   // 1D Outer default loop pattern
@@ -221,7 +221,6 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
                              function);
   }
 
-  std::size_t GetBlockSizeInBytes();
   int GetNumberOfMeshBlockCells() const {
     return block_size.nx1 * block_size.nx2 * block_size.nx3;
   }
@@ -249,6 +248,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   static void UserWorkInLoopDefault(); // called in TimeIntegratorTaskList
   std::function<void()> UserWorkInLoop = &UserWorkInLoopDefault;
   void SetBlockTimestep(const Real dt) { new_block_dt_ = dt; }
+  void SetAllowedDt(const Real dt) { new_block_dt_ = dt; }
   Real NewDt() const { return new_block_dt_; }
 
   // It would be nice for these par_dispatch_ functions to be private, but they can't be
@@ -263,6 +263,17 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
                             function, std::forward<Args>(args)...);
   }
 
+  // index domain version
+  template <typename Function, class... Args>
+  inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
+  par_dispatch_(const std::string &name, const IndexRange &ib, const Function &function,
+                Args &&... args) {
+    typename std::conditional<sizeof...(Args) == 0, decltype(DEFAULT_LOOP_PATTERN),
+                              LoopPatternMDRange>::type loop_type;
+    parthenon::par_dispatch(loop_type, name, exec_space, ib.s, ib.e, function,
+                            std::forward<Args>(args)...);
+  }
+
   // 2D default loop pattern
   template <typename Function, class... Args>
   inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
@@ -272,6 +283,17 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
     // as the other wrappers are not implemented yet for 1D loops
     parthenon::par_dispatch(loop_pattern_mdrange_tag, name, exec_space, jl, ju, il, iu,
                             function, std::forward<Args>(args)...);
+  }
+
+  // index domain version
+  template <typename Function, class... Args>
+  inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
+  par_dispatch_(const std::string &name, const IndexRange &jb, const IndexRange &ib,
+                const Function &function, Args &&... args) {
+    typename std::conditional<sizeof...(Args) == 0, decltype(DEFAULT_LOOP_PATTERN),
+                              LoopPatternMDRange>::type loop_type;
+    parthenon::par_dispatch(loop_type, name, exec_space, jb.s, jb.e, ib.s, ib.e, function,
+                            std::forward<Args>(args)...);
   }
 
   // 3D default loop pattern
@@ -286,6 +308,17 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
                             std::forward<Args>(args)...);
   }
 
+  // index domain version
+  template <typename Function, class... Args>
+  inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
+  par_dispatch_(const std::string &name, const IndexRange &kb, const IndexRange &jb,
+                const IndexRange &ib, const Function &function, Args &&... args) {
+    typename std::conditional<sizeof...(Args) == 0, decltype(DEFAULT_LOOP_PATTERN),
+                              LoopPatternMDRange>::type loop_type;
+    parthenon::par_dispatch(loop_type, name, exec_space, kb.s, kb.e, jb.s, jb.e, ib.s,
+                            ib.e, function, std::forward<Args>(args)...);
+  }
+
   // 4D default loop pattern
   template <typename Function, class... Args>
   inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
@@ -296,6 +329,43 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
                               LoopPatternMDRange>::type loop_type;
     parthenon::par_dispatch(loop_type, name, exec_space, nl, nu, kl, ku, jl, ju, il, iu,
                             function, std::forward<Args>(args)...);
+  }
+
+  // IndexDomain version
+  template <typename Function, class... Args>
+  inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
+  par_dispatch_(const std::string &name, const IndexRange &nb, const IndexRange &kb,
+                const IndexRange &jb, const IndexRange &ib, const Function &function,
+                Args &&... args) {
+    typename std::conditional<sizeof...(Args) == 0, decltype(DEFAULT_LOOP_PATTERN),
+                              LoopPatternMDRange>::type loop_type;
+    parthenon::par_dispatch(loop_type, name, exec_space, nb.s, nb.e, kb.s, kb.e, jb.s,
+                            jb.e, ib.s, ib.e, function, std::forward<Args>(args)...);
+  }
+
+  // 5D default loop pattern
+  template <typename Function, class... Args>
+  inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
+  par_dispatch_(const std::string &name, const int &bl, const int &bu, const int &nl,
+                const int &nu, const int &kl, const int &ku, const int &jl, const int &ju,
+                const int &il, const int &iu, const Function &function, Args &&... args) {
+    typename std::conditional<sizeof...(Args) == 0, decltype(DEFAULT_LOOP_PATTERN),
+                              LoopPatternMDRange>::type loop_type;
+    parthenon::par_dispatch(loop_type, name, exec_space, bl, bu, nl, nu, kl, ku, jl, ju,
+                            il, iu, function, std::forward<Args>(args)...);
+  }
+
+  // IndexDomain version
+  template <typename Function, class... Args>
+  inline typename std::enable_if<sizeof...(Args) <= 1, void>::type
+  par_dispatch_(const std::string &name, const IndexRange &bb, const IndexRange &nb,
+                const IndexRange &kb, const IndexRange &jb, const IndexRange &ib,
+                const Function &function, Args &&... args) {
+    typename std::conditional<sizeof...(Args) == 0, decltype(DEFAULT_LOOP_PATTERN),
+                              LoopPatternMDRange>::type loop_type;
+    parthenon::par_dispatch(loop_type, name, exec_space, bb.s, bb.e, nb.s, nb.e, kb.s,
+                            kb.e, jb.s, jb.e, ib.s, ib.e, function,
+                            std::forward<Args>(args)...);
   }
 
  private:

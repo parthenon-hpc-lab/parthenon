@@ -18,8 +18,11 @@
 #include <memory>
 #include <utility>
 
+#include "interface/mesh_data.hpp"
+#include "interface/meshblock_data.hpp"
 #include "interface/state_descriptor.hpp"
 #include "mesh/mesh.hpp"
+#include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
 #include "parameter_input.hpp"
 #include "refinement/amr_criteria.hpp"
@@ -61,14 +64,10 @@ AmrTag CheckAllRefinement(std::shared_ptr<MeshBlockData<Real>> &rc) {
   AmrTag delta_level = AmrTag::derefine;
   for (auto &pkg : pmb->packages) {
     auto &desc = pkg.second;
-    // call package specific function, if set
-    if (desc->CheckRefinement != nullptr) {
-      // keep the max over all criteria up to date
-      delta_level = std::max(delta_level, desc->CheckRefinement(rc));
-      if (delta_level == AmrTag::refine) {
-        // since 1 is the max, we can return without having to look at anything else
-        return AmrTag::refine;
-      }
+    delta_level = std::max(delta_level, desc->CheckRefinement(rc));
+    if (delta_level == AmrTag::refine) {
+      // since 1 is the max, we can return without having to look at anything else
+      return AmrTag::refine;
     }
     // call parthenon criteria that were registered
     for (auto &amr : desc->amr_criteria) {
@@ -129,6 +128,24 @@ AmrTag FirstDerivative(MeshBlock *pmb, const ParArrayND<Real> &q,
   if (maxd > refine_criteria) return AmrTag::refine;
   if (maxd < derefine_criteria) return AmrTag::derefine;
   return AmrTag::same;
+}
+
+TaskStatus Tag(std::shared_ptr<MeshBlockData<Real>> &rc) {
+  Kokkos::Profiling::pushRegion("Task_Tag_Block");
+  auto pmb = rc->GetBlockPointer();
+  pmb->pmr->SetRefinement(CheckAllRefinement(rc));
+  Kokkos::Profiling::popRegion(); // Task_Tag_Block
+  return TaskStatus::complete;
+}
+
+TaskStatus Tag(std::shared_ptr<MeshData<Real>> &rc) {
+  Kokkos::Profiling::pushRegion("Task_Tag_Mesh");
+  for (int i = 0; i < rc->NumBlocks(); i++) {
+    auto &pbd = rc->GetBlockData(i);
+    auto status = Tag(pbd);
+  }
+  Kokkos::Profiling::popRegion(); // Task_Tag_Mesh
+  return TaskStatus::complete;
 }
 
 } // namespace Refinement

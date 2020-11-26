@@ -13,6 +13,7 @@
 #ifndef INTERFACE_MESHBLOCK_DATA_HPP_
 #define INTERFACE_MESHBLOCK_DATA_HPP_
 
+#include <limits>
 #include <map>
 #include <memory>
 #include <string>
@@ -23,6 +24,7 @@
 #include "interface/sparse_variable.hpp"
 #include "interface/variable.hpp"
 #include "interface/variable_pack.hpp"
+#include "mesh/domain.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
@@ -63,6 +65,18 @@ class MeshBlockData {
       PARTHENON_THROW("Invalid pointer to MeshBlock!");
     }
     return pmy_block.lock();
+  }
+  auto GetParentPointer() { return GetBlockPointer(); }
+  void SetAllowedDt(const Real dt) { GetBlockPointer()->SetAllowedDt(dt); }
+
+  IndexRange GetBoundsI(const IndexDomain &domain) {
+    return GetBlockPointer()->cellbounds.GetBoundsI(domain);
+  }
+  IndexRange GetBoundsJ(const IndexDomain &domain) {
+    return GetBlockPointer()->cellbounds.GetBoundsJ(domain);
+  }
+  IndexRange GetBoundsK(const IndexDomain &domain) {
+    return GetBlockPointer()->cellbounds.GetBoundsK(domain);
   }
 
   void Copy(const std::shared_ptr<MeshBlockData<T>> &src) {
@@ -122,8 +136,10 @@ class MeshBlockData {
   /// @param metadata the metadata associated with the variable
   /// @param dims the size of each element
   ///
+  /// TODO(JMM): DO NOT make these strings const reference.
+  /// passing in C-style string literals misbehaves
   void Add(const std::string label, const Metadata &metadata,
-           const std::vector<int> dims);
+           const std::vector<int> &dims);
 
   ///
   /// Allocate and add a variable<T> to the container
@@ -233,6 +249,8 @@ class MeshBlockData {
   //
   const FaceVector<T> &GetFaceVector() const { return faceVector_; }
   const MapToFace<T> &GetFaceMap() const { return faceMap_; }
+  // DO NOT make this a const reference. Passing in C-style string literals
+  // cuases it to misbehave.
   FaceVariable<T> &GetFace(std::string label) {
     auto it = faceMap_.find(label);
     if (it == faceMap_.end()) {
@@ -242,7 +260,7 @@ class MeshBlockData {
     return *(it->second);
   }
 
-  ParArrayND<Real> &GetFace(std::string label, int dir) {
+  ParArrayND<Real> &GetFace(std::string &label, int dir) {
     return GetFace(label).Get(dir);
   }
 
@@ -291,38 +309,46 @@ class MeshBlockData {
   VariableFluxPack<T> PackVariablesAndFluxes(const std::vector<MetadataFlag> &flags,
                                              vpack_types::StringPair &key);
   VariablePack<T> PackVariables(const std::vector<std::string> &names,
-                                const std::vector<int> &sparse_ids, PackIndexMap &vmap);
+                                const std::vector<int> &sparse_ids, PackIndexMap &vmap,
+                                const bool coarse = false);
   VariablePack<T> PackVariables(const std::vector<std::string> &names,
-                                const std::vector<int> &sparse_ids);
+                                const std::vector<int> &sparse_ids,
+                                const bool coarse = false);
+  VariablePack<T> PackVariables(const std::vector<std::string> &names, PackIndexMap &vmap,
+                                const bool coarse = false);
   VariablePack<T> PackVariables(const std::vector<std::string> &names,
-                                PackIndexMap &vmap);
-  VariablePack<T> PackVariables(const std::vector<std::string> &names);
+                                const bool coarse = false);
   VariablePack<T> PackVariables(const std::vector<MetadataFlag> &flags,
-                                PackIndexMap &vmap);
-  VariablePack<T> PackVariables(const std::vector<MetadataFlag> &flags);
-  VariablePack<T> PackVariables(PackIndexMap &vmap);
+                                PackIndexMap &vmap, const bool coarse = false);
+  VariablePack<T> PackVariables(const std::vector<MetadataFlag> &flags,
+                                const bool coarse = false);
+  VariablePack<T> PackVariables(PackIndexMap &vmap, const bool coarse = false);
+  // no coarse flag because you need to be able to specify non one-copy variables
+  // and also because the C++ compiler automatically typecasts initializer lists
+  // to bool if you let it.
   VariablePack<T> PackVariables();
   VariablePack<T> PackVariables(const std::vector<std::string> &names,
                                 const std::vector<int> &sparse_ids, PackIndexMap &vmap,
-                                std::vector<std::string> &key);
+                                std::vector<std::string> &key, const bool coarse = false);
   VariablePack<T> PackVariables(const std::vector<std::string> &names,
                                 const std::vector<int> &sparse_ids,
-                                std::vector<std::string> &key);
+                                std::vector<std::string> &key, const bool coarse = false);
   VariablePack<T> PackVariables(const std::vector<std::string> &names, PackIndexMap &vmap,
-                                std::vector<std::string> &key);
+                                std::vector<std::string> &key, const bool coarse = false);
   VariablePack<T> PackVariables(const std::vector<std::string> &names,
-                                std::vector<std::string> &key);
+                                std::vector<std::string> &key, const bool coarse = false);
   VariablePack<T> PackVariables(const std::vector<MetadataFlag> &flags,
-                                PackIndexMap &vmap, std::vector<std::string> &key);
+                                PackIndexMap &vmap, std::vector<std::string> &key,
+                                const bool coarse = false);
   VariablePack<T> PackVariables(const std::vector<MetadataFlag> &flags,
-                                std::vector<std::string> &key);
-  VariablePack<T> PackVariables(PackIndexMap &vmap, std::vector<std::string> &key);
-  // VariablePack<T> PackVariables(std::vector<std::string> &key);
+                                std::vector<std::string> &key, const bool coarse = false);
+  VariablePack<T> PackVariables(PackIndexMap &vmap, std::vector<std::string> &key,
+                                const bool coarse = false);
 
   /// Remove a variable from the container or throw exception if not
   /// found.
   /// @param label the name of the variable to be deleted
-  void Remove(const std::string label);
+  void Remove(const std::string &label);
 
   /// Print list of labels in container
   void Print();
@@ -341,6 +367,10 @@ class MeshBlockData {
   TaskStatus ClearBoundary(BoundaryCommSubset phase);
   TaskStatus SendFluxCorrection();
   TaskStatus ReceiveFluxCorrection();
+
+  // physical boundary routines
+  void RestrictBoundaries();
+  void ProlongateBoundaries();
 
   bool operator==(const MeshBlockData<T> &cmp) {
     // do some kind of check of equality
@@ -380,7 +410,9 @@ class MeshBlockData {
   MapToFace<T> faceMap_;
   MapToSparse<T> sparseMap_;
 
+  // variable packing
   MapToVariablePack<T> varPackMap_;
+  MapToVariablePack<T> coarseVarPackMap_; // cache for varpacks over coarse arrays
   MapToVariableFluxPack<T> varFluxPackMap_;
 
   void calcArrDims_(std::array<int, 6> &arrDims, const std::vector<int> &dims,
@@ -404,7 +436,7 @@ class MeshBlockData {
                                 vpack_types::StringPair &key);
   VariablePack<T> PackVariablesHelper_(const std::vector<std::string> &names,
                                        const vpack_types::VarList<T> &vars,
-                                       PackIndexMap &vmap);
+                                       PackIndexMap &vmap, const bool coarse = false);
 };
 
 using MeshBlockDataCollection = DataCollection<MeshBlockData<Real>>;

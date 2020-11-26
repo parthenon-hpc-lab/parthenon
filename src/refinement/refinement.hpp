@@ -26,11 +26,16 @@ class ParameterInput;
 class MeshBlock;
 template <typename T>
 class MeshBlockData;
+template <typename T>
+class MeshData;
 class StateDescriptor;
 
 namespace Refinement {
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
+
+TaskStatus Tag(std::shared_ptr<MeshBlockData<Real>> &rc);
+TaskStatus Tag(std::shared_ptr<MeshData<Real>> &rc);
 
 AmrTag CheckAllRefinement(std::shared_ptr<MeshBlockData<Real>> &rc);
 

@@ -47,6 +47,7 @@ namespace parthenon {
 
 void Mesh::LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin,
                                                   ApplicationInput *app_in) {
+  Kokkos::Profiling::pushRegion("LoadBalancingAndAdaptiveMeshRefinement");
   int nnew = 0, ndel = 0;
 
   if (adaptive) {
@@ -71,7 +72,7 @@ void Mesh::LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin,
     }
     lb_flag_ = false;
   }
-  return;
+  Kokkos::Profiling::popRegion(); // LoadBalancingAndAdaptiveMeshRefinement
 }
 
 // Private routines
@@ -134,6 +135,7 @@ void UpdateBlockList(std::vector<int> const &ranklist, std::vector<int> &nslist,
 void Mesh::CalculateLoadBalance(std::vector<double> const &costlist,
                                 std::vector<int> &ranklist, std::vector<int> &nslist,
                                 std::vector<int> &nblist) {
+  Kokkos::Profiling::pushRegion("CalculateLoadBalance");
   auto const total_blocks = costlist.size();
 
   using it = std::vector<double>::const_iterator;
@@ -180,6 +182,7 @@ void Mesh::CalculateLoadBalance(std::vector<double> const &costlist,
                 << std::endl;
     }
   }
+  Kokkos::Profiling::popRegion(); // CalculateLoadBalance
 }
 
 //----------------------------------------------------------------------------------------
@@ -219,6 +222,7 @@ void Mesh::UpdateCostList() {
 // \brief collect refinement flags and manipulate the MeshBlockTree
 
 void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
+  Kokkos::Profiling::pushRegion("UpdateMeshBlockTree");
   // compute nleaf= number of leaf MeshBlocks per refined block
   int nleaf = 2;
   if (mesh_size.nx2 > 1) nleaf = 4;
@@ -245,8 +249,10 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
     tnref += nref[n];
     tnderef += nderef[n];
   }
-  if (tnref == 0 && tnderef < nleaf) // nothing to do
+  if (tnref == 0 && tnderef < nleaf) { // nothing to do
+    Kokkos::Profiling::popRegion();    // UpdateMeshBlockTree
     return;
+  }
 
   int rd = 0, dd = 0;
   for (int n = 0; n < Globals::nranks; n++) {
@@ -346,7 +352,7 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
   }
   if (tnderef >= nleaf) delete[] clderef;
 
-  return;
+  Kokkos::Profiling::popRegion(); // UpdateMeshBlockTree
 }
 
 //----------------------------------------------------------------------------------------
@@ -387,6 +393,7 @@ bool Mesh::GatherCostListAndCheckBalance() {
 
 void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput *app_in,
                                            int ntot) {
+  Kokkos::Profiling::pushRegion("RedistributeAndRefineMeshBlocks");
   // kill any cached packs
   mesh_data.PurgeNonBase();
   mesh_data.Get()->ClearCaches();
@@ -397,6 +404,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   if (mesh_size.nx3 > 1) nleaf = 8;
 
   // Step 1. construct new lists
+  Kokkos::Profiling::pushRegion("Step1: Construct new list");
   std::vector<LogicalLocation> newloc(ntot);
   std::vector<int> newrank(ntot);
   std::vector<double> newcost(ntot);
@@ -442,6 +450,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   int onbs = nslist[Globals::my_rank];
   int onbe = onbs + nblist[Globals::my_rank] - 1;
 #endif
+  Kokkos::Profiling::popRegion(); // Step 1
+
   // Step 2. Calculate new load balance
   CalculateLoadBalance(newcost, newrank, nslist, nblist);
 
@@ -453,6 +463,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   int bnx2 = GetBlockSize().nx2;
   int bnx3 = GetBlockSize().nx3;
   // Step 3. count the number of the blocks to be sent / received
+  Kokkos::Profiling::pushRegion("Step 3: Count blocks");
   int nsend = 0, nrecv = 0;
   for (int n = nbs; n <= nbe; n++) {
     int on = newtoold[n];
@@ -475,7 +486,9 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     }
   }
 
+  Kokkos::Profiling::popRegion(); // Step 3
   // Step 4. calculate buffer sizes
+  Kokkos::Profiling::pushRegion("Step 4: Calc buffer sizes");
   ParArray1D<Real> *sendbuf, *recvbuf;
   // use the first MeshBlock in the linked list of blocks belonging to this MPI rank as a
   // representative of all MeshBlocks for counting the "load-balancing registered" and
@@ -512,9 +525,11 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
        (bnx1 / 2 + 2) * ((bnx2 + 1) / 2 + 2 * f2) * (((bnx3 + 1) / 2) + f3 + 2 * f3));
   // add one more element to buffer size for storing the derefinement counter
   bssame++;
+  Kokkos::Profiling::popRegion(); // Step 4
 
   MPI_Request *req_send, *req_recv;
   // Step 5. allocate and start receiving buffers
+  Kokkos::Profiling::pushRegion("Step 5: Alloc buffer and start recv");
   if (nrecv != 0) {
     recvbuf = new ParArray1D<Real>[nrecv];
     req_recv = new MPI_Request[nrecv];
@@ -553,7 +568,9 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       }
     }
   }
+  Kokkos::Profiling::popRegion(); // Step 5
   // Step 6. allocate, pack and start sending buffers
+  Kokkos::Profiling::pushRegion("Step 6: Alloc, pack, and send buffers");
   if (nsend != 0) {
     sendbuf = new ParArray1D<Real>[nsend];
     req_send = new MPI_Request[nsend];
@@ -600,10 +617,12 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
         sb_idx++;
       }
     }
-  }    // if (nsend !=0)
-#endif // MPI_PARALLEL
+  }                               // if (nsend !=0)
+  Kokkos::Profiling::popRegion(); // Step 6
+#endif                            // MPI_PARALLEL
 
   // Step 7. construct a new MeshBlock list (moving the data within the MPI rank)
+  Kokkos::Profiling::pushRegion("Step 7: Construct new MeshBlockList");
   {
     RegionSize block_size = GetBlockSize();
 
@@ -637,8 +656,6 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
           FillSameRankCoarseToFineAMR(pob.get(), new_block_list[n - nbs].get(),
                                       newloc[n]);
         }
-        ApplyBoundaryConditions(new_block_list[n - nbs]->meshblock_data.Get());
-        FillDerivedVariables::FillDerived(new_block_list[n - nbs]->meshblock_data.Get());
       }
     }
 
@@ -651,8 +668,10 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       block_list[n - nbs]->lid = n - nbs;
     }
   }
+  Kokkos::Profiling::popRegion(); // Step 7: Construct new MeshBlockList
 
   // Step 8. Receive the data and load into MeshBlocks
+  Kokkos::Profiling::pushRegion("Step 8: Recv data and unpack");
   // This is a test: try MPI_Waitall later.
 #ifdef MPI_PARALLEL
   if (nrecv != 0) {
@@ -699,6 +718,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     delete[] req_recv;
   }
 #endif
+  Kokkos::Profiling::popRegion(); // Step 8
 
   // update the lists
   loclist = std::move(newloc);
@@ -713,7 +733,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
 
   ResetLoadBalanceVariables();
 
-  return;
+  Kokkos::Profiling::popRegion(); // RedistributeAndRefineMeshBlocks
 }
 
 // AMR: step 6, branch 1 (same2same: just pack+send)

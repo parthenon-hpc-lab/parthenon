@@ -105,7 +105,19 @@ struct RegionSize { // aggregate and POD type; do NOT reorder member declaration
 // X1DIR x, r, etc...
 // X2DIR y, theta, etc...
 // X3DIR z, phi, etc...
-enum CoordinateDirection { X0DIR = 0, X1DIR = 1, X2DIR = 2, X3DIR = 3 };
+enum CoordinateDirection { NODIR = -1, X0DIR = 0, X1DIR = 1, X2DIR = 2, X3DIR = 3 };
+
+// identifiers for all 6 faces of a MeshBlock
+constexpr int BOUNDARY_NFACES = 6;
+enum BoundaryFace {
+  undef = -1,
+  inner_x1 = 0,
+  outer_x1 = 1,
+  inner_x2 = 2,
+  outer_x2 = 3,
+  inner_x3 = 4,
+  outer_x3 = 5
+};
 
 //------------------
 // strongly typed / scoped enums (C++11):
@@ -120,9 +132,6 @@ enum class UserHistoryOperation { sum, max, min };
 //----------------------------------------------------------------------------------------
 // function pointer prototypes for user-defined modules set at runtime
 
-using BValFunc = void (*)(MeshBlock *pmb, Coordinates *pco, ParArrayND<Real> &prim,
-                          FaceField &b, Real time, Real dt, int is, int ie, int js,
-                          int je, int ks, int ke, int ngh);
 using AMRFlagFunc = int (*)(MeshBlock *pmb);
 using MeshGenFunc = Real (*)(Real x, RegionSize rs);
 using SrcTermFunc = void (*)(MeshBlock *pmb, const Real time, const Real dt,
@@ -130,10 +139,6 @@ using SrcTermFunc = void (*)(MeshBlock *pmb, const Real time, const Real dt,
                              ParArrayND<Real> &cons);
 using TimeStepFunc = Real (*)(MeshBlock *pmb);
 using HistoryOutputFunc = Real (*)(MeshBlock *pmb, int iout);
-using MetricFunc = void (*)(Real x1, Real x2, Real x3, ParameterInput *pin,
-                            ParArrayND<Real> &g, ParArrayND<Real> &g_inv,
-                            ParArrayND<Real> &dg_dx1, ParArrayND<Real> &dg_dx2,
-                            ParArrayND<Real> &dg_dx3);
 using MGBoundaryFunc = void (*)(ParArrayND<Real> &dst, Real time, int nvar, int is,
                                 int ie, int js, int je, int ks, int ke, int ngh, Real x0,
                                 Real y0, Real z0, Real dx, Real dy, Real dz);
