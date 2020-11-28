@@ -34,7 +34,7 @@ namespace parthenon {
 namespace Update {
 
 template <typename T>
-TaskStatus FluxDivergence(std::shared_ptr<T> &in, std::shared_ptr<T> &dudt_obj);
+TaskStatus FluxDivergence(T *in, T *dudt_obj);
 
 template <typename F, typename T>
 TaskStatus SumData(const std::vector<F> &flags, T *in1, T *in2, const Real w1,

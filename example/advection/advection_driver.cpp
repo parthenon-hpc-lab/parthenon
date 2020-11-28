@@ -109,7 +109,8 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     auto &mdudt = pmesh->mesh_data.GetOrAdd("dUdt", i);
 
     // compute the divergence of fluxes of conserved variables
-    auto flux_div = tl.AddTask(none, FluxDivergence<MeshData<Real>>, mc0, mdudt);
+    auto flux_div =
+        tl.AddTask(none, FluxDivergence<MeshData<Real>>, mc0.get(), mdudt.get());
 
     auto avg_data = tl.AddTask(flux_div, AverageIndependentData<MeshData<Real>>,
                                mc0.get(), mbase.get(), beta);
