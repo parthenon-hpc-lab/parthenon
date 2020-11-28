@@ -583,6 +583,7 @@ void MeshBlockData<T>::Remove(const std::string &label) {
 
 template <typename T>
 TaskStatus MeshBlockData<T>::SendFluxCorrection() {
+  Kokkos::Profiling::pushRegion("Task_SendFluxCorrection");
   for (auto &v : varVector_) {
     if (v->IsSet(Metadata::Independent)) {
       v->vbvar->SendFluxCorrection();
@@ -596,11 +597,13 @@ TaskStatus MeshBlockData<T>::SendFluxCorrection() {
       }
     }
   }
+  Kokkos::Profiling::popRegion(); // Task_SendFluxCorrection
   return TaskStatus::complete;
 }
 
 template <typename T>
 TaskStatus MeshBlockData<T>::ReceiveFluxCorrection() {
+  Kokkos::Profiling::pushRegion("Task_ReceiveFluxCorrection");
   int success = 0, total = 0;
   for (auto &v : varVector_) {
     if (v->IsSet(Metadata::Independent)) {
@@ -617,12 +620,14 @@ TaskStatus MeshBlockData<T>::ReceiveFluxCorrection() {
       }
     }
   }
+  Kokkos::Profiling::popRegion(); // Task_ReceiveFluxCorrection
   if (success == total) return TaskStatus::complete;
   return TaskStatus::incomplete;
 }
 
 template <typename T>
 TaskStatus MeshBlockData<T>::SendBoundaryBuffers() {
+  Kokkos::Profiling::pushRegion("Task_SendBoundaryBuffers");
   // sends the boundary
   debug = 0;
   for (auto &v : varVector_) {
@@ -641,6 +646,7 @@ TaskStatus MeshBlockData<T>::SendBoundaryBuffers() {
     }
   }
 
+  Kokkos::Profiling::popRegion(); // Task_SendBoundaryBuffers
   return TaskStatus::complete;
 }
 
@@ -667,8 +673,8 @@ void MeshBlockData<T>::SetupPersistentMPI() {
 
 template <typename T>
 TaskStatus MeshBlockData<T>::ReceiveBoundaryBuffers() {
-  bool ret;
-  ret = true;
+  Kokkos::Profiling::pushRegion("Task_ReceiveBoundaryBuffers");
+  bool ret = true;
   // receives the boundary
   for (auto &v : varVector_) {
     if (!v->mpiStatus) {
@@ -696,13 +702,14 @@ TaskStatus MeshBlockData<T>::ReceiveBoundaryBuffers() {
     }
   }
 
+  Kokkos::Profiling::popRegion(); // Task_ReceiveBoundaryBuffers
   if (ret) return TaskStatus::complete;
   return TaskStatus::incomplete;
 }
 
 template <typename T>
 TaskStatus MeshBlockData<T>::ReceiveAndSetBoundariesWithWait() {
-  //  std::cout << "_________RSET from stage:"<<s->name()<<std::endl;
+  Kokkos::Profiling::pushRegion("Task_ReceiveAndSetBoundariesWithWait");
   for (auto &v : varVector_) {
     if ((!v->mpiStatus) && v->IsSet(Metadata::FillGhost)) {
       v->resetBoundary();
@@ -722,6 +729,7 @@ TaskStatus MeshBlockData<T>::ReceiveAndSetBoundariesWithWait() {
       }
     }
   }
+  Kokkos::Profiling::popRegion(); // Task_ReceiveAndSetBoundariesWithWait
   return TaskStatus::complete;
 }
 // This really belongs in MeshBlockData.cpp. However if I put it in there,
@@ -730,9 +738,8 @@ TaskStatus MeshBlockData<T>::ReceiveAndSetBoundariesWithWait() {
 // bloat.
 template <typename T>
 TaskStatus MeshBlockData<T>::SetBoundaries() {
-  //    std::cout << "in set" << std::endl;
+  Kokkos::Profiling::pushRegion("Task_SetBoundaries");
   // sets the boundary
-  //  std::cout << "_________BSET from stage:"<<s->name()<<std::endl;
   for (auto &v : varVector_) {
     if (v->IsSet(Metadata::FillGhost)) {
       v->resetBoundary();
@@ -748,11 +755,13 @@ TaskStatus MeshBlockData<T>::SetBoundaries() {
       }
     }
   }
+  Kokkos::Profiling::popRegion(); // Task_SetBoundaries
   return TaskStatus::complete;
 }
 
 template <typename T>
 void MeshBlockData<T>::ResetBoundaryCellVariables() {
+  Kokkos::Profiling::pushRegion("ResetBoundaryCellVariables");
   for (auto &v : varVector_) {
     if (v->IsSet(Metadata::FillGhost)) {
       v->vbvar->var_cc = v->data;
@@ -766,13 +775,12 @@ void MeshBlockData<T>::ResetBoundaryCellVariables() {
       }
     }
   }
+  Kokkos::Profiling::popRegion(); // ResetBoundaryCellVariables
 }
 
 template <typename T>
 TaskStatus MeshBlockData<T>::StartReceiving(BoundaryCommSubset phase) {
-  //    std::cout << "in set" << std::endl;
-  // sets the boundary
-  //  std::cout << "________CLEAR from stage:"<<s->name()<<std::endl;
+  Kokkos::Profiling::pushRegion("Task_StartReceiving");
   for (auto &v : varVector_) {
     if (v->IsSet(Metadata::FillGhost)) {
       v->resetBoundary();
@@ -790,14 +798,13 @@ TaskStatus MeshBlockData<T>::StartReceiving(BoundaryCommSubset phase) {
       }
     }
   }
+  Kokkos::Profiling::popRegion(); // Task_StartReceiving
   return TaskStatus::complete;
 }
 
 template <typename T>
 TaskStatus MeshBlockData<T>::ClearBoundary(BoundaryCommSubset phase) {
-  //    std::cout << "in set" << std::endl;
-  // sets the boundary
-  //  std::cout << "________CLEAR from stage:"<<s->name()<<std::endl;
+  Kokkos::Profiling::pushRegion("Task_ClearBoundary");
   for (auto &v : varVector_) {
     if (v->IsSet(Metadata::FillGhost)) {
       v->vbvar->ClearBoundary(phase);
@@ -811,21 +818,26 @@ TaskStatus MeshBlockData<T>::ClearBoundary(BoundaryCommSubset phase) {
       }
     }
   }
+  Kokkos::Profiling::popRegion(); // Task_ClearBoundary
   return TaskStatus::complete;
 }
 
 template <typename T>
 void MeshBlockData<T>::RestrictBoundaries() {
+  Kokkos::Profiling::pushRegion("RestrictBoundaries");
   // TODO(JMM): Change this upon refactor of BoundaryValues
   auto pmb = GetBlockPointer();
   pmb->pbval->RestrictBoundaries();
+  Kokkos::Profiling::popRegion(); // RestrictBoundaries
 }
 
 template <typename T>
 void MeshBlockData<T>::ProlongateBoundaries() {
+  Kokkos::Profiling::pushRegion("ProlongateBoundaries");
   // TODO(JMM): Change this upon refactor of BoundaryValues
   auto pmb = GetBlockPointer();
   pmb->pbval->ProlongateBoundaries();
+  Kokkos::Profiling::popRegion();
 }
 
 template <typename T>

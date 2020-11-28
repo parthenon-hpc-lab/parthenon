@@ -137,15 +137,19 @@ void SetRefinement_(MeshBlockData<Real> *rc) {
 
 template <>
 TaskStatus Tag(MeshBlockData<Real> *rc) {
+  Kokkos::Profiling::pushRegion("Task_Tag_Block");
   SetRefinement_(rc);
+  Kokkos::Profiling::popRegion(); // Task_Tag_Block
   return TaskStatus::complete;
 }
 
 template <>
 TaskStatus Tag(MeshData<Real> *rc) {
+  Kokkos::Profiling::pushRegion("Task_Tag_Mesh");
   for (int i = 0; i < rc->NumBlocks(); i++) {
     SetRefinement_(rc->GetBlockData(i).get());
   }
+  Kokkos::Profiling::popRegion(); // Task_Tag_Mesh
   return TaskStatus::complete;
 }
 

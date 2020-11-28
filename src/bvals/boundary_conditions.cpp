@@ -30,6 +30,7 @@ bool DoPhysicalBoundary_(const BoundaryFlag flag, const BoundaryFace face,
 
 TaskStatus ProlongateBoundaries(std::shared_ptr<MeshBlockData<Real>> &rc) {
   if (!(rc->GetBlockPointer()->pmy_mesh->multilevel)) return TaskStatus::complete;
+  Kokkos::Profiling::pushRegion("Task_ProlongateBoundaries");
 
   // This hardcoded technique is also used to manually specify the coupling between
   // physical variables in:
@@ -51,11 +52,13 @@ TaskStatus ProlongateBoundaries(std::shared_ptr<MeshBlockData<Real>> &rc) {
   // Step 3. Finally, the ghost-ghost zones are ready for prolongation:
   rc->ProlongateBoundaries();
 
+  Kokkos::Profiling::popRegion(); // Task_ProlongateBoundaries
   return TaskStatus::complete;
 }
 
 TaskStatus ApplyBoundaryConditionsOnCoarseOrFine(std::shared_ptr<MeshBlockData<Real>> &rc,
                                                  bool coarse) {
+  Kokkos::Profiling::pushRegion("Task_ApplyBoundaryConditionsOnCoarseOrFine");
   using namespace boundary_cond_impl;
   std::shared_ptr<MeshBlock> pmb = rc->GetBlockPointer();
   Mesh *pmesh = pmb->pmy_mesh;
@@ -69,6 +72,7 @@ TaskStatus ApplyBoundaryConditionsOnCoarseOrFine(std::shared_ptr<MeshBlockData<R
     }
   }
 
+  Kokkos::Profiling::popRegion(); // Task_ApplyBoundaryConditionsOnCoarseOrFine
   return TaskStatus::complete;
 }
 

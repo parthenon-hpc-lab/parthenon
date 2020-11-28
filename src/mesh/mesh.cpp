@@ -1022,6 +1022,7 @@ void Mesh::ApplyUserWorkBeforeOutput(ParameterInput *pin) {
 // \brief  initialization before the main loop
 
 void Mesh::Initialize(int res_flag, ParameterInput *pin, ApplicationInput *app_in) {
+  Kokkos::Profiling::pushRegion("Mesh::Initialize");
   bool iflag = true;
   int inb = nbtotal;
 #ifdef OPENMP_PARALLEL
@@ -1125,7 +1126,7 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin, ApplicationInput *app_i
     }
   } while (!iflag);
 
-  return;
+  Kokkos::Profiling::popRegion(); // Mesh::Initialize
 }
 
 /// Finds location of a block with ID `tgid`. Can provide an optional "hint" to start
