@@ -39,6 +39,7 @@ TaskStatus FluxDivergence(std::shared_ptr<T> &in, std::shared_ptr<T> &dudt_obj);
 template <typename F, typename T>
 TaskStatus SumData(const std::vector<F> &flags, T *in1, T *in2, const Real w1,
                    const Real w2, T *out) {
+  Kokkos::Profiling::pushRegion("Task_SumData");
   const auto &x = in1->PackVariables(flags);
   const auto &y = in2->PackVariables(flags);
   const auto &z = out->PackVariables(flags);
@@ -48,6 +49,7 @@ TaskStatus SumData(const std::vector<F> &flags, T *in1, T *in2, const Real w1,
       KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
         z(b, l, k, j, i) = w1 * x(b, l, k, j, i) + w2 * y(b, l, k, j, i);
       });
+  Kokkos::Profiling::popRegion(); // Task_SumData
   return TaskStatus::complete;
 }
 
