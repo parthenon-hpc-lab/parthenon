@@ -50,26 +50,14 @@ AdvectionDriver::AdvectionDriver(ParameterInput *pin, ApplicationInput *app_in, 
   pin->CheckDesired("Advection", "derefine_tol");
 }
 
-// first some helper tasks
-TaskStatus UpdateMeshData(const int stage, Integrator *integrator,
-                          std::shared_ptr<parthenon::MeshData<Real>> &in,
-                          std::shared_ptr<parthenon::MeshData<Real>> &base,
-                          std::shared_ptr<parthenon::MeshData<Real>> &dudt,
-                          std::shared_ptr<parthenon::MeshData<Real>> &out) {
-  Kokkos::Profiling::pushRegion("Task_Advection_UpdateMeshData");
-  const Real beta = integrator->beta[stage - 1];
-  const Real dt = integrator->dt;
-  parthenon::Update::AverageIndependentData(in.get(), base.get(), beta);
-  parthenon::Update::UpdateIndependentData(in.get(), dudt.get(), beta * dt, out.get());
-  Kokkos::Profiling::popRegion(); // Task_Advection_UpdateMeshData
-  return TaskStatus::complete;
-}
-
 // See the advection.hpp declaration for a description of how this function gets called.
 TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const int stage) {
+  using namespace parthenon::Update;
   TaskCollection tc;
-
   TaskID none(0);
+
+  const Real beta = integrator->beta[stage - 1];
+  const Real dt = integrator->dt;
 
   // Number of task lists that can be executed indepenently and thus *may*
   // be executed in parallel and asynchronous.
@@ -121,12 +109,13 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     auto &mdudt = pmesh->mesh_data.GetOrAdd("dUdt", i);
 
     // compute the divergence of fluxes of conserved variables
-    auto flux_div =
-        tl.AddTask(none, parthenon::Update::FluxDivergence<MeshData<Real>>, mc0, mdudt);
+    auto flux_div = tl.AddTask(none, FluxDivergence<MeshData<Real>>, mc0, mdudt);
 
+    auto avg_data = tl.AddTask(flux_div, AverageIndependentData<MeshData<Real>>,
+                               mc0.get(), mbase.get(), beta);
     // apply du/dt to all independent fields in the container
-    auto update =
-        tl.AddTask(flux_div, UpdateMeshData, stage, integrator, mc0, mbase, mdudt, mc1);
+    auto update = tl.AddTask(avg_data, UpdateIndependentData<MeshData<Real>>, mc0.get(),
+                             mdudt.get(), beta * dt, mc1.get());
   }
   TaskRegion &async_region2 = tc.AddRegion(num_task_lists_executed_independently);
 
@@ -161,8 +150,7 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     // estimate next time step
     if (stage == integrator->nstages) {
       auto new_dt =
-          tl.AddTask(fill_derived,
-                     parthenon::Update::EstimateTimestep<MeshBlockData<Real>>, sc1.get());
+          tl.AddTask(fill_derived, EstimateTimestep<MeshBlockData<Real>>, sc1.get());
 
       // Update refinement
       if (pmesh->adaptive) {
