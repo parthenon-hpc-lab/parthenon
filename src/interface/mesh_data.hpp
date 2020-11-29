@@ -172,6 +172,13 @@ class MeshData {
     return true;
   }
 
+  bool Contains(const std::vector<std::string> &names) const {
+    for (const auto &b : block_data_) {
+      if (!b->Contains(names)) false;
+    }
+    return true;
+  }
+
  private:
   Mesh *pmy_mesh_;
   BlockDataList_t<T> block_data_;

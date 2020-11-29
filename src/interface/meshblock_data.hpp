@@ -431,6 +431,19 @@ class MeshBlockData {
     return (my_keys == cmp_keys);
   }
 
+  bool Contains(const std::string &name) const {
+    if (varMap_.find(name) != varMap_.end()) return true;
+    if (sparseMap_.find(name) != sparseMap_.end()) return true;
+    if (faceMap_.find(name) != faceMap_.end()) return true;
+    return false;
+  }
+  bool Contains(const std::vector<std::string> &names) const {
+    for (const auto &name : names) {
+      if (!Contains(name)) return false;
+    }
+    return true;
+  }
+
  private:
   int debug = 0;
   std::weak_ptr<MeshBlock> pmy_block;
