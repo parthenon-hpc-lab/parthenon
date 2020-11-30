@@ -21,6 +21,7 @@
 - [[PR 347]](https://github.com/lanl/parthenon/pull/347) Speed up darwin ci by using pre installed spack packages from project space
 - [[PR 368]](https://github.com/lanl/parthenon/pull/368) Fixes false positive in ci.
 - [[PR 369]](https://github.com/lanl/parthenon/pull/369) Initializes submodules when running on darwin ci.
+- [[PR 382]](https://github.com/lanl/parthenon/pull/382) Adds output on fail for fast ci implementation on Darwin. 
 
 ### Removed (removing behavior/API/varaibles/...)
 
