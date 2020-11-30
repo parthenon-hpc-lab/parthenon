@@ -51,23 +51,25 @@ TEST_CASE("Adding MeshBlockData objects to a DataCollection", "[DataCollection]"
     auto &v1 = mbd->Get("var1").data;
     auto &v2 = mbd->Get("var2").data;
     auto &v3 = mbd->Get("var3").data;
-    par_for(loop_pattern_flatrange_tag, "init vars", DevExecSpace(), 0, 0,
-      KOKKOS_LAMBDA(const int i) {
-        v1(0) = 111;
-        v2(0) = 222;
-        v3(0) = 333;
-      });
+    par_for(
+        loop_pattern_flatrange_tag, "init vars", DevExecSpace(), 0, 0,
+        KOKKOS_LAMBDA(const int i) {
+          v1(0) = 111;
+          v2(0) = 222;
+          v3(0) = 333;
+        });
     WHEN("We add a MeshBlockData to the container") {
       auto x = d.Add("full", mbd);
       auto &xv1 = x->Get("var1").data;
       auto &xv2 = x->Get("var2").data;
       auto &xv3 = x->Get("var3").data;
-      par_for(loop_pattern_flatrange_tag, "init vars", DevExecSpace(), 0, 0,
-        KOKKOS_LAMBDA(const int i) {
-          xv1(0) = 11;
-          xv2(0) = 22;
-          xv3(0) = 33;
-        });
+      par_for(
+          loop_pattern_flatrange_tag, "init vars", DevExecSpace(), 0, 0,
+          KOKKOS_LAMBDA(const int i) {
+            xv1(0) = 11;
+            xv2(0) = 22;
+            xv3(0) = 33;
+          });
       auto hv1 = v1.GetHostMirrorAndCopy();
       auto hv2 = v2.GetHostMirrorAndCopy();
       auto hv3 = v3.GetHostMirrorAndCopy();
@@ -84,12 +86,13 @@ TEST_CASE("Adding MeshBlockData objects to a DataCollection", "[DataCollection]"
     }
     AND_WHEN("We want only a subset of variables in a new MeshBlockData") {
       // reset vars
-      par_for(loop_pattern_flatrange_tag, "init vars", DevExecSpace(), 0, 0,
-        KOKKOS_LAMBDA(const int i) {
-          v1(0) = 111;
-          v2(0) = 222;
-          v3(0) = 333;
-        });
+      par_for(
+          loop_pattern_flatrange_tag, "init vars", DevExecSpace(), 0, 0,
+          KOKKOS_LAMBDA(const int i) {
+            v1(0) = 111;
+            v2(0) = 222;
+            v3(0) = 333;
+          });
       auto x = d.Add("part", mbd, {"var2", "var3"});
       THEN("Requesting the missing variables should throw") {
         REQUIRE_THROWS(x->Get("var1"));
@@ -97,11 +100,12 @@ TEST_CASE("Adding MeshBlockData objects to a DataCollection", "[DataCollection]"
       AND_THEN("Requesting the specified variables should work as expected") {
         auto &xv2 = x->Get("var2").data;
         auto &xv3 = x->Get("var3").data;
-        par_for(loop_pattern_flatrange_tag, "init vars", DevExecSpace(), 0, 0,
-          KOKKOS_LAMBDA(const int i) {
-            xv2(0) = 22;
-            xv3(0) = 33;
-          });
+        par_for(
+            loop_pattern_flatrange_tag, "init vars", DevExecSpace(), 0, 0,
+            KOKKOS_LAMBDA(const int i) {
+              xv2(0) = 22;
+              xv3(0) = 33;
+            });
         auto hv2 = v2.GetHostMirrorAndCopy();
         auto hv3 = v3.GetHostMirrorAndCopy();
         auto hxv2 = xv2.GetHostMirrorAndCopy();
