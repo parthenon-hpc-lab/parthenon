@@ -88,9 +88,7 @@ TEST_CASE("Adding MeshBlockData objects to a DataCollection", "[DataCollection]"
       // reset vars
       par_for(
           loop_pattern_flatrange_tag, "init vars", DevExecSpace(), 0, 0,
-          KOKKOS_LAMBDA(const int i) {
-            v2(0) = 222;
-          });
+          KOKKOS_LAMBDA(const int i) { v2(0) = 222; });
       auto x = d.Add("part", mbd, {"var2", "var3"});
       THEN("Requesting the missing variables should throw") {
         REQUIRE_THROWS(x->Get("var1"));
