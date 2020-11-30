@@ -37,43 +37,48 @@ template <typename T>
 TaskStatus FluxDivergence(T *in, T *dudt_obj);
 
 template <typename F, typename T>
-TaskStatus SumData(const std::vector<F> &flags, T *in1, T *in2, const Real w1,
-                   const Real w2, T *out) {
-  Kokkos::Profiling::pushRegion("Task_SumData");
+TaskStatus WeightedSumData(const std::vector<F> &flags, T *in1, T *in2, const Real w1,
+                           const Real w2, T *out) {
+  Kokkos::Profiling::pushRegion("Task_WeightedSumData");
   const auto &x = in1->PackVariables(flags);
   const auto &y = in2->PackVariables(flags);
   const auto &z = out->PackVariables(flags);
   parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, "AverageMeshData", DevExecSpace(), 0, x.GetDim(5) - 1, 0,
+      DEFAULT_LOOP_PATTERN, "WeightedSumData", DevExecSpace(), 0, x.GetDim(5) - 1, 0,
       x.GetDim(4) - 1, 0, x.GetDim(3) - 1, 0, x.GetDim(2) - 1, 0, x.GetDim(1) - 1,
       KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
         z(b, l, k, j, i) = w1 * x(b, l, k, j, i) + w2 * y(b, l, k, j, i);
       });
-  Kokkos::Profiling::popRegion(); // Task_SumData
+  Kokkos::Profiling::popRegion(); // Task_WeightedSumData
   return TaskStatus::complete;
+}
+
+template <typename F, typename T>
+TaskStatus SumData(const std::vector<F> &flags, T *in1, T *in2, T *out) {
+  return WeightedSumData(flags, in1, in2, 1.0, 1.0, out);
 }
 
 template <typename F, typename T>
 TaskStatus UpdateData(const std::vector<F> &flags, T *in, T *dudt, const Real dt,
                       T *out) {
-  return SumData(flags, in, dudt, 1.0, dt, out);
+  return WeightedSumData(flags, in, dudt, 1.0, dt, out);
 }
 
 template <typename T>
 TaskStatus UpdateIndependentData(T *in, T *dudt, const Real dt, T *out) {
-  return SumData(std::vector<MetadataFlag>({Metadata::Independent}), in, dudt, 1.0, dt,
-                 out);
+  return WeightedSumData(std::vector<MetadataFlag>({Metadata::Independent}), in, dudt,
+                         1.0, dt, out);
 }
 
 template <typename F, typename T>
 TaskStatus AverageData(const std::vector<F> &flags, T *c1, T *c2, const Real wgt1) {
-  return SumData(flags, c1, c2, wgt1, (1.0 - wgt1), c1);
+  return WeightedSumData(flags, c1, c2, wgt1, (1.0 - wgt1), c1);
 }
 
 template <typename T>
 TaskStatus AverageIndependentData(T *c1, T *c2, const Real wgt1) {
-  return SumData(std::vector<MetadataFlag>({Metadata::Independent}), c1, c2, wgt1,
-                 (1.0 - wgt1), c1);
+  return WeightedSumData(std::vector<MetadataFlag>({Metadata::Independent}), c1, c2, wgt1,
+                         (1.0 - wgt1), c1);
 }
 
 template <typename T>
