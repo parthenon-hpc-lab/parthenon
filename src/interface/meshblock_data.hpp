@@ -277,6 +277,16 @@ class MeshBlockData {
     return GetSparseVariable(label).GetIndexMap();
   }
 
+  CellVariable<T> &ExpandSparseVariableID(std::string const &label, const int sparse_id) {
+    SparseVariable<T> &var = GetSparseVariable(label);
+    auto const index = var.GetIndex(sparse_id);
+    if (index < 0) {
+      var.Add(sparse_id);
+    }
+
+    return var(sparse_id);
+  }
+
   //
   // Queries related to FaceVariable objects
   //

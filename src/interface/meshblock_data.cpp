@@ -67,16 +67,17 @@ void MeshBlockData<T>::Add(const std::string &label, const Metadata &metadata,
   // branch on kind of variable
   if (metadata.IsSet(Metadata::Sparse)) {
     // add a sparse variable
+    // SparseVariables are expanded later as needed
     if (sparseMap_.find(label) == sparseMap_.end()) {
-      auto sv = std::make_shared<SparseVariable<T>>(label, metadata);
+      auto sv = std::make_shared<SparseVariable<T>>(label, metadata, arrDims);
       Add(sv);
     }
-    int varIndex = metadata.GetSparseId();
-    sparseMap_[label]->Add(varIndex, arrDims);
-    if (metadata.IsSet(Metadata::FillGhost)) {
-      auto &v = sparseMap_[label]->Get(varIndex);
-      v->allocateComms(pmy_block);
-    }
+    // int varIndex = metadata.GetSparseId();
+    // sparseMap_[label]->Add(varIndex, arrDims);
+    // if (metadata.IsSet(Metadata::FillGhost)) {
+    //   auto &v = sparseMap_[label]->Get(varIndex);
+    //   v->allocateComms(pmy_block);
+    // }
   } else if (metadata.Where() == Metadata::Edge) {
     // add an edge variable
     std::cerr << "Accessing unliving edge array in stage" << std::endl;
@@ -240,7 +241,7 @@ VariableFluxPack<T> MeshBlockData<T>::PackVariablesAndFluxesHelper_(
   key = std::make_pair(var_names, flx_names);
   auto kvpair = varFluxPackMap_.find(key);
   if (kvpair == varFluxPackMap_.end()) {
-    auto pack = MakeFluxPack(vars, fvars, &vmap);
+    auto pack = MakeFluxPack(vars, fvars, sparseMap_, &vmap);
     FluxPackIndxPair<T> value;
     value.pack = pack;
     value.map = vmap;
@@ -344,7 +345,8 @@ MeshBlockData<T>::PackVariablesHelper_(const std::vector<std::string> &names,
   auto &packmap = coarse ? coarseVarPackMap_ : varPackMap_;
   auto kvpair = packmap.find(names);
   if (kvpair == packmap.end()) {
-    auto pack = MakePack<T>(vars, &vmap, coarse);
+    auto pack = MakePack<T>(vars, sparseMap_, &vmap, coarse);
+
     PackIndxPair<T> value;
     value.pack = pack;
     value.map = vmap;

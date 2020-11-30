@@ -42,7 +42,7 @@ class SparseVariable {
   SparseVariable() = default;
   // Copies src variable but only including chosen sparse ids.
   SparseVariable(SparseVariable<T> &src, const std::vector<int> &sparse_ids)
-      : label_(src.label_), metadata_(src.metadata_) {
+      : label_(src.label_), metadata_(src.metadata_), dims_(src.dims_) {
     for (int id : sparse_ids) {
       auto var = src.varMap_[id];
       Add(id, var);
@@ -50,17 +50,18 @@ class SparseVariable {
   }
   SparseVariable(std::shared_ptr<SparseVariable<T>> src,
                  const std::vector<int> &sparse_ids)
-      : label_(src->label_), metadata_(src->metadata_) {
+      : label_(src->label_), metadata_(src->metadata_), dims_(src->dims_) {
     for (int id : sparse_ids) {
       auto var = src->varMap_[id];
       Add(id, var);
     }
   }
-  SparseVariable(const std::string &label, const Metadata &m)
-      : label_(label), metadata_(m) {}
+  SparseVariable(const std::string &label, const Metadata &m,
+                 std::array<int, 6> const &dims)
+      : label_(label), metadata_(m), dims_(dims) {}
 
   std::shared_ptr<SparseVariable<T>> AllocateCopy() {
-    auto sv = std::make_shared<SparseVariable<T>>(label_, metadata_);
+    auto sv = std::make_shared<SparseVariable<T>>(label_, metadata_, dims_);
     for (auto &v : varMap_) {
       sv->Add(v.first, v.second->AllocateCopy());
     }
@@ -74,7 +75,9 @@ class SparseVariable {
   // void AddCopy(const std::string& theLabel, SparseVariable<T>& mv);
 
   /// create a new variable
-  void Add(int sparse_index, std::array<int, 6> &dims);
+  void Add(int sparse_index);
+
+  int GetDim(int const i) const { return dims_[i - 1]; }
 
   // accessors
   inline CellVariable<T> &operator()(const int m) { return *(varMap_[m]); }
@@ -114,7 +117,7 @@ class SparseVariable {
     return it->second;
   }
 
-  int GetIndex(int id) {
+  int GetIndex(int id) const {
     auto it = std::find(indexMap_.begin(), indexMap_.end(), id);
     if (it == indexMap_.end()) return -1; // indicate the id doesn't exist
     return std::distance(indexMap_.begin(), it);
@@ -143,6 +146,7 @@ class SparseVariable {
   SparseMap<T> varMap_;
   CellVariableVector<T> varArray_;
   std::vector<int> indexMap_;
+  std::array<int, 6> dims_;
 
   void Add(int varIndex, std::shared_ptr<CellVariable<T>> cv) {
     varArray_.push_back(cv);
