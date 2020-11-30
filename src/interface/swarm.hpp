@@ -51,11 +51,12 @@ class SwarmDeviceContext {
   bool IsMarkedForRemoval(const int n) const { return marked_for_removal_(n); }
 
   KOKKOS_INLINE_FUNCTION
-  int GetNeighborBlockIndex(const int &n, const double &x, const double &y, const double &z) {
+  int GetNeighborBlockIndex(const int &n, const double &x, const double &y, const double &z) const {
 
-    int i = static_cast<int>((x - x_min_)/(2*(x_max_ - x_min_))) + 1;
-    int j = static_cast<int>((y - y_min_)/(2*(y_max_ - y_min_))) + 1;
-    int k = static_cast<int>((z - z_min_)/(2*(z_max_ - z_min_))) + 1;
+    int i = static_cast<int>((x - x_min_)/((x_max_ - x_min_)/2.)) + 1;
+    int j = static_cast<int>((y - y_min_)/((y_max_ - y_min_)/2.)) + 1;
+    int k = static_cast<int>((z - z_min_)/((z_max_ - z_min_)/2.)) + 1;
+    printf("[%e %e] [%e %e] [%e %e]\n", x_min_, x_max_, y_min_, y_max_, z_min_, z_max_);
     printf("[%i %i %i] %e %e %e\n", i,j,k,x,y,z);
 /*
     int i = 0;
@@ -179,7 +180,7 @@ class Swarm {
   void Defrag();
 
   // used in case of swarm boundary communication
-  //void SetupPersistentMPI();
+  void SetupPersistentMPI();
   std::shared_ptr<BoundarySwarm> vbvar;
   bool mpiStatus;
   void allocateComms(std::weak_ptr<MeshBlock> wpmb);
@@ -278,6 +279,7 @@ class Swarm {
   ParticleVariable<bool> mask_;
   ParticleVariable<bool> marked_for_removal_;
   ParticleVariable<int> neighbor_send_index_; // -1 means no send
+  ParArrayND<int> neighborIndices_; // Indexing of vbvar's neighbor array. -1 for same.
 };
 
 using SP_Swarm = std::shared_ptr<Swarm>;

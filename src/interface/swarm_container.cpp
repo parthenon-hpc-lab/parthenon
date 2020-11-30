@@ -78,7 +78,7 @@ void SwarmContainer::SendBoundaryBuffers() {}
 
 void SwarmContainer::SetupPersistentMPI() {
   for (auto &s : swarmVector_) {
-    s->vbvar->SetupPersistentMPI();
+    s->SetupPersistentMPI();
   }
 }
 

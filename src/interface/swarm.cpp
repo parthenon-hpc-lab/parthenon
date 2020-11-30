@@ -26,6 +26,7 @@ namespace parthenon {
     SwarmDeviceContext context;
     context.marked_for_removal_ = marked_for_removal_.data;
     context.mask_ = mask_.data;
+    context.neighborIndices_ = neighborIndices_;
     //context.neighbor_send_index_ = neighbor_send_index.data;
 
     auto pmb = GetBlockPointer();
@@ -34,10 +35,10 @@ namespace parthenon {
     const IndexRange &jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
     const IndexRange &kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
     context.x_min_ = pmb->coords.x1f(ib.s);
-    context.x_max_ = pmb->coords.x2f(jb.s);
-    context.y_min_ = pmb->coords.x3f(kb.s);
-    context.y_max_ = pmb->coords.x1f(ib.e + 1);
-    context.z_min_ = pmb->coords.x2f(jb.e + 1);
+    context.y_min_ = pmb->coords.x2f(jb.s);
+    context.z_min_ = pmb->coords.x3f(kb.s);
+    context.x_max_ = pmb->coords.x1f(ib.e + 1);
+    context.y_max_ = pmb->coords.x2f(jb.e + 1);
     context.z_max_ = pmb->coords.x3f(kb.e + 1);
     return context;
   }
@@ -47,6 +48,7 @@ Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_
       mask_("mask", nmax_pool_, Metadata({Metadata::Boolean})),
       marked_for_removal_("mfr", nmax_pool_, Metadata({Metadata::Boolean})),
       neighbor_send_index_("nsi", nmax_pool_, Metadata({Metadata::Integer})),
+      neighborIndices_("neighborIndices_", 4, 4, 4),
       mpiStatus(true) {
   Add("x", Metadata({Metadata::Real}));
   Add("y", Metadata({Metadata::Real}));
@@ -372,6 +374,25 @@ void Swarm::Defrag() {
 
   // Update max_active_index_
   max_active_index_ = num_active_ - 1;
+}
+
+void Swarm::SetupPersistentMPI() {
+  vbvar->SetupPersistentMPI();
+
+  // Index into neighbor blocks
+  auto pmb = GetBlockPointer();
+  auto neighborIndices_h = neighborIndices_.GetHostMirror();
+  printf("my level: %i\n", pmb->loc.level);
+  printf("Dimensions: %i\n", pmb->pmy_mesh->ndim);
+  for (int n = 0; n < pmb->pbval->nneighbor; n++) {
+    NeighborBlock &nb = pmb->pbval->neighbor[n];
+    printf("[%i] indices: %i %i %i\n", n, nb.ni.ox1, nb.ni.ox2, nb.ni.ox3);
+    printf("    fi1: %i fi2: %i\n", nb.ni.fi1, nb.ni.fi2);
+    printf("    rank: %i level: %i local ID: %i global ID: %i\n", nb.snb.rank,
+      nb.snb.level, nb.snb.lid, nb.snb.gid);
+  }
+
+  exit(-1);
 }
 
 // TODO(BRR) move to BoundarySwarm

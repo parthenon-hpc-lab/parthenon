@@ -292,6 +292,10 @@ TaskStatus TransportParticles(MeshBlock *pmb, double t0, Integrator *integrator)
             z(n) += vz(n) * dt_push;
             t(n) += dt_push;
 
+            // Apply physical boundaries before indicating communication?
+
+            swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n));
+
             // If outside of meshblock, get neighbor index
 
             // Periodic boundaries (handled by MPI)
