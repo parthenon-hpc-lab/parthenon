@@ -230,7 +230,7 @@ class MeshBlockData {
   //
   const CellVariableVector<T> &GetCellVariableVector() const { return varVector_; }
   const MapToCellVars<T> &GetCellVariableMap() const { return varMap_; }
-  CellVariable<T> &Get(std::string label) const {
+  CellVariable<T> &Get(const std::string &label) const {
     auto it = varMap_.find(label);
     if (it == varMap_.end()) {
       throw std::invalid_argument(std::string("\n") + std::string(label) +

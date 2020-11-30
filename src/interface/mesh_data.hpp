@@ -120,6 +120,9 @@ class MeshData {
 
   template <typename... Args>
   void Copy(const std::shared_ptr<MeshData<T>> src, Args &&... args) {
+    if(!src) {
+      PARTHENON_THROW("src points at null");
+    }
     const int nblocks = src->NumBlocks();
     block_data_.resize(nblocks);
     for (int i = 0; i < nblocks; i++) {
