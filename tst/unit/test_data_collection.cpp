@@ -20,16 +20,20 @@
 #include "interface/data_collection.hpp"
 #include "interface/meshblock_data.hpp"
 #include "interface/metadata.hpp"
+#include "kokkos_abstraction.hpp"
 #include "mesh/meshblock.hpp"
 
 // TODO(jcd): can't call the MeshBlock constructor without mesh_refinement.hpp???
 #include "mesh/mesh_refinement.hpp"
 
 using parthenon::DataCollection;
+using parthenon::DevExecSpace;
+using parthenon::loop_pattern_flatrange_tag;
 using parthenon::MeshBlock;
 using parthenon::MeshBlockData;
 using parthenon::MeshData;
 using parthenon::Metadata;
+using parthenon::par_for;
 using parthenon::Real;
 
 TEST_CASE("Adding MeshBlockData objects to a DataCollection", "[DataCollection]") {
@@ -44,44 +48,66 @@ TEST_CASE("Adding MeshBlockData objects to a DataCollection", "[DataCollection]"
     mbd->Add("var1", m_ind, size);
     mbd->Add("var2", m_one, size);
     mbd->Add("var3", m_ind, size);
-    auto &v1 = mbd->Get("var1");
-    auto &v2 = mbd->Get("var2");
-    auto &v3 = mbd->Get("var3");
-    v1(0) = 111;
-    v2(0) = 222;
-    v3(0) = 333;
+    auto &v1 = mbd->Get("var1").data;
+    auto &v2 = mbd->Get("var2").data;
+    auto &v3 = mbd->Get("var3").data;
+    par_for(loop_pattern_flatrange_tag, "init vars", DevExecSpace(), 0, 0,
+      KOKKOS_LAMBDA(const int i) {
+        v1(0) = 111;
+        v2(0) = 222;
+        v3(0) = 333;
+      });
     WHEN("We add a MeshBlockData to the container") {
       auto x = d.Add("full", mbd);
-      auto &xv1 = x->Get("var1");
-      auto &xv2 = x->Get("var2");
-      auto &xv3 = x->Get("var3");
-      xv1(0) = 11;
-      xv2(0) = 22;
-      xv3(0) = 33;
+      auto &xv1 = x->Get("var1").data;
+      auto &xv2 = x->Get("var2").data;
+      auto &xv3 = x->Get("var3").data;
+      par_for(loop_pattern_flatrange_tag, "init vars", DevExecSpace(), 0, 0,
+        KOKKOS_LAMBDA(const int i) {
+          xv1(0) = 11;
+          xv2(0) = 22;
+          xv3(0) = 33;
+        });
+      auto hv1 = v1.GetHostMirrorAndCopy();
+      auto hv2 = v2.GetHostMirrorAndCopy();
+      auto hv3 = v3.GetHostMirrorAndCopy();
+      auto hxv1 = xv1.GetHostMirrorAndCopy();
+      auto hxv2 = xv2.GetHostMirrorAndCopy();
+      auto hxv3 = xv3.GetHostMirrorAndCopy();
       THEN("Independent variables should have new storage") {
-        REQUIRE(xv1(0) != v1(0));
-        REQUIRE(xv3(0) != v3(0));
+        REQUIRE(hxv1(0) != hv1(0));
+        REQUIRE(hxv3(0) != hv3(0));
       }
       AND_THEN("OneCopy variables should not have new storage") {
-        REQUIRE(xv2(0) == v2(0));
+        REQUIRE(hxv2(0) == hv2(0));
       }
     }
     AND_WHEN("We want only a subset of variables in a new MeshBlockData") {
       // reset vars
-      v1(0) = 111;
-      v2(0) = 222;
-      v3(0) = 333;
+      par_for(loop_pattern_flatrange_tag, "init vars", DevExecSpace(), 0, 0,
+        KOKKOS_LAMBDA(const int i) {
+          v1(0) = 111;
+          v2(0) = 222;
+          v3(0) = 333;
+        });
       auto x = d.Add("part", mbd, {"var2", "var3"});
       THEN("Requesting the missing variables should throw") {
         REQUIRE_THROWS(x->Get("var1"));
       }
       AND_THEN("Requesting the specified variables should work as expected") {
-        auto &xv2 = x->Get("var2");
-        auto &xv3 = x->Get("var3");
-        xv2(0) = 22;
-        xv3(0) = 33;
-        REQUIRE(xv3(0) != v3(0));
-        REQUIRE(xv2(0) == v2(0));
+        auto &xv2 = x->Get("var2").data;
+        auto &xv3 = x->Get("var3").data;
+        par_for(loop_pattern_flatrange_tag, "init vars", DevExecSpace(), 0, 0,
+          KOKKOS_LAMBDA(const int i) {
+            xv2(0) = 22;
+            xv3(0) = 33;
+          });
+        auto hv2 = v2.GetHostMirrorAndCopy();
+        auto hv3 = v3.GetHostMirrorAndCopy();
+        auto hxv2 = xv2.GetHostMirrorAndCopy();
+        auto hxv3 = xv3.GetHostMirrorAndCopy();
+        REQUIRE(hxv3(0) != hv3(0));
+        REQUIRE(hxv2(0) == hv2(0));
       }
     }
   }
