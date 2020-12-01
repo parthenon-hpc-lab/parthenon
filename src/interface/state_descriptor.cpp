@@ -21,6 +21,53 @@
 
 namespace parthenon {
 
+template <typename T>
+struct DependencyTracker {
+  std::unordered_set<T> private_vars;
+  std::unordered_set<T> provided_vars;
+  std::unordered_set<T> depends_vars;
+  std::unordered_map<std::string, T> overridable_vars;
+
+  void Sort(const std::string &package, const T &var, Metadata &metadata) {
+    auto dependency = metadata.Dependency();
+    if (dependency == Metadata::None) {
+      metadata.Set(Metadata::Provides);
+    }
+    switch (dependency) {
+    case Metadata::Private:
+      private_vars.insert(var);
+      break;
+    case Metadata::Provides:
+      auto it = provided_vars.find(var);
+      if (provided_vars.count(var) > 0) {
+        std::stringstream ss;
+        ss < "Variable " << var << " Provided by multiple packages" << std::endl;
+        PARTHENON_THROW(ss);
+      }
+      provided_vars.insert(var);
+      break;
+    case Metadata::Depends:
+      depends_vars.insert(var);
+      break;
+    case Metadata::Overridable:
+      overridable_vars[package] = var;
+      break;
+    default:
+      PARTHENON_THROW("Unknown dependency");
+      break;
+    }
+  }
+
+  template <typename Collection c>
+  void Sort(const std::string &package, const Collection &c) {
+    for (auto &pair : c) {
+      auto &var = pair.first;
+      auto &metadata = pair.second;
+      Sort(package, var, metadata);
+    }
+  }
+};
+
 bool StateDescriptor::AddSwarmValue(const std::string &value_name,
                                     const std::string &swarm_name, Metadata &m) {
   if (swarmMetadataMap_.count(swarm_name) == 0) {
@@ -114,56 +161,26 @@ std::ostream &operator<<(ostream &os, const StateDescriptor &sd) {
 
 std::shared_ptr<StateDescriptor> ResolvePackages(Packages_t &packages) {
   auto state = std::make_shared<StateDescriptor>();
-  std::unordered_set<std::string> provided_vars;
-  std::unordered_set<std::string> depends_vars;
-  std::unordered_map<std::string, std::string> overridable_vars;
 
-  auto sort_var = [&](const std::string package, const std::string &var,
-                      Metadata &metadata) {
-    auto dependency = metadata.Dependency();
-    if (dependency == Metadata::None) {
-      metadata.Set(Metadata::Provides);
-    }
-    switch (dependency) {
-    case Metadata::Private:
-      AddField(package + "::" + var, m);
-      break;
-    case Metadata::Provides:
-      auto it = provided_vars.find(var);
-      if (provided_vars.count(var) > 0) {
-        std::stringstream ss;
-        ss < "Variable " << var << " Provided by multiple packages" << std::endl;
-        PARTHENON_THROW(ss);
-      }
-      provided_vars.insert(var);
-      AddField(var, m);
-      break;
-    case Metadata::Depends:
-      depends_vars.insert(var);
-      break;
-    case Metadata::Overridable:
-      overridable_vars[package] = var;
-      break;
-    default:
-      PARTHENON_THROW("Unknown dependency");
-      break;
-    }
-  };
-
-  for (auto & package : packages) {
-    for (auto & pair : package->AllFields) {
-      auto &var = pair.first;
-      auto &metadata = pair.second;
-      sort_var(package->label(), var, metadata);
-    }
-    for (auto & pair : package->AllSparseFields) {
+  // First walk through packages and fill trackers
+  DependencyTracker<std::string> var_tracker;
+  DependencyTracker<std::pair<std::string, int>> sparse_tracker;
+  DependencyTracker<std::string> swarm_tracker;
+  for (auto &package : packages) {
+    var_tracker.Sort(package->label(), package->AllFields());
+    for (auto &pair : package->AllSparseFields()) {
       auto &var = pair.first;
       auto &mvec = pair.second;
-      for (auto & metadata : mvec) {
-        sort_var(package->label(), var
+      for (auto &metadata : mvec) {
+        int id = metadata.GetSparseId();
+        sparse_tracker.Sort(package->label(), std::make_pair(var, id), metadata);
       }
     }
+    swarm_tracker.Sort(package->label(), package->AllSwarms());
   }
+
+  // STUB
+  
 }
 
 } // namespace parthenon
