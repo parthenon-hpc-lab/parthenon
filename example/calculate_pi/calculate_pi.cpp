@@ -69,7 +69,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   // add a variable called in_or_out that will hold the value of the indicator function
   std::string field_name("in_or_out");
   Metadata m({Metadata::Cell, Metadata::Derived});
-  package->AddField(field_name, m, DerivedOwnership::unique);
+  package->AddField(field_name, m);
 
   // All the package FillDerived and CheckRefinement functions are called by parthenon
   package->FillDerivedBlock = SetInOrOut;

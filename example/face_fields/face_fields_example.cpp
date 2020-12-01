@@ -21,7 +21,6 @@
 
 #include "parthenon_manager.hpp"
 
-using parthenon::DerivedOwnership;
 using parthenon::DriverStatus;
 using parthenon::MeshBlock;
 using parthenon::Metadata;
@@ -50,15 +49,15 @@ Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   m = Metadata({Metadata::Cell, Metadata::Vector, Metadata::Derived, Metadata::OneCopy,
                 Metadata::Graphics},
                array_size);
-  package->AddField("c.c.interpolated_value", m, DerivedOwnership::unique);
+  package->AddField("c.c.interpolated_value", m);
 
   m = Metadata(
       {Metadata::Cell, Metadata::Derived, Metadata::OneCopy, Metadata::Graphics});
-  package->AddField("c.c.interpolated_sum", m, DerivedOwnership::unique);
+  package->AddField("c.c.interpolated_sum", m);
 
   m = Metadata({Metadata::Face, Metadata::Vector, Metadata::Derived, Metadata::OneCopy},
                array_size);
-  package->AddField("f.f.face_averaged_value", m, DerivedOwnership::unique);
+  package->AddField("f.f.face_averaged_value", m);
 
   packages["FaceFieldExample"] = package;
   return packages;

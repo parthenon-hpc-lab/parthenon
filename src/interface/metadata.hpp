@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <bitset>
 #include <exception>
+#include <iostream>
 #include <stdexcept>
 #include <string>
 #include <tuple>
@@ -37,6 +38,14 @@
   PARTHENON_INTERNAL_FOR_FLAG(Ignore)                                                    \
   /**  no topology specified */                                                          \
   PARTHENON_INTERNAL_FOR_FLAG(None)                                                      \
+  /**  Private to a package */                                                           \
+  PARTHENON_INTERNAL_FOR_FLAG(Private)                                                   \
+  /**  Provided by a package */                                                          \
+  PARTHENON_INTERNAL_FOR_FLAG(Provides)                                                  \
+  /**  Not created by a package, assumes available from another package */               \
+  PARTHENON_INTERNAL_FOR_FLAG(Requires)                                                  \
+  /**  does nothing if another package provides the variable */                          \
+  PARTHENON_INTERNAL_FOR_FLAG(Overridable)                                               \
   /**  cell variable */                                                                  \
   PARTHENON_INTERNAL_FOR_FLAG(Cell)                                                      \
   /**  face variable */                                                                  \
@@ -57,8 +66,6 @@
   PARTHENON_INTERNAL_FOR_FLAG(Intensive)                                                 \
   /** added to restart dump */                                                           \
   PARTHENON_INTERNAL_FOR_FLAG(Restart)                                                   \
-  /** added to graphics dumps */                                                         \
-  PARTHENON_INTERNAL_FOR_FLAG(Graphics)                                                  \
   /** is specified per-sparse index */                                                   \
   PARTHENON_INTERNAL_FOR_FLAG(Sparse)                                                    \
   /** is an independent, evolved variable */                                             \
@@ -217,6 +224,20 @@ class Metadata {
     return None;
   }
 
+  MetadataFlag Dependency() const {
+    if (IsSet(Private)) {
+      return Private;
+    } else if (IsSet(Provides)) {
+      return Provides;
+    } else if (IsSet(Depends)) {
+      return Depends;
+    } else if (IsSet(Overridable)) {
+      return Overridable;
+    } else {
+      return None;
+    }
+  }
+
   void SetSparseId(int id) { sparse_id_ = id; }
   int GetSparseId() const { return sparse_id_; }
 
@@ -233,6 +254,7 @@ class Metadata {
     }
     return str;
   }
+  friend std::ostream &operator<<(ostream &os, const Metadata &m);
 
   /**
    * @brief Returns true if any flag is set

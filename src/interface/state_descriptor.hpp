@@ -14,6 +14,7 @@
 #define INTERFACE_STATE_DESCRIPTOR_HPP_
 
 #include <functional>
+#include <iostream>
 #include <limits>
 #include <map>
 #include <memory>
@@ -32,8 +33,6 @@ template <typename T>
 class MeshBlockData;
 template <typename T>
 class MeshData;
-
-enum class DerivedOwnership { shared, unique };
 
 /// The state metadata descriptor class.
 ///
@@ -88,52 +87,11 @@ class StateDescriptor {
   }
 
   bool AddSwarmValue(const std::string &value_name, const std::string &swarm_name,
-                     Metadata &m) {
-    if (swarmMetadataMap_.count(swarm_name) == 0) {
-      throw std::invalid_argument("Swarm " + swarm_name + " does not exist!");
-    }
-    if (swarmValueMetadataMap_[swarm_name].count(value_name) > 0) {
-      throw std::invalid_argument("Swarm value " + value_name + " already exists!");
-    }
-    swarmValueMetadataMap_[swarm_name][value_name] = m;
-
-    return true;
-  }
+                     Metadata &m);
 
   // field addition / retrieval routines
   // add a field with associated metadata
-  bool AddField(const std::string &field_name, Metadata &m,
-                DerivedOwnership owner = DerivedOwnership::unique) {
-    if (m.IsSet(Metadata::Sparse)) {
-      auto miter = sparseMetadataMap_.find(field_name);
-      if (miter != sparseMetadataMap_.end()) {
-        miter->second.push_back(m);
-      } else {
-        sparseMetadataMap_[field_name] = {m};
-      }
-    } else {
-      const std::string &assoc = m.getAssociated();
-      if (!assoc.length()) m.Associate(field_name);
-      auto miter = metadataMap_.find(field_name);
-      if (miter != metadataMap_.end()) { // this field has already been added
-        Metadata &mprev = miter->second;
-        if (owner == DerivedOwnership::unique) {
-          throw std::invalid_argument(
-              "Field " + field_name +
-              " add with DerivedOwnership::unique already exists");
-        }
-        if (mprev != m) {
-          throw std::invalid_argument("Field " + field_name +
-                                      " already exists with different metadata");
-        }
-        return false;
-      } else {
-        metadataMap_[field_name] = m;
-        m.Associate("");
-      }
-    }
-    return true;
-  }
+  bool AddField(const std::string &field_name, Metadata &m);
 
   // retrieve number of fields
   int size() const { return metadataMap_.size(); }
@@ -180,19 +138,7 @@ class StateDescriptor {
   // get all metadata for this physics
   const std::map<std::string, Metadata> &AllMetadata() { return metadataMap_; }
 
-  bool FlagsPresent(std::vector<MetadataFlag> const &flags, bool matchAny = false) {
-    for (auto &pair : metadataMap_) {
-      auto &metadata = pair.second;
-      if (metadata.FlagsSet(flags, matchAny)) return true;
-    }
-    for (auto &pair : sparseMetadataMap_) {
-      auto &sparsevec = pair.second;
-      for (auto &metadata : sparsevec) {
-        if (metadata.FlagsSet(flags, matchAny)) return true;
-      }
-    }
-    return false;
-  }
+  bool FlagsPresent(std::vector<MetadataFlag> const &flags, bool matchAny = false);
 
   void PreFillDerived(std::shared_ptr<MeshBlockData<Real>> &rc) const {
     if (PreFillDerivedBlock != nullptr) PreFillDerivedBlock(rc);
@@ -238,6 +184,8 @@ class StateDescriptor {
   Real (*EstimateTimestepMesh)(std::shared_ptr<MeshData<Real>> &rc);
   AmrTag (*CheckRefinementBlock)(std::shared_ptr<MeshBlockData<Real>> &rc);
 
+  friend std::ostream& operator<<(ostream &os, const StateDescriptor &sd);
+
  private:
   Params params_;
   const std::string label_;
@@ -248,6 +196,8 @@ class StateDescriptor {
 };
 
 using Packages_t = std::map<std::string, std::shared_ptr<StateDescriptor>>;
+
+std::shared_ptr<StateDescriptor> ResolvePackages(Packages_t &packages);
 
 } // namespace parthenon
 

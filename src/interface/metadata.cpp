@@ -14,6 +14,7 @@
 #include "interface/metadata.hpp"
 
 #include <exception>
+#include <iostream>
 #include <sstream>
 #include <string>
 #include <unordered_set>
@@ -53,12 +54,19 @@ class UserMetadataState {
     auto const flag = flag_name_map_.size();
     flag_names_.insert(name);
     flag_name_map_.push_back(std::move(name));
-    return MetadataFlag(static_cast<int>(flag));
+
+    auto flab_obj = MetadataFlag(static_cast<int>(flag));
+    flags_.push_back(flag_obj);
+
+    return flag_obj;
   }
 
   std::string const &FlagName(MetadataFlag flag) { return flag_name_map_.at(flag.flag_); }
 
+  const auto &AllFlags() { return flags_; }
+
  private:
+  std::vector<MetadataFlag> flags_; // for introspection
   std::vector<std::string> flag_name_map_;
   std::unordered_set<std::string> flag_names_;
 };
@@ -74,3 +82,18 @@ MetadataFlag Metadata::AllocateNewFlag(std::string &&name) {
 }
 
 std::string const &MetadataFlag::Name() const { return metadata_state.FlagName(*this); }
+
+std::ostream &operator<<(std::ostream &os, const parthenon::Metadata &m) {
+  bool first = true;
+  for (auto &flag : metadata_state.AllFlags()) {
+    if (IsSet(flag)) {
+      if (!first) {
+        os << ",";
+      } else {
+        first = false;
+      }
+      os << flag.Name()
+    }
+  }
+  return os;
+}
