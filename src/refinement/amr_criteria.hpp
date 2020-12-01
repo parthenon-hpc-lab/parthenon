@@ -26,7 +26,7 @@ class ParameterInput;
 struct AMRCriteria {
   AMRCriteria() = default;
   virtual ~AMRCriteria() {}
-  virtual AmrTag operator()(std::shared_ptr<MeshBlockData<Real>> &rc) = 0;
+  virtual AmrTag operator()(const MeshBlockData<Real> *rc) = 0;
   std::string field;
   Real refine_criteria, derefine_criteria;
   int max_level;
@@ -36,7 +36,7 @@ struct AMRCriteria {
 
 struct AMRFirstDerivative : public AMRCriteria {
   AMRFirstDerivative(ParameterInput *pin, std::string &block_name);
-  AmrTag operator()(std::shared_ptr<MeshBlockData<Real>> &rc);
+  AmrTag operator()(const MeshBlockData<Real> *rc);
 };
 
 } // namespace parthenon

@@ -17,6 +17,7 @@
 ##========================================================================================
 
 list(APPEND unit_tests_SOURCES
+    test_data_collection.cpp
     test_taskid.cpp
     test_tasklist.cpp
     test_unit_face_variables.cpp

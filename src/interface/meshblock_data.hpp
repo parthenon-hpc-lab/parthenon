@@ -60,14 +60,14 @@ class MeshBlockData {
   MeshBlockData<T>(const MeshBlockData<T> &src, const std::vector<MetadataFlag> &flags);
 
   /// Returns shared pointer to a block
-  std::shared_ptr<MeshBlock> GetBlockPointer() {
+  std::shared_ptr<MeshBlock> GetBlockPointer() const {
     if (pmy_block.expired()) {
       PARTHENON_THROW("Invalid pointer to MeshBlock!");
     }
     return pmy_block.lock();
   }
-  auto GetParentPointer() { return GetBlockPointer(); }
-  void SetAllowedDt(const Real dt) { GetBlockPointer()->SetAllowedDt(dt); }
+  auto GetParentPointer() const { return GetBlockPointer(); }
+  void SetAllowedDt(const Real dt) const { GetBlockPointer()->SetAllowedDt(dt); }
 
   IndexRange GetBoundsI(const IndexDomain &domain) {
     return GetBlockPointer()->cellbounds.GetBoundsI(domain);
@@ -77,6 +77,39 @@ class MeshBlockData {
   }
   IndexRange GetBoundsK(const IndexDomain &domain) {
     return GetBlockPointer()->cellbounds.GetBoundsK(domain);
+  }
+
+  void Copy(const std::shared_ptr<MeshBlockData<T>> &src,
+            const std::vector<std::string> &names) {
+    SetBlockPointer(src);
+    for (const auto &name : names) {
+      bool found = false;
+      const auto &vMap = src->GetCellVariableMap();
+      auto vit = vMap.find(name);
+      if (vit != vMap.end()) {
+        auto &v = vit->second;
+        if (v->IsSet(Metadata::OneCopy)) {
+          Add(v);
+        } else {
+          Add(v->AllocateCopy());
+        }
+        found = true;
+      }
+      const auto &sMap = src->GetSparseMap();
+      auto sit = sMap.find(name);
+      if (sit != sMap.end()) {
+        auto &v = sit->second;
+        if (v->IsSet(Metadata::OneCopy)) {
+          Add(v);
+        } else {
+          Add(v->AllocateCopy());
+        }
+        found = true;
+      }
+      if (!found) {
+        PARTHENON_THROW("MeshBlockData::Copy did not find " + name);
+      }
+    }
   }
 
   void Copy(const std::shared_ptr<MeshBlockData<T>> &src) {
@@ -197,7 +230,7 @@ class MeshBlockData {
   //
   const CellVariableVector<T> &GetCellVariableVector() const { return varVector_; }
   const MapToCellVars<T> &GetCellVariableMap() const { return varMap_; }
-  CellVariable<T> &Get(std::string label) {
+  CellVariable<T> &Get(const std::string &label) const {
     auto it = varMap_.find(label);
     if (it == varMap_.end()) {
       throw std::invalid_argument(std::string("\n") + std::string(label) +
@@ -206,7 +239,7 @@ class MeshBlockData {
     return *(it->second);
   }
 
-  CellVariable<T> &Get(const int index) { return *(varVector_[index]); }
+  CellVariable<T> &Get(const int index) const { return *(varVector_[index]); }
 
   int Index(const std::string &label) {
     for (int i = 0; i < (varVector_).size(); i++) {
@@ -396,6 +429,19 @@ class MeshBlockData {
       cmp_keys.push_back(v.first);
     }
     return (my_keys == cmp_keys);
+  }
+
+  bool Contains(const std::string &name) const {
+    if (varMap_.find(name) != varMap_.end()) return true;
+    if (sparseMap_.find(name) != sparseMap_.end()) return true;
+    if (faceMap_.find(name) != faceMap_.end()) return true;
+    return false;
+  }
+  bool Contains(const std::vector<std::string> &names) const {
+    for (const auto &name : names) {
+      if (!Contains(name)) return false;
+    }
+    return true;
   }
 
  private:

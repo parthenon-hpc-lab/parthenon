@@ -127,7 +127,7 @@ void EvolutionDriver::PostExecute(DriverStatus status) {
 void EvolutionDriver::InitializeBlockTimeSteps() {
   // calculate the first time step
   for (auto &pmb : pmesh->block_list) {
-    Update::EstimateTimestep(pmb->meshblock_data.Get());
+    Update::EstimateTimestep(pmb->meshblock_data.Get().get());
   }
 }
 
