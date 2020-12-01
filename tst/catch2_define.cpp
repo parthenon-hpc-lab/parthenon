@@ -22,7 +22,10 @@ int main(int argc, char *argv[]) {
   // global setup...
   int result;
   ParthenonManager pman;
-  pman.ParthenonInitParallel(argc, argv);
+  auto status = pman.ParthenonInitParallel(argc, argv);
+  if (status == parthenon::ParthenonStatus::error) {
+    throw std::runtime_error("Problem encountered in ParthenonInitParallel");
+  }
 
   {
     result = Catch::Session().run(argc, argv);
