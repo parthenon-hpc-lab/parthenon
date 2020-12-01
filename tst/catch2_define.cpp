@@ -15,12 +15,14 @@
 
 #include <catch2/catch.hpp>
 
-#include <Kokkos_Core.hpp>
+#include "parthenon_manager.hpp"
+using parthenon::ParthenonManager;
 
 int main(int argc, char *argv[]) {
   // global setup...
   int result;
-  Kokkos::initialize(argc, argv);
+  ParthenonManager pman;
+  pman.ParthenonInitParallel(argc, argv);
 
   {
     result = Catch::Session().run(argc, argv);
@@ -28,6 +30,6 @@ int main(int argc, char *argv[]) {
     // global clean-up...
   }
 
-  Kokkos::finalize();
+  pman.ParthenonFinalizeParallel();
   return result;
 }

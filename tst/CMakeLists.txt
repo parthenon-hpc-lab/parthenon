@@ -1,6 +1,6 @@
 
 add_library(catch2_define catch2_define.cpp)
-target_link_libraries(catch2_define PUBLIC Catch2::Catch2 Kokkos::kokkos)
+target_link_libraries(catch2_define PUBLIC Catch2::Catch2 Parthenon::parthenon)
 
 if(${PARTHENON_ENABLE_UNIT_TESTS})
   message(STATUS "Building unit tests.")

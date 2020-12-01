@@ -36,6 +36,8 @@ class ParthenonManager {
   ParthenonManager() { app_input.reset(new ApplicationInput()); }
   ParthenonStatus ParthenonInit(int argc, char *argv[]);
   ParthenonStatus ParthenonFinalize();
+  ParthenonStatus ParthenonInitParallel(int argc, char *argv[]);
+  ParthenonStatus ParthenonFinalizeParallel();
 
   bool Restart() { return (arg.restart_filename == nullptr ? false : true); }
   static Properties_t ProcessPropertiesDefault(std::unique_ptr<ParameterInput> &pin);

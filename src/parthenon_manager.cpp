@@ -29,7 +29,7 @@
 
 namespace parthenon {
 
-ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
+ParthenonStatus ParthenonManager::ParthenonInitParallel(int argc, char *argv[]) {
   // initialize MPI
 #ifdef MPI_PARALLEL
 #ifdef OPENMP_PARALLEL
@@ -74,6 +74,15 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
 #endif // MPI_PARALLEL
 
   Kokkos::initialize(argc, argv);
+  return ParthenonStatus::ok;
+}
+
+ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
+  // initialize parallel
+  auto parallel_status = ParthenonInitParallel(argc, argv);
+  if (parallel_status == ParthenonStatus::error) {
+    return parallel_status;
+  }
 
   // parse the input arguments
   ArgStatus arg_status = arg.parse(argc, argv);
@@ -160,6 +169,10 @@ ParthenonStatus ParthenonManager::ParthenonFinalize() {
   // close restart file before finalizing MPI
   this->restartReader = nullptr;
   pmesh.reset();
+  return ParthenonFinalizeParallel();
+}
+
+ParthenonStatus ParthenonManager::ParthenonFinalizeParallel() {
   Kokkos::finalize();
 #ifdef MPI_PARALLEL
   MPI_Finalize();
