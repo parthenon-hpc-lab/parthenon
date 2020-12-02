@@ -230,7 +230,6 @@ void CalcIndicesLoadToFiner(int &si, int &ei, int &sj, int &ej, int &sk, int &ek
   }
 }
 struct BndInfo {
-  bool is_used = false;
   int si = 0;
   int ei = 0;
   int sj = 0;
@@ -437,16 +436,25 @@ TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_SetBoundaries_MeshData");
 
   Kokkos::Profiling::pushRegion("Create bndinfo array");
-  // TODO(?) talk about whether the number of buffers should be a compile time const
-  const int num_buffers = 56;
-  parthenon::ParArray2D<BndInfo> boundary_info("boundary_info", md->NumBlocks(),
-                                               num_buffers);
-  auto boundary_info_h = Kokkos::create_mirror_view(boundary_info);
 
   IndexDomain interior = IndexDomain::interior;
 
-  for (int b = 0; b < md->NumBlocks(); b++) {
-    auto &rc = md->GetBlockData(b);
+  // first calculate the number of active buffers
+  int buffers_used = 0;
+  for (int block = 0; block < md->NumBlocks(); block++) {
+    auto &rc = md->GetBlockData(block);
+    auto pmb = rc->GetBlockPointer();
+    for (int n = 0; n < pmb->pbval->nneighbor; n++) {
+      buffers_used += 1;
+    }
+  }
+
+  parthenon::ParArray1D<BndInfo> boundary_info("boundary_info", buffers_used);
+  auto boundary_info_h = Kokkos::create_mirror_view(boundary_info);
+  // now fill the buffer info
+  int b = 0;
+  for (int block = 0; block < md->NumBlocks(); block++) {
+    auto &rc = md->GetBlockData(block);
     auto pmb = rc->GetBlockPointer();
 
     int mylevel = pmb->loc.level;
@@ -457,19 +465,19 @@ TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) {
       assert(rc->GetCellVariableVector().size() == 1);
       auto *bd_var_ = rc->GetCellVariableVector()[0]->vbvar->GetPBdVar();
 
-      auto &si = boundary_info_h(b, n).si;
-      auto &ei = boundary_info_h(b, n).ei;
-      auto &sj = boundary_info_h(b, n).sj;
-      auto &ej = boundary_info_h(b, n).ej;
-      auto &sk = boundary_info_h(b, n).sk;
-      auto &ek = boundary_info_h(b, n).ek;
+      auto &si = boundary_info_h(b).si;
+      auto &ei = boundary_info_h(b).ei;
+      auto &sj = boundary_info_h(b).sj;
+      auto &ej = boundary_info_h(b).ej;
+      auto &sk = boundary_info_h(b).sk;
+      auto &ek = boundary_info_h(b).ek;
 
       if (nb.snb.level == mylevel) {
         const parthenon::IndexShape &cellbounds = pmb->cellbounds;
         CalcIndicesSetSame(nb.ni.ox1, si, ei, cellbounds.GetBoundsI(interior));
         CalcIndicesSetSame(nb.ni.ox2, sj, ej, cellbounds.GetBoundsJ(interior));
         CalcIndicesSetSame(nb.ni.ox3, sk, ek, cellbounds.GetBoundsK(interior));
-        boundary_info_h(b, n).var = rc->GetCellVariableVector()[0]->data.Get<4>();
+        boundary_info_h(b).var = rc->GetCellVariableVector()[0]->data.Get<4>();
       } else if (nb.snb.level < mylevel) {
         const IndexShape &c_cellbounds = pmb->c_cellbounds;
         const auto &cng = pmb->cnghost;
@@ -480,25 +488,23 @@ TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) {
         CalcIndicesSetFromCoarser(nb.ni.ox3, sk, ek, c_cellbounds.GetBoundsK(interior),
                                   pmb->loc.lx3, cng, pmb->block_size.nx3 > 1);
 
-        boundary_info_h(b, n).var =
+        boundary_info_h(b).var =
             rc->GetCellVariableVector()[0]->vbvar->coarse_buf.Get<4>();
       } else {
         CalcIndicesSetFromFiner(si, ei, sj, ej, sk, ek, nb, pmb.get());
-        boundary_info_h(b, n).var = rc->GetCellVariableVector()[0]->data.Get<4>();
+        boundary_info_h(b).var = rc->GetCellVariableVector()[0]->data.Get<4>();
       }
-      boundary_info_h(b, n).buf = bd_var_->recv[nb.bufid];
+      boundary_info_h(b).buf = bd_var_->recv[nb.bufid];
       assert(rc->GetCellVariableVector().size() == 1);
-      boundary_info_h(b, n).is_used = true;
       // safe to set completed here as the kernel updating all buffers is
       // called immediately afterwards
       bd_var_->flag[nb.bufid] = parthenon::BoundaryStatus::completed;
+      b++;
     }
   }
   Kokkos::deep_copy(boundary_info, boundary_info_h);
 
   Kokkos::Profiling::popRegion(); // Create bndinfo array
-
-  const auto NbNb = md->NumBlocks() * num_buffers;
 
   // TODO(pgrete) this var pack can probably go. Currently only needed for 4th dim.
   auto var_pack = md->PackVariables(std::vector<MetadataFlag>({Metadata::FillGhost}));
@@ -506,36 +512,33 @@ TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) {
 
   Kokkos::parallel_for(
       "SetBoundaries",
-      Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), NbNb, Kokkos::AUTO),
+      Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), buffers_used, Kokkos::AUTO),
       KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
-        const int b = team_member.league_rank() / num_buffers;
-        const int n = team_member.league_rank() - b * num_buffers;
-        if (boundary_info(b, n).is_used) {
-          // TODO(pgrete) profile perf implication of using reference.
-          // Test in two jobs indicted a 10% difference, but were also run on diff. nodes
-          const int &si = boundary_info(b, n).si;
-          const int &ei = boundary_info(b, n).ei;
-          const int &sj = boundary_info(b, n).sj;
-          const int &ej = boundary_info(b, n).ej;
-          const int &sk = boundary_info(b, n).sk;
-          const int &ek = boundary_info(b, n).ek;
+        const int b = team_member.league_rank();
+        // TODO(pgrete) profile perf implication of using reference.
+        // Test in two jobs indicted a 10% difference, but were also run on diff. nodes
+        const int &si = boundary_info(b).si;
+        const int &ei = boundary_info(b).ei;
+        const int &sj = boundary_info(b).sj;
+        const int &ej = boundary_info(b).ej;
+        const int &sk = boundary_info(b).sk;
+        const int &ek = boundary_info(b).ek;
 
-          const int Ni = ei + 1 - si;
-          const int Nj = ej + 1 - sj;
-          const int Nk = ek + 1 - sk;
+        const int Ni = ei + 1 - si;
+        const int Nj = ej + 1 - sj;
+        const int Nk = ek + 1 - sk;
 
-          for (auto v = 0; v < Nv; v++) {
-            for (auto k = sk; k <= ek; k++) {
-              for (auto j = sj; j <= ej; j++) {
-                parthenon::par_for_inner(
-                    DEFAULT_INNER_LOOP_PATTERN, team_member, si, ei,
-                    [&](const int i) {
-                      boundary_info(b, n).var(v, k, j, i) = boundary_info(b, n).buf(
-                          i - si + Ni * (j - sj + Nj * (k - sk + Nk * v)));
-                    }
+        for (auto v = 0; v < Nv; v++) {
+          for (auto k = sk; k <= ek; k++) {
+            for (auto j = sj; j <= ej; j++) {
+              parthenon::par_for_inner(
+                  DEFAULT_INNER_LOOP_PATTERN, team_member, si, ei,
+                  [&](const int i) {
+                    boundary_info(b).var(v, k, j, i) = boundary_info(b).buf(
+                        i - si + Ni * (j - sj + Nj * (k - sk + Nk * v)));
+                  }
 
-                );
-              }
+              );
             }
           }
         }
