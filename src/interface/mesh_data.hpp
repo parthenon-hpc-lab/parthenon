@@ -101,6 +101,14 @@ class MeshData {
     return send_buffers_;
   }
 
+  void SetSetBuffers(const cell_centered_bvars::BufferCache_t &set_buffers) {
+    set_buffers_ = set_buffers;
+  }
+
+  auto GetSetBuffers() const {
+    return set_buffers_;
+  }
+
   IndexRange GetBoundsI(const IndexDomain &domain) const {
     return block_data_[0]->GetBoundsI(domain);
   }
@@ -200,8 +208,8 @@ class MeshData {
   MapToMeshBlockVarPack<T> varPackMap_;
   MapToMeshBlockVarFluxPack<T> varFluxPackMap_;
   // caches for boundary information
-  cell_centered_bvars::BufferCache_t send_buffers_;
-  cell_centered_bvars::BufferCache_t set_buffers_;
+  cell_centered_bvars::BufferCache_t send_buffers_{};
+  cell_centered_bvars::BufferCache_t set_buffers_{};
 };
 
 using MeshDataCollection = DataCollection<MeshData<Real>>;
