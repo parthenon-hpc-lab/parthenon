@@ -266,7 +266,7 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
 
   auto boundary_info = md->GetSendBuffers();
 
-  if (!boundary_info.is_allocated()) {
+  if (!boundary_info.is_allocated() || true) {
     Kokkos::Profiling::pushRegion("Create bndinfo array");
 
     boundary_info = BufferCache_t("send_boundary_info", buffers_used);
@@ -526,20 +526,22 @@ TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) {
         const int Nj = ej + 1 - sj;
         const int Nk = ek + 1 - sk;
 
-        for (auto v = 0; v < Nv; v++) {
-          for (auto k = sk; k <= ek; k++) {
-            for (auto j = sj; j <= ej; j++) {
-              parthenon::par_for_inner(
-                  DEFAULT_INNER_LOOP_PATTERN, team_member, si, ei,
-                  [&](const int i) {
+        const int NvNkNj = Nv * Nk * Nj;
+        const int NkNj = Nk * Nj;
+        Kokkos::parallel_for(
+            Kokkos::TeamThreadRange<>(team_member, NvNkNj), [&](const int idx) {
+              const int v = idx / NkNj;
+              int k = (idx - v * NkNj) / Nj;
+              int j = idx - v * NkNj - k * Nj;
+              k += sk;
+              j += sj;
+
+              Kokkos::parallel_for(
+                  Kokkos::ThreadVectorRange(team_member, si, ei + 1), [&](const int i) {
                     boundary_info(b).var(v, k, j, i) = boundary_info(b).buf(
                         i - si + Ni * (j - sj + Nj * (k - sk + Nk * v)));
-                  }
-
-              );
-            }
-          }
-        }
+                  });
+            });
       });
 
   Kokkos::Profiling::popRegion(); // Task_SetBoundaries_MeshData
