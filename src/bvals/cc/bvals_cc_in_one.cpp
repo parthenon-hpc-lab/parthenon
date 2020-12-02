@@ -264,10 +264,9 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   }
   Kokkos::Profiling::popRegion(); // Reset boundaries
 
-  BufferCache_t boundary_info;
-  if (md->GetSendBuffers().is_allocated()) {
-    boundary_info = md->GetSendBuffers();
-  } else {
+  auto boundary_info = md->GetSendBuffers();
+
+  if (!boundary_info.is_allocated()) {
     Kokkos::Profiling::pushRegion("Create bndinfo array");
 
     boundary_info = BufferCache_t("send_boundary_info", buffers_used);
@@ -334,9 +333,6 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
         b++;
       }
     }
-
-    // TODO(?) track which buffers are actually used, extract subview, and only
-    // copy/loop over that
     Kokkos::deep_copy(boundary_info, boundary_info_h);
     md->SetSendBuffers(boundary_info);
 
@@ -446,10 +442,8 @@ TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) {
     }
   }
 
-  BufferCache_t boundary_info;
-  if (md->GetSetBuffers().is_allocated()) {
-    boundary_info = md->GetSetBuffers();
-  } else {
+  auto boundary_info = md->GetSetBuffers();
+  if (!boundary_info.is_allocated()) {
     Kokkos::Profiling::pushRegion("Create bndinfo array");
 
     boundary_info = BufferCache_t("set_boundary_info", buffers_used);
