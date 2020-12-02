@@ -22,13 +22,14 @@
 #include <string>
 
 #include "basic_types.hpp"
-#include "mesh/mesh.hpp"
+#include "bvals/bvals_interfaces.hpp"
 
 namespace parthenon {
 
 template <typename T>
 class MeshData;
-
+class IndexRange;
+class NeighborBlock;
 namespace cell_centered_bvars {
 void CalcIndicesSetSame(int ox, int &s, int &e, const IndexRange &bounds);
 void CalcIndicesSetFromCoarser(const int &ox, int &s, int &e, const IndexRange &bounds,
@@ -41,6 +42,19 @@ void CalcIndicesLoadToFiner(int &si, int &ei, int &sj, int &ej, int &sk, int &ek
 TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus ReceiveBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md);
+
+struct BndInfo {
+  int si = 0;
+  int ei = 0;
+  int sj = 0;
+  int ej = 0;
+  int sk = 0;
+  int ek = 0;
+  parthenon::ParArray1D<Real> buf; // comm buffer
+  parthenon::ParArray4D<Real> var; // data variable (could also be coarse array)
+};
+
+using BufferCache_t = ParArray1D<BndInfo>;
 } // namespace cell_centered_bvars
 } // namespace parthenon
 

@@ -20,6 +20,7 @@
 #include <utility>
 #include <vector>
 
+#include "bvals/cc/bvals_cc_in_one.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/meshblock.hpp"
 #include "mesh/meshblock_pack.hpp"
@@ -92,6 +93,14 @@ class MeshData {
     }
   }
 
+  void SetSendBuffers(const cell_centered_bvars::BufferCache_t &send_buffers) {
+    send_buffers_ = send_buffers;
+  }
+
+  auto GetSendBuffers() const {
+    return send_buffers_;
+  }
+
   IndexRange GetBoundsI(const IndexDomain &domain) const {
     return block_data_[0]->GetBoundsI(domain);
   }
@@ -160,6 +169,8 @@ class MeshData {
   void ClearCaches() {
     varPackMap_.clear();
     varFluxPackMap_.clear();
+    send_buffers_ = cell_centered_bvars::BufferCache_t{};
+    set_buffers_ = cell_centered_bvars::BufferCache_t{};
   }
 
   int NumBlocks() const { return block_data_.size(); }
@@ -188,6 +199,9 @@ class MeshData {
   // caches for packs
   MapToMeshBlockVarPack<T> varPackMap_;
   MapToMeshBlockVarFluxPack<T> varFluxPackMap_;
+  // caches for boundary information
+  cell_centered_bvars::BufferCache_t send_buffers_;
+  cell_centered_bvars::BufferCache_t set_buffers_;
 };
 
 using MeshDataCollection = DataCollection<MeshData<Real>>;
