@@ -23,10 +23,10 @@ namespace parthenon {
 
 template <typename T>
 struct DependencyTracker {
-  std::unordered_set<T> private_vars;
   std::unordered_set<T> provided_vars;
   std::unordered_set<T> depends_vars;
-  std::unordered_map<std::string, T> overridable_vars;
+  std::unordered_map<T, int> overridable_vars;
+  std::unordered_map<T, Metadata> overridable_meta;
 
   void Sort(const std::string &package, const T &var, Metadata &metadata) {
     auto dependency = metadata.Dependency();
@@ -34,8 +34,8 @@ struct DependencyTracker {
       metadata.Set(Metadata::Provides);
     }
     switch (dependency) {
-    case Metadata::Private:
-      private_vars.insert(var);
+    case Metadata::None:
+      PARTHENON_THROW("Unknown dependency");
       break;
     case Metadata::Provides:
       auto it = provided_vars.find(var);
@@ -50,10 +50,9 @@ struct DependencyTracker {
       depends_vars.insert(var);
       break;
     case Metadata::Overridable:
-      overridable_vars[package] = var;
-      break;
+      if (overridable_meta[var] = metadata;
+      overridable_vars[var] += 1; // using value initalization of ints = 0
     default:
-      PARTHENON_THROW("Unknown dependency");
       break;
     }
   }
@@ -66,6 +65,41 @@ struct DependencyTracker {
       Sort(package, var, metadata);
     }
   }
+
+  void CheckDepends() {
+    for (auto &v : depends_vars) {
+      if (provided_vars.count(v) == 0) {
+        std::stringstream ss;
+        ss << "Variable " << var
+           << " registered as required, but not provided by any package!" << std::endl;
+        PARTHENON_THROW(ss);
+      }
+    }
+  }
+
+  template <typename Adder>
+  void CheckOverridable(Adder add_to_state) {
+    std::unordered_set<T> cache;
+    for (auto &pair : overridable_vars) {
+      auto &var = pair.first;
+      auto &count = pair.second;
+      if (provided_vars.count(var) == 0) {
+        if (cout > 1) {
+          std::stringstream ss;
+          ss << "Variable " << var
+             << " registered as overridable multiple times, but never provided."
+             << " This results in undefined behaviour as to which package will provide "
+                "it."
+             << std::endl;
+          PARTHENON_DEBUG_WARN(ss);
+        }
+        auto metadata = overridable_meta[var];
+        add_to_state(var, metadata);
+      }
+    }
+  }
+
+  bool Provided(const std::string &var) { return provided_vars.count(var) > 0; }
 };
 
 bool StateDescriptor::AddSwarmValue(const std::string &value_name,
@@ -179,8 +213,101 @@ std::shared_ptr<StateDescriptor> ResolvePackages(Packages_t &packages) {
     swarm_tracker.Sort(package->label(), package->AllSwarms());
   }
 
-  // STUB
-  
+  // check that dependent variables are provided somewhere
+  var_tracker.CheckDepends();
+  sparse_tracker.CheckDepends();
+  swarm_tracker.CheckDepends();
+
+  // Treat overridable vars:
+  // If a var is overridable and provided, do nothing.
+  // If a var is overridable and unique, add it to the state.
+  // If a var is overridable and not unique, add one to the state
+  // and optionally throw a warning.
+  var_tracker.CheckOverridable([&](const std::string &var, Metadata &metadata) {
+    state->AddField(var, metadata);
+  });
+  sparse_tracker.CheckOverridable(
+      [&](std::pair<std::string, int> &var, Metadata &metadata) {
+        state->AddField(var.first, metadata);
+      });
+  swarm_tracker.CheckOverridable([&](const std::string &swarm, Metadata &metadata) {
+      state->AddSwarm(swarm, metadata);
+      for (auto package : packages) {
+        if (package->SwarmPresent(swarm)) {
+          for (auto & pair : package->AllSwarmValues(swarm)) {
+            state->AddSwarmValue(pair.first, swarm, pair.second);
+          }
+          return;
+        }
+      }
+    });
+
+  // Second walk through packages to fill state
+  auto AddSwarm = [&](StateDescriptor *package, const std::string &swarm,
+                      const std::string &swarm_name, Metadata &metadata) {
+    state->AddSwarm(swarm_name, metadata);
+    for (auto &p : package->AllSwarmValues(swarm)) {
+      auto &val_name = p.first;
+      auto &val_meta = p.second;
+      state->AddSwarmValue(val_name, swarm_name, val_meta);
+    }
+  };
+  for (auto &package : packages) {
+    // dense fields
+    for (auto &pair : package->AllFields()) {
+      auto &var = pair.first;
+      auto &metadata = pair.second;
+      auto dependency = metadata.Dependency();
+      switch (dependency) {
+      case Metadata::Private:
+        state->AddField(package->label() + "::" + var, metadata);
+        break;
+      case Metadata::Provides: // safe to just add this, as already validated
+        state->AddField(var, metadata);
+        break;
+      default: 
+        // Depends, Overridable, other already dealt with
+        break;
+      }
+    }
+    // sparse fields
+    for (auto &pair : package->AllSparseFields()) {
+      auto &var = pair.first;
+      auto &mvec = pair.second;
+      for (auto &metadata : mvec) {
+        auto id = metadata.GetSparseId();
+        auto dependency = metadata.Dependency();
+        switch (dependency) {
+        case Metadata::Private:
+          state->AddField(package->label() + "::" + var, metadata);
+          break;
+        case Metadata::Provides:
+          state->AddField(var, metadata);
+          break;
+        default:
+          break;
+        }
+      }
+    }
+    // swarms
+    for (auto &pair : package->AllSwarms()) {
+      auto &swarm = pair.first;
+      auto &metadata = pair.second;
+      auto dependency = metadata.Dependency();
+      switch (dependency) {
+      case Metadata::Private:
+        auto swarm_name = package->label() + "::" + swarm;
+        AddSwarm(package.get(), swarm, swarm_name, metadata);
+        break;
+      case Metadata::Provides:
+        AddSwarm(package.get(), swarm, swarm, metadata);
+        break;
+      default:
+        break;
+      }
+    }
+  }
+  return state;
 }
 
 } // namespace parthenon

@@ -124,6 +124,9 @@ class StateDescriptor {
   const std::map<std::string, Metadata> &AllSwarmValues(const std::string swarm_name) {
     return swarmValueMetadataMap_.at(swarm_name);
   }
+  bool SwarmPresent(const std::string swarm_name) const {
+    return swarmMetadataMap_.count(swarm_name) > 0;
+  }
 
   // retrieve metadata for a specific field
   Metadata &FieldMetadata(const std::string &field_name) {
