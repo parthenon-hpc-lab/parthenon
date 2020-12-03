@@ -120,7 +120,7 @@ class MeshData {
 
   template <typename... Args>
   void Copy(const std::shared_ptr<MeshData<T>> src, Args &&... args) {
-    if (!src) {
+    if (src.get() == nullptr) {
       PARTHENON_THROW("src points at null");
     }
     const int nblocks = src->NumBlocks();
@@ -177,7 +177,7 @@ class MeshData {
 
   bool Contains(const std::vector<std::string> &names) const {
     for (const auto &b : block_data_) {
-      if (!b->Contains(names)) false;
+      if (!b->Contains(names)) return false;
     }
     return true;
   }
