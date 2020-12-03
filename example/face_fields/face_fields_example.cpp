@@ -46,13 +46,11 @@ Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
 
   Metadata m;
   std::vector<int> array_size({2});
-  m = Metadata({Metadata::Cell, Metadata::Vector, Metadata::Derived, Metadata::OneCopy,
-                Metadata::Graphics},
+  m = Metadata({Metadata::Cell, Metadata::Vector, Metadata::Derived, Metadata::OneCopy},
                array_size);
   package->AddField("c.c.interpolated_value", m);
 
-  m = Metadata(
-      {Metadata::Cell, Metadata::Derived, Metadata::OneCopy, Metadata::Graphics});
+  m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy});
   package->AddField("c.c.interpolated_sum", m);
 
   m = Metadata({Metadata::Face, Metadata::Vector, Metadata::Derived, Metadata::OneCopy},

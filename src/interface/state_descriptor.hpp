@@ -75,9 +75,9 @@ class StateDescriptor {
 
   Params &AllParams() { return params_; }
   // retrieve label
-  const std::string &label() { return label_; }
+  const std::string &label() const { return label_; }
 
-  bool AddSwarm(const std::string &swarm_name, Metadata &m) {
+  bool AddSwarm(const std::string &swarm_name, const Metadata &m) {
     if (swarmMetadataMap_.count(swarm_name) > 0) {
       throw std::invalid_argument("Swarm " + swarm_name + " already exists!");
     }
@@ -87,14 +87,18 @@ class StateDescriptor {
   }
 
   bool AddSwarmValue(const std::string &value_name, const std::string &swarm_name,
-                     Metadata &m);
+                     const Metadata &m);
 
   // field addition / retrieval routines
   // add a field with associated metadata
-  bool AddField(const std::string &field_name, Metadata &m);
+  bool AddField(const std::string &field_name, const Metadata &m);
 
   // retrieve number of fields
   int size() const { return metadataMap_.size(); }
+
+  // Ensure all required bits are present
+  // projective and can be called multiple times with no harm
+  void ValidateMetadata();
 
   // retrieve all field names
   std::vector<std::string> Fields() {
@@ -116,12 +120,13 @@ class StateDescriptor {
     return names;
   }
 
-  std::map<std::string, Metadata> &AllFields() { return metadataMap_; }
-  std::map<std::string, std::vector<Metadata>> &AllSparseFields() {
+  const std::map<std::string, Metadata> &AllFields() const { return metadataMap_; }
+  const std::map<std::string, std::vector<Metadata>> &AllSparseFields() const {
     return sparseMetadataMap_;
   }
-  const std::map<std::string, Metadata> &AllSwarms() { return swarmMetadataMap_; }
-  const std::map<std::string, Metadata> &AllSwarmValues(const std::string swarm_name) {
+  const std::map<std::string, Metadata> &AllSwarms() const { return swarmMetadataMap_; }
+  const std::map<std::string, Metadata> &
+  AllSwarmValues(const std::string swarm_name) const {
     return swarmValueMetadataMap_.at(swarm_name);
   }
   bool SwarmPresent(const std::string swarm_name) const {
@@ -136,6 +141,21 @@ class StateDescriptor {
   // retrieve metadata for a specific swarm
   Metadata &SwarmMetadata(const std::string &swarm_name) {
     return swarmMetadataMap_[swarm_name];
+  }
+
+  template <typename F>
+  void MetadataLoop(F func) {
+    for (auto &pair : metadataMap_) {
+      func(pair.second);
+    }
+    for (auto &pair : sparseMetadataMap_) {
+      for (auto &metadata : pair.second) {
+        func(metadata);
+      }
+    }
+    for (auto &pair : swarmMetadataMap_) {
+      func(pair.second);
+    }
   }
 
   // get all metadata for this physics
@@ -187,7 +207,7 @@ class StateDescriptor {
   Real (*EstimateTimestepMesh)(std::shared_ptr<MeshData<Real>> &rc);
   AmrTag (*CheckRefinementBlock)(std::shared_ptr<MeshBlockData<Real>> &rc);
 
-  friend std::ostream& operator<<(ostream &os, const StateDescriptor &sd);
+  friend std::ostream &operator<<(std::ostream &os, const StateDescriptor &sd);
 
  private:
   Params params_;

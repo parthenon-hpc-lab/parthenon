@@ -131,6 +131,11 @@ class MetadataFlag {
   constexpr int InternalFlagValue() const { return flag_; }
 #endif
 
+  friend std::ostream &operator<<(std::ostream &os, const MetadataFlag &flag) {
+    os << flag.Name();
+    return os;
+  }
+
  private:
   // MetadataFlag can only be instantiated by Metadata
   constexpr explicit MetadataFlag(int flag) : flag_(flag) {}
@@ -190,7 +195,6 @@ class Metadata {
 
   // Static routines
   static MetadataFlag AllocateNewFlag(std::string &&name);
-
   // Individual flag setters
   void Set(MetadataFlag f) { DoBit(f, true); }    ///< Set specific bit
   void Unset(MetadataFlag f) { DoBit(f, false); } ///< Unset specific bit
@@ -229,8 +233,8 @@ class Metadata {
       return Private;
     } else if (IsSet(Provides)) {
       return Provides;
-    } else if (IsSet(Depends)) {
-      return Depends;
+    } else if (IsSet(Requires)) {
+      return Requires;
     } else if (IsSet(Overridable)) {
       return Overridable;
     } else {
@@ -254,7 +258,7 @@ class Metadata {
     }
     return str;
   }
-  friend std::ostream &operator<<(ostream &os, const Metadata &m);
+  friend std::ostream &operator<<(std::ostream &os, const parthenon::Metadata &m);
 
   /**
    * @brief Returns true if any flag is set
@@ -279,7 +283,7 @@ class Metadata {
   }
 
   // Operators
-  bool operator==(const Metadata &b) const {
+  bool HasSameBits(const Metadata &b) const {
     auto const &a = *this;
 
     // Check extra bits are unset
@@ -298,8 +302,15 @@ class Metadata {
         return false;
       }
     }
+    return true;
+  }
 
-    return std::tie(a.shape_, a.sparse_id_) == std::tie(b.shape_, b.sparse_id_);
+  bool SparseEqual(const Metadata &b) const {
+    return (HasSameBits(b) && std::equal(shape_.begin(), shape_.end(), b.shape_.begin()));
+  }
+
+  bool operator==(const Metadata &b) const {
+    return (SparseEqual(b) && (sparse_id_ == b.sparse_id_));
   }
 
   bool operator!=(const Metadata &b) const { return !(*this == b); }

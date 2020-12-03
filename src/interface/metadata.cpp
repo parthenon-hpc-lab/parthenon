@@ -55,7 +55,7 @@ class UserMetadataState {
     flag_names_.insert(name);
     flag_name_map_.push_back(std::move(name));
 
-    auto flab_obj = MetadataFlag(static_cast<int>(flag));
+    auto flag_obj = MetadataFlag(static_cast<int>(flag));
     flags_.push_back(flag_obj);
 
     return flag_obj;
@@ -72,7 +72,6 @@ class UserMetadataState {
 };
 
 } // namespace internal
-
 } // namespace parthenon
 
 parthenon::internal::UserMetadataState metadata_state;
@@ -83,17 +82,19 @@ MetadataFlag Metadata::AllocateNewFlag(std::string &&name) {
 
 std::string const &MetadataFlag::Name() const { return metadata_state.FlagName(*this); }
 
+namespace parthenon {
 std::ostream &operator<<(std::ostream &os, const parthenon::Metadata &m) {
   bool first = true;
   for (auto &flag : metadata_state.AllFlags()) {
-    if (IsSet(flag)) {
+    if (m.IsSet(flag)) {
       if (!first) {
         os << ",";
       } else {
         first = false;
       }
-      os << flag.Name()
+      os << flag;
     }
   }
   return os;
 }
+} // namespace parthenon
