@@ -58,7 +58,10 @@ struct DependencyTracker {
           sparse_added[var][sparse_id] = true;
         }
       }
-      overridable_vars[var] += 1; // using value initalization of ints = 0
+      // only update overridable_vars count once
+      if (overridable_meta.at(var).size() == 1) {
+        overridable_vars[var] += 1; // using value initalization of ints = 0
+      }
     } else {
       PARTHENON_THROW("Unknown dependency");
     }
