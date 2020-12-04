@@ -97,9 +97,8 @@ struct DependencyTracker {
           std::stringstream ss;
           ss << "Variable " << var
              << " registered as overridable multiple times, but never provided."
-             << " This results in undefined behaviour as to which package will provide "
-                "it."
-             << std::endl;
+             << " This results in undefined behaviour as to which package will provide"
+             << " it." << std::endl;
           PARTHENON_DEBUG_WARN(ss);
         }
         auto &mvec = overridable_meta[var];
@@ -135,6 +134,9 @@ bool StateDescriptor::AddField(const std::string &field_name, const Metadata &m_
       PARTHENON_REQUIRE_THROWS(mvec[0].SparseEqual(m),
                                "All sparse variables with the same name must have the "
                                "same metadata flags and shape.");
+      if (mvec[0].GetSparseId() == m.GetSparseId()) {
+        return false;
+      }
       mvec.push_back(m);
     } else {
       sparseMetadataMap_[field_name] = {m};
@@ -230,6 +232,9 @@ std::shared_ptr<StateDescriptor> ResolvePackages(Packages_t &packages) {
   DependencyTracker var_tracker;
   DependencyTracker swarm_tracker;
 
+  // TODO(JMM): The sparse stuff here will need to be revisited,
+  // and likely become much simpler once we have dense on block.
+
   // Begin awful boilerplate
   // ======================================================================
   // Helper functions for adding vars
@@ -248,9 +253,7 @@ std::shared_ptr<StateDescriptor> ResolvePackages(Packages_t &packages) {
   auto add_private_sparse = [&](const string &package, const string &var,
                                 const Metadata &metadata) {
     const std::string name = package + "::" + var;
-    const auto &fields = packages[package]->AllSparseFields();
-    const auto &mvec = fields.at(var);
-    for (auto &m : mvec) {
+    for (auto &m : packages[package]->AllSparseFields().at(var)) {
       state->AddField(name, m);
     }
   };
@@ -302,9 +305,13 @@ std::shared_ptr<StateDescriptor> ResolvePackages(Packages_t &packages) {
     // sort
     var_tracker.SortCollection(package->label(), package->AllFields(), add_private_var,
                                add_provides_var);
-    for (auto &p2 : package->AllSparseFields()) {
-      var_tracker.Sort(package->label(), p2.first, p2.second[0], add_private_sparse,
-                       add_provides_sparse);
+    for (auto &p2 : package->AllSparseFields()) { // sparse
+      auto &var = p2.first;
+      auto &mvec = p2.second;
+      for (auto &metadata : mvec) {
+        var_tracker.Sort(package->label(), var, metadata, add_private_sparse,
+                         add_provides_sparse);
+      }
     }
     swarm_tracker.SortCollection(package->label(), package->AllSwarms(),
                                  add_private_swarm, add_provides_swarm);

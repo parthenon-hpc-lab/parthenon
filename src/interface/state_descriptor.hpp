@@ -129,13 +129,28 @@ class StateDescriptor {
   AllSwarmValues(const std::string swarm_name) const {
     return swarmValueMetadataMap_.at(swarm_name);
   }
+  bool FieldPresent(const std::string field_name) const {
+    return metadataMap_.count(field_name) > 0;
+  }
+  bool SparsePresent(const std::string field_name) const {
+    return sparseMetadataMap_.count(field_name) > 0;
+  }
   bool SwarmPresent(const std::string swarm_name) const {
     return swarmMetadataMap_.count(swarm_name) > 0;
+  }
+  bool SwarmValuePresent(const std::string value_name,
+                         const std::string swarm_name) const {
+    if (!SwarmPresent(swarm_name)) return false;
+    return swarmValueMetadataMap_.at(swarm_name).count(value_name) > 0;
   }
 
   // retrieve metadata for a specific field
   Metadata &FieldMetadata(const std::string &field_name) {
     return metadataMap_[field_name];
+  }
+
+  Metadata &FieldMetadata(const std::string &field_name, int i) {
+    return sparseMetadataMap_[field_name][i];
   }
 
   // retrieve metadata for a specific swarm

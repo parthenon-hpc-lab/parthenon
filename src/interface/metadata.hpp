@@ -184,6 +184,8 @@ class Metadata {
   explicit Metadata(const std::vector<MetadataFlag> &bits, const int sparse_id)
       : shape_({1}), sparse_id_(sparse_id) {
     SetMultiple(bits);
+    // If you pass in a sparse ID, the Sparse metadata flag is automatically added
+    Set(Sparse);
   }
 
   /// returns a metadata with bits, shape, and sparse ID set
@@ -191,6 +193,8 @@ class Metadata {
                     std::vector<int> shape)
       : shape_(shape), sparse_id_(sparse_id) {
     SetMultiple(bits);
+    // If you pass in a sparse ID, the Sparse metadata flag is automatically added
+    Set(Sparse);
   }
 
   // Static routines
