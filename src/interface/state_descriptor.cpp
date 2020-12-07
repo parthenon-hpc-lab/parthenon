@@ -93,7 +93,7 @@ struct DependencyTracker {
 
   void CheckRequires() {
     for (auto &v : depends_vars) {
-      if (provided_vars.count(v) == 0) {
+      if (provided_vars.count(v) == 0 && overridable_vars.count(v) == 0) {
         std::stringstream ss;
         ss << "Variable " << v
            << " registered as required, but not provided by any package!" << std::endl;
