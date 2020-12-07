@@ -1098,13 +1098,13 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin, ApplicationInput *app_i
         }
         ApplyBoundaryConditions(pmb->meshblock_data.Get());
         // Call MeshBlockData based FillDerived functions
-        Update::FillDerived(pmb->meshblock_data.Get());
+        Update::FillDerived(pmb->meshblock_data.Get().get());
       }
       const int num_partitions = DefaultNumPartitions();
       for (int i = 0; i < num_partitions; i++) {
         auto &md = mesh_data.GetOrAdd("base", i);
         // Call MeshData based FillDerived functions
-        Update::FillDerived(md);
+        Update::FillDerived(md.get());
       }
 
       if (!res_flag && adaptive) {

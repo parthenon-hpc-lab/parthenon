@@ -78,9 +78,9 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   return pkg;
 }
 
-AmrTag CheckRefinement(MeshBlockData<Real> &rc) { return AmrTag::same; }
+AmrTag CheckRefinement(MeshBlockData<Real> *rc) { return AmrTag::same; }
 
-Real EstimateTimestepBlock(std::shared_ptr<MeshBlockData<Real>> &rc) {
+Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
   auto pmb = rc->GetBlockPointer();
   auto pkg = pmb->packages["particles_package"];
   const Real &dt = pkg->Param<Real>("const_dt");

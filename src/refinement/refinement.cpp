@@ -47,7 +47,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   return ref;
 }
 
-AmrTag CheckAllRefinement(std::shared_ptr<MeshBlockData<Real>> &rc) {
+AmrTag CheckAllRefinement(MeshBlockData<Real> *rc) {
   // Check all refinement criteria and return the maximum recommended change in
   // refinement level:
   //   delta_level = -1 => recommend derefinement
@@ -130,19 +130,24 @@ AmrTag FirstDerivative(MeshBlock *pmb, const ParArrayND<Real> &q,
   return AmrTag::same;
 }
 
-TaskStatus Tag(std::shared_ptr<MeshBlockData<Real>> &rc) {
-  Kokkos::Profiling::pushRegion("Task_Tag_Block");
+void SetRefinement_(MeshBlockData<Real> *rc) {
   auto pmb = rc->GetBlockPointer();
   pmb->pmr->SetRefinement(CheckAllRefinement(rc));
+}
+
+template <>
+TaskStatus Tag(MeshBlockData<Real> *rc) {
+  Kokkos::Profiling::pushRegion("Task_Tag_Block");
+  SetRefinement_(rc);
   Kokkos::Profiling::popRegion(); // Task_Tag_Block
   return TaskStatus::complete;
 }
 
-TaskStatus Tag(std::shared_ptr<MeshData<Real>> &rc) {
+template <>
+TaskStatus Tag(MeshData<Real> *rc) {
   Kokkos::Profiling::pushRegion("Task_Tag_Mesh");
   for (int i = 0; i < rc->NumBlocks(); i++) {
-    auto &pbd = rc->GetBlockData(i);
-    auto status = Tag(pbd);
+    SetRefinement_(rc->GetBlockData(i).get());
   }
   Kokkos::Profiling::popRegion(); // Task_Tag_Mesh
   return TaskStatus::complete;

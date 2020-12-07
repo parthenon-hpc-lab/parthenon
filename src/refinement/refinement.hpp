@@ -33,11 +33,10 @@ class StateDescriptor;
 namespace Refinement {
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
+template <typename T>
+TaskStatus Tag(T *rc);
 
-TaskStatus Tag(std::shared_ptr<MeshBlockData<Real>> &rc);
-TaskStatus Tag(std::shared_ptr<MeshData<Real>> &rc);
-
-AmrTag CheckAllRefinement(std::shared_ptr<MeshBlockData<Real>> &rc);
+AmrTag CheckAllRefinement(MeshBlockData<Real> *rc);
 
 AmrTag FirstDerivative(MeshBlock *pmb, const ParArrayND<Real> &q,
                        const Real refine_criteria, const Real derefine_criteria);

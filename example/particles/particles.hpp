@@ -41,8 +41,8 @@ Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin);
 namespace Particles {
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
-AmrTag CheckRefinement(MeshBlockData<Real> &rc);
-Real EstimateTimestepBlock(std::shared_ptr<MeshBlockData<Real>> &rc);
+AmrTag CheckRefinement(MeshBlockData<Real> *rc);
+Real EstimateTimestepBlock(MeshBlockData<Real> *rc);
 
 } // namespace Particles
 

@@ -997,7 +997,7 @@ void MeshRefinement::ProlongateInternalField(FaceField &fine, int si, int ei, in
 void MeshRefinement::CheckRefinementCondition() {
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   auto &rc = pmb->meshblock_data.Get();
-  AmrTag ret = Refinement::CheckAllRefinement(rc);
+  AmrTag ret = Refinement::CheckAllRefinement(rc.get());
   // if (AMRFlag_ != nullptr) ret = AMRFlag_(pmb);
   SetRefinement(ret);
 }

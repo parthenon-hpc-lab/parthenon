@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 381]](https://github.com/lanl/parthenon/pull/381) Overload `DataCollection::Add` to build `MeshData` and `MeshBlockData` objects with a subset of variables.
 - [[PR 378]](https://github.com/lanl/parthenon/pull/378) Add Kokkos profiling regions throughout the code to allow the collection characteristic application profiles
 - [[PR 358]](https://github.com/lanl/parthenon/pull/358) Generalize code that interfaces with downstream apps to work with both `MeshData` and `MeshBlockData`.
 - [[PR 335]](https://github.com/lanl/parthenon/pull/335) Support for project-relative `MACHINE_CFG` with `@PAR_ROOT@`
@@ -13,6 +14,7 @@
 - [[PR 332]](https://github.com/lanl/parthenon/pull/332) Rewrote boundary conditions to work on GPUs with variable packs. Re-enabled user-defined boundary conditions via `ApplicationInput`.
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 387]](https://github.com/lanl/parthenon/pull/387) Add missing const that was needed
 - [[PR 353]](https://github.com/lanl/parthenon/pull/353) Fixed small error in input\_parameter logic
 - [[PR 352]](https://github.com/lanl/parthenon/pull/352) Code compiles cleanly (no warnings) with nvcc_wrapper
 

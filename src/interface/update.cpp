@@ -46,8 +46,7 @@ Real FluxDiv_(const int l, const int k, const int j, const int i, const int ndim
 }
 
 template <>
-TaskStatus FluxDivergence(std::shared_ptr<MeshBlockData<Real>> &in,
-                          std::shared_ptr<MeshBlockData<Real>> &dudt_cont) {
+TaskStatus FluxDivergence(MeshBlockData<Real> *in, MeshBlockData<Real> *dudt_cont) {
   std::shared_ptr<MeshBlock> pmb = in->GetBlockPointer();
 
   const IndexDomain interior = IndexDomain::interior;
@@ -70,8 +69,7 @@ TaskStatus FluxDivergence(std::shared_ptr<MeshBlockData<Real>> &in,
 }
 
 template <>
-TaskStatus FluxDivergence(std::shared_ptr<MeshData<Real>> &in_obj,
-                          std::shared_ptr<MeshData<Real>> &dudt_obj) {
+TaskStatus FluxDivergence(MeshData<Real> *in_obj, MeshData<Real> *dudt_obj) {
   const IndexDomain interior = IndexDomain::interior;
 
   std::vector<MetadataFlag> flags({Metadata::Independent});
