@@ -126,26 +126,26 @@ class StateDescriptor {
     return sparseMetadataMap_;
   }
   const Dictionary<Metadata> &AllSwarms() const { return swarmMetadataMap_; }
-  const Dictionary<Metadata> &AllSwarmValues(const std::string swarm_name) const {
+  const Dictionary<Metadata> &AllSwarmValues(const std::string &swarm_name) const {
     return swarmValueMetadataMap_.at(swarm_name);
   }
-  bool FieldPresent(const std::string field_name) const {
+  bool FieldPresent(const std::string &field_name) const {
     return metadataMap_.count(field_name) > 0;
   }
-  bool SparsePresent(const std::string field_name) const {
+  bool SparsePresent(const std::string &field_name) const {
     return sparseMetadataMap_.count(field_name) > 0;
   }
-  bool SparsePresent(const std::string field_name, int i) const {
+  bool SparsePresent(const std::string &field_name, int i) const {
     if (sparseMetadataMap_.count(field_name) > 0) {
       return sparseMetadataMap_.at(field_name).count(i) > 0;
     }
     return false;
   }
-  bool SwarmPresent(const std::string swarm_name) const {
+  bool SwarmPresent(const std::string &swarm_name) const {
     return swarmMetadataMap_.count(swarm_name) > 0;
   }
-  bool SwarmValuePresent(const std::string value_name,
-                         const std::string swarm_name) const {
+  bool SwarmValuePresent(const std::string &value_name,
+                         const std::string &swarm_name) const {
     if (!SwarmPresent(swarm_name)) return false;
     return swarmValueMetadataMap_.at(swarm_name).count(value_name) > 0;
   }
