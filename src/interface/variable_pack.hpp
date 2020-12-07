@@ -127,7 +127,7 @@ class VariableFluxPack : public VariablePack<T> {
       : VariablePack<T>(view, sparse_ids, vector_component, dims), f_({f0, f1, f2}) {}
 
   KOKKOS_FORCEINLINE_FUNCTION
-  ViewOfParArrays<T> &flux(const int dir) const {
+  const ViewOfParArrays<T> &flux(const int dir) const {
     assert(dir > 0 && dir <= this->ndim_);
     return f_[dir - 1];
   }
