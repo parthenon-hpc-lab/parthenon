@@ -80,13 +80,6 @@ TEST_CASE("Test reqendency resolution in StateDescriptor", "[StateDescriptor]") 
         REQUIRE(!(pkg1->AddField("sparse", m_sparse_provides[0])));
       }
     }
-    // TODO(JMM): This will simplify once we have dense on block
-    WHEN("We try to add sparse variables with the same name but different metadata") {
-      pkg1->AddField("sparse", m_sparse_provides[0]);
-      THEN("An error is thrown") {
-        REQUIRE_THROWS(pkg1->AddField("sparse", m_sparse_overridable[3]));
-      }
-    }
 
     // no need to check this case for sparse/swarm as it's the same code path
     WHEN("We add the same dense provides variable to two different packages") {
@@ -119,10 +112,24 @@ TEST_CASE("Test reqendency resolution in StateDescriptor", "[StateDescriptor]") 
           REQUIRE(!(pkg3->SparsePresent("sparse")));
         }
         AND_THEN("The appropriate sparse metadata was added") {
-          auto &m1 = pkg3->FieldMetadata("package1::sparse", 0);
-          auto &m2 = pkg3->FieldMetadata("package2::sparse", 0);
-          REQUIRE(m1.GetSparseId() == sparse_ids[2]);
-          REQUIRE(m2.GetSparseId() == sparse_ids[3]);
+          REQUIRE(pkg3->SparsePresent("package1::sparse", sparse_ids[2]));
+          REQUIRE(pkg3->SparsePresent("package2::sparse", sparse_ids[3]));
+          REQUIRE(!(pkg3->SparsePresent("package1::sparse", sparse_ids[3])));
+          REQUIRE(!(pkg3->SparsePresent("package2::sparse", sparse_ids[2])));
+        }
+      }
+    }
+    // TODO(JMM): This will simplify once we have dense on block
+    WHEN("We add multiple provides sparse ids to the same package") {
+      for (int i = 0; i < sparse_ids.size(); i++) {
+        pkg1->AddField("sparse", m_sparse_provides[i]);
+      }
+      THEN("We can safely resolve packages") {
+        auto pkg4 = ResolvePackages(packages);
+        AND_THEN("The sparse variable is present") {
+          for (int i = 0; i < sparse_ids.size(); i++) {
+            pkg4->FieldMetadata("sparse", i).SparseEqual(m_sparse_provides[0]);
+          }
         }
       }
     }
@@ -185,6 +192,46 @@ TEST_CASE("Test reqendency resolution in StateDescriptor", "[StateDescriptor]") 
           REQUIRE(pkg4->SwarmValuePresent("value1", "swarm"));
           REQUIRE(pkg4->SwarmValuePresent("value2", "swarm"));
           REQUIRE(pkg4->AllSparseFields().at("sparse").size() == sparse_ids.size());
+        }
+      }
+    }
+
+    WHEN("We add a provides variable and several overridable/requires variables") {
+      pkg1->AddField("dense", m_provides);
+      pkg2->AddField("dense", m_overridable);
+      pkg3->AddField("dense", m_overridable);
+
+      pkg1->AddSwarm("swarm", m_overridable);
+      pkg1->AddSwarmValue("overridable", "swarm", m_swarmval);
+      pkg2->AddSwarm("swarm", m_provides);
+      pkg2->AddSwarmValue("provides", "swarm", m_swarmval);
+      pkg3->AddSwarm("swarm", m_requires);
+
+      for (int i = 0; i < sparse_ids.size(); i++) {
+        pkg1->AddField("sparse", m_sparse_overridable[i]);
+        pkg2->AddField("sparse", m_sparse_overridable[i]);
+        pkg3->AddField("sparse", m_sparse_provides[i]);
+        REQUIRE(pkg1->SparsePresent("sparse", sparse_ids[i]));
+        REQUIRE(pkg2->SparsePresent("sparse", sparse_ids[i]));
+        REQUIRE(pkg3->SparsePresent("sparse", sparse_ids[i]));
+      }
+
+      THEN("We can safely resolve conflicts") {
+        auto pkg4 = ResolvePackages(packages);
+        AND_THEN("The provides variables take precedence.") {
+          REQUIRE(pkg4->FieldPresent("dense"));
+          REQUIRE(pkg4->FieldMetadata("dense") == m_provides);
+          REQUIRE(pkg4->SwarmPresent("swarm"));
+          REQUIRE(pkg4->SwarmMetadata("swarm") == m_provides);
+          REQUIRE(pkg4->SwarmValuePresent("provides", "swarm"));
+          REQUIRE(!(pkg4->SwarmValuePresent("overridable", "swarm")));
+          REQUIRE(pkg4->SparsePresent("sparse"));
+          for (int i = 0; i < sparse_ids.size(); i++) {
+            REQUIRE(pkg4->SparsePresent("sparse", sparse_ids[i]));
+          }
+          for (int i = 0; i < sparse_ids.size(); i++) {
+            REQUIRE(pkg4->FieldMetadata("sparse", sparse_ids[i]) == m_sparse_provides[i]);
+          }
         }
       }
     }

@@ -131,6 +131,7 @@ class MetadataFlag {
   constexpr int InternalFlagValue() const { return flag_; }
 #endif
 
+  friend std::ostream &operator<<(std::ostream &os, const Metadata &m);
   friend std::ostream &operator<<(std::ostream &os, const MetadataFlag &flag) {
     os << flag.Name();
     return os;

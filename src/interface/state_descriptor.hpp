@@ -16,11 +16,12 @@
 #include <functional>
 #include <iostream>
 #include <limits>
-#include <map>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
+#include "basic_types.hpp"
 #include "interface/metadata.hpp"
 #include "interface/params.hpp"
 #include "interface/swarm.hpp"
@@ -120,13 +121,12 @@ class StateDescriptor {
     return names;
   }
 
-  const std::map<std::string, Metadata> &AllFields() const { return metadataMap_; }
-  const std::map<std::string, std::vector<Metadata>> &AllSparseFields() const {
+  const Dictionary<Metadata> &AllFields() const { return metadataMap_; }
+  const Dictionary<std::unordered_map<int, Metadata>> &AllSparseFields() const {
     return sparseMetadataMap_;
   }
-  const std::map<std::string, Metadata> &AllSwarms() const { return swarmMetadataMap_; }
-  const std::map<std::string, Metadata> &
-  AllSwarmValues(const std::string swarm_name) const {
+  const Dictionary<Metadata> &AllSwarms() const { return swarmMetadataMap_; }
+  const Dictionary<Metadata> &AllSwarmValues(const std::string swarm_name) const {
     return swarmValueMetadataMap_.at(swarm_name);
   }
   bool FieldPresent(const std::string field_name) const {
@@ -134,6 +134,12 @@ class StateDescriptor {
   }
   bool SparsePresent(const std::string field_name) const {
     return sparseMetadataMap_.count(field_name) > 0;
+  }
+  bool SparsePresent(const std::string field_name, int i) const {
+    if (sparseMetadataMap_.count(field_name) > 0) {
+      return sparseMetadataMap_.at(field_name).count(i) > 0;
+    }
+    return false;
   }
   bool SwarmPresent(const std::string swarm_name) const {
     return swarmMetadataMap_.count(swarm_name) > 0;
@@ -163,9 +169,9 @@ class StateDescriptor {
     for (auto &pair : metadataMap_) {
       func(pair.second);
     }
-    for (auto &pair : sparseMetadataMap_) {
-      for (auto &metadata : pair.second) {
-        func(metadata);
+    for (auto &p1 : sparseMetadataMap_) {
+      for (auto &p2 : p1.second) {
+        func(p2.second);
       }
     }
     for (auto &pair : swarmMetadataMap_) {
@@ -174,7 +180,7 @@ class StateDescriptor {
   }
 
   // get all metadata for this physics
-  const std::map<std::string, Metadata> &AllMetadata() { return metadataMap_; }
+  const Dictionary<Metadata> &AllMetadata() { return metadataMap_; }
 
   bool FlagsPresent(std::vector<MetadataFlag> const &flags, bool matchAny = false);
 
@@ -227,13 +233,14 @@ class StateDescriptor {
  private:
   Params params_;
   const std::string label_;
-  std::map<std::string, Metadata> metadataMap_;
-  std::map<std::string, std::vector<Metadata>> sparseMetadataMap_;
-  std::map<std::string, Metadata> swarmMetadataMap_;
-  std::map<std::string, std::map<std::string, Metadata>> swarmValueMetadataMap_;
+
+  Dictionary<Metadata> metadataMap_;
+  Dictionary<std::unordered_map<int, Metadata>> sparseMetadataMap_;
+  Dictionary<Metadata> swarmMetadataMap_;
+  Dictionary<Dictionary<Metadata>> swarmValueMetadataMap_;
 };
 
-using Packages_t = std::map<std::string, std::shared_ptr<StateDescriptor>>;
+using Packages_t = Dictionary<std::shared_ptr<StateDescriptor>>;
 
 std::shared_ptr<StateDescriptor> ResolvePackages(Packages_t &packages);
 

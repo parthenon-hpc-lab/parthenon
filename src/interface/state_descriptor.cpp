@@ -11,11 +11,14 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+#include <iomanip>
+#include <iostream>
 #include <sstream>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
+#include "basic_types.hpp"
 #include "interface/metadata.hpp"
 #include "interface/state_descriptor.hpp"
 
@@ -25,9 +28,11 @@ namespace parthenon {
 struct DependencyTracker {
   std::unordered_set<std::string> provided_vars;
   std::unordered_set<std::string> depends_vars;
-  std::unordered_map<std::string, int> overridable_vars;
-  std::unordered_map<std::string, std::unordered_map<int, bool>> sparse_added;
-  std::unordered_map<std::string, std::vector<Metadata>> overridable_meta;
+
+  Dictionary<int> overridable_vars;
+  Dictionary<std::unordered_map<int, bool>> sparse_added_provides;
+  Dictionary<std::unordered_map<int, bool>> sparse_added_depends;
+  Dictionary<std::vector<Metadata>> overridable_meta;
 
   template <typename AdderPrivate, typename AdderProvides>
   void Sort(const std::string &package, const std::string &var, const Metadata &metadata,
@@ -39,8 +44,18 @@ struct DependencyTracker {
       add_private(package, var, metadata);
     } else if (dependency == Metadata::Provides) {
       if (provided_vars.count(var) > 0) {
-        PARTHENON_THROW("Variable " + var + " Provided by multiple packages");
+        if (is_sparse) { // will simplify with dense on block
+          if (sparse_added_provides[var][sparse_id]) {
+            std::stringstream ss;
+            ss << "Sparse variable " << var << "_" << sparse_id
+               << " provided by multiple packages" << std::endl;
+            PARTHENON_THROW(ss);
+          }
+        } else {
+          PARTHENON_THROW("Variable " + var + " provided by multiple packages");
+        }
       }
+      if (is_sparse) sparse_added_provides[var][sparse_id] = true;
       provided_vars.insert(var);
       add_provides(package, var, metadata);
     } else if (dependency == Metadata::Requires) {
@@ -48,14 +63,12 @@ struct DependencyTracker {
     } else if (dependency == Metadata::Overridable) {
       if (overridable_meta.count(var) == 0) {
         overridable_meta[var] = {metadata};
-        if (is_sparse) {
-          sparse_added[var][sparse_id] = true;
-        }
+        if (is_sparse) sparse_added_depends[var][sparse_id] = true;
       }
       if (is_sparse) {
-        if (!sparse_added[var][sparse_id]) {
+        if (!sparse_added_depends[var][sparse_id]) {
           overridable_meta[var].push_back(metadata);
-          sparse_added[var][sparse_id] = true;
+          sparse_added_depends[var][sparse_id] = true;
         }
       }
       // only update overridable_vars count once
@@ -131,25 +144,18 @@ bool StateDescriptor::AddSwarmValue(const std::string &value_name,
 bool StateDescriptor::AddField(const std::string &field_name, const Metadata &m_in) {
   Metadata m = m_in; // horrible hack to force const correctness
   if (m.IsSet(Metadata::Sparse)) {
-    auto miter = sparseMetadataMap_.find(field_name);
-    if (miter != sparseMetadataMap_.end()) {
-      auto &mvec = miter->second;
-      PARTHENON_REQUIRE_THROWS(mvec[0].SparseEqual(m),
-                               "All sparse variables with the same name must have the "
-                               "same metadata flags and shape.");
-      if (mvec[0].GetSparseId() == m.GetSparseId()) {
+    int sparse_id = m.GetSparseId();
+    if (sparseMetadataMap_.count(field_name) > 0) {
+      if (sparseMetadataMap_.at(field_name).count(sparse_id) > 0) {
         return false;
       }
-      mvec.push_back(m);
-    } else {
-      sparseMetadataMap_[field_name] = {m};
     }
+    sparseMetadataMap_[field_name][sparse_id] = m;
   } else {
     const std::string &assoc = m.getAssociated();
     if (!assoc.length()) m.Associate(field_name);
     auto miter = metadataMap_.find(field_name);
     if (miter != metadataMap_.end()) { // this field has already been added
-      Metadata &mprev = miter->second;
       return false;
     } else {
       m.Associate("");
@@ -166,9 +172,9 @@ bool StateDescriptor::FlagsPresent(std::vector<MetadataFlag> const &flags,
     if (metadata.FlagsSet(flags, matchAny)) return true;
   }
   for (auto &pair : sparseMetadataMap_) {
-    auto &sparsevec = pair.second;
-    for (auto &metadata : sparsevec) {
-      if (metadata.FlagsSet(flags, matchAny)) return true;
+    auto &sparsemap = pair.second;
+    for (auto &p2 : sparsemap) {
+      if (p2.second.FlagsSet(flags, matchAny)) return true;
     }
   }
   return false;
@@ -192,7 +198,7 @@ std::ostream &operator<<(std::ostream &os, const StateDescriptor &sd) {
   for (auto &pair : sd.metadataMap_) {
     auto &var = pair.first;
     auto &metadata = pair.second;
-    os << var << "\t" << metadata << "\n";
+    os << std::left << std::setw(25) << var << " " << metadata << "\n";
   }
   os << "# ---------------------------------------------------\n"
      << "# Sparse Variables:\n"
@@ -200,10 +206,12 @@ std::ostream &operator<<(std::ostream &os, const StateDescriptor &sd) {
      << "# ---------------------------------------------------\n";
   for (auto &pair : sd.sparseMetadataMap_) {
     auto &var = pair.first;
-    auto &mvec = pair.second;
+    auto &mmap = pair.second;
     os << var << "\n";
-    for (auto &metadata : mvec) {
-      os << "    \t" << metadata.GetSparseId() << "\t" << metadata << "\n";
+    for (auto &p2 : mmap) {
+      auto &metadata = p2.second;
+      os << "    \t" << std::left << std::setw(9) << metadata.GetSparseId() << "\t"
+         << metadata << "\n";
     }
   }
   os << "# ---------------------------------------------------\n"
@@ -217,7 +225,7 @@ std::ostream &operator<<(std::ostream &os, const StateDescriptor &sd) {
     for (auto &p2 : svals) {
       auto &val = p2.first;
       auto &metadata = p2.second;
-      os << ("     \t" + val + "\t") << metadata << "\n";
+      os << std::left << std::setw(25) << ("    \t" + val + " ") << metadata << "\n";
     }
   }
   return os;
@@ -257,13 +265,13 @@ std::shared_ptr<StateDescriptor> ResolvePackages(Packages_t &packages) {
                                 const Metadata &metadata) {
     const std::string name = package + "::" + var;
     for (auto &m : packages[package]->AllSparseFields().at(var)) {
-      state->AddField(name, m);
+      state->AddField(name, m.second);
     }
   };
   auto add_provides_sparse = [&](const string &package, const string &var,
                                  const Metadata &metadata) {
     for (auto &m : packages[package]->AllSparseFields().at(var)) {
-      state->AddField(var, m);
+      state->AddField(var, m.second);
     }
   };
   // swarm
@@ -310,8 +318,9 @@ std::shared_ptr<StateDescriptor> ResolvePackages(Packages_t &packages) {
                                add_provides_var);
     for (auto &p2 : package->AllSparseFields()) { // sparse
       auto &var = p2.first;
-      auto &mvec = p2.second;
-      for (auto &metadata : mvec) {
+      auto &mdict = p2.second;
+      for (auto &p3 : mdict) {
+        auto &metadata = p3.second;
         var_tracker.Sort(package->label(), var, metadata, add_private_sparse,
                          add_provides_sparse);
       }
