@@ -266,7 +266,7 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::popRegion(); // Reset boundaries
 
   auto boundary_info = md->GetSendBuffers();
-  auto buff = md->GetSendBuffers(); // debug
+  auto buff = md->GetSendBuffers();                 // debug
   bool is_allocated = boundary_info.is_allocated(); // debug
 
   if (!is_allocated || true) {
@@ -279,7 +279,7 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
     auto boundary_info_old_h = boundary_info_h;
     if (is_allocated) {
       boundary_info_old_h = Kokkos::create_mirror_view(buff);
-      Kokkos::deep_copy(boundary_info_old_h,buff);
+      Kokkos::deep_copy(boundary_info_old_h, buff);
     }
 
     // now fill the buffer information
@@ -359,18 +359,22 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
       auto &bi_new = boundary_info_h;
       check_int("extents", bi_old.extent(0), bi_new.extent(0));
       for (int b = 0; b < bi_old.extent_int(0); b++) {
-        check_int("si at b="+std::to_string(b), bi_old(b).si, bi_new(b).si);
-        check_int("ei at b="+std::to_string(b), bi_old(b).ei, bi_new(b).ei);
-        check_int("sj at b="+std::to_string(b), bi_old(b).sj, bi_new(b).sj);
-        check_int("ej at b="+std::to_string(b), bi_old(b).ej, bi_new(b).ej);
-        check_int("sk at b="+std::to_string(b), bi_old(b).sk, bi_new(b).sk);
-        check_int("ek at b="+std::to_string(b), bi_old(b).ek, bi_new(b).ek);
-        if (bi_old(b).buf != bi_new(b).buf) {
+        check_int("si at b=" + std::to_string(b), bi_old(b).si, bi_new(b).si);
+        check_int("ei at b=" + std::to_string(b), bi_old(b).ei, bi_new(b).ei);
+        check_int("sj at b=" + std::to_string(b), bi_old(b).sj, bi_new(b).sj);
+        check_int("ej at b=" + std::to_string(b), bi_old(b).ej, bi_new(b).ej);
+        check_int("sk at b=" + std::to_string(b), bi_old(b).sk, bi_new(b).sk);
+        check_int("ek at b=" + std::to_string(b), bi_old(b).ek, bi_new(b).ek);
+        // Explicit view comparitors not supported by Kokkos.
+        // Instead we compare size and pointer locations.
+        if ((bi_old(b).buf.size() != bi_new(b).buf.size()) ||
+            (bi_old(b).buf.data() != bi_new(b).buf.data())) {
           std::stringstream ss;
           ss << "buf at b=" << b << " not equal!" << std::endl;
           PARTHENON_THROW(ss);
         }
-        if (bi_old(b).var != bi_new(b).var) {
+        if ((bi_old(b).var.size() != bi_new(b).var.size()) ||
+            (bi_old(b).var.data() != bi_new(b).var.data())) {
           std::stringstream ss;
           ss << "var at b=" << b << " not equal!" << std::endl;
           PARTHENON_THROW(ss);
