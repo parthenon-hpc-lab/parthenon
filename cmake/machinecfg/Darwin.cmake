@@ -50,7 +50,7 @@ set(DARWIN_ARCH ${DARWIN_ARCH_INIT} CACHE STRING "Target Darwin architecture")
 # NOTE: When updating dependencies with new compilers or packages, you should
 # ideally only need to update these variables to change the default behavior.
 if (DARWIN_ARCH STREQUAL "x86_64")
-    set(DARWIN_VIEW_DATE_LATEST "2020-10-23")
+    set(DARWIN_VIEW_DATE_LATEST "2020-12-08")
     set(DARWIN_GCC_PREFERRED "GCC9")
     set(DARWIN_COMPILER_PREFERRED "GCC")
 
@@ -61,7 +61,7 @@ if (DARWIN_ARCH STREQUAL "x86_64")
 
     set(DARWIN_CUDA_DEFAULT OFF)
 elseif (DARWIN_ARCH STREQUAL "ppc64le")
-    set(DARWIN_VIEW_DATE_LATEST "2020-10-28")
+    set(DARWIN_VIEW_DATE_LATEST "2020-12-08")
     set(DARWIN_GCC_PREFERRED "GCC9")
     set(DARWIN_COMPILER_PREFERRED "GCC")
 
