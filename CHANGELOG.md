@@ -24,6 +24,7 @@
 - [[PR 368]](https://github.com/lanl/parthenon/pull/368) Fixes false positive in ci.
 - [[PR 369]](https://github.com/lanl/parthenon/pull/369) Initializes submodules when running on darwin ci.
 - [[PR 382]](https://github.com/lanl/parthenon/pull/382) Adds output on fail for fast ci implementation on Darwin. 
+- [[PR 390]](https://github.com/lanl/parthenon/pull/390) Resolve @PAR_ROOT@ to parthenon root rather than the location of the current source directory
 
 ### Removed (removing behavior/API/varaibles/...)
 
