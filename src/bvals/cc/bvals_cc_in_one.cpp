@@ -16,6 +16,7 @@
 //========================================================================================
 
 #include <memory>
+#include <sstream> // debug
 #include <string>
 #include <vector>
 
@@ -265,12 +266,21 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::popRegion(); // Reset boundaries
 
   auto boundary_info = md->GetSendBuffers();
+  auto buff = md->GetSendBuffers(); // debug
+  bool is_allocated = boundary_info.is_allocated(); // debug
 
-  if (!boundary_info.is_allocated() || true) {
+  if (!is_allocated || true) {
     Kokkos::Profiling::pushRegion("Create bndinfo array");
 
     boundary_info = BufferCache_t("send_boundary_info", buffers_used);
     auto boundary_info_h = Kokkos::create_mirror_view(boundary_info);
+
+    // debug
+    auto boundary_info_old_h = boundary_info_h;
+    if (is_allocated) {
+      boundary_info_old_h = Kokkos::create_mirror_view(buff);
+      Kokkos::deep_copy(boundary_info_old_h,buff);
+    }
 
     // now fill the buffer information
     int b = 0; // buffer index
@@ -335,6 +345,38 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
     }
     Kokkos::deep_copy(boundary_info, boundary_info_h);
     md->SetSendBuffers(boundary_info);
+
+    // debug
+    if (is_allocated) {
+      auto check_int = [](const std::string &s, int a, int b) {
+        if (a != b) {
+          std::stringstream ss;
+          ss << s << " not equal! " << a << " " << b << std::endl;
+          PARTHENON_THROW(ss);
+        }
+      };
+      auto &bi_old = boundary_info_old_h;
+      auto &bi_new = boundary_info_h;
+      check_int("extents", bi_old.extent(0), bi_new.extent(0));
+      for (int b = 0; b < bi_old.extent_int(0); b++) {
+        check_int("si at b="+std::to_string(b), bi_old(b).si, bi_new(b).si);
+        check_int("ei at b="+std::to_string(b), bi_old(b).ei, bi_new(b).ei);
+        check_int("sj at b="+std::to_string(b), bi_old(b).sj, bi_new(b).sj);
+        check_int("ej at b="+std::to_string(b), bi_old(b).ej, bi_new(b).ej);
+        check_int("sk at b="+std::to_string(b), bi_old(b).sk, bi_new(b).sk);
+        check_int("ek at b="+std::to_string(b), bi_old(b).ek, bi_new(b).ek);
+        if (bi_old(b).buf != bi_new(b).buf) {
+          std::stringstream ss;
+          ss << "buf at b=" << b << " not equal!" << std::endl;
+          PARTHENON_THROW(ss);
+        }
+        if (bi_old(b).var != bi_new(b).var) {
+          std::stringstream ss;
+          ss << "var at b=" << b << " not equal!" << std::endl;
+          PARTHENON_THROW(ss);
+        }
+      }
+    }
 
     Kokkos::Profiling::popRegion(); // Create bndinfo array
   }
