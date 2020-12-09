@@ -95,9 +95,9 @@ class VariablePack {
     return sparse_ids_(n);
   }
   KOKKOS_FORCEINLINE_FUNCTION
-  int GetGlobalSparseID(const int n) const { return GetSparse(n); }
+  int GetGlobalSparseId(const int n) const { return GetSparse(n); }
   KOKKOS_FORCEINLINE_FUNCTION
-  int GetLocalSparseID(const int n) const { return GetSparse(n); }
+  int GetLocalSparseId(const int n) const { return GetSparse(n); }
   KOKKOS_FORCEINLINE_FUNCTION
   bool IsVector(const int n) const {
     assert(0 <= n && n < dims_[3]);
