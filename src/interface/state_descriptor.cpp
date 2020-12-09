@@ -85,7 +85,7 @@ struct DependencyTracker {
                       const AdderPrivate &add_private,
                       const AdderProvides &add_provides) {
     for (auto &pair : c) {
-      std::string var = pair.first;
+      std::string const &var = pair.first;
       auto &metadata = pair.second;
       Sort(package, var, metadata, add_private, add_provides);
     }
