@@ -299,7 +299,8 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   // debug
   auto boundary_info_old_h = md->send_buffers_h;
 
-  if (!is_allocated || true) {
+  if (!is_allocated) {
+    // if (true) {
     Kokkos::Profiling::pushRegion("Create bndinfo array");
 
     boundary_info = BufferCache_t("send_boundary_info", buffers_used);
@@ -378,9 +379,6 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
         b++;
       }
     }
-    md->send_buffers_h = boundary_info_h; // debug
-    Kokkos::deep_copy(boundary_info, boundary_info_h);
-    md->SetSendBuffers(boundary_info);
 
     // debug
     if (is_allocated) {
@@ -416,6 +414,12 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
           PARTHENON_THROW(ss);
         }
       }
+    }
+
+    Kokkos::deep_copy(boundary_info, boundary_info_h);
+    if (!is_allocated) {
+      md->send_buffers_h = boundary_info_h; // debug
+      md->SetSendBuffers(boundary_info);
     }
 
     Kokkos::Profiling::popRegion(); // Create bndinfo array
