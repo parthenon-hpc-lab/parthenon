@@ -197,6 +197,9 @@ class MeshData {
     return true;
   }
 
+  // debug
+  typename cell_centered_bvars::BufferCache_t::HostMirror send_buffers_h{};
+
  private:
   Mesh *pmy_mesh_;
   BlockDataList_t<T> block_data_;
