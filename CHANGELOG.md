@@ -8,7 +8,7 @@
 - [[PR 358]](https://github.com/lanl/parthenon/pull/358) Generalize code that interfaces with downstream apps to work with both `MeshData` and `MeshBlockData`.
 - [[PR 335]](https://github.com/lanl/parthenon/pull/335) Support for project-relative `MACHINE_CFG` with `@PAR_ROOT@`
 - [[PR 328]](https://github.com/lanl/parthenon/pull/328) New `MeshBlock` packing interface using `DataCollection`s of `MeshData` and `MeshBlockData`.
-- [[PR 386]](https://github.com/lanl/parthenon/pull/386) New machinery in `StateDescriptor` to reolve conflicts between variables declared in different packages
+- [[PR 386]](https://github.com/lanl/parthenon/pull/386) New machinery in `StateDescriptor` to resolve conflicts between variables declared in different packages
 
 ### Changed (changing behavior/API/variables/...)
 - [[PR 332]](https://github.com/lanl/parthenon/pull/332) Rewrote boundary conditions to work on GPUs with variable packs. Re-enabled user-defined boundary conditions via `ApplicationInput`.
