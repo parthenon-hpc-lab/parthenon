@@ -311,7 +311,7 @@ class Metadata {
   }
 
   bool SparseEqual(const Metadata &b) const {
-    return (HasSameBits(b) && std::equal(shape_.begin(), shape_.end(), b.shape_.begin()));
+    return (HasSameFlags(b) && std::equal(shape_.begin(), shape_.end(), b.shape_.begin()));
   }
 
   bool operator==(const Metadata &b) const {
