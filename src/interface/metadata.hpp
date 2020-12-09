@@ -288,7 +288,7 @@ class Metadata {
   }
 
   // Operators
-  bool HasSameBits(const Metadata &b) const {
+  bool HasSameFlags(const Metadata &b) const {
     auto const &a = *this;
 
     // Check extra bits are unset
