@@ -39,13 +39,14 @@ struct StagedIntegrator {
 class MultiStageDriver : public EvolutionDriver {
  public:
   MultiStageDriver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
-    : EvolutionDriver(pin, app_in, pm),
-      integrator(std::make_unique<StagedIntegrator>(pin)) {}
+      : EvolutionDriver(pin, app_in, pm),
+        integrator(std::make_unique<StagedIntegrator>(pin)) {}
   // An application driver that derives from this class must define this
   // function, which defines the application specific list of tasks and
   // there dependencies that must be executed.
   virtual TaskCollection MakeTaskCollection(BlockList_t &blocks, int stage) = 0;
   virtual TaskListStatus Step();
+
  protected:
   std::unique_ptr<StagedIntegrator> integrator;
 };
