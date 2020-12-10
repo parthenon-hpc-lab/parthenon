@@ -45,6 +45,9 @@ class SwarmDeviceContext {
   bool IsActive(int n) const { return mask_(n); }
 
   KOKKOS_FUNCTION
+  bool IsOnCurrentMeshBlock(int n) const { return blockIndex_(n) == -1; }
+
+  KOKKOS_FUNCTION
   void MarkParticleForRemoval(int n) const { marked_for_removal_(n) = true; }
 
   KOKKOS_FUNCTION
@@ -56,29 +59,11 @@ class SwarmDeviceContext {
     int i = static_cast<int>((x - x_min_)/((x_max_ - x_min_)/2.)) + 1;
     int j = static_cast<int>((y - y_min_)/((y_max_ - y_min_)/2.)) + 1;
     int k = static_cast<int>((z - z_min_)/((z_max_ - z_min_)/2.)) + 1;
-    printf("[%e %e] [%e %e] [%e %e]\n", x_min_, x_max_, y_min_, y_max_, z_min_, z_max_);
-    printf("[%i %i %i] %e %e %e\n", i,j,k,x,y,z);
-/*
-    int i = 0;
-    int j = 0;
-    int k = 0;
-    if (x < x_min_) {
-      i = -1
-    } else if (x > x_max_) {
-      i = 1;
-    }
-    if (y < y_min_) {
-      j = -1
-    } else if (y > y_max_) {
-      j = 1;
-    }
-    if (z < z_min_) {
-      k = -1
-    } else if (z > z_max_) {
-      k = 1;
-    }
-    return neighborIndices_(k, j, i);*/
-    return 0;
+    //printf("[%e %e] [%e %e] [%e %e]\n", x_min_, x_max_, y_min_, y_max_, z_min_, z_max_);
+    //printf("[%i %i %i] %e %e %e\n", i,j,k,x,y,z);
+    //printf("neighbor: %i\n", neighborIndices_(k,j,i));
+    blockIndex_(n) = neighborIndices_(k,j,i);
+    return blockIndex_(n);
   }
 
  private:
@@ -90,7 +75,8 @@ class SwarmDeviceContext {
   Real z_max_;
   ParArrayND<bool> marked_for_removal_;
   ParArrayND<bool> mask_;
-  ParArrayND<int> neighbor_send_index_;
+  ParArrayND<int> blockIndex_;
+  ParArrayND<int> neighbor_send_index_; // TODO(BRR) is this needed?
   ParArrayND<int> neighborIndices_;
   friend class Swarm;
 };
@@ -186,14 +172,20 @@ class Swarm {
   void allocateComms(std::weak_ptr<MeshBlock> wpmb);
 
   bool Send(BoundaryCommSubset phase) {
+    printf("[%i] Send\n", Globals::my_rank);
     if (mpiStatus == true) {
       return true;
     }
+
+    // Count all the particles that are Active and Not on this block, if nonzero,
+    // copy into buffers (if no send already for that buffer) and send
+
     vbvar->Send(phase);
     return false;
   }
 
   bool Receive(BoundaryCommSubset phase) {
+    printf("[%i] Receive\n", Globals::my_rank);
     if (mpiStatus == true) {
       return true;
     }
@@ -202,7 +194,7 @@ class Swarm {
   }
 
   bool StartCommunication(BoundaryCommSubset phase) {
-    printf("[%i] Starting comm!\n", Globals::my_rank);
+    printf("[%i] StartCommunication!\n", Globals::my_rank);
     mpiStatus = false;
 
     global_num_incomplete_ = 3;
@@ -231,7 +223,8 @@ class Swarm {
 
     return false;
   }
-  bool FinishCommunication(BoundaryCommSubset phase) {
+  bool FinishCommunication(BoundaryCommSubset phase);
+  /*{
 
     // Check that global_num_incomplete = 0
     // TODO(BRR) if splitting particles during a push, just add 1 to global_num_incomplete update
@@ -253,7 +246,7 @@ class Swarm {
 
     printf("[%i] Finishing comm!\n", Globals::my_rank);
     return true;
-  }
+  }*/
 
  private:
   int debug = 0;
@@ -261,6 +254,7 @@ class Swarm {
 
   int global_num_incomplete_;
   int local_num_completed_;
+  int global_num_completed_;
 
   int nmax_pool_;
   int max_active_index_ = 0;
@@ -280,6 +274,9 @@ class Swarm {
   ParticleVariable<bool> marked_for_removal_;
   ParticleVariable<int> neighbor_send_index_; // -1 means no send
   ParArrayND<int> neighborIndices_; // Indexing of vbvar's neighbor array. -1 for same.
+  ParArrayND<int> blockIndex_; // Neighbor index for each particle. -1 for current block.
+
+  MPI_Request allreduce_request_;
 };
 
 using SP_Swarm = std::shared_ptr<Swarm>;

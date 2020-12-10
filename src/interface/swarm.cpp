@@ -22,34 +22,35 @@
 
 namespace parthenon {
 
-  SwarmDeviceContext Swarm::GetDeviceContext() const {
-    SwarmDeviceContext context;
-    context.marked_for_removal_ = marked_for_removal_.data;
-    context.mask_ = mask_.data;
-    context.neighborIndices_ = neighborIndices_;
-    //context.neighbor_send_index_ = neighbor_send_index.data;
+SwarmDeviceContext Swarm::GetDeviceContext() const {
+  SwarmDeviceContext context;
+  context.marked_for_removal_ = marked_for_removal_.data;
+  context.mask_ = mask_.data;
+  context.blockIndex_ = blockIndex_;
+  context.neighborIndices_ = neighborIndices_;
+  // context.neighbor_send_index_ = neighbor_send_index.data;
 
-    auto pmb = GetBlockPointer();
+  auto pmb = GetBlockPointer();
 
-    const IndexRange &ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
-    const IndexRange &jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
-    const IndexRange &kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
-    context.x_min_ = pmb->coords.x1f(ib.s);
-    context.y_min_ = pmb->coords.x2f(jb.s);
-    context.z_min_ = pmb->coords.x3f(kb.s);
-    context.x_max_ = pmb->coords.x1f(ib.e + 1);
-    context.y_max_ = pmb->coords.x2f(jb.e + 1);
-    context.z_max_ = pmb->coords.x3f(kb.e + 1);
-    return context;
-  }
+  const IndexRange &ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
+  const IndexRange &jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
+  const IndexRange &kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
+  context.x_min_ = pmb->coords.x1f(ib.s);
+  context.y_min_ = pmb->coords.x2f(jb.s);
+  context.z_min_ = pmb->coords.x3f(kb.s);
+  context.x_max_ = pmb->coords.x1f(ib.e + 1);
+  context.y_max_ = pmb->coords.x2f(jb.e + 1);
+  context.z_max_ = pmb->coords.x3f(kb.e + 1);
+  return context;
+}
 
 Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_pool_in)
     : label_(label), m_(metadata), nmax_pool_(nmax_pool_in),
       mask_("mask", nmax_pool_, Metadata({Metadata::Boolean})),
       marked_for_removal_("mfr", nmax_pool_, Metadata({Metadata::Boolean})),
       neighbor_send_index_("nsi", nmax_pool_, Metadata({Metadata::Integer})),
-      neighborIndices_("neighborIndices_", 4, 4, 4),
-      mpiStatus(true) {
+      blockIndex_("blockIndex_", nmax_pool_),
+      neighborIndices_("neighborIndices_", 4, 4, 4), mpiStatus(true) {
   Add("x", Metadata({Metadata::Real}));
   Add("y", Metadata({Metadata::Real}));
   Add("z", Metadata({Metadata::Real}));
@@ -68,6 +69,64 @@ Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_
   mask_.data.DeepCopy(mask_h);
   marked_for_removal_.data.DeepCopy(marked_for_removal_h);
 }
+
+bool Swarm::FinishCommunication(BoundaryCommSubset phase) {
+  printf("[%i] FinishCommunication\n", Globals::my_rank);
+
+  if (allreduce_request_ == MPI_REQUEST_NULL) { // No outstanding Iallreduce request
+    MPI_Iallreduce(&local_num_completed_, &global_num_completed_, 1, MPI_INT, MPI_SUM,
+                   MPI_COMM_WORLD, &allreduce_request_);
+  } else { // Outstanding Iallreduce request
+    int flag;
+    MPI_Test(&allreduce_request_, &flag, MPI_STATUS_IGNORE);
+    if (flag) { // Iallreduce completed
+      printf("[%i] incomplete: %i completed: %i\n", Globals::my_rank,
+             global_num_incomplete_, global_num_completed_);
+
+      /*if (global_num_incomplete_ > global_num_completed) { // Transport not done
+        return false;
+      } else { // Transport completed
+        mpiStatus = true;
+        return true;
+      }*/
+
+      // TODO(BRR) change the name of these vars
+      if (global_num_incomplete_ == global_num_completed_) {
+        // Transport completed
+        mpiStatus = true;
+        return true;
+      }
+
+      allreduce_request_ = MPI_REQUEST_NULL;
+    }
+  }
+
+  return false;
+}
+/*
+    // Check that global_num_incomplete = 0
+    // TODO(BRR) if splitting particles during a push, just add 1 to global_num_incomplete
+  update
+
+    //int num_completed = 0;
+    //int global_num_completed = num_completed;
+    int global_num_completed;
+    MPI_Iallreduce(&local_num_completed_, &global_num_completed, 1, MPI_INT,
+      MPI_SUM, MPI_COMM_WORLD, &allreduce_request_);
+    //global_num_incomplete_ -= global_num_completed;
+
+    printf("[%i] incomplete: %i completed: %i\n", Globals::my_rank,
+  global_num_incomplete_, global_num_completed);
+
+    if (global_num_incomplete_ > global_num_completed) {
+      return false;
+    }
+
+    mpiStatus = true;
+
+    printf("[%i] Finishing comm!\n", Globals::my_rank);
+    return true;
+  }*/
 
 void Swarm::Add(const std::vector<std::string> &labelArray, const Metadata &metadata) {
   // generate the vector and call Add
@@ -199,10 +258,12 @@ void Swarm::setPoolMax(const int nmax_pool) {
 
   // TODO(BRR) make this operation a private member function for reuse
   auto oldvar_int = neighbor_send_index_;
-  auto newvar_int = ParticleVariable<int>(oldvar_int.label(), nmax_pool, oldvar_int.metadata());
+  auto newvar_int =
+      ParticleVariable<int>(oldvar_int.label(), nmax_pool, oldvar_int.metadata());
   auto oldvar_int_data = oldvar_int.data;
   auto newvar_int_data = newvar_int.data;
-  pmb->par_for("setPoolMax_neighbor_send_index", 0, nmax_pool_ - 1,
+  pmb->par_for(
+      "setPoolMax_neighbor_send_index", 0, nmax_pool_ - 1,
       KOKKOS_LAMBDA(const int n) { newvar_int_data(n) = oldvar_int_data(n); });
   neighbor_send_index_ = newvar_int;
 
@@ -377,22 +438,85 @@ void Swarm::Defrag() {
 }
 
 void Swarm::SetupPersistentMPI() {
+  printf("[%i] SetupPersistentMPI\n", Globals::my_rank);
   vbvar->SetupPersistentMPI();
+
+  allreduce_request_ = MPI_REQUEST_NULL;
 
   // Index into neighbor blocks
   auto pmb = GetBlockPointer();
   auto neighborIndices_h = neighborIndices_.GetHostMirror();
   printf("my level: %i\n", pmb->loc.level);
   printf("Dimensions: %i\n", pmb->pmy_mesh->ndim);
+
+  // Region belonging to this meshblock
+  // for (int k = 1; k < 3; k++) {
+  for (int k = 0; k < 4; k++) { // 2D ONLY!
+    for (int j = 1; j < 3; j++) {
+      for (int i = 1; i < 3; i++) {
+        neighborIndices_h(k, j, i) = -1;
+      }
+    }
+  }
+
+  PARTHENON_REQUIRE(pmb->pmy_mesh->ndim == 2, "Only 2D tested right now!");
+
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
     printf("[%i] indices: %i %i %i\n", n, nb.ni.ox1, nb.ni.ox2, nb.ni.ox3);
     printf("    fi1: %i fi2: %i\n", nb.ni.fi1, nb.ni.fi2);
     printf("    rank: %i level: %i local ID: %i global ID: %i\n", nb.snb.rank,
-      nb.snb.level, nb.snb.lid, nb.snb.gid);
+           nb.snb.level, nb.snb.lid, nb.snb.gid);
+
+    PARTHENON_REQUIRE(pmb->loc.level == nb.snb.level,
+                      "Particles do not currently support AMR!");
+
+    int i = nb.ni.ox1;
+    int j = nb.ni.ox2;
+    int k = nb.ni.ox3;
+    if (i == -1) {
+      if (j == -1) {
+        neighborIndices_h(0, 0, 0) = n;
+      } else if (j == 0) {
+        neighborIndices_h(0, 1, 0) = n;
+        neighborIndices_h(0, 2, 0) = n;
+      } else if (j == 1) {
+        neighborIndices_h(0, 3, 0) = n;
+      }
+    } else if (i == 0) {
+      if (j == -1) {
+        neighborIndices_h(0, 0, 1) = n;
+        neighborIndices_h(0, 0, 2) = n;
+      } else if (j == 1) {
+        neighborIndices_h(0, 3, 1) = n;
+        neighborIndices_h(0, 3, 2) = n;
+      }
+    } else if (i == 1) {
+      if (j == -1) {
+        neighborIndices_h(0, 0, 3) = n;
+      } else if (j == 0) {
+        neighborIndices_h(0, 1, 3) = n;
+        neighborIndices_h(0, 2, 3) = n;
+      } else if (j == 1) {
+        neighborIndices_h(0, 3, 3) = n;
+      }
+    }
   }
 
-  exit(-1);
+  // Copy indices along z in 2D
+  if (pmb->pmy_mesh->ndim == 2) {
+    for (int k = 1; k < 4; k++) {
+      for (int j = 0; j < 4; j++) {
+        for (int i = 0; i < 4; i++) {
+          neighborIndices_h(k, j, i) = neighborIndices_h(0, j, i);
+        }
+      }
+    }
+  }
+
+  neighborIndices_.DeepCopy(neighborIndices_h);
+
+  // exit(-1);
 }
 
 // TODO(BRR) move to BoundarySwarm
@@ -414,6 +538,7 @@ void Swarm::SetupPersistentMPI() {
 #endif
 }*/
 void Swarm::allocateComms(std::weak_ptr<MeshBlock> wpmb) {
+  printf("[%i] allocateComms\n", Globals::my_rank);
   if (wpmb.expired()) return;
 
   std::shared_ptr<MeshBlock> pmb = wpmb.lock();

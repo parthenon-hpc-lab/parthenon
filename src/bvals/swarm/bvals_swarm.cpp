@@ -155,12 +155,29 @@ void BoundarySwarm::Send(BoundaryCommSubset phase) {
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
     if (nb.snb.rank != Globals::my_rank) {
+
+      // Check to see if already sending!
+      /*printf("%s:%i\n", __FILE__, __LINE__);
+      if (bd_var_.sflag[nb.bufid] == BoundaryStatus::waiting) {
+      printf("%s:%i\n", __FILE__, __LINE__);
+        int flag;
+      printf("%s:%i\n", __FILE__, __LINE__);
+        MPI_Status status;
+      printf("%s:%i\n", __FILE__, __LINE__);
+        MPI_Iprobe(MPI_ANY_SOURCE, send_tag[n], MPI_COMM_WORLD, &flag, &status);
+      printf("%s:%i\n", __FILE__, __LINE__);
+        printf("%i: flag: %i\n", n, flag);
+        continue;
+      }*/
       // Send a message to different rank neighbor just for fun
+      printf("%s:%i\n", __FILE__, __LINE__);
       printf("[%i] Sending a message!\n", Globals::my_rank);
       Real buffer[1] = {1.0};
       MPI_Request request;
-      MPI_Isend(buffer, 1, MPI_PARTHENON_REAL, nb.snb.rank, 0,
+      MPI_Isend(buffer, 1, MPI_PARTHENON_REAL, nb.snb.rank, send_tag[n],
         MPI_COMM_WORLD, &request);
+
+      //bd_var_.sflag[nb.bufid] = BoundaryStatus::waiting;
     }
   }
 #endif

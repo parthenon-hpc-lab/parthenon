@@ -179,6 +179,7 @@ TaskStatus DepositParticles(MeshBlock *pmb) {
 }
 
 TaskStatus CreateSomeParticles(MeshBlock *pmb, double t0) {
+  printf("[%i] CreateSomeParticles\n", Globals::my_rank);
   auto pkg = pmb->packages["particles_package"];
   auto swarm = pmb->real_containers.GetSwarmContainer()->Get("my particles");
   auto rng_pool = pkg->Param<RNGPool>("rng_pool");
@@ -240,6 +241,7 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, double t0) {
 }
 
 TaskStatus TransportParticles(MeshBlock *pmb, double t0, Integrator *integrator) {
+  printf("[%i] TransportParticles\n", Globals::my_rank);
   auto swarm = pmb->real_containers.GetSwarmContainer()->Get("my particles");
 
   int max_active_index = swarm->get_max_active_index();
@@ -280,7 +282,7 @@ TaskStatus TransportParticles(MeshBlock *pmb, double t0, Integrator *integrator)
   // traveled one integrator timestep's worth of time
   pmb->par_for(
       "TransportParticles", 0, max_active_index, KOKKOS_LAMBDA(const int n) {
-        if (swarm_d.IsActive(n)) {
+        if (swarm_d.IsActive(n) && swarm_d.IsOnCurrentMeshBlock(n)) {
           Real v = sqrt(vx(n) * vx(n) + vy(n) * vy(n) + vz(n) * vz(n));
           while (t(n) < t0 + dt) {
             Real dt_cell = dx_push / v;
@@ -362,6 +364,18 @@ TaskList ParticleDriver::MakeTaskList(MeshBlock *pmb, int stage) {
       tl.AddTask(none, CreateSomeParticles, pmb, t0);
 
   auto transport_particles = tl.AddTask(create_some_particles, TransportParticles, pmb, t0, integrator);
+  auto send = tl.AddTask(create_some_particles, &SwarmContainer::Send, sc.get(), BoundaryCommSubset::all);
+  auto receive = tl.AddTask(create_some_particles, &SwarmContainer::Receive, sc.get(), BoundaryCommSubset::all);
+
+  auto finalize_comm = tl.AddTask(create_some_particles, &SwarmContainer::FinishCommunication,
+    sc.get(), BoundaryCommSubset::all);
+
+  auto deposit_particles = tl.AddTask(finalize_comm, DepositParticles, pmb);
+
+  auto defrag = tl.AddTask(deposit_particles, Defrag, pmb);
+
+/*
+  auto transport_particles = tl.AddTask(create_some_particles, TransportParticles, pmb, t0, integrator);
 
   auto destroy_some_particles =
       tl.AddTask(transport_particles, DestroySomeParticles, pmb);
@@ -378,7 +392,7 @@ TaskList ParticleDriver::MakeTaskList(MeshBlock *pmb, int stage) {
   auto deposit_particles = tl.AddTask(finalize_comm, DepositParticles, pmb);
 
   auto defrag = tl.AddTask(deposit_particles, Defrag, pmb);
-
+*/
   return tl;
 }
 
