@@ -227,7 +227,7 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb) {
   return TaskStatus::complete;
 }
 
-TaskStatus TransportParticles(MeshBlock *pmb, Integrator *integrator) {
+TaskStatus TransportParticles(MeshBlock *pmb, StagedIntegrator *integrator) {
   auto swarm = pmb->swarm_data.Get()->Get("my particles");
 
   int max_active_index = swarm->get_max_active_index();
@@ -339,7 +339,7 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
     auto swarm = sc->Get("my particles");
 
     auto transport_particles =
-        tl.AddTask(none, TransportParticles, pmb.get(), integrator);
+        tl.AddTask(none, TransportParticles, pmb.get(), integrator.get());
 
     auto destroy_some_particles =
         tl.AddTask(transport_particles, DestroySomeParticles, pmb.get());
