@@ -164,21 +164,6 @@ class StateDescriptor {
     return swarmMetadataMap_[swarm_name];
   }
 
-  template <typename F>
-  void MetadataLoop(F func) {
-    for (auto &pair : metadataMap_) {
-      func(pair.second);
-    }
-    for (auto &p1 : sparseMetadataMap_) {
-      for (auto &p2 : p1.second) {
-        func(p2.second);
-      }
-    }
-    for (auto &pair : swarmMetadataMap_) {
-      func(pair.second);
-    }
-  }
-
   // get all metadata for this physics
   const Dictionary<Metadata> &AllMetadata() { return metadataMap_; }
 
@@ -231,6 +216,21 @@ class StateDescriptor {
   friend std::ostream &operator<<(std::ostream &os, const StateDescriptor &sd);
 
  private:
+  template <typename F>
+  void MetadataLoop_(F func) {
+    for (auto &pair : metadataMap_) {
+      func(pair.second);
+    }
+    for (auto &p1 : sparseMetadataMap_) {
+      for (auto &p2 : p1.second) {
+        func(p2.second);
+      }
+    }
+    for (auto &pair : swarmMetadataMap_) {
+      func(pair.second);
+    }
+  }
+
   Params params_;
   const std::string label_;
 

@@ -176,7 +176,7 @@ class Metadata {
   }
 
   /// returns a metadata with bits and shape set
-  explicit Metadata(const std::vector<MetadataFlag> &bits, std::vector<int> shape)
+  explicit Metadata(const std::vector<MetadataFlag> &bits, const std::vector<int> &shape)
       : shape_(shape), sparse_id_(-1) {
     SetMultiple(bits);
   }
@@ -185,17 +185,40 @@ class Metadata {
   explicit Metadata(const std::vector<MetadataFlag> &bits, const int sparse_id)
       : shape_({1}), sparse_id_(sparse_id) {
     SetMultiple(bits);
-    // If you pass in a sparse ID, the Sparse metadata flag is automatically added
-    Set(Sparse);
+    PARTHENON_REQUIRE_THROWS(IsSet(Sparse), "Sparse ID requires sparse metadata");
+  }
+
+  explicit Metadata(const std::vector<MetadataFlag> &bits, const std::string &associated)
+      : associated_(associated) {
+    SetMultiple(bits);
   }
 
   /// returns a metadata with bits, shape, and sparse ID set
   explicit Metadata(const std::vector<MetadataFlag> &bits, int sparse_id,
-                    std::vector<int> shape)
+                    const std::vector<int> &shape)
       : shape_(shape), sparse_id_(sparse_id) {
     SetMultiple(bits);
-    // If you pass in a sparse ID, the Sparse metadata flag is automatically added
-    Set(Sparse);
+    PARTHENON_REQUIRE_THROWS(IsSet(Sparse), "Sparse ID requires sparse metadata");
+  }
+
+  explicit Metadata(const std::vector<MetadataFlag> &bits, const int sparse_id,
+                    const std::string &associated)
+      : sparse_id_(sparse_id), associated_(associated) {
+    SetMultiple(bits);
+    PARTHENON_REQUIRE_THROWS(IsSet(Sparse), "Sparse ID requires sparse metadata");
+  }
+
+  explicit Metadata(const std::vector<MetadataFlag> &bits, const std::string &associated,
+                    const std::vector<int> &shape)
+      : associated_(associated), shape_(shape) {
+    SetMultiple(bits);
+  }
+
+  explicit Metadata(const std::vector<MetadataFlag> &bits, const int sparse_id,
+                    const std::string &associated, const std::vector<int> &shape)
+      : sparse_id_(sparse_id), associated_(associated), shape_(shape) {
+    SetMultiple(bits);
+    PARTHENON_REQUIRE_THROWS(IsSet(Sparse), "Sparse ID requires sparse metadata");
   }
 
   // Static routines
@@ -233,7 +256,7 @@ class Metadata {
     return None;
   }
 
-  MetadataFlag Dependency() const {
+  MetadataFlag Role() const {
     if (IsSet(Private)) {
       return Private;
     } else if (IsSet(Provides)) {
@@ -311,7 +334,7 @@ class Metadata {
   }
 
   bool SparseEqual(const Metadata &b) const {
-    return (HasSameFlags(b) && std::equal(shape_.begin(), shape_.end(), b.shape_.begin()));
+    return HasSameFlags(b) && (shape_ == b.shape_);
   }
 
   bool operator==(const Metadata &b) const {

@@ -31,15 +31,40 @@ using parthenon::Packages_t;
 using parthenon::Real;
 using parthenon::ResolvePackages;
 using parthenon::StateDescriptor;
+using FlagVec = std::vector<MetadataFlag>;
+
+TEST_CASE("Test Associate in StateDescriptor", "[StateDescriptor]") {
+  GIVEN("Some flags and state descriptors") {
+    FlagVec foo = {Metadata::Independent, Metadata::FillGhost};
+    StateDescriptor state("state");
+    WHEN("We add some fields with and without associated vars in metadata") {
+      state.AddField("foo", Metadata(foo));
+      state.AddField("bar", Metadata(foo, "foo"));
+      state.AddField("baz", Metadata(foo));
+      THEN("The associations are correct") {
+        REQUIRE(state.FieldMetadata("foo").getAssociated() == "foo");
+        REQUIRE(state.FieldMetadata("bar").getAssociated() == "foo");
+        REQUIRE(state.FieldMetadata("baz").getAssociated() == "baz");
+      }
+    }
+  }
+}
 
 TEST_CASE("Test reqendency resolution in StateDescriptor", "[StateDescriptor]") {
   GIVEN("Some empty state descriptors and metadata") {
     // metadata
-    using FlagVec = std::vector<MetadataFlag>;
     FlagVec priv = {Metadata::Independent, Metadata::FillGhost, Metadata::Private};
     FlagVec prov = {Metadata::Independent, Metadata::FillGhost, Metadata::Provides};
     FlagVec req = {Metadata::Independent, Metadata::FillGhost, Metadata::Requires};
     FlagVec over = {Metadata::Derived, Metadata::OneCopy, Metadata::Overridable};
+    FlagVec priv_sparse = {Metadata::Sparse, Metadata::Independent, Metadata::FillGhost,
+                           Metadata::Private};
+    FlagVec prov_sparse = {Metadata::Sparse, Metadata::Independent, Metadata::FillGhost,
+                           Metadata::Provides};
+    FlagVec req_sparse = {Metadata::Sparse, Metadata::Independent, Metadata::FillGhost,
+                          Metadata::Requires};
+    FlagVec over_sparse = {Metadata::Sparse, Metadata::Derived, Metadata::OneCopy,
+                           Metadata::Overridable};
     Metadata m_private(priv);
     Metadata m_provides(prov);
     Metadata m_requires(req);
@@ -52,10 +77,10 @@ TEST_CASE("Test reqendency resolution in StateDescriptor", "[StateDescriptor]") 
     std::vector<Metadata> m_sparse_overridable(sparse_ids.size());
     for (int i = 0; i < sparse_ids.size(); i++) {
       int id = sparse_ids[i]; // sparse metadata flag automatically added
-      m_sparse_private[i] = Metadata(priv, id);
-      m_sparse_provides[i] = Metadata(prov, id);
-      m_sparse_reqends[i] = Metadata(req, id);
-      m_sparse_overridable[i] = Metadata(over, id);
+      m_sparse_private[i] = Metadata(priv_sparse, id);
+      m_sparse_provides[i] = Metadata(prov_sparse, id);
+      m_sparse_reqends[i] = Metadata(req_sparse, id);
+      m_sparse_overridable[i] = Metadata(over_sparse, id);
     }
     // packages
     Packages_t packages;
@@ -65,6 +90,12 @@ TEST_CASE("Test reqendency resolution in StateDescriptor", "[StateDescriptor]") 
     packages["package1"] = pkg1;
     packages["package2"] = pkg2;
     packages["package3"] = pkg3;
+
+    WHEN("We add metadata with a sparse ID but the sparse flag unset") {
+      THEN("We raise an error") {
+        REQUIRE_THROWS(pkg1->AddField("sparse", Metadata(prov, 10)));
+      }
+    }
 
     WHEN("We add two non-sparse variables of the same name") {
       pkg1->AddField("dense", m_provides);
