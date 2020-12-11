@@ -50,7 +50,7 @@ void Driver::PostExecute() {
 }
 
 DriverStatus EvolutionDriver::Execute() {
-  Driver::PreExecute();
+  PreExecute();
   InitializeBlockTimeSteps();
   SetGlobalTimeStep();
   pouts->MakeOutputs(pmesh, pinput, &tm);
