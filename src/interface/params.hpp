@@ -53,9 +53,8 @@ class Params {
   const T &Get(const std::string &key) const {
     auto const it = myParams_.find(key);
     PARTHENON_REQUIRE_THROWS(it != myParams_.end(), "Key " + key + " doesn't exist");
-    PARTHENON_REQUIRE_THROWS(
-        !(myTypes_.find(key)->second.compare(std::string(typeid(T).name()))),
-        "WRONG TYPE FOR KEY '" + key + "'");
+    PARTHENON_REQUIRE_THROWS(!(myTypes_.at(key).compare(std::string(typeid(T).name()))),
+                             "WRONG TYPE FOR KEY '" + key + "'");
     auto typed_ptr = dynamic_cast<Params::object_t<T> *>((it->second).get());
     return *typed_ptr->pValue;
   }
