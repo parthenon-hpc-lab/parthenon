@@ -42,7 +42,7 @@ class Node:
  Place binary files in orphan branches
 # Place text files in wiki main branch
 class ParthenonApp:
-  def __init__(self, pem_file):
+  def __init__(self, pem_file = ""):
     self.__generateJWT(pem_file)
     self.__generateInstallationId() 
     self.__generateAccessToken()
@@ -56,7 +56,6 @@ class ParthenonApp:
     self.__parth_root = Node()
 
   def __generateJWT(self,pem_file):
-    certs = pem.parse_file(pem_file)
 
     # iss is the app id
     # Ensuring that we request an access token that expires after a minute
@@ -65,9 +64,19 @@ class ParthenonApp:
         'exp': datetime.datetime.utcnow() + datetime.timedelta(seconds=60),
         'iss': 92734
         }
-    
-    self.__jwt_token = jwt.encode(payload,str(certs[0]), algorithm='RS256').decode("utf-8")
+  
+    PEM = ""
+    if pem_file == "":
+      PEM = os.environ.get('PARTHENON_METRICS_APP_PEM')
+    else:
+      certs = pem.parse_file(pem_file)
+      PEM = str(certs[0])
 
+    if PEM == "":
+      error_msg = "No permissions enabled for parthenon metrics app, either a pem file needs to "
+      "be provided or the PATHENON_METRICS_APP_PEM variable needs to be defined"
+      raise Exception(error_msg)
+    self.__jwt_token = jwt.encode(payload,PEM, algorithm='RS256').decode("utf-8")
 
   def __generateInstallationId(self):
     buffer_temp = BytesIO()
@@ -316,12 +325,12 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser("python3 parthenon_metrics_app.py -p file.pem")
     
-    desc = ('Path to the (permissions file/permissions string) which authenticates the application.')
+    desc = ('Path to the (permissions file/permissions string) which authenticates the application. If not provided will use the env variable PARTHENON_METRICS_APP_PEM.')
    
     parser.add_argument('--permissions','-p',
                         type=str,
                         nargs=1,
-                        required=True,
+                        required=False,
                         help=desc)
 
     desc = ('Path to file want to upload.')
