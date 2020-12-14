@@ -38,9 +38,6 @@ class Node:
     for node in self.dirs:
       node.printTree()
 
-
- Place binary files in orphan branches
-# Place text files in wiki main branch
 class ParthenonApp:
   def __init__(self, pem_file = ""):
     self.__generateJWT(pem_file)
