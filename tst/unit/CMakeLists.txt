@@ -32,6 +32,7 @@ list(APPEND unit_tests_SOURCES
     test_required_desired.cpp
     test_error_checking.cpp
     test_partitioning.cpp
+    test_state_descriptor.cpp
 )
 
 add_executable(unit_tests "${unit_tests_SOURCES}")

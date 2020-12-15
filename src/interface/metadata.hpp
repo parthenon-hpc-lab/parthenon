@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <bitset>
 #include <exception>
+#include <iostream>
 #include <stdexcept>
 #include <string>
 #include <tuple>
@@ -37,6 +38,14 @@
   PARTHENON_INTERNAL_FOR_FLAG(Ignore)                                                    \
   /**  no topology specified */                                                          \
   PARTHENON_INTERNAL_FOR_FLAG(None)                                                      \
+  /**  Private to a package */                                                           \
+  PARTHENON_INTERNAL_FOR_FLAG(Private)                                                   \
+  /**  Provided by a package */                                                          \
+  PARTHENON_INTERNAL_FOR_FLAG(Provides)                                                  \
+  /**  Not created by a package, assumes available from another package */               \
+  PARTHENON_INTERNAL_FOR_FLAG(Requires)                                                  \
+  /**  does nothing if another package provides the variable */                          \
+  PARTHENON_INTERNAL_FOR_FLAG(Overridable)                                               \
   /**  cell variable */                                                                  \
   PARTHENON_INTERNAL_FOR_FLAG(Cell)                                                      \
   /**  face variable */                                                                  \
@@ -57,8 +66,6 @@
   PARTHENON_INTERNAL_FOR_FLAG(Intensive)                                                 \
   /** added to restart dump */                                                           \
   PARTHENON_INTERNAL_FOR_FLAG(Restart)                                                   \
-  /** added to graphics dumps */                                                         \
-  PARTHENON_INTERNAL_FOR_FLAG(Graphics)                                                  \
   /** is specified per-sparse index */                                                   \
   PARTHENON_INTERNAL_FOR_FLAG(Sparse)                                                    \
   /** is an independent, evolved variable */                                             \
@@ -124,6 +131,12 @@ class MetadataFlag {
   constexpr int InternalFlagValue() const { return flag_; }
 #endif
 
+  friend std::ostream &operator<<(std::ostream &os, const Metadata &m);
+  friend std::ostream &operator<<(std::ostream &os, const MetadataFlag &flag) {
+    os << flag.Name();
+    return os;
+  }
+
  private:
   // MetadataFlag can only be instantiated by Metadata
   constexpr explicit MetadataFlag(int flag) : flag_(flag) {}
@@ -163,7 +176,7 @@ class Metadata {
   }
 
   /// returns a metadata with bits and shape set
-  explicit Metadata(const std::vector<MetadataFlag> &bits, std::vector<int> shape)
+  explicit Metadata(const std::vector<MetadataFlag> &bits, const std::vector<int> &shape)
       : shape_(shape), sparse_id_(-1) {
     SetMultiple(bits);
   }
@@ -172,18 +185,44 @@ class Metadata {
   explicit Metadata(const std::vector<MetadataFlag> &bits, const int sparse_id)
       : shape_({1}), sparse_id_(sparse_id) {
     SetMultiple(bits);
+    PARTHENON_REQUIRE_THROWS(IsSet(Sparse), "Sparse ID requires sparse metadata");
+  }
+
+  explicit Metadata(const std::vector<MetadataFlag> &bits, const std::string &associated)
+      : associated_(associated) {
+    SetMultiple(bits);
   }
 
   /// returns a metadata with bits, shape, and sparse ID set
   explicit Metadata(const std::vector<MetadataFlag> &bits, int sparse_id,
-                    std::vector<int> shape)
+                    const std::vector<int> &shape)
       : shape_(shape), sparse_id_(sparse_id) {
     SetMultiple(bits);
+    PARTHENON_REQUIRE_THROWS(IsSet(Sparse), "Sparse ID requires sparse metadata");
+  }
+
+  explicit Metadata(const std::vector<MetadataFlag> &bits, const int sparse_id,
+                    const std::string &associated)
+      : sparse_id_(sparse_id), associated_(associated) {
+    SetMultiple(bits);
+    PARTHENON_REQUIRE_THROWS(IsSet(Sparse), "Sparse ID requires sparse metadata");
+  }
+
+  explicit Metadata(const std::vector<MetadataFlag> &bits, const std::string &associated,
+                    const std::vector<int> &shape)
+      : associated_(associated), shape_(shape) {
+    SetMultiple(bits);
+  }
+
+  explicit Metadata(const std::vector<MetadataFlag> &bits, const int sparse_id,
+                    const std::string &associated, const std::vector<int> &shape)
+      : sparse_id_(sparse_id), associated_(associated), shape_(shape) {
+    SetMultiple(bits);
+    PARTHENON_REQUIRE_THROWS(IsSet(Sparse), "Sparse ID requires sparse metadata");
   }
 
   // Static routines
   static MetadataFlag AllocateNewFlag(std::string &&name);
-
   // Individual flag setters
   void Set(MetadataFlag f) { DoBit(f, true); }    ///< Set specific bit
   void Unset(MetadataFlag f) { DoBit(f, false); } ///< Unset specific bit
@@ -217,6 +256,20 @@ class Metadata {
     return None;
   }
 
+  MetadataFlag Role() const {
+    if (IsSet(Private)) {
+      return Private;
+    } else if (IsSet(Provides)) {
+      return Provides;
+    } else if (IsSet(Requires)) {
+      return Requires;
+    } else if (IsSet(Overridable)) {
+      return Overridable;
+    } else {
+      return None;
+    }
+  }
+
   void SetSparseId(int id) { sparse_id_ = id; }
   int GetSparseId() const { return sparse_id_; }
 
@@ -233,6 +286,7 @@ class Metadata {
     }
     return str;
   }
+  friend std::ostream &operator<<(std::ostream &os, const parthenon::Metadata &m);
 
   /**
    * @brief Returns true if any flag is set
@@ -257,7 +311,7 @@ class Metadata {
   }
 
   // Operators
-  bool operator==(const Metadata &b) const {
+  bool HasSameFlags(const Metadata &b) const {
     auto const &a = *this;
 
     // Check extra bits are unset
@@ -276,8 +330,15 @@ class Metadata {
         return false;
       }
     }
+    return true;
+  }
 
-    return std::tie(a.shape_, a.sparse_id_) == std::tie(b.shape_, b.sparse_id_);
+  bool SparseEqual(const Metadata &b) const {
+    return HasSameFlags(b) && (shape_ == b.shape_);
+  }
+
+  bool operator==(const Metadata &b) const {
+    return (SparseEqual(b) && (sparse_id_ == b.sparse_id_));
   }
 
   bool operator!=(const Metadata &b) const { return !(*this == b); }
