@@ -239,7 +239,7 @@ bool StateDescriptor::AddSwarmValue(const std::string &value_name,
 }
 
 bool StateDescriptor::AddField(const std::string &field_name, const Metadata &m_in) {
-  Metadata m = m_in; // horrible hack to force const correctness
+  Metadata m = m_in; // Force const correctness
   if (m.IsSet(Metadata::Sparse)) {
     int sparse_id = m.GetSparseId();
     if (sparseMetadataMap_.count(field_name) > 0) {
