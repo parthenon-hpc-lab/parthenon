@@ -1,7 +1,21 @@
+#=========================================================================================
+# (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+#
+# This program was produced under U.S. Government contract 89233218CNA000001 for Los
+# Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
+# for the U.S. Department of Energy/National Nuclear Security Administration. All rights
+# in the program are reserved by Triad National Security, LLC, and the U.S. Department
+# of Energy/National Nuclear Security Administration. The Government is granted for
+# itself and others acting on its behalf a nonexclusive, paid-up, irrevocable worldwide
+# license in this material to reproduce, prepare derivative works, distribute copies to
+# the public, perform publicly and display publicly, and to permit others to do so.
+#=========================================================================================
+
 import os
 import jwt
 import pem
 import datetime
+import pathlib
 import pycurl
 import json
 import base64
@@ -39,18 +53,25 @@ class Node:
       node.printTree()
 
 class ParthenonApp:
-  def __init__(self, pem_file = ""):
+  def __init__(self, use_wiki=False, ignore=False, pem_file = ""):
+
+    self.__ignore = ignore
+    self.__use_wiki = use_wiki
     self.__generateJWT(pem_file)
     self.__generateInstallationId() 
     self.__generateAccessToken()
-    self.__name = "Parthenon Github Metrics Application"
-    self.__repo_url = "https://api.github.com/repos/lanl/Parthenon"
+    self.__name = "Parthenon_Github_Metrics_Application"
+    self.__repo_name = "parthenon"
+    self.__repo_url = "https://api.github.com/repos/lanl/" + self.__repo_name
     self.__default_branch = "develop"
     self.__default_image_branch = "figures"
     self.__branches = []
     self.__branch_current_commit_sha = {}
     self.__api_version = "application/vnd.github.v3+json"
     self.__parth_root = Node()
+    self.__parthenon_home = pathlib.Path(__file__).parent.absolute()
+    self.__parthenon_home = self.__parthenon_home[:self.__parthenon_home.index(self.__repo_name) + len("/" + self.__repo_name + "/")] 
+    self.__parthenon_wiki_dir = self.__parthenon_home + self.__repo_name + ".wiki"
 
   def __generateJWT(self,pem_file):
 
@@ -202,120 +223,133 @@ class ParthenonApp:
 
     return contents
 
-    file_found = False
-
-    if isinstance(js_obj, list):
-        # Cycle through list to try to find the right object
-        for obj in js_obj:
-            if obj['name'] == file_name:
-                file_found = True
-                break
-
-
-
-  def upload(self,file_name, branch = self.__default_branch):
+  def upload(self, file_name, branch = self.__default_branch):
 
     if file_name.lower().endswith(('.png', '.jpg', '.jpeg', '.tiff', '.bmp', '.gif')):
-      if branch != self.__default_image_branch:
-        print("Note all images will be uploaded to a branch named: " + self.__default_image_branch)
+      if branch != self.__default_image_branch and not self.__ignore:
+        print("Note all images will be uploaded to a branch named: " + self.__default_image_branch + " in the main repository.")
+        print("Unless the ignore flag is used.")
         branch = self.__default_image_branch
-
-    branches = getBranches()
-
-    if not branch in branches:
-      raise Execption("branch does not exist on repository")
+        self.__use_wiki = False
     
-    contents = getContents(branch)
-
-    file_found = False
-    if file_name in contents:
-      file_found = True
-      break
-
-    # 2. convert file into base64 format
-    # b is needed if it is a png or image file/ binary file
-    data = open(name_of_file, "rb").read()
-    encoded_file = base64.b64encode(data)
-
-    # 3. upload the file, overwrite if exists already
-    if file_found:
-        custom_data = {
-            'message': self.__name + " overwriting file " + name_of_file,
-            'name': self.__name,
-            'branch': branch
-            'sha': obj['sha'],
-            'content': encoded_file.decode('ascii')
-                }
-
+    if self.__use_wiki:
+      if branch != "master":
+        print("Files can only be uploaded to the wiki repositories master branch")
+        return
+      else:
+        shutil.copy(file_name,self.__parthenon_wiki_dir)
+        repo = self.getWikiRepo()
+        repo.index.add([str(self.__parthenon_wiki_dir + "/" + os.path.basename(os.path.normpath(file_name))])
+        repo.git.push("--set-upstream","origin",repo.head.reference)
     else:
-        custom_data = {
-            'message': self.__name + " uploading file " + name_of_file
-            'name': self.__name,
-            'content': encoded_file.decode('ascii')
-                }
+      branches = getBranches()
 
-    https_url_to_file = self.__repo_url + "/contents/" + name_of_file
-    c2 = pycurl.Curl()
-    c2.setopt(c2.HTTPHEADER, self.__header)
-    c2.setopt(c2.URL, https_url_to_file)
-    c2.setopt(c2.UPLOAD, 1)
-    c2.setopt(c2.VERBOSE, True)
-    buffer_temp2 = BytesIO(json.dumps(custom_data).encode('utf-8'))
-    c2.setopt(c.READDATA, buffer_temp2)
-    buffer_temp3 = BytesIO()
-    c2.setopt(c2.WRITEDATA, buffer_temp3)
-    c2.perform()
-    c2.close()
+      if not branch in branches:
+        raise Execption("branch does not exist on repository")
+      
+      contents = getContents(branch)
 
-def __fillTree(current_node, branch):
-    nodes = current_node.getNodes()
-    for node in nodes:
-      buffer_temp = BytesIO()
-      custom_data = {"branch": branch}
+      file_found = False
+      if file_name in contents:
+        file_found = True
+        break
+
+      # 2. convert file into base64 format
+      # b is needed if it is a png or image file/ binary file
+      data = open(name_of_file, "rb").read()
+      encoded_file = base64.b64encode(data)
+
+      # 3. upload the file, overwrite if exists already
+      if file_found:
+          custom_data = {
+              'message': self.__name + " overwriting file " + name_of_file,
+              'name': self.__name,
+              'branch': branch
+              'sha': obj['sha'],
+              'content': encoded_file.decode('ascii')
+                  }
+
+      else:
+          custom_data = {
+              'message': self.__name + " uploading file " + name_of_file
+              'name': self.__name,
+              'content': encoded_file.decode('ascii')
+                  }
+
+      https_url_to_file = self.__repo_url + "/contents/" + name_of_file
+      c2 = pycurl.Curl()
+      c2.setopt(c2.HTTPHEADER, self.__header)
+      c2.setopt(c2.URL, https_url_to_file)
+      c2.setopt(c2.UPLOAD, 1)
+      c2.setopt(c2.VERBOSE, True)
       buffer_temp2 = BytesIO(json.dumps(custom_data).encode('utf-8'))
+      c2.setopt(c.READDATA, buffer_temp2)
+      buffer_temp3 = BytesIO()
+      c2.setopt(c2.WRITEDATA, buffer_temp3)
+      c2.perform()
+      c2.close()
+
+  def __fillTree(self, current_node, branch):
+      nodes = current_node.getNodes()
+      for node in nodes:
+        buffer_temp = BytesIO()
+        custom_data = {"branch": branch}
+        buffer_temp2 = BytesIO(json.dumps(custom_data).encode('utf-8'))
+        c = pycurl.Curl()
+        c.setopt(c.URL, self.__repo_url + "/contents/" + node.getPath())
+        c.setopt(c.READDATA, buffer_temp2)
+        c.setopt(c.WRITEDATA, buffer_temp)
+        c.setopt(c.HTTPHEADER, self.__header)
+        c.perform()
+        c.close()
+        js_obj = json.loads(buffer_temp,getvalue())
+
+        if isinstance(js_obj, list):
+          for ob in js_obj:
+            node.insert(ob['name'],ob['type'])
+        else:
+            node.insert(js_obj['name'],js_obj['type'])
+
+        self.__fillTree(node, branch)
+
+  def getBranchTree(self, branch, access_token):
+      buffer_temp = BytesIO()
+      custom_data = {"branch": branch)
+      buffer_temp2 = BytesIO(json,dumps(custom_data).encode('utf-8'))
+      # 1. Check if file exists
       c = pycurl.Curl()
-      c.setopt(c.URL, self.__repo_url + "/contents/" + node.getPath())
+      c.setopt(c.URL, self.__repo_url + "/contents" )
       c.setopt(c.READDATA, buffer_temp2)
       c.setopt(c.WRITEDATA, buffer_temp)
       c.setopt(c.HTTPHEADER, self.__header)
       c.perform()
       c.close()
-      js_obj = json.loads(buffer_temp,getvalue())
 
-      if isinstance(js_obj, list):
-        for ob in js_obj:
-          node.insert(ob['name'],ob['type'])
-      else:
-          node.insert(js_obj['name'],js_obj['type'])
+      js_obj = json.loads(buffer_temp.getvalue())
+      for obj in js_obj:
+        self.__parth_root.insert(ob['name'],ob['type'])
 
-      self.__fillTree(node, branch)
+      self.__fillTree(self.__parth_root, branch)
 
-def getBranchTree(branch, access_token):
-    buffer_temp = BytesIO()
-    custom_data = {"branch": branch)
-    buffer_temp2 = BytesIO(json,dumps(custom_data).encode('utf-8'))
-    # 1. Check if file exists
-    c = pycurl.Curl()
-    c.setopt(c.URL, self.__repo_url + "/contents" )
-    c.setopt(c.READDATA, buffer_temp2)
-    c.setopt(c.WRITEDATA, buffer_temp)
-    c.setopt(c.HTTPHEADER, self.__header)
-    c.perform()
-    c.close()
+  def getWikiRepo(self, branch):
+     
+    wiki_remote = f"https://{self.__name}:{self.__access_token}@github.com/lanl/" + self.__repo_name + ".wiki.git"
+    if not os.path.isdir(self.__parthenon_home + self.__repo_name +  ".wiki")
+      repo = Repo.clone_from(wiki_remote, self.__parthenon_home + self.__repo_name +  ".wiki")
+    else:
+      repo = Repo(self.__parthenon_home + self.__repo_name +  ".wiki")
+      repo.config_writer().set_value("user","name", self.__name).release()
 
-    js_obj = json.loads(buffer_temp.getvalue())
-    for obj in js_obj:
-      self.__parth_root.insert(ob['name'],ob['type'])
-
-    self.__fillTree(self.__parth_root, branch)
+    os.environ["GIT_PASSWORD"] = self.__access_token
+    return repo
 
 def main(**kwargs):
 
-  ParthenonApp app(kwargs.pop('permissions'))
+  ParthenonApp app(kwargs.pop('wiki'), kwargs.pop('permissions'))
 
   branch = kwargs.pop('branch')
-  if 'update' in kwargs:
-    app.upload(kwargs.pop('update'), branch)
+  if 'upload' in kwargs:
+    app.upload(kwargs.pop('upload'), branch)
 
 # Execute main function
 if __name__ == '__main__':
@@ -345,6 +379,18 @@ if __name__ == '__main__':
                         nargs=1,
                         required=False,
                         help=desc)
+
+    desc = ('Use the wiki repository.')
+    parser.add_argument('--wiki','-w',
+        action='store_true',
+        default=True,
+        hep=desc)
+
+    desc = ('Ignore rules, will ignore upload rules')
+    parser.add_argument('--ignore','-i',
+        action='store_true',
+        default=True,
+        hep=desc)
 
     args = parser.parse_args()
     try:
