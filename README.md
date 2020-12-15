@@ -116,4 +116,5 @@ how to use them.
 | Daniel Holladay | @dholladay00 | LANL Computer Science |
 | Galen Shipman | @gshipman | LANL Computer Science |
 | Ben Ryan | @brryan | LANL Physics |
+| Clell J. (CJ) Solomon | @clellsolomon | LANL Physics |
 
