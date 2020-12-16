@@ -24,6 +24,9 @@ import base64
 from io import BytesIO
 from git import Repo
 
+"""
+Class used to store branch contents in terms of files, directories or misc
+"""
 class Node:
   def __init__(self, dir_name = "", rel_path = ""):
     self.dir = dir_name
@@ -33,6 +36,10 @@ class Node:
     self.rel_path = rel_path + dir_name
 
   def insert(self, content, content_type):
+    """
+    Will either store new information as a file, directory or misc type.
+    If the content type is of type dir than a new node is created.
+    """
     if content_type == "dir":
       self.dirs.append(Node(content, self.rel_path + "/"))
     elif content_type == "file":
@@ -41,12 +48,22 @@ class Node:
       self.files.append(content)
 
   def getNodes(self):
+    """
+    Returns a list of all nodes in the current node, which are essentially
+    directories.
+    """
     return self.dirs
 
   def getPath(self):
+    """
+    Get the relative path of the current node.
+    """
     return self.rel_path
 
   def printTree(self):
+    """
+    Print contents of node and all child nodes 
+    """
     print("Contents in folder: " + self.rel_path)
     for fil in self.files:
       print("File " + fil)
@@ -55,9 +72,14 @@ class Node:
     for node in self.dirs:
       node.printTree()
 
+"""
+Parthenon App Class
+
+This class is responsible for authenticating against the parthenon repository and interacting
+with the github api. 
+"""
 class ParthenonApp:
   def __init__(self, use_wiki=False, ignore=False, pem_file = "", create_branch=False):
-
     self.__app_id = 92734
     self.__ignore = ignore
     self.__use_wiki = use_wiki
@@ -76,7 +98,6 @@ class ParthenonApp:
     self.__api_version = "application/vnd.github.v3+json"
     self.__parth_root = Node()
     self.__parthenon_home = str(pathlib.Path(__file__).parent.absolute())
-
     try:
       self.__parthenon_home = self.__parthenon_home[:self.__parthenon_home.index(self.__repo_name) + len("/" + self.__repo_name )] 
     except Exception:
@@ -93,7 +114,9 @@ class ParthenonApp:
     self.__generateAccessToken()
 
   def __generateJWT(self,pem_file):
-
+    """
+    Method will take the permissions file provided and populate the json web token attribute
+    """
     # iss is the app id
     # Ensuring that we request an access token that expires after a minute
     payload = { 
@@ -116,6 +139,9 @@ class ParthenonApp:
     self.__jwt_token = jwt.encode(payload,PEM, algorithm='RS256').decode("utf-8")
 
   def __generateInstallationId(self):
+    """
+    This method will populate the installation id attribute using a json web token. 
+    """
     buffer_temp = BytesIO()
     header = [
             'Authorization: Bearer '+str(self.__jwt_token),
@@ -138,6 +164,10 @@ class ParthenonApp:
     self.__install_id = js_obj['html_url'].rsplit('/', 1)[-1]
 
   def __generateAccessToken(self):
+    """
+    This method will populate the installation attribute using the installation id. The token
+    is needed to authenticate any actions run by the application. 
+    """
     buffer_temp = BytesIO()
     header = [
             'Authorization: Bearer '+str(self.__jwt_token),
@@ -208,11 +238,10 @@ class ParthenonApp:
     """
     if branch_to_fork_from is None:
       branch_to_fork_from = self.__default_branch
-    branches = self.getBranches()
-    if branch in branches:
+    if self.branchExist(branch):
       return
 
-    if not branch_to_fork_from in branches:
+    if not self.branchExist(branch_to_fork_from):
       error_msg = "Cannot create new branch: " + branch + " from " + branch_to_fork_from + " because " + branch_to_fork_from + " does not exist."
       raise Exception(error_msg)
 
@@ -286,11 +315,10 @@ class ParthenonApp:
         repo.git.push("--set-upstream","origin",repo.head.reference)
         return
     else:
-      branches = self.getBranches()
 
       if self.__create_branch:
         self.createBranch(branch)
-      elif not branch in branches:
+      elif not self.branchExist(branch):
         error_msg = "branch: " + branch + " does not exist in repository."
         raise Exception(error_msg)
       
