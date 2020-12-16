@@ -27,7 +27,7 @@
 #       Default: ON if nvidia-smi finds at least one GPU, OFF otherwise
 # - `RZANSEL_PROJECT_PREFIX`
 #   Description: [ADVANCED] Point to an alternative parthenon-project path
-#       Default: /projects/parthenon-int/parthenon-project
+#       Default: /usr/gapps/parthenon_shared/parthenon-project
 
 set(RZANSEL_ARCH "ppc64le")
 # NOTE: When updating dependencies with new compilers or packages, you should
@@ -83,7 +83,7 @@ if (RZANSEL_COMPILER STREQUAL "GCC")
     set(RZANSEL_COMPILER ${RZANSEL_GCC_PREFERRED})
 endif()
 
-set(RZANSEL_PROJECT_PREFIX /g/g15/brown338/Software/parthenon-project
+set(RZANSEL_PROJECT_PREFIX /usr/gapps/parthenon_shared/parthenon-project
     CACHE STRING "Path to parthenon-project checkout")
 mark_as_advanced(RZANSEL_PROJECT_PREFIX)
 
