@@ -11,6 +11,7 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
 
+import argparse
 import os
 import jwt
 import pem
@@ -18,8 +19,10 @@ import datetime
 import pathlib
 import pycurl
 import json
+import shutil
 import base64
 from io import BytesIO
+from git import Repo
 
 class Node:
   def __init__(self, dir_name = "", rel_path = ""):
@@ -55,11 +58,9 @@ class Node:
 class ParthenonApp:
   def __init__(self, use_wiki=False, ignore=False, pem_file = ""):
 
+    self.__app_id = 92734
     self.__ignore = ignore
     self.__use_wiki = use_wiki
-    self.__generateJWT(pem_file)
-    self.__generateInstallationId() 
-    self.__generateAccessToken()
     self.__name = "Parthenon_Github_Metrics_Application"
     self.__repo_name = "parthenon"
     self.__repo_url = "https://api.github.com/repos/lanl/" + self.__repo_name
@@ -69,9 +70,15 @@ class ParthenonApp:
     self.__branch_current_commit_sha = {}
     self.__api_version = "application/vnd.github.v3+json"
     self.__parth_root = Node()
-    self.__parthenon_home = pathlib.Path(__file__).parent.absolute()
-    self.__parthenon_home = self.__parthenon_home[:self.__parthenon_home.index(self.__repo_name) + len("/" + self.__repo_name + "/")] 
+    self.__parthenon_home = str(pathlib.Path(__file__).parent.absolute())
+    self.__parthenon_home = self.__parthenon_home[:self.__parthenon_home.index(self.__repo_name) + len("/" + self.__repo_name )] 
     self.__parthenon_wiki_dir = self.__parthenon_home + self.__repo_name + ".wiki"
+    if isinstance(pem_file,list):
+      self.__generateJWT(pem_file[0])
+    else:
+      self.__generateJWT(pem_file)
+    self.__generateInstallationId() 
+    self.__generateAccessToken()
 
   def __generateJWT(self,pem_file):
 
@@ -80,7 +87,7 @@ class ParthenonApp:
     payload = { 
         'iat': datetime.datetime.utcnow(),
         'exp': datetime.datetime.utcnow() + datetime.timedelta(seconds=60),
-        'iss': 92734
+        'iss': self.__app_id 
         }
   
     PEM = ""
@@ -100,7 +107,7 @@ class ParthenonApp:
     buffer_temp = BytesIO()
     header = [
             'Authorization: Bearer '+str(self.__jwt_token),
-            'Accept: ' + self.__api_version,
+            'Accept: ' + self.__api_version
             ]
 
     c = pycurl.Curl()
@@ -180,13 +187,16 @@ class ParthenonApp:
   def refreshBranchCache(self):
     self.__getBranches()
 
-  def createBranch(self,branch, branch_to_fork_from = self.__default_branch):
+  def createBranch(self,branch, branch_to_fork_from = None):
+    if branch_to_fork_from is None:
+      branch_to_fork_from = self.__default_branch
     branches = self.getBranches()
     if branch in branches:
       raise Exception("Branch already exists cannot create.")
 
     if not branch_to_fork_from in branches:
-      raise Exception("Cannot create new branch: " + branch + " from " + branch_to_fork_from " because " + branch_to_fork_from + " does not exist.")
+      error_msg = "Cannot create new branch: " + branch + " from " + branch_to_fork_from + " because " + branch_to_fork_from + " does not exist."
+      raise Exception(error_msg)
 
     buffer_temp = BytesIO()
     custom_data = {"ref": "refs/heads/" + branch, "sha": self.__branch_current_commit_sha[branch_to_fork_from]}
@@ -200,7 +210,9 @@ class ParthenonApp:
     c.perform()
     c.close()
 
-  def getContents(self,branch=self.__default_branch):
+  def getContents(self,branch=None):
+    if branch is None:
+      branch = self.__default_branch
     buffer_temp = BytesIO()
     # 1. Check if file exists if so get SHA
     custom_data = {"branch":branch}
@@ -223,8 +235,11 @@ class ParthenonApp:
 
     return contents
 
-  def upload(self, file_name, branch = self.__default_branch):
-
+  def upload(self, file_name, branch = None):
+    if isinstance(file_name,list):
+      file_name = file_name[0]
+    if branch is None:
+      branch = self.__default_branch
     if file_name.lower().endswith(('.png', '.jpg', '.jpeg', '.tiff', '.bmp', '.gif')):
       if branch != self.__default_image_branch and not self.__ignore:
         print("Note all images will be uploaded to a branch named: " + self.__default_image_branch + " in the main repository.")
@@ -238,8 +253,8 @@ class ParthenonApp:
         return
       else:
         shutil.copy(file_name,self.__parthenon_wiki_dir)
-        repo = self.getWikiRepo()
-        repo.index.add([str(self.__parthenon_wiki_dir + "/" + os.path.basename(os.path.normpath(file_name))])
+        repo = self.getWikiRepo(branch)
+        repo.index.add([str(self.__parthenon_wiki_dir + "/" + os.path.basename(os.path.normpath(file_name)))])
         repo.git.push("--set-upstream","origin",repo.head.reference)
     else:
       branches = getBranches()
@@ -252,7 +267,6 @@ class ParthenonApp:
       file_found = False
       if file_name in contents:
         file_found = True
-        break
 
       # 2. convert file into base64 format
       # b is needed if it is a png or image file/ binary file
@@ -264,14 +278,14 @@ class ParthenonApp:
           custom_data = {
               'message': self.__name + " overwriting file " + name_of_file,
               'name': self.__name,
-              'branch': branch
+              'branch': branch,
               'sha': obj['sha'],
               'content': encoded_file.decode('ascii')
                   }
 
       else:
           custom_data = {
-              'message': self.__name + " uploading file " + name_of_file
+              'message': self.__name + " uploading file " + name_of_file,
               'name': self.__name,
               'content': encoded_file.decode('ascii')
                   }
@@ -314,7 +328,7 @@ class ParthenonApp:
 
   def getBranchTree(self, branch, access_token):
       buffer_temp = BytesIO()
-      custom_data = {"branch": branch)
+      custom_data = {"branch": branch}
       buffer_temp2 = BytesIO(json,dumps(custom_data).encode('utf-8'))
       # 1. Check if file exists
       c = pycurl.Curl()
@@ -334,7 +348,7 @@ class ParthenonApp:
   def getWikiRepo(self, branch):
      
     wiki_remote = f"https://{self.__name}:{self.__access_token}@github.com/lanl/" + self.__repo_name + ".wiki.git"
-    if not os.path.isdir(self.__parthenon_home + self.__repo_name +  ".wiki")
+    if not os.path.isdir(str(self.__parthenon_home + self.__repo_name +  ".wiki")):
       repo = Repo.clone_from(wiki_remote, self.__parthenon_home + self.__repo_name +  ".wiki")
     else:
       repo = Repo(self.__parthenon_home + self.__repo_name +  ".wiki")
@@ -345,7 +359,7 @@ class ParthenonApp:
 
 def main(**kwargs):
 
-  ParthenonApp app(kwargs.pop('wiki'), kwargs.pop('permissions'))
+  app = ParthenonApp(kwargs.pop('wiki'),kwargs.pop('ignore'), kwargs.pop('permissions'))
 
   branch = kwargs.pop('branch')
   if 'upload' in kwargs:
@@ -384,13 +398,13 @@ if __name__ == '__main__':
     parser.add_argument('--wiki','-w',
         action='store_true',
         default=True,
-        hep=desc)
+        help=desc)
 
     desc = ('Ignore rules, will ignore upload rules')
     parser.add_argument('--ignore','-i',
         action='store_true',
         default=True,
-        hep=desc)
+        help=desc)
 
     args = parser.parse_args()
     try:
