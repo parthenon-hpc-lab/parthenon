@@ -56,14 +56,19 @@ class Node:
       node.printTree()
 
 class ParthenonApp:
-  def __init__(self, use_wiki=False, ignore=False, pem_file = ""):
+  def __init__(self, use_wiki=False, ignore=False, pem_file = "", create_branch=False):
 
     self.__app_id = 92734
     self.__ignore = ignore
     self.__use_wiki = use_wiki
     self.__name = "Parthenon_Github_Metrics_Application"
+    self.__user = "lanl"
     self.__repo_name = "parthenon"
-    self.__repo_url = "https://api.github.com/repos/lanl/" + self.__repo_name
+    self.__repo_url = "https://api.github.com/repos/" + self.__user + "/" + self.__repo_name
+    if isinstance(create_branch,list):
+      self.__create_branch = create_branch[0]
+    else:
+      self.__create_branch = create_branch
     self.__default_branch = "develop"
     self.__default_image_branch = "figures"
     self.__branches = []
@@ -71,7 +76,14 @@ class ParthenonApp:
     self.__api_version = "application/vnd.github.v3+json"
     self.__parth_root = Node()
     self.__parthenon_home = str(pathlib.Path(__file__).parent.absolute())
-    self.__parthenon_home = self.__parthenon_home[:self.__parthenon_home.index(self.__repo_name) + len("/" + self.__repo_name )] 
+
+    try:
+      self.__parthenon_home = self.__parthenon_home[:self.__parthenon_home.index(self.__repo_name) + len("/" + self.__repo_name )] 
+    except Exception:
+      error_msg = str(os.path.realpath(__file__)) + " must be run from within the " + self.__repo_name + " repository."
+      print(error_msg)
+      raise
+
     self.__parthenon_wiki_dir = self.__parthenon_home + self.__repo_name + ".wiki"
     if isinstance(pem_file,list):
       self.__generateJWT(pem_file[0])
@@ -161,7 +173,7 @@ class ParthenonApp:
     c = pycurl.Curl()
     c.setopt(c.URL, self.__repo_url + "/branches")
     c.setopt(c.WRITEDATA, buffer_temp)
-    c.setopt(c.HTTPHEADER. self.__header)
+    c.setopt(c.HTTPHEADER, self.__header)
     c.perform()
     c.close()
     js_obj_list = json.loads(buffer_temp.getvalue())
@@ -188,11 +200,17 @@ class ParthenonApp:
     self.__getBranches()
 
   def createBranch(self,branch, branch_to_fork_from = None):
+    """
+    Will create a branch if it does not already exists, if the branch does exist
+    will do nothing, 
+
+    The new branch will be created by forking it of the latest commit of the default branch
+    """
     if branch_to_fork_from is None:
       branch_to_fork_from = self.__default_branch
     branches = self.getBranches()
     if branch in branches:
-      raise Exception("Branch already exists cannot create.")
+      return
 
     if not branch_to_fork_from in branches:
       error_msg = "Cannot create new branch: " + branch + " from " + branch_to_fork_from + " because " + branch_to_fork_from + " does not exist."
@@ -204,7 +222,7 @@ class ParthenonApp:
     c.setopt(c.URL, self.__repo_url + '/git/refs')
     c.setopt(c.POST, 1)
     buffer_temp2 = BytesIO(json.dumps(custom_data).encode('utf-8'))
-    c2.setopt(c.READDATA, buffer_temp2)
+    c.setopt(c.READDATA, buffer_temp2)
     c.setopt(c.WRITEDATA, buffer_temp)
     c.setopt(c.HTTPHEADER, self.__header)
     c.perform()
@@ -236,6 +254,11 @@ class ParthenonApp:
     return contents
 
   def upload(self, file_name, branch = None):
+    """
+    This method attempts to upload a file to the specefied branch
+
+    If the file is found to already exist it will be updated 
+    """
     if isinstance(file_name,list):
       file_name = file_name[0]
     if branch is None:
@@ -257,12 +280,15 @@ class ParthenonApp:
         repo.index.add([str(self.__parthenon_wiki_dir + "/" + os.path.basename(os.path.normpath(file_name)))])
         repo.git.push("--set-upstream","origin",repo.head.reference)
     else:
-      branches = getBranches()
+      branches = self.getBranches()
 
-      if not branch in branches:
-        raise Execption("branch does not exist on repository")
+      if self.__create_branch:
+        self.createBranch(branch)
+      elif not branch in branches:
+        error_msg = "branch: " + branch + " does not exist in repository."
+        raise Exception(error_msg)
       
-      contents = getContents(branch)
+      contents = self.getContents(branch)
 
       file_found = False
       if file_name in contents:
@@ -270,13 +296,13 @@ class ParthenonApp:
 
       # 2. convert file into base64 format
       # b is needed if it is a png or image file/ binary file
-      data = open(name_of_file, "rb").read()
+      data = open(file_name, "rb").read()
       encoded_file = base64.b64encode(data)
 
       # 3. upload the file, overwrite if exists already
       if file_found:
           custom_data = {
-              'message': self.__name + " overwriting file " + name_of_file,
+              'message': self.__name + " overwriting file " + file_name,
               'name': self.__name,
               'branch': branch,
               'sha': obj['sha'],
@@ -285,19 +311,19 @@ class ParthenonApp:
 
       else:
           custom_data = {
-              'message': self.__name + " uploading file " + name_of_file,
+              'message': self.__name + " uploading file " + file_name,
               'name': self.__name,
               'content': encoded_file.decode('ascii')
                   }
 
-      https_url_to_file = self.__repo_url + "/contents/" + name_of_file
+      https_url_to_file = self.__repo_url + "/contents/" + file_name
       c2 = pycurl.Curl()
       c2.setopt(c2.HTTPHEADER, self.__header)
       c2.setopt(c2.URL, https_url_to_file)
       c2.setopt(c2.UPLOAD, 1)
       c2.setopt(c2.VERBOSE, True)
       buffer_temp2 = BytesIO(json.dumps(custom_data).encode('utf-8'))
-      c2.setopt(c.READDATA, buffer_temp2)
+      c2.setopt(c2.READDATA, buffer_temp2)
       buffer_temp3 = BytesIO()
       c2.setopt(c2.WRITEDATA, buffer_temp3)
       c2.perform()
@@ -347,7 +373,7 @@ class ParthenonApp:
 
   def getWikiRepo(self, branch):
      
-    wiki_remote = f"https://{self.__name}:{self.__access_token}@github.com/lanl/" + self.__repo_name + ".wiki.git"
+    wiki_remote = f"https://{self.__name}:{self.__access_token}@github.com/" + self.__user + "/" + self.__repo_name + ".wiki.git"
     if not os.path.isdir(str(self.__parthenon_home + self.__repo_name +  ".wiki")):
       repo = Repo.clone_from(wiki_remote, self.__parthenon_home + self.__repo_name +  ".wiki")
     else:
@@ -359,7 +385,11 @@ class ParthenonApp:
 
 def main(**kwargs):
 
-  app = ParthenonApp(kwargs.pop('wiki'),kwargs.pop('ignore'), kwargs.pop('permissions'))
+  app = ParthenonApp(
+      kwargs.pop('wiki'),
+      kwargs.pop('ignore'),
+      kwargs.pop('permissions'),
+      kwargs.pop('create'))
 
   branch = kwargs.pop('branch')
   if 'upload' in kwargs:
@@ -394,10 +424,16 @@ if __name__ == '__main__':
                         required=False,
                         help=desc)
 
+    desc = ('Create Branch if does not exist.')
+    parser.add_argument('--create','-c',
+        action='store_true',
+        default=False,
+        help=desc)
+
     desc = ('Use the wiki repository.')
     parser.add_argument('--wiki','-w',
         action='store_true',
-        default=True,
+        default=False,
         help=desc)
 
     desc = ('Ignore rules, will ignore upload rules')
