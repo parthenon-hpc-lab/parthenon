@@ -13,12 +13,14 @@
 #ifndef INTERFACE_MESH_DATA_HPP_
 #define INTERFACE_MESH_DATA_HPP_
 
+#include <limits>
 #include <map>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
+#include "mesh/domain.hpp"
 #include "mesh/meshblock.hpp"
 #include "mesh/meshblock_pack.hpp"
 #include "utils/error_checking.hpp"
@@ -33,6 +35,7 @@ template <typename T>
 using BlockDataList_t = std::vector<std::shared_ptr<MeshBlockData<T>>>;
 
 namespace pack_on_mesh_impl {
+// TODO(JMM): pass the coarse/fine option through the meshblockpack machinery
 template <typename T, typename K, typename M, typename F>
 MeshBlockPack<T> PackOnMesh(K &key, M &map, BlockDataList_t<Real> &block_data_,
                             F &packing_function) {
@@ -76,10 +79,27 @@ class MeshData {
   MeshData() = default;
 
   Mesh *GetMeshPointer() const { return pmy_mesh_; }
+  auto GetParentPointer() const { return GetMeshPointer(); }
 
   void SetMeshPointer(Mesh *pmesh) { pmy_mesh_ = pmesh; }
   void SetMeshPointer(const std::shared_ptr<MeshData<T>> &other) {
     pmy_mesh_ = other->GetMeshPointer();
+  }
+
+  void SetAllowedDt(const Real dt) const {
+    for (const auto &pbd : block_data_) {
+      pbd->SetAllowedDt(dt);
+    }
+  }
+
+  IndexRange GetBoundsI(const IndexDomain &domain) const {
+    return block_data_[0]->GetBoundsI(domain);
+  }
+  IndexRange GetBoundsJ(const IndexDomain &domain) const {
+    return block_data_[0]->GetBoundsJ(domain);
+  }
+  IndexRange GetBoundsK(const IndexDomain &domain) const {
+    return block_data_[0]->GetBoundsK(domain);
   }
 
   template <class... Args>
@@ -98,15 +118,19 @@ class MeshData {
     }
   }
 
-  void Copy(const std::shared_ptr<MeshData<T>> src) {
+  template <typename... Args>
+  void Copy(const std::shared_ptr<MeshData<T>> src, Args &&... args) {
+    if (src.get() == nullptr) {
+      PARTHENON_THROW("src points at null");
+    }
     const int nblocks = src->NumBlocks();
     block_data_.resize(nblocks);
     for (int i = 0; i < nblocks; i++) {
-      block_data_[i]->Copy(src->GetBlockData(i));
+      block_data_[i]->Copy(src->GetBlockData(i), std::forward<Args>(args)...);
     }
   }
 
-  std::shared_ptr<MeshBlockData<T>> &GetBlockData(int n) {
+  const std::shared_ptr<MeshBlockData<T>> &GetBlockData(int n) const {
     assert(n >= 0 && n < block_data_.size());
     return block_data_[n];
   }
@@ -147,6 +171,13 @@ class MeshData {
 
     for (int i = 0; i < nblocks; i++) {
       if (!(*block_data_[i] == *(cmp.GetBlockData(i)))) return false;
+    }
+    return true;
+  }
+
+  bool Contains(const std::vector<std::string> &names) const {
+    for (const auto &b : block_data_) {
+      if (!b->Contains(names)) return false;
     }
     return true;
   }

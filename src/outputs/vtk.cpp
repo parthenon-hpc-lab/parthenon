@@ -69,6 +69,8 @@ inline void Swap4Bytes(void *vdat) {
 //         MeshBlock per file
 
 void VTKOutput::WriteContainer(SimTime &tm, Mesh *pm, ParameterInput *pin, bool flag) {
+  throw std::runtime_error(std::string(__func__) + " is not implemented");
+  /*
   int big_end = IsBigEndian(); // =1 on big endian machine
 
   // Loop over MeshBlocks
@@ -229,6 +231,7 @@ void VTKOutput::WriteContainer(SimTime &tm, Mesh *pm, ParameterInput *pin, bool 
   pin->SetReal(output_params.block_name, "next_time", output_params.next_time);
 
   return;
+  */
 }
 void VTKOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   throw std::runtime_error(std::string(__func__) + " is not implemented");

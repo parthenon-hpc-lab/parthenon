@@ -45,8 +45,37 @@ struct IndexRange {
 //  - - - - - - - - - -   |
 //  |  |           |  |   |
 //  - - - - - - - - - -   v
+
+// inner/outer_x* are ranges for boundaries
+// and cover the ghost zones on each side of the
+// meshblock
+// as per this diagram
 //
-enum class IndexDomain { entire, interior };
+//  - - - - - - - - -  --
+//  |     outer_x2      |
+//  - i- - - - - - - -o -
+//  | n |     ^     | u |
+//  | n |     |     | t |
+//  | e | interior  | e |
+//  | r |     |     | r |
+//  | x |     v     | x |
+//  - 1 - - - - - - - 1 -
+//  |    inner_x2       |
+//  - - - - - - - - -  --
+// with inner and outer x3 the slabs
+// containing the ghost zones above
+// and below the interior
+//
+enum class IndexDomain {
+  entire,
+  interior,
+  inner_x1,
+  outer_x1,
+  inner_x2,
+  outer_x2,
+  inner_x3,
+  outer_x3
+};
 
 //! \class IndexVolume
 //  \brief Defines the dimensions of a shape of indices
@@ -58,12 +87,11 @@ class IndexShape {
   std::array<IndexRange, NDIM> x_;
   std::array<int, NDIM> entire_ncells_;
 
-  KOKKOS_INLINE_FUNCTION bool DimensionProvided_(const std::vector<int> &interior_dims,
-                                                 int dim) {
+  bool DimensionProvided_(const std::vector<int> &interior_dims, int dim) {
     return dim <= interior_dims.size();
   }
 
-  KOKKOS_INLINE_FUNCTION void MakeZeroDimensional_(int index) {
+  void MakeZeroDimensional_(int const index) {
     x_[index] = IndexRange{0, 0};
     entire_ncells_[index] = 1;
   }
@@ -114,68 +142,121 @@ class IndexShape {
 
   KOKKOS_INLINE_FUNCTION const IndexRange GetBoundsI(const IndexDomain &domain) const
       noexcept {
-    return (domain == IndexDomain::entire) ? IndexRange{0, entire_ncells_[0] - 1} : x_[0];
+    return (domain == IndexDomain::interior) ? x_[0] : IndexRange{is(domain), ie(domain)};
   }
 
   KOKKOS_INLINE_FUNCTION const IndexRange GetBoundsJ(const IndexDomain &domain) const
       noexcept {
-    return (domain == IndexDomain::entire) ? IndexRange{0, entire_ncells_[1] - 1} : x_[1];
+    return (domain == IndexDomain::interior) ? x_[1] : IndexRange{js(domain), je(domain)};
   }
 
   KOKKOS_INLINE_FUNCTION const IndexRange GetBoundsK(const IndexDomain &domain) const
       noexcept {
-    return (domain == IndexDomain::entire) ? IndexRange{0, entire_ncells_[2] - 1} : x_[2];
+    return (domain == IndexDomain::interior) ? x_[2] : IndexRange{ks(domain), ke(domain)};
   }
 
   KOKKOS_INLINE_FUNCTION int is(const IndexDomain &domain) const noexcept {
-    return (domain == IndexDomain::entire) ? 0 : x_[0].s;
+    switch (domain) {
+    case IndexDomain::interior:
+      return x_[0].s;
+    case IndexDomain::outer_x1:
+      return entire_ncells_[0] == 1 ? 0 : x_[0].e + 1;
+    default:
+      return 0;
+    }
   }
 
   KOKKOS_INLINE_FUNCTION int js(const IndexDomain &domain) const noexcept {
-    return (domain == IndexDomain::entire) ? 0 : x_[1].s;
+    switch (domain) {
+    case IndexDomain::interior:
+      return x_[1].s;
+    case IndexDomain::outer_x2:
+      return entire_ncells_[1] == 1 ? 0 : x_[1].e + 1;
+    default:
+      return 0;
+    }
   }
 
+  // note ks and ke are different than the others for boundaries.
+  // This is because extending i and j over extra ghost zones
+  // is sufficient to fill whole ghost layer
   KOKKOS_INLINE_FUNCTION int ks(const IndexDomain &domain) const noexcept {
-    return (domain == IndexDomain::entire) ? 0 : x_[2].s;
+    switch (domain) {
+    case IndexDomain::entire:
+      return 0;
+    case IndexDomain::inner_x3:
+      return 0;
+    case IndexDomain::outer_x3:
+      return entire_ncells_[2] == 1 ? 0 : x_[2].e + 1;
+    default: // interior+
+      return x_[2].s;
+    }
   }
 
   KOKKOS_INLINE_FUNCTION int ie(const IndexDomain &domain) const noexcept {
-    return (domain == IndexDomain::entire) ? entire_ncells_[0] - 1 : x_[0].e;
+    switch (domain) {
+    case IndexDomain::interior:
+      return x_[0].e;
+    case IndexDomain::inner_x1:
+      return x_[0].s == 0 ? 0 : x_[0].s - 1;
+    default:
+      return entire_ncells_[0] - 1;
+    }
   }
 
   KOKKOS_INLINE_FUNCTION int je(const IndexDomain &domain) const noexcept {
-    return (domain == IndexDomain::entire) ? entire_ncells_[1] - 1 : x_[1].e;
+    switch (domain) {
+    case IndexDomain::interior:
+      return x_[1].e;
+    case IndexDomain::inner_x2:
+      return x_[1].s == 0 ? 0 : x_[1].s - 1;
+    default:
+      return entire_ncells_[1] - 1;
+    }
   }
 
   KOKKOS_INLINE_FUNCTION int ke(const IndexDomain &domain) const noexcept {
-    return (domain == IndexDomain::entire) ? entire_ncells_[2] - 1 : x_[2].e;
+    switch (domain) {
+    case IndexDomain::entire:
+      return entire_ncells_[2] - 1;
+    case IndexDomain::inner_x3:
+      return x_[2].s == 0 ? 0 : x_[2].s - 1;
+    case IndexDomain::outer_x3:
+      return entire_ncells_[2] - 1;
+    default: // interior+
+      return x_[2].e;
+    }
   }
 
   KOKKOS_INLINE_FUNCTION int ncellsi(const IndexDomain &domain) const noexcept {
-    return (domain == IndexDomain::entire) ? entire_ncells_[0] : x_[0].e - x_[0].s + 1;
+    if (entire_ncells_[0] == 1 &&
+        (domain == IndexDomain::inner_x1 || domain == IndexDomain::outer_x1)) {
+      return 0; // if x1 is zero-dimensional, there are no ghost zones
+    }
+    return ie(domain) - is(domain) + 1;
   }
 
   KOKKOS_INLINE_FUNCTION int ncellsj(const IndexDomain &domain) const noexcept {
-    return (domain == IndexDomain::entire) ? entire_ncells_[1] : x_[1].e - x_[1].s + 1;
+    if (entire_ncells_[1] == 1 &&
+        (domain == IndexDomain::inner_x2 || domain == IndexDomain::outer_x2)) {
+      return 0; // if x2 is zero-dimensional, there are no ghost zones
+    }
+    return je(domain) - js(domain) + 1;
   }
 
   KOKKOS_INLINE_FUNCTION int ncellsk(const IndexDomain &domain) const noexcept {
-    return (domain == IndexDomain::entire) ? entire_ncells_[2] : x_[2].e - x_[2].s + 1;
+    if (entire_ncells_[2] == 1 &&
+        (domain == IndexDomain::inner_x3 || domain == IndexDomain::outer_x3)) {
+      return 0; // if x3 is zero-dimensional, there are no ghost zones
+    }
+    return ke(domain) - ks(domain) + 1;
   }
 
   // Kept basic for kokkos
   KOKKOS_INLINE_FUNCTION
   int GetTotal(const IndexDomain &domain) const noexcept {
     if (NDIM == 0) return 0;
-    int total = 1;
-    if (domain == IndexDomain::entire) {
-      for (int i = 0; i < NDIM; ++i)
-        total *= entire_ncells_[i];
-    } else {
-      for (int i = 0; i < NDIM; ++i)
-        total *= x_[i].e - x_[i].s + 1;
-    }
-    return total;
+    return ncellsi(domain) * ncellsj(domain) * ncellsk(domain);
   }
 };
 

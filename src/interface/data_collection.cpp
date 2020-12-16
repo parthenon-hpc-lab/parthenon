@@ -23,13 +23,32 @@ namespace parthenon {
 
 template <typename T>
 std::shared_ptr<T> DataCollection<T>::Add(const std::string &name,
+                                          const std::shared_ptr<T> &src,
+                                          const std::vector<std::string> &flags) {
+  auto it = containers_.find(name);
+  if (it != containers_.end()) {
+    if (!(it->second)->Contains(flags)) {
+      PARTHENON_THROW(name + "already exists in collection but does not contain flags");
+    }
+    return it->second;
+  }
+
+  auto c = std::make_shared<T>();
+  c->Copy(src, flags);
+
+  containers_[name] = c;
+  return containers_[name];
+}
+
+template <typename T>
+std::shared_ptr<T> DataCollection<T>::Add(const std::string &name,
                                           const std::shared_ptr<T> &src) {
   // error check for duplicate names
   auto it = containers_.find(name);
   if (it != containers_.end()) {
     // check to make sure they are the same
     if (!(*src == *(it->second))) {
-      throw std::runtime_error("Error attempting to add a Container to a Collection");
+      PARTHENON_THROW("Error attempting to add a Container to a Collection");
     }
     return it->second;
   }

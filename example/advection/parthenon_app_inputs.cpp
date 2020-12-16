@@ -149,11 +149,15 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
 
 #ifdef MPI_PARALLEL
   if (Globals::my_rank == 0) {
-    MPI_Reduce(MPI_IN_PLACE, &l1_err, 1, MPI_PARTHENON_REAL, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(MPI_IN_PLACE, &max_err, 1, MPI_PARTHENON_REAL, MPI_MAX, 0, MPI_COMM_WORLD);
+    PARTHENON_MPI_CHECK(MPI_Reduce(MPI_IN_PLACE, &l1_err, 1, MPI_PARTHENON_REAL, MPI_SUM,
+                                   0, MPI_COMM_WORLD));
+    PARTHENON_MPI_CHECK(MPI_Reduce(MPI_IN_PLACE, &max_err, 1, MPI_PARTHENON_REAL, MPI_MAX,
+                                   0, MPI_COMM_WORLD));
   } else {
-    MPI_Reduce(&l1_err, &l1_err, 1, MPI_PARTHENON_REAL, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&max_err, &max_err, 1, MPI_PARTHENON_REAL, MPI_MAX, 0, MPI_COMM_WORLD);
+    PARTHENON_MPI_CHECK(
+        MPI_Reduce(&l1_err, &l1_err, 1, MPI_PARTHENON_REAL, MPI_SUM, 0, MPI_COMM_WORLD));
+    PARTHENON_MPI_CHECK(MPI_Reduce(&max_err, &max_err, 1, MPI_PARTHENON_REAL, MPI_MAX, 0,
+                                   MPI_COMM_WORLD));
   }
 #endif
 
@@ -209,12 +213,13 @@ Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   Packages_t packages;
   auto pkg = advection_package::Initialize(pin.get());
   packages[pkg->label()] = pkg;
-  return packages;
-}
 
-void SetFillDerivedFunctions() {
-  parthenon::FillDerivedVariables::SetFillDerivedFunctions(advection_package::PreFill,
-                                                           advection_package::PostFill);
+  auto app = std::make_shared<StateDescriptor>("advection_app");
+  app->PreFillDerivedBlock = advection_package::PreFill;
+  app->PostFillDerivedBlock = advection_package::PostFill;
+  packages[app->label()] = app;
+
+  return packages;
 }
 
 } // namespace advection_example

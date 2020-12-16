@@ -94,7 +94,6 @@ TEST_CASE("Check that partitioning a container works", "[Partition]") {
     }
   }
   GIVEN("An attempt to partition 3 elements into partitions of size 4") {
-    constexpr int nelements = 3;
     constexpr int psize = 4;
     std::vector<int> v = {1, 2, 3};
     THEN("We get a single partition of size 3") {
