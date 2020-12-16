@@ -13,31 +13,14 @@
 
 cmake_minimum_required(VERSION 3.12)
 
-# Load machine specific defaults such as architecture and mpi launch command.
-# Command line argument takes precedence over environment variable.
-# Loading this before project definition to allow setting the compiler.
-if (MACHINE_CFG)
-  if(EXISTS "${MACHINE_CFG}")
-    include(${MACHINE_CFG})
-  else()
-    message(FATAL_ERROR "Given machine configuration at "
-      "${MACHINE_CFG} not found.")
-  endif()
-elseif (DEFINED ENV{MACHINE_CFG})
-  if(EXISTS "$ENV{MACHINE_CFG}")
-    include($ENV{MACHINE_CFG})
-  else()
-    message(FATAL_ERROR "Given machine configuration from environment variable "
-      "MACHINE_CFG at $ENV{MACHINE_CFG} not found.")
-  endif()
-else()
-  message(WARNING "Not using any machine configuration. Consider creating a configuration "
-    "file following the examples in ${PROJECT_SOURCE_DIR}/cmake/machine_cfgs/ and then "
-    "point the MACHINE_CFG variable to your custom file."
-    "Note, that the machine file can be placed in any directory (also outside the repo).")
-endif()
+# Imports machine-specific configuration
+include(cmake/MachineCfg.cmake)
 
-project(parthenon VERSION 0.2.0 LANGUAGES C CXX)
+project(parthenon VERSION 0.3.0 LANGUAGES C CXX)
+
+if (${CMAKE_VERSION} VERSION_GREATER_EQUAL 3.19.0)
+  cmake_policy(SET CMP0110 NEW)
+endif()
 
 include(CTest)
 
@@ -88,8 +71,10 @@ include(cmake/Lint.cmake)
 set(NUMBER_GHOST_CELLS ${PARTHENON_NGHOST})
 
 # regression test reference data
-set(REGRESSION_GOLD_STANDARD_VER 2 CACHE STRING "Version of gold standard to download and use")
-set(REGRESSION_GOLD_STANDARD_HASH "SHA512=45f57d16b76a3a44940e40ea642c1d5a2b3aea681a3064e4c06b031bf264d627f8009e967b92a2cb0fbc08e5cd0ffda381038483f390fa00f47c42a551ca3646" CACHE STRING "Hash of default gold standard file to download")
+set(REGRESSION_GOLD_STANDARD_VER 3 CACHE STRING "Version of gold standard to download and use")
+set(REGRESSION_GOLD_STANDARD_HASH
+  "SHA512=2445000a031aafc9a85a684aa7e82fb5ccda05530c5652ab432a8fb254642c7b18252ff55d8306b1120aba898713712b28b804eb30272b06278698046a6461cc"
+  CACHE STRING "Hash of default gold standard file to download")
 option(REGRESSION_GOLD_STANDARD_SYNC "Automatically sync gold standard files." ON)
 
 # set single precision #define
@@ -200,6 +185,7 @@ SET (Kokkos_ENABLE_AGGRESSIVE_VECTORIZATION ON CACHE BOOL
 
 # Check that gpu devices are actually detected
 set(NUM_GPU_DEVICES_PER_NODE "1" CACHE STRING "Number of gpu devices to use when testing if built with Kokkos_ENABLE_CUDA")
+set(NUM_OMP_THREADS_PER_RANK "1" CACHE STRING "Number of threads to use when testing if built with Kokkos_ENABLE_OPENMP")
 if (Kokkos_ENABLE_CUDA)
   # Tell Kokkos we need lambdas in Cuda.
   SET (Kokkos_ENABLE_CUDA_LAMBDA ON CACHE BOOL

@@ -17,7 +17,9 @@
 
 #include "driver/driver.hpp"
 
+#include "interface/update.hpp"
 #include "mesh/mesh.hpp"
+#include "mesh/meshblock.hpp"
 #include "outputs/outputs.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_mpi.hpp"
@@ -55,6 +57,7 @@ DriverStatus EvolutionDriver::Execute() {
   pmesh->mbcnt = 0;
   int perf_cycle_offset =
       pinput->GetOrAddInteger("parthenon/time", "perf_cycle_offset", 0);
+  Kokkos::Profiling::pushRegion("Driver_Main");
   while (tm.KeepGoing()) {
     if (Globals::my_rank == 0) OutputCycleDiagnostics();
 
@@ -84,6 +87,7 @@ DriverStatus EvolutionDriver::Execute() {
       timer_main.reset();
     }
   } // END OF MAIN INTEGRATION LOOP ======================================================
+  Kokkos::Profiling::popRegion(); // Driver_Main
 
   pmesh->UserWorkAfterLoop(pmesh, pinput, tm);
 
@@ -123,7 +127,7 @@ void EvolutionDriver::PostExecute(DriverStatus status) {
 void EvolutionDriver::InitializeBlockTimeSteps() {
   // calculate the first time step
   for (auto &pmb : pmesh->block_list) {
-    pmb->SetBlockTimestep(Update::EstimateTimestep(pmb->real_containers.Get()));
+    Update::EstimateTimestep(pmb->meshblock_data.Get().get());
   }
 }
 
@@ -132,15 +136,18 @@ void EvolutionDriver::InitializeBlockTimeSteps() {
 // \brief function that loops over all MeshBlocks and find new timestep
 
 void EvolutionDriver::SetGlobalTimeStep() {
-  Real dt_max = 2.0 * tm.dt;
-  tm.dt = std::numeric_limits<Real>::max();
+  // don't allow dt to grow by more than 2x
+  // consider making this configurable in the input
+  tm.dt *= 2.0;
+  Real big = std::numeric_limits<Real>::max();
   for (auto const &pmb : pmesh->block_list) {
     tm.dt = std::min(tm.dt, pmb->NewDt());
+    pmb->SetAllowedDt(big);
   }
-  tm.dt = std::min(dt_max, tm.dt);
 
 #ifdef MPI_PARALLEL
-  MPI_Allreduce(MPI_IN_PLACE, &tm.dt, 1, MPI_PARTHENON_REAL, MPI_MIN, MPI_COMM_WORLD);
+  PARTHENON_MPI_CHECK(MPI_Allreduce(MPI_IN_PLACE, &tm.dt, 1, MPI_PARTHENON_REAL, MPI_MIN,
+                                    MPI_COMM_WORLD));
 #endif
 
   if (tm.time < tm.tlim &&

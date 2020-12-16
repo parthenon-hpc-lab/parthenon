@@ -31,6 +31,7 @@
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
+#include "mesh/meshblock.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 #include "refinement/refinement.hpp"
@@ -79,8 +80,6 @@ void MeshRefinement::RestrictCellCenteredValues(const ParArrayND<Real> &fine,
   const IndexRange jb = pmb->cellbounds.GetBoundsJ(interior);
   const IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
 
-  int si = (csi - cib.s) * 2 + ib.s;
-  int ei = (cei - cib.s) * 2 + ib.s + 1;
   // store the restricted data in the prolongation buffer for later use
   if (pmb->block_size.nx3 > 1) { // 3D
     pmb->par_for(
@@ -110,7 +109,7 @@ void MeshRefinement::RestrictCellCenteredValues(const ParArrayND<Real> &fine,
               tvol;
         });
   } else if (pmb->block_size.nx2 > 1) { // 2D
-    int k = kb.s, ck = ckb.s;
+    int k = kb.s;
     pmb->par_for(
         "RestrictCellCenteredValues2d", sn, en, csj, cej, csi, cei,
         KOKKOS_LAMBDA(const int n, const int cj, const int ci) {
@@ -155,8 +154,8 @@ void MeshRefinement::RestrictFieldX1(const ParArrayND<Real> &fine,
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   auto &coords = pmb->coords;
   const IndexDomain interior = IndexDomain::interior;
-  int si = (csi - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
-  int ei = (cei - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
+  // int si = (csi - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
+  // int ei = (cei - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
 
   // store the restricted data in the prolongation buffer for later use
   if (pmb->block_size.nx3 > 1) { // 3D
@@ -191,6 +190,7 @@ void MeshRefinement::RestrictFieldX1(const ParArrayND<Real> &fine,
         coarse(csk, cj, ci) = (fine(k, j, i) * area0 + fine(k, j + 1, i) * area1) / tarea;
       }
     }
+
   } else { // 1D - no restriction, just copy
     for (int ci = csi; ci <= cei; ci++) {
       int i = (ci - pmb->c_cellbounds.is(interior)) * 2 + pmb->cellbounds.is(interior);
@@ -996,8 +996,8 @@ void MeshRefinement::ProlongateInternalField(FaceField &fine, int si, int ei, in
 
 void MeshRefinement::CheckRefinementCondition() {
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
-  auto &rc = pmb->real_containers.Get();
-  AmrTag ret = Refinement::CheckAllRefinement(rc);
+  auto &rc = pmb->meshblock_data.Get();
+  AmrTag ret = Refinement::CheckAllRefinement(rc.get());
   // if (AMRFlag_ != nullptr) ret = AMRFlag_(pmb);
   SetRefinement(ret);
 }

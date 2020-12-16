@@ -29,18 +29,10 @@
 #include <string>
 
 #include "mesh/mesh.hpp"
+#include "mesh/meshblock.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
-
-namespace {
-
-// TODO(felker): replace these hand-rolled linear algebra routines with a real library
-constexpr Real lu_tol = 3e-16;
-int DoolittleLUPDecompose(Real **a, int n, int *pivot);
-void DoolittleLUPSolve(Real **lu, int *pivot, Real *b, int n, Real *x);
-
-} // anonymous namespace
 
 Reconstruction::Reconstruction(std::weak_ptr<MeshBlock> wpmb, ParameterInput *pin)
     : characteristic_projection{false}, uniform{true, true, true, true},
@@ -415,134 +407,5 @@ Reconstruction::Reconstruction(std::weak_ptr<MeshBlock> wpmb, ParameterInput *pi
     delete[] beta;
   } // end "if PPM or full 4th order spatial integrator"
 }
-
-namespace {
-
-//----------------------------------------------------------------------------------------
-// \!fn void DoolittleLUPDecompose(Real **a, int n, int *pivot)
-
-// \brief perform LU decomposition with partial (row) pivoting using Doolittle's
-// algorithm. Partial pivoting is required for stability.
-//
-// Let D be a diagonal matrix, L be a unit lower triangular matrix (main diagonal is all
-// 1's), and U be a unit upper triangular matrix
-// Crout = (LD)U  ---> unit upper triangular U and L'=LD non-unit lower triangular
-// Doolittle = L(DU) ---> unit lower triangular L and U'=DU non-unit upper triangular
-//
-// INPUT:
-//     a: square nxn matrix A of real numbers. Must be a mutable pointer-to-pointer/rows.
-//     n: number of rows and columns in "a"
-//
-//    Also expects "const Real lu_tol >=0" file-scope variable to be defined = criterion
-//    for detecting degenerate input "a" (or nearly-degenerate).
-//
-// OUTPUT:
-//     a: modified in-place to contain both lower- and upper-triangular matrices L, U
-//        as A <- L + U (the 1's on the diagonal of L are not stored) in the decomposition
-//        PA=LU. See NR pg 50; even though they claim to use Crout, they are probably
-//        use Doolittle. They assume unit diagonal in Lx=Pb forward substitution.
-// pivot: nx1 int vector that is a sparse representation of the nxn permutation matrix P.
-//        For each row/vector entry, the value = the column # of the nonzero pivot element
-//
-// RETURN:
-//  failure=0: routine detected that "a" matrix was nearly-singular
-//  success=1: LUP decomposition completed
-//
-//     Both "a", "pivot" can then be passed with RHS vector "b" to DoolittleLUPSolve in
-//     order to solve Ax=b system of linear equations
-//
-// REFERENCES:
-//   - References Numerical Recipes, 3rd ed. (NR) section 2.3 "LU Decomposition & its
-//     Applications"
-
-int DoolittleLUPDecompose(Real **a, int n, int *pivot) {
-  constexpr int failure = 0, success = 1;
-  // initialize unit permutation matrix P=I. In our sparse representation, pivot[n]=n
-  for (int i = 0; i <= n; i++)
-    pivot[i] = i;
-
-  // loop over rows of input matrix:
-  for (int i = 0; i < n; i++) {
-    Real a_max = 0.0, a_abs = 0.0;
-    int i_max = i;
-    // search for largest pivot element, located at row i_max
-    for (int k = i; k < n; k++) {
-      a_abs = std::abs(a[k][i]);
-      if (a_abs > a_max) { // found larger pivot element
-        a_max = a_abs;
-        i_max = k;
-      }
-    }
-
-    // if the pivot element is near zero, the matrix is likely singular
-    if (a_max < lu_tol) { // 0.0) { // see NR comment in ludcmp.h
-      // do not divide by 0
-      std::cout << std::scientific
-                << std::setprecision(std::numeric_limits<Real>::max_digits10 - 1)
-                << "DoolittleLUPDecompose detects singular matrix with\n"
-                << "pivot element=" << a_max << " < tolerance=" << lu_tol << std::endl;
-      return failure;
-    }
-
-    if (i != i_max) { // need to pivot rows:
-      // pivoting "pivot" vector
-      int row_idx = pivot[i];
-      pivot[i] = pivot[i_max];
-      pivot[i_max] = row_idx;
-
-      // pivoting rows of A
-      Real *pivot_ptr = a[i];
-      a[i] = a[i_max];
-      a[i_max] = pivot_ptr;
-    }
-
-    // these lines are the only difference from Crout's in-place approach w/ pivoting
-    for (int j = i + 1; j < n; j++) { // loop over rows; NR has the same approach as here
-      // fill lower triangular matrix L elements at column "i":
-      a[j][i] /= a[i][i];
-      // (Crout finds upper triangular matrix U elemens at row "i" in this step)
-      for (int k = i + 1; k < n; k++) // update remaining submatrix
-        a[j][k] -= a[j][i] * a[i][k];
-    }
-  }
-  // in-place LU factorization with partial pivoting is complete
-  return success;
-}
-
-//----------------------------------------------------------------------------------------
-// \!fn void DoolittleLUPSolve(Real **lu, int *pivot, Real *b, int n, Real *x)
-
-// \brief after DoolittleLUPDecompose() function has transformed input the LHS of Ax=b
-// system to partially-row pivoted, LUP decomposed equivalent PAx=LUx=Pb, solve for x
-//
-// INPUT:
-//     lu: square nxn matrix of real numbers containing output "a" of successful
-//          DoolittleLUPDecompose() function call. See notes in that function for details.
-//  pivot: nx1 vector of integers produced by DoolittleLUPDecompose()
-//      b: RHS column vector of real numbers in original Ax=b system of linear equations
-//
-// OUTPUT:
-//     x: nx1 column vector of real numbers containing solution in original Ax=b system
-
-void DoolittleLUPSolve(Real **lu, int *pivot, Real *b, int n, Real *x) {
-  // forward substitution, Ly=Pb (L must be a UNIT lower-triangular matrix)
-  for (int i = 0; i < n; i++) {
-    // initialize the solution to the RHS values, repeating permutation from LU decomp.
-    x[i] = b[pivot[i]];
-    for (int j = 0; j < i; j++)
-      x[i] -= lu[i][j] * x[j];
-  }
-
-  // back substitution, Ux=y (U is a NOT a unit upper-triangular matrix)
-  for (int i = (n - 1); i >= 0; i--) {
-    for (int j = (i + 1); j < n; j++) {
-      x[i] -= x[j] * lu[i][j];
-    }
-    x[i] /= lu[i][i];
-  }
-  return;
-}
-
-} // anonymous namespace
 
 } // namespace parthenon

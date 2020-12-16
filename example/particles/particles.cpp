@@ -73,24 +73,18 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   Metadata m({Metadata::Cell, Metadata::Independent});
   pkg->AddField(field_name, m);
 
-  pkg->EstimateTimestep = EstimateTimestep;
+  pkg->EstimateTimestepBlock = EstimateTimestepBlock;
 
   return pkg;
 }
 
-AmrTag CheckRefinement(Container<Real> &rc) { return AmrTag::same; }
+AmrTag CheckRefinement(MeshBlockData<Real> *rc) { return AmrTag::same; }
 
-Real EstimateTimestep(std::shared_ptr<Container<Real>> &rc) {
+Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
   auto pmb = rc->GetBlockPointer();
   auto pkg = pmb->packages["particles_package"];
   const Real &dt = pkg->Param<Real>("const_dt");
   return dt;
-}
-
-TaskStatus SetTimestepTask(std::shared_ptr<Container<Real>> &rc) {
-  auto pmb = rc->GetBlockPointer();
-  pmb->SetBlockTimestep(parthenon::Update::EstimateTimestep(rc));
-  return TaskStatus::complete;
 }
 
 } // namespace Particles
@@ -104,7 +98,7 @@ TaskStatus SetTimestepTask(std::shared_ptr<Container<Real>> &rc) {
 
 TaskStatus DestroySomeParticles(MeshBlock *pmb) {
   auto pkg = pmb->packages["particles_package"];
-  auto swarm = pmb->real_containers.GetSwarmContainer()->Get("my particles");
+  auto swarm = pmb->swarm_data.Get()->Get("my particles");
   auto rng_pool = pkg->Param<RNGPool>("rng_pool");
 
   // The swarm mask is managed internally and should always be treated as constant. This
@@ -131,7 +125,7 @@ TaskStatus DestroySomeParticles(MeshBlock *pmb) {
 }
 
 TaskStatus DepositParticles(MeshBlock *pmb) {
-  auto swarm = pmb->real_containers.GetSwarmContainer()->Get("my particles");
+  auto swarm = pmb->swarm_data.Get()->Get("my particles");
 
   // Meshblock geometry
   const IndexRange &ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
@@ -150,7 +144,7 @@ TaskStatus DepositParticles(MeshBlock *pmb) {
   const auto &weight = swarm->GetReal("weight").Get();
   auto swarm_d = swarm->GetDeviceContext();
 
-  auto &particle_dep = pmb->real_containers.Get()->Get("particle_deposition").data;
+  auto &particle_dep = pmb->meshblock_data.Get()->Get("particle_deposition").data;
   // Reset particle count
   pmb->par_for(
       "ZeroParticleDep", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
@@ -177,7 +171,7 @@ TaskStatus DepositParticles(MeshBlock *pmb) {
 
 TaskStatus CreateSomeParticles(MeshBlock *pmb) {
   auto pkg = pmb->packages["particles_package"];
-  auto swarm = pmb->real_containers.GetSwarmContainer()->Get("my particles");
+  auto swarm = pmb->swarm_data.Get()->Get("my particles");
   auto rng_pool = pkg->Param<RNGPool>("rng_pool");
   auto num_particles = pkg->Param<int>("num_particles");
   auto v = pkg->Param<Real>("particle_speed");
@@ -234,7 +228,7 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb) {
 }
 
 TaskStatus TransportParticles(MeshBlock *pmb, Integrator *integrator) {
-  auto swarm = pmb->real_containers.GetSwarmContainer()->Get("my particles");
+  auto swarm = pmb->swarm_data.Get()->Get("my particles");
 
   int max_active_index = swarm->get_max_active_index();
 
@@ -311,7 +305,7 @@ TaskStatus TransportParticles(MeshBlock *pmb, Integrator *integrator) {
 }
 
 TaskStatus Defrag(MeshBlock *pmb) {
-  auto s = pmb->real_containers.GetSwarmContainer()->Get("my particles");
+  auto s = pmb->swarm_data.Get()->Get("my particles");
 
   // Only do this if list is getting too sparse. This criterion (whether there
   // are *any* gaps in the list) is very aggressive
@@ -324,28 +318,42 @@ TaskStatus Defrag(MeshBlock *pmb) {
 
 // See the advection_driver.hpp declaration for a description of how this function gets
 // called.
-TaskList ParticleDriver::MakeTaskList(MeshBlock *pmb, int stage) {
-  TaskList tl;
+TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage) {
+  TaskCollection tc;
 
   TaskID none(0);
 
-  auto sc = pmb->real_containers.GetSwarmContainer();
+  // Number of task lists that can be executed indepenently and thus *may*
+  // be executed in parallel and asynchronous.
+  // Being extra verbose here in this example to highlight that this is not
+  // required to be 1 or blocks.size() but could also only apply to a subset of blocks.
+  auto num_task_lists_executed_independently = blocks.size();
+  TaskRegion &async_region1 = tc.AddRegion(num_task_lists_executed_independently);
 
-  auto swarm = sc->Get("my particles");
+  for (int i = 0; i < blocks.size(); i++) {
+    auto &pmb = blocks[i];
+    auto &tl = async_region1[i];
 
-  auto transport_particles = tl.AddTask(none, TransportParticles, pmb, integrator);
+    auto sc = pmb->swarm_data.Get();
 
-  auto destroy_some_particles =
-      tl.AddTask(transport_particles, DestroySomeParticles, pmb);
+    auto swarm = sc->Get("my particles");
 
-  auto create_some_particles =
-      tl.AddTask(destroy_some_particles, CreateSomeParticles, pmb);
+    auto transport_particles =
+        tl.AddTask(none, TransportParticles, pmb.get(), integrator);
 
-  auto deposit_particles = tl.AddTask(create_some_particles, DepositParticles, pmb);
+    auto destroy_some_particles =
+        tl.AddTask(transport_particles, DestroySomeParticles, pmb.get());
 
-  auto defrag = tl.AddTask(deposit_particles, Defrag, pmb);
+    auto create_some_particles =
+        tl.AddTask(destroy_some_particles, CreateSomeParticles, pmb.get());
 
-  return tl;
+    auto deposit_particles =
+        tl.AddTask(create_some_particles, DepositParticles, pmb.get());
+
+    auto defrag = tl.AddTask(deposit_particles, Defrag, pmb.get());
+  }
+
+  return tc;
 }
 
 } // namespace particles_example

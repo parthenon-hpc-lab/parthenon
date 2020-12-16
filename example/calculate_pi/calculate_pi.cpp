@@ -35,7 +35,7 @@ using namespace parthenon::package::prelude;
 // pi \approx A/r0^2
 namespace calculate_pi {
 
-void SetInOrOut(std::shared_ptr<Container<Real>> &rc) {
+void SetInOrOut(MeshBlockData<Real> *rc) {
   auto pmb = rc->GetBlockPointer();
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
@@ -69,32 +69,21 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   // add a variable called in_or_out that will hold the value of the indicator function
   std::string field_name("in_or_out");
   Metadata m({Metadata::Cell, Metadata::Derived});
-  package->AddField(field_name, m, DerivedOwnership::unique);
-
-  // Add a named MeshPack by registering a function that packs it
-  package->AddMeshBlockPack("in_or_out", [](Mesh *pmesh) {
-    int pack_size = pmesh->DefaultPackSize();
-    std::vector<MeshBlockVarPack<Real>> packs;
-    auto partitions = partition::ToSizeN(pmesh->block_list, pack_size);
-    packs.resize(partitions.size());
-    for (int i = 0; i < partitions.size(); i++) {
-      packs[i] = PackVariablesOnMesh(partitions[i], "base",
-                                     std::vector<std::string>{"in_or_out"});
-    }
-    return packs;
-  });
+  package->AddField(field_name, m);
 
   // All the package FillDerived and CheckRefinement functions are called by parthenon
-  package->FillDerived = SetInOrOut;
+  package->FillDerivedBlock = SetInOrOut;
   // could use package specific refinement tagging routine (see advection example), but
   // instead this example will make use of the parthenon shipped first derivative
   // criteria, as invoked in the input file
-  // package->CheckRefinement = CheckRefinement;
+  // package->CheckRefinementBlock = CheckRefinement;
 
   return package;
 }
 
-TaskStatus ComputeArea(Pack_t pack, ParArrayHost<Real> areas, int i) {
+TaskStatus ComputeArea(std::shared_ptr<MeshData<Real>> &md, ParArrayHost<Real> areas,
+                       int i) {
+  auto pack = md->PackVariables(std::vector<std::string>({"in_or_out"}));
   const IndexRange ib = pack.cellbounds.GetBoundsI(IndexDomain::interior);
   const IndexRange jb = pack.cellbounds.GetBoundsJ(IndexDomain::interior);
   const IndexRange kb = pack.cellbounds.GetBoundsK(IndexDomain::interior);
@@ -124,7 +113,8 @@ TaskStatus AccumulateAreas(ParArrayHost<Real> areas, Packages_t &packages) {
 
 #ifdef MPI_PARALLEL
   Real pi_val;
-  MPI_Reduce(&area, &pi_val, 1, MPI_PARTHENON_REAL, MPI_SUM, 0, MPI_COMM_WORLD);
+  PARTHENON_MPI_CHECK(
+      MPI_Reduce(&area, &pi_val, 1, MPI_PARTHENON_REAL, MPI_SUM, 0, MPI_COMM_WORLD));
 #else
   Real pi_val = area;
 #endif

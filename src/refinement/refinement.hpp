@@ -25,14 +25,18 @@ namespace parthenon {
 class ParameterInput;
 class MeshBlock;
 template <typename T>
-class Container;
+class MeshBlockData;
+template <typename T>
+class MeshData;
 class StateDescriptor;
 
 namespace Refinement {
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
+template <typename T>
+TaskStatus Tag(T *rc);
 
-AmrTag CheckAllRefinement(std::shared_ptr<Container<Real>> &rc);
+AmrTag CheckAllRefinement(MeshBlockData<Real> *rc);
 
 AmrTag FirstDerivative(MeshBlock *pmb, const ParArrayND<Real> &q,
                        const Real refine_criteria, const Real derefine_criteria);

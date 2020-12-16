@@ -50,8 +50,8 @@ class Driver {
  protected:
   Kokkos::Timer timer_cycle, timer_main;
   std::uint64_t mbcnt_prev;
-  virtual void PreExecute();
-  virtual void PostExecute();
+  void PreExecute();
+  void PostExecute();
 
  private:
 };
@@ -79,7 +79,7 @@ class EvolutionDriver : public Driver {
   SimTime tm;
 
  protected:
-  virtual void PostExecute(DriverStatus status);
+  void PostExecute(DriverStatus status);
 
  private:
   void InitializeBlockTimeSteps();
@@ -104,7 +104,7 @@ TaskListStatus ConstructAndExecuteBlockTasks(T *driver, Args... args) {
 template <typename T, class... Args>
 TaskListStatus ConstructAndExecuteTaskLists(T *driver, Args... args) {
   TaskCollection tc =
-      driver->MakeTasks(driver->pmesh->block_list, std::forward<Args>(args)...);
+      driver->MakeTaskCollection(driver->pmesh->block_list, std::forward<Args>(args)...);
   TaskListStatus status = tc.Execute();
   return status;
 }

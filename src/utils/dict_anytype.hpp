@@ -52,7 +52,7 @@ class DictAnyType {
   T &Get(const std::string &key) {
     auto it = myDict_.find(key);
     PARTHENON_REQUIRE_THROWS(it != myDict_.end(), "Key " + key + " doesn't exist");
-    PARTHENON_REQUIRE_THROWS(!(myTypes_[key].compare(std::string(typeid(T).name()))),
+    PARTHENON_REQUIRE_THROWS(!(myTypes_.at(key).compare(std::string(typeid(T).name()))),
                              "WRONG TYPE FOR KEY '" + key + "'");
     auto typed_ptr = dynamic_cast<DictAnyType::object_t<T> *>((it->second).get());
     return *typed_ptr->pValue;

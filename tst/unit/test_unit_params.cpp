@@ -31,6 +31,10 @@ TEST_CASE("Add and Get is called", "[Add,Get]") {
     params.Add(key, value);
     double output = params.Get<double>(key);
     REQUIRE(output == Approx(value));
+    WHEN("parameters are immutable") {
+      auto const &const_params = params;
+      REQUIRE(params.Get<double>(key) == Approx(value));
+    }
     WHEN("the same key is provided a second time") {
       REQUIRE_THROWS_AS(params.Add(key, value), std::runtime_error);
     }

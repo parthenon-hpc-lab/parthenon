@@ -225,8 +225,9 @@ void ParameterInput::LoadFromFile(IOWrapper &input) {
       ret = input.Read(buf, sizeof(char), kBufSize);
 #ifdef MPI_PARALLEL
     // then broadcasts it
-    MPI_Bcast(&ret, sizeof(IOWrapperSizeT), MPI_BYTE, 0, MPI_COMM_WORLD);
-    MPI_Bcast(buf, ret, MPI_BYTE, 0, MPI_COMM_WORLD);
+    PARTHENON_MPI_CHECK(
+        MPI_Bcast(&ret, sizeof(IOWrapperSizeT), MPI_BYTE, 0, MPI_COMM_WORLD));
+    PARTHENON_MPI_CHECK(MPI_Bcast(buf, ret, MPI_BYTE, 0, MPI_COMM_WORLD));
 #endif
     par.write(buf, ret); // add the buffer into the stream
     header += ret;
@@ -982,19 +983,21 @@ void ParameterInput::CheckDesired(std::string block, std::string name) {
   bool missing = true;
   bool defaulted = false;
   if (DoesParameterExist(block, name)) {
-    missing = (GetComment(block, name) == "# Default value added at run time");
+    missing = false;
+    defaulted = (GetComment(block, name) == "# Default value added at run time");
   }
   if (missing) {
     std::cout << std::endl
               << "### WARNING in CheckDesired:" << std::endl
-              << "Parameter file missing desired field <" << block << ">/" << name;
-    if (defaulted) {
-      std::cout << std::endl
-                << "Defaulting to <" << block << ">/" << name << " = "
-                << GetString(block, name);
-    }
-    std::cout << std::endl << std::endl;
+              << "Parameter file missing desired field <" << block << ">/" << name
+              << std::endl;
   }
+  if (defaulted) {
+    std::cout << std::endl
+              << "Defaulting to <" << block << ">/" << name << " = "
+              << GetString(block, name) << std::endl;
+  }
+  std::cout << std::endl;
 }
 
 //----------------------------------------------------------------------------------------

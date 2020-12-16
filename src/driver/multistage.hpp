@@ -21,6 +21,7 @@
 #include "driver/driver.hpp"
 #include "mesh/mesh.hpp"
 #include "parameter_input.hpp"
+#include "tasks/task_list.hpp"
 
 namespace parthenon {
 
@@ -50,7 +51,7 @@ class MultiStageBlockTaskDriver : public MultiStageDriver {
   // An application driver that derives from this class must define this
   // function, which defines the application specific list of tasks and
   // there dependencies that must be executed.
-  virtual TaskList MakeTaskList(MeshBlock *pmb, int stage) = 0;
+  virtual TaskCollection MakeTaskCollection(BlockList_t &blocks, int stage) = 0;
 };
 
 } // namespace parthenon

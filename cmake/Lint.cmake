@@ -37,11 +37,13 @@ function(lint_file SOURCE_DIR INPUT OUTPUT)
         OUTPUT ${OUTPUT}
         COMMAND
             ${PROJECT_SOURCE_DIR}/tst/style/cpplint.py
+                --repository=${PROJECT_SOURCE_DIR}
                 --counting=detailed
                 --quiet ${FILE_TO_LINT}
         ${MKDIR_COMMAND}
         COMMAND ${CMAKE_COMMAND} -E touch ${OUTPUT}
         DEPENDS ${INPUT}
+                ${PROJECT_SOURCE_DIR}/CPPLINT.cfg
         COMMENT "Linting ${INPUT}"
     )
 endfunction(lint_file)

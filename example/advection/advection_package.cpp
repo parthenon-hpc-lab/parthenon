@@ -130,40 +130,46 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddParam<>("sin_a2", sin_a2);
   pkg->AddParam<>("sin_a3", sin_a3);
 
+  // number of variable in variable vector
+  const auto num_vars = pin->GetOrAddInteger("Advection", "num_vars", 1);
+
   std::string field_name = "advected";
-  Metadata m({Metadata::Cell, Metadata::Independent, Metadata::FillGhost});
+  Metadata m({Metadata::Cell, Metadata::Independent, Metadata::FillGhost},
+             std::vector<int>({num_vars}));
   pkg->AddField(field_name, m);
 
   field_name = "one_minus_advected";
-  m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy});
+  m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy},
+               std::vector<int>({num_vars}));
   pkg->AddField(field_name, m);
 
   field_name = "one_minus_advected_sq";
-  m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy});
+  m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy},
+               std::vector<int>({num_vars}));
   pkg->AddField(field_name, m);
 
   // for fun make this last one a multi-component field using SparseVariable
   field_name = "one_minus_sqrt_one_minus_advected_sq";
   m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy, Metadata::Sparse,
                 Metadata::Restart},
-               12 // just picking a sparse_id out of a hat for demonstration
-  );
+               12, // just picking a sparse_id out of a hat for demonstration
+               std::vector<int>({num_vars}));
   pkg->AddField(field_name, m);
   // add another component
   m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy, Metadata::Sparse,
                 Metadata::Restart},
-               37 // just picking a sparse_id out of a hat for demonstration
-  );
+               37, // just picking a sparse_id out of a hat for demonstration
+               std::vector<int>({num_vars}));
   pkg->AddField(field_name, m);
 
-  pkg->FillDerived = SquareIt;
-  pkg->CheckRefinement = CheckRefinement;
-  pkg->EstimateTimestep = EstimateTimestep;
+  pkg->FillDerivedBlock = SquareIt;
+  pkg->CheckRefinementBlock = CheckRefinement;
+  pkg->EstimateTimestepBlock = EstimateTimestepBlock;
 
   return pkg;
 }
 
-AmrTag CheckRefinement(std::shared_ptr<Container<Real>> &rc) {
+AmrTag CheckRefinement(MeshBlockData<Real> *rc) {
   auto pmb = rc->GetBlockPointer();
   // refine on advected, for example.  could also be a derived quantity
   auto v = rc->Get("advected").data;
@@ -174,11 +180,14 @@ AmrTag CheckRefinement(std::shared_ptr<Container<Real>> &rc) {
 
   typename Kokkos::MinMax<Real>::value_type minmax;
   pmb->par_reduce(
-      "advection check refinement", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(int k, int j, int i,
+      "advection check refinement", 0, v.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s,
+      ib.e,
+      KOKKOS_LAMBDA(const int n, const int k, const int j, const int i,
                     typename Kokkos::MinMax<Real>::value_type &lminmax) {
-        lminmax.min_val = (v(k, j, i) < lminmax.min_val ? v(k, j, i) : lminmax.min_val);
-        lminmax.max_val = (v(k, j, i) > lminmax.max_val ? v(k, j, i) : lminmax.max_val);
+        lminmax.min_val =
+            (v(n, k, j, i) < lminmax.min_val ? v(n, k, j, i) : lminmax.min_val);
+        lminmax.max_val =
+            (v(n, k, j, i) > lminmax.max_val ? v(n, k, j, i) : lminmax.max_val);
       },
       Kokkos::MinMax<Real>(minmax));
 
@@ -192,53 +201,58 @@ AmrTag CheckRefinement(std::shared_ptr<Container<Real>> &rc) {
 }
 
 // demonstrate usage of a "pre" fill derived routine
-void PreFill(std::shared_ptr<Container<Real>> &rc) {
+void PreFill(MeshBlockData<Real> *rc) {
   auto pmb = rc->GetBlockPointer();
 
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
 
+  // packing in principle unnecessary/convoluted here and just done for demonstration
   PackIndexMap imap;
   std::vector<std::string> vars({"advected", "one_minus_advected"});
-  auto v = rc->PackVariables(vars, imap);
+  const auto &v = rc->PackVariables(vars, imap);
   const int in = imap["advected"].first;
   const int out = imap["one_minus_advected"].first;
+  const auto num_vars = rc->Get("advected").data.GetDim(4);
   pmb->par_for(
-      "advection_package::PreFill", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int k, const int j, const int i) {
-        v(out, k, j, i) = 1.0 - v(in, k, j, i);
+      "advection_package::PreFill", 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
+        v(out + n, k, j, i) = 1.0 - v(in + n, k, j, i);
       });
 }
 
 // this is the package registered function to fill derived
-void SquareIt(std::shared_ptr<Container<Real>> &rc) {
+void SquareIt(MeshBlockData<Real> *rc) {
   auto pmb = rc->GetBlockPointer();
 
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
 
+  // packing in principle unnecessary/convoluted here and just done for demonstration
   PackIndexMap imap;
   std::vector<std::string> vars({"one_minus_advected", "one_minus_advected_sq"});
   auto v = rc->PackVariables(vars, imap);
   const int in = imap["one_minus_advected"].first;
   const int out = imap["one_minus_advected_sq"].first;
+  const auto num_vars = rc->Get("advected").data.GetDim(4);
   pmb->par_for(
-      "advection_package::PreFill", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int k, const int j, const int i) {
-        v(out, k, j, i) = v(in, k, j, i) * v(in, k, j, i);
+      "advection_package::SquareIt", 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
+        v(out + n, k, j, i) = v(in + n, k, j, i) * v(in + n, k, j, i);
       });
 }
 
 // demonstrate usage of a "post" fill derived routine
-void PostFill(std::shared_ptr<Container<Real>> &rc) {
+void PostFill(MeshBlockData<Real> *rc) {
   auto pmb = rc->GetBlockPointer();
 
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
 
+  // packing in principle unnecessary/convoluted here and just done for demonstration
   PackIndexMap imap;
   std::vector<std::string> vars(
       {"one_minus_advected_sq", "one_minus_sqrt_one_minus_advected_sq"});
@@ -246,16 +260,17 @@ void PostFill(std::shared_ptr<Container<Real>> &rc) {
   const int in = imap["one_minus_advected_sq"].first;
   const int out12 = imap["one_minus_sqrt_one_minus_advected_sq_12"].first;
   const int out37 = imap["one_minus_sqrt_one_minus_advected_sq_37"].first;
+  const auto num_vars = rc->Get("advected").data.GetDim(4);
   pmb->par_for(
-      "advection_package::PreFill", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int k, const int j, const int i) {
-        v(out12, k, j, i) = 1.0 - sqrt(v(in, k, j, i));
-        v(out37, k, j, i) = 1.0 - v(out12, k, j, i);
+      "advection_package::PostFill", 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
+        v(out12 + n, k, j, i) = 1.0 - sqrt(v(in + n, k, j, i));
+        v(out37 + n, k, j, i) = 1.0 - v(out12 + n, k, j, i);
       });
 }
 
 // provide the routine that estimates a stable timestep for this package
-Real EstimateTimestep(std::shared_ptr<Container<Real>> &rc) {
+Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
   auto pmb = rc->GetBlockPointer();
   auto pkg = pmb->packages["advection_package"];
   const auto &cfl = pkg->Param<Real>("cfl");
@@ -289,7 +304,8 @@ Real EstimateTimestep(std::shared_ptr<Container<Real>> &rc) {
 // Compute fluxes at faces given the constant velocity field and
 // some field "advected" that we are pushing around.
 // This routine implements all the "physics" in this example
-TaskStatus CalculateFluxes(std::shared_ptr<Container<Real>> &rc) {
+TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
+  Kokkos::Profiling::pushRegion("Task_Advection_CalculateFluxes");
   auto pmb = rc->GetBlockPointer();
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
@@ -319,11 +335,11 @@ TaskStatus CalculateFluxes(std::shared_ptr<Container<Real>> &rc) {
 
         for (int n = 0; n < nvar; n++) {
           if (vx > 0.0) {
-            pmb->par_for_inner(member, ib.s, ib.e + 1,
-                               [&](const int i) { x1flux(n, k, j, i) = ql(n, i) * vx; });
+            par_for_inner(member, ib.s, ib.e + 1,
+                          [&](const int i) { x1flux(n, k, j, i) = ql(n, i) * vx; });
           } else {
-            pmb->par_for_inner(member, ib.s, ib.e + 1,
-                               [&](const int i) { x1flux(n, k, j, i) = qr(n, i) * vx; });
+            par_for_inner(member, ib.s, ib.e + 1,
+                          [&](const int i) { x1flux(n, k, j, i) = qr(n, i) * vx; });
           }
         }
       });
@@ -350,13 +366,11 @@ TaskStatus CalculateFluxes(std::shared_ptr<Container<Real>> &rc) {
           member.team_barrier();
           for (int n = 0; n < nvar; n++) {
             if (vy > 0.0) {
-              pmb->par_for_inner(member, ib.s, ib.e, [&](const int i) {
-                x2flux(n, k, j, i) = ql(n, i) * vy;
-              });
+              par_for_inner(member, ib.s, ib.e,
+                            [&](const int i) { x2flux(n, k, j, i) = ql(n, i) * vy; });
             } else {
-              pmb->par_for_inner(member, ib.s, ib.e, [&](const int i) {
-                x2flux(n, k, j, i) = qr(n, i) * vy;
-              });
+              par_for_inner(member, ib.s, ib.e,
+                            [&](const int i) { x2flux(n, k, j, i) = qr(n, i) * vy; });
             }
           }
         });
@@ -384,18 +398,17 @@ TaskStatus CalculateFluxes(std::shared_ptr<Container<Real>> &rc) {
           member.team_barrier();
           for (int n = 0; n < nvar; n++) {
             if (vz > 0.0) {
-              pmb->par_for_inner(member, ib.s, ib.e, [&](const int i) {
-                x3flux(n, k, j, i) = ql(n, i) * vz;
-              });
+              par_for_inner(member, ib.s, ib.e,
+                            [&](const int i) { x3flux(n, k, j, i) = ql(n, i) * vz; });
             } else {
-              pmb->par_for_inner(member, ib.s, ib.e, [&](const int i) {
-                x3flux(n, k, j, i) = qr(n, i) * vz;
-              });
+              par_for_inner(member, ib.s, ib.e,
+                            [&](const int i) { x3flux(n, k, j, i) = qr(n, i) * vz; });
             }
           }
         });
   }
 
+  Kokkos::Profiling::popRegion(); // Task_Advection_CalculateFluxes
   return TaskStatus::complete;
 }
 

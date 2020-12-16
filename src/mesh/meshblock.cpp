@@ -32,8 +32,9 @@
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
 #include "globals.hpp"
-#include "interface/container_iterator.hpp"
+#include "interface/meshblock_data_iterator.hpp"
 #include "interface/metadata.hpp"
+#include "interface/state_descriptor.hpp"
 #include "interface/variable.hpp"
 #include "kokkos_abstraction.hpp"
 #include "mesh/mesh.hpp"
@@ -60,6 +61,19 @@ MeshBlock::MeshBlock(const int n_side, const int ndim)
   } else {
     InitializeIndexShapes(n_side, n_side, n_side);
   }
+}
+
+// Factory method deals with initialization for you
+std::shared_ptr<MeshBlock> MeshBlock::Make(int igid, int ilid, LogicalLocation iloc,
+                                           RegionSize input_block,
+                                           BoundaryFlag *input_bcs, Mesh *pm,
+                                           ParameterInput *pin, ApplicationInput *app_in,
+                                           Properties_t &properties, Packages_t &packages,
+                                           int igflag, double icost) {
+  auto pmb = std::make_shared<MeshBlock>();
+  pmb->Initialize(igid, ilid, iloc, input_block, input_bcs, pm, pin, app_in, properties,
+                  packages, igflag, icost);
+  return pmb;
 }
 
 void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
@@ -104,8 +118,8 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
     UserWorkBeforeOutput = app_in->UserWorkBeforeOutput;
   }
 
-  auto &real_container = real_containers.Get();
-  auto &swarm_container = real_containers.GetSwarmContainer();
+  auto &real_container = meshblock_data.Get();
+  auto &swarm_container = swarm_data.Get();
   // Set the block pointer for the containers
   real_container->SetBlockPointer(shared_from_this());
   swarm_container->SetBlockPointer(shared_from_this());
@@ -130,43 +144,42 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   precon = std::make_unique<Reconstruction>(shared_from_this(), pin);
 
   // Add field properties data
+  // TOOD(JMM): Should packages be resolved for state descriptors in
+  // properties?
   for (int i = 0; i < properties.size(); i++) {
     StateDescriptor &state = properties[i]->State();
     for (auto const &q : state.AllFields()) {
       real_container->Add(q.first, q.second);
     }
     for (auto const &q : state.AllSparseFields()) {
-      for (auto const &m : q.second) {
-        real_container->Add(q.first, m);
+      for (auto const &p : q.second) {
+        real_container->Add(q.first, p.second);
       }
     }
   }
-  // Add physics data
-  for (auto const &pkg : packages) {
-    for (auto const &q : pkg.second->AllFields()) {
-      real_container->Add(q.first, q.second);
-    }
-    for (auto const &q : pkg.second->AllSparseFields()) {
-      for (auto const &m : q.second) {
-        real_container->Add(q.first, m);
-      }
+  // Add physics data, including dense, sparse, and swarm variables.
+  // Resolve issues.
+  resolved_packages = ResolvePackages(packages);
+  auto &pkg = resolved_packages;
+  for (auto const &q : pkg->AllFields()) {
+    real_container->Add(q.first, q.second);
+  }
+  for (auto const &q : pkg->AllSparseFields()) {
+    for (auto const &p : q.second) {
+      real_container->Add(q.first, p.second);
     }
   }
-
-  // Add swarms from packages
-  for (auto const &pkg : packages) {
-    for (auto const &q : pkg.second->AllSwarms()) {
-      swarm_container->Add(q.first, q.second);
-      // Populate swarm values
-      auto &swarm = swarm_container->Get(q.first);
-      for (auto const &m : pkg.second->AllSwarmValues(q.first)) {
-        swarm->Add(m.first, m.second);
-      }
+  for (auto const &q : pkg->AllSwarms()) {
+    swarm_container->Add(q.first, q.second);
+    // Populate swarm values
+    auto &swarm = swarm_container->Get(q.first);
+    for (auto const &m : pkg->AllSwarmValues(q.first)) {
+      swarm->Add(m.first, m.second);
     }
   }
 
   // TODO(jdolence): Should these loops be moved to Variable creation
-  ContainerIterator<Real> ci(real_container, {Metadata::Independent});
+  MeshBlockDataIterator<Real> ci(real_container, {Metadata::Independent});
   int nindependent = ci.vars.size();
   for (int n = 0; n < nindependent; n++) {
     RegisterMeshBlockData(ci.vars[n]);
@@ -202,14 +215,6 @@ void MeshBlock::InitializeIndexShapes(const int nx1, const int nx2, const int nx
       c_cellbounds = IndexShape(nx3 / 2, nx2 / 2, nx1 / 2, 0);
     }
   }
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn std::size_t MeshBlock::GetBlockSizeInBytes()
-//  \brief Calculate the block data size required for restart.
-
-std::size_t MeshBlock::GetBlockSizeInBytes() {
-  throw std::runtime_error("MeshBlock::GetBlockSizeInBytes not yet implemented.");
 }
 
 //----------------------------------------------------------------------------------------

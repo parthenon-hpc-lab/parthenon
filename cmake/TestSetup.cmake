@@ -48,9 +48,13 @@ function(setup_test dir arg extra_labels)
   separate_arguments(arg) 
   list(APPEND labels "regression;mpi-no")
   list(APPEND labels "${extra_labels}")
+  if (Kokkos_ENABLE_OPENMP)
+    set(PARTHENON_KOKKOS_TEST_ARGS "${PARTHENON_KOKKOS_TEST_ARGS} --kokkos-threads=${NUM_OMP_THREADS_PER_RANK}")
+  endif()
   add_test( NAME regression_test:${dir} COMMAND ${Python3_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/run_test.py" 
     ${arg} --test_dir "${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}"
-    --output_dir "${PROJECT_BINARY_DIR}/tst/regression/outputs/${dir}")
+    --output_dir "${PROJECT_BINARY_DIR}/tst/regression/outputs/${dir}"
+    --kokkos_args=${PARTHENON_KOKKOS_TEST_ARGS})
   set_tests_properties(regression_test:${dir} PROPERTIES LABELS "${labels}" )
   record_driver("${arg}")
 endfunction()
@@ -109,9 +113,12 @@ function(setup_test_mpi nproc dir arg extra_labels)
     list(APPEND labels "regression;mpi-yes")
     list(APPEND labels "${extra_labels}")
 
-    if( "${Kokkos_ENABLE_CUDA}" )
+    if(Kokkos_ENABLE_CUDA)
       set(PARTHENON_KOKKOS_TEST_ARGS "--kokkos-num-devices=${NUM_GPU_DEVICES_PER_NODE}")
       list(APPEND labels "cuda")
+    endif()
+    if (Kokkos_ENABLE_OPENMP)
+      set(PARTHENON_KOKKOS_TEST_ARGS "${PARTHENON_KOKKOS_TEST_ARGS} --kokkos-threads=${NUM_OMP_THREADS_PER_RANK}")
     endif()
     process_mpi_args(${nproc})
     add_test( NAME regression_mpi_test:${dir} COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/run_test.py
