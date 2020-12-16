@@ -84,7 +84,7 @@ class ParthenonApp:
       print(error_msg)
       raise
 
-    self.__parthenon_wiki_dir = self.__parthenon_home + self.__repo_name + ".wiki"
+    self.__parthenon_wiki_dir = self.__parthenon_home +"/"+ self.__repo_name + ".wiki"
     if isinstance(pem_file,list):
       self.__generateJWT(pem_file[0])
     else:
@@ -235,7 +235,7 @@ class ParthenonApp:
     # 1. Check if file exists if so get SHA
     custom_data = {"branch":branch}
     c = pycurl.Curl()
-    c.setopt(c.URL, self.__repo_url + '/contents' + '?ref=' + branch)
+    c.setopt(c.URL, self.__repo_url + '/contents?ref=' + branch)
     buffer_temp2 = BytesIO(json.dumps(custom_data).encode('utf-8'))
     c.setopt(c.READDATA, buffer_temp2)
     c.setopt(c.WRITEDATA, buffer_temp)
@@ -245,11 +245,11 @@ class ParthenonApp:
 
     js_obj = json.loads(buffer_temp.getvalue())
 
-    contents = []
+    contents = {}
     if isinstance(js_obj, list):
         # Cycle through list to try to find the right object
         for obj in js_obj:
-          contents.append(obj['name'])
+          contents[obj['name']] = obj['sha']
 
     return contents
 
@@ -275,10 +275,16 @@ class ParthenonApp:
         print("Files can only be uploaded to the wiki repositories master branch")
         return
       else:
+        if path.exists(self.__parthenon_wiki_dir + "/" + os.path.basename(os.path.normpath(file_name))):
+          commit_msg = "Updating file " + file_name
+        else:
+          commit_msg = "Adding file " + file_name
         shutil.copy(file_name,self.__parthenon_wiki_dir)
         repo = self.getWikiRepo(branch)
         repo.index.add([str(self.__parthenon_wiki_dir + "/" + os.path.basename(os.path.normpath(file_name)))])
+        repo.index.commit(commit_msg)
         repo.git.push("--set-upstream","origin",repo.head.reference)
+        return
     else:
       branches = self.getBranches()
 
@@ -305,7 +311,7 @@ class ParthenonApp:
               'message': self.__name + " overwriting file " + file_name,
               'name': self.__name,
               'branch': branch,
-              'sha': obj['sha'],
+              'sha': contents[file_name],
               'content': encoded_file.decode('ascii')
                   }
 
@@ -313,7 +319,8 @@ class ParthenonApp:
           custom_data = {
               'message': self.__name + " uploading file " + file_name,
               'name': self.__name,
-              'content': encoded_file.decode('ascii')
+              'content': encoded_file.decode('ascii'),
+              'branch': branch
                   }
 
       https_url_to_file = self.__repo_url + "/contents/" + file_name
@@ -374,10 +381,10 @@ class ParthenonApp:
   def getWikiRepo(self, branch):
      
     wiki_remote = f"https://{self.__name}:{self.__access_token}@github.com/" + self.__user + "/" + self.__repo_name + ".wiki.git"
-    if not os.path.isdir(str(self.__parthenon_home + self.__repo_name +  ".wiki")):
-      repo = Repo.clone_from(wiki_remote, self.__parthenon_home + self.__repo_name +  ".wiki")
+    if not os.path.isdir(str(self.__parthenon_wiki_dir)):
+      repo = Repo.clone_from(wiki_remote, self.__parthenon_wiki_dir)
     else:
-      repo = Repo(self.__parthenon_home + self.__repo_name +  ".wiki")
+      repo = Repo(self.__parthenon_wiki_dir)
       repo.config_writer().set_value("user","name", self.__name).release()
 
     os.environ["GIT_PASSWORD"] = self.__access_token
@@ -392,6 +399,9 @@ def main(**kwargs):
       kwargs.pop('create'))
 
   branch = kwargs.pop('branch')
+  if isinstance(branch,list):
+    branch = branch[0]
+
   if 'upload' in kwargs:
     app.upload(kwargs.pop('upload'), branch)
 
