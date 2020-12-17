@@ -288,24 +288,7 @@ void Swarm::setPoolMax(const int nmax_pool) {
   neighbor_send_index_ = newvar_int;
 
   // Do something better about this...
-  //ParticleVariable<int> neighbor_send_index_; // -1 means no send
-  //ParArrayND<int> neighborIndices_; // Indexing of vbvar's neighbor array. -1 for same.
-  //ParArrayND<int> blockIndex_; // Neighbor index for each particle. -1 for current block.
-
-  ResizeParArray(neighborIndices_, nmax_pool_, nmax_pool);
   ResizeParArray(blockIndex_, nmax_pool_, nmax_pool);
-  /*template <typename T>
-  void Swarm::ResizeParArray(ParArrayND<T> &var, n_old, n_new) {
-    auto oldvar = var;
-    auto newvar = ParArrayND<T>(oldvar.label(), n_new);
-    pmb->par_for("ResizeParArray", 0, n_old - 1,
-        KOKKOS_LAMBDA(const int n) { newvar(n) = oldvar(n); });
-    var = newvar;
-  }*/
-
-
-  //auto oldpararray_int = neighborIndices_;
-  //auto newpararray_int = ParArrayND<int>(oldpararray_int.label(), nmax_pool);
 
   // TODO(BRR) this is not an efficient loop ordering, probably
   for (int n = 0; n < intVector_.size(); n++) {
@@ -515,7 +498,9 @@ void Swarm::SetupPersistentMPI() {
     }
   }
 
-  PARTHENON_REQUIRE(pmb->pmy_mesh->ndim == 2, "Only 2D tested right now!");
+  int ndim = pmb->pmy_mesh->ndim;
+
+  PARTHENON_REQUIRE(ndim == 2, "Only 2D tested right now!");
 
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
@@ -530,7 +515,50 @@ void Swarm::SetupPersistentMPI() {
     int i = nb.ni.ox1;
     int j = nb.ni.ox2;
     int k = nb.ni.ox3;
-    if (i == -1) {
+
+    if (ndim == 1) {
+      if (i == -1) {
+        neighborIndices_h(0, 0, 0) = n;
+      } else if (i == 0) {
+        neighborIndices_h(0, 0, 1) = n;
+        neighborIndices_h(0, 0, 2) = n;
+      } else {
+        neighborIndices_h(0, 0, 3) = n;
+      }
+    } else if (ndim == 2) {
+      if (i == -1) {
+        if (j == -1) {
+          neighborIndices_h(0, 0, 0) = n;
+        } else if (j == 0) {
+          neighborIndices_h(0, 1, 0) = n;
+          neighborIndices_h(0, 2, 0) = n;
+        } else if (j == 1) {
+          neighborIndices_h(0, 3, 0) = n;
+        }
+      } else if (i == 0) {
+        if (j == -1) {
+          neighborIndices_h(0, 0, 1) = n;
+          neighborIndices_h(0, 0, 2) = n;
+        } else if (j == 1) {
+          neighborIndices_h(0, 3, 1) = n;
+          neighborIndices_h(0, 3, 2) = n;
+        }
+      } else if (i == 1) {
+        if (j == -1) {
+          neighborIndices_h(0, 0, 3) = n;
+        } else if (j == 0) {
+          neighborIndices_h(0, 1, 3) = n;
+          neighborIndices_h(0, 2, 3) = n;
+        } else if (j == 1) {
+          neighborIndices_h(0, 3, 3) = n;
+        }
+      }
+    } else {
+      PARTHENON_FAIL("3D particles not currently supported!");
+    }
+  }
+
+/*    if (i == -1) {
       if (j == -1) {
         neighborIndices_h(0, 0, 0) = n;
       } else if (j == 0) {
@@ -557,10 +585,10 @@ void Swarm::SetupPersistentMPI() {
         neighborIndices_h(0, 3, 3) = n;
       }
     }
-  }
+  }*/
 
   // Copy indices along z in 2D
-  if (pmb->pmy_mesh->ndim == 2) {
+  /*if (pmb->pmy_mesh->ndim == 2) {
     for (int k = 1; k < 4; k++) {
       for (int j = 0; j < 4; j++) {
         for (int i = 0; i < 4; i++) {
@@ -568,7 +596,17 @@ void Swarm::SetupPersistentMPI() {
         }
       }
     }
-  }
+  }*/
+
+    /*for (int k = 0; k < 4; k++) {
+      for (int j = 0; j < 4; j++) {
+        for (int i = 0; i < 4; i++) {
+          printf("neighborIndices(%i, %i, %i) = %i\n", k,j,i,neighborIndices_h(k,j,i));
+          //neighborIndices_h(k, j, i) = neighborIndices_h(0, j, i);
+        }
+      }
+    }
+    exit(-1);*/
 
   neighborIndices_.DeepCopy(neighborIndices_h);
 
@@ -596,14 +634,20 @@ bool Swarm::Send(BoundaryCommSubset phase) {
   printf("    fi1: %i fi2: %i\n", nb.ni.fi1, nb.ni.fi2);
   printf("    rank: %i level: %i local ID: %i global ID: %i\n", nb.snb.rank,
          nb.snb.level, nb.snb.lid, nb.snb.gid);*/
+  printf("max active index: %i\n", max_active_index_);
+  printf("blockIndex_h.GetSize(): %i\n", blockIndex_h.GetSize());
+  printf("mask_h.GetSize(): %i\n", mask_h.GetSize());
 
   for (int n = 0; n <= max_active_index_; n++) {
     printf("%i\n", n);
+    printf("mask: %i\n", mask_h(n));
     if (mask_h(n)) {
+      printf("blockIndex_h(n): %i\n", blockIndex_h(n));
       printf("[%i] particle %i: -> %i (rank %i)\n", Globals::my_rank, n, blockIndex_h(n),
              pmb->pbval->neighbor[blockIndex_h(n)]);
     }
   }
+  printf("%s:%i\n", __FILE__, __LINE__);
 
   // Count all the particles that are Active and Not on this block, if nonzero,
   // copy into buffers (if no send already for that buffer) and send

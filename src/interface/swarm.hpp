@@ -59,6 +59,11 @@ class SwarmDeviceContext {
     int i = static_cast<int>((x - x_min_)/((x_max_ - x_min_)/2.)) + 1;
     int j = static_cast<int>((y - y_min_)/((y_max_ - y_min_)/2.)) + 1;
     int k = static_cast<int>((z - z_min_)/((z_max_ - z_min_)/2.)) + 1;
+    printf("xmin: %e xmax: %e\n", x_min_, x_max_);
+    printf("ymin: %e ymax: %e\n", y_min_, y_max_);
+    printf("zmin: %e zmax: %e\n", z_min_, z_max_);
+    printf("xyz: %e %e %e ijk: %i %i %i\n", x, y, z, i, j, k);
+    //printf("i j k block: %i %i %i (%i)\n", i, j, k, neighborIndices_(k,j,i));
 
     // Something went wrong
     if (i < 0 || i > 3 ||
@@ -70,10 +75,25 @@ class SwarmDeviceContext {
       return -2;
     }
 
+    if (ndim_ == 1) {
+      int i = static_cast<int>((x - x_min_)/((x_max_ - x_min_)/2.)) + 1;
+      blockIndex_(n) = neighborIndices_(0,0,i);
+    } else if (ndim_ == 2) {
+      int i = static_cast<int>((x - x_min_)/((x_max_ - x_min_)/2.)) + 1;
+      int j = static_cast<int>((y - y_min_)/((y_max_ - y_min_)/2.)) + 1;
+      blockIndex_(n) = neighborIndices_(0,j,i);
+    } else {
+      int i = static_cast<int>((x - x_min_)/((x_max_ - x_min_)/2.)) + 1;
+      int j = static_cast<int>((y - y_min_)/((y_max_ - y_min_)/2.)) + 1;
+      int k = static_cast<int>((z - z_min_)/((z_max_ - z_min_)/2.)) + 1;
+      blockIndex_(n) = neighborIndices_(k,j,i);
+    }
+    printf("%s:%i\n", __FILE__, __LINE__);
+
     //printf("[%e %e] [%e %e] [%e %e]\n", x_min_, x_max_, y_min_, y_max_, z_min_, z_max_);
     //printf("[%i %i %i] %e %e %e\n", i,j,k,x,y,z);
     //printf("neighbor: %i\n", neighborIndices_(k,j,i));
-    blockIndex_(n) = neighborIndices_(k,j,i);
+    //blockIndex_(n) = neighborIndices_(k,j,i);
     return blockIndex_(n);
   }
 
@@ -88,7 +108,7 @@ class SwarmDeviceContext {
   ParArrayND<bool> mask_;
   ParArrayND<int> blockIndex_;
   ParArrayND<int> neighbor_send_index_; // TODO(BRR) is this needed?
-  ParArrayND<int> neighborIndices_;
+  ParArrayND<int> neighborIndices_; // 4x4x4 array of possible block AMR regions
   int ndim_;
   friend class Swarm;
 };
@@ -294,7 +314,8 @@ class Swarm {
   ParticleVariable<bool> mask_;
   ParticleVariable<bool> marked_for_removal_;
   ParticleVariable<int> neighbor_send_index_; // -1 means no send
-  ParArrayND<int> neighborIndices_; // Indexing of vbvar's neighbor array. -1 for same.
+  ParArrayND<int> neighborIndices_; // Indexing of vbvar's neighbor array. -1 for same. k,j indices
+                                    // unused in 3D&2D, 2D, respectively
   ParArrayND<int> blockIndex_; // Neighbor index for each particle. -1 for current block.
 
   MPI_Request allreduce_request_;
