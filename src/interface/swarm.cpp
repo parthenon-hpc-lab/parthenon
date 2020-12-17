@@ -638,6 +638,11 @@ bool Swarm::Send(BoundaryCommSubset phase) {
   printf("blockIndex_h.GetSize(): %i\n", blockIndex_h.GetSize());
   printf("mask_h.GetSize(): %i\n", mask_h.GetSize());
 
+  printf("num neighboring meshblocks: %i\n", vbvar->bd_var_.nbmax);
+
+  int nbmax = vbvar->bd_var_.nbmax;
+  std::vector<int> num_particles_to_send(nbmax);
+
   for (int n = 0; n <= max_active_index_; n++) {
     printf("%i\n", n);
     printf("mask: %i\n", mask_h(n));
@@ -645,14 +650,22 @@ bool Swarm::Send(BoundaryCommSubset phase) {
       printf("blockIndex_h(n): %i\n", blockIndex_h(n));
       printf("[%i] particle %i: -> %i (rank %i)\n", Globals::my_rank, n, blockIndex_h(n),
              pmb->pbval->neighbor[blockIndex_h(n)]);
+      // This particle should be sent
+      if (blockIndex_h(n) >= 0) {
+        num_particles_to_send[n]++;
+      }
     }
   }
-  printf("%s:%i\n", __FILE__, __LINE__);
+  for (int n = 0; n < nbmax; n++) {
+    printf("SEND %i PARTICLES TO %i!\n", num_particles_to_send[n], n);
+  }
+  exit(-1);
 
   // Count all the particles that are Active and Not on this block, if nonzero,
   // copy into buffers (if no send already for that buffer) and send
 
   vbvar->Send(phase);
+  exit(-1);
   return false;
 }
 
