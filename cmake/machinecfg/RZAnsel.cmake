@@ -29,11 +29,12 @@
 #   Description: [ADVANCED] Point to an alternative parthenon-project path
 #       Default: /usr/gapps/parthenon_shared/parthenon-project
 
+cmake_minimum_required(VERSION 3.15)
 set(RZANSEL_ARCH "ppc64le")
 # NOTE: When updating dependencies with new compilers or packages, you should
 # ideally only need to update these variables to change the default behavior.
 
-set(RZANSEL_VIEW_DATE_LATEST "2020-11-17")
+set(RZANSEL_VIEW_DATE_LATEST "2020-12-16")
 set(RZANSEL_GCC_PREFERRED "GCC8")
 set(RZANSEL_COMPILER_PREFERRED "GCC")
 
