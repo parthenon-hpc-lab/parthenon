@@ -194,6 +194,10 @@ class Swarm {
   bool mpiStatus;
   void allocateComms(std::weak_ptr<MeshBlock> wpmb);
 
+  int GetParticleDataSize() {
+    return realVector_.size() + intVector_.size();
+  }
+
   bool Send(BoundaryCommSubset phase); /* {
     printf("[%i] Send\n", Globals::my_rank);
     if (mpiStatus == true) {

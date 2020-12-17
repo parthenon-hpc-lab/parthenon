@@ -291,7 +291,6 @@ TaskStatus TransportParticles(MeshBlock *pmb, double t0, Integrator *integrator)
   //const Real x_min_global = pmb->pmy_mesh->mesh_size.x1min;
 
   auto swarm_d = swarm->GetDeviceContext();
-  pmb->exec_space.fence();
 
   //ParArrayND<Real> t("time", max_active_index + 1);
 

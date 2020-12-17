@@ -641,8 +641,11 @@ bool Swarm::Send(BoundaryCommSubset phase) {
   printf("num neighboring meshblocks: %i\n", vbvar->bd_var_.nbmax);
 
   int nbmax = vbvar->bd_var_.nbmax;
-  std::vector<int> num_particles_to_send(nbmax);
+  std::vector<int> num_particles_to_send(nbmax, 0);
+  //std::vector<ParArrayND<int>> particle_indices_to_send(nbmax);
+  int particle_size = GetParticleDataSize();
 
+  int max_indices_size = 0;
   for (int n = 0; n <= max_active_index_; n++) {
     printf("%i\n", n);
     printf("mask: %i\n", mask_h(n));
@@ -652,12 +655,44 @@ bool Swarm::Send(BoundaryCommSubset phase) {
              pmb->pbval->neighbor[blockIndex_h(n)]);
       // This particle should be sent
       if (blockIndex_h(n) >= 0) {
-        num_particles_to_send[n]++;
+        num_particles_to_send[blockIndex_h(n)]++;
+    //    particle_indices_to_send[blockIndex_h(n)].push_back(n);
+        if (max_indices_size < num_particles_to_send[blockIndex_h(n)]) {
+          max_indices_size = num_particles_to_send[blockIndex_h(n)];
+        }
       }
     }
   }
+  // Not a ragged-right array, just for convenience
+  ParArrayND<int> particle_indices_to_send("Particle indices to send", nbmax, max_indices_size);
+  auto particle_indices_to_send_h = particle_indices_to_send.GetHostMirror();
+  std::vector<int> counter(nbmax, 0);
+  for (int n = 0; n <= max_active_index_; n++) {
+    if (mask_h(n)) {
+      if (blockIndex_h(n) >= 0) {
+        particle_indices_to_send_h(blockIndex_h(n), counter[blockIndex_h(n)]) = n;
+        counter[blockIndex_h(n)]++;
+      }
+    }
+  }
+
   for (int n = 0; n < nbmax; n++) {
     printf("SEND %i PARTICLES TO %i!\n", num_particles_to_send[n], n);
+    // Resize buffer if too small
+    //int olddim = vbvar->bd_var_.send[n].extent(0);
+    auto sendbuf = vbvar->bd_var_.send[n];
+    printf("olddim: %i\n", sendbuf.extent(0));
+    if (sendbuf.extent(0) < num_particles_to_send[n]*particle_size) {
+      sendbuf = ParArray1D<Real>("Buffer", num_particles_to_send[n]*particle_size);
+      vbvar->bd_var_.send[n] = sendbuf;
+    }
+    printf("newdim: %i\n", sendbuf.extent(0));
+    //for (auto index : particle_indices_to_send[n]) {
+    //  printf("  %i\n", index);
+    //}
+    //if (vbvar->bd_var_.send[n].GetSize() < num_particles_to_send[n]*particle_size) {
+    //  vbvar->bd_var_.send[n] = ParArray1D<Real>("Buffer", 2.*vbvar->bd_var_.send[n].GetSize());
+    //}
   }
   exit(-1);
 
