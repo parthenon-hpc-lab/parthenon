@@ -59,6 +59,15 @@ class SwarmDeviceContext {
     int i = static_cast<int>((x - x_min_)/((x_max_ - x_min_)/2.)) + 1;
     int j = static_cast<int>((y - y_min_)/((y_max_ - y_min_)/2.)) + 1;
     int k = static_cast<int>((z - z_min_)/((z_max_ - z_min_)/2.)) + 1;
+
+    // Something went wrong
+    if (i < 0 || i > 3 || j < 0 || j > 3 || k < 0 || k > 3) {
+      blockIndex_(n) = -2;
+      printf("ERROR [%i %i %i] [%e %e %e]\n", i, j, k, x, y, z);
+      exit(-1);
+      return -2;
+    }
+
     //printf("[%e %e] [%e %e] [%e %e]\n", x_min_, x_max_, y_min_, y_max_, z_min_, z_max_);
     //printf("[%i %i %i] %e %e %e\n", i,j,k,x,y,z);
     //printf("neighbor: %i\n", neighborIndices_(k,j,i));
@@ -171,10 +180,19 @@ class Swarm {
   bool mpiStatus;
   void allocateComms(std::weak_ptr<MeshBlock> wpmb);
 
-  bool Send(BoundaryCommSubset phase) {
+  bool Send(BoundaryCommSubset phase); /* {
     printf("[%i] Send\n", Globals::my_rank);
     if (mpiStatus == true) {
       return true;
+    }
+
+    auto blockIndex_h = blockIndex_.GetHostMirrorAndCopy();
+    auto mask_h = mask_.data.GetHostMirrorAndCopy();
+
+    for (int n = 0; n <= max_active_index_; n++) {
+      if (mask_h(n)) {
+        printf("[%i] particle %i: -> %i\n", Globals::my_rank, n, blockIndex_h(n));
+      }
     }
 
     // Count all the particles that are Active and Not on this block, if nonzero,
@@ -182,16 +200,16 @@ class Swarm {
 
     vbvar->Send(phase);
     return false;
-  }
+  }*/
 
-  bool Receive(BoundaryCommSubset phase) {
+  bool Receive(BoundaryCommSubset phase); /* {
     printf("[%i] Receive\n", Globals::my_rank);
     if (mpiStatus == true) {
       return true;
     }
     vbvar->Receive(phase);
     return false;
-  }
+  }*/
 
   bool StartCommunication(BoundaryCommSubset phase) {
     printf("[%i] StartCommunication!\n", Globals::my_rank);

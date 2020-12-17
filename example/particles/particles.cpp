@@ -108,6 +108,9 @@ TaskStatus DestroySomeParticles(MeshBlock *pmb) {
   auto swarm = pmb->real_containers.GetSwarmContainer()->Get("my particles");
   auto rng_pool = pkg->Param<RNGPool>("rng_pool");
 
+  // TODO(BRR) short-circuiting this function!
+  return TaskStatus::complete;
+
   // The swarm mask is managed internally and should always be treated as constant. This
   // may be enforced later.
   auto swarm_d = swarm->GetDeviceContext();
@@ -185,6 +188,8 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, double t0) {
   auto rng_pool = pkg->Param<RNGPool>("rng_pool");
   auto num_particles = pkg->Param<int>("num_particles");
   auto v = pkg->Param<Real>("particle_speed");
+
+  printf("num_particles: %i\n", num_particles);
 
   const auto new_particles_mask = swarm->AddEmptyParticles(num_particles);
 
@@ -282,6 +287,7 @@ TaskStatus TransportParticles(MeshBlock *pmb, double t0, Integrator *integrator)
   // traveled one integrator timestep's worth of time
   pmb->par_for(
       "TransportParticles", 0, max_active_index, KOKKOS_LAMBDA(const int n) {
+        printf("[%i] is on current: %i\n", n, swarm_d.IsOnCurrentMeshBlock(n));
         if (swarm_d.IsActive(n) && swarm_d.IsOnCurrentMeshBlock(n)) {
           Real v = sqrt(vx(n) * vx(n) + vy(n) * vy(n) + vz(n) * vz(n));
           while (t(n) < t0 + dt) {
@@ -296,7 +302,14 @@ TaskStatus TransportParticles(MeshBlock *pmb, double t0, Integrator *integrator)
 
             // Apply physical boundaries before indicating communication?
 
-            swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n));
+            int neighborBlockIndex = swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n));
+
+            if (neighborBlockIndex != -1) {
+              printf("[%i] particle (%e %e %e) -> %i\n",
+                Globals::my_rank, x(n), y(n), z(n), neighborBlockIndex);
+              // Particle no longer on this block
+              break;
+            }
 
             // If outside of meshblock, get neighbor index
 
@@ -357,8 +370,8 @@ TaskList ParticleDriver::MakeTaskList(MeshBlock *pmb, int stage) {
 
   auto swarm = sc->Get("my particles");
 
-  //auto start_comm = tl.AddTask(none, &SwarmContainer::StartCommunication, sc.get(),
-  //  BoundaryCommSubset::all);
+  auto start_comm = tl.AddTask(none, &SwarmContainer::StartCommunication, sc.get(),
+    BoundaryCommSubset::all);
 
   auto create_some_particles =
       tl.AddTask(none, CreateSomeParticles, pmb, t0);

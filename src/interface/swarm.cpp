@@ -74,12 +74,19 @@ bool Swarm::FinishCommunication(BoundaryCommSubset phase) {
   printf("[%i] FinishCommunication\n", Globals::my_rank);
 
   if (allreduce_request_ == MPI_REQUEST_NULL) { // No outstanding Iallreduce request
+    printf("NULL!\n");
     MPI_Iallreduce(&local_num_completed_, &global_num_completed_, 1, MPI_INT, MPI_SUM,
                    MPI_COMM_WORLD, &allreduce_request_);
   } else { // Outstanding Iallreduce request
     int flag;
     MPI_Test(&allreduce_request_, &flag, MPI_STATUS_IGNORE);
+    printf("Not NULL! flag: %i\n", flag);
     if (flag) { // Iallreduce completed
+
+      // TODO(BRR) temporary!
+      mpiStatus = true;
+      return true;
+
       printf("[%i] incomplete: %i completed: %i\n", Globals::my_rank,
              global_num_incomplete_, global_num_completed_);
 
@@ -91,6 +98,7 @@ bool Swarm::FinishCommunication(BoundaryCommSubset phase) {
       }*/
 
       // TODO(BRR) change the name of these vars
+      printf("incomp: %i comp: %i\n", global_num_incomplete_, global_num_completed_);
       if (global_num_incomplete_ == global_num_completed_) {
         // Transport completed
         mpiStatus = true;
@@ -311,6 +319,7 @@ ParArrayND<bool> Swarm::AddEmptyParticles(const int num_to_add) {
 
   auto mask_h = mask_.data.GetHostMirror();
   mask_h.DeepCopy(mask_.data);
+  auto blockIndex_h = blockIndex_.GetHostMirrorAndCopy();
 
   auto free_index = free_indices_.begin();
 
@@ -318,6 +327,7 @@ ParArrayND<bool> Swarm::AddEmptyParticles(const int num_to_add) {
   for (int n = 0; n < num_to_add; n++) {
     mask_h(*free_index) = true;
     new_mask_h(*free_index) = true;
+    blockIndex_h(*free_index) = -1;
     max_active_index_ = std::max<int>(max_active_index_, *free_index);
 
     free_index = free_indices_.erase(free_index);
@@ -327,6 +337,7 @@ ParArrayND<bool> Swarm::AddEmptyParticles(const int num_to_add) {
 
   new_mask.DeepCopy(new_mask_h);
   mask_.data.DeepCopy(mask_h);
+  blockIndex_.DeepCopy(blockIndex_h);
 
   return new_mask;
 }
@@ -517,6 +528,51 @@ void Swarm::SetupPersistentMPI() {
   neighborIndices_.DeepCopy(neighborIndices_h);
 
   // exit(-1);
+}
+
+bool Swarm::Send(BoundaryCommSubset phase) {
+  printf("[%i] Send\n", Globals::my_rank);
+  if (mpiStatus == true) {
+    printf("mpiStatus is true!\n");
+    return true;
+  }
+
+  auto blockIndex_h = blockIndex_.GetHostMirrorAndCopy();
+  auto mask_h = mask_.data.GetHostMirrorAndCopy();
+
+  auto pmb = GetBlockPointer();
+
+  // Fence to make sure particles aren't currently being transported locally
+  pmb->exec_space.fence();
+
+  /*NeighborBlock &nb = pmb->pbval->neighbor[n];
+  printf("[%i] indices: %i %i %i\n", n, nb.ni.ox1, nb.ni.ox2, nb.ni.ox3);
+  printf("    fi1: %i fi2: %i\n", nb.ni.fi1, nb.ni.fi2);
+  printf("    rank: %i level: %i local ID: %i global ID: %i\n", nb.snb.rank,
+         nb.snb.level, nb.snb.lid, nb.snb.gid);*/
+
+  for (int n = 0; n <= max_active_index_; n++) {
+    printf("%i\n", n);
+    if (mask_h(n)) {
+      printf("[%i] particle %i: -> %i (rank %i)\n", Globals::my_rank, n, blockIndex_h(n),
+             pmb->pbval->neighbor[blockIndex_h(n)]);
+    }
+  }
+
+  // Count all the particles that are Active and Not on this block, if nonzero,
+  // copy into buffers (if no send already for that buffer) and send
+
+  vbvar->Send(phase);
+  return false;
+}
+
+bool Swarm::Receive(BoundaryCommSubset phase) {
+  printf("[%i] Receive\n", Globals::my_rank);
+  if (mpiStatus == true) {
+    return true;
+  }
+  vbvar->Receive(phase);
+  return false;
 }
 
 // TODO(BRR) move to BoundarySwarm
