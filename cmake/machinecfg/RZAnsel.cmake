@@ -34,13 +34,13 @@ set(RZANSEL_ARCH "ppc64le")
 # NOTE: When updating dependencies with new compilers or packages, you should
 # ideally only need to update these variables to change the default behavior.
 
-set(RZANSEL_VIEW_DATE_LATEST "2020-12-16")
+set(RZANSEL_VIEW_DATE_LATEST "2020-12-17")
 set(RZANSEL_GCC_PREFERRED "GCC8")
 set(RZANSEL_COMPILER_PREFERRED "GCC")
-
 set(RZANSEL_GCC8_VERSION "8.3.1")
 
 set(RZANSEL_MPI_DATE "2020.08.19")
+set(MPIEXEC_EXECUTABLE "/usr/tcetmp/bin/jsrun" CACHE STRING "Mpi executable to use on RZansel system")
 set(RZANSEL_CUDA_VERSION "10.1.243")
 
 set(RZANSEL_CUDA_DEFAULT ON)
