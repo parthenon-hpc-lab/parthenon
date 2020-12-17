@@ -104,6 +104,7 @@ TaskStatus SetTimestepTask(std::shared_ptr<Container<Real>> &rc) {
 // first some helper tasks
 
 TaskStatus DestroySomeParticles(MeshBlock *pmb) {
+  pmb->exec_space.fence();
   auto pkg = pmb->packages["particles_package"];
   auto swarm = pmb->real_containers.GetSwarmContainer()->Get("my particles");
   auto rng_pool = pkg->Param<RNGPool>("rng_pool");
@@ -182,6 +183,7 @@ TaskStatus DepositParticles(MeshBlock *pmb) {
 }
 
 TaskStatus CreateSomeParticles(MeshBlock *pmb, double t0) {
+  pmb->exec_space.fence();
   printf("[%i] CreateSomeParticles\n", Globals::my_rank);
   auto pkg = pmb->packages["particles_package"];
   auto swarm = pmb->real_containers.GetSwarmContainer()->Get("my particles");
@@ -192,6 +194,7 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, double t0) {
   printf("num_particles: %i\n", num_particles);
 
   const auto new_particles_mask = swarm->AddEmptyParticles(num_particles);
+  printf("added particles\n");
 
   // Meshblock geometry
   const IndexRange &ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
@@ -219,13 +222,16 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, double t0) {
   pmb->par_for(
       "CreateSomeParticles", 0, swarm->get_max_active_index(),
       KOKKOS_LAMBDA(const int n) {
+        printf("[%i] (%i)\n", n, new_particles_mask(n));
         if (new_particles_mask(n)) {
+          printf("%s:%i\n", __FILE__, __LINE__);
           auto rng_gen = rng_pool.get_state();
 
           // Randomly sample in space in this meshblock
           x(n) = minx_i + nx_i * dx_i * rng_gen.drand();
           y(n) = minx_j + nx_j * dx_j * rng_gen.drand();
           z(n) = minx_k + nx_k * dx_k * rng_gen.drand();
+          printf("%s:%i\n", __FILE__, __LINE__);
 
           // Randomly sample direction on the unit sphere, fixing speed
           Real theta = acos(2. * rng_gen.drand() - 1.);
@@ -233,12 +239,21 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, double t0) {
           vx(n) = v * sin(theta) * cos(phi);
           vy(n) = v * sin(theta) * sin(phi);
           vz(n) = v * cos(theta);
+          printf("%s:%i\n", __FILE__, __LINE__);
+          printf("t0: %e\n", t0);
+          printf("size: %i\n", t.GetSize());
+          printf("size: %i\n", x.GetSize());
+          printf("t(n): %e\n", t(n));
+          printf("%s:%i\n", __FILE__, __LINE__);
 
           t(n) = t0;
+          printf("%s:%i\n", __FILE__, __LINE__);
 
           weight(n) = 1.0;
+          printf("%s:%i\n", __FILE__, __LINE__);
 
           rng_pool.free_state(rng_gen);
+          printf("%s:%i\n", __FILE__, __LINE__);
         }
       });
 
@@ -280,6 +295,7 @@ TaskStatus TransportParticles(MeshBlock *pmb, double t0, Integrator *integrator)
   //const Real x_min_global = pmb->pmy_mesh->mesh_size.x1min;
 
   auto swarm_d = swarm->GetDeviceContext();
+  pmb->exec_space.fence();
 
   //ParArrayND<Real> t("time", max_active_index + 1);
 
@@ -377,13 +393,15 @@ TaskList ParticleDriver::MakeTaskList(MeshBlock *pmb, int stage) {
       tl.AddTask(none, CreateSomeParticles, pmb, t0);
 
   auto transport_particles = tl.AddTask(create_some_particles, TransportParticles, pmb, t0, integrator);
-  auto send = tl.AddTask(create_some_particles, &SwarmContainer::Send, sc.get(), BoundaryCommSubset::all);
+
+/*auto send = tl.AddTask(create_some_particles, &SwarmContainer::Send, sc.get(), BoundaryCommSubset::all);
   auto receive = tl.AddTask(create_some_particles, &SwarmContainer::Receive, sc.get(), BoundaryCommSubset::all);
 
   auto finalize_comm = tl.AddTask(create_some_particles, &SwarmContainer::FinishCommunication,
     sc.get(), BoundaryCommSubset::all);
 
-  auto deposit_particles = tl.AddTask(finalize_comm, DepositParticles, pmb);
+  auto deposit_particles = tl.AddTask(finalize_comm, DepositParticles, pmb);*/
+  auto deposit_particles = tl.AddTask(transport_particles, DepositParticles, pmb);
 
   auto defrag = tl.AddTask(deposit_particles, Defrag, pmb);
 

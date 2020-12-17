@@ -41,6 +41,7 @@ SwarmDeviceContext Swarm::GetDeviceContext() const {
   context.x_max_ = pmb->coords.x1f(ib.e + 1);
   context.y_max_ = pmb->coords.x2f(jb.e + 1);
   context.z_max_ = pmb->coords.x3f(kb.e + 1);
+  context.ndim_ = pmb->pmy_mesh->ndim;
   return context;
 }
 
@@ -72,6 +73,7 @@ Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_
 
 bool Swarm::FinishCommunication(BoundaryCommSubset phase) {
   printf("[%i] FinishCommunication\n", Globals::my_rank);
+  GetBlockPointer()->exec_space.fence();
 
   if (allreduce_request_ == MPI_REQUEST_NULL) { // No outstanding Iallreduce request
     printf("NULL!\n");
@@ -224,7 +226,17 @@ void Swarm::Remove(const std::string &label) {
   }
 }
 
+template <typename T>
+void Swarm::ResizeParArray(ParArrayND<T> &var, int n_old, int n_new) {
+  auto oldvar = var;
+  auto newvar = ParArrayND<T>(oldvar.label(), n_new);
+  GetBlockPointer()->par_for("ResizeParArray", 0, n_old - 1,
+      KOKKOS_LAMBDA(const int n) { newvar(n) = oldvar(n); });
+  var = newvar;
+}
+
 void Swarm::setPoolMax(const int nmax_pool) {
+  GetBlockPointer()->exec_space.fence();
   PARTHENON_REQUIRE(nmax_pool > nmax_pool_, "Must request larger pool size!");
   int n_new_begin = nmax_pool_;
   int n_new = nmax_pool - nmax_pool_;
@@ -275,6 +287,26 @@ void Swarm::setPoolMax(const int nmax_pool) {
       KOKKOS_LAMBDA(const int n) { newvar_int_data(n) = oldvar_int_data(n); });
   neighbor_send_index_ = newvar_int;
 
+  // Do something better about this...
+  //ParticleVariable<int> neighbor_send_index_; // -1 means no send
+  //ParArrayND<int> neighborIndices_; // Indexing of vbvar's neighbor array. -1 for same.
+  //ParArrayND<int> blockIndex_; // Neighbor index for each particle. -1 for current block.
+
+  ResizeParArray(neighborIndices_, nmax_pool_, nmax_pool);
+  ResizeParArray(blockIndex_, nmax_pool_, nmax_pool);
+  /*template <typename T>
+  void Swarm::ResizeParArray(ParArrayND<T> &var, n_old, n_new) {
+    auto oldvar = var;
+    auto newvar = ParArrayND<T>(oldvar.label(), n_new);
+    pmb->par_for("ResizeParArray", 0, n_old - 1,
+        KOKKOS_LAMBDA(const int n) { newvar(n) = oldvar(n); });
+    var = newvar;
+  }*/
+
+
+  //auto oldpararray_int = neighborIndices_;
+  //auto newpararray_int = ParArrayND<int>(oldpararray_int.label(), nmax_pool);
+
   // TODO(BRR) this is not an efficient loop ordering, probably
   for (int n = 0; n < intVector_.size(); n++) {
     auto oldvar = intVector_[n];
@@ -292,6 +324,7 @@ void Swarm::setPoolMax(const int nmax_pool) {
 
   for (int n = 0; n < realVector_.size(); n++) {
     auto oldvar = realVector_[n];
+    printf("RESIZING %s\n", oldvar->label().c_str());
     auto newvar = std::make_shared<ParticleVariable<Real>>(oldvar->label(), nmax_pool,
                                                            oldvar->metadata());
     auto oldvar_data = oldvar->data;
@@ -299,14 +332,22 @@ void Swarm::setPoolMax(const int nmax_pool) {
     pmb->par_for(
         "setPoolMax_real", 0, nmax_pool_ - 1,
         KOKKOS_LAMBDA(const int m) { newvar_data(m) = oldvar_data(m); });
+    /*pmb->par_for(
+        "setPoolMax_real", nmax_pool_, nmax_pool,
+        KOKKOS_LAMBDA(const int m) {
+          printf("  %e\n", newvar_data(m));
+        });*/
     realVector_[n] = newvar;
     realMap_[oldvar->label()] = newvar;
   }
 
   nmax_pool_ = nmax_pool;
+
+  GetBlockPointer()->exec_space.fence();
 }
 
 ParArrayND<bool> Swarm::AddEmptyParticles(const int num_to_add) {
+  GetBlockPointer()->exec_space.fence();
   while (free_indices_.size() < num_to_add) {
     increasePoolMax();
   }
@@ -346,6 +387,7 @@ ParArrayND<bool> Swarm::AddEmptyParticles(const int num_to_add) {
 // No particles removed: nmax_active_index unchanged
 // Particles removed: nmax_active_index is new max active index
 void Swarm::RemoveMarkedParticles() {
+  GetBlockPointer()->exec_space.fence();
   int new_max_active_index = -1; // TODO(BRR) this is a magic number, needed for Defrag()
 
   auto mask_h = mask_.data.GetHostMirrorAndCopy();
@@ -374,6 +416,7 @@ void Swarm::RemoveMarkedParticles() {
 }
 
 void Swarm::Defrag() {
+  GetBlockPointer()->exec_space.fence();
   // TODO(BRR) Could this algorithm be more efficient? Does it matter?
   // Add 1 to convert max index to max number
   int num_free = (max_active_index_ + 1) - num_active_;
@@ -446,6 +489,8 @@ void Swarm::Defrag() {
 
   // Update max_active_index_
   max_active_index_ = num_active_ - 1;
+
+  GetBlockPointer()->exec_space.fence();
 }
 
 void Swarm::SetupPersistentMPI() {
@@ -531,6 +576,7 @@ void Swarm::SetupPersistentMPI() {
 }
 
 bool Swarm::Send(BoundaryCommSubset phase) {
+  GetBlockPointer()->exec_space.fence();
   printf("[%i] Send\n", Globals::my_rank);
   if (mpiStatus == true) {
     printf("mpiStatus is true!\n");
@@ -567,6 +613,7 @@ bool Swarm::Send(BoundaryCommSubset phase) {
 }
 
 bool Swarm::Receive(BoundaryCommSubset phase) {
+  GetBlockPointer()->exec_space.fence();
   printf("[%i] Receive\n", Globals::my_rank);
   if (mpiStatus == true) {
     return true;

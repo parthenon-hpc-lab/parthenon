@@ -61,7 +61,9 @@ class SwarmDeviceContext {
     int k = static_cast<int>((z - z_min_)/((z_max_ - z_min_)/2.)) + 1;
 
     // Something went wrong
-    if (i < 0 || i > 3 || j < 0 || j > 3 || k < 0 || k > 3) {
+    if (i < 0 || i > 3 ||
+        ((j < 0 || j > 3) && ndim_ > 1) ||
+        ((k < 0 || k > 3) && ndim_ > 2)) {
       blockIndex_(n) = -2;
       printf("ERROR [%i %i %i] [%e %e %e]\n", i, j, k, x, y, z);
       exit(-1);
@@ -87,6 +89,7 @@ class SwarmDeviceContext {
   ParArrayND<int> blockIndex_;
   ParArrayND<int> neighbor_send_index_; // TODO(BRR) is this needed?
   ParArrayND<int> neighborIndices_;
+  int ndim_;
   friend class Swarm;
 };
 
@@ -295,6 +298,9 @@ class Swarm {
   ParArrayND<int> blockIndex_; // Neighbor index for each particle. -1 for current block.
 
   MPI_Request allreduce_request_;
+
+  template <typename T>
+  void ResizeParArray(ParArrayND<T> &var, int n_old, int n_new);
 };
 
 using SP_Swarm = std::shared_ptr<Swarm>;
