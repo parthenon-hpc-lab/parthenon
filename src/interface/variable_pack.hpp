@@ -30,6 +30,8 @@ namespace parthenon {
 // Forward declarations
 template <typename T>
 class CellVariable;
+template <typename T>
+class ParticleVariable;
 
 // some convenience aliases
 namespace vpack_types {
@@ -311,6 +313,26 @@ VariablePack<T> MakePack(const vpack_types::VarList<T> &vars,
 
   auto fvar = vars.front()->data;
   std::array<int, 4> cv_size = {fvar.GetDim(1), fvar.GetDim(2), fvar.GetDim(3), vsize};
+  return VariablePack<T>(cv, sparse_assoc, cv_size);
+}
+
+template <typename T>
+VariablePack<T> MakeSwarmPack(const vpack_types::VarList<T> &vars,
+                              PackIndexMap *vmap = nullptr) {
+  // count up the size
+  int vsize = 0;
+  for (const auto &v : vars) {
+    vsize++;
+  }
+
+  // make the outer view
+  ViewOfParArrays<T> cv("MakeSwarmPack::cv", vsize);
+  ParArray1D<int> sparse_assoc("MakeSwarmPack::sparse_assoc", vsize); // Unused
+
+  FillVarView(vars, vmap, cv, sparse_assoc);
+
+  auto fvar = vars.front()->data;
+  std::array<int, 4> cv_size = {fvar.GetDim(1), 1, 1, vsize};
   return VariablePack<T>(cv, sparse_assoc, cv_size);
 }
 

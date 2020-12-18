@@ -33,6 +33,7 @@
 #include "parthenon_arrays.hpp"
 #include "parthenon_mpi.hpp"
 #include "variable.hpp"
+#include "variable_pack.hpp"
 
 namespace parthenon {
 class MeshBlock;
@@ -198,36 +199,22 @@ class Swarm {
     return realVector_.size() + intVector_.size();
   }
 
-  bool Send(BoundaryCommSubset phase); /* {
-    printf("[%i] Send\n", Globals::my_rank);
-    if (mpiStatus == true) {
-      return true;
-    }
+  bool Send(BoundaryCommSubset phase);
 
-    auto blockIndex_h = blockIndex_.GetHostMirrorAndCopy();
-    auto mask_h = mask_.data.GetHostMirrorAndCopy();
+  bool Receive(BoundaryCommSubset phase);
 
-    for (int n = 0; n <= max_active_index_; n++) {
-      if (mask_h(n)) {
-        printf("[%i] particle %i: -> %i\n", Globals::my_rank, n, blockIndex_h(n));
-      }
-    }
-
-    // Count all the particles that are Active and Not on this block, if nonzero,
-    // copy into buffers (if no send already for that buffer) and send
-
-    vbvar->Send(phase);
-    return false;
-  }*/
-
-  bool Receive(BoundaryCommSubset phase); /* {
-    printf("[%i] Receive\n", Globals::my_rank);
-    if (mpiStatus == true) {
-      return true;
-    }
-    vbvar->Receive(phase);
-    return false;
-  }*/
+  //VariablePack<Real> PackRealVariables();
+  //VariablePack<int> PackIntVariables();
+//  template <typename T>
+  //VariablePack<T> PackVariables(const std::vector<std::string> &names,
+    //                                 const vpack_types::VarList<T> &vars,
+      //                               PackIndexMap &vmap);
+VariablePack<Real> PackVariablesReal(const std::vector<std::string> &names,
+                                     const vpack_types::VarList<Real> &vars,
+                                     PackIndexMap &vmap);
+VariablePack<int> PackVariablesInt(const std::vector<std::string> &names,
+                                     const vpack_types::VarList<int> &vars,
+                                     PackIndexMap &vmap);
 
   bool StartCommunication(BoundaryCommSubset phase) {
     printf("[%i] StartCommunication!\n", Globals::my_rank);
@@ -260,29 +247,6 @@ class Swarm {
     return false;
   }
   bool FinishCommunication(BoundaryCommSubset phase);
-  /*{
-
-    // Check that global_num_incomplete = 0
-    // TODO(BRR) if splitting particles during a push, just add 1 to global_num_incomplete update
-
-    //int num_completed = 0;
-    //int global_num_completed = num_completed;
-    int global_num_completed;
-    MPI_Allreduce(&local_num_completed_, &global_num_completed, 1, MPI_INT,
-      MPI_SUM, MPI_COMM_WORLD);
-    //global_num_incomplete_ -= global_num_completed;
-
-    printf("[%i] incomplete: %i completed: %i\n", Globals::my_rank, global_num_incomplete_, global_num_completed);
-
-    if (global_num_incomplete_ > global_num_completed) {
-      return false;
-    }
-
-    mpiStatus = true;
-
-    printf("[%i] Finishing comm!\n", Globals::my_rank);
-    return true;
-  }*/
 
  private:
   int debug = 0;
@@ -317,6 +281,8 @@ class Swarm {
 
   template <typename T>
   void ResizeParArray(ParArrayND<T> &var, int n_old, int n_new);
+  MapToVariablePack<Real> varPackMapReal_;
+  MapToVariablePack<int> varPackMapInt_;
 };
 
 using SP_Swarm = std::shared_ptr<Swarm>;

@@ -641,8 +641,13 @@ bool Swarm::Send(BoundaryCommSubset phase) {
   printf("num neighboring meshblocks: %i\n", vbvar->bd_var_.nbmax);
 
   int nbmax = vbvar->bd_var_.nbmax;
-  std::vector<int> num_particles_to_send(nbmax, 0);
+  //std::vector<int> num_particles_to_send(nbmax, 0);
   //std::vector<ParArrayND<int>> particle_indices_to_send(nbmax);
+  ParArrayND<int> num_particles_to_send("npts", nbmax);
+  auto num_particles_to_send_h = num_particles_to_send.GetHostMirror();
+  for (int n = 0; n < nbmax; n++) {
+    num_particles_to_send_h(n) = 0;
+  }
   int particle_size = GetParticleDataSize();
 
   int max_indices_size = 0;
@@ -655,10 +660,10 @@ bool Swarm::Send(BoundaryCommSubset phase) {
              pmb->pbval->neighbor[blockIndex_h(n)]);
       // This particle should be sent
       if (blockIndex_h(n) >= 0) {
-        num_particles_to_send[blockIndex_h(n)]++;
+        num_particles_to_send_h(blockIndex_h(n))++;
     //    particle_indices_to_send[blockIndex_h(n)].push_back(n);
-        if (max_indices_size < num_particles_to_send[blockIndex_h(n)]) {
-          max_indices_size = num_particles_to_send[blockIndex_h(n)];
+        if (max_indices_size < num_particles_to_send_h(blockIndex_h(n))) {
+          max_indices_size = num_particles_to_send_h(blockIndex_h(n));
         }
       }
     }
@@ -675,15 +680,17 @@ bool Swarm::Send(BoundaryCommSubset phase) {
       }
     }
   }
+  num_particles_to_send.DeepCopy(num_particles_to_send_h);
+  particle_indices_to_send.DeepCopy(particle_indices_to_send_h);
 
   for (int n = 0; n < nbmax; n++) {
-    printf("SEND %i PARTICLES TO %i!\n", num_particles_to_send[n], n);
+    printf("SEND %i PARTICLES TO %i!\n", num_particles_to_send_h(n), n);
     // Resize buffer if too small
     //int olddim = vbvar->bd_var_.send[n].extent(0);
     auto sendbuf = vbvar->bd_var_.send[n];
     printf("olddim: %i\n", sendbuf.extent(0));
-    if (sendbuf.extent(0) < num_particles_to_send[n]*particle_size) {
-      sendbuf = ParArray1D<Real>("Buffer", num_particles_to_send[n]*particle_size);
+    if (sendbuf.extent(0) < num_particles_to_send_h(n)*particle_size) {
+      sendbuf = ParArray1D<Real>("Buffer", num_particles_to_send_h(n)*particle_size);
       vbvar->bd_var_.send[n] = sendbuf;
     }
     printf("newdim: %i\n", sendbuf.extent(0));
@@ -694,6 +701,16 @@ bool Swarm::Send(BoundaryCommSubset phase) {
     //  vbvar->bd_var_.send[n] = ParArray1D<Real>("Buffer", 2.*vbvar->bd_var_.send[n].GetSize());
     //}
   }
+
+  pmb->par_for("Pack Buffers", 0, max_indices_size,
+    KOKKOS_LAMBDA(const int n) { // Max index
+      for (int m = 0; m < nbmax; m++) { // Number of neighbors
+        if (n < num_particles_to_send(m)) {
+          printf("copy this particle! %i %i\n", n, m);
+        }
+      }
+    });
+
   exit(-1);
 
   // Count all the particles that are Active and Not on this block, if nonzero,
@@ -703,6 +720,62 @@ bool Swarm::Send(BoundaryCommSubset phase) {
   exit(-1);
   return false;
 }
+
+/*template <typename T>
+VariablePack<T> Swarm::PackVariables(const std::vector<std::string> &names,
+                                     const vpack_types::VarList<T> &vars,
+                                     PackIndexMap &vmap) {
+  auto kvpair = varPackMap_.find(names);
+  if (kvpair == varPackMap_.end()) {
+    auto pack = MakeSwarmPack<T>(vars, &vmap);
+    PackIndxPair<T> value;
+    value.pack = pack;
+    value.map = vmap;
+    varPackMap_[names] = value;
+    return pack;
+  }
+  vmap = (kvpair->second).map;
+  return (kvpair->second).pack;
+}*/
+VariablePack<Real> Swarm::PackVariablesReal(const std::vector<std::string> &names,
+                                     const vpack_types::VarList<Real> &vars,
+                                     PackIndexMap &vmap) {
+  auto kvpair = varPackMapReal_.find(names);
+  if (kvpair == varPackMapReal_.end()) {
+    auto pack = MakeSwarmPack<Real>(vars, &vmap);
+    PackIndxPair<Real> value;
+    value.pack = pack;
+    value.map = vmap;
+    varPackMapReal_[names] = value;
+    return pack;
+  }
+  vmap = (kvpair->second).map;
+  return (kvpair->second).pack;
+}
+VariablePack<int> Swarm::PackVariablesInt(const std::vector<std::string> &names,
+                                     const vpack_types::VarList<int> &vars,
+                                     PackIndexMap &vmap) {
+  auto kvpair = varPackMapInt_.find(names);
+  if (kvpair == varPackMapInt_.end()) {
+    auto pack = MakeSwarmPack<int>(vars, &vmap);
+    PackIndxPair<int> value;
+    value.pack = pack;
+    value.map = vmap;
+    varPackMapInt_[names] = value;
+    return pack;
+  }
+  vmap = (kvpair->second).map;
+  return (kvpair->second).pack;
+}
+
+/*VariablePack<Real> Swarm::PackRealVariables() {
+  std::vector<std::string> names{"f"};
+  return MapToVariablePack<Real>().find(names);
+}
+VariablePack<int> Swarm::PackIntVariables() {
+  std::vector<std::string> names{"f"};
+  return MapToVariablePack<int>().find(names);
+}*/
 
 bool Swarm::Receive(BoundaryCommSubset phase) {
   GetBlockPointer()->exec_space.fence();
