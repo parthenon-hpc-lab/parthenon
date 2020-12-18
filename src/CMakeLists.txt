@@ -153,6 +153,8 @@ add_library(parthenon
   interface/properties_interface.hpp
   interface/sparse_variable.cpp
   interface/sparse_variable.hpp
+  interface/state_descriptor.hpp
+  interface/state_descriptor.cpp
   interface/update.cpp
   interface/update.hpp
   interface/variable_pack.hpp
