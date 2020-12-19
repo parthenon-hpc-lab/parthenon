@@ -219,6 +219,9 @@ class ParticleVariable {
     return data(std::forward<Args>(args)...);
   }
 
+  KOKKOS_FORCEINLINE_FUNCTION
+  auto GetDim(const int i) const { return data.GetDim(i); }
+
   ///< retrieve metadata for variable
   const Metadata metadata() const { return m_; }
 

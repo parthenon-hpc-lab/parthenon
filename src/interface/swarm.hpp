@@ -209,9 +209,13 @@ class Swarm {
   //VariablePack<T> PackVariables(const std::vector<std::string> &names,
     //                                 const vpack_types::VarList<T> &vars,
       //                               PackIndexMap &vmap);
+vpack_types::SwarmVarList<Real>
+MakeRealList_(std::vector<std::string> &names);
+
 VariablePack<Real> PackVariablesReal(const std::vector<std::string> &names,
-                                     const vpack_types::VarList<Real> &vars,
+//                                     const vpack_types::VarList<Real> &vars,
                                      PackIndexMap &vmap);
+VariablePack<Real> PackAllVariablesReal(PackIndexMap &vmap);
 VariablePack<int> PackVariablesInt(const std::vector<std::string> &names,
                                      const vpack_types::VarList<int> &vars,
                                      PackIndexMap &vmap);

@@ -558,59 +558,7 @@ void Swarm::SetupPersistentMPI() {
     }
   }
 
-/*    if (i == -1) {
-      if (j == -1) {
-        neighborIndices_h(0, 0, 0) = n;
-      } else if (j == 0) {
-        neighborIndices_h(0, 1, 0) = n;
-        neighborIndices_h(0, 2, 0) = n;
-      } else if (j == 1) {
-        neighborIndices_h(0, 3, 0) = n;
-      }
-    } else if (i == 0) {
-      if (j == -1) {
-        neighborIndices_h(0, 0, 1) = n;
-        neighborIndices_h(0, 0, 2) = n;
-      } else if (j == 1) {
-        neighborIndices_h(0, 3, 1) = n;
-        neighborIndices_h(0, 3, 2) = n;
-      }
-    } else if (i == 1) {
-      if (j == -1) {
-        neighborIndices_h(0, 0, 3) = n;
-      } else if (j == 0) {
-        neighborIndices_h(0, 1, 3) = n;
-        neighborIndices_h(0, 2, 3) = n;
-      } else if (j == 1) {
-        neighborIndices_h(0, 3, 3) = n;
-      }
-    }
-  }*/
-
-  // Copy indices along z in 2D
-  /*if (pmb->pmy_mesh->ndim == 2) {
-    for (int k = 1; k < 4; k++) {
-      for (int j = 0; j < 4; j++) {
-        for (int i = 0; i < 4; i++) {
-          neighborIndices_h(k, j, i) = neighborIndices_h(0, j, i);
-        }
-      }
-    }
-  }*/
-
-    /*for (int k = 0; k < 4; k++) {
-      for (int j = 0; j < 4; j++) {
-        for (int i = 0; i < 4; i++) {
-          printf("neighborIndices(%i, %i, %i) = %i\n", k,j,i,neighborIndices_h(k,j,i));
-          //neighborIndices_h(k, j, i) = neighborIndices_h(0, j, i);
-        }
-      }
-    }
-    exit(-1);*/
-
   neighborIndices_.DeepCopy(neighborIndices_h);
-
-  // exit(-1);
 }
 
 bool Swarm::Send(BoundaryCommSubset phase) {
@@ -702,11 +650,20 @@ bool Swarm::Send(BoundaryCommSubset phase) {
     //}
   }
 
+  PackIndexMap imap;
+  std::vector<std::string> real_vars({"x", "y"}); // Actually use all
+  auto vreal = PackVariablesReal(real_vars, imap);
+
+  const int xindex = imap["x"].first;
+  const int yindex = imap["y"].first;
+
   pmb->par_for("Pack Buffers", 0, max_indices_size,
     KOKKOS_LAMBDA(const int n) { // Max index
       for (int m = 0; m < nbmax; m++) { // Number of neighbors
         if (n < num_particles_to_send(m)) {
           printf("copy this particle! %i %i\n", n, m);
+          printf("%e %e\n", vreal(xindex,n,0,0), vreal(yindex,n,0,0));
+          printf("%e %e\n", vreal(xindex,0,0,n), vreal(yindex,0,0,n));
         }
       }
     });
@@ -721,38 +678,51 @@ bool Swarm::Send(BoundaryCommSubset phase) {
   return false;
 }
 
-/*template <typename T>
-VariablePack<T> Swarm::PackVariables(const std::vector<std::string> &names,
-                                     const vpack_types::VarList<T> &vars,
-                                     PackIndexMap &vmap) {
-  auto kvpair = varPackMap_.find(names);
-  if (kvpair == varPackMap_.end()) {
-    auto pack = MakeSwarmPack<T>(vars, &vmap);
-    PackIndxPair<T> value;
-    value.pack = pack;
-    value.map = vmap;
-    varPackMap_[names] = value;
-    return pack;
+vpack_types::SwarmVarList<Real>
+Swarm::MakeRealList_(std::vector<std::string> &names) {
+  int size = 0;
+  vpack_types::SwarmVarList<Real> vars;
+
+  for (auto it = realVector_.rbegin(); it != realVector_.rend(); ++it) {
+    auto v = *it;
+    vars.push_front(v);
+    size++;
   }
-  vmap = (kvpair->second).map;
-  return (kvpair->second).pack;
-}*/
+  // Get names in same order as list
+  names.resize(size);
+  int it = 0;
+  for (auto &v : vars) {
+    names[it++] = v->label();
+  }
+  return vars;
+}
+
+VariablePack<Real> Swarm::PackAllVariablesReal(PackIndexMap &vmap) {
+  std::vector<std::string> names;
+  for (auto &v : realVector_) {
+    names.push_back(v->label());
+  }
+  return PackVariablesReal(names, vmap);
+}
+
 VariablePack<Real> Swarm::PackVariablesReal(const std::vector<std::string> &names,
-                                     const vpack_types::VarList<Real> &vars,
                                      PackIndexMap &vmap) {
-  auto kvpair = varPackMapReal_.find(names);
+  std::vector<std::string> expanded_names = names;
+  vpack_types::SwarmVarList<Real> vars = MakeRealList_(expanded_names);
+
+  auto kvpair = varPackMapReal_.find(expanded_names);
   if (kvpair == varPackMapReal_.end()) {
     auto pack = MakeSwarmPack<Real>(vars, &vmap);
     PackIndxPair<Real> value;
     value.pack = pack;
     value.map = vmap;
-    varPackMapReal_[names] = value;
+    varPackMapReal_[expanded_names] = value;
     return pack;
   }
   vmap = (kvpair->second).map;
   return (kvpair->second).pack;
 }
-VariablePack<int> Swarm::PackVariablesInt(const std::vector<std::string> &names,
+/*VariablePack<int> Swarm::PackVariablesInt(const std::vector<std::string> &names,
                                      const vpack_types::VarList<int> &vars,
                                      PackIndexMap &vmap) {
   auto kvpair = varPackMapInt_.find(names);
@@ -766,7 +736,7 @@ VariablePack<int> Swarm::PackVariablesInt(const std::vector<std::string> &names,
   }
   vmap = (kvpair->second).map;
   return (kvpair->second).pack;
-}
+}*/
 
 /*VariablePack<Real> Swarm::PackRealVariables() {
   std::vector<std::string> names{"f"};
