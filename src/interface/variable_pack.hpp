@@ -112,7 +112,7 @@ class SwarmVariablePack {
     ParArray1D<T> &operator()(const int n) const { return v_(n); }
     KOKKOS_FORCEINLINE_FUNCTION
     T &operator()(const int n, const int i) const {
-      return v_(n)(i);
+      return v_(n)(0, 0, i);
     }
   private:
     ViewOfParArrays<T> v_;
@@ -161,9 +161,13 @@ using PackIndxPair = PackAndIndexMap<VariablePack<T>>;
 template <typename T>
 using FluxPackIndxPair = PackAndIndexMap<VariableFluxPack<T>>;
 template <typename T>
+using SwarmPackIndxPair = PackAndIndexMap<SwarmVariablePack<T>>;
+template <typename T>
 using MapToVariablePack = std::map<std::vector<std::string>, PackIndxPair<T>>;
 template <typename T>
 using MapToVariableFluxPack = std::map<vpack_types::StringPair, FluxPackIndxPair<T>>;
+template <typename T>
+using MapToSwarmVariablePack = std::map<std::vector<std::string>, SwarmPackIndxPair<T>>;
 
 template <typename T>
 void FillVarView(const vpack_types::VarList<T> &vars, PackIndexMap *vmap,
@@ -224,11 +228,11 @@ void FillVarView(const vpack_types::VarList<T> &vars, PackIndexMap *vmap,
 
 template <typename T>
 void FillSwarmVarView(const vpack_types::SwarmVarList<T> &vars, PackIndexMap *vmap,
-                 ViewOfParArrays<T> &cv, ParArray1D<int> &sparse_assoc) {
+                 ViewOfParArrays<T> &cv) {
   using vpack_types::IndexPair;
 
   auto host_view = Kokkos::create_mirror_view(Kokkos::HostSpace(), cv);
-  auto host_sp = Kokkos::create_mirror_view(Kokkos::HostSpace(), sparse_assoc);
+  //auto host_sp = Kokkos::create_mirror_view(Kokkos::HostSpace(), sparse_assoc);
 
   int vindex = 0;
   int sparse_start;
@@ -236,32 +240,17 @@ void FillSwarmVarView(const vpack_types::SwarmVarList<T> &vars, PackIndexMap *vm
   std::string sparse_name;
   // TODO(BRR) Remove the logic for sparse variables
   for (const auto v : vars) {
-    sparse_id = v->metadata().GetSparseId();
+    //sparse_id = v->metadata().GetSparseId();
     if (vmap != nullptr) {
-      if (v->IsSet(Metadata::Sparse)) {
-        std::string sparse_trim = v->label();
-        sparse_trim.erase(sparse_trim.find_last_of("_"));
-        if (sparse_name == "") {
-          sparse_name = sparse_trim;
-          sparse_start = vindex;
-        }
-        if (sparse_name != sparse_trim) {
-          vmap->insert(std::pair<std::string, IndexPair>(
-              sparse_name, IndexPair(sparse_start, vindex - 1)));
-          sparse_name = sparse_trim;
-          sparse_start = vindex;
-        }
-      } else if (!(sparse_name == "")) {
-        vmap->insert(std::pair<std::string, IndexPair>(
-            sparse_name, IndexPair(sparse_start, vindex - 1)));
-        sparse_name = "";
-      }
+      vmap->insert(std::pair<std::string, IndexPair>(
+          sparse_name, IndexPair(sparse_start, vindex - 1)));
+      sparse_name = "";
     }
     int vstart = vindex;
     for (int k = 0; k < v->GetDim(6); k++) {
       for (int j = 0; j < v->GetDim(5); j++) {
         for (int i = 0; i < v->GetDim(4); i++) {
-          host_sp(vindex) = sparse_id;
+    //      host_sp(vindex) = sparse_id;
           host_view(vindex++) = v->data.Get(k, j, i);
         }
       }
@@ -271,13 +260,9 @@ void FillSwarmVarView(const vpack_types::SwarmVarList<T> &vars, PackIndexMap *vm
           std::pair<std::string, IndexPair>(v->label(), IndexPair(vstart, vindex - 1)));
     }
   }
-  if (vmap != nullptr && sparse_name != "") {
-    vmap->insert(std::pair<std::string, IndexPair>(sparse_name,
-                                                   IndexPair(sparse_start, vindex - 1)));
-  }
 
   Kokkos::deep_copy(cv, host_view);
-  Kokkos::deep_copy(sparse_assoc, host_sp);
+  //Kokkos::deep_copy(sparse_assoc, host_sp);
 }
 
 template <typename T>
@@ -405,11 +390,11 @@ SwarmVariablePack<T> MakeSwarmPack(const vpack_types::SwarmVarList<T> &vars,
   ViewOfParArrays<T> cv("MakeSwarmPack::cv", vsize);
   ParArray1D<int> sparse_assoc("MakeSwarmPack::sparse_assoc", vsize); // Unused
 
-  FillSwarmVarView(vars, vmap, cv, sparse_assoc);
+  FillSwarmVarView(vars, vmap, cv);
 
   auto fvar = vars.front()->data;
-  std::array<int, 4> cv_size = {fvar.GetDim(1), 1, 1, vsize};
-  return VariablePack<T>(cv, sparse_assoc, cv_size);
+  std::array<int, 2> cv_size = {fvar.GetDim(1), vsize};
+  return SwarmVariablePack<T>(cv, cv_size);
 }
 
 } // namespace parthenon

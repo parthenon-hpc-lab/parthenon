@@ -662,8 +662,7 @@ bool Swarm::Send(BoundaryCommSubset phase) {
       for (int m = 0; m < nbmax; m++) { // Number of neighbors
         if (n < num_particles_to_send(m)) {
           printf("copy this particle! %i %i\n", n, m);
-          printf("%e %e\n", vreal(xindex,n,0,0), vreal(yindex,n,0,0));
-          printf("%e %e\n", vreal(xindex,0,0,n), vreal(yindex,0,0,n));
+          printf("%e %e\n", vreal(xindex,n), vreal(yindex,n));
         }
       }
     });
@@ -697,7 +696,7 @@ Swarm::MakeRealList_(std::vector<std::string> &names) {
   return vars;
 }
 
-VariablePack<Real> Swarm::PackAllVariablesReal(PackIndexMap &vmap) {
+SwarmVariablePack<Real> Swarm::PackAllVariablesReal(PackIndexMap &vmap) {
   std::vector<std::string> names;
   for (auto &v : realVector_) {
     names.push_back(v->label());
@@ -705,7 +704,7 @@ VariablePack<Real> Swarm::PackAllVariablesReal(PackIndexMap &vmap) {
   return PackVariablesReal(names, vmap);
 }
 
-VariablePack<Real> Swarm::PackVariablesReal(const std::vector<std::string> &names,
+SwarmVariablePack<Real> Swarm::PackVariablesReal(const std::vector<std::string> &names,
                                      PackIndexMap &vmap) {
   std::vector<std::string> expanded_names = names;
   vpack_types::SwarmVarList<Real> vars = MakeRealList_(expanded_names);
@@ -713,7 +712,7 @@ VariablePack<Real> Swarm::PackVariablesReal(const std::vector<std::string> &name
   auto kvpair = varPackMapReal_.find(expanded_names);
   if (kvpair == varPackMapReal_.end()) {
     auto pack = MakeSwarmPack<Real>(vars, &vmap);
-    PackIndxPair<Real> value;
+    SwarmPackIndxPair<Real> value;
     value.pack = pack;
     value.map = vmap;
     varPackMapReal_[expanded_names] = value;

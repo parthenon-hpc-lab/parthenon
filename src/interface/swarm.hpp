@@ -212,10 +212,10 @@ class Swarm {
 vpack_types::SwarmVarList<Real>
 MakeRealList_(std::vector<std::string> &names);
 
-VariablePack<Real> PackVariablesReal(const std::vector<std::string> &names,
+SwarmVariablePack<Real> PackVariablesReal(const std::vector<std::string> &names,
 //                                     const vpack_types::VarList<Real> &vars,
                                      PackIndexMap &vmap);
-VariablePack<Real> PackAllVariablesReal(PackIndexMap &vmap);
+SwarmVariablePack<Real> PackAllVariablesReal(PackIndexMap &vmap);
 VariablePack<int> PackVariablesInt(const std::vector<std::string> &names,
                                      const vpack_types::VarList<int> &vars,
                                      PackIndexMap &vmap);
@@ -285,8 +285,8 @@ VariablePack<int> PackVariablesInt(const std::vector<std::string> &names,
 
   template <typename T>
   void ResizeParArray(ParArrayND<T> &var, int n_old, int n_new);
-  MapToVariablePack<Real> varPackMapReal_;
-  MapToVariablePack<int> varPackMapInt_;
+  MapToSwarmVariablePack<Real> varPackMapReal_;
+  MapToSwarmVariablePack<int> varPackMapInt_;
 };
 
 using SP_Swarm = std::shared_ptr<Swarm>;
