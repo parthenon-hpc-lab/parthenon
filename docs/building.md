@@ -288,7 +288,8 @@ $ lalloc 1
 #### Set-Up Environment (Optional, but Still Recommended, for Non-CUDA Builds)
 
 You can import all tools you need to start building with by sourcing the
-project `.bashrc`:
+project `.bashrc`, to be able to access /usr/gapps/parthenon_shared you will
+need to be added to the parthenon group (contact @agaspar): 
 
 ```bash
 $ source /usr/gapps/parthenon_shared/parthenon-project/.bashrc
