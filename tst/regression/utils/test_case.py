@@ -22,6 +22,7 @@ import subprocess
 from subprocess import PIPE
 import sys
 from shutil import which
+import glob
 
 class Parameters():
     driver_path = ""
@@ -179,6 +180,12 @@ class TestManager:
             raise TestManagerError(error_msg)
 
     def MakeOutputFolder(self):
+        if os.path.isdir(self.parameters.output_path):
+            try:
+                rmtree(self.parameters.output_path)
+            except OSError as e:
+                print ("Error: %s - %s." % (e.filename, e.strerror))
+
         if not os.path.isdir(self.parameters.output_path):
             os.makedirs(self.parameters.output_path)
 
