@@ -22,7 +22,7 @@
 #           current commit. See `RZANSEL_VIEW_DATE_LATEST`
 # - `RZANSEL_COMPILER` - Compiler family to use
 #       Default: "GCC"
-#       Possible Values: "GCC", "GCC9"
+#       Possible Values: "GCC", "GCC8"
 # - `RZANSEL_CUDA` - Build for CUDA
 #       Default: ON if nvidia-smi finds at least one GPU, OFF otherwise
 # - `RZANSEL_PROJECT_PREFIX`
@@ -67,11 +67,11 @@ set(RZANSEL_CUDA ${RZANSEL_CUDA_DEFAULT} CACHE BOOL "Build for CUDA")
 # packages), that it's easier to just issue a warning if the view date is
 # different from the "latest" date.
 set(RZANSEL_VIEW_DATE ${RZANSEL_VIEW_DATE_LATEST}
-    CACHE STRING "Darwin dependency view being used")
+  CACHE STRING "RZAnsel dependency view being used")
 if (NOT RZANSEL_VIEW_DATE_LATEST STREQUAL RZANSEL_VIEW_DATE)
     message(WARNING "Your current build directory was configured with a \
-        set of Darwin dependencies from ${RZANSEL_VIEW_DATE}, but your current \
-        code checkout prefers a set of Darwin dependencies from \
+    set of RZAnasel dependencies from ${RZANSEL_VIEW_DATE}, but your current \
+    code checkout prefers a set of RZAnsel dependencies from \
         ${RZANSEL_VIEW_DATE_LATEST}. Consider configuring a new build \
         directory.")
 endif()
@@ -88,13 +88,13 @@ set(RZANSEL_PROJECT_PREFIX /usr/gapps/parthenon_shared/parthenon-project
     CACHE STRING "Path to parthenon-project checkout")
 mark_as_advanced(RZANSEL_PROJECT_PREFIX)
 
-message(STATUS "Darwin Build Settings
+message(STATUS "RZAansel Build Settings
               RZANSEL_ARCH: ${RZANSEL_ARCH}
          RZANSEL_VIEW_DATE: ${RZANSEL_VIEW_DATE}
           RZANSEL_COMPILER: ${RZANSEL_COMPILER}
               RZANSEL_CUDA: ${RZANSEL_CUDA}
     RZANSEL_PROJECT_PREFIX: ${RZANSEL_PROJECT_PREFIX}
-                GPU_COUNT: ${GPU_COUNT}
+                 GPU_COUNT: ${GPU_COUNT}
 ")
 
 set(RZANSEL_ARCH_PREFIX ${RZANSEL_PROJECT_PREFIX}/views/rzansel/${RZANSEL_ARCH})
@@ -190,7 +190,7 @@ endif()
 if (NOT DEFINED CMAKE_CXX_COMPILER)
     message(
         FATAL_ERROR
-        "Found view on Darwin for compiler version ${RZANSEL_COMPILER}, but \
+        "Found view on RZAnsel for compiler version ${RZANSEL_COMPILER}, but \
         don't know how to map it to a specific compiler. Either update \
         your Parthenon checkout or explicitly set CMAKE_C_COMPILER and \
         CMAKE_CXX_COMPILER")
@@ -228,9 +228,6 @@ endif()
 
 set(NUM_MPI_PROC_TESTING ${NUM_RANKS} CACHE STRING "CI runs tests with 2 MPI ranks by default.")
 set(NUM_GPU_DEVICES_PER_NODE ${NUM_RANKS} CACHE STRING "Number of gpu devices to use when testing if built with Kokkos_ENABLE_CUDA")
-#set(NUM_GPU_DEVICES_PER_NODE 1 CACHE STRING "Number of gpu devices to use when testing if built with Kokkos_ENABLE_CUDA")
-#set(NUM_OMP_THREADS_PER_RANK 1 CACHE STRING "Number of threads to use when testing if built with Kokkos_ENABLE_OPENMP")
-set(TEST_NUMPROC_FLAG "-a" CACHE STRING "Flag to set number of processes")
-#string(APPEND TEST_MPIOPTS "-n 1 -g ${NUM_GPU_DEVICES_PER_NODE} -c ${NUM_MPI_PROC_TESTING} -r 1 -d packed --smpiargs='-gpu'")
-string(APPEND TEST_MPIOPTS "-n 1 -g ${NUM_GPU_DEVICES_PER_NODE} -c ${NUM_MPI_PROC_TESTING} -r 1 -d packed --smpiargs='-gpu'")
+set(TEST_NUMPROC_FLAG "-c" CACHE STRING "Flag to set number of processes")
+string(APPEND TEST_MPIOPTS "-a 1 -n 1 -g ${NUM_GPU_DEVICES_PER_NODE} -r 1 -d packed --smpiargs='-gpu'")
 
