@@ -228,6 +228,9 @@ endif()
 
 set(NUM_MPI_PROC_TESTING ${NUM_RANKS} CACHE STRING "CI runs tests with 2 MPI ranks by default.")
 set(NUM_GPU_DEVICES_PER_NODE ${NUM_RANKS} CACHE STRING "Number of gpu devices to use when testing if built with Kokkos_ENABLE_CUDA")
-set(NUM_OMP_THREADS_PER_RANK 1 CACHE STRING "Number of threads to use when testing if built with Kokkos_ENABLE_OPENMP")
+#set(NUM_GPU_DEVICES_PER_NODE 1 CACHE STRING "Number of gpu devices to use when testing if built with Kokkos_ENABLE_CUDA")
+#set(NUM_OMP_THREADS_PER_RANK 1 CACHE STRING "Number of threads to use when testing if built with Kokkos_ENABLE_OPENMP")
 set(TEST_NUMPROC_FLAG "-a" CACHE STRING "Flag to set number of processes")
+#string(APPEND TEST_MPIOPTS "-n 1 -g ${NUM_GPU_DEVICES_PER_NODE} -c ${NUM_MPI_PROC_TESTING} -r 1 -d packed --smpiargs='-gpu'")
 string(APPEND TEST_MPIOPTS "-n 1 -g ${NUM_GPU_DEVICES_PER_NODE} -c ${NUM_MPI_PROC_TESTING} -r 1 -d packed --smpiargs='-gpu'")
+
