@@ -492,6 +492,12 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properti
   }
 
   ResetLoadBalanceVariables();
+
+  // Output variables in use in this run
+  if (block_list.size() > 0 && Globals::my_rank == 0) {
+    std::cout << "#Variables in use:\n"
+              << *(block_list[0]->resolved_packages) << std::endl;
+  }
 }
 
 //----------------------------------------------------------------------------------------
@@ -754,6 +760,12 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   }
 
   ResetLoadBalanceVariables();
+
+  // Output variables in use in this run
+  if (block_list.size() > 0 && Globals::my_rank == 0) {
+    std::cout << "#Variables in use:\n"
+              << *(block_list[0]->resolved_packages) << std::endl;
+  }
 }
 
 //----------------------------------------------------------------------------------------

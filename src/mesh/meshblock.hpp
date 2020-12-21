@@ -148,6 +148,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
 
   Properties_t properties;
   Packages_t packages;
+  std::shared_ptr<StateDescriptor> resolved_packages;
 
   std::unique_ptr<MeshBlockApplicationData> app;
 
