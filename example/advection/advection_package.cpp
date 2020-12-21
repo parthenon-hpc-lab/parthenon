@@ -162,14 +162,14 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
                std::vector<int>({num_vars}));
   pkg->AddField(field_name, m);
 
-  pkg->FillDerived = SquareIt;
-  pkg->CheckRefinement = CheckRefinement;
-  pkg->EstimateTimestep = EstimateTimestep;
+  pkg->FillDerivedBlock = SquareIt;
+  pkg->CheckRefinementBlock = CheckRefinement;
+  pkg->EstimateTimestepBlock = EstimateTimestepBlock;
 
   return pkg;
 }
 
-AmrTag CheckRefinement(std::shared_ptr<MeshBlockData<Real>> &rc) {
+AmrTag CheckRefinement(MeshBlockData<Real> *rc) {
   auto pmb = rc->GetBlockPointer();
   // refine on advected, for example.  could also be a derived quantity
   auto v = rc->Get("advected").data;
@@ -201,7 +201,7 @@ AmrTag CheckRefinement(std::shared_ptr<MeshBlockData<Real>> &rc) {
 }
 
 // demonstrate usage of a "pre" fill derived routine
-void PreFill(std::shared_ptr<MeshBlockData<Real>> &rc) {
+void PreFill(MeshBlockData<Real> *rc) {
   auto pmb = rc->GetBlockPointer();
 
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
@@ -211,7 +211,7 @@ void PreFill(std::shared_ptr<MeshBlockData<Real>> &rc) {
   // packing in principle unnecessary/convoluted here and just done for demonstration
   PackIndexMap imap;
   std::vector<std::string> vars({"advected", "one_minus_advected"});
-  auto v = rc->PackVariables(vars, imap);
+  const auto &v = rc->PackVariables(vars, imap);
   const int in = imap["advected"].first;
   const int out = imap["one_minus_advected"].first;
   const auto num_vars = rc->Get("advected").data.GetDim(4);
@@ -223,7 +223,7 @@ void PreFill(std::shared_ptr<MeshBlockData<Real>> &rc) {
 }
 
 // this is the package registered function to fill derived
-void SquareIt(std::shared_ptr<MeshBlockData<Real>> &rc) {
+void SquareIt(MeshBlockData<Real> *rc) {
   auto pmb = rc->GetBlockPointer();
 
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
@@ -245,7 +245,7 @@ void SquareIt(std::shared_ptr<MeshBlockData<Real>> &rc) {
 }
 
 // demonstrate usage of a "post" fill derived routine
-void PostFill(std::shared_ptr<MeshBlockData<Real>> &rc) {
+void PostFill(MeshBlockData<Real> *rc) {
   auto pmb = rc->GetBlockPointer();
 
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
@@ -270,7 +270,7 @@ void PostFill(std::shared_ptr<MeshBlockData<Real>> &rc) {
 }
 
 // provide the routine that estimates a stable timestep for this package
-Real EstimateTimestep(std::shared_ptr<MeshBlockData<Real>> &rc) {
+Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
   auto pmb = rc->GetBlockPointer();
   auto pkg = pmb->packages["advection_package"];
   const auto &cfl = pkg->Param<Real>("cfl");
@@ -305,6 +305,7 @@ Real EstimateTimestep(std::shared_ptr<MeshBlockData<Real>> &rc) {
 // some field "advected" that we are pushing around.
 // This routine implements all the "physics" in this example
 TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
+  Kokkos::Profiling::pushRegion("Task_Advection_CalculateFluxes");
   auto pmb = rc->GetBlockPointer();
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
@@ -334,11 +335,11 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
 
         for (int n = 0; n < nvar; n++) {
           if (vx > 0.0) {
-            pmb->par_for_inner(member, ib.s, ib.e + 1,
-                               [&](const int i) { x1flux(n, k, j, i) = ql(n, i) * vx; });
+            par_for_inner(member, ib.s, ib.e + 1,
+                          [&](const int i) { x1flux(n, k, j, i) = ql(n, i) * vx; });
           } else {
-            pmb->par_for_inner(member, ib.s, ib.e + 1,
-                               [&](const int i) { x1flux(n, k, j, i) = qr(n, i) * vx; });
+            par_for_inner(member, ib.s, ib.e + 1,
+                          [&](const int i) { x1flux(n, k, j, i) = qr(n, i) * vx; });
           }
         }
       });
@@ -365,13 +366,11 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
           member.team_barrier();
           for (int n = 0; n < nvar; n++) {
             if (vy > 0.0) {
-              pmb->par_for_inner(member, ib.s, ib.e, [&](const int i) {
-                x2flux(n, k, j, i) = ql(n, i) * vy;
-              });
+              par_for_inner(member, ib.s, ib.e,
+                            [&](const int i) { x2flux(n, k, j, i) = ql(n, i) * vy; });
             } else {
-              pmb->par_for_inner(member, ib.s, ib.e, [&](const int i) {
-                x2flux(n, k, j, i) = qr(n, i) * vy;
-              });
+              par_for_inner(member, ib.s, ib.e,
+                            [&](const int i) { x2flux(n, k, j, i) = qr(n, i) * vy; });
             }
           }
         });
@@ -399,18 +398,17 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
           member.team_barrier();
           for (int n = 0; n < nvar; n++) {
             if (vz > 0.0) {
-              pmb->par_for_inner(member, ib.s, ib.e, [&](const int i) {
-                x3flux(n, k, j, i) = ql(n, i) * vz;
-              });
+              par_for_inner(member, ib.s, ib.e,
+                            [&](const int i) { x3flux(n, k, j, i) = ql(n, i) * vz; });
             } else {
-              pmb->par_for_inner(member, ib.s, ib.e, [&](const int i) {
-                x3flux(n, k, j, i) = qr(n, i) * vz;
-              });
+              par_for_inner(member, ib.s, ib.e,
+                            [&](const int i) { x3flux(n, k, j, i) = qr(n, i) * vz; });
             }
           }
         });
   }
 
+  Kokkos::Profiling::popRegion(); // Task_Advection_CalculateFluxes
   return TaskStatus::complete;
 }
 

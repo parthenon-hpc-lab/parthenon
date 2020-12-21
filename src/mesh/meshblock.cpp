@@ -34,6 +34,7 @@
 #include "globals.hpp"
 #include "interface/meshblock_data_iterator.hpp"
 #include "interface/metadata.hpp"
+#include "interface/state_descriptor.hpp"
 #include "interface/variable.hpp"
 #include "kokkos_abstraction.hpp"
 #include "mesh/mesh.hpp"
@@ -143,38 +144,37 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   precon = std::make_unique<Reconstruction>(shared_from_this(), pin);
 
   // Add field properties data
+  // TOOD(JMM): Should packages be resolved for state descriptors in
+  // properties?
   for (int i = 0; i < properties.size(); i++) {
     StateDescriptor &state = properties[i]->State();
     for (auto const &q : state.AllFields()) {
       real_container->Add(q.first, q.second);
     }
     for (auto const &q : state.AllSparseFields()) {
-      for (auto const &m : q.second) {
-        real_container->Add(q.first, m);
+      for (auto const &p : q.second) {
+        real_container->Add(q.first, p.second);
       }
     }
   }
-  // Add physics data
-  for (auto const &pkg : packages) {
-    for (auto const &q : pkg.second->AllFields()) {
-      real_container->Add(q.first, q.second);
-    }
-    for (auto const &q : pkg.second->AllSparseFields()) {
-      for (auto const &m : q.second) {
-        real_container->Add(q.first, m);
-      }
+  // Add physics data, including dense, sparse, and swarm variables.
+  // Resolve issues.
+  resolved_packages = ResolvePackages(packages);
+  auto &pkg = resolved_packages;
+  for (auto const &q : pkg->AllFields()) {
+    real_container->Add(q.first, q.second);
+  }
+  for (auto const &q : pkg->AllSparseFields()) {
+    for (auto const &p : q.second) {
+      real_container->Add(q.first, p.second);
     }
   }
-
-  // Add swarms from packages
-  for (auto const &pkg : packages) {
-    for (auto const &q : pkg.second->AllSwarms()) {
-      swarm_container->Add(q.first, q.second);
-      // Populate swarm values
-      auto &swarm = swarm_container->Get(q.first);
-      for (auto const &m : pkg.second->AllSwarmValues(q.first)) {
-        swarm->Add(m.first, m.second);
-      }
+  for (auto const &q : pkg->AllSwarms()) {
+    swarm_container->Add(q.first, q.second);
+    // Populate swarm values
+    auto &swarm = swarm_container->Get(q.first);
+    for (auto const &m : pkg->AllSwarmValues(q.first)) {
+      swarm->Add(m.first, m.second);
     }
   }
 
@@ -215,14 +215,6 @@ void MeshBlock::InitializeIndexShapes(const int nx1, const int nx2, const int nx
       c_cellbounds = IndexShape(nx3 / 2, nx2 / 2, nx1 / 2, 0);
     }
   }
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn std::size_t MeshBlock::GetBlockSizeInBytes()
-//  \brief Calculate the block data size required for restart.
-
-std::size_t MeshBlock::GetBlockSizeInBytes() {
-  throw std::runtime_error("MeshBlock::GetBlockSizeInBytes not yet implemented.");
 }
 
 //----------------------------------------------------------------------------------------

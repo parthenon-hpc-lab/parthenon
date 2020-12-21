@@ -4,7 +4,7 @@
 #  Licensed under the 3-clause BSD License, see LICENSE file for details
 # ========================================================================================
 #  (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
-# 
+#
 #  This program was produced under U.S. Government contract 89233218CNA000001 for Los
 #  Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
 #  for the U.S. Department of Energy/National Nuclear Security Administration. All rights
@@ -16,38 +16,52 @@
 # ========================================================================================
 
 <parthenon/job>
-problem_id = facefields
+problem_id = outflow
 
 <parthenon/mesh>
-nx1 = 32
-x1min = -1.0
-x1max = 1..0
+refinement = adaptive
+numlevel = 2
+
+nx1 = 64
+x1min = -0.5
+x1max = 0.5
 ix1_bc = outflow
 ox1_bc = outflow
 
-nx2 = 32
-x2min = -1.0
-x2max = 1.0
+nx2 = 64
+x2min = -0.5
+x2max = 0.5
 ix2_bc = outflow
 ox2_bc = outflow
 
-nx3 = 32
-x3min = -1.0
-x3max = 1.0
+nx3 = 1
+x3min = -0.5
+x3max = 0.5
 ix3_bc = outflow
 ox3_bc = outflow
 
 <parthenon/meshblock>
-nx1 = 8
-nx2 = 8
-nx3 = 8
+nx1 = 16
+nx2 = 16
+nx3 = 1
 
-<FaceExample>
-px = 1.0
-py = 1.0
-pz = 1.0
+<parthenon/time>
+tlim = 0.5
+integrator = rk2
+
+<Advection>
+cfl = 0.45
+vx = 1.0
+vy = 1.0
+vz = 0.0
+profile = hard_sphere
+
+refine_tol = 0.3    # control the package specific refinement tagging function
+derefine_tol = 0.03
+compute_error = false
+num_vars = 1 # number of variables in variable vector
 
 <parthenon/output0>
 file_type = hdf5
-dt = 0.0
-variables = c.c.interpolated_value, c.c.interpolated_sum
+dt = 0.5
+variables = advected

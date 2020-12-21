@@ -153,6 +153,8 @@ add_library(parthenon
   interface/properties_interface.hpp
   interface/sparse_variable.cpp
   interface/sparse_variable.hpp
+  interface/state_descriptor.hpp
+  interface/state_descriptor.cpp
   interface/update.cpp
   interface/update.hpp
   interface/variable_pack.hpp
@@ -212,6 +214,7 @@ add_library(parthenon
   utils/buffer_utils.hpp
   utils/change_rundir.cpp
   utils/error_checking.hpp
+  utils/error_checking.cpp
   utils/partition_stl_containers.hpp
   utils/show_config.cpp
   utils/signal_handler.cpp

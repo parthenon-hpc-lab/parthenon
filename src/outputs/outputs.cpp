@@ -416,6 +416,7 @@ void OutputType::ClearOutputData() {
 //  \brief scans through singly linked list of OutputTypes and makes any outputs needed.
 
 void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
+  Kokkos::Profiling::pushRegion("MakeOutputs");
   bool first = true;
   OutputType *ptype = pfirst_type_;
   while (ptype != nullptr) {
@@ -431,6 +432,7 @@ void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     }
     ptype = ptype->pnext_type; // move to next OutputType node in signly linked list
   }
+  Kokkos::Profiling::popRegion(); // MakeOutputs
 }
 
 //----------------------------------------------------------------------------------------
