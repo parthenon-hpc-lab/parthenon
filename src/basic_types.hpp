@@ -14,6 +14,8 @@
 #define BASIC_TYPES_HPP_
 
 #include <limits>
+#include <string>
+#include <unordered_map>
 
 #include "config.hpp"
 
@@ -48,6 +50,9 @@ struct SimTime {
 
   bool KeepGoing() { return ((time < tlim) && (nlim < 0 || ncycle < nlim)); }
 };
+
+template <typename T>
+using Dictionary = std::unordered_map<std::string, T>;
 
 } // namespace parthenon
 

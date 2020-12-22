@@ -43,7 +43,6 @@ using ::parthenon::AmrTag;
 using ::parthenon::ApplicationInput;
 using ::parthenon::BlockList_t;
 using ::parthenon::Coordinates;
-using ::parthenon::DerivedOwnership;
 using ::parthenon::DevExecSpace;
 using ::parthenon::Mesh;
 using ::parthenon::MeshBlock;

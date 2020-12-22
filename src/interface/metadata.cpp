@@ -14,6 +14,7 @@
 #include "interface/metadata.hpp"
 
 #include <exception>
+#include <iostream>
 #include <sstream>
 #include <string>
 #include <unordered_set>
@@ -36,7 +37,9 @@ namespace internal {
 class UserMetadataState {
  public:
   UserMetadataState() {
-#define PARTHENON_INTERNAL_FOR_FLAG(name) flag_name_map_.push_back(#name);
+#define PARTHENON_INTERNAL_FOR_FLAG(name)                                                \
+  flag_name_map_.push_back(#name);                                                       \
+  flag_names_.insert(#name);
 
     PARTHENON_INTERNAL_FOREACH_BUILTIN_FLAG
 
@@ -53,10 +56,15 @@ class UserMetadataState {
     auto const flag = flag_name_map_.size();
     flag_names_.insert(name);
     flag_name_map_.push_back(std::move(name));
-    return MetadataFlag(static_cast<int>(flag));
+
+    auto flag_obj = MetadataFlag(static_cast<int>(flag));
+
+    return flag_obj;
   }
 
   std::string const &FlagName(MetadataFlag flag) { return flag_name_map_.at(flag.flag_); }
+
+  const auto &AllFlags() { return flag_name_map_; }
 
  private:
   std::vector<std::string> flag_name_map_;
@@ -64,7 +72,6 @@ class UserMetadataState {
 };
 
 } // namespace internal
-
 } // namespace parthenon
 
 parthenon::internal::UserMetadataState metadata_state;
@@ -74,3 +81,23 @@ MetadataFlag Metadata::AllocateNewFlag(std::string &&name) {
 }
 
 std::string const &MetadataFlag::Name() const { return metadata_state.FlagName(*this); }
+
+namespace parthenon {
+std::ostream &operator<<(std::ostream &os, const parthenon::Metadata &m) {
+  bool first = true;
+  auto &flags = metadata_state.AllFlags();
+  for (int i = 0; i < flags.size(); ++i) {
+    auto flag = MetadataFlag(i);
+    auto &flag_name = flags[i];
+    if (m.IsSet(flag)) {
+      if (!first) {
+        os << ",";
+      } else {
+        first = false;
+      }
+      os << flag_name;
+    }
+  }
+  return os;
+}
+} // namespace parthenon

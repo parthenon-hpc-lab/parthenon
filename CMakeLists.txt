@@ -18,6 +18,10 @@ include(cmake/MachineCfg.cmake)
 
 project(parthenon VERSION 0.3.0 LANGUAGES C CXX)
 
+if (${CMAKE_VERSION} VERSION_GREATER_EQUAL 3.19.0)
+  cmake_policy(SET CMP0110 NEW)
+endif()
+
 include(CTest)
 
 # Compile time constants

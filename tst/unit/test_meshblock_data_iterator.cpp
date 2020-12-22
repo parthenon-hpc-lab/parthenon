@@ -328,6 +328,32 @@ TEST_CASE("Can pull variables from containers based on Metadata",
             },
             correct);
         REQUIRE(correct == 5);
+
+        correct = 0;
+        Kokkos::parallel_reduce(
+            "add correct checks", 1,
+            KOKKOS_LAMBDA(const int i, int &sum) {
+              sum = (v.GetSparseId(v3first) == -1);
+              sum += (v.GetSparseId(v6first) == -1);
+              sum += (v.GetSparseId(vsfirst) == 1);
+              sum += (v.GetSparseId(vsfirst + 1) == 13);
+              sum += (v.GetSparseId(vssecnd) == 42);
+            },
+            correct);
+        REQUIRE(correct == 5);
+
+        correct = 0;
+        Kokkos::parallel_reduce(
+            "add correct checks", 1,
+            KOKKOS_LAMBDA(const int i, int &sum) {
+              sum = (v.GetSparseIndex(v3first) == -1);
+              sum += (v.GetSparseIndex(v6first) == -1);
+              sum += (v.GetSparseIndex(vsfirst) == 1);
+              sum += (v.GetSparseIndex(vsfirst + 1) == 13);
+              sum += (v.GetSparseIndex(vssecnd) == 42);
+            },
+            correct);
+        REQUIRE(correct == 5);
       }
     }
 
