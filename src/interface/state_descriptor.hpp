@@ -188,6 +188,10 @@ class StateDescriptor {
     if (FillDerivedMesh != nullptr) FillDerivedMesh(rc);
   }
 
+  void OutputDiagnostics(SimTime const &simtime, MeshData<Real> *rc) const {
+    if (OutputDiagnosticsMesh != nullptr) OutputDiagnosticsMesh(simtime, rc);
+  }
+
   Real EstimateTimestep(MeshBlockData<Real> *rc) const {
     if (EstimateTimestepBlock != nullptr) return EstimateTimestepBlock(rc);
     return std::numeric_limits<Real>::max();
@@ -203,14 +207,19 @@ class StateDescriptor {
   }
 
   std::vector<std::shared_ptr<AMRCriteria>> amr_criteria;
+
   void (*PreFillDerivedBlock)(MeshBlockData<Real> *rc);
   void (*PreFillDerivedMesh)(MeshData<Real> *rc);
   void (*PostFillDerivedBlock)(MeshBlockData<Real> *rc);
   void (*PostFillDerivedMesh)(MeshData<Real> *rc);
   void (*FillDerivedBlock)(MeshBlockData<Real> *rc);
   void (*FillDerivedMesh)(MeshData<Real> *rc);
+
+  void (*OutputDiagnosticsMesh)(SimTime const &simtime, MeshData<Real> *rc);
+
   Real (*EstimateTimestepBlock)(MeshBlockData<Real> *rc);
   Real (*EstimateTimestepMesh)(MeshData<Real> *rc);
+
   AmrTag (*CheckRefinementBlock)(MeshBlockData<Real> *rc);
 
   friend std::ostream &operator<<(std::ostream &os, const StateDescriptor &sd);
