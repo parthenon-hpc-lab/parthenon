@@ -148,10 +148,10 @@ class Mesh {
   std::function<void(Mesh *, ParameterInput *, SimTime &)> UserWorkAfterLoop =
       &UserWorkAfterLoopDefault;
   static void UserWorkInLoopDefault(Mesh *, ParameterInput *,
-                                    SimTime &); // called in main after each cycle
-  std::function<void(Mesh *, ParameterInput *, SimTime &)> PreStepUserWorkInLoop =
+                                    SimTime const &); // called in main after each cycle
+  std::function<void(Mesh *, ParameterInput *, SimTime const &)> PreStepUserWorkInLoop =
       &UserWorkInLoopDefault;
-  std::function<void(Mesh *, ParameterInput *, SimTime &)> PostStepUserWorkInLoop =
+  std::function<void(Mesh *, ParameterInput *, SimTime const &)> PostStepUserWorkInLoop =
       &UserWorkInLoopDefault;
   int GetRootLevel() const noexcept { return root_level; }
   int GetMaxLevel() const noexcept { return max_level; }
