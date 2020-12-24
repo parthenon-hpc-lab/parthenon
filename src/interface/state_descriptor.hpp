@@ -45,17 +45,12 @@ class StateDescriptor {
   StateDescriptor(const StateDescriptor &s) = delete;
 
   // Preferred constructor
-  explicit StateDescriptor(std::string label) : label_(label) {
-    PostFillDerivedBlock = nullptr;
-    PostFillDerivedMesh = nullptr;
-    PreFillDerivedBlock = nullptr;
-    PreFillDerivedMesh = nullptr;
-    FillDerivedBlock = nullptr;
-    FillDerivedMesh = nullptr;
-    EstimateTimestepBlock = nullptr;
-    EstimateTimestepMesh = nullptr;
-    CheckRefinementBlock = nullptr;
-  }
+  explicit StateDescriptor(std::string label)
+      : label_(label), PostFillDerivedBlock{nullptr}, PostFillDerivedMesh{nullptr},
+        PreFillDerivedBlock{nullptr}, PreFillDerivedMesh{nullptr},
+        FillDerivedBlock{nullptr}, FillDerivedMesh{nullptr},
+        OutputDiagnosticsMesh{nullptr}, EstimateTimestepBlock{nullptr},
+        EstimateTimestepMesh{nullptr}, CheckRefinementBlock{nullptr} {}
 
   template <typename T>
   void AddParam(const std::string &key, T value) {
