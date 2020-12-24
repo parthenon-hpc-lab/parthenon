@@ -178,6 +178,12 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properti
   if (app_in->PostStepMeshUserWorkInLoop != nullptr) {
     PostStepUserWorkInLoop = app_in->PostStepMeshUserWorkInLoop;
   }
+  if (app_in->PreStepDiagnosticsInLoop != nullptr) {
+    PreStepUserDiagnosticsInLoop = app_in->PreStepDiagnosticsInLoop;
+  }
+  if (app_in->PostStepDiagnosticsInLoop != nullptr) {
+    PostStepUserDiagnosticsInLoop = app_in->PostStepDiagnosticsInLoop;
+  }
   if (app_in->UserWorkAfterLoop != nullptr) {
     UserWorkAfterLoop = app_in->UserWorkAfterLoop;
   }
@@ -594,6 +600,12 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   }
   if (app_in->PostStepMeshUserWorkInLoop != nullptr) {
     PostStepUserWorkInLoop = app_in->PostStepMeshUserWorkInLoop;
+  }
+  if (app_in->PreStepDiagnosticsInLoop != nullptr) {
+    PreStepUserDiagnosticsInLoop = app_in->PreStepDiagnosticsInLoop;
+  }
+  if (app_in->PostStepDiagnosticsInLoop != nullptr) {
+    PostStepUserDiagnosticsInLoop = app_in->PostStepDiagnosticsInLoop;
   }
   if (app_in->UserWorkAfterLoop != nullptr) {
     UserWorkAfterLoop = app_in->UserWorkAfterLoop;

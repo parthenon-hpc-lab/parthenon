@@ -62,6 +62,7 @@ DriverStatus EvolutionDriver::Execute() {
     if (Globals::my_rank == 0) OutputCycleDiagnostics();
 
     pmesh->PreStepUserWorkInLoop(pmesh, pinput, tm);
+    pmesh->PreStepUserDiagnosticsInLoop(pmesh, pinput, tm);
 
     TaskListStatus status = Step();
     if (status != TaskListStatus::complete) {
@@ -75,6 +76,7 @@ DriverStatus EvolutionDriver::Execute() {
     pmesh->step_since_lb++;
 
     pmesh->PostStepUserWorkInLoop(pmesh, pinput, tm);
+    pmesh->PostStepUserDiagnosticsInLoop(pmesh, pinput, tm);
 
     pmesh->LoadBalancingAndAdaptiveMeshRefinement(pinput, app_input);
     if (pmesh->modified) InitializeBlockTimeSteps();

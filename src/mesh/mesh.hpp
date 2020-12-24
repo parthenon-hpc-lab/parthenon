@@ -153,6 +153,16 @@ class Mesh {
       &UserWorkInLoopDefault;
   std::function<void(Mesh *, ParameterInput *, SimTime const &)> PostStepUserWorkInLoop =
       &UserWorkInLoopDefault;
+
+  static void PreStepUserDiagnosticsInLoopDefault(Mesh *, ParameterInput *,
+                                                  SimTime const &);
+  std::function<void(Mesh *, ParameterInput *, SimTime const &)>
+      PreStepUserDiagnosticsInLoop = PreStepUserDiagnosticsInLoopDefault;
+  static void PostStepUserDiagnosticsInLoopDefault(Mesh *, ParameterInput *,
+                                                   SimTime const &);
+  std::function<void(Mesh *, ParameterInput *, SimTime const &)>
+      PostStepUserDiagnosticsInLoop = PostStepUserDiagnosticsInLoopDefault;
+
   int GetRootLevel() const noexcept { return root_level; }
   int GetMaxLevel() const noexcept { return max_level; }
   int GetCurrentLevel() const noexcept { return current_level; }

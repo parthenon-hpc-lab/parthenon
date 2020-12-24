@@ -54,6 +54,20 @@ void Mesh::UserWorkInLoopDefault(Mesh *, ParameterInput *, SimTime const &) {
   return;
 }
 
+void Mesh::PreStepUserDiagnosticsInLoopDefault(Mesh *pmesh, ParameterInput *,
+                                               SimTime const &simtime) {
+  for (auto &package : pmesh->packages) {
+    package.second->PreStepDiagnostics(simtime, pmesh->mesh_data.Get().get());
+  }
+}
+
+void Mesh::PostStepUserDiagnosticsInLoopDefault(Mesh *pmesh, ParameterInput *,
+                                                SimTime const &simtime) {
+  for (auto &package : pmesh->packages) {
+    package.second->PostStepDiagnostics(simtime, pmesh->mesh_data.Get().get());
+  }
+}
+
 //========================================================================================
 //! \fn void Mesh::UserWorkAfterLoopDefault(ParameterInput *pin, SimTime &tm)
 //  \brief Function called after main loop is finished for user-defined work.
