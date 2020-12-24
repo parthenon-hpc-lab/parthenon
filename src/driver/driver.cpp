@@ -61,12 +61,16 @@ DriverStatus EvolutionDriver::Execute() {
   while (tm.KeepGoing()) {
     if (Globals::my_rank == 0) OutputCycleDiagnostics();
 
+    pmesh->PreStepUserWorkInLoop(pmesh, pinput, tm);
+
     TaskListStatus status = Step();
     if (status != TaskListStatus::complete) {
       std::cerr << "Step failed to complete all tasks." << std::endl;
       return DriverStatus::failed;
     }
-    // pmesh->UserWorkInLoop();
+
+    pmesh->PostStepUserWorkInLoop(pmesh, pinput, tm);
+
     tm.ncycle++;
     tm.time += tm.dt;
     pmesh->mbcnt += pmesh->nbtotal;

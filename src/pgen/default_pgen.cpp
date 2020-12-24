@@ -49,7 +49,7 @@ void Mesh::InitUserMeshDataDefault(ParameterInput *pin) {
 //  \brief Function called once every time step for user-defined work.
 //========================================================================================
 
-void Mesh::UserWorkInLoopDefault() {
+void Mesh::UserWorkInLoopDefault(Mesh *, ParameterInput *, SimTime &) {
   // do nothing
   return;
 }
