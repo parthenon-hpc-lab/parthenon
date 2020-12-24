@@ -45,7 +45,7 @@ class StateDescriptor {
   StateDescriptor(const StateDescriptor &s) = delete;
 
   // Preferred constructor
-  explicit StateDescriptor(std::string const& label) : label_(label) {}
+  explicit StateDescriptor(std::string const &label) : label_(label) {}
 
   template <typename T>
   void AddParam(const std::string &key, T value) {
@@ -201,20 +201,22 @@ class StateDescriptor {
 
   std::vector<std::shared_ptr<AMRCriteria>> amr_criteria;
 
-  void (*PreFillDerivedBlock)(MeshBlockData<Real> *rc) = nullptr;
-  void (*PreFillDerivedMesh)(MeshData<Real> *rc) = nullptr;
-  void (*PostFillDerivedBlock)(MeshBlockData<Real> *rc) = nullptr;
-  void (*PostFillDerivedMesh)(MeshData<Real> *rc) = nullptr;
-  void (*FillDerivedBlock)(MeshBlockData<Real> *rc) = nullptr;
-  void (*FillDerivedMesh)(MeshData<Real> *rc) = nullptr;
+  std::function<void(MeshBlockData<Real> *rc)> PreFillDerivedBlock = nullptr;
+  std::function<void(MeshData<Real> *rc)> PreFillDerivedMesh = nullptr;
+  std::function<void(MeshBlockData<Real> *rc)> PostFillDerivedBlock = nullptr;
+  std::function<void(MeshData<Real> *rc)> PostFillDerivedMesh = nullptr;
+  std::function<void(MeshBlockData<Real> *rc)> FillDerivedBlock = nullptr;
+  std::function<void(MeshData<Real> *rc)> FillDerivedMesh = nullptr;
 
-  void (*PreStepDiagnosticsMesh)(SimTime const &simtime, MeshData<Real> *rc) = nullptr;
-  void (*PostStepDiagnosticsMesh)(SimTime const &simtime, MeshData<Real> *rc) = nullptr;
+  std::function<void(SimTime const &simtime, MeshData<Real> *rc)> PreStepDiagnosticsMesh =
+      nullptr;
+  std::function<void(SimTime const &simtime, MeshData<Real> *rc)>
+      PostStepDiagnosticsMesh = nullptr;
 
-  Real (*EstimateTimestepBlock)(MeshBlockData<Real> *rc) = nullptr;
-  Real (*EstimateTimestepMesh)(MeshData<Real> *rc) = nullptr;
+  std::function<Real(MeshBlockData<Real> *rc)> EstimateTimestepBlock = nullptr;
+  std::function<Real(MeshData<Real> *rc)> EstimateTimestepMesh = nullptr;
 
-  AmrTag (*CheckRefinementBlock)(MeshBlockData<Real> *rc) = nullptr;
+  std::function<AmrTag(MeshBlockData<Real> *rc)> CheckRefinementBlock = nullptr;
 
   friend std::ostream &operator<<(std::ostream &os, const StateDescriptor &sd);
 
