@@ -230,17 +230,16 @@ void CalcIndicesLoadToFiner(int &si, int &ei, int &sj, int &ej, int &sk, int &ek
   }
 }
 
-// send boundary buffers with MeshBlockPack support
-// TODO(pgrete) should probaly be moved to the bvals or interface folders
-TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
-  Kokkos::Profiling::pushRegion("Task_SendBoundaryBuffers_MeshData");
+//----------------------------------------------------------------------------------------
+//! \fn size_t ResetAndRestrictSendBuffers(MeshData<Real> *md, bool cache_is_valid)
+//  \brief Resets boundary variable pointer (tbd if still required) and restricts
+//         cell centered variables if a cached version of boundary_info is used.
+//  \return The total number of buffers used in boundary_info
 
-  auto boundary_info = md->GetSendBuffers();
-  bool cache_is_valid = boundary_info.is_allocated();
-
+size_t ResetAndRestrictSendBuffers(MeshData<Real> *md, bool cache_is_valid) {
   Kokkos::Profiling::pushRegion("Reset boundaries");
 
-  int buffers_used = 0;
+  size_t buffers_used = 0;
   // reset buffer and count required buffers
   for (int block = 0; block < md->NumBlocks(); block++) {
     auto &rc = md->GetBlockData(block);
@@ -278,82 +277,155 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   }
   Kokkos::Profiling::popRegion(); // Reset boundaries
 
-  if (!cache_is_valid) {
-    Kokkos::Profiling::pushRegion("Create bndinfo array");
+  return buffers_used;
+}
 
-    boundary_info = BufferCache_t("send_boundary_info", buffers_used);
-    auto boundary_info_h = Kokkos::create_mirror_view(boundary_info);
+//----------------------------------------------------------------------------------------
+//! \fn void ResetSendBufferBoundaryInfo(MeshData<Real> *md, size_t buffers_used)
+//  \brief Reset/recreates boundary_info for send buffers from cell centered vars.
+//         The new boundary_info is directly stored in the MeshData object.
+//         Also handles restriction in case of AMR.
 
-    // now fill the buffer information
-    int b = 0; // buffer index
-    for (auto block = 0; block < md->NumBlocks(); block++) {
-      auto &rc = md->GetBlockData(block);
-      auto pmb = rc->GetBlockPointer();
+void ResetSendBufferBoundaryInfo(MeshData<Real> *md, size_t buffers_used) {
+  Kokkos::Profiling::pushRegion("Create send_boundary_info");
 
-      int mylevel = pmb->loc.level;
-      for (auto &v : rc->GetCellVariableVector()) {
-        if (v->IsSet(parthenon::Metadata::FillGhost)) {
-          for (int n = 0; n < pmb->pbval->nneighbor; n++) {
-            parthenon::NeighborBlock &nb = pmb->pbval->neighbor[n];
-            auto *bd_var_ = v->vbvar->GetPBdVar();
-            if (bd_var_->sflag[nb.bufid] == parthenon::BoundaryStatus::completed)
-              continue;
+  auto boundary_info = BufferCache_t("send_boundary_info", buffers_used);
+  auto boundary_info_h = Kokkos::create_mirror_view(boundary_info);
 
-            auto &si = boundary_info_h(b).si;
-            auto &ei = boundary_info_h(b).ei;
-            auto &sj = boundary_info_h(b).sj;
-            auto &ej = boundary_info_h(b).ej;
-            auto &sk = boundary_info_h(b).sk;
-            auto &ek = boundary_info_h(b).ek;
-            auto &Nv = boundary_info_h(b).Nv;
-            Nv = v->GetDim(4);
+  // now fill the buffer information
+  int b = 0; // buffer index
+  for (auto block = 0; block < md->NumBlocks(); block++) {
+    auto &rc = md->GetBlockData(block);
+    auto pmb = rc->GetBlockPointer();
 
-            IndexDomain interior = IndexDomain::interior;
-            auto &var_cc = v->data;
-            if (nb.snb.level == mylevel) {
-              const parthenon::IndexShape &cellbounds = pmb->cellbounds;
-              CalcIndicesLoadSame(nb.ni.ox1, si, ei, cellbounds.GetBoundsI(interior));
-              CalcIndicesLoadSame(nb.ni.ox2, sj, ej, cellbounds.GetBoundsJ(interior));
-              CalcIndicesLoadSame(nb.ni.ox3, sk, ek, cellbounds.GetBoundsK(interior));
-              boundary_info_h(b).var = var_cc.Get<4>();
+    int mylevel = pmb->loc.level;
+    for (auto &v : rc->GetCellVariableVector()) {
+      if (v->IsSet(parthenon::Metadata::FillGhost)) {
+        for (int n = 0; n < pmb->pbval->nneighbor; n++) {
+          parthenon::NeighborBlock &nb = pmb->pbval->neighbor[n];
+          auto *bd_var_ = v->vbvar->GetPBdVar();
+          if (bd_var_->sflag[nb.bufid] == parthenon::BoundaryStatus::completed) continue;
 
-            } else if (nb.snb.level < mylevel) {
-              const IndexShape &c_cellbounds = pmb->c_cellbounds;
-              // "Same" logic is the same for loading to a coarse buffer, just using
-              // c_cellbounds
-              CalcIndicesLoadSame(nb.ni.ox1, si, ei, c_cellbounds.GetBoundsI(interior));
-              CalcIndicesLoadSame(nb.ni.ox2, sj, ej, c_cellbounds.GetBoundsJ(interior));
-              CalcIndicesLoadSame(nb.ni.ox3, sk, ek, c_cellbounds.GetBoundsK(interior));
+          auto &si = boundary_info_h(b).si;
+          auto &ei = boundary_info_h(b).ei;
+          auto &sj = boundary_info_h(b).sj;
+          auto &ej = boundary_info_h(b).ej;
+          auto &sk = boundary_info_h(b).sk;
+          auto &ek = boundary_info_h(b).ek;
+          auto &Nv = boundary_info_h(b).Nv;
+          Nv = v->GetDim(4);
 
-              auto &coarse_buf = v->vbvar->coarse_buf;
-              pmb->pmr->RestrictCellCenteredValues(var_cc, coarse_buf, 0, Nv - 1, si, ei,
-                                                   sj, ej, sk, ek);
+          IndexDomain interior = IndexDomain::interior;
+          auto &var_cc = v->data;
+          if (nb.snb.level == mylevel) {
+            const parthenon::IndexShape &cellbounds = pmb->cellbounds;
+            CalcIndicesLoadSame(nb.ni.ox1, si, ei, cellbounds.GetBoundsI(interior));
+            CalcIndicesLoadSame(nb.ni.ox2, sj, ej, cellbounds.GetBoundsJ(interior));
+            CalcIndicesLoadSame(nb.ni.ox3, sk, ek, cellbounds.GetBoundsK(interior));
+            boundary_info_h(b).var = var_cc.Get<4>();
 
-              boundary_info_h(b).var = coarse_buf.Get<4>();
+          } else if (nb.snb.level < mylevel) {
+            const IndexShape &c_cellbounds = pmb->c_cellbounds;
+            // "Same" logic is the same for loading to a coarse buffer, just using
+            // c_cellbounds
+            CalcIndicesLoadSame(nb.ni.ox1, si, ei, c_cellbounds.GetBoundsI(interior));
+            CalcIndicesLoadSame(nb.ni.ox2, sj, ej, c_cellbounds.GetBoundsJ(interior));
+            CalcIndicesLoadSame(nb.ni.ox3, sk, ek, c_cellbounds.GetBoundsK(interior));
 
-            } else {
-              CalcIndicesLoadToFiner(si, ei, sj, ej, sk, ek, nb, pmb.get());
-              boundary_info_h(b).var = var_cc.Get<4>();
-            }
-            // on the same process fill the target buffer directly
-            if (nb.snb.rank == parthenon::Globals::my_rank) {
-              auto target_block = pmb->pmy_mesh->FindMeshBlock(nb.snb.gid);
-              // TODO(?) again hardcoded 0 index for single Variable
-              // FIXME before final merge
-              boundary_info_h(b).buf =
-                  target_block->pbval->bvars[0]->GetPBdVar()->recv[nb.targetid];
-            } else {
-              boundary_info_h(b).buf = bd_var_->send[nb.bufid];
-            }
-            b++;
+            auto &coarse_buf = v->vbvar->coarse_buf;
+            pmb->pmr->RestrictCellCenteredValues(var_cc, coarse_buf, 0, Nv - 1, si, ei,
+                                                 sj, ej, sk, ek);
+
+            boundary_info_h(b).var = coarse_buf.Get<4>();
+
+          } else {
+            CalcIndicesLoadToFiner(si, ei, sj, ej, sk, ek, nb, pmb.get());
+            boundary_info_h(b).var = var_cc.Get<4>();
           }
+          // on the same process fill the target buffer directly
+          if (nb.snb.rank == parthenon::Globals::my_rank) {
+            auto target_block = pmb->pmy_mesh->FindMeshBlock(nb.snb.gid);
+            // TODO(?) again hardcoded 0 index for single Variable
+            // FIXME before final merge
+            boundary_info_h(b).buf =
+                target_block->pbval->bvars[0]->GetPBdVar()->recv[nb.targetid];
+          } else {
+            boundary_info_h(b).buf = bd_var_->send[nb.bufid];
+          }
+          b++;
         }
       }
     }
-    Kokkos::deep_copy(boundary_info, boundary_info_h);
-    md->SetSendBuffers(boundary_info);
+  }
+  Kokkos::deep_copy(boundary_info, boundary_info_h);
+  md->SetSendBuffers(boundary_info);
 
-    Kokkos::Profiling::popRegion(); // Create bndinfo array
+  Kokkos::Profiling::popRegion(); // Create send_boundary_info
+}
+
+//----------------------------------------------------------------------------------------
+//! \fn void SendAndNotify(MeshData<Real> *md)
+//  \brief Starts async MPI communication for neighbor MeshBlocks on different ranks and
+//         sets flag to arrived for buffers on MeshBlocks on the same rank as data between
+//         those has already been copied directly.
+
+void SendAndNotify(MeshData<Real> *md) {
+  Kokkos::Profiling::pushRegion("Set complete and/or start sending via MPI");
+  for (int block = 0; block < md->NumBlocks(); block++) {
+    auto &rc = md->GetBlockData(block);
+    auto pmb = rc->GetBlockPointer();
+
+    int mylevel = pmb->loc.level;
+    for (auto &v : rc->GetCellVariableVector()) {
+      if (v->IsSet(parthenon::Metadata::FillGhost)) {
+        for (int n = 0; n < pmb->pbval->nneighbor; n++) {
+          parthenon::NeighborBlock &nb = pmb->pbval->neighbor[n];
+          auto *bd_var_ = v->vbvar->GetPBdVar();
+          if (bd_var_->sflag[nb.bufid] == parthenon::BoundaryStatus::completed) continue;
+
+          // on the same rank the data has been directly copied to the target buffer
+          if (nb.snb.rank == parthenon::Globals::my_rank) {
+            // TODO(?) check performance of FindMeshBlock. Could be caching from call
+            // above.
+            auto target_block = pmb->pmy_mesh->FindMeshBlock(nb.snb.gid);
+            // TODO(?) again hardcoded 0 index for single Variable
+            // FIXME before final merge
+            target_block->pbval->bvars[0]->GetPBdVar()->flag[nb.targetid] =
+                parthenon::BoundaryStatus::arrived;
+          } else {
+#ifdef MPI_PARALLEL
+            MPI_Start(&(bd_var_->req_send[nb.bufid]));
+#endif
+          }
+
+          bd_var_->sflag[nb.bufid] = parthenon::BoundaryStatus::completed;
+        }
+      }
+    }
+  }
+  Kokkos::Profiling::popRegion(); // Set complete and/or start sending via MPI
+}
+
+//----------------------------------------------------------------------------------------
+//! \fn TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md)
+//  \brief Fills and starts sending boundary buffers for cell centered variables for
+//         all MeshBlocks contained the the MeshData object.
+//  \return Complete when buffer filling is done and MPI communication started.
+//          Guarantees that buffers for MeshBlocks on the same rank are done, but MPI
+//          communication between ranks may still be in process.
+
+// TODO(pgrete) should probaly be moved to the bvals or interface folders
+TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
+  Kokkos::Profiling::pushRegion("Task_SendBoundaryBuffers_MeshData");
+
+  auto boundary_info = md->GetSendBuffers();
+  bool cache_is_valid = boundary_info.is_allocated();
+
+  auto buffers_used = ResetAndRestrictSendBuffers(md.get(), cache_is_valid);
+
+  if (!cache_is_valid) {
+    ResetSendBufferBoundaryInfo(md.get(), buffers_used);
+    boundary_info = md->GetSendBuffers();
   }
 
   Kokkos::parallel_for(
@@ -390,46 +462,23 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
             });
       });
 
-  Kokkos::fence();
-  Kokkos::Profiling::pushRegion("Set complete and/or start sending via MPI");
-  for (int block = 0; block < md->NumBlocks(); block++) {
-    auto &rc = md->GetBlockData(block);
-    auto pmb = rc->GetBlockPointer();
-
-    int mylevel = pmb->loc.level;
-    for (auto &v : rc->GetCellVariableVector()) {
-      if (v->IsSet(parthenon::Metadata::FillGhost)) {
-        for (int n = 0; n < pmb->pbval->nneighbor; n++) {
-          parthenon::NeighborBlock &nb = pmb->pbval->neighbor[n];
-          auto *bd_var_ = v->vbvar->GetPBdVar();
-          if (bd_var_->sflag[nb.bufid] == parthenon::BoundaryStatus::completed) continue;
-
-          // on the same rank the data has been directly copied to the target buffer
-          if (nb.snb.rank == parthenon::Globals::my_rank) {
-            // TODO(?) check performance of FindMeshBlock. Could be caching from call
-            // above.
-            auto target_block = pmb->pmy_mesh->FindMeshBlock(nb.snb.gid);
-            // TODO(?) again hardcoded 0 index for single Variable
-            // FIXME before final merge
-            target_block->pbval->bvars[0]->GetPBdVar()->flag[nb.targetid] =
-                parthenon::BoundaryStatus::arrived;
-          } else {
 #ifdef MPI_PARALLEL
-            MPI_Start(&(bd_var_->req_send[nb.bufid]));
+  // Ensure buffer filling kernel finished before MPI_Start is called in the following
+  Kokkos::fence();
 #endif
-          }
 
-          bd_var_->sflag[nb.bufid] = parthenon::BoundaryStatus::completed;
-        }
-      }
-    }
-  }
-  Kokkos::Profiling::popRegion(); // Set complete and/or start sending via MPI
+  SendAndNotify(md.get());
 
   Kokkos::Profiling::popRegion(); // Task_SendBoundaryBuffers_MeshData
   // TODO(?) reintroduce sparse logic (or merge with above)
   return TaskStatus::complete;
 }
+
+//----------------------------------------------------------------------------------------
+//! \fn TaskStatus ReceiveBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md)
+//  \brief Checks for completion of communication TO receiving buffers for
+//         all MeshBlocks contained the the MeshData object.
+//  \return Complete when all buffers arrived or otherwise incomplete
 
 TaskStatus ReceiveBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::Profiling::pushRegion("Task_ReceiveBoundaryBuffers_MeshData");
@@ -448,15 +497,18 @@ TaskStatus ReceiveBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   return TaskStatus::incomplete;
 }
 
-// set boundaries from buffers with MeshBlockPack support
-// TODO(pgrete) should probaly be moved to the bvals or interface folders
-TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) {
-  Kokkos::Profiling::pushRegion("Task_SetBoundaries_MeshData");
+//----------------------------------------------------------------------------------------
+//! \fn void ResetSetFromBufferBoundaryInfo(MeshData<Real> *md, size_t buffers_used)
+//  \brief Reset/recreates boundary_info to fill cell centered vars from the receiving
+//         buffers. The new boundary_info is directly stored in the MeshData object.
+
+void ResetSetFromBufferBoundaryInfo(MeshData<Real> *md) {
+  Kokkos::Profiling::pushRegion("Create set_boundary_info");
 
   IndexDomain interior = IndexDomain::interior;
 
   // first calculate the number of active buffers
-  int buffers_used = 0;
+  size_t buffers_used = 0;
   for (int block = 0; block < md->NumBlocks(); block++) {
     auto &rc = md->GetBlockData(block);
     auto pmb = rc->GetBlockPointer();
@@ -469,76 +521,89 @@ TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) {
     }
   }
 
-  auto boundary_info = md->GetSetBuffers();
-  if (!boundary_info.is_allocated()) {
-    Kokkos::Profiling::pushRegion("Create bndinfo array");
+  auto boundary_info = BufferCache_t("set_boundary_info", buffers_used);
+  auto boundary_info_h = Kokkos::create_mirror_view(boundary_info);
+  // now fill the buffer info
+  int b = 0;
+  for (int block = 0; block < md->NumBlocks(); block++) {
+    auto &rc = md->GetBlockData(block);
+    auto pmb = rc->GetBlockPointer();
 
-    boundary_info = BufferCache_t("set_boundary_info", buffers_used);
-    auto boundary_info_h = Kokkos::create_mirror_view(boundary_info);
-    // now fill the buffer info
-    int b = 0;
-    for (int block = 0; block < md->NumBlocks(); block++) {
-      auto &rc = md->GetBlockData(block);
-      auto pmb = rc->GetBlockPointer();
+    int mylevel = pmb->loc.level;
+    for (auto &v : rc->GetCellVariableVector()) {
+      if (v->IsSet(parthenon::Metadata::FillGhost)) {
+        for (int n = 0; n < pmb->pbval->nneighbor; n++) {
+          parthenon::NeighborBlock &nb = pmb->pbval->neighbor[n];
+          auto *bd_var_ = v->vbvar->GetPBdVar();
 
-      int mylevel = pmb->loc.level;
-      for (auto &v : rc->GetCellVariableVector()) {
-        if (v->IsSet(parthenon::Metadata::FillGhost)) {
-          for (int n = 0; n < pmb->pbval->nneighbor; n++) {
-            parthenon::NeighborBlock &nb = pmb->pbval->neighbor[n];
-            auto *bd_var_ = v->vbvar->GetPBdVar();
+          auto &si = boundary_info_h(b).si;
+          auto &ei = boundary_info_h(b).ei;
+          auto &sj = boundary_info_h(b).sj;
+          auto &ej = boundary_info_h(b).ej;
+          auto &sk = boundary_info_h(b).sk;
+          auto &ek = boundary_info_h(b).ek;
+          auto &Nv = boundary_info_h(b).Nv;
+          Nv = v->GetDim(4);
 
-            auto &si = boundary_info_h(b).si;
-            auto &ei = boundary_info_h(b).ei;
-            auto &sj = boundary_info_h(b).sj;
-            auto &ej = boundary_info_h(b).ej;
-            auto &sk = boundary_info_h(b).sk;
-            auto &ek = boundary_info_h(b).ek;
-            auto &Nv = boundary_info_h(b).Nv;
-            Nv = v->GetDim(4);
+          if (nb.snb.level == mylevel) {
+            const parthenon::IndexShape &cellbounds = pmb->cellbounds;
+            CalcIndicesSetSame(nb.ni.ox1, si, ei, cellbounds.GetBoundsI(interior));
+            CalcIndicesSetSame(nb.ni.ox2, sj, ej, cellbounds.GetBoundsJ(interior));
+            CalcIndicesSetSame(nb.ni.ox3, sk, ek, cellbounds.GetBoundsK(interior));
+            boundary_info_h(b).var = v->data.Get<4>();
+          } else if (nb.snb.level < mylevel) {
+            const IndexShape &c_cellbounds = pmb->c_cellbounds;
+            const auto &cng = pmb->cnghost;
+            CalcIndicesSetFromCoarser(nb.ni.ox1, si, ei,
+                                      c_cellbounds.GetBoundsI(interior), pmb->loc.lx1,
+                                      cng, true);
+            CalcIndicesSetFromCoarser(nb.ni.ox2, sj, ej,
+                                      c_cellbounds.GetBoundsJ(interior), pmb->loc.lx2,
+                                      cng, pmb->block_size.nx2 > 1);
+            CalcIndicesSetFromCoarser(nb.ni.ox3, sk, ek,
+                                      c_cellbounds.GetBoundsK(interior), pmb->loc.lx3,
+                                      cng, pmb->block_size.nx3 > 1);
 
-            if (nb.snb.level == mylevel) {
-              const parthenon::IndexShape &cellbounds = pmb->cellbounds;
-              CalcIndicesSetSame(nb.ni.ox1, si, ei, cellbounds.GetBoundsI(interior));
-              CalcIndicesSetSame(nb.ni.ox2, sj, ej, cellbounds.GetBoundsJ(interior));
-              CalcIndicesSetSame(nb.ni.ox3, sk, ek, cellbounds.GetBoundsK(interior));
-              boundary_info_h(b).var = v->data.Get<4>();
-            } else if (nb.snb.level < mylevel) {
-              const IndexShape &c_cellbounds = pmb->c_cellbounds;
-              const auto &cng = pmb->cnghost;
-              CalcIndicesSetFromCoarser(nb.ni.ox1, si, ei,
-                                        c_cellbounds.GetBoundsI(interior), pmb->loc.lx1,
-                                        cng, true);
-              CalcIndicesSetFromCoarser(nb.ni.ox2, sj, ej,
-                                        c_cellbounds.GetBoundsJ(interior), pmb->loc.lx2,
-                                        cng, pmb->block_size.nx2 > 1);
-              CalcIndicesSetFromCoarser(nb.ni.ox3, sk, ek,
-                                        c_cellbounds.GetBoundsK(interior), pmb->loc.lx3,
-                                        cng, pmb->block_size.nx3 > 1);
-
-              boundary_info_h(b).var = v->vbvar->coarse_buf.Get<4>();
-            } else {
-              CalcIndicesSetFromFiner(si, ei, sj, ej, sk, ek, nb, pmb.get());
-              boundary_info_h(b).var = v->data.Get<4>();
-            }
-            boundary_info_h(b).buf = bd_var_->recv[nb.bufid];
-            // safe to set completed here as the kernel updating all buffers is
-            // called immediately afterwards
-            bd_var_->flag[nb.bufid] = parthenon::BoundaryStatus::completed;
-            b++;
+            boundary_info_h(b).var = v->vbvar->coarse_buf.Get<4>();
+          } else {
+            CalcIndicesSetFromFiner(si, ei, sj, ej, sk, ek, nb, pmb.get());
+            boundary_info_h(b).var = v->data.Get<4>();
           }
+          boundary_info_h(b).buf = bd_var_->recv[nb.bufid];
+          // safe to set completed here as the kernel updating all buffers is
+          // called immediately afterwards
+          bd_var_->flag[nb.bufid] = parthenon::BoundaryStatus::completed;
+          b++;
         }
       }
     }
-    Kokkos::deep_copy(boundary_info, boundary_info_h);
-    md->SetSetBuffers(boundary_info);
+  }
+  Kokkos::deep_copy(boundary_info, boundary_info_h);
+  md->SetSetBuffers(boundary_info);
 
-    Kokkos::Profiling::popRegion(); // Create bndinfo array
+  Kokkos::Profiling::popRegion(); // Create set_boundary_info
+}
+
+//----------------------------------------------------------------------------------------
+//! \fn TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md)
+//  \brief Set ghost zone data from receiving buffers for
+//         all MeshBlocks contained the the MeshData object.
+//  \return Complete when kernel is launched (though kernel may not be done yet)
+
+// TODO(pgrete) should probaly be moved to the bvals or interface folders
+TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) {
+  Kokkos::Profiling::pushRegion("Task_SetBoundaries_MeshData");
+
+  auto boundary_info = md->GetSetBuffers();
+  if (!boundary_info.is_allocated()) {
+    ResetSetFromBufferBoundaryInfo(md.get());
+    boundary_info = md->GetSetBuffers();
   }
 
   Kokkos::parallel_for(
       "SetBoundaries",
-      Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), buffers_used, Kokkos::AUTO),
+      Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), boundary_info.extent(0),
+                           Kokkos::AUTO),
       KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
         const int b = team_member.league_rank();
         // TODO(pgrete) profile perf implication of using reference.

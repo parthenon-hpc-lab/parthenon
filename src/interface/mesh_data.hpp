@@ -98,13 +98,13 @@ class MeshData {
     send_buffers_ = send_buffers;
   }
 
-  auto GetSendBuffers() const { return send_buffers_; }
+  auto& GetSendBuffers() const { return send_buffers_; }
 
   void SetSetBuffers(const cell_centered_bvars::BufferCache_t &set_buffers) {
     set_buffers_ = set_buffers;
   }
 
-  auto GetSetBuffers() const { return set_buffers_; }
+  auto& GetSetBuffers() const { return set_buffers_; }
 
   IndexRange GetBoundsI(const IndexDomain &domain) const {
     return block_data_[0]->GetBoundsI(domain);
