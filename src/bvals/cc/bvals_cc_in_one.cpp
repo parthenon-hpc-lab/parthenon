@@ -394,7 +394,7 @@ void SendAndNotify(MeshData<Real> *md) {
                 parthenon::BoundaryStatus::arrived;
           } else {
 #ifdef MPI_PARALLEL
-            MPI_Start(&(bd_var_->req_send[nb.bufid]));
+            PARTHENON_MPI_CHECK(MPI_Start(&(bd_var_->req_send[nb.bufid])));
 #endif
           }
 
