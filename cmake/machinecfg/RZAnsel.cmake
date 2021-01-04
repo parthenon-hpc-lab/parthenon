@@ -139,8 +139,6 @@ if (NOT EXISTS ${RZANSEL_VIEW_PREFIX})
     return()
 endif()
 
-message("RZANSEL VIEW is ${RZANSEL_VIEW_PREFIX}")
-
 if (RZANSEL_CUDA)
     # Location of CUDA
     set(CUDAToolkit_ROOT /usr/tce/packages/cuda/cuda-${RZANSEL_CUDA_VERSION} 
