@@ -30,10 +30,13 @@
 #       Default: /usr/gapps/parthenon_shared/parthenon-project
 
 cmake_minimum_required(VERSION 3.15)
+
+message(STATUS "Loading machine configuration for LNLL RZAnsel.\n"
+  "Supported MACHINE_VARIANT includes 'cuda', 'mpi', and 'cuda-mpi'\n")
+
 set(RZANSEL_ARCH "ppc64le")
 # NOTE: When updating dependencies with new compilers or packages, you should
 # ideally only need to update these variables to change the default behavior.
-
 set(RZANSEL_VIEW_DATE_LATEST "2021-01-04")
 set(RZANSEL_GCC_PREFERRED "GCC8")
 set(RZANSEL_COMPILER_PREFERRED "GCC")
@@ -228,11 +231,6 @@ set(CLANG_FORMAT
 # Kokkos settings
 set(Kokkos_ARCH_POWER9 ON CACHE BOOL "Target Power9")
 
-#if (RZANSEL_CUDA)
-#    set(Kokkos_ENABLE_CUDA ON CACHE BOOL "Cuda")
-#    set(Kokkos_ARCH_VOLTA70 ON CACHE BOOL "Target V100s")
-#endif()
-
 # Add dependencies into `CMAKE_PREFIX_PATH`
 list(PREPEND CMAKE_PREFIX_PATH ${RZANSEL_VIEW_PREFIX})
 
@@ -249,11 +247,6 @@ if (RZANSEL_CUDA)
     set(NUM_GPU_DEVICES_PER_NODE ${NUM_RANKS} CACHE STRING "Number of gpu devices to use when testing if built with Kokkos_ENABLE_CUDA")
 endif()
 
-#set(NUM_MPI_PROC_TESTING ${NUM_RANKS} CACHE STRING "CI runs tests with 2 MPI ranks by default.")
-#set(NUM_GPU_DEVICES_PER_NODE ${NUM_RANKS} CACHE STRING "Number of gpu devices to use when testing if built with Kokkos_ENABLE_CUDA")
-#set(TEST_NUMPROC_FLAG "-c" CACHE STRING "Flag to set number of processes")
-#string(APPEND TEST_MPIOPTS "-a 1 -n 1 -g ${NUM_GPU_DEVICES_PER_NODE} -r 1 -d packed --smpiargs='-gpu'")
-#
 if (${MACHINE_VARIANT} MATCHES "mpi")
   set(NUM_MPI_PROC_TESTING ${NUM_RANKS} CACHE STRING "CI runs tests with 2 MPI ranks by default.")
   set(MPIEXEC_EXECUTABLE "/usr/tcetmp/bin/jsrun" CACHE STRING "Command to launch MPI applications")
@@ -268,4 +261,3 @@ else()
   set(PARTHENON_ENABLE_GPU_MPI_CHECKS OFF CACHE STRING "Checks if possible that the mpi num of procs and the number of gpu devices detected are appropriate.")
 endif()
 
-message("STATUS of PARTHENON DISABLE MPI ${PARTHENON_DISABLE_MPI}")
