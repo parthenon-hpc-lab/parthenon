@@ -272,7 +272,7 @@ https://xcp-gitlab.lanl.gov/eap-oss/parthenon-project
 
 ### LNLL RZAnsel (Homogeneous)
 
-Last verified 21 Dec 2020.
+Last verified 04 Jan 2021.
 
 #### Allocate Node
 
@@ -307,6 +307,13 @@ additional arguments:
 ```bash
 $ cmake -S. -Bbuild
 ```
+By default cmake will build parthenon with cuda and mpi support. Other machine
+variants exist and can be specified by using the `MACHINE_VARIANT` flag. The
+supported machine variants include:
+
+* cuda+mpi
+* mpi
+* cuda
 
 If you didn't follow the "Set-Up Environment" section, you need to specify the
 `MACHINE_CFG` file, as well.
