@@ -100,13 +100,13 @@ class ParthenonApp:
     self.__parth_root = Node()
     self.__parthenon_home = str(pathlib.Path(__file__).parent.absolute())
     try:
-      self.__parthenon_home = self.__parthenon_home[:self.__parthenon_home.index(self.__repo_name) + len("/" + self.__repo_name )] 
+      self.__parthenon_home = self.__parthenon_home[:self.__parthenon_home.rindex(self.__repo_name) + len("/" + self.__repo_name )] 
     except Exception:
       error_msg = str(os.path.realpath(__file__)) + " must be run from within the " + self.__repo_name + " repository."
       print(error_msg)
       raise
 
-    self.__parthenon_wiki_dir = self.__parthenon_home +"/"+ self.__repo_name + ".wiki"
+    self.__parthenon_wiki_dir = os.path.normpath(self.__parthenon_home +"/../"+ self.__repo_name + ".wiki")
     if isinstance(pem_file,list):
       self.__generateJWT(pem_file[0])
     else:
@@ -305,12 +305,13 @@ class ParthenonApp:
         print("Files can only be uploaded to the wiki repositories master branch")
         return
       else:
-        if path.exists(self.__parthenon_wiki_dir + "/" + os.path.basename(os.path.normpath(file_name))):
+        if os.path.exists(self.__parthenon_wiki_dir + "/" + os.path.basename(os.path.normpath(file_name))):
           commit_msg = "Updating file " + file_name
         else:
           commit_msg = "Adding file " + file_name
-        shutil.copy(file_name,self.__parthenon_wiki_dir)
         repo = self.getWikiRepo(branch)
+        destination=self.__parthenon_wiki_dir + "/" + os.path.basename(os.path.normpath(file_name))
+        shutil.copy(file_name,destination)
         repo.index.add([str(self.__parthenon_wiki_dir + "/" + os.path.basename(os.path.normpath(file_name)))])
         repo.index.commit(commit_msg)
         repo.git.push("--set-upstream","origin",repo.head.reference)
