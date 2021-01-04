@@ -80,6 +80,10 @@ This class is responsible for authenticating against the parthenon repository an
 with the github api. 
 """
 class ParthenonApp:
+
+  """
+  Internal Private Methods
+  """
   def __init__(self, use_wiki=False, ignore=False, pem_file = "", create_branch=False):
     self.__app_id = 92734
     self.__ignore = ignore
@@ -116,7 +120,7 @@ class ParthenonApp:
 
   def __generateJWT(self,pem_file):
     """
-    Method will take the permissions file provided and populate the json web token attribute
+    Method will take the permissions (.pem) file provided and populate the json web token attribute
     """
     # iss is the app id
     # Ensuring that we request an access token that expires after a minute
@@ -141,7 +145,7 @@ class ParthenonApp:
 
   def __generateInstallationId(self):
     """
-    This method will populate the installation id attribute using a json web token. 
+    This method will populate the installation id attribute using the internally stored json web token.
     """
     buffer_temp = BytesIO()
     header = [
@@ -199,6 +203,34 @@ class ParthenonApp:
             'Accept: ' + self.__api_version,
             ]
 
+  def __fillTree(self, current_node, branch):
+    """
+    This is an internal method that is meant to be used recursively to grab the contents of a 
+    branch of a remote repository.
+    """
+    nodes = current_node.getNodes()
+    for node in nodes:
+      buffer_temp = BytesIO()
+      custom_data = {"branch": branch}
+      buffer_temp2 = BytesIO(json.dumps(custom_data).encode('utf-8'))
+      c = pycurl.Curl()
+      c.setopt(c.URL, self.__repo_url + "/contents/" + node.getPath())
+      c.setopt(c.READDATA, buffer_temp2)
+      c.setopt(c.WRITEDATA, buffer_temp)
+      c.setopt(c.HTTPHEADER, self.__header)
+      c.perform()
+      c.close()
+      js_obj = json.loads(buffer_temp,getvalue())
+
+      if isinstance(js_obj, list):
+        for ob in js_obj:
+          node.insert(ob['name'],ob['type'])
+      else:
+          node.insert(js_obj['name'],js_obj['type'])
+
+      self.__fillTree(node, branch)
+
+
   def __getBranches(self):
     buffer_temp = BytesIO()
     c = pycurl.Curl()
@@ -215,19 +247,33 @@ class ParthenonApp:
       self.__branches.append(js_obj['name'])
       self.__branch_current_commit_sha.update({js_obj['name'] : js_obj['commit']['sha']})
 
+  """
+  Public Methods
+  """
   def getBranches(self):
+    """ 
+    This method will check to see if branches have already been collected from the github RESTful
+    api. If the branch tree has not been collected it will update the branches attribute. 
+    """
     if not self.__branches:
       self.__getBranches() 
     
     return self.__branches
 
   def branchExist(self,branch):
+    """
+    This method will determine if a branch exists on the github repository by pinging the github api
+    """
     branches = getBranches()
     if branch in branches:
       return True
     return False
 
   def refreshBranchCache(self):
+    """"
+    Method forces an update of the localy stored branch tree, regardless of whether the class 
+    already contains a local copy. Might be necessary if the remote github repository is updated. 
+    """
     self.__getBranches()
 
   def createBranch(self,branch, branch_to_fork_from = None):
@@ -259,6 +305,10 @@ class ParthenonApp:
     c.close()
 
   def getContents(self,branch=None):
+    """
+    Returns the contents of a branch as a dictionary, where the key is the content and the value
+    is the sha of the file/folder etc.
+    """
     if branch is None:
       branch = self.__default_branch
     buffer_temp = BytesIO()
@@ -285,9 +335,10 @@ class ParthenonApp:
 
   def upload(self, file_name, branch = None):
     """
-    This method attempts to upload a file to the specefied branch
+    This method attempts to upload a file to the specefied branch.
 
-    If the file is found to already exist it will be updated 
+    If the file is found to already exist it will be updated. Image files will by default be placed
+    in a figures branch of the main repository, so as to not bloat the repositories commit history.
     """
     if isinstance(file_name,list):
       file_name = file_name[0]
@@ -366,50 +417,36 @@ class ParthenonApp:
       c2.perform()
       c2.close()
 
-  def __fillTree(self, current_node, branch):
-      nodes = current_node.getNodes()
-      for node in nodes:
-        buffer_temp = BytesIO()
-        custom_data = {"branch": branch}
-        buffer_temp2 = BytesIO(json.dumps(custom_data).encode('utf-8'))
-        c = pycurl.Curl()
-        c.setopt(c.URL, self.__repo_url + "/contents/" + node.getPath())
-        c.setopt(c.READDATA, buffer_temp2)
-        c.setopt(c.WRITEDATA, buffer_temp)
-        c.setopt(c.HTTPHEADER, self.__header)
-        c.perform()
-        c.close()
-        js_obj = json.loads(buffer_temp,getvalue())
-
-        if isinstance(js_obj, list):
-          for ob in js_obj:
-            node.insert(ob['name'],ob['type'])
-        else:
-            node.insert(js_obj['name'],js_obj['type'])
-
-        self.__fillTree(node, branch)
-
   def getBranchTree(self, branch, access_token):
-      buffer_temp = BytesIO()
-      custom_data = {"branch": branch}
-      buffer_temp2 = BytesIO(json,dumps(custom_data).encode('utf-8'))
-      # 1. Check if file exists
-      c = pycurl.Curl()
-      c.setopt(c.URL, self.__repo_url + "/contents" )
-      c.setopt(c.READDATA, buffer_temp2)
-      c.setopt(c.WRITEDATA, buffer_temp)
-      c.setopt(c.HTTPHEADER, self.__header)
-      c.perform()
-      c.close()
+    """
+    Method will grab the contents of the specified branch from the remote repository. It will 
+    return the contents as a tree object. 
+    """
+    buffer_temp = BytesIO()
+    custom_data = {"branch": branch}
+    buffer_temp2 = BytesIO(json,dumps(custom_data).encode('utf-8'))
+    # 1. Check if file exists
+    c = pycurl.Curl()
+    c.setopt(c.URL, self.__repo_url + "/contents" )
+    c.setopt(c.READDATA, buffer_temp2)
+    c.setopt(c.WRITEDATA, buffer_temp)
+    c.setopt(c.HTTPHEADER, self.__header)
+    c.perform()
+    c.close()
 
-      js_obj = json.loads(buffer_temp.getvalue())
-      for obj in js_obj:
-        self.__parth_root.insert(ob['name'],ob['type'])
+    js_obj = json.loads(buffer_temp.getvalue())
+    for obj in js_obj:
+      self.__parth_root.insert(ob['name'],ob['type'])
 
-      self.__fillTree(self.__parth_root, branch)
+    self.__fillTree(self.__parth_root, branch)
 
   def getWikiRepo(self, branch):
-     
+    """
+    The github api has only limited supported for interacting with the github wiki, as such the best
+    way to do this is to actually clone the github repository and interact with the git repo
+    directly. This method will clone the repository if it does not exist. It will then return a 
+    repo object. 
+    """
     wiki_remote = f"https://{self.__name}:{self.__access_token}@github.com/" + self.__user + "/" + self.__repo_name + ".wiki.git"
     if not os.path.isdir(str(self.__parthenon_wiki_dir)):
       repo = Repo.clone_from(wiki_remote, self.__parthenon_wiki_dir)
