@@ -72,27 +72,6 @@ endif()
 
 set(RZANSEL_CUDA ${RZANSEL_CUDA_DEFAULT} CACHE BOOL "Build for CUDA")
 
-#
-#
-#set(RZANSEL_CUDA_DEFAULT ON)
-#
-#set(GPU_COUNT "4")
-#execute_process(
-#    COMMAND nvidia-smi -L
-#    OUTPUT_VARIABLE FOUND_GPUS)
-#string(REPLACE "\n" ";" FOUND_GPUS ${FOUND_GPUS})
-#
-#list(FILTER FOUND_GPUS INCLUDE REGEX "GPU [0-9]")
-#list(LENGTH FOUND_GPUS GPU_COUNT)
-#
-#if (GPU_COUNT EQUAL 0)
-#    set(RZANSEL_CUDA_DEFAULT OFF)
-#else()
-#    set(RZANSEL_CUDA_DEFAULT ON)
-#endif()
-#
-#set(RZANSEL_CUDA ${RZANSEL_CUDA_DEFAULT} CACHE BOOL "Build for CUDA")
-
 # It would be nice if we could let this variable float with the current code
 # checkout, but unfortunately CMake caches enough other stuff (like find
 # packages), that it's easier to just issue a warning if the view date is
