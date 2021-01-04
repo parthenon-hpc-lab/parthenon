@@ -34,33 +34,64 @@ set(RZANSEL_ARCH "ppc64le")
 # NOTE: When updating dependencies with new compilers or packages, you should
 # ideally only need to update these variables to change the default behavior.
 
-set(RZANSEL_VIEW_DATE_LATEST "2020-12-17")
+set(RZANSEL_VIEW_DATE_LATEST "2021-01-04")
 set(RZANSEL_GCC_PREFERRED "GCC8")
 set(RZANSEL_COMPILER_PREFERRED "GCC")
 set(RZANSEL_GCC8_VERSION "8.3.1")
-
+set(RZANSEL_VARIANT_PREFIX "_no-mpi")
 set(RZANSEL_MPI_DATE "2020.08.19")
 set(MPIEXEC_EXECUTABLE "/usr/tcetmp/bin/jsrun" CACHE STRING "Mpi executable to use on RZansel system")
 set(RZANSEL_CUDA_VERSION "10.1.243")
 
-set(RZANSEL_CUDA_DEFAULT ON)
+if (NOT MACHINE_VARIANT) 
+  set(MACHINE_VARIANT "cuda-mpi")
+endif()
 
-set(GPU_COUNT "4")
-execute_process(
+if (${MACHINE_VARIANT} MATCHES "cuda")
+  set(GPU_COUNT "4")
+  execute_process(
     COMMAND nvidia-smi -L
     OUTPUT_VARIABLE FOUND_GPUS)
-string(REPLACE "\n" ";" FOUND_GPUS ${FOUND_GPUS})
+  string(REPLACE "\n" ";" FOUND_GPUS ${FOUND_GPUS})
 
-list(FILTER FOUND_GPUS INCLUDE REGEX "GPU [0-9]")
-list(LENGTH FOUND_GPUS GPU_COUNT)
+  list(FILTER FOUND_GPUS INCLUDE REGEX "GPU [0-9]")
+  list(LENGTH FOUND_GPUS GPU_COUNT)
 
-if (GPU_COUNT EQUAL 0)
+  if (GPU_COUNT EQUAL 0)
     set(RZANSEL_CUDA_DEFAULT OFF)
-else()
+  else()
     set(RZANSEL_CUDA_DEFAULT ON)
+  endif()
+else()
+  set(RZANSEL_CUDA_DEFAULT OFF)
+endif()
+
+if (${MACHINE_VARIANT} MATCHES "mpi")
+  set(RZANSEL_VARIANT_PREFIX "")
 endif()
 
 set(RZANSEL_CUDA ${RZANSEL_CUDA_DEFAULT} CACHE BOOL "Build for CUDA")
+
+#
+#
+#set(RZANSEL_CUDA_DEFAULT ON)
+#
+#set(GPU_COUNT "4")
+#execute_process(
+#    COMMAND nvidia-smi -L
+#    OUTPUT_VARIABLE FOUND_GPUS)
+#string(REPLACE "\n" ";" FOUND_GPUS ${FOUND_GPUS})
+#
+#list(FILTER FOUND_GPUS INCLUDE REGEX "GPU [0-9]")
+#list(LENGTH FOUND_GPUS GPU_COUNT)
+#
+#if (GPU_COUNT EQUAL 0)
+#    set(RZANSEL_CUDA_DEFAULT OFF)
+#else()
+#    set(RZANSEL_CUDA_DEFAULT ON)
+#endif()
+#
+#set(RZANSEL_CUDA ${RZANSEL_CUDA_DEFAULT} CACHE BOOL "Build for CUDA")
 
 # It would be nice if we could let this variable float with the current code
 # checkout, but unfortunately CMake caches enough other stuff (like find
@@ -84,8 +115,12 @@ if (RZANSEL_COMPILER STREQUAL "GCC")
     set(RZANSEL_COMPILER ${RZANSEL_GCC_PREFERRED})
 endif()
 
-set(RZANSEL_PROJECT_PREFIX /usr/gapps/parthenon_shared/parthenon-project
+#set(RZANSEL_PROJECT_PREFIX /usr/gapps/parthenon_shared/parthenon-project
+#    CACHE STRING "Path to parthenon-project checkout")
+
+set(RZANSEL_PROJECT_PREFIX /g/g15/brown338/Software/parthenon-project
     CACHE STRING "Path to parthenon-project checkout")
+  
 mark_as_advanced(RZANSEL_PROJECT_PREFIX)
 
 message(STATUS "RZAansel Build Settings
@@ -95,6 +130,7 @@ message(STATUS "RZAansel Build Settings
               RZANSEL_CUDA: ${RZANSEL_CUDA}
     RZANSEL_PROJECT_PREFIX: ${RZANSEL_PROJECT_PREFIX}
                  GPU_COUNT: ${GPU_COUNT}
+           MACHINE_VARIANT: ${MACHINE_VARIANT}
 ")
 
 set(RZANSEL_ARCH_PREFIX ${RZANSEL_PROJECT_PREFIX}/views/rzansel/${RZANSEL_ARCH})
@@ -114,12 +150,14 @@ if (NOT EXISTS ${RZANSEL_COMPILER_PREFIX})
     return()
 endif()
 
-set(RZANSEL_VIEW_PREFIX ${RZANSEL_COMPILER_PREFIX}/${RZANSEL_VIEW_DATE})
+set(RZANSEL_VIEW_PREFIX ${RZANSEL_COMPILER_PREFIX}${RZANSEL_VARIANT_PREFIX}/${RZANSEL_VIEW_DATE})
 if (NOT EXISTS ${RZANSEL_VIEW_PREFIX})
     message(WARNING "No view detected for \
         RZANSEL_VIEW_DATE=\"${RZANSEL_VIEW_DATE}\" at ${RZANSEL_VIEW_PREFIX}")
     return()
 endif()
+
+message("RZANSEL VIEW is ${RZANSEL_VIEW_PREFIX}")
 
 if (RZANSEL_CUDA)
     # Location of CUDA
@@ -211,10 +249,10 @@ set(CLANG_FORMAT
 # Kokkos settings
 set(Kokkos_ARCH_POWER9 ON CACHE BOOL "Target Power9")
 
-if (RZANSEL_CUDA)
-    set(Kokkos_ENABLE_CUDA ON CACHE BOOL "Cuda")
-    set(Kokkos_ARCH_VOLTA70 ON CACHE BOOL "Target V100s")
-endif()
+#if (RZANSEL_CUDA)
+#    set(Kokkos_ENABLE_CUDA ON CACHE BOOL "Cuda")
+#    set(Kokkos_ARCH_VOLTA70 ON CACHE BOOL "Target V100s")
+#endif()
 
 # Add dependencies into `CMAKE_PREFIX_PATH`
 list(PREPEND CMAKE_PREFIX_PATH ${RZANSEL_VIEW_PREFIX})
@@ -226,8 +264,29 @@ else()
     set(NUM_RANKS 4) 
 endif()
 
-set(NUM_MPI_PROC_TESTING ${NUM_RANKS} CACHE STRING "CI runs tests with 2 MPI ranks by default.")
-set(NUM_GPU_DEVICES_PER_NODE ${NUM_RANKS} CACHE STRING "Number of gpu devices to use when testing if built with Kokkos_ENABLE_CUDA")
-set(TEST_NUMPROC_FLAG "-c" CACHE STRING "Flag to set number of processes")
-string(APPEND TEST_MPIOPTS "-a 1 -n 1 -g ${NUM_GPU_DEVICES_PER_NODE} -r 1 -d packed --smpiargs='-gpu'")
+if (RZANSEL_CUDA)
+    set(Kokkos_ENABLE_CUDA ON CACHE BOOL "Cuda")
+    set(Kokkos_ARCH_VOLTA70 ON CACHE BOOL "Target V100s")
+    set(NUM_GPU_DEVICES_PER_NODE ${NUM_RANKS} CACHE STRING "Number of gpu devices to use when testing if built with Kokkos_ENABLE_CUDA")
+endif()
 
+#set(NUM_MPI_PROC_TESTING ${NUM_RANKS} CACHE STRING "CI runs tests with 2 MPI ranks by default.")
+#set(NUM_GPU_DEVICES_PER_NODE ${NUM_RANKS} CACHE STRING "Number of gpu devices to use when testing if built with Kokkos_ENABLE_CUDA")
+#set(TEST_NUMPROC_FLAG "-c" CACHE STRING "Flag to set number of processes")
+#string(APPEND TEST_MPIOPTS "-a 1 -n 1 -g ${NUM_GPU_DEVICES_PER_NODE} -r 1 -d packed --smpiargs='-gpu'")
+#
+if (${MACHINE_VARIANT} MATCHES "mpi")
+  set(NUM_MPI_PROC_TESTING ${NUM_RANKS} CACHE STRING "CI runs tests with 2 MPI ranks by default.")
+  set(MPIEXEC_EXECUTABLE "/usr/tcetmp/bin/jsrun" CACHE STRING "Command to launch MPI applications")
+  set(TEST_NUMPROC_FLAG "-c" CACHE STRING "Flag to set number of processes")
+  if (${MACHINE_VARIANT} MATCHES "cuda")
+    string(APPEND TEST_MPIOPTS "-a 1 -n 1 -g ${NUM_GPU_DEVICES_PER_NODE} -r 1 -d packed --smpiargs='-gpu'")
+  else()
+    string(APPEND TEST_MPIOPTS "-a 1 -n 1 -r 1 -d packed")
+  endif()
+else()
+  set(PARTHENON_DISABLE_MPI ON CACHE STRING "MPI is enabled by default if found, set this to True to disable MPI")
+  set(PARTHENON_ENABLE_GPU_MPI_CHECKS OFF CACHE STRING "Checks if possible that the mpi num of procs and the number of gpu devices detected are appropriate.")
+endif()
+
+message("STATUS of PARTHENON DISABLE MPI ${PARTHENON_DISABLE_MPI}")

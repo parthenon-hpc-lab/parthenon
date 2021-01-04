@@ -108,28 +108,32 @@ endfunction()
 # test output will be sent to /tst/regression/outputs/dir_mpi
 # test property labels: regression, mpi-yes
 function(setup_test_mpi nproc dir arg extra_labels)
-  if( MPI_FOUND )
-    separate_arguments(arg) 
-    list(APPEND labels "regression;mpi-yes")
-    list(APPEND labels "${extra_labels}")
+  if( "${ENABLE_MPI}")
+    if( MPI_FOUND)
+      separate_arguments(arg) 
+      list(APPEND labels "regression;mpi-yes")
+      list(APPEND labels "${extra_labels}")
 
-    if(Kokkos_ENABLE_CUDA)
-      set(PARTHENON_KOKKOS_TEST_ARGS "--kokkos-num-devices=${NUM_GPU_DEVICES_PER_NODE}")
-      list(APPEND labels "cuda")
+      if(Kokkos_ENABLE_CUDA)
+        set(PARTHENON_KOKKOS_TEST_ARGS "--kokkos-num-devices=${NUM_GPU_DEVICES_PER_NODE}")
+        list(APPEND labels "cuda")
+      endif()
+      if (Kokkos_ENABLE_OPENMP)
+        set(PARTHENON_KOKKOS_TEST_ARGS "${PARTHENON_KOKKOS_TEST_ARGS} --kokkos-threads=${NUM_OMP_THREADS_PER_RANK}")
+      endif()
+      process_mpi_args(${nproc})
+      add_test( NAME regression_mpi_test:${dir} COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/run_test.py
+        ${MPIARGS} ${arg}
+        --test_dir ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}
+        --output_dir "${PROJECT_BINARY_DIR}/tst/regression/outputs/${dir}_mpi"
+        --kokkos_args=${PARTHENON_KOKKOS_TEST_ARGS})
+      set_tests_properties(regression_mpi_test:${dir} PROPERTIES LABELS "${labels}" RUN_SERIAL ON )
+      record_driver("${arg}")
+    else()
+      message(STATUS "MPI not found, not building regression tests with mpi")
     endif()
-    if (Kokkos_ENABLE_OPENMP)
-      set(PARTHENON_KOKKOS_TEST_ARGS "${PARTHENON_KOKKOS_TEST_ARGS} --kokkos-threads=${NUM_OMP_THREADS_PER_RANK}")
-    endif()
-    process_mpi_args(${nproc})
-    add_test( NAME regression_mpi_test:${dir} COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/run_test.py
-      ${MPIARGS} ${arg}
-      --test_dir ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}
-      --output_dir "${PROJECT_BINARY_DIR}/tst/regression/outputs/${dir}_mpi"
-      --kokkos_args=${PARTHENON_KOKKOS_TEST_ARGS})
-    set_tests_properties(regression_mpi_test:${dir} PROPERTIES LABELS "${labels}" RUN_SERIAL ON )
-    record_driver("${arg}")
   else()
-    message(STATUS "MPI not found, not building regression tests with mpi")
+    message(STATUS "MPI disabled for this build, not building: regression_mpi_test:${dir}")
   endif()
 endfunction()
 
@@ -137,23 +141,25 @@ endfunction()
 # test output will be sent to /tst/regression/outputs/dir_mpi_cov
 # test property labels: regression, mpi-yes, coverage
 function(setup_test_mpi_coverage nproc dir arg extra_labels)
-  if( MPI_FOUND )
-    if( CODE_COVERAGE )
+  if( "${ENABLE_MPI}" )
+    if( MPI_FOUND )
+      if( CODE_COVERAGE )
 
-      list(APPEND labels "regression;coverage;mpi-yes")
-      list(APPEND labels "${extra_labels}")
-      separate_arguments(arg) 
-      process_mpi_args(${nproc})
-      add_test( NAME regression_mpi_coverage_test:${dir} COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/run_test.py
-        --coverage
-        ${MPIARGS} ${arg}
-        --test_dir ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}
-        --output_dir "${PROJECT_BINARY_DIR}/tst/regression/outputs/${dir}_mpi_cov"
-        )
-      set_tests_properties(regression_mpi_coverage_test:${dir} PROPERTIES LABELS "${labels}" RUN_SERIAL ON )
+        list(APPEND labels "regression;coverage;mpi-yes")
+        list(APPEND labels "${extra_labels}")
+        separate_arguments(arg) 
+        process_mpi_args(${nproc})
+        add_test( NAME regression_mpi_coverage_test:${dir} COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/run_test.py
+          --coverage
+          ${MPIARGS} ${arg}
+          --test_dir ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}
+          --output_dir "${PROJECT_BINARY_DIR}/tst/regression/outputs/${dir}_mpi_cov"
+          )
+        set_tests_properties(regression_mpi_coverage_test:${dir} PROPERTIES LABELS "${labels}" RUN_SERIAL ON )
+      endif()
+    else()
+      message(STATUS "MPI not found, not building coverage regression tests with mpi")
     endif()
-  else()
-    message(STATUS "MPI not found, not building coverage regression tests with mpi")
   endif()
 endfunction()
 
