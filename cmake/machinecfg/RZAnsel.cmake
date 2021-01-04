@@ -97,12 +97,9 @@ if (RZANSEL_COMPILER STREQUAL "GCC")
     set(RZANSEL_COMPILER ${RZANSEL_GCC_PREFERRED})
 endif()
 
-#set(RZANSEL_PROJECT_PREFIX /usr/gapps/parthenon_shared/parthenon-project
-#    CACHE STRING "Path to parthenon-project checkout")
-
-set(RZANSEL_PROJECT_PREFIX /g/g15/brown338/Software/parthenon-project
+set(RZANSEL_PROJECT_PREFIX /usr/gapps/parthenon_shared/parthenon-project
     CACHE STRING "Path to parthenon-project checkout")
-  
+
 mark_as_advanced(RZANSEL_PROJECT_PREFIX)
 
 message(STATUS "RZAansel Build Settings
