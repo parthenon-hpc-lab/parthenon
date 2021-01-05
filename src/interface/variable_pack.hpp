@@ -95,6 +95,10 @@ class VariablePack {
     return sparse_ids_(n);
   }
   KOKKOS_FORCEINLINE_FUNCTION
+  int GetSparseId(const int n) const { return GetSparse(n); }
+  KOKKOS_FORCEINLINE_FUNCTION
+  int GetSparseIndex(const int n) const { return GetSparse(n); }
+  KOKKOS_FORCEINLINE_FUNCTION
   bool IsVector(const int n) const {
     assert(0 <= n && n < dims_[3]);
     return vector_component_(n) != NODIR;
