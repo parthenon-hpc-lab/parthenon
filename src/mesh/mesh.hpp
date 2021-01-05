@@ -147,8 +147,9 @@ class Mesh {
                                        SimTime &tm); // called in main loop
   std::function<void(Mesh *, ParameterInput *, SimTime &)> UserWorkAfterLoop =
       &UserWorkAfterLoopDefault;
-  static void UserWorkInLoopDefault(Mesh *, ParameterInput *,
-                                    SimTime const &); // called in main after each cycle
+  static void UserWorkInLoopDefault(
+      Mesh *, ParameterInput *,
+      SimTime const &); // default behavior for pre- and post-step user work
   std::function<void(Mesh *, ParameterInput *, SimTime const &)> PreStepUserWorkInLoop =
       &UserWorkInLoopDefault;
   std::function<void(Mesh *, ParameterInput *, SimTime const &)> PostStepUserWorkInLoop =
