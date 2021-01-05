@@ -650,22 +650,63 @@ bool Swarm::Send(BoundaryCommSubset phase) {
     //}
   }
 
-  PackIndexMap imap;
-  std::vector<std::string> real_vars({"x", "y"}); // Actually use all
-  auto vreal = PackVariablesReal(real_vars, imap);
+  PackIndexMap rmap, imap;
+  std::vector<std::string> real_vars;
+  std::vector<std::string> int_vars;
+  //real_vars.push_back("x");
+  //real_vars.push_back("y");
+  for (auto &realVar : realVector_) {
+    real_vars.push_back(realVar->label());
+    printf("%s\n", realVar->label().c_str());
+  }
+  int real_vars_size = realVector_.size();
+  int int_vars_size = intVector_.size();
+  for (auto &intVar : intVector_) {
+    int_vars.push_back(intVar->label());
+    printf("%s\n", intVar->label().c_str());
+  }
+  printf("intvarssize: %i\n", int_vars_size);
+  //std::vector<std::string> real_vars({"x", "y"}); // Actually use all
+  auto vreal = PackVariablesReal(real_vars, rmap);
+  printf("A\n");
+  auto vint = PackVariablesInt(int_vars, imap);
+  printf("B\n");
 
-  const int xindex = imap["x"].first;
-  const int yindex = imap["y"].first;
+  const int xindex = rmap["x"].first;
+  const int yindex = rmap["y"].first;
+
+  auto bdvar = vbvar->bd_var_;
+
+  printf("size: %i\n", bdvar.send[1].extent(0));
 
   pmb->par_for("Pack Buffers", 0, max_indices_size,
     KOKKOS_LAMBDA(const int n) { // Max index
       for (int m = 0; m < nbmax; m++) { // Number of neighbors
         if (n < num_particles_to_send(m)) {
-          printf("copy this particle! %i %i\n", n, m);
-          printf("%e %e\n", vreal(xindex,n), vreal(yindex,n));
+          printf("copy this particle! index: %i neighbor: %i\n", n, m);
+          printf("  particle index to send: %i\n", particle_indices_to_send(m, n));
+          int swarm_index = particle_indices_to_send(m, n);
+          printf("  [%i] %e %e\n", Globals::my_rank, vreal(xindex,swarm_index), vreal(yindex,swarm_index));
+          int buffer_index = n*particle_size;
+          for (int i = 0; i < real_vars_size; i++) {
+            printf("%i %i %i %i\n", m, buffer_index, i, swarm_index);
+            //bdvar.send[m](buffer_index) = 0.;
+            bdvar.send[m](buffer_index) = vreal(i,swarm_index);
+            buffer_index++;
+          }
+          for (int i = 0; i < int_vars_size; i++) {
+            bdvar.send[m](buffer_index) = static_cast<Real>(vint(i,swarm_index));
+            buffer_index++;
+          }
         }
       }
     });
+
+  auto var = vbvar->bd_var_.send[1];//.GetHostMirrorAndCopy();
+
+  for (int n = 0; n < max_indices_size*particle_size; n++) {
+    printf("[%i] %e\n", n, var(n));
+  }
 
   exit(-1);
 
@@ -683,6 +724,25 @@ Swarm::MakeRealList_(std::vector<std::string> &names) {
   vpack_types::SwarmVarList<Real> vars;
 
   for (auto it = realVector_.rbegin(); it != realVector_.rend(); ++it) {
+    auto v = *it;
+    vars.push_front(v);
+    size++;
+  }
+  // Get names in same order as list
+  names.resize(size);
+  int it = 0;
+  for (auto &v : vars) {
+    names[it++] = v->label();
+  }
+  return vars;
+}
+
+vpack_types::SwarmVarList<int>
+Swarm::MakeIntList_(std::vector<std::string> &names) {
+  int size = 0;
+  vpack_types::SwarmVarList<int> vars;
+
+  for (auto it = intVector_.rbegin(); it != intVector_.rend(); ++it) {
     auto v = *it;
     vars.push_front(v);
     size++;
@@ -716,6 +776,23 @@ SwarmVariablePack<Real> Swarm::PackVariablesReal(const std::vector<std::string> 
     value.pack = pack;
     value.map = vmap;
     varPackMapReal_[expanded_names] = value;
+    return pack;
+  }
+  vmap = (kvpair->second).map;
+  return (kvpair->second).pack;
+}
+SwarmVariablePack<int> Swarm::PackVariablesInt(const std::vector<std::string> &names,
+                                     PackIndexMap &vmap) {
+  std::vector<std::string> expanded_names = names;
+  vpack_types::SwarmVarList<int> vars = MakeIntList_(expanded_names);
+
+  auto kvpair = varPackMapInt_.find(expanded_names);
+  if (kvpair == varPackMapInt_.end()) {
+    auto pack = MakeSwarmPack<int>(vars, &vmap);
+    SwarmPackIndxPair<int> value;
+    value.pack = pack;
+    value.map = vmap;
+    varPackMapInt_[expanded_names] = value;
     return pack;
   }
   vmap = (kvpair->second).map;

@@ -392,6 +392,11 @@ SwarmVariablePack<T> MakeSwarmPack(const vpack_types::SwarmVarList<T> &vars,
 
   FillSwarmVarView(vars, vmap, cv);
 
+  // If no vars, return empty pack
+  if (vars.empty()) {
+    return SwarmVariablePack<T>();
+  }
+
   auto fvar = vars.front()->data;
   std::array<int, 2> cv_size = {fvar.GetDim(1), vsize};
   return SwarmVariablePack<T>(cv, cv_size);

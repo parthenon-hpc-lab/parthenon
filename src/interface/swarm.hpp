@@ -211,13 +211,15 @@ class Swarm {
       //                               PackIndexMap &vmap);
 vpack_types::SwarmVarList<Real>
 MakeRealList_(std::vector<std::string> &names);
+vpack_types::SwarmVarList<int>
+MakeIntList_(std::vector<std::string> &names);
 
 SwarmVariablePack<Real> PackVariablesReal(const std::vector<std::string> &names,
 //                                     const vpack_types::VarList<Real> &vars,
                                      PackIndexMap &vmap);
 SwarmVariablePack<Real> PackAllVariablesReal(PackIndexMap &vmap);
-VariablePack<int> PackVariablesInt(const std::vector<std::string> &names,
-                                     const vpack_types::VarList<int> &vars,
+SwarmVariablePack<int> PackVariablesInt(const std::vector<std::string> &names,
+//                                     const vpack_types::VarList<int> &vars,
                                      PackIndexMap &vmap);
 
   bool StartCommunication(BoundaryCommSubset phase) {

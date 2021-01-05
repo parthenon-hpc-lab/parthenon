@@ -316,8 +316,9 @@ TaskStatus TransportParticles(MeshBlock *pmb, double t0, Integrator *integrator)
             int neighborBlockIndex = swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n));
 
             if (neighborBlockIndex != -1) {
-              printf("[%i] particle (%e %e %e) -> %i\n",
-                Globals::my_rank, x(n), y(n), z(n), neighborBlockIndex);
+              printf("xmin xmax: %e %e\n", x_min, x_max);
+              printf("[%i] particle[%i] (%e %e %e) -> %i\n",
+                Globals::my_rank, n, x(n), y(n), z(n), neighborBlockIndex);
               // Particle no longer on this block
               break;
             }
