@@ -53,7 +53,7 @@ struct ApplicationInput {
                                                    nullptr, nullptr, nullptr};
 
   // MeshBlock functions
-  std::function<std::unique_ptr<MeshBlockApplicationData>(ParameterInput *)>
+  std::function<std::unique_ptr<MeshBlockApplicationData>(MeshBlock *, ParameterInput *)>
       InitApplicationMeshBlockData = nullptr;
   std::function<void(ParameterInput *)> InitUserMeshBlockData = nullptr;
   std::function<void(MeshBlock *, ParameterInput *)> ProblemGenerator = nullptr;

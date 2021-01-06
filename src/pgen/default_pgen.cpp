@@ -89,7 +89,8 @@ void Mesh::UserWorkAfterLoopDefault(Mesh *mesh, ParameterInput *pin, SimTime &tm
 //========================================================================================
 
 std::unique_ptr<MeshBlockApplicationData>
-MeshBlock::InitApplicationMeshBlockDataDefault(ParameterInput *pin) {
+MeshBlock::InitApplicationMeshBlockDataDefault(MeshBlock * /*pmb*/,
+                                               ParameterInput * /*pin*/) {
   // do nothing
   return nullptr;
 }

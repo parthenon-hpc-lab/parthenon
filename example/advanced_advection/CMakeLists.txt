@@ -11,9 +11,17 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
 
-add_subdirectory(advanced_advection)
-add_subdirectory(advection)
-add_subdirectory(calculate_pi)
-add_subdirectory(face_fields)
-add_subdirectory(kokkos_pi)
-add_subdirectory(particles)
+get_property(DRIVER_LIST GLOBAL PROPERTY DRIVERS_USED_IN_TESTS)
+if( "advanced_advection-example" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_EXAMPLES)
+  add_executable(
+      advanced_advection-example
+          advanced_advection_driver.cpp
+          advanced_advection_driver.hpp
+          advanced_advection_package.cpp
+          advanced_advection_package.hpp
+          main.cpp
+          parthenon_app_inputs.cpp
+  )
+  target_link_libraries(advanced_advection-example PRIVATE Parthenon::parthenon)
+  lint_target(advanced_advection-example)
+endif()
