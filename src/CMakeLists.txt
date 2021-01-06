@@ -243,7 +243,7 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "XL")
 endif()
 
 
-if ( "${ENABLE_MPI}" )
+if (ENABLE_MPI)
   target_link_libraries(parthenon PUBLIC MPI::MPI_CXX)
 endif()
 
