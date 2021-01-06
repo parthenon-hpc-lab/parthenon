@@ -14,7 +14,7 @@
 
 # Configure config.hpp
 set(PROBLEM_GENERATOR "<not-implemented>") # TODO: Figure out what to put here
-if ("${ENABLE_MPI}")
+if (ENABLE_MPI)
   set(MPI_OPTION MPI_PARALLEL)
 else ()
   set(MPI_OPTION NOT_MPI_PARALLEL)

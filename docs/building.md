@@ -311,7 +311,7 @@ By default cmake will build parthenon with cuda and mpi support. Other machine
 variants exist and can be specified by using the `MACHINE_VARIANT` flag. The
 supported machine variants include:
 
-* cuda+mpi
+* cuda-mpi
 * mpi
 * cuda
 

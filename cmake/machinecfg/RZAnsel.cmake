@@ -24,7 +24,7 @@
 #       Default: "GCC"
 #       Possible Values: "GCC", "GCC8"
 # - `RZANSEL_CUDA` - Build for CUDA
-#       Default: ON if nvidia-smi finds at least one GPU, OFF otherwise
+#       Default: ON 
 # - `RZANSEL_PROJECT_PREFIX`
 #   Description: [ADVANCED] Point to an alternative parthenon-project path
 #       Default: /usr/gapps/parthenon_shared/parthenon-project
@@ -50,21 +50,9 @@ if (NOT MACHINE_VARIANT)
   set(MACHINE_VARIANT "cuda-mpi")
 endif()
 
+set(GPU_COUNT "4")
 if (${MACHINE_VARIANT} MATCHES "cuda")
-  set(GPU_COUNT "4")
-  execute_process(
-    COMMAND nvidia-smi -L
-    OUTPUT_VARIABLE FOUND_GPUS)
-  string(REPLACE "\n" ";" FOUND_GPUS ${FOUND_GPUS})
-
-  list(FILTER FOUND_GPUS INCLUDE REGEX "GPU [0-9]")
-  list(LENGTH FOUND_GPUS GPU_COUNT)
-
-  if (GPU_COUNT EQUAL 0)
-    set(RZANSEL_CUDA_DEFAULT OFF)
-  else()
-    set(RZANSEL_CUDA_DEFAULT ON)
-  endif()
+  set(RZANSEL_CUDA_DEFAULT ON)
 else()
   set(RZANSEL_CUDA_DEFAULT OFF)
 endif()
