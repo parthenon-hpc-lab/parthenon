@@ -106,6 +106,8 @@ void PiDriver::PostExecute(Real pi_val) {
 
     std::fstream fs;
     fs.open("summary.txt", std::fstream::out);
+    if (!fs.is_open())
+      throw std::exception("Unable to open summary.txt");
     fs << "PI = " << pi_val << std::endl;
     fs << "rel error = " << (pi_val - M_PI) / M_PI << std::endl;
     fs.close();
