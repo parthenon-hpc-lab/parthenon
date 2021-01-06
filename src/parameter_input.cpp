@@ -896,7 +896,7 @@ bool ParameterInput::SetBoolean(const std::string &block, const std::string &nam
 //  \brief updates a string parameter; creates it if it does not exist
 
 std::string ParameterInput::SetString(const std::string &block, const std::string &name,
-                                      std::string value) {
+                                      const std::string &value) {
   InputBlock *pb;
 
   Lock();
