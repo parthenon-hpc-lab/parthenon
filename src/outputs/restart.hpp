@@ -50,7 +50,7 @@ class RestartReader {
   // returns NBlocks on success, -1 on failure
   template <typename T>
   int ReadBlocks(const char *name, IndexRange range, std::vector<T> &dataVec,
-                 std::vector<size_t> bsize, size_t vlen = 1) {
+                 const std::vector<size_t> &bsize, size_t vlen = 1) {
 #ifdef HDF5OUTPUT
     try {
       // dataVec is assumed to be of the correct size

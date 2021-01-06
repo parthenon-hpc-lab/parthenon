@@ -27,7 +27,7 @@ namespace parthenon {
 
 struct Integrator {
   Integrator() = default;
-  Integrator(int nstages, std::vector<Real> beta) : nstages(nstages), beta(beta) {}
+  Integrator(int nstages, const std::vector<Real> &beta) : nstages(nstages), beta(beta) {}
   int nstages;
   std::vector<Real> beta;
   Real dt;
