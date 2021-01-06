@@ -56,7 +56,7 @@ class MeshBlockData {
   // the variables returned are all shallow copies of the src container.
   // Optionally extract only some of the sparse ids of src variable.
   MeshBlockData<T>(const MeshBlockData<T> &src, const std::vector<std::string> &names,
-                   const std::vector<int> sparse_ids = {});
+                   const std::vector<int> &sparse_ids = {});
   MeshBlockData<T>(const MeshBlockData<T> &src, const std::vector<MetadataFlag> &flags);
 
   /// Returns shared pointer to a block
@@ -186,7 +186,7 @@ class MeshBlockData {
   /// @param dims the size of each element
   ///
   void Add(const std::vector<std::string> labelVector, const Metadata &metadata,
-           const std::vector<int> dims);
+           const std::vector<int> &dims);
 
   ///
   /// Allocate and add a variable<T> to the container
