@@ -15,14 +15,12 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #========================================================================================
 
-import errno
 import os
 from shutil import rmtree
 import subprocess
 from subprocess import PIPE
 import sys
 from shutil import which
-import glob
 
 class Parameters():
     driver_path = ""

@@ -628,7 +628,7 @@ struct SmallNLongTBufferPack {
 };
 
 template <class BufferPack>
-void test_wrapper_buffer_pack_overlapping_space_instances(const std::string & test_name) {
+void test_wrapper_buffer_pack_overlapping_space_instances(const std::string &test_name) {
   auto default_exec_space = DevExecSpace();
 
   const int N = 32;      // ~meshblock size
