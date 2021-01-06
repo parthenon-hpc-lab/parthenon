@@ -13,6 +13,7 @@
 #ifndef INTERFACE_MESH_DATA_HPP_
 #define INTERFACE_MESH_DATA_HPP_
 
+#include <algorithm>
 #include <limits>
 #include <map>
 #include <memory>
@@ -88,7 +89,7 @@ class MeshData {
 
   void SetAllowedDt(const Real dt) const {
     for (const auto &pbd : block_data_) {
-      pbd->SetAllowedDt(dt);
+      pbd->SetAllowedDt(std::min(dt, pbd->GetBlockPointer()->NewDt()));
     }
   }
 
