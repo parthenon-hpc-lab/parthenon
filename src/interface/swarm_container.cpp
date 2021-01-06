@@ -90,7 +90,7 @@ void SwarmContainer::SetBoundaries() {}
 
 TaskStatus SwarmContainer::StartCommunication(BoundaryCommSubset phase) {
   for (auto &s : swarmVector_) {
-    //s->resetBoundary();
+    // s->resetBoundary();
     s->StartCommunication(phase);
     s->mpiStatus = false;
   }

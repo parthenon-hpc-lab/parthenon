@@ -104,19 +104,18 @@ class VariablePack {
 };
 template <typename T>
 class SwarmVariablePack {
-  public:
-    SwarmVariablePack() = default;
-    SwarmVariablePack(const ViewOfParArrays<T> view, const std::array<int, 2> dims)
-        : v_(view), dims_(dims) {}
-    KOKKOS_FORCEINLINE_FUNCTION
-    ParArray1D<T> &operator()(const int n) const { return v_(n); }
-    KOKKOS_FORCEINLINE_FUNCTION
-    T &operator()(const int n, const int i) const {
-      return v_(n)(0, 0, i);
-    }
-  private:
-    ViewOfParArrays<T> v_;
-    std::array<int, 2> dims_;
+ public:
+  SwarmVariablePack() = default;
+  SwarmVariablePack(const ViewOfParArrays<T> view, const std::array<int, 2> dims)
+      : v_(view), dims_(dims) {}
+  KOKKOS_FORCEINLINE_FUNCTION
+  ParArray1D<T> &operator()(const int n) const { return v_(n); }
+  KOKKOS_FORCEINLINE_FUNCTION
+  T &operator()(const int n, const int i) const { return v_(n)(0, 0, i); }
+
+ private:
+  ViewOfParArrays<T> v_;
+  std::array<int, 2> dims_;
 };
 
 template <typename T>
@@ -228,7 +227,7 @@ void FillVarView(const vpack_types::VarList<T> &vars, PackIndexMap *vmap,
 
 template <typename T>
 void FillSwarmVarView(const vpack_types::SwarmVarList<T> &vars, PackIndexMap *vmap,
-                 ViewOfParArrays<T> &cv) {
+                      ViewOfParArrays<T> &cv) {
   using vpack_types::IndexPair;
 
   auto host_view = Kokkos::create_mirror_view(Kokkos::HostSpace(), cv);
@@ -375,7 +374,7 @@ VariablePack<T> MakePack(const vpack_types::VarList<T> &vars,
 
 template <typename T>
 SwarmVariablePack<T> MakeSwarmPack(const vpack_types::SwarmVarList<T> &vars,
-                              PackIndexMap *vmap = nullptr) {
+                                   PackIndexMap *vmap = nullptr) {
   // count up the size
   int vsize = 0;
   for (const auto &v : vars) {
