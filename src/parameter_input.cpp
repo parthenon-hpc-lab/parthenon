@@ -350,7 +350,7 @@ bool ParameterInput::ParseLine(InputBlock *pib, std::string line, std::string &n
 //  are replaced (overwritten).
 
 void ParameterInput::AddParameter(InputBlock *pb, const std::string &name,
-                                  std::string value, const std::string &comment) {
+                                  const std::string &value, const std::string &comment) {
   InputLine *pl, *plast;
   // Search singly linked list of InputLines to see if name exists.  This also sets *plast
   // to point to the tail node (but not storing a pointer to the tail node in InputBlock)

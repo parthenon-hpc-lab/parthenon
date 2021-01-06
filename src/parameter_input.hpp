@@ -108,7 +108,7 @@ class ParameterInput {
   std::string GetOrAddString(const std::string &block, const std::string &name,
                              const std::string &value);
   std::string SetString(const std::string &block, const std::string &name,
-                        std::string value);
+                        const std::string &value);
   void RollbackNextTime();
   void ForwardNextTime(Real time);
   void CheckRequired(const std::string &block, const std::string &name);
@@ -121,7 +121,7 @@ class ParameterInput {
   InputBlock *GetPtrToBlock(const std::string &name);
   bool ParseLine(InputBlock *pib, std::string line, std::string &name, std::string &value,
                  std::string &comment);
-  void AddParameter(InputBlock *pib, const std::string &name, std::string value,
+  void AddParameter(InputBlock *pib, const std::string &name, const std::string &value,
                     const std::string &comment);
 
   // thread safety
