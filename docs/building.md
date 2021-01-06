@@ -276,7 +276,7 @@ Last verified 04 Jan 2021.
 
 #### Allocate Node
 
-RZAnasel is a homogeneous cluster consiting of 2,376 nodes with the IBM Power9
+[RZAnsel](https://hpc.llnl.gov/hardware/platforms/rzansel) is a homogeneous cluster consisting of 2,376 nodes with the IBM Power9
 architecture with 44 nodes per core and 4 Nvidia Volta GPUs per node. To
 allocate an interactive node: 
 
