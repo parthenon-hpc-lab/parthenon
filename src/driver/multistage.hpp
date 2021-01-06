@@ -28,7 +28,6 @@ namespace parthenon {
 
 struct StagedIntegrator {
   StagedIntegrator() = default;
-  StagedIntegrator(int nstages, std::vector<Real> beta) : nstages(nstages), beta(beta) {}
   explicit StagedIntegrator(ParameterInput *pin);
   int nstages;
   std::vector<Real> beta;
@@ -43,7 +42,7 @@ class MultiStageDriver : public EvolutionDriver {
         integrator(std::make_unique<StagedIntegrator>(pin)) {}
   // An application driver that derives from this class must define this
   // function, which defines the application specific list of tasks and
-  // there dependencies that must be executed.
+  // the dependencies that must be executed.
   virtual TaskCollection MakeTaskCollection(BlockList_t &blocks, int stage) = 0;
   virtual TaskListStatus Step();
 
