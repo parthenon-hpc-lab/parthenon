@@ -149,12 +149,16 @@ void BoundarySwarm::StartReceiving(BoundaryCommSubset phase) {
 
 void BoundarySwarm::Send(BoundaryCommSubset phase) {
   printf("BoundarySwarm::Send\n");
-#ifdef MPI_PARALLEL
+  //if (nb.snb.rank == Globals::my_rank) {
+  //} el
+//#ifdef MPI_PARALLEL
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int &mylevel = pmb->loc.level;
+  printf("HERE!\n");
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
     if (nb.snb.rank != Globals::my_rank) {
+#ifdef MPI_PARALLEL
 
       // Check to see if already sending!
       /*printf("%s:%i\n", __FILE__, __LINE__);
@@ -171,16 +175,24 @@ void BoundarySwarm::Send(BoundaryCommSubset phase) {
       }*/
       // Send a message to different rank neighbor just for fun
       printf("%s:%i\n", __FILE__, __LINE__);
-      printf("[%i] Sending a message!\n", Globals::my_rank);
-      Real buffer[1] = {1.0};
+      printf("[%i] Sending a message of size %i!\n", Globals::my_rank, send_size[n]);
+
+      //Real buffer[1] = {1.0};
+      //MPI_Request request;
+      //MPI_Isend(buffer, 1, MPI_PARTHENON_REAL, nb.snb.rank, send_tag[n],
+      //  MPI_COMM_WORLD, &request);
       MPI_Request request;
-      MPI_Isend(buffer, 1, MPI_PARTHENON_REAL, nb.snb.rank, send_tag[n],
-        MPI_COMM_WORLD, &request);
+      //MPI_Isend(bd_var_.send[n].data(), bd_var_.send[n].extent(0), MPI_PARTHENON_REAL,
+      //    nb.snb.rank, send_tag[n], MPI_COMM_WORLD, &request);
+      MPI_Isend(bd_var_.send[n].data(), send_size[n], MPI_PARTHENON_REAL,
+          nb.snb.rank, send_tag[n], MPI_COMM_WORLD, &request);
 
       //bd_var_.sflag[nb.bufid] = BoundaryStatus::waiting;
+#endif // MPI_PARALLEL
+    } else {
+      // CopyVariableBufferSameProcess
     }
   }
-#endif
 }
 
 void BoundarySwarm::Receive(BoundaryCommSubset phase) {
@@ -207,11 +219,21 @@ void BoundarySwarm::Receive(BoundaryCommSubset phase) {
         // If message is available, receive it
         int nbytes;
         MPI_Get_count(&status, MPI_CHAR, &nbytes);
-        printf("Message is this many bytes: %i!", nbytes);
-        double *buf = (double*)malloc(nbytes);
-        MPI_Recv(buf, nbytes, MPI_CHAR, nb.snb.rank, MPI_ANY_TAG,
-          MPI_COMM_WORLD, &status);
-        printf("Message received! %e\n", buf[0]);
+        printf("neihgbor: %i Message is this many bytes: %i!", n, nbytes);
+        //double *buf = (double*)malloc(nbytes);
+        //MPI_Recv(buf, nbytes, MPI_CHAR, nb.snb.rank, MPI_ANY_TAG,
+        //  MPI_COMM_WORLD, &status);
+        if (nbytes / sizeof(Real) > bd_var_.recv[n].extent(0)) {
+          bd_var_.recv[n] = ParArray1D<Real>("Buffer", nbytes / sizeof(Real));
+        }
+        MPI_Recv(bd_var_.recv[n].data(), nbytes, MPI_CHAR, nb.snb.rank, MPI_ANY_TAG,
+            MPI_COMM_WORLD, &status);
+        recv_size[n] = nbytes / sizeof(Real);
+        if (nbytes > 0) {
+        printf("Message received! %e\n", bd_var_.recv[n](0));
+        } else {
+          printf("[%i] size 0 message received!\n");
+        }
       }
     }
   }

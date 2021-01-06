@@ -55,15 +55,15 @@ class SwarmDeviceContext {
   bool IsMarkedForRemoval(const int n) const { return marked_for_removal_(n); }
 
   KOKKOS_INLINE_FUNCTION
-  int GetNeighborBlockIndex(const int &n, const double &x, const double &y, const double &z) const {
+  int GetNeighborBlockIndex(const int &n, const double &x, const double &y,
+                            const double &z) const {
 
-    int i = static_cast<int>((x - x_min_)/((x_max_ - x_min_)/2.)) + 1;
-    int j = static_cast<int>((y - y_min_)/((y_max_ - y_min_)/2.)) + 1;
-    int k = static_cast<int>((z - z_min_)/((z_max_ - z_min_)/2.)) + 1;
+    int i = static_cast<int>((x - x_min_) / ((x_max_ - x_min_) / 2.)) + 1;
+    int j = static_cast<int>((y - y_min_) / ((y_max_ - y_min_) / 2.)) + 1;
+    int k = static_cast<int>((z - z_min_) / ((z_max_ - z_min_) / 2.)) + 1;
 
     // Something went wrong
-    if (i < 0 || i > 3 ||
-        ((j < 0 || j > 3) && ndim_ > 1) ||
+    if (i < 0 || i > 3 || ((j < 0 || j > 3) && ndim_ > 1) ||
         ((k < 0 || k > 3) && ndim_ > 2)) {
       blockIndex_(n) = -2;
       printf("ERROR [%i %i %i] [%e %e %e]\n", i, j, k, x, y, z);
@@ -73,17 +73,17 @@ class SwarmDeviceContext {
 
     // Ignore k,j indices as necessary based on problem dimension
     if (ndim_ == 1) {
-      int i = static_cast<int>((x - x_min_)/((x_max_ - x_min_)/2.)) + 1;
-      blockIndex_(n) = neighborIndices_(0,0,i);
+      int i = static_cast<int>((x - x_min_) / ((x_max_ - x_min_) / 2.)) + 1;
+      blockIndex_(n) = neighborIndices_(0, 0, i);
     } else if (ndim_ == 2) {
-      int i = static_cast<int>((x - x_min_)/((x_max_ - x_min_)/2.)) + 1;
-      int j = static_cast<int>((y - y_min_)/((y_max_ - y_min_)/2.)) + 1;
-      blockIndex_(n) = neighborIndices_(0,j,i);
+      int i = static_cast<int>((x - x_min_) / ((x_max_ - x_min_) / 2.)) + 1;
+      int j = static_cast<int>((y - y_min_) / ((y_max_ - y_min_) / 2.)) + 1;
+      blockIndex_(n) = neighborIndices_(0, j, i);
     } else {
-      int i = static_cast<int>((x - x_min_)/((x_max_ - x_min_)/2.)) + 1;
-      int j = static_cast<int>((y - y_min_)/((y_max_ - y_min_)/2.)) + 1;
-      int k = static_cast<int>((z - z_min_)/((z_max_ - z_min_)/2.)) + 1;
-      blockIndex_(n) = neighborIndices_(k,j,i);
+      int i = static_cast<int>((x - x_min_) / ((x_max_ - x_min_) / 2.)) + 1;
+      int j = static_cast<int>((y - y_min_) / ((y_max_ - y_min_) / 2.)) + 1;
+      int k = static_cast<int>((z - z_min_) / ((z_max_ - z_min_) / 2.)) + 1;
+      blockIndex_(n) = neighborIndices_(k, j, i);
     }
 
     return blockIndex_(n);
@@ -100,7 +100,7 @@ class SwarmDeviceContext {
   ParArrayND<bool> mask_;
   ParArrayND<int> blockIndex_;
   ParArrayND<int> neighbor_send_index_; // TODO(BRR) is this needed?
-  ParArrayND<int> neighborIndices_; // 4x4x4 array of possible block AMR regions
+  ParArrayND<int> neighborIndices_;     // 4x4x4 array of possible block AMR regions
   int ndim_;
   friend class Swarm;
 };
@@ -183,7 +183,7 @@ class Swarm {
   void RemoveMarkedParticles();
 
   /// Open up memory for new empty particles, return a mask to these particles
-  ParArrayND<bool> AddEmptyParticles(const int num_to_add);
+  ParArrayND<bool> AddEmptyParticles(const int num_to_add, ParArrayND<int> &new_indices);
 
   /// Defragment the list by moving active particles so they are contiguous in
   /// memory
@@ -195,32 +195,32 @@ class Swarm {
   bool mpiStatus;
   void allocateComms(std::weak_ptr<MeshBlock> wpmb);
 
-  int GetParticleDataSize() {
-    return realVector_.size() + intVector_.size();
-  }
+  int GetParticleDataSize() { return realVector_.size() + intVector_.size(); }
 
   bool Send(BoundaryCommSubset phase);
 
   bool Receive(BoundaryCommSubset phase);
 
-  //VariablePack<Real> PackRealVariables();
-  //VariablePack<int> PackIntVariables();
-//  template <typename T>
-  //VariablePack<T> PackVariables(const std::vector<std::string> &names,
-    //                                 const vpack_types::VarList<T> &vars,
-      //                               PackIndexMap &vmap);
-vpack_types::SwarmVarList<Real>
-MakeRealList_(std::vector<std::string> &names);
-vpack_types::SwarmVarList<int>
-MakeIntList_(std::vector<std::string> &names);
+  // VariablePack<Real> PackRealVariables();
+  // VariablePack<int> PackIntVariables();
+  //  template <typename T>
+  // VariablePack<T> PackVariables(const std::vector<std::string> &names,
+  //                                 const vpack_types::VarList<T> &vars,
+  //                               PackIndexMap &vmap);
+  vpack_types::SwarmVarList<Real> MakeRealList_(std::vector<std::string> &names);
+  vpack_types::SwarmVarList<int> MakeIntList_(std::vector<std::string> &names);
 
-SwarmVariablePack<Real> PackVariablesReal(const std::vector<std::string> &names,
-//                                     const vpack_types::VarList<Real> &vars,
-                                     PackIndexMap &vmap);
-SwarmVariablePack<Real> PackAllVariablesReal(PackIndexMap &vmap);
-SwarmVariablePack<int> PackVariablesInt(const std::vector<std::string> &names,
-//                                     const vpack_types::VarList<int> &vars,
-                                     PackIndexMap &vmap);
+  SwarmVariablePack<Real> PackVariablesReal(
+      const std::vector<std::string> &names,
+      //                                     const vpack_types::VarList<Real> &vars,
+      PackIndexMap &vmap);
+  SwarmVariablePack<Real> PackAllVariablesReal(PackIndexMap &vmap);
+  SwarmVariablePack<int> PackVariablesInt(
+      const std::vector<std::string> &names,
+      //                                     const vpack_types::VarList<int> &vars,
+      PackIndexMap &vmap);
+
+  void PackAllVariables(SwarmVariablePack<Real> &vreal, SwarmVariablePack<int> &vint);
 
   bool StartCommunication(BoundaryCommSubset phase) {
     printf("[%i] StartCommunication!\n", Globals::my_rank);
@@ -229,10 +229,10 @@ SwarmVariablePack<int> PackVariablesInt(const std::vector<std::string> &names,
     global_num_incomplete_ = 3;
     local_num_completed_ = 0;
 
-    #ifdef MPI_PARALLEL
-    MPI_Allreduce(MPI_IN_PLACE, &global_num_incomplete_, 1, MPI_INT,
-      MPI_SUM, MPI_COMM_WORLD);
-    #endif
+#ifdef MPI_PARALLEL
+    MPI_Allreduce(MPI_IN_PLACE, &global_num_incomplete_, 1, MPI_INT, MPI_SUM,
+                  MPI_COMM_WORLD);
+#endif
 
     printf("global_num_incomplete_: %i\n", global_num_incomplete_);
 
@@ -246,7 +246,7 @@ SwarmVariablePack<int> PackVariablesInt(const std::vector<std::string> &names,
       return true;
     }
 
-    //vbvar->Receive();
+    // vbvar->Receive();
 
     local_num_completed_ += 1;
 
@@ -279,8 +279,8 @@ SwarmVariablePack<int> PackVariablesInt(const std::vector<std::string> &names,
   ParticleVariable<bool> mask_;
   ParticleVariable<bool> marked_for_removal_;
   ParticleVariable<int> neighbor_send_index_; // -1 means no send
-  ParArrayND<int> neighborIndices_; // Indexing of vbvar's neighbor array. -1 for same. k,j indices
-                                    // unused in 3D&2D, 2D, respectively
+  ParArrayND<int> neighborIndices_; // Indexing of vbvar's neighbor array. -1 for same.
+                                    // k,j indices unused in 3D&2D, 2D, respectively
   ParArrayND<int> blockIndex_; // Neighbor index for each particle. -1 for current block.
 
   MPI_Request allreduce_request_;

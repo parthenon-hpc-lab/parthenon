@@ -138,6 +138,7 @@ TaskStatus DestroySomeParticles(MeshBlock *pmb) {
 TaskStatus DepositParticles(MeshBlock *pmb) {
   fflush(stdout);
   MPI_Barrier(MPI_COMM_WORLD);
+  printf("[%i] DepositParticles\n", Globals::my_rank);
   auto swarm = pmb->real_containers.GetSwarmContainer()->Get("my particles");
 
   // Meshblock geometry
@@ -192,7 +193,8 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, double t0) {
 
   printf("num_particles: %i\n", num_particles);
 
-  const auto new_particles_mask = swarm->AddEmptyParticles(num_particles);
+  ParArrayND<int> new_indices;
+  const auto new_particles_mask = swarm->AddEmptyParticles(num_particles, new_indices);
 
   // Meshblock geometry
   const IndexRange &ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);

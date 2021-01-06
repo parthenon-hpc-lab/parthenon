@@ -69,7 +69,8 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   Metadata m_integer({Metadata::Integer});
   swarm->Add(labelVector, m_integer);
 
-  auto new_mask = swarm->AddEmptyParticles(1);
+  ParArrayND<int> new_indices;
+  auto new_mask = swarm->AddEmptyParticles(1, new_indices);
   swarm_d = swarm->GetDeviceContext();
   auto x_d = swarm->GetReal("x").Get();
   auto x_h = x_d.GetHostMirrorAndCopy();
@@ -82,7 +83,7 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   x_d.DeepCopy(x_h);
   i_d.DeepCopy(i_h);
 
-  new_mask = swarm->AddEmptyParticles(11);
+  new_mask = swarm->AddEmptyParticles(11, new_indices);
   swarm_d = swarm->GetDeviceContext();
   x_d = swarm->GetReal("x").Get();
   i_d = swarm->GetInteger("i").Get();

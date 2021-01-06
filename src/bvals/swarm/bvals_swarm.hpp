@@ -57,6 +57,7 @@ class BoundarySwarm : public BoundaryCommunication {
   std::weak_ptr<MeshBlock> pmy_block;
   Mesh *pmy_mesh_;
   int send_tag[56], recv_tag[56];
+  int particle_size, send_size[56], recv_size[56];
 
  protected:
    int nl_, nu_;
