@@ -45,7 +45,7 @@ void MeshBlockData<T>::Add(const std::vector<std::string> labelArray,
 
 template <typename T>
 void MeshBlockData<T>::Add(const std::vector<std::string> labelArray,
-                           const Metadata &metadata, const std::vector<int> dims) {
+                           const Metadata &metadata, const std::vector<int> &dims) {
   for (auto label : labelArray) {
     Add(label, metadata, dims);
   }
@@ -111,7 +111,7 @@ void MeshBlockData<T>::Add(const std::string label, const Metadata &metadata,
 template <typename T>
 MeshBlockData<T>::MeshBlockData(const MeshBlockData<T> &src,
                                 const std::vector<std::string> &names,
-                                const std::vector<int> sparse_ids) {
+                                const std::vector<int> &sparse_ids) {
   auto var_map = src.GetCellVariableMap();
   auto sparse_map = src.GetSparseMap();
   auto face_map = src.GetFaceMap();

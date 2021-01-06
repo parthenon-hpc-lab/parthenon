@@ -29,6 +29,7 @@
 - [[PR 369]](https://github.com/lanl/parthenon/pull/369) Initializes submodules when running on darwin ci.
 - [[PR 382]](https://github.com/lanl/parthenon/pull/382) Adds output on fail for fast ci implementation on Darwin.
 - [[PR 362]](https://github.com/lanl/parthenon/pull/362) Small fix to clean regression tests output folder on reruns
+- [[PR 403]](https://github.com/lanl/parthenon/pull/403) Cleanup Codacy warnings
 - [[PR 377]](https://github.com/lanl/parthenon/pull/377) New machine configuration file for LNLL's RZAnsel cluster
 
 ### Removed (removing behavior/API/varaibles/...)
