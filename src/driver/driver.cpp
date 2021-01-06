@@ -70,13 +70,13 @@ DriverStatus EvolutionDriver::Execute() {
       return DriverStatus::failed;
     }
 
+    pmesh->PostStepUserWorkInLoop(pmesh, pinput, tm);
+    pmesh->PostStepUserDiagnosticsInLoop(pmesh, pinput, tm);
+
     tm.ncycle++;
     tm.time += tm.dt;
     pmesh->mbcnt += pmesh->nbtotal;
     pmesh->step_since_lb++;
-
-    pmesh->PostStepUserWorkInLoop(pmesh, pinput, tm);
-    pmesh->PostStepUserDiagnosticsInLoop(pmesh, pinput, tm);
 
     pmesh->LoadBalancingAndAdaptiveMeshRefinement(pinput, app_input);
     if (pmesh->modified) InitializeBlockTimeSteps();
