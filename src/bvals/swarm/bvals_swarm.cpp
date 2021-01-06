@@ -40,17 +40,16 @@ namespace parthenon {
 
 BoundarySwarm::BoundarySwarm(std::weak_ptr<MeshBlock> pmb) : pmy_block(pmb) {
   printf("BoundarySwarm::BoundarySwarm\n");
-  #ifdef MPI_PARALLEL
+#ifdef MPI_PARALLEL
   // TODO(BRR) Need to update swarm id counter!
   swarm_id_ = 1;
-//  swarm_id_ = pmb.lock()->pbval->bvars_next_phys_id_;
-  #endif
+// swarm_id_ = pmb.lock()->pbval->bvars_next_phys_id_;
+#endif
 
   InitBoundaryData(bd_var_);
 }
 
 void BoundarySwarm::InitBoundaryData(BoundaryData<> &bd) {
-  printf("BoundarySwarm::InitBoundaryData\n");
   auto pmb = GetBlockPointer();
   NeighborIndexes *ni = pmb->pbval->ni;
   int size = 0;
@@ -58,19 +57,16 @@ void BoundarySwarm::InitBoundaryData(BoundaryData<> &bd) {
   bd.nbmax = pmb->pbval->maxneighbor_;
 
   for (int n = 0; n < bd.nbmax; n++) {
-    printf("SET REQ [%i] NULL!\n", n);
     bd.flag[n] = BoundaryStatus::waiting;
-    #ifdef MPI_PARALLEL
+#ifdef MPI_PARALLEL
     bd.req_send[n] = MPI_REQUEST_NULL;
     bd.req_recv[n] = MPI_REQUEST_NULL;
-    #endif
+#endif
   }
-
-  // TODO(BRR) More to do here -- see BoundaryVariable!
 }
 
 BoundarySwarm::~BoundarySwarm() {
-  //DestroyBoundaryData(bd_var_);
+  // DestroyBoundaryData(bd_var_);
 }
 
 int BoundarySwarm::ComputeVariableBufferSize(const NeighborIndexes &ni, int cng) {
@@ -78,7 +74,6 @@ int BoundarySwarm::ComputeVariableBufferSize(const NeighborIndexes &ni, int cng)
 }
 
 void BoundarySwarm::SetupPersistentMPI() {
-  // TODO(BRR) don't actually need this?
 #ifdef MPI_PARALLEL
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int &mylevel = pmb->loc.level;
@@ -89,8 +84,6 @@ void BoundarySwarm::SetupPersistentMPI() {
   int rsize = 0;
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
-
-    printf("rank: %i Neighbor: %i Neighbor rank: %i\n", Globals::my_rank, n, nb.snb.rank);
 
     // Neighbor on different MPI process
     if (nb.snb.rank != Globals::my_rank) {
@@ -103,91 +96,25 @@ void BoundarySwarm::SetupPersistentMPI() {
         MPI_Request_free(&bd_var_.req_recv[nb.bufid]);
       }
     }
-    printf("Done!\n");
   }
 #endif
 }
 
-// TODO(BRR) is this necessary?
-void BoundarySwarm::StartReceiving(BoundaryCommSubset phase) {
-  printf("Start receiving!\n");
-
-  // TODO(BRR) Reset tags? This is just MPI_Start for cc vars
-  //for (int n = 0; n < pmb->pbval->nneighbor; n++) {
-  //  NeighborBlock &nb = pmb->pbval->neighbor[n];
-  //}
-}
-
-/*void BoundarySwarm::Receive() {
-  printf("[%i] BoundarySwarm::Receive\n\n\n", Globals::my_rank);
-#ifdef MPI_PARALLEL
-  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
-  int &mylevel = pmb->loc.level;
-
-  // Check to see what messages have been received
-  int tag;
-  int ssize = 0;
-  int rsize = 0;
-  for (int n = 0; n < pmb->pbval->nneighbor; n++) {
-    NeighborBlock &nb = pmb->pbval->neighbor[n];
-
-    tag = pmb->pbval->CreateBvalsMPITag(pmb->lid, nb.bufid, swarm_id_);
-    printf("[%i] (%i %i %i) tag: %i\n", Globals::my_rank, pmb->lid, nb.bufid, swarm_id_, tag);
-
-    printf("rank: %i Neighbor: %i Neighbor rank: %i\n", Globals::my_rank, n, nb.snb.rank);
-    int test;
-    MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &test, MPI_STATUS_IGNORE);
-    MPI_Test(&(bd_var_.req_recv[nb.bufid]), &test, MPI_STATUS_IGNORE);
-    if (!static_cast<bool>(test)) {
-      bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
-    } else {
-      bd_var_.flag[nb.bufid] = BoundaryStatus::arrived;
-    }
-  }
-#endif
-}*/
+// TODO(BRR) is this necessary? Reset tags? This is just MPI_Start for cc vars
+void BoundarySwarm::StartReceiving(BoundaryCommSubset phase) {}
 
 void BoundarySwarm::Send(BoundaryCommSubset phase) {
-  printf("BoundarySwarm::Send\n");
-  //if (nb.snb.rank == Globals::my_rank) {
-  //} el
-//#ifdef MPI_PARALLEL
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int &mylevel = pmb->loc.level;
-  printf("HERE!\n");
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
     if (nb.snb.rank != Globals::my_rank) {
 #ifdef MPI_PARALLEL
+      // TODO(BRR) Check to see if already sending!
 
-      // Check to see if already sending!
-      /*printf("%s:%i\n", __FILE__, __LINE__);
-      if (bd_var_.sflag[nb.bufid] == BoundaryStatus::waiting) {
-      printf("%s:%i\n", __FILE__, __LINE__);
-        int flag;
-      printf("%s:%i\n", __FILE__, __LINE__);
-        MPI_Status status;
-      printf("%s:%i\n", __FILE__, __LINE__);
-        MPI_Iprobe(MPI_ANY_SOURCE, send_tag[n], MPI_COMM_WORLD, &flag, &status);
-      printf("%s:%i\n", __FILE__, __LINE__);
-        printf("%i: flag: %i\n", n, flag);
-        continue;
-      }*/
-      // Send a message to different rank neighbor just for fun
-      printf("%s:%i\n", __FILE__, __LINE__);
-      printf("[%i] Sending a message of size %i!\n", Globals::my_rank, send_size[n]);
-
-      //Real buffer[1] = {1.0};
-      //MPI_Request request;
-      //MPI_Isend(buffer, 1, MPI_PARTHENON_REAL, nb.snb.rank, send_tag[n],
-      //  MPI_COMM_WORLD, &request);
       MPI_Request request;
-      //MPI_Isend(bd_var_.send[n].data(), bd_var_.send[n].extent(0), MPI_PARTHENON_REAL,
-      //    nb.snb.rank, send_tag[n], MPI_COMM_WORLD, &request);
-      MPI_Isend(bd_var_.send[n].data(), send_size[n], MPI_PARTHENON_REAL,
-          nb.snb.rank, send_tag[n], MPI_COMM_WORLD, &request);
-
-      //bd_var_.sflag[nb.bufid] = BoundaryStatus::waiting;
+      MPI_Isend(bd_var_.send[n].data(), send_size[n], MPI_PARTHENON_REAL, nb.snb.rank,
+                send_tag[n], MPI_COMM_WORLD, &request);
 #endif // MPI_PARALLEL
     } else {
       // CopyVariableBufferSameProcess
@@ -196,7 +123,6 @@ void BoundarySwarm::Send(BoundaryCommSubset phase) {
 }
 
 void BoundarySwarm::Receive(BoundaryCommSubset phase) {
-  printf("BoundarySwarm::Receive\n");
 #ifdef MPI_PARALLEL
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int &mylevel = pmb->loc.level;
@@ -204,13 +130,10 @@ void BoundarySwarm::Receive(BoundaryCommSubset phase) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
     if (nb.snb.rank != Globals::my_rank) {
       pmb->exec_space.fence();
-      //MPI_Start(&(bd_var_.req_recv[nb.bufid]));
-      //MPI_Irecv(
       // Check to see if we got a message
       int test;
       MPI_Status status;
       MPI_Iprobe(nb.snb.rank, MPI_ANY_TAG, MPI_COMM_WORLD, &test, &status);
-      printf("[%i] n: %i test; %i\n", Globals::my_rank, n, test);
       if (!static_cast<bool>(test)) {
         bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
       } else {
@@ -219,18 +142,14 @@ void BoundarySwarm::Receive(BoundaryCommSubset phase) {
         // If message is available, receive it
         int nbytes;
         MPI_Get_count(&status, MPI_CHAR, &nbytes);
-        printf("neihgbor: %i Message is this many bytes: %i!", n, nbytes);
-        //double *buf = (double*)malloc(nbytes);
-        //MPI_Recv(buf, nbytes, MPI_CHAR, nb.snb.rank, MPI_ANY_TAG,
-        //  MPI_COMM_WORLD, &status);
         if (nbytes / sizeof(Real) > bd_var_.recv[n].extent(0)) {
           bd_var_.recv[n] = ParArray1D<Real>("Buffer", nbytes / sizeof(Real));
         }
         MPI_Recv(bd_var_.recv[n].data(), nbytes, MPI_CHAR, nb.snb.rank, MPI_ANY_TAG,
-            MPI_COMM_WORLD, &status);
+                 MPI_COMM_WORLD, &status);
         recv_size[n] = nbytes / sizeof(Real);
         if (nbytes > 0) {
-        printf("Message received! %e\n", bd_var_.recv[n](0));
+          printf("Message received! %e\n", bd_var_.recv[n](0));
         } else {
           printf("[%i] size 0 message received!\n");
         }
@@ -242,10 +161,12 @@ void BoundarySwarm::Receive(BoundaryCommSubset phase) {
 
 void BoundarySwarm::ClearBoundary(BoundaryCommSubset phase) {}
 
-int BoundarySwarm::LoadBoundaryBufferSameLevel(ParArray1D<Real> &buf, const NeighborBlock &nb) {
-  return 0;}
+int BoundarySwarm::LoadBoundaryBufferSameLevel(ParArray1D<Real> &buf,
+                                               const NeighborBlock &nb) {
+  return 0;
+}
 
-void BoundarySwarm::SetBoundarySameLevel(ParArray1D<Real> &buf, const NeighborBlock &nb) {}
+void BoundarySwarm::SetBoundarySameLevel(ParArray1D<Real> &buf, const NeighborBlock &nb) {
+}
 
 } // namespace parthenon
-

@@ -136,8 +136,6 @@ TaskStatus DestroySomeParticles(MeshBlock *pmb) {
 }
 
 TaskStatus DepositParticles(MeshBlock *pmb) {
-  fflush(stdout);
-  MPI_Barrier(MPI_COMM_WORLD);
   printf("[%i] DepositParticles\n", Globals::my_rank);
   auto swarm = pmb->real_containers.GetSwarmContainer()->Get("my particles");
 
@@ -191,8 +189,6 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, double t0) {
   auto num_particles = pkg->Param<int>("num_particles");
   auto v = pkg->Param<Real>("particle_speed");
 
-  printf("num_particles: %i\n", num_particles);
-
   ParArrayND<int> new_indices;
   const auto new_particles_mask = swarm->AddEmptyParticles(num_particles, new_indices);
 
@@ -220,16 +216,11 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, double t0) {
   auto &weight = swarm->GetReal("weight").Get();
 
   auto swarm_d = swarm->GetDeviceContext();
-  printf("minx: %e nx: %i dx: %e maxx: %e\n", minx_i, nx_i, dx_i, minx_i + dx_i*nx_i);
-  printf("miny: %e ny: %i dy: %e maxy: %e\n", minx_j, nx_j, dx_j, minx_j + dx_j*nx_j);
-  printf("minz: %e nz: %i dz: %e maxz: %e\n", minx_k, nx_k, dx_k, minx_k + dx_k*nx_k);
 
   pmb->par_for(
       "CreateSomeParticles", 0, swarm->get_max_active_index(),
       KOKKOS_LAMBDA(const int n) {
-        printf("[%i] (%i)\n", n, new_particles_mask(n));
         if (new_particles_mask(n)) {
-          printf("%s:%i\n", __FILE__, __LINE__);
           auto rng_gen = rng_pool.get_state();
 
           // Randomly sample in space in this meshblock
@@ -237,7 +228,6 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, double t0) {
           y(n) = minx_j + nx_j * dx_j * rng_gen.drand();
           z(n) = minx_k + nx_k * dx_k * rng_gen.drand();
           int index = swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n));
-          printf("blockIndex (%e %e %e): %i\n", x(n), y(n), z(n), index);
 
           // Randomly sample direction on the unit sphere, fixing speed
           Real theta = acos(2. * rng_gen.drand() - 1.);
@@ -290,17 +280,16 @@ TaskStatus TransportParticles(MeshBlock *pmb, double t0, Integrator *integrator)
   const Real &y_max = pmb->coords.x2f(jb.e + 1);
   const Real &z_max = pmb->coords.x3f(kb.e + 1);
 
-  //const Real x_min_global = pmb->pmy_mesh->mesh_size.x1min;
+  // const Real x_min_global = pmb->pmy_mesh->mesh_size.x1min;
 
   auto swarm_d = swarm->GetDeviceContext();
 
-  //ParArrayND<Real> t("time", max_active_index + 1);
+  // ParArrayND<Real> t("time", max_active_index + 1);
 
   // Simple particle push: push particles half a zone width until they have
   // traveled one integrator timestep's worth of time
   pmb->par_for(
       "TransportParticles", 0, max_active_index, KOKKOS_LAMBDA(const int n) {
-        printf("[%i] is on current: %i\n", n, swarm_d.IsOnCurrentMeshBlock(n));
         if (swarm_d.IsActive(n) && swarm_d.IsOnCurrentMeshBlock(n)) {
           Real v = sqrt(vx(n) * vx(n) + vy(n) * vy(n) + vz(n) * vz(n));
           while (t(n) < t0 + dt) {
@@ -318,9 +307,8 @@ TaskStatus TransportParticles(MeshBlock *pmb, double t0, Integrator *integrator)
             int neighborBlockIndex = swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n));
 
             if (neighborBlockIndex != -1) {
-              printf("xmin xmax: %e %e\n", x_min, x_max);
-              printf("[%i] particle[%i] (%e %e %e) -> %i\n",
-                Globals::my_rank, n, x(n), y(n), z(n), neighborBlockIndex);
+              printf("[%i] particle[%i] (%e %e %e) -> %i\n", Globals::my_rank, n, x(n),
+                     y(n), z(n), neighborBlockIndex);
               // Particle no longer on this block
               break;
             }
@@ -351,7 +339,7 @@ TaskStatus TransportParticles(MeshBlock *pmb, double t0, Integrator *integrator)
       });
 
   // Only mark as finished if mpiStatus is complete
-  //if (swarm->mpiStatus) {
+  // if (swarm->mpiStatus) {
   //  return TaskStatus::complete;
   //} else {
   //  return TaskStatus::incomplete;
@@ -385,43 +373,26 @@ TaskList ParticleDriver::MakeTaskList(MeshBlock *pmb, int stage) {
   auto swarm = sc->Get("my particles");
 
   auto start_comm = tl.AddTask(none, &SwarmContainer::StartCommunication, sc.get(),
-    BoundaryCommSubset::all);
+                               BoundaryCommSubset::all);
 
-  auto create_some_particles =
-      tl.AddTask(none, CreateSomeParticles, pmb, t0);
+  auto create_some_particles = tl.AddTask(none, CreateSomeParticles, pmb, t0);
 
-  auto transport_particles = tl.AddTask(create_some_particles, TransportParticles, pmb, t0, integrator);
+  auto transport_particles =
+      tl.AddTask(create_some_particles, TransportParticles, pmb, t0, integrator);
 
-  auto send = tl.AddTask(create_some_particles, &SwarmContainer::Send, sc.get(), BoundaryCommSubset::all);
-  auto receive = tl.AddTask(create_some_particles, &SwarmContainer::Receive, sc.get(), BoundaryCommSubset::all);
+  auto send = tl.AddTask(create_some_particles, &SwarmContainer::Send, sc.get(),
+                         BoundaryCommSubset::all);
+  auto receive = tl.AddTask(create_some_particles, &SwarmContainer::Receive, sc.get(),
+                            BoundaryCommSubset::all);
 
-  auto finalize_comm = tl.AddTask(create_some_particles, &SwarmContainer::FinishCommunication,
-    sc.get(), BoundaryCommSubset::all);
-
-  auto deposit_particles = tl.AddTask(finalize_comm, DepositParticles, pmb);
-  //auto deposit_particles = tl.AddTask(transport_particles, DepositParticles, pmb);
-
-  auto defrag = tl.AddTask(deposit_particles, Defrag, pmb);
-
-/*
-  auto transport_particles = tl.AddTask(create_some_particles, TransportParticles, pmb, t0, integrator);
-
-  auto destroy_some_particles =
-      tl.AddTask(transport_particles, DestroySomeParticles, pmb);
-
-  auto silly_update = tl.AddTask(destroy_some_particles, &SwarmContainer::SillyUpdate,
-  sc.get());
-
-  auto send = tl.AddTask(destroy_some_particles, &SwarmContainer::Send, sc.get(), BoundaryCommSubset::all);
-  auto receive = tl.AddTask(destroy_some_particles, &SwarmContainer::Receive, sc.get(), BoundaryCommSubset::all);
-
-  auto finalize_comm = tl.AddTask(destroy_some_particles, &SwarmContainer::FinishCommunication,
-    sc.get(), BoundaryCommSubset::all);
+  auto finalize_comm =
+      tl.AddTask(create_some_particles, &SwarmContainer::FinishCommunication, sc.get(),
+                 BoundaryCommSubset::all);
 
   auto deposit_particles = tl.AddTask(finalize_comm, DepositParticles, pmb);
 
   auto defrag = tl.AddTask(deposit_particles, Defrag, pmb);
-*/
+
   return tl;
 }
 

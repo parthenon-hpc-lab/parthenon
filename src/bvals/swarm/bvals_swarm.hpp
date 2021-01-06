@@ -60,24 +60,24 @@ class BoundarySwarm : public BoundaryCommunication {
   int particle_size, send_size[56], recv_size[56];
 
  protected:
-   int nl_, nu_;
-   void InitBoundaryData(BoundaryData<> &bd);
+  int nl_, nu_;
+  void InitBoundaryData(BoundaryData<> &bd);
 
  private:
-   // BoundaryBuffer:
-   int LoadBoundaryBufferSameLevel(ParArray1D<Real> &buf, const NeighborBlock &nb);
-   void SetBoundarySameLevel(ParArray1D<Real> &buf, const NeighborBlock &nb);
+  // BoundaryBuffer:
+  int LoadBoundaryBufferSameLevel(ParArray1D<Real> &buf, const NeighborBlock &nb);
+  void SetBoundarySameLevel(ParArray1D<Real> &buf, const NeighborBlock &nb);
 
-   std::shared_ptr<MeshBlock> GetBlockPointer() {
-     if (pmy_block.expired()) {
-       PARTHENON_THROW("Invalid pointer to MeshBlock!");
-     }
-     return pmy_block.lock();
-   }
+  std::shared_ptr<MeshBlock> GetBlockPointer() {
+    if (pmy_block.expired()) {
+      PARTHENON_THROW("Invalid pointer to MeshBlock!");
+    }
+    return pmy_block.lock();
+  }
 
-   #ifdef MPI_PARALLEL
-   int swarm_id_;
-   #endif
+#ifdef MPI_PARALLEL
+  int swarm_id_;
+#endif
 };
 
 } // namespace parthenon

@@ -232,7 +232,6 @@ void FillSwarmVarView(const vpack_types::SwarmVarList<T> &vars, PackIndexMap *vm
   using vpack_types::IndexPair;
 
   auto host_view = Kokkos::create_mirror_view(Kokkos::HostSpace(), cv);
-  //auto host_sp = Kokkos::create_mirror_view(Kokkos::HostSpace(), sparse_assoc);
 
   int vindex = 0;
   int sparse_start;
@@ -240,7 +239,6 @@ void FillSwarmVarView(const vpack_types::SwarmVarList<T> &vars, PackIndexMap *vm
   std::string sparse_name;
   // TODO(BRR) Remove the logic for sparse variables
   for (const auto v : vars) {
-    //sparse_id = v->metadata().GetSparseId();
     if (vmap != nullptr) {
       vmap->insert(std::pair<std::string, IndexPair>(
           sparse_name, IndexPair(sparse_start, vindex - 1)));
@@ -250,7 +248,6 @@ void FillSwarmVarView(const vpack_types::SwarmVarList<T> &vars, PackIndexMap *vm
     for (int k = 0; k < v->GetDim(6); k++) {
       for (int j = 0; j < v->GetDim(5); j++) {
         for (int i = 0; i < v->GetDim(4); i++) {
-    //      host_sp(vindex) = sparse_id;
           host_view(vindex++) = v->data.Get(k, j, i);
         }
       }
@@ -262,7 +259,6 @@ void FillSwarmVarView(const vpack_types::SwarmVarList<T> &vars, PackIndexMap *vm
   }
 
   Kokkos::deep_copy(cv, host_view);
-  //Kokkos::deep_copy(sparse_assoc, host_sp);
 }
 
 template <typename T>
