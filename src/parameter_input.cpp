@@ -981,7 +981,7 @@ void ParameterInput::ForwardNextTime(Real mesh_time) {
         if (fresh) next_time -= std::fmod(next_time, dt0) + dt0;
       }
       msg << next_time;
-      AddParameter(pb, "next_time", msg.str().c_str(), "# Updated during run time");
+      AddParameter(pb, "next_time", msg.str(), "# Updated during run time");
     }
     pb = pb->pnext;
   }

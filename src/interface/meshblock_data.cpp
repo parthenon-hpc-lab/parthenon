@@ -28,25 +28,25 @@ namespace parthenon {
 /// The new version of Add that takes the fourth dimension from
 /// the metadata structure
 template <typename T>
-void MeshBlockData<T>::Add(const std::string label, const Metadata &metadata) {
+void MeshBlockData<T>::Add(const std::string &label, const Metadata &metadata) {
   // generate the vector and call Add
   const std::vector<int> &dims = metadata.Shape();
   Add(label, metadata, dims);
 }
 
 template <typename T>
-void MeshBlockData<T>::Add(const std::vector<std::string> labelArray,
+void MeshBlockData<T>::Add(const std::vector<std::string> &labelArray,
                            const Metadata &metadata) {
   // generate the vector and call Add
-  for (auto label : labelArray) {
+  for (const auto &label : labelArray) {
     Add(label, metadata);
   }
 }
 
 template <typename T>
-void MeshBlockData<T>::Add(const std::vector<std::string> labelArray,
+void MeshBlockData<T>::Add(const std::vector<std::string> &labelArray,
                            const Metadata &metadata, const std::vector<int> &dims) {
-  for (auto label : labelArray) {
+  for (const auto &label : labelArray) {
     Add(label, metadata, dims);
   }
 }
@@ -59,7 +59,7 @@ void MeshBlockData<T>::Add(const std::vector<std::string> labelArray,
 /// @param dims the size of each element
 /// @param metadata the metadata associated with the variable
 template <typename T>
-void MeshBlockData<T>::Add(const std::string label, const Metadata &metadata,
+void MeshBlockData<T>::Add(const std::string &label, const Metadata &metadata,
                            const std::vector<int> &dims) {
   std::array<int, 6> arrDims;
   calcArrDims_(arrDims, dims, metadata);
@@ -519,7 +519,7 @@ template <typename T>
 vpack_types::VarList<T>
 MeshBlockData<T>::MakeList_(const std::vector<std::string> &names,
                             std::vector<std::string> &expanded_names,
-                            const std::vector<int> sparse_ids) {
+                            const std::vector<int> &sparse_ids) {
   vpack_types::VarList<T> vars;
   // for (const auto &name : names) {
   for (auto n = names.rbegin(); n != names.rend(); ++n) {

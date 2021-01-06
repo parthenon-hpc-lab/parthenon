@@ -45,7 +45,7 @@ class StateDescriptor {
   StateDescriptor(const StateDescriptor &s) = delete;
 
   // Preferred constructor
-  explicit StateDescriptor(std::string label) : label_(label) {
+  explicit StateDescriptor(const std::string & label) : label_(label) {
     PostFillDerivedBlock = nullptr;
     PostFillDerivedMesh = nullptr;
     PreFillDerivedBlock = nullptr;

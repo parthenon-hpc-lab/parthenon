@@ -171,7 +171,7 @@ class MeshBlockData {
   ///
   /// TODO(JMM): DO NOT make these strings const reference.
   /// passing in C-style string literals misbehaves
-  void Add(const std::string label, const Metadata &metadata,
+  void Add(const std::string &label, const Metadata &metadata,
            const std::vector<int> &dims);
 
   ///
@@ -185,7 +185,7 @@ class MeshBlockData {
   /// @param metadata the metadata associated with the variable
   /// @param dims the size of each element
   ///
-  void Add(const std::vector<std::string> labelVector, const Metadata &metadata,
+  void Add(const std::vector<std::string> &labelVector, const Metadata &metadata,
            const std::vector<int> &dims);
 
   ///
@@ -198,7 +198,7 @@ class MeshBlockData {
   /// @param label the name of the variable
   /// @param metadata the metadata associated with the variable
   ///
-  void Add(const std::string label, const Metadata &metadata);
+  void Add(const std::string &label, const Metadata &metadata);
 
   ///
   /// Allocate and add a variable<T> to the container
@@ -210,7 +210,7 @@ class MeshBlockData {
   /// @param labelVector the array of names of variables
   /// @param metadata the metadata associated with the variable
   ///
-  void Add(const std::vector<std::string> labelVector, const Metadata &metadata);
+  void Add(const std::vector<std::string> &labelVector, const Metadata &metadata);
 
   void Add(std::shared_ptr<CellVariable<T>> var) {
     varVector_.push_back(var);
@@ -467,7 +467,7 @@ class MeshBlockData {
   // helper functions for VariablePack
   vpack_types::VarList<T> MakeList_(const std::vector<std::string> &names,
                                     std::vector<std::string> &names_out,
-                                    const std::vector<int> sparse_ids = {});
+                                    const std::vector<int> &sparse_ids = {});
   vpack_types::VarList<T> MakeList_(const std::vector<MetadataFlag> &flags,
                                     std::vector<std::string> &labels);
   vpack_types::VarList<T> MakeList_(std::vector<std::string> &names);
