@@ -44,6 +44,7 @@ using ::parthenon::ApplyBoundaryConditions;
 using ::parthenon::BlockList_t;
 using ::parthenon::Driver;
 using ::parthenon::DriverStatus;
+using ::parthenon::EvolutionDriver;
 using ::parthenon::Mesh;
 using ::parthenon::MeshBlock;
 using ::parthenon::MeshBlockPack;
