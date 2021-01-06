@@ -29,7 +29,7 @@ void SparseVariable<T>::Add(int varIndex) {
     // create the variable and add to map
     std::string my_name = label_ + "_" + std::to_string(varIndex);
     Metadata metadata = metadata_;
-    auto v = std::make_shared<CellVariable<T>>(my_name, dims_, metadata);
+    auto v = std::make_shared<CellVariable<T>>(my_name, dims_, metadata, varIndex);
     varArray_.push_back(v);
     indexMap_.push_back(varIndex);
     varMap_[varIndex] = v;

@@ -48,9 +48,9 @@ class CellVariable {
  public:
   /// Initialize a 6D variable
   CellVariable<T>(const std::string &label, const std::array<int, 6> dims,
-                  const Metadata &metadata)
+                  const Metadata &metadata, int sparse_id = -1)
       : data(label, dims[5], dims[4], dims[3], dims[2], dims[1], dims[0]),
-        mpiStatus(false), m_(metadata), label_(label) {
+        mpiStatus(false), m_(metadata), label_(label), sparse_id_(sparse_id) {
     if (m_.getAssociated() == "") {
       m_.Associate(label);
     }
@@ -76,6 +76,9 @@ class CellVariable {
   ///< retrieve metadata for variable
   Metadata metadata() const { return m_; }
 
+  /// Get Sparse ID (-1 if not sparse)
+  int GetSparseID() const { return sparse_id_; }
+
   std::string getAssociated() { return m_.getAssociated(); }
 
   /// return information string
@@ -97,6 +100,7 @@ class CellVariable {
   bool mpiStatus;
 
  private:
+  int sparse_id_;
   Metadata m_;
   std::string label_;
 };

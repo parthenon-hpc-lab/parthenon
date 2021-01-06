@@ -475,24 +475,23 @@ class MeshBlockData {
                     const Metadata &metadata);
 
   // helper functions for VariablePack
-  vpack_types::VarList<T> MakeList_(const std::vector<std::string> &names,
-                                    std::vector<std::string> &names_out,
-                                    const std::vector<int> &sparse_ids = {});
-  vpack_types::VarList<T> MakeList_(const std::vector<MetadataFlag> &flags,
-                                    std::vector<std::string> &labels);
-  vpack_types::VarList<T> MakeList_(std::vector<std::string> &names);
+  struct VariableListResult {
+    vpack_types::VarList<T> vars;
+    std::vector<std::string> expanded_names;
+  };
+
+  VariableListResult GetVariablesByName(const std::vector<std::string> &names,
+                                        const std::vector<int> &sparse_ids = {});
+  VariableListResult GetVariablesByFlag(const std::vector<MetadataFlag> &flags);
+  VariableListResult GetAllVariables();
 
   // These helper functions are private scope because they assume that
   // the names include the components of sparse variables.
-  VariableFluxPack<T>
-  PackVariablesAndFluxesHelper_(const std::vector<std::string> &var_names,
-                                const std::vector<std::string> &flx_names,
-                                const vpack_types::VarList<T> &vars,
-                                const vpack_types::VarList<T> &fvars, PackIndexMap &vmap,
-                                vpack_types::StringPair &key);
-  VariablePack<T> PackVariablesHelper_(const std::vector<std::string> &names,
-                                       const vpack_types::VarList<T> &vars,
-                                       PackIndexMap &vmap, const bool coarse = false);
+  PackVariablesAndFluxesResult<T>
+  PackListedVariablesAndFluxes(VariableListResult &&variables,
+                               VariableListResult &&fluxes);
+  PackVariablesResult<T> PackListedVariables(VariableListResult &&variables,
+                                             const bool coarse = false);
 };
 
 using MeshBlockDataCollection = DataCollection<MeshBlockData<Real>>;

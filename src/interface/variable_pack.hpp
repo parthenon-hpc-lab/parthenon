@@ -13,6 +13,7 @@
 #ifndef INTERFACE_VARIABLE_PACK_HPP_
 #define INTERFACE_VARIABLE_PACK_HPP_
 
+#include <algorithm>
 #include <array>
 #include <forward_list>
 #include <map>
@@ -35,7 +36,7 @@ class CellVariable;
 // some convenience aliases
 namespace vpack_types {
 template <typename T>
-using VarList = std::forward_list<std::shared_ptr<CellVariable<T>>>;
+using VarList = std::vector<std::shared_ptr<CellVariable<T>>>;
 // Sparse and/or scalar variables are multiple indices in the outer view of a pack
 // the pairs represent interval (inclusive) of thos indices
 using IndexPair = std::pair<int, int>;
@@ -57,6 +58,7 @@ class PackIndexMap {
   void insert(std::pair<std::string, vpack_types::IndexPair> keyval) {
     map_[keyval.first] = keyval.second;
   }
+  bool Has(std::string const &key) const { return map_.count(key) > 0; }
 
  private:
   std::map<std::string, vpack_types::IndexPair> map_;
@@ -168,34 +170,59 @@ template <typename T>
 using MapToVariableFluxPack = std::map<vpack_types::StringPair, FluxPackIndxPair<T>>;
 
 template <typename T>
-
-void FillVarView(const vpack_types::VarList<T> &vars, MapToSparse<T> const &sparse_vars,
-                 PackIndexMap *vmap, ViewOfParArrays<T> &cv,
-                 ParArray1D<int> &sparse_assoc, ParArray1D<int> &vector_component,
-                 bool coarse = false) {
+void FillVarView(const vpack_types::VarList<T> &vars, PackIndexMap *vmap,
+                 ViewOfParArrays<T> &cv, ParArray1D<int> &sparse_assoc,
+                 ParArray1D<int> &vector_component, bool coarse = false) {
   using vpack_types::IndexPair;
 
   auto host_view = Kokkos::create_mirror_view(Kokkos::HostSpace(), cv);
   auto host_sp = Kokkos::create_mirror_view(Kokkos::HostSpace(), sparse_assoc);
   auto host_vc = Kokkos::create_mirror_view(Kokkos::HostSpace(), vector_component);
 
+  std::string current_sparse_name;
   int vindex = 0;
   int vstart = vindex;
-  auto add_var = [&](std::shared_ptr<CellVariable<T>> const &v, int const *sparse_id) {
+  int vsparse_start = -1;
+
+  auto get_sparse_name = [](std::shared_ptr<CellVariable<T>> const &v) -> std::string {
+    auto label = v->label();
+    label.erase(label.find_last_of("_"));
+    return label;
+  };
+
+  auto insert_sparse_map = [&] {
+    if (!vmap) {
+      return;
+    }
+
+    PARTHENON_DEBUG_REQUIRE(vsparse_start != -1 && !current_sparse_name.empty(),
+                            "Tried to insert a sparse variable when none existed");
+    PARTHENON_DEBUG_REQUIRE(!vmap->Has(current_sparse_name),
+                            "Tried to insert duplicate sparse variable");
+
+    vmap->insert(
+        std::make_pair(current_sparse_name, IndexPair(vsparse_start, vindex - 1)));
+    vsparse_start = -1;
+    current_sparse_name = "";
+  };
+
+  auto add_var = [&](std::shared_ptr<CellVariable<T>> const &v) {
     vstart = vindex;
     for (int k = 0; k < v->GetDim(6); k++) {
       for (int j = 0; j < v->GetDim(5); j++) {
         for (int i = 0; i < v->GetDim(4); i++) {
-          if (sparse_id) {
-            host_sp(vindex) = *sparse_id;
+          if (v) {
+            host_sp(vindex) = v->GetSparseID();
+            // TODO(JMM): Is this safe for vector-valued sparse variables?
+            // returns 1 for X1DIR, 2 for X2DIR, 3 for X3DIR
+            // for tensors, returns flattened index.
+            // for scalar-objects, returns NODIR.
+            const bool is_vec = v->IsSet(Metadata::Vector) || v->IsSet(Metadata::Tensor);
+            host_vc(vindex) = is_vec ? vindex - vstart + 1 : NODIR;
+            host_view(vindex) = coarse ? v->coarse_s.Get(k, j, i) : v->data.Get(k, j, i);
+          } else {
+            host_sp(vindex) = -1;
           }
-          // TODO(JMM): Is this safe for vector-valued sparse variables?
-          // returns 1 for X1DIR, 2 for X2DIR, 3 for X3DIR
-          // for tensors, returns flattened index.
-          // for scalar-objects, returns NODIR.
-          const bool is_vec = v->IsSet(Metadata::Vector) || v->IsSet(Metadata::Tensor);
-          host_vc(vindex) = is_vec ? vindex - vstart + 1 : NODIR;
-          host_view(vindex) = coarse ? v->coarse_s.Get(k, j, i) : v->data.Get(k, j, i);
           vindex++;
         } // i
       }   // j
@@ -203,21 +230,30 @@ void FillVarView(const vpack_types::VarList<T> &vars, MapToSparse<T> const &spar
   };
 
   for (std::shared_ptr<CellVariable<T>> const &v : vars) {
-    add_var(v, nullptr);
+    bool const current_sparse_var = !current_sparse_name.empty();
+    bool const new_sparse_var =
+        v->IsSet(Metadata::Sparse) && get_sparse_name(v) != current_sparse_name;
+    bool const insert_sparse_var = (current_sparse_var && v->IsSet(Metadata::Sparse))
+                                       ? get_sparse_name(v) != current_sparse_name
+                                       : current_sparse_var;
+
+    if (insert_sparse_var) {
+      insert_sparse_map();
+    }
+    if (new_sparse_var) {
+      current_sparse_name = get_sparse_name(v);
+      vsparse_start = vindex;
+    }
+
+    // TODO(agaspar): Pass in the sparse ID here - need to summon it out of thin air
+    add_var(v);
     if (vmap != nullptr)
       vmap->insert(std::make_pair(v->label(), IndexPair(vstart, vindex - 1)));
   }
 
-  for (std::pair<std::string, std::shared_ptr<SparseVariable<T>>> const &var :
-       sparse_vars) {
-    int const vstart = vindex;
-
-    for (std::pair<int, std::shared_ptr<CellVariable<T>>> const &var_dense :
-         var.second->GetMap()) {
-      add_var(var_dense.second, &var_dense.first);
-    }
-
-    if (vmap) vmap->insert(std::make_pair(var.first, IndexPair(vstart, vindex - 1)));
+  // insert last string of sparse variables
+  if (!current_sparse_name.empty()) {
+    insert_sparse_map();
   }
 
   Kokkos::deep_copy(cv, host_view);
@@ -226,16 +262,40 @@ void FillVarView(const vpack_types::VarList<T> &vars, MapToSparse<T> const &spar
 }
 
 template <typename T>
-void FillFluxViews(const vpack_types::VarList<T> &vars, MapToSparse<T> const &sparse_vars,
-                   PackIndexMap *vmap, const int ndim, ViewOfParArrays<T> &f1,
-                   ViewOfParArrays<T> &f2, ViewOfParArrays<T> &f3) {
+void FillFluxViews(const vpack_types::VarList<T> &vars, PackIndexMap *vmap,
+                   const int ndim, ViewOfParArrays<T> &f1, ViewOfParArrays<T> &f2,
+                   ViewOfParArrays<T> &f3) {
   using vpack_types::IndexPair;
 
   auto host_f1 = Kokkos::create_mirror_view(Kokkos::HostSpace(), f1);
   auto host_f2 = Kokkos::create_mirror_view(Kokkos::HostSpace(), f2);
   auto host_f3 = Kokkos::create_mirror_view(Kokkos::HostSpace(), f3);
 
+  std::string current_sparse_name;
   int vindex = 0;
+  int vsparse_start = -1;
+
+  auto get_sparse_name = [](std::shared_ptr<CellVariable<T>> const &v) -> std::string {
+    auto label = v->label();
+    label.erase(label.find_last_of("_"));
+    return label;
+  };
+
+  auto insert_sparse_map = [&] {
+    if (!vmap) {
+      return;
+    }
+
+    PARTHENON_DEBUG_REQUIRE(vsparse_start != -1 && !current_sparse_name.empty(),
+                            "Tried to insert a sparse variable when none existed");
+    PARTHENON_DEBUG_REQUIRE(!vmap->Has(current_sparse_name),
+                            "Tried to insert duplicate sparse variable");
+
+    vmap->insert(
+        std::make_pair(current_sparse_name, IndexPair(vsparse_start, vindex - 1)));
+    vsparse_start = -1;
+    current_sparse_name = "";
+  };
 
   auto add_var = [&](std::shared_ptr<CellVariable<T>> const &v) {
     for (int k = 0; k < v->GetDim(6); k++) {
@@ -250,24 +310,29 @@ void FillFluxViews(const vpack_types::VarList<T> &vars, MapToSparse<T> const &sp
     }     // k
   };
 
-  // Add dense variables
   for (std::shared_ptr<CellVariable<T>> const &v : vars) {
-    int const vstart = vindex;
-    add_var(v);
-    if (vmap) vmap->insert(std::make_pair(v->label(), IndexPair(vstart, vindex - 1)));
-  }
+    bool const current_sparse_var = !current_sparse_name.empty();
+    bool const new_sparse_var =
+        v->IsSet(Metadata::Sparse) && get_sparse_name(v) != current_sparse_name;
+    bool const insert_sparse_var = (current_sparse_var && v->IsSet(Metadata::Sparse))
+                                       ? get_sparse_name(v) != current_sparse_name
+                                       : current_sparse_var;
 
-  // Add sparse variables
-  for (std::pair<std::string, std::shared_ptr<SparseVariable<T>>> const &var :
-       sparse_vars) {
-    int const vstart = vindex;
-
-    for (std::pair<int, std::shared_ptr<CellVariable<T>>> const &var_dense :
-         var.second->GetMap()) {
-      add_var(var_dense.second);
+    if (insert_sparse_var) {
+      insert_sparse_map();
+    }
+    if (new_sparse_var) {
+      current_sparse_name = get_sparse_name(v);
+      vsparse_start = vindex;
     }
 
-    if (vmap) vmap->insert(std::make_pair(var.first, IndexPair(vstart, vindex - 1)));
+    add_var(v);
+    if (vmap) vmap->insert(std::make_pair(v->label(), IndexPair(vindex - 1, vindex - 1)));
+  }
+
+  // insert last string of sparse variables
+  if (!current_sparse_name.empty()) {
+    insert_sparse_map();
   }
 
   Kokkos::deep_copy(f1, host_f1);
@@ -278,20 +343,19 @@ void FillFluxViews(const vpack_types::VarList<T> &vars, MapToSparse<T> const &sp
 template <typename T>
 VariableFluxPack<T> MakeFluxPack(const vpack_types::VarList<T> &vars,
                                  const vpack_types::VarList<T> &flux_vars,
-                                 MapToSparse<T> const &sparse_vars,
                                  PackIndexMap *vmap = nullptr) {
   // count up the size
   int vsize = 0;
   for (const auto &v : vars) {
-    vsize += v->GetDim(6) * v->GetDim(5) * v->GetDim(4);
-  }
-  for (const auto &v_pair : sparse_vars) {
-    auto const &v = v_pair.second;
-    vsize += v->size() * v->GetDim(6) * v->GetDim(5) * v->GetDim(4);
+    if (v) {
+      vsize += v->GetDim(6) * v->GetDim(5) * v->GetDim(4);
+    }
   }
   int fsize = 0;
   for (const auto &v : flux_vars) {
-    fsize += v->GetDim(6) * v->GetDim(5) * v->GetDim(4);
+    if (v) {
+      fsize += v->GetDim(6) * v->GetDim(5) * v->GetDim(4);
+    }
   }
 
   // make the outer view
@@ -306,11 +370,11 @@ VariableFluxPack<T> MakeFluxPack(const vpack_types::VarList<T> &vars,
     // add variables to host view
     auto fvar = vars.front()->data;
     std::array<int, 4> cv_size = {fvar.GetDim(1), fvar.GetDim(2), fvar.GetDim(3), vsize};
-    FillVarView(vars, sparse_vars, vmap, cv, sparse_assoc, vector_component);
+    FillVarView(vars, vmap, cv, sparse_assoc, vector_component);
     if (fsize > 0) {
       // add fluxes to host view
       const int ndim = (cv_size[2] > 1 ? 3 : (cv_size[1] > 1 ? 2 : 1));
-      FillFluxViews(flux_vars, sparse_vars, vmap, ndim, f1, f2, f3);
+      FillFluxViews(flux_vars, vmap, ndim, f1, f2, f3);
     }
     return VariableFluxPack<T>(cv, f1, f2, f3, sparse_assoc, vector_component, cv_size);
   } else {
@@ -321,16 +385,13 @@ VariableFluxPack<T> MakeFluxPack(const vpack_types::VarList<T> &vars,
 
 template <typename T>
 VariablePack<T> MakePack(const vpack_types::VarList<T> &vars,
-                         MapToSparse<T> const &sparse_vars, PackIndexMap *vmap = nullptr,
-                         bool coarse = false) {
+                         PackIndexMap *vmap = nullptr, bool coarse = false) {
   // count up the size
   int vsize = 0;
   for (const auto &v : vars) {
-    vsize += v->GetDim(6) * v->GetDim(5) * v->GetDim(4);
-  }
-  for (const auto &v_pair : sparse_vars) {
-    auto const &v = v_pair.second;
-    vsize += v->size() * v->GetDim(6) * v->GetDim(5) * v->GetDim(4);
+    if (v) {
+      vsize += v->GetDim(6) * v->GetDim(5) * v->GetDim(4);
+    }
   }
 
   // make the outer view
@@ -339,11 +400,9 @@ VariablePack<T> MakePack(const vpack_types::VarList<T> &vars,
   ParArray1D<int> vector_component("MakePack::vector_component", vsize);
 
   if (vsize > 0) {
-    const auto &fvar = vars.empty()
-                           ? *sparse_vars.begin()->second
-                           : (coarse ? vars.front()->coarse_s : vars.front()->data);
+    const auto &fvar = coarse ? vars.front()->coarse_s : vars.front()->data;
     std::array<int, 4> cv_size = {fvar.GetDim(1), fvar.GetDim(2), fvar.GetDim(3), vsize};
-    FillVarView(vars, sparse_vars, vmap, cv, sparse_assoc, vector_component, coarse);
+    FillVarView(vars, vmap, cv, sparse_assoc, vector_component, coarse);
     return VariablePack<T>(cv, sparse_assoc, vector_component, cv_size);
   } else {
     std::array<int, 4> cv_size = {0, 0, 0, vsize};
@@ -351,6 +410,72 @@ VariablePack<T> MakePack(const vpack_types::VarList<T> &vars,
   }
 }
 
+template <typename T>
+class MeshBlockData;
+
+class PackVariablesByNameRequest {
+  template <typename T>
+  friend class MeshBlockData;
+
+  struct VariableRequest {
+    std::string name;
+    std::vector<int> sparse_ids;
+  };
+
+ public:
+  PackVariablesByNameRequest() = default;
+
+  void WithVariable(std::string const &name) {
+    requests_.push_back(VariableRequest{name, {}});
+  }
+
+  void WithVariables(std::vector<std::string> const &names) {
+    for (auto &name : names) {
+      WithVariable(name);
+    }
+  }
+
+  void WithSparseIDs(std::vector<int> const &sparse_ids) {
+    std::copy(sparse_ids.begin(), sparse_ids.end(),
+              std::back_inserter(global_sparse_ids_));
+  }
+
+ private:
+  std::vector<VariableRequest> requests_;
+  std::vector<int> global_sparse_ids_;
+};
+
+class PackVariablesByFlagRequest {
+  template <typename T>
+  friend class MeshBlockData;
+
+ public:
+  PackVariablesByFlagRequest() = default;
+
+  void WithFlag(MetadataFlag const &flag) { flags_.push_back(flag); }
+
+  void WithFlags(std::vector<MetadataFlag> const &flags) {
+    std::copy(flags.begin(), flags.end(), back_inserter(flags_));
+  }
+
+ private:
+  std::vector<MetadataFlag> flags_;
+};
+
+template <typename Pack, typename Key>
+struct PackVariablesResultGeneric {
+  Key key;
+  PackIndexMap vmap;
+  Pack pack;
+};
+
+template <typename T>
+using PackVariablesResult =
+    PackVariablesResultGeneric<VariablePack<T>, std::vector<std::string>>;
+
+template <typename T>
+using PackVariablesAndFluxesResult = PackVariablesResultGeneric<
+    VariableFluxPack<T>, std::pair<std::vector<std::string>, std::vector<std::string>>>;
 } // namespace parthenon
 
 #endif // INTERFACE_VARIABLE_PACK_HPP_

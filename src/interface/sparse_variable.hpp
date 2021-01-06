@@ -123,6 +123,8 @@ class SparseVariable {
     return std::distance(indexMap_.begin(), it);
   }
 
+  bool Has(int id) const { return GetIndex(id) >= 0; }
+
   std::vector<int> &GetIndexMap() { return indexMap_; }
 
   CellVariableVector<T> &GetVector() { return varArray_; }
