@@ -28,7 +28,7 @@ using parthenon::ParArrayHost;
 using Pack_t = parthenon::MeshBlockVarPack<Real>;
 
 // Package Callbacks
-void SetInOrOut(std::shared_ptr<MeshBlockData<Real>> &rc);
+void SetInOrOut(MeshBlockData<Real> *rc);
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 
 // Task Implementations
