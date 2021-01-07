@@ -45,17 +45,7 @@ class StateDescriptor {
   StateDescriptor(const StateDescriptor &s) = delete;
 
   // Preferred constructor
-  explicit StateDescriptor(std::string label) : label_(label) {
-    PostFillDerivedBlock = nullptr;
-    PostFillDerivedMesh = nullptr;
-    PreFillDerivedBlock = nullptr;
-    PreFillDerivedMesh = nullptr;
-    FillDerivedBlock = nullptr;
-    FillDerivedMesh = nullptr;
-    EstimateTimestepBlock = nullptr;
-    EstimateTimestepMesh = nullptr;
-    CheckRefinementBlock = nullptr;
-  }
+  explicit StateDescriptor(std::string const &label) : label_(label) {}
 
   template <typename T>
   void AddParam(const std::string &key, T value) {
@@ -188,6 +178,13 @@ class StateDescriptor {
     if (FillDerivedMesh != nullptr) FillDerivedMesh(rc);
   }
 
+  void PreStepDiagnostics(SimTime const &simtime, MeshData<Real> *rc) const {
+    if (PreStepDiagnosticsMesh != nullptr) PreStepDiagnosticsMesh(simtime, rc);
+  }
+  void PostStepDiagnostics(SimTime const &simtime, MeshData<Real> *rc) const {
+    if (PostStepDiagnosticsMesh != nullptr) PostStepDiagnosticsMesh(simtime, rc);
+  }
+
   Real EstimateTimestep(MeshBlockData<Real> *rc) const {
     if (EstimateTimestepBlock != nullptr) return EstimateTimestepBlock(rc);
     return std::numeric_limits<Real>::max();
@@ -203,15 +200,23 @@ class StateDescriptor {
   }
 
   std::vector<std::shared_ptr<AMRCriteria>> amr_criteria;
-  void (*PreFillDerivedBlock)(MeshBlockData<Real> *rc);
-  void (*PreFillDerivedMesh)(MeshData<Real> *rc);
-  void (*PostFillDerivedBlock)(MeshBlockData<Real> *rc);
-  void (*PostFillDerivedMesh)(MeshData<Real> *rc);
-  void (*FillDerivedBlock)(MeshBlockData<Real> *rc);
-  void (*FillDerivedMesh)(MeshData<Real> *rc);
-  Real (*EstimateTimestepBlock)(MeshBlockData<Real> *rc);
-  Real (*EstimateTimestepMesh)(MeshData<Real> *rc);
-  AmrTag (*CheckRefinementBlock)(MeshBlockData<Real> *rc);
+
+  std::function<void(MeshBlockData<Real> *rc)> PreFillDerivedBlock = nullptr;
+  std::function<void(MeshData<Real> *rc)> PreFillDerivedMesh = nullptr;
+  std::function<void(MeshBlockData<Real> *rc)> PostFillDerivedBlock = nullptr;
+  std::function<void(MeshData<Real> *rc)> PostFillDerivedMesh = nullptr;
+  std::function<void(MeshBlockData<Real> *rc)> FillDerivedBlock = nullptr;
+  std::function<void(MeshData<Real> *rc)> FillDerivedMesh = nullptr;
+
+  std::function<void(SimTime const &simtime, MeshData<Real> *rc)> PreStepDiagnosticsMesh =
+      nullptr;
+  std::function<void(SimTime const &simtime, MeshData<Real> *rc)>
+      PostStepDiagnosticsMesh = nullptr;
+
+  std::function<Real(MeshBlockData<Real> *rc)> EstimateTimestepBlock = nullptr;
+  std::function<Real(MeshData<Real> *rc)> EstimateTimestepMesh = nullptr;
+
+  std::function<AmrTag(MeshBlockData<Real> *rc)> CheckRefinementBlock = nullptr;
 
   friend std::ostream &operator<<(std::ostream &os, const StateDescriptor &sd);
 
