@@ -37,7 +37,17 @@ struct ApplicationInput {
 
   // Mesh functions
   std::function<void(ParameterInput *)> InitUserMeshData = nullptr;
-  std::function<void()> MeshUserWorkInLoop = nullptr;
+
+  std::function<void(Mesh *, ParameterInput *, SimTime const &)>
+      PreStepMeshUserWorkInLoop = nullptr;
+  std::function<void(Mesh *, ParameterInput *, SimTime const &)>
+      PostStepMeshUserWorkInLoop = nullptr;
+
+  std::function<void(Mesh *, ParameterInput *, SimTime const &)>
+      PreStepDiagnosticsInLoop = nullptr;
+  std::function<void(Mesh *, ParameterInput *, SimTime const &)>
+      PostStepDiagnosticsInLoop = nullptr;
+
   std::function<void(Mesh *, ParameterInput *, SimTime &)> UserWorkAfterLoop = nullptr;
   BValFunc boundary_conditions[BOUNDARY_NFACES] = {nullptr, nullptr, nullptr,
                                                    nullptr, nullptr, nullptr};
