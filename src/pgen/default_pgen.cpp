@@ -49,9 +49,23 @@ void Mesh::InitUserMeshDataDefault(ParameterInput *pin) {
 //  \brief Function called once every time step for user-defined work.
 //========================================================================================
 
-void Mesh::UserWorkInLoopDefault() {
+void Mesh::UserWorkInLoopDefault(Mesh *, ParameterInput *, SimTime const &) {
   // do nothing
   return;
+}
+
+void Mesh::PreStepUserDiagnosticsInLoopDefault(Mesh *pmesh, ParameterInput *,
+                                               SimTime const &simtime) {
+  for (auto &package : pmesh->packages) {
+    package.second->PreStepDiagnostics(simtime, pmesh->mesh_data.Get().get());
+  }
+}
+
+void Mesh::PostStepUserDiagnosticsInLoopDefault(Mesh *pmesh, ParameterInput *,
+                                                SimTime const &simtime) {
+  for (auto &package : pmesh->packages) {
+    package.second->PostStepDiagnostics(simtime, pmesh->mesh_data.Get().get());
+  }
 }
 
 //========================================================================================
