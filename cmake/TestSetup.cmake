@@ -17,7 +17,9 @@
 # Version number has been intentionally excluded from find_package call, so that latest version 
 # will be grabbed. Including the version number would prioritise the version provided over more 
 #
-find_package(Python3 REQUIRED COMPONENTS Interpreter)
+if( NOT Python3_EXECUTABLE)
+  find_package(Python3 REQUIRED COMPONENTS Interpreter)
+endif()
 if( ${Python3_VERSION} VERSION_LESS "3.5")
   message(FATAL_ERROR "Python version requirements not satisfied")
 endif()

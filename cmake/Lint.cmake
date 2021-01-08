@@ -35,7 +35,7 @@ function(lint_file SOURCE_DIR INPUT OUTPUT)
 
     add_custom_command(
         OUTPUT ${OUTPUT}
-        COMMAND
+        COMMAND ${Python3_EXECUTABLE}
             ${PROJECT_SOURCE_DIR}/tst/style/cpplint.py
                 --repository=${PROJECT_SOURCE_DIR}
                 --counting=detailed
@@ -51,6 +51,10 @@ endfunction(lint_file)
 function(lint_target TARGET_NAME)
     get_target_property(TARGET_SOURCES ${TARGET_NAME} SOURCES)
     get_target_property(TARGET_SOURCE_DIR ${TARGET_NAME} SOURCE_DIR)
+
+    if( NOT Python3_EXECUTABLE)
+      find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    endif()
 
     set(TARGET_OUTPUTS)
     foreach(SOURCE ${TARGET_SOURCES})
