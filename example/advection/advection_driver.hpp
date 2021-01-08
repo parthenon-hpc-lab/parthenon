@@ -23,7 +23,7 @@
 namespace advection_example {
 using namespace parthenon::driver::prelude;
 
-class AdvectionDriver : public MultiStageBlockTaskDriver {
+class AdvectionDriver : public MultiStageDriver {
  public:
   AdvectionDriver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm);
   // This next function essentially defines the driver.

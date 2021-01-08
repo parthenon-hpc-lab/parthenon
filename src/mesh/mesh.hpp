@@ -111,7 +111,6 @@ class Mesh {
   void Initialize(int res_flag, ParameterInput *pin, ApplicationInput *app_in);
   void SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size,
                                  BoundaryFlag *block_bcs);
-  void NewTimeStep();
   void OutputCycleDiagnostics();
   void LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin,
                                               ApplicationInput *app_in);
@@ -147,8 +146,23 @@ class Mesh {
                                        SimTime &tm); // called in main loop
   std::function<void(Mesh *, ParameterInput *, SimTime &)> UserWorkAfterLoop =
       &UserWorkAfterLoopDefault;
-  static void UserWorkInLoopDefault(); // called in main after each cycle
-  std::function<void()> UserWorkInLoop = &UserWorkInLoopDefault;
+  static void UserWorkInLoopDefault(
+      Mesh *, ParameterInput *,
+      SimTime const &); // default behavior for pre- and post-step user work
+  std::function<void(Mesh *, ParameterInput *, SimTime const &)> PreStepUserWorkInLoop =
+      &UserWorkInLoopDefault;
+  std::function<void(Mesh *, ParameterInput *, SimTime const &)> PostStepUserWorkInLoop =
+      &UserWorkInLoopDefault;
+
+  static void PreStepUserDiagnosticsInLoopDefault(Mesh *, ParameterInput *,
+                                                  SimTime const &);
+  std::function<void(Mesh *, ParameterInput *, SimTime const &)>
+      PreStepUserDiagnosticsInLoop = PreStepUserDiagnosticsInLoopDefault;
+  static void PostStepUserDiagnosticsInLoopDefault(Mesh *, ParameterInput *,
+                                                   SimTime const &);
+  std::function<void(Mesh *, ParameterInput *, SimTime const &)>
+      PostStepUserDiagnosticsInLoop = PostStepUserDiagnosticsInLoopDefault;
+
   int GetRootLevel() const noexcept { return root_level; }
   int GetMaxLevel() const noexcept { return max_level; }
   int GetCurrentLevel() const noexcept { return current_level; }
