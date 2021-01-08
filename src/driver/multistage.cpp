@@ -16,14 +16,10 @@
 
 namespace parthenon {
 
-MultiStageDriver::MultiStageDriver(ParameterInput *pin, ApplicationInput *app_in,
-                                   Mesh *pm)
-    : EvolutionDriver(pin, app_in, pm) {
+StagedIntegrator::StagedIntegrator(ParameterInput *pin) {
   std::string integrator_name =
       pin->GetOrAddString("parthenon/time", "integrator", "rk2");
-  int nstages = 2; // default rk2
 
-  std::vector<Real> beta;
   if (!integrator_name.compare("rk1")) {
     nstages = 1;
     beta.resize(nstages);
@@ -48,8 +44,6 @@ MultiStageDriver::MultiStageDriver(ParameterInput *pin, ApplicationInput *app_in
     throw std::invalid_argument("Invalid selection for the time integrator: " +
                                 integrator_name);
   }
-
-  integrator = new Integrator(nstages, beta);
   stage_name.resize(nstages + 1);
   stage_name[0] = "base";
   for (int i = 1; i < nstages; i++) {
@@ -58,7 +52,7 @@ MultiStageDriver::MultiStageDriver(ParameterInput *pin, ApplicationInput *app_in
   stage_name[nstages] = stage_name[0];
 }
 
-TaskListStatus MultiStageBlockTaskDriver::Step() {
+TaskListStatus MultiStageDriver::Step() {
   Kokkos::Profiling::pushRegion("MultiStage_Step");
   using DriverUtils::ConstructAndExecuteTaskLists;
   TaskListStatus status;
@@ -68,6 +62,19 @@ TaskListStatus MultiStageBlockTaskDriver::Step() {
     if (status != TaskListStatus::complete) break;
   }
   Kokkos::Profiling::popRegion(); // MultiStage_Step
+  return status;
+}
+
+TaskListStatus MultiStageBlockTaskDriver::Step() {
+  Kokkos::Profiling::pushRegion("MultiStageBlockTask_Step");
+  using DriverUtils::ConstructAndExecuteBlockTasks;
+  TaskListStatus status;
+  integrator->dt = tm.dt;
+  for (int stage = 1; stage <= integrator->nstages; stage++) {
+    status = ConstructAndExecuteBlockTasks<>(this, stage);
+    if (status != TaskListStatus::complete) break;
+  }
+  Kokkos::Profiling::popRegion(); // MultiStageBlockTask_Step
   return status;
 }
 
