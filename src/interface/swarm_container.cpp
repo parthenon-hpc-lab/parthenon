@@ -47,7 +47,7 @@ void SwarmContainer::Add(const std::string &label, const Metadata &metadata) {
   swarmMap_[label] = swarm;
 }
 
-void SwarmContainer::Remove(const std::string label) {
+void SwarmContainer::Remove(const std::string &label) {
   // Find index of swarm
   int isize = swarmVector_.size();
   int idx = 0;
