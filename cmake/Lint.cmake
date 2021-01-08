@@ -55,16 +55,19 @@ function(lint_target TARGET_NAME)
     if( NOT Python3_EXECUTABLE)
       find_package(Python3 REQUIRED COMPONENTS Interpreter)
     endif()
+    if( NOT Python3_FOUND)
+      message(WARNING "Cannot lint file Python3 was not found.")
+    else()
+      set(TARGET_OUTPUTS)
+      foreach(SOURCE ${TARGET_SOURCES})
+          lint_file(${TARGET_SOURCE_DIR} ${SOURCE} ${SOURCE}.lint)
+          list(APPEND TARGET_OUTPUTS ${SOURCE}.lint)
+      endforeach()
 
-    set(TARGET_OUTPUTS)
-    foreach(SOURCE ${TARGET_SOURCES})
-        lint_file(${TARGET_SOURCE_DIR} ${SOURCE} ${SOURCE}.lint)
-        list(APPEND TARGET_OUTPUTS ${SOURCE}.lint)
-    endforeach()
-
-    add_custom_target(
-        ${TARGET_NAME}-lint
-        DEPENDS ${TARGET_OUTPUTS}
-        COMMENT "Linted ${TARGET_NAME}")
-    add_dependencies(lint ${TARGET_NAME}-lint)
+      add_custom_target(
+          ${TARGET_NAME}-lint
+          DEPENDS ${TARGET_OUTPUTS}
+          COMMENT "Linted ${TARGET_NAME}")
+      add_dependencies(lint ${TARGET_NAME}-lint)
+    endif()
 endfunction(lint_target)
