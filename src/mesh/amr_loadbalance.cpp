@@ -793,8 +793,8 @@ void Mesh::PrepareSendCoarseToFineAMR(MeshBlock *pb, ParArray1D<Real> &sendbuf,
   const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
   const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
   int ox1 = static_cast<int>((lloc.lx1 & 1LL) == 1LL);
-  int ox2 = static_cast<int>((lloc.lx2 & 1LL) == 1LL),
-      int ox3 = static_cast<int>((lloc.lx3 & 1LL) == 1LL);
+  int ox2 = static_cast<int>((lloc.lx2 & 1LL) == 1LL);
+  int ox3 = static_cast<int>((lloc.lx3 & 1LL) == 1LL);
   const IndexDomain interior = IndexDomain::interior;
   // pack
   int il, iu, jl, ju, kl, ku;
