@@ -45,20 +45,14 @@ set(RZANSEL_VARIANT_PREFIX "_no-mpi")
 set(RZANSEL_MPI_DATE "2020.08.19")
 set(MPIEXEC_EXECUTABLE "/usr/tcetmp/bin/jsrun" CACHE STRING "Mpi executable to use on RZansel system")
 set(RZANSEL_CUDA_VERSION "10.1.243")
-
-if (NOT MACHINE_VARIANT) 
-  set(MACHINE_VARIANT "cuda-mpi")
-endif()
-
+set(MACHINE_VARIANT "cuda-mpi" CACHE STRING "Machine variant to use when building on RZAnsel")
+set(NUM_RANKS 4) 
 set(GPU_COUNT "4")
+
 if (${MACHINE_VARIANT} MATCHES "cuda")
   set(RZANSEL_CUDA_DEFAULT ON)
 else()
   set(RZANSEL_CUDA_DEFAULT OFF)
-endif()
-
-if (${MACHINE_VARIANT} MATCHES "mpi")
-  set(RZANSEL_VARIANT_PREFIX "")
 endif()
 
 set(RZANSEL_CUDA ${RZANSEL_CUDA_DEFAULT} CACHE BOOL "Build for CUDA")
@@ -108,51 +102,17 @@ if (NOT EXISTS ${RZANSEL_ARCH_PREFIX})
     return()
 endif()
 
-string(TOLOWER "${RZANSEL_COMPILER}" RZANSEL_COMPILER_LOWER)
-set(RZANSEL_COMPILER_PREFIX ${RZANSEL_ARCH_PREFIX}/${RZANSEL_COMPILER_LOWER})
-
-if (NOT EXISTS ${RZANSEL_COMPILER_PREFIX})
-    message(WARNING "No dependencies detected for \
-        RZANSEL_COMPILER=\"${RZANSEL_COMPILER}\" at ${RZANSEL_COMPILER_PREFIX}")
-    return()
-endif()
-
-set(RZANSEL_VIEW_PREFIX ${RZANSEL_COMPILER_PREFIX}${RZANSEL_VARIANT_PREFIX}/${RZANSEL_VIEW_DATE})
-if (NOT EXISTS ${RZANSEL_VIEW_PREFIX})
-    message(WARNING "No view detected for \
-        RZANSEL_VIEW_DATE=\"${RZANSEL_VIEW_DATE}\" at ${RZANSEL_VIEW_PREFIX}")
-    return()
-endif()
-
 if (RZANSEL_CUDA)
     # Location of CUDA
-    set(CUDAToolkit_ROOT /usr/tce/packages/cuda/cuda-${RZANSEL_CUDA_VERSION} 
+    set(CUDA_ROOT /usr/tce/packages/cuda/cuda-${RZANSEL_CUDA_VERSION} 
       CACHE STRING "CUDA Location")
 
-    # All of this code ensures that the CUDA build uses the correct nvcc, and
-    # that we don't have to depend on the user's environment. As of this
-    # writing, nvcc_wrapper can only find nvcc by way of the PATH variable -
-    # there's no way to specify it in the command line. Therefore, we need to
-    # make sure that the expected nvcc is in the PATH when nvcc_wrapper is
-    # executed.
+    # This code ensures that the CUDA build uses the correct nvcc, and
+    # that we don't have to depend on the user's environment.
 
     # This only holds for the length of the cmake process, but is necessary
     # for making sure the compiler checks pass
-    set(ENV{PATH} "${CUDAToolkit_ROOT}/bin:$ENV{PATH}")
-
-    # We must make sure nvcc is in the path for the compilation and link stages,
-    # so these launch rules add it to the path. This unfortunately caches the
-    # PATH environment variable at the time of configuration. I couldn't figure
-    # out how to evaluate the PATH variable at build time. Ideally, changing
-    # your PATH shouldn't change the build anyway, so I think this is low
-    # impact, but it does differ from typical CMake usage.
-
-    # CMAKE_CXX_COMPILER_LAUNCHER expects a list of command line arguments
-    set(CMAKE_CXX_COMPILER_LAUNCHER ${CMAKE_COMMAND} -E env "PATH=$ENV{PATH}")
-    # RULE_LAUNCH_LINK expects a space separated string
-    set_property(
-        GLOBAL PROPERTY
-        RULE_LAUNCH_LINK "${CMAKE_COMMAND} -E env PATH=$ENV{PATH}")
+    set(ENV{CUDA_ROOT} "${CUDA_ROOT}")
 
     # nvcc_wrapper must be the CXX compiler for CUDA builds. Ideally this would
     # go in "CMAKE_CXX_COMPILER_LAUNCHER", but that interferes with Kokkos'
@@ -166,12 +126,20 @@ if (RZANSEL_CUDA)
     set(CMAKE_CXX_COMPILER ${NVCC_WRAPPER} CACHE STRING "nvcc_wrapper")
 endif()
 
+string(TOLOWER "${RZANSEL_COMPILER}" RZANSEL_COMPILER_LOWER)
+set(RZANSEL_COMPILER_PREFIX ${RZANSEL_ARCH_PREFIX}/${RZANSEL_COMPILER_LOWER})
+
+if (NOT EXISTS ${RZANSEL_COMPILER_PREFIX})
+    message(WARNING "No dependencies detected for \
+        RZANSEL_COMPILER=\"${RZANSEL_COMPILER}\" at ${RZANSEL_COMPILER_PREFIX}")
+    return()
+endif()
+
 # Let the user specify the compiler if they really want to. Otherwise, point
 # to the compilers specified by the RZANSEL_ options
 if (RZANSEL_COMPILER MATCHES "GCC")
     set(GCC_VERSION ${RZANSEL_${RZANSEL_COMPILER}_VERSION})
-    set(GCC_PREFIX 
-      /usr/tce/packages/gcc/gcc-${GCC_VERSION})
+    set(GCC_PREFIX /usr/tce/packages/gcc/gcc-${GCC_VERSION})
 
     if (GCC_VERSION)
         set(CMAKE_C_COMPILER ${GCC_PREFIX}/bin/gcc
@@ -214,16 +182,6 @@ set(CLANG_FORMAT
 # Kokkos settings
 set(Kokkos_ARCH_POWER9 ON CACHE BOOL "Target Power9")
 
-# Add dependencies into `CMAKE_PREFIX_PATH`
-list(PREPEND CMAKE_PREFIX_PATH ${RZANSEL_VIEW_PREFIX})
-
-# Testing parameters
-if (RZANSEL_CUDA AND GPU_COUNT LESS 4)
-    set(NUM_RANKS ${GPU_COUNT})
-else()
-    set(NUM_RANKS 4) 
-endif()
-
 if (RZANSEL_CUDA)
     set(Kokkos_ENABLE_CUDA ON CACHE BOOL "Cuda")
     set(Kokkos_ARCH_VOLTA70 ON CACHE BOOL "Target V100s")
@@ -231,6 +189,7 @@ if (RZANSEL_CUDA)
 endif()
 
 if (${MACHINE_VARIANT} MATCHES "mpi")
+  set(RZANSEL_VARIANT_PREFIX "")
   set(NUM_MPI_PROC_TESTING ${NUM_RANKS} CACHE STRING "CI runs tests with 2 MPI ranks by default.")
   set(MPIEXEC_EXECUTABLE "/usr/tcetmp/bin/jsrun" CACHE STRING "Command to launch MPI applications")
   set(TEST_NUMPROC_FLAG "-c" CACHE STRING "Flag to set number of processes")
@@ -240,7 +199,16 @@ if (${MACHINE_VARIANT} MATCHES "mpi")
     string(APPEND TEST_MPIOPTS "-a 1 -n 1 -r 1 -d packed")
   endif()
 else()
-  set(PARTHENON_DISABLE_MPI ON CACHE STRING "MPI is enabled by default if found, set this to True to disable MPI")
+  set(PARTHENON_DISABLE_MPI ON CACHE STRING "MPI is enabled by default if found, set this to True to disable MPI" FORCE)
   set(PARTHENON_ENABLE_GPU_MPI_CHECKS OFF CACHE STRING "Checks if possible that the mpi num of procs and the number of gpu devices detected are appropriate.")
 endif()
 
+set(RZANSEL_VIEW_PREFIX ${RZANSEL_COMPILER_PREFIX}${RZANSEL_VARIANT_PREFIX}/${RZANSEL_VIEW_DATE})
+if (NOT EXISTS ${RZANSEL_VIEW_PREFIX})
+    message(WARNING "No view detected for \
+        RZANSEL_VIEW_DATE=\"${RZANSEL_VIEW_DATE}\" at ${RZANSEL_VIEW_PREFIX}")
+    return()
+endif()
+
+# Add dependencies into `CMAKE_PREFIX_PATH`
+list(PREPEND CMAKE_PREFIX_PATH ${RZANSEL_VIEW_PREFIX})

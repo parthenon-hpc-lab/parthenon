@@ -108,7 +108,7 @@ endfunction()
 # test output will be sent to /tst/regression/outputs/dir_mpi
 # test property labels: regression, mpi-yes
 function(setup_test_mpi nproc dir arg extra_labels)
-  if(ENABLE_MPI)
+  #if(ENABLE_MPI)
     if( MPI_FOUND)
       separate_arguments(arg) 
       list(APPEND labels "regression;mpi-yes")
@@ -132,16 +132,16 @@ function(setup_test_mpi nproc dir arg extra_labels)
     else()
       message(STATUS "MPI not found, not building regression tests with mpi")
     endif()
-  else()
-    message(STATUS "MPI disabled for this build, not building: regression_mpi_test:${dir}")
-  endif()
+    #else()
+    #message(STATUS "MPI disabled for this build, not building: regression_mpi_test:${dir}")
+    #endif()
 endfunction()
 
 # Adds test that will run in parallel with mpi and code coverage
 # test output will be sent to /tst/regression/outputs/dir_mpi_cov
 # test property labels: regression, mpi-yes, coverage
 function(setup_test_mpi_coverage nproc dir arg extra_labels)
-  if( ENABLE_MPI )
+  #if( ENABLE_MPI )
     if( MPI_FOUND )
       if( CODE_COVERAGE )
 
@@ -160,7 +160,7 @@ function(setup_test_mpi_coverage nproc dir arg extra_labels)
     else()
       message(STATUS "MPI not found, not building coverage regression tests with mpi")
     endif()
-  endif()
+    #endif()
 endfunction()
 
 
