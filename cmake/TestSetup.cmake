@@ -20,10 +20,11 @@
 if( NOT Python3_EXECUTABLE)
   find_package(Python3 REQUIRED COMPONENTS Interpreter)
 endif()
-if( ${Python3_VERSION} VERSION_LESS "3.5")
-  message(FATAL_ERROR "Python version requirements not satisfied")
+if(Python3_EXECUTABLE)
+  if( "${Python3_VERSION}" VERSION_LESS "3.5")
+    message(FATAL_ERROR "Python version requirements not satisfied for running regression tests.")
+  endif()
 endif()
-
 # Ensure all required packages are present
 include(${PROJECT_SOURCE_DIR}/cmake/PythonModuleCheck.cmake)
 required_python_modules_found("${REQUIRED_PYTHON_MODULES}")
