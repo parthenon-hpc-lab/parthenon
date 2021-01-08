@@ -17,10 +17,10 @@
 # Version number has been intentionally excluded from find_package call, so that latest version 
 # will be grabbed. Including the version number would prioritise the version provided over more 
 #
-if( NOT Python3_EXECUTABLE)
+if( NOT Python3_Interpreter_FOUND)
   find_package(Python3 REQUIRED COMPONENTS Interpreter)
 endif()
-if(Python3_EXECUTABLE)
+if(Python3_Interpreter_FOUND)
   if( "${Python3_VERSION}" VERSION_LESS "3.5")
     message(FATAL_ERROR "Python version requirements not satisfied for running regression tests.")
   endif()
