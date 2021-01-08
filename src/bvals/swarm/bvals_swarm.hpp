@@ -35,16 +35,13 @@ namespace parthenon {
 class BoundarySwarm : public BoundaryCommunication {
  public:
   BoundarySwarm(std::weak_ptr<MeshBlock> pmb);
-  ~BoundarySwarm();
+  ~BoundarySwarm() = default;
 
   std::vector<ParArrayND<int>> vars_int;
   std::vector<ParArrayND<Real>> vars_real;
 
   // (usuallly the std::size_t unsigned integer type)
   std::vector<BoundaryVariable *>::size_type bvar_index;
-
-  // Boundary Variable
-  int ComputeVariableBufferSize(const NeighborIndexes &ni, int cng);
 
   // BoundaryCommunication
   void SetupPersistentMPI() final;
@@ -64,10 +61,6 @@ class BoundarySwarm : public BoundaryCommunication {
   void InitBoundaryData(BoundaryData<> &bd);
 
  private:
-  // BoundaryBuffer:
-  int LoadBoundaryBufferSameLevel(ParArray1D<Real> &buf, const NeighborBlock &nb);
-  void SetBoundarySameLevel(ParArray1D<Real> &buf, const NeighborBlock &nb);
-
   std::shared_ptr<MeshBlock> GetBlockPointer() {
     if (pmy_block.expired()) {
       PARTHENON_THROW("Invalid pointer to MeshBlock!");

@@ -46,7 +46,7 @@ class SwarmDeviceContext {
   bool IsActive(int n) const { return mask_(n); }
 
   KOKKOS_FUNCTION
-  bool IsOnCurrentMeshBlock(int n) const { return blockIndex_(n) == -1; }
+  bool IsOnCurrentMeshBlock(int n) const { return blockIndex_(n) == this_block_; }
 
   KOKKOS_FUNCTION
   void MarkParticleForRemoval(int n) const { marked_for_removal_(n) = true; }
@@ -66,8 +66,9 @@ class SwarmDeviceContext {
     if (i < 0 || i > 3 || ((j < 0 || j > 3) && ndim_ > 1) ||
         ((k < 0 || k > 3) && ndim_ > 2)) {
       blockIndex_(n) = -2;
-      printf("ERROR [%i %i %i] [%e %e %e]\n", i, j, k, x, y, z);
-      exit(-1);
+      // TODO(BRR) not sure how to handle this case... which hopefully never happens once
+      // everything is working
+      PARTHENON_FAIL("Particle neighbor indices out of bounds");
       return -2;
     }
 
@@ -89,6 +90,7 @@ class SwarmDeviceContext {
     return blockIndex_(n);
   }
 
+
  private:
   Real x_min_;
   Real x_max_;
@@ -103,6 +105,7 @@ class SwarmDeviceContext {
   ParArrayND<int> neighborIndices_;     // 4x4x4 array of possible block AMR regions
   int ndim_;
   friend class Swarm;
+  constexpr static int this_block_ = -1; // Mirrors definition in Swarm class
 };
 
 class Swarm {
@@ -289,6 +292,9 @@ class Swarm {
   void ResizeParArray(ParArrayND<T> &var, int n_old, int n_new);
   MapToSwarmVariablePack<Real> varPackMapReal_;
   MapToSwarmVariablePack<int> varPackMapInt_;
+
+  constexpr static int this_block_ = -1;
+  constexpr static int unset_index_ = -1;
 };
 
 using SP_Swarm = std::shared_ptr<Swarm>;

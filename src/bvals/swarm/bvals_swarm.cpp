@@ -65,14 +65,6 @@ void BoundarySwarm::InitBoundaryData(BoundaryData<> &bd) {
   }
 }
 
-BoundarySwarm::~BoundarySwarm() {
-  // DestroyBoundaryData(bd_var_);
-}
-
-int BoundarySwarm::ComputeVariableBufferSize(const NeighborIndexes &ni, int cng) {
-  return 0;
-}
-
 void BoundarySwarm::SetupPersistentMPI() {
 #ifdef MPI_PARALLEL
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
@@ -160,13 +152,5 @@ void BoundarySwarm::Receive(BoundaryCommSubset phase) {
 }
 
 void BoundarySwarm::ClearBoundary(BoundaryCommSubset phase) {}
-
-int BoundarySwarm::LoadBoundaryBufferSameLevel(ParArray1D<Real> &buf,
-                                               const NeighborBlock &nb) {
-  return 0;
-}
-
-void BoundarySwarm::SetBoundarySameLevel(ParArray1D<Real> &buf, const NeighborBlock &nb) {
-}
 
 } // namespace parthenon

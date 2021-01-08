@@ -326,7 +326,7 @@ ParArrayND<bool> Swarm::AddEmptyParticles(const int num_to_add,
   for (int n = 0; n < num_to_add; n++) {
     mask_h(*free_index) = true;
     new_mask_h(*free_index) = true;
-    blockIndex_h(*free_index) = -1;
+    blockIndex_h(*free_index) = this_block_;
     max_active_index_ = std::max<int>(max_active_index_, *free_index);
     new_indices_h(n) = *free_index;
 
@@ -349,7 +349,7 @@ ParArrayND<bool> Swarm::AddEmptyParticles(const int num_to_add,
 // Particles removed: nmax_active_index is new max active index
 void Swarm::RemoveMarkedParticles() {
   GetBlockPointer()->exec_space.fence();
-  int new_max_active_index = -1; // TODO(BRR) this is a magic number, needed for Defrag()
+  //int new_max_active_index = unset_index_; // TODO(BRR) this is a magic number, needed for Defrag()
 
   auto mask_h = mask_.data.GetHostMirrorAndCopy();
   auto marked_for_removal_h = marked_for_removal_.data.GetHostMirror();
@@ -366,9 +366,9 @@ void Swarm::RemoveMarkedParticles() {
           max_active_index_ -= 1;
         }
         marked_for_removal_h(n) = false;
-      } else {
-        new_max_active_index = n;
-      }
+      } //else {
+      //  new_max_active_index = n;
+      //}
     }
   }
 
@@ -389,7 +389,7 @@ void Swarm::Defrag() {
   auto mask_h = mask_.data.GetHostMirrorAndCopy();
 
   for (int n = 0; n <= max_active_index_; n++) {
-    from_to_indices_h(n) = -1;
+    from_to_indices_h(n) = unset_index_;
   }
 
   std::list<int> new_free_indices;
@@ -428,6 +428,7 @@ void Swarm::Defrag() {
         }
       });
 
+  // TODO(BRR) Use SwarmPacks to reduce number of kernel launches
   for (int m = 0; m < intVector_.size(); m++) {
     auto &vec = intVector_[m]->Get();
     pmb->par_for(
@@ -469,7 +470,7 @@ void Swarm::SetupPersistentMPI() {
   for (int k = 0; k < 4; k++) { // 2D ONLY!
     for (int j = 1; j < 3; j++) {
       for (int i = 1; i < 3; i++) {
-        neighborIndices_h(k, j, i) = -1;
+        neighborIndices_h(k, j, i) = this_block_;
       }
     }
   }
