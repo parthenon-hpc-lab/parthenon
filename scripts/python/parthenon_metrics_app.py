@@ -264,7 +264,7 @@ class ParthenonApp:
     """
     This method will determine if a branch exists on the github repository by pinging the github api
     """
-    branches = getBranches()
+    branches = self.getBranches()
     if branch in branches:
       return True
     return False
@@ -457,6 +457,51 @@ class ParthenonApp:
     os.environ["GIT_PASSWORD"] = self.__access_token
     return repo
 
+  def postStatus(self, state):
+    """
+    Post status of current commit.
+    """
+    state_list = ['pending','failed','error','success']
+    if state not in state_list:
+        raise Exception("Unrecognized state specified " + state)
+    commit_sha = os.getenv('CI_COMMIT_SHA')
+    if commit_sha == None:
+        raise Exception("CI_COMMIT_SHA not defined in environment cannot post status")
+    buffer_temp = BytesIO()
+    custom_data = {"state": state, "context": self.__name + " handles the performance metrics."}
+    c = pycurl.Curl()
+    c.setopt(c.URL, self.__repo_url + '/statuses/' + commit_sha)
+    c.setopt(c.POST, 1)
+    buffer_temp2 = BytesIO(json.dumps(custom_data).encode('utf-8'))
+    c.setopt(c.READDATA, buffer_temp2)
+    c.setopt(c.WRITEDATA, buffer_temp)
+    c.setopt(c.HTTPHEADER, self.__header)
+    c.perform()
+    c.close()
+    js_obj = json.loads(buffer_temp.getvalue())
+    pprint.pprint(json.dumps(js_obj,indent=2))
+
+
+  def getStatus(self):
+    """
+    Get status of current commit.
+    """
+    commit_sha = os.getenv('CI_COMMIT_SHA')
+    if commit_sha == None:
+        raise Exception("CI_COMMIT_SHA not defined in environment cannot post status")
+
+    buffer_temp = BytesIO()
+    # 1. Check if file exists if so get SHA
+    c = pycurl.Curl()
+    c.setopt(c.URL, self.__repo_url + '/commits/Add_to_dev/statuses')
+    c.setopt(c.WRITEDATA, buffer_temp)
+    c.setopt(c.HTTPHEADER, self.__header)
+    c.perform()
+    c.close()
+
+    js_obj = json.loads(buffer_temp.getvalue())
+    return js_obj
+
 def main(**kwargs):
 
   app = ParthenonApp(
@@ -470,7 +515,18 @@ def main(**kwargs):
     branch = branch[0]
 
   if 'upload' in kwargs:
-    app.upload(kwargs.pop('upload'), branch)
+    value = kwargs.pop('upload')
+    if isinstance(value,list):
+      value = value[0]
+    if value != None:
+        app.upload(value, branch)
+
+  if 'status' in kwargs:
+    value = kwargs.pop('status')
+    if isinstance(value,list):
+        value = value[0]
+    if value != None:
+        app.postStatus(value)
 
 # Execute main function
 if __name__ == '__main__':
@@ -490,7 +546,6 @@ if __name__ == '__main__':
                         type=str,
                         nargs=1,
                         required=False,
-                        default = "develop",
                         help=desc)
 
 
@@ -499,7 +554,15 @@ if __name__ == '__main__':
                         type=str,
                         nargs=1,
                         required=False,
+                        default = "develop",
                         help=desc)
+
+    desc = ('Post current status state: error, failed, pending or success.')
+    parser.add_argument('--status','-s',
+            type=str,
+            nargs=1,
+            required=False,
+            help=desc)
 
     desc = ('Create Branch if does not exist.')
     parser.add_argument('--create','-c',
