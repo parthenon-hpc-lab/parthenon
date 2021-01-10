@@ -354,14 +354,108 @@ TaskStatus Defrag(MeshBlock *pmb) {
   return TaskStatus::complete;
 }
 
+// Custom step function to allow for looping over MPI-related tasks until complete
+TaskListStatus ParticleDriver::Step() {
+  TaskListStatus status;
+  integrator->dt = tm.dt;
+
+  BlockList_t &blocks = pmesh->block_list;
+  auto num_task_lists_executed_independently = blocks.size();
+
+  // Loop over repeated MPI calls until every particle is finished. This logic is required
+  // because long-distance particle pushes can lead to a large, unpredictable number of
+  // MPI sends and receives.
+  bool particles_update_done = false;
+  while (!particles_update_done) {
+    TaskCollection ptc = MakeParticlesUpdateTaskCollection();
+    status = ptc.Execute();
+
+    // Check that every meshblock's swarm agrees that MPI is complete
+    particles_update_done = true;
+    for (int n = 0; n < blocks.size(); n++) {
+      if (blocks[n]->swarm_data.Get()->Get("my particles")->mpiStatus != true) {
+        particles_update_done = false;
+      }
+    }
+  }
+
+  // Use a more traditional task list for predictable post-MPI evaluations.
+  TaskCollection ftc = MakeFinalizationTaskCollection();
+  status = ftc.Execute();
+
+  return status;
+}
+
+TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection() {
+  TaskCollection tc;
+  TaskID none(0);
+  double t0 = tm.time;
+  BlockList_t &blocks = pmesh->block_list;
+
+  auto num_task_lists_executed_independently = blocks.size();
+  TaskRegion &async_region1 = tc.AddRegion(num_task_lists_executed_independently);
+
+  for (int i = 0; i < blocks.size(); i++) {
+    auto &pmb = blocks[i];
+    auto &tl = async_region1[i];
+
+    auto sc = pmb->swarm_data.Get();
+
+    auto swarm = sc->Get("my particles");
+
+    auto start_comm = tl.AddTask(none, &SwarmContainer::StartCommunication, sc.get(),
+                               BoundaryCommSubset::all);
+    auto create_some_particles =
+        tl.AddTask(none, CreateSomeParticles, pmb.get(), t0);
+
+    auto transport_particles =
+        tl.AddTask(create_some_particles, TransportParticles, pmb.get(), integrator.get(), t0);
+
+    auto send = tl.AddTask(create_some_particles, &SwarmContainer::Send, sc.get(),
+                         BoundaryCommSubset::all);
+    auto receive = tl.AddTask(create_some_particles, &SwarmContainer::Receive, sc.get(),
+                            BoundaryCommSubset::all);
+
+    auto finalize_comm =
+      tl.AddTask(create_some_particles, &SwarmContainer::FinishCommunication, sc.get(),
+                 BoundaryCommSubset::all);
+  }
+
+  return tc;
+}
+
+TaskCollection ParticleDriver::MakeFinalizationTaskCollection() {
+  TaskCollection tc;
+  TaskID none(0);
+  BlockList_t &blocks = pmesh->block_list;
+
+  auto num_task_lists_executed_independently = blocks.size();
+  TaskRegion &async_region1 = tc.AddRegion(num_task_lists_executed_independently);
+
+  for (int i = 0; i < blocks.size(); i++) {
+    auto &pmb = blocks[i];
+    auto &tl = async_region1[i];
+
+    auto deposit_particles = tl.AddTask(none, DepositParticles, pmb.get());
+
+    auto defrag = tl.AddTask(deposit_particles, Defrag, pmb.get());
+  }
+
+  return tc;
+}
+
 // See the advection_driver.hpp declaration for a description of how this function gets
 // called.
-TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage) {
+TaskCollection ParticleDriver::MakeTaskCollection() { //BlockList_t &blocks, int stage) {
+//TaskCollection ParticleDriver::MultiStageTaskCollection(const int stage) {
+  using namespace ::parthenon::Update;
   TaskCollection tc;
 
   TaskID none(0);
 
   double t0 = tm.time;
+
+  BlockList_t &blocks = pmesh->block_list;
 
 //<<<<<<< HEAD
 //  double t0 = tm.time;
