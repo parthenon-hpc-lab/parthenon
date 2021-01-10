@@ -17,6 +17,7 @@
 ##========================================================================================
 
 list(APPEND unit_tests_SOURCES
+    test_data_collection.cpp
     test_taskid.cpp
     test_tasklist.cpp
     test_unit_face_variables.cpp
@@ -26,11 +27,12 @@ list(APPEND unit_tests_SOURCES
     kokkos_abstraction.cpp
     test_metadata.cpp
     test_pararrays.cpp
+    test_meshblock_data_iterator.cpp
     test_swarm.cpp
-    test_container_iterator.cpp
     test_required_desired.cpp
     test_error_checking.cpp
     test_partitioning.cpp
+    test_state_descriptor.cpp
 )
 
 add_executable(unit_tests "${unit_tests_SOURCES}")

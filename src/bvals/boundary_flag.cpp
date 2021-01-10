@@ -45,6 +45,8 @@ BoundaryFlag GetBoundaryFlag(const std::string &input_string) {
     return BoundaryFlag::undef;
   } else if (input_string == "block") {
     return BoundaryFlag::block;
+  } else if (input_string == "user") {
+    return BoundaryFlag::user;
   } else {
     std::stringstream msg;
     msg << "### FATAL ERROR in GetBoundaryFlag" << std::endl
@@ -72,6 +74,8 @@ std::string GetBoundaryString(BoundaryFlag input_flag) {
     return "outflow";
   case BoundaryFlag::periodic:
     return "periodic";
+  case BoundaryFlag::user:
+    return "user";
   default:
     std::stringstream msg;
     msg << "### FATAL ERROR in GetBoundaryString" << std::endl

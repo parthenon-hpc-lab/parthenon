@@ -18,7 +18,8 @@
 #include <basic_types.hpp>
 #include <defs.hpp>
 #include <globals.hpp>
-#include <interface/container.hpp>
+#include <interface/mesh_data.hpp>
+#include <interface/meshblock_data.hpp>
 #include <interface/swarm_container.hpp>
 #include <interface/variable.hpp>
 #include <mesh/domain.hpp>
@@ -31,10 +32,12 @@ namespace parthenon {
 namespace prelude {
 using ::parthenon::BoundaryCommSubset;
 using ::parthenon::CellVariable;
-using ::parthenon::Container;
 using ::parthenon::IndexDomain;
 using ::parthenon::IndexRange;
 using ::parthenon::MeshBlock;
+using ::parthenon::MeshBlockData;
+using ::parthenon::MeshData;
+using ::parthenon::par_for_inner;
 using ::parthenon::ParArrayHost;
 using ::parthenon::ParArrayND;
 using ::parthenon::ParthenonStatus;

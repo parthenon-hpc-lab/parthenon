@@ -150,7 +150,7 @@ class FormattedTableOutput : public OutputType {
 
 class VTKOutput : public OutputType {
  public:
-  explicit VTKOutput(OutputParameters oparams) : OutputType(oparams) {}
+  explicit VTKOutput(const OutputParameters &oparams) : OutputType(oparams) {}
   void WriteContainer(SimTime &tm, Mesh *pm, ParameterInput *pin, bool flag) override;
   void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) override;
 };
@@ -161,7 +161,7 @@ class VTKOutput : public OutputType {
 
 class RestartOutput : public OutputType {
  public:
-  explicit RestartOutput(OutputParameters oparams) : OutputType(oparams) {
+  explicit RestartOutput(const OutputParameters &oparams) : OutputType(oparams) {
 #ifndef HDF5OUTPUT
     std::stringstream msg;
     msg << "### FATAL ERROR in Restart (Outputs) constructor" << std::endl
@@ -182,7 +182,7 @@ class RestartOutput : public OutputType {
 class PHDF5Output : public OutputType {
  public:
   // Function declarations
-  explicit PHDF5Output(OutputParameters oparams) : OutputType(oparams) {}
+  explicit PHDF5Output(const OutputParameters &oparams) : OutputType(oparams) {}
   void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) override;
   void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm);
 

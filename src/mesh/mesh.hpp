@@ -31,28 +31,29 @@
 #include <vector>
 
 #include "application_input.hpp"
+#include "bvals/boundary_conditions.hpp"
 #include "config.hpp"
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
 #include "domain.hpp"
-#include "interface/container.hpp"
-#include "interface/container_collection.hpp"
+#include "interface/data_collection.hpp"
+#include "interface/mesh_data.hpp"
 #include "interface/properties_interface.hpp"
 #include "interface/state_descriptor.hpp"
-#include "interface/update.hpp"
 #include "kokkos_abstraction.hpp"
-#include "mesh/mesh_refinement.hpp"
-#include "mesh/meshblock.hpp"
 #include "mesh/meshblock_pack.hpp"
 #include "mesh/meshblock_tree.hpp"
 #include "outputs/io_wrapper.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
+#include "utils/partition_stl_containers.hpp"
 
 namespace parthenon {
 
 // Forward declarations
 class BoundaryValues;
+class MeshBlock;
+class MeshRefinement;
 class ParameterInput;
 class RestartReader;
 
@@ -83,21 +84,15 @@ class Mesh {
     return nblist[my_rank];
   }
   int GetNumMeshThreads() const { return num_mesh_threads_; }
-  std::int64_t GetTotalCells() {
-    auto &pmb = block_list.front();
-    return static_cast<std::int64_t>(nbtotal) * pmb->block_size.nx1 *
-           pmb->block_size.nx2 * pmb->block_size.nx3;
-  }
+  std::int64_t GetTotalCells();
   // TODO(JMM): Move block_size into mesh.
-  int GetNumberOfMeshBlockCells() const {
-    return block_list.front()->GetNumberOfMeshBlockCells();
-  }
-  const RegionSize &GetBlockSize() const { return block_list.front()->block_size; }
+  int GetNumberOfMeshBlockCells() const;
+  const RegionSize &GetBlockSize() const;
 
   // data
   bool modified;
   RegionSize mesh_size;
-  BoundaryFlag mesh_bcs[6];
+  BoundaryFlag mesh_bcs[BOUNDARY_NFACES];
   const int ndim; // number of dimensions
   const bool adaptive, multilevel;
   int nbtotal, nbnew, nbdel;
@@ -110,28 +105,20 @@ class Mesh {
   Properties_t properties;
   Packages_t packages;
 
-  // MeshBlockPacks
-  // TODO(JMM): Should these be private with a getter function?
-  std::map<std::string, std::map<std::string, std::vector<MeshBlockVarPack<Real>>>>
-      real_varpacks;
-  std::map<std::string, std::map<std::string, std::vector<MeshBlockVarFluxPack<Real>>>>
-      real_fluxpacks;
+  DataCollection<MeshData<Real>> mesh_data;
 
   // functions
   void Initialize(int res_flag, ParameterInput *pin, ApplicationInput *app_in);
   void SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size,
                                  BoundaryFlag *block_bcs);
-  void NewTimeStep();
   void OutputCycleDiagnostics();
-  void RegisterMeshBlockPack(const std::string &package, const std::string &name,
-                             const VarPackingFunc<Real> &func);
-  void RegisterMeshBlockPack(const std::string &package, const std::string &name,
-                             const FluxPackingFunc<Real> &func);
-  void BuildMeshBlockPacks();
   void LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin,
                                               ApplicationInput *app_in);
   int DefaultPackSize() {
     return default_pack_size_ < 1 ? block_list.size() : default_pack_size_;
+  }
+  int DefaultNumPartitions() {
+    return partition::partition_impl::IntCeil(block_list.size(), DefaultPackSize());
   }
   // step 7: create new MeshBlock list (same MPI rank but diff level: create new block)
   // Moved here given Cuda/nvcc restriction:
@@ -151,13 +138,31 @@ class Mesh {
   // other categories of MPI communication for generating unique MPI_TAGs
   int ReserveTagPhysIDs(int num_phys);
 
+  // Boundary Functions
+  BValFunc MeshBndryFnctn[6];
+
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   static void UserWorkAfterLoopDefault(Mesh *mesh, ParameterInput *pin,
                                        SimTime &tm); // called in main loop
   std::function<void(Mesh *, ParameterInput *, SimTime &)> UserWorkAfterLoop =
       &UserWorkAfterLoopDefault;
-  static void UserWorkInLoopDefault(); // called in main after each cycle
-  std::function<void()> UserWorkInLoop = &UserWorkInLoopDefault;
+  static void UserWorkInLoopDefault(
+      Mesh *, ParameterInput *,
+      SimTime const &); // default behavior for pre- and post-step user work
+  std::function<void(Mesh *, ParameterInput *, SimTime const &)> PreStepUserWorkInLoop =
+      &UserWorkInLoopDefault;
+  std::function<void(Mesh *, ParameterInput *, SimTime const &)> PostStepUserWorkInLoop =
+      &UserWorkInLoopDefault;
+
+  static void PreStepUserDiagnosticsInLoopDefault(Mesh *, ParameterInput *,
+                                                  SimTime const &);
+  std::function<void(Mesh *, ParameterInput *, SimTime const &)>
+      PreStepUserDiagnosticsInLoop = PreStepUserDiagnosticsInLoopDefault;
+  static void PostStepUserDiagnosticsInLoopDefault(Mesh *, ParameterInput *,
+                                                   SimTime const &);
+  std::function<void(Mesh *, ParameterInput *, SimTime const &)>
+      PostStepUserDiagnosticsInLoop = PostStepUserDiagnosticsInLoopDefault;
+
   int GetRootLevel() const noexcept { return root_level; }
   int GetMaxLevel() const noexcept { return max_level; }
   int GetCurrentLevel() const noexcept { return current_level; }
@@ -207,15 +212,9 @@ class Mesh {
 
   // functions
   MeshGenFunc MeshGenerator_[4];
-  BValFunc BoundaryFunction_[6];
   AMRFlagFunc AMRFlag_;
   SrcTermFunc UserSourceTerm_;
   TimeStepFunc UserTimeStep_;
-  MetricFunc UserMetric_;
-
-  std::map<std::string, std::map<std::string, VarPackingFunc<Real>>> real_varpackers_;
-  std::map<std::string, std::map<std::string, FluxPackingFunc<Real>>> real_fluxpackers_;
-  void RegisterAllMeshBlockPackers(Packages_t &packages);
 
   void OutputMeshStructure(int dim);
   void CalculateLoadBalance(std::vector<double> const &costlist,
@@ -250,16 +249,11 @@ class Mesh {
   static void InitUserMeshDataDefault(ParameterInput *pin);
   std::function<void(ParameterInput *)> InitUserMeshData = InitUserMeshDataDefault;
 
-  // often used (not defined) in prob file in ../pgen/
-  void EnrollUserBoundaryFunction(BoundaryFace face, BValFunc my_func);
-  // DEPRECATED(felker): provide trivial overload for old-style BoundaryFace enum argument
-  void EnrollUserBoundaryFunction(int face, BValFunc my_func);
-
+  void EnrollBndryFncts_(ApplicationInput *app_in);
   void EnrollUserRefinementCondition(AMRFlagFunc amrflag);
   void EnrollUserMeshGenerator(CoordinateDirection dir, MeshGenFunc my_mg);
   void EnrollUserExplicitSourceFunction(SrcTermFunc my_func);
   void EnrollUserTimeStepFunction(TimeStepFunc my_func);
-  void EnrollUserMetric(MetricFunc my_func);
 };
 
 //----------------------------------------------------------------------------------------

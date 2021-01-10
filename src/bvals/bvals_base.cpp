@@ -299,6 +299,7 @@ int BoundaryBase::CreateBvalsMPITag(int lid, int bufid, int phys) {
 
 void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist,
                                          int *nslist) {
+  Kokkos::Profiling::pushRegion("SearchAndSetNeighbors");
   MeshBlockTree *neibt;
   int myox1, myox2 = 0, myox3 = 0, myfx1, myfx2, myfx3;
   myfx1 = ((loc.lx1 & 1LL) == 1LL);
@@ -363,7 +364,10 @@ void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist,
       nneighbor++;
     }
   }
-  if (block_size_.nx2 == 1) return;
+  if (block_size_.nx2 == 1) {
+    Kokkos::Profiling::popRegion(); // SearchAndSetNeighbors
+    return;
+  }
 
   // x2 face
   for (int n = -1; n <= 1; n += 2) {
@@ -494,7 +498,10 @@ void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist,
     }
   }
 
-  if (block_size_.nx3 == 1) return;
+  if (block_size_.nx3 == 1) {
+    Kokkos::Profiling::popRegion(); // SearchAndSetNeighbors
+    return;
+  }
 
   // x1x3 edge
   for (int m = -1; m <= 1; m += 2) {
@@ -613,7 +620,7 @@ void BoundaryBase::SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist,
       }
     }
   }
-  return;
+  Kokkos::Profiling::popRegion(); // SearchAndSetNeighbors
 }
 
 } // namespace parthenon

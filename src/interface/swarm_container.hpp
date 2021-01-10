@@ -118,7 +118,7 @@ class SwarmContainer {
   /// Remove a variable from the container or throw exception if not
   /// found.
   /// @param label the name of the variable to be deleted
-  void Remove(const std::string label);
+  void Remove(const std::string &label);
 
   // Temporary functions till we implement a *real* iterator
 

@@ -15,6 +15,7 @@
 #define EXAMPLE_ADVECTION_ADVECTION_DRIVER_HPP_
 
 #include <memory>
+#include <vector>
 
 #include <parthenon/driver.hpp>
 #include <parthenon/package.hpp>
@@ -22,7 +23,7 @@
 namespace advection_example {
 using namespace parthenon::driver::prelude;
 
-class AdvectionDriver : public MultiStageBlockTaskDriver {
+class AdvectionDriver : public MultiStageDriver {
  public:
   AdvectionDriver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm);
   // This next function essentially defines the driver.
@@ -31,15 +32,14 @@ class AdvectionDriver : public MultiStageBlockTaskDriver {
   //   EvolutionDriver::Execute (driver.cpp)
   //     MultiStageBlockTaskDriver::Step (multistage.cpp)
   //       DriverUtils::ConstructAndExecuteBlockTasks (driver.hpp)
-  //         AdvectionDriver::MakeTaskList (advection.cpp)
-  TaskList MakeTaskList(MeshBlock *pmb, int stage);
+  //         AdvectionDriver::MakeTaskCollection (advection.cpp)
+  TaskCollection MakeTaskCollection(BlockList_t &blocks, int stage);
 };
 
 void ProblemGenerator(MeshBlock *pmb, parthenon::ParameterInput *pin);
 void UserWorkAfterLoop(Mesh *mesh, parthenon::ParameterInput *pin,
                        parthenon::SimTime &tm);
 parthenon::Packages_t ProcessPackages(std::unique_ptr<parthenon::ParameterInput> &pin);
-void SetFillDerivedFunctions();
 
 } // namespace advection_example
 

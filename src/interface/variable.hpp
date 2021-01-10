@@ -119,7 +119,7 @@ class FaceVariable {
   }
 
   /// Create an alias for the variable by making a shallow slice with max dim
-  FaceVariable(std::string label, FaceVariable<T> &src)
+  FaceVariable(const std::string &label, FaceVariable<T> &src)
       : data(src.data), dims_(src.dims_), m_(src.m_), label_(label) {}
 
   // KOKKOS_FUNCTION FaceVariable() = default;
@@ -175,7 +175,7 @@ template <typename T>
 class EdgeVariable {
  public:
   /// Initialize an edge variable
-  EdgeVariable(const std::string label, const std::array<int, 6> ncells,
+  EdgeVariable(const std::string &label, const std::array<int, 6> ncells,
                const Metadata &metadata)
       : data(label, ncells[5], ncells[4], ncells[3], ncells[2], ncells[1], ncells[0]),
         dims_(ncells), m_(metadata), label_(label) {
@@ -184,7 +184,7 @@ class EdgeVariable {
   }
 
   /// Create an alias for the variable by making a shallow slice with max dim
-  EdgeVariable(std::string label, EdgeVariable<T> &src)
+  EdgeVariable(const std::string &label, EdgeVariable<T> &src)
       : data(src.data), dims_(src.dims_), m_(src.m_), label_(label) {}
   ///< retrieve metadata for variable
   const Metadata metadata() const { return m_; }

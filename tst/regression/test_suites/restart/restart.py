@@ -22,6 +22,8 @@ import numpy as np
 import sys
 import os
 import utils.test_case
+
+
 """ To prevent littering up imported folders with .pyc files or __pycache_ folder"""
 sys.dont_write_bytecode = True
 
@@ -44,19 +46,17 @@ class TestCase(utils.test_case.TestCaseAbs):
         return parameters
 
     def Analyse(self, parameters):
-        # spotcheck one variable
-        goldFile = 'gold.out0.00002.rhdf'
-        silverFile = 'silver.out0.00002.rhdf'
+      # spotcheck one variable
+      goldFile = 'gold.out0.00002.rhdf'
+      silverFile = 'silver.out0.00002.rhdf'
+      varName = "advected"
+      with h5py.File(goldFile,'r') as gold, h5py.File(silverFile,'r') as silver:
+        goldData = np.zeros(gold[varName].shape, dtype=np.float64)
+        gold[varName].read_direct(goldData)
+        silverData = np.zeros(silver[varName].shape, dtype=np.float64)
+        silver[varName].read_direct(silverData)
 
-        gold = h5py.File(goldFile,'r')
-        silver = h5py.File(silverFile,'r')
+      maxdiff = np.abs(goldData-silverData).max()
+      print('Variable: %s, diff=%g, N=%d'%(varName,maxdiff,len(goldData)))
+      return (maxdiff == 0.0)
 
-        varName = "/advected"
-        goldData = gold[varName][:].flatten()
-        silverData = gold[varName][:].flatten()
-
-        # spot check on one variable
-        maxdiff = max(abs(goldData-silverData))
-        print('Variable: %s, diff=%g, N=%d'%(varName,maxdiff,len(goldData)))
-
-        return (maxdiff == 0.0)

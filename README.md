@@ -1,28 +1,33 @@
 # parthenon
 
 [![codecov](https://codecov.io/gh/lanl/parthenon/branch/master/graph/badge.svg)](https://codecov.io/gh/lanl/parthenon)
+[![testing](https://gitlab.com/theias/hpc/jmstone/athena-parthenon/parthenon-ci-mirror/badges/develop/pipeline.svg)](https://gitlab.com/theias/hpc/jmstone/athena-parthenon/parthenon-ci-mirror/-/commits/develop)
 
-Parthenon AMR infrastructure
+Parthenon performance portable AMR framework
 
 # Community
-* [Matrix](https://riot.im/app/#/room/#parthenon-general:matrix.org)
+* [Chat room on matrix.org](https://app.element.io/#/room/#parthenon-general:matrix.org)
 
-# Required Dependencies
+# Dependencies
 
-* CMake 3.10 or greater
-* gcc or intel compiler
-* mpi
-* openMP
-* hdf5
-* kokkos
+## Required
 
-# Dependencies Other
+* CMake 3.12 or greater
+* C++14 compatible compiler
+* Kokkos 3.0 or greater
 
-* catch2
-* python3
-* h5py
-* numpy
-* matplotlib
+## Optional (enabling features)
+
+* MPI
+* OpenMP
+* HDF5 (for outputs)
+
+## Other
+
+* catch2 (for unit tests)
+* python3 (for regression tests)
+* numpy (for regression tests)
+* matplotlib (for regression tests)
 
 # Installation
 
@@ -111,4 +116,5 @@ how to use them.
 | Daniel Holladay | @dholladay00 | LANL Computer Science |
 | Galen Shipman | @gshipman | LANL Computer Science |
 | Ben Ryan | @brryan | LANL Physics |
+| Clell J. (CJ) Solomon | @clellsolomon | LANL Physics |
 

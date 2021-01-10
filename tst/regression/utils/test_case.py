@@ -22,12 +22,14 @@ import subprocess
 from subprocess import PIPE
 import sys
 from shutil import which
+import glob
 
 class Parameters():
     driver_path = ""
     driver_input_path = ""
     test_path = ""
     output_path = ""
+    parthenon_path = ""
     mpi_cmd = ""
     num_ranks = 1
     mpi_opts = ""
@@ -81,6 +83,14 @@ class TestManager:
             output_path = os.path.abspath(test_path + "/output")
         else:
             output_path = os.path.abspath(output_path)
+
+        try:
+            parthenon_path = os.path.realpath(__file__)
+            idx = parthenon_path.rindex('/parthenon/')
+            self.parameters.parthenon_path = os.path.join(parthenon_path[:idx],'parthenon')
+        except ValueError:
+            baseDir = os.path.dirname(__file__)
+            self.parameters.parthenon_path = os.path.abspath(baseDir + '/../../../')
 
         self.__test_module = 'test_suites.' + test_base_name + '.' + test_base_name
 
@@ -170,6 +180,12 @@ class TestManager:
             raise TestManagerError(error_msg)
 
     def MakeOutputFolder(self):
+        if os.path.isdir(self.parameters.output_path):
+            try:
+                rmtree(self.parameters.output_path)
+            except OSError as e:
+                print ("Error: %s - %s." % (e.filename, e.strerror))
+
         if not os.path.isdir(self.parameters.output_path):
             os.makedirs(self.parameters.output_path)
 

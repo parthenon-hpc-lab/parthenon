@@ -18,7 +18,7 @@
 #include <application_input.hpp>
 #include <basic_types.hpp>
 #include <coordinates/coordinates.hpp>
-#include <interface/container_iterator.hpp>
+#include <interface/meshblock_data_iterator.hpp>
 #include <interface/metadata.hpp>
 #include <interface/params.hpp>
 #include <interface/state_descriptor.hpp>
@@ -42,12 +42,11 @@ using namespace ::parthenon::prelude;
 using ::parthenon::AmrTag;
 using ::parthenon::ApplicationInput;
 using ::parthenon::BlockList_t;
-using ::parthenon::ContainerIterator;
 using ::parthenon::Coordinates;
-using ::parthenon::DerivedOwnership;
 using ::parthenon::DevExecSpace;
 using ::parthenon::Mesh;
 using ::parthenon::MeshBlock;
+using ::parthenon::MeshBlockDataIterator;
 using ::parthenon::MeshBlockPack;
 using ::parthenon::MeshBlockVarFluxPack;
 using ::parthenon::MeshBlockVarPack;

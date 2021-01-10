@@ -23,6 +23,7 @@
 #include "globals.hpp"
 #include "interface/update.hpp"
 #include "mesh/domain.hpp"
+#include "mesh/meshblock.hpp"
 #include "outputs/parthenon_hdf5.hpp"
 #include "refinement/refinement.hpp"
 
@@ -83,9 +84,6 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
   }
 
   // Allow for user overrides to default Parthenon functions
-  if (app_input->SetFillDerivedFunctions != nullptr) {
-    SetFillDerivedFunctions = app_input->SetFillDerivedFunctions;
-  }
   if (app_input->ProcessProperties != nullptr) {
     ProcessProperties = app_input->ProcessProperties;
   }
@@ -151,8 +149,6 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
     }
   }
 
-  SetFillDerivedFunctions();
-
   pmesh->Initialize(Restart(), pinput.get(), app_input.get());
 
   ChangeRunDir(arg.prundir);
@@ -161,16 +157,14 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
 }
 
 ParthenonStatus ParthenonManager::ParthenonFinalize() {
+  // close restart file before finalizing MPI
+  this->restartReader = nullptr;
   pmesh.reset();
   Kokkos::finalize();
 #ifdef MPI_PARALLEL
   MPI_Finalize();
 #endif
   return ParthenonStatus::complete;
-}
-
-void ParthenonManager::SetFillDerivedFunctionsDefault() {
-  FillDerivedVariables::SetFillDerivedFunctions(nullptr, nullptr);
 }
 
 Properties_t
@@ -192,8 +186,9 @@ ParthenonManager::ProcessPackagesDefault(std::unique_ptr<ParameterInput> &pin) {
 void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   // Restart packages with information for blocks in ids from the restart file
   // Assumption: blocks are contiguous in restart file, may have to revisit this.
-  const IndexDomain interior = IndexDomain::interior;
-  auto &packages = rm.packages;
+  //  const IndexDomain interior = IndexDomain::interior;
+  const IndexDomain theDomain =
+      (resfile.hasGhost ? IndexDomain::entire : IndexDomain::interior);
   // Get block list and temp array size
   auto &mb = *(rm.block_list.front());
   int nb = rm.GetNumMeshBlocksThisRank(Globals::my_rank);
@@ -201,17 +196,23 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   int nbe = nbs + nb - 1;
   IndexRange myBlocks{nbs, nbe};
 
+  std::cout << "Blocks assigned to rank:" << Globals::my_rank << ":" << nbs << ":" << nbe
+            << std::endl;
   // Get an iterator on block 0 for variable listing
-  IndexRange out_ib = mb.cellbounds.GetBoundsI(interior);
-  IndexRange out_jb = mb.cellbounds.GetBoundsJ(interior);
-  IndexRange out_kb = mb.cellbounds.GetBoundsK(interior);
+  IndexRange out_ib = mb.cellbounds.GetBoundsI(theDomain);
+  IndexRange out_jb = mb.cellbounds.GetBoundsJ(theDomain);
+  IndexRange out_kb = mb.cellbounds.GetBoundsK(theDomain);
 
-  size_t nCells = static_cast<size_t>(out_ib.e - out_ib.s + 1) *
-                  static_cast<size_t>(out_jb.e - out_jb.s + 1) *
-                  static_cast<size_t>(out_kb.e - out_kb.s + 1);
+  std::vector<size_t> bsize;
+  bsize.push_back(out_ib.e - out_ib.s + 1);
+  bsize.push_back(out_jb.e - out_jb.s + 1);
+  bsize.push_back(out_kb.e - out_kb.s + 1);
+
+  size_t nCells = bsize[0] * bsize[1] * bsize[2];
+
   // Get list of variables, assumed same for all blocks
-  auto ciX = ContainerIterator<Real>(
-      mb.real_containers.Get(),
+  auto ciX = MeshBlockDataIterator<Real>(
+      mb.meshblock_data.Get(),
       {parthenon::Metadata::Independent, parthenon::Metadata::Restart}, true);
 
   // Allocate space based on largest vector
@@ -222,15 +223,13 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
     }
   }
   std::vector<Real> tmp(static_cast<size_t>(nb) * nCells * vlen);
-  std::cout << "SIZES:" << nb << ":" << vlen << ":"
-            << static_cast<size_t>(nb) * nCells * vlen << std::endl;
   for (auto &v : ciX.vars) {
     const size_t v4 = v->GetDim(4);
     const std::string vName = v->label();
 
-    std::cout << "Var:" << vName << ":" << v4 << std::endl;
+    if (Globals::my_rank == 0) std::cout << "Var:" << vName << ":" << v4 << std::endl;
     // Read relevant data from the hdf file
-    int stat = resfile.ReadBlocks(vName.c_str(), myBlocks, tmp, v4);
+    int stat = resfile.ReadBlocks(vName.c_str(), myBlocks, tmp, bsize, v4);
     if (stat < 0) {
       std::cout << " WARNING: Variable " << v->label() << " Not found in restart file";
       continue;
@@ -239,14 +238,15 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
     size_t index = 0;
     for (auto &pmb : rm.block_list) {
       bool found = false;
-      auto cX = ContainerIterator<Real>(
-          pmb->real_containers.Get(),
+      auto cX = MeshBlockDataIterator<Real>(
+          pmb->meshblock_data.Get(),
           {parthenon::Metadata::Independent, parthenon::Metadata::Restart}, true);
       for (auto &v : cX.vars) {
         if (vName.compare(v->label()) == 0) {
-          auto v_h = (*v).data.GetHostMirrorAndCopy();
+          auto v_h = v->data.GetHostMirror();
           UNLOADVARIABLEONE(index, tmp, v_h, out_ib.s, out_ib.e, out_jb.s, out_jb.e,
-                            out_kb.s, out_kb.e, v4)
+                            out_kb.s, out_kb.e, v4);
+          v->data.DeepCopy(v_h);
           found = true;
           break;
         }
