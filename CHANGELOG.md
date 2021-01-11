@@ -34,7 +34,7 @@
 - [[PR 382]](https://github.com/lanl/parthenon/pull/382) Adds output on fail for fast ci implementation on Darwin.
 - [[PR 362]](https://github.com/lanl/parthenon/pull/362) Small fix to clean regression tests output folder on reruns
 - [[PR 403]](https://github.com/lanl/parthenon/pull/403) Cleanup Codacy warnings
-- [[PR 411]](https://github.com/lanl/parthenon/pull/411) Triad Copyright 2021
+- [[PR 411]](https://github.com/lanl/parthenon/pull/411) Triad and Parthenon Collaboration Copyright 2021
 
 ### Removed (removing behavior/API/varaibles/...)
 

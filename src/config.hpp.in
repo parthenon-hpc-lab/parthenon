@@ -21,7 +21,7 @@
 //  config.hpp file will be created (overwriting the last) from this template. This new
 //  file contains Athena++ specific cpp macros and definitions set by configure.
 
-#define COORDINATE_TYPE @COORDINATE_TYPE @
+#define COORDINATE_TYPE @COORDINATE_TYPE@
 
 //----------------------------------------------------------------------------------------
 // macros which define physics and algorithms
@@ -31,32 +31,32 @@
 #define PROBLEM_GENERATOR "@PROBLEM@"
 
 // use single precision floating-point values (binary32)? default=0 (false; use binary64)
-#define SINGLE_PRECISION_ENABLED @SINGLE_PRECISION_ENABLED @
+#define SINGLE_PRECISION_ENABLED @SINGLE_PRECISION_ENABLED@
 
 // configure.py dict(definitions) Boolean string macros:
 // (these options have the latter (false) option as defaults, unless noted otherwise)
 
 // MPI parallelization (MPI_PARALLEL or NOT_MPI_PARALLEL)
-#define @MPI_OPTION @
+#define @MPI_OPTION@
 
 // OpenMP parallelization (OPENMP_PARALLEL or NOT_OPENMP_PARALLEL)
-#define @OPENMP_OPTION @
+#define @OPENMP_OPTION@
 
 // HDF5 output (HDF5OUTPUT or NO_HDF5OUTPUT)
-#define @HDF5_OPTION @
+#define @HDF5_OPTION@
 
 // Default loop patterns for MeshBlock par_for() wrappers,
 // see kokkos_abstraction.hpp for available tags.
 // Kokkos tight loop layout
-#define DEFAULT_LOOP_PATTERN parthenon::@PAR_LOOP_LAYOUT_TAG @
+#define DEFAULT_LOOP_PATTERN parthenon::@PAR_LOOP_LAYOUT_TAG@
 
 // Kokkos nested loop layout
 #define DEFAULT_OUTER_LOOP_PATTERN parthenon::outer_loop_pattern_teams_tag
-#define DEFAULT_INNER_LOOP_PATTERN parthenon::@PAR_LOOP_INNER_LAYOUT_TAG @
+#define DEFAULT_INNER_LOOP_PATTERN parthenon::@PAR_LOOP_INNER_LAYOUT_TAG@
 
 // try/throw/catch C++ exception handling (ENABLE_EXCEPTIONS or DISABLE_EXCEPTIONS)
 // (enabled by default)
-#define @EXCEPTION_HANDLING_OPTION @
+#define @EXCEPTION_HANDLING_OPTION@
 
 // compiler options
 #define COMPILED_WITH "@COMPILER_CHOICE@"
@@ -66,9 +66,9 @@
 //----------------------------------------------------------------------------------------
 // macros associated with numerical algorithm (rarely modified)
 
-#define NFIELD @NFIELD_VARIABLES @
-#define NWAVE @NWAVE_VALUE @
-#define NGHOST @NUMBER_GHOST_CELLS @
+#define NFIELD @NFIELD_VARIABLES@
+#define NWAVE @NWAVE_VALUE@
+#define NGHOST @NUMBER_GHOST_CELLS@
 #define MAX_NSTAGE 5    // maximum number of stages per cycle for time-integrator
 #define MAX_NREGISTER 3 // maximum number of (u, b) register pairs for time-integrator
 
