@@ -239,6 +239,8 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, double t0) {
         }
       });
 
+  swarm->swarm_num_incomplete_ = swarm->get_num_active();
+
   return TaskStatus::complete;
 }
 
@@ -330,6 +332,7 @@ TaskStatus TransportParticles(MeshBlock *pmb, StagedIntegrator *integrator, doub
               z(n) = z_min + (z(n) - z_max);
             }*/
           }
+          // TODO(BRR) Mark as complete
         }
       });
 
@@ -362,6 +365,10 @@ TaskListStatus ParticleDriver::Step() {
   BlockList_t &blocks = pmesh->block_list;
   auto num_task_lists_executed_independently = blocks.size();
 
+  // Create all the particles that will be created during the step
+  TaskCollection ptc = MakeParticlesCreationTaskCollection();
+  ptc.Execute();
+
   // Loop over repeated MPI calls until every particle is finished. This logic is required
   // because long-distance particle pushes can lead to a large, unpredictable number of
   // MPI sends and receives.
@@ -386,6 +393,73 @@ TaskListStatus ParticleDriver::Step() {
   return status;
 }
 
+// TODO(BRR) Move to Swarm or something
+#include "bvals/swarm/bvals_swarm.hpp"
+static int num_incomplete_local, num_incomplete_global;
+static MPI_Request allreduce_request;
+TaskStatus StartCommunicationMesh(BlockList_t &blocks) {
+  num_incomplete_local = 0;
+  for (int i = 0; i < blocks.size(); i++) {
+    auto &pmb = blocks[i];
+    auto sc = pmb->swarm_data.Get();
+    auto swarm = sc->Get("my particles");
+    printf("[%i] incomplete: %i num active: %i\n", i, swarm->global_num_incomplete_,
+      swarm->get_num_active());
+    //num_active_local += swarm->get_num_active();
+    num_incomplete_local += swarm->swarm_num_incomplete_;
+  }
+  printf("[%i] num_incomplete_local: %i\n", Globals::my_rank, num_incomplete_local);
+
+  MPI_Iallreduce(&num_incomplete_local, &num_incomplete_global, 1, MPI_INT, MPI_SUM,
+    MPI_COMM_WORLD, &allreduce_request);
+
+
+  //MPI_Status status;
+  //MPI_Wait(&allreduce_request, &status);
+  //printf("Total incomplete: %i\n", num_incomplete_global);
+  //exit(-1);
+
+  return TaskStatus::complete;
+}
+
+TaskStatus StopCommunicationMesh(BlockList_t &blocks, bool &finished_transport) {
+  // TODO(BRR) this allreduce should actually be generated after the particles are pushed...right?
+  MPI_Status status;
+  MPI_Wait(&allreduce_request, &status);
+
+  PARTHENON_REQUIRE(num_incomplete_global >= 0, "Negative number of incomplete particles!")
+
+  if (num_incomplete_global == 0) {
+    finished_transport = true;
+  } else {
+    finished_transport = false;
+  }
+
+  printf("[%i] num incomplete: %i\n", Globals::my_rank, num_incomplete_global);
+
+  exit(-1);
+
+  return TaskStatus::complete;
+}
+
+TaskCollection ParticleDriver::MakeParticlesCreationTaskCollection() {
+  TaskCollection tc;
+  TaskID none(0);
+  double t0 = tm.time;
+  BlockList_t &blocks = pmesh->block_list;
+
+  auto num_task_lists_executed_independently = blocks.size();
+  TaskRegion &async_region0 = tc.AddRegion(num_task_lists_executed_independently);
+  for (int i = 0; i < blocks.size(); i++) {
+    auto &pmb = blocks[i];
+    auto &tl = async_region0[i];
+    auto create_some_particles =
+        tl.AddTask(none, CreateSomeParticles, pmb.get(), t0);
+  }
+
+  return tc;
+}
+
 TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection() {
   TaskCollection tc;
   TaskID none(0);
@@ -393,32 +467,45 @@ TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection() {
   BlockList_t &blocks = pmesh->block_list;
 
   auto num_task_lists_executed_independently = blocks.size();
-  TaskRegion &async_region1 = tc.AddRegion(num_task_lists_executed_independently);
 
+  TaskRegion &sync_region0 = tc.AddRegion(1);
+  {
+    auto &tl = sync_region0[0];
+    auto start_comm = tl.AddTask(none, StartCommunicationMesh, blocks);
+  }
+
+  /*TaskRegion &async_region0 = tc.AddRegion(num_task_lists_executed_independently);
   for (int i = 0; i < blocks.size(); i++) {
     auto &pmb = blocks[i];
-    auto &tl = async_region1[i];
+    auto &tl = async_region0[i];
 
     auto sc = pmb->swarm_data.Get();
 
     auto swarm = sc->Get("my particles");
 
-    auto start_comm = tl.AddTask(none, &SwarmContainer::StartCommunication, sc.get(),
-                               BoundaryCommSubset::all);
-    auto create_some_particles =
-        tl.AddTask(none, CreateSomeParticles, pmb.get(), t0);
+    //auto start_comm = tl.AddTask(none, &SwarmContainer::StartCommunication, sc.get(),
+    //                           BoundaryCommSubset::all);
+    //auto create_some_particles =
+    //    tl.AddTask(none, CreateSomeParticles, pmb.get(), t0);
 
     auto transport_particles =
-        tl.AddTask(create_some_particles, TransportParticles, pmb.get(), integrator.get(), t0);
+        tl.AddTask(none, TransportParticles, pmb.get(), integrator.get(), t0);
 
-    auto send = tl.AddTask(create_some_particles, &SwarmContainer::Send, sc.get(),
-                         BoundaryCommSubset::all);
-    auto receive = tl.AddTask(create_some_particles, &SwarmContainer::Receive, sc.get(),
-                            BoundaryCommSubset::all);
+    //auto send = tl.AddTask(create_some_particles, &SwarmContainer::Send, sc.get(),
+    //                     BoundaryCommSubset::all);
+    //auto receive = tl.AddTask(create_some_particles, &SwarmContainer::Receive, sc.get(),
+    //                        BoundaryCommSubset::all);
 
-    auto finalize_comm =
-      tl.AddTask(create_some_particles, &SwarmContainer::FinishCommunication, sc.get(),
-                 BoundaryCommSubset::all);
+    //auto finalize_comm =
+    //  tl.AddTask(create_some_particles, &SwarmContainer::FinishCommunication, sc.get(),
+    //             BoundaryCommSubset::all);
+  }*/
+
+  TaskRegion &sync_region1 = tc.AddRegion(1);
+  bool finished_transport;
+  {
+    auto &tl = sync_region1[0];
+    auto start_comm = tl.AddTask(none, StopCommunicationMesh, blocks, finished_transport);
   }
 
   return tc;

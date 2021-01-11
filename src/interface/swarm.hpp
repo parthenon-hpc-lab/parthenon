@@ -257,13 +257,16 @@ class Swarm {
   }
   bool FinishCommunication(BoundaryCommSubset phase);
 
- private:
-  int debug = 0;
-  std::weak_ptr<MeshBlock> pmy_block;
-
+  // Temporarily public
+  int swarm_num_incomplete_;
   int global_num_incomplete_;
   int local_num_completed_;
   int global_num_completed_;
+  MPI_Request allreduce_request_;
+
+ private:
+  int debug = 0;
+  std::weak_ptr<MeshBlock> pmy_block;
 
   int nmax_pool_;
   int max_active_index_ = 0;
@@ -285,8 +288,6 @@ class Swarm {
   ParArrayND<int> neighborIndices_; // Indexing of vbvar's neighbor array. -1 for same.
                                     // k,j indices unused in 3D&2D, 2D, respectively
   ParArrayND<int> blockIndex_; // Neighbor index for each particle. -1 for current block.
-
-  MPI_Request allreduce_request_;
 
   template <typename T>
   void ResizeParArray(ParArrayND<T> &var, int n_old, int n_new);
