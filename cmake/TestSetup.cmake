@@ -46,15 +46,21 @@ endfunction()
 # test property labels: regression, mpi-no
 function(setup_test dir arg extra_labels)
   separate_arguments(arg) 
-  list(APPEND labels "regression;mpi-no")
-  list(APPEND labels "${extra_labels}")
+  set(labels regression mpi-no ${extra_labels})
   if (Kokkos_ENABLE_OPENMP)
     set(PARTHENON_KOKKOS_TEST_ARGS "${PARTHENON_KOKKOS_TEST_ARGS} --kokkos-threads=${NUM_OMP_THREADS_PER_RANK}")
   endif()
-  add_test( NAME regression_test:${dir} COMMAND ${Python3_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/run_test.py" 
-    ${arg} --test_dir "${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}"
-    --output_dir "${PROJECT_BINARY_DIR}/tst/regression/outputs/${dir}"
-    --kokkos_args=${PARTHENON_KOKKOS_TEST_ARGS})
+  if (SERIAL_WITH_MPIEXEC)
+    set(PREFIX_SERIAL_REGRESSION_TEST ${TEST_MPIEXEC})
+    set(SUFFIX_SERIAL_REGRESSION_TEST --mpirun ${TEST_MPIEXEC})
+  endif()
+  add_test(
+    NAME regression_test:${dir}
+    COMMAND ${PREFIX_SERIAL_REGRESSION_TEST} ${Python3_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/run_test.py" 
+      ${arg} --test_dir "${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}"
+      --output_dir "${PROJECT_BINARY_DIR}/tst/regression/outputs/${dir}"
+      --kokkos_args=${PARTHENON_KOKKOS_TEST_ARGS}
+      ${SUFFIX_SERIAL_REGRESSION_TEST})
   set_tests_properties(regression_test:${dir} PROPERTIES LABELS "${labels}" )
   record_driver("${arg}")
 endfunction()
@@ -66,8 +72,7 @@ function(setup_test_coverage dir arg extra_labels)
   if( CODE_COVERAGE )
     separate_arguments(arg) 
 
-    list(APPEND labels "regression;coverage;mpi-no")
-    list(APPEND labels "${extra_labels}")
+    set(labels regression coverage mpi-no ${extra_labels})
     add_test( NAME regression_coverage_test:${dir} COMMAND ${Python3_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/run_test.py" 
       ${arg} 
       --coverage
@@ -109,13 +114,12 @@ endfunction()
 # test property labels: regression, mpi-yes
 function(setup_test_mpi nproc dir arg extra_labels)
   if( MPI_FOUND )
-    separate_arguments(arg) 
-    list(APPEND labels "regression;mpi-yes")
-    list(APPEND labels "${extra_labels}")
+    separate_arguments(arg)
+    set(labels regression mpi-yes ${extra_labels})
 
     if(Kokkos_ENABLE_CUDA)
       set(PARTHENON_KOKKOS_TEST_ARGS "--kokkos-num-devices=${NUM_GPU_DEVICES_PER_NODE}")
-      list(APPEND labels "cuda")
+      list(APPEND labels cuda)
     endif()
     if (Kokkos_ENABLE_OPENMP)
       set(PARTHENON_KOKKOS_TEST_ARGS "${PARTHENON_KOKKOS_TEST_ARGS} --kokkos-threads=${NUM_OMP_THREADS_PER_RANK}")
@@ -140,8 +144,7 @@ function(setup_test_mpi_coverage nproc dir arg extra_labels)
   if( MPI_FOUND )
     if( CODE_COVERAGE )
 
-      list(APPEND labels "regression;coverage;mpi-yes")
-      list(APPEND labels "${extra_labels}")
+      set(labels regression coverage mpi-yes ${extra_labels})
       separate_arguments(arg) 
       process_mpi_args(${nproc})
       add_test( NAME regression_mpi_coverage_test:${dir} COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/run_test.py
