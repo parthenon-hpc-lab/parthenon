@@ -130,7 +130,12 @@ function(setup_test_mpi nproc dir arg extra_labels)
       --test_dir ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}
       --output_dir "${PROJECT_BINARY_DIR}/tst/regression/outputs/${dir}_mpi"
       --kokkos_args=${PARTHENON_KOKKOS_TEST_ARGS})
-    set_tests_properties(regression_mpi_test:${dir} PROPERTIES LABELS "${labels}" RUN_SERIAL ON )
+    set_tests_properties(
+      regression_mpi_test:${dir}
+      PROPERTIES
+        LABELS "${labels}"
+        PROCESSOR_AFFINITY ON
+        PROCESSORS ${nproc})
     record_driver("${arg}")
   else()
     message(STATUS "MPI not found, not building regression tests with mpi")

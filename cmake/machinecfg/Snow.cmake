@@ -22,7 +22,7 @@
 #           current commit. See `SNOW_VIEW_DATE_LATEST`
 # - `SNOW_COMPILER` - Compiler family to use
 #       Default: "GCC"
-#       Possible Values: "GCC", "GCC9"
+#       Possible Values: "GCC", "GCC9", "INTEL", "INTEL19"
 # - `SNOW_PROJECT_PREFIX`
 #   Description: [ADVANCED] Point to an alternative parthenon-project path
 #       Default: /projects/parthenon-int/parthenon-project
@@ -31,9 +31,15 @@
 # ideally only need to update these variables to change the default behavior.
 set(SNOW_VIEW_DATE_LATEST "2021-01-11")
 set(SNOW_GCC_PREFERRED "GCC9")
+set(SNOW_INTEL_PREFERRED "INTEL19")
 set(SNOW_COMPILER_PREFERRED "GCC")
 
 set(SNOW_GCC9_VERSION "9.3.0")
+
+set(SNOW_INTEL19_VERSION "19.1.3")
+set(SNOW_INTEL19_GCC "GCC9")
+set(SNOW_INTEL19_LOCATION "/usr/projects/hpcsoft/toss3/common/x86_64/intel-clusterstudio/2020.4.912/compilers_and_libraries_2020.4.304/linux")
+
 set(SNOW_MPI_VERSION "3.1.6")
 
 # It would be nice if we could let this variable float with the current code
@@ -56,6 +62,8 @@ endif()
 
 if (SNOW_COMPILER STREQUAL "GCC")
     set(SNOW_COMPILER ${SNOW_GCC_PREFERRED})
+elseif (SNOW_COMPILER STREQUAL "INTEL")
+    set(SNOW_COMPILER ${SNOW_INTEL_PREFERRED})
 endif()
 
 set(SNOW_PROJECT_PREFIX /usr/projects/parthenon/parthenon-project
@@ -75,8 +83,15 @@ if (NOT EXISTS ${SNOW_ARCH_PREFIX})
     return()
 endif()
 
-string(TOLOWER "${SNOW_COMPILER}" SNOW_COMPILER_LOWER)
-set(SNOW_COMPILER_PREFIX ${SNOW_ARCH_PREFIX}/${SNOW_COMPILER_LOWER})
+# Set SNOW_GCC
+if (SNOW_COMPILER MATCHES "GCC")
+    set(SNOW_GCC ${SNOW_COMPILER})
+elseif(SNOW_COMPILER MATCHES "INTEL")
+    set(SNOW_GCC ${SNOW_INTEL19_GCC})
+endif()
+
+string(TOLOWER "${SNOW_GCC}" SNOW_GCC_LOWER)
+set(SNOW_COMPILER_PREFIX ${SNOW_ARCH_PREFIX}/${SNOW_GCC_LOWER})
 
 if (NOT EXISTS ${SNOW_COMPILER_PREFIX})
     message(WARNING "No dependencies detected for \
@@ -91,12 +106,14 @@ if (NOT EXISTS ${SNOW_VIEW_PREFIX})
     return()
 endif()
 
+set(GCC_VERSION ${SNOW_${SNOW_GCC}_VERSION})
+if (GCC_VERSION)
+    set(GCC_PREFIX /usr/projects/hpcsoft/toss3/common/x86_64/gcc/${GCC_VERSION})
+endif()
+
 # Let the user specify the compiler if they really want to. Otherwise, point
 # to the compilers specified by the SNOW_ options
 if (SNOW_COMPILER MATCHES "GCC")
-    set(GCC_VERSION ${SNOW_${SNOW_COMPILER}_VERSION})
-    set(GCC_PREFIX /usr/projects/hpcsoft/toss3/common/x86_64/gcc/${GCC_VERSION})
-
     if (GCC_VERSION)
         set(CMAKE_C_COMPILER ${GCC_PREFIX}/bin/gcc
             CACHE STRING "gcc ${GCC_VERSION}")
@@ -105,6 +122,19 @@ if (SNOW_COMPILER MATCHES "GCC")
 
         set(CMAKE_BUILD_RPATH ${GCC_PREFIX}/lib64
             CACHE STRING "rpath libs")
+    endif()
+elseif (SNOW_COMPILER MATCHES "INTEL")
+    set(INTEL_VERSION ${SNOW_${SNOW_COMPILER}_VERSION})
+
+    if (INTEL_VERSION)
+        set(INTEL_PREFIX ${SNOW_${SNOW_COMPILER}_LOCATION})
+        set(CMAKE_C_COMPILER ${INTEL_PREFIX}/bin/intel64/icc CACHE STRING "intel ${INTEL_VERSION}")
+        set(CMAKE_CXX_COMPILER ${INTEL_PREFIX}/bin/intel64/icpc CACHE STRING "intel ${INTEL_VERSION}")
+    endif()
+
+    if (GCC_VERSION)
+        list(APPEND CMAKE_C_FLAGS_INIT -gcc-name=${GCC_PREFIX}/bin/gcc)
+        list(APPEND CMAKE_CXX_FLAGS_INIT -gxx-name=${GCC_PREFIX}/bin/g++)
     endif()
 endif()
 
@@ -119,9 +149,9 @@ endif()
 
 # MPI - We use the system modules since replicating them in spack can be
 # difficult.
-if (SNOW_COMPILER MATCHES "GCC")
+if (GCC_VERSION)
     set(MPI_ROOT
-        /usr/projects/hpcsoft/toss3/snow/openmpi/${SNOW_MPI_VERSION}-gcc-${SNOW_${SNOW_COMPILER}_VERSION}
+        /usr/projects/hpcsoft/toss3/snow/openmpi/${SNOW_MPI_VERSION}-gcc-${GCC_VERSION}
         CACHE STRING "MPI Location")
 endif()
 
