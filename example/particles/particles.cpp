@@ -365,30 +365,67 @@ TaskListStatus ParticleDriver::Step() {
   BlockList_t &blocks = pmesh->block_list;
   auto num_task_lists_executed_independently = blocks.size();
 
+    MPI_Barrier(MPI_COMM_WORLD);
+    if (Globals::my_rank == 0) {
+      printf("ABOUT TO DO PARTICLE CREATION!\n\n\n");
+    }
+    fflush(stdout);
+    MPI_Barrier(MPI_COMM_WORLD);
+
   // Create all the particles that will be created during the step
   TaskCollection ptc = MakeParticlesCreationTaskCollection();
   ptc.Execute();
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    if (Globals::my_rank == 0) {
+      printf("DONE WITH PARTICLE CREATION!\n\n\n");
+    }
+    fflush(stdout);
+    MPI_Barrier(MPI_COMM_WORLD);
+
 
   // Loop over repeated MPI calls until every particle is finished. This logic is required
   // because long-distance particle pushes can lead to a large, unpredictable number of
   // MPI sends and receives.
   bool particles_update_done = false;
   while (!particles_update_done) {
-    TaskCollection ptc = MakeParticlesUpdateTaskCollection();
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    if (Globals::my_rank == 0) {
+      printf("PARTICLE_UPDATE_ITERATION!\n\n\n");
+    }
+    fflush(stdout);
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    TaskCollection ptc = MakeParticlesUpdateTaskCollection(particles_update_done);
     status = ptc.Execute();
 
     // Check that every meshblock's swarm agrees that MPI is complete
-    particles_update_done = true;
+    /*particles_update_done = true;
     for (int n = 0; n < blocks.size(); n++) {
-      if (blocks[n]->swarm_data.Get()->Get("my particles")->mpiStatus != true) {
+      if (blocks[n]->swarm_data.Get()->Get("my particles")-> != true) {
         particles_update_done = false;
       }
-    }
+    }*/
   }
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    if (Globals::my_rank == 0) {
+      printf("DONE WITH PARTICLE UPDATE!\n\n\n");
+    }
+    fflush(stdout);
+    MPI_Barrier(MPI_COMM_WORLD);
 
   // Use a more traditional task list for predictable post-MPI evaluations.
   TaskCollection ftc = MakeFinalizationTaskCollection();
   status = ftc.Execute();
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    if (Globals::my_rank == 0) {
+      printf("DONE WITH PARTICLE FINALIZATION!\n\n\n");
+    }
+    fflush(stdout);
+    MPI_Barrier(MPI_COMM_WORLD);
 
   return status;
 }
@@ -427,17 +464,28 @@ TaskStatus StopCommunicationMesh(BlockList_t &blocks, bool &finished_transport) 
   MPI_Status status;
   MPI_Wait(&allreduce_request, &status);
 
-  PARTHENON_REQUIRE(num_incomplete_global >= 0, "Negative number of incomplete particles!")
+  int num_sent_local = 0;
+  for (auto &block : blocks) {
+    auto &pmb = block;
+    auto sc = pmb->swarm_data.Get();
+    auto swarm = sc->Get("my particles");
+    num_sent_local += swarm->num_particles_sent_;
+  }
 
-  if (num_incomplete_global == 0) {
+  int num_sent_global = 0;
+  MPI_Allreduce(&num_sent_local, &num_sent_global, 1, MPI_INT, MPI_SUM,
+    MPI_COMM_WORLD);
+  printf("[%i] num sent global: %i\n", Globals::my_rank, num_sent_global);
+
+  //PARTHENON_REQUIRE(num_incomplete_global >= 0, "Negative number of incomplete particles!")
+
+  if (num_sent_global == 0) {
     finished_transport = true;
   } else {
     finished_transport = false;
   }
 
-  printf("[%i] num incomplete: %i\n", Globals::my_rank, num_incomplete_global);
-
-  exit(-1);
+  //printf("[%i] num incomplete: %i\n", Globals::my_rank, num_incomplete_global);
 
   return TaskStatus::complete;
 }
@@ -460,7 +508,7 @@ TaskCollection ParticleDriver::MakeParticlesCreationTaskCollection() {
   return tc;
 }
 
-TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection() {
+TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection(bool &finished_transport) {
   TaskCollection tc;
   TaskID none(0);
   double t0 = tm.time;
@@ -474,7 +522,7 @@ TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection() {
     auto start_comm = tl.AddTask(none, StartCommunicationMesh, blocks);
   }
 
-  /*TaskRegion &async_region0 = tc.AddRegion(num_task_lists_executed_independently);
+  TaskRegion &async_region0 = tc.AddRegion(num_task_lists_executed_independently);
   for (int i = 0; i < blocks.size(); i++) {
     auto &pmb = blocks[i];
     auto &tl = async_region0[i];
@@ -491,21 +539,21 @@ TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection() {
     auto transport_particles =
         tl.AddTask(none, TransportParticles, pmb.get(), integrator.get(), t0);
 
-    //auto send = tl.AddTask(create_some_particles, &SwarmContainer::Send, sc.get(),
-    //                     BoundaryCommSubset::all);
-    //auto receive = tl.AddTask(create_some_particles, &SwarmContainer::Receive, sc.get(),
-    //                        BoundaryCommSubset::all);
+    auto send = tl.AddTask(transport_particles, &SwarmContainer::Send, sc.get(),
+                         BoundaryCommSubset::all);
+    auto receive = tl.AddTask(send, &SwarmContainer::Receive, sc.get(),
+                            BoundaryCommSubset::all);
 
     //auto finalize_comm =
     //  tl.AddTask(create_some_particles, &SwarmContainer::FinishCommunication, sc.get(),
     //             BoundaryCommSubset::all);
-  }*/
+  }
 
   TaskRegion &sync_region1 = tc.AddRegion(1);
-  bool finished_transport;
+  //bool finished_transport;
   {
     auto &tl = sync_region1[0];
-    auto start_comm = tl.AddTask(none, StopCommunicationMesh, blocks, finished_transport);
+    auto stop_comm = tl.AddTask(none, StopCommunicationMesh, blocks, finished_transport);
   }
 
   return tc;

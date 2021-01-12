@@ -302,6 +302,8 @@ void Swarm::setPoolMax(const int nmax_pool) {
 
 ParArrayND<bool> Swarm::AddEmptyParticles(const int num_to_add,
                                           ParArrayND<int> &new_indices) {
+  printf("ADDING %i particles!!!!111\n", num_to_add);
+  PARTHENON_REQUIRE(num_to_add > 0, "Attempting to add fewer than 1 new particles!");
   GetBlockPointer()->exec_space.fence();
   while (free_indices_.size() < num_to_add) {
     increasePoolMax();
@@ -531,10 +533,10 @@ void Swarm::SetupPersistentMPI() {
 bool Swarm::Send(BoundaryCommSubset phase) {
   GetBlockPointer()->exec_space.fence();
   printf("[%i] Send\n", Globals::my_rank);
-  if (mpiStatus == true) {
-    printf("mpiStatus is true!\n");
-    return true;
-  }
+  //if (mpiStatus == true) {
+  //  printf("mpiStatus is true!\n");
+  //  return true;
+  //}
 
   auto blockIndex_h = blockIndex_.GetHostMirrorAndCopy();
   auto mask_h = mask_.data.GetHostMirrorAndCopy();
@@ -582,6 +584,7 @@ bool Swarm::Send(BoundaryCommSubset phase) {
   num_particles_to_send.DeepCopy(num_particles_to_send_h);
   particle_indices_to_send.DeepCopy(particle_indices_to_send_h);
 
+  num_particles_sent_ = 0;
   for (int n = 0; n < nbmax; n++) {
     // Resize buffer if too small
     auto sendbuf = vbvar->bd_var_.send[n];
@@ -590,6 +593,7 @@ bool Swarm::Send(BoundaryCommSubset phase) {
       vbvar->bd_var_.send[n] = sendbuf;
     }
     vbvar->send_size[n] = num_particles_to_send_h(n) * particle_size;
+    num_particles_sent_ += num_particles_to_send_h(n);
   }
 
   SwarmVariablePack<Real> vreal;
@@ -623,7 +627,7 @@ bool Swarm::Send(BoundaryCommSubset phase) {
   // copy into buffers (if no send already for that buffer) and send
 
   vbvar->Send(phase);
-  return false;
+  return true;
 }
 
 vpack_types::SwarmVarList<Real> Swarm::MakeRealList_(std::vector<std::string> &names) {
@@ -709,10 +713,10 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
   // TODO(BRR) is this fence necessary?
   GetBlockPointer()->exec_space.fence();
   auto pmb = GetBlockPointer();
-  printf("[%i] Receive\n", Globals::my_rank);
-  if (mpiStatus == true) {
-    return true;
-  }
+  //printf("[%i] Receive\n", Globals::my_rank);
+  //if (mpiStatus == true) {
+  //  return true;
+  //}
 
   // Populate buffers
   vbvar->Receive(phase);
@@ -724,6 +728,10 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
   for (int n = 0; n < maxneighbor; n++) {
     total_received_particles += vbvar->recv_size[n] / vbvar->particle_size;
     neighbor_received_particles[n] = vbvar->recv_size[n] / vbvar->particle_size;
+  }
+
+  if (total_received_particles == 0) {
+    return true;
   }
 
   ParArrayND<int> new_indices;
@@ -770,7 +778,7 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
         }
       });
 
-  return false;
+  return true;
 }
 
 void Swarm::PackAllVariables(SwarmVariablePack<Real> &vreal,
@@ -778,9 +786,14 @@ void Swarm::PackAllVariables(SwarmVariablePack<Real> &vreal,
   PackIndexMap rmap, imap;
   std::vector<std::string> real_vars;
   std::vector<std::string> int_vars;
+  printf("%s:%i\n", __FILE__, __LINE__);
+  printf("realVector_.size: %i\n", realVector_.size());
+  printf("a label: %s\n", realVector_[0]->label().c_str());
   for (auto &realVar : realVector_) {
+    printf("label: %s\n", realVar->label().c_str());
     real_vars.push_back(realVar->label());
   }
+  printf("%s:%i\n", __FILE__, __LINE__);
   int real_vars_size = realVector_.size();
   int int_vars_size = intVector_.size();
   for (auto &intVar : intVector_) {

@@ -263,6 +263,7 @@ class Swarm {
   int local_num_completed_;
   int global_num_completed_;
   MPI_Request allreduce_request_;
+  int num_particles_sent_;
 
  private:
   int debug = 0;
