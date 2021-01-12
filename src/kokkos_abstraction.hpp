@@ -41,6 +41,17 @@ using ScratchMemSpace = DevExecSpace::scratch_memory_space;
 
 using LayoutWrapper = Kokkos::LayoutRight;
 
+
+#ifdef KOKKOS_ENABLE_CUDA
+using BufMemSpace = Kokkos::CudaHostPinnedSpace;
+#else
+using BufMemSpace = Kokkos::DefaultExecutionSpace::memory_space;
+#endif
+
+// MPI communication buffers
+template <typename T>
+using BufArray1D = Kokkos::View<T *, LayoutWrapper, BufMemSpace>;
+
 template <typename T>
 using ParArray1D = Kokkos::View<T *, LayoutWrapper, DevMemSpace>;
 template <typename T>
