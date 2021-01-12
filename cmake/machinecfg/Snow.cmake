@@ -21,7 +21,7 @@
 #           unset, which results in using the view associated with your
 #           current commit. See `SNOW_VIEW_DATE_LATEST`
 # - `SNOW_COMPILER` - Compiler family to use
-#       Default: "GCC"
+#       Default: "INTEL"
 #       Possible Values: "GCC", "GCC9", "INTEL", "INTEL19"
 # - `SNOW_PROJECT_PREFIX`
 #   Description: [ADVANCED] Point to an alternative parthenon-project path
@@ -32,7 +32,7 @@
 set(SNOW_VIEW_DATE_LATEST "2021-01-11")
 set(SNOW_GCC_PREFERRED "GCC9")
 set(SNOW_INTEL_PREFERRED "INTEL19")
-set(SNOW_COMPILER_PREFERRED "GCC")
+set(SNOW_COMPILER_PREFERRED "INTEL")
 
 set(SNOW_GCC9_VERSION "9.3.0")
 
