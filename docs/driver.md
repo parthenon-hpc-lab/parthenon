@@ -18,11 +18,11 @@ loop, including periodic outputs.  It has a single pure virtual member function 
 
 ## MultiStageDriver
 
-The ```MultiStageDriver``` derives from the ```EvolutionDriver```, extending it with two new data members.  These include a vector of ```std::string``` names for the stages of a multi-stage integration scheme and a pointer to an ```Integrator``` object which includes members for the number of stages and the stage weights.
+The ```MultiStageDriver``` derives from the ```EvolutionDriver```, extending it in two important ways.  First, it holds a ```std::unique_ptr<StagedIntegrator>``` object which includes members for the number of stages, the stage weights, and the names of the stages.  Second, it defines a `Step()` function, which is reponsible for taking a timestep by looping over stages and calling the `ConstructAndExecuteTaskLists` function which builds and executes the tasks for each stage.  Applications that derive from `MultiStageDriver` are responsible for defining a `MakeTaskCollection` function that makes a `TaskCollection` given a `BlockList_t &` and an integer stage.  The advection example ([here](../example/advection/advection_driver.hpp)) demonstrates the use of this capability.
 
 ## MultiStageBlockTaskDriver
 
-The ```MultiStageBlockTaskDriver``` derives from the ```MultiStageDriver```, defining the ```Step``` function to loop over the stages in a step, constructing and executing task lists per ```MeshBlock```.  This class includes a single pure virtual member function called ```MakeTaskList``` which must be defined by an application and is responsible for constructing a ```TaskList``` for a given ```MeshBlock``` and ```Stage```.  The driver for the advection example (found [here](../example/advection/advection_driver.hpp)) derives from this class, demonstrating how a simple application based on a multi-stage Runge-Kutta scheme can be built. 
+The ```MultiStageBlockTaskDriver``` derives from the ```MultiStageDriver```, providing a slightly different interface to downstream codes.  Application drivers that derive from this class must define a `MakeTaskList` function that builds a task list for a given `MeshBlock *` and integer stage.  This is less flexible than the `MultiStageDriver`, but does simplify the code necessary to stand up a new capability.
 
 ## PreExecute/PostExecute
 

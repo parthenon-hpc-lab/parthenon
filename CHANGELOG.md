@@ -14,8 +14,9 @@
 - [[PR 386]](https://github.com/lanl/parthenon/pull/386) Introduce `Private`, `Provides`, `Requires`, and `Overridable` variable metadata, allowing fine-grained control of conflict resolution between packages.
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 393]](https://github.com/lanl/parthenon/pull/393) Small refactor to make driver code more flexible for downstream apps.
 - [[PR 400]](https://github.com/lanl/parthenon/pull/400) Change `Mesh`, `ApplicationInput`, and `Driver` to suppport pre- and post- step user work
-- [[PR 394]](https://github.com/lanl/parthenon/pull/332) Make `Params.Get` const-correct.
+- [[PR 394]](https://github.com/lanl/parthenon/pull/394) Make `Params.Get` const-correct.
 - [[PR 332]](https://github.com/lanl/parthenon/pull/332) Rewrote boundary conditions to work on GPUs with variable packs. Re-enabled user-defined boundary conditions via `ApplicationInput`.
 
 ### Fixed (not changing behavior/API/variables/...)

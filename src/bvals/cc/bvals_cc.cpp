@@ -121,12 +121,12 @@ int CellCenteredBoundaryVariable::ComputeFluxCorrectionBufferSize(
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn int CellCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(ParArray1D<Real>
+//! \fn int CellCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(BufArray1D<Real>
 //! &buf,
 //                                                                const NeighborBlock& nb)
 //  \brief Set cell-centered boundary buffers for sending to a block on the same level
 
-int CellCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(ParArray1D<Real> &buf,
+int CellCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(BufArray1D<Real> &buf,
                                                               const NeighborBlock &nb) {
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int si, sj, sk, ei, ej, ek;
@@ -149,12 +149,12 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(ParArray1D<Real> &
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn int CellCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(ParArray1D<Real>
+//! \fn int CellCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(BufArray1D<Real>
 //! &buf,
 //                                                                const NeighborBlock& nb)
 //  \brief Set cell-centered boundary buffers for sending to a block on the coarser level
 
-int CellCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(ParArray1D<Real> &buf,
+int CellCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(BufArray1D<Real> &buf,
                                                               const NeighborBlock &nb) {
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int si, sj, sk, ei, ej, ek;
@@ -179,11 +179,11 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(ParArray1D<Real> &
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn int CellCenteredBoundaryVariable::LoadBoundaryBufferToFiner(ParArray1D<Real> &buf,
+//! \fn int CellCenteredBoundaryVariable::LoadBoundaryBufferToFiner(BufArray1D<Real> &buf,
 //                                                                const NeighborBlock& nb)
 //  \brief Set cell-centered boundary buffers for sending to a block on the finer level
 
-int CellCenteredBoundaryVariable::LoadBoundaryBufferToFiner(ParArray1D<Real> &buf,
+int CellCenteredBoundaryVariable::LoadBoundaryBufferToFiner(BufArray1D<Real> &buf,
                                                             const NeighborBlock &nb) {
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int si, sj, sk, ei, ej, ek;
@@ -197,11 +197,11 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferToFiner(ParArray1D<Real> &bu
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void CellCenteredBoundaryVariable::SetBoundarySameLevel(ParArray1D<Real> &buf,
+//! \fn void CellCenteredBoundaryVariable::SetBoundarySameLevel(BufArray1D<Real> &buf,
 //                                                              const NeighborBlock& nb)
 //  \brief Set cell-centered boundary received from a block on the same level
 
-void CellCenteredBoundaryVariable::SetBoundarySameLevel(ParArray1D<Real> &buf,
+void CellCenteredBoundaryVariable::SetBoundarySameLevel(BufArray1D<Real> &buf,
                                                         const NeighborBlock &nb) {
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int si, sj, sk, ei, ej, ek;
@@ -223,11 +223,11 @@ void CellCenteredBoundaryVariable::SetBoundarySameLevel(ParArray1D<Real> &buf,
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void CellCenteredBoundaryVariable::SetBoundaryFromCoarser(ParArray1D<Real> &buf,
+//! \fn void CellCenteredBoundaryVariable::SetBoundaryFromCoarser(BufArray1D<Real> &buf,
 //                                                                const NeighborBlock& nb)
 //  \brief Set cell-centered prolongation buffer received from a block on a coarser level
 
-void CellCenteredBoundaryVariable::SetBoundaryFromCoarser(ParArray1D<Real> &buf,
+void CellCenteredBoundaryVariable::SetBoundaryFromCoarser(BufArray1D<Real> &buf,
                                                           const NeighborBlock &nb) {
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int si, sj, sk, ei, ej, ek;
@@ -252,11 +252,11 @@ void CellCenteredBoundaryVariable::SetBoundaryFromCoarser(ParArray1D<Real> &buf,
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void CellCenteredBoundaryVariable::SetBoundaryFromFiner(ParArray1D<Real> &buf,
+//! \fn void CellCenteredBoundaryVariable::SetBoundaryFromFiner(BufArray1D<Real> &buf,
 //                                                              const NeighborBlock& nb)
 //  \brief Set cell-centered boundary received from a block on a finer level
 
-void CellCenteredBoundaryVariable::SetBoundaryFromFiner(ParArray1D<Real> &buf,
+void CellCenteredBoundaryVariable::SetBoundaryFromFiner(BufArray1D<Real> &buf,
                                                         const NeighborBlock &nb) {
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   // receive already restricted data

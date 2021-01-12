@@ -51,7 +51,7 @@ struct BndInfo {
   int sk = 0;
   int ek = 0;
   int Nv = 0;
-  parthenon::ParArray1D<Real> buf; // comm buffer
+  parthenon::BufArray1D<Real> buf; // comm buffer
   parthenon::ParArray4D<Real> var; // data variable (could also be coarse array)
 };
 

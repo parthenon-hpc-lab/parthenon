@@ -35,7 +35,7 @@ namespace advection_example {
 // function.                                       *//
 // *************************************************//
 AdvectionDriver::AdvectionDriver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
-    : MultiStageBlockTaskDriver(pin, app_in, pm) {
+    : MultiStageDriver(pin, app_in, pm) {
   // fail if these are not specified in the input file
   pin->CheckRequired("parthenon/mesh", "ix1_bc");
   pin->CheckRequired("parthenon/mesh", "ox1_bc");
@@ -59,6 +59,7 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
 
   const Real beta = integrator->beta[stage - 1];
   const Real dt = integrator->dt;
+  const auto &stage_name = integrator->stage_name;
 
   // Number of task lists that can be executed indepenently and thus *may*
   // be executed in parallel and asynchronous.
