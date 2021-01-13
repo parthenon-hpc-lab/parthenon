@@ -3,7 +3,6 @@
 # Load system env only
 source /etc/bashrc
 source /etc/profile
-source /projects/parthenon-int/parthenon-project/.bashrc
 source /projects/parthenon-int/parthenon-project/spack/share/spack/setup-env.sh
 
 # Exit on error
@@ -27,6 +26,7 @@ spack env activate darwin-ppc64le-gcc9-2021-01-13
 # Calculate number of available cores
 export J=$(( $(nproc --all) )) && echo Using ${J} cores during build
 
+source /projects/parthenon-int/parthenon-project/.bashrc
 cmake -S. -Bbuild
 
 cmake --build build
