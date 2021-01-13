@@ -537,6 +537,8 @@ bool Swarm::Send(BoundaryCommSubset phase) {
   //  printf("mpiStatus is true!\n");
   //  return true;
   //}
+  printf("%s:%i\n", __FILE__, __LINE__);
+  TestVariables();
 
   auto blockIndex_h = blockIndex_.GetHostMirrorAndCopy();
   auto mask_h = mask_.data.GetHostMirrorAndCopy();
@@ -595,12 +597,16 @@ bool Swarm::Send(BoundaryCommSubset phase) {
     vbvar->send_size[n] = num_particles_to_send_h(n) * particle_size;
     num_particles_sent_ += num_particles_to_send_h(n);
   }
+  printf("%s:%i\n", __FILE__, __LINE__);
+  TestVariables();
 
   SwarmVariablePack<Real> vreal;
   SwarmVariablePack<int> vint;
   PackAllVariables(vreal, vint);
   int real_vars_size = realVector_.size();
   int int_vars_size = intVector_.size();
+  printf("%s:%i\n", __FILE__, __LINE__);
+  TestVariables();
 
   auto bdvar = vbvar->bd_var_;
   pmb->par_for(
@@ -622,6 +628,8 @@ bool Swarm::Send(BoundaryCommSubset phase) {
           }
         }
       });
+  printf("%s:%i\n", __FILE__, __LINE__);
+  TestVariables();
 
   // Count all the particles that are Active and Not on this block, if nonzero,
   // copy into buffers (if no send already for that buffer) and send
@@ -717,9 +725,13 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
   //if (mpiStatus == true) {
   //  return true;
   //}
+  printf("%s:%i\n", __FILE__, __LINE__);
+  TestVariables();
 
   // Populate buffers
   vbvar->Receive(phase);
+  printf("%s:%i\n", __FILE__, __LINE__);
+  TestVariables();
 
   // Copy buffers into swarm data on this proc
   int maxneighbor = vbvar->bd_var_.nbmax;
@@ -733,6 +745,8 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
   if (total_received_particles == 0) {
     return true;
   }
+  printf("%s:%i\n", __FILE__, __LINE__);
+  TestVariables();
 
   ParArrayND<int> new_indices;
   auto new_mask = AddEmptyParticles(total_received_particles, new_indices);
@@ -741,6 +755,8 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
   PackAllVariables(vreal, vint);
   int real_vars_size = realVector_.size();
   int int_vars_size = intVector_.size();
+  printf("%s:%i\n", __FILE__, __LINE__);
+  TestVariables();
 
   ParArrayND<int> neighbor_index("Neighbor index", total_received_particles);
   ParArrayND<int> buffer_index("Buffer index", total_received_particles);
@@ -748,6 +764,8 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
   auto buffer_index_h = buffer_index.GetHostMirror();
   int nid = 0;
   int per_neighbor_count = 0;
+  printf("%s:%i\n", __FILE__, __LINE__);
+  TestVariables();
 
   int id = 0;
   for (int n = 0; n < maxneighbor; n++) {
@@ -759,11 +777,17 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
   }
   neighbor_index.DeepCopy(neighbor_index_h);
   buffer_index.DeepCopy(buffer_index_h);
+  printf("%s:%i\n", __FILE__, __LINE__);
+  TestVariables();
 
   // construct map from buffer index to swarm index (or just return vector of indices!)
   int particle_size = GetParticleDataSize();
+  printf("%s:%i\n", __FILE__, __LINE__);
+  TestVariables();
 
   auto bdvar = vbvar->bd_var_;
+  printf("%s:%i\n", __FILE__, __LINE__);
+  TestVariables();
   pmb->par_for(
       "Unpack buffers", 0, total_received_particles - 1, KOKKOS_LAMBDA(const int n) {
         int sid = new_indices(n);
@@ -777,25 +801,29 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
               bdvar.recv[nid]((real_vars_size + bid) * particle_size + i));
         }
       });
+  printf("%s:%i\n", __FILE__, __LINE__);
+  TestVariables();
 
   return true;
 }
 
 void Swarm::PackAllVariables(SwarmVariablePack<Real> &vreal,
                              SwarmVariablePack<int> &vint) {
+  printf("%s:%i\n", __FILE__, __LINE__);
+  TestVariables();
   PackIndexMap rmap, imap;
   std::vector<std::string> real_vars;
   std::vector<std::string> int_vars;
   printf("%s:%i\n", __FILE__, __LINE__);
-  printf("realVector_.size: %i\n", realVector_.size());
-  printf("a label: %s\n", realVector_[0]->label().c_str());
+  TestVariables();
   for (auto &realVar : realVector_) {
     printf("label: %s\n", realVar->label().c_str());
     real_vars.push_back(realVar->label());
   }
-  printf("%s:%i\n", __FILE__, __LINE__);
   int real_vars_size = realVector_.size();
   int int_vars_size = intVector_.size();
+  printf("%s:%i\n", __FILE__, __LINE__);
+  TestVariables();
   for (auto &intVar : intVector_) {
     int_vars.push_back(intVar->label());
   }

@@ -182,6 +182,7 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, double t0) {
   auto rng_pool = pkg->Param<RNGPool>("rng_pool");
   auto num_particles = pkg->Param<int>("num_particles");
   auto v = pkg->Param<Real>("particle_speed");
+  swarm->TestVariables();
 
   ParArrayND<int> new_indices;
   const auto new_particles_mask = swarm->AddEmptyParticles(num_particles, new_indices);

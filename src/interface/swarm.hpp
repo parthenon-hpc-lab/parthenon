@@ -264,6 +264,25 @@ class Swarm {
   int global_num_completed_;
   MPI_Request allreduce_request_;
   int num_particles_sent_;
+  void TestVariables() {
+    printf("%s:%i\n", __FILE__, __LINE__);
+    auto rv = realVector_[0];
+    printf("realVector_.size: %i\n", realVector_.size());
+    for (int n = 0; n < realVector_.size(); n++) {
+      PARTHENON_REQUIRE(realVector_[n], "rv is null!");
+      printf("realVector_[%i] is not null!\n");
+      std::string test = realVector_[n]->label();
+      printf("%s is not null!\n", realVector_[n]->label().c_str());
+    }
+    for (const auto &rv : realVector_) {
+      PARTHENON_REQUIRE(rv, "rv is null!");
+      if (!rv) {
+        printf("ERROR rv is null!");
+        exit(-1);
+      }
+      printf("%s is not null!\n", rv->label().c_str());
+    }
+  }
 
  private:
   int debug = 0;
