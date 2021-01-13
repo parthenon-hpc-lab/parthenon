@@ -25,54 +25,88 @@ import shutil
 import base64
 from io import BytesIO
 from git import Repo
+from app import App
 
-"""
-Class used to store branch contents in terms of files, directories or misc
-"""
-class Node:
-  def __init__(self, dir_name = "", rel_path = ""):
-    self.dir = dir_name
-    self.dirs = []
-    self.files = []
-    self.misc = []
-    self.rel_path = rel_path + dir_name
 
-  def insert(self, content, content_type):
+class PerformanceDataJsonParser():
+
+  def __contains(self, json, value) {
+    let contains = false;
+    Object.keys(json).some(key => {
+      contains = typeof json[key] === 'object' ? self.__contains(json[key], value) : json[key] === value;
+      return contains;
+      });
+    return contains;
+    }
+
+  new_data = {
+              'commit sha': commit_sha, 
+              'branch': current_branch,
+              'date': now.strftime("%Y-%m-%d %H:%M:%S"),
+              'data':[{
+              'test': dir,
+              'meshblocks': mesh_blocks,
+              'zone_cycles': zone_cycles
+                    }]
+              }
+
+
+  def __add_to_json_obj(self,new_data):
+    """ json data should be of the following form:
+
+        Where there are blocks of data in a list with the content below
+
+                'commit sha': commit_sha, 
+                'branch': current_branch,
+                'date': now.strftime("%Y-%m-%d %H:%M:%S"),
+                'data':[{
+                  'test': dir,
+                  'meshblocks': mesh_blocks,
+                  'zone_cycles': zone_cycles}]
     """
-    Will either store new information as a file, directory or misc type.
-    If the content type is of type dir than a new node is created.
-    """
-    if content_type == "dir":
-      self.dirs.append(Node(content, self.rel_path + "/"))
-    elif content_type == "file":
-      self.files.append(content)
+    # Cycle the outer list first
+    for json_obj in self.__data:
+      if json_obj.get('commit sha') == new_data.get('commit sha'):
+        for data_grp in json_obj.get('data'):
+          if data_grp.get('test') == new_data.get('test'):
+            # Overwrite the existing content with the new content
+            data_grp['meshblocks'] = new_data.get('meshblocks')
+            data_grp['zone_cycles'] = new_data.get('zone_cycles')
+            return
+        # Then the test was not found so we are going to append to it
+        json_obj['data'].append(new_data['data'])
+
+  def getData(self, file_name):
+    if os.path.isfile(file_name):
+      # If does exist:
+      # 1. load the 
+      with open(file_name, 'r') as fid:
+        return json.loads(fid)
+
+  def append(self, new_data, file_name):
+
+    if os.path.isfile(file_name):
+      # If does exist:
+      # 1. load the 
+      with open(file_name, 'r') as fid:
+        self.__data = json.loads(fid)
+
+      # Check if the commit exists in the data already
+      if self.__contains(json.dumps(new_data,indent=4),new_data['commit sha']):
+        # Should really cycle through the list and see if the test already exists if it does it
+        # should overwrite it
+        # TODO
+        self.__add_to_json_obj(new_data)
+      else:
+        self.__data.update(new_data) 
+
     else:
-      self.files.append(content)
+      self.__data = new_data
 
-  def getNodes(self):
-    """
-    Returns a list of all nodes in the current node, which are essentially
-    directories.
-    """
-    return self.dirs
+    with open(json_file_out, 'w') as fout:
+      json_dumps_str = json.dumps(self.__data, indent=4)
+      print(json_dumps_str, file=fout)
 
-  def getPath(self):
-    """
-    Get the relative path of the current node.
-    """
-    return self.rel_path
-
-  def printTree(self):
-    """
-    Print contents of node and all child nodes 
-    """
-    print("Contents in folder: " + self.rel_path)
-    for fil in self.files:
-      print("File " + fil)
-    for mis in self.misc:
-      print("Misc " + mis)
-    for node in self.dirs:
-      node.printTree()
 
 """
 Parthenon App Class
@@ -80,432 +114,122 @@ Parthenon App Class
 This class is responsible for authenticating against the parthenon repository and interacting
 with the github api. 
 """
-class ParthenonApp:
+class ParthenonApp(App):
 
   """
   Internal Private Methods
   """
-  def __init__(self, use_wiki=False, ignore=False, pem_file = "", create_branch=False):
-    self.__app_id = 92734
-    self.__ignore = ignore
-    self.__use_wiki = use_wiki
-    self.__name = "Parthenon_Github_Metrics_Application"
-    self.__user = "lanl"
-    self.__repo_name = "parthenon"
-    self.__repo_url = "https://api.github.com/repos/" + self.__user + "/" + self.__repo_name
-    if isinstance(create_branch,list):
-      self.__create_branch = create_branch[0]
-    else:
-      self.__create_branch = create_branch
-    self.__default_branch = "develop"
-    self.__default_image_branch = "figures"
-    self.__branches = []
-    self.__branch_current_commit_sha = {}
-    self.__api_version = "application/vnd.github.v3+json"
-    self.__parth_root = Node()
-    self.__parthenon_home = str(pathlib.Path(__file__).parent.absolute())
-    try:
-      self.__parthenon_home = self.__parthenon_home[:self.__parthenon_home.rindex(self.__repo_name) + len("/" + self.__repo_name )] 
-    except Exception:
-      error_msg = str(os.path.realpath(__file__)) + " must be run from within the " + self.__repo_name + " repository."
-      print(error_msg)
-      raise
+  def __init__(self):
+    super().__init__(
+        92734,
+        "Parthenon_Github_Metrics_Application",
+        "lanl",
+        "parthenon")
 
-    self.__parthenon_wiki_dir = os.path.normpath(self.__parthenon_home +"/../"+ self.__repo_name + ".wiki")
-    if isinstance(pem_file,list):
-      self.__generateJWT(pem_file[0])
-    else:
-      self.__generateJWT(pem_file)
-    self.__generateInstallationId() 
-    self.__generateAccessToken()
+    def initialize(self,use_wiki=False, ignore=False, pem_file = "", create_branch=False):
+      super().initialize(use_wiki=False, ignore=False, pem_file = "", create_branch=False)
 
-  def __generateJWT(self,pem_file):
-    """
-    Method will take the permissions (.pem) file provided and populate the json web token attribute
-    """
-    # iss is the app id
-    # Ensuring that we request an access token that expires after a minute
-    payload = { 
-        'iat': datetime.datetime.utcnow(),
-        'exp': datetime.datetime.utcnow() + datetime.timedelta(seconds=60),
-        'iss': self.__app_id 
-        }
   
-    PEM = ""
-    if pem_file == "":
-      PEM = os.environ.get('PARTHENON_METRICS_APP_PEM')
-    else:
-      certs = pem.parse_file(pem_file)
-      PEM = str(certs[0])
+    def readPerformanceMetricsTXT(self,file_path):
+      mesh_blocks = np.zeros()
+      zone_cycles = np.zeros()
+      with open(file_path,'r') as reader:
+        lines = reader.readlines() 
+        # Remove first line in file, it is just the title
+        lines.pop()
 
-    if PEM == "":
-      error_msg = "No permissions enabled for parthenon metrics app, either a pem file needs to "
-      "be provided or the PATHENON_METRICS_APP_PEM variable needs to be defined"
-      raise Exception(error_msg)
-    self.__jwt_token = jwt.encode(payload,PEM, algorithm='RS256').decode("utf-8")
+        mesh_block = np.resize(mesh_block, len(lines))
+        zone_cycles = np.resize(zone_cycles, len(lines))
 
-  def __generateInstallationId(self):
-    """
-    This method will populate the installation id attribute using the internally stored json web token.
-    """
-    buffer_temp = BytesIO()
-    header = [
-            'Authorization: Bearer '+str(self.__jwt_token),
-            'Accept: ' + self.__api_version
-            ]
+        ind = 0
+        for line in lines:
+          line = line.split()
+          mesh_block[ind] = lines[2]
+          zone_cycles[ind] = lines[0]
+          ind = ind + 1
 
-    c = pycurl.Curl()
-    c.setopt(c.URL, 'https://api.github.com/app/installations')
-    c.setopt(c.WRITEDATA, buffer_temp)
-    c.setopt(c.HTTPHEADER, header)
-    c.perform()
-    c.close()
-
-    js_obj = json.loads(buffer_temp.getvalue())
-
-    if isinstance(js_obj, list):
-        js_obj = js_obj[0]
-
-    # The installation id will be listed at the end of the url path
-    self.__install_id = js_obj['html_url'].rsplit('/', 1)[-1]
-
-  def __generateAccessToken(self):
-    """
-    This method will populate the installation attribute using the installation id. The token
-    is needed to authenticate any actions run by the application. 
-    """
-    buffer_temp = BytesIO()
-    header = [
-            'Authorization: Bearer '+str(self.__jwt_token),
-            'Accept: ' + self.__api_version,
-            ]
-
-    https_url_access_tokens = "https://api.github.com/app/installations/" + self.__install_id + "/access_tokens"
-
-    c = pycurl.Curl()
-    c.setopt(c.HTTPHEADER, header)
-    c.setopt(c.URL, https_url_access_tokens)
-    c.setopt(c.POST, 1)
-    c.setopt(c.VERBOSE, True)
-    c.setopt(c.POSTFIELDS, '')
-    c.setopt(c.WRITEDATA, buffer_temp)
-    c.perform()
-    c.close()
-
-    js_obj = json.loads(buffer_temp.getvalue())
-
-    if isinstance(js_obj, list):
-        js_obj = js_obj[0]
-
-    self.__access_token = js_obj['token']
-
-    self.__header = [
-            'Authorization: token '+self.__access_token,
-            'Accept: ' + self.__api_version,
-            ]
-
-  def __fillTree(self, current_node, branch):
-    """
-    This is an internal method that is meant to be used recursively to grab the contents of a 
-    branch of a remote repository.
-    """
-    nodes = current_node.getNodes()
-    for node in nodes:
-      buffer_temp = BytesIO()
-      custom_data = {"branch": branch}
-      buffer_temp2 = BytesIO(json.dumps(custom_data).encode('utf-8'))
-      c = pycurl.Curl()
-      c.setopt(c.URL, self.__repo_url + "/contents/" + node.getPath())
-      c.setopt(c.READDATA, buffer_temp2)
-      c.setopt(c.WRITEDATA, buffer_temp)
-      c.setopt(c.HTTPHEADER, self.__header)
-      c.perform()
-      c.close()
-      js_obj = json.loads(buffer_temp,getvalue())
-
-      if isinstance(js_obj, list):
-        for ob in js_obj:
-          node.insert(ob['name'],ob['type'])
-      else:
-          node.insert(js_obj['name'],js_obj['type'])
-
-      self.__fillTree(node, branch)
+      return mesh_blocks, zone_cycles
 
 
-  def __getBranches(self):
-    buffer_temp = BytesIO()
-    c = pycurl.Curl()
-    c.setopt(c.URL, self.__repo_url + "/branches")
-    c.setopt(c.WRITEDATA, buffer_temp)
-    c.setopt(c.HTTPHEADER, self.__header)
-    c.perform()
-    c.close()
-    js_obj_list = json.loads(buffer_temp.getvalue())
-
-    self.__branches = []
-    self.__branch_current_commit_sha = {}
-    for js_obj in js_obj_list:
-      self.__branches.append(js_obj['name'])
-      self.__branch_current_commit_sha.update({js_obj['name'] : js_obj['commit']['sha']})
-
-  """
-  Public Methods
-  """
-  def getBranches(self):
-    """ 
-    This method will check to see if branches have already been collected from the github RESTful
-    api. If the branch tree has not been collected it will update the branches attribute. 
-    """
-    if not self.__branches:
-      self.__getBranches() 
-    
-    return self.__branches
-
-  def branchExist(self,branch):
-    """
-    This method will determine if a branch exists on the github repository by pinging the github api
-    """
-    branches = self.getBranches()
-    if branch in branches:
-      return True
-    return False
-
-  def refreshBranchCache(self):
-    """"
-    Method forces an update of the localy stored branch tree, regardless of whether the class 
-    already contains a local copy. Might be necessary if the remote github repository is updated. 
-    """
-    self.__getBranches()
-
-  def createBranch(self,branch, branch_to_fork_from = None):
-    """
-    Will create a branch if it does not already exists, if the branch does exist
-    will do nothing, 
-
-    The new branch will be created by forking it of the latest commit of the default branch
-    """
-    if branch_to_fork_from is None:
-      branch_to_fork_from = self.__default_branch
-    if self.branchExist(branch):
-      return
-
-    if not self.branchExist(branch_to_fork_from):
-      error_msg = "Cannot create new branch: " + branch + " from " + branch_to_fork_from + " because " + branch_to_fork_from + " does not exist."
-      raise Exception(error_msg)
-
-    buffer_temp = BytesIO()
-    custom_data = {"ref": "refs/heads/" + branch, "sha": self.__branch_current_commit_sha[branch_to_fork_from]}
-    c = pycurl.Curl()
-    c.setopt(c.URL, self.__repo_url + '/git/refs')
-    c.setopt(c.POST, 1)
-    buffer_temp2 = BytesIO(json.dumps(custom_data).encode('utf-8'))
-    c.setopt(c.READDATA, buffer_temp2)
-    c.setopt(c.WRITEDATA, buffer_temp)
-    c.setopt(c.HTTPHEADER, self.__header)
-    c.perform()
-    c.close()
-
-  def getContents(self,branch=None):
-    """
-    Returns the contents of a branch as a dictionary, where the key is the content and the value
-    is the sha of the file/folder etc.
-    """
-    if branch is None:
-      branch = self.__default_branch
-    buffer_temp = BytesIO()
-    # 1. Check if file exists if so get SHA
-    custom_data = {"branch":branch}
-    c = pycurl.Curl()
-    c.setopt(c.URL, self.__repo_url + '/contents?ref=' + branch)
-    buffer_temp2 = BytesIO(json.dumps(custom_data).encode('utf-8'))
-    c.setopt(c.READDATA, buffer_temp2)
-    c.setopt(c.WRITEDATA, buffer_temp)
-    c.setopt(c.HTTPHEADER, self.__header)
-    c.perform()
-    c.close()
-
-    js_obj = json.loads(buffer_temp.getvalue())
-
-    contents = {}
-    if isinstance(js_obj, list):
-        # Cycle through list to try to find the right object
-        for obj in js_obj:
-          contents[obj['name']] = obj['sha']
-
-    return contents
-
-  def upload(self, file_name, branch = None):
-    """
-    This method attempts to upload a file to the specefied branch.
-
-    If the file is found to already exist it will be updated. Image files will by default be placed
-    in a figures branch of the main repository, so as to not bloat the repositories commit history.
-    """
-    if isinstance(file_name,list):
-      file_name = file_name[0]
-    if branch is None:
-      branch = self.__default_branch
-    if file_name.lower().endswith(('.png', '.jpg', '.jpeg', '.tiff', '.bmp', '.gif')):
-      if branch != self.__default_image_branch and not self.__ignore:
-        print("Note all images will be uploaded to a branch named: " + self.__default_image_branch + " in the main repository.")
-        print("Unless the ignore flag is used.")
-        branch = self.__default_image_branch
-        self.__use_wiki = False
-    
-    if self.__use_wiki:
-      if branch != "master":
-        print("Files can only be uploaded to the wiki repositories master branch")
-        return
-      else:
-        if os.path.exists(self.__parthenon_wiki_dir + "/" + os.path.basename(os.path.normpath(file_name))):
-          commit_msg = "Updating file " + file_name
-        else:
-          commit_msg = "Adding file " + file_name
-        repo = self.getWikiRepo(branch)
-        destination=self.__parthenon_wiki_dir + "/" + os.path.basename(os.path.normpath(file_name))
-        shutil.copy(file_name,destination)
-        repo.index.add([str(self.__parthenon_wiki_dir + "/" + os.path.basename(os.path.normpath(file_name)))])
-        repo.index.commit(commit_msg)
-        repo.git.push("--set-upstream","origin",repo.head.reference)
-        return
-    else:
-
-      if self.__create_branch:
-        self.createBranch(branch)
-      elif not self.branchExist(branch):
-        error_msg = "branch: " + branch + " does not exist in repository."
-        raise Exception(error_msg)
+    def analyze(self, regression_ouputs):
+      """ Analyze the files in the regression_ouputs path"""
+      if not os.path.exists(regression_outputs):
+        raise Exception("Cannot analyze regression outputs specified path is invalid")
+      if not os.path.isdir(regression_outputs):
+        raise Exception("Cannot analyze regression outputs specified path is invalid")
       
-      contents = self.getContents(branch)
+      all_dirs = os.listdir(regression_outpus)
+      for dir in all_dirs:
+        if dir is "advection_performance":
+          if not os.path.isfile(regression_outputs + "/advection_performance/performance_metrics.txt"):
+            raise Exception("Cannot analyze advection_performance, missing performance metrics file.")
+          repo = super().cloneWikiRepo()
 
-      file_found = False
-      if file_name in contents:
-        file_found = True
+          mesh_blocks, zone_cycles = self.readPerformanceMetricsTXT(regression_outputs + "/advection_performance/performance_metrics.txt")
+          now = datetime.datetime.now()
+          
+          # Check if performance_metrics.json exists in wiki
+          # It actually makes the most sense to store each performance metric in it's own file to 
+          # avoid merge conflicts. 
+          # The content of each file should contain the commit
+          # The date
+          # The performance metrics 
+          # The pull request
+          commit_sha = os.getenv('CI_COMMIT_SHA')
+          current_branch = os.getenv('CI_COMMIT_BRANCH')
+          new_data = {
+              'commit sha': commit_sha, 
+              'branch': current_branch,
+              'date': now.strftime("%Y-%m-%d %H:%M:%S"),
+              'data':[{
+              'test': dir,
+              'meshblocks': mesh_blocks,
+              'zone_cycles': zone_cycles
+                    }]
+              }
 
-      # 2. convert file into base64 format
-      # b is needed if it is a png or image file/ binary file
-      data = open(file_name, "rb").read()
-      encoded_file = base64.b64encode(data)
+          json_file_out = str(self.__parthenon_wiki_dir) + "/performance_metrics_"+ current_branch + ".json"
+          json_perf_data_parser = PerformanceDataJsonParser()
+          json_perf_data_parser.append(new_data, json_file_out)
+       
+          json_file_compare = str(self.__parthenon_wiki_dir) + "/performance_metrics_" + + ".json"
+          # Get the data for the last commit in the development branch
 
-      # 3. upload the file, overwrite if exists already
-      if file_found:
-          custom_data = {
-              'message': self.__name + " overwriting file " + file_name,
-              'name': self.__name,
-              'branch': branch,
-              'sha': contents[file_name],
-              'content': encoded_file.decode('ascii')
-                  }
+          # Now the new file needs to be committed
+          upload(json_file_out, "master",use_wiki=True)
 
-      else:
-          custom_data = {
-              'message': self.__name + " uploading file " + file_name,
-              'name': self.__name,
-              'content': encoded_file.decode('ascii'),
-              'branch': branch
-                  }
+          # Now we need to create the figure to update
+          fig, p = plt.subplots(2, 1, figsize = (4,8), sharex=True)
 
-      https_url_to_file = self.__repo_url + "/contents/" + file_name
-      c2 = pycurl.Curl()
-      c2.setopt(c2.HTTPHEADER, self.__header)
-      c2.setopt(c2.URL, https_url_to_file)
-      c2.setopt(c2.UPLOAD, 1)
-      c2.setopt(c2.VERBOSE, True)
-      buffer_temp2 = BytesIO(json.dumps(custom_data).encode('utf-8'))
-      c2.setopt(c2.READDATA, buffer_temp2)
-      buffer_temp3 = BytesIO()
-      c2.setopt(c2.WRITEDATA, buffer_temp3)
-      c2.perform()
-      c2.close()
+          p[0].loglog(mesh_blocks, zone_cycles, label = "$256^3$ Mesh")
+          p[1].loglog(mesh_blcoks, zone_cycles[0]/zone_cycles)
 
-  def getBranchTree(self, branch, access_token):
-    """
-    Method will grab the contents of the specified branch from the remote repository. It will 
-    return the contents as a tree object. 
-    """
-    buffer_temp = BytesIO()
-    custom_data = {"branch": branch}
-    buffer_temp2 = BytesIO(json,dumps(custom_data).encode('utf-8'))
-    # 1. Check if file exists
-    c = pycurl.Curl()
-    c.setopt(c.URL, self.__repo_url + "/contents" )
-    c.setopt(c.READDATA, buffer_temp2)
-    c.setopt(c.WRITEDATA, buffer_temp)
-    c.setopt(c.HTTPHEADER, self.__header)
-    c.perform()
-    c.close()
-
-    js_obj = json.loads(buffer_temp.getvalue())
-    for obj in js_obj:
-      self.__parth_root.insert(ob['name'],ob['type'])
-
-    self.__fillTree(self.__parth_root, branch)
-
-  def getWikiRepo(self, branch):
-    """
-    The github api has only limited supported for interacting with the github wiki, as such the best
-    way to do this is to actually clone the github repository and interact with the git repo
-    directly. This method will clone the repository if it does not exist. It will then return a 
-    repo object. 
-    """
-    wiki_remote = f"https://{self.__name}:{self.__access_token}@github.com/" + self.__user + "/" + self.__repo_name + ".wiki.git"
-    if not os.path.isdir(str(self.__parthenon_wiki_dir)):
-      repo = Repo.clone_from(wiki_remote, self.__parthenon_wiki_dir)
-    else:
-      repo = Repo(self.__parthenon_wiki_dir)
-      repo.config_writer().set_value("user","name", self.__name).release()
-
-    os.environ["GIT_PASSWORD"] = self.__access_token
-    return repo
-
-  def postStatus(self, state):
-    """
-    Post status of current commit.
-    """
-    state_list = ['pending','failed','error','success']
-    if state not in state_list:
-        raise Exception("Unrecognized state specified " + state)
-    commit_sha = os.getenv('CI_COMMIT_SHA')
-    if commit_sha == None:
-        raise Exception("CI_COMMIT_SHA not defined in environment cannot post status")
-    buffer_temp = BytesIO()
-    custom_data = {"state": state, "context": self.__name + " handles the performance metrics."}
-    c = pycurl.Curl()
-    c.setopt(c.URL, self.__repo_url + '/statuses/' + commit_sha)
-    c.setopt(c.POST, 1)
-    buffer_temp2 = BytesIO(json.dumps(custom_data).encode('utf-8'))
-    c.setopt(c.READDATA, buffer_temp2)
-    c.setopt(c.WRITEDATA, buffer_temp)
-    c.setopt(c.HTTPHEADER, self.__header)
-    c.perform()
-    c.close()
-    js_obj = json.loads(buffer_temp.getvalue())
-    pprint.pprint(json.dumps(js_obj,indent=2))
+          for i in range(2):
+              p[i].grid()
+          p[0].legend()
+          p[0].set_ylabel("zone-cycles/s")
+          p[1].set_ylabel("normalized overhead")
+          p[1].set_xlabel("Meshblock size")
+          #fig.savefig(os.path.join(parameters.output_path, "performance.png"),
+          #            bbox_inches='tight')
 
 
-  def getStatus(self):
-    """
-    Get status of current commit.
-    """
-    commit_sha = os.getenv('CI_COMMIT_SHA')
-    if commit_sha == None:
-        raise Exception("CI_COMMIT_SHA not defined in environment cannot post status")
 
-    buffer_temp = BytesIO()
-    # 1. Check if file exists if so get SHA
-    c = pycurl.Curl()
-    c.setopt(c.URL, self.__repo_url + '/commits/Add_to_dev/statuses')
-    c.setopt(c.WRITEDATA, buffer_temp)
-    c.setopt(c.HTTPHEADER, self.__header)
-    c.perform()
-    c.close()
+        elif dir is "advection_performance_mpi":
+          if not os.path.isfile(regression_outputs + "/advection_performance_mpi/performance_metrics.txt"):
+            raise Exception("Cannot analyze advection_performance_mpi, missing performance metrics file.")
+      # 1 search for files 
+      # 2 load performance metrics from wiki
+      # 3 compare the metrics
+      # 4 Create figure
+      # 5 upload figure
+      # 6 indicate pass or fail with link to figure
 
-    js_obj = json.loads(buffer_temp.getvalue())
-    return js_obj
 
 def main(**kwargs):
 
-  app = ParthenonApp(
+  app = ParthenonApp()
+  app.initialize(
       kwargs.pop('wiki'),
       kwargs.pop('ignore'),
       kwargs.pop('permissions'),
@@ -528,6 +252,13 @@ def main(**kwargs):
         value = value[0]
     if value != None:
         app.postStatus(value)
+
+  if 'analyze' in kwargs:
+    value = kwargs.pop('analyze')
+    if isinstance(value,list):
+        value = value[0]
+    if value != None:
+        app.analyze(value)
 
 # Execute main function
 if __name__ == '__main__':
@@ -564,6 +295,13 @@ if __name__ == '__main__':
             nargs=1,
             required=False,
             help=desc)
+
+    desc = ('Path to regression tests output, to analyze.')
+    parser.add_argument('--analyze','-a',
+        type=str,
+        nargs=1,
+        required=False,
+        help=desc)
 
     desc = ('Create Branch if does not exist.')
     parser.add_argument('--create','-c',

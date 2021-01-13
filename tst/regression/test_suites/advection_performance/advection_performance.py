@@ -78,8 +78,13 @@ class TestCase(utils.test_case.TestCaseAbs):
 
         perfs = np.array(perfs)
 
-        # Plot results
+        # Save performance metrics to file
+        with open('performance_metrics.txt', 'w') as writer:
+          writer.write("zone-cycles/s | Normalize Overhead | Meshblock Size\n")
+          for ind in range(0,len(mb_sizes)):
+              writer.write("%14e %14e %14e\n" % (perfs[ind],perfs[0]/perfs[ind],mb_sizes[ind]))
 
+        # Plot results
         fig, p = plt.subplots(2, 1, figsize = (4,8), sharex=True)
 
         p[0].loglog(mb_sizes, perfs, label = "$256^3$ Mesh")
