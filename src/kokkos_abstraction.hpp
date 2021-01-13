@@ -41,8 +41,8 @@ using ScratchMemSpace = DevExecSpace::scratch_memory_space;
 
 using LayoutWrapper = Kokkos::LayoutRight;
 
-#ifdef KOKKOS_ENABLE_CUDA
-using BufMemSpace = Kokkos::CudaHostPinnedSpace;
+#if defined(KOKKOS_ENABLE_CUDA) && defined(PARTHENON_ENABLE_HOST_COMM_BUFFERS)
+using BufMemSpace = Kokkos::CudaHostPinnedSpace::memory_space;
 #else
 using BufMemSpace = Kokkos::DefaultExecutionSpace::memory_space;
 #endif
