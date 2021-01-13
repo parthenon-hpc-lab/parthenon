@@ -10,7 +10,7 @@ source /projects/parthenon-int/parthenon-project/spack/share/spack/setup-env.sh
 set -eE
 
 # Export COMMIT CI
-export CI_COMMIT_SHA="b4cdf92c76df3b9b89c705473f2e7dd6f2476895"
+#export CI_COMMIT_SHA="b4cdf92c76df3b9b89c705473f2e7dd6f2476895"
 
 trap 'catch $? $LINENO' ERR
 catch() {
@@ -19,8 +19,10 @@ catch() {
   exit $ERR
 }
 
+PARTHENON_PEM_FILE=$1
+
 spack env activate darwin-ppc64le-gcc9-2021-01-13
-./scripts/python/parthenon_metrics_app.py --status "pending"
+./scripts/python/parthenon_metrics_app.py --pem ${PARTHENON_PEM_FILE}  --status "pending"
 
 # Calculate number of available cores
 export J=$(( $(nproc --all) )) && echo Using ${J} cores during build
