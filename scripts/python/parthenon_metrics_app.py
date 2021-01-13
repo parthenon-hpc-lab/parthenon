@@ -30,26 +30,15 @@ from app import App
 
 class PerformanceDataJsonParser():
 
-  def __contains(self, json, value) {
-    let contains = false;
-    Object.keys(json).some(key => {
-      contains = typeof json[key] === 'object' ? self.__contains(json[key], value) : json[key] === value;
-      return contains;
-      });
-    return contains;
-    }
+  def __containsCommit(self, json_objs, value):
+    if not isinstance(json_objs, list):
+      json_objs = [json_objs]
 
-  new_data = {
-              'commit sha': commit_sha, 
-              'branch': current_branch,
-              'date': now.strftime("%Y-%m-%d %H:%M:%S"),
-              'data':[{
-              'test': dir,
-              'meshblocks': mesh_blocks,
-              'zone_cycles': zone_cycles
-                    }]
-              }
+    for json_obj in json_objs:
+      if json_obj.get('commit sha') == value:
+        return True
 
+    return False
 
   def __add_to_json_obj(self,new_data):
     """ json data should be of the following form:
@@ -92,14 +81,13 @@ class PerformanceDataJsonParser():
         self.__data = json.loads(fid)
 
       # Check if the commit exists in the data already
-      if self.__contains(json.dumps(new_data,indent=4),new_data['commit sha']):
+      if self.__containsCommit(self.__data, new_data['commit sha']):
         # Should really cycle through the list and see if the test already exists if it does it
         # should overwrite it
         # TODO
         self.__add_to_json_obj(new_data)
       else:
         self.__data.update(new_data) 
-
     else:
       self.__data = new_data
 
@@ -160,7 +148,7 @@ class ParthenonApp(App):
       
       all_dirs = os.listdir(regression_outpus)
       for dir in all_dirs:
-        if dir is "advection_performance":
+        if dir == "advection_performance":
           if not os.path.isfile(regression_outputs + "/advection_performance/performance_metrics.txt"):
             raise Exception("Cannot analyze advection_performance, missing performance metrics file.")
           repo = super().cloneWikiRepo()
@@ -213,9 +201,7 @@ class ParthenonApp(App):
           #fig.savefig(os.path.join(parameters.output_path, "performance.png"),
           #            bbox_inches='tight')
 
-
-
-        elif dir is "advection_performance_mpi":
+        elif dir == "advection_performance_mpi":
           if not os.path.isfile(regression_outputs + "/advection_performance_mpi/performance_metrics.txt"):
             raise Exception("Cannot analyze advection_performance_mpi, missing performance metrics file.")
       # 1 search for files 
