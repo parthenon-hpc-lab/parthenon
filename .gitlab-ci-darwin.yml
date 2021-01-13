@@ -10,9 +10,8 @@ stages:
     CMAKE_CXX_COMPILER: $CI_PROJECT_DIR/external/Kokkos/bin/nvcc_wrapper
   script:
     - env
-    - echo "Location of pem ${PARTHENON_METRICS_PEM}"
     - env -i bash --norc --noprofile ./scripts/darwin/build_fast.sh
-    - ${CI_PROJECT_DIR}/scripts/darwin/metrics.sh "/projects/parthenon-int/parthenonmetricsapplication.2020-12-21.private-key.pem" "${CI_PROJECT_DIR}/build"
+    - ${CI_PROJECT_DIR}/scripts/darwin/metrics.sh ${PARTHENON_METRICS_PEM} "${CI_PROJECT_DIR}/build"
 
   #  artifacts:
   #  expire_in: 3 days
