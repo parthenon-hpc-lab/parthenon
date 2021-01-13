@@ -4,6 +4,7 @@
 
 ### Added (new features/APIs/variables/...)
 - [[PR 412]](https://github.com/lanl/parthenon/pull/412) Add capability to use host (pinned) memory for communication buffers (via PARTHENON_ENABLE_HOST_COMM_BUFFERS - default OFF)
+- [[PR 400]](https://github.com/lanl/parthenon/pull/400) Extend `StateDescriptor` for customizable output via user-customizable function pointers `PreStepDiagnosticsMesh` and `PostStepDiagnosticsMesh`
 - [[PR 391]](https://github.com/lanl/parthenon/pull/391) Add `VariablePack<T>::GetSparseId` and `VariablePack<T>::GetSparseIndex` to return global sparse ids and pack-local sparse index, repsectively.
 - [[PR 381]](https://github.com/lanl/parthenon/pull/381) Overload `DataCollection::Add` to build `MeshData` and `MeshBlockData` objects with a subset of variables.
 - [[PR 378]](https://github.com/lanl/parthenon/pull/378) Add Kokkos profiling regions throughout the code to allow the collection characteristic application profiles
