@@ -268,7 +268,7 @@ Once you've configured your build directory, you can build with
 
 #### Advanced
 LANL Employees - to understand how the project space is built out, see
-https://xcp-gitlab.lanl.gov/eap-oss/parthenon-project
+https://re-git.lanl.gov/eap-oss/parthenon-project
 
 ### LANL Snow (CTS-1)
 
@@ -321,7 +321,7 @@ Once you've configured your build directory, you can build with
 
 #### Advanced
 LANL Employees - to understand how the project space is built out, see
-https://xcp-gitlab.lanl.gov/eap-oss/parthenon-project
+https://re-git.lanl.gov/eap-oss/parthenon-project
 
 ### LLNL RZAnsel (Power9+Volta)
 
