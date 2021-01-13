@@ -15,5 +15,4 @@ PARTHENON_PEM_FILE=${1}
 BUILD_DIR=${2}
 #FILE_TO_UPLOAD=${2}
 touch file_test.txt
-./scripts/python/parthenon_metrics_app.py -p ${PARTHENON_PEM_FILE} --status pending
 ./scripts/python/parthenon_metrics_app.py -p ${PARTHENON_PEM_FILE} --analyze ${BUILD_DIR}/tst/regression/outputs

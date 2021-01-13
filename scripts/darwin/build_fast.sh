@@ -4,6 +4,7 @@
 source /etc/bashrc
 source /etc/profile
 source /projects/parthenon-int/parthenon-project/.bashrc
+source /projects/parthenon-int/parthenon-project/spack/share/spack/setup-env.sh
 
 # Exit on error
 set -eE
@@ -18,6 +19,7 @@ catch() {
   exit $ERR
 }
 
+spack env activate darwin-ppc64le-gcc9-2021-01-13
 ./scripts/python/parthenon_metrics_app.py --status "pending"
 
 # Calculate number of available cores
