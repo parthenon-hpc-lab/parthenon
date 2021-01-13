@@ -11,17 +11,14 @@ stages:
     PARTHENON_METRICS_PEM: /projects/parthenon-int/parthenonmetricsapplication.2020-12-21.private-key.pem
   script:
     - env
-    - source /projects/parthenon-int/parthenon-project/spack/share/spack/setup-env.sh
-    - |
-      spack env activate darwin-ppc64le-gcc9-2021-01-13
-      ./scripts/darwin/metrics.sh --pem ${PARTHENON_METRICS_PEM} --status pending
+    - ${CI_PROJECT_DIR}/scripts/darwin/metrics.sh --pem ${PARTHENON_METRICS_PEM}
     #    - env -i bash --norc --noprofile ./scripts/darwin/build_fast.sh
 
-  artifacts:
-    expire_in: 3 days
-    paths:
-      - ${CI_PROJECT_DIR}/build/tst/regression/outputs/advection_performance/performance.png
-      - ${CI_PROJECT_DIR}/build/tst/regression/outputs/advection_performance_mpi/performance.png
+  #  artifacts:
+  #  expire_in: 3 days
+  #  paths:
+  #    - ${CI_PROJECT_DIR}/build/tst/regression/outputs/advection_performance/performance.png
+  #    - ${CI_PROJECT_DIR}/build/tst/regression/outputs/advection_performance_mpi/performance.png
 
 parthenon-power9-gcc-mpi-cuda-perf-manual:
   extends: .gcc-mpi-cuda-performance-regression
