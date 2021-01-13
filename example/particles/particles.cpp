@@ -182,7 +182,6 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, double t0) {
   auto rng_pool = pkg->Param<RNGPool>("rng_pool");
   auto num_particles = pkg->Param<int>("num_particles");
   auto v = pkg->Param<Real>("particle_speed");
-  swarm->TestVariables();
 
   ParArrayND<int> new_indices;
   const auto new_particles_mask = swarm->AddEmptyParticles(num_particles, new_indices);
@@ -400,6 +399,12 @@ TaskListStatus ParticleDriver::Step() {
 
     TaskCollection ptc = MakeParticlesUpdateTaskCollection(particles_update_done);
     status = ptc.Execute();
+    printf("PARTICLES UPDATE DONE: %i\n\n\n\n", particles_update_done);
+
+    auto &pmb = blocks[0];
+    auto sc = pmb->swarm_data.Get();
+    auto swarm = sc->Get("my particles");
+    particles_update_done = swarm->finished_transport;
 
     // Check that every meshblock's swarm agrees that MPI is complete
     /*particles_update_done = true;
@@ -462,6 +467,7 @@ TaskStatus StartCommunicationMesh(BlockList_t &blocks) {
 
 TaskStatus StopCommunicationMesh(BlockList_t &blocks, bool &finished_transport) {
   // TODO(BRR) this allreduce should actually be generated after the particles are pushed...right?
+  printf("[%i] StopCommunication\n", Globals::my_rank);
   MPI_Status status;
   MPI_Wait(&allreduce_request, &status);
 
@@ -470,6 +476,7 @@ TaskStatus StopCommunicationMesh(BlockList_t &blocks, bool &finished_transport) 
     auto &pmb = block;
     auto sc = pmb->swarm_data.Get();
     auto swarm = sc->Get("my particles");
+    swarm->finished_transport = false;
     num_sent_local += swarm->num_particles_sent_;
   }
 
@@ -479,9 +486,16 @@ TaskStatus StopCommunicationMesh(BlockList_t &blocks, bool &finished_transport) 
   printf("[%i] num sent global: %i\n", Globals::my_rank, num_sent_global);
 
   //PARTHENON_REQUIRE(num_incomplete_global >= 0, "Negative number of incomplete particles!")
+  printf("%s:%i\n", __FILE__, __LINE__);
 
   if (num_sent_global == 0) {
     finished_transport = true;
+    for (auto &block : blocks) {
+      auto &pmb = block;
+      auto sc = pmb->swarm_data.Get();
+      auto swarm = sc->Get("my particles");
+      swarm->finished_transport = true;
+    }
   } else {
     finished_transport = false;
   }
@@ -556,6 +570,8 @@ TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection(bool &finished_
     auto &tl = sync_region1[0];
     auto stop_comm = tl.AddTask(none, StopCommunicationMesh, blocks, finished_transport);
   }
+
+  printf("FINISHED TRANSPORT!! %i\n", finished_transport);
 
   return tc;
 }
