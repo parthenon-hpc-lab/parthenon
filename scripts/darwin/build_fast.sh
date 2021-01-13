@@ -22,7 +22,7 @@ catch() {
 PARTHENON_PEM_FILE=$1
 
 spack env activate darwin-ppc64le-gcc9-2021-01-13
-./scripts/python/parthenon_metrics_app.py --pem ${PARTHENON_PEM_FILE}  --status "pending"
+./scripts/python/parthenon_metrics_app.py -p ${PARTHENON_PEM_FILE}  --status "pending"
 
 # Calculate number of available cores
 export J=$(( $(nproc --all) )) && echo Using ${J} cores during build
