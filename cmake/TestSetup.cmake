@@ -116,7 +116,7 @@ endfunction()
 # test property labels: regression, mpi-yes
 function(setup_test_mpi nproc dir arg extra_labels)
   if( MPI_FOUND )
-    separate_arguments(arg)
+    separate_arguments(arg) 
     list(APPEND labels "regression;mpi-yes")
     list(APPEND labels "${extra_labels}")
 
