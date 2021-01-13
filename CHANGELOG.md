@@ -34,6 +34,7 @@
 - [[PR 382]](https://github.com/lanl/parthenon/pull/382) Adds output on fail for fast ci implementation on Darwin.
 - [[PR 362]](https://github.com/lanl/parthenon/pull/362) Small fix to clean regression tests output folder on reruns
 - [[PR 403]](https://github.com/lanl/parthenon/pull/403) Cleanup Codacy warnings
+- [[PR 413]](https://github.com/lanl/parthenon/pull/413) LANL Snow machine configuration
 
 ### Removed (removing behavior/API/varaibles/...)
 
