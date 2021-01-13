@@ -11,7 +11,8 @@ stages:
     PARTHENON_METRICS_PEM: /projects/parthenon-int/parthenonmetricsapplication.2020-12-21.private-key.pem
   script:
     - env
-    - ${CI_PROJECT_DIR}/scripts/darwin/metrics.sh --pem ${PARTHENON_METRICS_PEM}
+    - echo "Location of pem ${PARTHENON_METRICS_PEM}"
+    - ${CI_PROJECT_DIR}/scripts/darwin/metrics.sh ${PARTHENON_METRICS_PEM}
     #    - env -i bash --norc --noprofile ./scripts/darwin/build_fast.sh
 
   #  artifacts:
