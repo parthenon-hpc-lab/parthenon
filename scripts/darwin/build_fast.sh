@@ -6,7 +6,20 @@ source /etc/profile
 source /projects/parthenon-int/parthenon-project/.bashrc
 
 # Exit on error
-set -e
+set -eE
+
+# Export COMMIT CI
+export CI_COMMIT_SHA="b4cdf92c76df3b9b89c705473f2e7dd6f2476895"
+
+trap 'catch $? $LINENO' ERR
+catch() {
+  echo "Error $1 occurred on $2"
+  ./scripts/python/parthenon_metrics_app.py --status "error"
+  exit $ERR
+}
+
+./scripts/python/parthenon_metrics_app.py --status "pending"
+
 # Calculate number of available cores
 export J=$(( $(nproc --all) )) && echo Using ${J} cores during build
 
@@ -16,6 +29,6 @@ cmake --build build
 
 cd build
 
-ctest --output-on-failure 
+ctest --output-on-failure -R performance
 
 exit 0
