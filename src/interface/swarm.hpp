@@ -311,8 +311,8 @@ class Swarm {
 
   template <typename T>
   void ResizeParArray(ParArrayND<T> &var, int n_old, int n_new);
-  MapToSwarmVariablePack<Real> varPackMapReal_;
-  MapToSwarmVariablePack<int> varPackMapInt_;
+  //MapToSwarmVariablePack<Real> varPackMapReal_;
+  //MapToSwarmVariablePack<int> varPackMapInt_;
 
   constexpr static int this_block_ = -1;
   constexpr static int unset_index_ = -1;

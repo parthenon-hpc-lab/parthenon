@@ -687,7 +687,15 @@ SwarmVariablePack<Real> Swarm::PackVariablesReal(const std::vector<std::string> 
   std::vector<std::string> expanded_names = names;
   vpack_types::SwarmVarList<Real> vars = MakeRealList_(expanded_names);
 
-  auto kvpair = varPackMapReal_.find(expanded_names);
+  auto pack = MakeSwarmPack<Real>(vars, &vmap);
+  SwarmPackIndxPair<Real> value;
+  value.pack = pack;
+  value.map = vmap;
+  //varPackMapReal_[expanded_names] = value;
+  return pack;
+
+  // This doesn't work right now with dynamically resized ParticleVariables
+  /*auto kvpair = varPackMapReal_.find(expanded_names);
   if (kvpair == varPackMapReal_.end()) {
     auto pack = MakeSwarmPack<Real>(vars, &vmap);
     SwarmPackIndxPair<Real> value;
@@ -697,14 +705,22 @@ SwarmVariablePack<Real> Swarm::PackVariablesReal(const std::vector<std::string> 
     return pack;
   }
   vmap = (kvpair->second).map;
-  return (kvpair->second).pack;
+  return (kvpair->second).pack;*/
 }
 SwarmVariablePack<int> Swarm::PackVariablesInt(const std::vector<std::string> &names,
                                                PackIndexMap &vmap) {
   std::vector<std::string> expanded_names = names;
   vpack_types::SwarmVarList<int> vars = MakeIntList_(expanded_names);
 
-  auto kvpair = varPackMapInt_.find(expanded_names);
+  auto pack = MakeSwarmPack<int>(vars, &vmap);
+  SwarmPackIndxPair<int> value;
+  value.pack = pack;
+  value.map = vmap;
+  //varPackMapInt_[expanded_names] = value;
+  return pack;
+
+  // This doesn't work right now with dynamically resized ParticleVariables
+  /*auto kvpair = varPackMapInt_.find(expanded_names);
   if (kvpair == varPackMapInt_.end()) {
     auto pack = MakeSwarmPack<int>(vars, &vmap);
     SwarmPackIndxPair<int> value;
@@ -714,7 +730,7 @@ SwarmVariablePack<int> Swarm::PackVariablesInt(const std::vector<std::string> &n
     return pack;
   }
   vmap = (kvpair->second).map;
-  return (kvpair->second).pack;
+  return (kvpair->second).pack;*/
 }
 
 bool Swarm::Receive(BoundaryCommSubset phase) {
@@ -749,7 +765,9 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
   TestVariables();
 
   ParArrayND<int> new_indices;
+  printf("About to add empty particles!\n");
   auto new_mask = AddEmptyParticles(total_received_particles, new_indices);
+  printf("Added empty particles!");
   SwarmVariablePack<Real> vreal;
   SwarmVariablePack<int> vint;
   PackAllVariables(vreal, vint);
@@ -794,6 +812,9 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
         int nid = neighbor_index(n);
         int bid = buffer_index(n);
         for (int i = 0; i < real_vars_size; i++) {
+          const auto v = vreal(i);
+          printf("i: %i sid: %i [%i] [%i %i %i]\n", i, sid, vreal.v_.extent(0), v.extent(0),
+            v.extent(1), v.extent(2));
           vreal(i, sid) = bdvar.recv[nid](bid * particle_size + i);
         }
         for (int i = 0; i < int_vars_size; i++) {

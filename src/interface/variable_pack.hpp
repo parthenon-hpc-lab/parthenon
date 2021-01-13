@@ -129,11 +129,12 @@ class SwarmVariablePack {
   SwarmVariablePack(const ViewOfParArrays<T> view, const std::array<int, 2> dims)
       : v_(view), dims_(dims) {}
   KOKKOS_FORCEINLINE_FUNCTION
-  ParArray1D<T> &operator()(const int n) const { return v_(n); }
+  ParArray3D<T> &operator()(const int n) const { return v_(n); }
   KOKKOS_FORCEINLINE_FUNCTION
   T &operator()(const int n, const int i) const { return v_(n)(0, 0, i); }
 
- private:
+  // TODO(BRR) re-private this
+ //private:
   ViewOfParArrays<T> v_;
   std::array<int, 2> dims_;
 };
