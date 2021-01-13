@@ -50,7 +50,7 @@ class PerformanceDataJsonParser():
                 'date': now.strftime("%Y-%m-%d %H:%M:%S"),
                 'data':[{
                   'test': dir,
-                  'meshblocks': mesh_blocks,
+                  'mesh_blocks': mesh_blocks,
                   'zone_cycles': zone_cycles}]
     """
     # Cycle the outer list first
@@ -59,7 +59,7 @@ class PerformanceDataJsonParser():
         for data_grp in json_obj.get('data'):
           if data_grp.get('test') == new_data.get('test'):
             # Overwrite the existing content with the new content
-            data_grp['meshblocks'] = new_data.get('meshblocks')
+            data_grp['mesh_blocks'] = new_data.get('mesh_blocks')
             data_grp['zone_cycles'] = new_data.get('zone_cycles')
             return
         # Then the test was not found so we are going to append to it
@@ -71,6 +71,34 @@ class PerformanceDataJsonParser():
       # 1. load the 
       with open(file_name, 'r') as fid:
         return json.loads(fid)
+
+  def getMostRecentPerformanceData(self, file_name, branch, test):
+    if os.path.isfile(file_name):
+      # If does exist:
+      # 1. load the 
+      with open(file_name, 'r') as fid:
+        json_objs = json.loads(fid)
+
+        mesh_blocks = None
+        cycles = None
+
+        recent_datetime = None
+        for json_obj in json_objs:
+          new_datetime = datetime.datetime.strptime(json_obj.get('date'), '%Y-%m-%d %H:%M:%S')
+          if recent_datetime == None:
+            recent_datetime = new_datetime
+            for data_grp in json_obj.get('data'):
+              if data_grp.get('test') == test:
+                mesh_blocks = data_grp.get('mesh_blocks')
+                cycles = data_grp.get('zone_cycles')
+
+          if new_datetime > recent_datetime:
+            recent_datetime = new_datetime
+            for data_grp in json_obj.get('data'):
+              if data_grp.get('test') == test:
+                mesh_blocks = data_grp.get('mesh_blocks')
+                cycles = data_grp.get('zone_cycles')
+      return mesh_blocks, cycles
 
   def append(self, new_data, file_name):
 
@@ -114,102 +142,128 @@ class ParthenonApp(App):
         "lanl",
         "parthenon")
 
-    def initialize(self,use_wiki=False, ignore=False, pem_file = "", create_branch=False):
-      super().initialize(use_wiki=False, ignore=False, pem_file = "", create_branch=False)
+  def initialize(self,use_wiki=False, ignore=False, pem_file = "", create_branch=False):
+    super().initialize(use_wiki, ignore, pem_file, create_branch)
 
-  
-    def readPerformanceMetricsTXT(self,file_path):
-      mesh_blocks = np.zeros()
-      zone_cycles = np.zeros()
-      with open(file_path,'r') as reader:
-        lines = reader.readlines() 
-        # Remove first line in file, it is just the title
-        lines.pop()
+  def readPerformanceMetricsTXT(self,file_path):
+    mesh_blocks = np.zeros()
+    zone_cycles = np.zeros()
+    with open(file_path,'r') as reader:
+      lines = reader.readlines() 
+      # Remove first line in file, it is just the title
+      lines.pop()
 
-        mesh_block = np.resize(mesh_block, len(lines))
-        zone_cycles = np.resize(zone_cycles, len(lines))
+      mesh_block = np.resize(mesh_block, len(lines))
+      zone_cycles = np.resize(zone_cycles, len(lines))
 
-        ind = 0
-        for line in lines:
-          line = line.split()
-          mesh_block[ind] = lines[2]
-          zone_cycles[ind] = lines[0]
-          ind = ind + 1
+      ind = 0
+      for line in lines:
+        line = line.split()
+        mesh_block[ind] = lines[2]
+        zone_cycles[ind] = lines[0]
+        ind = ind + 1
+    return mesh_blocks, zone_cycles
 
-      return mesh_blocks, zone_cycles
+  def analyze(self, regression_outputs):
+    regression_outputs = os.path.abspath(regression_outputs)
+    if not os.path.exists(regression_outputs):
+      raise Exception("Cannot analyze regression outputs specified path is invalid")
+    if not os.path.isdir(regression_outputs):
+      raise Exception("Cannot analyze regression outputs specified path is invalid")
+    
+    current_branch = os.getenv('CI_COMMIT_BRANCH')
+    target_branch = super().getBranchMergingWith(current_branch)
+    pr_wiki_page = os.path.join(str(self.__parthenon_wiki_dir), branch + "_" + target_branch + ".md" )
 
+    all_dirs = os.listdir(regression_outputs)
+    print("Contents of regression_outputs: %s" % regression_outputs )
+    for test_dir in all_dirs:
+      print(test_dir)
+      if test_dir == "advection_performance":
+        if not os.path.isfile(regression_outputs + "/advection_performance/performance_metrics.txt"):
+          raise Exception("Cannot analyze advection_performance, missing performance metrics file.")
+        repo = super().cloneWikiRepo()
 
-    def analyze(self, regression_ouputs):
-      """ Analyze the files in the regression_ouputs path"""
-      if not os.path.exists(regression_outputs):
-        raise Exception("Cannot analyze regression outputs specified path is invalid")
-      if not os.path.isdir(regression_outputs):
-        raise Exception("Cannot analyze regression outputs specified path is invalid")
+        mesh_blocks, zone_cycles = self.readPerformanceMetricsTXT(regression_outputs + "/advection_performance/performance_metrics.txt")
+        now = datetime.datetime.now()
+        
+        # Check if performance_metrics.json exists in wiki
+        # It actually makes the most sense to store each performance metric in it's own file to 
+        # avoid merge conflicts. 
+        # The content of each file should contain the commit
+        # The date
+        # The performance metrics 
+        # The pull request
+        commit_sha = os.getenv('CI_COMMIT_SHA')
+        new_data = {
+            'commit sha': commit_sha, 
+            'branch': current_branch,
+            'date': now.strftime("%Y-%m-%d %H:%M:%S"),
+            'data':[{
+            'test': dir,
+            'mesh_blocks': mesh_blocks,
+            'zone_cycles': zone_cycles
+                  }]
+            }
+
+        json_file_out = str(self.__parthenon_wiki_dir) + "/performance_metrics_"+ current_branch + ".json"
+        json_perf_data_parser = PerformanceDataJsonParser()
+        json_perf_data_parser.append(new_data, json_file_out)
+     
+        # Now the new file needs to be committed
+        upload(json_file_out, "master",use_wiki=True)
+
+        json_file_compare = str(self.__parthenon_wiki_dir) + "/performance_metrics_" + target_branch + ".json"
+        
+        target_data_file_exists = False
+        if os.path.isfile(json_file_compare):
+          target_data_file_exists = True
+          target_meshblocks, target_cycles = json_perf_data_parser.getMostRecentPerformanceData(json_file_compare, target_branch, test_dir)
+        # Get the data for the last commit in the development branch
+
+        # Now we need to create the figure to update
+        fig, p = plt.subplots(2, 1, figsize = (4,8), sharex=True)
+
+        p[0].loglog(mesh_blocks, zone_cycles, label = "$256^3$ Mesh")
+        p[1].loglog(mesh_blocks, zone_cycles[0]/zone_cycles)
+        if target_data_file_exists:
+          p[0].loglog(target_meshblocks, target_cycles, label = "$256^3$ Mesh")
+          p[1].loglog(target_mesh_blocks, zone_cycles[0]/target_cycles)
+
+        for i in range(2):
+            p[i].grid()
+
+        if target_data_file_exists:
+          p[0].legend([branch,target_branch])
+          p[1].legend([branch,target_branch])
+        else:
+          p[0].legend([branch])
+          p[0].legend([branch,target_branch])
+        p[0].set_ylabel("zone-cycles/s")
+        p[1].set_ylabel("normalized overhead")
+        p[1].set_xlabel("Meshblock size")
+        figure_name =test_dir + "_" + branch + "_" + target_branch + ".png"
+        figure_path_name = os.path.join(str(self.__parthenon_wiki_dir), figure_name )
+        fig.savefig(figure_path_name, bbox_inches='tight')
+        upload(figure_path_name, "master",use_wiki=True)
+
+        fig_url ='https://github.com/' + self.__user + '/' + self.__repo_name + '/blob/figures/' + figure_name + '?raw=true'
       
-      all_dirs = os.listdir(regression_outpus)
-      for dir in all_dirs:
-        if dir == "advection_performance":
-          if not os.path.isfile(regression_outputs + "/advection_performance/performance_metrics.txt"):
-            raise Exception("Cannot analyze advection_performance, missing performance metrics file.")
-          repo = super().cloneWikiRepo()
+      elif test_dir == "advection_performance_mpi":
+        if not os.path.isfile(regression_outputs + "/advection_performance_mpi/performance_metrics.txt"):
+          raise Exception("Cannot analyze advection_performance_mpi, missing performance metrics file.")
 
-          mesh_blocks, zone_cycles = self.readPerformanceMetricsTXT(regression_outputs + "/advection_performance/performance_metrics.txt")
-          now = datetime.datetime.now()
-          
-          # Check if performance_metrics.json exists in wiki
-          # It actually makes the most sense to store each performance metric in it's own file to 
-          # avoid merge conflicts. 
-          # The content of each file should contain the commit
-          # The date
-          # The performance metrics 
-          # The pull request
-          commit_sha = os.getenv('CI_COMMIT_SHA')
-          current_branch = os.getenv('CI_COMMIT_BRANCH')
-          new_data = {
-              'commit sha': commit_sha, 
-              'branch': current_branch,
-              'date': now.strftime("%Y-%m-%d %H:%M:%S"),
-              'data':[{
-              'test': dir,
-              'meshblocks': mesh_blocks,
-              'zone_cycles': zone_cycles
-                    }]
-              }
+      # Check that the wiki exists for merging between these two branches, only want a single wiki page per merge
 
-          json_file_out = str(self.__parthenon_wiki_dir) + "/performance_metrics_"+ current_branch + ".json"
-          json_perf_data_parser = PerformanceDataJsonParser()
-          json_perf_data_parser.append(new_data, json_file_out)
-       
-          json_file_compare = str(self.__parthenon_wiki_dir) + "/performance_metrics_" + + ".json"
-          # Get the data for the last commit in the development branch
-
-          # Now the new file needs to be committed
-          upload(json_file_out, "master",use_wiki=True)
-
-          # Now we need to create the figure to update
-          fig, p = plt.subplots(2, 1, figsize = (4,8), sharex=True)
-
-          p[0].loglog(mesh_blocks, zone_cycles, label = "$256^3$ Mesh")
-          p[1].loglog(mesh_blcoks, zone_cycles[0]/zone_cycles)
-
-          for i in range(2):
-              p[i].grid()
-          p[0].legend()
-          p[0].set_ylabel("zone-cycles/s")
-          p[1].set_ylabel("normalized overhead")
-          p[1].set_xlabel("Meshblock size")
-          #fig.savefig(os.path.join(parameters.output_path, "performance.png"),
-          #            bbox_inches='tight')
-
-        elif dir == "advection_performance_mpi":
-          if not os.path.isfile(regression_outputs + "/advection_performance_mpi/performance_metrics.txt"):
-            raise Exception("Cannot analyze advection_performance_mpi, missing performance metrics file.")
-      # 1 search for files 
-      # 2 load performance metrics from wiki
-      # 3 compare the metrics
-      # 4 Create figure
-      # 5 upload figure
-      # 6 indicate pass or fail with link to figure
+      with open(pr_wiki_page,'w') as writer: 
+        writer.write("This file is managed by the " + self.__name + "\n")
+        writer.write("![Image](" + fig_url +")\n")
+    # 1 search for files 
+    # 2 load performance metrics from wiki
+    # 3 compare the metrics
+    # 4 Create figure
+    # 5 upload figure
+    # 6 indicate pass or fail with link to figure
 
 
 def main(**kwargs):
@@ -222,6 +276,7 @@ def main(**kwargs):
       kwargs.pop('create'))
 
   branch = kwargs.pop('branch')
+
   if isinstance(branch,list):
     branch = branch[0]
 

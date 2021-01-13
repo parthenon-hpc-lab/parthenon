@@ -250,6 +250,22 @@ class App:
       self.__branches.append(js_obj['name'])
       self.__branch_current_commit_sha.update({js_obj['name'] : js_obj['commit']['sha']})
 
+  def getBranchMergingWith(self, branch):
+    """ Gets the name of the target branch of `branch` which it will merge with """
+    buffer_temp = BytesIO()
+    c = pycurl.Curl()
+    c.setopt(c.URL, self.__repo_url + "/pulls")
+    c.setopt(c.WRITEDATA, buffer_temp)
+    c.setopt(c.HTTPHEADER, self.__header)
+    c.perform()
+    c.close()
+    js_obj_list = json.loads(buffer_temp.getvalue())
+    pp = pprint.PrettyPrinter(indent=4)
+    for js_obj in js_obj_list:
+      if js_obj.get('head').get('label') == self.__user + ":" + branch:
+        return js_obj.get('base').get('label').split(':',1)[1]
+    return None
+
   """
   Public Methods
   """
