@@ -11,7 +11,7 @@ stages:
     PARTHENON_METRICS_PEM: /projects/parthenon-int/parthenonmetricsapplication.2020-12-21.private-key.pem
   script:
     - env
-    - source /projects/parthenon-int/parthenon-project/spack/share/spack/setup.env.sh
+    - source /projects/parthenon-int/parthenon-project/spack/share/spack/setup-env.sh
     - |
       spack env activate darwin-ppc64le-gcc9-2021-01-13
       ./scripts/darwin/metrics.sh --pem ${PARTHENON_METRICS_PEM} --status pending
