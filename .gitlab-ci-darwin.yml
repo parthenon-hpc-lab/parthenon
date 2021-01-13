@@ -12,7 +12,7 @@ stages:
     - env
     - echo "Location of pem ${PARTHENON_METRICS_PEM}"
     - env -i bash --norc --noprofile ./scripts/darwin/build_fast.sh
-    - ${CI_PROJECT_DIR}/scripts/darwin/metrics.sh /projects/parthenon-int/parthenonmetricsapplication.2020-12-21.private-key.pem ${CI_PROJECT_DIR}/build
+    - ${CI_PROJECT_DIR}/scripts/darwin/metrics.sh "/projects/parthenon-int/parthenonmetricsapplication.2020-12-21.private-key.pem" "${CI_PROJECT_DIR}/build"
 
   #  artifacts:
   #  expire_in: 3 days
