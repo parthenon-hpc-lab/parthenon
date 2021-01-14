@@ -9,6 +9,8 @@ source /projects/parthenon-int/parthenon-project/spack/share/spack/setup-env.sh
 # Exit on error
 set -e
 
+module load gcc/9.2.0
+spack compiler find
 spack env activate darwin-ppc64le-gcc9-2021-01-13
 
 PARTHENON_PEM_FILE=${1}
