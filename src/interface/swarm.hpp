@@ -98,6 +98,12 @@ class SwarmDeviceContext {
   Real y_max_;
   Real z_min_;
   Real z_max_;
+  Real x_min_global_;
+  Real x_max_global_;
+  Real y_min_global_;
+  Real y_max_global_;
+  Real z_min_global_;
+  Real z_max_global_;
   ParArrayND<bool> marked_for_removal_;
   ParArrayND<bool> mask_;
   ParArrayND<int> blockIndex_;
@@ -224,6 +230,8 @@ class Swarm {
       PackIndexMap &vmap);
 
   void PackAllVariables(SwarmVariablePack<Real> &vreal, SwarmVariablePack<int> &vint);
+  void PackAllVariables(SwarmVariablePack<Real> &vreal, SwarmVariablePack<int> &vint,
+    PackIndexMap &rmap, PackIndexMap &imap);
 
   bool StartCommunication(BoundaryCommSubset phase) {
     printf("[%i] StartCommunication!\n", Globals::my_rank);

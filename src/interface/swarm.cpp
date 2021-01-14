@@ -31,6 +31,8 @@ SwarmDeviceContext Swarm::GetDeviceContext() const {
   // context.neighbor_send_index_ = neighbor_send_index.data;
 
   auto pmb = GetBlockPointer();
+  auto pmesh = pmb->pmy_mesh;
+  auto mesh_size = pmesh->mesh_size;
 
   const IndexRange &ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
   const IndexRange &jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
@@ -41,6 +43,12 @@ SwarmDeviceContext Swarm::GetDeviceContext() const {
   context.x_max_ = pmb->coords.x1f(ib.e + 1);
   context.y_max_ = pmb->coords.x2f(jb.e + 1);
   context.z_max_ = pmb->coords.x3f(kb.e + 1);
+  context.x_min_global_ = mesh_size.x1min;
+  context.x_max_global_ = mesh_size.x1max;
+  context.y_min_global_ = mesh_size.x2min;
+  context.y_max_global_ = mesh_size.x2max;
+  context.z_min_global_ = mesh_size.x3min;
+  context.z_max_global_ = mesh_size.x3max;
   context.ndim_ = pmb->pmy_mesh->ndim;
   return context;
 }
@@ -753,9 +761,14 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
   auto new_mask = AddEmptyParticles(total_received_particles, new_indices);
   SwarmVariablePack<Real> vreal;
   SwarmVariablePack<int> vint;
-  PackAllVariables(vreal, vint);
+  PackIndexMap rmap;
+  PackIndexMap imap;
+  PackAllVariables(vreal, vint, rmap, imap);
   int real_vars_size = realVector_.size();
   int int_vars_size = intVector_.size();
+  const int ix = rmap["x"].first;
+  const int iy = rmap["y"].first;
+  const int iz = rmap["z"].first;
 
   ParArrayND<int> neighbor_index("Neighbor index", total_received_particles);
   ParArrayND<int> buffer_index("Buffer index", total_received_particles);
@@ -777,6 +790,7 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
 
   // construct map from buffer index to swarm index (or just return vector of indices!)
   int particle_size = GetParticleDataSize();
+  auto swarm_d = GetDeviceContext();
 
   auto bdvar = vbvar->bd_var_;
   pmb->par_for(
@@ -791,14 +805,43 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
           vint(i, sid) = static_cast<int>(
               bdvar.recv[nid]((real_vars_size + bid) * particle_size + i));
         }
+
+        double &x = vreal(ix, sid);
+        double &y = vreal(iy, sid);
+        double &z = vreal(iz, sid);
+        if (x < swarm_d.x_min_global_) {
+          x = swarm_d.x_max_global_ - (swarm_d.x_min_global_ - x);
+        }
+        if (x > swarm_d.x_max_global_) {
+          x = swarm_d.x_min_global_ + (x - swarm_d.x_max_global_);
+        }
+
+        // TODO(BRR) Apply boundaries as necessary
       });
 
   return true;
 }
-
 void Swarm::PackAllVariables(SwarmVariablePack<Real> &vreal,
                              SwarmVariablePack<int> &vint) {
   PackIndexMap rmap, imap;
+  std::vector<std::string> real_vars;
+  std::vector<std::string> int_vars;
+  for (auto &realVar : realVector_) {
+    real_vars.push_back(realVar->label());
+  }
+  int real_vars_size = realVector_.size();
+  int int_vars_size = intVector_.size();
+  for (auto &intVar : intVector_) {
+    int_vars.push_back(intVar->label());
+  }
+  vreal = PackVariablesReal(real_vars, rmap);
+  vint = PackVariablesInt(int_vars, imap);
+}
+
+void Swarm::PackAllVariables(SwarmVariablePack<Real> &vreal,
+                             SwarmVariablePack<int> &vint,
+                             PackIndexMap &rmap,
+                             PackIndexMap &imap) {
   std::vector<std::string> real_vars;
   std::vector<std::string> int_vars;
   for (auto &realVar : realVector_) {
