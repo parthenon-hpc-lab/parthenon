@@ -38,7 +38,7 @@
 
 namespace parthenon {
 
-BoundarySwarm::BoundarySwarm(std::weak_ptr<MeshBlock> pmb) : pmy_block(pmb) {
+BoundarySwarm::BoundarySwarm(std::weak_ptr<MeshBlock> pmb) : pmy_block(pmb), pmy_mesh_(pmb.lock()->pmy_mesh) {
   printf("BoundarySwarm::BoundarySwarm\n");
 #ifdef MPI_PARALLEL
   // TODO(BRR) Need to update swarm id counter!
@@ -109,7 +109,14 @@ void BoundarySwarm::Send(BoundaryCommSubset phase) {
                 send_tag[n], MPI_COMM_WORLD, &request);
 #endif // MPI_PARALLEL
     } else {
-      // CopyVariableBufferSameProcess
+      //CopyVariableBufferSameProcess(nb, send_size[n]);
+      printf("About to try to find meshblock gid: %i\n", nb.snb.gid);
+      MeshBlock &target_block = *pmy_mesh_->FindMeshBlock(nb.snb.gid);
+      BoundaryData<> *ptarget_bdata = &(target_block.pbval->bvars[bvar_index]->bd_var_);
+      printf("target BoundaryData<>: nbmax: %i\n", ptarget_bdata->nbmax);
+      // Resize target buffer if necessary
+
+      exit(-1);
     }
   }
 }

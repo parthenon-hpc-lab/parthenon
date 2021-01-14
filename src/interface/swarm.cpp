@@ -381,7 +381,9 @@ void Swarm::RemoveMarkedParticles() {
 }
 
 void Swarm::Defrag() {
-  GetBlockPointer()->exec_space.fence();
+  if (get_num_active() == 0) {
+    return;
+  }
   // TODO(BRR) Could this algorithm be more efficient? Does it matter?
   // Add 1 to convert max index to max number
   int num_free = (max_active_index_ + 1) - num_active_;
@@ -479,9 +481,16 @@ void Swarm::SetupPersistentMPI() {
     }
   }
 
+  // TODO(BRR) Checks against some current limitations
   int ndim = pmb->pmy_mesh->ndim;
-
   PARTHENON_REQUIRE(ndim == 2, "Only 2D tested right now!");
+  int nblocks_proc = pmb->pmy_mesh->block_list.size();
+  PARTHENON_REQUIRE(nblocks_proc == 1, "Only 1 meshblock per MPI rank supported right now!");
+  auto mesh_bcs = pmb->pmy_mesh->mesh_bcs;
+  for (int n = 0; n < 2*ndim; n++) {
+    printf("[%i] bc: %i\n", n, static_cast<int>(mesh_bcs[n]));
+    PARTHENON_REQUIRE(mesh_bcs[n] == BoundaryFlag::periodic, "Only periodic boundaries supported right now!");
+  }
 
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
@@ -533,6 +542,22 @@ void Swarm::SetupPersistentMPI() {
       PARTHENON_FAIL("3D particles not currently supported!");
     }
   }
+
+  /*for (int j = 0; j < 4; j++) {
+    for (int i = 0; i < 4; i++) {
+      printf("[0 %i %i]: %i\n", j, i, neighborIndices_h(0,j,i));
+    }
+  }
+  int j = 3;
+  int i = 3;
+  printf("Lets get info about [0 %i %i], neighbor %i\n", j, i, neighborIndices_h(0,j,i));
+  NeighborBlock &nb = pmb->pbval->neighbor[neighborIndices_h(0,j,i)];
+  BoundaryFace fid = nb.fid;
+  printf("BoundaryFace: %i\n", static_cast<int>(fid));
+  auto snb = nb.snb;
+  printf("  rank: %i level: %i lid: %i gid: %i\n", snb.rank, snb.level,
+    snb.lid, snb.gid);
+  exit(-1);*/
 
   neighborIndices_.DeepCopy(neighborIndices_h);
 }
@@ -599,13 +624,29 @@ bool Swarm::Send(BoundaryCommSubset phase) {
     }
     vbvar->send_size[n] = num_particles_to_send_h(n) * particle_size;
     num_particles_sent_ += num_particles_to_send_h(n);
+    printf("[%i] Sending %i particles to neighbor: %i rank: %i\n", Globals::my_rank,
+      num_particles_to_send_h(n), n, pmb->pbval->neighbor[n].snb.rank);
   }
+  printf("[%i] Sent %i particles\n", Globals::my_rank, num_particles_sent_);
 
   SwarmVariablePack<Real> vreal;
   SwarmVariablePack<int> vint;
-  PackAllVariables(vreal, vint);
+  PackIndexMap rmap;
+  PackIndexMap imap;
+  PackAllVariables(vreal, vint, rmap, imap);
   int real_vars_size = realVector_.size();
   int int_vars_size = intVector_.size();
+  const int ix = rmap["x"].first;
+  const int iy = rmap["y"].first;
+  const int iz = rmap["z"].first;
+
+  ParArrayND<int> nrank("Neighbor rank", nbmax);
+  auto nrank_h = nrank.GetHostMirrorAndCopy();
+  for (int n = 0; n < nbmax; n++) {
+    NeighborBlock &nb = pmb->pbval->neighbor[n];
+    nrank_h(n) = nb.snb.rank;
+  }
+  nrank.DeepCopy(nrank_h);
 
   auto bdvar = vbvar->bd_var_;
   pmb->par_for(
@@ -613,16 +654,41 @@ bool Swarm::Send(BoundaryCommSubset phase) {
       KOKKOS_LAMBDA(const int n) {        // Max index
         for (int m = 0; m < nbmax; m++) { // Number of neighbors
           if (n < num_particles_to_send(m)) {
-            int swarm_index = particle_indices_to_send(m, n);
+            int sidx = particle_indices_to_send(m, n);
             int buffer_index = n * particle_size;
-            swarm_d.MarkParticleForRemoval(swarm_index);
+            swarm_d.MarkParticleForRemoval(sidx);
             for (int i = 0; i < real_vars_size; i++) {
-              bdvar.send[m](buffer_index) = vreal(i, swarm_index);
+              bdvar.send[m](buffer_index) = vreal(i, sidx);
+              printf("[%i] PACK n: %i real(%i) = %e\n", Globals::my_rank, n, i, vreal(i,sidx));
               buffer_index++;
             }
             for (int i = 0; i < int_vars_size; i++) {
-              bdvar.send[m](buffer_index) = static_cast<Real>(vint(i, swarm_index));
+              bdvar.send[m](buffer_index) = static_cast<Real>(vint(i, sidx));
               buffer_index++;
+            }
+            // If rank is shared, apply boundary conditions here
+            if (nrank(m) == Globals::my_rank) {
+              double &x = vreal(ix, sidx);
+              double &y = vreal(iy, sidx);
+              double &z = vreal(iz, sidx);
+              if (x < swarm_d.x_min_global_) {
+                x = swarm_d.x_max_global_ - (swarm_d.x_min_global_ - x);
+              }
+              if (x > swarm_d.x_max_global_) {
+                x = swarm_d.x_min_global_ + (x - swarm_d.x_max_global_);
+              }
+              if (y < swarm_d.y_min_global_) {
+                y = swarm_d.y_max_global_ - (swarm_d.y_min_global_ - y);
+              }
+              if (y > swarm_d.y_max_global_) {
+                y = swarm_d.y_min_global_ + (y - swarm_d.y_max_global_);
+              }
+              if (z < swarm_d.z_min_global_) {
+                z = swarm_d.z_max_global_ - (swarm_d.z_min_global_ - z);
+              }
+              if (z > swarm_d.z_max_global_) {
+                z = swarm_d.z_min_global_ + (z - swarm_d.z_max_global_);
+              }
             }
           }
         }
@@ -749,6 +815,7 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
     total_received_particles += vbvar->recv_size[n] / vbvar->particle_size;
     neighbor_received_particles[n] = vbvar->recv_size[n] / vbvar->particle_size;
   }
+  printf("[%i] Received %i particles\n", Globals::my_rank, total_received_particles);
 
   if (total_received_particles == 0) {
     return true;
@@ -797,6 +864,7 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
         int bid = buffer_index(n);
         for (int i = 0; i < real_vars_size; i++) {
           vreal(i, sid) = bdvar.recv[nid](bid * particle_size + i);
+          printf("[%i] UNPACK n: %i real(%i) = %e\n", Globals::my_rank, n, i, vreal(i,sid));
         }
         for (int i = 0; i < int_vars_size; i++) {
           vint(i, sid) = static_cast<int>(
@@ -811,6 +879,18 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
         }
         if (x > swarm_d.x_max_global_) {
           x = swarm_d.x_min_global_ + (x - swarm_d.x_max_global_);
+        }
+        if (y < swarm_d.y_min_global_) {
+          y = swarm_d.y_max_global_ - (swarm_d.y_min_global_ - y);
+        }
+        if (y > swarm_d.y_max_global_) {
+          y = swarm_d.y_min_global_ + (y - swarm_d.y_max_global_);
+        }
+        if (z < swarm_d.z_min_global_) {
+          z = swarm_d.z_max_global_ - (swarm_d.z_min_global_ - z);
+        }
+        if (z > swarm_d.z_max_global_) {
+          z = swarm_d.z_min_global_ + (z - swarm_d.z_max_global_);
         }
 
         // TODO(BRR) Apply boundaries as necessary

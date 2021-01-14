@@ -98,6 +98,7 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
 // first some helper tasks
 
 TaskStatus DestroySomeParticles(MeshBlock *pmb) {
+  return TaskStatus::complete;
   pmb->exec_space.fence();
   auto pkg = pmb->packages["particles_package"];
   auto swarm = pmb->swarm_data.Get()->Get("my particles");
@@ -176,6 +177,9 @@ TaskStatus DepositParticles(MeshBlock *pmb) {
 }
 
 TaskStatus CreateSomeParticles(MeshBlock *pmb, double t0) {
+  if (t0 > 0.1 || Globals::my_rank != 0) {
+    return TaskStatus::complete;
+  }
   printf("[%i] CreateSomeParticles\n", Globals::my_rank);
   auto pkg = pmb->packages["particles_package"];
   auto swarm = pmb->swarm_data.Get()->Get("my particles");
@@ -288,6 +292,7 @@ TaskStatus TransportParticles(MeshBlock *pmb, StagedIntegrator *integrator, doub
       "TransportParticles", 0, max_active_index, KOKKOS_LAMBDA(const int n) {
         if (swarm_d.IsActive(n) && swarm_d.IsOnCurrentMeshBlock(n)) {
           Real v = sqrt(vx(n) * vx(n) + vy(n) * vy(n) + vz(n) * vz(n));
+          printf("[%i] n: %i t(n): %e t0+dt: %e\n", Globals::my_rank, n, t(n), t0+dt);
           while (t(n) < t0 + dt) {
             Real dt_cell = dx_push / v;
             Real dt_end = t0 + dt - t(n);
@@ -297,6 +302,7 @@ TaskStatus TransportParticles(MeshBlock *pmb, StagedIntegrator *integrator, doub
             y(n) += vy(n) * dt_push;
             z(n) += vz(n) * dt_push;
             t(n) += dt_push;
+            printf("[%i] x: %e y: %e z: %e\n", Globals::my_rank, x(n), y(n), z(n));
 
             // Apply physical boundaries before indicating communication?
 

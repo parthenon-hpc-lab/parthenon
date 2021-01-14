@@ -68,6 +68,10 @@ class SwarmDeviceContext {
       blockIndex_(n) = -2;
       // TODO(BRR) not sure how to handle this case... which hopefully never happens once
       // everything is working
+      printf("BAD i: %i j: %i k: %i\n", i, j, k);
+      printf("x: %e y: %e z: %e\n", x, y, z);
+      printf("xmin ymin zmin: %e %e %e\n", x_min_, y_min_, z_min_);
+      printf("xmax ymax zmax: %e %e %e\n", x_max_, y_max_, z_max_);
       PARTHENON_FAIL("Particle neighbor indices out of bounds");
       return -2;
     }

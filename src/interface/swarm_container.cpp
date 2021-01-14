@@ -110,7 +110,6 @@ TaskStatus SwarmContainer::SillyUpdate() {
 }
 
 TaskStatus SwarmContainer::Send(BoundaryCommSubset phase) {
-  printf("[%i] SwarmContainer::Send\n", Globals::my_rank);
   int success = 0, total = 0;
   for (auto &s : swarmVector_) {
     if (s->Send(phase)) {
@@ -122,7 +121,6 @@ TaskStatus SwarmContainer::Send(BoundaryCommSubset phase) {
   return TaskStatus::incomplete;
 }
 TaskStatus SwarmContainer::Receive(BoundaryCommSubset phase) {
-  printf("[%i] SwarmContainer::Receive\n", Globals::my_rank);
   int success = 0, total = 0;
   for (auto &s : swarmVector_) {
     if (s->Receive(phase)) {
