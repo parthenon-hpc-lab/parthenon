@@ -172,8 +172,17 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properti
   if (app_in->InitUserMeshData != nullptr) {
     InitUserMeshData = app_in->InitUserMeshData;
   }
-  if (app_in->MeshUserWorkInLoop != nullptr) {
-    UserWorkInLoop = app_in->MeshUserWorkInLoop;
+  if (app_in->PreStepMeshUserWorkInLoop != nullptr) {
+    PreStepUserWorkInLoop = app_in->PreStepMeshUserWorkInLoop;
+  }
+  if (app_in->PostStepMeshUserWorkInLoop != nullptr) {
+    PostStepUserWorkInLoop = app_in->PostStepMeshUserWorkInLoop;
+  }
+  if (app_in->PreStepDiagnosticsInLoop != nullptr) {
+    PreStepUserDiagnosticsInLoop = app_in->PreStepDiagnosticsInLoop;
+  }
+  if (app_in->PostStepDiagnosticsInLoop != nullptr) {
+    PostStepUserDiagnosticsInLoop = app_in->PostStepDiagnosticsInLoop;
   }
   if (app_in->UserWorkAfterLoop != nullptr) {
     UserWorkAfterLoop = app_in->UserWorkAfterLoop;
@@ -492,6 +501,12 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properti
   }
 
   ResetLoadBalanceVariables();
+
+  // Output variables in use in this run
+  if (block_list.size() > 0 && Globals::my_rank == 0) {
+    std::cout << "#Variables in use:\n"
+              << *(block_list[0]->resolved_packages) << std::endl;
+  }
 }
 
 //----------------------------------------------------------------------------------------
@@ -580,8 +595,17 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   if (app_in->InitUserMeshData != nullptr) {
     InitUserMeshData = app_in->InitUserMeshData;
   }
-  if (app_in->MeshUserWorkInLoop != nullptr) {
-    UserWorkInLoop = app_in->MeshUserWorkInLoop;
+  if (app_in->PreStepMeshUserWorkInLoop != nullptr) {
+    PreStepUserWorkInLoop = app_in->PreStepMeshUserWorkInLoop;
+  }
+  if (app_in->PostStepMeshUserWorkInLoop != nullptr) {
+    PostStepUserWorkInLoop = app_in->PostStepMeshUserWorkInLoop;
+  }
+  if (app_in->PreStepDiagnosticsInLoop != nullptr) {
+    PreStepUserDiagnosticsInLoop = app_in->PreStepDiagnosticsInLoop;
+  }
+  if (app_in->PostStepDiagnosticsInLoop != nullptr) {
+    PostStepUserDiagnosticsInLoop = app_in->PostStepDiagnosticsInLoop;
   }
   if (app_in->UserWorkAfterLoop != nullptr) {
     UserWorkAfterLoop = app_in->UserWorkAfterLoop;
@@ -754,6 +778,12 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   }
 
   ResetLoadBalanceVariables();
+
+  // Output variables in use in this run
+  if (block_list.size() > 0 && Globals::my_rank == 0) {
+    std::cout << "#Variables in use:\n"
+              << *(block_list[0]->resolved_packages) << std::endl;
+  }
 }
 
 //----------------------------------------------------------------------------------------

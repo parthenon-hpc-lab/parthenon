@@ -28,10 +28,10 @@ namespace particles_example {
 
 typedef Kokkos::Random_XorShift64_Pool<> RNGPool;
 
-class ParticleDriver : public MultiStageBlockTaskDriver {
+class ParticleDriver : public MultiStageDriver {
  public:
   ParticleDriver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
-      : MultiStageBlockTaskDriver(pin, app_in, pm) {}
+      : MultiStageDriver(pin, app_in, pm) {}
   TaskCollection MakeTaskCollection(BlockList_t &blocks, int stage);
 };
 
