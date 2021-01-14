@@ -310,7 +310,6 @@ void Swarm::setPoolMax(const int nmax_pool) {
 
 ParArrayND<bool> Swarm::AddEmptyParticles(const int num_to_add,
                                           ParArrayND<int> &new_indices) {
-  printf("ADDING %i particles!!!!111\n", num_to_add);
   PARTHENON_REQUIRE(num_to_add > 0, "Attempting to add fewer than 1 new particles!");
   GetBlockPointer()->exec_space.fence();
   while (free_indices_.size() < num_to_add) {
@@ -572,9 +571,9 @@ bool Swarm::Send(BoundaryCommSubset phase) {
       }
     }
   }
-  // Not a ragged-right array, just for convenience
+  // Size-0 arrays not permitted
   max_indices_size = std::max<int>(1, max_indices_size);
-  printf("nbmax = %i max_indices_size = %i\n", nbmax, max_indices_size);
+  // Not a ragged-right array, just for convenience
   ParArrayND<int> particle_indices_to_send("Particle indices to send", nbmax,
                                            max_indices_size);
   auto particle_indices_to_send_h = particle_indices_to_send.GetHostMirror();
@@ -632,9 +631,7 @@ bool Swarm::Send(BoundaryCommSubset phase) {
   // Count all the particles that are Active and Not on this block, if nonzero,
   // copy into buffers (if no send already for that buffer) and send
 
-  printf("%s:%i\n", __FILE__, __LINE__);
   RemoveMarkedParticles();
-  printf("%s:%i\n", __FILE__, __LINE__);
 
   vbvar->Send(phase);
   return true;

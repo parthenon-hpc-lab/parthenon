@@ -140,11 +140,6 @@ void BoundarySwarm::Receive(BoundaryCommSubset phase) {
         MPI_Recv(bd_var_.recv[n].data(), nbytes, MPI_CHAR, nb.snb.rank, MPI_ANY_TAG,
                  MPI_COMM_WORLD, &status);
         recv_size[n] = nbytes / sizeof(Real);
-        if (nbytes > 0) {
-          printf("Message received! %e\n", bd_var_.recv[n](0));
-        } else {
-          printf("[%i] size 0 message received!\n");
-        }
       }
     }
   }

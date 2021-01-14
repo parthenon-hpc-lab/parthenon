@@ -39,7 +39,7 @@ class ParticleDriver : public EvolutionDriver {
   ParticleDriver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
       : EvolutionDriver(pin, app_in, pm),
         integrator(std::make_unique<StagedIntegrator>(pin)) {}
-  TaskCollection MakeTaskCollection();//BlockList_t &blocks, int stage);
+  //TaskCollection MakeTaskCollection();//BlockList_t &blocks, int stage);
   TaskCollection MakeParticlesCreationTaskCollection();
   TaskCollection MakeParticlesUpdateTaskCollection(bool &finished);
   TaskCollection MakeFinalizationTaskCollection();
