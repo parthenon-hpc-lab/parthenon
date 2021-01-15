@@ -804,6 +804,9 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
   // Populate buffers
   vbswarm->Receive(phase);
 
+  printf("Check that all neighbors are actually received...\n");
+  exit(-1);
+
   // Copy buffers into swarm data on this proc
   int maxneighbor = vbswarm->bd_var_.nbmax;
   int total_received_particles = 0;
@@ -871,6 +874,7 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
         double &x = vreal(ix, sid);
         double &y = vreal(iy, sid);
         double &z = vreal(iz, sid);
+        printf("xyz: %e %e %e\n", x, y, z);
         if (x < swarm_d.x_min_global_) {
           x = swarm_d.x_max_global_ - (swarm_d.x_min_global_ - x);
         }
@@ -889,6 +893,9 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
         if (z > swarm_d.z_max_global_) {
           z = swarm_d.z_min_global_ + (z - swarm_d.z_max_global_);
         }
+        printf("x: [%e %e] y: [%e %e] z: [%e %e] xyz: %e %e %e\n",
+          swarm_d.x_min_, swarm_d.x_max_, swarm_d.y_min_, swarm_d.y_max_,
+          swarm_d.z_min_, swarm_d.z_max_, x, y, z);
 
         // TODO(BRR) Apply boundaries as necessary
       });

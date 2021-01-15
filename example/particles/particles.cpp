@@ -429,6 +429,17 @@ TaskStatus StopCommunicationMesh(BlockList_t &blocks, bool &finished_transport) 
     num_sent_local += swarm->num_particles_sent_;
   }
 
+  printf("Need to check that all communications are done!\n");
+  // Boundary transfers on same MPI proc are blocking
+  for (int n = 0; n < pmb->pbval->nneighbor; n++) {
+    NeighborBlock &nb = pmb->pbval->neighbor[n];
+    if (nb.snb.rank != Globals::my_rank) {
+      if (bd_var_.flag[nb.bufid] != BoundaryStatus::completed) {
+        return TaskStatus::incomplete;
+      }
+    }
+  }
+
   int num_sent_global = 0;
   MPI_Allreduce(&num_sent_local, &num_sent_global, 1, MPI_INT, MPI_SUM,
     MPI_COMM_WORLD);
