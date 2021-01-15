@@ -27,7 +27,7 @@
 #include <vector>
 
 #include "basic_types.hpp"
-#include "bvals/swarm/bvals_swarm.hpp"
+#include "bvals/bvals_interfaces.hpp"
 #include "globals.hpp" // my_rank
 #include "metadata.hpp"
 #include "parthenon_arrays.hpp"
@@ -204,7 +204,7 @@ class Swarm {
 
   // used in case of swarm boundary communication
   void SetupPersistentMPI();
-  std::shared_ptr<BoundarySwarm> vbvar;
+  std::shared_ptr<BoundarySwarm> vbswarm;
   bool mpiStatus;
   void allocateComms(std::weak_ptr<MeshBlock> wpmb);
 
@@ -251,7 +251,7 @@ class Swarm {
 
     printf("global_num_incomplete_: %i\n", global_num_incomplete_);
 
-    vbvar->StartReceiving(phase);
+    vbswarm->StartReceiving(phase);
 
     return true;
   }

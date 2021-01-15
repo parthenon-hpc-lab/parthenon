@@ -149,4 +149,66 @@ int BoundaryValues::AdvanceCounterPhysID(int num_phys) {
 #endif
 }
 
+// BoundarySwarms constructor (the first object constructed inside the MeshBlock()
+// constructor): sets functions for the appropriate boundary conditions at each of the 6
+// dirs of a MeshBlock
+BoundarySwarms::BoundarySwarms(std::weak_ptr<MeshBlock> wpmb, BoundaryFlag *input_bcs,
+                               ParameterInput *pin)
+    : BoundaryBase(wpmb.lock()->pmy_mesh, wpmb.lock()->loc, wpmb.lock()->block_size,
+                   input_bcs),
+      pmy_block_(wpmb) {
+  // Check BC functions for each of the 6 boundaries in turn ---------------------
+  /*for (int i = 0; i < 6; i++) {
+    switch (block_bcs[i]) {
+    case BoundaryFlag::reflect:
+    case BoundaryFlag::outflow:
+      apply_bndry_fn_[i] = true;
+      break;
+    default: // already initialized to false in class
+      break;
+    }
+  }*/
+  // Inner x1
+  nface_ = 2;
+  nedge_ = 0;
+  CheckBoundaryFlag(block_bcs[BoundaryFace::inner_x1], CoordinateDirection::X1DIR);
+  CheckBoundaryFlag(block_bcs[BoundaryFace::outer_x1], CoordinateDirection::X1DIR);
+
+  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
+  if (pmb->block_size.nx2 > 1) {
+    nface_ = 4;
+    nedge_ = 4;
+    CheckBoundaryFlag(block_bcs[BoundaryFace::inner_x2], CoordinateDirection::X2DIR);
+    CheckBoundaryFlag(block_bcs[BoundaryFace::outer_x2], CoordinateDirection::X2DIR);
+  }
+
+  if (pmb->block_size.nx3 > 1) {
+    nface_ = 6;
+    nedge_ = 12;
+    CheckBoundaryFlag(block_bcs[BoundaryFace::inner_x3], CoordinateDirection::X3DIR);
+    CheckBoundaryFlag(block_bcs[BoundaryFace::outer_x3], CoordinateDirection::X3DIR);
+  }
+
+  // prevent reallocation of contiguous memory space for each of 4x possible calls to
+  // std::vector<BoundaryVariable *>.push_back() in Field, PassiveScalars
+  //bvars.reserve(3);
+  // TOOD(KGF): rename to "bvars_time_int"? What about a std::vector for bvars_sts?
+  //bvars_main_int.reserve(2);
+
+  // Matches initial value of Mesh::next_phys_id_
+  // reserve phys=0 for former TAG_AMR=8; now hard-coded in Mesh::CreateAMRMPITag()
+  bvars_next_phys_id_ = 1;
+}
+
+//----------------------------------------------------------------------------------------
+//! \fn void BoundaryValues::SetupPersistentMPI()
+//  \brief Setup persistent MPI requests to be reused throughout the entire simulation
+
+void BoundarySwarms::SetupPersistentMPI() {
+  for (auto bswarms_it = bswarms.begin(); bswarms_it != bswarms.end();
+       ++bswarms_it) {
+    (*bswarms_it)->SetupPersistentMPI();
+  }
+}
+
 } // namespace parthenon

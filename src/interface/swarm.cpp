@@ -16,7 +16,6 @@
 #include <utility>
 #include <vector>
 
-#include "bvals/cc/bvals_cc.hpp"
 #include "mesh/mesh.hpp"
 #include "swarm.hpp"
 
@@ -463,7 +462,7 @@ void Swarm::Defrag() {
 
 void Swarm::SetupPersistentMPI() {
   printf("[%i] SetupPersistentMPI\n", Globals::my_rank);
-  vbvar->SetupPersistentMPI();
+  vbswarm->SetupPersistentMPI();
 
   allreduce_request_ = MPI_REQUEST_NULL;
 
@@ -575,14 +574,14 @@ bool Swarm::Send(BoundaryCommSubset phase) {
   // Fence to make sure particles aren't currently being transported locally
   pmb->exec_space.fence();
 
-  int nbmax = vbvar->bd_var_.nbmax;
+  int nbmax = vbswarm->bd_var_.nbmax;
   ParArrayND<int> num_particles_to_send("npts", nbmax);
   auto num_particles_to_send_h = num_particles_to_send.GetHostMirror();
   for (int n = 0; n < nbmax; n++) {
     num_particles_to_send_h(n) = 0;
   }
   int particle_size = GetParticleDataSize();
-  vbvar->particle_size = particle_size;
+  vbswarm->particle_size = particle_size;
 
   int max_indices_size = 0;
   for (int n = 0; n <= max_active_index_; n++) {
@@ -617,12 +616,12 @@ bool Swarm::Send(BoundaryCommSubset phase) {
   num_particles_sent_ = 0;
   for (int n = 0; n < nbmax; n++) {
     // Resize buffer if too small
-    auto sendbuf = vbvar->bd_var_.send[n];
+    auto sendbuf = vbswarm->bd_var_.send[n];
     if (sendbuf.extent(0) < num_particles_to_send_h(n) * particle_size) {
       sendbuf = ParArray1D<Real>("Buffer", num_particles_to_send_h(n) * particle_size);
-      vbvar->bd_var_.send[n] = sendbuf;
+      vbswarm->bd_var_.send[n] = sendbuf;
     }
-    vbvar->send_size[n] = num_particles_to_send_h(n) * particle_size;
+    vbswarm->send_size[n] = num_particles_to_send_h(n) * particle_size;
     num_particles_sent_ += num_particles_to_send_h(n);
     printf("[%i] Sending %i particles to neighbor: %i rank: %i\n", Globals::my_rank,
       num_particles_to_send_h(n), n, pmb->pbval->neighbor[n].snb.rank);
@@ -648,7 +647,7 @@ bool Swarm::Send(BoundaryCommSubset phase) {
   }
   nrank.DeepCopy(nrank_h);
 
-  auto bdvar = vbvar->bd_var_;
+  auto bdvar = vbswarm->bd_var_;
   pmb->par_for(
       "Pack Buffers", 0, max_indices_size,
       KOKKOS_LAMBDA(const int n) {        // Max index
@@ -699,7 +698,7 @@ bool Swarm::Send(BoundaryCommSubset phase) {
 
   RemoveMarkedParticles();
 
-  vbvar->Send(phase);
+  vbswarm->Send(phase);
   return true;
 }
 
@@ -805,15 +804,15 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
   printf("[%i] Receive\n", Globals::my_rank);
 
   // Populate buffers
-  vbvar->Receive(phase);
+  vbswarm->Receive(phase);
 
   // Copy buffers into swarm data on this proc
-  int maxneighbor = vbvar->bd_var_.nbmax;
+  int maxneighbor = vbswarm->bd_var_.nbmax;
   int total_received_particles = 0;
   std::vector<int> neighbor_received_particles(maxneighbor);
   for (int n = 0; n < maxneighbor; n++) {
-    total_received_particles += vbvar->recv_size[n] / vbvar->particle_size;
-    neighbor_received_particles[n] = vbvar->recv_size[n] / vbvar->particle_size;
+    total_received_particles += vbswarm->recv_size[n] / vbswarm->particle_size;
+    neighbor_received_particles[n] = vbswarm->recv_size[n] / vbswarm->particle_size;
   }
   printf("[%i] Received %i particles\n", Globals::my_rank, total_received_particles);
 
@@ -856,7 +855,7 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
   int particle_size = GetParticleDataSize();
   auto swarm_d = GetDeviceContext();
 
-  auto bdvar = vbvar->bd_var_;
+  auto bdvar = vbswarm->bd_var_;
   pmb->par_for(
       "Unpack buffers", 0, total_received_particles - 1, KOKKOS_LAMBDA(const int n) {
         int sid = new_indices(n);
@@ -940,9 +939,15 @@ void Swarm::allocateComms(std::weak_ptr<MeshBlock> wpmb) {
   std::shared_ptr<MeshBlock> pmb = wpmb.lock();
 
   // Create the boundary object
-  vbvar = std::make_shared<BoundarySwarm>(pmb);
+  printf("%s:%i\n", __FILE__, __LINE__);
+  vbswarm = std::make_shared<BoundarySwarm>(pmb);
 
-  // Enroll SwarmVariables
+  // Enroll SwarmVariable object
+  printf("%s:%i\n", __FILE__, __LINE__);
+  vbswarm->bswarm_index = pmb->pbswarm->bswarms.size();
+  printf("%s:%i\n", __FILE__, __LINE__);
+  pmb->pbswarm->bswarms.push_back(vbswarm);
+  printf("%s:%i\n", __FILE__, __LINE__);
 }
 
 } // namespace parthenon

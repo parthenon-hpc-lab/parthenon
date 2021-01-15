@@ -397,7 +397,6 @@ TaskListStatus ParticleDriver::Step() {
 }
 
 // TODO(BRR) Move to Swarm or something. Actually is this even needed?
-#include "bvals/swarm/bvals_swarm.hpp"
 static int num_incomplete_local, num_incomplete_global;
 static MPI_Request allreduce_request;
 TaskStatus StartCommunicationMesh(BlockList_t &blocks) {

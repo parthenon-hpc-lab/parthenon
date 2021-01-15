@@ -119,9 +119,6 @@ add_library(parthenon
   bvals/fc/bvals_fc.hpp
   bvals/fc/flux_correction_fc.cpp
 
-  bvals/swarm/bvals_swarm.cpp
-  bvals/swarm/bvals_swarm.hpp
-
   bvals/boundary_conditions.cpp
   bvals/boundary_conditions.hpp
 
@@ -132,6 +129,7 @@ add_library(parthenon
   bvals/boundary_flag.cpp
   bvals/bvals_refine.cpp
   bvals/bvals_var.cpp
+  bvals/bvals_swarm.cpp
 
   coordinates/coordinates.hpp
   coordinates/uniform_cartesian.hpp

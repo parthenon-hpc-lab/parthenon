@@ -284,6 +284,53 @@ class BoundaryVariable : public BoundaryCommunication, public BoundaryBuffer {
   // private:
 };
 
+//----------------------------------------------------------------------------------------
+// Concrete classes
+//----------------------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------------------
+//! \class BoundarySwarm
+class BoundarySwarm : public BoundaryCommunication {
+ public:
+  BoundarySwarm(std::weak_ptr<MeshBlock> pmb);
+  ~BoundarySwarm() = default;
+
+  std::vector<ParArrayND<int>> vars_int;
+  std::vector<ParArrayND<Real>> vars_real;
+
+  // (usuallly the std::size_t unsigned integer type)
+  std::vector<BoundaryVariable *>::size_type bswarm_index;
+
+  // BoundaryCommunication
+  void SetupPersistentMPI() final;
+  void StartReceiving(BoundaryCommSubset phase) final;
+  void ClearBoundary(BoundaryCommSubset phase) final;
+  void Receive(BoundaryCommSubset phase);
+  void Send(BoundaryCommSubset phase);
+
+  BoundaryData<> bd_var_;
+  std::weak_ptr<MeshBlock> pmy_block;
+  Mesh *pmy_mesh_;
+  int send_tag[56], recv_tag[56];
+  int particle_size, send_size[56], recv_size[56];
+
+ protected:
+  int nl_, nu_;
+  void InitBoundaryData(BoundaryData<> &bd);
+
+ private:
+  std::shared_ptr<MeshBlock> GetBlockPointer() {
+    if (pmy_block.expired()) {
+      PARTHENON_THROW("Invalid pointer to MeshBlock!");
+    }
+    return pmy_block.lock();
+  }
+
+#ifdef MPI_PARALLEL
+  int swarm_id_;
+#endif
+};
+
 } // namespace parthenon
 
 #endif // BVALS_BVALS_INTERFACES_HPP_
