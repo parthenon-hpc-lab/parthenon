@@ -483,8 +483,6 @@ void Swarm::SetupPersistentMPI() {
   // TODO(BRR) Checks against some current limitations
   int ndim = pmb->pmy_mesh->ndim;
   PARTHENON_REQUIRE(ndim == 2, "Only 2D tested right now!");
-  int nblocks_proc = pmb->pmy_mesh->block_list.size();
-  PARTHENON_REQUIRE(nblocks_proc == 1, "Only 1 meshblock per MPI rank supported right now!");
   auto mesh_bcs = pmb->pmy_mesh->mesh_bcs;
   for (int n = 0; n < 2*ndim; n++) {
     printf("[%i] bc: %i\n", n, static_cast<int>(mesh_bcs[n]));
