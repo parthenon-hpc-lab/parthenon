@@ -577,6 +577,8 @@ bool Swarm::Send(BoundaryCommSubset phase) {
   auto num_particles_to_send_h = num_particles_to_send.GetHostMirror();
   for (int n = 0; n < nbmax; n++) {
     num_particles_to_send_h(n) = 0;
+    auto &nb = pmb->pbval->neighbor[n];
+    vbswarm->bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
   }
   int particle_size = GetParticleDataSize();
   vbswarm->particle_size = particle_size;
@@ -812,8 +814,12 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
   int total_received_particles = 0;
   std::vector<int> neighbor_received_particles(maxneighbor);
   for (int n = 0; n < maxneighbor; n++) {
-    total_received_particles += vbswarm->recv_size[n] / vbswarm->particle_size;
-    neighbor_received_particles[n] = vbswarm->recv_size[n] / vbswarm->particle_size;
+    if (vbswarm->bd_var_.flag[pmb->pbval->neighbor[n].bufid] == BoundaryStatus::arrived) {
+      total_received_particles += vbswarm->recv_size[n] / vbswarm->particle_size;
+      neighbor_received_particles[n] = vbswarm->recv_size[n] / vbswarm->particle_size;
+    } else {
+      neighbor_received_particles[n] = 0;
+    }
   }
   printf("[%i] Received %i particles\n", Globals::my_rank, total_received_particles);
 
@@ -900,7 +906,21 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
         // TODO(BRR) Apply boundaries as necessary
       });
 
-  return true;
+  bool all_boundaries_received = true;
+  for (int n = 0; n < pmb->pbval->nneighbor; n++) {
+    NeighborBlock &nb = pmb->pbval->neighbor[n];
+    if (bdvar.flag[nb.bufid] == BoundaryStatus::arrived) {
+      bdvar.flag[nb.bufid] = BoundaryStatus::completed;
+    } else if (bdvar.flag[nb.bufid] == BoundaryStatus::waiting) {
+      all_boundaries_received == false;
+    }
+  }
+
+  if (all_boundaries_received) {
+    return true;
+  } else {
+    return false;
+  }
 }
 void Swarm::PackAllVariables(SwarmVariablePack<Real> &vreal,
                              SwarmVariablePack<int> &vint) {

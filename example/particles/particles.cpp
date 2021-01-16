@@ -408,8 +408,8 @@ TaskStatus StartCommunicationMesh(BlockList_t &blocks) {
     num_incomplete_local += swarm->swarm_num_incomplete_;
   }
 
-  MPI_Iallreduce(&num_incomplete_local, &num_incomplete_global, 1, MPI_INT, MPI_SUM,
-    MPI_COMM_WORLD, &allreduce_request);
+  //MPI_Iallreduce(&num_incomplete_local, &num_incomplete_global, 1, MPI_INT, MPI_SUM,
+  //  MPI_COMM_WORLD, &allreduce_request);
 
   return TaskStatus::complete;
 }
@@ -417,8 +417,16 @@ TaskStatus StartCommunicationMesh(BlockList_t &blocks) {
 TaskStatus StopCommunicationMesh(BlockList_t &blocks, bool &finished_transport) {
   // TODO(BRR) this allreduce should actually be generated after the particles are pushed...right?
   printf("[%i] StopCommunication\n", Globals::my_rank);
-  MPI_Status status;
-  MPI_Wait(&allreduce_request, &status);
+  //MPI_Status status;
+  //MPI_Wait(&allreduce_request, &status);
+  /*for (auto &block : blocks) {
+    auto &pmb = block;
+    auto swarm = pmb->swarm_data.Get()->Get("my particles");
+    for (int n = 0; n < pmb->pbval->nneighbor; n++) {
+      NeighborBlock &nb = pmb->pbval->neighbor[n];
+      auto x = swarm->vbswarm.bd_var_;
+    }
+  }*/
 
   int num_sent_local = 0;
   for (auto &block : blocks) {
@@ -431,11 +439,16 @@ TaskStatus StopCommunicationMesh(BlockList_t &blocks, bool &finished_transport) 
 
   printf("Need to check that all communications are done!\n");
   // Boundary transfers on same MPI proc are blocking
-  for (int n = 0; n < pmb->pbval->nneighbor; n++) {
-    NeighborBlock &nb = pmb->pbval->neighbor[n];
-    if (nb.snb.rank != Globals::my_rank) {
-      if (bd_var_.flag[nb.bufid] != BoundaryStatus::completed) {
-        return TaskStatus::incomplete;
+  for (auto &block : blocks) {
+    for (int n = 0; n < block->pbval->nneighbor; n++) {
+      NeighborBlock &nb = block->pbval->neighbor[n];
+      // TODO(BRR) just check this for local copies too?
+      if (nb.snb.rank != Globals::my_rank) {
+        auto swarm = block->swarm_data.Get()->Get("my particles");
+        if (swarm->vbswarm->bd_var_.flag[nb.bufid] != BoundaryStatus::completed) {
+          printf("Communication not done!\n");
+          return TaskStatus::incomplete;
+        }
       }
     }
   }
