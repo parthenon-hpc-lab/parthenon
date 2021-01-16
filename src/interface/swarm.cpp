@@ -578,6 +578,7 @@ bool Swarm::Send(BoundaryCommSubset phase) {
   for (int n = 0; n < nbmax; n++) {
     num_particles_to_send_h(n) = 0;
     auto &nb = pmb->pbval->neighbor[n];
+    printf("[%i] neighbor %i nb.bufid: %i (%i)\n", Globals::my_rank, n, nb.bufid, static_cast<int>(BoundaryStatus::waiting));
     vbswarm->bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
   }
   int particle_size = GetParticleDataSize();
@@ -798,16 +799,13 @@ SwarmVariablePack<int> Swarm::PackVariablesInt(const std::vector<std::string> &n
 }
 
 bool Swarm::Receive(BoundaryCommSubset phase) {
-  // TODO(BRR) is this fence necessary?
+  // Ensure all local deep copies marked BoundaryStatus::completed are actually received
   GetBlockPointer()->exec_space.fence();
   auto pmb = GetBlockPointer();
   printf("[%i] Receive\n", Globals::my_rank);
 
   // Populate buffers
   vbswarm->Receive(phase);
-
-  printf("Check that all neighbors are actually received...\n");
-  exit(-1);
 
   // Copy buffers into swarm data on this proc
   int maxneighbor = vbswarm->bd_var_.nbmax;
@@ -822,6 +820,7 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
     }
   }
   printf("[%i] Received %i particles\n", Globals::my_rank, total_received_particles);
+  if (total_received_particles > 10) { exit(-1); }
 
   if (total_received_particles == 0) {
     return true;

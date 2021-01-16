@@ -292,7 +292,7 @@ TaskStatus TransportParticles(MeshBlock *pmb, StagedIntegrator *integrator, doub
       "TransportParticles", 0, max_active_index, KOKKOS_LAMBDA(const int n) {
         if (swarm_d.IsActive(n) && swarm_d.IsOnCurrentMeshBlock(n)) {
           Real v = sqrt(vx(n) * vx(n) + vy(n) * vy(n) + vz(n) * vz(n));
-          printf("[%i] n: %i t(n): %e t0+dt: %e\n", Globals::my_rank, n, t(n), t0+dt);
+          //printf("[%i] n: %i t(n): %e t0+dt: %e\n", Globals::my_rank, n, t(n), t0+dt);
           while (t(n) < t0 + dt) {
             Real dt_cell = dx_push / v;
             Real dt_end = t0 + dt - t(n);
@@ -302,7 +302,7 @@ TaskStatus TransportParticles(MeshBlock *pmb, StagedIntegrator *integrator, doub
             y(n) += vy(n) * dt_push;
             z(n) += vz(n) * dt_push;
             t(n) += dt_push;
-            printf("[%i] x: %e y: %e z: %e\n", Globals::my_rank, x(n), y(n), z(n));
+            //printf("[%i] x: %e y: %e z: %e\n", Globals::my_rank, x(n), y(n), z(n));
 
             // Apply physical boundaries before indicating communication?
 
@@ -446,7 +446,9 @@ TaskStatus StopCommunicationMesh(BlockList_t &blocks, bool &finished_transport) 
       if (nb.snb.rank != Globals::my_rank) {
         auto swarm = block->swarm_data.Get()->Get("my particles");
         if (swarm->vbswarm->bd_var_.flag[nb.bufid] != BoundaryStatus::completed) {
-          printf("Communication not done!\n");
+          printf("[%i] Communication not done with neighbor %i (%i)\n", Globals::my_rank, nb.bufid,
+            static_cast<int>((swarm->vbswarm->bd_var_.flag[nb.bufid])));
+          exit(-1);
           return TaskStatus::incomplete;
         }
       }
