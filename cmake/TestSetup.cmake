@@ -44,7 +44,7 @@ endfunction()
 # Adds test that will run in serial
 # test output will be sent to /tst/regression/outputs/dir
 # test property labels: regression, mpi-no
-function(setup_test dir arg extra_labels)
+function(setup_test_serial dir arg extra_labels)
   separate_arguments(arg) 
   list(APPEND labels "regression;mpi-no")
   list(APPEND labels "${extra_labels}")
@@ -114,7 +114,7 @@ endfunction()
 # Adds test that will run in parallel with mpi
 # test output will be sent to /tst/regression/outputs/dir_mpi
 # test property labels: regression, mpi-yes
-function(setup_test_mpi nproc dir arg extra_labels)
+function(setup_test_parallel nproc dir arg extra_labels)
   if( MPI_FOUND )
     separate_arguments(arg) 
     list(APPEND labels "regression;mpi-yes")
