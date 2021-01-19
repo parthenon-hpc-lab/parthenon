@@ -65,7 +65,7 @@ set(RZANSEL_VIEW_DATE ${RZANSEL_VIEW_DATE_LATEST}
   CACHE STRING "RZAnsel dependency view being used")
 if (NOT RZANSEL_VIEW_DATE_LATEST STREQUAL RZANSEL_VIEW_DATE)
     message(WARNING "Your current build directory was configured with a \
-    set of RZAnasel dependencies from ${RZANSEL_VIEW_DATE}, but your current \
+    set of RZAnsel dependencies from ${RZANSEL_VIEW_DATE}, but your current \
     code checkout prefers a set of RZAnsel dependencies from \
         ${RZANSEL_VIEW_DATE_LATEST}. Consider configuring a new build \
         directory.")
