@@ -108,7 +108,7 @@ endfunction()
 # test output will be sent to /tst/regression/outputs/dir_mpi
 # test property labels: regression, mpi-yes
 function(setup_test_mpi nproc dir arg extra_labels)
-  if( MPI_FOUND)
+  if( MPI_FOUND )
     separate_arguments(arg) 
     list(APPEND labels "regression;mpi-yes")
     list(APPEND labels "${extra_labels}")
@@ -156,5 +156,4 @@ function(setup_test_mpi_coverage nproc dir arg extra_labels)
     message(STATUS "MPI not found, not building coverage regression tests with mpi")
   endif()
 endfunction()
-
 
