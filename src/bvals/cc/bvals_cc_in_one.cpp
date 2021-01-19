@@ -345,10 +345,9 @@ void ResetSendBufferBoundaryInfo(MeshData<Real> *md, size_t buffers_used) {
           // on the same process fill the target buffer directly
           if (nb.snb.rank == parthenon::Globals::my_rank) {
             auto target_block = pmb->pmy_mesh->FindMeshBlock(nb.snb.gid);
-            // TODO(?) again hardcoded 0 index for single Variable
-            // FIXME before final merge
-            boundary_info_h(b).buf =
-                target_block->pbval->bvars[0]->GetPBdVar()->recv[nb.targetid];
+            boundary_info_h(b).buf = target_block->pbval->bvars[v->vbvar->bvar_index]
+                                         ->GetPBdVar()
+                                         ->recv[nb.targetid];
           } else {
             boundary_info_h(b).buf = pbd_var_->send[nb.bufid];
           }
@@ -388,10 +387,9 @@ void SendAndNotify(MeshData<Real> *md) {
             // TODO(?) check performance of FindMeshBlock. Could be caching from call
             // above.
             auto target_block = pmb->pmy_mesh->FindMeshBlock(nb.snb.gid);
-            // TODO(?) again hardcoded 0 index for single Variable
-            // FIXME before final merge
-            target_block->pbval->bvars[0]->GetPBdVar()->flag[nb.targetid] =
-                parthenon::BoundaryStatus::arrived;
+            target_block->pbval->bvars[v->vbvar->bvar_index]
+                ->GetPBdVar()
+                ->flag[nb.targetid] = parthenon::BoundaryStatus::arrived;
           } else {
 #ifdef MPI_PARALLEL
             PARTHENON_MPI_CHECK(MPI_Start(&(pbd_var_->req_send[nb.bufid])));
