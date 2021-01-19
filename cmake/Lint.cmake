@@ -53,7 +53,7 @@ function(lint_target TARGET_NAME)
     get_target_property(TARGET_SOURCE_DIR ${TARGET_NAME} SOURCE_DIR)
 
     if( NOT Python3_Interpreter_FOUND)
-      find_package(Python3 REQUIRED COMPONENTS Interpreter)
+      find_package(Python3 COMPONENTS Interpreter)
     endif()
     if( NOT Python3_Interpreter_FOUND)
       message(WARNING "Cannot lint file Python3 interpreter was not found.")
