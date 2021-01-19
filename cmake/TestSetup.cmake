@@ -133,12 +133,22 @@ function(setup_test_parallel nproc dir arg extra_labels)
       --test_dir ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}
       --output_dir "${PROJECT_BINARY_DIR}/tst/regression/outputs/${dir}_mpi"
       --kokkos_args=${PARTHENON_KOKKOS_TEST_ARGS})
+
+    # When targeting CUDA we don't have a great way of controlling how tests
+    # get mapped to GPUs, so just enforce serial execution
+    if (Kokkos_ENABLE_CUDA)
+      set(TEST_PROPERTIES
+        RUN_SERIAL ON)
+    else()
+      set(TEST_PROPERTIES
+        PROCESSOR_AFFINITY ON
+        PROCESSORS ${nproc})
+    endif()
     set_tests_properties(
       regression_mpi_test:${dir}
       PROPERTIES
         LABELS "${labels}"
-        PROCESSOR_AFFINITY ON
-        PROCESSORS ${nproc})
+        ${TEST_PROPERTIES})
     record_driver("${arg}")
   else()
     message(STATUS "MPI not found, not building regression tests with mpi")
