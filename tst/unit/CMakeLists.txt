@@ -50,7 +50,4 @@ ParseAndAddCatchTests(unit_tests)
 
 get_property(ALL_TESTS DIRECTORY . PROPERTY TESTS)
 
-foreach(TEST ${ALL_TESTS})
-    set_property(TEST "${TEST}" APPEND PROPERTY LABELS unit)
-endforeach()
 add_coverage_label("${ALL_TESTS}" "performance")
