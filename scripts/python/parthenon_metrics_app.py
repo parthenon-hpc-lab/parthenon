@@ -30,7 +30,7 @@ from app import App
 
 class PerformanceDataJsonParser():
 
-  def __containsCommit(self, json_objs, value):
+  def _containsCommit(self, json_objs, value):
     if not isinstance(json_objs, list):
       json_objs = [json_objs]
 
@@ -40,7 +40,7 @@ class PerformanceDataJsonParser():
 
     return False
 
-  def __add_to_json_obj(self,new_data):
+  def _add_to_json_obj(self,new_data):
     """ json data should be of the following form:
 
         Where there are blocks of data in a list with the content below
@@ -54,7 +54,7 @@ class PerformanceDataJsonParser():
                   'zone_cycles': zone_cycles}]
     """
     # Cycle the outer list first
-    for json_obj in self.__data:
+    for json_obj in self._data:
       if json_obj.get('commit sha') == new_data.get('commit sha'):
         for data_grp in json_obj.get('data'):
           if data_grp.get('test') == new_data.get('test'):
@@ -106,21 +106,21 @@ class PerformanceDataJsonParser():
       # If does exist:
       # 1. load the 
       with open(file_name, 'r') as fid:
-        self.__data = json.loads(fid)
+        self._data = json.loads(fid)
 
       # Check if the commit exists in the data already
-      if self.__containsCommit(self.__data, new_data['commit sha']):
+      if self._containsCommit(self._data, new_data['commit sha']):
         # Should really cycle through the list and see if the test already exists if it does it
         # should overwrite it
         # TODO
-        self.__add_to_json_obj(new_data)
+        self._add_to_json_obj(new_data)
       else:
-        self.__data.update(new_data) 
+        self._data.update(new_data) 
     else:
-      self.__data = new_data
+      self._data = new_data
 
     with open(json_file_out, 'w') as fout:
-      json_dumps_str = json.dumps(self.__data, indent=4)
+      json_dumps_str = json.dumps(self._data, indent=4)
       print(json_dumps_str, file=fout)
 
 
@@ -175,8 +175,8 @@ class ParthenonApp(App):
     target_branch = super().getBranchMergingWith(current_branch)
     wiki_file_name = current_branch + "_" + target_branch
     print("@@@@@@@@@@@@@@@@@@@@ wiki dir")
-    print(self.__parthenon_wiki_dir)
-    pr_wiki_page = os.path.join(self.__parthenon_wiki_dir, wiki_file_name + ".md" )
+    print(self._parthenon_wiki_dir)
+    pr_wiki_page = os.path.join(self._parthenon_wiki_dir, wiki_file_name + ".md" )
 
     all_dirs = os.listdir(regression_outputs)
     print("Contents of regression_outputs: %s" % regression_outputs )
@@ -209,14 +209,14 @@ class ParthenonApp(App):
                   }]
             }
 
-        json_file_out = str(self.__parthenon_wiki_dir) + "/performance_metrics_"+ current_branch + ".json"
+        json_file_out = str(self._parthenon_wiki_dir) + "/performance_metrics_"+ current_branch + ".json"
         json_perf_data_parser = PerformanceDataJsonParser()
         json_perf_data_parser.append(new_data, json_file_out)
      
         # Now the new file needs to be committed
         upload(json_file_out, "master",use_wiki=True)
 
-        json_file_compare = str(self.__parthenon_wiki_dir) + "/performance_metrics_" + target_branch + ".json"
+        json_file_compare = str(self._parthenon_wiki_dir) + "/performance_metrics_" + target_branch + ".json"
         
         target_data_file_exists = False
         if os.path.isfile(json_file_compare):
@@ -247,12 +247,12 @@ class ParthenonApp(App):
         p[1].set_xlabel("Meshblock size")
         figure_name =test_dir + "_" + branch + "_" + target_branch + ".png"
         print("$$$$$$$$$$$$$$$$ Parthenon wiki dir")
-        print(self.__parthenon_wiki_dir)
-        figure_path_name = os.path.join(self.__parthenon_wiki_dir, figure_name )
+        print(self._parthenon_wiki_dir)
+        figure_path_name = os.path.join(self._parthenon_wiki_dir, figure_name )
         fig.savefig(figure_path_name, bbox_inches='tight')
         upload(figure_path_name, "master",use_wiki=True)
 
-        fig_url ='https://github.com/' + self.__user + '/' + self.__repo_name + '/blob/figures/' + figure_name + '?raw=true'
+        fig_url ='https://github.com/' + self._user + '/' + self._repo_name + '/blob/figures/' + figure_name + '?raw=true'
         print("Figure url is: %s" % fig_url) 
       elif test_dir == "advection_performance_mpi":
         if not os.path.isfile(regression_outputs + "/advection_performance_mpi/performance_metrics.txt"):
@@ -261,10 +261,10 @@ class ParthenonApp(App):
       # Check that the wiki exists for merging between these two branches, only want a single wiki page per merge
 
       with open(pr_wiki_page,'w') as writer: 
-        writer.write("This file is managed by the " + self.__name + "\n")
+        writer.write("This file is managed by the " + self._name + "\n")
         writer.write("![Image](" + fig_url +")\n")
         wiki_url = "https://github.com/{usr_name}/{repo_name}/wiki/{file_name}"
-        wiki_url.format(usr_name=self.__name, repo_name=self.__repo_name, file_name=wiki_file_name )
+        wiki_url.format(usr_name=self._name, repo_name=self._repo_name, file_name=wiki_file_name )
         print("Wiki page url is: %s" % wiki_url)
     # 1 search for files 
     # 2 load performance metrics from wiki

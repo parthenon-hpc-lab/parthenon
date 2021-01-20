@@ -86,44 +86,44 @@ class App:
   Internal Private Methods
   """
   def __init__(self, id, name, user, repo_name):
-    self.__app_id = id
-    self.__name = name
-    self.__user = user
-    self.__repo_name = repo_name 
+    self._app_id = id
+    self._name = name
+    self._user = user
+    self._repo_name = repo_name 
 
   def initialize(self, use_wiki=False, ignore=False, pem_file = "", create_branch=False):
-    self.__ignore = ignore
-    self.__use_wiki = use_wiki
-    self.__repo_url = "https://api.github.com/repos/" + self.__user + "/" + self.__repo_name
+    self._ignore = ignore
+    self._use_wiki = use_wiki
+    self._repo_url = "https://api.github.com/repos/" + self._user + "/" + self._repo_name
     if isinstance(create_branch,list):
-      self.__create_branch = create_branch[0]
+      self._create_branch = create_branch[0]
     else:
-      self.__create_branch = create_branch
-    self.__default_branch = "develop"
-    self.__default_image_branch = "figures"
-    self.__branches = []
-    self.__branch_current_commit_sha = {}
-    self.__api_version = "application/vnd.github.v3+json"
-    self.__parth_root = Node()
-    self.__parthenon_home = str(pathlib.Path(__file__).parent.absolute())
+      self._create_branch = create_branch
+    self._default_branch = "develop"
+    self._default_image_branch = "figures"
+    self._branches = []
+    self._branch_current_commit_sha = {}
+    self._api_version = "application/vnd.github.v3+json"
+    self._parth_root = Node()
+    self._parthenon_home = str(pathlib.Path(__file__).parent.absolute())
     try:
-      self.__parthenon_home = self.__parthenon_home[:self.__parthenon_home.rindex(self.__repo_name) + len("/" + self.__repo_name )] 
+      self._parthenon_home = self._parthenon_home[:self._parthenon_home.rindex(self._repo_name) + len("/" + self._repo_name )] 
     except Exception:
-      error_msg = str(os.path.realpath(__file__)) + " must be run from within the " + self.__repo_name + " repository."
+      error_msg = str(os.path.realpath(__file__)) + " must be run from within the " + self._repo_name + " repository."
       print(error_msg)
       raise
 
-    self.__parthenon_wiki_dir = os.path.normpath(self.__parthenon_home +"/../"+ self.__repo_name + ".wiki")
+    self._parthenon_wiki_dir = os.path.normpath(self._parthenon_home +"/../"+ self._repo_name + ".wiki")
     print("******** Parthenon wiki dir")
-    print(self.__parthenon_wiki_dir)
+    print(self._parthenon_wiki_dir)
     if isinstance(pem_file,list):
-      self.__generateJWT(pem_file[0])
+      self._generateJWT(pem_file[0])
     else:
-      self.__generateJWT(pem_file)
-    self.__generateInstallationId() 
-    self.__generateAccessToken()
+      self._generateJWT(pem_file)
+    self._generateInstallationId() 
+    self._generateAccessToken()
 
-  def __generateJWT(self,pem_file):
+  def _generateJWT(self,pem_file):
     """
     Method will take the permissions (.pem) file provided and populate the json web token attribute
     """
@@ -132,7 +132,7 @@ class App:
     payload = { 
         'iat': datetime.datetime.utcnow(),
         'exp': datetime.datetime.utcnow() + datetime.timedelta(seconds=60),
-        'iss': self.__app_id 
+        'iss': self._app_id 
         }
   
     PEM = ""
@@ -151,16 +151,16 @@ class App:
       error_msg = "No permissions enabled for parthenon metrics app, either a pem file needs to "
       "be provided or the GITHUB_APP_PEM variable needs to be defined"
       raise Exception(error_msg)
-    self.__jwt_token = jwt.encode(payload,PEM, algorithm='RS256').decode("utf-8")
+    self._jwt_token = jwt.encode(payload,PEM, algorithm='RS256').decode("utf-8")
 
-  def __generateInstallationId(self):
+  def _generateInstallationId(self):
     """
     This method will populate the installation id attribute using the internally stored json web token.
     """
     buffer_temp = BytesIO()
     header = [
-            'Authorization: Bearer '+str(self.__jwt_token),
-            'Accept: ' + self.__api_version
+            'Authorization: Bearer '+str(self._jwt_token),
+            'Accept: ' + self._api_version
             ]
 
     c = pycurl.Curl()
@@ -176,20 +176,20 @@ class App:
         js_obj = js_obj[0]
 
     # The installation id will be listed at the end of the url path
-    self.__install_id = js_obj['html_url'].rsplit('/', 1)[-1]
+    self._install_id = js_obj['html_url'].rsplit('/', 1)[-1]
 
-  def __generateAccessToken(self):
+  def _generateAccessToken(self):
     """
     This method will populate the installation attribute using the installation id. The token
     is needed to authenticate any actions run by the application. 
     """
     buffer_temp = BytesIO()
     header = [
-            'Authorization: Bearer '+str(self.__jwt_token),
-            'Accept: ' + self.__api_version,
+            'Authorization: Bearer '+str(self._jwt_token),
+            'Accept: ' + self._api_version,
             ]
 
-    https_url_access_tokens = "https://api.github.com/app/installations/" + self.__install_id + "/access_tokens"
+    https_url_access_tokens = "https://api.github.com/app/installations/" + self._install_id + "/access_tokens"
 
     c = pycurl.Curl()
     c.setopt(c.HTTPHEADER, header)
@@ -206,14 +206,14 @@ class App:
     if isinstance(js_obj, list):
         js_obj = js_obj[0]
 
-    self.__access_token = js_obj['token']
+    self._access_token = js_obj['token']
 
-    self.__header = [
-            'Authorization: token '+self.__access_token,
-            'Accept: ' + self.__api_version,
+    self._header = [
+            'Authorization: token '+self._access_token,
+            'Accept: ' + self._api_version,
             ]
 
-  def __fillTree(self, current_node, branch):
+  def _fillTree(self, current_node, branch):
     """
     This is an internal method that is meant to be used recursively to grab the contents of a 
     branch of a remote repository.
@@ -224,10 +224,10 @@ class App:
       custom_data = {"branch": branch}
       buffer_temp2 = BytesIO(json.dumps(custom_data).encode('utf-8'))
       c = pycurl.Curl()
-      c.setopt(c.URL, self.__repo_url + "/contents/" + node.getPath())
+      c.setopt(c.URL, self._repo_url + "/contents/" + node.getPath())
       c.setopt(c.READDATA, buffer_temp2)
       c.setopt(c.WRITEDATA, buffer_temp)
-      c.setopt(c.HTTPHEADER, self.__header)
+      c.setopt(c.HTTPHEADER, self._header)
       c.perform()
       c.close()
       js_obj = json.loads(buffer_temp,getvalue())
@@ -238,38 +238,38 @@ class App:
       else:
           node.insert(js_obj['name'],js_obj['type'])
 
-      self.__fillTree(node, branch)
+      self._fillTree(node, branch)
 
 
-  def __getBranches(self):
+  def _getBranches(self):
     buffer_temp = BytesIO()
     c = pycurl.Curl()
-    c.setopt(c.URL, self.__repo_url + "/branches")
+    c.setopt(c.URL, self._repo_url + "/branches")
     c.setopt(c.WRITEDATA, buffer_temp)
-    c.setopt(c.HTTPHEADER, self.__header)
+    c.setopt(c.HTTPHEADER, self._header)
     c.perform()
     c.close()
     js_obj_list = json.loads(buffer_temp.getvalue())
 
-    self.__branches = []
-    self.__branch_current_commit_sha = {}
+    self._branches = []
+    self._branch_current_commit_sha = {}
     for js_obj in js_obj_list:
-      self.__branches.append(js_obj['name'])
-      self.__branch_current_commit_sha.update({js_obj['name'] : js_obj['commit']['sha']})
+      self._branches.append(js_obj['name'])
+      self._branch_current_commit_sha.update({js_obj['name'] : js_obj['commit']['sha']})
 
   def getBranchMergingWith(self, branch):
     """ Gets the name of the target branch of `branch` which it will merge with """
     buffer_temp = BytesIO()
     c = pycurl.Curl()
-    c.setopt(c.URL, self.__repo_url + "/pulls")
+    c.setopt(c.URL, self._repo_url + "/pulls")
     c.setopt(c.WRITEDATA, buffer_temp)
-    c.setopt(c.HTTPHEADER, self.__header)
+    c.setopt(c.HTTPHEADER, self._header)
     c.perform()
     c.close()
     js_obj_list = json.loads(buffer_temp.getvalue())
     pp = pprint.PrettyPrinter(indent=4)
     for js_obj in js_obj_list:
-      if js_obj.get('head').get('label') == self.__user + ":" + branch:
+      if js_obj.get('head').get('label') == self._user + ":" + branch:
         return js_obj.get('base').get('label').split(':',1)[1]
     return None
 
@@ -281,10 +281,10 @@ class App:
     This method will check to see if branches have already been collected from the github RESTful
     api. If the branch tree has not been collected it will update the branches attribute. 
     """
-    if not self.__branches:
-      self.__getBranches() 
+    if not self._branches:
+      self._getBranches() 
     
-    return self.__branches
+    return self._branches
 
   def branchExist(self,branch):
     """
@@ -300,7 +300,7 @@ class App:
     Method forces an update of the localy stored branch tree, regardless of whether the class 
     already contains a local copy. Might be necessary if the remote github repository is updated. 
     """
-    self.__getBranches()
+    self._getBranches()
 
   def createBranch(self,branch, branch_to_fork_from = None):
     """
@@ -310,7 +310,7 @@ class App:
     The new branch will be created by forking it of the latest commit of the default branch
     """
     if branch_to_fork_from is None:
-      branch_to_fork_from = self.__default_branch
+      branch_to_fork_from = self._default_branch
     if self.branchExist(branch):
       return
 
@@ -319,14 +319,14 @@ class App:
       raise Exception(error_msg)
 
     buffer_temp = BytesIO()
-    custom_data = {"ref": "refs/heads/" + branch, "sha": self.__branch_current_commit_sha[branch_to_fork_from]}
+    custom_data = {"ref": "refs/heads/" + branch, "sha": self._branch_current_commit_sha[branch_to_fork_from]}
     c = pycurl.Curl()
-    c.setopt(c.URL, self.__repo_url + '/git/refs')
+    c.setopt(c.URL, self._repo_url + '/git/refs')
     c.setopt(c.POST, 1)
     buffer_temp2 = BytesIO(json.dumps(custom_data).encode('utf-8'))
     c.setopt(c.READDATA, buffer_temp2)
     c.setopt(c.WRITEDATA, buffer_temp)
-    c.setopt(c.HTTPHEADER, self.__header)
+    c.setopt(c.HTTPHEADER, self._header)
     c.perform()
     c.close()
 
@@ -336,16 +336,16 @@ class App:
     is the sha of the file/folder etc.
     """
     if branch is None:
-      branch = self.__default_branch
+      branch = self._default_branch
     buffer_temp = BytesIO()
     # 1. Check if file exists if so get SHA
     custom_data = {"branch":branch}
     c = pycurl.Curl()
-    c.setopt(c.URL, self.__repo_url + '/contents?ref=' + branch)
+    c.setopt(c.URL, self._repo_url + '/contents?ref=' + branch)
     buffer_temp2 = BytesIO(json.dumps(custom_data).encode('utf-8'))
     c.setopt(c.READDATA, buffer_temp2)
     c.setopt(c.WRITEDATA, buffer_temp)
-    c.setopt(c.HTTPHEADER, self.__header)
+    c.setopt(c.HTTPHEADER, self._header)
     c.perform()
     c.close()
 
@@ -369,32 +369,32 @@ class App:
     if isinstance(file_name,list):
       file_name = file_name[0]
     if branch is None:
-      branch = self.__default_branch
+      branch = self._default_branch
     if file_name.lower().endswith(('.png', '.jpg', '.jpeg', '.tiff', '.bmp', '.gif')):
-      if branch != self.__default_image_branch and not self.__ignore:
-        print("Note all images will be uploaded to a branch named: " + self.__default_image_branch + " in the main repository.")
+      if branch != self._default_image_branch and not self._ignore:
+        print("Note all images will be uploaded to a branch named: " + self._default_image_branch + " in the main repository.")
         print("Unless the ignore flag is used.")
-        branch = self.__default_image_branch
-        self.__use_wiki = False
+        branch = self._default_image_branch
+        self._use_wiki = False
     
-    if self.__use_wiki or use_wiki:
+    if self._use_wiki or use_wiki:
       if branch != "master":
         print("Files can only be uploaded to the wiki repositories master branch")
         return
       else:
-        if os.path.exists(self.__parthenon_wiki_dir + "/" + os.path.basename(os.path.normpath(file_name))):
+        if os.path.exists(self._parthenon_wiki_dir + "/" + os.path.basename(os.path.normpath(file_name))):
           commit_msg = "Updating file " + file_name
         else:
           commit_msg = "Adding file " + file_name
         repo = self.getWikiRepo(branch)
-        destination=self.__parthenon_wiki_dir + "/" + os.path.basename(os.path.normpath(file_name))
+        destination=self._parthenon_wiki_dir + "/" + os.path.basename(os.path.normpath(file_name))
         shutil.copy(file_name,destination)
-        repo.index.add([str(self.__parthenon_wiki_dir + "/" + os.path.basename(os.path.normpath(file_name)))])
+        repo.index.add([str(self._parthenon_wiki_dir + "/" + os.path.basename(os.path.normpath(file_name)))])
         repo.index.commit(commit_msg)
         repo.git.push("--set-upstream","origin",repo.head.reference)
         return
     else:
-      if self.__create_branch:
+      if self._create_branch:
         self.createBranch(branch)
       elif not self.branchExist(branch):
         error_msg = "branch: " + branch + " does not exist in repository."
@@ -414,8 +414,8 @@ class App:
       # 3. upload the file, overwrite if exists already
       if file_found:
           custom_data = {
-              'message': self.__name + " overwriting file " + file_name,
-              'name': self.__name,
+              'message': self._name + " overwriting file " + file_name,
+              'name': self._name,
               'branch': branch,
               'sha': contents[file_name],
               'content': encoded_file.decode('ascii')
@@ -423,15 +423,15 @@ class App:
 
       else:
           custom_data = {
-              'message': self.__name + " uploading file " + file_name,
-              'name': self.__name,
+              'message': self._name + " uploading file " + file_name,
+              'name': self._name,
               'content': encoded_file.decode('ascii'),
               'branch': branch
                   }
 
-      https_url_to_file = self.__repo_url + "/contents/" + file_name
+      https_url_to_file = self._repo_url + "/contents/" + file_name
       c2 = pycurl.Curl()
-      c2.setopt(c2.HTTPHEADER, self.__header)
+      c2.setopt(c2.HTTPHEADER, self._header)
       c2.setopt(c2.URL, https_url_to_file)
       c2.setopt(c2.UPLOAD, 1)
       c2.setopt(c2.VERBOSE, True)
@@ -452,26 +452,26 @@ class App:
     buffer_temp2 = BytesIO(json,dumps(custom_data).encode('utf-8'))
     # 1. Check if file exists
     c = pycurl.Curl()
-    c.setopt(c.URL, self.__repo_url + "/contents" )
+    c.setopt(c.URL, self._repo_url + "/contents" )
     c.setopt(c.READDATA, buffer_temp2)
     c.setopt(c.WRITEDATA, buffer_temp)
-    c.setopt(c.HTTPHEADER, self.__header)
+    c.setopt(c.HTTPHEADER, self._header)
     c.perform()
     c.close()
 
     js_obj = json.loads(buffer_temp.getvalue())
     for obj in js_obj:
-      self.__parth_root.insert(ob['name'],ob['type'])
+      self._parth_root.insert(ob['name'],ob['type'])
 
-    self.__fillTree(self.__parth_root, branch)
+    self._fillTree(self._parth_root, branch)
 
   def cloneWikiRepo(self):
-    wiki_remote = f"https://{self.__name}:{self.__access_token}@github.com/" + self.__user + "/" + self.__repo_name + ".wiki.git"
-    if not os.path.isdir(str(self.__parthenon_wiki_dir)):
-      repo = Repo.clone_from(wiki_remote, self.__parthenon_wiki_dir)
+    wiki_remote = f"https://{self._name}:{self._access_token}@github.com/" + self._user + "/" + self._repo_name + ".wiki.git"
+    if not os.path.isdir(str(self._parthenon_wiki_dir)):
+      repo = Repo.clone_from(wiki_remote, self._parthenon_wiki_dir)
     else:
-      repo = Repo(self.__parthenon_wiki_dir)
-      repo.config_writer().set_value("user","name", self.__name).release()
+      repo = Repo(self._parthenon_wiki_dir)
+      repo.config_writer().set_value("user","name", self._name).release()
     return repo
 
   def getWikiRepo(self, branch):
@@ -482,7 +482,7 @@ class App:
     repo object. 
     """
     repo = slef.cloneWikiRepo()
-    os.environ["GIT_PASSWORD"] = self.__access_token
+    os.environ["GIT_PASSWORD"] = self._access_token
     return repo
 
   def postStatus(self, state, commit_sha=None, context="", description="", target_url=""):
@@ -505,12 +505,12 @@ class App:
     if target_url != "":
       custom_data["target_url"] = target_url
     c = pycurl.Curl()
-    c.setopt(c.URL, self.__repo_url + '/statuses/' + commit_sha)
+    c.setopt(c.URL, self._repo_url + '/statuses/' + commit_sha)
     c.setopt(c.POST, 1)
     buffer_temp2 = BytesIO(json.dumps(custom_data).encode('utf-8'))
     c.setopt(c.READDATA, buffer_temp2)
     c.setopt(c.WRITEDATA, buffer_temp)
-    c.setopt(c.HTTPHEADER, self.__header)
+    c.setopt(c.HTTPHEADER, self._header)
     c.perform()
     c.close()
     js_obj = json.loads(buffer_temp.getvalue())
@@ -528,9 +528,9 @@ class App:
     buffer_temp = BytesIO()
     # 1. Check if file exists if so get SHA
     c = pycurl.Curl()
-    c.setopt(c.URL, self.__repo_url + '/commits/Add_to_dev/statuses')
+    c.setopt(c.URL, self._repo_url + '/commits/Add_to_dev/statuses')
     c.setopt(c.WRITEDATA, buffer_temp)
-    c.setopt(c.HTTPHEADER, self.__header)
+    c.setopt(c.HTTPHEADER, self._header)
     c.perform()
     c.close()
 
