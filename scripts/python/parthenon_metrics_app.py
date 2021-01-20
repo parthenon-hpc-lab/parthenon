@@ -173,7 +173,8 @@ class ParthenonApp(App):
     
     current_branch = os.getenv('CI_COMMIT_BRANCH')
     target_branch = super().getBranchMergingWith(current_branch)
-    pr_wiki_page = os.path.join(str(self.__parthenon_wiki_dir), branch + "_" + target_branch + ".md" )
+    wiki_file_name = branch + "_" + target_branch
+    pr_wiki_page = os.path.join(str(self.__parthenon_wiki_dir), wiki_file_name + ".md" )
 
     all_dirs = os.listdir(regression_outputs)
     print("Contents of regression_outputs: %s" % regression_outputs )
@@ -238,7 +239,7 @@ class ParthenonApp(App):
           p[1].legend([branch,target_branch])
         else:
           p[0].legend([branch])
-          p[0].legend([branch,target_branch])
+          p[1].legend([branch])
         p[0].set_ylabel("zone-cycles/s")
         p[1].set_ylabel("normalized overhead")
         p[1].set_xlabel("Meshblock size")
@@ -248,7 +249,7 @@ class ParthenonApp(App):
         upload(figure_path_name, "master",use_wiki=True)
 
         fig_url ='https://github.com/' + self.__user + '/' + self.__repo_name + '/blob/figures/' + figure_name + '?raw=true'
-      
+        print("Figure url is: %s" % fig_url) 
       elif test_dir == "advection_performance_mpi":
         if not os.path.isfile(regression_outputs + "/advection_performance_mpi/performance_metrics.txt"):
           raise Exception("Cannot analyze advection_performance_mpi, missing performance metrics file.")
@@ -258,6 +259,9 @@ class ParthenonApp(App):
       with open(pr_wiki_page,'w') as writer: 
         writer.write("This file is managed by the " + self.__name + "\n")
         writer.write("![Image](" + fig_url +")\n")
+        wiki_url = "https://github.com/{usr_name}/{repo_name}/wiki/{file_name}"
+        wiki_url.format(usr_name=self.__name, repo_name=self.__repo_name, file_name=wiki_file_name )
+        print("Wiki page url is: %s" % wiki_url)
     # 1 search for files 
     # 2 load performance metrics from wiki
     # 3 compare the metrics
@@ -292,7 +296,13 @@ def main(**kwargs):
     if isinstance(value,list):
         value = value[0]
     if value != None:
-        app.postStatus(value)
+        url = kwargs.pop('status-url')
+        if isinstance(url,list):
+          url = url[0]
+        context = kwargs.pop('status-context')
+        if isinstance(context,list):
+          context = context[0]
+        app.postStatus(value, context=context, target_url=url)
 
   if 'analyze' in kwargs:
     value = kwargs.pop('analyze')
@@ -309,6 +319,7 @@ if __name__ == '__main__':
     desc = ('Path to the (permissions file/permissions string) which authenticates the application. If not provided will use the env variable PARTHENON_METRICS_APP_PEM.')
    
     parser.add_argument('--permissions','-p',
+                        default="",
                         type=str,
                         nargs=1,
                         required=False,
@@ -332,6 +343,22 @@ if __name__ == '__main__':
 
     desc = ('Post current status state: error, failed, pending or success.')
     parser.add_argument('--status','-s',
+            type=str,
+            nargs=1,
+            required=False,
+            help=desc)
+
+    desc = ('Post url to use with status.')
+    parser.add_argument('--status-url','-su',
+            default=None,
+            type=str,
+            nargs=1,
+            required=False,
+            help=desc)
+
+    desc = ('Post context to use with status.')
+    parser.add_argument('--status-context','-sc',
+            default=None,
             type=str,
             nargs=1,
             required=False,

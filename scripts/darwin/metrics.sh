@@ -11,7 +11,7 @@ set -e
 
 module load gcc/9.2.0
 spack compiler find
-spack env activate darwin-ppc64le-gcc9-2021-01-13
+spack env activate darwin-ppc64le-gcc9-2021-01-20
 
 PARTHENON_PEM_FILE=${1}
 echo "PARTHENON_PEM_FILE is $PARTHENON_PEM_FILE"

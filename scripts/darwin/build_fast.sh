@@ -22,7 +22,7 @@ PARTHENON_PEM_FILE=$1
 export CI_COMMIT_SHA=$2
 module load gcc/9.2.0
 spack compiler find
-spack env activate darwin-ppc64le-gcc9-2021-01-13
+spack env activate darwin-ppc64le-gcc9-2021-01-20
 ./scripts/python/parthenon_metrics_app.py -p ${PARTHENON_PEM_FILE}  --status "pending"
 
 # Calculate number of available cores

@@ -135,7 +135,11 @@ class App:
   
     PEM = ""
     if pem_file == "":
-      PEM = os.environ.get('PARTHENON_METRICS_APP_PEM')
+      if 'PARTHENON_METRICS_APP_PEM' in os.environ:
+        PEM = os.environ.get('PARTHENON_METRICS_APP_PEM')
+      else:
+        error_msg="A pem file has not been specified."
+        raise Exception(error_msg)
     else:
       certs = pem.parse_file(pem_file)
       PEM = str(certs[0])
@@ -435,7 +439,7 @@ class App:
       c2.perform()
       c2.close()
 
-  def getBranchTree(self, branch, access_token):
+  def getBranchTree(self, branch):
     """
     Method will grab the contents of the specified branch from the remote repository. It will 
     return the contents as a tree object. 
@@ -478,7 +482,7 @@ class App:
     os.environ["GIT_PASSWORD"] = self.__access_token
     return repo
 
-  def postStatus(self, state, commit_sha=None):
+  def postStatus(self, state, commit_sha=None, context=None, description=None, target_url=None):
     """
     Post status of current commit.
     """
@@ -490,7 +494,13 @@ class App:
     if commit_sha == None:
         raise Exception("CI_COMMIT_SHA not defined in environment cannot post status")
     buffer_temp = BytesIO()
-    custom_data = {"state": state, "context": self.__name + " handles the performance metrics."}
+    custom_data = {"state": state}
+    if context != None:
+      custom_data["context"] = context 
+    if description != None:
+      custom_data["description"] = description
+    if target_url != None:
+      custom_data["target_url"] = target_url
     c = pycurl.Curl()
     c.setopt(c.URL, self.__repo_url + '/statuses/' + commit_sha)
     c.setopt(c.POST, 1)
