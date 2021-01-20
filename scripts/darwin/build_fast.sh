@@ -18,14 +18,14 @@ catch() {
   exit $ERR
 }
 
-GITHUB_APP_PEM=$1
+GITHUB_APP_PEM="$1"
 export CI_COMMIT_SHA=$2
-export GITHUB_APP_PEM=$GITHUB_APP_PEM
+export GITHUB_APP_PEM="$GITHUB_APP_PEM"
 module load gcc/9.2.0
 spack compiler find
 spack env activate darwin-ppc64le-gcc9-2021-01-20
 echo "build fast $GITHUB_APP_PEM"
-./scripts/python/parthenon_metrics_app.py -p ${GITHUB_APP_PEM}  --status "pending"
+./scripts/python/parthenon_metrics_app.py -p "${GITHUB_APP_PEM}"  --status "pending"
 
 # Calculate number of available cores
 export J=$(( $(nproc --all) )) && echo Using ${J} cores during build
