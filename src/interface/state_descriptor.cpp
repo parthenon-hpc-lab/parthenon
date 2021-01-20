@@ -344,20 +344,21 @@ std::shared_ptr<StateDescriptor> ResolvePackages(Packages_t &packages) {
   // Add private/provides variables. Check for conflicts among those.
   // Track dependent and overridable variables.
   for (auto &pair : packages) {
+    auto &name = pair.first;
     auto &package = pair.second;
     package->ValidateMetadata(); // set unset flags
     // sort
-    var_tracker.CategorizeCollection(package->label(), package->AllFields(),
+    var_tracker.CategorizeCollection(name, package->AllFields(),
                                      &cvar_provider);
     for (auto &p2 : package->AllSparseFields()) { // sparse
       auto &var = p2.first;
       auto &mdict = p2.second;
       for (auto &p3 : mdict) {
         auto &metadata = p3.second;
-        var_tracker.Categorize(package->label(), var, metadata, &sparse_provider);
+        var_tracker.Categorize(name, var, metadata, &sparse_provider);
       }
     }
-    swarm_tracker.CategorizeCollection(package->label(), package->AllSwarms(),
+    swarm_tracker.CategorizeCollection(name, package->AllSwarms(),
                                        &swarm_provider);
   }
 
