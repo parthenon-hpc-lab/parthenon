@@ -244,7 +244,9 @@ class ParthenonApp(App):
         p[1].set_ylabel("normalized overhead")
         p[1].set_xlabel("Meshblock size")
         figure_name =test_dir + "_" + branch + "_" + target_branch + ".png"
-        figure_path_name = os.path.join(str(self.__parthenon_wiki_dir), figure_name )
+        print("$$$$$$$$$$$$$$$$ Parthenon wiki dir")
+        print(self.__parthenon_wiki_dir)
+        figure_path_name = os.path.join(self.__parthenon_wiki_dir, figure_name )
         fig.savefig(figure_path_name, bbox_inches='tight')
         upload(figure_path_name, "master",use_wiki=True)
 
