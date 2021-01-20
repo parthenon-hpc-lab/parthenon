@@ -114,6 +114,8 @@ class App:
       raise
 
     self.__parthenon_wiki_dir = os.path.normpath(self.__parthenon_home +"/../"+ self.__repo_name + ".wiki")
+    print("******** Parthenon wiki dir")
+    print(self.__parthenon_wiki_dir)
     if isinstance(pem_file,list):
       self.__generateJWT(pem_file[0])
     else:
