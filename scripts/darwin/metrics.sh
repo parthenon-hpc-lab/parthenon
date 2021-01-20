@@ -18,6 +18,7 @@ export GITHUB_APP_PEM="$GITHUB_APP_PEM"
 echo "GITHUB_APP_PEM is $GITHUB_APP_PEM"
 BUILD_DIR=${2}
 export CI_COMMIT_SHA=${3}
+export CI_COMMIT_BRANCH=${4}
 #FILE_TO_UPLOAD=${2}
 echo "Metrics PEM file $GITHUB_APP_PEM"
 touch file_test.txt

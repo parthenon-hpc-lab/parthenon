@@ -20,6 +20,7 @@ catch() {
 
 GITHUB_APP_PEM="$1"
 export CI_COMMIT_SHA=$2
+export CI_COMMIT_BRANCH=$3
 export GITHUB_APP_PEM="$GITHUB_APP_PEM"
 module load gcc/9.2.0
 spack compiler find
