@@ -13,10 +13,12 @@ module load gcc/9.2.0
 spack compiler find
 spack env activate darwin-ppc64le-gcc9-2021-01-20
 
-PARTHENON_PEM_FILE=${1}
-echo "PARTHENON_PEM_FILE is $PARTHENON_PEM_FILE"
+GITHUB_APP_PEM=${1}
+export GITHUB_APP_PEM=$GITHUB_APP_PEM
+echo "GITHUB_APP_PEM is $GITHUB_APP_PEM"
 BUILD_DIR=${2}
 export CI_COMMIT_SHA=${3}
 #FILE_TO_UPLOAD=${2}
+echo "Metrics PEM file $GITHUB_APP_PEM"
 touch file_test.txt
-./scripts/python/parthenon_metrics_app.py -p ${PARTHENON_PEM_FILE} --analyze "${BUILD_DIR}/tst/regression/outputs"
+./scripts/python/parthenon_metrics_app.py -p ${GITHUB_APP_PEM} --analyze "${BUILD_DIR}/tst/regression/outputs"

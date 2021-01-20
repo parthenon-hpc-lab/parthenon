@@ -135,10 +135,10 @@ class App:
   
     PEM = ""
     if pem_file == "":
-      if "PARTHENON_METRICS_APP_PEM" in os.environ:
-        pem_file = os.environ.get('PARTHENON_METRICS_APP_PEM')
+      if "GITHUB_APP_PEM" in os.environ:
+        pem_file = os.environ.get('GITHUB_APP_PEM')
       else:
-        error_msg="A pem file has not been specified."
+        error_msg="A pem file has not been specified and GITHUB_APP_PEM env varaible is not defined"
         raise Exception(error_msg)
 
     print("File loc %s" % pem_file)
@@ -147,7 +147,7 @@ class App:
 
     if PEM == "":
       error_msg = "No permissions enabled for parthenon metrics app, either a pem file needs to "
-      "be provided or the PATHENON_METRICS_APP_PEM variable needs to be defined"
+      "be provided or the GITHUB_APP_PEM variable needs to be defined"
       raise Exception(error_msg)
     self.__jwt_token = jwt.encode(payload,PEM, algorithm='RS256').decode("utf-8")
 
