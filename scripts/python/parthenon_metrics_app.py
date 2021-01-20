@@ -23,10 +23,10 @@ import pycurl
 import json
 import shutil
 import base64
+import numpy as np
 from io import BytesIO
 from git import Repo
 from app import App
-
 
 class PerformanceDataJsonParser():
 
