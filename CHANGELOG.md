@@ -19,6 +19,7 @@
 - [[PR 332]](https://github.com/lanl/parthenon/pull/332) Rewrote boundary conditions to work on GPUs with variable packs. Re-enabled user-defined boundary conditions via `ApplicationInput`.
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 424]](https://github.com/lanl/parthenon/pull/424) Remove implicit assumption that package labels and keys in `Packages_t` are identical
 - [[\#401]](https://github.com/lanl/parthenon/issues/401) Fix missing initial timestep for MeshData functions
 - [[PR 387]](https://github.com/lanl/parthenon/pull/387) Add missing const that was needed
 - [[PR 353]](https://github.com/lanl/parthenon/pull/353) Fixed small error in input\_parameter logic
