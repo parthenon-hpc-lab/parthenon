@@ -146,8 +146,8 @@ class ParthenonApp(App):
     super().initialize(use_wiki, ignore, pem_file, create_branch)
 
   def readPerformanceMetricsTXT(self,file_path):
-    mesh_blocks = np.zeros()
-    zone_cycles = np.zeros()
+    mesh_blocks = np.zeros(1)
+    zone_cycles = np.zeros(1)
     with open(file_path,'r') as reader:
       lines = reader.readlines() 
       # Remove first line in file, it is just the title
