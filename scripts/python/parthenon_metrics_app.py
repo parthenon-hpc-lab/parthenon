@@ -174,7 +174,9 @@ class ParthenonApp(App):
     current_branch = os.getenv('CI_COMMIT_BRANCH')
     target_branch = super().getBranchMergingWith(current_branch)
     wiki_file_name = current_branch + "_" + target_branch
-    pr_wiki_page = os.path.join(str(self.__parthenon_wiki_dir), wiki_file_name + ".md" )
+    print("@@@@@@@@@@@@@@@@@@@@ wiki dir")
+    print(self.__parthenon_wiki_dir)
+    pr_wiki_page = os.path.join(self.__parthenon_wiki_dir, wiki_file_name + ".md" )
 
     all_dirs = os.listdir(regression_outputs)
     print("Contents of regression_outputs: %s" % regression_outputs )
