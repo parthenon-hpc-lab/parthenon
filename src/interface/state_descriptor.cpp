@@ -167,13 +167,13 @@ class SparseProvider : public VariableProvider {
   void AddPrivate(const std::string &package, const std::string &var,
                   const Metadata &metadata) {
     const std::string name = package + "::" + var;
-    for (auto &m : packages_[package]->AllSparseFields().at(var)) {
+    for (auto &m : packages_.Get(package)->AllSparseFields().at(var)) {
       state_->AddField(name, m.second);
     }
   }
   void AddProvides(const std::string &package, const std::string &var,
                    const Metadata &metadata) {
-    for (auto &m : packages_[package]->AllSparseFields().at(var)) {
+    for (auto &m : packages_.Get(package)->AllSparseFields().at(var)) {
       state_->AddField(var, m.second);
     }
   }
@@ -192,15 +192,15 @@ class SwarmProvider : public VariableProvider {
       : packages_(packages), state_(sd) {}
   void AddPrivate(const std::string &package, const std::string &var,
                   const Metadata &metadata) {
-    AddSwarm_(packages_[package].get(), var, package + "::" + var, metadata);
+    AddSwarm_(packages_.Get(package).get(), var, package + "::" + var, metadata);
   }
   void AddProvides(const std::string &package, const std::string &var,
                    const Metadata &metadata) {
-    AddSwarm_(packages_[package].get(), var, var, metadata);
+    AddSwarm_(packages_.Get(package).get(), var, var, metadata);
   }
   void AddOverridable(const std::string &swarm, Metadata &metadata) {
     state_->AddSwarm(swarm, metadata);
-    for (auto &pair : packages_) {
+    for (auto &pair : packages_.AllPackages()) {
       auto &package = pair.second;
       if (package->SwarmPresent(swarm)) {
         for (auto &pair : package->AllSwarmValues(swarm)) {
@@ -343,7 +343,7 @@ std::shared_ptr<StateDescriptor> ResolvePackages(Packages_t &packages) {
 
   // Add private/provides variables. Check for conflicts among those.
   // Track dependent and overridable variables.
-  for (auto &pair : packages) {
+  for (auto &pair : packages.AllPackages()) {
     auto &name = pair.first;
     auto &package = pair.second;
     package->ValidateMetadata(); // set unset flags

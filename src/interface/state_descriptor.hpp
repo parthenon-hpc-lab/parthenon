@@ -245,7 +245,34 @@ class StateDescriptor {
   Dictionary<Dictionary<Metadata>> swarmValueMetadataMap_;
 };
 
-using Packages_t = Dictionary<std::shared_ptr<StateDescriptor>>;
+class Packages_t {
+ public:
+  Packages_t() = default;
+  bool Add(const std::shared_ptr<StateDescriptor> &package) {
+    const auto &name = package->label();
+    if (packages_.count(name) == 0) {
+      packages_[name] = package;
+      return true;
+    }
+    return false;
+  }
+  std::shared_ptr<StateDescriptor> &Get(const std::string &name) {
+    return packages_.at(name);
+  }
+  // TODO(JMM): Should this be provided or deleted?
+  // My preference is to delete it, but it's more API breaking.
+  /*
+  std::shared_ptr<StateDescriptor> &operator[](const std::string &name) {
+    return Get(name);
+  }
+  */
+  const Dictionary<std::shared_ptr<StateDescriptor>> &AllPackages() const {
+    return packages_;
+  }
+
+ private:
+  Dictionary<std::shared_ptr<StateDescriptor>> packages_;
+};
 
 std::shared_ptr<StateDescriptor> ResolvePackages(Packages_t &packages);
 

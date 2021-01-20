@@ -85,7 +85,7 @@ template <typename T>
 TaskStatus EstimateTimestep(T *rc) {
   Kokkos::Profiling::pushRegion("Task_EstimateTimestep");
   Real dt_min = std::numeric_limits<Real>::max();
-  for (const auto &pkg : rc->GetParentPointer()->packages) {
+  for (const auto &pkg : rc->GetParentPointer()->packages.AllPackages()) {
     Real dt = pkg.second->EstimateTimestep(rc);
     dt_min = std::min(dt_min, dt);
   }
@@ -99,17 +99,17 @@ TaskStatus FillDerived(T *rc) {
   Kokkos::Profiling::pushRegion("Task_FillDerived");
   auto pm = rc->GetParentPointer();
   Kokkos::Profiling::pushRegion("PreFillDerived");
-  for (const auto &pkg : pm->packages) {
+  for (const auto &pkg : pm->packages.AllPackages()) {
     pkg.second->PreFillDerived(rc);
   }
   Kokkos::Profiling::popRegion(); // PreFillDerived
   Kokkos::Profiling::pushRegion("FillDerived");
-  for (const auto &pkg : pm->packages) {
+  for (const auto &pkg : pm->packages.AllPackages()) {
     pkg.second->FillDerived(rc);
   }
   Kokkos::Profiling::popRegion(); // FillDerived
   Kokkos::Profiling::pushRegion("PostFillDerived");
-  for (const auto &pkg : pm->packages) {
+  for (const auto &pkg : pm->packages.AllPackages()) {
     pkg.second->PostFillDerived(rc);
   }
   Kokkos::Profiling::popRegion(); // PostFillDerived

@@ -33,6 +33,24 @@ using parthenon::ResolvePackages;
 using parthenon::StateDescriptor;
 using FlagVec = std::vector<MetadataFlag>;
 
+TEST_CASE("Test Add/Get in Packages_t", "[Packages_t]") {
+  GIVEN("A Packages_t object and a few packages") {
+    Packages_t packages;
+    auto pkg1 = std::make_shared<StateDescriptor>("package1");
+    auto pkg2 = std::make_shared<StateDescriptor>("package2");
+    THEN("We can add a package") {
+      packages.Add(pkg1);
+      AND_THEN("The package is available and named correctly") {
+        auto &pkg = packages.Get("package1");
+        REQUIRE(pkg->label() == "package1");
+      }
+      AND_THEN("Requesting a package not added throws an error") {
+        REQUIRE_THROWS(packages.Get("package2"));
+      }
+    }
+  }
+}
+
 TEST_CASE("Test Associate in StateDescriptor", "[StateDescriptor]") {
   GIVEN("Some flags and state descriptors") {
     FlagVec foo = {Metadata::Independent, Metadata::FillGhost};
@@ -87,10 +105,9 @@ TEST_CASE("Test reqendency resolution in StateDescriptor", "[StateDescriptor]") 
     auto pkg1 = std::make_shared<StateDescriptor>("package1");
     auto pkg2 = std::make_shared<StateDescriptor>("package2");
     auto pkg3 = std::make_shared<StateDescriptor>("package3");
-    packages["package1"] = pkg1;
-    packages["package2"] = pkg2;
-    // tests dependency resolution when the dict key is different than package label
-    packages["package3_different_name"] = pkg3;
+    packages.Add(pkg1);
+    packages.Add(pkg2);
+    packages.Add(pkg3);
 
     WHEN("We add metadata with a sparse ID but the sparse flag unset") {
       THEN("We raise an error") {
