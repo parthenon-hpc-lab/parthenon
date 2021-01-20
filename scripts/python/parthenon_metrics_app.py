@@ -121,7 +121,6 @@ class PerformanceDataJsonParser():
 
     with open(json_file_out, 'w') as fout:
       json_dumps_str = json.dumps(self._data, indent=4)
-      print(json_dumps_str, file=fout)
 
 
 """
@@ -174,8 +173,6 @@ class ParthenonApp(App):
     current_branch = os.getenv('CI_COMMIT_BRANCH')
     target_branch = super().getBranchMergingWith(current_branch)
     wiki_file_name = current_branch + "_" + target_branch
-    print("@@@@@@@@@@@@@@@@@@@@ wiki dir")
-    print(self._parthenon_wiki_dir)
     pr_wiki_page = os.path.join(self._parthenon_wiki_dir, wiki_file_name + ".md" )
 
     all_dirs = os.listdir(regression_outputs)
@@ -246,8 +243,6 @@ class ParthenonApp(App):
         p[1].set_ylabel("normalized overhead")
         p[1].set_xlabel("Meshblock size")
         figure_name =test_dir + "_" + branch + "_" + target_branch + ".png"
-        print("$$$$$$$$$$$$$$$$ Parthenon wiki dir")
-        print(self._parthenon_wiki_dir)
         figure_path_name = os.path.join(self._parthenon_wiki_dir, figure_name )
         fig.savefig(figure_path_name, bbox_inches='tight')
         upload(figure_path_name, "master",use_wiki=True)
