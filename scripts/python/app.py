@@ -141,6 +141,7 @@ class App:
         error_msg="A pem file has not been specified."
         raise Exception(error_msg)
 
+    print("File loc %s" % pem_file)
     certs = pem.parse_file(pem_file)
     PEM = str(certs[0])
 
