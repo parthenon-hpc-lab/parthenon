@@ -50,7 +50,7 @@ void Driver::PostExecute() {
 }
 
 DriverStatus EvolutionDriver::Execute() {
-  Driver::PreExecute();
+  PreExecute();
   InitializeBlockTimeSteps();
   SetGlobalTimeStep();
   pouts->MakeOutputs(pmesh, pinput, &tm);
@@ -61,12 +61,18 @@ DriverStatus EvolutionDriver::Execute() {
   while (tm.KeepGoing()) {
     if (Globals::my_rank == 0) OutputCycleDiagnostics();
 
+    pmesh->PreStepUserWorkInLoop(pmesh, pinput, tm);
+    pmesh->PreStepUserDiagnosticsInLoop(pmesh, pinput, tm);
+
     TaskListStatus status = Step();
     if (status != TaskListStatus::complete) {
       std::cerr << "Step failed to complete all tasks." << std::endl;
       return DriverStatus::failed;
     }
-    // pmesh->UserWorkInLoop();
+
+    pmesh->PostStepUserWorkInLoop(pmesh, pinput, tm);
+    pmesh->PostStepUserDiagnosticsInLoop(pmesh, pinput, tm);
+
     tm.ncycle++;
     tm.time += tm.dt;
     pmesh->mbcnt += pmesh->nbtotal;
@@ -125,9 +131,15 @@ void EvolutionDriver::PostExecute(DriverStatus status) {
 }
 
 void EvolutionDriver::InitializeBlockTimeSteps() {
-  // calculate the first time step
+  // calculate the first time step using Block function
   for (auto &pmb : pmesh->block_list) {
     Update::EstimateTimestep(pmb->meshblock_data.Get().get());
+  }
+  // calculate the first time step using Mesh function
+  const int num_partitions = pmesh->DefaultNumPartitions();
+  for (int i = 0; i < num_partitions; i++) {
+    auto &mbase = pmesh->mesh_data.GetOrAdd("base", i);
+    Update::EstimateTimestep(mbase.get());
   }
 }
 
@@ -153,8 +165,6 @@ void EvolutionDriver::SetGlobalTimeStep() {
   if (tm.time < tm.tlim &&
       (tm.tlim - tm.time) < tm.dt) // timestep would take us past desired endpoint
     tm.dt = tm.tlim - tm.time;
-
-  return;
 }
 
 void EvolutionDriver::OutputCycleDiagnostics() {
@@ -179,7 +189,6 @@ void EvolutionDriver::OutputCycleDiagnostics() {
       }
     }
   }
-  return;
 }
 
 } // namespace parthenon

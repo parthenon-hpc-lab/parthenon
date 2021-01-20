@@ -50,8 +50,8 @@ class Driver {
  protected:
   Kokkos::Timer timer_cycle, timer_main;
   std::uint64_t mbcnt_prev;
-  void PreExecute();
-  void PostExecute();
+  virtual void PreExecute();
+  virtual void PostExecute();
 
  private:
 };

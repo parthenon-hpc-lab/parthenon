@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 400]](https://github.com/lanl/parthenon/pull/400) Extend `StateDescriptor` for customizable output via user-customizable function pointers `PreStepDiagnosticsMesh` and `PostStepDiagnosticsMesh`
 - [[PR 391]](https://github.com/lanl/parthenon/pull/391) Add `VariablePack<T>::GetSparseId` and `VariablePack<T>::GetSparseIndex` to return global sparse ids and pack-local sparse index, repsectively.
 - [[PR 381]](https://github.com/lanl/parthenon/pull/381) Overload `DataCollection::Add` to build `MeshData` and `MeshBlockData` objects with a subset of variables.
 - [[PR 378]](https://github.com/lanl/parthenon/pull/378) Add Kokkos profiling regions throughout the code to allow the collection characteristic application profiles
@@ -12,10 +13,13 @@
 - [[PR 386]](https://github.com/lanl/parthenon/pull/386) Introduce `Private`, `Provides`, `Requires`, and `Overridable` variable metadata, allowing fine-grained control of conflict resolution between packages.
 
 ### Changed (changing behavior/API/variables/...)
-- [[PR 394]](https://github.com/lanl/parthenon/pull/332) Make `Params.Get` const-correct.
+- [[PR 393]](https://github.com/lanl/parthenon/pull/393) Small refactor to make driver code more flexible for downstream apps.
+- [[PR 400]](https://github.com/lanl/parthenon/pull/400) Change `Mesh`, `ApplicationInput`, and `Driver` to suppport pre- and post- step user work
+- [[PR 394]](https://github.com/lanl/parthenon/pull/394) Make `Params.Get` const-correct.
 - [[PR 332]](https://github.com/lanl/parthenon/pull/332) Rewrote boundary conditions to work on GPUs with variable packs. Re-enabled user-defined boundary conditions via `ApplicationInput`.
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[\#401]](https://github.com/lanl/parthenon/issues/401) Fix missing initial timestep for MeshData functions
 - [[PR 387]](https://github.com/lanl/parthenon/pull/387) Add missing const that was needed
 - [[PR 353]](https://github.com/lanl/parthenon/pull/353) Fixed small error in input\_parameter logic
 - [[PR 352]](https://github.com/lanl/parthenon/pull/352) Code compiles cleanly (no warnings) with nvcc_wrapper
@@ -27,7 +31,9 @@
 - [[PR 347]](https://github.com/lanl/parthenon/pull/347) Speed up darwin ci by using pre installed spack packages from project space
 - [[PR 368]](https://github.com/lanl/parthenon/pull/368) Fixes false positive in ci.
 - [[PR 369]](https://github.com/lanl/parthenon/pull/369) Initializes submodules when running on darwin ci.
-- [[PR 382]](https://github.com/lanl/parthenon/pull/382) Adds output on fail for fast ci implementation on Darwin. 
+- [[PR 382]](https://github.com/lanl/parthenon/pull/382) Adds output on fail for fast ci implementation on Darwin.
+- [[PR 362]](https://github.com/lanl/parthenon/pull/362) Small fix to clean regression tests output folder on reruns
+- [[PR 403]](https://github.com/lanl/parthenon/pull/403) Cleanup Codacy warnings
 
 ### Removed (removing behavior/API/varaibles/...)
 
