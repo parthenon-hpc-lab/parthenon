@@ -296,10 +296,10 @@ def main(**kwargs):
     if isinstance(value,list):
         value = value[0]
     if value != None:
-        url = kwargs.pop('status-url')
+        url = kwargs.pop('status_url')
         if isinstance(url,list):
           url = url[0]
-        context = kwargs.pop('status-context')
+        context = kwargs.pop('status_context')
         if isinstance(context,list):
           context = context[0]
         app.postStatus(value, context=context, target_url=url)
