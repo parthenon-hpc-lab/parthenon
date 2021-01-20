@@ -136,13 +136,13 @@ class App:
     PEM = ""
     if pem_file == "":
       if 'PARTHENON_METRICS_APP_PEM' in os.environ:
-        PEM = os.environ.get('PARTHENON_METRICS_APP_PEM')
+        pem_file = os.environ.get('PARTHENON_METRICS_APP_PEM')
       else:
         error_msg="A pem file has not been specified."
         raise Exception(error_msg)
-    else:
-      certs = pem.parse_file(pem_file)
-      PEM = str(certs[0])
+
+    certs = pem.parse_file(pem_file)
+    PEM = str(certs[0])
 
     if PEM == "":
       error_msg = "No permissions enabled for parthenon metrics app, either a pem file needs to "
