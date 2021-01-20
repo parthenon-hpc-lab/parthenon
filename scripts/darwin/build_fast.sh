@@ -11,18 +11,19 @@ set -eE
 # Export COMMIT CI
 #export CI_COMMIT_SHA="b4cdf92c76df3b9b89c705473f2e7dd6f2476895"
 
-trap 'catch $? $LINENO' ERR
-catch() {
-  echo "Error $1 occurred on $2"
-  ./scripts/python/parthenon_metrics_app.py --status "error"
-  exit $ERR
-}
-
 SOURCE=${BASH_SOURCE[0]}
 GITHUB_APP_PEM="$1"
 export CI_COMMIT_SHA=$2
 export CI_COMMIT_BRANCH=$3
 export GITHUB_APP_PEM="$GITHUB_APP_PEM"
+
+trap 'catch $? $LINENO' ERR
+catch() {
+  echo "Error $1 occurred on $2"
+  ${SOURCE}/../python/parthenon_metrics_app.py --status "error"
+  exit $ERR
+}
+
 module load gcc/9.2.0
 spack compiler find
 spack env activate darwin-ppc64le-gcc9-2021-01-20
