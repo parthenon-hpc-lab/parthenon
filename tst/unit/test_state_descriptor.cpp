@@ -89,7 +89,8 @@ TEST_CASE("Test reqendency resolution in StateDescriptor", "[StateDescriptor]") 
     auto pkg3 = std::make_shared<StateDescriptor>("package3");
     packages["package1"] = pkg1;
     packages["package2"] = pkg2;
-    packages["package3"] = pkg3;
+    // tests dependency resolution when the dict key is different than package label
+    packages["package3_different_name"] = pkg3;
 
     WHEN("We add metadata with a sparse ID but the sparse flag unset") {
       THEN("We raise an error") {

@@ -348,8 +348,7 @@ std::shared_ptr<StateDescriptor> ResolvePackages(Packages_t &packages) {
     auto &package = pair.second;
     package->ValidateMetadata(); // set unset flags
     // sort
-    var_tracker.CategorizeCollection(name, package->AllFields(),
-                                     &cvar_provider);
+    var_tracker.CategorizeCollection(name, package->AllFields(), &cvar_provider);
     for (auto &p2 : package->AllSparseFields()) { // sparse
       auto &var = p2.first;
       auto &mdict = p2.second;
@@ -358,8 +357,7 @@ std::shared_ptr<StateDescriptor> ResolvePackages(Packages_t &packages) {
         var_tracker.Categorize(name, var, metadata, &sparse_provider);
       }
     }
-    swarm_tracker.CategorizeCollection(name, package->AllSwarms(),
-                                       &swarm_provider);
+    swarm_tracker.CategorizeCollection(name, package->AllSwarms(), &swarm_provider);
   }
 
   // check that dependent variables are provided somewhere
