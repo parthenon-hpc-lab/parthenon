@@ -350,7 +350,7 @@ if __name__ == '__main__':
 
     desc = ('Post url to use with status.')
     parser.add_argument('--status-url','-su',
-            default=None,
+            default="",
             type=str,
             nargs=1,
             required=False,
@@ -358,7 +358,7 @@ if __name__ == '__main__':
 
     desc = ('Post context to use with status.')
     parser.add_argument('--status-context','-sc',
-            default=None,
+            default="",
             type=str,
             nargs=1,
             required=False,

@@ -483,7 +483,7 @@ class App:
     os.environ["GIT_PASSWORD"] = self.__access_token
     return repo
 
-  def postStatus(self, state, commit_sha=None, context=None, description=None, target_url=None):
+  def postStatus(self, state, commit_sha=None, context="", description="", target_url=""):
     """
     Post status of current commit.
     """
@@ -496,11 +496,11 @@ class App:
         raise Exception("CI_COMMIT_SHA not defined in environment cannot post status")
     buffer_temp = BytesIO()
     custom_data = {"state": state}
-    if context != None:
+    if context != "":
       custom_data["context"] = context 
-    if description != None:
+    if description != "":
       custom_data["description"] = description
-    if target_url != None:
+    if target_url != "":
       custom_data["target_url"] = target_url
     c = pycurl.Curl()
     c.setopt(c.URL, self.__repo_url + '/statuses/' + commit_sha)
