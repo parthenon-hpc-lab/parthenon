@@ -135,7 +135,7 @@ class App:
   
     PEM = ""
     if pem_file == "":
-      if 'PARTHENON_METRICS_APP_PEM' in os.environ:
+      if "PARTHENON_METRICS_APP_PEM" in os.environ:
         pem_file = os.environ.get('PARTHENON_METRICS_APP_PEM')
       else:
         error_msg="A pem file has not been specified."
