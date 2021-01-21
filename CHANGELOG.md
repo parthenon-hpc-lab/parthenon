@@ -4,6 +4,19 @@
 
 ### Added (new features/APIs/variables/...)
 - [[PR 412]](https://github.com/lanl/parthenon/pull/412) Add capability to use host (pinned) memory for communication buffers (via PARTHENON_ENABLE_HOST_COMM_BUFFERS - default OFF)
+
+### Changed (changing behavior/API/variables/...)
+
+### Fixed (not changing behavior/API/variables/...)
+
+### Infrastructure (changes irrelevant to downstream codes)
+
+### Removed (removing behavior/API/varaibles/...)
+
+## Release 0.4.0
+Date: 01/19/2021
+
+### Added (new features/APIs/variables/...)
 - [[PR 400]](https://github.com/lanl/parthenon/pull/400) Extend `StateDescriptor` for customizable output via user-customizable function pointers `PreStepDiagnosticsMesh` and `PostStepDiagnosticsMesh`
 - [[PR 391]](https://github.com/lanl/parthenon/pull/391) Add `VariablePack<T>::GetSparseId` and `VariablePack<T>::GetSparseIndex` to return global sparse ids and pack-local sparse index, repsectively.
 - [[PR 381]](https://github.com/lanl/parthenon/pull/381) Overload `DataCollection::Add` to build `MeshData` and `MeshBlockData` objects with a subset of variables.
@@ -36,8 +49,6 @@
 - [[PR 382]](https://github.com/lanl/parthenon/pull/382) Adds output on fail for fast ci implementation on Darwin.
 - [[PR 362]](https://github.com/lanl/parthenon/pull/362) Small fix to clean regression tests output folder on reruns
 - [[PR 403]](https://github.com/lanl/parthenon/pull/403) Cleanup Codacy warnings
-
-### Removed (removing behavior/API/varaibles/...)
 
 ## Release 0.3.0
 Date: 10/29/2020
