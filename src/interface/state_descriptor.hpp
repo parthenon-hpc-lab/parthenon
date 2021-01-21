@@ -259,13 +259,6 @@ class Packages_t {
   std::shared_ptr<StateDescriptor> const &Get(const std::string &name) {
     return packages_.at(name);
   }
-  // TODO(JMM): Should this be provided or deleted?
-  // My preference is to delete it, but it's more API breaking.
-  /*
-  std::shared_ptr<StateDescriptor> &operator[](const std::string &name) {
-    return Get(name);
-  }
-  */
   const Dictionary<std::shared_ptr<StateDescriptor>> &AllPackages() const {
     return packages_;
   }
