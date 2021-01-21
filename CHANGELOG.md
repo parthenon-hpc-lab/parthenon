@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 412]](https://github.com/lanl/parthenon/pull/412) Add capability to use host (pinned) memory for communication buffers (via PARTHENON_ENABLE_HOST_COMM_BUFFERS - default OFF)
 
 ### Changed (changing behavior/API/variables/...)
 - [[PR 425]](https://github.com/lanl/parthenon/pull/425) Remove ambiguity in package names. `Packages_t` no longer has an `operator[]` method. This has been replaced with `Add` and `Get`.
@@ -48,8 +49,6 @@ Date: 01/19/2021
 - [[PR 382]](https://github.com/lanl/parthenon/pull/382) Adds output on fail for fast ci implementation on Darwin.
 - [[PR 362]](https://github.com/lanl/parthenon/pull/362) Small fix to clean regression tests output folder on reruns
 - [[PR 403]](https://github.com/lanl/parthenon/pull/403) Cleanup Codacy warnings
-
-### Removed (removing behavior/API/varaibles/...)
 
 ## Release 0.3.0
 Date: 10/29/2020
