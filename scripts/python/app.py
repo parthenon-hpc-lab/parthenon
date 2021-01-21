@@ -12,7 +12,6 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
 
-import argparse
 import os
 import jwt
 import pem
@@ -85,8 +84,8 @@ class App:
   """
   Internal Private Methods
   """
-  def __init__(self, id, name, user, repo_name):
-    self._app_id = id
+  def __init__(self, app_id, name, user, repo_name):
+    self._app_id = app_id
     self._name = name
     self._user = user
     self._repo_name = repo_name 
@@ -230,7 +229,7 @@ class App:
       c.setopt(c.HTTPHEADER, self._header)
       c.perform()
       c.close()
-      js_obj = json.loads(buffer_temp,getvalue())
+      js_obj = json.loads(buffer_temp.getvalue())
 
       if isinstance(js_obj, list):
         for ob in js_obj:
@@ -492,9 +491,9 @@ class App:
     state_list = ['pending','failed','error','success']
     if state not in state_list:
         raise Exception("Unrecognized state specified " + state)
-    if commit_sha == None:
+    if commit_sha is None:
       commit_sha = os.getenv('CI_COMMIT_SHA')
-    if commit_sha == None:
+    if commit_sha is None:
         raise Exception("CI_COMMIT_SHA not defined in environment cannot post status")
     buffer_temp = BytesIO()
     custom_data = {"state": state}
@@ -522,7 +521,7 @@ class App:
     Get status of current commit.
     """
     commit_sha = os.getenv('CI_COMMIT_SHA')
-    if commit_sha == None:
+    if commit_sha is None:
         raise Exception("CI_COMMIT_SHA not defined in environment cannot post status")
 
     buffer_temp = BytesIO()
