@@ -10,7 +10,7 @@ stages:
     CMAKE_CXX_COMPILER: $CI_PROJECT_DIR/external/Kokkos/bin/nvcc_wrapper
   script:
     - env
-    - env -i bash --norc --noprofile ./scripts/darwin/build_fast.sh "${GITHUB_APP_PEM}" ${CI_COMMIT_SHA} "${CI_COMMIT_BRANCH}"
+    - env -i bash --norc --noprofile ./scripts/darwin/build_fast.sh "${GITHUB_APP_PEM}" ${CI_COMMIT_SHA} "${CI_COMMIT_BRANCH}" "${CI_JOB_URL}"
     - ${CI_PROJECT_DIR}/scripts/darwin/metrics.sh "${GITHUB_APP_PEM}" "${CI_PROJECT_DIR}/build" ${CI_COMMIT_SHA} "${CI_COMMIT_BRANCH}"
 
   #  artifacts:
