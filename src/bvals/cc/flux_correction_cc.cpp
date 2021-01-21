@@ -61,7 +61,7 @@ void CellCenteredBoundaryVariable::SendFluxCorrection() {
       int nx1 = pmb->cellbounds.ncellsi(interior);
       int nx2 = pmb->cellbounds.ncellsj(interior);
       int nx3 = pmb->cellbounds.ncellsk(interior);
-      ParArray1D<Real> &sbuf = bd_var_flcor_.send[nb.bufid];
+      BufArray1D<Real> &sbuf = bd_var_flcor_.send[nb.bufid];
       int nl = nl_;
       // x1 direction
       if (nb.fid == BoundaryFace::inner_x1 || nb.fid == BoundaryFace::outer_x1) {
@@ -228,7 +228,7 @@ bool CellCenteredBoundaryVariable::ReceiveFluxCorrection() {
 #endif
       }
       // boundary arrived; apply flux correction
-      ParArray1D<Real> &rbuf = bd_var_flcor_.recv[nb.bufid];
+      BufArray1D<Real> &rbuf = bd_var_flcor_.recv[nb.bufid];
       int nl = nl_;
       const IndexDomain interior = IndexDomain::interior;
       IndexRange ib = pmb->cellbounds.GetBoundsI(interior);
