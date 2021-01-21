@@ -14,18 +14,9 @@
 
 import argparse
 import os
-import jwt
-import pem
 import datetime
-import pathlib
-import pprint
-import pycurl
 import json
-import shutil
-import base64
 import numpy as np
-from io import BytesIO
-from git import Repo
 from app import App
 
 class PerformanceDataJsonParser():
@@ -287,14 +278,14 @@ def main(**kwargs):
     value = kwargs.pop('upload')
     if isinstance(value,list):
       value = value[0]
-    if value != None:
+    if not value is None:
         app.upload(value, branch)
 
   if 'status' in kwargs:
     value = kwargs.pop('status')
     if isinstance(value,list):
         value = value[0]
-    if value != None:
+    if not value is None:
         url = kwargs.pop('status_url')
         if isinstance(url,list):
           url = url[0]
@@ -307,7 +298,7 @@ def main(**kwargs):
     value = kwargs.pop('analyze')
     if isinstance(value,list):
         value = value[0]
-    if value != None:
+    if not value is None:
         app.analyze(value)
 
 # Execute main function
