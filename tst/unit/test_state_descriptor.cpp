@@ -47,6 +47,10 @@ TEST_CASE("Test Add/Get in Packages_t", "[Packages_t]") {
       AND_THEN("Requesting a package not added throws an error") {
         REQUIRE_THROWS(packages.Get("package2"));
       }
+      AND_THEN("Adding a different package with the same name throws an error") {
+        auto pkg3 = std::make_shared<StateDescriptor>("package1");
+        REQUIRE_THROWS(packages.Add(pkg3));
+      }
     }
   }
 }
