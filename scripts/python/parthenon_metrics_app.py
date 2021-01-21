@@ -157,9 +157,9 @@ class ParthenonApp(App):
   def analyze(self, regression_outputs):
     regression_outputs = os.path.abspath(regression_outputs)
     if not os.path.exists(regression_outputs):
-      raise Exception("Cannot analyze regression outputs specified path is invalid")
+      raise Exception("Cannot analyze regression outputs specified path is invalid: " + regression_outputs)
     if not os.path.isdir(regression_outputs):
-      raise Exception("Cannot analyze regression outputs specified path is invalid")
+      raise Exception("Cannot analyze regression outputs specified path is invalid: " + regression_outputs)
     
     current_branch = os.getenv('CI_COMMIT_BRANCH')
     target_branch = super().getBranchMergingWith(current_branch)
@@ -172,7 +172,7 @@ class ParthenonApp(App):
       print(test_dir)
       if test_dir == "advection_performance":
         if not os.path.isfile(regression_outputs + "/advection_performance/performance_metrics.txt"):
-          raise Exception("Cannot analyze advection_performance, missing performance metrics file.")
+          raise Exception("Cannot analyze advection_performance, missing performance metrics file: " + regression_outputs + "/advection_performance/performance_metrics.txt")
         repo = super().cloneWikiRepo()
 
         mesh_blocks, zone_cycles = self.readPerformanceMetricsTXT(regression_outputs + "/advection_performance/performance_metrics.txt")

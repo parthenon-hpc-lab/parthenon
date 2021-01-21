@@ -13,8 +13,8 @@ set -eE
 
 SOURCE=$(dirname "$0") 
 GITHUB_APP_PEM="$1"
-export CI_COMMIT_SHA=$2
-export CI_COMMIT_BRANCH=$3
+export CI_COMMIT_SHA="$2"
+export CI_COMMIT_BRANCH="$3"
 CI_JOB_URL="$4"
 export GITHUB_APP_PEM="$GITHUB_APP_PEM"
 
