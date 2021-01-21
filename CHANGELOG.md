@@ -10,6 +10,7 @@
 ### Fixed (not changing behavior/API/variables/...)
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 428]](https://github.com/lanl/parthenon/pull/428) Triad Copyright 2021
 
 ### Removed (removing behavior/API/varaibles/...)
 
