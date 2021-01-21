@@ -45,7 +45,7 @@ updated API) are discovered early.
 
 In order to keep the main repository in order, everyone is encouraged to create feature
 branches starting with their username, followed by a "/", and ending with a brief
-description, e.g., "username/add_feature_xyz".
+description, e.g., "username/add\_feature\_xyz".
 Working on branches in private forks is also fine but not recommended (as the automated
 testing infrastructure will then first work upon opening a pull request).
 
@@ -147,6 +147,19 @@ follow the instructions [below](#integrating-the-regression-test-with-cmake) *an
 `perf-reg` label to the test (see bottom of the regression
 [CMakeLists.txt](tst/regression/CMakeLists.txt)).
 
+A third pipeline is run using LANL internal systems and is run manually when
+approved, it is also scheduled to run on a dailly basis on the development
+branch. The internal machines use the newest IBM powerPC processors and the
+NVIDIA V100 (Volta) GPUs (power9 architecture). Tests run on these systems are
+primarily aimed at measuring the performance of this specific architecture.
+Compilation and testing details can be found by looking in the
+[.gitlab-ci-darwin.yml](.gitlab-ci-darwin.yml) file *and* the /scripts/darwin
+folder. In summary, the ci is built in release mode, with OpenMP, MPI, HDF5 and
+Cuda enabled. All tests are run on a single node with access to two Volta
+GPUs. In addition the regression tests are run in parallel with two mpi
+processors each of which have access to their own Volta gpu. The following
+tests are run with this ci: unit, regression, performance.  
+
 ### Adding Tests
 
 Five categories of tests have been identified in parthenon, and they are
@@ -247,20 +260,29 @@ Essentially, the command for running `run_test.py` must be called from within cm
 
 ```
 list(APPEND TEST_DIRS foo_test)
+list(APPEND TEST_PROCS "5")
 list(APPEND TEST_ARGS "--driver location_of_foo_driver --driver_input Location_of_foo_input_deck")
+list(APPEND EXTRA_TEST_LABELS "")
 ```
 
-For the calculate pi example shown above this consists of adding parameters to two cmake lists
+For the calculate pi example shown above this consists of adding parameters to four cmake lists
 
 ```
 list(APPEND TEST_DIRS calculate_pi)
+list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
 list(APPEND TEST_ARGS "--driver ${CMAKE_BINARY_DIR}/example/calculate_pi/parthenon-example --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/calculate_pi/parthinput.regression")
+list(APPEND EXTRA_TEST_LABELS "perf")
 ```
 
-NOTE: By default all regression tests added to these lists will be run in serial and in parallel
-with mpi. The number of mpi processors used is by default set to 4. This default can be adjusted
-by changing the cmake variable NUM\_MPI\_PROC\_TESTING. The number of OpenMP threads is by default set
-to 1 but can be adjusted in the driver input file deck. 
+NOTE: The TEST\_PROCS list indicates how many processors to use when running
+mpi. The cmake variable NUM\_MPI\_PROC\_TESTING can be used if you do not want
+to hardcode a value, and is recommended.  By default all regression tests added
+to these lists will be run in serial and in parallel with mpi. The number of
+mpi processors used is by default set to 4. This default can be adjusted by
+changing the cmake variable NUM\_MPI\_PROC\_TESTING. The number of OpenMP
+threads is by default set to 1 but can be adjusted in the driver input file
+deck. If parthenon is compiled with CUDA enabled, by default a single GPU will
+be assigned to each node..  
 
 ##### Running ctest 
 
@@ -339,5 +361,3 @@ Fine grained control of where the coverage reports are placed can be specified
 with COVERAGE_PATH, COVERAGE_NAME, which represent the path to the coverage
 reports and the directory where they will be placed. The default location is in
 a folder named coverage in the build directory. 
-
-

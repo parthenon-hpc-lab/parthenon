@@ -28,7 +28,7 @@ using parthenon::ParArrayHost;
 using Pack_t = parthenon::MeshBlockVarPack<Real>;
 
 // Package Callbacks
-void SetInOrOut(std::shared_ptr<Container<Real>> &rc);
+void SetInOrOut(MeshBlockData<Real> *rc);
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 
 // Task Implementations
@@ -36,7 +36,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 // All objects here have reference semantics, so capture by value is ok.
 // TODO(JMM) A std::shared_ptr might be better.
 // Computes area on a given meshpack
-parthenon::TaskStatus ComputeArea(Pack_t pack, ParArrayHost<Real> areas, int i);
+parthenon::TaskStatus ComputeArea(std::shared_ptr<MeshData<Real>> &md,
+                                  ParArrayHost<Real> areas, int i);
 // Sums up areas accross packs.
 parthenon::TaskStatus AccumulateAreas(ParArrayHost<Real> areas, Packages_t &packages);
 } // namespace calculate_pi

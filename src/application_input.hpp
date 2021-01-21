@@ -19,6 +19,7 @@
 #include <string>
 #include <vector>
 
+#include "bvals/boundary_conditions.hpp"
 #include "defs.hpp"
 #include "interface/properties_interface.hpp"
 #include "interface/state_descriptor.hpp"
@@ -30,15 +31,26 @@ namespace parthenon {
 struct ApplicationInput {
  public:
   // ParthenonManager functions
-  std::function<void()> SetFillDerivedFunctions = nullptr;
   std::function<Properties_t(std::unique_ptr<ParameterInput> &)> ProcessProperties =
       nullptr;
   std::function<Packages_t(std::unique_ptr<ParameterInput> &)> ProcessPackages = nullptr;
 
   // Mesh functions
   std::function<void(ParameterInput *)> InitUserMeshData = nullptr;
-  std::function<void()> MeshUserWorkInLoop = nullptr;
+
+  std::function<void(Mesh *, ParameterInput *, SimTime const &)>
+      PreStepMeshUserWorkInLoop = nullptr;
+  std::function<void(Mesh *, ParameterInput *, SimTime const &)>
+      PostStepMeshUserWorkInLoop = nullptr;
+
+  std::function<void(Mesh *, ParameterInput *, SimTime const &)>
+      PreStepDiagnosticsInLoop = nullptr;
+  std::function<void(Mesh *, ParameterInput *, SimTime const &)>
+      PostStepDiagnosticsInLoop = nullptr;
+
   std::function<void(Mesh *, ParameterInput *, SimTime &)> UserWorkAfterLoop = nullptr;
+  BValFunc boundary_conditions[BOUNDARY_NFACES] = {nullptr, nullptr, nullptr,
+                                                   nullptr, nullptr, nullptr};
 
   // MeshBlock functions
   std::function<std::unique_ptr<MeshBlockApplicationData>(ParameterInput *)>

@@ -22,6 +22,7 @@
 // TODO(felker): deduplicate forward declarations
 // TODO(felker): consider moving enums and structs in a new file? bvals_structs.hpp?
 
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -29,6 +30,7 @@
 
 #include "defs.hpp"
 #include "parthenon_arrays.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
@@ -80,21 +82,11 @@ enum {
 };
 #endif
 
-// identifiers for all 6 faces of a MeshBlock
-enum BoundaryFace {
-  undef = -1,
-  inner_x1 = 0,
-  outer_x1 = 1,
-  inner_x2 = 2,
-  outer_x2 = 3,
-  inner_x3 = 4,
-  outer_x3 = 5
-};
 // TODO(felker): BoundaryFace must be unscoped enum, for now. Its enumerators are used as
 // int to index raw arrays (not ParArrayNDs)--> enumerator vals are explicitly specified
 
 // identifiers for boundary conditions
-enum class BoundaryFlag { block = -1, undef, reflect, outflow, periodic };
+enum class BoundaryFlag { block = -1, undef, reflect, outflow, periodic, user };
 
 // identifiers for types of neighbor blocks (connectivity with current MeshBlock)
 enum class NeighborConnect {
@@ -250,7 +242,7 @@ class BoundaryBuffer {
 
 class BoundaryVariable : public BoundaryCommunication, public BoundaryBuffer {
  public:
-  explicit BoundaryVariable(MeshBlock *pmb);
+  explicit BoundaryVariable(std::weak_ptr<MeshBlock> pmb);
   virtual ~BoundaryVariable() = default;
 
   // (usuallly the std::size_t unsigned integer type)
@@ -264,14 +256,24 @@ class BoundaryVariable : public BoundaryCommunication, public BoundaryBuffer {
   bool ReceiveBoundaryBuffers() override;
   void ReceiveAndSetBoundariesWithWait() override;
   void SetBoundaries() override;
+  auto GetPBdVar() { return &bd_var_; }
 
  protected:
   // deferred initialization of BoundaryData objects in derived class constructors
   BoundaryData<> bd_var_, bd_var_flcor_;
   // derived class dtors are also responsible for calling DestroyBoundaryData(bd_var_)
 
-  MeshBlock *pmy_block_; // ptr to MeshBlock containing this BoundaryVariable
+  // ptr to MeshBlock containing this BoundaryVariable
+  std::weak_ptr<MeshBlock> pmy_block_;
   Mesh *pmy_mesh_;
+
+  /// Returns shared pointer to a block
+  std::shared_ptr<MeshBlock> GetBlockPointer() {
+    if (pmy_block_.expired()) {
+      PARTHENON_THROW("Invalid pointer to MeshBlock!");
+    }
+    return pmy_block_.lock();
+  }
 
   void CopyVariableBufferSameProcess(NeighborBlock &nb, int ssize);
   void CopyFluxCorrectionBufferSameProcess(NeighborBlock &nb, int ssize);

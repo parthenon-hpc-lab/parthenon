@@ -79,7 +79,7 @@ class EvolutionDriver : public Driver {
   SimTime tm;
 
  protected:
-  virtual void PostExecute(DriverStatus status);
+  void PostExecute(DriverStatus status);
 
  private:
   void InitializeBlockTimeSteps();
@@ -94,8 +94,8 @@ TaskListStatus ConstructAndExecuteBlockTasks(T *driver, Args... args) {
   TaskRegion &tr = tc.AddRegion(nmb);
 
   int i = 0;
-  for (auto &mb : driver->pmesh->block_list) {
-    tr[i++] = driver->MakeTaskList(&mb, std::forward<Args>(args)...);
+  for (auto &pmb : driver->pmesh->block_list) {
+    tr[i++] = driver->MakeTaskList(pmb.get(), std::forward<Args>(args)...);
   }
   TaskListStatus status = tc.Execute();
   return status;
@@ -104,7 +104,7 @@ TaskListStatus ConstructAndExecuteBlockTasks(T *driver, Args... args) {
 template <typename T, class... Args>
 TaskListStatus ConstructAndExecuteTaskLists(T *driver, Args... args) {
   TaskCollection tc =
-      driver->MakeTasks(driver->pmesh->block_list, std::forward<Args>(args)...);
+      driver->MakeTaskCollection(driver->pmesh->block_list, std::forward<Args>(args)...);
   TaskListStatus status = tc.Execute();
   return status;
 }

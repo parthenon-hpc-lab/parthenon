@@ -25,25 +25,31 @@ The `TaskID` class implements methods that allow Parthenon to keep track of task
  TaskCollection tc;
  TaskRegion &tr1 = tc.AddRegion(nmb);
  for (int i = 0; i < nmb; i++) {
-   auto task_id = tr1[i].AddTask(foo, dep, args, blocks[i]);
+   auto task_id = tr1[i].AddTask(dep, foo, args, blocks[i]);
  }
 
  {
    TaskRegion &tr2 = tc.AddRegion(1);
-   auto sync_task = tr2[0].AddTask(bar, dep, args, blocks);
+   auto sync_task = tr2[0].AddTask(dep, bar, args, blocks);
  }
 
  TaskRegion &tr3 = tc.AddRegion(nmb);
  for (int i = 0; i < nmb; i++) {
-     auto task_id = tr3[i].AddTask(foo, dep, args, blocks[i]);
+     auto task_id = tr3[i].AddTask(dep, foo, args, blocks[i]);
  }
  ```
+
+A diagram illustrating the relationship between these different classes is shown below.
+ 
+![Task Diagram](TaskDiagram.png)
 
  `TaskCollection` provides two member functions, `AddRegion` and `Execute`.
 
  ### AddRegion
 
  `AddRegion` simply adds a new `TaskRegion` to the back of the collection and returns it as a reference.  The integer argument determines how many task lists make up the region.
+
+
 
  ### Execute
 

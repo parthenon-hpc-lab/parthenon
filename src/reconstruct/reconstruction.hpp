@@ -19,8 +19,11 @@
 //! \file reconstruction.hpp
 //  \brief defines class Reconstruction, data and functions for spatial reconstruction
 
+#include <memory>
+
 #include "defs.hpp"
 #include "parthenon_arrays.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
@@ -34,7 +37,7 @@ class Reconstruction {
  public:
   enum VelocityIndex { IVX = 1, IVY = 2, IVZ = 3 };
 
-  Reconstruction(MeshBlock *pmb, ParameterInput *pin);
+  Reconstruction(std::weak_ptr<MeshBlock> pmb, ParameterInput *pin);
 
   // data
   // switches for reconstruction method variants:
@@ -135,7 +138,8 @@ class Reconstruction {
                             ParArrayND<Real> &qr);
 
  private:
-  MeshBlock *pmy_block_; // ptr to MeshBlock containing this Reconstruction
+  // ptr to MeshBlock containing this Reconstruction
+  std::weak_ptr<MeshBlock> pmy_block_;
 
   // scratch arrays used in PLM and PPM reconstruction functions
   ParArrayND<Real> scr01_i_, scr02_i_, scr03_i_, scr04_i_, scr05_i_;
@@ -143,6 +147,14 @@ class Reconstruction {
   ParArrayND<Real> scr11_i_, scr12_i_, scr13_i_, scr14_i_;
   ParArrayND<Real> scr1_ni_, scr2_ni_, scr3_ni_, scr4_ni_, scr5_ni_;
   ParArrayND<Real> scr6_ni_, scr7_ni_, scr8_ni_;
+
+  // Returns shared pointer to a block
+  std::shared_ptr<MeshBlock> GetBlockPointer() {
+    if (pmy_block_.expired()) {
+      PARTHENON_THROW("Invalid pointer to MeshBlock!");
+    }
+    return pmy_block_.lock();
+  }
 };
 
 } // namespace parthenon

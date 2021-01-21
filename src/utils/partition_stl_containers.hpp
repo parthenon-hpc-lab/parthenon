@@ -20,10 +20,11 @@
 
 namespace parthenon {
 namespace partition {
-// TODO(JMM): The templated type safety with T* and T may need to be
-// changed if we move to sufficiently general container objects.
+// Note the interface here has objects in partition are now
+// COPIED, not pointed at.
+// Change is due to using std::shared_ptr<MeshBlock>
 template <typename T>
-using Partition_t = std::vector<std::vector<T *>>;
+using Partition_t = std::vector<std::vector<T>>;
 
 namespace partition_impl {
 // x/y rounded up
@@ -41,17 +42,17 @@ int IntCeil(int x, int y) {
 // Takes container of elements and fills partitions
 // of size N with pointers to elements.
 // Assumes Container_t has STL-style iterators defined
-template <typename Container_t, typename T>
-void ToSizeN(Container_t &container, const int N, Partition_t<T> &partitions) {
+template <typename T, template <class...> class Container_t, class... extra>
+auto ToSizeN(Container_t<T, extra...> &container, const int N) {
   using std::to_string;
   using namespace partition_impl;
 
-  PARTHENON_REQUIRE_THROWS(N > 0, "You must have at least 1 partition");
+  PARTHENON_REQUIRE_THROWS(N > 0, "Your partition must be at least size 1");
 
   int nelements = container.size();
   int npartitions = IntCeil(nelements, N);
 
-  partitions.resize(npartitions);
+  Partition_t<T> partitions(npartitions);
   for (auto &p : partitions) {
     p.reserve(N);
     p.clear();
@@ -60,23 +61,24 @@ void ToSizeN(Container_t &container, const int N, Partition_t<T> &partitions) {
   int p = 0;
   int b = 0;
   for (auto &element : container) {
-    partitions[p].push_back(&element);
+    partitions[p].push_back(element);
     if (++b >= N) {
       ++p;
       b = 0;
     }
   }
+  return partitions;
 }
 
 // Takes container of elements and fills N partitions
 // with pointers to elements.
 // Assumes Container_t has STL-style iterators defined
-template <typename Container_t, typename T>
-void ToNPartitions(Container_t &container, const int N, Partition_t<T> &partitions) {
+template <typename T, template <class...> class Container_t, class... extra>
+auto ToNPartitions(Container_t<T, extra...> &container, const int N) {
   using namespace partition_impl;
   int nelements = container.size();
   int partition_size = IntCeil(nelements, N);
-  ToSizeN(container, partition_size, partitions);
+  return ToSizeN(container, partition_size);
 }
 } // namespace partition
 } // namespace parthenon

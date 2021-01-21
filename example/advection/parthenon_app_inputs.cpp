@@ -32,7 +32,7 @@ using namespace parthenon;
 namespace advection_example {
 
 void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
-  auto &rc = pmb->real_containers.Get();
+  auto &rc = pmb->meshblock_data.Get();
   auto &q = rc->Get("advected").data;
 
   auto pkg = pmb->packages["advection_package"];
@@ -92,10 +92,10 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
   Real l1_err = 0.0;
   Real max_err = 0.0;
 
-  for (auto pmb = mesh->block_list.begin(); pmb != mesh->block_list.end(); pmb++) {
+  for (auto &pmb : mesh->block_list) {
     auto pkg = pmb->packages["advection_package"];
 
-    auto rc = pmb->real_containers.Get(); // get base container
+    auto rc = pmb->meshblock_data.Get(); // get base container
     const auto &amp = pkg->Param<Real>("amp");
     const auto &vel = pkg->Param<Real>("vel");
     const auto &k_par = pkg->Param<Real>("k_par");
@@ -149,11 +149,15 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
 
 #ifdef MPI_PARALLEL
   if (Globals::my_rank == 0) {
-    MPI_Reduce(MPI_IN_PLACE, &l1_err, 1, MPI_PARTHENON_REAL, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(MPI_IN_PLACE, &max_err, 1, MPI_PARTHENON_REAL, MPI_MAX, 0, MPI_COMM_WORLD);
+    PARTHENON_MPI_CHECK(MPI_Reduce(MPI_IN_PLACE, &l1_err, 1, MPI_PARTHENON_REAL, MPI_SUM,
+                                   0, MPI_COMM_WORLD));
+    PARTHENON_MPI_CHECK(MPI_Reduce(MPI_IN_PLACE, &max_err, 1, MPI_PARTHENON_REAL, MPI_MAX,
+                                   0, MPI_COMM_WORLD));
   } else {
-    MPI_Reduce(&l1_err, &l1_err, 1, MPI_PARTHENON_REAL, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&max_err, &max_err, 1, MPI_PARTHENON_REAL, MPI_MAX, 0, MPI_COMM_WORLD);
+    PARTHENON_MPI_CHECK(
+        MPI_Reduce(&l1_err, &l1_err, 1, MPI_PARTHENON_REAL, MPI_SUM, 0, MPI_COMM_WORLD));
+    PARTHENON_MPI_CHECK(MPI_Reduce(&max_err, &max_err, 1, MPI_PARTHENON_REAL, MPI_MAX, 0,
+                                   MPI_COMM_WORLD));
   }
 #endif
 
@@ -209,12 +213,13 @@ Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   Packages_t packages;
   auto pkg = advection_package::Initialize(pin.get());
   packages[pkg->label()] = pkg;
-  return packages;
-}
 
-void SetFillDerivedFunctions() {
-  parthenon::FillDerivedVariables::SetFillDerivedFunctions(advection_package::PreFill,
-                                                           advection_package::PostFill);
+  auto app = std::make_shared<StateDescriptor>("advection_app");
+  app->PreFillDerivedBlock = advection_package::PreFill;
+  app->PostFillDerivedBlock = advection_package::PostFill;
+  packages[app->label()] = app;
+
+  return packages;
 }
 
 } // namespace advection_example

@@ -58,7 +58,7 @@ class CellVariable {
 
   // make a new CellVariable based on an existing one
   std::shared_ptr<CellVariable<T>> AllocateCopy(const bool allocComms = false,
-                                                MeshBlock *pmb = nullptr);
+                                                std::weak_ptr<MeshBlock> wpmb = {});
 
   // accessors
 
@@ -82,7 +82,7 @@ class CellVariable {
   std::string info();
 
   /// allocate communication space based on info in MeshBlock
-  void allocateComms(MeshBlock *pmb);
+  void allocateComms(std::weak_ptr<MeshBlock> wpmb);
 
   /// Repoint vbvar's var_cc array at the current variable
   void resetBoundary() { vbvar->var_cc = data; }
@@ -119,7 +119,7 @@ class FaceVariable {
   }
 
   /// Create an alias for the variable by making a shallow slice with max dim
-  FaceVariable(std::string label, FaceVariable<T> &src)
+  FaceVariable(const std::string &label, FaceVariable<T> &src)
       : data(src.data), dims_(src.dims_), m_(src.m_), label_(label) {}
 
   // KOKKOS_FUNCTION FaceVariable() = default;
@@ -175,7 +175,7 @@ template <typename T>
 class EdgeVariable {
  public:
   /// Initialize an edge variable
-  EdgeVariable(const std::string label, const std::array<int, 6> ncells,
+  EdgeVariable(const std::string &label, const std::array<int, 6> ncells,
                const Metadata &metadata)
       : data(label, ncells[5], ncells[4], ncells[3], ncells[2], ncells[1], ncells[0]),
         dims_(ncells), m_(metadata), label_(label) {
@@ -184,7 +184,7 @@ class EdgeVariable {
   }
 
   /// Create an alias for the variable by making a shallow slice with max dim
-  EdgeVariable(std::string label, EdgeVariable<T> &src)
+  EdgeVariable(const std::string &label, EdgeVariable<T> &src)
       : data(src.data), dims_(src.dims_), m_(src.m_), label_(label) {}
   ///< retrieve metadata for variable
   const Metadata metadata() const { return m_; }
@@ -205,6 +205,40 @@ class EdgeVariable {
 };
 
 template <typename T>
+class ParticleVariable {
+ public:
+  /// Initialize a particle variable
+  ParticleVariable(const std::string &label, const int npool, const Metadata &metadata)
+      : data(label, npool), npool_(npool), m_(metadata), label_(label) {}
+
+  // accessors
+  KOKKOS_FORCEINLINE_FUNCTION
+  ParArrayND<T> &Get() { return data; }
+  template <class... Args>
+  KOKKOS_FORCEINLINE_FUNCTION auto &operator()(Args... args) {
+    return data(std::forward<Args>(args)...);
+  }
+
+  ///< retrieve metadata for variable
+  const Metadata metadata() const { return m_; }
+
+  bool IsSet(const MetadataFlag bit) const { return m_.IsSet(bit); }
+
+  ///< retrieve label for variable
+  const std::string label() const { return label_; }
+
+  /// return information string
+  std::string info() const;
+
+  ParArrayND<T> data;
+
+ private:
+  int npool_;
+  Metadata m_;
+  std::string label_;
+};
+
+template <typename T>
 using CellVariableVector = std::vector<std::shared_ptr<CellVariable<T>>>;
 template <typename T>
 using FaceVector = std::vector<std::shared_ptr<FaceVariable<T>>>;
@@ -213,6 +247,11 @@ template <typename T>
 using MapToCellVars = std::map<std::string, std::shared_ptr<CellVariable<T>>>;
 template <typename T>
 using MapToFace = std::map<std::string, std::shared_ptr<FaceVariable<T>>>;
+
+template <typename T>
+using ParticleVariableVector = std::vector<std::shared_ptr<ParticleVariable<T>>>;
+template <typename T>
+using MapToParticle = std::map<std::string, std::shared_ptr<ParticleVariable<T>>>;
 
 } // namespace parthenon
 

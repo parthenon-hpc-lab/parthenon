@@ -20,6 +20,8 @@
 //  \brief handle boundaries for any FaceField type variable that represents a physical
 //         quantity indexed along / located around face-centers of cells
 
+#include <memory>
+
 #include "parthenon_mpi.hpp"
 
 #include "bvals/bvals.hpp"
@@ -31,8 +33,8 @@ namespace parthenon {
 
 class FaceCenteredBoundaryVariable : public BoundaryVariable {
  public:
-  FaceCenteredBoundaryVariable(MeshBlock *pmb, FaceField *var, FaceField &coarse_buf,
-                               EdgeField &var_flux);
+  FaceCenteredBoundaryVariable(std::weak_ptr<MeshBlock> pmb, FaceField *var,
+                               FaceField &coarse_buf, EdgeField &var_flux);
   ~FaceCenteredBoundaryVariable();
 
   // may want to rebind var_fc to b, b1, b2, etc. Hence ptr member, not reference

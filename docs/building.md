@@ -6,39 +6,58 @@ If you come across a disfunctional setup, please report it by open an issue or p
 
 ## General list of cmake options:
 
-   |           Option             | Default  | Type   | Description |
-   | ---------------------------: | :------- | :----- | :---------- |
-   |            PARTHENON\_NGHOST | 2        | String | Number of ghost cells |
-   | PARTHENON\_SINGLE\_PRECISION | OFF      | Option | Enable single precision mode if requested |
-   |     PARTHENON\_DISABLE\_HDF5 | OFF      | Option | HDF5 is enabled by default if found, set this to True to disable HDF5 |
-   |      PARTHENON\_DISABLE\_MPI | OFF      | Option | MPI is enabled by default if found, set this to True to disable MPI |
-   |   PARTHENON\_DISABLE\_OPENMP | OFF      | Option | OpenMP is enabled by default if found, set this to True to disable OpenMP |
-   |   ENABLE\_COMPILER\_WARNINGS | OFF      | Option | Enable compiler warnings |
-   |        TEST\_ERROR\_CHECKING | OFF      | Option | Enables the error checking unit test. This test will FAIL |
-   |    TEST\_INTEL\_OPTIMIZATION | OFF      | Option | Test intel optimization and vectorization |
-   |    CHECK\_REGISTRY\_PRESSURE | OFF      | Option | Check the registry pressure for Kokkos CUDA kernels |
-   |               BUILD\_TESTING | ON       | Option | Multi-testing enablement |
-   | PARTHENON\_DISABLE\_EXAMPLES | OFF      | Option | Toggle building of examples, if regression tests are on, drivers needed by the tests will still be built |
-   |   ENABLE\_INTEGRATION\_TESTS | ${BUILD\_TESTING} | Option | Enable integration tests |
-   |    ENABLE\_REGRESSION\_TESTS | ${BUILD\_TESTING} | Option | Enable regression tests |
-   |      NUM\_MPI\_PROC\_TESTING | 4        | String | Number of MPI ranks used for MPI-enabled regression tests |
-   |  REGRESSION\_GOLD\_STANDARD\_VER | #     | Int    | Version of current gold standard file used in regression tests. Default is set to latest version matching the source. |
-   | REGRESSION\_GOLD\_STANDARD\_HASH | SHA512=... | String | Hash value of gold standard file to be downloaded. Used to ensure that the download is not corrupted. |
-   | REGRESSION\_GOLD\_STANDARD\_SYNC | ON    | Option | Create `gold_standard` target to download gold standard files |
-   |          ENABLE\_UNIT\_TESTS | ${BUILD\_TESTING} | Option | Enable unit tests |
-   |               CODE\_COVERAGE | OFF      | Option | Builds with code coverage flags |
-   |       CMAKE\_INSTALL\_PREFIX | machine specific | String | Optional path for library installation |
-   |                 Kokkos\_ROOT | unset    | String | Path to a Kokkos source directory (containing CMakeLists.txt) |
-   |  PARTHENON\_IMPORT\_KOKKOS | ON/OFF   | Option | If ON, attempt to link to an external Kokkos library. If OFF, build Kokkos from source and package with Parthenon |
-   |          BUILD\_SHARED\_LIBS | OFF      | Option | If installing Parthenon, whether to build as shared rather than static |
+   |           Option                    | Default           | Type   | Description |
+   | ----------------------------------: | :---------------- | :----- | :---------- |
+   |                   PARTHENON\_NGHOST | 2                 | String | Number of ghost cells |
+   |        PARTHENON\_SINGLE\_PRECISION | OFF               | Option | Enable single precision mode if requested |
+   |            PARTHENON\_DISABLE\_HDF5 | OFF               | Option | HDF5 is enabled by default if found, set this to True to disable HDF5 |
+   |             PARTHENON\_DISABLE\_MPI | OFF               | Option | MPI is enabled by default if found, set this to True to disable MPI |
+   |          PARTHENON\_DISABLE\_OPENMP | OFF               | Option | OpenMP is enabled by default if found, set this to True to disable OpenMP |
+   |          ENABLE\_COMPILER\_WARNINGS | OFF               | Option | Enable compiler warnings |
+   |               TEST\_ERROR\_CHECKING | OFF               | Option | Enables the error checking unit test. This test will FAIL |
+   |           TEST\_INTEL\_OPTIMIZATION | OFF               | Option | Test intel optimization and vectorization |
+   |           CHECK\_REGISTRY\_PRESSURE | OFF               | Option | Check the registry pressure for Kokkos CUDA kernels |
+   |                      BUILD\_TESTING | ON                | Option | Multi-testing enablement |
+   |        PARTHENON\_DISABLE\_EXAMPLES | OFF               | Option | Toggle building of examples, if regression tests are on, drivers needed by the tests will still be built |
+   |          ENABLE\_INTEGRATION\_TESTS | ${BUILD\_TESTING} | Option | Enable integration tests |
+   |           ENABLE\_REGRESSION\_TESTS | ${BUILD\_TESTING} | Option | Enable regression tests |
+   |             NUM\_MPI\_PROC\_TESTING | 4                 | String | Number of MPI ranks used for MPI-enabled regression tests |
+   |        NUM\_GPU\_DEVICES\_PER\_NODE | 1                 | String | Number of GPUs per node to use if built with Kokkos_ENABLE_CUDA |
+   | PARTHENON\_ENABLE\_GPU\_MPI\_CHECKS | ON                | String | Enable pre-test gpu-mpi checks |
+   |     REGRESSION\_GOLD\_STANDARD\_VER | #                 | Int    | Version of current gold standard file used in regression tests. Default is set to latest version matching the source. |
+   |    REGRESSION\_GOLD\_STANDARD\_HASH | SHA512=...        | String | Hash value of gold standard file to be downloaded. Used to ensure that the download is not corrupted. |
+   |    REGRESSION\_GOLD\_STANDARD\_SYNC | ON                | Option | Create `gold_standard` target to download gold standard files |
+   |                 ENABLE\_UNIT\_TESTS | ${BUILD\_TESTING} | Option | Enable unit tests |
+   |                      CODE\_COVERAGE | OFF               | Option | Builds with code coverage flags |
+   |              CMAKE\_INSTALL\_PREFIX | machine specific  | String | Optional path for library installation |
+   |                        Kokkos\_ROOT | unset             | String | Path to a Kokkos source directory (containing CMakeLists.txt) |
+   |           PARTHENON\_IMPORT\_KOKKOS | ON/OFF            | Option | If ON, attempt to link to an external Kokkos library. If OFF, build Kokkos from source and package with Parthenon |
+   |                 BUILD\_SHARED\_LIBS | OFF               | Option | If installing Parthenon, whether to build as shared rather than static |
 
 ### NB: CMake options prefixed with *PARTHENON\_* modify behavior.
 
+## Using Parthenon as a Subdirectory
+
+For simple applications, Parthenon can be added as a subdirectory to your
+project. For example, you can add parthenon as a git submodule:
+```
+git submodule add https://github.com/lanl/parthenon.git
+```
+
+And then you can use parthenon in your CMake project by adding it as a
+subdirectory:
+```cmake
+add_subdirectory(path/to/parthenon)
+
+add_executable(myapp ...)
+target_link_libraries(myapp PRIVATE Parthenon::parthenon)
+```
+
 ## Installing Parthenon
 
-An alternative to building Parthenon alongside a custom app (as in the examples)
-is to first build Parthenon separately as a library and then link to it
-when building the app. Parthenon can be built as either a static (default) or a shared library.
+An alternative to building Parthenon as a subdirectory is to first build
+Parthenon separately as a library and then link to it when building the app.
+Parthenon can be built as either a static (default) or a shared library.
 
 To build Parthenon as a library, provide a `CMAKE_INSTALL_PREFIX` path
 to the desired install location to the Parthenon cmake call. To build a shared rather
@@ -196,6 +215,61 @@ Currently Loaded Modules:
   3) lsf-tools/2.0   6) cuda/10.1.243           9) spectrum-mpi/10.3.1.2-20200121
 ```
 
+### LANL Darwin (Heterogeneous)
+
+#### Allocate Node
+
+Darwin is a heterogeneous cluster, giving LANL developers easy access to a
+wide variety of architectures. Therefore, before you do anything else, you
+should allocate a node in the partition you intend to work in. Currently any
+partition with either Haswell or newer x86-64 nodes (e.g. `general`,
+`skylake-gold`, `skylake-platinum`), or the `power9` partition will do.
+
+E.g.
+```bash
+$ salloc -p power9
+```
+
+#### Set-Up Environment (Optional, but Still Recommended, for Non-CUDA Builds)
+
+You can import all tools you need to start building with by sourcing the
+project `.bashrc`:
+
+```bash
+$ source /projects/parthenon-int/parthenon-project/.bashrc
+```
+
+This .bashrc will set the correct `MACHINE_CFG` file in your environment, import
+an architecture-specific set of recent build tools (currently cmake and ninja),
+and set Ninja as the default CMake generator.
+
+This step is required if you intend to build for CUDA (the default on Power9).
+
+#### Build the Code
+If you followed the "Set-Up Environment" section, configuration requires 0
+additional arguments:
+```bash
+$ cmake -S. -Bbuild
+```
+
+If you didn't follow the "Set-Up Environment" section, you need to specify the
+`MACHINE_CFG` file, as well.
+
+```bash
+$ cmake -S. -Bbuild -DMACHINE_CFG=cmake/machinecfg/Darwin.cmake
+```
+
+The Darwin-specific dependencies, including compilers, system dependencies, and
+python packages, are hard coded in `Darwin.cmake`, so you don't need anything
+else in your environment.
+
+Once you've configured your build directory, you can build with
+`cmake --build build`.
+
+#### Advanced
+LANL Employees - to understand how the project space is built out, see
+https://xcp-gitlab.lanl.gov/eap-oss/parthenon-project
+
 ### LLNL RZAnsel (Power9+Volta)
 
 Last verified 02 Sept 2020.
@@ -245,8 +319,7 @@ $ jsrun -p 2 -g 1 -c 20 -M "-gpu" ./example/advection/advection-example -i ../ex
 ```bash
 # configure and build
 $ mkdir build-cuda && cd build-cuda
-$ cmake -DCMAKE_BUILD_TYPE=Release -DMACHINE_CFG=${PARTHENON_ROOT}/cmake/machinecfg/Summit.cma
-ke -DMACHINE_VARIANT=cuda -DPARTHENON_DISABLE_MPI=On ${PARTHENON_ROOT}
+$ cmake -DCMAKE_BUILD_TYPE=Release -DMACHINE_CFG=${PARTHENON_ROOT}/cmake/machinecfg/Summit.cmake -DMACHINE_VARIANT=cuda -DPARTHENON_DISABLE_MPI=On ${PARTHENON_ROOT}
 $ make -j10
 
 # run unit tests (assumes running within a job, e.g., via `bsub -W 1:30 -nnodes 1 -P PROJECTID -Is /bin/bash`)
@@ -257,4 +330,3 @@ $ jsrun -n 1 -g 1 --smpiargs="off" ctest -L unit
 # run convergence test
 $ jsrun -n 1 -g 1 --smpiargs="off" ctest -R regression_test:advection_performance
 ```
-

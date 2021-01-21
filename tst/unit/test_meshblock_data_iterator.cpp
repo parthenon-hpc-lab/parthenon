@@ -26,20 +26,22 @@
 #include "basic_types.hpp"
 #include "config.hpp"
 #include "defs.hpp"
-#include "interface/container.hpp"
-#include "interface/container_iterator.hpp"
+#include "interface/meshblock_data.hpp"
+#include "interface/meshblock_data_iterator.hpp"
 #include "interface/metadata.hpp"
 #include "interface/variable.hpp"
 #include "interface/variable_pack.hpp"
 #include "kokkos_abstraction.hpp"
+#include "mesh/domain.hpp"
+#include "mesh/meshblock.hpp"
 #include "parthenon_arrays.hpp"
 
 using parthenon::CellVariable;
 using parthenon::CellVariableVector;
-using parthenon::Container;
-using parthenon::ContainerIterator;
 using parthenon::DevExecSpace;
 using parthenon::loop_pattern_mdrange_tag;
+using parthenon::MeshBlockData;
+using parthenon::MeshBlockDataIterator;
 using parthenon::Metadata;
 using parthenon::MetadataFlag;
 using parthenon::PackIndexMap;
@@ -64,23 +66,25 @@ bool intervals_intersect(const std::pair<int, int> &i1, const std::pair<int, int
   return false;
 }
 
-TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIterator]") {
+TEST_CASE("Can pull variables from containers based on Metadata",
+          "[MeshBlockDataIterator]") {
   GIVEN("A Container with a set of variables initialized to zero") {
-    Container<Real> rc;
+    MeshBlockData<Real> rc;
     Metadata m_in({Metadata::Independent, Metadata::FillGhost});
+    Metadata m_in_vector({Metadata::Independent, Metadata::FillGhost, Metadata::Vector});
     Metadata m_out;
     std::vector<int> scalar_block_size{16, 16, 16};
     std::vector<int> vector_block_size{16, 16, 16, 3};
     // Make some variables
     rc.Add("v1", m_in, scalar_block_size);
     rc.Add("v2", m_out, scalar_block_size);
-    rc.Add("v3", m_in, vector_block_size);
+    rc.Add("v3", m_in_vector, vector_block_size);
     rc.Add("v4", m_out, vector_block_size);
     rc.Add("v5", m_in, scalar_block_size);
     rc.Add("v6", m_out, scalar_block_size);
 
     WHEN("We extract a subcontainer") {
-      auto subcontainer = Container<Real>(rc, {"v1", "v3", "v5"});
+      auto subcontainer = MeshBlockData<Real>(rc, {"v1", "v3", "v5"});
       THEN("The container has the names in the right order") {
         auto vars = subcontainer.GetCellVariableVector();
         REQUIRE(vars[0]->label() == "v1");
@@ -171,6 +175,20 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
             sum);
         total += sum;
         REQUIRE(std::abs(total - 16384.0) < 1.e-14);
+      }
+      AND_THEN("Summing over only the X2DIR vector components should work") {
+        int total = 0;
+        int sum = 1;
+        par_reduce(
+            loop_pattern_mdrange_tag, "test_container_iterator::X2DIR vec reduce",
+            DevExecSpace(), 0, v.GetDim(4) - 1, 0, v.GetDim(3) - 1, 0, v.GetDim(2) - 1, 0,
+            v.GetDim(1) - 1,
+            KOKKOS_LAMBDA(const int l, const int k, const int j, const int i, int &vsum) {
+              vsum += v.VectorComponent(l) == X2DIR ? 1 : 0;
+            },
+            Kokkos::Sum<int>(sum));
+        total += sum;
+        REQUIRE(total == 16 * 16 * 16);
       }
     }
 
@@ -310,6 +328,32 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
             },
             correct);
         REQUIRE(correct == 5);
+
+        correct = 0;
+        Kokkos::parallel_reduce(
+            "add correct checks", 1,
+            KOKKOS_LAMBDA(const int i, int &sum) {
+              sum = (v.GetSparseId(v3first) == -1);
+              sum += (v.GetSparseId(v6first) == -1);
+              sum += (v.GetSparseId(vsfirst) == 1);
+              sum += (v.GetSparseId(vsfirst + 1) == 13);
+              sum += (v.GetSparseId(vssecnd) == 42);
+            },
+            correct);
+        REQUIRE(correct == 5);
+
+        correct = 0;
+        Kokkos::parallel_reduce(
+            "add correct checks", 1,
+            KOKKOS_LAMBDA(const int i, int &sum) {
+              sum = (v.GetSparseIndex(v3first) == -1);
+              sum += (v.GetSparseIndex(v6first) == -1);
+              sum += (v.GetSparseIndex(vsfirst) == 1);
+              sum += (v.GetSparseIndex(vsfirst + 1) == 13);
+              sum += (v.GetSparseIndex(vssecnd) == 42);
+            },
+            correct);
+        REQUIRE(correct == 5);
       }
     }
 
@@ -318,6 +362,65 @@ TEST_CASE("Can pull variables from containers based on Metadata", "[ContainerIte
       rc.Add("v2d", m_in, twod_block_size);
       auto packw2d = rc.PackVariablesAndFluxes({"v2d"}, {"v2d"});
       THEN("The pack knows it is 2d") { REQUIRE(packw2d.GetNdim() == 2); }
+    }
+
+    WHEN("We extract a pack over an empty set") {
+      auto pack = rc.PackVariables(std::vector<std::string>{"doesnt exist"});
+      THEN("The pack is empty") { REQUIRE(pack.GetDim(4) == 0); }
+    }
+  }
+}
+
+TEST_CASE("Coarse variable from meshblock_data for cell variable",
+          "[MeshBlockDataIterator]") {
+  using parthenon::IndexDomain;
+  using parthenon::IndexShape;
+
+  GIVEN("MeshBlockData, with a variable with coarse data") {
+    constexpr int nside = 16;
+    auto cellbounds = IndexShape(nside, nside, nside, NGHOST);
+    auto c_cellbounds = IndexShape(nside / 2, nside / 2, nside / 2, NGHOST);
+
+    MeshBlockData<Real> rc;
+    Metadata m({Metadata::Independent});
+    std::vector<int> block_size{nside + 2 * NGHOST, nside + 2 * NGHOST,
+                                nside + 2 * NGHOST};
+    rc.Add("var", m, block_size);
+    auto &var = rc.Get("var");
+
+    auto coarse_s =
+        ParArrayND<Real>("var.coarse", var.GetDim(6), var.GetDim(5), var.GetDim(4),
+                         c_cellbounds.ncellsk(IndexDomain::entire),
+                         c_cellbounds.ncellsj(IndexDomain::entire),
+                         c_cellbounds.ncellsi(IndexDomain::entire));
+
+    THEN("The variable is allocated") { REQUIRE(var.data.GetSize() > 0); }
+    var.coarse_s = coarse_s;
+
+    THEN("The coarse object is available") {
+      REQUIRE(var.coarse_s.GetSize() > 0);
+      REQUIRE(var.coarse_s.GetDim(6) == 1);
+      REQUIRE(var.coarse_s.GetDim(5) == 1);
+      REQUIRE(var.coarse_s.GetDim(4) == 1);
+      REQUIRE(var.coarse_s.GetDim(3) == nside / 2 + 2 * NGHOST);
+      REQUIRE(var.coarse_s.GetDim(2) == nside / 2 + 2 * NGHOST);
+      REQUIRE(var.coarse_s.GetDim(1) == nside / 2 + 2 * NGHOST);
+      AND_THEN("We can extract the fine object") {
+        auto pack = rc.PackVariables(std::vector<std::string>{"var"}, false);
+        REQUIRE(pack.GetDim(4) == 1);
+        REQUIRE(pack.GetDim(3) == cellbounds.ncellsk(IndexDomain::entire));
+        REQUIRE(pack.GetDim(2) == cellbounds.ncellsj(IndexDomain::entire));
+        REQUIRE(pack.GetDim(1) == cellbounds.ncellsi(IndexDomain::entire));
+        AND_THEN("We can extract the coarse object") {
+          auto pack = rc.PackVariables(std::vector<std::string>{"var"}, true);
+          AND_THEN("The pack has the coarse dimensions") {
+            REQUIRE(pack.GetDim(4) == 1);
+            REQUIRE(pack.GetDim(3) == c_cellbounds.ncellsk(IndexDomain::entire));
+            REQUIRE(pack.GetDim(2) == c_cellbounds.ncellsj(IndexDomain::entire));
+            REQUIRE(pack.GetDim(1) == c_cellbounds.ncellsi(IndexDomain::entire));
+          }
+        }
+      }
     }
   }
 }

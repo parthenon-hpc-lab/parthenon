@@ -78,13 +78,6 @@ Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
 //  // nothing to do here for this app
 //}
 
-// applications can register functions to fill shared derived quantities
-// before and/or after all the package FillDerived call backs
-// in this case, just use the weak version that sets these to nullptr
-// void ParthenonManager::SetFillDerivedFunctions() {
-//  FillDerivedVariables::SetFillDerivedFunctions(nullptr,nullptr);
-//}
-
 parthenon::DriverStatus PiDriver::Execute() {
   // this is where the main work is orchestrated
   // No evolution in this driver.  Just calculates something once.
@@ -121,34 +114,33 @@ void PiDriver::PostExecute(Real pi_val) {
 }
 
 template <typename T>
-TaskCollection PiDriver::MakeTasks(T &blocks) {
+TaskCollection PiDriver::MakeTaskCollection(T &blocks) {
   using calculate_pi::AccumulateAreas;
   using calculate_pi::ComputeArea;
   TaskCollection tc;
 
-  // 1 means pack is 1 meshblock, <1 means use entire mesh
-  int pack_size = pinput->GetOrAddInteger("Pi", "pack_size", 1);
-  if (pack_size < 1) pack_size = blocks.size();
+  const int pack_size = pmesh->DefaultPackSize();
+  auto partitions = partition::ToSizeN(blocks, pack_size);
+  for (int i = 0; i < partitions.size(); i++) {
+    auto md = pmesh->mesh_data.Add(std::to_string(i));
+    md->Set(partitions[i], "base");
+  }
 
-  partition::Partition_t<MeshBlock> partitions;
-  partition::ToSizeN(blocks, pack_size, partitions);
   ParArrayHost<Real> areas("areas", partitions.size());
-
   TaskRegion &async_region = tc.AddRegion(partitions.size());
   {
-    // asynchronous region where area is computed per mesh pack
+    // asynchronous region where area is computed per partition
     for (int i = 0; i < partitions.size(); i++) {
       TaskID none(0);
-      auto pack = PackVariablesOnMesh(partitions[i], "base",
-                                      std::vector<std::string>{"in_or_out"});
-      auto get_area = async_region[i].AddTask(ComputeArea, none, pack, areas, i);
+      auto &md = pmesh->mesh_data.Get(std::to_string(i));
+      auto get_area = async_region[i].AddTask(none, ComputeArea, md, areas, i);
     }
   }
   TaskRegion &sync_region = tc.AddRegion(1);
   {
     TaskID none(0);
     auto accumulate_areas =
-        sync_region[0].AddTask(AccumulateAreas, none, areas, pmesh->packages);
+        sync_region[0].AddTask(none, AccumulateAreas, areas, pmesh->packages);
   }
 
   return tc;

@@ -33,6 +33,7 @@
 #include "interface/update.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
+#include "mesh/meshblock.hpp"
 #include "mesh/meshblock_tree.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/buffer_utils.hpp"
@@ -46,6 +47,7 @@ namespace parthenon {
 
 void Mesh::LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin,
                                                   ApplicationInput *app_in) {
+  Kokkos::Profiling::pushRegion("LoadBalancingAndAdaptiveMeshRefinement");
   int nnew = 0, ndel = 0;
 
   if (adaptive) {
@@ -70,7 +72,7 @@ void Mesh::LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin,
     }
     lb_flag_ = false;
   }
-  return;
+  Kokkos::Profiling::popRegion(); // LoadBalancingAndAdaptiveMeshRefinement
 }
 
 // Private routines
@@ -133,6 +135,7 @@ void UpdateBlockList(std::vector<int> const &ranklist, std::vector<int> &nslist,
 void Mesh::CalculateLoadBalance(std::vector<double> const &costlist,
                                 std::vector<int> &ranklist, std::vector<int> &nslist,
                                 std::vector<int> &nblist) {
+  Kokkos::Profiling::pushRegion("CalculateLoadBalance");
   auto const total_blocks = costlist.size();
 
   using it = std::vector<double>::const_iterator;
@@ -179,6 +182,7 @@ void Mesh::CalculateLoadBalance(std::vector<double> const &costlist,
                 << std::endl;
     }
   }
+  Kokkos::Profiling::popRegion(); // CalculateLoadBalance
 }
 
 //----------------------------------------------------------------------------------------
@@ -187,9 +191,9 @@ void Mesh::CalculateLoadBalance(std::vector<double> const &costlist,
 
 void Mesh::ResetLoadBalanceVariables() {
   if (lb_automatic_) {
-    for (auto &mb : block_list) {
-      costlist[mb.gid] = TINY_NUMBER;
-      mb.ResetTimeMeasurement();
+    for (auto &pmb : block_list) {
+      costlist[pmb->gid] = TINY_NUMBER;
+      pmb->ResetTimeMeasurement();
     }
   }
   lb_flag_ = false;
@@ -203,12 +207,12 @@ void Mesh::ResetLoadBalanceVariables() {
 void Mesh::UpdateCostList() {
   if (lb_automatic_) {
     double w = static_cast<double>(lb_interval_ - 1) / static_cast<double>(lb_interval_);
-    for (auto &mb : block_list) {
-      costlist[mb.gid] = costlist[mb.gid] * w + mb.cost_;
+    for (auto &pmb : block_list) {
+      costlist[pmb->gid] = costlist[pmb->gid] * w + pmb->cost_;
     }
   } else if (lb_flag_) {
-    for (auto &mb : block_list) {
-      costlist[mb.gid] = mb.cost_;
+    for (auto &pmb : block_list) {
+      costlist[pmb->gid] = pmb->cost_;
     }
   }
 }
@@ -218,22 +222,25 @@ void Mesh::UpdateCostList() {
 // \brief collect refinement flags and manipulate the MeshBlockTree
 
 void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
+  Kokkos::Profiling::pushRegion("UpdateMeshBlockTree");
   // compute nleaf= number of leaf MeshBlocks per refined block
-  int nleaf = 2, dim = 1;
-  if (mesh_size.nx2 > 1) nleaf = 4, dim = 2;
-  if (mesh_size.nx3 > 1) nleaf = 8, dim = 3;
+  int nleaf = 2;
+  if (mesh_size.nx2 > 1) nleaf = 4;
+  if (mesh_size.nx3 > 1) nleaf = 8;
 
   // collect refinement flags from all the meshblocks
   // count the number of the blocks to be (de)refined
   nref[Globals::my_rank] = 0;
   nderef[Globals::my_rank] = 0;
-  for (auto const &mb : block_list) {
-    if (mb.pmr->refine_flag_ == 1) nref[Globals::my_rank]++;
-    if (mb.pmr->refine_flag_ == -1) nderef[Globals::my_rank]++;
+  for (auto const &pmb : block_list) {
+    if (pmb->pmr->refine_flag_ == 1) nref[Globals::my_rank]++;
+    if (pmb->pmr->refine_flag_ == -1) nderef[Globals::my_rank]++;
   }
 #ifdef MPI_PARALLEL
-  MPI_Allgather(MPI_IN_PLACE, 1, MPI_INT, nref.data(), 1, MPI_INT, MPI_COMM_WORLD);
-  MPI_Allgather(MPI_IN_PLACE, 1, MPI_INT, nderef.data(), 1, MPI_INT, MPI_COMM_WORLD);
+  PARTHENON_MPI_CHECK(
+      MPI_Allgather(MPI_IN_PLACE, 1, MPI_INT, nref.data(), 1, MPI_INT, MPI_COMM_WORLD));
+  PARTHENON_MPI_CHECK(
+      MPI_Allgather(MPI_IN_PLACE, 1, MPI_INT, nderef.data(), 1, MPI_INT, MPI_COMM_WORLD));
 #endif
 
   // count the number of the blocks to be (de)refined and displacement
@@ -242,8 +249,10 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
     tnref += nref[n];
     tnderef += nderef[n];
   }
-  if (tnref == 0 && tnderef < nleaf) // nothing to do
+  if (tnref == 0 && tnderef < nleaf) { // nothing to do
+    Kokkos::Profiling::popRegion();    // UpdateMeshBlockTree
     return;
+  }
 
   int rd = 0, dd = 0;
   for (int n = 0; n < Globals::nranks; n++) {
@@ -271,18 +280,20 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
 
   // collect the locations and costs
   int iref = rdisp[Globals::my_rank], ideref = ddisp[Globals::my_rank];
-  for (auto const &mb : block_list) {
-    if (mb.pmr->refine_flag_ == 1) lref[iref++] = mb.loc;
-    if (mb.pmr->refine_flag_ == -1 && tnderef >= nleaf) lderef[ideref++] = mb.loc;
+  for (auto const &pmb : block_list) {
+    if (pmb->pmr->refine_flag_ == 1) lref[iref++] = pmb->loc;
+    if (pmb->pmr->refine_flag_ == -1 && tnderef >= nleaf) lderef[ideref++] = pmb->loc;
   }
 #ifdef MPI_PARALLEL
   if (tnref > 0) {
-    MPI_Allgatherv(MPI_IN_PLACE, bnref[Globals::my_rank], MPI_BYTE, lref, bnref.data(),
-                   brdisp.data(), MPI_BYTE, MPI_COMM_WORLD);
+    PARTHENON_MPI_CHECK(MPI_Allgatherv(MPI_IN_PLACE, bnref[Globals::my_rank], MPI_BYTE,
+                                       lref, bnref.data(), brdisp.data(), MPI_BYTE,
+                                       MPI_COMM_WORLD));
   }
   if (tnderef >= nleaf) {
-    MPI_Allgatherv(MPI_IN_PLACE, bnderef[Globals::my_rank], MPI_BYTE, lderef,
-                   bnderef.data(), bddisp.data(), MPI_BYTE, MPI_COMM_WORLD);
+    PARTHENON_MPI_CHECK(MPI_Allgatherv(MPI_IN_PLACE, bnderef[Globals::my_rank], MPI_BYTE,
+                                       lderef, bnderef.data(), bddisp.data(), MPI_BYTE,
+                                       MPI_COMM_WORLD));
   }
 #endif
 
@@ -341,7 +352,7 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
   }
   if (tnderef >= nleaf) delete[] clderef;
 
-  return;
+  Kokkos::Profiling::popRegion(); // UpdateMeshBlockTree
 }
 
 //----------------------------------------------------------------------------------------
@@ -351,8 +362,9 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
 bool Mesh::GatherCostListAndCheckBalance() {
   if (lb_manual_ || lb_automatic_) {
 #ifdef MPI_PARALLEL
-    MPI_Allgatherv(MPI_IN_PLACE, nblist[Globals::my_rank], MPI_DOUBLE, costlist.data(),
-                   nblist.data(), nslist.data(), MPI_DOUBLE, MPI_COMM_WORLD);
+    PARTHENON_MPI_CHECK(MPI_Allgatherv(MPI_IN_PLACE, nblist[Globals::my_rank], MPI_DOUBLE,
+                                       costlist.data(), nblist.data(), nslist.data(),
+                                       MPI_DOUBLE, MPI_COMM_WORLD));
 #endif
     double maxcost = 0.0, avecost = 0.0;
     for (int rank = 0; rank < Globals::nranks; rank++) {
@@ -381,12 +393,18 @@ bool Mesh::GatherCostListAndCheckBalance() {
 
 void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput *app_in,
                                            int ntot) {
+  Kokkos::Profiling::pushRegion("RedistributeAndRefineMeshBlocks");
+  // kill any cached packs
+  mesh_data.PurgeNonBase();
+  mesh_data.Get()->ClearCaches();
+
   // compute nleaf= number of leaf MeshBlocks per refined block
   int nleaf = 2;
   if (mesh_size.nx2 > 1) nleaf = 4;
   if (mesh_size.nx3 > 1) nleaf = 8;
 
   // Step 1. construct new lists
+  Kokkos::Profiling::pushRegion("Step1: Construct new list");
   std::vector<LogicalLocation> newloc(ntot);
   std::vector<int> newrank(ntot);
   std::vector<double> newcost(ntot);
@@ -432,6 +450,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   int onbs = nslist[Globals::my_rank];
   int onbe = onbs + nblist[Globals::my_rank] - 1;
 #endif
+  Kokkos::Profiling::popRegion(); // Step 1
+
   // Step 2. Calculate new load balance
   CalculateLoadBalance(newcost, newrank, nslist, nblist);
 
@@ -439,10 +459,11 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   int nbe = nbs + nblist[Globals::my_rank] - 1;
 
 #ifdef MPI_PARALLEL
-  int bnx1 = block_list.front().block_size.nx1;
-  int bnx2 = block_list.front().block_size.nx2;
-  int bnx3 = block_list.front().block_size.nx3;
+  int bnx1 = GetBlockSize().nx1;
+  int bnx2 = GetBlockSize().nx2;
+  int bnx3 = GetBlockSize().nx3;
   // Step 3. count the number of the blocks to be sent / received
+  Kokkos::Profiling::pushRegion("Step 3: Count blocks");
   int nsend = 0, nrecv = 0;
   for (int n = nbs; n <= nbe; n++) {
     int on = newtoold[n];
@@ -465,7 +486,9 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     }
   }
 
+  Kokkos::Profiling::popRegion(); // Step 3
   // Step 4. calculate buffer sizes
+  Kokkos::Profiling::pushRegion("Step 4: Calc buffer sizes");
   ParArray1D<Real> *sendbuf, *recvbuf;
   // use the first MeshBlock in the linked list of blocks belonging to this MPI rank as a
   // representative of all MeshBlocks for counting the "load-balancing registered" and
@@ -475,9 +498,9 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   // pb->pmr->pvars_cc/fc_ v point to the same objects, if adaptive
 
   // int num_cc = block_list.front().pmr->pvars_cc_.size();
-  int num_fc = block_list.front().vars_fc_.size();
+  int num_fc = block_list.front()->vars_fc_.size();
   int nx4_tot = 0;
-  for (auto &pvar_cc : block_list.front().vars_cc_) {
+  for (auto &pvar_cc : block_list.front()->vars_cc_) {
     nx4_tot += pvar_cc->GetDim(4);
   }
 
@@ -502,9 +525,11 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
        (bnx1 / 2 + 2) * ((bnx2 + 1) / 2 + 2 * f2) * (((bnx3 + 1) / 2) + f3 + 2 * f3));
   // add one more element to buffer size for storing the derefinement counter
   bssame++;
+  Kokkos::Profiling::popRegion(); // Step 4
 
   MPI_Request *req_send, *req_recv;
   // Step 5. allocate and start receiving buffers
+  Kokkos::Profiling::pushRegion("Step 5: Alloc buffer and start recv");
   if (nrecv != 0) {
     recvbuf = new ParArray1D<Real>[nrecv];
     req_recv = new MPI_Request[nrecv];
@@ -521,8 +546,9 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
               ox3 = ((lloc.lx3 & 1LL) == 1LL);
           recvbuf[rb_idx] = ParArray1D<Real>("recvbuf" + std::to_string(rb_idx), bsf2c);
           int tag = CreateAMRMPITag(n - nbs, ox1, ox2, ox3);
-          MPI_Irecv(recvbuf[rb_idx].data(), bsf2c, MPI_PARTHENON_REAL, ranklist[on + l],
-                    tag, MPI_COMM_WORLD, &(req_recv[rb_idx]));
+          PARTHENON_MPI_CHECK(MPI_Irecv(recvbuf[rb_idx].data(), bsf2c, MPI_PARTHENON_REAL,
+                                        ranklist[on + l], tag, MPI_COMM_WORLD,
+                                        &(req_recv[rb_idx])));
           rb_idx++;
         }
       } else { // same level or c2f
@@ -535,13 +561,16 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
         }
         recvbuf[rb_idx] = ParArray1D<Real>("recvbuf" + std::to_string(rb_idx), size);
         int tag = CreateAMRMPITag(n - nbs, 0, 0, 0);
-        MPI_Irecv(recvbuf[rb_idx].data(), size, MPI_PARTHENON_REAL, ranklist[on], tag,
-                  MPI_COMM_WORLD, &(req_recv[rb_idx]));
+        PARTHENON_MPI_CHECK(MPI_Irecv(recvbuf[rb_idx].data(), size, MPI_PARTHENON_REAL,
+                                      ranklist[on], tag, MPI_COMM_WORLD,
+                                      &(req_recv[rb_idx])));
         rb_idx++;
       }
     }
   }
+  Kokkos::Profiling::popRegion(); // Step 5
   // Step 6. allocate, pack and start sending buffers
+  Kokkos::Profiling::pushRegion("Step 6: Alloc, pack, and send buffers");
   if (nsend != 0) {
     sendbuf = new ParArray1D<Real>[nsend];
     req_send = new MPI_Request[nsend];
@@ -555,10 +584,11 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
         if (newrank[nn] == Globals::my_rank) continue;
         sendbuf[sb_idx] =
             ParArray1D<Real>("amr send buf same" + std::to_string(sb_idx), bssame);
-        PrepareSendSameLevel(&*pb, sendbuf[sb_idx]);
+        PrepareSendSameLevel(pb.get(), sendbuf[sb_idx]);
         int tag = CreateAMRMPITag(nn - nslist[newrank[nn]], 0, 0, 0);
-        MPI_Isend(sendbuf[sb_idx].data(), bssame, MPI_PARTHENON_REAL, newrank[nn], tag,
-                  MPI_COMM_WORLD, &(req_send[sb_idx]));
+        PARTHENON_MPI_CHECK(MPI_Isend(sendbuf[sb_idx].data(), bssame, MPI_PARTHENON_REAL,
+                                      newrank[nn], tag, MPI_COMM_WORLD,
+                                      &(req_send[sb_idx])));
         sb_idx++;
       } else if (nloc.level > oloc.level) { // c2f
         // c2f must communicate to multiple leaf blocks (unlike f2c, same2same)
@@ -566,76 +596,82 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
           if (newrank[nn + l] == Globals::my_rank) continue;
           sendbuf[sb_idx] =
               ParArray1D<Real>("amr send buf c2f" + std::to_string(sb_idx), bsc2f);
-          PrepareSendCoarseToFineAMR(&*pb, sendbuf[sb_idx], newloc[nn + l]);
+          PrepareSendCoarseToFineAMR(pb.get(), sendbuf[sb_idx], newloc[nn + l]);
           int tag = CreateAMRMPITag(nn + l - nslist[newrank[nn + l]], 0, 0, 0);
-          MPI_Isend(sendbuf[sb_idx].data(), bsc2f, MPI_PARTHENON_REAL, newrank[nn + l],
-                    tag, MPI_COMM_WORLD, &(req_send[sb_idx]));
+          PARTHENON_MPI_CHECK(MPI_Isend(sendbuf[sb_idx].data(), bsc2f, MPI_PARTHENON_REAL,
+                                        newrank[nn + l], tag, MPI_COMM_WORLD,
+                                        &(req_send[sb_idx])));
           sb_idx++;
         }      // end loop over nleaf (unique to c2f branch in this step 6)
       } else { // f2c: restrict + pack + send
         if (newrank[nn] == Globals::my_rank) continue;
         sendbuf[sb_idx] =
             ParArray1D<Real>("amr send buf f2c" + std::to_string(sb_idx), bsf2c);
-        PrepareSendFineToCoarseAMR(&*pb, sendbuf[sb_idx]);
+        PrepareSendFineToCoarseAMR(pb.get(), sendbuf[sb_idx]);
         int ox1 = ((oloc.lx1 & 1LL) == 1LL), ox2 = ((oloc.lx2 & 1LL) == 1LL),
             ox3 = ((oloc.lx3 & 1LL) == 1LL);
         int tag = CreateAMRMPITag(nn - nslist[newrank[nn]], ox1, ox2, ox3);
-        MPI_Isend(sendbuf[sb_idx].data(), bsf2c, MPI_PARTHENON_REAL, newrank[nn], tag,
-                  MPI_COMM_WORLD, &(req_send[sb_idx]));
+        PARTHENON_MPI_CHECK(MPI_Isend(sendbuf[sb_idx].data(), bsf2c, MPI_PARTHENON_REAL,
+                                      newrank[nn], tag, MPI_COMM_WORLD,
+                                      &(req_send[sb_idx])));
         sb_idx++;
       }
     }
-  }    // if (nsend !=0)
-#endif // MPI_PARALLEL
+  }                               // if (nsend !=0)
+  Kokkos::Profiling::popRegion(); // Step 6
+#endif                            // MPI_PARALLEL
 
   // Step 7. construct a new MeshBlock list (moving the data within the MPI rank)
+  Kokkos::Profiling::pushRegion("Step 7: Construct new MeshBlockList");
   {
-    RegionSize block_size = block_list.front().block_size;
+    RegionSize block_size = GetBlockSize();
 
-    std::list<MeshBlock> new_block_list;
+    BlockList_t new_block_list(nbe - nbs + 1);
     for (int n = nbs; n <= nbe; n++) {
       int on = newtoold[n];
       if ((ranklist[on] == Globals::my_rank) && (loclist[on].level == newloc[n].level)) {
         // on the same MPI rank and same level -> just move it
-        auto const pob = FindMeshBlock(on);
-
-        // Move the block from `block_list` to `new_block_list`
-        new_block_list.splice(new_block_list.end(), block_list, pob);
-
-        // pob is now the current block
-        pob->gid = n;
-        pob->lid = n - nbs;
+        new_block_list[n - nbs] = FindMeshBlock(on);
       } else {
         // on a different refinement level or MPI rank - create a new block
         BoundaryFlag block_bcs[6];
         SetBlockSizeAndBoundaries(newloc[n], block_size, block_bcs);
         // append new block to list of MeshBlocks
-        new_block_list.emplace_back(n, n - nbs, newloc[n], block_size, block_bcs, this,
-                                    pin, app_in, properties, packages, gflag, true);
+        new_block_list[n - nbs] =
+            MeshBlock::Make(n, n - nbs, newloc[n], block_size, block_bcs, this, pin,
+                            app_in, properties, packages, gflag);
         // fill the conservative variables
         if ((loclist[on].level > newloc[n].level)) { // fine to coarse (f2c)
           for (int ll = 0; ll < nleaf; ll++) {
             if (ranklist[on + ll] != Globals::my_rank) continue;
             // fine to coarse on the same MPI rank (different AMR level) - restriction
             auto pob = FindMeshBlock(on + ll);
-            FillSameRankFineToCoarseAMR(&*pob, &new_block_list.back(), loclist[on + ll]);
+            FillSameRankFineToCoarseAMR(pob.get(), new_block_list[n - nbs].get(),
+                                        loclist[on + ll]);
           }
         } else if ((loclist[on].level < newloc[n].level) && // coarse to fine (c2f)
                    (ranklist[on] == Globals::my_rank)) {
           // coarse to fine on the same MPI rank (different AMR level) - prolongation
           auto pob = FindMeshBlock(on);
-          FillSameRankCoarseToFineAMR(&*pob, &new_block_list.back(), newloc[n]);
+          FillSameRankCoarseToFineAMR(pob.get(), new_block_list[n - nbs].get(),
+                                      newloc[n]);
         }
-        ApplyBoundaryConditions(new_block_list.back().real_containers.Get());
-        FillDerivedVariables::FillDerived(new_block_list.back().real_containers.Get());
       }
     }
 
     // Replace the MeshBlock list
     block_list = std::move(new_block_list);
+
+    // Ensure local and global ids are correct
+    for (int n = nbs; n <= nbe; n++) {
+      block_list[n - nbs]->gid = n;
+      block_list[n - nbs]->lid = n - nbs;
+    }
   }
+  Kokkos::Profiling::popRegion(); // Step 7: Construct new MeshBlockList
 
   // Step 8. Receive the data and load into MeshBlocks
+  Kokkos::Profiling::pushRegion("Step 8: Recv data and unpack");
   // This is a test: try MPI_Waitall later.
 #ifdef MPI_PARALLEL
   if (nrecv != 0) {
@@ -648,20 +684,20 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       pb->exec_space.fence();
       if (oloc.level == nloc.level) { // same
         if (ranklist[on] == Globals::my_rank) continue;
-        MPI_Wait(&(req_recv[rb_idx]), MPI_STATUS_IGNORE);
-        FinishRecvSameLevel(&*pb, recvbuf[rb_idx]);
+        PARTHENON_MPI_CHECK(MPI_Wait(&(req_recv[rb_idx]), MPI_STATUS_IGNORE));
+        FinishRecvSameLevel(pb.get(), recvbuf[rb_idx]);
         rb_idx++;
       } else if (oloc.level > nloc.level) { // f2c
         for (int l = 0; l < nleaf; l++) {
           if (ranklist[on + l] == Globals::my_rank) continue;
-          MPI_Wait(&(req_recv[rb_idx]), MPI_STATUS_IGNORE);
-          FinishRecvFineToCoarseAMR(&*pb, recvbuf[rb_idx], loclist[on + l]);
+          PARTHENON_MPI_CHECK(MPI_Wait(&(req_recv[rb_idx]), MPI_STATUS_IGNORE));
+          FinishRecvFineToCoarseAMR(pb.get(), recvbuf[rb_idx], loclist[on + l]);
           rb_idx++;
         }
       } else { // c2f
         if (ranklist[on] == Globals::my_rank) continue;
-        MPI_Wait(&(req_recv[rb_idx]), MPI_STATUS_IGNORE);
-        FinishRecvCoarseToFineAMR(&*pb, recvbuf[rb_idx]);
+        PARTHENON_MPI_CHECK(MPI_Wait(&(req_recv[rb_idx]), MPI_STATUS_IGNORE));
+        FinishRecvCoarseToFineAMR(pb.get(), recvbuf[rb_idx]);
         rb_idx++;
       }
     }
@@ -673,7 +709,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   oldtonew.clear();
 #ifdef MPI_PARALLEL
   if (nsend != 0) {
-    MPI_Waitall(nsend, req_send, MPI_STATUSES_IGNORE);
+    PARTHENON_MPI_CHECK(MPI_Waitall(nsend, req_send, MPI_STATUSES_IGNORE));
     delete[] sendbuf;
     delete[] req_send;
   }
@@ -682,6 +718,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     delete[] req_recv;
   }
 #endif
+  Kokkos::Profiling::popRegion(); // Step 8
 
   // update the lists
   loclist = std::move(newloc);
@@ -689,14 +726,14 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   costlist = std::move(newcost);
 
   // re-initialize the MeshBlocks
-  for (auto &mb : block_list) {
-    mb.pbval->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
+  for (auto &pmb : block_list) {
+    pmb->pbval->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
   }
   Initialize(2, pin, app_in);
 
   ResetLoadBalanceVariables();
 
-  return;
+  Kokkos::Profiling::popRegion(); // RedistributeAndRefineMeshBlocks
 }
 
 // AMR: step 6, branch 1 (same2same: just pack+send)

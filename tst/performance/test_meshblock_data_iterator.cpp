@@ -27,8 +27,8 @@
 #include "basic_types.hpp"
 #include "config.hpp"
 #include "defs.hpp"
-#include "interface/container.hpp"
-#include "interface/container_iterator.hpp"
+#include "interface/meshblock_data.hpp"
+#include "interface/meshblock_data_iterator.hpp"
 #include "interface/metadata.hpp"
 #include "interface/variable.hpp"
 #include "interface/variable_pack.hpp"
@@ -37,10 +37,10 @@
 
 using parthenon::CellVariable;
 using parthenon::CellVariableVector;
-using parthenon::Container;
-using parthenon::ContainerIterator;
 using parthenon::DevExecSpace;
 using parthenon::loop_pattern_mdrange_tag;
+using parthenon::MeshBlockData;
+using parthenon::MeshBlockDataIterator;
 using parthenon::Metadata;
 using parthenon::MetadataFlag;
 using parthenon::PackIndexMap;
@@ -72,9 +72,9 @@ void performance_test_wrapper(const std::string test_name, InitFunc init_func,
   };
 }
 
-static Container<Real> createTestContainer() {
+static MeshBlockData<Real> createTestContainer() {
   // Make a container for testing performance
-  Container<Real> container;
+  MeshBlockData<Real> container;
   Metadata m_in({Metadata::Independent});
   Metadata m_out;
   std::vector<int> scalar_block_size{N, N, N};
@@ -104,7 +104,7 @@ std::function<void()> createLambdaRaw(T &raw_array) {
   };
 }
 
-std::function<void()> createLambdaContainer(Container<Real> &container) {
+std::function<void()> createLambdaContainer(MeshBlockData<Real> &container) {
   return [&]() {
     const CellVariableVector<Real> &cv = container.GetCellVariableVector();
     for (int n = 0; n < cv.size(); n++) {
@@ -120,16 +120,17 @@ std::function<void()> createLambdaContainer(Container<Real> &container) {
   };
 }
 
-std::function<void()> createLambdaContainerCellVar(Container<Real> &container,
+std::function<void()> createLambdaContainerCellVar(MeshBlockData<Real> &container,
                                                    std::vector<std::string> &names) {
   return [&]() {
     for (int n = 0; n < names.size(); n++) {
       CellVariable<Real> &v = container.Get(names[n]);
+      auto data = v.data;
       par_for(
           DEFAULT_LOOP_PATTERN, "Initialize variables", DevExecSpace(), 0,
           v.GetDim(4) - 1, 0, v.GetDim(3) - 1, 0, v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
           KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
-            v.data(l, k, j, i) = static_cast<Real>((l + 1) * (k + 1) * (j + 1) * (i + 1));
+            data(l, k, j, i) = static_cast<Real>((l + 1) * (k + 1) * (j + 1) * (i + 1));
           });
     }
     return container;
@@ -148,7 +149,8 @@ createLambdaInitViewOfViews(parthenon::VariablePack<Real> &var_view) {
   };
 }
 
-TEST_CASE("Catch2 Container Iterator Performance", "[ContainerIterator][performance]") {
+TEST_CASE("Catch2 Container Iterator Performance",
+          "[MeshBlockDataIterator][performance]") {
   SECTION("Raw Array") {
     GIVEN("A raw ParArray4d") {
       // Make a raw ParArray4D for closest to bare metal looping
@@ -184,7 +186,7 @@ TEST_CASE("Catch2 Container Iterator Performance", "[ContainerIterator][performa
 
   SECTION("Iterate Variables") {
     GIVEN("A container.") {
-      Container<Real> container = createTestContainer();
+      MeshBlockData<Real> container = createTestContainer();
       auto init_container = createLambdaContainer(container);
 
       // Make a function for initializing the container variables
@@ -202,7 +204,7 @@ TEST_CASE("Catch2 Container Iterator Performance", "[ContainerIterator][performa
       });
     } // GIVEN
     GIVEN("A container cellvar.") {
-      Container<Real> container = createTestContainer();
+      MeshBlockData<Real> container = createTestContainer();
       std::vector<std::string> names({"v0", "v1", "v2", "v3", "v4", "v5"});
       auto init_container = createLambdaContainerCellVar(container, names);
 
@@ -224,7 +226,7 @@ TEST_CASE("Catch2 Container Iterator Performance", "[ContainerIterator][performa
 
   SECTION("View of Views") {
     GIVEN("A container.") {
-      Container<Real> container = createTestContainer();
+      MeshBlockData<Real> container = createTestContainer();
       WHEN("The view of views does not have any names.") {
         parthenon::VariablePack<Real> var_view =
             container.PackVariables({Metadata::Independent});

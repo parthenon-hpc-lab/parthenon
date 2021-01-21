@@ -1,4 +1,3 @@
-
 //========================================================================================
 // (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
 //
@@ -18,7 +17,9 @@
 
 #include "driver/driver.hpp"
 
+#include "interface/update.hpp"
 #include "mesh/mesh.hpp"
+#include "mesh/meshblock.hpp"
 #include "outputs/outputs.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_mpi.hpp"
@@ -39,8 +40,7 @@ void Driver::PostExecute() {
     SignalHandler::CancelWallTimeAlarm();
     // Calculate and print the zone-cycles/cpu-second and wall-second
     std::uint64_t zonecycles =
-        pmesh->mbcnt *
-        static_cast<std::uint64_t>(pmesh->block_list.front().GetNumberOfMeshBlockCells());
+        pmesh->mbcnt * static_cast<std::uint64_t>(pmesh->GetNumberOfMeshBlockCells());
 
     auto wtime = timer_main.seconds();
     std::cout << std::endl << "walltime used = " << wtime << std::endl;
@@ -50,22 +50,29 @@ void Driver::PostExecute() {
 }
 
 DriverStatus EvolutionDriver::Execute() {
-  Driver::PreExecute();
+  PreExecute();
   InitializeBlockTimeSteps();
   SetGlobalTimeStep();
   pouts->MakeOutputs(pmesh, pinput, &tm);
   pmesh->mbcnt = 0;
   int perf_cycle_offset =
       pinput->GetOrAddInteger("parthenon/time", "perf_cycle_offset", 0);
+  Kokkos::Profiling::pushRegion("Driver_Main");
   while (tm.KeepGoing()) {
     if (Globals::my_rank == 0) OutputCycleDiagnostics();
+
+    pmesh->PreStepUserWorkInLoop(pmesh, pinput, tm);
+    pmesh->PreStepUserDiagnosticsInLoop(pmesh, pinput, tm);
 
     TaskListStatus status = Step();
     if (status != TaskListStatus::complete) {
       std::cerr << "Step failed to complete all tasks." << std::endl;
       return DriverStatus::failed;
     }
-    // pmesh->UserWorkInLoop();
+
+    pmesh->PostStepUserWorkInLoop(pmesh, pinput, tm);
+    pmesh->PostStepUserDiagnosticsInLoop(pmesh, pinput, tm);
+
     tm.ncycle++;
     tm.time += tm.dt;
     pmesh->mbcnt += pmesh->nbtotal;
@@ -86,6 +93,7 @@ DriverStatus EvolutionDriver::Execute() {
       timer_main.reset();
     }
   } // END OF MAIN INTEGRATION LOOP ======================================================
+  Kokkos::Profiling::popRegion(); // Driver_Main
 
   pmesh->UserWorkAfterLoop(pmesh, pinput, tm);
 
@@ -123,9 +131,15 @@ void EvolutionDriver::PostExecute(DriverStatus status) {
 }
 
 void EvolutionDriver::InitializeBlockTimeSteps() {
-  // calculate the first time step
-  for (auto &mb : pmesh->block_list) {
-    mb.SetBlockTimestep(Update::EstimateTimestep(mb.real_containers.Get()));
+  // calculate the first time step using Block function
+  for (auto &pmb : pmesh->block_list) {
+    Update::EstimateTimestep(pmb->meshblock_data.Get().get());
+  }
+  // calculate the first time step using Mesh function
+  const int num_partitions = pmesh->DefaultNumPartitions();
+  for (int i = 0; i < num_partitions; i++) {
+    auto &mbase = pmesh->mesh_data.GetOrAdd("base", i);
+    Update::EstimateTimestep(mbase.get());
   }
 }
 
@@ -134,22 +148,23 @@ void EvolutionDriver::InitializeBlockTimeSteps() {
 // \brief function that loops over all MeshBlocks and find new timestep
 
 void EvolutionDriver::SetGlobalTimeStep() {
-  Real dt_max = 2.0 * tm.dt;
-  tm.dt = std::numeric_limits<Real>::max();
-  for (auto const &mb : pmesh->block_list) {
-    tm.dt = std::min(tm.dt, mb.NewDt());
+  // don't allow dt to grow by more than 2x
+  // consider making this configurable in the input
+  tm.dt *= 2.0;
+  Real big = std::numeric_limits<Real>::max();
+  for (auto const &pmb : pmesh->block_list) {
+    tm.dt = std::min(tm.dt, pmb->NewDt());
+    pmb->SetAllowedDt(big);
   }
-  tm.dt = std::min(dt_max, tm.dt);
 
 #ifdef MPI_PARALLEL
-  MPI_Allreduce(MPI_IN_PLACE, &tm.dt, 1, MPI_PARTHENON_REAL, MPI_MIN, MPI_COMM_WORLD);
+  PARTHENON_MPI_CHECK(MPI_Allreduce(MPI_IN_PLACE, &tm.dt, 1, MPI_PARTHENON_REAL, MPI_MIN,
+                                    MPI_COMM_WORLD));
 #endif
 
   if (tm.time < tm.tlim &&
       (tm.tlim - tm.time) < tm.dt) // timestep would take us past desired endpoint
     tm.dt = tm.tlim - tm.time;
-
-  return;
 }
 
 void EvolutionDriver::OutputCycleDiagnostics() {
@@ -159,8 +174,7 @@ void EvolutionDriver::OutputCycleDiagnostics() {
       if (Globals::my_rank == 0) {
         std::uint64_t zonecycles =
             (pmesh->mbcnt - mbcnt_prev) *
-            static_cast<std::uint64_t>(
-                pmesh->block_list.front().GetNumberOfMeshBlockCells());
+            static_cast<std::uint64_t>(pmesh->GetNumberOfMeshBlockCells());
         std::cout << "cycle=" << tm.ncycle << std::scientific
                   << std::setprecision(dt_precision) << " time=" << tm.time
                   << " dt=" << tm.dt << std::setprecision(2) << " zone-cycles/wsec = "
@@ -175,7 +189,6 @@ void EvolutionDriver::OutputCycleDiagnostics() {
       }
     }
   }
-  return;
 }
 
 } // namespace parthenon
