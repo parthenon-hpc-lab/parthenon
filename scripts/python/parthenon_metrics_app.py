@@ -152,7 +152,7 @@ class ParthenonApp(App):
       # Remove first line in file, it is just the title
       lines.pop()
 
-      mesh_block = np.resize(mesh_block, len(lines))
+      mesh_blocks = np.resize(mesh_blocks, len(lines))
       zone_cycles = np.resize(zone_cycles, len(lines))
 
       ind = 0
