@@ -26,6 +26,7 @@
 #include "interface/params.hpp"
 #include "interface/swarm.hpp"
 #include "refinement/amr_criteria.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
@@ -248,15 +249,14 @@ class StateDescriptor {
 class Packages_t {
  public:
   Packages_t() = default;
-  bool Add(const std::shared_ptr<StateDescriptor> &package) {
+  void Add(const std::shared_ptr<StateDescriptor> &package) {
     const auto &name = package->label();
-    if (packages_.count(name) == 0) {
-      packages_[name] = package;
-      return true;
-    }
-    return false;
+    PARTHENON_REQUIRE_THROWS(packages_.count(name) == 0,
+                             "Package name " + name + " must be unique.");
+    packages_[name] = package;
+    return;
   }
-  std::shared_ptr<StateDescriptor> &Get(const std::string &name) {
+  std::shared_ptr<StateDescriptor> const &Get(const std::string &name) {
     return packages_.at(name);
   }
   // TODO(JMM): Should this be provided or deleted?
