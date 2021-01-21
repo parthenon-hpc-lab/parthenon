@@ -5,6 +5,7 @@
 ### Added (new features/APIs/variables/...)
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 425]](https://github.com/lanl/parthenon/pull/425) Remove ambiguity in package names. `Packages_t` no longer has an `operator[]` method. This has been replaced with `Add` and `Get`.
 
 ### Fixed (not changing behavior/API/variables/...)
 
@@ -26,7 +27,6 @@ Date: 01/19/2021
 - [[PR 386]](https://github.com/lanl/parthenon/pull/386) Introduce `Private`, `Provides`, `Requires`, and `Overridable` variable metadata, allowing fine-grained control of conflict resolution between packages.
 
 ### Changed (changing behavior/API/variables/...)
-- [[PR 425]](https://github.com/lanl/parthenon/pull/425) Remove ambiguity in package names. `Packages_t` no longer has an `operator[]` method. This has been replaced with `Add` and `Get`.
 - [[PR 393]](https://github.com/lanl/parthenon/pull/393) Small refactor to make driver code more flexible for downstream apps.
 - [[PR 400]](https://github.com/lanl/parthenon/pull/400) Change `Mesh`, `ApplicationInput`, and `Driver` to suppport pre- and post- step user work
 - [[PR 394]](https://github.com/lanl/parthenon/pull/394) Make `Params.Get` const-correct.
