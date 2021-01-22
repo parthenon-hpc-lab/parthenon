@@ -467,7 +467,7 @@ class App:
     self._fillTree(self._parth_root, branch)
 
   def cloneWikiRepo(self):
-    wiki_remote = f"https://token:" + str(self._access_token) + "@github.com/" + self._user + "/" + self._repo_name + ".wiki.git"
+    wiki_remote = f"https://x-access-token:" + str(self._access_token) + "@github.com/" + self._user + "/" + self._repo_name + ".wiki.git"
     if not os.path.isdir(str(self._parthenon_wiki_dir)):
       repo = Repo.clone_from(wiki_remote, self._parthenon_wiki_dir)
     else:
@@ -482,7 +482,6 @@ class App:
     repo object. 
     """
     repo = self.cloneWikiRepo()
-    #os.environ["GIT_PASSWORD"] = "" #self._access_token
     return repo
 
   def postStatus(self, state, commit_sha=None, context="", description="", target_url=""):
