@@ -29,7 +29,7 @@ set(COPYRIGHTABLE
     LICENSE)
 
 string(TIMESTAMP CURRENT_YEAR "%Y")
-set(LAST_UPDATED 2020)
+set(LAST_UPDATED 2020-2021)
 
 if (NOT CURRENT_YEAR STREQUAL LAST_UPDATED)
     message(WARNING "Triad copyright is out of date. Consider updating.")
@@ -37,10 +37,15 @@ endif()
 
 foreach(FILE ${COPYRIGHTABLE})
     file(READ ${FILE} CONTENTS)
+    
+    if("${CONTENT}")
+      string(REGEX MATCH "\\(C\\) \\(or copyright\\) ${LAST_UPDATED}\\. Triad National Security, LLC\\. All rights reserved\\." HAS_COPYRIGHT ${CONTENTS})
 
-    string(REGEX MATCH "\\(C\\) \\(or copyright\\) ${LAST_UPDATED}\\. Triad National Security, LLC\\. All rights reserved\\." HAS_COPYRIGHT ${CONTENTS})
+      if (NOT HAS_COPYRIGHT)
+          message(FATAL_ERROR "File ${FILE} does not contain an up to date copy of the Triad copyright")
+      endif()
 
-    if (NOT HAS_COPYRIGHT)
-        message(FATAL_ERROR "File ${FILE} does not contain an up to date copy of the Triad copyright")
+    else()
+      message(FATAL_ERROR "File ${FILE} does not contain any content, the license is missing")
     endif()
 endforeach()
