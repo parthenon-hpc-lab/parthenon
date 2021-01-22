@@ -29,7 +29,7 @@ set(COPYRIGHTABLE
     LICENSE)
 
 string(TIMESTAMP CURRENT_YEAR "%Y")
-set(LAST_UPDATED 2020-2021)
+set(LAST_UPDATED 2020)
 
 if (NOT CURRENT_YEAR STREQUAL LAST_UPDATED)
     message(WARNING "Triad copyright is out of date. Consider updating.")
