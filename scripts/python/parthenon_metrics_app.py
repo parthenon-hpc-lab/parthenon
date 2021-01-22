@@ -252,6 +252,8 @@ class ParthenonApp(App):
         wiki_url = "https://github.com/{usr_name}/{repo_name}/wiki/{file_name}"
         wiki_url.format(usr_name=self._name, repo_name=self._repo_name, file_name=wiki_file_name )
         print("Wiki page url is: %s" % wiki_url)
+
+      self.postStatus('success',commit_sha, context="Parthenon Metrics App", description="Performance Regression Analyzed", target_url=wiki_url)
     # 1 search for files 
     # 2 load performance metrics from wiki
     # 3 compare the metrics
@@ -292,7 +294,16 @@ def main(**kwargs):
         context = kwargs.pop('status_context')
         if isinstance(context,list):
           context = context[0]
-        app.postStatus(value, context=context, target_url=url)
+        
+        description = kwargs.pop('status_description')
+        if isinstance(description,list):
+          description = description[0]
+
+        print("Posting value: %s" % value)
+        print("Posting context: %s" % context)
+        print("Posting description: %s" % description)
+        print("Posting url: %s" % url)
+        app.postStatus(value, None, context, description, target_url=url)
 
   if 'analyze' in kwargs:
     value = kwargs.pop('analyze')
@@ -340,6 +351,14 @@ if __name__ == '__main__':
 
     desc = ('Post url to use with status.')
     parser.add_argument('--status-url','-su',
+            default="",
+            type=str,
+            nargs=1,
+            required=False,
+            help=desc)
+
+    desc = ('Post description with status.')
+    parser.add_argument('--status-description','-sd',
             default="",
             type=str,
             nargs=1,
