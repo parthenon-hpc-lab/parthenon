@@ -38,7 +38,7 @@ endif()
 foreach(FILE ${COPYRIGHTABLE})
     file(READ ${FILE} CONTENTS)
     
-    if("${CONTENT}")
+    if(${CONTENTS})
       string(REGEX MATCH "\\(C\\) \\(or copyright\\) ${LAST_UPDATED}\\. Triad National Security, LLC\\. All rights reserved\\." HAS_COPYRIGHT ${CONTENTS})
 
       if (NOT HAS_COPYRIGHT)
@@ -46,6 +46,6 @@ foreach(FILE ${COPYRIGHTABLE})
       endif()
 
     else()
-      message(FATAL_ERROR "File ${FILE} does not contain any content, the license is missing")
+      message(FATAL_ERROR "File ${FILE} does not contain any content, the license is missing: ${CONTENTS}")
     endif()
 endforeach()
