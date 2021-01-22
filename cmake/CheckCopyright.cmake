@@ -38,7 +38,7 @@ endif()
 foreach(FILE ${COPYRIGHTABLE})
     file(READ ${FILE} CONTENTS)
     
-    if(${CONTENTS})
+    if(CONTENTS)
       string(REGEX MATCH "\\(C\\) \\(or copyright\\) ${LAST_UPDATED}\\. Triad National Security, LLC\\. All rights reserved\\." HAS_COPYRIGHT ${CONTENTS})
 
       if (NOT HAS_COPYRIGHT)
