@@ -61,14 +61,14 @@ class PerformanceDataJsonParser():
       # If does exist:
       # 1. load the 
       with open(file_name, 'r') as fid:
-        return json.loads(fid)
+        return json.load(fid)
 
   def getMostRecentPerformanceData(self, file_name, branch, test):
     if os.path.isfile(file_name):
       # If does exist:
       # 1. load the 
       with open(file_name, 'r') as fid:
-        json_objs = json.loads(fid)
+        json_objs = json.load(fid)
 
         mesh_blocks = None
         cycles = None
@@ -97,7 +97,7 @@ class PerformanceDataJsonParser():
       # If does exist:
       # 1. load the 
       with open(file_name, 'r') as fid:
-        self._data = json.loads(fid)
+        self._data = json.load(fid)
 
       # Check if the commit exists in the data already
       if self._containsCommit(self._data, new_data['commit sha']):
