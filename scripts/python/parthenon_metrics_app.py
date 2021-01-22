@@ -295,7 +295,8 @@ class ParthenonApp(App):
         writer.write("This file is managed by the " + self._name + "\n")
         writer.write("![Image](" + fig_url +")\n")
         wiki_url = "https://github.com/{usr_name}/{repo_name}/wiki/{file_name}"
-        wiki_url = wiki_url.format(usr_name=self._name, repo_name=self._repo_name, file_name=wiki_file_name )
+        wiki_url = wiki_url.format(usr_name=self._user, repo_name=self._repo_name, file_name=wiki_file_name )
+        self.upload(pr_wiki_page, "master",use_wiki=True)
         print("Wiki page url is: %s" % wiki_url)
 
       self.postStatus('success',commit_sha, context="Parthenon Metrics App", description="Performance Regression Analyzed", target_url=wiki_url)
