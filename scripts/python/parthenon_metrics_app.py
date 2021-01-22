@@ -149,9 +149,9 @@ class ParthenonApp(App):
       ind = 0
       for line in lines:
         line = line.split()
-        print("lines[2] %s" % lines[2])
-        mesh_blocks[ind] = float(lines[2])
-        zone_cycles[ind] = float(lines[0])
+        print("line[2] %s" % line[2])
+        mesh_blocks[ind] = float(line[2])
+        zone_cycles[ind] = float(line[0])
         ind = ind + 1
     return mesh_blocks, zone_cycles
 
