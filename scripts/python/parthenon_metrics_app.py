@@ -200,14 +200,14 @@ class ParthenonApp(App):
                   }]
             }
 
-        json_file_out = str(self._parthenon_wiki_dir) + "/performance_metrics_"+ current_branch + ".json"
+        json_file_out = str(self._parthenon_wiki_dir) + "/performance_metrics_"+ current_branch.replace(r'/', '-') + ".json"
         json_perf_data_parser = PerformanceDataJsonParser()
         json_perf_data_parser.append(new_data, json_file_out)
      
         # Now the new file needs to be committed
         upload(json_file_out, "master",use_wiki=True)
 
-        json_file_compare = str(self._parthenon_wiki_dir) + "/performance_metrics_" + target_branch + ".json"
+        json_file_compare = str(self._parthenon_wiki_dir) + "/performance_metrics_" + target_branch.replace(r'/', '-') + ".json"
         
         target_data_file_exists = False
         if os.path.isfile(json_file_compare):
@@ -236,7 +236,7 @@ class ParthenonApp(App):
         p[0].set_ylabel("zone-cycles/s")
         p[1].set_ylabel("normalized overhead")
         p[1].set_xlabel("Meshblock size")
-        figure_name =test_dir + "_" + branch + "_" + target_branch + ".png"
+        figure_name =test_dir + "_" + branch.replace(r'/', '-') + "_" + target_branch.replace(r'/', '-') + ".png"
         figure_path_name = os.path.join(self._parthenon_wiki_dir, figure_name )
         fig.savefig(figure_path_name, bbox_inches='tight')
         upload(figure_path_name, "master",use_wiki=True)
