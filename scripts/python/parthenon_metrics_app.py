@@ -95,12 +95,14 @@ class PerformanceDataJsonParser():
 
   def append(self, new_data, file_name):
 
+    data_found = False
     if os.path.isfile(file_name):
       # If does exist:
       # 1. load the 
       if os.stat(file_name).st_size!=0:
         with open(file_name, 'r') as fid:
           print("Reading file %s" % file_name)
+          data_found = True
           self._data = json.load(fid)
 
         # Check if the commit exists in the data already
@@ -111,7 +113,8 @@ class PerformanceDataJsonParser():
           self._add_to_json_obj(new_data)
         else:
           self._data.update(new_data) 
-    else:
+    
+    if not data_found:
       self._data = new_data
 
     with open(file_name, 'w') as fout:
