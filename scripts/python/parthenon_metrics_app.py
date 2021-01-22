@@ -111,7 +111,7 @@ class PerformanceDataJsonParser():
       self._data = new_data
 
     with open(file_name, 'w') as fout:
-      json_dumps_str = json.dumps(self._data, indent=4)
+      json.dumps(self._data, fout)
 
 
 """
