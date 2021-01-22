@@ -60,7 +60,7 @@ class PerformanceDataJsonParser():
     if os.path.isfile(file_name):
       # If does exist:
       # 1. load the 
-      if not os.stat(file_name).st_size==0:
+      if os.stat(file_name).st_size!=0:
         with open(file_name, 'r') as fid:
           return json.load(fid)
 
@@ -68,7 +68,7 @@ class PerformanceDataJsonParser():
     if os.path.isfile(file_name):
       # If does exist:
       # 1. load the 
-      if not os.stat(file_name).st_size==0:
+      if os.stat(file_name).st_size!=0:
         with open(file_name, 'r') as fid:
           json_objs = json.load(fid)
 
@@ -98,7 +98,7 @@ class PerformanceDataJsonParser():
     if os.path.isfile(file_name):
       # If does exist:
       # 1. load the 
-      if not os.stat(file_name).st_size==0:
+      if os.stat(file_name).st_size!=0:
         with open(file_name, 'r') as fid:
           print("Reading file %s" % file_name)
           self._data = json.load(fid)
