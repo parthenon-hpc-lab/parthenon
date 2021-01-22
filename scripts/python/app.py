@@ -16,6 +16,7 @@ import os
 import jwt
 import pem
 import datetime
+import filecmp
 import pathlib
 import pprint
 import pycurl
@@ -387,7 +388,8 @@ class App:
           commit_msg = "Adding file " + file_name
         repo = self.getWikiRepo(branch)
         destination=self._parthenon_wiki_dir + "/" + os.path.basename(os.path.normpath(file_name))
-        shutil.copy(file_name,destination)
+        if not filecmp.cmp(file_name,destination):
+          shutil.copy(file_name,destination)
         repo.index.add([str(self._parthenon_wiki_dir + "/" + os.path.basename(os.path.normpath(file_name)))])
         repo.index.commit(commit_msg)
         repo.git.push("--set-upstream","origin",repo.head.reference)
@@ -465,12 +467,11 @@ class App:
     self._fillTree(self._parth_root, branch)
 
   def cloneWikiRepo(self):
-    wiki_remote = f"https://{self._name}:{self._access_token}@github.com/" + self._user + "/" + self._repo_name + ".wiki.git"
+    wiki_remote = f"https://token:" + str(self._access_token) + "@github.com/" + self._user + "/" + self._repo_name + ".wiki.git"
     if not os.path.isdir(str(self._parthenon_wiki_dir)):
       repo = Repo.clone_from(wiki_remote, self._parthenon_wiki_dir)
     else:
       repo = Repo(self._parthenon_wiki_dir)
-      repo.config_writer().set_value("user","name", self._name).release()
     return repo
 
   def getWikiRepo(self, branch):
@@ -480,8 +481,8 @@ class App:
     directly. This method will clone the repository if it does not exist. It will then return a 
     repo object. 
     """
-    repo = slef.cloneWikiRepo()
-    os.environ["GIT_PASSWORD"] = self._access_token
+    repo = self.cloneWikiRepo()
+    #os.environ["GIT_PASSWORD"] = "" #self._access_token
     return repo
 
   def postStatus(self, state, commit_sha=None, context="", description="", target_url=""):

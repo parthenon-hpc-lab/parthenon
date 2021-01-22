@@ -18,6 +18,7 @@ import datetime
 import json
 import numpy as np
 from app import App
+import matplotlib.pyplot as plt
 
 class PerformanceDataJsonParser():
 
@@ -45,16 +46,44 @@ class PerformanceDataJsonParser():
                   'zone_cycles': zone_cycles}]
     """
     # Cycle the outer list first
-    for json_obj in self._data:
-      if json_obj.get('commit sha') == new_data.get('commit sha'):
-        for data_grp in json_obj.get('data'):
-          if data_grp.get('test') == new_data.get('test'):
+    if isinstance(self._data,list):
+      for json_obj in self._data:
+        print("json obj")
+        print(json_obj)
+        print("new data")
+        print(new_data)
+        if json_obj.get('commit sha') == new_data.get('commit sha'):
+          for data_grp in json_obj.get('data'):
+            if data_grp.get('test') == new_data.get('test'):
+              # Overwrite the existing content with the new content
+              data_grp['mesh_blocks'] = new_data.get('mesh_blocks')
+              data_grp['zone_cycles'] = new_data.get('zone_cycles')
+              return
+          # Then the test was not found so we are going to append to it
+          json_obj['data'].append(new_data['data'])
+    else:
+      print("self._data 2")
+      print(self._data)
+      print("new data 2")
+      print(new_data)
+      if isinstance(new_data,list):
+        if len(new_data) == 1:
+          new_data = new_data[0]
+
+      if self._data.get('commit sha') == new_data.get('commit sha'):
+        for data_grp in self._data.get('data'):
+          print("Data Group")
+          print(data_grp)
+          print("new_data.get('data')")
+          print(new_data.get('data'))
+          if data_grp.get('test') == new_data.get('data')[0].get('test'):
             # Overwrite the existing content with the new content
             data_grp['mesh_blocks'] = new_data.get('mesh_blocks')
             data_grp['zone_cycles'] = new_data.get('zone_cycles')
             return
         # Then the test was not found so we are going to append to it
-        json_obj['data'].append(new_data['data'])
+        self._data['data'].append(new_data['data'])
+
 
   def getData(self, file_name):
     if os.path.isfile(file_name):
@@ -121,6 +150,7 @@ class PerformanceDataJsonParser():
     with open(file_name, 'w') as fout:
       # Need to convert the dict to a string to dump to a file
       print("Dict to be writing")
+      print(self._data)
       print(json.dumps(self._data,indent=4))
       json.dump(self._data, fout, indent=4)
 
@@ -152,10 +182,9 @@ class ParthenonApp(App):
     with open(file_path,'r') as reader:
       lines = reader.readlines() 
       # Remove first line in file, it is just the title
-      lines.pop()
 
-      mesh_blocks = np.resize(mesh_blocks, len(lines))
-      zone_cycles = np.resize(zone_cycles, len(lines))
+      mesh_blocks = np.resize(mesh_blocks, len(lines)-1)
+      zone_cycles = np.resize(zone_cycles, len(lines)-1)
 
       ind = 0
       for line in lines:
@@ -163,8 +192,8 @@ class ParthenonApp(App):
         if ind != 0:
           line = line.split()
           print("line[2] %s" % line[2])
-          mesh_blocks[ind] = float(line[2])
-          zone_cycles[ind] = float(line[0])
+          mesh_blocks[ind-1] = float(line[2])
+          zone_cycles[ind-1] = float(line[0])
         ind = ind + 1
     return mesh_blocks, zone_cycles
 
@@ -177,12 +206,14 @@ class ParthenonApp(App):
     
     current_branch = os.getenv('CI_COMMIT_BRANCH')
     target_branch = super().getBranchMergingWith(current_branch)
-    wiki_file_name = current_branch + "_" + target_branch
+    wiki_file_name = current_branch.replace(r'/', '-') + "_" + target_branch.replace(r'/', '-')
     pr_wiki_page = os.path.join(self._parthenon_wiki_dir, wiki_file_name + ".md" )
 
     all_dirs = os.listdir(regression_outputs)
     print("Contents of regression_outputs: %s" % regression_outputs )
     for test_dir in all_dirs:
+      if not isinstance(test_dir, str):
+        test_dir = str(test_dir)
       print(test_dir)
       if test_dir == "advection_performance":
         if not os.path.isfile(regression_outputs + "/advection_performance/performance_metrics.txt"):
@@ -205,9 +236,9 @@ class ParthenonApp(App):
             'branch': current_branch,
             'date': now.strftime("%Y-%m-%d %H:%M:%S"),
             'data':[{
-            'test': dir,
-            'mesh_blocks': mesh_blocks,
-            'zone_cycles': zone_cycles
+            'test': test_dir,
+            'mesh_blocks': np.array2string(mesh_blocks),
+            'zone_cycles': np.array2string(zone_cycles)
                   }]
             }
 
@@ -216,7 +247,7 @@ class ParthenonApp(App):
         json_perf_data_parser.append(new_data, json_file_out)
      
         # Now the new file needs to be committed
-        upload(json_file_out, "master",use_wiki=True)
+        self.upload(json_file_out, "master",use_wiki=True)
 
         json_file_compare = str(self._parthenon_wiki_dir) + "/performance_metrics_" + target_branch.replace(r'/', '-') + ".json"
         
@@ -239,18 +270,18 @@ class ParthenonApp(App):
             p[i].grid()
 
         if target_data_file_exists:
-          p[0].legend([branch,target_branch])
-          p[1].legend([branch,target_branch])
+          p[0].legend([current_branch,target_branch])
+          p[1].legend([current_branch,target_branch])
         else:
-          p[0].legend([branch])
-          p[1].legend([branch])
+          p[0].legend([current_branch])
+          p[1].legend([current_branch])
         p[0].set_ylabel("zone-cycles/s")
         p[1].set_ylabel("normalized overhead")
         p[1].set_xlabel("Meshblock size")
-        figure_name =test_dir + "_" + branch.replace(r'/', '-') + "_" + target_branch.replace(r'/', '-') + ".png"
+        figure_name =test_dir + "_" + current_branch.replace(r'/', '-') + "_" + target_branch.replace(r'/', '-') + ".png"
         figure_path_name = os.path.join(self._parthenon_wiki_dir, figure_name )
         fig.savefig(figure_path_name, bbox_inches='tight')
-        upload(figure_path_name, "master",use_wiki=True)
+        self.upload(figure_path_name, "master",use_wiki=True)
 
         fig_url ='https://github.com/' + self._user + '/' + self._repo_name + '/blob/figures/' + figure_name + '?raw=true'
         print("Figure url is: %s" % fig_url) 
