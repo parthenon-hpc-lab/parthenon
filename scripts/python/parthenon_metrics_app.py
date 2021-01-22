@@ -60,53 +60,57 @@ class PerformanceDataJsonParser():
     if os.path.isfile(file_name):
       # If does exist:
       # 1. load the 
-      with open(file_name, 'r') as fid:
-        return json.load(fid)
+      if not os.stat(file_name).st_size==0:
+        with open(file_name, 'r') as fid:
+          return json.load(fid)
 
   def getMostRecentPerformanceData(self, file_name, branch, test):
     if os.path.isfile(file_name):
       # If does exist:
       # 1. load the 
-      with open(file_name, 'r') as fid:
-        json_objs = json.load(fid)
+      if not os.stat(file_name).st_size==0:
+        with open(file_name, 'r') as fid:
+          json_objs = json.load(fid)
 
-        mesh_blocks = None
-        cycles = None
+          mesh_blocks = None
+          cycles = None
 
-        recent_datetime = None
-        for json_obj in json_objs:
-          new_datetime = datetime.datetime.strptime(json_obj.get('date'), '%Y-%m-%d %H:%M:%S')
-          if recent_datetime == None:
-            recent_datetime = new_datetime
-            for data_grp in json_obj.get('data'):
-              if data_grp.get('test') == test:
-                mesh_blocks = data_grp.get('mesh_blocks')
-                cycles = data_grp.get('zone_cycles')
+          recent_datetime = None
+          for json_obj in json_objs:
+            new_datetime = datetime.datetime.strptime(json_obj.get('date'), '%Y-%m-%d %H:%M:%S')
+            if recent_datetime == None:
+              recent_datetime = new_datetime
+              for data_grp in json_obj.get('data'):
+                if data_grp.get('test') == test:
+                  mesh_blocks = data_grp.get('mesh_blocks')
+                  cycles = data_grp.get('zone_cycles')
 
-          if new_datetime > recent_datetime:
-            recent_datetime = new_datetime
-            for data_grp in json_obj.get('data'):
-              if data_grp.get('test') == test:
-                mesh_blocks = data_grp.get('mesh_blocks')
-                cycles = data_grp.get('zone_cycles')
-      return mesh_blocks, cycles
+            if new_datetime > recent_datetime:
+              recent_datetime = new_datetime
+              for data_grp in json_obj.get('data'):
+                if data_grp.get('test') == test:
+                  mesh_blocks = data_grp.get('mesh_blocks')
+                  cycles = data_grp.get('zone_cycles')
+        return mesh_blocks, cycles
 
   def append(self, new_data, file_name):
 
     if os.path.isfile(file_name):
       # If does exist:
       # 1. load the 
-      with open(file_name, 'r') as fid:
-        self._data = json.load(fid)
+      if not os.stat(file_name).st_size==0:
+        with open(file_name, 'r') as fid:
+          print("Reading file %s" % file_name)
+          self._data = json.load(fid)
 
-      # Check if the commit exists in the data already
-      if self._containsCommit(self._data, new_data['commit sha']):
-        # Should really cycle through the list and see if the test already exists if it does it
-        # should overwrite it
-        # TODO
-        self._add_to_json_obj(new_data)
-      else:
-        self._data.update(new_data) 
+        # Check if the commit exists in the data already
+        if self._containsCommit(self._data, new_data['commit sha']):
+          # Should really cycle through the list and see if the test already exists if it does it
+          # should overwrite it
+          # TODO
+          self._add_to_json_obj(new_data)
+        else:
+          self._data.update(new_data) 
     else:
       self._data = new_data
 
