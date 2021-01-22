@@ -110,7 +110,7 @@ class PerformanceDataJsonParser():
     else:
       self._data = new_data
 
-    with open(json_file_out, 'w') as fout:
+    with open(file_name, 'w') as fout:
       json_dumps_str = json.dumps(self._data, indent=4)
 
 
