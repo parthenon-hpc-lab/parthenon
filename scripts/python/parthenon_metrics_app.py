@@ -120,11 +120,9 @@ class PerformanceDataJsonParser():
 
     with open(file_name, 'w') as fout:
       # Need to convert the dict to a string to dump to a file
-      if isinstance(self._data, list):
-        for js_obj in self._data:
-          json.dump(js_obj, fout, indent=4)
-      else:
-        json.dump(self._data, fout, indent=4)
+      print("Dict to be writing")
+      print(json.dumps(self._data,indent=4))
+      json.dump(self._data, fout, indent=4)
 
 
 """
