@@ -104,9 +104,6 @@ TaskStatus DestroySomeParticles(MeshBlock *pmb) {
   auto swarm = pmb->swarm_data.Get()->Get("my particles");
   auto rng_pool = pkg->Param<RNGPool>("rng_pool");
 
-  // TODO(BRR) short-circuiting this function!
-  return TaskStatus::complete;
-
   // The swarm mask is managed internally and should always be treated as constant. This
   // may be enforced later.
   auto swarm_d = swarm->GetDeviceContext();
@@ -177,9 +174,9 @@ TaskStatus DepositParticles(MeshBlock *pmb) {
 }
 
 TaskStatus CreateSomeParticles(MeshBlock *pmb, double t0) {
-  if (t0 > 0.1 || Globals::my_rank != 0) {
-    return TaskStatus::complete;
-  }
+  //if (t0 > 0.1 || Globals::my_rank != 0) {
+  //  return TaskStatus::complete;
+ // }
   printf("[%i] CreateSomeParticles\n", Globals::my_rank);
   auto pkg = pmb->packages["particles_package"];
   auto swarm = pmb->swarm_data.Get()->Get("my particles");
