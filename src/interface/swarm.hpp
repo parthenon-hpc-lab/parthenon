@@ -85,7 +85,6 @@ class SwarmDeviceContext {
     return blockIndex_(n);
   }
 
-
  private:
   Real x_min_;
   Real x_max_;
@@ -102,7 +101,7 @@ class SwarmDeviceContext {
   ParArrayND<bool> marked_for_removal_;
   ParArrayND<bool> mask_;
   ParArrayND<int> blockIndex_;
-  ParArrayND<int> neighborIndices_;     // 4x4x4 array of possible block AMR regions
+  ParArrayND<int> neighborIndices_; // 4x4x4 array of possible block AMR regions
   int ndim_;
   friend class Swarm;
   constexpr static int this_block_ = -1; // Mirrors definition in Swarm class
@@ -204,60 +203,18 @@ class Swarm {
 
   bool Receive(BoundaryCommSubset phase);
 
-  // VariablePack<Real> PackRealVariables();
-  // VariablePack<int> PackIntVariables();
-  //  template <typename T>
-  // VariablePack<T> PackVariables(const std::vector<std::string> &names,
-  //                                 const vpack_types::VarList<T> &vars,
-  //                               PackIndexMap &vmap);
   vpack_types::SwarmVarList<Real> MakeRealList_(std::vector<std::string> &names);
   vpack_types::SwarmVarList<int> MakeIntList_(std::vector<std::string> &names);
 
-  SwarmVariablePack<Real> PackVariablesReal(
-      const std::vector<std::string> &names,
-      //                                     const vpack_types::VarList<Real> &vars,
-      PackIndexMap &vmap);
+  SwarmVariablePack<Real> PackVariablesReal(const std::vector<std::string> &names,
+                                            PackIndexMap &vmap);
   SwarmVariablePack<Real> PackAllVariablesReal(PackIndexMap &vmap);
-  SwarmVariablePack<int> PackVariablesInt(
-      const std::vector<std::string> &names,
-      //                                     const vpack_types::VarList<int> &vars,
-      PackIndexMap &vmap);
+  SwarmVariablePack<int> PackVariablesInt(const std::vector<std::string> &names,
+                                          PackIndexMap &vmap);
 
   void PackAllVariables(SwarmVariablePack<Real> &vreal, SwarmVariablePack<int> &vint);
   void PackAllVariables(SwarmVariablePack<Real> &vreal, SwarmVariablePack<int> &vint,
-    PackIndexMap &rmap, PackIndexMap &imap);
-
-  /*bool StartCommunication(BoundaryCommSubset phase) {
-    printf("[%i] StartCommunication!\n", Globals::my_rank);
-    mpiStatus = false;
-
-    global_num_incomplete_ = 3;
-    local_num_completed_ = 0;
-
-#ifdef MPI_PARALLEL
-    MPI_Allreduce(MPI_IN_PLACE, &global_num_incomplete_, 1, MPI_INT, MPI_SUM,
-                  MPI_COMM_WORLD);
-#endif
-
-    printf("global_num_incomplete_: %i\n", global_num_incomplete_);
-
-    vbswarm->StartReceiving(phase);
-
-    return true;
-  }
-  bool SillyUpdate() {
-    printf("[%i] SillyUpdate!\n", Globals::my_rank);
-    if (mpiStatus == true) {
-      return true;
-    }
-
-    // vbvar->Receive();
-
-    local_num_completed_ += 1;
-
-    return false;
-  }
-  bool FinishCommunication(BoundaryCommSubset phase);*/
+                        PackIndexMap &rmap, PackIndexMap &imap);
 
   // Temporarily public
   int swarm_num_incomplete_;
@@ -286,7 +243,6 @@ class Swarm {
   MapToParticle<Real> realMap_;
 
   std::list<int> free_indices_;
-  // TODO(BRR) should these just be ParArrays?
   ParticleVariable<bool> mask_;
   ParticleVariable<bool> marked_for_removal_;
   ParticleVariable<int> neighbor_send_index_; // -1 means no send
@@ -296,8 +252,6 @@ class Swarm {
 
   template <typename T>
   void ResizeParArray(ParArrayND<T> &var, const int n_old, const int n_new);
-  //MapToSwarmVariablePack<Real> varPackMapReal_;
-  //MapToSwarmVariablePack<int> varPackMapInt_;
 
   constexpr static int this_block_ = -1;
   constexpr static int unset_index_ = -1;

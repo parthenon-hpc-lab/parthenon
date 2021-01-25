@@ -96,18 +96,18 @@ class BoundaryBase {
 //! \class BoundarySwarms
 //  \brief centralized class for interacting with each individual swarm boundary data
 class BoundarySwarms : public BoundaryBase, BoundaryCommunication {
-  public:
-    BoundarySwarms(std::weak_ptr<MeshBlock> pmb, BoundaryFlag *input_bcs,
-                        ParameterInput *pin);
+ public:
+  BoundarySwarms(std::weak_ptr<MeshBlock> pmb, BoundaryFlag *input_bcs,
+                 ParameterInput *pin);
 
-    // variable-length arrays of references to all BoundarySwarm instances
-    std::vector<std::shared_ptr<BoundarySwarm>> bswarms;
+  // variable-length arrays of references to all BoundarySwarm instances
+  std::vector<std::shared_ptr<BoundarySwarm>> bswarms;
 
-    void SetBoundaryFlags(BoundaryFlag bc_flag[]) {
-      for (int i = 0; i < 6; i++) {
-        bc_flag[i] = block_bcs[i];
-      }
+  void SetBoundaryFlags(BoundaryFlag bc_flag[]) {
+    for (int i = 0; i < 6; i++) {
+      bc_flag[i] = block_bcs[i];
     }
+  }
 
   // inherited functions (interface shared with BoundaryVariable objects):
   // ------
@@ -115,10 +115,10 @@ class BoundarySwarms : public BoundaryBase, BoundaryCommunication {
   void SetupPersistentMPI() final; // setup MPI requests
 
   // called before and during time-stepper (currently do nothing for swarms):
-  void StartReceiving(BoundaryCommSubset phase) final {};
-  void ClearBoundary(BoundaryCommSubset phase) final {};
+  void StartReceiving(BoundaryCommSubset phase) final {}
+  void ClearBoundary(BoundaryCommSubset phase) final {}
 
-  int AdvanceCounterPhysID(int num_phys) { return 0; };
+  int AdvanceCounterPhysID(int num_phys) { return 0; }
 
  private:
   // ptr to MeshBlock containing this BoundaryValues
@@ -127,7 +127,7 @@ class BoundarySwarms : public BoundaryBase, BoundaryCommunication {
 
   // if a BoundaryPhysics or user fn should be applied at each MeshBlock boundary
   // false --> e.g. block, polar, periodic boundaries
-  //bool apply_bndry_fn_[6]{}; // C++11: in-class initializer of non-static member
+  // bool apply_bndry_fn_[6]{}; // C++11: in-class initializer of non-static member
   // C++11: direct-list-initialization -> value init of array -> zero init of each scalar
 
   // local counter for generating unique MPI tags for per-MeshBlock BoundarySwarm

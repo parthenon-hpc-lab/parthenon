@@ -292,7 +292,7 @@ class BoundaryVariable : public BoundaryCommunication, public BoundaryBuffer {
 //! \class BoundarySwarm
 class BoundarySwarm : public BoundaryCommunication {
  public:
-  BoundarySwarm(std::weak_ptr<MeshBlock> pmb);
+  explicit BoundarySwarm(std::weak_ptr<MeshBlock> pmb);
   ~BoundarySwarm() = default;
 
   std::vector<ParArrayND<int>> vars_int;

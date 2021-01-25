@@ -128,7 +128,6 @@ TaskStatus DestroySomeParticles(MeshBlock *pmb) {
 }
 
 TaskStatus DepositParticles(MeshBlock *pmb) {
-  printf("[%i] DepositParticles\n", Globals::my_rank);
   auto swarm = pmb->swarm_data.Get()->Get("my particles");
 
   // Meshblock geometry
@@ -174,10 +173,6 @@ TaskStatus DepositParticles(MeshBlock *pmb) {
 }
 
 TaskStatus CreateSomeParticles(MeshBlock *pmb, double t0) {
-  //if (t0 > 0.1 || Globals::my_rank != 0) {
-  //  return TaskStatus::complete;
- // }
-  printf("[%i] CreateSomeParticles\n", Globals::my_rank);
   auto pkg = pmb->packages["particles_package"];
   auto swarm = pmb->swarm_data.Get()->Get("my particles");
   auto rng_pool = pkg->Param<RNGPool>("rng_pool");
@@ -246,7 +241,6 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, double t0) {
 }
 
 TaskStatus TransportParticles(MeshBlock *pmb, StagedIntegrator *integrator, double t0) {
-  printf("[%i] TransportParticles\n", Globals::my_rank);
   auto swarm = pmb->swarm_data.Get()->Get("my particles");
 
   int max_active_index = swarm->get_max_active_index();
@@ -277,19 +271,14 @@ TaskStatus TransportParticles(MeshBlock *pmb, StagedIntegrator *integrator, doub
   const Real &y_max = pmb->coords.x2f(jb.e + 1);
   const Real &z_max = pmb->coords.x3f(kb.e + 1);
 
-  // const Real x_min_global = pmb->pmy_mesh->mesh_size.x1min;
-
   auto swarm_d = swarm->GetDeviceContext();
 
-  // ParArrayND<Real> t("time", max_active_index + 1);
-
-  // Simple particle push: push particles half a zone width until they have
+  // Simple particle push: push particles half the smallest zone width until they have
   // traveled one integrator timestep's worth of time
   pmb->par_for(
       "TransportParticles", 0, max_active_index, KOKKOS_LAMBDA(const int n) {
-        if (swarm_d.IsActive(n)) {// && swarm_d.IsOnCurrentMeshBlock(n)) {
+        if (swarm_d.IsActive(n)) {
           Real v = sqrt(vx(n) * vx(n) + vy(n) * vy(n) + vz(n) * vz(n));
-          //printf("[%i] n: %i t(n): %e t0+dt: %e\n", Globals::my_rank, n, t(n), t0+dt);
           while (t(n) < t0 + dt) {
             Real dt_cell = dx_push / v;
             Real dt_end = t0 + dt - t(n);
@@ -299,52 +288,18 @@ TaskStatus TransportParticles(MeshBlock *pmb, StagedIntegrator *integrator, doub
             y(n) += vy(n) * dt_push;
             z(n) += vz(n) * dt_push;
             t(n) += dt_push;
-            //printf("[%i] x: %e y: %e z: %e\n", Globals::my_rank, x(n), y(n), z(n));
-
-            // Apply physical boundaries before indicating communication?
 
             int neighborBlockIndex = swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n));
 
-            //if (neighborBlockIndex != swarm_d.this_block) {
             if (!swarm_d.IsOnCurrentMeshBlock(n)) {
-              printf("[%i] particle[%i] (%e %e %e) -> %i\n", Globals::my_rank, n, x(n),
-                     y(n), z(n), neighborBlockIndex);
               // Particle no longer on this block
               break;
             }
-
-            // If outside of meshblock, get neighbor index
-
-            // Periodic boundaries (handled by MPI)
-            /*if (x(n) < x_min) {
-              x(n) = x_max - (x_min - x(n));
-            }
-            if (x(n) > x_max) {
-              x(n) = x_min + (x(n) - x_max);
-            }
-            if (y(n) < y_min) {
-              y(n) = y_max - (y_min - y(n));
-            }
-            if (y(n) > y_max) {
-              y(n) = y_min + (y(n) - y_max);
-            }
-            if (z(n) < z_min) {
-              z(n) = z_max - (z_min - z(n));
-            }
-            if (z(n) > z_max) {
-              z(n) = z_min + (z(n) - z_max);
-            }*/
           }
           // TODO(BRR) Mark as complete
         }
       });
 
-  // Only mark as finished if mpiStatus is complete
-  // if (swarm->mpiStatus) {
-  //  return TaskStatus::complete;
-  //} else {
-  //  return TaskStatus::incomplete;
-  //}
   return TaskStatus::complete;
 }
 
@@ -376,29 +331,19 @@ TaskListStatus ParticleDriver::Step() {
   // because long-distance particle pushes can lead to a large, unpredictable number of
   // MPI sends and receives.
   bool particles_update_done = false;
-  int ncyc = 0;
   while (!particles_update_done) {
-    TaskCollection ptc = MakeParticlesUpdateTaskCollection();//particles_update_done);
+    TaskCollection ptc = MakeParticlesUpdateTaskCollection(); // particles_update_done);
     status = ptc.Execute();
 
     particles_update_done = true;
-    int n = 0;
     for (auto &block : blocks) {
+      // TODO(BRR) Despite this my particles-specific call, this function feels like it
+      // should be generalized
       auto swarm = block->swarm_data.Get()->Get("my particles");
-      printf("block %i: done? %i\n", n, swarm->finished_transport);
-      n++;
       if (!swarm->finished_transport) {
-        printf("SWARM NOT DONE!!\n\n");
         particles_update_done = false;
       }
     }
-    printf("particles_update_done: %i\n", particles_update_done);
-    //auto &pmb = blocks[0];
-    //auto sc = pmb->swarm_data.Get();
-    //auto swarm = sc->Get("my particles");
-    //particles_update_done = swarm->finished_transport;
-    if (ncyc > 100) exit(-1);
-    ncyc++;
   }
 
   // Use a more traditional task list for predictable post-MPI evaluations.
@@ -408,27 +353,9 @@ TaskListStatus ParticleDriver::Step() {
   return status;
 }
 
-// TODO(BRR) Move to Swarm or something. Actually is this even needed?
-/*static int num_incomplete_local, num_incomplete_global;
-static MPI_Request allreduce_request;
-TaskStatus StartCommunicationMesh(BlockList_t &blocks) {
-  num_incomplete_local = 0;
-  for (int i = 0; i < blocks.size(); i++) {
-    auto &pmb = blocks[i];
-    auto sc = pmb->swarm_data.Get();
-    auto swarm = sc->Get("my particles");
-    num_incomplete_local += swarm->swarm_num_incomplete_;
-  }
-
-  //MPI_Iallreduce(&num_incomplete_local, &num_incomplete_global, 1, MPI_INT, MPI_SUM,
-  //  MPI_COMM_WORLD, &allreduce_request);
-
-  return TaskStatus::complete;
-}*/
-
-TaskStatus StopCommunicationMesh(BlockList_t &blocks) {//, bool &finished_transport) {
-  printf("[%i] StopCommunicationMesh\n", Globals::my_rank);
-
+// TODO(BRR) This should really be in parthenon/src... but it can't just live in Swarm
+// because of the loop over blocks
+TaskStatus StopCommunicationMesh(BlockList_t &blocks) {
   int num_sent_local = 0;
   for (auto &block : blocks) {
     auto &pmb = block;
@@ -445,9 +372,6 @@ TaskStatus StopCommunicationMesh(BlockList_t &blocks) {//, bool &finished_transp
       NeighborBlock &nb = block->pbval->neighbor[n];
       if (nb.snb.rank != Globals::my_rank) {
         if (swarm->vbswarm->bd_var_.flag[nb.bufid] != BoundaryStatus::completed) {
-          //printf("[%i] Communication not done with neighbor %i (%i)\n", Globals::my_rank, n,
-          //  static_cast<int>((swarm->vbswarm->bd_var_.flag[nb.bufid])));
-          //exit(-1);
           return TaskStatus::incomplete;
         }
       }
@@ -459,12 +383,9 @@ TaskStatus StopCommunicationMesh(BlockList_t &blocks) {//, bool &finished_transp
   }
 
   int num_sent_global = 0;
-  MPI_Allreduce(&num_sent_local, &num_sent_global, 1, MPI_INT, MPI_SUM,
-    MPI_COMM_WORLD);
-  printf("[%i] num sent global: %i\n", Globals::my_rank, num_sent_global);
+  MPI_Allreduce(&num_sent_local, &num_sent_global, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
   if (num_sent_global == 0) {
-    //finished_transport = true;
     for (auto &block : blocks) {
       auto &pmb = block;
       auto sc = pmb->swarm_data.Get();
@@ -472,9 +393,6 @@ TaskStatus StopCommunicationMesh(BlockList_t &blocks) {//, bool &finished_transp
       swarm->finished_transport = true;
     }
   }
-  //else {
-  //  finished_transport = false;
-  //}
 
   return TaskStatus::complete;
 }
@@ -490,26 +408,19 @@ TaskCollection ParticleDriver::MakeParticlesCreationTaskCollection() {
   for (int i = 0; i < blocks.size(); i++) {
     auto &pmb = blocks[i];
     auto &tl = async_region0[i];
-    auto create_some_particles =
-        tl.AddTask(none, CreateSomeParticles, pmb.get(), t0);
+    auto create_some_particles = tl.AddTask(none, CreateSomeParticles, pmb.get(), t0);
   }
 
   return tc;
 }
 
-TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection() {//bool &finished_transport) {
+TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection() {
   TaskCollection tc;
   TaskID none(0);
   double t0 = tm.time;
   BlockList_t &blocks = pmesh->block_list;
 
   auto num_task_lists_executed_independently = blocks.size();
-
-  /*TaskRegion &sync_region0 = tc.AddRegion(1);
-  {
-    auto &tl = sync_region0[0];
-    auto start_comm = tl.AddTask(none, StartCommunicationMesh, blocks);
-  }*/
 
   TaskRegion &async_region0 = tc.AddRegion(num_task_lists_executed_independently);
   for (int i = 0; i < blocks.size(); i++) {
@@ -524,15 +435,15 @@ TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection() {//bool &fini
         tl.AddTask(none, TransportParticles, pmb.get(), integrator.get(), t0);
 
     auto send = tl.AddTask(transport_particles, &SwarmContainer::Send, sc.get(),
-                         BoundaryCommSubset::all);
-    auto receive = tl.AddTask(send, &SwarmContainer::Receive, sc.get(),
-                            BoundaryCommSubset::all);
+                           BoundaryCommSubset::all);
+    auto receive =
+        tl.AddTask(send, &SwarmContainer::Receive, sc.get(), BoundaryCommSubset::all);
   }
 
   TaskRegion &sync_region1 = tc.AddRegion(1);
   {
     auto &tl = sync_region1[0];
-    auto stop_comm = tl.AddTask(none, StopCommunicationMesh, blocks);//, finished_transport);
+    auto stop_comm = tl.AddTask(none, StopCommunicationMesh, blocks);
   }
 
   return tc;
@@ -550,67 +461,15 @@ TaskCollection ParticleDriver::MakeFinalizationTaskCollection() {
     auto &pmb = blocks[i];
     auto &tl = async_region1[i];
 
-    auto destroy_some_particles =
-        tl.AddTask(none, DestroySomeParticles, pmb.get());
+    auto destroy_some_particles = tl.AddTask(none, DestroySomeParticles, pmb.get());
 
-    auto deposit_particles = tl.AddTask(destroy_some_particles, DepositParticles, pmb.get());
+    auto deposit_particles =
+        tl.AddTask(destroy_some_particles, DepositParticles, pmb.get());
 
     auto defrag = tl.AddTask(deposit_particles, Defrag, pmb.get());
   }
 
   return tc;
 }
-
-// See the advection_driver.hpp declaration for a description of how this function gets
-// called.
-/*TaskCollection ParticleDriver::MakeTaskCollection() { //BlockList_t &blocks, int stage) {
-//TaskCollection ParticleDriver::MultiStageTaskCollection(const int stage) {
-  using namespace ::parthenon::Update;
-  TaskCollection tc;
-
-  TaskID none(0);
-
-  double t0 = tm.time;
-
-  BlockList_t &blocks = pmesh->block_list;
-
-  auto num_task_lists_executed_independently = blocks.size();
-  TaskRegion &async_region1 = tc.AddRegion(num_task_lists_executed_independently);
-
-  for (int i = 0; i < blocks.size(); i++) {
-    auto &pmb = blocks[i];
-    auto &tl = async_region1[i];
-
-    auto sc = pmb->swarm_data.Get();
-
-    auto swarm = sc->Get("my particles");
-
-    auto start_comm = tl.AddTask(none, &SwarmContainer::StartCommunication, sc.get(),
-                               BoundaryCommSubset::all);
-    auto create_some_particles =
-        tl.AddTask(none, CreateSomeParticles, pmb.get(), t0);
-
-    auto transport_particles =
-        tl.AddTask(create_some_particles, TransportParticles, pmb.get(), integrator.get(), t0);
-
-    auto send = tl.AddTask(create_some_particles, &SwarmContainer::Send, sc.get(),
-                         BoundaryCommSubset::all);
-    auto receive = tl.AddTask(create_some_particles, &SwarmContainer::Receive, sc.get(),
-                            BoundaryCommSubset::all);
-
-    auto finalize_comm =
-      tl.AddTask(create_some_particles, &SwarmContainer::FinishCommunication, sc.get(),
-                 BoundaryCommSubset::all);
-
-    //auto destroy_some_particles =
-    //    tl.AddTask(transport_particles, DestroySomeParticles, pmb.get());
-
-    auto deposit_particles = tl.AddTask(finalize_comm, DepositParticles, pmb.get());
-
-    auto defrag = tl.AddTask(deposit_particles, Defrag, pmb.get());
-  }
-
-  return tc;
-}*/
 
 } // namespace particles_example

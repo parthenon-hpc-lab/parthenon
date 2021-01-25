@@ -379,16 +379,17 @@ void Swarm::Defrag() {
   int real_vars_size = realVector_.size();
   int int_vars_size = intVector_.size();
 
-  pmb->par_for("Swarm::DefragVariables", 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
-    if (from_to_indices(n) >= 0) {
-      for (int i = 0; i < real_vars_size; i++) {
-        vreal(i, from_to_indices(n)) = vreal(i, n);
-      }
-      for (int i = 0; i < int_vars_size; i++) {
-        vint(i, from_to_indices(n)) = vint(i, n);
-      }
-    }
-  });
+  pmb->par_for(
+      "Swarm::DefragVariables", 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
+        if (from_to_indices(n) >= 0) {
+          for (int i = 0; i < real_vars_size; i++) {
+            vreal(i, from_to_indices(n)) = vreal(i, n);
+          }
+          for (int i = 0; i < int_vars_size; i++) {
+            vint(i, from_to_indices(n)) = vint(i, n);
+          }
+        }
+      });
 
   // Update max_active_index_
   max_active_index_ = num_active_ - 1;
@@ -492,8 +493,6 @@ bool Swarm::Send(BoundaryCommSubset phase) {
   for (int n = 0; n < nbmax; n++) {
     num_particles_to_send_h(n) = 0;
     auto &nb = pmb->pbval->neighbor[n];
-    // printf("[%i] neighbor %i nb.bufid: %i (%i)\n", Globals::my_rank, n, nb.bufid,
-    // static_cast<int>(BoundaryStatus::waiting));
     vbswarm->bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
   }
   int particle_size = GetParticleDataSize();
@@ -539,12 +538,7 @@ bool Swarm::Send(BoundaryCommSubset phase) {
     }
     vbswarm->send_size[n] = num_particles_to_send_h(n) * particle_size;
     num_particles_sent_ += num_particles_to_send_h(n);
-    if (num_particles_to_send_h(n) > 0) {
-      printf("[%i] Sending %i particles to neighbor: %i rank: %i\n", Globals::my_rank,
-             num_particles_to_send_h(n), n, pmb->pbval->neighbor[n].snb.rank);
-    }
   }
-  //printf("[%i] Sent %i particles\n", Globals::my_rank, num_particles_sent_);
 
   SwarmVariablePack<Real> vreal;
   SwarmVariablePack<int> vint;
@@ -576,8 +570,6 @@ bool Swarm::Send(BoundaryCommSubset phase) {
             swarm_d.MarkParticleForRemoval(sidx);
             for (int i = 0; i < real_vars_size; i++) {
               bdvar.send[m](buffer_index) = vreal(i, sidx);
-              //printf("[%i] PACK n: %i real(%i) = %e\n", Globals::my_rank, n, i,
-              //       vreal(i, sidx));
               buffer_index++;
             }
             for (int i = 0; i < int_vars_size; i++) {
@@ -585,6 +577,7 @@ bool Swarm::Send(BoundaryCommSubset phase) {
               buffer_index++;
             }
             // If rank is shared, apply boundary conditions here
+            // TODO(BRR) Don't hardcode periodic boundary conditions
             if (nrank(m) == Globals::my_rank) {
               double &x = vreal(ix, sidx);
               double &y = vreal(iy, sidx);
@@ -674,21 +667,7 @@ SwarmVariablePack<Real> Swarm::PackVariablesReal(const std::vector<std::string> 
   SwarmPackIndxPair<Real> value;
   value.pack = pack;
   value.map = vmap;
-  // varPackMapReal_[expanded_names] = value;
   return pack;
-
-  // This doesn't work right now with dynamically resized ParticleVariables
-  /*auto kvpair = varPackMapReal_.find(expanded_names);
-  if (kvpair == varPackMapReal_.end()) {
-    auto pack = MakeSwarmPack<Real>(vars, &vmap);
-    SwarmPackIndxPair<Real> value;
-    value.pack = pack;
-    value.map = vmap;
-    varPackMapReal_[expanded_names] = value;
-    return pack;
-  }
-  vmap = (kvpair->second).map;
-  return (kvpair->second).pack;*/
 }
 SwarmVariablePack<int> Swarm::PackVariablesInt(const std::vector<std::string> &names,
                                                PackIndexMap &vmap) {
@@ -699,28 +678,13 @@ SwarmVariablePack<int> Swarm::PackVariablesInt(const std::vector<std::string> &n
   SwarmPackIndxPair<int> value;
   value.pack = pack;
   value.map = vmap;
-  // varPackMapInt_[expanded_names] = value;
   return pack;
-
-  // This doesn't work right now with dynamically resized ParticleVariables
-  /*auto kvpair = varPackMapInt_.find(expanded_names);
-  if (kvpair == varPackMapInt_.end()) {
-    auto pack = MakeSwarmPack<int>(vars, &vmap);
-    SwarmPackIndxPair<int> value;
-    value.pack = pack;
-    value.map = vmap;
-    varPackMapInt_[expanded_names] = value;
-    return pack;
-  }
-  vmap = (kvpair->second).map;
-  return (kvpair->second).pack;*/
 }
 
 bool Swarm::Receive(BoundaryCommSubset phase) {
   // Ensure all local deep copies marked BoundaryStatus::completed are actually received
   GetBlockPointer()->exec_space.fence();
   auto pmb = GetBlockPointer();
-  printf("[%i] Receive\n", Globals::my_rank);
 
   // Populate buffers
   vbswarm->Receive(phase);
@@ -737,7 +701,6 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
       neighbor_received_particles[n] = 0;
     }
   }
-  printf("[%i] Received %i particles\n", Globals::my_rank, total_received_particles);
 
   auto &bdvar = vbswarm->bd_var_;
 
@@ -784,8 +747,6 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
           int bid = buffer_index(n);
           for (int i = 0; i < real_vars_size; i++) {
             vreal(i, sid) = bdvar.recv[nid](bid * particle_size + i);
-//            printf("[%i] UNPACK n: %i real(%i) = %e\n", Globals::my_rank, n, i,
-//                   vreal(i, sid));
           }
           for (int i = 0; i < int_vars_size; i++) {
             vint(i, sid) = static_cast<int>(
@@ -795,6 +756,7 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
           double &x = vreal(ix, sid);
           double &y = vreal(iy, sid);
           double &z = vreal(iz, sid);
+          // TODO(BRR) Don't hardcode periodic boundary conditions
           if (x < swarm_d.x_min_global_) {
             x = swarm_d.x_max_global_ - (swarm_d.x_min_global_ - x);
           }
@@ -813,24 +775,17 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
           if (z > swarm_d.z_max_global_) {
             z = swarm_d.z_min_global_ + (z - swarm_d.z_max_global_);
           }
-
-          // TODO(BRR) Apply boundaries as necessary
         });
   }
 
   bool all_boundaries_received = true;
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
-    // printf("[%i] nb %i: BoundaryStatus[%i] arrived? %i (%i)\n", Globals::my_rank, n,
-    // nb.bufid, bdvar.flag[nb.bufid] == BoundaryStatus::arrived,
-    // static_cast<int>(bdvar.flag[nb.bufid]));
     if (bdvar.flag[nb.bufid] == BoundaryStatus::arrived) {
       bdvar.flag[nb.bufid] = BoundaryStatus::completed;
     } else if (bdvar.flag[nb.bufid] == BoundaryStatus::waiting) {
       all_boundaries_received == false;
     }
-    // printf("[%i] BoundaryStatus[%i]: %i\n", Globals::my_rank, nb.bufid,
-    // static_cast<int>(bdvar.flag[nb.bufid]));
   }
 
   if (all_boundaries_received) {
@@ -873,21 +828,16 @@ void Swarm::PackAllVariables(SwarmVariablePack<Real> &vreal, SwarmVariablePack<i
 }
 
 void Swarm::allocateComms(std::weak_ptr<MeshBlock> wpmb) {
-  printf("[%i] allocateComms\n", Globals::my_rank);
   if (wpmb.expired()) return;
 
   std::shared_ptr<MeshBlock> pmb = wpmb.lock();
 
   // Create the boundary object
-  printf("%s:%i\n", __FILE__, __LINE__);
   vbswarm = std::make_shared<BoundarySwarm>(pmb);
 
   // Enroll SwarmVariable object
-  printf("%s:%i\n", __FILE__, __LINE__);
   vbswarm->bswarm_index = pmb->pbswarm->bswarms.size();
-  printf("%s:%i\n", __FILE__, __LINE__);
   pmb->pbswarm->bswarms.push_back(vbswarm);
-  printf("%s:%i\n", __FILE__, __LINE__);
 }
 
 } // namespace parthenon
