@@ -13,6 +13,7 @@
 #=========================================================================================
 
 import argparse
+import copy
 import os
 import datetime
 import json
@@ -48,42 +49,33 @@ class PerformanceDataJsonParser():
     # Cycle the outer list first
     if isinstance(self._data,list):
       for json_obj in self._data:
-        print("json obj")
-        print(json_obj)
-        print("new data")
-        print(new_data)
         if json_obj.get('commit sha') == new_data.get('commit sha'):
           for data_grp in json_obj.get('data'):
-            if data_grp.get('test') == new_data.get('test'):
-              # Overwrite the existing content with the new content
-              data_grp['mesh_blocks'] = new_data.get('mesh_blocks')
-              data_grp['zone_cycles'] = new_data.get('zone_cycles')
-              return
+            for data_grp2 in new_data.get('data'):
+              if data_grp.get('test') == new_data.get('test'):
+                # Overwrite the existing content with the new content
+                data_grp['mesh_blocks'] = copy.deepcopy(data_grp2.get('mesh_blocks'))
+                data_grp['zone_cycles'] = copy.deepcopy(data_grp2.get('zone_cycles'))
+          return
+        else:
           # Then the test was not found so we are going to append to it
           json_obj['data'].append(new_data['data'])
     else:
-      print("self._data 2")
-      print(self._data)
-      print("new data 2")
-      print(new_data)
       if isinstance(new_data,list):
         if len(new_data) == 1:
           new_data = new_data[0]
 
       if self._data.get('commit sha') == new_data.get('commit sha'):
         for data_grp in self._data.get('data'):
-          print("Data Group")
-          print(data_grp)
-          print("new_data.get('data')")
-          print(new_data.get('data'))
-          if data_grp.get('test') == new_data.get('data')[0].get('test'):
-            # Overwrite the existing content with the new content
-            data_grp['mesh_blocks'] = new_data.get('mesh_blocks')
-            data_grp['zone_cycles'] = new_data.get('zone_cycles')
-            return
+          for data_grp2 in new_data.get('data'):
+            if data_grp.get('test') == data_grp2.get('test'):
+              # Overwrite the existing content with the new content
+              data_grp['mesh_blocks'] = copy.deepcopy(data_grp2.get('mesh_blocks'))
+              data_grp['zone_cycles'] = copy.deepcopy(data_grp2.get('zone_cycles'))
+              return
+      else:
         # Then the test was not found so we are going to append to it
         self._data['data'].append(new_data['data'])
-
 
   def getData(self, file_name):
     if os.path.isfile(file_name):
@@ -130,16 +122,12 @@ class PerformanceDataJsonParser():
       # 1. load the 
       if os.stat(file_name).st_size!=0:
         with open(file_name, 'r') as fid:
-          print("Reading file %s" % file_name)
           data_found = True
           # self._data will be a dict
           self._data = json.load(fid)
 
         # Check if the commit exists in the data already
         if self._containsCommit(self._data, new_data['commit sha']):
-          # Should really cycle through the list and see if the test already exists if it does it
-          # should overwrite it
-          # TODO
           self._add_to_json_obj(new_data)
         else:
           self._data.update(new_data) 
@@ -149,9 +137,6 @@ class PerformanceDataJsonParser():
 
     with open(file_name, 'w') as fout:
       # Need to convert the dict to a string to dump to a file
-      print("Dict to be writing")
-      print(self._data)
-      print(json.dumps(self._data,indent=4))
       json.dump(self._data, fout, indent=4)
 
 
@@ -191,7 +176,6 @@ class ParthenonApp(App):
         # Skip header
         if ind != 0:
           line = line.split()
-          print("line[2] %s" % line[2])
           mesh_blocks[ind-1] = float(line[2])
           zone_cycles[ind-1] = float(line[0])
         ind = ind + 1
@@ -214,7 +198,6 @@ class ParthenonApp(App):
     for test_dir in all_dirs:
       if not isinstance(test_dir, str):
         test_dir = str(test_dir)
-      print(test_dir)
       if test_dir == "advection_performance":
         if not os.path.isfile(regression_outputs + "/advection_performance/performance_metrics.txt"):
           raise Exception("Cannot analyze advection_performance, missing performance metrics file: " + regression_outputs + "/advection_performance/performance_metrics.txt")
@@ -282,7 +265,6 @@ class ParthenonApp(App):
         figure_path_name = os.path.join(self._parthenon_wiki_dir, figure_name )
         fig.savefig(figure_path_name, bbox_inches='tight')
         self.upload(figure_path_name, self._default_image_branch, use_wiki=False)
-
         fig_url ='https://github.com/' + self._user + '/' + self._repo_name + '/blob/figures/' + figure_name + '?raw=true'
         print("Figure url is: %s" % fig_url) 
       elif test_dir == "advection_performance_mpi":
@@ -292,7 +274,7 @@ class ParthenonApp(App):
       # Check that the wiki exists for merging between these two branches, only want a single wiki page per merge
 
       with open(pr_wiki_page,'w') as writer: 
-        writer.write("This file is managed by the " + self._name + "\n")
+        writer.write("This file is managed by the " + self._name + ".\n\n")
         writer.write("![Image](" + fig_url +")\n")
         wiki_url = "https://github.com/{usr_name}/{repo_name}/wiki/{file_name}"
         wiki_url = wiki_url.format(usr_name=self._user, repo_name=self._repo_name, file_name=wiki_file_name )

@@ -371,6 +371,7 @@ class App:
     if branch is None:
       branch = self._default_branch
     if file_name.lower().endswith(('.png', '.jpg', '.jpeg', '.tiff', '.bmp', '.gif')):
+      print("Image file detected")
       if branch != self._default_image_branch and not self._ignore:
         print("Note all images will be uploaded to a branch named: " + self._default_image_branch + " in the main repository.")
         print("Unless the ignore flag is used.")
@@ -404,7 +405,8 @@ class App:
       contents = self.getContents(branch)
 
       file_found = False
-      if file_name in contents:
+      if os.path.basename(os.path.normpath(file_name)) in contents:
+        print("File (%s) already exists in branch:%s" % (os.path.basename(os.path.normpath(file_name)),branch))
         file_found = True
 
       # 2. convert file into base64 format
@@ -415,26 +417,27 @@ class App:
       # 3. upload the file, overwrite if exists already
       if file_found:
           custom_data = {
-              'message': self._name + " overwriting file " + file_name,
+              'message': self._name + " overwriting file " + os.path.basename(os.path.normpath(file_name)),
               'name': self._name,
               'branch': branch,
-              'sha': contents[file_name],
+              'sha': contents[os.path.basename(os.path.normpath(file_name))],
               'content': encoded_file.decode('ascii')
                   }
 
       else:
           custom_data = {
-              'message': self._name + " uploading file " + file_name,
+              'message': self._name + " uploading file " + os.path.basename(os.path.normpath(file_name)),
               'name': self._name,
               'content': encoded_file.decode('ascii'),
               'branch': branch
                   }
 
-      https_url_to_file = self._repo_url + "/contents/" + file_name
+      print("Uploading file (%s) to branch (%s)" % (os.path.basename(os.path.normpath(file_name)), branch))
+      https_url_to_file = self._repo_url + "/contents/" + os.path.basename(os.path.normpath(file_name))
       c2 = pycurl.Curl()
       c2.setopt(c2.HTTPHEADER, self._header)
       c2.setopt(c2.URL, https_url_to_file)
-      c2.setopt(c2.UPLOAD, 1)
+      c2.setopt(c2.PUT, 1)
       c2.setopt(c2.VERBOSE, True)
       buffer_temp2 = BytesIO(json.dumps(custom_data).encode('utf-8'))
       c2.setopt(c2.READDATA, buffer_temp2)
