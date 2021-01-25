@@ -290,7 +290,7 @@ TaskStatus TransportParticles(MeshBlock *pmb, StagedIntegrator *integrator, doub
   // traveled one integrator timestep's worth of time
   pmb->par_for(
       "TransportParticles", 0, max_active_index, KOKKOS_LAMBDA(const int n) {
-        if (swarm_d.IsActive(n) && swarm_d.IsOnCurrentMeshBlock(n)) {
+        if (swarm_d.IsActive(n)) {// && swarm_d.IsOnCurrentMeshBlock(n)) {
           Real v = sqrt(vx(n) * vx(n) + vy(n) * vy(n) + vz(n) * vz(n));
           //printf("[%i] n: %i t(n): %e t0+dt: %e\n", Globals::my_rank, n, t(n), t0+dt);
           while (t(n) < t0 + dt) {
@@ -414,7 +414,6 @@ TaskStatus StartCommunicationMesh(BlockList_t &blocks) {
   return TaskStatus::complete;
 }
 
-static int count = 0;
 TaskStatus StopCommunicationMesh(BlockList_t &blocks, bool &finished_transport) {
   // TODO(BRR) this allreduce should actually be generated after the particles are pushed...right?
   printf("[%i] StopCommunicationMesh\n", Globals::my_rank);
@@ -440,18 +439,6 @@ TaskStatus StopCommunicationMesh(BlockList_t &blocks, bool &finished_transport) 
 
   //printf("Need to check that all communications are done!\n");
   // Boundary transfers on same MPI proc are blocking
-  count++;
-  if (count > 10) { exit(-1); }
-  for (auto &block : blocks) {
-    auto swarm = block->swarm_data.Get()->Get("my particles");
-    for (int n = 0; n < block->pbval->nneighbor; n++) {
-      NeighborBlock &nb = block->pbval->neighbor[n];
-      // TODO(BRR) just check this for local copies too?
-      printf("[%i] Neighbor: %i Comm status: %i\n", Globals::my_rank, n, static_cast<int>(swarm->vbswarm->bd_var_.flag[nb.bufid]));
-    }
-  }
-
-
   for (auto &block : blocks) {
     auto swarm = block->swarm_data.Get()->Get("my particles");
     for (int n = 0; n < block->pbval->nneighbor; n++) {
@@ -460,8 +447,8 @@ TaskStatus StopCommunicationMesh(BlockList_t &blocks, bool &finished_transport) 
       //printf("[%i] Neighbor: %i Comm status: %i\n", Globals::my_rank, n, static_cast<int>(swarm->vbswarm->bd_var_.flag[nb.bufid]));
       if (nb.snb.rank != Globals::my_rank) {
         if (swarm->vbswarm->bd_var_.flag[nb.bufid] != BoundaryStatus::completed) {
-          printf("[%i] Communication not done with neighbor %i (%i)\n", Globals::my_rank, n,
-            static_cast<int>((swarm->vbswarm->bd_var_.flag[nb.bufid])));
+          //printf("[%i] Communication not done with neighbor %i (%i)\n", Globals::my_rank, n,
+          //  static_cast<int>((swarm->vbswarm->bd_var_.flag[nb.bufid])));
           //exit(-1);
           //return TaskStatus::incomplete;
         }

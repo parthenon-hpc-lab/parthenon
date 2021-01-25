@@ -117,7 +117,7 @@ void BoundarySwarm::Send(BoundaryCommSubset phase) {
       MeshBlock &target_block = *pmy_mesh_->FindMeshBlock(nb.snb.gid);
       std::shared_ptr<BoundarySwarm> ptarget_bswarm =
           target_block.pbswarm->bswarms[bswarm_index];
-      //printf("[%i] COPYING size: %i to nb %i rank %i (tag %i)\n", Globals::my_rank, send_size[n], n, nb.snb.rank, send_tag[n]);
+      printf("[%i] COPYING size: %i to nb %i rank %i (tag %i)\n", Globals::my_rank, send_size[n], n, nb.snb.rank, send_tag[n]);
       if (send_size[nb.bufid] > 0) {
         // Ensure target buffer is large enough
         if (bd_var_.send[nb.bufid].extent(0) >
@@ -129,7 +129,8 @@ void BoundarySwarm::Send(BoundaryCommSubset phase) {
         target_block.deep_copy(ptarget_bswarm->bd_var_.recv[nb.targetid],
                                bd_var_.send[nb.bufid]);
         ptarget_bswarm->recv_size[nb.targetid] = send_size[nb.bufid];
-        ptarget_bswarm->bd_var_.flag[nb.targetid] = BoundaryStatus::completed;
+        //ptarget_bswarm->bd_var_.flag[nb.targetid] = BoundaryStatus::completed;
+        ptarget_bswarm->bd_var_.flag[nb.targetid] = BoundaryStatus::arrived;
         //printf("[%i] nb.targetid: %i flag: %i\n", Globals::my_rank, nb.targetid,
         //       static_cast<int>(BoundaryStatus::completed));
       } else {

@@ -78,16 +78,18 @@ class SwarmDeviceContext {
 
     // Ignore k,j indices as necessary based on problem dimension
     if (ndim_ == 1) {
-      int i = static_cast<int>((x - x_min_) / ((x_max_ - x_min_) / 2.)) + 1;
+      int i = static_cast<int>(std::floor((x - x_min_) / ((x_max_ - x_min_) / 2.))) + 1;
       blockIndex_(n) = neighborIndices_(0, 0, i);
     } else if (ndim_ == 2) {
-      int i = static_cast<int>((x - x_min_) / ((x_max_ - x_min_) / 2.)) + 1;
-      int j = static_cast<int>((y - y_min_) / ((y_max_ - y_min_) / 2.)) + 1;
+      int i = static_cast<int>(std::floor((x - x_min_) / ((x_max_ - x_min_) / 2.))) + 1;
+      int j = static_cast<int>(std::floor((y - y_min_) / ((y_max_ - y_min_) / 2.))) + 1;
       blockIndex_(n) = neighborIndices_(0, j, i);
+      //printf("[%i] x: %e y: %e i: %i j: %i, index: %i\n", Globals::my_rank, x, y, i, j, blockIndex_(n));
+      //printf("[%i] xmin: %e xmax: %e\n", Globals::my_rank, x_min_, x_max_);
     } else {
-      int i = static_cast<int>((x - x_min_) / ((x_max_ - x_min_) / 2.)) + 1;
-      int j = static_cast<int>((y - y_min_) / ((y_max_ - y_min_) / 2.)) + 1;
-      int k = static_cast<int>((z - z_min_) / ((z_max_ - z_min_) / 2.)) + 1;
+      int i = static_cast<int>(std::floor((x - x_min_) / ((x_max_ - x_min_) / 2.))) + 1;
+      int j = static_cast<int>(std::floor((y - y_min_) / ((y_max_ - y_min_) / 2.))) + 1;
+      int k = static_cast<int>(std::floor((z - z_min_) / ((z_max_ - z_min_) / 2.))) + 1;
       blockIndex_(n) = neighborIndices_(k, j, i);
     }
 

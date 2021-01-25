@@ -497,6 +497,7 @@ void Swarm::SetupPersistentMPI() {
     int i = nb.ni.ox1;
     int j = nb.ni.ox2;
     int k = nb.ni.ox3;
+    printf("[%i] Neighbor %i: i, j, k: %i, %i %i\n", Globals::my_rank, n, i, j, k);
 
     if (ndim == 1) {
       if (i == -1) {
@@ -540,10 +541,13 @@ void Swarm::SetupPersistentMPI() {
     }
   }
 
-  /*for (int j = 0; j < 4; j++) {
+  for (int j = 0; j < 4; j++) {
+    printf("[%i] ", Globals::my_rank);
     for (int i = 0; i < 4; i++) {
-      printf("[0 %i %i]: %i\n", j, i, neighborIndices_h(0,j,i));
+      //printf("[0 %i %i]: %i\n", j, i, neighborIndices_h(0,j,i));
+      printf("%i ", neighborIndices_h(0,j,i));
     }
+    printf("\n");
   }
   int j = 3;
   int i = 3;
@@ -554,7 +558,7 @@ void Swarm::SetupPersistentMPI() {
   auto snb = nb.snb;
   printf("  rank: %i level: %i lid: %i gid: %i\n", snb.rank, snb.level,
     snb.lid, snb.gid);
-  exit(-1);*/
+  //exit(-1);
 
   neighborIndices_.DeepCopy(neighborIndices_h);
 }
@@ -578,7 +582,7 @@ bool Swarm::Send(BoundaryCommSubset phase) {
   for (int n = 0; n < nbmax; n++) {
     num_particles_to_send_h(n) = 0;
     auto &nb = pmb->pbval->neighbor[n];
-    printf("[%i] neighbor %i nb.bufid: %i (%i)\n", Globals::my_rank, n, nb.bufid, static_cast<int>(BoundaryStatus::waiting));
+    //printf("[%i] neighbor %i nb.bufid: %i (%i)\n", Globals::my_rank, n, nb.bufid, static_cast<int>(BoundaryStatus::waiting));
     vbswarm->bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
   }
   int particle_size = GetParticleDataSize();
@@ -822,7 +826,7 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
     }
   }
   printf("[%i] Received %i particles\n", Globals::my_rank, total_received_particles);
-  if (total_received_particles > 10) { exit(-1); }
+  if (total_received_particles > 10) { printf("EXITING ON DBEUG\n"); exit(-1); }
 
   auto &bdvar = vbswarm->bd_var_;
 
@@ -839,6 +843,7 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
     const int ix = rmap["x"].first;
     const int iy = rmap["y"].first;
     const int iz = rmap["z"].first;
+    printf("%s:%i\n", __FILE__, __LINE__);
 
     ParArrayND<int> neighbor_index("Neighbor index", total_received_particles);
     ParArrayND<int> buffer_index("Buffer index", total_received_particles);
@@ -846,6 +851,7 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
     auto buffer_index_h = buffer_index.GetHostMirror();
     int nid = 0;
     int per_neighbor_count = 0;
+    printf("%s:%i\n", __FILE__, __LINE__);
 
     int id = 0;
     for (int n = 0; n < maxneighbor; n++) {
@@ -857,10 +863,12 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
     }
     neighbor_index.DeepCopy(neighbor_index_h);
     buffer_index.DeepCopy(buffer_index_h);
+    printf("%s:%i\n", __FILE__, __LINE__);
 
     // construct map from buffer index to swarm index (or just return vector of indices!)
     int particle_size = GetParticleDataSize();
     auto swarm_d = GetDeviceContext();
+    printf("%s:%i\n", __FILE__, __LINE__);
 
     pmb->par_for(
         "Unpack buffers", 0, total_received_particles - 1, KOKKOS_LAMBDA(const int n) {
@@ -905,6 +913,7 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
           // TODO(BRR) Apply boundaries as necessary
         });
   }
+    printf("%s:%i\n", __FILE__, __LINE__);
 
   bool all_boundaries_received = true;
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
