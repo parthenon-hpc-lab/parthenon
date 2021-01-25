@@ -88,7 +88,7 @@ void SwarmContainer::ReceiveAndSetBoundariesWithWait() {}
 
 void SwarmContainer::SetBoundaries() {}
 
-TaskStatus SwarmContainer::StartCommunication(BoundaryCommSubset phase) {
+/*TaskStatus SwarmContainer::StartCommunication(BoundaryCommSubset phase) {
   for (auto &s : swarmVector_) {
     // s->resetBoundary();
     s->StartCommunication(phase);
@@ -107,7 +107,7 @@ TaskStatus SwarmContainer::SillyUpdate() {
   }
   if (success == total) return TaskStatus::complete;
   return TaskStatus::incomplete;
-}
+}*/
 
 TaskStatus SwarmContainer::Send(BoundaryCommSubset phase) {
   int success = 0, total = 0;
@@ -132,7 +132,7 @@ TaskStatus SwarmContainer::Receive(BoundaryCommSubset phase) {
   return TaskStatus::incomplete;
 }
 
-TaskStatus SwarmContainer::FinishCommunication(BoundaryCommSubset phase) {
+/*TaskStatus SwarmContainer::FinishCommunication(BoundaryCommSubset phase) {
   int success = 0, total = 0;
   for (auto &s : swarmVector_) {
     if (s->FinishCommunication(phase)) {
@@ -142,7 +142,7 @@ TaskStatus SwarmContainer::FinishCommunication(BoundaryCommSubset phase) {
   }
   if (success == total) return TaskStatus::complete;
   return TaskStatus::incomplete;
-}
+}*/
 
 void SwarmContainer::ClearBoundary(BoundaryCommSubset phase) {}
 

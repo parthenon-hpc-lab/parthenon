@@ -27,7 +27,6 @@ SwarmDeviceContext Swarm::GetDeviceContext() const {
   context.mask_ = mask_.data;
   context.blockIndex_ = blockIndex_;
   context.neighborIndices_ = neighborIndices_;
-  // context.neighbor_send_index_ = neighbor_send_index.data;
 
   auto pmb = GetBlockPointer();
   auto pmesh = pmb->pmy_mesh;
@@ -78,49 +77,6 @@ Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_
   marked_for_removal_.data.DeepCopy(marked_for_removal_h);
 }
 
-bool Swarm::FinishCommunication(BoundaryCommSubset phase) {
-  printf("[%i] FinishCommunication\n", Globals::my_rank);
-  GetBlockPointer()->exec_space.fence();
-
-  if (allreduce_request_ == MPI_REQUEST_NULL) { // No outstanding Iallreduce request
-    printf("NULL!\n");
-    MPI_Iallreduce(&local_num_completed_, &global_num_completed_, 1, MPI_INT, MPI_SUM,
-                   MPI_COMM_WORLD, &allreduce_request_);
-  } else { // Outstanding Iallreduce request
-    int flag;
-    MPI_Test(&allreduce_request_, &flag, MPI_STATUS_IGNORE);
-    printf("Not NULL! flag: %i\n", flag);
-    if (flag) { // Iallreduce completed
-
-      // TODO(BRR) temporary!
-      mpiStatus = true;
-      return true;
-
-      printf("[%i] incomplete: %i completed: %i\n", Globals::my_rank,
-             global_num_incomplete_, global_num_completed_);
-
-      /*if (global_num_incomplete_ > global_num_completed) { // Transport not done
-        return false;
-      } else { // Transport completed
-        mpiStatus = true;
-        return true;
-      }*/
-
-      // TODO(BRR) change the name of these vars
-      printf("incomp: %i comp: %i\n", global_num_incomplete_, global_num_completed_);
-      if (global_num_incomplete_ == global_num_completed_) {
-        // Transport completed
-        mpiStatus = true;
-        return true;
-      }
-
-      allreduce_request_ = MPI_REQUEST_NULL;
-    }
-  }
-
-  return false;
-}
-
 void Swarm::Add(const std::vector<std::string> &labelArray, const Metadata &metadata) {
   // generate the vector and call Add
   for (auto label : labelArray) {
@@ -137,8 +93,7 @@ std::shared_ptr<Swarm> Swarm::AllocateCopy(const bool allocComms, MeshBlock *pmb
 }
 
 ///
-/// The internal routine for allocating a particle swarm.  This subroutine
-/// is topology aware and will allocate accordingly.
+/// The routine for allocating a particle variable in the current swarm.
 ///
 /// @param label the name of the variable
 /// @param metadata the metadata associated with the particle
@@ -163,6 +118,10 @@ void Swarm::Add(const std::string &label, const Metadata &metadata) {
   }
 }
 
+///
+/// The routine for removing a variable from a particle swarm.
+///
+/// @param label the name of the variable
 void Swarm::Remove(const std::string &label) {
   bool found = false;
 
@@ -209,10 +168,17 @@ void Swarm::Remove(const std::string &label) {
   }
 }
 
+///
+/// The routine for resizing a 1D ParArrayND while retaining existing data
+///
+/// @param var The ParArrayND to be resized
+/// @param n_old The length of existing data to be copied
+/// @param n_new The requested length of the new data
 template <typename T>
-void Swarm::ResizeParArray(ParArrayND<T> &var, int n_old, int n_new) {
+void Swarm::ResizeParArray(ParArrayND<T> &var, const int n_old, const int n_new) {
   auto oldvar = var;
   auto newvar = ParArrayND<T>(oldvar.label(), n_new);
+  PARTHENON_DEBUG_REQUIRE(n_new > n_old, "Resized ParArrayND must be larger!");
   GetBlockPointer()->par_for(
       "ResizeParArray", 0, n_old - 1,
       KOKKOS_LAMBDA(const int n) { newvar(n) = oldvar(n); });
@@ -232,49 +198,21 @@ void Swarm::setPoolMax(const int nmax_pool) {
   }
 
   // Resize and copy data
-
-  auto oldvar = mask_;
-  auto newvar = ParticleVariable<bool>(oldvar.label(), nmax_pool, oldvar.metadata());
-  auto &oldvar_data = oldvar.Get();
-  auto &newvar_data = newvar.Get();
-
+  ResizeParArray(mask_.Get(), nmax_pool_, nmax_pool);
   pmb->par_for(
-      "setPoolMax_mask_1", 0, nmax_pool_ - 1,
-      KOKKOS_LAMBDA(const int n) { newvar_data(n) = oldvar_data(n); });
-  pmb->par_for(
-      "setPoolMax_mask_2", nmax_pool_, nmax_pool - 1,
-      KOKKOS_LAMBDA(const int n) { newvar_data(n) = 0; });
+      "setPoolMax_mask", nmax_pool_, nmax_pool - 1,
+      KOKKOS_LAMBDA(const int n) { mask_(n) = 0; });
 
-  mask_ = newvar;
-
-  auto oldvar_bool = marked_for_removal_;
-  auto newvar_bool =
-      ParticleVariable<bool>(oldvar_bool.label(), nmax_pool, oldvar_bool.metadata());
-  auto oldvar_bool_data = oldvar_bool.data;
-  auto newvar_bool_data = newvar_bool.data;
+  ResizeParArray(marked_for_removal_.Get(), nmax_pool_, nmax_pool);
   pmb->par_for(
-      "setPoolMax_mark_1", 0, nmax_pool_ - 1,
-      KOKKOS_LAMBDA(const int n) { newvar_bool_data(n) = oldvar_bool_data(n); });
-  pmb->par_for(
-      "setPoolMax_mark_2", nmax_pool_, nmax_pool - 1,
-      KOKKOS_LAMBDA(const int n) { newvar_bool_data(n) = 0; });
-  marked_for_removal_ = newvar_bool;
+      "setPoolMax_marked_for_removal", nmax_pool_, nmax_pool - 1,
+      KOKKOS_LAMBDA(const int n) { marked_for_removal_(n) = false; });
 
-  // TODO(BRR) make this operation a private member function for reuse
-  auto oldvar_int = neighbor_send_index_;
-  auto newvar_int =
-      ParticleVariable<int>(oldvar_int.label(), nmax_pool, oldvar_int.metadata());
-  auto oldvar_int_data = oldvar_int.data;
-  auto newvar_int_data = newvar_int.data;
-  pmb->par_for(
-      "setPoolMax_neighbor_send_index", 0, nmax_pool_ - 1,
-      KOKKOS_LAMBDA(const int n) { newvar_int_data(n) = oldvar_int_data(n); });
-  neighbor_send_index_ = newvar_int;
+  ResizeParArray(neighbor_send_index_.Get(), nmax_pool_, nmax_pool);
 
-  // Do something better about this...
   ResizeParArray(blockIndex_, nmax_pool_, nmax_pool);
 
-  // TODO(BRR) this is not an efficient loop ordering, probably
+  // TODO(BRR) Use ParticleVariable packs to reduce kernel launches
   for (int n = 0; n < intVector_.size(); n++) {
     auto oldvar = intVector_[n];
     auto newvar = std::make_shared<ParticleVariable<int>>(oldvar->label(), nmax_pool,

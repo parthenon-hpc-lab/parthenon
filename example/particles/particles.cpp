@@ -394,7 +394,7 @@ TaskListStatus ParticleDriver::Step() {
 }
 
 // TODO(BRR) Move to Swarm or something. Actually is this even needed?
-static int num_incomplete_local, num_incomplete_global;
+/*static int num_incomplete_local, num_incomplete_global;
 static MPI_Request allreduce_request;
 TaskStatus StartCommunicationMesh(BlockList_t &blocks) {
   num_incomplete_local = 0;
@@ -409,7 +409,7 @@ TaskStatus StartCommunicationMesh(BlockList_t &blocks) {
   //  MPI_COMM_WORLD, &allreduce_request);
 
   return TaskStatus::complete;
-}
+}*/
 
 TaskStatus StopCommunicationMesh(BlockList_t &blocks, bool &finished_transport) {
   // TODO(BRR) this allreduce should actually be generated after the particles are pushed...right?
@@ -499,11 +499,11 @@ TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection(bool &finished_
 
   auto num_task_lists_executed_independently = blocks.size();
 
-  TaskRegion &sync_region0 = tc.AddRegion(1);
+  /*TaskRegion &sync_region0 = tc.AddRegion(1);
   {
     auto &tl = sync_region0[0];
     auto start_comm = tl.AddTask(none, StartCommunicationMesh, blocks);
-  }
+  }*/
 
   TaskRegion &async_region0 = tc.AddRegion(num_task_lists_executed_independently);
   for (int i = 0; i < blocks.size(); i++) {

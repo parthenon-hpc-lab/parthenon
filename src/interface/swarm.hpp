@@ -65,15 +65,7 @@ class SwarmDeviceContext {
     // Something went wrong
     if (i < 0 || i > 3 || ((j < 0 || j > 3) && ndim_ > 1) ||
         ((k < 0 || k > 3) && ndim_ > 2)) {
-      blockIndex_(n) = -2;
-      // TODO(BRR) not sure how to handle this case... which hopefully never happens once
-      // everything is working
-      printf("BAD i: %i j: %i k: %i\n", i, j, k);
-      printf("x: %e y: %e z: %e\n", x, y, z);
-      printf("xmin ymin zmin: %e %e %e\n", x_min_, y_min_, z_min_);
-      printf("xmax ymax zmax: %e %e %e\n", x_max_, y_max_, z_max_);
       PARTHENON_FAIL("Particle neighbor indices out of bounds");
-      return -2;
     }
 
     // Ignore k,j indices as necessary based on problem dimension
@@ -84,15 +76,12 @@ class SwarmDeviceContext {
       int i = static_cast<int>(std::floor((x - x_min_) / ((x_max_ - x_min_) / 2.))) + 1;
       int j = static_cast<int>(std::floor((y - y_min_) / ((y_max_ - y_min_) / 2.))) + 1;
       blockIndex_(n) = neighborIndices_(0, j, i);
-      //printf("[%i] x: %e y: %e i: %i j: %i, index: %i\n", Globals::my_rank, x, y, i, j, blockIndex_(n));
-      //printf("[%i] xmin: %e xmax: %e\n", Globals::my_rank, x_min_, x_max_);
     } else {
       int i = static_cast<int>(std::floor((x - x_min_) / ((x_max_ - x_min_) / 2.))) + 1;
       int j = static_cast<int>(std::floor((y - y_min_) / ((y_max_ - y_min_) / 2.))) + 1;
       int k = static_cast<int>(std::floor((z - z_min_) / ((z_max_ - z_min_) / 2.))) + 1;
       blockIndex_(n) = neighborIndices_(k, j, i);
     }
-
     return blockIndex_(n);
   }
 
@@ -113,7 +102,6 @@ class SwarmDeviceContext {
   ParArrayND<bool> marked_for_removal_;
   ParArrayND<bool> mask_;
   ParArrayND<int> blockIndex_;
-  ParArrayND<int> neighbor_send_index_; // TODO(BRR) is this needed?
   ParArrayND<int> neighborIndices_;     // 4x4x4 array of possible block AMR regions
   int ndim_;
   friend class Swarm;
@@ -239,7 +227,7 @@ class Swarm {
   void PackAllVariables(SwarmVariablePack<Real> &vreal, SwarmVariablePack<int> &vint,
     PackIndexMap &rmap, PackIndexMap &imap);
 
-  bool StartCommunication(BoundaryCommSubset phase) {
+  /*bool StartCommunication(BoundaryCommSubset phase) {
     printf("[%i] StartCommunication!\n", Globals::my_rank);
     mpiStatus = false;
 
@@ -269,7 +257,7 @@ class Swarm {
 
     return false;
   }
-  bool FinishCommunication(BoundaryCommSubset phase);
+  bool FinishCommunication(BoundaryCommSubset phase);*/
 
   // Temporarily public
   int swarm_num_incomplete_;
@@ -298,6 +286,7 @@ class Swarm {
   MapToParticle<Real> realMap_;
 
   std::list<int> free_indices_;
+  // TODO(BRR) should these just be ParArrays?
   ParticleVariable<bool> mask_;
   ParticleVariable<bool> marked_for_removal_;
   ParticleVariable<int> neighbor_send_index_; // -1 means no send
@@ -306,7 +295,7 @@ class Swarm {
   ParArrayND<int> blockIndex_; // Neighbor index for each particle. -1 for current block.
 
   template <typename T>
-  void ResizeParArray(ParArrayND<T> &var, int n_old, int n_new);
+  void ResizeParArray(ParArrayND<T> &var, const int n_old, const int n_new);
   //MapToSwarmVariablePack<Real> varPackMapReal_;
   //MapToSwarmVariablePack<int> varPackMapInt_;
 
