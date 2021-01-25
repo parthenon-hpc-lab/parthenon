@@ -414,9 +414,10 @@ TaskStatus StartCommunicationMesh(BlockList_t &blocks) {
   return TaskStatus::complete;
 }
 
+static int count = 0;
 TaskStatus StopCommunicationMesh(BlockList_t &blocks, bool &finished_transport) {
   // TODO(BRR) this allreduce should actually be generated after the particles are pushed...right?
-  printf("[%i] StopCommunication\n", Globals::my_rank);
+  printf("[%i] StopCommunicationMesh\n", Globals::my_rank);
   //MPI_Status status;
   //MPI_Wait(&allreduce_request, &status);
   /*for (auto &block : blocks) {
@@ -437,20 +438,32 @@ TaskStatus StopCommunicationMesh(BlockList_t &blocks, bool &finished_transport) 
     num_sent_local += swarm->num_particles_sent_;
   }
 
-  printf("Need to check that all communications are done!\n");
+  //printf("Need to check that all communications are done!\n");
   // Boundary transfers on same MPI proc are blocking
+  count++;
+  if (count > 10) { exit(-1); }
   for (auto &block : blocks) {
     auto swarm = block->swarm_data.Get()->Get("my particles");
     for (int n = 0; n < block->pbval->nneighbor; n++) {
       NeighborBlock &nb = block->pbval->neighbor[n];
       // TODO(BRR) just check this for local copies too?
       printf("[%i] Neighbor: %i Comm status: %i\n", Globals::my_rank, n, static_cast<int>(swarm->vbswarm->bd_var_.flag[nb.bufid]));
+    }
+  }
+
+
+  for (auto &block : blocks) {
+    auto swarm = block->swarm_data.Get()->Get("my particles");
+    for (int n = 0; n < block->pbval->nneighbor; n++) {
+      NeighborBlock &nb = block->pbval->neighbor[n];
+      // TODO(BRR) just check this for local copies too?
+      //printf("[%i] Neighbor: %i Comm status: %i\n", Globals::my_rank, n, static_cast<int>(swarm->vbswarm->bd_var_.flag[nb.bufid]));
       if (nb.snb.rank != Globals::my_rank) {
         if (swarm->vbswarm->bd_var_.flag[nb.bufid] != BoundaryStatus::completed) {
           printf("[%i] Communication not done with neighbor %i (%i)\n", Globals::my_rank, n,
             static_cast<int>((swarm->vbswarm->bd_var_.flag[nb.bufid])));
-          exit(-1);
-          return TaskStatus::incomplete;
+          //exit(-1);
+          //return TaskStatus::incomplete;
         }
       }
     }

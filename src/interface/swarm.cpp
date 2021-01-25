@@ -624,8 +624,10 @@ bool Swarm::Send(BoundaryCommSubset phase) {
     }
     vbswarm->send_size[n] = num_particles_to_send_h(n) * particle_size;
     num_particles_sent_ += num_particles_to_send_h(n);
-    printf("[%i] Sending %i particles to neighbor: %i rank: %i\n", Globals::my_rank,
-      num_particles_to_send_h(n), n, pmb->pbval->neighbor[n].snb.rank);
+    if (num_particles_to_send_h(n) > 0) {
+      printf("[%i] Sending %i particles to neighbor: %i rank: %i\n", Globals::my_rank,
+        num_particles_to_send_h(n), n, pmb->pbval->neighbor[n].snb.rank);
+    }
   }
   printf("[%i] Sent %i particles\n", Globals::my_rank, num_particles_sent_);
 
@@ -907,13 +909,13 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
   bool all_boundaries_received = true;
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
-    printf("[%i] nb %i: BoundaryStatus[%i] arrived? %i (%i)\n", Globals::my_rank, n, nb.bufid, bdvar.flag[nb.bufid] == BoundaryStatus::arrived, static_cast<int>(bdvar.flag[nb.bufid]));
+    //printf("[%i] nb %i: BoundaryStatus[%i] arrived? %i (%i)\n", Globals::my_rank, n, nb.bufid, bdvar.flag[nb.bufid] == BoundaryStatus::arrived, static_cast<int>(bdvar.flag[nb.bufid]));
     if (bdvar.flag[nb.bufid] == BoundaryStatus::arrived) {
       bdvar.flag[nb.bufid] = BoundaryStatus::completed;
     } else if (bdvar.flag[nb.bufid] == BoundaryStatus::waiting) {
       all_boundaries_received == false;
     }
-    printf("[%i] BoundaryStatus[%i]: %i\n", Globals::my_rank, nb.bufid, static_cast<int>(bdvar.flag[nb.bufid]));
+    //printf("[%i] BoundaryStatus[%i]: %i\n", Globals::my_rank, nb.bufid, static_cast<int>(bdvar.flag[nb.bufid]));
   }
 
   if (all_boundaries_received) {

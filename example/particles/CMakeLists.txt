@@ -12,7 +12,7 @@
 #=========================================================================================
 
 get_property(DRIVER_LIST GLOBAL PROPERTY DRIVERS_USED_IN_TESTS)
-if( "particles-example" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_EXAMPLE)
+if( "particles-example" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_EXAMPLES)
   add_executable(
       particles-example
           main.cpp
