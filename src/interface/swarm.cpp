@@ -822,97 +822,98 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
   printf("[%i] Received %i particles\n", Globals::my_rank, total_received_particles);
   if (total_received_particles > 10) { exit(-1); }
 
-  if (total_received_particles == 0) {
-    return true;
-  }
+  auto &bdvar = vbswarm->bd_var_;
 
-  ParArrayND<int> new_indices;
-  auto new_mask = AddEmptyParticles(total_received_particles, new_indices);
-  SwarmVariablePack<Real> vreal;
-  SwarmVariablePack<int> vint;
-  PackIndexMap rmap;
-  PackIndexMap imap;
-  PackAllVariables(vreal, vint, rmap, imap);
-  int real_vars_size = realVector_.size();
-  int int_vars_size = intVector_.size();
-  const int ix = rmap["x"].first;
-  const int iy = rmap["y"].first;
-  const int iz = rmap["z"].first;
+  if (total_received_particles > 0) {
+    ParArrayND<int> new_indices;
+    auto new_mask = AddEmptyParticles(total_received_particles, new_indices);
+    SwarmVariablePack<Real> vreal;
+    SwarmVariablePack<int> vint;
+    PackIndexMap rmap;
+    PackIndexMap imap;
+    PackAllVariables(vreal, vint, rmap, imap);
+    int real_vars_size = realVector_.size();
+    int int_vars_size = intVector_.size();
+    const int ix = rmap["x"].first;
+    const int iy = rmap["y"].first;
+    const int iz = rmap["z"].first;
 
-  ParArrayND<int> neighbor_index("Neighbor index", total_received_particles);
-  ParArrayND<int> buffer_index("Buffer index", total_received_particles);
-  auto neighbor_index_h = neighbor_index.GetHostMirror();
-  auto buffer_index_h = buffer_index.GetHostMirror();
-  int nid = 0;
-  int per_neighbor_count = 0;
+    ParArrayND<int> neighbor_index("Neighbor index", total_received_particles);
+    ParArrayND<int> buffer_index("Buffer index", total_received_particles);
+    auto neighbor_index_h = neighbor_index.GetHostMirror();
+    auto buffer_index_h = buffer_index.GetHostMirror();
+    int nid = 0;
+    int per_neighbor_count = 0;
 
-  int id = 0;
-  for (int n = 0; n < maxneighbor; n++) {
-    for (int m = 0; m < neighbor_received_particles[n]; m++) {
-      neighbor_index_h(id) = n;
-      buffer_index_h(id) = m;
-      id++;
+    int id = 0;
+    for (int n = 0; n < maxneighbor; n++) {
+      for (int m = 0; m < neighbor_received_particles[n]; m++) {
+        neighbor_index_h(id) = n;
+        buffer_index_h(id) = m;
+        id++;
+      }
     }
+    neighbor_index.DeepCopy(neighbor_index_h);
+    buffer_index.DeepCopy(buffer_index_h);
+
+    // construct map from buffer index to swarm index (or just return vector of indices!)
+    int particle_size = GetParticleDataSize();
+    auto swarm_d = GetDeviceContext();
+
+    pmb->par_for(
+        "Unpack buffers", 0, total_received_particles - 1, KOKKOS_LAMBDA(const int n) {
+          int sid = new_indices(n);
+          int nid = neighbor_index(n);
+          int bid = buffer_index(n);
+          for (int i = 0; i < real_vars_size; i++) {
+            vreal(i, sid) = bdvar.recv[nid](bid * particle_size + i);
+            printf("[%i] UNPACK n: %i real(%i) = %e\n", Globals::my_rank, n, i, vreal(i,sid));
+          }
+          for (int i = 0; i < int_vars_size; i++) {
+            vint(i, sid) = static_cast<int>(
+                bdvar.recv[nid]((real_vars_size + bid) * particle_size + i));
+          }
+
+          double &x = vreal(ix, sid);
+          double &y = vreal(iy, sid);
+          double &z = vreal(iz, sid);
+          printf("xyz: %e %e %e\n", x, y, z);
+          if (x < swarm_d.x_min_global_) {
+            x = swarm_d.x_max_global_ - (swarm_d.x_min_global_ - x);
+          }
+          if (x > swarm_d.x_max_global_) {
+            x = swarm_d.x_min_global_ + (x - swarm_d.x_max_global_);
+          }
+          if (y < swarm_d.y_min_global_) {
+            y = swarm_d.y_max_global_ - (swarm_d.y_min_global_ - y);
+          }
+          if (y > swarm_d.y_max_global_) {
+            y = swarm_d.y_min_global_ + (y - swarm_d.y_max_global_);
+          }
+          if (z < swarm_d.z_min_global_) {
+            z = swarm_d.z_max_global_ - (swarm_d.z_min_global_ - z);
+          }
+          if (z > swarm_d.z_max_global_) {
+            z = swarm_d.z_min_global_ + (z - swarm_d.z_max_global_);
+          }
+          printf("x: [%e %e] y: [%e %e] z: [%e %e] xyz: %e %e %e\n",
+            swarm_d.x_min_, swarm_d.x_max_, swarm_d.y_min_, swarm_d.y_max_,
+            swarm_d.z_min_, swarm_d.z_max_, x, y, z);
+
+          // TODO(BRR) Apply boundaries as necessary
+        });
   }
-  neighbor_index.DeepCopy(neighbor_index_h);
-  buffer_index.DeepCopy(buffer_index_h);
-
-  // construct map from buffer index to swarm index (or just return vector of indices!)
-  int particle_size = GetParticleDataSize();
-  auto swarm_d = GetDeviceContext();
-
-  auto bdvar = vbswarm->bd_var_;
-  pmb->par_for(
-      "Unpack buffers", 0, total_received_particles - 1, KOKKOS_LAMBDA(const int n) {
-        int sid = new_indices(n);
-        int nid = neighbor_index(n);
-        int bid = buffer_index(n);
-        for (int i = 0; i < real_vars_size; i++) {
-          vreal(i, sid) = bdvar.recv[nid](bid * particle_size + i);
-          printf("[%i] UNPACK n: %i real(%i) = %e\n", Globals::my_rank, n, i, vreal(i,sid));
-        }
-        for (int i = 0; i < int_vars_size; i++) {
-          vint(i, sid) = static_cast<int>(
-              bdvar.recv[nid]((real_vars_size + bid) * particle_size + i));
-        }
-
-        double &x = vreal(ix, sid);
-        double &y = vreal(iy, sid);
-        double &z = vreal(iz, sid);
-        printf("xyz: %e %e %e\n", x, y, z);
-        if (x < swarm_d.x_min_global_) {
-          x = swarm_d.x_max_global_ - (swarm_d.x_min_global_ - x);
-        }
-        if (x > swarm_d.x_max_global_) {
-          x = swarm_d.x_min_global_ + (x - swarm_d.x_max_global_);
-        }
-        if (y < swarm_d.y_min_global_) {
-          y = swarm_d.y_max_global_ - (swarm_d.y_min_global_ - y);
-        }
-        if (y > swarm_d.y_max_global_) {
-          y = swarm_d.y_min_global_ + (y - swarm_d.y_max_global_);
-        }
-        if (z < swarm_d.z_min_global_) {
-          z = swarm_d.z_max_global_ - (swarm_d.z_min_global_ - z);
-        }
-        if (z > swarm_d.z_max_global_) {
-          z = swarm_d.z_min_global_ + (z - swarm_d.z_max_global_);
-        }
-        printf("x: [%e %e] y: [%e %e] z: [%e %e] xyz: %e %e %e\n",
-          swarm_d.x_min_, swarm_d.x_max_, swarm_d.y_min_, swarm_d.y_max_,
-          swarm_d.z_min_, swarm_d.z_max_, x, y, z);
-
-        // TODO(BRR) Apply boundaries as necessary
-      });
 
   bool all_boundaries_received = true;
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
+    printf("[%i] nb %i: BoundaryStatus[%i] arrived? %i (%i)\n", Globals::my_rank, n, nb.bufid, bdvar.flag[nb.bufid] == BoundaryStatus::arrived, static_cast<int>(bdvar.flag[nb.bufid]));
     if (bdvar.flag[nb.bufid] == BoundaryStatus::arrived) {
       bdvar.flag[nb.bufid] = BoundaryStatus::completed;
     } else if (bdvar.flag[nb.bufid] == BoundaryStatus::waiting) {
       all_boundaries_received == false;
     }
+    printf("[%i] BoundaryStatus[%i]: %i\n", Globals::my_rank, nb.bufid, static_cast<int>(bdvar.flag[nb.bufid]));
   }
 
   if (all_boundaries_received) {

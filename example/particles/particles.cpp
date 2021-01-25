@@ -440,13 +440,14 @@ TaskStatus StopCommunicationMesh(BlockList_t &blocks, bool &finished_transport) 
   printf("Need to check that all communications are done!\n");
   // Boundary transfers on same MPI proc are blocking
   for (auto &block : blocks) {
+    auto swarm = block->swarm_data.Get()->Get("my particles");
     for (int n = 0; n < block->pbval->nneighbor; n++) {
       NeighborBlock &nb = block->pbval->neighbor[n];
       // TODO(BRR) just check this for local copies too?
+      printf("[%i] Neighbor: %i Comm status: %i\n", Globals::my_rank, n, static_cast<int>(swarm->vbswarm->bd_var_.flag[nb.bufid]));
       if (nb.snb.rank != Globals::my_rank) {
-        auto swarm = block->swarm_data.Get()->Get("my particles");
         if (swarm->vbswarm->bd_var_.flag[nb.bufid] != BoundaryStatus::completed) {
-          printf("[%i] Communication not done with neighbor %i (%i)\n", Globals::my_rank, nb.bufid,
+          printf("[%i] Communication not done with neighbor %i (%i)\n", Globals::my_rank, n,
             static_cast<int>((swarm->vbswarm->bd_var_.flag[nb.bufid])));
           exit(-1);
           return TaskStatus::incomplete;
