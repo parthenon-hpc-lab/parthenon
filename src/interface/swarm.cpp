@@ -478,6 +478,7 @@ void Swarm::SetupPersistentMPI() {
 }
 
 bool Swarm::Send(BoundaryCommSubset phase) {
+  printf("[%i] Send\n", Globals::my_rank);
   auto blockIndex_h = blockIndex_.GetHostMirrorAndCopy();
   auto mask_h = mask_.data.GetHostMirrorAndCopy();
   auto swarm_d = GetDeviceContext();
@@ -681,7 +682,11 @@ SwarmVariablePack<int> Swarm::PackVariablesInt(const std::vector<std::string> &n
   return pack;
 }
 
+//static int count = 0;
 bool Swarm::Receive(BoundaryCommSubset phase) {
+  //if (count > 50) exit(-1);
+  //count++;
+  printf("[%i] Receive\n", Globals::my_rank);
   // Ensure all local deep copies marked BoundaryStatus::completed are actually received
   GetBlockPointer()->exec_space.fence();
   auto pmb = GetBlockPointer();
@@ -781,16 +786,19 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
   bool all_boundaries_received = true;
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
+    printf("[%i] Neighbor %i: BoundaryStatus: %i\n", Globals::my_rank, n, bdvar.flag[nb.bufid]);
     if (bdvar.flag[nb.bufid] == BoundaryStatus::arrived) {
       bdvar.flag[nb.bufid] = BoundaryStatus::completed;
     } else if (bdvar.flag[nb.bufid] == BoundaryStatus::waiting) {
-      all_boundaries_received == false;
+      all_boundaries_received = false;
     }
   }
 
   if (all_boundaries_received) {
+    printf("[%i] ALL BOUNDARIES RECEIVED\n", Globals::my_rank);
     return true;
   } else {
+    printf("[%i] ALL BOUNDARIES NOT RECEIVED\n", Globals::my_rank);
     return false;
   }
 }

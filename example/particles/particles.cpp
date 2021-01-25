@@ -356,6 +356,7 @@ TaskListStatus ParticleDriver::Step() {
 // TODO(BRR) This should really be in parthenon/src... but it can't just live in Swarm
 // because of the loop over blocks
 TaskStatus StopCommunicationMesh(BlockList_t &blocks) {
+  printf("[%i] StopCommunicationMesh\n", Globals::my_rank);
   int num_sent_local = 0;
   for (auto &block : blocks) {
     auto &pmb = block;
@@ -370,9 +371,11 @@ TaskStatus StopCommunicationMesh(BlockList_t &blocks) {
     auto swarm = block->swarm_data.Get()->Get("my particles");
     for (int n = 0; n < block->pbval->nneighbor; n++) {
       NeighborBlock &nb = block->pbval->neighbor[n];
+      printf("[%i] neighbor flag: %i\n", Globals::my_rank, swarm->vbswarm->bd_var_.flag[nb.bufid]);
       if (nb.snb.rank != Globals::my_rank) {
         if (swarm->vbswarm->bd_var_.flag[nb.bufid] != BoundaryStatus::completed) {
-          return TaskStatus::incomplete;
+          printf("[%i] Neighbor %i not complete!\n", Globals::my_rank, n);
+          //return TaskStatus::incomplete;
         }
       }
 

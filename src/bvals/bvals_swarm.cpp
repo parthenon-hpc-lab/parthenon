@@ -103,6 +103,7 @@ void BoundarySwarm::Send(BoundaryCommSubset phase) {
 #ifdef MPI_PARALLEL
       PARTHENON_REQUIRE(bd_var_.req_send[nb.bufid] == MPI_REQUEST_NULL,
                         "Trying to create a new send before previous send completes!");
+      printf("[%i] Sending size %i to neighbor %i\n", Globals::my_rank, send_size[n], n);
       MPI_Isend(bd_var_.send[n].data(), send_size[n], MPI_PARTHENON_REAL, nb.snb.rank,
                 send_tag[n], MPI_COMM_WORLD, &(bd_var_.req_send[nb.bufid]));
 #endif // MPI_PARALLEL
@@ -110,6 +111,7 @@ void BoundarySwarm::Send(BoundaryCommSubset phase) {
       MeshBlock &target_block = *pmy_mesh_->FindMeshBlock(nb.snb.gid);
       std::shared_ptr<BoundarySwarm> ptarget_bswarm =
           target_block.pbswarm->bswarms[bswarm_index];
+      printf("[%i] Copying size %i to neighbor %i\n", Globals::my_rank, send_size[n], n);
       if (send_size[nb.bufid] > 0) {
         // Ensure target buffer is large enough
         if (bd_var_.send[nb.bufid].extent(0) >
@@ -142,21 +144,24 @@ void BoundarySwarm::Receive(BoundaryCommSubset phase) {
       int test;
       MPI_Status status;
 
-      MPI_Iprobe(MPI_ANY_SOURCE, recv_tag[nb.bufid], MPI_COMM_WORLD, &test, &status);
-      if (!static_cast<bool>(test)) {
-        bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
-      } else {
-        bd_var_.flag[nb.bufid] = BoundaryStatus::arrived;
+      if (bd_var_.flag[nb.bufid] != BoundaryStatus::completed) {
+        MPI_Iprobe(MPI_ANY_SOURCE, recv_tag[nb.bufid], MPI_COMM_WORLD, &test, &status);
+        printf("[%i] Probed neighbor %i with tag %i: test: %i\n", Globals::my_rank, n, recv_tag[nb.bufid], test);
+        if (!static_cast<bool>(test)) {
+          bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
+        } else {
+          bd_var_.flag[nb.bufid] = BoundaryStatus::arrived;
 
-        // If message is available, receive it
-        int nbytes = 0;
-        MPI_Get_count(&status, MPI_CHAR, &nbytes);
-        if (nbytes / sizeof(Real) > bd_var_.recv[n].extent(0)) {
-          bd_var_.recv[n] = ParArray1D<Real>("Buffer", nbytes / sizeof(Real));
+          // If message is available, receive it
+          int nbytes = 0;
+          MPI_Get_count(&status, MPI_CHAR, &nbytes);
+          if (nbytes / sizeof(Real) > bd_var_.recv[n].extent(0)) {
+            bd_var_.recv[n] = ParArray1D<Real>("Buffer", nbytes / sizeof(Real));
+          }
+          MPI_Recv(bd_var_.recv[n].data(), nbytes, MPI_CHAR, nb.snb.rank,
+                   recv_tag[nb.bufid], MPI_COMM_WORLD, &status);
+          recv_size[n] = nbytes / sizeof(Real);
         }
-        MPI_Recv(bd_var_.recv[n].data(), nbytes, MPI_CHAR, nb.snb.rank,
-                 recv_tag[nb.bufid], MPI_COMM_WORLD, &status);
-        recv_size[n] = nbytes / sizeof(Real);
       }
     }
   }
