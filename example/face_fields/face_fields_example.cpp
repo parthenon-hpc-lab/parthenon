@@ -57,7 +57,7 @@ Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
                array_size);
   package->AddField("f.f.face_averaged_value", m);
 
-  packages["FaceFieldExample"] = package;
+  packages.Add(package);
   return packages;
 }
 
@@ -167,7 +167,7 @@ TaskList FaceFieldExample::MakeTaskList(MeshBlock *pmb) {
 parthenon::TaskStatus fill_faces(parthenon::MeshBlock *pmb) {
   using parthenon::Real;
 
-  auto example = pmb->packages["FaceFieldExample"];
+  auto example = pmb->packages.Get("FaceFieldExample");
   Real px = example->Param<Real>("px");
   Real py = example->Param<Real>("py");
   Real pz = example->Param<Real>("pz");
