@@ -682,10 +682,10 @@ SwarmVariablePack<int> Swarm::PackVariablesInt(const std::vector<std::string> &n
   return pack;
 }
 
-//static int count = 0;
+static int count = 0;
 bool Swarm::Receive(BoundaryCommSubset phase) {
-  //if (count > 50) exit(-1);
-  //count++;
+  if (count > 5) exit(-1);
+  count++;
   printf("[%i] Receive\n", Globals::my_rank);
   // Ensure all local deep copies marked BoundaryStatus::completed are actually received
   GetBlockPointer()->exec_space.fence();

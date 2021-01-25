@@ -124,9 +124,11 @@ void BoundarySwarm::Send(BoundaryCommSubset phase) {
                                bd_var_.send[nb.bufid]);
         ptarget_bswarm->recv_size[nb.targetid] = send_size[nb.bufid];
         ptarget_bswarm->bd_var_.flag[nb.targetid] = BoundaryStatus::arrived;
+        printf("Setting neighbor %i targetid %i to ARRIVED\n", n, nb.targetid);
       } else {
         ptarget_bswarm->recv_size[nb.targetid] = 0;
         ptarget_bswarm->bd_var_.flag[nb.targetid] = BoundaryStatus::completed;
+        printf("Setting neighbor %i targetid %i to COMPLETED\n", n, nb.targetid);
       }
     }
   }
