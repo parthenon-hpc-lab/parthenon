@@ -281,7 +281,7 @@ class ParthenonApp(App):
         figure_name =test_dir + "_" + current_branch.replace(r'/', '-') + "_" + target_branch.replace(r'/', '-') + ".png"
         figure_path_name = os.path.join(self._parthenon_wiki_dir, figure_name )
         fig.savefig(figure_path_name, bbox_inches='tight')
-        self.upload(figure_path_name, "master",use_wiki=False)
+        self.upload(figure_path_name, self._default_image_branch, use_wiki=False)
 
         fig_url ='https://github.com/' + self._user + '/' + self._repo_name + '/blob/figures/' + figure_name + '?raw=true'
         print("Figure url is: %s" % fig_url) 
