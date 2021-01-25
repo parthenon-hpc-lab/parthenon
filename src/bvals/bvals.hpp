@@ -114,7 +114,7 @@ class BoundarySwarms : public BoundaryBase, BoundaryCommunication {
   // called before time-stepper:
   void SetupPersistentMPI() final; // setup MPI requests
 
-  // called before and during time-stepper:
+  // called before and during time-stepper (currently do nothing for swarms):
   void StartReceiving(BoundaryCommSubset phase) final {};
   void ClearBoundary(BoundaryCommSubset phase) final {};
 
@@ -123,7 +123,7 @@ class BoundarySwarms : public BoundaryBase, BoundaryCommunication {
  private:
   // ptr to MeshBlock containing this BoundaryValues
   std::weak_ptr<MeshBlock> pmy_block_;
-  int nface_, nedge_; // TODO(BRR) needed?
+  int nface_, nedge_;
 
   // if a BoundaryPhysics or user fn should be applied at each MeshBlock boundary
   // false --> e.g. block, polar, periodic boundaries
@@ -142,8 +142,6 @@ class BoundarySwarms : public BoundaryBase, BoundaryCommunication {
     return pmy_block_.lock();
   }
 
-  // temporary--- Added by @tomidakn on 2015-11-27 in f0f989f85f
-  // TODO(KGF): consider removing this friendship designation
   friend class Mesh;
   // currently, this class friendship is required for copying send/recv buffers between
   // BoundarySwarm objects within different MeshBlocks on the same MPI rank:

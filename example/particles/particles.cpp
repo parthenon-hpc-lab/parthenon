@@ -376,14 +376,29 @@ TaskListStatus ParticleDriver::Step() {
   // because long-distance particle pushes can lead to a large, unpredictable number of
   // MPI sends and receives.
   bool particles_update_done = false;
+  int ncyc = 0;
   while (!particles_update_done) {
-    TaskCollection ptc = MakeParticlesUpdateTaskCollection(particles_update_done);
+    TaskCollection ptc = MakeParticlesUpdateTaskCollection();//particles_update_done);
     status = ptc.Execute();
 
-    auto &pmb = blocks[0];
-    auto sc = pmb->swarm_data.Get();
-    auto swarm = sc->Get("my particles");
-    particles_update_done = swarm->finished_transport;
+    particles_update_done = true;
+    int n = 0;
+    for (auto &block : blocks) {
+      auto swarm = block->swarm_data.Get()->Get("my particles");
+      printf("block %i: done? %i\n", n, swarm->finished_transport);
+      n++;
+      if (!swarm->finished_transport) {
+        printf("SWARM NOT DONE!!\n\n");
+        particles_update_done = false;
+      }
+    }
+    printf("particles_update_done: %i\n", particles_update_done);
+    //auto &pmb = blocks[0];
+    //auto sc = pmb->swarm_data.Get();
+    //auto swarm = sc->Get("my particles");
+    //particles_update_done = swarm->finished_transport;
+    if (ncyc > 100) exit(-1);
+    ncyc++;
   }
 
   // Use a more traditional task list for predictable post-MPI evaluations.
@@ -411,19 +426,8 @@ TaskStatus StartCommunicationMesh(BlockList_t &blocks) {
   return TaskStatus::complete;
 }*/
 
-TaskStatus StopCommunicationMesh(BlockList_t &blocks, bool &finished_transport) {
-  // TODO(BRR) this allreduce should actually be generated after the particles are pushed...right?
+TaskStatus StopCommunicationMesh(BlockList_t &blocks) {//, bool &finished_transport) {
   printf("[%i] StopCommunicationMesh\n", Globals::my_rank);
-  //MPI_Status status;
-  //MPI_Wait(&allreduce_request, &status);
-  /*for (auto &block : blocks) {
-    auto &pmb = block;
-    auto swarm = pmb->swarm_data.Get()->Get("my particles");
-    for (int n = 0; n < pmb->pbval->nneighbor; n++) {
-      NeighborBlock &nb = pmb->pbval->neighbor[n];
-      auto x = swarm->vbswarm.bd_var_;
-    }
-  }*/
 
   int num_sent_local = 0;
   for (auto &block : blocks) {
@@ -434,21 +438,22 @@ TaskStatus StopCommunicationMesh(BlockList_t &blocks, bool &finished_transport) 
     num_sent_local += swarm->num_particles_sent_;
   }
 
-  //printf("Need to check that all communications are done!\n");
   // Boundary transfers on same MPI proc are blocking
   for (auto &block : blocks) {
     auto swarm = block->swarm_data.Get()->Get("my particles");
     for (int n = 0; n < block->pbval->nneighbor; n++) {
       NeighborBlock &nb = block->pbval->neighbor[n];
-      // TODO(BRR) just check this for local copies too?
-      //printf("[%i] Neighbor: %i Comm status: %i\n", Globals::my_rank, n, static_cast<int>(swarm->vbswarm->bd_var_.flag[nb.bufid]));
       if (nb.snb.rank != Globals::my_rank) {
         if (swarm->vbswarm->bd_var_.flag[nb.bufid] != BoundaryStatus::completed) {
           //printf("[%i] Communication not done with neighbor %i (%i)\n", Globals::my_rank, n,
           //  static_cast<int>((swarm->vbswarm->bd_var_.flag[nb.bufid])));
           //exit(-1);
-          //return TaskStatus::incomplete;
+          return TaskStatus::incomplete;
         }
+      }
+
+      if (swarm->vbswarm->bd_var_.flag[nb.bufid] == BoundaryStatus::completed) {
+        swarm->vbswarm->bd_var_.req_send[nb.bufid] = MPI_REQUEST_NULL;
       }
     }
   }
@@ -459,16 +464,17 @@ TaskStatus StopCommunicationMesh(BlockList_t &blocks, bool &finished_transport) 
   printf("[%i] num sent global: %i\n", Globals::my_rank, num_sent_global);
 
   if (num_sent_global == 0) {
-    finished_transport = true;
+    //finished_transport = true;
     for (auto &block : blocks) {
       auto &pmb = block;
       auto sc = pmb->swarm_data.Get();
       auto swarm = sc->Get("my particles");
       swarm->finished_transport = true;
     }
-  } else {
-    finished_transport = false;
   }
+  //else {
+  //  finished_transport = false;
+  //}
 
   return TaskStatus::complete;
 }
@@ -491,7 +497,7 @@ TaskCollection ParticleDriver::MakeParticlesCreationTaskCollection() {
   return tc;
 }
 
-TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection(bool &finished_transport) {
+TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection() {//bool &finished_transport) {
   TaskCollection tc;
   TaskID none(0);
   double t0 = tm.time;
@@ -526,7 +532,7 @@ TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection(bool &finished_
   TaskRegion &sync_region1 = tc.AddRegion(1);
   {
     auto &tl = sync_region1[0];
-    auto stop_comm = tl.AddTask(none, StopCommunicationMesh, blocks, finished_transport);
+    auto stop_comm = tl.AddTask(none, StopCommunicationMesh, blocks);//, finished_transport);
   }
 
   return tc;

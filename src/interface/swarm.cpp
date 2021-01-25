@@ -355,7 +355,7 @@ void Swarm::Defrag() {
     from_to_indices_h(index_to_move_from) = index_to_move_to;
   }
 
-  // Not all these sorts may be necessary
+  // TODO(BRR) Not all these sorts may be necessary
   free_indices_.sort();
   new_free_indices.sort();
   free_indices_.merge(new_free_indices);
@@ -371,26 +371,24 @@ void Swarm::Defrag() {
         }
       });
 
-  // TODO(BRR) Use SwarmPacks to reduce number of kernel launches
-  for (int m = 0; m < intVector_.size(); m++) {
-    auto &vec = intVector_[m]->Get();
-    pmb->par_for(
-        "Swarm::DefragInt", 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
-          if (from_to_indices(n) >= 0) {
-            vec(from_to_indices(n)) = vec(n);
-          }
-        });
-  }
+  SwarmVariablePack<Real> vreal;
+  SwarmVariablePack<int> vint;
+  PackIndexMap rmap;
+  PackIndexMap imap;
+  PackAllVariables(vreal, vint, rmap, imap);
+  int real_vars_size = realVector_.size();
+  int int_vars_size = intVector_.size();
 
-  for (int m = 0; m < realVector_.size(); m++) {
-    auto &vec = realVector_[m]->Get();
-    pmb->par_for(
-        "Swarm::DefragReal", 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
-          if (from_to_indices(n) >= 0) {
-            vec(from_to_indices(n)) = vec(n);
-          }
-        });
-  }
+  pmb->par_for("Swarm::DefragVariables", 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
+    if (from_to_indices(n) >= 0) {
+      for (int i = 0; i < real_vars_size; i++) {
+        vreal(i, from_to_indices(n)) = vreal(i, n);
+      }
+      for (int i = 0; i < int_vars_size; i++) {
+        vint(i, from_to_indices(n)) = vint(i, n);
+      }
+    }
+  });
 
   // Update max_active_index_
   max_active_index_ = num_active_ - 1;
@@ -399,7 +397,6 @@ void Swarm::Defrag() {
 }
 
 void Swarm::SetupPersistentMPI() {
-  printf("[%i] SetupPersistentMPI\n", Globals::my_rank);
   vbswarm->SetupPersistentMPI();
 
   allreduce_request_ = MPI_REQUEST_NULL;
@@ -476,32 +473,10 @@ void Swarm::SetupPersistentMPI() {
     }
   }
 
-  /*for (int j = 0; j < 4; j++) {
-    printf("[%i] ", Globals::my_rank);
-    for (int i = 0; i < 4; i++) {
-      //printf("[0 %i %i]: %i\n", j, i, neighborIndices_h(0,j,i));
-      printf("%i ", neighborIndices_h(0,j,i));
-    }
-    printf("\n");
-  }
-  int j = 3;
-  int i = 3;
-  printf("Lets get info about [0 %i %i], neighbor %i\n", j, i, neighborIndices_h(0,j,i));
-  NeighborBlock &nb = pmb->pbval->neighbor[neighborIndices_h(0,j,i)];
-  BoundaryFace fid = nb.fid;
-  printf("BoundaryFace: %i\n", static_cast<int>(fid));
-  auto snb = nb.snb;
-  printf("  rank: %i level: %i lid: %i gid: %i\n", snb.rank, snb.level,
-    snb.lid, snb.gid);
-  //exit(-1);*/
-
   neighborIndices_.DeepCopy(neighborIndices_h);
 }
 
 bool Swarm::Send(BoundaryCommSubset phase) {
-  GetBlockPointer()->exec_space.fence();
-  printf("[%i] Send\n", Globals::my_rank);
-
   auto blockIndex_h = blockIndex_.GetHostMirrorAndCopy();
   auto mask_h = mask_.data.GetHostMirrorAndCopy();
   auto swarm_d = GetDeviceContext();
@@ -590,7 +565,7 @@ bool Swarm::Send(BoundaryCommSubset phase) {
   }
   nrank.DeepCopy(nrank_h);
 
-  auto bdvar = vbswarm->bd_var_;
+  auto &bdvar = vbswarm->bd_var_;
   pmb->par_for(
       "Pack Buffers", 0, max_indices_size,
       KOKKOS_LAMBDA(const int n) {        // Max index
