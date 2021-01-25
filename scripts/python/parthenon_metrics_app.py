@@ -275,6 +275,8 @@ class ParthenonApp(App):
 
       with open(pr_wiki_page,'w') as writer: 
         writer.write("This file is managed by the " + self._name + ".\n\n")
+        writer.write("Date and Time: %s\n" % now.strftime("%Y-%m-%d %H:%M:%S"))
+        writer.write("Commit: %s\n\n" % commit_sha)
         writer.write("![Image](" + fig_url +")\n")
         wiki_url = "https://github.com/{usr_name}/{repo_name}/wiki/{file_name}"
         wiki_url = wiki_url.format(usr_name=self._user, repo_name=self._repo_name, file_name=wiki_file_name )

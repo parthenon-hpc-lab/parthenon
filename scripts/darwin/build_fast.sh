@@ -9,9 +9,8 @@ source /projects/parthenon-int/parthenon-project/spack/share/spack/setup-env.sh
 set -eE
 
 # Export COMMIT CI
-#export CI_COMMIT_SHA="b4cdf92c76df3b9b89c705473f2e7dd6f2476895"
-SCRIPT=`realpath $0`
-SOURCE=`dirname $SCRIPT`
+SCRIPT=`realpath "$0"`
+SOURCE=`dirname "$SCRIPT"`
 GITHUB_APP_PEM="$1"
 export CI_COMMIT_SHA="$2"
 export CI_COMMIT_BRANCH="$3"

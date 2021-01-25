@@ -64,7 +64,7 @@ class Node:
 
   def printTree(self):
     """
-    Print contents of node and all child nodes 
+    Print contents of node and all child nodes
     """
     print("Contents in folder: " + self.rel_path)
     for fil in self.files:
@@ -89,7 +89,7 @@ class App:
     self._app_id = app_id
     self._name = name
     self._user = user
-    self._repo_name = repo_name 
+    self._repo_name = repo_name
 
   def initialize(self, use_wiki=False, ignore=False, pem_file = "", create_branch=False):
     self._ignore = ignore
@@ -107,7 +107,7 @@ class App:
     self._parth_root = Node()
     self._parthenon_home = str(pathlib.Path(__file__).parent.absolute())
     try:
-      self._parthenon_home = self._parthenon_home[:self._parthenon_home.rindex(self._repo_name) + len("/" + self._repo_name )] 
+      self._parthenon_home = self._parthenon_home[:self._parthenon_home.rindex(self._repo_name) + len("/" + self._repo_name )]
     except Exception:
       error_msg = str(os.path.realpath(__file__)) + " must be run from within the " + self._repo_name + " repository."
       print(error_msg)
@@ -120,7 +120,7 @@ class App:
       self._generateJWT(pem_file[0])
     else:
       self._generateJWT(pem_file)
-    self._generateInstallationId() 
+    self._generateInstallationId()
     self._generateAccessToken()
 
   def _generateJWT(self,pem_file):
@@ -129,12 +129,12 @@ class App:
     """
     # iss is the app id
     # Ensuring that we request an access token that expires after a minute
-    payload = { 
+    payload = {
         'iat': datetime.datetime.utcnow(),
         'exp': datetime.datetime.utcnow() + datetime.timedelta(seconds=60),
         'iss': self._app_id 
         }
-  
+ 
     PEM = ""
     if pem_file == "":
       if "GITHUB_APP_PEM" in os.environ:
@@ -148,8 +148,8 @@ class App:
     PEM = str(certs[0])
 
     if PEM == "":
-      error_msg = "No permissions enabled for parthenon metrics app, either a pem file needs to "
-      "be provided or the GITHUB_APP_PEM variable needs to be defined"
+      error_msg = ("No permissions enabled for parthenon metrics app, either a pem file needs to "
+      "be provided or the GITHUB_APP_PEM variable needs to be defined")
       raise Exception(error_msg)
     self._jwt_token = jwt.encode(payload,PEM, algorithm='RS256').decode("utf-8")
 
@@ -181,7 +181,7 @@ class App:
   def _generateAccessToken(self):
     """
     This method will populate the installation attribute using the installation id. The token
-    is needed to authenticate any actions run by the application. 
+    is needed to authenticate any actions run by the application.
     """
     buffer_temp = BytesIO()
     header = [
@@ -215,7 +215,7 @@ class App:
 
   def _fillTree(self, current_node, branch):
     """
-    This is an internal method that is meant to be used recursively to grab the contents of a 
+    This is an internal method that is meant to be used recursively to grab the contents of a
     branch of a remote repository.
     """
     nodes = current_node.getNodes()
@@ -258,7 +258,7 @@ class App:
       self._branch_current_commit_sha.update({js_obj['name'] : js_obj['commit']['sha']})
 
   def getBranchMergingWith(self, branch):
-    """ Gets the name of the target branch of `branch` which it will merge with """
+    """Gets the name of the target branch of `branch` which it will merge with."""
     buffer_temp = BytesIO()
     c = pycurl.Curl()
     c.setopt(c.URL, self._repo_url + "/pulls")
@@ -267,7 +267,6 @@ class App:
     c.perform()
     c.close()
     js_obj_list = json.loads(buffer_temp.getvalue())
-    pp = pprint.PrettyPrinter(indent=4)
     for js_obj in js_obj_list:
       if js_obj.get('head').get('label') == self._user + ":" + branch:
         return js_obj.get('base').get('label').split(':',1)[1]
@@ -277,13 +276,13 @@ class App:
   Public Methods
   """
   def getBranches(self):
-    """ 
+    """
     This method will check to see if branches have already been collected from the github RESTful
-    api. If the branch tree has not been collected it will update the branches attribute. 
+    api. If the branch tree has not been collected it will update the branches attribute.
     """
     if not self._branches:
       self._getBranches() 
-    
+ 
     return self._branches
 
   def branchExist(self,branch):
@@ -297,15 +296,15 @@ class App:
 
   def refreshBranchCache(self):
     """"
-    Method forces an update of the localy stored branch tree, regardless of whether the class 
-    already contains a local copy. Might be necessary if the remote github repository is updated. 
+    Method forces an update of the localy stored branch tree, regardless of whether the class
+    already contains a local copy. Might be necessary if the remote github repository is updated.
     """
     self._getBranches()
 
   def createBranch(self,branch, branch_to_fork_from = None):
     """
     Will create a branch if it does not already exists, if the branch does exist
-    will do nothing, 
+    will do nothing,
 
     The new branch will be created by forking it of the latest commit of the default branch
     """
@@ -448,12 +447,12 @@ class App:
 
   def getBranchTree(self, branch):
     """
-    Method will grab the contents of the specified branch from the remote repository. It will 
-    return the contents as a tree object. 
+    Method will grab the contents of the specified branch from the remote repository. It will
+    return the contents as a tree object.
     """
     buffer_temp = BytesIO()
     custom_data = {"branch": branch}
-    buffer_temp2 = BytesIO(json,dumps(custom_data).encode('utf-8'))
+    buffer_temp2 = BytesIO(json.dumps(custom_data).encode('utf-8'))
     # 1. Check if file exists
     c = pycurl.Curl()
     c.setopt(c.URL, self._repo_url + "/contents" )
@@ -465,7 +464,7 @@ class App:
 
     js_obj = json.loads(buffer_temp.getvalue())
     for obj in js_obj:
-      self._parth_root.insert(ob['name'],ob['type'])
+      self._parth_root.insert(obj['name'],obj['type'])
 
     self._fillTree(self._parth_root, branch)
 
