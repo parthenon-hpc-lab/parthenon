@@ -35,7 +35,7 @@ function(lint_file SOURCE_DIR INPUT OUTPUT)
 
     add_custom_command(
         OUTPUT ${OUTPUT}
-        COMMAND
+        COMMAND ${Python3_EXECUTABLE}
             ${PROJECT_SOURCE_DIR}/tst/style/cpplint.py
                 --repository=${PROJECT_SOURCE_DIR}
                 --counting=detailed
@@ -52,15 +52,22 @@ function(lint_target TARGET_NAME)
     get_target_property(TARGET_SOURCES ${TARGET_NAME} SOURCES)
     get_target_property(TARGET_SOURCE_DIR ${TARGET_NAME} SOURCE_DIR)
 
-    set(TARGET_OUTPUTS)
-    foreach(SOURCE ${TARGET_SOURCES})
-        lint_file(${TARGET_SOURCE_DIR} ${SOURCE} ${SOURCE}.lint)
-        list(APPEND TARGET_OUTPUTS ${SOURCE}.lint)
-    endforeach()
+    if( NOT Python3_Interpreter_FOUND)
+      find_package(Python3 COMPONENTS Interpreter)
+    endif()
+    if( NOT Python3_Interpreter_FOUND)
+      message(WARNING "Cannot lint file Python3 interpreter was not found.")
+    else()
+      set(TARGET_OUTPUTS)
+      foreach(SOURCE ${TARGET_SOURCES})
+          lint_file(${TARGET_SOURCE_DIR} ${SOURCE} ${SOURCE}.lint)
+          list(APPEND TARGET_OUTPUTS ${SOURCE}.lint)
+      endforeach()
 
-    add_custom_target(
-        ${TARGET_NAME}-lint
-        DEPENDS ${TARGET_OUTPUTS}
-        COMMENT "Linted ${TARGET_NAME}")
-    add_dependencies(lint ${TARGET_NAME}-lint)
+      add_custom_target(
+          ${TARGET_NAME}-lint
+          DEPENDS ${TARGET_OUTPUTS}
+          COMMENT "Linted ${TARGET_NAME}")
+      add_dependencies(lint ${TARGET_NAME}-lint)
+    endif()
 endfunction(lint_target)
