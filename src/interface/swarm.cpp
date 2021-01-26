@@ -540,7 +540,7 @@ bool Swarm::Send(BoundaryCommSubset phase) {
     vbswarm->send_size[n] = num_particles_to_send_h(n) * particle_size;
     num_particles_sent_ += num_particles_to_send_h(n);
   }
-  printf("[%i] num_particles_sent: %i\n", Globals::my_rank, num_particles_sent_);
+  printf("[%i][%i] num_particles_sent: %i\n", Globals::my_rank, pmb->gid, num_particles_sent_);
 
   SwarmVariablePack<Real> vreal;
   SwarmVariablePack<int> vint;
@@ -704,7 +704,7 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
       neighbor_received_particles[n] = 0;
     }
   }
-  printf("[%i] num_particles_received: %i\n", Globals::my_rank, total_received_particles);
+  printf("[%i][%i] num_particles_received: %i\n", Globals::my_rank, pmb->gid, total_received_particles);
 
   auto &bdvar = vbswarm->bd_var_;
 

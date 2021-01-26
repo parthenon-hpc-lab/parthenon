@@ -127,8 +127,8 @@ void BoundarySwarm::Send(BoundaryCommSubset phase) {
                                bd_var_.send[nb.bufid]);
         ptarget_bswarm->recv_size[nb.targetid] = send_size[nb.bufid];
         ptarget_bswarm->bd_var_.flag[nb.targetid] = BoundaryStatus::arrived;
-        printf("[%i] COPYing %i particles to neighbor %i rank %i\n", Globals::my_rank,
-               send_size[nb.bufid] / particle_size, n, nb.snb.rank);
+        printf("[%i][%i] COPYing %i particles to neighbor %i rank %i gid %i\n", Globals::my_rank, pmb->gid,
+               send_size[nb.bufid] / particle_size, n, nb.snb.rank, nb.snb.gid);
       } else {
         ptarget_bswarm->recv_size[nb.targetid] = 0;
         ptarget_bswarm->bd_var_.flag[nb.targetid] = BoundaryStatus::completed;

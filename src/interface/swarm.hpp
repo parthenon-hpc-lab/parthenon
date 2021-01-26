@@ -58,9 +58,9 @@ class SwarmDeviceContext {
   int GetNeighborBlockIndex(const int &n, const double &x, const double &y,
                             const double &z) const {
 
-    int i = static_cast<int>((x - x_min_) / ((x_max_ - x_min_) / 2.)) + 1;
-    int j = static_cast<int>((y - y_min_) / ((y_max_ - y_min_) / 2.)) + 1;
-    int k = static_cast<int>((z - z_min_) / ((z_max_ - z_min_) / 2.)) + 1;
+    int i = static_cast<int>(std::floor((x - x_min_) / ((x_max_ - x_min_) / 2.))) + 1;
+    int j = static_cast<int>(std::floor((y - y_min_) / ((y_max_ - y_min_) / 2.))) + 1;
+    int k = static_cast<int>(std::floor((z - z_min_) / ((z_max_ - z_min_) / 2.))) + 1;
 
     // Something went wrong
     if (i < 0 || i > 3 || ((j < 0 || j > 3) && ndim_ > 1) ||
@@ -85,7 +85,7 @@ class SwarmDeviceContext {
     return blockIndex_(n);
   }
 
- private:
+ //private:
   Real x_min_;
   Real x_max_;
   Real y_min_;
