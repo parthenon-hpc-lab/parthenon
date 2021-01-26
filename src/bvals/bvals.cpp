@@ -191,9 +191,9 @@ BoundarySwarms::BoundarySwarms(std::weak_ptr<MeshBlock> wpmb, BoundaryFlag *inpu
 
   // prevent reallocation of contiguous memory space for each of 4x possible calls to
   // std::vector<BoundaryVariable *>.push_back() in Field, PassiveScalars
-  //bvars.reserve(3);
+  // bvars.reserve(3);
   // TOOD(KGF): rename to "bvars_time_int"? What about a std::vector for bvars_sts?
-  //bvars_main_int.reserve(2);
+  // bvars_main_int.reserve(2);
 
   // Matches initial value of Mesh::next_phys_id_
   // reserve phys=0 for former TAG_AMR=8; now hard-coded in Mesh::CreateAMRMPITag()
@@ -205,8 +205,7 @@ BoundarySwarms::BoundarySwarms(std::weak_ptr<MeshBlock> wpmb, BoundaryFlag *inpu
 //  \brief Setup persistent MPI requests to be reused throughout the entire simulation
 
 void BoundarySwarms::SetupPersistentMPI() {
-  for (auto bswarms_it = bswarms.begin(); bswarms_it != bswarms.end();
-       ++bswarms_it) {
+  for (auto bswarms_it = bswarms.begin(); bswarms_it != bswarms.end(); ++bswarms_it) {
     (*bswarms_it)->SetupPersistentMPI();
   }
 }
