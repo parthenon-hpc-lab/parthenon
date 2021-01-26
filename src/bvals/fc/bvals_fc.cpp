@@ -161,12 +161,12 @@ int FaceCenteredBoundaryVariable::ComputeFluxCorrectionBufferSize(
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn int FaceCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(ParArray1D<Real>
+//! \fn int FaceCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(BufArray1D<Real>
 //! &buf,
 //                                                               const NeighborBlock& nb)
 //  \brief Set face-centered boundary buffers for sending to a block on the same level
 
-int FaceCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(ParArray1D<Real> &buf,
+int FaceCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(BufArray1D<Real> &buf,
                                                               const NeighborBlock &nb) {
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int si, sj, sk, ei, ej, ek;
@@ -236,12 +236,12 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(ParArray1D<Real> &
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn int FaceCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(ParArray1D<Real>
+//! \fn int FaceCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(BufArray1D<Real>
 //! &buf,
 //                                                                const NeighborBlock& nb)
 //  \brief Set face-centered boundary buffers for sending to a block on the coarser level
 
-int FaceCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(ParArray1D<Real> &buf,
+int FaceCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(BufArray1D<Real> &buf,
                                                               const NeighborBlock &nb) {
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   auto &pmr = pmb->pmr;
@@ -333,11 +333,11 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(ParArray1D<Real> &
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn int FaceCenteredBoundaryVariable::LoadBoundaryBufferToFiner(ParArray1D<Real> &buf,
+//! \fn int FaceCenteredBoundaryVariable::LoadBoundaryBufferToFiner(BufArray1D<Real> &buf,
 //                                                                const NeighborBlock& nb)
 //  \brief Set face-centered boundary buffers for sending to a block on the finer level
 
-int FaceCenteredBoundaryVariable::LoadBoundaryBufferToFiner(ParArray1D<Real> &buf,
+int FaceCenteredBoundaryVariable::LoadBoundaryBufferToFiner(BufArray1D<Real> &buf,
                                                             const NeighborBlock &nb) {
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int nx1 = pmb->block_size.nx1;
@@ -499,11 +499,11 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToFiner(ParArray1D<Real> &bu
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void FaceCenteredBoundaryVariable::SetBoundarySameLevel(ParArray1D<Real> &buf,
+//! \fn void FaceCenteredBoundaryVariable::SetBoundarySameLevel(BufArray1D<Real> &buf,
 //                                                              const NeighborBlock& nb)
 //  \brief Set face-centered boundary received from a block on the same level
 
-void FaceCenteredBoundaryVariable::SetBoundarySameLevel(ParArray1D<Real> &buf,
+void FaceCenteredBoundaryVariable::SetBoundarySameLevel(BufArray1D<Real> &buf,
                                                         const NeighborBlock &nb) {
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int si, sj, sk, ei, ej, ek;
@@ -612,11 +612,11 @@ void FaceCenteredBoundaryVariable::SetBoundarySameLevel(ParArray1D<Real> &buf,
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void FaceCenteredBoundaryVariable::SetBoundaryFromCoarser(ParArray1D<Real> &buf,
+//! \fn void FaceCenteredBoundaryVariable::SetBoundaryFromCoarser(BufArray1D<Real> &buf,
 //                                                                const NeighborBlock& nb)
 //  \brief Set face-centered prolongation buffer received from a block on the same level
 
-void FaceCenteredBoundaryVariable::SetBoundaryFromCoarser(ParArray1D<Real> &buf,
+void FaceCenteredBoundaryVariable::SetBoundaryFromCoarser(BufArray1D<Real> &buf,
                                                           const NeighborBlock &nb) {
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int si, sj, sk, ei, ej, ek;
@@ -752,11 +752,11 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromCoarser(ParArray1D<Real> &buf,
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void FaceCenteredBoundaryVariable::SetFielBoundaryFromFiner(ParArray1D<Real> &buf,
+//! \fn void FaceCenteredBoundaryVariable::SetFielBoundaryFromFiner(BufArray1D<Real> &buf,
 //                                                                const NeighborBlock& nb)
 //  \brief Set face-centered boundary received from a block on the same level
 
-void FaceCenteredBoundaryVariable::SetBoundaryFromFiner(ParArray1D<Real> &buf,
+void FaceCenteredBoundaryVariable::SetBoundaryFromFiner(BufArray1D<Real> &buf,
                                                         const NeighborBlock &nb) {
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   // receive already restricted data
