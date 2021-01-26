@@ -297,7 +297,6 @@ TaskStatus TransportParticles(MeshBlock *pmb, StagedIntegrator *integrator, doub
 
             if (!swarm_d.IsOnCurrentMeshBlock(n)) {
               // Particle no longer on this block
-              printf("Not on meshblock! %e %e %e\n", x(n), y(n), z(n));
               break;
             }
           }
@@ -360,7 +359,6 @@ TaskListStatus ParticleDriver::Step() {
 // TODO(BRR) This should really be in parthenon/src... but it can't just live in Swarm
 // because of the loop over blocks
 TaskStatus StopCommunicationMesh(BlockList_t &blocks) {
-  printf("[%i] StopCommunicationMesh\n", Globals::my_rank);
   int num_sent_local = 0;
   for (auto &block : blocks) {
     auto &pmb = block;
@@ -465,9 +463,9 @@ TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection() {
         tl.AddTask(send, &SwarmContainer::Receive, sc.get(), BoundaryCommSubset::all);
   }
 
-  TaskRegion &sync_region1 = tc.AddRegion(1);
+  TaskRegion &sync_region0 = tc.AddRegion(1);
   {
-    auto &tl = sync_region1[0];
+    auto &tl = sync_region0[0];
     auto stop_comm = tl.AddTask(none, StopCommunicationMesh, blocks);
   }
 

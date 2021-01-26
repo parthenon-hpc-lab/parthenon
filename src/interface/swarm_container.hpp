@@ -138,8 +138,6 @@ class SwarmContainer {
   [[deprecated("Not yet implemented")]] void ReceiveAndSetBoundariesWithWait();
   [[deprecated("Not yet implemented")]] bool ReceiveBoundaryBuffers();
   TaskStatus StartCommunication(BoundaryCommSubset phase);
-  TaskStatus SillyUpdate();
-  TaskStatus FinishCommunication(BoundaryCommSubset phase);
   TaskStatus Send(BoundaryCommSubset phase);
   TaskStatus Receive(BoundaryCommSubset phase);
   [[deprecated("Not yet implemented")]] void ClearBoundary(BoundaryCommSubset phase);

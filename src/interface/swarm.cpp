@@ -186,7 +186,6 @@ void Swarm::ResizeParArray(ParArrayND<T> &var, const int n_old, const int n_new)
 }
 
 void Swarm::setPoolMax(const int nmax_pool) {
-  GetBlockPointer()->exec_space.fence();
   PARTHENON_REQUIRE(nmax_pool > nmax_pool_, "Must request larger pool size!");
   int n_new_begin = nmax_pool_;
   int n_new = nmax_pool - nmax_pool_;
@@ -241,14 +240,11 @@ void Swarm::setPoolMax(const int nmax_pool) {
   }
 
   nmax_pool_ = nmax_pool;
-
-  GetBlockPointer()->exec_space.fence();
 }
 
 ParArrayND<bool> Swarm::AddEmptyParticles(const int num_to_add,
                                           ParArrayND<int> &new_indices) {
   PARTHENON_REQUIRE(num_to_add > 0, "Attempting to add fewer than 1 new particles!");
-  GetBlockPointer()->exec_space.fence();
   while (free_indices_.size() < num_to_add) {
     increasePoolMax();
   }
@@ -318,7 +314,6 @@ void Swarm::RemoveMarkedParticles() {
 }
 
 void Swarm::Defrag() {
-  if (Globals::my_rank != 0) return;
   if (get_num_active() == 0) {
     return;
   }
