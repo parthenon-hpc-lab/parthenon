@@ -319,6 +319,7 @@ void Swarm::RemoveMarkedParticles() {
 
 void Swarm::Defrag() {
   printf("%s:%i\n", __FILE__, __LINE__);
+  if (Globals::my_rank != 0) return;
   if (get_num_active() == 0) {
     return;
   }
@@ -349,7 +350,8 @@ void Swarm::Defrag() {
 
   int index = max_active_index_;
   printf("max_active_index_: %i\n", max_active_index_);
-  for (int n = 0; n < num_free; n++) {
+  int num_to_move = std::min<int>(num_free, num_active_);
+  for (int n = 0; n < num_to_move; n++) {
   printf("%s:%i\n", __FILE__, __LINE__);
     while (mask_h(index) == false) {
   printf("%s:%i\n", __FILE__, __LINE__);
@@ -374,6 +376,7 @@ void Swarm::Defrag() {
     new_free_indices.push_back(index_to_move_from);
   printf("%s:%i\n", __FILE__, __LINE__);
     from_to_indices_h(index_to_move_from) = index_to_move_to;
+    printf("MOVE %i TO %i\n", index_to_move_from, index_to_move_to);
   printf("%s:%i\n", __FILE__, __LINE__);
   }
   printf("%s:%i\n", __FILE__, __LINE__);
