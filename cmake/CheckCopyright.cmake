@@ -44,6 +44,7 @@ list(APPEND COPYRIGHTABLE
     LICENSE)
 
 set(OUTPUTS)
+set(UPDATES)
 foreach(INPUT ${COPYRIGHTABLE})
     set(OUTPUT copyright/${INPUT}.copyright)
 
@@ -53,7 +54,7 @@ foreach(INPUT ${COPYRIGHTABLE})
         OUTPUT ${OUTPUT}
         COMMAND
             ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_LIST_DIR}/CheckCopyrightScript.cmake
-                ${CMAKE_CURRENT_SOURCE_DIR} ${GIT_EXECUTABLE} ${INPUT}
+                check ${CMAKE_CURRENT_SOURCE_DIR} ${GIT_EXECUTABLE} ${INPUT}
         COMMAND ${CMAKE_COMMAND} -E make_directory ${OUTPUT_DIR}
         COMMAND ${CMAKE_COMMAND} -E touch ${OUTPUT}
         DEPENDS ${INPUT} ${CMAKE_CURRENT_LIST_DIR}/CheckCopyrightScript.cmake
@@ -61,10 +62,22 @@ foreach(INPUT ${COPYRIGHTABLE})
     )
 
     list(APPEND OUTPUTS ${OUTPUT})
+
+    list(
+        APPEND UPDATES
+        COMMAND
+            ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_LIST_DIR}/CheckCopyrightScript.cmake
+                update ${CMAKE_CURRENT_SOURCE_DIR} ${GIT_EXECUTABLE} ${INPUT})
 endforeach()
 
 add_custom_target(
     check-copyright ALL
     DEPENDS ${OUTPUTS}
     COMMENT "Triad copyright up-to-date"
+)
+
+add_custom_target(
+    update-copyright
+    ${UPDATES}
+    COMMENT "Update Triad copyrights"
 )
