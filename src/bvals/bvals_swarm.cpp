@@ -103,7 +103,7 @@ void BoundarySwarm::Send(BoundaryCommSubset phase) {
 #ifdef MPI_PARALLEL
       PARTHENON_REQUIRE(bd_var_.req_send[nb.bufid] == MPI_REQUEST_NULL,
                         "Trying to create a new send before previous send completes!");
-      printf("[%i] Sending size %i to neighbor %i\n", Globals::my_rank, send_size[n], n);
+      printf("[%i] Sending size %i to neighbor %i\n", pmb->gid, send_size[n], nb.snb.gid);
       MPI_Isend(bd_var_.send[n].data(), send_size[n], MPI_PARTHENON_REAL, nb.snb.rank,
                 send_tag[n], MPI_COMM_WORLD, &(bd_var_.req_send[nb.bufid]));
 #endif // MPI_PARALLEL
@@ -111,7 +111,8 @@ void BoundarySwarm::Send(BoundaryCommSubset phase) {
       MeshBlock &target_block = *pmy_mesh_->FindMeshBlock(nb.snb.gid);
       std::shared_ptr<BoundarySwarm> ptarget_bswarm =
           target_block.pbswarm->bswarms[bswarm_index];
-      printf("[%i] Copying size %i to neighbor %i\n", Globals::my_rank, send_size[n], n);
+      //    printf("[%i] bswarm_index: %i bswarm: %p\n", pmb->gid, bswarm_index, ptarget_bswarm.get());
+      printf("[%i] Copying size %i to neighbor %i\n", pmb->gid, send_size[n], nb.snb.gid);
       if (send_size[nb.bufid] > 0) {
         // Ensure target buffer is large enough
         if (bd_var_.send[nb.bufid].extent(0) >
@@ -124,14 +125,62 @@ void BoundarySwarm::Send(BoundaryCommSubset phase) {
                                bd_var_.send[nb.bufid]);
         ptarget_bswarm->recv_size[nb.targetid] = send_size[nb.bufid];
         ptarget_bswarm->bd_var_.flag[nb.targetid] = BoundaryStatus::arrived;
-        printf("Setting neighbor %i targetid %i to ARRIVED\n", n, nb.targetid);
+        //printf("[%i] (%p)->bd_var_.flag[%i] = %i \n", pmb->gid, ptarget_bswarm.get(), nb.targetid, ptarget_bswarm->bd_var_.flag[nb.targetid]);
+        //printf("[%i] Setting neighbor %i targetid %i to ARRIVED\n", pmb->gid, nb.snb.gid, nb.targetid);
       } else {
         ptarget_bswarm->recv_size[nb.targetid] = 0;
         ptarget_bswarm->bd_var_.flag[nb.targetid] = BoundaryStatus::completed;
-        printf("Setting neighbor %i targetid %i to COMPLETED\n", n, nb.targetid);
+        //printf("[%i] (%p)->bd_var_.flag[%i] = %i \n", pmb->gid, ptarget_bswarm.get(), nb.targetid, ptarget_bswarm->bd_var_.flag[nb.targetid]);
+        //printf("[%i] Setting neighbor %i targetid %i to COMPLETED\n", pmb->gid, nb.snb.gid, nb.targetid);
       }
     }
   }
+
+  /*printf("[%i] After send (this %p): ", pmb->gid, this);
+  for (int n = 0; n < bd_var_.nbmax; n++) {
+    NeighborBlock &nb = pmb->pbval->neighbor[n];
+    printf("%i ", bd_var_.flag[nb.bufid]);
+  }
+  int gid = -1;
+  if (pmb->gid == 1) {
+    gid = 0;
+  } else {
+    gid = 1;
+  }
+  MeshBlock &target_block = *pmy_mesh_->FindMeshBlock(gid);
+      std::shared_ptr<BoundarySwarm> ptarget_bswarm =
+          target_block.pbswarm->bswarms[bswarm_index];
+  printf("\n");
+  printf("[%i] After send (%p): ", pmb->gid, ptarget_bswarm.get());
+  for (int n = 0; n < bd_var_.nbmax; n++) {
+    NeighborBlock &nb = pmb->pbval->neighbor[n];
+    printf("%i ", ptarget_bswarm->bd_var_.flag[nb.targetid]);
+  }
+  printf("\n\n\n");*/
+
+
+  /*{int gid = 0;
+  {
+  MeshBlock &tb = *pmy_mesh_->FindMeshBlock(gid);
+      std::shared_ptr<BoundarySwarm> pbs =
+          tb.pbswarm->bswarms[bswarm_index];
+  printf("%s:%i\n", __FILE__, __LINE__);
+  printf("[%i] (%p): ", 0, pbs.get());
+  for (int n = 0; n < pbs->bd_var_.nbmax; n++) {
+    NeighborBlock &nb = tb.pbval->neighbor[n];
+    printf("%i ", pbs->bd_var_.flag[nb.bufid]);
+  } printf("\n");}
+  gid = 1;
+  {
+  MeshBlock &tb = *pmy_mesh_->FindMeshBlock(gid);
+  std::shared_ptr<BoundarySwarm> pbs =
+          tb.pbswarm->bswarms[bswarm_index];
+  printf("[%i] (%p): ", 0, pbs.get());
+  for (int n = 0; n < pbs->bd_var_.nbmax; n++) {
+    NeighborBlock &nb = tb.pbval->neighbor[n];
+    printf("%i ", pbs->bd_var_.flag[nb.bufid]);
+  } printf("\n\n\n");
+  }}*/
 }
 
 void BoundarySwarm::Receive(BoundaryCommSubset phase) {
@@ -148,7 +197,7 @@ void BoundarySwarm::Receive(BoundaryCommSubset phase) {
 
       if (bd_var_.flag[nb.bufid] != BoundaryStatus::completed) {
         MPI_Iprobe(MPI_ANY_SOURCE, recv_tag[nb.bufid], MPI_COMM_WORLD, &test, &status);
-        printf("[%i] Probed neighbor %i with tag %i: test: %i\n", Globals::my_rank, n, recv_tag[nb.bufid], test);
+        //printf("[%i] Probed neighbor %i with tag %i: test: %i\n", Globals::my_rank, n, recv_tag[nb.bufid], test);
         if (!static_cast<bool>(test)) {
           bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
         } else {

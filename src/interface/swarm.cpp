@@ -318,6 +318,7 @@ void Swarm::RemoveMarkedParticles() {
 }
 
 void Swarm::Defrag() {
+  printf("%s:%i\n", __FILE__, __LINE__);
   if (get_num_active() == 0) {
     return;
   }
@@ -325,35 +326,57 @@ void Swarm::Defrag() {
   // Add 1 to convert max index to max number
   int num_free = (max_active_index_ + 1) - num_active_;
   auto pmb = GetBlockPointer();
+  printf("%s:%i\n", __FILE__, __LINE__);
 
   ParArrayND<int> from_to_indices("from_to_indices", max_active_index_ + 1);
   auto from_to_indices_h = from_to_indices.GetHostMirror();
+  printf("%s:%i\n", __FILE__, __LINE__);
 
   auto mask_h = mask_.data.GetHostMirrorAndCopy();
+  printf("%s:%i\n", __FILE__, __LINE__);
 
   for (int n = 0; n <= max_active_index_; n++) {
     from_to_indices_h(n) = unset_index_;
   }
+  printf("%s:%i\n", __FILE__, __LINE__);
 
   std::list<int> new_free_indices;
+  printf("%s:%i\n", __FILE__, __LINE__);
+  printf("num_free: %i num_active: %i max_active_index: %i\n", num_free, num_active_, max_active_index_);
+  for (int n = 0; n <= max_active_index_; n++) {
+    printf("mask(%i) = %i\n", n, mask_(n));
+  }
 
   int index = max_active_index_;
+  printf("max_active_index_: %i\n", max_active_index_);
   for (int n = 0; n < num_free; n++) {
+  printf("%s:%i\n", __FILE__, __LINE__);
     while (mask_h(index) == false) {
+  printf("%s:%i\n", __FILE__, __LINE__);
+  printf("index: %i\n", index);
       index--;
     }
+  printf("%s:%i\n", __FILE__, __LINE__);
     int index_to_move_from = index;
+  printf("%s:%i\n", __FILE__, __LINE__);
     index--;
+  printf("%s:%i\n", __FILE__, __LINE__);
 
     // Below this number "moved" particles should actually stay in place
     if (index_to_move_from < num_active_) {
       break;
     }
+  printf("%s:%i\n", __FILE__, __LINE__);
     int index_to_move_to = free_indices_.front();
+  printf("%s:%i\n", __FILE__, __LINE__);
     free_indices_.pop_front();
+  printf("%s:%i\n", __FILE__, __LINE__);
     new_free_indices.push_back(index_to_move_from);
+  printf("%s:%i\n", __FILE__, __LINE__);
     from_to_indices_h(index_to_move_from) = index_to_move_to;
+  printf("%s:%i\n", __FILE__, __LINE__);
   }
+  printf("%s:%i\n", __FILE__, __LINE__);
 
   // TODO(BRR) Not all these sorts may be necessary
   free_indices_.sort();
@@ -361,6 +384,7 @@ void Swarm::Defrag() {
   free_indices_.merge(new_free_indices);
 
   from_to_indices.DeepCopy(from_to_indices_h);
+  printf("%s:%i\n", __FILE__, __LINE__);
 
   auto mask = mask_.Get();
   pmb->par_for(
@@ -370,6 +394,7 @@ void Swarm::Defrag() {
           mask(n) = false;
         }
       });
+  printf("%s:%i\n", __FILE__, __LINE__);
 
   SwarmVariablePack<Real> vreal;
   SwarmVariablePack<int> vint;
@@ -378,6 +403,7 @@ void Swarm::Defrag() {
   PackAllVariables(vreal, vint, rmap, imap);
   int real_vars_size = realVector_.size();
   int int_vars_size = intVector_.size();
+  printf("%s:%i\n", __FILE__, __LINE__);
 
   pmb->par_for(
       "Swarm::DefragVariables", 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
@@ -390,11 +416,10 @@ void Swarm::Defrag() {
           }
         }
       });
+  printf("%s:%i\n", __FILE__, __LINE__);
 
   // Update max_active_index_
   max_active_index_ = num_active_ - 1;
-
-  GetBlockPointer()->exec_space.fence();
 }
 
 void Swarm::SetupPersistentMPI() {
@@ -484,6 +509,28 @@ bool Swarm::Send(BoundaryCommSubset phase) {
   auto swarm_d = GetDeviceContext();
 
   auto pmb = GetBlockPointer();
+  /*{int gid = 0;
+  {
+  MeshBlock &tb = *pmb->pmy_mesh->FindMeshBlock(gid);
+      std::shared_ptr<BoundarySwarm> pbs =
+          tb.pbswarm->bswarms[0];
+  printf("%s:%i\n", __FILE__, __LINE__);
+  printf("[%i] (%p): ", 0, pbs.get());
+  for (int n = 0; n < pbs->bd_var_.nbmax; n++) {
+    NeighborBlock &nb = tb.pbval->neighbor[n];
+    printf("%i ", pbs->bd_var_.flag[nb.bufid]);
+  } printf("\n");}
+  gid = 1;
+  {
+  MeshBlock &tb = *pmb->pmy_mesh->FindMeshBlock(gid);
+  std::shared_ptr<BoundarySwarm> pbs =
+          tb.pbswarm->bswarms[0];
+  printf("[%i] (%p): ", 0, pbs.get());
+  for (int n = 0; n < pbs->bd_var_.nbmax; n++) {
+    NeighborBlock &nb = tb.pbval->neighbor[n];
+    printf("%i ", pbs->bd_var_.flag[nb.bufid]);
+  } printf("\n\n\n");
+  }}*/
 
   // Fence to make sure particles aren't currently being transported locally
   pmb->exec_space.fence();
@@ -494,7 +541,7 @@ bool Swarm::Send(BoundaryCommSubset phase) {
   for (int n = 0; n < nbmax; n++) {
     num_particles_to_send_h(n) = 0;
     auto &nb = pmb->pbval->neighbor[n];
-    vbswarm->bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
+    //vbswarm->bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
   }
   int particle_size = GetParticleDataSize();
   vbswarm->particle_size = particle_size;
@@ -610,8 +657,52 @@ bool Swarm::Send(BoundaryCommSubset phase) {
   // copy into buffers (if no send already for that buffer) and send
 
   RemoveMarkedParticles();
+  /*{int gid = 0;
+  {
+  MeshBlock &tb = *pmb->pmy_mesh->FindMeshBlock(gid);
+      std::shared_ptr<BoundarySwarm> pbs =
+          tb.pbswarm->bswarms[0];
+  printf("%s:%i\n", __FILE__, __LINE__);
+  printf("[%i] (%p): ", 0, pbs.get());
+  for (int n = 0; n < pbs->bd_var_.nbmax; n++) {
+    NeighborBlock &nb = tb.pbval->neighbor[n];
+    printf("%i ", pbs->bd_var_.flag[nb.bufid]);
+  } printf("\n");}
+  gid = 1;
+  {
+  MeshBlock &tb = *pmb->pmy_mesh->FindMeshBlock(gid);
+  std::shared_ptr<BoundarySwarm> pbs =
+          tb.pbswarm->bswarms[0];
+  printf("[%i] (%p): ", 0, pbs.get());
+  for (int n = 0; n < pbs->bd_var_.nbmax; n++) {
+    NeighborBlock &nb = tb.pbval->neighbor[n];
+    printf("%i ", pbs->bd_var_.flag[nb.bufid]);
+  } printf("\n\n\n");
+  }}*/
 
   vbswarm->Send(phase);
+  /*{int gid = 0;
+  {
+  MeshBlock &tb = *pmb->pmy_mesh->FindMeshBlock(gid);
+      std::shared_ptr<BoundarySwarm> pbs =
+          tb.pbswarm->bswarms[0];
+  printf("%s:%i\n", __FILE__, __LINE__);
+  printf("[%i] (%p): ", 0, pbs.get());
+  for (int n = 0; n < pbs->bd_var_.nbmax; n++) {
+    NeighborBlock &nb = tb.pbval->neighbor[n];
+    printf("%i ", pbs->bd_var_.flag[nb.bufid]);
+  } printf("\n");}
+  gid = 1;
+  {
+  MeshBlock &tb = *pmb->pmy_mesh->FindMeshBlock(gid);
+  std::shared_ptr<BoundarySwarm> pbs =
+          tb.pbswarm->bswarms[0];
+  printf("[%i] (%p): ", 0, pbs.get());
+  for (int n = 0; n < pbs->bd_var_.nbmax; n++) {
+    NeighborBlock &nb = tb.pbval->neighbor[n];
+    printf("%i ", pbs->bd_var_.flag[nb.bufid]);
+  } printf("\n\n\n");
+  }}*/
   return true;
 }
 
@@ -684,8 +775,8 @@ SwarmVariablePack<int> Swarm::PackVariablesInt(const std::vector<std::string> &n
 
 static int count = 0;
 bool Swarm::Receive(BoundaryCommSubset phase) {
-  if (count > 5) exit(-1);
-  count++;
+  //if (count > 5) exit(-1);
+  //count++;
   printf("[%i] Receive\n", Globals::my_rank);
   // Ensure all local deep copies marked BoundaryStatus::completed are actually received
   GetBlockPointer()->exec_space.fence();
@@ -693,6 +784,37 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
 
   // Populate buffers
   vbswarm->Receive(phase);
+
+  /*{int gid = 0;
+  {
+  MeshBlock &tb = *pmb->pmy_mesh->FindMeshBlock(gid);
+      std::shared_ptr<BoundarySwarm> pbs =
+          tb.pbswarm->bswarms[0];
+  printf("%s:%i\n", __FILE__, __LINE__);
+  printf("[%i] (%p): ", 0, pbs.get());
+  for (int n = 0; n < pbs->bd_var_.nbmax; n++) {
+    NeighborBlock &nb = tb.pbval->neighbor[n];
+    printf("%i ", pbs->bd_var_.flag[nb.bufid]);
+  } printf("\n");}
+  gid = 1;
+  {
+  MeshBlock &tb = *pmb->pmy_mesh->FindMeshBlock(gid);
+  std::shared_ptr<BoundarySwarm> pbs =
+          tb.pbswarm->bswarms[0];
+  printf("[%i] (%p): ", 0, pbs.get());
+  for (int n = 0; n < pbs->bd_var_.nbmax; n++) {
+    NeighborBlock &nb = tb.pbval->neighbor[n];
+    printf("%i ", pbs->bd_var_.flag[nb.bufid]);
+  } printf("\n\n\n");
+  }}*/
+
+  /*printf("[%i] After vbswarm (%p): ", pmb->gid, vbswarm.get());
+  for (int n = 0; n < vbswarm->bd_var_.nbmax; n++) {
+    NeighborBlock &nb = pmb->pbval->neighbor[n];
+    printf("%i ", vbswarm->bd_var_.flag[nb.bufid]);
+    //printf("[%i] After vbswarm (%p) Neighbor %i bufid %i: BoundaryStatus: %i\n", pmb->gid, vbswarm.get(), nb.snb.gid, nb.bufid, vbswarm->bd_var_.flag[nb.bufid]);
+  }
+  printf("\n");*/
 
   // Copy buffers into swarm data on this proc
   int maxneighbor = vbswarm->bd_var_.nbmax;
@@ -782,23 +904,67 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
           }
         });
   }
+  /*{int gid = 0;
+  {
+  MeshBlock &tb = *pmb->pmy_mesh->FindMeshBlock(gid);
+      std::shared_ptr<BoundarySwarm> pbs =
+          tb.pbswarm->bswarms[0];
+  printf("%s:%i\n", __FILE__, __LINE__);
+  printf("[%i] (%p): ", 0, pbs.get());
+  for (int n = 0; n < pbs->bd_var_.nbmax; n++) {
+    NeighborBlock &nb = tb.pbval->neighbor[n];
+    printf("%i ", pbs->bd_var_.flag[nb.bufid]);
+  } printf("\n");}
+  gid = 1;
+  {
+  MeshBlock &tb = *pmb->pmy_mesh->FindMeshBlock(gid);
+  std::shared_ptr<BoundarySwarm> pbs =
+          tb.pbswarm->bswarms[0];
+  printf("[%i] (%p): ", 0, pbs.get());
+  for (int n = 0; n < pbs->bd_var_.nbmax; n++) {
+    NeighborBlock &nb = tb.pbval->neighbor[n];
+    printf("%i ", pbs->bd_var_.flag[nb.bufid]);
+  } printf("\n\n\n");
+  }}*/
 
   bool all_boundaries_received = true;
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
-    printf("[%i] Neighbor %i: BoundaryStatus: %i\n", Globals::my_rank, n, bdvar.flag[nb.bufid]);
+    //printf("[%i] Neighbor %i: BoundaryStatus: %i\n", pmb->gid, n, bdvar.flag[nb.bufid]);
     if (bdvar.flag[nb.bufid] == BoundaryStatus::arrived) {
       bdvar.flag[nb.bufid] = BoundaryStatus::completed;
     } else if (bdvar.flag[nb.bufid] == BoundaryStatus::waiting) {
       all_boundaries_received = false;
     }
   }
+  /*{int gid = 0;
+  {
+  MeshBlock &tb = *pmb->pmy_mesh->FindMeshBlock(gid);
+      std::shared_ptr<BoundarySwarm> pbs =
+          tb.pbswarm->bswarms[0];
+  printf("%s:%i\n", __FILE__, __LINE__);
+  printf("[%i] (%p): ", 0, pbs.get());
+  for (int n = 0; n < pbs->bd_var_.nbmax; n++) {
+    NeighborBlock &nb = tb.pbval->neighbor[n];
+    printf("%i ", pbs->bd_var_.flag[nb.bufid]);
+  } printf("\n");}
+  gid = 1;
+  {
+  MeshBlock &tb = *pmb->pmy_mesh->FindMeshBlock(gid);
+  std::shared_ptr<BoundarySwarm> pbs =
+          tb.pbswarm->bswarms[0];
+  printf("[%i] (%p): ", 0, pbs.get());
+  for (int n = 0; n < pbs->bd_var_.nbmax; n++) {
+    NeighborBlock &nb = tb.pbval->neighbor[n];
+    printf("%i ", pbs->bd_var_.flag[nb.bufid]);
+  } printf("\n\n\n");
+  }}*/
 
   if (all_boundaries_received) {
-    printf("[%i] ALL BOUNDARIES RECEIVED\n", Globals::my_rank);
+    printf("[%i] ALL BOUNDARIES RECEIVED\n", pmb->gid);
     return true;
   } else {
-    printf("[%i] ALL BOUNDARIES NOT RECEIVED\n", Globals::my_rank);
+    printf("[%i] ALL BOUNDARIES NOT RECEIVED\n", pmb->gid);
     return false;
   }
 }

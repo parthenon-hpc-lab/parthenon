@@ -371,12 +371,11 @@ TaskStatus StopCommunicationMesh(BlockList_t &blocks) {
     auto swarm = block->swarm_data.Get()->Get("my particles");
     for (int n = 0; n < block->pbval->nneighbor; n++) {
       NeighborBlock &nb = block->pbval->neighbor[n];
-      printf("[%i] neighbor flag: %i\n", Globals::my_rank, swarm->vbswarm->bd_var_.flag[nb.bufid]);
       if (nb.snb.rank != Globals::my_rank) {
-        if (swarm->vbswarm->bd_var_.flag[nb.bufid] != BoundaryStatus::completed) {
-          printf("[%i] Neighbor %i not complete!\n", Globals::my_rank, n);
-          //return TaskStatus::incomplete;
-        }
+        //if (swarm->vbswarm->bd_var_.flag[nb.bufid] != BoundaryStatus::completed) {
+        //  printf("[%i] Neighbor %i not complete!\n", Globals::my_rank, n);
+        //  //return TaskStatus::incomplete;
+        //}
       }
 
       if (swarm->vbswarm->bd_var_.flag[nb.bufid] == BoundaryStatus::completed) {
@@ -394,6 +393,12 @@ TaskStatus StopCommunicationMesh(BlockList_t &blocks) {
       auto sc = pmb->swarm_data.Get();
       auto swarm = sc->Get("my particles");
       swarm->finished_transport = true;
+
+      // TODO(BRR) should this really be done at an initialization step for each cycle?
+      for (int n = 0; n < swarm->vbswarm->bd_var_.nbmax; n++) {
+        auto &nb = pmb->pbval->neighbor[n];
+        swarm->vbswarm->bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
+      }
     }
   }
 
@@ -469,6 +474,7 @@ TaskCollection ParticleDriver::MakeFinalizationTaskCollection() {
     auto deposit_particles =
         tl.AddTask(destroy_some_particles, DepositParticles, pmb.get());
 
+    // TODO(BRR) this is broken!
     auto defrag = tl.AddTask(deposit_particles, Defrag, pmb.get());
   }
 
