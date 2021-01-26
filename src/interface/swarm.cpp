@@ -478,7 +478,6 @@ void Swarm::SetupPersistentMPI() {
 }
 
 bool Swarm::Send(BoundaryCommSubset phase) {
-  printf("[%i] Send\n", Globals::my_rank);
   auto blockIndex_h = blockIndex_.GetHostMirrorAndCopy();
   auto mask_h = mask_.data.GetHostMirrorAndCopy();
   auto swarm_d = GetDeviceContext();
@@ -540,7 +539,6 @@ bool Swarm::Send(BoundaryCommSubset phase) {
     vbswarm->send_size[n] = num_particles_to_send_h(n) * particle_size;
     num_particles_sent_ += num_particles_to_send_h(n);
   }
-  printf("[%i][%i] num_particles_sent: %i\n", Globals::my_rank, pmb->gid, num_particles_sent_);
 
   SwarmVariablePack<Real> vreal;
   SwarmVariablePack<int> vint;
@@ -684,7 +682,6 @@ SwarmVariablePack<int> Swarm::PackVariablesInt(const std::vector<std::string> &n
 }
 
 bool Swarm::Receive(BoundaryCommSubset phase) {
-  printf("[%i] Receive\n", Globals::my_rank);
   // Ensure all local deep copies marked BoundaryStatus::completed are actually received
   GetBlockPointer()->exec_space.fence();
   auto pmb = GetBlockPointer();
@@ -704,7 +701,6 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
       neighbor_received_particles[n] = 0;
     }
   }
-  printf("[%i][%i] num_particles_received: %i\n", Globals::my_rank, pmb->gid, total_received_particles);
 
   auto &bdvar = vbswarm->bd_var_;
 

@@ -105,11 +105,6 @@ void BoundarySwarm::Send(BoundaryCommSubset phase) {
                         "Trying to create a new send before previous send completes!");
       MPI_Isend(bd_var_.send[n].data(), send_size[n], MPI_PARTHENON_REAL, nb.snb.rank,
                 send_tag[n], MPI_COMM_WORLD, &(bd_var_.req_send[nb.bufid]));
-      if (send_size[n] > 0) {
-        printf("[%i] SENDing %i particles (tag %i) to neighbor %i rank %i\n",
-               Globals::my_rank, send_size[n] / particle_size, send_tag[n], n,
-               nb.snb.rank);
-      }
 #endif // MPI_PARALLEL
     } else {
       MeshBlock &target_block = *pmy_mesh_->FindMeshBlock(nb.snb.gid);
@@ -127,8 +122,6 @@ void BoundarySwarm::Send(BoundaryCommSubset phase) {
                                bd_var_.send[nb.bufid]);
         ptarget_bswarm->recv_size[nb.targetid] = send_size[nb.bufid];
         ptarget_bswarm->bd_var_.flag[nb.targetid] = BoundaryStatus::arrived;
-        printf("[%i][%i] COPYing %i particles to neighbor %i rank %i gid %i\n", Globals::my_rank, pmb->gid,
-               send_size[nb.bufid] / particle_size, n, nb.snb.rank, nb.snb.gid);
       } else {
         ptarget_bswarm->recv_size[nb.targetid] = 0;
         ptarget_bswarm->bd_var_.flag[nb.targetid] = BoundaryStatus::completed;
@@ -152,8 +145,6 @@ void BoundarySwarm::Receive(BoundaryCommSubset phase) {
 
       if (bd_var_.flag[nb.bufid] != BoundaryStatus::completed) {
         MPI_Iprobe(MPI_ANY_SOURCE, recv_tag[nb.bufid], MPI_COMM_WORLD, &test, &status);
-        printf("[%i] PROBEing tag %i: test: %i\n", Globals::my_rank, recv_tag[nb.bufid],
-               test);
         if (!static_cast<bool>(test)) {
           bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
         } else {
@@ -168,8 +159,6 @@ void BoundarySwarm::Receive(BoundaryCommSubset phase) {
           MPI_Recv(bd_var_.recv[n].data(), nbytes, MPI_CHAR, nb.snb.rank,
                    recv_tag[nb.bufid], MPI_COMM_WORLD, &status);
           recv_size[n] = nbytes / sizeof(Real);
-          printf("[%i] RECEIVEd %i particles from rank %i tag %i\n", Globals::my_rank,
-                 nbytes / particle_size, nb.snb.rank, recv_tag[nb.bufid]);
         }
       }
     }

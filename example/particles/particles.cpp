@@ -158,21 +158,19 @@ TaskStatus DepositParticles(MeshBlock *pmb) {
   pmb->par_for(
       "DepositParticles", 0, swarm->get_max_active_index(), KOKKOS_LAMBDA(const int n) {
         if (swarm_d.IsActive(n)) {
-          //int i = static_cast<int>((x(n) - minx_i) / dx_i) + ib.s;
-          //int j = static_cast<int>((y(n) - minx_j) / dx_j) + jb.s;
-          //int k = static_cast<int>((z(n) - minx_k) / dx_k) + kb.s;
           int i = static_cast<int>(std::floor((x(n) - minx_i) / dx_i) + ib.s);
-          int j = static_cast<int>(std::floor((y(n) - minx_j) / dx_j) + jb.s);
-          //int k = static_cast<int>(std::floor((z(n) - minx_k) / dx_k) + kb.s);
+          int j = 0;
+          if (pmb->pmy_mesh->ndim > 1) {
+            j = static_cast<int>(std::floor((y(n) - minx_j) / dx_j) + jb.s);
+          }
           int k = 0;
+          if (pmb->pmy_mesh->ndim > 2) {
+            k = static_cast<int>(std::floor((z(n) - minx_k) / dx_k) + kb.s);
+          }
 
           if (i >= ib.s && i <= ib.e && j >= jb.s && j <= jb.e && k >= kb.s &&
               k <= kb.e) {
             Kokkos::atomic_add(&particle_dep(k, j, i), weight(n));
-          } else {
-            printf("Particle off grid! %e %e %e (%i %i %i)\n", x(n), y(n), z(n),
-              i, j, k);
-            printf("[%i %i] [%i %i] [%i %i]\n", ib.s, ib.e, jb.s, jb.e, kb.s, kb.e);
           }
         }
       });
@@ -305,28 +303,6 @@ TaskStatus TransportParticles(MeshBlock *pmb, StagedIntegrator *integrator, doub
               break;
             }
           }
-          // TODO(BRR) Mark as complete
-          /*if (x(n) < swarm_d.x_min_global_) {
-            x(n) = swarm_d.x_max_global_ - (swarm_d.x_min_global_ - x(n));
-          }
-          if (x > swarm_d.x_max_global_) {
-            x = swarm_d.x_min_global_ + (x - swarm_d.x_max_global_);
-          }
-          if (y < swarm_d.y_min_global_) {
-            y = swarm_d.y_max_global_ - (swarm_d.y_min_global_ - y);
-          }
-          if (y > swarm_d.y_max_global_) {
-            y = swarm_d.y_min_global_ + (y - swarm_d.y_max_global_);
-          }*/
-          /*if (z(n) < swarm_d.z_min_global_) {
-            z(n) = swarm_d.z_max_global_ - (swarm_d.z_min_global_ - z(n));
-          }
-          if (z(n) > swarm_d.z_max_global_) {
-            z(n) = swarm_d.z_min_global_ + (z(n) - swarm_d.z_max_global_);
-          }
-          if (z(n) < -0.5 || z(n) > 0.5) {
-            printf("WEIRD Z %e!\n", z(n));
-          }*/
         }
       });
 
@@ -402,7 +378,7 @@ TaskStatus StopCommunicationMesh(BlockList_t &blocks) {
     for (int n = 0; n < block->pbval->nneighbor; n++) {
       NeighborBlock &nb = block->pbval->neighbor[n];
       // TODO(BRR) May want logic like this if we have non-blocking TaskRegions
-      //if (nb.snb.rank != Globals::my_rank) {
+      // if (nb.snb.rank != Globals::my_rank) {
       //  if (swarm->vbswarm->bd_var_.flag[nb.bufid] != BoundaryStatus::completed) {
       //    printf("[%i] Neighbor %i not complete!\n", Globals::my_rank, n);
       //    //return TaskStatus::incomplete;
@@ -434,16 +410,16 @@ TaskStatus StopCommunicationMesh(BlockList_t &blocks) {
     }
   }
 
-    for (auto &block : blocks) {
-      auto &pmb = block;
-      auto sc = pmb->swarm_data.Get();
-      auto swarm = sc->Get("my particles");
-      swarm->finished_transport = true;
-      for (int n = 0; n < swarm->vbswarm->bd_var_.nbmax; n++) {
-        auto &nb = pmb->pbval->neighbor[n];
-        swarm->vbswarm->bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
-      }
+  for (auto &block : blocks) {
+    auto &pmb = block;
+    auto sc = pmb->swarm_data.Get();
+    auto swarm = sc->Get("my particles");
+    swarm->finished_transport = true;
+    for (int n = 0; n < swarm->vbswarm->bd_var_.nbmax; n++) {
+      auto &nb = pmb->pbval->neighbor[n];
+      swarm->vbswarm->bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
     }
+  }
 
   return TaskStatus::complete;
 }
