@@ -356,7 +356,6 @@ TaskListStatus ParticleDriver::Step() {
 // TODO(BRR) This should really be in parthenon/src... but it can't just live in Swarm
 // because of the loop over blocks
 TaskStatus StopCommunicationMesh(BlockList_t &blocks) {
-  printf("[%i] StopCommunicationMesh\n", Globals::my_rank);
   int num_sent_local = 0;
   for (auto &block : blocks) {
     auto &pmb = block;
@@ -371,13 +370,15 @@ TaskStatus StopCommunicationMesh(BlockList_t &blocks) {
     auto swarm = block->swarm_data.Get()->Get("my particles");
     for (int n = 0; n < block->pbval->nneighbor; n++) {
       NeighborBlock &nb = block->pbval->neighbor[n];
-      if (nb.snb.rank != Globals::my_rank) {
-        //if (swarm->vbswarm->bd_var_.flag[nb.bufid] != BoundaryStatus::completed) {
-        //  printf("[%i] Neighbor %i not complete!\n", Globals::my_rank, n);
-        //  //return TaskStatus::incomplete;
-        //}
-      }
+      // TODO(BRR) May want logic like this if we have non-blocking TaskRegions
+      //if (nb.snb.rank != Globals::my_rank) {
+      //  if (swarm->vbswarm->bd_var_.flag[nb.bufid] != BoundaryStatus::completed) {
+      //    printf("[%i] Neighbor %i not complete!\n", Globals::my_rank, n);
+      //    //return TaskStatus::incomplete;
+      //  }
+      //}
 
+      // TODO(BRR) May want to move this logic into a per-cycle initialization call
       if (swarm->vbswarm->bd_var_.flag[nb.bufid] == BoundaryStatus::completed) {
         swarm->vbswarm->bd_var_.req_send[nb.bufid] = MPI_REQUEST_NULL;
       }
@@ -474,7 +475,6 @@ TaskCollection ParticleDriver::MakeFinalizationTaskCollection() {
     auto deposit_particles =
         tl.AddTask(destroy_some_particles, DepositParticles, pmb.get());
 
-    // TODO(BRR) this is broken!
     auto defrag = tl.AddTask(deposit_particles, Defrag, pmb.get());
   }
 
