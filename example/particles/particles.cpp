@@ -98,6 +98,8 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
 // first some helper tasks
 
 TaskStatus DestroySomeParticles(MeshBlock *pmb) {
+  printf("Ignoring particle destruction");
+  return TaskStatus::complete;
   auto pkg = pmb->packages["particles_package"];
   auto swarm = pmb->swarm_data.Get()->Get("my particles");
   auto rng_pool = pkg->Param<RNGPool>("rng_pool");
@@ -204,6 +206,7 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, double t0) {
   auto &weight = swarm->GetReal("weight").Get();
 
   auto swarm_d = swarm->GetDeviceContext();
+  printf("[%i] CREATING %i PARTICLES\n", Globals::my_rank, num_particles);
 
   pmb->par_for(
       "CreateSomeParticles", 0, swarm->get_max_active_index(),
@@ -354,6 +357,7 @@ TaskListStatus ParticleDriver::Step() {
 // TODO(BRR) This should really be in parthenon/src... but it can't just live in Swarm
 // because of the loop over blocks
 TaskStatus StopCommunicationMesh(BlockList_t &blocks) {
+  printf("[%i] StopCommunicationMesh\n", Globals::my_rank);
   int num_sent_local = 0;
   for (auto &block : blocks) {
     auto &pmb = block;
@@ -400,6 +404,17 @@ TaskStatus StopCommunicationMesh(BlockList_t &blocks) {
       }
     }
   }
+
+    for (auto &block : blocks) {
+      auto &pmb = block;
+      auto sc = pmb->swarm_data.Get();
+      auto swarm = sc->Get("my particles");
+      swarm->finished_transport = true;
+      for (int n = 0; n < swarm->vbswarm->bd_var_.nbmax; n++) {
+        auto &nb = pmb->pbval->neighbor[n];
+        swarm->vbswarm->bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
+      }
+    }
 
   return TaskStatus::complete;
 }
