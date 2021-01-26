@@ -56,14 +56,14 @@ void Mesh::UserWorkInLoopDefault(Mesh *, ParameterInput *, SimTime const &) {
 
 void Mesh::PreStepUserDiagnosticsInLoopDefault(Mesh *pmesh, ParameterInput *,
                                                SimTime const &simtime) {
-  for (auto &package : pmesh->packages) {
+  for (auto &package : pmesh->packages.AllPackages()) {
     package.second->PreStepDiagnostics(simtime, pmesh->mesh_data.Get().get());
   }
 }
 
 void Mesh::PostStepUserDiagnosticsInLoopDefault(Mesh *pmesh, ParameterInput *,
                                                 SimTime const &simtime) {
-  for (auto &package : pmesh->packages) {
+  for (auto &package : pmesh->packages.AllPackages()) {
     package.second->PostStepDiagnostics(simtime, pmesh->mesh_data.Get().get());
   }
 }

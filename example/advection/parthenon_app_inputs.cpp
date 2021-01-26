@@ -35,7 +35,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   auto &rc = pmb->meshblock_data.Get();
   auto &q = rc->Get("advected").data;
 
-  auto pkg = pmb->packages["advection_package"];
+  auto pkg = pmb->packages.Get("advection_package");
   const auto &amp = pkg->Param<Real>("amp");
   const auto &vel = pkg->Param<Real>("vel");
   const auto &k_par = pkg->Param<Real>("k_par");
@@ -93,7 +93,7 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
   Real max_err = 0.0;
 
   for (auto &pmb : mesh->block_list) {
-    auto pkg = pmb->packages["advection_package"];
+    auto pkg = pmb->packages.Get("advection_package");
 
     auto rc = pmb->meshblock_data.Get(); // get base container
     const auto &amp = pkg->Param<Real>("amp");
@@ -212,12 +212,12 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   Packages_t packages;
   auto pkg = advection_package::Initialize(pin.get());
-  packages[pkg->label()] = pkg;
+  packages.Add(pkg);
 
   auto app = std::make_shared<StateDescriptor>("advection_app");
   app->PreFillDerivedBlock = advection_package::PreFill;
   app->PostFillDerivedBlock = advection_package::PostFill;
-  packages[app->label()] = app;
+  packages.Add(app);
 
   return packages;
 }

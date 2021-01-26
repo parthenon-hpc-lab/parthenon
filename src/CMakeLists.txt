@@ -113,6 +113,8 @@ configure_file(config.hpp.in generated/config.hpp @ONLY)
 add_library(parthenon
   bvals/cc/bvals_cc.cpp
   bvals/cc/bvals_cc.hpp
+  bvals/cc/bvals_cc_in_one.cpp
+  bvals/cc/bvals_cc_in_one.hpp
   bvals/cc/flux_correction_cc.cpp
 
   bvals/fc/bvals_fc.cpp
