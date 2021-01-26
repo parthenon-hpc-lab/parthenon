@@ -31,19 +31,43 @@
 #include <parthenon/package.hpp>
 
 using Real = double;
+using parthenon::Mesh;
 using parthenon::MeshBlock;
 using parthenon::Metadata;
 using parthenon::ParArrayND;
 using parthenon::Swarm;
+using parthenon::ParameterInput;
+using parthenon::ApplicationInput;
+using parthenon::Properties_t;
+using parthenon::Packages_t;
+using std::endl;
 
 constexpr int NUMINIT = 10;
 
 TEST_CASE("Swarm memory management", "[Swarm]") {
+  std::stringstream is;
+  is << "<parthenon/mesh>" << endl;
+  is << "x1min = -0.5" << endl;
+  is << "x2min = -0.5" << endl;
+  is << "x3min = -0.5" << endl;
+  is << "x1max = 0.5" << endl;
+  is << "x2max = 0.5" << endl;
+  is << "x3max = 0.5" << endl;
+  is << "nx1 = 4" << endl;
+  is << "nx2 = 4" << endl;
+  is << "nx3 = 4" << endl;
+  auto pin = std::make_shared<ParameterInput>();
+  pin->LoadFromStream(is);
+  auto app_in = std::make_shared<ApplicationInput>();
+  Properties_t properties;
+  Packages_t packages;
   auto meshblock = std::make_shared<MeshBlock>(1, 1);
+  auto mesh = std::make_shared<Mesh>(pin.get(), app_in.get(), properties, packages, 1);
+  meshblock->pmy_mesh = mesh.get();
   Metadata m;
   auto swarm = std::make_shared<Swarm>("test swarm", m, NUMINIT);
-  auto swarm_d = swarm->GetDeviceContext();
   swarm->SetBlockPointer(meshblock);
+  auto swarm_d = swarm->GetDeviceContext();
   REQUIRE(swarm->get_num_active() == 0);
   REQUIRE(swarm->get_max_active_index() == 0);
   ParArrayND<int> failures_d("Number of failures", 1);
