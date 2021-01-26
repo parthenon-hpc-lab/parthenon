@@ -31,15 +31,15 @@
 #include <parthenon/package.hpp>
 
 using Real = double;
+using parthenon::ApplicationInput;
 using parthenon::Mesh;
 using parthenon::MeshBlock;
 using parthenon::Metadata;
-using parthenon::ParArrayND;
-using parthenon::Swarm;
-using parthenon::ParameterInput;
-using parthenon::ApplicationInput;
-using parthenon::Properties_t;
 using parthenon::Packages_t;
+using parthenon::ParameterInput;
+using parthenon::ParArrayND;
+using parthenon::Properties_t;
+using parthenon::Swarm;
 using std::endl;
 
 constexpr int NUMINIT = 10;
