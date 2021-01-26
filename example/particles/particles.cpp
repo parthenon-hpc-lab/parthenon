@@ -98,8 +98,6 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
 // first some helper tasks
 
 TaskStatus DestroySomeParticles(MeshBlock *pmb) {
-  return TaskStatus::complete;
-  pmb->exec_space.fence();
   auto pkg = pmb->packages["particles_package"];
   auto swarm = pmb->swarm_data.Get()->Get("my particles");
   auto rng_pool = pkg->Param<RNGPool>("rng_pool");
