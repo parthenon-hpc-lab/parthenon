@@ -18,17 +18,31 @@ stages:
   stage: performance-target
     - env -i bash --norc --noprofile ../scripts/darwin/build_fast_target.sh  "${GITHUB_APP_PEM}" "${CI_COMMIT_SHA" "${CI_COMMIT_BRANCH}" "${CI_JOB_URL}"
 
-parthenon-power9-gcc-mpi-cuda-perf-manual:
-  extends: .gcc-mpi-cuda-performance-regression
-  stage: performance-regression
+parthenon-power9-gcc-mpi-cuda-perf-manual-target-branch:
+  extends: .gcc-mpi-cuda-performance-regression-target-branch
+  stage: performance-target
   when: manual
   except:
     - schedules
 
+parthenon-power9-gcc-mpi-cuda-perf-manual:
+  extends: .gcc-mpi-cuda-performance-regression
+  stage: performance-regression
+  needs: [parthenon-power9-gcc-mpi-cuda-perf-manual-target-branch]
+  except:
+    - schedules
+
+parthenon-power9-gcc-mpi-cuda-perf-schedule-target_branch:
+  extends: .gcc-mpi-cuda-performance-regression-target-branch
+  stage: performance-target
+  only:
+    - schedules
+    - develop
 
 parthenon-power9-gcc-mpi-cuda-perf-schedule:
   extends: .gcc-mpi-cuda-performance-regression
   stage: performance-regression
+  needs: [parthenon-power9-gcc-mpi-cuda-perf-schedule-target_branch]
   only:
     - schedules
     - develop
