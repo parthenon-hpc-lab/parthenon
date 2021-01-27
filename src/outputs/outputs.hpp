@@ -130,7 +130,7 @@ class OutputType {
 
 class HistoryOutput : public OutputType {
  public:
-  explicit HistoryOutput(OutputParameters oparams) : OutputType(oparams) {}
+  explicit HistoryOutput(const OutputParameters &oparams) : OutputType(oparams) {}
   void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) override;
 };
 
@@ -140,7 +140,7 @@ class HistoryOutput : public OutputType {
 
 class FormattedTableOutput : public OutputType {
  public:
-  explicit FormattedTableOutput(OutputParameters oparams) : OutputType(oparams) {}
+  explicit FormattedTableOutput(const OutputParameters &oparams) : OutputType(oparams) {}
   void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) override;
 };
 
