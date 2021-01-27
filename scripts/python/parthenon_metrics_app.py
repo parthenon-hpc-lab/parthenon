@@ -165,7 +165,7 @@ class PerformanceDataJsonParser():
           for data_grp in json_obj.get('data'):
             if data_grp.get('test') == test:
               mesh_blocks = data_grp.get('mesh_blocks')
-                cycles = data_grp.get('zone_cycles')
+              cycles = data_grp.get('zone_cycles')
       return mesh_blocks, cycles
 
 
