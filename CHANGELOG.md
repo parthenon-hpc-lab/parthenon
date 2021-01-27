@@ -14,6 +14,7 @@
 
 ### Infrastructure (changes irrelevant to downstream codes)
 - [[PR 407]](https://github.com/lanl/parthenon/pull/407) More cleanup, removed old bash scripts for ci.
+- [[PR 428]](https://github.com/lanl/parthenon/pull/428) Triad Copyright 2021
 
 ### Removed (removing behavior/API/varaibles/...)
 
