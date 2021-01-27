@@ -534,7 +534,7 @@ if __name__ == '__main__':
         help=desc)
 
     desc = ('Get the target branch of the current pull request')
-    parser.add_argument('--get-target-branch','-tb',
+    parser.add_argument('--get-target-branch','-gtb',
         action='store_true',
         default=False,
         help=desc)

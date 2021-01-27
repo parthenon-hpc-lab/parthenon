@@ -13,13 +13,13 @@ stages:
     - env
     - printf 'env -i bash --norc --noprofile %s/scripts/darwin/build_fast_target.sh  "%s" "%s" "%s" "%s"\n' ${CI_PROJECT_DIR} ${GITHUB_APP_PEM} ${CI_COMMIT_SHA} ${CI_COMMIT_BRANCH} ${CI_JOB_URL}> execute_main.sh
     - printf '%s/scripts/darwin/metrics.sh "%s" "%s/build" "%s" "%s"\n' ${CI_PROJECT_DIR} ${GITHUB_APP_PEM} ${CI_PROJECT_DIR} ${CI_COMMIT_SHA} ${CI_COMMIT_BRANCH}>> execute_main.sh
-    - env -i bash --norc --noprofile ./scripts/darwin/build_fast.sh "${GITHUB_APP_PEM}" "${CI_COMMIT_SHA}" "${CI_COMMIT_BRANCH}" "${CI_JOB_URL}"
+    - env -i bash --norc --noprofile ${CI_PROJECT_DIR}/scripts/darwin/build_fast.sh "${GITHUB_APP_PEM}" "${CI_COMMIT_SHA}" "${CI_COMMIT_BRANCH}" "${CI_JOB_URL}"
     - ${CI_PROJECT_DIR}/scripts/darwin/metrics.sh "${GITHUB_APP_PEM}" "${CI_PROJECT_DIR}/build" "${CI_COMMIT_SHA}" "${CI_COMMIT_BRANCH}"
 
 .gcc-mpi-cuda-performance-regression-target-branch:
   script:
-    - printf 'env -i bash --norc --noprofile %s/scripts/darwin/build_fast_target.sh  "%s" "%s" "%s" "%s"\n' ${CI_PROJECT_DIR} ${CI_COMMIT_BRANCH} ${CI_COMMIT_SHA} ${CI_COMMIT_BRANCH} ${CI_JOB_URL}> execute_target.sh
-    - env -i bash --norc --noprofile ${CI_PROJECT_DIR}/scripts/darwin/build_fast_target.sh  "${GITHUB_APP_PEM}" "${CI_COMMIT_SHA}" "${CI_COMMIT_BRANCH}" "${CI_JOB_URL}"
+    - printf 'env -i bash --norc --noprofile %s/scripts/darwin/build_fast_target.sh  "%s" "%s" "%s" "%s"\n' ${CI_PROJECT_DIR} ${GITHUB_APP_PEM} ${CI_COMMIT_SHA} ${CI_COMMIT_BRANCH} ${CI_JOB_URL}> execute_target.sh
+    - env -i bash --norc --noprofile ${CI_PROJECT_DIR}/scripts/darwin/build_fast_target.sh "${GITHUB_APP_PEM}"  "${CI_COMMIT_SHA}" "${CI_COMMIT_BRANCH}" "${CI_JOB_URL}"
 
 parthenon-power9-gcc-mpi-cuda-perf-manual-target-branch:
   extends: .gcc-mpi-cuda-performance-regression-target-branch
