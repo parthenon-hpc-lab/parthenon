@@ -285,6 +285,11 @@ class App:
  
     return self._branches
 
+  def getLatestCommitSha(self, target_branch):
+    if not self._branches:
+      self._getBranches() 
+    return self._branch_current_commit_sha.get(target_branch)
+
   def branchExist(self,branch):
     """
     This method will determine if a branch exists on the github repository by pinging the github api

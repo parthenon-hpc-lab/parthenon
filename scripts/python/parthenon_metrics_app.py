@@ -139,6 +139,35 @@ class PerformanceDataJsonParser():
       # Need to convert the dict to a string to dump to a file
       json.dump(self._data, fout, indent=4)
 
+  def checkDataUpToDate(self, file_name, branch, commit_sha, test):
+    if not os.path.isfile(file_name):
+      return False
+    if os.stat(file_name).st_size==0:
+      return False
+    with open(file_name, 'r') as fid:
+      json_objs = json.load(fid)
+
+      mesh_blocks = None
+      cycles = None
+
+      recent_datetime = None
+      for json_obj in json_objs:
+        new_datetime = datetime.datetime.strptime(json_obj.get('date'), '%Y-%m-%d %H:%M:%S')
+        if recent_datetime == None:
+          recent_datetime = new_datetime
+          for data_grp in json_obj.get('data'):
+            if data_grp.get('test') == test:
+              mesh_blocks = data_grp.get('mesh_blocks')
+              cycles = data_grp.get('zone_cycles')
+
+        if new_datetime > recent_datetime:
+          recent_datetime = new_datetime
+          for data_grp in json_obj.get('data'):
+            if data_grp.get('test') == test:
+              mesh_blocks = data_grp.get('mesh_blocks')
+                cycles = data_grp.get('zone_cycles')
+      return mesh_blocks, cycles
+
 
 """
 Parthenon App Class
@@ -181,15 +210,25 @@ class ParthenonApp(App):
         ind = ind + 1
     return mesh_blocks, zone_cycles
 
-  def analyze(self, regression_outputs):
+  def getCurrentAndTargetBranch(self):
+    """Returns the branch that the current branch and the branch that is being merged with (the target branch).
+
+    If no pull request is open returns None for the target.
+    """
+    current_branch = os.getenv('CI_COMMIT_BRANCH')
+    target_branch = super().getBranchMergingWith(current_branch)
+    print("Current branch: %s\nTarget Branch: %s" % (current_branch,target_branch))
+    return current_branch, target_branch
+
+  def analyze(self, regression_outputs, current_branch, target_branch):
     regression_outputs = os.path.abspath(regression_outputs)
     if not os.path.exists(regression_outputs):
       raise Exception("Cannot analyze regression outputs specified path is invalid: " + regression_outputs)
     if not os.path.isdir(regression_outputs):
       raise Exception("Cannot analyze regression outputs specified path is invalid: " + regression_outputs)
     
-    current_branch = os.getenv('CI_COMMIT_BRANCH')
-    target_branch = super().getBranchMergingWith(current_branch)
+    #current_branch = os.getenv('CI_COMMIT_BRANCH')
+    #target_branch = super().getBranchMergingWith(current_branch)
     wiki_file_name = current_branch.replace(r'/', '-') + "_" + target_branch.replace(r'/', '-')
     pr_wiki_page = os.path.join(self._parthenon_wiki_dir, wiki_file_name + ".md" )
 
@@ -224,6 +263,16 @@ class ParthenonApp(App):
             'zone_cycles': np.array2string(zone_cycles)
                   }]
             }
+        
+        # Get the data for the target branch before writing the stats for the current branch,
+        # This is to avoid the scenario where the target and current branch are the same. 
+        json_file_compare = str(self._parthenon_wiki_dir) + "/performance_metrics_" + target_branch.replace(r'/', '-') + ".json"
+        
+        target_data_file_exists = False
+        if os.path.isfile(json_file_compare):
+          target_data_file_exists = True
+          target_meshblocks, target_cycles = json_perf_data_parser.getMostRecentPerformanceData(json_file_compare, target_branch, test_dir)
+
 
         json_file_out = str(self._parthenon_wiki_dir) + "/performance_metrics_"+ current_branch.replace(r'/', '-') + ".json"
         json_perf_data_parser = PerformanceDataJsonParser()
@@ -232,12 +281,6 @@ class ParthenonApp(App):
         # Now the new file needs to be committed
         self.upload(json_file_out, "master",use_wiki=True)
 
-        json_file_compare = str(self._parthenon_wiki_dir) + "/performance_metrics_" + target_branch.replace(r'/', '-') + ".json"
-        
-        target_data_file_exists = False
-        if os.path.isfile(json_file_compare):
-          target_data_file_exists = True
-          target_meshblocks, target_cycles = json_perf_data_parser.getMostRecentPerformanceData(json_file_compare, target_branch, test_dir)
         # Get the data for the last commit in the development branch
 
         # Now we need to create the figure to update
@@ -261,7 +304,7 @@ class ParthenonApp(App):
         p[0].set_ylabel("zone-cycles/s")
         p[1].set_ylabel("normalized overhead")
         p[1].set_xlabel("Meshblock size")
-        figure_name =test_dir + "_" + current_branch.replace(r'/', '-') + "_" + target_branch.replace(r'/', '-') + ".png"
+        figure_name = test_dir + "_" + current_branch.replace(r'/', '-') + "_" + target_branch.replace(r'/', '-') + ".png"
         figure_path_name = os.path.join(self._parthenon_wiki_dir, figure_name )
         fig.savefig(figure_path_name, bbox_inches='tight')
         self.upload(figure_path_name, self._default_image_branch, use_wiki=False)
@@ -290,7 +333,35 @@ class ParthenonApp(App):
     # 4 Create figure
     # 5 upload figure
     # 6 indicate pass or fail with link to figure
+  def checkUpToDate(self,target_branch, tests):
+    """Check to see if performance metrics for all the tests exist."""
+    super().cloneWikiRepo()
+    target_file = str(self._parthenon_wiki_dir) + "/performance_metrics_" + target_branch.replace(r'/', '-') + ".json"
+    isUpToDate = True
+    if os.path.isfile(target_file):
+      if self.branchExist(target_branch):
+        json_perf_data_parser = PerformanceDataJsonParser()
+        commit_sha = self.getLatestCommitSha(target_branch) 
+        for test in tests:
+          test_isUpToDate = json_perf_data_parser.checkDataUpToDate(target_file, target_branch, commit_sha, test)
+          print("Performance Metrics for test %s is uptodate: %s" % test_isUpToDate)
+          if not test_isUpToDate:
+            isUpToDate = False
+      else:
+        print("Branch (%s) is not available on github." % target_branch)
+        isUpToDate = False
+      print("Performance Metrics are uptodate: %s" % isUpToDate)
+    else:
+      isUpToDate = False
+      print("Performance Metrics file is missing.")
+      print("Performance Metrics are uptodate: %s" % isUpToDate)
 
+  def printTargetBranch(self, branch):
+    target_branch = self.getBranchMerginWith(branch)
+    if target_branch = None:
+      print("Branch (%s) does not appear to not have an open pull request, no target detected." % branch)
+    else:
+      print("Target branch is: %s" % target_branch)
 
 def main(**kwargs):
 
@@ -340,7 +411,20 @@ def main(**kwargs):
     if isinstance(value,list):
         value = value[0]
     if not value is None:
-        app.analyze(value)
+        target_branch = kwargs.pop('target_branch') 
+        if target_branch == "":
+          current, target_branch = app.getCurrentAndTargetBranch()
+          # If target branch is None, assume it's not a pull request 
+          if target_branch == None:
+            target_branch = branch
+        app.analyze(value, branch, target_branch)
+
+  check = kwargs.pop('check_branch_metrics_uptodate')
+  if check:
+    app.checkUpToDate(branch, kwargs.pop('tests'))
+
+  if 'get_target_branch':
+    app.printTargetBranch(branch)
 
 # Execute main function
 if __name__ == '__main__':
@@ -370,6 +454,14 @@ if __name__ == '__main__':
                         nargs=1,
                         required=False,
                         default = "develop",
+                        help=desc)
+
+    desc = ('Target branch to use. Default is calculated by making a RESTful API to github using the branch pased in with --branch argument')
+    parser.add_argument('--target-branch','-tb',
+                        type=str,
+                        nargs=1,
+                        required=False,
+                        default = "",
                         help=desc)
 
     desc = ('Post current status state: error, failed, pending or success.')
@@ -422,10 +514,29 @@ if __name__ == '__main__':
         default=False,
         help=desc)
 
+    desc = ('Check if the performance metrics for the branch are uptodate, default branch is "develop"')
+    parser.add_argument('--check-branch-metrics-uptodate','-cbmu',
+        action='store_true',
+        default=False,
+        help=desc)
+
+    desc = ('Tests to analyze.')
+    parser.add_argument('--tests','-t',
+        nargs='+',
+        default=[],
+        type=str,
+        help=desc)
+
     desc = ('Ignore rules, will ignore upload rules')
     parser.add_argument('--ignore','-i',
         action='store_true',
         default=True,
+        help=desc)
+
+    desc = ('Get the target branch of the current pull request')
+    parser.add_argument('--get-target-branch','-tb',
+        action='store_true',
+        default=False,
         help=desc)
 
     args = parser.parse_args()
