@@ -54,9 +54,10 @@ if [[ "$performance_metrics_uptodate" == *"False"* ]]; then
 
   # Before checking out target branch copy the metrics app
   cp ${SOURCE}/../python/parthenon_metrics_app.py ${SOURCE}/../../../
+  cp ${SOURCE}/../python/app.py ${SOURCE}/../../../
   git checkout "$target_branch"
 
-  cp ${SOURCE}/../../../parthenon_metrics_app.py ${SOURCE}/../python
+  cp ${SOURCE}/../../../app.py ${SOURCE}/../python
   source /projects/parthenon-int/parthenon-project/.bashrc
   cmake -S. -Bbuild
 
