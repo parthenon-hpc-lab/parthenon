@@ -14,6 +14,8 @@
 ### Fixed (not changing behavior/API/variables/...)
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 407]](https://github.com/lanl/parthenon/pull/407) More cleanup, removed old bash scripts for ci.
+- [[PR 428]](https://github.com/lanl/parthenon/pull/428) Triad Copyright 2021
 
 ### Removed (removing behavior/API/varaibles/...)
 
@@ -52,6 +54,8 @@ Date: 01/19/2021
 - [[PR 382]](https://github.com/lanl/parthenon/pull/382) Adds output on fail for fast ci implementation on Darwin.
 - [[PR 362]](https://github.com/lanl/parthenon/pull/362) Small fix to clean regression tests output folder on reruns
 - [[PR 403]](https://github.com/lanl/parthenon/pull/403) Cleanup Codacy warnings
+
+### Removed (removing behavior/API/varaibles/...)
 - [[PR 410]](https://github.com/lanl/parthenon/pull/410) Addresses issue of cpp linter calling python instead of python3
 
 ## Release 0.3.0

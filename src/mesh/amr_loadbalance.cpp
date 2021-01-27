@@ -792,8 +792,9 @@ void Mesh::PrepareSendCoarseToFineAMR(MeshBlock *pb, BufArray1D<Real> &sendbuf,
                                       LogicalLocation &lloc) {
   const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
   const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
-  int ox1 = ((lloc.lx1 & 1LL) == 1LL), ox2 = ((lloc.lx2 & 1LL) == 1LL),
-      ox3 = ((lloc.lx3 & 1LL) == 1LL);
+  int ox1 = static_cast<int>((lloc.lx1 & 1LL) == 1LL);
+  int ox2 = static_cast<int>((lloc.lx2 & 1LL) == 1LL);
+  int ox3 = static_cast<int>((lloc.lx3 & 1LL) == 1LL);
   const IndexDomain interior = IndexDomain::interior;
   // pack
   int il, iu, jl, ju, kl, ku;
@@ -1148,8 +1149,9 @@ void Mesh::FinishRecvFineToCoarseAMR(MeshBlock *pb, BufArray1D<Real> &recvbuf,
   IndexRange jb = pb->cellbounds.GetBoundsJ(interior);
   IndexRange kb = pb->cellbounds.GetBoundsK(interior);
 
-  int ox1 = ((lloc.lx1 & 1LL) == 1LL), ox2 = ((lloc.lx2 & 1LL) == 1LL),
-      ox3 = ((lloc.lx3 & 1LL) == 1LL);
+  int ox1 = static_cast<int>((lloc.lx1 & 1LL) == 1LL);
+  int ox2 = static_cast<int>((lloc.lx2 & 1LL) == 1LL);
+  int ox3 = static_cast<int>((lloc.lx3 & 1LL) == 1LL);
   int p = 0, il, iu, jl, ju, kl, ku;
 
   if (ox1 == 0)
