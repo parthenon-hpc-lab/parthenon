@@ -53,11 +53,16 @@ if [[ "$performance_metrics_uptodate" == *"False"* ]]; then
   export J=$(( $(nproc --all) )) && echo Using ${J} cores during build
 
   # Before checking out target branch copy the metrics app
+  echo "Copying files parthenon_metrics_app.py and app.py to ${SOURCE}/../../../"
   cp ${SOURCE}/../python/parthenon_metrics_app.py ${SOURCE}/../../../
   cp ${SOURCE}/../python/app.py ${SOURCE}/../../../
+  ls ${SOURCE}/../../../
   git checkout "$target_branch"
 
+  echo "Copying files parthenon_metrics_app.py and app.py to ${SOURCE}/../python"
   cp ${SOURCE}/../../../app.py ${SOURCE}/../python
+  ls ${SOURCE}/../python/
+
   source /projects/parthenon-int/parthenon-project/.bashrc
   cmake -S. -Bbuild
 
