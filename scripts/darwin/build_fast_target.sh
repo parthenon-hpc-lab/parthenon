@@ -52,8 +52,11 @@ if [[ "$performance_metrics_uptodate" == *"False"* ]]; then
   # Calculate number of available cores
   export J=$(( $(nproc --all) )) && echo Using ${J} cores during build
 
+  # Before checking out target branch copy the metrics app
+  cp ${SOURCE}/../python/parthenon_metrics_app.py ${SOURCE}/../../../
   git checkout "$target_branch"
 
+  cp ${SOURCE}/../../../parthenon_metrics_app.py ${SOURCE}/../python
   source /projects/parthenon-int/parthenon-project/.bashrc
   cmake -S. -Bbuild
 
