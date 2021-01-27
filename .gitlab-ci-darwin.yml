@@ -2,9 +2,6 @@ variables:
   SCHEDULER_PARAMETERS: '--nodes=1 --partition=power9-eap-ci --export=NONE'
   GIT_SUBMODULE_STRATEGY: recursive
 
-rules:
-  allow_failure: false
-
 stages:
   - performance-target
   - performance-regression
@@ -27,6 +24,7 @@ stages:
 parthenon-power9-gcc-mpi-cuda-perf-manual-target-branch:
   extends: .gcc-mpi-cuda-performance-regression-target-branch
   stage: performance-target
+  allow_failure: false
   when: manual
   except:
     - schedules
@@ -41,6 +39,7 @@ parthenon-power9-gcc-mpi-cuda-perf-manual:
 parthenon-power9-gcc-mpi-cuda-perf-schedule-target_branch:
   extends: .gcc-mpi-cuda-performance-regression-target-branch
   stage: performance-target
+  allow_failure: false
   only:
     - schedules
     - develop
