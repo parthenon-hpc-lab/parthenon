@@ -1,2 +1,0 @@
-# parthenon
-Parthenon AMR infrastructure 
