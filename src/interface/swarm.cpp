@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -180,7 +180,8 @@ void Swarm::ResizeParArray(ParArrayND<T> &var, const int n_old, const int n_new)
   auto oldvar = var;
   auto newvar = ParArrayND<T>(oldvar.label(), n_new);
   PARTHENON_DEBUG_REQUIRE(n_new > n_old, "Resized ParArrayND must be larger!");
-  GetBlockPointer()->par_for(
+  auto pmb = GetBlockPointer();
+  pmb->par_for(
       "ResizeParArray", 0, n_old - 1,
       KOKKOS_LAMBDA(const int n) { newvar(n) = oldvar(n); });
   var = newvar;
