@@ -67,7 +67,7 @@ int main(int argc, char *argv[]) {
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   Packages_t packages;
   // only have one package for this app, but will typically have more things added to
-  packages["calculate_pi"] = calculate_pi::Initialize(pin.get());
+  packages.Add(calculate_pi::Initialize(pin.get()));
   return packages;
 }
 
@@ -90,7 +90,7 @@ parthenon::DriverStatus PiDriver::Execute() {
   ConstructAndExecuteTaskLists<>(this);
 
   // retrieve "pi_val" and post execute.
-  auto &pi_val = pmesh->packages["calculate_pi"]->Param<Real>("pi_val");
+  auto &pi_val = pmesh->packages.Get("calculate_pi")->Param<Real>("pi_val");
   pmesh->mbcnt = pmesh->nbtotal; // this is how many blocks were processed
   PostExecute(pi_val);
   return DriverStatus::complete;

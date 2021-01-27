@@ -26,6 +26,7 @@
 #include "interface/params.hpp"
 #include "interface/swarm.hpp"
 #include "refinement/amr_criteria.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
@@ -245,7 +246,26 @@ class StateDescriptor {
   Dictionary<Dictionary<Metadata>> swarmValueMetadataMap_;
 };
 
-using Packages_t = Dictionary<std::shared_ptr<StateDescriptor>>;
+class Packages_t {
+ public:
+  Packages_t() = default;
+  void Add(const std::shared_ptr<StateDescriptor> &package) {
+    const auto &name = package->label();
+    PARTHENON_REQUIRE_THROWS(packages_.count(name) == 0,
+                             "Package name " + name + " must be unique.");
+    packages_[name] = package;
+    return;
+  }
+  std::shared_ptr<StateDescriptor> const &Get(const std::string &name) {
+    return packages_.at(name);
+  }
+  const Dictionary<std::shared_ptr<StateDescriptor>> &AllPackages() const {
+    return packages_;
+  }
+
+ private:
+  Dictionary<std::shared_ptr<StateDescriptor>> packages_;
+};
 
 std::shared_ptr<StateDescriptor> ResolvePackages(Packages_t &packages);
 

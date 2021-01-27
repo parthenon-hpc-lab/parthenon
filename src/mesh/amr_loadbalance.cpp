@@ -489,7 +489,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   Kokkos::Profiling::popRegion(); // Step 3
   // Step 4. calculate buffer sizes
   Kokkos::Profiling::pushRegion("Step 4: Calc buffer sizes");
-  ParArray1D<Real> *sendbuf, *recvbuf;
+  BufArray1D<Real> *sendbuf, *recvbuf;
   // use the first MeshBlock in the linked list of blocks belonging to this MPI rank as a
   // representative of all MeshBlocks for counting the "load-balancing registered" and
   // "SMR/AMR-enrolled" quantities (loop over MeshBlock::vars_cc_, not MeshRefinement)
@@ -531,7 +531,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   // Step 5. allocate and start receiving buffers
   Kokkos::Profiling::pushRegion("Step 5: Alloc buffer and start recv");
   if (nrecv != 0) {
-    recvbuf = new ParArray1D<Real>[nrecv];
+    recvbuf = new BufArray1D<Real>[nrecv];
     req_recv = new MPI_Request[nrecv];
     int rb_idx = 0; // recv buffer index
     for (int n = nbs; n <= nbe; n++) {
@@ -544,7 +544,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
           LogicalLocation &lloc = loclist[on + l];
           int ox1 = ((lloc.lx1 & 1LL) == 1LL), ox2 = ((lloc.lx2 & 1LL) == 1LL),
               ox3 = ((lloc.lx3 & 1LL) == 1LL);
-          recvbuf[rb_idx] = ParArray1D<Real>("recvbuf" + std::to_string(rb_idx), bsf2c);
+          recvbuf[rb_idx] = BufArray1D<Real>("recvbuf" + std::to_string(rb_idx), bsf2c);
           int tag = CreateAMRMPITag(n - nbs, ox1, ox2, ox3);
           PARTHENON_MPI_CHECK(MPI_Irecv(recvbuf[rb_idx].data(), bsf2c, MPI_PARTHENON_REAL,
                                         ranklist[on + l], tag, MPI_COMM_WORLD,
@@ -559,7 +559,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
         } else {
           size = bsc2f;
         }
-        recvbuf[rb_idx] = ParArray1D<Real>("recvbuf" + std::to_string(rb_idx), size);
+        recvbuf[rb_idx] = BufArray1D<Real>("recvbuf" + std::to_string(rb_idx), size);
         int tag = CreateAMRMPITag(n - nbs, 0, 0, 0);
         PARTHENON_MPI_CHECK(MPI_Irecv(recvbuf[rb_idx].data(), size, MPI_PARTHENON_REAL,
                                       ranklist[on], tag, MPI_COMM_WORLD,
@@ -572,7 +572,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   // Step 6. allocate, pack and start sending buffers
   Kokkos::Profiling::pushRegion("Step 6: Alloc, pack, and send buffers");
   if (nsend != 0) {
-    sendbuf = new ParArray1D<Real>[nsend];
+    sendbuf = new BufArray1D<Real>[nsend];
     req_send = new MPI_Request[nsend];
     int sb_idx = 0; // send buffer index
     for (int n = onbs; n <= onbe; n++) {
@@ -583,7 +583,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       if (nloc.level == oloc.level) { // same level
         if (newrank[nn] == Globals::my_rank) continue;
         sendbuf[sb_idx] =
-            ParArray1D<Real>("amr send buf same" + std::to_string(sb_idx), bssame);
+            BufArray1D<Real>("amr send buf same" + std::to_string(sb_idx), bssame);
         PrepareSendSameLevel(pb.get(), sendbuf[sb_idx]);
         int tag = CreateAMRMPITag(nn - nslist[newrank[nn]], 0, 0, 0);
         PARTHENON_MPI_CHECK(MPI_Isend(sendbuf[sb_idx].data(), bssame, MPI_PARTHENON_REAL,
@@ -595,7 +595,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
         for (int l = 0; l < nleaf; l++) {
           if (newrank[nn + l] == Globals::my_rank) continue;
           sendbuf[sb_idx] =
-              ParArray1D<Real>("amr send buf c2f" + std::to_string(sb_idx), bsc2f);
+              BufArray1D<Real>("amr send buf c2f" + std::to_string(sb_idx), bsc2f);
           PrepareSendCoarseToFineAMR(pb.get(), sendbuf[sb_idx], newloc[nn + l]);
           int tag = CreateAMRMPITag(nn + l - nslist[newrank[nn + l]], 0, 0, 0);
           PARTHENON_MPI_CHECK(MPI_Isend(sendbuf[sb_idx].data(), bsc2f, MPI_PARTHENON_REAL,
@@ -606,7 +606,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       } else { // f2c: restrict + pack + send
         if (newrank[nn] == Globals::my_rank) continue;
         sendbuf[sb_idx] =
-            ParArray1D<Real>("amr send buf f2c" + std::to_string(sb_idx), bsf2c);
+            BufArray1D<Real>("amr send buf f2c" + std::to_string(sb_idx), bsf2c);
         PrepareSendFineToCoarseAMR(pb.get(), sendbuf[sb_idx]);
         int ox1 = ((oloc.lx1 & 1LL) == 1LL), ox2 = ((oloc.lx2 & 1LL) == 1LL),
             ox3 = ((oloc.lx3 & 1LL) == 1LL);
@@ -738,7 +738,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
 
 // AMR: step 6, branch 1 (same2same: just pack+send)
 
-void Mesh::PrepareSendSameLevel(MeshBlock *pmb, ParArray1D<Real> &sendbuf) {
+void Mesh::PrepareSendSameLevel(MeshBlock *pmb, BufArray1D<Real> &sendbuf) {
   // pack
   int p = 0;
 
@@ -788,7 +788,7 @@ void Mesh::PrepareSendSameLevel(MeshBlock *pmb, ParArray1D<Real> &sendbuf) {
 
 // step 6, branch 2 (c2f: just pack+send)
 
-void Mesh::PrepareSendCoarseToFineAMR(MeshBlock *pb, ParArray1D<Real> &sendbuf,
+void Mesh::PrepareSendCoarseToFineAMR(MeshBlock *pb, BufArray1D<Real> &sendbuf,
                                       LogicalLocation &lloc) {
   const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
   const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
@@ -839,7 +839,7 @@ void Mesh::PrepareSendCoarseToFineAMR(MeshBlock *pb, ParArray1D<Real> &sendbuf,
 
 // step 6, branch 3 (f2c: restrict, pack, send)
 
-void Mesh::PrepareSendFineToCoarseAMR(MeshBlock *pb, ParArray1D<Real> &sendbuf) {
+void Mesh::PrepareSendFineToCoarseAMR(MeshBlock *pb, BufArray1D<Real> &sendbuf) {
   // restrict and pack
   const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
   const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
@@ -1089,7 +1089,7 @@ void Mesh::FillSameRankCoarseToFineAMR(MeshBlock *pob, MeshBlock *pmb,
 }
 
 // step 8 (receive and load), branch 1 (same2same: unpack)
-void Mesh::FinishRecvSameLevel(MeshBlock *pmb, ParArray1D<Real> &recvbuf) {
+void Mesh::FinishRecvSameLevel(MeshBlock *pmb, BufArray1D<Real> &recvbuf) {
   int p = 0;
 
   const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
@@ -1139,7 +1139,7 @@ void Mesh::FinishRecvSameLevel(MeshBlock *pmb, ParArray1D<Real> &recvbuf) {
 }
 
 // step 8 (receive and load), branch 2 (f2c: unpack)
-void Mesh::FinishRecvFineToCoarseAMR(MeshBlock *pb, ParArray1D<Real> &recvbuf,
+void Mesh::FinishRecvFineToCoarseAMR(MeshBlock *pb, BufArray1D<Real> &recvbuf,
                                      LogicalLocation &lloc) {
   const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
   const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
@@ -1196,7 +1196,7 @@ void Mesh::FinishRecvFineToCoarseAMR(MeshBlock *pb, ParArray1D<Real> &recvbuf,
 }
 
 // step 8 (receive and load), branch 2 (c2f: unpack+prolongate)
-void Mesh::FinishRecvCoarseToFineAMR(MeshBlock *pb, ParArray1D<Real> &recvbuf) {
+void Mesh::FinishRecvCoarseToFineAMR(MeshBlock *pb, BufArray1D<Real> &recvbuf) {
   const int f2 = (ndim >= 2) ? 1 : 0; // extra cells/faces from being 2d
   const int f3 = (ndim >= 3) ? 1 : 0; // extra cells/faces from being 3d
   auto &pmr = pb->pmr;

@@ -63,6 +63,11 @@ ang_2_vert = false
 ang_3_vert = false
 amp = 1e-6
 
+num_vars = 1 # number of variables in variable vector
+buffer_send_pack = false # send all buffers using packs
+buffer_recv_pack = false # receive buffers using packs
+buffer_set_pack = false # set received buffers using packs
+
 refine_tol = 1.01    # control the package specific refinement tagging function
 derefine_tol = 1.001
 compute_error = false
