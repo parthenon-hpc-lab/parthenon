@@ -48,6 +48,7 @@ SwarmDeviceContext Swarm::GetDeviceContext() const {
   context.z_min_global_ = mesh_size.x3min;
   context.z_max_global_ = mesh_size.x3max;
   context.ndim_ = pmb->pmy_mesh->ndim;
+  context.my_rank_ = Globals::my_rank;
   return context;
 }
 
@@ -198,14 +199,16 @@ void Swarm::setPoolMax(const int nmax_pool) {
 
   // Resize and copy data
   ResizeParArray(mask_.Get(), nmax_pool_, nmax_pool);
+  auto mask_data = mask_.Get();
   pmb->par_for(
       "setPoolMax_mask", nmax_pool_, nmax_pool - 1,
-      KOKKOS_LAMBDA(const int n) { mask_(n) = 0; });
+      KOKKOS_LAMBDA(const int n) { mask_data(n) = 0; });
 
   ResizeParArray(marked_for_removal_.Get(), nmax_pool_, nmax_pool);
+  auto marked_for_removal_data = marked_for_removal_.Get();
   pmb->par_for(
       "setPoolMax_marked_for_removal", nmax_pool_, nmax_pool - 1,
-      KOKKOS_LAMBDA(const int n) { marked_for_removal_(n) = false; });
+      KOKKOS_LAMBDA(const int n) { marked_for_removal_data(n) = false; });
 
   ResizeParArray(neighbor_send_index_.Get(), nmax_pool_, nmax_pool);
 
@@ -425,7 +428,7 @@ void Swarm::SetupPersistentMPI() {
 
     int i = nb.ni.ox1;
     int j = nb.ni.ox2;
-    int k = nb.ni.ox3;
+    // int k = nb.ni.ox3;
 
     if (ndim == 1) {
       if (i == -1) {
@@ -573,7 +576,7 @@ bool Swarm::Send(BoundaryCommSubset phase) {
             }
             // If rank is shared, apply boundary conditions here
             // TODO(BRR) Don't hardcode periodic boundary conditions
-            if (nrank(m) == Globals::my_rank) {
+            if (nrank(m) == swarm_d.GetMyRank()) {
               double &x = vreal(ix, sidx);
               double &y = vreal(iy, sidx);
               double &z = vreal(iz, sidx);
@@ -717,8 +720,6 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
     ParArrayND<int> buffer_index("Buffer index", total_received_particles);
     auto neighbor_index_h = neighbor_index.GetHostMirror();
     auto buffer_index_h = buffer_index.GetHostMirror();
-    int nid = 0;
-    int per_neighbor_count = 0;
 
     int id = 0;
     for (int n = 0; n < maxneighbor; n++) {

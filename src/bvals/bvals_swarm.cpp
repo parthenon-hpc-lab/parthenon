@@ -50,7 +50,6 @@ BoundarySwarm::BoundarySwarm(std::weak_ptr<MeshBlock> pmb)
 void BoundarySwarm::InitBoundaryData(BoundaryData<> &bd) {
   auto pmb = GetBlockPointer();
   NeighborIndexes *ni = pmb->pbval->ni;
-  int size = 0;
 
   bd.nbmax = pmb->pbval->maxneighbor_;
 
@@ -69,9 +68,6 @@ void BoundarySwarm::SetupPersistentMPI() {
   int &mylevel = pmb->loc.level;
 
   // Initialize neighbor communications to other ranks
-  int tag;
-  int ssize = 0;
-  int rsize = 0;
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
 

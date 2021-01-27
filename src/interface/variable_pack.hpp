@@ -266,7 +266,6 @@ void FillSwarmVarView(const vpack_types::SwarmVarList<T> &vars, PackIndexMap *vm
 
   int vindex = 0;
   int sparse_start;
-  int sparse_id;
   std::string sparse_name;
   // TODO(BRR) Remove the logic for sparse variables
   for (const auto v : vars) {

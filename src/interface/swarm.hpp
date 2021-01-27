@@ -79,6 +79,9 @@ class SwarmDeviceContext {
     return blockIndex_(n);
   }
 
+  KOKKOS_INLINE_FUNCTION
+  int GetMyRank() const { return my_rank_; }
+
  private:
   Real x_min_;
   Real x_max_;
@@ -99,6 +102,7 @@ class SwarmDeviceContext {
   int ndim_;
   friend class Swarm;
   constexpr static int this_block_ = -1; // Mirrors definition in Swarm class
+  int my_rank_;
 };
 
 class Swarm {
