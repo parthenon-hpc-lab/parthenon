@@ -2,6 +2,9 @@ variables:
   SCHEDULER_PARAMETERS: '--nodes=1 --partition=power9-eap-ci --export=NONE'
   GIT_SUBMODULE_STRATEGY: recursive
 
+rules:
+  allow_failure: false
+
 stages:
   - performance-target
   - performance-regression
