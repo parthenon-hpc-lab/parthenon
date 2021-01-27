@@ -99,7 +99,7 @@ class PerformanceDataJsonParser():
           recent_datetime = None
           for json_obj in json_objs:
             new_datetime = datetime.datetime.strptime(json_obj.get('date'), '%Y-%m-%d %H:%M:%S')
-            if recent_datetime == None:
+            if recent_datetime is None:
               recent_datetime = new_datetime
               for data_grp in json_obj.get('data'):
                 if data_grp.get('test') == test:
@@ -153,7 +153,7 @@ class PerformanceDataJsonParser():
       recent_datetime = None
       for json_obj in json_objs:
         new_datetime = datetime.datetime.strptime(json_obj.get('date'), '%Y-%m-%d %H:%M:%S')
-        if recent_datetime == None:
+        if recent_datetime is None:
           recent_datetime = new_datetime
           for data_grp in json_obj.get('data'):
             if data_grp.get('test') == test:
@@ -358,7 +358,7 @@ class ParthenonApp(App):
 
   def printTargetBranch(self, branch):
     target_branch = self.getBranchMerginWith(branch)
-    if target_branch = None:
+    if target_branch is None:
       print("Branch (%s) does not appear to not have an open pull request, no target detected." % branch)
     else:
       print("Target branch is: %s" % target_branch)
@@ -415,7 +415,7 @@ def main(**kwargs):
         if target_branch == "":
           current, target_branch = app.getCurrentAndTargetBranch()
           # If target branch is None, assume it's not a pull request 
-          if target_branch == None:
+          if target_branch is None:
             target_branch = branch
         app.analyze(value, branch, target_branch)
 
