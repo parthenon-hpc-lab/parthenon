@@ -220,7 +220,7 @@ class ParthenonApp(App):
     print("Current branch: %s\nTarget Branch: %s" % (branch,target_branch))
     return branch, target_branch
 
-  def analyze(self, regression_outputs, current_branch, target_branch):
+  def analyze(self, regression_outputs, current_branch, target_branch, post_status):
     regression_outputs = os.path.abspath(regression_outputs)
     if not os.path.exists(regression_outputs):
       raise Exception("Cannot analyze regression outputs specified path is invalid: " + regression_outputs)
@@ -326,7 +326,8 @@ class ParthenonApp(App):
         print("Wiki page url is: %s" % wiki_url)
 
       self.upload(pr_wiki_page, "master",use_wiki=True)
-      self.postStatus('success',commit_sha, context="Parthenon Metrics App", description="Performance Regression Analyzed", target_url=wiki_url)
+      if post_status:
+        self.postStatus('success',commit_sha, context="Parthenon Metrics App", description="Performance Regression Analyzed", target_url=wiki_url)
     # 1 search for files 
     # 2 load performance metrics from wiki
     # 3 compare the metrics
@@ -417,7 +418,7 @@ def main(**kwargs):
           # If target branch is None, assume it's not a pull request 
           if target_branch is None:
             target_branch = branch
-        app.analyze(value, branch, target_branch)
+        app.analyze(value, branch, target_branch,kwargs.pop('post_analyze_status'))
 
   check = kwargs.pop('check_branch_metrics_uptodate')
   if check:
@@ -500,6 +501,12 @@ if __name__ == '__main__':
         type=str,
         nargs=1,
         required=False,
+        help=desc)
+
+    desc = ('Post analyze status on completion')
+    parser.add_argument('--post-analyze-status','-pa',
+        action='store_true',
+        default=False,
         help=desc)
 
     desc = ('Create Branch if does not exist.')

@@ -22,4 +22,12 @@ BUILD_DIR="${2}"
 export CI_COMMIT_SHA="${3}"
 export CI_COMMIT_BRANCH="${4}"
 echo "Metrics PEM file $GITHUB_APP_PEM"
-${SOURCE}/../python/parthenon_metrics_app.py -p "${GITHUB_APP_PEM}" --analyze "${BUILD_DIR}/tst/regression/outputs" --create
+
+data=$(${SOURCE}/../python/parthenon_metrics_app.py -p "${GITHUB_APP_PEM}" --get-target-branch --branch "${CI_COMMIT_BRANCH}")
+
+echo "Get target branch or pr"
+echo ${data}
+
+target_branch=$(echo "$data" | grep "Target branch is:" | awk '{print $4}')
+
+${SOURCE}/../python/parthenon_metrics_app.py -p "${GITHUB_APP_PEM}" --analyze "${BUILD_DIR}/tst/regression/outputs" --create --post-analyze-status --branch "${CI_COMMIT_BRANCH}" --target-branch "$target_branch"
