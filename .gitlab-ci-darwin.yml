@@ -11,11 +11,14 @@ stages:
     CMAKE_CXX_COMPILER: $CI_PROJECT_DIR/external/Kokkos/bin/nvcc_wrapper
   script:
     - env
+    - echo "env -i bash --norc --noprofile ../scripts/darwin/build_fast_target.sh  \"${GITHUB_APP_PEM}\" \"${CI_COMMIT_SHA\" \"${CI_COMMIT_BRANCH}\" \"${CI_JOB_URL}\"" > execute_main.sh
+    - echo "${CI_PROJECT_DIR}/scripts/darwin/metrics.sh \"${GITHUB_APP_PEM}\" \"${CI_PROJECT_DIR}/build\" \"${CI_COMMIT_SHA}\" \"${CI_COMMIT_BRANCH}\"" >> execute_main.sh
     - env -i bash --norc --noprofile ./scripts/darwin/build_fast.sh "${GITHUB_APP_PEM}" "${CI_COMMIT_SHA}" "${CI_COMMIT_BRANCH}" "${CI_JOB_URL}"
     - ${CI_PROJECT_DIR}/scripts/darwin/metrics.sh "${GITHUB_APP_PEM}" "${CI_PROJECT_DIR}/build" "${CI_COMMIT_SHA}" "${CI_COMMIT_BRANCH}"
 
 .gcc-mpi-cuda-performance-regression-target-branch:
   script:
+    - echo "env -i bash --norc --noprofile ../scripts/darwin/build_fast_target.sh  \"${GITHUB_APP_PEM}\" \"${CI_COMMIT_SHA\" \"${CI_COMMIT_BRANCH}\" \"${CI_JOB_URL}\"" > execute_target.sh
     - env -i bash --norc --noprofile ../scripts/darwin/build_fast_target.sh  "${GITHUB_APP_PEM}" "${CI_COMMIT_SHA" "${CI_COMMIT_BRANCH}" "${CI_JOB_URL}"
 
 parthenon-power9-gcc-mpi-cuda-perf-manual-target-branch:
