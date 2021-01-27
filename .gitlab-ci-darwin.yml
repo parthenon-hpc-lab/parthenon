@@ -15,7 +15,7 @@ stages:
     - ${CI_PROJECT_DIR}/scripts/darwin/metrics.sh "${GITHUB_APP_PEM}" "${CI_PROJECT_DIR}/build" "${CI_COMMIT_SHA}" "${CI_COMMIT_BRANCH}"
 
 .gcc-mpi-cuda-performance-regression-target-branch:
-  stage: performance-target
+  script:
     - env -i bash --norc --noprofile ../scripts/darwin/build_fast_target.sh  "${GITHUB_APP_PEM}" "${CI_COMMIT_SHA" "${CI_COMMIT_BRANCH}" "${CI_JOB_URL}"
 
 parthenon-power9-gcc-mpi-cuda-perf-manual-target-branch:
