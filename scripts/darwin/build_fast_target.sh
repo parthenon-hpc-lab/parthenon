@@ -24,14 +24,26 @@ catch() {
   exit $ERR
 }
 
+echo "CI commit branch ${CI_COMMIT_BRANCH}"
+
 module load gcc/9.2.0
 spack compiler find
 spack env activate darwin-ppc64le-gcc9-2021-01-20
-data=$(${SOURCE}/../python/parthenon_metrics_app.py -p "${GITHUB_APP_PEM}" --get-target-branch)
-target_branch=$(echo "$data" | grep "Target branch is:" | awk '{print $3}')
+data=$(${SOURCE}/../python/parthenon_metrics_app.py -p "${GITHUB_APP_PEM}" --get-target-branch --branch "${CI_COMMIT_BRANCH}")
 
-data=$(${SOURCE}/../python/parthenon_metrics_app.py -p "${GITHUB_APP_PEM}" --check-branch-metrics-uptodate)
-performance_metrics_uptodate=$(echo "$data" | grep "Performance Metrics are uptodate:" | awk '{print $4}')
+echo "Get target branch or pr"
+echo ${data}
+
+target_branch=$(echo "$data" | grep "Target branch is:" | awk '{print $4}')
+
+data=$(${SOURCE}/../python/parthenon_metrics_app.py -p "${GITHUB_APP_PEM}" --check-branch-metrics-uptodate --branch "${target_branch}")
+
+echo "Check if the target branch contains metrics data that is uptodate"
+echo ${data}
+
+performance_metrics_uptodate=$(echo "$data" | grep "Performance Metrics are uptodate:" | awk '{print $5}')
+
+echo "Performance Metrics uptodate: ${performance_metrics_uptodate}"
 
 if [[ "$performance_metrics_uptodate" == *"False"* ]]; then
 

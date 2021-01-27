@@ -267,7 +267,10 @@ class App:
     c.perform()
     c.close()
     js_obj_list = json.loads(buffer_temp.getvalue())
+    print("Checking if branch is open as a pr and what branch it is targeted to merge with.\n")
+    print("Checking branch %s\n" % (self._user + ":" + branch))
     for js_obj in js_obj_list:
+      print("Found branch: %s.\n" % js_obj.get('head').get('label'))
       if js_obj.get('head').get('label') == self._user + ":" + branch:
         return js_obj.get('base').get('label').split(':',1)[1]
     return None

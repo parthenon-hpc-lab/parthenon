@@ -210,15 +210,15 @@ class ParthenonApp(App):
         ind = ind + 1
     return mesh_blocks, zone_cycles
 
-  def getCurrentAndTargetBranch(self):
+  def getCurrentAndTargetBranch(self, branch):
     """Returns the branch that the current branch and the branch that is being merged with (the target branch).
 
     If no pull request is open returns None for the target.
     """
-    current_branch = os.getenv('CI_COMMIT_BRANCH')
-    target_branch = super().getBranchMergingWith(current_branch)
-    print("Current branch: %s\nTarget Branch: %s" % (current_branch,target_branch))
-    return current_branch, target_branch
+    #current_branch = os.getenv('CI_COMMIT_BRANCH')
+    target_branch = super().getBranchMergingWith(branch)
+    print("Current branch: %s\nTarget Branch: %s" % (branch,target_branch))
+    return branch, target_branch
 
   def analyze(self, regression_outputs, current_branch, target_branch):
     regression_outputs = os.path.abspath(regression_outputs)
@@ -357,7 +357,7 @@ class ParthenonApp(App):
       print("Performance Metrics are uptodate: %s" % isUpToDate)
 
   def printTargetBranch(self, branch):
-    target_branch = self.getBranchMerginWith(branch)
+    target_branch = self.getBranchMergingWith(branch)
     if target_branch is None:
       print("Branch (%s) does not appear to not have an open pull request, no target detected." % branch)
     else:
@@ -413,7 +413,7 @@ def main(**kwargs):
     if not value is None:
         target_branch = kwargs.pop('target_branch') 
         if target_branch == "":
-          current, target_branch = app.getCurrentAndTargetBranch()
+          current, target_branch = app.getCurrentAndTargetBranch(branch)
           # If target branch is None, assume it's not a pull request 
           if target_branch is None:
             target_branch = branch
