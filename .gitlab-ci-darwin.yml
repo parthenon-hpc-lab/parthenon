@@ -31,7 +31,7 @@ parthenon-power9-gcc-mpi-cuda-perf-manual-target-branch:
 parthenon-power9-gcc-mpi-cuda-perf-manual:
   extends: .gcc-mpi-cuda-performance-regression
   stage: performance-regression
-#  needs: [parthenon-power9-gcc-mpi-cuda-perf-manual-target-branch]
+  needs: [parthenon-power9-gcc-mpi-cuda-perf-manual-target-branch]
   except:
     - schedules
 
@@ -45,7 +45,7 @@ parthenon-power9-gcc-mpi-cuda-perf-schedule-target_branch:
 parthenon-power9-gcc-mpi-cuda-perf-schedule:
   extends: .gcc-mpi-cuda-performance-regression
   stage: performance-regression
-#  needs: [parthenon-power9-gcc-mpi-cuda-perf-schedule-target_branch]
+  needs: [parthenon-power9-gcc-mpi-cuda-perf-schedule-target_branch]
   only:
     - schedules
     - develop
