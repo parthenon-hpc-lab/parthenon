@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -36,7 +36,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   auto &rc = pmb->meshblock_data.Get();
   auto &q = rc->Get("advected").data;
 
-  auto pkg = pmb->packages["advanced_advection_package"];
+  auto pkg = pmb->packages.Get("advanced_advection_package");
   const auto &amp = pkg->Param<Real>("amp");
   const auto &vel = pkg->Param<Real>("vel");
   const auto &k_par = pkg->Param<Real>("k_par");
@@ -98,7 +98,7 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
     Real max_err = 0.0;
 
     for (auto &pmb : mesh->block_list) {
-      auto pkg = pmb->packages["advanced_advection_package"];
+      auto pkg = pmb->packages.Get("advanced_advection_package");
 
       auto rc = pmb->meshblock_data.Get(); // get base container
       const auto &amp = pkg->Param<Real>("amp");
@@ -217,7 +217,7 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
   if (pin->GetOrAddBoolean("Random", "compute_histogram", true)) {
     int N_min = pin->GetInteger("Random", "num_iter_min");
 
-    auto pkg = mesh->block_list[0]->packages["advanced_advection_package"];
+    auto pkg = mesh->block_list[0]->packages.Get("advanced_advection_package");
     auto hist_view = pkg->Param<Kokkos::View<int *>>("num_iter_histogram");
     auto hist = Kokkos::create_mirror_view(hist_view);
     Kokkos::deep_copy(hist, hist_view);
@@ -245,10 +245,10 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   Packages_t packages;
   auto pkg = advanced_advection_package::Initialize(pin.get());
-  packages[pkg->label()] = pkg;
+  packages.Add(pkg);
 
   auto app = std::make_shared<StateDescriptor>("advection_app");
-  packages[app->label()] = app;
+  packages.Add(app);
 
   return packages;
 }

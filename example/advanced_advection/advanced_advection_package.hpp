@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -14,10 +14,7 @@
 #define EXAMPLE_ADVANCED_ADVECTION_ADVANCED_ADVECTION_PACKAGE_HPP_
 
 #include <memory>
-#include <random>
-#include <vector>
 
-#include "defs.hpp"
 #include <interface/state_descriptor.hpp>
 #include <parthenon/package.hpp>
 

@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -18,6 +18,7 @@
 // Local Includes
 #include "advanced_advection_driver.hpp"
 #include "advanced_advection_package.hpp"
+#include "bvals/cc/bvals_cc_in_one.hpp"
 #include "interface/metadata.hpp"
 #include "interface/update.hpp"
 #include "mesh/meshblock_pack.hpp"
@@ -28,8 +29,6 @@ using namespace parthenon::driver::prelude;
 
 namespace advanced_advection_example {
 
-std::vector<size_t> num_iter_histogram;
-
 // *************************************************//
 // define the application driver. in this case,    *//
 // that mostly means defining the MakeTaskList     *//
@@ -37,7 +36,7 @@ std::vector<size_t> num_iter_histogram;
 // *************************************************//
 AdvancedAdvectionDriver::AdvancedAdvectionDriver(ParameterInput *pin,
                                                  ApplicationInput *app_in, Mesh *pm)
-    : MultiStageBlockTaskDriver(pin, app_in, pm) {
+    : MultiStageDriver(pin, app_in, pm) {
   // fail if these are not specified in the input file
   pin->CheckRequired("parthenon/mesh", "ix1_bc");
   pin->CheckRequired("parthenon/mesh", "ox1_bc");
@@ -64,6 +63,7 @@ TaskCollection AdvancedAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
 
   const Real beta = integrator->beta[stage - 1];
   const Real dt = integrator->dt;
+  const auto &stage_name = integrator->stage_name;
 
   const int pack_size = pmesh->DefaultPackSize();
   auto partitions = partition::ToSizeN(blocks, pack_size);
@@ -142,6 +142,58 @@ TaskCollection AdvancedAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
     auto update = tl.AddTask(avg_data, UpdateIndependentData<MeshData<Real>>, mc0.get(),
                              mdudt.get(), beta * dt, mc1.get());
   }
+
+  const auto &buffer_send_pack = blocks[0]
+                                     ->packages.Get("advanced_advection_package")
+                                     ->Param<bool>("buffer_send_pack");
+  if (buffer_send_pack) {
+    TaskRegion &tr = tc.AddRegion(num_partitions);
+    for (int i = 0; i < num_partitions; i++) {
+      auto &mc1 = pmesh->mesh_data.GetOrAdd(stage_name[stage], i);
+      tr[i].AddTask(none, parthenon::cell_centered_bvars::SendBoundaryBuffers, mc1);
+    }
+  } else {
+    TaskRegion &tr = tc.AddRegion(num_task_lists_executed_independently);
+    for (int i = 0; i < blocks.size(); i++) {
+      auto &sc1 = blocks[i]->meshblock_data.Get(stage_name[stage]);
+      tr[i].AddTask(none, &MeshBlockData<Real>::SendBoundaryBuffers, sc1.get());
+    }
+  }
+
+  const auto &buffer_recv_pack = blocks[0]
+                                     ->packages.Get("advanced_advection_package")
+                                     ->Param<bool>("buffer_recv_pack");
+  if (buffer_recv_pack) {
+    TaskRegion &tr = tc.AddRegion(num_partitions);
+    for (int i = 0; i < num_partitions; i++) {
+      auto &mc1 = pmesh->mesh_data.GetOrAdd(stage_name[stage], i);
+      tr[i].AddTask(none, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, mc1);
+    }
+  } else {
+    TaskRegion &tr = tc.AddRegion(num_task_lists_executed_independently);
+    for (int i = 0; i < blocks.size(); i++) {
+      auto &sc1 = blocks[i]->meshblock_data.Get(stage_name[stage]);
+      tr[i].AddTask(none, &MeshBlockData<Real>::ReceiveBoundaryBuffers, sc1.get());
+    }
+  }
+
+  const auto &buffer_set_pack = blocks[0]
+                                    ->packages.Get("advanced_advection_package")
+                                    ->Param<bool>("buffer_set_pack");
+  if (buffer_set_pack) {
+    TaskRegion &tr = tc.AddRegion(num_partitions);
+    for (int i = 0; i < num_partitions; i++) {
+      auto &mc1 = pmesh->mesh_data.GetOrAdd(stage_name[stage], i);
+      tr[i].AddTask(none, parthenon::cell_centered_bvars::SetBoundaries, mc1);
+    }
+  } else {
+    TaskRegion &tr = tc.AddRegion(num_task_lists_executed_independently);
+    for (int i = 0; i < blocks.size(); i++) {
+      auto &sc1 = blocks[i]->meshblock_data.Get(stage_name[stage]);
+      tr[i].AddTask(none, &MeshBlockData<Real>::SetBoundaries, sc1.get());
+    }
+  }
+
   TaskRegion &async_region2 = tc.AddRegion(num_task_lists_executed_independently);
 
   assert(blocks.size() == async_region2.size());
@@ -150,20 +202,12 @@ TaskCollection AdvancedAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
     auto &tl = async_region2[i];
     auto &sc1 = pmb->meshblock_data.Get(stage_name[stage]);
 
-    auto prev_task = none;
-    // update ghost cells
-    auto send = tl.AddTask(none, &MeshBlockData<Real>::SendBoundaryBuffers, sc1.get());
-    auto recv = tl.AddTask(send, &MeshBlockData<Real>::ReceiveBoundaryBuffers, sc1.get());
-    auto fill_from_bufs =
-        tl.AddTask(recv, &MeshBlockData<Real>::SetBoundaries, sc1.get());
-    prev_task = fill_from_bufs;
-
-    auto clear_comm_flags = tl.AddTask(prev_task, &MeshBlockData<Real>::ClearBoundary,
+    auto clear_comm_flags = tl.AddTask(none, &MeshBlockData<Real>::ClearBoundary,
                                        sc1.get(), BoundaryCommSubset::all);
 
-    auto prolongBound = prev_task;
+    auto prolongBound = none;
     if (pmesh->multilevel) {
-      prolongBound = tl.AddTask(prev_task, parthenon::ProlongateBoundaries, sc1);
+      prolongBound = tl.AddTask(none, parthenon::ProlongateBoundaries, sc1);
     }
 
     // set physical boundaries

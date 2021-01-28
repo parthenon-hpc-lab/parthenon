@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -17,7 +17,6 @@
 #include <limits>
 #include <memory>
 #include <queue>
-#include <random>
 #include <string>
 #include <vector>
 
@@ -26,13 +25,9 @@
 #include <coordinates/coordinates.hpp>
 #include <parthenon/package.hpp>
 
-#include "advanced_advection_driver.hpp"
 #include "advanced_advection_package.hpp"
-#include "basic_types.hpp"
-#include "impl/Kokkos_Profiling.hpp"
 #include "kokkos_abstraction.hpp"
 #include "reconstruct/dc_inline.hpp"
-#include "utils/error_checking.hpp"
 
 using namespace parthenon::package::prelude;
 
@@ -65,6 +60,13 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
     PARTHENON_FAIL(("Unknown profile in advection example: " + profile_str).c_str());
   }
   pkg->AddParam<>("profile", profile_str);
+
+  auto buffer_send_pack = pin->GetOrAddBoolean("Advection", "buffer_send_pack", false);
+  auto buffer_recv_pack = pin->GetOrAddBoolean("Advection", "buffer_recv_pack", false);
+  auto buffer_set_pack = pin->GetOrAddBoolean("Advection", "buffer_set_pack", false);
+  pkg->AddParam<>("buffer_send_pack", buffer_send_pack);
+  pkg->AddParam<>("buffer_recv_pack", buffer_recv_pack);
+  pkg->AddParam<>("buffer_set_pack", buffer_set_pack);
 
   Real amp = pin->GetOrAddReal("Advection", "amp", 1e-6);
   Real vel = std::sqrt(vx * vx + vy * vy + vz * vz);
@@ -278,7 +280,7 @@ AmrTag CheckRefinement(MeshBlockData<Real> *rc) {
       },
       Kokkos::MinMax<Real>(minmax));
 
-  auto pkg = pmb->packages["advanced_advection_package"];
+  auto pkg = pmb->packages.Get("advanced_advection_package");
   const auto &refine_tol = pkg->Param<Real>("refine_tol");
   const auto &derefine_tol = pkg->Param<Real>("derefine_tol");
 
@@ -296,7 +298,7 @@ TaskStatus ComputeNumIter(std::shared_ptr<MeshData<Real>> &md, Packages_t &packa
   auto pack = md->PackVariables(std::vector<std::string>({"num_iter"}));
   Kokkos::Profiling::popRegion();
 
-  auto pkg = packages["advanced_advection_package"];
+  auto pkg = packages.Get("advanced_advection_package");
   const auto &pool =
       pkg->Param<Kokkos::Random_XorShift64_Pool<parthenon::DevExecSpace>>("random_pool");
 
@@ -335,7 +337,7 @@ TaskStatus ComputeNumIter(std::shared_ptr<MeshData<Real>> &md, Packages_t &packa
 // this is the package registered function to fill derived
 void DoLotsOfWork(MeshBlockData<Real> *rc) {
   auto pmb = rc->GetBlockPointer();
-  auto pkg = pmb->packages["advanced_advection_package"];
+  auto pkg = pmb->packages.Get("advanced_advection_package");
 
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
@@ -378,7 +380,7 @@ void DoLotsOfWork(MeshBlockData<Real> *rc) {
 // provide the routine that estimates a stable timestep for this package
 Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
   auto pmb = rc->GetBlockPointer();
-  auto pkg = pmb->packages["advanced_advection_package"];
+  auto pkg = pmb->packages.Get("advanced_advection_package");
   const auto &cfl = pkg->Param<Real>("cfl");
   const auto &vx = pkg->Param<Real>("vx");
   const auto &vy = pkg->Param<Real>("vy");
@@ -418,7 +420,7 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
 
   ParArrayND<Real> advected = rc->Get("advected").data;
-  auto pkg = pmb->packages["advanced_advection_package"];
+  auto pkg = pmb->packages.Get("advanced_advection_package");
   const auto &vx = pkg->Param<Real>("vx");
   const auto &vy = pkg->Param<Real>("vy");
   const auto &vz = pkg->Param<Real>("vz");

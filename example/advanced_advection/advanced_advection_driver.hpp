@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -23,14 +23,14 @@
 namespace advanced_advection_example {
 using namespace parthenon::driver::prelude;
 
-class AdvancedAdvectionDriver : public MultiStageBlockTaskDriver {
+class AdvancedAdvectionDriver : public MultiStageDriver {
  public:
   AdvancedAdvectionDriver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm);
   // This next function essentially defines the driver.
   // Call graph looks like
   // main()
   //   EvolutionDriver::Execute (driver.cpp)
-  //     MultiStageBlockTaskDriver::Step (multistage.cpp)
+  //     MultiStageDriver::Step (multistage.cpp)
   //       DriverUtils::ConstructAndExecuteBlockTasks (driver.hpp)
   //         AdvectionDriver::MakeTaskCollection (advection.cpp)
   TaskCollection MakeTaskCollection(BlockList_t &blocks, int stage);
