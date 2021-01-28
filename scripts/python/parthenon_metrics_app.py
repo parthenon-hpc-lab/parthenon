@@ -262,7 +262,12 @@ class ParthenonApp(App):
       raise Exception("Cannot analyze regression outputs specified path is invalid: " + regression_outputs)
     if not os.path.isdir(regression_outputs):
       raise Exception("Cannot analyze regression outputs specified path is invalid: " + regression_outputs)
-    
+   
+    if isinstance(current_branch,list):
+      current_branch = current_branch[0]
+    if isinstance(target_branch,list):
+      target_branch = target_branch[0]
+
     #current_branch = os.getenv('CI_COMMIT_BRANCH')
     #target_branch = super().getBranchMergingWith(current_branch)
     wiki_file_name = current_branch.replace(r'/', '-') + "_" + target_branch.replace(r'/', '-')
