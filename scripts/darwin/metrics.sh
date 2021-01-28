@@ -30,4 +30,4 @@ echo ${data}
 
 target_branch=$(echo "$data" | grep "Target branch is:" | awk '{print $4}')
 
-${SOURCE}/../python/parthenon_metrics_app.py -p "${GITHUB_APP_PEM}" --analyze "${BUILD_DIR}/tst/regression/outputs" --create --post-analyze-status --branch "${CI_COMMIT_BRANCH}" --target-branch "$target_branch"
+${SOURCE}/../python/parthenon_metrics_app.py -p "${GITHUB_APP_PEM}" --analyze "${BUILD_DIR}/tst/regression/outputs" --create --post-analyze-status --branch "${CI_COMMIT_BRANCH}" --target-branch "$target_branch" --generate-figures-on-analysis

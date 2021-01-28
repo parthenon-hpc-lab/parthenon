@@ -139,6 +139,42 @@ class PerformanceDataJsonParser():
       # Need to convert the dict to a string to dump to a file
       json.dump(self._data, fout, indent=4)
 
+ 
+  def getNumOfCommits(self):
+    return len(self._data)
+
+  def getCyclesAt(self, commit_index, test):
+    list_ind = 0
+    for json_obj in self._data:
+      if commit_index = list_ind:
+        for data_grp in json_obj.get('data'):
+          if data_grp.get('test') == test:
+            cycles = data_grp.get('zone_cycles')
+            return cycles
+      list_ind = list_ind + 1
+    return None
+
+  def getMeshBlocksAt(self, commit_index, test):
+    list_ind = 0
+    for json_obj in self._data:
+      if commit_index = list_ind:
+        for data_grp in json_obj.get('data'):
+          if data_grp.get('test') == test:
+            mesh_blocks = data_grp.get('mesh_blocks')
+            return mesh_blocks
+      list_ind = list_ind + 1
+    return None
+
+  def getCommitShaAt(self, commit_index, test):
+    list_ind = 0
+    for json_obj in self._data:
+      if commit_index = list_ind:
+        for data_grp in json_obj.get('data'):
+          if data_grp.get('test') == test:
+            return json_obj.get('commit sha')
+      list_ind = list_ind + 1
+    return None
+
   def checkDataUpToDate(self, file_name, branch, commit_sha, test):
     if not os.path.isfile(file_name):
       return False
@@ -220,7 +256,7 @@ class ParthenonApp(App):
     print("Current branch: %s\nTarget Branch: %s" % (branch,target_branch))
     return branch, target_branch
 
-  def analyze(self, regression_outputs, current_branch, target_branch, post_status):
+  def analyze(self, regression_outputs, current_branch, target_branch, post_status, create_figures, number_commits_to_plot = 5):
     regression_outputs = os.path.abspath(regression_outputs)
     if not os.path.exists(regression_outputs):
       raise Exception("Cannot analyze regression outputs specified path is invalid: " + regression_outputs)
@@ -234,6 +270,12 @@ class ParthenonApp(App):
 
     all_dirs = os.listdir(regression_outputs)
     print("Contents of regression_outputs: %s" % regression_outputs )
+
+    commit_sha = os.getenv('CI_COMMIT_SHA')
+    # Files should only be uploaded if there are no errors
+    json_files_to_upload = []
+    png_files_to_upload = []
+    figure_urls = []
     for test_dir in all_dirs:
       if not isinstance(test_dir, str):
         test_dir = str(test_dir)
@@ -252,7 +294,6 @@ class ParthenonApp(App):
         # The date
         # The performance metrics 
         # The pull request
-        commit_sha = os.getenv('CI_COMMIT_SHA')
         new_data = {
             'commit sha': commit_sha, 
             'branch': current_branch,
@@ -279,55 +320,104 @@ class ParthenonApp(App):
         json_perf_data_parser.append(new_data, json_file_out)
      
         # Now the new file needs to be committed
-        self.upload(json_file_out, "master",use_wiki=True)
+        json_files_to_upload.append(json_file_out)
 
-        # Get the data for the last commit in the development branch
+        if create_figures:
 
-        # Now we need to create the figure to update
-        fig, p = plt.subplots(2, 1, figsize = (4,8), sharex=True)
+          if target_branch == current_branch:
 
-        p[0].loglog(mesh_blocks, zone_cycles, label = "$256^3$ Mesh")
-        p[1].loglog(mesh_blocks, zone_cycles[0]/zone_cycles)
-        if target_data_file_exists:
-          p[0].loglog(target_meshblocks, target_cycles, label = "$256^3$ Mesh")
-          p[1].loglog(target_mesh_blocks, zone_cycles[0]/target_cycles)
+            json_perf_data_parser
+            # If running on same branch grab the data for the last 5 commits stored in the file
+            fig, p = plt.subplots(2, 1, figsize = (4,8), sharex=True)
+            legend_temp = []
+            for i in range(0,number_commits_to_plot):
+              mesh_blocks_temp = json_perf_data_parser.getMeshBlocksAt(i, test_dir)
+              cycles_temp = json_perf_data_parser.getCyclesAt(i, test_dir)
+              commit_temp = json_perf_data_parser.getCommitShaAt(i,test_dir)
+              if mesh_blocks_temp is None:
+                print("Skipping data at %s\n no mesh blocks recordered in data" % commit_temp)
+                continue
+              if cycles_temp is None:
+                print("Skipping data at %s\n no cycles recordered in data" % commit_temp)
+                continue
 
-        for i in range(2):
-            p[i].grid()
+              if i == 0:
+                norm_const = cycles_temp[0]
+              p[0].loglog(mesh_blocks_temp, cycles_temp, label = "$256^3$ Mesh")
+              p[1].loglog(mesh_blocks_temp, norm_const/cycles_temp)
+              legend_temp.append(commit_temp)
 
-        if target_data_file_exists:
-          p[0].legend([current_branch,target_branch])
-          p[1].legend([current_branch,target_branch])
-        else:
-          p[0].legend([current_branch])
-          p[1].legend([current_branch])
-        p[0].set_ylabel("zone-cycles/s")
-        p[1].set_ylabel("normalized overhead")
-        p[1].set_xlabel("Meshblock size")
-        figure_name = test_dir + "_" + current_branch.replace(r'/', '-') + "_" + target_branch.replace(r'/', '-') + ".png"
-        figure_path_name = os.path.join(self._parthenon_wiki_dir, figure_name )
-        fig.savefig(figure_path_name, bbox_inches='tight')
-        self.upload(figure_path_name, self._default_image_branch, use_wiki=False)
-        fig_url ='https://github.com/' + self._user + '/' + self._repo_name + '/blob/figures/' + figure_name + '?raw=true'
-        print("Figure url is: %s" % fig_url) 
+            for i in range(2):
+                p[i].grid()
+
+            p[0].legend(legend_temp)
+            p[1].legend(legend_temp)
+
+            p[0].set_ylabel("zone-cycles/s")
+            p[1].set_ylabel("normalized overhead")
+            p[1].set_xlabel("Meshblock size")
+            figure_name = test_dir + "_" + current_branch.replace(r'/', '-') + "_" + target_branch.replace(r'/', '-') + ".png"
+            figure_path_name = os.path.join(self._parthenon_wiki_dir, figure_name )
+            fig.savefig(figure_path_name, bbox_inches='tight')
+            png_files_to_upload.append(figure_path_name)
+            fig_url ='https://github.com/' + self._user + '/' + self._repo_name + '/blob/figures/' + figure_name + '?raw=true'
+            print("Figure url is: %s" % fig_url) 
+            figure_urls.append(fig_url)
+          else:
+            # Get the data for the last commit in the development branch
+            # Now we need to create the figure to update
+            fig, p = plt.subplots(2, 1, figsize = (4,8), sharex=True)
+
+            p[0].loglog(mesh_blocks, zone_cycles, label = "$256^3$ Mesh")
+            p[1].loglog(mesh_blocks, zone_cycles[0]/zone_cycles)
+            if target_data_file_exists:
+              p[0].loglog(target_meshblocks, target_cycles, label = "$256^3$ Mesh")
+              p[1].loglog(target_mesh_blocks, zone_cycles[0]/target_cycles)
+
+            for i in range(2):
+                p[i].grid()
+
+            if target_data_file_exists:
+              p[0].legend([current_branch,target_branch])
+              p[1].legend([current_branch,target_branch])
+            else:
+              p[0].legend([current_branch])
+              p[1].legend([current_branch])
+            p[0].set_ylabel("zone-cycles/s")
+            p[1].set_ylabel("normalized overhead")
+            p[1].set_xlabel("Meshblock size")
+            figure_name = test_dir + "_" + current_branch.replace(r'/', '-') + "_" + target_branch.replace(r'/', '-') + ".png"
+            figure_path_name = os.path.join(self._parthenon_wiki_dir, figure_name )
+            fig.savefig(figure_path_name, bbox_inches='tight')
+            png_files_to_upload.append(figure_path_name)
+            fig_url ='https://github.com/' + self._user + '/' + self._repo_name + '/blob/figures/' + figure_name + '?raw=true'
+            print("Figure url is: %s" % fig_url) 
+            figure_urls.append(fig_url)
       elif test_dir == "advection_performance_mpi":
         if not os.path.isfile(regression_outputs + "/advection_performance_mpi/performance_metrics.txt"):
           raise Exception("Cannot analyze advection_performance_mpi, missing performance metrics file.")
 
       # Check that the wiki exists for merging between these two branches, only want a single wiki page per merge
 
-      with open(pr_wiki_page,'w') as writer: 
-        writer.write("This file is managed by the " + self._name + ".\n\n")
-        writer.write("Date and Time: %s\n" % now.strftime("%Y-%m-%d %H:%M:%S"))
-        writer.write("Commit: %s\n\n" % commit_sha)
-        writer.write("![Image](" + fig_url +")\n")
-        wiki_url = "https://github.com/{usr_name}/{repo_name}/wiki/{file_name}"
-        wiki_url = wiki_url.format(usr_name=self._user, repo_name=self._repo_name, file_name=wiki_file_name )
-        print("Wiki page url is: %s" % wiki_url)
+    with open(pr_wiki_page,'w') as writer: 
+      writer.write("This file is managed by the " + self._name + ".\n\n")
+      writer.write("Date and Time: %s\n" % now.strftime("%Y-%m-%d %H:%M:%S"))
+      writer.write("Commit: %s\n\n" % commit_sha)
+      for figure_url in figure_urls:
+        writer.write("![Image](" + figure_url +")\n\n")
+      wiki_url = "https://github.com/{usr_name}/{repo_name}/wiki/{file_name}"
+      wiki_url = wiki_url.format(usr_name=self._user, repo_name=self._repo_name, file_name=wiki_file_name )
+      print("Wiki page url is: %s" % wiki_url)
 
-      self.upload(pr_wiki_page, "master",use_wiki=True)
-      if post_status:
-        self.postStatus('success',commit_sha, context="Parthenon Metrics App", description="Performance Regression Analyzed", target_url=wiki_url)
+    for json_upload in json_files_to_upload:
+      self.upload(json_upload, "master",use_wiki=True)
+
+    for png_upload in png_files_to_upload:
+      self.upload(png_upload, self._default_image_branch, use_wiki=False)
+
+    self.upload(pr_wiki_page, "master",use_wiki=True)
+    if post_status:
+      self.postStatus('success',commit_sha, context="Parthenon Metrics App", description="Performance Regression Analyzed", target_url=wiki_url)
     # 1 search for files 
     # 2 load performance metrics from wiki
     # 3 compare the metrics
@@ -418,7 +508,7 @@ def main(**kwargs):
           # If target branch is None, assume it's not a pull request 
           if target_branch is None:
             target_branch = branch
-        app.analyze(value, branch, target_branch,kwargs.pop('post_analyze_status'))
+        app.analyze(value, branch, target_branch,kwargs.pop('post_analyze_status'),kwargs.pop('generate_figures_on_analysis'))
 
   check = kwargs.pop('check_branch_metrics_uptodate')
   if check:
@@ -505,6 +595,12 @@ if __name__ == '__main__':
 
     desc = ('Post analyze status on completion')
     parser.add_argument('--post-analyze-status','-pa',
+        action='store_true',
+        default=False,
+        help=desc)
+
+    desc = ('Generate figures during analysis.')
+    parser.add_argument('--generate-figures-on-analysis','-gfoa',
         action='store_true',
         default=False,
         help=desc)
