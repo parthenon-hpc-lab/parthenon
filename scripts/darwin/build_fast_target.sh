@@ -21,7 +21,7 @@ trap 'catch $? $LINENO' ERR
 catch() {
   echo "Error $1 occurred on $2"
   "${SOURCE}"/../python/parthenon_metrics_app.py --status "error" --status-context "Parthenon Metrics App" --status-description "CI failed" --status-url "${CI_JOB_URL}"
-  exit "$ERR"
+  exit $ERR
 }
 
 echo "CI commit branch ${CI_COMMIT_BRANCH}"

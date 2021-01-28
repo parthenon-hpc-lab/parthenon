@@ -26,12 +26,12 @@ import pem
 import pycurl
 from git import Repo
 
-"""
-Class used to store branch contents in terms of files, directories or misc
-"""
-
-
 class Node:
+
+    """
+    Class used to store branch contents in terms of files, directories or misc
+    """
+
     def __init__(self, dir_name="", rel_path=""):
         self.dir = dir_name
         self.dirs = []
@@ -77,21 +77,25 @@ class Node:
             node.printTree()
 
 
-"""
-Parthenon App Class
-
-This class is responsible for authenticating against the parthenon repository and interacting
-with the github api.
-"""
-
 
 class App:
 
     """
-    Internal Private Methods
+    App Class
+
+    This class is responsible for authenticating against the parthenon repository and interacting
+    with the github api.
     """
 
     def __init__(self, app_id, name, user, repo_name):
+        """
+        The app is generic and provides a template, to create an app for a specefic repository the
+        following arguments are needed:
+        * the app id as provided when it is created on github
+        * the name of the app
+        * the owner of the repository it controls
+        * the name of the repository it controls
+        """
         self._app_id = app_id
         self._name = name
         self._user = user
@@ -318,8 +322,10 @@ class App:
 
     def refreshBranchCache(self):
         """"
-        Method forces an update of the localy stored branch tree, regardless of whether the class
-        already contains a local copy. Might be necessary if the remote github repository is updated.
+        Method forces an update of the localy stored branch tree.
+        
+        Will update regardless of whether the class already contains a local copy. Might be
+        necessary if the remote github repository is updated.
         """
         self._getBranches()
 
@@ -504,7 +510,7 @@ class App:
         self._fillTree(self._parth_root, branch)
 
     def cloneWikiRepo(self):
-        wiki_remote = f"https://x-access-token:" + \
+        wiki_remote = "https://x-access-token:" + \
             str(self._access_token) + "@github.com/" + \
             self._user + "/" + self._repo_name + ".wiki.git"
         if not os.path.isdir(str(self._parthenon_wiki_dir)):

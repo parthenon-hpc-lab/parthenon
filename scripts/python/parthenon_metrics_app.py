@@ -35,7 +35,7 @@ class PerformanceDataJsonParser():
         return False
 
     def _add_to_json_obj(self, new_data):
-        """ json data should be of the following form:
+        """json data should be of the following form:
 
             Where there are blocks of data in a list with the content below
 
@@ -235,22 +235,23 @@ class PerformanceDataJsonParser():
                             cycles = data_grp.get('zone_cycles')
             return mesh_blocks, cycles
 
-
-"""
-Parthenon App Class
-
-This class is responsible for authenticating against the parthenon repository and interacting
-with the github api.
-"""
-
-
 class ParthenonApp(App):
 
     """
-    Internal Private Methods
+    Parthenon App Class
+
+    This class is responsible for authenticating against the parthenon repository and interacting
+    with the github api.
     """
 
     def __init__(self):
+        """
+        The parthenon metrics app is initialized with the following arguments:
+        * github app id
+        * the name of the application
+        * the owner of the repository it has access to
+        * the name of the repository
+        """
         super().__init__(
             92734,
             "Parthenon_Github_Metrics_Application",
@@ -278,7 +279,8 @@ class ParthenonApp(App):
         return mesh_blocks, zone_cycles
 
     def getCurrentAndTargetBranch(self, branch):
-        """Returns the branch that the current branch and the branch that is being merged with (the target branch).
+        """
+        Returns the branch that the current branch and the branch that is being merged with (the target branch).
 
         If no pull request is open returns None for the target.
         """
@@ -332,7 +334,7 @@ class ParthenonApp(App):
                         "Cannot analyze advection_performance, missing performance metrics file: " +
                         regression_outputs +
                         "/advection_performance/performance_metrics.txt")
-                repo = super().cloneWikiRepo()
+                super().cloneWikiRepo()
 
                 mesh_blocks, zone_cycles = self.readPerformanceMetricsTXT(
                     regression_outputs + "/advection_performance/performance_metrics.txt")
@@ -606,7 +608,7 @@ def main(**kwargs):
         if not value is None:
             target_branch = kwargs.pop('target_branch')
             if target_branch == "":
-                current, target_branch = app.getCurrentAndTargetBranch(branch)
+                _, target_branch = app.getCurrentAndTargetBranch(branch)
                 # If target branch is None, assume it's not a pull request
                 if target_branch is None:
                     target_branch = branch
