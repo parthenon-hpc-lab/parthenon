@@ -25,12 +25,6 @@ namespace advanced_advection_package {
 using namespace parthenon::package::prelude;
 using parthenon::Packages_t;
 
-struct MeshBlockAppData : public parthenon::MeshBlockApplicationData {
-  std::mt19937_64 rng;
-
-  explicit MeshBlockAppData(int64_t seed) : rng(seed) {}
-};
-
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 AmrTag CheckRefinement(MeshBlockData<Real> *rc);
 TaskStatus ComputeNumIter(std::shared_ptr<MeshData<Real>> &md, Packages_t &packages);

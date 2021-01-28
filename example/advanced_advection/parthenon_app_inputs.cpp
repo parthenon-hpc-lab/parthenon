@@ -85,20 +85,6 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   q.DeepCopy(q_h);
 }
 
-pMeshBlockApplicationData_t InitApplicationMeshBlockData(MeshBlock *pmb,
-                                                         ParameterInput *pin) {
-  int64_t seed = pin->GetOrAddInteger("Random", "seed", 0);
-
-  // if we don't have a seed, use the time
-  if (seed == 0)
-    seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-
-  seed += pmb->gid;
-
-  auto data = std::make_unique<advanced_advection_package::MeshBlockAppData>(seed);
-  return data;
-}
-
 //========================================================================================
 //! \fn void Mesh::UserWorkAfterLoop(ParameterInput *pin, SimTime &tm)
 //  \brief Compute L1 error in advection test and output to file, also make histogram of
