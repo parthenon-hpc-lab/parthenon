@@ -84,6 +84,7 @@ class PerformanceDataJsonParser():
       if os.stat(file_name).st_size!=0:
         with open(file_name, 'r') as fid:
           return json.load(fid)
+    return None
 
   def getMostRecentPerformanceData(self, file_name, branch, test):
     if os.path.isfile(file_name):
@@ -223,9 +224,6 @@ class ParthenonApp(App):
         "lanl",
         "parthenon")
 
-  def initialize(self,use_wiki=False, ignore=False, pem_file = "", create_branch=False):
-    super().initialize(use_wiki, ignore, pem_file, create_branch)
-
   def readPerformanceMetricsTXT(self,file_path):
     mesh_blocks = np.zeros(1)
     zone_cycles = np.zeros(1)
@@ -330,8 +328,6 @@ class ParthenonApp(App):
         if create_figures:
 
           if target_branch == current_branch:
-
-            json_perf_data_parser
             # If running on same branch grab the data for the last 5 commits stored in the file
             fig, p = plt.subplots(2, 1, figsize = (4,8), sharex=True)
             legend_temp = []
@@ -377,7 +373,7 @@ class ParthenonApp(App):
             p[1].loglog(mesh_blocks, zone_cycles[0]/zone_cycles)
             if target_data_file_exists:
               p[0].loglog(target_meshblocks, target_cycles, label = "$256^3$ Mesh")
-              p[1].loglog(target_mesh_blocks, zone_cycles[0]/target_cycles)
+              p[1].loglog(target_meshblocks, zone_cycles[0]/target_cycles)
 
             for i in range(2):
                 p[i].grid()
@@ -519,7 +515,7 @@ def main(**kwargs):
   if check:
     app.checkUpToDate(branch, kwargs.pop('tests'))
 
-  if 'get_target_branch':
+  if kwargs.pop('get_target_branch'):
     app.printTargetBranch(branch)
 
 # Execute main function
@@ -648,9 +644,7 @@ if __name__ == '__main__':
         help=desc)
 
     args = parser.parse_args()
-    try:
-        main(**vars(args))
-    except Exception:
-        raise
+
+    main(**vars(args))
 
 

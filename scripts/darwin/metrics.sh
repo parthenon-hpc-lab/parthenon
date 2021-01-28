@@ -13,8 +13,8 @@ module load gcc/9.2.0
 spack compiler find
 spack env activate darwin-ppc64le-gcc9-2021-01-20
 
-SCRIPT=`realpath $0`
-SOURCE=`dirname $SCRIPT`
+SCRIPT=$(realpath $0)
+SOURCE=$(dirname $SCRIPT)
 GITHUB_APP_PEM="${1}"
 export GITHUB_APP_PEM="$GITHUB_APP_PEM"
 echo "GITHUB_APP_PEM is $GITHUB_APP_PEM"
@@ -27,12 +27,12 @@ if [[ "develop" == "${CI_COMMIT_BRANCH}" ]]; then
   # This is for the case where we are running on a schedule
   target_branch="${CI_COMMIT_BRANCH}"
 else
-  data=$(${SOURCE}/../python/parthenon_metrics_app.py -p "${GITHUB_APP_PEM}" --get-target-branch --branch "${CI_COMMIT_BRANCH}")
+  data=$("${SOURCE}"/../python/parthenon_metrics_app.py -p "${GITHUB_APP_PEM}" --get-target-branch --branch "${CI_COMMIT_BRANCH}")
 
   echo "Get target branch or pr"
-  echo ${data}
+  echo "${data}"
 
   target_branch=$(echo "$data" | grep "Target branch is:" | awk '{print $4}')
 fi
 
-${SOURCE}/../python/parthenon_metrics_app.py -p "${GITHUB_APP_PEM}" --analyze "${BUILD_DIR}/tst/regression/outputs" --create --post-analyze-status --branch "${CI_COMMIT_BRANCH}" --target-branch "$target_branch" --generate-figures-on-analysis
+"${SOURCE}"/../python/parthenon_metrics_app.py -p "${GITHUB_APP_PEM}" --analyze "${BUILD_DIR}/tst/regression/outputs" --create --post-analyze-status --branch "${CI_COMMIT_BRANCH}" --target-branch "$target_branch" --generate-figures-on-analysis
