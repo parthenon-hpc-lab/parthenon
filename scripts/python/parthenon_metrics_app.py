@@ -135,6 +135,7 @@ class PerformanceDataJsonParser():
                         cycles.strip("[").strip("]").split()).astype(
                         np.float)
                 return mesh_blocks, cycles
+        return None
 
     def append(self, new_data, file_name):
 

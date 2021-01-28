@@ -14,16 +14,16 @@
 
 import os
 import datetime
-import jwt
-import pem
 import filecmp
 import pathlib
 import pprint
-import pycurl
 import json
 import shutil
 import base64
 from io import BytesIO
+import jwt
+import pem
+import pycurl
 from git import Repo
 
 """

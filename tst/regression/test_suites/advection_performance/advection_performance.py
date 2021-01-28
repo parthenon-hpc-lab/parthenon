@@ -81,8 +81,8 @@ class TestCase(utils.test_case.TestCaseAbs):
         # Save performance metrics to file
         with open('performance_metrics.txt', 'w') as writer:
           writer.write("zone-cycles/s | Normalize Overhead | Meshblock Size\n")
-          for ind in range(0,len(mb_sizes)):
-              writer.write("%14e %14e %14e\n" % (perfs[ind],perfs[0]/perfs[ind],mb_sizes[ind]))
+          for ind, mb_size in enumerate(mb_sizes):
+              writer.write("%14e %14e %14e\n" % (perfs[ind],perfs[0]/perfs[ind],mb_size))
 
         # Plot results
         fig, p = plt.subplots(2, 1, figsize = (4,8), sharex=True)
