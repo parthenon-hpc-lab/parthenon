@@ -146,7 +146,7 @@ class PerformanceDataJsonParser():
   def getCyclesAt(self, commit_index, test):
     list_ind = 0
     for json_obj in self._data:
-      if commit_index = list_ind:
+      if commit_index == list_ind:
         for data_grp in json_obj.get('data'):
           if data_grp.get('test') == test:
             cycles = data_grp.get('zone_cycles')
@@ -157,7 +157,7 @@ class PerformanceDataJsonParser():
   def getMeshBlocksAt(self, commit_index, test):
     list_ind = 0
     for json_obj in self._data:
-      if commit_index = list_ind:
+      if commit_index == list_ind:
         for data_grp in json_obj.get('data'):
           if data_grp.get('test') == test:
             mesh_blocks = data_grp.get('mesh_blocks')
@@ -168,7 +168,7 @@ class PerformanceDataJsonParser():
   def getCommitShaAt(self, commit_index, test):
     list_ind = 0
     for json_obj in self._data:
-      if commit_index = list_ind:
+      if commit_index == list_ind:
         for data_grp in json_obj.get('data'):
           if data_grp.get('test') == test:
             return json_obj.get('commit sha')
