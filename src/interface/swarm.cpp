@@ -169,24 +169,6 @@ void Swarm::Remove(const std::string &label) {
   }
 }
 
-///
-/// The routine for resizing a 1D ParArrayND while retaining existing data
-///
-/// @param var The ParArrayND to be resized
-/// @param n_old The length of existing data to be copied
-/// @param n_new The requested length of the new data
-template <typename T>
-void Swarm::ResizeParArray(ParArrayND<T> &var, const int n_old, const int n_new) {
-  auto oldvar = var;
-  auto newvar = ParArrayND<T>(oldvar.label(), n_new);
-  PARTHENON_DEBUG_REQUIRE(n_new > n_old, "Resized ParArrayND must be larger!");
-  auto pmb = GetBlockPointer();
-  pmb->par_for(
-      "ResizeParArray", 0, n_old - 1,
-      KOKKOS_LAMBDA(const int n) { newvar(n) = oldvar(n); });
-  var = newvar;
-}
-
 void Swarm::setPoolMax(const int nmax_pool) {
   PARTHENON_REQUIRE(nmax_pool > nmax_pool_, "Must request larger pool size!");
   int n_new_begin = nmax_pool_;
@@ -199,21 +181,21 @@ void Swarm::setPoolMax(const int nmax_pool) {
   }
 
   // Resize and copy data
-  ResizeParArray(mask_.Get(), nmax_pool_, nmax_pool);
+  mask_.Get().Resize(nmax_pool);
   auto mask_data = mask_.Get();
   pmb->par_for(
       "setPoolMax_mask", nmax_pool_, nmax_pool - 1,
       KOKKOS_LAMBDA(const int n) { mask_data(n) = 0; });
 
-  ResizeParArray(marked_for_removal_.Get(), nmax_pool_, nmax_pool);
+  marked_for_removal_.Get().Resize(nmax_pool);
   auto marked_for_removal_data = marked_for_removal_.Get();
   pmb->par_for(
       "setPoolMax_marked_for_removal", nmax_pool_, nmax_pool - 1,
       KOKKOS_LAMBDA(const int n) { marked_for_removal_data(n) = false; });
 
-  ResizeParArray(neighbor_send_index_.Get(), nmax_pool_, nmax_pool);
+  neighbor_send_index_.Get().Resize(nmax_pool);
 
-  ResizeParArray(blockIndex_, nmax_pool_, nmax_pool);
+  blockIndex_.Resize(nmax_pool);
 
   // TODO(BRR) Use ParticleVariable packs to reduce kernel launches
   for (int n = 0; n < intVector_.size(); n++) {

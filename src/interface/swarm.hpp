@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -247,9 +247,6 @@ class Swarm {
   ParArrayND<int> neighborIndices_; // Indexing of vbvar's neighbor array. -1 for same.
                                     // k,j indices unused in 3D&2D, 2D, respectively
   ParArrayND<int> blockIndex_; // Neighbor index for each particle. -1 for current block.
-
-  template <typename T>
-  void ResizeParArray(ParArrayND<T> &var, const int n_old, const int n_new);
 
   constexpr static int this_block_ = -1;
   constexpr static int unset_index_ = -1;
