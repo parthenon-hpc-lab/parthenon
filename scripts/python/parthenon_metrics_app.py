@@ -98,6 +98,9 @@ class PerformanceDataJsonParser():
           cycles = None
 
           recent_datetime = None
+          if not isinstance(json_objs,list):
+            json_objs = [json_objs]
+
           for json_obj in json_objs:
             new_datetime = datetime.datetime.strptime(json_obj.get('date'), '%Y-%m-%d %H:%M:%S')
             if recent_datetime is None:
@@ -113,6 +116,11 @@ class PerformanceDataJsonParser():
                 if data_grp.get('test') == test:
                   mesh_blocks = data_grp.get('mesh_blocks')
                   cycles = data_grp.get('zone_cycles')
+
+        if isinstance(mesh_blocks, str):
+          mesh_blocks = np.array(mesh_blocks.strip("[").strip("]").split()).astype(np.float)
+        if isinstance(cycles, str):
+          cycles = np.array(cycles.strip("[").strip("]").split()).astype(np.float)
         return mesh_blocks, cycles
 
   def append(self, new_data, file_name):
@@ -151,6 +159,8 @@ class PerformanceDataJsonParser():
         for data_grp in json_obj.get('data'):
           if data_grp.get('test') == test:
             cycles = data_grp.get('zone_cycles')
+            if isinstance(cycles, str):
+              cycles = np.array(cycles.strip("[").strip("]").split()).astype(np.float)
             return cycles
       list_ind = list_ind + 1
     return None
@@ -162,6 +172,8 @@ class PerformanceDataJsonParser():
         for data_grp in json_obj.get('data'):
           if data_grp.get('test') == test:
             mesh_blocks = data_grp.get('mesh_blocks')
+            if isinstance(mesh_blocks, str):
+              mesh_blocks = np.array(mesh_blocks.strip("[").strip("]").split()).astype(np.float)
             return mesh_blocks
       list_ind = list_ind + 1
     return None
