@@ -12,6 +12,7 @@
 //========================================================================================
 
 #include <algorithm>
+#include <chrono> // NOLINT [build/c++11]
 #include <cmath>
 #include <limits>
 #include <memory>
@@ -20,11 +21,15 @@
 #include <string>
 #include <vector>
 
+#include <Kokkos_Random.hpp>
+
 #include <coordinates/coordinates.hpp>
 #include <parthenon/package.hpp>
 
 #include "advanced_advection_driver.hpp"
 #include "advanced_advection_package.hpp"
+#include "basic_types.hpp"
+#include "impl/Kokkos_Profiling.hpp"
 #include "kokkos_abstraction.hpp"
 #include "reconstruct/dc_inline.hpp"
 #include "utils/error_checking.hpp"
@@ -149,6 +154,15 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   int N = N_max - N_min + 1;
 
   // compute probabilities
+  Kokkos::View<Real *> prob_table_view("prob_table", N);
+  Kokkos::View<int *> alias_table_view("alias_table", N);
+  Kokkos::View<int *> num_iter_hist("num_iter_histogram", N);
+
+  pkg->AddParam<>("prob_table", prob_table_view);
+  pkg->AddParam<>("alias_table", alias_table_view);
+  pkg->AddParam<>("num_iter_histogram", num_iter_hist);
+  pkg->AddParam("N_min", N_min);
+
   Real sum = 0.0;
   std::vector<Real> prob(N);
   for (int i = 0; i < N; ++i) {
@@ -158,13 +172,17 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   // normalized probability is: prob[i] / sum
 
   // make probability table and alias table
-  std::vector<Real> prob_table(N, 0.0);
-  std::vector<int> alias_table(N, -1);
+  auto prob_table_host = Kokkos::create_mirror_view(prob_table_view);
+  auto alias_table_host = Kokkos::create_mirror_view(alias_table_view);
+  auto num_iter_hist_host = Kokkos::create_mirror_view(num_iter_hist);
 
   std::queue<int> under_full, over_full;
   for (int i = 0; i < N; ++i) {
-    prob_table[i] = Real(N) * prob[i] / sum;
-    if (prob_table[i] < 1.0)
+    alias_table_host(i) = -1;
+    num_iter_hist_host(i) = 0;
+
+    prob_table_host(i) = Real(N) * prob[i] / sum;
+    if (prob_table_host(i) < 1.0)
       under_full.push(i);
     else
       over_full.push(i);
@@ -176,10 +194,11 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
     int over_idx = over_full.front();
     over_full.pop();
 
-    alias_table[under_idx] = over_idx;
-    prob_table[over_idx] = (prob_table[over_idx] + prob_table[under_idx]) - 1.0;
+    alias_table_host(under_idx) = over_idx;
+    prob_table_host(over_idx) =
+        (prob_table_host(over_idx) + prob_table_host(under_idx)) - 1.0;
 
-    if (prob_table[over_idx] < 1.0)
+    if (prob_table_host(over_idx) < 1.0)
       under_full.push(over_idx);
     else
       over_full.push(over_idx);
@@ -189,22 +208,30 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
     int idx = over_full.front();
     over_full.pop();
 
-    prob_table[idx] = 1.0;
-    alias_table[idx] = idx;
+    prob_table_host(idx) = 1.0;
+    alias_table_host(idx) = idx;
   }
 
   while (!under_full.empty()) {
     int idx = under_full.front();
     under_full.pop();
 
-    prob_table[idx] = 1.0;
-    alias_table[idx] = idx;
+    prob_table_host(idx) = 1.0;
+    alias_table_host(idx) = idx;
   }
 
-  // store the tables and N_min in the package
-  pkg->AddParam("prob_table", prob_table);
-  pkg->AddParam("alias_table", alias_table);
-  pkg->AddParam("N_min", N_min);
+  Kokkos::deep_copy(prob_table_view, prob_table_host);
+  Kokkos::deep_copy(alias_table_view, alias_table_host);
+  Kokkos::deep_copy(num_iter_hist, num_iter_hist_host);
+
+  // create random pool
+  uint64_t seed = pin->GetOrAddInteger("Random", "seed", 0);
+  // if we don't have a seed, use the time
+  if (seed == 0)
+    seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+
+  Kokkos::Random_XorShift64_Pool<parthenon::DevExecSpace> rand_pool(seed);
+  pkg->AddParam("random_pool", rand_pool);
 
   // number of variable in variable vector
   const auto num_vars = pin->GetOrAddInteger("Advection", "num_vars", 1);
@@ -262,53 +289,53 @@ AmrTag CheckRefinement(MeshBlockData<Real> *rc) {
 
 // randomly sample an interation number for each cell from the discrete power-law
 // distribution
-void PreFill(MeshBlockData<Real> *rc) {
-  auto pmb = rc->GetBlockPointer();
-  auto pkg = pmb->packages["advanced_advection_package"];
+TaskStatus ComputeNumIter(std::shared_ptr<MeshData<Real>> &md, Packages_t &packages) {
+  Kokkos::Profiling::pushRegion("Task_ComputeNumIter");
 
-  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
-  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
-  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
+  Kokkos::Profiling::pushRegion("Task_ComputeNumIter_pack");
+  auto pack = md->PackVariables(std::vector<std::string>({"num_iter"}));
+  Kokkos::Profiling::popRegion();
 
-  auto n_iter = rc->Get("num_iter").data.GetHostMirror();
-  const auto &prob_table = pkg->Param<std::vector<Real>>("prob_table");
-  const auto &alias_table = pkg->Param<std::vector<int>>("alias_table");
+  auto pkg = packages["advanced_advection_package"];
+  const auto &pool =
+      pkg->Param<Kokkos::Random_XorShift64_Pool<parthenon::DevExecSpace>>("random_pool");
+
+  const IndexRange ib = pack.cellbounds.GetBoundsI(IndexDomain::interior);
+  const IndexRange jb = pack.cellbounds.GetBoundsJ(IndexDomain::interior);
+  const IndexRange kb = pack.cellbounds.GetBoundsK(IndexDomain::interior);
+
+  auto prob_table = pkg->Param<Kokkos::View<Real *>>("prob_table");
+  auto alias_table = pkg->Param<Kokkos::View<int *>>("alias_table");
   int N_min = pkg->Param<int>("N_min");
 
-  std::uniform_int_distribution<int> uni_int(0, prob_table.size() - 1);
-  std::uniform_real_distribution<Real> uni_real(0.0, 1.0);
+  par_for(
+      parthenon::loop_pattern_mdrange_tag, "ComputeNumIter", parthenon::DevExecSpace(), 0,
+      pack.GetDim(5) - 1, 0, pack.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(int b, int v, int k, int j, int i) {
+        auto rng = pool.get_state();
+        double rand1 = rng.drand();
+        double rand2 = rng.drand();
+        pool.free_state(rng);
 
-  auto app_dat = static_cast<MeshBlockAppData *>(pmb->app.get());
-  auto &rng = app_dat->rng;
-  auto &hist = advanced_advection_example::num_iter_histogram;
-
-  if (hist.size() == 0) hist.resize(prob_table.size(), 0);
-
-  // unfortunately, we need to do this serially, because the random number generator needs
-  // to be called serially
-  // TODO(jlippuner): use Kokkos_Random
-  for (int k = kb.s; k <= kb.e; ++k) {
-    for (int j = jb.s; j <= jb.e; ++j) {
-      for (int i = ib.s; i <= ib.e; ++i) {
-        int idx = uni_int(rng);
-        Real p = uni_real(rng);
+        int idx = static_cast<int>(rand1 * prob_table.size());
 
         int num_iter = N_min;
-        if ((p >= prob_table[idx]) && (alias_table[idx] != -1))
-          num_iter += alias_table[idx];
+        if ((rand2 >= prob_table(idx)) && (alias_table(idx) != -1))
+          num_iter += alias_table(idx);
         else
           num_iter += idx;
 
-        n_iter(k, j, i) = num_iter;
-        hist[num_iter - N_min] += 1;
-      }
-    }
-  }
+        pack(b, v, k, j, i) = num_iter;
+      });
+
+  Kokkos::Profiling::popRegion(); // Task_ComputeNumIter
+  return TaskStatus::complete;
 }
 
 // this is the package registered function to fill derived
 void DoLotsOfWork(MeshBlockData<Real> *rc) {
   auto pmb = rc->GetBlockPointer();
+  auto pkg = pmb->packages["advanced_advection_package"];
 
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
@@ -322,11 +349,19 @@ void DoLotsOfWork(MeshBlockData<Real> *rc) {
   const int in = imap["advected"].first;
   const int out = imap["dummy_result"].first;
   const auto num_vars = rc->Get("advected").data.GetDim(4);
+  int N_min = pkg->Param<int>("N_min");
+
+  auto hist = pkg->Param<Kokkos::View<int *>>("num_iter_histogram");
 
   pmb->par_for(
       "advanced_advection_package::DoLotsOfWork", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
-        for (int r = 0; r < v(niter, k, j, i); ++r) {
+        int num_iter = v(niter, k, j, i);
+
+        // surprisingly, this seems to be almost free
+        Kokkos::atomic_increment(&hist(num_iter - N_min));
+
+        for (int r = 0; r < num_iter; ++r) {
           double odd = 0.0;
           double even = 0.0;
 
@@ -338,31 +373,6 @@ void DoLotsOfWork(MeshBlockData<Real> *rc) {
           v(out, k, j, i) += log(a * b) / (log(a) + log(b));
         }
       });
-}
-
-// demonstrate usage of a "post" fill derived routine
-void PostFill(MeshBlockData<Real> *rc) {
-  // auto pmb = rc->GetBlockPointer();
-
-  // IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
-  // IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
-  // IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
-
-  // // packing in principle unnecessary/convoluted here and just done for demonstration
-  // PackIndexMap imap;
-  // std::vector<std::string> vars(
-  //     {"one_minus_advected_sq", "one_minus_sqrt_one_minus_advected_sq"});
-  // auto v = rc->PackVariables(vars, {12, 37}, imap);
-  // const int in = imap["one_minus_advected_sq"].first;
-  // const int out12 = imap["one_minus_sqrt_one_minus_advected_sq_12"].first;
-  // const int out37 = imap["one_minus_sqrt_one_minus_advected_sq_37"].first;
-  // const auto num_vars = rc->Get("advected").data.GetDim(4);
-  // pmb->par_for(
-  //     "advanced_advection_package::PostFill", 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e,
-  //     ib.s, ib.e, KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
-  //       v(out12 + n, k, j, i) = 1.0 - sqrt(v(in + n, k, j, i));
-  //       v(out37 + n, k, j, i) = 1.0 - v(out12 + n, k, j, i);
-  //     });
 }
 
 // provide the routine that estimates a stable timestep for this package

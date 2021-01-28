@@ -36,11 +36,7 @@ class AdvancedAdvectionDriver : public MultiStageBlockTaskDriver {
   TaskCollection MakeTaskCollection(BlockList_t &blocks, int stage);
 };
 
-extern std::vector<size_t> num_iter_histogram;
-
 void ProblemGenerator(MeshBlock *pmb, parthenon::ParameterInput *pin);
-parthenon::pMeshBlockApplicationData_t InitApplicationMeshBlockData(MeshBlock *pmb,
-                                                                    ParameterInput *pin);
 void UserWorkAfterLoop(Mesh *mesh, parthenon::ParameterInput *pin,
                        parthenon::SimTime &tm);
 parthenon::Packages_t ProcessPackages(std::unique_ptr<parthenon::ParameterInput> &pin);

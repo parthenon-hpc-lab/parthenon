@@ -24,8 +24,6 @@ int main(int argc, char *argv[]) {
   pman.app_input->ProcessPackages = advanced_advection_example::ProcessPackages;
   pman.app_input->ProblemGenerator = advanced_advection_example::ProblemGenerator;
   pman.app_input->UserWorkAfterLoop = advanced_advection_example::UserWorkAfterLoop;
-  pman.app_input->InitApplicationMeshBlockData =
-      advanced_advection_example::InitApplicationMeshBlockData;
 
   // call ParthenonInit to initialize MPI and Kokkos, parse the input deck, and set up
   auto manager_status = pman.ParthenonInit(argc, argv);

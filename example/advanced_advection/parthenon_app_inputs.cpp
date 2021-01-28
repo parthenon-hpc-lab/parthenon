@@ -230,43 +230,27 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
 
   if (pin->GetOrAddBoolean("Random", "compute_histogram", true)) {
     int N_min = pin->GetInteger("Random", "num_iter_min");
-    // std::vector<size_t> num_iter_histogram;
 
-    //     for (auto &pmb : mesh->block_list) {
-    //       auto pkg = pmb->packages["advanced_advection_package"];
-    //       N_min = pkg->Param<int>("N_min");
+    auto pkg = mesh->block_list[0]->packages["advanced_advection_package"];
+    auto hist_view = pkg->Param<Kokkos::View<int *>>("num_iter_histogram");
+    auto hist = Kokkos::create_mirror_view(hist_view);
+    Kokkos::deep_copy(hist, hist_view);
 
-    //       auto app_dat =
-    //           static_cast<advanced_advection_package::MeshBlockAppData
-    //           *>(pmb->app.get());
-    //       auto &hist = app_dat->histogram;
-
-    //       if (num_iter_histogram.size() == 0) {
-    //         num_iter_histogram = hist;
-    //       } else {
-    //         for (size_t i = 0; i < hist.size(); ++i)
-    //           num_iter_histogram[i] += hist[i];
-    //       }
-    //     }
-
-    // #ifdef MPI_PARALLEL
-    //     if (Globals::my_rank == 0) {
-    //       PARTHENON_MPI_CHECK(MPI_Reduce(MPI_IN_PLACE, num_iter_histogram.data(),
-    //                                      num_iter_histogram.size(), MPI_UINT64_T,
-    //                                      MPI_SUM, 0, MPI_COMM_WORLD));
-    //     } else {
-    //       PARTHENON_MPI_CHECK(MPI_Reduce(num_iter_histogram.data(),
-    //       num_iter_histogram.data(),
-    //                                      num_iter_histogram.size(), MPI_UINT64_T,
-    //                                      MPI_SUM, 0, MPI_COMM_WORLD));
-    //     }
-    // #endif
+#ifdef MPI_PARALLEL
+    if (Globals::my_rank == 0) {
+      PARTHENON_MPI_CHECK(MPI_Reduce(MPI_IN_PLACE, hist.data(), hist.extent(0),
+                                     MPI_UINT64_T, MPI_SUM, 0, MPI_COMM_WORLD));
+    } else {
+      PARTHENON_MPI_CHECK(MPI_Reduce(hist.data(), hist.data(), hist.extent(0),
+                                     MPI_UINT64_T, MPI_SUM, 0, MPI_COMM_WORLD));
+    }
+#endif
 
     if (Globals::my_rank == 0) {
       // print histogram
-      printf("\n\n");
-      for (size_t i = 0; i < num_iter_histogram.size(); ++i) {
-        printf("%8lu  %10lu\n", i + size_t(N_min), num_iter_histogram[i]);
+      printf("\nNum Iter Histogram:\n");
+      for (size_t i = 0; i < hist.extent(0); ++i) {
+        printf("%8lu  %10lu\n", i + size_t(N_min), hist(i));
       }
     }
   }
@@ -278,8 +262,6 @@ Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   packages[pkg->label()] = pkg;
 
   auto app = std::make_shared<StateDescriptor>("advection_app");
-  app->PreFillDerivedBlock = advanced_advection_package::PreFill;
-  app->PostFillDerivedBlock = advanced_advection_package::PostFill;
   packages[app->label()] = app;
 
   return packages;

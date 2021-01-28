@@ -53,6 +53,8 @@ AdvancedAdvectionDriver::AdvancedAdvectionDriver(ParameterInput *pin,
   pin->CheckDesired("Advection", "derefine_tol");
 }
 
+using advanced_advection_package::ComputeNumIter;
+
 // See the advection.hpp declaration for a description of how this function gets called.
 TaskCollection AdvancedAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
                                                            const int stage) {
@@ -62,6 +64,23 @@ TaskCollection AdvancedAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
 
   const Real beta = integrator->beta[stage - 1];
   const Real dt = integrator->dt;
+
+  const int pack_size = pmesh->DefaultPackSize();
+  auto partitions = partition::ToSizeN(blocks, pack_size);
+  for (int i = 0; i < partitions.size(); i++) {
+    auto md = pmesh->mesh_data.Add("num_iter_partition_" + std::to_string(i));
+    md->Set(partitions[i], "base");
+  }
+
+  // ParArrayHost<Real> areas("areas", partitions.size());
+  TaskRegion &async_region = tc.AddRegion(partitions.size());
+  {
+    // asynchronous region where area is computed per partition
+    for (int i = 0; i < partitions.size(); i++) {
+      auto &md = pmesh->mesh_data.Get("num_iter_partition_" + std::to_string(i));
+      async_region[i].AddTask(none, ComputeNumIter, md, pmesh->packages);
+    }
+  }
 
   // Number of task lists that can be executed independently and thus *may*
   // be executed in parallel and asynchronous.

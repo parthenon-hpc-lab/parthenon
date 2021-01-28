@@ -63,7 +63,7 @@ compute_error = false
 num_vars = 30 # number of variables in variable vector
 
 <Random>
-seed = 0
+seed = 42
 num_iter_min = 1
 num_iter_max = 100
 power_law_coeff = -3.0

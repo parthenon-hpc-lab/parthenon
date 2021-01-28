@@ -18,10 +18,12 @@
 #include <vector>
 
 #include "defs.hpp"
+#include <interface/state_descriptor.hpp>
 #include <parthenon/package.hpp>
 
 namespace advanced_advection_package {
 using namespace parthenon::package::prelude;
+using parthenon::Packages_t;
 
 struct MeshBlockAppData : public parthenon::MeshBlockApplicationData {
   std::mt19937_64 rng;
@@ -31,9 +33,8 @@ struct MeshBlockAppData : public parthenon::MeshBlockApplicationData {
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 AmrTag CheckRefinement(MeshBlockData<Real> *rc);
-void PreFill(MeshBlockData<Real> *rc);
+TaskStatus ComputeNumIter(std::shared_ptr<MeshData<Real>> &md, Packages_t &packages);
 void DoLotsOfWork(MeshBlockData<Real> *rc);
-void PostFill(MeshBlockData<Real> *rc);
 Real EstimateTimestepBlock(MeshBlockData<Real> *rc);
 TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc);
 
