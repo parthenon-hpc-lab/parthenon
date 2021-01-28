@@ -312,14 +312,13 @@ class ParthenonApp(App):
         # This is to avoid the scenario where the target and current branch are the same. 
         json_file_compare = str(self._parthenon_wiki_dir) + "/performance_metrics_" + target_branch.replace(r'/', '-') + ".json"
         
+        json_perf_data_parser = PerformanceDataJsonParser()
         target_data_file_exists = False
         if os.path.isfile(json_file_compare):
           target_data_file_exists = True
           target_meshblocks, target_cycles = json_perf_data_parser.getMostRecentPerformanceData(json_file_compare, target_branch, test_dir)
 
-
         json_file_out = str(self._parthenon_wiki_dir) + "/performance_metrics_"+ current_branch.replace(r'/', '-') + ".json"
-        json_perf_data_parser = PerformanceDataJsonParser()
         json_perf_data_parser.append(new_data, json_file_out)
      
         # Now the new file needs to be committed
