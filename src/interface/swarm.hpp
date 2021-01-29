@@ -81,7 +81,7 @@ class SwarmDeviceContext {
   KOKKOS_INLINE_FUNCTION
   int GetMyRank() const { return my_rank_; }
 
- private:
+// private:
   Real x_min_;
   Real x_max_;
   Real y_min_;
