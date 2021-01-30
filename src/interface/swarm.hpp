@@ -104,6 +104,40 @@ class SwarmDeviceContext {
   int my_rank_;
 };
 
+class ParticleBound {
+ public:
+  KOKKOS_INLINE_FUNCTION virtual void Apply(const int n, double &x, double &y, double &z,
+                                                const SwarmDeviceContext &context) = 0;
+};
+
+class ParticleBoundIX1Periodic : ParticleBound {
+ public:
+  KOKKOS_INLINE_FUNCTION void Apply(const int n, double &x, double &y, double &z,
+                                        const SwarmDeviceContext &swarm_d) override {
+    if (x < swarm_d.x_min_global_) {
+      x = swarm_d.x_max_global_ - (swarm_d.x_min_global_ - x);
+    }
+  }
+};
+
+class ParticleBoundIX1Outflow : ParticleBound {
+ public:
+  KOKKOS_INLINE_FUNCTION void Apply(const int n, double &x, double &y, double &z,
+                                        const SwarmDeviceContext &swarm_d) override {
+    swarm_d.MarkParticleForRemoval(n);
+  }
+};
+
+class ParticleBoundIX1Reflect : ParticleBound {
+ public:
+  KOKKOS_INLINE_FUNCTION void Apply(const int n, double &x, double &y, double &z,
+                                        const SwarmDeviceContext &swarm_d) override {
+    if (x < swarm_d.x_min_global_) {
+      x = swarm_d.x_min_global_ + (swarm_d.x_min_global_ - x);
+    }
+  }
+};
+
 class Swarm {
  public:
   Swarm(const std::string &label, const Metadata &metadata, const int nmax_pool_in = 3);
@@ -117,6 +151,8 @@ class Swarm {
   }
 
   SwarmDeviceContext GetDeviceContext() const;
+
+  void AllocateBoundaries();
 
   // Set the pointer to the mesh block for this swarm
   void SetBlockPointer(std::weak_ptr<MeshBlock> pmb) { pmy_block = pmb; }
@@ -223,6 +259,8 @@ class Swarm {
   bool finished_transport;
 
  private:
+  ParticleBoundIX1Periodic *bound_ix1;
+
   int debug = 0;
   std::weak_ptr<MeshBlock> pmy_block;
 

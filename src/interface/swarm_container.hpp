@@ -111,6 +111,8 @@ class SwarmContainer {
     return -1;
   }
 
+  void AllocateBoundaries();
+
   const SwarmVector &GetSwarmVector() const { return swarmVector_; }
   const SwarmMap &GetSwarmMap() const { return swarmMap_; }
 

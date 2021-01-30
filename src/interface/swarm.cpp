@@ -78,6 +78,23 @@ Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_
   marked_for_removal_.data.DeepCopy(marked_for_removal_h);
 }
 
+void Swarm::AllocateBoundaries() {
+  auto pmb = GetBlockPointer();
+  std::stringstream msg;
+
+  auto &bcs = pmb->pmy_mesh->mesh_bcs;
+  if (bcs[0] == BoundaryFlag::periodic) {
+    bound_ix1 = static_cast<ParticleBoundIX1Periodic *>(
+        Kokkos::kokkos_malloc<>(sizeof(ParticleBoundIX1Periodic)));
+    Kokkos::parallel_for(
+        1, KOKKOS_LAMBDA(const int i) { new (bound_ix1) ParticleBoundIX1Periodic(); });
+  } else {
+    msg << "ix1 boundary flag " << static_cast<int>(bcs[0]) << " not supported!"
+        << std::endl;
+    PARTHENON_THROW(msg);
+  }
+}
+
 void Swarm::Add(const std::vector<std::string> &labelArray, const Metadata &metadata) {
   // generate the vector and call Add
   for (auto label : labelArray) {
@@ -458,22 +475,6 @@ void Swarm::SetupPersistentMPI() {
   neighborIndices_.DeepCopy(neighborIndices_h);
 }
 
-class ParticleBoundIX1 {
- public:
-  KOKKOS_INLINE_FUNCTION virtual void bound_ix1(double &x, double &y, double &z,
-                                                const SwarmDeviceContext &context) = 0;
-};
-
-class ParticleBoundIX1Periodic : ParticleBoundIX1 {
- public:
-  KOKKOS_INLINE_FUNCTION void bound_ix1(double &x, double &y, double &z,
-                                        const SwarmDeviceContext &swarm_d) override {
-    if (x < swarm_d.x_min_global_) {
-      x = swarm_d.x_max_global_ - (swarm_d.x_min_global_ - x);
-    }
-  }
-};
-
 bool Swarm::Send(BoundaryCommSubset phase) {
   auto blockIndex_h = blockIndex_.GetHostMirrorAndCopy();
   auto mask_h = mask_.data.GetHostMirrorAndCopy();
@@ -556,11 +557,6 @@ bool Swarm::Send(BoundaryCommSubset phase) {
   }
   nrank.DeepCopy(nrank_h);
 
-  ParticleBoundIX1Periodic *bound_ix1 = static_cast<ParticleBoundIX1Periodic *>(
-      Kokkos::kokkos_malloc<>(sizeof(ParticleBoundIX1Periodic)));
-  Kokkos::parallel_for(
-      1, KOKKOS_LAMBDA(const int i) { new (bound_ix1) ParticleBoundIX1Periodic(); });
-
   auto &bdvar = vbswarm->bd_var_;
   pmb->par_for(
       "Pack Buffers", 0, max_indices_size,
@@ -584,7 +580,7 @@ bool Swarm::Send(BoundaryCommSubset phase) {
               double &x = vreal(ix, sidx);
               double &y = vreal(iy, sidx);
               double &z = vreal(iz, sidx);
-              bound_ix1->bound_ix1(x, y, z, swarm_d);
+              bound_ix1->Apply(n, x, y, z, swarm_d);
               // if (x < swarm_d.x_min_global_) {
               //  x = swarm_d.x_max_global_ - (swarm_d.x_min_global_ - x);
               //}

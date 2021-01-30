@@ -88,6 +88,12 @@ void SwarmContainer::ReceiveAndSetBoundariesWithWait() {}
 
 void SwarmContainer::SetBoundaries() {}
 
+void SwarmContainer::AllocateBoundaries() {
+  for (auto &s : swarmVector_) {
+    s->AllocateBoundaries();
+  }
+}
+
 TaskStatus SwarmContainer::Send(BoundaryCommSubset phase) {
   int success = 0, total = 0;
   for (auto &s : swarmVector_) {
