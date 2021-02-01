@@ -75,6 +75,20 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
 
   Kokkos::initialize(argc, argv);
 
+  // pgrete: This is a hack to disable allocation tracking until the Kokkos
+  // tools provide a more fine grained control out of the box.
+  auto *env_track_alloc = std::getenv("KOKKOS_TRACK_ALLOC_OFF");
+  if (env_track_alloc != nullptr) {
+    std::string env_str(env_track_alloc); // deep-copies string
+    for (char &c : env_str) {
+      c = toupper(c);
+    }
+    if ((env_str == "TRUE") || (env_str == "ON") || (env_str == "1")) {
+      Kokkos::Profiling::Experimental::set_allocate_data_callback(nullptr);
+      Kokkos::Profiling::Experimental::set_deallocate_data_callback(nullptr);
+    }
+  }
+
   // parse the input arguments
   ArgStatus arg_status = arg.parse(argc, argv);
   if (arg_status == ArgStatus::error) {
@@ -117,7 +131,7 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
   // set up all the packages in the application
   auto packages = ProcessPackages(pinput);
   // always add the Refinement package
-  packages["ParthenonRefinement"] = Refinement::Initialize(pinput.get());
+  packages.Add(Refinement::Initialize(pinput.get()));
 
   if (arg.res_flag == 0) {
     pmesh = std::make_unique<Mesh>(pinput.get(), app_input.get(), properties, packages,
@@ -143,7 +157,7 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
   }
 
   // add root_level to all max_level
-  for (auto const &ph : packages) {
+  for (auto const &ph : packages.AllPackages()) {
     for (auto &amr : ph.second->amr_criteria) {
       amr->max_level += pmesh->GetRootLevel();
     }

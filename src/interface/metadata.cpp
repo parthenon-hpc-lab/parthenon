@@ -88,13 +88,13 @@ std::ostream &operator<<(std::ostream &os, const parthenon::Metadata &m) {
   auto &flags = metadata_state.AllFlags();
   for (int i = 0; i < flags.size(); ++i) {
     auto flag = MetadataFlag(i);
-    auto &flag_name = flags[i];
     if (m.IsSet(flag)) {
       if (!first) {
         os << ",";
       } else {
         first = false;
       }
+      auto &flag_name = flags[i];
       os << flag_name;
     }
   }
