@@ -80,6 +80,6 @@ ${EXPECTED_COPYRIGHT}
 To update automatically run:
 $ cmake --build . --target update-copyright
 ")
-        message(FATAL_ERROR)
+#        message(FATAL_ERROR)
     endif()
 endif()
