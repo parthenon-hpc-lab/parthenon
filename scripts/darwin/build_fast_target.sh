@@ -76,4 +76,3 @@ if [[ "$performance_metrics_uptodate" == *"False"* ]]; then
 
   "${SOURCE}"/../python/parthenon_metrics_app.py -p "${GITHUB_APP_PEM}" --branch "$target_branch" --target-branch "$target_branch" --analyze "${BUILD_DIR}/tst/regression/outputs" --create
 fi
-exit 0

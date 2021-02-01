@@ -43,4 +43,3 @@ cd build
 "${SOURCE}"/../python/parthenon_metrics_app.py -p "${GITHUB_APP_PEM}"  --status "pending" --status-context "Parthenon Metrics App" --status-description "Running tests" --status-url "${CI_JOB_URL}"
 ctest --output-on-failure -R performance
 
-exit 0
