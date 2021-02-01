@@ -31,7 +31,7 @@
 
 cmake_minimum_required(VERSION 3.15)
 
-message(STATUS "Loading machine configuration for LNLL RZAnsel.\n"
+message(STATUS "Loading machine configuration for LLNL RZAnsel.\n"
   "Supported MACHINE_VARIANT includes 'cuda', 'mpi', and 'cuda-mpi'\n")
 
 set(RZANSEL_ARCH "ppc64le")
