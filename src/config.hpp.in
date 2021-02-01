@@ -39,6 +39,9 @@
 // MPI parallelization (MPI_PARALLEL or NOT_MPI_PARALLEL)
 #define @MPI_OPTION@
 
+// define PARTHENON_ENABLE_HOST_COMM_BUFFERS or not at all
+#cmakedefine PARTHENON_ENABLE_HOST_COMM_BUFFERS
+
 // OpenMP parallelization (OPENMP_PARALLEL or NOT_OPENMP_PARALLEL)
 #define @OPENMP_OPTION@
 

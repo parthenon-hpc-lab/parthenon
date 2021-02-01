@@ -58,7 +58,7 @@ constexpr int Nvar = 10;
 constexpr int N_kernels_to_launch_per_test = 100;
 
 template <typename InitFunc, typename PerfFunc>
-void performance_test_wrapper(const std::string test_name, InitFunc init_func,
+void performance_test_wrapper(const std::string &test_name, InitFunc init_func,
                               PerfFunc perf_func) {
   BENCHMARK_ADVANCED(test_name.c_str())(Catch::Benchmark::Chronometer meter) {
     init_func();
