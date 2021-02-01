@@ -1,5 +1,5 @@
 #=========================================================================================
-# (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+# (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -55,12 +55,11 @@ function(setup_test_serial dir arg extra_labels)
     set(PARTHENON_KOKKOS_TEST_ARGS "${PARTHENON_KOKKOS_TEST_ARGS} --kokkos-threads=${NUM_OMP_THREADS_PER_RANK}")
   endif()
   if (SERIAL_WITH_MPIEXEC)
-    set(PREFIX_SERIAL_REGRESSION_TEST ${TEST_MPIEXEC})
     set(SUFFIX_SERIAL_REGRESSION_TEST --mpirun ${TEST_MPIEXEC})
   endif()
   add_test(
     NAME regression_test:${dir}
-    COMMAND ${PREFIX_SERIAL_REGRESSION_TEST} ${Python3_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/run_test.py" 
+    COMMAND ${Python3_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/run_test.py" 
       ${arg} --test_dir "${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}"
       --output_dir "${PROJECT_BINARY_DIR}/tst/regression/outputs/${dir}"
       --kokkos_args=${PARTHENON_KOKKOS_TEST_ARGS}
