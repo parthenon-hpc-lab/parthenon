@@ -521,7 +521,7 @@ class App:
             repo = Repo(self._parthenon_wiki_dir)
             g = git.cmd.Git(self._parthenon_wiki_dir)
             print("Our remote url is %s" % wiki_remote)
-            print(g.execute(['git','remote','show','origin'))  # git remote show origini
+            print(g.execute(['git','remote','show','origin']))  # git remote show origini
             g.execute(['git','remote','set-url','origin',wiki_remote])
         return repo
 
