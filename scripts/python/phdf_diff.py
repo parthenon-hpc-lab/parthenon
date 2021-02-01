@@ -234,7 +234,7 @@ if __name__ == "__main__":
 
     if len(files) != 2:
         Usage()
-        exit(1)
+        sys.exit(1)
 
     ret = compare(files, all, brief, quiet, one, tol)
-    exit(ret)
+    sys.exit(ret)

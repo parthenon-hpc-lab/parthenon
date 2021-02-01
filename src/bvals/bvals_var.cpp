@@ -79,8 +79,8 @@ void BoundaryVariable::InitBoundaryData(BoundaryData<> &bd, BoundaryQuantity typ
           << "Invalid boundary type is specified." << std::endl;
       PARTHENON_FAIL(msg);
     }
-    bd.send[n] = ParArray1D<Real>("send buf " + std::to_string(n), size);
-    bd.recv[n] = ParArray1D<Real>("recv buf " + std::to_string(n), size);
+    bd.send[n] = BufArray1D<Real>("send buf " + std::to_string(n), size);
+    bd.recv[n] = BufArray1D<Real>("recv buf " + std::to_string(n), size);
   }
 }
 

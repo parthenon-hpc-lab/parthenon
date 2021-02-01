@@ -57,6 +57,13 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   }
   pkg->AddParam<>("profile", profile_str);
 
+  auto buffer_send_pack = pin->GetOrAddBoolean("Advection", "buffer_send_pack", false);
+  auto buffer_recv_pack = pin->GetOrAddBoolean("Advection", "buffer_recv_pack", false);
+  auto buffer_set_pack = pin->GetOrAddBoolean("Advection", "buffer_set_pack", false);
+  pkg->AddParam<>("buffer_send_pack", buffer_send_pack);
+  pkg->AddParam<>("buffer_recv_pack", buffer_recv_pack);
+  pkg->AddParam<>("buffer_set_pack", buffer_set_pack);
+
   Real amp = pin->GetOrAddReal("Advection", "amp", 1e-6);
   Real vel = std::sqrt(vx * vx + vy * vy + vz * vz);
   Real ang_2 = pin->GetOrAddReal("Advection", "ang_2", -999.9);
@@ -191,7 +198,7 @@ AmrTag CheckRefinement(MeshBlockData<Real> *rc) {
       },
       Kokkos::MinMax<Real>(minmax));
 
-  auto pkg = pmb->packages["advection_package"];
+  auto pkg = pmb->packages.Get("advection_package");
   const auto &refine_tol = pkg->Param<Real>("refine_tol");
   const auto &derefine_tol = pkg->Param<Real>("derefine_tol");
 
@@ -272,7 +279,7 @@ void PostFill(MeshBlockData<Real> *rc) {
 // provide the routine that estimates a stable timestep for this package
 Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
   auto pmb = rc->GetBlockPointer();
-  auto pkg = pmb->packages["advection_package"];
+  auto pkg = pmb->packages.Get("advection_package");
   const auto &cfl = pkg->Param<Real>("cfl");
   const auto &vx = pkg->Param<Real>("vx");
   const auto &vy = pkg->Param<Real>("vy");
@@ -312,7 +319,7 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
 
   ParArrayND<Real> advected = rc->Get("advected").data;
-  auto pkg = pmb->packages["advection_package"];
+  auto pkg = pmb->packages.Get("advection_package");
   const auto &vx = pkg->Param<Real>("vx");
   const auto &vy = pkg->Param<Real>("vy");
   const auto &vz = pkg->Param<Real>("vz");
