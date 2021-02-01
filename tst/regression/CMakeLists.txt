@@ -42,11 +42,16 @@
 
 # Performance regression test
 list(APPEND TEST_DIRS advection_performance)
-list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+# Advection_performance should only be run on a single rank
+list(APPEND TEST_PROCS 1)
 list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
 --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/advection_performance/parthinput.advection_performance \
 --num_steps 5")
 list(APPEND EXTRA_TEST_LABELS "perf-reg")
+if ( NOT ${NUM_MPI_PROC_TESTING} EQUAL "1" ) 
+  message(STATUS "Note: advection_performance test will only run with a single rank.")
+endif()
+
 
 if (ENABLE_HDF5)
 
@@ -70,11 +75,14 @@ if (ENABLE_HDF5)
 
   # Advection test
   list(APPEND TEST_DIRS advection_convergence)
-  list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+  list(APPEND TEST_PROCS 1)
   list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
   --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/advection_convergence/parthinput.advection \
   --num_steps 25")
   list(APPEND EXTRA_TEST_LABELS "")
+  if ( NOT ${NUM_MPI_PROC_TESTING} EQUAL "1" ) 
+    message(STATUS "Note: advection_convergence test will only run with a single rank.")
+  endif()
 
   list(APPEND TEST_DIRS output_hdf5)
   list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
