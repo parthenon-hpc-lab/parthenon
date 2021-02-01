@@ -25,6 +25,7 @@ import jwt
 import pem
 import pycurl
 from git import Repo
+import git
 
 class Node:
 
@@ -449,7 +450,8 @@ class App:
 
             # 2. convert file into base64 format
             # b is needed if it is a png or image file/ binary file
-            data = open(file_name, "rb").read()
+            with open(file_name, "rb") as f:
+              data = f.read()
             encoded_file = base64.b64encode(data)
 
             # 3. upload the file, overwrite if exists already
@@ -517,6 +519,10 @@ class App:
             repo = Repo.clone_from(wiki_remote, self._parthenon_wiki_dir)
         else:
             repo = Repo(self._parthenon_wiki_dir)
+            g = git.cmd.Git(self._parthenon_wiki_dir)
+            print("Our remote url is %s" % wiki_remote)
+            print(g.execute(['git','remote','show','origin'))  # git remote show origini
+            g.execute(['git','remote','set-url','origin',wiki_remote])
         return repo
 
     def getWikiRepo(self, branch):
