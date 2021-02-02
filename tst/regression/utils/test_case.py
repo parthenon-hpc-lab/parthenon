@@ -108,7 +108,8 @@ class TestManager:
         self.parameters.mpi_cmd = mpi_executable
         self.parameters.mpi_ranks = kwargs.pop('mpirun_ranks')
         self.parameters.mpi_opts = kwargs.pop('mpirun_opts')
-        self.parameters.num_ranks = int(self.parameters.mpi_ranks[1])
+        if len(self.parameters.mpi_ranks) == 2:
+            self.parameters.num_ranks = int(self.parameters.mpi_ranks[1])
 
         module = __import__(self.__test_module, globals(), locals(),
                 fromlist=['TestCase'])
