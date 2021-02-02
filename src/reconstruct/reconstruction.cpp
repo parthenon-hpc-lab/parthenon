@@ -85,7 +85,7 @@ Reconstruction::Reconstruction(std::weak_ptr<MeshBlock> wpmb, ParameterInput *pi
       msg << "### FATAL ERROR in Reconstruction constructor" << std::endl
           << "xorder=" << input_recon
           << " (PPM) reconstruction selected, but nghost=" << Globals::nghost << std::endl
-          << "Reconfigure with --nghost=XXX with XXX > " << req_nghost - 1 << std::endl;
+          << "Rerun with --nghost=XXX with XXX > " << req_nghost - 1 << std::endl;
       PARTHENON_FAIL(msg);
     }
   }
@@ -157,7 +157,7 @@ Reconstruction::Reconstruction(std::weak_ptr<MeshBlock> wpmb, ParameterInput *pi
       msg << "### FATAL ERROR in Reconstruction constructor" << std::endl
           << "time/xorder=" << input_recon
           << " reconstruction selected, but nghost=" << Globals::nghost << std::endl
-          << "Reconfigure with --nghost=XXX with XXX > " << req_nghost - 1 << std::endl;
+          << "Rerun with --nghost=XXX with XXX > " << req_nghost - 1 << std::endl;
       PARTHENON_FAIL(msg);
     }
   }
