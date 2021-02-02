@@ -214,6 +214,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properti
   EnrollBndryFncts_(app_in);
 
   // read and set MeshBlock parameters
+  block_size.nghost = mesh_size.nghost;
   block_size.x1rat = mesh_size.x1rat;
   block_size.x2rat = mesh_size.x2rat;
   block_size.x3rat = mesh_size.x3rat;
