@@ -3,7 +3,7 @@
 // Copyright(C) 2020 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -31,12 +31,14 @@ class MeshData;
 class IndexRange;
 class NeighborBlock;
 namespace cell_centered_bvars {
-void CalcIndicesSetSame(int ox, int &s, int &e, const IndexRange &bounds);
+void CalcIndicesSetSame(int ox, int &s, int &e, const IndexRange &bounds,
+                        const int &nghost);
 void CalcIndicesSetFromCoarser(const int &ox, int &s, int &e, const IndexRange &bounds,
                                const std::int64_t &lx, const int &cng, bool include_dim);
 void CalcIndicesSetFromFiner(int &si, int &ei, int &sj, int &ej, int &sk, int &ek,
                              const NeighborBlock &nb, MeshBlock *pmb);
-void CalcIndicesLoadSame(int ox, int &s, int &e, const IndexRange &bounds);
+void CalcIndicesLoadSame(int ox, int &s, int &e, const IndexRange &bounds,
+                         const int &nghost);
 void CalcIndicesLoadToFiner(int &si, int &ei, int &sj, int &ej, int &sk, int &ek,
                             const NeighborBlock &nb, MeshBlock *pmb);
 TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);

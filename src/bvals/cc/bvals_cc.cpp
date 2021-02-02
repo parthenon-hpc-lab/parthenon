@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -90,13 +90,13 @@ int CellCenteredBoundaryVariable::ComputeVariableBufferSize(const NeighborIndexe
   cng2 = cng * (pmb->block_size.nx2 > 1 ? 1 : 0);
   cng3 = cng * (pmb->block_size.nx3 > 1 ? 1 : 0);
 
-  int size = ((ni.ox1 == 0) ? pmb->block_size.nx1 : NGHOST) *
-             ((ni.ox2 == 0) ? pmb->block_size.nx2 : NGHOST) *
-             ((ni.ox3 == 0) ? pmb->block_size.nx3 : NGHOST);
+  int size = ((ni.ox1 == 0) ? pmb->block_size.nx1 : pmb->nghost) *
+             ((ni.ox2 == 0) ? pmb->block_size.nx2 : pmb->nghost) *
+             ((ni.ox3 == 0) ? pmb->block_size.nx3 : pmb->nghost);
   if (pmy_mesh_->multilevel) {
-    int f2c = ((ni.ox1 == 0) ? ((pmb->block_size.nx1 + 1) / 2) : NGHOST) *
-              ((ni.ox2 == 0) ? ((pmb->block_size.nx2 + 1) / 2) : NGHOST) *
-              ((ni.ox3 == 0) ? ((pmb->block_size.nx3 + 1) / 2) : NGHOST);
+    int f2c = ((ni.ox1 == 0) ? ((pmb->block_size.nx1 + 1) / 2) : pmb->nghost) *
+              ((ni.ox2 == 0) ? ((pmb->block_size.nx2 + 1) / 2) : pmb->nghost) *
+              ((ni.ox3 == 0) ? ((pmb->block_size.nx3 + 1) / 2) : pmb->nghost);
     int c2f = ((ni.ox1 == 0) ? ((pmb->block_size.nx1 + 1) / 2 + cng1) : cng) *
               ((ni.ox2 == 0) ? ((pmb->block_size.nx2 + 1) / 2 + cng2) : cng) *
               ((ni.ox3 == 0) ? ((pmb->block_size.nx3 + 1) / 2 + cng3) : cng);
@@ -135,11 +135,11 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(BufArray1D<Real> &
   const IndexShape &cellbounds = pmb->cellbounds;
 
   cell_centered_bvars::CalcIndicesLoadSame(nb.ni.ox1, si, ei,
-                                           cellbounds.GetBoundsI(interior));
+                                           cellbounds.GetBoundsI(interior), pmb->nghost);
   cell_centered_bvars::CalcIndicesLoadSame(nb.ni.ox2, sj, ej,
-                                           cellbounds.GetBoundsJ(interior));
+                                           cellbounds.GetBoundsJ(interior), pmb->nghost);
   cell_centered_bvars::CalcIndicesLoadSame(nb.ni.ox3, sk, ek,
-                                           cellbounds.GetBoundsK(interior));
+                                           cellbounds.GetBoundsK(interior), pmb->nghost);
   int p = 0;
 
   ParArray4D<Real> var_cc_ = var_cc.Get<4>(); // automatic template deduction fails
@@ -162,12 +162,12 @@ int CellCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(BufArray1D<Real> &
   IndexDomain interior = IndexDomain::interior;
   const IndexShape &c_cellbounds = pmb->c_cellbounds;
   // "Same" logic is the same for loading to a coarse buffer, just using c_cellbounds
-  cell_centered_bvars::CalcIndicesLoadSame(nb.ni.ox1, si, ei,
-                                           c_cellbounds.GetBoundsI(interior));
-  cell_centered_bvars::CalcIndicesLoadSame(nb.ni.ox2, sj, ej,
-                                           c_cellbounds.GetBoundsJ(interior));
-  cell_centered_bvars::CalcIndicesLoadSame(nb.ni.ox3, sk, ek,
-                                           c_cellbounds.GetBoundsK(interior));
+  cell_centered_bvars::CalcIndicesLoadSame(
+      nb.ni.ox1, si, ei, c_cellbounds.GetBoundsI(interior), pmb->nghost);
+  cell_centered_bvars::CalcIndicesLoadSame(
+      nb.ni.ox2, sj, ej, c_cellbounds.GetBoundsJ(interior), pmb->nghost);
+  cell_centered_bvars::CalcIndicesLoadSame(
+      nb.ni.ox3, sk, ek, c_cellbounds.GetBoundsK(interior), pmb->nghost);
 
   int p = 0;
   pmb->pmr->RestrictCellCenteredValues(var_cc, coarse_buf, nl_, nu_, si, ei, sj, ej, sk,
@@ -210,11 +210,11 @@ void CellCenteredBoundaryVariable::SetBoundarySameLevel(BufArray1D<Real> &buf,
 
   IndexDomain interior = IndexDomain::interior;
   cell_centered_bvars::CalcIndicesSetSame(nb.ni.ox1, si, ei,
-                                          cellbounds.GetBoundsI(interior));
+                                          cellbounds.GetBoundsI(interior), pmb->nghost);
   cell_centered_bvars::CalcIndicesSetSame(nb.ni.ox2, sj, ej,
-                                          cellbounds.GetBoundsJ(interior));
+                                          cellbounds.GetBoundsJ(interior), pmb->nghost);
   cell_centered_bvars::CalcIndicesSetSame(nb.ni.ox3, sk, ek,
-                                          cellbounds.GetBoundsK(interior));
+                                          cellbounds.GetBoundsK(interior), pmb->nghost);
 
   int p = 0;
 
@@ -284,13 +284,13 @@ void CellCenteredBoundaryVariable::SetupPersistentMPI() {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
     if (nb.snb.rank != Globals::my_rank) {
       if (nb.snb.level == mylevel) { // same
-        ssize = rsize = ((nb.ni.ox1 == 0) ? pmb->block_size.nx1 : NGHOST) *
-                        ((nb.ni.ox2 == 0) ? pmb->block_size.nx2 : NGHOST) *
-                        ((nb.ni.ox3 == 0) ? pmb->block_size.nx3 : NGHOST);
+        ssize = rsize = ((nb.ni.ox1 == 0) ? pmb->block_size.nx1 : pmb->nghost) *
+                        ((nb.ni.ox2 == 0) ? pmb->block_size.nx2 : pmb->nghost) *
+                        ((nb.ni.ox3 == 0) ? pmb->block_size.nx3 : pmb->nghost);
       } else if (nb.snb.level < mylevel) { // coarser
-        ssize = ((nb.ni.ox1 == 0) ? ((pmb->block_size.nx1 + 1) / 2) : NGHOST) *
-                ((nb.ni.ox2 == 0) ? ((pmb->block_size.nx2 + 1) / 2) : NGHOST) *
-                ((nb.ni.ox3 == 0) ? ((pmb->block_size.nx3 + 1) / 2) : NGHOST);
+        ssize = ((nb.ni.ox1 == 0) ? ((pmb->block_size.nx1 + 1) / 2) : pmb->nghost) *
+                ((nb.ni.ox2 == 0) ? ((pmb->block_size.nx2 + 1) / 2) : pmb->nghost) *
+                ((nb.ni.ox3 == 0) ? ((pmb->block_size.nx3 + 1) / 2) : pmb->nghost);
         rsize = ((nb.ni.ox1 == 0) ? ((pmb->block_size.nx1 + 1) / 2 + cng1) : cng1) *
                 ((nb.ni.ox2 == 0) ? ((pmb->block_size.nx2 + 1) / 2 + cng2) : cng2) *
                 ((nb.ni.ox3 == 0) ? ((pmb->block_size.nx3 + 1) / 2 + cng3) : cng3);
@@ -298,9 +298,9 @@ void CellCenteredBoundaryVariable::SetupPersistentMPI() {
         ssize = ((nb.ni.ox1 == 0) ? ((pmb->block_size.nx1 + 1) / 2 + cng1) : cng1) *
                 ((nb.ni.ox2 == 0) ? ((pmb->block_size.nx2 + 1) / 2 + cng2) : cng2) *
                 ((nb.ni.ox3 == 0) ? ((pmb->block_size.nx3 + 1) / 2 + cng3) : cng3);
-        rsize = ((nb.ni.ox1 == 0) ? ((pmb->block_size.nx1 + 1) / 2) : NGHOST) *
-                ((nb.ni.ox2 == 0) ? ((pmb->block_size.nx2 + 1) / 2) : NGHOST) *
-                ((nb.ni.ox3 == 0) ? ((pmb->block_size.nx3 + 1) / 2) : NGHOST);
+        rsize = ((nb.ni.ox1 == 0) ? ((pmb->block_size.nx1 + 1) / 2) : pmb->nghost) *
+                ((nb.ni.ox2 == 0) ? ((pmb->block_size.nx2 + 1) / 2) : pmb->nghost) *
+                ((nb.ni.ox3 == 0) ? ((pmb->block_size.nx3 + 1) / 2) : pmb->nghost);
       }
       ssize *= (nu_ + 1);
       rsize *= (nu_ + 1);

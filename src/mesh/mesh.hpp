@@ -94,6 +94,7 @@ class Mesh {
   RegionSize mesh_size;
   BoundaryFlag mesh_bcs[BOUNDARY_NFACES];
   const int ndim; // number of dimensions
+  const int nghost;
   const bool adaptive, multilevel;
   int nbtotal, nbnew, nbdel;
   std::uint64_t mbcnt;

@@ -3,7 +3,7 @@
 // Copyright(C) 2020 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -37,15 +37,16 @@ namespace cell_centered_bvars {
 //                                                   const IndexRange &bounds)
 //  \brief Calculate indices for SetBoundary routines for buffers on the same level
 
-void CalcIndicesSetSame(int ox, int &s, int &e, const IndexRange &bounds) {
+void CalcIndicesSetSame(int ox, int &s, int &e, const IndexRange &bounds,
+                        const int &nghost) {
   if (ox == 0) {
     s = bounds.s;
     e = bounds.e;
   } else if (ox > 0) {
     s = bounds.e + 1;
-    e = bounds.e + NGHOST;
+    e = bounds.e + nghost;
   } else {
-    s = bounds.s - NGHOST;
+    s = bounds.s - nghost;
     e = bounds.s - 1;
   }
 }
@@ -100,9 +101,9 @@ void CalcIndicesSetFromFiner(int &si, int &ei, int &sj, int &ej, int &sk, int &e
       ei -= pmb->block_size.nx1 / 2;
   } else if (nb.ni.ox1 > 0) {
     si = cellbounds.ie(interior) + 1;
-    ei = cellbounds.ie(interior) + NGHOST;
+    ei = cellbounds.ie(interior) + pmb->nghost;
   } else {
-    si = cellbounds.is(interior) - NGHOST;
+    si = cellbounds.is(interior) - pmb->nghost;
     ei = cellbounds.is(interior) - 1;
   }
 
@@ -124,9 +125,9 @@ void CalcIndicesSetFromFiner(int &si, int &ei, int &sj, int &ej, int &sk, int &e
     }
   } else if (nb.ni.ox2 > 0) {
     sj = cellbounds.je(interior) + 1;
-    ej = cellbounds.je(interior) + NGHOST;
+    ej = cellbounds.je(interior) + pmb->nghost;
   } else {
-    sj = cellbounds.js(interior) - NGHOST;
+    sj = cellbounds.js(interior) - pmb->nghost;
     ej = cellbounds.js(interior) - 1;
   }
 
@@ -148,9 +149,9 @@ void CalcIndicesSetFromFiner(int &si, int &ei, int &sj, int &ej, int &sk, int &e
     }
   } else if (nb.ni.ox3 > 0) {
     sk = cellbounds.ke(interior) + 1;
-    ek = cellbounds.ke(interior) + NGHOST;
+    ek = cellbounds.ke(interior) + pmb->nghost;
   } else {
-    sk = cellbounds.ks(interior) - NGHOST;
+    sk = cellbounds.ks(interior) - pmb->nghost;
     ek = cellbounds.ks(interior) - 1;
   }
 }
@@ -161,16 +162,17 @@ void CalcIndicesSetFromFiner(int &si, int &ei, int &sj, int &ej, int &sk, int &e
 //  \brief Calculate indices for LoadBoundary routines for buffers on the same level
 //         and to coarser.
 
-void CalcIndicesLoadSame(int ox, int &s, int &e, const IndexRange &bounds) {
+void CalcIndicesLoadSame(int ox, int &s, int &e, const IndexRange &bounds,
+                         const int &nghost) {
   if (ox == 0) {
     s = bounds.s;
     e = bounds.e;
   } else if (ox > 0) {
-    s = bounds.e - NGHOST + 1;
+    s = bounds.e - nghost + 1;
     e = bounds.e;
   } else {
     s = bounds.s;
-    e = bounds.s + NGHOST - 1;
+    e = bounds.s + nghost - 1;
   }
 }
 
@@ -263,9 +265,12 @@ size_t ResetAndRestrictSendBuffers(MeshData<Real> *md, bool cache_is_valid) {
             auto &var_cc = v->data;
             // recalc indices as existing indices in boundary_info are on the device
             int si, ei, sj, ej, sk, ek;
-            CalcIndicesLoadSame(nb.ni.ox1, si, ei, c_cellbounds.GetBoundsI(interior));
-            CalcIndicesLoadSame(nb.ni.ox2, sj, ej, c_cellbounds.GetBoundsJ(interior));
-            CalcIndicesLoadSame(nb.ni.ox3, sk, ek, c_cellbounds.GetBoundsK(interior));
+            CalcIndicesLoadSame(nb.ni.ox1, si, ei, c_cellbounds.GetBoundsI(interior),
+                                pmb->nghost);
+            CalcIndicesLoadSame(nb.ni.ox2, sj, ej, c_cellbounds.GetBoundsJ(interior),
+                                pmb->nghost);
+            CalcIndicesLoadSame(nb.ni.ox3, sk, ek, c_cellbounds.GetBoundsK(interior),
+                                pmb->nghost);
 
             auto &coarse_buf = v->vbvar->coarse_buf;
             pmb->pmr->RestrictCellCenteredValues(var_cc, coarse_buf, 0, v->GetDim(4) - 1,
@@ -319,18 +324,24 @@ void ResetSendBufferBoundaryInfo(MeshData<Real> *md, size_t buffers_used) {
           auto &var_cc = v->data;
           if (nb.snb.level == mylevel) {
             const parthenon::IndexShape &cellbounds = pmb->cellbounds;
-            CalcIndicesLoadSame(nb.ni.ox1, si, ei, cellbounds.GetBoundsI(interior));
-            CalcIndicesLoadSame(nb.ni.ox2, sj, ej, cellbounds.GetBoundsJ(interior));
-            CalcIndicesLoadSame(nb.ni.ox3, sk, ek, cellbounds.GetBoundsK(interior));
+            CalcIndicesLoadSame(nb.ni.ox1, si, ei, cellbounds.GetBoundsI(interior),
+                                pmb->nghost);
+            CalcIndicesLoadSame(nb.ni.ox2, sj, ej, cellbounds.GetBoundsJ(interior),
+                                pmb->nghost);
+            CalcIndicesLoadSame(nb.ni.ox3, sk, ek, cellbounds.GetBoundsK(interior),
+                                pmb->nghost);
             boundary_info_h(b).var = var_cc.Get<4>();
 
           } else if (nb.snb.level < mylevel) {
             const IndexShape &c_cellbounds = pmb->c_cellbounds;
             // "Same" logic is the same for loading to a coarse buffer, just using
             // c_cellbounds
-            CalcIndicesLoadSame(nb.ni.ox1, si, ei, c_cellbounds.GetBoundsI(interior));
-            CalcIndicesLoadSame(nb.ni.ox2, sj, ej, c_cellbounds.GetBoundsJ(interior));
-            CalcIndicesLoadSame(nb.ni.ox3, sk, ek, c_cellbounds.GetBoundsK(interior));
+            CalcIndicesLoadSame(nb.ni.ox1, si, ei, c_cellbounds.GetBoundsI(interior),
+                                pmb->nghost);
+            CalcIndicesLoadSame(nb.ni.ox2, sj, ej, c_cellbounds.GetBoundsJ(interior),
+                                pmb->nghost);
+            CalcIndicesLoadSame(nb.ni.ox3, sk, ek, c_cellbounds.GetBoundsK(interior),
+                                pmb->nghost);
 
             auto &coarse_buf = v->vbvar->coarse_buf;
             pmb->pmr->RestrictCellCenteredValues(var_cc, coarse_buf, 0, Nv - 1, si, ei,
@@ -545,9 +556,12 @@ void ResetSetFromBufferBoundaryInfo(MeshData<Real> *md) {
 
           if (nb.snb.level == mylevel) {
             const parthenon::IndexShape &cellbounds = pmb->cellbounds;
-            CalcIndicesSetSame(nb.ni.ox1, si, ei, cellbounds.GetBoundsI(interior));
-            CalcIndicesSetSame(nb.ni.ox2, sj, ej, cellbounds.GetBoundsJ(interior));
-            CalcIndicesSetSame(nb.ni.ox3, sk, ek, cellbounds.GetBoundsK(interior));
+            CalcIndicesSetSame(nb.ni.ox1, si, ei, cellbounds.GetBoundsI(interior),
+                               pmb->nghost);
+            CalcIndicesSetSame(nb.ni.ox2, sj, ej, cellbounds.GetBoundsJ(interior),
+                               pmb->nghost);
+            CalcIndicesSetSame(nb.ni.ox3, sk, ek, cellbounds.GetBoundsK(interior),
+                               pmb->nghost);
             boundary_info_h(b).var = v->data.Get<4>();
           } else if (nb.snb.level < mylevel) {
             const IndexShape &c_cellbounds = pmb->c_cellbounds;
