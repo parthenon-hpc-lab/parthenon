@@ -19,9 +19,7 @@ function(required_python_modules_found module_list)
   if(${Python3_Interpreter_FOUND})
     set(IMPORT_ERROR 0)
     foreach(module IN LISTS module_list )
-      # Run test under mpiexec equivalent - some modules like h5py may require
-      # it.
-      execute_process(COMMAND ${TEST_MPIEXEC} ${Python3_EXECUTABLE} -c "import ${module}"
+      execute_process(COMMAND ${Python3_EXECUTABLE} -c "import ${module}"
         RESULT_VARIABLE IMPORT_MODULE ERROR_QUIET)
     
       if(NOT ${IMPORT_MODULE} EQUAL 0)
