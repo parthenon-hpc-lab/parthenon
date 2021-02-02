@@ -139,8 +139,7 @@ static double sumArray(BlockList_t &blocks, const int &n_block) {
           const int k_grid = idx / n_block2;
           const int j_grid = (idx - k_grid * n_block2) / n_block;
           const int i_grid = idx - k_grid * n_block2 - j_grid * n_block;
-          mySum += inOrOut(0, k_grid + nghost, j_grid + nghost,
-                           i_grid + nghost);
+          mySum += inOrOut(0, k_grid + nghost, j_grid + nghost, i_grid + nghost);
         },
         oneSum);
     Kokkos::fence();
@@ -272,9 +271,8 @@ result_t naiveParFor(int n_block, int n_mesh, int n_iter, double radius) {
       // iops = 0  fops = 11
       par_for(
           DEFAULT_LOOP_PATTERN, "par_for in or out", DevExecSpace(), 0,
-          inOrOut.GetDim(4) - 1, nghost, inOrOut.GetDim(3) - nghost - 1,
-          nghost, inOrOut.GetDim(2) - nghost - 1, nghost,
-          inOrOut.GetDim(1) - nghost - 1,
+          inOrOut.GetDim(4) - 1, nghost, inOrOut.GetDim(3) - nghost - 1, nghost,
+          inOrOut.GetDim(2) - nghost - 1, nghost, inOrOut.GetDim(1) - nghost - 1,
           KOKKOS_LAMBDA(const int l, const int k_grid, const int j_grid,
                         const int i_grid) {
             const Real x =
