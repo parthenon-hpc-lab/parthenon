@@ -275,7 +275,7 @@ void FillSwarmVarView(const vpack_types::SwarmVarList<T> &vars, PackIndexMap *vm
     }
     int vstart = vindex;
     // Reusing ViewOfParArrays which expects 3D slices
-    host_view(vindex++) = v->data.Get(0,0,0);
+    host_view(vindex++) = v->data.Get(0, 0, 0);
     if (vmap != nullptr) {
       vmap->insert(
           std::pair<std::string, IndexPair>(v->label(), IndexPair(vstart, vindex - 1)));
