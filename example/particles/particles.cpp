@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -327,16 +327,14 @@ TaskListStatus ParticleDriver::Step() {
   auto num_task_lists_executed_independently = blocks.size();
 
   // Create all the particles that will be created during the step
-  TaskCollection ptc = MakeParticlesCreationTaskCollection();
-  ptc.Execute();
+  status = MakeParticlesCreationTaskCollection().Execute();
 
   // Loop over repeated MPI calls until every particle is finished. This logic is required
   // because long-distance particle pushes can lead to a large, unpredictable number of
   // MPI sends and receives.
   bool particles_update_done = false;
   while (!particles_update_done) {
-    TaskCollection ptc = MakeParticlesUpdateTaskCollection(); // particles_update_done);
-    status = ptc.Execute();
+    status = MakeParticlesUpdateTaskCollection().Execute();
 
     particles_update_done = true;
     for (auto &block : blocks) {
@@ -350,8 +348,7 @@ TaskListStatus ParticleDriver::Step() {
   }
 
   // Use a more traditional task list for predictable post-MPI evaluations.
-  TaskCollection ftc = MakeFinalizationTaskCollection();
-  status = ftc.Execute();
+  status = MakeFinalizationTaskCollection().Execute();
 
   return status;
 }
