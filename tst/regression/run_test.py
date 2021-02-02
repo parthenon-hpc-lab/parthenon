@@ -138,6 +138,11 @@ if __name__ == '__main__':
                         nargs=1,
                         help='change MPI run wrapper command (e.g. for job schedulers)')
 
+    parser.add_argument('--mpirun_ranks',
+                        default=[],
+                        action='append',
+                        help='add option to specify number of ranks')
+
     parser.add_argument('--mpirun_opts',
                         default=[],
                         action='append',

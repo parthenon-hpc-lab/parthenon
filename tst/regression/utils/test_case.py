@@ -106,20 +106,9 @@ class TestManager:
         self.parameters.output_path = output_path
         self.parameters.test_path = test_path
         self.parameters.mpi_cmd = mpi_executable
+        self.parameters.mpi_ranks = kwargs.pop('mpirun_ranks')
         self.parameters.mpi_opts = kwargs.pop('mpirun_opts')
-       
-        argstrings = ['-np','-n']
-        if len(set(argstrings) & set(self.parameters.mpi_opts)) > 1:
-          print('Warning! You have set both "-n" and "-np" in your MPI options.')
-          print(self.parameters.mpi_opts)
-        for s in argstrings:
-          if s in self.parameters.mpi_opts:
-            index = self.parameters.mpi_opts.index(s)
-            if index < len(self.parameters.mpi_opts) - 1:
-              try:
-                self.parameters.num_ranks = int(self.parameters.mpi_opts[index+1])
-              except ValueError:
-                pass
+        self.parameters.num_ranks = int(self.parameters.mpi_ranks[1])
 
         module = __import__(self.__test_module, globals(), locals(),
                 fromlist=['TestCase'])
@@ -201,6 +190,7 @@ class TestManager:
         run_command = []
         if self.parameters.mpi_cmd != "":
             run_command.extend(self.parameters.mpi_cmd)
+        run_command.extend(self.parameters.mpi_ranks)
         for opt in self.parameters.mpi_opts:
             run_command.extend(opt.split()) 
         run_command.append(self.parameters.driver_path)
