@@ -50,11 +50,11 @@ MeshRefinement::MeshRefinement(std::weak_ptr<MeshBlock> pmb, ParameterInput *pin
   // Create coarse mesh object for parent grid
   coarse_coords = Coordinates_t(pmb.lock()->coords, 2);
 
-  if (Globals::nghost % 2) {
+  if ((Globals::nghost % 2) != 0) {
     std::stringstream msg;
     msg << "### FATAL ERROR in MeshRefinement constructor" << std::endl
         << "Selected --nghost=" << Globals::nghost
-        << " is incompatible with mesh refinement.\n"
+        << " is incompatible with mesh refinement because it is not a multiple of 2.\n"
         << "Rerun with an even number of ghost cells " << std::endl;
     PARTHENON_FAIL(msg);
   }
