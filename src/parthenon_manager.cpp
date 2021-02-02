@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -125,6 +125,8 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
 
   // Modify based on command line inputs
   pinput->ModifyFromCmdline(argc, argv);
+  // Set the global number of ghost zones
+  Globals::nghost = pinput->GetOrAddInteger("parthenon/mesh", "nghost", 2);
 
   // read in/set up application specific properties
   auto properties = ProcessProperties(pinput);
