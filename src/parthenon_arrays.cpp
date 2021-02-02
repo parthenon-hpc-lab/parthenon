@@ -15,6 +15,11 @@
 
 namespace Kokkos {
 
+template class View<parthenon::Real*>;
+template class View<parthenon::Real**>;
+template class View<parthenon::Real***>;
+template class View<parthenon::Real****>;
+template class View<parthenon::Real*****>;
 template class View<parthenon::Real******>;
 template class View<int******>;
 
