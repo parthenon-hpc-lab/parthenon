@@ -278,7 +278,60 @@ Once you've configured your build directory, you can build with
 
 #### Advanced
 LANL Employees - to understand how the project space is built out, see
-https://xcp-gitlab.lanl.gov/eap-oss/parthenon-project
+https://re-git.lanl.gov/eap-oss/parthenon-project
+
+### LANL Snow (CTS-1)
+
+#### Allocate Node
+
+Snow is a LANL CTS-1 system with dual socket Broadwell Intel CPUs. You can log
+in to `sn-fey`. Nodes are allocated using SLURM.
+
+E.g.
+```bash
+$ salloc -N1
+```
+
+#### Set-Up Environment (Optional, but Recommended)
+
+You can import all tools you need to start building with by sourcing the
+project `.bashrc`:
+
+```bash
+$ source /usr/projects/parthenon/parthenon-project/.bashrc
+```
+
+This .bashrc will set the correct `MACHINE_CFG` file in your environment, import
+an architecture-specific set of recent build tools (currently cmake and ninja),
+and set Ninja as the default CMake generator.
+
+#### Build the Code
+If you followed the "Set-Up Environment" section, configuration requires 0
+additional arguments:
+```bash
+$ cmake -S. -Bbuild
+```
+
+If you didn't follow the "Set-Up Environment" section, you need to specify the
+`MACHINE_CFG` file, as well.
+
+```bash
+$ cmake -S. -Bbuild -DMACHINE_CFG=cmake/machinecfg/Snow.cmake
+```
+
+Parthenon is built with the Intel compilers by default on Snow. To build with
+gcc, specify `-DSNOW_COMPILER=GCC`.
+
+The Snow-specific dependencies, including compilers, system dependencies, and
+python packages, are hard coded in `Snow.cmake`, so you don't need anything
+else in your environment.
+
+Once you've configured your build directory, you can build with
+`cmake --build build`.
+
+#### Advanced
+LANL Employees - to understand how the project space is built out, see
+https://re-git.lanl.gov/eap-oss/parthenon-project
 
 ### LLNL RZAnsel (Power9+Volta)
 
