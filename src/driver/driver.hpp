@@ -79,7 +79,7 @@ class EvolutionDriver : public Driver {
   SimTime tm;
 
  protected:
-  void PostExecute(DriverStatus status);
+  virtual void PostExecute(DriverStatus status) override;
 
  private:
   void InitializeBlockTimeSteps();
