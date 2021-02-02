@@ -25,6 +25,7 @@ endif()
 include(CTest)
 
 # Compile time constants
+set(PARTHENON_NGHOST 2 CACHE STRING "Number of ghost cells")
 
 # Compile Options
 option(PARTHENON_SINGLE_PRECISION "Run in single precision" OFF)
@@ -66,6 +67,9 @@ endif()
 
 include(cmake/Format.cmake)
 include(cmake/Lint.cmake)
+
+# internal variable for number of ghost cells
+set(NUMBER_GHOST_CELLS ${PARTHENON_NGHOST})
 
 # regression test reference data
 set(REGRESSION_GOLD_STANDARD_VER 3 CACHE STRING "Version of gold standard to download and use")

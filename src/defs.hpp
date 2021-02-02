@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -83,7 +83,7 @@ struct RegionSize { // aggregate and POD type; do NOT reorder member declaration
   Real x1max, x2max, x3max;
   Real x1rat, x2rat, x3rat; // ratio of dxf(i)/dxf(i-1)
   // the size of the root grid or a MeshBlock should not exceed std::int32_t limits
-  int nx1, nx2, nx3, nghost; // number of active cells (not including ghost zones)
+  int nx1, nx2, nx3; // number of active cells (not including ghost zones)
 };
 
 //----------------------------------------------------------------------------------------

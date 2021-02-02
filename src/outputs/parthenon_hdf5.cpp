@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -293,7 +293,7 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       int iTmp = (output_params.include_ghost_zones ? 1 : 0);
       writeH5AI32("IncludesGhost", &iTmp, localDSpace, myDSet);
       // write number of ghost cells in simulation
-      iTmp = pm->nghost;
+      iTmp = NGHOST;
       writeH5AI32("NGhost", &iTmp, localDSpace, myDSet);
       writeH5ASTRING("Coordinates", std::string(first_block.coords.Name()), localDSpace,
                      myDSet);

@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -85,7 +85,6 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   pmy_mesh = pm;
   loc = iloc;
   block_size = input_block;
-  nghost = pmy_mesh->nghost;
   gid = igid;
   lid = ilid;
   gflag = igflag;
@@ -206,12 +205,12 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
 MeshBlock::~MeshBlock() = default;
 
 void MeshBlock::InitializeIndexShapes(const int nx1, const int nx2, const int nx3) {
-  cellbounds = IndexShape(nx3, nx2, nx1, nghost);
+  cellbounds = IndexShape(nx3, nx2, nx1, NGHOST);
 
   if (pmy_mesh != nullptr) {
     if (pmy_mesh->multilevel) {
-      cnghost = (nghost + 1) / 2 + 1;
-      c_cellbounds = IndexShape(nx3 / 2, nx2 / 2, nx1 / 2, nghost);
+      cnghost = (NGHOST + 1) / 2 + 1;
+      c_cellbounds = IndexShape(nx3 / 2, nx2 / 2, nx1 / 2, NGHOST);
     } else {
       c_cellbounds = IndexShape(nx3 / 2, nx2 / 2, nx1 / 2, 0);
     }
