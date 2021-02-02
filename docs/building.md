@@ -8,7 +8,6 @@ If you come across a disfunctional setup, please report it by open an issue or p
 
    |              Option                    | Default           | Type   | Description |
    | -------------------------------------: | :---------------- | :----- | :---------- |
-   |                      PARTHENON\_NGHOST | 2                 | String | Number of ghost cells |
    |           PARTHENON\_SINGLE\_PRECISION | OFF               | Option | Enable single precision mode if requested |
    |               PARTHENON\_DISABLE\_HDF5 | OFF               | Option | HDF5 is enabled by default if found, set this to True to disable HDF5 |
    |                PARTHENON\_DISABLE\_MPI | OFF               | Option | MPI is enabled by default if found, set this to True to disable MPI |
