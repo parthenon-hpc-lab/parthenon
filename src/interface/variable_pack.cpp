@@ -21,14 +21,14 @@ template class VariableFluxPack<Real>;
 template void FillVarView<Real>(const vpack_types::VarList<Real> &vars,
                                 PackIndexMap *vmap, ViewOfParArrays<Real> &cv,
                                 ParArray1D<int> &sparse_assoc,
-                                ParArray1D<int> &vector_component, bool coarse = false);
+                                ParArray1D<int> &vector_component, bool coarse);
 template void FillFluxViews(const vpack_types::VarList<Real> &vars, PackIndexMap *vmap,
                             const int ndim, ViewOfParArrays<Real> &f1,
                             ViewOfParArrays<Real> &f2, ViewOfParArrays<Real> &f3);
 template VariableFluxPack<Real> MakeFluxPack(const vpack_types::VarList<Real> &vars,
                                              const vpack_types::VarList<Real> &flux_vars,
-                                             PackIndexMap *vmap = nullptr);
+                                             PackIndexMap *vmap);
 template VariablePack<Real> MakePack(const vpack_types::VarList<Real> &vars,
-                                     PackIndexMap *vmap = nullptr, bool coarse = false);
+                                     PackIndexMap *vmap, bool coarse);
 
 } // namespace parthenon

@@ -11,6 +11,7 @@
 - [[PR 359]](https://github.com/lanl/parthenon/pull/359) Templated inline reconstruction functions to support different types (e.g., `ParArray4D` or `ParArrayND`)
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 437]](https://github.com/lanl/parthenon/pull/437) Add explicit template instantiations for `ParArrayND` and `VariablePack`-related classes and functions that remove about 30s from compile time.
 
 ### Infrastructure (changes irrelevant to downstream codes)
 - [[PR 407]](https://github.com/lanl/parthenon/pull/407) More cleanup, removed old bash scripts for ci.
@@ -46,7 +47,7 @@ Date: 01/19/2021
 ### Infrastructure (changes irrelevant to downstream codes)
 - [[PR 392]](https://github.com/lanl/parthenon/pull/392) Fix C++ linting for when parthenon is a submodule
 - [[PR 335]](https://github.com/lanl/parthenon/pull/335) New machine configuration file for LANL's Darwin cluster
-- [[PR 200]](https://github.com/lanl/parthenon/pull/200) Adds support for running ci on power9 nodes. 
+- [[PR 200]](https://github.com/lanl/parthenon/pull/200) Adds support for running ci on power9 nodes.
 - [[PR 347]](https://github.com/lanl/parthenon/pull/347) Speed up darwin ci by using pre installed spack packages from project space
 - [[PR 368]](https://github.com/lanl/parthenon/pull/368) Fixes false positive in ci.
 - [[PR 369]](https://github.com/lanl/parthenon/pull/369) Initializes submodules when running on darwin ci.
@@ -98,7 +99,7 @@ Date: 9/12/2020
 - [[PR 298]](https://github.com/lanl/parthenon/pull/298) Introduced Partition, a tiny utility for partitioning STL containers. Used for MeshBlockPacks, to enable packing over a fraction of the mesh.
 
 ### Changed
-- [\#68](https://github.com/lanl/parthenon/issues/68) Moved default `par_for` wrappers to `MeshBlock` 
+- [\#68](https://github.com/lanl/parthenon/issues/68) Moved default `par_for` wrappers to `MeshBlock`
 - [[PR 243]](https://github.com/lanl/parthenon/pull/243) Automatically find/check Python version used in regression tests. Bumps CMake minimum version to 3.12
 - [[PR 266]](https://github.com/lanl/parthenon/pull/266): It is no longer necessary to specify Kokkos_ENABLE_OPENMP this is by default enabled, to turn off one can specify PARTHENON_DISABLE_OPENMP.
 
