@@ -15,20 +15,20 @@
 
 namespace Kokkos {
 
-template class View<parthenon::Real*>;
-template class View<parthenon::Real**>;
-template class View<parthenon::Real***>;
-template class View<parthenon::Real****>;
-template class View<parthenon::Real*****>;
-template class View<parthenon::Real******>;
-template class View<int******>;
+template class View<parthenon::Real *>;
+template class View<parthenon::Real **>;
+template class View<parthenon::Real ***>;
+template class View<parthenon::Real ****>;
+template class View<parthenon::Real *****>;
+template class View<parthenon::Real ******>;
+template class View<int ******>;
 
-}
+} // namespace Kokkos
 
 namespace parthenon {
 
-template class ParArrayNDGeneric<Kokkos::View<Real******>>;
-template class ParArrayNDGeneric<Kokkos::View<int******>>;
+template class ParArrayNDGeneric<Kokkos::View<Real ******>>;
+template class ParArrayNDGeneric<Kokkos::View<int ******>>;
 
 template class ParArrayNDGeneric<device_view_t<Real, LayoutWrapper>>;
 template class ParArrayNDGeneric<device_view_t<int, LayoutWrapper>>;
@@ -36,4 +36,4 @@ template class ParArrayNDGeneric<device_view_t<int, LayoutWrapper>>;
 template struct FaceArray<Real>;
 template struct EdgeArray<Real>;
 
-}
+} // namespace parthenon
