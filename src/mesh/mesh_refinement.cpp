@@ -54,7 +54,7 @@ MeshRefinement::MeshRefinement(std::weak_ptr<MeshBlock> pmb, ParameterInput *pin
     std::stringstream msg;
     msg << "### FATAL ERROR in MeshRefinement constructor" << std::endl
         << "Selected --nghost=" << Globals::nghost
-        << " is incompatible with mesh refinement.\n"
+        << " is incompatible with mesh refinement because it is not a multiple of 2.\n"
         << "Reconfigure with an even number of ghost cells " << std::endl;
     PARTHENON_FAIL(msg);
   }
