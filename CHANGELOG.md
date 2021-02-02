@@ -13,6 +13,7 @@
 ### Fixed (not changing behavior/API/variables/...)
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 436]](https://github.com/lanl/parthenon/pull/436) Update Summit build doc and machine file
 - [[PR 435]](https://github.com/lanl/parthenon/pull/435) Fix ctest logic for parsing number of ranks in MPI tests
 - [[PR 407]](https://github.com/lanl/parthenon/pull/407) More cleanup, removed old bash scripts for ci.
 - [[PR 428]](https://github.com/lanl/parthenon/pull/428) Triad Copyright 2021

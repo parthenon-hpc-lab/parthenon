@@ -208,23 +208,75 @@ ctest -L performance
 
 ### OLCF Summit (Power9+Volta)
 
-Last verified 28 Aug 2020.
+Last verified 01 Feb 2021.
 
 #### Common environment
+
+Load recommended modules:
 
 ```bash
 # setup environment
 $ module restore system
-$ module load cuda gcc cmake/3.14.2 python hdf5
+$ module load cuda gcc cmake python hdf5
 
-# on 28 Aug 2020 that results the following version
+# on 01 Aug 2021 that results the following version
 $ module list
 
 Currently Loaded Modules:
-  1) hsi/5.0.2.p5    4) darshan-runtime/3.1.7   7) gcc/6.4.0                       10) hdf5/1.10.4
-  2) xalt/1.2.0      5) DefApps                 8) cmake/3.14.2                    11) python/3.6.6-anaconda3-5.3.0
-  3) lsf-tools/2.0   6) cuda/10.1.243           9) spectrum-mpi/10.3.1.2-20200121
+  1) hsi/5.0.2.p5    4) darshan-runtime/3.1.7   7) gcc/6.4.0                     10) spectrum-mpi/10.3.1.2-20200121
+  2) xalt/1.2.1      5) DefApps                 8) cmake/3.18.2                  11) hdf5/1.10.4
+  3) lsf-tools/2.0   6) cuda/10.1.243           9) python/3.6.6-anaconda3-5.3.0
 ```
+
+Load the recommended default machine configuration:
+
+```bash
+# assuming PARTHENON_ROOT has been set to the Parthenon folder as mentioned above
+$ export MACHINE_CFG=${PARTHENON_ROOT}/cmake/machinecfg/Summit.cmake
+
+```
+
+#### Build code
+
+#### Cuda with MPI
+
+```bash
+# configure and build. Make sure to build in an directory on the GPFS filesystem if you want to run the regression tests because the home directory is not writeable from the compute nodes (which will result in the regression tests failing)
+$ mkdir build-cuda-mpi && cd build-cuda-mpi
+$ cmake ${PARTHENON_ROOT}
+$ make -j 8
+
+# !!!! The following commands are exepected to be run within job (interactive or scheduled), e.g., via
+# $ bsub -W 0:30 -nnodes 1 -P YOURPROJECTID -Is /bin/bash
+# and make sure to also load the module above, i.e.,
+# $ module load cuda gcc cmake/3.18.2 python hdf5
+
+# run all MPI regression tests (execute from within the build folder)
+$ ctest -L regression -LE mpi-no
+
+# Manually run a simulation (here using 1 node with 6 GPUs and 1 MPI processes per GPU for a total of 6 processes (ranks)).
+# Note the `-M "-gpu"` which is required to enable Cuda aware MPI.
+# Also note the `--kokkos-num-devices=6` that ensures that each process on a node uses a different GPU.
+$ jsrun -n 1 -a 6 -g 6 -c 42 -r 1 -d packed -b packed:7 --smpiargs=-gpu ./example/advection/advection-example -i ${PARTHENON_ROOT}/example/advection/parthinput.advection parthenon/time/nlim=10 parthenon/mesh/nx1=512 parthenon/mesh/nx2=512 parthenon/mesh/nx3=512 parthenon/meshblock/nx1=64 parthenon/meshblock/nx2=64 parthenon/meshblock/nx3=64 --kokkos-num-devices=6
+```
+
+#### Cuda without MPI
+
+```bash
+# configure and build
+$ mkdir build-cuda && cd build-cuda
+$ cmake -DMACHINE_VARIANT=cuda ${PARTHENON_ROOT}
+$ make -j8
+
+# Run unit tests (again assumes running within a job, e.g., via `bsub -W 1:30 -nnodes 1 -P PROJECTID -Is /bin/bash`)
+# - jsrun is required as the test would otherwise be executed on the scheduler node rather than on a compute node
+# - "off" is required as otherwise the implicit PAMI initialization would fail
+$ jsrun -n 1 -g 1 --smpiargs="off" ctest -L unit
+
+# run performance regression test test
+$ jsrun -n 1 -g 1 --smpiargs="off" ctest -R regression_test:advection_performance
+```
+
 
 ### LANL Darwin (Heterogeneous)
 
