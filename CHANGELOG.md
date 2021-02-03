@@ -3,7 +3,8 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
-- [[PR 412]](https://github.com/lanl/parthenon/pull/412) Add capability to use host (pinned) memory for communication buffers (via PARTHENON_ENABLE_HOST_COMM_BUFFERS - default OFF)
+- [[PR 438]](https://github.com/lanl/parthenon/pull/438) More diagnostic runtime output (AMR/Loadbalance and mesh structure) controlled via `parthenon/time/ncycle_out_mesh` input parameter (default 0 - off)
+- [[PR 412]](https://github.com/lanl/parthenon/pull/412) Add capability to use host (pinned) memory for communication buffers (via `PARTHENON_ENABLE_HOST_COMM_BUFFERS` - default OFF)
 - [[PR 359]](https://github.com/lanl/parthenon/pull/359) MeshBlockPack support for buffer pack and unpack of CellCentered Variables
 
 ### Changed (changing behavior/API/variables/...)

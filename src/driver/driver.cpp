@@ -206,7 +206,7 @@ void EvolutionDriver::OutputCycleDiagnostics() {
     // output in fixed intervals
     if (tm.ncycle % tm.ncycle_out_mesh == 0) {
       pmesh->OutputMeshStructure(-1, false);
-    // output after mesh refinement (enabled by use of negative cycle number)
+      // output after mesh refinement (enabled by use of negative cycle number)
     } else if (tm.ncycle_out_mesh < 0 && pmesh->modified) {
       pmesh->OutputMeshStructure(-1, false);
     }
