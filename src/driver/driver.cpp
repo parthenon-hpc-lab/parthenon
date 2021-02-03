@@ -203,12 +203,18 @@ void EvolutionDriver::OutputCycleDiagnostics() {
     }
   }
   if (tm.ncycle_out_mesh != 0) {
-    // output in fixed intervals
-    if (tm.ncycle % tm.ncycle_out_mesh == 0) {
+    // output after mesh refinement (enabled by use of negative cycle number)
+    if (tm.ncycle_out_mesh < 0 && pmesh->modified) {
+      std::cout << "-------------- New Mesh structure after (de)refinement -------------";
       pmesh->OutputMeshStructure(-1, false);
-      // output after mesh refinement (enabled by use of negative cycle number)
-    } else if (tm.ncycle_out_mesh < 0 && pmesh->modified) {
+      std::cout << "--------------------------------------------------------------------"
+                << std::endl;
+      // output in fixed intervals
+    } else if (tm.ncycle % tm.ncycle_out_mesh == 0) {
+      std::cout << "---------------------- Current Mesh structure ----------------------";
       pmesh->OutputMeshStructure(-1, false);
+      std::cout << "--------------------------------------------------------------------"
+                << std::endl;
     }
   }
 }
