@@ -440,10 +440,6 @@ void Swarm::SetupPersistentMPI() {
   int ndim = pmb->pmy_mesh->ndim;
   PARTHENON_REQUIRE(ndim == 2, "Only 2D tested right now!");
   auto mesh_bcs = pmb->pmy_mesh->mesh_bcs;
-  for (int n = 0; n < 2 * ndim; n++) {
-    PARTHENON_REQUIRE(mesh_bcs[n] == BoundaryFlag::periodic,
-                      "Only periodic boundaries supported right now!");
-  }
 
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
