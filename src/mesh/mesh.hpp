@@ -168,7 +168,7 @@ class Mesh {
   int GetCurrentLevel() const noexcept { return current_level; }
   std::vector<int> GetNbList() const noexcept { return nblist; }
 
-  void OutputMeshStructure(int dim, bool dump_mesh_structure = true);
+  void OutputMeshStructure(const int dim, const bool dump_mesh_structure = true);
 
  private:
   // data

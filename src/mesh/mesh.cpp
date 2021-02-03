@@ -26,6 +26,7 @@
 #include <iomanip>
 #include <iostream>
 #include <limits>
+#include <memory>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -795,7 +796,8 @@ Mesh::~Mesh() = default;
 //! \fn void Mesh::OutputMeshStructure(int ndim)
 //  \brief print the mesh structure information
 
-void Mesh::OutputMeshStructure(int ndim, bool dump_mesh_structure /*= true*/) {
+void Mesh::OutputMeshStructure(const int ndim,
+                               const bool dump_mesh_structure /*= true*/) {
   RegionSize block_size;
   BoundaryFlag block_bcs[6];
 
@@ -809,8 +811,8 @@ void Mesh::OutputMeshStructure(int ndim, bool dump_mesh_structure /*= true*/) {
   std::cout << "Number of logical  refinement levels = " << current_level << std::endl;
 
   // compute/output number of blocks per level, and cost per level
-  int *nb_per_plevel = new int[max_level];
-  int *cost_per_plevel = new int[max_level];
+  auto nb_per_plevel = std::make_unique<int[]>(max_level);
+  auto cost_per_plevel = std::make_unique<int[]>(max_level);
   for (int i = 0; i <= max_level; ++i) {
     nb_per_plevel[i] = 0;
     cost_per_plevel[i] = 0;
@@ -827,17 +829,14 @@ void Mesh::OutputMeshStructure(int ndim, bool dump_mesh_structure /*= true*/) {
     }
   }
 
-  delete[] nb_per_plevel;
-  delete[] cost_per_plevel;
-
   if (!dump_mesh_structure) {
     return;
   }
 
   // compute/output number of blocks per rank, and cost per rank
   std::cout << "Number of parallel ranks = " << Globals::nranks << std::endl;
-  int *nb_per_rank = new int[Globals::nranks];
-  int *cost_per_rank = new int[Globals::nranks];
+  auto nb_per_rank = std::make_unique<int[]>(Globals::nranks);
+  auto cost_per_rank = std::make_unique<int[]>(Globals::nranks);
   for (int i = 0; i < Globals::nranks; ++i) {
     nb_per_rank[i] = 0;
     cost_per_rank[i] = 0;
@@ -850,9 +849,6 @@ void Mesh::OutputMeshStructure(int ndim, bool dump_mesh_structure /*= true*/) {
     std::cout << "  Rank = " << i << ": " << nb_per_rank[i]
               << " MeshBlocks, cost = " << cost_per_rank[i] << std::endl;
   }
-
-  delete[] nb_per_rank;
-  delete[] cost_per_rank;
 
   FILE *fp = nullptr;
 
