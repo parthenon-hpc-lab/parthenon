@@ -32,6 +32,8 @@
 #include "metadata.hpp"
 #include "parthenon_arrays.hpp"
 #include "parthenon_mpi.hpp"
+#include "swarm_boundaries.hpp"
+#include "swarm_device_context.hpp"
 #include "variable.hpp"
 #include "variable_pack.hpp"
 
@@ -39,7 +41,7 @@ namespace parthenon {
 class MeshBlock;
 
 enum class PARTICLE_STATUS { UNALLOCATED, ALIVE, DEAD };
-
+/*
 class SwarmDeviceContext {
  public:
   KOKKOS_FUNCTION
@@ -103,13 +105,15 @@ class SwarmDeviceContext {
   constexpr static int this_block_ = -1; // Mirrors definition in Swarm class
   int my_rank_;
 };
+*/
 
-class ParticleBound {
- public:
-  KOKKOS_INLINE_FUNCTION virtual void Apply(const int n, double &x, double &y, double &z,
-                                                const SwarmDeviceContext &context) = 0;
-};
+//} // namespace parthenon
 
+//#include "swarm_boundaries.hpp"
+
+//namespace parthenon {
+
+/*
 class ParticleBoundIX1Periodic : ParticleBound {
  public:
   KOKKOS_INLINE_FUNCTION void Apply(const int n, double &x, double &y, double &z,
@@ -136,7 +140,7 @@ class ParticleBoundIX1Reflect : ParticleBound {
       x = swarm_d.x_min_global_ + (swarm_d.x_min_global_ - x);
     }
   }
-};
+};*/
 
 class Swarm {
  public:
@@ -169,6 +173,9 @@ class Swarm {
 
   /// Remote a variable from swarm
   void Remove(const std::string &label);
+
+  /// Set a custom boundary condition
+  void SetBoundary(const int n, ParticleBound *bc) { bounds[n] = bc; }
 
   /// Get real particle variable
   ParticleVariable<Real> &GetReal(const std::string &label) {
@@ -259,7 +266,7 @@ class Swarm {
   bool finished_transport;
 
  private:
-  ParticleBoundIX1Periodic *bound_ix1;
+  ParticleBound *bounds[6];
 
   int debug = 0;
   std::weak_ptr<MeshBlock> pmy_block;

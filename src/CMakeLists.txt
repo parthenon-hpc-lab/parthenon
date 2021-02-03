@@ -1,6 +1,5 @@
-
 #=========================================================================================
-# (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+# (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -149,6 +148,9 @@ add_library(parthenon
   interface/meshblock_data.hpp
   interface/swarm_container.cpp
   interface/swarm.cpp
+  interface/swarm.hpp
+  interface/swarm_boundaries.hpp
+  interface/swarm_device_context.hpp
   interface/metadata.cpp
   interface/metadata.hpp
   interface/params.hpp

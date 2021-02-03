@@ -19,6 +19,9 @@
 #include "mesh/mesh.hpp"
 #include "swarm.hpp"
 
+using Kokkos::kokkos_malloc;
+using Kokkos::parallel_for;
+
 namespace parthenon {
 
 SwarmDeviceContext Swarm::GetDeviceContext() const {
@@ -84,13 +87,32 @@ void Swarm::AllocateBoundaries() {
 
   auto &bcs = pmb->pmy_mesh->mesh_bcs;
   if (bcs[0] == BoundaryFlag::periodic) {
-    bound_ix1 = static_cast<ParticleBoundIX1Periodic *>(
-        Kokkos::kokkos_malloc<>(sizeof(ParticleBoundIX1Periodic)));
-    Kokkos::parallel_for(
-        1, KOKKOS_LAMBDA(const int i) { new (bound_ix1) ParticleBoundIX1Periodic(); });
+    bounds[0] = static_cast<ParticleBoundIX1Periodic *>(
+        kokkos_malloc<>(sizeof(ParticleBoundIX1Periodic)));
+    parallel_for(
+        1, KOKKOS_LAMBDA(const int i) { new (bounds[0]) ParticleBoundIX1Periodic(); });
+  } else if (bcs[0] == BoundaryFlag::outflow) {
+    bounds[0] = static_cast<ParticleBoundIX1Outflow *>(
+        kokkos_malloc<>(sizeof(ParticleBoundIX1Outflow)));
+    parallel_for(
+        1, KOKKOS_LAMBDA(const int i) { new (bounds[0]) ParticleBoundIX1Outflow(); });
   } else {
-    msg << "ix1 boundary flag " << static_cast<int>(bcs[0]) << " not supported!"
-        << std::endl;
+    msg << "ix1 boundary flag " << static_cast<int>(bcs[0]) << " not supported!";
+    PARTHENON_THROW(msg);
+  }
+
+  if (bcs[1] == BoundaryFlag::periodic) {
+    bounds[1] = static_cast<ParticleBoundOX1Periodic *>(
+        kokkos_malloc<>(sizeof(ParticleBoundOX1Periodic)));
+    parallel_for(
+        1, KOKKOS_LAMBDA(const int i) { new (bounds[1]) ParticleBoundOX1Periodic(); });
+  } else if (bcs[1] == BoundaryFlag::outflow) {
+    bounds[1] = static_cast<ParticleBoundOX1Outflow *>(
+        kokkos_malloc<>(sizeof(ParticleBoundOX1Outflow)));
+    parallel_for(
+        1, KOKKOS_LAMBDA(const int i) { new (bounds[1]) ParticleBoundOX1Outflow(); });
+  } else {
+    msg << "ox1 boundary flag " << static_cast<int>(bcs[1]) << " not supported!";
     PARTHENON_THROW(msg);
   }
 }
@@ -580,13 +602,16 @@ bool Swarm::Send(BoundaryCommSubset phase) {
               double &x = vreal(ix, sidx);
               double &y = vreal(iy, sidx);
               double &z = vreal(iz, sidx);
-              bound_ix1->Apply(n, x, y, z, swarm_d);
+              for (int l = 0; l < 2; l++) {
+                bounds[l]->Apply(n, x, y, z, swarm_d);
+              }
+              bounds[0]->Apply(n, x, y, z, swarm_d);
               // if (x < swarm_d.x_min_global_) {
               //  x = swarm_d.x_max_global_ - (swarm_d.x_min_global_ - x);
               //}
-              if (x > swarm_d.x_max_global_) {
-                x = swarm_d.x_min_global_ + (x - swarm_d.x_max_global_);
-              }
+              //if (x > swarm_d.x_max_global_) {
+              //  x = swarm_d.x_min_global_ + (x - swarm_d.x_max_global_);
+              //}
               if (y < swarm_d.y_min_global_) {
                 y = swarm_d.y_max_global_ - (swarm_d.y_min_global_ - y);
               }
