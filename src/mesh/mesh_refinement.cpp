@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -50,11 +50,12 @@ MeshRefinement::MeshRefinement(std::weak_ptr<MeshBlock> pmb, ParameterInput *pin
   // Create coarse mesh object for parent grid
   coarse_coords = Coordinates_t(pmb.lock()->coords, 2);
 
-  if (NGHOST % 2) {
+  if ((Globals::nghost % 2) != 0) {
     std::stringstream msg;
     msg << "### FATAL ERROR in MeshRefinement constructor" << std::endl
-        << "Selected --nghost=" << NGHOST << " is incompatible with mesh refinement.\n"
-        << "Reconfigure with an even number of ghost cells " << std::endl;
+        << "Selected --nghost=" << Globals::nghost
+        << " is incompatible with mesh refinement because it is not a multiple of 2.\n"
+        << "Rerun with an even number of ghost cells " << std::endl;
     PARTHENON_FAIL(msg);
   }
 }

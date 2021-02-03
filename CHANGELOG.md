@@ -13,8 +13,11 @@
 ### Fixed (not changing behavior/API/variables/...)
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 436]](https://github.com/lanl/parthenon/pull/436) Update Summit build doc and machine file
+- [[PR 435]](https://github.com/lanl/parthenon/pull/435) Fix ctest logic for parsing number of ranks in MPI tests
 - [[PR 407]](https://github.com/lanl/parthenon/pull/407) More cleanup, removed old bash scripts for ci.
 - [[PR 428]](https://github.com/lanl/parthenon/pull/428) Triad Copyright 2021
+- [[PR 413]](https://github.com/lanl/parthenon/pull/413) LANL Snow machine configuration
 
 ### Removed (removing behavior/API/varaibles/...)
 
@@ -22,6 +25,7 @@
 Date: 01/19/2021
 
 ### Added (new features/APIs/variables/...)
+- [[PR 434]](https://github.com/lanl/parthenon/pull/434) Allow the number of ghost zones to be set via the input file
 - [[PR 400]](https://github.com/lanl/parthenon/pull/400) Extend `StateDescriptor` for customizable output via user-customizable function pointers `PreStepDiagnosticsMesh` and `PostStepDiagnosticsMesh`
 - [[PR 391]](https://github.com/lanl/parthenon/pull/391) Add `VariablePack<T>::GetSparseId` and `VariablePack<T>::GetSparseIndex` to return global sparse ids and pack-local sparse index, repsectively.
 - [[PR 381]](https://github.com/lanl/parthenon/pull/381) Overload `DataCollection::Add` to build `MeshData` and `MeshBlockData` objects with a subset of variables.
