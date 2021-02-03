@@ -181,4 +181,3 @@ function(setup_test_mpi_coverage nproc dir arg extra_labels)
   endif()
 endfunction()
 
-

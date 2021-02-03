@@ -385,6 +385,69 @@ Once you've configured your build directory, you can build with
 LANL Employees - to understand how the project space is built out, see
 https://re-git.lanl.gov/eap-oss/parthenon-project
 
+### LNLL RZAnsel (Homogeneous)
+
+Last verified 04 Jan 2021.
+
+#### Allocate Node
+
+[RZAnsel](https://hpc.llnl.gov/hardware/platforms/rzansel) is a homogeneous cluster consisting of 2,376 nodes with the IBM Power9
+architecture with 44 nodes per core and 4 Nvidia Volta GPUs per node. To
+allocate an interactive node: 
+
+E.g.
+```bash
+$ lalloc 1
+```
+
+#### Set-Up Environment (Optional, but Still Recommended, for Non-CUDA Builds)
+
+You can import all tools you need to start building with by sourcing the
+project `.bashrc`, to be able to access /usr/gapps/parthenon_shared you will
+need to be added to the parthenon group (contact @agaspar): 
+
+```bash
+$ source /usr/gapps/parthenon_shared/parthenon-project/.bashrc
+```
+
+This .bashrc will set the correct `MACHINE_CFG` file in your environment, import
+an architecture-specific set of recent build tools (currently cmake and ninja),
+and set Ninja as the default CMake generator.
+
+This step is required if you intend to build for CUDA (the default on Power9).
+
+#### Build the Code
+If you followed the "Set-Up Environment" section, configuration requires 0
+additional arguments:
+```bash
+$ cmake -S. -Bbuild
+```
+By default cmake will build parthenon with cuda and mpi support. Other machine
+variants exist and can be specified by using the `MACHINE_VARIANT` flag. The
+supported machine variants include:
+
+* cuda-mpi
+* mpi
+* cuda
+
+If you didn't follow the "Set-Up Environment" section, you need to specify the
+`MACHINE_CFG` file, as well.
+
+```bash
+$ cmake -S. -Bbuild -DMACHINE_CFG=cmake/machinecfg/RZAnsel.cmake
+```
+
+The RZAnsel-specific dependencies, including compilers, system dependencies, and
+python packages, are hard coded in `RZAnsel.cmake`, so you don't need anything
+else in your environment.
+
+Once you've configured your build directory, you can build with
+`cmake --build build`.
+
+#### Advanced
+LANL Employees - to understand how the project space is built out, see
+https://xcp-gitlab.lanl.gov/eap-oss/parthenon-project
+
 ### LLNL RZAnsel (Power9+Volta)
 
 Last verified 02 Sept 2020.
