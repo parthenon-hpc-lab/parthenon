@@ -66,10 +66,13 @@ class EvolutionDriver : public Driver {
                                          std::numeric_limits<Real>::infinity());
     Real dt =
         pinput->GetOrAddPrecise("parthenon/time", "dt", std::numeric_limits<Real>::max());
-    int ncycle = pinput->GetOrAddInteger("parthenon/time", "ncycle", 0);
-    int nmax = pinput->GetOrAddInteger("parthenon/time", "nlim", -1);
-    int nout = pinput->GetOrAddInteger("parthenon/time", "ncycle_out", 1);
-    tm = SimTime(start_time, tstop, nmax, ncycle, nout, dt);
+    const auto ncycle = pinput->GetOrAddInteger("parthenon/time", "ncycle", 0);
+    const auto nmax = pinput->GetOrAddInteger("parthenon/time", "nlim", -1);
+    const auto nout = pinput->GetOrAddInteger("parthenon/time", "ncycle_out", 1);
+    // disable mesh output by default
+    const auto nout_mesh =
+        pinput->GetOrAddInteger("parthenon/time", "ncycle_out_mesh", 0);
+    tm = SimTime(start_time, tstop, nmax, ncycle, nout, nout_mesh, dt);
     pouts = std::make_unique<Outputs>(pmesh, pinput, &tm);
   }
   DriverStatus Execute() override;

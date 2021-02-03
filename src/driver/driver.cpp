@@ -173,35 +173,42 @@ void EvolutionDriver::OutputCycleDiagnostics() {
   const int dt_precision = std::numeric_limits<Real>::max_digits10 - 1;
   if (tm.ncycle_out != 0) {
     if (tm.ncycle % tm.ncycle_out == 0) {
-      if (Globals::my_rank == 0) {
-        std::uint64_t zonecycles =
-            (pmesh->mbcnt - mbcnt_prev) *
-            static_cast<std::uint64_t>(pmesh->GetNumberOfMeshBlockCells());
-        const auto time_cycle_all = timer_cycle.seconds();
-        const auto time_cycle_step = time_cycle_all - time_LBandAMR;
-        std::cout << "cycle=" << tm.ncycle << std::scientific
-                  << std::setprecision(dt_precision) << " time=" << tm.time
-                  << " dt=" << tm.dt << std::setprecision(2) << " zone-cycles/wsec_step="
-                  << static_cast<double>(zonecycles) / time_cycle_step
-                  << " wsec_step=" << time_cycle_step;
+      std::uint64_t zonecycles =
+          (pmesh->mbcnt - mbcnt_prev) *
+          static_cast<std::uint64_t>(pmesh->GetNumberOfMeshBlockCells());
+      const auto time_cycle_all = timer_cycle.seconds();
+      const auto time_cycle_step = time_cycle_all - time_LBandAMR;
+      std::cout << "cycle=" << tm.ncycle << std::scientific
+                << std::setprecision(dt_precision) << " time=" << tm.time
+                << " dt=" << tm.dt << std::setprecision(2) << " zone-cycles/wsec_step="
+                << static_cast<double>(zonecycles) / time_cycle_step
+                << " wsec_step=" << time_cycle_step;
 
-        // In principle load balancing based on a cost list can happens for non-AMR runs.
-        // TODO(future me) fix this when this becomes important.
-        if (pmesh->adaptive) {
-          std::cout << " zone-cycles/wsec="
-                    << static_cast<double>(zonecycles) / (time_cycle_step + time_LBandAMR)
-                    << " wsec_AMR=" << time_LBandAMR;
-        }
-
-        // insert more diagnostics here
-        std::cout << std::endl;
-
-        // reset cycle related counters
-        timer_cycle.reset();
-        time_LBandAMR = 0.0;
-        // need to cache number of MeshBlocks as AMR/load balance change it
-        mbcnt_prev = pmesh->mbcnt;
+      // In principle load balancing based on a cost list can happens for non-AMR runs.
+      // TODO(future me) fix this when this becomes important.
+      if (pmesh->adaptive) {
+        std::cout << " zone-cycles/wsec="
+                  << static_cast<double>(zonecycles) / (time_cycle_step + time_LBandAMR)
+                  << " wsec_AMR=" << time_LBandAMR;
       }
+
+      // insert more diagnostics here
+      std::cout << std::endl;
+
+      // reset cycle related counters
+      timer_cycle.reset();
+      time_LBandAMR = 0.0;
+      // need to cache number of MeshBlocks as AMR/load balance change it
+      mbcnt_prev = pmesh->mbcnt;
+    }
+  }
+  if (tm.ncycle_out_mesh != 0) {
+    // output in fixed intervals
+    if (tm.ncycle % tm.ncycle_out_mesh == 0) {
+      pmesh->OutputMeshStructure(-1, false);
+    // output after mesh refinement (enabled by use of negative cycle number)
+    } else if (tm.ncycle_out_mesh < 0 && pmesh->modified) {
+      pmesh->OutputMeshStructure(-1, false);
     }
   }
 }
