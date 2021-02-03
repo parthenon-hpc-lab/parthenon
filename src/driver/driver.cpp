@@ -78,8 +78,10 @@ DriverStatus EvolutionDriver::Execute() {
     pmesh->mbcnt += pmesh->nbtotal;
     pmesh->step_since_lb++;
 
+    timer_LBandAMR.reset();
     pmesh->LoadBalancingAndAdaptiveMeshRefinement(pinput, app_input);
     if (pmesh->modified) InitializeBlockTimeSteps();
+    time_LBandAMR += timer_LBandAMR.seconds();
     SetGlobalTimeStep();
     if (tm.time < tm.tlim) // skip the final output as it happens later
       pouts->MakeOutputs(pmesh, pinput, &tm);
@@ -175,15 +177,28 @@ void EvolutionDriver::OutputCycleDiagnostics() {
         std::uint64_t zonecycles =
             (pmesh->mbcnt - mbcnt_prev) *
             static_cast<std::uint64_t>(pmesh->GetNumberOfMeshBlockCells());
+        const auto time_cycle_all = timer_cycle.seconds();
+        const auto time_cycle_step = time_cycle_all - time_LBandAMR;
         std::cout << "cycle=" << tm.ncycle << std::scientific
                   << std::setprecision(dt_precision) << " time=" << tm.time
-                  << " dt=" << tm.dt << std::setprecision(2) << " zone-cycles/wsec = "
-                  << static_cast<double>(zonecycles) / timer_cycle.seconds();
+                  << " dt=" << tm.dt << std::setprecision(2) << " zone-cycles/wsec_step="
+                  << static_cast<double>(zonecycles) / time_cycle_step
+                  << " wsec_step=" << time_cycle_step;
+
+        // In principle load balancing based on a cost list can happens for non-AMR runs.
+        // TODO(future me) fix this when this becomes important.
+        if (pmesh->adaptive) {
+          std::cout << " zone-cycles/wsec="
+                    << static_cast<double>(zonecycles) / (time_cycle_step + time_LBandAMR)
+                    << " wsec_AMR=" << time_LBandAMR;
+        }
+
         // insert more diagnostics here
         std::cout << std::endl;
 
         // reset cycle related counters
         timer_cycle.reset();
+        time_LBandAMR = 0.0;
         // need to cache number of MeshBlocks as AMR/load balance change it
         mbcnt_prev = pmesh->mbcnt;
       }

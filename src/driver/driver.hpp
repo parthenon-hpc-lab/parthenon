@@ -38,7 +38,7 @@ enum class DriverStatus { complete, timeout, failed };
 class Driver {
  public:
   Driver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
-      : pinput(pin), app_input(app_in), pmesh(pm), mbcnt_prev() {}
+      : pinput(pin), app_input(app_in), pmesh(pm), mbcnt_prev(), time_LBandAMR() {}
   virtual DriverStatus Execute() = 0;
   void InitializeOutputs() { pouts = std::make_unique<Outputs>(pmesh, pinput); }
 
@@ -48,7 +48,8 @@ class Driver {
   std::unique_ptr<Outputs> pouts;
 
  protected:
-  Kokkos::Timer timer_cycle, timer_main;
+  Kokkos::Timer timer_cycle, timer_main, timer_LBandAMR;
+  double time_LBandAMR;
   std::uint64_t mbcnt_prev;
   virtual void PreExecute();
   virtual void PostExecute(DriverStatus status);
