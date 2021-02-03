@@ -225,10 +225,10 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
 #ifdef MPI_PARALLEL
     if (Globals::my_rank == 0) {
       PARTHENON_MPI_CHECK(MPI_Reduce(MPI_IN_PLACE, hist.data(), hist.extent(0),
-                                     MPI_UINT64_T, MPI_SUM, 0, MPI_COMM_WORLD));
+                                     MPI_INT32_T, MPI_SUM, 0, MPI_COMM_WORLD));
     } else {
       PARTHENON_MPI_CHECK(MPI_Reduce(hist.data(), hist.data(), hist.extent(0),
-                                     MPI_UINT64_T, MPI_SUM, 0, MPI_COMM_WORLD));
+                                     MPI_INT32_T, MPI_SUM, 0, MPI_COMM_WORLD));
     }
 #endif
 

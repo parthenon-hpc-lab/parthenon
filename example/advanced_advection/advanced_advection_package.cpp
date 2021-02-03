@@ -355,6 +355,8 @@ void DoLotsOfWork(MeshBlockData<Real> *rc) {
 
   auto hist = pkg->Param<Kokkos::View<int *>>("num_iter_histogram");
 
+  const Real ilog10 = 1.0 / log(10.0);
+
   pmb->par_for(
       "advanced_advection_package::DoLotsOfWork", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
@@ -364,15 +366,15 @@ void DoLotsOfWork(MeshBlockData<Real> *rc) {
         Kokkos::atomic_increment(&hist(num_iter - N_min));
 
         for (int r = 0; r < num_iter; ++r) {
-          double odd = 0.0;
-          double even = 0.0;
+          Real odd = 0.0;
+          Real even = 0.0;
 
           for (int n = 0; n < num_vars; ++n)
             (n % 2 == 0 ? even : odd) += sqrt(n + 1) * v(in + n, k, j, i);
 
-          double a = exp((odd + even) / (fmax(1.0, abs(odd * even))));
-          double b = exp((odd - even) / (fmax(1.0, abs(odd * even))));
-          v(out, k, j, i) += log(a * b) / (log(a) + log(b));
+          Real a = pow(10.0, (odd + even) / (fmax(1.0, abs(odd * even))));
+          Real b = pow(10.0, (odd - even) / (fmax(1.0, abs(odd * even))));
+          v(out, k, j, i) += log(a * b) * ilog10 / (log(a) * ilog10 + log(b) * ilog10);
         }
       });
 }
