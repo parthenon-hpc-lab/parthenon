@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -51,7 +51,7 @@ class Driver {
   Kokkos::Timer timer_cycle, timer_main;
   std::uint64_t mbcnt_prev;
   virtual void PreExecute();
-  virtual void PostExecute();
+  virtual void PostExecute(DriverStatus status);
 
  private:
 };
@@ -79,7 +79,7 @@ class EvolutionDriver : public Driver {
   SimTime tm;
 
  protected:
-  void PostExecute(DriverStatus status);
+  void PostExecute(DriverStatus status) override;
 
  private:
   void InitializeBlockTimeSteps();

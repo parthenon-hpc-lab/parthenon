@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -64,6 +64,8 @@ using namespace parthenon::package::prelude;
 using namespace parthenon::driver::prelude;
 
 using View2D = Kokkos::View<Real **, Kokkos::LayoutRight, Kokkos::DefaultExecutionSpace>;
+
+const int nghost = 2;
 
 // The result struct contains results of different tests
 typedef struct result_t {
@@ -137,7 +139,7 @@ static double sumArray(BlockList_t &blocks, const int &n_block) {
           const int k_grid = idx / n_block2;
           const int j_grid = (idx - k_grid * n_block2) / n_block;
           const int i_grid = idx - k_grid * n_block2 - j_grid * n_block;
-          mySum += inOrOut(0, k_grid + NGHOST, j_grid + NGHOST, i_grid + NGHOST);
+          mySum += inOrOut(0, k_grid + nghost, j_grid + nghost, i_grid + nghost);
         },
         oneSum);
     Kokkos::fence();
@@ -230,8 +232,8 @@ result_t naiveKokkos(int n_block, int n_mesh, int n_iter, double radius) {
             const Real z =
                 xyz(2, iMesh) + dxyzCell * static_cast<Real>(k_grid); // fops = 2
             const Real myR2 = x * x + y * y + z * z;                  // fops = 5
-            inOrOut(0, k_grid + NGHOST, j_grid + NGHOST, i_grid + NGHOST) =
-                (myR2 < radius2 ? 1.0 : 0.0); // iops = 3
+            inOrOut(0, k_grid + nghost, j_grid + nghost,
+                    i_grid + nghost) = (myR2 < radius2 ? 1.0 : 0.0); // iops = 3
           });
     }
   });
@@ -259,7 +261,7 @@ result_t naiveParFor(int n_block, int n_mesh, int n_iter, double radius) {
 
   // allocate space for origin coordinates and set up the mesh
   View2D xyz("xyzBlocks", 3, n_mesh3);
-  auto blocks = setupMesh(n_block, n_mesh, radius, xyz, NGHOST);
+  auto blocks = setupMesh(n_block, n_mesh, radius, xyz, nghost);
 
   double time_basic = kernel_timer_wrapper(0, n_iter, [&]() {
     auto pmb = blocks.begin();
@@ -269,8 +271,8 @@ result_t naiveParFor(int n_block, int n_mesh, int n_iter, double radius) {
       // iops = 0  fops = 11
       par_for(
           DEFAULT_LOOP_PATTERN, "par_for in or out", DevExecSpace(), 0,
-          inOrOut.GetDim(4) - 1, NGHOST, inOrOut.GetDim(3) - NGHOST - 1, NGHOST,
-          inOrOut.GetDim(2) - NGHOST - 1, NGHOST, inOrOut.GetDim(1) - NGHOST - 1,
+          inOrOut.GetDim(4) - 1, nghost, inOrOut.GetDim(3) - nghost - 1, nghost,
+          inOrOut.GetDim(2) - nghost - 1, nghost, inOrOut.GetDim(1) - nghost - 1,
           KOKKOS_LAMBDA(const int l, const int k_grid, const int j_grid,
                         const int i_grid) {
             const Real x =

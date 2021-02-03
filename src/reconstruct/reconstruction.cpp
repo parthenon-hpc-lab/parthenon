@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -80,12 +80,12 @@ Reconstruction::Reconstruction(std::weak_ptr<MeshBlock> wpmb, ParameterInput *pi
   // check for necessary number of ghost zones for PPM w/o fourth-order flux corrections
   if (xorder == 3) {
     int req_nghost = 3;
-    if (NGHOST < req_nghost) {
+    if (Globals::nghost < req_nghost) {
       std::stringstream msg;
       msg << "### FATAL ERROR in Reconstruction constructor" << std::endl
           << "xorder=" << input_recon
-          << " (PPM) reconstruction selected, but nghost=" << NGHOST << std::endl
-          << "Reconfigure with --nghost=XXX with XXX > " << req_nghost - 1 << std::endl;
+          << " (PPM) reconstruction selected, but nghost=" << Globals::nghost << std::endl
+          << "Rerun with --nghost=XXX with XXX > " << req_nghost - 1 << std::endl;
       PARTHENON_FAIL(msg);
     }
   }
@@ -151,13 +151,13 @@ Reconstruction::Reconstruction(std::weak_ptr<MeshBlock> wpmb, ParameterInput *pi
 
     // check for necessary number of ghost zones for PPM w/ fourth-order flux corrections
     int req_nghost = 4;
-    // conversion is added, NGHOST>=6
-    if (NGHOST < req_nghost) {
+    // conversion is added, Globals::nghost>=6
+    if (Globals::nghost < req_nghost) {
       std::stringstream msg;
       msg << "### FATAL ERROR in Reconstruction constructor" << std::endl
           << "time/xorder=" << input_recon
-          << " reconstruction selected, but nghost=" << NGHOST << std::endl
-          << "Reconfigure with --nghost=XXX with XXX > " << req_nghost - 1 << std::endl;
+          << " reconstruction selected, but nghost=" << Globals::nghost << std::endl
+          << "Rerun with --nghost=XXX with XXX > " << req_nghost - 1 << std::endl;
       PARTHENON_FAIL(msg);
     }
   }

@@ -98,12 +98,12 @@ function(process_mpi_args nproc)
   endif()
   # use custom numproc flag
   if (TEST_NUMPROC_FLAG)
-    list(APPEND TMPARGS "--mpirun_ranks=${TEST_NUMPROC_FLAG}")
+    list(APPEND TMPARGS "--mpirun_ranks_flag=${TEST_NUMPROC_FLAG}")
   # use CMake determined numproc flag
   else()
-    list(APPEND TMPARGS "--mpirun_ranks=${MPIEXEC_NUMPROC_FLAG}")
+    list(APPEND TMPARGS "--mpirun_ranks_flag=${MPIEXEC_NUMPROC_FLAG}")
   endif()
-  list(APPEND TMPARGS "--mpirun_ranks=${nproc}")
+  list(APPEND TMPARGS "--mpirun_ranks_num=${nproc}")
   # set additional options from machine configuration
   foreach(MPIARG ${TEST_MPIOPTS})
     list(APPEND TMPARGS "--mpirun_opts=${MPIARG}")

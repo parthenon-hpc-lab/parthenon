@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -80,33 +80,36 @@ int FaceCenteredBoundaryVariable::ComputeVariableBufferSize(const NeighborIndexe
   cng2 = cng * f2;
   cng3 = cng * f3;
 
-  int size1 = ((ni.ox1 == 0) ? (nx1 + 1) : NGHOST) * ((ni.ox2 == 0) ? (nx2) : NGHOST) *
-              ((ni.ox3 == 0) ? (nx3) : NGHOST);
-  int size2 = ((ni.ox1 == 0) ? (nx1) : NGHOST) * ((ni.ox2 == 0) ? (nx2 + f2) : NGHOST) *
-              ((ni.ox3 == 0) ? (nx3) : NGHOST);
-  int size3 = ((ni.ox1 == 0) ? (nx1) : NGHOST) * ((ni.ox2 == 0) ? (nx2) : NGHOST) *
-              ((ni.ox3 == 0) ? (nx3 + f3) : NGHOST);
+  int size1 = ((ni.ox1 == 0) ? (nx1 + 1) : Globals::nghost) *
+              ((ni.ox2 == 0) ? (nx2) : Globals::nghost) *
+              ((ni.ox3 == 0) ? (nx3) : Globals::nghost);
+  int size2 = ((ni.ox1 == 0) ? (nx1) : Globals::nghost) *
+              ((ni.ox2 == 0) ? (nx2 + f2) : Globals::nghost) *
+              ((ni.ox3 == 0) ? (nx3) : Globals::nghost);
+  int size3 = ((ni.ox1 == 0) ? (nx1) : Globals::nghost) *
+              ((ni.ox2 == 0) ? (nx2) : Globals::nghost) *
+              ((ni.ox3 == 0) ? (nx3 + f3) : Globals::nghost);
   int size = size1 + size2 + size3;
   if (pmy_mesh_->multilevel) {
     if (ni.type != NeighborConnect::face) {
-      if (ni.ox1 != 0) size1 = size1 / NGHOST * (NGHOST + 1);
-      if (ni.ox2 != 0) size2 = size2 / NGHOST * (NGHOST + 1);
-      if (ni.ox3 != 0) size3 = size3 / NGHOST * (NGHOST + 1);
+      if (ni.ox1 != 0) size1 = size1 / Globals::nghost * (Globals::nghost + 1);
+      if (ni.ox2 != 0) size2 = size2 / Globals::nghost * (Globals::nghost + 1);
+      if (ni.ox3 != 0) size3 = size3 / Globals::nghost * (Globals::nghost + 1);
     }
     size = size1 + size2 + size3;
-    int f2c1 = ((ni.ox1 == 0) ? ((nx1 + 1) / 2 + 1) : NGHOST) *
-               ((ni.ox2 == 0) ? ((nx2 + 1) / 2) : NGHOST) *
-               ((ni.ox3 == 0) ? ((nx3 + 1) / 2) : NGHOST);
-    int f2c2 = ((ni.ox1 == 0) ? ((nx1 + 1) / 2) : NGHOST) *
-               ((ni.ox2 == 0) ? ((nx2 + 1) / 2 + f2) : NGHOST) *
-               ((ni.ox3 == 0) ? ((nx3 + 1) / 2) : NGHOST);
-    int f2c3 = ((ni.ox1 == 0) ? ((nx1 + 1) / 2) : NGHOST) *
-               ((ni.ox2 == 0) ? ((nx2 + 1) / 2) : NGHOST) *
-               ((ni.ox3 == 0) ? ((nx3 + 1) / 2 + f3) : NGHOST);
+    int f2c1 = ((ni.ox1 == 0) ? ((nx1 + 1) / 2 + 1) : Globals::nghost) *
+               ((ni.ox2 == 0) ? ((nx2 + 1) / 2) : Globals::nghost) *
+               ((ni.ox3 == 0) ? ((nx3 + 1) / 2) : Globals::nghost);
+    int f2c2 = ((ni.ox1 == 0) ? ((nx1 + 1) / 2) : Globals::nghost) *
+               ((ni.ox2 == 0) ? ((nx2 + 1) / 2 + f2) : Globals::nghost) *
+               ((ni.ox3 == 0) ? ((nx3 + 1) / 2) : Globals::nghost);
+    int f2c3 = ((ni.ox1 == 0) ? ((nx1 + 1) / 2) : Globals::nghost) *
+               ((ni.ox2 == 0) ? ((nx2 + 1) / 2) : Globals::nghost) *
+               ((ni.ox3 == 0) ? ((nx3 + 1) / 2 + f3) : Globals::nghost);
     if (ni.type != NeighborConnect::face) {
-      if (ni.ox1 != 0) f2c1 = f2c1 / NGHOST * (NGHOST + 1);
-      if (ni.ox2 != 0) f2c2 = f2c2 / NGHOST * (NGHOST + 1);
-      if (ni.ox3 != 0) f2c3 = f2c3 / NGHOST * (NGHOST + 1);
+      if (ni.ox1 != 0) f2c1 = f2c1 / Globals::nghost * (Globals::nghost + 1);
+      if (ni.ox2 != 0) f2c2 = f2c2 / Globals::nghost * (Globals::nghost + 1);
+      if (ni.ox3 != 0) f2c3 = f2c3 / Globals::nghost * (Globals::nghost + 1);
     }
     int fsize = f2c1 + f2c2 + f2c3;
     int c2f1 = ((ni.ox1 == 0) ? ((nx1 + 1) / 2 + cng1 + 1) : cng + 1) *
@@ -179,16 +182,16 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(BufArray1D<Real> &
   // clang-format off
   // bx1
   if      (nb.ni.ox1 == 0) si = ib.s,              ei = ib.e + 1;
-  else if (nb.ni.ox1 > 0)  si = ib.e - NGHOST + 1, ei = ib.e;
-  else                     si = ib.s + 1,          ei = ib.s + NGHOST;
+  else if (nb.ni.ox1 > 0)  si = ib.e - Globals::nghost + 1, ei = ib.e;
+  else                     si = ib.s + 1,          ei = ib.s + Globals::nghost;
 
   if      (nb.ni.ox2 == 0) sj = jb.s,              ej = jb.e;
-  else if (nb.ni.ox2 > 0)  sj = jb.e - NGHOST + 1, ej = jb.e;
-  else                     sj = jb.s,              ej = jb.s + NGHOST - 1;
+  else if (nb.ni.ox2 > 0)  sj = jb.e - Globals::nghost + 1, ej = jb.e;
+  else                     sj = jb.s,              ej = jb.s + Globals::nghost - 1;
 
   if      (nb.ni.ox3 == 0) sk = kb.s,              ek = kb.e;
-  else if (nb.ni.ox3 > 0)  sk = kb.e - NGHOST + 1, ek = kb.e;
-  else                     sk = kb.s,              ek = kb.s + NGHOST - 1;
+  else if (nb.ni.ox3 > 0)  sk = kb.e - Globals::nghost + 1, ek = kb.e;
+  else                     sk = kb.s,              ek = kb.s + Globals::nghost - 1;
   // for SMR/AMR, always include the overlapping faces in edge and corner boundaries
   if (pmy_mesh_->multilevel && nb.ni.type != NeighborConnect::face) {
     if      (nb.ni.ox1 > 0) ei++;
@@ -199,13 +202,13 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(BufArray1D<Real> &
 
   // bx2
   if      (nb.ni.ox1 == 0)      si = ib.s,              ei = ib.e;
-  else if (nb.ni.ox1 > 0)       si = ib.e - NGHOST + 1, ei = ib.e;
-  else                          si = ib.s,              ei = ib.s + NGHOST - 1;
+  else if (nb.ni.ox1 > 0)       si = ib.e - Globals::nghost + 1, ei = ib.e;
+  else                          si = ib.s,              ei = ib.s + Globals::nghost - 1;
 
   if (pmb->block_size.nx2 == 1) sj = jb.s,              ej = jb.e;
   else if (nb.ni.ox2 == 0)      sj = jb.s,              ej = jb.e + 1;
-  else if (nb.ni.ox2 > 0)       sj = jb.e - NGHOST + 1, ej = jb.e;
-  else                          sj = jb.s + 1,          ej = jb.s + NGHOST;
+  else if (nb.ni.ox2 > 0)       sj = jb.e - Globals::nghost + 1, ej = jb.e;
+  else                          sj = jb.s + 1,          ej = jb.s + Globals::nghost;
 
   if (pmy_mesh_->multilevel && nb.ni.type != NeighborConnect::face) {
     if      (nb.ni.ox2 > 0) ej++;
@@ -216,13 +219,13 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferSameLevel(BufArray1D<Real> &
 
   // bx3
   if      (nb.ni.ox2 == 0)      sj = jb.s,              ej = jb.e;
-  else if (nb.ni.ox2 > 0)       sj = jb.e - NGHOST + 1, ej = jb.e;
-  else                          sj = jb.s,              ej = jb.s + NGHOST - 1;
+  else if (nb.ni.ox2 > 0)       sj = jb.e - Globals::nghost + 1, ej = jb.e;
+  else                          sj = jb.s,              ej = jb.s + Globals::nghost - 1;
 
   if (pmb->block_size.nx3 == 1) sk = kb.s,              ek = kb.e;
   else if (nb.ni.ox3 == 0)      sk = kb.s,              ek = kb.e + 1;
-  else if (nb.ni.ox3 > 0)       sk = kb.e - NGHOST + 1, ek = kb.e;
-  else                          sk = kb.s + 1,          ek = kb.s + NGHOST;
+  else if (nb.ni.ox3 > 0)       sk = kb.e - Globals::nghost + 1, ek = kb.e;
+  else                          sk = kb.s + 1,          ek = kb.s + Globals::nghost;
 
   if (pmy_mesh_->multilevel && nb.ni.type != NeighborConnect::face) {
     if      (nb.ni.ox3 > 0) ek++;
@@ -246,7 +249,7 @@ int FaceCenteredBoundaryVariable::LoadBoundaryBufferToCoarser(BufArray1D<Real> &
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   auto &pmr = pmb->pmr;
   int si, sj, sk, ei, ej, ek;
-  int cng = NGHOST;
+  int cng = Globals::nghost;
   int p = 0;
 
   const IndexDomain interior = IndexDomain::interior;
@@ -516,21 +519,21 @@ void FaceCenteredBoundaryVariable::SetBoundarySameLevel(BufArray1D<Real> &buf,
   if (nb.ni.ox1 == 0)
     si = cellbounds.is(interior), ei = cellbounds.ie(interior) + 1;
   else if (nb.ni.ox1 > 0)
-    si = cellbounds.ie(interior) + 2, ei = cellbounds.ie(interior) + NGHOST + 1;
+    si = cellbounds.ie(interior) + 2, ei = cellbounds.ie(interior) + Globals::nghost + 1;
   else
-    si = cellbounds.is(interior) - NGHOST, ei = cellbounds.is(interior) - 1;
+    si = cellbounds.is(interior) - Globals::nghost, ei = cellbounds.is(interior) - 1;
   if (nb.ni.ox2 == 0)
     sj = cellbounds.js(interior), ej = cellbounds.je(interior);
   else if (nb.ni.ox2 > 0)
-    sj = cellbounds.je(interior) + 1, ej = cellbounds.je(interior) + NGHOST;
+    sj = cellbounds.je(interior) + 1, ej = cellbounds.je(interior) + Globals::nghost;
   else
-    sj = cellbounds.js(interior) - NGHOST, ej = cellbounds.js(interior) - 1;
+    sj = cellbounds.js(interior) - Globals::nghost, ej = cellbounds.js(interior) - 1;
   if (nb.ni.ox3 == 0)
     sk = cellbounds.ks(interior), ek = cellbounds.ke(interior);
   else if (nb.ni.ox3 > 0)
-    sk = cellbounds.ke(interior) + 1, ek = cellbounds.ke(interior) + NGHOST;
+    sk = cellbounds.ke(interior) + 1, ek = cellbounds.ke(interior) + Globals::nghost;
   else
-    sk = cellbounds.ks(interior) - NGHOST, ek = cellbounds.ks(interior) - 1;
+    sk = cellbounds.ks(interior) - Globals::nghost, ek = cellbounds.ks(interior) - 1;
   // for SMR/AMR, always include the overlapping faces in edge and corner boundaries
   if (pmy_mesh_->multilevel && nb.ni.type != NeighborConnect::face) {
     if (nb.ni.ox1 > 0)
@@ -546,17 +549,17 @@ void FaceCenteredBoundaryVariable::SetBoundarySameLevel(BufArray1D<Real> &buf,
   if (nb.ni.ox1 == 0)
     si = cellbounds.is(interior), ei = cellbounds.ie(interior);
   else if (nb.ni.ox1 > 0)
-    si = cellbounds.ie(interior) + 1, ei = cellbounds.ie(interior) + NGHOST;
+    si = cellbounds.ie(interior) + 1, ei = cellbounds.ie(interior) + Globals::nghost;
   else
-    si = cellbounds.is(interior) - NGHOST, ei = cellbounds.is(interior) - 1;
+    si = cellbounds.is(interior) - Globals::nghost, ei = cellbounds.is(interior) - 1;
   if (pmb->block_size.nx2 == 1)
     sj = cellbounds.js(interior), ej = cellbounds.je(interior);
   else if (nb.ni.ox2 == 0)
     sj = cellbounds.js(interior), ej = cellbounds.je(interior) + 1;
   else if (nb.ni.ox2 > 0)
-    sj = cellbounds.je(interior) + 2, ej = cellbounds.je(interior) + NGHOST + 1;
+    sj = cellbounds.je(interior) + 2, ej = cellbounds.je(interior) + Globals::nghost + 1;
   else
-    sj = cellbounds.js(interior) - NGHOST, ej = cellbounds.js(interior) - 1;
+    sj = cellbounds.js(interior) - Globals::nghost, ej = cellbounds.js(interior) - 1;
   // for SMR/AMR, always include the overlapping faces in edge and corner boundaries
   if (pmy_mesh_->multilevel && nb.ni.type != NeighborConnect::face) {
     if (nb.ni.ox2 > 0)
@@ -578,17 +581,17 @@ void FaceCenteredBoundaryVariable::SetBoundarySameLevel(BufArray1D<Real> &buf,
   if (nb.ni.ox2 == 0)
     sj = cellbounds.js(interior), ej = cellbounds.je(interior);
   else if (nb.ni.ox2 > 0)
-    sj = cellbounds.je(interior) + 1, ej = cellbounds.je(interior) + NGHOST;
+    sj = cellbounds.je(interior) + 1, ej = cellbounds.je(interior) + Globals::nghost;
   else
-    sj = cellbounds.js(interior) - NGHOST, ej = cellbounds.js(interior) - 1;
+    sj = cellbounds.js(interior) - Globals::nghost, ej = cellbounds.js(interior) - 1;
   if (pmb->block_size.nx3 == 1)
     sk = cellbounds.ks(interior), ek = cellbounds.ke(interior);
   else if (nb.ni.ox3 == 0)
     sk = cellbounds.ks(interior), ek = cellbounds.ke(interior) + 1;
   else if (nb.ni.ox3 > 0)
-    sk = cellbounds.ke(interior) + 2, ek = cellbounds.ke(interior) + NGHOST + 1;
+    sk = cellbounds.ke(interior) + 2, ek = cellbounds.ke(interior) + Globals::nghost + 1;
   else
-    sk = cellbounds.ks(interior) - NGHOST, ek = cellbounds.ks(interior) - 1;
+    sk = cellbounds.ks(interior) - Globals::nghost, ek = cellbounds.ks(interior) - 1;
   // for SMR/AMR, always include the overlapping faces in edge and corner boundaries
   if (pmy_mesh_->multilevel && nb.ni.type != NeighborConnect::face) {
     if (nb.ni.ox3 > 0)
@@ -773,9 +776,9 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromFiner(BufArray1D<Real> &buf,
     else
       ei -= pmb->block_size.nx1 / 2;
   } else if (nb.ni.ox1 > 0) {
-    si = cellbounds.ie(interior) + 2, ei = cellbounds.ie(interior) + NGHOST + 1;
+    si = cellbounds.ie(interior) + 2, ei = cellbounds.ie(interior) + Globals::nghost + 1;
   } else {
-    si = cellbounds.is(interior) - NGHOST, ei = cellbounds.is(interior) - 1;
+    si = cellbounds.is(interior) - Globals::nghost, ei = cellbounds.is(interior) - 1;
   }
 
   // include the overlapping faces in edge and corner boundaries
@@ -802,9 +805,9 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromFiner(BufArray1D<Real> &buf,
       }
     }
   } else if (nb.ni.ox2 > 0) {
-    sj = cellbounds.je(interior) + 1, ej = cellbounds.je(interior) + NGHOST;
+    sj = cellbounds.je(interior) + 1, ej = cellbounds.je(interior) + Globals::nghost;
   } else {
-    sj = cellbounds.js(interior) - NGHOST, ej = cellbounds.js(interior) - 1;
+    sj = cellbounds.js(interior) - Globals::nghost, ej = cellbounds.js(interior) - 1;
   }
 
   if (nb.ni.ox3 == 0) {
@@ -823,9 +826,9 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromFiner(BufArray1D<Real> &buf,
       }
     }
   } else if (nb.ni.ox3 > 0) {
-    sk = cellbounds.ke(interior) + 1, ek = cellbounds.ke(interior) + NGHOST;
+    sk = cellbounds.ke(interior) + 1, ek = cellbounds.ke(interior) + Globals::nghost;
   } else {
-    sk = cellbounds.ks(interior) - NGHOST, ek = cellbounds.ks(interior) - 1;
+    sk = cellbounds.ks(interior) - Globals::nghost, ek = cellbounds.ks(interior) - 1;
   }
   ParArray3D<Real> x1f = (*var_fc).x1f.Get<3>();
   BufferUtility::UnpackData(buf, x1f, si, ei, sj, ej, sk, ek, p, pmb.get());
@@ -838,9 +841,9 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromFiner(BufArray1D<Real> &buf,
     else
       ei -= pmb->block_size.nx1 / 2;
   } else if (nb.ni.ox1 > 0) {
-    si = cellbounds.ie(interior) + 1, ei = cellbounds.ie(interior) + NGHOST;
+    si = cellbounds.ie(interior) + 1, ei = cellbounds.ie(interior) + Globals::nghost;
   } else {
-    si = cellbounds.is(interior) - NGHOST, ei = cellbounds.is(interior) - 1;
+    si = cellbounds.is(interior) - Globals::nghost, ei = cellbounds.is(interior) - 1;
   }
 
   if (nb.ni.ox2 == 0) {
@@ -860,9 +863,9 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromFiner(BufArray1D<Real> &buf,
       }
     }
   } else if (nb.ni.ox2 > 0) {
-    sj = cellbounds.je(interior) + 2, ej = cellbounds.je(interior) + NGHOST + 1;
+    sj = cellbounds.je(interior) + 2, ej = cellbounds.je(interior) + Globals::nghost + 1;
   } else {
-    sj = cellbounds.js(interior) - NGHOST, ej = cellbounds.js(interior) - 1;
+    sj = cellbounds.js(interior) - Globals::nghost, ej = cellbounds.js(interior) - 1;
   }
 
   // include the overlapping faces in edge and corner boundaries
@@ -899,9 +902,9 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromFiner(BufArray1D<Real> &buf,
       }
     }
   } else if (nb.ni.ox2 > 0) {
-    sj = cellbounds.je(interior) + 1, ej = cellbounds.je(interior) + NGHOST;
+    sj = cellbounds.je(interior) + 1, ej = cellbounds.je(interior) + Globals::nghost;
   } else {
-    sj = cellbounds.js(interior) - NGHOST, ej = cellbounds.js(interior) - 1;
+    sj = cellbounds.js(interior) - Globals::nghost, ej = cellbounds.js(interior) - 1;
   }
 
   if (nb.ni.ox3 == 0) {
@@ -921,9 +924,9 @@ void FaceCenteredBoundaryVariable::SetBoundaryFromFiner(BufArray1D<Real> &buf,
       }
     }
   } else if (nb.ni.ox3 > 0) {
-    sk = cellbounds.ke(interior) + 2, ek = cellbounds.ke(interior) + NGHOST + 1;
+    sk = cellbounds.ke(interior) + 2, ek = cellbounds.ke(interior) + Globals::nghost + 1;
   } else {
-    sk = cellbounds.ks(interior) - NGHOST, ek = cellbounds.ks(interior) - 1;
+    sk = cellbounds.ks(interior) - Globals::nghost, ek = cellbounds.ks(interior) - 1;
   }
 
   // include the overlapping faces in edge and corner boundaries
@@ -1032,36 +1035,36 @@ void FaceCenteredBoundaryVariable::SetupPersistentMPI() {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
     if (nb.snb.rank != Globals::my_rank) {
       int size, csize, fsize;
-      int size1 = ((nb.ni.ox1 == 0) ? (nx1 + 1) : NGHOST) *
-                  ((nb.ni.ox2 == 0) ? (nx2) : NGHOST) *
-                  ((nb.ni.ox3 == 0) ? (nx3) : NGHOST);
-      int size2 = ((nb.ni.ox1 == 0) ? (nx1) : NGHOST) *
-                  ((nb.ni.ox2 == 0) ? (nx2 + f2) : NGHOST) *
-                  ((nb.ni.ox3 == 0) ? (nx3) : NGHOST);
-      int size3 = ((nb.ni.ox1 == 0) ? (nx1) : NGHOST) *
-                  ((nb.ni.ox2 == 0) ? (nx2) : NGHOST) *
-                  ((nb.ni.ox3 == 0) ? (nx3 + f3) : NGHOST);
+      int size1 = ((nb.ni.ox1 == 0) ? (nx1 + 1) : Globals::nghost) *
+                  ((nb.ni.ox2 == 0) ? (nx2) : Globals::nghost) *
+                  ((nb.ni.ox3 == 0) ? (nx3) : Globals::nghost);
+      int size2 = ((nb.ni.ox1 == 0) ? (nx1) : Globals::nghost) *
+                  ((nb.ni.ox2 == 0) ? (nx2 + f2) : Globals::nghost) *
+                  ((nb.ni.ox3 == 0) ? (nx3) : Globals::nghost);
+      int size3 = ((nb.ni.ox1 == 0) ? (nx1) : Globals::nghost) *
+                  ((nb.ni.ox2 == 0) ? (nx2) : Globals::nghost) *
+                  ((nb.ni.ox3 == 0) ? (nx3 + f3) : Globals::nghost);
       size = size1 + size2 + size3;
       if (pmy_mesh_->multilevel) {
         if (nb.ni.type != NeighborConnect::face) {
-          if (nb.ni.ox1 != 0) size1 = size1 / NGHOST * (NGHOST + 1);
-          if (nb.ni.ox2 != 0) size2 = size2 / NGHOST * (NGHOST + 1);
-          if (nb.ni.ox3 != 0) size3 = size3 / NGHOST * (NGHOST + 1);
+          if (nb.ni.ox1 != 0) size1 = size1 / Globals::nghost * (Globals::nghost + 1);
+          if (nb.ni.ox2 != 0) size2 = size2 / Globals::nghost * (Globals::nghost + 1);
+          if (nb.ni.ox3 != 0) size3 = size3 / Globals::nghost * (Globals::nghost + 1);
         }
         size = size1 + size2 + size3;
-        int f2c1 = ((nb.ni.ox1 == 0) ? ((nx1 + 1) / 2 + 1) : NGHOST) *
-                   ((nb.ni.ox2 == 0) ? ((nx2 + 1) / 2) : NGHOST) *
-                   ((nb.ni.ox3 == 0) ? ((nx3 + 1) / 2) : NGHOST);
-        int f2c2 = ((nb.ni.ox1 == 0) ? ((nx1 + 1) / 2) : NGHOST) *
-                   ((nb.ni.ox2 == 0) ? ((nx2 + 1) / 2 + f2) : NGHOST) *
-                   ((nb.ni.ox3 == 0) ? ((nx3 + 1) / 2) : NGHOST);
-        int f2c3 = ((nb.ni.ox1 == 0) ? ((nx1 + 1) / 2) : NGHOST) *
-                   ((nb.ni.ox2 == 0) ? ((nx2 + 1) / 2) : NGHOST) *
-                   ((nb.ni.ox3 == 0) ? ((nx3 + 1) / 2 + f3) : NGHOST);
+        int f2c1 = ((nb.ni.ox1 == 0) ? ((nx1 + 1) / 2 + 1) : Globals::nghost) *
+                   ((nb.ni.ox2 == 0) ? ((nx2 + 1) / 2) : Globals::nghost) *
+                   ((nb.ni.ox3 == 0) ? ((nx3 + 1) / 2) : Globals::nghost);
+        int f2c2 = ((nb.ni.ox1 == 0) ? ((nx1 + 1) / 2) : Globals::nghost) *
+                   ((nb.ni.ox2 == 0) ? ((nx2 + 1) / 2 + f2) : Globals::nghost) *
+                   ((nb.ni.ox3 == 0) ? ((nx3 + 1) / 2) : Globals::nghost);
+        int f2c3 = ((nb.ni.ox1 == 0) ? ((nx1 + 1) / 2) : Globals::nghost) *
+                   ((nb.ni.ox2 == 0) ? ((nx2 + 1) / 2) : Globals::nghost) *
+                   ((nb.ni.ox3 == 0) ? ((nx3 + 1) / 2 + f3) : Globals::nghost);
         if (nb.ni.type != NeighborConnect::face) {
-          if (nb.ni.ox1 != 0) f2c1 = f2c1 / NGHOST * (NGHOST + 1);
-          if (nb.ni.ox2 != 0) f2c2 = f2c2 / NGHOST * (NGHOST + 1);
-          if (nb.ni.ox3 != 0) f2c3 = f2c3 / NGHOST * (NGHOST + 1);
+          if (nb.ni.ox1 != 0) f2c1 = f2c1 / Globals::nghost * (Globals::nghost + 1);
+          if (nb.ni.ox2 != 0) f2c2 = f2c2 / Globals::nghost * (Globals::nghost + 1);
+          if (nb.ni.ox3 != 0) f2c3 = f2c3 / Globals::nghost * (Globals::nghost + 1);
         }
         fsize = f2c1 + f2c2 + f2c3;
         int c2f1 = ((nb.ni.ox1 == 0) ? ((nx1 + 1) / 2 + cng1 + 1) : cng + 1) *
