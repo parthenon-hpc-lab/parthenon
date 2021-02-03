@@ -35,7 +35,7 @@ void Driver::PreExecute() {
   timer_main.reset();
 }
 
-void Driver::PostExecute() {
+void Driver::PostExecute(DriverStatus status) {
   if (Globals::my_rank == 0) {
     SignalHandler::CancelWallTimeAlarm();
     // Calculate and print the zone-cycles/cpu-second and wall-second
@@ -127,7 +127,7 @@ void EvolutionDriver::PostExecute(DriverStatus status) {
                 << std::endl;
     }
   }
-  Driver::PostExecute();
+  Driver::PostExecute(status);
 }
 
 void EvolutionDriver::InitializeBlockTimeSteps() {

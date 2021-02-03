@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -92,10 +92,10 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   // for convenience: "max" # of real+ghost cells along each dir for allocating "standard"
   // sized MeshBlock arrays, depending on ndim i.e.
   //
-  // cellbounds.nx2 =    nx2      + 2*NGHOST if   nx2 > 1
+  // cellbounds.nx2 =    nx2      + 2*Globals::nghost if   nx2 > 1
   // (entire)         (interior)               (interior)
   //
-  // Assuming we have a block cells, and nx2 = 6, and NGHOST = 1
+  // Assuming we have a block cells, and nx2 = 6, and Globals::nghost = 1
   //
   // <----- nx1 = 8 ---->
   //       (entire)
@@ -118,10 +118,10 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   IndexShape cellbounds;
   // on 1x coarser level MeshBlock i.e.
   //
-  // c_cellbounds.nx2 = cellbounds.nx2 * 1/2 + 2*NGHOST, if  cellbounds.nx2 >1
+  // c_cellbounds.nx2 = cellbounds.nx2 * 1/2 + 2*Globals::nghost, if  cellbounds.nx2 >1
   //   (entire)             (interior)                          (interior)
   //
-  // Assuming we have a block cells, and nx2 = 6, and NGHOST = 1
+  // Assuming we have a block cells, and nx2 = 6, and Globals::nghost = 1
   //
   //          cells                              c_cells
   //
