@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -67,7 +67,7 @@ int main(int argc, char *argv[]) {
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   Packages_t packages;
   // only have one package for this app, but will typically have more things added to
-  packages["calculate_pi"] = calculate_pi::Initialize(pin.get());
+  packages.Add(calculate_pi::Initialize(pin.get()));
   return packages;
 }
 
@@ -90,7 +90,7 @@ parthenon::DriverStatus PiDriver::Execute() {
   ConstructAndExecuteTaskLists<>(this);
 
   // retrieve "pi_val" and post execute.
-  auto &pi_val = pmesh->packages["calculate_pi"]->Param<Real>("pi_val");
+  auto &pi_val = pmesh->packages.Get("calculate_pi")->Param<Real>("pi_val");
   pmesh->mbcnt = pmesh->nbtotal; // this is how many blocks were processed
   PostExecute(pi_val);
   return DriverStatus::complete;
@@ -106,11 +106,12 @@ void PiDriver::PostExecute(Real pi_val) {
 
     std::fstream fs;
     fs.open("summary.txt", std::fstream::out);
+    if (!fs.is_open()) PARTHENON_THROW("Unable to open summary.txt");
     fs << "PI = " << pi_val << std::endl;
     fs << "rel error = " << (pi_val - M_PI) / M_PI << std::endl;
     fs.close();
   }
-  Driver::PostExecute();
+  Driver::PostExecute(DriverStatus::complete);
 }
 
 template <typename T>

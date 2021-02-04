@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -44,21 +44,24 @@ using ::parthenon::ApplyBoundaryConditions;
 using ::parthenon::BlockList_t;
 using ::parthenon::Driver;
 using ::parthenon::DriverStatus;
-using ::parthenon::Integrator;
+using ::parthenon::EvolutionDriver;
 using ::parthenon::Mesh;
 using ::parthenon::MeshBlock;
 using ::parthenon::MeshBlockPack;
 using ::parthenon::MeshBlockVarFluxPack;
 using ::parthenon::MeshBlockVarPack;
 using ::parthenon::MultiStageBlockTaskDriver;
+using ::parthenon::MultiStageDriver;
 using ::parthenon::Outputs;
 using ::parthenon::Packages_t;
 using ::parthenon::ParameterInput;
 using ::parthenon::ParthenonManager;
+using ::parthenon::StagedIntegrator;
 using ::parthenon::Task;
 using ::parthenon::TaskCollection;
 using ::parthenon::TaskID;
 using ::parthenon::TaskList;
+using ::parthenon::TaskListStatus;
 using ::parthenon::TaskRegion;
 using ::parthenon::TaskStatus;
 using ::parthenon::DriverUtils::ConstructAndExecuteBlockTasks;

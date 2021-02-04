@@ -1,4 +1,4 @@
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -246,8 +246,8 @@ static void writeH5AF64(const char *name, const Real *pData, const hid_t &dSpace
   PARTHENON_HDF5_CHECK(H5Awrite(attribute, PREDFLOAT64, pData));
 }
 
-static void writeH5ASTRING(const char *name, const std::string pData, const hid_t &dSpace,
-                           const hid_t &dSet) {
+static void writeH5ASTRING(const char *name, const std::string &pData,
+                           const hid_t &dSpace, const hid_t &dSet) {
   ::parthenon::H5T const atype = ::parthenon::H5T::FromHIDCheck(H5Tcopy(H5T_C_S1));
   PARTHENON_HDF5_CHECK(H5Tset_size(atype, pData.length()));
   PARTHENON_HDF5_CHECK(H5Tset_strpad(atype, H5T_STR_NULLTERM));

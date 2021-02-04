@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -47,7 +47,7 @@ void SwarmContainer::Add(const std::string &label, const Metadata &metadata) {
   swarmMap_[label] = swarm;
 }
 
-void SwarmContainer::Remove(const std::string label) {
+void SwarmContainer::Remove(const std::string &label) {
   // Find index of swarm
   int isize = swarmVector_.size();
   int idx = 0;

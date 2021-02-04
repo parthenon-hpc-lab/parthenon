@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -50,7 +50,7 @@ class RestartReader {
   // returns NBlocks on success, -1 on failure
   template <typename T>
   int ReadBlocks(const char *name, IndexRange range, std::vector<T> &dataVec,
-                 std::vector<size_t> bsize, size_t vlen = 1) {
+                 const std::vector<size_t> &bsize, size_t vlen = 1) {
 #ifdef HDF5OUTPUT
     try {
       // dataVec is assumed to be of the correct size

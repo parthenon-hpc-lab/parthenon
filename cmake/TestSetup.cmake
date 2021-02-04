@@ -1,5 +1,5 @@
 #=========================================================================================
-# (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+# (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -17,11 +17,14 @@
 # Version number has been intentionally excluded from find_package call, so that latest version 
 # will be grabbed. Including the version number would prioritise the version provided over more 
 #
-find_package(Python3 REQUIRED COMPONENTS Interpreter)
-if( ${Python3_VERSION} VERSION_LESS "3.5")
-  message(FATAL_ERROR "Python version requirements not satisfied")
+if( NOT Python3_Interpreter_FOUND)
+  find_package(Python3 REQUIRED COMPONENTS Interpreter)
 endif()
-
+if(Python3_Interpreter_FOUND)
+  if( "${Python3_VERSION}" VERSION_LESS "3.5")
+    message(FATAL_ERROR "Python version requirements not satisfied for running regression tests.")
+  endif()
+endif()
 # Ensure all required packages are present
 include(${PROJECT_SOURCE_DIR}/cmake/PythonModuleCheck.cmake)
 required_python_modules_found("${REQUIRED_PYTHON_MODULES}")
@@ -44,17 +47,23 @@ endfunction()
 # Adds test that will run in serial
 # test output will be sent to /tst/regression/outputs/dir
 # test property labels: regression, mpi-no
-function(setup_test dir arg extra_labels)
+function(setup_test_serial dir arg extra_labels)
   separate_arguments(arg) 
   list(APPEND labels "regression;mpi-no")
   list(APPEND labels "${extra_labels}")
   if (Kokkos_ENABLE_OPENMP)
     set(PARTHENON_KOKKOS_TEST_ARGS "${PARTHENON_KOKKOS_TEST_ARGS} --kokkos-threads=${NUM_OMP_THREADS_PER_RANK}")
   endif()
-  add_test( NAME regression_test:${dir} COMMAND ${Python3_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/run_test.py" 
-    ${arg} --test_dir "${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}"
-    --output_dir "${PROJECT_BINARY_DIR}/tst/regression/outputs/${dir}"
-    --kokkos_args=${PARTHENON_KOKKOS_TEST_ARGS})
+  if (SERIAL_WITH_MPIEXEC)
+    set(SUFFIX_SERIAL_REGRESSION_TEST --mpirun ${TEST_MPIEXEC})
+  endif()
+  add_test(
+    NAME regression_test:${dir}
+    COMMAND ${Python3_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/run_test.py" 
+      ${arg} --test_dir "${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}"
+      --output_dir "${PROJECT_BINARY_DIR}/tst/regression/outputs/${dir}"
+      --kokkos_args=${PARTHENON_KOKKOS_TEST_ARGS}
+      ${SUFFIX_SERIAL_REGRESSION_TEST})
   set_tests_properties(regression_test:${dir} PROPERTIES LABELS "${labels}" )
   record_driver("${arg}")
 endfunction()
@@ -89,12 +98,12 @@ function(process_mpi_args nproc)
   endif()
   # use custom numproc flag
   if (TEST_NUMPROC_FLAG)
-    list(APPEND TMPARGS "--mpirun_opts=${TEST_NUMPROC_FLAG}")
+    list(APPEND TMPARGS "--mpirun_ranks_flag=${TEST_NUMPROC_FLAG}")
   # use CMake determined numproc flag
   else()
-    list(APPEND TMPARGS "--mpirun_opts=${MPIEXEC_NUMPROC_FLAG}")
+    list(APPEND TMPARGS "--mpirun_ranks_flag=${MPIEXEC_NUMPROC_FLAG}")
   endif()
-  list(APPEND TMPARGS "--mpirun_opts=${nproc}")
+  list(APPEND TMPARGS "--mpirun_ranks_num=${nproc}")
   # set additional options from machine configuration
   foreach(MPIARG ${TEST_MPIOPTS})
     list(APPEND TMPARGS "--mpirun_opts=${MPIARG}")
@@ -107,7 +116,7 @@ endfunction()
 # Adds test that will run in parallel with mpi
 # test output will be sent to /tst/regression/outputs/dir_mpi
 # test property labels: regression, mpi-yes
-function(setup_test_mpi nproc dir arg extra_labels)
+function(setup_test_parallel nproc dir arg extra_labels)
   if( MPI_FOUND )
     separate_arguments(arg) 
     list(APPEND labels "regression;mpi-yes")
@@ -126,7 +135,22 @@ function(setup_test_mpi nproc dir arg extra_labels)
       --test_dir ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}
       --output_dir "${PROJECT_BINARY_DIR}/tst/regression/outputs/${dir}_mpi"
       --kokkos_args=${PARTHENON_KOKKOS_TEST_ARGS})
-    set_tests_properties(regression_mpi_test:${dir} PROPERTIES LABELS "${labels}" RUN_SERIAL ON )
+
+    # When targeting CUDA we don't have a great way of controlling how tests
+    # get mapped to GPUs, so just enforce serial execution
+    if (Kokkos_ENABLE_CUDA)
+      set(TEST_PROPERTIES
+        RUN_SERIAL ON)
+    else()
+      set(TEST_PROPERTIES
+        PROCESSOR_AFFINITY ON
+        PROCESSORS ${nproc})
+    endif()
+    set_tests_properties(
+      regression_mpi_test:${dir}
+      PROPERTIES
+        LABELS "${labels}"
+        ${TEST_PROPERTIES})
     record_driver("${arg}")
   else()
     message(STATUS "MPI not found, not building regression tests with mpi")
@@ -156,5 +180,4 @@ function(setup_test_mpi_coverage nproc dir arg extra_labels)
     message(STATUS "MPI not found, not building coverage regression tests with mpi")
   endif()
 endfunction()
-
 

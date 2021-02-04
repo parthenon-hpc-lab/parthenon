@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -35,7 +35,7 @@ void Driver::PreExecute() {
   timer_main.reset();
 }
 
-void Driver::PostExecute() {
+void Driver::PostExecute(DriverStatus status) {
   if (Globals::my_rank == 0) {
     SignalHandler::CancelWallTimeAlarm();
     // Calculate and print the zone-cycles/cpu-second and wall-second
@@ -50,7 +50,7 @@ void Driver::PostExecute() {
 }
 
 DriverStatus EvolutionDriver::Execute() {
-  Driver::PreExecute();
+  PreExecute();
   InitializeBlockTimeSteps();
   SetGlobalTimeStep();
   pouts->MakeOutputs(pmesh, pinput, &tm);
@@ -61,19 +61,27 @@ DriverStatus EvolutionDriver::Execute() {
   while (tm.KeepGoing()) {
     if (Globals::my_rank == 0) OutputCycleDiagnostics();
 
+    pmesh->PreStepUserWorkInLoop(pmesh, pinput, tm);
+    pmesh->PreStepUserDiagnosticsInLoop(pmesh, pinput, tm);
+
     TaskListStatus status = Step();
     if (status != TaskListStatus::complete) {
       std::cerr << "Step failed to complete all tasks." << std::endl;
       return DriverStatus::failed;
     }
-    // pmesh->UserWorkInLoop();
+
+    pmesh->PostStepUserWorkInLoop(pmesh, pinput, tm);
+    pmesh->PostStepUserDiagnosticsInLoop(pmesh, pinput, tm);
+
     tm.ncycle++;
     tm.time += tm.dt;
     pmesh->mbcnt += pmesh->nbtotal;
     pmesh->step_since_lb++;
 
+    timer_LBandAMR.reset();
     pmesh->LoadBalancingAndAdaptiveMeshRefinement(pinput, app_input);
     if (pmesh->modified) InitializeBlockTimeSteps();
+    time_LBandAMR += timer_LBandAMR.seconds();
     SetGlobalTimeStep();
     if (tm.time < tm.tlim) // skip the final output as it happens later
       pouts->MakeOutputs(pmesh, pinput, &tm);
@@ -121,13 +129,19 @@ void EvolutionDriver::PostExecute(DriverStatus status) {
                 << std::endl;
     }
   }
-  Driver::PostExecute();
+  Driver::PostExecute(status);
 }
 
 void EvolutionDriver::InitializeBlockTimeSteps() {
-  // calculate the first time step
+  // calculate the first time step using Block function
   for (auto &pmb : pmesh->block_list) {
     Update::EstimateTimestep(pmb->meshblock_data.Get().get());
+  }
+  // calculate the first time step using Mesh function
+  const int num_partitions = pmesh->DefaultNumPartitions();
+  for (int i = 0; i < num_partitions; i++) {
+    auto &mbase = pmesh->mesh_data.GetOrAdd("base", i);
+    Update::EstimateTimestep(mbase.get());
   }
 }
 
@@ -153,33 +167,56 @@ void EvolutionDriver::SetGlobalTimeStep() {
   if (tm.time < tm.tlim &&
       (tm.tlim - tm.time) < tm.dt) // timestep would take us past desired endpoint
     tm.dt = tm.tlim - tm.time;
-
-  return;
 }
 
 void EvolutionDriver::OutputCycleDiagnostics() {
   const int dt_precision = std::numeric_limits<Real>::max_digits10 - 1;
   if (tm.ncycle_out != 0) {
     if (tm.ncycle % tm.ncycle_out == 0) {
-      if (Globals::my_rank == 0) {
-        std::uint64_t zonecycles =
-            (pmesh->mbcnt - mbcnt_prev) *
-            static_cast<std::uint64_t>(pmesh->GetNumberOfMeshBlockCells());
-        std::cout << "cycle=" << tm.ncycle << std::scientific
-                  << std::setprecision(dt_precision) << " time=" << tm.time
-                  << " dt=" << tm.dt << std::setprecision(2) << " zone-cycles/wsec = "
-                  << static_cast<double>(zonecycles) / timer_cycle.seconds();
-        // insert more diagnostics here
-        std::cout << std::endl;
+      std::uint64_t zonecycles =
+          (pmesh->mbcnt - mbcnt_prev) *
+          static_cast<std::uint64_t>(pmesh->GetNumberOfMeshBlockCells());
+      const auto time_cycle_all = timer_cycle.seconds();
+      const auto time_cycle_step = time_cycle_all - time_LBandAMR;
+      std::cout << "cycle=" << tm.ncycle << std::scientific
+                << std::setprecision(dt_precision) << " time=" << tm.time
+                << " dt=" << tm.dt << std::setprecision(2) << " zone-cycles/wsec_step="
+                << static_cast<double>(zonecycles) / time_cycle_step
+                << " wsec_step=" << time_cycle_step;
 
-        // reset cycle related counters
-        timer_cycle.reset();
-        // need to cache number of MeshBlocks as AMR/load balance change it
-        mbcnt_prev = pmesh->mbcnt;
+      // In principle load balancing based on a cost list can happens for non-AMR runs.
+      // TODO(future me) fix this when this becomes important.
+      if (pmesh->adaptive) {
+        std::cout << " zone-cycles/wsec="
+                  << static_cast<double>(zonecycles) / (time_cycle_step + time_LBandAMR)
+                  << " wsec_AMR=" << time_LBandAMR;
       }
+
+      // insert more diagnostics here
+      std::cout << std::endl;
+
+      // reset cycle related counters
+      timer_cycle.reset();
+      time_LBandAMR = 0.0;
+      // need to cache number of MeshBlocks as AMR/load balance change it
+      mbcnt_prev = pmesh->mbcnt;
     }
   }
-  return;
+  if (tm.ncycle_out_mesh != 0) {
+    // output after mesh refinement (enabled by use of negative cycle number)
+    if (tm.ncycle_out_mesh < 0 && pmesh->modified) {
+      std::cout << "-------------- New Mesh structure after (de)refinement -------------";
+      pmesh->OutputMeshStructure(-1, false);
+      std::cout << "--------------------------------------------------------------------"
+                << std::endl;
+      // output in fixed intervals
+    } else if (tm.ncycle % tm.ncycle_out_mesh == 0) {
+      std::cout << "---------------------- Current Mesh structure ----------------------";
+      pmesh->OutputMeshStructure(-1, false);
+      std::cout << "--------------------------------------------------------------------"
+                << std::endl;
+    }
+  }
 }
 
 } // namespace parthenon

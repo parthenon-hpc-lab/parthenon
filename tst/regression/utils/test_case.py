@@ -15,7 +15,6 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #========================================================================================
 
-import errno
 import os
 from shutil import rmtree
 import subprocess
@@ -107,20 +106,9 @@ class TestManager:
         self.parameters.output_path = output_path
         self.parameters.test_path = test_path
         self.parameters.mpi_cmd = mpi_executable
+        self.parameters.mpi_ranks_flag = kwargs.pop('mpirun_ranks_flag')
+        self.parameters.num_ranks = int(kwargs.pop('mpirun_ranks_num'))
         self.parameters.mpi_opts = kwargs.pop('mpirun_opts')
-       
-        argstrings = ['-np','-n']
-        if len(set(argstrings) & set(self.parameters.mpi_opts)) > 1:
-          print('Warning! You have set both "-n" and "-np" in your MPI options.')
-          print(self.parameters.mpi_opts)
-        for s in argstrings:
-          if s in self.parameters.mpi_opts:
-            index = self.parameters.mpi_opts.index(s)
-            if index < len(self.parameters.mpi_opts) - 1:
-              try:
-                self.parameters.num_ranks = int(self.parameters.mpi_opts[index+1])
-              except ValueError:
-                pass
 
         module = __import__(self.__test_module, globals(), locals(),
                 fromlist=['TestCase'])
@@ -179,6 +167,12 @@ class TestManager:
             raise TestManagerError(error_msg)
 
     def MakeOutputFolder(self):
+        if os.path.isdir(self.parameters.output_path):
+            try:
+                rmtree(self.parameters.output_path)
+            except OSError as e:
+                print ("Error: %s - %s." % (e.filename, e.strerror))
+
         if not os.path.isdir(self.parameters.output_path):
             os.makedirs(self.parameters.output_path)
 
@@ -196,6 +190,9 @@ class TestManager:
         run_command = []
         if self.parameters.mpi_cmd != "":
             run_command.extend(self.parameters.mpi_cmd)
+        if self.parameters.mpi_ranks_flag is not None:
+            run_command.append(self.parameters.mpi_ranks_flag)
+            run_command.append(str(self.parameters.num_ranks))
         for opt in self.parameters.mpi_opts:
             run_command.extend(opt.split()) 
         run_command.append(self.parameters.driver_path)

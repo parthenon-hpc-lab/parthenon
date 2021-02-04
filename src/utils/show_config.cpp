@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -43,7 +43,6 @@ void ShowConfig() {
   } else {
     std::cout << "  Floating-point precision:   double" << std::endl;
   }
-  std::cout << "  Number of ghost cells:      " << NGHOST << std::endl;
 #ifdef MPI_PARALLEL
   std::cout << "  MPI parallelism:            ON" << std::endl;
 #else

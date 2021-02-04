@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -14,6 +14,7 @@
 #ifndef DRIVER_MULTISTAGE_HPP_
 #define DRIVER_MULTISTAGE_HPP_
 
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -25,33 +26,36 @@
 
 namespace parthenon {
 
-struct Integrator {
-  Integrator() = default;
-  Integrator(int nstages, std::vector<Real> beta) : nstages(nstages), beta(beta) {}
+struct StagedIntegrator {
+  StagedIntegrator() = default;
+  explicit StagedIntegrator(ParameterInput *pin);
   int nstages;
   std::vector<Real> beta;
+  std::vector<std::string> stage_name;
   Real dt;
 };
 
 class MultiStageDriver : public EvolutionDriver {
  public:
-  MultiStageDriver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm);
-  std::vector<std::string> stage_name;
-  Integrator *integrator;
-  ~MultiStageDriver() { delete integrator; }
+  MultiStageDriver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
+      : EvolutionDriver(pin, app_in, pm),
+        integrator(std::make_unique<StagedIntegrator>(pin)) {}
+  // An application driver that derives from this class must define this
+  // function, which defines the application specific list of tasks and
+  // the dependencies that must be executed.
+  virtual TaskCollection MakeTaskCollection(BlockList_t &blocks, int stage) = 0;
+  virtual TaskListStatus Step();
 
- private:
+ protected:
+  std::unique_ptr<StagedIntegrator> integrator;
 };
 
 class MultiStageBlockTaskDriver : public MultiStageDriver {
  public:
   MultiStageBlockTaskDriver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
       : MultiStageDriver(pin, app_in, pm) {}
-  TaskListStatus Step();
-  // An application driver that derives from this class must define this
-  // function, which defines the application specific list of tasks and
-  // there dependencies that must be executed.
-  virtual TaskCollection MakeTaskCollection(BlockList_t &blocks, int stage) = 0;
+  virtual TaskList MakeTaskList(MeshBlock *pmb, int stage) = 0;
+  virtual TaskListStatus Step();
 };
 
 } // namespace parthenon

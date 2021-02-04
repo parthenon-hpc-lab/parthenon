@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -130,7 +130,7 @@ class OutputType {
 
 class HistoryOutput : public OutputType {
  public:
-  explicit HistoryOutput(OutputParameters oparams) : OutputType(oparams) {}
+  explicit HistoryOutput(const OutputParameters &oparams) : OutputType(oparams) {}
   void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) override;
 };
 
@@ -140,7 +140,7 @@ class HistoryOutput : public OutputType {
 
 class FormattedTableOutput : public OutputType {
  public:
-  explicit FormattedTableOutput(OutputParameters oparams) : OutputType(oparams) {}
+  explicit FormattedTableOutput(const OutputParameters &oparams) : OutputType(oparams) {}
   void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) override;
 };
 
@@ -150,7 +150,7 @@ class FormattedTableOutput : public OutputType {
 
 class VTKOutput : public OutputType {
  public:
-  explicit VTKOutput(OutputParameters oparams) : OutputType(oparams) {}
+  explicit VTKOutput(const OutputParameters &oparams) : OutputType(oparams) {}
   void WriteContainer(SimTime &tm, Mesh *pm, ParameterInput *pin, bool flag) override;
   void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) override;
 };
@@ -161,7 +161,7 @@ class VTKOutput : public OutputType {
 
 class RestartOutput : public OutputType {
  public:
-  explicit RestartOutput(OutputParameters oparams) : OutputType(oparams) {
+  explicit RestartOutput(const OutputParameters &oparams) : OutputType(oparams) {
 #ifndef HDF5OUTPUT
     std::stringstream msg;
     msg << "### FATAL ERROR in Restart (Outputs) constructor" << std::endl
@@ -182,7 +182,7 @@ class RestartOutput : public OutputType {
 class PHDF5Output : public OutputType {
  public:
   // Function declarations
-  explicit PHDF5Output(OutputParameters oparams) : OutputType(oparams) {}
+  explicit PHDF5Output(const OutputParameters &oparams) : OutputType(oparams) {}
   void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) override;
   void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm);
 

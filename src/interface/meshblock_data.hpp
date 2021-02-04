@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -56,7 +56,7 @@ class MeshBlockData {
   // the variables returned are all shallow copies of the src container.
   // Optionally extract only some of the sparse ids of src variable.
   MeshBlockData<T>(const MeshBlockData<T> &src, const std::vector<std::string> &names,
-                   const std::vector<int> sparse_ids = {});
+                   const std::vector<int> &sparse_ids = {});
   MeshBlockData<T>(const MeshBlockData<T> &src, const std::vector<MetadataFlag> &flags);
 
   /// Returns shared pointer to a block
@@ -171,7 +171,7 @@ class MeshBlockData {
   ///
   /// TODO(JMM): DO NOT make these strings const reference.
   /// passing in C-style string literals misbehaves
-  void Add(const std::string label, const Metadata &metadata,
+  void Add(const std::string &label, const Metadata &metadata,
            const std::vector<int> &dims);
 
   ///
@@ -185,8 +185,8 @@ class MeshBlockData {
   /// @param metadata the metadata associated with the variable
   /// @param dims the size of each element
   ///
-  void Add(const std::vector<std::string> labelVector, const Metadata &metadata,
-           const std::vector<int> dims);
+  void Add(const std::vector<std::string> &labelVector, const Metadata &metadata,
+           const std::vector<int> &dims);
 
   ///
   /// Allocate and add a variable<T> to the container
@@ -198,7 +198,7 @@ class MeshBlockData {
   /// @param label the name of the variable
   /// @param metadata the metadata associated with the variable
   ///
-  void Add(const std::string label, const Metadata &metadata);
+  void Add(const std::string &label, const Metadata &metadata);
 
   ///
   /// Allocate and add a variable<T> to the container
@@ -210,7 +210,7 @@ class MeshBlockData {
   /// @param labelVector the array of names of variables
   /// @param metadata the metadata associated with the variable
   ///
-  void Add(const std::vector<std::string> labelVector, const Metadata &metadata);
+  void Add(const std::vector<std::string> &labelVector, const Metadata &metadata);
 
   void Add(std::shared_ptr<CellVariable<T>> var) {
     varVector_.push_back(var);
@@ -467,7 +467,7 @@ class MeshBlockData {
   // helper functions for VariablePack
   vpack_types::VarList<T> MakeList_(const std::vector<std::string> &names,
                                     std::vector<std::string> &names_out,
-                                    const std::vector<int> sparse_ids = {});
+                                    const std::vector<int> &sparse_ids = {});
   vpack_types::VarList<T> MakeList_(const std::vector<MetadataFlag> &flags,
                                     std::vector<std::string> &labels);
   vpack_types::VarList<T> MakeList_(std::vector<std::string> &names);

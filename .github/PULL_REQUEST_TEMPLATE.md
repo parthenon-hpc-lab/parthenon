@@ -18,3 +18,4 @@ detail.  Why is this change required?  What problem does it solve?-->
 - [ ] Adds a test for any bugs fixed. Adds tests for new features.
 - [ ] Code is formatted
 - [ ] Changes are summarized in CHANGELOG.md
+- [ ] (@lanl.gov employees) Update copyright on changed files
