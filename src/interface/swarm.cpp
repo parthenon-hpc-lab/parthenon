@@ -601,7 +601,7 @@ bool Swarm::Send(BoundaryCommSubset phase) {
               for (int l = 0; l < 2; l++) {
                 bounds[l]->Apply(n, x, y, z, swarm_d);
               }
-              bounds[0]->Apply(n, x, y, z, swarm_d);
+              //bounds[0]->Apply(n, x, y, z, swarm_d);
               // if (x < swarm_d.x_min_global_) {
               //  x = swarm_d.x_max_global_ - (swarm_d.x_min_global_ - x);
               //}
@@ -774,6 +774,9 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
           double &x = vreal(ix, sid);
           double &y = vreal(iy, sid);
           double &z = vreal(iz, sid);
+          for (int l = 0; l < 2; l++) {
+            bounds[l]->Apply(n, x, y, z, swarm_d);
+          }
           // TODO(BRR) Don't hardcode periodic boundary conditions
           if (x < swarm_d.x_min_global_) {
             x = swarm_d.x_max_global_ - (swarm_d.x_min_global_ - x);
@@ -856,6 +859,10 @@ void Swarm::allocateComms(std::weak_ptr<MeshBlock> wpmb) {
   // Enroll SwarmVariable object
   vbswarm->bswarm_index = pmb->pbswarm->bswarms.size();
   pmb->pbswarm->bswarms.push_back(vbswarm);
+}
+
+Swarm::~Swarm() {
+  PARTHENON_FAIL("Call kokkos_free on boundaries!");
 }
 
 } // namespace parthenon

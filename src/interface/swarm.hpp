@@ -146,6 +146,8 @@ class Swarm {
  public:
   Swarm(const std::string &label, const Metadata &metadata, const int nmax_pool_in = 3);
 
+  ~Swarm();
+
   /// Returns shared pointer to a block
   std::shared_ptr<MeshBlock> GetBlockPointer() const {
     if (pmy_block.expired()) {

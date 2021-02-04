@@ -65,6 +65,7 @@ class ParticleBoundOX1Outflow : public ParticleBound {
  public:
   KOKKOS_INLINE_FUNCTION void Apply(const int n, double &x, double &y, double &z,
                                         const SwarmDeviceContext &swarm_d) override {
+//                                          printf("Marking particle %i for removal!\n", n);
     swarm_d.MarkParticleForRemoval(n);
   }
 };
