@@ -706,8 +706,7 @@ TEST_CASE("Test Device Allocation", "[wrapper]") {
   };
   parthenon::ParArray1D<int> buffer("Testing buffer", 1);
 
-  GIVEN("An uninitialized host struct") {
-    MyTestStruct s;
+  GIVEN("A struct") {
     THEN("We can create a unique_ptr to this on device") {
       { auto ptr = parthenon::DeviceAllocate<MyTestStruct>(); }
     }
@@ -726,6 +725,30 @@ TEST_CASE("Test Device Allocation", "[wrapper]") {
 
       auto buffer_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), buffer);
       REQUIRE(buffer_h[0] == s.i);
+    }
+  }
+
+  constexpr int test_int = 2;
+
+  class MyTestBaseClass {
+    virtual int GetInt() = 0;
+  };
+
+  struct MyTestDerivedClass : public MyTestBaseClass {
+    int GetInt() { return test_int; }
+  };
+
+  GIVEN("A derived class") {
+    THEN("We can create a unique_ptr to this on device") {
+      auto ptr = parthenon::DeviceAllocate<MyTestDerivedClass>();
+      auto devptr = ptr.get();
+
+      Kokkos::parallel_for(
+          Kokkos::RangePolicy<DevExecSpace>(0, 1),
+          KOKKOS_LAMBDA(const int i) { buffer(i) = devptr->GetInt(); });
+
+      auto buffer_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), buffer);
+      REQUIRE(buffer_h[0] == test_int);
     }
   }
 }
