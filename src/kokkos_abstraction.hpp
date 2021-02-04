@@ -1,9 +1,9 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2020 The Parthenon collaboration
+// Copyright(C) 2020-2021 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001
 // for Los Alamos National Laboratory (LANL), which is operated by Triad
@@ -634,6 +634,36 @@ struct SpaceInstance<Kokkos::Cuda> {
   }
 };
 #endif
+
+struct DeviceDeleter {
+  template <typename T>
+  void operator()(T *ptr) {
+    Kokkos::parallel_for(
+        Kokkos::RangePolicy<DevExecSpace>(0, 1),
+        KOKKOS_LAMBDA(const int i) { ptr->~T(); });
+    Kokkos::kokkos_free<DevMemSpace>(ptr);
+  }
+};
+
+template <typename T>
+std::unique_ptr<T, DeviceDeleter> DeviceAllocate() {
+  auto *p = static_cast<T *>(Kokkos::kokkos_malloc<DevMemSpace>(sizeof(T)));
+  Kokkos::parallel_for(
+      Kokkos::RangePolicy<DevExecSpace>(0, 1),
+      KOKKOS_LAMBDA(const int i) { new (p) T(); });
+  Kokkos::fence();
+  return std::unique_ptr<T, DeviceDeleter>(p);
+}
+
+template <typename T>
+std::unique_ptr<T, DeviceDeleter> DeviceCopy(const T &host_object) {
+  auto *p = static_cast<T *>(Kokkos::kokkos_malloc<DevMemSpace>(sizeof(T)));
+  Kokkos::parallel_for(
+      Kokkos::RangePolicy<DevExecSpace>(0, 1),
+      KOKKOS_LAMBDA(const int i) { new (p) T(host_object); });
+  Kokkos::fence();
+  return std::unique_ptr<T, DeviceDeleter>(p);
+}
 
 } // namespace parthenon
 

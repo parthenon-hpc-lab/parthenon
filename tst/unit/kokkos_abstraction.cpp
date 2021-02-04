@@ -1,6 +1,6 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2020 The Parthenon collaboration
+// Copyright(C) 2020-2021 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
@@ -696,5 +696,36 @@ TEST_CASE("Overlapping SpaceInstances", "[wrapper][performance]") {
   SECTION("Few Threads Long Kernel") {
     test_wrapper_buffer_pack_overlapping_space_instances<SmallNLongTBufferPack>(
         "Few Threads Long Kernel");
+  }
+}
+
+TEST_CASE("Test Device Allocation", "[wrapper]") {
+
+  struct MyTestStruct {
+    int i;
+  };
+  parthenon::ParArray1D<int> buffer("Testing buffer", 1);
+
+  GIVEN("An uninitialized host struct") {
+    MyTestStruct s;
+    THEN("We can create a unique_ptr to this on device") {
+      { auto ptr = parthenon::DeviceAllocate<MyTestStruct>(); }
+    }
+  }
+
+  GIVEN("An initialized host struct") {
+    MyTestStruct s;
+    s.i = 5;
+    THEN("We can create a unique_ptr to a copy on device") {
+      auto ptr = parthenon::DeviceCopy<MyTestStruct>(s);
+      auto devptr = ptr.get();
+
+      Kokkos::parallel_for(
+          Kokkos::RangePolicy<DevExecSpace>(0, 1),
+          KOKKOS_LAMBDA(const int i) { buffer(i) = devptr->i; });
+
+      auto buffer_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), buffer);
+      REQUIRE(buffer_h[0] == s.i);
+    }
   }
 }
