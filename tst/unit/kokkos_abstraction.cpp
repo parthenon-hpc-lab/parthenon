@@ -699,8 +699,7 @@ TEST_CASE("Overlapping SpaceInstances", "[wrapper][performance]") {
   }
 }
 
-TEST_CASE("Test Device Allocation", "[wrapper]") {
-
+TEST_CASE("Device Object Allocation", "[wrapper]") {
   struct MyTestStruct {
     int i;
   };
