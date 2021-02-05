@@ -26,6 +26,8 @@
 
 #include <Kokkos_Core.hpp>
 
+#include "utils/error_checking.hpp"
+
 namespace parthenon {
 
 #ifdef KOKKOS_ENABLE_CUDA_UVM
@@ -635,34 +637,36 @@ struct SpaceInstance<Kokkos::Cuda> {
 };
 #endif
 
+// Design from "Runtime Polymorphism in Kokkos Applications", SAND2019-0279PE
+template <typename ES = DevExecSpace, typename MS = DevMemSpace>
 struct DeviceDeleter {
   template <typename T>
   void operator()(T *ptr) {
-    Kokkos::parallel_for(
-        Kokkos::RangePolicy<DevExecSpace>(0, 1),
-        KOKKOS_LAMBDA(const int i) { ptr->~T(); });
-    Kokkos::kokkos_free<DevMemSpace>(ptr);
+    Kokkos::kokkos_free<MS>(ptr);
   }
 };
 
-template <typename T>
-std::unique_ptr<T, DeviceDeleter> DeviceAllocate() {
-  auto *p = static_cast<T *>(Kokkos::kokkos_malloc<DevMemSpace>(sizeof(T)));
+template <typename T, typename ES = DevExecSpace, typename MS = DevMemSpace>
+std::unique_ptr<T, DeviceDeleter<ES, MS>> DeviceAllocate() {
+  PARTHENON_REQUIRE(std::is_trivially_destructible<T>::value,
+                    "DeviceAllocate only supports trivially destructible classes!");
+  auto *p = static_cast<T *>(Kokkos::kokkos_malloc<MS>(sizeof(T)));
   Kokkos::parallel_for(
-      Kokkos::RangePolicy<DevExecSpace>(0, 1),
-      KOKKOS_LAMBDA(const int i) { new (p) T(); });
+      Kokkos::RangePolicy<ES>(0, 1), KOKKOS_LAMBDA(const int i) { new (p) T(); });
   Kokkos::fence();
-  return std::unique_ptr<T, DeviceDeleter>(p);
+  return std::unique_ptr<T, DeviceDeleter<ES, MS>>(p);
 }
 
-template <typename T>
-std::unique_ptr<T, DeviceDeleter> DeviceCopy(const T &host_object) {
-  auto *p = static_cast<T *>(Kokkos::kokkos_malloc<DevMemSpace>(sizeof(T)));
+template <typename T, typename ES = DevExecSpace, typename MS = DevMemSpace>
+std::unique_ptr<T, DeviceDeleter<ES, MS>> DeviceCopy(const T &host_object) {
+  PARTHENON_REQUIRE(std::is_trivially_destructible<T>::value,
+                    "DeviceCopy only supports trivially destructible classes!");
+  auto *p = static_cast<T *>(Kokkos::kokkos_malloc<MS>(sizeof(T)));
   Kokkos::parallel_for(
-      Kokkos::RangePolicy<DevExecSpace>(0, 1),
+      Kokkos::RangePolicy<ES>(0, 1),
       KOKKOS_LAMBDA(const int i) { new (p) T(host_object); });
   Kokkos::fence();
-  return std::unique_ptr<T, DeviceDeleter>(p);
+  return std::unique_ptr<T, DeviceDeleter<ES, MS>>(p);
 }
 
 } // namespace parthenon
