@@ -12,6 +12,7 @@
 - [[PR 359]](https://github.com/lanl/parthenon/pull/359) Templated inline reconstruction functions to support different types (e.g., `ParArray4D` or `ParArrayND`)
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 441]](https://github.com/lanl/parthenon/pull/441) Fixed type in input parsing of `pack_size`
 
 ### Infrastructure (changes irrelevant to downstream codes)
 - [[PR 436]](https://github.com/lanl/parthenon/pull/436) Update Summit build doc and machine file
