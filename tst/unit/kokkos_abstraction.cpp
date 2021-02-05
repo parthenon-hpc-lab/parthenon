@@ -699,10 +699,23 @@ TEST_CASE("Overlapping SpaceInstances", "[wrapper][performance]") {
   }
 }
 
+struct MyTestStruct {
+  int i;
+};
+
+constexpr int test_int = 2;
+
+class MyTestBaseClass {
+  KOKKOS_INLINE_FUNCTION
+  virtual int GetInt() = 0;
+};
+
+struct MyTestDerivedClass : public MyTestBaseClass {
+  KOKKOS_INLINE_FUNCTION
+  int GetInt() { return test_int; }
+};
+
 TEST_CASE("Device Object Allocation", "[wrapper]") {
-  struct MyTestStruct {
-    int i;
-  };
   parthenon::ParArray1D<int> buffer("Testing buffer", 1);
 
   GIVEN("A struct") {
@@ -726,16 +739,6 @@ TEST_CASE("Device Object Allocation", "[wrapper]") {
       REQUIRE(buffer_h[0] == s.i);
     }
   }
-
-  constexpr int test_int = 2;
-
-  class MyTestBaseClass {
-    virtual int GetInt() = 0;
-  };
-
-  struct MyTestDerivedClass : public MyTestBaseClass {
-    int GetInt() { return test_int; }
-  };
 
   GIVEN("A derived class") {
     THEN("We can create a unique_ptr to this on device") {
