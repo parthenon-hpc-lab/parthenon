@@ -44,6 +44,55 @@ function(record_driver arg)
     endforeach()
 endfunction()
 
+# If binaries cannot be run in serial without mpiexec or the equivalent this function allows
+# the specification of the appropriate flags.
+# By default the function will populate the arguments with the appropriate mpi flags that
+# are registered from the find_package command. They can however be overwritten with 
+# TEST_MPIEXEC and TEST_MPIEXEC_FLAG if needed. 
+function(process_args_serial_with_mpi)
+  if ( ${TEST_MPIEXEC} ) 
+    set(TMPARGS "--mpirun=${TEST_MPIEXEC}")
+  else()
+    set(TMPARGS "--mpirun=${MPIEXEC_EXECUTABLE}")
+  endif()
+  if ( ${TEST_MPIEXEC_FLAG} )
+    list(APPEND TMPARGS "--mpirun_ranks_flag=${TEST_MPIEXEC_FLAG}")
+  else()
+    list(APPEND TMPARGS "--mpirun_ranks_flag=${MPIEXEC_NUMPROC_FLAG}")
+  endif()
+  list(APPEND TMPARGS "--mpirun_ranks_num=1")
+  
+  # make the result accessible in the calling function
+  set(SUFFIX_SERIAL_REGRESSION_TEST ${TMPARGS} PARENT_SCOPE)
+endfunction()
+
+function(process_mpi_args nproc)
+  list(APPEND TMPARGS "--mpirun")
+  # use custom mpiexec
+  if (TEST_MPIEXEC)
+    list(APPEND TMPARGS "${TEST_MPIEXEC}")
+  # use CMake determined mpiexec
+  else()
+    message("MPI executable ${MPIEXEC_EXECUTABLE}")
+    list(APPEND TMPARGS "${MPIEXEC_EXECUTABLE}")
+  endif()
+  # use custom numproc flag
+  if (TEST_NUMPROC_FLAG)
+    list(APPEND TMPARGS "--mpirun_ranks_flag=${TEST_NUMPROC_FLAG}")
+  # use CMake determined numproc flag
+  else()
+    list(APPEND TMPARGS "--mpirun_ranks_flag=${MPIEXEC_NUMPROC_FLAG}")
+  endif()
+  list(APPEND TMPARGS "--mpirun_ranks_num=${nproc}")
+  # set additional options from machine configuration
+  foreach(MPIARG ${TEST_MPIOPTS})
+    list(APPEND TMPARGS "--mpirun_opts=${MPIARG}")
+  endforeach()
+
+  # make the result accessible in the calling function
+  set(MPIARGS ${TMPARGS} PARENT_SCOPE)
+endfunction()
+
 # Adds test that will run in serial
 # test output will be sent to /tst/regression/outputs/dir
 # test property labels: regression, mpi-no
@@ -55,7 +104,7 @@ function(setup_test_serial dir arg extra_labels)
     set(PARTHENON_KOKKOS_TEST_ARGS "${PARTHENON_KOKKOS_TEST_ARGS} --kokkos-threads=${NUM_OMP_THREADS_PER_RANK}")
   endif()
   if (SERIAL_WITH_MPIEXEC)
-    set(SUFFIX_SERIAL_REGRESSION_TEST --mpirun ${TEST_MPIEXEC})
+    process_args_serial_with_mpi()
   endif()
   add_test(
     NAME regression_test:${dir}
@@ -77,40 +126,18 @@ function(setup_test_coverage dir arg extra_labels)
 
     list(APPEND labels "regression;coverage;mpi-no")
     list(APPEND labels "${extra_labels}")
+    if (SERIAL_WITH_MPIEXEC)
+      process_args_serial_with_mpi()
+    endif()
     add_test( NAME regression_coverage_test:${dir} COMMAND ${Python3_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/run_test.py" 
       ${arg} 
       --coverage
       --test_dir "${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}"
-      --output_dir "${PROJECT_BINARY_DIR}/tst/regression/outputs/${dir}_cov")
+      --output_dir "${PROJECT_BINARY_DIR}/tst/regression/outputs/${dir}_cov"
+      ${SUFFIX_SERIAL_REGRESSION_TEST})
     set_tests_properties(regression_coverage_test:${dir} PROPERTIES LABELS "${labels}" )
     record_driver("${arg}")
   endif()
-endfunction()
-
-function(process_mpi_args nproc)
-  list(APPEND TMPARGS "--mpirun")
-  # use custom mpiexec
-  if (TEST_MPIEXEC)
-    list(APPEND TMPARGS "${TEST_MPIEXEC}")
-  # use CMake determined mpiexec
-  else()
-    list(APPEND TMPARGS "${MPIEXEC_EXECUTABLE}")
-  endif()
-  # use custom numproc flag
-  if (TEST_NUMPROC_FLAG)
-    list(APPEND TMPARGS "--mpirun_ranks_flag=${TEST_NUMPROC_FLAG}")
-  # use CMake determined numproc flag
-  else()
-    list(APPEND TMPARGS "--mpirun_ranks_flag=${MPIEXEC_NUMPROC_FLAG}")
-  endif()
-  list(APPEND TMPARGS "--mpirun_ranks_num=${nproc}")
-  # set additional options from machine configuration
-  foreach(MPIARG ${TEST_MPIOPTS})
-    list(APPEND TMPARGS "--mpirun_opts=${MPIARG}")
-  endforeach()
-
-  # make the result accessible in the calling function
-  set(MPIARGS ${TMPARGS} PARENT_SCOPE)
 endfunction()
 
 # Adds test that will run in parallel with mpi
