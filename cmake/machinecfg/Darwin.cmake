@@ -237,11 +237,11 @@ endif()
 # MPI - We use the system modules since replicating them in spack can be
 # difficult.
 if (DARWIN_COMPILER MATCHES "GCC")
-  if(DARWIN_MPI_PACKAGE MATCHES "openmpi")
+  if(DARWIN_MPI_PACKAGE STREQUAL "openmpi")
     set(MPI_ROOT 
     /projects/opt/${DARWIN_ARCH}${DARWIN_MICROARCH_PATH}/openmpi/${DARWIN_MPI_VERSION}-gcc_${DARWIN_${DARWIN_COMPILER}_VERSION}
         CACHE STRING "MPI Location")
-  else()
+  elseif(DARWIN_MPI_PACKAGE STREQUAL "smpi")
     set(MPI_ROOT /projects/opt/${DARWIN_ARCH}/ibm/smpi-${DARWIN_MPI_VERSION}
         CACHE STRING "MPI Location")
   endif()
