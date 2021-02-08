@@ -73,7 +73,6 @@ function(process_mpi_args nproc)
     list(APPEND TMPARGS "${TEST_MPIEXEC}")
   # use CMake determined mpiexec
   else()
-    message("MPI executable ${MPIEXEC_EXECUTABLE}")
     list(APPEND TMPARGS "${MPIEXEC_EXECUTABLE}")
   endif()
   # use custom numproc flag
