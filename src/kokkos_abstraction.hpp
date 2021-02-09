@@ -662,7 +662,7 @@ std::unique_ptr<T, DeviceDeleter<MS>> DeviceAllocate() {
 
 template <typename T, typename ES = DevExecSpace, typename MS = DevMemSpace>
 std::unique_ptr<T, DeviceDeleter<MS>> DeviceCopy(const T &host_object) {
-  PARTHENON_REQUIRE(std::is_trivially_destructible<T>::value,
+  static_assert(std::is_trivially_destructible<T>::value,
                     "DeviceCopy only supports trivially destructible classes!");
   auto up = std::unique_ptr<T, DeviceDeleter<MS>>(
       static_cast<T *>(Kokkos::kokkos_malloc<MS>(sizeof(T))));
