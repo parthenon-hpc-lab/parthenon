@@ -23,6 +23,13 @@ export CI_COMMIT_SHA="${3}"
 export CI_COMMIT_BRANCH="${4}"
 echo "Metrics PEM file $GITHUB_APP_PEM"
 
+trap 'catch $? $LINENO' ERR
+catch() {
+  echo "Error $1 occurred on $2"
+  echo "BUILD FAILED"
+  exit $ERR
+}
+
 if [[ "develop" == "${CI_COMMIT_BRANCH}" ]]; then
   # This is for the case where we are running on a schedule
   target_branch="${CI_COMMIT_BRANCH}"

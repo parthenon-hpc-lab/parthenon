@@ -22,6 +22,7 @@ catch() {
   echo "Error $1 occurred on $2"
   "${SOURCE}"/../python/parthenon_metrics_app.py --status "error" --status-context "Parthenon Metrics App" --status-description "CI failed" --status-url "${CI_JOB_URL}"
   wait
+  echo "BUILD FAILED"
   exit $ERR
 }
 
