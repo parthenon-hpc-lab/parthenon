@@ -20,9 +20,10 @@ stages:
   script:
     - printf 'env -i bash --norc --noprofile %s/scripts/darwin/build_fast_target.sh  "%s" "%s" "%s" "%s"\n' ${CI_PROJECT_DIR} ${GITHUB_APP_PEM} ${CI_COMMIT_SHA} ${CI_COMMIT_BRANCH} ${CI_JOB_URL}> execute_target.sh
     - |
-      PASS_OR_FAIL=$(env -i bash --norc --noprofile ${CI_PROJECT_DIR}/scripts/darwin/build_fast_target.sh "${GITHUB_APP_PEM}"  "${CI_COMMIT_SHA}" "${CI_COMMIT_BRANCH}" "${CI_JOB_URL}")
-      echo "PASS_OR_FAIL ${PASS_OR_FAIL}"
-      exit ${PASS_OR_FAIL}
+      env -i bash --norc --noprofile ${CI_PROJECT_DIR}/scripts/darwin/build_fast_target.sh "${GITHUB_APP_PEM}"  "${CI_COMMIT_SHA}" "${CI_COMMIT_BRANCH}" "${CI_JOB_URL}"
+      STATUS=$?
+      echo "PASS_OR_FAIL ${STATUS}"
+      exit ${STATUS}
 
 parthenon-power9-gcc-mpi-cuda-perf-manual-target-branch:
   extends: .gcc-mpi-cuda-performance-regression-target-branch
