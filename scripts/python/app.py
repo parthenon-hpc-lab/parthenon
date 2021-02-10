@@ -31,11 +31,11 @@ from contextlib import contextmanager,redirect_stdout
 from os import devnull
 
 @contextmanager
-def suppress_stdout():
-      """A context manager that redirects stdout and stderr to devnull"""
-      with open(devnull, 'w') as fnull:
-        with redirect_stdout(fnull) as out:
-          yield (out)
+def suppress_stdout_stderr():
+  """A context manager that redirects stdout and stderr to devnull"""
+  with open(devnull, 'w') as fnull:
+    with redirect_stderr(fnull) as err, redirect_stdout(fnull) as out:
+      yield (err,out)
 
 class Node:
 
@@ -190,7 +190,7 @@ class App:
             'Accept: ' + self._api_version
         ]
 
-        with suppress_stdout():
+        with suppress_stdout_stderr():
           c = pycurl.Curl()
           c.setopt(c.URL, 'https://api.github.com/app/installations')
           c.setopt(pycurl.VERBOSE, 0)
@@ -221,7 +221,7 @@ class App:
         https_url_access_tokens = "https://api.github.com/app/installations/" + \
             self._install_id + "/access_tokens"
 
-        with suppress_stdout():
+        with suppress_stdout_stderr():
           c = pycurl.Curl()
           c.setopt(pycurl.VERBOSE, 0)
           c.setopt(c.HTTPHEADER, header)
@@ -255,7 +255,7 @@ class App:
             buffer_temp = BytesIO()
             custom_data = {"branch": branch}
             buffer_temp2 = BytesIO(json.dumps(custom_data).encode('utf-8'))
-            with suppress_stdout():
+            with suppress_stdout_stderr():
               c = pycurl.Curl()
               c.setopt(pycurl.VERBOSE, 0)
               c.setopt(c.URL, self._repo_url + "/contents/" + node.getPath())
@@ -276,7 +276,7 @@ class App:
 
     def _getBranches(self):
         buffer_temp = BytesIO()
-        with suppress_stdout():
+        with suppress_stdout_stderr():
           c = pycurl.Curl()
           c.setopt(pycurl.VERBOSE, 0)
           c.setopt(c.URL, self._repo_url + "/branches")
@@ -296,7 +296,7 @@ class App:
     def getBranchMergingWith(self, branch):
         """Gets the name of the target branch of `branch` which it will merge with."""
         buffer_temp = BytesIO()
-        with suppress_stdout():
+        with suppress_stdout_stderr():
           c = pycurl.Curl()
           c.setopt(pycurl.VERBOSE, 0)
           c.setopt(c.URL, self._repo_url + "/pulls")
@@ -371,7 +371,7 @@ class App:
         custom_data = {
             "ref": "refs/heads/" + branch,
             "sha": self._branch_current_commit_sha[branch_to_fork_from]}
-        with suppress_stdout():
+        with suppress_stdout_stderr():
           c = pycurl.Curl()
           c.setopt(pycurl.VERBOSE, 0)
           c.setopt(c.URL, self._repo_url + '/git/refs')
@@ -393,7 +393,7 @@ class App:
         buffer_temp = BytesIO()
         # 1. Check if file exists if so get SHA
         custom_data = {"branch": branch}
-        with suppress_stdout():
+        with suppress_stdout_stderr():
           c = pycurl.Curl()
           c.setopt(pycurl.VERBOSE, 0)
           c.setopt(c.URL, self._repo_url + '/contents?ref=' + branch)
@@ -500,7 +500,7 @@ class App:
                   (os.path.basename(os.path.normpath(file_name)), branch))
             https_url_to_file = self._repo_url + "/contents/" + \
                 os.path.basename(os.path.normpath(file_name))
-            with suppress_stdout():
+            with suppress_stdout_stderr():
               c2 = pycurl.Curl()
               c2.setopt(pycurl.VERBOSE, 0)
               c2.setopt(c2.HTTPHEADER, self._header)
@@ -523,7 +523,7 @@ class App:
         custom_data = {"branch": branch}
         buffer_temp2 = BytesIO(json.dumps(custom_data).encode('utf-8'))
         # 1. Check if file exists
-        with suppress_stdout():
+        with suppress_stdout_stderr():
           c = pycurl.Curl()
           c.setopt(pycurl.VERBOSE, 0)
           c.setopt(c.URL, self._repo_url + "/contents")
@@ -584,7 +584,7 @@ class App:
             custom_data["description"] = description
         if target_url != "":
             custom_data["target_url"] = target_url
-        with suppress_stdout():
+        with suppress_stdout_stderr():
           c = pycurl.Curl()
           c.setopt(c.URL, self._repo_url + '/statuses/' + commit_sha)
           c.setopt(c.POST, 1)
@@ -608,7 +608,7 @@ class App:
 
         buffer_temp = BytesIO()
         # 1. Check if file exists if so get SHA
-        with suppress_stdout():
+        with suppress_stdout_stderr():
           c = pycurl.Curl()
           c.setopt(pycurl.VERBOSE, 0)
           c.setopt(c.URL, self._repo_url + '/commits/Add_to_dev/statuses')
