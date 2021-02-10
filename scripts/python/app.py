@@ -140,7 +140,7 @@ class App:
 
         self._parthenon_wiki_dir = os.path.normpath(
             self._parthenon_home + "/../" + self._repo_name + ".wiki")
-        print("******** Parthenon wiki dir")
+        print("Parthenon wiki dir")
         print(self._parthenon_wiki_dir)
         if isinstance(pem_file, list):
             self._generateJWT(pem_file[0])
@@ -594,8 +594,8 @@ class App:
           c.setopt(c.HTTPHEADER, self._header)
           c.perform()
           c.close()
-        js_obj = json.loads(buffer_temp.getvalue())
-        pprint.pprint(json.dumps(js_obj, indent=2))
+        #js_obj = json.loads(buffer_temp.getvalue())
+        #pprint.pprint(json.dumps(js_obj, indent=2))
 
     def getStatus(self):
         """
