@@ -27,7 +27,7 @@ import pycurl
 from git import Repo
 import git
 
-from contextlib import contextmanager,redirect_stdout
+from contextlib import contextmanager,redirect_stderr, redirect_stdout
 from os import devnull
 
 @contextmanager
