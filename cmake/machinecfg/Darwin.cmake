@@ -3,7 +3,7 @@
 # Copyright(C) 2020 The Parthenon collaboration
 # Licensed under the 3-clause BSD License, see LICENSE file for details
 #========================================================================================
-# (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+# (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -50,28 +50,34 @@ set(DARWIN_ARCH ${DARWIN_ARCH_INIT} CACHE STRING "Target Darwin architecture")
 # NOTE: When updating dependencies with new compilers or packages, you should
 # ideally only need to update these variables to change the default behavior.
 if (DARWIN_ARCH STREQUAL "x86_64")
-    set(DARWIN_VIEW_DATE_LATEST "2020-10-23")
+    set(DARWIN_VIEW_DATE_LATEST "2020-12-08")
     set(DARWIN_GCC_PREFERRED "GCC9")
     set(DARWIN_COMPILER_PREFERRED "GCC")
 
     set(DARWIN_GCC9_VERSION "9.3.0")
 
+    set(DARWIN_MPI_PACKAGE "openmpi")
     set(DARWIN_MPI_VERSION "4.0.3")
     set(DARWIN_CUDA_VERSION "11.0")
 
     set(DARWIN_CUDA_DEFAULT OFF)
 elseif (DARWIN_ARCH STREQUAL "ppc64le")
-    set(DARWIN_VIEW_DATE_LATEST "2020-10-28")
+    set(DARWIN_VIEW_DATE_LATEST "2021-02-08")
+
     set(DARWIN_GCC_PREFERRED "GCC9")
     set(DARWIN_COMPILER_PREFERRED "GCC")
 
-    set(DARWIN_GCC9_VERSION "9.2.0")
+    set(DARWIN_GCC9_VERSION "9.3.0")
     set(DARWIN_MICROARCH_PATH "/p9")
 
-    set(DARWIN_MPI_VERSION "4.0.2")
+    set(DARWIN_MPI_PACKAGE "smpi")
+    set(DARWIN_MPI_VERSION "10.3.0.1")
     set(DARWIN_CUDA_VERSION "11.0")
 
     set(DARWIN_CUDA_DEFAULT ON)
+    # Because using spectrum serial version requires calling mpiexec
+    set(SERIAL_WITH_MPIEXEC ON)
+    string(APPEND TEST_MPIOPTS "-gpu")
 else()
     message(
         FATAL_ERROR
@@ -232,9 +238,14 @@ endif()
 # MPI - We use the system modules since replicating them in spack can be
 # difficult.
 if (DARWIN_COMPILER MATCHES "GCC")
-    set(MPI_ROOT
-        /projects/opt/${DARWIN_ARCH}${DARWIN_MICROARCH_PATH}/openmpi/${DARWIN_MPI_VERSION}-gcc_${DARWIN_${DARWIN_COMPILER}_VERSION}
+  if(DARWIN_MPI_PACKAGE STREQUAL "openmpi")
+    set(MPI_ROOT 
+    /projects/opt/${DARWIN_ARCH}${DARWIN_MICROARCH_PATH}/openmpi/${DARWIN_MPI_VERSION}-gcc_${DARWIN_${DARWIN_COMPILER}_VERSION}
         CACHE STRING "MPI Location")
+  elseif(DARWIN_MPI_PACKAGE STREQUAL "smpi")
+    set(MPI_ROOT /projects/opt/${DARWIN_ARCH}/ibm/smpi-${DARWIN_MPI_VERSION}
+        CACHE STRING "MPI Location")
+  endif()
 endif()
 
 # clang-format
@@ -263,7 +274,6 @@ if (DARWIN_CUDA AND GPU_COUNT LESS 2)
 else()
     set(NUM_RANKS 2)
 endif()
-
 set(NUM_MPI_PROC_TESTING ${NUM_RANKS} CACHE STRING "CI runs tests with 2 MPI ranks")
 set(NUM_GPU_DEVICES_PER_NODE ${NUM_RANKS} CACHE STRING "Number of gpu devices to use when testing if built with Kokkos_ENABLE_CUDA")
 set(NUM_OMP_THREADS_PER_RANK 1 CACHE STRING "Number of threads to use when testing if built with Kokkos_ENABLE_OPENMP")
