@@ -16,11 +16,11 @@ stages:
     - |
       STATUS=$(env -i bash --norc --noprofile ${CI_PROJECT_DIR}/scripts/darwin/build_fast.sh "${GITHUB_APP_PEM}" "${CI_COMMIT_SHA}" "${CI_COMMIT_BRANCH}" "${CI_JOB_URL}")
       echo "PASS_OR_FAIL ${STATUS}"
-      if [[ "$VAL" == *"FAILED"* ]]; then exit 1; fi
+      if [[ "$STATUS" == *"FAILED"* ]]; then exit 1; fi
     - |
       STATUS=$(env -i bash --norc --noprofile ${CI_PROJECT_DIR}/scripts/darwin/metrics.sh "${GITHUB_APP_PEM}" "${CI_PROJECT_DIR}/build" "${CI_COMMIT_SHA}" "${CI_COMMIT_BRANCH}")
       echo "PASS_OR_FAIL ${STATUS}"
-      if [[ "$VAL" == *"FAILED"* ]]; then exit 1; fi
+      if [[ "$STATUS" == *"FAILED"* ]]; then exit 1; fi
 
 .gcc-mpi-cuda-performance-regression-target-branch:
   script:
@@ -28,7 +28,7 @@ stages:
     - |
       STATUS=$(env -i bash --norc --noprofile ${CI_PROJECT_DIR}/scripts/darwin/build_fast_target.sh "${GITHUB_APP_PEM}"  "${CI_COMMIT_SHA}" "${CI_COMMIT_BRANCH}" "${CI_JOB_URL}")
       echo "PASS_OR_FAIL ${STATUS}"
-      if [[ "$VAL" == *"FAILED"* ]]; then exit 1; fi
+      if [[ "$STATUS" == *"FAILED"* ]]; then exit 1; fi
 
 parthenon-power9-gcc-mpi-cuda-perf-manual-target-branch:
   extends: .gcc-mpi-cuda-performance-regression-target-branch
