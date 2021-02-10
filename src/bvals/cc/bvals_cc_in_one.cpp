@@ -3,7 +3,7 @@
 // Copyright(C) 2020 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -43,9 +43,9 @@ void CalcIndicesSetSame(int ox, int &s, int &e, const IndexRange &bounds) {
     e = bounds.e;
   } else if (ox > 0) {
     s = bounds.e + 1;
-    e = bounds.e + NGHOST;
+    e = bounds.e + Globals::nghost;
   } else {
-    s = bounds.s - NGHOST;
+    s = bounds.s - Globals::nghost;
     e = bounds.s - 1;
   }
 }
@@ -100,9 +100,9 @@ void CalcIndicesSetFromFiner(int &si, int &ei, int &sj, int &ej, int &sk, int &e
       ei -= pmb->block_size.nx1 / 2;
   } else if (nb.ni.ox1 > 0) {
     si = cellbounds.ie(interior) + 1;
-    ei = cellbounds.ie(interior) + NGHOST;
+    ei = cellbounds.ie(interior) + Globals::nghost;
   } else {
-    si = cellbounds.is(interior) - NGHOST;
+    si = cellbounds.is(interior) - Globals::nghost;
     ei = cellbounds.is(interior) - 1;
   }
 
@@ -124,9 +124,9 @@ void CalcIndicesSetFromFiner(int &si, int &ei, int &sj, int &ej, int &sk, int &e
     }
   } else if (nb.ni.ox2 > 0) {
     sj = cellbounds.je(interior) + 1;
-    ej = cellbounds.je(interior) + NGHOST;
+    ej = cellbounds.je(interior) + Globals::nghost;
   } else {
-    sj = cellbounds.js(interior) - NGHOST;
+    sj = cellbounds.js(interior) - Globals::nghost;
     ej = cellbounds.js(interior) - 1;
   }
 
@@ -148,9 +148,9 @@ void CalcIndicesSetFromFiner(int &si, int &ei, int &sj, int &ej, int &sk, int &e
     }
   } else if (nb.ni.ox3 > 0) {
     sk = cellbounds.ke(interior) + 1;
-    ek = cellbounds.ke(interior) + NGHOST;
+    ek = cellbounds.ke(interior) + Globals::nghost;
   } else {
-    sk = cellbounds.ks(interior) - NGHOST;
+    sk = cellbounds.ks(interior) - Globals::nghost;
     ek = cellbounds.ks(interior) - 1;
   }
 }
@@ -166,11 +166,11 @@ void CalcIndicesLoadSame(int ox, int &s, int &e, const IndexRange &bounds) {
     s = bounds.s;
     e = bounds.e;
   } else if (ox > 0) {
-    s = bounds.e - NGHOST + 1;
+    s = bounds.e - Globals::nghost + 1;
     e = bounds.e;
   } else {
     s = bounds.s;
-    e = bounds.s + NGHOST - 1;
+    e = bounds.s + Globals::nghost - 1;
   }
 }
 

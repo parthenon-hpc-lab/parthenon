@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -90,13 +90,13 @@ int CellCenteredBoundaryVariable::ComputeVariableBufferSize(const NeighborIndexe
   cng2 = cng * (pmb->block_size.nx2 > 1 ? 1 : 0);
   cng3 = cng * (pmb->block_size.nx3 > 1 ? 1 : 0);
 
-  int size = ((ni.ox1 == 0) ? pmb->block_size.nx1 : NGHOST) *
-             ((ni.ox2 == 0) ? pmb->block_size.nx2 : NGHOST) *
-             ((ni.ox3 == 0) ? pmb->block_size.nx3 : NGHOST);
+  int size = ((ni.ox1 == 0) ? pmb->block_size.nx1 : Globals::nghost) *
+             ((ni.ox2 == 0) ? pmb->block_size.nx2 : Globals::nghost) *
+             ((ni.ox3 == 0) ? pmb->block_size.nx3 : Globals::nghost);
   if (pmy_mesh_->multilevel) {
-    int f2c = ((ni.ox1 == 0) ? ((pmb->block_size.nx1 + 1) / 2) : NGHOST) *
-              ((ni.ox2 == 0) ? ((pmb->block_size.nx2 + 1) / 2) : NGHOST) *
-              ((ni.ox3 == 0) ? ((pmb->block_size.nx3 + 1) / 2) : NGHOST);
+    int f2c = ((ni.ox1 == 0) ? ((pmb->block_size.nx1 + 1) / 2) : Globals::nghost) *
+              ((ni.ox2 == 0) ? ((pmb->block_size.nx2 + 1) / 2) : Globals::nghost) *
+              ((ni.ox3 == 0) ? ((pmb->block_size.nx3 + 1) / 2) : Globals::nghost);
     int c2f = ((ni.ox1 == 0) ? ((pmb->block_size.nx1 + 1) / 2 + cng1) : cng) *
               ((ni.ox2 == 0) ? ((pmb->block_size.nx2 + 1) / 2 + cng2) : cng) *
               ((ni.ox3 == 0) ? ((pmb->block_size.nx3 + 1) / 2 + cng3) : cng);
@@ -284,13 +284,13 @@ void CellCenteredBoundaryVariable::SetupPersistentMPI() {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
     if (nb.snb.rank != Globals::my_rank) {
       if (nb.snb.level == mylevel) { // same
-        ssize = rsize = ((nb.ni.ox1 == 0) ? pmb->block_size.nx1 : NGHOST) *
-                        ((nb.ni.ox2 == 0) ? pmb->block_size.nx2 : NGHOST) *
-                        ((nb.ni.ox3 == 0) ? pmb->block_size.nx3 : NGHOST);
+        ssize = rsize = ((nb.ni.ox1 == 0) ? pmb->block_size.nx1 : Globals::nghost) *
+                        ((nb.ni.ox2 == 0) ? pmb->block_size.nx2 : Globals::nghost) *
+                        ((nb.ni.ox3 == 0) ? pmb->block_size.nx3 : Globals::nghost);
       } else if (nb.snb.level < mylevel) { // coarser
-        ssize = ((nb.ni.ox1 == 0) ? ((pmb->block_size.nx1 + 1) / 2) : NGHOST) *
-                ((nb.ni.ox2 == 0) ? ((pmb->block_size.nx2 + 1) / 2) : NGHOST) *
-                ((nb.ni.ox3 == 0) ? ((pmb->block_size.nx3 + 1) / 2) : NGHOST);
+        ssize = ((nb.ni.ox1 == 0) ? ((pmb->block_size.nx1 + 1) / 2) : Globals::nghost) *
+                ((nb.ni.ox2 == 0) ? ((pmb->block_size.nx2 + 1) / 2) : Globals::nghost) *
+                ((nb.ni.ox3 == 0) ? ((pmb->block_size.nx3 + 1) / 2) : Globals::nghost);
         rsize = ((nb.ni.ox1 == 0) ? ((pmb->block_size.nx1 + 1) / 2 + cng1) : cng1) *
                 ((nb.ni.ox2 == 0) ? ((pmb->block_size.nx2 + 1) / 2 + cng2) : cng2) *
                 ((nb.ni.ox3 == 0) ? ((pmb->block_size.nx3 + 1) / 2 + cng3) : cng3);
@@ -298,9 +298,9 @@ void CellCenteredBoundaryVariable::SetupPersistentMPI() {
         ssize = ((nb.ni.ox1 == 0) ? ((pmb->block_size.nx1 + 1) / 2 + cng1) : cng1) *
                 ((nb.ni.ox2 == 0) ? ((pmb->block_size.nx2 + 1) / 2 + cng2) : cng2) *
                 ((nb.ni.ox3 == 0) ? ((pmb->block_size.nx3 + 1) / 2 + cng3) : cng3);
-        rsize = ((nb.ni.ox1 == 0) ? ((pmb->block_size.nx1 + 1) / 2) : NGHOST) *
-                ((nb.ni.ox2 == 0) ? ((pmb->block_size.nx2 + 1) / 2) : NGHOST) *
-                ((nb.ni.ox3 == 0) ? ((pmb->block_size.nx3 + 1) / 2) : NGHOST);
+        rsize = ((nb.ni.ox1 == 0) ? ((pmb->block_size.nx1 + 1) / 2) : Globals::nghost) *
+                ((nb.ni.ox2 == 0) ? ((pmb->block_size.nx2 + 1) / 2) : Globals::nghost) *
+                ((nb.ni.ox3 == 0) ? ((pmb->block_size.nx3 + 1) / 2) : Globals::nghost);
       }
       ssize *= (nu_ + 1);
       rsize *= (nu_ + 1);
