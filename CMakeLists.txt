@@ -19,7 +19,7 @@ include(cmake/MachineCfg.cmake)
 project(parthenon VERSION 0.4.0 LANGUAGES C CXX)
 
 if (${CMAKE_VERSION} VERSION_GREATER_EQUAL 3.19.0)
-  #cmake_policy(SET CMP0109 NEW) # needed for trinitite, but can't set in machine config
+  cmake_policy(SET CMP0109 NEW) # needed for trinitite, but can't set in machine config
   cmake_policy(SET CMP0110 NEW)
 endif()
 
@@ -235,7 +235,6 @@ endif()
 
 # Build Tests and download Catch2
 if (${PARTHENON_ENABLE_UNIT_TESTS} OR ${PARTHENON_ENABLE_INTEGRATION_TESTS} OR ${PARTHENON_ENABLE_REGRESSION_TESTS} OR ${PARTHENON_ENABLE_PERFORMANCE_TESTS})
-
   # if running regression test automatically synch gold standard
   if (${PARTHENON_ENABLE_REGRESSION_TESTS} AND ${REGRESSION_GOLD_STANDARD_SYNC})
     if (EXISTS ${PROJECT_SOURCE_DIR}/tst/regression/gold_standard/current_version)
@@ -264,6 +263,7 @@ if (${PARTHENON_ENABLE_UNIT_TESTS} OR ${PARTHENON_ENABLE_INTEGRATION_TESTS} OR $
           message(STATUS "  Download of gold standard successful.")
         else()
           message(FATAL_ERROR "Untaring of ${GOLD_FILE} failed")
+        endif()
       else()
         message(FATAL_ERROR "Download of ${GOLD_URL} failed: ${DOWNLOAD_ERR_MSG}")
       endif()

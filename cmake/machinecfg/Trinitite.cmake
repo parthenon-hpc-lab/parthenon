@@ -64,7 +64,7 @@ message(STATUS "TRINITITE Build Settings
 ")
 
 # Check that MPICH_MAX_THREAD_SAFETY=multiple
-if (ENV{MPICH_MAX_THREAD_SAFETY} NOT EQUAL "multiple")
+if ($ENV{MPICH_MAX_THREAD_SAFETY} NOT EQUAL "multiple")
     message(WARNING "Environment variable MPICH_MAX_THREAD_SAFETY is not set to 'multiple'. \
         Running Parthenon with MPI wil likely fail.")
 endif()
