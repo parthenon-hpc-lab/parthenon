@@ -26,9 +26,9 @@ stages:
 .gcc-mpi-cuda-performance-regression-target-branch:
   script:
     - git fetch --all
-    - printf 'env -i bash --norc --noprofile %s/scripts/darwin/build_fast_target.sh  "%s" "%s" "%s" "%s %s"\n' ${CI_PROJECT_DIR} ${GITHUB_APP_PEM} ${CI_COMMIT_SHA} ${CI_COMMIT_BRANCH} ${CI_JOB_URL} ${CI_JOB_TOKEN} > execute_target.sh
+    - printf 'env -i bash --norc --noprofile %s/scripts/darwin/build_fast_target.sh  "%s" "%s/build" "%s" "%s" "%s %s"\n' ${CI_PROJECT_DIR} ${GITHUB_APP_PEM} ${CI_PROJECT_DIR} ${CI_COMMIT_SHA} ${CI_COMMIT_BRANCH} ${CI_JOB_URL} ${CI_JOB_TOKEN} > execute_target.sh
     - |
-      STATUS=$(env -i bash --norc --noprofile ${CI_PROJECT_DIR}/scripts/darwin/build_fast_target.sh "${GITHUB_APP_PEM}"  "${CI_COMMIT_SHA}" "${CI_COMMIT_BRANCH}" "${CI_JOB_URL}" "${CI_JOB_TOKEN}")
+      STATUS=$(env -i bash --norc --noprofile ${CI_PROJECT_DIR}/scripts/darwin/build_fast_target.sh "${GITHUB_APP_PEM}" "${CI_PROJECT_DIR}/build"  "${CI_COMMIT_SHA}" "${CI_COMMIT_BRANCH}" "${CI_JOB_URL}" "${CI_JOB_TOKEN}")
       echo "PASS_OR_FAIL ${STATUS}"
       if [[ "$STATUS" == *"FAILED"* ]]; then exit 1; fi
 

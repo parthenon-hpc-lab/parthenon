@@ -12,10 +12,11 @@ set -eE
 SCRIPT=$(realpath "$0")
 SOURCE=$(dirname "$SCRIPT")
 GITHUB_APP_PEM="$1"
-export CI_COMMIT_SHA="$2"
-export CI_COMMIT_BRANCH="$3"
-CI_JOB_URL="$4"
-CI_JOB_TOKEN="$5"
+BUILD_DIR="${2}"
+export CI_COMMIT_SHA="$3"
+export CI_COMMIT_BRANCH="$4"
+CI_JOB_URL="$5"
+CI_JOB_TOKEN="$6"
 export CI_JOB_TOKEN="$CI_JOB_TOKEN"
 export GITHUB_APP_PEM="$GITHUB_APP_PEM"
 
