@@ -94,7 +94,7 @@ env_module_list(MODULE_LIST)
 set(CRAY_MPICH_LOADED OFF)
 set(GCC_930_LOADED OFF)
 
-foreach(M IN MODULE_LIST)
+foreach(M IN ${MODULE_LIST})
   message(STATUS ${M})
 endforeach()
 
