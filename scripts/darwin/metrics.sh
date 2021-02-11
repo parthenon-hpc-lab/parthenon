@@ -11,7 +11,7 @@ set -e
 
 module load gcc/9.2.0
 spack compiler find
-spack env activate darwin-ppc64le-gcc9-2021-01-20
+spack env activate darwin-ppc64le-gcc9-2021-02-08
 
 SCRIPT=$(realpath "$0")
 SOURCE=$(dirname "$SCRIPT")

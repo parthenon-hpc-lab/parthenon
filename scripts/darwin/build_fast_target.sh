@@ -28,9 +28,9 @@ catch() {
 
 echo "CI commit branch ${CI_COMMIT_BRANCH}"
 
-module load gcc/9.2.0
+module load gcc/9.3.0
 spack compiler find
-spack env activate darwin-ppc64le-gcc9-2021-01-20
+spack env activate darwin-ppc64le-gcc9-2021-02-08
 data=$("${SOURCE}"/../python/parthenon_metrics_app.py -p "${GITHUB_APP_PEM}" --get-target-branch --branch "${CI_COMMIT_BRANCH}")
 
 echo "Get target branch or pr"

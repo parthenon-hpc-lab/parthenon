@@ -26,9 +26,9 @@ catch() {
   exit $ERR
 }
 
-module load gcc/9.2.0
+module load gcc/9.3.0
 spack compiler find
-spack env activate darwin-ppc64le-gcc9-2021-01-20
+spack env activate darwin-ppc64le-gcc9-2021-02-08
 echo "build fast $GITHUB_APP_PEM"
 "${SOURCE}"/../python/parthenon_metrics_app.py -p "${GITHUB_APP_PEM}"  --status "pending" --status-context "Parthenon Metrics App" --status-description "Building parthenon" --status-url "${CI_JOB_URL}"
 
