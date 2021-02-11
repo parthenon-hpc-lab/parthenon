@@ -26,6 +26,12 @@
 #   Description: [ADVANCED] Point to an alternative parthenon-project path
 #       Default: /usr/projects/parthenon/parthenon-project
 
+# On Trinitite CMake finds /opt/slurm/bin/srun, which is readable but no executable,
+# that's not the one we want. We want /usr/local/bin/srun, which is executable.
+# So we need to use the CMP0109 policy, but if we set it here, it won't apply in
+# the parent scope, so we set it in the main CMakeLists.txt but leave documentation here.
+# cmake_policy(SET CMP0109 NEW)
+
 # NOTE: When updating dependencies with new compilers or packages, you should
 # ideally only need to update these variables to change the default behavior.
 set(TRINITITE_VIEW_DATE_LATEST "2021-02-09")
@@ -94,16 +100,21 @@ env_module_list(MODULE_LIST)
 set(CRAY_MPICH_LOADED OFF)
 set(GCC_930_LOADED OFF)
 
-foreach(M IN ${MODULE_LIST})
-  message(STATUS ${M})
+foreach(M ${MODULE_LIST})
+  if (${M} MATCHES "cray-mpich")
+     set(CRAY_MPICH_LOADED ON)
+  endif()
+  if (${M} MATCHES "gcc/9.3.0")
+     set(GCC_930_LOADED ON)
+  endif()
 endforeach()
 
 if (NOT ${CRAY_MPICH_LOADED})
-  message(FATAL "Module cray-mpich must be loaded")
+  message(FATAL_ERROR "Module cray-mpich must be loaded")
 endif()
 
 if (NOT ${GCC_930_LOADED})
-  message(FATAL "Module gcc/9.3.0 must be loaded")
+  message(FATAL_ERROR "Module gcc/9.3.0 must be loaded")
 endif()
 
 # clang-format
@@ -128,5 +139,5 @@ set(NUM_RANKS 4)
 
 set(NUM_MPI_PROC_TESTING ${NUM_RANKS} CACHE STRING "CI runs tests with 4 MPI ranks")
 set(NUM_OMP_THREADS_PER_RANK 1 CACHE STRING "Number of threads to use when testing if built with Kokkos_ENABLE_OPENMP")
-set(TEST_MPIEXEC /usr/local/bin/srun CACHE STRING "Use srun to run executables")
+set(TEST_MPIEXEC /opt/slurm/bin/srun CACHE STRING "Use srun to run executables")
 set(SERIAL_WITH_MPIEXEC ON)
