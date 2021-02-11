@@ -19,6 +19,7 @@ include(cmake/MachineCfg.cmake)
 project(parthenon VERSION 0.4.0 LANGUAGES C CXX)
 
 if (${CMAKE_VERSION} VERSION_GREATER_EQUAL 3.19.0)
+  #cmake_policy(SET CMP0109 NEW) # needed for trinitite, but can't set in machine config
   cmake_policy(SET CMP0110 NEW)
 endif()
 
@@ -244,15 +245,28 @@ if (${PARTHENON_ENABLE_UNIT_TESTS} OR ${PARTHENON_ENABLE_INTEGRATION_TESTS} OR $
     endif()
     if (NOT (${REGRESSION_GOLD_STANDARD_ON_DISK} EQUAL ${REGRESSION_GOLD_STANDARD_VER}))
       message(STATUS "Attempting to download latest gold standard files for regression tests. To disable set REGRESSION_GOLD_STANDARD_SYNC=OFF.")
+      set(GOLD_URL https://github.com/lanl/parthenon/releases/download/regression-gold-v${REGRESSION_GOLD_STANDARD_VER}/parthenon_regression_gold_v${REGRESSION_GOLD_STANDARD_VER}.tgz)
+      set(GOLD_FILE ${PROJECT_SOURCE_DIR}/tst/regression/gold_standard/parthenon_regression_gold_v${REGRESSION_GOLD_STANDARD_VER}.tgz)
       file(
-        DOWNLOAD https://github.com/lanl/parthenon/releases/download/regression-gold-v${REGRESSION_GOLD_STANDARD_VER}/parthenon_regression_gold_v${REGRESSION_GOLD_STANDARD_VER}.tgz ${PROJECT_SOURCE_DIR}/tst/regression/gold_standard/parthenon_regression_gold_v${REGRESSION_GOLD_STANDARD_VER}.tgz
+        DOWNLOAD ${GOLD_URL} ${GOLD_FILE}
         EXPECTED_HASH ${REGRESSION_GOLD_STANDARD_HASH}
+        STATUS DOWNLOAD_STATUS
         )
-      execute_process(
-        COMMAND ${CMAKE_COMMAND} -E tar xzf ${PROJECT_SOURCE_DIR}/tst/regression/gold_standard/parthenon_regression_gold_v${REGRESSION_GOLD_STANDARD_VER}.tgz
-        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/tst/regression/gold_standard/
-        )
-      message(STATUS "  Download of gold standard successful.")
+      list(GET DOWNLOAD_STATUS 0 DOWNLOAD_RET_CODE)
+      list(GET DOWNLOAD_STATUS 1 DOWNLOAD_ERR_MSG)
+      if (${DOWNLOAD_RET_CODE} EQUAL 0)
+        execute_process(
+          COMMAND ${CMAKE_COMMAND} -E tar xzf ${GOLD_FILE}
+          WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/tst/regression/gold_standard/
+          RESULT_VARIABLE TAR_RET_CODE
+          )
+        if (${TAR_RET_CODE} EQUAL 0)
+          message(STATUS "  Download of gold standard successful.")
+        else()
+          message(FATAL_ERROR "Untaring of ${GOLD_FILE} failed")
+      else()
+        message(FATAL_ERROR "Download of ${GOLD_URL} failed: ${DOWNLOAD_ERR_MSG}")
+      endif()
     else()
       message(STATUS "Gold standard is up-to-date. No download required.")
     endif()
@@ -261,7 +275,7 @@ if (${PARTHENON_ENABLE_UNIT_TESTS} OR ${PARTHENON_ENABLE_INTEGRATION_TESTS} OR $
     # Throw a warning if the number of processors available is less than the number specified for running the tests.
     include(ProcessorCount)
     ProcessorCount(N)
-    if( "${NUM_MPI_PROC_TESTING}" GREATER "${N}") 
+    if( "${NUM_MPI_PROC_TESTING}" GREATER "${N}")
       message(WARNING "Consider changing the number of MPI processors used in testing, currently "
         "NUM_MPI_PROC_TESTING is set to ${NUM_MPI_PROC_TESTING} but cmake has only detected a"
         " total of ${N} available processors")

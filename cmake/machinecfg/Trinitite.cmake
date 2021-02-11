@@ -63,6 +63,12 @@ message(STATUS "TRINITITE Build Settings
     TRINITITE_PROJECT_PREFIX: ${TRINITITE_PROJECT_PREFIX}
 ")
 
+# Check that MPICH_MAX_THREAD_SAFETY=multiple
+if (ENV{MPICH_MAX_THREAD_SAFETY} NOT EQUAL "multiple")
+    message(WARNING "Environment variable MPICH_MAX_THREAD_SAFETY is not set to 'multiple'. \
+        Running Parthenon with MPI wil likely fail.")
+endif()
+
 # Set TRINITITE_VIEW_PREFIX
 set(TRINITITE_ARCH_PREFIX ${TRINITITE_PROJECT_PREFIX}/views/trinitite/x86_64)
 
