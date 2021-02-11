@@ -27,16 +27,6 @@ import pycurl
 from git import Repo
 import git
 
-from contextlib import contextmanager,redirect_stderr, redirect_stdout
-from os import devnull
-
-@contextmanager
-def suppress_stdout_stderr():
-  """A context manager that redirects stdout and stderr to devnull"""
-  with open(devnull, 'w') as fnull:
-    with redirect_stderr(fnull) as err, redirect_stdout(fnull) as out:
-      yield (err,out)
-
 class Node:
 
     """
@@ -190,17 +180,13 @@ class App:
         ]
 
         buffer_temp = BytesIO()
-        with suppress_stdout_stderr():
-          c = pycurl.Curl()
-          c.setopt(c.URL, 'https://api.github.com/app/installations')
-          c.setopt(pycurl.VERBOSE, 0)
-          devnull = open('/dev/null', 'w')
-          c.setopt(pycurl.WRITEFUNCTION, devnull.write)
-          c.setopt(pycurl.HEADERFUNCTION, devnull.write)
-          c.setopt(c.WRITEDATA, buffer_temp)
-          c.setopt(c.HTTPHEADER, header)
-          c.perform()
-          c.close()
+        c = pycurl.Curl()
+        c.setopt(c.URL, 'https://api.github.com/app/installations')
+        c.setopt(pycurl.VERBOSE, 0)
+        c.setopt(c.WRITEDATA, buffer_temp)
+        c.setopt(c.HTTPHEADER, header)
+        c.perform()
+        c.close()
 
         js_obj = json.loads(buffer_temp.getvalue())
 
@@ -224,20 +210,15 @@ class App:
             self._install_id + "/access_tokens"
 
         buffer_temp = BytesIO()
-        with suppress_stdout_stderr():
-          c = pycurl.Curl()
-          c.setopt(pycurl.VERBOSE, 0)
-          c.setopt(c.HTTPHEADER, header)
-          devnull = open('/dev/null', 'w')
-          c.setopt(pycurl.WRITEFUNCTION, devnull.write)
-          c.setopt(pycurl.HEADERFUNCTION, devnull.write)
-          c.setopt(c.URL, https_url_access_tokens)
-          c.setopt(c.POST, 1)
-          c.setopt(c.VERBOSE, True)
-          c.setopt(c.POSTFIELDS, '')
-          c.setopt(c.WRITEDATA, buffer_temp)
-          c.perform()
-          c.close()
+        c = pycurl.Curl()
+        c.setopt(pycurl.VERBOSE, 0)
+        c.setopt(c.HTTPHEADER, header)
+        c.setopt(c.URL, https_url_access_tokens)
+        c.setopt(c.POST, 1)
+        c.setopt(c.POSTFIELDS, '')
+        c.setopt(c.WRITEDATA, buffer_temp)
+        c.perform()
+        c.close()
 
         js_obj = json.loads(buffer_temp.getvalue())
 
@@ -261,18 +242,14 @@ class App:
             buffer_temp = BytesIO()
             custom_data = {"branch": branch}
             buffer_temp2 = BytesIO(json.dumps(custom_data).encode('utf-8'))
-            with suppress_stdout_stderr():
-              c = pycurl.Curl()
-              c.setopt(pycurl.VERBOSE, 0)
-              c.setopt(c.URL, self._repo_url + "/contents/" + node.getPath())
-              c.setopt(c.READDATA, buffer_temp2)
-              devnull = open('/dev/null', 'w')
-              c.setopt(pycurl.WRITEFUNCTION, devnull.write)
-              c.setopt(pycurl.HEADERFUNCTION, devnull.write)
-              c.setopt(c.WRITEDATA, buffer_temp)
-              c.setopt(c.HTTPHEADER, self._header)
-              c.perform()
-              c.close()
+            c = pycurl.Curl()
+            c.setopt(pycurl.VERBOSE, 0)
+            c.setopt(c.URL, self._repo_url + "/contents/" + node.getPath())
+            c.setopt(c.READDATA, buffer_temp2)
+            c.setopt(c.WRITEDATA, buffer_temp)
+            c.setopt(c.HTTPHEADER, self._header)
+            c.perform()
+            c.close()
             js_obj = json.loads(buffer_temp.getvalue())
 
             if isinstance(js_obj, list):
@@ -285,17 +262,13 @@ class App:
 
     def _getBranches(self):
         buffer_temp = BytesIO()
-        with suppress_stdout_stderr():
-          c = pycurl.Curl()
-          c.setopt(pycurl.VERBOSE, 0)
-          c.setopt(c.URL, self._repo_url + "/branches")
-          devnull = open('/dev/null', 'w')
-          c.setopt(pycurl.WRITEFUNCTION, devnull.write)
-          c.setopt(pycurl.HEADERFUNCTION, devnull.write)
-          c.setopt(c.WRITEDATA, buffer_temp)
-          c.setopt(c.HTTPHEADER, self._header)
-          c.perform()
-          c.close()
+        c = pycurl.Curl()
+        c.setopt(pycurl.VERBOSE, 0)
+        c.setopt(c.URL, self._repo_url + "/branches")
+        c.setopt(c.WRITEDATA, buffer_temp)
+        c.setopt(c.HTTPHEADER, self._header)
+        c.perform()
+        c.close()
         js_obj_list = json.loads(buffer_temp.getvalue())
 
         self._branches = []
@@ -308,17 +281,13 @@ class App:
     def getBranchMergingWith(self, branch):
         """Gets the name of the target branch of `branch` which it will merge with."""
         buffer_temp = BytesIO()
-        with suppress_stdout_stderr():
-          c = pycurl.Curl()
-          c.setopt(pycurl.VERBOSE, 0)
-          c.setopt(c.URL, self._repo_url + "/pulls")
-          devnull = open('/dev/null', 'w')
-          c.setopt(pycurl.WRITEFUNCTION, devnull.write)
-          c.setopt(pycurl.HEADERFUNCTION, devnull.write)
-          c.setopt(c.WRITEDATA, buffer_temp)
-          c.setopt(c.HTTPHEADER, self._header)
-          c.perform()
-          c.close()
+        c = pycurl.Curl()
+        c.setopt(pycurl.VERBOSE, 0)
+        c.setopt(c.URL, self._repo_url + "/pulls")
+        c.setopt(c.WRITEDATA, buffer_temp)
+        c.setopt(c.HTTPHEADER, self._header)
+        c.perform()
+        c.close()
         js_obj_list = json.loads(buffer_temp.getvalue())
         print("Checking if branch is open as a pr and what branch it is targeted to merge with.\n")
         print("Checking branch %s\n" % (self._user + ":" + branch))
@@ -386,20 +355,16 @@ class App:
         custom_data = {
             "ref": "refs/heads/" + branch,
             "sha": self._branch_current_commit_sha[branch_to_fork_from]}
-        with suppress_stdout_stderr():
-          c = pycurl.Curl()
-          c.setopt(pycurl.VERBOSE, 0)
-          c.setopt(c.URL, self._repo_url + '/git/refs')
-          c.setopt(c.POST, 1)
-          buffer_temp2 = BytesIO(json.dumps(custom_data).encode('utf-8'))
-          devnull = open('/dev/null', 'w')
-          c.setopt(pycurl.WRITEFUNCTION, devnull.write)
-          c.setopt(pycurl.HEADERFUNCTION, devnull.write)
-          c.setopt(c.READDATA, buffer_temp2)
-          c.setopt(c.WRITEDATA, buffer_temp)
-          c.setopt(c.HTTPHEADER, self._header)
-          c.perform()
-          c.close()
+        c = pycurl.Curl()
+        c.setopt(pycurl.VERBOSE, 0)
+        c.setopt(c.URL, self._repo_url + '/git/refs')
+        c.setopt(c.POST, 1)
+        buffer_temp2 = BytesIO(json.dumps(custom_data).encode('utf-8'))
+        c.setopt(c.READDATA, buffer_temp2)
+        c.setopt(c.WRITEDATA, buffer_temp)
+        c.setopt(c.HTTPHEADER, self._header)
+        c.perform()
+        c.close()
 
     def getContents(self, branch=None):
         """
@@ -411,19 +376,15 @@ class App:
         buffer_temp = BytesIO()
         # 1. Check if file exists if so get SHA
         custom_data = {"branch": branch}
-        with suppress_stdout_stderr():
-          c = pycurl.Curl()
-          c.setopt(pycurl.VERBOSE, 0)
-          c.setopt(c.URL, self._repo_url + '/contents?ref=' + branch)
-          buffer_temp2 = BytesIO(json.dumps(custom_data).encode('utf-8'))
-          devnull = open('/dev/null', 'w')
-          c.setopt(pycurl.WRITEFUNCTION, devnull.write)
-          c.setopt(pycurl.HEADERFUNCTION, devnull.write)
-          c.setopt(c.READDATA, buffer_temp2)
-          c.setopt(c.WRITEDATA, buffer_temp)
-          c.setopt(c.HTTPHEADER, self._header)
-          c.perform()
-          c.close()
+        c = pycurl.Curl()
+        c.setopt(pycurl.VERBOSE, 0)
+        c.setopt(c.URL, self._repo_url + '/contents?ref=' + branch)
+        buffer_temp2 = BytesIO(json.dumps(custom_data).encode('utf-8'))
+        c.setopt(c.READDATA, buffer_temp2)
+        c.setopt(c.WRITEDATA, buffer_temp)
+        c.setopt(c.HTTPHEADER, self._header)
+        c.perform()
+        c.close()
 
         js_obj = json.loads(buffer_temp.getvalue())
 
@@ -521,20 +482,15 @@ class App:
                   (os.path.basename(os.path.normpath(file_name)), branch))
             https_url_to_file = self._repo_url + "/contents/" + \
                 os.path.basename(os.path.normpath(file_name))
-            with suppress_stdout_stderr():
-              c2 = pycurl.Curl()
-              c2.setopt(pycurl.VERBOSE, 0)
-              c2.setopt(c2.HTTPHEADER, self._header)
-              devnull = open('/dev/null', 'w')
-              c2.setopt(pycurl.WRITEFUNCTION, devnull.write)
-              c2.setopt(pycurl.HEADERFUNCTION, devnull.write)
-              c2.setopt(c2.URL, https_url_to_file)
-              c2.setopt(c2.PUT, 1)
-              c2.setopt(c2.VERBOSE, True)
-              buffer_temp2 = BytesIO(json.dumps(custom_data).encode('utf-8'))
-              c2.setopt(c2.READDATA, buffer_temp2)
-              c2.perform()
-              c2.close()
+            c2 = pycurl.Curl()
+            c2.setopt(pycurl.VERBOSE, 0)
+            c2.setopt(c2.HTTPHEADER, self._header)
+            c2.setopt(c2.URL, https_url_to_file)
+            c2.setopt(c2.PUT, 1)
+            buffer_temp2 = BytesIO(json.dumps(custom_data).encode('utf-8'))
+            c2.setopt(c2.READDATA, buffer_temp2)
+            c2.perform()
+            c2.close()
 
     def getBranchTree(self, branch):
         """
@@ -545,18 +501,14 @@ class App:
         custom_data = {"branch": branch}
         buffer_temp2 = BytesIO(json.dumps(custom_data).encode('utf-8'))
         # 1. Check if file exists
-        with suppress_stdout_stderr():
-          c = pycurl.Curl()
-          devnull = open('/dev/null', 'w')
-          c.setopt(pycurl.WRITEFUNCTION, devnull.write)
-          c.setopt(pycurl.HEADERFUNCTION, devnull.write)
-          c.setopt(pycurl.VERBOSE, 0)
-          c.setopt(c.URL, self._repo_url + "/contents")
-          c.setopt(c.READDATA, buffer_temp2)
-          c.setopt(c.WRITEDATA, buffer_temp)
-          c.setopt(c.HTTPHEADER, self._header)
-          c.perform()
-          c.close()
+        c = pycurl.Curl()
+        c.setopt(pycurl.VERBOSE, 0)
+        c.setopt(c.URL, self._repo_url + "/contents")
+        c.setopt(c.READDATA, buffer_temp2)
+        c.setopt(c.WRITEDATA, buffer_temp)
+        c.setopt(c.HTTPHEADER, self._header)
+        c.perform()
+        c.close()
 
         js_obj = json.loads(buffer_temp.getvalue())
         for obj in js_obj:
@@ -609,18 +561,14 @@ class App:
             custom_data["description"] = description
         if target_url != "":
             custom_data["target_url"] = target_url
-        with suppress_stdout_stderr():
-          c = pycurl.Curl()
-          c.setopt(c.URL, self._repo_url + '/statuses/' + commit_sha)
-          c.setopt(c.POST, 1)
-          devnull = open('/dev/null', 'w')
-          c.setopt(pycurl.WRITEFUNCTION, devnull.write)
-          c.setopt(pycurl.HEADERFUNCTION, devnull.write)
-          buffer_temp2 = BytesIO(json.dumps(custom_data).encode('utf-8'))
-          c.setopt(c.READDATA, buffer_temp2)
-          c.setopt(c.HTTPHEADER, self._header)
-          c.perform()
-          c.close()
+        c = pycurl.Curl()
+        c.setopt(c.URL, self._repo_url + '/statuses/' + commit_sha)
+        c.setopt(c.POST, 1)
+        buffer_temp2 = BytesIO(json.dumps(custom_data).encode('utf-8'))
+        c.setopt(c.READDATA, buffer_temp2)
+        c.setopt(c.HTTPHEADER, self._header)
+        c.perform()
+        c.close()
 
     def getStatus(self):
         """
@@ -633,17 +581,13 @@ class App:
 
         buffer_temp = BytesIO()
         # 1. Check if file exists if so get SHA
-        with suppress_stdout_stderr():
-          c = pycurl.Curl()
-          c.setopt(pycurl.VERBOSE, 0)
-          c.setopt(c.URL, self._repo_url + '/commits/Add_to_dev/statuses')
-          c.setopt(c.WRITEDATA, buffer_temp)
-          devnull = open('/dev/null', 'w')
-          c.setopt(pycurl.WRITEFUNCTION, devnull.write)
-          c.setopt(pycurl.HEADERFUNCTION, devnull.write)
-          c.setopt(c.HTTPHEADER, self._header)
-          c.perform()
-          c.close()
+        c = pycurl.Curl()
+        c.setopt(pycurl.VERBOSE, 0)
+        c.setopt(c.URL, self._repo_url + '/commits/Add_to_dev/statuses')
+        c.setopt(c.WRITEDATA, buffer_temp)
+        c.setopt(c.HTTPHEADER, self._header)
+        c.perform()
+        c.close()
 
         js_obj = json.loads(buffer_temp.getvalue())
         return js_obj
