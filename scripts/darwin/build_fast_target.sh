@@ -15,6 +15,8 @@ GITHUB_APP_PEM="$1"
 export CI_COMMIT_SHA="$2"
 export CI_COMMIT_BRANCH="$3"
 CI_JOB_URL="$4"
+CI_JOB_TOKEN="$5"
+export CI_JOB_TOKEN="$CI_JOB_TOKEN"
 export GITHUB_APP_PEM="$GITHUB_APP_PEM"
 
 trap 'catch $? $LINENO' ERR
