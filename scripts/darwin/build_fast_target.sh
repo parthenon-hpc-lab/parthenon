@@ -62,8 +62,8 @@ if [[ "$performance_metrics_uptodate" == *"False"* ]]; then
   cp "${SOURCE}"/../python/app.py "${SOURCE}"/../../../
   ls "${SOURCE}"/../../../
   git checkout "$target_branch"
-  git pull
-  git log --name-status HEAD^..HEAD
+#  git pull
+#  git log --name-status HEAD^..HEAD
 
   echo "Copying files parthenon_metrics_app.py and app.py to ${SOURCE}/../python"
   cp "${SOURCE}"/../../../parthenon_metrics_app.py "${SOURCE}"/../python
