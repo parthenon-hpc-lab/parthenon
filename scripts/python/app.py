@@ -184,16 +184,18 @@ class App:
         """
         This method will populate the installation id attribute using the internally stored json web token.
         """
-        buffer_temp = BytesIO()
         header = [
             'Authorization: Bearer ' + str(self._jwt_token),
             'Accept: ' + self._api_version
         ]
 
+        buffer_temp = BytesIO()
         with suppress_stdout_stderr():
           c = pycurl.Curl()
           c.setopt(c.URL, 'https://api.github.com/app/installations')
           c.setopt(pycurl.VERBOSE, 0)
+          c.setopt(pycurl.WRITEFUNCTION, lambda x: None)
+          c.setopt(pycurl.HEADERFUNCTION, lambda x: None)
           c.setopt(c.WRITEDATA, buffer_temp)
           c.setopt(c.HTTPHEADER, header)
           c.perform()
@@ -212,7 +214,6 @@ class App:
         This method will populate the installation attribute using the installation id. The token
         is needed to authenticate any actions run by the application.
         """
-        buffer_temp = BytesIO()
         header = [
             'Authorization: Bearer ' + str(self._jwt_token),
             'Accept: ' + self._api_version,
@@ -221,10 +222,13 @@ class App:
         https_url_access_tokens = "https://api.github.com/app/installations/" + \
             self._install_id + "/access_tokens"
 
+        buffer_temp = BytesIO()
         with suppress_stdout_stderr():
           c = pycurl.Curl()
           c.setopt(pycurl.VERBOSE, 0)
           c.setopt(c.HTTPHEADER, header)
+          c.setopt(pycurl.WRITEFUNCTION, lambda x: None)
+          c.setopt(pycurl.HEADERFUNCTION, lambda x: None)
           c.setopt(c.URL, https_url_access_tokens)
           c.setopt(c.POST, 1)
           c.setopt(c.VERBOSE, True)
@@ -260,6 +264,8 @@ class App:
               c.setopt(pycurl.VERBOSE, 0)
               c.setopt(c.URL, self._repo_url + "/contents/" + node.getPath())
               c.setopt(c.READDATA, buffer_temp2)
+              c.setopt(pycurl.WRITEFUNCTION, lambda x: None)
+              c.setopt(pycurl.HEADERFUNCTION, lambda x: None)
               c.setopt(c.WRITEDATA, buffer_temp)
               c.setopt(c.HTTPHEADER, self._header)
               c.perform()
@@ -280,6 +286,8 @@ class App:
           c = pycurl.Curl()
           c.setopt(pycurl.VERBOSE, 0)
           c.setopt(c.URL, self._repo_url + "/branches")
+          c.setopt(pycurl.WRITEFUNCTION, lambda x: None)
+          c.setopt(pycurl.HEADERFUNCTION, lambda x: None)
           c.setopt(c.WRITEDATA, buffer_temp)
           c.setopt(c.HTTPHEADER, self._header)
           c.perform()
@@ -300,6 +308,8 @@ class App:
           c = pycurl.Curl()
           c.setopt(pycurl.VERBOSE, 0)
           c.setopt(c.URL, self._repo_url + "/pulls")
+          c.setopt(pycurl.WRITEFUNCTION, lambda x: None)
+          c.setopt(pycurl.HEADERFUNCTION, lambda x: None)
           c.setopt(c.WRITEDATA, buffer_temp)
           c.setopt(c.HTTPHEADER, self._header)
           c.perform()
@@ -377,6 +387,8 @@ class App:
           c.setopt(c.URL, self._repo_url + '/git/refs')
           c.setopt(c.POST, 1)
           buffer_temp2 = BytesIO(json.dumps(custom_data).encode('utf-8'))
+          c.setopt(pycurl.WRITEFUNCTION, lambda x: None)
+          c.setopt(pycurl.HEADERFUNCTION, lambda x: None)
           c.setopt(c.READDATA, buffer_temp2)
           c.setopt(c.WRITEDATA, buffer_temp)
           c.setopt(c.HTTPHEADER, self._header)
@@ -398,6 +410,8 @@ class App:
           c.setopt(pycurl.VERBOSE, 0)
           c.setopt(c.URL, self._repo_url + '/contents?ref=' + branch)
           buffer_temp2 = BytesIO(json.dumps(custom_data).encode('utf-8'))
+          c.setopt(pycurl.WRITEFUNCTION, lambda x: None)
+          c.setopt(pycurl.HEADERFUNCTION, lambda x: None)
           c.setopt(c.READDATA, buffer_temp2)
           c.setopt(c.WRITEDATA, buffer_temp)
           c.setopt(c.HTTPHEADER, self._header)
@@ -504,13 +518,13 @@ class App:
               c2 = pycurl.Curl()
               c2.setopt(pycurl.VERBOSE, 0)
               c2.setopt(c2.HTTPHEADER, self._header)
+              c2.setopt(pycurl.WRITEFUNCTION, lambda x: None)
+              c2.setopt(pycurl.HEADERFUNCTION, lambda x: None)
               c2.setopt(c2.URL, https_url_to_file)
               c2.setopt(c2.PUT, 1)
               c2.setopt(c2.VERBOSE, True)
               buffer_temp2 = BytesIO(json.dumps(custom_data).encode('utf-8'))
               c2.setopt(c2.READDATA, buffer_temp2)
-              buffer_temp3 = BytesIO()
-              c2.setopt(c2.WRITEDATA, buffer_temp3)
               c2.perform()
               c2.close()
 
@@ -525,6 +539,8 @@ class App:
         # 1. Check if file exists
         with suppress_stdout_stderr():
           c = pycurl.Curl()
+          c.setopt(pycurl.WRITEFUNCTION, lambda x: None)
+          c.setopt(pycurl.HEADERFUNCTION, lambda x: None)
           c.setopt(pycurl.VERBOSE, 0)
           c.setopt(c.URL, self._repo_url + "/contents")
           c.setopt(c.READDATA, buffer_temp2)
@@ -588,14 +604,13 @@ class App:
           c = pycurl.Curl()
           c.setopt(c.URL, self._repo_url + '/statuses/' + commit_sha)
           c.setopt(c.POST, 1)
+          c.setopt(pycurl.WRITEFUNCTION, lambda x: None)
+          c.setopt(pycurl.HEADERFUNCTION, lambda x: None)
           buffer_temp2 = BytesIO(json.dumps(custom_data).encode('utf-8'))
           c.setopt(c.READDATA, buffer_temp2)
-          c.setopt(c.WRITEDATA, buffer_temp)
           c.setopt(c.HTTPHEADER, self._header)
           c.perform()
           c.close()
-        #js_obj = json.loads(buffer_temp.getvalue())
-        #pprint.pprint(json.dumps(js_obj, indent=2))
 
     def getStatus(self):
         """
@@ -613,6 +628,8 @@ class App:
           c.setopt(pycurl.VERBOSE, 0)
           c.setopt(c.URL, self._repo_url + '/commits/Add_to_dev/statuses')
           c.setopt(c.WRITEDATA, buffer_temp)
+          c.setopt(pycurl.WRITEFUNCTION, lambda x: None)
+          c.setopt(pycurl.HEADERFUNCTION, lambda x: None)
           c.setopt(c.HTTPHEADER, self._header)
           c.perform()
           c.close()
