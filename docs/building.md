@@ -6,33 +6,33 @@ If you come across a disfunctional setup, please report it by open an issue or p
 
 ## General list of cmake options:
 
-   |              Option                    | Default           | Type   | Description |
-   | -------------------------------------: | :---------------- | :----- | :---------- |
-   |           PARTHENON\_SINGLE\_PRECISION | OFF               | Option | Enable single precision mode if requested |
-   |               PARTHENON\_DISABLE\_HDF5 | OFF               | Option | HDF5 is enabled by default if found, set this to True to disable HDF5 |
-   |                PARTHENON\_DISABLE\_MPI | OFF               | Option | MPI is enabled by default if found, set this to True to disable MPI |
+   |                                 Option | Default           | Type   | Description                                                                                                                                           |
+   | -------------------------------------: | :---------------- | :----- | :---------------------------------------------------------------------------------------------------------------------------------------------------- |
+   |           PARTHENON\_SINGLE\_PRECISION | OFF               | Option | Enable single precision mode if requested                                                                                                             |
+   |               PARTHENON\_DISABLE\_HDF5 | OFF               | Option | HDF5 is enabled by default if found, set this to True to disable HDF5                                                                                 |
+   |                PARTHENON\_DISABLE\_MPI | OFF               | Option | MPI is enabled by default if found, set this to True to disable MPI                                                                                   |
    | PARTHENON\_ENABLE\_HOST\_COMM\_BUFFERS | OFF               | Option | MPI communication buffers are by default allocated on the execution device. This options forces allocation in memory accessible directly by the host. |
-   |             PARTHENON\_DISABLE\_OPENMP | OFF               | Option | OpenMP is enabled by default if found, set this to True to disable OpenMP |
-   |             ENABLE\_COMPILER\_WARNINGS | OFF               | Option | Enable compiler warnings |
-   |                  TEST\_ERROR\_CHECKING | OFF               | Option | Enables the error checking unit test. This test will FAIL |
-   |              TEST\_INTEL\_OPTIMIZATION | OFF               | Option | Test intel optimization and vectorization |
-   |              CHECK\_REGISTRY\_PRESSURE | OFF               | Option | Check the registry pressure for Kokkos CUDA kernels |
-   |                         BUILD\_TESTING | ON                | Option | Multi-testing enablement |
-   |           PARTHENON\_DISABLE\_EXAMPLES | OFF               | Option | Toggle building of examples, if regression tests are on, drivers needed by the tests will still be built |
-   |             ENABLE\_INTEGRATION\_TESTS | ${BUILD\_TESTING} | Option | Enable integration tests |
-   |              ENABLE\_REGRESSION\_TESTS | ${BUILD\_TESTING} | Option | Enable regression tests |
-   |                NUM\_MPI\_PROC\_TESTING | 4                 | String | Number of MPI ranks used for MPI-enabled regression tests |
-   |           NUM\_GPU\_DEVICES\_PER\_NODE | 1                 | String | Number of GPUs per node to use if built with Kokkos_ENABLE_CUDA |
-   |    PARTHENON\_ENABLE\_GPU\_MPI\_CHECKS | ON                | String | Enable pre-test gpu-mpi checks |
-   |        REGRESSION\_GOLD\_STANDARD\_VER | #                 | Int    | Version of current gold standard file used in regression tests. Default is set to latest version matching the source. |
-   |       REGRESSION\_GOLD\_STANDARD\_HASH | SHA512=...        | String | Hash value of gold standard file to be downloaded. Used to ensure that the download is not corrupted. |
-   |       REGRESSION\_GOLD\_STANDARD\_SYNC | ON                | Option | Create `gold_standard` target to download gold standard files |
-   |                    ENABLE\_UNIT\_TESTS | ${BUILD\_TESTING} | Option | Enable unit tests |
-   |                         CODE\_COVERAGE | OFF               | Option | Builds with code coverage flags |
-   |                 CMAKE\_INSTALL\_PREFIX | machine specific  | String | Optional path for library installation |
-   |                           Kokkos\_ROOT | unset             | String | Path to a Kokkos source directory (containing CMakeLists.txt) |
-   |              PARTHENON\_IMPORT\_KOKKOS | ON/OFF            | Option | If ON, attempt to link to an external Kokkos library. If OFF, build Kokkos from source and package with Parthenon |
-   |                    BUILD\_SHARED\_LIBS | OFF               | Option | If installing Parthenon, whether to build as shared rather than static |
+   |             PARTHENON\_DISABLE\_OPENMP | OFF               | Option | OpenMP is enabled by default if found, set this to True to disable OpenMP                                                                             |
+   |             ENABLE\_COMPILER\_WARNINGS | OFF               | Option | Enable compiler warnings                                                                                                                              |
+   |                  TEST\_ERROR\_CHECKING | OFF               | Option | Enables the error checking unit test. This test will FAIL                                                                                             |
+   |              TEST\_INTEL\_OPTIMIZATION | OFF               | Option | Test intel optimization and vectorization                                                                                                             |
+   |              CHECK\_REGISTRY\_PRESSURE | OFF               | Option | Check the registry pressure for Kokkos CUDA kernels                                                                                                   |
+   |                         BUILD\_TESTING | ON                | Option | Multi-testing enablement                                                                                                                              |
+   |           PARTHENON\_DISABLE\_EXAMPLES | OFF               | Option | Toggle building of examples, if regression tests are on, drivers needed by the tests will still be built                                              |
+   |             ENABLE\_INTEGRATION\_TESTS | ${BUILD\_TESTING} | Option | Enable integration tests                                                                                                                              |
+   |              ENABLE\_REGRESSION\_TESTS | ${BUILD\_TESTING} | Option | Enable regression tests                                                                                                                               |
+   |                NUM\_MPI\_PROC\_TESTING | 4                 | String | Number of MPI ranks used for MPI-enabled regression tests                                                                                             |
+   |           NUM\_GPU\_DEVICES\_PER\_NODE | 1                 | String | Number of GPUs per node to use if built with Kokkos_ENABLE_CUDA                                                                                       |
+   |    PARTHENON\_ENABLE\_GPU\_MPI\_CHECKS | ON                | String | Enable pre-test gpu-mpi checks                                                                                                                        |
+   |        REGRESSION\_GOLD\_STANDARD\_VER | #                 | Int    | Version of current gold standard file used in regression tests. Default is set to latest version matching the source.                                 |
+   |       REGRESSION\_GOLD\_STANDARD\_HASH | SHA512=...        | String | Hash value of gold standard file to be downloaded. Used to ensure that the download is not corrupted.                                                 |
+   |       REGRESSION\_GOLD\_STANDARD\_SYNC | ON                | Option | Create `gold_standard` target to download gold standard files                                                                                         |
+   |                    ENABLE\_UNIT\_TESTS | ${BUILD\_TESTING} | Option | Enable unit tests                                                                                                                                     |
+   |                         CODE\_COVERAGE | OFF               | Option | Builds with code coverage flags                                                                                                                       |
+   |                 CMAKE\_INSTALL\_PREFIX | machine specific  | String | Optional path for library installation                                                                                                                |
+   |                           Kokkos\_ROOT | unset             | String | Path to a Kokkos source directory (containing CMakeLists.txt)                                                                                         |
+   |              PARTHENON\_IMPORT\_KOKKOS | ON/OFF            | Option | If ON, attempt to link to an external Kokkos library. If OFF, build Kokkos from source and package with Parthenon                                     |
+   |                    BUILD\_SHARED\_LIBS | OFF               | Option | If installing Parthenon, whether to build as shared rather than static                                                                                |
 
 ### NB: CMake options prefixed with *PARTHENON\_* modify behavior.
 
@@ -168,7 +168,7 @@ We set the latter variable for easier reference in out-of-source builds.
 To make the default configuration on widely used systems easier, Parthenon provides machine configuration files that contain default options.
 Defaults options include, but are not limited to setting
 - the compiler (e.g., `nvcc_wrapper` for Cuda builds), or
-- paths to non default package locations (e.g., for a custom HDF5 install), or 
+- paths to non default package locations (e.g., for a custom HDF5 install), or
 - custom MPI related commands used in the Parthenon test suite (e.g., the launch command).
 
 The machine configurations shipped with Parthenon are located in [`PARTHENON_ROOT/cmake/machinecfg`](../cmake/machinecfg) and are named by the machine name.
@@ -301,7 +301,7 @@ project `.bashrc`:
 $ source /projects/parthenon-int/parthenon-project/.bashrc
 ```
 
-This .bashrc will set the correct `MACHINE_CFG` file in your environment, import
+This `.bashrc` will set the correct `MACHINE_CFG` file in your environment, import
 an architecture-specific set of recent build tools (currently cmake and ninja),
 and set Ninja as the default CMake generator.
 
@@ -353,7 +353,7 @@ project `.bashrc`:
 $ source /usr/projects/parthenon/parthenon-project/.bashrc
 ```
 
-This .bashrc will set the correct `MACHINE_CFG` file in your environment, import
+This `.bashrc` will set the correct `MACHINE_CFG` file in your environment, import
 an architecture-specific set of recent build tools (currently cmake and ninja),
 and set Ninja as the default CMake generator.
 
@@ -381,6 +381,83 @@ else in your environment.
 Once you've configured your build directory, you can build with
 `cmake --build build`.
 
+### LANL Trinity/Trinitite (ATS-1)
+
+#### Allocate Node
+
+Trinity/Trinitite are LANL ATS-1 Cray systems with half Haswell nodes, half KNL
+nodes. These instructions are for Trinitite, but they should work as well on
+Trinity. You can in to `tt-fey`. Nodes are allocated using SLURM.
+
+E.g.
+```bash
+$ salloc -N1 -p knl
+```
+
+#### Set-Up Environment
+
+**Supported Intel compiler:** Currently, only the Intel compiler 19.1.3 works on
+Trinitite. The default Intel compiler (v19.0.4) **does not work**. If you building
+with Intel, ensure that module `intel/19.1.3` is loaded.
+
+**GNU compiler NOT recommended:** The GNU compiler seems to produce code that is
+5x slower than what the Intel compiler produces, so it is recommended to use Intel.
+However, if you want to use GNU, you need to select it via the programming
+environment module. By default, `PrgEnv-intel` is loaded, so to switch to GNU,
+swap this to `PrgEnv-gnu` **before** sourcing the `.bashrc` below, i.e.
+
+```bash
+module swap PrgEnv-intel PrgEnv-gnu
+```
+
+With the correct programming environment module loaded, source the project
+`.bashrc`:
+
+```bash
+$ source /usr/projects/parthenon/parthenon-project/.bashrc
+```
+
+This `.bashrc` will set the correct `MACHINE_CFG` file in your environment, load
+the `cray-mpich` and `gcc/9.3.0` modules, set some required environment varialbes,
+import an architecture-specific set of recent build tools (currently cmake and
+ninja), and set Ninja as the default CMake generator.
+
+
+#### Obtain regression test gold standard files
+
+Currently, it is not possible to autmatically download the regression test gold
+standard files on Trinitite. If you do not want to run the regression tests,
+pass `-DPARTHENON_ENABLE_REGRESSION_TESTS=OFF` to the `cmake` command below.
+Otherwise, follow these instructions to copy the regression test gold standard
+files to Trinitite.
+
+On a different machine, download the gold standard files and copy them to Trinitite, e.g.
+```bash
+wget https://github.com/lanl/parthenon/releases/download/regression-gold-v3/parthenon_regression_gold_v3.tgz
+scp parthenon_regression_gold_v3.tgz tt-fey:
+```
+
+On Trinitite, extract the gold standard files into the appropriate dicrectory:
+```bash
+cd <parthenon source dir>/tst/regression/gold_standard/  # NB: Not build directory
+tar xzf /path/to/parthenon_regression_gold_v3.tgz
+```
+
+
+#### Build the Code
+
+The default is to build optimized for KNL, if you want to optimize for Haswell instead,
+add `-DTRINITITE_OPT_TARGET=HSW` to the `cmake` command below:
+```bash
+$ cmake -S. -Bbuild
+```
+
+The Trinitite-specific dependencies, system dependencies, and python packages, are hard
+coded in `Trinitite.cmake`, so you don't need anything else in your environment.
+
+Once you've configured your build directory, you can build with
+`cmake --build build`.
+
 #### Advanced
 LANL Employees - to understand how the project space is built out, see
 https://re-git.lanl.gov/eap-oss/parthenon-project
@@ -393,7 +470,7 @@ Last verified 04 Jan 2021.
 
 [RZAnsel](https://hpc.llnl.gov/hardware/platforms/rzansel) is a homogeneous cluster consisting of 2,376 nodes with the IBM Power9
 architecture with 44 nodes per core and 4 Nvidia Volta GPUs per node. To
-allocate an interactive node: 
+allocate an interactive node:
 
 E.g.
 ```bash
@@ -404,7 +481,7 @@ $ lalloc 1
 
 You can import all tools you need to start building with by sourcing the
 project `.bashrc`, to be able to access /usr/gapps/parthenon_shared you will
-need to be added to the parthenon group (contact @agaspar): 
+need to be added to the parthenon group (contact @agaspar):
 
 ```bash
 $ source /usr/gapps/parthenon_shared/parthenon-project/.bashrc
@@ -457,7 +534,7 @@ Last verified 02 Sept 2020.
 ```bash
 # setup environment
 $ module restore system
-$ module load cuda gcc/7.3.1 
+$ module load cuda gcc/7.3.1
 
 # on 02 Sept 2020 that results the following version
 $ module list

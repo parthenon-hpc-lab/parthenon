@@ -271,7 +271,6 @@ if (${PARTHENON_ENABLE_UNIT_TESTS} OR ${PARTHENON_ENABLE_INTEGRATION_TESTS} OR $
       message(STATUS "Gold standard is up-to-date. No download required.")
     endif()
 
-
     # Throw a warning if the number of processors available is less than the number specified for running the tests.
     include(ProcessorCount)
     ProcessorCount(N)

@@ -57,7 +57,17 @@ set(TRINITITE_PROJECT_PREFIX /usr/projects/parthenon/parthenon-project
     CACHE STRING "Path to parthenon-project checkout")
 mark_as_advanced(TRINITITE_PROJECT_PREFIX)
 
-set(PARTHENON_DISABLE_HDF5 OFF CACHE STRING "HDF5 not working yet on Trinitite" FORCE)
+set(PARTHENON_DISABLE_HDF5 ON CACHE STRING "HDF5 not working yet on Trinitite" FORCE)
+
+if (CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
+  # check intel version
+  if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 19.1.3.20200925)
+    message(FATAL_ERROR "Must use Intel compiler version 19.1.3 or higher")
+  endif()
+  add_definitions("-qoverride-limits")
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  message(WARNING "*** WARNING: GNU IS NOT RECOMMENDED ON TRINITITE, BECAUSE IT'S 5x SLOWER THAN INTEL ***")
+endif()
 
 message(STATUS "TRINITITE Build Settings
          TRINITITE_VIEW_DATE: ${TRINITITE_VIEW_DATE}
