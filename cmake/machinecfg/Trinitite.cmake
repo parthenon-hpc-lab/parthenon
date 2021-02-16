@@ -59,16 +59,6 @@ mark_as_advanced(TRINITITE_PROJECT_PREFIX)
 
 set(PARTHENON_DISABLE_HDF5 ON CACHE STRING "HDF5 not working yet on Trinitite" FORCE)
 
-if (CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
-  # check intel version
-  if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 19.1.3.20200925)
-    message(FATAL_ERROR "Must use Intel compiler version 19.1.3 or higher")
-  endif()
-  add_definitions("-qoverride-limits")
-elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-  message(WARNING "*** WARNING: GNU IS NOT RECOMMENDED ON TRINITITE, BECAUSE IT'S 5x SLOWER THAN INTEL ***")
-endif()
-
 message(STATUS "TRINITITE Build Settings
          TRINITITE_VIEW_DATE: ${TRINITITE_VIEW_DATE}
         TRINITITE_OPT_TARGET: ${TRINITITE_OPT_TARGET}
@@ -129,6 +119,15 @@ foreach(M ${MODULE_LIST})
   if (${M} MATCHES "gcc/9.3.0")
      set(GCC_930_LOADED ON)
   endif()
+  if (${M} MATCHES "PrgEnv-gnu")
+    message(WARNING "*** WARNING: GNU IS NOT RECOMMENDED ON TRINITITE ***")
+  endif()
+  if (${M} MATCHES "intel/")
+    string(SUBSTRING ${M} 6 -1 INTEL_VERSION)
+    if (INTEL_VERSION VERSION_LESS 19.1.3.20200925)
+      message(FATAL_ERROR "Must use Intel compiler version 19.1.3 or higher")
+    endif()
+  endif()
 endforeach()
 
 if (NOT ${CRAY_MPICH_LOADED})
@@ -157,9 +156,9 @@ endif()
 list(PREPEND CMAKE_PREFIX_PATH ${TRINITITE_VIEW_PREFIX})
 
 # Testing parameters
-set(NUM_RANKS 4)
+set(NUM_RANKS 32)
 
 set(NUM_MPI_PROC_TESTING ${NUM_RANKS} CACHE STRING "CI runs tests with 4 MPI ranks")
-set(NUM_OMP_THREADS_PER_RANK 8 CACHE STRING "Number of threads to use when testing if built with Kokkos_ENABLE_OPENMP")
+set(NUM_OMP_THREADS_PER_RANK 1 CACHE STRING "Number of threads to use when testing if built with Kokkos_ENABLE_OPENMP")
 set(TEST_MPIEXEC /opt/slurm/bin/srun CACHE STRING "Use srun to run executables")
 set(SERIAL_WITH_MPIEXEC ON)
