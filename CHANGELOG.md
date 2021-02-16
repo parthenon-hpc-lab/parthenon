@@ -13,6 +13,7 @@
 - [[PR 359]](https://github.com/lanl/parthenon/pull/359) Templated inline reconstruction functions to support different types (e.g., `ParArray4D` or `ParArrayND`)
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 448]](https://github.com/lanl/parthenon/pull/448) Compile ran2 random num generator
 - [[PR 441]](https://github.com/lanl/parthenon/pull/441) Fixed type in input parsing of `pack_size`
 
 ### Infrastructure (changes irrelevant to downstream codes)
@@ -24,6 +25,7 @@
 - [[PR 390]](https://github.com/lanl/parthenon/pull/390) Resolve @PAR_ROOT@ to parthenon root rather than the location of the current source directory
 - [[PR 443]](https://github.com/lanl/parthenon/pull/443) Fix Darwin machine config - use spectrum mpi
 - [[PR 444]](https://github.com/lanl/parthenon/pull/444) Writes performance metrics to file for advection test
+
 ### Removed (removing behavior/API/varaibles/...)
 
 ## Release 0.4.0

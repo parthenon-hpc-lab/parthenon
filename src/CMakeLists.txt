@@ -218,6 +218,7 @@ add_library(parthenon
   utils/error_checking.cpp
   utils/partition_stl_containers.hpp
   utils/show_config.cpp
+  utils/ran2.cpp
   utils/signal_handler.cpp
   utils/trim_string.cpp
   utils/trim_string.hpp
