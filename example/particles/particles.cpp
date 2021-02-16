@@ -243,7 +243,8 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, const double t0) {
   return TaskStatus::complete;
 }
 
-TaskStatus TransportParticles(MeshBlock *pmb, StagedIntegrator *integrator, const double t0) {
+TaskStatus TransportParticles(MeshBlock *pmb, StagedIntegrator *integrator,
+                              const double t0) {
   auto swarm = pmb->swarm_data.Get()->Get("my particles");
 
   int max_active_index = swarm->get_max_active_index();

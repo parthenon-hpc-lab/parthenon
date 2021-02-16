@@ -54,9 +54,12 @@ class SwarmDeviceContext {
   KOKKOS_INLINE_FUNCTION
   int GetNeighborBlockIndex(const int &n, const double &x, const double &y,
                             const double &z, bool &is_on_current_mesh_block) const {
-    const int i = static_cast<int>(std::floor((x - x_min_) / ((x_max_ - x_min_) / 2.))) + 1;
-    const int j = static_cast<int>(std::floor((y - y_min_) / ((y_max_ - y_min_) / 2.))) + 1;
-    const int k = static_cast<int>(std::floor((z - z_min_) / ((z_max_ - z_min_) / 2.))) + 1;
+    const int i =
+        static_cast<int>(std::floor((x - x_min_) / ((x_max_ - x_min_) / 2.))) + 1;
+    const int j =
+        static_cast<int>(std::floor((y - y_min_) / ((y_max_ - y_min_) / 2.))) + 1;
+    const int k =
+        static_cast<int>(std::floor((z - z_min_) / ((z_max_ - z_min_) / 2.))) + 1;
 
     // Something went wrong
     if (i < 0 || i > 3 || ((j < 0 || j > 3) && ndim_ > 1) ||
@@ -200,21 +203,12 @@ class Swarm {
 
   bool Receive(BoundaryCommSubset phase);
 
-  template <typename T>
-  vpack_types::SwarmVarList<T> MakeVarListAll_(ParticleVariableVector<T>);
-
   SwarmVariablePack<Real> PackVariablesReal(const std::vector<std::string> &names,
                                             PackIndexMap &vmap);
   SwarmVariablePack<Real> PackAllVariablesReal(PackIndexMap &vmap);
   SwarmVariablePack<int> PackVariablesInt(const std::vector<std::string> &names,
                                           PackIndexMap &vmap);
   SwarmVariablePack<int> PackAllVariablesInt(PackIndexMap &vmap);
-
-  //template <typename T>
-  //SwarmVariablePack<T> PackAllVariables(PackIndexMap &map);
-  //void PackAllVariables(SwarmVariablePack<Real> &vreal, SwarmVariablePack<int> &vint);
-  //void PackAllVariables(SwarmVariablePack<Real> &vreal, SwarmVariablePack<int> &vint,
-  //                      PackIndexMap &rmap, PackIndexMap &imap);
 
   // Temporarily public
   int swarm_num_incomplete_;
@@ -225,6 +219,9 @@ class Swarm {
   bool finished_transport;
 
  private:
+  template <typename T>
+  vpack_types::SwarmVarList<T> MakeVarListAll_(ParticleVariableVector<T>);
+
   int debug = 0;
   std::weak_ptr<MeshBlock> pmy_block;
 
