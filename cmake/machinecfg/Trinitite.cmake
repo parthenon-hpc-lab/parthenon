@@ -57,10 +57,15 @@ set(TRINITITE_PROJECT_PREFIX /usr/projects/parthenon/parthenon-project
     CACHE STRING "Path to parthenon-project checkout")
 mark_as_advanced(TRINITITE_PROJECT_PREFIX)
 
+set(PARTHENON_DISABLE_HDF5 OFF CACHE STRING "HDF5 not working yet on Trinitite" FORCE)
+
 message(STATUS "TRINITITE Build Settings
          TRINITITE_VIEW_DATE: ${TRINITITE_VIEW_DATE}
         TRINITITE_OPT_TARGET: ${TRINITITE_OPT_TARGET}
     TRINITITE_PROJECT_PREFIX: ${TRINITITE_PROJECT_PREFIX}
+
+  *** WARNING: HDF5 DISABLED BECAUSE IT'S NOT WORKING YET ON TRINITITE ***
+
 ")
 
 # Check that MPICH_MAX_THREAD_SAFETY=multiple
@@ -144,6 +149,6 @@ list(PREPEND CMAKE_PREFIX_PATH ${TRINITITE_VIEW_PREFIX})
 set(NUM_RANKS 4)
 
 set(NUM_MPI_PROC_TESTING ${NUM_RANKS} CACHE STRING "CI runs tests with 4 MPI ranks")
-set(NUM_OMP_THREADS_PER_RANK 1 CACHE STRING "Number of threads to use when testing if built with Kokkos_ENABLE_OPENMP")
+set(NUM_OMP_THREADS_PER_RANK 8 CACHE STRING "Number of threads to use when testing if built with Kokkos_ENABLE_OPENMP")
 set(TEST_MPIEXEC /opt/slurm/bin/srun CACHE STRING "Use srun to run executables")
 set(SERIAL_WITH_MPIEXEC ON)
