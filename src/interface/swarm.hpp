@@ -46,9 +46,6 @@ class SwarmDeviceContext {
   bool IsActive(int n) const { return mask_(n); }
 
   KOKKOS_FUNCTION
-  bool IsOnCurrentMeshBlock(int n) const { return blockIndex_(n) == this_block_; }
-
-  KOKKOS_FUNCTION
   void MarkParticleForRemoval(int n) const { marked_for_removal_(n) = true; }
 
   KOKKOS_FUNCTION
@@ -56,10 +53,10 @@ class SwarmDeviceContext {
 
   KOKKOS_INLINE_FUNCTION
   int GetNeighborBlockIndex(const int &n, const double &x, const double &y,
-                            const double &z) const {
-    int i = static_cast<int>(std::floor((x - x_min_) / ((x_max_ - x_min_) / 2.))) + 1;
-    int j = static_cast<int>(std::floor((y - y_min_) / ((y_max_ - y_min_) / 2.))) + 1;
-    int k = static_cast<int>(std::floor((z - z_min_) / ((z_max_ - z_min_) / 2.))) + 1;
+                            const double &z, bool &is_on_current_mesh_block) const {
+    const int i = static_cast<int>(std::floor((x - x_min_) / ((x_max_ - x_min_) / 2.))) + 1;
+    const int j = static_cast<int>(std::floor((y - y_min_) / ((y_max_ - y_min_) / 2.))) + 1;
+    const int k = static_cast<int>(std::floor((z - z_min_) / ((z_max_ - z_min_) / 2.))) + 1;
 
     // Something went wrong
     if (i < 0 || i > 3 || ((j < 0 || j > 3) && ndim_ > 1) ||
@@ -75,6 +72,9 @@ class SwarmDeviceContext {
     } else {
       blockIndex_(n) = neighborIndices_(k, j, i);
     }
+
+    is_on_current_mesh_block = (blockIndex_(n) == this_block_);
+
     return blockIndex_(n);
   }
 
@@ -192,7 +192,7 @@ class Swarm {
   void SetupPersistentMPI();
   std::shared_ptr<BoundarySwarm> vbswarm;
   bool mpiStatus;
-  void allocateComms(std::weak_ptr<MeshBlock> wpmb);
+  void AllocateComms(std::weak_ptr<MeshBlock> wpmb);
 
   int GetParticleDataSize() { return realVector_.size() + intVector_.size(); }
 
@@ -200,8 +200,8 @@ class Swarm {
 
   bool Receive(BoundaryCommSubset phase);
 
-  vpack_types::SwarmVarList<Real> MakeRealList_(std::vector<std::string> &names);
-  vpack_types::SwarmVarList<int> MakeIntList_(std::vector<std::string> &names);
+  template <typename T>
+  vpack_types::SwarmVarList<T> MakeVarListAll_(ParticleVariableVector<T>);
 
   SwarmVariablePack<Real> PackVariablesReal(const std::vector<std::string> &names,
                                             PackIndexMap &vmap);
@@ -218,7 +218,6 @@ class Swarm {
   int global_num_incomplete_;
   int local_num_completed_;
   int global_num_completed_;
-  MPI_Request allreduce_request_;
   int num_particles_sent_;
   bool finished_transport;
 

@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -33,9 +33,9 @@ class ParticleDriver : public EvolutionDriver {
   ParticleDriver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
       : EvolutionDriver(pin, app_in, pm),
         integrator(std::make_unique<StagedIntegrator>(pin)) {}
-  TaskCollection MakeParticlesCreationTaskCollection();
-  TaskCollection MakeParticlesUpdateTaskCollection();
-  TaskCollection MakeFinalizationTaskCollection();
+  TaskCollection MakeParticlesCreationTaskCollection() const;
+  TaskCollection MakeParticlesUpdateTaskCollection() const;
+  TaskCollection MakeFinalizationTaskCollection() const;
   TaskListStatus Step();
 
  private:

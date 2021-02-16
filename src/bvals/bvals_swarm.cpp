@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -128,7 +128,6 @@ void BoundarySwarm::Send(BoundaryCommSubset phase) {
 
 void BoundarySwarm::Receive(BoundaryCommSubset phase) {
 #ifdef MPI_PARALLEL
-  MPI_Barrier(MPI_COMM_WORLD);
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int &mylevel = pmb->loc.level;
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
@@ -147,19 +146,16 @@ void BoundarySwarm::Receive(BoundaryCommSubset phase) {
           bd_var_.flag[nb.bufid] = BoundaryStatus::arrived;
 
           // If message is available, receive it
-          int nbytes = 0;
-          MPI_Get_count(&status, MPI_CHAR, &nbytes);
-          if (nbytes / sizeof(Real) > bd_var_.recv[n].extent(0)) {
-            bd_var_.recv[n] = ParArray1D<Real>("Buffer", nbytes / sizeof(Real));
+          MPI_Get_count(&status, MPI_PARTHENON_REAL, &(recv_size[n]));
+          if (recv_size[n] > bd_var_.recv[n].extent(0)) {
+            bd_var_.recv[n] = ParArray1D<Real>("Buffer", recv_size[n]);
           }
-          MPI_Recv(bd_var_.recv[n].data(), nbytes, MPI_CHAR, nb.snb.rank,
+          MPI_Recv(bd_var_.recv[n].data(), recv_size[n], MPI_PARTHENON_REAL, nb.snb.rank,
                    recv_tag[nb.bufid], MPI_COMM_WORLD, &status);
-          recv_size[n] = nbytes / sizeof(Real);
         }
       }
     }
   }
-  MPI_Barrier(MPI_COMM_WORLD);
 #endif
 }
 

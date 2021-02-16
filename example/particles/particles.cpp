@@ -176,7 +176,7 @@ TaskStatus DepositParticles(MeshBlock *pmb) {
   return TaskStatus::complete;
 }
 
-TaskStatus CreateSomeParticles(MeshBlock *pmb, double t0) {
+TaskStatus CreateSomeParticles(MeshBlock *pmb, const double t0) {
   auto pkg = pmb->packages.Get("particles_package");
   auto swarm = pmb->swarm_data.Get()->Get("my particles");
   auto rng_pool = pkg->Param<RNGPool>("rng_pool");
@@ -221,7 +221,6 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, double t0) {
           x(n) = minx_i + nx_i * dx_i * rng_gen.drand();
           y(n) = minx_j + nx_j * dx_j * rng_gen.drand();
           z(n) = minx_k + nx_k * dx_k * rng_gen.drand();
-          int index = swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n));
 
           // Randomly sample direction on the unit sphere, fixing speed
           Real theta = acos(2. * rng_gen.drand() - 1.);
@@ -244,7 +243,7 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, double t0) {
   return TaskStatus::complete;
 }
 
-TaskStatus TransportParticles(MeshBlock *pmb, StagedIntegrator *integrator, double t0) {
+TaskStatus TransportParticles(MeshBlock *pmb, StagedIntegrator *integrator, const double t0) {
   auto swarm = pmb->swarm_data.Get()->Get("my particles");
 
   int max_active_index = swarm->get_max_active_index();
@@ -293,9 +292,10 @@ TaskStatus TransportParticles(MeshBlock *pmb, StagedIntegrator *integrator, doub
             z(n) += vz(n) * dt_push;
             t(n) += dt_push;
 
-            int neighborBlockIndex = swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n));
+            bool on_current_mesh_block = true;
+            swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n), on_current_mesh_block);
 
-            if (!swarm_d.IsOnCurrentMeshBlock(n)) {
+            if (!on_current_mesh_block) {
               // Particle no longer on this block
               break;
             }
@@ -355,7 +355,7 @@ TaskListStatus ParticleDriver::Step() {
 
 // TODO(BRR) This should really be in parthenon/src... but it can't just live in Swarm
 // because of the loop over blocks
-TaskStatus StopCommunicationMesh(BlockList_t &blocks) {
+TaskStatus StopCommunicationMesh(const BlockList_t &blocks) {
   int num_sent_local = 0;
   for (auto &block : blocks) {
     auto &pmb = block;
@@ -417,11 +417,11 @@ TaskStatus StopCommunicationMesh(BlockList_t &blocks) {
   return TaskStatus::complete;
 }
 
-TaskCollection ParticleDriver::MakeParticlesCreationTaskCollection() {
+TaskCollection ParticleDriver::MakeParticlesCreationTaskCollection() const {
   TaskCollection tc;
   TaskID none(0);
-  double t0 = tm.time;
-  BlockList_t &blocks = pmesh->block_list;
+  const double t0 = tm.time;
+  const BlockList_t &blocks = pmesh->block_list;
 
   auto num_task_lists_executed_independently = blocks.size();
   TaskRegion &async_region0 = tc.AddRegion(num_task_lists_executed_independently);
@@ -434,22 +434,21 @@ TaskCollection ParticleDriver::MakeParticlesCreationTaskCollection() {
   return tc;
 }
 
-TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection() {
+TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection() const {
   TaskCollection tc;
   TaskID none(0);
-  double t0 = tm.time;
-  BlockList_t &blocks = pmesh->block_list;
+  const double t0 = tm.time;
+  const BlockList_t &blocks = pmesh->block_list;
 
   auto num_task_lists_executed_independently = blocks.size();
 
   TaskRegion &async_region0 = tc.AddRegion(num_task_lists_executed_independently);
   for (int i = 0; i < blocks.size(); i++) {
     auto &pmb = blocks[i];
-    auto &tl = async_region0[i];
 
     auto sc = pmb->swarm_data.Get();
 
-    auto swarm = sc->Get("my particles");
+    auto &tl = async_region0[i];
 
     auto transport_particles =
         tl.AddTask(none, TransportParticles, pmb.get(), integrator.get(), t0);
@@ -469,7 +468,7 @@ TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection() {
   return tc;
 }
 
-TaskCollection ParticleDriver::MakeFinalizationTaskCollection() {
+TaskCollection ParticleDriver::MakeFinalizationTaskCollection() const {
   TaskCollection tc;
   TaskID none(0);
   BlockList_t &blocks = pmesh->block_list;
