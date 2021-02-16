@@ -260,7 +260,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properti
     use_uniform_meshgen_fn_[X3DIR] = false;
     MeshGenerator_[X3DIR] = DefaultMeshGeneratorX3;
   }
-  default_pack_size_ = pin->GetOrAddReal("parthenon/mesh", "pack_size", -1);
+  default_pack_size_ = pin->GetOrAddInteger("parthenon/mesh", "pack_size", -1);
 
   // calculate the logical root level and maximum level
   for (root_level = 0; (1 << root_level) < nbmax; root_level++) {
@@ -652,7 +652,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
     use_uniform_meshgen_fn_[X3DIR] = false;
     MeshGenerator_[X3DIR] = DefaultMeshGeneratorX3;
   }
-  default_pack_size_ = pin->GetOrAddReal("parthenon/mesh", "pack_size", -1);
+  default_pack_size_ = pin->GetOrAddInteger("parthenon/mesh", "pack_size", -1);
 
   // Load balancing flag and parameters
 #ifdef MPI_PARALLEL

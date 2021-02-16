@@ -44,47 +44,26 @@ function(record_driver arg)
     endforeach()
 endfunction()
 
-# Adds test that will run in serial
-# test output will be sent to /tst/regression/outputs/dir
-# test property labels: regression, mpi-no
-function(setup_test_serial dir arg extra_labels)
-  separate_arguments(arg) 
-  list(APPEND labels "regression;mpi-no")
-  list(APPEND labels "${extra_labels}")
-  if (Kokkos_ENABLE_OPENMP)
-    set(PARTHENON_KOKKOS_TEST_ARGS "${PARTHENON_KOKKOS_TEST_ARGS} --kokkos-threads=${NUM_OMP_THREADS_PER_RANK}")
+# If binaries cannot be run in serial without mpiexec or the equivalent this function allows
+# the specification of the appropriate flags.
+# By default the function will populate the arguments with the appropriate mpi flags that
+# are registered from the find_package command. They can however be overwritten with 
+# TEST_MPIEXEC and TEST_MPIEXEC_FLAG if needed. 
+function(process_args_serial_with_mpi)
+  if ( ${TEST_MPIEXEC} ) 
+    set(TMPARGS "--mpirun=${TEST_MPIEXEC}")
+  else()
+    set(TMPARGS "--mpirun=${MPIEXEC_EXECUTABLE}")
   endif()
-  if (SERIAL_WITH_MPIEXEC)
-    set(SUFFIX_SERIAL_REGRESSION_TEST --mpirun ${TEST_MPIEXEC})
+  if ( ${TEST_MPIEXEC_FLAG} )
+    list(APPEND TMPARGS "--mpirun_ranks_flag=${TEST_MPIEXEC_FLAG}")
+  else()
+    list(APPEND TMPARGS "--mpirun_ranks_flag=${MPIEXEC_NUMPROC_FLAG}")
   endif()
-  add_test(
-    NAME regression_test:${dir}
-    COMMAND ${Python3_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/run_test.py" 
-      ${arg} --test_dir "${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}"
-      --output_dir "${PROJECT_BINARY_DIR}/tst/regression/outputs/${dir}"
-      --kokkos_args=${PARTHENON_KOKKOS_TEST_ARGS}
-      ${SUFFIX_SERIAL_REGRESSION_TEST})
-  set_tests_properties(regression_test:${dir} PROPERTIES LABELS "${labels}" )
-  record_driver("${arg}")
-endfunction()
-
-# Adds test that will run in serial with code coverage
-# test output will be sent to /tst/regression/outputs/dir_cov
-# test property labels: regression, mpi-no; coverage
-function(setup_test_coverage dir arg extra_labels)
-  if( CODE_COVERAGE )
-    separate_arguments(arg) 
-
-    list(APPEND labels "regression;coverage;mpi-no")
-    list(APPEND labels "${extra_labels}")
-    add_test( NAME regression_coverage_test:${dir} COMMAND ${Python3_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/run_test.py" 
-      ${arg} 
-      --coverage
-      --test_dir "${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}"
-      --output_dir "${PROJECT_BINARY_DIR}/tst/regression/outputs/${dir}_cov")
-    set_tests_properties(regression_coverage_test:${dir} PROPERTIES LABELS "${labels}" )
-    record_driver("${arg}")
-  endif()
+  list(APPEND TMPARGS "--mpirun_ranks_num=1")
+  
+  # make the result accessible in the calling function
+  set(SUFFIX_SERIAL_REGRESSION_TEST ${TMPARGS} PARENT_SCOPE)
 endfunction()
 
 function(process_mpi_args nproc)
@@ -111,6 +90,53 @@ function(process_mpi_args nproc)
 
   # make the result accessible in the calling function
   set(MPIARGS ${TMPARGS} PARENT_SCOPE)
+endfunction()
+
+# Adds test that will run in serial
+# test output will be sent to /tst/regression/outputs/dir
+# test property labels: regression, mpi-no
+function(setup_test_serial dir arg extra_labels)
+  separate_arguments(arg) 
+  list(APPEND labels "regression;mpi-no")
+  list(APPEND labels "${extra_labels}")
+  if (Kokkos_ENABLE_OPENMP)
+    set(PARTHENON_KOKKOS_TEST_ARGS "${PARTHENON_KOKKOS_TEST_ARGS} --kokkos-threads=${NUM_OMP_THREADS_PER_RANK}")
+  endif()
+  if (SERIAL_WITH_MPIEXEC)
+    process_args_serial_with_mpi()
+  endif()
+  add_test(
+    NAME regression_test:${dir}
+    COMMAND ${Python3_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/run_test.py" 
+      ${arg} --test_dir "${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}"
+      --output_dir "${PROJECT_BINARY_DIR}/tst/regression/outputs/${dir}"
+      --kokkos_args=${PARTHENON_KOKKOS_TEST_ARGS}
+      ${SUFFIX_SERIAL_REGRESSION_TEST})
+  set_tests_properties(regression_test:${dir} PROPERTIES LABELS "${labels}" )
+  record_driver("${arg}")
+endfunction()
+
+# Adds test that will run in serial with code coverage
+# test output will be sent to /tst/regression/outputs/dir_cov
+# test property labels: regression, mpi-no; coverage
+function(setup_test_coverage dir arg extra_labels)
+  if( CODE_COVERAGE )
+    separate_arguments(arg) 
+
+    list(APPEND labels "regression;coverage;mpi-no")
+    list(APPEND labels "${extra_labels}")
+    if (SERIAL_WITH_MPIEXEC)
+      process_args_serial_with_mpi()
+    endif()
+    add_test( NAME regression_coverage_test:${dir} COMMAND ${Python3_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/run_test.py" 
+      ${arg} 
+      --coverage
+      --test_dir "${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}"
+      --output_dir "${PROJECT_BINARY_DIR}/tst/regression/outputs/${dir}_cov"
+      ${SUFFIX_SERIAL_REGRESSION_TEST})
+    set_tests_properties(regression_coverage_test:${dir} PROPERTIES LABELS "${labels}" )
+    record_driver("${arg}")
+  endif()
 endfunction()
 
 # Adds test that will run in parallel with mpi
