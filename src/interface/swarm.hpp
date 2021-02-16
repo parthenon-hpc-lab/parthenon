@@ -208,10 +208,13 @@ class Swarm {
   SwarmVariablePack<Real> PackAllVariablesReal(PackIndexMap &vmap);
   SwarmVariablePack<int> PackVariablesInt(const std::vector<std::string> &names,
                                           PackIndexMap &vmap);
+  SwarmVariablePack<int> PackAllVariablesInt(PackIndexMap &vmap);
 
-  void PackAllVariables(SwarmVariablePack<Real> &vreal, SwarmVariablePack<int> &vint);
-  void PackAllVariables(SwarmVariablePack<Real> &vreal, SwarmVariablePack<int> &vint,
-                        PackIndexMap &rmap, PackIndexMap &imap);
+  //template <typename T>
+  //SwarmVariablePack<T> PackAllVariables(PackIndexMap &map);
+  //void PackAllVariables(SwarmVariablePack<Real> &vreal, SwarmVariablePack<int> &vint);
+  //void PackAllVariables(SwarmVariablePack<Real> &vreal, SwarmVariablePack<int> &vint,
+  //                      PackIndexMap &rmap, PackIndexMap &imap);
 
   // Temporarily public
   int swarm_num_incomplete_;

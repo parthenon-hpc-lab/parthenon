@@ -358,7 +358,9 @@ void Swarm::Defrag() {
   SwarmVariablePack<int> vint;
   PackIndexMap rmap;
   PackIndexMap imap;
-  PackAllVariables(vreal, vint, rmap, imap);
+  //PackAllVariables(vreal, vint, rmap, imap);
+  vreal = PackAllVariablesReal(rmap);
+  vint = PackAllVariablesInt(imap);
   int real_vars_size = realVector_.size();
   int int_vars_size = intVector_.size();
 
@@ -523,7 +525,9 @@ bool Swarm::Send(BoundaryCommSubset phase) {
   SwarmVariablePack<int> vint;
   PackIndexMap rmap;
   PackIndexMap imap;
-  PackAllVariables(vreal, vint, rmap, imap);
+  //PackAllVariables(vreal, vint, rmap, imap);
+  vreal = PackAllVariablesReal(rmap);
+  vint = PackAllVariablesInt(imap);
   int real_vars_size = realVector_.size();
   int int_vars_size = intVector_.size();
   const int ix = rmap["x"].first;
@@ -620,7 +624,15 @@ SwarmVariablePack<Real> Swarm::PackAllVariablesReal(PackIndexMap &vmap) {
   return PackVariablesReal(names, vmap);
 }
 
-template <typename T>
+SwarmVariablePack<int> Swarm::PackAllVariablesInt(PackIndexMap &vmap) {
+  std::vector<std::string> names;
+  for (auto &v : intVector_) {
+    names.push_back(v->label());
+  }
+  return PackVariablesInt(names, vmap);
+}
+
+/*template <typename T>
 SwarmVariablePack<T> Swarm::PackAllVariables(ParticleVariableVector<T> varVector, PackIndexMap &vmap) {
   vpack_types::SwarmVarList<Real> vars = MakeVarListAll_<Real>(varVector_);
 
@@ -629,7 +641,7 @@ SwarmVariablePack<T> Swarm::PackAllVariables(ParticleVariableVector<T> varVector
   value.pack = pack;
   value.map = vmap;
   return pack;
-}
+}*/
 
 SwarmVariablePack<Real> Swarm::PackVariablesReal(const std::vector<std::string> &names,
                                                  PackIndexMap &vmap) {
@@ -687,7 +699,9 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
     SwarmVariablePack<int> vint;
     PackIndexMap rmap;
     PackIndexMap imap;
-    PackAllVariables(vreal, vint, rmap, imap);
+    //PackAllVariables(vreal, vint, rmap, imap);
+    vreal = PackAllVariablesReal(rmap);
+    vint = PackAllVariablesInt(imap);
     int real_vars_size = realVector_.size();
     int int_vars_size = intVector_.size();
     const int ix = rmap["x"].first;
@@ -765,7 +779,7 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
   return all_boundaries_received;
 }
 
-void Swarm::PackAllVariables(SwarmVariablePack<Real> &vreal,
+/*void Swarm::PackAllVariables(SwarmVariablePack<Real> &vreal,
                              SwarmVariablePack<int> &vint) {
   PackIndexMap rmap, imap;
   std::vector<std::string> real_vars;
@@ -780,24 +794,25 @@ void Swarm::PackAllVariables(SwarmVariablePack<Real> &vreal,
   }
   //vreal = PackVariablesReal(real_vars, rmap);
   vreal = PackAllVariables(rmap, realVector_);
-  vint = PackVariablesInt(int_vars, imap);
-}
+  vreal = PackAllVariables(rmap, intVector_);
+  //vint = PackVariablesInt(int_vars, imap);
+}*/
 
-void Swarm::PackAllVariables(SwarmVariablePack<Real> &vreal, SwarmVariablePack<int> &vint,
+/*void Swarm::PackAllVariables(SwarmVariablePack<Real> &vreal, SwarmVariablePack<int> &vint,
                              PackIndexMap &rmap, PackIndexMap &imap) {
   std::vector<std::string> real_vars;
   std::vector<std::string> int_vars;
   for (auto &realVar : realVector_) {
     real_vars.push_back(realVar->label());
   }
-  int real_vars_size = realVector_.size();
-  int int_vars_size = intVector_.size();
+  //int real_vars_size = realVector_.size();
+  //int int_vars_size = intVector_.size();
   for (auto &intVar : intVector_) {
     int_vars.push_back(intVar->label());
   }
   vreal = PackVariablesReal(real_vars, rmap);
   vint = PackVariablesInt(int_vars, imap);
-}
+}*/
 
 void Swarm::AllocateComms(std::weak_ptr<MeshBlock> wpmb) {
   if (wpmb.expired()) return;
