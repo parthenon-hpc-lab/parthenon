@@ -120,7 +120,9 @@ foreach(M ${MODULE_LIST})
      set(GCC_930_LOADED ON)
   endif()
   if (${M} MATCHES "PrgEnv-gnu")
-    message(WARNING "*** WARNING: GNU IS NOT RECOMMENDED ON TRINITITE ***")
+    message(WARNING "
+    *** WARNING: GNU IS NOT RECOMMENDED ON TRINITITE ***
+    ")
   endif()
   if (${M} MATCHES "^intel/")
     string(SUBSTRING ${M} 6 -1 INTEL_VERSION)
