@@ -24,6 +24,12 @@ import matplotlib.pyplot as plt
 
 class PerformanceDataJsonParser():
 
+    """
+    PerformanceDataJsonParser
+
+    This class is responsible for reading performance data from json files.
+    """
+
     def _containsCommit(self, json_objs, value):
         if not isinstance(json_objs, list):
             json_objs = [json_objs]
