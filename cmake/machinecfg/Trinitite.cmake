@@ -34,7 +34,7 @@
 
 # NOTE: When updating dependencies with new compilers or packages, you should
 # ideally only need to update these variables to change the default behavior.
-set(TRINITITE_VIEW_DATE_LATEST "2021-02-09")
+set(TRINITITE_VIEW_DATE_LATEST "2021-02-16")
 
 # It would be nice if we could let this variable float with the current code
 # checkout, but unfortunately CMake caches enough other stuff (like find
