@@ -168,6 +168,8 @@ class Mesh {
   int GetCurrentLevel() const noexcept { return current_level; }
   std::vector<int> GetNbList() const noexcept { return nblist; }
 
+  void OutputMeshStructure(const int dim, const bool dump_mesh_structure = true);
+
  private:
   // data
   int next_phys_id_; // next unused value for encoding final component of MPI tag bitfield
@@ -216,7 +218,6 @@ class Mesh {
   SrcTermFunc UserSourceTerm_;
   TimeStepFunc UserTimeStep_;
 
-  void OutputMeshStructure(int dim);
   void CalculateLoadBalance(std::vector<double> const &costlist,
                             std::vector<int> &ranklist, std::vector<int> &nslist,
                             std::vector<int> &nblist);

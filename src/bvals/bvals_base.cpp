@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -112,7 +112,7 @@ BoundaryBase::BoundaryBase(Mesh *pm, LogicalLocation iloc, RegionSize isize,
 
   if (pmy_mesh_->multilevel) { // SMR or AMR
     // allocate surface area array
-    int nc1 = block_size_.nx1 + 2 * NGHOST;
+    int nc1 = block_size_.nx1 + 2 * Globals::nghost;
     sarea_[0] = ParArrayND<Real>(PARARRAY_TEMP, nc1);
     sarea_[1] = ParArrayND<Real>(PARARRAY_TEMP, nc1);
   }
