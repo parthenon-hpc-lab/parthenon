@@ -386,23 +386,35 @@ void Swarm::SetupPersistentMPI() {
   auto pmb = GetBlockPointer();
   auto neighborIndices_h = neighborIndices_.GetHostMirror();
 
-  // Region belonging to this meshblock
-  // for (int k = 1; k < 3; k++) {
-  for (int k = 0; k < 4; k++) { // 2D ONLY!
-    for (int j = 1; j < 3; j++) {
-      for (int i = 1; i < 3; i++) {
-        neighborIndices_h(k, j, i) = this_block_;
-      }
-    }
-  }
-
   // TODO(BRR) Checks against some current limitations
   const int ndim = pmb->pmy_mesh->ndim;
-  PARTHENON_REQUIRE(ndim == 2, "Only 2D tested right now!");
   auto mesh_bcs = pmb->pmy_mesh->mesh_bcs;
   for (int n = 0; n < 2 * ndim; n++) {
     PARTHENON_REQUIRE(mesh_bcs[n] == BoundaryFlag::periodic,
                       "Only periodic boundaries supported right now!");
+  }
+
+  // Indicate which neighbor regions correspond to this meshblock
+  int kmin = 1;
+  int kmax = 3;
+  int jmin = 1;
+  int jmax = 3;
+  int imin = 1;
+  int imax = 3;
+  if (ndim < 3) {
+    kmin = 0;
+    kmax = 4;
+    if (ndim < 2) {
+      jmin = 0;
+      jmax = 4;
+    }
+  }
+  for (int k = kmin; k < kmax; k++) {
+    for (int j = jmin; j < jmax; j++) {
+      for (int i = imin; i < imax; i++) {
+        neighborIndices_h(k, j, i) = this_block_;
+      }
+    }
   }
 
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
@@ -410,7 +422,7 @@ void Swarm::SetupPersistentMPI() {
 
     const int i = nb.ni.ox1;
     const int j = nb.ni.ox2;
-    // int k = nb.ni.ox3;
+    const int k = nb.ni.ox3;
 
     if (ndim == 1) {
       if (i == -1) {
@@ -449,8 +461,114 @@ void Swarm::SetupPersistentMPI() {
           neighborIndices_h(0, 3, 3) = n;
         }
       }
-    } else {
-      PARTHENON_FAIL("3D particles not currently supported!");
+    } else if (ndim == 3) {
+      if (i == -1) {
+        if (j == -1) {
+          if (k == -1) {
+            neighborIndices_h(0, 0, 0) = n;
+          } else if (k == 0) {
+            neighborIndices_h(1, 0, 0) = n;
+            neighborIndices_h(2, 0, 0) = n;
+          } else if (k == 1) {
+            neighborIndices_h(3, 0, 0) = n;
+          }
+        } else if (j == 0) {
+          if (k == -1) {
+            neighborIndices_h(0, 1, 0) = n;
+            neighborIndices_h(0, 2, 0) = n;
+          } else if (k == 0) {
+            neighborIndices_h(1, 1, 0) = n;
+            neighborIndices_h(1, 2, 0) = n;
+            neighborIndices_h(2, 1, 0) = n;
+            neighborIndices_h(2, 2, 0) = n;
+          } else if (k == 1) {
+            neighborIndices_h(3, 1, 0) = n;
+            neighborIndices_h(3, 2, 0) = n;
+          }
+        } else if (j == 1) {
+          if (k == -1) {
+            neighborIndices_h(0, 3, 0) = n;
+          } else if (k == 0) {
+            neighborIndices_h(1, 3, 0) = n;
+            neighborIndices_h(2, 3, 0) = n;
+          } else if (k == 1) {
+            neighborIndices_h(3, 3, 0) = n;
+          }
+        }
+      } else if (i == 0) {
+        if (j == -1) {
+          if (k == -1) {
+            neighborIndices_h(0, 0, 1) = n;
+            neighborIndices_h(0, 0, 2) = n;
+          } else if (k == 0) {
+            neighborIndices_h(1, 0, 1) = n;
+            neighborIndices_h(1, 0, 2) = n;
+            neighborIndices_h(2, 0, 1) = n;
+            neighborIndices_h(2, 0, 2) = n;
+          } else if (k == 1) {
+            neighborIndices_h(3, 0, 1) = n;
+            neighborIndices_h(3, 0, 2) = n;
+          }
+        } else if (j == 0) {
+          if (k == -1) {
+            neighborIndices_h(0, 1, 1) = n;
+            neighborIndices_h(0, 1, 2) = n;
+            neighborIndices_h(0, 2, 1) = n;
+            neighborIndices_h(0, 2, 2) = n;
+          } else if (k == 1) {
+            neighborIndices_h(3, 1, 1) = n;
+            neighborIndices_h(3, 1, 2) = n;
+            neighborIndices_h(3, 2, 1) = n;
+            neighborIndices_h(3, 2, 2) = n;
+          }
+        } else if (j == 1) {
+          if (k == -1) {
+            neighborIndices_h(0, 3, 1) = n;
+            neighborIndices_h(0, 3, 2) = n;
+          } else if (k == 0) {
+            neighborIndices_h(1, 3, 1) = n;
+            neighborIndices_h(1, 3, 2) = n;
+            neighborIndices_h(2, 3, 1) = n;
+            neighborIndices_h(2, 3, 2) = n;
+          } else if (k == 1) {
+            neighborIndices_h(3, 3, 1) = n;
+            neighborIndices_h(3, 3, 2) = n;
+          }
+        }
+      } else if (i == 1) {
+        if (j == -1) {
+          if (k == -1) {
+            neighborIndices_h(0, 0, 3) = n;
+          } else if (k == 0) {
+            neighborIndices_h(1, 0, 3) = n;
+            neighborIndices_h(2, 0, 3) = n;
+          } else if (k == 1) {
+            neighborIndices_h(3, 0, 3) = n;
+          }
+        } else if (j == 0) {
+          if (k == -1) {
+            neighborIndices_h(0, 1, 3) = n;
+            neighborIndices_h(0, 2, 3) = n;
+          } else if (k == 0) {
+            neighborIndices_h(1, 1, 3) = n;
+            neighborIndices_h(1, 2, 3) = n;
+            neighborIndices_h(2, 1, 3) = n;
+            neighborIndices_h(2, 2, 3) = n;
+          } else if (k == 1) {
+            neighborIndices_h(3, 1, 3) = n;
+            neighborIndices_h(3, 2, 3) = n;
+          }
+        } else if (j == 1) {
+          if (k == -1) {
+            neighborIndices_h(0, 3, 3) = n;
+          } else if (k == 0) {
+            neighborIndices_h(1, 3, 3) = n;
+            neighborIndices_h(2, 3, 3) = n;
+          } else if (k == 1) {
+            neighborIndices_h(3, 3, 3) = n;
+          }
+        }
+      }
     }
   }
 
