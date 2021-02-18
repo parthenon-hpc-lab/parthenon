@@ -148,7 +148,7 @@ follow the instructions [below](#integrating-the-regression-test-with-cmake) *an
 [CMakeLists.txt](tst/regression/CMakeLists.txt)).
 
 A third pipeline is run using LANL internal systems and is run manually when
-approved, it is also scheduled to run on a dailly basis on the development
+approved, it is also scheduled to run on a daily basis on the development
 branch. The internal machines use the newest IBM powerPC processors and the
 NVIDIA V100 (Volta) GPUs (power9 architecture). Tests run on these systems are
 primarily aimed at measuring the performance of this specific architecture.
@@ -156,9 +156,14 @@ Compilation and testing details can be found by looking in the
 [.gitlab-ci-darwin.yml](.gitlab-ci-darwin.yml) file *and* the /scripts/darwin
 folder. In summary, the ci is built in release mode, with OpenMP, MPI, HDF5 and
 Cuda enabled. All tests are run on a single node with access to two Volta
-GPUs. In addition the regression tests are run in parallel with two mpi
+GPUs. In addition, the regression tests are run in parallel with two mpi
 processors each of which have access to their own Volta gpu. The following
-tests are run with this ci: unit, regression, performance.  
+tests are run with this ci: unit, regression, performance. A final note, 
+this CI has been chosen to also check for performance regressions. The CI 
+uses a github application located in /scripts/python. After a successful run
+of the CI a link to the performance metrics will appear as part of the parthenon
+metrics status check in the pr next to the commit the metrics were recorded for.
+All data from the regression tests are recorded in the parthenon wiki in a json file. 
 
 ### Adding Tests
 
