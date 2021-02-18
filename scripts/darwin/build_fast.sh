@@ -10,7 +10,7 @@ set -e
 # Calculate number of available cores
 export J=$(( $(nproc --all) )) && echo Using ${J} cores during build
 
-cmake -S. -Bbuild
+cmake -S. -Bbuild -DPARTHENON_DISABLE_COPYRIGHT_CHECK=ON
 
 cmake --build build
 

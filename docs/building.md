@@ -33,6 +33,7 @@ If you come across a disfunctional setup, please report it by open an issue or p
    |                           Kokkos\_ROOT | unset             | String | Path to a Kokkos source directory (containing CMakeLists.txt) |
    |              PARTHENON\_IMPORT\_KOKKOS | ON/OFF            | Option | If ON, attempt to link to an external Kokkos library. If OFF, build Kokkos from source and package with Parthenon |
    |                    BUILD\_SHARED\_LIBS | OFF               | Option | If installing Parthenon, whether to build as shared rather than static |
+   |   PARTHENON\_DISABLE\_COPYRIGHT\_CHECK | OFF               | Option | Whether to fail while building if copyright is out of date |
 
 ### NB: CMake options prefixed with *PARTHENON\_* modify behavior.
 
