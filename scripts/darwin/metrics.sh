@@ -27,7 +27,10 @@ trap 'catch $? $LINENO' ERR
 catch() {
   echo "Error $1 occurred on $2"
   echo "BUILD FAILED"
-  exit $ERR
+  # For some reason the ERR variable is not recongized as a numeric type when quoted, 
+  # exit requires err be recognized as a numeric type, furthermore the quotes
+  # are needed as good practice
+  exit "$(($ERR))"
 }
 
 if [[ "develop" == "${CI_COMMIT_BRANCH}" ]]; then

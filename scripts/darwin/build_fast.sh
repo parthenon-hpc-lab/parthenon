@@ -23,7 +23,10 @@ catch() {
   "${SOURCE}"/../python/parthenon_metrics_app.py --status "error" --status-context "Parthenon Metrics App" --status-description "CI failed" --status-url "${CI_JOB_URL}"
   wait
   echo "BUILD FAILED"
-  exit $ERR
+  # For some reason the ERR variable is not recongized as a numeric type when quoted, 
+  # exit requires err be recognized as a numeric type, furthermore the quotes
+  # are needed as good practice
+  exit "$(($ERR))"
 }
 
 module load gcc/9.3.0

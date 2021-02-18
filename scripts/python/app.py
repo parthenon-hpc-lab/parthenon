@@ -16,7 +16,6 @@ import os
 import datetime
 import filecmp
 import pathlib
-import pprint
 import json
 import shutil
 import base64
@@ -34,6 +33,12 @@ class Node:
     """
 
     def __init__(self, dir_name="", rel_path=""):
+        """Creating a Node object
+
+        dir_name is the name of the directory the node contains information about 
+        rel_path is the actual path to the directory
+        """
+
         self.dir = dir_name
         self.dirs = []
         self.files = []
@@ -41,7 +46,8 @@ class Node:
         self.rel_path = rel_path + dir_name
 
     def insert(self, content, content_type):
-        """
+        """Record the contents of a directory by inserting it
+
         Will either store new information as a file, directory or misc type.
         If the content type is of type dir than a new node is created.
         """
@@ -53,22 +59,16 @@ class Node:
             self.files.append(content)
 
     def getNodes(self):
-        """
-        Returns a list of all nodes in the current node, which are essentially
-        directories.
-        """
+        """Returns a list of all nodes in the current node, which are essentially
+        directories."""
         return self.dirs
 
     def getPath(self):
-        """
-        Get the relative path of the current node.
-        """
+        """Get the relative path of the current node."""
         return self.rel_path
 
     def printTree(self):
-        """
-        Print contents of node and all child nodes
-        """
+        """Print contents of node and all child nodes"""
         print("Contents in folder: " + self.rel_path)
         for fil in self.files:
             print("File " + fil)
@@ -104,6 +104,20 @@ class App:
 
     def initialize(self, use_wiki=False, ignore=False,
                    pem_file="", create_branch=False):
+        """Sets basic properties of the app should be called before any other methods
+
+        use_wiki - determines if by default commands will refer to the wiki repository
+        create_branch - determines if you are giving the application the ability to create new
+        branches
+        pem_file - this is the authentication file needed to do anything with the github api.
+        ignore - if this is set to true than images will not be uploaded to a seperate figures 
+        branch on the main repository. By default binary files are uploaded to a orphan branch so
+        as to prevent bloatting the commit history.
+
+        The initialization method is also responsible for authenticating with github and creating
+        an access token. The access token is needed to do any further communication or run any other
+        operations on github.
+        """
         self._ignore = ignore
         self._use_wiki = use_wiki
         self._repo_url = "https://api.github.com/repos/" + \
@@ -140,9 +154,8 @@ class App:
         self._generateAccessToken()
 
     def _generateJWT(self, pem_file):
-        """
-        Method will take the permissions (.pem) file provided and populate the json web token attribute
-        """
+        """Method will take the permissions (.pem) file provided and populate the json web token
+        attribute"""
         # iss is the app id
         # Ensuring that we request an access token that expires after a minute
         payload = {
@@ -171,9 +184,8 @@ class App:
             payload, PEM, algorithm='RS256').decode("utf-8")
 
     def _generateInstallationId(self):
-        """
-        This method will populate the installation id attribute using the internally stored json web token.
-        """
+        """This method will populate the installation id attribute using the internally stored json
+        web token."""
         header = [
             'Authorization: Bearer ' + str(self._jwt_token),
             'Accept: ' + self._api_version
@@ -197,8 +209,7 @@ class App:
         self._install_id = js_obj['html_url'].rsplit('/', 1)[-1]
 
     def _generateAccessToken(self):
-        """
-        This method will populate the installation attribute using the installation id. The token
+        """This method will populate the installation attribute using the installation id. The token
         is needed to authenticate any actions run by the application.
         """
         header = [
@@ -233,8 +244,7 @@ class App:
         ]
 
     def _fillTree(self, current_node, branch):
-        """
-        This is an internal method that is meant to be used recursively to grab the contents of a
+        """This is an internal method that is meant to be used recursively to grab the contents of a
         branch of a remote repository.
         """
         nodes = current_node.getNodes()
@@ -261,6 +271,7 @@ class App:
             self._fillTree(node, branch)
 
     def _getBranches(self):
+        """Internal method for getting a list of the branches that are available on github."""
         buffer_temp = BytesIO()
         c = pycurl.Curl()
         c.setopt(pycurl.VERBOSE, 0)
@@ -297,14 +308,12 @@ class App:
                 return js_obj.get('base').get('label').split(':', 1)[1]
         return None
 
-    """
-  Public Methods
-  """
+    #Public Methods
 
     def getBranches(self):
-        """
-        This method will check to see if branches have already been collected from the github RESTful
-        api. If the branch tree has not been collected it will update the branches attribute.
+        """This method will check to see if branches have already been collected from the github
+        RESTful api. If the branch tree has not been collected it will update the branches
+        attribute.
         """
         if not self._branches:
             self._getBranches()
@@ -312,13 +321,14 @@ class App:
         return self._branches
 
     def getLatestCommitSha(self, target_branch):
+        """Does what it says gets the latest commit sha for the taget_branch"""
         if not self._branches:
             self._getBranches()
         return self._branch_current_commit_sha.get(target_branch)
 
     def branchExist(self, branch):
-        """
-        This method will determine if a branch exists on the github repository by pinging the github api
+        """This method will determine if a branch exists on the github repository by pinging the
+        github api
         """
         branches = self.getBranches()
         if branch in branches:
@@ -328,7 +338,7 @@ class App:
     def refreshBranchCache(self):
         """"
         Method forces an update of the localy stored branch tree.
-        
+
         Will update regardless of whether the class already contains a local copy. Might be
         necessary if the remote github repository is updated.
         """
@@ -517,6 +527,8 @@ class App:
         self._fillTree(self._parth_root, branch)
 
     def cloneWikiRepo(self):
+        """Will clone the wiki repository if it does not exist, if it does exist it will update the
+        access permissions by updating the wiki remote url. The repository is then returned"""
         wiki_remote = "https://x-access-token:" + \
             str(self._access_token) + "@github.com/" + \
             self._user + "/" + self._repo_name + ".wiki.git"
@@ -542,9 +554,7 @@ class App:
 
     def postStatus(self, state, commit_sha=None, context="",
                    description="", target_url=""):
-        """
-        Post status of current commit.
-        """
+        """Post status of current commit."""
         state_list = ['pending', 'failed', 'error', 'success']
         if state not in state_list:
             raise Exception("Unrecognized state specified " + state)
@@ -553,7 +563,6 @@ class App:
         if commit_sha is None:
             raise Exception(
                 "CI_COMMIT_SHA not defined in environment cannot post status")
-        buffer_temp = BytesIO()
         custom_data = {"state": state}
         if context != "":
             custom_data["context"] = context
@@ -571,9 +580,7 @@ class App:
         c.close()
 
     def getStatus(self):
-        """
-        Get status of current commit.
-        """
+        """Get status of current commit."""
         commit_sha = os.getenv('CI_COMMIT_SHA')
         if commit_sha is None:
             raise Exception(

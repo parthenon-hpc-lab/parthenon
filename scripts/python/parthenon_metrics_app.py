@@ -31,6 +31,7 @@ class PerformanceDataJsonParser():
     """
 
     def _containsCommit(self, json_objs, value):
+        """Will determine if a commit is found in the performance json files."""
         if not isinstance(json_objs, list):
             json_objs = [json_objs]
 
@@ -92,6 +93,7 @@ class PerformanceDataJsonParser():
                 self._data['data'].append(new_data['data'])
 
     def getData(self, file_name):
+        """Will read data from a performance file into json formated objected"""
         if os.path.isfile(file_name):
             # If does exist:
             # 1. load the
@@ -101,6 +103,14 @@ class PerformanceDataJsonParser():
         return None
 
     def getMostRecentPerformanceData(self, file_name, branch, test):
+        """Will parse a performance .json file and get the latest metrics.
+
+        file_name - file where the data is stored
+        branch - is the branch we are trying to get performance metrics for
+        test - is the test we are getting the metrics for
+
+        Will return the mesh_blocks and cycles if found else will return None
+        """
         if os.path.isfile(file_name):
             # If does exist:
             # 1. load the
@@ -144,7 +154,10 @@ class PerformanceDataJsonParser():
         return None
 
     def append(self, new_data, file_name):
-
+        """Append new data to a performance .json file.
+        
+        Will overwrite old data if the commit already exists in the file.
+        """
         data_found = False
         if os.path.isfile(file_name):
             # If does exist:
@@ -172,6 +185,7 @@ class PerformanceDataJsonParser():
         return len(self._data)
 
     def getCyclesAt(self, commit_index, test):
+        """Returns the number of cycles for a particular test associated with a commit"""
         list_ind = 0
         for json_obj in self._data:
             if commit_index == list_ind:
@@ -187,6 +201,7 @@ class PerformanceDataJsonParser():
         return None
 
     def getMeshBlocksAt(self, commit_index, test):
+        """Returns the number of mesh blocks for a particular test associated with a commit"""
         list_ind = 0
         for json_obj in self._data:
             if commit_index == list_ind:
@@ -212,6 +227,7 @@ class PerformanceDataJsonParser():
         return None
 
     def checkDataUpToDate(self, file_name, branch, commit_sha, test):
+        """Checks to see if performance metrics exist for the commit and test specefied"""
         if not os.path.isfile(file_name):
             return False
         if os.stat(file_name).st_size == 0:
@@ -265,6 +281,7 @@ class ParthenonApp(App):
             "parthenon")
 
     def readPerformanceMetricsTXT(self, file_path):
+        """Will read the performance metrics of a .txt file that is output from one of the tests"""
         mesh_blocks = np.zeros(1)
         zone_cycles = np.zeros(1)
         with open(file_path, 'r') as reader:
@@ -299,6 +316,19 @@ class ParthenonApp(App):
 
     def analyze(self, regression_outputs, current_branch, target_branch,
                 post_status, create_figures, number_commits_to_plot=5):
+        """This method will analayze the output of test performance regression metrics
+
+        The output from each test will be used to create a figure demonstrating the
+        performance. The output will then be recorded in the json formatted performance 
+        metrics file stored in the wiki. Each branch has it's own performance metrics file.
+        The performance metrics from the latest commit of the target branch (the branch to
+        be merged into) are read in and plotted alongside the current metrics. 
+        The figures depecting the performance are then uploaded to a orphan branch named figures. 
+        Links to the figures are created in a markdown file stored on the wiki which is
+        also uploaded.
+
+        Finally, a status check is posted to the pr with a link to the performance metrics.
+        """
         regression_outputs = os.path.abspath(regression_outputs)
         if not os.path.exists(regression_outputs):
             raise Exception(
@@ -314,8 +344,6 @@ class ParthenonApp(App):
         if isinstance(target_branch, list):
             target_branch = target_branch[0]
 
-        #current_branch = os.getenv('CI_COMMIT_BRANCH')
-        #target_branch = super().getBranchMergingWith(current_branch)
         wiki_file_name = current_branch.replace(
             r'/', '-') + "_" + target_branch.replace(r'/', '-')
         pr_wiki_page = os.path.join(
