@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -38,7 +38,7 @@ enum class DriverStatus { complete, timeout, failed };
 class Driver {
  public:
   Driver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
-      : pinput(pin), app_input(app_in), pmesh(pm), mbcnt_prev() {}
+      : pinput(pin), app_input(app_in), pmesh(pm), mbcnt_prev(), time_LBandAMR() {}
   virtual DriverStatus Execute() = 0;
   void InitializeOutputs() { pouts = std::make_unique<Outputs>(pmesh, pinput); }
 
@@ -48,10 +48,11 @@ class Driver {
   std::unique_ptr<Outputs> pouts;
 
  protected:
-  Kokkos::Timer timer_cycle, timer_main;
+  Kokkos::Timer timer_cycle, timer_main, timer_LBandAMR;
+  double time_LBandAMR;
   std::uint64_t mbcnt_prev;
   virtual void PreExecute();
-  virtual void PostExecute();
+  virtual void PostExecute(DriverStatus status);
 
  private:
 };
@@ -65,10 +66,13 @@ class EvolutionDriver : public Driver {
                                          std::numeric_limits<Real>::infinity());
     Real dt =
         pinput->GetOrAddPrecise("parthenon/time", "dt", std::numeric_limits<Real>::max());
-    int ncycle = pinput->GetOrAddInteger("parthenon/time", "ncycle", 0);
-    int nmax = pinput->GetOrAddInteger("parthenon/time", "nlim", -1);
-    int nout = pinput->GetOrAddInteger("parthenon/time", "ncycle_out", 1);
-    tm = SimTime(start_time, tstop, nmax, ncycle, nout, dt);
+    const auto ncycle = pinput->GetOrAddInteger("parthenon/time", "ncycle", 0);
+    const auto nmax = pinput->GetOrAddInteger("parthenon/time", "nlim", -1);
+    const auto nout = pinput->GetOrAddInteger("parthenon/time", "ncycle_out", 1);
+    // disable mesh output by default
+    const auto nout_mesh =
+        pinput->GetOrAddInteger("parthenon/time", "ncycle_out_mesh", 0);
+    tm = SimTime(start_time, tstop, nmax, ncycle, nout, nout_mesh, dt);
     pouts = std::make_unique<Outputs>(pmesh, pinput, &tm);
   }
   DriverStatus Execute() override;
@@ -79,7 +83,7 @@ class EvolutionDriver : public Driver {
   SimTime tm;
 
  protected:
-  void PostExecute(DriverStatus status);
+  void PostExecute(DriverStatus status) override;
 
  private:
   void InitializeBlockTimeSteps();

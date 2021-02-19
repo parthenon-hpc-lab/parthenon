@@ -8,7 +8,6 @@ If you come across a disfunctional setup, please report it by open an issue or p
 
    |              Option                    | Default           | Type   | Description |
    | -------------------------------------: | :---------------- | :----- | :---------- |
-   |                      PARTHENON\_NGHOST | 2                 | String | Number of ghost cells |
    |           PARTHENON\_SINGLE\_PRECISION | OFF               | Option | Enable single precision mode if requested |
    |               PARTHENON\_DISABLE\_HDF5 | OFF               | Option | HDF5 is enabled by default if found, set this to True to disable HDF5 |
    |                PARTHENON\_DISABLE\_MPI | OFF               | Option | MPI is enabled by default if found, set this to True to disable MPI |
@@ -208,23 +207,75 @@ ctest -L performance
 
 ### OLCF Summit (Power9+Volta)
 
-Last verified 28 Aug 2020.
+Last verified 01 Feb 2021.
 
 #### Common environment
+
+Load recommended modules:
 
 ```bash
 # setup environment
 $ module restore system
-$ module load cuda gcc cmake/3.14.2 python hdf5
+$ module load cuda gcc cmake python hdf5
 
-# on 28 Aug 2020 that results the following version
+# on 01 Aug 2021 that results the following version
 $ module list
 
 Currently Loaded Modules:
-  1) hsi/5.0.2.p5    4) darshan-runtime/3.1.7   7) gcc/6.4.0                       10) hdf5/1.10.4
-  2) xalt/1.2.0      5) DefApps                 8) cmake/3.14.2                    11) python/3.6.6-anaconda3-5.3.0
-  3) lsf-tools/2.0   6) cuda/10.1.243           9) spectrum-mpi/10.3.1.2-20200121
+  1) hsi/5.0.2.p5    4) darshan-runtime/3.1.7   7) gcc/6.4.0                     10) spectrum-mpi/10.3.1.2-20200121
+  2) xalt/1.2.1      5) DefApps                 8) cmake/3.18.2                  11) hdf5/1.10.4
+  3) lsf-tools/2.0   6) cuda/10.1.243           9) python/3.6.6-anaconda3-5.3.0
 ```
+
+Load the recommended default machine configuration:
+
+```bash
+# assuming PARTHENON_ROOT has been set to the Parthenon folder as mentioned above
+$ export MACHINE_CFG=${PARTHENON_ROOT}/cmake/machinecfg/Summit.cmake
+
+```
+
+#### Build code
+
+#### Cuda with MPI
+
+```bash
+# configure and build. Make sure to build in an directory on the GPFS filesystem if you want to run the regression tests because the home directory is not writeable from the compute nodes (which will result in the regression tests failing)
+$ mkdir build-cuda-mpi && cd build-cuda-mpi
+$ cmake ${PARTHENON_ROOT}
+$ make -j 8
+
+# !!!! The following commands are exepected to be run within job (interactive or scheduled), e.g., via
+# $ bsub -W 0:30 -nnodes 1 -P YOURPROJECTID -Is /bin/bash
+# and make sure to also load the module above, i.e.,
+# $ module load cuda gcc cmake/3.18.2 python hdf5
+
+# run all MPI regression tests (execute from within the build folder)
+$ ctest -L regression -LE mpi-no
+
+# Manually run a simulation (here using 1 node with 6 GPUs and 1 MPI processes per GPU for a total of 6 processes (ranks)).
+# Note the `-M "-gpu"` which is required to enable Cuda aware MPI.
+# Also note the `--kokkos-num-devices=6` that ensures that each process on a node uses a different GPU.
+$ jsrun -n 1 -a 6 -g 6 -c 42 -r 1 -d packed -b packed:7 --smpiargs=-gpu ./example/advection/advection-example -i ${PARTHENON_ROOT}/example/advection/parthinput.advection parthenon/time/nlim=10 parthenon/mesh/nx1=512 parthenon/mesh/nx2=512 parthenon/mesh/nx3=512 parthenon/meshblock/nx1=64 parthenon/meshblock/nx2=64 parthenon/meshblock/nx3=64 --kokkos-num-devices=6
+```
+
+#### Cuda without MPI
+
+```bash
+# configure and build
+$ mkdir build-cuda && cd build-cuda
+$ cmake -DMACHINE_VARIANT=cuda ${PARTHENON_ROOT}
+$ make -j8
+
+# Run unit tests (again assumes running within a job, e.g., via `bsub -W 1:30 -nnodes 1 -P PROJECTID -Is /bin/bash`)
+# - jsrun is required as the test would otherwise be executed on the scheduler node rather than on a compute node
+# - "off" is required as otherwise the implicit PAMI initialization would fail
+$ jsrun -n 1 -g 1 --smpiargs="off" ctest -L unit
+
+# run performance regression test test
+$ jsrun -n 1 -g 1 --smpiargs="off" ctest -R regression_test:advection_performance
+```
+
 
 ### LANL Darwin (Heterogeneous)
 
@@ -272,6 +323,122 @@ $ cmake -S. -Bbuild -DMACHINE_CFG=cmake/machinecfg/Darwin.cmake
 
 The Darwin-specific dependencies, including compilers, system dependencies, and
 python packages, are hard coded in `Darwin.cmake`, so you don't need anything
+else in your environment.
+
+Once you've configured your build directory, you can build with
+`cmake --build build`.
+
+#### Advanced
+LANL Employees - to understand how the project space is built out, see
+https://re-git.lanl.gov/eap-oss/parthenon-project
+
+### LANL Snow (CTS-1)
+
+#### Allocate Node
+
+Snow is a LANL CTS-1 system with dual socket Broadwell Intel CPUs. You can log
+in to `sn-fey`. Nodes are allocated using SLURM.
+
+E.g.
+```bash
+$ salloc -N1
+```
+
+#### Set-Up Environment (Optional, but Recommended)
+
+You can import all tools you need to start building with by sourcing the
+project `.bashrc`:
+
+```bash
+$ source /usr/projects/parthenon/parthenon-project/.bashrc
+```
+
+This .bashrc will set the correct `MACHINE_CFG` file in your environment, import
+an architecture-specific set of recent build tools (currently cmake and ninja),
+and set Ninja as the default CMake generator.
+
+#### Build the Code
+If you followed the "Set-Up Environment" section, configuration requires 0
+additional arguments:
+```bash
+$ cmake -S. -Bbuild
+```
+
+If you didn't follow the "Set-Up Environment" section, you need to specify the
+`MACHINE_CFG` file, as well.
+
+```bash
+$ cmake -S. -Bbuild -DMACHINE_CFG=cmake/machinecfg/Snow.cmake
+```
+
+Parthenon is built with the Intel compilers by default on Snow. To build with
+gcc, specify `-DSNOW_COMPILER=GCC`.
+
+The Snow-specific dependencies, including compilers, system dependencies, and
+python packages, are hard coded in `Snow.cmake`, so you don't need anything
+else in your environment.
+
+Once you've configured your build directory, you can build with
+`cmake --build build`.
+
+#### Advanced
+LANL Employees - to understand how the project space is built out, see
+https://re-git.lanl.gov/eap-oss/parthenon-project
+
+### LNLL RZAnsel (Homogeneous)
+
+Last verified 04 Jan 2021.
+
+#### Allocate Node
+
+[RZAnsel](https://hpc.llnl.gov/hardware/platforms/rzansel) is a homogeneous cluster consisting of 2,376 nodes with the IBM Power9
+architecture with 44 nodes per core and 4 Nvidia Volta GPUs per node. To
+allocate an interactive node: 
+
+E.g.
+```bash
+$ lalloc 1
+```
+
+#### Set-Up Environment (Optional, but Still Recommended, for Non-CUDA Builds)
+
+You can import all tools you need to start building with by sourcing the
+project `.bashrc`, to be able to access /usr/gapps/parthenon_shared you will
+need to be added to the parthenon group (contact @agaspar): 
+
+```bash
+$ source /usr/gapps/parthenon_shared/parthenon-project/.bashrc
+```
+
+This .bashrc will set the correct `MACHINE_CFG` file in your environment, import
+an architecture-specific set of recent build tools (currently cmake and ninja),
+and set Ninja as the default CMake generator.
+
+This step is required if you intend to build for CUDA (the default on Power9).
+
+#### Build the Code
+If you followed the "Set-Up Environment" section, configuration requires 0
+additional arguments:
+```bash
+$ cmake -S. -Bbuild
+```
+By default cmake will build parthenon with cuda and mpi support. Other machine
+variants exist and can be specified by using the `MACHINE_VARIANT` flag. The
+supported machine variants include:
+
+* cuda-mpi
+* mpi
+* cuda
+
+If you didn't follow the "Set-Up Environment" section, you need to specify the
+`MACHINE_CFG` file, as well.
+
+```bash
+$ cmake -S. -Bbuild -DMACHINE_CFG=cmake/machinecfg/RZAnsel.cmake
+```
+
+The RZAnsel-specific dependencies, including compilers, system dependencies, and
+python packages, are hard coded in `RZAnsel.cmake`, so you don't need anything
 else in your environment.
 
 Once you've configured your build directory, you can build with
