@@ -16,9 +16,9 @@
 #include <algorithm>
 #include <array>
 #include <forward_list>
-#include <map>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -45,24 +45,25 @@ using IndexPair = std::pair<int, int>;
 using StringPair = std::pair<std::vector<std::string>, std::vector<std::string>>;
 } // namespace vpack_types
 
-// using PackIndexMap = std::map<std::string, vpack_types::IndexPair>;
+// using PackIndexMap = std::unordered_map<std::string, vpack_types::IndexPair>;
 class PackIndexMap {
  public:
   PackIndexMap() = default;
   vpack_types::IndexPair &operator[](const std::string &key) {
-    if (!map_.count(key)) {
-      map_[key] = vpack_types::IndexPair(0, -1);
+    if (!Has(key)) {
+      map_.insert({key, vpack_types::IndexPair(0, -1)});
     }
-    return map_[key];
+    return map_.at(key);
   }
   void insert(std::pair<std::string, vpack_types::IndexPair> keyval) {
-    map_[keyval.first] = keyval.second;
+    map_.insert(keyval);
   }
   bool Has(std::string const &key) const { return map_.count(key) > 0; }
 
  private:
-  std::map<std::string, vpack_types::IndexPair> map_;
+  std::unordered_map<std::string, vpack_types::IndexPair> map_;
 };
+
 template <typename T>
 using ViewOfParArrays = ParArray1D<ParArray3D<T>>;
 
