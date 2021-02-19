@@ -86,7 +86,27 @@ void Swarm::AllocateBoundaries() {
   std::stringstream msg;
 
   auto &bcs = pmb->pmy_mesh->mesh_bcs;
+
   if (bcs[0] == BoundaryFlag::periodic) {
+    bounds[0] = DeviceAllocate<ParticleBoundIX1Periodic>();
+  } else if (bcs[0] == BoundaryFlag::outflow) {
+    bounds[0] = DeviceAllocate<ParticleBoundIX1Outflow>();
+  } else {
+    msg << "ix1 boundary flag " << static_cast<int>(bcs[0]) << " not supported!";
+    PARTHENON_THROW(msg);
+  }
+
+  if (bcs[1] == BoundaryFlag::periodic) {
+    bounds[1] = DeviceAllocate<ParticleBoundOX1Periodic>();
+  } else if (bcs[1] == BoundaryFlag::outflow) {
+    bounds[1] = DeviceAllocate<ParticleBoundOX1Outflow>();
+  } else {
+    msg << "ox1 boundary flag " << static_cast<int>(bcs[1]) << " not supported!";
+    PARTHENON_THROW(msg);
+  }
+
+
+  /*if (bcs[0] == BoundaryFlag::periodic) {
     bounds[0] = static_cast<ParticleBoundIX1Periodic *>(
         kokkos_malloc<>(sizeof(ParticleBoundIX1Periodic)));
     parallel_for(
@@ -114,6 +134,10 @@ void Swarm::AllocateBoundaries() {
   } else {
     msg << "ox1 boundary flag " << static_cast<int>(bcs[1]) << " not supported!";
     PARTHENON_THROW(msg);
+  }*/
+
+  for (int n = 0; n < 6; n++) {
+    pbounds.bounds[n] = bounds[n].get();
   }
 }
 
@@ -575,6 +599,8 @@ bool Swarm::Send(BoundaryCommSubset phase) {
   }
   nrank.DeepCopy(nrank_h);
 
+  auto bcs = this->pbounds;
+
   auto &bdvar = vbswarm->bd_var_;
   pmb->par_for(
       "Pack Buffers", 0, max_indices_size,
@@ -599,7 +625,8 @@ bool Swarm::Send(BoundaryCommSubset phase) {
               double &y = vreal(iy, sidx);
               double &z = vreal(iz, sidx);
               for (int l = 0; l < 2; l++) {
-                bounds[l]->Apply(n, x, y, z, swarm_d);
+                //bounds[l]->Apply(n, x, y, z, swarm_d);
+                bcs.bounds[l]->Apply(n, x, y, z, swarm_d);
               }
               //bounds[0]->Apply(n, x, y, z, swarm_d);
               // if (x < swarm_d.x_min_global_) {
@@ -757,6 +784,7 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
     // construct map from buffer index to swarm index (or just return vector of indices!)
     int particle_size = GetParticleDataSize();
     auto swarm_d = GetDeviceContext();
+    auto bcs = this->pbounds;
 
     pmb->par_for(
         "Unpack buffers", 0, total_received_particles - 1, KOKKOS_LAMBDA(const int n) {
@@ -775,15 +803,15 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
           double &y = vreal(iy, sid);
           double &z = vreal(iz, sid);
           for (int l = 0; l < 2; l++) {
-            bounds[l]->Apply(n, x, y, z, swarm_d);
+            bcs.bounds[l]->Apply(n, x, y, z, swarm_d);
           }
           // TODO(BRR) Don't hardcode periodic boundary conditions
-          if (x < swarm_d.x_min_global_) {
+          /*if (x < swarm_d.x_min_global_) {
             x = swarm_d.x_max_global_ - (swarm_d.x_min_global_ - x);
           }
           if (x > swarm_d.x_max_global_) {
             x = swarm_d.x_min_global_ + (x - swarm_d.x_max_global_);
-          }
+          }*/
           if (y < swarm_d.y_min_global_) {
             y = swarm_d.y_max_global_ - (swarm_d.y_min_global_ - y);
           }
@@ -859,10 +887,6 @@ void Swarm::allocateComms(std::weak_ptr<MeshBlock> wpmb) {
   // Enroll SwarmVariable object
   vbswarm->bswarm_index = pmb->pbswarm->bswarms.size();
   pmb->pbswarm->bswarms.push_back(vbswarm);
-}
-
-Swarm::~Swarm() {
-  PARTHENON_FAIL("Call kokkos_free on boundaries!");
 }
 
 } // namespace parthenon

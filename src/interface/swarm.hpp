@@ -38,6 +38,11 @@
 #include "variable_pack.hpp"
 
 namespace parthenon {
+
+struct ParticleBoundaries {
+  ParticleBound *bounds[6];
+};
+
 class MeshBlock;
 
 enum class PARTICLE_STATUS { UNALLOCATED, ALIVE, DEAD };
@@ -146,7 +151,7 @@ class Swarm {
  public:
   Swarm(const std::string &label, const Metadata &metadata, const int nmax_pool_in = 3);
 
-  ~Swarm();
+  ~Swarm() = default;
 
   /// Returns shared pointer to a block
   std::shared_ptr<MeshBlock> GetBlockPointer() const {
@@ -177,7 +182,11 @@ class Swarm {
   void Remove(const std::string &label);
 
   /// Set a custom boundary condition
-  void SetBoundary(const int n, ParticleBound *bc) { bounds[n] = bc; }
+  void SetBoundary(const int n, std::unique_ptr<ParticleBound,  parthenon::DeviceDeleter<Kokkos::HostSpace>> bc) {
+    bounds[n] = std::move(bc);
+    pbounds.bounds[n] = bounds[n].get();
+  }
+    //bounds[n] = bc; }
 
   /// Get real particle variable
   ParticleVariable<Real> &GetReal(const std::string &label) {
@@ -268,7 +277,9 @@ class Swarm {
   bool finished_transport;
 
  private:
-  ParticleBound *bounds[6];
+  std::unique_ptr<ParticleBound, DeviceDeleter<Kokkos::HostSpace>> bounds[6];
+  ParticleBoundaries pbounds;
+//  ParticleBound *bounds[6];
 
   int debug = 0;
   std::weak_ptr<MeshBlock> pmy_block;
