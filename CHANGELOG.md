@@ -9,6 +9,7 @@
 - [[PR 359]](https://github.com/lanl/parthenon/pull/359) MeshBlockPack support for buffer pack and unpack of CellCentered Variables
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 451]](https://github.com/lanl/parthenon/pull/451) Remove custom ran2 interface and source
 - [[PR 425]](https://github.com/lanl/parthenon/pull/425) Remove ambiguity in package names. `Packages_t` no longer has an `operator[]` method. This has been replaced with `Add` and `Get`.
 - [[PR 359]](https://github.com/lanl/parthenon/pull/359) Templated inline reconstruction functions to support different types (e.g., `ParArray4D` or `ParArrayND`)
 
@@ -25,6 +26,7 @@
 - [[PR 390]](https://github.com/lanl/parthenon/pull/390) Resolve @PAR_ROOT@ to parthenon root rather than the location of the current source directory
 - [[PR 443]](https://github.com/lanl/parthenon/pull/443) Fix Darwin machine config - use spectrum mpi
 - [[PR 444]](https://github.com/lanl/parthenon/pull/444) Writes performance metrics to file for advection test
+
 ### Removed (removing behavior/API/varaibles/...)
 
 ## Release 0.4.0
