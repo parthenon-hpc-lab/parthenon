@@ -811,12 +811,9 @@ void Mesh::OutputMeshStructure(const int ndim,
   std::cout << "Number of logical  refinement levels = " << current_level << std::endl;
 
   // compute/output number of blocks per level, and cost per level
-  auto nb_per_plevel = std::make_unique<int[]>(max_level);
-  auto cost_per_plevel = std::make_unique<int[]>(max_level);
-  for (int i = 0; i <= max_level; ++i) {
-    nb_per_plevel[i] = 0;
-    cost_per_plevel[i] = 0;
-  }
+  auto nb_per_plevel = std::vector<int>(max_level + 1);
+  auto cost_per_plevel = std::vector<int>(max_level + 1);
+
   for (int i = 0; i < nbtotal; i++) {
     nb_per_plevel[(loclist[i].level - root_level)]++;
     cost_per_plevel[(loclist[i].level - root_level)] += costlist[i];
@@ -835,12 +832,9 @@ void Mesh::OutputMeshStructure(const int ndim,
 
   // compute/output number of blocks per rank, and cost per rank
   std::cout << "Number of parallel ranks = " << Globals::nranks << std::endl;
-  auto nb_per_rank = std::make_unique<int[]>(Globals::nranks);
-  auto cost_per_rank = std::make_unique<int[]>(Globals::nranks);
-  for (int i = 0; i < Globals::nranks; ++i) {
-    nb_per_rank[i] = 0;
-    cost_per_rank[i] = 0;
-  }
+  auto nb_per_rank = std::vector<int>(Globals::nranks);
+  auto cost_per_rank = std::vector<int>(Globals::nranks);
+
   for (int i = 0; i < nbtotal; i++) {
     nb_per_rank[ranklist[i]]++;
     cost_per_rank[ranklist[i]] += costlist[i];
