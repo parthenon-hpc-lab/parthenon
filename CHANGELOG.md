@@ -9,6 +9,7 @@
 - [[PR 359]](https://github.com/lanl/parthenon/pull/359) MeshBlockPack support for buffer pack and unpack of CellCentered Variables
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 451]](https://github.com/lanl/parthenon/pull/451) Remove custom ran2 interface and source
 - [[PR 425]](https://github.com/lanl/parthenon/pull/425) Remove ambiguity in package names. `Packages_t` no longer has an `operator[]` method. This has been replaced with `Add` and `Get`.
 - [[PR 359]](https://github.com/lanl/parthenon/pull/359) Templated inline reconstruction functions to support different types (e.g., `ParArray4D` or `ParArrayND`)
 
