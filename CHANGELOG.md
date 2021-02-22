@@ -24,7 +24,7 @@
 - [[PR 390]](https://github.com/lanl/parthenon/pull/390) Resolve @PAR_ROOT@ to parthenon root rather than the location of the current source directory
 - [[PR 443]](https://github.com/lanl/parthenon/pull/443) Fix Darwin machine config - use spectrum mpi
 - [[PR 444]](https://github.com/lanl/parthenon/pull/444) Writes performance metrics to file for advection test
-- [[PR 432]](https://github.com/lanl/parthenon/pull/432) Fix advection-performance build configuration
+- [[PR 395]](https://github.com/lanl/parthenon/pull/395) Fix advection-performance build configuration
 
 ### Removed (removing behavior/API/varaibles/...)
 
