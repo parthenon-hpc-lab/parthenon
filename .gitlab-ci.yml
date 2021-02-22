@@ -39,6 +39,7 @@ copyright-check:
     - mkdir build-copyright-check
     - cd build-copyright-check
     - cmake -DPARTHENON_ENABLE_COPYRIGHT_CHECK=ON
+      -DMACHINE_VARIANT=mpi
       -DCMAKE_CXX_FLAGS=-Werror
       ../
   artifacts:
