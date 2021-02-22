@@ -36,7 +36,7 @@ option(
   PARTHENON_LINT_DEFAULT
   "Sources files are linted when building the default target. Set to OFF to \
 stop linting by default. You can still lint using the \"lint\" target"
-  ON
+  OFF
 )
 option(
   PARTHENON_DISABLE_EXAMPLES
@@ -51,7 +51,7 @@ option(PARTHENON_ENABLE_UNIT_TESTS "Enable unit tests" ${BUILD_TESTING})
 option(PARTHENON_ENABLE_INTEGRATION_TESTS "Enable integration tests" ${BUILD_TESTING})
 option(PARTHENON_ENABLE_PERFORMANCE_TESTS "Enable performance tests" ${BUILD_TESTING})
 option(PARTHENON_ENABLE_REGRESSION_TESTS "Enable regression tests" ${BUILD_TESTING})
-option(PARTHENON_DISABLE_COPYRIGHT_CHECK "Disable the copyright check" OFF)
+option(PARTHENON_ENABLE_COPYRIGHT_CHECK "Enable the copyright check" OFF)
 option(ENABLE_COMPILER_WARNINGS "Enable compiler warnings" OFF)
 option(CHECK_REGISTRY_PRESSURE "Check the registry pressure for Kokkos CUDA kernels" OFF)
 option(TEST_INTEL_OPTIMIZATION "Test intel optimization and vectorization" OFF)
@@ -262,7 +262,7 @@ if (${PARTHENON_ENABLE_UNIT_TESTS} OR ${PARTHENON_ENABLE_INTEGRATION_TESTS} OR $
     # Throw a warning if the number of processors available is less than the number specified for running the tests.
     include(ProcessorCount)
     ProcessorCount(N)
-    if( "${NUM_MPI_PROC_TESTING}" GREATER "${N}") 
+    if( "${NUM_MPI_PROC_TESTING}" GREATER "${N}")
       message(WARNING "Consider changing the number of MPI processors used in testing, currently "
         "NUM_MPI_PROC_TESTING is set to ${NUM_MPI_PROC_TESTING} but cmake has only detected a"
         " total of ${N} available processors")
@@ -305,7 +305,7 @@ add_subdirectory(src)
 add_subdirectory(example)
 
 create_pathenon_coverage_targets()
-if(NOT PARTHENON_DISABLE_COPYRIGHT_CHECK)
+if(PARTHENON_ENABLE_COPYRIGHT_CHECK)
   include(cmake/CheckCopyright.cmake)
 endif()
 
