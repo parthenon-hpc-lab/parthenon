@@ -14,17 +14,38 @@
 # Only LANL employees need to update the Triad copyright. This only inserts the
 # copyright check if the author is from LANL.
 
-find_package(Git)
-if (NOT Git_FOUND)
-    return()
+if (PARTHENON_COPYRIGHT_CHECK_DEFAULT)
+    set(ALL "ALL")
 endif()
 
-execute_process(
-    COMMAND ${GIT_EXECUTABLE} config user.email
-    OUTPUT_VARIABLE AUTHOR)
+set(USE_DUMMY_COPYRIGHT_CHECK OFF)
 
-if (NOT AUTHOR MATCHES "@lanl.gov")
-    return()
+find_package(Git)
+
+if (NOT Git_FOUND)
+  set(USE_DUMMY_COPYRIGHT_CHECK ON)
+else()
+  execute_process(
+    COMMAND ${GIT_EXECUTABLE} log --format='%ae' -n 1
+    OUTPUT_VARIABLE AUTHOR
+  )
+  if (NOT AUTHOR MATCHES "@lanl.gov")
+    set(USE_DUMMY_COPYRIGHT_CHECK ON)
+  endif()
+endif()
+
+if(USE_DUMMY_COPYRIGHT_CHECK)
+  add_custom_target(
+    check-copyright ${ALL}
+    COMMAND ${CMAKE_COMMAND} -E echo "WARNING: Triad copyright check DISABLED"
+  )
+
+  add_custom_target(
+    update-copyright
+    COMMAND ${CMAKE_COMMAND} -E echo "WARNING: Triad copyright update DISABLED"
+  )
+
+  return()
 endif()
 
 file(
@@ -70,9 +91,7 @@ foreach(INPUT ${COPYRIGHTABLE})
                 update ${CMAKE_CURRENT_SOURCE_DIR} ${GIT_EXECUTABLE} ${INPUT})
 endforeach()
 
-if (PARTHENON_COPYRIGHT_CHECK_DEFAULT)
-    set(ALL "ALL")
-endif()
+
 
 add_custom_target(
     check-copyright ${ALL}
