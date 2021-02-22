@@ -15,7 +15,9 @@ default contain `x`, `y`, and `z` `ParticleVariable`s; additional fields can be 
 ```c++
 Swarm.Add(name, metadata)
 ```
-Each `Swarm` belongs to a `MeshBlock`, which is pointed to by `Swarm::pmy_block`.
+For a given species, each `MeshBlock` contains its own `Swarm` that holds the particles of
+that species that are spatially contained by that `MeshBlock`. The `MeshBlock` is pointed
+to by `Swarm::pmy_block`.
 
 The `Swarm` is a host-side object, but some of its data members are required for device-
 side compution. To access this data, a `SwarmDeviceContext` object is created via
