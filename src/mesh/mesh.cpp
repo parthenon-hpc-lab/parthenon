@@ -811,8 +811,8 @@ void Mesh::OutputMeshStructure(const int ndim,
   std::cout << "Number of logical  refinement levels = " << current_level << std::endl;
 
   // compute/output number of blocks per level, and cost per level
-  auto nb_per_plevel = std::vector<int>(max_level + 1);
-  auto cost_per_plevel = std::vector<int>(max_level + 1);
+  std::vector<int> nb_per_plevel(max_level + 1, 0);
+  std::vector<int> cost_per_plevel(max_level + 1, 0);
 
   for (int i = 0; i < nbtotal; i++) {
     nb_per_plevel[(loclist[i].level - root_level)]++;
@@ -832,8 +832,8 @@ void Mesh::OutputMeshStructure(const int ndim,
 
   // compute/output number of blocks per rank, and cost per rank
   std::cout << "Number of parallel ranks = " << Globals::nranks << std::endl;
-  auto nb_per_rank = std::vector<int>(Globals::nranks);
-  auto cost_per_rank = std::vector<int>(Globals::nranks);
+  std::vector<int> nb_per_rank(Globals::nranks, 0);
+  std::vector<int> cost_per_rank(Globals::nranks, 0);
 
   for (int i = 0; i < nbtotal; i++) {
     nb_per_rank[ranklist[i]]++;
