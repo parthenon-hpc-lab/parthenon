@@ -116,7 +116,7 @@ class SwarmDeviceContext {
 
 //#include "swarm_boundaries.hpp"
 
-//namespace parthenon {
+// namespace parthenon {
 
 /*
 class ParticleBoundIX1Periodic : ParticleBound {
@@ -182,11 +182,13 @@ class Swarm {
   void Remove(const std::string &label);
 
   /// Set a custom boundary condition
-  void SetBoundary(const int n, std::unique_ptr<ParticleBound,  parthenon::DeviceDeleter<Kokkos::HostSpace>> bc) {
+  void SetBoundary(
+      const int n,
+      std::unique_ptr<ParticleBound, parthenon::DeviceDeleter<Kokkos::HostSpace>> bc) {
     bounds[n] = std::move(bc);
     pbounds.bounds[n] = bounds[n].get();
   }
-    //bounds[n] = bc; }
+  // bounds[n] = bc; }
 
   /// Get real particle variable
   ParticleVariable<Real> &GetReal(const std::string &label) {
@@ -276,10 +278,12 @@ class Swarm {
   int num_particles_sent_;
   bool finished_transport;
 
+  // Class to store raw pointers to boundary conditions on device. Copy locally for
+  // compute kernel capture.
+  ParticleBoundaries pbounds;
+
  private:
   std::unique_ptr<ParticleBound, DeviceDeleter<Kokkos::HostSpace>> bounds[6];
-  ParticleBoundaries pbounds;
-//  ParticleBound *bounds[6];
 
   int debug = 0;
   std::weak_ptr<MeshBlock> pmy_block;

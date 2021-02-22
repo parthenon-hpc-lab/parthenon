@@ -20,13 +20,17 @@ namespace parthenon {
 class ParticleBound {
  public:
   KOKKOS_INLINE_FUNCTION virtual void Apply(const int n, double &x, double &y, double &z,
-                                                const SwarmDeviceContext &context) = 0;
+                                            //const SwarmDeviceContext &context) = 0;
+                                            const SwarmDeviceContext &context) {
+                                              printf("WHY AM I HERE????\n");
+                                              exit(-1);
+                                            }
 };
 
 class ParticleBoundIX1Periodic : public ParticleBound {
  public:
   KOKKOS_INLINE_FUNCTION void Apply(const int n, double &x, double &y, double &z,
-                                        const SwarmDeviceContext &swarm_d) override {
+                                    const SwarmDeviceContext &swarm_d) override {
     if (x < swarm_d.x_min_global_) {
       x = swarm_d.x_max_global_ - (swarm_d.x_min_global_ - x);
     }
@@ -36,7 +40,7 @@ class ParticleBoundIX1Periodic : public ParticleBound {
 class ParticleBoundIX1Outflow : public ParticleBound {
  public:
   KOKKOS_INLINE_FUNCTION void Apply(const int n, double &x, double &y, double &z,
-                                        const SwarmDeviceContext &swarm_d) override {
+                                    const SwarmDeviceContext &swarm_d) override {
     swarm_d.MarkParticleForRemoval(n);
   }
 };
@@ -44,7 +48,7 @@ class ParticleBoundIX1Outflow : public ParticleBound {
 class ParticleBoundIX1Reflect : public ParticleBound {
  public:
   KOKKOS_INLINE_FUNCTION void Apply(const int n, double &x, double &y, double &z,
-                                        const SwarmDeviceContext &swarm_d) override {
+                                    const SwarmDeviceContext &swarm_d) override {
     if (x < swarm_d.x_min_global_) {
       x = swarm_d.x_min_global_ + (swarm_d.x_min_global_ - x);
     }
@@ -54,7 +58,7 @@ class ParticleBoundIX1Reflect : public ParticleBound {
 class ParticleBoundOX1Periodic : public ParticleBound {
  public:
   KOKKOS_INLINE_FUNCTION void Apply(const int n, double &x, double &y, double &z,
-                                        const SwarmDeviceContext &swarm_d) override {
+                                    const SwarmDeviceContext &swarm_d) override {
     if (x > swarm_d.x_max_global_) {
       x = swarm_d.x_min_global_ + (x - swarm_d.x_max_global_);
     }
@@ -64,8 +68,7 @@ class ParticleBoundOX1Periodic : public ParticleBound {
 class ParticleBoundOX1Outflow : public ParticleBound {
  public:
   KOKKOS_INLINE_FUNCTION void Apply(const int n, double &x, double &y, double &z,
-                                        const SwarmDeviceContext &swarm_d) override {
-//                                          printf("Marking particle %i for removal!\n", n);
+                                    const SwarmDeviceContext &swarm_d) override {
     swarm_d.MarkParticleForRemoval(n);
   }
 };
@@ -73,9 +76,122 @@ class ParticleBoundOX1Outflow : public ParticleBound {
 class ParticleBoundOX1Reflect : public ParticleBound {
  public:
   KOKKOS_INLINE_FUNCTION void Apply(const int n, double &x, double &y, double &z,
-                                        const SwarmDeviceContext &swarm_d) override {
+                                    const SwarmDeviceContext &swarm_d) override {
     if (x > swarm_d.x_max_global_) {
       x = swarm_d.x_max_global_ - (x - swarm_d.x_max_global_);
+    }
+  }
+};
+
+class ParticleBoundIX2Periodic : public ParticleBound {
+ public:
+  KOKKOS_INLINE_FUNCTION void Apply(const int n, double &x, double &y, double &z,
+                                    const SwarmDeviceContext &swarm_d) override {
+    if (y < swarm_d.y_min_global_) {
+      y = swarm_d.y_max_global_ - (swarm_d.y_min_global_ - y);
+    }
+  }
+};
+
+class ParticleBoundIX2Outflow : public ParticleBound {
+ public:
+  KOKKOS_INLINE_FUNCTION void Apply(const int n, double &x, double &y, double &z,
+                                    const SwarmDeviceContext &swarm_d) override {
+    swarm_d.MarkParticleForRemoval(n);
+  }
+};
+
+class ParticleBoundIX2Reflect : public ParticleBound {
+ public:
+  KOKKOS_INLINE_FUNCTION void Apply(const int n, double &x, double &y, double &z,
+                                    const SwarmDeviceContext &swarm_d) override {
+    if (y < swarm_d.y_min_global_) {
+      y = swarm_d.y_min_global_ + (swarm_d.y_min_global_ - y);
+    }
+  }
+};
+
+class ParticleBoundOX2Periodic : public ParticleBound {
+ public:
+  KOKKOS_INLINE_FUNCTION void Apply(const int n, double &x, double &y, double &z,
+                                    const SwarmDeviceContext &swarm_d) override {
+    if (y > swarm_d.y_max_global_) {
+      y = swarm_d.y_min_global_ + (y - swarm_d.y_max_global_);
+    }
+  }
+};
+
+class ParticleBoundOX2Outflow : public ParticleBound {
+ public:
+  KOKKOS_INLINE_FUNCTION void Apply(const int n, double &x, double &y, double &z,
+                                    const SwarmDeviceContext &swarm_d) override {
+    swarm_d.MarkParticleForRemoval(n);
+  }
+};
+
+class ParticleBoundOX2Reflect : public ParticleBound {
+ public:
+  KOKKOS_INLINE_FUNCTION void Apply(const int n, double &x, double &y, double &z,
+                                    const SwarmDeviceContext &swarm_d) override {
+    if (y > swarm_d.y_max_global_) {
+      y = swarm_d.y_max_global_ - (y - swarm_d.y_max_global_);
+    }
+  }
+};
+
+class ParticleBoundIX3Periodic : public ParticleBound {
+ public:
+  KOKKOS_INLINE_FUNCTION void Apply(const int n, double &x, double &y, double &z,
+                                    const SwarmDeviceContext &swarm_d) override {
+    if (z < swarm_d.z_min_global_) {
+      z = swarm_d.z_max_global_ - (swarm_d.z_min_global_ - z);
+    }
+  }
+};
+
+class ParticleBoundIX3Outflow : public ParticleBound {
+ public:
+  KOKKOS_INLINE_FUNCTION void Apply(const int n, double &x, double &y, double &z,
+                                    const SwarmDeviceContext &swarm_d) override {
+    swarm_d.MarkParticleForRemoval(n);
+  }
+};
+
+class ParticleBoundIX3Reflect : public ParticleBound {
+ public:
+  KOKKOS_INLINE_FUNCTION void Apply(const int n, double &x, double &y, double &z,
+                                    const SwarmDeviceContext &swarm_d) override {
+    if (z < swarm_d.z_min_global_) {
+      z = swarm_d.z_min_global_ + (swarm_d.z_min_global_ - z);
+    }
+  }
+};
+
+class ParticleBoundOX3Periodic : public ParticleBound {
+ public:
+  KOKKOS_INLINE_FUNCTION void Apply(const int n, double &x, double &y, double &z,
+                                    const SwarmDeviceContext &swarm_d) override {
+    if (z > swarm_d.z_max_global_) {
+      z = swarm_d.z_min_global_ + (z - swarm_d.z_max_global_);
+    }
+  }
+};
+
+class ParticleBoundOX3Outflow : public ParticleBound {
+ public:
+  KOKKOS_INLINE_FUNCTION void Apply(const int n, double &x, double &y, double &z,
+                                    const SwarmDeviceContext &swarm_d) override {
+    swarm_d.MarkParticleForRemoval(n);
+  }
+};
+
+class ParticleBoundOX3Reflect : public ParticleBound {
+ public:
+  KOKKOS_INLINE_FUNCTION void Apply(const int n, double &x, double &y, double &z,
+                                    const SwarmDeviceContext &swarm_d) override {
+                                      printf("%s:%i\n", __FILE__, __LINE__);
+    if (z > swarm_d.z_max_global_) {
+      z = swarm_d.z_max_global_ - (z - swarm_d.z_max_global_);
     }
   }
 };

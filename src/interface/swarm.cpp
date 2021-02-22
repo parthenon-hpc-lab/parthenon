@@ -87,57 +87,89 @@ void Swarm::AllocateBoundaries() {
 
   auto &bcs = pmb->pmy_mesh->mesh_bcs;
 
-  if (bcs[0] == BoundaryFlag::periodic) {
-    bounds[0] = DeviceAllocate<ParticleBoundIX1Periodic>();
+  if (bcs[0] == BoundaryFlag::reflect) {
+    bounds[0] = DeviceAllocate<ParticleBoundIX1Reflect>();
   } else if (bcs[0] == BoundaryFlag::outflow) {
     bounds[0] = DeviceAllocate<ParticleBoundIX1Outflow>();
-  } else {
+  } else if (bcs[0] == BoundaryFlag::periodic) {
+    bounds[0] = DeviceAllocate<ParticleBoundIX1Periodic>();
+  } else if (bcs[0] != BoundaryFlag::user) {
     msg << "ix1 boundary flag " << static_cast<int>(bcs[0]) << " not supported!";
     PARTHENON_THROW(msg);
   }
 
-  if (bcs[1] == BoundaryFlag::periodic) {
-    bounds[1] = DeviceAllocate<ParticleBoundOX1Periodic>();
+  if (bcs[1] == BoundaryFlag::reflect) {
+    bounds[1] == DeviceAllocate<ParticleBoundOX1Reflect>();
   } else if (bcs[1] == BoundaryFlag::outflow) {
     bounds[1] = DeviceAllocate<ParticleBoundOX1Outflow>();
-  } else {
+  } else if (bcs[1] == BoundaryFlag::periodic) {
+    bounds[1] = DeviceAllocate<ParticleBoundOX1Periodic>();
+  } else if (bcs[1] != BoundaryFlag::user) {
     msg << "ox1 boundary flag " << static_cast<int>(bcs[1]) << " not supported!";
     PARTHENON_THROW(msg);
   }
 
-
-  /*if (bcs[0] == BoundaryFlag::periodic) {
-    bounds[0] = static_cast<ParticleBoundIX1Periodic *>(
-        kokkos_malloc<>(sizeof(ParticleBoundIX1Periodic)));
-    parallel_for(
-        1, KOKKOS_LAMBDA(const int i) { new (bounds[0]) ParticleBoundIX1Periodic(); });
-  } else if (bcs[0] == BoundaryFlag::outflow) {
-    bounds[0] = static_cast<ParticleBoundIX1Outflow *>(
-        kokkos_malloc<>(sizeof(ParticleBoundIX1Outflow)));
-    parallel_for(
-        1, KOKKOS_LAMBDA(const int i) { new (bounds[0]) ParticleBoundIX1Outflow(); });
-  } else {
-    msg << "ix1 boundary flag " << static_cast<int>(bcs[0]) << " not supported!";
+  if (bcs[2] == BoundaryFlag::reflect) {
+    bounds[2] = DeviceAllocate<ParticleBoundIX2Reflect>();
+  } else if (bcs[2] == BoundaryFlag::outflow) {
+    bounds[2] = DeviceAllocate<ParticleBoundIX2Outflow>();
+  } else if (bcs[2] == BoundaryFlag::periodic) {
+    bounds[2] = DeviceAllocate<ParticleBoundIX2Periodic>();
+  } else if (bcs[2] != BoundaryFlag::user) {
+    msg << "ix2 boundary flag " << static_cast<int>(bcs[2]) << " not supported!";
     PARTHENON_THROW(msg);
   }
 
-  if (bcs[1] == BoundaryFlag::periodic) {
-    bounds[1] = static_cast<ParticleBoundOX1Periodic *>(
-        kokkos_malloc<>(sizeof(ParticleBoundOX1Periodic)));
-    parallel_for(
-        1, KOKKOS_LAMBDA(const int i) { new (bounds[1]) ParticleBoundOX1Periodic(); });
-  } else if (bcs[1] == BoundaryFlag::outflow) {
-    bounds[1] = static_cast<ParticleBoundOX1Outflow *>(
-        kokkos_malloc<>(sizeof(ParticleBoundOX1Outflow)));
-    parallel_for(
-        1, KOKKOS_LAMBDA(const int i) { new (bounds[1]) ParticleBoundOX1Outflow(); });
-  } else {
-    msg << "ox1 boundary flag " << static_cast<int>(bcs[1]) << " not supported!";
+  if (bcs[3] == BoundaryFlag::reflect) {
+    bounds[3] == DeviceAllocate<ParticleBoundOX2Reflect>();
+  } else if (bcs[3] == BoundaryFlag::outflow) {
+    bounds[3] = DeviceAllocate<ParticleBoundOX2Outflow>();
+  } else if (bcs[3] == BoundaryFlag::periodic) {
+    bounds[3] = DeviceAllocate<ParticleBoundOX2Periodic>();
+  } else if (bcs[3] != BoundaryFlag::user) {
+    msg << "ox2 boundary flag " << static_cast<int>(bcs[3]) << " not supported!";
     PARTHENON_THROW(msg);
-  }*/
+  }
+
+  if (bcs[4] == BoundaryFlag::reflect) {
+    bounds[4] = DeviceAllocate<ParticleBoundIX3Reflect>();
+  } else if (bcs[4] == BoundaryFlag::outflow) {
+    bounds[4] = DeviceAllocate<ParticleBoundIX3Outflow>();
+  } else if (bcs[4] == BoundaryFlag::periodic) {
+    bounds[4] = DeviceAllocate<ParticleBoundIX3Periodic>();
+  } else if (bcs[4] != BoundaryFlag::user) {
+    msg << "ix3 boundary flag " << static_cast<int>(bcs[4]) << " not supported!";
+    PARTHENON_THROW(msg);
+  }
+
+  printf("bcs[5] = %i\n", static_cast<int>(bcs[5]));
+  printf("%i %i %i %i %i\n",
+     static_cast<int>(BoundaryFlag::undef),
+     static_cast<int>(BoundaryFlag::reflect),
+     static_cast<int>(BoundaryFlag::outflow),
+     static_cast<int>(BoundaryFlag::periodic),
+     static_cast<int>(BoundaryFlag::user));
+  if (bcs[5] == BoundaryFlag::reflect) {
+    printf("%s:%i\n", __FILE__, __LINE__);
+    bounds[5] == DeviceAllocate<ParticleBoundOX3Reflect>();
+    printf("bounds 5: %p\n", bounds[5].get());
+    exit(-1);
+  } else if (bcs[5] == BoundaryFlag::outflow) {
+    printf("%s:%i\n", __FILE__, __LINE__);
+    bounds[5] = DeviceAllocate<ParticleBoundOX3Outflow>();
+  } else if (bcs[5] == BoundaryFlag::periodic) {
+    printf("%s:%i\n", __FILE__, __LINE__);
+    bounds[5] = DeviceAllocate<ParticleBoundOX3Periodic>();
+  } else if (bcs[5] != BoundaryFlag::user) {
+    printf("%s:%i\n", __FILE__, __LINE__);
+    msg << "ox3 boundary flag " << static_cast<int>(bcs[5]) << " not supported!";
+    PARTHENON_THROW(msg);
+  }
 
   for (int n = 0; n < 6; n++) {
+    printf("%s:%i\n", __FILE__, __LINE__);
     pbounds.bounds[n] = bounds[n].get();
+    PARTHENON_REQUIRE(pbounds.bounds[n] != nullptr, "Null device boundary condition pointer!");
   }
 }
 
@@ -600,6 +632,9 @@ bool Swarm::Send(BoundaryCommSubset phase) {
   nrank.DeepCopy(nrank_h);
 
   auto bcs = this->pbounds;
+  for (int l = 0; l < 6; l++) {
+    printf("bc[%i]: %p\n", l, bcs.bounds[l]);
+  }
 
   auto &bdvar = vbswarm->bd_var_;
   pmb->par_for(
@@ -624,29 +659,30 @@ bool Swarm::Send(BoundaryCommSubset phase) {
               double &x = vreal(ix, sidx);
               double &y = vreal(iy, sidx);
               double &z = vreal(iz, sidx);
-              for (int l = 0; l < 2; l++) {
-                //bounds[l]->Apply(n, x, y, z, swarm_d);
+              for (int l = 0; l < 6; l++) {
+                // bounds[l]->Apply(n, x, y, z, swarm_d);
+                printf("l: %i\n", l);
                 bcs.bounds[l]->Apply(n, x, y, z, swarm_d);
               }
-              //bounds[0]->Apply(n, x, y, z, swarm_d);
+              // bounds[0]->Apply(n, x, y, z, swarm_d);
               // if (x < swarm_d.x_min_global_) {
               //  x = swarm_d.x_max_global_ - (swarm_d.x_min_global_ - x);
               //}
-              //if (x > swarm_d.x_max_global_) {
+              // if (x > swarm_d.x_max_global_) {
               //  x = swarm_d.x_min_global_ + (x - swarm_d.x_max_global_);
               //}
-              if (y < swarm_d.y_min_global_) {
-                y = swarm_d.y_max_global_ - (swarm_d.y_min_global_ - y);
-              }
-              if (y > swarm_d.y_max_global_) {
-                y = swarm_d.y_min_global_ + (y - swarm_d.y_max_global_);
-              }
-              if (z < swarm_d.z_min_global_) {
-                z = swarm_d.z_max_global_ - (swarm_d.z_min_global_ - z);
-              }
-              if (z > swarm_d.z_max_global_) {
-                z = swarm_d.z_min_global_ + (z - swarm_d.z_max_global_);
-              }
+              //if (y < swarm_d.y_min_global_) {
+              //  y = swarm_d.y_max_global_ - (swarm_d.y_min_global_ - y);
+              //}
+              //if (y > swarm_d.y_max_global_) {
+              //  y = swarm_d.y_min_global_ + (y - swarm_d.y_max_global_);
+              //}
+              //if (z < swarm_d.z_min_global_) {
+              //  z = swarm_d.z_max_global_ - (swarm_d.z_min_global_ - z);
+              //}
+              //if (z > swarm_d.z_max_global_) {
+              //  z = swarm_d.z_min_global_ + (z - swarm_d.z_max_global_);
+              //}
             }
           }
         }
@@ -802,7 +838,7 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
           double &x = vreal(ix, sid);
           double &y = vreal(iy, sid);
           double &z = vreal(iz, sid);
-          for (int l = 0; l < 2; l++) {
+          for (int l = 0; l < 6; l++) {
             bcs.bounds[l]->Apply(n, x, y, z, swarm_d);
           }
           // TODO(BRR) Don't hardcode periodic boundary conditions
@@ -811,7 +847,7 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
           }
           if (x > swarm_d.x_max_global_) {
             x = swarm_d.x_min_global_ + (x - swarm_d.x_max_global_);
-          }*/
+          }
           if (y < swarm_d.y_min_global_) {
             y = swarm_d.y_max_global_ - (swarm_d.y_min_global_ - y);
           }
@@ -823,7 +859,7 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
           }
           if (z > swarm_d.z_max_global_) {
             z = swarm_d.z_min_global_ + (z - swarm_d.z_max_global_);
-          }
+          }*/
         });
   }
 
