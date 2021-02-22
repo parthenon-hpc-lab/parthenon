@@ -32,26 +32,18 @@ option(PARTHENON_DISABLE_MPI "MPI is enabled by default if found, set this to Tr
 option(PARTHENON_ENABLE_HOST_COMM_BUFFERS "Allocate communication buffers on host" OFF)
 option(PARTHENON_DISABLE_OPENMP "OpenMP is enabled by default if found, set this to True to disable OpenMP" OFF)
 option(PARTHENON_DISABLE_HDF5 "HDF5 is enabled by default if found, set this to True to disable HDF5" OFF)
-option(
-  PARTHENON_LINT_DEFAULT
-  "Sources files are linted when building the default target. Set to OFF to \
-stop linting by default. You can still lint using the \"lint\" target"
-  OFF
-)
-option(
-  PARTHENON_DISABLE_EXAMPLES
-  "Example drivers are built by default, set this to True to diable, note if regression tests are \
-built some, drivers needed by the regression tests will still be built."
-  OFF
-)
-
+option(PARTHENON_LINT_DEFAULT "Linting is turned off by default, use the \"lint\" target or set \
+this to True to enable linting in the default target" OFF)
+option(PARTHENON_COPYRIGHT_CHECK_DEFAULT "Copyright check is turned off by default, use the \
+\"check-copyright\" target or set this to True to check copyright in the default target" OFF)
+option(PARTHENON_DISABLE_EXAMPLES "Example drivers are built by default, set this to True to disable, \
+note if regression tests are built some, drivers needed by the regression tests will still be built." OFF)
 option(PARTHENON_ENABLE_GPU_MPI_CHECKS "Checks if possible that the mpi num of procs and the number\
 of gpu devices detected are appropriate." ${BUILD_TESTING})
 option(PARTHENON_ENABLE_UNIT_TESTS "Enable unit tests" ${BUILD_TESTING})
 option(PARTHENON_ENABLE_INTEGRATION_TESTS "Enable integration tests" ${BUILD_TESTING})
 option(PARTHENON_ENABLE_PERFORMANCE_TESTS "Enable performance tests" ${BUILD_TESTING})
 option(PARTHENON_ENABLE_REGRESSION_TESTS "Enable regression tests" ${BUILD_TESTING})
-option(PARTHENON_ENABLE_COPYRIGHT_CHECK "Enable the copyright check" OFF)
 option(ENABLE_COMPILER_WARNINGS "Enable compiler warnings" OFF)
 option(CHECK_REGISTRY_PRESSURE "Check the registry pressure for Kokkos CUDA kernels" OFF)
 option(TEST_INTEL_OPTIMIZATION "Test intel optimization and vectorization" OFF)
@@ -305,9 +297,7 @@ add_subdirectory(src)
 add_subdirectory(example)
 
 create_pathenon_coverage_targets()
-if(PARTHENON_ENABLE_COPYRIGHT_CHECK)
-  include(cmake/CheckCopyright.cmake)
-endif()
+include(cmake/CheckCopyright.cmake)
 
 configure_file("${PROJECT_SOURCE_DIR}/cmake/parthenonConfig.cmake.in" "${PROJECT_BINARY_DIR}/cmake/parthenonConfig.cmake" @ONLY)
 

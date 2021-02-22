@@ -31,8 +31,8 @@ file(
     GLOB_RECURSE COPYRIGHTABLE
     RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
     CONFIGURE_DEPENDS
-        src/[^\.]*.cpp example/[^\.]*.cpp
-        src/[^\.]*.hpp example/[^\.]*.hpp
+        src/[^\.]*.cpp example/[^\.]*.cpp tst/[^\.]*.cpp
+        src/[^\.]*.hpp example/[^\.]*.hpp tst/[^\.]*.hpp
         scripts/python/[^\.]*.py
         cmake/[^\.]*)
 
@@ -70,8 +70,12 @@ foreach(INPUT ${COPYRIGHTABLE})
                 update ${CMAKE_CURRENT_SOURCE_DIR} ${GIT_EXECUTABLE} ${INPUT})
 endforeach()
 
+if (PARTHENON_COPYRIGHT_CHECK_DEFAULT)
+    set(ALL "ALL")
+endif()
+
 add_custom_target(
-    check-copyright ALL
+    check-copyright ${ALL}
     DEPENDS ${OUTPUTS}
     COMMENT "Triad copyright up-to-date"
 )

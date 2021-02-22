@@ -29,8 +29,8 @@ If you come across a disfunctional setup, please report it by open an issue or p
    |       REGRESSION\_GOLD\_STANDARD\_SYNC | ON                | Option | Create `gold_standard` target to download gold standard files |
    |                    ENABLE\_UNIT\_TESTS | ${BUILD\_TESTING} | Option | Enable unit tests |
    |                         CODE\_COVERAGE | OFF               | Option | Builds with code coverage flags |
-   |    PARTHENON\_ENABLE\_COPYRIGHT\_CHECK | OFF               | Option | Enable copyright check (build fails if copyright is out of date) |
-   |               PARTHENON\_LINT\_DEFAULT | OFF               | Option | Lint the code as part of the default target |
+   |               PARTHENON\_LINT\_DEFAULT | OFF               | Option | Lint the code as part of the default target (otherwise use the `lint` target) |
+   |   PARTHENON\_COPYRIGHT\_CHECK\_DEFAULT | OFF               | Option | Check copyright as part of the default target (otherwise use the `check-copyright` target) |
    |                 CMAKE\_INSTALL\_PREFIX | machine specific  | String | Optional path for library installation |
    |                           Kokkos\_ROOT | unset             | String | Path to a Kokkos source directory (containing CMakeLists.txt) |
    |              PARTHENON\_IMPORT\_KOKKOS | ON/OFF            | Option | If ON, attempt to link to an external Kokkos library. If OFF, build Kokkos from source and package with Parthenon |
