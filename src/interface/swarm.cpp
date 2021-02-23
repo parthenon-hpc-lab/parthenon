@@ -657,7 +657,7 @@ int Swarm::CountParticlesToSend_() {
   // Fence to make sure particles aren't currently being transported locally
   pmb->exec_space.fence();
   const int nbmax = vbswarm->bd_var_.nbmax;
-  //ParArrayND<int> num_particles_to_send("npts", nbmax);
+  // ParArrayND<int> num_particles_to_send("npts", nbmax);
   auto num_particles_to_send_h = num_particles_to_send_.GetHostMirror();
   for (int n = 0; n < nbmax; n++) {
     num_particles_to_send_h(n) = 0;
@@ -683,7 +683,8 @@ int Swarm::CountParticlesToSend_() {
   max_indices_size = std::max<int>(1, max_indices_size);
   // Not a ragged-right array, just for convenience
 
-  particle_indices_to_send_ = ParArrayND<int>("Particle indices to send", nbmax, max_indices_size);
+  particle_indices_to_send_ =
+      ParArrayND<int>("Particle indices to send", nbmax, max_indices_size);
   auto particle_indices_to_send_h = particle_indices_to_send_.GetHostMirror();
   std::vector<int> counter(nbmax, 0);
   for (int n = 0; n <= max_active_index_; n++) {
@@ -780,7 +781,8 @@ vpack_types::SwarmVarList<T> Swarm::MakeVarListAll_(ParticleVariableVector<T> va
 
 SwarmVariablePack<Real> Swarm::PackAllVariablesReal(PackIndexMap &vmap) {
   std::vector<std::string> names;
-  for (auto &v : realVector_) {
+  names.reserve(realVector_.size());
+  for (const auto &v : realVector_) {
     names.push_back(v->label());
   }
   return PackVariablesReal(names, vmap);
@@ -788,7 +790,8 @@ SwarmVariablePack<Real> Swarm::PackAllVariablesReal(PackIndexMap &vmap) {
 
 SwarmVariablePack<int> Swarm::PackAllVariablesInt(PackIndexMap &vmap) {
   std::vector<std::string> names;
-  for (auto &v : intVector_) {
+  names.reserve(intVector_.size());
+  for (const auto &v : intVector_) {
     names.push_back(v->label());
   }
   return PackVariablesInt(names, vmap);
