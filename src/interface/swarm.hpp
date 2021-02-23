@@ -226,6 +226,9 @@ class Swarm {
   void SetNeighborIndices2D_();
   void SetNeighborIndices3D_();
 
+  int CountParticlesToSend_();
+  void LoadBuffers_(const int max_indices_size);
+
   int debug = 0;
   std::weak_ptr<MeshBlock> pmy_block;
 
@@ -252,6 +255,9 @@ class Swarm {
 
   constexpr static int this_block_ = -1;
   constexpr static int unset_index_ = -1;
+
+  ParArrayND<int> num_particles_to_send_;
+  ParArrayND<int> particle_indices_to_send_;
 };
 
 using SP_Swarm = std::shared_ptr<Swarm>;

@@ -633,6 +633,10 @@ void Swarm::SetupPersistentMPI() {
                       "Only periodic boundaries supported right now!");
   }
 
+  const int nbmax = pmb->pbval->nneighbor;
+  num_particles_to_send_ = ParArrayND<int>("npts", nbmax);
+
+  // Build up convenience array of neighbor indices
   if (ndim == 1) {
     SetNeighborIndices1D_();
   } else if (ndim == 2) {
@@ -644,19 +648,17 @@ void Swarm::SetupPersistentMPI() {
   }
 }
 
-bool Swarm::Send(BoundaryCommSubset phase) {
+int Swarm::CountParticlesToSend_() {
   auto blockIndex_h = blockIndex_.GetHostMirrorAndCopy();
   auto mask_h = mask_.data.GetHostMirrorAndCopy();
   auto swarm_d = GetDeviceContext();
-
   auto pmb = GetBlockPointer();
 
   // Fence to make sure particles aren't currently being transported locally
   pmb->exec_space.fence();
-
-  int nbmax = vbswarm->bd_var_.nbmax;
-  ParArrayND<int> num_particles_to_send("npts", nbmax);
-  auto num_particles_to_send_h = num_particles_to_send.GetHostMirror();
+  const int nbmax = vbswarm->bd_var_.nbmax;
+  //ParArrayND<int> num_particles_to_send("npts", nbmax);
+  auto num_particles_to_send_h = num_particles_to_send_.GetHostMirror();
   for (int n = 0; n < nbmax; n++) {
     num_particles_to_send_h(n) = 0;
     auto &nb = pmb->pbval->neighbor[n];
@@ -680,9 +682,9 @@ bool Swarm::Send(BoundaryCommSubset phase) {
   // indicates completed communications
   max_indices_size = std::max<int>(1, max_indices_size);
   // Not a ragged-right array, just for convenience
-  ParArrayND<int> particle_indices_to_send("Particle indices to send", nbmax,
-                                           max_indices_size);
-  auto particle_indices_to_send_h = particle_indices_to_send.GetHostMirror();
+
+  particle_indices_to_send_ = ParArrayND<int>("Particle indices to send", nbmax, max_indices_size);
+  auto particle_indices_to_send_h = particle_indices_to_send_.GetHostMirror();
   std::vector<int> counter(nbmax, 0);
   for (int n = 0; n <= max_active_index_; n++) {
     if (mask_h(n)) {
@@ -692,8 +694,8 @@ bool Swarm::Send(BoundaryCommSubset phase) {
       }
     }
   }
-  num_particles_to_send.DeepCopy(num_particles_to_send_h);
-  particle_indices_to_send.DeepCopy(particle_indices_to_send_h);
+  num_particles_to_send_.DeepCopy(num_particles_to_send_h);
+  particle_indices_to_send_.DeepCopy(particle_indices_to_send_h);
 
   num_particles_sent_ = 0;
   for (int n = 0; n < nbmax; n++) {
@@ -707,6 +709,15 @@ bool Swarm::Send(BoundaryCommSubset phase) {
     num_particles_sent_ += num_particles_to_send_h(n);
   }
 
+  return max_indices_size;
+}
+
+void Swarm::LoadBuffers_(const int max_indices_size) {
+  auto swarm_d = GetDeviceContext();
+  auto pmb = GetBlockPointer();
+  const int particle_size = GetParticleDataSize();
+  const int nbmax = vbswarm->bd_var_.nbmax;
+
   SwarmVariablePack<Real> vreal;
   SwarmVariablePack<int> vint;
   PackIndexMap rmap;
@@ -719,15 +730,9 @@ bool Swarm::Send(BoundaryCommSubset phase) {
   const int iy = rmap["y"].first;
   const int iz = rmap["z"].first;
 
-  ParArrayND<int> nrank("Neighbor rank", nbmax);
-  auto nrank_h = nrank.GetHostMirrorAndCopy();
-  for (int n = 0; n < nbmax; n++) {
-    NeighborBlock &nb = pmb->pbval->neighbor[n];
-    nrank_h(n) = nb.snb.rank;
-  }
-  nrank.DeepCopy(nrank_h);
-
   auto &bdvar = vbswarm->bd_var_;
+  auto num_particles_to_send = num_particles_to_send_;
+  auto particle_indices_to_send = particle_indices_to_send_;
   pmb->par_for(
       "Pack Buffers", 0, max_indices_size,
       KOKKOS_LAMBDA(const int n) {        // Max index
@@ -744,31 +749,6 @@ bool Swarm::Send(BoundaryCommSubset phase) {
               bdvar.send[m](buffer_index) = static_cast<Real>(vint(i, sidx));
               buffer_index++;
             }
-            // If rank is shared, apply boundary conditions here
-            // TODO(BRR) Don't hardcode periodic boundary conditions
-            if (nrank(m) == swarm_d.GetMyRank()) {
-              double &x = vreal(ix, sidx);
-              double &y = vreal(iy, sidx);
-              double &z = vreal(iz, sidx);
-              if (x < swarm_d.x_min_global_) {
-                x = swarm_d.x_max_global_ - (swarm_d.x_min_global_ - x);
-              }
-              if (x > swarm_d.x_max_global_) {
-                x = swarm_d.x_min_global_ + (x - swarm_d.x_max_global_);
-              }
-              if (y < swarm_d.y_min_global_) {
-                y = swarm_d.y_max_global_ - (swarm_d.y_min_global_ - y);
-              }
-              if (y > swarm_d.y_max_global_) {
-                y = swarm_d.y_min_global_ + (y - swarm_d.y_max_global_);
-              }
-              if (z < swarm_d.z_min_global_) {
-                z = swarm_d.z_max_global_ - (swarm_d.z_min_global_ - z);
-              }
-              if (z > swarm_d.z_max_global_) {
-                z = swarm_d.z_min_global_ + (z - swarm_d.z_max_global_);
-              }
-            }
           }
         }
       });
@@ -777,7 +757,16 @@ bool Swarm::Send(BoundaryCommSubset phase) {
   // copy into buffers (if no send already for that buffer) and send
 
   RemoveMarkedParticles();
+}
 
+bool Swarm::Send(BoundaryCommSubset phase) {
+  // Query particles for those to be sent
+  int max_indices_size = CountParticlesToSend_();
+
+  // Prepare buffers for send operations
+  LoadBuffers_(max_indices_size);
+
+  // Send buffer data
   vbswarm->Send(phase);
   return true;
 }
@@ -893,7 +882,7 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
     auto swarm_d = GetDeviceContext();
 
     pmb->par_for(
-        "Unpack buffers", 0, total_received_particles - 1, KOKKOS_LAMBDA(const int n) {
+        "Unload buffers", 0, total_received_particles - 1, KOKKOS_LAMBDA(const int n) {
           const int sid = new_indices(n);
           const int nid = neighbor_index(n);
           const int bid = buffer_index(n);
