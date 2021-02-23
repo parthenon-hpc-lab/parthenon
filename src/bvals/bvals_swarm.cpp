@@ -65,7 +65,6 @@ void BoundarySwarm::InitBoundaryData(BoundaryData<> &bd) {
 void BoundarySwarm::SetupPersistentMPI() {
 #ifdef MPI_PARALLEL
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
-  int &mylevel = pmb->loc.level;
 
   // Initialize neighbor communications to other ranks
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
@@ -90,7 +89,6 @@ void BoundarySwarm::SetupPersistentMPI() {
 // do a deep copy on device.
 void BoundarySwarm::Send(BoundaryCommSubset phase) {
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
-  int &mylevel = pmb->loc.level;
   // Fence to make sure buffers are loaded before sending
   pmb->exec_space.fence();
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {

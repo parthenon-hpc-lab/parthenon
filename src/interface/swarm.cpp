@@ -379,12 +379,251 @@ void Swarm::Defrag() {
   max_active_index_ = num_active_ - 1;
 }
 
+void Swarm::SetNeighborIndices1D_() {
+  auto pmb = GetBlockPointer();
+  const int ndim = pmb->pmy_mesh->ndim;
+  auto neighborIndices_h = neighborIndices_.GetHostMirror();
+
+  // Indicate which neighbor regions correspond to this meshblock
+  const int kmin = 0;
+  const int kmax = 4;
+  const int jmin = 0;
+  const int jmax = 4;
+  const int imin = 1;
+  const int imax = 3;
+  for (int k = kmin; k < kmax; k++) {
+    for (int j = jmin; j < jmax; j++) {
+      for (int i = imin; i < imax; i++) {
+        neighborIndices_h(k, j, i) = this_block_;
+      }
+    }
+  }
+
+  // Indicate which neighbor regions correspond to each neighbor meshblock
+  for (int n = 0; n < pmb->pbval->nneighbor; n++) {
+    NeighborBlock &nb = pmb->pbval->neighbor[n];
+
+    const int i = nb.ni.ox1;
+    const int j = nb.ni.ox2;
+    const int k = nb.ni.ox3;
+
+    if (i == -1) {
+      neighborIndices_h(0, 0, 0) = n;
+    } else if (i == 0) {
+      neighborIndices_h(0, 0, 1) = n;
+      neighborIndices_h(0, 0, 2) = n;
+    } else {
+      neighborIndices_h(0, 0, 3) = n;
+    }
+  }
+
+  neighborIndices_.DeepCopy(neighborIndices_h);
+}
+
+void Swarm::SetNeighborIndices2D_() {
+  auto pmb = GetBlockPointer();
+  const int ndim = pmb->pmy_mesh->ndim;
+  auto neighborIndices_h = neighborIndices_.GetHostMirror();
+
+  // Indicate which neighbor regions correspond to this meshblock
+  const int kmin = 0;
+  const int kmax = 4;
+  const int jmin = 1;
+  const int jmax = 3;
+  const int imin = 1;
+  const int imax = 3;
+  for (int k = kmin; k < kmax; k++) {
+    for (int j = jmin; j < jmax; j++) {
+      for (int i = imin; i < imax; i++) {
+        neighborIndices_h(k, j, i) = this_block_;
+      }
+    }
+  }
+
+  // Indicate which neighbor regions correspond to each neighbor meshblock
+  for (int n = 0; n < pmb->pbval->nneighbor; n++) {
+    NeighborBlock &nb = pmb->pbval->neighbor[n];
+
+    const int i = nb.ni.ox1;
+    const int j = nb.ni.ox2;
+    const int k = nb.ni.ox3;
+
+    if (i == -1) {
+      if (j == -1) {
+        neighborIndices_h(0, 0, 0) = n;
+      } else if (j == 0) {
+        neighborIndices_h(0, 1, 0) = n;
+        neighborIndices_h(0, 2, 0) = n;
+      } else if (j == 1) {
+        neighborIndices_h(0, 3, 0) = n;
+      }
+    } else if (i == 0) {
+      if (j == -1) {
+        neighborIndices_h(0, 0, 1) = n;
+        neighborIndices_h(0, 0, 2) = n;
+      } else if (j == 1) {
+        neighborIndices_h(0, 3, 1) = n;
+        neighborIndices_h(0, 3, 2) = n;
+      }
+    } else if (i == 1) {
+      if (j == -1) {
+        neighborIndices_h(0, 0, 3) = n;
+      } else if (j == 0) {
+        neighborIndices_h(0, 1, 3) = n;
+        neighborIndices_h(0, 2, 3) = n;
+      } else if (j == 1) {
+        neighborIndices_h(0, 3, 3) = n;
+      }
+    }
+  }
+
+  neighborIndices_.DeepCopy(neighborIndices_h);
+}
+
+void Swarm::SetNeighborIndices3D_() {
+  auto pmb = GetBlockPointer();
+  const int ndim = pmb->pmy_mesh->ndim;
+  auto neighborIndices_h = neighborIndices_.GetHostMirror();
+
+  // Indicate which neighbor regions correspond to this meshblock
+  const int kmin = 1;
+  const int kmax = 3;
+  const int jmin = 1;
+  const int jmax = 3;
+  const int imin = 1;
+  const int imax = 3;
+  for (int k = kmin; k < kmax; k++) {
+    for (int j = jmin; j < jmax; j++) {
+      for (int i = imin; i < imax; i++) {
+        neighborIndices_h(k, j, i) = this_block_;
+      }
+    }
+  }
+
+  // Indicate which neighbor regions correspond to each neighbor meshblock
+  for (int n = 0; n < pmb->pbval->nneighbor; n++) {
+    NeighborBlock &nb = pmb->pbval->neighbor[n];
+
+    const int i = nb.ni.ox1;
+    const int j = nb.ni.ox2;
+    const int k = nb.ni.ox3;
+
+    if (i == -1) {
+      if (j == -1) {
+        if (k == -1) {
+          neighborIndices_h(0, 0, 0) = n;
+        } else if (k == 0) {
+          neighborIndices_h(1, 0, 0) = n;
+          neighborIndices_h(2, 0, 0) = n;
+        } else if (k == 1) {
+          neighborIndices_h(3, 0, 0) = n;
+        }
+      } else if (j == 0) {
+        if (k == -1) {
+          neighborIndices_h(0, 1, 0) = n;
+          neighborIndices_h(0, 2, 0) = n;
+        } else if (k == 0) {
+          neighborIndices_h(1, 1, 0) = n;
+          neighborIndices_h(1, 2, 0) = n;
+          neighborIndices_h(2, 1, 0) = n;
+          neighborIndices_h(2, 2, 0) = n;
+        } else if (k == 1) {
+          neighborIndices_h(3, 1, 0) = n;
+          neighborIndices_h(3, 2, 0) = n;
+        }
+      } else if (j == 1) {
+        if (k == -1) {
+          neighborIndices_h(0, 3, 0) = n;
+        } else if (k == 0) {
+          neighborIndices_h(1, 3, 0) = n;
+          neighborIndices_h(2, 3, 0) = n;
+        } else if (k == 1) {
+          neighborIndices_h(3, 3, 0) = n;
+        }
+      }
+    } else if (i == 0) {
+      if (j == -1) {
+        if (k == -1) {
+          neighborIndices_h(0, 0, 1) = n;
+          neighborIndices_h(0, 0, 2) = n;
+        } else if (k == 0) {
+          neighborIndices_h(1, 0, 1) = n;
+          neighborIndices_h(1, 0, 2) = n;
+          neighborIndices_h(2, 0, 1) = n;
+          neighborIndices_h(2, 0, 2) = n;
+        } else if (k == 1) {
+          neighborIndices_h(3, 0, 1) = n;
+          neighborIndices_h(3, 0, 2) = n;
+        }
+      } else if (j == 0) {
+        if (k == -1) {
+          neighborIndices_h(0, 1, 1) = n;
+          neighborIndices_h(0, 1, 2) = n;
+          neighborIndices_h(0, 2, 1) = n;
+          neighborIndices_h(0, 2, 2) = n;
+        } else if (k == 1) {
+          neighborIndices_h(3, 1, 1) = n;
+          neighborIndices_h(3, 1, 2) = n;
+          neighborIndices_h(3, 2, 1) = n;
+          neighborIndices_h(3, 2, 2) = n;
+        }
+      } else if (j == 1) {
+        if (k == -1) {
+          neighborIndices_h(0, 3, 1) = n;
+          neighborIndices_h(0, 3, 2) = n;
+        } else if (k == 0) {
+          neighborIndices_h(1, 3, 1) = n;
+          neighborIndices_h(1, 3, 2) = n;
+          neighborIndices_h(2, 3, 1) = n;
+          neighborIndices_h(2, 3, 2) = n;
+        } else if (k == 1) {
+          neighborIndices_h(3, 3, 1) = n;
+          neighborIndices_h(3, 3, 2) = n;
+        }
+      }
+    } else if (i == 1) {
+      if (j == -1) {
+        if (k == -1) {
+          neighborIndices_h(0, 0, 3) = n;
+        } else if (k == 0) {
+          neighborIndices_h(1, 0, 3) = n;
+          neighborIndices_h(2, 0, 3) = n;
+        } else if (k == 1) {
+          neighborIndices_h(3, 0, 3) = n;
+        }
+      } else if (j == 0) {
+        if (k == -1) {
+          neighborIndices_h(0, 1, 3) = n;
+          neighborIndices_h(0, 2, 3) = n;
+        } else if (k == 0) {
+          neighborIndices_h(1, 1, 3) = n;
+          neighborIndices_h(1, 2, 3) = n;
+          neighborIndices_h(2, 1, 3) = n;
+          neighborIndices_h(2, 2, 3) = n;
+        } else if (k == 1) {
+          neighborIndices_h(3, 1, 3) = n;
+          neighborIndices_h(3, 2, 3) = n;
+        }
+      } else if (j == 1) {
+        if (k == -1) {
+          neighborIndices_h(0, 3, 3) = n;
+        } else if (k == 0) {
+          neighborIndices_h(1, 3, 3) = n;
+          neighborIndices_h(2, 3, 3) = n;
+        } else if (k == 1) {
+          neighborIndices_h(3, 3, 3) = n;
+        }
+      }
+    }
+  }
+
+  neighborIndices_.DeepCopy(neighborIndices_h);
+}
+
 void Swarm::SetupPersistentMPI() {
   vbswarm->SetupPersistentMPI();
 
-  // Index into neighbor blocks
   auto pmb = GetBlockPointer();
-  auto neighborIndices_h = neighborIndices_.GetHostMirror();
 
   // TODO(BRR) Checks against some current limitations
   const int ndim = pmb->pmy_mesh->ndim;
@@ -394,185 +633,15 @@ void Swarm::SetupPersistentMPI() {
                       "Only periodic boundaries supported right now!");
   }
 
-  // Indicate which neighbor regions correspond to this meshblock
-  int kmin = 1;
-  int kmax = 3;
-  int jmin = 1;
-  int jmax = 3;
-  int imin = 1;
-  int imax = 3;
-  if (ndim < 3) {
-    kmin = 0;
-    kmax = 4;
-    if (ndim < 2) {
-      jmin = 0;
-      jmax = 4;
-    }
+  if (ndim == 1) {
+    SetNeighborIndices1D_();
+  } else if (ndim == 2) {
+    SetNeighborIndices2D_();
+  } else if (ndim == 3) {
+    SetNeighborIndices3D_();
+  } else {
+    PARTHENON_FAIL("ndim must be 1, 2, or 3 for particles!");
   }
-  for (int k = kmin; k < kmax; k++) {
-    for (int j = jmin; j < jmax; j++) {
-      for (int i = imin; i < imax; i++) {
-        neighborIndices_h(k, j, i) = this_block_;
-      }
-    }
-  }
-
-  for (int n = 0; n < pmb->pbval->nneighbor; n++) {
-    NeighborBlock &nb = pmb->pbval->neighbor[n];
-
-    const int i = nb.ni.ox1;
-    const int j = nb.ni.ox2;
-    const int k = nb.ni.ox3;
-
-    if (ndim == 1) {
-      if (i == -1) {
-        neighborIndices_h(0, 0, 0) = n;
-      } else if (i == 0) {
-        neighborIndices_h(0, 0, 1) = n;
-        neighborIndices_h(0, 0, 2) = n;
-      } else {
-        neighborIndices_h(0, 0, 3) = n;
-      }
-    } else if (ndim == 2) {
-      if (i == -1) {
-        if (j == -1) {
-          neighborIndices_h(0, 0, 0) = n;
-        } else if (j == 0) {
-          neighborIndices_h(0, 1, 0) = n;
-          neighborIndices_h(0, 2, 0) = n;
-        } else if (j == 1) {
-          neighborIndices_h(0, 3, 0) = n;
-        }
-      } else if (i == 0) {
-        if (j == -1) {
-          neighborIndices_h(0, 0, 1) = n;
-          neighborIndices_h(0, 0, 2) = n;
-        } else if (j == 1) {
-          neighborIndices_h(0, 3, 1) = n;
-          neighborIndices_h(0, 3, 2) = n;
-        }
-      } else if (i == 1) {
-        if (j == -1) {
-          neighborIndices_h(0, 0, 3) = n;
-        } else if (j == 0) {
-          neighborIndices_h(0, 1, 3) = n;
-          neighborIndices_h(0, 2, 3) = n;
-        } else if (j == 1) {
-          neighborIndices_h(0, 3, 3) = n;
-        }
-      }
-    } else if (ndim == 3) {
-      if (i == -1) {
-        if (j == -1) {
-          if (k == -1) {
-            neighborIndices_h(0, 0, 0) = n;
-          } else if (k == 0) {
-            neighborIndices_h(1, 0, 0) = n;
-            neighborIndices_h(2, 0, 0) = n;
-          } else if (k == 1) {
-            neighborIndices_h(3, 0, 0) = n;
-          }
-        } else if (j == 0) {
-          if (k == -1) {
-            neighborIndices_h(0, 1, 0) = n;
-            neighborIndices_h(0, 2, 0) = n;
-          } else if (k == 0) {
-            neighborIndices_h(1, 1, 0) = n;
-            neighborIndices_h(1, 2, 0) = n;
-            neighborIndices_h(2, 1, 0) = n;
-            neighborIndices_h(2, 2, 0) = n;
-          } else if (k == 1) {
-            neighborIndices_h(3, 1, 0) = n;
-            neighborIndices_h(3, 2, 0) = n;
-          }
-        } else if (j == 1) {
-          if (k == -1) {
-            neighborIndices_h(0, 3, 0) = n;
-          } else if (k == 0) {
-            neighborIndices_h(1, 3, 0) = n;
-            neighborIndices_h(2, 3, 0) = n;
-          } else if (k == 1) {
-            neighborIndices_h(3, 3, 0) = n;
-          }
-        }
-      } else if (i == 0) {
-        if (j == -1) {
-          if (k == -1) {
-            neighborIndices_h(0, 0, 1) = n;
-            neighborIndices_h(0, 0, 2) = n;
-          } else if (k == 0) {
-            neighborIndices_h(1, 0, 1) = n;
-            neighborIndices_h(1, 0, 2) = n;
-            neighborIndices_h(2, 0, 1) = n;
-            neighborIndices_h(2, 0, 2) = n;
-          } else if (k == 1) {
-            neighborIndices_h(3, 0, 1) = n;
-            neighborIndices_h(3, 0, 2) = n;
-          }
-        } else if (j == 0) {
-          if (k == -1) {
-            neighborIndices_h(0, 1, 1) = n;
-            neighborIndices_h(0, 1, 2) = n;
-            neighborIndices_h(0, 2, 1) = n;
-            neighborIndices_h(0, 2, 2) = n;
-          } else if (k == 1) {
-            neighborIndices_h(3, 1, 1) = n;
-            neighborIndices_h(3, 1, 2) = n;
-            neighborIndices_h(3, 2, 1) = n;
-            neighborIndices_h(3, 2, 2) = n;
-          }
-        } else if (j == 1) {
-          if (k == -1) {
-            neighborIndices_h(0, 3, 1) = n;
-            neighborIndices_h(0, 3, 2) = n;
-          } else if (k == 0) {
-            neighborIndices_h(1, 3, 1) = n;
-            neighborIndices_h(1, 3, 2) = n;
-            neighborIndices_h(2, 3, 1) = n;
-            neighborIndices_h(2, 3, 2) = n;
-          } else if (k == 1) {
-            neighborIndices_h(3, 3, 1) = n;
-            neighborIndices_h(3, 3, 2) = n;
-          }
-        }
-      } else if (i == 1) {
-        if (j == -1) {
-          if (k == -1) {
-            neighborIndices_h(0, 0, 3) = n;
-          } else if (k == 0) {
-            neighborIndices_h(1, 0, 3) = n;
-            neighborIndices_h(2, 0, 3) = n;
-          } else if (k == 1) {
-            neighborIndices_h(3, 0, 3) = n;
-          }
-        } else if (j == 0) {
-          if (k == -1) {
-            neighborIndices_h(0, 1, 3) = n;
-            neighborIndices_h(0, 2, 3) = n;
-          } else if (k == 0) {
-            neighborIndices_h(1, 1, 3) = n;
-            neighborIndices_h(1, 2, 3) = n;
-            neighborIndices_h(2, 1, 3) = n;
-            neighborIndices_h(2, 2, 3) = n;
-          } else if (k == 1) {
-            neighborIndices_h(3, 1, 3) = n;
-            neighborIndices_h(3, 2, 3) = n;
-          }
-        } else if (j == 1) {
-          if (k == -1) {
-            neighborIndices_h(0, 3, 3) = n;
-          } else if (k == 0) {
-            neighborIndices_h(1, 3, 3) = n;
-            neighborIndices_h(2, 3, 3) = n;
-          } else if (k == 1) {
-            neighborIndices_h(3, 3, 3) = n;
-          }
-        }
-      }
-    }
-  }
-
-  neighborIndices_.DeepCopy(neighborIndices_h);
 }
 
 bool Swarm::Send(BoundaryCommSubset phase) {

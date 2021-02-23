@@ -222,6 +222,10 @@ class Swarm {
   template <typename T>
   vpack_types::SwarmVarList<T> MakeVarListAll_(ParticleVariableVector<T>);
 
+  void SetNeighborIndices1D_();
+  void SetNeighborIndices2D_();
+  void SetNeighborIndices3D_();
+
   int debug = 0;
   std::weak_ptr<MeshBlock> pmy_block;
 

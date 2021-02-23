@@ -99,6 +99,7 @@ TaskStatus SwarmContainer::Send(BoundaryCommSubset phase) {
   if (success == total) return TaskStatus::complete;
   return TaskStatus::incomplete;
 }
+
 TaskStatus SwarmContainer::Receive(BoundaryCommSubset phase) {
   int success = 0, total = 0;
   for (auto &s : swarmVector_) {

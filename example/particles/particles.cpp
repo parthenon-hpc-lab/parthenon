@@ -243,7 +243,7 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, const double t0) {
   return TaskStatus::complete;
 }
 
-TaskStatus TransportParticles(MeshBlock *pmb, StagedIntegrator *integrator,
+TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator,
                               const double t0) {
   auto swarm = pmb->swarm_data.Get()->Get("my particles");
 
@@ -322,7 +322,7 @@ TaskStatus Defrag(MeshBlock *pmb) {
 // Custom step function to allow for looping over MPI-related tasks until complete
 TaskListStatus ParticleDriver::Step() {
   TaskListStatus status;
-  integrator->dt = tm.dt;
+  integrator.dt = tm.dt;
 
   BlockList_t &blocks = pmesh->block_list;
   auto num_task_lists_executed_independently = blocks.size();
@@ -452,7 +452,7 @@ TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection() const {
     auto &tl = async_region0[i];
 
     auto transport_particles =
-        tl.AddTask(none, TransportParticles, pmb.get(), integrator.get(), t0);
+        tl.AddTask(none, TransportParticles, pmb.get(), &integrator, t0);
 
     auto send = tl.AddTask(transport_particles, &SwarmContainer::Send, sc.get(),
                            BoundaryCommSubset::all);

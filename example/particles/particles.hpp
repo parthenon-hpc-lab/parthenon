@@ -32,14 +32,14 @@ class ParticleDriver : public EvolutionDriver {
  public:
   ParticleDriver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
       : EvolutionDriver(pin, app_in, pm),
-        integrator(std::make_unique<StagedIntegrator>(pin)) {}
+        integrator(pin) {}
   TaskCollection MakeParticlesCreationTaskCollection() const;
   TaskCollection MakeParticlesUpdateTaskCollection() const;
   TaskCollection MakeFinalizationTaskCollection() const;
   TaskListStatus Step();
 
  private:
-  std::unique_ptr<StagedIntegrator> integrator;
+  StagedIntegrator integrator;
 };
 
 void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin);
