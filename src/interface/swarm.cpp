@@ -726,9 +726,6 @@ void Swarm::LoadBuffers_(const int max_indices_size) {
   vint = PackAllVariablesInt(imap);
   int real_vars_size = realVector_.size();
   int int_vars_size = intVector_.size();
-  const int ix = rmap["x"].first;
-  const int iy = rmap["y"].first;
-  const int iz = rmap["z"].first;
 
   auto &bdvar = vbswarm->bd_var_;
   auto num_particles_to_send = num_particles_to_send_;
@@ -752,9 +749,6 @@ void Swarm::LoadBuffers_(const int max_indices_size) {
           }
         }
       });
-
-  // Count all the particles that are Active and Not on this block, if nonzero,
-  // copy into buffers (if no send already for that buffer) and send
 
   RemoveMarkedParticles();
 }
@@ -821,15 +815,8 @@ SwarmVariablePack<int> Swarm::PackVariablesInt(const std::vector<std::string> &n
   return pack;
 }
 
-bool Swarm::Receive(BoundaryCommSubset phase) {
-  // Ensure all local deep copies marked BoundaryStatus::completed are actually received
-  GetBlockPointer()->exec_space.fence();
+void Swarm::UnloadBuffers_() {
   auto pmb = GetBlockPointer();
-
-  // Populate buffers
-  vbswarm->Receive(phase);
-
-  // Copy buffers into swarm data on this proc
   const int maxneighbor = vbswarm->bd_var_.nbmax;
   int total_received_particles = 0;
   std::vector<int> neighbor_received_particles(maxneighbor);
@@ -918,7 +905,20 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
           }
         });
   }
+}
 
+bool Swarm::Receive(BoundaryCommSubset phase) {
+  // Ensure all local deep copies marked BoundaryStatus::completed are actually received
+  GetBlockPointer()->exec_space.fence();
+  auto pmb = GetBlockPointer();
+
+  // Populate buffers
+  vbswarm->Receive(phase);
+
+  // Transfer data from buffers to swarm memory pool
+  UnloadBuffers_();
+
+  auto &bdvar = vbswarm->bd_var_;
   bool all_boundaries_received = true;
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];

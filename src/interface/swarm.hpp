@@ -228,6 +228,7 @@ class Swarm {
 
   int CountParticlesToSend_();
   void LoadBuffers_(const int max_indices_size);
+  void UnloadBuffers_();
 
   int debug = 0;
   std::weak_ptr<MeshBlock> pmy_block;
