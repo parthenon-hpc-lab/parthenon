@@ -4,7 +4,14 @@ variables:
 
 stages:
   - performance-target
-  - performance-regression
+  - performance-regressio
+ 
+.run-script-with-check: &run-script-with-check
+- |
+  chmod +x execute_metrics.sh
+  STATUS=$(${CI_PROJECT_DIR}/execute_main.sh)
+  echo "PASS_OR_FAIL ${STATUS}"
+  if [[ "$STATUS" == *"FAILED"* ]]; then exit 1; fi
 
 .gcc-mpi-cuda-performance-regression:
   variables: 
@@ -13,13 +20,15 @@ stages:
     - env
     - git fetch --all
     - printf 'env -i bash --norc --noprofile %s/scripts/darwin/build_fast_target.sh  "%s" "%s" "%s" "%s"\n' ${CI_PROJECT_DIR} ${GITHUB_APP_PEM} ${CI_COMMIT_SHA} ${CI_COMMIT_BRANCH} ${CI_JOB_URL}> execute_main.sh
-    - printf 'env -i bash --norc --noprofile %s/scripts/darwin/metrics.sh "%s" "%s/build" "%s" "%s"\n' ${CI_PROJECT_DIR} ${GITHUB_APP_PEM} ${CI_PROJECT_DIR} ${CI_COMMIT_SHA} ${CI_COMMIT_BRANCH}>> execute_main.sh
+    - printf 'env -i bash --norc --noprofile %s/scripts/darwin/metrics.sh "%s" "%s/build" "%s" "%s"\n' ${CI_PROJECT_DIR} ${GITHUB_APP_PEM} ${CI_PROJECT_DIR} ${CI_COMMIT_SHA} ${CI_COMMIT_BRANCH}> execute_metrics.sh
+    - chmod +x execute_main.sh
+    - chmod +x execute_metrics.sh
     - |
-      STATUS=$(env -i bash --norc --noprofile ${CI_PROJECT_DIR}/scripts/darwin/build_fast.sh "${GITHUB_APP_PEM}" "${CI_COMMIT_SHA}" "${CI_COMMIT_BRANCH}" "${CI_JOB_URL}")
+      STATUS=$(${CI_PROJECT_DIR}/execute_main.sh)
       echo "PASS_OR_FAIL ${STATUS}"
       if [[ "$STATUS" == *"FAILED"* ]]; then exit 1; fi
     - |
-      STATUS=$(env -i bash --norc --noprofile ${CI_PROJECT_DIR}/scripts/darwin/metrics.sh "${GITHUB_APP_PEM}" "${CI_PROJECT_DIR}/build" "${CI_COMMIT_SHA}" "${CI_COMMIT_BRANCH}")
+      STATUS=$(${CI_PROJECT_DIR}/execute_metrics.sh)
       echo "PASS_OR_FAIL ${STATUS}"
       if [[ "$STATUS" == *"FAILED"* ]]; then exit 1; fi
 
@@ -27,8 +36,9 @@ stages:
   script:
     - git fetch --all
     - printf 'env -i bash --norc --noprofile %s/scripts/darwin/build_fast_target.sh  "%s" "%s/build" "%s" "%s" "%s %s"\n' ${CI_PROJECT_DIR} ${GITHUB_APP_PEM} ${CI_PROJECT_DIR} ${CI_COMMIT_SHA} ${CI_COMMIT_BRANCH} ${CI_JOB_URL} ${CI_JOB_TOKEN} > execute_target.sh
+    - chmod +x execute_target.sh
     - |
-      STATUS=$(env -i bash --norc --noprofile ${CI_PROJECT_DIR}/scripts/darwin/build_fast_target.sh "${GITHUB_APP_PEM}" "${CI_PROJECT_DIR}/build"  "${CI_COMMIT_SHA}" "${CI_COMMIT_BRANCH}" "${CI_JOB_URL}" "${CI_JOB_TOKEN}")
+      STATUS=$(${CI_PROJECT_DIR}/execute_target.sh)
       echo "PASS_OR_FAIL ${STATUS}"
       if [[ "$STATUS" == *"FAILED"* ]]; then exit 1; fi
 
