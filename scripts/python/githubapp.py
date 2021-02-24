@@ -79,10 +79,10 @@ class Node:
 
 
 
-class App:
+class GitHubApp:
 
     """
-    App Class
+    GitHubApp Class
 
     This class is responsible for authenticating against the parthenon repository and interacting
     with the github api.

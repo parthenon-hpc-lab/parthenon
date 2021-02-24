@@ -18,7 +18,7 @@ import os
 import datetime
 import json
 import numpy as np
-from app import App
+from githubapp import GitHubApp
 import matplotlib.pyplot as plt
 
 
@@ -257,7 +257,7 @@ class PerformanceDataJsonParser():
                             cycles = data_grp.get('zone_cycles')
             return mesh_blocks, cycles
 
-class ParthenonApp(App):
+class ParthenonApp(GitHubApp):
 
     """
     Parthenon App Class
