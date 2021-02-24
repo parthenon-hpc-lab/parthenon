@@ -667,7 +667,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         "python3 parthenon_metrics_app.py -p file.pem")
 
-    desc = ('Path to the (permissions file/permissions string) which authenticates the application. If not provided will use the env variable PARTHENON_METRICS_APP_PEM.')
+    desc = ('Path to the (permissions file/permissions string) which authenticates 
+        the application. If not provided will use the env variable PARTHENON_METRICS_APP_PEM.')
 
     parser.add_argument('--permissions', '-p',
                         default="",
@@ -691,7 +692,8 @@ if __name__ == '__main__':
                         default="develop",
                         help=desc)
 
-    desc = ('Target branch to use. Default is calculated by making a RESTful API to github using the branch pased in with --branch argument')
+    desc = ('Target branch to use. Default is calculated by making a RESTful 
+        API to github using the branch pased in with --branch argument')
     parser.add_argument('--target-branch', '-tb',
                         type=str,
                         nargs=1,
@@ -761,7 +763,8 @@ if __name__ == '__main__':
                         default=False,
                         help=desc)
 
-    desc = ('Check if the performance metrics for the branch are uptodate, default branch is "develop"')
+    desc = ('Check if the performance metrics for the branch 
+        are uptodate, default branch is "develop"')
     parser.add_argument('--check-branch-metrics-uptodate', '-cbmu',
                         action='store_true',
                         default=False,
