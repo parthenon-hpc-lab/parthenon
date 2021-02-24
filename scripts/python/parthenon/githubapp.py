@@ -86,7 +86,7 @@ class GitHubApp:
     with the github api.
     """
 
-    def __init__(self, app_id, name, user, repo_name):
+    def __init__(self, app_id, name, user, repo_name, path_to_app_instance):
         """
         The app is generic and provides a template, to create an app for a specefic repository the
         following arguments are needed:
@@ -94,11 +94,13 @@ class GitHubApp:
         * the name of the app
         * the owner of the repository it controls
         * the name of the repository it controls
+        * the location of the github child class, should exist within a repo
         """
         self._app_id = app_id
         self._name = name
         self._user = user
         self._repo_name = repo_name
+        self._child_class_path = path_to_app_instance
 
     def initialize(self, use_wiki=False, ignore=False,
                    pem_file="", create_branch=False):
@@ -130,13 +132,13 @@ class GitHubApp:
         self._branch_current_commit_sha = {}
         self._api_version = "application/vnd.github.v3+json"
         self._parth_root = Node()
-        self._parthenon_home = str(pathlib.Path(__file__).parent.absolute())
+        self._parthenon_home = str(pathlib.Path(self._child_class_path).parent.absolute())
         try:
             self._parthenon_home = self._parthenon_home[:self._parthenon_home.rindex(
                 "/" + self._repo_name + "/") + len("/" + self._repo_name)]
         except Exception:
             error_msg = str(os.path.realpath(
-                __file__)) + " must be run from within the " + self._repo_name + " repository."
+                self._child_class_path)) + " must be run from within the " + self._repo_name + " repository."
             print(error_msg)
             raise
 
