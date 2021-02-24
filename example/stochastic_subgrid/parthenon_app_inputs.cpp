@@ -235,7 +235,7 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
       // print histogram
       printf("\nNum Iter Histogram:\n");
       for (size_t i = 0; i < hist.extent(0); ++i) {
-        printf("%8lu  %10lu\n", i + size_t(N_min), hist(i));
+        printf("%8lu  %10i\n", i + size_t(N_min), hist(i));
       }
     }
   }
