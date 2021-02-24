@@ -28,9 +28,7 @@ import git
 
 class Node:
 
-    """
-    Class used to store branch contents in terms of files, directories or misc
-    """
+    """Class used to store branch contents in terms of files, directories or misc"""
 
     def __init__(self, dir_name="", rel_path=""):
         """Creating a Node object
