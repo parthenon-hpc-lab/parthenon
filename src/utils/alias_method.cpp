@@ -31,8 +31,9 @@ AliasMethod::AliasMethod(const std::vector<Real> &probabilities)
   auto host_alias_table = Kokkos::create_mirror_view(alias_table);
 
   Real prob_sum = 0.0;
-  for (double p : probabilities) {
-    prob_sum += p;
+  for (size_t i = 0; i < probabilities.size(); ++i) {
+    // printf("p[%lu] = %.8e\n", i, probabilities[i]);
+    prob_sum += probabilities[i];
   }
 
   std::queue<int> under_full, over_full;
@@ -78,8 +79,8 @@ AliasMethod::AliasMethod(const std::vector<Real> &probabilities)
     host_alias_table(idx) = idx;
   }
 
-  Kokkos::deep_copy(host_prob_table, host_prob_table);
-  Kokkos::deep_copy(host_alias_table, host_alias_table);
+  Kokkos::deep_copy(prob_table, host_prob_table);
+  Kokkos::deep_copy(alias_table, host_alias_table);
 }
 
 } // namespace AliasMethod
