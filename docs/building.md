@@ -29,6 +29,8 @@ If you come across a disfunctional setup, please report it by open an issue or p
    |       REGRESSION\_GOLD\_STANDARD\_SYNC | ON                | Option | Create `gold_standard` target to download gold standard files |
    |                    ENABLE\_UNIT\_TESTS | ${BUILD\_TESTING} | Option | Enable unit tests |
    |                         CODE\_COVERAGE | OFF               | Option | Builds with code coverage flags |
+   |               PARTHENON\_LINT\_DEFAULT | OFF               | Option | Lint the code as part of the default target (otherwise use the `lint` target) |
+   |   PARTHENON\_COPYRIGHT\_CHECK\_DEFAULT | OFF               | Option | Check copyright as part of the default target (otherwise use the `check-copyright` target) |
    |                 CMAKE\_INSTALL\_PREFIX | machine specific  | String | Optional path for library installation |
    |                           Kokkos\_ROOT | unset             | String | Path to a Kokkos source directory (containing CMakeLists.txt) |
    |              PARTHENON\_IMPORT\_KOKKOS | ON/OFF            | Option | If ON, attempt to link to an external Kokkos library. If OFF, build Kokkos from source and package with Parthenon |
@@ -168,7 +170,7 @@ We set the latter variable for easier reference in out-of-source builds.
 To make the default configuration on widely used systems easier, Parthenon provides machine configuration files that contain default options.
 Defaults options include, but are not limited to setting
 - the compiler (e.g., `nvcc_wrapper` for Cuda builds), or
-- paths to non default package locations (e.g., for a custom HDF5 install), or 
+- paths to non default package locations (e.g., for a custom HDF5 install), or
 - custom MPI related commands used in the Parthenon test suite (e.g., the launch command).
 
 The machine configurations shipped with Parthenon are located in [`PARTHENON_ROOT/cmake/machinecfg`](../cmake/machinecfg) and are named by the machine name.
@@ -393,7 +395,7 @@ Last verified 04 Jan 2021.
 
 [RZAnsel](https://hpc.llnl.gov/hardware/platforms/rzansel) is a homogeneous cluster consisting of 2,376 nodes with the IBM Power9
 architecture with 44 nodes per core and 4 Nvidia Volta GPUs per node. To
-allocate an interactive node: 
+allocate an interactive node:
 
 E.g.
 ```bash
@@ -404,7 +406,7 @@ $ lalloc 1
 
 You can import all tools you need to start building with by sourcing the
 project `.bashrc`, to be able to access /usr/gapps/parthenon_shared you will
-need to be added to the parthenon group (contact @agaspar): 
+need to be added to the parthenon group (contact @agaspar):
 
 ```bash
 $ source /usr/gapps/parthenon_shared/parthenon-project/.bashrc
@@ -457,7 +459,7 @@ Last verified 02 Sept 2020.
 ```bash
 # setup environment
 $ module restore system
-$ module load cuda gcc/7.3.1 
+$ module load cuda gcc/7.3.1
 
 # on 02 Sept 2020 that results the following version
 $ module list
