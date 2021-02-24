@@ -133,7 +133,7 @@ class GitHubApp:
         self._parthenon_home = str(pathlib.Path(__file__).parent.absolute())
         try:
             self._parthenon_home = self._parthenon_home[:self._parthenon_home.rindex(
-                self._repo_name) + len("/" + self._repo_name)]
+                "/" + self._repo_name + "/") + len("/" + self._repo_name)]
         except Exception:
             error_msg = str(os.path.realpath(
                 __file__)) + " must be run from within the " + self._repo_name + " repository."
