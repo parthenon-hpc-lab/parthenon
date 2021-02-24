@@ -218,6 +218,9 @@ class Swarm {
   int num_particles_sent_;
   bool finished_transport;
 
+  void LoadBuffers_(const int max_indices_size);
+  void UnloadBuffers_();
+
  private:
   template <typename T>
   vpack_types::SwarmVarList<T> MakeVarListAll_(ParticleVariableVector<T>);
@@ -227,8 +230,6 @@ class Swarm {
   void SetNeighborIndices3D_();
 
   int CountParticlesToSend_();
-  void LoadBuffers_(const int max_indices_size);
-  void UnloadBuffers_();
 
   int debug = 0;
   std::weak_ptr<MeshBlock> pmy_block;
@@ -256,7 +257,7 @@ class Swarm {
 
   constexpr static int this_block_ = -1;
   constexpr static int unset_index_ = -1;
-
+  
   ParArrayND<int> num_particles_to_send_;
   ParArrayND<int> particle_indices_to_send_;
 };

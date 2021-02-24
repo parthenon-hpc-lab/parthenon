@@ -153,16 +153,18 @@ TaskStatus DepositParticles(MeshBlock *pmb) {
         particle_dep(k, j, i) = 0.;
       });
 
+  const int ndim = pmb->pmy_mesh->ndim;
+
   pmb->par_for(
       "DepositParticles", 0, swarm->get_max_active_index(), KOKKOS_LAMBDA(const int n) {
         if (swarm_d.IsActive(n)) {
           int i = static_cast<int>(std::floor((x(n) - minx_i) / dx_i) + ib.s);
           int j = 0;
-          if (pmb->pmy_mesh->ndim > 1) {
+          if (ndim > 1) {
             j = static_cast<int>(std::floor((y(n) - minx_j) / dx_j) + jb.s);
           }
           int k = 0;
-          if (pmb->pmy_mesh->ndim > 2) {
+          if (ndim > 2) {
             k = static_cast<int>(std::floor((z(n) - minx_k) / dx_k) + kb.s);
           }
 

@@ -404,8 +404,6 @@ void Swarm::SetNeighborIndices1D_() {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
 
     const int i = nb.ni.ox1;
-    const int j = nb.ni.ox2;
-    const int k = nb.ni.ox3;
 
     if (i == -1) {
       neighborIndices_h(0, 0, 0) = n;
@@ -446,7 +444,6 @@ void Swarm::SetNeighborIndices2D_() {
 
     const int i = nb.ni.ox1;
     const int j = nb.ni.ox2;
-    const int k = nb.ni.ox3;
 
     if (i == -1) {
       if (j == -1) {
