@@ -596,36 +596,36 @@ def main(**kwargs):
 
     app = ParthenonApp()
     app.initialize(
-        kwargs.pop('wiki'),
-        kwargs.pop('ignore'),
-        kwargs.pop('permissions'),
-        kwargs.pop('create'))
+        kwargs['wiki'],
+        kwargs['ignore'],
+        kwargs['permissions'],
+        kwargs['create'])
 
-    branch = kwargs.pop('branch')
+    branch = kwargs['branch']
 
     if isinstance(branch, list):
         branch = branch[0]
 
     if 'upload' in kwargs:
-        value = kwargs.pop('upload')
+        value = kwargs['upload']
         if isinstance(value, list):
             value = value[0]
         if not value is None:
             app.upload(value, branch)
 
     if 'status' in kwargs:
-        value = kwargs.pop('status')
+        value = kwargs['status']
         if isinstance(value, list):
             value = value[0]
         if not value is None:
-            url = kwargs.pop('status_url')
+            url = kwargs['status_url']
             if isinstance(url, list):
                 url = url[0]
-            context = kwargs.pop('status_context')
+            context = kwargs['status_context']
             if isinstance(context, list):
                 context = context[0]
 
-            description = kwargs.pop('status_description')
+            description = kwargs['status_description']
             if isinstance(description, list):
                 description = description[0]
 
@@ -636,11 +636,11 @@ def main(**kwargs):
             app.postStatus(value, None, context, description, target_url=url)
 
     if 'analyze' in kwargs:
-        value = kwargs.pop('analyze')
+        value = kwargs['analyze']
         if isinstance(value, list):
             value = value[0]
         if not value is None:
-            target_branch = kwargs.pop('target_branch')
+            target_branch = kwargs['target_branch']
             if target_branch == "":
                 _, target_branch = app.getCurrentAndTargetBranch(branch)
                 # If target branch is None, assume it's not a pull request
@@ -650,14 +650,14 @@ def main(**kwargs):
                 value,
                 branch,
                 target_branch,
-                kwargs.pop('post_analyze_status'),
-                kwargs.pop('generate_figures_on_analysis'))
+                kwargs['post_analyze_status'],
+                kwargs['generate_figures_on_analysis'])
 
-    check = kwargs.pop('check_branch_metrics_uptodate')
+    check = kwargs['check_branch_metrics_uptodate']
     if check:
-        app.checkUpToDate(branch, kwargs.pop('tests'))
+        app.checkUpToDate(branch, kwargs['tests'])
 
-    if kwargs.pop('get_target_branch'):
+    if kwargs['get_target_branch']:
         app.printTargetBranch(branch)
 
 
