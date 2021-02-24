@@ -11,12 +11,13 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+#include "stochastic_subgrid_package.hpp"
+
 #include <algorithm>
 #include <chrono> // NOLINT [build/c++11]
 #include <cmath>
 #include <limits>
 #include <memory>
-#include <queue>
 #include <string>
 #include <vector>
 
@@ -27,9 +28,10 @@
 
 #include "kokkos_abstraction.hpp"
 #include "reconstruct/dc_inline.hpp"
-#include "stochastic_subgrid_package.hpp"
+#include "utils/alias_method.hpp"
 
 using namespace parthenon::package::prelude;
+using namespace parthenon::AliasMethod;
 
 // *************************************************//
 // define the "physics" package Advect, which      *//
@@ -141,11 +143,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddParam<>("sin_a2", sin_a2);
   pkg->AddParam<>("sin_a3", sin_a3);
 
-  // initialize the alias tables to sample the number of iterations from a discrete power
-  // law distributions, for description of the Alias Method, see
-  // https://en.wikipedia.org/wiki/Alias_method
-  // https://www.keithschwarz.com/darts-dice-coins/
-  // https://gist.github.com/Liam0205/0b5786e9bfc73e75eb8180b5400cd1f8
+  // get parameters for powerlaw distribution to sample number of iterations from
   int N_min = pin->GetOrAddInteger("Random", "num_iter_min", 1);
   int N_max = pin->GetOrAddInteger("Random", "num_iter_max", 100);
   Real alpha = pin->GetOrAddReal("Random", "power_law_coeff", -3.0);
@@ -155,75 +153,22 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   int N = N_max - N_min + 1;
 
-  // compute probabilities
-  Kokkos::View<Real *> prob_table_view("prob_table", N);
-  Kokkos::View<int *> alias_table_view("alias_table", N);
   Kokkos::View<int *> num_iter_hist("num_iter_histogram", N);
+  auto num_iter_hist_host = Kokkos::create_mirror_view(num_iter_hist);
 
-  pkg->AddParam<>("prob_table", prob_table_view);
-  pkg->AddParam<>("alias_table", alias_table_view);
-  pkg->AddParam<>("num_iter_histogram", num_iter_hist);
+  pkg->AddParam("num_iter_histogram", num_iter_hist);
   pkg->AddParam("N_min", N_min);
 
-  Real sum = 0.0;
+  // compute un-normalized probabilities
   std::vector<Real> prob(N);
   for (int i = 0; i < N; ++i) {
     prob[i] = pow(i + N_min, alpha);
-    sum += prob[i];
-  }
-  // normalized probability is: prob[i] / sum
-
-  // make probability table and alias table
-  auto prob_table_host = Kokkos::create_mirror_view(prob_table_view);
-  auto alias_table_host = Kokkos::create_mirror_view(alias_table_view);
-  auto num_iter_hist_host = Kokkos::create_mirror_view(num_iter_hist);
-
-  std::queue<int> under_full, over_full;
-  for (int i = 0; i < N; ++i) {
-    alias_table_host(i) = -1;
     num_iter_hist_host(i) = 0;
-
-    prob_table_host(i) = Real(N) * prob[i] / sum;
-    if (prob_table_host(i) < 1.0)
-      under_full.push(i);
-    else
-      over_full.push(i);
   }
 
-  while (!under_full.empty() && !over_full.empty()) {
-    int under_idx = under_full.front();
-    under_full.pop();
-    int over_idx = over_full.front();
-    over_full.pop();
+  AliasMethod alias(prob);
+  pkg->AddParam("alias_method", alias);
 
-    alias_table_host(under_idx) = over_idx;
-    prob_table_host(over_idx) =
-        (prob_table_host(over_idx) + prob_table_host(under_idx)) - 1.0;
-
-    if (prob_table_host(over_idx) < 1.0)
-      under_full.push(over_idx);
-    else
-      over_full.push(over_idx);
-  }
-
-  while (!over_full.empty()) {
-    int idx = over_full.front();
-    over_full.pop();
-
-    prob_table_host(idx) = 1.0;
-    alias_table_host(idx) = idx;
-  }
-
-  while (!under_full.empty()) {
-    int idx = under_full.front();
-    under_full.pop();
-
-    prob_table_host(idx) = 1.0;
-    alias_table_host(idx) = idx;
-  }
-
-  Kokkos::deep_copy(prob_table_view, prob_table_host);
-  Kokkos::deep_copy(alias_table_view, alias_table_host);
   Kokkos::deep_copy(num_iter_hist, num_iter_hist_host);
 
   // create random pool
@@ -306,8 +251,7 @@ TaskStatus ComputeNumIter(std::shared_ptr<MeshData<Real>> &md, Packages_t &packa
   const IndexRange jb = pack.cellbounds.GetBoundsJ(IndexDomain::interior);
   const IndexRange kb = pack.cellbounds.GetBoundsK(IndexDomain::interior);
 
-  auto prob_table = pkg->Param<Kokkos::View<Real *>>("prob_table");
-  auto alias_table = pkg->Param<Kokkos::View<int *>>("alias_table");
+  auto alias = pkg->Param<AliasMethod>("alias_method");
   int N_min = pkg->Param<int>("N_min");
 
   par_for(
@@ -319,14 +263,7 @@ TaskStatus ComputeNumIter(std::shared_ptr<MeshData<Real>> &md, Packages_t &packa
         double rand2 = rng.drand();
         pool.free_state(rng);
 
-        int idx = static_cast<int>(rand1 * prob_table.size());
-
-        int num_iter = N_min;
-        if ((rand2 >= prob_table(idx)) && (alias_table(idx) != -1))
-          num_iter += alias_table(idx);
-        else
-          num_iter += idx;
-
+        int num_iter = N_min + alias.Sample(rand1, rand2);
         pack(b, v, k, j, i) = num_iter;
       });
 

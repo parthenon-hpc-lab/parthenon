@@ -11,7 +11,6 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#include <chrono> // NOLINT [build/c++11]
 #include <sstream>
 #include <string>
 

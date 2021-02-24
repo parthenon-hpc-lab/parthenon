@@ -31,8 +31,8 @@ class AdvectionDriver : public MultiStageDriver {
   // main()
   //   EvolutionDriver::Execute (driver.cpp)
   //     MultiStageBlockTaskDriver::Step (multistage.cpp)
-  //       DriverUtils::ConstructAndExecuteBlockTasks (driver.hpp)
-  //         AdvectionDriver::MakeTaskCollection (advection.cpp)
+  //       DriverUtils::ConstructAndExecuteTaskLists (driver.hpp)
+  //         AdvectionDriver::MakeTaskCollection (advection_driver.cpp)
   TaskCollection MakeTaskCollection(BlockList_t &blocks, int stage);
 };
 

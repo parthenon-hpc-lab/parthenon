@@ -72,14 +72,10 @@ TaskCollection StochasticSubgridDriver::MakeTaskCollection(BlockList_t &blocks,
     md->Set(partitions[i], "base");
   }
 
-  // ParArrayHost<Real> areas("areas", partitions.size());
   TaskRegion &async_region = tc.AddRegion(partitions.size());
-  {
-    // asynchronous region where area is computed per partition
-    for (int i = 0; i < partitions.size(); i++) {
-      auto &md = pmesh->mesh_data.Get("num_iter_partition_" + std::to_string(i));
-      async_region[i].AddTask(none, ComputeNumIter, md, pmesh->packages);
-    }
+  for (int i = 0; i < partitions.size(); i++) {
+    auto &md = pmesh->mesh_data.Get("num_iter_partition_" + std::to_string(i));
+    async_region[i].AddTask(none, ComputeNumIter, md, pmesh->packages);
   }
 
   // Number of task lists that can be executed independently and thus *may*
@@ -142,55 +138,28 @@ TaskCollection StochasticSubgridDriver::MakeTaskCollection(BlockList_t &blocks,
     auto update = tl.AddTask(avg_data, UpdateIndependentData<MeshData<Real>>, mc0.get(),
                              mdudt.get(), beta * dt, mc1.get());
   }
-
-  const auto &buffer_send_pack = blocks[0]
-                                     ->packages.Get("stochastic_subgrid_package")
-                                     ->Param<bool>("buffer_send_pack");
-  if (buffer_send_pack) {
+  
+  {
     TaskRegion &tr = tc.AddRegion(num_partitions);
     for (int i = 0; i < num_partitions; i++) {
       auto &mc1 = pmesh->mesh_data.GetOrAdd(stage_name[stage], i);
       tr[i].AddTask(none, parthenon::cell_centered_bvars::SendBoundaryBuffers, mc1);
     }
-  } else {
-    TaskRegion &tr = tc.AddRegion(num_task_lists_executed_independently);
-    for (int i = 0; i < blocks.size(); i++) {
-      auto &sc1 = blocks[i]->meshblock_data.Get(stage_name[stage]);
-      tr[i].AddTask(none, &MeshBlockData<Real>::SendBoundaryBuffers, sc1.get());
-    }
   }
 
-  const auto &buffer_recv_pack = blocks[0]
-                                     ->packages.Get("stochastic_subgrid_package")
-                                     ->Param<bool>("buffer_recv_pack");
-  if (buffer_recv_pack) {
+  {
     TaskRegion &tr = tc.AddRegion(num_partitions);
     for (int i = 0; i < num_partitions; i++) {
       auto &mc1 = pmesh->mesh_data.GetOrAdd(stage_name[stage], i);
       tr[i].AddTask(none, parthenon::cell_centered_bvars::ReceiveBoundaryBuffers, mc1);
     }
-  } else {
-    TaskRegion &tr = tc.AddRegion(num_task_lists_executed_independently);
-    for (int i = 0; i < blocks.size(); i++) {
-      auto &sc1 = blocks[i]->meshblock_data.Get(stage_name[stage]);
-      tr[i].AddTask(none, &MeshBlockData<Real>::ReceiveBoundaryBuffers, sc1.get());
-    }
   }
 
-  const auto &buffer_set_pack = blocks[0]
-                                    ->packages.Get("stochastic_subgrid_package")
-                                    ->Param<bool>("buffer_set_pack");
-  if (buffer_set_pack) {
+  {
     TaskRegion &tr = tc.AddRegion(num_partitions);
     for (int i = 0; i < num_partitions; i++) {
       auto &mc1 = pmesh->mesh_data.GetOrAdd(stage_name[stage], i);
       tr[i].AddTask(none, parthenon::cell_centered_bvars::SetBoundaries, mc1);
-    }
-  } else {
-    TaskRegion &tr = tc.AddRegion(num_task_lists_executed_independently);
-    for (int i = 0; i < blocks.size(); i++) {
-      auto &sc1 = blocks[i]->meshblock_data.Get(stage_name[stage]);
-      tr[i].AddTask(none, &MeshBlockData<Real>::SetBoundaries, sc1.get());
     }
   }
 

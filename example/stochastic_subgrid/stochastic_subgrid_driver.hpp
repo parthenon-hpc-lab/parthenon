@@ -31,8 +31,8 @@ class StochasticSubgridDriver : public MultiStageDriver {
   // main()
   //   EvolutionDriver::Execute (driver.cpp)
   //     MultiStageDriver::Step (multistage.cpp)
-  //       DriverUtils::ConstructAndExecuteBlockTasks (driver.hpp)
-  //         AdvectionDriver::MakeTaskCollection (advection.cpp)
+  //       DriverUtils::ConstructAndExecuteTaskLists (driver.hpp)
+  //         StochasticSubgridDriver::MakeTaskCollection (stochastic_subgrid_driver.cpp)
   TaskCollection MakeTaskCollection(BlockList_t &blocks, int stage);
 };
 
