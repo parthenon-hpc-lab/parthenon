@@ -249,10 +249,23 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
 #ifdef HDF5OUTPUT
         pnew_type = new PHDF5Output(op);
 #else
-        msg << "### FATAL ERROR in Outputs constructor" << std::endl
-            << "Executable not configured for HDF5 outputs, but HDF5 file format "
-            << "is requested in output block '" << op.block_name << "'" << std::endl;
-        PARTHENON_FAIL(msg);
+        if (op.dt < 0.0) {
+          msg << "### WARNING in Outputs constructor" << std::endl
+              << "Executable not configured for HDF5 outputs, but HDF5 file format "
+              << "is requested in output block '" << op.block_name
+              << "' (but disabled by using a negative dt). You cannot enable this block "
+              << "by setting a positive dt without recompiling with HDF5 support."
+              << std::endl;
+          PARTHENON_WARN(msg);
+          pib = pib->pnext; // move to next input block name
+          continue;
+        } else {
+          msg << "### FATAL ERROR in Outputs constructor" << std::endl
+              << "Executable not configured for HDF5 outputs, but HDF5 file format "
+              << "is requested in output block '" << op.block_name
+              << "'. You can disable this block by setting a negative dt." << std::endl;
+          PARTHENON_FAIL(msg);
+        }
 #endif
       } else {
         msg << "### FATAL ERROR in Outputs constructor" << std::endl
