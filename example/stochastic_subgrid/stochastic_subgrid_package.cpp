@@ -25,9 +25,9 @@
 #include <coordinates/coordinates.hpp>
 #include <parthenon/package.hpp>
 
-#include "advanced_advection_package.hpp"
 #include "kokkos_abstraction.hpp"
 #include "reconstruct/dc_inline.hpp"
+#include "stochastic_subgrid_package.hpp"
 
 using namespace parthenon::package::prelude;
 
@@ -38,10 +38,10 @@ using namespace parthenon::package::prelude;
 // implement the "physics"                         *//
 // *************************************************//
 
-namespace advanced_advection_package {
+namespace stochastic_subgrid_package {
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
-  auto pkg = std::make_shared<StateDescriptor>("advanced_advection_package");
+  auto pkg = std::make_shared<StateDescriptor>("stochastic_subgrid_package");
 
   Real cfl = pin->GetOrAddReal("Advection", "cfl", 0.45);
   pkg->AddParam<>("cfl", cfl);
@@ -280,7 +280,7 @@ AmrTag CheckRefinement(MeshBlockData<Real> *rc) {
       },
       Kokkos::MinMax<Real>(minmax));
 
-  auto pkg = pmb->packages.Get("advanced_advection_package");
+  auto pkg = pmb->packages.Get("stochastic_subgrid_package");
   const auto &refine_tol = pkg->Param<Real>("refine_tol");
   const auto &derefine_tol = pkg->Param<Real>("derefine_tol");
 
@@ -298,7 +298,7 @@ TaskStatus ComputeNumIter(std::shared_ptr<MeshData<Real>> &md, Packages_t &packa
   auto pack = md->PackVariables(std::vector<std::string>({"num_iter"}));
   Kokkos::Profiling::popRegion();
 
-  auto pkg = packages.Get("advanced_advection_package");
+  auto pkg = packages.Get("stochastic_subgrid_package");
   const auto &pool =
       pkg->Param<Kokkos::Random_XorShift64_Pool<parthenon::DevExecSpace>>("random_pool");
 
@@ -337,7 +337,7 @@ TaskStatus ComputeNumIter(std::shared_ptr<MeshData<Real>> &md, Packages_t &packa
 // this is the package registered function to fill derived
 void DoLotsOfWork(MeshBlockData<Real> *rc) {
   auto pmb = rc->GetBlockPointer();
-  auto pkg = pmb->packages.Get("advanced_advection_package");
+  auto pkg = pmb->packages.Get("stochastic_subgrid_package");
 
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
@@ -358,7 +358,7 @@ void DoLotsOfWork(MeshBlockData<Real> *rc) {
   const Real ilog10 = 1.0 / log(10.0);
 
   pmb->par_for(
-      "advanced_advection_package::DoLotsOfWork", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      "stochastic_subgrid_package::DoLotsOfWork", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
         int num_iter = v(niter, k, j, i);
 
@@ -382,7 +382,7 @@ void DoLotsOfWork(MeshBlockData<Real> *rc) {
 // provide the routine that estimates a stable timestep for this package
 Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
   auto pmb = rc->GetBlockPointer();
-  auto pkg = pmb->packages.Get("advanced_advection_package");
+  auto pkg = pmb->packages.Get("stochastic_subgrid_package");
   const auto &cfl = pkg->Param<Real>("cfl");
   const auto &vx = pkg->Param<Real>("vx");
   const auto &vy = pkg->Param<Real>("vy");
@@ -397,7 +397,7 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
   // this is obviously overkill for this constant velocity problem
   Real min_dt;
   pmb->par_reduce(
-      "advanced_advection_package::EstimateTimestep", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      "stochastic_subgrid_package::EstimateTimestep", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int k, const int j, const int i, Real &lmin_dt) {
         if (vx != 0.0)
           lmin_dt = std::min(lmin_dt, coords.Dx(X1DIR, k, j, i) / std::abs(vx));
@@ -422,7 +422,7 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
 
   ParArrayND<Real> advected = rc->Get("advected").data;
-  auto pkg = pmb->packages.Get("advanced_advection_package");
+  auto pkg = pmb->packages.Get("stochastic_subgrid_package");
   const auto &vx = pkg->Param<Real>("vx");
   const auto &vy = pkg->Param<Real>("vy");
   const auto &vz = pkg->Param<Real>("vz");
@@ -522,4 +522,4 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
   return TaskStatus::complete;
 }
 
-} // namespace advanced_advection_package
+} // namespace stochastic_subgrid_package

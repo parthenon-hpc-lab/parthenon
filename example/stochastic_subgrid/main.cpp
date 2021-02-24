@@ -13,7 +13,7 @@
 
 #include "parthenon_manager.hpp"
 
-#include "advanced_advection_driver.hpp"
+#include "stochastic_subgrid_driver.hpp"
 
 int main(int argc, char *argv[]) {
   using parthenon::ParthenonManager;
@@ -21,9 +21,9 @@ int main(int argc, char *argv[]) {
   ParthenonManager pman;
 
   // Redefine parthenon defaults
-  pman.app_input->ProcessPackages = advanced_advection_example::ProcessPackages;
-  pman.app_input->ProblemGenerator = advanced_advection_example::ProblemGenerator;
-  pman.app_input->UserWorkAfterLoop = advanced_advection_example::UserWorkAfterLoop;
+  pman.app_input->ProcessPackages = stochastic_subgrid_example::ProcessPackages;
+  pman.app_input->ProblemGenerator = stochastic_subgrid_example::ProblemGenerator;
+  pman.app_input->UserWorkAfterLoop = stochastic_subgrid_example::UserWorkAfterLoop;
 
   // call ParthenonInit to initialize MPI and Kokkos, parse the input deck, and set up
   auto manager_status = pman.ParthenonInit(argc, argv);
@@ -39,7 +39,7 @@ int main(int argc, char *argv[]) {
   // make use of MPI and Kokkos
 
   // Initialize the driver
-  advanced_advection_example::AdvancedAdvectionDriver driver(
+  stochastic_subgrid_example::StochasticSubgridDriver driver(
       pman.pinput.get(), pman.app_input.get(), pman.pmesh.get());
 
   // This line actually runs the simulation

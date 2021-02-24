@@ -17,10 +17,10 @@
 
 #include <parthenon/package.hpp>
 
-#include "advanced_advection_driver.hpp"
-#include "advanced_advection_package.hpp"
 #include "config.hpp"
 #include "defs.hpp"
+#include "stochastic_subgrid_driver.hpp"
+#include "stochastic_subgrid_package.hpp"
 #include "utils/error_checking.hpp"
 
 using namespace parthenon::package::prelude;
@@ -30,13 +30,13 @@ using namespace parthenon;
 // redefine some weakly linked parthenon functions *//
 // *************************************************//
 
-namespace advanced_advection_example {
+namespace stochastic_subgrid_example {
 
 void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   auto &rc = pmb->meshblock_data.Get();
   auto &q = rc->Get("advected").data;
 
-  auto pkg = pmb->packages.Get("advanced_advection_package");
+  auto pkg = pmb->packages.Get("stochastic_subgrid_package");
   const auto &amp = pkg->Param<Real>("amp");
   const auto &vel = pkg->Param<Real>("vel");
   const auto &k_par = pkg->Param<Real>("k_par");
@@ -98,7 +98,7 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
     Real max_err = 0.0;
 
     for (auto &pmb : mesh->block_list) {
-      auto pkg = pmb->packages.Get("advanced_advection_package");
+      auto pkg = pmb->packages.Get("stochastic_subgrid_package");
 
       auto rc = pmb->meshblock_data.Get(); // get base container
       const auto &amp = pkg->Param<Real>("amp");
@@ -217,7 +217,7 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
   if (pin->GetOrAddBoolean("Random", "compute_histogram", true)) {
     int N_min = pin->GetInteger("Random", "num_iter_min");
 
-    auto pkg = mesh->block_list[0]->packages.Get("advanced_advection_package");
+    auto pkg = mesh->block_list[0]->packages.Get("stochastic_subgrid_package");
     auto hist_view = pkg->Param<Kokkos::View<int *>>("num_iter_histogram");
     auto hist = Kokkos::create_mirror_view(hist_view);
     Kokkos::deep_copy(hist, hist_view);
@@ -244,7 +244,7 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
 
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   Packages_t packages;
-  auto pkg = advanced_advection_package::Initialize(pin.get());
+  auto pkg = stochastic_subgrid_package::Initialize(pin.get());
   packages.Add(pkg);
 
   auto app = std::make_shared<StateDescriptor>("advection_app");
@@ -253,4 +253,4 @@ Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   return packages;
 }
 
-} // namespace advanced_advection_example
+} // namespace stochastic_subgrid_example

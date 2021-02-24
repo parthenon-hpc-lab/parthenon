@@ -16,25 +16,25 @@
 #include <vector>
 
 // Local Includes
-#include "advanced_advection_driver.hpp"
-#include "advanced_advection_package.hpp"
 #include "bvals/cc/bvals_cc_in_one.hpp"
 #include "interface/metadata.hpp"
 #include "interface/update.hpp"
 #include "mesh/meshblock_pack.hpp"
 #include "parthenon/driver.hpp"
 #include "refinement/refinement.hpp"
+#include "stochastic_subgrid_driver.hpp"
+#include "stochastic_subgrid_package.hpp"
 
 using namespace parthenon::driver::prelude;
 
-namespace advanced_advection_example {
+namespace stochastic_subgrid_example {
 
 // *************************************************//
 // define the application driver. in this case,    *//
 // that mostly means defining the MakeTaskList     *//
 // function.                                       *//
 // *************************************************//
-AdvancedAdvectionDriver::AdvancedAdvectionDriver(ParameterInput *pin,
+StochasticSubgridDriver::StochasticSubgridDriver(ParameterInput *pin,
                                                  ApplicationInput *app_in, Mesh *pm)
     : MultiStageDriver(pin, app_in, pm) {
   // fail if these are not specified in the input file
@@ -52,10 +52,10 @@ AdvancedAdvectionDriver::AdvancedAdvectionDriver(ParameterInput *pin,
   pin->CheckDesired("Advection", "derefine_tol");
 }
 
-using advanced_advection_package::ComputeNumIter;
+using stochastic_subgrid_package::ComputeNumIter;
 
 // See the advection.hpp declaration for a description of how this function gets called.
-TaskCollection AdvancedAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
+TaskCollection StochasticSubgridDriver::MakeTaskCollection(BlockList_t &blocks,
                                                            const int stage) {
   using namespace parthenon::Update;
   TaskCollection tc;
@@ -113,7 +113,7 @@ TaskCollection AdvancedAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
     auto start_recv = tl.AddTask(none, &MeshBlockData<Real>::StartReceiving, sc1.get(),
                                  BoundaryCommSubset::all);
 
-    auto advect_flux = tl.AddTask(none, advanced_advection_package::CalculateFluxes, sc0);
+    auto advect_flux = tl.AddTask(none, stochastic_subgrid_package::CalculateFluxes, sc0);
 
     auto send_flux =
         tl.AddTask(advect_flux, &MeshBlockData<Real>::SendFluxCorrection, sc0.get());
@@ -144,7 +144,7 @@ TaskCollection AdvancedAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
   }
 
   const auto &buffer_send_pack = blocks[0]
-                                     ->packages.Get("advanced_advection_package")
+                                     ->packages.Get("stochastic_subgrid_package")
                                      ->Param<bool>("buffer_send_pack");
   if (buffer_send_pack) {
     TaskRegion &tr = tc.AddRegion(num_partitions);
@@ -161,7 +161,7 @@ TaskCollection AdvancedAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
   }
 
   const auto &buffer_recv_pack = blocks[0]
-                                     ->packages.Get("advanced_advection_package")
+                                     ->packages.Get("stochastic_subgrid_package")
                                      ->Param<bool>("buffer_recv_pack");
   if (buffer_recv_pack) {
     TaskRegion &tr = tc.AddRegion(num_partitions);
@@ -178,7 +178,7 @@ TaskCollection AdvancedAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
   }
 
   const auto &buffer_set_pack = blocks[0]
-                                    ->packages.Get("advanced_advection_package")
+                                    ->packages.Get("stochastic_subgrid_package")
                                     ->Param<bool>("buffer_set_pack");
   if (buffer_set_pack) {
     TaskRegion &tr = tc.AddRegion(num_partitions);
@@ -232,4 +232,4 @@ TaskCollection AdvancedAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
   return tc;
 }
 
-} // namespace advanced_advection_example
+} // namespace stochastic_subgrid_example

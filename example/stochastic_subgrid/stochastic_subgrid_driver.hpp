@@ -11,8 +11,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef EXAMPLE_ADVANCED_ADVECTION_ADVANCED_ADVECTION_DRIVER_HPP_
-#define EXAMPLE_ADVANCED_ADVECTION_ADVANCED_ADVECTION_DRIVER_HPP_
+#ifndef EXAMPLE_STOCHASTIC_SUBGRID_STOCHASTIC_SUBGRID_DRIVER_HPP_
+#define EXAMPLE_STOCHASTIC_SUBGRID_STOCHASTIC_SUBGRID_DRIVER_HPP_
 
 #include <memory>
 #include <vector>
@@ -20,12 +20,12 @@
 #include <parthenon/driver.hpp>
 #include <parthenon/package.hpp>
 
-namespace advanced_advection_example {
+namespace stochastic_subgrid_example {
 using namespace parthenon::driver::prelude;
 
-class AdvancedAdvectionDriver : public MultiStageDriver {
+class StochasticSubgridDriver : public MultiStageDriver {
  public:
-  AdvancedAdvectionDriver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm);
+  StochasticSubgridDriver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm);
   // This next function essentially defines the driver.
   // Call graph looks like
   // main()
@@ -41,6 +41,6 @@ void UserWorkAfterLoop(Mesh *mesh, parthenon::ParameterInput *pin,
                        parthenon::SimTime &tm);
 parthenon::Packages_t ProcessPackages(std::unique_ptr<parthenon::ParameterInput> &pin);
 
-} // namespace advanced_advection_example
+} // namespace stochastic_subgrid_example
 
-#endif // EXAMPLE_ADVANCED_ADVECTION_ADVANCED_ADVECTION_DRIVER_HPP_
+#endif // EXAMPLE_STOCHASTIC_SUBGRID_STOCHASTIC_SUBGRID_DRIVER_HPP_

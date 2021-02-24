@@ -12,16 +12,16 @@
 #=========================================================================================
 
 get_property(DRIVER_LIST GLOBAL PROPERTY DRIVERS_USED_IN_TESTS)
-if( "advanced_advection-example" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_EXAMPLES)
+if( "stochastic_subgrid-example" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_EXAMPLES)
   add_executable(
-      advanced_advection-example
-          advanced_advection_driver.cpp
-          advanced_advection_driver.hpp
-          advanced_advection_package.cpp
-          advanced_advection_package.hpp
+      stochastic_subgrid-example
+          stochastic_subgrid_driver.cpp
+          stochastic_subgrid_driver.hpp
+          stochastic_subgrid_package.cpp
+          stochastic_subgrid_package.hpp
           main.cpp
           parthenon_app_inputs.cpp
   )
-  target_link_libraries(advanced_advection-example PRIVATE Parthenon::parthenon)
-  lint_target(advanced_advection-example)
+  target_link_libraries(stochastic_subgrid-example PRIVATE Parthenon::parthenon)
+  lint_target(stochastic_subgrid-example)
 endif()

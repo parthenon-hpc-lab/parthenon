@@ -11,7 +11,7 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
 
-add_subdirectory(advanced_advection)
+add_subdirectory(stochastic_subgrid)
 add_subdirectory(advection)
 add_subdirectory(calculate_pi)
 add_subdirectory(face_fields)
