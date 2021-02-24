@@ -31,8 +31,7 @@ typedef Kokkos::Random_XorShift64_Pool<> RNGPool;
 class ParticleDriver : public EvolutionDriver {
  public:
   ParticleDriver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
-      : EvolutionDriver(pin, app_in, pm),
-        integrator(pin) {}
+      : EvolutionDriver(pin, app_in, pm), integrator(pin) {}
   TaskCollection MakeParticlesCreationTaskCollection() const;
   TaskCollection MakeParticlesUpdateTaskCollection() const;
   TaskCollection MakeFinalizationTaskCollection() const;
