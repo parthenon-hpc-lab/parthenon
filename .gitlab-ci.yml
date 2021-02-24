@@ -31,6 +31,23 @@ style-check:
   script:
     - python ./tst/style/cpplint.py --counting=detailed --recursive src example tst
 
+copyright-check:
+  tags:
+    - cpu
+  stage: style
+  script:
+    - mkdir build-copyright-check
+    - cd build-copyright-check
+    - cmake -DMACHINE_VARIANT=mpi
+      -DCMAKE_CXX_FLAGS=-Werror
+      ../
+    - make check-copyright
+  artifacts:
+    when: always
+    expire_in: 3 days
+    paths:
+      - build-copyright-check/CMakeFiles/CMakeOutput.log
+
 parthenon-cuda-unit:
   tags:
     - cuda

@@ -16,6 +16,6 @@ cmake --build build
 
 cd build
 
-ctest --output-on-failure 
+ctest --output-on-failure
 
 exit 0
