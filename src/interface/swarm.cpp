@@ -105,14 +105,11 @@ void Swarm::Add(const std::string &label, const Metadata &metadata) {
                                 " already enrolled during Add()!");
   }
 
+  int vec_type;
   if (metadata.Type() == Metadata::Integer) {
-    auto var = std::make_shared<ParticleVariable<int>>(label, nmax_pool_, metadata);
-    intVector_.push_back(var);
-    intMap_[label] = var;
-  } else if (metadata.Type() == Metadata::Real) {
-    auto var = std::make_shared<ParticleVariable<Real>>(label, nmax_pool_, metadata);
-    realVector_.push_back(var);
-    realMap_[label] = var;
+    Add_<int>(label);
+  }else if (metadata.Type() == Metadata::Real) {
+    Add_<Real>(label);
   } else {
     throw std::invalid_argument("swarm variable " + label +
                                 " does not have a valid type during Add()");
@@ -358,8 +355,8 @@ void Swarm::Defrag() {
   SwarmVariablePack<int> vint;
   PackIndexMap rmap;
   PackIndexMap imap;
-  vreal = PackAllVariablesReal(rmap);
-  vint = PackAllVariablesInt(imap);
+  vreal = PackAllVariables<Real>(rmap);
+  vint = PackAllVariables<int>(imap);
   int real_vars_size = realVector_.size();
   int int_vars_size = intVector_.size();
 
@@ -720,8 +717,8 @@ void Swarm::LoadBuffers_(const int max_indices_size) {
   SwarmVariablePack<int> vint;
   PackIndexMap rmap;
   PackIndexMap imap;
-  vreal = PackAllVariablesReal(rmap);
-  vint = PackAllVariablesInt(imap);
+  vreal = PackAllVariables<Real>(rmap);
+  vint = PackAllVariables<int>(imap);
   int real_vars_size = realVector_.size();
   int int_vars_size = intVector_.size();
 
@@ -762,7 +759,7 @@ bool Swarm::Send(BoundaryCommSubset phase) {
   vbswarm->Send(phase);
   return true;
 }
-
+/*
 template <typename T>
 vpack_types::SwarmVarList<T> Swarm::MakeVarListAll_(ParticleVariableVector<T> variables) {
   int size = 0;
@@ -774,26 +771,29 @@ vpack_types::SwarmVarList<T> Swarm::MakeVarListAll_(ParticleVariableVector<T> va
     size++;
   }
   return vars;
-}
+}*/
 
-SwarmVariablePack<Real> Swarm::PackAllVariablesReal(PackIndexMap &vmap) {
+/*SwarmVariablePack<Real> Swarm::PackAllVariablesReal(PackIndexMap &vmap) {
   std::vector<std::string> names;
   names.reserve(realVector_.size());
   for (const auto &v : realVector_) {
     names.push_back(v->label());
   }
-  return PackVariablesReal(names, vmap);
+  //return PackVariablesReal(names, vmap);
+  return PackVariables<Real>(names, vmap);
 }
 
 SwarmVariablePack<int> Swarm::PackAllVariablesInt(PackIndexMap &vmap) {
   std::vector<std::string> names;
-  names.reserve(intVector_.size());
+  names.reserve(std::get<IntVec>(Vectors_).size());
   for (const auto &v : intVector_) {
     names.push_back(v->label());
   }
-  return PackVariablesInt(names, vmap);
-}
+//  return PackVariablesInt(names, vmap);
+  return PackVariables<int>(names, vmap);
+}*/
 
+/*
 SwarmVariablePack<Real> Swarm::PackVariablesReal(const std::vector<std::string> &names,
                                                  PackIndexMap &vmap) {
   vpack_types::SwarmVarList<Real> vars = MakeVarListAll_<Real>(realVector_);
@@ -813,7 +813,7 @@ SwarmVariablePack<int> Swarm::PackVariablesInt(const std::vector<std::string> &n
   value.pack = pack;
   value.map = vmap;
   return pack;
-}
+}*/
 
 void Swarm::UnloadBuffers_() {
   auto pmb = GetBlockPointer();
@@ -840,10 +840,10 @@ void Swarm::UnloadBuffers_() {
     SwarmVariablePack<int> vint;
     PackIndexMap rmap;
     PackIndexMap imap;
-    vreal = PackAllVariablesReal(rmap);
-    vint = PackAllVariablesInt(imap);
-    int real_vars_size = realVector_.size();
-    int int_vars_size = intVector_.size();
+    vreal = PackAllVariables<Real>(rmap);
+    vint = PackAllVariables<int>(imap);
+    int real_vars_size = std::get<RealVec>(Vectors_).size();
+    int int_vars_size = std::get<IntVec>(Vectors_).size();
     const int ix = rmap["x"].first;
     const int iy = rmap["y"].first;
     const int iz = rmap["z"].first;
