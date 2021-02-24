@@ -97,6 +97,6 @@ TEST_CASE("A Metadata struct is created", "[Metadata]") {
 
 TEST_CASE("Metadata created with a sparse ID must be sparse", "[Metadata]") {
   WHEN("We add metadata with a sparse ID but the sparse flag unset") {
-    THEN("We raise an error") { REQUIRE_THROWS(Metadata({Metadata::Cell}, 10)); }
+    THEN("We raise an error") { REQUIRE_THROWS(Metadata({Metadata::Cell})); }
   }
 }

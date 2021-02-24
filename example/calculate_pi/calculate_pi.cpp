@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -159,7 +159,7 @@ Real ComputeAreaInternal(MeshBlockPack<VariablePack<Real>> pack, ParArrayHost<Re
 TaskStatus ComputeArea(std::shared_ptr<MeshData<Real>> &md, ParArrayHost<Real> areas,
                        int i) {
   bool const use_sparse =
-      md->GetMeshPointer()->packages["calculate_pi"]->Param<bool>("use_sparse");
+      md->GetMeshPointer()->packages.Get("calculate_pi")->Param<bool>("use_sparse");
 
   MeshBlockPack<VariablePack<Real>> pack =
       use_sparse ? md->PackVariables(std::vector<std::string>({"in_or_out"}),

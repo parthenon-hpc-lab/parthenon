@@ -92,17 +92,16 @@ TEST_CASE("Test reqendency resolution in StateDescriptor", "[StateDescriptor]") 
     Metadata m_requires(req);
     Metadata m_overridable(over);
     Metadata m_swarmval({Metadata::Real});
-    std::vector<int> sparse_ids = {0, 3, 7, 11};
-    std::vector<Metadata> m_sparse_private(sparse_ids.size());
-    std::vector<Metadata> m_sparse_provides(sparse_ids.size());
-    std::vector<Metadata> m_sparse_reqends(sparse_ids.size());
-    std::vector<Metadata> m_sparse_overridable(sparse_ids.size());
-    for (int i = 0; i < sparse_ids.size(); i++) {
-      int id = sparse_ids[i]; // sparse metadata flag automatically added
-      m_sparse_private[i] = Metadata(priv_sparse, id);
-      m_sparse_provides[i] = Metadata(prov_sparse, id);
-      m_sparse_reqends[i] = Metadata(req_sparse, id);
-      m_sparse_overridable[i] = Metadata(over_sparse, id);
+    const int n_sparse = 4;
+    std::vector<Metadata> m_sparse_private(n_sparse);
+    std::vector<Metadata> m_sparse_provides(n_sparse);
+    std::vector<Metadata> m_sparse_reqends(n_sparse);
+    std::vector<Metadata> m_sparse_overridable(n_sparse);
+    for (int i = 0; i < n_sparse; i++) {
+      m_sparse_private[i] = Metadata(priv_sparse);
+      m_sparse_provides[i] = Metadata(prov_sparse);
+      m_sparse_reqends[i] = Metadata(req_sparse);
+      m_sparse_overridable[i] = Metadata(over_sparse);
     }
     // packages
     Packages_t packages;
@@ -115,7 +114,7 @@ TEST_CASE("Test reqendency resolution in StateDescriptor", "[StateDescriptor]") 
 
     WHEN("We add metadata with a sparse ID but the sparse flag unset") {
       THEN("We raise an error") {
-        REQUIRE_THROWS(pkg1->AddField("sparse", Metadata(prov, 10)));
+        REQUIRE_THROWS(pkg1->AddField("sparse", Metadata(prov)));
       }
     }
 
@@ -160,28 +159,28 @@ TEST_CASE("Test reqendency resolution in StateDescriptor", "[StateDescriptor]") 
       THEN("We can safely resolve the conflict") {
         auto pkg3 = ResolvePackages(packages);
         AND_THEN("The names are privately namespaced") {
-          REQUIRE(pkg3->SparsePresent("package1::sparse"));
-          REQUIRE(pkg3->SparsePresent("package2::sparse"));
-          REQUIRE(!(pkg3->SparsePresent("sparse")));
+          REQUIRE(pkg3->FieldPresent("package1::sparse"));
+          REQUIRE(pkg3->FieldPresent("package2::sparse"));
+          REQUIRE(!(pkg3->FieldPresent("sparse")));
         }
         AND_THEN("The appropriate sparse metadata was added") {
-          REQUIRE(pkg3->SparsePresent("package1::sparse", sparse_ids[2]));
-          REQUIRE(pkg3->SparsePresent("package2::sparse", sparse_ids[3]));
-          REQUIRE(!(pkg3->SparsePresent("package1::sparse", sparse_ids[3])));
-          REQUIRE(!(pkg3->SparsePresent("package2::sparse", sparse_ids[2])));
+          REQUIRE(pkg3->FieldPresent("package1::sparse"));
+          REQUIRE(pkg3->FieldPresent("package2::sparse"));
+          REQUIRE(!(pkg3->FieldPresent("package1::sparse")));
+          REQUIRE(!(pkg3->FieldPresent("package2::sparse")));
         }
       }
     }
     // TODO(JMM): This will simplify once we have dense on block
     WHEN("We add multiple provides sparse ids to the same package") {
-      for (int i = 0; i < sparse_ids.size(); i++) {
+      for (int i = 0; i < n_sparse; i++) {
         pkg1->AddField("sparse", m_sparse_provides[i]);
       }
       THEN("We can safely resolve packages") {
         auto pkg4 = ResolvePackages(packages);
         AND_THEN("The sparse variable is present") {
-          for (int i = 0; i < sparse_ids.size(); i++) {
-            pkg4->FieldMetadata("sparse", i).SparseEqual(m_sparse_provides[0]);
+          for (int i = 0; i < n_sparse; i++) {
+            REQUIRE(pkg4->FieldMetadata("sparse") == (m_sparse_provides[0]));
           }
         }
       }
@@ -229,10 +228,9 @@ TEST_CASE("Test reqendency resolution in StateDescriptor", "[StateDescriptor]") 
 
     WHEN("We add an overridable variable and nothing else") {
       pkg1->AddField("dense", m_overridable);
-      for (int i = 0; i < sparse_ids.size(); i++) {
+      for (int i = 0; i < n_sparse; i++) {
         pkg2->AddField("sparse", m_sparse_overridable[i]);
       }
-      REQUIRE(pkg2->AllSparseFields().at("sparse").size() == sparse_ids.size());
       pkg3->AddSwarm("swarm", m_overridable);
       pkg3->AddSwarmValue("value1", "swarm", m_swarmval);
       pkg3->AddSwarmValue("value2", "swarm", m_swarmval);
@@ -240,11 +238,10 @@ TEST_CASE("Test reqendency resolution in StateDescriptor", "[StateDescriptor]") 
         auto pkg4 = ResolvePackages(packages);
         AND_THEN("The overridable variables are retained") {
           REQUIRE(pkg4->FieldPresent("dense"));
-          REQUIRE(pkg4->SparsePresent("sparse"));
+          REQUIRE(pkg4->FieldPresent("sparse"));
           REQUIRE(pkg4->SwarmPresent("swarm"));
           REQUIRE(pkg4->SwarmValuePresent("value1", "swarm"));
           REQUIRE(pkg4->SwarmValuePresent("value2", "swarm"));
-          REQUIRE(pkg4->AllSparseFields().at("sparse").size() == sparse_ids.size());
         }
       }
     }
@@ -260,13 +257,13 @@ TEST_CASE("Test reqendency resolution in StateDescriptor", "[StateDescriptor]") 
       pkg2->AddSwarmValue("provides", "swarm", m_swarmval);
       pkg3->AddSwarm("swarm", m_requires);
 
-      for (int i = 0; i < sparse_ids.size(); i++) {
+      for (int i = 0; i < n_sparse; i++) {
         pkg1->AddField("sparse", m_sparse_overridable[i]);
         pkg2->AddField("sparse", m_sparse_overridable[i]);
         pkg3->AddField("sparse", m_sparse_provides[i]);
-        REQUIRE(pkg1->SparsePresent("sparse", sparse_ids[i]));
-        REQUIRE(pkg2->SparsePresent("sparse", sparse_ids[i]));
-        REQUIRE(pkg3->SparsePresent("sparse", sparse_ids[i]));
+        REQUIRE(pkg1->FieldPresent("sparse"));
+        REQUIRE(pkg2->FieldPresent("sparse"));
+        REQUIRE(pkg3->FieldPresent("sparse"));
       }
 
       THEN("We can safely resolve conflicts") {
@@ -278,12 +275,12 @@ TEST_CASE("Test reqendency resolution in StateDescriptor", "[StateDescriptor]") 
           REQUIRE(pkg4->SwarmMetadata("swarm") == m_provides);
           REQUIRE(pkg4->SwarmValuePresent("provides", "swarm"));
           REQUIRE(!(pkg4->SwarmValuePresent("overridable", "swarm")));
-          REQUIRE(pkg4->SparsePresent("sparse"));
-          for (int i = 0; i < sparse_ids.size(); i++) {
-            REQUIRE(pkg4->SparsePresent("sparse", sparse_ids[i]));
+          REQUIRE(pkg4->FieldPresent("sparse"));
+          for (int i = 0; i < n_sparse; i++) {
+            REQUIRE(pkg4->FieldPresent("sparse"));
           }
-          for (int i = 0; i < sparse_ids.size(); i++) {
-            REQUIRE(pkg4->FieldMetadata("sparse", sparse_ids[i]) == m_sparse_provides[i]);
+          for (int i = 0; i < n_sparse; i++) {
+            REQUIRE(pkg4->FieldMetadata("sparse") == m_sparse_provides[i]);
           }
         }
       }

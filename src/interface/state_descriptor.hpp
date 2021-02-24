@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -117,25 +117,13 @@ class StateDescriptor {
     return names;
   }
 
-  const Dictionary<Metadata> &AllFields() const { return metadataMap_; }
-  const Dictionary<std::unordered_map<int, Metadata>> &AllSparseFields() const {
-    return sparseMetadataMap_;
-  }
-  const Dictionary<Metadata> &AllSwarms() const { return swarmMetadataMap_; }
-  const Dictionary<Metadata> &AllSwarmValues(const std::string &swarm_name) const {
+  const auto &AllFields() const { return metadataMap_; }
+  const auto &AllSwarms() const { return swarmMetadataMap_; }
+  const auto &AllSwarmValues(const std::string &swarm_name) const {
     return swarmValueMetadataMap_.at(swarm_name);
   }
   bool FieldPresent(const std::string &field_name) const {
     return metadataMap_.count(field_name) > 0;
-  }
-  bool SparsePresent(const std::string &field_name) const {
-    return sparseMetadataMap_.count(field_name) > 0;
-  }
-  bool SparsePresent(const std::string &field_name, int i) const {
-    if (sparseMetadataMap_.count(field_name) > 0) {
-      return sparseMetadataMap_.at(field_name).count(i) > 0;
-    }
-    return false;
   }
   bool SwarmPresent(const std::string &swarm_name) const {
     return swarmMetadataMap_.count(swarm_name) > 0;
@@ -151,17 +139,17 @@ class StateDescriptor {
     return metadataMap_[field_name];
   }
 
-  Metadata &FieldMetadata(const std::string &field_name, int i) {
-    return sparseMetadataMap_[field_name][i];
-  }
-
   // retrieve metadata for a specific swarm
   Metadata &SwarmMetadata(const std::string &swarm_name) {
     return swarmMetadataMap_[swarm_name];
   }
 
-  // get all metadata for this physics
-  const Dictionary<Metadata> &AllMetadata() { return metadataMap_; }
+  // JL: Disabling this for now because it's probably incomplete
+  // // get all metadata for this physics
+  // const Dictionary<Metadata> &AllMetadata() {
+  //   // TODO (JL): What about swarmMetadataMap_ and swarmValueMetadataMap_
+  //   return metadataMap_;
+  // }
 
   bool FlagsPresent(std::vector<MetadataFlag> const &flags, bool matchAny = false);
 
@@ -228,25 +216,12 @@ class StateDescriptor {
 
  private:
   template <typename F>
-  void MetadataLoop_(F func) {
-    for (auto &pair : metadataMap_) {
-      func(pair.second);
-    }
-    for (auto &p1 : sparseMetadataMap_) {
-      for (auto &p2 : p1.second) {
-        func(p2.second);
-      }
-    }
-    for (auto &pair : swarmMetadataMap_) {
-      func(pair.second);
-    }
-  }
+  void MetadataLoop_(F func) {}
 
   Params params_;
   const std::string label_;
 
   Dictionary<Metadata> metadataMap_;
-  Dictionary<std::unordered_map<int, Metadata>> sparseMetadataMap_;
   Dictionary<Metadata> swarmMetadataMap_;
   Dictionary<Dictionary<Metadata>> swarmValueMetadataMap_;
 };
