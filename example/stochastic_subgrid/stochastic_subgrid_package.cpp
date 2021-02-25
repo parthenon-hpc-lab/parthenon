@@ -45,156 +45,164 @@ namespace stochastic_subgrid_package {
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto pkg = std::make_shared<StateDescriptor>("stochastic_subgrid_package");
 
-  Real cfl = pin->GetOrAddReal("Advection", "cfl", 0.45);
-  pkg->AddParam<>("cfl", cfl);
-  Real vx = pin->GetOrAddReal("Advection", "vx", 1.0);
-  Real vy = pin->GetOrAddReal("Advection", "vy", 1.0);
-  Real vz = pin->GetOrAddReal("Advection", "vz", 1.0);
-  Real refine_tol = pin->GetOrAddReal("Advection", "refine_tol", 0.3);
-  pkg->AddParam<>("refine_tol", refine_tol);
-  Real derefine_tol = pin->GetOrAddReal("Advection", "derefine_tol", 0.03);
-  pkg->AddParam<>("derefine_tol", derefine_tol);
+  // read some fixed input parameters
+  {
+    const Real cfl = pin->GetOrAddReal("Advection", "cfl", 0.45);
+    pkg->AddParam<>("cfl", cfl);
 
-  auto profile_str = pin->GetOrAddString("Advection", "profile", "wave");
-  if (!((profile_str.compare("wave") == 0) ||
-        (profile_str.compare("smooth_gaussian") == 0) ||
-        (profile_str.compare("hard_sphere") == 0))) {
-    PARTHENON_FAIL(("Unknown profile in advection example: " + profile_str).c_str());
-  }
-  pkg->AddParam<>("profile", profile_str);
+    const Real vx = pin->GetOrAddReal("Advection", "vx", 1.0);
+    const Real vy = pin->GetOrAddReal("Advection", "vy", 1.0);
+    const Real vz = pin->GetOrAddReal("Advection", "vz", 1.0);
+    const Real vel = std::sqrt(vx * vx + vy * vy + vz * vz);
+    pkg->AddParam<>("vx", vx);
+    pkg->AddParam<>("vy", vy);
+    pkg->AddParam<>("vz", vz);
+    pkg->AddParam<>("vel", vel);
 
-  auto buffer_send_pack = pin->GetOrAddBoolean("Advection", "buffer_send_pack", false);
-  auto buffer_recv_pack = pin->GetOrAddBoolean("Advection", "buffer_recv_pack", false);
-  auto buffer_set_pack = pin->GetOrAddBoolean("Advection", "buffer_set_pack", false);
-  pkg->AddParam<>("buffer_send_pack", buffer_send_pack);
-  pkg->AddParam<>("buffer_recv_pack", buffer_recv_pack);
-  pkg->AddParam<>("buffer_set_pack", buffer_set_pack);
+    const Real amp = pin->GetOrAddReal("Advection", "amp", 1e-6);
+    pkg->AddParam<>("amp", amp);
 
-  Real amp = pin->GetOrAddReal("Advection", "amp", 1e-6);
-  Real vel = std::sqrt(vx * vx + vy * vy + vz * vz);
-  Real ang_2 = pin->GetOrAddReal("Advection", "ang_2", -999.9);
-  Real ang_3 = pin->GetOrAddReal("Advection", "ang_3", -999.9);
+    const Real refine_tol = pin->GetOrAddReal("Advection", "refine_tol", 0.3);
+    pkg->AddParam<>("refine_tol", refine_tol);
 
-  Real ang_2_vert = pin->GetOrAddBoolean("Advection", "ang_2_vert", false);
-  Real ang_3_vert = pin->GetOrAddBoolean("Advection", "ang_3_vert", false);
+    const Real derefine_tol = pin->GetOrAddReal("Advection", "derefine_tol", 0.03);
+    pkg->AddParam<>("derefine_tol", derefine_tol);
 
-  // For wavevector along coordinate axes, set desired values of ang_2/ang_3.
-  //    For example, for 1D problem use ang_2 = ang_3 = 0.0
-  //    For wavevector along grid diagonal, do not input values for ang_2/ang_3.
-  // Code below will automatically calculate these imposing periodicity and exactly one
-  // wavelength along each grid direction
-  Real x1size = pin->GetOrAddReal("parthenon/mesh", "x1max", 1.5) -
-                pin->GetOrAddReal("parthenon/mesh", "x1min", -1.5);
-  Real x2size = pin->GetOrAddReal("parthenon/mesh", "x2max", 1.0) -
-                pin->GetOrAddReal("parthenon/mesh", "x2min", -1.0);
-  Real x3size = pin->GetOrAddReal("parthenon/mesh", "x3max", 1.0) -
-                pin->GetOrAddReal("parthenon/mesh", "x3min", -1.0);
-
-  // User should never input -999.9 in angles
-  if (ang_3 == -999.9) ang_3 = std::atan(x1size / x2size);
-  Real sin_a3 = std::sin(ang_3);
-  Real cos_a3 = std::cos(ang_3);
-
-  // Override ang_3 input and hardcode vertical (along x2 axis) wavevector
-  if (ang_3_vert) {
-    sin_a3 = 1.0;
-    cos_a3 = 0.0;
-    ang_3 = 0.5 * M_PI;
+    const auto profile_str = pin->GetOrAddString("Advection", "profile", "wave");
+    if (!((profile_str.compare("wave") == 0) ||
+          (profile_str.compare("smooth_gaussian") == 0) ||
+          (profile_str.compare("hard_sphere") == 0))) {
+      PARTHENON_FAIL(("Unknown profile in advection example: " + profile_str).c_str());
+    }
+    pkg->AddParam<>("profile", profile_str);
   }
 
-  if (ang_2 == -999.9)
-    ang_2 = std::atan(0.5 * (x1size * cos_a3 + x2size * sin_a3) / x3size);
-  Real sin_a2 = std::sin(ang_2);
-  Real cos_a2 = std::cos(ang_2);
+  // compute wavevector
+  {
+    // For wavevector along coordinate axes, set desired values of ang_2/ang_3.
+    //    For example, for 1D problem use ang_2 = ang_3 = 0.0
+    //    For wavevector along grid diagonal, do not input values for ang_2/ang_3.
+    // Code below will automatically calculate these imposing periodicity and exactly one
+    // wavelength along each grid direction
+    const Real x1size = pin->GetOrAddReal("parthenon/mesh", "x1max", 1.5) -
+                        pin->GetOrAddReal("parthenon/mesh", "x1min", -1.5);
+    const Real x2size = pin->GetOrAddReal("parthenon/mesh", "x2max", 1.0) -
+                        pin->GetOrAddReal("parthenon/mesh", "x2min", -1.0);
+    const Real x3size = pin->GetOrAddReal("parthenon/mesh", "x3max", 1.0) -
+                        pin->GetOrAddReal("parthenon/mesh", "x3min", -1.0);
 
-  // Override ang_2 input and hardcode vertical (along x3 axis) wavevector
-  if (ang_2_vert) {
-    sin_a2 = 1.0;
-    cos_a2 = 0.0;
-    ang_2 = 0.5 * M_PI;
+    Real ang_2 = pin->GetOrAddReal("Advection", "ang_2", -999.9);
+    Real ang_3 = pin->GetOrAddReal("Advection", "ang_3", -999.9);
+
+    // User should never input -999.9 in angles
+    if (ang_3 == -999.9) ang_3 = std::atan(x1size / x2size);
+    Real sin_a3 = std::sin(ang_3);
+    Real cos_a3 = std::cos(ang_3);
+
+    // Override ang_3 input and hardcode vertical (along x2 axis) wavevector
+    const Real ang_3_vert = pin->GetOrAddBoolean("Advection", "ang_3_vert", false);
+    if (ang_3_vert) {
+      sin_a3 = 1.0;
+      cos_a3 = 0.0;
+      ang_3 = 0.5 * M_PI;
+    }
+
+    if (ang_2 == -999.9)
+      ang_2 = std::atan(0.5 * (x1size * cos_a3 + x2size * sin_a3) / x3size);
+    Real sin_a2 = std::sin(ang_2);
+    Real cos_a2 = std::cos(ang_2);
+
+    // Override ang_2 input and hardcode vertical (along x3 axis) wavevector
+    const Real ang_2_vert = pin->GetOrAddBoolean("Advection", "ang_2_vert", false);
+    if (ang_2_vert) {
+      sin_a2 = 1.0;
+      cos_a2 = 0.0;
+      ang_2 = 0.5 * M_PI;
+    }
+
+    const Real x1 = x1size * cos_a2 * cos_a3;
+    const Real x2 = x2size * cos_a2 * sin_a3;
+    const Real x3 = x3size * sin_a2;
+
+    // For lambda choose the smaller of the 3
+    Real lambda = x1;
+    if ((pin->GetOrAddInteger("parthenon/mesh", "nx2", 1) > 1) && ang_3 != 0.0)
+      lambda = std::min(lambda, x2);
+    if ((pin->GetOrAddInteger("parthenon/mesh", "nx3", 1) > 1) && ang_2 != 0.0)
+      lambda = std::min(lambda, x3);
+
+    // If cos_a2 or cos_a3 = 0, need to override lambda
+    if (ang_3_vert) lambda = x2;
+    if (ang_2_vert) lambda = x3;
+
+    // Initialize k_parallel
+    const Real k_par = 2.0 * (M_PI) / lambda;
+
+    pkg->AddParam<>("k_par", k_par);
+    pkg->AddParam<>("cos_a2", cos_a2);
+    pkg->AddParam<>("cos_a3", cos_a3);
+    pkg->AddParam<>("sin_a2", sin_a2);
+    pkg->AddParam<>("sin_a3", sin_a3);
   }
 
-  Real x1 = x1size * cos_a2 * cos_a3;
-  Real x2 = x2size * cos_a2 * sin_a3;
-  Real x3 = x3size * sin_a2;
+  // set up power law distribution
+  {
+    int N_min = pin->GetOrAddInteger("Random", "num_iter_min", 1);
+    int N_max = pin->GetOrAddInteger("Random", "num_iter_max", 100);
+    Real alpha = pin->GetOrAddReal("Random", "power_law_coeff", -3.0);
 
-  // For lambda choose the smaller of the 3
-  Real lambda = x1;
-  if ((pin->GetOrAddInteger("parthenon/mesh", "nx2", 1) > 1) && ang_3 != 0.0)
-    lambda = std::min(lambda, x2);
-  if ((pin->GetOrAddInteger("parthenon/mesh", "nx3", 1) > 1) && ang_2 != 0.0)
-    lambda = std::min(lambda, x3);
+    if (N_min <= 0) PARTHENON_FAIL("Random/num_iter_min must be > 0");
+    if (N_max < N_min)
+      PARTHENON_FAIL("Random/num_iter_max must be >= Random/num_iter_min");
 
-  // If cos_a2 or cos_a3 = 0, need to override lambda
-  if (ang_3_vert) lambda = x2;
-  if (ang_2_vert) lambda = x3;
+    int N = N_max - N_min + 1;
 
-  // Initialize k_parallel
-  Real k_par = 2.0 * (M_PI) / lambda;
+    Kokkos::View<int *> num_iter_hist("num_iter_histogram", N);
+    auto num_iter_hist_host = Kokkos::create_mirror_view(num_iter_hist);
 
-  pkg->AddParam<>("amp", amp);
-  pkg->AddParam<>("vel", vel);
-  pkg->AddParam<>("vx", vx);
-  pkg->AddParam<>("vy", vy);
-  pkg->AddParam<>("vz", vz);
-  pkg->AddParam<>("k_par", k_par);
-  pkg->AddParam<>("cos_a2", cos_a2);
-  pkg->AddParam<>("cos_a3", cos_a3);
-  pkg->AddParam<>("sin_a2", sin_a2);
-  pkg->AddParam<>("sin_a3", sin_a3);
+    pkg->AddParam("num_iter_histogram", num_iter_hist);
+    pkg->AddParam("N_min", N_min);
 
-  // get parameters for powerlaw distribution to sample number of iterations from
-  int N_min = pin->GetOrAddInteger("Random", "num_iter_min", 1);
-  int N_max = pin->GetOrAddInteger("Random", "num_iter_max", 100);
-  Real alpha = pin->GetOrAddReal("Random", "power_law_coeff", -3.0);
+    // compute non-normalized probabilities
+    std::vector<Real> prob(N);
+    for (int i = 0; i < N; ++i) {
+      prob[i] = pow(i + N_min, alpha);
+      num_iter_hist_host(i) = 0;
+    }
 
-  if (N_min <= 0) PARTHENON_FAIL("Random/num_iter_min must be > 0");
-  if (N_max < N_min) PARTHENON_FAIL("Random/num_iter_max must be >= Random/num_iter_min");
+    AliasMethod alias(prob);
+    pkg->AddParam("alias_method", alias);
 
-  int N = N_max - N_min + 1;
+    Kokkos::deep_copy(num_iter_hist, num_iter_hist_host);
 
-  Kokkos::View<int *> num_iter_hist("num_iter_histogram", N);
-  auto num_iter_hist_host = Kokkos::create_mirror_view(num_iter_hist);
+    // create random pool
+    uint64_t seed = pin->GetOrAddInteger("Random", "seed", 0);
+    // if we don't have a seed, use the time
+    if (seed == 0)
+      seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
 
-  pkg->AddParam("num_iter_histogram", num_iter_hist);
-  pkg->AddParam("N_min", N_min);
-
-  // compute non-normalized probabilities
-  std::vector<Real> prob(N);
-  for (int i = 0; i < N; ++i) {
-    prob[i] = pow(i + N_min, alpha);
-    num_iter_hist_host(i) = 0;
+    Kokkos::Random_XorShift64_Pool<parthenon::DevExecSpace> rand_pool(seed);
+    pkg->AddParam("random_pool", rand_pool);
   }
 
-  AliasMethod alias(prob);
-  pkg->AddParam("alias_method", alias);
+  // add fields
+  {
+    // number of variable in variable vector
+    const auto num_vars = pin->GetOrAddInteger("Advection", "num_vars", 1);
 
-  Kokkos::deep_copy(num_iter_hist, num_iter_hist_host);
+    std::string field_name = "advected";
+    Metadata m({Metadata::Cell, Metadata::Independent, Metadata::FillGhost},
+               std::vector<int>({num_vars}));
+    pkg->AddField(field_name, m);
 
-  // create random pool
-  uint64_t seed = pin->GetOrAddInteger("Random", "seed", 0);
-  // if we don't have a seed, use the time
-  if (seed == 0)
-    seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+    field_name = "dummy_result";
+    m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy});
+    pkg->AddField(field_name, m);
 
-  Kokkos::Random_XorShift64_Pool<parthenon::DevExecSpace> rand_pool(seed);
-  pkg->AddParam("random_pool", rand_pool);
-
-  // number of variable in variable vector
-  const auto num_vars = pin->GetOrAddInteger("Advection", "num_vars", 1);
-
-  std::string field_name = "advected";
-  Metadata m({Metadata::Cell, Metadata::Independent, Metadata::FillGhost},
-             std::vector<int>({num_vars}));
-  pkg->AddField(field_name, m);
-
-  field_name = "dummy_result";
-  m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy});
-  pkg->AddField(field_name, m);
-
-  field_name = "num_iter";
-  m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy});
-  pkg->AddField(field_name, m);
+    field_name = "num_iter";
+    m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy});
+    pkg->AddField(field_name, m);
+  }
 
   pkg->FillDerivedBlock = DoLotsOfWork;
   pkg->CheckRefinementBlock = CheckRefinement;
@@ -208,9 +216,9 @@ AmrTag CheckRefinement(MeshBlockData<Real> *rc) {
   // refine on advected, for example.  could also be a derived quantity
   auto v = rc->Get("advected").data;
 
-  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
-  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
-  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
+  const IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
+  const IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
+  const IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
 
   typename Kokkos::MinMax<Real>::value_type minmax;
   pmb->par_reduce(
@@ -276,9 +284,9 @@ void DoLotsOfWork(MeshBlockData<Real> *rc) {
   auto pmb = rc->GetBlockPointer();
   auto pkg = pmb->packages.Get("stochastic_subgrid_package");
 
-  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
-  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
-  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
+  const IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
+  const IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
+  const IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
 
   // packing in principle unnecessary/convoluted here and just done for demonstration
   PackIndexMap imap;
@@ -300,7 +308,9 @@ void DoLotsOfWork(MeshBlockData<Real> *rc) {
         int num_iter = v(niter, k, j, i);
 
         // surprisingly, this seems to be almost free
-        Kokkos::atomic_increment(&hist(num_iter - N_min));
+        if (num_iter > 0) {
+          Kokkos::atomic_increment(&hist(num_iter - N_min));
+        }
 
         for (int r = 0; r < num_iter; ++r) {
           Real odd = 0.0;
@@ -325,11 +335,11 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
   const auto &vy = pkg->Param<Real>("vy");
   const auto &vz = pkg->Param<Real>("vz");
 
-  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
-  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
-  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
+  const IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
+  const IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
+  const IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
 
-  auto &coords = pmb->coords;
+  const auto &coords = pmb->coords;
 
   // this is obviously overkill for this constant velocity problem
   Real min_dt;
@@ -354,9 +364,9 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
 TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
   Kokkos::Profiling::pushRegion("Task_Advection_CalculateFluxes");
   auto pmb = rc->GetBlockPointer();
-  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
-  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
-  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
+  const IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
+  const IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
+  const IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
 
   ParArrayND<Real> advected = rc->Get("advected").data;
   auto pkg = pmb->packages.Get("stochastic_subgrid_package");

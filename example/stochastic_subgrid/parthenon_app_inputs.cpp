@@ -47,13 +47,12 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
 
   auto q_h = q.GetHostMirror();
 
-  auto cellbounds = pmb->cellbounds;
+  const auto cellbounds = pmb->cellbounds;
+  const IndexRange ib = cellbounds.GetBoundsI(IndexDomain::entire);
+  const IndexRange jb = cellbounds.GetBoundsJ(IndexDomain::entire);
+  const IndexRange kb = cellbounds.GetBoundsK(IndexDomain::entire);
 
-  IndexRange ib = cellbounds.GetBoundsI(IndexDomain::entire);
-  IndexRange jb = cellbounds.GetBoundsJ(IndexDomain::entire);
-  IndexRange kb = cellbounds.GetBoundsK(IndexDomain::entire);
-
-  auto coords = pmb->coords;
+  const auto &coords = pmb->coords;
 
   for (int n = 0; n < q_h.GetDim(4); ++n) {
     for (int k = kb.s; k <= kb.e; k++) {
@@ -109,9 +108,9 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
       const auto &sin_a3 = pkg->Param<Real>("sin_a3");
       const auto &profile = pkg->Param<std::string>("profile");
 
-      IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
-      IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
-      IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
+      const IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
+      const IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
+      const IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
 
       // calculate error on host
       auto q = rc->Get("advected").data.GetHostMirrorAndCopy();

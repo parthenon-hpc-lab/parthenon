@@ -16,6 +16,7 @@
 
 #include "alias_method.hpp"
 
+#include <numeric>
 #include <queue>
 
 namespace parthenon {
@@ -30,21 +31,16 @@ AliasMethod::AliasMethod(const std::vector<Real> &probabilities)
   auto host_prob_table = Kokkos::create_mirror_view(prob_table);
   auto host_alias_table = Kokkos::create_mirror_view(alias_table);
 
-  Real prob_sum = 0.0;
-  for (size_t i = 0; i < probabilities.size(); ++i) {
-    // printf("p[%lu] = %.8e\n", i, probabilities[i]);
-    prob_sum += probabilities[i];
-  }
+  // explicitly using double for sum and casting result to Real
+  Real prob_sum = std::accumulate(probabilities.begin(), probabilities.end(),
+                                  static_cast<double>(0.0));
 
   std::queue<int> under_full, over_full;
   for (size_t i = 0; i < probabilities.size(); ++i) {
     host_alias_table(i) = -1;
 
     host_prob_table(i) = Real(probabilities.size()) * probabilities[i] / prob_sum;
-    if (host_prob_table(i) < 1.0)
-      under_full.push(i);
-    else
-      over_full.push(i);
+    (host_prob_table(i) < 1.0 ? under_full : over_full).push(i);
   }
 
   while (!under_full.empty() && !over_full.empty()) {
@@ -56,11 +52,7 @@ AliasMethod::AliasMethod(const std::vector<Real> &probabilities)
     host_alias_table(under_idx) = over_idx;
     host_prob_table(over_idx) =
         (host_prob_table(over_idx) + host_prob_table(under_idx)) - 1.0;
-
-    if (host_prob_table(over_idx) < 1.0)
-      under_full.push(over_idx);
-    else
-      over_full.push(over_idx);
+    (host_prob_table(over_idx) < 1.0 ? under_full : over_full).push(over_idx);
   }
 
   while (!over_full.empty()) {
