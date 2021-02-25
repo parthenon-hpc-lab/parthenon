@@ -16,6 +16,8 @@
 //  \brief Construct tables used to sample from a discrete probability distribution using
 //  the alias method
 
+#include <vector>
+
 #include <kokkos_abstraction.hpp>
 
 #include "defs.hpp"
@@ -36,7 +38,7 @@ class AliasMethod {
   Kokkos::View<int *> alias_table;
 
   // Construct the AliasMethod with the given discrete probabilities
-  AliasMethod(const std::vector<Real> &probabilities);
+  explicit AliasMethod(const std::vector<Real> &probabilities);
 
   // Sample from the discrete probability distribution defined by the probabilities given
   // to the constructor. The returned value is the zero-based index of the sampled
