@@ -195,7 +195,7 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
 
   // Create user mesh data
   // InitUserMeshBlockData(pin);
-  app = InitApplicationMeshBlockData(pin);
+  app = InitApplicationMeshBlockData(this, pin);
   return;
 }
 
