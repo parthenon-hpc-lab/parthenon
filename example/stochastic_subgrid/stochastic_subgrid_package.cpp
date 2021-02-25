@@ -159,7 +159,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddParam("num_iter_histogram", num_iter_hist);
   pkg->AddParam("N_min", N_min);
 
-  // compute un-normalized probabilities
+  // compute non-normalized probabilities
   std::vector<Real> prob(N);
   for (int i = 0; i < N; ++i) {
     prob[i] = pow(i + N_min, alpha);

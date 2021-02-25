@@ -11,6 +11,7 @@ See the [build doc](building.md) for details on building parthenon for specific 
 
 - [Calculate &pi;](../example/calculate_pi)
 - [Average face-centered variables to cell centers](../example/face_fields)
+- [Stochastic subgrid](../example/stochastic_subgrid/) Performs a random amount of work per cell (drawn from a power law distribution)
 
 ## Short feature description
 
