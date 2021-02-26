@@ -27,7 +27,8 @@ class PerformanceDataJsonParser():
     """
     PerformanceDataJsonParser
 
-    This class is responsible for reading performance data from json files.
+    This class is responsible for reading performance data from json files. Including
+    metadata associated with each test.
     """
 
     def _containsCommit(self, json_objs, value):
