@@ -2,6 +2,8 @@
 
 Outputs from Parthenon are controled via ```<parthenon/output*>``` blocks, where ```*``` should be replaced by a unique integer for each block.
 
+To disable an output block without removing it from the intput file set the block's `dt < 0.0`.
+
 ## HDF5
 
 Parthenon allows users to select which fields are captured in the HDF5 (```.phdf```) dumps at runtime.  In the input file, include a ```<parthenon/output*>``` block, list of variables, and specify ```file_type = hdf5```.  A ```dt``` parameter controls the frequency of outputs for simulations involving evolution. A ```<parthenon/output*>``` block might look like
