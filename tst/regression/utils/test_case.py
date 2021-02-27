@@ -68,7 +68,7 @@ class TestManager:
         test_base_name = os.path.split(test_path)[1]
         self.test = os.path.basename(os.path.normpath(test_path))
 
-        self.__checkRegressionTestScript(test_base_name)
+        self.__checkRegressionTestScript(test_dir[0], test_base_name)
         self.__checkDriverPath(parthenon_driver[0])
         self.__checkDriverInputPath(parthenon_driver_input[0])
         self.__checkMPIExecutable(mpi_executable)
@@ -138,8 +138,8 @@ class TestManager:
         else:
             return os.path.abspath(test_dir)
 
-    def __checkRegressionTestScript(self,test_base_name):
-        python_test_script = os.path.join(self.__run_test_py_path,'test_suites',test_base_name,test_base_name + ".py")
+    def __checkRegressionTestScript(self, test_dir, test_base_name):
+        python_test_script = os.path.join(test_dir, test_base_name + ".py")
         if not os.path.isfile(python_test_script):
             error_msg = "Missing regression test file "
             error_msg += python_test_script
