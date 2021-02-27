@@ -141,10 +141,16 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       op.block_number = atoi(outn.c_str());
       op.block_name.assign(pib->block_name);
 
+      const auto dt = pin->GetOrAddReal(op.block_name, "dt", tm->tlim);
+      // if this output is "soft-disabled" (negative value) skip processing
+      if (dt < 0.0) {
+        pib = pib->pnext; // move to next input block name
+        continue;
+      }
       // set time of last output, time between outputs
       if (tm != nullptr) {
         op.next_time = pin->GetOrAddReal(op.block_name, "next_time", tm->time);
-        op.dt = pin->GetOrAddReal(op.block_name, "dt", tm->tlim);
+        op.dt = dt;
       }
 
       // set file number, basename, id, and format
@@ -249,23 +255,12 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
 #ifdef HDF5OUTPUT
         pnew_type = new PHDF5Output(op);
 #else
-        if (op.dt < 0.0) {
-          msg << "### WARNING in Outputs constructor" << std::endl
-              << "Executable not configured for HDF5 outputs, but HDF5 file format "
-              << "is requested in output block '" << op.block_name
-              << "' (but disabled by using a negative dt). You cannot enable this block "
-              << "by setting a positive dt without recompiling with HDF5 support."
-              << std::endl;
-          PARTHENON_WARN(msg);
-          pib = pib->pnext; // move to next input block name
-          continue;
-        } else {
-          msg << "### FATAL ERROR in Outputs constructor" << std::endl
-              << "Executable not configured for HDF5 outputs, but HDF5 file format "
-              << "is requested in output block '" << op.block_name
-              << "'. You can disable this block by setting a negative dt." << std::endl;
-          PARTHENON_FAIL(msg);
-        }
+        msg << "### FATAL ERROR in Outputs constructor" << std::endl
+            << "Executable not configured for HDF5 outputs, but HDF5 file format "
+            << "is requested in output block '" << op.block_name << "'. "
+            << "You can disable this block without deleting it by setting a dt < 0."
+            << std::endl;
+        PARTHENON_FAIL(msg);
 #endif
       } else {
         msg << "### FATAL ERROR in Outputs constructor" << std::endl
