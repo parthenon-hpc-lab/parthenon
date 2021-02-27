@@ -228,6 +228,7 @@ if (NOT TARGET Kokkos::kokkos)
 endif()
 
 # Build Tests and download Catch2
+set(PARTHENON_TEST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/tst/regression)
 if (${PARTHENON_ENABLE_UNIT_TESTS} OR ${PARTHENON_ENABLE_INTEGRATION_TESTS} OR ${PARTHENON_ENABLE_REGRESSION_TESTS} OR ${PARTHENON_ENABLE_PERFORMANCE_TESTS})
 
   # if running regression test automatically synch gold standard
