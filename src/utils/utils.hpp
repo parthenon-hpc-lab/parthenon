@@ -28,7 +28,6 @@
 namespace parthenon {
 
 void ChangeRunDir(const char *pdir);
-double ran2(std::int64_t *idum);
 void ShowConfig();
 
 //----------------------------------------------------------------------------------------

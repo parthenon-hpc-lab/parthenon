@@ -260,7 +260,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properti
     use_uniform_meshgen_fn_[X3DIR] = false;
     MeshGenerator_[X3DIR] = DefaultMeshGeneratorX3;
   }
-  default_pack_size_ = pin->GetOrAddReal("parthenon/mesh", "pack_size", -1);
+  default_pack_size_ = pin->GetOrAddInteger("parthenon/mesh", "pack_size", -1);
 
   // calculate the logical root level and maximum level
   for (root_level = 0; (1 << root_level) < nbmax; root_level++) {
@@ -652,7 +652,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
     use_uniform_meshgen_fn_[X3DIR] = false;
     MeshGenerator_[X3DIR] = DefaultMeshGeneratorX3;
   }
-  default_pack_size_ = pin->GetOrAddReal("parthenon/mesh", "pack_size", -1);
+  default_pack_size_ = pin->GetOrAddInteger("parthenon/mesh", "pack_size", -1);
 
   // Load balancing flag and parameters
 #ifdef MPI_PARALLEL
@@ -811,12 +811,9 @@ void Mesh::OutputMeshStructure(const int ndim,
   std::cout << "Number of logical  refinement levels = " << current_level << std::endl;
 
   // compute/output number of blocks per level, and cost per level
-  auto nb_per_plevel = std::make_unique<int[]>(max_level);
-  auto cost_per_plevel = std::make_unique<int[]>(max_level);
-  for (int i = 0; i <= max_level; ++i) {
-    nb_per_plevel[i] = 0;
-    cost_per_plevel[i] = 0;
-  }
+  std::vector<int> nb_per_plevel(max_level + 1, 0);
+  std::vector<int> cost_per_plevel(max_level + 1, 0);
+
   for (int i = 0; i < nbtotal; i++) {
     nb_per_plevel[(loclist[i].level - root_level)]++;
     cost_per_plevel[(loclist[i].level - root_level)] += costlist[i];
@@ -835,12 +832,9 @@ void Mesh::OutputMeshStructure(const int ndim,
 
   // compute/output number of blocks per rank, and cost per rank
   std::cout << "Number of parallel ranks = " << Globals::nranks << std::endl;
-  auto nb_per_rank = std::make_unique<int[]>(Globals::nranks);
-  auto cost_per_rank = std::make_unique<int[]>(Globals::nranks);
-  for (int i = 0; i < Globals::nranks; ++i) {
-    nb_per_rank[i] = 0;
-    cost_per_rank[i] = 0;
-  }
+  std::vector<int> nb_per_rank(Globals::nranks, 0);
+  std::vector<int> cost_per_rank(Globals::nranks, 0);
+
   for (int i = 0; i < nbtotal; i++) {
     nb_per_rank[ranklist[i]]++;
     cost_per_rank[ranklist[i]] += costlist[i];

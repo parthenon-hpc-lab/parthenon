@@ -3,15 +3,20 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 406]](https://github.com/lanl/parthenon/pull/406) Add `stochastic_subgrid` example that performs a random amount of work per cell (drawn from a power law distribution)
+- [[PR 440]](https://github.com/lanl/parthenon/pull/440) Add abstraction for allocating a `unique_ptr` to an object in device memory
 - [[PR 438]](https://github.com/lanl/parthenon/pull/438) More diagnostic runtime output (AMR/Loadbalance and mesh structure) controlled via `parthenon/time/ncycle_out_mesh` input parameter (default 0 - off)
 - [[PR 412]](https://github.com/lanl/parthenon/pull/412) Add capability to use host (pinned) memory for communication buffers (via `PARTHENON_ENABLE_HOST_COMM_BUFFERS` - default OFF)
 - [[PR 359]](https://github.com/lanl/parthenon/pull/359) MeshBlockPack support for buffer pack and unpack of CellCentered Variables
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 451]](https://github.com/lanl/parthenon/pull/451) Remove custom ran2 interface and source
 - [[PR 425]](https://github.com/lanl/parthenon/pull/425) Remove ambiguity in package names. `Packages_t` no longer has an `operator[]` method. This has been replaced with `Add` and `Get`.
 - [[PR 359]](https://github.com/lanl/parthenon/pull/359) Templated inline reconstruction functions to support different types (e.g., `ParArray4D` or `ParArrayND`)
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 453]](https://github.com/lanl/parthenon/pull/453) Fix array bounds for AMR hierarchy log and use vector instead of unique_ptr
+- [[PR 441]](https://github.com/lanl/parthenon/pull/441) Fixed type in input parsing of `pack_size`
 
 ### Infrastructure (changes irrelevant to downstream codes)
 - [[PR 436]](https://github.com/lanl/parthenon/pull/436) Update Summit build doc and machine file
@@ -19,6 +24,10 @@
 - [[PR 407]](https://github.com/lanl/parthenon/pull/407) More cleanup, removed old bash scripts for ci.
 - [[PR 428]](https://github.com/lanl/parthenon/pull/428) Triad Copyright 2021
 - [[PR 413]](https://github.com/lanl/parthenon/pull/413) LANL Snow machine configuration
+- [[PR 390]](https://github.com/lanl/parthenon/pull/390) Resolve @PAR_ROOT@ to parthenon root rather than the location of the current source directory
+- [[PR 443]](https://github.com/lanl/parthenon/pull/443) Fix Darwin machine config - use spectrum mpi
+- [[PR 444]](https://github.com/lanl/parthenon/pull/444) Writes performance metrics to file for advection test
+- [[PR 452]](https://github.com/lanl/parthenon/pull/452) Disable copyright check and linting by default, add CI check for copyright
 
 ### Removed (removing behavior/API/varaibles/...)
 
@@ -51,7 +60,7 @@ Date: 01/19/2021
 ### Infrastructure (changes irrelevant to downstream codes)
 - [[PR 392]](https://github.com/lanl/parthenon/pull/392) Fix C++ linting for when parthenon is a submodule
 - [[PR 335]](https://github.com/lanl/parthenon/pull/335) New machine configuration file for LANL's Darwin cluster
-- [[PR 200]](https://github.com/lanl/parthenon/pull/200) Adds support for running ci on power9 nodes. 
+- [[PR 200]](https://github.com/lanl/parthenon/pull/200) Adds support for running ci on power9 nodes.
 - [[PR 347]](https://github.com/lanl/parthenon/pull/347) Speed up darwin ci by using pre installed spack packages from project space
 - [[PR 368]](https://github.com/lanl/parthenon/pull/368) Fixes false positive in ci.
 - [[PR 369]](https://github.com/lanl/parthenon/pull/369) Initializes submodules when running on darwin ci.
@@ -103,7 +112,7 @@ Date: 9/12/2020
 - [[PR 298]](https://github.com/lanl/parthenon/pull/298) Introduced Partition, a tiny utility for partitioning STL containers. Used for MeshBlockPacks, to enable packing over a fraction of the mesh.
 
 ### Changed
-- [\#68](https://github.com/lanl/parthenon/issues/68) Moved default `par_for` wrappers to `MeshBlock` 
+- [\#68](https://github.com/lanl/parthenon/issues/68) Moved default `par_for` wrappers to `MeshBlock`
 - [[PR 243]](https://github.com/lanl/parthenon/pull/243) Automatically find/check Python version used in regression tests. Bumps CMake minimum version to 3.12
 - [[PR 266]](https://github.com/lanl/parthenon/pull/266): It is no longer necessary to specify Kokkos_ENABLE_OPENMP this is by default enabled, to turn off one can specify PARTHENON_DISABLE_OPENMP.
 
