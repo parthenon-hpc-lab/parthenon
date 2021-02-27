@@ -25,9 +25,12 @@ if(Python3_Interpreter_FOUND)
     message(FATAL_ERROR "Python version requirements not satisfied for running regression tests.")
   endif()
 endif()
-# Ensure all required packages are present
-include(${PROJECT_SOURCE_DIR}/cmake/PythonModuleCheck.cmake)
-required_python_modules_found("${REQUIRED_PYTHON_MODULES}")
+
+if (PARTHENON_ENABLE_PYTHON_MODULE_CHECK)
+  # Ensure all required packages are present
+  include(${PROJECT_SOURCE_DIR}/cmake/PythonModuleCheck.cmake)
+  required_python_modules_found("${REQUIRED_PYTHON_MODULES}")
+endif()
 
 # Adds the drivers used in the regression tests to a global cmake property: DRIVERS_USED_IN_TESTS
 function(record_driver arg)
