@@ -92,7 +92,6 @@ class TestManager:
 
         self.__test_module = 'test_suites.' + test_base_name + '.' + test_base_name
 
-        test_module = 'test_suites.' + test_base_name + '.' + test_base_name
         output_msg = "Using:\n"
         output_msg += "driver at:       " + driver_path + "\n"
         output_msg += "driver input at: " + driver_input_path + "\n"
@@ -110,6 +109,9 @@ class TestManager:
         self.parameters.num_ranks = int(kwargs.pop('mpirun_ranks_num'))
         self.parameters.mpi_opts = kwargs.pop('mpirun_opts')
 
+        module_root_path = os.path.join(test_path, "..","..")
+        if module_root_path not in sys.path:
+            sys.path.insert(0, module_root_path)
         module = __import__(self.__test_module, globals(), locals(),
                 fromlist=['TestCase'])
         my_TestCase = getattr(module,'TestCase')
