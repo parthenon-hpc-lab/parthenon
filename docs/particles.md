@@ -31,7 +31,7 @@ ParArrayND<bool> new_particles_mask = swarm->AddEmptyParticles(num_to_add, new_i
 This call automatically resizes the memory pools as necessary and returns a
 `ParArrayND<bool>` mask indicating which indices in the `ParticleVariable`s are newly
 available. `new_indices` is a reference to a `ParArrayND<int>` of size `num_to_add` which
-contains
+contains the indices of each newly added particle.
 
 To remove particles from a `Swarm`, one first calls
 ```c++
