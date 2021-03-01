@@ -350,7 +350,7 @@ MeshBlockData<T>::PackListedVariables(VariableListResult &&variables, const bool
   auto &packmap = coarse ? coarseVarPackMap_ : varPackMap_;
   auto kvpair = packmap.find(result.key);
   if (kvpair == packmap.end()) {
-    result.pack = MakePack<T>(std::move(variables.vars), &result.vmap);
+    result.pack = MakePack<T>(std::move(variables.vars), &result.vmap, coarse);
     PackIndxPair<T> value;
     value.pack = result.pack;
     value.map = result.vmap;

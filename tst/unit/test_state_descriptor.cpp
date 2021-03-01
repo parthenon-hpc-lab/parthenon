@@ -112,12 +112,6 @@ TEST_CASE("Test reqendency resolution in StateDescriptor", "[StateDescriptor]") 
     packages.Add(pkg2);
     packages.Add(pkg3);
 
-    WHEN("We add metadata with a sparse ID but the sparse flag unset") {
-      THEN("We raise an error") {
-        REQUIRE_THROWS(pkg1->AddField("sparse", Metadata(prov)));
-      }
-    }
-
     WHEN("We add two non-sparse variables of the same name") {
       pkg1->AddField("dense", m_provides);
       THEN("The method returns false and the variable is not added") {
@@ -125,7 +119,6 @@ TEST_CASE("Test reqendency resolution in StateDescriptor", "[StateDescriptor]") 
       }
     }
 
-    // TODO(JMM): This will simplify once we have dense on block
     WHEN("We try to add the same sparse id twice") {
       pkg1->AddField("sparse", m_sparse_provides[0]);
       THEN("The method returns false and the variable is not added") {
@@ -166,8 +159,6 @@ TEST_CASE("Test reqendency resolution in StateDescriptor", "[StateDescriptor]") 
         AND_THEN("The appropriate sparse metadata was added") {
           REQUIRE(pkg3->FieldPresent("package1::sparse"));
           REQUIRE(pkg3->FieldPresent("package2::sparse"));
-          REQUIRE(!(pkg3->FieldPresent("package1::sparse")));
-          REQUIRE(!(pkg3->FieldPresent("package2::sparse")));
         }
       }
     }

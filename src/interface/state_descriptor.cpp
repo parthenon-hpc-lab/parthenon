@@ -247,7 +247,7 @@ std::ostream &operator<<(std::ostream &os, const StateDescriptor &sd) {
      << "# ---------------------------------------------------\n";
   for (auto &pair : sd.metadataMap_) {
     auto &metadata = pair.second;
-    if (!metadata.IsSet(Metadata::Sparse))
+    if (metadata.IsSet(Metadata::Sparse))
       os << std::left << std::setw(25) << pair.first << " " << metadata << "\n";
   }
   os << "# ---------------------------------------------------\n"
