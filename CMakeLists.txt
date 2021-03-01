@@ -32,19 +32,12 @@ option(PARTHENON_DISABLE_MPI "MPI is enabled by default if found, set this to Tr
 option(PARTHENON_ENABLE_HOST_COMM_BUFFERS "Allocate communication buffers on host" OFF)
 option(PARTHENON_DISABLE_OPENMP "OpenMP is enabled by default if found, set this to True to disable OpenMP" OFF)
 option(PARTHENON_DISABLE_HDF5 "HDF5 is enabled by default if found, set this to True to disable HDF5" OFF)
-option(
-  PARTHENON_LINT_DEFAULT
-  "Sources files are linted when building the default target. Set to OFF to \
-stop linting by default. You can still lint using the \"lint\" target"
-  ON
-)
-option(
-  PARTHENON_DISABLE_EXAMPLES
-  "Example drivers are built by default, set this to True to diable, note if regression tests are \
-built some, drivers needed by the regression tests will still be built."
-  OFF
-)
-
+option(PARTHENON_LINT_DEFAULT "Linting is turned off by default, use the \"lint\" target or set \
+this to True to enable linting in the default target" OFF)
+option(PARTHENON_COPYRIGHT_CHECK_DEFAULT "Copyright check is turned off by default, use the \
+\"check-copyright\" target or set this to True to check copyright in the default target" OFF)
+option(PARTHENON_DISABLE_EXAMPLES "Example drivers are built by default, set this to True to disable, \
+note if regression tests are built some, drivers needed by the regression tests will still be built." OFF)
 option(PARTHENON_ENABLE_GPU_MPI_CHECKS "Checks if possible that the mpi num of procs and the number\
 of gpu devices detected are appropriate." ${BUILD_TESTING})
 option(PARTHENON_ENABLE_UNIT_TESTS "Enable unit tests" ${BUILD_TESTING})
@@ -261,7 +254,7 @@ if (${PARTHENON_ENABLE_UNIT_TESTS} OR ${PARTHENON_ENABLE_INTEGRATION_TESTS} OR $
     # Throw a warning if the number of processors available is less than the number specified for running the tests.
     include(ProcessorCount)
     ProcessorCount(N)
-    if( "${NUM_MPI_PROC_TESTING}" GREATER "${N}") 
+    if( "${NUM_MPI_PROC_TESTING}" GREATER "${N}")
       message(WARNING "Consider changing the number of MPI processors used in testing, currently "
         "NUM_MPI_PROC_TESTING is set to ${NUM_MPI_PROC_TESTING} but cmake has only detected a"
         " total of ${N} available processors")

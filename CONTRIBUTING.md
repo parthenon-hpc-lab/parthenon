@@ -54,7 +54,7 @@ open a pull request again the `develop` branch of the main repository.
 
 In that pull request refer to the issue that you have addressed.
 
-If your branch is not ready for a final merge (e.g., in order to discuss the 
+If your branch is not ready for a final merge (e.g., in order to discuss the
 implementation), mark it as "work in progress" by prepending "WIP:" to the subject.
 
 ### Merging code
@@ -74,17 +74,16 @@ The reviewers are expected to look out for the items above before approving a me
 request.
 
 #### Linting Code
-cpplint will automatically run as part of the cmake build on individual source
-files when building the default target. You can run the lint explicitly by
+cpplint will automatically run as part of the CI. You can run the lint explicitly by
 building the `lint` target.
 ```
 cmake --build . --target lint
 ```
 
-If you do not want to the code to be linted as part of the default target, you
-can disable that behavior with the `PARTHENON_LINT_DEFAULT` cmake option.
+If you want the code to be linted as part of the default build target, you
+can enable that behavior with the `PARTHENON_LINT_DEFAULT` cmake option.
 ```
-cmake -DPARTHENON_LINT_DEFAULT=OFF .
+cmake -DPARTHENON_LINT_DEFAULT=ON .
 ```
 
 #### Formatting Code
@@ -168,7 +167,7 @@ All data from the regression tests are recorded in the parthenon wiki in a json 
 ### Adding Tests
 
 Five categories of tests have been identified in parthenon, and they are
-located in their respective folders in the `tst` folder. 
+located in their respective folders in the `tst` folder.
 
 1. Unit testing
 2. Integration testing
@@ -181,7 +180,7 @@ to each test to provide control over which group of tests should be executed.
 Any test added within the `tst/unit`, `tst/integration`, `tst/performance` or
 `tst/regression` test folders will automatically be associated with the
 appropriate label.
- 
+
 When possible a test should be designed to fall into only one of these
 categories. For instance a unit test should not also have a performance
 component. If such a case occurs, it is better to split the test into two
@@ -191,7 +190,7 @@ correctness.
 #### Adding Regression Tests
 
 A python script is available for help analysing the results of each regression
-test. As such adding regression tests to cmake consists of two parts. 
+test. As such adding regression tests to cmake consists of two parts.
 
 ##### Creating a regression test
 
@@ -203,15 +202,15 @@ foo\_test to /tst/regression/test\_suites. Within that folder there must exist a
 2. test\_suites/foo\_test/foo\_test.py
 
 The \_\_init\_\_.py file is left empty, it is used to notify python that it is allowed to
-import the contents from any python file present in the foo\_test folder. 
+import the contents from any python file present in the foo\_test folder.
 
 The second file foo\_test.py **must** have the same name as the folder it is located in. The
 foo\_test.py folder **must** contain a class called TestCase which inherets from TestCaseAbs. The
-TestCase class **must** contain an Analyze and Prepare method. The prepare method can be used to 
+TestCase class **must** contain an Analyze and Prepare method. The prepare method can be used to
 execute tasks before the driver is called such a file prepartion or overwriting arguments that
 are passed in through the input deck file. The analyze method is responsible for
-checking the output of the driver (foo\_driver) and ensuring it has passed. It is called once the 
-foo\_driver has been executed. 
+checking the output of the driver (foo\_driver) and ensuring it has passed. It is called once the
+foo\_driver has been executed.
 
 Here is a base template for foo\_test.py:
 
@@ -232,14 +231,14 @@ class TestCase(utils.test_case.TestCaseAbs):
 ```
 
 All regression tests are run using the `run_test.py` script located in /test/regression. The reason
-for the python script is to ensure that after the test has been run it meets the appropriate 
-test criteria. 
+for the python script is to ensure that after the test has been run it meets the appropriate
+test criteria.
 
 The `run_test.py` **requires** three different files be specified:
 
 1. the driver - the binary that is to be executed for the test
 2. the input deck - parthenon input file with run parameters
-3. the test folder - the folder in parthenon/tst/regression/test\_suites containing test files 
+3. the test folder - the folder in parthenon/tst/regression/test\_suites containing test files
 
 ```
 ./run_test.py --test_dir test_suites/foo_test --driver location_of_foo_driver  --driver_input location_of_foo_input_deck
@@ -255,13 +254,13 @@ More options can be passed to `run_test.py` but those three **must** be specifie
 that are supported you can call `run_test.py -h`
 
 Note that running more than a single test with `run_test.py` is intentinally not supported, Running
-groups of tests will be handled by ctest. 
+groups of tests will be handled by ctest.
 
 ##### Integrating the regression test with CMake
 
 At this point CMake and ctest know nothing about your dandy new regression test. To integrate the
-test with cmake it needs to be added to the CMakeLists.txt file in parthenon/tst/regression. 
-Essentially, the command for running `run_test.py` must be called from within cmake. 
+test with cmake it needs to be added to the CMakeLists.txt file in parthenon/tst/regression.
+Essentially, the command for running `run_test.py` must be called from within cmake.
 
 ```
 list(APPEND TEST_DIRS foo_test)
@@ -287,13 +286,13 @@ mpi processors used is by default set to 4. This default can be adjusted by
 changing the cmake variable NUM\_MPI\_PROC\_TESTING. The number of OpenMP
 threads is by default set to 1 but can be adjusted in the driver input file
 deck. If parthenon is compiled with CUDA enabled, by default a single GPU will
-be assigned to each node..  
+be assigned to each node..
 
-##### Running ctest 
+##### Running ctest
 
 If the above steps have been executed, the tests will automatically be built anytime the code is
-compiled. The tests can be run by calling ctest directly from the build directory. Individual tests 
-or groups of tests can be run by using ctest regular expression matching, or making use of labels. 
+compiled. The tests can be run by calling ctest directly from the build directory. Individual tests
+or groups of tests can be run by using ctest regular expression matching, or making use of labels.
 
 All regression tests have the following name format:
 
@@ -317,9 +316,9 @@ Total Test time (real) =   1.47 sec
 
 #### Including Tests in Code Coverage Report
 
-Unit tests that are not performance tests (Do not have the [performance] tag) are 
-automatically included in the coverage report. If you want to include a performance 
-unit test in the coverage report the tag [coverage] should be added to the catch2 
+Unit tests that are not performance tests (Do not have the [performance] tag) are
+automatically included in the coverage report. If you want to include a performance
+unit test in the coverage report the tag [coverage] should be added to the catch2
 `TEST_CASE` macro. E.g.
 
 ```
@@ -328,11 +327,11 @@ TEST_CASE("test description", "[unit][performance][coverage]"){
 }
 ```
 
-It is advisable not to add the coverage tag to performance tests especially if they 
-take a long time to run, as adding code coverage will make them even slower. It is 
-better to reserve coverage for tests that show correct behavior. 
+It is advisable not to add the coverage tag to performance tests especially if they
+take a long time to run, as adding code coverage will make them even slower. It is
+better to reserve coverage for tests that show correct behavior.
 
-Unlike unit tests, regression tests are not automatically added to the coverage report. 
+Unlike unit tests, regression tests are not automatically added to the coverage report.
 To add a regression test to the coverage report an attribute of the parameters argument
 can be altered. E.g.
 
@@ -352,7 +351,7 @@ The coverage status argument can take 3 different settings:
 ##### Creating and Uploading Coverage Report
 
 To create a coverage report cmake should be run with both the CMAKE_BUILD_TYPE
-flag set to debug, and the CODE_COVERAGE flag set to On. 
+flag set to debug, and the CODE_COVERAGE flag set to On.
 
 ```
   mkdir build
@@ -360,9 +359,9 @@ flag set to debug, and the CODE_COVERAGE flag set to On.
   cmake -DCODE_COVERAGE=On -DCMAKE_BUILD_TYPE=Debug ../
   make coverage
   make coverage-upload
-``` 
+```
 
 Fine grained control of where the coverage reports are placed can be specified
 with COVERAGE_PATH, COVERAGE_NAME, which represent the path to the coverage
 reports and the directory where they will be placed. The default location is in
-a folder named coverage in the build directory. 
+a folder named coverage in the build directory.
