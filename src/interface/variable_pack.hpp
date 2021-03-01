@@ -213,18 +213,15 @@ void FillVarView(const vpack_types::VarList<T> &vars, PackIndexMap *vmap,
     for (int k = 0; k < v->GetDim(6); k++) {
       for (int j = 0; j < v->GetDim(5); j++) {
         for (int i = 0; i < v->GetDim(4); i++) {
-          if (v) {
-            host_sp(vindex) = v->GetSparseID();
-            // TODO(JMM): Is this safe for vector-valued sparse variables?
-            // returns 1 for X1DIR, 2 for X2DIR, 3 for X3DIR
-            // for tensors, returns flattened index.
-            // for scalar-objects, returns NODIR.
-            const bool is_vec = v->IsSet(Metadata::Vector) || v->IsSet(Metadata::Tensor);
-            host_vc(vindex) = is_vec ? vindex - vstart + 1 : NODIR;
-            host_view(vindex) = coarse ? v->coarse_s.Get(k, j, i) : v->data.Get(k, j, i);
-          } else {
-            host_sp(vindex) = -1;
-          }
+          host_sp(vindex) = v->GetSparseID();
+          // TODO(JMM): Is this safe for vector-valued sparse variables?
+          // returns 1 for X1DIR, 2 for X2DIR, 3 for X3DIR
+          // for tensors, returns flattened index.
+          // for scalar-objects, returns NODIR.
+          const bool is_vec = v->IsSet(Metadata::Vector) || v->IsSet(Metadata::Tensor);
+          host_vc(vindex) = is_vec ? vindex - vstart + 1 : NODIR;
+          host_view(vindex) = coarse ? v->coarse_s.Get(k, j, i) : v->data.Get(k, j, i);
+
           vindex++;
         } // i
       }   // j
@@ -232,25 +229,30 @@ void FillVarView(const vpack_types::VarList<T> &vars, PackIndexMap *vmap,
   };
 
   for (std::shared_ptr<CellVariable<T>> const &v : vars) {
-    bool const current_sparse_var = !current_sparse_name.empty();
-    bool const new_sparse_var =
-        v->IsSet(Metadata::Sparse) && get_sparse_name(v) != current_sparse_name;
-    bool const insert_sparse_var = (current_sparse_var && v->IsSet(Metadata::Sparse))
-                                       ? get_sparse_name(v) != current_sparse_name
-                                       : current_sparse_var;
+    if (v == nullptr) {
+      host_sp(vindex) = -1;
+      vindex++;
+    } else {
+      bool const current_sparse_var = !current_sparse_name.empty();
+      bool const new_sparse_var =
+          v->IsSet(Metadata::Sparse) && get_sparse_name(v) != current_sparse_name;
+      bool const insert_sparse_var = (current_sparse_var && v->IsSet(Metadata::Sparse))
+                                         ? get_sparse_name(v) != current_sparse_name
+                                         : current_sparse_var;
 
-    if (insert_sparse_var) {
-      insert_sparse_map();
-    }
-    if (new_sparse_var) {
-      current_sparse_name = get_sparse_name(v);
-      vsparse_start = vindex;
-    }
+      if (insert_sparse_var) {
+        insert_sparse_map();
+      }
+      if (new_sparse_var) {
+        current_sparse_name = get_sparse_name(v);
+        vsparse_start = vindex;
+      }
 
-    // TODO(agaspar): Pass in the sparse ID here - need to summon it out of thin air
-    add_var(v);
-    if (vmap != nullptr)
-      vmap->insert(std::make_pair(v->label(), IndexPair(vstart, vindex - 1)));
+      // TODO(agaspar): Pass in the sparse ID here - need to summon it out of thin air
+      add_var(v);
+      if (vmap != nullptr)
+        vmap->insert(std::make_pair(v->label(), IndexPair(vstart, vindex - 1)));
+    }
   }
 
   // insert last string of sparse variables
