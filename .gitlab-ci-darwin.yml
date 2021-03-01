@@ -4,7 +4,7 @@ variables:
 
 stages:
   - performance-target
-  - performance-regressio
+  - performance-regression
  
 .run-script-with-check: &run-script-with-check
 - |
