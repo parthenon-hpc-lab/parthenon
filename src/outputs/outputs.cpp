@@ -154,11 +154,12 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       std::snprintf(define_id, sizeof(define_id), "out%d",
                     op.block_number); // default id="outN"
       op.file_id = pin->GetOrAddString(op.block_name, "id", define_id);
-      op.file_type = pin->GetString(op.block_name, "file_type");
+      //op.file_type = pin->GetString(op.block_name, "file_type");
+      op.file_type = pin->Get<std::string>(op.block_name, "file_type");
 
       // read slicing options.  Check that slice is within mesh
       if (pin->DoesParameterExist(op.block_name, "x1_slice")) {
-        Real x1 = pin->GetReal(op.block_name, "x1_slice");
+        Real x1 = pin->Get<Real>(op.block_name, "x1_slice");
         if (x1 >= pm->mesh_size.x1min && x1 < pm->mesh_size.x1max) {
           op.x1_slice = x1;
           op.output_slicex1 = true;
@@ -171,7 +172,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       }
 
       if (pin->DoesParameterExist(op.block_name, "x2_slice")) {
-        Real x2 = pin->GetReal(op.block_name, "x2_slice");
+        Real x2 = pin->Get<Real>(op.block_name, "x2_slice");
         if (x2 >= pm->mesh_size.x2min && x2 < pm->mesh_size.x2max) {
           op.x2_slice = x2;
           op.output_slicex2 = true;
@@ -184,7 +185,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       }
 
       if (pin->DoesParameterExist(op.block_name, "x3_slice")) {
-        Real x3 = pin->GetReal(op.block_name, "x3_slice");
+        Real x3 = pin->Get<Real>(op.block_name, "x3_slice");
         if (x3 >= pm->mesh_size.x3min && x3 < pm->mesh_size.x3max) {
           op.x3_slice = x3;
           op.output_slicex3 = true;
@@ -332,7 +333,8 @@ std::vector<std::string> Outputs::SetOutputVariables(ParameterInput *pin,
     std::exit(1);
   }
 
-  std::string s = pin->GetString(block_name, "variables");
+  std::string s = pin->Get<std::string>(block_name, "variables");
+  //std::string s = pin->GetString(block_name, "variables");
   std::string delimiter = ",";
   size_t pos = 0;
   std::string token;

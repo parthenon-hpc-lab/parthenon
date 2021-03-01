@@ -213,7 +213,7 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
   }
 
   if (pin->GetOrAddBoolean("Random", "compute_histogram", true)) {
-    int N_min = pin->GetInteger("Random", "num_iter_min");
+    int N_min = pin->Get<int>("Random", "num_iter_min");
 
     auto pkg = mesh->block_list[0]->packages.Get("stochastic_subgrid_package");
     auto hist_view = pkg->Param<Kokkos::View<int *>>("num_iter_histogram");

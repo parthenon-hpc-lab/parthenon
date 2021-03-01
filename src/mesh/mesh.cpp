@@ -63,18 +63,31 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properti
     : // public members:
       modified(true),
       // aggregate initialization of RegionSize struct:
-      mesh_size{pin->GetReal("parthenon/mesh", "x1min"),
-                pin->GetReal("parthenon/mesh", "x2min"),
-                pin->GetReal("parthenon/mesh", "x3min"),
-                pin->GetReal("parthenon/mesh", "x1max"),
-                pin->GetReal("parthenon/mesh", "x2max"),
-                pin->GetReal("parthenon/mesh", "x3max"),
+/*      mesh_size{pin->Get<Real>("parthenon/mesh", "x1min"),
+                pin->Get<Real>("parthenon/mesh", "x2min"),
+                pin->Get<Real>("parthenon/mesh", "x3min"),
+                pin->Get<Real>("parthenon/mesh", "x1max"),
+                pin->Get<Real>("parthenon/mesh", "x2max"),
+                pin->Get<Real>("parthenon/mesh", "x3max"),
                 pin->GetOrAddReal("parthenon/mesh", "x1rat", 1.0),
                 pin->GetOrAddReal("parthenon/mesh", "x2rat", 1.0),
                 pin->GetOrAddReal("parthenon/mesh", "x3rat", 1.0),
-                pin->GetInteger("parthenon/mesh", "nx1"),
-                pin->GetInteger("parthenon/mesh", "nx2"),
-                pin->GetInteger("parthenon/mesh", "nx3")},
+                pin->Get<int>("parthenon/mesh", "nx1"),
+                pin->Get<int>("parthenon/mesh", "nx2"),
+                pin->Get<int>("parthenon/mesh", "nx3")},*/
+      mesh_size{pin->Get<Real>("parthenon/mesh", "x1min"),
+                pin->Get<Real>("parthenon/mesh", "x2min"),
+                pin->Get<Real>("parthenon/mesh", "x3min"),
+                pin->Get<Real>("parthenon/mesh", "x1max"),
+                pin->Get<Real>("parthenon/mesh", "x2max"),
+                pin->Get<Real>("parthenon/mesh", "x3max"),
+                pin->GetOrAddReal("parthenon/mesh", "x1rat", 1.0),
+                pin->GetOrAddReal("parthenon/mesh", "x2rat", 1.0),
+                pin->GetOrAddReal("parthenon/mesh", "x3rat", 1.0),
+                pin->Get<int>("parthenon/mesh", "nx1"),
+                pin->Get<int>("parthenon/mesh", "nx2"),
+                pin->Get<int>("parthenon/mesh", "nx3")},
+
       mesh_bcs{
           GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix1_bc", "reflecting")),
           GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox1_bc", "reflecting")),
@@ -307,23 +320,23 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properti
     while (pib != nullptr) {
       if (pib->block_name.compare(0, 27, "parthenon/static_refinement") == 0) {
         RegionSize ref_size;
-        ref_size.x1min = pin->GetReal(pib->block_name, "x1min");
-        ref_size.x1max = pin->GetReal(pib->block_name, "x1max");
+        ref_size.x1min = pin->Get<Real>(pib->block_name, "x1min");
+        ref_size.x1max = pin->Get<Real>(pib->block_name, "x1max");
         if (ndim >= 2) {
-          ref_size.x2min = pin->GetReal(pib->block_name, "x2min");
-          ref_size.x2max = pin->GetReal(pib->block_name, "x2max");
+          ref_size.x2min = pin->Get<Real>(pib->block_name, "x2min");
+          ref_size.x2max = pin->Get<Real>(pib->block_name, "x2max");
         } else {
           ref_size.x2min = mesh_size.x2min;
           ref_size.x2max = mesh_size.x2max;
         }
         if (ndim == 3) {
-          ref_size.x3min = pin->GetReal(pib->block_name, "x3min");
-          ref_size.x3max = pin->GetReal(pib->block_name, "x3max");
+          ref_size.x3min = pin->Get<Real>(pib->block_name, "x3min");
+          ref_size.x3max = pin->Get<Real>(pib->block_name, "x3max");
         } else {
           ref_size.x3min = mesh_size.x3min;
           ref_size.x3max = mesh_size.x3max;
         }
-        int ref_lev = pin->GetInteger(pib->block_name, "level");
+        int ref_lev = pin->Get<int>(pib->block_name, "level");
         int lrlev = ref_lev + root_level;
         if (lrlev > current_level) current_level = lrlev;
         // range check
@@ -519,18 +532,18 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
       // (will be overwritten by memcpy from restart file, in this case)
       modified(true),
       // aggregate initialization of RegionSize struct:
-      mesh_size{pin->GetReal("parthenon/mesh", "x1min"),
-                pin->GetReal("parthenon/mesh", "x2min"),
-                pin->GetReal("parthenon/mesh", "x3min"),
-                pin->GetReal("parthenon/mesh", "x1max"),
-                pin->GetReal("parthenon/mesh", "x2max"),
-                pin->GetReal("parthenon/mesh", "x3max"),
+      mesh_size{pin->Get<Real>("parthenon/mesh", "x1min"),
+                pin->Get<Real>("parthenon/mesh", "x2min"),
+                pin->Get<Real>("parthenon/mesh", "x3min"),
+                pin->Get<Real>("parthenon/mesh", "x1max"),
+                pin->Get<Real>("parthenon/mesh", "x2max"),
+                pin->Get<Real>("parthenon/mesh", "x3max"),
                 pin->GetOrAddReal("parthenon/mesh", "x1rat", 1.0),
                 pin->GetOrAddReal("parthenon/mesh", "x2rat", 1.0),
                 pin->GetOrAddReal("parthenon/mesh", "x3rat", 1.0),
-                pin->GetInteger("parthenon/mesh", "nx1"),
-                pin->GetInteger("parthenon/mesh", "nx2"),
-                pin->GetInteger("parthenon/mesh", "nx3")},
+                pin->Get<int>("parthenon/mesh", "nx1"),
+                pin->Get<int>("parthenon/mesh", "nx2"),
+                pin->Get<int>("parthenon/mesh", "nx3")},
       mesh_bcs{
           GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix1_bc", "reflecting")),
           GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox1_bc", "reflecting")),

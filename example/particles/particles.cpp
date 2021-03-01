@@ -55,7 +55,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddParam<>("const_dt", const_dt);
 
   // Initialize random number generator pool
-  int rng_seed = pin->GetInteger("Particles", "rng_seed");
+  int rng_seed = pin->Get<int>("Particles", "rng_seed");
   pkg->AddParam<>("rng_seed", rng_seed);
   RNGPool rng_pool(rng_seed);
   pkg->AddParam<>("rng_pool", rng_pool);

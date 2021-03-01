@@ -455,6 +455,13 @@ InputBlock *ParameterInput::GetPtrToBlock(const std::string &name) {
   return nullptr;
 }
 
+const InputBlock *ParameterInput::GetPtrToBlock(const std::string &name) const {
+  InputBlock *pb;
+  for (pb = pfirst_block; pb != nullptr; pb = pb->pnext) {
+    if (name.compare(pb->block_name) == 0) return pb;
+  }
+  return nullptr;
+}
 //----------------------------------------------------------------------------------------
 //! \fn int ParameterInput::DoesParameterExist(const std::string & block, const
 //! std::string & name)
@@ -515,7 +522,7 @@ std::string ParameterInput::GetComment(const std::string &block,
 //! name)
 //  \brief returns integer value of string stored in block/name
 
-int ParameterInput::GetInteger(const std::string &block, const std::string &name) {
+/*int ParameterInput::GetInteger(const std::string &block, const std::string &name) {
   InputBlock *pb;
   InputLine *pl;
   std::stringstream msg;
@@ -544,13 +551,13 @@ int ParameterInput::GetInteger(const std::string &block, const std::string &name
 
   // Convert string to integer and return value
   return stoi(val);
-}
+}*/
 
 //----------------------------------------------------------------------------------------
 //! \fn Real ParameterInput::GetReal(const std::string & block, const std::string & name)
 //  \brief returns real value of string stored in block/name
 
-Real ParameterInput::GetReal(const std::string &block, const std::string &name) {
+/*Real ParameterInput::GetReal(const std::string &block, const std::string &name) {
   InputBlock *pb;
   InputLine *pl;
   std::stringstream msg;
@@ -579,14 +586,14 @@ Real ParameterInput::GetReal(const std::string &block, const std::string &name) 
 
   // Convert string to real and return value
   return static_cast<Real>(atof(val.c_str()));
-}
+}*/
 
 //----------------------------------------------------------------------------------------
 //! \fn bool ParameterInput::GetBoolean(const std::string & block, const std::string &
 //! name)
 //  \brief returns boolean value of string stored in block/name
 
-bool ParameterInput::GetBoolean(const std::string &block, const std::string &name) {
+/*bool ParameterInput::GetBoolean(const std::string &block, const std::string &name) {
   InputBlock *pb;
   InputLine *pl;
   std::stringstream msg;
@@ -626,14 +633,14 @@ bool ParameterInput::GetBoolean(const std::string &block, const std::string &nam
   is >> std::boolalpha >> b;
 
   return (b);
-}
+}*/
 
 //----------------------------------------------------------------------------------------
 //! \fn std::string ParameterInput::GetString(const std::string & block, const std::string
 //! & name)
 //  \brief returns string stored in block/name
 
-std::string ParameterInput::GetString(const std::string &block, const std::string &name) {
+/*std::string ParameterInput::GetString(const std::string &block, const std::string &name) {
   InputBlock *pb;
   InputLine *pl;
   std::stringstream msg;
@@ -662,7 +669,7 @@ std::string ParameterInput::GetString(const std::string &block, const std::strin
 
   // return value
   return val;
-}
+}*/
 
 //----------------------------------------------------------------------------------------
 //! \fn int ParameterInput::GetOrAddInteger(const std::string & block, const std::string &
@@ -1018,7 +1025,9 @@ void ParameterInput::CheckDesired(const std::string &block, const std::string &n
   if (defaulted) {
     std::cout << std::endl
               << "Defaulting to <" << block << ">/" << name << " = "
-              << GetString(block, name) << std::endl;
+              << Get<std::string>(block, name) << std::endl;
+   //           << GetString(block, name) << std::endl;
+    
   }
   std::cout << std::endl;
 }
@@ -1064,11 +1073,16 @@ InputLine *InputBlock::GetPtrToLine(std::string name) {
   }
   return nullptr;
 }
-
+const InputLine *InputBlock::GetPtrToLine(std::string name) const {
+  for (InputLine *pl = pline; pl != nullptr; pl = pl->pnext) {
+    if (name.compare(pl->param_name) == 0) return pl;
+  }
+  return nullptr;
+}
 //----------------------------------------------------------------------------------------
 //! \fn void ParameterInput::Lock()
 //  \brief Lock ParameterInput for reading and writing
-void ParameterInput::Lock() {
+void ParameterInput::Lock() const {
 #ifdef OPENMP_PARALLEL
   omp_set_lock(&lock_);
 #endif
@@ -1078,7 +1092,7 @@ void ParameterInput::Lock() {
 //----------------------------------------------------------------------------------------
 //! \fn void ParameterInput::Unlock()
 //  \brief Unlock ParameterInput for reading and writing
-void ParameterInput::Unlock() {
+void ParameterInput::Unlock() const {
 #ifdef OPENMP_PARALLEL
   omp_unset_lock(&lock_);
 #endif
