@@ -60,10 +60,10 @@ class BoundaryBase {
   // 1x pair (neighbor index, buffer ID) per entire SET of separate variable buffers
   // (Field, Passive Scalar, etc.). Greedy allocation for worst-case
   // of refined 3D; only 26 entries needed/initialized if unrefined 3D, e.g.
-  static NeighborIndexes ni[56];
-  static int bufid[56];
+  static NeighborIndexes ni[NMAX_NEIGHBORS];
+  static int bufid[NMAX_NEIGHBORS];
 
-  NeighborBlock neighbor[56];
+  NeighborBlock neighbor[NMAX_NEIGHBORS];
   int nneighbor;
   int nblevel[3][3][3];
   LogicalLocation loc;

@@ -643,6 +643,8 @@ void Swarm::SetupPersistentMPI() {
   } else {
     PARTHENON_FAIL("ndim must be 1, 2, or 3 for particles!");
   }
+
+  neighbor_received_particles_.resize(vbswarm->bd_var_.nbmax);
 }
 
 int Swarm::CountParticlesToSend_() {
@@ -815,27 +817,51 @@ SwarmVariablePack<int> Swarm::PackVariablesInt(const std::vector<std::string> &n
   return pack;
 }
 
-void Swarm::UnloadBuffers_() {
+void Swarm::CountReceivedParticles_() {
   auto pmb = GetBlockPointer();
   const int maxneighbor = vbswarm->bd_var_.nbmax;
-  int total_received_particles = 0;
-  std::vector<int> neighbor_received_particles(maxneighbor);
+  total_received_particles_ = 0;
   for (int n = 0; n < maxneighbor; n++) {
     if (vbswarm->bd_var_.flag[pmb->pbval->neighbor[n].bufid] == BoundaryStatus::arrived) {
       PARTHENON_DEBUG_REQUIRE(vbswarm->recv_size[n] % vbswarm->particle_size == 0,
                               "Receive buffer is not divisible by particle size!");
-      neighbor_received_particles[n] = vbswarm->recv_size[n] / vbswarm->particle_size;
-      total_received_particles += neighbor_received_particles[n];
+      neighbor_received_particles_[n] = vbswarm->recv_size[n] / vbswarm->particle_size;
+      total_received_particles_ += neighbor_received_particles_[n];
     } else {
-      neighbor_received_particles[n] = 0;
+      neighbor_received_particles_[n] = 0;
     }
   }
+}
+
+void Swarm::UpdateNeighborBufferReceiveIndices_(ParArrayND<int> &neighbor_index,
+                                                ParArrayND<int> &buffer_index) {
+  const int maxneighbor = vbswarm->bd_var_.nbmax;
+  auto neighbor_index_h = neighbor_index.GetHostMirror();
+  auto buffer_index_h = buffer_index.GetHostMirror();
+
+  int id = 0;
+  for (int n = 0; n < maxneighbor; n++) {
+    for (int m = 0; m < neighbor_received_particles_[n]; m++) {
+      neighbor_index_h(id) = n;
+      buffer_index_h(id) = m;
+      id++;
+    }
+  }
+  neighbor_index.DeepCopy(neighbor_index_h);
+  buffer_index.DeepCopy(buffer_index_h);
+}
+
+void Swarm::UnloadBuffers_() {
+  auto pmb = GetBlockPointer();
+  const int maxneighbor = vbswarm->bd_var_.nbmax;
+
+  CountReceivedParticles_();
 
   auto &bdvar = vbswarm->bd_var_;
 
-  if (total_received_particles > 0) {
+  if (total_received_particles_ > 0) {
     ParArrayND<int> new_indices;
-    auto new_mask = AddEmptyParticles(total_received_particles, new_indices);
+    auto new_mask = AddEmptyParticles(total_received_particles_, new_indices);
     SwarmVariablePack<Real> vreal;
     SwarmVariablePack<int> vint;
     PackIndexMap rmap;
@@ -848,28 +874,16 @@ void Swarm::UnloadBuffers_() {
     const int iy = rmap["y"].first;
     const int iz = rmap["z"].first;
 
-    ParArrayND<int> neighbor_index("Neighbor index", total_received_particles);
-    ParArrayND<int> buffer_index("Buffer index", total_received_particles);
-    auto neighbor_index_h = neighbor_index.GetHostMirror();
-    auto buffer_index_h = buffer_index.GetHostMirror();
-
-    int id = 0;
-    for (int n = 0; n < maxneighbor; n++) {
-      for (int m = 0; m < neighbor_received_particles[n]; m++) {
-        neighbor_index_h(id) = n;
-        buffer_index_h(id) = m;
-        id++;
-      }
-    }
-    neighbor_index.DeepCopy(neighbor_index_h);
-    buffer_index.DeepCopy(buffer_index_h);
+    ParArrayND<int> neighbor_index("Neighbor index", total_received_particles_);
+    ParArrayND<int> buffer_index("Buffer index", total_received_particles_);
+    UpdateNeighborBufferReceiveIndices_(neighbor_index, buffer_index);
 
     // construct map from buffer index to swarm index (or just return vector of indices!)
     const int particle_size = GetParticleDataSize();
     auto swarm_d = GetDeviceContext();
 
     pmb->par_for(
-        "Unload buffers", 0, total_received_particles - 1, KOKKOS_LAMBDA(const int n) {
+        "Unload buffers", 0, total_received_particles_ - 1, KOKKOS_LAMBDA(const int n) {
           const int sid = new_indices(n);
           const int nid = neighbor_index(n);
           const int bid = buffer_index(n);
