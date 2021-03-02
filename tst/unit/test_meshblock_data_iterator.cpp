@@ -195,9 +195,9 @@ TEST_CASE("Can pull variables from containers based on Metadata",
     WHEN("we set individual fields by index") {
       PackIndexMap vmap;
       auto v = rc.PackVariables(std::vector<std::string>({"v3", "v6"}), vmap);
-      const int iv3lo = vmap["v3"].first;
-      const int iv3hi = vmap["v3"].second;
-      const int iv6 = vmap["v6"].first;
+      const int iv3lo = vmap.get("v3").first;
+      const int iv3hi = vmap.get("v3").second;
+      const int iv6 = vmap.get("v6").first;
       THEN("The pack indices are all different") {
         REQUIRE(iv3hi > iv3lo);
         REQUIRE(iv3hi != iv6);
@@ -214,9 +214,9 @@ TEST_CASE("Can pull variables from containers based on Metadata",
       THEN("the values should as we expect") {
         PackIndexMap vmap; // recompute the pack
         auto v = rc.PackVariables(std::vector<std::string>({"v3", "v6"}), vmap);
-        const int iv3lo = vmap["v3"].first;
-        const int iv3hi = vmap["v3"].second;
-        const int iv6 = vmap["v6"].first;
+        const int iv3lo = vmap.get("v3").first;
+        const int iv3hi = vmap.get("v3").second;
+        const int iv6 = vmap.get("v6").first;
         using policy4D = Kokkos::MDRangePolicy<Kokkos::Rank<4>>;
         Real total = 0.0;
         Real sum = 1.0;
@@ -292,28 +292,28 @@ TEST_CASE("Can pull variables from containers based on Metadata",
       THEN("the low and high index bounds are correct as returned by PackVariables") {
         PackIndexMap imap;
         auto v = rc.PackVariables({"v3", "v6", "vsparse"}, imap);
-        REQUIRE(imap["vsparse"].second == imap["vsparse"].first + 2);
-        REQUIRE(imap["v6"].second == imap["v6"].first);
-        REQUIRE(imap["v3"].second == imap["v3"].first + 2);
-        REQUIRE(!indx_between_bounds(imap["v6"].first, imap["v3"]));
-        REQUIRE(!indx_between_bounds(imap["v6"].first, imap["vsparse"]));
-        REQUIRE(!intervals_intersect(imap["v3"], imap["vsparse"]));
+        REQUIRE(imap.get("vsparse").second == imap.get("vsparse").first + 2);
+        REQUIRE(imap.get("v6").second == imap.get("v6").first);
+        REQUIRE(imap.get("v3").second == imap.get("v3").first + 2);
+        REQUIRE(!indx_between_bounds(imap.get("v6").first, imap.get("v3")));
+        REQUIRE(!indx_between_bounds(imap.get("v6").first, imap.get("vsparse")));
+        REQUIRE(!intervals_intersect(imap.get("v3"), imap.get("vsparse")));
       }
       AND_THEN("bounds are still correct if I get just a subset of the sparse fields") {
         PackIndexMap imap;
         auto v = rc.PackVariables({"v3", "vsparse"}, {1, 42}, imap);
-        REQUIRE(imap["vsparse"].second == imap["vsparse"].first + 1);
-        REQUIRE(std::abs(imap["vsparse_42"].first - imap["vsparse_1"].first) == 1);
-        REQUIRE(!intervals_intersect(imap["v3"], imap["vsparse"]));
+        REQUIRE(imap.get("vsparse").second == imap.get("vsparse").first + 1);
+        REQUIRE(std::abs(imap.get("vsparse_42").first - imap.get("vsparse_1").first) == 1);
+        REQUIRE(!intervals_intersect(imap.get("v3"), imap.get("vsparse")));
       }
       AND_THEN("the association with sparse ids is captured") {
         PackIndexMap imap;
         auto v = rc.PackVariables({"v3", "v6", "vsparse"}, imap);
         int correct = 0;
-        const int v3first = imap["v3"].first;
-        const int v6first = imap["v6"].first;
-        const int vsfirst = imap["vsparse"].first;
-        const int vssecnd = imap["vsparse"].second;
+        const int v3first = imap.get("v3").first;
+        const int v6first = imap.get("v6").first;
+        const int vsfirst = imap.get("vsparse").first;
+        const int vssecnd = imap.get("vsparse").second;
         Kokkos::parallel_reduce(
             "add correct checks", 1,
             KOKKOS_LAMBDA(const int i, int &sum) {

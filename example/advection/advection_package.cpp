@@ -159,14 +159,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   field_name = "one_minus_sqrt_one_minus_advected_sq";
   m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy, Metadata::Sparse,
                 Metadata::Restart},
-               //  12, // just picking a sparse_id out of a hat for demonstration
                std::vector<int>({num_vars}));
-  // pkg->AddField(field_name, m);
-  // // add another component
-  // m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy, Metadata::Sparse,
-  //               Metadata::Restart},
-  //              37, // just picking a sparse_id out of a hat for demonstration
-  //              std::vector<int>({num_vars}));
   pkg->AddField(field_name, m);
 
   pkg->FillDerivedBlock = SquareIt;
@@ -219,8 +212,8 @@ void PreFill(MeshBlockData<Real> *rc) {
   PackIndexMap imap;
   std::vector<std::string> vars({"advected", "one_minus_advected"});
   const auto &v = rc->PackVariables(vars, imap);
-  const int in = imap["advected"].first;
-  const int out = imap["one_minus_advected"].first;
+  const int in = imap.get("advected").first;
+  const int out = imap.get("one_minus_advected").first;
   const auto num_vars = rc->Get("advected").data.GetDim(4);
   pmb->par_for(
       "advection_package::PreFill", 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
@@ -241,8 +234,8 @@ void SquareIt(MeshBlockData<Real> *rc) {
   PackIndexMap imap;
   std::vector<std::string> vars({"one_minus_advected", "one_minus_advected_sq"});
   auto v = rc->PackVariables(vars, imap);
-  const int in = imap["one_minus_advected"].first;
-  const int out = imap["one_minus_advected_sq"].first;
+  const int in = imap.get("one_minus_advected").first;
+  const int out = imap.get("one_minus_advected_sq").first;
   const auto num_vars = rc->Get("advected").data.GetDim(4);
   pmb->par_for(
       "advection_package::SquareIt", 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
@@ -259,14 +252,18 @@ void PostFill(MeshBlockData<Real> *rc) {
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
 
+  // check that we have the sparse indices we want
+  rc->ExpandSparseVariableID("one_minus_sqrt_one_minus_advected_sq", 12);
+  rc->ExpandSparseVariableID("one_minus_sqrt_one_minus_advected_sq", 37);
+
   // packing in principle unnecessary/convoluted here and just done for demonstration
   PackIndexMap imap;
   std::vector<std::string> vars(
       {"one_minus_advected_sq", "one_minus_sqrt_one_minus_advected_sq"});
   auto v = rc->PackVariables(vars, {12, 37}, imap);
-  const int in = imap["one_minus_advected_sq"].first;
-  const int out12 = imap["one_minus_sqrt_one_minus_advected_sq_12"].first;
-  const int out37 = imap["one_minus_sqrt_one_minus_advected_sq_37"].first;
+  const int in = imap.get("one_minus_advected_sq").first;
+  const int out12 = imap.get("one_minus_sqrt_one_minus_advected_sq_12").first;
+  const int out37 = imap.get("one_minus_sqrt_one_minus_advected_sq_37").first;
   const auto num_vars = rc->Get("advected").data.GetDim(4);
   pmb->par_for(
       "advection_package::PostFill", 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,

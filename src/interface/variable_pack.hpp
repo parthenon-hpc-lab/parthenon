@@ -27,6 +27,7 @@
 
 #include "defs.hpp"
 #include "interface/metadata.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
@@ -50,15 +51,34 @@ using StringPair = std::pair<std::vector<std::string>, std::vector<std::string>>
 class PackIndexMap {
  public:
   PackIndexMap() = default;
-  vpack_types::IndexPair &operator[](const std::string &key) {
-    if (!Has(key)) {
-      map_.insert({key, vpack_types::IndexPair(0, -1)});
+
+  auto &get(const std::string &key) {
+    auto itr = map_.find(key);
+    if (itr == map_.end()) {
+      auto err = "PackIndexMap does not have key '" + key + "'";
+      PARTHENON_THROW(err.c_str());
     }
-    return map_.at(key);
+
+    return itr->second;
   }
+
+  [[deprecated("Use PackIndexMap::get() instead")]] vpack_types::IndexPair &
+  operator[](const std::string &key) {
+    // this is too dangerous, we won't notice that we don't have a requested field if
+    // misspelled or sparse id not expanded
+
+    // if (!Has(key)) {
+    //   map_.insert({key, vpack_types::IndexPair(0, -1)});
+    // }
+    // return map_.at(key);
+
+    return get(key);
+  }
+
   void insert(std::pair<std::string, vpack_types::IndexPair> keyval) {
     map_.insert(keyval);
   }
+
   bool Has(std::string const &key) const { return map_.count(key) > 0; }
 
  private:
@@ -229,10 +249,7 @@ void FillVarView(const vpack_types::VarList<T> &vars, PackIndexMap *vmap,
   };
 
   for (std::shared_ptr<CellVariable<T>> const &v : vars) {
-    if (v == nullptr) {
-      host_sp(vindex) = -1;
-      vindex++;
-    } else {
+    if (v != nullptr) {
       bool const current_sparse_var = !current_sparse_name.empty();
       bool const new_sparse_var =
           v->IsSet(Metadata::Sparse) && get_sparse_name(v) != current_sparse_name;
