@@ -181,27 +181,12 @@ TaskStatus DepositParticles(MeshBlock *pmb) {
             k = static_cast<int>(std::floor((z(n) - minx_k) / dx_k) + kb.s);
           }
 
-       //   printf("xyz: %e %e %e ijk: %i %i %i\n", x(n), y(n), z(n), i, j, k);
-       //   printf("ie is: %i %i jb js: %i %i kb ks: %i %i\n",
-          //  ib.s, ib.e, jb.s, jb.e, kb.s, kb.e);
-
           if (i >= ib.s && i <= ib.e && j >= jb.s && j <= jb.e && k >= kb.s &&
               k <= kb.e) {
             Kokkos::atomic_add(&particle_dep(k, j, i), weight(n));
           }
         }
       });
-
-  auto pdh = particle_dep.GetHostMirrorAndCopy();
-  int total = 0;
-  for (int i = ib.s; i <= ib.e; i++) {
-    for (int j = jb.s; j <= jb.e; j++) {
-      printf("%i ", static_cast<int>(pdh(0, j, i)));
-      total += static_cast<int>(pdh(0, j, i));
-    }
-    printf("\n");
-  }
-  printf("total: %i\n", total);
 
   return TaskStatus::complete;
 }
@@ -258,8 +243,6 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, const double t0) {
               z(n) = minx_k + nx_k * dx_k * rng_gen.drand();
               r = sqrt(x(n) * x(n) + y(n) * y(n) + z(n) * z(n));
             } while (r > 0.5);
-            printf("xyz: %e %e %e r = %e\n", x(n), y(n), z(n),
-              sqrt(x(n) * x(n) + y(n) * y(n) + z(n) * z(n)));
 
             // Randomly sample direction perpendicular to origin
             Real theta = acos(2. * rng_gen.drand() - 1.);
@@ -279,7 +262,6 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, const double t0) {
             vx(n) *= v / v_tmp;
             vy(n) *= v / v_tmp;
             vz(n) *= v / v_tmp;
-            printf("v: %e %e %e |v| = %e (%e)\n", vx(n), vy(n), vz(n), sqrt(vx(n) * vx(n) + vy(n) * vy(n) + vz(n) * vz(n)), v);
 
             // Create particles at the beginning of the timestep
             t(n) = t0;
@@ -325,8 +307,6 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, const double t0) {
 
 TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator,
                               const double t0) {
-//  printf("SKIPPING TRANSPORT!\n");
-//  return TaskStatus::complete;
   auto swarm = pmb->swarm_data.Get()->Get("my particles");
   auto pkg = pmb->packages.Get("particles_package");
   auto orbiting_particles = pkg->Param<bool>("orbiting_particles");
@@ -403,9 +383,6 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
               bool on_current_mesh_block = true;
               swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n), on_current_mesh_block);
 
-            //printf("T xyz: %e %e %e r = %e\n", x(n), y(n), z(n),
-            //  sqrt(x(n) * x(n) + y(n) * y(n) + z(n) * z(n)));
-
               if (!on_current_mesh_block) {
                 // Particle no longer on this block
                 break;
@@ -472,12 +449,11 @@ TaskListStatus ParticleDriver::Step() {
   // number of MPI sends and receives.
   bool particles_update_done = false;
   while (!particles_update_done) {
-    printf("PARTICLES UPDATE TASK!\n");
     status = MakeParticlesUpdateTaskCollection().Execute();
 
     particles_update_done = true;
     for (auto &block : blocks) {
-      // TODO(BRR) Despite this my particles-specific call, this function feels like it
+      // TODO(BRR) Despite this "my particles"-specific call, this function feels like it
       // should be generalized
       auto swarm = block->swarm_data.Get()->Get("my particles");
       if (!swarm->finished_transport) {
@@ -502,7 +478,6 @@ TaskStatus StopCommunicationMesh(const BlockList_t &blocks) {
     auto swarm = sc->Get("my particles");
     swarm->finished_transport = false;
     num_sent_local += swarm->num_particles_sent_;
-    printf("num_sent_local: %i\n", num_sent_local);
   }
 
   // Boundary transfers on same MPI proc are blocking
@@ -527,7 +502,6 @@ TaskStatus StopCommunicationMesh(const BlockList_t &blocks) {
 
   int num_sent_global = 0;
   MPI_Allreduce(&num_sent_local, &num_sent_global, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-  printf("num_sent_global = %i\n", num_sent_global);
 
   if (num_sent_global == 0) {
     for (auto &block : blocks) {
