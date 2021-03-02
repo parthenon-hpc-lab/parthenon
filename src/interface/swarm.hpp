@@ -111,6 +111,18 @@ class SwarmDeviceContext {
 };
 
 class Swarm {
+  private:
+
+    static const int IntVec = 0;
+    static const int RealVec = 1;
+
+    template<class T>
+    static constexpr int getType(){
+      if(std::is_same<T,int>::value){
+        return IntVec;
+      }
+      return RealVec;
+    }
  public:
   Swarm(const std::string &label, const Metadata &metadata, const int nmax_pool_in = 3);
 
@@ -143,14 +155,18 @@ class Swarm {
   void Remove(const std::string &label);
 
   /// Get real particle variable
-  ParticleVariable<Real> &GetReal(const std::string &label) {
-    return *(realMap_.at(label));
+  template<class T>
+  ParticleVariable<T> &Get(const std::string &label) {
+    //const int vec_type = std::is_same<T,int>::value ? IntVec : RealVec;
+    //const int vec_type = getType<T>();
+    return *std::get<getType<T>()>(Maps_).at(label);
+//    return *(realMap_.at(label));
   }
 
   /// Get integer particle variable
-  ParticleVariable<int> &GetInteger(const std::string &label) {
+/*  ParticleVariable<int> &GetInteger(const std::string &label) {
     return *(intMap_.at(label));
-  }
+  }*/
 
   /// Assign label for swarm
   void setLabel(const std::string &label) { label_ = label; }
@@ -202,7 +218,9 @@ class Swarm {
   bool mpiStatus;
   void AllocateComms(std::weak_ptr<MeshBlock> wpmb);
 
-  int GetParticleDataSize() const { return std::get<RealVec>(Vectors_).size() + std::get<IntVec>(Vectors_).size(); }
+  int GetParticleDataSize() { 
+    return std::get<0>(Vectors_).size() + std::get<1>(Vectors_).size();
+  }
 
   bool Send(BoundaryCommSubset phase);
 
@@ -243,7 +261,7 @@ class Swarm {
  private:
   template <class T>//, class U>
   //vpack_types::SwarmVarList<T> MakeVarListAll_<T>(const int vec_type);
-  vpack_types::SwarmVarList<T> MakeVarListAll_(const int vec_type);
+  vpack_types::SwarmVarList<T> MakeVarListAll_();
 
   void SetNeighborIndices1D_();
   void SetNeighborIndices2D_();
@@ -264,8 +282,6 @@ class Swarm {
   std::string label_;
   std::string info_;
   std::shared_ptr<ParArrayND<PARTICLE_STATUS>> pstatus_;
-  constexpr int IntVec = 0;
-  constexpr int RealVec = 1;
   std::tuple<ParticleVariableVector<int>,ParticleVariableVector<Real>> Vectors_;
 
 //  MapToParticle<int> intMap_;
@@ -291,10 +307,11 @@ class Swarm {
 };
 
 template <class T>//, class U>
-inline vpack_types::SwarmVarList<T> Swarm::MakeVarListAll_<T>(const int vec_type) {
+inline vpack_types::SwarmVarList<T> Swarm::MakeVarListAll_<T>() {
   int size = 0;
   vpack_types::SwarmVarList<T> vars;
-  auto variables = std::get<vec_type>(Vectors_);
+//  const int vec_type = getType<T>();
+  auto variables = std::get<getType<T>()>(Vectors_);
   for (auto it = variables.rbegin(); it != variables.rend(); ++it) {
     auto v = *it;
     vars.push_front(v);
@@ -306,13 +323,15 @@ inline vpack_types::SwarmVarList<T> Swarm::MakeVarListAll_<T>(const int vec_type
 template<class T>
 inline SwarmVariablePack<T> Swarm::PackVariables<T>(const std::vector<std::string> &names,
                                           PackIndexMap &vmap) {
-
+/*
   vpack_types::SwarmVarList<T> vars;
   if(std::is_same<T,int>::value){
     vars = MakeVarListAll_<T>(IntVec);
   } else {
     vars = MakeVarListAll_<T>(RealVec);
-  }
+  }*/
+//  const int vec_type = getType<T>();
+  vpack_types::SwarmVarList<T> vars = MakeVarListAll_<T>();
   auto pack = MakeSwarmPack<T>(vars, &vmap);
   SwarmPackIndxPair<T> value;
   value.pack = pack;
@@ -330,9 +349,11 @@ inline SwarmVariablePack<T> Swarm::PackAllVariables<T>(PackIndexMap &vmap) {
   } else {
     vec_type = RealVec;
   }*/
-  const int vec_type = std::is_same<T,int>::value ? IntVec : RealVec;
-  names.reserve(std::get<vec_type>(Vectors_).size());
-  for (const auto &v : std::get<vec_type>(Vectors_)) {
+
+ //  const int vec_type = ;
+  //const int vec_type = std::is_same<T,int>::value ? IntVec : RealVec;
+  names.reserve(std::get<getType<T>()>(Vectors_).size());
+  for (const auto &v : std::get<getType<T>()>(Vectors_)) {
     names.push_back(v->label());
   }
   //return PackVariablesReal(names, vmap);
@@ -341,11 +362,11 @@ inline SwarmVariablePack<T> Swarm::PackAllVariables<T>(PackIndexMap &vmap) {
 
 template<class T>
 inline void Swarm::Add_(const std::string & label) {
-  const int vec_type = std::is_same<T,int>::value ? IntVec : RealVec;
-  //constexpr int vec_type = IntVec;
-  auto var = std::make_shared<ParticleVariable<int>>(label, nmax_pool_, metadata);
-  std::get<vec_type>(Vectors_).push_back(var);
-  std::get<vec_type>(Maps_)[label] = var;
+  ParticleVariable<T> pvar(label, nmax_pool_, m_);
+  auto var = std::make_shared<ParticleVariable<T>>(pvar);
+
+  std::get<getType<T>()>(Vectors_).push_back(var);
+  std::get<getType<T>()>(Maps_)[label] = var;
 }
 
 using SP_Swarm = std::shared_ptr<Swarm>;
