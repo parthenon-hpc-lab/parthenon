@@ -54,6 +54,17 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   Real const_dt = pin->GetOrAddReal("Particles", "const_dt", 1.0);
   pkg->AddParam<>("const_dt", const_dt);
 
+  Real destroy_particles_frac =
+      pin->GetOrAddReal("Particles", "destroy_particles_frac", 0.0);
+  pkg->AddParam<>("destroy_particles_frac", destroy_particles_frac);
+  PARTHENON_REQUIRE(
+      destroy_particles_frac >= 0. && destroy_particles_frac <= 1.,
+      "Fraction of particles to destroy each timestep must be between 0 and 1");
+
+  bool orbiting_particles =
+      pin->GetOrAddBoolean("Particles", "orbiting_particles", false);
+  pkg->AddParam<>("orbiting_particles", orbiting_particles);
+
   // Initialize random number generator pool
   int rng_seed = pin->GetInteger("Particles", "rng_seed");
   pkg->AddParam<>("rng_seed", rng_seed);
@@ -101,6 +112,7 @@ TaskStatus DestroySomeParticles(MeshBlock *pmb) {
   auto pkg = pmb->packages.Get("particles_package");
   auto swarm = pmb->swarm_data.Get()->Get("my particles");
   auto rng_pool = pkg->Param<RNGPool>("rng_pool");
+  Real destroy_particles_frac = pkg->Param<Real>("destroy_particles_frac");
 
   // The swarm mask is managed internally and should always be treated as constant. This
   // may be enforced later.
@@ -112,7 +124,8 @@ TaskStatus DestroySomeParticles(MeshBlock *pmb) {
       KOKKOS_LAMBDA(const int n) {
         if (swarm_d.IsActive(n)) {
           auto rng_gen = rng_pool.get_state();
-          if (rng_gen.drand() > 0.9) {
+          // if (rng_gen.drand() > 0.9) {
+          if (rng_gen.drand() > 1.0 - destroy_particles_frac) {
             swarm_d.MarkParticleForRemoval(n);
           }
           rng_pool.free_state(rng_gen);
@@ -168,12 +181,27 @@ TaskStatus DepositParticles(MeshBlock *pmb) {
             k = static_cast<int>(std::floor((z(n) - minx_k) / dx_k) + kb.s);
           }
 
+       //   printf("xyz: %e %e %e ijk: %i %i %i\n", x(n), y(n), z(n), i, j, k);
+       //   printf("ie is: %i %i jb js: %i %i kb ks: %i %i\n",
+          //  ib.s, ib.e, jb.s, jb.e, kb.s, kb.e);
+
           if (i >= ib.s && i <= ib.e && j >= jb.s && j <= jb.e && k >= kb.s &&
               k <= kb.e) {
             Kokkos::atomic_add(&particle_dep(k, j, i), weight(n));
           }
         }
       });
+
+  auto pdh = particle_dep.GetHostMirrorAndCopy();
+  int total = 0;
+  for (int i = ib.s; i <= ib.e; i++) {
+    for (int j = jb.s; j <= jb.e; j++) {
+      printf("%i ", static_cast<int>(pdh(0, j, i)));
+      total += static_cast<int>(pdh(0, j, i));
+    }
+    printf("\n");
+  }
+  printf("total: %i\n", total);
 
   return TaskStatus::complete;
 }
@@ -184,6 +212,7 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, const double t0) {
   auto rng_pool = pkg->Param<RNGPool>("rng_pool");
   auto num_particles = pkg->Param<int>("num_particles");
   auto v = pkg->Param<Real>("particle_speed");
+  auto orbiting_particles = pkg->Param<bool>("orbiting_particles");
 
   ParArrayND<int> new_indices;
   const auto new_particles_mask = swarm->AddEmptyParticles(num_particles, new_indices);
@@ -213,32 +242,81 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, const double t0) {
 
   auto swarm_d = swarm->GetDeviceContext();
 
-  pmb->par_for(
-      "CreateSomeParticles", 0, swarm->get_max_active_index(),
-      KOKKOS_LAMBDA(const int n) {
-        if (new_particles_mask(n)) {
-          auto rng_gen = rng_pool.get_state();
+  if (orbiting_particles) {
+    pmb->par_for(
+        "CreateSomeOrbitingParticles", 0, swarm->get_max_active_index(),
+        KOKKOS_LAMBDA(const int n) {
+          if (new_particles_mask(n)) {
+            auto rng_gen = rng_pool.get_state();
 
-          // Randomly sample in space in this meshblock
-          x(n) = minx_i + nx_i * dx_i * rng_gen.drand();
-          y(n) = minx_j + nx_j * dx_j * rng_gen.drand();
-          z(n) = minx_k + nx_k * dx_k * rng_gen.drand();
+            // Randomly sample in space in this meshblock while staying within 0.5 of
+            // origin
+            Real r;
+            do {
+              x(n) = minx_i + nx_i * dx_i * rng_gen.drand();
+              y(n) = minx_j + nx_j * dx_j * rng_gen.drand();
+              z(n) = minx_k + nx_k * dx_k * rng_gen.drand();
+              r = sqrt(x(n) * x(n) + y(n) * y(n) + z(n) * z(n));
+            } while (r > 0.5);
+            printf("xyz: %e %e %e r = %e\n", x(n), y(n), z(n),
+              sqrt(x(n) * x(n) + y(n) * y(n) + z(n) * z(n)));
 
-          // Randomly sample direction on the unit sphere, fixing speed
-          Real theta = acos(2. * rng_gen.drand() - 1.);
-          Real phi = 2. * M_PI * rng_gen.drand();
-          vx(n) = v * sin(theta) * cos(phi);
-          vy(n) = v * sin(theta) * sin(phi);
-          vz(n) = v * cos(theta);
+            // Randomly sample direction perpendicular to origin
+            Real theta = acos(2. * rng_gen.drand() - 1.);
+            Real phi = 2. * M_PI * rng_gen.drand();
+            vx(n) = sin(theta) * cos(phi);
+            vy(n) = sin(theta) * sin(phi);
+            vz(n) = cos(theta);
+            // Project v onto plane normal to sphere
+            Real vdN = vx(n) * x(n) + vy(n) * y(n) + vz(n) * z(n);
+            Real NdN = r * r;
+            vx(n) = vx(n) - vdN / NdN * x(n);
+            vy(n) = vy(n) - vdN / NdN * y(n);
+            vz(n) = vz(n) - vdN / NdN * z(n);
 
-          // Create particles at the beginning of the timestep
-          t(n) = t0;
+            // Normalize
+            Real v_tmp = sqrt(vx(n) * vx(n) + vy(n) * vy(n) + vz(n) * vz(n));
+            vx(n) *= v / v_tmp;
+            vy(n) *= v / v_tmp;
+            vz(n) *= v / v_tmp;
+            printf("v: %e %e %e |v| = %e (%e)\n", vx(n), vy(n), vz(n), sqrt(vx(n) * vx(n) + vy(n) * vy(n) + vz(n) * vz(n)), v);
 
-          weight(n) = 1.0;
+            // Create particles at the beginning of the timestep
+            t(n) = t0;
 
-          rng_pool.free_state(rng_gen);
-        }
-      });
+            weight(n) = 1.0;
+
+            rng_pool.free_state(rng_gen);
+          }
+        });
+  } else {
+    pmb->par_for(
+        "CreateSomeParticles", 0, swarm->get_max_active_index(),
+        KOKKOS_LAMBDA(const int n) {
+          if (new_particles_mask(n)) {
+            auto rng_gen = rng_pool.get_state();
+
+            // Randomly sample in space in this meshblock
+            x(n) = minx_i + nx_i * dx_i * rng_gen.drand();
+            y(n) = minx_j + nx_j * dx_j * rng_gen.drand();
+            z(n) = minx_k + nx_k * dx_k * rng_gen.drand();
+
+            // Randomly sample direction on the unit sphere, fixing speed
+            Real theta = acos(2. * rng_gen.drand() - 1.);
+            Real phi = 2. * M_PI * rng_gen.drand();
+            vx(n) = v * sin(theta) * cos(phi);
+            vy(n) = v * sin(theta) * sin(phi);
+            vz(n) = v * cos(theta);
+
+            // Create particles at the beginning of the timestep
+            t(n) = t0;
+
+            weight(n) = 1.0;
+
+            rng_pool.free_state(rng_gen);
+          }
+        });
+  }
 
   swarm->swarm_num_incomplete_ = swarm->get_num_active();
 
@@ -247,7 +325,11 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, const double t0) {
 
 TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator,
                               const double t0) {
+//  printf("SKIPPING TRANSPORT!\n");
+//  return TaskStatus::complete;
   auto swarm = pmb->swarm_data.Get()->Get("my particles");
+  auto pkg = pmb->packages.Get("particles_package");
+  auto orbiting_particles = pkg->Param<bool>("orbiting_particles");
 
   int max_active_index = swarm->get_max_active_index();
 
@@ -280,31 +362,84 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
   auto swarm_d = swarm->GetDeviceContext();
 
   // Simple particle push: push particles half the smallest zone width until they have
-  // traveled one integrator timestep's worth of time
-  pmb->par_for(
-      "TransportParticles", 0, max_active_index, KOKKOS_LAMBDA(const int n) {
-        if (swarm_d.IsActive(n)) {
-          Real v = sqrt(vx(n) * vx(n) + vy(n) * vy(n) + vz(n) * vz(n));
-          while (t(n) < t0 + dt) {
-            Real dt_cell = dx_push / v;
-            Real dt_end = t0 + dt - t(n);
-            Real dt_push = std::min<Real>(dt_cell, dt_end);
+  // traveled one integrator timestep's worth of time. Particles orbit the origin.
+  if (orbiting_particles) {
+    // Particles orbit the origin
+    pmb->par_for(
+        "TransportOrbitingParticles", 0, max_active_index, KOKKOS_LAMBDA(const int n) {
+          if (swarm_d.IsActive(n)) {
+            Real v = sqrt(vx(n) * vx(n) + vy(n) * vy(n) + vz(n) * vz(n));
+            while (t(n) < t0 + dt) {
+              Real dt_cell = dx_push / v;
+              Real dt_end = t0 + dt - t(n);
+              Real dt_push = std::min<Real>(dt_cell, dt_end);
 
-            x(n) += vx(n) * dt_push;
-            y(n) += vy(n) * dt_push;
-            z(n) += vz(n) * dt_push;
-            t(n) += dt_push;
+              Real r = sqrt(x(n) * x(n) + y(n) * y(n) + z(n) * z(n));
 
-            bool on_current_mesh_block = true;
-            swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n), on_current_mesh_block);
+              x(n) += vx(n) * dt_push;
+              y(n) += vy(n) * dt_push;
+              z(n) += vz(n) * dt_push;
+              t(n) += dt_push;
 
-            if (!on_current_mesh_block) {
-              // Particle no longer on this block
-              break;
+              // Force point back onto spherical shell
+              Real r_tmp = sqrt(x(n) * x(n) + y(n) * y(n) + z(n) * z(n));
+              x(n) *= r / r_tmp;
+              y(n) *= r / r_tmp;
+              z(n) *= r / r_tmp;
+
+              // Project v onto plane normal to sphere
+              Real vdN = vx(n) * x(n) + vy(n) * y(n) + vz(n) * z(n);
+              Real NdN = r * r;
+              vx(n) = vx(n) - vdN / NdN * x(n);
+              vy(n) = vy(n) - vdN / NdN * y(n);
+              vz(n) = vz(n) - vdN / NdN * z(n);
+
+              // Normalize
+              Real v_tmp = sqrt(vx(n) * vx(n) + vy(n) * vy(n) + vz(n) * vz(n));
+              vx(n) *= v / v_tmp;
+              vy(n) *= v / v_tmp;
+              vz(n) *= v / v_tmp;
+
+              bool on_current_mesh_block = true;
+              swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n), on_current_mesh_block);
+
+            //printf("T xyz: %e %e %e r = %e\n", x(n), y(n), z(n),
+            //  sqrt(x(n) * x(n) + y(n) * y(n) + z(n) * z(n)));
+
+              if (!on_current_mesh_block) {
+                // Particle no longer on this block
+                break;
+              }
             }
           }
-        }
-      });
+        });
+  } else {
+    // Particles move in straight lines
+    pmb->par_for(
+        "TransportParticles", 0, max_active_index, KOKKOS_LAMBDA(const int n) {
+          if (swarm_d.IsActive(n)) {
+            Real v = sqrt(vx(n) * vx(n) + vy(n) * vy(n) + vz(n) * vz(n));
+            while (t(n) < t0 + dt) {
+              Real dt_cell = dx_push / v;
+              Real dt_end = t0 + dt - t(n);
+              Real dt_push = std::min<Real>(dt_cell, dt_end);
+
+              x(n) += vx(n) * dt_push;
+              y(n) += vy(n) * dt_push;
+              z(n) += vz(n) * dt_push;
+              t(n) += dt_push;
+
+              bool on_current_mesh_block = true;
+              swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n), on_current_mesh_block);
+
+              if (!on_current_mesh_block) {
+                // Particle no longer on this block
+                break;
+              }
+            }
+          }
+        });
+  }
 
   return TaskStatus::complete;
 }
@@ -332,11 +467,12 @@ TaskListStatus ParticleDriver::Step() {
   // Create all the particles that will be created during the step
   status = MakeParticlesCreationTaskCollection().Execute();
 
-  // Loop over repeated MPI calls until every particle is finished. This logic is required
-  // because long-distance particle pushes can lead to a large, unpredictable number of
-  // MPI sends and receives.
+  // Loop over repeated MPI calls until every particle is finished. This logic is
+  // required because long-distance particle pushes can lead to a large, unpredictable
+  // number of MPI sends and receives.
   bool particles_update_done = false;
   while (!particles_update_done) {
+    printf("PARTICLES UPDATE TASK!\n");
     status = MakeParticlesUpdateTaskCollection().Execute();
 
     particles_update_done = true;
@@ -366,6 +502,7 @@ TaskStatus StopCommunicationMesh(const BlockList_t &blocks) {
     auto swarm = sc->Get("my particles");
     swarm->finished_transport = false;
     num_sent_local += swarm->num_particles_sent_;
+    printf("num_sent_local: %i\n", num_sent_local);
   }
 
   // Boundary transfers on same MPI proc are blocking
@@ -390,6 +527,7 @@ TaskStatus StopCommunicationMesh(const BlockList_t &blocks) {
 
   int num_sent_global = 0;
   MPI_Allreduce(&num_sent_local, &num_sent_global, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+  printf("num_sent_global = %i\n", num_sent_global);
 
   if (num_sent_global == 0) {
     for (auto &block : blocks) {
@@ -406,11 +544,11 @@ TaskStatus StopCommunicationMesh(const BlockList_t &blocks) {
     }
   }
 
+  // Reset boundary statuses
   for (auto &block : blocks) {
     auto &pmb = block;
     auto sc = pmb->swarm_data.Get();
     auto swarm = sc->Get("my particles");
-    swarm->finished_transport = true;
     for (int n = 0; n < swarm->vbswarm->bd_var_.nbmax; n++) {
       auto &nb = pmb->pbval->neighbor[n];
       swarm->vbswarm->bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
