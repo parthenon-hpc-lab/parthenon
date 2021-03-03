@@ -303,7 +303,8 @@ TEST_CASE("Can pull variables from containers based on Metadata",
         PackIndexMap imap;
         auto v = rc.PackVariables({"v3", "vsparse"}, {1, 42}, imap);
         REQUIRE(imap.get("vsparse").second == imap.get("vsparse").first + 1);
-        REQUIRE(std::abs(imap.get("vsparse_42").first - imap.get("vsparse_1").first) == 1);
+        REQUIRE(std::abs(imap.get("vsparse_42").first - imap.get("vsparse_1").first) ==
+                1);
         REQUIRE(!intervals_intersect(imap.get("v3"), imap.get("vsparse")));
       }
       AND_THEN("the association with sparse ids is captured") {
