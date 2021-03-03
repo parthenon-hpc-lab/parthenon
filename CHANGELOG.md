@@ -4,6 +4,7 @@
 
 ### Added (new features/APIs/variables/...)
 - [[PR 461]](https://github.com/lanl/parthenon/pull/461) A negative `dt` in an output blovck disables it.
+- [[PR 439]](https://github.com/lanl/parthenon/pull/439) Add split initialization of environment (`ParthenonInitEnv()`) and packages and mesh (`ParthenonInitPackagesAndMesh()`) to `ParthenonManager`
 - [[PR 406]](https://github.com/lanl/parthenon/pull/406) Add `stochastic_subgrid` example that performs a random amount of work per cell (drawn from a power law distribution)
 - [[PR 440]](https://github.com/lanl/parthenon/pull/440) Add abstraction for allocating a `unique_ptr` to an object in device memory
 - [[PR 438]](https://github.com/lanl/parthenon/pull/438) More diagnostic runtime output (AMR/Loadbalance and mesh structure) controlled via `parthenon/time/ncycle_out_mesh` input parameter (default 0 - off)
