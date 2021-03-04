@@ -182,7 +182,8 @@ function(setup_test_parallel nproc dir arg extra_labels)
         ${TEST_PROPERTIES})
     record_driver("${arg}")
   else()
-    message(STATUS "MPI not found, not building regression tests with mpi")
+    message(STATUS "TestSetup for parallel regression tests: MPI not found, not building regression tests with mpi."
+      "To enable parallel regression tests ensure to include MPI in your project.")
   endif()
 endfunction()
 
