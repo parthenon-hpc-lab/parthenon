@@ -141,7 +141,11 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       op.block_number = atoi(outn.c_str());
       op.block_name.assign(pib->block_name);
 
-      const auto dt = pin->GetOrAddReal(op.block_name, "dt", tm->tlim);
+      Real dt = 0.0; // default value == 0 means that initial data is written by default
+      // for temporal drivers, setting dt to tlim ensures a final output is also written
+      if (tm != nullptr) {
+        dt = pin->GetOrAddReal(op.block_name, "dt", tm->tlim);
+      }
       // if this output is "soft-disabled" (negative value) skip processing
       if (dt < 0.0) {
         pib = pib->pnext; // move to next input block name
