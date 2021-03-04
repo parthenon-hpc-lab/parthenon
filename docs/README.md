@@ -51,13 +51,16 @@ In the pull request of the suggested changes we will then update the official go
 #### Usage in downstream codes
 
 The easiest/recommended way to reuse the `Parthenon` regression test infrastructure in downstream codes is to adapt a similar directory structure.
-The following steps have been tested to work when Parthenon is built from source in the downstream project:
+The following steps have been tested to work when `Parthenon` is built from source in the downstream project
+(specifically, the `Parthenon` source is expected to be located in the `external/parthenon` folder in the project's root directory) :
 
 1. Add the following to the downstream root `CMakeLists.txt` after `Parthenon` has been included:
 ```
 include(CTest)
 add_subdirectory(tst/regression)
 ```
+**NOTE** If the `Parthenon` regression tests should also be integrated in the downstream testing, the binary output directory should only be changed (e.g., via the `CMAKE_RUNTIME_OUTPUT_DIRECTORY` variable) *after* `Parthenon` has been included.
+Otherwise the paths to the `Parthenon` regression test binaries will be wrong.
 2. Create the following directories and files in the project folder (for an example `my_first_test` test):
 ```
 tst/
@@ -75,7 +78,7 @@ tst/
 # import Parthenon setup_test_serial and setup_test_parallel
 include(${PROJECT_SOURCE_DIR}/external/parthenon/cmake/TestSetup.cmake)
 
-setup_test_serial("my_first_test" "--driver ${PROJECT_BINARY_DIR}/bin/downstreamapp \
+setup_test_serial("my_first_test" "--driver /path/to/downstream_binary \
   --driver_input ${PROJECT_SOURCE_DIR}/inputs/test_input_file.in --num_steps 3" "my_custom_test_label")
 ```
 The same options for `setup_test_serial` and `setup_test_parallel` as described in Parthenon [here](../tst/regression/CMakeLists.txt) and [here](../cmake/TestSetup.cmake) apply.
