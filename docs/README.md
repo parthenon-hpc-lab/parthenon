@@ -84,16 +84,25 @@ The same options for `setup_test_serial` and `setup_test_parallel` as described 
 
 ### ParthenonManager
 
-This class provides a streamlined capability to write new applications by providing a simple interface to initialize and finalize a simulation.  It's usage is straightforward and demonstrated in the &pi; [example](../example/calculate_pi/calculate_pi.cpp).
+This class provides a streamlined capability to write new applications by providing a simple interface to initialize and finalize a simulation.
+It's usage is straightforward and demonstrated in the &pi; [example](../example/calculate_pi/calculate_pi.cpp).
+
+Initialization is mandatory and takes care of (including sanity checks)
+1. initializing MPI (if enabled)
+2. initializing Kokkos (including device setup)
+3. parsing command line arguments and parameter input file
+4. `ProcessProperties` Constructs and returns a `Properties_t` object that is often filled with runtime specified (i.e., determined from the input file) settings and parameters.  For example, this might hold an equation of state.
+5. `ProcessPackages` Constructs and returns a `Packages_t` object that contains a listing of all the variables and their metadata associated with each package.
+
+Application can chose between a single and double stage initialization:
+- Single stage: `ParthenonInit(int argc, char *argv[])` includes steps 1-5 above.
+- Double stage: `ParthenonInitEnv(int argc, char *argv[])` includes steps 1-3 and `ParthenonInitPackagesAndMesh()` includes steps 4 and 5.
+This double stage setup allows, for example, to control the package's behavior at runtime by setting the problem generator based on a variable in the input file.
 
 ### User-specified internal functions
 
 During a simulation, Parthenon calls a number of default internal functions whose behavior can
 be redefined by an application. Currently, these functions are, by class:
-
-#### ParthenonManager
-* `ProcessProperties` Constructs and returns a Properties_t object that is often filled with runtime specified (i. e. determined from the input file) settings and parameters.  For example, this might hold an equation of state.
-* `ProcessPackages` Constructs and returns a `Packages_t` object that contains a listing of all the variables and their metadata associated with each package.
 
 #### Mesh
 * `InitUserMeshData`
