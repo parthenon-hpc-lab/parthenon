@@ -106,7 +106,6 @@ class ParameterInput {
 //  bool GetBoolean(const std::string &block, const std::string &name);
   bool GetOrAddBoolean(const std::string &block, const std::string &name, bool value);
   bool SetBoolean(const std::string &block, const std::string &name, bool value);
-//  std::string GetString(const std::string &block, const std::string &name);
   std::string GetOrAddString(const std::string &block, const std::string &name,
                              const std::string &value);
   std::string SetString(const std::string &block, const std::string &name,
