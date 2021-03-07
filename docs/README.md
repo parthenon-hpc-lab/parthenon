@@ -48,6 +48,43 @@ The former is considered the safer option as it prevents accidental overwriting 
 (as `REGRESSION_GOLD_STANDARD_SYNC` is `ON` by default).
 In the pull request of the suggested changes we will then update the official gold standard release file and appropriate hash prior to merging.
 
+#### Usage in downstream codes
+
+The easiest/recommended way to reuse the `Parthenon` regression test infrastructure in downstream codes is to adapt a similar directory structure.
+The following steps have been tested to work when `Parthenon` is built from source in the downstream project
+(specifically, the `Parthenon` source is expected to be located in the `external/parthenon` folder in the project's root directory) :
+
+1. Add the following to the downstream root `CMakeLists.txt` after `Parthenon` has been included:
+```
+include(CTest)
+add_subdirectory(tst/regression)
+```
+**NOTE** If the `Parthenon` regression tests should also be integrated in the downstream testing, the binary output directory should only be changed (e.g., via the `CMAKE_RUNTIME_OUTPUT_DIRECTORY` variable) *after* `Parthenon` has been included.
+Otherwise the paths to the `Parthenon` regression test binaries will be wrong.
+2. Create the following directories and files in the project folder (for an example `my_first_test` test):
+```
+tst/
+    regression/
+        CMakeLists.txt
+        test_suites/
+            __init__.py  # <-- empty file
+            my_first_test/
+                __init.py__  # <-- empty file
+                my_first_test.py
+```
+3. Contents of `tst/regression/CMakeLists.txt`
+```
+
+# import Parthenon setup_test_serial and setup_test_parallel
+include(${PROJECT_SOURCE_DIR}/external/parthenon/cmake/TestSetup.cmake)
+
+setup_test_serial("my_first_test" "--driver /path/to/downstream_binary \
+  --driver_input ${PROJECT_SOURCE_DIR}/inputs/test_input_file.in --num_steps 3" "my_custom_test_label")
+```
+The same options for `setup_test_serial` and `setup_test_parallel` as described in Parthenon [here](../tst/regression/CMakeLists.txt) and [here](../cmake/TestSetup.cmake) apply.
+4. `my_first_test.py` contains the same logic as any other test in Parthenon, see a [simple](../tst/egression/test_suites/advection_outflow/advection_outflow.py) or more [complicated](../tst/egression/test_suites/advection_outflow/advection_outflow.py) example.
+5. Now `my_first_test` should be automatically executed when running `ctest` from the build directory.
+
 ### ParthenonManager
 
 This class provides a streamlined capability to write new applications by providing a simple interface to initialize and finalize a simulation.
