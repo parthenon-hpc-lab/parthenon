@@ -71,6 +71,29 @@ class InputBlock {
   const InputLine *GetPtrToLine(std::string name) const;
 };
 
+enum class Option {
+  Default,
+  Precise
+};
+
+
+template<class T>
+std::string getTypeName(){
+  if(std::is_same<T,std::string>::value) {
+    return "string";
+  }else if(std::is_same<T,bool>::value) {
+    return "bool";
+  }else if(std::is_same<T,int>::value) {
+    return "int";
+  }else if(std::is_same<T,Real>::value) {
+    return "Real";
+  } 
+  std::stringstream msg;
+  msg << "### FATAL ERROR in function [ParameterInput::getTypeName()]" << std::endl
+      << "Type does not appear to be supported or recognized." << std::endl;
+  PARTHENON_FAIL(msg);
+  return "";
+}
 //----------------------------------------------------------------------------------------
 //! \class ParameterInput
 //  \brief data and definitions of functions used to store and access input parameters
@@ -96,18 +119,18 @@ class ParameterInput {
   int DoesBlockExist(const std::string &block);
   std::string GetComment(const std::string &block, const std::string &name);
 //  int GetInteger(const std::string &block, const std::string &name);
-  int GetOrAddInteger(const std::string &block, const std::string &name, int value);
+//  int GetOrAddInteger(const std::string &block, const std::string &name, int value);
   //int SetInteger(const std::string &block, const std::string &name, int value);
 //  Real GetReal(const std::string &block, const std::string &name);
-  Real GetOrAddReal(const std::string &block, const std::string &name, Real value);
-  Real GetOrAddPrecise(const std::string &block, const std::string &name, Real value);
+//  Real GetOrAddReal(const std::string &block, const std::string &name, Real value);
+//  Real GetOrAddPrecise(const std::string &block, const std::string &name, Real value);
  // Real SetReal(const std::string &block, const std::string &name, Real value);
  // Real SetPrecise(const std::string &block, const std::string &name, Real value);
 //  bool GetBoolean(const std::string &block, const std::string &name);
-  bool GetOrAddBoolean(const std::string &block, const std::string &name, bool value);
+//  bool GetOrAddBoolean(const std::string &block, const std::string &name, bool value);
   //bool SetBoolean(const std::string &block, const std::string &name, bool value);
-  std::string GetOrAddString(const std::string &block, const std::string &name,
-                             const std::string &value);
+//  std::string GetOrAddString(const std::string &block, const std::string &name,
+//                             const std::string &value);
   //std::string SetString(const std::string &block, const std::string &name,
   //                      const std::string &value);
  
@@ -136,7 +159,7 @@ class ParameterInput {
   void AddParameter(InputBlock *pib, const std::string &name, const std::string &value,
                     const std::string &comment);
 
-  std::stringstream GetParameter(const std::string &block, const std::string &name) const;
+  std::stringstream GetParameter(const std::string &block, const std::string &name, const std::string & type_name) const;
   // thread safety
 #ifdef OPENMP_PARALLEL
   mutable omp_lock_t lock_;
@@ -146,7 +169,7 @@ class ParameterInput {
   void Unlock() const;
 };
 
-  inline std::stringstream ParameterInput::GetParameter(const std::string &block, const std::string &name) const {
+  inline std::stringstream ParameterInput::GetParameter(const std::string &block, const std::string &name, const std::string & type_name) const {
     const InputBlock *pb;
     const InputLine *pl;
     std::stringstream msg;
@@ -156,7 +179,7 @@ class ParameterInput {
     // get pointer to node with same block name in singly linked list of InputBlocks
     pb = GetPtrToBlock(block);
     if (pb == nullptr) {
-      msg << "### FATAL ERROR in function [ParameterInput::GetString]" << std::endl
+      msg << "### FATAL ERROR in function [ParameterInput::Get<" << type_name << ">]" << std::endl
         << "Block name '" << block << "' not found when trying to set value "
         << "for parameter '" << name << "'";
       PARTHENON_FAIL(msg);
@@ -165,7 +188,7 @@ class ParameterInput {
     // get pointer to node with same parameter name in singly linked list of InputLines
     pl = pb->GetPtrToLine(name);
     if (pl == nullptr) {
-      msg << "### FATAL ERROR in function [ParameterInput::GetString]" << std::endl
+      msg << "### FATAL ERROR in function [ParameterInput::Get" << type_name << "]" << std::endl
         << "Parameter name '" << name << "' not found in block '" << block << "'";
       PARTHENON_FAIL(msg);
     }
@@ -178,7 +201,8 @@ class ParameterInput {
 
   template<class T>
   inline T ParameterInput::Get(const std::string &block, const std::string &name) {
-    std::stringstream stream = GetParameter(block,name);
+    std::string type_str = getTypeName<T>();
+    std::stringstream stream = GetParameter(block,name,type_str);
     T val2;
     stream >> val2;
     /*if(std::is_same<T,bool>::value){
@@ -204,7 +228,8 @@ class ParameterInput {
 
   template<>
   inline bool ParameterInput::Get<bool>(const std::string &block, const std::string &name) {
-    std::stringstream stream = GetParameter(block,name);
+    std::string type_str = getTypeName<T>();
+    std::stringstream stream = GetParameter(block,name, type_str);
 
     if (stream.str().compare(0, 1, "0") == 0 || stream.str().compare(0, 1, "1") == 0) {
       return static_cast<bool>(std::stoi(stream.str()));
@@ -226,7 +251,48 @@ class ParameterInput {
   }
 
   template<class T>
-  inline T ParameterInput::Set(const std::string & block, const std::string & name, const T & value) {
+  inline T ParameterInput::Set(const std::string & block, const std::string & name, const T & value, const Option & opt = Option::Default) {
+
+    static_assert(opt == Option::Precise && std::is_same<T,Real>::value && 
+        "Only Real types can use the precise options."); 
+    // For String
+    InputBlock *pb;
+    Lock();
+    pb = FindOrAddBlock(block);
+    if(std::is_same<T,std::string>::value) {
+      AddParameter(pb, name, value, "# Updated during run time");
+    }else{ // bool, int, real, precise
+      std::stringstream ss_value;
+      if(opt == Option::Precise) {
+        ss_value.precision(std::numeric_limits<double>::max_digits10);
+      }
+      ss_value << value;
+      AddParameter(pb, name, ss_value.str(), "# Updated during run time");
+    }
+    Unlock();
+    return value;
+  }
+
+  template<class T>
+  inline T ParameterInput::GetOrAdd(const std::string & block, const std::string & name, const T & def_value, const Option & opt = Option::Default) {
+
+  InputBlock *pb;
+  InputLine *pl;
+  std::stringstream ss_value;
+  T ret;
+  Lock();
+  if (DoesParameterExist(block, name)) {
+    /*pb = GetPtrToBlock(block);
+    pl = pb->GetPtrToLine(name);
+    ret = pl->param_value;*/
+    ret = Get<T>(const std::string &block, const std::string &name);
+  } else {
+    //pb = FindOrAddBlock(block);
+    //AddParameter(pb, name, def_value, "# Default value added at run time");
+    ret = Set(block, name, value, opt);//def_value;
+  }
+  Unlock();
+  return ret;
 
   }
 } // namespace parthenon
