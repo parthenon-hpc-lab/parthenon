@@ -97,19 +97,23 @@ class ParameterInput {
   std::string GetComment(const std::string &block, const std::string &name);
 //  int GetInteger(const std::string &block, const std::string &name);
   int GetOrAddInteger(const std::string &block, const std::string &name, int value);
-  int SetInteger(const std::string &block, const std::string &name, int value);
+  //int SetInteger(const std::string &block, const std::string &name, int value);
 //  Real GetReal(const std::string &block, const std::string &name);
   Real GetOrAddReal(const std::string &block, const std::string &name, Real value);
   Real GetOrAddPrecise(const std::string &block, const std::string &name, Real value);
-  Real SetReal(const std::string &block, const std::string &name, Real value);
-  Real SetPrecise(const std::string &block, const std::string &name, Real value);
+ // Real SetReal(const std::string &block, const std::string &name, Real value);
+ // Real SetPrecise(const std::string &block, const std::string &name, Real value);
 //  bool GetBoolean(const std::string &block, const std::string &name);
   bool GetOrAddBoolean(const std::string &block, const std::string &name, bool value);
-  bool SetBoolean(const std::string &block, const std::string &name, bool value);
+  //bool SetBoolean(const std::string &block, const std::string &name, bool value);
   std::string GetOrAddString(const std::string &block, const std::string &name,
                              const std::string &value);
-  std::string SetString(const std::string &block, const std::string &name,
-                        const std::string &value);
+  //std::string SetString(const std::string &block, const std::string &name,
+  //                      const std::string &value);
+ 
+  template<class T>
+    T Set(const std::string & block, const std::string & name, T value);
+
   void RollbackNextTime();
   void ForwardNextTime(Real time);
   void CheckRequired(const std::string &block, const std::string &name);
@@ -221,5 +225,9 @@ class ParameterInput {
     return this->Get<T>(block,name);
   }
 
+  template<class T>
+  inline T ParameterInput::Set(const std::string & block, const std::string & name, const T & value) {
+
+  }
 } // namespace parthenon
 #endif // PARAMETER_INPUT_HPP_
