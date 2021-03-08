@@ -30,6 +30,15 @@
 namespace parthenon {
 
 ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
+  auto manager_status = ParthenonInitEnv(argc, argv);
+  if (manager_status != ParthenonStatus::ok) {
+    return manager_status;
+  }
+  ParthenonInitPackagesAndMesh();
+  return ParthenonStatus::ok;
+}
+
+ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
   // initialize MPI
 #ifdef MPI_PARALLEL
 #ifdef OPENMP_PARALLEL
@@ -97,14 +106,6 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
     return ParthenonStatus::complete;
   }
 
-  // Allow for user overrides to default Parthenon functions
-  if (app_input->ProcessProperties != nullptr) {
-    ProcessProperties = app_input->ProcessProperties;
-  }
-  if (app_input->ProcessPackages != nullptr) {
-    ProcessPackages = app_input->ProcessPackages;
-  }
-
   // Set up the signal handler
   SignalHandler::SignalHandlerInit();
   if (Globals::my_rank == 0 && arg.wtlim > 0) SignalHandler::SetWallTimeAlarm(arg.wtlim);
@@ -127,6 +128,18 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
   pinput->ModifyFromCmdline(argc, argv);
   // Set the global number of ghost zones
   Globals::nghost = pinput->GetOrAddInteger("parthenon/mesh", "nghost", 2);
+
+  return ParthenonStatus::ok;
+}
+
+void ParthenonManager::ParthenonInitPackagesAndMesh() {
+  // Allow for user overrides to default Parthenon functions
+  if (app_input->ProcessProperties != nullptr) {
+    ProcessProperties = app_input->ProcessProperties;
+  }
+  if (app_input->ProcessPackages != nullptr) {
+    ProcessPackages = app_input->ProcessPackages;
+  }
 
   // read in/set up application specific properties
   auto properties = ProcessProperties(pinput);
@@ -168,8 +181,6 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
   pmesh->Initialize(Restart(), pinput.get(), app_input.get());
 
   ChangeRunDir(arg.prundir);
-
-  return ParthenonStatus::ok;
 }
 
 ParthenonStatus ParthenonManager::ParthenonFinalize() {

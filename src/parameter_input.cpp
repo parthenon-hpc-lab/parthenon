@@ -1029,7 +1029,6 @@ void ParameterInput::CheckDesired(const std::string &block, const std::string &n
    //           << GetString(block, name) << std::endl;
     
   }
-  std::cout << std::endl;
 }
 
 //----------------------------------------------------------------------------------------
