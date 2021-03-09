@@ -100,7 +100,9 @@ std::shared_ptr<Swarm> Swarm::AllocateCopy(const bool allocComms, MeshBlock *pmb
 /// @param metadata the metadata associated with the particle
 void Swarm::Add(const std::string &label, const Metadata &metadata) {
   // labels must be unique, even between different types of data
-  if (intMap_.count(label) > 0 || realMap_.count(label) > 0) {
+//  if (intMap_.count(label) > 0 || realMap_.count(label) > 0) {
+  if (std::get<getType<int>()>(Maps_).count(label) > 0 ||
+      std::get<getType<Real>()>(Maps_).count(label) > 0) {
     throw std::invalid_argument("swarm variable " + label +
                                 " already enrolled during Add()!");
   }
@@ -122,6 +124,11 @@ void Swarm::Add(const std::string &label, const Metadata &metadata) {
 /// @param label the name of the variable
 void Swarm::Remove(const std::string &label) {
   bool found = false;
+
+  auto &intMap_ = std::get<getType<int>()>(Maps_);
+  auto &intVector_ = std::get<getType<int>()>(Vectors_);
+  auto &realMap_ = std::get<getType<Real>()>(Maps_);
+  auto &realVector_ = std::get<getType<Real>()>(Vectors_);
 
   // Find index of variable
   int idx = 0;
@@ -193,6 +200,11 @@ void Swarm::setPoolMax(const int nmax_pool) {
   neighbor_send_index_.Get().Resize(nmax_pool);
 
   blockIndex_.Resize(nmax_pool);
+
+  auto &intMap_ = std::get<getType<int>()>(Maps_);
+  auto &intVector_ = std::get<getType<int>()>(Vectors_);
+  auto &realMap_ = std::get<getType<Real>()>(Maps_);
+  auto &realVector_ = std::get<getType<Real>()>(Vectors_);
 
   // TODO(BRR) Use ParticleVariable packs to reduce kernel launches
   for (int n = 0; n < intVector_.size(); n++) {
@@ -351,6 +363,8 @@ void Swarm::Defrag() {
         }
       });
 
+  auto &intVector_ = std::get<getType<int>()>(Vectors_);
+  auto &realVector_ = std::get<getType<Real>()>(Vectors_);
   SwarmVariablePack<Real> vreal;
   SwarmVariablePack<int> vint;
   PackIndexMap rmap;
@@ -715,6 +729,8 @@ void Swarm::LoadBuffers_(const int max_indices_size) {
   const int particle_size = GetParticleDataSize();
   const int nbmax = vbswarm->bd_var_.nbmax;
 
+  auto &intVector_ = std::get<getType<int>()>(Vectors_);
+  auto &realVector_ = std::get<getType<Real>()>(Vectors_);
   SwarmVariablePack<Real> vreal;
   SwarmVariablePack<int> vint;
   PackIndexMap rmap;

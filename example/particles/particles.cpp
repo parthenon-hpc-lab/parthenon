@@ -152,10 +152,10 @@ TaskStatus DepositParticles(MeshBlock *pmb) {
   const Real &minx_j = pmb->coords.x2f(jb.s);
   const Real &minx_k = pmb->coords.x3f(kb.s);
 
-  const auto &x = swarm->GetReal("x").Get();
-  const auto &y = swarm->GetReal("y").Get();
-  const auto &z = swarm->GetReal("z").Get();
-  const auto &weight = swarm->GetReal("weight").Get();
+  const auto &x = swarm->Get<Real>("x").Get();
+  const auto &y = swarm->Get<Real>("y").Get();
+  const auto &z = swarm->Get<Real>("z").Get();
+  const auto &weight = swarm->Get<Real>("weight").Get();
   auto swarm_d = swarm->GetDeviceContext();
 
   auto &particle_dep = pmb->meshblock_data.Get()->Get("particle_deposition").data;
@@ -216,14 +216,14 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, const double t0) {
   const Real &minx_j = pmb->coords.x2f(jb.s);
   const Real &minx_k = pmb->coords.x3f(kb.s);
 
-  auto &t = swarm->GetReal("t").Get();
-  auto &x = swarm->GetReal("x").Get();
-  auto &y = swarm->GetReal("y").Get();
-  auto &z = swarm->GetReal("z").Get();
-  auto &vx = swarm->GetReal("vx").Get();
-  auto &vy = swarm->GetReal("vy").Get();
-  auto &vz = swarm->GetReal("vz").Get();
-  auto &weight = swarm->GetReal("weight").Get();
+  auto &t = swarm->Get<Real>("t").Get();
+  auto &x = swarm->Get<Real>("x").Get();
+  auto &y = swarm->Get<Real>("y").Get();
+  auto &z = swarm->Get<Real>("z").Get();
+  auto &vx = swarm->Get<Real>("vx").Get();
+  auto &vy = swarm->Get<Real>("vy").Get();
+  auto &vz = swarm->Get<Real>("vz").Get();
+  auto &weight = swarm->Get<Real>("weight").Get();
 
   auto swarm_d = swarm->GetDeviceContext();
 
@@ -315,13 +315,13 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
 
   Real dt = integrator->dt;
 
-  auto &t = swarm->GetReal("t").Get();
-  auto &x = swarm->GetReal("x").Get();
-  auto &y = swarm->GetReal("y").Get();
-  auto &z = swarm->GetReal("z").Get();
-  const auto &vx = swarm->GetReal("vx").Get();
-  const auto &vy = swarm->GetReal("vy").Get();
-  const auto &vz = swarm->GetReal("vz").Get();
+  auto &t = swarm->Get<Real>("t").Get();
+  auto &x = swarm->Get<Real>("x").Get();
+  auto &y = swarm->Get<Real>("y").Get();
+  auto &z = swarm->Get<Real>("z").Get();
+  const auto &vx = swarm->Get<Real>("vx").Get();
+  const auto &vy = swarm->Get<Real>("vy").Get();
+  const auto &vz = swarm->Get<Real>("vz").Get();
 
   const Real &dx_i = pmb->coords.dx1f(pmb->cellbounds.is(IndexDomain::interior));
   const Real &dx_j = pmb->coords.dx2f(pmb->cellbounds.js(IndexDomain::interior));

@@ -218,7 +218,7 @@ class Swarm {
   bool mpiStatus;
   void AllocateComms(std::weak_ptr<MeshBlock> wpmb);
 
-  int GetParticleDataSize() { 
+  int GetParticleDataSize() {
     return std::get<0>(Vectors_).size() + std::get<1>(Vectors_).size();
   }
 
@@ -307,7 +307,7 @@ class Swarm {
 };
 
 template <class T>//, class U>
-inline vpack_types::SwarmVarList<T> Swarm::MakeVarListAll_<T>() {
+inline vpack_types::SwarmVarList<T> Swarm::MakeVarListAll_() {
   int size = 0;
   vpack_types::SwarmVarList<T> vars;
 //  const int vec_type = getType<T>();
@@ -321,7 +321,7 @@ inline vpack_types::SwarmVarList<T> Swarm::MakeVarListAll_<T>() {
 }
 
 template<class T>
-inline SwarmVariablePack<T> Swarm::PackVariables<T>(const std::vector<std::string> &names,
+inline SwarmVariablePack<T> Swarm::PackVariables(const std::vector<std::string> &names,
                                           PackIndexMap &vmap) {
 /*
   vpack_types::SwarmVarList<T> vars;
@@ -341,7 +341,7 @@ inline SwarmVariablePack<T> Swarm::PackVariables<T>(const std::vector<std::strin
 }
 
 template<class T>
-inline SwarmVariablePack<T> Swarm::PackAllVariables<T>(PackIndexMap &vmap) {
+inline SwarmVariablePack<T> Swarm::PackAllVariables(PackIndexMap &vmap) {
   std::vector<std::string> names;
   /*int vec_type;
   if( std::is_same<T,int>::value ) {
