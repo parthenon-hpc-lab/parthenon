@@ -76,6 +76,8 @@ enum class Option {
   Precise
 };
 
+template <typename T> struct DisableDeduction_Internal {using type = T;};
+template <typename T> using DisableDeduction = typename DisableDeduction_Internal<T>::type;
 
 template<class T>
 std::string getTypeName(){
@@ -133,9 +135,12 @@ class ParameterInput {
 //                             const std::string &value);
   //std::string SetString(const std::string &block, const std::string &name,
   //                      const std::string &value);
- 
-  template<class T>
-    T Set(const std::string & block, const std::string & name, T value);
+
+ template<class T, Option opt = Option::Default> 
+  T GetOrAdd(const std::string & block, const std::string & name, const DisableDeduction<T> && def_value);
+
+  template<class T, Option opt = Option::Default>
+    T Set(const std::string & block, const std::string & name, const DisableDeduction<T> && value);
 
   void RollbackNextTime();
   void ForwardNextTime(Real time);
@@ -228,7 +233,7 @@ class ParameterInput {
 
   template<>
   inline bool ParameterInput::Get<bool>(const std::string &block, const std::string &name) {
-    std::string type_str = getTypeName<T>();
+    std::string type_str = getTypeName<bool>();
     std::stringstream stream = GetParameter(block,name, type_str);
 
     if (stream.str().compare(0, 1, "0") == 0 || stream.str().compare(0, 1, "1") == 0) {
@@ -250,10 +255,10 @@ class ParameterInput {
     return this->Get<T>(block,name);
   }
 
-  template<class T>
-  inline T ParameterInput::Set(const std::string & block, const std::string & name, const T & value, const Option & opt = Option::Default) {
+  template<class T, Option opt>
+  inline T ParameterInput::Set(const std::string & block, const std::string & name, const DisableDeduction<T> && value) {
 
-    static_assert(opt == Option::Precise && std::is_same<T,Real>::value && 
+    static_assert(opt==Option::Default || (opt == Option::Precise && std::is_same<T,Real>::value) && 
         "Only Real types can use the precise options."); 
     // For String
     InputBlock *pb;
@@ -273,27 +278,25 @@ class ParameterInput {
     return value;
   }
 
-  template<class T>
-  inline T ParameterInput::GetOrAdd(const std::string & block, const std::string & name, const T & def_value, const Option & opt = Option::Default) {
+template<class T, Option opt>
+inline T ParameterInput::GetOrAdd(const std::string & block, const std::string & name, const DisableDeduction<T> && def_value) {
 
-  InputBlock *pb;
-  InputLine *pl;
   std::stringstream ss_value;
   T ret;
   Lock();
   if (DoesParameterExist(block, name)) {
     /*pb = GetPtrToBlock(block);
-    pl = pb->GetPtrToLine(name);
-    ret = pl->param_value;*/
-    ret = Get<T>(const std::string &block, const std::string &name);
+      pl = pb->GetPtrToLine(name);
+      ret = pl->param_value;*/
+    ret = this->template Get<T>(block, name);
   } else {
     //pb = FindOrAddBlock(block);
     //AddParameter(pb, name, def_value, "# Default value added at run time");
-    ret = Set(block, name, value, opt);//def_value;
+    ret = this->template Set<T,opt>(block, name, def_value);//def_value;
   }
   Unlock();
   return ret;
 
-  }
+}
 } // namespace parthenon
 #endif // PARAMETER_INPUT_HPP_

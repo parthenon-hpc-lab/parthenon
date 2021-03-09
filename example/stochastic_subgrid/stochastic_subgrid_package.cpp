@@ -47,28 +47,28 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   // read some fixed input parameters
   {
-    const Real cfl = pin->GetOrAddReal("Advection", "cfl", 0.45);
+    const Real cfl = pin->GetOrAdd("Advection", "cfl", 0.45);
     pkg->AddParam<>("cfl", cfl);
 
-    const Real vx = pin->GetOrAddReal("Advection", "vx", 1.0);
-    const Real vy = pin->GetOrAddReal("Advection", "vy", 1.0);
-    const Real vz = pin->GetOrAddReal("Advection", "vz", 1.0);
+    const Real vx = pin->GetOrAdd("Advection", "vx", 1.0);
+    const Real vy = pin->GetOrAdd("Advection", "vy", 1.0);
+    const Real vz = pin->GetOrAdd("Advection", "vz", 1.0);
     const Real vel = std::sqrt(vx * vx + vy * vy + vz * vz);
     pkg->AddParam<>("vx", vx);
     pkg->AddParam<>("vy", vy);
     pkg->AddParam<>("vz", vz);
     pkg->AddParam<>("vel", vel);
 
-    const Real amp = pin->GetOrAddReal("Advection", "amp", 1e-6);
+    const Real amp = pin->GetOrAdd("Advection", "amp", 1e-6);
     pkg->AddParam<>("amp", amp);
 
-    const Real refine_tol = pin->GetOrAddReal("Advection", "refine_tol", 0.3);
+    const Real refine_tol = pin->GetOrAdd("Advection", "refine_tol", 0.3);
     pkg->AddParam<>("refine_tol", refine_tol);
 
-    const Real derefine_tol = pin->GetOrAddReal("Advection", "derefine_tol", 0.03);
+    const Real derefine_tol = pin->GetOrAdd("Advection", "derefine_tol", 0.03);
     pkg->AddParam<>("derefine_tol", derefine_tol);
 
-    const auto profile_str = pin->GetOrAddString("Advection", "profile", "wave");
+    const auto profile_str = pin->GetOrAdd("Advection", "profile", "wave");
     if (!((profile_str.compare("wave") == 0) ||
           (profile_str.compare("smooth_gaussian") == 0) ||
           (profile_str.compare("hard_sphere") == 0))) {
@@ -84,15 +84,15 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
     //    For wavevector along grid diagonal, do not input values for ang_2/ang_3.
     // Code below will automatically calculate these imposing periodicity and exactly one
     // wavelength along each grid direction
-    const Real x1size = pin->GetOrAddReal("parthenon/mesh", "x1max", 1.5) -
-                        pin->GetOrAddReal("parthenon/mesh", "x1min", -1.5);
-    const Real x2size = pin->GetOrAddReal("parthenon/mesh", "x2max", 1.0) -
-                        pin->GetOrAddReal("parthenon/mesh", "x2min", -1.0);
-    const Real x3size = pin->GetOrAddReal("parthenon/mesh", "x3max", 1.0) -
-                        pin->GetOrAddReal("parthenon/mesh", "x3min", -1.0);
+    const Real x1size = pin->GetOrAdd("parthenon/mesh", "x1max", 1.5) -
+                        pin->GetOrAdd("parthenon/mesh", "x1min", -1.5);
+    const Real x2size = pin->GetOrAdd("parthenon/mesh", "x2max", 1.0) -
+                        pin->GetOrAdd("parthenon/mesh", "x2min", -1.0);
+    const Real x3size = pin->GetOrAdd("parthenon/mesh", "x3max", 1.0) -
+                        pin->GetOrAdd("parthenon/mesh", "x3min", -1.0);
 
-    Real ang_2 = pin->GetOrAddReal("Advection", "ang_2", -999.9);
-    Real ang_3 = pin->GetOrAddReal("Advection", "ang_3", -999.9);
+    Real ang_2 = pin->GetOrAdd("Advection", "ang_2", -999.9);
+    Real ang_3 = pin->GetOrAdd("Advection", "ang_3", -999.9);
 
     // User should never input -999.9 in angles
     if (ang_3 == -999.9) ang_3 = std::atan(x1size / x2size);
@@ -100,7 +100,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
     Real cos_a3 = std::cos(ang_3);
 
     // Override ang_3 input and hardcode vertical (along x2 axis) wavevector
-    const Real ang_3_vert = pin->GetOrAddBoolean("Advection", "ang_3_vert", false);
+    const Real ang_3_vert = pin->GetOrAdd("Advection", "ang_3_vert", false);
     if (ang_3_vert) {
       sin_a3 = 1.0;
       cos_a3 = 0.0;
@@ -113,7 +113,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
     Real cos_a2 = std::cos(ang_2);
 
     // Override ang_2 input and hardcode vertical (along x3 axis) wavevector
-    const Real ang_2_vert = pin->GetOrAddBoolean("Advection", "ang_2_vert", false);
+    const Real ang_2_vert = pin->GetOrAdd("Advection", "ang_2_vert", false);
     if (ang_2_vert) {
       sin_a2 = 1.0;
       cos_a2 = 0.0;
@@ -126,9 +126,9 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
     // For lambda choose the smaller of the 3
     Real lambda = x1;
-    if ((pin->GetOrAddInteger("parthenon/mesh", "nx2", 1) > 1) && ang_3 != 0.0)
+    if ((pin->GetOrAdd<int>("parthenon/mesh", "nx2", 1) > 1) && ang_3 != 0.0)
       lambda = std::min(lambda, x2);
-    if ((pin->GetOrAddInteger("parthenon/mesh", "nx3", 1) > 1) && ang_2 != 0.0)
+    if ((pin->GetOrAdd<int>("parthenon/mesh", "nx3", 1) > 1) && ang_2 != 0.0)
       lambda = std::min(lambda, x3);
 
     // If cos_a2 or cos_a3 = 0, need to override lambda

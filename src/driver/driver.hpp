@@ -61,17 +61,17 @@ class EvolutionDriver : public Driver {
  public:
   EvolutionDriver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
       : Driver(pin, app_in, pm) {
-    Real start_time = pinput->GetOrAddPrecise("parthenon/time", "start_time", 0.0);
-    Real tstop = pinput->GetOrAddPrecise("parthenon/time", "tlim",
+    Real start_time = pinput->GetOrAdd<Real,Option::Precise>("parthenon/time", "start_time", 0.0);
+    Real tstop = pinput->GetOrAdd<Real,Option::Precise>("parthenon/time", "tlim",
                                          std::numeric_limits<Real>::infinity());
     Real dt =
-        pinput->GetOrAddPrecise("parthenon/time", "dt", std::numeric_limits<Real>::max());
-    const auto ncycle = pinput->GetOrAddInteger("parthenon/time", "ncycle", 0);
-    const auto nmax = pinput->GetOrAddInteger("parthenon/time", "nlim", -1);
-    const auto nout = pinput->GetOrAddInteger("parthenon/time", "ncycle_out", 1);
+        pinput->GetOrAdd<Real,Option::Precise>("parthenon/time", "dt", std::numeric_limits<Real>::max());
+    const auto ncycle = pinput->GetOrAdd<int>("parthenon/time", "ncycle", 0);
+    const auto nmax = pinput->GetOrAdd<int>("parthenon/time", "nlim", -1);
+    const auto nout = pinput->GetOrAdd<int>("parthenon/time", "ncycle_out", 1);
     // disable mesh output by default
     const auto nout_mesh =
-        pinput->GetOrAddInteger("parthenon/time", "ncycle_out_mesh", 0);
+        pinput->GetOrAdd<int>("parthenon/time", "ncycle_out_mesh", 0);
     tm = SimTime(start_time, tstop, nmax, ncycle, nout, nout_mesh, dt);
     pouts = std::make_unique<Outputs>(pmesh, pinput, &tm);
   }

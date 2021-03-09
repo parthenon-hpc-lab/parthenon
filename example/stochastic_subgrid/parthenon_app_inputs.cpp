@@ -90,7 +90,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
 //========================================================================================
 
 void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
-  if (pin->GetOrAddBoolean("Advection", "compute_error", false)) {
+  if (pin->GetOrAdd<bool>("Advection", "compute_error", false)) {
     // Initialize errors to zero
     Real l1_err = 0.0;
     Real max_err = 0.0;
@@ -212,7 +212,7 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
     }
   }
 
-  if (pin->GetOrAddBoolean("Random", "compute_histogram", true)) {
+  if (pin->GetOrAdd<bool>("Random", "compute_histogram", true)) {
     int N_min = pin->Get<int>("Random", "num_iter_min");
 
     auto pkg = mesh->block_list[0]->packages.Get("stochastic_subgrid_package");
