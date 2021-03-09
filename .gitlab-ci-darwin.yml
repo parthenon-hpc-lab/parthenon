@@ -1,47 +1,75 @@
 variables:
   SCHEDULER_PARAMETERS: '--nodes=1 --partition=power9-eap-ci --export=NONE'
   GIT_SUBMODULE_STRATEGY: recursive
+  CMAKE_CXX_COMPILER: ${CI_PROJECT_DIR}/external/Kokkos/bin/nvcc_wrapper
 
 stages:
   - performance-target
   - performance-regression
- 
+
+########################################################################
+# Anchors
+########################################################################
 .run-script-with-check: &run-script-with-check
+- env
+- git fetch --all
+- chmod +x $EXECUTABLE
 - |
-  chmod +x execute_metrics.sh
-  STATUS=$(${CI_PROJECT_DIR}/execute_main.sh)
+  STATUS=$(${CI_PROJECT_DIR}/${EXECUTABLE})
   echo "PASS_OR_FAIL ${STATUS}"
   if [[ "$STATUS" == *"FAILED"* ]]; then exit 1; fi
 
-.gcc-mpi-cuda-performance-regression:
+########################################################################
+# Templates
+########################################################################
+.gcc-mpi-cuda-performance-regression-build:
   variables: 
-    CMAKE_CXX_COMPILER: $CI_PROJECT_DIR/external/Kokkos/bin/nvcc_wrapper
+    EXECUTABLE: execute_main.sh
   script:
-    - env
-    - git fetch --all
-    - printf 'env -i bash --norc --noprofile %s/scripts/darwin/build_fast_target.sh  "%s" "%s" "%s" "%s"\n' ${CI_PROJECT_DIR} ${GITHUB_APP_PEM} ${CI_COMMIT_SHA} ${CI_COMMIT_BRANCH} ${CI_JOB_URL}> execute_main.sh
-    - printf 'env -i bash --norc --noprofile %s/scripts/darwin/metrics.sh "%s" "%s/build" "%s" "%s"\n' ${CI_PROJECT_DIR} ${GITHUB_APP_PEM} ${CI_PROJECT_DIR} ${CI_COMMIT_SHA} ${CI_COMMIT_BRANCH}> execute_metrics.sh
-    - chmod +x execute_main.sh
-    - chmod +x execute_metrics.sh
-    - |
-      STATUS=$(${CI_PROJECT_DIR}/execute_main.sh)
-      echo "PASS_OR_FAIL ${STATUS}"
-      if [[ "$STATUS" == *"FAILED"* ]]; then exit 1; fi
-    - |
-      STATUS=$(${CI_PROJECT_DIR}/execute_metrics.sh)
-      echo "PASS_OR_FAIL ${STATUS}"
-      if [[ "$STATUS" == *"FAILED"* ]]; then exit 1; fi
+    - printf 'env -i bash --norc --noprofile %s/scripts/darwin/build_fast_target.sh  "%s" "%s" "%s"
+      "%s"\n'
+      ${CI_PROJECT_DIR}
+      ${GITHUB_APP_PEM}
+      ${CI_COMMIT_SHA}
+      ${CI_COMMIT_BRANCH}
+      ${CI_JOB_URL}> ${EXECUTABLE}
+    - *run-script-with-check
+  artifacts:
+    paths:
+      - ${CI_PROJECT_DIR}
+    expire_in: 1 day
+
+.gcc-mpi-cuda-performance-regression-metrics:
+  variables: 
+    EXECUTABLE: execute_metrics.sh
+  script:
+    - printf 'env -i bash --norc --noprofile %s/scripts/darwin/metrics.sh "%s" "%s/build" "%s"
+      "%s"\n'
+      ${CI_PROJECT_DIR}
+      ${GITHUB_APP_PEM}
+      ${CI_PROJECT_DIR}
+      ${CI_COMMIT_SHA}
+      ${CI_COMMIT_BRANCH}> ${EXECUTABLE}
+    - *run-script-with-check
 
 .gcc-mpi-cuda-performance-regression-target-branch:
+  variables:
+    EXECUTABLE: execute_target.sh
   script:
-    - git fetch --all
-    - printf 'env -i bash --norc --noprofile %s/scripts/darwin/build_fast_target.sh  "%s" "%s/build" "%s" "%s" "%s %s"\n' ${CI_PROJECT_DIR} ${GITHUB_APP_PEM} ${CI_PROJECT_DIR} ${CI_COMMIT_SHA} ${CI_COMMIT_BRANCH} ${CI_JOB_URL} ${CI_JOB_TOKEN} > execute_target.sh
-    - chmod +x execute_target.sh
-    - |
-      STATUS=$(${CI_PROJECT_DIR}/execute_target.sh)
-      echo "PASS_OR_FAIL ${STATUS}"
-      if [[ "$STATUS" == *"FAILED"* ]]; then exit 1; fi
+    - printf 'env -i bash --norc --noprofile %s/scripts/darwin/build_fast_target.sh  "%s"
+      "%s/build" "%s" "%s" "%s %s"\n'
+      ${CI_PROJECT_DIR}
+      ${GITHUB_APP_PEM}
+      ${CI_PROJECT_DIR}
+      ${CI_COMMIT_SHA}
+      ${CI_COMMIT_BRANCH}
+      ${CI_JOB_URL}
+      ${CI_JOB_TOKEN} > ${EXECUTABLE}
+    - *run-script-with-check
 
+########################################################################
+# Manual Jobs
+########################################################################
 parthenon-power9-gcc-mpi-cuda-perf-manual-target-branch:
   extends: .gcc-mpi-cuda-performance-regression-target-branch
   stage: performance-target
@@ -50,16 +78,34 @@ parthenon-power9-gcc-mpi-cuda-perf-manual-target-branch:
   except:
     - schedules
 
-parthenon-power9-gcc-mpi-cuda-perf-manual:
-  extends: .gcc-mpi-cuda-performance-regression
+parthenon-power9-gcc-mpi-cuda-perf-manual-build:
+  extends: .gcc-mpi-cuda-performance-regression-build
   stage: performance-regression
   needs: [parthenon-power9-gcc-mpi-cuda-perf-manual-target-branch]
   except:
     - schedules
 
-parthenon-power9-gcc-mpi-cuda-perf-schedule:
-  extends: .gcc-mpi-cuda-performance-regression
+parthenon-power9-gcc-mpi-cuda-perf-manual-metrics:
+  extends: .gcc-mpi-cuda-performance-regression-metrics
   stage: performance-regression
+  needs: [parthenon-power9-gcc-mpi-cuda-perf-manual-build]
+  except:
+    - schedules
+
+########################################################################
+# Scheduled jobs
+########################################################################
+parthenon-power9-gcc-mpi-cuda-perf-schedule-build:
+  extends: .gcc-mpi-cuda-performance-regression-build
+  stage: performance-regression
+  only:
+    - schedules
+    - develop
+
+parthenon-power9-gcc-mpi-cuda-perf-schedule-metrics:
+  extends: .gcc-mpi-cuda-performance-regression-metrics
+  stage: performance-regression
+  needs: [parthenon-power9-gcc-mpi-cuda-perf-schedule-build]
   only:
     - schedules
     - develop
