@@ -120,8 +120,7 @@ TaskStatus DestroySomeParticles(MeshBlock *pmb) {
 
   // Randomly mark 10% of particles each timestep for removal
   pmb->par_for(
-      "DestroySomeParticles", 0, swarm->get_max_active_index(),
-      KOKKOS_LAMBDA(const int n) {
+      "DestroySomeParticles", 0, swarm->GetMaxActiveIndex(), KOKKOS_LAMBDA(const int n) {
         if (swarm_d.IsActive(n)) {
           auto rng_gen = rng_pool.get_state();
           // if (rng_gen.drand() > 0.9) {
@@ -152,10 +151,10 @@ TaskStatus DepositParticles(MeshBlock *pmb) {
   const Real &minx_j = pmb->coords.x2f(jb.s);
   const Real &minx_k = pmb->coords.x3f(kb.s);
 
-  const auto &x = swarm->GetReal("x").Get();
-  const auto &y = swarm->GetReal("y").Get();
-  const auto &z = swarm->GetReal("z").Get();
-  const auto &weight = swarm->GetReal("weight").Get();
+  const auto &x = swarm->Get<Real>("x").Get();
+  const auto &y = swarm->Get<Real>("y").Get();
+  const auto &z = swarm->Get<Real>("z").Get();
+  const auto &weight = swarm->Get<Real>("weight").Get();
   auto swarm_d = swarm->GetDeviceContext();
 
   auto &particle_dep = pmb->meshblock_data.Get()->Get("particle_deposition").data;
@@ -169,7 +168,7 @@ TaskStatus DepositParticles(MeshBlock *pmb) {
   const int ndim = pmb->pmy_mesh->ndim;
 
   pmb->par_for(
-      "DepositParticles", 0, swarm->get_max_active_index(), KOKKOS_LAMBDA(const int n) {
+      "DepositParticles", 0, swarm->GetMaxActiveIndex(), KOKKOS_LAMBDA(const int n) {
         if (swarm_d.IsActive(n)) {
           int i = static_cast<int>(std::floor((x(n) - minx_i) / dx_i) + ib.s);
           int j = 0;
@@ -216,20 +215,20 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, const double t0) {
   const Real &minx_j = pmb->coords.x2f(jb.s);
   const Real &minx_k = pmb->coords.x3f(kb.s);
 
-  auto &t = swarm->GetReal("t").Get();
-  auto &x = swarm->GetReal("x").Get();
-  auto &y = swarm->GetReal("y").Get();
-  auto &z = swarm->GetReal("z").Get();
-  auto &vx = swarm->GetReal("vx").Get();
-  auto &vy = swarm->GetReal("vy").Get();
-  auto &vz = swarm->GetReal("vz").Get();
-  auto &weight = swarm->GetReal("weight").Get();
+  auto &t = swarm->Get<Real>("t").Get();
+  auto &x = swarm->Get<Real>("x").Get();
+  auto &y = swarm->Get<Real>("y").Get();
+  auto &z = swarm->Get<Real>("z").Get();
+  auto &vx = swarm->Get<Real>("vx").Get();
+  auto &vy = swarm->Get<Real>("vy").Get();
+  auto &vz = swarm->Get<Real>("vz").Get();
+  auto &weight = swarm->Get<Real>("weight").Get();
 
   auto swarm_d = swarm->GetDeviceContext();
 
   if (orbiting_particles) {
     pmb->par_for(
-        "CreateSomeOrbitingParticles", 0, swarm->get_max_active_index(),
+        "CreateSomeOrbitingParticles", 0, swarm->GetMaxActiveIndex(),
         KOKKOS_LAMBDA(const int n) {
           if (new_particles_mask(n)) {
             auto rng_gen = rng_pool.get_state();
@@ -273,8 +272,7 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, const double t0) {
         });
   } else {
     pmb->par_for(
-        "CreateSomeParticles", 0, swarm->get_max_active_index(),
-        KOKKOS_LAMBDA(const int n) {
+        "CreateSomeParticles", 0, swarm->GetMaxActiveIndex(), KOKKOS_LAMBDA(const int n) {
           if (new_particles_mask(n)) {
             auto rng_gen = rng_pool.get_state();
 
@@ -300,7 +298,7 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, const double t0) {
         });
   }
 
-  swarm->swarm_num_incomplete_ = swarm->get_num_active();
+  swarm->swarm_num_incomplete_ = swarm->GetNumActive();
 
   return TaskStatus::complete;
 }
@@ -311,17 +309,17 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
   auto pkg = pmb->packages.Get("particles_package");
   auto orbiting_particles = pkg->Param<bool>("orbiting_particles");
 
-  int max_active_index = swarm->get_max_active_index();
+  int max_active_index = swarm->GetMaxActiveIndex();
 
   Real dt = integrator->dt;
 
-  auto &t = swarm->GetReal("t").Get();
-  auto &x = swarm->GetReal("x").Get();
-  auto &y = swarm->GetReal("y").Get();
-  auto &z = swarm->GetReal("z").Get();
-  const auto &vx = swarm->GetReal("vx").Get();
-  const auto &vy = swarm->GetReal("vy").Get();
-  const auto &vz = swarm->GetReal("vz").Get();
+  auto &t = swarm->Get<Real>("t").Get();
+  auto &x = swarm->Get<Real>("x").Get();
+  auto &y = swarm->Get<Real>("y").Get();
+  auto &z = swarm->Get<Real>("z").Get();
+  const auto &vx = swarm->Get<Real>("vx").Get();
+  const auto &vy = swarm->Get<Real>("vy").Get();
+  const auto &vz = swarm->Get<Real>("vz").Get();
 
   const Real &dx_i = pmb->coords.dx1f(pmb->cellbounds.is(IndexDomain::interior));
   const Real &dx_j = pmb->coords.dx2f(pmb->cellbounds.js(IndexDomain::interior));
@@ -426,7 +424,7 @@ TaskStatus Defrag(MeshBlock *pmb) {
 
   // Only do this if list is getting too sparse. This criterion (whether there
   // are *any* gaps in the list) is very aggressive
-  if (s->get_num_active() <= s->get_max_active_index()) {
+  if (s->GetNumActive() <= s->GetMaxActiveIndex()) {
     s->Defrag();
   }
 

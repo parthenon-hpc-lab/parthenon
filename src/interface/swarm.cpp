@@ -100,19 +100,18 @@ std::shared_ptr<Swarm> Swarm::AllocateCopy(const bool allocComms, MeshBlock *pmb
 /// @param metadata the metadata associated with the particle
 void Swarm::Add(const std::string &label, const Metadata &metadata) {
   // labels must be unique, even between different types of data
-  if (intMap_.count(label) > 0 || realMap_.count(label) > 0) {
+  //  if (intMap_.count(label) > 0 || realMap_.count(label) > 0) {
+  if (std::get<getType<int>()>(Maps_).count(label) > 0 ||
+      std::get<getType<Real>()>(Maps_).count(label) > 0) {
     throw std::invalid_argument("swarm variable " + label +
                                 " already enrolled during Add()!");
   }
 
+  int vec_type;
   if (metadata.Type() == Metadata::Integer) {
-    auto var = std::make_shared<ParticleVariable<int>>(label, nmax_pool_, metadata);
-    intVector_.push_back(var);
-    intMap_[label] = var;
+    Add_<int>(label);
   } else if (metadata.Type() == Metadata::Real) {
-    auto var = std::make_shared<ParticleVariable<Real>>(label, nmax_pool_, metadata);
-    realVector_.push_back(var);
-    realMap_[label] = var;
+    Add_<Real>(label);
   } else {
     throw std::invalid_argument("swarm variable " + label +
                                 " does not have a valid type during Add()");
@@ -125,6 +124,11 @@ void Swarm::Add(const std::string &label, const Metadata &metadata) {
 /// @param label the name of the variable
 void Swarm::Remove(const std::string &label) {
   bool found = false;
+
+  auto &intMap_ = std::get<getType<int>()>(Maps_);
+  auto &intVector_ = std::get<getType<int>()>(Vectors_);
+  auto &realMap_ = std::get<getType<Real>()>(Maps_);
+  auto &realVector_ = std::get<getType<Real>()>(Vectors_);
 
   // Find index of variable
   int idx = 0;
@@ -196,6 +200,11 @@ void Swarm::setPoolMax(const int nmax_pool) {
   neighbor_send_index_.Get().Resize(nmax_pool);
 
   blockIndex_.Resize(nmax_pool);
+
+  auto &intMap_ = std::get<getType<int>()>(Maps_);
+  auto &intVector_ = std::get<getType<int>()>(Vectors_);
+  auto &realMap_ = std::get<getType<Real>()>(Maps_);
+  auto &realVector_ = std::get<getType<Real>()>(Vectors_);
 
   // TODO(BRR) Use ParticleVariable packs to reduce kernel launches
   for (int n = 0; n < intVector_.size(); n++) {
@@ -300,7 +309,7 @@ void Swarm::RemoveMarkedParticles() {
 }
 
 void Swarm::Defrag() {
-  if (get_num_active() == 0) {
+  if (GetNumActive() == 0) {
     return;
   }
   // TODO(BRR) Could this algorithm be more efficient? Does it matter?
@@ -354,12 +363,14 @@ void Swarm::Defrag() {
         }
       });
 
+  auto &intVector_ = std::get<getType<int>()>(Vectors_);
+  auto &realVector_ = std::get<getType<Real>()>(Vectors_);
   SwarmVariablePack<Real> vreal;
   SwarmVariablePack<int> vint;
   PackIndexMap rmap;
   PackIndexMap imap;
-  vreal = PackAllVariablesReal(rmap);
-  vint = PackAllVariablesInt(imap);
+  vreal = PackAllVariables<Real>(rmap);
+  vint = PackAllVariables<int>(imap);
   int real_vars_size = realVector_.size();
   int int_vars_size = intVector_.size();
 
@@ -656,7 +667,6 @@ int Swarm::CountParticlesToSend_() {
   // Fence to make sure particles aren't currently being transported locally
   pmb->exec_space.fence();
   const int nbmax = vbswarm->bd_var_.nbmax;
-  // ParArrayND<int> num_particles_to_send("npts", nbmax);
   auto num_particles_to_send_h = num_particles_to_send_.GetHostMirror();
   for (int n = 0; n < nbmax; n++) {
     num_particles_to_send_h(n) = 0;
@@ -718,12 +728,14 @@ void Swarm::LoadBuffers_(const int max_indices_size) {
   const int particle_size = GetParticleDataSize();
   const int nbmax = vbswarm->bd_var_.nbmax;
 
+  auto &intVector_ = std::get<getType<int>()>(Vectors_);
+  auto &realVector_ = std::get<getType<Real>()>(Vectors_);
   SwarmVariablePack<Real> vreal;
   SwarmVariablePack<int> vint;
   PackIndexMap rmap;
   PackIndexMap imap;
-  vreal = PackAllVariablesReal(rmap);
-  vint = PackAllVariablesInt(imap);
+  vreal = PackAllVariables<Real>(rmap);
+  vint = PackAllVariables<int>(imap);
   int real_vars_size = realVector_.size();
   int int_vars_size = intVector_.size();
 
@@ -765,63 +777,11 @@ bool Swarm::Send(BoundaryCommSubset phase) {
   return true;
 }
 
-template <typename T>
-vpack_types::SwarmVarList<T> Swarm::MakeVarListAll_(ParticleVariableVector<T> variables) {
-  int size = 0;
-  vpack_types::SwarmVarList<T> vars;
-
-  for (auto it = variables.rbegin(); it != variables.rend(); ++it) {
-    auto v = *it;
-    vars.push_front(v);
-    size++;
-  }
-  return vars;
-}
-
-SwarmVariablePack<Real> Swarm::PackAllVariablesReal(PackIndexMap &vmap) {
-  std::vector<std::string> names;
-  names.reserve(realVector_.size());
-  for (const auto &v : realVector_) {
-    names.push_back(v->label());
-  }
-  return PackVariablesReal(names, vmap);
-}
-
-SwarmVariablePack<int> Swarm::PackAllVariablesInt(PackIndexMap &vmap) {
-  std::vector<std::string> names;
-  names.reserve(intVector_.size());
-  for (const auto &v : intVector_) {
-    names.push_back(v->label());
-  }
-  return PackVariablesInt(names, vmap);
-}
-
-SwarmVariablePack<Real> Swarm::PackVariablesReal(const std::vector<std::string> &names,
-                                                 PackIndexMap &vmap) {
-  vpack_types::SwarmVarList<Real> vars = MakeVarListAll_<Real>(realVector_);
-
-  auto pack = MakeSwarmPack<Real>(vars, &vmap);
-  SwarmPackIndxPair<Real> value;
-  value.pack = pack;
-  value.map = vmap;
-  return pack;
-}
-SwarmVariablePack<int> Swarm::PackVariablesInt(const std::vector<std::string> &names,
-                                               PackIndexMap &vmap) {
-  vpack_types::SwarmVarList<int> vars = MakeVarListAll_(intVector_);
-
-  auto pack = MakeSwarmPack<int>(vars, &vmap);
-  SwarmPackIndxPair<int> value;
-  value.pack = pack;
-  value.map = vmap;
-  return pack;
-}
-
 void Swarm::CountReceivedParticles_() {
   auto pmb = GetBlockPointer();
-  const int maxneighbor = vbswarm->bd_var_.nbmax;
+  const int max_neighbor = vbswarm->bd_var_.nbmax;
   total_received_particles_ = 0;
-  for (int n = 0; n < maxneighbor; n++) {
+  for (int n = 0; n < max_neighbor; n++) {
     if (vbswarm->bd_var_.flag[pmb->pbval->neighbor[n].bufid] == BoundaryStatus::arrived) {
       PARTHENON_DEBUG_REQUIRE(vbswarm->recv_size[n] % vbswarm->particle_size == 0,
                               "Receive buffer is not divisible by particle size!");
@@ -835,12 +795,12 @@ void Swarm::CountReceivedParticles_() {
 
 void Swarm::UpdateNeighborBufferReceiveIndices_(ParArrayND<int> &neighbor_index,
                                                 ParArrayND<int> &buffer_index) {
-  const int maxneighbor = vbswarm->bd_var_.nbmax;
+  const int max_neighbor = vbswarm->bd_var_.nbmax;
   auto neighbor_index_h = neighbor_index.GetHostMirror();
   auto buffer_index_h = buffer_index.GetHostMirror();
 
   int id = 0;
-  for (int n = 0; n < maxneighbor; n++) {
+  for (int n = 0; n < max_neighbor; n++) {
     for (int m = 0; m < neighbor_received_particles_[n]; m++) {
       neighbor_index_h(id) = n;
       buffer_index_h(id) = m;
@@ -866,10 +826,10 @@ void Swarm::UnloadBuffers_() {
     SwarmVariablePack<int> vint;
     PackIndexMap rmap;
     PackIndexMap imap;
-    vreal = PackAllVariablesReal(rmap);
-    vint = PackAllVariablesInt(imap);
-    int real_vars_size = realVector_.size();
-    int int_vars_size = intVector_.size();
+    vreal = PackAllVariables<Real>(rmap);
+    vint = PackAllVariables<int>(imap);
+    int real_vars_size = std::get<RealVec>(Vectors_).size();
+    int int_vars_size = std::get<IntVec>(Vectors_).size();
     const int ix = rmap["x"].first;
     const int iy = rmap["y"].first;
     const int iz = rmap["z"].first;
