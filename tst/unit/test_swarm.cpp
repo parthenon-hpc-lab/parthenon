@@ -68,8 +68,8 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   auto swarm = std::make_shared<Swarm>("test swarm", m, NUMINIT);
   swarm->SetBlockPointer(meshblock);
   auto swarm_d = swarm->GetDeviceContext();
-  REQUIRE(swarm->get_num_active() == 0);
-  REQUIRE(swarm->get_max_active_index() == 0);
+  REQUIRE(swarm->GetNumActive() == 0);
+  REQUIRE(swarm->GetMaxActiveIndex() == 0);
   ParArrayND<int> failures_d("Number of failures", 1);
   meshblock->par_for(
       "Reset", 0, 0, KOKKOS_LAMBDA(const int n) { failures_d(n) = 0; });

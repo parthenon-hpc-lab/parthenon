@@ -120,8 +120,7 @@ TaskStatus DestroySomeParticles(MeshBlock *pmb) {
 
   // Randomly mark 10% of particles each timestep for removal
   pmb->par_for(
-      "DestroySomeParticles", 0, swarm->get_max_active_index(),
-      KOKKOS_LAMBDA(const int n) {
+      "DestroySomeParticles", 0, swarm->GetMaxActiveIndex(), KOKKOS_LAMBDA(const int n) {
         if (swarm_d.IsActive(n)) {
           auto rng_gen = rng_pool.get_state();
           // if (rng_gen.drand() > 0.9) {
@@ -169,7 +168,7 @@ TaskStatus DepositParticles(MeshBlock *pmb) {
   const int ndim = pmb->pmy_mesh->ndim;
 
   pmb->par_for(
-      "DepositParticles", 0, swarm->get_max_active_index(), KOKKOS_LAMBDA(const int n) {
+      "DepositParticles", 0, swarm->GetMaxActiveIndex(), KOKKOS_LAMBDA(const int n) {
         if (swarm_d.IsActive(n)) {
           int i = static_cast<int>(std::floor((x(n) - minx_i) / dx_i) + ib.s);
           int j = 0;
@@ -229,7 +228,7 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, const double t0) {
 
   if (orbiting_particles) {
     pmb->par_for(
-        "CreateSomeOrbitingParticles", 0, swarm->get_max_active_index(),
+        "CreateSomeOrbitingParticles", 0, swarm->GetMaxActiveIndex(),
         KOKKOS_LAMBDA(const int n) {
           if (new_particles_mask(n)) {
             auto rng_gen = rng_pool.get_state();
@@ -273,8 +272,7 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, const double t0) {
         });
   } else {
     pmb->par_for(
-        "CreateSomeParticles", 0, swarm->get_max_active_index(),
-        KOKKOS_LAMBDA(const int n) {
+        "CreateSomeParticles", 0, swarm->GetMaxActiveIndex(), KOKKOS_LAMBDA(const int n) {
           if (new_particles_mask(n)) {
             auto rng_gen = rng_pool.get_state();
 
@@ -300,7 +298,7 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, const double t0) {
         });
   }
 
-  swarm->swarm_num_incomplete_ = swarm->get_num_active();
+  swarm->swarm_num_incomplete_ = swarm->GetNumActive();
 
   return TaskStatus::complete;
 }
@@ -311,7 +309,7 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
   auto pkg = pmb->packages.Get("particles_package");
   auto orbiting_particles = pkg->Param<bool>("orbiting_particles");
 
-  int max_active_index = swarm->get_max_active_index();
+  int max_active_index = swarm->GetMaxActiveIndex();
 
   Real dt = integrator->dt;
 
@@ -426,7 +424,7 @@ TaskStatus Defrag(MeshBlock *pmb) {
 
   // Only do this if list is getting too sparse. This criterion (whether there
   // are *any* gaps in the list) is very aggressive
-  if (s->get_num_active() <= s->get_max_active_index()) {
+  if (s->GetNumActive() <= s->GetMaxActiveIndex()) {
     s->Defrag();
   }
 
