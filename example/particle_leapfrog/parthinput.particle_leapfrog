@@ -49,8 +49,5 @@ tlim = 1.e2
 integrator = rk1
 
 <Particles>
-num_particles = 10
-particle_speed = 1.0
-rng_seed = 23487
 cfl = 0.3
 write_particle_log = true
