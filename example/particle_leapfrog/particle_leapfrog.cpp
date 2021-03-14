@@ -362,24 +362,6 @@ TaskStatus StopCommunicationMesh(const BlockList_t &blocks) {
   return TaskStatus::complete;
 }
 
-TaskCollection ParticleDriver::MakeParticlesCreationTaskCollection() const {
-  TaskCollection tc;
-  TaskID none(0);
-  const double t0 = tm.time;
-  const BlockList_t &blocks = pmesh->block_list;
-
-  auto num_task_lists_executed_independently = blocks.size();
-  TaskRegion &async_region0 = tc.AddRegion(num_task_lists_executed_independently);
-  for (int i = 0; i < blocks.size(); i++) {
-    auto &pmb = blocks[i];
-    auto &tl = async_region0[i];
-    // auto create_some_particles = tl.AddTask(none, CreateSomeParticles, pmb.get(),
-    // t0);
-  }
-
-  return tc;
-}
-
 TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection() const {
   TaskCollection tc;
   TaskID none(0);
