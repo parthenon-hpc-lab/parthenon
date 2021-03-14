@@ -33,13 +33,16 @@ x2max = 0.5
 ix2_bc = periodic
 ox2_bc = periodic
 
-nx3 = 1
+nx3 = 16
 x3min = -0.5
 x3max = 0.5
+ix3_bc = periodic
+ox3_bc = periodic
 
 <parthenon/meshblock>
 nx1 = 16
 nx2 = 16
+nx3 = 16
 
 <parthenon/time>
 tlim = 1.e2

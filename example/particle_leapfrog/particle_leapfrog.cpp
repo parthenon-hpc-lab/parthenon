@@ -20,6 +20,7 @@
 #include "globals.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <iostream>
 #include <limits>
 #include <memory>
@@ -36,10 +37,6 @@ Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   Packages_t packages;
   packages.Add(particles_example::Particles::Initialize(pin.get()));
   return packages;
-}
-
-void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
-  // Don't do anything for now
 }
 
 // *************************************************//
@@ -80,14 +77,11 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddSwarm(swarm_name, swarm_metadata);
   Metadata real_swarmvalue_metadata({Metadata::Real});
   pkg->AddSwarmValue("t", swarm_name, real_swarmvalue_metadata);
+  pkg->AddSwarmValue("id", swarm_name, Metadata({Metadata::Integer}));
   pkg->AddSwarmValue("vx", swarm_name, real_swarmvalue_metadata);
   pkg->AddSwarmValue("vy", swarm_name, real_swarmvalue_metadata);
   pkg->AddSwarmValue("vz", swarm_name, real_swarmvalue_metadata);
   pkg->AddSwarmValue("weight", swarm_name, real_swarmvalue_metadata);
-
-  std::string field_name = "particle_deposition";
-  Metadata m({Metadata::Cell, Metadata::Independent});
-  pkg->AddField(field_name, m);
 
   pkg->EstimateTimestepBlock = EstimateTimestepBlock;
 
@@ -121,6 +115,7 @@ TaskStatus WriteParticleLog(MeshBlock *pmb) {
 
   auto swarm = pmb->swarm_data.Get()->Get("my particles");
 
+  const auto &id = swarm->Get<int>("id").Get().GetHostMirrorAndCopy();
   const auto &x = swarm->Get<Real>("x").Get().GetHostMirrorAndCopy();
   const auto &y = swarm->Get<Real>("y").Get().GetHostMirrorAndCopy();
   const auto &z = swarm->Get<Real>("z").Get().GetHostMirrorAndCopy();
@@ -130,8 +125,9 @@ TaskStatus WriteParticleLog(MeshBlock *pmb) {
 
   std::stringstream buffer;
   for (auto n = 0; n < x.GetSize(); n++) {
-    buffer << Globals::my_rank << " , " << x(n) << " , " << y(n) << " , " << z(n) << " , "
-           << vx(n) << " , " << vy(n) << " , " << vz(n) << std::endl;
+    buffer << Globals::my_rank << " , " << id(n) << " , " << x(n) << " , " << y(n)
+           << " , " << z(n) << " , " << vx(n) << " , " << vy(n) << " , " << vz(n)
+           << std::endl;
   }
 
   std::cout << buffer.str();
@@ -139,117 +135,52 @@ TaskStatus WriteParticleLog(MeshBlock *pmb) {
   return TaskStatus::complete;
 }
 
-TaskStatus CreateSomeParticles(MeshBlock *pmb, const double t0) {
+// initial particle position: x,y,z,vx,vy,vz
+constexpr int num_test_particles = 5;
+constexpr int num_particles_max = 1024; // temp limit to ensure unique ids, needs fix
+const std::array<std::array<Real, 6>, num_test_particles> particles_ic = {{
+    {0.1, 0.2, 0.3, 1.0, 0.0, 0.0},  // along x direction
+    {0.5, -0.1, 0.3, 1.0, 1.0, 0.0}, // along y direction
+    {-0.1, 0.3, 0.2, 1.0, 0.0, 1.0}, // along z direction
+    {0.12, 0.2, -0.3, std::sqrt(3.0), std::sqrt(3.0), std::sqrt(3.0)}, // along diagnonal
+    {0.3, 0.0, 0.0, 1.0, 0.0, 0.0},                                    // orbiting
+}};
+
+void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
+  Real t0 = 0.0;
   auto pkg = pmb->packages.Get("particles_package");
   auto swarm = pmb->swarm_data.Get()->Get("my particles");
   auto rng_pool = pkg->Param<RNGPool>("rng_pool");
-  auto num_particles = pkg->Param<int>("num_particles");
-  auto v = pkg->Param<Real>("particle_speed");
-  auto orbiting_particles = pkg->Param<bool>("orbiting_particles");
+  auto num_particles = num_test_particles;
 
   ParArrayND<int> new_indices;
   const auto new_particles_mask = swarm->AddEmptyParticles(num_particles, new_indices);
 
-  // Meshblock geometry
-  const IndexRange &ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
-  const IndexRange &jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
-  const IndexRange &kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
-  const int &nx_i = pmb->cellbounds.ncellsi(IndexDomain::interior);
-  const int &nx_j = pmb->cellbounds.ncellsj(IndexDomain::interior);
-  const int &nx_k = pmb->cellbounds.ncellsk(IndexDomain::interior);
-  const Real &dx_i = pmb->coords.dx1f(pmb->cellbounds.is(IndexDomain::interior));
-  const Real &dx_j = pmb->coords.dx2f(pmb->cellbounds.js(IndexDomain::interior));
-  const Real &dx_k = pmb->coords.dx3f(pmb->cellbounds.ks(IndexDomain::interior));
-  const Real &minx_i = pmb->coords.x1f(ib.s);
-  const Real &minx_j = pmb->coords.x2f(jb.s);
-  const Real &minx_k = pmb->coords.x3f(kb.s);
-
-  auto &t = swarm->Get<Real>("t").Get();
+  auto &id = swarm->Get<int>("id").Get();
   auto &x = swarm->Get<Real>("x").Get();
   auto &y = swarm->Get<Real>("y").Get();
   auto &z = swarm->Get<Real>("z").Get();
   auto &vx = swarm->Get<Real>("vx").Get();
   auto &vy = swarm->Get<Real>("vy").Get();
   auto &vz = swarm->Get<Real>("vz").Get();
-  auto &weight = swarm->Get<Real>("weight").Get();
 
   auto swarm_d = swarm->GetDeviceContext();
-
-  if (orbiting_particles) {
-    pmb->par_for(
-        "CreateSomeOrbitingParticles", 0, swarm->GetMaxActiveIndex(),
-        KOKKOS_LAMBDA(const int n) {
-          if (new_particles_mask(n)) {
-            auto rng_gen = rng_pool.get_state();
-
-            // Randomly sample in space in this meshblock while staying within 0.5 of
-            // origin
-            Real r;
-            do {
-              x(n) = minx_i + nx_i * dx_i * rng_gen.drand();
-              y(n) = minx_j + nx_j * dx_j * rng_gen.drand();
-              z(n) = minx_k + nx_k * dx_k * rng_gen.drand();
-              r = sqrt(x(n) * x(n) + y(n) * y(n) + z(n) * z(n));
-            } while (r > 0.5);
-
-            // Randomly sample direction perpendicular to origin
-            Real theta = acos(2. * rng_gen.drand() - 1.);
-            Real phi = 2. * M_PI * rng_gen.drand();
-            vx(n) = sin(theta) * cos(phi);
-            vy(n) = sin(theta) * sin(phi);
-            vz(n) = cos(theta);
-            // Project v onto plane normal to sphere
-            Real vdN = vx(n) * x(n) + vy(n) * y(n) + vz(n) * z(n);
-            Real NdN = r * r;
-            vx(n) = vx(n) - vdN / NdN * x(n);
-            vy(n) = vy(n) - vdN / NdN * y(n);
-            vz(n) = vz(n) - vdN / NdN * z(n);
-
-            // Normalize
-            Real v_tmp = sqrt(vx(n) * vx(n) + vy(n) * vy(n) + vz(n) * vz(n));
-            vx(n) *= v / v_tmp;
-            vy(n) *= v / v_tmp;
-            vz(n) *= v / v_tmp;
-
-            // Create particles at the beginning of the timestep
-            t(n) = t0;
-
-            weight(n) = 1.0;
-
-            rng_pool.free_state(rng_gen);
-          }
-        });
-  } else {
-    pmb->par_for(
-        "CreateSomeParticles", 0, swarm->GetMaxActiveIndex(), KOKKOS_LAMBDA(const int n) {
-          if (new_particles_mask(n)) {
-            auto rng_gen = rng_pool.get_state();
-
-            // Randomly sample in space in this meshblock
-            x(n) = minx_i + nx_i * dx_i * rng_gen.drand();
-            y(n) = minx_j + nx_j * dx_j * rng_gen.drand();
-            z(n) = minx_k + nx_k * dx_k * rng_gen.drand();
-
-            // Randomly sample direction on the unit sphere, fixing speed
-            Real theta = acos(2. * rng_gen.drand() - 1.);
-            Real phi = 2. * M_PI * rng_gen.drand();
-            vx(n) = v * sin(theta) * cos(phi);
-            vy(n) = v * sin(theta) * sin(phi);
-            vz(n) = v * cos(theta);
-
-            // Create particles at the beginning of the timestep
-            t(n) = t0;
-
-            weight(n) = 1.0;
-
-            rng_pool.free_state(rng_gen);
-          }
-        });
-  }
-
-  swarm->swarm_num_incomplete_ = swarm->GetNumActive();
-
-  return TaskStatus::complete;
+  const auto &ic = particles_ic;
+  const auto &id_offset = num_particles_max;
+  const auto &my_rank = Globals::my_rank;
+  // This hardcoded implementation should only used in PGEN and not during runtime
+  // addition of particles as indices need to be taken into account.
+  // TODO(pgrete) need MPI support, i.e., only deposit particles that are on this
+  // meshblock!
+  pmb->par_for(
+      "CreateParticles", 0, num_particles - 1, KOKKOS_LAMBDA(const int n) {
+        id(n) = id_offset*my_rank + n; // global unique id
+        y(n) = ic.at(n).at(1);
+        z(n) = ic.at(n).at(2);
+        vx(n) = ic.at(n).at(3);
+        vy(n) = ic.at(n).at(4);
+        vz(n) = ic.at(n).at(5);
+      });
 }
 
 TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator,
@@ -257,6 +188,7 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
   auto swarm = pmb->swarm_data.Get()->Get("my particles");
   auto pkg = pmb->packages.Get("particles_package");
   auto orbiting_particles = pkg->Param<bool>("orbiting_particles");
+  return TaskStatus::complete;
 
   int max_active_index = swarm->GetMaxActiveIndex();
 
@@ -388,9 +320,6 @@ TaskListStatus ParticleDriver::Step() {
   BlockList_t &blocks = pmesh->block_list;
   auto num_task_lists_executed_independently = blocks.size();
 
-  // Create all the particles that will be created during the step
-  status = MakeParticlesCreationTaskCollection().Execute();
-
   // Loop over repeated MPI calls until every particle is finished. This logic is
   // required because long-distance particle pushes can lead to a large, unpredictable
   // number of MPI sends and receives.
@@ -490,7 +419,7 @@ TaskCollection ParticleDriver::MakeParticlesCreationTaskCollection() const {
   for (int i = 0; i < blocks.size(); i++) {
     auto &pmb = blocks[i];
     auto &tl = async_region0[i];
-    auto create_some_particles = tl.AddTask(none, CreateSomeParticles, pmb.get(), t0);
+    // auto create_some_particles = tl.AddTask(none, CreateSomeParticles, pmb.get(), t0);
   }
 
   return tc;
