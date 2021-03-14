@@ -16,9 +16,13 @@
 //========================================================================================
 
 #include "particle_leapfrog.hpp"
+#include "Kokkos_CopyViews.hpp"
+#include "Kokkos_HostSpace.hpp"
 #include "basic_types.hpp"
+#include "config.hpp"
 #include "globals.hpp"
 #include "interface/update.hpp"
+#include "kokkos_abstraction.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -101,7 +105,9 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
       KOKKOS_LAMBDA(const int n, Real &lmin_dt) {
         if (swarm_d.IsActive(n)) {
           Real v = sqrt(vx(n) * vx(n) + vy(n) * vy(n) + vz(n) * vz(n));
-          lmin_dt = std::min(lmin_dt, dx_push / v);
+          if (v != 0.0) {
+            lmin_dt = std::min(lmin_dt, dx_push / v);
+          }
         }
       },
       Kokkos::Min<Real>(min_dt));
@@ -141,9 +147,9 @@ TaskStatus WriteParticleLog(MeshBlock *pmb) {
     if (!is_active(n)) {
       continue;
     }
-    buffer << Globals::my_rank << " , " << id(n) << " , " << x(n) << " , " << y(n)
-           << " , " << z(n) << " , " << vx(n) << " , " << vy(n) << " , " << vz(n)
-           << std::endl;
+    buffer << Globals::my_rank << " , " << pmb->gid << " , " << id(n) << " , " << x(n)
+           << " , " << y(n) << " , " << z(n) << " , " << vx(n) << " , " << vy(n) << " , "
+           << vz(n) << std::endl;
   }
 
   std::cout << buffer.str();
@@ -153,12 +159,11 @@ TaskStatus WriteParticleLog(MeshBlock *pmb) {
 
 // initial particle position: x,y,z,vx,vy,vz
 constexpr int num_test_particles = 4;
-constexpr int num_particles_max = 1024; // temp limit to ensure unique ids, needs fix
 const std::array<std::array<Real, 6>, num_test_particles> particles_ic = {{
-    {0.1, 0.2, 0.3, 1.0, 0.0, 0.0},   // along x direction
+    {-0.1, 0.2, 0.3, 1.0, 0.0, 0.0},   // along x direction
     {0.4, -0.1, 0.3, 0.0, 1.0, 0.0},  // along y direction
     {-0.1, 0.3, 0.2, 0.0, 0.0, 1.0},  // along z direction
-    {0.12, 0.2, -0.3, 1.0, 1.0, 1.0}, // along diagnonal
+    {0.12, 0.2, -0.3, 1.0, 1.0, 1.0}, // along diagonal
 }};
 
 void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
@@ -180,6 +185,12 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
 
   // determine which particles belong to this block
   size_t num_particles_this_block = 0;
+  auto ids_this_block =
+      ParArray1D<int>("indices of particles in test", num_test_particles);
+
+  auto ids_this_block_h =
+      Kokkos::create_mirror_view_and_copy(HostMemSpace(), ids_this_block);
+
   for (auto n = 0; n < num_test_particles; n++) {
     const Real &x_ = ic.at(n).at(0);
     const Real &y_ = ic.at(n).at(1);
@@ -187,9 +198,12 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
 
     if ((x_ >= x_min) && (x_ < x_max) && (y_ >= y_min) && (y_ < y_max) && (z_ >= z_min) &&
         (z_ < z_max)) {
+      ids_this_block_h(num_particles_this_block) = n;
       num_particles_this_block++;
     }
   }
+
+  Kokkos::deep_copy(pmb->exec_space, ids_this_block, ids_this_block_h);
 
   ParArrayND<int> new_indices;
   const auto new_particles_mask =
@@ -204,26 +218,23 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   auto &vz = swarm->Get<Real>("vz").Get();
 
   auto swarm_d = swarm->GetDeviceContext();
-  const auto &id_offset = num_particles_max;
   const auto &my_rank = Globals::my_rank;
+  const auto &gid = pmb->gid;
   // This hardcoded implementation should only used in PGEN and not during runtime
   // addition of particles as indices need to be taken into account.
   pmb->par_for(
       "CreateParticles", 0, num_particles_this_block - 1, KOKKOS_LAMBDA(const int n) {
-        const Real &x_ = ic.at(n).at(0);
-        const Real &y_ = ic.at(n).at(1);
-        const Real &z_ = ic.at(n).at(2);
+        const auto &m = ids_this_block(n);
 
-        if ((x_ >= x_min) && (x_ < x_max) && (y_ >= y_min) && (y_ < y_max) &&
-            (z_ >= z_min) && (z_ < z_max)) {
-          id(n) = id_offset * my_rank + n; // global unique id
-          x(n) = x_;
-          y(n) = y_;
-          z(n) = z_;
-          vx(n) = ic.at(n).at(3);
-          vy(n) = ic.at(n).at(4);
-          vz(n) = ic.at(n).at(5);
-        }
+        id(n) = m; // global unique id
+        x(n) = ic.at(m).at(0);
+        y(n) = ic.at(m).at(1);
+        z(n) = ic.at(m).at(2);
+        vx(n) = ic.at(m).at(3);
+        vy(n) = ic.at(m).at(4);
+        vz(n) = ic.at(m).at(5);
+        std::cout << "Rank " << my_rank << " added particle " << m << " to block " << gid
+                  << std::endl;
       });
 }
 
