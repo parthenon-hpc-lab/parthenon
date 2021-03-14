@@ -16,8 +16,11 @@
 //========================================================================================
 
 #include "particle_leapfrog.hpp"
+#include "basic_types.hpp"
+#include "globals.hpp"
 
 #include <algorithm>
+#include <iostream>
 #include <limits>
 #include <memory>
 #include <string>
@@ -58,12 +61,9 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   Real const_dt = pin->GetOrAddReal("Particles", "const_dt", 1.0);
   pkg->AddParam<>("const_dt", const_dt);
 
-  Real destroy_particles_frac =
-      pin->GetOrAddReal("Particles", "destroy_particles_frac", 0.0);
-  pkg->AddParam<>("destroy_particles_frac", destroy_particles_frac);
-  PARTHENON_REQUIRE(
-      destroy_particles_frac >= 0. && destroy_particles_frac <= 1.,
-      "Fraction of particles to destroy each timestep must be between 0 and 1");
+  auto write_particle_log =
+      pin->GetOrAddBoolean("Particles", "write_particle_log", false);
+  pkg->AddParam<>("write_particle_log", write_particle_log);
 
   bool orbiting_particles =
       pin->GetOrAddBoolean("Particles", "orbiting_particles", false);
@@ -110,86 +110,31 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
 // that just means defining the MakeTaskList       *//
 // function.                                       *//
 // *************************************************//
-// first some helper tasks
 
-TaskStatus DestroySomeParticles(MeshBlock *pmb) {
+TaskStatus WriteParticleLog(MeshBlock *pmb) {
   auto pkg = pmb->packages.Get("particles_package");
-  auto swarm = pmb->swarm_data.Get()->Get("my particles");
-  auto rng_pool = pkg->Param<RNGPool>("rng_pool");
-  Real destroy_particles_frac = pkg->Param<Real>("destroy_particles_frac");
 
-  // The swarm mask is managed internally and should always be treated as constant. This
-  // may be enforced later.
-  auto swarm_d = swarm->GetDeviceContext();
+  const auto write_particle_log = pkg->Param<bool>("write_particle_log");
+  if (!write_particle_log) {
+    return TaskStatus::complete;
+  }
 
-  // Randomly mark 10% of particles each timestep for removal
-  pmb->par_for(
-      "DestroySomeParticles", 0, swarm->GetMaxActiveIndex(), KOKKOS_LAMBDA(const int n) {
-        if (swarm_d.IsActive(n)) {
-          auto rng_gen = rng_pool.get_state();
-          // if (rng_gen.drand() > 0.9) {
-          if (rng_gen.drand() > 1.0 - destroy_particles_frac) {
-            swarm_d.MarkParticleForRemoval(n);
-          }
-          rng_pool.free_state(rng_gen);
-        }
-      });
-
-  // Remove marked particles
-  swarm->RemoveMarkedParticles();
-
-  return TaskStatus::complete;
-}
-
-TaskStatus DepositParticles(MeshBlock *pmb) {
   auto swarm = pmb->swarm_data.Get()->Get("my particles");
 
-  // Meshblock geometry
-  const IndexRange &ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
-  const IndexRange &jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
-  const IndexRange &kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
-  const Real &dx_i = pmb->coords.dx1f(pmb->cellbounds.is(IndexDomain::interior));
-  const Real &dx_j = pmb->coords.dx2f(pmb->cellbounds.js(IndexDomain::interior));
-  const Real &dx_k = pmb->coords.dx3f(pmb->cellbounds.ks(IndexDomain::interior));
-  const Real &minx_i = pmb->coords.x1f(ib.s);
-  const Real &minx_j = pmb->coords.x2f(jb.s);
-  const Real &minx_k = pmb->coords.x3f(kb.s);
+  const auto &x = swarm->Get<Real>("x").Get().GetHostMirrorAndCopy();
+  const auto &y = swarm->Get<Real>("y").Get().GetHostMirrorAndCopy();
+  const auto &z = swarm->Get<Real>("z").Get().GetHostMirrorAndCopy();
+  const auto &vx = swarm->Get<Real>("vx").Get().GetHostMirrorAndCopy();
+  const auto &vy = swarm->Get<Real>("vy").Get().GetHostMirrorAndCopy();
+  const auto &vz = swarm->Get<Real>("vz").Get().GetHostMirrorAndCopy();
 
-  const auto &x = swarm->Get<Real>("x").Get();
-  const auto &y = swarm->Get<Real>("y").Get();
-  const auto &z = swarm->Get<Real>("z").Get();
-  const auto &weight = swarm->Get<Real>("weight").Get();
-  auto swarm_d = swarm->GetDeviceContext();
+  std::stringstream buffer;
+  for (auto n = 0; n < x.GetSize(); n++) {
+    buffer << Globals::my_rank << " , " << x(n) << " , " << y(n) << " , " << z(n) << " , "
+           << vx(n) << " , " << vy(n) << " , " << vz(n) << std::endl;
+  }
 
-  auto &particle_dep = pmb->meshblock_data.Get()->Get("particle_deposition").data;
-  // Reset particle count
-  pmb->par_for(
-      "ZeroParticleDep", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int k, const int j, const int i) {
-        particle_dep(k, j, i) = 0.;
-      });
-
-  const int ndim = pmb->pmy_mesh->ndim;
-
-  pmb->par_for(
-      "DepositParticles", 0, swarm->GetMaxActiveIndex(), KOKKOS_LAMBDA(const int n) {
-        if (swarm_d.IsActive(n)) {
-          int i = static_cast<int>(std::floor((x(n) - minx_i) / dx_i) + ib.s);
-          int j = 0;
-          if (ndim > 1) {
-            j = static_cast<int>(std::floor((y(n) - minx_j) / dx_j) + jb.s);
-          }
-          int k = 0;
-          if (ndim > 2) {
-            k = static_cast<int>(std::floor((z(n) - minx_k) / dx_k) + kb.s);
-          }
-
-          if (i >= ib.s && i <= ib.e && j >= jb.s && j <= jb.e && k >= kb.s &&
-              k <= kb.e) {
-            Kokkos::atomic_add(&particle_dep(k, j, i), weight(n));
-          }
-        }
-      });
+  std::cout << buffer.str();
 
   return TaskStatus::complete;
 }
@@ -597,12 +542,15 @@ TaskCollection ParticleDriver::MakeFinalizationTaskCollection() const {
     auto &pmb = blocks[i];
     auto &tl = async_region1[i];
 
-    auto destroy_some_particles = tl.AddTask(none, DestroySomeParticles, pmb.get());
+    auto defrag = tl.AddTask(none, Defrag, pmb.get());
+  }
 
-    auto deposit_particles =
-        tl.AddTask(destroy_some_particles, DepositParticles, pmb.get());
-
-    auto defrag = tl.AddTask(deposit_particles, Defrag, pmb.get());
+  TaskRegion &sync_region = tc.AddRegion(1);
+  {
+    for (int i = 0; i < blocks.size(); i++) {
+      auto &pmb = blocks[i];
+      auto write_particle_log = sync_region[0].AddTask(none, WriteParticleLog, pmb.get());
+    }
   }
 
   return tc;
