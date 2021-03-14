@@ -18,6 +18,7 @@
 #include "particle_leapfrog.hpp"
 #include "basic_types.hpp"
 #include "globals.hpp"
+#include "interface/update.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -62,12 +63,10 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   Metadata swarm_metadata;
   pkg->AddSwarm(swarm_name, swarm_metadata);
   Metadata real_swarmvalue_metadata({Metadata::Real});
-  pkg->AddSwarmValue("t", swarm_name, real_swarmvalue_metadata);
   pkg->AddSwarmValue("id", swarm_name, Metadata({Metadata::Integer}));
   pkg->AddSwarmValue("vx", swarm_name, real_swarmvalue_metadata);
   pkg->AddSwarmValue("vy", swarm_name, real_swarmvalue_metadata);
   pkg->AddSwarmValue("vz", swarm_name, real_swarmvalue_metadata);
-  pkg->AddSwarmValue("weight", swarm_name, real_swarmvalue_metadata);
 
   pkg->EstimateTimestepBlock = EstimateTimestepBlock;
 
@@ -103,6 +102,7 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
         if (swarm_d.IsActive(n)) {
           Real v = sqrt(vx(n) * vx(n) + vy(n) * vy(n) + vz(n) * vz(n));
           lmin_dt = std::min(lmin_dt, dx_push / v);
+          std::cout << "n: " << n << " v: " << v << " mindt: " << lmin_dt << std::endl;
         }
       },
       Kokkos::Min<Real>(min_dt));
@@ -152,11 +152,11 @@ TaskStatus WriteParticleLog(MeshBlock *pmb) {
 constexpr int num_test_particles = 5;
 constexpr int num_particles_max = 1024; // temp limit to ensure unique ids, needs fix
 const std::array<std::array<Real, 6>, num_test_particles> particles_ic = {{
-    {0.1, 0.2, 0.3, 1.0, 0.0, 0.0},  // along x direction
-    {0.5, -0.1, 0.3, 0.0, 1.0, 0.0}, // along y direction
-    {-0.1, 0.3, 0.2, 0.0, 0.0, 1.0}, // along z direction
-    {0.12, 0.2, -0.3, std::sqrt(3.0), std::sqrt(3.0), std::sqrt(3.0)}, // along diagnonal
-    {0.3, 0.0, 0.0, 1.0, 0.0, 0.0},                                    // orbiting
+    {0.1, 0.2, 0.3, 1.0, 0.0, 0.0},   // along x direction
+    {0.5, -0.1, 0.3, 0.0, 1.0, 0.0},  // along y direction
+    {-0.1, 0.3, 0.2, 0.0, 0.0, 1.0},  // along z direction
+    {0.12, 0.2, -0.3, 1.0, 1.0, 1.0}, // along diagnonal
+    {0.3, 0.0, 0.0, 1.0, 0.0, 0.0},   // orbiting
 }};
 
 void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
@@ -195,8 +195,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
       });
 }
 
-TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator,
-                              const double t0) {
+TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator) {
   auto swarm = pmb->swarm_data.Get()->Get("my particles");
   auto pkg = pmb->packages.Get("particles_package");
 
@@ -204,7 +203,6 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
 
   Real dt = integrator->dt;
 
-  auto &t = swarm->Get<Real>("t").Get();
   auto &x = swarm->Get<Real>("x").Get();
   auto &y = swarm->Get<Real>("y").Get();
   auto &z = swarm->Get<Real>("z").Get();
@@ -385,7 +383,6 @@ TaskCollection ParticleDriver::MakeParticlesCreationTaskCollection() const {
 TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection() const {
   TaskCollection tc;
   TaskID none(0);
-  const double t0 = tm.time;
   const BlockList_t &blocks = pmesh->block_list;
 
   auto num_task_lists_executed_independently = blocks.size();
@@ -399,7 +396,7 @@ TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection() const {
     auto &tl = async_region0[i];
 
     auto transport_particles =
-        tl.AddTask(none, TransportParticles, pmb.get(), &integrator, t0);
+        tl.AddTask(none, TransportParticles, pmb.get(), &integrator);
 
     auto send = tl.AddTask(transport_particles, &SwarmContainer::Send, sc.get(),
                            BoundaryCommSubset::all);
@@ -429,6 +426,9 @@ TaskCollection ParticleDriver::MakeFinalizationTaskCollection() const {
     auto &tl = async_region1[i];
 
     auto defrag = tl.AddTask(none, Defrag, pmb.get());
+    auto new_dt =
+        tl.AddTask(defrag, parthenon::Update::EstimateTimestep<MeshBlockData<Real>>,
+                   pmb->meshblock_data.Get().get());
   }
 
   TaskRegion &sync_region = tc.AddRegion(1);

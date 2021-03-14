@@ -30,8 +30,6 @@ using namespace parthenon;
 
 namespace particles_example {
 
-typedef Kokkos::Random_XorShift64_Pool<> RNGPool;
-
 class ParticleDriver : public EvolutionDriver {
  public:
   ParticleDriver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
