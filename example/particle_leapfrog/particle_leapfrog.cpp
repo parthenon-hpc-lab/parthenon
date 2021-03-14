@@ -156,7 +156,7 @@ constexpr int num_test_particles = 4;
 constexpr int num_particles_max = 1024; // temp limit to ensure unique ids, needs fix
 const std::array<std::array<Real, 6>, num_test_particles> particles_ic = {{
     {0.1, 0.2, 0.3, 1.0, 0.0, 0.0},   // along x direction
-    {0.5, -0.1, 0.3, 0.0, 1.0, 0.0},  // along y direction
+    {0.4, -0.1, 0.3, 0.0, 1.0, 0.0},  // along y direction
     {-0.1, 0.3, 0.2, 0.0, 0.0, 1.0},  // along z direction
     {0.12, 0.2, -0.3, 1.0, 1.0, 1.0}, // along diagnonal
 }};
@@ -164,10 +164,36 @@ const std::array<std::array<Real, 6>, num_test_particles> particles_ic = {{
 void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   auto pkg = pmb->packages.Get("particles_package");
   auto swarm = pmb->swarm_data.Get()->Get("my particles");
-  auto num_particles = num_test_particles;
+
+  const IndexRange &ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
+  const IndexRange &jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
+  const IndexRange &kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
+
+  const Real &x_min = pmb->coords.x1f(ib.s);
+  const Real &y_min = pmb->coords.x2f(jb.s);
+  const Real &z_min = pmb->coords.x3f(kb.s);
+  const Real &x_max = pmb->coords.x1f(ib.e + 1);
+  const Real &y_max = pmb->coords.x2f(jb.e + 1);
+  const Real &z_max = pmb->coords.x3f(kb.e + 1);
+
+  const auto &ic = particles_ic;
+
+  // determine which particles belong to this block
+  size_t num_particles_this_block = 0;
+  for (auto n = 0; n < num_test_particles; n++) {
+    const Real &x_ = ic.at(n).at(0);
+    const Real &y_ = ic.at(n).at(1);
+    const Real &z_ = ic.at(n).at(2);
+
+    if ((x_ >= x_min) && (x_ < x_max) && (y_ >= y_min) && (y_ < y_max) && (z_ >= z_min) &&
+        (z_ < z_max)) {
+      num_particles_this_block++;
+    }
+  }
 
   ParArrayND<int> new_indices;
-  const auto new_particles_mask = swarm->AddEmptyParticles(num_particles, new_indices);
+  const auto new_particles_mask =
+      swarm->AddEmptyParticles(num_particles_this_block, new_indices);
 
   auto &id = swarm->Get<int>("id").Get();
   auto &x = swarm->Get<Real>("x").Get();
@@ -178,22 +204,26 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   auto &vz = swarm->Get<Real>("vz").Get();
 
   auto swarm_d = swarm->GetDeviceContext();
-  const auto &ic = particles_ic;
   const auto &id_offset = num_particles_max;
   const auto &my_rank = Globals::my_rank;
   // This hardcoded implementation should only used in PGEN and not during runtime
   // addition of particles as indices need to be taken into account.
-  // TODO(pgrete) need MPI support, i.e., only deposit particles that are on this
-  // meshblock!
   pmb->par_for(
-      "CreateParticles", 0, num_particles - 1, KOKKOS_LAMBDA(const int n) {
-        id(n) = id_offset * my_rank + n; // global unique id
-        x(n) = ic.at(n).at(0);
-        y(n) = ic.at(n).at(1);
-        z(n) = ic.at(n).at(2);
-        vx(n) = ic.at(n).at(3);
-        vy(n) = ic.at(n).at(4);
-        vz(n) = ic.at(n).at(5);
+      "CreateParticles", 0, num_particles_this_block - 1, KOKKOS_LAMBDA(const int n) {
+        const Real &x_ = ic.at(n).at(0);
+        const Real &y_ = ic.at(n).at(1);
+        const Real &z_ = ic.at(n).at(2);
+
+        if ((x_ >= x_min) && (x_ < x_max) && (y_ >= y_min) && (y_ < y_max) &&
+            (z_ >= z_min) && (z_ < z_max)) {
+          id(n) = id_offset * my_rank + n; // global unique id
+          x(n) = x_;
+          y(n) = y_;
+          z(n) = z_;
+          vx(n) = ic.at(n).at(3);
+          vy(n) = ic.at(n).at(4);
+          vz(n) = ic.at(n).at(5);
+        }
       });
 }
 
@@ -211,22 +241,6 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
   auto &vx = swarm->Get<Real>("vx").Get();
   auto &vy = swarm->Get<Real>("vy").Get();
   auto &vz = swarm->Get<Real>("vz").Get();
-
-  const Real &dx_i = pmb->coords.dx1f(pmb->cellbounds.is(IndexDomain::interior));
-  const Real &dx_j = pmb->coords.dx2f(pmb->cellbounds.js(IndexDomain::interior));
-  const Real &dx_k = pmb->coords.dx3f(pmb->cellbounds.ks(IndexDomain::interior));
-  const Real &dx_push = std::min<Real>(dx_i, std::min<Real>(dx_j, dx_k));
-
-  const IndexRange &ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
-  const IndexRange &jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
-  const IndexRange &kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
-
-  const Real &x_min = pmb->coords.x1f(ib.s);
-  const Real &y_min = pmb->coords.x2f(jb.s);
-  const Real &z_min = pmb->coords.x3f(kb.s);
-  const Real &x_max = pmb->coords.x1f(ib.e + 1);
-  const Real &y_max = pmb->coords.x2f(jb.e + 1);
-  const Real &z_max = pmb->coords.x3f(kb.e + 1);
 
   auto swarm_d = swarm->GetDeviceContext();
   // keep particles on existing trajectory for now
