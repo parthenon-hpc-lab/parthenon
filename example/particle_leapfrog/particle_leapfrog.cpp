@@ -55,8 +55,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddParam<>("num_particles", num_particles);
   Real particle_speed = pin->GetOrAddReal("Particles", "particle_speed", 1.0);
   pkg->AddParam<>("particle_speed", particle_speed);
-  Real const_dt = pin->GetOrAddReal("Particles", "const_dt", 1.0);
-  pkg->AddParam<>("const_dt", const_dt);
+  Real cfl = pin->GetOrAddReal("Particles", "cfl", 0.3);
+  pkg->AddParam<>("cfl", cfl);
 
   auto write_particle_log =
       pin->GetOrAddBoolean("Particles", "write_particle_log", false);
@@ -92,9 +92,36 @@ AmrTag CheckRefinement(MeshBlockData<Real> *rc) { return AmrTag::same; }
 
 Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
   auto pmb = rc->GetBlockPointer();
+  auto swarm = pmb->swarm_data.Get()->Get("my particles");
   auto pkg = pmb->packages.Get("particles_package");
-  const Real &dt = pkg->Param<Real>("const_dt");
-  return dt;
+  const auto &cfl = pkg->Param<Real>("cfl");
+
+  int max_active_index = swarm->GetMaxActiveIndex();
+
+  const auto &vx = swarm->Get<Real>("vx").Get();
+  const auto &vy = swarm->Get<Real>("vy").Get();
+  const auto &vz = swarm->Get<Real>("vz").Get();
+
+  // Assumes a grid with constant dx, dy, dz within a block
+  const Real &dx_i = pmb->coords.dx1f(0);
+  const Real &dx_j = pmb->coords.dx2f(0);
+  const Real &dx_k = pmb->coords.dx3f(0);
+  const Real &dx_push = std::min<Real>(dx_i, std::min<Real>(dx_j, dx_k));
+
+  auto swarm_d = swarm->GetDeviceContext();
+
+  Real min_dt;
+  pmb->par_reduce(
+      "particle_leapfrog:EstimateTimestep", 0, max_active_index,
+      KOKKOS_LAMBDA(const int n, Real &lmin_dt) {
+        if (swarm_d.IsActive(n)) {
+          Real v = sqrt(vx(n) * vx(n) + vy(n) * vy(n) + vz(n) * vz(n));
+          lmin_dt = std::min(lmin_dt, dx_push / v);
+        }
+      },
+      Kokkos::Min<Real>(min_dt));
+
+  return cfl * min_dt;
 }
 
 } // namespace Particles
@@ -174,7 +201,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   // meshblock!
   pmb->par_for(
       "CreateParticles", 0, num_particles - 1, KOKKOS_LAMBDA(const int n) {
-        id(n) = id_offset*my_rank + n; // global unique id
+        id(n) = id_offset * my_rank + n; // global unique id
         y(n) = ic.at(n).at(1);
         z(n) = ic.at(n).at(2);
         vx(n) = ic.at(n).at(3);
