@@ -153,8 +153,8 @@ constexpr int num_test_particles = 5;
 constexpr int num_particles_max = 1024; // temp limit to ensure unique ids, needs fix
 const std::array<std::array<Real, 6>, num_test_particles> particles_ic = {{
     {0.1, 0.2, 0.3, 1.0, 0.0, 0.0},  // along x direction
-    {0.5, -0.1, 0.3, 1.0, 1.0, 0.0}, // along y direction
-    {-0.1, 0.3, 0.2, 1.0, 0.0, 1.0}, // along z direction
+    {0.5, -0.1, 0.3, 0.0, 1.0, 0.0}, // along y direction
+    {-0.1, 0.3, 0.2, 0.0, 0.0, 1.0}, // along z direction
     {0.12, 0.2, -0.3, std::sqrt(3.0), std::sqrt(3.0), std::sqrt(3.0)}, // along diagnonal
     {0.3, 0.0, 0.0, 1.0, 0.0, 0.0},                                    // orbiting
 }};
@@ -199,7 +199,6 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
                               const double t0) {
   auto swarm = pmb->swarm_data.Get()->Get("my particles");
   auto pkg = pmb->packages.Get("particles_package");
-  return TaskStatus::complete;
 
   int max_active_index = swarm->GetMaxActiveIndex();
 
@@ -209,9 +208,9 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
   auto &x = swarm->Get<Real>("x").Get();
   auto &y = swarm->Get<Real>("y").Get();
   auto &z = swarm->Get<Real>("z").Get();
-  const auto &vx = swarm->Get<Real>("vx").Get();
-  const auto &vy = swarm->Get<Real>("vy").Get();
-  const auto &vz = swarm->Get<Real>("vz").Get();
+  auto &vx = swarm->Get<Real>("vx").Get();
+  auto &vy = swarm->Get<Real>("vy").Get();
+  auto &vz = swarm->Get<Real>("vz").Get();
 
   const Real &dx_i = pmb->coords.dx1f(pmb->cellbounds.is(IndexDomain::interior));
   const Real &dx_j = pmb->coords.dx2f(pmb->cellbounds.js(IndexDomain::interior));
@@ -230,29 +229,27 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
   const Real &z_max = pmb->coords.x3f(kb.e + 1);
 
   auto swarm_d = swarm->GetDeviceContext();
-
+  const Real ax = 0.0;
+  const Real ay = 0.0;
+  const Real az = 0.0;
   pmb->par_for(
-      "TransportParticles", 0, max_active_index, KOKKOS_LAMBDA(const int n) {
+      "Leapfrog", 0, max_active_index, KOKKOS_LAMBDA(const int n) {
         if (swarm_d.IsActive(n)) {
           Real v = sqrt(vx(n) * vx(n) + vy(n) * vy(n) + vz(n) * vz(n));
-          while (t(n) < t0 + dt) {
-            Real dt_cell = dx_push / v;
-            Real dt_end = t0 + dt - t(n);
-            Real dt_push = std::min<Real>(dt_cell, dt_end);
+          // drift
+          x(n) += vx(n) * 0.5 * dt;
+          y(n) += vy(n) * 0.5 * dt;
+          z(n) += vz(n) * 0.5 * dt;
 
-            x(n) += vx(n) * dt_push;
-            y(n) += vy(n) * dt_push;
-            z(n) += vz(n) * dt_push;
-            t(n) += dt_push;
+          // kick
+          vx(n) += ax * dt;
+          vy(n) += ay * dt;
+          vz(n) += az * dt;
 
-            bool on_current_mesh_block = true;
-            swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n), on_current_mesh_block);
-
-            if (!on_current_mesh_block) {
-              // Particle no longer on this block
-              break;
-            }
-          }
+          // drift
+          x(n) += vx(n) * 0.5 * dt;
+          y(n) += vy(n) * 0.5 * dt;
+          z(n) += vz(n) * 0.5 * dt;
         }
       });
 
@@ -288,8 +285,8 @@ TaskListStatus ParticleDriver::Step() {
 
     particles_update_done = true;
     for (auto &block : blocks) {
-      // TODO(BRR) Despite this "my particles"-specific call, this function feels like it
-      // should be generalized
+      // TODO(BRR) Despite this "my particles"-specific call, this function feels like
+      // it should be generalized
       auto swarm = block->swarm_data.Get()->Get("my particles");
       if (!swarm->finished_transport) {
         particles_update_done = false;
@@ -378,7 +375,8 @@ TaskCollection ParticleDriver::MakeParticlesCreationTaskCollection() const {
   for (int i = 0; i < blocks.size(); i++) {
     auto &pmb = blocks[i];
     auto &tl = async_region0[i];
-    // auto create_some_particles = tl.AddTask(none, CreateSomeParticles, pmb.get(), t0);
+    // auto create_some_particles = tl.AddTask(none, CreateSomeParticles, pmb.get(),
+    // t0);
   }
 
   return tc;
