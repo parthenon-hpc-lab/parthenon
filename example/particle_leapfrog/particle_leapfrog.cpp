@@ -102,7 +102,6 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
         if (swarm_d.IsActive(n)) {
           Real v = sqrt(vx(n) * vx(n) + vy(n) * vy(n) + vz(n) * vz(n));
           lmin_dt = std::min(lmin_dt, dx_push / v);
-          std::cout << "n: " << n << " v: " << v << " mindt: " << lmin_dt << std::endl;
         }
       },
       Kokkos::Min<Real>(min_dt));
@@ -136,8 +135,12 @@ TaskStatus WriteParticleLog(MeshBlock *pmb) {
   const auto &vy = swarm->Get<Real>("vy").Get().GetHostMirrorAndCopy();
   const auto &vz = swarm->Get<Real>("vz").Get().GetHostMirrorAndCopy();
 
+  const auto &is_active = swarm->GetMask().Get().GetHostMirrorAndCopy();
   std::stringstream buffer;
   for (auto n = 0; n < x.GetSize(); n++) {
+    if (!is_active(n)) {
+      continue;
+    }
     buffer << Globals::my_rank << " , " << id(n) << " , " << x(n) << " , " << y(n)
            << " , " << z(n) << " , " << vx(n) << " , " << vy(n) << " , " << vz(n)
            << std::endl;
@@ -149,18 +152,16 @@ TaskStatus WriteParticleLog(MeshBlock *pmb) {
 }
 
 // initial particle position: x,y,z,vx,vy,vz
-constexpr int num_test_particles = 5;
+constexpr int num_test_particles = 4;
 constexpr int num_particles_max = 1024; // temp limit to ensure unique ids, needs fix
 const std::array<std::array<Real, 6>, num_test_particles> particles_ic = {{
     {0.1, 0.2, 0.3, 1.0, 0.0, 0.0},   // along x direction
     {0.5, -0.1, 0.3, 0.0, 1.0, 0.0},  // along y direction
     {-0.1, 0.3, 0.2, 0.0, 0.0, 1.0},  // along z direction
     {0.12, 0.2, -0.3, 1.0, 1.0, 1.0}, // along diagnonal
-    {0.3, 0.0, 0.0, 1.0, 0.0, 0.0},   // orbiting
 }};
 
 void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
-  Real t0 = 0.0;
   auto pkg = pmb->packages.Get("particles_package");
   auto swarm = pmb->swarm_data.Get()->Get("my particles");
   auto num_particles = num_test_particles;
@@ -187,6 +188,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   pmb->par_for(
       "CreateParticles", 0, num_particles - 1, KOKKOS_LAMBDA(const int n) {
         id(n) = id_offset * my_rank + n; // global unique id
+        x(n) = ic.at(n).at(0);
         y(n) = ic.at(n).at(1);
         z(n) = ic.at(n).at(2);
         vx(n) = ic.at(n).at(3);
@@ -227,6 +229,7 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
   const Real &z_max = pmb->coords.x3f(kb.e + 1);
 
   auto swarm_d = swarm->GetDeviceContext();
+  // keep particles on existing trajectory for now
   const Real ax = 0.0;
   const Real ay = 0.0;
   const Real az = 0.0;
