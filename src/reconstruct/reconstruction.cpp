@@ -37,8 +37,8 @@ namespace parthenon {
 Reconstruction::Reconstruction(std::weak_ptr<MeshBlock> wpmb, ParameterInput *pin)
     : characteristic_projection{false}, uniform{true, true, true, true},
       // read fourth-order solver switches
-      correct_ic{pin->GetOrAddBoolean("parthenon/time", "correct_ic", false)},
-      correct_err{pin->GetOrAddBoolean("parthenon/time", "correct_err", false)},
+      correct_ic{pin->GetOrAdd<bool>("parthenon/time", "correct_ic", false)},
+      correct_err{pin->GetOrAdd<bool>("parthenon/time", "correct_err", false)},
       pmy_block_{wpmb} {
   // Read and set type of spatial reconstruction
   // --------------------------------

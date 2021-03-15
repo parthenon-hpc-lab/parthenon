@@ -32,15 +32,15 @@ std::shared_ptr<AMRCriteria> AMRCriteria::MakeAMRCriteria(std::string &criteria,
 }
 
 AMRFirstDerivative::AMRFirstDerivative(ParameterInput *pin, std::string &block_name) {
-  field = pin->GetOrAddString(block_name, "field", "NO FIELD WAS SET");
+  field = pin->GetOrAdd<std::string>(block_name, "field", "NO FIELD WAS SET");
   if (field == "NO FIELD WAS SET") {
     std::cerr << "Error in " << block_name << ": no field set" << std::endl;
     exit(1);
   }
-  refine_criteria = pin->GetOrAddReal(block_name, "refine_tol", 0.5);
-  derefine_criteria = pin->GetOrAddReal(block_name, "derefine_tol", 0.05);
-  int global_max_level = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1);
-  max_level = pin->GetOrAddInteger(block_name, "max_level", global_max_level);
+  refine_criteria = pin->GetOrAdd<Real>(block_name, "refine_tol", 0.5);
+  derefine_criteria = pin->GetOrAdd<Real>(block_name, "derefine_tol", 0.05);
+  int global_max_level = pin->GetOrAdd<int>("parthenon/mesh", "numlevel", 1);
+  max_level = pin->GetOrAdd<int>(block_name, "max_level", global_max_level);
   if (max_level > global_max_level) {
     std::cerr << "WARNING: max_level in " << block_name
               << " exceeds numlevel (the global maximum number of levels) set in "

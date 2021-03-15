@@ -40,9 +40,9 @@ Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   auto package = std::make_shared<StateDescriptor>("FaceFieldExample");
 
   Params &params = package->AllParams();
-  params.Add("px", pin->GetOrAddReal("FaceExample", "px", 2.0));
-  params.Add("py", pin->GetOrAddReal("FaceExample", "py", 2.0));
-  params.Add("pz", pin->GetOrAddReal("FaceExample", "pz", 2.0));
+  params.Add("px", pin->GetOrAdd<Real>("FaceExample", "px", 2.0));
+  params.Add("py", pin->GetOrAdd<Real>("FaceExample", "py", 2.0));
+  params.Add("pz", pin->GetOrAdd<Real>("FaceExample", "pz", 2.0));
 
   Metadata m;
   std::vector<int> array_size({2});

@@ -144,7 +144,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       Real dt = 0.0; // default value == 0 means that initial data is written by default
       // for temporal drivers, setting dt to tlim ensures a final output is also written
       if (tm != nullptr) {
-        dt = pin->GetOrAddReal(op.block_name, "dt", tm->tlim);
+        dt = pin->GetOrAdd<Real>(op.block_name, "dt", tm->tlim);
       }
       // if this output is "soft-disabled" (negative value) skip processing
       if (dt < 0.0) {
@@ -153,17 +153,17 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       }
       // set time of last output, time between outputs
       if (tm != nullptr) {
-        op.next_time = pin->GetOrAddReal(op.block_name, "next_time", tm->time);
+        op.next_time = pin->GetOrAdd<Real>(op.block_name, "next_time", tm->time);
         op.dt = dt;
       }
 
       // set file number, basename, id, and format
-      op.file_number = pin->GetOrAddInteger(op.block_name, "file_number", 0);
-      op.file_basename = pin->GetOrAddString("parthenon/job", "problem_id", "parthenon");
+      op.file_number = pin->GetOrAdd<int>(op.block_name, "file_number", 0);
+      op.file_basename = pin->GetOrAdd<std::string>("parthenon/job", "problem_id", "parthenon");
       char define_id[10];
       std::snprintf(define_id, sizeof(define_id), "out%d",
                     op.block_number); // default id="outN"
-      op.file_id = pin->GetOrAddString(op.block_name, "id", define_id);
+      op.file_id = pin->GetOrAdd<std::string>(op.block_name, "id", define_id);
       //op.file_type = pin->GetString(op.block_name, "file_type");
       op.file_type = pin->Get<std::string>(op.block_name, "file_type");
 
@@ -208,21 +208,21 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       }
 
       // read sum options.  Check for conflicts with slicing.
-      op.output_sumx1 = pin->GetOrAddBoolean(op.block_name, "x1_sum", false);
+      op.output_sumx1 = pin->GetOrAdd<bool>(op.block_name, "x1_sum", false);
       if ((op.output_slicex1) && (op.output_sumx1)) {
         msg << "### FATAL ERROR in Outputs constructor" << std::endl
             << "Cannot request both slice and sum along x1-direction"
             << " in output block '" << op.block_name << "'" << std::endl;
         PARTHENON_FAIL(msg);
       }
-      op.output_sumx2 = pin->GetOrAddBoolean(op.block_name, "x2_sum", false);
+      op.output_sumx2 = pin->GetOrAdd<bool>(op.block_name, "x2_sum", false);
       if ((op.output_slicex2) && (op.output_sumx2)) {
         msg << "### FATAL ERROR in Outputs constructor" << std::endl
             << "Cannot request both slice and sum along x2-direction"
             << " in output block '" << op.block_name << "'" << std::endl;
         PARTHENON_FAIL(msg);
       }
-      op.output_sumx3 = pin->GetOrAddBoolean(op.block_name, "x3_sum", false);
+      op.output_sumx3 = pin->GetOrAdd<bool>(op.block_name, "x3_sum", false);
       if ((op.output_slicex3) && (op.output_sumx3)) {
         msg << "### FATAL ERROR in Outputs constructor" << std::endl
             << "Cannot request both slice and sum along x3-direction"
@@ -231,7 +231,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       }
 
       // read ghost cell option
-      op.include_ghost_zones = pin->GetOrAddBoolean(op.block_name, "ghost_zones", false);
+      op.include_ghost_zones = pin->GetOrAdd<bool>(op.block_name, "ghost_zones", false);
 
       // read cartesian mapping option
       op.cartesian_vector = false;
@@ -241,7 +241,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
         // op.variable = pin->GetString(op.block_name, "variable");
         op.variables = SetOutputVariables(pin, pib->block_name);
       }
-      op.data_format = pin->GetOrAddString(op.block_name, "data_format", "%12.5e");
+      op.data_format = pin->GetOrAdd<std::string>(op.block_name, "data_format", "%12.5e");
       op.data_format.insert(0, " "); // prepend with blank to separate columns
 
       // Construct new OutputType according to file format

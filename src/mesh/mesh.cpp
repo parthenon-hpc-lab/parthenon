@@ -81,33 +81,33 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properti
                 pin->Get<Real>("parthenon/mesh", "x1max"),
                 pin->Get<Real>("parthenon/mesh", "x2max"),
                 pin->Get<Real>("parthenon/mesh", "x3max"),
-                pin->GetOrAddReal("parthenon/mesh", "x1rat", 1.0),
-                pin->GetOrAddReal("parthenon/mesh", "x2rat", 1.0),
-                pin->GetOrAddReal("parthenon/mesh", "x3rat", 1.0),
+                pin->GetOrAdd<Real>("parthenon/mesh", "x1rat", 1.0),
+                pin->GetOrAdd<Real>("parthenon/mesh", "x2rat", 1.0),
+                pin->GetOrAdd<Real>("parthenon/mesh", "x3rat", 1.0),
                 pin->Get<int>("parthenon/mesh", "nx1"),
                 pin->Get<int>("parthenon/mesh", "nx2"),
                 pin->Get<int>("parthenon/mesh", "nx3")},
 
       mesh_bcs{
-          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix1_bc", "reflecting")),
-          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox1_bc", "reflecting")),
-          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix2_bc", "reflecting")),
-          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox2_bc", "reflecting")),
-          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix3_bc", "reflecting")),
-          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox3_bc", "reflecting"))},
+          GetBoundaryFlag(pin->GetOrAdd<std::string>("parthenon/mesh", "ix1_bc", "reflecting")),
+          GetBoundaryFlag(pin->GetOrAdd<std::string>("parthenon/mesh", "ox1_bc", "reflecting")),
+          GetBoundaryFlag(pin->GetOrAdd<std::string>("parthenon/mesh", "ix2_bc", "reflecting")),
+          GetBoundaryFlag(pin->GetOrAdd<std::string>("parthenon/mesh", "ox2_bc", "reflecting")),
+          GetBoundaryFlag(pin->GetOrAdd<std::string>("parthenon/mesh", "ix3_bc", "reflecting")),
+          GetBoundaryFlag(pin->GetOrAdd<std::string>("parthenon/mesh", "ox3_bc", "reflecting"))},
       ndim((mesh_size.nx3 > 1) ? 3 : ((mesh_size.nx2 > 1) ? 2 : 1)),
-      adaptive(pin->GetOrAddString("parthenon/mesh", "refinement", "none") == "adaptive"
+      adaptive(pin->GetOrAdd<std::string>("parthenon/mesh", "refinement", "none") == "adaptive"
                    ? true
                    : false),
       multilevel((adaptive ||
-                  pin->GetOrAddString("parthenon/mesh", "refinement", "none") == "static")
+                  pin->GetOrAdd<std::string>("parthenon/mesh", "refinement", "none") == "static")
                      ? true
                      : false),
       nbnew(), nbdel(), step_since_lb(), gflag(), properties(properties),
       packages(packages),
       // private members:
       next_phys_id_(),
-      num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
+      num_mesh_threads_(pin->GetOrAdd<int>("parthenon/mesh", "num_threads", 1)),
       tree(this), use_uniform_meshgen_fn_{true, true, true, true}, lb_flag_(true),
       lb_automatic_(),
       lb_manual_(), MeshGenerator_{nullptr, UniformMeshGeneratorX1,
@@ -229,13 +229,13 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properti
   block_size.x1rat = mesh_size.x1rat;
   block_size.x2rat = mesh_size.x2rat;
   block_size.x3rat = mesh_size.x3rat;
-  block_size.nx1 = pin->GetOrAddInteger("parthenon/meshblock", "nx1", mesh_size.nx1);
+  block_size.nx1 = pin->GetOrAdd<int>("parthenon/meshblock", "nx1", mesh_size.nx1);
   if (ndim >= 2)
-    block_size.nx2 = pin->GetOrAddInteger("parthenon/meshblock", "nx2", mesh_size.nx2);
+    block_size.nx2 = pin->GetOrAdd<int>("parthenon/meshblock", "nx2", mesh_size.nx2);
   else
     block_size.nx2 = mesh_size.nx2;
   if (ndim >= 3)
-    block_size.nx3 = pin->GetOrAddInteger("parthenon/meshblock", "nx3", mesh_size.nx3);
+    block_size.nx3 = pin->GetOrAdd<int>("parthenon/meshblock", "nx3", mesh_size.nx3);
   else
     block_size.nx3 = mesh_size.nx3;
 
@@ -273,7 +273,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properti
     use_uniform_meshgen_fn_[X3DIR] = false;
     MeshGenerator_[X3DIR] = DefaultMeshGeneratorX3;
   }
-  default_pack_size_ = pin->GetOrAddInteger("parthenon/mesh", "pack_size", -1);
+  default_pack_size_ = pin->GetOrAdd<int>("parthenon/mesh", "pack_size", -1);
 
   // calculate the logical root level and maximum level
   for (root_level = 0; (1 << root_level) < nbmax; root_level++) {
@@ -284,17 +284,17 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properti
 
   // Load balancing flag and parameters
 #ifdef MPI_PARALLEL
-  if (pin->GetOrAddString("loadbalancing", "balancer", "default") == "automatic")
+  if (pin->GetOrAdd<std::string>("loadbalancing", "balancer", "default") == "automatic")
     lb_automatic_ = true;
-  else if (pin->GetOrAddString("loadbalancing", "balancer", "default") == "manual")
+  else if (pin->GetOrAdd<std::string>("loadbalancing", "balancer", "default") == "manual")
     lb_manual_ = true;
-  lb_tolerance_ = pin->GetOrAddReal("loadbalancing", "tolerance", 0.5);
-  lb_interval_ = pin->GetOrAddReal("loadbalancing", "interval", 10);
+  lb_tolerance_ = pin->GetOrAdd<Real>("loadbalancing", "tolerance", 0.5);
+  lb_interval_ = pin->GetOrAdd<Real>("loadbalancing", "interval", 10);
 #endif
 
   // SMR / AMR:
   if (adaptive) {
-    max_level = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1) + root_level - 1;
+    max_level = pin->GetOrAdd<int>("parthenon/mesh", "numlevel", 1) + root_level - 1;
     if (max_level > 63) {
       msg << "### FATAL ERROR in Mesh constructor" << std::endl
           << "The number of the refinement level must be smaller than "
@@ -538,32 +538,32 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
                 pin->Get<Real>("parthenon/mesh", "x1max"),
                 pin->Get<Real>("parthenon/mesh", "x2max"),
                 pin->Get<Real>("parthenon/mesh", "x3max"),
-                pin->GetOrAddReal("parthenon/mesh", "x1rat", 1.0),
-                pin->GetOrAddReal("parthenon/mesh", "x2rat", 1.0),
-                pin->GetOrAddReal("parthenon/mesh", "x3rat", 1.0),
+                pin->GetOrAdd<Real>("parthenon/mesh", "x1rat", 1.0),
+                pin->GetOrAdd<Real>("parthenon/mesh", "x2rat", 1.0),
+                pin->GetOrAdd<Real>("parthenon/mesh", "x3rat", 1.0),
                 pin->Get<int>("parthenon/mesh", "nx1"),
                 pin->Get<int>("parthenon/mesh", "nx2"),
                 pin->Get<int>("parthenon/mesh", "nx3")},
       mesh_bcs{
-          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix1_bc", "reflecting")),
-          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox1_bc", "reflecting")),
-          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix2_bc", "reflecting")),
-          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox2_bc", "reflecting")),
-          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ix3_bc", "reflecting")),
-          GetBoundaryFlag(pin->GetOrAddString("parthenon/mesh", "ox3_bc", "reflecting"))},
+          GetBoundaryFlag(pin->GetOrAdd<std::string>("parthenon/mesh", "ix1_bc", "reflecting")),
+          GetBoundaryFlag(pin->GetOrAdd<std::string>("parthenon/mesh", "ox1_bc", "reflecting")),
+          GetBoundaryFlag(pin->GetOrAdd<std::string>("parthenon/mesh", "ix2_bc", "reflecting")),
+          GetBoundaryFlag(pin->GetOrAdd<std::string>("parthenon/mesh", "ox2_bc", "reflecting")),
+          GetBoundaryFlag(pin->GetOrAdd<std::string>("parthenon/mesh", "ix3_bc", "reflecting")),
+          GetBoundaryFlag(pin->GetOrAdd<std::string>("parthenon/mesh", "ox3_bc", "reflecting"))},
       ndim((mesh_size.nx3 > 1) ? 3 : ((mesh_size.nx2 > 1) ? 2 : 1)),
-      adaptive(pin->GetOrAddString("parthenon/mesh", "refinement", "none") == "adaptive"
+      adaptive(pin->GetOrAdd<std::string>("parthenon/mesh", "refinement", "none") == "adaptive"
                    ? true
                    : false),
       multilevel((adaptive ||
-                  pin->GetOrAddString("parthenon/mesh", "refinement", "none") == "static")
+                  pin->GetOrAdd<std::string>("parthenon/mesh", "refinement", "none") == "static")
                      ? true
                      : false),
       nbnew(), nbdel(), step_since_lb(), gflag(), properties(properties),
       packages(packages),
       // private members:
       next_phys_id_(),
-      num_mesh_threads_(pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1)),
+      num_mesh_threads_(pin->GetOrAdd<int>("parthenon/mesh", "num_threads", 1)),
       tree(this), use_uniform_meshgen_fn_{true, true, true, true}, lb_flag_(true),
       lb_automatic_(),
       lb_manual_(), MeshGenerator_{nullptr, UniformMeshGeneratorX1,
@@ -665,23 +665,23 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
     use_uniform_meshgen_fn_[X3DIR] = false;
     MeshGenerator_[X3DIR] = DefaultMeshGeneratorX3;
   }
-  default_pack_size_ = pin->GetOrAddInteger("parthenon/mesh", "pack_size", -1);
+  default_pack_size_ = pin->GetOrAdd<int>("parthenon/mesh", "pack_size", -1);
 
   // Load balancing flag and parameters
 #ifdef MPI_PARALLEL
-  if (pin->GetOrAddString("loadbalancing", "balancer", "default") == "automatic")
+  if (pin->GetOrAdd<std::string>("loadbalancing", "balancer", "default") == "automatic")
     lb_automatic_ = true;
-  else if (pin->GetOrAddString("loadbalancing", "balancer", "default") == "manual")
+  else if (pin->GetOrAdd<std::string>("loadbalancing", "balancer", "default") == "manual")
     lb_manual_ = true;
-  lb_tolerance_ = pin->GetOrAddReal("loadbalancing", "tolerance", 0.5);
-  lb_interval_ = pin->GetOrAddReal("loadbalancing", "interval", 10);
+  lb_tolerance_ = pin->GetOrAdd<Real>("loadbalancing", "tolerance", 0.5);
+  lb_interval_ = pin->GetOrAdd<Real>("loadbalancing", "interval", 10);
 #endif
 
   // SMR / AMR
   if (adaptive) {
     // read from file or from input?  input for now.
     //    max_level = rr.GetAttr<int32_t>("Mesh", "maxLevel");
-    max_level = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1) + root_level - 1;
+    max_level = pin->GetOrAdd<int>("parthenon/mesh", "numlevel", 1) + root_level - 1;
     if (max_level > 63) {
       msg << "### FATAL ERROR in Mesh constructor" << std::endl
           << "The number of the refinement level must be smaller than "
@@ -1127,7 +1127,7 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin, ApplicationInput *app_i
       }
       const int num_partitions = DefaultNumPartitions();
       for (int i = 0; i < num_partitions; i++) {
-        auto &md = mesh_data.GetOrAdd("base", i);
+        auto &md = mesh_data.GetOrAdd<int>("base", i);
         // Call MeshData based FillDerived functions
         Update::FillDerived(md.get());
       }

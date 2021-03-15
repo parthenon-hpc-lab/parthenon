@@ -86,7 +86,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
 //========================================================================================
 
 void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
-  if (!pin->GetOrAddBoolean("Advection", "compute_error", false)) return;
+  if (!pin->GetOrAdd<bool>("Advection", "compute_error", false)) return;
 
   // Initialize errors to zero
   Real l1_err = 0.0;

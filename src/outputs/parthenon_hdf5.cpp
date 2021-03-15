@@ -442,8 +442,8 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   // advance output parameters
   output_params.file_number++;
   output_params.next_time += output_params.dt;
-  pin->SetInteger(output_params.block_name, "file_number", output_params.file_number);
-  pin->SetReal(output_params.block_name, "next_time", output_params.next_time);
+  pin->Set<int>(output_params.block_name, "file_number", output_params.file_number);
+  pin->Set<Real>(output_params.block_name, "next_time", output_params.next_time);
   return;
 }
 

@@ -63,7 +63,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto package = std::make_shared<StateDescriptor>("calculate_pi");
   Params &params = package->AllParams();
 
-  Real radius = pin->GetOrAddReal("Pi", "radius", 1.0);
+  Real radius = pin->GetOrAdd<Real>("Pi", "radius", 1.0);
   params.Add("radius", radius);
 
   // add a variable called in_or_out that will hold the value of the indicator function

@@ -127,7 +127,7 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
   // Modify based on command line inputs
   pinput->ModifyFromCmdline(argc, argv);
   // Set the global number of ghost zones
-  Globals::nghost = pinput->GetOrAddInteger("parthenon/mesh", "nghost", 2);
+  Globals::nghost = pinput->GetOrAdd<int>("parthenon/mesh", "nghost", 2);
 
   return ParthenonStatus::ok;
 }
@@ -159,13 +159,13 @@ void ParthenonManager::ParthenonInitPackagesAndMesh() {
 
     // Read simulation time and cycle from restart file and set in input
     Real tNow = restartReader->GetAttr<Real>("Info", "Time");
-    pinput->SetPrecise("parthenon/time", "start_time", tNow);
+    pinput->Set<Real,Option::Precise>(const std::string("parthenon/time"), const std::string("start_time"), tNow);
 
     Real dt = restartReader->GetAttr<Real>("Info", "dt");
-    pinput->SetPrecise("parthenon/time", "dt", dt);
+    pinput->Set<Real,Option::Precise>("parthenon/time", "dt", dt);
 
     int ncycle = restartReader->GetAttr<int32_t>("Info", "NCycle");
-    pinput->SetInteger("parthenon/time", "ncycle", ncycle);
+    pinput->Set<int>("parthenon/time", "ncycle", ncycle);
 
     // Read package data from restart file
     RestartPackages(*pmesh, *restartReader);

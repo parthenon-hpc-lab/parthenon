@@ -801,7 +801,7 @@ bool ParameterInput::GetOrAddBoolean(const std::string &block, const std::string
 //  \brief returns string value stored in block/name if it exists, or creates and sets
 //  value to def_value if it does not exist
 
-std::string ParameterInput::GetOrAddString(const std::string &block,
+/*std::string ParameterInput::GetOrAddString(const std::string &block,
                                            const std::string &name,
                                            const std::string &def_value) {
   InputBlock *pb;
@@ -821,7 +821,7 @@ std::string ParameterInput::GetOrAddString(const std::string &block,
   }
   Unlock();
   return ret;
-}
+}*/
 
 //----------------------------------------------------------------------------------------
 //! \fn int ParameterInput::SetInteger(const std::string & block, const std::string &
@@ -943,7 +943,7 @@ void ParameterInput::RollbackNextTime() {
       next_time -= static_cast<Real>(atof(pl->param_value.c_str()));
       msg << next_time;
       // AddParameter(pb, "next_time", msg.str().c_str(), "# Updated during run time");
-      SetReal(pb->block_name, "next_time", next_time);
+      Set<Real>(pb->block_name, "next_time", next_time);
     }
     pb = pb->pnext;
   }

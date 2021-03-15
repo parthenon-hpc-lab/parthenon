@@ -47,11 +47,11 @@ namespace Particles {
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto pkg = std::make_shared<StateDescriptor>("particles_package");
 
-  int num_particles = pin->GetOrAddInteger("Particles", "num_particles", 100);
+  int num_particles = pin->GetOrAdd<int>("Particles", "num_particles", 100);
   pkg->AddParam<>("num_particles", num_particles);
-  Real particle_speed = pin->GetOrAddReal("Particles", "particle_speed", 1.0);
+  Real particle_speed = pin->GetOrAdd<Real>("Particles", "particle_speed", 1.0);
   pkg->AddParam<>("particle_speed", particle_speed);
-  Real const_dt = pin->GetOrAddReal("Particles", "const_dt", 1.0);
+  Real const_dt = pin->GetOrAdd<Real>("Particles", "const_dt", 1.0);
   pkg->AddParam<>("const_dt", const_dt);
 
   // Initialize random number generator pool
