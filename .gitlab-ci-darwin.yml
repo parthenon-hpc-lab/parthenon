@@ -27,7 +27,7 @@ stages:
   variables: 
     EXECUTABLE: execute_main.sh
   script:
-    - printf 'env -i bash --norc --noprofile %s/scripts/darwin/build_fast_target.sh  "%s" "%s" "%s"
+    - printf 'env -i bash --norc --noprofile %s/scripts/darwin/build_fast.sh  "%s" "%s" "%s"
       "%s"\n'
       ${CI_PROJECT_DIR}
       ${GITHUB_APP_PEM}
