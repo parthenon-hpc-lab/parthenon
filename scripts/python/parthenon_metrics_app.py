@@ -602,8 +602,7 @@ def main(**kwargs):
         kwargs['wiki'],
         kwargs['ignore'],
         kwargs['permissions'],
-        kwargs['create'],
-        __file__)
+        kwargs['create'])
 
     branch = kwargs['branch']
 

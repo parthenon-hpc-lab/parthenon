@@ -78,16 +78,23 @@ if [[ "$performance_metrics_uptodate" == *"False"* ]]; then
   # Before checking out target branch copy the metrics app
   echo "Copying files parthenon_metrics_app.py and app.py to ${SOURCE}/../../../"
   cp "${METRICS_APP}" "${SOURCE}"/../../../
-  cp "${SOURCE}"/../python/parthenon/app.py "${SOURCE}"/../../../
+  cp "${SOURCE}"/../python/parthenon_tools/githubapp.py "${SOURCE}"/../../../
+  cp "${SOURCE}"/../python/parthenon_tools/__init__.py "${SOURCE}"/../../../
   ls "${SOURCE}"/../../../
   git checkout "$target_branch"
 #  git pull
 #  git log --name-status HEAD^..HEAD
 
-  echo "Copying files parthenon_metrics_app.py and app.py to ${SOURCE}/../python/parthenon_metrics_app/"
-  cp "${SOURCE}"/../../../parthenon_metrics_app.py "${SOURCE}"/../python/parthenon_metrics_app/
-  cp "${SOURCE}"/../../../app.py "${SOURCE}"/../python/parthenon_metrics_app/
-  ls "${SOURCE}"/../python/parthenon_metrics_app/
+  echo "Copying files parthenon_metrics_app.py and githubapp.py to ${SOURCE}/../python/python/"
+  cp "${SOURCE}"/../../../parthenon_metrics_app.py "${SOURCE}"/../python/
+
+  if [ ! -d "${SOURCE}"/../python/parthenon_tools ]; then
+    # Directory missing
+    mkdir -p "${SOURCE}"/../python/parthenon_tools
+  fi
+  cp "${SOURCE}"/../../../githubapp.py "${SOURCE}"/../python/parthenon_tools/
+  cp "${SOURCE}"/../../../__init__.py "${SOURCE}"/../python/parthenon_tools/
+  ls "${SOURCE}"/../python/parthenon_tools/
 
   source /projects/parthenon-int/parthenon-project/.bashrc
   cmake -S. -Bbuild
@@ -96,8 +103,8 @@ if [[ "$performance_metrics_uptodate" == *"False"* ]]; then
 
   cd build
 
-  "${SOURCE}"/../python/parthenon_metrics_app/parthenon_metrics_app.py -p "${GITHUB_APP_PEM}"  --status "pending" --status-context "Parthenon Metrics App" --status-description "Running tests for target branch ($target_branch)" --status-url "${CI_JOB_URL}"
+  "${METRICS_APP}" -p "${GITHUB_APP_PEM}"  --status "pending" --status-context "Parthenon Metrics App" --status-description "Running tests for target branch ($target_branch)" --status-url "${CI_JOB_URL}"
   ctest --output-on-failure -R performance
 
-  "${SOURCE}"/../python/parthenon_metrics_app/parthenon_metrics_app.py -p "${GITHUB_APP_PEM}" --branch "$target_branch" --target-branch "$target_branch" --analyze "${BUILD_DIR}/tst/regression/outputs" --create
+  "${METRICS_APP}" -p "${GITHUB_APP_PEM}" --branch "$target_branch" --target-branch "$target_branch" --analyze "${BUILD_DIR}/tst/regression/outputs" --create
 fi
