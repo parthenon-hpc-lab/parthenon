@@ -5,6 +5,7 @@ variables:
 
 stages:
   - performance-target
+  - performance-regression-build
   - performance-regression
 
 ########################################################################
@@ -80,7 +81,7 @@ parthenon-power9-gcc-mpi-cuda-perf-manual-target-branch:
 
 parthenon-power9-gcc-mpi-cuda-perf-manual-build:
   extends: .gcc-mpi-cuda-performance-regression-build
-  stage: performance-regression
+  stage: performance-regression-build
   needs: [parthenon-power9-gcc-mpi-cuda-perf-manual-target-branch]
   except:
     - schedules
@@ -97,7 +98,7 @@ parthenon-power9-gcc-mpi-cuda-perf-manual-metrics:
 ########################################################################
 parthenon-power9-gcc-mpi-cuda-perf-schedule-build:
   extends: .gcc-mpi-cuda-performance-regression-build
-  stage: performance-regression
+  stage: performance-regression-build
   only:
     - schedules
     - develop
