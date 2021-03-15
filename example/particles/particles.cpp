@@ -112,18 +112,17 @@ TaskStatus DestroySomeParticles(MeshBlock *pmb) {
   auto pkg = pmb->packages.Get("particles_package");
   auto swarm = pmb->swarm_data.Get()->Get("my particles");
   auto rng_pool = pkg->Param<RNGPool>("rng_pool");
-  Real destroy_particles_frac = pkg->Param<Real>("destroy_particles_frac");
+  const auto destroy_particles_frac = pkg->Param<Real>("destroy_particles_frac");
 
   // The swarm mask is managed internally and should always be treated as constant. This
   // may be enforced later.
   auto swarm_d = swarm->GetDeviceContext();
 
-  // Randomly mark 10% of particles each timestep for removal
+  // Randomly mark some fraction of particles each timestep for removal
   pmb->par_for(
       "DestroySomeParticles", 0, swarm->GetMaxActiveIndex(), KOKKOS_LAMBDA(const int n) {
         if (swarm_d.IsActive(n)) {
           auto rng_gen = rng_pool.get_state();
-          // if (rng_gen.drand() > 0.9) {
           if (rng_gen.drand() > 1.0 - destroy_particles_frac) {
             swarm_d.MarkParticleForRemoval(n);
           }
@@ -196,7 +195,7 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, const double t0) {
   auto rng_pool = pkg->Param<RNGPool>("rng_pool");
   auto num_particles = pkg->Param<int>("num_particles");
   auto v = pkg->Param<Real>("particle_speed");
-  auto orbiting_particles = pkg->Param<bool>("orbiting_particles");
+  const auto orbiting_particles = pkg->Param<bool>("orbiting_particles");
 
   ParArrayND<int> new_indices;
   const auto new_particles_mask = swarm->AddEmptyParticles(num_particles, new_indices);
@@ -298,8 +297,6 @@ TaskStatus CreateSomeParticles(MeshBlock *pmb, const double t0) {
         });
   }
 
-  swarm->swarm_num_incomplete_ = swarm->GetNumActive();
-
   return TaskStatus::complete;
 }
 
@@ -307,7 +304,7 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
                               const double t0) {
   auto swarm = pmb->swarm_data.Get()->Get("my particles");
   auto pkg = pmb->packages.Get("particles_package");
-  auto orbiting_particles = pkg->Param<bool>("orbiting_particles");
+  const auto orbiting_particles = pkg->Param<bool>("orbiting_particles");
 
   int max_active_index = swarm->GetMaxActiveIndex();
 
@@ -317,9 +314,9 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
   auto &x = swarm->Get<Real>("x").Get();
   auto &y = swarm->Get<Real>("y").Get();
   auto &z = swarm->Get<Real>("z").Get();
-  const auto &vx = swarm->Get<Real>("vx").Get();
-  const auto &vy = swarm->Get<Real>("vy").Get();
-  const auto &vz = swarm->Get<Real>("vz").Get();
+  auto &vx = swarm->Get<Real>("vx").Get();
+  auto &vy = swarm->Get<Real>("vy").Get();
+  auto &vz = swarm->Get<Real>("vz").Get();
 
   const Real &dx_i = pmb->coords.dx1f(pmb->cellbounds.is(IndexDomain::interior));
   const Real &dx_j = pmb->coords.dx2f(pmb->cellbounds.js(IndexDomain::interior));
@@ -408,7 +405,9 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
               swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n), on_current_mesh_block);
 
               if (!on_current_mesh_block) {
-                // Particle no longer on this block
+                // Particle no longer on this block. Can still be communicated to a
+                // neighbor block or have boundary conditions applied so transport
+                // can continue.
                 break;
               }
             }
@@ -471,14 +470,12 @@ TaskListStatus ParticleDriver::Step() {
 TaskStatus StopCommunicationMesh(const BlockList_t &blocks) {
   int num_sent_local = 0;
   for (auto &block : blocks) {
-    auto &pmb = block;
-    auto sc = pmb->swarm_data.Get();
+    auto sc = block->swarm_data.Get();
     auto swarm = sc->Get("my particles");
     swarm->finished_transport = false;
     num_sent_local += swarm->num_particles_sent_;
   }
 
-  // Boundary transfers on same MPI proc are blocking
   for (auto &block : blocks) {
     auto swarm = block->swarm_data.Get()->Get("my particles");
     for (int n = 0; n < block->pbval->nneighbor; n++) {
@@ -507,12 +504,6 @@ TaskStatus StopCommunicationMesh(const BlockList_t &blocks) {
       auto sc = pmb->swarm_data.Get();
       auto swarm = sc->Get("my particles");
       swarm->finished_transport = true;
-
-      // TODO(BRR) should this really be done at an initialization step for each cycle?
-      for (int n = 0; n < swarm->vbswarm->bd_var_.nbmax; n++) {
-        auto &nb = pmb->pbval->neighbor[n];
-        swarm->vbswarm->bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
-      }
     }
   }
 

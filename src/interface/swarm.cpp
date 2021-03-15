@@ -390,6 +390,11 @@ void Swarm::Defrag() {
   max_active_index_ = num_active_ - 1;
 }
 
+///
+/// Routine for precomputing neighbor indices to efficiently compute particle
+/// position in terms of neighbor blocks based on spatial position. See
+/// GetNeighborBlockIndex()
+///
 void Swarm::SetNeighborIndices1D_() {
   auto pmb = GetBlockPointer();
   const int ndim = pmb->pmy_mesh->ndim;

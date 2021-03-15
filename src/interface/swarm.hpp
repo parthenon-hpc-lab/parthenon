@@ -212,6 +212,8 @@ class Swarm {
   bool mpiStatus;
   void AllocateComms(std::weak_ptr<MeshBlock> wpmb);
 
+  // This is the particle data size for indexing boundary data buffers, for which
+  // integers are cast as Reals.
   int GetParticleDataSize() {
     return std::get<0>(Vectors_).size() + std::get<1>(Vectors_).size();
   }
@@ -228,10 +230,6 @@ class Swarm {
                                      PackIndexMap &vmap);
 
   // Temporarily public
-  int swarm_num_incomplete_;
-  int global_num_incomplete_;
-  int local_num_completed_;
-  int global_num_completed_;
   int num_particles_sent_;
   bool finished_transport;
 

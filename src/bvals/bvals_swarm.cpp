@@ -97,8 +97,9 @@ void BoundarySwarm::Send(BoundaryCommSubset phase) {
 #ifdef MPI_PARALLEL
       PARTHENON_REQUIRE(bd_var_.req_send[nb.bufid] == MPI_REQUEST_NULL,
                         "Trying to create a new send before previous send completes!");
-      MPI_Isend(bd_var_.send[n].data(), send_size[n], MPI_PARTHENON_REAL, nb.snb.rank,
-                send_tag[n], MPI_COMM_WORLD, &(bd_var_.req_send[nb.bufid]));
+      PARTHENON_MPI_CHECK(MPI_Isend(bd_var_.send[n].data(), send_size[n],
+                                    MPI_PARTHENON_REAL, nb.snb.rank, send_tag[n],
+                                    MPI_COMM_WORLD, &(bd_var_.req_send[nb.bufid])));
 #endif // MPI_PARALLEL
     } else {
       MeshBlock &target_block = *pmy_mesh_->FindMeshBlock(nb.snb.gid);
@@ -131,25 +132,28 @@ void BoundarySwarm::Receive(BoundaryCommSubset phase) {
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
     if (nb.snb.rank != Globals::my_rank) {
-      pmb->exec_space.fence();
+      // pmb->exec_space.fence();
       // Check to see if we got a message
       int test;
       MPI_Status status;
 
       if (bd_var_.flag[nb.bufid] != BoundaryStatus::completed) {
-        MPI_Iprobe(MPI_ANY_SOURCE, recv_tag[nb.bufid], MPI_COMM_WORLD, &test, &status);
+        PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, recv_tag[nb.bufid], MPI_COMM_WORLD,
+                                       &test, &status));
         if (!static_cast<bool>(test)) {
           bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
         } else {
           bd_var_.flag[nb.bufid] = BoundaryStatus::arrived;
 
           // If message is available, receive it
-          MPI_Get_count(&status, MPI_PARTHENON_REAL, &(recv_size[n]));
+          PARTHENON_MPI_CHECK(
+              MPI_Get_count(&status, MPI_PARTHENON_REAL, &(recv_size[n])));
           if (recv_size[n] > bd_var_.recv[n].extent(0)) {
             bd_var_.recv[n] = ParArray1D<Real>("Buffer", recv_size[n]);
           }
-          MPI_Recv(bd_var_.recv[n].data(), recv_size[n], MPI_PARTHENON_REAL, nb.snb.rank,
-                   recv_tag[nb.bufid], MPI_COMM_WORLD, &status);
+          PARTHENON_MPI_CHECK(MPI_Recv(bd_var_.recv[n].data(), recv_size[n],
+                                       MPI_PARTHENON_REAL, nb.snb.rank,
+                                       recv_tag[nb.bufid], MPI_COMM_WORLD, &status));
         }
       }
     }

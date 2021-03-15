@@ -52,7 +52,7 @@ Parallel computations on particle data can be performed with the usual `MeshBloc
 mask variable to only perform computations on currently active particles:
 ```c++
 auto &x = swarm.Get("x").Get();
-swarm.pmy_block->par_for("Simple loop", 0, swarm.get_max_active_index(),
+swarm.pmy_block->par_for("Simple loop", 0, swarm.GetMaxActiveIndex(),
   KOKKOS_LAMBDA(const int n) {
     if (swarm_d.IsActive(n)) {
       x(n) += 1.0;
