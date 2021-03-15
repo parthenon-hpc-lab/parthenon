@@ -18,7 +18,7 @@ import os
 import datetime
 import json
 import numpy as np
-from parthenon import githubapp
+from parthenon_tools import githubapp
 import matplotlib.pyplot as plt
 
 
@@ -279,7 +279,9 @@ class ParthenonApp(githubapp.GitHubApp):
             92734,
             "Parthenon_Github_Metrics_Application",
             "lanl",
-            "parthenon")
+            "parthenon",
+            os.path.dirname(os.path.realpath(__file__))
+            )
 
     def readPerformanceMetricsTXT(self, file_path):
         """Will read the performance metrics of a .txt file that is output from one of the tests"""

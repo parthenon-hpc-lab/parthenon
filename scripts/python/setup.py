@@ -20,11 +20,12 @@ with open('README.md','r') as f:
 
 setup(
     name='parthenon_tools',
+    'Development Status :: 3 - Alpha',
     version=__version__,
     description='Python helper scripts to be used with Parthenon',
     long_description=long_description,
     url='https://github.com/lanl/parthenon/tree/develop/scripts/python/parthenon_tools',
-    author = 'Joshua S. Brown',
+    author = 'Josh Dolence, Philipp Grete, Andrew Gaspar, Joshua S. Brown',
     author_email = 'joshbro42867@yahoo.com',
     license_files = ('LICENSE.txt',),
     classifiers = [
@@ -32,7 +33,7 @@ setup(
       'Environment :: Console',
       'Natural Language :: English',
       'Operating System :: Unix',
-      'Programming Language :: Python :: 3.9.1',
+      'Programming Language :: Python :: 3.9',
       ],
     keywords = 'simulations science computing githubapp',
     packages = find_packages(),
