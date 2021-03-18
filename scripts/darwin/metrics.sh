@@ -26,7 +26,7 @@ module load gcc/9.2.0
 spack compiler find
 
 # Always get the latest spack environment
-spack_env_latest=$(spack env list | grep darwin-ppc64le-gcc9 | sort | tail -n 1)
+spack_env_latest=$(spack env list | grep darwin-ppc64le-gcc9 | sort | tail -n 1 | tr -d '[:space:]')
 spack env activate "${spack_env_latest}"
 
 SCRIPT=$(realpath "$0")
