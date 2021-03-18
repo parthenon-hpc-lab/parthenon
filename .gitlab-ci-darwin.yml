@@ -25,8 +25,8 @@ stages:
 ########################################################################
 .gcc-mpi-cuda-performance-regression-build:
   variables: 
-    EXECUTABLE: execute_main.sh
-    BUILD_TARGET_BRANCH: OFF
+    EXECUTABLE: "execute_main.sh"
+    BUILD_TARGET_BRANCH: "OFF"
   script:
     - printf 'env -i bash --norc --noprofile %s/scripts/darwin/build_fast.sh  "%s"
       "%s/build" "%s" "%s" "%s %s %s"\n'
@@ -46,7 +46,7 @@ stages:
 
 .gcc-mpi-cuda-performance-regression-metrics:
   variables: 
-    EXECUTABLE: execute_metrics.sh
+    EXECUTABLE: "execute_metrics.sh"
   script:
     - printf 'env -i bash --norc --noprofile %s/scripts/darwin/metrics.sh "%s" "%s/build" "%s"
       "%s"\n'
@@ -59,8 +59,8 @@ stages:
 
 .gcc-mpi-cuda-performance-regression-target-branch:
   variables:
-    EXECUTABLE: execute_target.sh
-    BUILD_TARGET_BRANCH: ON
+    EXECUTABLE: "execute_target.sh"
+    BUILD_TARGET_BRANCH: "ON"
   script:
     - printf 'env -i bash --norc --noprofile %s/scripts/darwin/build_fast.sh  "%s"
       "%s/build" "%s" "%s" "%s %s %s"\n'
