@@ -609,14 +609,14 @@ def main(**kwargs):
         value = kwargs['upload']
         if isinstance(value, list):
             value = value[0]
-        if not value is None:
+        if value is not None:
             app.upload(value, branch)
 
     if 'status' in kwargs:
         value = kwargs['status']
         if isinstance(value, list):
             value = value[0]
-        if not value is None:
+        if value is not None:
             url = kwargs['status_url']
             if isinstance(url, list):
                 url = url[0]
@@ -638,7 +638,7 @@ def main(**kwargs):
         value = kwargs['analyze']
         if isinstance(value, list):
             value = value[0]
-        if not value is None:
+        if value is not None:
             target_branch = kwargs['target_branch']
             if target_branch == "":
                 _, target_branch = app.getCurrentAndTargetBranch(branch)
