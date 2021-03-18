@@ -54,6 +54,11 @@ spack compiler find
 spack env activate darwin-ppc64le-gcc9-2021-02-08
 data=$("${METRICS_APP}" -p "${GITHUB_APP_PEM}" --get-target-branch --branch "${CI_COMMIT_BRANCH}")
 
+echo "Clean out old parthenon_wiki if it exists"
+if [[ -d "${SOURCE}/../parthenon.wiki" ]]; then
+  rm -rf "${SOURCE}/../parthenon.wiki"
+fi
+
 echo "Get target branch or pr"
 echo "${data}"
 
