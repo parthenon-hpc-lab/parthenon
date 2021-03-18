@@ -591,6 +591,16 @@ class ParthenonApp(githubapp.GitHubApp):
             print("Target branch is: %s" % target_branch)
 
 
+def getValue(kwargs, name):
+    value = kwargs[name]
+    if isinstance(value, list):
+      if len(value) == 1:
+        return value[0]
+      else:
+        raise ValueError("Expected exactly 1 value for %s, but got %i" % (name, len(value)))
+    else:
+      return value
+
 def main(**kwargs):
 
     app = ParthenonApp()
@@ -600,34 +610,19 @@ def main(**kwargs):
         kwargs['permissions'],
         kwargs['create'])
 
-    branch = kwargs['branch']
-
-    if isinstance(branch, list):
-        branch = branch[0]
+    branch = getValue(kwargs,'branch')
 
     if 'upload' in kwargs:
-        value = kwargs['upload']
-        if isinstance(value, list):
-            value = value[0]
+        value = getValue(kwargs,'upload')
         if value is not None:
             app.upload(value, branch)
 
     if 'status' in kwargs:
-        value = kwargs['status']
-        if isinstance(value, list):
-            value = value[0]
+        value = getValue(kwargs,'status')
         if value is not None:
-            url = kwargs['status_url']
-            if isinstance(url, list):
-                url = url[0]
-            context = kwargs['status_context']
-            if isinstance(context, list):
-                context = context[0]
-
-            description = kwargs['status_description']
-            if isinstance(description, list):
-                description = description[0]
-
+            url = getValue(kwargs,'status_url')
+            context = getValue(kwargs,'status_context')
+            description = getValue(kwargs,'status_description')
             print("Posting value: %s" % value)
             print("Posting context: %s" % context)
             print("Posting description: %s" % description)
@@ -635,11 +630,9 @@ def main(**kwargs):
             app.postStatus(value, None, context, description, target_url=url)
 
     if 'analyze' in kwargs:
-        value = kwargs['analyze']
-        if isinstance(value, list):
-            value = value[0]
+        value = getValue(kwargs,'analyze')
         if value is not None:
-            target_branch = kwargs['target_branch']
+            target_branch = getValue(kwargs,'target_branch')
             if target_branch == "":
                 _, target_branch = app.getCurrentAndTargetBranch(branch)
                 # If target branch is None, assume it's not a pull request
@@ -649,11 +642,10 @@ def main(**kwargs):
                 value,
                 branch,
                 target_branch,
-                kwargs['post_analyze_status'],
-                kwargs['generate_figures_on_analysis'])
+                getValue(kwargs,'post_analyze_status'),
+                getValue(kwargs,'generate_figures_on_analysis'))
 
-    check = kwargs['check_branch_metrics_uptodate']
-    if check:
+    if kwargs['check_branch_metrics_uptodate']
         app.checkUpToDate(branch, kwargs['tests'])
 
     if kwargs['get_target_branch']:
