@@ -673,21 +673,18 @@ if __name__ == '__main__':
                         default="",
                         type=str,
                         nargs=1,
-                        required=False,
                         help=desc)
 
     desc = ('Path to file want to upload.')
     parser.add_argument('--upload', '-u',
                         type=str,
                         nargs=1,
-                        required=False,
                         help=desc)
 
     desc = ('Branch to use. Default is develop')
     parser.add_argument('--branch', '-b',
                         type=str,
                         nargs=1,
-                        required=False,
                         default="develop",
                         help=desc)
 
@@ -696,7 +693,6 @@ if __name__ == '__main__':
     parser.add_argument('--target-branch', '-tb',
                         type=str,
                         nargs=1,
-                        required=False,
                         default="",
                         help=desc)
 
@@ -704,7 +700,6 @@ if __name__ == '__main__':
     parser.add_argument('--status', '-s',
                         type=str,
                         nargs=1,
-                        required=False,
                         help=desc)
 
     desc = ('Post url to use with status.')
@@ -712,7 +707,6 @@ if __name__ == '__main__':
                         default="",
                         type=str,
                         nargs=1,
-                        required=False,
                         help=desc)
 
     desc = ('Post description with status.')
@@ -720,7 +714,6 @@ if __name__ == '__main__':
                         default="",
                         type=str,
                         nargs=1,
-                        required=False,
                         help=desc)
 
     desc = ('Post context to use with status.')
@@ -728,14 +721,12 @@ if __name__ == '__main__':
                         default="",
                         type=str,
                         nargs=1,
-                        required=False,
                         help=desc)
 
     desc = ('Path to regression tests output, to analyze.')
     parser.add_argument('--analyze', '-a',
                         type=str,
                         nargs=1,
-                        required=False,
                         help=desc)
 
     desc = ('Post analyze status on completion')
