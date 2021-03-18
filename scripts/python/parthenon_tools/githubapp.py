@@ -183,6 +183,27 @@ class GitHubApp:
         self._jwt_token = jwt.encode(
             payload, PEM, algorithm='RS256').decode("utf-8")
 
+
+    def _PYCURL(self, header, url, option=None, custom_data=None):
+        buffer_temp = BytesIO()
+        c = pycurl.Curl()
+        c.setopt(c.URL, url)
+        c.setopt(pycurl.VERBOSE, 0)
+        c.setopt(c.WRITEDATA, buffer_temp)
+        c.setopt(c.HTTPHEADER, header)
+        if option == "POST":
+            c.setopt(c.POST, 1)
+            c.setopt(c.POSTFIELDS, '')
+        elif option == "PUT":
+            c.setopt(c.PUT, 1)
+        elif custom_data not None:
+            buffer_temp2 = BytesIO(json.dumps(custom_data).encode('utf-8'))
+            c.setopt(c.READDATA, buffer_temp2)
+        c.perform()
+        c.close()
+
+        return json.loads(buffer_temp.getvalue())
+
     def _generateInstallationId(self):
         """This method will populate the installation id attribute using the internally stored json
         web token."""
@@ -191,16 +212,7 @@ class GitHubApp:
             'Accept: ' + self._api_version
         ]
 
-        buffer_temp = BytesIO()
-        c = pycurl.Curl()
-        c.setopt(c.URL, 'https://api.github.com/app/installations')
-        c.setopt(pycurl.VERBOSE, 0)
-        c.setopt(c.WRITEDATA, buffer_temp)
-        c.setopt(c.HTTPHEADER, header)
-        c.perform()
-        c.close()
-
-        js_obj = json.loads(buffer_temp.getvalue())
+        js_obj = self.PYCURL(header, 'https://api.github.com/app/installations')
 
         if isinstance(js_obj, list):
             js_obj = js_obj[0]
@@ -220,18 +232,7 @@ class GitHubApp:
         https_url_access_tokens = "https://api.github.com/app/installations/" + \
             self._install_id + "/access_tokens"
 
-        buffer_temp = BytesIO()
-        c = pycurl.Curl()
-        c.setopt(pycurl.VERBOSE, 0)
-        c.setopt(c.HTTPHEADER, header)
-        c.setopt(c.URL, https_url_access_tokens)
-        c.setopt(c.POST, 1)
-        c.setopt(c.POSTFIELDS, '')
-        c.setopt(c.WRITEDATA, buffer_temp)
-        c.perform()
-        c.close()
-
-        js_obj = json.loads(buffer_temp.getvalue())
+        js_obj = self._PYCURL(header, https_url_access_tokens, option="POST")
 
         if isinstance(js_obj, list):
             js_obj = js_obj[0]
@@ -249,18 +250,12 @@ class GitHubApp:
         """
         nodes = current_node.getNodes()
         for node in nodes:
-            buffer_temp = BytesIO()
             custom_data = {"branch": branch}
-            buffer_temp2 = BytesIO(json.dumps(custom_data).encode('utf-8'))
-            c = pycurl.Curl()
-            c.setopt(pycurl.VERBOSE, 0)
-            c.setopt(c.URL, self._repo_url + "/contents/" + node.getPath())
-            c.setopt(c.READDATA, buffer_temp2)
-            c.setopt(c.WRITEDATA, buffer_temp)
-            c.setopt(c.HTTPHEADER, self._header)
-            c.perform()
-            c.close()
-            js_obj = json.loads(buffer_temp.getvalue())
+
+
+            js_obj = self._PYCURL(self._header, 
+                self._repo_url + "/contents/" + node.getPath(),
+                custom_data={"branch": branch})
 
             if isinstance(js_obj, list):
                 for ob in js_obj:
@@ -272,15 +267,7 @@ class GitHubApp:
 
     def _getBranches(self):
         """Internal method for getting a list of the branches that are available on github."""
-        buffer_temp = BytesIO()
-        c = pycurl.Curl()
-        c.setopt(pycurl.VERBOSE, 0)
-        c.setopt(c.URL, self._repo_url + "/branches")
-        c.setopt(c.WRITEDATA, buffer_temp)
-        c.setopt(c.HTTPHEADER, self._header)
-        c.perform()
-        c.close()
-        js_obj_list = json.loads(buffer_temp.getvalue())
+        js_obj_list = self._PYCURL(self._header, self._repo_url + "/branches") 
 
         self._branches = []
         self._branch_current_commit_sha = {}
@@ -291,15 +278,7 @@ class GitHubApp:
 
     def getBranchMergingWith(self, branch):
         """Gets the name of the target branch of `branch` which it will merge with."""
-        buffer_temp = BytesIO()
-        c = pycurl.Curl()
-        c.setopt(pycurl.VERBOSE, 0)
-        c.setopt(c.URL, self._repo_url + "/pulls")
-        c.setopt(c.WRITEDATA, buffer_temp)
-        c.setopt(c.HTTPHEADER, self._header)
-        c.perform()
-        c.close()
-        js_obj_list = json.loads(buffer_temp.getvalue())
+        js_obj_list = self._PYCURL(self._header, self._repo_url + "/pulls") 
         print("Checking if branch is open as a pr and what branch it is targeted to merge with.\n")
         print("Checking branch %s\n" % (self._user + ":" + branch))
         for js_obj in js_obj_list:
@@ -361,20 +340,13 @@ class GitHubApp:
                 branch_to_fork_from + " because " + branch_to_fork_from + " does not exist."
             raise Exception(error_msg)
 
-        buffer_temp = BytesIO()
-        custom_data = {
+        self._PYCURL(
+            self._header,
+            self._repo_url + '/git/refs',
+            option="POST",
+            custom_data={
             "ref": "refs/heads/" + branch,
-            "sha": self._branch_current_commit_sha[branch_to_fork_from]}
-        c = pycurl.Curl()
-        c.setopt(pycurl.VERBOSE, 0)
-        c.setopt(c.URL, self._repo_url + '/git/refs')
-        c.setopt(c.POST, 1)
-        buffer_temp2 = BytesIO(json.dumps(custom_data).encode('utf-8'))
-        c.setopt(c.READDATA, buffer_temp2)
-        c.setopt(c.WRITEDATA, buffer_temp)
-        c.setopt(c.HTTPHEADER, self._header)
-        c.perform()
-        c.close()
+            "sha": self._branch_current_commit_sha[branch_to_fork_from]})
 
     def getContents(self, branch=None):
         """
@@ -385,18 +357,10 @@ class GitHubApp:
             branch = self._default_branch
         buffer_temp = BytesIO()
         # 1. Check if file exists if so get SHA
-        custom_data = {"branch": branch}
-        c = pycurl.Curl()
-        c.setopt(pycurl.VERBOSE, 0)
-        c.setopt(c.URL, self._repo_url + '/contents?ref=' + branch)
-        buffer_temp2 = BytesIO(json.dumps(custom_data).encode('utf-8'))
-        c.setopt(c.READDATA, buffer_temp2)
-        c.setopt(c.WRITEDATA, buffer_temp)
-        c.setopt(c.HTTPHEADER, self._header)
-        c.perform()
-        c.close()
-
-        js_obj = json.loads(buffer_temp.getvalue())
+        js_obj = self._PYCURL( 
+            self._header,
+            self._repo_url + '/contents?ref=' + branch,
+            custom_data = {"branch": branch})
 
         contents = {}
         if isinstance(js_obj, list):
@@ -492,35 +456,25 @@ class GitHubApp:
                   (os.path.basename(os.path.normpath(file_name)), branch))
             https_url_to_file = self._repo_url + "/contents/" + \
                 os.path.basename(os.path.normpath(file_name))
-            c2 = pycurl.Curl()
-            c2.setopt(pycurl.VERBOSE, 0)
-            c2.setopt(c2.HTTPHEADER, self._header)
-            c2.setopt(c2.URL, https_url_to_file)
-            c2.setopt(c2.PUT, 1)
-            buffer_temp2 = BytesIO(json.dumps(custom_data).encode('utf-8'))
-            c2.setopt(c2.READDATA, buffer_temp2)
-            c2.perform()
-            c2.close()
+
+            self._PYCURL( 
+                self._header,
+                https_url_to_file,
+                "PUT",
+                custom_data)
 
     def getBranchTree(self, branch):
         """
         Method will grab the contents of the specified branch from the remote repository. It will
         return the contents as a tree object.
         """
-        buffer_temp = BytesIO()
-        custom_data = {"branch": branch}
-        buffer_temp2 = BytesIO(json.dumps(custom_data).encode('utf-8'))
         # 1. Check if file exists
-        c = pycurl.Curl()
-        c.setopt(pycurl.VERBOSE, 0)
-        c.setopt(c.URL, self._repo_url + "/contents")
-        c.setopt(c.READDATA, buffer_temp2)
-        c.setopt(c.WRITEDATA, buffer_temp)
-        c.setopt(c.HTTPHEADER, self._header)
-        c.perform()
-        c.close()
-
-        js_obj = json.loads(buffer_temp.getvalue())
+        js_obj = self._PYCURL( 
+                self._header,
+                self._repo_url + "/contents",
+                "PUT",
+                {"branch": branch})
+        
         for obj in js_obj:
             self._parth_root.insert(obj['name'], obj['type'])
 
@@ -563,22 +517,20 @@ class GitHubApp:
         if commit_sha is None:
             raise Exception(
                 "CI_COMMIT_SHA not defined in environment cannot post status")
-        custom_data = {"state": state}
+        custom_data_tmp = {"state": state}
         if context != "":
-            custom_data["context"] = context
+            custom_data_tmp["context"] = context
         if description != "":
-            custom_data["description"] = description
+            custom_data_tmp["description"] = description
         if target_url != "":
-            custom_data["target_url"] = target_url
-        c = pycurl.Curl()
-        c.setopt(c.URL, self._repo_url + '/statuses/' + commit_sha)
-        c.setopt(c.POST, 1)
-        buffer_temp2 = BytesIO(json.dumps(custom_data).encode('utf-8'))
-        c.setopt(c.READDATA, buffer_temp2)
-        c.setopt(c.HTTPHEADER, self._header)
-        c.perform()
-        c.close()
-
+            custom_data_tmp["target_url"] = target_url
+        
+        self._PYCURL( 
+                self._header,
+                self._repo_url + '/statuses/' + commit_sha,
+                "POST",
+                custom_data_tmp)
+        
     def getStatus(self):
         """Get status of current commit."""
         commit_sha = os.getenv('CI_COMMIT_SHA')
@@ -586,15 +538,8 @@ class GitHubApp:
             raise Exception(
                 "CI_COMMIT_SHA not defined in environment cannot post status")
 
-        buffer_temp = BytesIO()
         # 1. Check if file exists if so get SHA
-        c = pycurl.Curl()
-        c.setopt(pycurl.VERBOSE, 0)
-        c.setopt(c.URL, self._repo_url + '/commits/Add_to_dev/statuses')
-        c.setopt(c.WRITEDATA, buffer_temp)
-        c.setopt(c.HTTPHEADER, self._header)
-        c.perform()
-        c.close()
-
-        js_obj = json.loads(buffer_temp.getvalue())
+        js_obj = self._PYCURL( 
+                self._header,
+                self._repo_url + '/commits/Add_to_dev/statuses')
         return js_obj
