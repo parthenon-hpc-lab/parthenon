@@ -93,6 +93,36 @@ class PerformanceDataJsonParser():
                 # Then the test was not found so we are going to append to it
                 self._data['data'].append(new_data['data'])
 
+    def _getCyclesAndMeshblocks(self, json_obj, test):
+        for data_grp in json_obj.get('data'):
+            if data_grp.get('test') == test:
+                mesh_blocks = data_grp.get('mesh_blocks')
+                cycles = data_grp.get('zone_cycles')
+        return mesh_blocks, cycles
+
+    def _getMeshBlocksOrCyclesAt(self, meshblock_or_cycles, commit_index, test):
+        list_ind = 0
+        for json_obj in self._data:
+            if commit_index == list_ind:
+                for data_grp in json_obj.get('data'):
+                    if data_grp.get('test') == test:
+                        if meshblock_or_cycles == "cycles":
+                            cycles = data_grp.get('zone_cycles')
+                            if isinstance(cycles, str):
+                                cycles = np.array(
+                                    cycles.strip("[").strip("]").split()).astype(
+                                    np.float)
+                            return cycles
+                        else:
+                            mesh_blocks = data_grp.get('mesh_blocks')
+                            if isinstance(mesh_blocks, str):
+                                mesh_blocks = np.array(
+                                    mesh_blocks.strip("[").strip("]").split()).astype(
+                                    np.float)
+                            return mesh_blocks
+            list_ind = list_ind + 1
+        return None
+
     def getData(self, file_name):
         """Will read data from a performance file into json formated objected"""
         if os.path.isfile(file_name):
@@ -131,17 +161,12 @@ class PerformanceDataJsonParser():
                             json_obj.get('date'), '%Y-%m-%d %H:%M:%S')
                         if recent_datetime is None:
                             recent_datetime = new_datetime
-                            for data_grp in json_obj.get('data'):
-                                if data_grp.get('test') == test:
-                                    mesh_blocks = data_grp.get('mesh_blocks')
-                                    cycles = data_grp.get('zone_cycles')
+                            mesh_blocks, cycles = this._getCyclesAndMeshblocks(json_obj, test)
 
                         if new_datetime > recent_datetime:
                             recent_datetime = new_datetime
-                            for data_grp in json_obj.get('data'):
-                                if data_grp.get('test') == test:
-                                    mesh_blocks = data_grp.get('mesh_blocks')
-                                    cycles = data_grp.get('zone_cycles')
+                            this._getCyclesAndMeshblocks(json_obj, test)
+                            mesh_blocks, cycles = this._getCyclesAndMeshblocks(json_obj, test)
 
                 if isinstance(mesh_blocks, str):
                     mesh_blocks = np.array(
@@ -187,35 +212,11 @@ class PerformanceDataJsonParser():
 
     def getCyclesAt(self, commit_index, test):
         """Returns the number of cycles for a particular test associated with a commit"""
-        list_ind = 0
-        for json_obj in self._data:
-            if commit_index == list_ind:
-                for data_grp in json_obj.get('data'):
-                    if data_grp.get('test') == test:
-                        cycles = data_grp.get('zone_cycles')
-                        if isinstance(cycles, str):
-                            cycles = np.array(
-                                cycles.strip("[").strip("]").split()).astype(
-                                np.float)
-                        return cycles
-            list_ind = list_ind + 1
-        return None
-
+        return this._getMeshBlocksOrCyclesAt("cycles", commit_index, test)
+        
     def getMeshBlocksAt(self, commit_index, test):
         """Returns the number of mesh blocks for a particular test associated with a commit"""
-        list_ind = 0
-        for json_obj in self._data:
-            if commit_index == list_ind:
-                for data_grp in json_obj.get('data'):
-                    if data_grp.get('test') == test:
-                        mesh_blocks = data_grp.get('mesh_blocks')
-                        if isinstance(mesh_blocks, str):
-                            mesh_blocks = np.array(
-                                mesh_blocks.strip("[").strip("]").split()).astype(
-                                np.float)
-                        return mesh_blocks
-            list_ind = list_ind + 1
-        return None
+        return this._getMeshBlocksOrCyclesAt("mesh_blocks", commit_index, test)
 
     def getCommitShaAt(self, commit_index, test):
         list_ind = 0
@@ -245,17 +246,12 @@ class PerformanceDataJsonParser():
                     json_obj.get('date'), '%Y-%m-%d %H:%M:%S')
                 if recent_datetime is None:
                     recent_datetime = new_datetime
-                    for data_grp in json_obj.get('data'):
-                        if data_grp.get('test') == test:
-                            mesh_blocks = data_grp.get('mesh_blocks')
-                            cycles = data_grp.get('zone_cycles')
+                    mesh_blocks, cycles = self._getCyclesAndMeshblocks(json_obj, test)
 
                 if new_datetime > recent_datetime:
                     recent_datetime = new_datetime
-                    for data_grp in json_obj.get('data'):
-                        if data_grp.get('test') == test:
-                            mesh_blocks = data_grp.get('mesh_blocks')
-                            cycles = data_grp.get('zone_cycles')
+                    mesh_blocks, cycles = self._getCyclesAndMeshblocks(json_obj, test)
+
             return mesh_blocks, cycles
 
 class ParthenonApp(githubapp.GitHubApp):

@@ -14,41 +14,9 @@
 
 
 # Load system env only
-source /etc/bashrc
-source /etc/profile
-source /projects/parthenon-int/parthenon-project/.bashrc
-source /projects/parthenon-int/parthenon-project/spack/share/spack/setup-env.sh
-
-# Exit on error
-set -e
-
-module load gcc/9.2.0
-spack compiler find
-
-# Always get the latest spack environment
-spack_env_latest=$(spack env list | grep darwin-ppc64le-gcc9 | sort | tail -n 1 | tr -d '[:space:]')
-spack env activate "${spack_env_latest}"
-
 SCRIPT=$(realpath "$0")
 SOURCE=$(dirname "$SCRIPT")
-GITHUB_APP_PEM="${1}"
-export GITHUB_APP_PEM="$GITHUB_APP_PEM"
-echo "GITHUB_APP_PEM is $GITHUB_APP_PEM"
-BUILD_DIR="${2}"
-export CI_COMMIT_SHA="${3}"
-export CI_COMMIT_BRANCH="${4}"
-echo "Metrics PEM file $GITHUB_APP_PEM"
-
-METRICS_APP="${SOURCE}/../python/parthenon_metrics_app.py"
-trap 'catch $? $LINENO' ERR
-catch() {
-  echo "Error $1 occurred on $2"
-  echo "BUILD FAILED"
-  # For some reason the ERR variable is not recongized as a numeric type when quoted, 
-  # exit requires err be recognized as a numeric type, furthermore the quotes
-  # are needed as good practice
-  exit "$(($ERR))"
-}
+source ${SOURCE}/setup.sh
 
 if [[ "develop" == "${CI_COMMIT_BRANCH}" ]]; then
   # This is for the case where we are running on a schedule
