@@ -13,6 +13,7 @@
 # =========================================================================================
 
 import os
+import logging
 import datetime
 import filecmp
 import pathlib
@@ -36,7 +37,7 @@ class Node:
         dir_name is the name of the directory the node contains information about 
         rel_path is the actual path to the directory
         """
-
+        
         self.dir = dir_name
         self.dirs = []
         self.files = []
@@ -67,11 +68,11 @@ class Node:
 
     def printTree(self):
         """Print contents of node and all child nodes"""
-        print("Contents in folder: " + self.rel_path)
+        self._log.info("Contents in folder: " + self.rel_path)
         for fil in self.files:
-            print("File " + fil)
+            self._log.info("File " + fil)
         for mis in self.misc:
-            print("Misc " + mis)
+            self._log.info("Misc " + mis)
         for node in self.dirs:
             node.printTree()
 
@@ -101,6 +102,16 @@ class GitHubApp:
         self._user = user
         self._repo_name = repo_name
         self._child_class_path = path_to_app_instance
+
+        self._log = logging.getLogger(self._repo_name)
+
+        fh = logging.FileHandler(self._repo_name + ',log', mode = 'w', encoding='utf-8')
+        fh.setLevel(logging.INfO)
+        self._log.addHandler(fh)
+
+        ch = logging.StreamHandler()
+        ch.setLevel(logging.DEBUG)
+        self._log.addHandler(ch)
 
     def initialize(self, use_wiki=False, ignore=False,
                    pem_file="", create_branch=False):
@@ -139,13 +150,13 @@ class GitHubApp:
         except Exception:
             error_msg = str(os.path.realpath(
                 self._child_class_path)) + " must be run from within the " + self._repo_name + " repository."
-            print(error_msg)
+            self._log.error(error_msg)
             raise
 
         self._parthenon_wiki_dir = os.path.normpath(
             self._parthenon_home + "/../" + self._repo_name + ".wiki")
-        print("Parthenon wiki dir")
-        print(self._parthenon_wiki_dir)
+        self._log.info("Parthenon wiki dir")
+        self._log.info(self._parthenon_wiki_dir)
         if isinstance(pem_file, list):
             self._generateJWT(pem_file[0])
         else:
@@ -172,7 +183,7 @@ class GitHubApp:
                 error_msg = "A pem file has not been specified and GITHUB_APP_PEM env varaible is not defined"
                 raise Exception(error_msg)
 
-        print("File loc %s" % pem_file)
+        self._log.info("File loc %s" % pem_file)
         certs = pem.parse_file(pem_file)
         PEM = str(certs[0])
 
@@ -279,10 +290,10 @@ class GitHubApp:
     def getBranchMergingWith(self, branch):
         """Gets the name of the target branch of `branch` which it will merge with."""
         js_obj_list = self._PYCURL(self._header, self._repo_url + "/pulls") 
-        print("Checking if branch is open as a pr and what branch it is targeted to merge with.\n")
-        print("Checking branch %s\n" % (self._user + ":" + branch))
+        self._log.info("Checking if branch is open as a pr and what branch it is targeted to merge with.\n")
+        self._log.info("Checking branch %s\n" % (self._user + ":" + branch))
         for js_obj in js_obj_list:
-            print("Found branch: %s.\n" % js_obj.get('head').get('label'))
+            self._log.info("Found branch: %s.\n" % js_obj.get('head').get('label'))
             if js_obj.get('head').get('label') == self._user + ":" + branch:
                 return js_obj.get('base').get('label').split(':', 1)[1]
         return None
@@ -309,10 +320,7 @@ class GitHubApp:
         """This method will determine if a branch exists on the github repository by pinging the
         github api
         """
-        branches = self.getBranches()
-        if branch in branches:
-            return True
-        return False
+        return branch in self.getBranches()
 
     def refreshBranchCache(self):
         """"
@@ -372,7 +380,7 @@ class GitHubApp:
 
     def upload(self, file_name, branch=None, use_wiki=False):
         """
-        This method attempts to upload a file to the specefied branch.
+        This method attempts to upload a file to the specified branch.
 
         If the file is found to already exist it will be updated. Image files will by default be placed
         in a figures branch of the main repository, so as to not bloat the repositories commit history.
@@ -382,86 +390,78 @@ class GitHubApp:
         if branch is None:
             branch = self._default_branch
         if file_name.lower().endswith(('.png', '.jpg', '.jpeg', '.tiff', '.bmp', '.gif')):
-            print("Image file detected")
+            self._log.info("Image file detected")
             if branch != self._default_image_branch and not self._ignore:
-                print(
+                self._log.warning(
                     "Note all images will be uploaded to a branch named: " +
                     self._default_image_branch +
                     " in the main repository.")
-                print("Unless the ignore flag is used.")
+                self._log.warning("Unless the ignore flag is used.")
                 branch = self._default_image_branch
                 self._use_wiki = False
 
         if self._use_wiki or use_wiki:
             if branch != "master":
-                print(
-                    "Files can only be uploaded to the wiki repositories master branch")
-                return
-            else:
-                if os.path.exists(self._parthenon_wiki_dir + "/" +
-                                  os.path.basename(os.path.normpath(file_name))):
-                    commit_msg = "Updating file " + file_name
-                else:
-                    commit_msg = "Adding file " + file_name
-                repo = self.getWikiRepo(branch)
-                destination = self._parthenon_wiki_dir + "/" + \
-                    os.path.basename(os.path.normpath(file_name))
-                if not filecmp.cmp(file_name, destination):
-                    shutil.copy(file_name, destination)
-                repo.index.add([str(self._parthenon_wiki_dir + "/" +
-                                    os.path.basename(os.path.normpath(file_name)))])
-                repo.index.commit(commit_msg)
-                repo.git.push("--set-upstream", "origin", repo.head.reference)
-                return
-        else:
-            if self._create_branch:
-                self.createBranch(branch)
-            elif not self.branchExist(branch):
-                error_msg = "branch: " + branch + " does not exist in repository."
+                error_msg = "Files can only be uploaded to the wiki repositories master branch"
                 raise Exception(error_msg)
 
-            contents = self.getContents(branch)
-
-            file_found = False
-            if os.path.basename(os.path.normpath(file_name)) in contents:
-                print("File (%s) already exists in branch:%s" %
-                      (os.path.basename(os.path.normpath(file_name)), branch))
-                file_found = True
-
-            # 2. convert file into base64 format
-            # b is needed if it is a png or image file/ binary file
-            with open(file_name, "rb") as f:
-              data = f.read()
-            encoded_file = base64.b64encode(data)
-
-            # 3. upload the file, overwrite if exists already
-            if file_found:
-                custom_data = {
-                    'message': self._name + " overwriting file " + os.path.basename(os.path.normpath(file_name)),
-                    'name': self._name,
-                    'branch': branch,
-                    'sha': contents[os.path.basename(os.path.normpath(file_name))],
-                    'content': encoded_file.decode('ascii')
-                }
-
+            if os.path.exists(self._parthenon_wiki_dir + "/" +
+                              os.path.basename(os.path.normpath(file_name))):
+                commit_msg = "Updating file " + file_name
             else:
-                custom_data = {
-                    'message': self._name + " uploading file " + os.path.basename(os.path.normpath(file_name)),
-                    'name': self._name,
-                    'content': encoded_file.decode('ascii'),
-                    'branch': branch
-                }
-
-            print("Uploading file (%s) to branch (%s)" %
-                  (os.path.basename(os.path.normpath(file_name)), branch))
-            https_url_to_file = self._repo_url + "/contents/" + \
+                commit_msg = "Adding file " + file_name
+            repo = self.getWikiRepo(branch)
+            destination = self._parthenon_wiki_dir + "/" + \
                 os.path.basename(os.path.normpath(file_name))
+            if not filecmp.cmp(file_name, destination):
+                shutil.copy(file_name, destination)
+            repo.index.add([str(self._parthenon_wiki_dir + "/" +
+                                os.path.basename(os.path.normpath(file_name)))])
+            repo.index.commit(commit_msg)
+            repo.git.push("--set-upstream", "origin", repo.head.reference)
+            return
 
-            self._PYCURL( 
-                self._header,
-                https_url_to_file,
-                "PUT",
-                custom_data)
+        if self._create_branch:
+            self.createBranch(branch)
+        elif not self.branchExist(branch):
+            error_msg = "branch: " + branch + " does not exist in repository."
+            raise Exception(error_msg)
+
+        contents = self.getContents(branch)
+
+        file_found = False
+        if os.path.basename(os.path.normpath(file_name)) in contents:
+            self._log.warning("File (%s) already exists in branch:%s" %
+                  (os.path.basename(os.path.normpath(file_name)), branch))
+            file_found = True
+
+        # 2. convert file into base64 format
+        # b is needed if it is a png or image file/ binary file
+        with open(file_name, "rb") as f:
+          data = f.read()
+        encoded_file = base64.b64encode(data)
+
+        # 3. upload the file, overwrite if exists already
+        custom_data = {
+            'message': "%s %s file %s" % (self._name, "overwriting" if file_found else "uploading", os.path.basename(os.path.normpath(file_name)),
+              'name': self._name,
+              'branch': branch,
+              'content': encoded_file.decode('ascii')
+              }
+
+        if file_found:
+            custom_data['sha'] = contents[os.path.basename(os.path.normpath(file_name))]
+
+        self._log.info("Uploading file (%s) to branch (%s)" %
+              (os.path.basename(os.path.normpath(file_name)), branch))
+        https_url_to_file = self._repo_url + "/contents/" + \
+            os.path.basename(os.path.normpath(file_name))
+
+        self._PYCURL( 
+            self._header,
+            https_url_to_file,
+            "PUT",
+            custom_data)
 
     def getBranchTree(self, branch):
         """
@@ -491,8 +491,8 @@ class GitHubApp:
         else:
             repo = Repo(self._parthenon_wiki_dir)
             g = git.cmd.Git(self._parthenon_wiki_dir)
-            print("Our remote url is %s" % wiki_remote)
-            print(g.execute(['git','remote','show','origin']))  # git remote show origini
+            self._log.info("Our remote url is %s" % wiki_remote)
+            self._log.info(g.execute(['git','remote','show','origin']))  # git remote show origini
             g.execute(['git','remote','set-url','origin',wiki_remote])
         return repo
 
@@ -509,6 +509,10 @@ class GitHubApp:
     def postStatus(self, state, commit_sha=None, context="",
                    description="", target_url=""):
         """Post status of current commit."""
+        self._log.info("Posting value: %s" % value)
+        self._log.info("Posting context: %s" % context)
+        self._log.info("Posting description: %s" % description)
+        self._log.info("Posting url: %s" % url)
         state_list = ['pending', 'failed', 'error', 'success']
         if state not in state_list:
             raise Exception("Unrecognized state specified " + state)

@@ -1,0 +1,273 @@
+#!/usr/bin/env python3
+# =========================================================================================
+# (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+#
+# This program was produced under U.S. Government contract 89233218CNA000001 for Los
+# Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
+# for the U.S. Department of Energy/National Nuclear Security Administration. All rights
+# in the program are reserved by Triad National Security, LLC, and the U.S. Department
+# of Energy/National Nuclear Security Administration. The Government is granted for
+# itself and others acting on its behalf a nonexclusive, paid-up, irrevocable worldwide
+# license in this material to reproduce, prepare derivative works, distribute copies to
+# the public, perform publicly and display publicly, and to permit others to do so.
+# =========================================================================================
+
+import copy
+import os
+import datetime
+import json
+import numpy as np
+
+class PerformanceDataJsonParser():
+
+    """
+    PerformanceDataJsonParser
+
+    This class is responsible for reading performance data from json files. Including
+    metadata associated with each test.
+    """
+
+    def _containsCommit(self, json_objs, value):
+        """Will determine if a commit is found in the performance json files."""
+        if not isinstance(json_objs, list):
+            json_objs = [json_objs]
+
+        for json_obj in json_objs:
+            if json_obj.get('commit sha') == value:
+                return True
+
+        return False
+
+    def _add_to_json_obj(self, new_data):
+        """json data should be of the following form:
+
+            Where there are blocks of data in a list with the content below
+
+                    'commit sha': commit_sha,
+                    'branch': current_branch,
+                    'date': now.strftime("%Y-%m-%d %H:%M:%S"),
+                    'data':[{
+                      'test': dir,
+                      'mesh_blocks': mesh_blocks,
+                      'zone_cycles': zone_cycles}]
+        """
+        if isinstance(new_data, list):
+            if len(new_data) == 1:
+                new_data = new_data[0]
+            else:
+                raise ValueError("Expected exactly 1 new data")
+                
+        dat_list = self._data if isinstance(self._data, list) else [self._data]
+        for json_obj in dat_list:
+            if json_obj.get('commit sha') == new_data.get('commit sha'):
+                for data_grp in json_obj.get('data'):
+                    for data_grp2 in new_data.get('data'):
+                        if data_grp.get('test') == new_data.get('test'):
+                            # Overwrite the existing content with the new content
+                            data_grp['mesh_blocks'] = copy.deepcopy(
+                                data_grp2.get('mesh_blocks'))
+                            data_grp['zone_cycles'] = copy.deepcopy(
+                                data_grp2.get('zone_cycles'))
+                return
+            else:
+                # Then the test was not found so we are going to append to it
+                json_obj['data'].append(new_data['data'])
+
+        # Cycle the outer list first
+        if isinstance(self._data, list):
+            for json_obj in self._data:
+                if json_obj.get('commit sha') == new_data.get('commit sha'):
+                    for data_grp in json_obj.get('data'):
+                        for data_grp2 in new_data.get('data'):
+                            if data_grp.get('test') == new_data.get('test'):
+                                # Overwrite the existing content with the new
+                                # content
+                                data_grp['mesh_blocks'] = copy.deepcopy(
+                                    data_grp2.get('mesh_blocks'))
+                                data_grp['zone_cycles'] = copy.deepcopy(
+                                    data_grp2.get('zone_cycles'))
+                    return
+                else:
+                    # Then the test was not found so we are going to append to
+                    # it
+                    json_obj['data'].append(new_data['data'])
+        else:
+            if isinstance(new_data, list):
+                if len(new_data) == 1:
+                    new_data = new_data[0]
+
+            if self._data.get('commit sha') == new_data.get('commit sha'):
+                for data_grp in self._data.get('data'):
+                    for data_grp2 in new_data.get('data'):
+                        if data_grp.get('test') == data_grp2.get('test'):
+                            # Overwrite the existing content with the new
+                            # content
+                            data_grp['mesh_blocks'] = copy.deepcopy(
+                                data_grp2.get('mesh_blocks'))
+                            data_grp['zone_cycles'] = copy.deepcopy(
+                                data_grp2.get('zone_cycles'))
+                            return
+            else:
+                # Then the test was not found so we are going to append to it
+                self._data['data'].append(new_data['data'])
+
+    def _getCyclesAndMeshblocks(self, json_obj, test):
+        for data_grp in json_obj.get('data'):
+            if data_grp.get('test') == test:
+                mesh_blocks = data_grp.get('mesh_blocks')
+                cycles = data_grp.get('zone_cycles')
+        return mesh_blocks, cycles
+
+    def _getMeshBlocksOrCyclesAt(self, meshblock_or_cycles, commit_index, test):
+        list_ind = 0
+        for json_obj in self._data:
+            if commit_index == list_ind:
+                for data_grp in json_obj.get('data'):
+                    if data_grp.get('test') == test:
+                        if meshblock_or_cycles == "cycles":
+                            cycles = data_grp.get('zone_cycles')
+                            if isinstance(cycles, str):
+                                cycles = np.array(
+                                    cycles.strip("[").strip("]").split()).astype(
+                                    np.float)
+                            return cycles
+                        else:
+                            mesh_blocks = data_grp.get('mesh_blocks')
+                            if isinstance(mesh_blocks, str):
+                                mesh_blocks = np.array(
+                                    mesh_blocks.strip("[").strip("]").split()).astype(
+                                    np.float)
+                            return mesh_blocks
+            list_ind = list_ind + 1
+        return None
+
+    def getData(self, file_name):
+        """Will read data from a performance file into json formated objected"""
+        if os.path.isfile(file_name):
+            # If does exist:
+            # 1. load the
+            if os.stat(file_name).st_size != 0:
+                with open(file_name, 'r') as fid:
+                    return json.load(fid)
+        return None
+
+    def getMostRecentPerformanceData(self, file_name, branch, test):
+        """Will parse a performance .json file and get the latest metrics.
+
+        file_name - file where the data is stored
+        branch - is the branch we are trying to get performance metrics for
+        test - is the test we are getting the metrics for
+
+        Will return the mesh_blocks and cycles if found else will return None
+        """
+        if os.path.isfile(file_name):
+            # If does exist:
+            # 1. load the
+            if os.stat(file_name).st_size != 0:
+                with open(file_name, 'r') as fid:
+                    json_objs = json.load(fid)
+
+                    mesh_blocks = None
+                    cycles = None
+
+                    recent_datetime = None
+                    if not isinstance(json_objs, list):
+                        json_objs = [json_objs]
+
+                    for json_obj in json_objs:
+                        new_datetime = datetime.datetime.strptime(
+                            json_obj.get('date'), '%Y-%m-%d %H:%M:%S')
+                        if recent_datetime is None:
+                            recent_datetime = new_datetime
+                            mesh_blocks, cycles = this._getCyclesAndMeshblocks(json_obj, test)
+
+                        if new_datetime > recent_datetime:
+                            recent_datetime = new_datetime
+                            this._getCyclesAndMeshblocks(json_obj, test)
+                            mesh_blocks, cycles = this._getCyclesAndMeshblocks(json_obj, test)
+
+                if isinstance(mesh_blocks, str):
+                    mesh_blocks = np.array(
+                        mesh_blocks.strip("[").strip("]").split()).astype(
+                        np.float)
+                if isinstance(cycles, str):
+                    cycles = np.array(
+                        cycles.strip("[").strip("]").split()).astype(
+                        np.float)
+                return mesh_blocks, cycles
+        return None
+
+    def append(self, new_data, file_name):
+        """Append new data to a performance .json file.
+        
+        Will overwrite old data if the commit already exists in the file.
+        """
+        data_found = False
+        if os.path.isfile(file_name):
+            # If does exist:
+            # 1. load the
+            if os.stat(file_name).st_size != 0:
+                with open(file_name, 'r') as fid:
+                    data_found = True
+                    # self._data will be a dict
+                    self._data = json.load(fid)
+
+                # Check if the commit exists in the data already
+                if self._containsCommit(self._data, new_data['commit sha']):
+                    self._add_to_json_obj(new_data)
+                else:
+                    self._data.update(new_data)
+
+        if not data_found:
+            self._data = new_data
+
+        with open(file_name, 'w') as fout:
+            # Need to convert the dict to a string to dump to a file
+            json.dump(self._data, fout, indent=4)
+
+    def getNumOfCommits(self):
+        return len(self._data)
+
+    def getCyclesAt(self, commit_index, test):
+        """Returns the number of cycles for a particular test associated with a commit"""
+        return this._getMeshBlocksOrCyclesAt("cycles", commit_index, test)
+        
+    def getMeshBlocksAt(self, commit_index, test):
+        """Returns the number of mesh blocks for a particular test associated with a commit"""
+        return this._getMeshBlocksOrCyclesAt("mesh_blocks", commit_index, test)
+
+    def getCommitShaAt(self, commit_index, test):
+        list_ind = 0
+        for json_obj in self._data:
+            if commit_index == list_ind:
+                for data_grp in json_obj.get('data'):
+                    if data_grp.get('test') == test:
+                        return json_obj.get('commit sha')
+            list_ind = list_ind + 1
+        return None
+
+    def checkDataUpToDate(self, file_name, branch, commit_sha, test):
+        """Checks to see if performance metrics exist for the commit and test specefied"""
+        if not os.path.isfile(file_name):
+            return False
+        if os.stat(file_name).st_size == 0:
+            return False
+        with open(file_name, 'r') as fid:
+            json_objs = json.load(fid)
+
+            mesh_blocks = None
+            cycles = None
+
+            recent_datetime = None
+            for json_obj in json_objs:
+                new_datetime = datetime.datetime.strptime(
+                    json_obj.get('date'), '%Y-%m-%d %H:%M:%S')
+                if recent_datetime is None:
+                    recent_datetime = new_datetime
+                    mesh_blocks, cycles = self._getCyclesAndMeshblocks(json_obj, test)
+
+                if new_datetime > recent_datetime:
+                    recent_datetime = new_datetime
+                    mesh_blocks, cycles = self._getCyclesAndMeshblocks(json_obj, test)
+
+            return mesh_blocks, cycles
