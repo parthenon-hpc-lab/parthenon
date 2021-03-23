@@ -241,7 +241,7 @@ add_library(Parthenon::parthenon ALIAS parthenon)
 
 set_target_properties(parthenon PROPERTIES SOVERSION ${parthenon_VERSION})
 
-target_compile_features(parthenon PUBLIC cxx_std_14)
+target_compile_features(parthenon PUBLIC cxx_std_17)
 if (CMAKE_CXX_COMPILER_ID STREQUAL "XL")
   target_compile_options(parthenon PUBLIC -std=c++1y -qxflag=disable__cplusplusOverride)
 endif()
@@ -259,7 +259,8 @@ if (ENABLE_HDF5)
   target_link_libraries(parthenon PUBLIC HDF5_C)
 endif()
 
-if (Kokkos_ENABLE_CUDA)
+# relaxed-constexpr only required for nvcc but not clang
+if (Kokkos_ENABLE_CUDA AND (NOT (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")))
    target_compile_options(parthenon PUBLIC --expt-relaxed-constexpr)
 endif()
 
