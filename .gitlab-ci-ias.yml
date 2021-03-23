@@ -102,7 +102,7 @@ parthenon-build-cuda:
     - mkdir build-cuda
     - cd build-cuda
     - cmake -DCMAKE_BUILD_TYPE=Release
-      -DKokkos_ENABLE_OPENMP=True -DKokkos_ARCH_SKX=True
+      -DKokkos_ARCH_SKX=True
       -DKokkos_ENABLE_CUDA=True -DKokkos_ARCH_VOLTA70=True
       -DCMAKE_CXX_COMPILER=${PWD}/../external/Kokkos/bin/nvcc_wrapper
       -DPARTHENON_DISABLE_MPI=ON
