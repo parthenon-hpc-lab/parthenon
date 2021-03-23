@@ -1,6 +1,6 @@
 variables:
   OMPI_VER: '3.1.6'
-  CMAKE_VER: '3.12.4'
+  CMAKE_VER: '3.13.5'
   HDF5_VER: '1.10.6'
   UCX_VER: '1.8.1'
 
@@ -23,7 +23,7 @@ before_script:
     - source /opt/sns/anaconda3/2020.02/etc/profile.d/conda.sh
 
 cache: &global_cache
-  key: global-5
+  key: global-cpp17
   paths:
     - opt/
   policy: pull-push
@@ -39,7 +39,7 @@ prep-cuda:
     - gpu
     - springdale7
   script:
-    - module load cudatoolkit/10.2 gcc/7.3.0
+    - module load gcc/7.3.0 cudatoolkit/11.1
     - if [ ! -d opt/ucx-${UCX_VER} ]; then
       mkdir -p tmp;
       cd tmp;
@@ -49,7 +49,7 @@ prep-cuda:
       ./autogen.sh;
       mkdir build;
       cd build;
-      ../contrib/configure-release --prefix=${CI_PROJECT_DIR}/opt/ucx-${UCX_VER} --enable-mt --with-cuda=/usr/local/cuda-10.2;
+      ../contrib/configure-release --prefix=${CI_PROJECT_DIR}/opt/ucx-${UCX_VER} --enable-mt --with-cuda=/usr/local/cuda-11.1;
       make -j16;
       make install;
       cd ../../../;
@@ -97,7 +97,7 @@ parthenon-build-cuda:
     # override the policy
     policy: pull
   script:
-    - module load cudatoolkit/10.2 gcc/7.3.0
+    - module load gcc/7.3.0 cudatoolkit/11.1
     - conda activate ${CI_PROJECT_DIR}/opt/pyenv
     - mkdir build-cuda
     - cd build-cuda

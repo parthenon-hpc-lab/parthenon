@@ -5,7 +5,7 @@ before_script:
     - export OMP_PROC_BIND=close
     - export OMP_PLACES=cores
     - export OMP_NUM_THREADS=1
-    - export CMAKE_VERSION=3.12.4
+    - export CMAKE_VERSION=3.13.5
     - export CTEST_OUTPUT_ON_FAILURE=1
     - export MACHINE_CFG=${PWD}/cmake/machinecfg/CI.cmake
     - export J=$(( $(nproc --all) / 4  + 1 )) && echo Using ${J} cores during build
