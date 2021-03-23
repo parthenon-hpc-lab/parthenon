@@ -182,6 +182,8 @@ if (Kokkos_ENABLE_CUDA)
   # Tell Kokkos we need lambdas in Cuda.
   SET (Kokkos_ENABLE_CUDA_LAMBDA ON CACHE BOOL
        "Enable lambda expressions in CUDA")
+  SET (Kokkos_ENABLE_CUDA_CONSTEXPR ON CACHE BOOL
+       "Enable experimental relaxed constexpr in CUDA")
   if ( "${PARTHENON_ENABLE_GPU_MPI_CHECKS}" )
      configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/CTestCustom.cmake.in ${CMAKE_BINARY_DIR}/CTestCustom.cmake @ONLY)
   endif()
