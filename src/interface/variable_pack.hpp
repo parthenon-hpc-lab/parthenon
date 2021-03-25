@@ -62,6 +62,10 @@ class PackIndexMap {
     return itr->second;
   }
 
+  auto &get(const std::string &key, int sparse_id) {
+    return get(key + "_" + std::to_string(sparse_id));
+  }
+
   [[deprecated("Use PackIndexMap::get() instead")]] vpack_types::IndexPair &
   operator[](const std::string &key) {
     // this is too dangerous, we won't notice that we don't have a requested field if

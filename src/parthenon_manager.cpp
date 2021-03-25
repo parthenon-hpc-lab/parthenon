@@ -238,6 +238,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   size_t nCells = bsize[0] * bsize[1] * bsize[2];
 
   // Get list of variables, assumed same for all blocks
+  // TODO(JL): Cannot assume this anymore
   auto ciX = MeshBlockDataIterator<Real>(
       mb.meshblock_data.Get(),
       {parthenon::Metadata::Independent, parthenon::Metadata::Restart}, true);

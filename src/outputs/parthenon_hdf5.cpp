@@ -342,7 +342,7 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     PARTHENON_HDF5_CHECK(H5Pset_dxpl_mpio(property_list, H5FD_MPIO_COLLECTIVE));
 #endif
 
-    // set starting poing in hyperslab for our blocks and
+    // set starting point in hyperslab for our blocks and
     // number of blocks on our PE
     {
       // open locations tab
