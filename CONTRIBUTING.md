@@ -93,11 +93,22 @@ request.
 
 #### Merging Code from a Fork
 
+PRs can opened as usual from forks.
 Unfortunately, the CI will not automatically trigger for forks. This is for security
 reasons. As a workaround, in order to trigger the CI, a local branch will need to be created
 on Parthenon first. The forked code can then be merged into the local branch on 
 Parthenon. At this point when a new merge request is opened from the local branch
 to the develop branch it will trigger the CI. 
+Someone of the Parthenon core team will take care of the work around once a PR from a fork.
+No extra work is required from the contributor.
+
+The workaround workflow for the Parthenon core developer may look like
+(from a local Parthenon repository pulling in changes from a `feature-A` branch in a fork):
+
+$ git remote add external-A https://github.com/CONTRIBUTOR/parthenon.git
+$ git fetch external-A
+$ git checkout external-A/feature-A
+$ git push --set-upstream origin CONTRIBUTOR/feature-A
 
 NOTE: Any subsequent updates made to the forked branch will need to be manually pulled into the local branch. 
 
