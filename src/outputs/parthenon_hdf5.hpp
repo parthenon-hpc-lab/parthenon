@@ -166,6 +166,7 @@ using H5S = H5Handle<&H5Sclose>;
     PARTHENON_HDF5_CHECK(                                                                \
         H5Dwrite(gDSet, H5T_NATIVE_DOUBLE, lDSpace, gDSpace, plist, pData));             \
   } while (false)
+
 #define WRITEH5SLAB(name, pData, theLocation, localStart, localCount, globalCount,       \
                     plist)                                                               \
   do {                                                                                   \
@@ -228,6 +229,17 @@ using H5S = H5Handle<&H5Sclose>;
         ::parthenon::H5S::FromHIDCheck(H5Screate_simple(2, globalCount, NULL));          \
     WRITEH5SLAB_X(name, pData, theLocation, localStart, localCount, lDSpace, gDSpace,    \
                   plist, H5T_NATIVE_DOUBLE);                                             \
+  } while (false)
+
+#define WRITEH5SLABBOOL(name, pData, theLocation, localStart, localCount, globalCount,   \
+                        plist)                                                           \
+  do {                                                                                   \
+    ::parthenon::H5S const lDSpace =                                                     \
+        ::parthenon::H5S::FromHIDCheck(H5Screate_simple(2, localCount, NULL));           \
+    ::parthenon::H5S const gDSpace =                                                     \
+        ::parthenon::H5S::FromHIDCheck(H5Screate_simple(2, globalCount, NULL));          \
+    WRITEH5SLAB_X(name, pData, theLocation, localStart, localCount, lDSpace, gDSpace,    \
+                  plist, H5T_NATIVE_HBOOL);                                              \
   } while (false)
 
 static void writeH5AI32(const char *name, const int *pData, const hid_t &dSpace,

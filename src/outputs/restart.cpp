@@ -22,6 +22,8 @@
 #include <string>
 #include <utility>
 
+#include "H5Tpublic.h"
+#include "H5public.h"
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
@@ -374,236 +376,312 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
     }
 
     // write variables
-
-    // first we need to get list of variables, because sparse variables are only expanded
-    // on some blocks, we need to look at the list of variables on each block
-    struct VarInfo {
-      VarInfo(const std::string label, int vlen) : label(label), vlen(vlen) {
-        if (vlen == 0) {
-          std::stringstream msg;
-          msg << "### ERROR: Got variable " << label << " with length 0" << std::endl;
-          PARTHENON_FAIL(msg);
-        }
-      }
-
-      explicit VarInfo(const std::shared_ptr<CellVariable<Real>> &var)
-          : VarInfo(var->label(), var->IsSparse() ? -var->GetDim(4) : var->GetDim(4)) {}
-
-      std::string label;
-
-      // we also encode whether the variable is sparse or not in this field, positive: not
-      // sparse, negative: sparse
-      int vlen;
-
-      // so we can put VarInfo into a set
-      bool operator<(const VarInfo &other) const {
-        if ((label == other.label) && (vlen != other.vlen)) {
-          // variables with the same label must have the same lengths
-          std::stringstream msg;
-          msg << "### ERROR: Got variable " << label << " with multiple different lengths"
-              << std::endl;
-          PARTHENON_FAIL(msg);
-        }
-
-        return label < other.label;
-      }
-    };
-
-    auto metadata_filter = {parthenon::Metadata::Independent,
-                            parthenon::Metadata::Restart};
-    std::set<VarInfo> all_unique_vars;
-    for (auto &pmb : pm->block_list) {
-      auto ci =
-          MeshBlockDataIterator<Real>(pmb->meshblock_data.Get(), metadata_filter, true);
-      for (auto &v : ci.vars) {
-        VarInfo vinfo(v);
-        all_unique_vars.insert(vinfo);
-      }
-    }
-
-#ifdef MPI_PARALLEL
     {
-      // we need to do a global allgather to get the global list of unique variables to be
-      // written to the HDF5 file
 
-      // the label buffer contains all labels of the unique variables on this rank
-      // separated by \t, e.g.: "label0\tlabel1\tlabel2\t"
-      std::string label_buffer;
-      std::vector<int> vlen_buffer(all_unique_vars.size(), 0);
-
-      size_t idx = 0;
-      for (const auto &vi : all_unique_vars) {
-        label_buffer += vi.label + "\t";
-        vlen_buffer[idx++] = vi.vlen;
-      }
-
-      // first we need to communicate the lengths of the label_buffer and vlen_buffer to
-      // all ranks, first int: label_buffer length, second int: vlen_buffer length
-      std::vector<int[2]> buffer_lengths(Globals::nranks);
-      buffer_lengths[Globals::my_rank][0] = int(label_buffer.size());
-      buffer_lengths[Globals::my_rank][1] = int(vlen_buffer.size());
-
-      PARTHENON_MPI_CHECK(MPI_Allgather(MPI_IN_PLACE, 1, MPI_2INT, buffer_lengths.data(),
-                                        1, MPI_2INT, MPI_COMM_WORLD));
-
-      // now do an Allgatherv combining label_buffer and vlen_buffer from all ranks
-      std::vector<int> label_lengths(Globals::nranks, 0);
-      std::vector<int> label_offsets(Globals::nranks, 0);
-      std::vector<int> vlen_lengths(Globals::nranks, 0);
-      std::vector<int> vlen_offsets(Globals::nranks, 0);
-
-      int label_offset = 0;
-      int vlen_offset = 0;
-      for (int n = 0; n < Globals::nranks; ++n) {
-        label_offsets[n] = label_offset;
-        vlen_offsets[n] = vlen_offset;
-
-        label_lengths[n] = buffer_lengths[n][0];
-        vlen_lengths[n] = buffer_lengths[n][1];
-
-        label_offset += label_lengths[n];
-        vlen_offset += vlen_lengths[n];
-      }
-
-      // result buffers with global data
-      std::vector<char> all_labels_buffer(label_offset, '\0');
-      std::vector<int> all_vlen(vlen_offset, 0);
-
-      // fill in our values in global buffers
-      memcpy(all_labels_buffer.data() + label_offsets[Globals::my_rank],
-             label_buffer.data(), label_buffer.size() * sizeof(char));
-      memcpy(all_vlen.data() + vlen_offsets[Globals::my_rank], vlen_buffer.data(),
-             vlen_buffer.size() * sizeof(int));
-
-      PARTHENON_MPI_CHECK(MPI_Allgatherv(MPI_IN_PLACE, label_lengths[Globals::my_rank],
-                                         MPI_BYTE, all_labels_buffer.data(),
-                                         label_lengths.data(), label_offsets.data(),
-                                         MPI_BYTE, MPI_COMM_WORLD));
-
-      PARTHENON_MPI_CHECK(MPI_Allgatherv(MPI_IN_PLACE, vlen_lengths[Globals::my_rank],
-                                         MPI_INT, all_vlen.data(), vlen_lengths.data(),
-                                         vlen_offsets.data(), MPI_INT, MPI_COMM_WORLD));
-
-      // unpack labels
-      std::vector<std::string> all_labels;
-      const char *curr = all_labels_buffer.data();
-      const char *const end = curr + all_labels_buffer.size();
-
-      while (curr < end) {
-        const auto tab = strchr(curr, '\t');
-        if (tab == nullptr) {
-          std::stringstream msg;
-          msg << "### ERROR: all_labels_buffer does not end with \\t" << std::endl;
-          PARTHENON_FAIL(msg);
-        }
-
-        if (tab == curr) {
-          std::stringstream msg;
-          msg << "### ERROR: Got an empty label" << std::endl;
-          PARTHENON_FAIL(msg);
-        }
-
-        std::string label(curr, tab - curr);
-        all_labels.push_back(label);
-        curr = tab + 1;
-      }
-
-      if (all_labels.size() != all_vlen.size()) {
-        printf("all_labels: %lu\n", all_labels.size());
-        for (size_t i = 0; i < all_labels.size(); ++i)
-          printf("%4lu: %s\n", i, all_labels[i].c_str());
-        printf("all_vlen: %lu\n", all_vlen.size());
-        for (size_t i = 0; i < all_vlen.size(); ++i)
-          printf("%4lu: %i\n", i, all_vlen[i]);
-
-        std::stringstream msg;
-        msg << "### ERROR: all_labels and all_vlen have different sizes" << std::endl;
-        PARTHENON_FAIL(msg);
-      }
-
-      // finally make list of all unique variables
-      for (size_t i = 0; i < all_labels.size(); ++i) {
-        VarInfo vinfo(all_labels[i], all_vlen[i]);
-        all_unique_vars.insert(vinfo);
-      }
-    }
-#endif
-
-    // write variables
-    // create persistent spaces
-    local_count[1] = nx3;
-    local_count[2] = nx2;
-    local_count[3] = nx1;
-    local_count[4] = 1;
-
-    global_count[1] = nx3;
-    global_count[2] = nx2;
-    global_count[3] = nx1;
-    global_count[4] = 1;
-
-    H5S const local_DSpace = H5S::FromHIDCheck(H5Screate_simple(5, local_count, NULL));
-    H5S const global_DSpace = H5S::FromHIDCheck(H5Screate_simple(5, global_count, NULL));
-
-    // while we could do this as n variables and load all variables for
-    // a block at one time, this is memory-expensive.  I think it is
-    // well worth the multiple iterations through the blocks to load up
-    // one variable at a time.  Besides most of the time will be spent
-    // writing the HDF5 file to disk anyway...
-    // If I'm wrong about this, we can always rewrite this later.
-    // Sriram
-
-    // TODO add sparse present flag by block for each sparse var
-
-    const hsize_t varSize = nx3 * nx2 * nx1;
-    for (auto &vinfo : all_unique_vars) { // for each variable we write
-      const std::string vWriteName = vinfo.label;
-      hid_t vLocalSpace, vGlobalSpace;
-      H5S vLocalSpaceNew, vGlobalSpaceNew;
-      auto &mb = *(pm->block_list.front());
-      const bool is_sparse = (vinfo.vlen < 0);
-      const hsize_t vlen = abs(vinfo.vlen);
-      local_count[4] = global_count[4] = vlen;
-      std::vector<Real> tmpData(varSize * vlen * num_blocks_local);
-
-      // create spaces if required
-      if (vlen == 1) {
-        vLocalSpace = local_DSpace;
-        vGlobalSpace = global_DSpace;
-      } else {
-        vLocalSpace = vLocalSpaceNew =
-            H5S::FromHIDCheck(H5Screate_simple(5, local_count, NULL));
-        vGlobalSpace = vGlobalSpaceNew =
-            H5S::FromHIDCheck(H5Screate_simple(5, global_count, NULL));
-      }
-
-      // load up data
-      hsize_t index = 0;
-      for (auto &pmb : pm->block_list) {
-        bool found = false;
-        auto ci = MeshBlockDataIterator<Real>(
-            pmb->meshblock_data.Get(),
-            {parthenon::Metadata::Independent, parthenon::Metadata::Restart}, true);
-        for (auto &v : ci.vars) {
-          // Note index 4 transposed to interior
-          if (vWriteName.compare(v->label()) == 0) {
-            auto v_h = v->data.GetHostMirrorAndCopy();
-            LOADVARIABLEONE(index, tmpData.data(), v_h, out_ib.s, out_ib.e, out_jb.s,
-                            out_jb.e, out_kb.s, out_kb.e, vlen);
-            found = true;
-            break;
+      // first we need to get list of variables, because sparse variables are only
+      // expanded on some blocks, we need to look at the list of variables on each block
+      struct VarInfo {
+        VarInfo(const std::string label, int vlen) : label(label), vlen(vlen) {
+          if (vlen == 0) {
+            std::stringstream msg;
+            msg << "### ERROR: Got variable " << label << " with length 0" << std::endl;
+            PARTHENON_FAIL(msg);
           }
         }
-        if (!found && !is_sparse) {
+
+        explicit VarInfo(const std::shared_ptr<CellVariable<Real>> &var)
+            : VarInfo(var->label(), var->IsSparse() ? -var->GetDim(4) : var->GetDim(4)) {}
+
+        std::string label;
+
+        // we also encode whether the variable is sparse or not in this field, positive:
+        // not sparse, negative: sparse
+        int vlen;
+
+        // so we can put VarInfo into a set
+        bool operator<(const VarInfo &other) const {
+          if ((label == other.label) && (vlen != other.vlen)) {
+            // variables with the same label must have the same lengths
+            std::stringstream msg;
+            msg << "### ERROR: Got variable " << label
+                << " with multiple different lengths" << std::endl;
+            PARTHENON_FAIL(msg);
+          }
+
+          return label < other.label;
+        }
+      };
+
+      auto metadata_filter = {parthenon::Metadata::Independent,
+                              parthenon::Metadata::Restart};
+      std::set<VarInfo> all_unique_vars;
+      for (auto &pmb : pm->block_list) {
+        auto ci =
+            MeshBlockDataIterator<Real>(pmb->meshblock_data.Get(), metadata_filter, true);
+        for (auto &v : ci.vars) {
+          VarInfo vinfo(v);
+          all_unique_vars.insert(vinfo);
+        }
+      }
+
+#ifdef MPI_PARALLEL
+      {
+        // we need to do a global allgather to get the global list of unique variables to
+        // be written to the HDF5 file
+
+        // the label buffer contains all labels of the unique variables on this rank
+        // separated by \t, e.g.: "label0\tlabel1\tlabel2\t"
+        std::string label_buffer;
+        std::vector<int> vlen_buffer(all_unique_vars.size(), 0);
+
+        size_t idx = 0;
+        for (const auto &vi : all_unique_vars) {
+          label_buffer += vi.label + "\t";
+          vlen_buffer[idx++] = vi.vlen;
+        }
+
+        // first we need to communicate the lengths of the label_buffer and vlen_buffer to
+        // all ranks, 2 ints per rank: first int: label_buffer length, second int:
+        // vlen_buffer length
+        std::vector<int> buffer_lengths(2 * Globals::nranks, 0);
+        buffer_lengths[Globals::my_rank * 2 + 0] = int(label_buffer.size());
+        buffer_lengths[Globals::my_rank * 2 + 1] = int(vlen_buffer.size());
+
+        PARTHENON_MPI_CHECK(MPI_Allgather(MPI_IN_PLACE, 2, MPI_INT, buffer_lengths.data(),
+                                          2, MPI_INT, MPI_COMM_WORLD));
+
+        // now do an Allgatherv combining label_buffer and vlen_buffer from all ranks
+        std::vector<int> label_lengths(Globals::nranks, 0);
+        std::vector<int> label_offsets(Globals::nranks, 0);
+        std::vector<int> vlen_lengths(Globals::nranks, 0);
+        std::vector<int> vlen_offsets(Globals::nranks, 0);
+
+        int label_offset = 0;
+        int vlen_offset = 0;
+        for (int n = 0; n < Globals::nranks; ++n) {
+          label_offsets[n] = label_offset;
+          vlen_offsets[n] = vlen_offset;
+
+          label_lengths[n] = buffer_lengths[n * 2 + 0];
+          vlen_lengths[n] = buffer_lengths[n * 2 + 1];
+
+          label_offset += label_lengths[n];
+          vlen_offset += vlen_lengths[n];
+        }
+
+        // result buffers with global data
+        std::vector<char> all_labels_buffer(label_offset, '\0');
+        std::vector<int> all_vlen(vlen_offset, 0);
+
+        // fill in our values in global buffers
+        memcpy(all_labels_buffer.data() + label_offsets[Globals::my_rank],
+               label_buffer.data(), label_buffer.size() * sizeof(char));
+        memcpy(all_vlen.data() + vlen_offsets[Globals::my_rank], vlen_buffer.data(),
+               vlen_buffer.size() * sizeof(int));
+
+        PARTHENON_MPI_CHECK(MPI_Allgatherv(MPI_IN_PLACE, label_lengths[Globals::my_rank],
+                                           MPI_BYTE, all_labels_buffer.data(),
+                                           label_lengths.data(), label_offsets.data(),
+                                           MPI_BYTE, MPI_COMM_WORLD));
+
+        PARTHENON_MPI_CHECK(MPI_Allgatherv(MPI_IN_PLACE, vlen_lengths[Globals::my_rank],
+                                           MPI_INT, all_vlen.data(), vlen_lengths.data(),
+                                           vlen_offsets.data(), MPI_INT, MPI_COMM_WORLD));
+
+        // unpack labels
+        std::vector<std::string> all_labels;
+        const char *curr = all_labels_buffer.data();
+        const char *const end = curr + all_labels_buffer.size();
+
+        while (curr < end) {
+          const auto tab = strchr(curr, '\t');
+          if (tab == nullptr) {
+            std::stringstream msg;
+            msg << "### ERROR: all_labels_buffer does not end with \\t" << std::endl;
+            PARTHENON_FAIL(msg);
+          }
+
+          if (tab == curr) {
+            std::stringstream msg;
+            msg << "### ERROR: Got an empty label" << std::endl;
+            PARTHENON_FAIL(msg);
+          }
+
+          std::string label(curr, tab - curr);
+          all_labels.push_back(label);
+          curr = tab + 1;
+        }
+
+        if (all_labels.size() != all_vlen.size()) {
+          printf("all_labels: %lu\n", all_labels.size());
+          for (size_t i = 0; i < all_labels.size(); ++i)
+            printf("%4lu: %s\n", i, all_labels[i].c_str());
+          printf("all_vlen: %lu\n", all_vlen.size());
+          for (size_t i = 0; i < all_vlen.size(); ++i)
+            printf("%4lu: %i\n", i, all_vlen[i]);
+
           std::stringstream msg;
-          msg << "### ERROR: Unable to find dense variable " << vWriteName << std::endl;
+          msg << "### ERROR: all_labels and all_vlen have different sizes" << std::endl;
           PARTHENON_FAIL(msg);
         }
 
-        // TODO handle not found for sparse
+        // finally make list of all unique variables
+        for (size_t i = 0; i < all_labels.size(); ++i) {
+          VarInfo vinfo(all_labels[i], all_vlen[i]);
+          all_unique_vars.insert(vinfo);
+        }
       }
-      // write dataset to file
-      WRITEH5SLAB2(vWriteName.c_str(), tmpData.data(), file, local_start, local_count,
-                   vLocalSpace, vGlobalSpace, property_list);
+#endif
+
+      // write variables
+      // create persistent spaces
+      local_count[1] = nx3;
+      local_count[2] = nx2;
+      local_count[3] = nx1;
+      local_count[4] = 1;
+
+      global_count[1] = nx3;
+      global_count[2] = nx2;
+      global_count[3] = nx1;
+      global_count[4] = 1;
+
+      H5S const local_DSpace = H5S::FromHIDCheck(H5Screate_simple(5, local_count, NULL));
+      H5S const global_DSpace =
+          H5S::FromHIDCheck(H5Screate_simple(5, global_count, NULL));
+
+      // while we could do this as n variables and load all variables for
+      // a block at one time, this is memory-expensive.  I think it is
+      // well worth the multiple iterations through the blocks to load up
+      // one variable at a time.  Besides most of the time will be spent
+      // writing the HDF5 file to disk anyway...
+      // If I'm wrong about this, we can always rewrite this later.
+      // Sriram
+
+      // We need to add information about the sparse variables to the HDF5 file, namely:
+      // 1) Which variables are sparse
+      // 2) Is a sparse id of a particular sparse variable expanded on a given block
+      //
+      // This information is stored in the dataset called "SparseInfo". The data set
+      // contains an attribute "SparseFields" that is a vector of strings with the names
+      // of the sparse fields (field name with sparse id, i.e. "bar_28", "bar_7", foo_1",
+      // "foo_145"). The field names are in alphabetical order, which is the same order
+      // they show up in all_unique_vars (because it's a sorted set).
+      //
+      // The dataset SparseInfo itself is a 2D array of bools. The first index is the
+      // global block index and the second index is the sparse field (same order as the
+      // SparseFields attribute). SparseInfo[b][v] is true if the sparse field with index
+      // v is expanded on the block with index b, otherwise the value is false
+
+      std::vector<std::string> sparse_names;
+      std::unordered_map<std::string, size_t> sparse_field_idx;
+      for (auto &vinfo : all_unique_vars) {
+        if (vinfo.vlen < 0) {
+          sparse_field_idx.insert({vinfo.label, sparse_names.size()});
+          sparse_names.push_back(vinfo.label);
+        }
+      }
+
+      hsize_t num_sparse = sparse_names.size();
+      // can't use std::vector here because std::vector<hbool_t> is the same as
+      // std::vector<bool> and it doesn't have .data() member
+      std::unique_ptr<hbool_t[]> sparse_expanded(
+          new hbool_t[num_blocks_local * num_sparse]);
+
+      const hsize_t varSize = nx3 * nx2 * nx1;
+      for (auto &vinfo : all_unique_vars) { // for each variable we write
+        const std::string vWriteName = vinfo.label;
+        hid_t vLocalSpace, vGlobalSpace;
+        H5S vLocalSpaceNew, vGlobalSpaceNew;
+        auto &mb = *(pm->block_list.front());
+        const bool is_sparse = (vinfo.vlen < 0);
+        const hsize_t vlen = abs(vinfo.vlen);
+        local_count[4] = global_count[4] = vlen;
+        std::vector<Real> tmpData(varSize * vlen * num_blocks_local);
+
+        // create spaces if required
+        if (vlen == 1) {
+          vLocalSpace = local_DSpace;
+          vGlobalSpace = global_DSpace;
+        } else {
+          vLocalSpace = vLocalSpaceNew =
+              H5S::FromHIDCheck(H5Screate_simple(5, local_count, NULL));
+          vGlobalSpace = vGlobalSpaceNew =
+              H5S::FromHIDCheck(H5Screate_simple(5, global_count, NULL));
+        }
+
+        // load up data
+        hsize_t index = 0;
+        bool found_any = false;
+        for (size_t b_idx = 0; b_idx < num_blocks_local; ++b_idx) {
+          const auto &pmb = pm->block_list[b_idx];
+          bool found = false;
+          auto ci = MeshBlockDataIterator<Real>(pmb->meshblock_data.Get(),
+                                                metadata_filter, true);
+          for (auto &v : ci.vars) {
+            // Note index 4 transposed to interior
+            if (vWriteName.compare(v->label()) == 0) {
+              auto v_h = v->data.GetHostMirrorAndCopy();
+              LOADVARIABLEONE(index, tmpData.data(), v_h, out_ib.s, out_ib.e, out_jb.s,
+                              out_jb.e, out_kb.s, out_kb.e, vlen);
+              found = true;
+              break;
+            }
+          }
+
+          if (is_sparse) {
+            size_t sparse_idx = sparse_field_idx.at(vinfo.label);
+            sparse_expanded[b_idx * num_sparse + sparse_idx] = found;
+          }
+
+          if (!found) {
+            if (is_sparse) {
+              hsize_t N = varSize * vlen;
+              memset(tmpData.data() + index, 0, N * sizeof(Real));
+              index += N;
+            } else {
+              std::stringstream msg;
+              msg << "### ERROR: Unable to find dense variable " << vWriteName
+                  << std::endl;
+              PARTHENON_FAIL(msg);
+            }
+          } else {
+            found_any = true;
+          }
+        }
+
+        if (found_any) {
+          // write dataset to file
+          WRITEH5SLAB2(vWriteName.c_str(), tmpData.data(), file, local_start, local_count,
+                       vLocalSpace, vGlobalSpace, property_list);
+        }
+      }
+
+      // write SparseInfo
+      local_count[0] = num_blocks_local;
+      global_count[0] = max_blocks_global;
+      local_count[1] = global_count[1] = num_sparse;
+
+      WRITEH5SLABBOOL("SparseInfo", sparse_expanded.get(), file, local_start, local_count,
+                      global_count, property_list);
+
+      // write names of sparse fields as attribute
+      {
+        // make vector of const char*
+        std::vector<const char *> names(num_sparse);
+        for (size_t i = 0; i < num_sparse; ++i)
+          names[i] = sparse_names[i].c_str();
+
+        const H5S attr_space =
+            H5S::FromHIDCheck(H5Screate_simple(1, &num_sparse, &num_sparse));
+        const H5T atype = H5T::FromHIDCheck(H5Tcopy(H5T_C_S1));
+        PARTHENON_HDF5_CHECK(H5Tset_size(atype, H5T_VARIABLE));
+
+        const H5D dset = H5D::FromHIDCheck(H5Dopen2(file, "SparseInfo", H5P_DEFAULT));
+
+        const H5A attribute = H5A::FromHIDCheck(
+            H5Acreate(dset, "SparseFields", atype, attr_space, H5P_DEFAULT, H5P_DEFAULT));
+        PARTHENON_HDF5_CHECK(H5Awrite(attribute, atype, names.data()));
+      }
     }
   }
 
