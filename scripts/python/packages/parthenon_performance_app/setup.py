@@ -14,28 +14,28 @@
 
 from setuptools import setup,find_packages
 
-exec(open('parthenon_tools/version.py','r').read())
+exec(open('parthenon_performance_app/version.py','r').read())
 with open('README.md','r') as f:
       long_description = f.read()
 
 setup(
-    name='parthenon_tools',
+    name='parthenon_performance_app',
     'Development Status :: 3 - Alpha',
     version=__version__,
-    description='Python helper scripts to be used with Parthenon',
+    description='Parthenon metrics application for checking for performance regressions',
     long_description=long_description,
-    url='https://github.com/lanl/parthenon/tree/develop/scripts/python/parthenon_tools',
-    author = 'Josh Dolence, Philipp Grete, Andrew Gaspar, Joshua S. Brown',
+    url='https://github.com/lanl/parthenon/tree/develop/scripts/python/packages/parthenon_performance_app',
+    author = 'Joshua S. Brown',
     author_email = 'joshbro42867@yahoo.com',
     license_files = ('LICENSE.txt',),
     classifiers = [
-      'Intended Audience :: Science/Research/DevOps',
+      'Intended Audience :: DevOps',
       'Environment :: Console',
       'Natural Language :: English',
       'Operating System :: Unix',
       'Programming Language :: Python :: 3.9',
       ],
-    keywords = 'simulations science computing githubapp',
+    keywords = 'testing performance regression',
     packages = find_packages(),
-    install_requires = ['h5py','matplotlib','numpy','pyjwt','argparse','cython','pycurl','pem','gitpython']
+    install_requires = ['matplotlib','numpy','pyjwt','argparse','pycurl','pem','gitpython']
     )
