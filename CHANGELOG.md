@@ -34,6 +34,7 @@
 - [[PR 443]](https://github.com/lanl/parthenon/pull/443) Fix Darwin machine config - use spectrum mpi
 - [[PR 444]](https://github.com/lanl/parthenon/pull/444) Writes performance metrics to file for advection test
 - [[PR 452]](https://github.com/lanl/parthenon/pull/452) Disable copyright check and linting by default, add CI check for copyright
+- [[PR 473]](htpps://github.com/lanl/parthenon/pull/473) Added documentation for forked pr
 
 ### Removed (removing behavior/API/varaibles/...)
 
