@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 475]](https://github.com/lanl/parthenon/pull/475) Add update function `UpdateWithFluxDivergence` and `gamma` variables to integrator to support low-storage, two stage integrators.
 - [[PR 463]](https://github.com/lanl/parthenon/pull/463) Add `PARTHENON_ENABLE_TESTING` and `PARTHENON_ENABLE_PYTHON_MODULE_CHECK` option and documentation on how to use the regression testing framework downstream.
 - [[PR 461]](https://github.com/lanl/parthenon/pull/461) A negative `dt` in an output block disables it.
 - [[PR 439]](https://github.com/lanl/parthenon/pull/439) Add split initialization of environment (`ParthenonInitEnv()`) and packages and mesh (`ParthenonInitPackagesAndMesh()`) to `ParthenonManager`
