@@ -18,9 +18,9 @@ import os
 import datetime
 import json
 import numpy as np
-import githubapp
+import parthenon_performance_app.githubapp
 import matplotlib.pyplot as plt
-from parthenon_performance_advection_analyzer import AdvectionAnalyser
+from parthenon_performance_app.parthenon_performance_advection_analyzer import AdvectionAnalyser
  
 class ParthenonApp(githubapp.GitHubApp):
 
