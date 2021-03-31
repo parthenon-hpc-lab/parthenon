@@ -443,7 +443,7 @@ class GitHubApp:
 
         # 3. upload the file, overwrite if exists already
         custom_data = {
-            'message': "%s %s file %s" % (self._name, "overwriting" if file_found else "uploading", os.path.basename(os.path.normpath(file_name)),
+            'message': "%s %s file %s" % (self._name, "overwriting" if file_found else "uploading", os.path.basename(os.path.normpath(file_name))),
               'name': self._name,
               'branch': branch,
               'content': encoded_file.decode('ascii')

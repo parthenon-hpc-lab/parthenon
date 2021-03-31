@@ -18,7 +18,7 @@ import numpy as np
 from parthenon_performance_json_parser import PerformanceDataJsonParser
 from parthenon_performance_plotter import PerformanceMetricsPlotter
 
-class AdvectionAnalyser()
+class AdvectionAnalyser():
     def __init__(self,create_figures):
         self._create_figures = create_figures
 

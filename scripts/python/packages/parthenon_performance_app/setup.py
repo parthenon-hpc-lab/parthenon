@@ -20,15 +20,15 @@ with open('README.md','r') as f:
 
 setup(
     name='parthenon_performance_app',
-    'Development Status :: 3 - Alpha',
     version=__version__,
     description='Parthenon metrics application for checking for performance regressions',
     long_description=long_description,
     url='https://github.com/lanl/parthenon/tree/develop/scripts/python/packages/parthenon_performance_app',
     author = 'Joshua S. Brown',
     author_email = 'joshbro42867@yahoo.com',
-    license_files = ('LICENSE.txt',),
+    license_files = 'LICENSE.txt',
     classifiers = [
+      'Development Status :: 3 - Alpha',
       'Intended Audience :: DevOps',
       'Environment :: Console',
       'Natural Language :: English',
@@ -37,5 +37,6 @@ setup(
       ],
     keywords = 'testing performance regression',
     packages = find_packages(),
-    install_requires = ['matplotlib','numpy','pyjwt','argparse','pycurl','pem','gitpython']
+    install_requires = ['matplotlib','numpy','pyjwt','argparse','pycurl','pem','gitpython'],
+    scripts=['bin/parthenon_metrics_app.py']
     )
