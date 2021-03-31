@@ -852,13 +852,19 @@ void Swarm::UnloadBuffers_() {
           }
           for (int i = 0; i < int_vars_size; i++) {
             vint(i, sid) = static_cast<int>(
-                bdvar.recv[nid]((real_vars_size + bid) * particle_size + i));
+                bdvar.recv[nid](bid * particle_size + real_vars_size + i));
           }
 
           double &x = vreal(ix, sid);
           double &y = vreal(iy, sid);
           double &z = vreal(iz, sid);
           // TODO(BRR) Don't hardcode periodic boundary conditions
+          printf("[%i] BOUNDS\n", Globals::my_rank);
+          printf("x y z: %e %e %e\n", x, y, z);
+          printf("min x y z: %e %e %e\n", swarm_d.x_min_global_,
+            swarm_d.y_min_global_, swarm_d.z_min_global_);
+          printf("max x y z: %e %e %e\n", swarm_d.x_max_global_,
+            swarm_d.y_max_global_, swarm_d.z_max_global_);
           if (x < swarm_d.x_min_global_) {
             x = swarm_d.x_max_global_ - (swarm_d.x_min_global_ - x);
           }
