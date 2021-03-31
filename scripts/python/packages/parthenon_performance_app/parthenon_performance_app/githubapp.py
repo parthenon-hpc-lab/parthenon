@@ -106,7 +106,7 @@ class GitHubApp:
         self._log = logging.getLogger(self._repo_name)
 
         fh = logging.FileHandler(self._repo_name + ',log', mode = 'w', encoding='utf-8')
-        fh.setLevel(logging.INfO)
+        fh.setLevel(logging.INFO)
         self._log.addHandler(fh)
 
         ch = logging.StreamHandler()
