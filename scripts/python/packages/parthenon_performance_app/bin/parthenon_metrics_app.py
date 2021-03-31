@@ -308,10 +308,10 @@ def main(**kwargs):
                 getValue(kwargs,'post_analyze_status'),
                 getValue(kwargs,'generate_figures_on_analysis'))
 
-    if kwargs['check_branch_metrics_uptodate']
+    if getValue(kwargs,'check_branch_metrics_uptodate'):
         app.checkUpToDate(branch, kwargs['tests'])
 
-    if kwargs['get_target_branch']:
+    if getValue(kwargs,'get_target_branch'):
         app.printTargetBranch(branch)
 
 
