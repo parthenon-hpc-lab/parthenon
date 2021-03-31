@@ -864,22 +864,22 @@ void Swarm::UnloadBuffers_() {
           double &y = vreal(iy, sid);
           double &z = vreal(iz, sid);
           // TODO(BRR) Don't hardcode periodic boundary conditions
-          if (x < swarm_d.x_min_global_) {
+          if (x <= swarm_d.x_min_global_) {
             x = swarm_d.x_max_global_ - (swarm_d.x_min_global_ - x);
           }
-          if (x > swarm_d.x_max_global_) {
+          if (x >= swarm_d.x_max_global_) {
             x = swarm_d.x_min_global_ + (x - swarm_d.x_max_global_);
           }
-          if (y < swarm_d.y_min_global_) {
+          if (y <= swarm_d.y_min_global_) {
             y = swarm_d.y_max_global_ - (swarm_d.y_min_global_ - y);
           }
-          if (y > swarm_d.y_max_global_) {
+          if (y >= swarm_d.y_max_global_) {
             y = swarm_d.y_min_global_ + (y - swarm_d.y_max_global_);
           }
-          if (z < swarm_d.z_min_global_) {
+          if (z <= swarm_d.z_min_global_) {
             z = swarm_d.z_max_global_ - (swarm_d.z_min_global_ - z);
           }
-          if (z > swarm_d.z_max_global_) {
+          if (z >= swarm_d.z_max_global_) {
             z = swarm_d.z_min_global_ + (z - swarm_d.z_max_global_);
           }
         });
