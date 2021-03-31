@@ -175,7 +175,7 @@ class ParthenonApp(githubapp.GitHubApp):
                 test_dir = str(test_dir)
             if test_dir == "advection_performance":
 
-                figure_url, png_file, figure_name = 
+                figure_url, png_file, figure_name = \
                     self._createFigureURLPathAndName(test_dir, current_branch, target_branch)
 
                 analyzer = AdvectionAnalyser()
