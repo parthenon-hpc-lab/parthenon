@@ -184,7 +184,7 @@ class ParthenonApp(githubapp.GitHubApp):
                     test_dir,
                     target_branch,
                     self._parthenon_wiki_dir,
-                    png_file):
+                    png_file)
 
                 json_files_to_upload.append(json_file_out)
 
