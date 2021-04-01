@@ -158,16 +158,12 @@ TaskStatus WriteParticleLog(MeshBlock *pmb) {
 }
 
 // initial particle position: x,y,z,vx,vy,vz
-/*constexpr int num_test_particles = 4;
+constexpr int num_test_particles = 4;
 const std::array<std::array<Real, 6>, num_test_particles> particles_ic = {{
     {-0.1, 0.2, 0.3, 1.0, 0.0, 0.0},   // along x direction
     {0.4, -0.1, 0.3, 0.0, 1.0, 0.0},  // along y direction
     {-0.1, 0.3, 0.2, 0.0, 0.0, 1.0},  // along z direction
     {0.12, 0.2, -0.3, 1.0, 1.0, 1.0}, // along diagonal
-}};*/
-constexpr int num_test_particles = 1;
-const std::array<std::array<Real, 6>, num_test_particles> particles_ic = {{
-    {-0.1, 0.2, 0.3, 1.0, 0.0, 0.0}   // along x direction
 }};
 
 void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
@@ -241,7 +237,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
                   << std::endl;
       });
 }
-static double t0 = 0.;
+
 TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator) {
   auto swarm = pmb->swarm_data.Get()->Get("my particles");
   auto pkg = pmb->packages.Get("particles_package");
@@ -286,7 +282,6 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
           swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n), on_current_mesh_block);
         }
       });
-  t0 += dt;
 
   return TaskStatus::complete;
 }
