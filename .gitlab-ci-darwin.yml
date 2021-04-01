@@ -96,7 +96,7 @@ parthenon-power9-gcc-mpi-cuda-perf-manual-python-setup:
 parthenon-power9-gcc-mpi-cuda-perf-manual-target-branch:
   extends: .gcc-mpi-cuda-performance-regression-target-branch
   stage: performance-target
-  needs: [parthenon-power9-gcc-mpi-cuda-perf-manual-setup]
+  needs: [parthenon-power9-gcc-mpi-cuda-perf-manual-python-setup]
   except:
     - schedules
   
