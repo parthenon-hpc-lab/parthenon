@@ -160,7 +160,7 @@ TaskStatus WriteParticleLog(MeshBlock *pmb) {
 // initial particle position: x,y,z,vx,vy,vz
 constexpr int num_test_particles = 4;
 const std::array<std::array<Real, 6>, num_test_particles> particles_ic = {{
-    {-0.1, 0.2, 0.3, 1.0, 0.0, 0.0},   // along x direction
+    {-0.1, 0.2, 0.3, 1.0, 0.0, 0.0},  // along x direction
     {0.4, -0.1, 0.3, 0.0, 1.0, 0.0},  // along y direction
     {-0.1, 0.3, 0.2, 0.0, 0.0, 1.0},  // along z direction
     {0.12, 0.2, -0.3, 1.0, 1.0, 1.0}, // along diagonal
@@ -286,6 +286,43 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
   return TaskStatus::complete;
 }
 
+// Mark all MPI requests as NULL / initialize boundary flags.
+// TODO(BRR) Should this be a Swarm method?
+TaskStatus InitializeCommunicationMesh(const BlockList_t &blocks) {
+  // Boundary transfers on same MPI proc are blocking
+  for (auto &block : blocks) {
+    auto swarm = block->swarm_data.Get()->Get("my particles");
+    for (int n = 0; n < block->pbval->nneighbor; n++) {
+      NeighborBlock &nb = block->pbval->neighbor[n];
+      swarm->vbswarm->bd_var_.req_send[nb.bufid] = MPI_REQUEST_NULL;
+    }
+  }
+
+  for (auto &block : blocks) {
+    auto &pmb = block;
+    auto sc = pmb->swarm_data.Get();
+    auto swarm = sc->Get("my particles");
+
+    for (int n = 0; n < swarm->vbswarm->bd_var_.nbmax; n++) {
+      auto &nb = pmb->pbval->neighbor[n];
+      swarm->vbswarm->bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
+    }
+  }
+
+  // Reset boundary statuses
+  for (auto &block : blocks) {
+    auto &pmb = block;
+    auto sc = pmb->swarm_data.Get();
+    auto swarm = sc->Get("my particles");
+    for (int n = 0; n < swarm->vbswarm->bd_var_.nbmax; n++) {
+      auto &nb = pmb->pbval->neighbor[n];
+      swarm->vbswarm->bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
+    }
+  }
+
+  return TaskStatus::complete;
+}
+
 TaskStatus Defrag(MeshBlock *pmb) {
   auto s = pmb->swarm_data.Get()->Get("my particles");
 
@@ -329,8 +366,10 @@ TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection() const {
 
     auto &tl = async_region0[i];
 
+    auto initialize_comms = tl.AddTask(none, InitializeCommunicationMesh, blocks);
+
     auto transport_particles =
-        tl.AddTask(none, TransportParticles, pmb.get(), &integrator);
+        tl.AddTask(initialize_comms, TransportParticles, pmb.get(), &integrator);
 
     auto send = tl.AddTask(transport_particles, &SwarmContainer::Send, sc.get(),
                            BoundaryCommSubset::all);
