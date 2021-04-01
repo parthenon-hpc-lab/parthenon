@@ -228,10 +228,6 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   void SearchAndSetNeighbors(MeshBlockTree &tree, int *ranklist, int *nslist) {
     pbval->SearchAndSetNeighbors(tree, ranklist, nslist);
   }
-  void WeightedAve(ParArrayND<Real> &u_out, ParArrayND<Real> &u_in1,
-                   ParArrayND<Real> &u_in2, const Real wght[3]);
-  void WeightedAve(FaceField &b_out, FaceField &b_in1, FaceField &b_in2,
-                   const Real wght[3]);
 
   void ResetToIC() { ProblemGenerator(nullptr, nullptr); }
 
