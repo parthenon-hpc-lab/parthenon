@@ -34,6 +34,12 @@ CI_JOB_TOKEN="$6"
 # also running metrics on the pr we want to merge with
 BUILD_TARGET="$7"
 
+PYTHON_SCRIPTS_DIR="$8"
+# Python scripts that will get installed
+export PATH=${PYTHON_SCRIPTS_DIR}/bin:${PATH}
+export PYTHONPATH=${PYTHON_SCRIPTS_DIR}/${PYTHONPATH}
+
+
 export CI_JOB_TOKEN="$CI_JOB_TOKEN"
 export GITHUB_APP_PEM="$GITHUB_APP_PEM"
 

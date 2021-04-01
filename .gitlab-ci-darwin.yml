@@ -4,6 +4,7 @@ variables:
   CMAKE_CXX_COMPILER: ${CI_PROJECT_DIR}/external/Kokkos/bin/nvcc_wrapper
 
 stages:
+  - performance-application-setup
   - performance-target
   - performance-regression-build
   - performance-regression
@@ -23,6 +24,28 @@ stages:
 ########################################################################
 # Templates
 ########################################################################
+.gcc-mpi-cuda-python-performance-application:
+  variables: 
+  EXECUTABLE: "execute_python_application.sh"
+    BUILD_TARGET_BRANCH: "OFF"
+  script:
+    - printf 'env -i bash --norc --noprofile %s/scripts/darwin/setup.sh  "%s"
+      "%s/build" "%s" "%s" "%s %s %s"\n'
+      ${CI_PROJECT_DIR}
+      ${GITHUB_APP_PEM}
+      ${CI_PROJECT_DIR}
+      ${CI_COMMIT_SHA}
+      ${CI_COMMIT_BRANCH}
+      ${CI_JOB_URL}
+      ${CI_JOB_TOKEN}
+      ${BUILD_TARGET_BRANCH}
+      ${CI_PROJECT_DIR}/../python_scripts > ${EXECUTABLE}
+    - *run-script-with-check
+  artifacts:
+    paths:
+      - ${CI_PROJECT_DIR}/../python_scripts
+    expire_in: 1 day
+
 .gcc-mpi-cuda-performance-regression-build:
   variables: 
     EXECUTABLE: "execute_main.sh"
@@ -37,7 +60,8 @@ stages:
       ${CI_COMMIT_BRANCH}
       ${CI_JOB_URL}
       ${CI_JOB_TOKEN}
-      ${BUILD_TARGET_BRANCH} > ${EXECUTABLE}
+      ${BUILD_TARGET_BRANCH}
+      ${CI_PROJECT_DIR}/../python_scripts > ${EXECUTABLE}
     - *run-script-with-check
   artifacts:
     paths:
@@ -71,20 +95,28 @@ stages:
       ${CI_COMMIT_BRANCH}
       ${CI_JOB_URL}
       ${CI_JOB_TOKEN}
-      ${BUILD_TARGET_BRANCH} > ${EXECUTABLE}
+      ${BUILD_TARGET_BRANCH}
+      ${CI_PROJECT_DIR}/../python_scripts > ${EXECUTABLE}
     - *run-script-with-check
 
 ########################################################################
 # Manual Jobs
 ########################################################################
-parthenon-power9-gcc-mpi-cuda-perf-manual-target-branch:
-  extends: .gcc-mpi-cuda-performance-regression-target-branch
-  stage: performance-target
+parthenon-power9-gcc-mpi-cuda-perf-manual-python-setup:
+  extends: .gcc-mpi-cuda-python-performance-application
+  stage: performance-application-setup
   allow_failure: false
   when: manual
   except:
     - schedules
 
+parthenon-power9-gcc-mpi-cuda-perf-manual-target-branch:
+  extends: .gcc-mpi-cuda-performance-regression-target-branch
+  stage: performance-target
+  needs: [parthenon-power9-gcc-mpi-cuda-perf-manual-setup]
+  except:
+    - schedules
+  
 parthenon-power9-gcc-mpi-cuda-perf-manual-build:
   extends: .gcc-mpi-cuda-performance-regression-build
   stage: performance-regression-build
@@ -102,9 +134,17 @@ parthenon-power9-gcc-mpi-cuda-perf-manual-metrics:
 ########################################################################
 # Scheduled jobs
 ########################################################################
+parthenon-power9-gcc-mpi-cuda-perf-schedule-python-setup:
+  extends: .gcc-mpi-cuda-performance-regression-build
+  stage: performance-regression-build
+  only:
+    - schedules
+    - develop
+
 parthenon-power9-gcc-mpi-cuda-perf-schedule-build:
   extends: .gcc-mpi-cuda-performance-regression-build
   stage: performance-regression-build
+  needs: [parthenon-power9-gcc-mpi-cuda-perf-schedule-python-setup]
   only:
     - schedules
     - develop
