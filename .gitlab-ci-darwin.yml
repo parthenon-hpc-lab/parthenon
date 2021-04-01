@@ -29,7 +29,7 @@ stages:
   EXECUTABLE: "execute_python_application.sh"
     BUILD_TARGET_BRANCH: "OFF"
   script:
-    - printf 'env -i bash --norc --noprofile %s/scripts/darwin/setup.sh  "%s"
+    - printf 'env -i bash --norc --noprofile %s/scripts/darwin/install_python_scripts.sh  "%s"
       "%s/build" "%s" "%s" "%s %s %s"\n'
       ${CI_PROJECT_DIR}
       ${GITHUB_APP_PEM}
@@ -136,7 +136,7 @@ parthenon-power9-gcc-mpi-cuda-perf-manual-metrics:
 ########################################################################
 parthenon-power9-gcc-mpi-cuda-perf-schedule-python-setup:
   extends: .gcc-mpi-cuda-performance-regression-build
-  stage: performance-regression-build
+  stage: performance-application-setup
   only:
     - schedules
     - develop
