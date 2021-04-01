@@ -337,9 +337,13 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     for (int i = 0; i < Globals::my_rank; i++) {
       local_start[0] += nblist[i];
     }
-    H5P const property_list = H5P::FromHIDCheck(H5Pcreate(H5P_DATASET_XFER));
+
+    H5P const pl_xfer = H5P::FromHIDCheck(H5Pcreate(H5P_DATASET_XFER));
+    //H5P const pl_dcreate = H5P::FromHIDCheck(H5Pcreate(H5P_DATASET_CREATE));
+    hid_t pl_dcreate = H5P_DEFAULT;
+
 #ifdef MPI_PARALLEL
-    PARTHENON_HDF5_CHECK(H5Pset_dxpl_mpio(property_list, H5FD_MPIO_COLLECTIVE));
+    PARTHENON_HDF5_CHECK(H5Pset_dxpl_mpio(pl_xfer, H5FD_MPIO_COLLECTIVE));
 #endif
 
     // set starting point in hyperslab for our blocks and
@@ -357,20 +361,20 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       LOADVARIABLEALL(tmpData, pm, pmb->coords.x1f, out_ib.s, out_ib.e + 1, 0, 0, 0, 0);
       local_count[1] = global_count[1] = nx1 + 1;
       WRITEH5SLAB("x", tmpData.data(), gLocations, local_start, local_count, global_count,
-                  property_list);
+                  pl_dcreate, pl_xfer);
 
       // write Y coordinates
       LOADVARIABLEALL(tmpData, pm, pmb->coords.x2f, 0, 0, out_jb.s, out_jb.e + 1, 0, 0);
       local_count[1] = global_count[1] = nx2 + 1;
       WRITEH5SLAB("y", tmpData.data(), gLocations, local_start, local_count, global_count,
-                  property_list);
+                  pl_dcreate, pl_xfer);
 
       // write Z coordinates
       LOADVARIABLEALL(tmpData, pm, pmb->coords.x3f, 0, 0, 0, 0, out_kb.s, out_kb.e + 1);
 
       local_count[1] = global_count[1] = nx3 + 1;
       WRITEH5SLAB("z", tmpData.data(), gLocations, local_start, local_count, global_count,
-                  property_list);
+                  pl_dcreate, pl_xfer);
     }
 
     // write variables
@@ -432,7 +436,7 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       }
       // write dataset to file
       WRITEH5SLAB2(vWriteName.c_str(), tmpData.data(), file, local_start, local_count,
-                   vLocalSpace, vGlobalSpace, property_list);
+                   vLocalSpace, vGlobalSpace, pl_dcreate, pl_xfer);
     }
   }
 

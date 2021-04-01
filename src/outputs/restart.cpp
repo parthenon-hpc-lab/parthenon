@@ -18,10 +18,10 @@
 //  \brief writes restart files
 
 #include <memory>
-#include <mpi.h>
 #include <string>
 #include <utility>
 
+#include "H5Ppublic.h"
 #include "H5Tpublic.h"
 #include "H5public.h"
 #include "globals.hpp"
@@ -29,6 +29,7 @@
 #include "mesh/meshblock.hpp"
 #include "outputs/outputs.hpp"
 #include "outputs/restart.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
@@ -301,9 +302,30 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
     for (int i = 0; i < Globals::my_rank; i++) {
       local_start[0] += nblist[i];
     }
-    H5P const property_list = H5P::FromHIDCheck(H5Pcreate(H5P_DATASET_XFER));
+
+    H5P const pl_xfer = H5P::FromHIDCheck(H5Pcreate(H5P_DATASET_XFER));
+    H5P const pl_dcreate = H5P::FromHIDCheck(H5Pcreate(H5P_DATASET_CREATE));
+    {
+      hsize_t chunk_size[5];
+      chunk_size[0] = 1;
+      chunk_size[1] = nx3;
+      chunk_size[2] = nx2;
+      chunk_size[3] = nx1;
+      chunk_size[4] = 1;
+      printf("Setting chunk size to %llu x %llu x %llu x %llu x %llu\n", chunk_size[0],
+             chunk_size[1], chunk_size[2], chunk_size[3], chunk_size[4]);
+      PARTHENON_HDF5_CHECK(H5Pset_chunk(pl_dcreate, 5, chunk_size));
+
+      if (HDF5_COMPRESSION_LEVEL > 0) {
+        PARTHENON_HDF5_CHECK(
+            H5Pset_deflate(pl_dcreate, std::max(9, HDF5_COMPRESSION_LEVEL)));
+      }
+    }
+
+    // hid_t pl_dcreate = H5P_DEFAULT;
+
 #ifdef MPI_PARALLEL
-    PARTHENON_HDF5_CHECK(H5Pset_dxpl_mpio(property_list, H5FD_MPIO_COLLECTIVE));
+    PARTHENON_HDF5_CHECK(H5Pset_dxpl_mpio(pl_xfer, H5FD_MPIO_COLLECTIVE));
 #endif
 
     // set starting point in hyperslab for our blocks and
@@ -334,7 +356,7 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
       }
       local_count[1] = global_count[1] = pm->ndim;
       WRITEH5SLABDOUBLE("xmin", tmpData.data(), gBlocks, local_start, local_count,
-                        global_count, property_list);
+                        global_count, pl_xfer);
     }
 
     // write Block ID
@@ -355,7 +377,7 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
         tmpLoc[i++] = pmb->loc.lx3;
       }
       WRITEH5SLABI64("loc.lx123", tmpLoc.data(), gBlocks, local_start, local_count,
-                     global_count, property_list);
+                     global_count, pl_xfer);
 
       // (LOC.)level, GID, LID, cnghost, gflag
       n = 5;
@@ -372,7 +394,7 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
         tmpID[i++] = pmb->gflag;
       }
       WRITEH5SLABI32("loc.level-gid-lid-cnghost-gflag", tmpID.data(), gBlocks,
-                     local_start, local_count, global_count, property_list);
+                     local_start, local_count, global_count, pl_xfer);
     }
 
     // write variables
@@ -651,8 +673,20 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
 
         if (found_any) {
           // write dataset to file
-          WRITEH5SLAB2(vWriteName.c_str(), tmpData.data(), file, local_start, local_count,
-                       vLocalSpace, vGlobalSpace, property_list);
+          printf("Creating %s\n", vWriteName.c_str());
+
+          const H5D gDSet = H5D::FromHIDCheck(
+              H5Dcreate(file, vWriteName.c_str(), H5T_NATIVE_DOUBLE, vGlobalSpace,
+                        H5P_DEFAULT, pl_dcreate, H5P_DEFAULT));
+
+          PARTHENON_HDF5_CHECK(H5Sselect_hyperslab(vGlobalSpace, H5S_SELECT_SET,
+                                                   local_start, NULL, local_count, NULL));
+          PARTHENON_HDF5_CHECK(H5Dwrite(gDSet, H5T_NATIVE_DOUBLE, vLocalSpace,
+                                        vGlobalSpace, pl_xfer, tmpData.data()));
+
+          // WRITEH5SLAB2(vWriteName.c_str(), tmpData.data(), file, local_start,
+          // local_count,
+          //              vLocalSpace, vGlobalSpace, pl_dcreate, pl_xfer);
         }
       }
 
@@ -662,7 +696,7 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
       local_count[1] = global_count[1] = num_sparse;
 
       WRITEH5SLABBOOL("SparseInfo", sparse_expanded.get(), file, local_start, local_count,
-                      global_count, property_list);
+                      global_count, pl_xfer);
 
       // write names of sparse fields as attribute
       {

@@ -156,26 +156,27 @@ using H5S = H5Handle<&H5Sclose>;
     }                                                                                    \
   } while (false)
 
-#define WRITEH5SLAB2(name, pData, theLocation, Starts, Counts, lDSpace, gDSpace, plist)  \
+#define WRITEH5SLAB2(name, pData, theLocation, Starts, Counts, lDSpace, gDSpace,         \
+                     plist_dcreate, plist_xfer)                                          \
   do {                                                                                   \
     ::parthenon::H5D const gDSet = ::parthenon::H5D::FromHIDCheck(                       \
         H5Dcreate(theLocation, name, H5T_NATIVE_DOUBLE, gDSpace, H5P_DEFAULT,            \
-                  H5P_DEFAULT, H5P_DEFAULT));                                            \
+                  plist_dcreate, H5P_DEFAULT));                                          \
     PARTHENON_HDF5_CHECK(                                                                \
         H5Sselect_hyperslab(gDSpace, H5S_SELECT_SET, Starts, NULL, Counts, NULL));       \
     PARTHENON_HDF5_CHECK(                                                                \
-        H5Dwrite(gDSet, H5T_NATIVE_DOUBLE, lDSpace, gDSpace, plist, pData));             \
+        H5Dwrite(gDSet, H5T_NATIVE_DOUBLE, lDSpace, gDSpace, plist_xfer, pData));        \
   } while (false)
 
 #define WRITEH5SLAB(name, pData, theLocation, localStart, localCount, globalCount,       \
-                    plist)                                                               \
+                    plist_dcreate, plist_xfer)                                           \
   do {                                                                                   \
     ::parthenon::H5S const lDSpace =                                                     \
         ::parthenon::H5S::FromHIDCheck(H5Screate_simple(2, localCount, NULL));           \
     ::parthenon::H5S const gDSpace =                                                     \
         ::parthenon::H5S::FromHIDCheck(H5Screate_simple(2, globalCount, NULL));          \
     WRITEH5SLAB2(name, pData, theLocation, localStart, localCount, lDSpace, gDSpace,     \
-                 plist);                                                                 \
+                 plist_dcreate, plist_xfer);                                             \
   } while (false)
 
 #define WRITEH5SLAB_X2(name, pData, theLocation, Starts, Counts, lDSpace, gDSpace,       \
