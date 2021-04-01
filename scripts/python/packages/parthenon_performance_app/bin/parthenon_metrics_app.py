@@ -330,6 +330,16 @@ if __name__ == '__main__':
                         nargs=1,
                         help=desc)
 
+
+    desc = ('Path to the repository that will be analized, by default will check to see if a '\
+        'repository was already specified.')
+    
+    parser.add_argument('--repository-path','-rp',
+        default = "",
+        type=str,
+        nargs=1,
+        help=desc)
+
     desc = ('Path to file want to upload.')
     parser.add_argument('--upload', '-u',
                         type=str,

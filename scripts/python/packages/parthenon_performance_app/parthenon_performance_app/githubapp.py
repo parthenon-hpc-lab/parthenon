@@ -101,7 +101,7 @@ class GitHubApp:
         self._name = name
         self._user = user
         self._repo_name = repo_name
-        self._child_class_path = path_to_app_instance
+#        self._repo_path = path_to_repo
 
         self._log = logging.getLogger(self._repo_name)
 
@@ -113,8 +113,17 @@ class GitHubApp:
         ch.setLevel(logging.DEBUG)
         self._log.addHandler(ch)
 
+        self._config_file_dir = pathlib.Path(__file__).parent.absolute() 
+        self._cofig_file_name = "githubapp_ " + str(self._app_id) + ".config"
+        self._config_file_path = pathlib.Path(self._config_file_dir + self._config_file_name) 
+        
+        # Create an empty config file if one does not exist
+        if not self._config_file_path.isFile():
+          open(self._config_file_path,'a').close()
+
     def initialize(self, use_wiki=False, ignore=False,
-                   pem_file="", create_branch=False):
+                   pem_file="", create_branch=False,
+                   path_to_repo = None):
         """Sets basic properties of the app should be called before any other methods
 
         use_wiki - determines if by default commands will refer to the wiki repository
@@ -143,18 +152,55 @@ class GitHubApp:
         self._branch_current_commit_sha = {}
         self._api_version = "application/vnd.github.v3+json"
         self._parth_root = Node()
-        self._parthenon_home = str(pathlib.Path(self._child_class_path).parent.absolute())
-        try:
-            self._parthenon_home = self._parthenon_home[:self._parthenon_home.rindex(
-                "/" + self._repo_name + "/") + len("/" + self._repo_name)]
-        except Exception:
-            error_msg = str(os.path.realpath(
-                self._child_class_path)) + " must be run from within the " + self._repo_name + " repository."
+
+        if path_to_repo is not None:
+          # Check that the repo specified is valid
+          if path_to_repo.isDir(): 
+            # Check if we are overwriting an existing repo stored in the config file
+            with open(self._config_file_path,'r') as file:
+              line = file.readline()
+              # Print a message if they are different
+              if line != path_to_repo:
+                self._log.info("Changing repo path from {} to {}".format(line, path_to_repo))
+
+            with open(self_._config_file_path,'w') as file:
+              file.write(path_to_repo)
+
+            self._repo_path = path_to_repo
+          else:
+            error_msg = str("The suggested repository path is not valid:\n" \
+                path_to_repo)
             self._log.error(error_msg)
             raise
+        else:
+
+          if self._config_file_path.isFile():
+
+            with open(self._config_file_path,'r') as file:
+              line = file.readline()
+              # Throw an error if the path is not valid
+              if not line.isDir():
+                error_msg = "The cached path to your repository is not valid {}".format(line)
+                self._log.error(error_msg)
+              self._repo_path = line
+          else:
+            # If no config file exists throw an error
+            error_msg = str("No repository path is known to the parthenon_performance_app.\n" \
+                "Please call --repository-path or -rp with the path the repository to register it.\n")
+            self._log.error(error_msg)
+            raise
+#        self._repo_path = str(pathlib.Path(self._child_class_path).parent.absolute())
+#        try:
+#            self._repo_path = self._repo_path[:self._repo_path.rindex( \
+#                "/" + self._repo_name + "/") + len("/" + self._repo_name)]
+#        except Exception:
+#            error_msg = str(os.path.realpath(
+#                self._child_class_path)) + " must be run from within the " + self._repo_name + " repository."
+#            self._log.error(error_msg)
+#            raise
 
         self._parthenon_wiki_dir = os.path.normpath(
-            self._parthenon_home + "/../" + self._repo_name + ".wiki")
+            self._repo_path + "/../" + self._repo_name + ".wiki")
         self._log.info("Parthenon wiki dir")
         self._log.info(self._parthenon_wiki_dir)
         if isinstance(pem_file, list):
