@@ -30,7 +30,7 @@ stages:
     BUILD_TARGET_BRANCH: "OFF"
   script:
     - printf 'env -i bash --norc --noprofile %s/scripts/darwin/install_python_scripts.sh  "%s"
-      "%s/build" "%s" "%s" "%s %s %s"\n'
+      "%s/build" "%s" "%s" "%s %s %s %s"\n'
       ${CI_PROJECT_DIR}
       ${GITHUB_APP_PEM}
       ${CI_PROJECT_DIR}
@@ -52,7 +52,7 @@ stages:
     BUILD_TARGET_BRANCH: "OFF"
   script:
     - printf 'env -i bash --norc --noprofile %s/scripts/darwin/build_fast.sh  "%s"
-      "%s/build" "%s" "%s" "%s %s %s"\n'
+      "%s/build" "%s" "%s" "%s %s %s %s"\n'
       ${CI_PROJECT_DIR}
       ${GITHUB_APP_PEM}
       ${CI_PROJECT_DIR}
@@ -87,7 +87,7 @@ stages:
     BUILD_TARGET_BRANCH: "ON"
   script:
     - printf 'env -i bash --norc --noprofile %s/scripts/darwin/build_fast.sh  "%s"
-      "%s/build" "%s" "%s" "%s %s %s"\n'
+      "%s/build" "%s" "%s" "%s %s %s %s"\n'
       ${CI_PROJECT_DIR}
       ${GITHUB_APP_PEM}
       ${CI_PROJECT_DIR}
@@ -135,7 +135,7 @@ parthenon-power9-gcc-mpi-cuda-perf-manual-metrics:
 # Scheduled jobs
 ########################################################################
 parthenon-power9-gcc-mpi-cuda-perf-schedule-python-setup:
-  extends: .gcc-mpi-cuda-performance-regression-build
+  extends: .gcc-mpi-cuda-python-performance-application
   stage: performance-application-setup
   only:
     - schedules
