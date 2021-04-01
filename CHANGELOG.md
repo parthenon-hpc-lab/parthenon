@@ -37,6 +37,7 @@
 - [[PR 473]](htpps://github.com/lanl/parthenon/pull/473) Added documentation for forked pr
 
 ### Removed (removing behavior/API/varaibles/...)
+- [[PR 480]](https://github.com/lanl/parthenon/pull/480) Cleanup unused/untested/not fully ported code (mostly OpenMP and reconstruction)
 
 ## Release 0.4.0
 Date: 01/19/2021

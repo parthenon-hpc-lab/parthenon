@@ -66,8 +66,7 @@ namespace parthenon {
 //----------------------------------------------------------------------------------------
 // ParameterInput constructor
 
-ParameterInput::ParameterInput() : pfirst_block{}, last_filename_{} {
-}
+ParameterInput::ParameterInput() : pfirst_block{}, last_filename_{} {}
 
 ParameterInput::ParameterInput(std::string input_filename)
     : pfirst_block{}, last_filename_{} {
