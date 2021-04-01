@@ -38,7 +38,6 @@
 #include "outputs/io_wrapper.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
-#include "reconstruct/reconstruction.hpp"
 
 namespace parthenon {
 
@@ -158,7 +157,6 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   // TODO(jcd): remove all these?
   std::unique_ptr<BoundaryValues> pbval;
   std::unique_ptr<MeshRefinement> pmr;
-  std::unique_ptr<Reconstruction> precon;
 
   BoundaryFlag boundary_flag[6];
 
