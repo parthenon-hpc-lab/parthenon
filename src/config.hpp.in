@@ -48,6 +48,9 @@
 // HDF5 output (HDF5OUTPUT or NO_HDF5OUTPUT)
 #define @HDF5_OPTION@
 
+// HDF5 compression level (valid range: 0-9, 0 will turn off compression completely)
+#define HDF5_COMPRESSION_LEVEL @PARTHENON_HDF5_COMPRESSION_LEVEL@
+
 // Default loop patterns for MeshBlock par_for() wrappers,
 // see kokkos_abstraction.hpp for available tags.
 // Kokkos tight loop layout
