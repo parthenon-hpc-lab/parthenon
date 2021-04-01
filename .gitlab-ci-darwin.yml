@@ -12,6 +12,20 @@ stages:
 ########################################################################
 # Anchors
 ########################################################################
+.print-executable: &print-executable
+- printf 'env -i bash --norc --noprofile %s/scripts/darwin/%s  "%s"
+      "%s/build" "%s" "%s" "%s" "%s" "%s" "%s"\n'
+      ${CI_PROJECT_DIR}
+      ${SCRIPT_TO_RUN}
+      ${GITHUB_APP_PEM}
+      ${CI_PROJECT_DIR}
+      ${CI_COMMIT_SHA}
+      ${CI_COMMIT_BRANCH}
+      ${CI_JOB_URL}
+      ${CI_JOB_TOKEN}
+      ${BUILD_TARGET_BRANCH}
+      ${CI_PROJECT_DIR}/../python_scripts > ${EXECUTABLE}
+
 .run-script-with-check: &run-script-with-check
 - env
 - git fetch --all
@@ -26,20 +40,11 @@ stages:
 ########################################################################
 .gcc-mpi-cuda-python-performance-application:
   variables: 
-  EXECUTABLE: "execute_python_application.sh"
+    EXECUTABLE: "execute_python_application.sh"
     BUILD_TARGET_BRANCH: "OFF"
+    SCRIPT_TO_RUN: "install_python_scripts.sh"
   script:
-    - printf 'env -i bash --norc --noprofile %s/scripts/darwin/install_python_scripts.sh  "%s"
-      "%s/build" "%s" "%s" "%s %s %s %s"\n'
-      ${CI_PROJECT_DIR}
-      ${GITHUB_APP_PEM}
-      ${CI_PROJECT_DIR}
-      ${CI_COMMIT_SHA}
-      ${CI_COMMIT_BRANCH}
-      ${CI_JOB_URL}
-      ${CI_JOB_TOKEN}
-      ${BUILD_TARGET_BRANCH}
-      ${CI_PROJECT_DIR}/../python_scripts > ${EXECUTABLE}
+    - *print-executable 
     - *run-script-with-check
   artifacts:
     paths:
@@ -50,18 +55,9 @@ stages:
   variables: 
     EXECUTABLE: "execute_main.sh"
     BUILD_TARGET_BRANCH: "OFF"
+    SCRIPT_TO_RUN: "build_fast.sh"
   script:
-    - printf 'env -i bash --norc --noprofile %s/scripts/darwin/build_fast.sh  "%s"
-      "%s/build" "%s" "%s" "%s %s %s %s"\n'
-      ${CI_PROJECT_DIR}
-      ${GITHUB_APP_PEM}
-      ${CI_PROJECT_DIR}
-      ${CI_COMMIT_SHA}
-      ${CI_COMMIT_BRANCH}
-      ${CI_JOB_URL}
-      ${CI_JOB_TOKEN}
-      ${BUILD_TARGET_BRANCH}
-      ${CI_PROJECT_DIR}/../python_scripts > ${EXECUTABLE}
+    - *print-executable 
     - *run-script-with-check
   artifacts:
     paths:
@@ -71,32 +67,19 @@ stages:
 .gcc-mpi-cuda-performance-regression-metrics:
   variables: 
     EXECUTABLE: "execute_metrics.sh"
+    BUILD_TARGET_BRANCH: "OFF"
+    SCRIPT_TO_RUN: "metrics.sh"
   script:
-    - printf 'env -i bash --norc --noprofile %s/scripts/darwin/metrics.sh "%s" "%s/build" "%s"
-      "%s"\n'
-      ${CI_PROJECT_DIR}
-      ${GITHUB_APP_PEM}
-      ${CI_PROJECT_DIR}
-      ${CI_COMMIT_SHA}
-      ${CI_COMMIT_BRANCH}> ${EXECUTABLE}
+    - *print-executable 
     - *run-script-with-check
 
 .gcc-mpi-cuda-performance-regression-target-branch:
   variables:
     EXECUTABLE: "execute_target.sh"
     BUILD_TARGET_BRANCH: "ON"
+    SCRIPT_TO_RUN: "build_fast.sh"
   script:
-    - printf 'env -i bash --norc --noprofile %s/scripts/darwin/build_fast.sh  "%s"
-      "%s/build" "%s" "%s" "%s %s %s %s"\n'
-      ${CI_PROJECT_DIR}
-      ${GITHUB_APP_PEM}
-      ${CI_PROJECT_DIR}
-      ${CI_COMMIT_SHA}
-      ${CI_COMMIT_BRANCH}
-      ${CI_JOB_URL}
-      ${CI_JOB_TOKEN}
-      ${BUILD_TARGET_BRANCH}
-      ${CI_PROJECT_DIR}/../python_scripts > ${EXECUTABLE}
+    - *print-executable 
     - *run-script-with-check
 
 ########################################################################
