@@ -140,7 +140,7 @@ struct HistoryOutputVar {
 
 using HstVar_list = std::vector<HistoryOutputVar>;
 // Hardcoded global entry to be used by each package to enroll user output functions
-const std::string hist_str = "HistoryFunctions";
+const char hist_str[] = "HistoryFunctions";
 
 //----------------------------------------------------------------------------------------
 //! \class HistoryFile

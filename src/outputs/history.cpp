@@ -35,6 +35,7 @@
 #include "mesh/mesh.hpp"
 #include "outputs/outputs.hpp"
 #include "parthenon_arrays.hpp"
+#include "utils/error_checking.hpp"
 
 // NEW_OUTPUT_TYPES:
 
@@ -48,7 +49,6 @@ namespace parthenon {
 //  \brief Writes a history file
 
 void HistoryOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
-
   std::vector<std::string> all_labels = {};
   std::vector<Real> all_results = {};
 
@@ -67,6 +67,12 @@ void HistoryOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
       auto &md_base = pm->mesh_data.Get();
       // Populated with all blocks
       if (md_base->NumBlocks() == 0) {
+        md_base->Set(pm->block_list, "base");
+      } else if (md_base->NumBlocks() != pm->block_list.size()) {
+        PARTHENON_WARN(
+            "Resetting \"base\" MeshData to contain all blocks. This indicates that"
+            "the \"base\" MeshData container has been modified elsewhere. Double check "
+            "that the modification was intentional and is compatible with this reset.")
         md_base->Set(pm->block_list, "base");
       }
       auto result = hist_var.hst_fun(md_base.get());
