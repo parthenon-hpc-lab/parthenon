@@ -15,7 +15,7 @@
 # Load system env only
 SCRIPT=$(realpath "$0")
 SOURCE=$(dirname "$SCRIPT")
-source ${SOURCE}/setup.sh
+source ${SOURCE}/base_setup.sh
 
 cd $BUILD_DIR/scripts/python/packages/parthenon_performance_app
 # Dependencies should be handled by spack

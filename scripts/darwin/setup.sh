@@ -12,36 +12,10 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
 
-
 # Load system env only
-source /etc/bashrc
-source /etc/profile
-source /projects/parthenon-int/parthenon-project/spack/share/spack/setup-env.sh
-source /projects/parthenon-int/parthenon-project/.bashrc
-
-# Exit on error
-set -eE
-
-# Export COMMIT CI
-GITHUB_APP_PEM="$1"
-BUILD_DIR="${2}"
-export CI_COMMIT_SHA="$3"
-export CI_COMMIT_BRANCH="$4"
-CI_JOB_URL="$5"
-CI_JOB_TOKEN="$6"
-
-# Should be a value of ON or OFF depending on whether we are
-# also running metrics on the pr we want to merge with
-BUILD_TARGET="$7"
-
-PYTHON_SCRIPTS_DIR="$8"
-# Python scripts that will get installed
-export PATH=${PYTHON_SCRIPTS_DIR}/bin:${PATH}
-export PYTHONPATH=${PYTHON_SCRIPTS_DIR}/${PYTHONPATH}
-
-
-export CI_JOB_TOKEN="$CI_JOB_TOKEN"
-export GITHUB_APP_PEM="$GITHUB_APP_PEM"
+SCRIPT=$(realpath "$0")
+SOURCE=$(dirname "$SCRIPT")
+source ${SOURCE}/base_setup.sh
 
 METRICS_APP="${PYTHON_SCRIPTS_DIR}/bin/parthenon_metrics_app.py"
 
@@ -57,11 +31,3 @@ catch() {
   exit "$(($ERR))"
 }
 
-echo "CI commit branch ${CI_COMMIT_BRANCH}"
-
-module load gcc/9.3.0
-spack compiler find
-
-# Always get the latest spack environment
-spack_env_latest=$(spack env list | grep darwin-ppc64le-gcc9 | sort | tail -n 1 | tr -d '[:space:]')
-spack env activate "${spack_env_latest}"
