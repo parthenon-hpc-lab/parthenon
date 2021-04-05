@@ -36,11 +36,14 @@ if (NOT CURRENT_YEAR STREQUAL LAST_UPDATED)
 endif()
 
 foreach(FILE ${COPYRIGHTABLE})
-    file(READ ${FILE} CONTENTS)
+  file(READ ${FILE} CONTENTS)
 
-    string(REGEX MATCH "\\(C\\) \\(or copyright\\) ${LAST_UPDATED}\\. Triad National Security, LLC\\. All rights reserved\\." HAS_COPYRIGHT ${CONTENTS})
+    # Capture copyright year from the file
+    set(THE_REGEX "\\(C\\) \\(or copyright\\) ([0-9]+)\\. Triad National Security, LLC\\. All rights reserved\\.")
+    string(REGEX REPLACE "^{THE_REGEX}.*$" "\\1" COPYRIGHT_YEAR ${CONTENTS})
 
-    if (NOT HAS_COPYRIGHT)
+    # Ensure that copyright year is after 2019 and less than or equal to current year
+    if (NOT ${COPYRIGHT_YEAR}>2019 AND ${COPYRIGHT_YEAR}<=${CURRENT_YEAR})
         message(FATAL_ERROR "File ${FILE} does not contain an up to date copy of the Triad copyright")
     endif()
 endforeach()
