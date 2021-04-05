@@ -36,6 +36,15 @@ namespace Update {
 template <typename T>
 TaskStatus FluxDivergence(T *in, T *dudt_obj);
 
+// Update for low-storage integrators implemented as described in Sec. 3.2.3 of
+// Athena++ method paper. Specifically eq (11) at stage s
+// u(0) <- gamma_s0 * u(0) + gamma_s1 * u(1) + beta_{s,s-1} * dt * F(u(0))
+// Also requires u(1) <- u(0) at the beginning of the first stage.
+// Current implementation supports RK1, RK2, RK3, and VL2 with just two registers.
+template <typename T>
+TaskStatus UpdateWithFluxDivergence(T *data_u0, T *data_u1, const Real gam0,
+                                    const Real gam1, const Real beta_dt);
+
 template <typename F, typename T>
 TaskStatus WeightedSumData(const std::vector<F> &flags, T *in1, T *in2, const Real w1,
                            const Real w2, T *out) {
@@ -85,7 +94,7 @@ template <typename T>
 TaskStatus EstimateTimestep(T *rc) {
   Kokkos::Profiling::pushRegion("Task_EstimateTimestep");
   Real dt_min = std::numeric_limits<Real>::max();
-  for (const auto &pkg : rc->GetParentPointer()->packages) {
+  for (const auto &pkg : rc->GetParentPointer()->packages.AllPackages()) {
     Real dt = pkg.second->EstimateTimestep(rc);
     dt_min = std::min(dt_min, dt);
   }
@@ -99,17 +108,17 @@ TaskStatus FillDerived(T *rc) {
   Kokkos::Profiling::pushRegion("Task_FillDerived");
   auto pm = rc->GetParentPointer();
   Kokkos::Profiling::pushRegion("PreFillDerived");
-  for (const auto &pkg : pm->packages) {
+  for (const auto &pkg : pm->packages.AllPackages()) {
     pkg.second->PreFillDerived(rc);
   }
   Kokkos::Profiling::popRegion(); // PreFillDerived
   Kokkos::Profiling::pushRegion("FillDerived");
-  for (const auto &pkg : pm->packages) {
+  for (const auto &pkg : pm->packages.AllPackages()) {
     pkg.second->FillDerived(rc);
   }
   Kokkos::Profiling::popRegion(); // FillDerived
   Kokkos::Profiling::pushRegion("PostFillDerived");
-  for (const auto &pkg : pm->packages) {
+  for (const auto &pkg : pm->packages.AllPackages()) {
     pkg.second->PostFillDerived(rc);
   }
   Kokkos::Profiling::popRegion(); // PostFillDerived

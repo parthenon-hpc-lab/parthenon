@@ -26,6 +26,7 @@
 #include <iomanip>
 #include <iostream>
 #include <limits>
+#include <memory>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -259,7 +260,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properti
     use_uniform_meshgen_fn_[X3DIR] = false;
     MeshGenerator_[X3DIR] = DefaultMeshGeneratorX3;
   }
-  default_pack_size_ = pin->GetOrAddReal("parthenon/mesh", "pack_size", -1);
+  default_pack_size_ = pin->GetOrAddInteger("parthenon/mesh", "pack_size", -1);
 
   // calculate the logical root level and maximum level
   for (root_level = 0; (1 << root_level) < nbmax; root_level++) {
@@ -651,7 +652,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
     use_uniform_meshgen_fn_[X3DIR] = false;
     MeshGenerator_[X3DIR] = DefaultMeshGeneratorX3;
   }
-  default_pack_size_ = pin->GetOrAddReal("parthenon/mesh", "pack_size", -1);
+  default_pack_size_ = pin->GetOrAddInteger("parthenon/mesh", "pack_size", -1);
 
   // Load balancing flag and parameters
 #ifdef MPI_PARALLEL
@@ -795,17 +796,10 @@ Mesh::~Mesh() = default;
 //! \fn void Mesh::OutputMeshStructure(int ndim)
 //  \brief print the mesh structure information
 
-void Mesh::OutputMeshStructure(int ndim) {
+void Mesh::OutputMeshStructure(const int ndim,
+                               const bool dump_mesh_structure /*= true*/) {
   RegionSize block_size;
   BoundaryFlag block_bcs[6];
-  FILE *fp = nullptr;
-
-  // open 'mesh_structure.dat' file
-  if ((fp = std::fopen("mesh_structure.dat", "wb")) == nullptr) {
-    std::cout << "### ERROR in function Mesh::OutputMeshStructure" << std::endl
-              << "Cannot open mesh_structure.dat" << std::endl;
-    return;
-  }
 
   // Write overall Mesh structure to stdout and file
   std::cout << std::endl;
@@ -817,12 +811,9 @@ void Mesh::OutputMeshStructure(int ndim) {
   std::cout << "Number of logical  refinement levels = " << current_level << std::endl;
 
   // compute/output number of blocks per level, and cost per level
-  int *nb_per_plevel = new int[max_level];
-  int *cost_per_plevel = new int[max_level];
-  for (int i = 0; i <= max_level; ++i) {
-    nb_per_plevel[i] = 0;
-    cost_per_plevel[i] = 0;
-  }
+  std::vector<int> nb_per_plevel(max_level + 1, 0);
+  std::vector<int> cost_per_plevel(max_level + 1, 0);
+
   for (int i = 0; i < nbtotal; i++) {
     nb_per_plevel[(loclist[i].level - root_level)]++;
     cost_per_plevel[(loclist[i].level - root_level)] += costlist[i];
@@ -835,14 +826,15 @@ void Mesh::OutputMeshStructure(int ndim) {
     }
   }
 
+  if (!dump_mesh_structure) {
+    return;
+  }
+
   // compute/output number of blocks per rank, and cost per rank
   std::cout << "Number of parallel ranks = " << Globals::nranks << std::endl;
-  int *nb_per_rank = new int[Globals::nranks];
-  int *cost_per_rank = new int[Globals::nranks];
-  for (int i = 0; i < Globals::nranks; ++i) {
-    nb_per_rank[i] = 0;
-    cost_per_rank[i] = 0;
-  }
+  std::vector<int> nb_per_rank(Globals::nranks, 0);
+  std::vector<int> cost_per_rank(Globals::nranks, 0);
+
   for (int i = 0; i < nbtotal; i++) {
     nb_per_rank[ranklist[i]]++;
     cost_per_rank[ranklist[i]] += costlist[i];
@@ -850,6 +842,15 @@ void Mesh::OutputMeshStructure(int ndim) {
   for (int i = 0; i < Globals::nranks; ++i) {
     std::cout << "  Rank = " << i << ": " << nb_per_rank[i]
               << " MeshBlocks, cost = " << cost_per_rank[i] << std::endl;
+  }
+
+  FILE *fp = nullptr;
+
+  // open 'mesh_structure.dat' file
+  if ((fp = std::fopen("mesh_structure.dat", "wb")) == nullptr) {
+    std::cout << "### ERROR in function Mesh::OutputMeshStructure" << std::endl
+              << "Cannot open mesh_structure.dat" << std::endl;
+    return;
   }
 
   // output relative size/locations of meshblock to file, for plotting
@@ -931,13 +932,6 @@ void Mesh::OutputMeshStructure(int ndim) {
   std::cout << "Use 'python ../vis/python/plot_mesh.py' or gnuplot"
             << " to visualize mesh structure." << std::endl
             << std::endl;
-
-  delete[] nb_per_plevel;
-  delete[] cost_per_plevel;
-  delete[] nb_per_rank;
-  delete[] cost_per_rank;
-
-  return;
 }
 
 //----------------------------------------------------------------------------------------

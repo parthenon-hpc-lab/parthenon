@@ -35,6 +35,8 @@ class ParthenonManager {
  public:
   ParthenonManager() { app_input.reset(new ApplicationInput()); }
   ParthenonStatus ParthenonInit(int argc, char *argv[]);
+  ParthenonStatus ParthenonInitEnv(int argc, char *argv[]);
+  void ParthenonInitPackagesAndMesh();
   ParthenonStatus ParthenonFinalize();
 
   bool Restart() { return (arg.restart_filename == nullptr ? false : true); }

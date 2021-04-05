@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -543,7 +543,7 @@ int ParameterInput::GetInteger(const std::string &block, const std::string &name
   Unlock();
 
   // Convert string to integer and return value
-  return atoi(val.c_str());
+  return stoi(val);
 }
 
 //----------------------------------------------------------------------------------------
@@ -615,7 +615,7 @@ bool ParameterInput::GetBoolean(const std::string &block, const std::string &nam
 
   // check is string contains integers 0 or 1 (instead of true or false) and return
   if (val.compare(0, 1, "0") == 0 || val.compare(0, 1, "1") == 0) {
-    return static_cast<bool>(atoi(val.c_str()));
+    return static_cast<bool>(stoi(val));
   }
 
   // convert string to all lower case
@@ -683,7 +683,7 @@ int ParameterInput::GetOrAddInteger(const std::string &block, const std::string 
     pb = GetPtrToBlock(block);
     pl = pb->GetPtrToLine(name);
     std::string val = pl->param_value;
-    ret = atoi(val.c_str());
+    ret = stoi(val);
   } else {
     pb = FindOrAddBlock(block);
     ss_value << def_value;
@@ -771,7 +771,7 @@ bool ParameterInput::GetOrAddBoolean(const std::string &block, const std::string
     pl = pb->GetPtrToLine(name);
     std::string val = pl->param_value;
     if (val.compare(0, 1, "0") == 0 || val.compare(0, 1, "1") == 0) {
-      ret = static_cast<bool>(atoi(val.c_str()));
+      ret = static_cast<bool>(stoi(val));
     } else {
       std::transform(val.begin(), val.end(), val.begin(), ::tolower);
       std::istringstream is(val);
@@ -981,7 +981,7 @@ void ParameterInput::ForwardNextTime(Real mesh_time) {
         if (fresh) next_time -= std::fmod(next_time, dt0) + dt0;
       }
       msg << next_time;
-      AddParameter(pb, "next_time", msg.str().c_str(), "# Updated during run time");
+      AddParameter(pb, "next_time", msg.str(), "# Updated during run time");
     }
     pb = pb->pnext;
   }
@@ -1020,7 +1020,6 @@ void ParameterInput::CheckDesired(const std::string &block, const std::string &n
               << "Defaulting to <" << block << ">/" << name << " = "
               << GetString(block, name) << std::endl;
   }
-  std::cout << std::endl;
 }
 
 //----------------------------------------------------------------------------------------

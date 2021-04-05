@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -56,14 +56,14 @@ void Mesh::UserWorkInLoopDefault(Mesh *, ParameterInput *, SimTime const &) {
 
 void Mesh::PreStepUserDiagnosticsInLoopDefault(Mesh *pmesh, ParameterInput *,
                                                SimTime const &simtime) {
-  for (auto &package : pmesh->packages) {
+  for (auto &package : pmesh->packages.AllPackages()) {
     package.second->PreStepDiagnostics(simtime, pmesh->mesh_data.Get().get());
   }
 }
 
 void Mesh::PostStepUserDiagnosticsInLoopDefault(Mesh *pmesh, ParameterInput *,
                                                 SimTime const &simtime) {
-  for (auto &package : pmesh->packages) {
+  for (auto &package : pmesh->packages.AllPackages()) {
     package.second->PostStepDiagnostics(simtime, pmesh->mesh_data.Get().get());
   }
 }
@@ -89,7 +89,8 @@ void Mesh::UserWorkAfterLoopDefault(Mesh *mesh, ParameterInput *pin, SimTime &tm
 //========================================================================================
 
 std::unique_ptr<MeshBlockApplicationData>
-MeshBlock::InitApplicationMeshBlockDataDefault(ParameterInput *pin) {
+MeshBlock::InitApplicationMeshBlockDataDefault(MeshBlock * /*pmb*/,
+                                               ParameterInput * /*pin*/) {
   // do nothing
   return nullptr;
 }

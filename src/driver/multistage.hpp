@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -31,6 +31,8 @@ struct StagedIntegrator {
   explicit StagedIntegrator(ParameterInput *pin);
   int nstages;
   std::vector<Real> beta;
+  std::vector<Real> gam0;
+  std::vector<Real> gam1;
   std::vector<std::string> stage_name;
   Real dt;
 };

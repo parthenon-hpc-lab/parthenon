@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -130,7 +130,7 @@ class OutputType {
 
 class HistoryOutput : public OutputType {
  public:
-  explicit HistoryOutput(OutputParameters oparams) : OutputType(oparams) {}
+  explicit HistoryOutput(const OutputParameters &oparams) : OutputType(oparams) {}
   void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) override;
 };
 
@@ -140,7 +140,7 @@ class HistoryOutput : public OutputType {
 
 class FormattedTableOutput : public OutputType {
  public:
-  explicit FormattedTableOutput(OutputParameters oparams) : OutputType(oparams) {}
+  explicit FormattedTableOutput(const OutputParameters &oparams) : OutputType(oparams) {}
   void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) override;
 };
 

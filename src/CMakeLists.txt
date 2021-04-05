@@ -1,6 +1,6 @@
 
 #=========================================================================================
-# (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+# (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -14,7 +14,6 @@
 
 # Configure config.hpp
 set(PROBLEM_GENERATOR "<not-implemented>") # TODO: Figure out what to put here
-
 if (ENABLE_MPI)
   set(MPI_OPTION MPI_PARALLEL)
 else ()
@@ -113,6 +112,8 @@ configure_file(config.hpp.in generated/config.hpp @ONLY)
 add_library(parthenon
   bvals/cc/bvals_cc.cpp
   bvals/cc/bvals_cc.hpp
+  bvals/cc/bvals_cc_in_one.cpp
+  bvals/cc/bvals_cc_in_one.hpp
   bvals/cc/flux_correction_cc.cpp
 
   bvals/fc/bvals_fc.cpp
@@ -210,6 +211,8 @@ add_library(parthenon
   tasks/task_list.hpp
   tasks/task_types.hpp
 
+  utils/alias_method.cpp
+  utils/alias_method.hpp
   utils/buffer_utils.cpp
   utils/buffer_utils.hpp
   utils/change_rundir.cpp

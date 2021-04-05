@@ -1,9 +1,9 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2020 The Parthenon collaboration
+// Copyright(C) 2020-2021 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001
 // for Los Alamos National Laboratory (LANL), which is operated by Triad
@@ -20,11 +20,14 @@
 #ifndef KOKKOS_ABSTRACTION_HPP_
 #define KOKKOS_ABSTRACTION_HPP_
 
+#include <memory>
 #include <string>
 #include <type_traits>
 #include <utility>
 
 #include <Kokkos_Core.hpp>
+
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
@@ -40,6 +43,16 @@ using DevExecSpace = Kokkos::DefaultExecutionSpace;
 using ScratchMemSpace = DevExecSpace::scratch_memory_space;
 
 using LayoutWrapper = Kokkos::LayoutRight;
+
+#if defined(KOKKOS_ENABLE_CUDA) && defined(PARTHENON_ENABLE_HOST_COMM_BUFFERS)
+using BufMemSpace = Kokkos::CudaHostPinnedSpace::memory_space;
+#else
+using BufMemSpace = Kokkos::DefaultExecutionSpace::memory_space;
+#endif
+
+// MPI communication buffers
+template <typename T>
+using BufArray1D = Kokkos::View<T *, LayoutWrapper, BufMemSpace>;
 
 template <typename T>
 using ParArray1D = Kokkos::View<T *, LayoutWrapper, DevMemSpace>;
@@ -624,6 +637,42 @@ struct SpaceInstance<Kokkos::Cuda> {
   }
 };
 #endif
+
+// Design from "Runtime Polymorphism in Kokkos Applications", SAND2019-0279PE
+template <typename MS = DevMemSpace>
+struct DeviceDeleter {
+  template <typename T>
+  void operator()(T *ptr) {
+    Kokkos::kokkos_free<MS>(ptr);
+  }
+};
+
+template <typename T, typename ES = DevExecSpace, typename MS = DevMemSpace>
+std::unique_ptr<T, DeviceDeleter<MS>> DeviceAllocate() {
+  static_assert(std::is_trivially_destructible<T>::value,
+                "DeviceAllocate only supports trivially destructible classes!");
+  auto up = std::unique_ptr<T, DeviceDeleter<MS>>(
+      static_cast<T *>(Kokkos::kokkos_malloc<MS>(sizeof(T))));
+  auto p = up.get();
+  Kokkos::parallel_for(
+      Kokkos::RangePolicy<ES>(0, 1), KOKKOS_LAMBDA(const int i) { new (p) T(); });
+  Kokkos::fence();
+  return up;
+}
+
+template <typename T, typename ES = DevExecSpace, typename MS = DevMemSpace>
+std::unique_ptr<T, DeviceDeleter<MS>> DeviceCopy(const T &host_object) {
+  static_assert(std::is_trivially_destructible<T>::value,
+                "DeviceCopy only supports trivially destructible classes!");
+  auto up = std::unique_ptr<T, DeviceDeleter<MS>>(
+      static_cast<T *>(Kokkos::kokkos_malloc<MS>(sizeof(T))));
+  auto p = up.get();
+  Kokkos::parallel_for(
+      Kokkos::RangePolicy<ES>(0, 1),
+      KOKKOS_LAMBDA(const int i) { new (p) T(host_object); });
+  Kokkos::fence();
+  return up;
+}
 
 } // namespace parthenon
 
