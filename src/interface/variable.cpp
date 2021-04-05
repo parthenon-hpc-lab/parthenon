@@ -17,6 +17,7 @@
 
 #include "bvals/cc/bvals_cc.hpp"
 #include "mesh/mesh.hpp"
+#include "mesh/meshblock.hpp"
 #include "parthenon_arrays.hpp"
 
 namespace parthenon {
@@ -46,8 +47,8 @@ std::string CellVariable<T>::info() {
 
 // copy constructor
 template <typename T>
-std::shared_ptr<CellVariable<T>> CellVariable<T>::AllocateCopy(const bool allocComms,
-                                                               MeshBlock *pmb) {
+std::shared_ptr<CellVariable<T>>
+CellVariable<T>::AllocateCopy(const bool allocComms, std::weak_ptr<MeshBlock> wpmb) {
   std::array<int, 6> dims = {GetDim(1), GetDim(2), GetDim(3),
                              GetDim(4), GetDim(5), GetDim(6)};
 
@@ -62,7 +63,7 @@ std::shared_ptr<CellVariable<T>> CellVariable<T>::AllocateCopy(const bool allocC
 
   if (IsSet(Metadata::FillGhost)) {
     if (allocComms) {
-      cv->allocateComms(pmb);
+      cv->allocateComms(wpmb);
     } else {
       // set data pointer for the boundary communication
       // Note that vbvar->var_cc will be set when stage is selected
@@ -73,8 +74,7 @@ std::shared_ptr<CellVariable<T>> CellVariable<T>::AllocateCopy(const bool allocC
         cv->flux[i] = flux[i];
       }
 
-      // These members are pointers,
-      // point at same memory as src
+      // These members are pointers,      // point at same memory as src
       cv->coarse_s = coarse_s;
     }
   }
@@ -84,7 +84,7 @@ std::shared_ptr<CellVariable<T>> CellVariable<T>::AllocateCopy(const bool allocC
 /// allocate communication space based on info in MeshBlock
 /// Initialize a 6D variable
 template <typename T>
-void CellVariable<T>::allocateComms(MeshBlock *pmb) {
+void CellVariable<T>::allocateComms(std::weak_ptr<MeshBlock> wpmb) {
   // set up fluxes
   std::string base_name = label();
   if (IsSet(Metadata::Independent)) {
@@ -98,7 +98,9 @@ void CellVariable<T>::allocateComms(MeshBlock *pmb) {
                                   GetDim(3), GetDim(2), GetDim(1));
   }
 
-  if (!pmb) return;
+  if (wpmb.expired()) return;
+
+  std::shared_ptr<MeshBlock> pmb = wpmb.lock();
 
   if (pmb->pmy_mesh->multilevel)
     coarse_s = ParArrayND<T>(base_name + ".coarse", GetDim(6), GetDim(5), GetDim(4),
@@ -111,6 +113,12 @@ void CellVariable<T>::allocateComms(MeshBlock *pmb) {
 
   // enroll CellCenteredBoundaryVariable object
   vbvar->bvar_index = pmb->pbval->bvars.size();
+  // TODO(JMM): This means RestrictBoundaries()
+  // is called on EVERY stage, regardless of what
+  // stage needs it.
+  // The fix is to refactor BoundaryValues
+  // to expose calls at either the `Variable`
+  // or `MeshBlockData` and `MeshData` level.
   pmb->pbval->bvars.push_back(vbvar);
   pmb->pbval->bvars_main_int.push_back(vbvar);
 
@@ -156,6 +164,20 @@ std::string EdgeVariable<T>::info() {
   s += " : " + this->metadata().MaskAsString();
 
   return s;
+}
+
+template <typename T>
+std::string ParticleVariable<T>::info() const {
+  std::stringstream ss;
+
+  // first add label
+  std::string s = this->label();
+  s.resize(20, '.');
+
+  // combine
+  ss << s << data.GetDim(1) << ":" << this->metadata().MaskAsString();
+
+  return ss.str();
 }
 
 template class CellVariable<Real>;

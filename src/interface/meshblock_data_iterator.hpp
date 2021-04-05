@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef INTERFACE_CONTAINER_ITERATOR_HPP_
-#define INTERFACE_CONTAINER_ITERATOR_HPP_
+#ifndef INTERFACE_MESHBLOCK_DATA_ITERATOR_HPP_
+#define INTERFACE_MESHBLOCK_DATA_ITERATOR_HPP_
 
 /// Provides an iterator that iterates over the variables in a
 /// container.  Eventually this will get transitioned to an iterator
@@ -22,21 +22,21 @@
 #include <string>
 #include <vector>
 
-#include "interface/container.hpp"
+#include "interface/meshblock_data.hpp"
 #include "interface/properties_interface.hpp"
 #include "interface/variable.hpp"
 
 namespace parthenon {
 
 template <typename T>
-class ContainerIterator {
+class MeshBlockDataIterator {
  public:
   /// the subset of variables that match this iterator
   CellVariableVector<T> vars;
   // std::vector<FaceVariable> varsFace; // face vars that match
   // std::vector<EdgeVariable> varsEdge; // edge vars that match
 
-  void MakeList(const std::shared_ptr<Container<T>> &c,
+  void MakeList(const std::shared_ptr<MeshBlockData<T>> &c,
                 const std::vector<std::string> &names) {
     auto var_map = c->GetCellVariableMap();
     auto sparse_map = c->GetSparseMap();
@@ -73,8 +73,9 @@ class ContainerIterator {
   /// initializes the iterator with a container and a flag to match
   /// @param c the container on which you want the iterator
   /// @param flags: a vector of Metadata::flags that you want to match
-  ContainerIterator<T>(const std::shared_ptr<Container<T>> &c,
-                       const std::vector<MetadataFlag> &flags) {
+  MeshBlockDataIterator<T>(const std::shared_ptr<MeshBlockData<T>> &c,
+                           const std::vector<MetadataFlag> &flags,
+                           bool matchAny = false) {
     allVars_ = c->GetCellVariableVector();
     for (auto &svar : c->GetSparseVector()) {
       CellVariableVector<T> &svec = svar->GetVector();
@@ -82,14 +83,14 @@ class ContainerIterator {
     }
     // faces not active yet    allFaceVars_ = c.faceVars();
     // edges not active yet    allEdgeVars_ = c.edgeVars();
-    resetVars(flags); // fill subset based on mask vector
+    resetVars(flags, matchAny); // fill subset based on mask vector
   }
 
   /// initializes the iterator with a container and a flag to match
   /// @param c the container on which you want the iterator
   /// @param names: a vector of std::string with names you want to match
-  ContainerIterator<T>(const std::shared_ptr<Container<T>> &c,
-                       const std::vector<std::string> &names) {
+  MeshBlockDataIterator<T>(const std::shared_ptr<MeshBlockData<T>> &c,
+                           const std::vector<std::string> &names) {
     MakeList(c, names);
     /*allVars_ = c.GetCellVariableVector();
     for (auto &svar : c.GetSparseVector()) {
@@ -116,13 +117,14 @@ class ContainerIterator {
 
   /// Changes the mask for the iterator and resets the iterator
   /// @param flags: a vector of MetadataFlag that you want to match
-  void resetVars(const std::vector<MetadataFlag> &flags) {
+  void resetVars(const std::vector<MetadataFlag> &flags, bool matchAny = false) {
     // 1: clear out variables stored so far
     emptyVars_();
 
     // 2: fill in the subset of variables that match mask
     for (auto pv : allVars_) {
-      if (pv->metadata().AllFlagsSet(flags)) {
+      if ((matchAny && pv->metadata().AnyFlagsSet(flags)) ||
+          ((!matchAny) && pv->metadata().AllFlagsSet(flags))) {
         vars.push_back(pv);
       }
     }
@@ -142,4 +144,4 @@ class ContainerIterator {
 
 } // namespace parthenon
 
-#endif // INTERFACE_CONTAINER_ITERATOR_HPP_
+#endif // INTERFACE_MESHBLOCK_DATA_ITERATOR_HPP_

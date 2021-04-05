@@ -17,7 +17,7 @@
 
 using parthenon::Metadata;
 
-TEST_CASE("Built-in flags are registered", "[Metadata][coverage]") {
+TEST_CASE("Built-in flags are registered", "[Metadata]") {
   GIVEN("The Built-In Flags") {
 #define PARTHENON_INTERNAL_FOR_FLAG(name) REQUIRE(#name == Metadata::name.Name());
     PARTHENON_INTERNAL_FOREACH_BUILTIN_FLAG
@@ -25,7 +25,7 @@ TEST_CASE("Built-in flags are registered", "[Metadata][coverage]") {
   }
 }
 
-TEST_CASE("A Metadata flag is allocated", "[Metadata][coverage]") {
+TEST_CASE("A Metadata flag is allocated", "[Metadata]") {
   GIVEN("A User Flag") {
     auto const f = Metadata::AllocateNewFlag("TestFlag");
     // Note: `parthenon::internal` is subject to change, and so this test may
@@ -42,7 +42,7 @@ TEST_CASE("A Metadata flag is allocated", "[Metadata][coverage]") {
   }
 }
 
-TEST_CASE("A Metadata struct is created", "[Metadata][coverage]") {
+TEST_CASE("A Metadata struct is created", "[Metadata]") {
   GIVEN("A default Metadata struct") {
     Metadata m;
 
@@ -92,5 +92,11 @@ TEST_CASE("A Metadata struct is created", "[Metadata][coverage]") {
             Metadata({Metadata::Face, Metadata::Derived}));
     REQUIRE(Metadata({Metadata::Cell, Metadata::Derived}) !=
             Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy}));
+  }
+}
+
+TEST_CASE("Metadata created with a sparse ID must be sparse", "[Metadata]") {
+  WHEN("We add metadata with a sparse ID but the sparse flag unset") {
+    THEN("We raise an error") { REQUIRE_THROWS(Metadata({Metadata::Cell}, 10)); }
   }
 }

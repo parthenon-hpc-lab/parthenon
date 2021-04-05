@@ -21,22 +21,22 @@
 #include "interface/state_descriptor.hpp"
 #include "mesh/mesh.hpp"
 
-namespace parthenon {
-
-class FaceFieldExample : public Driver {
- public:
-  FaceFieldExample(ParameterInput *pin, Mesh *pm) : Driver(pin, pm) {
-    InitializeOutputs();
-  }
-  TaskList MakeTaskList(MeshBlock *pmb);
-  DriverStatus Execute();
-};
-
-} // namespace parthenon
-
 namespace FaceFields {
 
 parthenon::TaskStatus fill_faces(parthenon::MeshBlock *pmb);
+parthenon::Packages_t ProcessPackages(std::unique_ptr<parthenon::ParameterInput> &pin);
+void ProblemGenerator(parthenon::MeshBlock *pmb, parthenon::ParameterInput *pin);
+
+class FaceFieldExample : public parthenon::Driver {
+ public:
+  FaceFieldExample(parthenon::ParameterInput *pin, parthenon::ApplicationInput *app_in,
+                   parthenon::Mesh *pm)
+      : parthenon::Driver(pin, app_in, pm) {
+    InitializeOutputs();
+  }
+  parthenon::TaskList MakeTaskList(parthenon::MeshBlock *pmb);
+  parthenon::DriverStatus Execute();
+};
 
 } // namespace FaceFields
 

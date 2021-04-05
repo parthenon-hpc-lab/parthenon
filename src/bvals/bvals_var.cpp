@@ -29,19 +29,20 @@
 
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
+#include "mesh/meshblock.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
 
-BoundaryVariable::BoundaryVariable(MeshBlock *pmb)
-    : bvar_index(), pmy_block_(pmb), pmy_mesh_(pmb->pmy_mesh) {}
+BoundaryVariable::BoundaryVariable(std::weak_ptr<MeshBlock> pmb)
+    : bvar_index(), pmy_block_(pmb), pmy_mesh_(pmb.lock()->pmy_mesh) {}
 
 //----------------------------------------------------------------------------------------
 //! \fn void BoundaryVariable::InitBoundaryData(BoundaryData<> &bd, BoundaryQuantity type)
 //  \brief Initialize BoundaryData structure
 
 void BoundaryVariable::InitBoundaryData(BoundaryData<> &bd, BoundaryQuantity type) {
-  MeshBlock *pmb = pmy_block_;
+  auto pmb = GetBlockPointer();
   NeighborIndexes *ni = pmb->pbval->ni;
   int cng = pmb->cnghost;
   int size = 0;
@@ -109,10 +110,10 @@ void BoundaryVariable::DestroyBoundaryData(BoundaryData<> &bd) {
 void BoundaryVariable::CopyVariableBufferSameProcess(NeighborBlock &nb, int ssize) {
   // Locate target buffer
   // 1) which MeshBlock?
-  MeshBlock *ptarget_block = pmy_mesh_->FindMeshBlock(nb.snb.gid);
+  MeshBlock &target_block = *pmy_mesh_->FindMeshBlock(nb.snb.gid);
   // 2) which element in vector of BoundaryVariable *?
-  BoundaryData<> *ptarget_bdata = &(ptarget_block->pbval->bvars[bvar_index]->bd_var_);
-  ptarget_block->deep_copy(ptarget_bdata->recv[nb.targetid], bd_var_.send[nb.bufid]);
+  BoundaryData<> *ptarget_bdata = &(target_block.pbval->bvars[bvar_index]->bd_var_);
+  target_block.deep_copy(ptarget_bdata->recv[nb.targetid], bd_var_.send[nb.bufid]);
   // finally, set the BoundaryStatus flag on the destination buffer
   ptarget_bdata->flag[nb.targetid] = BoundaryStatus::arrived;
   return;
@@ -123,12 +124,10 @@ void BoundaryVariable::CopyVariableBufferSameProcess(NeighborBlock &nb, int ssiz
 void BoundaryVariable::CopyFluxCorrectionBufferSameProcess(NeighborBlock &nb, int ssize) {
   // Locate target buffer
   // 1) which MeshBlock?
-  MeshBlock *ptarget_block = pmy_mesh_->FindMeshBlock(nb.snb.gid);
+  MeshBlock &target_block = *pmy_mesh_->FindMeshBlock(nb.snb.gid);
   // 2) which element in vector of BoundaryVariable *?
-  BoundaryData<> *ptarget_bdata =
-      &(ptarget_block->pbval->bvars[bvar_index]->bd_var_flcor_);
-  ptarget_block->deep_copy(ptarget_bdata->recv[nb.targetid],
-                           bd_var_flcor_.send[nb.bufid]);
+  BoundaryData<> *ptarget_bdata = &(target_block.pbval->bvars[bvar_index]->bd_var_flcor_);
+  target_block.deep_copy(ptarget_bdata->recv[nb.targetid], bd_var_flcor_.send[nb.bufid]);
   ptarget_bdata->flag[nb.targetid] = BoundaryStatus::arrived;
   return;
 }
@@ -140,7 +139,7 @@ void BoundaryVariable::CopyFluxCorrectionBufferSameProcess(NeighborBlock &nb, in
 //  \brief Send boundary buffers of variables
 
 void BoundaryVariable::SendBoundaryBuffers() {
-  MeshBlock *pmb = pmy_block_;
+  auto pmb = GetBlockPointer();
   int mylevel = pmb->loc.level;
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
@@ -159,7 +158,7 @@ void BoundaryVariable::SendBoundaryBuffers() {
       CopyVariableBufferSameProcess(nb, ssize);
     } else {
 #ifdef MPI_PARALLEL
-      MPI_Start(&(bd_var_.req_send[nb.bufid]));
+      PARTHENON_MPI_CHECK(MPI_Start(&(bd_var_.req_send[nb.bufid])));
 #endif
     }
 
@@ -175,8 +174,9 @@ void BoundaryVariable::SendBoundaryBuffers() {
 bool BoundaryVariable::ReceiveBoundaryBuffers() {
   bool bflag = true;
 
-  for (int n = 0; n < pmy_block_->pbval->nneighbor; n++) {
-    NeighborBlock &nb = pmy_block_->pbval->neighbor[n];
+  auto pmb = GetBlockPointer();
+  for (int n = 0; n < pmb->pbval->nneighbor; n++) {
+    NeighborBlock &nb = pmb->pbval->neighbor[n];
     if (bd_var_.flag[nb.bufid] == BoundaryStatus::arrived) continue;
     if (bd_var_.flag[nb.bufid] == BoundaryStatus::waiting) {
       if (nb.snb.rank == Globals::my_rank) { // on the same process
@@ -186,8 +186,10 @@ bool BoundaryVariable::ReceiveBoundaryBuffers() {
 #ifdef MPI_PARALLEL
       else { // NOLINT // MPI boundary
         int test;
-        MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &test, MPI_STATUS_IGNORE);
-        MPI_Test(&(bd_var_.req_recv[nb.bufid]), &test, MPI_STATUS_IGNORE);
+        PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &test,
+                                       MPI_STATUS_IGNORE));
+        PARTHENON_MPI_CHECK(
+            MPI_Test(&(bd_var_.req_recv[nb.bufid]), &test, MPI_STATUS_IGNORE));
         if (!static_cast<bool>(test)) {
           bflag = false;
           continue;
@@ -205,7 +207,7 @@ bool BoundaryVariable::ReceiveBoundaryBuffers() {
 //  \brief set the boundary data
 
 void BoundaryVariable::SetBoundaries() {
-  MeshBlock *pmb = pmy_block_;
+  auto pmb = GetBlockPointer();
   int mylevel = pmb->loc.level;
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
@@ -227,14 +229,14 @@ void BoundaryVariable::SetBoundaries() {
 //  \brief receive and set the boundary data for initialization
 
 void BoundaryVariable::ReceiveAndSetBoundariesWithWait() {
-  MeshBlock *pmb = pmy_block_;
+  auto pmb = GetBlockPointer();
   int mylevel = pmb->loc.level;
   pmb->exec_space.fence();
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
 #ifdef MPI_PARALLEL
     if (nb.snb.rank != Globals::my_rank) {
-      MPI_Wait(&(bd_var_.req_recv[nb.bufid]), MPI_STATUS_IGNORE);
+      PARTHENON_MPI_CHECK(MPI_Wait(&(bd_var_.req_recv[nb.bufid]), MPI_STATUS_IGNORE));
     }
 #endif
     if (nb.snb.level == mylevel)

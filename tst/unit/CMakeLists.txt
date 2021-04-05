@@ -17,8 +17,9 @@
 ##========================================================================================
 
 list(APPEND unit_tests_SOURCES
-
+    test_data_collection.cpp
     test_taskid.cpp
+    test_tasklist.cpp
     test_unit_face_variables.cpp
     test_unit_params.cpp
     test_unit_constants.cpp
@@ -26,18 +27,27 @@ list(APPEND unit_tests_SOURCES
     kokkos_abstraction.cpp
     test_metadata.cpp
     test_pararrays.cpp
-    test_container_iterator.cpp
+    test_meshblock_data_iterator.cpp
+    test_swarm.cpp
     test_required_desired.cpp
     test_error_checking.cpp
-
+    test_partitioning.cpp
+    test_state_descriptor.cpp
 )
 
-add_executable(unit_tests ${unit_tests_SOURCES})
-target_link_libraries(unit_tests PRIVATE parthenon catch2_define Kokkos::kokkos)
+add_executable(unit_tests "${unit_tests_SOURCES}")
+
+target_link_libraries(unit_tests PRIVATE Parthenon::parthenon catch2_define Kokkos::kokkos)
+
 if (TEST_ERROR_CHECKING)
    message(WARNING "\tTesting error checking. This test will FAIL.")
    target_compile_definitions(unit_tests PRIVATE PARTHENON_TEST_ERROR_CHECKING)
 endif()
+
 lint_target(unit_tests)
 
 ParseAndAddCatchTests(unit_tests)
+
+get_property(ALL_TESTS DIRECTORY . PROPERTY TESTS)
+
+add_coverage_label("${ALL_TESTS}" "performance")

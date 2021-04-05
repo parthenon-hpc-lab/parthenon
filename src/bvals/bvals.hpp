@@ -27,7 +27,9 @@
 
 #include "bvals/bvals_interfaces.hpp"
 #include "defs.hpp"
+#include "mesh/domain.hpp"
 #include "parthenon_arrays.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
@@ -98,7 +100,8 @@ class BoundaryBase {
 class BoundaryValues : public BoundaryBase, // public BoundaryPhysics,
                        public BoundaryCommunication {
  public:
-  BoundaryValues(MeshBlock *pmb, BoundaryFlag *input_bcs, ParameterInput *pin);
+  BoundaryValues(std::weak_ptr<MeshBlock> pmb, BoundaryFlag *input_bcs,
+                 ParameterInput *pin);
 
   // variable-length arrays of references to BoundaryVariable instances
   // containing all BoundaryVariable instances:
@@ -123,13 +126,15 @@ class BoundaryValues : public BoundaryBase, // public BoundaryPhysics,
   // non-inhertied / unique functions (do not exist in BoundaryVariable objects):
   // (these typically involve a coupled interaction of boundary variable/quantities)
   // ------
-  void ProlongateBoundaries(const Real time, const Real dt);
+  void RestrictBoundaries();
+  void ProlongateBoundaries();
 
   int AdvanceCounterPhysID(int num_phys);
 
  private:
-  MeshBlock *pmy_block_; // ptr to MeshBlock containing this BoundaryValues
-  int nface_, nedge_;    // used only in fc/flux_correction_fc.cpp calculations
+  // ptr to MeshBlock containing this BoundaryValues
+  std::weak_ptr<MeshBlock> pmy_block_;
+  int nface_, nedge_; // used only in fc/flux_correction_fc.cpp calculations
 
   // if a BoundaryPhysics or user fn should be applied at each MeshBlock boundary
   // false --> e.g. block, polar, periodic boundaries
@@ -148,6 +153,18 @@ class BoundaryValues : public BoundaryBase, // public BoundaryPhysics,
                                             int sk, int ek);
   void ProlongateGhostCells(const NeighborBlock &nb, int si, int ei, int sj, int ej,
                             int sk, int ek);
+  void ComputeRestrictionBounds_(const NeighborBlock &nb, IndexRange &ni, IndexRange &nj,
+                                 IndexRange &nk);
+  void ComputeProlongationBounds_(const NeighborBlock &nb, IndexRange &bi, IndexRange &bj,
+                                  IndexRange &bk);
+
+  /// Returns shared pointer to a block
+  std::shared_ptr<MeshBlock> GetBlockPointer() {
+    if (pmy_block_.expired()) {
+      PARTHENON_THROW("Invalid pointer to MeshBlock!");
+    }
+    return pmy_block_.lock();
+  }
 
   // temporary--- Added by @tomidakn on 2015-11-27 in f0f989f85f
   // TODO(KGF): consider removing this friendship designation

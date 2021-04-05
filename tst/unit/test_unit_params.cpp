@@ -23,7 +23,7 @@
 
 using parthenon::Params;
 
-TEST_CASE("Add and Get is called", "[Add,Get][coverage]") {
+TEST_CASE("Add and Get is called", "[Add,Get]") {
   GIVEN("A key") {
     Params params;
     std::string key = "test_key";
@@ -31,6 +31,10 @@ TEST_CASE("Add and Get is called", "[Add,Get][coverage]") {
     params.Add(key, value);
     double output = params.Get<double>(key);
     REQUIRE(output == Approx(value));
+    WHEN("parameters are immutable") {
+      auto const &const_params = params;
+      REQUIRE(params.Get<double>(key) == Approx(value));
+    }
     WHEN("the same key is provided a second time") {
       REQUIRE_THROWS_AS(params.Add(key, value), std::runtime_error);
     }
@@ -49,7 +53,7 @@ TEST_CASE("Add and Get is called", "[Add,Get][coverage]") {
   }
 }
 
-TEST_CASE("reset is called", "[reset][coverage]") {
+TEST_CASE("reset is called", "[reset]") {
   GIVEN("A key is added") {
     Params params;
     std::string key = "test_key";
@@ -62,7 +66,7 @@ TEST_CASE("reset is called", "[reset][coverage]") {
   }
 }
 
-TEST_CASE("when hasKey is called", "[hasKey][coverage]") {
+TEST_CASE("when hasKey is called", "[hasKey]") {
   GIVEN("A key is added") {
     Params params;
     std::string key = "test_key";

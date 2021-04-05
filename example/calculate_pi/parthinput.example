@@ -38,6 +38,10 @@ nx3 = 1
 x3min = -0.5
 x3max = 0.5
 
+# How many meshblocks to use in a premade default kernel.
+# A value of <1 means use the whole mesh.
+pack_size = 4
+
 <parthenon/meshblock>
 nx1 = 8
 nx2 = 8

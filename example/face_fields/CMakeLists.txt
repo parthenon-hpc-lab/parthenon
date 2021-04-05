@@ -19,6 +19,6 @@ if( "pi-example" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_EXAMPLES)
           face_fields_example.hpp
           face_fields_main.cpp
   )
-  target_link_libraries(face-fields-example PRIVATE parthenon)
+  target_link_libraries(face-fields-example PRIVATE Parthenon::parthenon)
   lint_target(face-fields-example)
 endif()

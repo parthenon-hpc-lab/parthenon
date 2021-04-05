@@ -51,13 +51,30 @@ In the pull request of the suggested changes we will then update the official go
 
 This class provides a streamlined capability to write new applications by providing a simple interface to initialize and finalize a simulation.  It's usage is straightforward and demonstrated in the &pi; [example](../example/calculate_pi/calculate_pi.cpp).
 
-There are several weakly linked member functions that applications can (and often should) override to specialize:
-* ParthenonManager::ProcessProperties
-  * Constructs and returns a Properties_t object that is often filled with runtime specified (i.e. determined from the input file) settings and parameters.  For example, this might hold an equation of state.
-* ParthenonManager::ProcessPackages
-  * Constructs and returns a Packages_t object that contains a listing of all the variables and their metadata associated with each package.
-* ParthenonManager::SetFillDerivedFunctions
-  * Each package can register a function pointer in the Packages_t object that provides a callback mechanism for derived quantities (e.g. velocity, from momentum and mass) to be filled.  Additionally, this function provides a mechanism to register functions to fill derived quantities before and/or after all the individual package calls are made.  This is particularly useful for derived quantities that are shared by multiple packages.
+### User-specified internal functions
+
+During a simulation, Parthenon calls a number of default internal functions whose behavior can
+be redefined by an application. Currently, these functions are, by class:
+
+#### ParthenonManager
+* `ProcessProperties` Constructs and returns a Properties_t object that is often filled with runtime specified (i. e. determined from the input file) settings and parameters.  For example, this might hold an equation of state.
+* `ProcessPackages` Constructs and returns a `Packages_t` object that contains a listing of all the variables and their metadata associated with each package.
+
+#### Mesh
+* `InitUserMeshData`
+* `MeshUserWorkInLoop`
+* `UserWorkAfterLoop`
+
+#### MeshBlock
+* `InitApplicationMeshBlockData`
+* `InitUserMeshBlockData`
+* `ProblemGenerator`
+* `MeshBlockUserWorkInLoop`
+* `UserWorkBeforeOutput`
+
+To redefine these functions, the user sets the respective function pointers in the
+ApplicationInput member app_input of the ParthenonManager class prior to calling
+`ParthenonInit`. This is demonstrated in the `main()` functions in the examples.
 
 ### Error checking
 
@@ -108,7 +125,7 @@ The tasking capabilities in Parthenon are documented [here](tasks.md).
 
 Check [here](outputs.md) for a description of how to get data out of Parthenon and how to visualize it.
 
-### Containers and Container Iterators
+### MeshBlockDatas and MeshBlockData Iterators
 
 See [here](interface/containers.md) for a description of containers,
 container iterators, and variable packs.
@@ -116,3 +133,7 @@ container iterators, and variable packs.
 ### Index Shape and Index Range
 
 A description of mesh indexing classes [here](mesh/domain.md).
+
+### Input file parameter
+
+An overview of input file parameters [here](input.md)

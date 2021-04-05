@@ -1,6 +1,6 @@
 //========================================================================================
-// Athena++ astrophysical MHD code
-// Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
+// Parthenon performance portable AMR framework
+// Copyright(C) 2020 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
@@ -23,7 +23,14 @@
 #include <stdexcept>
 #include <string>
 
+#include <config.hpp>
+
 #include <Kokkos_Core.hpp>
+#ifdef HDF5OUTPUT
+#include <hdf5.h>
+#endif
+
+#include <parthenon_mpi.hpp>
 
 #define PARTHENON_REQUIRE(condition, message)                                            \
   if (!(condition)) {                                                                    \
@@ -40,6 +47,29 @@
 
 #define PARTHENON_THROW(message)                                                         \
   parthenon::ErrorChecking::fail_throws(message, __FILE__, __LINE__);
+
+#ifdef MPI_PARALLEL
+#define PARTHENON_MPI_CHECK(expr)                                                        \
+  do {                                                                                   \
+    int parthenon_mpi_check_status = (expr);                                             \
+    if (MPI_SUCCESS != parthenon_mpi_check_status) {                                     \
+      ::parthenon::ErrorChecking::fail_throws_mpi(parthenon_mpi_check_status, #expr,     \
+                                                  __FILE__, __LINE__);                   \
+    }                                                                                    \
+  } while (false)
+#endif
+
+#ifdef HDF5OUTPUT
+#define PARTHENON_HDF5_CHECK(expr)                                                       \
+  ([&]() -> herr_t {                                                                     \
+    herr_t const parthenon_hdf5_check_err = (expr);                                      \
+    if (parthenon_hdf5_check_err < 0) {                                                  \
+      ::parthenon::ErrorChecking::fail_throws_hdf5(parthenon_hdf5_check_err, #expr,      \
+                                                   __FILE__, __LINE__);                  \
+    }                                                                                    \
+    return parthenon_hdf5_check_err;                                                     \
+  })()
+#endif
 
 #define PARTHENON_WARN(message)                                                          \
   parthenon::ErrorChecking::warn(message, __FILE__, __LINE__);
@@ -118,20 +148,24 @@ inline void require_throws(const char *const condition, std::stringstream const 
   require_throws(condition, message.str().c_str(), filename, linenumber);
 }
 
-KOKKOS_INLINE_FUNCTION
-void fail(const char *const message, const char *const filename, int const linenumber) {
+[[noreturn]] KOKKOS_INLINE_FUNCTION void
+fail(const char *const message, const char *const filename, int const linenumber) {
   printf("### PARTHENON ERROR\n  Message:     %s\n  File:        %s\n  Line number: %i\n",
          message, filename, linenumber);
   Kokkos::abort(message);
+  // Kokkos::abort ends control flow, but is not marked as `[[noreturn]]`, so we need this
+  // loop to supress a warning that the function does not return.
+  while (true) {
+  }
 }
 
-inline void fail(std::stringstream const &message, const char *const filename,
-                 int const linenumber) {
+[[noreturn]] inline void fail(std::stringstream const &message,
+                              const char *const filename, int const linenumber) {
   fail(message.str().c_str(), filename, linenumber);
 }
 
-inline void fail_throws(const char *const message, const char *const filename,
-                        int const linenumber) {
+[[noreturn]] inline void fail_throws(const char *const message,
+                                     const char *const filename, int const linenumber) {
   std::stringstream msg;
   msg << "### PARTHENON ERROR\n  Message:     " << message
       << "\n  File:        " << filename << "\n  Line number: " << linenumber
@@ -139,13 +173,13 @@ inline void fail_throws(const char *const message, const char *const filename,
   throw std::runtime_error(msg.str().c_str());
 }
 
-inline void fail_throws(std::string const &message, const char *const filename,
-                        int const linenumber) {
+[[noreturn]] inline void fail_throws(std::string const &message,
+                                     const char *const filename, int const linenumber) {
   fail_throws(message.c_str(), filename, linenumber);
 }
 
-inline void fail_throws(std::stringstream const &message, const char *const filename,
-                        int const linenumber) {
+[[noreturn]] inline void fail_throws(std::stringstream const &message,
+                                     const char *const filename, int const linenumber) {
   fail_throws(message.str().c_str(), filename, linenumber);
 }
 
@@ -160,6 +194,16 @@ inline void warn(std::stringstream const &message, const char *const filename,
                  int const linenumber) {
   warn(message.str().c_str(), filename, linenumber);
 }
+
+#ifdef MPI_PARALLEL
+[[noreturn]] void fail_throws_mpi(int const status, char const *const expr,
+                                  char const *const filename, int const linenumber);
+#endif
+
+#ifdef HDF5OUTPUT
+[[noreturn]] void fail_throws_hdf5(herr_t err, char const *const expr,
+                                   char const *const filename, int const linenumber);
+#endif
 } // namespace ErrorChecking
 } // namespace parthenon
 

@@ -204,11 +204,11 @@ bool test_wrapper_4d(T loop_pattern, DevExecSpace exec_space) {
   return all_same;
 }
 
-TEST_CASE("par_for loops", "[wrapper][coverage]") {
+TEST_CASE("par_for loops", "[wrapper]") {
   auto default_exec_space = DevExecSpace();
 
   SECTION("1D loops") {
-    REQUIRE(test_wrapper_1d(parthenon::loop_pattern_mdrange_tag, default_exec_space) ==
+    REQUIRE(test_wrapper_1d(parthenon::loop_pattern_flatrange_tag, default_exec_space) ==
             true);
   }
 
@@ -401,7 +401,7 @@ bool test_wrapper_nested_4d(OuterLoopPattern outer_loop_pattern,
   return max_rel_err < rel_tol;
 }
 
-TEST_CASE("nested par_for loops", "[wrapper][coverage]") {
+TEST_CASE("nested par_for loops", "[wrapper]") {
   auto default_exec_space = DevExecSpace();
 
   SECTION("3D nested loops") {

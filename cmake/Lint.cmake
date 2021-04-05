@@ -25,15 +25,25 @@ function(lint_file SOURCE_DIR INPUT OUTPUT)
         set(MKDIR_COMMAND COMMAND ${CMAKE_COMMAND} -E make_directory ${OUTPUT_DIR})
     endif()
 
+    if( EXISTS ${INPUT} )
+      set(FILE_TO_LINT ${INPUT} )
+    elseif( EXISTS ${SOURCE_DIR}/${INPUT})
+      set(FILE_TO_LINT ${SOURCE_DIR}/${INPUT})
+    else()
+      message(WARNING "Cannot lint file ${INPUT} does not appear to exist.")
+    endif()
+
     add_custom_command(
         OUTPUT ${OUTPUT}
         COMMAND
             ${PROJECT_SOURCE_DIR}/tst/style/cpplint.py
+                --repository=${PROJECT_SOURCE_DIR}
                 --counting=detailed
-                --quiet ${SOURCE_DIR}/${INPUT}
+                --quiet ${FILE_TO_LINT}
         ${MKDIR_COMMAND}
         COMMAND ${CMAKE_COMMAND} -E touch ${OUTPUT}
         DEPENDS ${INPUT}
+                ${PROJECT_SOURCE_DIR}/CPPLINT.cfg
         COMMENT "Linting ${INPUT}"
     )
 endfunction(lint_file)

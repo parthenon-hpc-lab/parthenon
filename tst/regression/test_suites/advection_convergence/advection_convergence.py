@@ -28,6 +28,7 @@ import utils.test_case
 """ To prevent littering up imported folders with .pyc files or __pycache_ folder"""
 sys.dont_write_bytecode = True
 
+# if this is updated make sure to update the assert statements for the number of MPI ranks, too
 lin_res = [32, 64, 128, 256, 512] # resolution for linear convergence
 
 class TestCase(utils.test_case.TestCaseAbs):
@@ -58,6 +59,11 @@ class TestCase(utils.test_case.TestCaseAbs):
 
 
         n_res = len(lin_res)
+        # make sure we can evenly distribute the MeshBlock sizes
+        err_msg = "Num ranks must be multiples of 2 for convergence test."
+        assert parameters.num_ranks == 1 or parameters.num_ranks % 2 == 0, err_msg
+        # ensure a minimum block size of 4
+        assert lin_res[0] / parameters.num_ranks >= 4, "Use <= 8 ranks for convergence test."
 
         # TEST: Advection only in x-direction 
         # using nx2 = nx3 = 4 > 1 for identical errors between dimensions
@@ -67,7 +73,7 @@ class TestCase(utils.test_case.TestCaseAbs):
                 parameters.coverage_status = "both"
             parameters.driver_cmd_line_args = [
                 'parthenon/mesh/nx1=%d' % lin_res[step % n_res -1],
-                'parthenon/meshblock/nx1=%d' % lin_res[step % n_res -1],
+                'parthenon/meshblock/nx1=%d' % (lin_res[step % n_res -1] // parameters.num_ranks),
                 'parthenon/mesh/nx2=1',
                 'parthenon/meshblock/nx2=1',
                 'parthenon/mesh/nx3=1',
@@ -84,7 +90,7 @@ class TestCase(utils.test_case.TestCaseAbs):
                 'parthenon/mesh/nx1=4',
                 'parthenon/meshblock/nx1=4',
                 'parthenon/mesh/nx2=%d' % lin_res[step % n_res -1],
-                'parthenon/meshblock/nx2=%d' % lin_res[step % n_res -1],
+                'parthenon/meshblock/nx2=%d' % (lin_res[step % n_res -1] // parameters.num_ranks),
                 'parthenon/mesh/nx3=1',
                 'parthenon/meshblock/nx3=1',
                 'Advection/vx=0.0',
@@ -101,7 +107,7 @@ class TestCase(utils.test_case.TestCaseAbs):
                 'parthenon/mesh/nx2=4',
                 'parthenon/meshblock/nx2=4',
                 'parthenon/mesh/nx3=%d' % lin_res[step % n_res -1],
-                'parthenon/meshblock/nx3=%d' % lin_res[step % n_res -1],
+                'parthenon/meshblock/nx3=%d' % (lin_res[step % n_res -1] // parameters.num_ranks),
                 'Advection/vx=0.0',
                 'Advection/vy=0.0',
                 'Advection/ang_2_vert=true',
@@ -110,7 +116,7 @@ class TestCase(utils.test_case.TestCaseAbs):
         elif step == 3*n_res + 1:
             parameters.driver_cmd_line_args = [
                 'parthenon/mesh/nx1=%d' % lin_res[-1],
-                'parthenon/meshblock/nx1=%d' % lin_res[-1],
+                'parthenon/meshblock/nx1=%d' % (lin_res[-1] // parameters.num_ranks) ,
                 'parthenon/mesh/nx2=4',
                 'parthenon/meshblock/nx2=4',
                 'parthenon/mesh/nx3=4',
@@ -131,7 +137,7 @@ class TestCase(utils.test_case.TestCaseAbs):
                 'parthenon/mesh/nx1=4',
                 'parthenon/meshblock/nx1=4',
                 'parthenon/mesh/nx2=%d' % lin_res[-1],
-                'parthenon/meshblock/nx2=%d' % lin_res[-1],
+                'parthenon/meshblock/nx2=%d' % (lin_res[-1] // parameters.num_ranks),
                 'parthenon/mesh/nx3=4',
                 'parthenon/meshblock/nx3=4',
                 'parthenon/mesh/x1min=-0.5',
@@ -153,7 +159,7 @@ class TestCase(utils.test_case.TestCaseAbs):
                 'parthenon/mesh/nx2=4',
                 'parthenon/meshblock/nx2=4',
                 'parthenon/mesh/nx3=%d' % lin_res[-1],
-                'parthenon/meshblock/nx3=%d' % lin_res[-1],
+                'parthenon/meshblock/nx3=%d' % (lin_res[-1] // parameters.num_ranks),
                 'parthenon/mesh/x1min=-0.5',
                 'parthenon/mesh/x1max=0.5',
                 'parthenon/mesh/x2min=-0.5',
@@ -169,7 +175,7 @@ class TestCase(utils.test_case.TestCaseAbs):
         elif step == 3*n_res + 4:
             parameters.driver_cmd_line_args = [
                 'parthenon/mesh/nx1=32',
-                'parthenon/meshblock/nx1=32',
+                'parthenon/meshblock/nx1=%d' % (32 // parameters.num_ranks),
                 'parthenon/mesh/nx2=32',
                 'parthenon/meshblock/nx2=32',
                 'parthenon/mesh/nx3=32',
@@ -180,6 +186,7 @@ class TestCase(utils.test_case.TestCaseAbs):
         # TEST: Advection at along diagonal with dx != dy != dz and Lx != Ly != Lz (def res)
         elif step == 3*n_res + 5:
             parameters.driver_cmd_line_args = [
+                'parthenon/meshblock/nx1=%d' % (64 // parameters.num_ranks),
                 'Advection/ang_2=-999.9',
                 'Advection/ang_3=-999.9',
                 ]

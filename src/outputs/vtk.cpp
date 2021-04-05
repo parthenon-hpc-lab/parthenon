@@ -30,8 +30,9 @@
 
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
-#include "interface/container_iterator.hpp"
+#include "interface/meshblock_data_iterator.hpp"
 #include "mesh/mesh.hpp"
+#include "mesh/meshblock.hpp"
 #include "outputs/outputs.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/error_checking.hpp"
@@ -68,11 +69,12 @@ inline void Swap4Bytes(void *vdat) {
 //         MeshBlock per file
 
 void VTKOutput::WriteContainer(SimTime &tm, Mesh *pm, ParameterInput *pin, bool flag) {
-  MeshBlock *pmb = pm->pblock;
+  throw std::runtime_error(std::string(__func__) + " is not implemented");
+  /*
   int big_end = IsBigEndian(); // =1 on big endian machine
 
   // Loop over MeshBlocks
-  while (pmb != nullptr) {
+  for (auto &pmb : pm->block_list) {
     // set start/end array indices depending on whether ghost zones are included
     IndexDomain domain = IndexDomain::interior;
     if (output_params.include_ghost_zones) {
@@ -192,7 +194,8 @@ void VTKOutput::WriteContainer(SimTime &tm, Mesh *pm, ParameterInput *pin, bool 
 
     std::fprintf(pfile, "\nCELL_DATA %d", pmb->cellbounds.GetTotal(domain));
     // reset container iterator to point to current block data
-    auto ci = ContainerIterator<Real>(pmb->real_containers.Get(), {Metadata::Graphics});
+    auto ci =
+        MeshBlockDataIterator<Real>(pmb->meshblock_data.Get(), {Metadata::Graphics});
     for (auto &v : ci.vars) {
       if (!data) {
         std::cout << "____________________SKIPPPING:" << v->label() << std::endl;
@@ -219,7 +222,6 @@ void VTKOutput::WriteContainer(SimTime &tm, Mesh *pm, ParameterInput *pin, bool 
     // don't forget to close the output file and clean up ptrs to data in OutputData
     std::fclose(pfile);
     delete[] data;
-    pmb = pmb->next;
   } // end loop over MeshBlocks
 
   // increment counters
@@ -229,6 +231,7 @@ void VTKOutput::WriteContainer(SimTime &tm, Mesh *pm, ParameterInput *pin, bool 
   pin->SetReal(output_params.block_name, "next_time", output_params.next_time);
 
   return;
+  */
 }
 void VTKOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   throw std::runtime_error(std::string(__func__) + " is not implemented");
