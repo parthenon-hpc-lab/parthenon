@@ -89,7 +89,6 @@ foreach(INPUT ${COPYRIGHTABLE})
         COMMAND
             ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_LIST_DIR}/CheckCopyrightScript.cmake
                 update ${CMAKE_CURRENT_SOURCE_DIR} ${GIT_EXECUTABLE} ${INPUT})
->>>>>>> develop
 endforeach()
 
 
