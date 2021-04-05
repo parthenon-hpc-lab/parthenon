@@ -43,7 +43,7 @@ export PYTHONPATH=${PYTHON_SCRIPTS_DIR}/${PYTHONPATH}
 export CI_JOB_TOKEN="$CI_JOB_TOKEN"
 export GITHUB_APP_PEM="$GITHUB_APP_PEM"
 
-METRICS_APP="${SOURCE}/../python/parthenon_metrics_app.py"
+METRICS_APP="${PYTHON_SCRIPTS_DIR}/bin/parthenon_metrics_app.py"
 
 trap 'catch $? $LINENO' ERR
 catch() {
