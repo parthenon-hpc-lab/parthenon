@@ -58,9 +58,17 @@ TEST_CASE("Add, Get, and Update are called", "[Add,Get,Update]") {
 
   GIVEN("An empty params structure") {
     Params params;
+    std::string non_existent_key = "key";
     WHEN(" attempting to get a key that does not exist ") {
-      std::string non_existent_key = "key";
-      REQUIRE_THROWS_AS(params.Get<double>(non_existent_key), std::runtime_error);
+      THEN("an error is thrown") {
+        REQUIRE_THROWS_AS(params.Get<double>(non_existent_key), std::runtime_error);
+      }
+    }
+    WHEN(" attempting to update a key that does not exist ") {
+      THEN("an error is thrown") {
+        REQUIRE_THROWS_AS(params.Update<double>(non_existent_key, 2.0),
+                          std::runtime_error);
+      }
     }
   }
 }
