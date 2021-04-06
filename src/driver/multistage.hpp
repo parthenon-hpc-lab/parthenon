@@ -31,6 +31,8 @@ struct StagedIntegrator {
   explicit StagedIntegrator(ParameterInput *pin);
   int nstages;
   std::vector<Real> beta;
+  std::vector<Real> gam0;
+  std::vector<Real> gam1;
   std::vector<std::string> stage_name;
   Real dt;
 };
