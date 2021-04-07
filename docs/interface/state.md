@@ -25,6 +25,52 @@ The reasoning for providing `FillDerived*` and `EstimateTimestep*` function poin
 
 In Parthenon, each `Mesh` and `MeshBlock` owns a `Packages_t` object, which is a `std::map<std::string, std::shared_ptr<StateDescriptor>>`.  The object is intended to be populated with a `StateDescriptor` object per package via an `Initialize` function as in the advection example [here](../example/advection/advection.cpp).  When Parthenon makes use of the `Packages_t` object, it iterates over all entries in the `std::map`.  Note that it's often useful to add a `StateDescriptor` to the `Packages_t` object for the overall application, allowing for a convenient way to define global parameters, for example.
 
+## History output
+
+Parthenon allows packages to enroll an arbitrary number of "history" functions that are all
+called at the interval according to the input parameters,
+see [output documention](../outputs.md#History-Files).
+
+To entroll functions create a list of callback function with the appropriate reduction operation:
+
+```c++
+// List (vector) of HistoryOutputVar that will all be enrolled as output variables
+parthenon::HstVar_list hst_vars = {};
+
+// Add a callback function
+hst_vars.emplace_back(parthenon::HistoryOutputVar({UserHistoryOperation::sum, MyHstFunction, "my label"}));
+
+// add callbacks for HST output identified by the `hist_str`
+pkg->AddParam<>(parthenon::hist_str, hst_vars);
+```
+
+Here, `HistoryOutputVar` is a `struct` containing the global (over all blocks of all ranks) reduction operation, `MyHstFunction` is a callback function (see below), and `"my label"` is the string to
+be used as the column heading of the output file.
+
+Currently supported reductions are
+
+- `UserHistoryOperation::sum`
+- `UserHistoryOperation::min`
+- `UserHistoryOperation::max`
+
+which all match their respective MPI counterpart.
+*Note*, in case of volume weighting being desired (e.g., to calculate the total value in
+the simulation domain of some density) the volume weighting need to be done within the callback
+function, see the [advection example](../../example/advection/advection_package.cpp).
+
+Callback functions need to have the following signature
+```c++
+Real MyHstFunction(MeshData<Real> *md);
+```
+i.e., they will always work on `MeshData`.
+*Note*, currently history output will always be calculated for the "base" container.
+More specifically, the output machinery will automatically use (or create if non existent)
+a single "base" `MeshData` object containing *all* blocks of a rank.
+This simplifies the the logic for reductions over all blocks of a rank and also (generally)
+resuls in better performance as the number of kernel calls is reduced.
+However, this also implies the expectation that the "base" container holds the most recent
+data at the end of a timestep.
+
 # ParArrayND
 
 This provides a light wrapper around `Kokkos::View` with some convenience features.  It is described fully [here](../parthenon_arrays.md).
