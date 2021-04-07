@@ -3,6 +3,21 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 479]](https://github.com/lanl/parthenon/pull/479) Add `Update` function to `Params` to update the value of an existing key.
+
+### Changed (changing behavior/API/variables/...)
+
+### Fixed (not changing behavior/API/variables/...)
+
+### Infrastructure (changes irrelevant to downstream codes)
+
+### Removed (removing behavior/API/varaibles/...)
+
+
+## Release 0.5.0
+Date: 03/30/2021
+
+### Added (new features/APIs/variables/...)
 - [[PR 475]](https://github.com/lanl/parthenon/pull/475) Add update function `UpdateWithFluxDivergence` and `gamma` variables to integrator to support low-storage, two stage integrators.
 - [[PR 463]](https://github.com/lanl/parthenon/pull/463) Add `PARTHENON_ENABLE_TESTING` and `PARTHENON_ENABLE_PYTHON_MODULE_CHECK` option and documentation on how to use the regression testing framework downstream.
 - [[PR 461]](https://github.com/lanl/parthenon/pull/461) A negative `dt` in an output block disables it.
@@ -21,7 +36,7 @@
 ### Fixed (not changing behavior/API/variables/...)
 - [[PR 468]](https://github.com/lanl/parthenon/pull/468) Fix extra `endl` in input CheckDesired
 - [[PR 465]](https://github.com/lanl/parthenon/pull/465) Fix soft disable output for drivers without temporal evolution
-- [[PR 453]](https://github.com/lanl/parthenon/pull/453) Fix array bounds for AMR hierarchy log and use vector instead of unique_ptr
+- [[PR 453]](https://github.com/lanl/parthenon/pull/453) Fix array bounds for AMR hierarchy log and use vector instead of `unique_ptr`
 - [[PR 441]](https://github.com/lanl/parthenon/pull/441) Fixed type in input parsing of `pack_size`
 
 ### Infrastructure (changes irrelevant to downstream codes)
@@ -30,13 +45,11 @@
 - [[PR 407]](https://github.com/lanl/parthenon/pull/407) More cleanup, removed old bash scripts for ci.
 - [[PR 428]](https://github.com/lanl/parthenon/pull/428) Triad Copyright 2021
 - [[PR 413]](https://github.com/lanl/parthenon/pull/413) LANL Snow machine configuration
-- [[PR 390]](https://github.com/lanl/parthenon/pull/390) Resolve @PAR_ROOT@ to parthenon root rather than the location of the current source directory
+- [[PR 390]](https://github.com/lanl/parthenon/pull/390) Resolve `@PAR_ROOT@` to parthenon root rather than the location of the current source directory
 - [[PR 443]](https://github.com/lanl/parthenon/pull/443) Fix Darwin machine config - use spectrum mpi
 - [[PR 444]](https://github.com/lanl/parthenon/pull/444) Writes performance metrics to file for advection test
 - [[PR 452]](https://github.com/lanl/parthenon/pull/452) Disable copyright check and linting by default, add CI check for copyright
 - [[PR 473]](htpps://github.com/lanl/parthenon/pull/473) Added documentation for forked pr
-
-### Removed (removing behavior/API/varaibles/...)
 
 ## Release 0.4.0
 Date: 01/19/2021
