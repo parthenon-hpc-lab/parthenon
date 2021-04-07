@@ -39,9 +39,19 @@ class Params {
   /// Throws an error if the key is already in use
   template <typename T>
   void Add(const std::string &key, T value) {
-    PARTHENON_REQUIRE_THROWS(!(hasKey(key)), "Key " + key + "already exists");
+    PARTHENON_REQUIRE_THROWS(!(hasKey(key)), "Key " + key + " already exists");
     myParams_[key] = std::unique_ptr<Params::base_t>(new object_t<T>(value));
     myTypes_[key] = std::string(typeid(value).name());
+  }
+
+  /// Updates existing object
+  /// Throws an error if the key is not already in use
+  template <typename T>
+  void Update(const std::string &key, T value) {
+    PARTHENON_REQUIRE_THROWS((hasKey(key)), "Key " + key + "missing.");
+    PARTHENON_REQUIRE_THROWS(!(myTypes_.at(key).compare(std::string(typeid(T).name()))),
+                             "WRONG TYPE FOR KEY '" + key + "'");
+    myParams_[key] = std::unique_ptr<Params::base_t>(new object_t<T>(value));
   }
 
   void reset() {
