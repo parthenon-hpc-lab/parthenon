@@ -22,6 +22,7 @@
 #include <parthenon/package.hpp>
 
 #include "advection_package.hpp"
+#include "defs.hpp"
 #include "kokkos_abstraction.hpp"
 #include "reconstruct/dc_inline.hpp"
 
@@ -35,6 +36,7 @@ using namespace parthenon::package::prelude;
 // *************************************************//
 
 namespace advection_package {
+using parthenon::UserHistoryOperation;
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto pkg = std::make_shared<StateDescriptor>("advection_package");
@@ -169,6 +171,26 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
                std::vector<int>({num_vars}));
   pkg->AddField(field_name, m);
 
+  // List (vector) of HistoryOutputVar that will all be enrolled as output variables
+  parthenon::HstVar_list hst_vars = {};
+  // Now we add a couple of callback functions
+  // Note that the specialization of AdvectionHst is completely artificial here and used
+  // in the function to differentiate between different behavior.
+  // In other words, it's independent of the history machinery itself and just controls
+  // the behavior of the AdvectionHst example.
+  hst_vars.emplace_back(parthenon::HistoryOutputVar(
+      {UserHistoryOperation::sum, AdvectionHst<Kokkos::Sum<Real, DevExecSpace>>,
+       "total_advected"}));
+  hst_vars.emplace_back(parthenon::HistoryOutputVar(
+      {UserHistoryOperation::max, AdvectionHst<Kokkos::Max<Real, DevExecSpace>>,
+       "max_advected"}));
+  hst_vars.emplace_back(parthenon::HistoryOutputVar(
+      {UserHistoryOperation::min, AdvectionHst<Kokkos::Min<Real, DevExecSpace>>,
+       "min_advected"}));
+
+  // add callbacks for HST output identified by the `hist_str`
+  pkg->AddParam<>(parthenon::hist_str, hst_vars);
+
   pkg->FillDerivedBlock = SquareIt;
   pkg->CheckRefinementBlock = CheckRefinement;
   pkg->EstimateTimestepBlock = EstimateTimestepBlock;
@@ -274,6 +296,50 @@ void PostFill(MeshBlockData<Real> *rc) {
         v(out12 + n, k, j, i) = 1.0 - sqrt(v(in + n, k, j, i));
         v(out37 + n, k, j, i) = 1.0 - v(out12 + n, k, j, i);
       });
+}
+
+// Example of how to enroll a history function.
+// Templating is *NOT* required and just implemented here to reuse this function
+// for testing of the UserHistoryOperations curently available in Parthenon (Sum, Min,
+// Max), which translate to the MPI reduction being called over all ranks. T should be
+// either Kokkos::Sum, Kokkos::Min, or Kokkos::Max.
+template <typename T>
+Real AdvectionHst(MeshData<Real> *md) {
+  auto hydro_pkg =
+      md->GetBlockData(0)->GetBlockPointer()->packages.Get("advection_package");
+
+  // Packing variable over MeshBlock as the function is called for MeshData, i.e., a
+  // collection of blocks
+  const auto &advected_pack = md->PackVariables(std::vector<std::string>{"advected"});
+
+  IndexRange ib = advected_pack.cellbounds.GetBoundsI(IndexDomain::interior);
+  IndexRange jb = advected_pack.cellbounds.GetBoundsJ(IndexDomain::interior);
+  IndexRange kb = advected_pack.cellbounds.GetBoundsK(IndexDomain::interior);
+
+  Real result = 0.0;
+  T reducer(result);
+
+  // We choose to apply volume weighting when using the sum reduction.
+  // Downstream this choice will be done on a variable by variable basis and volume
+  // weighting needs to be applied in the reduction region.
+  bool volume_weighting = std::is_same<T, Kokkos::Sum<Real, DevExecSpace>>::value;
+
+  Kokkos::parallel_reduce(
+      "HydroHst",
+      Kokkos::MDRangePolicy<Kokkos::Rank<4>>(
+          DevExecSpace(), {0, kb.s, jb.s, ib.s},
+          {advected_pack.GetDim(5), kb.e + 1, jb.e + 1, ib.e + 1},
+          {1, 1, 1, ib.e + 1 - ib.s}),
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lresult) {
+        const auto &coords = advected_pack.coords(b);
+        // `join` is a function of the Kokkos::ReducerConecpt that allows to use the same
+        // call for different reductions
+        const Real vol = volume_weighting ? coords.Volume(k, j, i) : 1.0;
+        reducer.join(lresult, advected_pack(b, 0, k, j, i) * vol);
+      },
+      reducer);
+
+  return result;
 }
 
 // provide the routine that estimates a stable timestep for this package

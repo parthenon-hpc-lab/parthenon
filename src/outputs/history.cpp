@@ -70,7 +70,7 @@ void HistoryOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
         md_base->Set(pm->block_list, "base");
       } else if (md_base->NumBlocks() != pm->block_list.size()) {
         PARTHENON_WARN(
-            "Resetting \"base\" MeshData to contain all blocks. This indicates that"
+            "Resetting \"base\" MeshData to contain all blocks. This indicates that "
             "the \"base\" MeshData container has been modified elsewhere. Double check "
             "that the modification was intentional and is compatible with this reset.")
         md_base->Set(pm->block_list, "base");
