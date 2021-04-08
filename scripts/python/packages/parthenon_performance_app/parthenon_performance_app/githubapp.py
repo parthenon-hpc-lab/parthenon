@@ -163,7 +163,7 @@ class GitHubApp:
               if line != path_to_repo:
                 self._log.info("Changing repo path from {} to {}".format(line, path_to_repo))
 
-            with open(self_._config_file_path,'w') as file:
+            with open(self._config_file_path,'w') as file:
               file.write(path_to_repo)
 
             self._repo_path = path_to_repo
