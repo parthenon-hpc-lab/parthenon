@@ -14,7 +14,7 @@ stages:
 ########################################################################
 .print-executable: &print-executable
 - printf 'env -i bash --norc --noprofile %s/scripts/darwin/%s  "%s"
-      "%s/build" "%s" "%s" "%s" "%s" "%s" "%s"\n'
+      "%s" "%s" "%s" "%s" "%s" "%s" "%s"\n'
       ${CI_PROJECT_DIR}
       ${SCRIPT_TO_RUN}
       ${GITHUB_APP_PEM}

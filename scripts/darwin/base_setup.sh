@@ -24,7 +24,8 @@ set -eE
 
 # Export COMMIT CI
 GITHUB_APP_PEM="$1"
-BUILD_DIR="${2}"
+PARTHENON_DIR="$2"
+BUILD_DIR="${2}/build"
 export CI_COMMIT_SHA="$3"
 export CI_COMMIT_BRANCH="$4"
 CI_JOB_URL="$5"
