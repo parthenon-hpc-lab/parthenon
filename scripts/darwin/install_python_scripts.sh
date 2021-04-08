@@ -17,6 +17,12 @@ SCRIPT=$(realpath "$0")
 SOURCE=$(dirname "$SCRIPT")
 source ${SOURCE}/base_setup.sh
 
+# Remove old installed directory if it exists
+if [ -d "${PYTHON_SCRIPTS_DIR}" ]
+then
+  rm -rf "${PYTHON_SCRIPTS_DIR}"
+fi
+
 cd $PARTHENON_DIR/scripts/python/packages/parthenon_performance_app
 # Dependencies should be handled by spack
 pip install . --no-dependencies --target=${PYTHON_SCRIPTS_DIR}
