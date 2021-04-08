@@ -5,9 +5,27 @@ to try to follow.
 As with all development these guidelines are not set in stone but subject to discussion
 and revision any time as necessary.
 
-## General workflow
+1. [General Workflow](#general-workflow)
+    - [Planning/Requesting/Announcing Changes](#planningrequestingannouncing-changes)
+    - [Sumary of Branching Model and Versioning](#summary-of-branching-model-and-versioning)
+    - [Contributing Code](#contributing-code)
+    - [Merging Code](#merging-code)
+        * [Merging Code from a Fork](#merging-code-from-a-fork)
+    - [Linting Code](#linting-code)
+    - [Formatting Code](#formatting-code)
+2. [Test Suite](#test-suite)
+    - [Continuous Testing/Integration Environment](#continuous-testingintegration-environment)
+    - [Adding Tests](#adding-tests)
+        * [Adding Regression Tests](#adding-regression-tests)
+            - [Creating a Regression Test](#creating-a-regression-test)
+            - [Integrating the Regression Test with CMake](#integrating-the-regression-test-with-cmake)
+            - [Running ctest](#running-ctest)
+        * [Including Tests in Code Coverage Report](#including-tests-in-code-coverage-report)
+        * [Creating and Uploading Coverage Report](#creating-and-uploading-coverage-report)
 
-### Planning/requesting/announcing changes
+## General Workflow
+
+### Planning/Requesting/Announcing Changes
 
 If you discover a bug, would like to see a new feature, would like to implement
 a new feature, or have any other item/idea that you would like to share
@@ -18,7 +36,7 @@ and/or allows to pool resources early on.
 
 Use GitHub labels as appropriate and feel free to directly add/tag people to the issue.
 
-### Summary of branching model and versioning
+### Summary of Branching Model and Versioning
 
 Two main branches exist:
 - `stable` contains the latest "stable" release
@@ -41,7 +59,7 @@ This specifically applies to downstream codes so that incompatibilities (e.g., d
 updated API) are discovered early.
 
 
-### Contributing code
+### Contributing Code
 
 In order to keep the main repository in order, everyone is encouraged to create feature
 branches starting with their username, followed by a "/", and ending with a brief
@@ -57,7 +75,7 @@ In that pull request refer to the issue that you have addressed.
 If your branch is not ready for a final merge (e.g., in order to discuss the
 implementation), mark it as "work in progress" by prepending "WIP:" to the subject.
 
-### Merging code
+### Merging Code
 
 In order for code to be merged into `develop` it must
 
@@ -73,7 +91,28 @@ In order for code to be merged into `develop` it must
 The reviewers are expected to look out for the items above before approving a merge
 request.
 
-#### Linting Code
+#### Merging Code from a Fork
+
+PRs can opened as usual from forks.
+Unfortunately, the CI will not automatically trigger for forks. This is for security
+reasons. As a workaround, in order to trigger the CI, a local branch will need to be created
+on Parthenon first. The forked code can then be merged into the local branch on 
+Parthenon. At this point when a new merge request is opened from the local branch
+to the develop branch it will trigger the CI. 
+Someone of the Parthenon core team will take care of the work around once a PR from a fork.
+No extra work is required from the contributor.
+
+The workaround workflow for the Parthenon core developer may look like
+(from a local Parthenon repository pulling in changes from a `feature-A` branch in a fork):
+
+$ git remote add external-A https://github.com/CONTRIBUTOR/parthenon.git
+$ git fetch external-A
+$ git checkout external-A/feature-A
+$ git push --set-upstream origin CONTRIBUTOR/feature-A
+
+NOTE: Any subsequent updates made to the forked branch will need to be manually pulled into the local branch. 
+
+### Linting Code
 cpplint will automatically run as part of the CI. You can run the lint explicitly by
 building the `lint` target.
 ```
@@ -86,7 +125,7 @@ can enable that behavior with the `PARTHENON_LINT_DEFAULT` cmake option.
 cmake -DPARTHENON_LINT_DEFAULT=ON .
 ```
 
-#### Formatting Code
+### Formatting Code
 We use clang-format to automatically format the code. If you have clang-format installed
 locally, you can always execute `make format` or `cmake --build . --target format` from
 your build directory to automatically format the code.
@@ -120,9 +159,9 @@ run something equivalent to
 `git fetch origin && git reset --hard origin/$(git branch --show-current)` to update your
 local tracking branch.
 
-## Test suite
+## Test Suite
 
-### Continuous testing/integration environment
+### Continuous Testing/Integration Environment
 
 Commits pushed to any branch of this repository is automatically tested by
 two CI pipelines.
@@ -192,7 +231,7 @@ correctness.
 A python script is available for help analysing the results of each regression
 test. As such adding regression tests to cmake consists of two parts.
 
-##### Creating a regression test
+##### Creating a Regression Test
 
 Each regression test should have its own folder in /tst/regression/test\_suites. Lets assume
 we want to add a test which we will call foo\_test. We will begin by adding a folder named
@@ -256,7 +295,7 @@ that are supported you can call `run_test.py -h`
 Note that running more than a single test with `run_test.py` is intentinally not supported, Running
 groups of tests will be handled by ctest.
 
-##### Integrating the regression test with CMake
+##### Integrating the Regression Test with CMake
 
 At this point CMake and ctest know nothing about your dandy new regression test. To integrate the
 test with cmake it needs to be added to the CMakeLists.txt file in parthenon/tst/regression.

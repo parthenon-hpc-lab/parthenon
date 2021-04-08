@@ -54,6 +54,11 @@ class StateDescriptor {
   }
 
   template <typename T>
+  void UpdateParam(const std::string &key, T value) {
+    params_.Update<T>(key, value);
+  }
+
+  template <typename T>
   const T &Param(const std::string &key) const {
     return params_.Get<T>(key);
   }
