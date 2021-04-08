@@ -81,7 +81,7 @@ class TestCase(utils.test_case.TestCaseAbs):
         analyze_status = True
         print(os.getcwd())
 
-        sys.path.insert(1, parameters.parthenon_path + '/scripts/python')
+        sys.path.insert(1, parameters.parthenon_path + '/scripts/python/packages/parthenon_tools/parthenon_tools')
 
         try:
             import phdf_diff 
