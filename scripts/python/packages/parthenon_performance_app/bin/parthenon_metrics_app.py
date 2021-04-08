@@ -276,7 +276,7 @@ def main(**kwargs):
         kwargs['ignore'],
         kwargs['permissions'],
         kwargs['create'],
-        kwargs['repository_path'])
+        getValue(kwargs['repository_path']))
 
     branch = getValue(kwargs,'branch')
 
