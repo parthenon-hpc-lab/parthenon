@@ -17,10 +17,10 @@ SCRIPT=$(realpath "$0")
 SOURCE=$(dirname "$SCRIPT")
 source ${SOURCE}/base_setup.sh
 
-cd $BUILD_DIR/scripts/python/packages/parthenon_performance_app
+cd $BUILD_DIR/../scripts/python/packages/parthenon_performance_app
 # Dependencies should be handled by spack
 pip install . --no-dependencies --target=${PYTHON_SCRIPTS_DIR}
 
-cd $BUILD_DIR/scripts/python/packages/parthenon_tools
+cd $BUILD_DIR/../scripts/python/packages/parthenon_tools
 # Dependencies should be handled by spack
 pip install . --no-dependencies --target=${PYTHON_SCRIPTS_DIR}
