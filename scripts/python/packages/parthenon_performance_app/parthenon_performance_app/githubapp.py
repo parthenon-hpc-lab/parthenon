@@ -168,8 +168,7 @@ class GitHubApp:
 
             self._repo_path = path_to_repo
           else:
-            error_msg = str("The suggested repository path is not valid:\n" \
-                path_to_repo)
+            error_msg = "The suggested repository path is not valid:\n{}".format(path_to_repo)
             self._log.error(error_msg)
             raise
         else:
