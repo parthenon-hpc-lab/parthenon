@@ -30,3 +30,6 @@ pip install . --no-dependencies --target=${PYTHON_SCRIPTS_DIR}
 cd $PARTHENON_DIR/scripts/python/packages/parthenon_tools
 # Dependencies should be handled by spack
 pip install . --no-dependencies --target=${PYTHON_SCRIPTS_DIR}
+
+# Cache repository path, so that the app knows where the repo is
+${PYTHON_SCRIPTS_DIR}/bin/parthenon_metrics_app.py --repository-path "$PARTHENON_DIR"

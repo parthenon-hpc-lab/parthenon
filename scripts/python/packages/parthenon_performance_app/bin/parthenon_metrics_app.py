@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/projects/parthenon-int/parthenon-project/views/darwin/ppc64le/gcc9/2021-04-08/bin/python3.9
 # =========================================================================================
 # (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 #
@@ -275,7 +275,8 @@ def main(**kwargs):
         kwargs['wiki'],
         kwargs['ignore'],
         kwargs['permissions'],
-        kwargs['create'])
+        kwargs['create'],
+        kwargs['repository_path'])
 
     branch = getValue(kwargs,'branch')
 
@@ -335,7 +336,7 @@ if __name__ == '__main__':
         'repository was already specified.')
     
     parser.add_argument('--repository-path','-rp',
-        default = "",
+        default = None,
         type=str,
         nargs=1,
         help=desc)

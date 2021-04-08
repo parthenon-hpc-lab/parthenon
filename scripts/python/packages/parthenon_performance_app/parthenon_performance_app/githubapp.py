@@ -105,7 +105,7 @@ class GitHubApp:
 
         self._log = logging.getLogger(self._repo_name)
 
-        fh = logging.FileHandler(self._repo_name + ',log', mode = 'w', encoding='utf-8')
+        fh = logging.FileHandler(self._repo_name + '.log', mode = 'w', encoding='utf-8')
         fh.setLevel(logging.INFO)
         self._log.addHandler(fh)
 
@@ -114,11 +114,11 @@ class GitHubApp:
         self._log.addHandler(ch)
 
         self._config_file_dir = pathlib.Path(__file__).parent.absolute() 
-        self._cofig_file_name = "githubapp_ " + str(self._app_id) + ".config"
-        self._config_file_path = pathlib.Path(self._config_file_dir + self._config_file_name) 
+        self._config_file_name = "githubapp_" + str(self._app_id) + ".config"
+        self._config_file_path = pathlib.Path.joinpath(self._config_file_dir, self._config_file_name) 
         
         # Create an empty config file if one does not exist
-        if not self._config_file_path.isFile():
+        if not pathlib.Path.is_file(self._config_file_path):
           open(self._config_file_path,'a').close()
 
     def initialize(self, use_wiki=False, ignore=False,
@@ -155,7 +155,7 @@ class GitHubApp:
 
         if path_to_repo is not None:
           # Check that the repo specified is valid
-          if path_to_repo.isDir(): 
+          if os.path.isdir(path_to_repo): 
             # Check if we are overwriting an existing repo stored in the config file
             with open(self._config_file_path,'r') as file:
               line = file.readline()
@@ -173,12 +173,12 @@ class GitHubApp:
             raise
         else:
 
-          if self._config_file_path.isFile():
+          if pathlib.Path.is_file(self._config_file_path):
 
             with open(self._config_file_path,'r') as file:
               line = file.readline()
               # Throw an error if the path is not valid
-              if not line.isDir():
+              if not os.path.isdir(line):
                 error_msg = "The cached path to your repository is not valid {}".format(line)
                 self._log.error(error_msg)
               self._repo_path = line
@@ -268,7 +268,7 @@ class GitHubApp:
             'Accept: ' + self._api_version
         ]
 
-        js_obj = self.PYCURL(header, 'https://api.github.com/app/installations')
+        js_obj = self._PYCURL(header, 'https://api.github.com/app/installations')
 
         if isinstance(js_obj, list):
             js_obj = js_obj[0]
@@ -554,10 +554,10 @@ class GitHubApp:
     def postStatus(self, state, commit_sha=None, context="",
                    description="", target_url=""):
         """Post status of current commit."""
-        self._log.info("Posting value: %s" % value)
+        self._log.info("Posting state: %s" % state)
         self._log.info("Posting context: %s" % context)
         self._log.info("Posting description: %s" % description)
-        self._log.info("Posting url: %s" % url)
+        self._log.info("Posting url: %s" % target_url)
         state_list = ['pending', 'failed', 'error', 'success']
         if state not in state_list:
             raise Exception("Unrecognized state specified " + state)
