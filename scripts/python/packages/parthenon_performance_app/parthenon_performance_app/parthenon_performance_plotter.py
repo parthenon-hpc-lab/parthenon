@@ -19,7 +19,7 @@ class PerformanceMetricsPlotter():
     def __init__(self,
         number_commits_to_plot,
         test_dir,
-        currrent_branch,
+        current_branch,
         mesh_blocks,
         zone_cycles,
         target_branch,
@@ -29,7 +29,7 @@ class PerformanceMetricsPlotter():
 
         self._number_commits_to_plot  = number_commits_to_plot
         self._test_dir                = test_dir
-        self._currrent_branch         = currrent_branch
+        self._current_branch         = current_branch
         self._mesh_blocks             = mesh_blocks
         self._zone_cycles             = zone_cycles
         self._target_branch           = target_branch
@@ -87,15 +87,15 @@ class PerformanceMetricsPlotter():
             2, 1, figsize=(4, 8), sharex=True)
 
         p[0].loglog(
-            mesh_blocks, zone_cycles, label="$256^3$ Mesh")
-        p[1].loglog(mesh_blocks, zone_cycles[0] / zone_cycles)
+            self._mesh_blocks, self._zone_cycles, label="$256^3$ Mesh")
+        p[1].loglog(self._mesh_blocks, self._zone_cycles[0] / self._zone_cycles)
         if self._target_data_file_exists:
             p[0].loglog(
                 self._target_meshblocks,
                 self._target_cycles,
                 label="$256^3$ Mesh")
             p[1].loglog(
-                self._target_meshblocks, zone_cycles[0] / self._target_cycles)
+                self._target_meshblocks, self._zone_cycles[0] / self._target_cycles)
 
         for i in range(2):
             p[i].grid()

@@ -179,12 +179,12 @@ class PerformanceDataJsonParser():
                             json_obj.get('date'), '%Y-%m-%d %H:%M:%S')
                         if recent_datetime is None:
                             recent_datetime = new_datetime
-                            mesh_blocks, cycles = this._getCyclesAndMeshblocks(json_obj, test)
+                            mesh_blocks, cycles = self._getCyclesAndMeshblocks(json_obj, test)
 
                         if new_datetime > recent_datetime:
                             recent_datetime = new_datetime
-                            this._getCyclesAndMeshblocks(json_obj, test)
-                            mesh_blocks, cycles = this._getCyclesAndMeshblocks(json_obj, test)
+                            self._getCyclesAndMeshblocks(json_obj, test)
+                            mesh_blocks, cycles = self._getCyclesAndMeshblocks(json_obj, test)
 
                 if isinstance(mesh_blocks, str):
                     mesh_blocks = np.array(
@@ -230,11 +230,11 @@ class PerformanceDataJsonParser():
 
     def getCyclesAt(self, commit_index, test):
         """Returns the number of cycles for a particular test associated with a commit"""
-        return this._getMeshBlocksOrCyclesAt("cycles", commit_index, test)
+        return self._getMeshBlocksOrCyclesAt("cycles", commit_index, test)
         
     def getMeshBlocksAt(self, commit_index, test):
         """Returns the number of mesh blocks for a particular test associated with a commit"""
-        return this._getMeshBlocksOrCyclesAt("mesh_blocks", commit_index, test)
+        return self._getMeshBlocksOrCyclesAt("mesh_blocks", commit_index, test)
 
     def getCommitShaAt(self, commit_index, test):
         list_ind = 0

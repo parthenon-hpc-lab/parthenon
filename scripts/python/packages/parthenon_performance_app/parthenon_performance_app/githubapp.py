@@ -430,6 +430,10 @@ class GitHubApp:
         If the file is found to already exist it will be updated. Image files will by default be placed
         in a figures branch of the main repository, so as to not bloat the repositories commit history.
         """
+
+        # Will only be needed if we are creating a branch
+        branch_to_fork_from = self._default_branch
+
         if isinstance(file_name, list):
             file_name = file_name[0]
         if branch is None:
@@ -443,6 +447,7 @@ class GitHubApp:
                     " in the main repository.")
                 self._log.warning("Unless the ignore flag is used.")
                 branch = self._default_image_branch
+                branch_to_fork_from = "master"
                 self._use_wiki = False
 
         if self._use_wiki or use_wiki:
@@ -467,7 +472,7 @@ class GitHubApp:
             return
 
         if self._create_branch:
-            self.createBranch(branch)
+            self.createBranch(branch, branch_to_fork_from)
         elif not self.branchExist(branch):
             error_msg = "branch: " + branch + " does not exist in repository."
             raise Exception(error_msg)

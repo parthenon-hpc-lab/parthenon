@@ -58,7 +58,7 @@ class ParthenonApp(parthenon_performance_app.githubapp.GitHubApp):
         self._log.info("Figure url is: %s" % fig_url)
         return fig_url, figure_path_name, figure_name
 
-    def _writeWikiPage(self, commit_sha, pr_wiki_page, figure_urls):
+    def _writeWikiPage(self, commit_sha, pr_wiki_page, figure_urls, now, wiki_file_name):
         """Write the contents of the performance metrics into a wiki page"""
         with open(pr_wiki_page, 'w') as writer:
             writer.write("This file is managed by the " + self._name + ".\n\n")
@@ -93,27 +93,27 @@ class ParthenonApp(parthenon_performance_app.githubapp.GitHubApp):
 
         self.upload(pr_wiki_page, "master", use_wiki=True)
 
-    def readPerformanceMetricsTXT(self, file_path):
-        """Will read the performance metrics of a .txt file that is output from one of the tests"""
-        mesh_blocks = np.zeros(1)
-        zone_cycles = np.zeros(1)
-        with open(file_path, 'r') as reader:
-            lines = reader.readlines()
-            # Remove first line in file, it is just the title
-
-            mesh_blocks = np.resize(mesh_blocks, len(lines) - 1)
-            zone_cycles = np.resize(zone_cycles, len(lines) - 1)
-
-            ind = 0
-            for line in lines:
-                # Skip header
-                if ind != 0:
-                    line = line.split()
-                    mesh_blocks[ind - 1] = float(line[2])
-                    zone_cycles[ind - 1] = float(line[0])
-                ind = ind + 1
-        return mesh_blocks, zone_cycles
-
+#    def readPerformanceMetricsTXT(self, file_path):
+#        """Will read the performance metrics of a .txt file that is output from one of the tests"""
+#        mesh_blocks = np.zeros(1)
+#        zone_cycles = np.zeros(1)
+#        with open(file_path, 'r') as reader:
+#            lines = reader.readlines()
+#            # Remove first line in file, it is just the title
+#
+#            mesh_blocks = np.resize(mesh_blocks, len(lines) - 1)
+#            zone_cycles = np.resize(zone_cycles, len(lines) - 1)
+#
+#            ind = 0
+#            for line in lines:
+#                # Skip header
+#                if ind != 0:
+#                    line = line.split()
+#                    mesh_blocks[ind - 1] = float(line[2])
+#                    zone_cycles[ind - 1] = float(line[0])
+#                ind = ind + 1
+#        return mesh_blocks, zone_cycles
+#
     def getCurrentAndTargetBranch(self, branch):
         """
         Returns the branch that the current branch and the branch that is being merged with (the target branch).
@@ -165,6 +165,11 @@ class ParthenonApp(parthenon_performance_app.githubapp.GitHubApp):
         all_dirs = os.listdir(regression_outputs)
         self._log.info("Contents of regression_outputs: %s" % regression_outputs)
 
+        # Make sure wiki exists
+        super().cloneWikiRepo()
+
+        now = datetime.datetime.now()
+
         commit_sha = os.getenv('CI_COMMIT_SHA')
         # Files should only be uploaded if there are no errors
         json_files_to_upload = []
@@ -178,13 +183,16 @@ class ParthenonApp(parthenon_performance_app.githubapp.GitHubApp):
                 figure_url, png_file, figure_name = \
                     self._createFigureURLPathAndName(test_dir, current_branch, target_branch)
 
-                analyzer = AdvectionAnalyser()
-                json_file_out = analyzer.analyze(regression_outputs,
+                analyzer = AdvectionAnalyser(create_figures)
+                json_file_out = analyzer.analyse(regression_outputs,
                     commit_sha,
                     test_dir,
                     target_branch,
+                    current_branch,
                     self._parthenon_wiki_dir,
-                    png_file)
+                    png_file,
+                    number_commits_to_plot,
+                    now)
 
                 json_files_to_upload.append(json_file_out)
 
@@ -193,15 +201,16 @@ class ParthenonApp(parthenon_performance_app.githubapp.GitHubApp):
                   figure_urls.append(figure_url)
 
             elif test_dir == "advection_performance_mpi":
-                if not os.path.isfile(
-                        regression_outputs + "/advection_performance_mpi/performance_metrics.txt"):
-                    raise Exception(
-                        "Cannot analyze advection_performance_mpi, missing performance metrics file.")
-
+                print("advection_performance_mpi regression test is not yet implemented")
+#                if not os.path.isfile(
+#                        regression_outputs + "/advection_performance_mpi/performance_metrics.txt"):
+#                    raise Exception(
+#                        "Cannot analyze advection_performance_mpi, missing performance metrics file.")
+#
             # Check that the wiki exists for merging between these two
             # branches, only want a single wiki page per merge
 
-        wiki_url = self._writeWikiPage(commit_sha, pr_wiki_page, figure_urls)
+        wiki_url = self._writeWikiPage(commit_sha, pr_wiki_page, figure_urls, now, wiki_file_name)
 
         self._uploadMetrics(json_files_to_upload, png_files_to_upload, pr_wiki_page)
 

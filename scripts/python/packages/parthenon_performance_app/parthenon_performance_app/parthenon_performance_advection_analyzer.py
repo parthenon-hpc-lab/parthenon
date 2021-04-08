@@ -17,18 +17,44 @@ import datetime
 import numpy as np
 from parthenon_performance_app.parthenon_performance_json_parser import PerformanceDataJsonParser
 from parthenon_performance_app.parthenon_performance_plotter import PerformanceMetricsPlotter
+#import parthenon_performance_app.parthenon_performance_txt_parser as txt_parser
 
 class AdvectionAnalyser():
     def __init__(self,create_figures):
         self._create_figures = create_figures
+
+    def readPerformanceMetricsTXT(self, file_path):
+        """Will read the performance metrics of a .txt file that is output from one of the tests"""
+        mesh_blocks = np.zeros(1)
+        zone_cycles = np.zeros(1)
+        with open(file_path, 'r') as reader:
+            lines = reader.readlines()
+            # Remove first line in file, it is just the title
+
+            mesh_blocks = np.resize(mesh_blocks, len(lines) - 1)
+            zone_cycles = np.resize(zone_cycles, len(lines) - 1)
+
+            ind = 0
+            for line in lines:
+              # Skip header
+                if ind != 0:
+                    line = line.split()
+                    mesh_blocks[ind - 1] = float(line[2])
+                    zone_cycles[ind - 1] = float(line[0])
+                ind = ind + 1
+        return mesh_blocks, zone_cycles
 
     def analyse(self,
         regression_outputs,
         commit_sha,
         test_dir,
         target_branch,
+        current_branch,
         wiki_directory,
-        figure_path_name):
+        figure_path_name,
+        number_commits_to_plot,
+        now
+        ):
 
         if not os.path.isfile(
                 regression_outputs + "/advection_performance/performance_metrics.txt"):
@@ -36,8 +62,7 @@ class AdvectionAnalyser():
                 "Cannot analyze advection_performance, missing performance metrics file: " +
                 regression_outputs +
                 "/advection_performance/performance_metrics.txt")
-        super().cloneWikiRepo()
-
+#        super().cloneWikiRepo()
         mesh_blocks, zone_cycles = self.readPerformanceMetricsTXT(
             regression_outputs + "/advection_performance/performance_metrics.txt")
         now = datetime.datetime.now()
@@ -85,7 +110,7 @@ class AdvectionAnalyser():
             plotter = PerformanceMetricsPlotter(
                 number_commits_to_plot,
                 test_dir,
-                currrent_branch,
+                current_branch,
                 mesh_blocks,
                 zone_cycles,
                 target_branch,
