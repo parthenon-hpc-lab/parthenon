@@ -48,25 +48,25 @@ if [[ "${BUILD_TARGET}" == "ON" ]]; then
     export J=$(( $(nproc --all) )) && echo Using ${J} cores during build
 
     # Before checking out target branch copy the metrics app
-    echo "Copying files parthenon_metrics_app.py and app.py to ${SOURCE}/../../../"
-    cp "${METRICS_APP}" "${SOURCE}"/../../../
-    cp "${SOURCE}"/../python/parthenon_tools/githubapp.py "${SOURCE}"/../../../
-    cp "${SOURCE}"/../python/parthenon_tools/__init__.py "${SOURCE}"/../../../
+    #echo "Copying files parthenon_metrics_app.py and app.py to ${SOURCE}/../../../"
+    #cp "${METRICS_APP}" "${SOURCE}"/../../../
+    #cp "${SOURCE}"/../python/parthenon_tools/githubapp.py "${SOURCE}"/../../../
+    #cp "${SOURCE}"/../python/parthenon_tools/__init__.py "${SOURCE}"/../../../
     ls "${SOURCE}"/../../../
     git checkout "$target_branch"
     git pull
     git log --name-status HEAD^..HEAD
 
-    echo "Copying files parthenon_metrics_app.py and githubapp.py to ${SOURCE}/../python/python/"
-    cp "${SOURCE}"/../../../parthenon_metrics_app.py "${SOURCE}"/../python/
+    #echo "Copying files parthenon_metrics_app.py and githubapp.py to ${SOURCE}/../python/python/"
+    #cp "${SOURCE}"/../../../parthenon_metrics_app.py "${SOURCE}"/../python/
 
-    if [ ! -d "${SOURCE}"/../python/parthenon_tools ]; then
+    #if [ ! -d "${SOURCE}"/../python/parthenon_tools ]; then
       # Directory missing
-      mkdir -p "${SOURCE}"/../python/parthenon_tools
-    fi
-    cp "${SOURCE}"/../../../githubapp.py "${SOURCE}"/../python/parthenon_tools/
-    cp "${SOURCE}"/../../../__init__.py "${SOURCE}"/../python/parthenon_tools/
-    ls "${SOURCE}"/../python/parthenon_tools/
+    #  mkdir -p "${SOURCE}"/../python/parthenon_tools
+    #fi
+    #cp "${SOURCE}"/../../../githubapp.py "${SOURCE}"/../python/parthenon_tools/
+    #cp "${SOURCE}"/../../../__init__.py "${SOURCE}"/../python/parthenon_tools/
+    #ls "${SOURCE}"/../python/parthenon_tools/
 
     cmake -S. -Bbuild
 
