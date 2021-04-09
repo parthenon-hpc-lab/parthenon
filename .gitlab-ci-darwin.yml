@@ -34,6 +34,7 @@ stages:
   STATUS=$(${CI_PROJECT_DIR}/${EXECUTABLE})
   echo "PASS_OR_FAIL ${STATUS}"
   if [[ "$STATUS" == *"FAILED"* ]]; then exit 1; fi
+- git checkout ${CI_COMMIT_BRANCH}
 
 ########################################################################
 # Templates
