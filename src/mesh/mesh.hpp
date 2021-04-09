@@ -170,6 +170,12 @@ class Mesh {
 
   void OutputMeshStructure(const int dim, const bool dump_mesh_structure = true);
 
+  // Typically called within InitUserMeshData during problem generation
+  void EnrollUserRefinementCondition(AMRFlagFunc amrflag);
+  void EnrollUserMeshGenerator(CoordinateDirection dir, MeshGenFunc my_mg);
+  void EnrollUserExplicitSourceFunction(SrcTermFunc my_func);
+  void EnrollUserTimeStepFunction(TimeStepFunc my_func);
+
  private:
   // data
   int next_phys_id_; // next unused value for encoding final component of MPI tag bitfield
@@ -252,10 +258,6 @@ class Mesh {
     InitUserMeshData = InitUserMeshDataDefault;
 
   void EnrollBndryFncts_(ApplicationInput *app_in);
-  void EnrollUserRefinementCondition(AMRFlagFunc amrflag);
-  void EnrollUserMeshGenerator(CoordinateDirection dir, MeshGenFunc my_mg);
-  void EnrollUserExplicitSourceFunction(SrcTermFunc my_func);
-  void EnrollUserTimeStepFunction(TimeStepFunc my_func);
 };
 
 //----------------------------------------------------------------------------------------
