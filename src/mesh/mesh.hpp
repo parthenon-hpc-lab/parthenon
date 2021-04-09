@@ -247,8 +247,9 @@ class Mesh {
   void FinishRecvCoarseToFineAMR(MeshBlock *pb, BufArray1D<Real> &recvbuf);
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/
-  static void InitUserMeshDataDefault(ParameterInput *pin);
-  std::function<void(ParameterInput *)> InitUserMeshData = InitUserMeshDataDefault;
+  static void InitUserMeshDataDefault(Mesh *,ParameterInput *pin);
+  std::function<void(Mesh *, ParameterInput *)>
+    InitUserMeshData = InitUserMeshDataDefault;
 
   void EnrollBndryFncts_(ApplicationInput *app_in);
   void EnrollUserRefinementCondition(AMRFlagFunc amrflag);

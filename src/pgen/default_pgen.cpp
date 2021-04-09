@@ -33,13 +33,13 @@
 namespace parthenon {
 
 //========================================================================================
-//! \fn void Mesh::InitUserMeshDataDefault(ParameterInput *pin)
+//! \fn void Mesh::InitUserMeshDataDefault(Mesh *mesh, ParameterInput *pin)
 //  \brief Function to initialize problem-specific data in Mesh class.  Can also be used
 //  to initialize variables which are global to (and therefore can be passed to) other
 //  functions in this file.  Called in Mesh constructor.
 //========================================================================================
 
-void Mesh::InitUserMeshDataDefault(ParameterInput *pin) {
+void Mesh::InitUserMeshDataDefault(Mesh *mesh, ParameterInput *pin) {
   // do nothing
   return;
 }

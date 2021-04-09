@@ -292,7 +292,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properti
     max_level = 63;
   }
 
-  InitUserMeshData(pin);
+  InitUserMeshData(this,pin);
 
   if (multilevel) {
     if (block_size.nx1 % 2 == 1 || (block_size.nx2 % 2 == 1 && (ndim >= 2)) ||
@@ -679,7 +679,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
     max_level = 63;
   }
 
-  InitUserMeshData(pin);
+  InitUserMeshData(this,pin);
 
   // Populate logical locations
   auto lx123 = rr.ReadDataset<int64_t>("/Blocks/loc.lx123");
