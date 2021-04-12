@@ -113,17 +113,15 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
   int max_level = pm->GetCurrentLevel() - rootLevel;
   auto nblist = pm->GetNbList();
 
-  // SSconst IndexDomain interior = IndexDomain::interior;
-  int iGhost = (output_params.include_ghost_zones ? 1 : 0);
+  const IndexDomain theDomain =
+      (output_params.include_ghost_zones ? IndexDomain::entire : IndexDomain::interior);
 
-  const IndexDomain theDomain = (iGhost ? IndexDomain::entire : IndexDomain::interior);
+  // all blocks have the same logical size, so get bounds from first mesh block
+  auto &first_mb = *(pm->block_list.front());
 
-  auto &mb = *(pm->block_list.front());
-
-  // shooting a blank just for getting the variable names
-  const IndexRange out_ib = mb.cellbounds.GetBoundsI(theDomain);
-  const IndexRange out_jb = mb.cellbounds.GetBoundsJ(theDomain);
-  const IndexRange out_kb = mb.cellbounds.GetBoundsK(theDomain);
+  const IndexRange out_ib = first_mb.cellbounds.GetBoundsI(theDomain);
+  const IndexRange out_jb = first_mb.cellbounds.GetBoundsJ(theDomain);
+  const IndexRange out_kb = first_mb.cellbounds.GetBoundsK(theDomain);
 
   auto const nx1 = out_ib.e - out_ib.s + 1; // SS mb.block_size.nx1;
   auto const nx2 = out_jb.e - out_jb.s + 1; // SS mb.block_size.nx2;
@@ -235,10 +233,12 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
           file, "/Mesh", PREDINT32, localDSpace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
 
       {
-        int bsize[3] = {mb.block_size.nx1, mb.block_size.nx2, mb.block_size.nx3};
+        int bsize[3] = {first_mb.block_size.nx1, first_mb.block_size.nx2,
+                        first_mb.block_size.nx3};
         nLen = 3;
         H5S const localnDSpace = H5S::FromHIDCheck(H5Screate_simple(1, &nLen, NULL));
         writeH5AI32("blockSize", bsize, localnDSpace, myDSet);
+        int iGhost = (output_params.include_ghost_zones ? 1 : 0);
         writeH5AI32("includesGhost", &iGhost, localDSpace, myDSet);
       }
 
@@ -371,6 +371,9 @@ void RestartOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
     }
 
     // write variables
+
+    // first we need to get list of variables, because sparse variables are only expanded
+    // on some blocks, we need to look at the list of variables on each block
 
     // write variables
     // create persistent spaces
