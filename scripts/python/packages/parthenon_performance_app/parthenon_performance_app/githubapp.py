@@ -314,14 +314,20 @@ class GitHubApp:
 
     def _getBranches(self):
         """Internal method for getting a list of the branches that are available on github."""
-        js_obj_list = self._PYCURL(self._header, self._repo_url + "/branches") 
-
+ 
+        page_found = True
+        page_index = 1
         self._branches = []
         self._branch_current_commit_sha = {}
-        for js_obj in js_obj_list:
-            self._branches.append(js_obj['name'])
-            self._branch_current_commit_sha.update(
-                {js_obj['name']: js_obj['commit']['sha']})
+        while page_found:
+          page_found = False
+          js_obj_list = self._PYCURL(self._header, self._repo_url + "/branches?page={}".format(page_index)) 
+          page_index = page_index + 1
+          for js_obj in js_obj_list:
+              page_found = True
+              self._branches.append(js_obj['name'])
+              self._branch_current_commit_sha.update(
+                  {js_obj['name']: js_obj['commit']['sha']})
 
     def getBranchMergingWith(self, branch):
         """Gets the name of the target branch of `branch` which it will merge with."""
