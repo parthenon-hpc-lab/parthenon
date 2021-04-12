@@ -188,15 +188,6 @@ class GitHubApp:
                 "Please call --repository-path or -rp with the path the repository to register it.\n")
             self._log.error(error_msg)
             raise
-#        self._repo_path = str(pathlib.Path(self._child_class_path).parent.absolute())
-#        try:
-#            self._repo_path = self._repo_path[:self._repo_path.rindex( \
-#                "/" + self._repo_name + "/") + len("/" + self._repo_name)]
-#        except Exception:
-#            error_msg = str(os.path.realpath(
-#                self._child_class_path)) + " must be run from within the " + self._repo_name + " repository."
-#            self._log.error(error_msg)
-#            raise
 
         self._parthenon_wiki_dir = os.path.normpath(
             self._repo_path + "/../" + self._repo_name + ".wiki")

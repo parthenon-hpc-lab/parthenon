@@ -17,7 +17,6 @@ import datetime
 import numpy as np
 from parthenon_performance_app.parthenon_performance_json_parser import PerformanceDataJsonParser
 from parthenon_performance_app.parthenon_performance_plotter import PerformanceMetricsPlotter
-#import parthenon_performance_app.parthenon_performance_txt_parser as txt_parser
 
 class AdvectionAnalyser():
     def __init__(self,create_figures):
