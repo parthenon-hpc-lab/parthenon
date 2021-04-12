@@ -15,7 +15,7 @@
 # Load system env only
 SCRIPT=$(realpath "$0")
 SOURCE=$(dirname "$SCRIPT")
-source ${SOURCE}/setup.sh
+source "${SOURCE}/setup.sh"
 
 if [[ "${BUILD_TARGET}" == "ON" ]]; then
 

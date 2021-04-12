@@ -23,13 +23,13 @@ then
   rm -rf "${PYTHON_SCRIPTS_DIR}"
 fi
 
-cd $PARTHENON_DIR/scripts/python/packages/parthenon_performance_app
+cd "$PARTHENON_DIR/scripts/python/packages/parthenon_performance_app"
 # Dependencies should be handled by spack
-pip install . --no-dependencies --target=${PYTHON_SCRIPTS_DIR}
+pip install . --no-dependencies --target="${PYTHON_SCRIPTS_DIR}"
 
-cd $PARTHENON_DIR/scripts/python/packages/parthenon_tools
+cd "$PARTHENON_DIR/scripts/python/packages/parthenon_tools"
 # Dependencies should be handled by spack
-pip install . --no-dependencies --target=${PYTHON_SCRIPTS_DIR}
+pip install . --no-dependencies --target="${PYTHON_SCRIPTS_DIR}"
 
 # Cache repository path, so that the app knows where the repo is
-${PYTHON_SCRIPTS_DIR}/bin/parthenon_metrics_app.py --repository-path "$PARTHENON_DIR"
+"${PYTHON_SCRIPTS_DIR}/bin/parthenon_metrics_app.py" --repository-path "$PARTHENON_DIR"
