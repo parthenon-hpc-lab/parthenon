@@ -45,9 +45,10 @@ stages:
     SCRIPT_TO_RUN: "install_python_scripts.sh"
   script:
     - git fetch --all
-    - git pull
     - *print-executable 
     - *run-script-with-check
+    - git checkout ${CI_COMMIT_BRANCH}
+    - git pull origin ${CI_COMMIT_BRANCH}
   artifacts:
     paths:
       - ${CI_PROJECT_DIR}/../python_scripts
