@@ -51,7 +51,8 @@ class DataCollection {
     return containers_[label];
   }
 
-  std::shared_ptr<T> &Get() { return containers_["base"]; }
+  std::shared_ptr<T> &Get() { return containers_.at("base"); }
+  const std::shared_ptr<T> &Get() const { return containers_.at("base"); }
   std::shared_ptr<T> &Get(const std::string &label) {
     auto it = containers_.find(label);
     if (it == containers_.end()) {

@@ -24,7 +24,6 @@
 #include "interface/update.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/meshblock.hpp"
-#include "outputs/parthenon_hdf5.hpp"
 #include "refinement/refinement.hpp"
 
 namespace parthenon {
@@ -286,4 +285,5 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
     }
   }
 }
+
 } // namespace parthenon

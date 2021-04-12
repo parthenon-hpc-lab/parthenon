@@ -9,16 +9,13 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+#ifndef HDF5OUTPUT
+#error "parthenon_hdf5.hpp requires HDF5 output to be enabled"
+#endif // ifndef HDF5OUTPUT
+
 #ifndef OUTPUTS_PARTHENON_HDF5_HPP_
 #define OUTPUTS_PARTHENON_HDF5_HPP_
 // Definitions common to parthenon restart and parthenon output for HDF5
-
-// options for building
-#include "config.hpp"
-
-#ifdef HDF5OUTPUT
-#include <hdf5.h>
-#endif
 
 #include <cstdlib>
 #include <fstream>
@@ -26,6 +23,8 @@
 #include <sstream>
 #include <string>
 #include <vector>
+
+#include <hdf5.h>
 
 #include "basic_types.hpp"
 #include "coordinates/coordinates.hpp"
@@ -45,13 +44,9 @@
 #define PREDCHAR H5T_NATIVE_CHAR
 
 using parthenon::Real;
-#ifndef HDF5OUTPUT
-#define LOADVARIABLEALL(dst, pmb, var, is, ie, js, je, ks, ke)
-#define LOADVARIABLEONE(index, dst, var, is, ie, js, je, ks, ke, vlen)
-#define UNLOADVARIABLEONE(index, src, var, is, ie, js, je, ks, ke, vlen)
-#else
 
 namespace parthenon {
+
 /**
  * @brief RAII handles for HDF5. Use the typedefs directly (e.g. `H5A`, `H5D`, etc.)
  *
@@ -110,7 +105,10 @@ using H5G = H5Handle<&H5Gclose>;
 using H5P = H5Handle<&H5Pclose>;
 using H5T = H5Handle<&H5Tclose>;
 using H5S = H5Handle<&H5Sclose>;
+
 } // namespace parthenon
+
+// TODO get rid of macros and reduce code duplication
 
 #define LOADVARIABLEONE(index, dst, var, is, ie, js, je, ks, ke, vlen)                   \
   do {                                                                                   \
@@ -276,5 +274,4 @@ static hid_t getHdfType(int32_t *x) { return H5T_NATIVE_INT32; }
 static hid_t getHdfType(int64_t *x) { return H5T_NATIVE_INT64; }
 static hid_t getHdfType(std::string *x) { return H5T_C_S1; }
 
-#endif
 #endif // OUTPUTS_PARTHENON_HDF5_HPP_

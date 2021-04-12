@@ -155,44 +155,22 @@ class VTKOutput : public OutputType {
   void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) override;
 };
 
-//----------------------------------------------------------------------------------------
-//! \class RestartOutput
-//  \brief derived OutputType class for restart dumps
-
-class RestartOutput : public OutputType {
- public:
-  explicit RestartOutput(const OutputParameters &oparams) : OutputType(oparams) {
-#ifndef HDF5OUTPUT
-    std::stringstream msg;
-    msg << "### FATAL ERROR in Restart (Outputs) constructor" << std::endl
-        << "Executable not configured for HDF5 outputs, but HDF5 file format "
-        << "is requested in output block '" << output_params.block_name << "'"
-        << std::endl;
-    PARTHENON_FAIL(msg);
-#endif
-  }
-  void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) override;
-};
-
 #ifdef HDF5OUTPUT
 //----------------------------------------------------------------------------------------
 //! \class PHDF5Output
-//  \brief derived OutputType class for Athena HDF5 files
+//  \brief derived OutputType class for Athena HDF5 files or restart dumps
 
 class PHDF5Output : public OutputType {
  public:
   // Function declarations
-  explicit PHDF5Output(const OutputParameters &oparams) : OutputType(oparams) {}
+  PHDF5Output(const OutputParameters &oparams, bool restart)
+      : OutputType(oparams), restart_(restart) {}
   void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) override;
-  void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm);
 
  private:
-  // Parameters
-  static const int max_name_length = 128; // maximum length of names excluding \0
-  std::string filename;                   // name of phdf file
-  int nx1, nx2, nx3;                      // sizes of MeshBlocks
+  const bool restart_; // true if we write a restart file, false for regular output files
 };
-#endif
+#endif // ifdef HDF5OUTPUT
 
 //----------------------------------------------------------------------------------------
 //! \class Outputs
