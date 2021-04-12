@@ -13,15 +13,12 @@
 # =========================================================================================
 
 import argparse
-import copy
 import os
 import datetime
-import json
-import numpy as np
 import parthenon_performance_app.githubapp
-import matplotlib.pyplot as plt
 from parthenon_performance_app.parthenon_performance_advection_analyzer import AdvectionAnalyser
- 
+from parthenon_performance_app.parthenon_performance_json_parser import PerformanceDataJsonParser
+
 class ParthenonApp(parthenon_performance_app.githubapp.GitHubApp):
 
     """
@@ -59,7 +56,7 @@ class ParthenonApp(parthenon_performance_app.githubapp.GitHubApp):
         return fig_url, figure_path_name, figure_name
 
     def _writeWikiPage(self, commit_sha, pr_wiki_page, figure_urls, now, wiki_file_name):
-        """Write the contents of the performance metrics into a wiki page"""
+        """Write the contents of the performance metrics into a wiki page."""
         with open(pr_wiki_page, 'w') as writer:
             writer.write("This file is managed by the " + self._name + ".\n\n")
             writer.write(

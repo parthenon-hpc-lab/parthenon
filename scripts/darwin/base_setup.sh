@@ -22,17 +22,20 @@ source /projects/parthenon-int/parthenon-project/.bashrc
 # Exit on error
 set -eE
 
-# Export COMMIT CI
 GITHUB_APP_PEM="$1"
+# shellcheck disable=SC2034
 PARTHENON_DIR="$2"
+# shellcheck disable=SC2034
 BUILD_DIR="${2}/build"
 export CI_COMMIT_SHA="$3"
 export CI_COMMIT_BRANCH="$4"
+# shellcheck disable=SC2034
 CI_JOB_URL="$5"
 CI_JOB_TOKEN="$6"
 
 # Should be a value of ON or OFF depending on whether we are
 # also running metrics on the pr we want to merge with
+# shellcheck disable=SC2034
 BUILD_TARGET="$7"
 
 PYTHON_SCRIPTS_DIR="$8"

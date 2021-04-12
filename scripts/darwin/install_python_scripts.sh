@@ -15,7 +15,7 @@
 # Load system env only
 SCRIPT=$(realpath "$0")
 SOURCE=$(dirname "$SCRIPT")
-source ${SOURCE}/base_setup.sh
+source "${SOURCE}/base_setup.sh"
 
 # Remove old installed directory if it exists
 if [ -d "${PYTHON_SCRIPTS_DIR}" ]
