@@ -45,6 +45,7 @@ stages:
     SCRIPT_TO_RUN: "install_python_scripts.sh"
   script:
     - git fetch --all
+    - git pull
     - *print-executable 
     - *run-script-with-check
   artifacts:
