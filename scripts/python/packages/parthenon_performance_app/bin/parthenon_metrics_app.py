@@ -19,8 +19,8 @@ import parthenon_performance_app.githubapp
 from parthenon_performance_app.parthenon_performance_advection_analyzer import AdvectionAnalyser
 from parthenon_performance_app.parthenon_performance_json_parser import PerformanceDataJsonParser
 
-class ParthenonApp(parthenon_performance_app.githubapp.GitHubApp):
 
+class ParthenonApp(parthenon_performance_app.githubapp.GitHubApp):
     """
     Parthenon App Class
 
@@ -42,7 +42,7 @@ class ParthenonApp(parthenon_performance_app.githubapp.GitHubApp):
             "lanl",
             "parthenon",
             os.path.dirname(os.path.realpath(__file__))
-            )
+        )
 
     def _createFigureURLPathAndName(self, test_dir, current_branch, target_branch):
         figure_name = test_dir + "_" + \
@@ -77,8 +77,8 @@ class ParthenonApp(parthenon_performance_app.githubapp.GitHubApp):
         """
         Uploads metrics files
 
-        Metrics files include: 
-        json data files containing raw data 
+        Metrics files include:
+        json data files containing raw data
         png files containging plots of the performance metrics
         the wiki page used to display the metrics on github
         """
@@ -104,7 +104,8 @@ class ParthenonApp(parthenon_performance_app.githubapp.GitHubApp):
 
     def analyze(self, regression_outputs, current_branch, target_branch,
                 post_status, create_figures, number_commits_to_plot=5):
-        """This method will analayze the output of test performance regression metrics
+        """
+        This method will analayze the output of test performance regression metrics
 
         The output from each test will be used to create a figure demonstrating the
         performance. The output will then be recorded in the json formatted performance 
@@ -139,7 +140,8 @@ class ParthenonApp(parthenon_performance_app.githubapp.GitHubApp):
             wiki_file_name + ".md")
 
         all_dirs = os.listdir(regression_outputs)
-        self._log.info("Contents of regression_outputs: %s" % regression_outputs)
+        self._log.info("Contents of regression_outputs: %s" %
+                       regression_outputs)
 
         # Make sure wiki exists
         super().cloneWikiRepo()
@@ -157,31 +159,34 @@ class ParthenonApp(parthenon_performance_app.githubapp.GitHubApp):
             if test_dir == "advection_performance":
 
                 figure_url, png_file, figure_name = \
-                    self._createFigureURLPathAndName(test_dir, current_branch, target_branch)
+                    self._createFigureURLPathAndName(
+                        test_dir, current_branch, target_branch)
 
                 analyzer = AdvectionAnalyser(create_figures)
                 json_file_out = analyzer.analyse(regression_outputs,
-                    commit_sha,
-                    test_dir,
-                    target_branch,
-                    current_branch,
-                    self._parthenon_wiki_dir,
-                    png_file,
-                    number_commits_to_plot,
-                    now)
+                                                 commit_sha,
+                                                 test_dir,
+                                                 target_branch,
+                                                 current_branch,
+                                                 self._parthenon_wiki_dir,
+                                                 png_file,
+                                                 number_commits_to_plot,
+                                                 now)
 
                 json_files_to_upload.append(json_file_out)
 
                 if create_figures:
-                  png_files_to_upload.append(png_file)
-                  figure_urls.append(figure_url)
+                    png_files_to_upload.append(png_file)
+                    figure_urls.append(figure_url)
 
             elif test_dir == "advection_performance_mpi":
                 print("advection_performance_mpi regression test is not yet implemented")
 
-        wiki_url = self._writeWikiPage(commit_sha, pr_wiki_page, figure_urls, now, wiki_file_name)
+        wiki_url = self._writeWikiPage(
+            commit_sha, pr_wiki_page, figure_urls, now, wiki_file_name)
 
-        self._uploadMetrics(json_files_to_upload, png_files_to_upload, pr_wiki_page)
+        self._uploadMetrics(json_files_to_upload,
+                            png_files_to_upload, pr_wiki_page)
 
         if post_status:
             self.postStatus(
@@ -223,7 +228,7 @@ class ParthenonApp(parthenon_performance_app.githubapp.GitHubApp):
         else:
             isUpToDate = False
             self._log.warning("Performance Metrics file is missing.")
-        
+
         self._log.info("Performance Metrics are uptodate: %s" % isUpToDate)
 
     def printTargetBranch(self, branch):
@@ -239,12 +244,14 @@ class ParthenonApp(parthenon_performance_app.githubapp.GitHubApp):
 def getValue(kwargs, name):
     value = kwargs[name]
     if isinstance(value, list):
-      if len(value) == 1:
-        return value[0]
-      else:
-        raise ValueError("Expected exactly 1 value for %s, but got %i" % (name, len(value)))
+        if len(value) == 1:
+            return value[0]
+        else:
+            raise ValueError(
+                "Expected exactly 1 value for %s, but got %i" % (name, len(value)))
     else:
-      return value
+        return value
+
 
 def main(**kwargs):
 
@@ -254,27 +261,27 @@ def main(**kwargs):
         kwargs['ignore'],
         kwargs['permissions'],
         kwargs['create'],
-        getValue(kwargs,'repository_path'))
+        getValue(kwargs, 'repository_path'))
 
-    branch = getValue(kwargs,'branch')
+    branch = getValue(kwargs, 'branch')
 
     if 'upload' in kwargs:
-        value = getValue(kwargs,'upload')
+        value = getValue(kwargs, 'upload')
         if value is not None:
             app.upload(value, branch)
 
     if 'status' in kwargs:
-        value = getValue(kwargs,'status')
+        value = getValue(kwargs, 'status')
         if value is not None:
-            url = getValue(kwargs,'status_url')
-            context = getValue(kwargs,'status_context')
-            description = getValue(kwargs,'status_description')
+            url = getValue(kwargs, 'status_url')
+            context = getValue(kwargs, 'status_context')
+            description = getValue(kwargs, 'status_description')
             app.postStatus(value, None, context, description, target_url=url)
 
     if 'analyze' in kwargs:
-        value = getValue(kwargs,'analyze')
+        value = getValue(kwargs, 'analyze')
         if value is not None:
-            target_branch = getValue(kwargs,'target_branch')
+            target_branch = getValue(kwargs, 'target_branch')
             if target_branch == "":
                 _, target_branch = app.getCurrentAndTargetBranch(branch)
                 # If target branch is None, assume it's not a pull request
@@ -284,13 +291,13 @@ def main(**kwargs):
                 value,
                 branch,
                 target_branch,
-                getValue(kwargs,'post_analyze_status'),
-                getValue(kwargs,'generate_figures_on_analysis'))
+                getValue(kwargs, 'post_analyze_status'),
+                getValue(kwargs, 'generate_figures_on_analysis'))
 
-    if getValue(kwargs,'check_branch_metrics_uptodate'):
+    if getValue(kwargs, 'check_branch_metrics_uptodate'):
         app.checkUpToDate(branch, kwargs['tests'])
 
-    if getValue(kwargs,'get_target_branch'):
+    if getValue(kwargs, 'get_target_branch'):
         app.printTargetBranch(branch)
 
 
@@ -300,8 +307,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         "python3 parthenon_metrics_app.py -p file.pem")
 
-    desc = ('Path to the (permissions file/permissions string) which authenticates '\
-        'the application. If not provided will use the env variable PARTHENON_METRICS_APP_PEM.')
+    desc = ('Path to the (permissions file/permissions string) which authenticates '
+            'the application. If not provided will use the env variable PARTHENON_METRICS_APP_PEM.')
 
     parser.add_argument('--permissions', '-p',
                         default="",
@@ -309,15 +316,14 @@ if __name__ == '__main__':
                         nargs=1,
                         help=desc)
 
+    desc = ('Path to the repository that will be analized, by default will check to see if a '
+            'repository was already specified.')
 
-    desc = ('Path to the repository that will be analized, by default will check to see if a '\
-        'repository was already specified.')
-    
-    parser.add_argument('--repository-path','-rp',
-        default = None,
-        type=str,
-        nargs=1,
-        help=desc)
+    parser.add_argument('--repository-path', '-rp',
+                        default=None,
+                        type=str,
+                        nargs=1,
+                        help=desc)
 
     desc = ('Path to file want to upload.')
     parser.add_argument('--upload', '-u',
@@ -332,8 +338,8 @@ if __name__ == '__main__':
                         default="develop",
                         help=desc)
 
-    desc = ('Target branch to use. Default is calculated by making a RESTful '\
-        'API to github using the branch pased in with --branch argument')
+    desc = ('Target branch to use. Default is calculated by making a RESTful '
+            'API to github using the branch pased in with --branch argument')
     parser.add_argument('--target-branch', '-tb',
                         type=str,
                         nargs=1,
@@ -397,8 +403,8 @@ if __name__ == '__main__':
                         default=False,
                         help=desc)
 
-    desc = ('Check if the performance metrics for the branch '\
-        'are uptodate, default branch is "develop"')
+    desc = ('Check if the performance metrics for the branch '
+            'are uptodate, default branch is "develop"')
     parser.add_argument('--check-branch-metrics-uptodate', '-cbmu',
                         action='store_true',
                         default=False,

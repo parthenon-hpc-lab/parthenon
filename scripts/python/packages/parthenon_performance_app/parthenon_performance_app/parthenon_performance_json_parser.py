@@ -18,6 +18,7 @@ import datetime
 import json
 import numpy as np
 
+
 class PerformanceDataJsonParser():
 
     """
@@ -56,7 +57,7 @@ class PerformanceDataJsonParser():
                 new_data = new_data[0]
             else:
                 raise ValueError("Expected exactly 1 new data")
-                
+
         dat_list = self._data if isinstance(self._data, list) else [self._data]
         for json_obj in dat_list:
             if json_obj.get('commit sha') == new_data.get('commit sha'):
@@ -179,12 +180,14 @@ class PerformanceDataJsonParser():
                             json_obj.get('date'), '%Y-%m-%d %H:%M:%S')
                         if recent_datetime is None:
                             recent_datetime = new_datetime
-                            mesh_blocks, cycles = self._getCyclesAndMeshblocks(json_obj, test)
+                            mesh_blocks, cycles = self._getCyclesAndMeshblocks(
+                                json_obj, test)
 
                         if new_datetime > recent_datetime:
                             recent_datetime = new_datetime
                             self._getCyclesAndMeshblocks(json_obj, test)
-                            mesh_blocks, cycles = self._getCyclesAndMeshblocks(json_obj, test)
+                            mesh_blocks, cycles = self._getCyclesAndMeshblocks(
+                                json_obj, test)
 
                 if isinstance(mesh_blocks, str):
                     mesh_blocks = np.array(
@@ -199,7 +202,7 @@ class PerformanceDataJsonParser():
 
     def append(self, new_data, file_name):
         """Append new data to a performance .json file.
-        
+
         Will overwrite old data if the commit already exists in the file.
         """
         data_found = False
@@ -231,7 +234,7 @@ class PerformanceDataJsonParser():
     def getCyclesAt(self, commit_index, test):
         """Returns the number of cycles for a particular test associated with a commit"""
         return self._getMeshBlocksOrCyclesAt("cycles", commit_index, test)
-        
+
     def getMeshBlocksAt(self, commit_index, test):
         """Returns the number of mesh blocks for a particular test associated with a commit"""
         return self._getMeshBlocksOrCyclesAt("mesh_blocks", commit_index, test)
@@ -264,10 +267,12 @@ class PerformanceDataJsonParser():
                     json_obj.get('date'), '%Y-%m-%d %H:%M:%S')
                 if recent_datetime is None:
                     recent_datetime = new_datetime
-                    mesh_blocks, cycles = self._getCyclesAndMeshblocks(json_obj, test)
+                    mesh_blocks, cycles = self._getCyclesAndMeshblocks(
+                        json_obj, test)
 
                 if new_datetime > recent_datetime:
                     recent_datetime = new_datetime
-                    mesh_blocks, cycles = self._getCyclesAndMeshblocks(json_obj, test)
+                    mesh_blocks, cycles = self._getCyclesAndMeshblocks(
+                        json_obj, test)
 
             return mesh_blocks, cycles

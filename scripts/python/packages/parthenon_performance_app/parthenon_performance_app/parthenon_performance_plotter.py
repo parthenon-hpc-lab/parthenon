@@ -14,28 +14,29 @@
 
 import matplotlib.pyplot as plt
 
+
 class PerformanceMetricsPlotter():
 
     def __init__(self,
-        number_commits_to_plot,
-        test_dir,
-        current_branch,
-        mesh_blocks,
-        zone_cycles,
-        target_branch,
-        target_data_file_exists,
-        target_meshblocks,
-        target_cycles):
+                 number_commits_to_plot,
+                 test_dir,
+                 current_branch,
+                 mesh_blocks,
+                 zone_cycles,
+                 target_branch,
+                 target_data_file_exists,
+                 target_meshblocks,
+                 target_cycles):
 
-        self._number_commits_to_plot  = number_commits_to_plot
-        self._test_dir                = test_dir
-        self._current_branch         = current_branch
-        self._mesh_blocks             = mesh_blocks
-        self._zone_cycles             = zone_cycles
-        self._target_branch           = target_branch
+        self._number_commits_to_plot = number_commits_to_plot
+        self._test_dir = test_dir
+        self._current_branch = current_branch
+        self._mesh_blocks = mesh_blocks
+        self._zone_cycles = zone_cycles
+        self._target_branch = target_branch
         self._target_data_file_exists = target_data_file_exists
-        self._target_meshblocks       = target_meshblocks
-        self._target_cycles           = target_cycles
+        self._target_meshblocks = target_meshblocks
+        self._target_cycles = target_cycles
 
     def _plotDataFromPreviousCommitsFromSameBranch(self, json_perf_data_parser, figure_path_name):
         # If running on same branch grab the data for the last
@@ -80,7 +81,7 @@ class PerformanceMetricsPlotter():
         p[1].set_xlabel("Meshblock size")
         fig.savefig(figure_path_name, bbox_inches='tight')
 
-    def _plotTargetBranchDataVsCurrentBranchData(self,figure_path_name):
+    def _plotTargetBranchDataVsCurrentBranchData(self, figure_path_name):
         # Get the data for the last commit in the development branch
         # Now we need to create the figure to update
         fig, p = plt.subplots(
@@ -88,7 +89,8 @@ class PerformanceMetricsPlotter():
 
         p[0].loglog(
             self._mesh_blocks, self._zone_cycles, label="$256^3$ Mesh")
-        p[1].loglog(self._mesh_blocks, self._zone_cycles[0] / self._zone_cycles)
+        p[1].loglog(self._mesh_blocks,
+                    self._zone_cycles[0] / self._zone_cycles)
         if self._target_data_file_exists:
             p[0].loglog(
                 self._target_meshblocks,
@@ -123,7 +125,7 @@ class PerformanceMetricsPlotter():
         plotted 
         """
         if self._target_branch == self._current_branch:
-            self._plotDataFromPreviousCommitsFromSameBranch(json_perf_data_parser, figure_path)
+            self._plotDataFromPreviousCommitsFromSameBranch(
+                json_perf_data_parser, figure_path)
         else:
-            self._plotTargetBranchDataVsCurrentBranchData(figure_path)   
-
+            self._plotTargetBranchDataVsCurrentBranchData(figure_path)

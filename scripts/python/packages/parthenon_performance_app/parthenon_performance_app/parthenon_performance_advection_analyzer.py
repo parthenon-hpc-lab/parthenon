@@ -18,8 +18,9 @@ import numpy as np
 from parthenon_performance_app.parthenon_performance_json_parser import PerformanceDataJsonParser
 from parthenon_performance_app.parthenon_performance_plotter import PerformanceMetricsPlotter
 
+
 class AdvectionAnalyser():
-    def __init__(self,create_figures):
+    def __init__(self, create_figures):
         self._create_figures = create_figures
 
     def readPerformanceMetricsTXT(self, file_path):
@@ -44,16 +45,16 @@ class AdvectionAnalyser():
         return mesh_blocks, zone_cycles
 
     def analyse(self,
-        regression_outputs,
-        commit_sha,
-        test_dir,
-        target_branch,
-        current_branch,
-        wiki_directory,
-        figure_path_name,
-        number_commits_to_plot,
-        now
-        ):
+                regression_outputs,
+                commit_sha,
+                test_dir,
+                target_branch,
+                current_branch,
+                wiki_directory,
+                figure_path_name,
+                number_commits_to_plot,
+                now
+                ):
 
         if not os.path.isfile(
                 regression_outputs + "/advection_performance/performance_metrics.txt"):
@@ -103,7 +104,6 @@ class AdvectionAnalyser():
             r'/', '-') + ".json"
         json_perf_data_parser.append(new_data, json_file_out)
 
-
         if self._create_figures:
 
             plotter = PerformanceMetricsPlotter(
@@ -118,4 +118,4 @@ class AdvectionAnalyser():
                 target_cycles)
 
             plotter.plot(json_perf_data_parser, figure_path_name)
-        return json_file_out 
+        return json_file_out

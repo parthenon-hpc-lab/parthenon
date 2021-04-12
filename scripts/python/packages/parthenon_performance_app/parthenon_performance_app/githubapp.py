@@ -27,6 +27,7 @@ import pycurl
 from git import Repo
 import git
 
+
 class Node:
 
     """Class used to store branch contents in terms of files, directories or misc"""
@@ -37,7 +38,7 @@ class Node:
         dir_name is the name of the directory the node contains information about 
         rel_path is the actual path to the directory
         """
-        
+
         self.dir = dir_name
         self.dirs = []
         self.files = []
@@ -77,7 +78,6 @@ class Node:
             node.printTree()
 
 
-
 class GitHubApp:
 
     """
@@ -105,7 +105,8 @@ class GitHubApp:
 
         self._log = logging.getLogger(self._repo_name)
 
-        fh = logging.FileHandler(self._repo_name + '.log', mode = 'w', encoding='utf-8')
+        fh = logging.FileHandler(
+            self._repo_name + '.log', mode='w', encoding='utf-8')
         fh.setLevel(logging.INFO)
         self._log.addHandler(fh)
 
@@ -113,17 +114,18 @@ class GitHubApp:
         ch.setLevel(logging.DEBUG)
         self._log.addHandler(ch)
 
-        self._config_file_dir = pathlib.Path(__file__).parent.absolute() 
+        self._config_file_dir = pathlib.Path(__file__).parent.absolute()
         self._config_file_name = "githubapp_" + str(self._app_id) + ".config"
-        self._config_file_path = pathlib.Path.joinpath(self._config_file_dir, self._config_file_name) 
-        
+        self._config_file_path = pathlib.Path.joinpath(
+            self._config_file_dir, self._config_file_name)
+
         # Create an empty config file if one does not exist
         if not pathlib.Path.is_file(self._config_file_path):
-          open(self._config_file_path,'a').close()
+            open(self._config_file_path, 'a').close()
 
     def initialize(self, use_wiki=False, ignore=False,
                    pem_file="", create_branch=False,
-                   path_to_repo = None):
+                   path_to_repo=None):
         """Sets basic properties of the app should be called before any other methods
 
         use_wiki - determines if by default commands will refer to the wiki repository
@@ -154,40 +156,43 @@ class GitHubApp:
         self._parth_root = Node()
 
         if path_to_repo is not None:
-          # Check that the repo specified is valid
-          if os.path.isdir(path_to_repo): 
-            # Check if we are overwriting an existing repo stored in the config file
-            with open(self._config_file_path,'r') as file:
-              line = file.readline()
-              # Print a message if they are different
-              if line != path_to_repo:
-                self._log.info("Changing repo path from {} to {}".format(line, path_to_repo))
+            # Check that the repo specified is valid
+            if os.path.isdir(path_to_repo):
+                # Check if we are overwriting an existing repo stored in the config file
+                with open(self._config_file_path, 'r') as file:
+                    line = file.readline()
+                    # Print a message if they are different
+                    if line != path_to_repo:
+                        self._log.info(
+                            "Changing repo path from {} to {}".format(line, path_to_repo))
 
-            with open(self._config_file_path,'w') as file:
-              file.write(path_to_repo)
+                with open(self._config_file_path, 'w') as file:
+                    file.write(path_to_repo)
 
-            self._repo_path = path_to_repo
-          else:
-            error_msg = "The suggested repository path is not valid:\n{}".format(path_to_repo)
-            self._log.error(error_msg)
-            raise
+                self._repo_path = path_to_repo
+            else:
+                error_msg = "The suggested repository path is not valid:\n{}".format(
+                    path_to_repo)
+                self._log.error(error_msg)
+                raise
         else:
 
-          if pathlib.Path.is_file(self._config_file_path):
+            if pathlib.Path.is_file(self._config_file_path):
 
-            with open(self._config_file_path,'r') as file:
-              line = file.readline()
-              # Throw an error if the path is not valid
-              if not os.path.isdir(line):
-                error_msg = "The cached path to your repository is not valid {}".format(line)
+                with open(self._config_file_path, 'r') as file:
+                    line = file.readline()
+                    # Throw an error if the path is not valid
+                    if not os.path.isdir(line):
+                        error_msg = "The cached path to your repository is not valid {}".format(
+                            line)
+                        self._log.error(error_msg)
+                    self._repo_path = line
+            else:
+                # If no config file exists throw an error
+                error_msg = str("No repository path is known to the parthenon_performance_app.\n"
+                                "Please call --repository-path or -rp with the path the repository to register it.\n")
                 self._log.error(error_msg)
-              self._repo_path = line
-          else:
-            # If no config file exists throw an error
-            error_msg = str("No repository path is known to the parthenon_performance_app.\n" \
-                "Please call --repository-path or -rp with the path the repository to register it.\n")
-            self._log.error(error_msg)
-            raise
+                raise
 
         self._parthenon_wiki_dir = os.path.normpath(
             self._repo_path + "/../" + self._repo_name + ".wiki")
@@ -230,7 +235,6 @@ class GitHubApp:
         self._jwt_token = jwt.encode(
             payload, PEM, algorithm='RS256').decode("utf-8")
 
-
     def _PYCURL(self, header, url, option=None, custom_data=None):
         buffer_temp = BytesIO()
         c = pycurl.Curl()
@@ -259,7 +263,8 @@ class GitHubApp:
             'Accept: ' + self._api_version
         ]
 
-        js_obj = self._PYCURL(header, 'https://api.github.com/app/installations')
+        js_obj = self._PYCURL(
+            header, 'https://api.github.com/app/installations')
 
         if isinstance(js_obj, list):
             js_obj = js_obj[0]
@@ -299,10 +304,9 @@ class GitHubApp:
         for node in nodes:
             custom_data = {"branch": branch}
 
-
-            js_obj = self._PYCURL(self._header, 
-                self._repo_url + "/contents/" + node.getPath(),
-                custom_data={"branch": branch})
+            js_obj = self._PYCURL(self._header,
+                                  self._repo_url + "/contents/" + node.getPath(),
+                                  custom_data={"branch": branch})
 
             if isinstance(js_obj, list):
                 for ob in js_obj:
@@ -314,33 +318,36 @@ class GitHubApp:
 
     def _getBranches(self):
         """Internal method for getting a list of the branches that are available on github."""
- 
+
         page_found = True
         page_index = 1
         self._branches = []
         self._branch_current_commit_sha = {}
         while page_found:
-          page_found = False
-          js_obj_list = self._PYCURL(self._header, self._repo_url + "/branches?page={}".format(page_index)) 
-          page_index = page_index + 1
-          for js_obj in js_obj_list:
-              page_found = True
-              self._branches.append(js_obj['name'])
-              self._branch_current_commit_sha.update(
-                  {js_obj['name']: js_obj['commit']['sha']})
+            page_found = False
+            js_obj_list = self._PYCURL(
+                self._header, self._repo_url + "/branches?page={}".format(page_index))
+            page_index = page_index + 1
+            for js_obj in js_obj_list:
+                page_found = True
+                self._branches.append(js_obj['name'])
+                self._branch_current_commit_sha.update(
+                    {js_obj['name']: js_obj['commit']['sha']})
 
     def getBranchMergingWith(self, branch):
         """Gets the name of the target branch of `branch` which it will merge with."""
-        js_obj_list = self._PYCURL(self._header, self._repo_url + "/pulls") 
-        self._log.info("Checking if branch is open as a pr and what branch it is targeted to merge with.\n")
+        js_obj_list = self._PYCURL(self._header, self._repo_url + "/pulls")
+        self._log.info(
+            "Checking if branch is open as a pr and what branch it is targeted to merge with.\n")
         self._log.info("Checking branch %s\n" % (self._user + ":" + branch))
         for js_obj in js_obj_list:
-            self._log.info("Found branch: %s.\n" % js_obj.get('head').get('label'))
+            self._log.info("Found branch: %s.\n" %
+                           js_obj.get('head').get('label'))
             if js_obj.get('head').get('label') == self._user + ":" + branch:
                 return js_obj.get('base').get('label').split(':', 1)[1]
         return None
 
-    #Public Methods
+    # Public Methods
 
     def getBranches(self):
         """This method will check to see if branches have already been collected from the github
@@ -395,8 +402,8 @@ class GitHubApp:
             self._repo_url + '/git/refs',
             option="POST",
             custom_data={
-            "ref": "refs/heads/" + branch,
-            "sha": self._branch_current_commit_sha[branch_to_fork_from]})
+                "ref": "refs/heads/" + branch,
+                "sha": self._branch_current_commit_sha[branch_to_fork_from]})
 
     def getContents(self, branch=None):
         """
@@ -407,10 +414,10 @@ class GitHubApp:
             branch = self._default_branch
         buffer_temp = BytesIO()
         # 1. Check if file exists if so get SHA
-        js_obj = self._PYCURL( 
+        js_obj = self._PYCURL(
             self._header,
             self._repo_url + '/contents?ref=' + branch,
-            custom_data = {"branch": branch})
+            custom_data={"branch": branch})
 
         contents = {}
         if isinstance(js_obj, list):
@@ -479,32 +486,33 @@ class GitHubApp:
         file_found = False
         if os.path.basename(os.path.normpath(file_name)) in contents:
             self._log.warning("File (%s) already exists in branch:%s" %
-                  (os.path.basename(os.path.normpath(file_name)), branch))
+                              (os.path.basename(os.path.normpath(file_name)), branch))
             file_found = True
 
         # 2. convert file into base64 format
         # b is needed if it is a png or image file/ binary file
         with open(file_name, "rb") as f:
-          data = f.read()
+            data = f.read()
         encoded_file = base64.b64encode(data)
 
         # 3. upload the file, overwrite if exists already
         custom_data = {
             'message': "%s %s file %s" % (self._name, "overwriting" if file_found else "uploading", os.path.basename(os.path.normpath(file_name))),
-              'name': self._name,
-              'branch': branch,
-              'content': encoded_file.decode('ascii')
-              }
+            'name': self._name,
+            'branch': branch,
+            'content': encoded_file.decode('ascii')
+        }
 
         if file_found:
-            custom_data['sha'] = contents[os.path.basename(os.path.normpath(file_name))]
+            custom_data['sha'] = contents[os.path.basename(
+                os.path.normpath(file_name))]
 
         self._log.info("Uploading file (%s) to branch (%s)" %
-              (os.path.basename(os.path.normpath(file_name)), branch))
+                       (os.path.basename(os.path.normpath(file_name)), branch))
         https_url_to_file = self._repo_url + "/contents/" + \
             os.path.basename(os.path.normpath(file_name))
 
-        self._PYCURL( 
+        self._PYCURL(
             self._header,
             https_url_to_file,
             "PUT",
@@ -516,12 +524,12 @@ class GitHubApp:
         return the contents as a tree object.
         """
         # 1. Check if file exists
-        js_obj = self._PYCURL( 
-                self._header,
-                self._repo_url + "/contents",
-                "PUT",
-                {"branch": branch})
-        
+        js_obj = self._PYCURL(
+            self._header,
+            self._repo_url + "/contents",
+            "PUT",
+            {"branch": branch})
+
         for obj in js_obj:
             self._parth_root.insert(obj['name'], obj['type'])
 
@@ -539,8 +547,9 @@ class GitHubApp:
             repo = Repo(self._parthenon_wiki_dir)
             g = git.cmd.Git(self._parthenon_wiki_dir)
             self._log.info("Our remote url is %s" % wiki_remote)
-            self._log.info(g.execute(['git','remote','show','origin']))  # git remote show origini
-            g.execute(['git','remote','set-url','origin',wiki_remote])
+            # git remote show origini
+            self._log.info(g.execute(['git', 'remote', 'show', 'origin']))
+            g.execute(['git', 'remote', 'set-url', 'origin', wiki_remote])
         return repo
 
     def getWikiRepo(self, branch):
@@ -575,13 +584,13 @@ class GitHubApp:
             custom_data_tmp["description"] = description
         if target_url != "":
             custom_data_tmp["target_url"] = target_url
-        
-        self._PYCURL( 
-                self._header,
-                self._repo_url + '/statuses/' + commit_sha,
-                "POST",
-                custom_data_tmp)
-        
+
+        self._PYCURL(
+            self._header,
+            self._repo_url + '/statuses/' + commit_sha,
+            "POST",
+            custom_data_tmp)
+
     def getStatus(self):
         """Get status of current commit."""
         commit_sha = os.getenv('CI_COMMIT_SHA')
@@ -590,7 +599,7 @@ class GitHubApp:
                 "CI_COMMIT_SHA not defined in environment cannot post status")
 
         # 1. Check if file exists if so get SHA
-        js_obj = self._PYCURL( 
-                self._header,
-                self._repo_url + '/commits/Add_to_dev/statuses')
+        js_obj = self._PYCURL(
+            self._header,
+            self._repo_url + '/commits/Add_to_dev/statuses')
         return js_obj
