@@ -28,7 +28,6 @@ stages:
 
 .run-script-with-check: &run-script-with-check
 - env
-- git fetch --all
 - chmod +x $EXECUTABLE
 - |
   STATUS=$(${CI_PROJECT_DIR}/${EXECUTABLE})
@@ -45,6 +44,7 @@ stages:
     BUILD_TARGET_BRANCH: "OFF"
     SCRIPT_TO_RUN: "install_python_scripts.sh"
   script:
+    - git fetch --all
     - *print-executable 
     - *run-script-with-check
   artifacts:
