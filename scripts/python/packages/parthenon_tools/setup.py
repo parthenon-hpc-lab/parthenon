@@ -14,13 +14,11 @@
 
 from setuptools import setup,find_packages
 
-exec(open('parthenon_tools/version.py','r').read())
 with open('README.md','r') as f:
       long_description = f.read()
 
 setup(
     name='parthenon_tools',
-    version=__version__,
     description='Python helper scripts to be used with Parthenon',
     long_description=long_description,
     url='https://github.com/lanl/parthenon/tree/develop/scripts/python/parthenon_tools',
