@@ -27,7 +27,8 @@ class PerformanceDataJsonParser():
     metadata associated with each test.
     """
 
-    def _containsCommit(self, json_objs, value):
+    @staticmethod
+    def _containsCommit(json_objs, value):
         """Will determine if a commit is found in the performance json files."""
         if not isinstance(json_objs, list):
             json_objs = [json_objs]
@@ -38,8 +39,8 @@ class PerformanceDataJsonParser():
 
         return False
 
-
-    def _add_mesh_blocks_and_zone_cycles(self, json_obj, new_data):
+    @staticmethod
+    def _add_mesh_blocks_and_zone_cycles(json_obj, new_data):
         if json_obj.get('commit sha') == new_data.get('commit sha'):
             for data_grp in json_obj.get('data'):
                 for data_grp2 in new_data.get('data'):
@@ -105,7 +106,8 @@ class PerformanceDataJsonParser():
                 # Then the test was not found so we are going to append to it
                 self._data['data'].append(new_data['data'])
 
-    def _getCyclesAndMeshblocks(self, json_obj, test):
+    @staticmethod
+    def _getCyclesAndMeshblocks(json_obj, test):
         for data_grp in json_obj.get('data'):
             if data_grp.get('test') == test:
                 mesh_blocks = data_grp.get('mesh_blocks')
@@ -135,7 +137,8 @@ class PerformanceDataJsonParser():
             list_ind = list_ind + 1
         return None
 
-    def getData(self, file_name):
+    @staticmethod
+    def getData(file_name):
         """Will read data from a performance file into json formated objected."""
         if os.path.isfile(file_name):
             # If does exist:
@@ -244,7 +247,8 @@ class PerformanceDataJsonParser():
             list_ind = list_ind + 1
         return None
 
-    def checkDataUpToDate(self, file_name, branch, commit_sha, test):
+    @staticmethod
+    def checkDataUpToDate(file_name, branch, commit_sha, test):
         """Checks to see if performance metrics exist for the commit and test specified."""
         if not os.path.isfile(file_name):
             return False

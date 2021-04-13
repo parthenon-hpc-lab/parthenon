@@ -236,7 +236,8 @@ class GitHubApp:
         self._jwt_token = jwt.encode(
             payload, PEM, algorithm='RS256').decode("utf-8")
 
-    def _PYCURL(self, header, url, option=None, custom_data=None):
+    @staticmethod
+    def _PYCURL(header, url, option=None, custom_data=None):
         buffer_temp = BytesIO()
         c = pycurl.Curl()
         c.setopt(c.URL, url)

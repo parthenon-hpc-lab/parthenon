@@ -24,7 +24,8 @@ class AdvectionAnalyser():
         """Creates analyzser, which will check for performance regression and created figures."""
         self._create_figures = create_figures
 
-    def readPerformanceMetricsTXT(self, file_path):
+    @staticmethod
+    def readPerformanceMetricsTXT(file_path):
         """Will read the performance metrics of a .txt file that is output from one of the tests."""
         mesh_blocks = np.zeros(1)
         zone_cycles = np.zeros(1)
