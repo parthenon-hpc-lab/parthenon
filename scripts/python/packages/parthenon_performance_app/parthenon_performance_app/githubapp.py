@@ -248,8 +248,8 @@ class GitHubApp:
             c.setopt(c.POSTFIELDSIZE, len(json.dumps(custom_data)))
         elif option == "PUT":
             c.setopt(c.PUT, 1)
-       
-       if custom_data is not None:
+
+        if custom_data is not None:
             buffer_temp2 = BytesIO(json.dumps(custom_data).encode('utf-8'))
             c.setopt(c.READDATA, buffer_temp2)
 
