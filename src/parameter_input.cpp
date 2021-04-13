@@ -391,8 +391,8 @@ void ParameterInput::ModifyFromCmdline(int argc, char *argv[]) {
 
   for (int i = 1; i < argc; i++) {
     input_text = argv[i];
-    std::size_t slash_posn = input_text.rfind("/");         // find last "/" character
-    std::size_t equal_posn = input_text.find_first_of("="); // find "=" character
+    std::size_t equal_posn = input_text.find_first_of("=");     // first "=" character
+    std::size_t slash_posn = input_text.rfind("/", equal_posn); // last "/" before "="
 
     if (slash_posn > equal_posn) {
       msg << "'/' used as value (rhs of =) when modifying " << input_text << "."
