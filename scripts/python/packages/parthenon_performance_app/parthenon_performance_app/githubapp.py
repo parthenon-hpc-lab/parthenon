@@ -35,7 +35,6 @@ class Node:
         dir_name is the name of the directory the node contains information about
         rel_path is the actual path to the directory
         """
-
         self.dir = dir_name
         self.dirs = []
         self.files = []

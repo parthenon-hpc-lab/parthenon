@@ -21,11 +21,12 @@ import numpy as np
 
 class PerformanceDataJsonParser():
     """
-    PerformanceDataJsonParser
+    Performance Data Parser
 
     This class is responsible for reading performance data from json files. Including
     metadata associated with each test.
     """
+
     def _containsCommit(self, json_objs, value):
         """Will determine if a commit is found in the performance json files."""
         if not isinstance(json_objs, list):
@@ -252,7 +253,6 @@ class PerformanceDataJsonParser():
         with open(file_name, 'r') as fid:
             json_objs = json.load(fid)
 
-            recent_datetime = None
             for json_obj in json_objs:
                 if json_obj.get('commit sha') == commit_sha:
                     if json_obj.get('branch') == branch:
