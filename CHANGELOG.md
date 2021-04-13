@@ -12,6 +12,7 @@
 ### Infrastructure (changes irrelevant to downstream codes)
 
 ### Removed (removing behavior/API/varaibles/...)
+- [[PR 481]](https://github.com/lanl/parthenon/pull/481) Cleanup unused/untested/not fully ported code (mostly OpenMP and reconstruction)
 
 
 ## Release 0.5.0

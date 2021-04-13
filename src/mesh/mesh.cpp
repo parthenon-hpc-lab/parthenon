@@ -1049,14 +1049,10 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin, ApplicationInput *app_i
   Kokkos::Profiling::pushRegion("Mesh::Initialize");
   bool iflag = true;
   int inb = nbtotal;
-#ifdef OPENMP_PARALLEL
-  int nthreads = GetNumMeshThreads();
-#endif
   do {
     int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
 
     if (res_flag == 0) {
-#pragma omp parallel for num_threads(nthreads)
       for (int i = 0; i < nmb; ++i) {
         auto &pmb = block_list[i];
         pmb->ProblemGenerator(pmb.get(), pin);
@@ -1065,7 +1061,6 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin, ApplicationInput *app_i
 
     int call = 0;
     // Create send/recv MPI_Requests for all BoundaryData objects
-#pragma omp parallel for num_threads(nthreads)
     for (int i = 0; i < nmb; ++i) {
       auto &pmb = block_list[i];
       // BoundaryVariable objects evolved in main TimeIntegratorTaskList:
@@ -1074,35 +1069,29 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin, ApplicationInput *app_i
     }
     call++; // 1
 
-#pragma omp parallel num_threads(nthreads)
     {
       // prepare to receive conserved variables
-#pragma omp for
       for (int i = 0; i < nmb; ++i) {
         block_list[i]->meshblock_data.Get()->StartReceiving(
             BoundaryCommSubset::mesh_init);
       }
       call++; // 2
               // send conserved variables
-#pragma omp for
       for (int i = 0; i < nmb; ++i) {
         block_list[i]->meshblock_data.Get()->SendBoundaryBuffers();
       }
       call++; // 3
 
       // wait to receive conserved variables
-#pragma omp for
       for (int i = 0; i < nmb; ++i) {
         block_list[i]->meshblock_data.Get()->ReceiveAndSetBoundariesWithWait();
       }
       call++; // 4
-#pragma omp for
       for (int i = 0; i < nmb; ++i) {
         block_list[i]->meshblock_data.Get()->ClearBoundary(BoundaryCommSubset::mesh_init);
       }
       call++;
       // Now do prolongation, compute primitives, apply BCs
-#pragma omp for
       for (int i = 0; i < nmb; ++i) {
         auto &pmb = block_list[i];
         if (multilevel) {
@@ -1120,7 +1109,6 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin, ApplicationInput *app_i
       }
 
       if (!res_flag && adaptive) {
-#pragma omp for
         for (int i = 0; i < nmb; ++i) {
           block_list[i]->pmr->CheckRefinementCondition();
         }
