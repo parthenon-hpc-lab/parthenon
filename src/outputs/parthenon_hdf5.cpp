@@ -22,6 +22,11 @@
 // Only proceed if HDF5 output enabled
 #ifdef HDF5OUTPUT
 
+#include <algorithm>
+#include <memory>
+#include <set>
+#include <unordered_map>
+
 #include "mesh/meshblock.hpp"
 #include "outputs/parthenon_hdf5.hpp"
 
@@ -59,19 +64,15 @@ struct VarInfo {
     return res;
   }
 
-  explicit VarInfo(const std::shared_ptr<CellVariable<Real>> &var) {
-    label = var->label();
-    vlen = var->GetDim(4);
-
+  explicit VarInfo(const std::shared_ptr<CellVariable<Real>> &var)
+      : label(var->label()), vlen(var->GetDim(4)), is_sparse(var->IsSparse()),
+        is_vector(var->IsSet(Metadata::Vector)) {
     if ((vlen <= 0) || (vlen > max_vlen)) {
       std::stringstream msg;
       msg << "### ERROR: Got variable " << label << " with length " << vlen
           << ". vlen must be between 0 and " << max_vlen << std::endl;
       PARTHENON_FAIL(msg);
     }
-
-    is_sparse = var->IsSparse();
-    is_vector = var->IsSet(Metadata::Vector);
   }
 
   int get_info_code() const {
@@ -643,8 +644,8 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     // all ranks, 2 ints per rank: first int: label_buffer length, second int:
     // vlen_buffer length
     std::vector<int> buffer_lengths(2 * Globals::nranks, 0);
-    buffer_lengths[Globals::my_rank * 2 + 0] = int(label_buffer.size());
-    buffer_lengths[Globals::my_rank * 2 + 1] = int(code_buffer.size());
+    buffer_lengths[Globals::my_rank * 2 + 0] = static_cast<int>(label_buffer.size());
+    buffer_lengths[Globals::my_rank * 2 + 1] = static_cast<int>(code_buffer.size());
 
     PARTHENON_MPI_CHECK(MPI_Allgather(MPI_IN_PLACE, 2, MPI_INT, buffer_lengths.data(), 2,
                                       MPI_INT, MPI_COMM_WORLD));
@@ -864,7 +865,7 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     // variable, so we don't need to write a buffer of all 0's.
     if (found_any) {
       // write dataset to file
-      // TODO select H5T_NATIVE_DOUBLE based on Real type
+      // TODO(jlippuner) select H5T_NATIVE_DOUBLE based on Real type
       const H5D gDSet = H5D::FromHIDCheck(
           H5Dcreate(file, vWriteName.c_str(), H5T_NATIVE_DOUBLE, vGlobalSpace,
                     H5P_DEFAULT, pl_dcreate, H5P_DEFAULT));
