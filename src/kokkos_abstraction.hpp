@@ -182,7 +182,7 @@ par_dispatch(LoopPatternMDRange, const std::string &name, DevExecSpace exec_spac
   kokkos_dispatch(
       tag, name,
       Kokkos::Experimental::require(
-          Kokkos::MDRangePolicy<Kokkos::Rank<2>>(exec_space, {jl, il}, {ju + 1, iu + 1}),
+          Kokkos::MDRangePolicy<Kokkos::Rank<2>>(exec_space, {jl, il}, {ju + 1, iu + 1}, {1, iu + 1 - il}),
           Kokkos::Experimental::WorkItemProperty::HintLightWeight),
       function, std::forward<Args>(args)...);
 }
@@ -225,7 +225,7 @@ par_dispatch(LoopPatternMDRange, const std::string &name, DevExecSpace exec_spac
   kokkos_dispatch(tag, name,
                   Kokkos::Experimental::require(
                       Kokkos::MDRangePolicy<Kokkos::Rank<3>>(exec_space, {kl, jl, il},
-                                                             {ku + 1, ju + 1, iu + 1}),
+                                                             {ku + 1, ju + 1, iu + 1}, {1,1,iu + 1 - il}),
                       Kokkos::Experimental::WorkItemProperty::HintLightWeight),
                   function, std::forward<Args>(args)...);
 }
@@ -347,7 +347,7 @@ par_dispatch(LoopPatternMDRange, const std::string &name, DevExecSpace exec_spac
   kokkos_dispatch(tag, name,
                   Kokkos::Experimental::require(
                       Kokkos::MDRangePolicy<Kokkos::Rank<4>>(
-                          exec_space, {nl, kl, jl, il}, {nu + 1, ku + 1, ju + 1, iu + 1}),
+                          exec_space, {nl, kl, jl, il}, {nu + 1, ku + 1, ju + 1, iu + 1}, {1,1,1,iu+1-il}),
                       Kokkos::Experimental::WorkItemProperty::HintLightWeight),
                   function, std::forward<Args>(args)...);
 }
@@ -452,7 +452,7 @@ par_dispatch(LoopPatternMDRange, const std::string &name, DevExecSpace exec_spac
       tag, name,
       Kokkos::Experimental::require(
           Kokkos::MDRangePolicy<Kokkos::Rank<5>>(
-              exec_space, {ml, nl, kl, jl, il}, {mu + 1, nu + 1, ku + 1, ju + 1, iu + 1}),
+              exec_space, {ml, nl, kl, jl, il}, {mu + 1, nu + 1, ku + 1, ju + 1, iu + 1}, {1,1,1,1,iu + 1 - il}),
           Kokkos::Experimental::WorkItemProperty::HintLightWeight),
       function, std::forward<Args>(args)...);
 }

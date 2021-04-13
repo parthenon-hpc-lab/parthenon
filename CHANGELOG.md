@@ -8,6 +8,7 @@
 ### Changed (changing behavior/API/variables/...)
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 487]](https://github.com/lanl/parthenon/pull/487) Add default tiling matching `i` index range to MDRange loop pattern.
 
 ### Infrastructure (changes irrelevant to downstream codes)
 
