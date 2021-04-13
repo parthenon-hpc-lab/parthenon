@@ -30,10 +30,6 @@
 #include "defs.hpp"
 #include "outputs/io_wrapper.hpp"
 
-#ifdef OPENMP_PARALLEL
-#include <omp.h>
-#endif
-
 namespace parthenon {
 
 //----------------------------------------------------------------------------------------
@@ -123,14 +119,6 @@ class ParameterInput {
                  std::string &comment);
   void AddParameter(InputBlock *pib, const std::string &name, const std::string &value,
                     const std::string &comment);
-
-  // thread safety
-#ifdef OPENMP_PARALLEL
-  omp_lock_t lock_;
-#endif
-
-  void Lock();
-  void Unlock();
 };
 } // namespace parthenon
 #endif // PARAMETER_INPUT_HPP_
