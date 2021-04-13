@@ -35,11 +35,6 @@
 #include "outputs/outputs.hpp"
 #include "parthenon_arrays.hpp"
 
-// NEW_OUTPUT_TYPES:
-
-// "3" for 1-KE, 2-KE, 3-KE additional columns (come before tot-E)
-#define NHISTORY_VARS ((NFIELD) + 3)
-
 namespace parthenon {
 
 //----------------------------------------------------------------------------------------
