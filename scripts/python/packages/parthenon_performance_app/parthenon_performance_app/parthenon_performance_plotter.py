@@ -79,6 +79,8 @@ class PerformanceMetricsPlotter():
         p[0].set_ylabel("zone-cycles/s")
         p[1].set_ylabel("normalized overhead")
         p[1].set_xlabel("Meshblock size")
+
+        fig.suptitle(self._test_dir, fontsize=16)
         fig.savefig(figure_path_name, bbox_inches='tight')
 
     def _plotTargetBranchDataVsCurrentBranchData(self, figure_path_name):
@@ -119,10 +121,10 @@ class PerformanceMetricsPlotter():
 
         The figure_path is where the figure will be saved too, if the target branch is the same as
         the current branch then metrics associated with previous commits from the same branch will
-        be plotted. 
+        be plotted.
 
         If the target and current branch are different then the latest commits from both will be
-        plotted 
+        plotted
         """
         if self._target_branch == self._current_branch:
             self._plotDataFromPreviousCommitsFromSameBranch(
