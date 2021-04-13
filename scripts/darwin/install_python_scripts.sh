@@ -31,5 +31,8 @@ cd "$PARTHENON_DIR/scripts/python/packages/parthenon_tools"
 # Dependencies should be handled by spack
 pip install . --no-dependencies --target="${PYTHON_SCRIPTS_DIR}"
 
+"${PYTHON_SCRIPTS_DIR}/bin/parthenon_metrics_app.py" --status "pending" --status-context "Parthenon Metrics App" --status-description "Caching parthenon repo path." --status-url "${CI_JOB_URL}"
+
+
 # Cache repository path, so that the app knows where the repo is
 "${PYTHON_SCRIPTS_DIR}/bin/parthenon_metrics_app.py" --repository-path "$PARTHENON_DIR"
