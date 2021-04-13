@@ -31,17 +31,17 @@ Parthenon allows packages to enroll an arbitrary number of "history" functions t
 called at the interval according to the input parameters,
 see [output documention](../outputs.md#History-Files).
 
-To entroll functions create a list of callback function with the appropriate reduction operation:
+To enroll functions create a list of callback function with the appropriate reduction operation:
 
 ```c++
 // List (vector) of HistoryOutputVar that will all be enrolled as output variables
 parthenon::HstVar_list hst_vars = {};
 
 // Add a callback function
-hst_vars.emplace_back(parthenon::HistoryOutputVar({UserHistoryOperation::sum, MyHstFunction, "my label"}));
+hst_vars.emplace_back(parthenon::HistoryOutputVar(UserHistoryOperation::sum, MyHstFunction, "my label"));
 
-// add callbacks for HST output identified by the `hist_str`
-pkg->AddParam<>(parthenon::hist_str, hst_vars);
+// add callbacks for HST output identified by the `hist_param_key`
+pkg->AddParam<>(parthenon::hist_param_key, hst_vars);
 ```
 
 Here, `HistoryOutputVar` is a `struct` containing the global (over all blocks of all ranks) reduction operation, `MyHstFunction` is a callback function (see below), and `"my label"` is the string to

@@ -179,17 +179,17 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   // In other words, it's independent of the history machinery itself and just controls
   // the behavior of the AdvectionHst example.
   hst_vars.emplace_back(parthenon::HistoryOutputVar(
-      {UserHistoryOperation::sum, AdvectionHst<Kokkos::Sum<Real, DevExecSpace>>,
-       "total_advected"}));
+      UserHistoryOperation::sum, AdvectionHst<Kokkos::Sum<Real, DevExecSpace>>,
+      "total_advected"));
   hst_vars.emplace_back(parthenon::HistoryOutputVar(
-      {UserHistoryOperation::max, AdvectionHst<Kokkos::Max<Real, DevExecSpace>>,
-       "max_advected"}));
+      UserHistoryOperation::max, AdvectionHst<Kokkos::Max<Real, DevExecSpace>>,
+      "max_advected"));
   hst_vars.emplace_back(parthenon::HistoryOutputVar(
-      {UserHistoryOperation::min, AdvectionHst<Kokkos::Min<Real, DevExecSpace>>,
-       "min_advected"}));
+      UserHistoryOperation::min, AdvectionHst<Kokkos::Min<Real, DevExecSpace>>,
+      "min_advected"));
 
-  // add callbacks for HST output identified by the `hist_str`
-  pkg->AddParam<>(parthenon::hist_str, hst_vars);
+  // add callbacks for HST output identified by the `hist_param_key`
+  pkg->AddParam<>(parthenon::hist_param_key, hst_vars);
 
   pkg->FillDerivedBlock = SquareIt;
   pkg->CheckRefinementBlock = CheckRefinement;
@@ -305,8 +305,7 @@ void PostFill(MeshBlockData<Real> *rc) {
 // either Kokkos::Sum, Kokkos::Min, or Kokkos::Max.
 template <typename T>
 Real AdvectionHst(MeshData<Real> *md) {
-  auto hydro_pkg =
-      md->GetBlockData(0)->GetBlockPointer()->packages.Get("advection_package");
+  auto pmb = md->GetBlockData(0)->GetBlockPointer();
 
   // Packing variable over MeshBlock as the function is called for MeshData, i.e., a
   // collection of blocks
@@ -324,12 +323,8 @@ Real AdvectionHst(MeshData<Real> *md) {
   // weighting needs to be applied in the reduction region.
   bool volume_weighting = std::is_same<T, Kokkos::Sum<Real, DevExecSpace>>::value;
 
-  Kokkos::parallel_reduce(
-      "HydroHst",
-      Kokkos::MDRangePolicy<Kokkos::Rank<4>>(
-          DevExecSpace(), {0, kb.s, jb.s, ib.s},
-          {advected_pack.GetDim(5), kb.e + 1, jb.e + 1, ib.e + 1},
-          {1, 1, 1, ib.e + 1 - ib.s}),
+  pmb->par_reduce(
+      "HydroHst", 0, advected_pack.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lresult) {
         const auto &coords = advected_pack.coords(b);
         // `join` is a function of the Kokkos::ReducerConecpt that allows to use the same

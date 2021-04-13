@@ -136,11 +136,14 @@ struct HistoryOutputVar {
   UserHistoryOperation hst_op; // Reduction operation
   HstFun_t hst_fun;            // Function to be called
   std::string label;           // column label in hst output file
+  HistoryOutputVar(const UserHistoryOperation &hst_op_, const HstFun_t &hst_fun_,
+                   const std::string &label_)
+      : hst_op(hst_op_), hst_fun(hst_fun_), label(label_) {}
 };
 
 using HstVar_list = std::vector<HistoryOutputVar>;
 // Hardcoded global entry to be used by each package to enroll user output functions
-const char hist_str[] = "HistoryFunctions";
+const char hist_param_key[] = "HistoryFunctions";
 
 //----------------------------------------------------------------------------------------
 //! \class HistoryFile

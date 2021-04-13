@@ -50,12 +50,12 @@ void HistoryOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
   // Loop over all packages of the application
   for (const auto &pkg : pm->packages.AllPackages()) {
     // Check if the package has enrolled functions which are stored in the
-    // Params under the `hist_str` name.
+    // Params under the `hist_param_key` name.
     const auto &params = pkg.second->AllParams();
-    if (!params.hasKey(hist_str)) {
+    if (!params.hasKey(hist_param_key)) {
       continue;
     }
-    auto hist_vars = params.Get<HstVar_list>(hist_str);
+    auto hist_vars = params.Get<HstVar_list>(hist_param_key);
 
     for (auto &hist_var : hist_vars) {
       // Get "base" MeshData, which always exists but may not be populated yet
