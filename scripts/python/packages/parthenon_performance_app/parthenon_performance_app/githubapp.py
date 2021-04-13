@@ -33,9 +33,10 @@ class Node:
     """Class used to store branch contents in terms of files, directories or misc"""
 
     def __init__(self, dir_name="", rel_path=""):
-        """Creating a Node object
+        """
+        Creating a Node object
 
-        dir_name is the name of the directory the node contains information about 
+        dir_name is the name of the directory the node contains information about
         rel_path is the actual path to the directory
         """
 
@@ -46,7 +47,8 @@ class Node:
         self.rel_path = rel_path + dir_name
 
     def insert(self, content, content_type):
-        """Record the contents of a directory by inserting it
+        """
+        Record the contents of a directory by inserting it
 
         Will either store new information as a file, directory or misc type.
         If the content type is of type dir than a new node is created.
@@ -126,13 +128,14 @@ class GitHubApp:
     def initialize(self, use_wiki=False, ignore=False,
                    pem_file="", create_branch=False,
                    path_to_repo=None):
-        """Sets basic properties of the app should be called before any other methods
+        """
+        Sets basic properties of the app should be called before any other methods
 
         use_wiki - determines if by default commands will refer to the wiki repository
         create_branch - determines if you are giving the application the ability to create new
         branches
         pem_file - this is the authentication file needed to do anything with the github api.
-        ignore - if this is set to true than images will not be uploaded to a seperate figures 
+        ignore - if this is set to true than images will not be uploaded to a seperate figures
         branch on the main repository. By default binary files are uploaded to a orphan branch so
         as to prevent bloatting the commit history.
 
@@ -206,8 +209,12 @@ class GitHubApp:
         self._generateAccessToken()
 
     def _generateJWT(self, pem_file):
-        """Method will take the permissions (.pem) file provided and populate the json web token
-        attribute"""
+        """
+        Generates Json web token
+
+        Method will take the permissions (.pem) file provided and populate the json web token
+        attribute
+        """
         # iss is the app id
         # Ensuring that we request an access token that expires after a minute
         payload = {
@@ -259,8 +266,12 @@ class GitHubApp:
         return json.loads(buffer_temp.getvalue())
 
     def _generateInstallationId(self):
-        """This method will populate the installation id attribute using the internally stored json
-        web token."""
+        """
+        Generate an installation id
+
+        This method will populate the installation id attribute using the internally stored json
+        web token.
+        """
         header = [
             'Authorization: Bearer ' + str(self._jwt_token),
             'Accept: ' + self._api_version
@@ -276,7 +287,10 @@ class GitHubApp:
         self._install_id = js_obj['html_url'].rsplit('/', 1)[-1]
 
     def _generateAccessToken(self):
-        """This method will populate the installation attribute using the installation id. The token
+        """
+        Creates an access token
+
+        This method will populate the installation attribute using the installation id. The token
         is needed to authenticate any actions run by the application.
         """
         header = [
@@ -300,7 +314,10 @@ class GitHubApp:
         ]
 
     def _fillTree(self, current_node, branch):
-        """This is an internal method that is meant to be used recursively to grab the contents of a
+        """
+        Creates a content tree of the branch
+
+        This is an internal method that is meant to be used recursively to grab the contents of a
         branch of a remote repository.
         """
         nodes = current_node.getNodes()
@@ -353,7 +370,10 @@ class GitHubApp:
     # Public Methods
 
     def getBranches(self):
-        """This method will check to see if branches have already been collected from the github
+        """
+        Gets the branches of the repository
+
+        This method will check to see if branches have already been collected from the github
         RESTful api. If the branch tree has not been collected it will update the branches
         attribute.
         """
@@ -369,8 +389,11 @@ class GitHubApp:
         return self._branch_current_commit_sha.get(target_branch)
 
     def branchExist(self, branch):
-        """This method will determine if a branch exists on the github repository by pinging the
-        github api
+        """
+        Determine if branch exists
+
+        This method will determine if a branch exists on the github repository by pinging the
+        github api.
         """
         return branch in self.getBranches()
 
@@ -385,10 +408,11 @@ class GitHubApp:
 
     def createBranch(self, branch, branch_to_fork_from=None):
         """
-        Will create a branch if it does not already exists, if the branch does exist
-        will do nothing,
+        Creates a git branch
 
-        The new branch will be created by forking it of the latest commit of the default branch
+        Will create a branch if it does not already exists, if the branch does exist
+        will do nothing. The new branch will be created by forking it of the latest
+        commit of the default branch
         """
         if branch_to_fork_from is None:
             branch_to_fork_from = self._default_branch
@@ -410,12 +434,13 @@ class GitHubApp:
 
     def getContents(self, branch=None):
         """
+        Returns the contents of a branch
+
         Returns the contents of a branch as a dictionary, where the key is the content and the value
         is the sha of the file/folder etc.
         """
         if branch is None:
             branch = self._default_branch
-        buffer_temp = BytesIO()
         # 1. Check if file exists if so get SHA
         js_obj = self._PYCURL(
             self._header,
@@ -523,6 +548,8 @@ class GitHubApp:
 
     def getBranchTree(self, branch):
         """
+        Gets the contents of a branch as a tree
+
         Method will grab the contents of the specified branch from the remote repository. It will
         return the contents as a tree object.
         """
@@ -539,8 +566,12 @@ class GitHubApp:
         self._fillTree(self._parth_root, branch)
 
     def cloneWikiRepo(self):
-        """Will clone the wiki repository if it does not exist, if it does exist it will update the
-        access permissions by updating the wiki remote url. The repository is then returned"""
+        """
+        Clone a git repo
+
+        Will clone the wiki repository if it does not exist, if it does exist it will update the
+        access permissions by updating the wiki remote url. The repository is then returned.
+        """
         wiki_remote = "https://x-access-token:" + \
             str(self._access_token) + "@github.com/" + \
             self._user + "/" + self._repo_name + ".wiki.git"
@@ -557,6 +588,8 @@ class GitHubApp:
 
     def getWikiRepo(self, branch):
         """
+        Get the git wiki repo
+
         The github api has only limited supported for interacting with the github wiki, as such the best
         way to do this is to actually clone the github repository and interact with the git repo
         directly. This method will clone the repository if it does not exist. It will then return a
