@@ -76,13 +76,13 @@ class PerformanceDataJsonParser():
 
         dat_list = self._data if isinstance(self._data, list) else [self._data]
         for json_obj in dat_list:
-            if self._add_to_json_obj(json_obj, new_data):
+            if self._add_mesh_blocks_and_zone_cycles(json_obj, new_data):
                 return
 
         # Cycle the outer list first
         if isinstance(self._data, list):
             for json_obj in self._data:
-                if self._add_to_json_obj(json_obj, new_data):
+                if self._add_mesh_blocks_and_zone_cycles(json_obj, new_data):
                     return
         else:
             if isinstance(new_data, list):
@@ -251,9 +251,6 @@ class PerformanceDataJsonParser():
             return False
         with open(file_name, 'r') as fid:
             json_objs = json.load(fid)
-
-            mesh_blocks = None
-            cycles = None
 
             recent_datetime = None
             for json_obj in json_objs:
