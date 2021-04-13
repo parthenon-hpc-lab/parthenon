@@ -27,7 +27,7 @@ class PerformanceMetricsPlotter():
                  target_data_file_exists,
                  target_meshblocks,
                  target_cycles):
-
+        """Creates figures that display performance metrics."""
         self._number_commits_to_plot = number_commits_to_plot
         self._test_dir = test_dir
         self._current_branch = current_branch
@@ -121,10 +121,8 @@ class PerformanceMetricsPlotter():
 
         The figure_path is where the figure will be saved too, if the target branch is the same as
         the current branch then metrics associated with previous commits from the same branch will
-        be plotted.
-
-        If the target and current branch are different then the latest commits from both will be
-        plotted
+        be plotted. If the target and current branch are different then the latest commits from
+        both will be plotted.
         """
         if self._target_branch == self._current_branch:
             self._plotDataFromPreviousCommitsFromSameBranch(

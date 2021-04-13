@@ -108,11 +108,11 @@ class ParthenonApp(parthenon_performance_app.githubapp.GitHubApp):
         This method will analayze the output of test performance regression metrics
 
         The output from each test will be used to create a figure demonstrating the
-        performance. The output will then be recorded in the json formatted performance 
+        performance. The output will then be recorded in the json formatted performance
         metrics file stored in the wiki. Each branch has it's own performance metrics file.
         The performance metrics from the latest commit of the target branch (the branch to
-        be merged into) are read in and plotted alongside the current metrics. 
-        The figures depecting the performance are then uploaded to a orphan branch named figures. 
+        be merged into) are read in and plotted alongside the current metrics.
+        The figures depecting the performance are then uploaded to a orphan branch named figures.
         Links to the figures are created in a markdown file stored on the wiki which is
         also uploaded.
 
@@ -158,7 +158,7 @@ class ParthenonApp(parthenon_performance_app.githubapp.GitHubApp):
                 test_dir = str(test_dir)
             if test_dir == "advection_performance":
 
-                figure_url, png_file, figure_name = \
+                figure_url, png_file, _ = \
                     self._createFigureURLPathAndName(
                         test_dir, current_branch, target_branch)
 

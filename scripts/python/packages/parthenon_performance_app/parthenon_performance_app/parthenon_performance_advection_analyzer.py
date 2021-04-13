@@ -21,10 +21,11 @@ from parthenon_performance_app.parthenon_performance_plotter import PerformanceM
 
 class AdvectionAnalyser():
     def __init__(self, create_figures):
+        """Creates analyzser, which will check for performance regression and created figures."""
         self._create_figures = create_figures
 
     def readPerformanceMetricsTXT(self, file_path):
-        """Will read the performance metrics of a .txt file that is output from one of the tests"""
+        """Will read the performance metrics of a .txt file that is output from one of the tests."""
         mesh_blocks = np.zeros(1)
         zone_cycles = np.zeros(1)
         with open(file_path, 'r') as reader:

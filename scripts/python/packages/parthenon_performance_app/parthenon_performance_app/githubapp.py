@@ -29,9 +29,7 @@ import git
 
 
 class Node:
-
     """Class used to store branch contents in terms of files, directories or misc"""
-
     def __init__(self, dir_name="", rel_path=""):
         """
         Creating a Node object
@@ -61,8 +59,7 @@ class Node:
             self.files.append(content)
 
     def getNodes(self):
-        """Returns a list of all nodes in the current node, which are essentially
-        directories."""
+        """Returns a list of all nodes in the current node, which are essentially directories."""
         return self.dirs
 
     def getPath(self):
@@ -70,7 +67,7 @@ class Node:
         return self.rel_path
 
     def printTree(self):
-        """Print contents of node and all child nodes"""
+        """Print contents of node and all child nodes."""
         self._log.info("Contents in folder: " + self.rel_path)
         for fil in self.files:
             self._log.info("File " + fil)
@@ -322,7 +319,6 @@ class GitHubApp:
         """
         nodes = current_node.getNodes()
         for node in nodes:
-            custom_data = {"branch": branch}
 
             js_obj = self._PYCURL(self._header,
                                   self._repo_url + "/contents/" + node.getPath(),
@@ -338,7 +334,6 @@ class GitHubApp:
 
     def _getBranches(self):
         """Internal method for getting a list of the branches that are available on github."""
-
         page_found = True
         page_index = 1
         self._branches = []
@@ -383,7 +378,7 @@ class GitHubApp:
         return self._branches
 
     def getLatestCommitSha(self, target_branch):
-        """Does what it says gets the latest commit sha for the taget_branch"""
+        """Does what it says gets the latest commit sha for the taget_branch."""
         if not self._branches:
             self._getBranches()
         return self._branch_current_commit_sha.get(target_branch)

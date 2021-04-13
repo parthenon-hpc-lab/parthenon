@@ -20,7 +20,6 @@ with open('README.md','r') as f:
 
 setup(
     name='parthenon_performance_app',
-    version=__version__,
     description='Parthenon metrics application for checking for performance regressions',
     long_description=long_description,
     url='https://github.com/lanl/parthenon/tree/develop/scripts/python/packages/parthenon_performance_app',

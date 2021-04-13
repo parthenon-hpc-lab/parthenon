@@ -20,14 +20,12 @@ import numpy as np
 
 
 class PerformanceDataJsonParser():
-
     """
     PerformanceDataJsonParser
 
     This class is responsible for reading performance data from json files. Including
     metadata associated with each test.
     """
-
     def _containsCommit(self, json_objs, value):
         """Will determine if a commit is found in the performance json files."""
         if not isinstance(json_objs, list):
@@ -40,17 +38,18 @@ class PerformanceDataJsonParser():
         return False
 
     def _add_to_json_obj(self, new_data):
-        """json data should be of the following form:
+        """
+        json data should be of the following form:
 
-            Where there are blocks of data in a list with the content below
+        Where there are blocks of data in a list with the content below
 
-                    'commit sha': commit_sha,
-                    'branch': current_branch,
-                    'date': now.strftime("%Y-%m-%d %H:%M:%S"),
-                    'data':[{
-                      'test': dir,
-                      'mesh_blocks': mesh_blocks,
-                      'zone_cycles': zone_cycles}]
+                'commit sha': commit_sha,
+                'branch': current_branch,
+                'date': now.strftime("%Y-%m-%d %H:%M:%S"),
+                'data':[{
+                  'test': dir,
+                  'mesh_blocks': mesh_blocks,
+                  'zone_cycles': zone_cycles}]
         """
         if isinstance(new_data, list):
             if len(new_data) == 1:
@@ -143,7 +142,7 @@ class PerformanceDataJsonParser():
         return None
 
     def getData(self, file_name):
-        """Will read data from a performance file into json formated objected"""
+        """Will read data from a performance file into json formated objected."""
         if os.path.isfile(file_name):
             # If does exist:
             # 1. load the
@@ -153,7 +152,8 @@ class PerformanceDataJsonParser():
         return None
 
     def getMostRecentPerformanceData(self, file_name, branch, test):
-        """Will parse a performance .json file and get the latest metrics.
+        """
+        Will parse a performance .json file and get the latest metrics.
 
         file_name - file where the data is stored
         branch - is the branch we are trying to get performance metrics for
@@ -201,7 +201,8 @@ class PerformanceDataJsonParser():
         return None
 
     def append(self, new_data, file_name):
-        """Append new data to a performance .json file.
+        """
+        Append new data to a performance .json file.
 
         Will overwrite old data if the commit already exists in the file.
         """
@@ -232,11 +233,11 @@ class PerformanceDataJsonParser():
         return len(self._data)
 
     def getCyclesAt(self, commit_index, test):
-        """Returns the number of cycles for a particular test associated with a commit"""
+        """Returns the number of cycles for a particular test associated with a commit."""
         return self._getMeshBlocksOrCyclesAt("cycles", commit_index, test)
 
     def getMeshBlocksAt(self, commit_index, test):
-        """Returns the number of mesh blocks for a particular test associated with a commit"""
+        """Returns the number of mesh blocks for a particular test associated with a commit."""
         return self._getMeshBlocksOrCyclesAt("mesh_blocks", commit_index, test)
 
     def getCommitShaAt(self, commit_index, test):
@@ -250,7 +251,7 @@ class PerformanceDataJsonParser():
         return None
 
     def checkDataUpToDate(self, file_name, branch, commit_sha, test):
-        """Checks to see if performance metrics exist for the commit and test specefied"""
+        """Checks to see if performance metrics exist for the commit and test specefied."""
         if not os.path.isfile(file_name):
             return False
         if os.stat(file_name).st_size == 0:

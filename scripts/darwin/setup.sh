@@ -25,9 +25,9 @@ catch() {
   "${METRICS_APP}" --status "error" --status-context "Parthenon Metrics App" --status-description "CI failed" --status-url "${CI_JOB_URL}"
   wait
   echo "BUILD FAILED"
-  # For some reason the ERR variable is not recongized as a numeric type when quoted, 
+  # For some reason the ERR variable is not recongized as a numeric type when quoted,
   # exit requires err be recognized as a numeric type, furthermore the quotes
   # are needed as good practice
-  exit "$(($ERR))"
+  exit "$((ERR))"
 }
 
