@@ -37,6 +37,23 @@ class PerformanceDataJsonParser():
 
         return False
 
+
+    def _add_mesh_blocks_and_zone_cycles(self, json_obj, new_data):
+        if json_obj.get('commit sha') == new_data.get('commit sha'):
+            for data_grp in json_obj.get('data'):
+                for data_grp2 in new_data.get('data'):
+                    if data_grp.get('test') == new_data.get('test'):
+                        # Overwrite the existing content with the new content
+                        data_grp['mesh_blocks'] = copy.deepcopy(
+                            data_grp2.get('mesh_blocks'))
+                        data_grp['zone_cycles'] = copy.deepcopy(
+                            data_grp2.get('zone_cycles'))
+            return True
+        else:
+            # Then the test was not found so we are going to append to it
+            json_obj['data'].append(new_data['data'])
+            return False
+
     def _add_to_json_obj(self, new_data):
         """
         json data should be of the following form:
@@ -59,38 +76,14 @@ class PerformanceDataJsonParser():
 
         dat_list = self._data if isinstance(self._data, list) else [self._data]
         for json_obj in dat_list:
-            if json_obj.get('commit sha') == new_data.get('commit sha'):
-                for data_grp in json_obj.get('data'):
-                    for data_grp2 in new_data.get('data'):
-                        if data_grp.get('test') == new_data.get('test'):
-                            # Overwrite the existing content with the new content
-                            data_grp['mesh_blocks'] = copy.deepcopy(
-                                data_grp2.get('mesh_blocks'))
-                            data_grp['zone_cycles'] = copy.deepcopy(
-                                data_grp2.get('zone_cycles'))
+            if self._add_to_json_obj(json_obj, new_data):
                 return
-            else:
-                # Then the test was not found so we are going to append to it
-                json_obj['data'].append(new_data['data'])
 
         # Cycle the outer list first
         if isinstance(self._data, list):
             for json_obj in self._data:
-                if json_obj.get('commit sha') == new_data.get('commit sha'):
-                    for data_grp in json_obj.get('data'):
-                        for data_grp2 in new_data.get('data'):
-                            if data_grp.get('test') == new_data.get('test'):
-                                # Overwrite the existing content with the new
-                                # content
-                                data_grp['mesh_blocks'] = copy.deepcopy(
-                                    data_grp2.get('mesh_blocks'))
-                                data_grp['zone_cycles'] = copy.deepcopy(
-                                    data_grp2.get('zone_cycles'))
+                if self._add_to_json_obj(json_obj, new_data):
                     return
-                else:
-                    # Then the test was not found so we are going to append to
-                    # it
-                    json_obj['data'].append(new_data['data'])
         else:
             if isinstance(new_data, list):
                 if len(new_data) == 1:
@@ -251,7 +244,7 @@ class PerformanceDataJsonParser():
         return None
 
     def checkDataUpToDate(self, file_name, branch, commit_sha, test):
-        """Checks to see if performance metrics exist for the commit and test specefied."""
+        """Checks to see if performance metrics exist for the commit and test specified."""
         if not os.path.isfile(file_name):
             return False
         if os.stat(file_name).st_size == 0:
@@ -264,16 +257,10 @@ class PerformanceDataJsonParser():
 
             recent_datetime = None
             for json_obj in json_objs:
-                new_datetime = datetime.datetime.strptime(
-                    json_obj.get('date'), '%Y-%m-%d %H:%M:%S')
-                if recent_datetime is None:
-                    recent_datetime = new_datetime
-                    mesh_blocks, cycles = self._getCyclesAndMeshblocks(
-                        json_obj, test)
+                if json_obj.get('commit sha') == commit_sha:
+                    if json_obj.get('branch') == branch:
+                        for data_grp in json_obj.get('data'):
+                            if data_grp.get('test') == test:
+                                return True
 
-                if new_datetime > recent_datetime:
-                    recent_datetime = new_datetime
-                    mesh_blocks, cycles = self._getCyclesAndMeshblocks(
-                        json_obj, test)
-
-            return mesh_blocks, cycles
+        return False
