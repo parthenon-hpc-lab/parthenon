@@ -270,8 +270,17 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
       for (auto &v : cX.vars) {
         if (vName.compare(v->label()) == 0) {
           auto v_h = v->data.GetHostMirror();
-          UNLOADVARIABLEONE(index, tmp, v_h, out_ib.s, out_ib.e, out_jb.s, out_jb.e,
-                            out_kb.s, out_kb.e, v4);
+
+          for (int k = out_kb.s; k <= out_kb.e; ++k) {
+            for (int j = out_jb.s; j <= out_jb.e; ++j) {
+              for (int i = out_ib.s; i <= out_ib.e; ++i) {
+                for (int l = 0; l < vlen; ++l) {
+                  v_h(l, k, j, i) = tmp[index++];
+                }
+              }
+            }
+          }
+
           v->data.DeepCopy(v_h);
           found = true;
           break;

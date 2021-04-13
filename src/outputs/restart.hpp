@@ -24,7 +24,11 @@
 #include <vector>
 
 #include "outputs/parthenon_hdf5.hpp"
+
 namespace parthenon {
+
+using namespace HDF5;
+
 class Mesh;
 
 class RestartReader {
@@ -57,7 +61,7 @@ class RestartReader {
       T *data = dataVec.data();
 
       // compute block size, probaby could cache this.
-      hid_t const theHdfType = getHdfType(data);
+      hid_t const theHdfType = getHDF5Type(data);
 
       H5D const dataset = H5D::FromHIDCheck(H5Dopen2(fh_, name, H5P_DEFAULT));
       H5S const dataspace = H5S::FromHIDCheck(H5Dget_space(dataset));
@@ -96,7 +100,7 @@ class RestartReader {
     // status, never checked.  We should...
 #ifdef HDF5OUTPUT
     T *typepointer = nullptr;
-    hid_t const theHdfType = getHdfType(typepointer);
+    hid_t const theHdfType = getHDF5Type(typepointer);
 
     H5D const dataset = H5D::FromHIDCheck(H5Dopen2(fh_, name, H5P_DEFAULT));
     H5S const dataspace = H5S::FromHIDCheck(H5Dget_space(dataset));
@@ -170,7 +174,7 @@ class RestartReader {
     // status, never checked.  We should...
 #ifdef HDF5OUTPUT
     T *typepointer = nullptr;
-    hid_t const theHdfType = getHdfType(typepointer);
+    hid_t const theHdfType = getHDF5Type(typepointer);
 
     H5D const dset = H5D::FromHIDCheck(H5Dopen2(fh_, dataset, H5P_DEFAULT));
     H5A const attr = H5A::FromHIDCheck(H5Aopen(dset, name, H5P_DEFAULT));
