@@ -244,12 +244,15 @@ class GitHubApp:
         c.setopt(c.HTTPHEADER, header)
         if option == "POST":
             c.setopt(c.POST, 1)
-            c.setopt(c.POSTFIELDS, '')
+            c.setopt(c.POSTFIELDS, json.dumps(custom_data))
+            c.setopt(c.POSTFIELDSIZE, len(json.dumps(custom_data)))
         elif option == "PUT":
             c.setopt(c.PUT, 1)
-        elif custom_data is not None:
+       
+       if custom_data is not None:
             buffer_temp2 = BytesIO(json.dumps(custom_data).encode('utf-8'))
             c.setopt(c.READDATA, buffer_temp2)
+
         c.perform()
         c.close()
 
