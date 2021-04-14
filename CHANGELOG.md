@@ -12,6 +12,7 @@
 - [[PR 487]](https://github.com/lanl/parthenon/pull/487) Add default tiling matching `i` index range to MDRange loop pattern.
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 488]](https://github.com/lanl/parthenon/pull/488) Update GitLab Dockerfile to use HDF5 version 1.10.7
 
 ### Removed (removing behavior/API/varaibles/...)
 - [[PR 481]](https://github.com/lanl/parthenon/pull/481) Cleanup unused/untested/not fully ported code (mostly OpenMP and reconstruction)
