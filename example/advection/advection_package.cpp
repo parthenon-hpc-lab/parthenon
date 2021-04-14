@@ -179,13 +179,13 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   // In other words, it's independent of the history machinery itself and just controls
   // the behavior of the AdvectionHst example.
   hst_vars.emplace_back(parthenon::HistoryOutputVar(
-      UserHistoryOperation::sum, AdvectionHst<Kokkos::Sum<Real, DevExecSpace>>,
+      UserHistoryOperation::sum, AdvectionHst<Kokkos::Sum<Real, HostExecSpace>>,
       "total_advected"));
   hst_vars.emplace_back(parthenon::HistoryOutputVar(
-      UserHistoryOperation::max, AdvectionHst<Kokkos::Max<Real, DevExecSpace>>,
+      UserHistoryOperation::max, AdvectionHst<Kokkos::Max<Real, HostExecSpace>>,
       "max_advected"));
   hst_vars.emplace_back(parthenon::HistoryOutputVar(
-      UserHistoryOperation::min, AdvectionHst<Kokkos::Min<Real, DevExecSpace>>,
+      UserHistoryOperation::min, AdvectionHst<Kokkos::Min<Real, HostExecSpace>>,
       "min_advected"));
 
   // add callbacks for HST output identified by the `hist_param_key`
@@ -321,7 +321,7 @@ Real AdvectionHst(MeshData<Real> *md) {
   // We choose to apply volume weighting when using the sum reduction.
   // Downstream this choice will be done on a variable by variable basis and volume
   // weighting needs to be applied in the reduction region.
-  const bool volume_weighting = std::is_same<T, Kokkos::Sum<Real, DevExecSpace>>::value;
+  const bool volume_weighting = std::is_same<T, Kokkos::Sum<Real, HostExecSpace>>::value;
 
   pmb->par_reduce(
       "AdvectionHst", 0, advected_pack.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
