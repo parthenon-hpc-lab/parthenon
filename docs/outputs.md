@@ -36,6 +36,17 @@ To use this restart file, simply specify the restart file with a ```-r <restart.
 
 For physics developers: The fields to be output are automatically selected as all the variables that have either the ```Independent``` or ```Restart``` ```Metadata``` flags specifiec.  No other intervention is required by the developer.
 
+## History Files
+
+In the input file, include a ```<parthenon/output*>``` block and specify ```file_type = hst```.  A ```dt``` parameter controls the frequency of outputs for simulations involving evolution. A ```<parthenon/output*>``` block might look like
+```
+<parthenon/output8>
+file_type = hst
+dt = 1.0
+```
+This will produce a text file (`.hst`) output file every 1 units of simulation time.
+The content of the file is determined by the functions enrolled by a specific package,
+see the [interface doc](interface/state.md#history-output).
 
 ## Python scripts
 
