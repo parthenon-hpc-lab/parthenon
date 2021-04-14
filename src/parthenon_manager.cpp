@@ -271,6 +271,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
         if (vName.compare(v->label()) == 0) {
           auto v_h = v->data.GetHostMirror();
 
+          // Note index l transposed to interior
           for (int k = out_kb.s; k <= out_kb.e; ++k) {
             for (int j = out_jb.s; j <= out_jb.e; ++j) {
               for (int i = out_ib.s; i <= out_ib.e; ++i) {

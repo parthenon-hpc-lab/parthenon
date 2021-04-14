@@ -224,6 +224,26 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       // read cartesian mapping option
       op.cartesian_vector = false;
 
+      // read single precision output option
+      bool is_hdf5_output = (op.file_type.compare("rst") == 0) ||
+                            (op.file_type.compare("ath5") == 0) ||
+                            (op.file_type.compare("hdf5") == 0);
+
+      if (is_hdf5_output) {
+        op.single_precision_output =
+            pin->GetOrAddBoolean(op.block_name, "single_precision_output", false);
+      } else {
+        op.single_precision_output = false;
+
+        if (pin->DoesParameterExist(op.block_name, "single_precision_output")) {
+          std::stringstream warn;
+          warn << "### WARNING Output option single_precision_output only applies to "
+                  "HDF5 outputs or restarts. Ignoring it for output block '"
+               << op.block_name << "'" << std::endl;
+          PARTHENON_WARN(warn);
+        }
+      }
+
       // set output variable and optional data format string used in formatted writes
       if (op.file_type.compare("hst") != 0 && op.file_type.compare("rst") != 0) {
         // op.variable = pin->GetString(op.block_name, "variable");
@@ -241,8 +261,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
         pnew_type = new FormattedTableOutput(op);
       } else if (op.file_type.compare("vtk") == 0) {
         pnew_type = new VTKOutput(op);
-      } else if (op.file_type.compare("rst") == 0 || op.file_type.compare("ath5") == 0 ||
-                 op.file_type.compare("hdf5") == 0) {
+      } else if (is_hdf5_output) {
         bool restart = (op.file_type.compare("rst") == 0);
         if (restart) {
           num_rst_outputs++;
@@ -314,7 +333,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     pot->pnext_type = prst;
   }
   // if found == 2, do nothing; it's already at the tail node/end of the list
-}
+} // namespace parthenon
 
 // destructor - iterates through singly linked list of OutputTypes and deletes nodes
 

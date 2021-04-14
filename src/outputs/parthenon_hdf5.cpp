@@ -19,6 +19,7 @@
 #include "H5Tpublic.h"
 #include "config.hpp"
 #include "interface/metadata.hpp"
+#include <type_traits>
 
 // Only proceed if HDF5 output enabled
 #ifdef HDF5OUTPUT
@@ -262,11 +263,20 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, int nx1, int nx2, int n
   return;
 }
 
+void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
+  if (output_params.single_precision_output) {
+    this->template WriteOutputFileImpl<true>(pm, pin, tm);
+  } else {
+    this->template WriteOutputFileImpl<false>(pm, pin, tm);
+  }
+}
+
 //----------------------------------------------------------------------------------------
-//! \fn void PHDF5Output:::WriteOutputFile(Mesh *pm, ParameterInput *pin, bool flag)
+//! \fn void PHDF5Output:::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, bool flag)
 //  \brief Cycles over all MeshBlocks and writes OutputData in the Parthenon HDF5 format,
 //         one file per output using parallel IO.
-void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
+template <bool WRITE_SINGLE_PRECISION>
+void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   // writes all graphics variables to hdf file
   // HDF5 structures
   // Also writes companion xdmf file
@@ -358,10 +368,6 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
 
     // Mesh information
     const H5G input_group = MakeGroup(file, "/Input");
-    // H5S const localDSpace = H5S::FromHIDCheck(H5Screate(H5S_SCALAR));
-    // H5D const input_group =
-    //     H5D::FromHIDCheck(H5Dcreate(file, "/Input", H5T_NATIVE_INT, localDSpace,
-    //                                 H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
 
     WriteHDF5Attribute("File", oss.str().c_str(), input_group);
   } // Input section
@@ -371,10 +377,6 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     // attributes written here:
     // All ranks write attributes
     const H5G info_group = MakeGroup(file, "/Info");
-    // H5S const localDSpace = H5S::FromHIDCheck(H5Screate(H5S_SCALAR));
-    // H5D const info_group =
-    //     H5D::FromHIDCheck(H5Dcreate(file, "/Info", H5T_NATIVE_INT, localDSpace,
-    //                                 H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
 
     if (tm != nullptr) {
       WriteHDF5Attribute("NCycle", tm->ncycle, info_group);
@@ -402,11 +404,6 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   // Mesh information
   if (restart_) {
     const H5G mesh_group = MakeGroup(file, "/Mesh");
-    // H5S const localDSpace = H5S::FromHIDCheck(H5Screate(H5S_SCALAR));
-    // H5D const mesh_group =
-    //     H5D::FromHIDCheck(H5Dcreate(file, "/Mesh", H5T_NATIVE_INT, localDSpace,
-    //                                 H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
-
     WriteHDF5Attribute("blockSize",
                        std::vector<int>{first_block.block_size.nx1,
                                         first_block.block_size.nx2,
@@ -758,17 +755,19 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     vlen_max = std::max(vlen_max, vinfo.vlen);
   }
 
-  std::vector<Real> tmpData(varSize * vlen_max * num_blocks_local);
-  memset(tmpData.data(), 0, tmpData.size() * sizeof(Real));
+  using OutT = typename std::conditional<WRITE_SINGLE_PRECISION, float, Real>::type;
+  std::vector<OutT> tmpData(varSize * vlen_max * num_blocks_local);
 
   // create persistent spaces
-
   local_count[1] = global_count[1] = nx3;
   local_count[2] = global_count[2] = nx2;
   local_count[3] = global_count[3] = nx1;
 
   // for each variable we write
   for (auto &vinfo : all_unique_vars) {
+    // not really necessary, but doesn't hurt
+    memset(tmpData.data(), 0, tmpData.size() * sizeof(OutT));
+
     const std::string var_name = vinfo.label;
     const hsize_t vlen = vinfo.vlen;
 
@@ -786,14 +785,14 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       // for each variable that this local meshblock actually has
       auto ci = get_MeshBlockDataIterator(pmb);
       for (auto &v : ci.vars) {
-        // Note index 4 transposed to interior
+        // Note index l transposed to interior
         if (var_name.compare(v->label()) == 0) {
           auto v_h = v->data.GetHostMirrorAndCopy();
           for (int k = out_kb.s; k <= out_kb.e; ++k) {
             for (int j = out_jb.s; j <= out_jb.e; ++j) {
               for (int i = out_ib.s; i <= out_ib.e; ++i) {
                 for (int l = 0; l < vlen; ++l) {
-                  tmpData[index++] = v_h(l, k, j, i);
+                  tmpData[index++] = static_cast<OutT>(v_h(l, k, j, i));
                 }
               }
             }
@@ -812,7 +811,7 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       if (!found) {
         if (vinfo.is_sparse) {
           hsize_t N = varSize * vlen;
-          memset(tmpData.data() + index, 0, N * sizeof(Real));
+          memset(tmpData.data() + index, 0, N * sizeof(OutT));
           index += N;
         } else {
           std::stringstream msg;
@@ -864,6 +863,11 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   pin->SetInteger(output_params.block_name, "file_number", output_params.file_number);
   pin->SetReal(output_params.block_name, "next_time", output_params.next_time);
 }
+
+// explicit template instantiation
+template void PHDF5Output::WriteOutputFileImpl<false>(Mesh *, ParameterInput *,
+                                                      SimTime *);
+template void PHDF5Output::WriteOutputFileImpl<true>(Mesh *, ParameterInput *, SimTime *);
 
 } // namespace parthenon
 

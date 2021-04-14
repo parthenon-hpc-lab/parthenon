@@ -54,12 +54,14 @@ struct OutputParameters {
   bool include_ghost_zones, cartesian_vector;
   int islice, jslice, kslice;
   Real x1_slice, x2_slice, x3_slice;
+  bool single_precision_output;
   // TODO(felker): some of the parameters in this class are not initialized in constructor
   OutputParameters()
       : block_number(0), next_time(0.0), dt(-1.0), file_number(0), output_slicex1(false),
         output_slicex2(false), output_slicex3(false), output_sumx1(false),
         output_sumx2(false), output_sumx3(false), include_ghost_zones(false),
-        cartesian_vector(false), islice(0), jslice(0), kslice(0) {}
+        cartesian_vector(false), islice(0), jslice(0), kslice(0),
+        single_precision_output(false) {}
 };
 
 //----------------------------------------------------------------------------------------
@@ -166,6 +168,8 @@ class PHDF5Output : public OutputType {
   PHDF5Output(const OutputParameters &oparams, bool restart)
       : OutputType(oparams), restart_(restart) {}
   void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) override;
+  template <bool WRITE_SINGLE_PRECISION>
+  void WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm);
 
  private:
   const bool restart_; // true if we write a restart file, false for regular output files
