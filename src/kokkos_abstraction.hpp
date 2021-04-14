@@ -42,6 +42,7 @@ using DevExecSpace = Kokkos::DefaultExecutionSpace;
 #endif
 using ScratchMemSpace = DevExecSpace::scratch_memory_space;
 
+using HostExecSpace = Kokkos::DefaultHostExecutionSpace;
 using LayoutWrapper = Kokkos::LayoutRight;
 
 #if defined(KOKKOS_ENABLE_CUDA) && defined(PARTHENON_ENABLE_HOST_COMM_BUFFERS)
