@@ -55,9 +55,9 @@ void HistoryOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) 
     if (!params.hasKey(hist_param_key)) {
       continue;
     }
-    auto hist_vars = params.Get<HstVar_list>(hist_param_key);
+    const auto &hist_vars = params.Get<HstVar_list>(hist_param_key);
 
-    for (auto &hist_var : hist_vars) {
+    for (const auto &hist_var : hist_vars) {
       // Get "base" MeshData, which always exists but may not be populated yet
       auto &md_base = pm->mesh_data.Get();
       // Populated with all blocks

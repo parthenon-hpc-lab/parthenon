@@ -311,9 +311,9 @@ Real AdvectionHst(MeshData<Real> *md) {
   // collection of blocks
   const auto &advected_pack = md->PackVariables(std::vector<std::string>{"advected"});
 
-  IndexRange ib = advected_pack.cellbounds.GetBoundsI(IndexDomain::interior);
-  IndexRange jb = advected_pack.cellbounds.GetBoundsJ(IndexDomain::interior);
-  IndexRange kb = advected_pack.cellbounds.GetBoundsK(IndexDomain::interior);
+  const auto ib = advected_pack.cellbounds.GetBoundsI(IndexDomain::interior);
+  const auto jb = advected_pack.cellbounds.GetBoundsJ(IndexDomain::interior);
+  const auto kb = advected_pack.cellbounds.GetBoundsK(IndexDomain::interior);
 
   Real result = 0.0;
   T reducer(result);
@@ -321,10 +321,10 @@ Real AdvectionHst(MeshData<Real> *md) {
   // We choose to apply volume weighting when using the sum reduction.
   // Downstream this choice will be done on a variable by variable basis and volume
   // weighting needs to be applied in the reduction region.
-  bool volume_weighting = std::is_same<T, Kokkos::Sum<Real, DevExecSpace>>::value;
+  const bool volume_weighting = std::is_same<T, Kokkos::Sum<Real, DevExecSpace>>::value;
 
   pmb->par_reduce(
-      "HydroHst", 0, advected_pack.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      "AdvectionHst", 0, advected_pack.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lresult) {
         const auto &coords = advected_pack.coords(b);
         // `join` is a function of the Kokkos::ReducerConecpt that allows to use the same
