@@ -87,10 +87,6 @@ class PerformanceDataJsonParser():
                 if self._add_mesh_blocks_and_zone_cycles(json_obj, new_data):
                     return
         else:
-            if isinstance(new_data, list):
-                if len(new_data) == 1:
-                    new_data = new_data[0]
-
             if self._data.get('commit sha') == new_data.get('commit sha'):
                 for data_grp in self._data.get('data'):
                     for data_grp2 in new_data.get('data'):
