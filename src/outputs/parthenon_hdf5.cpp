@@ -444,28 +444,33 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   //   WRITING MESHBLOCK METADATA                                                     //
   // -------------------------------------------------------------------------------- //
 
-  hsize_t local_start[5], global_count[5], local_count[5];
-
-  local_start[0] = 0;
-  local_start[1] = 0;
-  local_start[2] = 0;
-  local_start[3] = 0;
-  local_start[4] = 0;
+  // set local offset, always the same for all data sets
+  hsize_t my_offset = 0;
   for (int i = 0; i < Globals::my_rank; i++) {
-    local_start[0] += nblist[i];
+    my_offset += nblist[i];
   }
+
+  const std::array<hsize_t, 5> local_offset({my_offset, 0, 0, 0, 0});
+
+  // these can vary by data set, except index 0 is always the same
+  std::array<hsize_t, 5> local_count(
+      {static_cast<hsize_t>(num_blocks_local), 1, 1, 1, 1});
+  std::array<hsize_t, 5> global_count(
+      {static_cast<hsize_t>(max_blocks_global), 1, 1, 1, 1});
+
+  // for convenience
+  const hsize_t *const p_loc_offset = local_offset.data();
+  const hsize_t *const p_loc_cnt = local_count.data();
+  const hsize_t *const p_glob_cnt = global_count.data();
 
   H5P const pl_xfer = H5P::FromHIDCheck(H5Pcreate(H5P_DATASET_XFER));
   H5P const pl_dcreate = H5P::FromHIDCheck(H5Pcreate(H5P_DATASET_CREATE));
   {
-    hsize_t chunk_size[5];
-    chunk_size[0] = 1;
-    chunk_size[1] = nx3;
-    chunk_size[2] = nx2;
-    chunk_size[3] = nx1;
-    chunk_size[4] = 1;
+    const std::array<hsize_t, 5> chunk_size({1, static_cast<hsize_t>(nx3),
+                                             static_cast<hsize_t>(nx2),
+                                             static_cast<hsize_t>(nx1), 1});
 
-    PARTHENON_HDF5_CHECK(H5Pset_chunk(pl_dcreate, 5, chunk_size));
+    PARTHENON_HDF5_CHECK(H5Pset_chunk(pl_dcreate, 5, chunk_size.data()));
 
     if (HDF5_COMPRESSION_LEVEL > 0) {
       PARTHENON_HDF5_CHECK(
@@ -484,24 +489,20 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     // write Xmin[ndim] for blocks
     {
       std::vector<Real> tmpData(num_blocks_local * 3);
-      local_count[0] = num_blocks_local;
-      global_count[0] = max_blocks_global;
       int i = 0;
+
       for (auto &pmb : pm->block_list) {
         auto xmin = pmb->coords.GetXmin();
-        tmpData[i] = xmin[0];
-        i++;
+        tmpData[i++] = xmin[0];
         if (pm->ndim > 1) {
-          tmpData[i] = xmin[1];
-          i++;
+          tmpData[i++] = xmin[1];
         }
         if (pm->ndim > 2) {
-          tmpData[i] = xmin[2];
-          i++;
+          tmpData[i++] = xmin[2];
         }
       }
       local_count[1] = global_count[1] = pm->ndim;
-      Write2DHDF5("xmin", tmpData.data(), gBlocks, local_start, local_count, global_count,
+      HDF5Write2D(gBlocks, "xmin", tmpData.data(), p_loc_offset, p_loc_cnt, p_glob_cnt,
                   pl_xfer);
     }
 
@@ -511,23 +512,21 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       hsize_t n = 3;
       std::vector<int64_t> tmpLoc(num_blocks_local * n);
       local_count[1] = global_count[1] = n;
-      local_count[0] = num_blocks_local;
-      global_count[0] = max_blocks_global;
+
       int i = 0;
       for (auto &pmb : pm->block_list) {
         tmpLoc[i++] = pmb->loc.lx1;
         tmpLoc[i++] = pmb->loc.lx2;
         tmpLoc[i++] = pmb->loc.lx3;
       }
-      Write2DHDF5("loc.lx123", tmpLoc.data(), gBlocks, local_start, local_count,
-                  global_count, pl_xfer);
+      HDF5Write2D(gBlocks, "loc.lx123", tmpLoc.data(), p_loc_offset, p_loc_cnt,
+                  p_glob_cnt, pl_xfer);
 
       // (LOC.)level, GID, LID, cnghost, gflag
       n = 5;
       std::vector<int> tmpID(num_blocks_local * n);
       local_count[1] = global_count[1] = n;
-      local_count[0] = num_blocks_local;
-      global_count[0] = max_blocks_global;
+
       i = 0;
       for (auto &pmb : pm->block_list) {
         tmpID[i++] = pmb->loc.level;
@@ -536,8 +535,8 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
         tmpID[i++] = pmb->cnghost;
         tmpID[i++] = pmb->gflag;
       }
-      Write2DHDF5("loc.level-gid-lid-cnghost-gflag", tmpID.data(), gBlocks, local_start,
-                  local_count, global_count, pl_xfer);
+      HDF5Write2D(gBlocks, "loc.level-gid-lid-cnghost-gflag", tmpID.data(), p_loc_offset,
+                  p_loc_cnt, p_glob_cnt, pl_xfer);
     }
   } // Block section
 
@@ -550,9 +549,6 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     const H5G gLocations = MakeGroup(file, "/Locations");
 
     // write X coordinates
-    local_count[0] = num_blocks_local;
-    global_count[0] = max_blocks_global;
-
     std::vector<Real> loc_x((nx1 + 1) * num_blocks_local);
     std::vector<Real> loc_y((nx2 + 1) * num_blocks_local);
     std::vector<Real> loc_z((nx3 + 1) * num_blocks_local);
@@ -578,15 +574,15 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     }
 
     local_count[1] = global_count[1] = nx1 + 1;
-    Write2DHDF5("x", loc_x.data(), gLocations, local_start, local_count, global_count,
+    HDF5Write2D(gLocations, "x", loc_x.data(), p_loc_offset, p_loc_cnt, p_glob_cnt,
                 pl_xfer);
 
     local_count[1] = global_count[1] = nx2 + 1;
-    Write2DHDF5("y", loc_y.data(), gLocations, local_start, local_count, global_count,
+    HDF5Write2D(gLocations, "y", loc_y.data(), p_loc_offset, p_loc_cnt, p_glob_cnt,
                 pl_xfer);
 
     local_count[1] = global_count[1] = nx3 + 1;
-    Write2DHDF5("z", loc_z.data(), gLocations, local_start, local_count, global_count,
+    HDF5Write2D(gLocations, "z", loc_z.data(), p_loc_offset, p_loc_cnt, p_glob_cnt,
                 pl_xfer);
   } // Locations section
 
@@ -726,20 +722,6 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   }
 #endif
 
-  // create persistent spaces
-  local_count[1] = nx3;
-  local_count[2] = nx2;
-  local_count[3] = nx1;
-  local_count[4] = 1;
-
-  global_count[1] = nx3;
-  global_count[2] = nx2;
-  global_count[3] = nx1;
-  global_count[4] = 1;
-
-  H5S const local_DSpace = H5S::FromHIDCheck(H5Screate_simple(5, local_count, NULL));
-  H5S const global_DSpace = H5S::FromHIDCheck(H5Screate_simple(5, global_count, NULL));
-
   // We need to add information about the sparse variables to the HDF5 file, namely:
   // 1) Which variables are sparse
   // 2) Is a sparse id of a particular sparse variable expanded on a given block
@@ -779,36 +761,18 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   std::vector<Real> tmpData(varSize * vlen_max * num_blocks_local);
   memset(tmpData.data(), 0, tmpData.size() * sizeof(Real));
 
-  // while we could do this as n variables and load all variables for
-  // a block at one time, this is memory-expensive.  I think it is
-  // well worth the multiple iterations through the blocks to load up
-  // one variable at a time.  Besides most of the time will be spent
-  // writing the HDF5 file to disk anyway...
-  // If I'm wrong about this, we can always rewrite this later.
-  // Sriram
+  // create persistent spaces
 
-  // this is a stupidly complicated multi-pass through the variable
-  // list, but again will revisit when the time comes to redo
+  local_count[1] = global_count[1] = nx3;
+  local_count[2] = global_count[2] = nx2;
+  local_count[3] = global_count[3] = nx1;
 
   // for each variable we write
   for (auto &vinfo : all_unique_vars) {
-    hid_t vLocalSpace, vGlobalSpace;
-    H5S vLocalSpaceNew, vGlobalSpaceNew;
-
-    const std::string vWriteName = vinfo.label;
+    const std::string var_name = vinfo.label;
     const hsize_t vlen = vinfo.vlen;
-    local_count[4] = global_count[4] = vlen;
 
-    // create spaces if required
-    if (vlen == 1) {
-      vLocalSpace = local_DSpace;
-      vGlobalSpace = global_DSpace;
-    } else {
-      vLocalSpace = vLocalSpaceNew =
-          H5S::FromHIDCheck(H5Screate_simple(5, local_count, NULL));
-      vGlobalSpace = vGlobalSpaceNew =
-          H5S::FromHIDCheck(H5Screate_simple(5, global_count, NULL));
-    }
+    local_count[4] = global_count[4] = vlen;
 
     // load up data
     hsize_t index = 0;
@@ -823,7 +787,7 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       auto ci = get_MeshBlockDataIterator(pmb);
       for (auto &v : ci.vars) {
         // Note index 4 transposed to interior
-        if (vWriteName.compare(v->label()) == 0) {
+        if (var_name.compare(v->label()) == 0) {
           auto v_h = v->data.GetHostMirrorAndCopy();
           for (int k = out_kb.s; k <= out_kb.e; ++k) {
             for (int j = out_jb.s; j <= out_jb.e; ++j) {
@@ -852,7 +816,7 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
           index += N;
         } else {
           std::stringstream msg;
-          msg << "### ERROR: Unable to find dense variable " << vWriteName << std::endl;
+          msg << "### ERROR: Unable to find dense variable " << var_name << std::endl;
           PARTHENON_FAIL(msg);
         }
       } else {
@@ -867,27 +831,18 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     // Otherwise, if found_any is false, then none of the local blocks have data for this
     // variable, so we don't need to write a buffer of all 0's.
     if (found_any) {
-      // write dataset to file
-      // TODO(jlippuner) select H5T_NATIVE_DOUBLE based on Real type
-      const H5D gDSet = H5D::FromHIDCheck(
-          H5Dcreate(file, vWriteName.c_str(), H5T_NATIVE_DOUBLE, vGlobalSpace,
-                    H5P_DEFAULT, pl_dcreate, H5P_DEFAULT));
-
-      PARTHENON_HDF5_CHECK(H5Sselect_hyperslab(vGlobalSpace, H5S_SELECT_SET, local_start,
-                                               NULL, local_count, NULL));
-      PARTHENON_HDF5_CHECK(H5Dwrite(gDSet, H5T_NATIVE_DOUBLE, vLocalSpace, vGlobalSpace,
-                                    pl_xfer, tmpData.data()));
+      // write data to file
+      HDF5WriteND(file, var_name, tmpData.data(), 5, p_loc_offset, p_loc_cnt, p_glob_cnt,
+                  pl_xfer, pl_dcreate);
     }
   }
 
   // write SparseInfo and SparseFields
   {
-    local_count[0] = num_blocks_local;
-    global_count[0] = max_blocks_global;
     local_count[1] = global_count[1] = num_sparse;
 
-    Write2DHDF5("SparseInfo", sparse_expanded.get(), file, local_start, local_count,
-                global_count, pl_xfer);
+    HDF5Write2D(file, "SparseInfo", sparse_expanded.get(), p_loc_offset, p_loc_cnt,
+                p_glob_cnt, pl_xfer);
 
     // write names of sparse fields as attribute, first convert to vector of const char*
     std::vector<const char *> names(num_sparse);

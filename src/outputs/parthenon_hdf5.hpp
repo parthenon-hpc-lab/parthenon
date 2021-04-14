@@ -111,7 +111,7 @@ static hid_t getHDF5Type(const int32_t *) { return H5T_NATIVE_INT32; }
 static hid_t getHDF5Type(const int64_t *) { return H5T_NATIVE_INT64; }
 static hid_t getHDF5Type(const float *) { return H5T_NATIVE_FLOAT; }
 static hid_t getHDF5Type(const double *) { return H5T_NATIVE_DOUBLE; }
-static H5T getHDF5Type(const char *const *x) {
+static H5T getHDF5Type(const char *const *) {
   H5T var_string_type = H5T::FromHIDCheck(H5Tcopy(H5T_C_S1));
   PARTHENON_HDF5_CHECK(H5Tset_size(var_string_type, H5T_VARIABLE));
   return var_string_type;
@@ -123,18 +123,29 @@ inline H5G MakeGroup(hid_t file, const std::string &name) {
 }
 
 template <typename T>
-void Write2DHDF5(const std::string &name, const T *data, hid_t group,
+void HDF5WriteND(hid_t location, const std::string &name, const T *data, int rank,
+                 const hsize_t *local_offset, const hsize_t *local_count,
+                 const hsize_t *global_count, hid_t plist_xfer, hid_t plist_dcreate) {
+  const H5S local_space = H5S::FromHIDCheck(H5Screate_simple(rank, local_count, NULL));
+  const H5S global_space = H5S::FromHIDCheck(H5Screate_simple(rank, global_count, NULL));
+
+  auto type = getHDF5Type(data);
+  const H5D gDSet =
+      H5D::FromHIDCheck(H5Dcreate(location, name.c_str(), type, global_space, H5P_DEFAULT,
+                                  plist_dcreate, H5P_DEFAULT));
+  PARTHENON_HDF5_CHECK(H5Sselect_hyperslab(global_space, H5S_SELECT_SET, local_offset,
+                                           NULL, local_count, NULL));
+  PARTHENON_HDF5_CHECK(
+      H5Dwrite(gDSet, type, local_space, global_space, plist_xfer, data));
+}
+
+template <typename T>
+void HDF5Write2D(hid_t location, const std::string &name, const T *data,
                  const hsize_t *local_offset, const hsize_t *local_count,
                  const hsize_t *global_count, const H5P &plist_xfer) {
-  auto type = getHDF5Type(data);
-  const H5S lDSpace = H5S::FromHIDCheck(H5Screate_simple(2, local_count, NULL));
-  const H5S gDSpace = H5S::FromHIDCheck(H5Screate_simple(2, global_count, NULL));
 
-  const H5D gDSet = H5D::FromHIDCheck(H5Dcreate(group, name.c_str(), type, gDSpace,
-                                                H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
-  PARTHENON_HDF5_CHECK(H5Sselect_hyperslab(gDSpace, H5S_SELECT_SET, local_offset, NULL,
-                                           local_count, NULL));
-  PARTHENON_HDF5_CHECK(H5Dwrite(gDSet, type, lDSpace, gDSpace, plist_xfer, data));
+  HDF5WriteND(location, name, data, 2, local_offset, local_count, global_count,
+              plist_xfer, H5P_DEFAULT);
 }
 
 template <typename T>
@@ -159,17 +170,6 @@ void WriteHDF5Attribute(const std::string &name, T value, hid_t location) {
   std::vector<T> vec(1);
   vec[0] = value;
   WriteHDF5Attribute(name, vec, location);
-}
-
-static void writeH5ASTRING(const char *name, const std::string &pData,
-                           const hid_t &dSpace, const hid_t &dSet) {
-  H5T const atype = H5T::FromHIDCheck(H5Tcopy(H5T_C_S1));
-  PARTHENON_HDF5_CHECK(H5Tset_size(atype, pData.length()));
-  PARTHENON_HDF5_CHECK(H5Tset_strpad(atype, H5T_STR_NULLTERM));
-
-  H5A const attribute =
-      H5A::FromHIDCheck(H5Acreate(dSet, name, atype, dSpace, H5P_DEFAULT, H5P_DEFAULT));
-  PARTHENON_HDF5_CHECK(H5Awrite(attribute, atype, pData.c_str()));
 }
 
 } // namespace HDF5
