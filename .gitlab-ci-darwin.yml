@@ -12,7 +12,7 @@ stages:
 ########################################################################
 # Anchors
 ########################################################################
-.print-executable: &print-executable
+.print-copy-executable: &print-copy-executable
 - printf 'env -i bash --norc --noprofile %s/scripts/darwin/%s  "%s"
       "%s" "%s" "%s" "%s" "%s" "%s" "%s"\n'
       ${CI_PROJECT_DIR}
@@ -25,6 +25,7 @@ stages:
       ${CI_JOB_TOKEN}
       ${BUILD_TARGET_BRANCH}
       ${CI_PROJECT_DIR}/../python_scripts > ${EXECUTABLE}
+- cp ${EXECUTABLE} ../
 
 .run-script-with-check: &run-script-with-check
 - env
@@ -39,13 +40,13 @@ stages:
 # Templates
 ########################################################################
 .gcc-mpi-cuda-python-performance-application:
-  variables: 
+  variables:
     EXECUTABLE: "execute_python_application.sh"
     BUILD_TARGET_BRANCH: "OFF"
     SCRIPT_TO_RUN: "install_python_scripts.sh"
   script:
     - git fetch --all
-    - *print-executable 
+    - *print-copy-executable
     - *run-script-with-check
     - git checkout ${CI_COMMIT_BRANCH}
     - git pull origin ${CI_COMMIT_BRANCH}
@@ -55,12 +56,12 @@ stages:
     expire_in: 1 day
 
 .gcc-mpi-cuda-performance-regression-build:
-  variables: 
+  variables:
     EXECUTABLE: "execute_main.sh"
     BUILD_TARGET_BRANCH: "OFF"
     SCRIPT_TO_RUN: "build_fast.sh"
   script:
-    - *print-executable 
+    - *print-copy-executable
     - *run-script-with-check
   artifacts:
     paths:
@@ -68,12 +69,12 @@ stages:
     expire_in: 1 day
 
 .gcc-mpi-cuda-performance-regression-metrics:
-  variables: 
+  variables:
     EXECUTABLE: "execute_metrics.sh"
     BUILD_TARGET_BRANCH: "OFF"
     SCRIPT_TO_RUN: "metrics.sh"
   script:
-    - *print-executable 
+    - *print-copy-executable
     - *run-script-with-check
 
 .gcc-mpi-cuda-performance-regression-target-branch:
@@ -82,7 +83,7 @@ stages:
     BUILD_TARGET_BRANCH: "ON"
     SCRIPT_TO_RUN: "build_fast.sh"
   script:
-    - *print-executable 
+    - *print-copy-executable
     - *run-script-with-check
 
 ########################################################################
@@ -102,7 +103,7 @@ parthenon-power9-gcc-mpi-cuda-perf-manual-target-branch:
   needs: [parthenon-power9-gcc-mpi-cuda-perf-manual-python-setup]
   except:
     - schedules
-  
+
 parthenon-power9-gcc-mpi-cuda-perf-manual-build:
   extends: .gcc-mpi-cuda-performance-regression-build
   stage: performance-regression-build
