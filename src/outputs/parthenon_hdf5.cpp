@@ -19,7 +19,6 @@
 #include "H5Tpublic.h"
 #include "config.hpp"
 #include "interface/metadata.hpp"
-#include <type_traits>
 
 // Only proceed if HDF5 output enabled
 #ifdef HDF5OUTPUT
@@ -27,6 +26,7 @@
 #include <algorithm>
 #include <memory>
 #include <set>
+#include <type_traits>
 #include <unordered_map>
 
 #include "mesh/meshblock.hpp"
