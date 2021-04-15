@@ -239,7 +239,11 @@ void Swarm::setPoolMax(const int nmax_pool) {
 
 ParArrayND<bool> Swarm::AddEmptyParticles(const int num_to_add,
                                           ParArrayND<int> &new_indices) {
-  PARTHENON_REQUIRE(num_to_add > 0, "Attempting to add fewer than 1 new particles!");
+  if (num_to_add <= 0) {
+    new_indices = ParArrayND<int>();
+    return ParArrayND<bool>();
+  }
+
   while (free_indices_.size() < num_to_add) {
     increasePoolMax();
   }
