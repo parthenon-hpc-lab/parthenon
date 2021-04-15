@@ -77,8 +77,6 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   return pkg;
 }
 
-AmrTag CheckRefinement(MeshBlockData<Real> *rc) { return AmrTag::same; }
-
 Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
   auto pmb = rc->GetBlockPointer();
   auto swarm = pmb->swarm_data.Get()->Get("my particles");
@@ -233,8 +231,8 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
         vx(n) = ic.at(m).at(3);
         vy(n) = ic.at(m).at(4);
         vz(n) = ic.at(m).at(5);
-        std::cout << "Rank " << my_rank << " added particle " << m << " to block " << gid
-                  << std::endl;
+        // need plain old printf as this could be device code
+        printf("Rank %d added particle %d to block %d.\n", my_rank, m, gid);
       });
 }
 
