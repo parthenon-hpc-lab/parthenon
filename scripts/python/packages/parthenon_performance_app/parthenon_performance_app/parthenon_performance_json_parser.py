@@ -40,21 +40,32 @@ class PerformanceDataJsonParser():
         return False
 
     @staticmethod
-    def _add_mesh_blocks_and_zone_cycles(json_obj, new_data):
-        if json_obj.get('commit sha') == new_data.get('commit sha'):
-            for data_grp in json_obj.get('data'):
-                for data_grp2 in new_data.get('data'):
-                    if data_grp.get('test') == new_data.get('test'):
+    def _add_mesh_blocks_and_zone_cycles(obj1, obj2):
+        """
+        Add data from obj2 to obj1
+
+        If the commits and tests match simply overwrite the metrics. If not
+        tests match but the commit matches add the test and its metrics to the
+        existing commit. If there are no matching commits do nothing return false.
+        """
+        if obj1.get('commit sha') == obj2.get('commit sha'):
+            for data_grp1 in obj1.get('data'):
+                for data_grp2 in obj2.get('data'):
+                    if data_grp1.get('test') == data_grp2.get('test'):
                         # Overwrite the existing content with the new content
-                        data_grp['mesh_blocks'] = copy.deepcopy(
+                        # If commit and test already exist
+                        data_grp1['mesh_blocks'] = copy.deepcopy(
                             data_grp2.get('mesh_blocks'))
-                        data_grp['zone_cycles'] = copy.deepcopy(
+                        data_grp1['zone_cycles'] = copy.deepcopy(
                             data_grp2.get('zone_cycles'))
-            return True
-        else:
-            # Then the test was not found so we are going to append to it
-            json_obj['data'].append(new_data['data'])
-            return False
+                        return True
+            else:
+                # If the commit matches but no matching tests are found
+                # Add the data to the existing commit
+                # Then the test was not found so we are going to append to it
+                obj1['data'].extend(obj2['data'])
+                return True
+        return False
 
     def _add_to_json_obj(self, new_data):
         """
@@ -70,14 +81,19 @@ class PerformanceDataJsonParser():
                   'mesh_blocks': mesh_blocks,
                   'zone_cycles': zone_cycles}]
         """
+        # Ensure new_data is a block of data and not a list
         if isinstance(new_data, list):
             if len(new_data) == 1:
                 new_data = new_data[0]
             else:
                 raise ValueError("Expected exactly 1 new data")
 
-        dat_list = self._data if isinstance(self._data, list) else [self._data]
-        for json_obj in dat_list:
+        # Turn the class data into a list if it is not already one
+        if not isinstance(self._data, list):
+            self._data = [self._data]
+
+        # Cycle the objects in the internal list, and if there is a match add the data
+        for json_obj in self._data:
             if self._add_mesh_blocks_and_zone_cycles(json_obj, new_data):
                 return
 
@@ -87,20 +103,10 @@ class PerformanceDataJsonParser():
                 if self._add_mesh_blocks_and_zone_cycles(json_obj, new_data):
                     return
         else:
-            if self._data.get('commit sha') == new_data.get('commit sha'):
-                for data_grp in self._data.get('data'):
-                    for data_grp2 in new_data.get('data'):
-                        if data_grp.get('test') == data_grp2.get('test'):
-                            # Overwrite the existing content with the new
-                            # content
-                            data_grp['mesh_blocks'] = copy.deepcopy(
-                                data_grp2.get('mesh_blocks'))
-                            data_grp['zone_cycles'] = copy.deepcopy(
-                                data_grp2.get('zone_cycles'))
-                            return
-            else:
-                # Then the test was not found so we are going to append to it
-                self._data['data'].append(new_data['data'])
+            # If none of the commits match then add the whole of the new data block
+            # Then the test was not found so we are going to append to it
+            # Using append and not extend because new_data is gauranteed not to be a list
+            self._data.append(new_data)
 
     @staticmethod
     def _getCyclesAndMeshblocks(json_obj, test):
@@ -208,12 +214,14 @@ class PerformanceDataJsonParser():
                     data_found = True
                     # self._data will be a dict
                     self._data = json.load(fid)
+                    if not isinstance(self._data,list):
+                        self._data = [self._data]
 
                 # Check if the commit exists in the data already
                 if self._containsCommit(self._data, new_data['commit sha']):
-                    self._data.update(new_data)
-                else:
                     self._add_to_json_obj(new_data)
+                else:
+                    self._data.append(new_data)
 
         if not data_found:
             self._data = new_data
