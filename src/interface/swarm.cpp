@@ -886,6 +886,8 @@ void Swarm::UnloadBuffers_() {
   }
 }
 
+//int TEMPCOUNT = 0;
+
 bool Swarm::Receive(BoundaryCommSubset phase) {
   printf("%s:%i\n", __FILE__, __LINE__);
   // Ensure all local deep copies marked BoundaryStatus::completed are actually received
@@ -910,6 +912,11 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
       all_boundaries_received = false;
     }
   }
+
+ // TEMPCOUNT++;
+ // if (TEMPCOUNT > 3) {
+  //exit(-1);
+ // }
 
   return all_boundaries_received;
 }
