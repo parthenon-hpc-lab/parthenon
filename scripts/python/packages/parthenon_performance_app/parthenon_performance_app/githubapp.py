@@ -578,6 +578,9 @@ class GitHubApp:
             # git remote show origini
             self._log.info(g.execute(['git', 'remote', 'show', 'origin']))
             g.execute(['git', 'remote', 'set-url', 'origin', wiki_remote])
+            # Ensure local branches are synchronized with server
+            g.execute(['git', 'fetch'])
+
         return repo
 
     def getWikiRepo(self, branch):
