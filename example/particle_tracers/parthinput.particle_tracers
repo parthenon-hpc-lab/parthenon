@@ -1,0 +1,63 @@
+# ========================================================================================
+#  Athena++ astrophysical MHD code
+#  Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
+#  Licensed under the 3-clause BSD License, see LICENSE file for details
+# ========================================================================================
+#  (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+#
+#  This program was produced under U.S. Government contract 89233218CNA000001 for Los
+#  Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
+#  for the U.S. Department of Energy/National Nuclear Security Administration. All rights
+#  in the program are reserved by Triad National Security, LLC, and the U.S. Department
+#  of Energy/National Nuclear Security Administration. The Government is granted for
+#  itself and others acting on its behalf a nonexclusive, paid-up, irrevocable worldwide
+#  license in this material to reproduce, prepare derivative works, distribute copies to
+#  the public, perform publicly and display publicly, and to permit others to do so.
+# ========================================================================================
+
+<parthenon/job>
+problem_id = particle_tracers
+
+<parthenon/mesh>
+refinement = none
+
+nx1 = 16
+x1min = -0.5
+x1max = 0.5
+ix1_bc = periodic
+ox1_bc = periodic
+
+nx2 = 1
+x2min = -0.5
+x2max = 0.5
+ix2_bc = periodic
+ox2_bc = periodic
+
+nx3 = 1
+x3min = -0.5
+x3max = 0.5
+ix3_bc = periodic
+ox3_bc = periodic
+
+<parthenon/meshblock>
+nx1 = 16
+nx2 = 1
+nx3 = 1
+
+<parthenon/time>
+tlim = 1.0
+nlim = 100000
+integrator = rk1
+
+<Material>
+cfl = 0.3
+v = 1.0
+
+<parthenon/output0>
+file_type = hdf5
+dt = 0.05
+variables = density
+
+<Tracers>
+number = 1000
+write_particle_log = true
