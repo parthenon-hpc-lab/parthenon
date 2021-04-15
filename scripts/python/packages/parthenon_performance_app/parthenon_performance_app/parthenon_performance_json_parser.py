@@ -211,9 +211,9 @@ class PerformanceDataJsonParser():
 
                 # Check if the commit exists in the data already
                 if self._containsCommit(self._data, new_data['commit sha']):
-                    self._add_to_json_obj(new_data)
-                else:
                     self._data.update(new_data)
+                else:
+                    self._add_to_json_obj(new_data)
 
         if not data_found:
             self._data = new_data
