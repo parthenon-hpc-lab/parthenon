@@ -137,7 +137,7 @@ def compare(files, all=False, brief=True, quiet=False, one=False, tol=1.0e-12):
     if not quiet: print(f0.TotalCells,'cells mapped')
 
     for var in f0.Variables:
-        if var == 'Locations' or var == 'Info':
+        if var == 'Locations' or var == 'Info' or var == 'SparseInfo':
             continue
         #initialize info values
         same = True
