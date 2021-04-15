@@ -105,8 +105,6 @@ void BoundarySwarm::Send(BoundaryCommSubset phase) {
       std::shared_ptr<BoundarySwarm> ptarget_bswarm =
           target_block.pbswarm->bswarms[bswarm_index];
       if (send_size[nb.bufid] > 0) {
-        printf("SEND [%i:%i] n: %i (bufid: %i) size: %i\n", pmb->gid, Globals::my_rank, n,
-          nb.bufid, send_size[nb.bufid]);
         // Ensure target buffer is large enough
         if (bd_var_.send[nb.bufid].extent(0) >
             ptarget_bswarm->bd_var_.recv[nb.targetid].extent(0)) {
@@ -119,8 +117,6 @@ void BoundarySwarm::Send(BoundaryCommSubset phase) {
         ptarget_bswarm->recv_size[nb.targetid] = send_size[nb.bufid];
         ptarget_bswarm->bd_var_.flag[nb.targetid] = BoundaryStatus::arrived;
       } else {
-        printf("SEND NONE [%i:%i] n: %02i (bufid: %i) gid: %i size: %i\n", pmb->gid, Globals::my_rank, n,
-          nb.bufid, nb.snb.gid, send_size[nb.bufid]);
         ptarget_bswarm->recv_size[nb.targetid] = 0;
         ptarget_bswarm->bd_var_.flag[nb.targetid] = BoundaryStatus::completed;
       }
@@ -144,11 +140,7 @@ void BoundarySwarm::Receive(BoundaryCommSubset phase) {
         MPI_Iprobe(MPI_ANY_SOURCE, recv_tag[nb.bufid], MPI_COMM_WORLD, &test, &status);
         if (!static_cast<bool>(test)) {
           bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
-          printf("NO RECEIVE [%i:%i] n: %i nb.bufid: %i\n", Globals::my_rank, pmb->gid,
-            n, nb.bufid);
         } else {
-          printf("ARRIVAL [%i:%i] n: %i nb.bufid: %i\n", Globals::my_rank, pmb->gid,
-            n, nb.bufid);
           bd_var_.flag[nb.bufid] = BoundaryStatus::arrived;
 
           // If message is available, receive it
@@ -159,7 +151,7 @@ void BoundarySwarm::Receive(BoundaryCommSubset phase) {
           MPI_Recv(bd_var_.recv[n].data(), recv_size[n], MPI_PARTHENON_REAL, nb.snb.rank,
                    recv_tag[nb.bufid], MPI_COMM_WORLD, &status);
         }
-      } else { printf("ALREADY COMPLETED [%i:%i]\n", Globals::my_rank, pmb->gid); }
+      }
     }
   }
 #endif

@@ -770,7 +770,6 @@ void Swarm::LoadBuffers_(const int max_indices_size) {
 }
 
 bool Swarm::Send(BoundaryCommSubset phase) {
-  printf("%s:%i\n", __FILE__, __LINE__);
   // Query particles for those to be sent
   int max_indices_size = CountParticlesToSend_();
 
@@ -886,10 +885,7 @@ void Swarm::UnloadBuffers_() {
   }
 }
 
-//int TEMPCOUNT = 0;
-
 bool Swarm::Receive(BoundaryCommSubset phase) {
-  printf("%s:%i\n", __FILE__, __LINE__);
   // Ensure all local deep copies marked BoundaryStatus::completed are actually received
   GetBlockPointer()->exec_space.fence();
   auto pmb = GetBlockPointer();
@@ -904,19 +900,12 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
   bool all_boundaries_received = true;
   for (int n = 0; n < pmb->pbval->nneighbor; n++) {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
-    printf("[%i:%i] n: %i flag: %i gid: %i\n", Globals::my_rank, pmb->gid, n, bdvar.flag[nb.bufid],
-      nb.snb.gid);
     if (bdvar.flag[nb.bufid] == BoundaryStatus::arrived) {
       bdvar.flag[nb.bufid] = BoundaryStatus::completed;
     } else if (bdvar.flag[nb.bufid] == BoundaryStatus::waiting) {
       all_boundaries_received = false;
     }
   }
-
- // TEMPCOUNT++;
- // if (TEMPCOUNT > 3) {
-  //exit(-1);
- // }
 
   return all_boundaries_received;
 }
