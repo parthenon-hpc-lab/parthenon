@@ -160,7 +160,7 @@ TaskStatus WriteParticleLog(MeshBlock *pmb) {
 // initial particle position: x,y,z,vx,vy,vz
 constexpr int num_test_particles = 4;
 const std::array<std::array<Real, 6>, num_test_particles> particles_ic = {{
-    {-0.1, 0.2, 0.3, 1.0, 0.0, 0.0},   // along x direction
+    {-0.1, 0.2, 0.3, 1.0, 0.0, 0.0},  // along x direction
     {0.4, -0.1, 0.3, 0.0, 1.0, 0.0},  // along y direction
     {-0.1, 0.3, 0.2, 0.0, 0.0, 1.0},  // along z direction
     {0.12, 0.2, -0.3, 1.0, 1.0, 1.0}, // along diagonal
@@ -262,6 +262,7 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
       "Leapfrog", 0, max_active_index, KOKKOS_LAMBDA(const int n) {
         if (swarm_d.IsActive(n)) {
           Real v = sqrt(vx(n) * vx(n) + vy(n) * vy(n) + vz(n) * vz(n));
+
           // drift
           x(n) += vx(n) * 0.5 * dt;
           y(n) += vy(n) * 0.5 * dt;
@@ -276,8 +277,48 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
           x(n) += vx(n) * 0.5 * dt;
           y(n) += vy(n) * 0.5 * dt;
           z(n) += vz(n) * 0.5 * dt;
+
+          bool on_current_mesh_block = true;
+          swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n), on_current_mesh_block);
         }
       });
+
+  return TaskStatus::complete;
+}
+
+// Mark all MPI requests as NULL / initialize boundary flags.
+// TODO(BRR) Should this be a Swarm method?
+TaskStatus InitializeCommunicationMesh(const BlockList_t &blocks) {
+  // Boundary transfers on same MPI proc are blocking
+  for (auto &block : blocks) {
+    auto swarm = block->swarm_data.Get()->Get("my particles");
+    for (int n = 0; n < block->pbval->nneighbor; n++) {
+      NeighborBlock &nb = block->pbval->neighbor[n];
+      swarm->vbswarm->bd_var_.req_send[nb.bufid] = MPI_REQUEST_NULL;
+    }
+  }
+
+  for (auto &block : blocks) {
+    auto &pmb = block;
+    auto sc = pmb->swarm_data.Get();
+    auto swarm = sc->Get("my particles");
+
+    for (int n = 0; n < swarm->vbswarm->bd_var_.nbmax; n++) {
+      auto &nb = pmb->pbval->neighbor[n];
+      swarm->vbswarm->bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
+    }
+  }
+
+  // Reset boundary statuses
+  for (auto &block : blocks) {
+    auto &pmb = block;
+    auto sc = pmb->swarm_data.Get();
+    auto swarm = sc->Get("my particles");
+    for (int n = 0; n < swarm->vbswarm->bd_var_.nbmax; n++) {
+      auto &nb = pmb->pbval->neighbor[n];
+      swarm->vbswarm->bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
+    }
+  }
 
   return TaskStatus::complete;
 }
@@ -302,92 +343,12 @@ TaskListStatus ParticleDriver::Step() {
   BlockList_t &blocks = pmesh->block_list;
   auto num_task_lists_executed_independently = blocks.size();
 
-  // Loop over repeated MPI calls until every particle is finished. This logic is
-  // required because long-distance particle pushes can lead to a large, unpredictable
-  // number of MPI sends and receives.
-  bool particles_update_done = false;
-  while (!particles_update_done) {
-    status = MakeParticlesUpdateTaskCollection().Execute();
-
-    particles_update_done = true;
-    for (auto &block : blocks) {
-      // TODO(BRR) Despite this "my particles"-specific call, this function feels like
-      // it should be generalized
-      auto swarm = block->swarm_data.Get()->Get("my particles");
-      if (!swarm->finished_transport) {
-        particles_update_done = false;
-      }
-    }
-  }
+  status = MakeParticlesUpdateTaskCollection().Execute();
 
   // Use a more traditional task list for predictable post-MPI evaluations.
   status = MakeFinalizationTaskCollection().Execute();
 
   return status;
-}
-
-// TODO(BRR) This should really be in parthenon/src... but it can't just live in Swarm
-// because of the loop over blocks
-TaskStatus StopCommunicationMesh(const BlockList_t &blocks) {
-  int num_sent_local = 0;
-  for (auto &block : blocks) {
-    auto &pmb = block;
-    auto sc = pmb->swarm_data.Get();
-    auto swarm = sc->Get("my particles");
-    swarm->finished_transport = false;
-    num_sent_local += swarm->num_particles_sent_;
-  }
-
-  // Boundary transfers on same MPI proc are blocking
-  for (auto &block : blocks) {
-    auto swarm = block->swarm_data.Get()->Get("my particles");
-    for (int n = 0; n < block->pbval->nneighbor; n++) {
-      NeighborBlock &nb = block->pbval->neighbor[n];
-      // TODO(BRR) May want logic like this if we have non-blocking TaskRegions
-      // if (nb.snb.rank != Globals::my_rank) {
-      //  if (swarm->vbswarm->bd_var_.flag[nb.bufid] != BoundaryStatus::completed) {
-      //    printf("[%i] Neighbor %i not complete!\n", Globals::my_rank, n);
-      //    //return TaskStatus::incomplete;
-      //  }
-      //}
-
-      // TODO(BRR) May want to move this logic into a per-cycle initialization call
-      if (swarm->vbswarm->bd_var_.flag[nb.bufid] == BoundaryStatus::completed) {
-        swarm->vbswarm->bd_var_.req_send[nb.bufid] = MPI_REQUEST_NULL;
-      }
-    }
-  }
-
-  int num_sent_global = 0;
-  MPI_Allreduce(&num_sent_local, &num_sent_global, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-
-  if (num_sent_global == 0) {
-    for (auto &block : blocks) {
-      auto &pmb = block;
-      auto sc = pmb->swarm_data.Get();
-      auto swarm = sc->Get("my particles");
-      swarm->finished_transport = true;
-
-      // TODO(BRR) should this really be done at an initialization step for each cycle?
-      for (int n = 0; n < swarm->vbswarm->bd_var_.nbmax; n++) {
-        auto &nb = pmb->pbval->neighbor[n];
-        swarm->vbswarm->bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
-      }
-    }
-  }
-
-  // Reset boundary statuses
-  for (auto &block : blocks) {
-    auto &pmb = block;
-    auto sc = pmb->swarm_data.Get();
-    auto swarm = sc->Get("my particles");
-    for (int n = 0; n < swarm->vbswarm->bd_var_.nbmax; n++) {
-      auto &nb = pmb->pbval->neighbor[n];
-      swarm->vbswarm->bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
-    }
-  }
-
-  return TaskStatus::complete;
 }
 
 TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection() const {
@@ -405,19 +366,15 @@ TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection() const {
 
     auto &tl = async_region0[i];
 
+    auto initialize_comms = tl.AddTask(none, InitializeCommunicationMesh, blocks);
+
     auto transport_particles =
-        tl.AddTask(none, TransportParticles, pmb.get(), &integrator);
+        tl.AddTask(initialize_comms, TransportParticles, pmb.get(), &integrator);
 
     auto send = tl.AddTask(transport_particles, &SwarmContainer::Send, sc.get(),
                            BoundaryCommSubset::all);
     auto receive =
         tl.AddTask(send, &SwarmContainer::Receive, sc.get(), BoundaryCommSubset::all);
-  }
-
-  TaskRegion &sync_region0 = tc.AddRegion(1);
-  {
-    auto &tl = sync_region0[0];
-    auto stop_comm = tl.AddTask(none, StopCommunicationMesh, blocks);
   }
 
   return tc;

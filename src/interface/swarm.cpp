@@ -852,7 +852,7 @@ void Swarm::UnloadBuffers_() {
           }
           for (int i = 0; i < int_vars_size; i++) {
             vint(i, sid) = static_cast<int>(
-                bdvar.recv[nid]((real_vars_size + bid) * particle_size + i));
+                bdvar.recv[nid](bid * particle_size + real_vars_size + i));
           }
 
           double &x = vreal(ix, sid);

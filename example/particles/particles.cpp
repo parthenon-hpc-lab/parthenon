@@ -379,6 +379,7 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
               vz(n) *= v / v_tmp;
 
               bool on_current_mesh_block = true;
+              // This call is required to trigger internal boundary condition machinery
               swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n), on_current_mesh_block);
 
               if (!on_current_mesh_block) {
@@ -405,6 +406,7 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
               t(n) += dt_push;
 
               bool on_current_mesh_block = true;
+              // This call is required to trigger internal boundary condition machinery
               swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n), on_current_mesh_block);
 
               if (!on_current_mesh_block) {
