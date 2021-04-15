@@ -100,6 +100,7 @@ class GitHubApp:
 #        self._repo_path = path_to_repo
 
         self._log = logging.getLogger(self._repo_name)
+        self._log.setLevel(logging.INFO)
 
         fh = logging.FileHandler(
             self._repo_name + '.log', mode='w', encoding='utf-8')
