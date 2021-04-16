@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -587,7 +587,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   nbtotal = rr.GetAttr<int>("Mesh", "nbtotal");
   root_level = rr.GetAttr<int32_t>("Mesh", "rootLevel");
 
-  auto bc = rr.ReadAttr1DReal("Mesh", "bc");
+  auto bc = rr.GetAttrVec<Real>("Mesh", "bc");
   for (int i = 0; i < 6; i++) {
     block_bcs[i] = static_cast<BoundaryFlag>(bc[i]);
   }
@@ -613,7 +613,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   }
   EnrollBndryFncts_(app_in);
 
-  std::vector<Real> bounds = rr.ReadAttr1DReal("Mesh", "bounds");
+  std::vector<Real> bounds = rr.GetAttrVec<Real>("Mesh", "bounds");
   mesh_size.x1min = bounds[0];
   mesh_size.x2min = bounds[1];
   mesh_size.x3min = bounds[2];
@@ -621,7 +621,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   mesh_size.x2max = bounds[4];
   mesh_size.x3max = bounds[5];
 
-  auto ratios = rr.ReadAttr1DReal("Mesh", "ratios");
+  auto ratios = rr.GetAttrVec<Real>("Mesh", "ratios");
   mesh_size.x1rat = ratios[0];
   mesh_size.x2rat = ratios[1];
   mesh_size.x3rat = ratios[2];
@@ -629,7 +629,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   // initialize
   loclist = std::vector<LogicalLocation>(nbtotal);
 
-  auto blockSize = rr.ReadAttr1DI32("Mesh", "blockSize");
+  auto blockSize = rr.GetAttrVec<int32_t>("Mesh", "blockSize");
   block_size.nx1 = blockSize[0];
   block_size.nx2 = blockSize[1];
   block_size.nx3 = blockSize[2];
@@ -758,7 +758,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   int nbe = nbs + nb - 1;
 
   // read in xmin from file
-  auto xmin = rr.ReadDataset<double>("/Blocks/xmin");
+  auto xmin = rr.ReadDataset<Real>("/Blocks/xmin");
 
   mesh_data.SetMeshPointer(this);
 

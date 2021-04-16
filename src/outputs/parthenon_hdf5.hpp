@@ -9,8 +9,6 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#include "H5Tpublic.h"
-#include "H5public.h"
 #ifndef HDF5OUTPUT
 #error "parthenon_hdf5.hpp requires HDF5 output to be enabled"
 #endif // ifndef HDF5OUTPUT
@@ -101,6 +99,7 @@ using H5A = H5Handle<&H5Aclose>;
 using H5D = H5Handle<&H5Dclose>;
 using H5F = H5Handle<&H5Fclose>;
 using H5G = H5Handle<&H5Gclose>;
+using H5O = H5Handle<&H5Oclose>;
 using H5P = H5Handle<&H5Pclose>;
 using H5T = H5Handle<&H5Tclose>;
 using H5S = H5Handle<&H5Sclose>;
@@ -149,13 +148,13 @@ void HDF5Write2D(hid_t location, const std::string &name, const T *data,
 }
 
 template <typename T>
-void WriteHDF5Attribute(const std::string &name, const std::vector<T> &values,
+void HDF5WriteAttribute(const std::string &name, const std::vector<T> &values,
                         hid_t location) {
   if (values.size() <= 0) return;
 
   const hsize_t dim[1] = {values.size()};
-  const H5S data_space = H5S::FromHIDCheck(*dim == 1 ? H5Screate(H5S_SCALAR)
-                                                     : H5Screate_simple(1, dim, dim));
+  const H5S data_space = H5S::FromHIDCheck(dim[0] == 1 ? H5Screate(H5S_SCALAR)
+                                                       : H5Screate_simple(1, dim, dim));
 
   const T *data = values.data();
   auto type = getHDF5Type(data);
@@ -166,11 +165,55 @@ void WriteHDF5Attribute(const std::string &name, const std::vector<T> &values,
 }
 
 template <typename T>
-void WriteHDF5Attribute(const std::string &name, T value, hid_t location) {
+void HDF5WriteAttribute(const std::string &name, T value, hid_t location) {
   std::vector<T> vec(1);
   vec[0] = value;
-  WriteHDF5Attribute(name, vec, location);
+  HDF5WriteAttribute(name, vec, location);
 }
+
+template <typename T>
+std::vector<T> HDF5ReadAttributeVec(hid_t location, const std::string &name) {
+  std::vector<T> res;
+  auto type = getHDF5Type(res.data());
+
+  // check if attribute exists
+  PARTHENON_HDF5_CHECK(H5Aexists(location, name.c_str()));
+
+  const H5A attr = H5A::FromHIDCheck(H5Aopen(location, name.c_str(), H5P_DEFAULT));
+
+  // check data type
+  const H5T hdf5_type = H5T::FromHIDCheck(H5Aget_type(attr));
+  PARTHENON_HDF5_CHECK(H5Tequal(type, hdf5_type));
+
+  // Allocate array of correct size
+  const H5S dataspace = H5S::FromHIDCheck(H5Aget_space(attr));
+  int rank = PARTHENON_HDF5_CHECK(H5Sget_simple_extent_ndims(dataspace));
+  if (rank > 1) {
+    PARTHENON_THROW("Attribute " + name + " has rank " + std::to_string(rank) +
+                    ", but only rank 0 and 1 attributes are supported");
+  }
+
+  if (rank == 1) {
+    hsize_t dim = 0;
+    PARTHENON_HDF5_CHECK(H5Sget_simple_extent_dims(dataspace, &dim, NULL));
+    res.resize(dim);
+
+    if (dim == 0) {
+      PARTHENON_THROW("Attribute " + name + " has no value");
+    }
+  } else {
+    res.resize(1);
+  }
+
+  // Read data from file
+  PARTHENON_HDF5_CHECK(H5Aread(attr, type, res.data()));
+
+  return res;
+}
+
+// template specialization for std::string (must go into cpp file)
+template <>
+std::vector<std::string> HDF5ReadAttributeVec(hid_t location, const std::string &name);
 
 } // namespace HDF5
 } // namespace parthenon

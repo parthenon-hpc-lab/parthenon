@@ -21,6 +21,7 @@
 
 #include "driver/driver.hpp"
 #include "globals.hpp"
+#include "interface/meshblock_data_iterator.hpp"
 #include "interface/update.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/meshblock.hpp"
@@ -118,7 +119,7 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
 
     // Load input stream
     pinput = std::make_unique<ParameterInput>();
-    std::string inputString = restartReader->ReadAttrString("Input", "File");
+    auto inputString = restartReader->GetAttr<std::string>("Input", "File");
     std::istringstream is(inputString);
     pinput->LoadFromStream(is);
   }
@@ -163,7 +164,7 @@ void ParthenonManager::ParthenonInitPackagesAndMesh() {
     Real dt = restartReader->GetAttr<Real>("Info", "dt");
     pinput->SetPrecise("parthenon/time", "dt", dt);
 
-    int ncycle = restartReader->GetAttr<int32_t>("Info", "NCycle");
+    int ncycle = restartReader->GetAttr<int>("Info", "NCycle");
     pinput->SetInteger("parthenon/time", "ncycle", ncycle);
 
     // Read package data from restart file
@@ -237,6 +238,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   size_t nCells = bsize[0] * bsize[1] * bsize[2];
 
   // Get list of variables, assumed same for all blocks
+  // TODO(JL) this doesn't work anymore
   auto ciX = MeshBlockDataIterator<Real>(
       mb.meshblock_data.Get(),
       {parthenon::Metadata::Independent, parthenon::Metadata::Restart}, true);

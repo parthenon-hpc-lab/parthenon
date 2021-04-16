@@ -16,7 +16,6 @@
 //========================================================================================
 
 // options for building
-#include "H5Tpublic.h"
 #include "config.hpp"
 #include "interface/metadata.hpp"
 
@@ -33,6 +32,26 @@
 #include "outputs/parthenon_hdf5.hpp"
 
 namespace parthenon {
+
+namespace HDF5 {
+
+// template specialization for std::string
+template <>
+std::vector<std::string> HDF5ReadAttributeVec(hid_t location, const std::string &name) {
+  // get strings as char pointers, HDF5 will allocate the memory and we need to free it
+  auto char_ptrs = HDF5ReadAttributeVec<char *>(location, name);
+
+  // make strings out of char pointers, which copies the memory and then free the memeory
+  std::vector<std::string> res(char_ptrs.size());
+  for (size_t i = 0; i < res.size(); ++i) {
+    res[i] = std::string(char_ptrs[i]);
+    free(char_ptrs[i]);
+  }
+
+  return res;
+}
+
+} // namespace HDF5
 
 using namespace HDF5;
 
@@ -369,7 +388,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     // Mesh information
     const H5G input_group = MakeGroup(file, "/Input");
 
-    WriteHDF5Attribute("File", oss.str().c_str(), input_group);
+    HDF5WriteAttribute("File", oss.str().c_str(), input_group);
   } // Input section
 
   // write timestep relevant attributes
@@ -379,54 +398,54 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     const H5G info_group = MakeGroup(file, "/Info");
 
     if (tm != nullptr) {
-      WriteHDF5Attribute("NCycle", tm->ncycle, info_group);
-      WriteHDF5Attribute("Time", tm->time, info_group);
-      WriteHDF5Attribute("dt", tm->dt, info_group);
+      HDF5WriteAttribute("NCycle", tm->ncycle, info_group);
+      HDF5WriteAttribute("Time", tm->time, info_group);
+      HDF5WriteAttribute("dt", tm->dt, info_group);
     }
-    WriteHDF5Attribute("NumDims", pm->ndim, info_group);
-    WriteHDF5Attribute("NumMeshBlocks", pm->nbtotal, info_group);
-    WriteHDF5Attribute("MaxLevel", max_level, info_group);
+    HDF5WriteAttribute("NumDims", pm->ndim, info_group);
+    HDF5WriteAttribute("NumMeshBlocks", pm->nbtotal, info_group);
+    HDF5WriteAttribute("MaxLevel", max_level, info_group);
     // write whether we include ghost cells or not
-    WriteHDF5Attribute("IncludesGhost", output_params.include_ghost_zones ? 1 : 0,
+    HDF5WriteAttribute("IncludesGhost", output_params.include_ghost_zones ? 1 : 0,
                        info_group);
     // write number of ghost cells in simulation
-    WriteHDF5Attribute("NGhost", Globals::nghost, info_group);
-    WriteHDF5Attribute("Coordinates", std::string(first_block.coords.Name()).c_str(),
+    HDF5WriteAttribute("NGhost", Globals::nghost, info_group);
+    HDF5WriteAttribute("Coordinates", std::string(first_block.coords.Name()).c_str(),
                        info_group);
 
     hsize_t nPE = Globals::nranks;
-    WriteHDF5Attribute("BlocksPerPE", nblist, info_group);
+    HDF5WriteAttribute("BlocksPerPE", nblist, info_group);
 
     // write mesh block size
-    WriteHDF5Attribute("MeshBlockSize", std::vector<int>{nx1, nx2, nx3}, info_group);
+    HDF5WriteAttribute("MeshBlockSize", std::vector<int>{nx1, nx2, nx3}, info_group);
   } // Info section
 
   // Mesh information
   if (restart_) {
     const H5G mesh_group = MakeGroup(file, "/Mesh");
-    WriteHDF5Attribute("blockSize",
+    HDF5WriteAttribute("blockSize",
                        std::vector<int>{first_block.block_size.nx1,
                                         first_block.block_size.nx2,
                                         first_block.block_size.nx3},
                        mesh_group);
-    WriteHDF5Attribute("includesGhost", output_params.include_ghost_zones ? 1 : 0,
+    HDF5WriteAttribute("includesGhost", output_params.include_ghost_zones ? 1 : 0,
                        mesh_group);
-    WriteHDF5Attribute("nbtotal", pm->nbtotal, mesh_group);
-    WriteHDF5Attribute("nbnew", pm->nbnew, mesh_group);
-    WriteHDF5Attribute("nbdel", pm->nbdel, mesh_group);
-    WriteHDF5Attribute("rootLevel", rootLevel, mesh_group);
-    WriteHDF5Attribute("MaxLevel", max_level, mesh_group);
-    WriteHDF5Attribute("refine", pm->adaptive ? 1 : 0, mesh_group);
-    WriteHDF5Attribute("multilevel", pm->multilevel ? 1 : 0, mesh_group);
+    HDF5WriteAttribute("nbtotal", pm->nbtotal, mesh_group);
+    HDF5WriteAttribute("nbnew", pm->nbnew, mesh_group);
+    HDF5WriteAttribute("nbdel", pm->nbdel, mesh_group);
+    HDF5WriteAttribute("rootLevel", rootLevel, mesh_group);
+    HDF5WriteAttribute("MaxLevel", max_level, mesh_group);
+    HDF5WriteAttribute("refine", pm->adaptive ? 1 : 0, mesh_group);
+    HDF5WriteAttribute("multilevel", pm->multilevel ? 1 : 0, mesh_group);
 
     // mesh bounds
     const auto &rs = pm->mesh_size;
-    WriteHDF5Attribute(
+    HDF5WriteAttribute(
         "bounds",
         std::vector<Real>{rs.x1min, rs.x2min, rs.x3min, rs.x1max, rs.x2max, rs.x3max},
         mesh_group);
 
-    WriteHDF5Attribute("ratios", std::vector<Real>{rs.x1rat, rs.x2rat, rs.x3rat},
+    HDF5WriteAttribute("ratios", std::vector<Real>{rs.x1rat, rs.x2rat, rs.x3rat},
                        mesh_group);
 
     // boundary conditions
@@ -434,7 +453,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     for (int ib = 0; ib < 6; ib++) {
       bcsi[ib] = static_cast<int>(pm->mesh_bcs[ib]);
     }
-    WriteHDF5Attribute("bc", bcsi, mesh_group);
+    HDF5WriteAttribute("bc", bcsi, mesh_group);
   } // Mesh section
 
   // -------------------------------------------------------------------------------- //
@@ -836,8 +855,9 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     }
   }
 
-  // write SparseInfo and SparseFields
-  {
+  // write SparseInfo and SparseFields (we can't write a zero-size dataset, so only write
+  // this if we have sparse fields)
+  if (num_sparse > 0) {
     local_count[1] = global_count[1] = num_sparse;
 
     HDF5Write2D(file, "SparseInfo", sparse_expanded.get(), p_loc_offset, p_loc_cnt,
@@ -849,7 +869,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       names[i] = sparse_names[i].c_str();
 
     const H5D dset = H5D::FromHIDCheck(H5Dopen2(file, "SparseInfo", H5P_DEFAULT));
-    WriteHDF5Attribute("SparseFields", names, dset);
+    HDF5WriteAttribute("SparseFields", names, dset);
   } // SparseInfo and SparseFields sections
 
   if (!restart_) {
