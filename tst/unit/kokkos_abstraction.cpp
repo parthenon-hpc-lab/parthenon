@@ -631,7 +631,7 @@ template <class BufferPack>
 void test_wrapper_buffer_pack_overlapping_space_instances(const std::string &test_name) {
   auto default_exec_space = DevExecSpace();
 
-  const int N = 32;      // ~meshblock size
+  const int N = 24;      // ~meshblock size
   const int M = 5;       // ~nhydro
   const int nspaces = 8; // number of streams
   const int nghost = 2;  // number of ghost zones
