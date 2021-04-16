@@ -15,7 +15,6 @@
 //! \file io_wrapper.hpp
 //  \brief defines a set of small wrapper functions for MPI versus Serial Output.
 
-#include "utils/error_checking.hpp"
 #include <cinttypes>
 #include <string>
 #include <vector>
@@ -29,6 +28,7 @@ using namespace parthenon::HDF5;
 #endif
 
 #include "mesh/domain.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 

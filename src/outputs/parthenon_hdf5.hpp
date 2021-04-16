@@ -9,13 +9,16 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+#ifndef OUTPUTS_PARTHENON_HDF5_HPP_
+#define OUTPUTS_PARTHENON_HDF5_HPP_
+
 #ifndef HDF5OUTPUT
 #error "parthenon_hdf5.hpp requires HDF5 output to be enabled"
 #endif // ifndef HDF5OUTPUT
 
-#ifndef OUTPUTS_PARTHENON_HDF5_HPP_
-#define OUTPUTS_PARTHENON_HDF5_HPP_
 // Definitions common to parthenon restart and parthenon output for HDF5
+
+#include <hdf5.h>
 
 #include <cstdlib>
 #include <fstream>
@@ -23,8 +26,6 @@
 #include <sstream>
 #include <string>
 #include <vector>
-
-#include <hdf5.h>
 
 #include "basic_types.hpp"
 #include "coordinates/coordinates.hpp"
@@ -142,7 +143,6 @@ template <typename T>
 void HDF5Write2D(hid_t location, const std::string &name, const T *data,
                  const hsize_t *local_offset, const hsize_t *local_count,
                  const hsize_t *global_count, const H5P &plist_xfer) {
-
   HDF5WriteND(location, name, data, 2, local_offset, local_count, global_count,
               plist_xfer, H5P_DEFAULT);
 }
