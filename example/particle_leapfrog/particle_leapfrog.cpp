@@ -16,13 +16,6 @@
 //========================================================================================
 
 #include "particle_leapfrog.hpp"
-#include "Kokkos_CopyViews.hpp"
-#include "Kokkos_HostSpace.hpp"
-#include "basic_types.hpp"
-#include "config.hpp"
-#include "globals.hpp"
-#include "interface/update.hpp"
-#include "kokkos_abstraction.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -32,6 +25,14 @@
 #include <string>
 #include <utility>
 #include <vector>
+
+#include "basic_types.hpp"
+#include "config.hpp"
+#include "globals.hpp"
+#include "interface/update.hpp"
+#include "Kokkos_CopyViews.hpp"
+#include "Kokkos_HostSpace.hpp"
+#include "kokkos_abstraction.hpp"
 
 // *************************************************//
 // redefine some internal parthenon functions      *//

@@ -55,4 +55,4 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *rc);
 
 } // namespace particles_example
 
-#endif // EXAMPLE_PARTICLES_PARTICLES_HPP_
+#endif // EXAMPLE_PARTICLE_LEAPFROG_PARTICLE_LEAPFROG_HPP_
