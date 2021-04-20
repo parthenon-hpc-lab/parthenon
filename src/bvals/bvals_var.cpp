@@ -18,7 +18,6 @@
 //  \brief constructor/destructor and default implementations for some functions in the
 //         abstract BoundaryVariable class
 
-#include "Kokkos_View.hpp"
 #include "bvals/bvals_interfaces.hpp"
 
 #include <cstring>
@@ -63,7 +62,7 @@ void BoundaryVariable::InitBoundaryData(BoundaryData<> &bd, BoundaryQuantity typ
   }
   auto total_size = 0;
   std::vector<size_t> offsets;
-  offsets.reserve(bd.nbmax+1);
+  offsets.reserve(bd.nbmax + 1);
 
   for (int n = 0; n < bd.nbmax; n++) {
     // Clear flags and requests
