@@ -143,8 +143,14 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   const auto num_vars = pin->GetOrAddInteger("Advection", "num_vars", 1);
 
   std::string field_name = "advected";
+  // Give a custom labels to advected in the data output
+  std::vector<std::string> advected_labels;
+  advected_labels.reserve(num_vars);
+  for (int i = 0; i < num_vars; i++) {
+    advected_labels.push_back("Advected_" + std::to_string(i));
+  }
   Metadata m({Metadata::Cell, Metadata::Independent, Metadata::FillGhost},
-             std::vector<int>({num_vars}));
+             std::vector<int>({num_vars}), advected_labels);
   pkg->AddField(field_name, m);
 
   field_name = "one_minus_advected";

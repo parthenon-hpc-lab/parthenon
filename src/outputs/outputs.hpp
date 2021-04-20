@@ -46,6 +46,7 @@ struct OutputParameters {
   std::string file_id;
   std::string variable;
   std::vector<std::string> variables;
+  std::vector<std::string> component_labels;
   std::string file_type;
   std::string data_format;
   Real next_time, dt;
