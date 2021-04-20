@@ -20,6 +20,7 @@
 #include <hdf5.h>
 #endif
 
+#include <algorithm>
 #include <cstdlib>
 #include <fstream>
 #include <iomanip>
