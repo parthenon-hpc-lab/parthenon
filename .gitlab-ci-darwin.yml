@@ -2,7 +2,7 @@ variables:
   SCHEDULER_PARAMETERS: '--nodes=1 --partition=power9-eap-ci --export=NONE'
   GIT_SUBMODULE_STRATEGY: recursive
   CMAKE_CXX_COMPILER: ${CI_PROJECT_DIR}/external/Kokkos/bin/nvcc_wrapper
-
+  CMAKE_BUILD_TYPE: 'Release'
 stages:
   - performance-application-setup
   - performance-target
@@ -14,7 +14,7 @@ stages:
 ########################################################################
 .print-copy-executable: &print-copy-executable
 - printf 'env -i bash --norc --noprofile %s/scripts/darwin/%s  "%s"
-      "%s" "%s" "%s" "%s" "%s" "%s" "%s"\n'
+      "%s" "%s" "%s" "%s" "%s" "%s" "%s" "%s"\n'
       ${CI_PROJECT_DIR}
       ${SCRIPT_TO_RUN}
       ${GITHUB_APP_PEM}
@@ -24,7 +24,8 @@ stages:
       ${CI_JOB_URL}
       ${CI_JOB_TOKEN}
       ${BUILD_TARGET_BRANCH}
-      ${CI_PROJECT_DIR}/../python_scripts > ${EXECUTABLE}
+      ${CI_PROJECT_DIR}/../python_scripts
+      ${CMAKE_BUILD_TYPE} > ${EXECUTABLE}
 - cp ${EXECUTABLE} ../
 
 .run-script-with-check: &run-script-with-check

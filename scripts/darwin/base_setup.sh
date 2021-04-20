@@ -39,6 +39,7 @@ CI_JOB_TOKEN="$6"
 BUILD_TARGET="$7"
 
 PYTHON_SCRIPTS_DIR="$8"
+CMAKE_BUILD_TYPE="$9"
 # Python scripts that will get installed
 export PATH=${PYTHON_SCRIPTS_DIR}/bin:${PATH}
 export PYTHONPATH=${PYTHON_SCRIPTS_DIR}/${PYTHONPATH}

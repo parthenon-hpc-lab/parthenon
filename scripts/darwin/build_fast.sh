@@ -52,7 +52,7 @@ if [[ "${BUILD_TARGET}" == "ON" ]]; then
     git pull origin "$target_branch"
     git log --name-status HEAD^..HEAD
 
-    cmake -S. -Bbuild
+    cmake -S. -Bbuild -DCMAKE_BUILD_TYPE="${CMAKE_BUILD_TYPE}"
 
     cmake --build build
 
@@ -72,7 +72,7 @@ else
   # Calculate number of available cores
   export J=$(( $(nproc --all) )) && echo Using ${J} cores during build
 
-  cmake -S. -Bbuild
+  cmake -S. -Bbuild -DCMAKE_BUILD_TYPE="${CMAKE_BUILD_TYPE}"
 
   cmake --build build
 
