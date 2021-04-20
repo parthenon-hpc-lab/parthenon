@@ -28,20 +28,7 @@
 #include <string>
 #include <vector>
 
-#include "basic_types.hpp"
-#include "coordinates/coordinates.hpp"
-#include "defs.hpp"
-#include "globals.hpp"
-#include "interface/meshblock_data_iterator.hpp"
-#include "mesh/mesh.hpp"
-#include "outputs/outputs.hpp"
-#include "parameter_input.hpp"
-#include "parthenon_arrays.hpp"
 #include "utils/error_checking.hpp"
-
-#include "parthenon_mpi.hpp"
-
-using parthenon::Real;
 
 namespace parthenon {
 namespace HDF5 {
@@ -151,16 +138,15 @@ void HDF5Write2D(hid_t location, const std::string &name, const T *data,
 }
 
 template <typename T>
-void HDF5WriteAttribute(const std::string &name, const std::vector<T> &values,
+void HDF5WriteAttribute(const std::string &name, size_t num_values, const T *data,
                         hid_t location) {
   // can't write 0-size attributes
-  if (values.size() == 0) return;
+  if (num_values == 0) return;
 
-  const hsize_t dim[1] = {values.size()};
+  const hsize_t dim[1] = {num_values};
   const H5S data_space = H5S::FromHIDCheck(dim[0] == 1 ? H5Screate(H5S_SCALAR)
                                                        : H5Screate_simple(1, dim, dim));
 
-  const T *data = values.data();
   auto type = getHDF5Type(data);
 
   H5A const attribute = H5A::FromHIDCheck(
@@ -168,9 +154,20 @@ void HDF5WriteAttribute(const std::string &name, const std::vector<T> &values,
   PARTHENON_HDF5_CHECK(H5Awrite(attribute, type, data));
 }
 
+template <typename T>
+void HDF5WriteAttribute(const std::string &name, const std::vector<T> &values,
+                        hid_t location) {
+  HDF5WriteAttribute(name, values.size(), values.data(), location);
+}
+
 // template specialization for std::string (must go into cpp file)
 template <>
 void HDF5WriteAttribute(const std::string &name, const std::vector<std::string> &values,
+                        hid_t location);
+
+// template specialization for bool (must go into cpp file)
+template <>
+void HDF5WriteAttribute(const std::string &name, const std::vector<bool> &values,
                         hid_t location);
 
 template <typename T>

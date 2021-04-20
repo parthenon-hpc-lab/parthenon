@@ -17,7 +17,6 @@
 
 // options for building
 #include "config.hpp"
-#include "interface/metadata.hpp"
 
 // Only proceed if HDF5 output enabled
 #ifdef HDF5OUTPUT
@@ -28,11 +27,14 @@
 #include <type_traits>
 #include <unordered_map>
 
+#include "interface/meshblock_data_iterator.hpp"
+#include "interface/metadata.hpp"
+#include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
+#include "outputs/outputs.hpp"
 #include "outputs/parthenon_hdf5.hpp"
 
 namespace parthenon {
-
 namespace HDF5 {
 
 // template specializations for std::string
@@ -59,6 +61,18 @@ std::vector<std::string> HDF5ReadAttributeVec(hid_t location, const std::string 
   }
 
   return res;
+}
+
+// template specialization for bool
+template <>
+void HDF5WriteAttribute(const std::string &name, const std::vector<bool> &values,
+                        hid_t location) {
+  // can't use std::vector here because std::vector<bool>  doesn't have .data() member
+  std::unique_ptr<hbool_t[]> data(new hbool_t[values.size()]);
+  for (size_t i = 0; i < values.size(); ++i) {
+    data[i] = values[i];
+  }
+  HDF5WriteAttribute(name, values.size(), data.get(), location);
 }
 
 } // namespace HDF5
@@ -743,14 +757,12 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
     // the label buffer contains all labels of the unique variables on this rank
     // separated by \t, e.g.: "label0\tlabel1\tlabel2\t"
-    std::vector<std::string> compact_labels(all_unique_vars.size(), "");
-    std::vector<int> code_buffer(all_unique_vars.size(), 0);
+    std::vector<std::string> compact_labels;
+    std::vector<int> code_buffer;
 
-    size_t idx = 0;
     for (const auto &vi : all_unique_vars) {
-      compact_labels[idx] = vi.get_compact_label();
-      code_buffer[idx] = vi.get_info_code();
-      idx++;
+      compact_labels.push_back(vi.get_compact_label());
+      code_buffer.push_back(vi.get_info_code());
     }
 
     std::string label_buffer = PackStrings(compact_labels, '\n');
@@ -954,12 +966,12 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     const auto &component_labels = vi.component_labels;
 
     if (component_labels.size() > 0) {
-      numVariables[i] = component_labels.size();
+      numVariables.push_back(component_labels.size());
       for (const auto &label : component_labels) {
         variableNames.push_back(label);
       }
     } else {
-      numVariables[i] = 1;
+      numVariables.push_back(1);
       variableNames.push_back(vi.label);
     }
   }
