@@ -20,6 +20,7 @@
 
 #include <hdf5.h>
 
+#include <algorithm>
 #include <cstdlib>
 #include <fstream>
 #include <iomanip>
@@ -109,6 +110,8 @@ using H5S = H5Handle<&H5Sclose>;
 static hid_t getHDF5Type(const hbool_t *) { return H5T_NATIVE_HBOOL; }
 static hid_t getHDF5Type(const int32_t *) { return H5T_NATIVE_INT32; }
 static hid_t getHDF5Type(const int64_t *) { return H5T_NATIVE_INT64; }
+static hid_t getHDF5Type(const uint32_t *) { return H5T_NATIVE_UINT32; }
+static hid_t getHDF5Type(const uint64_t *) { return H5T_NATIVE_UINT64; }
 static hid_t getHDF5Type(const float *) { return H5T_NATIVE_FLOAT; }
 static hid_t getHDF5Type(const double *) { return H5T_NATIVE_DOUBLE; }
 static H5T getHDF5Type(const char *const *) {
@@ -150,7 +153,8 @@ void HDF5Write2D(hid_t location, const std::string &name, const T *data,
 template <typename T>
 void HDF5WriteAttribute(const std::string &name, const std::vector<T> &values,
                         hid_t location) {
-  if (values.size() <= 0) return;
+  // can't write 0-size attributes
+  if (values.size() == 0) return;
 
   const hsize_t dim[1] = {values.size()};
   const H5S data_space = H5S::FromHIDCheck(dim[0] == 1 ? H5Screate(H5S_SCALAR)
@@ -163,6 +167,11 @@ void HDF5WriteAttribute(const std::string &name, const std::vector<T> &values,
       H5Acreate(location, name.c_str(), type, data_space, H5P_DEFAULT, H5P_DEFAULT));
   PARTHENON_HDF5_CHECK(H5Awrite(attribute, type, data));
 }
+
+// template specialization for std::string (must go into cpp file)
+template <>
+void HDF5WriteAttribute(const std::string &name, const std::vector<std::string> &values,
+                        hid_t location);
 
 template <typename T>
 void HDF5WriteAttribute(const std::string &name, T value, hid_t location) {

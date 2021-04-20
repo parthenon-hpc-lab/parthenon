@@ -100,4 +100,23 @@ class TestCase(utils.test_case.TestCaseAbs):
         if ret_2d != 0 or ret_3d != 0:
             analyze_status = False
 
+        hst_2d = np.genfromtxt('advection_2d.hst')
+        hst_3d = np.genfromtxt('advection_3d.hst')
+        ref_results = [
+            ["time", 1.0, 1.0],
+            ["dt", 1.75781e-03, 3.12500e-03],
+            ["total", 7.06177e-02, 1.39160e-02],
+            ["max", 9.43685e-01, 4.80914e-01],
+            ["min", 1.67180e-10, 1.45889e-07]
+        ]
+        # check results in last row (at the final time of the sim)
+        for i, val in enumerate(ref_results):
+            if hst_2d[-1:,i] != val[1]:
+                print("Wrong", val[0], "in hst output of 2D problem")
+                analyze_status = False
+            if hst_3d[-1:,i] != val[2]:
+                print("Wrong", val[0], "in hst output of 3D problem")
+                analyze_status = False
+
+
         return analyze_status

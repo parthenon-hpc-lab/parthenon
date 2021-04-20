@@ -35,7 +35,17 @@ namespace parthenon {
 
 namespace HDF5 {
 
-// template specialization for std::string
+// template specializations for std::string
+template <>
+void HDF5WriteAttribute(const std::string &name, const std::vector<std::string> &values,
+                        hid_t location) {
+  std::vector<const char *> char_ptrs(values.size());
+  for (size_t i = 0; i < values.size(); ++i) {
+    char_ptrs[i] = values[i].c_str();
+  }
+  HDF5WriteAttribute(name, char_ptrs, location);
+}
+
 template <>
 std::vector<std::string> HDF5ReadAttributeVec(hid_t location, const std::string &name) {
   // get strings as char pointers, HDF5 will allocate the memory and we need to free it
@@ -53,6 +63,42 @@ std::vector<std::string> HDF5ReadAttributeVec(hid_t location, const std::string 
 
 } // namespace HDF5
 
+namespace {
+
+std::string PackStrings(const std::vector<std::string> &strs, char delimiter) {
+  std::string pack;
+  for (const auto &s : strs) {
+    pack += s + delimiter;
+  }
+  return pack;
+}
+
+std::vector<std::string> UnpackStrings(const std::string &pack, char delimiter) {
+  std::vector<std::string> unpack;
+  const char *curr = pack.data();
+  const char *const end = curr + pack.size();
+
+  while (curr < end) {
+    const auto tab = strchr(curr, delimiter);
+    if (tab == nullptr) {
+      std::stringstream msg;
+      msg << "### ERROR: Pack string does not end with delimiter" << std::endl;
+      PARTHENON_FAIL(msg);
+    }
+
+    if (tab == curr) {
+      unpack.push_back("");
+    } else {
+      unpack.push_back(std::string(curr, tab - curr));
+      curr = tab + 1;
+    }
+  }
+
+  return unpack;
+}
+
+} // anonymous namespace
+
 using namespace HDF5;
 
 // Helper struct containing some information about a variable that we can easily
@@ -69,6 +115,7 @@ struct VarInfo {
   static constexpr int vector_flag = (1 << 21);
 
   std::string label;
+  std::vector<std::string> component_labels; // may be empty
   int vlen;
   bool is_sparse;
   bool is_vector;
@@ -77,9 +124,23 @@ struct VarInfo {
   VarInfo() = default;
 
  public:
-  static VarInfo Decode(const std::string &label, int info_code) {
+  static VarInfo Decode(const std::string &compact_labels, int info_code) {
     VarInfo res;
-    res.label = label;
+
+    // unpack compact_labels
+    auto labels = UnpackStrings(compact_labels, '\t');
+
+    if (labels.size() == 0) {
+      std::stringstream msg;
+      msg << "### ERROR: Got no labels" << std::endl;
+      PARTHENON_FAIL(msg);
+    }
+
+    // first label in compact labe is the variable label, the rest are the component
+    // labels
+    res.label = labels[0];
+    res.component_labels = std::vector<std::string>(labels.begin() + 1, labels.end());
+
     res.vlen = info_code & max_vlen;
     res.is_sparse = (info_code & sparse_flag) > 0;
     res.is_vector = (info_code & vector_flag) > 0;
@@ -96,6 +157,14 @@ struct VarInfo {
           << ". vlen must be between 0 and " << max_vlen << std::endl;
       PARTHENON_FAIL(msg);
     }
+  }
+
+  // compactify label and component_labels into a single string for MPI communication
+  std::string get_compact_label() const {
+    // pack labels as {label, component_label[0], component_label[1], ...}
+    std::vector<std::string> labels = {label};
+    labels.insert(labels.end(), component_labels.begin(), component_labels.end());
+    return PackStrings(labels, '\t');
   }
 
   int get_info_code() const {
@@ -391,12 +460,9 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     HDF5WriteAttribute("File", oss.str().c_str(), input_group);
   } // Input section
 
-  // write timestep relevant attributes
+  // we'll need this twice
+  const H5G info_group = MakeGroup(file, "/Info");
   {
-    // attributes written here:
-    // All ranks write attributes
-    const H5G info_group = MakeGroup(file, "/Info");
-
     if (tm != nullptr) {
       HDF5WriteAttribute("NCycle", tm->ncycle, info_group);
       HDF5WriteAttribute("Time", tm->time, info_group);
@@ -413,48 +479,54 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     HDF5WriteAttribute("Coordinates", std::string(first_block.coords.Name()).c_str(),
                        info_group);
 
+    // restart info, write always
+    HDF5WriteAttribute("NBNew", pm->nbnew, info_group);
+    HDF5WriteAttribute("NBDel", pm->nbdel, info_group);
+    HDF5WriteAttribute("RootLevel", rootLevel, info_group);
+    HDF5WriteAttribute("Refine", pm->adaptive ? 1 : 0, info_group);
+    HDF5WriteAttribute("Multilevel", pm->multilevel ? 1 : 0, info_group);
+
     hsize_t nPE = Globals::nranks;
     HDF5WriteAttribute("BlocksPerPE", nblist, info_group);
 
-    // write mesh block size
+    // Mesh block size
     HDF5WriteAttribute("MeshBlockSize", std::vector<int>{nx1, nx2, nx3}, info_group);
+
+    // RootGridDomain - float[9] array with xyz mins, maxs, rats (dx(i)/dx(i-1))
+    HDF5WriteAttribute(
+        "RootGridDomain",
+        std::vector<Real>{pm->mesh_size.x1min, pm->mesh_size.x1max, pm->mesh_size.x1rat,
+                          pm->mesh_size.x2min, pm->mesh_size.x2max, pm->mesh_size.x2rat,
+                          pm->mesh_size.x3min, pm->mesh_size.x3max, pm->mesh_size.x3rat},
+        info_group);
+
+    // Root grid size (number of cells at root level)
+    HDF5WriteAttribute(
+        "RootGridSize",
+        std::vector<int>{pm->mesh_size.nx1, pm->mesh_size.nx2, pm->mesh_size.nx3},
+        info_group);
+
+    // Boundary conditions
+    std::vector<std::string> boundary_condition_str(BOUNDARY_NFACES);
+    for (size_t i = 0; i < boundary_condition_str.size(); i++) {
+      boundary_condition_str[i] = GetBoundaryString(pm->mesh_bcs[i]);
+    }
+    HDF5WriteAttribute("BoundaryConditions", boundary_condition_str, info_group);
+
+    // OutputDatasetNames - which datasets from the top level to read
+    HDF5WriteAttribute("OutputDatasetNames", output_params.variables, info_group);
   } // Info section
 
-  // Mesh information
-  if (restart_) {
-    const H5G mesh_group = MakeGroup(file, "/Mesh");
-    HDF5WriteAttribute("blockSize",
-                       std::vector<int>{first_block.block_size.nx1,
-                                        first_block.block_size.nx2,
-                                        first_block.block_size.nx3},
-                       mesh_group);
-    HDF5WriteAttribute("includesGhost", output_params.include_ghost_zones ? 1 : 0,
-                       mesh_group);
-    HDF5WriteAttribute("nbtotal", pm->nbtotal, mesh_group);
-    HDF5WriteAttribute("nbnew", pm->nbnew, mesh_group);
-    HDF5WriteAttribute("nbdel", pm->nbdel, mesh_group);
-    HDF5WriteAttribute("rootLevel", rootLevel, mesh_group);
-    HDF5WriteAttribute("MaxLevel", max_level, mesh_group);
-    HDF5WriteAttribute("refine", pm->adaptive ? 1 : 0, mesh_group);
-    HDF5WriteAttribute("multilevel", pm->multilevel ? 1 : 0, mesh_group);
+  // write Params
+  {
+    const H5G params_group = MakeGroup(file, "/Params");
 
-    // mesh bounds
-    const auto &rs = pm->mesh_size;
-    HDF5WriteAttribute(
-        "bounds",
-        std::vector<Real>{rs.x1min, rs.x2min, rs.x3min, rs.x1max, rs.x2max, rs.x3max},
-        mesh_group);
-
-    HDF5WriteAttribute("ratios", std::vector<Real>{rs.x1rat, rs.x2rat, rs.x3rat},
-                       mesh_group);
-
-    // boundary conditions
-    std::vector<int> bcsi(6);
-    for (int ib = 0; ib < 6; ib++) {
-      bcsi[ib] = static_cast<int>(pm->mesh_bcs[ib]);
+    for (const auto &package : pm->packages.AllPackages()) {
+      const auto state = package.second;
+      // Write all params that can be written as HDF5 attributes
+      state->AllParams().WriteAllToHDF5(state->label(), params_group);
     }
-    HDF5WriteAttribute("bc", bcsi, mesh_group);
-  } // Mesh section
+  } // Params section
 
   // -------------------------------------------------------------------------------- //
   //   WRITING MESHBLOCK METADATA                                                     //
@@ -556,18 +628,14 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     }
   } // Block section
 
-  // Write mesh coordinates to file
-  if (!restart_) {
-    // set starting point in hyperslab for our blocks and
-    // number of blocks on our PE
-
-    // open locations tab
-    const H5G gLocations = MakeGroup(file, "/Locations");
+  auto WriteLocations = [&](bool face) {
+    const H5G gLocations = MakeGroup(file, face ? "/Locations" : "/VolumeLocations");
+    const int offset = face ? 1 : 0;
 
     // write X coordinates
-    std::vector<Real> loc_x((nx1 + 1) * num_blocks_local);
-    std::vector<Real> loc_y((nx2 + 1) * num_blocks_local);
-    std::vector<Real> loc_z((nx3 + 1) * num_blocks_local);
+    std::vector<Real> loc_x((nx1 + offset) * num_blocks_local);
+    std::vector<Real> loc_y((nx2 + offset) * num_blocks_local);
+    std::vector<Real> loc_z((nx3 + offset) * num_blocks_local);
 
     size_t idx_x = 0;
     size_t idx_y = 0;
@@ -576,31 +644,68 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     for (size_t b = 0; b < pm->block_list.size(); ++b) {
       auto &pmb = pm->block_list[b];
 
-      for (int i = out_ib.s; i <= out_ib.e + 1; ++i) {
-        loc_x[idx_x++] = pmb->coords.x1f(0, 0, i);
+      for (int i = out_ib.s; i <= out_ib.e + offset; ++i) {
+        loc_x[idx_x++] = face ? pmb->coords.x1f(0, 0, i) : pmb->coords.x1v(0, 0, i);
       }
 
-      for (int j = out_jb.s; j <= out_jb.e + 1; ++j) {
-        loc_y[idx_y++] = pmb->coords.x2f(0, j, 0);
+      for (int j = out_jb.s; j <= out_jb.e + offset; ++j) {
+        loc_y[idx_y++] = face ? pmb->coords.x2f(0, j, 0) : pmb->coords.x2v(0, j, 0);
       }
 
-      for (int k = out_kb.s; k <= out_kb.e + 1; ++k) {
-        loc_z[idx_z++] = pmb->coords.x3f(k, 0, 0);
+      for (int k = out_kb.s; k <= out_kb.e + offset; ++k) {
+        loc_z[idx_z++] = face ? pmb->coords.x3f(k, 0, 0) : pmb->coords.x3v(k, 0, 0);
       }
     }
 
-    local_count[1] = global_count[1] = nx1 + 1;
+    local_count[1] = global_count[1] = nx1 + offset;
     HDF5Write2D(gLocations, "x", loc_x.data(), p_loc_offset, p_loc_cnt, p_glob_cnt,
                 pl_xfer);
 
-    local_count[1] = global_count[1] = nx2 + 1;
+    local_count[1] = global_count[1] = nx2 + offset;
     HDF5Write2D(gLocations, "y", loc_y.data(), p_loc_offset, p_loc_cnt, p_glob_cnt,
                 pl_xfer);
 
-    local_count[1] = global_count[1] = nx3 + 1;
+    local_count[1] = global_count[1] = nx3 + offset;
     HDF5Write2D(gLocations, "z", loc_z.data(), p_loc_offset, p_loc_cnt, p_glob_cnt,
                 pl_xfer);
+  };
+
+  // Write mesh coordinates to file
+  if (!restart_) {
+    WriteLocations(true);
+    WriteLocations(false);
   } // Locations section
+
+  // Write Levels and Logical Locations with the level for each Meshblock loclist contains
+  // levels and logical locations for all meshblocks on all ranks
+  if (!restart_) {
+    const auto &loclist = pm->GetLocList();
+
+    std::vector<std::int64_t> levels;
+    levels.reserve(pm->nbtotal);
+
+    std::vector<std::int64_t> logicalLocations;
+    logicalLocations.reserve(pm->nbtotal * 3);
+
+    for (const auto &loc : loclist) {
+      levels.push_back(loc.level - pm->GetRootLevel());
+      logicalLocations.push_back(loc.lx1);
+      logicalLocations.push_back(loc.lx2);
+      logicalLocations.push_back(loc.lx3);
+    }
+
+    // Only write levels on rank 0 since it has data for all ranks
+    local_count[0] = (Globals::my_rank == 0) ? pm->nbtotal : 0;
+    HDF5WriteND(file, "Levels", levels.data(), 1, local_offset.data(), local_count.data(),
+                global_count.data(), pl_xfer, H5P_DEFAULT);
+
+    local_count[1] = global_count[1] = 3;
+    HDF5Write2D(file, "LogicalLocations", logicalLocations.data(), local_offset.data(),
+                local_count.data(), global_count.data(), pl_xfer);
+
+    // reset for collective output
+    local_count[0] = num_blocks_local;
+  }
 
   // -------------------------------------------------------------------------------- //
   //   WRITING VARIABLES DATA                                                         //
@@ -638,14 +743,17 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
     // the label buffer contains all labels of the unique variables on this rank
     // separated by \t, e.g.: "label0\tlabel1\tlabel2\t"
-    std::string label_buffer;
+    std::vector<std::string> compact_labels(all_unique_vars.size(), "");
     std::vector<int> code_buffer(all_unique_vars.size(), 0);
 
     size_t idx = 0;
     for (const auto &vi : all_unique_vars) {
-      label_buffer += vi.label + "\t";
-      code_buffer[idx++] = vi.get_info_code();
+      compact_labels[idx] = vi.get_compact_label();
+      code_buffer[idx] = vi.get_info_code();
+      idx++;
     }
+
+    std::string label_buffer = PackStrings(compact_labels, '\n');
 
     // first we need to communicate the lengths of the label_buffer and vlen_buffer to
     // all ranks, 2 ints per rank: first int: label_buffer length, second int:
@@ -695,33 +803,13 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
                                        code_offsets.data(), MPI_INT, MPI_COMM_WORLD));
 
     // unpack labels
-    std::vector<std::string> all_labels;
-    const char *curr = all_labels_buffer.data();
-    const char *const end = curr + all_labels_buffer.size();
+    auto all_compact_labels = UnpackStrings(
+        std::string(all_labels_buffer.data(), all_labels_buffer.size()), '\n');
 
-    while (curr < end) {
-      const auto tab = strchr(curr, '\t');
-      if (tab == nullptr) {
-        std::stringstream msg;
-        msg << "### ERROR: all_labels_buffer does not end with \\t" << std::endl;
-        PARTHENON_FAIL(msg);
-      }
-
-      if (tab == curr) {
-        std::stringstream msg;
-        msg << "### ERROR: Got an empty label" << std::endl;
-        PARTHENON_FAIL(msg);
-      }
-
-      std::string label(curr, tab - curr);
-      all_labels.push_back(label);
-      curr = tab + 1;
-    }
-
-    if (all_labels.size() != all_codes.size()) {
-      printf("all_labels: %zu\n", all_labels.size());
-      for (size_t i = 0; i < all_labels.size(); ++i)
-        printf("%4zu: %s\n", i, all_labels[i].c_str());
+    if (all_compact_labels.size() != all_codes.size()) {
+      printf("all_compact_labels: %zu\n", all_compact_labels.size());
+      for (size_t i = 0; i < all_compact_labels.size(); ++i)
+        printf("%4zu: %s\n", i, all_compact_labels[i].c_str());
       printf("all_codes: %zu\n", all_codes.size());
       for (size_t i = 0; i < all_codes.size(); ++i)
         printf("%4zu: %i\n", i, all_codes[i]);
@@ -732,8 +820,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     }
 
     // finally make list of all unique variables
-    for (size_t i = 0; i < all_labels.size(); ++i) {
-      all_unique_vars.insert(VarInfo::Decode(all_labels[i], all_codes[i]));
+    for (size_t i = 0; i < all_compact_labels.size(); ++i) {
+      all_unique_vars.insert(VarInfo::Decode(all_compact_labels[i], all_codes[i]));
     }
   }
 #endif
@@ -778,6 +866,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   std::vector<OutT> tmpData(varSize * vlen_max * num_blocks_local);
 
   // create persistent spaces
+  local_count[0] = num_blocks_local;
+  global_count[0] = max_blocks_global;
   local_count[1] = global_count[1] = nx3;
   local_count[2] = global_count[2] = nx2;
   local_count[3] = global_count[3] = nx1;
@@ -854,6 +944,28 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
                   pl_xfer, pl_dcreate);
     }
   }
+
+  // NumVariables - number of variables within each dataset
+  std::vector<size_t> numVariables(output_params.variables.size());
+  // VariablesNames - Names of variables within each dataset
+  std::vector<std::string> variableNames;
+
+  for (const auto &vi : all_unique_vars) {
+    const auto &component_labels = vi.component_labels;
+
+    if (component_labels.size() > 0) {
+      numVariables[i] = component_labels.size();
+      for (const auto &label : component_labels) {
+        variableNames.push_back(label);
+      }
+    } else {
+      numVariables[i] = 1;
+      variableNames.push_back(vi.label);
+    }
+  }
+
+  HDF5WriteAttribute("NumVariables", numVariables, info_group);
+  HDF5WriteAttribute("VariableNames", variableNames, info_group);
 
   // write SparseInfo and SparseFields (we can't write a zero-size dataset, so only write
   // this if we have sparse fields)
