@@ -374,10 +374,12 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
                   H5S::FromHIDCheck(H5Screate_simple(1, datasetNames_size, NULL)),
                   infoDSet);
 
-      const hsize_t variableNames_size[1] = {variableNames.size()};
-      writeH5ASTRINGS("VariableNames", variableNames,
-                      H5S::FromHIDCheck(H5Screate_simple(1, variableNames_size, NULL)),
-                      infoDSet);
+      if (variableNames.size() > 0) {
+        const hsize_t variableNames_size[1] = {variableNames.size()};
+        writeH5ASTRINGS("VariableNames", variableNames,
+                        H5S::FromHIDCheck(H5Screate_simple(1, variableNames_size, NULL)),
+                        infoDSet);
+      }
     } // END /Info
 
     { // START /Params
