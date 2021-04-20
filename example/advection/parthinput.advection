@@ -62,6 +62,7 @@ refine_tol = 0.3    # control the package specific refinement tagging function
 derefine_tol = 0.03
 compute_error = false
 num_vars = 1 # number of variables in variable vector
+fill_derived = false # whether to fill one-copy test vars
 buffer_send_pack = false # send all buffers using packs
 buffer_recv_pack = false # receive buffers using packs
 buffer_set_pack = false # set received buffers using packs

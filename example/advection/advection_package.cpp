@@ -74,6 +74,9 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   Real ang_2_vert = pin->GetOrAddBoolean("Advection", "ang_2_vert", false);
   Real ang_3_vert = pin->GetOrAddBoolean("Advection", "ang_3_vert", false);
 
+  auto fill_derived = pin->GetOrAddBoolean("Advection", "fill_derived", true);
+  pkg->AddParam<>("fill_derived", fill_derived);
+
   // For wavevector along coordinate axes, set desired values of ang_2/ang_3.
   //    For example, for 1D problem use ang_2 = ang_3 = 0.0
   //    For wavevector along grid diagonal, do not input values for ang_2/ang_3.
@@ -153,29 +156,31 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
              std::vector<int>({num_vars}), advected_labels);
   pkg->AddField(field_name, m);
 
-  field_name = "one_minus_advected";
-  m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy},
-               std::vector<int>({num_vars}));
-  pkg->AddField(field_name, m);
+  if (fill_derived) {
+    field_name = "one_minus_advected";
+    m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy},
+                 std::vector<int>({num_vars}));
+    pkg->AddField(field_name, m);
 
-  field_name = "one_minus_advected_sq";
-  m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy},
-               std::vector<int>({num_vars}));
-  pkg->AddField(field_name, m);
+    field_name = "one_minus_advected_sq";
+    m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy},
+                 std::vector<int>({num_vars}));
+    pkg->AddField(field_name, m);
 
-  // for fun make this last one a multi-component field using SparseVariable
-  field_name = "one_minus_sqrt_one_minus_advected_sq";
-  m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy, Metadata::Sparse,
-                Metadata::Restart},
-               12, // just picking a sparse_id out of a hat for demonstration
-               std::vector<int>({num_vars}));
-  pkg->AddField(field_name, m);
-  // add another component
-  m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy, Metadata::Sparse,
-                Metadata::Restart},
-               37, // just picking a sparse_id out of a hat for demonstration
-               std::vector<int>({num_vars}));
-  pkg->AddField(field_name, m);
+    // for fun make this last one a multi-component field using SparseVariable
+    field_name = "one_minus_sqrt_one_minus_advected_sq";
+    m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy, Metadata::Sparse,
+                  Metadata::Restart},
+                 12, // just picking a sparse_id out of a hat for demonstration
+                 std::vector<int>({num_vars}));
+    pkg->AddField(field_name, m);
+    // add another component
+    m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy, Metadata::Sparse,
+                  Metadata::Restart},
+                 37, // just picking a sparse_id out of a hat for demonstration
+                 std::vector<int>({num_vars}));
+    pkg->AddField(field_name, m);
+  }
 
   // List (vector) of HistoryOutputVar that will all be enrolled as output variables
   parthenon::HstVar_list hst_vars = {};
@@ -197,7 +202,9 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   // add callbacks for HST output identified by the `hist_param_key`
   pkg->AddParam<>(parthenon::hist_param_key, hst_vars);
 
-  pkg->FillDerivedBlock = SquareIt;
+  if (fill_derived) {
+    pkg->FillDerivedBlock = SquareIt;
+  }
   pkg->CheckRefinementBlock = CheckRefinement;
   pkg->EstimateTimestepBlock = EstimateTimestepBlock;
 
@@ -238,23 +245,27 @@ AmrTag CheckRefinement(MeshBlockData<Real> *rc) {
 // demonstrate usage of a "pre" fill derived routine
 void PreFill(MeshBlockData<Real> *rc) {
   auto pmb = rc->GetBlockPointer();
+  auto pkg = pmb->packages.Get("advection_package");
+  bool fill_derived = pkg->Param<bool>("fill_derived");
 
-  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
-  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
-  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
+  if (fill_derived) {
+    IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
+    IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
+    IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
 
-  // packing in principle unnecessary/convoluted here and just done for demonstration
-  PackIndexMap imap;
-  std::vector<std::string> vars({"advected", "one_minus_advected"});
-  const auto &v = rc->PackVariables(vars, imap);
-  const int in = imap["advected"].first;
-  const int out = imap["one_minus_advected"].first;
-  const auto num_vars = rc->Get("advected").data.GetDim(4);
-  pmb->par_for(
-      "advection_package::PreFill", 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
-        v(out + n, k, j, i) = 1.0 - v(in + n, k, j, i);
-      });
+    // packing in principle unnecessary/convoluted here and just done for demonstration
+    PackIndexMap imap;
+    std::vector<std::string> vars({"advected", "one_minus_advected"});
+    const auto &v = rc->PackVariables(vars, imap);
+    const int in = imap["advected"].first;
+    const int out = imap["one_minus_advected"].first;
+    const auto num_vars = rc->Get("advected").data.GetDim(4);
+    pmb->par_for(
+        "advection_package::PreFill", 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
+          v(out + n, k, j, i) = 1.0 - v(in + n, k, j, i);
+        });
+  }
 }
 
 // this is the package registered function to fill derived
@@ -282,26 +293,30 @@ void SquareIt(MeshBlockData<Real> *rc) {
 // demonstrate usage of a "post" fill derived routine
 void PostFill(MeshBlockData<Real> *rc) {
   auto pmb = rc->GetBlockPointer();
+  auto pkg = pmb->packages.Get("advection_package");
+  bool fill_derived = pkg->Param<bool>("fill_derived");
 
-  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
-  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
-  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
+  if (fill_derived) {
+    IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
+    IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
+    IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
 
-  // packing in principle unnecessary/convoluted here and just done for demonstration
-  PackIndexMap imap;
-  std::vector<std::string> vars(
-      {"one_minus_advected_sq", "one_minus_sqrt_one_minus_advected_sq"});
-  auto v = rc->PackVariables(vars, {12, 37}, imap);
-  const int in = imap["one_minus_advected_sq"].first;
-  const int out12 = imap["one_minus_sqrt_one_minus_advected_sq_12"].first;
-  const int out37 = imap["one_minus_sqrt_one_minus_advected_sq_37"].first;
-  const auto num_vars = rc->Get("advected").data.GetDim(4);
-  pmb->par_for(
-      "advection_package::PostFill", 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
-        v(out12 + n, k, j, i) = 1.0 - sqrt(v(in + n, k, j, i));
-        v(out37 + n, k, j, i) = 1.0 - v(out12 + n, k, j, i);
-      });
+    // packing in principle unnecessary/convoluted here and just done for demonstration
+    PackIndexMap imap;
+    std::vector<std::string> vars(
+        {"one_minus_advected_sq", "one_minus_sqrt_one_minus_advected_sq"});
+    auto v = rc->PackVariables(vars, {12, 37}, imap);
+    const int in = imap["one_minus_advected_sq"].first;
+    const int out12 = imap["one_minus_sqrt_one_minus_advected_sq_12"].first;
+    const int out37 = imap["one_minus_sqrt_one_minus_advected_sq_37"].first;
+    const auto num_vars = rc->Get("advected").data.GetDim(4);
+    pmb->par_for(
+        "advection_package::PostFill", 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s,
+        ib.e, KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
+          v(out12 + n, k, j, i) = 1.0 - sqrt(v(in + n, k, j, i));
+          v(out37 + n, k, j, i) = 1.0 - v(out12 + n, k, j, i);
+        });
+  }
 }
 
 // Example of how to enroll a history function.
