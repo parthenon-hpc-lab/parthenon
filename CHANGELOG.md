@@ -7,6 +7,7 @@
 - [[PR 482]](https://github.com/lanl/parthenon/pull/482) Add support for package enrolled history outputs.
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 492]](https://github.com/lanl/parthenon/pull/492) Modify advection example to have an arbitrary number of dense variables and to disable fill derived for profiling. Breaks tests because dump files changed.
 
 ### Fixed (not changing behavior/API/variables/...)
 - [[PR 487]](https://github.com/lanl/parthenon/pull/487) Add default tiling matching `i` index range to MDRange loop pattern.
