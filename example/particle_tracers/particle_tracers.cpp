@@ -3,7 +3,7 @@
 // Copyright(C) 2021 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -18,7 +18,6 @@
 #include "particle_tracers.hpp"
 #include "Kokkos_CopyViews.hpp"
 #include "Kokkos_HostSpace.hpp"
-#include "Kokkos_Random.hpp"
 #include "basic_types.hpp"
 #include "config.hpp"
 #include "globals.hpp"
@@ -44,9 +43,6 @@ using namespace parthenon::Update;
 
 typedef Kokkos::Random_XorShift64_Pool<> RNGPool;
 
-// *************************************************//
-// redefine some internal parthenon functions      *//
-// *************************************************//
 namespace particles_example {
 
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
@@ -55,14 +51,12 @@ Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   return packages;
 }
 
-// *************************************************//
-// define the "physics" package particles_package, *//
-// which includes defining various functions that  *//
-// control how parthenon functions and any tasks   *//
-// needed to implement the "physics"               *//
-// *************************************************//
-
 namespace Particles {
+
+// *************************************************//
+// define the Particles package, including         *//
+// initialization and update functions.            *//
+// *************************************************//
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto pkg = std::make_shared<StateDescriptor>("particles_package");
@@ -77,10 +71,6 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   Real cfl = pin->GetOrAddReal("Material", "cfl", 0.3);
   pkg->AddParam<>("cfl", cfl);
 
-  auto write_particle_log =
-      pin->GetOrAddBoolean("Particles", "write_particle_log", false);
-  pkg->AddParam<>("write_particle_log", write_particle_log);
-
   int num_tracers = pin->GetOrAddReal("Tracers", "num_tracers", 100);
   pkg->AddParam<>("num_tracers", num_tracers);
 
@@ -90,16 +80,19 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   RNGPool rng_pool(rng_seed);
   pkg->AddParam<>("rng_pool", rng_pool);
 
+  // Add swarm of tracer particles
   std::string swarm_name = "tracers";
   Metadata swarm_metadata;
   pkg->AddSwarm(swarm_name, swarm_metadata);
   Metadata real_swarmvalue_metadata({Metadata::Real});
   pkg->AddSwarmValue("id", swarm_name, Metadata({Metadata::Integer}));
 
+  // Add density field
   std::string field_name = "density";
   Metadata mfield({Metadata::Cell, Metadata::Independent, Metadata::FillGhost});
   pkg->AddField(field_name, mfield);
 
+  // Add field in which to deposit tracer densities
   field_name = "tracer_deposition";
   pkg->AddField(field_name, mfield);
 
@@ -132,6 +125,193 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
   min_dt = std::min(min_dt, dx_k / std::abs(vmatz + SMALL));
 
   return cfl * min_dt;
+}
+
+TaskStatus AdvectTracers(MeshBlock *pmb, const StagedIntegrator *integrator) {
+  auto swarm = pmb->swarm_data.Get()->Get("tracers");
+  auto pkg = pmb->packages.Get("particles_package");
+
+  int max_active_index = swarm->GetMaxActiveIndex();
+
+  Real dt = integrator->dt;
+
+  auto &x = swarm->Get<Real>("x").Get();
+  auto &y = swarm->Get<Real>("y").Get();
+  auto &z = swarm->Get<Real>("z").Get();
+
+  const auto &vmatx = pkg->Param<Real>("vmatx");
+
+  auto swarm_d = swarm->GetDeviceContext();
+  pmb->par_for(
+      "Tracer advection", 0, max_active_index, KOKKOS_LAMBDA(const int n) {
+        if (swarm_d.IsActive(n)) {
+
+          x(n) += vmatx * dt;
+
+          bool on_current_mesh_block = true;
+          swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n), on_current_mesh_block);
+        }
+      });
+
+  return TaskStatus::complete;
+}
+
+TaskStatus DepositTracers(MeshBlock *pmb) {
+  auto swarm = pmb->swarm_data.Get()->Get("tracers");
+
+  // Meshblock geometry
+  const IndexRange &ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
+  const IndexRange &jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
+  const IndexRange &kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
+  const Real &dx_i = pmb->coords.dx1f(pmb->cellbounds.is(IndexDomain::interior));
+  const Real &dx_j = pmb->coords.dx2f(pmb->cellbounds.js(IndexDomain::interior));
+  const Real &dx_k = pmb->coords.dx3f(pmb->cellbounds.ks(IndexDomain::interior));
+  const Real &minx_i = pmb->coords.x1f(ib.s);
+  const Real &minx_j = pmb->coords.x2f(jb.s);
+  const Real &minx_k = pmb->coords.x3f(kb.s);
+
+  const auto &x = swarm->Get<Real>("x").Get();
+  const auto &y = swarm->Get<Real>("y").Get();
+  const auto &z = swarm->Get<Real>("z").Get();
+  auto swarm_d = swarm->GetDeviceContext();
+
+  auto &tracer_dep = pmb->meshblock_data.Get()->Get("tracer_deposition").data;
+  // Reset particle count
+  pmb->par_for(
+      "ZeroParticleDep", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int k, const int j, const int i) { tracer_dep(k, j, i) = 0.; });
+
+  const int ndim = pmb->pmy_mesh->ndim;
+
+  pmb->par_for(
+      "DepositTracers", 0, swarm->GetMaxActiveIndex(), KOKKOS_LAMBDA(const int n) {
+        if (swarm_d.IsActive(n)) {
+          int i = static_cast<int>(std::floor((x(n) - minx_i) / dx_i) + ib.s);
+          int j = 0;
+          if (ndim > 1) {
+            j = static_cast<int>(std::floor((y(n) - minx_j) / dx_j) + jb.s);
+          }
+          int k = 0;
+          if (ndim > 2) {
+            k = static_cast<int>(std::floor((z(n) - minx_k) / dx_k) + kb.s);
+          }
+
+          if (i >= ib.s && i <= ib.e && j >= jb.s && j <= jb.e && k >= kb.s &&
+              k <= kb.e) {
+            Kokkos::atomic_add(&tracer_dep(k, j, i), 1.0);
+          }
+        }
+      });
+
+  return TaskStatus::complete;
+}
+
+TaskStatus CalculateFluxes(MeshBlockData<Real> *rc) {
+  auto pmb = rc->GetBlockPointer();
+  auto pkg = pmb->packages.Get("particles_package");
+  const auto &vmatx = pkg->Param<Real>("vmatx");
+  const auto &vmaty = pkg->Param<Real>("vmaty");
+  const auto &vmatz = pkg->Param<Real>("vmatz");
+
+  const auto ndim = pmb->pmy_mesh->ndim;
+
+  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
+  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
+  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
+
+  auto density = rc->Get("density").data;
+
+  auto x1flux = rc->Get("density").flux[X1DIR].Get<4>();
+
+  // Upwind method
+  pmb->par_for(
+      "CalculateFluxesX1", kb.s, kb.e, jb.s, jb.e, ib.s - 1, ib.e + 1,
+      KOKKOS_LAMBDA(const int k, const int j, const int i) {
+        // X1
+        if (vmatx > 0.) {
+          x1flux(0, k, j, i) = density(k, j, i - 1) * vmatx;
+        } else {
+          x1flux(0, k, j, i) = density(k, j, i) * vmatx;
+        }
+      });
+
+  if (ndim > 1) {
+    auto x2flux = rc->Get("density").flux[X2DIR].Get<4>();
+    pmb->par_for(
+        "CalculateFluxesX2", kb.s, kb.e, jb.s, jb.e, ib.s - 1, ib.e + 1,
+        KOKKOS_LAMBDA(const int k, const int j, const int i) {
+          // X2
+          if (vmaty > 0.) {
+            x2flux(0, k, j, i) = density(k, j, i - 1) * vmaty;
+          } else {
+            x2flux(0, k, j, i) = density(k, j, i) * vmaty;
+          }
+        });
+  }
+
+  if (ndim > 2) {
+    auto x3flux = rc->Get("density").flux[X3DIR].Get<4>();
+    pmb->par_for(
+        "CalculateFluxesX3", kb.s, kb.e, jb.s, jb.e, ib.s - 1, ib.e + 1,
+        KOKKOS_LAMBDA(const int k, const int j, const int i) {
+          // X3
+          if (vmatz > 0.) {
+            x3flux(0, k, j, i) = density(k, j, i - 1) * vmatz;
+          } else {
+            x3flux(0, k, j, i) = density(k, j, i) * vmatz;
+          }
+        });
+  }
+
+  return TaskStatus::complete;
+}
+
+TaskStatus Defrag(MeshBlock *pmb) {
+  auto s = pmb->swarm_data.Get()->Get("tracers");
+
+  // Only do this if list is getting too sparse. This criterion (whether there
+  // are *any* gaps in the list) is very aggressive
+  if (s->GetNumActive() <= s->GetMaxActiveIndex()) {
+    s->Defrag();
+  }
+
+  return TaskStatus::complete;
+}
+
+// Mark all MPI requests as NULL / initialize boundary flags.
+TaskStatus InitializeCommunicationMesh(const BlockList_t &blocks) {
+  // Boundary transfers on same MPI proc are blocking
+  for (auto &block : blocks) {
+    auto swarm = block->swarm_data.Get()->Get("tracers");
+    for (int n = 0; n < block->pbval->nneighbor; n++) {
+      NeighborBlock &nb = block->pbval->neighbor[n];
+      swarm->vbswarm->bd_var_.req_send[nb.bufid] = MPI_REQUEST_NULL;
+    }
+  }
+
+  for (auto &block : blocks) {
+    auto &pmb = block;
+    auto sc = pmb->swarm_data.Get();
+    auto swarm = sc->Get("tracers");
+
+    for (int n = 0; n < swarm->vbswarm->bd_var_.nbmax; n++) {
+      auto &nb = pmb->pbval->neighbor[n];
+      swarm->vbswarm->bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
+    }
+  }
+
+  // Reset boundary statuses
+  for (auto &block : blocks) {
+    auto &pmb = block;
+    auto sc = pmb->swarm_data.Get();
+    auto swarm = sc->Get("tracers");
+    for (int n = 0; n < swarm->vbswarm->bd_var_.nbmax; n++) {
+      auto &nb = pmb->pbval->neighbor[n];
+      swarm->vbswarm->bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
+    }
+  }
+
+  return TaskStatus::complete;
 }
 
 } // namespace Particles
@@ -227,164 +407,6 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
       });
 }
 
-TaskStatus AdvectTracers(MeshBlock *pmb, const StagedIntegrator *integrator) {
-  auto swarm = pmb->swarm_data.Get()->Get("tracers");
-  auto pkg = pmb->packages.Get("particles_package");
-
-  int max_active_index = swarm->GetMaxActiveIndex();
-
-  Real dt = integrator->dt;
-
-  auto &x = swarm->Get<Real>("x").Get();
-  auto &y = swarm->Get<Real>("y").Get();
-  auto &z = swarm->Get<Real>("z").Get();
-
-  const auto &vmatx = pkg->Param<Real>("vmatx");
-
-  auto swarm_d = swarm->GetDeviceContext();
-  pmb->par_for(
-      "Tracer advection", 0, max_active_index, KOKKOS_LAMBDA(const int n) {
-        if (swarm_d.IsActive(n)) {
-
-          x(n) += vmatx * dt;
-
-          bool on_current_mesh_block = true;
-          swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n), on_current_mesh_block);
-        }
-      });
-
-  return TaskStatus::complete;
-}
-
-// Mark all MPI requests as NULL / initialize boundary flags.
-TaskStatus InitializeCommunicationMesh(const BlockList_t &blocks) {
-  // Boundary transfers on same MPI proc are blocking
-  for (auto &block : blocks) {
-    auto swarm = block->swarm_data.Get()->Get("tracers");
-    for (int n = 0; n < block->pbval->nneighbor; n++) {
-      NeighborBlock &nb = block->pbval->neighbor[n];
-      swarm->vbswarm->bd_var_.req_send[nb.bufid] = MPI_REQUEST_NULL;
-    }
-  }
-
-  for (auto &block : blocks) {
-    auto &pmb = block;
-    auto sc = pmb->swarm_data.Get();
-    auto swarm = sc->Get("tracers");
-
-    for (int n = 0; n < swarm->vbswarm->bd_var_.nbmax; n++) {
-      auto &nb = pmb->pbval->neighbor[n];
-      swarm->vbswarm->bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
-    }
-  }
-
-  // Reset boundary statuses
-  for (auto &block : blocks) {
-    auto &pmb = block;
-    auto sc = pmb->swarm_data.Get();
-    auto swarm = sc->Get("tracers");
-    for (int n = 0; n < swarm->vbswarm->bd_var_.nbmax; n++) {
-      auto &nb = pmb->pbval->neighbor[n];
-      swarm->vbswarm->bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
-    }
-  }
-
-  return TaskStatus::complete;
-}
-
-TaskStatus Defrag(MeshBlock *pmb) {
-  auto s = pmb->swarm_data.Get()->Get("tracers");
-
-  // Only do this if list is getting too sparse. This criterion (whether there
-  // are *any* gaps in the list) is very aggressive
-  if (s->GetNumActive() <= s->GetMaxActiveIndex()) {
-    s->Defrag();
-  }
-
-  return TaskStatus::complete;
-}
-
-TaskStatus CalculateFluxes(MeshBlockData<Real> *rc) {
-  auto pmb = rc->GetBlockPointer();
-  auto pkg = pmb->packages.Get("particles_package");
-
-  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
-  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
-  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
-
-  auto density = rc->Get("density").data;
-  auto x1flux = rc->Get("density").flux[X1DIR].Get<4>();
-
-  const auto &vmatx = pkg->Param<Real>("vmatx");
-  const auto &vmaty = pkg->Param<Real>("vmaty");
-  const auto &vmatz = pkg->Param<Real>("vmatz");
-
-  PARTHENON_REQUIRE(pmb->pmy_mesh->ndim == 1, "2D and 3D fluxes not supported!");
-
-  // Upwind method
-  pmb->par_for(
-      "CalculateFluxesX1", kb.s, kb.e, jb.s, jb.e, ib.s - 1, ib.e + 1,
-      KOKKOS_LAMBDA(const int k, const int j, const int i) {
-        if (vmatx > 0.) {
-          x1flux(0, k, j, i) = density(k, j, i - 1) * vmatx;
-        } else {
-          x1flux(0, k, j, i) = density(k, j, i) * vmatx;
-        }
-      });
-
-  return TaskStatus::complete;
-}
-
-TaskStatus DepositParticles(MeshBlock *pmb) {
-  auto swarm = pmb->swarm_data.Get()->Get("tracers");
-
-  // Meshblock geometry
-  const IndexRange &ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
-  const IndexRange &jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
-  const IndexRange &kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
-  const Real &dx_i = pmb->coords.dx1f(pmb->cellbounds.is(IndexDomain::interior));
-  const Real &dx_j = pmb->coords.dx2f(pmb->cellbounds.js(IndexDomain::interior));
-  const Real &dx_k = pmb->coords.dx3f(pmb->cellbounds.ks(IndexDomain::interior));
-  const Real &minx_i = pmb->coords.x1f(ib.s);
-  const Real &minx_j = pmb->coords.x2f(jb.s);
-  const Real &minx_k = pmb->coords.x3f(kb.s);
-
-  const auto &x = swarm->Get<Real>("x").Get();
-  const auto &y = swarm->Get<Real>("y").Get();
-  const auto &z = swarm->Get<Real>("z").Get();
-  auto swarm_d = swarm->GetDeviceContext();
-
-  auto &tracer_dep = pmb->meshblock_data.Get()->Get("tracer_deposition").data;
-  // Reset particle count
-  pmb->par_for(
-      "ZeroParticleDep", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int k, const int j, const int i) { tracer_dep(k, j, i) = 0.; });
-
-  const int ndim = pmb->pmy_mesh->ndim;
-
-  pmb->par_for(
-      "DepositParticles", 0, swarm->GetMaxActiveIndex(), KOKKOS_LAMBDA(const int n) {
-        if (swarm_d.IsActive(n)) {
-          int i = static_cast<int>(std::floor((x(n) - minx_i) / dx_i) + ib.s);
-          int j = 0;
-          if (ndim > 1) {
-            j = static_cast<int>(std::floor((y(n) - minx_j) / dx_j) + jb.s);
-          }
-          int k = 0;
-          if (ndim > 2) {
-            k = static_cast<int>(std::floor((z(n) - minx_k) / dx_k) + kb.s);
-          }
-
-          if (i >= ib.s && i <= ib.e && j >= jb.s && j <= jb.e && k >= kb.s &&
-              k <= kb.e) {
-            Kokkos::atomic_add(&tracer_dep(k, j, i), 1.0);
-          }
-        }
-      });
-
-  return TaskStatus::complete;
-}
-
 TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage) {
   TaskCollection tc;
   TaskID none(0);
@@ -416,7 +438,7 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
     auto start_recv = tl.AddTask(none, &MeshBlockData<Real>::StartReceiving, sc1.get(),
                                  BoundaryCommSubset::all);
 
-    auto advect_flux = tl.AddTask(none, particles_example::CalculateFluxes, sc0.get());
+    auto advect_flux = tl.AddTask(none, Particles::CalculateFluxes, sc0.get());
 
     auto send_flux =
         tl.AddTask(advect_flux, &MeshBlockData<Real>::SendFluxCorrection, sc0.get());
@@ -460,7 +482,8 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
     TaskRegion &sync_region0 = tc.AddRegion(1);
     {
       auto &tl = sync_region0[0];
-      auto initialize_comms = tl.AddTask(none, InitializeCommunicationMesh, blocks);
+      auto initialize_comms =
+          tl.AddTask(none, Particles::InitializeCommunicationMesh, blocks);
     }
 
     TaskRegion &async_region1 = tc.AddRegion(nblocks);
@@ -468,7 +491,8 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
       auto &tl = async_region1[n];
       auto &pmb = blocks[n];
       auto &sc = pmb->swarm_data.Get();
-      auto tracerAdvect = tl.AddTask(none, AdvectTracers, pmb.get(), integrator.get());
+      auto tracerAdvect =
+          tl.AddTask(none, Particles::AdvectTracers, pmb.get(), integrator.get());
 
       auto send = tl.AddTask(tracerAdvect, &SwarmContainer::Send, sc.get(),
                              BoundaryCommSubset::all);
@@ -476,9 +500,9 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
       auto receive =
           tl.AddTask(send, &SwarmContainer::Receive, sc.get(), BoundaryCommSubset::all);
 
-      auto deposit = tl.AddTask(receive, DepositParticles, pmb.get());
+      auto deposit = tl.AddTask(receive, Particles::DepositTracers, pmb.get());
 
-      auto defrag = tl.AddTask(deposit, Defrag, pmb.get());
+      auto defrag = tl.AddTask(deposit, Particles::Defrag, pmb.get());
     }
   }
 
