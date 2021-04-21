@@ -149,7 +149,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddParam<>("num_vars", num_vars);
 
   // Give a custom labels to advected in the data output
-  std::string field_name_base = "advected_";
+  std::string field_name_base = "advected";
   std::string field_name;
   Metadata m;
   for (int var = 0; var < num_vars; ++var) {
@@ -159,7 +159,11 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
       advected_labels.push_back("Advected_" + std::to_string(var) + " _" +
                                 std::to_string(j));
     }
-    field_name = field_name_base + std::to_string(var);
+    if (var == 0) { // first var is always called just "advected"
+      field_name = field_name_base;
+    } else {
+      field_name = field_name_base + "_" + std::to_string(var);
+    }
     m = Metadata({Metadata::Cell, Metadata::Independent, Metadata::FillGhost},
                  std::vector<int>({vec_size}), advected_labels);
     pkg->AddField(field_name, m);
@@ -224,8 +228,8 @@ AmrTag CheckRefinement(MeshBlockData<Real> *rc) {
   auto pmb = rc->GetBlockPointer();
   auto pkg = pmb->packages.Get("advection_package");
   int num_vars = pkg->Param<int>("num_vars");
-  std::vector<std::string> vars;
-  for (int var = 0; var < num_vars; ++var) {
+  std::vector<std::string> vars = {"advected"};
+  for (int var = 1; var < num_vars; ++var) {
     vars.push_back("advected_" + std::to_string(var));
   }
   // type is parthenon::VariablePack<CellVariable<Real>>
@@ -269,11 +273,11 @@ void PreFill(MeshBlockData<Real> *rc) {
 
     // packing in principle unnecessary/convoluted here and just done for demonstration
     PackIndexMap imap;
-    std::vector<std::string> vars({"advected_0", "one_minus_advected"});
+    std::vector<std::string> vars({"advected", "one_minus_advected"});
     const auto &v = rc->PackVariables(vars, imap);
-    const int in = imap["advected_0"].first;
+    const int in = imap["advected"].first;
     const int out = imap["one_minus_advected"].first;
-    const auto num_vars = rc->Get("advected_0").data.GetDim(4);
+    const auto num_vars = rc->Get("advected").data.GetDim(4);
     pmb->par_for(
         "advection_package::PreFill", 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
         KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
@@ -296,7 +300,7 @@ void SquareIt(MeshBlockData<Real> *rc) {
   auto v = rc->PackVariables(vars, imap);
   const int in = imap["one_minus_advected"].first;
   const int out = imap["one_minus_advected_sq"].first;
-  const auto num_vars = rc->Get("advected_0").data.GetDim(4);
+  const auto num_vars = rc->Get("advected").data.GetDim(4);
   pmb->par_for(
       "advection_package::SquareIt", 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
@@ -323,7 +327,7 @@ void PostFill(MeshBlockData<Real> *rc) {
     const int in = imap["one_minus_advected_sq"].first;
     const int out12 = imap["one_minus_sqrt_one_minus_advected_sq_12"].first;
     const int out37 = imap["one_minus_sqrt_one_minus_advected_sq_37"].first;
-    const auto num_vars = rc->Get("advected_0").data.GetDim(4);
+    const auto num_vars = rc->Get("advected").data.GetDim(4);
     pmb->par_for(
         "advection_package::PostFill", 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s,
         ib.e, KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
@@ -344,7 +348,7 @@ Real AdvectionHst(MeshData<Real> *md) {
 
   // Packing variable over MeshBlock as the function is called for MeshData, i.e., a
   // collection of blocks
-  const auto &advected_pack = md->PackVariables(std::vector<std::string>{"advected_0"});
+  const auto &advected_pack = md->PackVariables(std::vector<std::string>{"advected"});
 
   const auto ib = advected_pack.cellbounds.GetBoundsI(IndexDomain::interior);
   const auto jb = advected_pack.cellbounds.GetBoundsJ(IndexDomain::interior);

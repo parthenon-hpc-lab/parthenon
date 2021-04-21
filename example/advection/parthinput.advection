@@ -75,7 +75,7 @@ dt = 0.05
 <parthenon/output0>
 file_type = hdf5
 dt = 0.05
-variables = advected_0, advected_1, & # comments are ok
+variables = advected, advected_1, & # comments are ok
             one_minus_advected, & 
             one_minus_advected_sq, & # on every (& characters are ok in comments)
             one_minus_sqrt_one_minus_advected_sq # line
