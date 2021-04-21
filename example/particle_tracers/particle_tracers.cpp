@@ -223,7 +223,7 @@ TaskStatus CalculateFluxes(MeshBlockData<Real> *rc) {
 
   auto x1flux = rc->Get("density").flux[X1DIR].Get<4>();
 
-  // Upwind method
+  // Spatially first order upwind method
   pmb->par_for(
       "CalculateFluxesX1", kb.s, kb.e, jb.s, jb.e, ib.s - 1, ib.e + 1,
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
@@ -364,17 +364,18 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   const Real y_max_mesh = mesh_size.x2max;
   const Real z_max_mesh = mesh_size.x3max;
 
-  // Calculate fraction of total tracer particles on this meshblock
-  Real mass_meshblock =
+  // Calculate fraction of total tracer particles on this meshblock. Tracer number follows
+  // number = density*volume
+  Real number_meshblock =
       density_mean * (x_max - x_min) -
       density_amp / (2. * M_PI) * (cos(2. * M_PI * x_max) - cos(2. * M_PI * x_min));
-  mass_meshblock *= (y_max - y_min) * (z_max - z_min);
-  Real mass_mesh = density_mean * (x_max_mesh - x_min_mesh);
-  mass_mesh -= density_amp / (2. * M_PI) *
-               (cos(2. * M_PI * x_max_mesh) - cos(2. * M_PI * x_min_mesh));
-  mass_mesh *= (y_max_mesh - y_min_mesh) * (z_max_mesh - z_min_mesh);
+  number_meshblock *= (y_max - y_min) * (z_max - z_min);
+  Real number_mesh = density_mean * (x_max_mesh - x_min_mesh);
+  number_mesh -= density_amp / (2. * M_PI) *
+                 (cos(2. * M_PI * x_max_mesh) - cos(2. * M_PI * x_min_mesh));
+  number_mesh *= (y_max_mesh - y_min_mesh) * (z_max_mesh - z_min_mesh);
 
-  int num_tracers_meshblock = std::round(num_tracers * mass_meshblock / mass_mesh);
+  int num_tracers_meshblock = std::round(num_tracers * number_meshblock / number_mesh);
 
   ParArrayND<int> new_indices;
   const auto new_particles_mask =
@@ -418,6 +419,8 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
 
   const auto nblocks = blocks.size();
   TaskRegion &async_region0 = tc.AddRegion(nblocks);
+
+  // Staged advection update of density field
 
   for (int n = 0; n < nblocks; n++) {
     auto &pmb = blocks[n];
