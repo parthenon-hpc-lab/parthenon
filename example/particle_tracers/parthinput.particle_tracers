@@ -56,8 +56,8 @@ v = 1.0
 <parthenon/output0>
 file_type = hdf5
 dt = 0.05
-variables = density
+variables = density, tracer_deposition
 
 <Tracers>
-num_tracers = 100
+num_tracers = 10000
 write_particle_log = true

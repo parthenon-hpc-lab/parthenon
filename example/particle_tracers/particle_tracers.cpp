@@ -185,16 +185,16 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   const Real z_max_mesh = mesh_size.x3max;
 
   // Calculate fraction of total tracer particles on this meshblock
-  Real mass_meshblock = density_mean*(x_max - x_min) - density_amp/(2.*M_PI)*(cos(2.*M_PI*x_max) - cos(2.*M_PI*x_min));
-  mass_meshblock *= (y_max - y_min)*(z_max - z_min);
-  printf("mass_meshblock: %e\n", mass_meshblock);
-  Real mass_mesh = density_mean*(x_max_mesh - x_min_mesh);
-  mass_mesh -= density_amp/(2.*M_PI)*(cos(2.*M_PI*x_max_mesh) - cos(2.*M_PI*x_min_mesh));
-  mass_mesh *= (y_max_mesh - y_min_mesh)*(z_max_mesh - z_min_mesh);
-  printf("mess_mesh: %e\n", mass_mesh);
+  Real mass_meshblock =
+      density_mean * (x_max - x_min) -
+      density_amp / (2. * M_PI) * (cos(2. * M_PI * x_max) - cos(2. * M_PI * x_min));
+  mass_meshblock *= (y_max - y_min) * (z_max - z_min);
+  Real mass_mesh = density_mean * (x_max_mesh - x_min_mesh);
+  mass_mesh -= density_amp / (2. * M_PI) *
+               (cos(2. * M_PI * x_max_mesh) - cos(2. * M_PI * x_min_mesh));
+  mass_mesh *= (y_max_mesh - y_min_mesh) * (z_max_mesh - z_min_mesh);
 
-  int num_tracers_meshblock = std::round(num_tracers*mass_meshblock/mass_mesh);
-  printf("num_tracers_meshblock: %i\n", num_tracers_meshblock);
+  int num_tracers_meshblock = std::round(num_tracers * mass_meshblock / mass_mesh);
 
   ParArrayND<int> new_indices;
   const auto new_particles_mask =
@@ -211,99 +211,100 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   // addition of particles as indices need to be taken into account.
   pmb->par_for(
       "CreateParticles", 0, num_tracers_meshblock - 1, KOKKOS_LAMBDA(const int n) {
-
         auto rng_gen = rng_pool.get_state();
 
-        x(n) = x_min + rng_gen.drand()*(x_max - x_min);
-        y(n) = y_min + rng_gen.drand()*(y_max - y_min);
-        z(n) = z_min + rng_gen.drand()*(z_max - z_min);
+        // Rejection sample the x position
+        Real val;
+        do {
+          x(n) = x_min + rng_gen.drand() * (x_max - x_min);
+          val = density_mean + density_amp * sin(2. * M_PI * x(n));
+        } while (val < rng_gen.drand() * (density_mean + density_amp));
+
+        y(n) = y_min + rng_gen.drand() * (y_max - y_min);
+        z(n) = z_min + rng_gen.drand() * (z_max - z_min);
 
         rng_pool.free_state(rng_gen);
       });
 }
 
 TaskStatus AdvectTracers(MeshBlock *pmb, const StagedIntegrator *integrator) {
-  printf("%s:%i\n", __FILE__, __LINE__);
-    auto swarm = pmb->swarm_data.Get()->Get("tracers");
-    auto pkg = pmb->packages.Get("particles_package");
+  auto swarm = pmb->swarm_data.Get()->Get("tracers");
+  auto pkg = pmb->packages.Get("particles_package");
 
-    int max_active_index = swarm->GetMaxActiveIndex();
+  int max_active_index = swarm->GetMaxActiveIndex();
 
-    Real dt = integrator->dt;
+  Real dt = integrator->dt;
 
-    auto &x = swarm->Get<Real>("x").Get();
-    auto &y = swarm->Get<Real>("y").Get();
-    auto &z = swarm->Get<Real>("z").Get();
+  auto &x = swarm->Get<Real>("x").Get();
+  auto &y = swarm->Get<Real>("y").Get();
+  auto &z = swarm->Get<Real>("z").Get();
 
-    const auto &vmatx = pkg->Param<Real>("vmatx");
+  const auto &vmatx = pkg->Param<Real>("vmatx");
 
-    auto swarm_d = swarm->GetDeviceContext();
-    pmb->par_for("Tracer advection", 0, max_active_index, KOKKOS_LAMBDA(const int n) {
-          if (swarm_d.IsActive(n)) {
+  auto swarm_d = swarm->GetDeviceContext();
+  pmb->par_for(
+      "Tracer advection", 0, max_active_index, KOKKOS_LAMBDA(const int n) {
+        if (swarm_d.IsActive(n)) {
 
-            x(n) += vmatx * dt;
+          x(n) += vmatx * dt;
 
-            bool on_current_mesh_block = true;
-            swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n), on_current_mesh_block);
-          }
+          bool on_current_mesh_block = true;
+          swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n), on_current_mesh_block);
+        }
       });
 
   return TaskStatus::complete;
 }
 
 // Mark all MPI requests as NULL / initialize boundary flags.
-// TODO(BRR) Should this be a Swarm method?
 TaskStatus InitializeCommunicationMesh(const BlockList_t &blocks) {
-  printf("%s:%i\n", __FILE__, __LINE__);
-    // Boundary transfers on same MPI proc are blocking
-    for (auto &block : blocks) {
-      auto swarm = block->swarm_data.Get()->Get("tracers");
-      for (int n = 0; n < block->pbval->nneighbor; n++) {
-        NeighborBlock &nb = block->pbval->neighbor[n];
-        swarm->vbswarm->bd_var_.req_send[nb.bufid] = MPI_REQUEST_NULL;
-      }
+  // Boundary transfers on same MPI proc are blocking
+  for (auto &block : blocks) {
+    auto swarm = block->swarm_data.Get()->Get("tracers");
+    for (int n = 0; n < block->pbval->nneighbor; n++) {
+      NeighborBlock &nb = block->pbval->neighbor[n];
+      swarm->vbswarm->bd_var_.req_send[nb.bufid] = MPI_REQUEST_NULL;
     }
+  }
 
-    for (auto &block : blocks) {
-      auto &pmb = block;
-      auto sc = pmb->swarm_data.Get();
-      auto swarm = sc->Get("tracers");
+  for (auto &block : blocks) {
+    auto &pmb = block;
+    auto sc = pmb->swarm_data.Get();
+    auto swarm = sc->Get("tracers");
 
-      for (int n = 0; n < swarm->vbswarm->bd_var_.nbmax; n++) {
-        auto &nb = pmb->pbval->neighbor[n];
-        swarm->vbswarm->bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
-      }
+    for (int n = 0; n < swarm->vbswarm->bd_var_.nbmax; n++) {
+      auto &nb = pmb->pbval->neighbor[n];
+      swarm->vbswarm->bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
     }
+  }
 
-    // Reset boundary statuses
-    for (auto &block : blocks) {
-      auto &pmb = block;
-      auto sc = pmb->swarm_data.Get();
-      auto swarm = sc->Get("tracers");
-      for (int n = 0; n < swarm->vbswarm->bd_var_.nbmax; n++) {
-        auto &nb = pmb->pbval->neighbor[n];
-        swarm->vbswarm->bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
-      }
+  // Reset boundary statuses
+  for (auto &block : blocks) {
+    auto &pmb = block;
+    auto sc = pmb->swarm_data.Get();
+    auto swarm = sc->Get("tracers");
+    for (int n = 0; n < swarm->vbswarm->bd_var_.nbmax; n++) {
+      auto &nb = pmb->pbval->neighbor[n];
+      swarm->vbswarm->bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
     }
+  }
 
   return TaskStatus::complete;
 }
 
 TaskStatus Defrag(MeshBlock *pmb) {
-  printf("%s:%i\n", __FILE__, __LINE__);
-  /*auto s = pmb->swarm_data.Get()->Get("tracers");
+  auto s = pmb->swarm_data.Get()->Get("tracers");
 
   // Only do this if list is getting too sparse. This criterion (whether there
   // are *any* gaps in the list) is very aggressive
   if (s->GetNumActive() <= s->GetMaxActiveIndex()) {
     s->Defrag();
-  }*/
+  }
 
   return TaskStatus::complete;
 }
 
 TaskStatus CalculateFluxes(MeshBlockData<Real> *rc) {
-  printf("%s:%i\n", __FILE__, __LINE__);
   auto pmb = rc->GetBlockPointer();
   auto pkg = pmb->packages.Get("particles_package");
 
@@ -324,14 +325,17 @@ TaskStatus CalculateFluxes(MeshBlockData<Real> *rc) {
   pmb->par_for(
       "CalculateFluxesX1", kb.s, kb.e, jb.s, jb.e, ib.s - 1, ib.e + 1,
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
-        x1flux(0, k, j, i) = density(k, j, i - 1) * vmatx;
+        if (vmatx > 0.) {
+          x1flux(0, k, j, i) = density(k, j, i - 1) * vmatx;
+        } else {
+          x1flux(0, k, j, i) = density(k, j, i) * vmatx;
+        }
       });
 
   return TaskStatus::complete;
 }
 
 TaskStatus DepositParticles(MeshBlock *pmb) {
-  printf("%s:%i\n", __FILE__, __LINE__);
   auto swarm = pmb->swarm_data.Get()->Get("tracers");
 
   // Meshblock geometry
@@ -354,9 +358,7 @@ TaskStatus DepositParticles(MeshBlock *pmb) {
   // Reset particle count
   pmb->par_for(
       "ZeroParticleDep", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int k, const int j, const int i) {
-        tracer_dep(k, j, i) = 0.;
-      });
+      KOKKOS_LAMBDA(const int k, const int j, const int i) { tracer_dep(k, j, i) = 0.; });
 
   const int ndim = pmb->pmy_mesh->ndim;
 
@@ -375,7 +377,6 @@ TaskStatus DepositParticles(MeshBlock *pmb) {
 
           if (i >= ib.s && i <= ib.e && j >= jb.s && j <= jb.e && k >= kb.s &&
               k <= kb.e) {
-            printf("ijk: %i %i %i\n", k, j, i);
             Kokkos::atomic_add(&tracer_dep(k, j, i), 1.0);
           }
         }
@@ -453,12 +454,6 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
     }
   }
 
-    /*TaskRegion &sync_region0 = tc.AddRegion(1);
-    {
-      auto &tl = sync_region0[0];
-      auto initialize_comms = tl.AddTask(none, InitializeCommunicationMesh, blocks);
-    }*/
-
   // First-order operator split tracer particle update
 
   if (stage == integrator->nstages) {
@@ -478,10 +473,10 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
       auto send = tl.AddTask(tracerAdvect, &SwarmContainer::Send, sc.get(),
                              BoundaryCommSubset::all);
 
-      auto receive = tl.AddTask(send, &SwarmContainer::Receive, sc.get(), BoundaryCommSubset::all);
+      auto receive =
+          tl.AddTask(send, &SwarmContainer::Receive, sc.get(), BoundaryCommSubset::all);
 
-      auto deposit =
-        tl.AddTask(receive, DepositParticles, pmb.get());
+      auto deposit = tl.AddTask(receive, DepositParticles, pmb.get());
 
       auto defrag = tl.AddTask(deposit, Defrag, pmb.get());
     }
