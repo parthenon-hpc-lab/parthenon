@@ -18,6 +18,7 @@
 #include "particle_tracers.hpp"
 #include "Kokkos_CopyViews.hpp"
 #include "Kokkos_HostSpace.hpp"
+#include "Kokkos_Random.hpp"
 #include "basic_types.hpp"
 #include "config.hpp"
 #include "globals.hpp"
@@ -40,6 +41,8 @@
 
 using namespace parthenon::driver::prelude;
 using namespace parthenon::Update;
+
+typedef Kokkos::Random_XorShift64_Pool<> RNGPool;
 
 // *************************************************//
 // redefine some internal parthenon functions      *//
@@ -78,11 +81,20 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
       pin->GetOrAddBoolean("Particles", "write_particle_log", false);
   pkg->AddParam<>("write_particle_log", write_particle_log);
 
-  /*std::string swarm_name = "tracers";
+  int num_tracers = pin->GetOrAddReal("Tracers", "num_tracers", 100);
+  pkg->AddParam<>("num_tracers", num_tracers);
+
+  // Initialize random number generator pool
+  int rng_seed = pin->GetOrAddInteger("Tracers", "rng_seed", 1273);
+  pkg->AddParam<>("rng_seed", rng_seed);
+  RNGPool rng_pool(rng_seed);
+  pkg->AddParam<>("rng_pool", rng_pool);
+
+  std::string swarm_name = "tracers";
   Metadata swarm_metadata;
   pkg->AddSwarm(swarm_name, swarm_metadata);
   Metadata real_swarmvalue_metadata({Metadata::Real});
-  pkg->AddSwarmValue("id", swarm_name, Metadata({Metadata::Integer}));*/
+  pkg->AddSwarmValue("id", swarm_name, Metadata({Metadata::Integer}));
 
   std::string field_name = "density";
   Metadata mfield({Metadata::Cell, Metadata::Independent, Metadata::FillGhost});
@@ -131,19 +143,24 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   auto &pkg = pmb->packages.Get("particles_package");
   auto &rc = pmb->meshblock_data.Get();
   auto &density = rc->Get("density").data;
-  // auto &swarm = pmb->swarm_data.Get()->Get("tracers");
+  auto &swarm = pmb->swarm_data.Get()->Get("tracers");
+  const auto num_tracers = pkg->Param<int>("num_tracers");
+  auto rng_pool = pkg->Param<RNGPool>("rng_pool");
 
   const IndexRange &ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
   const IndexRange &jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
   const IndexRange &kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
   auto coords = pmb->coords;
 
+  const Real density_mean = 1.0;
+  const Real density_amp = 0.5;
+  PARTHENON_REQUIRE(density_mean > density_amp, "Cannot have negative densities!");
+
   auto density_h = density.GetHostMirror();
   for (int k = kb.s; k <= kb.e; k++) {
     for (int j = jb.s; j <= jb.e; j++) {
       for (int i = ib.s; i <= ib.e; i++) {
-        density_h(k, j, i) = 1.0 + 0.5 * sin(2. * M_PI * coords.x1v(i));
-        printf("density(%i %i %i) = %e\n", k, j, i, density_h(k, j, i));
+        density_h(k, j, i) = density_mean + density_amp * sin(2. * M_PI * coords.x1v(i));
       }
     }
   }
@@ -155,6 +172,55 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   const Real &x_max = pmb->coords.x1f(ib.e + 1);
   const Real &y_max = pmb->coords.x2f(jb.e + 1);
   const Real &z_max = pmb->coords.x3f(kb.e + 1);
+
+  const auto mesh_size = pmb->pmy_mesh->mesh_size;
+  const Real x_min_mesh = mesh_size.x1min;
+  const Real y_min_mesh = mesh_size.x2min;
+  const Real z_min_mesh = mesh_size.x3min;
+  const Real x_max_mesh = mesh_size.x1max;
+  const Real y_max_mesh = mesh_size.x2max;
+  const Real z_max_mesh = mesh_size.x3max;
+
+  // Calculate fraction of total tracer particles on this meshblock
+  Real mass_meshblock = density_mean*(x_max - x_min) - density_amp/(2.*M_PI)*(cos(2.*M_PI*x_max) - cos(2.*M_PI*x_min));
+  mass_meshblock *= (y_max - y_min)*(z_max - z_min);
+  printf("mass_meshblock: %e\n", mass_meshblock);
+  Real mass_mesh = density_mean*(x_max_mesh - x_min_mesh);
+  mass_mesh -= density_amp/(2.*M_PI)*(cos(2.*M_PI*x_max_mesh) - cos(2.*M_PI*x_min_mesh));
+  mass_mesh *= (y_max_mesh - y_min_mesh)*(z_max_mesh - z_min_mesh);
+  printf("mess_mesh: %e\n", mass_mesh);
+
+  int num_tracers_meshblock = std::round(num_tracers*mass_meshblock/mass_mesh);
+  printf("num_tracers_meshblock: %i\n", num_tracers_meshblock);
+
+  ParArrayND<int> new_indices;
+  const auto new_particles_mask =
+      swarm->AddEmptyParticles(num_tracers_meshblock, new_indices);
+
+  auto &x = swarm->Get<Real>("x").Get();
+  auto &y = swarm->Get<Real>("y").Get();
+  auto &z = swarm->Get<Real>("z").Get();
+
+  auto swarm_d = swarm->GetDeviceContext();
+  const auto &my_rank = Globals::my_rank;
+  const auto &gid = pmb->gid;
+  // This hardcoded implementation should only used in PGEN and not during runtime
+  // addition of particles as indices need to be taken into account.
+  pmb->par_for(
+      "CreateParticles", 0, num_tracers_meshblock - 1, KOKKOS_LAMBDA(const int n) {
+
+        auto rng_gen = rng_pool.get_state();
+
+        x(n) = x_min + rng_gen.drand()*(x_max - x_min);
+        y(n) = y_min + rng_gen.drand()*(y_max - y_min);
+        z(n) = z_min + rng_gen.drand()*(z_max - z_min);
+
+        printf("[%i] %i: %e %e %e\n", my_rank, n, x(n), y(n), z(n));
+
+        rng_pool.free_state(rng_gen);
+      });
+
+  exit(-1);
 
   // const auto &ic = particles_ic;
 
@@ -333,6 +399,59 @@ TaskStatus CalculateFluxes(MeshBlockData<Real> *rc) {
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
         x1flux(0, k, j, i) = density(k, j, i - 1) * vmatx;
         printf("[%i %i %i] flux: %e\n", k, j, i, x1flux(0, k, j, i));
+      });
+
+  return TaskStatus::complete;
+}
+
+TaskStatus DepositParticles(MeshBlock *pmb) {
+  auto swarm = pmb->swarm_data.Get()->Get("my particles");
+
+  // Meshblock geometry
+  const IndexRange &ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
+  const IndexRange &jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
+  const IndexRange &kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
+  const Real &dx_i = pmb->coords.dx1f(pmb->cellbounds.is(IndexDomain::interior));
+  const Real &dx_j = pmb->coords.dx2f(pmb->cellbounds.js(IndexDomain::interior));
+  const Real &dx_k = pmb->coords.dx3f(pmb->cellbounds.ks(IndexDomain::interior));
+  const Real &minx_i = pmb->coords.x1f(ib.s);
+  const Real &minx_j = pmb->coords.x2f(jb.s);
+  const Real &minx_k = pmb->coords.x3f(kb.s);
+
+  const auto &x = swarm->Get<Real>("x").Get();
+  const auto &y = swarm->Get<Real>("y").Get();
+  const auto &z = swarm->Get<Real>("z").Get();
+  const auto &weight = swarm->Get<Real>("weight").Get();
+  auto swarm_d = swarm->GetDeviceContext();
+
+  auto &particle_dep = pmb->meshblock_data.Get()->Get("particle_deposition").data;
+  // Reset particle count
+  pmb->par_for(
+      "ZeroParticleDep", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int k, const int j, const int i) {
+        particle_dep(k, j, i) = 0.;
+      });
+
+  const int ndim = pmb->pmy_mesh->ndim;
+
+  pmb->par_for(
+      "DepositParticles", 0, swarm->GetMaxActiveIndex(), KOKKOS_LAMBDA(const int n) {
+        if (swarm_d.IsActive(n)) {
+          int i = static_cast<int>(std::floor((x(n) - minx_i) / dx_i) + ib.s);
+          int j = 0;
+          if (ndim > 1) {
+            j = static_cast<int>(std::floor((y(n) - minx_j) / dx_j) + jb.s);
+          }
+          int k = 0;
+          if (ndim > 2) {
+            k = static_cast<int>(std::floor((z(n) - minx_k) / dx_k) + kb.s);
+          }
+
+          if (i >= ib.s && i <= ib.e && j >= jb.s && j <= jb.e && k >= kb.s &&
+              k <= kb.e) {
+            Kokkos::atomic_add(&particle_dep(k, j, i), weight(n));
+          }
+        }
       });
 
   return TaskStatus::complete;
