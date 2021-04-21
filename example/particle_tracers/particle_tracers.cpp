@@ -215,72 +215,12 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
         y(n) = y_min + rng_gen.drand()*(y_max - y_min);
         z(n) = z_min + rng_gen.drand()*(z_max - z_min);
 
-        printf("[%i] %i: %e %e %e\n", my_rank, n, x(n), y(n), z(n));
-
         rng_pool.free_state(rng_gen);
       });
-
-  exit(-1);
-
-  // const auto &ic = particles_ic;
-
-  // determine which particles belong to this block
-  /*size_t num_particles_this_block = 0;
-  auto ids_this_block =
-      ParArray1D<int>("indices of particles in test", num_test_particles);
-
-  auto ids_this_block_h =
-      Kokkos::create_mirror_view_and_copy(HostMemSpace(), ids_this_block);
-
-  for (auto n = 0; n < num_test_particles; n++) {
-    const Real &x_ = ic.at(n).at(0);
-    const Real &y_ = ic.at(n).at(1);
-    const Real &z_ = ic.at(n).at(2);
-
-    if ((x_ >= x_min) && (x_ < x_max) && (y_ >= y_min) && (y_ < y_max) && (z_ >= z_min) &&
-        (z_ < z_max)) {
-      ids_this_block_h(num_particles_this_block) = n;
-      num_particles_this_block++;
-    }
-  }
-
-  Kokkos::deep_copy(pmb->exec_space, ids_this_block, ids_this_block_h);
-
-  ParArrayND<int> new_indices;
-  const auto new_particles_mask =
-      swarm->AddEmptyParticles(num_particles_this_block, new_indices);
-
-  auto &id = swarm->Get<int>("id").Get();
-  auto &x = swarm->Get<Real>("x").Get();
-  auto &y = swarm->Get<Real>("y").Get();
-  auto &z = swarm->Get<Real>("z").Get();
-  auto &vx = swarm->Get<Real>("vx").Get();
-  auto &vy = swarm->Get<Real>("vy").Get();
-  auto &vz = swarm->Get<Real>("vz").Get();
-
-  auto swarm_d = swarm->GetDeviceContext();
-  const auto &my_rank = Globals::my_rank;
-  const auto &gid = pmb->gid;
-  // This hardcoded implementation should only used in PGEN and not during runtime
-  // addition of particles as indices need to be taken into account.
-  pmb->par_for(
-      "CreateParticles", 0, num_particles_this_block - 1, KOKKOS_LAMBDA(const int n) {
-        const auto &m = ids_this_block(n);
-
-        id(n) = m; // global unique id
-        x(n) = ic.at(m).at(0);
-        y(n) = ic.at(m).at(1);
-        z(n) = ic.at(m).at(2);
-        vx(n) = ic.at(m).at(3);
-        vy(n) = ic.at(m).at(4);
-        vz(n) = ic.at(m).at(5);
-        std::cout << "Rank " << my_rank << " added particle " << m << " to block " << gid
-                  << std::endl;
-      });*/
 }
 
-TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator) {
-  /*  auto swarm = pmb->swarm_data.Get()->Get("tracers");
+TaskStatus AdvectTracers(MeshBlock *pmb, const StagedIntegrator *integrator) {
+    auto swarm = pmb->swarm_data.Get()->Get("tracers");
     auto pkg = pmb->packages.Get("particles_package");
 
     int max_active_index = swarm->GetMaxActiveIndex();
@@ -290,39 +230,19 @@ TaskStatus TransportParticles(MeshBlock *pmb, const StagedIntegrator *integrator
     auto &x = swarm->Get<Real>("x").Get();
     auto &y = swarm->Get<Real>("y").Get();
     auto &z = swarm->Get<Real>("z").Get();
-    auto &vx = swarm->Get<Real>("vx").Get();
-    auto &vy = swarm->Get<Real>("vy").Get();
-    auto &vz = swarm->Get<Real>("vz").Get();
+
+    const auto &vmatx = pkg->Param<Real>("vmatx");
 
     auto swarm_d = swarm->GetDeviceContext();
-    // keep particles on existing trajectory for now
-    const Real ax = 0.0;
-    const Real ay = 0.0;
-    const Real az = 0.0;
-    pmb->par_for(
-        "Leapfrog", 0, max_active_index, KOKKOS_LAMBDA(const int n) {
+    pmb->par_for("Tracer advection", 0, max_active_index, KOKKOS_LAMBDA(const int n) {
           if (swarm_d.IsActive(n)) {
-            Real v = sqrt(vx(n) * vx(n) + vy(n) * vy(n) + vz(n) * vz(n));
 
-            // drift
-            x(n) += vx(n) * 0.5 * dt;
-            y(n) += vy(n) * 0.5 * dt;
-            z(n) += vz(n) * 0.5 * dt;
-
-            // kick
-            vx(n) += ax * dt;
-            vy(n) += ay * dt;
-            vz(n) += az * dt;
-
-            // drift
-            x(n) += vx(n) * 0.5 * dt;
-            y(n) += vy(n) * 0.5 * dt;
-            z(n) += vz(n) * 0.5 * dt;
+            x(n) += vmatx * dt;
 
             bool on_current_mesh_block = true;
             swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n), on_current_mesh_block);
           }
-        });*/
+      });
 
   return TaskStatus::complete;
 }
@@ -398,7 +318,6 @@ TaskStatus CalculateFluxes(MeshBlockData<Real> *rc) {
       "CalculateFluxesX1", kb.s, kb.e, jb.s, jb.e, ib.s - 1, ib.e + 1,
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
         x1flux(0, k, j, i) = density(k, j, i - 1) * vmatx;
-        printf("[%i %i %i] flux: %e\n", k, j, i, x1flux(0, k, j, i));
       });
 
   return TaskStatus::complete;
@@ -449,7 +368,7 @@ TaskStatus DepositParticles(MeshBlock *pmb) {
 
           if (i >= ib.s && i <= ib.e && j >= jb.s && j <= jb.e && k >= kb.s &&
               k <= kb.e) {
-            Kokkos::atomic_add(&particle_dep(k, j, i), weight(n));
+            Kokkos::atomic_add(&particle_dep(k, j, i), 1.0);
           }
         }
       });
@@ -523,6 +442,20 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
     if (stage == integrator->nstages) {
       auto new_dt = tl.AddTask(
           set_bc, parthenon::Update::EstimateTimestep<MeshBlockData<Real>>, sc1.get());
+
+      // First-order operator split tracer particle update
+
+      // Initialize comms
+
+      auto tracerAdvect = tl.AddTask(set_bc, AdvectTracers, pmb.get(), integrator.get());
+
+      // Send
+
+      // Receive
+
+      // Deposit
+
+      // Defrag
     }
   }
 
