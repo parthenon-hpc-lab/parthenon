@@ -100,6 +100,9 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   Metadata mfield({Metadata::Cell, Metadata::Independent, Metadata::FillGhost});
   pkg->AddField(field_name, mfield);
 
+  field_name = "tracer_deposition";
+  pkg->AddField(field_name, mfield);
+
   pkg->EstimateTimestepBlock = EstimateTimestepBlock;
 
   return pkg;
@@ -220,6 +223,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
 }
 
 TaskStatus AdvectTracers(MeshBlock *pmb, const StagedIntegrator *integrator) {
+  printf("%s:%i\n", __FILE__, __LINE__);
     auto swarm = pmb->swarm_data.Get()->Get("tracers");
     auto pkg = pmb->packages.Get("particles_package");
 
@@ -250,7 +254,8 @@ TaskStatus AdvectTracers(MeshBlock *pmb, const StagedIntegrator *integrator) {
 // Mark all MPI requests as NULL / initialize boundary flags.
 // TODO(BRR) Should this be a Swarm method?
 TaskStatus InitializeCommunicationMesh(const BlockList_t &blocks) {
-  /*  // Boundary transfers on same MPI proc are blocking
+  printf("%s:%i\n", __FILE__, __LINE__);
+    // Boundary transfers on same MPI proc are blocking
     for (auto &block : blocks) {
       auto swarm = block->swarm_data.Get()->Get("tracers");
       for (int n = 0; n < block->pbval->nneighbor; n++) {
@@ -280,11 +285,12 @@ TaskStatus InitializeCommunicationMesh(const BlockList_t &blocks) {
         swarm->vbswarm->bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
       }
     }
-  */
+
   return TaskStatus::complete;
 }
 
 TaskStatus Defrag(MeshBlock *pmb) {
+  printf("%s:%i\n", __FILE__, __LINE__);
   /*auto s = pmb->swarm_data.Get()->Get("tracers");
 
   // Only do this if list is getting too sparse. This criterion (whether there
@@ -297,6 +303,7 @@ TaskStatus Defrag(MeshBlock *pmb) {
 }
 
 TaskStatus CalculateFluxes(MeshBlockData<Real> *rc) {
+  printf("%s:%i\n", __FILE__, __LINE__);
   auto pmb = rc->GetBlockPointer();
   auto pkg = pmb->packages.Get("particles_package");
 
@@ -324,7 +331,8 @@ TaskStatus CalculateFluxes(MeshBlockData<Real> *rc) {
 }
 
 TaskStatus DepositParticles(MeshBlock *pmb) {
-  auto swarm = pmb->swarm_data.Get()->Get("my particles");
+  printf("%s:%i\n", __FILE__, __LINE__);
+  auto swarm = pmb->swarm_data.Get()->Get("tracers");
 
   // Meshblock geometry
   const IndexRange &ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
@@ -340,15 +348,14 @@ TaskStatus DepositParticles(MeshBlock *pmb) {
   const auto &x = swarm->Get<Real>("x").Get();
   const auto &y = swarm->Get<Real>("y").Get();
   const auto &z = swarm->Get<Real>("z").Get();
-  const auto &weight = swarm->Get<Real>("weight").Get();
   auto swarm_d = swarm->GetDeviceContext();
 
-  auto &particle_dep = pmb->meshblock_data.Get()->Get("particle_deposition").data;
+  auto &tracer_dep = pmb->meshblock_data.Get()->Get("tracer_deposition").data;
   // Reset particle count
   pmb->par_for(
       "ZeroParticleDep", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
-        particle_dep(k, j, i) = 0.;
+        tracer_dep(k, j, i) = 0.;
       });
 
   const int ndim = pmb->pmy_mesh->ndim;
@@ -368,7 +375,8 @@ TaskStatus DepositParticles(MeshBlock *pmb) {
 
           if (i >= ib.s && i <= ib.e && j >= jb.s && j <= jb.e && k >= kb.s &&
               k <= kb.e) {
-            Kokkos::atomic_add(&particle_dep(k, j, i), 1.0);
+            printf("ijk: %i %i %i\n", k, j, i);
+            Kokkos::atomic_add(&tracer_dep(k, j, i), 1.0);
           }
         }
       });
@@ -442,20 +450,40 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
     if (stage == integrator->nstages) {
       auto new_dt = tl.AddTask(
           set_bc, parthenon::Update::EstimateTimestep<MeshBlockData<Real>>, sc1.get());
+    }
+  }
 
-      // First-order operator split tracer particle update
+    /*TaskRegion &sync_region0 = tc.AddRegion(1);
+    {
+      auto &tl = sync_region0[0];
+      auto initialize_comms = tl.AddTask(none, InitializeCommunicationMesh, blocks);
+    }*/
 
-      // Initialize comms
+  // First-order operator split tracer particle update
 
-      auto tracerAdvect = tl.AddTask(set_bc, AdvectTracers, pmb.get(), integrator.get());
+  if (stage == integrator->nstages) {
+    TaskRegion &sync_region0 = tc.AddRegion(1);
+    {
+      auto &tl = sync_region0[0];
+      auto initialize_comms = tl.AddTask(none, InitializeCommunicationMesh, blocks);
+    }
 
-      // Send
+    TaskRegion &async_region1 = tc.AddRegion(nblocks);
+    for (int n = 0; n < nblocks; n++) {
+      auto &tl = async_region1[n];
+      auto &pmb = blocks[n];
+      auto &sc = pmb->swarm_data.Get();
+      auto tracerAdvect = tl.AddTask(none, AdvectTracers, pmb.get(), integrator.get());
 
-      // Receive
+      auto send = tl.AddTask(tracerAdvect, &SwarmContainer::Send, sc.get(),
+                             BoundaryCommSubset::all);
 
-      // Deposit
+      auto receive = tl.AddTask(send, &SwarmContainer::Receive, sc.get(), BoundaryCommSubset::all);
 
-      // Defrag
+      auto deposit =
+        tl.AddTask(receive, DepositParticles, pmb.get());
+
+      auto defrag = tl.AddTask(deposit, Defrag, pmb.get());
     }
   }
 
