@@ -61,14 +61,14 @@ namespace Particles {
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto pkg = std::make_shared<StateDescriptor>("particles_package");
 
-  Real vmatx = pin->GetOrAddReal("Material", "vx", 1.0);
-  pkg->AddParam<>("vmatx", vmatx);
-  Real vmaty = pin->GetOrAddReal("Material", "vy", 0.0);
-  pkg->AddParam<>("vmaty", vmaty);
-  Real vmatz = pin->GetOrAddReal("Material", "vz", 0.0);
-  pkg->AddParam<>("vmatz", vmatz);
+  Real vx = pin->GetOrAddReal("Background", "vx", 1.0);
+  pkg->AddParam<>("vx", vx);
+  Real vy = pin->GetOrAddReal("Background", "vy", 0.0);
+  pkg->AddParam<>("vy", vy);
+  Real vz = pin->GetOrAddReal("Background", "vz", 0.0);
+  pkg->AddParam<>("vz", vz);
 
-  Real cfl = pin->GetOrAddReal("Material", "cfl", 0.3);
+  Real cfl = pin->GetOrAddReal("Background", "cfl", 0.3);
   pkg->AddParam<>("cfl", cfl);
 
   int num_tracers = pin->GetOrAddReal("Tracers", "num_tracers", 100);
@@ -87,8 +87,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   Metadata real_swarmvalue_metadata({Metadata::Real});
   pkg->AddSwarmValue("id", swarm_name, Metadata({Metadata::Integer}));
 
-  // Add density field
-  std::string field_name = "density";
+  // Add advected field
+  std::string field_name = "advected";
   Metadata mfield({Metadata::Cell, Metadata::Independent, Metadata::FillGhost});
   pkg->AddField(field_name, mfield);
 
@@ -111,18 +111,18 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
 
   // int max_active_index = swarm->GetMaxActiveIndex();
 
-  const auto &vmatx = pkg->Param<Real>("vmatx");
-  const auto &vmaty = pkg->Param<Real>("vmaty");
-  const auto &vmatz = pkg->Param<Real>("vmatz");
+  const auto &vx = pkg->Param<Real>("vx");
+  const auto &vy = pkg->Param<Real>("vy");
+  const auto &vz = pkg->Param<Real>("vz");
 
   // Assumes a grid with constant dx, dy, dz within a block
   const Real &dx_i = pmb->coords.dx1f(0);
   const Real &dx_j = pmb->coords.dx2f(0);
   const Real &dx_k = pmb->coords.dx3f(0);
 
-  Real min_dt = dx_i / std::abs(vmatx + SMALL);
-  min_dt = std::min(min_dt, dx_j / std::abs(vmaty + SMALL));
-  min_dt = std::min(min_dt, dx_k / std::abs(vmatz + SMALL));
+  Real min_dt = dx_i / std::abs(vx + SMALL);
+  min_dt = std::min(min_dt, dx_j / std::abs(vy + SMALL));
+  min_dt = std::min(min_dt, dx_k / std::abs(vz + SMALL));
 
   return cfl * min_dt;
 }
@@ -139,14 +139,18 @@ TaskStatus AdvectTracers(MeshBlock *pmb, const StagedIntegrator *integrator) {
   auto &y = swarm->Get<Real>("y").Get();
   auto &z = swarm->Get<Real>("z").Get();
 
-  const auto &vmatx = pkg->Param<Real>("vmatx");
+  const auto &vx = pkg->Param<Real>("vx");
+  const auto &vy = pkg->Param<Real>("vy");
+  const auto &vz = pkg->Param<Real>("vz");
 
   auto swarm_d = swarm->GetDeviceContext();
   pmb->par_for(
       "Tracer advection", 0, max_active_index, KOKKOS_LAMBDA(const int n) {
         if (swarm_d.IsActive(n)) {
 
-          x(n) += vmatx * dt;
+          x(n) += vx * dt;
+          y(n) += vy * dt;
+          z(n) += vz * dt;
 
           bool on_current_mesh_block = true;
           swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n), on_current_mesh_block);
@@ -209,9 +213,9 @@ TaskStatus DepositTracers(MeshBlock *pmb) {
 TaskStatus CalculateFluxes(MeshBlockData<Real> *rc) {
   auto pmb = rc->GetBlockPointer();
   auto pkg = pmb->packages.Get("particles_package");
-  const auto &vmatx = pkg->Param<Real>("vmatx");
-  const auto &vmaty = pkg->Param<Real>("vmaty");
-  const auto &vmatz = pkg->Param<Real>("vmatz");
+  const auto &vx = pkg->Param<Real>("vx");
+  const auto &vy = pkg->Param<Real>("vy");
+  const auto &vz = pkg->Param<Real>("vz");
 
   const auto ndim = pmb->pmy_mesh->ndim;
 
@@ -219,46 +223,46 @@ TaskStatus CalculateFluxes(MeshBlockData<Real> *rc) {
   IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
   IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
 
-  auto density = rc->Get("density").data;
+  auto advected = rc->Get("advected").data;
 
-  auto x1flux = rc->Get("density").flux[X1DIR].Get<4>();
+  auto x1flux = rc->Get("advected").flux[X1DIR].Get<4>();
 
   // Spatially first order upwind method
   pmb->par_for(
       "CalculateFluxesX1", kb.s, kb.e, jb.s, jb.e, ib.s - 1, ib.e + 1,
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
         // X1
-        if (vmatx > 0.) {
-          x1flux(0, k, j, i) = density(k, j, i - 1) * vmatx;
+        if (vx > 0.) {
+          x1flux(0, k, j, i) = advected(k, j, i - 1) * vx;
         } else {
-          x1flux(0, k, j, i) = density(k, j, i) * vmatx;
+          x1flux(0, k, j, i) = advected(k, j, i) * vx;
         }
       });
 
   if (ndim > 1) {
-    auto x2flux = rc->Get("density").flux[X2DIR].Get<4>();
+    auto x2flux = rc->Get("advected").flux[X2DIR].Get<4>();
     pmb->par_for(
         "CalculateFluxesX2", kb.s, kb.e, jb.s, jb.e, ib.s - 1, ib.e + 1,
         KOKKOS_LAMBDA(const int k, const int j, const int i) {
           // X2
-          if (vmaty > 0.) {
-            x2flux(0, k, j, i) = density(k, j, i - 1) * vmaty;
+          if (vy > 0.) {
+            x2flux(0, k, j, i) = advected(k, j, i - 1) * vy;
           } else {
-            x2flux(0, k, j, i) = density(k, j, i) * vmaty;
+            x2flux(0, k, j, i) = advected(k, j, i) * vy;
           }
         });
   }
 
   if (ndim > 2) {
-    auto x3flux = rc->Get("density").flux[X3DIR].Get<4>();
+    auto x3flux = rc->Get("advected").flux[X3DIR].Get<4>();
     pmb->par_for(
         "CalculateFluxesX3", kb.s, kb.e, jb.s, jb.e, ib.s - 1, ib.e + 1,
         KOKKOS_LAMBDA(const int k, const int j, const int i) {
           // X3
-          if (vmatz > 0.) {
-            x3flux(0, k, j, i) = density(k, j, i - 1) * vmatz;
+          if (vz > 0.) {
+            x3flux(0, k, j, i) = advected(k, j, i - 1) * vz;
           } else {
-            x3flux(0, k, j, i) = density(k, j, i) * vmatz;
+            x3flux(0, k, j, i) = advected(k, j, i) * vz;
           }
         });
   }
@@ -325,7 +329,7 @@ TaskStatus InitializeCommunicationMesh(const BlockList_t &blocks) {
 void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   auto &pkg = pmb->packages.Get("particles_package");
   auto &rc = pmb->meshblock_data.Get();
-  auto &density = rc->Get("density").data;
+  auto &advected = rc->Get("advected").data;
   auto &swarm = pmb->swarm_data.Get()->Get("tracers");
   const auto num_tracers = pkg->Param<int>("num_tracers");
   auto rng_pool = pkg->Param<RNGPool>("rng_pool");
@@ -335,19 +339,15 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   const IndexRange &kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
   auto coords = pmb->coords;
 
-  const Real density_mean = 1.0;
-  const Real density_amp = 0.5;
-  PARTHENON_REQUIRE(density_mean > density_amp, "Cannot have negative densities!");
+  const Real advected_mean = 1.0;
+  const Real advected_amp = 0.5;
+  PARTHENON_REQUIRE(advected_mean > advected_amp, "Cannot have negative densities!");
 
-  auto density_h = density.GetHostMirror();
-  for (int k = kb.s; k <= kb.e; k++) {
-    for (int j = jb.s; j <= jb.e; j++) {
-      for (int i = ib.s; i <= ib.e; i++) {
-        density_h(k, j, i) = density_mean + density_amp * sin(2. * M_PI * coords.x1v(i));
-      }
-    }
-  }
-  density.DeepCopy(density_h);
+  pmb->par_for(
+      "CalculateFluxesX3", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int k, const int j, const int i) {
+        advected(k, j, i) = advected_mean + advected_amp * sin(2. * M_PI * coords.x1v(i));
+      });
 
   const Real &x_min = pmb->coords.x1f(ib.s);
   const Real &y_min = pmb->coords.x2f(jb.s);
@@ -365,13 +365,13 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   const Real z_max_mesh = mesh_size.x3max;
 
   // Calculate fraction of total tracer particles on this meshblock. Tracer number follows
-  // number = density*volume
+  // number = advected*volume
   Real number_meshblock =
-      density_mean * (x_max - x_min) -
-      density_amp / (2. * M_PI) * (cos(2. * M_PI * x_max) - cos(2. * M_PI * x_min));
+      advected_mean * (x_max - x_min) -
+      advected_amp / (2. * M_PI) * (cos(2. * M_PI * x_max) - cos(2. * M_PI * x_min));
   number_meshblock *= (y_max - y_min) * (z_max - z_min);
-  Real number_mesh = density_mean * (x_max_mesh - x_min_mesh);
-  number_mesh -= density_amp / (2. * M_PI) *
+  Real number_mesh = advected_mean * (x_max_mesh - x_min_mesh);
+  number_mesh -= advected_amp / (2. * M_PI) *
                  (cos(2. * M_PI * x_max_mesh) - cos(2. * M_PI * x_min_mesh));
   number_mesh *= (y_max_mesh - y_min_mesh) * (z_max_mesh - z_min_mesh);
 
@@ -398,8 +398,8 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
         Real val;
         do {
           x(n) = x_min + rng_gen.drand() * (x_max - x_min);
-          val = density_mean + density_amp * sin(2. * M_PI * x(n));
-        } while (val < rng_gen.drand() * (density_mean + density_amp));
+          val = advected_mean + advected_amp * sin(2. * M_PI * x(n));
+        } while (val < rng_gen.drand() * (advected_mean + advected_amp));
 
         y(n) = y_min + rng_gen.drand() * (y_max - y_min);
         z(n) = z_min + rng_gen.drand() * (z_max - z_min);
@@ -420,7 +420,7 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
   const auto nblocks = blocks.size();
   TaskRegion &async_region0 = tc.AddRegion(nblocks);
 
-  // Staged advection update of density field
+  // Staged advection update of advected field
 
   for (int n = 0; n < nblocks; n++) {
     auto &pmb = blocks[n];
