@@ -126,8 +126,9 @@ void CheckBoundaryFlag(BoundaryFlag block_flag, CoordinateDirection dir) {
     default:
       break;
     }
+    break;
   default:
-      PARTHENON_FAIL(msg);
+    PARTHENON_FAIL(msg);
   }
 }
 

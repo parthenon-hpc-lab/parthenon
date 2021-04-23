@@ -99,8 +99,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properti
       lb_automatic_(),
       lb_manual_(), MeshGenerator_{nullptr, UniformMeshGeneratorX1,
                                    UniformMeshGeneratorX2, UniformMeshGeneratorX3},
-      MeshBndryFnctn{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, AMRFlag_{},
-      UserSourceTerm_{}, UserTimeStep_{} {
+      MeshBndryFnctn{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr} {
   std::stringstream msg;
   RegionSize block_size;
   BoundaryFlag block_bcs[6];
@@ -555,8 +554,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
       lb_automatic_(),
       lb_manual_(), MeshGenerator_{nullptr, UniformMeshGeneratorX1,
                                    UniformMeshGeneratorX2, UniformMeshGeneratorX3},
-      MeshBndryFnctn{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, AMRFlag_{},
-      UserSourceTerm_{}, UserTimeStep_{} {
+      MeshBndryFnctn{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr} {
   std::stringstream msg;
   RegionSize block_size;
   BoundaryFlag block_bcs[6];
@@ -971,15 +969,6 @@ void Mesh::EnrollBndryFncts_(ApplicationInput *app_in) {
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void Mesh::EnrollUserRefinementCondition(AMRFlagFunc amrflag)
-//  \brief Enroll a user-defined function for checking refinement criteria
-
-void Mesh::EnrollUserRefinementCondition(AMRFlagFunc amrflag) {
-  if (adaptive) AMRFlag_ = amrflag;
-  return;
-}
-
-//----------------------------------------------------------------------------------------
 //! \fn void Mesh::EnrollUserMeshGenerator(CoordinateDirection,MeshGenFunc my_mg)
 //  \brief Enroll a user-defined function for Mesh generation
 
@@ -1010,24 +999,6 @@ void Mesh::EnrollUserMeshGenerator(CoordinateDirection dir, MeshGenFunc my_mg) {
   }
   use_uniform_meshgen_fn_[dir] = false;
   MeshGenerator_[dir] = my_mg;
-  return;
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void Mesh::EnrollUserExplicitSourceFunction(SrcTermFunc my_func)
-//  \brief Enroll a user-defined source function
-
-void Mesh::EnrollUserExplicitSourceFunction(SrcTermFunc my_func) {
-  UserSourceTerm_ = my_func;
-  return;
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void Mesh::EnrollUserTimeStepFunction(TimeStepFunc my_func)
-//  \brief Enroll a user-defined time step function
-
-void Mesh::EnrollUserTimeStepFunction(TimeStepFunc my_func) {
-  UserTimeStep_ = my_func;
   return;
 }
 
