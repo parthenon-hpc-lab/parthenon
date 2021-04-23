@@ -123,8 +123,7 @@ void BoundaryValues::StartReceiving(BoundaryCommSubset phase) {
 
 void BoundaryValues::ClearBoundary(BoundaryCommSubset phase) {
   // Note BoundaryCommSubset::mesh_init corresponds to initial exchange of conserved fluid
-  // variables and magentic fields, while BoundaryCommSubset::gr_amr corresponds to fluid
-  // primitive variables sent only in the case of GR with refinement
+  // variables and magentic fields
   for (auto bvars_it = bvars.begin(); bvars_it != bvars.end();
        ++bvars_it) {
     (*bvars_it)->ClearBoundary(phase);
