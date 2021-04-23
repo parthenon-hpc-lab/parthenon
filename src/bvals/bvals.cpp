@@ -100,8 +100,7 @@ BoundaryValues::BoundaryValues(std::weak_ptr<MeshBlock> wpmb, BoundaryFlag *inpu
 //  \brief Setup persistent MPI requests to be reused throughout the entire simulation
 
 void BoundaryValues::SetupPersistentMPI() {
-  for (auto bvars_it = bvars.begin(); bvars_it != bvars.end();
-       ++bvars_it) {
+  for (auto bvars_it = bvars.begin(); bvars_it != bvars.end(); ++bvars_it) {
     (*bvars_it)->SetupPersistentMPI();
   }
 }
@@ -111,8 +110,7 @@ void BoundaryValues::SetupPersistentMPI() {
 //  \brief initiate MPI_Irecv()
 
 void BoundaryValues::StartReceiving(BoundaryCommSubset phase) {
-  for (auto bvars_it = bvars.begin(); bvars_it != bvars.end();
-       ++bvars_it) {
+  for (auto bvars_it = bvars.begin(); bvars_it != bvars.end(); ++bvars_it) {
     (*bvars_it)->StartReceiving(phase);
   }
 }
@@ -124,8 +122,7 @@ void BoundaryValues::StartReceiving(BoundaryCommSubset phase) {
 void BoundaryValues::ClearBoundary(BoundaryCommSubset phase) {
   // Note BoundaryCommSubset::mesh_init corresponds to initial exchange of conserved fluid
   // variables and magentic fields
-  for (auto bvars_it = bvars.begin(); bvars_it != bvars.end();
-       ++bvars_it) {
+  for (auto bvars_it = bvars.begin(); bvars_it != bvars.end(); ++bvars_it) {
     (*bvars_it)->ClearBoundary(phase);
   }
 }
