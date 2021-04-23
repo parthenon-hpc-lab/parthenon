@@ -108,7 +108,7 @@ class Mesh {
   DataCollection<MeshData<Real>> mesh_data;
 
   // functions
-  void Initialize(int res_flag, ParameterInput *pin, ApplicationInput *app_in);
+  void Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *app_in);
   void SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size,
                                  BoundaryFlag *block_bcs);
   void OutputCycleDiagnostics();

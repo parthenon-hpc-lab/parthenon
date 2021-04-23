@@ -1042,24 +1042,23 @@ void Mesh::ApplyUserWorkBeforeOutput(ParameterInput *pin) {
 }
 
 //----------------------------------------------------------------------------------------
-// \!fn void Mesh::Initialize(int res_flag, ParameterInput *pin)
+// \!fn void Mesh::Initialize(bool init_problem, ParameterInput *pin)
 // \brief  initialization before the main loop
 
-void Mesh::Initialize(int res_flag, ParameterInput *pin, ApplicationInput *app_in) {
+void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *app_in) {
   Kokkos::Profiling::pushRegion("Mesh::Initialize");
-  bool iflag = true;
-  int inb = nbtotal;
+  bool init_done = true;
+  const int inb = nbtotal;
   do {
     int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
 
-    if (res_flag == 0) {
+    if (init_problem) {
       for (int i = 0; i < nmb; ++i) {
         auto &pmb = block_list[i];
         pmb->ProblemGenerator(pmb.get(), pin);
       }
     }
 
-    int call = 0;
     // Create send/recv MPI_Requests for all BoundaryData objects
     for (int i = 0; i < nmb; ++i) {
       auto &pmb = block_list[i];
@@ -1067,60 +1066,52 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin, ApplicationInput *app_i
       pmb->pbval->SetupPersistentMPI();
       pmb->meshblock_data.Get()->SetupPersistentMPI();
     }
-    call++; // 1
 
-    {
-      // prepare to receive conserved variables
-      for (int i = 0; i < nmb; ++i) {
-        block_list[i]->meshblock_data.Get()->StartReceiving(
-            BoundaryCommSubset::mesh_init);
-      }
-      call++; // 2
-              // send conserved variables
-      for (int i = 0; i < nmb; ++i) {
-        block_list[i]->meshblock_data.Get()->SendBoundaryBuffers();
-      }
-      call++; // 3
+    // prepare to receive conserved variables
+    for (int i = 0; i < nmb; ++i) {
+      block_list[i]->meshblock_data.Get()->StartReceiving(BoundaryCommSubset::mesh_init);
+    }
+    // send conserved variables
+    for (int i = 0; i < nmb; ++i) {
+      block_list[i]->meshblock_data.Get()->SendBoundaryBuffers();
+    }
 
-      // wait to receive conserved variables
-      for (int i = 0; i < nmb; ++i) {
-        block_list[i]->meshblock_data.Get()->ReceiveAndSetBoundariesWithWait();
+    // wait to receive conserved variables
+    for (int i = 0; i < nmb; ++i) {
+      block_list[i]->meshblock_data.Get()->ReceiveAndSetBoundariesWithWait();
+    }
+    for (int i = 0; i < nmb; ++i) {
+      block_list[i]->meshblock_data.Get()->ClearBoundary(BoundaryCommSubset::mesh_init);
+    }
+    // Now do prolongation, compute primitives, apply BCs
+    for (int i = 0; i < nmb; ++i) {
+      auto &pmb = block_list[i];
+      if (multilevel) {
+        ProlongateBoundaries(pmb->meshblock_data.Get());
       }
-      call++; // 4
-      for (int i = 0; i < nmb; ++i) {
-        block_list[i]->meshblock_data.Get()->ClearBoundary(BoundaryCommSubset::mesh_init);
-      }
-      call++;
-      // Now do prolongation, compute primitives, apply BCs
-      for (int i = 0; i < nmb; ++i) {
-        auto &pmb = block_list[i];
-        if (multilevel) {
-          ProlongateBoundaries(pmb->meshblock_data.Get());
-        }
-        ApplyBoundaryConditions(pmb->meshblock_data.Get());
-        // Call MeshBlockData based FillDerived functions
-        Update::FillDerived(pmb->meshblock_data.Get().get());
-      }
-      const int num_partitions = DefaultNumPartitions();
-      for (int i = 0; i < num_partitions; i++) {
-        auto &md = mesh_data.GetOrAdd("base", i);
-        // Call MeshData based FillDerived functions
-        Update::FillDerived(md.get());
-      }
+      ApplyBoundaryConditions(pmb->meshblock_data.Get());
+      // Call MeshBlockData based FillDerived functions
+      Update::FillDerived(pmb->meshblock_data.Get().get());
+    }
+    const int num_partitions = DefaultNumPartitions();
+    for (int i = 0; i < num_partitions; i++) {
+      auto &md = mesh_data.GetOrAdd("base", i);
+      // Call MeshData based FillDerived functions
+      Update::FillDerived(md.get());
+    }
 
-      if (!res_flag && adaptive) {
-        for (int i = 0; i < nmb; ++i) {
-          block_list[i]->pmr->CheckRefinementCondition();
-        }
+    if (init_problem && adaptive) {
+      for (int i = 0; i < nmb; ++i) {
+        block_list[i]->pmr->CheckRefinementCondition();
       }
-    } // omp parallel
+    }
 
-    if (!res_flag && adaptive) {
-      iflag = false;
-      int onb = nbtotal;
+    if (init_problem && adaptive) {
+      init_done = false;
+      const int onb = nbtotal;
       LoadBalancingAndAdaptiveMeshRefinement(pin, app_in);
       if (nbtotal == onb) {
-        iflag = true;
+        init_done = true;
       } else if (nbtotal < onb && Globals::my_rank == 0) {
         std::cout << "### Warning in Mesh::Initialize" << std::endl
                   << "The number of MeshBlocks decreased during AMR grid initialization."
@@ -1136,7 +1127,7 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin, ApplicationInput *app_i
                   << std::endl;
       }
     }
-  } while (!iflag);
+  } while (!init_done);
 
   Kokkos::Profiling::popRegion(); // Mesh::Initialize
 }
