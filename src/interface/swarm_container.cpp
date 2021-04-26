@@ -43,7 +43,7 @@ void SwarmContainer::Add(const std::string &label, const Metadata &metadata) {
 
   auto swarm = std::make_shared<Swarm>(label, metadata);
   swarm->SetBlockPointer(GetBlockPointer());
-  swarm->allocateComms(GetBlockPointer());
+  swarm->AllocateComms(GetBlockPointer());
   swarmVector_.push_back(swarm);
   swarmMap_[label] = swarm;
 }
@@ -105,6 +105,7 @@ TaskStatus SwarmContainer::Send(BoundaryCommSubset phase) {
   if (success == total) return TaskStatus::complete;
   return TaskStatus::incomplete;
 }
+
 TaskStatus SwarmContainer::Receive(BoundaryCommSubset phase) {
   int success = 0, total = 0;
   for (auto &s : swarmVector_) {

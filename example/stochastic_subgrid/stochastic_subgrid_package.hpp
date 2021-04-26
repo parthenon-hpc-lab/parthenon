@@ -10,48 +10,25 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef EXAMPLE_PARTICLES_PARTICLES_HPP_
-#define EXAMPLE_PARTICLES_PARTICLES_HPP_
+#ifndef EXAMPLE_STOCHASTIC_SUBGRID_STOCHASTIC_SUBGRID_PACKAGE_HPP_
+#define EXAMPLE_STOCHASTIC_SUBGRID_STOCHASTIC_SUBGRID_PACKAGE_HPP_
 
 #include <memory>
 
-#include "Kokkos_Random.hpp"
-
-#include <parthenon/driver.hpp>
+#include <interface/state_descriptor.hpp>
 #include <parthenon/package.hpp>
 
-using namespace parthenon::driver::prelude;
+namespace stochastic_subgrid_package {
 using namespace parthenon::package::prelude;
-using namespace parthenon;
-
-namespace particles_example {
-
-typedef Kokkos::Random_XorShift64_Pool<> RNGPool;
-
-class ParticleDriver : public EvolutionDriver {
- public:
-  ParticleDriver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
-      : EvolutionDriver(pin, app_in, pm), integrator(pin) {}
-  TaskCollection MakeParticlesCreationTaskCollection() const;
-  TaskCollection MakeParticlesUpdateTaskCollection() const;
-  TaskCollection MakeFinalizationTaskCollection() const;
-  TaskListStatus Step();
-
- private:
-  StagedIntegrator integrator;
-};
-
-void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin);
-Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin);
-
-namespace Particles {
+using parthenon::Packages_t;
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 AmrTag CheckRefinement(MeshBlockData<Real> *rc);
+TaskStatus ComputeNumIter(std::shared_ptr<MeshData<Real>> &md, Packages_t &packages);
+void DoLotsOfWork(MeshBlockData<Real> *rc);
 Real EstimateTimestepBlock(MeshBlockData<Real> *rc);
+TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc);
 
-} // namespace Particles
+} // namespace stochastic_subgrid_package
 
-} // namespace particles_example
-
-#endif // EXAMPLE_PARTICLES_PARTICLES_HPP_
+#endif // EXAMPLE_STOCHASTIC_SUBGRID_STOCHASTIC_SUBGRID_PACKAGE_HPP_

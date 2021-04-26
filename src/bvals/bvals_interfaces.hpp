@@ -156,7 +156,7 @@ struct NeighborBlock { // aggregate and POD type. Inheritance breaks standard-la
 // TODO(felker): consider renaming/be more specific--- what kind of data/info?
 // one for each type of "BoundaryQuantity" corresponding to BoundaryVariable
 
-template <int n = 56>
+template <int n = NMAX_NEIGHBORS>
 struct BoundaryData { // aggregate and POD (even when MPI_PARALLEL is defined)
   static constexpr int kMaxNeighbor = n;
   // KGF: "nbmax" only used in bvals_var.cpp, Init/DestroyBoundaryData()
@@ -311,8 +311,8 @@ class BoundarySwarm : public BoundaryCommunication {
   BoundaryData<> bd_var_;
   std::weak_ptr<MeshBlock> pmy_block;
   Mesh *pmy_mesh_;
-  int send_tag[56], recv_tag[56];
-  int particle_size, send_size[56], recv_size[56];
+  int send_tag[NMAX_NEIGHBORS], recv_tag[NMAX_NEIGHBORS];
+  int particle_size, send_size[NMAX_NEIGHBORS], recv_size[NMAX_NEIGHBORS];
 
  protected:
   int nl_, nu_;

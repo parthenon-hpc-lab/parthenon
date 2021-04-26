@@ -31,7 +31,7 @@ class SwarmDeviceContext {
 
   KOKKOS_INLINE_FUNCTION
   int GetNeighborBlockIndex(const int &n, const double &x, const double &y,
-                            const double &z) const {
+                            const double &z, bool &is_on_current_mesh_block) const {
     int i = static_cast<int>(std::floor((x - x_min_) / ((x_max_ - x_min_) / 2.))) + 1;
     int j = static_cast<int>(std::floor((y - y_min_) / ((y_max_ - y_min_) / 2.))) + 1;
     int k = static_cast<int>(std::floor((z - z_min_) / ((z_max_ - z_min_) / 2.))) + 1;
@@ -50,6 +50,9 @@ class SwarmDeviceContext {
     } else {
       blockIndex_(n) = neighborIndices_(k, j, i);
     }
+
+    is_on_current_mesh_block = (blockIndex_(n) == this_block_);
+
     return blockIndex_(n);
   }
 

@@ -1020,7 +1020,6 @@ void ParameterInput::CheckDesired(const std::string &block, const std::string &n
               << "Defaulting to <" << block << ">/" << name << " = "
               << GetString(block, name) << std::endl;
   }
-  std::cout << std::endl;
 }
 
 //----------------------------------------------------------------------------------------

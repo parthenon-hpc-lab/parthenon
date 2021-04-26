@@ -394,8 +394,8 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   std::function<void(MeshBlock *, ParameterInput *)> ProblemGenerator =
       &ProblemGeneratorDefault;
   static pMeshBlockApplicationData_t
-  InitApplicationMeshBlockDataDefault(ParameterInput *pin);
-  std::function<pMeshBlockApplicationData_t(ParameterInput *)>
+  InitApplicationMeshBlockDataDefault(MeshBlock *, ParameterInput *pin);
+  std::function<pMeshBlockApplicationData_t(MeshBlock *, ParameterInput *)>
       InitApplicationMeshBlockData = &InitApplicationMeshBlockDataDefault;
   static void InitUserMeshBlockDataDefault(ParameterInput *pin);
   std::function<void(ParameterInput *)> InitUserMeshBlockData =

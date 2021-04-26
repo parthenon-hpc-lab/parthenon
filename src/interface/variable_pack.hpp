@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -274,13 +274,8 @@ void FillSwarmVarView(const vpack_types::SwarmVarList<T> &vars, PackIndexMap *vm
       sparse_name = "";
     }
     int vstart = vindex;
-    for (int k = 0; k < v->GetDim(6); k++) {
-      for (int j = 0; j < v->GetDim(5); j++) {
-        for (int i = 0; i < v->GetDim(4); i++) {
-          host_view(vindex++) = v->data.Get(k, j, i);
-        }
-      }
-    }
+    // Reusing ViewOfParArrays which expects 3D slices
+    host_view(vindex++) = v->data.Get(0, 0, 0);
     if (vmap != nullptr) {
       vmap->insert(
           std::pair<std::string, IndexPair>(v->label(), IndexPair(vstart, vindex - 1)));

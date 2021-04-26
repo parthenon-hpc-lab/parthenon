@@ -214,6 +214,8 @@ add_library(parthenon
   tasks/task_list.hpp
   tasks/task_types.hpp
 
+  utils/alias_method.cpp
+  utils/alias_method.hpp
   utils/buffer_utils.cpp
   utils/buffer_utils.hpp
   utils/change_rundir.cpp

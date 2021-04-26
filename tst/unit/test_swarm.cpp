@@ -68,8 +68,8 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   auto swarm = std::make_shared<Swarm>("test swarm", m, NUMINIT);
   swarm->SetBlockPointer(meshblock);
   auto swarm_d = swarm->GetDeviceContext();
-  REQUIRE(swarm->get_num_active() == 0);
-  REQUIRE(swarm->get_max_active_index() == 0);
+  REQUIRE(swarm->GetNumActive() == 0);
+  REQUIRE(swarm->GetMaxActiveIndex() == 0);
   ParArrayND<int> failures_d("Number of failures", 1);
   meshblock->par_for(
       "Reset", 0, 0, KOKKOS_LAMBDA(const int n) { failures_d(n) = 0; });
@@ -96,9 +96,9 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   ParArrayND<int> new_indices;
   auto new_mask = swarm->AddEmptyParticles(1, new_indices);
   swarm_d = swarm->GetDeviceContext();
-  auto x_d = swarm->GetReal("x").Get();
+  auto x_d = swarm->Get<Real>("x").Get();
   auto x_h = x_d.GetHostMirrorAndCopy();
-  auto i_d = swarm->GetInteger("i").Get();
+  auto i_d = swarm->Get<int>("i").Get();
   auto i_h = i_d.GetHostMirrorAndCopy();
 
   x_h(0) = 0.5;
@@ -109,8 +109,8 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
 
   new_mask = swarm->AddEmptyParticles(11, new_indices);
   swarm_d = swarm->GetDeviceContext();
-  x_d = swarm->GetReal("x").Get();
-  i_d = swarm->GetInteger("i").Get();
+  x_d = swarm->Get<Real>("x").Get();
+  i_d = swarm->Get<int>("i").Get();
   x_h = x_d.GetHostMirrorAndCopy();
   i_h = i_d.GetHostMirrorAndCopy();
   meshblock->par_for(
@@ -128,7 +128,7 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   failures_h = failures_d.GetHostMirrorAndCopy();
   REQUIRE(failures_h(0) == 0);
   // Check that existing data was successfully copied during pool resize
-  x_h = swarm->GetReal("x").Get().GetHostMirrorAndCopy();
+  x_h = swarm->Get<Real>("x").Get().GetHostMirrorAndCopy();
   REQUIRE(x_h(0) == 0.5);
 
   // Remove particles 3 and 5
@@ -156,7 +156,7 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   REQUIRE(failures_h(0) == 0);
 
   // Enter some data to be moved during defragment
-  x_h = swarm->GetReal("x").Get().GetHostMirrorAndCopy();
+  x_h = swarm->Get<Real>("x").Get().GetHostMirrorAndCopy();
   x_h(10) = 1.1;
   x_h(11) = 1.2;
   x_d.DeepCopy(x_h);
@@ -180,9 +180,9 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   REQUIRE(failures_h(0) == 0);
 
   // Check that data was moved during defrag
-  x_h = swarm->GetReal("x").Get().GetHostMirrorAndCopy();
+  x_h = swarm->Get<Real>("x").Get().GetHostMirrorAndCopy();
   REQUIRE(x_h(2) == 1.2);
   REQUIRE(x_h(4) == 1.1);
-  i_h = swarm->GetInteger("i").Get().GetHostMirrorAndCopy();
+  i_h = swarm->Get<int>("i").Get().GetHostMirrorAndCopy();
   REQUIRE(i_h(1) == 2);
 }

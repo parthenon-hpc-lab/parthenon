@@ -3,7 +3,7 @@
 #  Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 #  Licensed under the 3-clause BSD License, see LICENSE file for details
 # ========================================================================================
-#  (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+#  (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 #
 #  This program was produced under U.S. Government contract 89233218CNA000001 for Los
 #  Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -16,18 +16,19 @@
 # ========================================================================================
 
 <parthenon/job>
-problem_id = particles
+problem_id = advection
 
 <parthenon/mesh>
-refinement = none
+refinement = adaptive
+numlevel = 3
 
-nx1 = 16
+nx1 = 64
 x1min = -0.5
 x1max = 0.5
 ix1_bc = periodic
 ox1_bc = periodic
 
-nx2 = 16
+nx2 = 64
 x2min = -0.5
 x2max = 0.5
 ix2_bc = periodic
@@ -36,23 +37,55 @@ ox2_bc = periodic
 nx3 = 1
 x3min = -0.5
 x3max = 0.5
+ix3_bc = periodic
+ox3_bc = periodic
 
 <parthenon/meshblock>
 nx1 = 16
 nx2 = 16
+nx3 = 1
+
+<parthenon/time>
+nlim = -1
+tlim = 1.0
+integrator = rk2
+
+<Advection>
+cfl = 0.45
+vx = 1.0
+vy = 1.0
+vz = 1.0
+profile = hard_sphere
+
+refine_tol = 0.3    # control the package specific refinement tagging function
+derefine_tol = 0.03
+compute_error = false
+num_vars = 30 # number of variables in variable vector
+
+<Random>
+# For each time step, each cell performs a different amount of work. The amount
+# of work is determined by the number of iterations that is randomly sampled
+# from a power law distribution each time step.
+
+# seed for the pseudo-random number generator (specify 0 or omit to use the
+# current time as the seed)
+seed = 42
+
+# minimum and maximum number of iterations that will be sampled (both inclusive)
+num_iter_min = 1
+num_iter_max = 100
+
+# coefficient of the power law distribution, the (non-normalized) probability
+# to sample N iterations is N^(power_law_coeff)
+power_law_coeff = -3.0
+
+<parthenon/output1>
+file_type = rst
+dt = 0.05
 
 <parthenon/output0>
 file_type = hdf5
-dt = 1.e1
-variables = particle_deposition
-
-<parthenon/time>
-tlim = 1.e2
-integrator = rk1
-
-<Particles>
-num_particles = 10
-particle_speed = 1.0
-rng_seed = 23487
-const_dt = 0.5
-destroy_particles_frac = 0.1
+dt = 0.05
+variables = advected, one_minus_advected, & # comments are ok
+            one_minus_advected_sq, & # on every (& characters are ok in comments)
+            one_minus_sqrt_one_minus_advected_sq # line

@@ -25,9 +25,12 @@ if(Python3_Interpreter_FOUND)
     message(FATAL_ERROR "Python version requirements not satisfied for running regression tests.")
   endif()
 endif()
-# Ensure all required packages are present
-include(${PROJECT_SOURCE_DIR}/cmake/PythonModuleCheck.cmake)
-required_python_modules_found("${REQUIRED_PYTHON_MODULES}")
+
+if (PARTHENON_ENABLE_PYTHON_MODULE_CHECK)
+  # Ensure all required packages are present
+  include(${parthenon_SOURCE_DIR}/cmake/PythonModuleCheck.cmake)
+  required_python_modules_found("${REQUIRED_PYTHON_MODULES}")
+endif()
 
 # Adds the drivers used in the regression tests to a global cmake property: DRIVERS_USED_IN_TESTS
 function(record_driver arg)
@@ -107,7 +110,7 @@ function(setup_test_serial dir arg extra_labels)
   endif()
   add_test(
     NAME regression_test:${dir}
-    COMMAND ${Python3_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/run_test.py" 
+    COMMAND ${Python3_EXECUTABLE} "${parthenon_SOURCE_DIR}/tst/regression/run_test.py"
       ${arg} --test_dir "${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}"
       --output_dir "${PROJECT_BINARY_DIR}/tst/regression/outputs/${dir}"
       --kokkos_args=${PARTHENON_KOKKOS_TEST_ARGS}
@@ -128,7 +131,7 @@ function(setup_test_coverage dir arg extra_labels)
     if (SERIAL_WITH_MPIEXEC)
       process_args_serial_with_mpi()
     endif()
-    add_test( NAME regression_coverage_test:${dir} COMMAND ${Python3_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/run_test.py" 
+    add_test( NAME regression_coverage_test:${dir} COMMAND ${Python3_EXECUTABLE} "${parthenon_SOURCE_DIR}/tst/regression/run_test.py"
       ${arg} 
       --coverage
       --test_dir "${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}"
@@ -156,7 +159,7 @@ function(setup_test_parallel nproc dir arg extra_labels)
       set(PARTHENON_KOKKOS_TEST_ARGS "${PARTHENON_KOKKOS_TEST_ARGS} --kokkos-threads=${NUM_OMP_THREADS_PER_RANK}")
     endif()
     process_mpi_args(${nproc})
-    add_test( NAME regression_mpi_test:${dir} COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/run_test.py
+    add_test( NAME regression_mpi_test:${dir} COMMAND ${Python3_EXECUTABLE} ${parthenon_SOURCE_DIR}/tst/regression/run_test.py
       ${MPIARGS} ${arg}
       --test_dir ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}
       --output_dir "${PROJECT_BINARY_DIR}/tst/regression/outputs/${dir}_mpi"
@@ -179,7 +182,8 @@ function(setup_test_parallel nproc dir arg extra_labels)
         ${TEST_PROPERTIES})
     record_driver("${arg}")
   else()
-    message(STATUS "MPI not found, not building regression tests with mpi")
+    message(STATUS "TestSetup for parallel regression tests: MPI not found, not building regression tests with mpi."
+      "To enable parallel regression tests ensure to include MPI in your project.")
   endif()
 endfunction()
 
@@ -194,7 +198,7 @@ function(setup_test_mpi_coverage nproc dir arg extra_labels)
       list(APPEND labels "${extra_labels}")
       separate_arguments(arg) 
       process_mpi_args(${nproc})
-      add_test( NAME regression_mpi_coverage_test:${dir} COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/run_test.py
+      add_test( NAME regression_mpi_coverage_test:${dir} COMMAND ${Python3_EXECUTABLE} ${parthenon_SOURCE_DIR}/tst/regression/run_test.py
         --coverage
         ${MPIARGS} ${arg}
         --test_dir ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/${dir}

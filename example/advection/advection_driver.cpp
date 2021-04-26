@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -61,13 +61,14 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
   const Real dt = integrator->dt;
   const auto &stage_name = integrator->stage_name;
 
-  // Number of task lists that can be executed indepenently and thus *may*
+  // Number of task lists that can be executed independently and thus *may*
   // be executed in parallel and asynchronous.
   // Being extra verbose here in this example to highlight that this is not
   // required to be 1 or blocks.size() but could also only apply to a subset of blocks.
   auto num_task_lists_executed_independently = blocks.size();
   TaskRegion &async_region1 = tc.AddRegion(num_task_lists_executed_independently);
 
+  assert(blocks.size() == async_region1.size());
   for (int i = 0; i < blocks.size(); i++) {
     auto &pmb = blocks[i];
     auto &tl = async_region1[i];
@@ -171,6 +172,7 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
 
   TaskRegion &async_region2 = tc.AddRegion(num_task_lists_executed_independently);
 
+  assert(blocks.size() == async_region2.size());
   for (int i = 0; i < blocks.size(); i++) {
     auto &pmb = blocks[i];
     auto &tl = async_region2[i];
