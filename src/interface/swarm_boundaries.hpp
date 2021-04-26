@@ -22,8 +22,7 @@ class ParticleBound {
   KOKKOS_INLINE_FUNCTION virtual void Apply(const int n, double &x, double &y, double &z,
                                             //const SwarmDeviceContext &context) = 0;
                                             const SwarmDeviceContext &context) {
-                                              printf("WHY AM I HERE????\n");
-                                              exit(-1);
+                                              PARTHENON_FAIL("Calling base class");
                                             }
 };
 
@@ -189,7 +188,6 @@ class ParticleBoundOX3Reflect : public ParticleBound {
  public:
   KOKKOS_INLINE_FUNCTION void Apply(const int n, double &x, double &y, double &z,
                                     const SwarmDeviceContext &swarm_d) override {
-                                      printf("%s:%i\n", __FILE__, __LINE__);
     if (z > swarm_d.z_max_global_) {
       z = swarm_d.z_max_global_ - (z - swarm_d.z_max_global_);
     }
