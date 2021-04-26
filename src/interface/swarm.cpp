@@ -737,10 +737,10 @@ void Swarm::SetupPersistentMPI() {
   // TODO(BRR) Checks against some current limitations
   const int ndim = pmb->pmy_mesh->ndim;
   auto mesh_bcs = pmb->pmy_mesh->mesh_bcs;
-  for (int n = 0; n < 2 * ndim; n++) {
-    PARTHENON_REQUIRE(mesh_bcs[n] == BoundaryFlag::periodic,
-                      "Only periodic boundaries supported right now!");
-  }
+  //for (int n = 0; n < 2 * ndim; n++) {
+  //  PARTHENON_REQUIRE(mesh_bcs[n] == BoundaryFlag::periodic,
+  //                    "Only periodic boundaries supported right now!");
+  //}
 
   const int nbmax = pmb->pbval->nneighbor;
   num_particles_to_send_ = ParArrayND<int>("npts", nbmax);
