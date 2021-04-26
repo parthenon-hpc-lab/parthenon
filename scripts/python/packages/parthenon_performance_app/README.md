@@ -1,6 +1,6 @@
 # Parthenon Python Metrics Github Application
 
-This package is responsible for running the performance metrics of the pathernon project.
+This package is responsible for running the performance metrics of the Parthenon project.
 
 githubapp.py - contains a generic class for interacting with the github RESTful api
 
