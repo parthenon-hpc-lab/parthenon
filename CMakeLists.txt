@@ -16,7 +16,7 @@ cmake_minimum_required(VERSION 3.13)
 # Imports machine-specific configuration
 include(cmake/MachineCfg.cmake)
 
-project(parthenon VERSION 0.4.0 LANGUAGES C CXX)
+project(parthenon VERSION 0.5.0 LANGUAGES C CXX)
 
 if (${CMAKE_VERSION} VERSION_GREATER_EQUAL 3.19.0)
   cmake_policy(SET CMP0110 NEW)
@@ -63,9 +63,9 @@ include(cmake/Format.cmake)
 include(cmake/Lint.cmake)
 
 # regression test reference data
-set(REGRESSION_GOLD_STANDARD_VER 3 CACHE STRING "Version of gold standard to download and use")
+set(REGRESSION_GOLD_STANDARD_VER 4 CACHE STRING "Version of gold standard to download and use")
 set(REGRESSION_GOLD_STANDARD_HASH
-  "SHA512=2445000a031aafc9a85a684aa7e82fb5ccda05530c5652ab432a8fb254642c7b18252ff55d8306b1120aba898713712b28b804eb30272b06278698046a6461cc"
+  "SHA512=8f9da3589ad549b5640065d37d1e26a15fdc348568a28c09b332ad2b0e612884282a9ce13acf3747505d3da9859b7d3990b95bc6d919ec8faa09f5c124afb006"
   CACHE STRING "Hash of default gold standard file to download")
 option(REGRESSION_GOLD_STANDARD_SYNC "Automatically sync gold standard files." ON)
 

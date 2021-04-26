@@ -20,7 +20,6 @@
 //  \brief implements donor cell reconstruction
 
 #include "kokkos_abstraction.hpp"
-#include "reconstruct/reconstruction.hpp"
 
 using parthenon::ScratchPad2D;
 

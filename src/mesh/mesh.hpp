@@ -167,6 +167,7 @@ class Mesh {
   int GetMaxLevel() const noexcept { return max_level; }
   int GetCurrentLevel() const noexcept { return current_level; }
   std::vector<int> GetNbList() const noexcept { return nblist; }
+  std::vector<LogicalLocation> GetLocList() const noexcept { return loclist; }
 
   void OutputMeshStructure(const int dim, const bool dump_mesh_structure = true);
 
