@@ -64,7 +64,6 @@ class AdvectionAnalyser():
                 "Cannot analyze advection_performance, missing performance metrics file: " +
                 regression_outputs +
                 "/advection_performance/performance_metrics.txt")
-#        super().cloneWikiRepo()
         mesh_blocks, zone_cycles = self.readPerformanceMetricsTXT(
             regression_outputs + "/advection_performance/performance_metrics.txt")
         now = datetime.datetime.now()
