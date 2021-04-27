@@ -500,7 +500,6 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     HDF5WriteAttribute("Refine", pm->adaptive ? 1 : 0, info_group);
     HDF5WriteAttribute("Multilevel", pm->multilevel ? 1 : 0, info_group);
 
-    hsize_t nPE = Globals::nranks;
     HDF5WriteAttribute("BlocksPerPE", nblist, info_group);
 
     // Mesh block size
@@ -525,6 +524,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     for (size_t i = 0; i < boundary_condition_str.size(); i++) {
       boundary_condition_str[i] = GetBoundaryString(pm->mesh_bcs[i]);
     }
+
     HDF5WriteAttribute("BoundaryConditions", boundary_condition_str, info_group);
 
     // OutputDatasetNames - which datasets from the top level to read

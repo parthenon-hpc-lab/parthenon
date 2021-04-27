@@ -87,8 +87,6 @@ BoundaryValues::BoundaryValues(std::weak_ptr<MeshBlock> wpmb, BoundaryFlag *inpu
   // prevent reallocation of contiguous memory space for each of 4x possible calls to
   // std::vector<BoundaryVariable *>.push_back() in Field, PassiveScalars
   bvars.reserve(3);
-  // TOOD(KGF): rename to "bvars_time_int"? What about a std::vector for bvars_sts?
-  bvars_main_int.reserve(2);
 
   // Matches initial value of Mesh::next_phys_id_
   // reserve phys=0 for former TAG_AMR=8; now hard-coded in Mesh::CreateAMRMPITag()
@@ -102,8 +100,7 @@ BoundaryValues::BoundaryValues(std::weak_ptr<MeshBlock> wpmb, BoundaryFlag *inpu
 //  \brief Setup persistent MPI requests to be reused throughout the entire simulation
 
 void BoundaryValues::SetupPersistentMPI() {
-  for (auto bvars_it = bvars_main_int.begin(); bvars_it != bvars_main_int.end();
-       ++bvars_it) {
+  for (auto bvars_it = bvars.begin(); bvars_it != bvars.end(); ++bvars_it) {
     (*bvars_it)->SetupPersistentMPI();
   }
 }
@@ -113,8 +110,7 @@ void BoundaryValues::SetupPersistentMPI() {
 //  \brief initiate MPI_Irecv()
 
 void BoundaryValues::StartReceiving(BoundaryCommSubset phase) {
-  for (auto bvars_it = bvars_main_int.begin(); bvars_it != bvars_main_int.end();
-       ++bvars_it) {
+  for (auto bvars_it = bvars.begin(); bvars_it != bvars.end(); ++bvars_it) {
     (*bvars_it)->StartReceiving(phase);
   }
 }
@@ -125,13 +121,10 @@ void BoundaryValues::StartReceiving(BoundaryCommSubset phase) {
 
 void BoundaryValues::ClearBoundary(BoundaryCommSubset phase) {
   // Note BoundaryCommSubset::mesh_init corresponds to initial exchange of conserved fluid
-  // variables and magentic fields, while BoundaryCommSubset::gr_amr corresponds to fluid
-  // primitive variables sent only in the case of GR with refinement
-  for (auto bvars_it = bvars_main_int.begin(); bvars_it != bvars_main_int.end();
-       ++bvars_it) {
+  // variables and magentic fields
+  for (auto bvars_it = bvars.begin(); bvars_it != bvars.end(); ++bvars_it) {
     (*bvars_it)->ClearBoundary(phase);
   }
-  return;
 }
 
 // Public function, to be called in MeshBlock ctor for keeping MPI tag bitfields

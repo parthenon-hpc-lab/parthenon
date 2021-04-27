@@ -162,7 +162,7 @@ void ParthenonManager::ParthenonInitPackagesAndMesh() {
     }
   }
 
-  pmesh->Initialize(Restart(), pinput.get(), app_input.get());
+  pmesh->Initialize(!Restart(), pinput.get(), app_input.get());
 
   ChangeRunDir(arg.prundir);
 }
