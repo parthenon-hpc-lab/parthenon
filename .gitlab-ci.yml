@@ -1,4 +1,4 @@
-image: cuda11.0-mpi-hdf5
+image: cuda11.3-mpi-hdf5
 
 # Is performed before the scripts in the stages step
 before_script:
@@ -101,7 +101,7 @@ parthenon-cuda-short:
     # during loadbalance and refinement, but not for a static grid.
     # Also delaying start as there are explicit copies during initialization, e.g.,
     # when the Variable caches are created.
-    - nsys profile --delay=5 --duration=5 --stats=true example/advection/advection-example
+    - nsys profile --delay=5 --duration=5 --stats=true -s none -t cuda example/advection/advection-example
       -i ../tst/regression/test_suites/advection_performance/parthinput.advection_performance
       parthenon/mesh/nx1=128 parthenon/mesh/nx2=128  parthenon/mesh/nx3=128
       parthenon/meshblock/nx1=64 parthenon/meshblock/nx2=64 parthenon/meshblock/nx3=64
