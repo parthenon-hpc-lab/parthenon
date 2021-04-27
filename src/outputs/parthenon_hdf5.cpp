@@ -463,7 +463,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   //   WRITING ATTRIBUTES                                                             //
   // -------------------------------------------------------------------------------- //
 
-  if (restart_) {
+  {
     // write input key-value pairs
     std::ostringstream oss;
     pin->ParameterDump(oss);
@@ -474,7 +474,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     HDF5WriteAttribute("File", oss.str().c_str(), input_group);
   } // Input section
 
-  // we'll need this twice
+  // we'll need this again at the end
   const H5G info_group = MakeGroup(file, "/Info");
   {
     if (tm != nullptr) {
@@ -584,8 +584,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   PARTHENON_HDF5_CHECK(H5Pset_dxpl_mpio(pl_xfer, H5FD_MPIO_COLLECTIVE));
 #endif
 
-  // write Blocks restart metadata
-  if (restart_) {
+  // write Blocks metadata
+  {
     const H5G gBlocks = MakeGroup(file, "/Blocks");
 
     // write Xmin[ndim] for blocks
@@ -685,14 +685,12 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   };
 
   // Write mesh coordinates to file
-  if (!restart_) {
-    WriteLocations(true);
-    WriteLocations(false);
-  } // Locations section
+  WriteLocations(true);
+  WriteLocations(false);
 
   // Write Levels and Logical Locations with the level for each Meshblock loclist contains
   // levels and logical locations for all meshblocks on all ranks
-  if (!restart_) {
+  {
     const auto &loclist = pm->GetLocList();
 
     std::vector<std::int64_t> levels;
