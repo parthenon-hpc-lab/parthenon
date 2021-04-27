@@ -511,7 +511,6 @@ void Swarm::SetNeighborIndices1D_() {
     NeighborBlock &nb = pmb->pbval->neighbor[n];
 
     const int i = nb.ni.ox1;
-    printf("nb %i gid %i lid %i i %i\n", n, nb.snb.gid, nb.snb.lid, i);
 
     if (i == -1) {
       neighborIndices_h(0, 0, 0) = n;
@@ -782,7 +781,6 @@ void Swarm::SetupPersistentMPI() {
       }
     }
    }
-   //exit(-1);
 
   neighbor_received_particles_.resize(vbswarm->bd_var_.nbmax);
 }
@@ -856,9 +854,6 @@ void Swarm::LoadBuffers_(const int max_indices_size) {
   auto swarm_d = GetDeviceContext();
   auto pmb = GetBlockPointer();
   const int particle_size = GetParticleDataSize();
-  //const int nbmax = vbswarm->bd_var_.nbmax;
-  //auto pmb = GetBlockPointer();
-  //const int nbmax = vbswarm->bd_var_.nbmax;
   const int nbmax = pmb->pbval->nneighbor;
 
   auto &intVector_ = std::get<getType<int>()>(Vectors_);
@@ -1027,16 +1022,6 @@ void Swarm::UnloadBuffers_() {
             vint(i, sid) = static_cast<int>(
                 bdvar.recv[nid]((real_vars_size + bid) * particle_size + i));
           }
-
-/*
-          // Apply boundary conditions after particle communication
-          double &x = vreal(ix, sid);
-          double &y = vreal(iy, sid);
-          double &z = vreal(iz, sid);
-          for (int l = 0; l < 6; l++) {
-            // TODO(BRR) is this index right?
-            bcs.bounds[l]->Apply(sid, x, y, z, swarm_d);
-          }*/
         });
 
     ApplyBoundaries_(total_received_particles_, new_indices);
@@ -1052,10 +1037,10 @@ void Swarm::ApplyBoundaries_(const int nparticles, ParArrayND<int> indices) {
   auto bcs = this->pbounds;
 
   pmb->par_for(
-      "Unload buffers", 0, nparticles - 1, KOKKOS_LAMBDA(const int n) {
+      "Swarm::ApplyBoundaries", 0, nparticles - 1, KOKKOS_LAMBDA(const int n) {
         const int sid = indices(n);
         for (int l = 0; l < 6; l++) {
-          bcs.bounds[l]->Apply(sid, x(n), y(n), z(n), swarm_d);
+          bcs.bounds[l]->Apply(sid, x(sid), y(sid), z(sid), swarm_d);
         }
       });
 
