@@ -85,8 +85,9 @@ def compare_attributes(dict0, dict1):
 
         if len(a) != len(b):
             diff_keys.append(k)
-        elif np.any(a != b):
-            diff_keys.append(k)
+        else:
+            if np.any(a != b):
+                diff_keys.append(k)
 
     return diff_keys
 
