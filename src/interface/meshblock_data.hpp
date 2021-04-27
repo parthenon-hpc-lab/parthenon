@@ -233,8 +233,8 @@ class MeshBlockData {
   CellVariable<T> &Get(const std::string &label) const {
     auto it = varMap_.find(label);
     if (it == varMap_.end()) {
-      throw std::invalid_argument(std::string("\n") + std::string(label) +
-                                  std::string(" array not found in Get()\n"));
+      PARTHENON_THROW(std::string("\n") + std::string(label) +
+                      std::string(" array not found in Get()\n"));
     }
     return *(it->second);
   }
@@ -256,7 +256,7 @@ class MeshBlockData {
   SparseVariable<T> &GetSparseVariable(const std::string &label) {
     auto it = sparseMap_.find(label);
     if (it == sparseMap_.end()) {
-      throw std::invalid_argument("sparseMap_ does not have " + label);
+      PARTHENON_THROW("sparseMap_ does not have " + label);
     }
     return *(it->second);
   }
@@ -287,8 +287,8 @@ class MeshBlockData {
   FaceVariable<T> &GetFace(std::string label) {
     auto it = faceMap_.find(label);
     if (it == faceMap_.end()) {
-      throw std::invalid_argument(std::string("\n") + std::string(label) +
-                                  std::string(" array not found in Get() Face\n"));
+      PARTHENON_THROW(std::string("\n") + std::string(label) +
+                      std::string(" array not found in Get() Face\n"));
     }
     return *(it->second);
   }
@@ -306,8 +306,8 @@ class MeshBlockData {
     // for (auto v : edgeVector_) {
     //   if (! v->label().compare(label)) return v;
     // }
-    throw std::invalid_argument(std::string("\n") + std::string(label) +
-                                std::string(" array not found in Get() Edge\n"));
+    PARTHENON_THROW(std::string("\n") + std::string(label) +
+                    std::string(" array not found in Get() Edge\n"));
   }
 
   /// Gets an array of real variables from container.

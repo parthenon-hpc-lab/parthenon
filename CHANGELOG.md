@@ -7,6 +7,7 @@
 - [[PR 482]](https://github.com/lanl/parthenon/pull/482) Add support for package enrolled history outputs.
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 492]](https://github.com/lanl/parthenon/pull/492) Modify advection example to have an arbitrary number of dense variables and to disable fill derived for profiling.
 
 ### Fixed (not changing behavior/API/variables/...)
 - [[PR 487]](https://github.com/lanl/parthenon/pull/487) Add default tiling matching `i` index range to MDRange loop pattern.
@@ -19,6 +20,7 @@
 - [[PR 488]](https://github.com/lanl/parthenon/pull/488) Update GitLab Dockerfile to use HDF5 version 1.10.7
 
 ### Removed (removing behavior/API/varaibles/...)
+- [[PR 498]](https://github.com/lanl/parthenon/pull/498) Cleanup unused user hooks and variables
 - [[PR 481]](https://github.com/lanl/parthenon/pull/481) Cleanup unused/untested/not fully ported code (mostly OpenMP and reconstruction)
 
 
@@ -57,7 +59,7 @@ Date: 03/30/2021
 - [[PR 443]](https://github.com/lanl/parthenon/pull/443) Fix Darwin machine config - use spectrum mpi
 - [[PR 444]](https://github.com/lanl/parthenon/pull/444) Writes performance metrics to file for advection test
 - [[PR 452]](https://github.com/lanl/parthenon/pull/452) Disable copyright check and linting by default, add CI check for copyright
-- [[PR 473]](htpps://github.com/lanl/parthenon/pull/473) Added documentation for forked pr
+- [[PR 473]](https://github.com/lanl/parthenon/pull/473) Added documentation for forked pr
 
 ## Release 0.4.0
 Date: 01/19/2021

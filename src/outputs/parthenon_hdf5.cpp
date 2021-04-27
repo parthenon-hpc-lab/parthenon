@@ -309,14 +309,14 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
 
       // open vector space
       // write mesh block size
-      const hsize_t xDims[1] = {3};
-      int meshblock_size[xDims[0]] = {nx1, nx2, nx3};
+      const hsize_t xDims[] = {3};
+      int meshblock_size[] = {nx1, nx2, nx3};
       writeH5AI32("MeshBlockSize", meshblock_size,
                   H5S::FromHIDCheck(H5Screate_simple(1, xDims, NULL)), infoDSet);
 
       // RootGridDomain - float[9] array with xyz mins, maxs, rats (dx(i)/dx(i-1))
-      const hsize_t rootGridDomain_size[1] = {9};
-      Real rootGridDomain[rootGridDomain_size[0]] = {
+      const hsize_t rootGridDomain_size[] = {9};
+      Real rootGridDomain[] = {
           pm->mesh_size.x1min, pm->mesh_size.x1max, pm->mesh_size.x1rat,
           pm->mesh_size.x2min, pm->mesh_size.x2max, pm->mesh_size.x2rat,
           pm->mesh_size.x3min, pm->mesh_size.x3max, pm->mesh_size.x3rat};
@@ -325,9 +325,8 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
                   infoDSet);
 
       // RootGridSize - int[3] number of cells on the root grid
-      const hsize_t rootGridSize_size[1] = {3};
-      int rootGridSize[rootGridSize_size[0]] = {pm->mesh_size.nx1, pm->mesh_size.nx2,
-                                                pm->mesh_size.nx3};
+      const hsize_t rootGridSize_size[] = {3};
+      int rootGridSize[] = {pm->mesh_size.nx1, pm->mesh_size.nx2, pm->mesh_size.nx3};
       writeH5AI32("RootGridSize", rootGridSize,
                   H5S::FromHIDCheck(H5Screate_simple(1, rootGridSize_size, NULL)),
                   infoDSet);
@@ -374,10 +373,12 @@ void PHDF5Output::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm) {
                   H5S::FromHIDCheck(H5Screate_simple(1, datasetNames_size, NULL)),
                   infoDSet);
 
-      const hsize_t variableNames_size[1] = {variableNames.size()};
-      writeH5ASTRINGS("VariableNames", variableNames,
-                      H5S::FromHIDCheck(H5Screate_simple(1, variableNames_size, NULL)),
-                      infoDSet);
+      if (variableNames.size() > 0) {
+        const hsize_t variableNames_size[1] = {variableNames.size()};
+        writeH5ASTRINGS("VariableNames", variableNames,
+                        H5S::FromHIDCheck(H5Screate_simple(1, variableNames_size, NULL)),
+                        infoDSet);
+      }
     } // END /Info
 
     { // START /Params

@@ -108,7 +108,7 @@ class Mesh {
   DataCollection<MeshData<Real>> mesh_data;
 
   // functions
-  void Initialize(int res_flag, ParameterInput *pin, ApplicationInput *app_in);
+  void Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *app_in);
   void SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size,
                                  BoundaryFlag *block_bcs);
   void OutputCycleDiagnostics();
@@ -215,9 +215,6 @@ class Mesh {
 
   // functions
   MeshGenFunc MeshGenerator_[4];
-  AMRFlagFunc AMRFlag_;
-  SrcTermFunc UserSourceTerm_;
-  TimeStepFunc UserTimeStep_;
 
   void CalculateLoadBalance(std::vector<double> const &costlist,
                             std::vector<int> &ranklist, std::vector<int> &nslist,
@@ -252,10 +249,7 @@ class Mesh {
   std::function<void(ParameterInput *)> InitUserMeshData = InitUserMeshDataDefault;
 
   void EnrollBndryFncts_(ApplicationInput *app_in);
-  void EnrollUserRefinementCondition(AMRFlagFunc amrflag);
   void EnrollUserMeshGenerator(CoordinateDirection dir, MeshGenFunc my_mg);
-  void EnrollUserExplicitSourceFunction(SrcTermFunc my_func);
-  void EnrollUserTimeStepFunction(TimeStepFunc my_func);
 };
 
 //----------------------------------------------------------------------------------------

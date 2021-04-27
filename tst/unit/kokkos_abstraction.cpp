@@ -551,8 +551,7 @@ struct LargeNShortTBufferPack {
   }
 
   template <typename TimeType>
-  static void test_time(const TimeType time_default, const TimeType time_spaces,
-                        const int nspaces) {
+  static void test_time(const TimeType time_default, const TimeType time_spaces) {
     // Test that streams are not introducing a performance penalty (within 10%
     // uncertainty). The efficiency here depends on the available HW.
     REQUIRE(time_spaces < 1.10 * time_default);
@@ -620,8 +619,7 @@ struct SmallNLongTBufferPack {
   }
 
   template <typename TimeType>
-  static void test_time(const TimeType time_default, const TimeType time_spaces,
-                        const int nspaces) {
+  static void test_time(const TimeType time_default, const TimeType time_spaces) {
     // Test that streams are not introducing a performance penalty (within 10%
     // uncertainty). The efficiency here depends on the available HW.
     REQUIRE(time_spaces < 1.10 * time_default);
@@ -686,7 +684,7 @@ void test_wrapper_buffer_pack_overlapping_space_instances(const std::string &tes
   // make sure this test is reasonable IIF streams actually overlap, which is
   // not the case for the OpenMP backend at this point
   if (parthenon::SpaceInstance<DevExecSpace>::overlap()) {
-    BufferPack::test_time(time_default, time_spaces, nspaces);
+    BufferPack::test_time(time_default, time_spaces);
   }
 }
 TEST_CASE("Overlapping SpaceInstances", "[wrapper][performance]") {

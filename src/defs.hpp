@@ -125,19 +125,14 @@ enum BoundaryFace {
 // KGF: Except for the 2x MG* enums, these may be unnessary w/ the new class inheritance
 // Now, only passed to BoundaryVariable::InitBoundaryData(); could replace w/ bool switch
 enum class BoundaryQuantity { cc, fc, cc_flcor, fc_flcor };
-enum class BoundaryCommSubset { mesh_init, gr_amr, all };
+enum class BoundaryCommSubset { mesh_init, all };
 // TODO(felker): consider generalizing/renaming to QuantityFormulation
 enum class UserHistoryOperation { sum, max, min };
 
 //----------------------------------------------------------------------------------------
 // function pointer prototypes for user-defined modules set at runtime
 
-using AMRFlagFunc = int (*)(MeshBlock *pmb);
 using MeshGenFunc = Real (*)(Real x, RegionSize rs);
-using SrcTermFunc = void (*)(MeshBlock *pmb, const Real time, const Real dt,
-                             const ParArrayND<Real> &prim, const ParArrayND<Real> &bcc,
-                             ParArrayND<Real> &cons);
-using TimeStepFunc = Real (*)(MeshBlock *pmb);
 using HistoryOutputFunc = Real (*)(MeshBlock *pmb, int iout);
 using MGBoundaryFunc = void (*)(ParArrayND<Real> &dst, Real time, int nvar, int is,
                                 int ie, int js, int je, int ks, int ke, int ngh, Real x0,
