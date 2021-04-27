@@ -14,6 +14,7 @@
 ### Infrastructure (changes irrelevant to downstream codes)
 - [[PR 494]](https://github.com/lanl/parthenon/pull/494) Use subviews of a single view for fluxes and coarse cells
 - [[PR 493]](https://github.com/lanl/parthenon/pull/493) Use subviews of a single view for comm buffers
+- [[PR 500]](https://github.com/lanl/parthenon/pull/500) Update docker file and CI environment (for Cuda 11.3 and latest `nsys`)
 - [[PR 490]](https://github.com/lanl/parthenon/pull/490) Adjust block size in OverlappingSpace instance tests to remain within Cuda/HIP limits
 - [[PR 488]](https://github.com/lanl/parthenon/pull/488) Update GitLab Dockerfile to use HDF5 version 1.10.7
 
