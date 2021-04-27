@@ -86,8 +86,6 @@ CellVariable<T>::AllocateCopy(const bool allocComms, std::weak_ptr<MeshBlock> wp
 /// Initialize a 6D variable
 template <typename T>
 void CellVariable<T>::allocateComms(std::weak_ptr<MeshBlock> wpmb) {
-  if (wpmb.expired()) return;
-  std::shared_ptr<MeshBlock> pmb = wpmb.lock();
   std::string base_name = label();
 
   // TODO(JMM): Note that this approach assumes LayoutRight. Otherwise
@@ -100,7 +98,8 @@ void CellVariable<T>::allocateComms(std::weak_ptr<MeshBlock> wpmb) {
   if (IsSet(Metadata::Independent)) {
     n_outer += (GetDim(1) > 1) + (GetDim(2) > 1) + (GetDim(3) > 1);
   }
-  n_outer += (pmb->pmy_mesh->multilevel);
+  n_outer += (!wpmb.expired() && wpmb.lock()->pmy_mesh != nullptr &&
+              wpmb.lock()->pmy_mesh->multilevel);
   comm_data_ = ParArray7D<T>(base_name + ".comm_data", n_outer, GetDim(6), GetDim(5),
                              GetDim(4), GetDim(3), GetDim(2), GetDim(1));
 
@@ -116,7 +115,10 @@ void CellVariable<T>::allocateComms(std::weak_ptr<MeshBlock> wpmb) {
     }
   }
 
-  if (pmb->pmy_mesh->multilevel) {
+  if (wpmb.expired()) return;
+  std::shared_ptr<MeshBlock> pmb = wpmb.lock();
+
+  if (pmb->pmy_mesh != nullptr && pmb->pmy_mesh->multilevel) {
     // This wastes about 1/2 a meshblock in memory
     coarse_s = ParArrayND<T>(Kokkos::subview(comm_data_, offset++, Kokkos::ALL(),
                                              Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL(),
