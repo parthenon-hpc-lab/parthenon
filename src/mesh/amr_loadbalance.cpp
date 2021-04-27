@@ -530,6 +530,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   MPI_Request *req_send, *req_recv;
 
   // Step 5. Allocate space for send and recieve buffers
+  Kokkos::Profiling::pushRegion("Step 5: Allocate send and recv buf");
   size_t buf_size = 0;
   if (nrecv != 0) {
     recvbuf = new BufArray1D<Real>[nrecv];
@@ -577,10 +578,11 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     }
   }
   BufArray1D<Real> bufs("RedistributeAndRefineMeshBlocks sendrecv bufs",buf_size);
-  size_t buf_offset = 0; //Step 5
+  Kokkos::Profiling::popRegion(); // Step 5
 
   // Step 6. allocate and start receiving buffers
-  Kokkos::Profiling::pushRegion("Step 5: Alloc buffer and start recv");
+  Kokkos::Profiling::pushRegion("Step 6: Pack buffer and start recv");
+  size_t buf_offset = 0;
   if (nrecv != 0) {
     req_recv = new MPI_Request[nrecv];
     int rb_idx = 0; // recv buffer index
@@ -621,8 +623,9 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     }
   }
   Kokkos::Profiling::popRegion(); // Step 6
+
   // Step 7. allocate, pack and start sending buffers
-  Kokkos::Profiling::pushRegion("Step 6: Alloc, pack, and send buffers");
+  Kokkos::Profiling::pushRegion("Step 7: Pack and send buffers");
   if (nsend != 0) {
     req_send = new MPI_Request[nsend];
     int sb_idx = 0; // send buffer index
@@ -673,7 +676,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
 #endif                            // MPI_PARALLEL
 
   // Step 8. construct a new MeshBlock list (moving the data within the MPI rank)
-  Kokkos::Profiling::pushRegion("Step 7: Construct new MeshBlockList");
+  Kokkos::Profiling::pushRegion("Step 8: Construct new MeshBlockList");
   {
     RegionSize block_size = GetBlockSize();
 
@@ -722,7 +725,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   Kokkos::Profiling::popRegion(); // Step 8: Construct new MeshBlockList
 
   // Step 9. Receive the data and load into MeshBlocks
-  Kokkos::Profiling::pushRegion("Step 8: Recv data and unpack");
+  Kokkos::Profiling::pushRegion("Step 9: Recv data and unpack");
   // This is a test: try MPI_Waitall later.
 #ifdef MPI_PARALLEL
   if (nrecv != 0) {
