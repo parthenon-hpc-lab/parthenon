@@ -958,7 +958,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   }
 
   // NumVariables - number of variables within each dataset
-  std::vector<size_t> numVariables(output_params.variables.size());
+  std::vector<size_t> numVariables;
   // VariablesNames - Names of variables within each dataset
   std::vector<std::string> variableNames;
 
