@@ -132,45 +132,28 @@ void Swarm::AllocateBoundaries() {
   }
 
   if (bcs[4] == BoundaryFlag::reflect) {
-    printf("%s:%i\n", __FILE__, __LINE__);
     bounds[4] = DeviceAllocate<ParticleBoundIX3Reflect>();
   } else if (bcs[4] == BoundaryFlag::outflow) {
-    printf("%s:%i\n", __FILE__, __LINE__);
     bounds[4] = DeviceAllocate<ParticleBoundIX3Outflow>();
   } else if (bcs[4] == BoundaryFlag::periodic) {
-    printf("%s:%i\n", __FILE__, __LINE__);
     bounds[4] = DeviceAllocate<ParticleBoundIX3Periodic>();
   } else if (bcs[4] != BoundaryFlag::user) {
     msg << "ix3 boundary flag " << static_cast<int>(bcs[4]) << " not supported!";
     PARTHENON_THROW(msg);
   }
 
-  printf("bcs[5] = %i\n", static_cast<int>(bcs[5]));
-  printf("%i %i %i %i %i\n",
-     static_cast<int>(BoundaryFlag::undef),
-     static_cast<int>(BoundaryFlag::reflect),
-     static_cast<int>(BoundaryFlag::outflow),
-     static_cast<int>(BoundaryFlag::periodic),
-     static_cast<int>(BoundaryFlag::user));
   if (bcs[5] == BoundaryFlag::reflect) {
-    printf("%s:%i\n", __FILE__, __LINE__);
     bounds[5] == DeviceAllocate<ParticleBoundOX3Reflect>();
-    printf("bounds 5: %p\n", bounds[5].get());
-    exit(-1);
   } else if (bcs[5] == BoundaryFlag::outflow) {
-    printf("%s:%i\n", __FILE__, __LINE__);
     bounds[5] = DeviceAllocate<ParticleBoundOX3Outflow>();
   } else if (bcs[5] == BoundaryFlag::periodic) {
-    printf("%s:%i\n", __FILE__, __LINE__);
     bounds[5] = DeviceAllocate<ParticleBoundOX3Periodic>();
   } else if (bcs[5] != BoundaryFlag::user) {
-    printf("%s:%i\n", __FILE__, __LINE__);
     msg << "ox3 boundary flag " << static_cast<int>(bcs[5]) << " not supported!";
     PARTHENON_THROW(msg);
   }
 
   for (int n = 0; n < 6; n++) {
-    printf("%s:%i\n", __FILE__, __LINE__);
     pbounds.bounds[n] = bounds[n].get();
     PARTHENON_REQUIRE(pbounds.bounds[n] != nullptr, "Null device boundary condition pointer!");
   }
@@ -890,9 +873,6 @@ void Swarm::LoadBuffers_(const int max_indices_size) {
   int int_vars_size = intVector_.size();
 
   auto bcs = this->pbounds;
-  for (int l = 0; l < 6; l++) {
-    printf("bc[%i]: %p\n", l, bcs.bounds[l]);
-  }
 
   auto &bdvar = vbswarm->bd_var_;
   auto num_particles_to_send = num_particles_to_send_;
@@ -1078,6 +1058,8 @@ void Swarm::ApplyBoundaries_(const int nparticles, ParArrayND<int> indices) {
           bcs.bounds[l]->Apply(sid, x(n), y(n), z(n), swarm_d);
         }
       });
+
+  RemoveMarkedParticles();
 }
 
 bool Swarm::Receive(BoundaryCommSubset phase) {
