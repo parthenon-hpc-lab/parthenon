@@ -553,9 +553,9 @@ struct LargeNShortTBufferPack {
   template <typename TimeType>
   static void test_time(const TimeType time_default, const TimeType time_spaces,
                         const int nspaces) {
-    // Test that streams are not introducing a performance penalty (within 5%
+    // Test that streams are not introducing a performance penalty (within 10%
     // uncertainty). The efficiency here depends on the available HW.
-    REQUIRE(time_spaces < 1.05 * time_default);
+    REQUIRE(time_spaces < 1.10 * time_default);
   }
 };
 
@@ -622,8 +622,9 @@ struct SmallNLongTBufferPack {
   template <typename TimeType>
   static void test_time(const TimeType time_default, const TimeType time_spaces,
                         const int nspaces) {
-    // make sure the per kernel runtime didn't increase by more than a factor of 2
-    REQUIRE(time_default > (static_cast<Real>(nspaces) / 2.0 * time_spaces));
+    // Test that streams are not introducing a performance penalty (within 10%
+    // uncertainty). The efficiency here depends on the available HW.
+    REQUIRE(time_spaces < 1.10 * time_default);
   }
 };
 
@@ -633,7 +634,7 @@ void test_wrapper_buffer_pack_overlapping_space_instances(const std::string &tes
 
   const int N = 24;      // ~meshblock size
   const int M = 5;       // ~nhydro
-  const int nspaces = 8; // number of streams
+  const int nspaces = 2; // number of streams
   const int nghost = 2;  // number of ghost zones
   const int buf_size = M * nghost * (N - 2 * nghost) * (N - 2 * nghost);
 
