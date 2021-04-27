@@ -44,12 +44,7 @@ RestartReader::RestartReader(const char *filename) : filename_(filename) {
   // Open the HDF file in read only mode
   fh_ = H5F::FromHIDCheck(H5Fopen(filename, H5F_ACC_RDONLY, H5P_DEFAULT));
 
-  // populate block size from the file
-  std::vector<int> blockSize = GetAttrVec<int32_t>("Mesh", "blockSize");
-  hasGhost = GetAttr<int32_t>("Mesh", "includesGhost");
-  nx1_ = static_cast<hsize_t>(blockSize[0]);
-  nx2_ = static_cast<hsize_t>(blockSize[1]);
-  nx3_ = static_cast<hsize_t>(blockSize[2]);
+  hasGhost = GetAttr<int32_t>("Info", "IncludesGhost");
 #endif
 }
 

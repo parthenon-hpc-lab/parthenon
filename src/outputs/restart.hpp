@@ -166,7 +166,6 @@ class RestartReader {
   // Currently all restarts are HDF5 files
   // when that changes, this will be revisited
   H5F fh_;
-  hsize_t nx1_, nx2_, nx3_;
 #endif
 };
 

@@ -84,7 +84,7 @@ class TestCase(utils.test_case.TestCaseAbs):
         sys.path.insert(1, parameters.parthenon_path + '/scripts/python')
 
         try:
-            import phdf_diff 
+            import phdf_diff
         except ModuleNotFoundError:
             print("Couldn't find module to compare Parthenon hdf5 files.")
             return False
@@ -96,7 +96,7 @@ class TestCase(utils.test_case.TestCaseAbs):
         ret_3d = phdf_diff.compare([
             'advection_3d.out0.00001.phdf',
             parameters.parthenon_path + '/tst/regression/gold_standard/advection_3d.out0.00001.phdf'])
-        
+
         if ret_2d != 0 or ret_3d != 0:
             analyze_status = False
 
