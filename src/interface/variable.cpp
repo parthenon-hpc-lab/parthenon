@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -14,6 +14,7 @@
 #include "interface/variable.hpp"
 
 #include <iostream>
+#include <utility>
 
 #include "bvals/cc/bvals_cc.hpp"
 #include "mesh/mesh.hpp"
@@ -69,12 +70,12 @@ CellVariable<T>::AllocateCopy(const bool allocComms, std::weak_ptr<MeshBlock> wp
       // Note that vbvar->var_cc will be set when stage is selected
       cv->vbvar = vbvar;
 
-      // fluxes, etc are always a copy
+      // fluxes, coarse buffers, etc., are always a copy
+      // Rely on reference counting and shallow copy of kokkos views
+      cv->comm_data_ = comm_data_; // views are reference counted
       for (int i = 1; i <= 3; i++) {
         cv->flux[i] = flux[i];
       }
-
-      // These members are pointers,      // point at same memory as src
       cv->coarse_s = coarse_s;
     }
   }
@@ -85,28 +86,44 @@ CellVariable<T>::AllocateCopy(const bool allocComms, std::weak_ptr<MeshBlock> wp
 /// Initialize a 6D variable
 template <typename T>
 void CellVariable<T>::allocateComms(std::weak_ptr<MeshBlock> wpmb) {
-  // set up fluxes
   std::string base_name = label();
+
+  // TODO(JMM): Note that this approach assumes LayoutRight. Otherwise
+  // the stride will mess up the types.
+
+  // Compute size of unified comm_data object and create it. A unified
+  // comm_data_ object reduces the number of memory allocations per
+  // variable per meshblock from 5 to 2.
+  int n_outer = 0;
   if (IsSet(Metadata::Independent)) {
-    flux[X1DIR] = ParArrayND<T>(base_name + ".fluxX1", GetDim(6), GetDim(5), GetDim(4),
-                                GetDim(3), GetDim(2), GetDim(1));
-    if (GetDim(2) > 1)
-      flux[X2DIR] = ParArrayND<T>(base_name + ".fluxX2", GetDim(6), GetDim(5), GetDim(4),
-                                  GetDim(3), GetDim(2), GetDim(1));
-    if (GetDim(3) > 1)
-      flux[X3DIR] = ParArrayND<T>(base_name + ".fluxX3", GetDim(6), GetDim(5), GetDim(4),
-                                  GetDim(3), GetDim(2), GetDim(1));
+    n_outer += (GetDim(1) > 1) + (GetDim(2) > 1) + (GetDim(3) > 1);
+  }
+  n_outer += (!wpmb.expired() && wpmb.lock()->pmy_mesh != nullptr &&
+              wpmb.lock()->pmy_mesh->multilevel);
+  comm_data_ = ParArray7D<T>(base_name + ".comm_data", n_outer, GetDim(6), GetDim(5),
+                             GetDim(4), GetDim(3), GetDim(2), GetDim(1));
+
+  // set up fluxes
+  int offset = 0;
+  if (IsSet(Metadata::Independent)) {
+    for (int d = X1DIR; d <= X3DIR; ++d) {
+      if (GetDim(d) > 1) {
+        flux[d] = ParArrayND<T>(
+            Kokkos::subview(comm_data_, offset++, Kokkos::ALL(), Kokkos::ALL(),
+                            Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()));
+      }
+    }
   }
 
   if (wpmb.expired()) return;
-
   std::shared_ptr<MeshBlock> pmb = wpmb.lock();
 
-  if (pmb->pmy_mesh->multilevel)
-    coarse_s = ParArrayND<T>(base_name + ".coarse", GetDim(6), GetDim(5), GetDim(4),
-                             pmb->c_cellbounds.ncellsk(IndexDomain::entire),
-                             pmb->c_cellbounds.ncellsj(IndexDomain::entire),
-                             pmb->c_cellbounds.ncellsi(IndexDomain::entire));
+  if (pmb->pmy_mesh != nullptr && pmb->pmy_mesh->multilevel) {
+    // This wastes about 1/2 a meshblock in memory
+    coarse_s = ParArrayND<T>(Kokkos::subview(comm_data_, offset++, Kokkos::ALL(),
+                                             Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL(),
+                                             Kokkos::ALL(), Kokkos::ALL()));
+  }
 
   // Create the boundary object
   vbvar = std::make_shared<CellCenteredBoundaryVariable>(pmb, data, coarse_s, flux);
