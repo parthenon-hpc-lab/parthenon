@@ -1019,7 +1019,7 @@ void Mesh::ApplyUserWorkBeforeOutput(ParameterInput *pin) {
 void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *app_in) {
   Kokkos::Profiling::pushRegion("Mesh::Initialize");
   bool init_done = true;
-  const int inb = nbtotal;
+  const int nb_initial = nbtotal;
   do {
     int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
 
@@ -1079,17 +1079,18 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
 
     if (init_problem && adaptive) {
       init_done = false;
-      const int onb = nbtotal;
+      // caching nbtotal the private variable my be updated in the following function
+      const int nb_before_loadbalance = nbtotal;
       LoadBalancingAndAdaptiveMeshRefinement(pin, app_in);
-      if (nbtotal == onb) {
+      if (nbtotal == nb_before_loadbalance) {
         init_done = true;
-      } else if (nbtotal < onb && Globals::my_rank == 0) {
+      } else if (nbtotal < nb_before_loadbalance && Globals::my_rank == 0) {
         std::cout << "### Warning in Mesh::Initialize" << std::endl
                   << "The number of MeshBlocks decreased during AMR grid initialization."
                   << std::endl
                   << "Possibly the refinement criteria have a problem." << std::endl;
       }
-      if (nbtotal > 2 * inb && Globals::my_rank == 0) {
+      if (nbtotal > 2 * nb_initial && Globals::my_rank == 0) {
         std::cout << "### Warning in Mesh::Initialize" << std::endl
                   << "The number of MeshBlocks increased more than twice during "
                      "initialization."
