@@ -59,7 +59,20 @@ class SwarmDeviceContext {
   KOKKOS_INLINE_FUNCTION
   int GetMyRank() const { return my_rank_; }
 
+  KOKKOS_INLINE_FUNCTION
+  void Xtoijk(const Real &x, const Real &y, const Real &z, int &i, int &j, int &k) const {
+    i = static_cast<int>(std::floor(x - x_min_)/dx1_) + ib_s_;
+    j = static_cast<int>(std::floor(y - y_min_)/dx2_) + jb_s_;
+    k = static_cast<int>(std::floor(z - z_min_)/dx3_) + kb_s_;
+  }
+
 // private:
+  int ib_s_;
+  int jb_s_;
+  int kb_s_;
+  Real dx1_;
+  Real dx2_;
+  Real dx3_;
   Real x_min_;
   Real x_max_;
   Real y_min_;

@@ -38,6 +38,12 @@ SwarmDeviceContext Swarm::GetDeviceContext() const {
   const IndexRange &ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
   const IndexRange &jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
   const IndexRange &kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
+  context.ib_s_ = ib.s;
+  context.jb_s_ = jb.s;
+  context.kb_s_ = kb.s;
+  context.dx1_ = (pmb->coords.x1f(ib.e + 1) - pmb->coords.x1f(ib.s))/(ib.e - ib.s);
+  context.dx2_ = (pmb->coords.x2f(jb.e + 1) - pmb->coords.x2f(jb.s))/(jb.e - jb.s);
+  context.dx3_ = (pmb->coords.x3f(kb.e + 1) - pmb->coords.x3f(kb.s))/(kb.e - kb.s);
   context.x_min_ = pmb->coords.x1f(ib.s);
   context.y_min_ = pmb->coords.x2f(jb.s);
   context.z_min_ = pmb->coords.x3f(kb.s);
