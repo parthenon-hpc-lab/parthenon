@@ -37,10 +37,10 @@ namespace parthenon {
 // -----------
 // There are several sets of variable pointers used in this file:
 // 1) MeshRefinement tuples of pointers: pvars_cc_
-// -- Used in RestrictGhostCellsOnSameLevel() and ProlongateGhostCells()
+// -- Used in RestrictGhostCellsOnSameLevel_() and ProlongateGhostCells_()
 
 // 2) Hardcoded pointers through MeshBlock members
-// -- Used in ProlongateGhostCells() where
+// -- Used in ProlongateGhostCells_() where
 // physical quantities are coupled through EquationOfState
 
 // NOTE(JMM): ProlongateBounds has been split into RestrictBoundaries
@@ -69,7 +69,7 @@ void BoundaryValues::RestrictBoundaries() {
 
           // this neighbor block is on the same level
           // and needs to be restricted for prolongation
-          RestrictGhostCellsOnSameLevel(nb, nk, nj, ni);
+          RestrictGhostCellsOnSameLevel_(nb, nk, nj, ni);
         }
       }
     }
@@ -85,12 +85,12 @@ void BoundaryValues::ProlongateBoundaries() {
     // calculate the loop limits for the ghost zones
     IndexRange bi, bj, bk;
     ComputeProlongationBounds_(nb, bi, bj, bk);
-    ProlongateGhostCells(nb, bi.s, bi.e, bj.s, bj.e, bk.s, bk.e);
+    ProlongateGhostCells_(nb, bi.s, bi.e, bj.s, bj.e, bk.s, bk.e);
   } // end loop over nneighbor
 }
 
-void BoundaryValues::RestrictGhostCellsOnSameLevel(const NeighborBlock &nb, int nk,
-                                                   int nj, int ni) {
+void BoundaryValues::RestrictGhostCellsOnSameLevel_(const NeighborBlock &nb, int nk,
+                                                    int nj, int ni) {
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   MeshRefinement *pmr = pmb->pmr.get();
 
@@ -165,8 +165,8 @@ void BoundaryValues::RestrictGhostCellsOnSameLevel(const NeighborBlock &nb, int 
   return;
 }
 
-void BoundaryValues::ProlongateGhostCells(const NeighborBlock &nb, int si, int ei, int sj,
-                                          int ej, int sk, int ek) {
+void BoundaryValues::ProlongateGhostCells_(const NeighborBlock &nb, int si, int ei, int sj,
+                                           int ej, int sk, int ek) {
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   auto &pmr = pmb->pmr;
 

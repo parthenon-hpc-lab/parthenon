@@ -145,9 +145,9 @@ class BoundaryValues : public BoundaryBase, // public BoundaryPhysics,
 
   // ProlongateBoundaries() wraps the following S/AMR-operations (within nneighbor loop):
   // (the next function is also called within 3x nested loops over nk,nj,ni)
-  void RestrictGhostCellsOnSameLevel(const NeighborBlock &nb, int nk, int nj, int ni);
-  void ProlongateGhostCells(const NeighborBlock &nb, int si, int ei, int sj, int ej,
-                            int sk, int ek);
+  void RestrictGhostCellsOnSameLevel_(const NeighborBlock &nb, int nk, int nj, int ni);
+  void ProlongateGhostCells_(const NeighborBlock &nb, int si, int ei, int sj, int ej,
+                             int sk, int ek);
   void ComputeRestrictionBounds_(const NeighborBlock &nb, IndexRange &ni, IndexRange &nj,
                                  IndexRange &nk);
   void ComputeProlongationBounds_(const NeighborBlock &nb, IndexRange &bi, IndexRange &bj,
