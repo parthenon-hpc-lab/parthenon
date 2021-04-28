@@ -541,7 +541,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       if (oloc.level > nloc.level) { // f2c
         for (int l = 0; l < nleaf; l++) {
           if (ranklist[on + l] == Globals::my_rank) continue;
-          buf_size+=bsf2c;
+          buf_size += bsf2c;
         }
       } else { // same level or c2f
         if (ranklist[on] == Globals::my_rank) continue;
@@ -551,7 +551,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
         } else {
           size = bsc2f;
         }
-        buf_size+=size;
+        buf_size += size;
       }
     }
   }
@@ -577,7 +577,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       }
     }
   }
-  BufArray1D<Real> bufs("RedistributeAndRefineMeshBlocks sendrecv bufs",buf_size);
+  BufArray1D<Real> bufs("RedistributeAndRefineMeshBlocks sendrecv bufs", buf_size);
   Kokkos::Profiling::popRegion(); // Step 5
 
   // Step 6. allocate and start receiving buffers
@@ -596,7 +596,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
           LogicalLocation &lloc = loclist[on + l];
           int ox1 = ((lloc.lx1 & 1LL) == 1LL), ox2 = ((lloc.lx2 & 1LL) == 1LL),
               ox3 = ((lloc.lx3 & 1LL) == 1LL);
-          recvbuf[rb_idx] = BufArray1D<Real>(bufs, std::make_pair(buf_offset,buf_offset+bsf2c));
+          recvbuf[rb_idx] =
+              BufArray1D<Real>(bufs, std::make_pair(buf_offset, buf_offset + bsf2c));
           buf_offset += bsf2c;
           int tag = CreateAMRMPITag(n - nbs, ox1, ox2, ox3);
           PARTHENON_MPI_CHECK(MPI_Irecv(recvbuf[rb_idx].data(), bsf2c, MPI_PARTHENON_REAL,
@@ -612,7 +613,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
         } else {
           size = bsc2f;
         }
-        recvbuf[rb_idx] = BufArray1D<Real>(bufs, std::make_pair(buf_offset,buf_offset+size));
+        recvbuf[rb_idx] =
+            BufArray1D<Real>(bufs, std::make_pair(buf_offset, buf_offset + size));
         buf_offset += size;
         int tag = CreateAMRMPITag(n - nbs, 0, 0, 0);
         PARTHENON_MPI_CHECK(MPI_Irecv(recvbuf[rb_idx].data(), size, MPI_PARTHENON_REAL,
@@ -636,7 +638,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       auto pb = FindMeshBlock(n);
       if (nloc.level == oloc.level) { // same level
         if (newrank[nn] == Globals::my_rank) continue;
-        sendbuf[sb_idx] = BufArray1D<Real>(bufs, std::make_pair(buf_offset,buf_offset+bssame));
+        sendbuf[sb_idx] =
+            BufArray1D<Real>(bufs, std::make_pair(buf_offset, buf_offset + bssame));
         buf_offset += bssame;
         PrepareSendSameLevel(pb.get(), sendbuf[sb_idx]);
         int tag = CreateAMRMPITag(nn - nslist[newrank[nn]], 0, 0, 0);
@@ -648,7 +651,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
         // c2f must communicate to multiple leaf blocks (unlike f2c, same2same)
         for (int l = 0; l < nleaf; l++) {
           if (newrank[nn + l] == Globals::my_rank) continue;
-          sendbuf[sb_idx] = BufArray1D<Real>(bufs, std::make_pair(buf_offset,buf_offset+bsc2f));
+          sendbuf[sb_idx] =
+              BufArray1D<Real>(bufs, std::make_pair(buf_offset, buf_offset + bsc2f));
           buf_offset += bsc2f;
           PrepareSendCoarseToFineAMR(pb.get(), sendbuf[sb_idx], newloc[nn + l]);
           int tag = CreateAMRMPITag(nn + l - nslist[newrank[nn + l]], 0, 0, 0);
@@ -659,8 +663,9 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
         }      // end loop over nleaf (unique to c2f branch in this step 6)
       } else { // f2c: restrict + pack + send
         if (newrank[nn] == Globals::my_rank) continue;
-        sendbuf[sb_idx] = BufArray1D<Real>(bufs, std::make_pair(buf_offset,buf_offset+bsf2c));
-          buf_offset += bsf2c;
+        sendbuf[sb_idx] =
+            BufArray1D<Real>(bufs, std::make_pair(buf_offset, buf_offset + bsf2c));
+        buf_offset += bsf2c;
         PrepareSendFineToCoarseAMR(pb.get(), sendbuf[sb_idx]);
         int ox1 = ((oloc.lx1 & 1LL) == 1LL), ox2 = ((oloc.lx2 & 1LL) == 1LL),
             ox3 = ((oloc.lx3 & 1LL) == 1LL);
