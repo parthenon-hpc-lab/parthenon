@@ -33,6 +33,8 @@
 #include <utility>
 #include <vector>
 
+#include "basic_types.hpp"
+#include "bvals/cc/bvals_cc_in_one.hpp"
 #include "parthenon_mpi.hpp"
 
 #include "bvals/boundary_conditions.hpp"
@@ -1042,15 +1044,50 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     for (int i = 0; i < nmb; ++i) {
       block_list[i]->meshblock_data.Get()->StartReceiving(BoundaryCommSubset::mesh_init);
     }
-    // send conserved variables
+
+    const int num_partitions = DefaultNumPartitions();
+
+#ifdef PARTHENON_ENABLE_INIT_PACKING
+    // send FillGhost variables
+    for (int i = 0; i < num_partitions; i++) {
+      auto &md = mesh_data.GetOrAdd("base", i);
+      cell_centered_bvars::SendBoundaryBuffers(md);
+    }
+
+    // wait to receive FillGhost variables
+    // TODO(someone) evaluate if ReceiveWithWait kind of logic is better, also related to
+    // https://github.com/lanl/parthenon/issues/418
+    bool all_received = true;
+    do {
+      all_received = true;
+      for (int i = 0; i < num_partitions; i++) {
+        auto &md = mesh_data.GetOrAdd("base", i);
+        if (cell_centered_bvars::ReceiveBoundaryBuffers(md) != TaskStatus::complete) {
+          all_received = false;
+        }
+      }
+    } while (!all_received);
+
+    // unpack FillGhost variables
+    for (int i = 0; i < num_partitions; i++) {
+      auto &md = mesh_data.GetOrAdd("base", i);
+      cell_centered_bvars::SetBoundaries(md);
+    }
+
+#else // PARTHENON_ENABLE_INIT_PACKING -> OFF
+
+    // send FillGhost variables
     for (int i = 0; i < nmb; ++i) {
       block_list[i]->meshblock_data.Get()->SendBoundaryBuffers();
     }
 
-    // wait to receive conserved variables
+    // wait to receive FillGhost variables
     for (int i = 0; i < nmb; ++i) {
       block_list[i]->meshblock_data.Get()->ReceiveAndSetBoundariesWithWait();
     }
+
+#endif // PARTHENON_ENABLE_INIT_PACKING
+
     for (int i = 0; i < nmb; ++i) {
       block_list[i]->meshblock_data.Get()->ClearBoundary(BoundaryCommSubset::mesh_init);
     }
@@ -1064,7 +1101,6 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       // Call MeshBlockData based FillDerived functions
       Update::FillDerived(pmb->meshblock_data.Get().get());
     }
-    const int num_partitions = DefaultNumPartitions();
     for (int i = 0; i < num_partitions; i++) {
       auto &md = mesh_data.GetOrAdd("base", i);
       // Call MeshData based FillDerived functions
