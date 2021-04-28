@@ -13,7 +13,7 @@
 - [[PR 487]](https://github.com/lanl/parthenon/pull/487) Add default tiling matching `i` index range to MDRange loop pattern.
 
 ### Infrastructure (changes irrelevant to downstream codes)
-- [[PR 505]](https://github.com/lanl/parthenon/pull/505) User buffer-pack-in-one function also in `Mesh::Initialize` (and thus during load balancing/mesh refinement)
+- [[PR 505]](https://github.com/lanl/parthenon/pull/505) Can also use buffer-pack-in-one function also in `Mesh::Initialize` (and thus during load balancing/mesh refinement). Breaks sparse variables with FillGhost. Enable with `PARTHENON_ENABLE_INIT_PACKING=ON` (default OFF).
 - [[PR 493]](https://github.com/lanl/parthenon/pull/493) Use subviews of a single view for comm buffers
 - [[PR 500]](https://github.com/lanl/parthenon/pull/500) Update docker file and CI environment (for Cuda 11.3 and latest `nsys`)
 - [[PR 490]](https://github.com/lanl/parthenon/pull/490) Adjust block size in OverlappingSpace instance tests to remain within Cuda/HIP limits
