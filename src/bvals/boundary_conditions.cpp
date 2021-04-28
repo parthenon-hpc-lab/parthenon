@@ -34,8 +34,9 @@ TaskStatus ProlongateBoundaries(std::shared_ptr<MeshBlockData<Real>> &rc) {
 
   // This hardcoded technique is also used to manually specify the coupling between
   // physical variables in:
-  // - step 2, ApplyPhysicalBoundariesOnCoarseLevel(): calls to W(U) and user BoundaryFunc
-  // - step 3, ProlongateGhostCells(): calls to calculate bcc and U(W)
+  // - 1: Apply the physical boundaries on the course level
+  // - 2: ProlongateGhostCells to the fine
+  // - 3: Apply boundaries on the fine
 
   // downcast BoundaryVariable pointers to known derived class pointer types:
   // RTTI via dynamic_case

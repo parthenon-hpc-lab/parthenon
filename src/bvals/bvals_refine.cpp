@@ -35,32 +35,13 @@ namespace parthenon {
 // -----------
 
 // -----------
-// There are three sets of variable pointers used in this file:
-// 1) BoundaryVariable pointer members: var_cc, coarse_buf
-// -- Only used in ApplyPhysicalBoundariesOnCoarseLevel()
-
-// 2) MeshRefinement tuples of pointers: pvars_cc_
+// There are several sets of variable pointers used in this file:
+// 1) MeshRefinement tuples of pointers: pvars_cc_
 // -- Used in RestrictGhostCellsOnSameLevel() and ProlongateGhostCells()
 
-// 3) Hardcoded pointers through MeshBlock members
-// -- Used in ApplyPhysicalBoundariesOnCoarseLevel() and ProlongateGhostCells() where
+// 2) Hardcoded pointers through MeshBlock members
+// -- Used in ProlongateGhostCells() where
 // physical quantities are coupled through EquationOfState
-
-// -----------
-// SUMMARY OF BELOW PTR CHANGES:
-// -----------
-// 1. RestrictGhostCellsOnSameLevel (MeshRefinement::pvars_cc)
-// --- change standard and coarse CONSERVED
-// (also temporarily change to standard and coarse PRIMITIVE for GR simulations)
-
-// 2. ApplyPhysicalBoundariesOnCoarseLevel (CellCenteredBoundaryVariable::var_cc)
-// --- ONLY var_cc (var_fc) is changed to = coarse_buf, PRIMITIVE
-// (automatically switches var_cc to standard and coarse_buf to coarse primitive
-// arrays after fn returns)
-
-// 3. ProlongateGhostCells (MeshRefinement::pvars_cc)
-// --- change to standard and coarse PRIMITIVE
-// (automatically switches back to conserved variables at the end of fn)
 
 // NOTE(JMM): ProlongateBounds has been split into RestrictBoundaries
 // and ProlongateBoundaries,
@@ -182,22 +163,6 @@ void BoundaryValues::RestrictGhostCellsOnSameLevel(const NeighborBlock &nb, int 
     }
   } // end loop over pvars_fc_
   return;
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void BoundaryValues::ApplyPhysicalBoundariesOnCoarseLevel(
-//           const NeighborBlock& nb, const Real time, const Real dt,
-//           int si, int ei, int sj, int ej, int sk, int ek)
-//  \brief
-
-void BoundaryValues::ApplyPhysicalBoundariesOnCoarseLevel(const NeighborBlock &nb,
-                                                          const Real time, const Real dt,
-                                                          int si, int ei, int sj, int ej,
-                                                          int sk, int ek) {
-  // TODO(SS)
-  // Write code to take a container as input and apply
-  // appropriate boundary condiditions
-  throw std::runtime_error(std::string(__func__) + " is not implemented");
 }
 
 void BoundaryValues::ProlongateGhostCells(const NeighborBlock &nb, int si, int ei, int sj,
