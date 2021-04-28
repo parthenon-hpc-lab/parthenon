@@ -594,13 +594,13 @@ inline void par_for_outer(OuterLoopPatternTeams, const std::string &name,
 // Inner parallel loop using TeamVectorRange
 template <typename Function>
 KOKKOS_INLINE_FUNCTION void par_for_inner(InnerLoopPatternTVR, team_mbr_t team_member,
-                                          const int kl, const int ku,
-                                          const int jl, const int ju, const int il,
-                                          const int iu, const Function &function) {
+                                          const int kl, const int ku, const int jl,
+                                          const int ju, const int il, const int iu,
+                                          const Function &function) {
   const int Nk = ku - kl + 1;
   const int Nj = ju - jl + 1;
   const int Ni = iu - il + 1;
-  const int NkNjNi = Nk*Nj*Ni;
+  const int NkNjNi = Nk * Nj * Ni;
   const int NjNi = Nj * Ni;
   Kokkos::parallel_for(
       Kokkos::TeamVectorRange(team_member, 0, NkNjNi), KOKKOS_LAMBDA(const int &idx) {

@@ -165,8 +165,8 @@ void BoundaryValues::RestrictGhostCellsOnSameLevel_(const NeighborBlock &nb, int
   return;
 }
 
-void BoundaryValues::ProlongateGhostCells_(const NeighborBlock &nb, int si, int ei, int sj,
-                                           int ej, int sk, int ek) {
+void BoundaryValues::ProlongateGhostCells_(const NeighborBlock &nb, int si, int ei,
+                                           int sj, int ej, int sk, int ek) {
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   auto &pmr = pmb->pmr;
 
