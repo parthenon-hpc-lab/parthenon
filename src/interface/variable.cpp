@@ -93,13 +93,11 @@ void CellVariable<T>::allocateComms(std::weak_ptr<MeshBlock> wpmb) {
 
   // Compute size of unified comm_data object and create it. A unified
   // comm_data_ object reduces the number of memory allocations per
-  // variable per meshblock from 5 to 2.
+  // variable per meshblock from 5 to 3.
   int n_outer = 0;
   if (IsSet(Metadata::Independent)) {
     n_outer += (GetDim(1) > 1) + (GetDim(2) > 1) + (GetDim(3) > 1);
   }
-  n_outer += (!wpmb.expired() && wpmb.lock()->pmy_mesh != nullptr &&
-              wpmb.lock()->pmy_mesh->multilevel);
   comm_data_ = ParArray7D<T>(base_name + ".comm_data", n_outer, GetDim(6), GetDim(5),
                              GetDim(4), GetDim(3), GetDim(2), GetDim(1));
 
@@ -119,10 +117,10 @@ void CellVariable<T>::allocateComms(std::weak_ptr<MeshBlock> wpmb) {
   std::shared_ptr<MeshBlock> pmb = wpmb.lock();
 
   if (pmb->pmy_mesh != nullptr && pmb->pmy_mesh->multilevel) {
-    // This wastes about 1/2 a meshblock in memory
-    coarse_s = ParArrayND<T>(Kokkos::subview(comm_data_, offset++, Kokkos::ALL(),
-                                             Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL(),
-                                             Kokkos::ALL(), Kokkos::ALL()));
+    coarse_s = ParArrayND<T>(base_name + ".coarse", GetDim(6), GetDim(5), GetDim(4),
+                             pmb->c_cellbounds.ncellsk(IndexDomain::entire),
+                             pmb->c_cellbounds.ncellsj(IndexDomain::entire),
+                             pmb->c_cellbounds.ncellsi(IndexDomain::entire));
   }
 
   // Create the boundary object
