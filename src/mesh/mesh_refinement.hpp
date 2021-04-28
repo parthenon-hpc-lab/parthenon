@@ -84,9 +84,6 @@ class MeshRefinement {
 
   int refine_flag_, neighbor_rflag_, deref_count_, deref_threshold_;
 
-  // functions
-  AMRFlagFunc AMRFlag_; // duplicate of Mesh class member
-
   // tuples of references to AMR-enrolled arrays (quantity, coarse_quantity)
   std::vector<std::tuple<ParArrayND<Real>, ParArrayND<Real>>> pvars_cc_;
   std::vector<std::tuple<FaceField *, FaceField *>> pvars_fc_;

@@ -120,7 +120,6 @@ void CellVariable<T>::allocateComms(std::weak_ptr<MeshBlock> wpmb) {
   // to expose calls at either the `Variable`
   // or `MeshBlockData` and `MeshData` level.
   pmb->pbval->bvars.push_back(vbvar);
-  pmb->pbval->bvars_main_int.push_back(vbvar);
 
   mpiStatus = false;
 }

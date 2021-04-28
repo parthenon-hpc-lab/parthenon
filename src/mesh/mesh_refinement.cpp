@@ -45,8 +45,7 @@ namespace parthenon {
 
 MeshRefinement::MeshRefinement(std::weak_ptr<MeshBlock> pmb, ParameterInput *pin)
     : pmy_block_(pmb), deref_count_(0),
-      deref_threshold_(pin->GetOrAddInteger("parthenon/mesh", "derefine_count", 10)),
-      AMRFlag_(pmb.lock()->pmy_mesh->AMRFlag_) {
+      deref_threshold_(pin->GetOrAddInteger("parthenon/mesh", "derefine_count", 10)) {
   // Create coarse mesh object for parent grid
   coarse_coords = Coordinates_t(pmb.lock()->coords, 2);
 
@@ -999,7 +998,6 @@ void MeshRefinement::CheckRefinementCondition() {
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   auto &rc = pmb->meshblock_data.Get();
   AmrTag ret = Refinement::CheckAllRefinement(rc.get());
-  // if (AMRFlag_ != nullptr) ret = AMRFlag_(pmb);
   SetRefinement(ret);
 }
 
