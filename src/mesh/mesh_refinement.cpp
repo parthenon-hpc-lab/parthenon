@@ -80,6 +80,7 @@ void MeshRefinement::RestrictCellCenteredValues(const ParArrayND<Real> &fine,
   auto info_h = Kokkos::create_mirror_view(info);
   for (int l = 0; l < fine.GetDim(6); ++l) {
     for (int m = 0; m < fine.GetDim(5); ++m) {
+      // buff and var unused.
       info_h(b).si = csi;
       info_h(b).ei = cei;
       info_h(b).sj = csj;
@@ -87,9 +88,10 @@ void MeshRefinement::RestrictCellCenteredValues(const ParArrayND<Real> &fine,
       info_h(b).sk = csk;
       info_h(b).ek = cek;
       info_h(b).Nv = nvars;
+      info_h(b).target = cell_centered_bvars::BufferTarget::Restrict;
       info_h(b).coords = pmb->coords;
       info_h(b).coarse_coords = this->coarse_coords;
-      info_h(b).var = fine.Get(l, m);
+      info_h(b).fine = fine.Get(l, m);
       info_h(b).coarse = coarse.Get(l, m);
       ++b;
     }
