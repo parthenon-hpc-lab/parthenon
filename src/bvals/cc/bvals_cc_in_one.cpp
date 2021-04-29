@@ -27,6 +27,7 @@
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
+#include "mesh/refinement_cc_in_one.hpp"
 
 namespace parthenon {
 
@@ -231,12 +232,12 @@ void CalcIndicesLoadToFiner(int &si, int &ei, int &sj, int &ej, int &sk, int &ek
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn size_t ResetAndRestrictSendBuffers(MeshData<Real> *md, bool cache_is_valid)
+//! \fn size_t ResetSendBuffers(MeshData<Real> *md, bool cache_is_valid)
 //  \brief Resets boundary variable pointer (tbd if still required) and restricts
 //         cell centered variables if a cached version of boundary_info is used.
 //  \return The total number of buffers used in boundary_info
 
-size_t ResetAndRestrictSendBuffers(MeshData<Real> *md, bool cache_is_valid) {
+size_t ResetSendBuffers(MeshData<Real> *md, bool cache_is_valid) {
   Kokkos::Profiling::pushRegion("Reset boundaries");
 
   size_t buffers_used = 0;
@@ -254,27 +255,11 @@ size_t ResetAndRestrictSendBuffers(MeshData<Real> *md, bool cache_is_valid) {
           auto *pbd_var_ = v->vbvar->GetPBdVar();
           if (pbd_var_->sflag[nb.bufid] == parthenon::BoundaryStatus::completed) continue;
           buffers_used += 1;
-
-          // Need to restrict here only if cached boundary_info is reused
-          // Otherwise restriction happens when the new boundary_info is created
-          if (cache_is_valid && nb.snb.level < mylevel) {
-            const IndexShape &c_cellbounds = pmb->c_cellbounds;
-            IndexDomain interior = IndexDomain::interior;
-            auto &var_cc = v->data;
-            // recalc indices as existing indices in boundary_info are on the device
-            int si, ei, sj, ej, sk, ek;
-            CalcIndicesLoadSame(nb.ni.ox1, si, ei, c_cellbounds.GetBoundsI(interior));
-            CalcIndicesLoadSame(nb.ni.ox2, sj, ej, c_cellbounds.GetBoundsJ(interior));
-            CalcIndicesLoadSame(nb.ni.ox3, sk, ek, c_cellbounds.GetBoundsK(interior));
-
-            auto &coarse_buf = v->vbvar->coarse_buf;
-            pmb->pmr->RestrictCellCenteredValues(var_cc, coarse_buf, 0, v->GetDim(4) - 1,
-                                                 si, ei, sj, ej, sk, ek);
-          }
         }
       }
     }
   }
+
   Kokkos::Profiling::popRegion(); // Reset boundaries
 
   return buffers_used;
@@ -291,6 +276,15 @@ void ResetSendBufferBoundaryInfo(MeshData<Real> *md, size_t buffers_used) {
 
   auto boundary_info = BufferCache_t("send_boundary_info", buffers_used);
   auto boundary_info_h = Kokkos::create_mirror_view(boundary_info);
+
+  // TODO(JMM): The current method relies on an if statement in the par_for_outer.
+  // Revisit later?
+
+  // Get coarse and fine bounds. Same for all blocks.
+  auto &rc = md->GetBlockData(0);
+  auto pmb = rc->GetBlockPointer();
+  IndexShape cellbounds = pmb->cellbounds;
+  IndexShape c_cellbounds = pmb->c_cellbounds;
 
   // now fill the buffer information
   int b = 0; // buffer index
@@ -315,8 +309,14 @@ void ResetSendBufferBoundaryInfo(MeshData<Real> *md, size_t buffers_used) {
           auto &Nv = boundary_info_h(b).Nv;
           Nv = v->GetDim(4);
 
+          boundary_info_h(b).coords = pmb->coords;
+          boundary_info_h(b).coarse_coords = pmb->pmr->GetCoarseCoords();
+
           IndexDomain interior = IndexDomain::interior;
           auto &var_cc = v->data;
+          boundary_info_h(b).fine =
+              var_cc.Get<4>(); // TODO(JMM) in general should be a loop
+          boundary_info_h(b).coarse = v->vbvar->coarse_buf.Get<4>();
           if (nb.snb.level == mylevel) {
             const parthenon::IndexShape &cellbounds = pmb->cellbounds;
             CalcIndicesLoadSame(nb.ni.ox1, si, ei, cellbounds.GetBoundsI(interior));
@@ -333,10 +333,8 @@ void ResetSendBufferBoundaryInfo(MeshData<Real> *md, size_t buffers_used) {
             CalcIndicesLoadSame(nb.ni.ox3, sk, ek, c_cellbounds.GetBoundsK(interior));
 
             auto &coarse_buf = v->vbvar->coarse_buf;
-            pmb->pmr->RestrictCellCenteredValues(var_cc, coarse_buf, 0, Nv - 1, si, ei,
-                                                 sj, ej, sk, ek);
-
             boundary_info_h(b).var = coarse_buf.Get<4>();
+            boundary_info_h(b).restrict = true;
 
           } else {
             CalcIndicesLoadToFiner(si, ei, sj, ej, sk, ek, nb, pmb.get());
@@ -358,6 +356,9 @@ void ResetSendBufferBoundaryInfo(MeshData<Real> *md, size_t buffers_used) {
   }
   Kokkos::deep_copy(boundary_info, boundary_info_h);
   md->SetSendBuffers(boundary_info);
+
+  // Restrict whichever buffers need restriction.
+  cell_centered_refinement::Restrict(boundary_info, cellbounds, c_cellbounds);
 
   Kokkos::Profiling::popRegion(); // Create send_boundary_info
 }
@@ -419,11 +420,23 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   auto boundary_info = md->GetSendBuffers();
   bool cache_is_valid = boundary_info.is_allocated();
 
-  auto buffers_used = ResetAndRestrictSendBuffers(md.get(), cache_is_valid);
+  auto buffers_used = ResetSendBuffers(md.get(), cache_is_valid);
 
   if (!cache_is_valid) {
     ResetSendBufferBoundaryInfo(md.get(), buffers_used);
     boundary_info = md->GetSendBuffers();
+  } else {
+    Kokkos::Profiling::pushRegion("Restrict boundaries");
+    // Get coarse and fine bounds. Same for all blocks.
+    auto &rc = md->GetBlockData(0);
+    auto pmb = rc->GetBlockPointer();
+    IndexShape cellbounds = pmb->cellbounds;
+    IndexShape c_cellbounds = pmb->c_cellbounds;
+
+    // Need to restrict here only if cached boundary_info is reused
+    // Otherwise restriction happens when the new boundary_info is created
+    cell_centered_refinement::Restrict(boundary_info, cellbounds, c_cellbounds);
+    Kokkos::Profiling::popRegion(); // Reset boundaries
   }
 
   Kokkos::parallel_for(

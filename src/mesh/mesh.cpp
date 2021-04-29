@@ -1046,6 +1046,8 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     }
 
     const int num_partitions = DefaultNumPartitions();
+
+#ifdef PARTHENON_ENABLE_INIT_PACKING
     // send FillGhost variables
     for (int i = 0; i < num_partitions; i++) {
       auto &md = mesh_data.GetOrAdd("base", i);
@@ -1071,6 +1073,20 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       auto &md = mesh_data.GetOrAdd("base", i);
       cell_centered_bvars::SetBoundaries(md);
     }
+
+#else // PARTHENON_ENABLE_INIT_PACKING -> OFF
+
+    // send FillGhost variables
+    for (int i = 0; i < nmb; ++i) {
+      block_list[i]->meshblock_data.Get()->SendBoundaryBuffers();
+    }
+
+    // wait to receive FillGhost variables
+    for (int i = 0; i < nmb; ++i) {
+      block_list[i]->meshblock_data.Get()->ReceiveAndSetBoundariesWithWait();
+    }
+
+#endif // PARTHENON_ENABLE_INIT_PACKING
 
     for (int i = 0; i < nmb; ++i) {
       block_list[i]->meshblock_data.Get()->ClearBoundary(BoundaryCommSubset::mesh_init);
