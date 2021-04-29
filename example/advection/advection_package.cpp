@@ -312,7 +312,7 @@ void PostFill(MeshBlockData<Real> *rc) {
     IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
     IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
 
-    const bool even = pmb->lid % 2 == 0;
+    const bool even = pmb->coords.GetXmin()[0] >= 0.0;
 
     // check that we have the sparse indices we want
     rc->ExpandSparseVariableID("one_minus_sqrt_one_minus_advected_sq", even ? 12 : 37);
