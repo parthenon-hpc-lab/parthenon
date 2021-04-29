@@ -30,6 +30,8 @@ include(CTest)
 option(PARTHENON_SINGLE_PRECISION "Run in single precision" OFF)
 option(PARTHENON_DISABLE_MPI "MPI is enabled by default if found, set this to True to disable MPI" OFF)
 option(PARTHENON_ENABLE_HOST_COMM_BUFFERS "Allocate communication buffers on host" OFF)
+option(PARTHENON_ENABLE_INIT_PACKING "Use MeshBlockPack based buffer functions in \
+Mesh::Initialize. Does NOT support sparse variables." OFF)
 option(PARTHENON_DISABLE_OPENMP "OpenMP is enabled by default if found, set this to True to disable OpenMP" OFF)
 option(PARTHENON_DISABLE_HDF5 "HDF5 is enabled by default if found, set this to True to disable HDF5" OFF)
 option(PARTHENON_LINT_DEFAULT "Linting is turned off by default, use the \"lint\" target or set \
