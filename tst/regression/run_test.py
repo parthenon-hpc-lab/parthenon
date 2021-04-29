@@ -66,14 +66,16 @@ def main(**kwargs):
 
     test_manager = tc.TestManager(run_test_py_path,**kwargs)
 
-    print("Make output folder in test if does not exist")
+    if not "analyze" in kwargs or kwargs["analyze"] == False:
 
-    test_manager.MakeOutputFolder()
+        print("Make output folder in test if does not exist")
 
-    for step in range(1,kwargs['num_steps'] + 1):
-        test_manager.Prepare(step)
+        test_manager.MakeOutputFolder()
 
-        test_manager.Run()
+        for step in range(1,kwargs['num_steps'] + 1):
+            test_manager.Prepare(step)
+
+            test_manager.Run()
 
     test_result = test_manager.Analyse()
 
@@ -156,6 +158,10 @@ if __name__ == '__main__':
     parser.add_argument('--coverage','-c',
                         action='store_true',
                         help='Run test cases where coverage has been enabled')
+
+    parser.add_argument('--analyze','-a',
+                        action='store_true',
+                        help='Skip to analysis, assumes test data already exists')
 
     args = parser.parse_args()
     try:
