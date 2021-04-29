@@ -28,7 +28,7 @@ HDF5 and restart files write variable field data with inline compression by defa
 especially helpful when there are sparse variables allocated only in a few blocks, because all other
 blocks would write zeros of these variables, which can drastically increase output file size (and
 decrease I/O performance) without compression. To control the level of compression or to turn it off
-altogether, the CMake build option PARTHENON\_HDF5\_COMPRESSION\_LEVEL can be used. See the [build
+altogether, the CMake build option `PARTHENON_HDF5_COMPRESSION_LEVEL` can be used. See the [build
 doc](building.md) for more details.
 
 ## Restart Files
