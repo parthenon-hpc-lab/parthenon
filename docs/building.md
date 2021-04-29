@@ -12,6 +12,7 @@ If you come across a disfunctional setup, please report it by open an issue or p
    |               PARTHENON\_DISABLE\_HDF5 | OFF               | Option | HDF5 is enabled by default if found, set this to True to disable HDF5 |
    |                PARTHENON\_DISABLE\_MPI | OFF               | Option | MPI is enabled by default if found, set this to True to disable MPI |
    | PARTHENON\_ENABLE\_HOST\_COMM\_BUFFERS | OFF               | Option | MPI communication buffers are by default allocated on the execution device. This options forces allocation in memory accessible directly by the host. |
+   |       PARTHENON\_ENABLE\_INIT\_PACKING | OFF               | Option | Use MeshBlockPack based buffer functions in Mesh::Initialize. Does NOT support sparse variables. |
    |             PARTHENON\_DISABLE\_OPENMP | OFF               | Option | OpenMP is enabled by default if found, set this to True to disable OpenMP |
    |             ENABLE\_COMPILER\_WARNINGS | OFF               | Option | Enable compiler warnings |
    |                  TEST\_ERROR\_CHECKING | OFF               | Option | Enables the error checking unit test. This test will FAIL |
