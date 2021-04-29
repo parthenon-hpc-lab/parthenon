@@ -7,6 +7,7 @@
 - [[PR 482]](https://github.com/lanl/parthenon/pull/482) Add support for package enrolled history outputs.
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 508]](https://github.com/lanl/parthenon/pull/508) Modify `RestrictCellCenteredVariables` to support a restriction over meshblock packs.
 - [[PR 492]](https://github.com/lanl/parthenon/pull/492) Modify advection example to have an arbitrary number of dense variables and to disable fill derived for profiling.
 
 ### Fixed (not changing behavior/API/variables/...)

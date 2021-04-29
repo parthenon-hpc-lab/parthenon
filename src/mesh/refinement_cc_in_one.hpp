@@ -16,7 +16,7 @@
 //========================================================================================
 
 #ifndef MESH_REFINEMENT_CC_IN_ONE_HPP_
-#define MESH_REFINEMEN_CC_IN_ONE_HPP_
+#define MESH_REFINEMENT_CC_IN_ONE_HPP_
 
 #include "coordinates/coordinates.hpp"
 #include "kokkos_abstraction.hpp"
