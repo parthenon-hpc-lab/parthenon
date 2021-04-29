@@ -255,23 +255,6 @@ size_t ResetSendBuffers(MeshData<Real> *md, bool cache_is_valid) {
           auto *pbd_var_ = v->vbvar->GetPBdVar();
           if (pbd_var_->sflag[nb.bufid] == parthenon::BoundaryStatus::completed) continue;
           buffers_used += 1;
-
-          // Need to restrict here only if cached boundary_info is reused
-          // Otherwise restriction happens when the new boundary_info is created
-          // if (cache_is_valid && nb.snb.level < mylevel) {
-          //   const IndexShape &c_cellbounds = pmb->c_cellbounds;
-          //   IndexDomain interior = IndexDomain::interior;
-          //   auto &var_cc = v->data;
-          //   // recalc indices as existing indices in boundary_info are on the device
-          //   int si, ei, sj, ej, sk, ek;
-          //   CalcIndicesLoadSame(nb.ni.ox1, si, ei, c_cellbounds.GetBoundsI(interior));
-          //   CalcIndicesLoadSame(nb.ni.ox2, sj, ej, c_cellbounds.GetBoundsJ(interior));
-          //   CalcIndicesLoadSame(nb.ni.ox3, sk, ek, c_cellbounds.GetBoundsK(interior));
-          // 
-          //   auto &coarse_buf = v->vbvar->coarse_buf;
-          //   pmb->pmr->RestrictCellCenteredValues(var_cc, coarse_buf, 0, v->GetDim(4) - 1,
-          //                                        si, ei, sj, ej, sk, ek);
-          // }
         }
       }
     }
@@ -349,9 +332,6 @@ void ResetSendBufferBoundaryInfo(MeshData<Real> *md, size_t buffers_used) {
             CalcIndicesLoadSame(nb.ni.ox3, sk, ek, c_cellbounds.GetBoundsK(interior));
 
             auto &coarse_buf = v->vbvar->coarse_buf;
-            // pmb->pmr->RestrictCellCenteredValues(var_cc, coarse_buf, 0, Nv - 1, si, ei,
-            //                                      sj, ej, sk, ek);
-
             boundary_info_h(b).var = coarse_buf.Get<4>();
             boundary_info_h(b).restrict = true;
 
