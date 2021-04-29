@@ -518,6 +518,10 @@ typename MeshBlockData<T>::VariableListResult MeshBlockData<T>::GetAllVariables(
 // they add a subset of the container... specified by either variable names
 // or by metadata flags. In the case of names, the list can optionally only contain
 // some subset of the sparse ids in a sparse variable.
+//
+// TODO(JL) We probably need a better interface here. Right now, the set of sparse_ids will apply to
+// EACH sparse variable, so it wouldn't be possible to just select sparse_a_1 and sparse_b_2 if both
+// sparse variables have indices 1 and 2 (we'd get both indices of both sparse variables)
 template <typename T>
 typename MeshBlockData<T>::VariableListResult
 MeshBlockData<T>::GetVariablesByName(const std::vector<std::string> &names,

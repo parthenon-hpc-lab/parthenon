@@ -24,15 +24,16 @@ void SparseVariable<T>::Add(int varIndex) {
       (metadata_.Where() == Metadata::None)) {
     // check if variable index already exists
     if (varMap_.find(varIndex) != varMap_.end()) {
-      throw std::invalid_argument("Duplicate index in create SparseVariable");
+      PARTHENON_THROW("Duplicate index in create SparseVariable");
     }
+
     // create the variable and add to map
     auto v = std::make_shared<CellVariable<T>>(label_, dims_, metadata_, varIndex);
     varArray_.push_back(v);
     indexMap_.push_back(varIndex);
     varMap_[varIndex] = v;
   } else {
-    throw std::invalid_argument("unsupported type in SparseVariable");
+    PARTHENON_THROW("unsupported type in SparseVariable");
   }
 }
 

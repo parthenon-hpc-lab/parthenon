@@ -528,10 +528,62 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   Kokkos::Profiling::popRegion(); // Step 4
 
   MPI_Request *req_send, *req_recv;
-  // Step 5. allocate and start receiving buffers
-  Kokkos::Profiling::pushRegion("Step 5: Alloc buffer and start recv");
+
+  // Step 5. Allocate space for send and recieve buffers
+  Kokkos::Profiling::pushRegion("Step 5: Allocate send and recv buf");
+  size_t buf_size = 0;
   if (nrecv != 0) {
     recvbuf = new BufArray1D<Real>[nrecv];
+    for (int n = nbs; n <= nbe; n++) {
+      int on = newtoold[n];
+      LogicalLocation &oloc = loclist[on];
+      LogicalLocation &nloc = newloc[n];
+      if (oloc.level > nloc.level) { // f2c
+        for (int l = 0; l < nleaf; l++) {
+          if (ranklist[on + l] == Globals::my_rank) continue;
+          buf_size += bsf2c;
+        }
+      } else { // same level or c2f
+        if (ranklist[on] == Globals::my_rank) continue;
+        int size;
+        if (oloc.level == nloc.level) {
+          size = bssame;
+        } else {
+          size = bsc2f;
+        }
+        buf_size += size;
+      }
+    }
+  }
+  if (nsend != 0) {
+    sendbuf = new BufArray1D<Real>[nsend];
+    for (int n = onbs; n <= onbe; n++) {
+      int nn = oldtonew[n];
+      LogicalLocation &oloc = loclist[n];
+      LogicalLocation &nloc = newloc[nn];
+      auto pb = FindMeshBlock(n);
+      if (nloc.level == oloc.level) { // same level
+        if (newrank[nn] == Globals::my_rank) continue;
+        buf_size += bssame;
+      } else if (nloc.level > oloc.level) { // c2f
+        // c2f must communicate to multiple leaf blocks (unlike f2c, same2same)
+        for (int l = 0; l < nleaf; l++) {
+          if (newrank[nn + l] == Globals::my_rank) continue;
+          buf_size += bsc2f;
+        }      // end loop over nleaf (unique to c2f branch in this step 6)
+      } else { // f2c: restrict + pack + send
+        if (newrank[nn] == Globals::my_rank) continue;
+        buf_size += bsf2c;
+      }
+    }
+  }
+  BufArray1D<Real> bufs("RedistributeAndRefineMeshBlocks sendrecv bufs", buf_size);
+  Kokkos::Profiling::popRegion(); // Step 5
+
+  // Step 6. allocate and start receiving buffers
+  Kokkos::Profiling::pushRegion("Step 6: Pack buffer and start recv");
+  size_t buf_offset = 0;
+  if (nrecv != 0) {
     req_recv = new MPI_Request[nrecv];
     int rb_idx = 0; // recv buffer index
     for (int n = nbs; n <= nbe; n++) {
@@ -544,7 +596,9 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
           LogicalLocation &lloc = loclist[on + l];
           int ox1 = ((lloc.lx1 & 1LL) == 1LL), ox2 = ((lloc.lx2 & 1LL) == 1LL),
               ox3 = ((lloc.lx3 & 1LL) == 1LL);
-          recvbuf[rb_idx] = BufArray1D<Real>("recvbuf" + std::to_string(rb_idx), bsf2c);
+          recvbuf[rb_idx] =
+              BufArray1D<Real>(bufs, std::make_pair(buf_offset, buf_offset + bsf2c));
+          buf_offset += bsf2c;
           int tag = CreateAMRMPITag(n - nbs, ox1, ox2, ox3);
           PARTHENON_MPI_CHECK(MPI_Irecv(recvbuf[rb_idx].data(), bsf2c, MPI_PARTHENON_REAL,
                                         ranklist[on + l], tag, MPI_COMM_WORLD,
@@ -559,7 +613,9 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
         } else {
           size = bsc2f;
         }
-        recvbuf[rb_idx] = BufArray1D<Real>("recvbuf" + std::to_string(rb_idx), size);
+        recvbuf[rb_idx] =
+            BufArray1D<Real>(bufs, std::make_pair(buf_offset, buf_offset + size));
+        buf_offset += size;
         int tag = CreateAMRMPITag(n - nbs, 0, 0, 0);
         PARTHENON_MPI_CHECK(MPI_Irecv(recvbuf[rb_idx].data(), size, MPI_PARTHENON_REAL,
                                       ranklist[on], tag, MPI_COMM_WORLD,
@@ -568,11 +624,11 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       }
     }
   }
-  Kokkos::Profiling::popRegion(); // Step 5
-  // Step 6. allocate, pack and start sending buffers
-  Kokkos::Profiling::pushRegion("Step 6: Alloc, pack, and send buffers");
+  Kokkos::Profiling::popRegion(); // Step 6
+
+  // Step 7. allocate, pack and start sending buffers
+  Kokkos::Profiling::pushRegion("Step 7: Pack and send buffers");
   if (nsend != 0) {
-    sendbuf = new BufArray1D<Real>[nsend];
     req_send = new MPI_Request[nsend];
     int sb_idx = 0; // send buffer index
     for (int n = onbs; n <= onbe; n++) {
@@ -583,7 +639,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       if (nloc.level == oloc.level) { // same level
         if (newrank[nn] == Globals::my_rank) continue;
         sendbuf[sb_idx] =
-            BufArray1D<Real>("amr send buf same" + std::to_string(sb_idx), bssame);
+            BufArray1D<Real>(bufs, std::make_pair(buf_offset, buf_offset + bssame));
+        buf_offset += bssame;
         PrepareSendSameLevel(pb.get(), sendbuf[sb_idx]);
         int tag = CreateAMRMPITag(nn - nslist[newrank[nn]], 0, 0, 0);
         PARTHENON_MPI_CHECK(MPI_Isend(sendbuf[sb_idx].data(), bssame, MPI_PARTHENON_REAL,
@@ -595,7 +652,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
         for (int l = 0; l < nleaf; l++) {
           if (newrank[nn + l] == Globals::my_rank) continue;
           sendbuf[sb_idx] =
-              BufArray1D<Real>("amr send buf c2f" + std::to_string(sb_idx), bsc2f);
+              BufArray1D<Real>(bufs, std::make_pair(buf_offset, buf_offset + bsc2f));
+          buf_offset += bsc2f;
           PrepareSendCoarseToFineAMR(pb.get(), sendbuf[sb_idx], newloc[nn + l]);
           int tag = CreateAMRMPITag(nn + l - nslist[newrank[nn + l]], 0, 0, 0);
           PARTHENON_MPI_CHECK(MPI_Isend(sendbuf[sb_idx].data(), bsc2f, MPI_PARTHENON_REAL,
@@ -606,7 +664,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       } else { // f2c: restrict + pack + send
         if (newrank[nn] == Globals::my_rank) continue;
         sendbuf[sb_idx] =
-            BufArray1D<Real>("amr send buf f2c" + std::to_string(sb_idx), bsf2c);
+            BufArray1D<Real>(bufs, std::make_pair(buf_offset, buf_offset + bsf2c));
+        buf_offset += bsf2c;
         PrepareSendFineToCoarseAMR(pb.get(), sendbuf[sb_idx]);
         int ox1 = ((oloc.lx1 & 1LL) == 1LL), ox2 = ((oloc.lx2 & 1LL) == 1LL),
             ox3 = ((oloc.lx3 & 1LL) == 1LL);
@@ -618,11 +677,11 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       }
     }
   }                               // if (nsend !=0)
-  Kokkos::Profiling::popRegion(); // Step 6
+  Kokkos::Profiling::popRegion(); // Step 7
 #endif                            // MPI_PARALLEL
 
-  // Step 7. construct a new MeshBlock list (moving the data within the MPI rank)
-  Kokkos::Profiling::pushRegion("Step 7: Construct new MeshBlockList");
+  // Step 8. construct a new MeshBlock list (moving the data within the MPI rank)
+  Kokkos::Profiling::pushRegion("Step 8: Construct new MeshBlockList");
   {
     RegionSize block_size = GetBlockSize();
 
@@ -668,10 +727,10 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       block_list[n - nbs]->lid = n - nbs;
     }
   }
-  Kokkos::Profiling::popRegion(); // Step 7: Construct new MeshBlockList
+  Kokkos::Profiling::popRegion(); // Step 8: Construct new MeshBlockList
 
-  // Step 8. Receive the data and load into MeshBlocks
-  Kokkos::Profiling::pushRegion("Step 8: Recv data and unpack");
+  // Step 9. Receive the data and load into MeshBlocks
+  Kokkos::Profiling::pushRegion("Step 9: Recv data and unpack");
   // This is a test: try MPI_Waitall later.
 #ifdef MPI_PARALLEL
   if (nrecv != 0) {
@@ -718,7 +777,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     delete[] req_recv;
   }
 #endif
-  Kokkos::Profiling::popRegion(); // Step 8
+  Kokkos::Profiling::popRegion(); // Step 9
 
   // update the lists
   loclist = std::move(newloc);
@@ -729,7 +788,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   for (auto &pmb : block_list) {
     pmb->pbval->SearchAndSetNeighbors(tree, ranklist.data(), nslist.data());
   }
-  Initialize(2, pin, app_in);
+  Initialize(false, pin, app_in);
 
   ResetLoadBalanceVariables();
 

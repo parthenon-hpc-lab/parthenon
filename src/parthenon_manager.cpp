@@ -21,10 +21,10 @@
 
 #include "driver/driver.hpp"
 #include "globals.hpp"
+#include "interface/meshblock_data_iterator.hpp"
 #include "interface/update.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/meshblock.hpp"
-#include "outputs/parthenon_hdf5.hpp"
 #include "refinement/refinement.hpp"
 
 namespace parthenon {
@@ -41,27 +41,11 @@ ParthenonStatus ParthenonManager::ParthenonInit(int argc, char *argv[]) {
 ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
   // initialize MPI
 #ifdef MPI_PARALLEL
-#ifdef OPENMP_PARALLEL
-  int mpiprv;
-  if (MPI_SUCCESS != MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &mpiprv)) {
-    std::cout << "### FATAL ERROR in ParthenonInit" << std::endl
-              << "MPI Initialization failed." << std::endl;
-    return ParthenonStatus::error;
-  }
-  if (mpiprv != MPI_THREAD_MULTIPLE) {
-    std::cout << "### FATAL ERROR in ParthenonInit" << std::endl
-              << "MPI_THREAD_MULTIPLE must be supported for the hybrid parallelzation. "
-              << MPI_THREAD_MULTIPLE << " : " << mpiprv << std::endl;
-    // MPI_Finalize();
-    return ParthenonStatus::error;
-  }
-#else  // no OpenMP
   if (MPI_SUCCESS != MPI_Init(&argc, &argv)) {
     std::cout << "### FATAL ERROR in ParthenonInit" << std::endl
               << "MPI Initialization failed." << std::endl;
     return ParthenonStatus::error;
   }
-#endif // OPENMP_PARALLEL
   // Get process id (rank) in MPI_COMM_WORLD
   if (MPI_SUCCESS != MPI_Comm_rank(MPI_COMM_WORLD, &(Globals::my_rank))) {
     std::cout << "### FATAL ERROR in ParthenonInit" << std::endl
@@ -119,7 +103,7 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
 
     // Load input stream
     pinput = std::make_unique<ParameterInput>();
-    std::string inputString = restartReader->ReadAttrString("Input", "File");
+    auto inputString = restartReader->GetAttr<std::string>("Input", "File");
     std::istringstream is(inputString);
     pinput->LoadFromStream(is);
   }
@@ -164,7 +148,7 @@ void ParthenonManager::ParthenonInitPackagesAndMesh() {
     Real dt = restartReader->GetAttr<Real>("Info", "dt");
     pinput->SetPrecise("parthenon/time", "dt", dt);
 
-    int ncycle = restartReader->GetAttr<int32_t>("Info", "NCycle");
+    int ncycle = restartReader->GetAttr<int>("Info", "NCycle");
     pinput->SetInteger("parthenon/time", "ncycle", ncycle);
 
     // Read package data from restart file
@@ -178,7 +162,7 @@ void ParthenonManager::ParthenonInitPackagesAndMesh() {
     }
   }
 
-  pmesh->Initialize(Restart(), pinput.get(), app_input.get());
+  pmesh->Initialize(!Restart(), pinput.get(), app_input.get());
 
   ChangeRunDir(arg.prundir);
 }
@@ -238,7 +222,9 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   size_t nCells = bsize[0] * bsize[1] * bsize[2];
 
   // Get list of variables, assumed same for all blocks
-  // TODO(JL): Cannot assume this anymore
+
+  // TODO(JL) this doesn't work anymore, will update this in sparse update
+
   auto ciX = MeshBlockDataIterator<Real>(
       mb.meshblock_data.Get(),
       {parthenon::Metadata::Independent, parthenon::Metadata::Restart}, true);
@@ -272,8 +258,18 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
       for (auto &v : cX.vars) {
         if (vName.compare(v->label()) == 0) {
           auto v_h = v->data.GetHostMirror();
-          UNLOADVARIABLEONE(index, tmp, v_h, out_ib.s, out_ib.e, out_jb.s, out_jb.e,
-                            out_kb.s, out_kb.e, v4);
+
+          // Note index l transposed to interior
+          for (int k = out_kb.s; k <= out_kb.e; ++k) {
+            for (int j = out_jb.s; j <= out_jb.e; ++j) {
+              for (int i = out_ib.s; i <= out_ib.e; ++i) {
+                for (int l = 0; l < vlen; ++l) {
+                  v_h(l, k, j, i) = tmp[index++];
+                }
+              }
+            }
+          }
+
           v->data.DeepCopy(v_h);
           found = true;
           break;
@@ -287,4 +283,5 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
     }
   }
 }
+
 } // namespace parthenon

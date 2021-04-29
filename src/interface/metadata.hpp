@@ -169,17 +169,11 @@ class Metadata {
   /// Default constructor override
   Metadata() = default;
 
-  /// returns a metadata with given bits, shape, and associated (if any)
-  explicit Metadata(const std::vector<MetadataFlag> &bits,
-                    std::vector<int> const &shape = {1},
-                    const std::string &associated = "")
-      : shape_(shape), associated_(associated) {
-    SetMultiple(bits);
-  }
-
-  /// returns a metadata with given bits and associated
-  Metadata(const std::vector<MetadataFlag> &bits, const std::string &associated)
-      : associated_(associated) {
+  /// returns a metadata with given bits, shape, component labels, and associated (if any)
+  Metadata(const std::vector<MetadataFlag> &bits, const std::vector<int> &shape = {1},
+           const std::vector<std::string> component_labels = {},
+           const std::string &associated = "")
+      : shape_(shape), component_labels_(component_labels), associated_(associated) {
     SetMultiple(bits);
   }
 
@@ -301,10 +295,15 @@ class Metadata {
   void Associate(const std::string &name) { associated_ = name; }
   const std::string &getAssociated() const { return associated_; }
 
+  const std::vector<std::string> getComponentLabels() const noexcept {
+    return component_labels_;
+  }
+
  private:
   /// the attribute flags that are set for the class
   std::vector<bool> bits_;
   std::vector<int> shape_ = {1};
+  std::vector<std::string> component_labels_;
   std::string associated_;
 
   /*--------------------------------------------------------*/

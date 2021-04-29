@@ -55,16 +55,9 @@
 // on how to slice a possible 4D source ParArrayND into separate 3D arrays; automatically
 // enrolls quantity in vtk.cpp, formatted_table.cpp outputs.
 
-// - athena_hdf5.cpp, PHDF5Output::WriteOutputFile(): need to allocate space for the new
-// OutputData node as an HDF5 "variable" inside an existing HDF5 "dataset" (cell-centered
-// vs. face-centered data).
-
-// - restart.cpp, RestartOutput::WriteOutputFile(): memcpy array of quantity to pdata
-// pointer and increment the pointer. pdata points to an allocated region of memory whose
-// "datasize" is inferred from MeshBlock::GetBlockSizeInBytes(), ---->
-
-// - mesh/meshblock.cpp, MeshBlock::GetBlockSizeInBytes(): increment std::size_t size by
-// the size of the new quantity's array(s)
+// - parthenon_hdf5.cpp, PHDF5Output::WriteOutputFile(): need to allocate space for the
+// new OutputData node as an HDF5 "variable" inside an existing HDF5 "dataset"
+// (cell-centered vs. face-centered data).
 
 // - mesh/meshblock.cpp, MeshBlock restart constructor: memcpy quantity (IN THE SAME ORDER
 // AS THE VARIABLES ARE WRITTEN IN restart.cpp) from the loaded .rst file to the
@@ -80,10 +73,6 @@
 // the 3x components as independent scalars instead of a physical vector, unlike how it
 // treats .vtk velocity output from Athena++. The workaround is to import the
 // vis/visit/*.xml expressions file, which can pack these HDF5 scalars into a vector.
-
-// TODO(felker): Replace MeshBlock::GetBlockSizeInBytes() by 2x RegisterMeshBlockData()
-// overloads. Replace "NEW_OUTPUT_TYPES" region of RestartOutput::WriteOutputFile() with
-// automatic loops over registered MeshBlock quantities in pvars_cc, pvars_fc vectors.
 //========================================================================================
 
 #include "outputs/outputs.hpp"
@@ -235,6 +224,26 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       // read cartesian mapping option
       op.cartesian_vector = false;
 
+      // read single precision output option
+      bool is_hdf5_output = (op.file_type.compare("rst") == 0) ||
+                            (op.file_type.compare("ath5") == 0) ||
+                            (op.file_type.compare("hdf5") == 0);
+
+      if (is_hdf5_output) {
+        op.single_precision_output =
+            pin->GetOrAddBoolean(op.block_name, "single_precision_output", false);
+      } else {
+        op.single_precision_output = false;
+
+        if (pin->DoesParameterExist(op.block_name, "single_precision_output")) {
+          std::stringstream warn;
+          warn << "### WARNING Output option single_precision_output only applies to "
+                  "HDF5 outputs or restarts. Ignoring it for output block '"
+               << op.block_name << "'" << std::endl;
+          PARTHENON_WARN(warn);
+        }
+      }
+
       // set output variable and optional data format string used in formatted writes
       if (op.file_type.compare("hst") != 0 && op.file_type.compare("rst") != 0) {
         // op.variable = pin->GetString(op.block_name, "variable");
@@ -252,20 +261,21 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
         pnew_type = new FormattedTableOutput(op);
       } else if (op.file_type.compare("vtk") == 0) {
         pnew_type = new VTKOutput(op);
-      } else if (op.file_type.compare("rst") == 0) {
-        pnew_type = new RestartOutput(op);
-        num_rst_outputs++;
-      } else if (op.file_type.compare("ath5") == 0 || op.file_type.compare("hdf5") == 0) {
+      } else if (is_hdf5_output) {
+        bool restart = (op.file_type.compare("rst") == 0);
+        if (restart) {
+          num_rst_outputs++;
+        }
 #ifdef HDF5OUTPUT
-        pnew_type = new PHDF5Output(op);
+        pnew_type = new PHDF5Output(op, restart);
 #else
         msg << "### FATAL ERROR in Outputs constructor" << std::endl
             << "Executable not configured for HDF5 outputs, but HDF5 file format "
-            << "is requested in output block '" << op.block_name << "'. "
+            << "is requested in output/restart block '" << op.block_name << "'. "
             << "You can disable this block without deleting it by setting a dt < 0."
             << std::endl;
         PARTHENON_FAIL(msg);
-#endif
+#endif // ifdef HDF5OUTPUT
       } else {
         msg << "### FATAL ERROR in Outputs constructor" << std::endl
             << "Unrecognized file format = '" << op.file_type << "' in output block '"
@@ -323,7 +333,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     pot->pnext_type = prst;
   }
   // if found == 2, do nothing; it's already at the tail node/end of the list
-}
+} // namespace parthenon
 
 // destructor - iterates through singly linked list of OutputTypes and deletes nodes
 

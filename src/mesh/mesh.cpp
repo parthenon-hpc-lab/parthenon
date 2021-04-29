@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -33,6 +33,8 @@
 #include <utility>
 #include <vector>
 
+#include "basic_types.hpp"
+#include "bvals/cc/bvals_cc_in_one.hpp"
 #include "parthenon_mpi.hpp"
 
 #include "bvals/boundary_conditions.hpp"
@@ -99,8 +101,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Properties_t &properti
       lb_automatic_(),
       lb_manual_(), MeshGenerator_{nullptr, UniformMeshGeneratorX1,
                                    UniformMeshGeneratorX2, UniformMeshGeneratorX3},
-      MeshBndryFnctn{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, AMRFlag_{},
-      UserSourceTerm_{}, UserTimeStep_{} {
+      MeshBndryFnctn{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr} {
   std::stringstream msg;
   RegionSize block_size;
   BoundaryFlag block_bcs[6];
@@ -555,8 +556,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
       lb_automatic_(),
       lb_manual_(), MeshGenerator_{nullptr, UniformMeshGeneratorX1,
                                    UniformMeshGeneratorX2, UniformMeshGeneratorX3},
-      MeshBndryFnctn{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}, AMRFlag_{},
-      UserSourceTerm_{}, UserTimeStep_{} {
+      MeshBndryFnctn{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr} {
   std::stringstream msg;
   RegionSize block_size;
   BoundaryFlag block_bcs[6];
@@ -582,14 +582,14 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   // the file is already open and the pointer is set to after <par_end>
 
   // All ranks read HDF file
-  nbnew = rr.GetAttr<int>("Mesh", "nbnew");
-  nbdel = rr.GetAttr<int>("Mesh", "nbdel");
-  nbtotal = rr.GetAttr<int>("Mesh", "nbtotal");
-  root_level = rr.GetAttr<int32_t>("Mesh", "rootLevel");
+  nbnew = rr.GetAttr<int32_t>("Info", "NBNew");
+  nbdel = rr.GetAttr<int32_t>("Info", "NBDel");
+  nbtotal = rr.GetAttr<int32_t>("Info", "NumMeshBlocks");
+  root_level = rr.GetAttr<int32_t>("Info", "RootLevel");
 
-  auto bc = rr.ReadAttr1DReal("Mesh", "bc");
+  auto bc = rr.GetAttrVec<std::string>("Info", "BoundaryConditions");
   for (int i = 0; i < 6; i++) {
-    block_bcs[i] = static_cast<BoundaryFlag>(bc[i]);
+    block_bcs[i] = GetBoundaryFlag(bc[i]);
   }
 
   // Allow for user overrides to default Parthenon functions
@@ -613,23 +613,23 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   }
   EnrollBndryFncts_(app_in);
 
-  std::vector<Real> bounds = rr.ReadAttr1DReal("Mesh", "bounds");
-  mesh_size.x1min = bounds[0];
-  mesh_size.x2min = bounds[1];
-  mesh_size.x3min = bounds[2];
-  mesh_size.x1max = bounds[3];
-  mesh_size.x2max = bounds[4];
-  mesh_size.x3max = bounds[5];
+  std::vector<Real> grid_dim = rr.GetAttrVec<Real>("Info", "RootGridDomain");
+  mesh_size.x1min = grid_dim[0];
+  mesh_size.x1max = grid_dim[1];
+  mesh_size.x1rat = grid_dim[2];
 
-  auto ratios = rr.ReadAttr1DReal("Mesh", "ratios");
-  mesh_size.x1rat = ratios[0];
-  mesh_size.x2rat = ratios[1];
-  mesh_size.x3rat = ratios[2];
+  mesh_size.x2min = grid_dim[3];
+  mesh_size.x2max = grid_dim[4];
+  mesh_size.x2rat = grid_dim[5];
+
+  mesh_size.x3min = grid_dim[6];
+  mesh_size.x3max = grid_dim[7];
+  mesh_size.x3rat = grid_dim[8];
 
   // initialize
   loclist = std::vector<LogicalLocation>(nbtotal);
 
-  auto blockSize = rr.ReadAttr1DI32("Mesh", "blockSize");
+  auto blockSize = rr.GetAttrVec<int32_t>("Info", "MeshBlockSize");
   block_size.nx1 = blockSize[0];
   block_size.nx2 = blockSize[1];
   block_size.nx3 = blockSize[2];
@@ -667,7 +667,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   // SMR / AMR
   if (adaptive) {
     // read from file or from input?  input for now.
-    //    max_level = rr.GetAttr<int32_t>("Mesh", "maxLevel");
+    //    max_level = rr.GetAttr<int>("Info", "MaxLevel");
     max_level = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1) + root_level - 1;
     if (max_level > 63) {
       msg << "### FATAL ERROR in Mesh constructor" << std::endl
@@ -758,7 +758,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   int nbe = nbs + nb - 1;
 
   // read in xmin from file
-  auto xmin = rr.ReadDataset<double>("/Blocks/xmin");
+  auto xmin = rr.ReadDataset<Real>("/Blocks/xmin");
 
   mesh_data.SetMeshPointer(this);
 
@@ -971,15 +971,6 @@ void Mesh::EnrollBndryFncts_(ApplicationInput *app_in) {
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void Mesh::EnrollUserRefinementCondition(AMRFlagFunc amrflag)
-//  \brief Enroll a user-defined function for checking refinement criteria
-
-void Mesh::EnrollUserRefinementCondition(AMRFlagFunc amrflag) {
-  if (adaptive) AMRFlag_ = amrflag;
-  return;
-}
-
-//----------------------------------------------------------------------------------------
 //! \fn void Mesh::EnrollUserMeshGenerator(CoordinateDirection,MeshGenFunc my_mg)
 //  \brief Enroll a user-defined function for Mesh generation
 
@@ -1014,24 +1005,6 @@ void Mesh::EnrollUserMeshGenerator(CoordinateDirection dir, MeshGenFunc my_mg) {
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void Mesh::EnrollUserExplicitSourceFunction(SrcTermFunc my_func)
-//  \brief Enroll a user-defined source function
-
-void Mesh::EnrollUserExplicitSourceFunction(SrcTermFunc my_func) {
-  UserSourceTerm_ = my_func;
-  return;
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void Mesh::EnrollUserTimeStepFunction(TimeStepFunc my_func)
-//  \brief Enroll a user-defined time step function
-
-void Mesh::EnrollUserTimeStepFunction(TimeStepFunc my_func) {
-  UserTimeStep_ = my_func;
-  return;
-}
-
-//----------------------------------------------------------------------------------------
 // \!fn void Mesh::ApplyUserWorkBeforeOutput(ParameterInput *pin)
 // \brief Apply MeshBlock::UserWorkBeforeOutput
 
@@ -1042,104 +1015,118 @@ void Mesh::ApplyUserWorkBeforeOutput(ParameterInput *pin) {
 }
 
 //----------------------------------------------------------------------------------------
-// \!fn void Mesh::Initialize(int res_flag, ParameterInput *pin)
+// \!fn void Mesh::Initialize(bool init_problem, ParameterInput *pin)
 // \brief  initialization before the main loop
 
-void Mesh::Initialize(int res_flag, ParameterInput *pin, ApplicationInput *app_in) {
+void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *app_in) {
   Kokkos::Profiling::pushRegion("Mesh::Initialize");
-  bool iflag = true;
-  int inb = nbtotal;
-#ifdef OPENMP_PARALLEL
-  int nthreads = GetNumMeshThreads();
-#endif
+  bool init_done = true;
+  const int nb_initial = nbtotal;
   do {
     int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
 
-    if (res_flag == 0) {
-#pragma omp parallel for num_threads(nthreads)
+    if (init_problem) {
       for (int i = 0; i < nmb; ++i) {
         auto &pmb = block_list[i];
         pmb->ProblemGenerator(pmb.get(), pin);
       }
     }
 
-    int call = 0;
     // Create send/recv MPI_Requests for all BoundaryData objects
-#pragma omp parallel for num_threads(nthreads)
     for (int i = 0; i < nmb; ++i) {
       auto &pmb = block_list[i];
       // BoundaryVariable objects evolved in main TimeIntegratorTaskList:
       pmb->pbval->SetupPersistentMPI();
       pmb->meshblock_data.Get()->SetupPersistentMPI();
     }
-    call++; // 1
 
-#pragma omp parallel num_threads(nthreads)
-    {
-      // prepare to receive conserved variables
-#pragma omp for
-      for (int i = 0; i < nmb; ++i) {
-        block_list[i]->meshblock_data.Get()->StartReceiving(
-            BoundaryCommSubset::mesh_init);
-      }
-      call++; // 2
-              // send conserved variables
-#pragma omp for
-      for (int i = 0; i < nmb; ++i) {
-        block_list[i]->meshblock_data.Get()->SendBoundaryBuffers();
-      }
-      call++; // 3
+    // prepare to receive conserved variables
+    for (int i = 0; i < nmb; ++i) {
+      block_list[i]->meshblock_data.Get()->StartReceiving(BoundaryCommSubset::mesh_init);
+    }
 
-      // wait to receive conserved variables
-#pragma omp for
-      for (int i = 0; i < nmb; ++i) {
-        block_list[i]->meshblock_data.Get()->ReceiveAndSetBoundariesWithWait();
-      }
-      call++; // 4
-#pragma omp for
-      for (int i = 0; i < nmb; ++i) {
-        block_list[i]->meshblock_data.Get()->ClearBoundary(BoundaryCommSubset::mesh_init);
-      }
-      call++;
-      // Now do prolongation, compute primitives, apply BCs
-#pragma omp for
-      for (int i = 0; i < nmb; ++i) {
-        auto &pmb = block_list[i];
-        if (multilevel) {
-          ProlongateBoundaries(pmb->meshblock_data.Get());
-        }
-        ApplyBoundaryConditions(pmb->meshblock_data.Get());
-        // Call MeshBlockData based FillDerived functions
-        Update::FillDerived(pmb->meshblock_data.Get().get());
-      }
-      const int num_partitions = DefaultNumPartitions();
+    const int num_partitions = DefaultNumPartitions();
+
+#ifdef PARTHENON_ENABLE_INIT_PACKING
+    // send FillGhost variables
+    for (int i = 0; i < num_partitions; i++) {
+      auto &md = mesh_data.GetOrAdd("base", i);
+      cell_centered_bvars::SendBoundaryBuffers(md);
+    }
+
+    // wait to receive FillGhost variables
+    // TODO(someone) evaluate if ReceiveWithWait kind of logic is better, also related to
+    // https://github.com/lanl/parthenon/issues/418
+    bool all_received = true;
+    do {
+      all_received = true;
       for (int i = 0; i < num_partitions; i++) {
         auto &md = mesh_data.GetOrAdd("base", i);
-        // Call MeshData based FillDerived functions
-        Update::FillDerived(md.get());
-      }
-
-      if (!res_flag && adaptive) {
-#pragma omp for
-        for (int i = 0; i < nmb; ++i) {
-          block_list[i]->pmr->CheckRefinementCondition();
+        if (cell_centered_bvars::ReceiveBoundaryBuffers(md) != TaskStatus::complete) {
+          all_received = false;
         }
       }
-    } // omp parallel
+    } while (!all_received);
 
-    if (!res_flag && adaptive) {
-      iflag = false;
-      int onb = nbtotal;
+    // unpack FillGhost variables
+    for (int i = 0; i < num_partitions; i++) {
+      auto &md = mesh_data.GetOrAdd("base", i);
+      cell_centered_bvars::SetBoundaries(md);
+    }
+
+#else // PARTHENON_ENABLE_INIT_PACKING -> OFF
+
+    // send FillGhost variables
+    for (int i = 0; i < nmb; ++i) {
+      block_list[i]->meshblock_data.Get()->SendBoundaryBuffers();
+    }
+
+    // wait to receive FillGhost variables
+    for (int i = 0; i < nmb; ++i) {
+      block_list[i]->meshblock_data.Get()->ReceiveAndSetBoundariesWithWait();
+    }
+
+#endif // PARTHENON_ENABLE_INIT_PACKING
+
+    for (int i = 0; i < nmb; ++i) {
+      block_list[i]->meshblock_data.Get()->ClearBoundary(BoundaryCommSubset::mesh_init);
+    }
+    // Now do prolongation, compute primitives, apply BCs
+    for (int i = 0; i < nmb; ++i) {
+      auto &pmb = block_list[i];
+      if (multilevel) {
+        ProlongateBoundaries(pmb->meshblock_data.Get());
+      }
+      ApplyBoundaryConditions(pmb->meshblock_data.Get());
+      // Call MeshBlockData based FillDerived functions
+      Update::FillDerived(pmb->meshblock_data.Get().get());
+    }
+    for (int i = 0; i < num_partitions; i++) {
+      auto &md = mesh_data.GetOrAdd("base", i);
+      // Call MeshData based FillDerived functions
+      Update::FillDerived(md.get());
+    }
+
+    if (init_problem && adaptive) {
+      for (int i = 0; i < nmb; ++i) {
+        block_list[i]->pmr->CheckRefinementCondition();
+      }
+    }
+
+    if (init_problem && adaptive) {
+      init_done = false;
+      // caching nbtotal the private variable my be updated in the following function
+      const int nb_before_loadbalance = nbtotal;
       LoadBalancingAndAdaptiveMeshRefinement(pin, app_in);
-      if (nbtotal == onb) {
-        iflag = true;
-      } else if (nbtotal < onb && Globals::my_rank == 0) {
+      if (nbtotal == nb_before_loadbalance) {
+        init_done = true;
+      } else if (nbtotal < nb_before_loadbalance && Globals::my_rank == 0) {
         std::cout << "### Warning in Mesh::Initialize" << std::endl
                   << "The number of MeshBlocks decreased during AMR grid initialization."
                   << std::endl
                   << "Possibly the refinement criteria have a problem." << std::endl;
       }
-      if (nbtotal > 2 * inb && Globals::my_rank == 0) {
+      if (nbtotal > 2 * nb_initial && Globals::my_rank == 0) {
         std::cout << "### Warning in Mesh::Initialize" << std::endl
                   << "The number of MeshBlocks increased more than twice during "
                      "initialization."
@@ -1148,7 +1135,7 @@ void Mesh::Initialize(int res_flag, ParameterInput *pin, ApplicationInput *app_i
                   << std::endl;
       }
     }
-  } while (!iflag);
+  } while (!init_done);
 
   Kokkos::Profiling::popRegion(); // Mesh::Initialize
 }
