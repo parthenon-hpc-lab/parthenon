@@ -674,6 +674,16 @@ std::unique_ptr<T, DeviceDeleter<MS>> DeviceCopy(const T &host_object) {
   return up;
 }
 
+template <typename T, typename ES = DevExecSpace, typename MS = DevMemSpace>
+T* RawDeviceCopy(const T &host_object) {
+  auto p = static_cast<T*>(Kokkos::kokkos_malloc<MS>(sizeof(T)));
+  Kokkos::parallel_for(
+      Kokkos::RangePolicy<ES>(0, 1),
+      KOKKOS_LAMBDA(const int i) { new (p) T(host_object); });
+  Kokkos::fence();
+  return p;
+}
+
 } // namespace parthenon
 
 #endif // KOKKOS_ABSTRACTION_HPP_
