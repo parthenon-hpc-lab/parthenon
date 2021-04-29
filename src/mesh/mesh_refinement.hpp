@@ -77,9 +77,7 @@ class MeshRefinement {
   int AddToRefinement(ParArrayND<Real> pvar_cc, ParArrayND<Real> pcoarse_cc);
   int AddToRefinement(FaceField *pvar_fc, FaceField *pcoarse_fc);
 
-  Coordinates_t GetCoarseCoords() const {
-    return coarse_coords;
-  }
+  Coordinates_t GetCoarseCoords() const { return coarse_coords; }
 
  private:
   // data

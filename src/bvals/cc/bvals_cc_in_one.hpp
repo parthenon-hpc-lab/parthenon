@@ -57,7 +57,7 @@ struct BndInfo {
   parthenon::BufArray1D<Real> buf;     // comm buffer
   parthenon::ParArray4D<Real> var;     // data variable used for comms
   parthenon::ParArray4D<Real> fine;    // fine data variable for prolongation/restriction
-  parthenon::ParArray4D<Real> coarse;  // coarse data variable for prolongation/restriction
+  parthenon::ParArray4D<Real> coarse; // coarse data variable for prolongation/restriction
 };
 
 using BufferCache_t = ParArray1D<BndInfo>;

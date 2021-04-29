@@ -67,9 +67,8 @@ MeshRefinement::MeshRefinement(std::weak_ptr<MeshBlock> pmb, ParameterInput *pin
 //  \brief restrict cell centered values
 
 void MeshRefinement::RestrictCellCenteredValues(const ParArrayND<Real> &fine,
-                                                ParArrayND<Real> &coarse,
-                                                int sn, int en, int csi,
-                                                int cei, int csj, int cej,
+                                                ParArrayND<Real> &coarse, int sn, int en,
+                                                int csi, int cei, int csj, int cej,
                                                 int csk, int cek) {
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
 

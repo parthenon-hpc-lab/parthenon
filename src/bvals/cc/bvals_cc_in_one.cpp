@@ -308,13 +308,14 @@ void ResetSendBufferBoundaryInfo(MeshData<Real> *md, size_t buffers_used) {
           auto &ek = boundary_info_h(b).ek;
           auto &Nv = boundary_info_h(b).Nv;
           Nv = v->GetDim(4);
-          
+
           boundary_info_h(b).coords = pmb->coords;
           boundary_info_h(b).coarse_coords = pmb->pmr->GetCoarseCoords();
 
           IndexDomain interior = IndexDomain::interior;
           auto &var_cc = v->data;
-          boundary_info_h(b).fine = var_cc.Get<4>(); // TODO(JMM) in general should be a loop
+          boundary_info_h(b).fine =
+              var_cc.Get<4>(); // TODO(JMM) in general should be a loop
           boundary_info_h(b).coarse = v->vbvar->coarse_buf.Get<4>();
           if (nb.snb.level == mylevel) {
             const parthenon::IndexShape &cellbounds = pmb->cellbounds;
@@ -431,7 +432,7 @@ TaskStatus SendBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
     auto pmb = rc->GetBlockPointer();
     IndexShape cellbounds = pmb->cellbounds;
     IndexShape c_cellbounds = pmb->c_cellbounds;
-    
+
     // Need to restrict here only if cached boundary_info is reused
     // Otherwise restriction happens when the new boundary_info is created
     cell_centered_refinement::Restrict(boundary_info, cellbounds, c_cellbounds);
