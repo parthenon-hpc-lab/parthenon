@@ -223,7 +223,8 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
 
   // Get list of variables, assumed same for all blocks
 
-  // TODO(JL) this won't work when reading true sparse variables, will be updated in PR #383
+  // TODO(JL) this won't work when reading true sparse variables, will be updated in PR
+  // #383
 
   auto ciX = MeshBlockDataIterator<Real>(
       mb.meshblock_data.Get(),
