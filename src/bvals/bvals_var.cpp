@@ -202,6 +202,8 @@ bool BoundaryVariable::ReceiveBoundaryBuffers() {
 #ifdef MPI_PARALLEL
       else { // NOLINT // MPI boundary
         int test;
+        // probe MPI communications. This is a bit of black magic that seems to promote
+        // communications to top of stack on some supercomputers (e.g. BG/Q)
         PARTHENON_MPI_CHECK(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &test,
                                        MPI_STATUS_IGNORE));
         PARTHENON_MPI_CHECK(
