@@ -67,23 +67,36 @@ MeshRefinement::MeshRefinement(std::weak_ptr<MeshBlock> pmb, ParameterInput *pin
 //  \brief restrict cell centered values
 
 void MeshRefinement::RestrictCellCenteredValues(const ParArrayND<Real> &fine,
-                                                ParArrayND<Real> &coarse, int sn, int en,
-                                                int csi, int cei, int csj, int cej,
+                                                ParArrayND<Real> &coarse,
+                                                int sn, int en, int csi,
+                                                int cei, int csj, int cej,
                                                 int csk, int cek) {
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
 
-  ParArray1D<RefinementInfo> info("refinement info", 1);
+  int b = 0;
+  int nbuffers = fine.GetDim(6) * fine.GetDim(5);
+  int nvars = fine.GetDim(4);
+  cell_centered_bvars::BufferCache_t info("refinement info", nbuffers);
   auto info_h = Kokkos::create_mirror_view(info);
-  FillRefinementInfo(info_h(0));
-  info_h(0).si = csi;
-  info_h(0).ei = cei;
-  info_h(0).sj = csj;
-  info_h(0).ej = cej;
-  info_h(0).sk = csk;
-  info_h(0).ek = cek;
+  for (int l = 0; l < fine.GetDim(6); ++l) {
+    for (int m = 0; m < fine.GetDim(5); ++l) {
+      info_h(b).si = csi;
+      info_h(b).ei = cei;
+      info_h(b).sj = csj;
+      info_h(b).ej = cej;
+      info_h(b).sk = csk;
+      info_h(b).ek = cek;
+      info_h(b).Nv = nvars;
+      info_h(b).coords = pmb->coords;
+      info_h(b).coarse_coords = this->coarse_coords;
+      info_h(b).var = fine.Get(l, m);
+      info_h(b).coarse = coarse.Get(l, m);
+      ++b;
+    }
+  }
   Kokkos::deep_copy(info, info_h);
 
-  cell_centered_refinement::Restrict(fine, coarse, info);
+  cell_centered_refinement::Restrict(info, pmb->cellbounds, pmb->c_cellbounds);
 }
 
 //----------------------------------------------------------------------------------------
@@ -996,20 +1009,6 @@ void MeshRefinement::SetRefinement(AmrTag flag) {
     }
   }
 
-  return;
-}
-
-void MeshRefinement::FillRefinementInfo(RefinementInfo &info) {
-  const IndexDomain interior = IndexDomain::interior;
-  std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
-  info.coords = pmb->coords;
-  info.coarse_coords = this->coarse_coords;
-  info.ckb = pmb->c_cellbounds.GetBoundsK(interior);
-  info.cjb = pmb->c_cellbounds.GetBoundsJ(interior);
-  info.cib = pmb->c_cellbounds.GetBoundsI(interior);
-  info.kb = pmb->cellbounds.GetBoundsK(interior);
-  info.jb = pmb->cellbounds.GetBoundsJ(interior);
-  info.ib = pmb->cellbounds.GetBoundsI(interior);
   return;
 }
 

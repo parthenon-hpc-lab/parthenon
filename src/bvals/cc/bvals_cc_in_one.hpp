@@ -23,6 +23,7 @@
 
 #include "basic_types.hpp"
 #include "bvals/bvals_interfaces.hpp"
+#include "coordinates/coordinates.hpp"
 
 namespace parthenon {
 
@@ -51,8 +52,10 @@ struct BndInfo {
   int sk = 0;
   int ek = 0;
   int Nv = 0;
+  Coordinates_t coords, coarse_coords; // coords
   parthenon::BufArray1D<Real> buf; // comm buffer
-  parthenon::ParArray4D<Real> var; // data variable (could also be coarse array)
+  parthenon::ParArray4D<Real> var; // data variable 
+  parthenon::ParArray4D<Real> coarse; // coarse data variable
 };
 
 using BufferCache_t = ParArray1D<BndInfo>;

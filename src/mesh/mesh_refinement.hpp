@@ -35,23 +35,6 @@ class MeshBlock;
 class ParameterInput;
 class BoundaryValues;
 
-// Used for as a cache for refinement indices when looping over
-// multiple meshblocks.
-// TODO(JMM): Should this move into a different header?
-struct RefinementInfo {
-  int si = 0; // Buffer locations
-  int ei = 0;
-  int sj = 0;
-  int ej = 0;
-  int sk = 0;
-  int ek = 0;
-
-  // Cell bounds
-  IndexRange ckb, cjb, cib, kb, jb, ib;
-  // coords
-  Coordinates_t coords, coarse_coords;
-};
-
 //----------------------------------------------------------------------------------------
 //! \class MeshRefinement
 //  \brief
@@ -88,9 +71,6 @@ class MeshRefinement {
                                int ek);
   void CheckRefinementCondition();
   void SetRefinement(AmrTag flag);
-
-  // Fills the RefinementInfo object
-  void FillRefinementInfo(RefinementInfo &info);
 
   // setter functions for "enrolling" variable arrays in refinement via Mesh::AMR()
   // and/or in BoundaryValues::ProlongateBoundaries() (for SMR and AMR)
