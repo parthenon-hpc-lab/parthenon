@@ -36,6 +36,9 @@ def Usage():
                         don't print any extraneous info.
              --tol=eps: set tolerance to eps.  Default 1.0e-12
       -ignore_metadata: Ignore differences in metadata
+             -relative: Compare relative differences using the
+                        first file as the reference. Ignores
+                        points where the first file is zero
 
     This example takes two hdf files and compares them to see if there are
     differences in the state variables.
@@ -54,7 +57,8 @@ def processArgs():
     parser.add_argument('-o', '-one', action='store_true', help='Only report data for first different variable.')
     parser.add_argument('-b', '-brief', action='store_true', help='Only report if files are different.  Overrides -all')
     parser.add_argument('-q', '-quiet', action='store_true', help='Only report if files are different.  No other output. Overrides -all')
-    parser.add_argument('-i', '-ignore_metadata', action='store_true', help='Ignore differences in metadata. Overrides -all')
+    parser.add_argument('-i', '-ignore_metadata', action='store_true', help='Ignore differences in metadata.')
+    parser.add_argument('-r', '-relative', action='store_true', help='Compare relative differences.')
     parser.add_argument('files', nargs='*')
 
     return parser.parse_args()
@@ -200,7 +204,7 @@ def compare_metadata( f0, f1, tol=1.0e-12):
         return(ERROR_META_VARS_DIFF)
     return(0)
 
-def compare(files, all=False, brief=True, quiet=False, one=False, tol=1.0e-12, check_metadata=True):
+def compare(files, all=False, brief=True, quiet=False, one=False, tol=1.0e-12, check_metadata=True, relative=False):
     """ compares two hdf files. Returns 0 if the files are equivalent.
 
         Error codes:
@@ -324,7 +328,12 @@ def compare(files, all=False, brief=True, quiet=False, one=False, tol=1.0e-12, c
             [idx1, ib1, bidx1, iz1, iy1, ix1] = otherLocations[idx]
 
             # compute error
-            errVal = np.abs(v - val1[idx1])
+            if relative:
+                #Skip over 
+                nonzero_mask = (v!=0)
+                errVal = np.abs((v[nonzero_mask] - val1[idx1][nonzero_mask])/v[nonzero_mask])
+            else:
+                errVal = np.abs(v - val1[idx1])
             errMag = np.linalg.norm(errVal)
 
             # Note that we use norm / magnitude to compute error
@@ -385,6 +394,7 @@ if __name__ == "__main__":
     quiet=input.q
     one = input.o
     ignore_metadata = input.i
+    relative = input.r
 
     check_metadata = not ignore_metadata
 
@@ -405,5 +415,5 @@ if __name__ == "__main__":
         Usage()
         sys.exit(1)
 
-    ret = compare(files, all, brief, quiet, one, tol, check_metadata)
+    ret = compare(files, all, brief, quiet, one, tol, check_metadata,relative)
     sys.exit(ret)
