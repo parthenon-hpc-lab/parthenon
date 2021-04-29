@@ -268,8 +268,8 @@ void PreFill(MeshBlockData<Real> *rc) {
     PackIndexMap imap;
     std::vector<std::string> vars({"advected", "one_minus_advected"});
     const auto &v = rc->PackVariables(vars, imap);
-    const int in = imap["advected"].first;
-    const int out = imap["one_minus_advected"].first;
+    const int in = imap.get("advected").first;
+    const int out = imap.get("one_minus_advected").first;
     const auto num_vars = rc->Get("advected").data.GetDim(4);
     pmb->par_for(
         "advection_package::PreFill", 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,

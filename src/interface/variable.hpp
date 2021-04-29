@@ -107,7 +107,6 @@ class CellVariable {
   int sparse_id_;
   Metadata m_;
   std::string label_;
-  int sparse_id_;
 };
 
 ///

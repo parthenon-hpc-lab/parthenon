@@ -177,6 +177,18 @@ class Metadata {
     SetMultiple(bits);
   }
 
+  Metadata(const std::vector<MetadataFlag> &bits, const std::vector<int> &shape,
+           const std::string &associated)
+      : Metadata(bits, shape, {}, associated) {}
+
+  Metadata(const std::vector<MetadataFlag> &bits,
+           const std::vector<std::string> component_labels,
+           const std::string &associated = "")
+      : Metadata(bits, {1}, component_labels, associated) {}
+
+  Metadata(const std::vector<MetadataFlag> &bits, const std::string &associated)
+      : Metadata(bits, {1}, {}, associated) {}
+
   // Static routines
   static MetadataFlag AllocateNewFlag(std::string &&name);
   // Individual flag setters
