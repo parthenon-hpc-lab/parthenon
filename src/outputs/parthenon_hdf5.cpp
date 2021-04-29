@@ -955,27 +955,27 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     }
   }
 
-  // NumVariables - number of variables within each dataset
-  std::vector<size_t> numVariables;
-  // VariablesNames - Names of variables within each dataset
-  std::vector<std::string> variableNames;
+  // number of components within each dataset
+  std::vector<size_t> num_components;
+  // names of components within each dataset
+  std::vector<std::string> component_names;
 
   for (const auto &vi : all_unique_vars) {
     const auto &component_labels = vi.component_labels;
 
     if (component_labels.size() > 0) {
-      numVariables.push_back(component_labels.size());
+      num_components.push_back(component_labels.size());
       for (const auto &label : component_labels) {
-        variableNames.push_back(label);
+        component_names.push_back(label);
       }
     } else {
-      numVariables.push_back(1);
-      variableNames.push_back(vi.label);
+      num_components.push_back(1);
+      component_names.push_back(vi.label);
     }
   }
 
-  HDF5WriteAttribute("NumVariables", numVariables, info_group);
-  HDF5WriteAttribute("VariableNames", variableNames, info_group);
+  HDF5WriteAttribute("NumComponents", num_components, info_group);
+  HDF5WriteAttribute("ComponentNames", component_names, info_group);
 
   // write SparseInfo and SparseFields (we can't write a zero-size dataset, so only write
   // this if we have sparse fields)

@@ -114,9 +114,11 @@ class Params {
 
 #ifdef HDF5OUTPUT
 
+ private:
   // will write all params with type T to the given HDF5 group as an attribute
   template <typename T>
-  void WriteToHDF5(const std::string &prefix, const HDF5::H5G &group) const {
+  void WriteToHDF5AllParamsOfTypeT(const std::string &prefix,
+                                   const HDF5::H5G &group) const {
     for (const auto &p : myParams_) {
       const auto &key = p.first;
       const auto type = myTypes_.at(key);
@@ -128,20 +130,22 @@ class Params {
   }
 
   template <typename T>
-  void WriteTVecToHDF5(const std::string &prefix, const HDF5::H5G &group) const {
-    WriteToHDF5<T>(prefix, group);
-    WriteToHDF5<std::vector<T>>(prefix, group);
+  void WriteToHDF5AllParamsOfTypeTOrVecT(const std::string &prefix,
+                                         const HDF5::H5G &group) const {
+    WriteToHDF5AllParamsOfTypeT<T>(prefix, group);
+    WriteToHDF5AllParamsOfTypeT<std::vector<T>>(prefix, group);
   }
 
+ public:
   void WriteAllToHDF5(const std::string &prefix, const HDF5::H5G &group) const {
-    WriteTVecToHDF5<bool>(prefix, group);
-    WriteTVecToHDF5<int32_t>(prefix, group);
-    WriteTVecToHDF5<int64_t>(prefix, group);
-    WriteTVecToHDF5<uint32_t>(prefix, group);
-    WriteTVecToHDF5<uint64_t>(prefix, group);
-    WriteTVecToHDF5<float>(prefix, group);
-    WriteTVecToHDF5<double>(prefix, group);
-    WriteTVecToHDF5<std::string>(prefix, group);
+    WriteToHDF5AllParamsOfTypeTOrVecT<bool>(prefix, group);
+    WriteToHDF5AllParamsOfTypeTOrVecT<int32_t>(prefix, group);
+    WriteToHDF5AllParamsOfTypeTOrVecT<int64_t>(prefix, group);
+    WriteToHDF5AllParamsOfTypeTOrVecT<uint32_t>(prefix, group);
+    WriteToHDF5AllParamsOfTypeTOrVecT<uint64_t>(prefix, group);
+    WriteToHDF5AllParamsOfTypeTOrVecT<float>(prefix, group);
+    WriteToHDF5AllParamsOfTypeTOrVecT<double>(prefix, group);
+    WriteToHDF5AllParamsOfTypeTOrVecT<std::string>(prefix, group);
   }
 
 #endif // ifdef HDF5OUTPUT
